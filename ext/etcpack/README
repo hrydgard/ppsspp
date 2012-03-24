@@ -1,0 +1,7 @@
+This folder contains code adapted from etcpack by ERICSSON ///.
+
+The license comments have been left at the top of each file, but some code may have moved around.
+
+See LICENSE.TXT for details. It says that use of the code is limited to applications using the
+code to compress textures for use with a Khronos-derived API. This game engine only supports
+OpenGL ES 2.0, which certainly qualifies, so there is no issue there.

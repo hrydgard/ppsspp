@@ -1,0 +1,28 @@
+#ifndef _UTIL_BITS_BITS
+#define _UTil_BITS_BITS
+
+#include "base/basictypes.h"
+
+namespace bits {
+
+int CountBits8(uint8 v);
+int CountBits16(uint16 v);
+int CountBits32(uint32 v);
+
+// where mask is 0, the result is a.
+// where mask is 1, the result is b.
+inline uint32 MixBits(uint32 a, uint32 b, uint32 mask) {
+  return a ^ ((a ^ b) & mask); 
+}
+
+inline uint32 ComputeParity(uint32 v) {
+  v ^= v >> 16;
+  v ^= v >> 8;
+  v ^= v >> 4;
+  v &= 0xf;
+  return (0x6996 >> v) & 1;
+}
+
+}  // namespace bits
+
+#endif

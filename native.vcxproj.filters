@@ -1,0 +1,299 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <None Include="ReadMe.txt" />
+    <None Include="file\CMakeLists.txt">
+      <Filter>file</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="base\logging.h" />
+    <ClInclude Include="image\surface.h" />
+    <ClInclude Include="gfx\gl_debug_log.h">
+      <Filter>gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="base\color.h">
+      <Filter>image</Filter>
+    </ClInclude>
+    <ClInclude Include="image\png_load.h">
+      <Filter>image</Filter>
+    </ClInclude>
+    <ClInclude Include="image\zim_load.h">
+      <Filter>image</Filter>
+    </ClInclude>
+    <ClInclude Include="image\zim_save.h">
+      <Filter>image</Filter>
+    </ClInclude>
+    <ClInclude Include="math\lin\quat.h">
+      <Filter>math</Filter>
+    </ClInclude>
+    <ClInclude Include="math\lin\matrix4x4.h">
+      <Filter>math</Filter>
+    </ClInclude>
+    <ClInclude Include="math\lin\vec3.h">
+      <Filter>math</Filter>
+    </ClInclude>
+    <ClInclude Include="gfx_es2\draw_buffer.h">
+      <Filter>gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="gfx_es2\fbo.h">
+      <Filter>gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="gfx_es2\glsl_program.h">
+      <Filter>gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="ext\etcpack\etcdec.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="audio\wav_read.h">
+      <Filter>audio</Filter>
+    </ClInclude>
+    <ClInclude Include="audio\mixer.h">
+      <Filter>audio</Filter>
+    </ClInclude>
+    <ClInclude Include="profiler\profiler.h">
+      <Filter>profiler</Filter>
+    </ClInclude>
+    <ClInclude Include="input\input_state.h">
+      <Filter>input</Filter>
+    </ClInclude>
+    <ClInclude Include="file\chunk_file.h">
+      <Filter>file</Filter>
+    </ClInclude>
+    <ClInclude Include="file\easy_file.h">
+      <Filter>file</Filter>
+    </ClInclude>
+    <ClInclude Include="file\vfs.h">
+      <Filter>file</Filter>
+    </ClInclude>
+    <ClInclude Include="file\zip_read.h">
+      <Filter>file</Filter>
+    </ClInclude>
+    <ClInclude Include="collision\collision.h">
+      <Filter>collision</Filter>
+    </ClInclude>
+    <ClInclude Include="base\basictypes.h">
+      <Filter>base</Filter>
+    </ClInclude>
+    <ClInclude Include="base\LAMEString.h">
+      <Filter>base</Filter>
+    </ClInclude>
+    <ClInclude Include="base\scoped_ptr.h">
+      <Filter>base</Filter>
+    </ClInclude>
+    <ClInclude Include="base\stats.h">
+      <Filter>base</Filter>
+    </ClInclude>
+    <ClInclude Include="gfx\gl_lost_manager.h">
+      <Filter>gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="gfx\texture_atlas.h">
+      <Filter>gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="math\math_util.h">
+      <Filter>math</Filter>
+    </ClInclude>
+    <ClInclude Include="math\ray_intersections.h">
+      <Filter>math</Filter>
+    </ClInclude>
+    <ClInclude Include="ext\etcpack\etcpack.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="base\timeutil.h">
+      <Filter>base</Filter>
+    </ClInclude>
+    <ClInclude Include="base\error_context.h">
+      <Filter>base</Filter>
+    </ClInclude>
+    <ClInclude Include="ext\vjson\json.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="ext\vjson\block_allocator.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="gfx\texture.h">
+      <Filter>gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="ext\stb_vorbis\stb_vorbis.h">
+      <Filter>audio</Filter>
+    </ClInclude>
+    <ClInclude Include="input\gesture_detector.h">
+      <Filter>input</Filter>
+    </ClInclude>
+    <ClInclude Include="base\stringutil.h">
+      <Filter>base</Filter>
+    </ClInclude>
+    <ClInclude Include="ext\sha1\sha1.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="base\colorutil.h">
+      <Filter>base</Filter>
+    </ClInclude>
+    <ClInclude Include="gfx\texture_gen.h">
+      <Filter>gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="json\json_writer.h">
+      <Filter>json</Filter>
+    </ClInclude>
+    <ClInclude Include="file\file_util.h">
+      <Filter>file</Filter>
+    </ClInclude>
+    <ClInclude Include="math\compression.h">
+      <Filter>math</Filter>
+    </ClInclude>
+    <ClInclude Include="gfx_es2\vertex_format.h">
+      <Filter>gfx</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="gfx\gl_debug_log.cpp">
+      <Filter>gfx</Filter>
+    </ClCompile>
+    <ClCompile Include="image\png_load.cpp">
+      <Filter>image</Filter>
+    </ClCompile>
+    <ClCompile Include="image\zim_load.cpp">
+      <Filter>image</Filter>
+    </ClCompile>
+    <ClCompile Include="image\zim_save.cpp">
+      <Filter>image</Filter>
+    </ClCompile>
+    <ClCompile Include="math\lin\matrix4x4.cpp">
+      <Filter>math</Filter>
+    </ClCompile>
+    <ClCompile Include="math\lin\quat.cpp">
+      <Filter>math</Filter>
+    </ClCompile>
+    <ClCompile Include="math\lin\vec3.cpp">
+      <Filter>math</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx_es2\draw_buffer.cpp">
+      <Filter>gfx</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx_es2\fbo.cpp">
+      <Filter>gfx</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx_es2\glsl_program.cpp">
+      <Filter>gfx</Filter>
+    </ClCompile>
+    <ClCompile Include="ext\etcpack\etcdec.cpp">
+      <Filter>ext</Filter>
+    </ClCompile>
+    <ClCompile Include="audio\wav_read.cpp">
+      <Filter>audio</Filter>
+    </ClCompile>
+    <ClCompile Include="audio\mixer.cpp">
+      <Filter>audio</Filter>
+    </ClCompile>
+    <ClCompile Include="profiler\profiler.cpp">
+      <Filter>profiler</Filter>
+    </ClCompile>
+    <ClCompile Include="file\chunk_file.cpp">
+      <Filter>file</Filter>
+    </ClCompile>
+    <ClCompile Include="file\easy_file.cpp">
+      <Filter>file</Filter>
+    </ClCompile>
+    <ClCompile Include="file\zip_read.cpp">
+      <Filter>file</Filter>
+    </ClCompile>
+    <ClCompile Include="collision\collision.cpp">
+      <Filter>collision</Filter>
+    </ClCompile>
+    <ClCompile Include="base\LAMEString.cpp">
+      <Filter>base</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx\gl_lost_manager.cpp">
+      <Filter>gfx</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx\texture_atlas.cpp">
+      <Filter>gfx</Filter>
+    </ClCompile>
+    <ClCompile Include="math\math_util.cc">
+      <Filter>math</Filter>
+    </ClCompile>
+    <ClCompile Include="math\ray_intersections.cpp">
+      <Filter>math</Filter>
+    </ClCompile>
+    <ClCompile Include="ext\etcpack\etcpack.cpp">
+      <Filter>ext</Filter>
+    </ClCompile>
+    <ClCompile Include="base\timeutil.cpp">
+      <Filter>base</Filter>
+    </ClCompile>
+    <ClCompile Include="base\error_context.cpp">
+      <Filter>base</Filter>
+    </ClCompile>
+    <ClCompile Include="ext\vjson\json.cpp">
+      <Filter>ext</Filter>
+    </ClCompile>
+    <ClCompile Include="ext\vjson\main.cpp">
+      <Filter>ext</Filter>
+    </ClCompile>
+    <ClCompile Include="ext\vjson\block_allocator.cpp">
+      <Filter>ext</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx\texture.cpp">
+      <Filter>gfx</Filter>
+    </ClCompile>
+    <ClCompile Include="ext\stb_vorbis\stb_vorbis.c">
+      <Filter>audio</Filter>
+    </ClCompile>
+    <ClCompile Include="input\gesture_detector.cpp">
+      <Filter>input</Filter>
+    </ClCompile>
+    <ClCompile Include="ext\sha1\sha1.cpp">
+      <Filter>ext</Filter>
+    </ClCompile>
+    <ClCompile Include="base\colorutil.cpp">
+      <Filter>base</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx\texture_gen.cpp">
+      <Filter>gfx</Filter>
+    </ClCompile>
+    <ClCompile Include="json\json_writer.cpp">
+      <Filter>json</Filter>
+    </ClCompile>
+    <ClCompile Include="file\file_util.cpp">
+      <Filter>file</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx_es2\vertex_format.cpp">
+      <Filter>gfx</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="gfx">
+      <UniqueIdentifier>{9da89505-72a1-40e6-86e5-705372db1608}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="image">
+      <UniqueIdentifier>{828bddaf-63e5-4311-985b-bf377f86ff00}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="math">
+      <UniqueIdentifier>{f3f83007-7c3b-473f-a2f7-423c5087fbfa}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ext">
+      <UniqueIdentifier>{5c54b5e2-1bb2-4783-9df6-de4ff7105570}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="audio">
+      <UniqueIdentifier>{4ea45f6c-de87-44a9-95b2-e1ec7e3601d0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="profiler">
+      <UniqueIdentifier>{c57b41dd-cc33-46ac-b479-19676455ae54}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="input">
+      <UniqueIdentifier>{4ba4474c-b80f-40da-95e8-2de57eb1b327}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="file">
+      <UniqueIdentifier>{49afd06e-eb44-41ac-b038-e109e444a834}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="collision">
+      <UniqueIdentifier>{a52d761c-4c72-4261-be17-50d071bd5cc8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="base">
+      <UniqueIdentifier>{95e41110-57a2-497f-a938-b4c8e9dd6a27}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="json">
+      <UniqueIdentifier>{cda27e9f-5763-4bf2-b6bc-85a377f7020e}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

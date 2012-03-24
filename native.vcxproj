@@ -1,0 +1,183 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{E8B58922-9827-493D-81E0-4B6E6BD77171}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>native</RootNamespace>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <IncludePath>D:\dev\LIB;C:\DXSDK\include;$(VCInstallDir)include;$(VCInstallDir)atlmfc\include;$(WindowsSdkDir)include;$(FrameworkSDKDir)\include;</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LibraryPath>D:\dev\LIB;C:\DXSDK\Lib\x86;$(VCInstallDir)lib;$(VCInstallDir)atlmfc\lib;$(WindowsSdkDir)lib;$(FrameworkSDKDir)\lib</LibraryPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <IncludePath>D:\dev\LIB;C:\DXSDK\include;$(VCInstallDir)include;$(VCInstallDir)atlmfc\include;$(WindowsSdkDir)include;$(FrameworkSDKDir)\include;</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LibraryPath>D:\dev\LIB;C:\DXSDK\Lib\x86;$(VCInstallDir)lib;$(VCInstallDir)atlmfc\lib;$(WindowsSdkDir)lib;$(FrameworkSDKDir)\lib</LibraryPath>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>..\zlib;..\native;..\RollerballGL;..\glew;..\SDL\include;..\libpng;%(AdditionalIncludeDirectories);</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>..\zlib;..\native;..\RollerballGL;..\glew;..\SDL\include;..\libpng;%(AdditionalIncludeDirectories);</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <None Include="file\CMakeLists.txt" />
+    <None Include="ReadMe.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="audio\mixer.h" />
+    <ClInclude Include="audio\wav_read.h" />
+    <ClInclude Include="base\basictypes.h" />
+    <ClInclude Include="base\color.h" />
+    <ClInclude Include="base\colorutil.h" />
+    <ClInclude Include="base\error_context.h" />
+    <ClInclude Include="base\LAMEString.h" />
+    <ClInclude Include="base\logging.h" />
+    <ClInclude Include="base\scoped_ptr.h" />
+    <ClInclude Include="base\stats.h" />
+    <ClInclude Include="base\stringutil.h" />
+    <ClInclude Include="base\timeutil.h" />
+    <ClInclude Include="collision\collision.h" />
+    <ClInclude Include="ext\etcpack\etcdec.h" />
+    <ClInclude Include="ext\etcpack\etcpack.h" />
+    <ClInclude Include="ext\sha1\sha1.h" />
+    <ClInclude Include="ext\stb_vorbis\stb_vorbis.h" />
+    <ClInclude Include="ext\vjson\block_allocator.h" />
+    <ClInclude Include="ext\vjson\json.h" />
+    <ClInclude Include="file\chunk_file.h" />
+    <ClInclude Include="file\easy_file.h" />
+    <ClInclude Include="file\file_util.h" />
+    <ClInclude Include="file\vfs.h" />
+    <ClInclude Include="file\zip_read.h" />
+    <ClInclude Include="gfx\gl_debug_log.h" />
+    <ClInclude Include="gfx\gl_lost_manager.h" />
+    <ClInclude Include="gfx\texture_gen.h" />
+    <ClInclude Include="gfx\texture.h" />
+    <ClInclude Include="gfx\texture_atlas.h" />
+    <ClInclude Include="gfx_es2\draw_buffer.h" />
+    <ClInclude Include="gfx_es2\fbo.h" />
+    <ClInclude Include="gfx_es2\glsl_program.h" />
+    <ClInclude Include="gfx_es2\vertex_format.h" />
+    <ClInclude Include="image\png_load.h" />
+    <ClInclude Include="image\surface.h" />
+    <ClInclude Include="image\zim_load.h" />
+    <ClInclude Include="image\zim_save.h" />
+    <ClInclude Include="input\gesture_detector.h" />
+    <ClInclude Include="input\input_state.h" />
+    <ClInclude Include="json\json_writer.h" />
+    <ClInclude Include="math\compression.h" />
+    <ClInclude Include="math\lin\matrix4x4.h" />
+    <ClInclude Include="math\lin\quat.h" />
+    <ClInclude Include="math\lin\vec3.h" />
+    <ClInclude Include="math\math_util.h" />
+    <ClInclude Include="math\ray_intersections.h" />
+    <ClInclude Include="profiler\profiler.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="audio\mixer.cpp" />
+    <ClCompile Include="audio\wav_read.cpp" />
+    <ClCompile Include="base\colorutil.cpp" />
+    <ClCompile Include="base\error_context.cpp" />
+    <ClCompile Include="base\LAMEString.cpp" />
+    <ClCompile Include="base\timeutil.cpp" />
+    <ClCompile Include="collision\collision.cpp" />
+    <ClCompile Include="ext\etcpack\etcdec.cpp" />
+    <ClCompile Include="ext\etcpack\etcpack.cpp" />
+    <ClCompile Include="ext\sha1\sha1.cpp" />
+    <ClCompile Include="ext\stb_vorbis\stb_vorbis.c" />
+    <ClCompile Include="ext\vjson\block_allocator.cpp" />
+    <ClCompile Include="ext\vjson\json.cpp" />
+    <ClCompile Include="ext\vjson\main.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="file\chunk_file.cpp" />
+    <ClCompile Include="file\easy_file.cpp" />
+    <ClCompile Include="file\file_util.cpp" />
+    <ClCompile Include="file\zip_read.cpp" />
+    <ClCompile Include="gfx\gl_debug_log.cpp" />
+    <ClCompile Include="gfx\gl_lost_manager.cpp" />
+    <ClCompile Include="gfx\texture.cpp" />
+    <ClCompile Include="gfx\texture_atlas.cpp" />
+    <ClCompile Include="gfx\texture_gen.cpp" />
+    <ClCompile Include="gfx_es2\draw_buffer.cpp" />
+    <ClCompile Include="gfx_es2\fbo.cpp" />
+    <ClCompile Include="gfx_es2\glsl_program.cpp" />
+    <ClCompile Include="gfx_es2\vertex_format.cpp" />
+    <ClCompile Include="image\png_load.cpp" />
+    <ClCompile Include="image\zim_load.cpp" />
+    <ClCompile Include="image\zim_save.cpp" />
+    <ClCompile Include="input\gesture_detector.cpp" />
+    <ClCompile Include="json\json_writer.cpp" />
+    <ClCompile Include="math\lin\matrix4x4.cpp" />
+    <ClCompile Include="math\lin\quat.cpp" />
+    <ClCompile Include="math\lin\vec3.cpp" />
+    <ClCompile Include="math\math_util.cc" />
+    <ClCompile Include="math\ray_intersections.cpp" />
+    <ClCompile Include="profiler\profiler.cpp" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

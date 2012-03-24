@@ -1,0 +1,15 @@
+# Bring in the environment to use for this component (boilerplate).
+Import('env')
+
+# This is the list of input source files to the mandelbrot_gen library. Headers
+# will be detected automatically.
+inputs = ['png_load.cpp',
+          'zim_load.cpp',
+          ]
+
+# Build these into a library.
+env.ComponentLibrary('image', inputs)
+
+env.Append(LIBS = [ 'base', 'png', 'image', 'z', 'glog' ])
+inputs = ['zimagetool.cpp']
+env.ComponentProgram('zimagetool', inputs)

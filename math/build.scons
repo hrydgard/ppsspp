@@ -1,0 +1,8 @@
+Import('env')
+
+inputs = [
+  'math_util.cc',
+]
+
+env.Append(LIBS = ['gflags', 'glog', ])
+env.ComponentLibrary('math_util', inputs, COMPONENT_STATIC=True)
