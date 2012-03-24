@@ -98,7 +98,6 @@
     <ClInclude Include="base\stats.h" />
     <ClInclude Include="base\stringutil.h" />
     <ClInclude Include="base\timeutil.h" />
-    <ClInclude Include="collision\collision.h" />
     <ClInclude Include="ext\etcpack\etcdec.h" />
     <ClInclude Include="ext\etcpack\etcpack.h" />
     <ClInclude Include="ext\sha1\sha1.h" />
@@ -131,7 +130,6 @@
     <ClInclude Include="math\lin\quat.h" />
     <ClInclude Include="math\lin\vec3.h" />
     <ClInclude Include="math\math_util.h" />
-    <ClInclude Include="math\ray_intersections.h" />
     <ClInclude Include="profiler\profiler.h" />
   </ItemGroup>
   <ItemGroup>
@@ -141,7 +139,6 @@
     <ClCompile Include="base\error_context.cpp" />
     <ClCompile Include="base\LAMEString.cpp" />
     <ClCompile Include="base\timeutil.cpp" />
-    <ClCompile Include="collision\collision.cpp" />
     <ClCompile Include="ext\etcpack\etcdec.cpp" />
     <ClCompile Include="ext\etcpack\etcpack.cpp" />
     <ClCompile Include="ext\sha1\sha1.cpp" />
@@ -174,7 +171,6 @@
     <ClCompile Include="math\lin\quat.cpp" />
     <ClCompile Include="math\lin\vec3.cpp" />
     <ClCompile Include="math\math_util.cc" />
-    <ClCompile Include="math\ray_intersections.cpp" />
     <ClCompile Include="profiler\profiler.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

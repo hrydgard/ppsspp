@@ -69,9 +69,6 @@
     <ClInclude Include="file\zip_read.h">
       <Filter>file</Filter>
     </ClInclude>
-    <ClInclude Include="collision\collision.h">
-      <Filter>collision</Filter>
-    </ClInclude>
     <ClInclude Include="base\basictypes.h">
       <Filter>base</Filter>
     </ClInclude>
@@ -91,9 +88,6 @@
       <Filter>gfx</Filter>
     </ClInclude>
     <ClInclude Include="math\math_util.h">
-      <Filter>math</Filter>
-    </ClInclude>
-    <ClInclude Include="math\ray_intersections.h">
       <Filter>math</Filter>
     </ClInclude>
     <ClInclude Include="ext\etcpack\etcpack.h">
@@ -197,9 +191,6 @@
     <ClCompile Include="file\zip_read.cpp">
       <Filter>file</Filter>
     </ClCompile>
-    <ClCompile Include="collision\collision.cpp">
-      <Filter>collision</Filter>
-    </ClCompile>
     <ClCompile Include="base\LAMEString.cpp">
       <Filter>base</Filter>
     </ClCompile>
@@ -210,9 +201,6 @@
       <Filter>gfx</Filter>
     </ClCompile>
     <ClCompile Include="math\math_util.cc">
-      <Filter>math</Filter>
-    </ClCompile>
-    <ClCompile Include="math\ray_intersections.cpp">
       <Filter>math</Filter>
     </ClCompile>
     <ClCompile Include="ext\etcpack\etcpack.cpp">

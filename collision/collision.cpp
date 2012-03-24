@@ -1,7 +1,7 @@
 #include "base/logging.h"
 #include "math/lin/vec3.h"
-#include "math/ray_intersections.h"
-#include "collision/collision.h"
+#include "ray_intersections.h"
+#include "collision.h"
 
 #include <string>
 
