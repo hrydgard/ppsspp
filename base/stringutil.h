@@ -16,3 +16,6 @@ public:
 inline bool endsWith(const std::string &str, const std::string &what) {
 	return str.substr(str.size() - what.size()) == what;
 }
+
+// highly unsafe and not recommended.
+unsigned int parseHex(const char* _szValue);
