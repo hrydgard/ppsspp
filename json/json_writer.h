@@ -2,8 +2,13 @@
 // apart from the string being built-up, which could easily be replaced
 // with a file stream (although I've chosen not to do that just yet).
 //
+// Writes nicely 2-spade indented output with correct comma-placement
+// in arrays and dictionaries.
+//
+// Does not deal with encodings in any way.
+//
 // Zero dependencies apart from stdlib.
-// Public domain.
+// Public domain by Henrik Rydgård.
 
 #include <string>
 #include <vector>
@@ -19,6 +24,7 @@ class JsonWriter {
   void end();
   void pushDict(const char *name);
   void pushArray(const char *name);
+	void pop();
   void writeBool(bool value);
   void writeBool(const char *name, bool value);
   void writeInt(int value);
@@ -27,7 +33,6 @@ class JsonWriter {
   void writeFloat(const char *name, double value);
   void writeString(const char *value);
   void writeString(const char *name, const char *value);
-  void pop();
 
   std::string str() const {
     return str_.str();
