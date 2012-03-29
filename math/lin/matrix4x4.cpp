@@ -5,6 +5,11 @@
 #include "math/lin/vec3.h"
 #include "math/lin/quat.h"
 
+#ifdef _WIN32
+#undef far
+#undef near
+#endif
+
 // See http://code.google.com/p/oolongengine/source/browse/trunk/Oolong+Engine2/Math/neonmath/neon_matrix_impl.cpp?spec=svn143&r=143  when we need speed
 // no wait. http://code.google.com/p/math-neon/
 
