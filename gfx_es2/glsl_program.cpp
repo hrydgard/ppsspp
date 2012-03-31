@@ -48,7 +48,7 @@ GLSLProgram *glsl_create(const char *vshader, const char *fshader) {
   program->program_ = 0;
   program->vsh_ = 0;
   program->fsh_ = 0;
-	strcpy(program->name, vshader + strlen(vshader) - 16);
+	strcpy(program->name, vshader + strlen(vshader) - 15);
   strcpy(program->vshader_filename, vshader);
   strcpy(program->fshader_filename, fshader);
   if (glsl_recompile(program)) {
@@ -82,10 +82,15 @@ void glsl_refresh() {
 
 bool glsl_recompile(GLSLProgram *program) {
   struct stat vs, fs;
-  stat(program->vshader_filename, &vs);
-  stat(program->fshader_filename, &fs);
-  program->vshader_mtime = vs.st_mtime;
-  program->fshader_mtime = fs.st_mtime;
+  if (0 == stat(program->vshader_filename, &vs))
+		program->vshader_mtime = vs.st_mtime;
+	else
+		program->vshader_mtime = 0;
+
+  if (0 == stat(program->fshader_filename, &fs))
+		program->fshader_mtime = fs.st_mtime;
+	else
+		program->fshader_mtime = 0;
 
   size_t sz;
 	char *vsh_src = (char *)VFSReadFile(program->vshader_filename, &sz);
