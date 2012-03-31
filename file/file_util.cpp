@@ -124,3 +124,16 @@ void deleteFile(const char *file)
 #endif
 }
 #endif
+
+std::string getDir(const std::string &path)
+{
+	int n = path.size() - 1;
+	while (n >= 0 && path[n] != '\\' && path[n] != '/')
+		n--;
+	std::string cutpath = path.substr(0, n);
+	for (int i = 0; i < cutpath.size(); i++)
+	{	
+		if (cutpath[i] == '\\') cutpath[i] = '/';
+	}
+	return cutpath;
+}
