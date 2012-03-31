@@ -1,3 +1,5 @@
+// OpenGL-based 2D primitive buffer. For GLES 1.1.
+
 #ifndef __LAMEBUFFER_H__
 #define __LAMEBUFFER_H__
 
@@ -16,7 +18,6 @@ enum {
   TEXT_RIGHT = 16,
 };
 
-// OpenGL-based 2D primitive buffer. For GLES 1.1.
 // Do not inherit from this class.
 class LAMEBuffer {
  public:
@@ -45,7 +46,6 @@ class LAMEBuffer {
 
   void rectFillDarken(int x1, int y1, int x2, int y2);
 
-  // New drawing APIs
   void MeasureImage(int atlas_image, float *w, float *h);
   void DrawImage(int atlas_image, float x, float y, Color color = COLOR(0xFFFFFF));
   void DrawImageCenter(int atlas_image, float x, float y, Color color = COLOR(0xFFFFFF));

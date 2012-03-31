@@ -1,5 +1,6 @@
 #pragma once
 
+// Statistics collection. Not very developed.
 
 #define STATS_ENABLE
 

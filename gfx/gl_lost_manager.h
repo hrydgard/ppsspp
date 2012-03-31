@@ -1,5 +1,8 @@
 #pragma once
 
+// On Android, even OpenGL can lose allocated resources. This is a utility to keep
+// track of them.
+
 class GfxResourceHolder {
  public:
   virtual ~GfxResourceHolder();

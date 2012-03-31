@@ -1,3 +1,6 @@
+// Utility code for loading GLSL shaders.
+// Has support for auto-reload, see glsl_refresh
+
 #ifndef _RENDER_UTIL
 #define _RENDER_UTIL
 

@@ -112,13 +112,6 @@ public:
 		(*this) = (*this)/len;
 		return len;
 	}
-  /*
-	float &operator [] (int i) { //allow vector[2] = 3   (vector.z=3)
-		return *((&x) + i);
-	}
-	const float operator [] (const int i) const {
-		return *((&x) + i);
-	}*/
 	bool operator == (const Vec3 &other) const {
 		if (x==other.x && y==other.y && z==other.z)
 			return true;

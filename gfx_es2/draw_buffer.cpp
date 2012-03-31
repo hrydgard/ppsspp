@@ -18,9 +18,13 @@
 #include "gfx/texture_atlas.h"
 #include "gfx/gl_debug_log.h"
 
-DrawBuffer::DrawBuffer() : count_(0) {
+enum {
   // Enough?
-  verts_ = new Vertex[5000];
+  MAX_VERTS = 5000,
+};
+
+DrawBuffer::DrawBuffer() : count_(0) {
+  verts_ = new Vertex[MAX_VERTS];
   fontscalex = 1.0f;
   fontscaley = 1.0f;
 }
@@ -141,7 +145,7 @@ void DrawBuffer::DrawImageStretch(int atlas_image, float x1, float y1, float x2,
   V(x1,  y2, color, image.u1, image.v2);
 }
 
-// TODO: make into arc
+// TODO: add arc support
 void DrawBuffer::Circle(float xc, float yc, float radius, float thickness, int segments, float startAngle, uint32 color, float u_mul) {
 	float angleDelta = PI * 2 / segments;
 	float uDelta = 1.0f / segments;
@@ -153,7 +157,7 @@ void DrawBuffer::Circle(float xc, float yc, float radius, float thickness, int s
 		float angle2 = (i + 1) * angleDelta;
 		float u1 = u_mul * i * uDelta;
 		float u2 = u_mul * (i + 1) * uDelta;
-		// TODO: get rid of one pair of cos/sin per loop, can reuse
+		// TODO: get rid of one pair of cos/sin per loop, can reuse from last iteration
 		float c1 = cosf(angle1), s1 = sinf(angle1), c2 = cosf(angle2), s2 = sinf(angle2);
 		const float x[4] = {c1 * r1 + xc, c2 * r1 + xc, c1 * r2 + xc, c2 * r2 + xc};
 		const float y[4] = {s1 * r1 + yc, s2 * r1 + yc, s1 * r2 + yc, s2 * r2 + yc};

@@ -3,6 +3,7 @@
 #include "base/error_context.h"
 #include <vector>
 
+// TODO: Fix this threadery
 #ifndef _WIN32
 #undef __THREAD
 #define __THREAD

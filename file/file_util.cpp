@@ -27,7 +27,6 @@ bool WriteStringToFile(bool text_file, const std::string &str, const char *filen
 	return true;
 }
 
-// Overloaded GetSize, accepts FILE*
 uint64_t GetSize(FILE *f)
 {
 	// can't use off_t here because it can be 32-bit
@@ -36,7 +35,9 @@ uint64_t GetSize(FILE *f)
 		return 0;
 	}
 	uint64_t size = ftell(f);
+  // Reset the seek position to where it was when we started.
 	if ((size != pos) && (fseek(f, pos, SEEK_SET) != 0)) {
+    // Should error here
 		return 0;
 	}
 	return size;

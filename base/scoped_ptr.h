@@ -1,5 +1,7 @@
 #pragma once
 
+// Trivial implementation of boost::scoped_ptr, in a way that I prefer.
+
 template<class T>
 class scoped_ptr {
  public:
@@ -21,7 +23,6 @@ class scoped_ptr {
 	const T *operator->() const { return ptr_; }
 
  private:
-	// don't copy that floppy
 	scoped_ptr(const scoped_ptr<T> &other);
 	void operator=(const scoped_ptr<T> &other);
   T *ptr_;

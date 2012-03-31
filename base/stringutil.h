@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string>
 
+// Dumb wrapper around itoa, providing a buffer. Declare this on the stack.
 class ITOA {
 public:
 	char buffer[16];
@@ -12,7 +13,9 @@ public:
 		return &buffer[0];
 	}
 };
-	
+
+// Other simple string utilities.
+
 inline bool endsWith(const std::string &str, const std::string &what) {
 	return str.substr(str.size() - what.size()) == what;
 }

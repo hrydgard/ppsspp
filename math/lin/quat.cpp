@@ -76,6 +76,7 @@ Quaternion Quaternion::fromMatrix(Matrix4x4 &m)
 	return q;
 };
 
+// TODO: Allegedly, lerp + normalize can achieve almost as good results.
 Quaternion Quaternion::slerp(const Quaternion &to, const float a) const {
 	Quaternion to2;
 	float angle, cos_angle, scale_from, scale_to, sin_angle;

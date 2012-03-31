@@ -1,18 +1,19 @@
 #pragma once
 
+// RIFF file format reader/writer. Very old code, basically a total mess but it still works.
+
+// TO REMEMBER WHEN USING:
+
+// EITHER a chunk contains ONLY data
+// OR it contains ONLY other chunks
+// otherwise the scheme breakes.
+
 #include <string>
 
 #include "base/basictypes.h"
 #include "base/LAMEString.h"
 #include "file/easy_file.h"
 
-// TO REMEMBER WHEN USING:
-
-// EITHER a chunk contains ONLY data
-// OR it contains ONLY other chunks
-// otherwise the scheme breaks...
-// hm.. or come to think about it, some data at the beginning of a chunk with subchunks WOULD work.. 
-// but not safely, so don't try
 inline uint32 flipID(uint32 id) {
 	return ((id>>24)&0xFF) | ((id>>8)&0xFF00) | ((id<<8)&0xFF0000) | ((id<<24)&0xFF000000);
 }

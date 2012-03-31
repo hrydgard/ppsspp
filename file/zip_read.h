@@ -1,3 +1,5 @@
+// TODO: Move much of this code to vfs.cpp
+
 #ifndef _WIN32
 #include <zip.h>
 #endif

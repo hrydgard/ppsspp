@@ -11,11 +11,6 @@ LAMEFile::LAMEFile() : file_(NULL) {
 LAMEFile::~LAMEFile() { }
 
 bool LAMEFile::open(const char *filename, eFileMode mode) {
-	//for easier access if we want to expand the path.. 
-	// String temp=filename;
-	// temp = getRelativePath(temp);
-
-	//it's time to open the file
 	file_ = fopen(filename, mode == FILE_READ ? "rb" : "wb");
 
 	if (!file_) {

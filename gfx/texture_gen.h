@@ -3,9 +3,4 @@
 
 #include "gfx/texture.h"
 
-// Returns an OpenGL ID for now.
-
 uint8_t *generateTexture(const char *filename, int &bpp, int &w, int &h, bool &clamp);
-
-
-

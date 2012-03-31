@@ -98,8 +98,10 @@ bool Texture::Load(const char *filename) {
 	}
 
   filename_ = filename;
-  // Currently contains many Rollerball-specific workarounds.
+
+  // Currently here are a bunch of project-specific workarounds.
   // They shouldn't really hurt anything else very much though.
+
   int len = strlen(filename);
   char fn[256];
   strcpy(fn, filename);

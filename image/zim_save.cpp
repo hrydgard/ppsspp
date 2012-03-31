@@ -182,7 +182,7 @@ uint8_t *DownsampleBy2(const uint8_t *image, int width, int height, int pitch) {
     gamma[i] = powf((float)i / 32764.0f, 2.2f) * 255.0f;
   }
 
-  // Let's start with something really stupid.
+  // Really stupid mipmap downsampling - at least it does gamma though.
   for (int y = 0; y < height; y+=2) {
     for (int x = 0; x < width; x+=2) {
       const uint8_t *tl = image + pitch * y + x*4;

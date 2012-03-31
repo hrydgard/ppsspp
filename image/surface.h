@@ -1,6 +1,9 @@
 #ifndef _GFX_SURFACE
 #define _GFX_SURFACE
 
+// UNUSED
+
+
 enum SurfaceFormats {
   SURF_ARGB,
   SURF_YUV,

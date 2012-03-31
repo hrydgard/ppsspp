@@ -1,5 +1,6 @@
 #pragma once
 
+// WIP - very preliminary.
 // #define USE_PROFILER
 
 #ifdef USE_PROFILER

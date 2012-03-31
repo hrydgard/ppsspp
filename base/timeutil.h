@@ -11,9 +11,11 @@ void time_update();
 float time_now();
 double time_now_d();
 
-// Slower than the above cached time functions
+// Uncached time. Slower than the above cached time functions. Does not update cached time, call time_update for that.
 double real_time_now();
 
 int time_now_ms();
 
+
+// Sleep. Does not necessarily have millisecond granularity, especially on Windows.
 void sleep_ms(int ms);

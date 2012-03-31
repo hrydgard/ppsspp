@@ -141,7 +141,6 @@ void Matrix4x4::setViewLookAtD3D(const Vec3 &vFrom, const Vec3 &vAt, const Vec3 
 	float Length = vUp.length();
 
 	if (1e-6f > Length) {
-    // EMERGENCY
 		vUp = Vec3(0.0f, 1.0f, 0.0f) - vView * vView.y;
 		// If we still have near-zero length, resort to a different axis.
 		Length = vUp.length();

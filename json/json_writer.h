@@ -1,14 +1,14 @@
-// Minimal-state ultra-minimal JSON writer. Consumes almost no memory
+// Minimal-state JSON writer. Consumes almost no memory
 // apart from the string being built-up, which could easily be replaced
 // with a file stream (although I've chosen not to do that just yet).
 //
-// Writes nicely 2-spade indented output with correct comma-placement
+// Writes nicely 2-space indented output with correct comma-placement
 // in arrays and dictionaries.
 //
 // Does not deal with encodings in any way.
 //
 // Zero dependencies apart from stdlib.
-// Public domain by Henrik Rydgård.
+// See json_writer_test.cpp for usage.
 
 #include <string>
 #include <vector>

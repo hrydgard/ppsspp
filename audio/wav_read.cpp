@@ -55,7 +55,6 @@ short *wav_read(const char *filename,
         free(data);
         return NULL;
       }
-      // ILOG("got wave data: %i", numSamples);
       cf.ascend();
     } else {
       ELOG("Error - no data chunk in wav");

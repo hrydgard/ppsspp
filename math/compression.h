@@ -1,5 +1,6 @@
 #pragma once
 
+// Delta encoding/decoding - many formats benefit from a pass of this before zlibbing.
 // WARNING : Do not use these with floating point data, especially not float16...
 
 template <class T>

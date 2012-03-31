@@ -17,13 +17,13 @@ struct PlayParams {
 
 // Mixer
 // ==========================
-// For now, channels is required to be 2.
+// For now, channels is required to be 2 (it specifies L/R, not mixing channels)
 Mixer *mixer_create(int sample_rate, int channels, int fixed_channels);
 void mixer_destroy(Mixer *mixer);
 
-// Buffer must be r/w, for efficient mixing
-// TODO: Use local buffer instead.
+// Buffer must be r/w.
 void mixer_mix(Mixer *mixer, short *buffer, int num_samples);
+
 
 // Clip
 // ==========================

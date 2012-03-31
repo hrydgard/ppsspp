@@ -41,6 +41,8 @@ struct InputState {
   int mouse_buttons_up;
   int mouse_last_buttons;
 
+  // TODO: Multitouch
+
   // Accelerometer
   bool accelerometer_valid;
   Vec3 acc;

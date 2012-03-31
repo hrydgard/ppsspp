@@ -6,8 +6,8 @@
 
 typedef unsigned short float16;
 
-// This ain't a 1.5.10 float16, no sire, it's a stupid hack format where we chop 16 bits off a float.
-// This choice is subject to change.
+// This ain't a 1.5.10 float16, it's a stupid hack format where we chop 16 bits off a float.
+// This choice is subject to change. Don't think I'm using this for anything at all now anyway.
 inline float16 FloatToFloat16(float x) {
 	int ix;
 	memcpy(&ix, &x, sizeof(float));
@@ -26,6 +26,7 @@ inline float Float16ToFloat(float16 ix) {
 // The stuff in this file is from all over the web, esp. dspmusic.org. I think it's all public domain.
 // In any case, very little of it is used anywhere at the moment.
 
+// PM modulated sine
 inline float sine(float t,float f,float ph,float fm) {
 	return sinf((t*f+ph)*2*PI + 0.5f*PI*fm*(1 - sqrt(f*2)));
 }

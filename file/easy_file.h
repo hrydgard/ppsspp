@@ -1,5 +1,7 @@
 #pragma once
 
+// A dumb wrapper around stdio, for convenience. Very old.
+
 #include <stdio.h>
 #include <string>
 
@@ -13,6 +15,7 @@ enum eFileMode {
 	FILE_WRITE=6
 };
 
+// TODO: Rename.
 class LAMEFile {
 public:
 	LAMEFile();

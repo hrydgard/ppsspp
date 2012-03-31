@@ -1,9 +1,8 @@
-// Minimal procedural texture generator to generate some usual textures like circles.
+// Minimal procedural texture generator to generate some usual textures like circles and vignette textures.
 // "Gen" textures have filenames like this: "gen:256:256:vignette:0.1"
 //
 // These must be VERY VERY fast to not slow down loading. Could multicore this in the
 // future.
-// TODO: Rewrite to make more portable (should not use gfx api in here)
 
 #include <cmath>
 #include <stdio.h>

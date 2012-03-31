@@ -1,6 +1,9 @@
 #ifndef _TEXTURE_H
 #define _TEXTURE_H
 
+// Load and manage OpenGL textures easily. Supports ETC1 compressed texture with mipmaps.
+
+
 #include <string>
 
 #include "gfx/gl_lost_manager.h"

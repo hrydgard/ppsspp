@@ -1,9 +1,10 @@
 #pragma once
 
-// New skool debugging
-void gl_log_enable();
+// Utility to be able to liberally sprinkle GL error checks around your code
+// and easily disable them all in release builds - just undefine DEBUG_OPENGL.
 
-// Old skool debugging
+
+void gl_log_enable();
 
 #ifndef ANDROID
 //#define DEBUG_OPENGL

@@ -13,7 +13,7 @@
 // 4 byte width
 // 4 byte height
 // 4 byte flags
-// The rest is zlibbed data. If multiple mips, they are zlibbed separately.
+// Uncompressed or ZLibbed data. If multiple mips, zlibbed separately.
 
 // Defined flags:
 

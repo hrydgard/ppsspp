@@ -1,5 +1,7 @@
 #pragma once
 
+// TODO: Actually use for something :)
+
 #include "base/basictypes.h"
 
 // Vertex format flags

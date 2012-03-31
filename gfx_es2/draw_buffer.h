@@ -1,5 +1,7 @@
 #pragma once
 
+// "Immediate mode"-lookalike buffered drawing. Very fast way to draw 2D.
+
 #include "base/basictypes.h"
 #include "base/color.h"
 
@@ -33,15 +35,13 @@ struct GradientStop
 	uint32_t color;
 };
 
-// Similar to QuadBuffer but only uses a vertex array that it keeps
-// around.
 class DrawBuffer {
  public:
   DrawBuffer();
   ~DrawBuffer();
 
   void Begin(DrawBufferMode mode = DBMODE_NORMAL);
-  void End();  // Currently does nothing, but call it!
+  void End();
 
   int Count() const { return count_; }
 

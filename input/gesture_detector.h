@@ -1,5 +1,6 @@
 #include "input/input_state.h"
 
+// WIP - doesn't do much yet
 // Mainly for detecting (multi-)touch gestures but also useable for left button mouse dragging etc.
 
 namespace GestureDetector

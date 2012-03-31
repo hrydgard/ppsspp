@@ -1,5 +1,10 @@
 #pragma once
 
+// Simple wrapper around Android's logging interface that also allows other
+// implementations, and also some misc utilities.
+
+
+// Disable annoying warnings in VS
 #ifdef _MSC_VER
 #pragma warning (disable:4996)   //strcpy may be dangerous
 #endif
@@ -18,7 +23,7 @@ inline void Crash() {
   *p = 1;
 }
 #else
-
+// TODO: 64-bit version
 inline void Crash() {
   asm("int $0x3");
 }
@@ -30,8 +35,9 @@ inline void Crash() {
 
 #include <android/log.h>
 
+// Must only be used for logging
 #ifndef APP_NAME
-#define APP_NAME "Turboviking"
+#define APP_NAME "NativeApp"
 #endif
 
 #define ILOG(...)    __android_log_print(ANDROID_LOG_INFO, APP_NAME, __VA_ARGS__);
@@ -42,6 +48,8 @@ inline void Crash() {
 #define MessageBox(a, b, c, d) __android_log_print(ANDROID_LOG_INFO, APP_NAME, "%s %s", (b), (c));
 
 #else
+
+// TODO: Win32 version using OutputDebugString
 
 #include <stdio.h>
 
@@ -57,3 +65,5 @@ inline void Crash() {
 #endif
 
 #define CHECK(a) {if (!(a)) {FLOG("CHECK failed");}}
+#define CHECK_EQ(a, b) CHECK((a) == (b));
+#define CHECK_NE(a, b) CHECK((a) != (b));

@@ -4,7 +4,6 @@ JsonWriter::JsonWriter() {
 }
 
 JsonWriter::~JsonWriter() {
-  
 }
 
 void JsonWriter::begin() {
