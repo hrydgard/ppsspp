@@ -1,6 +1,4 @@
 set(SRCS
-  LAME.cpp
-  LAMEApp.cpp
   LAMEString.cpp
   colorutil.cpp
   error_context.cpp)
