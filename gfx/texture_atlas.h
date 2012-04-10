@@ -31,8 +31,3 @@ struct Atlas {
   const AtlasImage *images;
   int num_images;
 };
-
-enum {
-  PRINT_RIGHT = 1,
-  PRINT_CENTER = 2,
-};

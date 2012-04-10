@@ -133,6 +133,7 @@
     <ClInclude Include="math\lin\vec3.h" />
     <ClInclude Include="math\math_util.h" />
     <ClInclude Include="profiler\profiler.h" />
+    <ClInclude Include="ui\ui.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="audio\mixer.cpp" />
@@ -175,6 +176,7 @@
     <ClCompile Include="math\lin\vec3.cpp" />
     <ClCompile Include="math\math_util.cc" />
     <ClCompile Include="profiler\profiler.cpp" />
+    <ClCompile Include="ui\ui.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

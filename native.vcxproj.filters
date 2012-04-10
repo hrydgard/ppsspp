@@ -144,6 +144,9 @@
     <ClInclude Include="base\display.h">
       <Filter>base</Filter>
     </ClInclude>
+    <ClInclude Include="ui\ui.h">
+      <Filter>ui</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -257,6 +260,9 @@
     <ClCompile Include="base\display.cpp">
       <Filter>base</Filter>
     </ClCompile>
+    <ClCompile Include="ui\ui.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="gfx">
@@ -291,6 +297,9 @@
     </Filter>
     <Filter Include="json">
       <UniqueIdentifier>{cda27e9f-5763-4bf2-b6bc-85a377f7020e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ui">
+      <UniqueIdentifier>{d738c2d1-749d-4b60-b98f-f3da0bbbf40c}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>
