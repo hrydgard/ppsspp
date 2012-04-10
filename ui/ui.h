@@ -27,6 +27,8 @@ struct UIState {
   int mousex;
   int mousey;
   int mousedown;
+	int mouseStartX;
+	int mouseStartY;
 
 	int lastx;
 	int lasty;

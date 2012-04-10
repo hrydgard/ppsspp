@@ -27,6 +27,11 @@ void UIInit(const Atlas *atlas, int uiFont, int buttonImage, int checkOn, int ch
 }
 
 void UIUpdateMouse(float x, float y, int buttons) {
+	if ((buttons & 1) && !uistate.mousedown)
+	{
+		uistate.mouseStartX = x;
+		uistate.mouseStartY = y;
+	}
   uistate.mousex = x;
   uistate.mousey = y;
   uistate.mousedown = buttons;
