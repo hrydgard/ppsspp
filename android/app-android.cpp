@@ -77,6 +77,13 @@ InputState input_state;
 static bool renderer_inited = false;
 static bool first_lost = true;
 
+extern "C" jboolean Java_com_turboviking_libnative_NativeApp_isLandscape(JNIEnv *env, jclass) {
+	std::string app_name, app_nice_name;
+	bool landscape;
+	NativeGetAppInfo(&app_name, &app_nice_name, &landscape);
+	return landscape;
+}
+
 extern "C" void Java_com_turboviking_libnative_NativeApp_init
   (JNIEnv *env, jclass, jint xxres, jint yyres, jstring apkpath,
    jstring dataDir, jstring externalDir, jstring jinstallID) {
@@ -105,8 +112,12 @@ extern "C" void Java_com_turboviking_libnative_NativeApp_init
   str = env->GetStringUTFChars(jinstallID, &isCopy);
   std::string installID = std::string(str);
 
-  const char *app_name = "rollerball";
-  NativeInit(1, &app_name, user_data_path.c_str(), installID.c_str());
+	std::string app_name, app_nice_name;
+	bool landscape;
+
+	NativeGetAppInfo(&app_name, &app_nice_name, &landscape);
+	const char *argv[2] = {app_name.c_str(), 0};
+  NativeInit(1, argv, user_data_path.c_str(), installID.c_str());
 }  
 
 extern "C" void Java_com_turboviking_libnative_NativeApp_shutdown

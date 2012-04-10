@@ -5,14 +5,15 @@
 // The Native App API.
 //
 // Implement these functions and you've got a native app. These are called
-// from app-android, which exposes the native JNI api which is a bit
+// from the framework, which exposes the native JNI api which is a bit
 // more complicated.
 
 // This is defined in input/input_state.h.
 struct InputState;
 
 // You must implement this. The first function to get called, just write strings to the two pointers.
-void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name);
+// This might get called multiple times in some implementations, you must be able to handle that.
+void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, bool *landscape);
 
 // The very first function to be called after NativeGetAppInfo. Even NativeMix is not called
 // before this, although it may be called at any point in time afterwards (on any thread!)
@@ -38,7 +39,7 @@ void NativeRender();
 // Try not to make too many assumptions on the granularity
 // of num_samples.
 // This function may be called from a totally separate thread from
-// the rest of the game.
+// the rest of the game, so be careful with synchronization.
 void NativeMix(short *audio, int num_samples);
 
 // Called when it's time to shutdown. After this has been called,

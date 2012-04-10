@@ -288,7 +288,11 @@ public class NativeActivity extends Activity {
 	
     @Override
     public void onCreate(Bundle savedInstanceState) {
-    	setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+    	if (NativeApp.isLandscape()) {
+    		setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+    	} else {
+    		setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+    	}
 		super.onCreate(savedInstanceState); 
     	Log.i(TAG, "onCreate");
     	installID = Installation.id(this);

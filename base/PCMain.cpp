@@ -112,12 +112,18 @@ int main(int argc, char *argv[]) {
   g_xres = 1280;
   g_yres = 800;
   */ 
-	g_xres = 800;
-	g_yres = 480;
-
 	std::string app_name;
 	std::string app_name_nice;
-	NativeGetAppInfo(&app_name, &app_name_nice);
+	bool landscape;
+	NativeGetAppInfo(&app_name, &app_name_nice, &landscape);
+
+	if (landscape) {
+		g_xres = 800;
+		g_yres = 480;
+	} else {
+		g_xres = 480;
+		g_yres = 800;
+	}
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
 		fprintf(stderr, "Unable to initialize SDL: %s\n", SDL_GetError());

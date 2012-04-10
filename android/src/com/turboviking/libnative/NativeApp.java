@@ -1,6 +1,7 @@
 package com.turboviking.libnative;
 
 public class NativeApp {      
+	public static native boolean isLandscape();
 	public static native void init(
 			int xxres, int yyres, String apkPath,
 			String dataDir, String externalDir, String installID);
