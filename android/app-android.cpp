@@ -13,13 +13,13 @@
 #include <GLES2/gl2ext.h>
 
 #include "base/basictypes.h"
+#include "base/display.h"
+#include "base/NativeApp.h"
 #include "base/logging.h"
 #include "base/timeutil.h"
 #include "file/zip_read.h"
 #include "input/input_state.h"
 #include "audio/mixer.h"
-#include "android/NativeApp.h"
-#include "Globals.h"
 
 #define coord_xres 800
 #define coord_yres 480
@@ -100,9 +100,7 @@ extern "C" void Java_com_turboviking_libnative_NativeApp_init
   ILOG("External storage path: %s", str);
 
   str = env->GetStringUTFChars(dataDir, &isCopy);
-  user_data_path = std::string(str) + "/";
-  settings_file = user_data_path + "settings.json";
-  ILOG("Settings file: %s", settings_file.c_str());
+  std::string user_data_path = std::string(str) + "/";
 
   str = env->GetStringUTFChars(jinstallID, &isCopy);
   std::string installID = std::string(str);

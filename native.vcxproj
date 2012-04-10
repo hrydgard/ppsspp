@@ -91,9 +91,11 @@
     <ClInclude Include="base\basictypes.h" />
     <ClInclude Include="base\color.h" />
     <ClInclude Include="base\colorutil.h" />
+    <ClInclude Include="base\display.h" />
     <ClInclude Include="base\error_context.h" />
     <ClInclude Include="base\LAMEString.h" />
     <ClInclude Include="base\logging.h" />
+    <ClInclude Include="base\NativeApp.h" />
     <ClInclude Include="base\scoped_ptr.h" />
     <ClInclude Include="base\stats.h" />
     <ClInclude Include="base\stringutil.h" />
@@ -136,6 +138,7 @@
     <ClCompile Include="audio\mixer.cpp" />
     <ClCompile Include="audio\wav_read.cpp" />
     <ClCompile Include="base\colorutil.cpp" />
+    <ClCompile Include="base\display.cpp" />
     <ClCompile Include="base\error_context.cpp" />
     <ClCompile Include="base\LAMEString.cpp" />
     <ClCompile Include="base\timeutil.cpp" />
