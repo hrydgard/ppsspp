@@ -1,13 +1,4 @@
-// Bare bones SDL main.
-
-// Marble Madness
-// Marble Mania
-// Marbeliciuos
-// Ballsy
-// Rollerball
-// Crash
-// Cowball (with cowbell noises at the menu!)
-// Rollfish
+// PC implementation of the framework.
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
