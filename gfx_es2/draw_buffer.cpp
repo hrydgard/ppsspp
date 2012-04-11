@@ -145,6 +145,53 @@ void DrawBuffer::DrawImageStretch(int atlas_image, float x1, float y1, float x2,
   V(x1,  y2, color, image.u1, image.v2);
 }
 
+
+inline void rot(float *v, float angle, float xc,float yc)
+{
+	v[0]-=xc;
+	v[1]-=yc;
+
+	float ca=cosf(angle),sa=sinf(angle);
+
+	float t0 = v[0] * ca + v[1] * -sa;
+	float t1 = v[0] * sa + v[1] *  ca;
+
+	v[0] = t0 + xc;
+	v[1] = t1 + yc;
+}
+
+
+void DrawBuffer::DrawImageRotated(int atlas_image, float x, float y, float scale, float angle, Color color) {
+	const AtlasImage &image = atlas->images[atlas_image];
+	float w = (float)image.w * scale;
+	float h = (float)image.h * scale;
+	float x1 = x - w / 2;
+	float x2 = x + w / 2;
+	float y1 = y - h / 2;
+	float y2 = y + h / 2;
+	float v[6][2] = {
+		{x1, y1},
+		{x2, y1},
+		{x2, y2},
+		{x1, y1},
+		{x2, y2},
+		{x1, y2},
+	};
+	const float uv[6][2] = {
+		{image.u1, image.v1},
+		{image.u2, image.v1},
+		{image.u2, image.v2},
+		{image.u1, image.v1},
+		{image.u2, image.v2},
+		{image.u1, image.v2},
+	};
+	for (int i = 0; i < 6; i++) {
+		rot(v[i], angle, x, y);
+		V(v[i][0], v[i][1], 0, color, uv[i][0], uv[i][1]);
+	}
+}
+
+
 // TODO: add arc support
 void DrawBuffer::Circle(float xc, float yc, float radius, float thickness, int segments, float startAngle, uint32 color, float u_mul) {
 	float angleDelta = PI * 2 / segments;

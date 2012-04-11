@@ -27,17 +27,19 @@ void UIInit(const Atlas *atlas, int uiFont, int buttonImage, int checkOn, int ch
 }
 
 void UIUpdateMouse(float x, float y, int buttons) {
-	if ((buttons & 1) && !uistate.mousedown)
-	{
+	if ((buttons & 1) && !uistate.mousedown) {
+		uistate.mousepressed = 1;
 		uistate.mouseStartX = x;
 		uistate.mouseStartY = y;
+	} else {
+		uistate.mousepressed = 0;
 	}
   uistate.mousex = x;
   uistate.mousey = y;
-  uistate.mousedown = buttons;
+  uistate.mousedown = buttons & 1;
 }
 
-bool regionhit(int x, int y, int w, int h, int margin) {
+bool UIRegionHit(int x, int y, int w, int h, int margin) {
   if (uistate.mousex < x - margin ||
       uistate.mousey < y - margin ||
       uistate.mousex >= x + w + margin ||
@@ -81,7 +83,7 @@ int UIButton(int id, int x, int y, int w, const char *text, int button_align) {
 	if (button_align & ALIGN_BOTTOMRIGHT) y -= h;
 
   // Check whether the button should be hot, use a generous margin for touch ease
-  if (regionhit(x, y, w, h, 8)) {
+  if (UIRegionHit(x, y, w, h, 8)) {
     uistate.hotitem = id;
     if (uistate.activeitem == 0 && uistate.mousedown)
       uistate.activeitem = id;
@@ -127,7 +129,7 @@ int UICheckBox(int id, int x, int y, const char *text, int align, bool *value) {
 	if (align & ALIGN_BOTTOMRIGHT) y -= h;
 
   // Check whether the button should be hot
-  if (regionhit(x, y, w, h, 8)) {
+  if (UIRegionHit(x, y, w, h, 8)) {
     uistate.hotitem = id;
     if (uistate.activeitem == 0 && uistate.mousedown)
       uistate.activeitem = id;
@@ -174,7 +176,7 @@ int UIList(int id, int x, int y, int w, int h, UIListAdapter *adapter, UIListSta
   const int item_h = 64;
 	
   // Check whether the button should be hot
-  if (regionhit(x, y, w, h, 0)) {
+  if (UIRegionHit(x, y, w, h, 0)) {
     uistate.hotitem = id;
     if (uistate.activeitem == 0 && uistate.mousedown)
       uistate.activeitem = id;
@@ -185,7 +187,7 @@ int UIList(int id, int x, int y, int w, int h, UIListAdapter *adapter, UIListSta
 	int numItems = adapter->getCount();
 	for (int i = 0; i < numItems; i++) {
 		int item_y = y + i * itemHeight - state->scrollY;
-		if (uistate.mousedown && adapter->itemEnabled(i) && item_y >= y - itemHeight && item_y <= y + h && regionhit(x, item_y, w, h, 0)) {
+		if (uistate.mousedown && adapter->itemEnabled(i) && item_y >= y - itemHeight && item_y <= y + h && UIRegionHit(x, item_y, w, h, 0)) {
 			// ultra fast touch response
 			state->selected = i;
 		}
@@ -232,7 +234,7 @@ int UIHSlider(int id, int x, int y, int w, int max, int *value) {
   int xpos = ((256 - 16) * *value) / max;
 
   // Check for hotness
-  if (regionhit(x+8, y+8, 16, 255, 0)) {
+  if (UIRegionHit(x+8, y+8, 16, 255, 0)) {
     uistate.hotitem = id;
     if (uistate.activeitem == 0 && uistate.mousedown)
       uistate.activeitem = id;
@@ -267,7 +269,7 @@ int UIVSlider(int id, int x, int y, int h, int max, int *value) {
   int ypos = ((256 - 16) * *value) / max;
 
   // Check for hotness
-  if (regionhit(x+8, y+8, 16, 255, 0)) {
+  if (UIRegionHit(x+8, y+8, 16, 255, 0)) {
     uistate.hotitem = id;
     if (uistate.activeitem == 0 && uistate.mousedown)
       uistate.activeitem = id;
