@@ -19,7 +19,7 @@
 
 #include "gfx_es2/draw_buffer.h"
 
-#include <string>
+#include <string	>
 #include <vector>
 
 // Mouse out of habit, applies just as well to touch events.

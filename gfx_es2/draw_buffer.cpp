@@ -280,8 +280,8 @@ void DrawBuffer::MeasureText(int font, const char *text, float *w, float *h) {
     AtlasChar c = atlasfont.chars[cval - 32];
     wacc += c.wx * fontscalex;
   }
-  *w = wacc;
-  *h = atlasfont.height * fontscaley * lines;
+  if (w) *w = wacc;
+  if (h) *h = atlasfont.height * fontscaley * lines;
 }
 
 void DrawBuffer::DrawTextShadow(int font, const char *text, float x, float y, Color color, int flags) {

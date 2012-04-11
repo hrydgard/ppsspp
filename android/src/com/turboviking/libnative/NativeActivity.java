@@ -376,9 +376,15 @@ public class NativeActivity extends Activity {
 		audioPlayer = null;
 		mGLSurfaceView = null;
 	}  
-      
+     
+	public boolean overrideKeys() {
+		return true;
+	}
+	
     @Override 
-    public boolean onKeyDown(int keyCode, KeyEvent event) {   
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+    	if (!overrideKeys())
+    		return false;
     	// Eat these keys, to avoid accidental exits / other screwups.
     	// Maybe there's even more we need to eat on tablets?
         if (keyCode == KeyEvent.KEYCODE_BACK) {

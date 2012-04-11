@@ -25,4 +25,18 @@ inline uint32 ComputeParity(uint32 v) {
 
 }  // namespace bits
 
+#ifndef _MSC_VER
+
+// These are built-ins in MSVC, let's define them for other OS:es as well.
+
+inline uint32_t _rotl(uint32_t val, int shift) {
+	return (val << shift) | (val >> (31 - shift));
+}
+
+inline uint32_t _rotr(uint32_t val, int shift) {
+	return (val << shift) | (val >> (31 - shift));
+}
+
+#endif
+
 #endif
