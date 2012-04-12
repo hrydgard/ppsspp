@@ -13,14 +13,64 @@
 // multiple parts of a single screen of UI over multiple files unless you use IMGUI_SRC_ID.
 #ifdef IMGUI_SRC_ID
 #define GEN_ID ((IMGUI_SRC_ID) + (__LINE__))
+#define GEN_ID_LOOP(i) ((IMGUI_SRC_ID) + (__LINE__) + (i) * 1000)
 #else
 #define GEN_ID (__LINE__)
+#define GEN_ID_LOOP(i) ((__LINE__) + (i) * 1000)
 #endif
 
 #include "gfx_es2/draw_buffer.h"
 
 #include <string>
 #include <vector>
+
+
+class LayoutManager {
+public:
+	virtual void GetPos(float *w, float *h, float *x, float *y) const = 0;
+};
+
+class Pos : public LayoutManager {
+public:
+	Pos(float x, float y) : x_(x), y_(y) {}
+	virtual void GetPos(float *w, float *h, float *x, float *y) const {
+		*x = x_;
+		*y = y_;
+	}
+private:
+	float x_;
+	float y_;
+};
+
+class HLinear : public LayoutManager {
+public:
+	HLinear(float x, float y, float spacing = 2.0f) : x_(x), y_(y), spacing_(spacing) {}
+	virtual void GetPos(float *w, float *h, float *x, float *y) const {
+		*x = x_;
+		*y = y_;
+		x_ += *w + spacing_;
+	}
+
+private:
+	mutable float x_;
+	float y_;
+	float spacing_;
+};
+
+class VLinear : public LayoutManager {
+public:
+	VLinear(float x, float y, float spacing = 2.0f) : x_(x), y_(y), spacing_(spacing) {}
+	virtual void GetPos(float *w, float *h, float *x, float *y) const {
+		*x = x_;
+		*y = y_;
+		y_ += *h + spacing_;
+	}
+
+private:
+	float x_;
+	mutable float y_;
+	float spacing_;
+};
 
 // Mouse out of habit, applies just as well to touch events.
 // UI does not yet support multitouch.
@@ -112,13 +162,11 @@ void UIBegin();
 void UIUpdateMouse(float x, float y, int buttons);
 
 // Returns 1 if clicked
-int UIButton(int id, int x, int y, int w, const char *text, int button_align);
+int UIButton(int id, const LayoutManager &layout, float w, const char *text, int button_align);
+int UIImageButton(int id, const LayoutManager &layout, float w, int image_id, int button_align);  // uses current UI atlas for fetching images.
 
 // Returns 1 if clicked, puts the value in *value (where it also gets the current state).
 int UICheckBox(int id, int x, int y, const char *text, int align, bool *value);
-
-// Just like a button, but with an image, doh.
-int UIImageButton(int id, int x, int y, int w, int image_id, int button_align);  // uses current UI atlas for fetching images.
 
 // Vertical slider. Not yet working.
 int UIVSlider(int id, int x, int y, int h, int max, int *value);

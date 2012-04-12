@@ -79,8 +79,12 @@ void UIText(int font, int x, int y, const char *text, uint32_t color, float scal
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 }
 
-int UIButton(int id, int x, int y, int w, const char *text, int button_align) {
-  const int h = 64;
+int UIButton(int id, const LayoutManager &layout, float w, const char *text, int button_align) {
+  float h = themeAtlas->images[themeButtonImage].h;
+	
+	float x, y;
+	layout.GetPos(&w, &h, &x, &y);
+
 	if (button_align & ALIGN_HCENTER) x -= w / 2;
 	if (button_align & ALIGN_VCENTER) y -= h / 2;
 	if (button_align & ALIGN_RIGHT) x -= w;
@@ -122,8 +126,11 @@ int UIButton(int id, int x, int y, int w, const char *text, int button_align) {
 	return clicked;
 }
 
-int UIImageButton(int id, int x, int y, int w, int image, int button_align) {
-	const int h = 64;
+int UIImageButton(int id, const LayoutManager &layout, float w, int image, int button_align) {
+	float h = 64;
+	float x, y;
+	layout.GetPos(&w, &h, &x, &y);
+
 	if (button_align & ALIGN_HCENTER) x -= w / 2;
 	if (button_align & ALIGN_VCENTER) y -= h / 2;
 	if (button_align & ALIGN_RIGHT) x -= w;
