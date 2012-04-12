@@ -1,11 +1,14 @@
-// MIDI input utilities.
+// MIDI input.
 //
 // Currently, this is just a platform-clean wrapper around the Win32 MIDI input facilities.
 // Thus, it only supports Windows. Other platforms will get an empty list of midi in devices.
 
+#pragma once
+
 #include <vector>
 #include <string>
 
+#include "base/basictypes.h"
 
 typedef void *MidiDevice;
 
@@ -13,7 +16,7 @@ typedef void *MidiDevice;
 class MidiListener
 {
 public:
-	virtual void midiEvent(const uint8_t *cmd);
+	virtual void midiEvent(const uint8_t *cmd) = 0;
 };
 
 // Gets the names of the devices in a vector. The device identifier is the index in the vector.

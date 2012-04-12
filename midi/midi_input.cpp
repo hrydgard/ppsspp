@@ -1,13 +1,16 @@
 #ifdef _WIN32
+// Windows implementation.
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <MMSystem.h>
 
+#include <vector>
+#include <string>
+
 #include "base/basictypes.h"
 #include "base/logging.h"
 #include "midi/midi_input.h"
-
 
 std::vector<std::string> MidiInGetDevices() {
 	int numDevs = midiInGetNumDevs();
@@ -33,9 +36,10 @@ static void CALLBACK MidiCallback(HMIDIIN hMidiIn, UINT wMsg, DWORD_PTR dwInstan
 		ILOG("Got MIDI Close message");
 		break;
 	case MM_MIM_DATA:
-		cmd[0] = dwParam2 & 0xFF;
-		cmd[1] = (dwParam2 >> 8) & 0xFF;
-		cmd[2] = (dwParam2 >> 16) & 0xFF;
+		cmd[0] = dwParam1 & 0xFF;
+		cmd[1] = (dwParam1 >> 8) & 0xFF;
+		cmd[2] = (dwParam1 >> 16) & 0xFF;
+		// time = dwParam2 & 0xFFFF;
 		ILOG("Got MIDI Data: %02x %02x %02x", cmd[0], cmd[1], cmd[2]);
 		listener->midiEvent(cmd);
 		break;
@@ -59,6 +63,13 @@ void MidiInStop(MidiDevice device) {
 }
 
 #else
+
+#include <vector>
+#include <string>
+
+#include "base/basictypes.h"
+#include "base/logging.h"
+#include "midi/midi_input.h"
 
 // Stubs for other platforms.
 
