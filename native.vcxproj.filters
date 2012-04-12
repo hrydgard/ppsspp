@@ -147,6 +147,9 @@
     <ClInclude Include="ui\ui.h">
       <Filter>ui</Filter>
     </ClInclude>
+    <ClInclude Include="midi\midi_input.h">
+      <Filter>midi</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -263,6 +266,9 @@
     <ClCompile Include="ui\ui.cpp">
       <Filter>ui</Filter>
     </ClCompile>
+    <ClCompile Include="midi\midi_input.cpp">
+      <Filter>midi</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="gfx">
@@ -300,6 +306,9 @@
     </Filter>
     <Filter Include="ui">
       <UniqueIdentifier>{d738c2d1-749d-4b60-b98f-f3da0bbbf40c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="midi">
+      <UniqueIdentifier>{4710a9a2-d1fa-4920-ba1b-a7527902be53}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

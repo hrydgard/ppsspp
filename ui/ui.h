@@ -19,7 +19,7 @@
 
 #include "gfx_es2/draw_buffer.h"
 
-#include <string	>
+#include <string>
 #include <vector>
 
 // Mouse out of habit, applies just as well to touch events.
@@ -127,6 +127,7 @@ int UIVSlider(int id, int x, int y, int h, int max, int *value);
 int UIHSlider(int id, int x, int y, int w, int max, int *value);
 
 // Draws static text, that does not participate in any focusing scheme etc, it just is.
+void UIText(int font, int x, int y, const char *text, uint32_t color, float scale = 1.0f, int align = ALIGN_TOPLEFT);
 void UIText(int x, int y, const char *text, uint32_t color, float scale = 1.0f, int align = ALIGN_TOPLEFT);
 
 // Slide choice, like the Angry Birds level selector. Not yet working.

@@ -70,8 +70,12 @@ void UIEnd() {
 }
 
 void UIText(int x, int y, const char *text, uint32_t color, float scale, int align) {
+	UIText(themeUIFont, x, y, text, color, scale, align);
+}
+
+void UIText(int font, int x, int y, const char *text, uint32_t color, float scale, int align) {
 	ui_draw2d.SetFontScale(scale, scale);
-	ui_draw2d.DrawTextShadow(themeUIFont, text, x, y, color, align);
+	ui_draw2d.DrawTextShadow(font, text, x, y, color, align);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 }
 

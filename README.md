@@ -13,6 +13,7 @@ Features
 * basic logging
 * Really simple audio mixer with OGG sample support
 * RIFF file read/write
+* MIDI Input (only on Windows)
 
 Notes
 -----

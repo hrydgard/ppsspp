@@ -132,6 +132,7 @@
     <ClInclude Include="math\lin\quat.h" />
     <ClInclude Include="math\lin\vec3.h" />
     <ClInclude Include="math\math_util.h" />
+    <ClInclude Include="midi\midi_input.h" />
     <ClInclude Include="profiler\profiler.h" />
     <ClInclude Include="ui\ui.h" />
   </ItemGroup>
@@ -175,6 +176,7 @@
     <ClCompile Include="math\lin\quat.cpp" />
     <ClCompile Include="math\lin\vec3.cpp" />
     <ClCompile Include="math\math_util.cc" />
+    <ClCompile Include="midi\midi_input.cpp" />
     <ClCompile Include="profiler\profiler.cpp" />
     <ClCompile Include="ui\ui.cpp" />
   </ItemGroup>

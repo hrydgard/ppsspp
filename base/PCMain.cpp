@@ -121,7 +121,7 @@ int main(int argc, char *argv[]) {
 		g_xres = 800;
 		g_yres = 480;
 	} else {
-		g_xres = 480;
+		g_xres = 1480;
 		g_yres = 800;
 	}
 
