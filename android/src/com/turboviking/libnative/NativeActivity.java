@@ -27,6 +27,7 @@ import android.media.AudioManager;
 import android.media.AudioTrack;
 import android.net.Uri;
 import android.opengl.GLSurfaceView;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.util.Log;
@@ -332,6 +333,10 @@ public class NativeActivity extends Activity {
         mGLSurfaceView = new NativeGLView(this);
         mGLSurfaceView.setRenderer(new NativeRenderer(this));
         setContentView(mGLSurfaceView);
+        if (Build.VERSION.SDK_INT >= 9) {
+        	// Native OpenSL is available. Let's not use the Java player in the future.
+        	// TODO: code for that.
+        }
         audioPlayer = new NativeAudioPlayer();
     }  
 
