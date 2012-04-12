@@ -150,6 +150,9 @@
     <ClInclude Include="midi\midi_input.h">
       <Filter>midi</Filter>
     </ClInclude>
+    <ClInclude Include="file\dialog.h">
+      <Filter>file</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -268,6 +271,9 @@
     </ClCompile>
     <ClCompile Include="midi\midi_input.cpp">
       <Filter>midi</Filter>
+    </ClCompile>
+    <ClCompile Include="file\dialog.cpp">
+      <Filter>file</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

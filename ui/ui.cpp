@@ -122,6 +122,50 @@ int UIButton(int id, int x, int y, int w, const char *text, int button_align) {
 	return clicked;
 }
 
+int UIImageButton(int id, int x, int y, int w, int image, int button_align) {
+	const int h = 64;
+	if (button_align & ALIGN_HCENTER) x -= w / 2;
+	if (button_align & ALIGN_VCENTER) y -= h / 2;
+	if (button_align & ALIGN_RIGHT) x -= w;
+	if (button_align & ALIGN_BOTTOMRIGHT) y -= h;
+
+	// Check whether the button should be hot, use a generous margin for touch ease
+	if (UIRegionHit(x, y, w, h, 8)) {
+		uistate.hotitem = id;
+		if (uistate.activeitem == 0 && uistate.mousedown)
+			uistate.activeitem = id;
+	}
+
+	// Render button 
+
+	int txOffset = 0;
+	if (uistate.hotitem == id) {
+		if (uistate.activeitem == id) {
+			// Button is both 'hot' and 'active'
+			txOffset = 2;
+		} else {
+			// Button is merely 'hot'
+		}
+	} else {
+		// button is not hot, but it may be active    
+	}
+	ui_draw2d.DrawImage2GridH(themeButtonImage, x, y, x + w);
+	ui_draw2d.DrawImage(image, x + w/2, y + h/2 + txOffset, 0xFFFFFFFF, ALIGN_HCENTER | ALIGN_VCENTER);
+
+	int clicked = 0;
+	// If button is hot and active, but mouse button is not
+	// down, the user must have clicked the button.
+	if (uistate.mousedown == 0 && 
+		uistate.hotitem == id && 
+		uistate.activeitem == id) {
+			clicked = 1;
+	}
+
+	uistate.lastwidget = id;
+	return clicked;
+}
+
+
 int UICheckBox(int id, int x, int y, const char *text, int align, bool *value) {
   const int h = 64;
 	float tw, th;

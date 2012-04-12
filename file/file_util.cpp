@@ -12,7 +12,7 @@
 #include "file/file_util.h"
 #include <sys/stat.h>
 
-bool WriteStringToFile(bool text_file, const std::string &str, const char *filename)
+bool writeStringToFile(bool text_file, const std::string &str, const char *filename)
 {
 	FILE *f = fopen(filename, text_file ? "w" : "wb");
 	if (!f)

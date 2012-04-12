@@ -2,7 +2,8 @@ set(SRCS
   easy_file.cpp
   chunk_file.cpp
   zip_read.cpp
-  file_util.cpp)
+  file_util.cpp
+  dialog.cpp)
 
 set(SRCS ${SRCS})
 

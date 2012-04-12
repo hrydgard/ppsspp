@@ -107,6 +107,7 @@
     <ClInclude Include="ext\vjson\block_allocator.h" />
     <ClInclude Include="ext\vjson\json.h" />
     <ClInclude Include="file\chunk_file.h" />
+    <ClInclude Include="file\dialog.h" />
     <ClInclude Include="file\easy_file.h" />
     <ClInclude Include="file\file_util.h" />
     <ClInclude Include="file\vfs.h" />
@@ -155,6 +156,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="file\chunk_file.cpp" />
+    <ClCompile Include="file\dialog.cpp" />
     <ClCompile Include="file\easy_file.cpp" />
     <ClCompile Include="file\file_util.cpp" />
     <ClCompile Include="file\zip_read.cpp" />
