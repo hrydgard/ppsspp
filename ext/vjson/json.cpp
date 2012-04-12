@@ -81,8 +81,13 @@ float json_value::getFloat(const char *child_name) const {
 
 float json_value::getFloat(const char *child_name, float default_value) const {
 	const json_value *val = get(child_name, JSON_FLOAT);
-	if (!val)
-		return default_value;
+	if (!val) {
+		// Let's try int.
+		val = get(child_name, JSON_INT);
+		if (!val)
+			return default_value;
+		return val->int_value;
+	}
 	return val->float_value;
 }
 
