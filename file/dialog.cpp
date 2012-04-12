@@ -65,6 +65,7 @@ bool SaveFileDialog(const char *title, const char *extension, std::string *filen
 
 #include <string>
 #include "base/basictypes.h"
+#include "base/logging.h"
 
 bool OpenFileDialog(const char *title, const char *extension, std::string *filename)
 {

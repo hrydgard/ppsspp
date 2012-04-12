@@ -13,10 +13,10 @@
 // multiple parts of a single screen of UI over multiple files unless you use IMGUI_SRC_ID.
 #ifdef IMGUI_SRC_ID
 #define GEN_ID ((IMGUI_SRC_ID) + (__LINE__))
-#define GEN_ID_LOOP(i) ((IMGUI_SRC_ID) + (__LINE__) + (i) * 1000)
+#define GEN_ID_LOOP(i) ((IMGUI_SRC_ID) + (__LINE__) + (i) * 13612)
 #else
 #define GEN_ID (__LINE__)
-#define GEN_ID_LOOP(i) ((__LINE__) + (i) * 1000)
+#define GEN_ID_LOOP(i) ((__LINE__) + (i) * 13612)
 #endif
 
 #include "gfx_es2/draw_buffer.h"
