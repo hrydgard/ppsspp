@@ -3,6 +3,8 @@
 #include <string.h>
 #include "json.h"
 #include "file/easy_file.h"
+#include "file/zip_read.h"
+#include "file/vfs.h"
 
 // true if character represent a digit
 #define IS_DIGIT(c) (c >= '0' && c <= '9')
@@ -615,6 +617,12 @@ JsonReader::JsonReader(const std::string &filename) : alloc_(1 << 12), root_(0) 
 	if (buffer_) {
 		parse();
 	} else {
-		ELOG("Failed to read json %s", filename.c_str());
+		// Okay, try to read on the local file system
+		buffer_ = (char *)ReadLocalFile(filename.c_str(), &buf_size);
+		if (buffer_) {
+			parse();
+		} else {
+			ELOG("Failed to read json %s", filename.c_str());
+		}
 	}
 }
