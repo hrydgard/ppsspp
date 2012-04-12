@@ -108,6 +108,7 @@ struct Atlas;
 // This is the drawbuffer used for UI. Remember to flush it at the end of the frame.
 // TODO: One should probably pass it in through UIInit.
 extern DrawBuffer ui_draw2d;
+extern DrawBuffer ui_draw2d_front;  // for things that need to be on top of the rest
 
 void UIInit(const Atlas *atlas, int uiFont, int buttonImage, int checkOn, int checkOff);
 
@@ -189,4 +190,6 @@ int UIList(int id, int x, int y, int w, int h, UIListAdapter *adapter, UIListSta
 // Do this afterwards (or similar):
 // ShaderManager::SetUIProgram();
 // ui_draw2d.Flush(ShaderManager::Program());
+// ui_draw2d_front.Flush(ShaderManager::Program());
+
 void UIEnd();

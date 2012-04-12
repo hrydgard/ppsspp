@@ -8,6 +8,7 @@
 #include "gfx_es2/draw_buffer.h"
 
 DrawBuffer ui_draw2d;
+DrawBuffer ui_draw2d_front;
 UIState uistate;
 
 // Theme.
@@ -18,7 +19,8 @@ static int themeCheckOnImage;
 static int themeCheckOffImage;
 
 void UIInit(const Atlas *atlas, int uiFont, int buttonImage, int checkOn, int checkOff) {
-  ui_draw2d.SetAtlas(atlas);
+	ui_draw2d.SetAtlas(atlas);
+  ui_draw2d_front.SetAtlas(atlas);
 	themeAtlas = atlas;
 	themeUIFont = uiFont;
 	themeButtonImage = buttonImage;
@@ -53,6 +55,7 @@ bool UIRegionHit(int x, int y, int w, int h, int margin) {
 void UIBegin() {
   uistate.hotitem = 0;
   ui_draw2d.Begin();
+	ui_draw2d_front.Begin();
 }
 
 void UIEnd() {
@@ -63,7 +66,8 @@ void UIEnd() {
       uistate.activeitem = -1;
     }
   }
-  ui_draw2d.End();
+	ui_draw2d.End();
+  ui_draw2d_front.End();
 
 	uistate.lastx = uistate.mousex;
 	uistate.lasty = uistate.mousey;
