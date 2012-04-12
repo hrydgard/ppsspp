@@ -20,7 +20,7 @@
 
 enum {
   // Enough?
-  MAX_VERTS = 5000,
+  MAX_VERTS = 15000,
 };
 
 DrawBuffer::DrawBuffer() : count_(0) {
