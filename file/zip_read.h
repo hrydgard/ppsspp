@@ -5,6 +5,7 @@
 #endif
 
 #include <string.h>
+#include <string>
 
 #include "base/basictypes.h"
 #include "file/vfs.h"
@@ -16,6 +17,7 @@ class AssetReader {
 public:
   // use delete[]
   virtual uint8_t *ReadAsset(const char *path, size_t *size) = 0;
+  virtual std::string toString() const = 0;
 };
 
 #ifndef _WIN32
@@ -26,6 +28,9 @@ public:
   ~ZipAssetReader();
   // use delete[]
   virtual uint8_t *ReadAsset(const char *path, size_t *size);
+  virtual std::string toString() const {
+    return in_zip_path_;
+  }
 
 private:
   zip *zip_file_;
@@ -40,6 +45,9 @@ public:
   }
   // use delete[]
   virtual uint8_t *ReadAsset(const char *path, size_t *size);
+  virtual std::string toString() const {
+    return path_;
+  }
 
 private:
   char path_[512];

@@ -122,12 +122,12 @@ extern "C" void Java_com_turboviking_libnative_NativeApp_init
 
 extern "C" void Java_com_turboviking_libnative_NativeApp_shutdown
   (JNIEnv *, jclass) {
-  ILOG("RollerBallMainShutdown - calling NativeShutdown.");
+  ILOG("NativeShutdown.");
   if (renderer_inited) {
     NativeShutdownGraphics();
   }
   NativeShutdown();
-  ILOG("RollerBallMainShutdown - calling VFSShutdown.");
+  ILOG("VFSShutdown.");
   VFSShutdown();
 }
 

@@ -275,7 +275,6 @@ public class NativeActivity extends Activity {
 
 	// Adjust these as necessary
 	private static String TAG = "NativeActivity";
-	String packageName = "com.turboviking.rollerball";
    
 	// Graphics and audio interfaces
 	private GLSurfaceView mGLSurfaceView;
@@ -300,6 +299,7 @@ public class NativeActivity extends Activity {
     	// Get system information
 		ApplicationInfo appInfo = null;  
 		PackageManager packMgmr = getPackageManager();
+		String packageName = getPackageName();
 		try {
 		    appInfo = packMgmr.getApplicationInfo(packageName, 0);
 	    } catch  (NameNotFoundException e) {
@@ -344,7 +344,7 @@ public class NativeActivity extends Activity {
         ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
         ConfigurationInfo info = am.getDeviceConfigurationInfo();
         return info.reqGlEsVersion >= 0x20000;
-    }   
+    }
          
    
     @Override 

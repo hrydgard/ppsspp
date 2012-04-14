@@ -160,8 +160,9 @@ int UIImageButton(int id, const LayoutManager &layout, float w, int image, int b
 	} else {
 		// button is not hot, but it may be active    
 	}
+
 	ui_draw2d.DrawImage2GridH(themeButtonImage, x, y, x + w);
-	ui_draw2d.DrawImage(image, x + w/2, y + h/2 + txOffset, 0xFFFFFFFF, ALIGN_HCENTER | ALIGN_VCENTER);
+	ui_draw2d.DrawImage(image, x + w/2, y + h/2 + txOffset, 1.0f, 0xFFFFFFFF, ALIGN_HCENTER | ALIGN_VCENTER);
 
 	int clicked = 0;
 	// If button is hot and active, but mouse button is not

@@ -106,7 +106,7 @@ static int num_entries = 0;
 void VFSRegister(const char *prefix, AssetReader *reader) {
   entries[num_entries].prefix = prefix;
   entries[num_entries].reader = reader;
-  ILOG("Registered VFS for %s", prefix);
+  ILOG("Registered VFS for prefix %s: %s", prefix, reader->toString().c_str());
   num_entries++;
 }
 
