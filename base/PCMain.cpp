@@ -34,6 +34,10 @@ void ShowAd(int x, int y, bool center_x) {
 	// Ignore ads on PC
 }
 
+void ShowKeyboard() {
+	// Irrelevant on PC
+}
+
 void Vibrate(int length_ms) {
 	// Ignore on PC
 }

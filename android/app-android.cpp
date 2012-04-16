@@ -40,6 +40,11 @@ void ShowAd(int x, int y, bool center_x) {
 	ELOG("TODO! ShowAd!");
 }
 
+void ShowKeyboard() {
+	frameCommand = "showkeyboard";
+	frameCommandParam = "";
+}
+
 void Vibrate(int length_ms) {
   frameCommand = "vibrate";
   frameCommandParam = "100";

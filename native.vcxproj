@@ -138,6 +138,10 @@
     <ClInclude Include="ui\ui.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="android\app-android.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="audio\mixer.cpp" />
     <ClCompile Include="audio\wav_read.cpp" />
     <ClCompile Include="base\colorutil.cpp" />

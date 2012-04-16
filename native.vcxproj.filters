@@ -275,6 +275,9 @@
     <ClCompile Include="file\dialog.cpp">
       <Filter>file</Filter>
     </ClCompile>
+    <ClCompile Include="android\app-android.cpp">
+      <Filter>base</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="gfx">
