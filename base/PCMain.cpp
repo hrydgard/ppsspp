@@ -6,6 +6,8 @@
 #include <shlobj.h>
 #include <shlwapi.h>
 #include <ShellAPI.h>
+#else
+#include <pwd.h>
 #endif
 
 #include <string>
@@ -173,7 +175,7 @@ int main(int argc, char *argv[]) {
 #else
 	// Mac - what about linux? Also, ugly hardcoding.
 	const char *path = getenv("HOME");
-	if (!homeDir) {
+	if (!path) {
 		struct passwd* pwd = getpwuid(getuid());
 		if (pwd)
 			path = pwd->pw_dir;
