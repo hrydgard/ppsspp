@@ -153,6 +153,9 @@
     <ClInclude Include="file\dialog.h">
       <Filter>file</Filter>
     </ClInclude>
+    <ClInclude Include="base\mutex.h">
+      <Filter>base</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">

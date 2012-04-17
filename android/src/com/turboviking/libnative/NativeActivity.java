@@ -36,6 +36,7 @@ import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.Window;
 import android.view.WindowManager;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.Toast;
 
 class NativeRenderer implements GLSurfaceView.Renderer {
@@ -457,6 +458,9 @@ public class NativeActivity extends Activity {
     	} else if (command.equals("toast"))  {
     		Toast toast = Toast.makeText(this, params, 2000);
     		toast.show();
+    	} else if (command.equals("showkeyboard")) {
+    		InputMethodManager inputMethodManager=(InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);
+    	    inputMethodManager.toggleSoftInputFromWindow(this, InputMethodManager.SHOW_FORCED, 0);
     	} else {
     		Log.e(TAG, "Unsupported command " + command + " , param: " + params);
     	}

@@ -95,6 +95,7 @@
     <ClInclude Include="base\error_context.h" />
     <ClInclude Include="base\LAMEString.h" />
     <ClInclude Include="base\logging.h" />
+    <ClInclude Include="base\mutex.h" />
     <ClInclude Include="base\NativeApp.h" />
     <ClInclude Include="base\scoped_ptr.h" />
     <ClInclude Include="base\stats.h" />
