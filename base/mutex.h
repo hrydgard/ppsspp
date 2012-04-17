@@ -59,8 +59,10 @@ private:
 	mutexType mut_;
 };
 
-// TODO
-class event {
+class lock_guard {
 public:
-	
+	lock_guard(recursive_mutex &mtx) : mtx_(mtx) {mtx_.lock();}
+	~lock_guard() {mtx_.unlock();}
+private:
+	recursive_mutex &mtx_;
 };
