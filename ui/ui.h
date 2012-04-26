@@ -72,24 +72,23 @@ private:
 	float spacing_;
 };
 
+#ifndef MAX_POINTERS
+#define MAX_POINTERS 8
+#endif
+
 // Mouse out of habit, applies just as well to touch events.
 // UI does not yet support multitouch.
 struct UIState {
-  int mousex;
-  int mousey;
-  int mousedown;
-	int mousepressed;
-	int mouseStartX;
-	int mouseStartY;
+  int mousex[MAX_POINTERS];
+  int mousey[MAX_POINTERS];
+  int mousedown[MAX_POINTERS];
+	int mousepressed[MAX_POINTERS];
 
-	int lastx;
-	int lasty;
+	int mouseStartX[MAX_POINTERS];
+	int mouseStartY[MAX_POINTERS];
 
-	int deltax;
-	int deltay;
-
-  int hotitem;
-  int activeitem;
+	int hotitem[MAX_POINTERS];
+  int activeitem[MAX_POINTERS];
 
 	// keyboard focus, not currently used
 	int kbdwidget;
@@ -155,12 +154,12 @@ struct UIListState {
 
 
 // Utility functions, useful when implementing your own controls
-bool UIRegionHit(int x, int y, int w, int h, int margin);
+bool UIRegionHit(int pointerId, int x, int y, int w, int h, int margin);
 
 // Call at start of frame
 void UIBegin();
 
-void UIUpdateMouse(float x, float y, int buttons);
+void UIUpdateMouse(int i, float x, float y, bool down);
 
 // Returns 1 if clicked
 int UIButton(int id, const LayoutManager &layout, float w, const char *text, int button_align);
@@ -170,7 +169,7 @@ int UIImageButton(int id, const LayoutManager &layout, float w, int image_id, in
 int UICheckBox(int id, int x, int y, const char *text, int align, bool *value);
 
 // Vertical slider. Not yet working.
-int UIVSlider(int id, int x, int y, int h, int max, int *value);
+// int UIVSlider(int id, int x, int y, int h, int max, int *value);
 
 // Horizontal slider. Not yet working.
 int UIHSlider(int id, int x, int y, int w, int max, int *value);

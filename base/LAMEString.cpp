@@ -196,7 +196,7 @@ String String::subString(int pos, int len) const
 
 	if(pos >= (int)_tcslen(CString))
 	{
-		result = TEXT("");       // empty string
+		result = ""; // empty string
 		return result;
 	}
 
@@ -262,7 +262,7 @@ int String::parseIntoWords(String *words, int maxWords)
 			if (currentWord.length()>0)
 			{
 				words[numWords] = currentWord;
-				currentWord=TEXT("");
+				currentWord="";
 				numWords++;
 				if (numWords == maxWords)
 					return numWords;
@@ -343,27 +343,27 @@ void String::reverseString()
 
 String String::getPath()
 {
-	int p=find(String(TEXT("\\")),0);
+	int p=find(String("\\"),0);
 	int lastp=-1;
 	while (p!=-1)	{
 		lastp=p;
-		p=find(String(TEXT("\\")),p+1);
+		p=find(String("\\"),p+1);
 	}
 	if (lastp!=-1) {
 		return subString(0,lastp);
 	}	else {
-		return String(TEXT(""));
+		return String("");
 	}
 }
 
 String String::getFName()
 {
-	int p=find(String(TEXT("\\")),0);
+	int p=find(String("\\"),0);
 	int lastp=-1;
 	while (p!=-1)
 	{
 		lastp=p;
-		p=find(String(TEXT("\\")),p+1);
+		p=find(String("\\"),p+1);
 	}
 	if (lastp!=-1)
 	{
@@ -371,7 +371,7 @@ String String::getFName()
 	}
 	else
 	{
-		return String(TEXT(""));
+		return String("");
 	}
 }
 

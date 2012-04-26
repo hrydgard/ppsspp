@@ -63,6 +63,15 @@ class lock_guard {
 public:
 	lock_guard(recursive_mutex &mtx) : mtx_(mtx) {mtx_.lock();}
 	~lock_guard() {mtx_.unlock();}
+
 private:
 	recursive_mutex &mtx_;
 };
+
+#undef p
+#undef MIN
+#undef MAX
+#undef min
+#undef max
+#undef DrawText
+#undef itoa

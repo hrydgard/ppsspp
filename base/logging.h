@@ -58,10 +58,6 @@ inline void Crash() {
 #define ELOG(...) {printf("E: %s:%i: ", __FILE__, __LINE__); printf("E: " __VA_ARGS__); printf("\n");}
 #define FLOG(...) {printf("F: %s:%i: ", __FILE__, __LINE__); printf("F: " __VA_ARGS__); printf("\n"); Crash();}
 
-#ifndef MessageBox
-#define MessageBox(a, b, c, d) printf("MSG: %s %s\n", (b), (c));
-#endif
-
 #endif
 
 #define CHECK(a) {if (!(a)) {FLOG("CHECK failed");}}

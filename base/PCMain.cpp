@@ -202,7 +202,7 @@ int main(int argc, char *argv[]) {
   // Audio must be unpaused _after_ NativeInit()
   SDL_PauseAudio(0);
 
-  InputState input_state = {0};
+  InputState input_state;
   int framecount = 0;
 
 	while (true) {
@@ -219,24 +219,24 @@ int main(int argc, char *argv[]) {
 					done = 1;
 				}
 			} else if (event.type == SDL_MOUSEMOTION) {
-        input_state.mouse_x = event.motion.x;
-        input_state.mouse_y = event.motion.y;
+        input_state.mouse_x[0] = event.motion.x;
+        input_state.mouse_y[0] = event.motion.y;
 			} else if (event.type == SDL_MOUSEBUTTONDOWN) {
 				if (event.button.button == SDL_BUTTON_LEFT) {
-          input_state.mouse_buttons_down = 1;
-          input_state.mouse_buttons = 1;
+          ///input_state.mouse_buttons_down = 1;
+          input_state.mouse_down[0] = true;
 				}
 			} else if (event.type == SDL_MOUSEBUTTONUP) {
 				if (event.button.button == SDL_BUTTON_LEFT) {
-          input_state.mouse_buttons = 0;
-          input_state.mouse_buttons_up = 1;
+          input_state.mouse_down[0] = false;
+          //input_state.mouse_buttons_up = 1;
         }
 			}
 		}
 
 		if (done) break;
 
-    input_state.mouse_last_buttons = input_state.mouse_buttons;
+    input_state.mouse_last[0] = input_state.mouse_down[0];
 		uint8 *keys = (uint8 *)SDL_GetKeyState(NULL);
     if (keys[SDLK_ESCAPE]) {
       break;

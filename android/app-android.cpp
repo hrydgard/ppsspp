@@ -199,15 +199,24 @@ extern "C" void Java_com_turboviking_libnative_NativeApp_audioRender(JNIEnv*  en
 }
 
 extern "C" void JNICALL Java_com_turboviking_libnative_NativeApp_touch
-  (JNIEnv *, jclass, int x, int y, int code) {
-  // This really does require locking :/
-  input_state.mouse_valid = false;
-  input_state.mouse_x = x;
-  input_state.mouse_y = y;
+  (JNIEnv *, jclass, float x, float y, int code, int pointerId) {
+  lock_guard guard(input_state.lock);
+	if (pointerId >= MAX_POINTERS)
+	{
+		ELOG("Too many pointers: %i", pointerId);
+		return;  // We ignore 8+ pointers entirely.
+	}
+
+  input_state.mouse_x[pointerId] = (int)x;
+  input_state.mouse_y[pointerId] = (int)y;
   if (code == 1) {
-  	input_state.mouse_buttons = 1;
+		ILOG("Down: %i %f %f", pointerId, x, y);
+		input_state.mouse_last[pointerId] = input_state.mouse_down[pointerId];
+  	input_state.mouse_down[pointerId] = true;
   } else if (code == 2) {
-  	input_state.mouse_buttons = 0;
+		ILOG("Up: %i %f %f", pointerId, x, y);
+		input_state.mouse_last[pointerId] = input_state.mouse_down[pointerId];
+  	input_state.mouse_down[pointerId] = false;
   }
   input_state.mouse_valid = true;
 }

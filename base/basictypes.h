@@ -49,10 +49,6 @@ typedef int64_t int64;
 
 #endif  // _WIN32
 
-#ifndef TEXT
-#define TEXT(x) x
-#endif
-
 // Byteswapping
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))

@@ -4,6 +4,10 @@
 #include <stdio.h>
 #include <string>
 
+#ifdef _MSC_VER
+#pragma warning (disable:4996)
+#endif
+
 // Dumb wrapper around itoa, providing a buffer. Declare this on the stack.
 class ITOA {
 public:
