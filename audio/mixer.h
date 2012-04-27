@@ -1,3 +1,5 @@
+#pragma once
+
 #include "base/basictypes.h"
 
 // Simple mixer intended for sound effects for games.
@@ -30,7 +32,8 @@ void mixer_mix(Mixer *mixer, short *buffer, int num_samples);
 Clip *clip_load(const char *filename);
 void clip_destroy(Clip *clip);
 
-int clip_length();
+const short *clip_data(const Clip *clip);
+int clip_length(const Clip *clip);
 void clip_set_loop(int start, int end);
 
 
