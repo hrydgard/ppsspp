@@ -36,6 +36,10 @@ void UIUpdateMouse(int i, float x, float y, bool down) {
 	} else {
 		uistate.mousepressed[i] = 0;
 	}
+	if (uistate.mousedown[i])
+		uistate.mouseframesdown[i]++;
+	else
+		uistate.mouseframesdown[i] = 0;
 
 	uistate.mousex[i] = x;
 	uistate.mousey[i] = y;

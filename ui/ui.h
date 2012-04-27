@@ -81,8 +81,9 @@ private:
 struct UIState {
   int mousex[MAX_POINTERS];
   int mousey[MAX_POINTERS];
-  int mousedown[MAX_POINTERS];
-	int mousepressed[MAX_POINTERS];
+  bool mousedown[MAX_POINTERS];
+	bool mousepressed[MAX_POINTERS];
+	short mouseframesdown[MAX_POINTERS];
 
 	int mouseStartX[MAX_POINTERS];
 	int mouseStartY[MAX_POINTERS];
