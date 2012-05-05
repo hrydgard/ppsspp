@@ -41,6 +41,12 @@ struct json_value
 	int numSiblings() const;  // num siblings *after* this one only
 	const json_value *get(const char *child_name) const;
 	const json_value *get(const char *child_name, json_type type) const;
+	const json_value *getArray(const char *child_name) const {
+		return get(child_name, JSON_ARRAY);
+	}
+	const json_value *getDict(const char *child_name) const {
+		return get(child_name, JSON_OBJECT);
+	}
 	const char *getString(const char *child_name) const;
 	const char *getString(const char *child_name, const char *default_value) const;
 	bool getStringVector(std::vector<std::string> *vec) const;
@@ -50,7 +56,7 @@ struct json_value
 	int getInt(const char *child_name, int default_value) const;
 	bool getBool(const char *child_name) const;
 	bool getBool(const char *child_name, bool default_value) const;
-
+	
 private:
 	DISALLOW_COPY_AND_ASSIGN(json_value);
 };
