@@ -37,6 +37,29 @@ inline uint32_t _rotr(uint32_t val, int shift) {
 	return (val << shift) | (val >> (31 - shift));
 }
 
+/*
+template <int SZ>
+class BitArray {
+public:
+	BitArray() {
+		memset(data, 0, sizeof(data));
+	}
+		
+	BitArray And(const BitArray &other) {
+		BitArray<SZ> retVal;
+		for (int i = 0; i < DATACOUNT; i++) {
+			retVal.data[i] = data[i] & other.data[i];
+		}
+	}
+
+private:
+	uint32 data[(SZ + 31) / 32];
+	enum {
+		DATACOUNT = (SZ + 31) / 32;
+	};
+};
+*/
+
 #endif
 
 #endif

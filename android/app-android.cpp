@@ -210,11 +210,11 @@ extern "C" void JNICALL Java_com_turboviking_libnative_NativeApp_touch
   input_state.mouse_x[pointerId] = (int)x;
   input_state.mouse_y[pointerId] = (int)y;
   if (code == 1) {
-		ILOG("Down: %i %f %f", pointerId, x, y);
+		//ILOG("Down: %i %f %f", pointerId, x, y);
 		input_state.mouse_last[pointerId] = input_state.mouse_down[pointerId];
   	input_state.mouse_down[pointerId] = true;
   } else if (code == 2) {
-		ILOG("Up: %i %f %f", pointerId, x, y);
+		//ILOG("Up: %i %f %f", pointerId, x, y);
 		input_state.mouse_last[pointerId] = input_state.mouse_down[pointerId];
   	input_state.mouse_down[pointerId] = false;
   }

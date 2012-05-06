@@ -20,6 +20,11 @@ enum {
 	ALIGN_TOPRIGHT = ALIGN_TOP | ALIGN_RIGHT,
 	ALIGN_BOTTOMLEFT = ALIGN_BOTTOM | ALIGN_LEFT,
 	ALIGN_BOTTOMRIGHT = ALIGN_BOTTOM | ALIGN_RIGHT,
+
+	// Only for text drawing
+	ROTATE_90DEG_LEFT = 256,
+	ROTATE_90DEG_RIGHT = 512,
+	ROTATE_180DEG = 1024,
 };
 
 struct GLSLProgram;
@@ -80,7 +85,7 @@ class DrawBuffer {
   void DrawImage2GridH(int atlas_image, float x1, float y1, float x2, Color color = COLOR(0xFFFFFF), float scale = 1.0);
 
   void MeasureText(int font, const char *text, float *w, float *h);
-  void DrawText(int font, const char *text, float x, float y, Color color = 0xFFFFFFFF, int flags = 0);
+	void DrawText(int font, const char *text, float x, float y, Color color = 0xFFFFFFFF, int flags = 0);
   void DrawTextShadow(int font, const char *text, float x, float y, Color color = 0xFFFFFFFF, int flags = 0);
 
   void RotateSprite(int atlas_entry, float x, float y, float angle, float scale, Color color);
@@ -93,7 +98,7 @@ class DrawBuffer {
 	void EnableBlend(bool enable);
 
  private:
-	void DoAlign(int align, float *x, float *y, float w, float h);
+	void DoAlign(int flags, float *x, float *y, float *w, float *h);
   struct Vertex {
     float x, y, z;
     uint8 r, g, b, a;

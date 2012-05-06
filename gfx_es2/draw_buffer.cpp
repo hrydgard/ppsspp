@@ -10,7 +10,9 @@
 #endif
 #endif
 
+#include <algorithm>
 #include <cmath>
+
 #include "base/logging.h"
 #include "math/math_util.h"
 #include "gfx_es2/draw_buffer.h"
@@ -86,7 +88,7 @@ void DrawBuffer::V(float x, float y, float z, uint32 color, float u, float v) {
 }
 
 void DrawBuffer::Rect(float x, float y, float w, float h, uint32 color, int align) {
-	DoAlign(align, &x, &y, w, h);
+	DoAlign(align, &x, &y, &w, &h);
   RectVGradient(x, y, w, h, color, color);
 }
 
@@ -290,22 +292,33 @@ void DrawBuffer::DrawTextShadow(int font, const char *text, float x, float y, Co
   DrawText(font, text, x, y, color, flags);
 }
 
-void DrawBuffer::DoAlign(int align, float *x, float *y, float w, float h) {
-	if (align & ALIGN_HCENTER) *x -= w / 2;
-	if (align & ALIGN_RIGHT) *x -= w;
-	if (align & ALIGN_VCENTER) *y -= h / 2;
-	if (align & ALIGN_BOTTOM) *y -= h;
+void DrawBuffer::DoAlign(int flags, float *x, float *y, float *w, float *h) {
+	if (flags & ALIGN_HCENTER) *x -= *w / 2;
+	if (flags & ALIGN_RIGHT) *x -= *w;
+	if (flags & ALIGN_VCENTER) *y -= *h / 2;
+	if (flags & ALIGN_BOTTOM) *y -= *h;
+	if (flags & (ROTATE_90DEG_LEFT | ROTATE_90DEG_RIGHT)) {
+		std::swap(*w, *h);
+		std::swap(*x, *y);
+	}
 }
 
+// ROTATE_* doesn't yet work right.
 void DrawBuffer::DrawText(int font, const char *text, float x, float y, Color color, int flags) {
   const AtlasFont &atlasfont = *atlas->fonts[font];
   unsigned char cval;
   float w, h;
   MeasureText(font, text, &w, &h);
   if (flags) {
-		DoAlign(flags, &x, &y, w, h);
+		DoAlign(flags, &x, &y, &w, &h);
   }
-	y+=atlasfont.ascend*fontscaley;
+	
+	if (flags & ROTATE_90DEG_LEFT) {
+		x -= atlasfont.ascend*fontscaley;
+		// y += h;
+	}
+	else
+		y += atlasfont.ascend*fontscaley;
   float sx = x;
   while ((cval = *text++) != '\0') {
     if (cval == '\n') {
@@ -316,17 +329,28 @@ void DrawBuffer::DrawText(int font, const char *text, float x, float y, Color co
     if (cval < 32) continue;
     if (cval > 127) continue;
     AtlasChar c = atlasfont.chars[cval - 32];
-    float cx1 = x + c.ox * fontscalex;
-    float cy1 = y + c.oy * fontscaley;
-    float cx2 = x + (c.ox + c.pw) * fontscalex;
-    float cy2 = y + (c.oy + c.ph) * fontscaley;
+		float cx1, cy1, cx2, cy2;
+		if (flags & ROTATE_90DEG_LEFT) {
+			cy1 = y - c.ox * fontscalex;
+			cx1 = x + c.oy * fontscaley;
+			cy2 = y - (c.ox + c.pw) * fontscalex;
+			cx2 = x + (c.oy + c.ph) * fontscaley;
+		} else {
+		  cx1 = x + c.ox * fontscalex;
+      cy1 = y + c.oy * fontscaley;
+      cx2 = x + (c.ox + c.pw) * fontscalex;
+      cy2 = y + (c.oy + c.ph) * fontscaley;
+		}
     V(cx1,  cy1, color, c.sx, c.sy);
     V(cx2,  cy1, color, c.ex, c.sy);
     V(cx2,  cy2, color, c.ex, c.ey);
     V(cx1,  cy1, color, c.sx, c.sy);
     V(cx2,  cy2, color, c.ex, c.ey);
     V(cx1,  cy2, color, c.sx, c.ey);
-    x += c.wx * fontscalex;
+		if (flags & ROTATE_90DEG_LEFT)
+			y -= c.wx * fontscalex;
+		else
+			x += c.wx * fontscalex;
   }
 }
 

@@ -156,6 +156,9 @@
     <ClInclude Include="base\mutex.h">
       <Filter>base</Filter>
     </ClInclude>
+    <ClInclude Include="util\bits\bits.h">
+      <Filter>util</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -281,6 +284,9 @@
     <ClCompile Include="android\app-android.cpp">
       <Filter>base</Filter>
     </ClCompile>
+    <ClCompile Include="util\bits\bits.cpp">
+      <Filter>util</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="gfx">
@@ -321,6 +327,9 @@
     </Filter>
     <Filter Include="midi">
       <UniqueIdentifier>{4710a9a2-d1fa-4920-ba1b-a7527902be53}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="util">
+      <UniqueIdentifier>{e36ca540-863c-496b-b0f4-b1ece3e72feb}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

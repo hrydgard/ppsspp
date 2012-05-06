@@ -137,6 +137,7 @@
     <ClInclude Include="midi\midi_input.h" />
     <ClInclude Include="profiler\profiler.h" />
     <ClInclude Include="ui\ui.h" />
+    <ClInclude Include="util\bits\bits.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="android\app-android.cpp">
@@ -186,6 +187,7 @@
     <ClCompile Include="midi\midi_input.cpp" />
     <ClCompile Include="profiler\profiler.cpp" />
     <ClCompile Include="ui\ui.cpp" />
+    <ClCompile Include="util\bits\bits.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
