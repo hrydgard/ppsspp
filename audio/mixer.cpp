@@ -135,7 +135,7 @@ const short *clip_data(const Clip *clip)
 	return clip->data;
 }
 
-int clip_length(const Clip *clip) {
+size_t clip_length(const Clip *clip) {
   return clip->length;
 }
 

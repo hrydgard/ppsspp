@@ -16,6 +16,7 @@ typedef void *MidiDevice;
 class MidiListener
 {
 public:
+	virtual ~MidiListener() {}
 	virtual void midiEvent(const uint8_t *cmd) = 0;
 };
 

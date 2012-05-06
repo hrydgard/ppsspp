@@ -33,7 +33,7 @@ Clip *clip_load(const char *filename);
 void clip_destroy(Clip *clip);
 
 const short *clip_data(const Clip *clip);
-int clip_length(const Clip *clip);
+size_t clip_length(const Clip *clip);
 void clip_set_loop(int start, int end);
 
 

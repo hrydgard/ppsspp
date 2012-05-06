@@ -107,3 +107,10 @@ private:
 
 	DISALLOW_COPY_AND_ASSIGN(JsonReader);
 };
+
+// TODO: Make this a push/pop interface similar to JsonWriter. Maybe 
+// we can get to the point where reading and writing is near identical or the same code.
+class JsonCursor {
+public:
+
+};
