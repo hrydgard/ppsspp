@@ -60,6 +60,8 @@ inline void Crash() {
 
 #endif
 
+#undef CHECK
+
 #define CHECK(a) {if (!(a)) {FLOG("CHECK failed");}}
 #define CHECK_EQ(a, b) CHECK((a) == (b));
 #define CHECK_NE(a, b) CHECK((a) != (b));
