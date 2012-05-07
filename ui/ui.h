@@ -50,6 +50,9 @@ public:
 		*y = y_;
 		x_ += *w + spacing_;
 	}
+	void Space(float x) {
+		x_ += x;
+	}
 
 private:
 	mutable float x_;
