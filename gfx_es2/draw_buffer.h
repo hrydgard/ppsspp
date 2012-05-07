@@ -108,7 +108,7 @@ class DrawBuffer {
 	void DoAlign(int flags, float *x, float *y, float *w, float *h);
   struct Vertex {
     float x, y, z;
-    uint8 r, g, b, a;
+    uint32_t rgba;
     float u, v;
   };
 

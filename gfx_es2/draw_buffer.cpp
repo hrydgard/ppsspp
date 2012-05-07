@@ -60,7 +60,7 @@ void DrawBuffer::Flush(const GLSLProgram *program, bool set_blend_state) {
     glEnableVertexAttribArray(program->a_texcoord0);
   GL_CHECK();
   glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), &verts_[0].x);
-  glVertexAttribPointer(program->a_color, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(Vertex), &verts_[0].r);
+  glVertexAttribPointer(program->a_color, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(Vertex), &verts_[0].rgba);
   if (program->a_texcoord0 != -1)
     glVertexAttribPointer(program->a_texcoord0, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), &verts_[0].u);
   glDrawArrays(mode_ == DBMODE_LINES ? GL_LINES : GL_TRIANGLES, 0, count_);
@@ -79,11 +79,7 @@ void DrawBuffer::V(float x, float y, float z, uint32 color, float u, float v) {
   vert->x = x;
   vert->y = y;
   vert->z = z;
-	// todo: speedup rgba here
-  vert->r = color & 0xFF;
-  vert->g = (color >> 8) & 0xFF;
-  vert->b = (color >> 16) & 0xFF;
-  vert->a = (color >> 24) & 0xFF;
+  vert->rgba = color;
   vert->u = u;
   vert->v = v;
 }
