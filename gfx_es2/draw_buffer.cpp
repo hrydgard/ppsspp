@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include "base/display.h"
 #include "base/logging.h"
 #include "math/math_util.h"
 #include "gfx_es2/draw_buffer.h"
@@ -359,4 +360,16 @@ void DrawBuffer::EnableBlend(bool enable) {
 		glEnable(GL_BLEND);
 	else
 		glDisable(GL_BLEND);
+}
+
+void DrawBuffer::SetClipRect(float x, float y, float w, float h)
+{
+	// Sigh, OpenGL is upside down.
+	glScissor(x, g_yres - y, w, h);
+	glEnable(GL_SCISSOR_TEST);
+}
+
+void DrawBuffer::NoClip()
+{
+	glDisable(GL_SCISSOR_TEST);
 }
