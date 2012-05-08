@@ -1,6 +1,7 @@
-// NOTE: This is only here for legacy reasons.
-// In new code, please use std::string.
+// DEPRECATED
 
+// This is only here for legacy reasons.
+// In new code, please use std::string.
 
 #pragma once
 

@@ -4,8 +4,9 @@
 #include "file/chunk_file.h"
 
 short *wav_read(const char *filename,
-                int *num_samples, int *sample_rate,
-                int *num_channels) {
+  int *num_samples, int *sample_rate,
+  int *num_channels)
+{
   ChunkFile cf(filename, true);
   if (cf.failed()) {
     WLOG("ERROR: Wave file %s could not be opened", filename);
@@ -16,10 +17,8 @@ short *wav_read(const char *filename,
   int samplesPerSec, avgBytesPerSec,wBlockAlign,wBytesPerSample;
   if (cf.descend('RIFF')) {
     cf.readInt(); //get past 'WAVE'
-    if (cf.descend('fmt ')) //enter the format chunk 
-    {
-      int temp;
-      temp = cf.readInt();
+    if (cf.descend('fmt ')) { //enter the format chunk 
+      int temp = cf.readInt();
       int format = temp & 0xFFFF;
       if (format != 1) {
         cf.ascend();
@@ -42,8 +41,7 @@ short *wav_read(const char *filename,
       return NULL;
     }
 
-    if (cf.descend('data'))       //enter the data chunk
-    {
+    if (cf.descend('data')) {      //enter the data chunk
       int numBytes = cf.getCurrentChunkSize();
       int numSamples = numBytes / wBlockAlign;
       data = (short *)malloc(sizeof(short) * numSamples * *num_channels);

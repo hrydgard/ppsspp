@@ -27,52 +27,52 @@
 
 class LayoutManager {
 public:
-	virtual void GetPos(float *w, float *h, float *x, float *y) const = 0;
+  virtual void GetPos(float *w, float *h, float *x, float *y) const = 0;
 };
 
 class Pos : public LayoutManager {
 public:
-	Pos(float x, float y) : x_(x), y_(y) {}
-	virtual void GetPos(float *w, float *h, float *x, float *y) const {
-		*x = x_;
-		*y = y_;
-	}
+  Pos(float x, float y) : x_(x), y_(y) {}
+  virtual void GetPos(float *w, float *h, float *x, float *y) const {
+    *x = x_;
+    *y = y_;
+  }
 private:
-	float x_;
-	float y_;
+  float x_;
+  float y_;
 };
 
 class HLinear : public LayoutManager {
 public:
-	HLinear(float x, float y, float spacing = 2.0f) : x_(x), y_(y), spacing_(spacing) {}
-	virtual void GetPos(float *w, float *h, float *x, float *y) const {
-		*x = x_;
-		*y = y_;
-		x_ += *w + spacing_;
-	}
-	void Space(float x) {
-		x_ += x;
-	}
+  HLinear(float x, float y, float spacing = 2.0f) : x_(x), y_(y), spacing_(spacing) {}
+  virtual void GetPos(float *w, float *h, float *x, float *y) const {
+    *x = x_;
+    *y = y_;
+    x_ += *w + spacing_;
+  }
+  void Space(float x) {
+    x_ += x;
+  }
 
 private:
-	mutable float x_;
-	float y_;
-	float spacing_;
+  mutable float x_;
+  float y_;
+  float spacing_;
 };
 
 class VLinear : public LayoutManager {
 public:
-	VLinear(float x, float y, float spacing = 2.0f) : x_(x), y_(y), spacing_(spacing) {}
-	virtual void GetPos(float *w, float *h, float *x, float *y) const {
-		*x = x_;
-		*y = y_;
-		y_ += *h + spacing_;
-	}
+  VLinear(float x, float y, float spacing = 2.0f) : x_(x), y_(y), spacing_(spacing) {}
+  virtual void GetPos(float *w, float *h, float *x, float *y) const {
+    *x = x_;
+    *y = y_;
+    y_ += *h + spacing_;
+  }
 
 private:
-	float x_;
-	mutable float y_;
-	float spacing_;
+  float x_;
+  mutable float y_;
+  float spacing_;
 };
 
 #ifndef MAX_POINTERS
@@ -85,22 +85,22 @@ struct UIState {
   int mousex[MAX_POINTERS];
   int mousey[MAX_POINTERS];
   bool mousedown[MAX_POINTERS];
-	bool mousepressed[MAX_POINTERS];
-	short mouseframesdown[MAX_POINTERS];
+  bool mousepressed[MAX_POINTERS];
+  short mouseframesdown[MAX_POINTERS];
 
-	int mouseStartX[MAX_POINTERS];
-	int mouseStartY[MAX_POINTERS];
+  int mouseStartX[MAX_POINTERS];
+  int mouseStartY[MAX_POINTERS];
 
-	int hotitem[MAX_POINTERS];
+  int hotitem[MAX_POINTERS];
   int activeitem[MAX_POINTERS];
 
-	// keyboard focus, not currently used
-	int kbdwidget;
-	int lastwidget;
+  // keyboard focus, not currently used
+  int kbdwidget;
+  int lastwidget;
 
-	// Used by controls that need to keep track of the initial value for drags, for example.
-	// Should probably be indexed by finger - would be neat to be able to move two knobs at the same time.
-	float tempfloat;
+  // Used by controls that need to keep track of the initial value for drags, for example.
+  // Should probably be indexed by finger - would be neat to be able to move two knobs at the same time.
+  float tempfloat;
 };
 
 // This needs to be extern so that additional UI controls can be developed outside this file.
@@ -122,38 +122,38 @@ const int LARGE_BUTTON_WIDTH = 192;
 const int BUTTON_HEIGHT = 72;
 
 struct SlideItem {
-	const char *text;
-	int image;
-	uint32_t bgColor;
+  const char *text;
+  int image;
+  uint32_t bgColor;
 };
 
 struct UISlideState {
-	float scroll;
+  float scroll;
 };
 
 // Implement this interface to style your lists
 class UIListAdapter {
 public:
-	virtual size_t getCount() const = 0;
-	virtual void drawItem(int item, int x, int y, int w, int h, bool active) const = 0;
-	virtual float itemHeight(int itemIndex) const { return 64; }
-	virtual bool itemEnabled(int itemIndex) const { return true; }
+  virtual size_t getCount() const = 0;
+  virtual void drawItem(int item, int x, int y, int w, int h, bool active) const = 0;
+  virtual float itemHeight(int itemIndex) const { return 64; }
+  virtual bool itemEnabled(int itemIndex) const { return true; }
 };
 
 class StringVectorListAdapter : public UIListAdapter {
 public:
-	StringVectorListAdapter(std::vector<std::string> *items) : items_(items) {}
-	virtual size_t getCount() const { return items_->size(); }
-	virtual void drawItem(int item, int x, int y, int w, int h, bool active) const;
+  StringVectorListAdapter(std::vector<std::string> *items) : items_(items) {}
+  virtual size_t getCount() const { return items_->size(); }
+  virtual void drawItem(int item, int x, int y, int w, int h, bool active) const;
 
 private:
-	std::vector<std::string> *items_;
+  std::vector<std::string> *items_;
 };
 
 struct UIListState {
-	UIListState() : scrollY(0.0f), selected(-1) {}
-	float scrollY;
-	int selected;
+  UIListState() : scrollY(0.0f), selected(-1) {}
+  float scrollY;
+  int selected;
 };
 
 

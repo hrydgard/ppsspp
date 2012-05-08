@@ -123,7 +123,6 @@
     <ClInclude Include="gfx_es2\glsl_program.h" />
     <ClInclude Include="gfx_es2\vertex_format.h" />
     <ClInclude Include="image\png_load.h" />
-    <ClInclude Include="image\surface.h" />
     <ClInclude Include="image\zim_load.h" />
     <ClInclude Include="image\zim_save.h" />
     <ClInclude Include="input\gesture_detector.h" />

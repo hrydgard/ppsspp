@@ -16,8 +16,8 @@ typedef void *MidiDevice;
 class MidiListener
 {
 public:
-	virtual ~MidiListener() {}
-	virtual void midiEvent(const uint8_t *cmd) = 0;
+  virtual ~MidiListener() {}
+  virtual void midiEvent(const uint8_t *cmd) = 0;
 };
 
 // Gets the names of the devices in a vector. The device identifier is the index in the vector.

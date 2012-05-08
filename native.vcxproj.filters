@@ -8,7 +8,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="base\logging.h" />
-    <ClInclude Include="image\surface.h" />
     <ClInclude Include="gfx\gl_debug_log.h">
       <Filter>gfx</Filter>
     </ClInclude>

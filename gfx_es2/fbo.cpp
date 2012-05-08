@@ -47,15 +47,15 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil) {
   glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
   GLenum status = glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
   switch(status) {
-    case GL_FRAMEBUFFER_COMPLETE_EXT:
-      ILOG("Framebuffer verified complete.");
-      break;
-    case GL_FRAMEBUFFER_UNSUPPORTED_EXT:
-      ELOG("Framebuffer format not supported");
-      break;
-    default:
-      FLOG("Other framebuffer error: %i", status);
-      break;
+  case GL_FRAMEBUFFER_COMPLETE_EXT:
+    ILOG("Framebuffer verified complete.");
+    break;
+  case GL_FRAMEBUFFER_UNSUPPORTED_EXT:
+    ELOG("Framebuffer format not supported");
+    break;
+  default:
+    FLOG("Other framebuffer error: %i", status);
+    break;
   }
   // Unbind state we don't need
   glBindRenderbuffer(GL_RENDERBUFFER, 0);

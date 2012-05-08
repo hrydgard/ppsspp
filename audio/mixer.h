@@ -3,8 +3,7 @@
 #include "base/basictypes.h"
 
 // Simple mixer intended for sound effects for games.
-// Intended both for fire and forget sfx (auto channels) and for
-// realtime-modifiable sounds like pitched engine noises (fixed channels).
+// The clip loading code supports ogg SFX.
 
 struct Mixer;
 struct Clip;
