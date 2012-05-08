@@ -83,13 +83,13 @@ uint8_t *ZipAssetReader::ReadAsset(const char *path, size_t *size) {
 #endif
 
 uint8_t *DirectoryAssetReader::ReadAsset(const char *path, size_t *size) {
-	char new_path[256] = {0};
-	// Check if it already contains the path
+  char new_path[256] = {0};
+  // Check if it already contains the path
   if (strlen(path) > strlen(path_) && 0 == memcmp(path, path_, strlen(path_))) {
-	}
-	else {
-		strcpy(new_path, path_);
-	}
+  }
+  else {
+    strcpy(new_path, path_);
+  }
   strcat(new_path, path);
   // ILOG("New path: %s", new_path);
   return ReadLocalFile(new_path, size);
@@ -125,11 +125,11 @@ uint8_t *VFSReadFile(const char *filename, size_t *size) {
     if (0 == memcmp(filename, entries[i].prefix, prefix_len)) {
       // ILOG("Prefix match: %s (%s) -> %s", entries[i].prefix, filename, filename + prefix_len);
       uint8_t *data = entries[i].reader->ReadAsset(filename + prefix_len, size);
-			if (data)
-				return data;
-			else
-				continue;
-			// Else try the other registered file systems.
+      if (data)
+        return data;
+      else
+        continue;
+      // Else try the other registered file systems.
     }
   }
   ELOG("Missing filesystem for %s", filename);
