@@ -220,9 +220,6 @@
     <ClCompile Include="gfx\texture_atlas.cpp">
       <Filter>gfx</Filter>
     </ClCompile>
-    <ClCompile Include="math\math_util.cc">
-      <Filter>math</Filter>
-    </ClCompile>
     <ClCompile Include="ext\etcpack\etcpack.cpp">
       <Filter>ext</Filter>
     </ClCompile>
@@ -285,6 +282,9 @@
     </ClCompile>
     <ClCompile Include="util\bits\bits.cpp">
       <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="math\math_util.cpp">
+      <Filter>math</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

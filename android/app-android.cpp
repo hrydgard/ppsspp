@@ -20,6 +20,7 @@
 #include "file/zip_read.h"
 #include "input/input_state.h"
 #include "audio/mixer.h"
+#include "math/math_util.h"
 
 #define coord_xres 800
 #define coord_yres 480
@@ -189,6 +190,9 @@ extern "C" void Java_com_turboviking_libnative_NativeRenderer_displayRender
 }
 
 extern "C" void Java_com_turboviking_libnative_NativeApp_audioRender(JNIEnv*  env, jclass clazz, jshortArray array) {
+  // The audio thread can pretty safely enable Flush-to-Zero mode on the FPU.
+  EnableFZ();
+
   int buf_size = env->GetArrayLength(array);
 	if (buf_size) {
     short *data = env->GetShortArrayElements(array, 0);

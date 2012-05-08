@@ -182,7 +182,7 @@
     <ClCompile Include="math\lin\matrix4x4.cpp" />
     <ClCompile Include="math\lin\quat.cpp" />
     <ClCompile Include="math\lin\vec3.cpp" />
-    <ClCompile Include="math\math_util.cc" />
+    <ClCompile Include="math\math_util.cpp" />
     <ClCompile Include="midi\midi_input.cpp" />
     <ClCompile Include="profiler\profiler.cpp" />
     <ClCompile Include="ui\ui.cpp" />
