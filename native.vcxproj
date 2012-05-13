@@ -101,6 +101,7 @@
     <ClInclude Include="base\stats.h" />
     <ClInclude Include="base\stringutil.h" />
     <ClInclude Include="base\timeutil.h" />
+    <ClInclude Include="data\listable.h" />
     <ClInclude Include="ext\etcpack\etcdec.h" />
     <ClInclude Include="ext\etcpack\etcpack.h" />
     <ClInclude Include="ext\sha1\sha1.h" />

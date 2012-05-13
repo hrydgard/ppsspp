@@ -7,6 +7,7 @@
 #include "gfx/texture_atlas.h"
 #include "gfx_es2/draw_buffer.h"
 
+// TODO: UI should probably not own these.
 DrawBuffer ui_draw2d;
 DrawBuffer ui_draw2d_front;
 UIState uistate;
@@ -26,6 +27,7 @@ void UIInit(const Atlas *atlas, int uiFont, int buttonImage, int checkOn, int ch
   themeButtonImage = buttonImage;
   themeCheckOnImage = checkOn;
   themeCheckOffImage = checkOff;
+  memset(&uistate, 0, sizeof(uistate));
 }
 
 void UIUpdateMouse(int i, float x, float y, bool down) {
@@ -77,6 +79,9 @@ void UIEnd() {
   }
   ui_draw2d.End();
   ui_draw2d_front.End();
+
+  if (uistate.ui_tick > 0)
+    uistate.ui_tick--;
 }
 
 void UIText(int x, int y, const char *text, uint32_t color, float scale, int align) {

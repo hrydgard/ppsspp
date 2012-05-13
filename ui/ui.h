@@ -81,6 +81,7 @@ private:
 
 // Mouse out of habit, applies just as well to touch events.
 // UI does not yet support multitouch.
+// This struct is zeroed on init, so should be valid at that state.
 struct UIState {
   int mousex[MAX_POINTERS];
   int mousey[MAX_POINTERS];
@@ -101,6 +102,8 @@ struct UIState {
   // Used by controls that need to keep track of the initial value for drags, for example.
   // Should probably be indexed by finger - would be neat to be able to move two knobs at the same time.
   float tempfloat;
+
+  int ui_tick;
 };
 
 // This needs to be extern so that additional UI controls can be developed outside this file.

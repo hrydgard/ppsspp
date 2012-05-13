@@ -158,6 +158,9 @@
     <ClInclude Include="util\bits\bits.h">
       <Filter>util</Filter>
     </ClInclude>
+    <ClInclude Include="data\listable.h">
+      <Filter>data</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -329,6 +332,9 @@
     </Filter>
     <Filter Include="util">
       <UniqueIdentifier>{e36ca540-863c-496b-b0f4-b1ece3e72feb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="data">
+      <UniqueIdentifier>{d5fa3d62-88bf-4dc4-9814-28f3c0444e62}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>
