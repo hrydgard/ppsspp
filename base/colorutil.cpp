@@ -14,6 +14,12 @@ uint32_t blackAlpha(float alpha) {
   return (int)(alpha*255)<<24;
 }
 
+uint32_t colorAlpha(uint32_t color, float alpha) {
+  if (alpha < 0.0f) alpha = 0.0f;
+  if (alpha > 1.0f) alpha = 1.0f;
+  return ((int)(alpha*255)<<24) | (color & 0xFFFFFF);
+}
+
 uint32_t rgba(float r, float g, float b, float alpha) {
   uint32_t color = (int)(alpha*255)<<24;
   color |= (int)(b*255)<<16;

@@ -22,8 +22,8 @@
 #include "audio/mixer.h"
 #include "math/math_util.h"
 
-#define coord_xres 800
-#define coord_yres 480
+#define coord_xres 480
+#define coord_yres 800
 
 static JNIEnv *jniEnvUI;
 
@@ -98,6 +98,13 @@ extern "C" void Java_com_turboviking_libnative_NativeApp_init
   yres = yyres;
   g_xres = xres;
   g_yres = yres;
+
+  if (g_xres < g_yres)
+  {
+    // Portrait - let's force the imaginary resolution we want
+    g_xres = coord_xres;
+    g_yres = coord_yres;
+  }
   xscale = (float)coord_xres / xres;
   yscale = (float)coord_yres / yres;
   memset(&input_state, 0, sizeof(input_state));
@@ -211,8 +218,8 @@ extern "C" void JNICALL Java_com_turboviking_libnative_NativeApp_touch
 		return;  // We ignore 8+ pointers entirely.
 	}
 
-  input_state.mouse_x[pointerId] = (int)x;
-  input_state.mouse_y[pointerId] = (int)y;
+  input_state.mouse_x[pointerId] = (int)(x * xscale);
+  input_state.mouse_y[pointerId] = (int)(y * yscale);
   if (code == 1) {
 		//ILOG("Down: %i %f %f", pointerId, x, y);
 		input_state.mouse_last[pointerId] = input_state.mouse_down[pointerId];
