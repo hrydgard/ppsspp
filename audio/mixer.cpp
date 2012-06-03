@@ -33,7 +33,7 @@ struct Clip {
 
 // If current_clip == 0, the channel is free.
 
-enum PlaybackState {
+enum ClipPlaybackState {
   PB_STOPPED = 0,
   PB_PLAYING = 1,
 };
@@ -42,7 +42,7 @@ enum PlaybackState {
 struct Channel {
   const Clip *current_clip;
   // Playback state
-  PlaybackState state;
+  ClipPlaybackState state;
   int pos;
   PlayParams params;
   // Effect state

@@ -57,6 +57,10 @@ struct json_value
 	bool getBool(const char *child_name) const;
 	bool getBool(const char *child_name, bool default_value) const;
 	
+  bool hasChild(const char *child_name, json_type child_type) const {
+    return get(child_name, child_type) != 0;
+  }
+
 private:
 	DISALLOW_COPY_AND_ASSIGN(json_value);
 };
