@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <string>
 
+#include "base/basictypes.h"
+
 #ifdef _MSC_VER
 #pragma warning (disable:4996)
 #endif
@@ -23,6 +25,12 @@ public:
 inline bool endsWith(const std::string &str, const std::string &what) {
   return str.substr(str.size() - what.size()) == what;
 }
+
+void DataToHexString(const uint8 *data, size_t size, std::string *output);
+inline void StringToHexString(const std::string &data, std::string *output) {
+  DataToHexString((uint8_t *)(&data[0]), data.size(), output);
+}
+
 
 // highly unsafe and not recommended.
 unsigned int parseHex(const char* _szValue);

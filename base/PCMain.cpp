@@ -23,6 +23,7 @@
 #include "file/zip_read.h"
 #include "input/input_state.h"
 #include "base/NativeApp.h"
+#include "net/resolve.h"
 
 
 // Simple implementations of System functions
@@ -130,6 +131,8 @@ int main(int argc, char *argv[]) {
 		g_xres = 1480;
 		g_yres = 800;
 	}
+
+  net::Init();
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
 		fprintf(stderr, "Unable to initialize SDL: %s\n", SDL_GetError());

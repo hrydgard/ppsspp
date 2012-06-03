@@ -60,7 +60,6 @@ uint32_t hsva(float H, float S, float V, float alpha) {
   */
   float F, M, N, K;
   int   I;
-  float r, g, b;
   if ( S == 0.0 ) {
     // Achromatic case, set level of grey 
     return rgba(V, V, V, alpha);
@@ -80,12 +79,14 @@ uint32_t hsva(float H, float S, float V, float alpha) {
     N = V * (1 - S * F);
     K = V * (1 - S * (1 - F));
 
+    float r, g, b;
     if (I == 0) { r = V; g = K; b = M; }
-    if (I == 1) { r = N; g = V; b = M; }
-    if (I == 2) { r = M; g = V; b = K; }
-    if (I == 3) { r = M; g = N; b = V; }
-    if (I == 4) { r = K; g = M; b = V; }
-    if (I == 5) { r = V; g = M; b = N; }
+    else if (I == 1) { r = N; g = V; b = M; }
+    else if (I == 2) { r = M; g = V; b = K; }
+    else if (I == 3) { r = M; g = N; b = V; }
+    else if (I == 4) { r = K; g = M; b = V; }
+    else if (I == 5) { r = V; g = M; b = N; }
+    else return 0;
     return rgba(r, g, b, alpha);
   }
 }

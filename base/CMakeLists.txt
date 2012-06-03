@@ -2,7 +2,8 @@ set(SRCS
   LAMEString.cpp
   colorutil.cpp
   error_context.cpp
-  display.cpp)
+  display.cpp
+  buffer.cpp)
 
 set(SRCS ${SRCS})
 

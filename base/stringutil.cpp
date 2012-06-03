@@ -1,9 +1,11 @@
 #include <string.h>
+
+#include "base/buffer.h"
 #include "base/stringutil.h"
 
 unsigned int parseHex(const char *_szValue)
 {
-	DWORD Count, Value = 0;
+	int Count, Value = 0;
 	size_t Finish = strlen(_szValue);
 	if (Finish > 8 ) { Finish = 8; }
 
@@ -38,4 +40,14 @@ unsigned int parseHex(const char *_szValue)
 		}
 	}
 	return Value;
+}
+
+void DataToHexString(const uint8 *data, size_t size, std::string *output) {
+  Buffer buffer;
+  for (size_t i = 0; i < size; i++) {
+    buffer.Printf("%02x ", data[i]);
+    if (i && !(i & 15))
+      buffer.Printf("\n");
+  }
+  buffer.TakeAll(output);
 }

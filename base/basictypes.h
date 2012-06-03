@@ -31,6 +31,8 @@ typedef int64_t int64;
 
 #ifdef _WIN32
 
+typedef intptr_t ssize_t;
+
 #include <tchar.h>
 
 #define ALIGNED16(x) __declspec(align(16)) x
