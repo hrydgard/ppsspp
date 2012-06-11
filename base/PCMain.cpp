@@ -128,8 +128,10 @@ int main(int argc, char *argv[]) {
 		g_xres = 800;
 		g_yres = 480;
 	} else {
-		g_xres = 1480;
-		g_yres = 800;
+#ifdef _WIN32
+		g_xres = 1580;
+		g_yres = 1000;
+#endif
 	}
 
   net::Init();
