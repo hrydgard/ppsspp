@@ -3,19 +3,20 @@
 #ifdef ANDROID
 #include <GLES/gl.h>
 #else
+#include <GL/glew.h>
 #if defined(__APPLE__)
 #include <OpenGL/gl.h>
 #else
 #include <GL/gl.h>
 #endif
 #endif
+
+
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "gfx_es1/draw_buffer.h"
+#include "gfx_es1/lame_buffer.h"
 #include "gfx/texture_atlas.h"
-
-#include "main_atlas.h"
 
 LAMEBuffer buffer;
 LAMEBuffer topbuffer;
@@ -167,6 +168,7 @@ void LAMEBuffer::DrawImage2GridH(int atlas_image, float x1, float y1, float x2, 
 }
 
 void LAMEBuffer::MeasureText(int font, const char *text, float *w, float *h) {
+  if (!font) font = defaultFont;
   const AtlasFont &atlasfont = *atlas->fonts[font];
   unsigned char cval;
   float wacc = 0, maxh = 0;
@@ -268,20 +270,20 @@ void LAMEBuffer::RotateSprite(int atlas_entry, float x, float y, float angle, fl
 }
 
 void LAMEBuffer::drawText(const TCHAR *text, int x, int y, Color color, int font) {
-  DrawText(UBUNTU24, text, x, y+3, color);
+  DrawText(font == 0 ? defaultFont : font, text, x, y+3, color);
 }
 void LAMEBuffer::drawTextCenter(const TCHAR *text, int x, int y, Color color, int font) {
-  DrawText(UBUNTU24, text, x, y+3, color, TEXT_HCENTER);
+  DrawText(font == 0 ? defaultFont : font, text, x, y+3, color, TEXT_HCENTER);
 }
 void LAMEBuffer::drawTextShadow(const TCHAR *text, int x, int y, Color color, Color shadowColor, int font) {
-  DrawText(UBUNTU24, text, x, y+3, color);
+  DrawText(font == 0 ? defaultFont : font, text, x, y+3, color);
 }
 void LAMEBuffer::drawTextShadowCenter(const TCHAR *text, int x, int y, Color color, Color shadowColor, int font) {
-  DrawText(UBUNTU24, text, x, y+3, color, TEXT_HCENTER);
+  DrawText(font == 0 ? defaultFont : font, text, x, y+3, color, TEXT_HCENTER);
 }
 void LAMEBuffer::drawTextContrastCenter(const TCHAR *text, int x, int y, Color color, Color shadowColor, int font) {
-  DrawText(UBUNTU24, text, x, y+3, color, TEXT_HCENTER);
+  DrawText(font == 0 ? defaultFont : font, text, x, y+3, color, TEXT_HCENTER);
 }
 void LAMEBuffer::drawTextContrast(const TCHAR *text, int x, int y, Color color, Color shadowColor, int font) {
-  DrawText(UBUNTU24, text, x, y+3, color);
+  DrawText(font == 0 ? defaultFont : font, text, x, y+3, color);
 }

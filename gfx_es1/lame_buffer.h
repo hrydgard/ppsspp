@@ -6,7 +6,7 @@
 #include "base/basictypes.h"
 #include "base/color.h"
 
-class Atlas;
+struct Atlas;
 
 enum {
   TEXT_LEFT = 0,
@@ -61,12 +61,12 @@ class LAMEBuffer {
 
   void RotateSprite(int atlas_entry, float x, float y, float angle, float scale, Color color);
 
-  void drawText(const TCHAR *text, int x, int y, Color color = 0, int font=0);
-  void drawTextCenter(const TCHAR *text, int x, int y, Color color, int font=0);
-  void drawTextShadow(const TCHAR *text, int x, int y, Color color=0xffffffff, Color shadowColor=0xFF000000, int font=0);
-  void drawTextShadowCenter(const TCHAR *text, int x, int y, Color color=0xffffffff, Color shadowColor=0xFF000000, int font=0);
-  void drawTextContrastCenter(const TCHAR *text, int x, int y, Color color=0xffffffff, Color shadowColor=0xFF000000, int font=0);
-  void drawTextContrast(const TCHAR *text, int x, int y, Color color=0xffffffff, Color shadowColor=0xFF000000, int font=0);
+  void drawText(const TCHAR *text, int x, int y, Color color = 0, int font = 0);
+  void drawTextCenter(const TCHAR *text, int x, int y, Color color, int font = 0);
+  void drawTextShadow(const TCHAR *text, int x, int y, Color color=0xffffffff, Color shadowColor=0xFF000000, int font = 0);
+  void drawTextShadowCenter(const TCHAR *text, int x, int y, Color color=0xffffffff, Color shadowColor=0xFF000000, int font = 0);
+  void drawTextContrastCenter(const TCHAR *text, int x, int y, Color color=0xffffffff, Color shadowColor=0xFF000000, int font = 0);
+  void drawTextContrast(const TCHAR *text, int x, int y, Color color=0xffffffff, Color shadowColor=0xFF000000, int font = 0);
 
   void SetFontScale(float xs, float ys) {
     fontscalex = xs;
@@ -93,11 +93,14 @@ class LAMEBuffer {
   // Draws what we have collected so far, so that we can change blend modes etc.
   void Flush();
 
+  void SetDefaultFont(int defFont) {defaultFont = defFont;}
+
  private:
   const Atlas *atlas;
 
   float xoffset, yoffset;
 
+  int defaultFont;
   float fontscalex;
   float fontscaley;
 

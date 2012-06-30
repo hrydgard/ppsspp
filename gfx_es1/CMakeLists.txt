@@ -1,5 +1,5 @@
 set(SRCS
-  draw_buffer.cpp
+  lame_buffer.cpp
 )
 set(SRCS ${SRCS})
 
