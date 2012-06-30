@@ -37,6 +37,7 @@ public class NativeAudioPlayer {
 				playThread();
 			}
 		});
+		thread.setPriority(Thread.MAX_PRIORITY);
 		thread.start();
 	}
 	
