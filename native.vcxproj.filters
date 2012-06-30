@@ -175,9 +175,6 @@
     <ClInclude Include="net\resolve.h">
       <Filter>net</Filter>
     </ClInclude>
-    <ClInclude Include="gfx_es1\lame_buffer.h">
-      <Filter>gfx</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -320,9 +317,6 @@
     </ClCompile>
     <ClCompile Include="net\resolve.cpp">
       <Filter>net</Filter>
-    </ClCompile>
-    <ClCompile Include="gfx_es1\lame_buffer.cpp">
-      <Filter>gfx</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -127,7 +127,6 @@
     <ClInclude Include="gfx\texture_gen.h" />
     <ClInclude Include="gfx\texture.h" />
     <ClInclude Include="gfx\texture_atlas.h" />
-    <ClInclude Include="gfx_es1\lame_buffer.h" />
     <ClInclude Include="gfx_es2\draw_buffer.h" />
     <ClInclude Include="gfx_es2\fbo.h" />
     <ClInclude Include="gfx_es2\glsl_program.h" />
@@ -185,7 +184,6 @@
     <ClCompile Include="gfx\texture.cpp" />
     <ClCompile Include="gfx\texture_atlas.cpp" />
     <ClCompile Include="gfx\texture_gen.cpp" />
-    <ClCompile Include="gfx_es1\lame_buffer.cpp" />
     <ClCompile Include="gfx_es2\draw_buffer.cpp" />
     <ClCompile Include="gfx_es2\fbo.cpp" />
     <ClCompile Include="gfx_es2\glsl_program.cpp" />
