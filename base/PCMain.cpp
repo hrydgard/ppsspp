@@ -28,7 +28,11 @@
 // Simple implementations of System functions
 
 void SystemToast(const char *text) {
-	MessageBox(0, text, "Toast!", MB_ICONINFORMATION);
+#ifdef _WIN32
+  MessageBox(0, text, "Toast!", MB_ICONINFORMATION);
+#else
+  puts(text);
+#endif
 }
 
 
