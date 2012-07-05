@@ -23,13 +23,13 @@ void glCheckzor(const char *file, int line) {
 #ifndef ANDROID
 #if 0
 void log_callback(GLenum source, GLenum type,
-                  GLuint id,
-                  GLenum severity,
-                  GLsizei length,
-                  const GLchar* message,
-                  GLvoid* userParam) {
-  const char *src = "unknown";
-  switch (source) {
+  GLuint id,
+  GLenum severity,
+  GLsizei length,
+  const GLchar* message,
+  GLvoid* userParam) {
+    const char *src = "unknown";
+    switch (source) {
     case GL_DEBUG_SOURCE_API_GL_ARB:
       src = "GL";
       break;
@@ -41,8 +41,8 @@ void log_callback(GLenum source, GLenum type,
       break;
     default:
       break;
-  }
-  switch (type) {
+    }
+    switch (type) {
     case GL_DEBUG_TYPE_ERROR_ARB:
     case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR_ARB:
       ELOG("%s: %s", src, message);
@@ -50,7 +50,7 @@ void log_callback(GLenum source, GLenum type,
     default:
       ILOG("%s: %s", src, message);
       break;
-  }
+    }
 }
 #endif
 #endif

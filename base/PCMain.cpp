@@ -23,6 +23,7 @@
 #include "file/zip_read.h"
 #include "input/input_state.h"
 #include "base/NativeApp.h"
+#include "net/resolve.h"
 
 
 // Simple implementations of System functions
@@ -131,9 +132,13 @@ int main(int argc, char *argv[]) {
 		g_xres = 800;
 		g_yres = 480;
 	} else {
-		g_xres = 1480;
-		g_yres = 800;
+#ifdef _WIN32
+		g_xres = 1580;
+		g_yres = 1000;
+#endif
 	}
+
+  net::Init();
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
 		fprintf(stderr, "Unable to initialize SDL: %s\n", SDL_GetError());
@@ -208,13 +213,15 @@ int main(int argc, char *argv[]) {
 
   InputState input_state;
   int framecount = 0;
-
+	bool nextFrameMD = 0;
 	while (true) {
 		SDL_Event event;
 
     input_state.accelerometer_valid = false;
     input_state.mouse_valid = true;
 		int done = 0;
+		
+		// input_state.mouse_down[1] = nextFrameMD;
 		while (SDL_PollEvent(&event)) {
 			if (event.type == SDL_QUIT) {
 				done = 1;
@@ -225,18 +232,24 @@ int main(int argc, char *argv[]) {
 			} else if (event.type == SDL_MOUSEMOTION) {
         input_state.mouse_x[0] = event.motion.x;
         input_state.mouse_y[0] = event.motion.y;
+				input_state.mouse_x[1] = event.motion.x + 150;
+				input_state.mouse_y[1] = event.motion.y;
 			} else if (event.type == SDL_MOUSEBUTTONDOWN) {
 				if (event.button.button == SDL_BUTTON_LEFT) {
           ///input_state.mouse_buttons_down = 1;
-          input_state.mouse_down[0] = true;
+					input_state.mouse_down[0] = true;
+					nextFrameMD = true;
 				}
 			} else if (event.type == SDL_MOUSEBUTTONUP) {
 				if (event.button.button == SDL_BUTTON_LEFT) {
-          input_state.mouse_down[0] = false;
+					input_state.mouse_down[0] = false;
+          nextFrameMD = false;
           //input_state.mouse_buttons_up = 1;
         }
 			}
 		}
+
+
 
 		if (done) break;
 

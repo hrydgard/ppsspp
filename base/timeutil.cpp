@@ -18,14 +18,14 @@ __int64 _frequency = 0;
 __int64 _starttime = 0;
 
 double real_time_now(){
-	if (_frequency == 0) {
-		QueryPerformanceFrequency((LARGE_INTEGER*)&_frequency);
-		QueryPerformanceCounter((LARGE_INTEGER*)&_starttime);
-		curtime=0;
-	}
-	__int64 time;
-	QueryPerformanceCounter((LARGE_INTEGER*)&time);
-	return ((double) (time - _starttime) / (double) _frequency);
+  if (_frequency == 0) {
+    QueryPerformanceFrequency((LARGE_INTEGER*)&_frequency);
+    QueryPerformanceCounter((LARGE_INTEGER*)&_starttime);
+    curtime=0;
+  }
+  __int64 time;
+  QueryPerformanceCounter((LARGE_INTEGER*)&time);
+  return ((double) (time - _starttime) / (double) _frequency);
 }
 
 #else
@@ -47,17 +47,17 @@ void time_update() {
   curtime = real_time_now();
   curtime_f = (float)curtime;
 
-	//printf("curtime: %f %f\n", curtime, curtime_f);
-	// also smooth time.
-	//curtime+=float((double) (time-_starttime) / (double) _frequency);
-	//curtime*=0.5f;
-	//curtime+=1.0f/60.0f;
-	//lastTime=curtime;
+  //printf("curtime: %f %f\n", curtime, curtime_f);
+  // also smooth time.
+  //curtime+=float((double) (time-_starttime) / (double) _frequency);
+  //curtime*=0.5f;
+  //curtime+=1.0f/60.0f;
+  //lastTime=curtime;
   //curtime_f = (float)curtime;
 }
 
 float time_now() {
-	return curtime_f;
+  return curtime_f;
 }
 
 double time_now_d() {
@@ -65,16 +65,16 @@ double time_now_d() {
 }
 
 int time_now_ms() {
-	return int(curtime*1000.0);
+  return int(curtime*1000.0);
 }
 
 void sleep_ms(int ms) {
 #ifdef _WIN32
 #ifndef METRO
-	Sleep(ms);
+  Sleep(ms);
 #endif
 #else
-	usleep(ms * 1000);
+  usleep(ms * 1000);
 #endif
 }
 

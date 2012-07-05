@@ -33,7 +33,7 @@ struct Clip {
 
 // If current_clip == 0, the channel is free.
 
-enum PlaybackState {
+enum ClipPlaybackState {
   PB_STOPPED = 0,
   PB_PLAYING = 1,
 };
@@ -42,7 +42,7 @@ enum PlaybackState {
 struct Channel {
   const Clip *current_clip;
   // Playback state
-  PlaybackState state;
+  ClipPlaybackState state;
   int pos;
   PlayParams params;
   // Effect state
@@ -89,26 +89,26 @@ static int get_free_channel(Mixer *mixer) {
 }
 
 Clip *clip_load(const char *filename) {
-	short *data;
+  short *data;
   int num_samples, sample_rate, num_channels;
 
-	if (!strcmp(filename + strlen(filename) - 4, ".ogg")) {
-		// Ogg file. For now, directly decompress, no streaming support.
-		uint8_t *filedata;
-		size_t size;
-		filedata = VFSReadFile(filename, &size);
-		num_samples = stb_vorbis_decode_memory(filedata, size, &num_channels, &data);
-		if (num_samples <= 0)
-			return NULL;
-		sample_rate = 44100;
-	  ILOG("read ogg %s, length %i, rate %i", filename, num_samples, sample_rate);
-	} else {
-		// Wav file. Easy peasy.
-	  data = wav_read(filename, &num_samples, &sample_rate, &num_channels);
-		if (!data) {
-			return NULL;
-		}
-	}
+  if (!strcmp(filename + strlen(filename) - 4, ".ogg")) {
+    // Ogg file. For now, directly decompress, no streaming support.
+    uint8_t *filedata;
+    size_t size;
+    filedata = VFSReadFile(filename, &size);
+    num_samples = stb_vorbis_decode_memory(filedata, size, &num_channels, &data);
+    if (num_samples <= 0)
+      return NULL;
+    sample_rate = 44100;
+    ILOG("read ogg %s, length %i, rate %i", filename, num_samples, sample_rate);
+  } else {
+    // Wav file. Easy peasy.
+    data = wav_read(filename, &num_samples, &sample_rate, &num_channels);
+    if (!data) {
+      return NULL;
+    }
+  }
 
   Clip *clip = new Clip();
   clip->type = CT_PCM16;
@@ -130,7 +130,12 @@ void clip_destroy(Clip *clip) {
   }
 }
 
-int clip_length(const Clip *clip) {
+const short *clip_data(const Clip *clip)
+{
+  return clip->data;
+}
+
+size_t clip_length(const Clip *clip) {
   return clip->length;
 }
 

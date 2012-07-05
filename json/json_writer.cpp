@@ -103,13 +103,13 @@ void JsonWriter::pop() {
   BlockType type = stack_.back().type;
   stack_.pop_back();
   switch (type) {
-    case ARRAY:
-      str_ << "\n" << indent() << "]";
-      break;
-    case DICT:
-      str_ << "\n" << indent() << "}";
-      break;
+  case ARRAY:
+    str_ << "\n" << indent() << "]";
+    break;
+  case DICT:
+    str_ << "\n" << indent() << "}";
+    break;
   }
-	if (stack_.size() > 0)
-		stack_.back().first = false;
+  if (stack_.size() > 0)
+    stack_.back().first = false;
 }

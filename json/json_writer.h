@@ -17,14 +17,14 @@
 #include "base/basictypes.h"
 
 class JsonWriter {
- public:
+public:
   JsonWriter();
   ~JsonWriter();
   void begin();
   void end();
   void pushDict(const char *name);
   void pushArray(const char *name);
-	void pop();
+  void pop();
   void writeBool(bool value);
   void writeBool(const char *name, bool value);
   void writeInt(int value);
@@ -38,7 +38,7 @@ class JsonWriter {
     return str_.str();
   }
 
- private:
+private:
   const char *indent(int n) const;
   const char *comma() const;
   const char *arrayComma() const;
@@ -56,5 +56,5 @@ class JsonWriter {
   std::vector<StackEntry> stack_;
   std::ostringstream str_;
 
-	DISALLOW_COPY_AND_ASSIGN(JsonWriter);
+  DISALLOW_COPY_AND_ASSIGN(JsonWriter);
 };

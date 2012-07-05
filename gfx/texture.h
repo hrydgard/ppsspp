@@ -9,7 +9,7 @@
 #include "gfx/gl_lost_manager.h"
 
 class Texture : public GfxResourceHolder {
- public:
+public:
   Texture();
   ~Texture();
 
@@ -18,10 +18,10 @@ class Texture : public GfxResourceHolder {
   bool LoadPNG(const char *filename);
 #endif
   bool LoadXOR();  // Loads a placeholder texture.
-  
+
   // Deduces format from the filename.
   // If loading fails, will load a 256x256 XOR texture.
-	// If filename begins with "gen:", will defer to texture_gen.cpp/h.
+  // If filename begins with "gen:", will defer to texture_gen.cpp/h.
   bool Load(const char *filename);
 
   void Bind(int stage = -1);
@@ -35,10 +35,10 @@ class Texture : public GfxResourceHolder {
   virtual void GLLost();
   std::string filename() const { return filename_; }
 
- private:
+private:
   std::string filename_;
 #ifdef METRO
-	ID3D11Texture2D *tex_;
+  ID3D11Texture2D *tex_;
 #endif
   unsigned int id_;
   int width_, height_;

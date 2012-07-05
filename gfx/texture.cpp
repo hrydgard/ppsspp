@@ -68,34 +68,34 @@ static void SetTextureParameters(int zim_flags) {
 }
 
 bool Texture::Load(const char *filename) {
-	// hook for generated textures
-	if (!memcmp(filename, "gen:", 4)) {
-		// TODO
-		// return false;
-		int bpp, w, h;
-		bool clamp;
-		uint8_t *data = generateTexture(filename, bpp, w, h, clamp);
-		if (!data) 
-			return false;
-		glGenTextures(1, &id_);
-		glBindTexture(GL_TEXTURE_2D, id_);
-		if (bpp == 1) {
+  // hook for generated textures
+  if (!memcmp(filename, "gen:", 4)) {
+    // TODO
+    // return false;
+    int bpp, w, h;
+    bool clamp;
+    uint8_t *data = generateTexture(filename, bpp, w, h, clamp);
+    if (!data) 
+      return false;
+    glGenTextures(1, &id_);
+    glBindTexture(GL_TEXTURE_2D, id_);
+    if (bpp == 1) {
 
-	#ifdef ANDROID
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, w, h, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, data);
-	#else
-			glTexImage2D(GL_TEXTURE_2D, 0, 1, w, h, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, data);
-	#endif
-		} else {
-			FLOG("unsupported");
-		}
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, clamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, clamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		delete [] data;
-		return true;
-	}
+#ifdef ANDROID
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, w, h, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, data);
+#else
+      glTexImage2D(GL_TEXTURE_2D, 0, 1, w, h, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, data);
+#endif
+    } else {
+      FLOG("unsupported");
+    }
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, clamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, clamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    delete [] data;
+    return true;
+  }
 
   filename_ = filename;
 
@@ -123,27 +123,27 @@ bool Texture::Load(const char *filename) {
   const char *name = fn;
   if (zim && 0==memcmp(name, "Media/textures/", strlen("Media/textures"))) name += strlen("Media/textures/");
   len = strlen(name);
-  #ifndef ANDROID
+#ifndef ANDROID
   if (!strcmp("png", &name[len-3]) ||
-      !strcmp("PNG", &name[len-3])) {
-    if (!LoadPNG(fn)) {
-      LoadXOR();
-      return false;
-    } else {
-      return true;
-    }
+    !strcmp("PNG", &name[len-3])) {
+      if (!LoadPNG(fn)) {
+        LoadXOR();
+        return false;
+      } else {
+        return true;
+      }
   } else
-  #endif
-  if (!strcmp("zim", &name[len-3])) {
-    if (!LoadZIM(name)) {
-      LoadXOR();
-      return false;
-    } else {
-      return true;
+#endif
+    if (!strcmp("zim", &name[len-3])) {
+      if (!LoadZIM(name)) {
+        LoadXOR();
+        return false;
+      } else {
+        return true;
+      }
     }
-  }
-  LoadXOR();
-  return false;
+    LoadXOR();
+    return false;
 }
 
 #ifndef ANDROID
@@ -157,7 +157,7 @@ bool Texture::LoadPNG(const char *filename) {
   glBindTexture(GL_TEXTURE_2D, id_);
   SetTextureParameters(ZIM_GEN_MIPS);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width_, height_, 0, 
-               GL_RGBA, GL_UNSIGNED_BYTE, image_data);
+    GL_RGBA, GL_UNSIGNED_BYTE, image_data);
   glGenerateMipmap(GL_TEXTURE_2D);
   GL_CHECK();
   free(image_data);
@@ -166,22 +166,22 @@ bool Texture::LoadPNG(const char *filename) {
 #endif
 
 bool Texture::LoadXOR() {
-	width_ = height_ = 256;
-	unsigned char *buf = new unsigned char[width_*height_*4];
-	for (int y = 0; y < 256; y++) {
-		for (int x = 0; x < 256; x++) {
-			buf[(y*width_ + x)*4 + 0] = x^y;
-			buf[(y*width_ + x)*4 + 1] = x^y;
-			buf[(y*width_ + x)*4 + 2] = x^y;
-			buf[(y*width_ + x)*4 + 3] = 0xFF;
-		}
-	}
+  width_ = height_ = 256;
+  unsigned char *buf = new unsigned char[width_*height_*4];
+  for (int y = 0; y < 256; y++) {
+    for (int x = 0; x < 256; x++) {
+      buf[(y*width_ + x)*4 + 0] = x^y;
+      buf[(y*width_ + x)*4 + 1] = x^y;
+      buf[(y*width_ + x)*4 + 2] = x^y;
+      buf[(y*width_ + x)*4 + 3] = 0xFF;
+    }
+  }
   GL_CHECK();
-	glGenTextures(1, &id_);
+  glGenTextures(1, &id_);
   glBindTexture(GL_TEXTURE_2D, id_);
   SetTextureParameters(ZIM_GEN_MIPS);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width_, height_, 0,
-               GL_RGBA, GL_UNSIGNED_BYTE, buf);
+    GL_RGBA, GL_UNSIGNED_BYTE, buf);
   glGenerateMipmap(GL_TEXTURE_2D);
   GL_CHECK();
   delete [] buf;
@@ -198,7 +198,7 @@ uint8_t *ETC1ToRGBA(uint8_t *etc1, int width, int height) {
   for (int y = 0; y < height; y += 4) {
     for (int x = 0; x < width; x += 4) {
       DecompressBlock(etc1 + ((y / 4) * width/4 + (x / 4)) * 8,
-                      rgba + (y * width + x) * 4, width, 255);
+        rgba + (y * width + x) * 4, width, 255);
     }
   }
   return rgba;
@@ -256,7 +256,7 @@ bool Texture::LoadZIM(const char *filename) {
 #else
       image_data[l] = ETC1ToRGBA(image_data[l], data_w, data_h);
       glTexImage2D(GL_TEXTURE_2D, l, GL_RGBA, width[l], height[l], 0,
-                   GL_RGBA, GL_UNSIGNED_BYTE, image_data[l]);
+        GL_RGBA, GL_UNSIGNED_BYTE, image_data[l]);
 #endif
     }
     GL_CHECK();
@@ -266,7 +266,7 @@ bool Texture::LoadZIM(const char *filename) {
   } else {
     for (int l = 0; l < num_levels; l++) {
       glTexImage2D(GL_TEXTURE_2D, l, storage, width[l], height[l], 0,
-                   colors, data_type, image_data[l]);
+        colors, data_type, image_data[l]);
     }
     if (num_levels == 1 && (flags & ZIM_GEN_MIPS)) {
       glGenerateMipmap(GL_TEXTURE_2D);
@@ -282,8 +282,8 @@ bool Texture::LoadZIM(const char *filename) {
 
 void Texture::Bind(int stage) {
   GL_CHECK();
-	if (stage != -1)
-  	glActiveTexture(GL_TEXTURE0 + stage);
+  if (stage != -1)
+    glActiveTexture(GL_TEXTURE0 + stage);
   glBindTexture(GL_TEXTURE_2D, id_);
   GL_CHECK();
 }

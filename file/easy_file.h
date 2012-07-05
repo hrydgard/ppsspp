@@ -11,48 +11,48 @@
 // Raw file paths, does not go through VFS.
 
 enum eFileMode {
-	FILE_READ=5,
-	FILE_WRITE=6
+  FILE_READ=5,
+  FILE_WRITE=6
 };
 
 // TODO: Rename.
 class LAMEFile {
 public:
-	LAMEFile();
-	virtual ~LAMEFile();
+  LAMEFile();
+  virtual ~LAMEFile();
 
-	bool open(const char *filename, eFileMode mode);
-	bool open(std::string filename, eFileMode mode) {
-		return open(filename.c_str(), mode);
-	}
-	void close();
+  bool open(const char *filename, eFileMode mode);
+  bool open(std::string filename, eFileMode mode) {
+    return open(filename.c_str(), mode);
+  }
+  void close();
 
-	void writeInt(int i);
-	void writeChar(char i);
-	int  write(const void *data, int size);
-	void write(const std::string &str) {
-		write((void *)str.data(), str.size());
-	}
+  void writeInt(int i);
+  void writeChar(char i);
+  int  write(const void *data, int size);
+  void write(const std::string &str) {
+    write((void *)str.data(), str.size());
+  }
 
-	int  readInt();
-	char readChar();
-	int  read(void *data, int size);
+  int  readInt();
+  char readChar();
+  int  read(void *data, int size);
 
-	std::string readAll();
+  std::string readAll();
 
-	int  fileSize();
+  int  fileSize();
 
-	void seekBeg(int pos) {
-		if (isOpen)	fseek(file_,pos,SEEK_SET);
-	}
-	void seekEnd(int pos) {
-		if (isOpen)	fseek(file_,pos,SEEK_END);
-	}
-	void seekCurrent(int pos) {
-		if (isOpen)	fseek(file_,pos,SEEK_CUR);
-	}
+  void seekBeg(int pos) {
+    if (isOpen)  fseek(file_,pos,SEEK_SET);
+  }
+  void seekEnd(int pos) {
+    if (isOpen)  fseek(file_,pos,SEEK_END);
+  }
+  void seekCurrent(int pos) {
+    if (isOpen)  fseek(file_,pos,SEEK_CUR);
+  }
 private:
-	FILE *file_;
-	bool isOpen;
-	int size_;
+  FILE *file_;
+  bool isOpen;
+  int size_;
 };

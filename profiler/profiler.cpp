@@ -42,7 +42,7 @@ void _profiler_leave(const char *section_name) {
   cur_section[level].end = real_time_now();
   if (strcmp(section_name, cur_section[level].name)) {
     FLOG("Can't enter %s when %s is active, only one at a time!",
-         section_name, cur_section[level].name); 
+      section_name, cur_section[level].name); 
   }
   cur_section[level].level = level;
   current_frame.push_back(cur_section[level]);

@@ -28,7 +28,7 @@ void gl_lost() {
     return;
   }
   for (std::list<GfxResourceHolder *>::iterator iter = holders->begin();
-      iter != holders->end(); ++iter) {
+       iter != holders->end(); ++iter) {
     (*iter)->GLLost();
   }
 }

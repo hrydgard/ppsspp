@@ -60,6 +60,13 @@ inline void Crash() {
 
 #endif
 
+#undef CHECK
+
 #define CHECK(a) {if (!(a)) {FLOG("CHECK failed");}}
+#define CHECK_P(a, ...) {if (!(a)) {FLOG("CHECK failed: " __VA_ARGS__);}}
 #define CHECK_EQ(a, b) CHECK((a) == (b));
 #define CHECK_NE(a, b) CHECK((a) != (b));
+#define CHECK_GT(a, b) CHECK((a) > (b));
+#define CHECK_GE(a, b) CHECK((a) >= (b));
+#define CHECK_LT(a, b) CHECK((a) < (b));
+#define CHECK_LE(a, b) CHECK((a) <= (b));

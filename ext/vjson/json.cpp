@@ -50,7 +50,12 @@ const json_value *json_value::get(const char *child_name, json_type type) const 
 }
 
 const char *json_value::getString(const char *child_name) const {
-	return get(child_name, JSON_STRING)->string_value;
+	const json_value *val = get(child_name, JSON_STRING);
+	if (val)
+		return val->string_value;
+	else
+		FLOG("String %s missing from node %s", child_name, this->name);
+	return 0;
 }
 
 const char *json_value::getString(const char *child_name, const char *default_value) const {

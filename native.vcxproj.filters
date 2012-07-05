@@ -7,8 +7,6 @@
     <None Include="README.md" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="base\logging.h" />
-    <ClInclude Include="image\surface.h" />
     <ClInclude Include="gfx\gl_debug_log.h">
       <Filter>gfx</Filter>
     </ClInclude>
@@ -156,6 +154,27 @@
     <ClInclude Include="base\mutex.h">
       <Filter>base</Filter>
     </ClInclude>
+    <ClInclude Include="util\bits\bits.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="data\listable.h">
+      <Filter>data</Filter>
+    </ClInclude>
+    <ClInclude Include="base\logging.h">
+      <Filter>base</Filter>
+    </ClInclude>
+    <ClInclude Include="net\http_client.h">
+      <Filter>net</Filter>
+    </ClInclude>
+    <ClInclude Include="base\buffer.h">
+      <Filter>base</Filter>
+    </ClInclude>
+    <ClInclude Include="file\fd_util.h">
+      <Filter>file</Filter>
+    </ClInclude>
+    <ClInclude Include="net\resolve.h">
+      <Filter>net</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -218,9 +237,6 @@
     <ClCompile Include="gfx\texture_atlas.cpp">
       <Filter>gfx</Filter>
     </ClCompile>
-    <ClCompile Include="math\math_util.cc">
-      <Filter>math</Filter>
-    </ClCompile>
     <ClCompile Include="ext\etcpack\etcpack.cpp">
       <Filter>ext</Filter>
     </ClCompile>
@@ -281,6 +297,27 @@
     <ClCompile Include="android\app-android.cpp">
       <Filter>base</Filter>
     </ClCompile>
+    <ClCompile Include="util\bits\bits.cpp">
+      <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="math\math_util.cpp">
+      <Filter>math</Filter>
+    </ClCompile>
+    <ClCompile Include="net\http_client.cpp">
+      <Filter>net</Filter>
+    </ClCompile>
+    <ClCompile Include="base\buffer.cpp">
+      <Filter>base</Filter>
+    </ClCompile>
+    <ClCompile Include="file\fd_util.cpp">
+      <Filter>file</Filter>
+    </ClCompile>
+    <ClCompile Include="base\stringutil.cpp">
+      <Filter>base</Filter>
+    </ClCompile>
+    <ClCompile Include="net\resolve.cpp">
+      <Filter>net</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="gfx">
@@ -321,6 +358,18 @@
     </Filter>
     <Filter Include="midi">
       <UniqueIdentifier>{4710a9a2-d1fa-4920-ba1b-a7527902be53}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="util">
+      <UniqueIdentifier>{e36ca540-863c-496b-b0f4-b1ece3e72feb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="data">
+      <UniqueIdentifier>{d5fa3d62-88bf-4dc4-9814-28f3c0444e62}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="io">
+      <UniqueIdentifier>{1e85f968-7106-483c-ae7d-77d0ef58d787}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="net">
+      <UniqueIdentifier>{6a548b3d-3a4c-4114-aa2f-0b42bf7bf2ce}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>
