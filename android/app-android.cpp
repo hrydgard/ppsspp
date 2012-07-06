@@ -72,7 +72,6 @@ void LaunchEmail(const char *email_address)
 
 // Remember that all of these need initialization on init! The process
 // may be reused when restarting the game. Globals are DANGEROUS.
-int xres, yres;
 
 // Used for touch. (TODO)
 float xscale = 1;
@@ -94,19 +93,19 @@ extern "C" void Java_com_turboviking_libnative_NativeApp_init
   (JNIEnv *env, jclass, jint xxres, jint yyres, jstring apkpath,
    jstring dataDir, jstring externalDir, jstring jinstallID) {
   jniEnvUI = env;
-  xres = xxres;
-  yres = yyres;
-  g_xres = xres;
-  g_yres = yres;
+  pixel_xres = xxres;
+  pixel_yres = yyres;
+  g_xres = xxres;
+  g_yres = yyres;
 
   if (g_xres < g_yres)
   {
     // Portrait - let's force the imaginary resolution we want
-    g_xres = coord_xres;
-    g_yres = coord_yres;
+    g_xres = pixel_xres;
+    g_yres = pixel_yres;
   }
-  xscale = (float)coord_xres / xres;
-  yscale = (float)coord_yres / yres;
+  xscale = (float)g_xres / pixel_xres;
+  yscale = (float)g_yres / pixel_yres;
   memset(&input_state, 0, sizeof(input_state));
   renderer_inited = false;
   first_lost = true;

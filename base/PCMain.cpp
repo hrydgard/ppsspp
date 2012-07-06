@@ -30,9 +30,9 @@
 
 void SystemToast(const char *text) {
 #ifdef _WIN32
-  MessageBox(0, text, "Toast!", MB_ICONINFORMATION);
+	MessageBox(0, text, "Toast!", MB_ICONINFORMATION);
 #else
-  puts(text);
+	puts(text);
 #endif
 }
 
@@ -76,69 +76,79 @@ void LaunchEmail(const char *email_address)
 
 
 const int buttonMappings[12] = {
-	SDLK_x,										//A            
-	SDLK_s,										//B            
-	SDLK_z,										//X            
-	SDLK_a,										//Y            
+	SDLK_x,										//A						
+	SDLK_s,										//B						
+	SDLK_z,										//X						
+	SDLK_a,										//Y						
 	SDLK_w,										//LBUMPER
 	SDLK_q,										//RBUMPER
 	SDLK_1,										//START
 	SDLK_2,										//BACK
-	SDLK_UP,									//UP    
+	SDLK_UP,									//UP		
 	SDLK_DOWN,								//DOWN 
-	SDLK_LEFT,								//LEFT         
-	SDLK_RIGHT,								//RIGHT         
+	SDLK_LEFT,								//LEFT				 
+	SDLK_RIGHT,								//RIGHT				 
 };
 
 void SimulateGamepad(const uint8 *keys, InputState *input) {
-  input->pad_buttons = 0;
-  input->pad_lstick_x = 0;
-  input->pad_lstick_y = 0;
-  input->pad_rstick_x = 0;
-  input->pad_rstick_y = 0;
+	input->pad_buttons = 0;
+	input->pad_lstick_x = 0;
+	input->pad_lstick_y = 0;
+	input->pad_rstick_x = 0;
+	input->pad_rstick_y = 0;
 	for (int b = 0; b < 12; b++) {
 		if (keys[buttonMappings[b]])
 			input->pad_buttons |= (1<<b);
 	}
 
-	if      (keys['I']) input->pad_lstick_y=32000;
+	if			(keys['I']) input->pad_lstick_y=32000;
 	else if (keys['K']) input->pad_lstick_y=-32000; 
-	if      (keys['J']) input->pad_lstick_x=-32000;
+	if			(keys['J']) input->pad_lstick_x=-32000;
 	else if (keys['L']) input->pad_lstick_x=32000; 
-	if      (keys['8']) input->pad_rstick_y=32000;
+	if			(keys['8']) input->pad_rstick_y=32000;
 	else if (keys['2']) input->pad_rstick_y=-32000; 
-	if      (keys['4']) input->pad_rstick_x=-32000;
+	if			(keys['4']) input->pad_rstick_x=-32000;
 	else if (keys['6']) input->pad_rstick_x=32000; 
 }
 
 extern void mixaudio(void *userdata, Uint8 *stream, int len) {
-  NativeMix((short  *)stream, len / 4);
+	NativeMix((short	*)stream, len / 4);
 }
 
 #ifdef _WIN32
 #undef main
 #endif
 int main(int argc, char *argv[]) {
-  /* // Xoom resolution. Other common tablet resolutions: 1024x600 , 1366x768
-  g_xres = 1280;
-  g_yres = 800;
-  */ 
+	/* // Xoom resolution. Other common tablet resolutions: 1024x600 , 1366x768
+	g_xres = 1280;
+	g_yres = 800;
+	*/ 
 	std::string app_name;
 	std::string app_name_nice;
 	bool landscape;
 	NativeGetAppInfo(&app_name, &app_name_nice, &landscape);
 
+	float zoom = 0.7f;
+	const char *zoomenv = getenv("ZOOM");
+	if (zoomenv) {
+		zoom = atof(zoomenv);
+	}
 	if (landscape) {
-		g_xres = 800;
-		g_yres = 480;
+		pixel_xres = 800 * zoom;
+		pixel_yres = 480 * zoom;
 	} else {
-#ifdef _WIN32
-		g_xres = 1580;
-		g_yres = 1000;
-#endif
+		pixel_xres = 1580 * zoom;
+		pixel_yres = 1000 * zoom;
 	}
 
-  net::Init();
+	float density = 1.0f;
+	g_xres = (float)pixel_xres * density / zoom;
+	g_yres = (float)pixel_yres * density / zoom;
+
+	printf("Pixels: %i x %i\n", pixel_xres, pixel_yres);
+	printf("Virtual pixels: %i x %i\n", g_xres, g_yres);
+
+	net::Init();
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
 		fprintf(stderr, "Unable to initialize SDL: %s\n", SDL_GetError());
@@ -155,7 +165,7 @@ int main(int argc, char *argv[]) {
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 	SDL_GL_SetAttribute(SDL_GL_SWAP_CONTROL, 1);
 
-	if (SDL_SetVideoMode(g_xres, g_yres, 0, SDL_OPENGL) == NULL) {
+	if (SDL_SetVideoMode(pixel_xres, pixel_yres, 0, SDL_OPENGL) == NULL) {
 		fprintf(stderr, "SDL SetVideoMode failed: Unable to create OpenGL screen: %s\n", SDL_GetError());
 		SDL_Quit();
 		return(2);
@@ -193,32 +203,32 @@ int main(int argc, char *argv[]) {
 #endif
 
 	NativeInit(argc, (const char **)argv, path, "BADCOFFEE");
-  NativeInitGraphics();
+	NativeInitGraphics();
 
-  SDL_AudioSpec fmt;
-  fmt.freq = 44100;
-  fmt.format = AUDIO_S16;
-  fmt.channels = 2;
-  fmt.samples = 1024;
-  fmt.callback = &mixaudio;
-  fmt.userdata = (void *)0;
+	SDL_AudioSpec fmt;
+	fmt.freq = 44100;
+	fmt.format = AUDIO_S16;
+	fmt.channels = 2;
+	fmt.samples = 1024;
+	fmt.callback = &mixaudio;
+	fmt.userdata = (void *)0;
 
-  if (SDL_OpenAudio(&fmt, NULL) < 0) {
-    ELOG("Failed to open audio: %s", SDL_GetError());
-    return 1;
-  }
+	if (SDL_OpenAudio(&fmt, NULL) < 0) {
+		ELOG("Failed to open audio: %s", SDL_GetError());
+		return 1;
+	}
 
-  // Audio must be unpaused _after_ NativeInit()
-  SDL_PauseAudio(0);
+	// Audio must be unpaused _after_ NativeInit()
+	SDL_PauseAudio(0);
 
-  InputState input_state;
-  int framecount = 0;
+	InputState input_state;
+	int framecount = 0;
 	bool nextFrameMD = 0;
 	while (true) {
 		SDL_Event event;
 
-    input_state.accelerometer_valid = false;
-    input_state.mouse_valid = true;
+		input_state.accelerometer_valid = false;
+		input_state.mouse_valid = true;
 		int done = 0;
 		
 		// input_state.mouse_down[1] = nextFrameMD;
@@ -230,61 +240,57 @@ int main(int argc, char *argv[]) {
 					done = 1;
 				}
 			} else if (event.type == SDL_MOUSEMOTION) {
-        input_state.mouse_x[0] = event.motion.x;
-        input_state.mouse_y[0] = event.motion.y;
-				input_state.mouse_x[1] = event.motion.x + 150;
-				input_state.mouse_y[1] = event.motion.y;
+				input_state.mouse_x[0] = event.motion.x * density / zoom;
+				input_state.mouse_y[0] = event.motion.y * density / zoom;
 			} else if (event.type == SDL_MOUSEBUTTONDOWN) {
 				if (event.button.button == SDL_BUTTON_LEFT) {
-          ///input_state.mouse_buttons_down = 1;
+					//input_state.mouse_buttons_down = 1;
 					input_state.mouse_down[0] = true;
 					nextFrameMD = true;
 				}
 			} else if (event.type == SDL_MOUSEBUTTONUP) {
 				if (event.button.button == SDL_BUTTON_LEFT) {
 					input_state.mouse_down[0] = false;
-          nextFrameMD = false;
-          //input_state.mouse_buttons_up = 1;
-        }
+					nextFrameMD = false;
+					//input_state.mouse_buttons_up = 1;
+				}
 			}
 		}
 
+		if (done)
+			break;
 
-
-		if (done) break;
-
-    input_state.mouse_last[0] = input_state.mouse_down[0];
+		input_state.mouse_last[0] = input_state.mouse_down[0];
 		uint8 *keys = (uint8 *)SDL_GetKeyState(NULL);
-    if (keys[SDLK_ESCAPE]) {
-      break;
-    }
+		if (keys[SDLK_ESCAPE])
+			break;
 		SimulateGamepad(keys, &input_state);
-    UpdateInputState(&input_state);
-    NativeUpdate(input_state);
-    NativeRender();
-    if (framecount % 60 == 0) {
-     // glsl_refresh(); // auto-reloads modified GLSL shaders once per second.
-    }
+		UpdateInputState(&input_state);
+		NativeUpdate(input_state);
+		NativeRender();
+		if (framecount % 60 == 0) {
+		 // glsl_refresh(); // auto-reloads modified GLSL shaders once per second.
+		}
  
 		SDL_GL_SwapBuffers();
 
-    // Simple framerate limiting
+		// Simple framerate limiting
 		static float t=0;
 		while (time_now() < t+1.0f/60.0f) {
 			sleep_ms(0);
-      time_update();
+			time_update();
 		}
-    time_update();
+		time_update();
 		t = time_now();
-    framecount++;
+		framecount++;
 	}
-  // Faster exit, thanks to the OS. Remove this if you want to debug shutdown
-  exit(0);
+	// Faster exit, thanks to the OS. Remove this if you want to debug shutdown
+	exit(0);
 
-  NativeShutdownGraphics();
-  SDL_PauseAudio(1);
-  NativeShutdown();
-  SDL_CloseAudio();
+	NativeShutdownGraphics();
+	SDL_PauseAudio(1);
+	NativeShutdown();
+	SDL_CloseAudio();
 	SDL_Quit();
 	return 0;
 }
