@@ -4,7 +4,7 @@ public class NativeApp {
 	public static native boolean isLandscape();
 	public static native void init(
 			int xxres, int yyres, String apkPath,
-			String dataDir, String externalDir, String installID);
+			String dataDir, String externalDir, String installID, boolean useOpenSL);
 	public static native void shutdown();
 	 
 	public static native void keyDown(int key);
@@ -16,4 +16,6 @@ public class NativeApp {
 	// Sensor/input data. These are asynchronous, beware!
 	public static native void touch(float x, float y, int data, int pointerId);
 	public static native void accelerometer(float x, float y, float z);
+	
+	public static native void sendMessage(String msg, String arg);
 }

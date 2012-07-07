@@ -21,6 +21,7 @@
 #include "input/input_state.h"
 #include "audio/mixer.h"
 #include "math/math_util.h"
+#include "android/native_audio.h"
 
 #define coord_xres 480
 #define coord_yres 800
@@ -81,6 +82,7 @@ InputState input_state;
 
 static bool renderer_inited = false;
 static bool first_lost = true;
+static bool use_native_audio = false;
 
 extern "C" jboolean Java_com_turboviking_libnative_NativeApp_isLandscape(JNIEnv *env, jclass) {
 	std::string app_name, app_nice_name;
@@ -91,13 +93,13 @@ extern "C" jboolean Java_com_turboviking_libnative_NativeApp_isLandscape(JNIEnv 
 
 extern "C" void Java_com_turboviking_libnative_NativeApp_init
   (JNIEnv *env, jclass, jint xxres, jint yyres, jstring apkpath,
-   jstring dataDir, jstring externalDir, jstring jinstallID) {
+   jstring dataDir, jstring externalDir, jstring jinstallID, jboolean juseNativeAudio) {
   jniEnvUI = env;
   pixel_xres = xxres;
   pixel_yres = yyres;
   g_xres = xxres;
   g_yres = yyres;
-
+	use_native_audio = juseNativeAudio;
   if (g_xres < g_yres)
   {
     // Portrait - let's force the imaginary resolution we want
@@ -124,7 +126,8 @@ extern "C" void Java_com_turboviking_libnative_NativeApp_init
   str = env->GetStringUTFChars(jinstallID, &isCopy);
   std::string installID = std::string(str);
 
-	std::string app_name, app_nice_name;
+	std::string app_name;
+	std::string app_nice_name;
 	bool landscape;
 
 	NativeGetAppInfo(&app_name, &app_nice_name, &landscape);
@@ -275,3 +278,13 @@ extern "C" void JNICALL Java_com_turboviking_libnative_NativeApp_accelerometer
   input_state.acc.y = y;
   input_state.acc.z = z;
 }
+
+extern "C" void Java_com_turboviking_libnative_NativeApp_sendMessage
+  (JNIEnv *env, jclass, jstring message, jstring param) {
+	jboolean isCopy;
+	std::string msg(env->GetStringUTFChars(message, &isCopy));
+	std::string prm(env->GetStringUTFChars(param, &isCopy));
+	ILOG("Message received: %s %s", msg.c_str(), prm.c_str());
+}
+
+

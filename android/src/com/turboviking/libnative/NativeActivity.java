@@ -86,6 +86,7 @@ public class NativeActivity extends Activity {
 	private GLSurfaceView mGLSurfaceView;
 	private NativeAudioPlayer audioPlayer;
 	
+	boolean useOpenSL = false;
 	
 	public static String runCommand;
 	public static String commandParameter;
@@ -121,7 +122,8 @@ public class NativeActivity extends Activity {
 	    String externalStorageDir = sdcard.getAbsolutePath(); 
 	    String dataDir = this.getFilesDir().getAbsolutePath();
 		String apkFilePath = appInfo.sourceDir; 
-		NativeApp.init(scrWidth, scrHeight, apkFilePath, dataDir, externalStorageDir, installID);
+		NativeApp.sendMessage("Message from Java", "Hot Coffee");
+		NativeApp.init(scrWidth, scrHeight, apkFilePath, dataDir, externalStorageDir, installID, useOpenSL);
      
  		// Keep the screen bright - very annoying if it goes dark when tilting away
 		Window window = this.getWindow();
@@ -143,7 +145,8 @@ public class NativeActivity extends Activity {
         	// Native OpenSL is available. Let's not use the Java player in the future.
         	// TODO: code for that.
         }
-        audioPlayer = new NativeAudioPlayer();
+        if (!useOpenSL)
+        	audioPlayer = new NativeAudioPlayer();
     }  
 
     private boolean detectOpenGLES20() {
