@@ -31,6 +31,8 @@
 #include <SLES/OpenSLES.h>
 #include <SLES/OpenSLES_Android.h>
 
+#include "../base/logging.h"
+
 // engine interfaces
 static SLObjectItf engineObject = NULL;
 static SLEngineItf engineEngine;
@@ -57,6 +59,7 @@ static unsigned nextSize;
 // synthesize a mono sawtooth wave and place it into a buffer (called automatically on load)
 __attribute__((constructor)) static void onDlOpen(void)
 {
+	ILOG("Buffer callback");
 	unsigned int i;
 	for (i = 0; i < SAWTOOTH_FRAMES; ++i) {
 		sawtoothBuffer[i] = 32768 - ((i % 100) * 660);
@@ -98,9 +101,7 @@ extern "C" bool OpenSLWrap_Init()
 	assert(SL_RESULT_SUCCESS == result);
 
 	// create output mix, with environmental reverb specified as a non-required interface
-	const SLInterfaceID ids1[1] = {SL_IID_ENVIRONMENTALREVERB};
-	const SLboolean req1[1] = {SL_BOOLEAN_FALSE};
-	result = (*engineEngine)->CreateOutputMix(engineEngine, &outputMixObject, 1, ids1, req1);
+	result = (*engineEngine)->CreateOutputMix(engineEngine, &outputMixObject, 0, 0, 0);
 	assert(SL_RESULT_SUCCESS == result);
 
 	// realize the output mix
@@ -130,10 +131,10 @@ extern "C" bool OpenSLWrap_Init()
 	SLDataSink audioSnk = {&loc_outmix, NULL};
 
 	// create audio player
-	const SLInterfaceID ids[3] = {SL_IID_BUFFERQUEUE, SL_IID_VOLUME};
-	const SLboolean req[3] = {SL_BOOLEAN_TRUE, SL_BOOLEAN_TRUE};
+	const SLInterfaceID ids[2] = {SL_IID_BUFFERQUEUE, SL_IID_VOLUME};
+	const SLboolean req[2] = {SL_BOOLEAN_TRUE, SL_BOOLEAN_TRUE};
 	result = (*engineEngine)->CreateAudioPlayer(engineEngine, &bqPlayerObject, &audioSrc, &audioSnk,
-			3, ids, req);
+			2, ids, req);
 	assert(SL_RESULT_SUCCESS == result);
 
 	// realize the player
@@ -161,12 +162,10 @@ extern "C" bool OpenSLWrap_Init()
 	result = (*bqPlayerPlay)->SetPlayState(bqPlayerPlay, SL_PLAYSTATE_PLAYING);
 	assert(SL_RESULT_SUCCESS == result);
 
-	if (nextBuffer) {
-		SLresult result;
-		result = (*bqPlayerBufferQueue)->Enqueue(bqPlayerBufferQueue, nextBuffer, nextSize);
-		if (SL_RESULT_SUCCESS != result) {
-			return false;
-		}
+	// Enqueue a first buffer.
+	result = (*bqPlayerBufferQueue)->Enqueue(bqPlayerBufferQueue, sawtoothBuffer, sizeof(sawtoothBuffer));
+	if (SL_RESULT_SUCCESS != result) {
+		return false;
 	}
 	return true;
 }

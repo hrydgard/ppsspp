@@ -93,7 +93,7 @@ extern "C" jboolean Java_com_turboviking_libnative_NativeApp_isLandscape(JNIEnv 
 
 extern "C" void Java_com_turboviking_libnative_NativeApp_init
   (JNIEnv *env, jclass, jint xxres, jint yyres, jstring apkpath,
-   jstring dataDir, jstring externalDir, jstring jinstallID, jboolean juseNativeAudio) {
+   jstring dataDir, jstring externalDir, jstring libraryDir, jstring jinstallID, jboolean juseNativeAudio) {
   jniEnvUI = env;
   pixel_xres = xxres;
   pixel_yres = yyres;
@@ -123,6 +123,9 @@ extern "C" void Java_com_turboviking_libnative_NativeApp_init
   str = env->GetStringUTFChars(dataDir, &isCopy);
   std::string user_data_path = std::string(str) + "/";
 
+	str = env->GetStringUTFChars(libraryDir, &isCopy);
+  std::string library_path = std::string(str) + "/";
+
   str = env->GetStringUTFChars(jinstallID, &isCopy);
   std::string installID = std::string(str);
 
@@ -133,13 +136,21 @@ extern "C" void Java_com_turboviking_libnative_NativeApp_init
 	NativeGetAppInfo(&app_name, &app_nice_name, &landscape);
 	const char *argv[2] = {app_name.c_str(), 0};
   NativeInit(1, argv, user_data_path.c_str(), installID.c_str());
+
+	if (use_native_audio) {
+		AndroidAudio_Init(&NativeMix, library_path);
+	}
 }  
 
 extern "C" void Java_com_turboviking_libnative_NativeApp_shutdown
   (JNIEnv *, jclass) {
   ILOG("NativeShutdown.");
-  if (renderer_inited) {
+ 	if (use_native_audio) {
+		AndroidAudio_Shutdown();
+	}
+	if (renderer_inited) {
     NativeShutdownGraphics();
+		renderer_inited = false;
   }
   NativeShutdown();
   ILOG("VFSShutdown.");

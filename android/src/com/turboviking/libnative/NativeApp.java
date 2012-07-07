@@ -4,7 +4,7 @@ public class NativeApp {
 	public static native boolean isLandscape();
 	public static native void init(
 			int xxres, int yyres, String apkPath,
-			String dataDir, String externalDir, String installID, boolean useOpenSL);
+			String dataDir, String externalDir, String libraryDir, String installID, boolean useOpenSL);
 	public static native void shutdown();
 	 
 	public static native void keyDown(int key);

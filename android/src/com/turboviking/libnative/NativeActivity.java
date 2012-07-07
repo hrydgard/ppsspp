@@ -3,6 +3,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.lang.reflect.Field;
 import java.util.UUID;
 
 import javax.microedition.khronos.egl.EGLConfig;
@@ -93,6 +94,24 @@ public class NativeActivity extends Activity {
 	
 	public static String installID;
 	
+	String getApplicationLibraryDir(ApplicationInfo application) {    
+	    String libdir = null;
+	    try {
+	        // Starting from Android 2.3, nativeLibraryDir is available:
+	        Field field = ApplicationInfo.class.getField("nativeLibraryDir");
+	        libdir = (String) field.get(application);
+	    } catch (SecurityException e1) {
+	    } catch (NoSuchFieldException e1) {
+	    } catch (IllegalArgumentException e) {
+	    } catch (IllegalAccessException e) {
+	    }
+	    if (libdir == null) {
+	        // Fallback for Android < 2.3:
+	        libdir = application.dataDir + "/lib";
+	    }
+	    return libdir;
+	}
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
     	if (NativeApp.isLandscape()) {
@@ -113,6 +132,7 @@ public class NativeActivity extends Activity {
 		    e.printStackTrace();
 		    throw new RuntimeException("Unable to locate assets, aborting...");
 	    }
+		String libraryDir = getApplicationLibraryDir(appInfo);
 	    File sdcard = Environment.getExternalStorageDirectory();
         Display display = ((WindowManager)this.getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay();
         int scrPixelFormat = display.getPixelFormat();
@@ -123,7 +143,7 @@ public class NativeActivity extends Activity {
 	    String dataDir = this.getFilesDir().getAbsolutePath();
 		String apkFilePath = appInfo.sourceDir; 
 		NativeApp.sendMessage("Message from Java", "Hot Coffee");
-		NativeApp.init(scrWidth, scrHeight, apkFilePath, dataDir, externalStorageDir, installID, useOpenSL);
+		NativeApp.init(scrWidth, scrHeight, apkFilePath, dataDir, externalStorageDir, libraryDir, installID, useOpenSL);
      
  		// Keep the screen bright - very annoying if it goes dark when tilting away
 		Window window = this.getWindow();
