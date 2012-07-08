@@ -5,6 +5,11 @@ public class NativeApp {
 	public static native void init(
 			int xxres, int yyres, String apkPath,
 			String dataDir, String externalDir, String libraryDir, String installID, boolean useOpenSL);
+	
+	// These have Android semantics: Resume is always called on bootup, after init
+	public static native void pause();
+	public static native void resume();	
+	
 	public static native void shutdown();
 	 
 	public static native void keyDown(int key);

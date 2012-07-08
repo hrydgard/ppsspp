@@ -23,7 +23,7 @@ bool AndroidAudio_Init(AndroidAudioCallback cb, std::string libraryDir) {
 	}
 	init_func = (OpenSLWrap_Init_T)dlsym(so, "OpenSLWrap_Init");
 	shutdown_func = (OpenSLWrap_Shutdown_T)dlsym(so, "OpenSLWrap_Shutdown");
-	return AndroidAudio_Resume();
+	return true;
 }
 
 bool AndroidAudio_Resume() {
@@ -48,7 +48,9 @@ bool AndroidAudio_Pause() {
 }
 
 void AndroidAudio_Shutdown() {
-	AndroidAudio_Pause();
+	if (playing) {
+		ELOG("Should not shut down when playing! Something is wrong!");
+	}
 	ILOG("Returned from OpenSLWrap_Shutdown_T");
 	dlclose(so);
 	so = 0;

@@ -142,6 +142,20 @@ extern "C" void Java_com_turboviking_libnative_NativeApp_init
 	}
 }  
 
+extern "C" void Java_com_turboviking_libnative_NativeApp_resume(JNIEnv *, jclass) {
+	ILOG("NativeResume");
+	if (use_native_audio) {
+		AndroidAudio_Resume();
+	}
+}
+
+extern "C" void Java_com_turboviking_libnative_NativeApp_pause(JNIEnv *, jclass) {
+	ILOG("NativePause");
+	if (use_native_audio) {
+		AndroidAudio_Pause();
+	}
+}
+ 
 extern "C" void Java_com_turboviking_libnative_NativeApp_shutdown
   (JNIEnv *, jclass) {
   ILOG("NativeShutdown.");

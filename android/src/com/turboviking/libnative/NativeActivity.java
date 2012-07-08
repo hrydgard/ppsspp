@@ -183,6 +183,7 @@ public class NativeActivity extends Activity {
         if (audioPlayer != null) {
         	audioPlayer.stop();
         }
+        NativeApp.pause();
         mGLSurfaceView.onPause();
     }
       
@@ -194,6 +195,7 @@ public class NativeActivity extends Activity {
         if (audioPlayer != null) {
         	audioPlayer.play();
         }
+        NativeApp.resume();
     }
 
     @Override
