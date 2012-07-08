@@ -52,29 +52,24 @@ void Vibrate(int length_ms) {
   frameCommandParam = "100";
 }
 
-void LaunchBrowser(const char *url)
-{
+void LaunchBrowser(const char *url) {
   frameCommand = "launchBrowser";
   frameCommandParam = url;
 }
 
-void LaunchMarket(const char *url)
-{
+void LaunchMarket(const char *url) {
   frameCommand = "launchMarket";
   frameCommandParam = url;
 }
 
-void LaunchEmail(const char *email_address)
-{
+void LaunchEmail(const char *email_address) {
   frameCommand = "launchEmail";
   frameCommandParam = email_address;
 }
 
-
 // Remember that all of these need initialization on init! The process
 // may be reused when restarting the game. Globals are DANGEROUS.
 
-// Used for touch. (TODO)
 float xscale = 1;
 float yscale = 1;
 
@@ -84,6 +79,14 @@ static bool renderer_inited = false;
 static bool first_lost = true;
 static bool use_native_audio = false;
 
+std::string GetJavaString(JNIEnv *env, jstring jstr)
+{
+  const char *str = env->GetStringUTFChars(jstr, 0);
+  std::string cpp_string = std::string(str);
+  env->ReleaseStringUTFChars(jstr, str);
+  return cpp_string;
+}
+
 extern "C" jboolean Java_com_turboviking_libnative_NativeApp_isLandscape(JNIEnv *env, jclass) {
 	std::string app_name, app_nice_name;
 	bool landscape;
@@ -92,13 +95,19 @@ extern "C" jboolean Java_com_turboviking_libnative_NativeApp_isLandscape(JNIEnv 
 }
 
 extern "C" void Java_com_turboviking_libnative_NativeApp_init
-  (JNIEnv *env, jclass, jint xxres, jint yyres, jstring apkpath,
-   jstring dataDir, jstring externalDir, jstring libraryDir, jstring jinstallID, jboolean juseNativeAudio) {
+  (JNIEnv *env, jclass, jint xxres, jint yyres, jint dpi, jstring japkpath,
+   jstring jdataDir, jstring jexternalDir, jstring jlibraryDir, jstring jinstallID, jboolean juseNativeAudio) {
   jniEnvUI = env;
+
   pixel_xres = xxres;
   pixel_yres = yyres;
-  g_xres = xxres;
-  g_yres = yyres;
+  
+  g_dpi = dpi;
+  
+  // We default to 160 dpi and all our UI code is written to assume it. (DENSITY_MEDIUM).
+  g_xres = xxres * 160 / dpi;
+  g_yres = yyres * 160 / dpi;
+
 	use_native_audio = juseNativeAudio;
   if (g_xres < g_yres)
   {
@@ -112,22 +121,16 @@ extern "C" void Java_com_turboviking_libnative_NativeApp_init
   renderer_inited = false;
   first_lost = true;
 
-  jboolean isCopy;
-  const char *str = env->GetStringUTFChars(apkpath, &isCopy);
-  ILOG("APK path: %s", str);
-  VFSRegister("", new ZipAssetReader(str, "assets/"));
+  std::string apkPath = GetJavaString(env, japkpath);
+  ILOG("APK path: %s", apkPath.c_str());
+  VFSRegister("", new ZipAssetReader(apkPath.c_str(), "assets/"));
 
-  str = env->GetStringUTFChars(externalDir, &isCopy);
-  ILOG("External storage path: %s", str);
+  std::string externalDir = GetJavaString(env, jexternalDir);
+  std::string user_data_path = GetJavaString(env, jdataDir); + "/";
+  std::string library_path = GetJavaString(env, jlibraryDir) + "/";
+  std::string installID = GetJavaString(env, jinstallID);
 
-  str = env->GetStringUTFChars(dataDir, &isCopy);
-  std::string user_data_path = std::string(str) + "/";
-
-	str = env->GetStringUTFChars(libraryDir, &isCopy);
-  std::string library_path = std::string(str) + "/";
-
-  str = env->GetStringUTFChars(jinstallID, &isCopy);
-  std::string installID = std::string(str);
+  ILOG("External storage path: %s", externalDir.c_str());
 
 	std::string app_name;
 	std::string app_nice_name;
@@ -213,9 +216,9 @@ extern "C" void Java_com_turboviking_libnative_NativeRenderer_displayRender
   
   if (!frameCommand.empty()) {
     ILOG("frameCommand %s %s", frameCommand.c_str(), frameCommandParam.c_str());
+
     jstring cmd = env->NewStringUTF(frameCommand.c_str());
     jstring param = env->NewStringUTF(frameCommandParam.c_str());
-    
     env->CallVoidMethod(obj, postCommand, cmd, param);
     
   	frameCommand = "";
@@ -239,8 +242,8 @@ extern "C" void Java_com_turboviking_libnative_NativeApp_audioRender(JNIEnv*  en
 extern "C" void JNICALL Java_com_turboviking_libnative_NativeApp_touch
   (JNIEnv *, jclass, float x, float y, int code, int pointerId) {
   lock_guard guard(input_state.lock);
-	if (pointerId >= MAX_POINTERS)
-	{
+
+	if (pointerId >= MAX_POINTERS) {
 		ELOG("Too many pointers: %i", pointerId);
 		return;  // We ignore 8+ pointers entirely.
 	}
@@ -248,11 +251,9 @@ extern "C" void JNICALL Java_com_turboviking_libnative_NativeApp_touch
   input_state.mouse_x[pointerId] = (int)(x * xscale);
   input_state.mouse_y[pointerId] = (int)(y * yscale);
   if (code == 1) {
-		//ILOG("Down: %i %f %f", pointerId, x, y);
 		input_state.mouse_last[pointerId] = input_state.mouse_down[pointerId];
   	input_state.mouse_down[pointerId] = true;
   } else if (code == 2) {
-		//ILOG("Up: %i %f %f", pointerId, x, y);
 		input_state.mouse_last[pointerId] = input_state.mouse_down[pointerId];
   	input_state.mouse_down[pointerId] = false;
   }
@@ -307,8 +308,8 @@ extern "C" void JNICALL Java_com_turboviking_libnative_NativeApp_accelerometer
 extern "C" void Java_com_turboviking_libnative_NativeApp_sendMessage
   (JNIEnv *env, jclass, jstring message, jstring param) {
 	jboolean isCopy;
-	std::string msg(env->GetStringUTFChars(message, &isCopy));
-	std::string prm(env->GetStringUTFChars(param, &isCopy));
+	std::string msg = GetJavaString(env, message);
+	std::string prm = GetJavaString(env, param);
 	ILOG("Message received: %s %s", msg.c_str(), prm.c_str());
 }
 

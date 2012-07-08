@@ -175,6 +175,12 @@
     <ClInclude Include="net\resolve.h">
       <Filter>net</Filter>
     </ClInclude>
+    <ClInclude Include="android\native_audio.h">
+      <Filter>android</Filter>
+    </ClInclude>
+    <ClInclude Include="android\native-audio-so.h">
+      <Filter>android</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -294,9 +300,6 @@
     <ClCompile Include="file\dialog.cpp">
       <Filter>file</Filter>
     </ClCompile>
-    <ClCompile Include="android\app-android.cpp">
-      <Filter>base</Filter>
-    </ClCompile>
     <ClCompile Include="util\bits\bits.cpp">
       <Filter>util</Filter>
     </ClCompile>
@@ -317,6 +320,15 @@
     </ClCompile>
     <ClCompile Include="net\resolve.cpp">
       <Filter>net</Filter>
+    </ClCompile>
+    <ClCompile Include="android\app-android.cpp">
+      <Filter>android</Filter>
+    </ClCompile>
+    <ClCompile Include="android\native_audio.cpp">
+      <Filter>android</Filter>
+    </ClCompile>
+    <ClCompile Include="android\native-audio-so.cpp">
+      <Filter>android</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -370,6 +382,9 @@
     </Filter>
     <Filter Include="net">
       <UniqueIdentifier>{6a548b3d-3a4c-4114-aa2f-0b42bf7bf2ce}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="android">
+      <UniqueIdentifier>{b7bc9a09-29c1-447b-9255-fe0709d10689}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

@@ -128,7 +128,7 @@ int main(int argc, char *argv[]) {
 	bool landscape;
 	NativeGetAppInfo(&app_name, &app_name_nice, &landscape);
 
-	float zoom = 0.7f;
+	float zoom = 1.0f;
 	const char *zoomenv = getenv("ZOOM");
 	if (zoomenv) {
 		zoom = atof(zoomenv);
@@ -137,6 +137,7 @@ int main(int argc, char *argv[]) {
 		pixel_xres = 800 * zoom;
 		pixel_yres = 480 * zoom;
 	} else {
+    // PC development hack
 		pixel_xres = 1580 * zoom;
 		pixel_yres = 1000 * zoom;
 	}

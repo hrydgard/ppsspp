@@ -31,6 +31,7 @@ import android.opengl.GLSurfaceView;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
 import android.view.KeyEvent;
@@ -148,7 +149,11 @@ public class NativeActivity extends Activity {
 	    String dataDir = this.getFilesDir().getAbsolutePath();
 		String apkFilePath = appInfo.sourceDir; 
 		NativeApp.sendMessage("Message from Java", "Hot Coffee");
-		NativeApp.init(scrWidth, scrHeight, apkFilePath, dataDir, externalStorageDir, libraryDir, installID, useOpenSL);
+		DisplayMetrics metrics = new DisplayMetrics();
+		getWindowManager().getDefaultDisplay().getMetrics(metrics);
+		int dpi = metrics.densityDpi;
+		// INIT!
+		NativeApp.init(scrWidth, scrHeight, dpi, apkFilePath, dataDir, externalStorageDir, libraryDir, installID, useOpenSL);
      
  		// Keep the screen bright - very annoying if it goes dark when tilting away
 		Window window = this.getWindow();

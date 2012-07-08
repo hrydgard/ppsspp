@@ -3,7 +3,7 @@ package com.turboviking.libnative;
 public class NativeApp {      
 	public static native boolean isLandscape();
 	public static native void init(
-			int xxres, int yyres, String apkPath,
+			int xxres, int yyres, int dpi, String apkPath,
 			String dataDir, String externalDir, String libraryDir, String installID, boolean useOpenSL);
 	
 	// These have Android semantics: Resume is always called on bootup, after init
