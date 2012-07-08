@@ -114,7 +114,12 @@ public class NativeActivity extends Activity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-    	if (NativeApp.isLandscape()) {
+        if (Build.VERSION.SDK_INT >= 9) {
+        	// Native OpenSL is available. Let's use it!
+        	useOpenSL = true;
+        }
+
+        if (NativeApp.isLandscape()) {
     		setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
     	} else {
     		setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
@@ -161,10 +166,6 @@ public class NativeActivity extends Activity {
         mGLSurfaceView = new NativeGLView(this);
         mGLSurfaceView.setRenderer(new NativeRenderer(this));
         setContentView(mGLSurfaceView);
-        if (Build.VERSION.SDK_INT >= 9) {
-        	// Native OpenSL is available. Let's not use the Java player in the future.
-        	// TODO: code for that.
-        }
         if (!useOpenSL)
         	audioPlayer = new NativeAudioPlayer();
     }  
