@@ -60,8 +60,7 @@ static unsigned nextSize;
 __attribute__((constructor)) static void onDlOpen(void)
 {
 	ILOG("Buffer callback");
-	unsigned int i;
-	for (i = 0; i < SAWTOOTH_FRAMES; ++i) {
+	for (int i = 0; i < SAWTOOTH_FRAMES; ++i) {
 		sawtoothBuffer[i] = 32768 - ((i % 100) * 660);
 	}
 }
