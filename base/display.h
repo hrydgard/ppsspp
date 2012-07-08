@@ -5,3 +5,5 @@
 
 extern int g_xres;
 extern int g_yres;
+extern int pixel_xres;
+extern int pixel_yres;

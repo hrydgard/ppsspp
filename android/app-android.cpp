@@ -21,6 +21,7 @@
 #include "input/input_state.h"
 #include "audio/mixer.h"
 #include "math/math_util.h"
+#include "android/native_audio.h"
 
 #define coord_xres 480
 #define coord_yres 800
@@ -72,7 +73,6 @@ void LaunchEmail(const char *email_address)
 
 // Remember that all of these need initialization on init! The process
 // may be reused when restarting the game. Globals are DANGEROUS.
-int xres, yres;
 
 // Used for touch. (TODO)
 float xscale = 1;
@@ -82,6 +82,7 @@ InputState input_state;
 
 static bool renderer_inited = false;
 static bool first_lost = true;
+static bool use_native_audio = false;
 
 extern "C" jboolean Java_com_turboviking_libnative_NativeApp_isLandscape(JNIEnv *env, jclass) {
 	std::string app_name, app_nice_name;
@@ -92,21 +93,21 @@ extern "C" jboolean Java_com_turboviking_libnative_NativeApp_isLandscape(JNIEnv 
 
 extern "C" void Java_com_turboviking_libnative_NativeApp_init
   (JNIEnv *env, jclass, jint xxres, jint yyres, jstring apkpath,
-   jstring dataDir, jstring externalDir, jstring jinstallID) {
+   jstring dataDir, jstring externalDir, jstring libraryDir, jstring jinstallID, jboolean juseNativeAudio) {
   jniEnvUI = env;
-  xres = xxres;
-  yres = yyres;
-  g_xres = xres;
-  g_yres = yres;
-
+  pixel_xres = xxres;
+  pixel_yres = yyres;
+  g_xres = xxres;
+  g_yres = yyres;
+	use_native_audio = juseNativeAudio;
   if (g_xres < g_yres)
   {
     // Portrait - let's force the imaginary resolution we want
-    g_xres = coord_xres;
-    g_yres = coord_yres;
+    g_xres = pixel_xres;
+    g_yres = pixel_yres;
   }
-  xscale = (float)coord_xres / xres;
-  yscale = (float)coord_yres / yres;
+  xscale = (float)g_xres / pixel_xres;
+  yscale = (float)g_yres / pixel_yres;
   memset(&input_state, 0, sizeof(input_state));
   renderer_inited = false;
   first_lost = true;
@@ -122,22 +123,34 @@ extern "C" void Java_com_turboviking_libnative_NativeApp_init
   str = env->GetStringUTFChars(dataDir, &isCopy);
   std::string user_data_path = std::string(str) + "/";
 
+	str = env->GetStringUTFChars(libraryDir, &isCopy);
+  std::string library_path = std::string(str) + "/";
+
   str = env->GetStringUTFChars(jinstallID, &isCopy);
   std::string installID = std::string(str);
 
-	std::string app_name, app_nice_name;
+	std::string app_name;
+	std::string app_nice_name;
 	bool landscape;
 
 	NativeGetAppInfo(&app_name, &app_nice_name, &landscape);
 	const char *argv[2] = {app_name.c_str(), 0};
   NativeInit(1, argv, user_data_path.c_str(), installID.c_str());
+
+	if (use_native_audio) {
+		AndroidAudio_Init(&NativeMix, library_path);
+	}
 }  
 
 extern "C" void Java_com_turboviking_libnative_NativeApp_shutdown
   (JNIEnv *, jclass) {
   ILOG("NativeShutdown.");
-  if (renderer_inited) {
+ 	if (use_native_audio) {
+		AndroidAudio_Shutdown();
+	}
+	if (renderer_inited) {
     NativeShutdownGraphics();
+		renderer_inited = false;
   }
   NativeShutdown();
   ILOG("VFSShutdown.");
@@ -276,3 +289,13 @@ extern "C" void JNICALL Java_com_turboviking_libnative_NativeApp_accelerometer
   input_state.acc.y = y;
   input_state.acc.z = z;
 }
+
+extern "C" void Java_com_turboviking_libnative_NativeApp_sendMessage
+  (JNIEnv *env, jclass, jstring message, jstring param) {
+	jboolean isCopy;
+	std::string msg(env->GetStringUTFChars(message, &isCopy));
+	std::string prm(env->GetStringUTFChars(param, &isCopy));
+	ILOG("Message received: %s %s", msg.c_str(), prm.c_str());
+}
+
+
