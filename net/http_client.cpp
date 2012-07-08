@@ -1,6 +1,7 @@
 #include "net/http_client.h"
 
 // for inet_pton
+#undef _WIN32_WINNT
 #define _WIN32_WINNT 0x600
 
 #ifndef _WIN32
@@ -34,7 +35,7 @@ Connection::~Connection() {
 }
 
 bool Connection::Resolve(const char *host, int port) {
-  CHECK_EQ(-1, sock_);
+  CHECK_EQ(-1, (intptr_t)sock_);
   host_ = host;
   port_ = port;
 
@@ -68,7 +69,7 @@ void Connection::Connect() {
 }
 
 void Connection::Disconnect() {
-  if (sock_ != -1) {
+  if ((intptr_t)sock_ != -1) {
     closesocket(sock_);
     sock_ = -1;
   } else {

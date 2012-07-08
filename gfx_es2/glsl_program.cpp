@@ -65,7 +65,7 @@ bool glsl_up_to_date(GLSLProgram *program) {
   stat(program->vshader_filename, &vs);
   stat(program->fshader_filename, &fs);
   if (vs.st_mtime != program->vshader_mtime ||
-    fs.st_mtime != program->fshader_mtime) {
+      fs.st_mtime != program->fshader_mtime) {
       return false;
   } else {
     return true;

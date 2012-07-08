@@ -5,11 +5,11 @@
 
 unsigned int parseHex(const char *_szValue)
 {
-	int Count, Value = 0;
+	int Value = 0;
 	size_t Finish = strlen(_szValue);
 	if (Finish > 8 ) { Finish = 8; }
 
-	for (Count = 0; Count < Finish; Count++) {
+	for (size_t Count = 0; Count < Finish; Count++) {
 		Value = (Value << 4);
 		switch( _szValue[Count] ) {
 		case '0': break;

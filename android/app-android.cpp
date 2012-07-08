@@ -126,7 +126,7 @@ extern "C" void Java_com_turboviking_libnative_NativeApp_init
   VFSRegister("", new ZipAssetReader(apkPath.c_str(), "assets/"));
 
   std::string externalDir = GetJavaString(env, jexternalDir);
-  std::string user_data_path = GetJavaString(env, jdataDir); + "/";
+  std::string user_data_path = GetJavaString(env, jdataDir) + "/";
   std::string library_path = GetJavaString(env, jlibraryDir) + "/";
   std::string installID = GetJavaString(env, jinstallID);
 

@@ -78,6 +78,7 @@ std::vector<std::string> MidiInGetDevices() {
 
 MidiDevice MidiInStart(int deviceID, MidiListener *listener) {
   FLOG("Invalid MIDI device");
+  return 0;
 }
 
 void MidiInStop(MidiDevice device) {
