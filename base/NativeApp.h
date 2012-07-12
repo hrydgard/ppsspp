@@ -15,6 +15,10 @@ struct InputState;
 // This might get called multiple times in some implementations, you must be able to handle that.
 void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, bool *landscape);
 
+// For the back button to work right, this should return true on your main or title screen.
+// Otherwise, just return false.
+bool NativeIsAtTopLevel();
+
 // The very first function to be called after NativeGetAppInfo. Even NativeMix is not called
 // before this, although it may be called at any point in time afterwards (on any thread!)
 // This functions must NOT call OpenGL. Main thread.

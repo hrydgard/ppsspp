@@ -6,9 +6,7 @@ import java.io.RandomAccessFile;
 import java.lang.reflect.Field;
 import java.util.UUID;
 
-import javax.microedition.khronos.egl.EGLConfig;
-import javax.microedition.khronos.opengles.GL10;
-
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.content.Context;
@@ -19,13 +17,7 @@ import android.content.pm.ConfigurationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.Configuration;
-import android.hardware.Sensor;
-import android.hardware.SensorEvent;
-import android.hardware.SensorEventListener;
-import android.hardware.SensorManager;
-import android.media.AudioFormat;
 import android.media.AudioManager;
-import android.media.AudioTrack;
 import android.net.Uri;
 import android.opengl.GLSurfaceView;
 import android.os.Build;
@@ -35,13 +27,10 @@ import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
 import android.view.KeyEvent;
-import android.view.MotionEvent;
+import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
-import android.view.inputmethod.InputMethodManager;
 import android.widget.Toast;
-
-
 
 class Installation {
     private static String sID = null;
@@ -113,6 +102,7 @@ public class NativeActivity extends Activity {
 	    return libdir;
 	}
 
+	
     @Override
     public void onCreate(Bundle savedInstanceState) {
         if (Build.VERSION.SDK_INT >= 9) {
@@ -142,8 +132,10 @@ public class NativeActivity extends Activity {
 	    File sdcard = Environment.getExternalStorageDirectory();
         Display display = ((WindowManager)this.getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay();
         int scrPixelFormat = display.getPixelFormat();
+        @SuppressWarnings("deprecation")
         int scrWidth = display.getWidth(); 
-        int scrHeight = display.getHeight();
+        @SuppressWarnings("deprecation")
+		int scrHeight = display.getHeight();
         float scrRefreshRate = (float)display.getRefreshRate();
 	    String externalStorageDir = sdcard.getAbsolutePath(); 
 	    String dataDir = this.getFilesDir().getAbsolutePath();
@@ -152,6 +144,7 @@ public class NativeActivity extends Activity {
 		DisplayMetrics metrics = new DisplayMetrics();
 		getWindowManager().getDefaultDisplay().getMetrics(metrics);
 		int dpi = metrics.densityDpi;
+		
 		// INIT!
 		NativeApp.init(scrWidth, scrHeight, dpi, apkFilePath, dataDir, externalStorageDir, libraryDir, installID, useOpenSL);
      
@@ -162,8 +155,9 @@ public class NativeActivity extends Activity {
         Log.i(TAG, "W : " + scrWidth + " H: " + scrHeight + " rate: " + scrRefreshRate + " fmt: " + scrPixelFormat);
              
         // Initialize Graphics
+        
         if (!detectOpenGLES20()) {
-		    throw new RuntimeException("Application requires OpenGL ES 2.0.");
+        	Log.i(TAG, "OpenGL ES 2.0 NOT detected.");
         } else {
         	Log.i(TAG, "OpenGL ES 2.0 detected.");
         }
@@ -173,7 +167,15 @@ public class NativeActivity extends Activity {
         setContentView(mGLSurfaceView);
         if (!useOpenSL)
         	audioPlayer = new NativeAudioPlayer();
+        lightsOut();
     }  
+    
+	@SuppressLint("NewApi")
+	public void lightsOut() {
+	     if (Build.VERSION.SDK_INT >= 11) {
+	    	 mGLSurfaceView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LOW_PROFILE);
+	     }
+	}
 
     private boolean detectOpenGLES20() {
         ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
@@ -250,19 +252,24 @@ public class NativeActivity extends Activity {
     	// Eat these keys, to avoid accidental exits / other screwups.
     	// Maybe there's even more we need to eat on tablets?
         if (keyCode == KeyEvent.KEYCODE_BACK) {
-        	NativeApp.keyUp(1);
-            return true;
+        	if (NativeApp.isAtTopLevel()) {
+        		return false;
+        	} else {
+        		NativeApp.keyUp(1);
+        		return true;
+        	}
         }
         else if (keyCode == KeyEvent.KEYCODE_MENU) {
-        	// Menu should be ignored from android 3 forwards
+        	// Menu should be ignored from SDK 11 forwards. We send it to the app.
         	NativeApp.keyUp(2);  
         	return true;
         }
         else if (keyCode == KeyEvent.KEYCODE_SEARCH) {
-        	// Search probably should also be ignored.
+        	// Search probably should also be ignored. We send it to the app.
         	NativeApp.keyUp(3);
         	return true;
         } 
+        // All other keys retain their default behaviour.
 		return false; 
     }  
    
@@ -292,7 +299,7 @@ public class NativeActivity extends Activity {
     		// http://stackoverflow.com/questions/3442366/android-link-to-market-from-inside-another-app
     		// http://developer.android.com/guide/publishing/publishing.html#marketintent
     	} else if (command.equals("toast"))  {
-    		Toast toast = Toast.makeText(this, params, 2000);
+    		Toast toast = Toast.makeText(this, params, Toast.LENGTH_SHORT);
     		toast.show();
     	} else if (command.equals("showkeyboard")) {
     		//InputMethodManager inputMethodManager=(InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);

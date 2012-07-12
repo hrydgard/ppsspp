@@ -2,6 +2,7 @@ package com.turboviking.libnative;
 
 public class NativeApp {      
 	public static native boolean isLandscape();
+	public static native boolean isAtTopLevel();
 	public static native void init(
 			int xxres, int yyres, int dpi, String apkPath,
 			String dataDir, String externalDir, String libraryDir, String installID, boolean useOpenSL);

@@ -63,7 +63,7 @@ public class NativeAudioPlayer {
 			// Get the smallest possible buffer size (which is annoyingly huge).
 			int buffer_size_bytes = AudioTrack.getMinBufferSize(
 				44100,
-				AudioFormat.CHANNEL_CONFIGURATION_STEREO,
+				AudioFormat.CHANNEL_OUT_STEREO,
 				AudioFormat.ENCODING_PCM_16BIT);
 			
 			// Round buffer_size_bytes up to an even multiple of 128 for convenience.
@@ -71,7 +71,7 @@ public class NativeAudioPlayer {
 
 			AudioTrack audioTrack = new AudioTrack(AudioManager.STREAM_MUSIC,
 					44100,
-					AudioFormat.CHANNEL_CONFIGURATION_STEREO,
+					AudioFormat.CHANNEL_OUT_STEREO,
 					AudioFormat.ENCODING_PCM_16BIT,
 					buffer_size_bytes,
 					AudioTrack.MODE_STREAM);

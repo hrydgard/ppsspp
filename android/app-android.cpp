@@ -94,6 +94,11 @@ extern "C" jboolean Java_com_turboviking_libnative_NativeApp_isLandscape(JNIEnv 
 	return landscape;
 }
 
+// For the Back button to work right.
+extern "C" jboolean Java_com_turboviking_libnative_NativeApp_isAtTopLevel(JNIEnv *env, jclass) {
+  return NativeIsAtTopLevel();
+}
+
 extern "C" void Java_com_turboviking_libnative_NativeApp_init
   (JNIEnv *env, jclass, jint xxres, jint yyres, jint dpi, jstring japkpath,
    jstring jdataDir, jstring jexternalDir, jstring jlibraryDir, jstring jinstallID, jboolean juseNativeAudio) {
