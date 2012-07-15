@@ -46,6 +46,7 @@ bool Connection::Resolve(const char *host, int port) {
   CHECK_GE(tmpres, 0);  // << "inet_pton failed";
   CHECK_NE(0, tmpres);  // << ip << " not a valid IP address";
   remote_.sin_port = htons(port);
+  free((void *)ip);
   return true;
 }
 
@@ -53,7 +54,6 @@ void Connection::Connect() {
   CHECK_GE(port_, 0);
   sock_ = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
   CHECK_GE(sock_, 0);
-  //VLOG(1) << "Connecting to " << host_ << ":" << port_;
 
   // poll once per second.. should find a way to do this blocking.
   int retval = -1;

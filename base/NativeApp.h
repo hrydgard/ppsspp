@@ -13,6 +13,8 @@ struct InputState;
 
 // You must implement this. The first function to get called, just write strings to the two pointers.
 // This might get called multiple times in some implementations, you must be able to handle that.
+// The detected DP dimensions of the screen are set as dp_xres and dp_yres and you're free to change
+// them if you have a fixed-size app that needs to stretch a little to fit.
 void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, bool *landscape);
 
 // For the back button to work right, this should return true on your main or title screen.
@@ -28,12 +30,24 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 void NativeInitGraphics();
 
 // Signals that you need to recreate all buffered OpenGL resources,
-// like textures, vbo etc. Main thread.
+// like textures, vbo etc. Also, if you have modified dp_xres and dp_yres, you have to 
+// do it again here. Main thread.
 void NativeDeviceLost();
 
 // Called ~sixty times a second, delivers the current input state.
 // Main thread.
 void NativeUpdate(const InputState &input);
+
+// Delivers touch events "instantly", without waiting for the next frame so that NativeUpdate can deliver.
+// Useful for triggering audio events, saving a few ms.
+// If you don't care about touch latency, just do a no-op implementation of this.
+// time is not yet implemented. finger can be from 0 to 7, inclusive.
+enum TouchEvent {
+  TOUCH_DOWN,
+  TOUCH_MOVE,
+  TOUCH_UP,
+};
+void NativeTouch(int finger, float x, float y, double time, TouchEvent event);
 
 // Called when it's time to render. If the device can keep up, this
 // will also be called sixty times per second. Main thread.

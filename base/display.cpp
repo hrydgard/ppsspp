@@ -1,7 +1,7 @@
 #include "base/display.h"
 
-int g_xres;
-int g_yres;
+int dp_xres;
+int dp_yres;
 int pixel_xres;
 int pixel_yres;
 

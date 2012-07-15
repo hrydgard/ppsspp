@@ -21,6 +21,7 @@
 #include "input/input_state.h"
 #include "audio/mixer.h"
 #include "math/math_util.h"
+#include "net/resolve.h"
 #include "android/native_audio.h"
 
 #define coord_xres 480
@@ -70,8 +71,8 @@ void LaunchEmail(const char *email_address) {
 // Remember that all of these need initialization on init! The process
 // may be reused when restarting the game. Globals are DANGEROUS.
 
-float xscale = 1;
-float yscale = 1;
+float dp_xscale = 1;
+float dp_yscale = 1;
 
 InputState input_state;
 
@@ -104,24 +105,6 @@ extern "C" void Java_com_turboviking_libnative_NativeApp_init
    jstring jdataDir, jstring jexternalDir, jstring jlibraryDir, jstring jinstallID, jboolean juseNativeAudio) {
   jniEnvUI = env;
 
-  pixel_xres = xxres;
-  pixel_yres = yyres;
-  
-  g_dpi = dpi;
-  
-  // We default to 160 dpi and all our UI code is written to assume it. (DENSITY_MEDIUM).
-  g_xres = xxres * 160 / dpi;
-  g_yres = yyres * 160 / dpi;
-
-	use_native_audio = juseNativeAudio;
-  if (g_xres < g_yres)
-  {
-    // Portrait - let's force the imaginary resolution we want
-    g_xres = pixel_xres;
-    g_yres = pixel_yres;
-  }
-  xscale = (float)g_xres / pixel_xres;
-  yscale = (float)g_yres / pixel_yres;
   memset(&input_state, 0, sizeof(input_state));
   renderer_inited = false;
   first_lost = true;
@@ -141,10 +124,18 @@ extern "C" void Java_com_turboviking_libnative_NativeApp_init
 	std::string app_nice_name;
 	bool landscape;
 
+  net::Init();
+
+  g_dpi = dpi;
+  pixel_xres = xxres;
+  pixel_yres = yyres;
+
 	NativeGetAppInfo(&app_name, &app_nice_name, &landscape);
+
 	const char *argv[2] = {app_name.c_str(), 0};
   NativeInit(1, argv, user_data_path.c_str(), installID.c_str());
 
+  use_native_audio = juseNativeAudio;
 	if (use_native_audio) {
 		AndroidAudio_Init(&NativeMix, library_path);
 	}
@@ -164,8 +155,7 @@ extern "C" void Java_com_turboviking_libnative_NativeApp_pause(JNIEnv *, jclass)
 	}
 }
  
-extern "C" void Java_com_turboviking_libnative_NativeApp_shutdown
-  (JNIEnv *, jclass) {
+extern "C" void Java_com_turboviking_libnative_NativeApp_shutdown(JNIEnv *, jclass) {
   ILOG("NativeShutdown.");
  	if (use_native_audio) {
 		AndroidAudio_Shutdown();
@@ -177,26 +167,35 @@ extern "C" void Java_com_turboviking_libnative_NativeApp_shutdown
   NativeShutdown();
   ILOG("VFSShutdown.");
   VFSShutdown();
+  net::Shutdown();
 }
 
 static jmethodID postCommand;
 
 extern "C" void Java_com_turboviking_libnative_NativeRenderer_displayInit(JNIEnv * env, jobject obj) {
   if (!renderer_inited) {
-    ILOG("Calling NativeInitGraphics();");
+    ILOG("Calling NativeInitGraphics();  dpi = %i", g_dpi);
+
+    // We default to 240 dpi and all UI code is written to assume it. (DENSITY_HIGH, like Nexus S).
+    // Note that we don't compute dp_xscale and dp_yscale until later! This is so that NativeGetAppInfo
+    // can change the dp resolution if it feels like it.
+    dp_xres = pixel_xres * 240 / g_dpi;
+    dp_yres = pixel_yres * 240 / g_dpi;
+
     NativeInitGraphics();
+
+    dp_xscale = (float)dp_xres / pixel_xres;
+    dp_yscale = (float)dp_yres / pixel_yres;
   } else {
     ILOG("Calling NativeDeviceLost();");
   }
   renderer_inited = true;
   jclass cls = env->GetObjectClass(obj);
-  postCommand = env->GetMethodID(
-      cls, "postCommand", "(Ljava/lang/String;Ljava/lang/String;)V");
+  postCommand = env->GetMethodID(cls, "postCommand", "(Ljava/lang/String;Ljava/lang/String;)V");
   ILOG("MethodID: %i", (int)postCommand);
 }
 
-extern "C" void Java_com_turboviking_libnative_NativeRenderer_displayResize
-  (JNIEnv *, jobject clazz, jint w, jint h) {
+extern "C" void Java_com_turboviking_libnative_NativeRenderer_displayResize(JNIEnv *, jobject clazz, jint w, jint h) {
   ILOG("nativeResize (%i, %i), device lost!", w, h);
   if (first_lost) {
     first_lost = false;
@@ -205,8 +204,7 @@ extern "C" void Java_com_turboviking_libnative_NativeRenderer_displayResize
   }
 }
 
-extern "C" void Java_com_turboviking_libnative_NativeRenderer_displayRender
-  (JNIEnv *env, jobject obj) {
+extern "C" void Java_com_turboviking_libnative_NativeRenderer_displayRender(JNIEnv *env, jobject obj) {
   if (renderer_inited) {
     UpdateInputState(&input_state);
     NativeUpdate(input_state);
@@ -252,15 +250,20 @@ extern "C" void JNICALL Java_com_turboviking_libnative_NativeApp_touch
 		ELOG("Too many pointers: %i", pointerId);
 		return;  // We ignore 8+ pointers entirely.
 	}
-
-  input_state.mouse_x[pointerId] = (int)(x * xscale);
-  input_state.mouse_y[pointerId] = (int)(y * yscale);
+  float scaledX = (int)(x * dp_xscale);  // why the (int) cast?
+  float scaledY = (int)(y * dp_yscale);
+  input_state.mouse_x[pointerId] = scaledX;
+  input_state.mouse_y[pointerId] = scaledY;
   if (code == 1) {
 		input_state.mouse_last[pointerId] = input_state.mouse_down[pointerId];
   	input_state.mouse_down[pointerId] = true;
+    NativeTouch(pointerId, scaledX, scaledY, 0, TOUCH_DOWN);
   } else if (code == 2) {
 		input_state.mouse_last[pointerId] = input_state.mouse_down[pointerId];
   	input_state.mouse_down[pointerId] = false;
+    NativeTouch(pointerId, scaledX, scaledY, 0, TOUCH_UP);
+  } else {
+    NativeTouch(pointerId, scaledX, scaledY, 0, TOUCH_MOVE);
   }
   input_state.mouse_valid = true;
 }

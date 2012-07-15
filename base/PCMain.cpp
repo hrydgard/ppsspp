@@ -119,35 +119,34 @@ extern void mixaudio(void *userdata, Uint8 *stream, int len) {
 #undef main
 #endif
 int main(int argc, char *argv[]) {
-	/* // Xoom resolution. Other common tablet resolutions: 1024x600 , 1366x768
-	g_xres = 1280;
-	g_yres = 800;
+	/* // Xoom/Nexus 7 resolution. Other common tablet resolutions: 1024x600 , 1366x768
+	dp_xres = 1280;
+	dp_yres = 800;
+
 	*/ 
 	std::string app_name;
 	std::string app_name_nice;
-	bool landscape;
-	NativeGetAppInfo(&app_name, &app_name_nice, &landscape);
 
 	float zoom = 1.0f;
 	const char *zoomenv = getenv("ZOOM");
 	if (zoomenv) {
 		zoom = atof(zoomenv);
 	}
-	if (landscape) {
+
+  bool landscape;
+  NativeGetAppInfo(&app_name, &app_name_nice, &landscape);
+
+  if (landscape) {
 		pixel_xres = 800 * zoom;
 		pixel_yres = 480 * zoom;
 	} else {
-    // PC development hack
-		pixel_xres = 1580 * zoom;
-		pixel_yres = 1000 * zoom;
+    // PC development hack for more space
+		//pixel_xres = 1580 * zoom;
+		//pixel_yres = 1000 * zoom;
+    pixel_xres = 480 * zoom;
+    pixel_yres = 800 * zoom;
 	}
 
-	float density = 1.0f;
-	g_xres = (float)pixel_xres * density / zoom;
-	g_yres = (float)pixel_yres * density / zoom;
-
-	printf("Pixels: %i x %i\n", pixel_xres, pixel_yres);
-	printf("Virtual pixels: %i x %i\n", g_xres, g_yres);
 
 	net::Init();
 
@@ -185,26 +184,34 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
-
-
 #ifdef _MSC_VER
 	// VFSRegister("temp/", new DirectoryAssetReader("E:\\Temp\\"));
 	TCHAR path[MAX_PATH];
 	SHGetFolderPath(NULL, CSIDL_APPDATA, NULL, 0, path);
 	PathAppend(path, (app_name + "\\").c_str());
 #else
-	// Mac - what about linux? Also, ugly hardcoding.
+	// Mac / Linux
 	const char *path = getenv("HOME");
 	if (!path) {
 		struct passwd* pwd = getpwuid(getuid());
 		if (pwd)
 			path = pwd->pw_dir;
 	}
-
 #endif
 
 	NativeInit(argc, (const char **)argv, path, "BADCOFFEE");
+
+  float density = 1.0f;
+  dp_xres = (float)pixel_xres * density / zoom;
+  dp_yres = (float)pixel_yres * density / zoom;
+
 	NativeInitGraphics();
+
+  float dp_xscale = (float)dp_xres / pixel_xres;
+  float dp_yscale = (float)dp_yres / pixel_yres;
+
+  printf("Pixels: %i x %i\n", pixel_xres, pixel_yres);
+  printf("Virtual pixels: %i x %i\n", dp_xres, dp_yres);
 
 	SDL_AudioSpec fmt;
 	fmt.freq = 44100;
@@ -225,44 +232,51 @@ int main(int argc, char *argv[]) {
 	InputState input_state;
 	int framecount = 0;
 	bool nextFrameMD = 0;
+  float t = 0;
 	while (true) {
 		SDL_Event event;
 
 		input_state.accelerometer_valid = false;
 		input_state.mouse_valid = true;
-		int done = 0;
+		int quitRequested = 0;
 		
 		// input_state.mouse_down[1] = nextFrameMD;
 		while (SDL_PollEvent(&event)) {
+      float mx = event.motion.x * dp_xscale;
+      float my = event.motion.y * dp_yscale;
+
 			if (event.type == SDL_QUIT) {
-				done = 1;
+				quitRequested = 1;
 			} else if (event.type == SDL_KEYDOWN) {
 				if (event.key.keysym.sym == SDLK_ESCAPE) {
-					done = 1;
+					quitRequested = 1;
 				}
 			} else if (event.type == SDL_MOUSEMOTION) {
-				input_state.mouse_x[0] = event.motion.x * density / zoom;
-				input_state.mouse_y[0] = event.motion.y * density / zoom;
+				input_state.mouse_x[0] = mx;
+				input_state.mouse_y[0] = my;
+        NativeTouch(0, mx, my, 0, TOUCH_MOVE);
 			} else if (event.type == SDL_MOUSEBUTTONDOWN) {
 				if (event.button.button == SDL_BUTTON_LEFT) {
 					//input_state.mouse_buttons_down = 1;
 					input_state.mouse_down[0] = true;
 					nextFrameMD = true;
+          NativeTouch(0, mx, my, 0, TOUCH_DOWN);
 				}
 			} else if (event.type == SDL_MOUSEBUTTONUP) {
 				if (event.button.button == SDL_BUTTON_LEFT) {
 					input_state.mouse_down[0] = false;
 					nextFrameMD = false;
 					//input_state.mouse_buttons_up = 1;
+          NativeTouch(0, mx, my, 0, TOUCH_UP);
 				}
 			}
 		}
 
-		if (done)
+		if (quitRequested)
 			break;
 
 		input_state.mouse_last[0] = input_state.mouse_down[0];
-		uint8 *keys = (uint8 *)SDL_GetKeyState(NULL);
+		const uint8 *keys = (const uint8 *)SDL_GetKeyState(NULL);
 		if (keys[SDLK_ESCAPE])
 			break;
 		SimulateGamepad(keys, &input_state);
@@ -270,14 +284,13 @@ int main(int argc, char *argv[]) {
 		NativeUpdate(input_state);
 		NativeRender();
 		if (framecount % 60 == 0) {
-		 // glsl_refresh(); // auto-reloads modified GLSL shaders once per second.
+		  // glsl_refresh(); // auto-reloads modified GLSL shaders once per second.
 		}
  
 		SDL_GL_SwapBuffers();
 
 		// Simple framerate limiting
-		static float t=0;
-		while (time_now() < t+1.0f/60.0f) {
+		while (time_now() < t + 1.0f/60.0f) {
 			sleep_ms(0);
 			time_update();
 		}
@@ -293,5 +306,6 @@ int main(int argc, char *argv[]) {
 	NativeShutdown();
 	SDL_CloseAudio();
 	SDL_Quit();
+  net::Shutdown();
 	return 0;
 }

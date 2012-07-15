@@ -16,12 +16,18 @@
 
 namespace net {
 
-
 void Init()
 {
 #ifdef _WIN32
   WSADATA wsaData = {0};
   WSAStartup(MAKEWORD(2, 2), &wsaData);
+#endif
+}
+
+void Shutdown()
+{
+#ifdef _WIN32
+  WSACleanup();
 #endif
 }
 

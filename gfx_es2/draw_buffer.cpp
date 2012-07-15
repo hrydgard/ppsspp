@@ -359,7 +359,7 @@ void DrawBuffer::EnableBlend(bool enable) {
 void DrawBuffer::SetClipRect(float x, float y, float w, float h)
 {
   // Sigh, OpenGL is upside down.
-  glScissor(x, g_yres - y, w, h);
+  glScissor(x, dp_yres - y, w, h);
   glEnable(GL_SCISSOR_TEST);
 }
 
