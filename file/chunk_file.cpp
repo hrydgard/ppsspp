@@ -194,17 +194,38 @@ void ChunkFile::writeWString(String str) {
   wchar_t *text;
   int len=str.length();
 #ifdef UNICODE
+#error
   text = str.getPointer();
 #else
-  text=new wchar_t[len+1];
+  text = new wchar_t[len+1];
   str.toUnicode(text);
 #endif
   writeInt(len);
-  writeData((char *)text,len*sizeof(wchar_t));
+  writeData((char *)text, len * sizeof(wchar_t));
 #ifndef UNICODE
   delete [] text;
 #endif
 }
+
+void ChunkFile::writeWString(const std::string &str) {
+  unsigned short *text;
+  int len=str.length();
+#ifdef UNICODE
+#error
+  text = str.c_str();
+#else
+  text = new unsigned short[len+1];
+  for (int i=0; i<len; i++)
+    text[i]=str[i];
+  text[len]=0;
+#endif
+  writeInt(len);
+  writeData((char *)text, len * sizeof(unsigned short));
+#ifndef UNICODE
+  delete [] text;
+#endif
+}
+
 
 String ChunkFile::readWString() {
   int len=readInt();

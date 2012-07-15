@@ -6,7 +6,7 @@
 
 // EITHER a chunk contains ONLY data
 // OR it contains ONLY other chunks
-// otherwise the scheme breakes.
+// otherwise the scheme breaks.
 
 #include <string>
 
@@ -36,6 +36,7 @@ public:
 
   void writeInt(int i);
   void writeWString(String str);
+  void writeWString(const std::string &str);
   void writeData(const void *data, int count);
 
   int getCurrentChunkSize();

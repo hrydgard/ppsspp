@@ -380,6 +380,7 @@ void String::toUnicode(wchar_t *dest)
 {
 	for (int i=0; i<length(); i++)
 		dest[i]=(wchar_t)CString[i];
+
 } 
 
 
