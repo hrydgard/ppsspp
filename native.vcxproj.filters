@@ -181,6 +181,9 @@
     <ClInclude Include="android\native-audio-so.h">
       <Filter>android</Filter>
     </ClInclude>
+    <ClInclude Include="ui\screen.h">
+      <Filter>ui</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -329,6 +332,9 @@
     </ClCompile>
     <ClCompile Include="android\native-audio-so.cpp">
       <Filter>android</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\screen.cpp">
+      <Filter>ui</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -234,13 +234,11 @@ int main(int argc, char *argv[]) {
 	bool nextFrameMD = 0;
   float t = 0;
 	while (true) {
-		SDL_Event event;
-
 		input_state.accelerometer_valid = false;
 		input_state.mouse_valid = true;
 		int quitRequested = 0;
 		
-		// input_state.mouse_down[1] = nextFrameMD;
+    SDL_Event event;
 		while (SDL_PollEvent(&event)) {
       float mx = event.motion.x * dp_xscale;
       float my = event.motion.y * dp_yscale;
@@ -289,7 +287,7 @@ int main(int argc, char *argv[]) {
  
 		SDL_GL_SwapBuffers();
 
-		// Simple framerate limiting
+		// Simple frame rate limiting
 		while (time_now() < t + 1.0f/60.0f) {
 			sleep_ms(0);
 			time_update();
@@ -299,7 +297,8 @@ int main(int argc, char *argv[]) {
 		framecount++;
 	}
 	// Faster exit, thanks to the OS. Remove this if you want to debug shutdown
-	exit(0);
+  // The speed difference is only really noticable on Linux. On Windows you do notice it though
+	// exit(0);
 
 	NativeShutdownGraphics();
 	SDL_PauseAudio(1);
@@ -307,5 +306,6 @@ int main(int argc, char *argv[]) {
 	SDL_CloseAudio();
 	SDL_Quit();
   net::Shutdown();
+  exit(0);
 	return 0;
 }

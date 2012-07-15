@@ -1,5 +1,6 @@
 set(SRCS
   ui.cpp
+  screen.cpp
 )
 
 set(SRCS ${SRCS})
