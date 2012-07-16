@@ -116,7 +116,20 @@ struct Atlas;
 extern DrawBuffer ui_draw2d;
 extern DrawBuffer ui_draw2d_front;  // for things that need to be on top of the rest
 
-void UIInit(const Atlas *atlas, int uiFont, int buttonImage, int checkOn, int checkOff);
+struct UITheme {
+  int uiFont;
+  int uiFontSmall;
+  int uiFontSmaller;
+  int buttonImage;
+  int checkOn;
+  int checkOff;
+};
+
+// The atlas needs to stick around, the theme is copied.
+void UIInit(const Atlas *atlas, const UITheme &theme);
+
+// Just lets you retrieve the theme that was passed into UIInit, for your own controls for example.
+UITheme &UIGetTheme();
 
 // TODO: These don't really belong here.
 const int UI_SPACE = 32;

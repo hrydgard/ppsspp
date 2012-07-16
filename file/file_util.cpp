@@ -82,16 +82,16 @@ size_t getFilesInDir(const char *directory, std::vector<std::string> *files)
   {
     const std::string virtualName(ffd.cFileName);
 #else
-    struct dirent dirent, *result = NULL;
+  struct dirent dirent, *result = NULL;
 
-    DIR *dirp = opendir(directory);
-    if (!dirp)
-      return 0;
+  DIR *dirp = opendir(directory);
+  if (!dirp)
+    return 0;
 
-    // non windows loop
-    while (!readdir_r(dirp, &dirent, &result) && result)
-    {
-      const std::string virtualName(result->d_name);
+  // non windows loop
+  while (!readdir_r(dirp, &dirent, &result) && result)
+  {
+    const std::string virtualName(result->d_name);
 #endif
     // check for "." and ".."
     if (((virtualName[0] == '.') && (virtualName[1] == '\0')) ||

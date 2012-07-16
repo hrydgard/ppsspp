@@ -14,19 +14,13 @@ UIState uistate;
 
 // Theme.
 static const Atlas *themeAtlas;
-static int themeUIFont;
-static int themeButtonImage;
-static int themeCheckOnImage;
-static int themeCheckOffImage;
+static UITheme theme;
 
-void UIInit(const Atlas *atlas, int uiFont, int buttonImage, int checkOn, int checkOff) {
+void UIInit(const Atlas *atlas, const UITheme &ui_theme) {
   ui_draw2d.SetAtlas(atlas);
   ui_draw2d_front.SetAtlas(atlas);
   themeAtlas = atlas;
-  themeUIFont = uiFont;
-  themeButtonImage = buttonImage;
-  themeCheckOnImage = checkOn;
-  themeCheckOffImage = checkOff;
+  theme = ui_theme;
   memset(&uistate, 0, sizeof(uistate));
 }
 
@@ -85,7 +79,7 @@ void UIEnd() {
 }
 
 void UIText(int x, int y, const char *text, uint32_t color, float scale, int align) {
-  UIText(themeUIFont, x, y, text, color, scale, align);
+  UIText(theme.uiFont, x, y, text, color, scale, align);
 }
 
 void UIText(int font, int x, int y, const char *text, uint32_t color, float scale, int align) {
@@ -95,7 +89,7 @@ void UIText(int font, int x, int y, const char *text, uint32_t color, float scal
 }
 
 int UIButton(int id, const LayoutManager &layout, float w, const char *text, int button_align) {
-  float h = themeAtlas->images[themeButtonImage].h;
+  float h = themeAtlas->images[theme.buttonImage].h;
 
   float x, y;
   layout.GetPos(&w, &h, &x, &y);
@@ -138,8 +132,8 @@ int UIButton(int id, const LayoutManager &layout, float w, const char *text, int
 
   // Render button 
 
-  ui_draw2d.DrawImage2GridH(themeButtonImage, x, y, x + w);
-  ui_draw2d.DrawTextShadow(themeUIFont, text, x + w/2, y + h/2 + txOffset, 0xFFFFFFFF, ALIGN_HCENTER | ALIGN_VCENTER);
+  ui_draw2d.DrawImage2GridH(theme.buttonImage, x, y, x + w);
+  ui_draw2d.DrawTextShadow(theme.uiFont, text, x + w/2, y + h/2 + txOffset, 0xFFFFFFFF, ALIGN_HCENTER | ALIGN_VCENTER);
 
   uistate.lastwidget = id;
   return clicked;
@@ -187,7 +181,7 @@ int UIImageButton(int id, const LayoutManager &layout, float w, int image, int b
 
   // Render button 
 
-  ui_draw2d.DrawImage2GridH(themeButtonImage, x, y, x + w);
+  ui_draw2d.DrawImage2GridH(theme.buttonImage, x, y, x + w);
   ui_draw2d.DrawImage(image, x + w/2, y + h/2 + txOffset, 1.0f, 0xFFFFFFFF, ALIGN_HCENTER | ALIGN_VCENTER);
 
   uistate.lastwidget = id;
@@ -198,8 +192,8 @@ int UIImageButton(int id, const LayoutManager &layout, float w, int image, int b
 int UICheckBox(int id, int x, int y, const char *text, int align, bool *value) {
   const int h = 64;
   float tw, th;
-  ui_draw2d.MeasureText(themeUIFont, text, &tw, &th);
-  int w = themeAtlas->images[themeCheckOnImage].w + UI_SPACE + tw;
+  ui_draw2d.MeasureText(theme.uiFont, text, &tw, &th);
+  int w = themeAtlas->images[theme.checkOn].w + UI_SPACE + tw;
   if (align & ALIGN_HCENTER) x -= w / 2;
   if (align & ALIGN_VCENTER) y -= h / 2;
   if (align & ALIGN_RIGHT) x -= w;
@@ -238,8 +232,8 @@ int UICheckBox(int id, int x, int y, const char *text, int align, bool *value) {
     }
   }
 
-  ui_draw2d.DrawImage((*value) ? themeCheckOnImage : themeCheckOffImage, x, y+h/2, 1.0f, 0xFFFFFFFF, ALIGN_LEFT | ALIGN_VCENTER);
-  ui_draw2d.DrawTextShadow(themeUIFont, text, x + themeAtlas->images[themeCheckOnImage].w + UI_SPACE, y + txOffset + h/2, 0xFFFFFFFF, ALIGN_LEFT | ALIGN_VCENTER);
+  ui_draw2d.DrawImage((*value) ? theme.checkOn : theme.checkOff, x, y+h/2, 1.0f, 0xFFFFFFFF, ALIGN_LEFT | ALIGN_VCENTER);
+  ui_draw2d.DrawTextShadow(theme.uiFont, text, x + themeAtlas->images[theme.checkOn].w + UI_SPACE, y + txOffset + h/2, 0xFFFFFFFF, ALIGN_LEFT | ALIGN_VCENTER);
 
 
   uistate.lastwidget = id;
@@ -248,8 +242,8 @@ int UICheckBox(int id, int x, int y, const char *text, int align, bool *value) {
 
 void StringVectorListAdapter::drawItem(int item, int x, int y, int w, int h, bool selected) const
 {
-  ui_draw2d.DrawImage2GridH(themeButtonImage, x, y, x + w);
-  ui_draw2d.DrawTextShadow(themeUIFont, (*items_)[item].c_str(), x + UI_SPACE , y, 0xFFFFFFFF, ALIGN_LEFT | ALIGN_VCENTER);
+  ui_draw2d.DrawImage2GridH(theme.buttonImage, x, y, x + w);
+  ui_draw2d.DrawTextShadow(theme.uiFont, (*items_)[item].c_str(), x + UI_SPACE , y, 0xFFFFFFFF, ALIGN_LEFT | ALIGN_VCENTER);
 }
 
 int UIList(int id, int x, int y, int w, int h, UIListAdapter *adapter, UIListState *state) {
