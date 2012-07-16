@@ -25,8 +25,9 @@
 #include "base/NativeApp.h"
 #include "net/resolve.h"
 
-
 // Simple implementations of System functions
+
+
 
 void SystemToast(const char *text) {
 #ifdef _WIN32

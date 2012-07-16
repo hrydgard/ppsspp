@@ -14,6 +14,7 @@
 #pragma once
 
 #include <list>
+#include "base/basictypes.h"
 #include "base/display.h"
 
 struct InputState;
@@ -25,6 +26,8 @@ public:
 	virtual void update(const InputState &input) = 0;
 	virtual void render() {}
   virtual void dialogFinished(const Screen &dialog) {}
+private:
+  DISALLOW_COPY_AND_ASSIGN(Screen);
 };
 
 class Transition {

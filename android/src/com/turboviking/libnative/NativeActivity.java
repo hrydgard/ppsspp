@@ -9,7 +9,9 @@ import java.util.UUID;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.ActivityManager;
+import android.app.AlertDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
@@ -26,10 +28,14 @@ import android.os.Environment;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
+import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.Toast;
 
 class Installation {
@@ -83,6 +89,8 @@ public class NativeActivity extends Activity {
 	public static String commandParameter;
 	
 	public static String installID;
+	
+	private EditText editText;
 	
 	String getApplicationLibraryDir(ApplicationInfo application) {    
 	    String libdir = null;
@@ -168,6 +176,14 @@ public class NativeActivity extends Activity {
         if (!useOpenSL)
         	audioPlayer = new NativeAudioPlayer();
         lightsOut();
+        
+        /*
+        editText = new EditText(this);
+        editText.setText("Hello world");
+        
+        addContentView(editText, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        */
+        inputBox("Please ener a s", "", "Save");
     }  
     
 	@SuppressLint("NewApi")
@@ -281,6 +297,45 @@ public class NativeActivity extends Activity {
     	super.onConfigurationChanged(newConfig);
     } 
     
+    public static boolean inputBoxCancelled;
+    @SuppressWarnings("deprecation")
+	public String inputBox(String title, String defaultText, String defaultAction) {
+    	final FrameLayout fl = new FrameLayout(this);
+    	final EditText input = new EditText(this);
+    	input.setGravity(Gravity.CENTER);
+
+    	inputBoxCancelled = false;
+    	FrameLayout.LayoutParams editBoxLayout = new FrameLayout.LayoutParams(FrameLayout.LayoutParams.FILL_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT);
+    	editBoxLayout.setMargins(2, 20, 2, 20);
+    	fl.addView(input, editBoxLayout);
+
+    	input.setText(defaultText);
+    	input.selectAll();
+    	
+    	AlertDialog dlg = new AlertDialog.Builder(this)
+    		.setView(fl)
+    		.setTitle(title)
+    		.setPositiveButton(defaultAction, new DialogInterface.OnClickListener(){
+    			@Override
+    			public void onClick(DialogInterface d, int which) {
+    				d.dismiss();
+    			}
+    		})
+    		.setNegativeButton("Cancel", new DialogInterface.OnClickListener(){
+    			@Override
+    			public void onClick(DialogInterface d, int which) {
+    				d.cancel();
+        	    	NativeActivity.inputBoxCancelled = false;
+    			}
+    		}).create();
+    	dlg.setCancelable(false);
+    	dlg.show();
+    	if (inputBoxCancelled)
+    		return null;
+		// Toast.makeText(this, "Value: " + input.getText().toString(), Toast.LENGTH_LONG).show();
+    	return input.getText().toString();
+    }
+    
     public void processCommand(String command, String params) {
     	if (command.equals("launchBrowser")) {
     		Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse(params));
@@ -304,6 +359,8 @@ public class NativeActivity extends Activity {
     	} else if (command.equals("showkeyboard")) {
     		//InputMethodManager inputMethodManager=(InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);
     	    //inputMethodManager.toggleSoftInputFromWindow(this, InputMethodManager.SHOW_FORCED, 0);
+    	} else if (command.equals("gettext")) {
+    		inputBox("Enter text", params, "OK");
     	} else {
     		Log.e(TAG, "Unsupported command " + command + " , param: " + params);
     	}

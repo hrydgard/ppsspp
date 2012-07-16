@@ -21,9 +21,11 @@ void ScreenManager::switchScreen(Screen *screen) {
   // will only become apparent if the dialog is closed. The previous screen will stick around
   // until that switch.
   if (nextScreen_ != 0) {
-    FLOG("WTF? Already had nextScreen_");
+    FLOG("WTF? Already had a nextScreen_");
   }
-	nextScreen_ = screen;
+  if (screen != currentScreen_) {
+    nextScreen_ = screen;
+  }
 }
 
 void ScreenManager::update(const InputState &input) {
@@ -47,6 +49,7 @@ void ScreenManager::update(const InputState &input) {
 void ScreenManager::render() {
   if (dialog_.size()) {
     dialog_.back()->render();
+    return;
   }
 	if (currentScreen_) {
 		currentScreen_->render();
