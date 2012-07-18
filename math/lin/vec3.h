@@ -4,16 +4,7 @@
 #include <math.h>
 #include <string.h>  // memset
 
-inline float sqr(float f)  {return f*f;}
-inline float sqr_signed(float f) {return f<0 ? -f*f : f*f;}
-
-#ifndef PI
-#define PI     (3.141592654f)
-#endif
-#define PI_INV (0.318309886f)
-
 class Matrix4x4;
-// class Quaternion;
 
 // Hm, doesn't belong in this file.
 class Vec4 {

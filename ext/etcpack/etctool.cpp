@@ -958,9 +958,8 @@ void uncompressFile(char *srcfile,char *dstfile)
 	int active_height;
 	int format;
 
-
-
-	if(f=fopen(srcfile,"rb"))
+	f=fopen(srcfile,"rb");
+	if (f)
 	{
 		if(ktx_mode)
 		{

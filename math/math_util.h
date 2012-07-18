@@ -4,6 +4,9 @@
 #include <math.h>
 #include <string.h>
 
+inline float sqr(float f)  {return f*f;}
+inline float sqr_signed(float f) {return f<0 ? -f*f : f*f;}
+
 typedef unsigned short float16;
 
 // This ain't a 1.5.10 float16, it's a stupid hack format where we chop 16 bits off a float.

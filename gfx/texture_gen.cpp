@@ -18,7 +18,6 @@ uint8_t *generateTexture(const char *filename, int &bpp, int &w, int &h, bool &c
     return 0;
   sscanf(filename, "gen:%i:%i:%s", &w, &h, name_and_params);
 
-  bool mip = false;
   uint8_t *data;
   if (!strcmp(name_and_params, "vignette")) {
     bpp = 1;
