@@ -47,6 +47,7 @@ bool down(int i, float *xdelta, float *ydelta) {
   }
   *xdelta = fingers[i].downX;
   *ydelta = fingers[i].downY;
+  return true;
 }
 
 bool dragDistance(int i, float *xdelta, float *ydelta) {
@@ -55,6 +56,7 @@ bool dragDistance(int i, float *xdelta, float *ydelta) {
 
   *xdelta = fingers[i].X - fingers[i].downX;
   *ydelta = fingers[i].Y - fingers[i].downY;
+  return true;
 }
 
 bool dragDelta(int i, float *xdelta, float *ydelta) {
@@ -63,6 +65,7 @@ bool dragDelta(int i, float *xdelta, float *ydelta) {
 
   *xdelta = fingers[i].X - fingers[i].lastX;
   *ydelta = fingers[i].Y - fingers[i].lastY;
+  return true;
 }
 
 }
