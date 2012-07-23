@@ -1,7 +1,6 @@
 #include <stdio.h>
 
 #include "base/basictypes.h"
-#include "base/LAMEString.h"
 #include "file/easy_file.h"
 
 LAMEFile::LAMEFile() : file_(NULL) {

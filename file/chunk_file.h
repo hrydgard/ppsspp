@@ -11,7 +11,6 @@
 #include <string>
 
 #include "base/basictypes.h"
-#include "base/LAMEString.h"
 #include "file/easy_file.h"
 
 inline uint32 flipID(uint32 id) {
@@ -29,18 +28,19 @@ public:
   int  readInt();
   void readInt(int &i) {i = readInt();}
   void readData(void *data, int count);
-  String readWString();
+  // String readWString();
+  std::string readWString();
 
   void writeString(const std::string &str);
   std::string readString();
 
   void writeInt(int i);
-  void writeWString(String str);
+  //void writeWString(String str);
   void writeWString(const std::string &str);
   void writeData(const void *data, int count);
 
   int getCurrentChunkSize();
-  bool failed() const {return didFail;}
+  bool failed() const { return didFail; }
   std::string filename() const { return fn; }
 
 private:
@@ -56,8 +56,8 @@ private:
   ChunkInfo stack[8];
   int numLevels;
   
-  uint8 *data;
-  int pos,eof;
+  uint8_t *data;
+  int pos, eof;
   bool fastMode;
   bool read;
   bool didFail;
@@ -65,4 +65,3 @@ private:
   void seekTo(int _pos);
   int getPos() const {return pos;}
 };
-

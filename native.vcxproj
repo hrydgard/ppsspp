@@ -88,6 +88,7 @@
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <None Include="base\CMakeLists.txt" />
     <None Include="file\CMakeLists.txt" />
     <None Include="README.md" />
   </ItemGroup>
@@ -102,7 +103,6 @@
     <ClInclude Include="base\colorutil.h" />
     <ClInclude Include="base\display.h" />
     <ClInclude Include="base\error_context.h" />
-    <ClInclude Include="base\LAMEString.h" />
     <ClInclude Include="base\logging.h" />
     <ClInclude Include="base\mutex.h" />
     <ClInclude Include="base\NativeApp.h" />
@@ -171,7 +171,6 @@
     <ClCompile Include="base\colorutil.cpp" />
     <ClCompile Include="base\display.cpp" />
     <ClCompile Include="base\error_context.cpp" />
-    <ClCompile Include="base\LAMEString.cpp" />
     <ClCompile Include="base\stringutil.cpp" />
     <ClCompile Include="base\timeutil.cpp" />
     <ClCompile Include="ext\etcpack\etcdec.cpp" />

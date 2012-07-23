@@ -17,8 +17,8 @@ ChunkFile::ChunkFile(const char *filename, bool _read) {
 
   if (fastMode) {
     size_t size;
-    data = (uint8 *)VFSReadFile(filename, &size);
-     if (!data) {
+    data = (uint8_t *)VFSReadFile(filename, &size);
+    if (!data) {
       ELOG("Chunkfile fail: %s", filename);
       didFail = true;
       return;
@@ -190,6 +190,7 @@ void ChunkFile::writeData(const void *what, int count) {
   }
 }
 
+/*
 void ChunkFile::writeWString(String str) {
   wchar_t *text;
   int len=str.length();
@@ -206,6 +207,7 @@ void ChunkFile::writeWString(String str) {
   delete [] text;
 #endif
 }
+*/
 
 void ChunkFile::writeWString(const std::string &str) {
   unsigned short *text;
@@ -226,24 +228,6 @@ void ChunkFile::writeWString(const std::string &str) {
 #endif
 }
 
-
-String ChunkFile::readWString() {
-  int len=readInt();
-  wchar_t *text = new wchar_t[len+1];
-  readData((char *)text,len*sizeof(wchar_t));
-  text[len]=0;
-#ifdef UNICODE
-  String s(text);
-  delete [] text;
-  return s;
-#else
-  String temp;
-  temp.fromUnicode(text);
-  delete [] text;
-  return temp;
-#endif
-}
-
 static void toUnicode(const std::string &str, uint16 *t) {
   for (int i=0; i<(int)str.size(); i++) {
     *t++ = str[i];
@@ -251,20 +235,23 @@ static void toUnicode(const std::string &str, uint16 *t) {
   *t++ = '\0';
 }
 
-static std::string fromUnicode(const uint16 *src, int len) {
-  struct Local { 
-    static int clamp(int i) {
-      return i>255?' ':i;
-    }
-  };
-
+static std::string fromUnicode(const uint16_t *src, int len) {
   std::string str;
   str.resize(len);
-
   for (int i=0; i<len; i++) {
-    str[i] = Local::clamp(src[i]);
+    str[i] = i > 255 ? ' ' : i;
   }
   return str;
+}
+
+std::string ChunkFile::readWString() {
+  int len=readInt();
+  uint16_t *text = new uint16_t[len+1];
+  readData((char *)text, len*sizeof(uint16_t));
+  text[len] = 0;
+  std::string temp = fromUnicode(text, len);
+  delete [] text;
+  return temp;
 }
 
 void ChunkFile::writeString(const std::string &str) {

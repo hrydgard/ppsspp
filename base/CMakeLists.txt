@@ -1,11 +1,10 @@
 set(SRCS
-  LAMEString.cpp
   colorutil.cpp
   timeutil.cpp
   threadutil.cpp
   error_context.cpp
   display.cpp
-	PCMain.cpp
+  PCMain.cpp
   buffer.cpp)
 
 set(SRCS ${SRCS})

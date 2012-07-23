@@ -5,6 +5,9 @@
       <Filter>file</Filter>
     </None>
     <None Include="README.md" />
+    <None Include="base\CMakeLists.txt">
+      <Filter>base</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="gfx\gl_debug_log.h">
@@ -68,9 +71,6 @@
       <Filter>file</Filter>
     </ClInclude>
     <ClInclude Include="base\basictypes.h">
-      <Filter>base</Filter>
-    </ClInclude>
-    <ClInclude Include="base\LAMEString.h">
       <Filter>base</Filter>
     </ClInclude>
     <ClInclude Include="base\scoped_ptr.h">
@@ -236,9 +236,6 @@
     </ClCompile>
     <ClCompile Include="file\zip_read.cpp">
       <Filter>file</Filter>
-    </ClCompile>
-    <ClCompile Include="base\LAMEString.cpp">
-      <Filter>base</Filter>
     </ClCompile>
     <ClCompile Include="gfx\gl_lost_manager.cpp">
       <Filter>gfx</Filter>
