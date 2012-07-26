@@ -134,16 +134,16 @@ bool Texture::Load(const char *filename) {
       }
   } else
 #endif
-    if (!strcmp("zim", &name[len-3])) {
-      if (!LoadZIM(name)) {
-        LoadXOR();
-        return false;
-      } else {
-        return true;
-      }
+  if (!strcmp("zim", &name[len-3])) {
+    if (!LoadZIM(name)) {
+      LoadXOR();
+      return false;
+    } else {
+      return true;
     }
-    LoadXOR();
-    return false;
+  }
+  LoadXOR();
+  return false;
 }
 
 #ifndef ANDROID
