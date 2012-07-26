@@ -183,7 +183,8 @@ public class NativeActivity extends Activity {
         
         addContentView(editText, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         */
-        inputBox("Please ener a s", "", "Save");
+        // inputBox("Please ener a s", "", "Save");
+		// Toast.makeText(this, "Value: " + input.getText().toString(), Toast.LENGTH_LONG).show();
     }  
     
 	@SuppressLint("NewApi")
@@ -285,7 +286,7 @@ public class NativeActivity extends Activity {
         	NativeApp.keyUp(3);
         	return true;
         } 
-        // All other keys retain their default behaviour.
+        // All other keys retain their default behavior.
 		return false; 
     }  
    
@@ -332,7 +333,6 @@ public class NativeActivity extends Activity {
     	dlg.show();
     	if (inputBoxCancelled)
     		return null;
-		// Toast.makeText(this, "Value: " + input.getText().toString(), Toast.LENGTH_LONG).show();
     	return input.getText().toString();
     }
     
@@ -344,12 +344,12 @@ public class NativeActivity extends Activity {
     		Intent send = new Intent(Intent.ACTION_SENDTO);
     		String uriText;
     		uriText = "mailto:email@gmail.com" + 
-    		          "?subject=Rollfish is..." + 
+    		          "?subject=Your app is..." + 
     		          "&body=great! Or?";
     		uriText = uriText.replace(" ", "%20");
     		Uri uri = Uri.parse(uriText);
     		send.setData(uri);
-    		startActivity(Intent.createChooser(send, "E-mail Henrik!"));
+    		startActivity(Intent.createChooser(send, "E-mail the app author!"));
     	} else if (command.equals("launchMarket")) {
     		// http://stackoverflow.com/questions/3442366/android-link-to-market-from-inside-another-app
     		// http://developer.android.com/guide/publishing/publishing.html#marketintent
