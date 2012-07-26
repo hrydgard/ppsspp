@@ -252,15 +252,13 @@ extern "C" void JNICALL Java_com_turboviking_libnative_NativeApp_touch
 	}
   float scaledX = (int)(x * dp_xscale);  // why the (int) cast?
   float scaledY = (int)(y * dp_yscale);
-  input_state.mouse_x[pointerId] = scaledX;
-  input_state.mouse_y[pointerId] = scaledY;
+  input_state.pointer_x[pointerId] = scaledX;
+  input_state.pointer_y[pointerId] = scaledY;
   if (code == 1) {
-		input_state.mouse_last[pointerId] = input_state.mouse_down[pointerId];
-  	input_state.mouse_down[pointerId] = true;
+  	input_state.pointer_down[pointerId] = true;
     NativeTouch(pointerId, scaledX, scaledY, 0, TOUCH_DOWN);
   } else if (code == 2) {
-		input_state.mouse_last[pointerId] = input_state.mouse_down[pointerId];
-  	input_state.mouse_down[pointerId] = false;
+  	input_state.pointer_down[pointerId] = false;
     NativeTouch(pointerId, scaledX, scaledY, 0, TOUCH_UP);
   } else {
     NativeTouch(pointerId, scaledX, scaledY, 0, TOUCH_MOVE);

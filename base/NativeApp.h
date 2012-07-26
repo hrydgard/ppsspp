@@ -36,7 +36,7 @@ void NativeDeviceLost();
 
 // Called ~sixty times a second, delivers the current input state.
 // Main thread.
-void NativeUpdate(const InputState &input);
+void NativeUpdate(InputState &input);
 
 // Delivers touch events "instantly", without waiting for the next frame so that NativeUpdate can deliver.
 // Useful for triggering audio events, saving a few ms.

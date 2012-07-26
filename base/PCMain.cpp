@@ -102,14 +102,22 @@ void SimulateGamepad(const uint8 *keys, InputState *input) {
 			input->pad_buttons |= (1<<b);
 	}
 
-	if			(keys['I']) input->pad_lstick_y=32000;
-	else if (keys['K']) input->pad_lstick_y=-32000; 
-	if			(keys['J']) input->pad_lstick_x=-32000;
-	else if (keys['L']) input->pad_lstick_x=32000; 
-	if			(keys['8']) input->pad_rstick_y=32000;
-	else if (keys['2']) input->pad_rstick_y=-32000; 
-	if			(keys['4']) input->pad_rstick_x=-32000;
-	else if (keys['6']) input->pad_rstick_x=32000; 
+	if			(keys[SDLK_i])
+    input->pad_lstick_y=1;
+	else if (keys[SDLK_k])
+    input->pad_lstick_y=-1; 
+	if			(keys[SDLK_j])
+    input->pad_lstick_x=-1;
+	else if (keys[SDLK_l])
+    input->pad_lstick_x=1; 
+	if			(keys[SDLK_KP8])
+    input->pad_rstick_y=1;
+	else if (keys[SDLK_KP2])
+    input->pad_rstick_y=-1; 
+	if			(keys[SDLK_KP4])
+    input->pad_rstick_x=-1;
+	else if (keys[SDLK_KP6])
+    input->pad_rstick_x=1; 
 }
 
 extern void mixaudio(void *userdata, Uint8 *stream, int len) {
@@ -251,19 +259,19 @@ int main(int argc, char *argv[]) {
 					quitRequested = 1;
 				}
 			} else if (event.type == SDL_MOUSEMOTION) {
-				input_state.mouse_x[0] = mx;
-				input_state.mouse_y[0] = my;
+				input_state.pointer_x[0] = mx;
+				input_state.pointer_y[0] = my;
         NativeTouch(0, mx, my, 0, TOUCH_MOVE);
 			} else if (event.type == SDL_MOUSEBUTTONDOWN) {
 				if (event.button.button == SDL_BUTTON_LEFT) {
 					//input_state.mouse_buttons_down = 1;
-					input_state.mouse_down[0] = true;
+					input_state.pointer_down[0] = true;
 					nextFrameMD = true;
           NativeTouch(0, mx, my, 0, TOUCH_DOWN);
 				}
 			} else if (event.type == SDL_MOUSEBUTTONUP) {
 				if (event.button.button == SDL_BUTTON_LEFT) {
-					input_state.mouse_down[0] = false;
+					input_state.pointer_down[0] = false;
 					nextFrameMD = false;
 					//input_state.mouse_buttons_up = 1;
           NativeTouch(0, mx, my, 0, TOUCH_UP);
@@ -274,7 +282,6 @@ int main(int argc, char *argv[]) {
 		if (quitRequested)
 			break;
 
-		input_state.mouse_last[0] = input_state.mouse_down[0];
 		const uint8 *keys = (const uint8 *)SDL_GetKeyState(NULL);
 		if (keys[SDLK_ESCAPE])
 			break;

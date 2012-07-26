@@ -11,6 +11,7 @@
 #include <errno.h>
 #endif
 
+#include "base/basictypes.h"
 
 class recursive_mutex {
 #ifdef _WIN32
@@ -33,6 +34,7 @@ public:
     pthread_mutex_destroy(&mut_);
 #endif
   }
+
   bool trylock() {
 #ifdef _WIN32
     return TryEnterCriticalSection(&mut_) == TRUE;
@@ -57,6 +59,7 @@ public:
 
 private:
   mutexType mut_;
+  DISALLOW_COPY_AND_ASSIGN(recursive_mutex);
 };
 
 class lock_guard {

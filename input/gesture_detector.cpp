@@ -27,10 +27,10 @@ static Finger fingers[MAX_FINGERS];
 
 void update(const InputState &state) {
   // Mouse / 1-finger-touch control.
-  if (state.mouse_down[0]) {
+  if (state.pointer_down[0]) {
     fingers[0].down = true;
-    fingers[0].downX = state.mouse_x[0];
-    fingers[0].downY = state.mouse_y[0];
+    fingers[0].downX = state.pointer_x[0];
+    fingers[0].downY = state.pointer_y[0];
   } else {
     fingers[0].down = false;
   }

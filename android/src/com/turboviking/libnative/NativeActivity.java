@@ -335,7 +335,7 @@ public class NativeActivity extends Activity {
     		return null;
     	return input.getText().toString();
     }
-    
+     
     public void processCommand(String command, String params) {
     	if (command.equals("launchBrowser")) {
     		Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse(params));

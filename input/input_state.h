@@ -34,8 +34,7 @@ struct InputState {
       pad_buttons_up(0),
       mouse_valid(false),
       accelerometer_valid(false) {
-    memset(mouse_down, 0, sizeof(mouse_down));
-    memset(mouse_last, 0, sizeof(mouse_last));
+    memset(pointer_down, 0, sizeof(pointer_down));
   }
 
   // Gamepad style input
@@ -54,14 +53,16 @@ struct InputState {
   // There are up to 8 mice / fingers.
   volatile bool mouse_valid;
 
-  int mouse_x[MAX_POINTERS];
-  int mouse_y[MAX_POINTERS];
-  bool mouse_down[MAX_POINTERS];
-  bool mouse_last[MAX_POINTERS];
+  int pointer_x[MAX_POINTERS];
+  int pointer_y[MAX_POINTERS];
+  bool pointer_down[MAX_POINTERS];
 
   // Accelerometer
   bool accelerometer_valid;
   Vec3 acc;
+
+private:
+  DISALLOW_COPY_AND_ASSIGN(InputState);
 };
 
 inline void UpdateInputState(InputState *input) {
