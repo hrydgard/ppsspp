@@ -1,5 +1,4 @@
-#ifndef _RNG_H
-#define _RNG_H
+#pragma once
 
 #include "base/basictypes.h"
 
@@ -22,5 +21,3 @@ class GMRng {
   uint32 m_w;
   uint32 m_z;
 };
-
-#endif

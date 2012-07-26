@@ -47,14 +47,14 @@ inline float grad(int hash, float x, float y, float z) {
   return ((h & 1) == 0 ? u : -u) + ((h & 2) == 0 ? v : -v);
 }
 
-float Noise(double z, double y, double x) {
-  double fx = floor(x), fy = floor(y), fz = floor(z);
+float Noise(double iz, double iy, double ix) {
+  double fx = floor(ix), fy = floor(iy), fz = floor(iz);
   int X = (int)fx & 255,                  // FIND UNIT CUBE THAT
       Y = (int)fy & 255,                  // CONTAINS POINT.
       Z = (int)fz & 255;
-  x -= fx;                                // FIND RELATIVE X,Y,Z
-  y -= fy;                                // OF POINT IN CUBE.
-  z -= fz;
+  float x = (float)(ix - fx);                                // FIND RELATIVE X,Y,Z
+  float y = (float)(iy - fy);                                // OF POINT IN CUBE.
+  float z = (float)(iz - fz);
   float u = fade(x);                           // COMPUTE FADE CURVES
   float v = fade(y);                           // FOR EACH OF X,Y,Z.
   float w = fade(z);

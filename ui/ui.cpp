@@ -10,6 +10,8 @@
 // TODO: UI should probably not own these.
 DrawBuffer ui_draw2d;
 DrawBuffer ui_draw2d_front;
+
+// This one, though, is OK.
 UIState uistate;
 
 // Theme.

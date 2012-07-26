@@ -1,8 +1,6 @@
-#ifndef _PERLIN_H
-#define _PERLIN_H
+#pragma once
 
 // Implementation of "Improved Noise"
 // http://mrl.nyu.edu/~perlin/noise/ 
+// doubles are only used at the very start, not a big performance worry
 float Noise(double x, double y, double z);
-
-#endif  // _PERLIN_H

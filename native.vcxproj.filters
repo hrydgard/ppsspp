@@ -184,6 +184,30 @@
     <ClInclude Include="ui\screen.h">
       <Filter>ui</Filter>
     </ClInclude>
+    <ClInclude Include="base\linked_ptr.h">
+      <Filter>base</Filter>
+    </ClInclude>
+    <ClInclude Include="ui\list_screen.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="base\backtrace.h">
+      <Filter>base</Filter>
+    </ClInclude>
+    <ClInclude Include="base\fastlist.h">
+      <Filter>base</Filter>
+    </ClInclude>
+    <ClInclude Include="math\lin\aabb.h">
+      <Filter>math</Filter>
+    </ClInclude>
+    <ClInclude Include="math\lin\plane.h">
+      <Filter>math</Filter>
+    </ClInclude>
+    <ClInclude Include="util\random\perlin.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="util\random\rng.h">
+      <Filter>util</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -332,6 +356,21 @@
     </ClCompile>
     <ClCompile Include="ui\screen.cpp">
       <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\list_screen.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="base\backtrace.cpp">
+      <Filter>base</Filter>
+    </ClCompile>
+    <ClCompile Include="math\lin\aabb.cpp">
+      <Filter>math</Filter>
+    </ClCompile>
+    <ClCompile Include="math\lin\plane.cpp">
+      <Filter>math</Filter>
+    </ClCompile>
+    <ClCompile Include="util\random\perlin.cpp">
+      <Filter>util</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

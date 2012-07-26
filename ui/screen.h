@@ -56,7 +56,7 @@ private:
 	Screen *currentScreen_;
 	Screen *nextScreen_;
 
-  // Dialog stack. These are shown "on top" of base screens and back works as expected.
+  // Dialog stack. These are shown "on top" of base screens and the Android back button works as expected.
   // Used for options, in-game menus and other things you expect to be able to back out from onto something.
   std::list<Screen *> dialog_;
 };

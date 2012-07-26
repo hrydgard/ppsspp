@@ -5,6 +5,10 @@
 // A common pattern is Adapter classes for changing how things are drawn
 // in lists, for example.
 //
+// Immediate UI works great for overlay UI for games, for example, but is actually
+// not really a good idea for full app UIs. Also, animations are difficult because
+// there's not really any good place to store state.
+//
 // hrydgard@gmail.com
 
 #pragma once

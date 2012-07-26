@@ -3,8 +3,6 @@
 
 #include "math/lin/vec3.h"
 
-namespace lin {
-
 class Matrix4x4;
 
 class Plane {
@@ -24,7 +22,7 @@ class Plane {
   }
 
   void Normalize() {
-    float inv_length = 1.0 * sqrtf(x * x + y * y + z * z);
+    float inv_length = sqrtf(x * x + y * y + z * z);
     x *= inv_length;
     y *= inv_length;
     z *= inv_length;
@@ -33,9 +31,7 @@ class Plane {
 
   // Matrix is the inverse transpose of the wanted transform.
   // out cannot be equal to this.
-  Plane TransformByIT(const Matrix4x4 &matrix, Plane *out);
+  void TransformByIT(const Matrix4x4 &matrix, Plane *out);
 };
-
-}
 
 #endif

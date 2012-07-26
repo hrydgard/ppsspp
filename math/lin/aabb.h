@@ -1,11 +1,8 @@
-#ifndef _MATH_LIN_AABB
-#define _MATH_LIN_AABB
+#pragma once
 
 #include "math/lin/vec3.h"
 
-namespace lin {
-
-class Ray;
+struct Ray;
 class Plane;
 
 struct AABB {
@@ -41,7 +38,3 @@ struct AABB {
 
   bool BehindPlane(const Plane &plane) const;
 };
-
-}  // namespace lin
-
-#endif  // _MATH_LIN_AABB

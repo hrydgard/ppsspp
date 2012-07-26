@@ -1,8 +1,8 @@
 #ifndef _MATHUTILS_H
 #define _MATHUTILS_H
 
-#include <math.h>
-#include <string.h>
+#include <cmath>
+#include <cstring>
 
 inline float sqr(float f)  {return f*f;}
 inline float sqr_signed(float f) {return f<0 ? -f*f : f*f;}
@@ -26,6 +26,9 @@ inline float Float16ToFloat(float16 ix) {
 
 
 #define PI 3.141592653589793f
+#ifndef M_PI
+#define M_PI 3.141592653589793f
+#endif
 
 // The stuff in this file is from all over the web, esp. dspmusic.org. I think it's all public domain.
 // In any case, very little of it is used anywhere at the moment.

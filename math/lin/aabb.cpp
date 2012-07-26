@@ -7,8 +7,6 @@
 #define LEFT	1
 #define MIDDLE	2
 
-namespace lin {
-
 static const float flt_plus_inf = -logf(0);	// let's keep C and C++ compilers happy.
 
 AABB::AABB() : minB(0,0,0),maxB(0,0,0) {
@@ -268,5 +266,3 @@ bool AABB::BehindPlane(const Plane &plane) const {
 
   return true;
 }
-
-}  // namespace lin

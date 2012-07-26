@@ -1,9 +1,6 @@
-#ifndef _MATH_LIN_RAY_H
-#define _MATH_LIN_RAY_H
+#pragma once
 
 #include "vec3.h"
-
-namespace lin {
 
 /* __declspec(align(16)) */ struct Ray
 {
@@ -15,6 +12,3 @@ namespace lin {
 	int pad3;
 };
 
-}  // namespace lin
-
-#endif  // _MATH_LIN_RAY_H

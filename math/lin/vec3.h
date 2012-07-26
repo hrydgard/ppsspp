@@ -22,6 +22,9 @@ public:
   Vec3() { }
   explicit Vec3(float f) {x=y=z=f;}
 
+  float operator [] (int i) const { return (&x)[i]; }
+  float &operator [] (int i) { return (&x)[i]; }
+
   Vec3(const float _x, const float _y, const float _z) {
     x=_x; y=_y; z=_z;
   }
