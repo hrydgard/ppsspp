@@ -90,6 +90,7 @@
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <None Include="Android.mk" />
     <None Include="base\CMakeLists.txt" />
     <None Include="file\CMakeLists.txt" />
     <None Include="README.md" />

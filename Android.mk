@@ -6,7 +6,6 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE    := libnative
 LOCAL_SRC_FILES :=\
-    android/app-android.cpp \
     android/native_audio.cpp \
     audio/wav_read.cpp \
     audio/mixer.cpp.arm \
@@ -51,7 +50,7 @@ LOCAL_SRC_FILES :=\
     util/random/perlin.cpp
 
 
-LOCAL_CFLAGS := -O2 -DANDROID_NDK -DUSE_GLES2 
+LOCAL_CFLAGS := -O2
 LOCAL_CPPFLAGS := -fno-exceptions -fno-rtti -std=gnu++0x
 LOCAL_LDLIBS := -lz
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/ext/libzip

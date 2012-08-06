@@ -90,8 +90,6 @@ public class NativeActivity extends Activity {
 	
 	public static String installID;
 	
-	private EditText editText;
-	
 	String getApplicationLibraryDir(ApplicationInfo application) {    
 	    String libdir = null;
 	    try {
