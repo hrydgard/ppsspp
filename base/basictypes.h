@@ -88,6 +88,8 @@ inline uint64 swap64(const uint8* _pData) {return swap64(*(const uint64*)_pData)
 #endif
 
 // For really basic windows code compat
+#ifndef TCHAR
 typedef char TCHAR;
+#endif
 
 #endif  // _BASE_BASICTYPES

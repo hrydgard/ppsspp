@@ -2,6 +2,7 @@
 
 #include "math/lin/vec3.h"
 #include "base/mutex.h"
+#include "base/basictypes.h"
 
 enum {
   PAD_BUTTON_A = 1,

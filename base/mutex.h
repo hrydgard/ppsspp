@@ -22,8 +22,6 @@
 #include <errno.h>
 #endif
 
-#include "base/basictypes.h"
-
 class recursive_mutex {
 #ifdef _WIN32
   typedef CRITICAL_SECTION mutexType;
@@ -74,7 +72,7 @@ public:
 
 private:
   mutexType mut_;
-  DISALLOW_COPY_AND_ASSIGN(recursive_mutex);
+  recursive_mutex(const recursive_mutex &other);
 };
 
 class lock_guard {
