@@ -24,7 +24,7 @@ bool NativeIsAtTopLevel();
 // The very first function to be called after NativeGetAppInfo. Even NativeMix is not called
 // before this, although it may be called at any point in time afterwards (on any thread!)
 // This functions must NOT call OpenGL. Main thread.
-void NativeInit(int argc, const char *argv[], const char *savegame_directory, const char *installID);
+void NativeInit(int argc, const char *argv[], const char *savegame_directory, const char *external_directory, const char *installID);
 
 // Runs after NativeInit() at some point. May (and probably should) call OpenGL.
 void NativeInitGraphics();

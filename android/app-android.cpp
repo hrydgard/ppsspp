@@ -133,7 +133,7 @@ extern "C" void Java_com_turboviking_libnative_NativeApp_init
 	NativeGetAppInfo(&app_name, &app_nice_name, &landscape);
 
 	const char *argv[2] = {app_name.c_str(), 0};
-  NativeInit(1, argv, user_data_path.c_str(), installID.c_str());
+  NativeInit(1, argv, user_data_path.c_str(), externalDir.c_str(), installID.c_str());
 
   use_native_audio = juseNativeAudio;
 	if (use_native_audio) {
