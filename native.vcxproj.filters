@@ -8,6 +8,7 @@
     <None Include="base\CMakeLists.txt">
       <Filter>base</Filter>
     </None>
+    <None Include="Android.mk" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="gfx\gl_debug_log.h">
