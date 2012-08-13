@@ -16,6 +16,7 @@
 #endif
 #endif
 
+#include <map>
 #include <time.h>
 
 #include "gfx/gl_lost_manager.h"
@@ -53,6 +54,9 @@ struct GLSLProgram : public GfxResourceHolder {
 
   void GLLost();
 };
+
+
+// C API, old skool
 
 GLSLProgram *glsl_create(const char *vshader_file, const char *fshader_file);
 void glsl_destroy(GLSLProgram *program);
