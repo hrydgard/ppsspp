@@ -87,4 +87,7 @@ inline uint64 swap64(const uint8* _pData) {return swap64(*(const uint64*)_pData)
 #define __THREAD __thread
 #endif
 
+// For really basic windows code compat
+typedef char TCHAR;
+
 #endif  // _BASE_BASICTYPES

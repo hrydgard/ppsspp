@@ -1,4 +1,4 @@
-#include "net/resolve.h"
+  #include "net/resolve.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,9 +8,12 @@
 #ifndef _WIN32
 #include <arpa/inet.h>
 #include <netdb.h>  // gethostbyname
+#include <sys/socket.h>
 #else
 #include <WinSock2.h>
 #include <Ws2tcpip.h>
+#undef min
+#undef max
 #endif
 
 
