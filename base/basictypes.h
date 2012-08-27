@@ -52,8 +52,9 @@ typedef intptr_t ssize_t;
 #endif  // _WIN32
 
 // Byteswapping
-
+#ifndef ARRAY_SIZE
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
+#endif
 
 inline uint8 swap8(uint8 _data) {return _data;}
 
