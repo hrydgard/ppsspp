@@ -265,7 +265,7 @@ void DrawBuffer::DrawImage2GridH(int atlas_image, float x1, float y1, float x2, 
 void DrawBuffer::MeasureText(int font, const char *text, float *w, float *h) {
   const AtlasFont &atlasfont = *atlas->fonts[font];
   unsigned char cval;
-  float wacc = 0, maxh = 0;
+  float wacc = 0;
   int lines = 1;
   while ((cval = *text++) != '\0') {
     if (cval < 32) continue;
