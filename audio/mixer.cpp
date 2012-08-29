@@ -90,7 +90,8 @@ static int get_free_channel(Mixer *mixer) {
 
 Clip *clip_load(const char *filename) {
   short *data;
-  int num_samples, sample_rate, num_channels;
+  int num_samples;
+  int sample_rate, num_channels;
 
   if (!strcmp(filename + strlen(filename) - 4, ".ogg")) {
     // Ogg file. For now, directly decompress, no streaming support.
