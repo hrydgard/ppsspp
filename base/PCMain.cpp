@@ -208,7 +208,7 @@ int main(int argc, char *argv[]) {
 	}
 #endif
 
-	NativeInit(argc, (const char **)argv, path, "BADCOFFEE");
+	NativeInit(argc, (const char **)argv, path, "", "BADCOFFEE");
 
   float density = 1.0f;
   dp_xres = (float)pixel_xres * density / zoom;

@@ -11,8 +11,9 @@
 // Get the latest version and other information at:
 //     http://nothings.org/stb_vorbis/
 
-
+#ifdef _MSC_VER
 #pragma warning (disable:4996)
+#endif
 
 // Todo:
 //
@@ -487,7 +488,7 @@ extern int my_prof(int slot);
 //#define stb_prof my_prof
 
 #ifndef stb_prof
-#define stb_prof(x)  0
+#define stb_prof(x)  {}
 #endif
 
 #if defined(STB_VORBIS_NO_PUSHDATA_API)
@@ -1146,9 +1147,10 @@ static int next_segment(vorb *f)
 
 static int get8_packet_raw(vorb *f)
 {
-   if (!f->bytes_in_seg)
+   if (!f->bytes_in_seg){
       if (f->last_seg) return EOP;
       else if (!next_segment(f)) return EOP;
+	 }
    assert(f->bytes_in_seg > 0);
    --f->bytes_in_seg;
    ++f->packet_bytes;
