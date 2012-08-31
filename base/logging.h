@@ -15,7 +15,7 @@
 #undef Crash
 
 #ifdef _M_X64
-inline void Crash() { DebugBreak(); }
+inline void Crash() { /*DebugBreak();*/ }
 #else
 inline void Crash() { __asm { int 3 }; }
 #endif

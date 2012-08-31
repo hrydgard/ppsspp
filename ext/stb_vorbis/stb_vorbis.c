@@ -13,6 +13,7 @@
 
 #ifdef _MSC_VER
 #pragma warning (disable:4996)
+#pragma warning (disable:4244)
 #endif
 
 // Todo:
@@ -1775,7 +1776,7 @@ static void decode_residue(vorb *f, float *residue_buffers[], int ch, int n, int
          memset(residue_buffers[i], 0, sizeof(float) * n);
 
    if (rtype == 2 && ch != 1) {
-      int len = ch * n;
+ //     int len = ch * n;
       for (j=0; j < ch; ++j)
          if (!do_not_decode[j])
             break;

@@ -50,9 +50,32 @@ GLSLProgram *glsl_create(const char *vshader, const char *fshader) {
   program->program_ = 0;
   program->vsh_ = 0;
   program->fsh_ = 0;
+  program->vshader_source = 0;
+  program->fshader_source = 0;
   strcpy(program->name, vshader + strlen(vshader) - 15);
   strcpy(program->vshader_filename, vshader);
   strcpy(program->fshader_filename, fshader);
+  if (glsl_recompile(program)) {
+    active_programs.insert(program);
+  }
+  else
+  {
+    FLOG("Failed building GLSL program: %s %s", vshader, fshader);
+  }
+  register_gl_resource_holder(program);
+  return program;
+}
+
+GLSLProgram *glsl_create_source(const char *vshader_src, const char *fshader_src) {
+  GLSLProgram *program = new GLSLProgram();
+  program->program_ = 0;
+  program->vsh_ = 0;
+  program->fsh_ = 0;
+  program->vshader_source = vshader_src;
+  program->fshader_source = fshader_src;
+  strcpy(program->name, "[srcshader]");
+  strcpy(program->vshader_filename, "");
+  strcpy(program->fshader_filename, "");
   if (glsl_recompile(program)) {
     active_programs.insert(program);
   }
@@ -93,28 +116,37 @@ bool glsl_recompile(GLSLProgram *program) {
     program->fshader_mtime = fs.st_mtime;
   else
     program->fshader_mtime = 0;
+  
+  char *vsh_src = 0, *fsh_src = 0;
 
-  size_t sz;
-  char *vsh_src = (char *)VFSReadFile(program->vshader_filename, &sz);
-  if (!vsh_src) {
-    ELOG("File missing: %s", vsh_src);
-    return false;
+  if (!program->vshader_source) 
+  {
+    size_t sz;
+    vsh_src = (char *)VFSReadFile(program->vshader_filename, &sz);
+    if (!vsh_src) {
+      ELOG("File missing: %s", program->vshader_filename);
+      return false;
+    }
   }
-  char *fsh_src = (char *)VFSReadFile(program->fshader_filename, &sz);
-  if (!fsh_src) {
-    ELOG("File missing: %s", fsh_src);
-    delete [] vsh_src;
-    return false;
+  if (!program->fshader_source)
+  {
+    size_t sz;
+    fsh_src = (char *)VFSReadFile(program->fshader_filename, &sz);
+    if (!fsh_src) {
+      ELOG("File missing: %s", program->fshader_filename);
+      delete [] vsh_src;
+      return false;
+    }
   }
 
   GLuint vsh = glCreateShader(GL_VERTEX_SHADER);
-  const GLchar *vsh_str = (const GLchar *)(vsh_src);
+  const GLchar *vsh_str = program->vshader_source ? program->vshader_source : (const GLchar *)(vsh_src);
   if (!CompileShader(vsh_str, vsh, program->vshader_filename)) {
     return false;
   }
   delete [] vsh_src;
 
-  const GLchar *fsh_str = (const GLchar *)(fsh_src);
+  const GLchar *fsh_str = program->fshader_source ? program->fshader_source : (const GLchar *)(fsh_src);
   GLuint fsh = glCreateShader(GL_FRAGMENT_SHADER);
   if (!CompileShader(fsh_str, fsh, program->fshader_filename)) {
     glDeleteShader(vsh);
@@ -138,6 +170,8 @@ bool glsl_recompile(GLSLProgram *program) {
       glGetProgramInfoLog(prog, bufLength, NULL, buf);
       FLOG("Could not link program:\n %s", buf);
       delete [] buf;  // we're dead!
+    } else {
+      FLOG("Could not link program.");
     }
     glDeleteShader(vsh);
     glDeleteShader(fsh);

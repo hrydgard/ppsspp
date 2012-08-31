@@ -28,6 +28,8 @@ struct GLSLProgram : public GfxResourceHolder {
   char name[16];
   char vshader_filename[256];
   char fshader_filename[256];
+  const char *vshader_source;
+  const char *fshader_source;
   time_t vshader_mtime;
   time_t fshader_mtime;
 
@@ -58,7 +60,10 @@ struct GLSLProgram : public GfxResourceHolder {
 
 // C API, old skool
 
+// From files (VFS)
 GLSLProgram *glsl_create(const char *vshader_file, const char *fshader_file);
+// Directly from source code
+GLSLProgram *glsl_create_source(const char *vshader_src, const char *fshader_src);
 void glsl_destroy(GLSLProgram *program);
 
 // If recompilation of the program fails, the program is untouched and error messages

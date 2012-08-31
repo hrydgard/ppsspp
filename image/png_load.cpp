@@ -1,3 +1,4 @@
+#ifdef PNG_AVAILABLE
 #include <png.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -89,3 +90,5 @@ int pngLoad(const char *file, int *pwidth,
   *image_data_ptr = image_data;
   return 1;
 }
+
+#endif

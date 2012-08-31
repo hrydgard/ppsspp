@@ -209,6 +209,9 @@
     <ClInclude Include="util\random\rng.h">
       <Filter>util</Filter>
     </ClInclude>
+    <ClInclude Include="base\threadutil.h">
+      <Filter>base</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -372,6 +375,9 @@
     </ClCompile>
     <ClCompile Include="util\random\perlin.cpp">
       <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="base\threadutil.cpp">
+      <Filter>base</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
