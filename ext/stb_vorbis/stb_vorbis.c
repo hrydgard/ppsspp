@@ -1202,14 +1202,6 @@ static uint32 get_bits(vorb *f, int n)
    return z;
 }
 
-static int32 get_bits_signed(vorb *f, int n)
-{
-   uint32 z = get_bits(f, n);
-   if (z & (1 << (n-1)))
-      z += ~((1 << n) - 1);
-   return (int32) z;
-}
-
 // @OPTIMIZE: primary accumulator for huffman
 // expand the buffer to as many bits as possible without reading off end of packet
 // it might be nice to allow f->valid_bits and f->acc to be stored in registers,
@@ -1291,23 +1283,6 @@ static int codebook_decode_scalar_raw(vorb *f, Codebook *c)
    error(f, VORBIS_invalid_stream);
    f->valid_bits = 0;
    return -1;
-}
-
-static int codebook_decode_scalar(vorb *f, Codebook *c)
-{
-   int i;
-   if (f->valid_bits < STB_VORBIS_FAST_HUFFMAN_LENGTH)
-      prep_huffman(f);
-   // fast huffman table lookup
-   i = f->acc & FAST_HUFFMAN_TABLE_MASK;
-   i = c->fast_huffman[i];
-   if (i >= 0) {
-      f->acc >>= c->codeword_lengths[i];
-      f->valid_bits -= c->codeword_lengths[i];
-      if (f->valid_bits < 0) { f->valid_bits = 0; return -1; }
-      return i;
-   }
-   return codebook_decode_scalar_raw(f,c);
 }
 
 #ifndef STB_VORBIS_NO_INLINE_DECODE
@@ -2030,7 +2005,7 @@ void dct_iv_slow(float *buffer, int n)
    float mcos[16384];
    float x[2048];
    int i,j;
-   int n2 = n >> 1, nmask = (n << 3) - 1;
+   int nmask = (n << 3) - 1;
    memcpy(x, buffer, sizeof(*x) * n);
    for (i=0; i < 8*n; ++i)
       mcos[i] = (float) cos(M_PI / 4 * i / n);
@@ -2282,7 +2257,6 @@ static __forceinline void iter_54(float *z)
 
 static void imdct_step3_inner_s_loop_ld654(int n, float *e, int i_off, float *A, int base_n)
 {
-   int k_off = -8;
    int a_off = base_n >> 3;
    float A2 = A[0+a_off];
    float *z = e + i_off;
@@ -4156,10 +4130,12 @@ static uint32 vorbis_find_page(stb_vorbis *f, uint32 *end, uint32 *last)
                if (end)
                   *end = stb_vorbis_get_file_offset(f);
                if (last)
+							 {
                   if (header[5] & 0x04)
                      *last = 1;
                   else
                      *last = 0;
+							 }
                set_file_offset(f, retry_loc-1);
                return 1;
             }
@@ -4775,7 +4751,6 @@ static void compute_samples(int mask, short *output, int num_c, float **data, in
    }
 }
 
-static int channel_selector[3][2] = { {0}, {PLAYBACK_MONO}, {PLAYBACK_LEFT, PLAYBACK_RIGHT} };
 static void compute_stereo_samples(short *output, int num_c, float **data, int d_offset, int len)
 {
    #define BUFFER_SIZE  32

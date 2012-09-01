@@ -15,6 +15,7 @@
 #include "SDL/SDL.h"
 #include "SDL/SDL_timer.h"
 #include "SDL/SDL_audio.h"
+#include "SDL/SDL_video.h"
 
 #include "base/display.h"
 #include "base/logging.h"
@@ -158,6 +159,13 @@ int main(int argc, char *argv[]) {
 
 
 	net::Init();
+#ifdef __APPLE__
+  // Make sure to request a somewhat modern GL context at least - the
+	// latest supported by MacOSX (really, really sad...)
+	// Requires SDL 2.0 (which is even more sad, as that hasn't been released yet)
+	//SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+	//SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+#endif
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
 		fprintf(stderr, "Unable to initialize SDL: %s\n", SDL_GetError());
@@ -173,6 +181,7 @@ int main(int argc, char *argv[]) {
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 	SDL_GL_SetAttribute(SDL_GL_SWAP_CONTROL, 1);
+
 
 	if (SDL_SetVideoMode(pixel_xres, pixel_yres, 0, SDL_OPENGL) == NULL) {
 		fprintf(stderr, "SDL SetVideoMode failed: Unable to create OpenGL screen: %s\n", SDL_GetError());
