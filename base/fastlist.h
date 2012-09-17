@@ -18,10 +18,12 @@ class InlineFastList {
   void Add(T t) {
     data_[count_++] = t;
   }
+
   void RemoveAt(int index) {
     data_[index] = data_[count_ - 1];
     count_--;
   }
+
   void Remove(T t) {  // Requires operator==
     for (int i = 0; i < count_; i++) {
       if (data_[i] == t) {
