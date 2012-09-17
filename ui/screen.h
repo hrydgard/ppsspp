@@ -63,5 +63,5 @@ private:
   std::list<Screen *> dialog_;
 };
 
-// Yeah, an old school non enforced singleton. Good enough.
+// Yeah, an old school non enforced singleton. Good enough (not?)
 extern ScreenManager screenManager;

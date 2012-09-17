@@ -162,18 +162,12 @@ public:
 
 class StringVectorListAdapter : public UIListAdapter {
 public:
-  StringVectorListAdapter(std::vector<std::string> *items) : items_(items) {}
+  StringVectorListAdapter(const std::vector<std::string> *items) : items_(items) {}
   virtual size_t getCount() const { return items_->size(); }
   virtual void drawItem(int item, int x, int y, int w, int h, bool active) const;
 
 private:
-  std::vector<std::string> *items_;
-};
-
-struct UIListState {
-  UIListState() : scrollY(0.0f), selected(-1) {}
-  float scrollY;
-  int selected;
+  const std::vector<std::string> *items_;
 };
 
 
@@ -205,9 +199,20 @@ void UIText(int x, int y, const char *text, uint32_t color, float scale = 1.0f, 
 // Slide choice, like the Angry Birds level selector. Not yet working.
 void UISlideChoice(int id, int y, const SlideItem *items, int numItems, UISlideState *state);
 
-// List view.
-// return -1 = no selection
-int UIList(int id, int x, int y, int w, int h, UIListAdapter *adapter, UIListState *state);
+
+class UIList {
+ public:
+  UIList() : scrollY(0.0f), startDragY(0.0f), dragFinger(-1), selected(-1) {}
+  float scrollY;
+  float startDragY;
+  int dragFinger;
+  int selected;
+  // List view.
+  // return -1 = no selection
+  int Do(int id, int x, int y, int w, int h, UIListAdapter *adapter);
+ private:
+  DISALLOW_COPY_AND_ASSIGN(UIList);
+};
 
 // Call at end of frame.
 // Do this afterwards (or similar):

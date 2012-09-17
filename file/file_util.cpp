@@ -61,8 +61,7 @@ bool ReadFileToString(bool text_file, const char *filename, std::string &str)
 
 #ifndef METRO
 
-size_t getFilesInDir(const char *directory, std::vector<std::string> *files)
-{
+size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files) {
   size_t foundEntries = 0;
 #ifdef _WIN32
   // Find the first file in the directory.
@@ -72,10 +71,9 @@ size_t getFilesInDir(const char *directory, std::vector<std::string> *files)
 #else
   HANDLE hFind = FindFirstFile((std::string(directory) + "\\*").c_str(), &ffd);
 #endif
-  if (hFind == INVALID_HANDLE_VALUE)
-  {
+  if (hFind == INVALID_HANDLE_VALUE) {
     FindClose(hFind);
-    return foundEntries;
+    return 0;
   }
   // windows loop
   do
@@ -98,8 +96,10 @@ size_t getFilesInDir(const char *directory, std::vector<std::string> *files)
       ((virtualName[0] == '.') && (virtualName[1] == '.') && 
       (virtualName[2] == '\0')))
       continue;
-
-    files->push_back(std::string(directory) + virtualName);
+    FileInfo info;
+    info.name = std::string(directory) + virtualName;
+    info.isDirectory = false;  // TODO
+    files->push_back(info);
 #ifdef _WIN32 
   } while (FindNextFile(hFind, &ffd) != 0);
   FindClose(hFind);
