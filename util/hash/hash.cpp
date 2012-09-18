@@ -1,4 +1,4 @@
-#include "base/base.h"
+#include "base/basictypes.h"
 #include "util/hash/hash.h"
 
 namespace hash {
