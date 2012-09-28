@@ -1,3 +1,4 @@
+#define PNG_AVAILABLE
 #ifdef PNG_AVAILABLE
 #include <png.h>
 #include <stdlib.h>

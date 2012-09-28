@@ -1,11 +1,12 @@
 package com.turboviking.libnative;
 
 public class NativeApp {      
-	public static native boolean isLandscape();
-	public static native boolean isAtTopLevel();
 	public static native void init(
 			int xxres, int yyres, int dpi, String apkPath,
 			String dataDir, String externalDir, String libraryDir, String installID, boolean useOpenSL);
+
+	public static native boolean isLandscape();
+	public static native boolean isAtTopLevel();
 	
 	// These have Android semantics: Resume is always called on bootup, after init
 	public static native void pause();
@@ -24,4 +25,4 @@ public class NativeApp {
 	public static native void accelerometer(float x, float y, float z);
 	
 	public static native void sendMessage(String msg, String arg);
-}
+} 

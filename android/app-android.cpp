@@ -88,7 +88,8 @@ std::string GetJavaString(JNIEnv *env, jstring jstr)
   return cpp_string;
 }
 
-extern "C" jboolean Java_com_turboviking_libnative_NativeApp_isLandscape(JNIEnv *env, jclass) {
+extern "C" jboolean Java_com_turboviking_libnative_NativeApp_isLandscape(JNIEnv *env, jclass)
+{
 	std::string app_name, app_nice_name;
 	bool landscape;
 	NativeGetAppInfo(&app_name, &app_nice_name, &landscape);

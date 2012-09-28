@@ -49,8 +49,7 @@ static void bqPlayerCallback(SLAndroidSimpleBufferQueueItf bq, void *context) {
   short *nextBuffer = buffer[curBuffer];
   int nextSize = sizeof(buffer[0]);
 
-  SLresult result;
-  result = (*bqPlayerBufferQueue)->Enqueue(bqPlayerBufferQueue, nextBuffer, nextSize);
+  SLresult result = (*bqPlayerBufferQueue)->Enqueue(bqPlayerBufferQueue, nextBuffer, nextSize);
 
   // Comment from sample code:
   // the most likely other result is SL_RESULT_BUFFER_INSUFFICIENT,

@@ -20,6 +20,13 @@
 
 struct InputState;
 
+enum DialogResult {
+  DR_OK,
+  DR_CANCEL,
+  DR_YES,
+  DR_NO,
+};
+
 class Screen {
 public:
 	Screen();
@@ -27,7 +34,7 @@ public:
 	virtual void update(const InputState &input) = 0;
 	virtual void render() {}
 
-  virtual void dialogFinished(const Screen &dialog) {}
+  virtual void dialogFinished(const Screen *dialog, DialogResult result) {}
 private:
   DISALLOW_COPY_AND_ASSIGN(Screen);
 };
@@ -51,9 +58,11 @@ public:
   void push(Screen *screen);
 
   // Pops the dialog away.
-  void pop();
-  
+  void finishDialog(const Screen *dialog, DialogResult result = DR_OK);
+
 private:
+  void pop();
+  Screen *topScreen();
   // Base screen. These don't "stack" and you can move in any order between them.
 	Screen *currentScreen_;
 	Screen *nextScreen_;

@@ -217,7 +217,11 @@ int main(int argc, char *argv[]) {
 	}
 #endif
 
+#ifdef _WIN32
+  NativeInit(argc, (const char **)argv, path, "D:\\", "BADCOFFEE");
+#else
 	NativeInit(argc, (const char **)argv, path, "/tmp", "BADCOFFEE");
+#endif
 
   float density = 1.0f;
   dp_xres = (float)pixel_xres * density / zoom;
