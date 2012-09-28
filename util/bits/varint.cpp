@@ -2,7 +2,7 @@
 
 namespace varint {
 
-void Encode32(uint32 value, char **dest) {
+void Encode32(uint32_t value, char **dest) {
   // Simple varint
   char *p = *dest;
   while (value > 127) {
@@ -13,8 +13,8 @@ void Encode32(uint32 value, char **dest) {
   *dest = p;
 }
 
-uint32 Decode32(const char **ptr) {
-  uint32 value = 0;
+uint32_t Decode32(const char **ptr) {
+  uint32_t value = 0;
   const char *p = *ptr;
   while (true) {
     uint8 b = *p++;

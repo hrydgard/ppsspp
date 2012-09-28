@@ -71,6 +71,3 @@ private:
   // Used for options, in-game menus and other things you expect to be able to back out from onto something.
   std::list<Screen *> dialog_;
 };
-
-// Yeah, an old school non enforced singleton. Good enough.
-extern ScreenManager screenManager;

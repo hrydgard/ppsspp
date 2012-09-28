@@ -209,12 +209,16 @@ int main(int argc, char *argv[]) {
 	PathAppend(path, (app_name + "\\").c_str());
 #else
 	// Mac / Linux
-	const char *path = getenv("HOME");
-	if (!path) {
+  char path[512];
+	const char *the_path = getenv("HOME");
+	if (!the_path) {
 		struct passwd* pwd = getpwuid(getuid());
 		if (pwd)
-			path = pwd->pw_dir;
+			the_path = pwd->pw_dir;
 	}
+  strcpy(path, the_path);
+  if (path[strlen(path)-1] != '/')
+    strcat(path, "/");
 #endif
 
 #ifdef _WIN32

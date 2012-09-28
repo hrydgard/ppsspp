@@ -248,7 +248,7 @@ void StringVectorListAdapter::drawItem(int item, int x, int y, int w, int h, boo
   ui_draw2d.DrawTextShadow(theme.uiFont, (*items_)[item].c_str(), x + UI_SPACE , y, 0xFFFFFFFF, ALIGN_LEFT | ALIGN_VCENTER);
 }
 
-int UIList(int id, int x, int y, int w, int h, UIListAdapter *adapter, UIListState *state) {
+int UIList::Do(int id, int x, int y, int w, int h, UIListAdapter *adapter) {
   const int item_h = 64;
 
   int clicked = 0;
@@ -262,12 +262,12 @@ int UIList(int id, int x, int y, int w, int h, UIListAdapter *adapter, UIListSta
     }
 
     // If button is hot and active, but mouse button is not
-    // down, the user must have clicked the button.
+    // down, the user must have clicked a list item (unless after the last item).
     if (uistate.mousedown[i] == 0 && 
-      uistate.hotitem[i] == id && 
-      uistate.activeitem[i] == id &&
-      state->selected != -1) {
-        clicked = 1;
+        uistate.hotitem[i] == id && 
+        uistate.activeitem[i] == id &&
+        selected != -1) {
+      clicked = 1;
     }
   }
 
@@ -275,13 +275,15 @@ int UIList(int id, int x, int y, int w, int h, UIListAdapter *adapter, UIListSta
   int itemHeight = adapter->itemHeight(0);
   int numItems = adapter->getCount();
   for (int i = 0; i < numItems; i++) {
-    int item_y = y + i * itemHeight - state->scrollY;
-    if (uistate.mousedown && adapter->itemEnabled(i) && item_y >= y - itemHeight && item_y <= y + h && 
-      UIRegionHit(i, x, item_y, w, h, 0)) {
-        // ultra fast touch response
-        state->selected = i;
+    int item_y = y + i * itemHeight - scrollY;
+    if (uistate.mousedown &&
+        adapter->itemEnabled(i) && 
+        item_y >= y - itemHeight && 
+        item_y <= y + h && 
+        UIRegionHit(i, x, item_y, w, h, 0)) {
+      selected = i;
     }
-    adapter->drawItem(i, x, item_y, w, itemHeight, i == state->selected);
+    adapter->drawItem(i, x, item_y, w, itemHeight, i == selected);
   }
   uistate.lastwidget = id;
 

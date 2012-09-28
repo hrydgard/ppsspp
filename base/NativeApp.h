@@ -69,6 +69,17 @@ void NativeMix(short *audio, int num_samples);
 void NativeShutdownGraphics();
 void NativeShutdown();
 
+// Called on app.onCreate and app.onDestroy (?). Tells the app to save/restore
+// light state. If app was fully rebooted between these calls, it's okay if some minor
+// state is lost (position in level) but the level currently playihg, or the song
+// currently being edited, or whatever, should be restored properly. In this case,
+// firstTime will be set so that appropriate action can be taken (or not taken when
+// it's not set).
+//
+// Note that NativeRestore is always called on bootup.
+void NativeRestoreState(bool firstTime);  // onCreate
+void NativeSaveState();  // onDestroy
+
 // Calls back into Java / SDL
 // These APIs must be implemented by every port (for example app-android.cpp, PCMain.cpp).
 // You are free to call these.

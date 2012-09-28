@@ -18,7 +18,7 @@ void unregister_gl_resource_holder(GfxResourceHolder *holder) {
   if (holders) {
     holders->remove(holder);
   } else {
-    WLOG("GL resource holder not initialized, cannot unregister resource");
+    WLOG("GL resource holder not initialized or already shutdown, cannot unregister resource");
   }
 }
 

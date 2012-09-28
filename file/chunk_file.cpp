@@ -239,7 +239,7 @@ static std::string fromUnicode(const uint16_t *src, int len) {
   std::string str;
   str.resize(len);
   for (int i=0; i<len; i++) {
-    str[i] = i > 255 ? ' ' : i;
+    str[i] = src[i] > 255 ? ' ' : src[i];
   }
   return str;
 }

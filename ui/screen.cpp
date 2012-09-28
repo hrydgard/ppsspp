@@ -2,8 +2,6 @@
 #include "input/input_state.h"
 #include "ui/screen.h"
 
-ScreenManager screenManager;
-
 Screen::Screen() { }
 Screen::~Screen() { }
 
