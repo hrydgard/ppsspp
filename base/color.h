@@ -3,7 +3,7 @@
 typedef unsigned int Color;
 
 //have to use a define to ensure constant folding.. with an inline I don't get that, sucks
-#define COLOR(i) (((i << 16) & 0xFF0000) | (i & 0xFF00) | ((i >> 16) & 0xFF) | 0xFF000000)
+#define COLOR(i) (((i&0xFF) << 16) | (i & 0xFF00) | ((i & 0xFF0000) >> 16) | 0xFF000000)
 inline Color darkenColor(Color color) {
   return (color & 0xFF000000) | ((color >> 1)&0x7F7F7F);
 }
