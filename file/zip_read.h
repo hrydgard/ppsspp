@@ -15,6 +15,7 @@ uint8_t *ReadLocalFile(const char *filename, size_t *size);
 
 class AssetReader {
 public:
+  virtual ~AssetReader() {}
   // use delete[]
   virtual uint8_t *ReadAsset(const char *path, size_t *size) = 0;
   virtual std::string toString() const = 0;
