@@ -17,11 +17,13 @@ struct AtlasFont {
   float ascend;
   float distslope;
   AtlasChar chars[96];
+	const char *name;
 };
 
 struct AtlasImage {
   float u1, v1, u2, v2;
   int w, h;
+	const char *name;
 };
 
 struct Atlas {
@@ -30,4 +32,8 @@ struct Atlas {
   int num_fonts;
   const AtlasImage *images;
   int num_images;
+
+	// These are inefficient linear searches, try not to call every frame.
+	const AtlasFont *getFontByName(const char *name) const;
+	const AtlasImage *getImageByName(const char *name) const;
 };

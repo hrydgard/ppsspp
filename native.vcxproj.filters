@@ -221,6 +221,9 @@
     <ClInclude Include="ext\stb_image\stb_image.h">
       <Filter>ext</Filter>
     </ClInclude>
+    <ClInclude Include="ui\virtual_input.h">
+      <Filter>ui</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -390,6 +393,9 @@
     </ClCompile>
     <ClCompile Include="ext\stb_image\stb_image.c">
       <Filter>ext</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\virtual_input.cpp">
+      <Filter>ui</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

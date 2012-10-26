@@ -128,6 +128,7 @@ extern "C" void Java_com_turboviking_libnative_NativeApp_init
   net::Init();
 
   g_dpi = dpi;
+	g_dpi_scale = 240.0f / (float)g_dpi;
   pixel_xres = xxres;
   pixel_yres = yyres;
 
@@ -180,8 +181,8 @@ extern "C" void Java_com_turboviking_libnative_NativeRenderer_displayInit(JNIEnv
     // We default to 240 dpi and all UI code is written to assume it. (DENSITY_HIGH, like Nexus S).
     // Note that we don't compute dp_xscale and dp_yscale until later! This is so that NativeGetAppInfo
     // can change the dp resolution if it feels like it.
-    dp_xres = pixel_xres * 240 / g_dpi;
-    dp_yres = pixel_yres * 240 / g_dpi;
+    dp_xres = pixel_xres * g_dpi_scale;
+    dp_yres = pixel_yres * g_dpi_scale;
 
     NativeInitGraphics();
 

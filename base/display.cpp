@@ -7,3 +7,4 @@ int pixel_xres;
 int pixel_yres;
 
 int g_dpi;
+float g_dpi_scale;

@@ -240,6 +240,7 @@
     <ClInclude Include="ui\list_screen.h" />
     <ClInclude Include="ui\screen.h" />
     <ClInclude Include="ui\ui.h" />
+    <ClInclude Include="ui\virtual_input.h" />
     <ClInclude Include="util\bits\bits.h" />
     <ClInclude Include="util\random\perlin.h" />
     <ClInclude Include="util\random\rng.h" />
@@ -319,6 +320,7 @@
     <ClCompile Include="ui\list_screen.cpp" />
     <ClCompile Include="ui\screen.cpp" />
     <ClCompile Include="ui\ui.cpp" />
+    <ClCompile Include="ui\virtual_input.cpp" />
     <ClCompile Include="util\bits\bits.cpp" />
     <ClCompile Include="util\random\perlin.cpp">
       <AssemblerOutput Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AssemblyAndSourceCode</AssemblerOutput>

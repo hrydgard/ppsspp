@@ -1,6 +1,7 @@
 set(SRCS
   ui.cpp
   screen.cpp
+  virtual_input.cpp
 )
 
 set(SRCS ${SRCS})

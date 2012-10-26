@@ -210,7 +210,9 @@ bool glsl_recompile(GLSLProgram *program) {
 }
 
 void GLSLProgram::GLLost() {
-  ILOG("Restoring GLSL program %s/%s", this->vshader_filename, this->fshader_filename);
+  ILOG("Restoring GLSL program %s/%s",
+		this->vshader_filename ? this->vshader_filename : "(mem)",
+		this->fshader_filename ? this->fshader_filename : "(mem)");
   this->program_ = 0;
   this->vsh_ = 0;
   this->fsh_ = 0;

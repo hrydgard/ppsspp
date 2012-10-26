@@ -9,3 +9,4 @@ extern int pixel_xres;
 extern int pixel_yres;
 
 extern int g_dpi;
+extern float g_dpi_scale;

@@ -47,6 +47,7 @@ LOCAL_SRC_FILES :=\
     image/zim_load.cpp \
 	ui/ui.cpp \
 	ui/screen.cpp \
+	ui/virtual_input.cpp \
     util/random/perlin.cpp
 
 
