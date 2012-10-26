@@ -169,8 +169,10 @@
   <ItemGroup>
     <None Include="Android.mk" />
     <None Include="base\CMakeLists.txt" />
+    <None Include="ext\stb_image\CMakeLists.txt" />
     <None Include="file\CMakeLists.txt" />
     <None Include="README.md" />
+    <None Include="tools\CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="android\native-audio-so.h" />
@@ -198,6 +200,7 @@
     <ClInclude Include="ext\etcpack\etcdec.h" />
     <ClInclude Include="ext\etcpack\etcpack.h" />
     <ClInclude Include="ext\sha1\sha1.h" />
+    <ClInclude Include="ext\stb_image\stb_image.h" />
     <ClInclude Include="ext\stb_vorbis\stb_vorbis.h" />
     <ClInclude Include="ext\vjson\block_allocator.h" />
     <ClInclude Include="ext\vjson\json.h" />
@@ -273,6 +276,7 @@
     <ClCompile Include="ext\etcpack\etcdec.cpp" />
     <ClCompile Include="ext\etcpack\etcpack.cpp" />
     <ClCompile Include="ext\sha1\sha1.cpp" />
+    <ClCompile Include="ext\stb_image\stb_image.c" />
     <ClCompile Include="ext\stb_vorbis\stb_vorbis.c" />
     <ClCompile Include="ext\vjson\block_allocator.cpp" />
     <ClCompile Include="ext\vjson\json.cpp" />

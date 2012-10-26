@@ -380,7 +380,7 @@ bool LoadImage(const char *imagefile, Effect effect, Bucket *bucket) {
     success = true;
   } else {
     success = img.LoadPNG(imagefile);
-    printf("loaded image: %ix%i\n", (int)img.dat[0].size(), (int)img.dat.size());
+    // printf("loaded image: %ix%i\n", (int)img.dat[0].size(), (int)img.dat.size());
   }
   if (!success) {
     return false;

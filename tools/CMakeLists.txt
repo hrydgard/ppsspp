@@ -41,7 +41,7 @@ add_subdirectory(../native/ext/etcpack etcpack)
 
 
 add_executable(atlastool atlastool.cpp)
-target_link_libraries(atlastool ${PNG_LIBRARY}  freetype z image etcpack etcdec file zip gomp)
+target_link_libraries(atlastool ${PNG_LIBRARY} freetype z image etcpack etcdec file zip gomp)
 
 add_executable(zimtool zimtool.cpp)
 target_link_libraries(zimtool ${PNG_LIBRARY} freetype z image etcpack etcdec file zip gomp)

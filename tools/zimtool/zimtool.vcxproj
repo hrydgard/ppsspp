@@ -46,7 +46,7 @@
     <LinkIncremental>false</LinkIncremental>
     <IncludePath>D:\dev\LIB;C:\DXSDK\include;$(VCInstallDir)include;$(VCInstallDir)atlmfc\include;$(WindowsSdkDir)include;$(FrameworkSDKDir)\include;</IncludePath>
     <LibraryPath>D:\dev\LIB;C:\DXSDK\Lib\x86;$(VCInstallDir)lib;$(VCInstallDir)atlmfc\lib;$(WindowsSdkDir)lib;$(FrameworkSDKDir)\lib</LibraryPath>
-    <OutDir>$(SolutionDir)..\..\tools\build\</OutDir>
+    <OutDir>$(ProjectDir)\..\build</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>

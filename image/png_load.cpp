@@ -1,9 +1,51 @@
-#define PNG_AVAILABLE
-#ifdef PNG_AVAILABLE
+#include <stdlib.h>
+#include <string.h>
+#include "png_load.h"
+#include "base/logging.h"
+#include "ext/stb_image/stb_image.h"
+
+
+// #define PNG_AVAILABLE
+#ifndef PNG_AVAILABLE
+
+// *image_data_ptr should be deleted with free()
+// return value of 1 == success.
+int pngLoad(const char *file, int *pwidth, 
+  int *pheight, unsigned char **image_data_ptr,
+  bool flip) {
+  if (flip)
+	{
+		ELOG("pngLoad: flip flag not supported, image will be loaded upside down");
+	}
+	
+	int x,y,n;
+	unsigned char *data = stbi_load(file, &x, &y, &n, 4);  // 4 = force RGBA
+	if (!data)
+		return 0;
+	
+	*pwidth = x;
+	*pheight = y;
+	// ... process data if not NULL ... 
+	// ... x = width, y = height, n = # 8-bit components per pixel ...
+	// ... replace '0' with '1'..'4' to force that many components per pixel
+	// ... but 'n' will always be the number that it would have been if you said 0
+
+	// TODO: Get rid of this silly copy which is only to make the buffer free-able with free()
+	*image_data_ptr = (unsigned char *)malloc(x * y * n);
+	memcpy(*image_data_ptr, data, x * y * n);
+	stbi_image_free(data);
+	return 1;
+}
+
+
+#else
+
 #include <png.h>
 #include <stdlib.h>
 #include <stdio.h>
 
+// *image_data_ptr should be deleted with free()
+// return value of 1 == success.
 int pngLoad(const char *file, int *pwidth, 
             int *pheight, unsigned char **image_data_ptr,
             bool flip) {

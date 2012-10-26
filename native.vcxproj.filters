@@ -9,6 +9,12 @@
       <Filter>base</Filter>
     </None>
     <None Include="Android.mk" />
+    <None Include="ext\stb_image\CMakeLists.txt">
+      <Filter>ext</Filter>
+    </None>
+    <None Include="tools\CMakeLists.txt">
+      <Filter>tools</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="gfx\gl_debug_log.h">
@@ -212,6 +218,9 @@
     <ClInclude Include="base\threadutil.h">
       <Filter>base</Filter>
     </ClInclude>
+    <ClInclude Include="ext\stb_image\stb_image.h">
+      <Filter>ext</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -379,6 +388,9 @@
     <ClCompile Include="base\threadutil.cpp">
       <Filter>base</Filter>
     </ClCompile>
+    <ClCompile Include="ext\stb_image\stb_image.c">
+      <Filter>ext</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="gfx">
@@ -434,6 +446,9 @@
     </Filter>
     <Filter Include="android">
       <UniqueIdentifier>{b7bc9a09-29c1-447b-9255-fe0709d10689}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="tools">
+      <UniqueIdentifier>{4515306f-4664-46bf-a89b-abfec5520a15}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>
