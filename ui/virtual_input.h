@@ -27,11 +27,13 @@ private:
 	int imageIndex_;
 	int overlayImageIndex_;
 	int button_;
-	int rotationAngle_;
+	float rotationAngle_;
 
 	float x_, y_;
 	float w_;
 	float h_;
+
+  bool isDown_;
 
 	// TODO: simplify into flags.
 	bool pointerDown[MAX_POINTERS];

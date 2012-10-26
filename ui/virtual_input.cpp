@@ -1,46 +1,52 @@
+#include <stdio.h>
 #include "gfx_es2/draw_buffer.h"
 #include "gfx/texture_atlas.h"
 #include "input/input_state.h"
 #include "virtual_input.h"
 
 TouchButton::TouchButton(const Atlas *atlas, int imageIndex, int overlayImageIndex, int button, int rotationAngle)
-	: atlas_(atlas), imageIndex_(imageIndex), overlayImageIndex_(overlayImageIndex), button_(button), rotationAngle_(rotationAngle)
+	: atlas_(atlas), imageIndex_(imageIndex), overlayImageIndex_(overlayImageIndex), button_(button)
 {
 	memset(pointerDown, 0, sizeof(pointerDown));
-	w_ = atlas->images[imageIndex].w;
-	h_ = atlas->images[imageIndex].h;
+	w_ = atlas_->images[imageIndex_].w;
+	h_ = atlas_->images[imageIndex_].h;
+  rotationAngle_ = (float)rotationAngle * 3.1415927 / 180.0f;
+  isDown_ = false;
 }
 
 void TouchButton::update(InputState &input_state)
 {
-	bool isDown = false;
+  isDown_ = false;
 	for (int i = 0; i < MAX_POINTERS; i++) {
 		if (input_state.pointer_down[i] && isInside(input_state.pointer_x[i], input_state.pointer_y[i]))
-			isDown = true;
+			isDown_ = true;
 	}
 
-	if (isDown) {
-		int prev_buttons = input_state.pad_buttons;
+	if (isDown_) {
 		input_state.pad_buttons |= button_;
-		input_state.pad_buttons_down |= button_ & (~prev_buttons);
 	} else {
-		input_state.pad_buttons_up &= ~(button_ & input_state.pad_buttons);
 		input_state.pad_buttons &= ~button_;
 	}
 }
 
 void TouchButton::draw(DrawBuffer &db)
 {
-	db.DrawImageRotated(imageIndex_, x_ + w_/2, y_ + h_/2, 1.0f, rotationAngle_, 0xFFFFFFFF);
+  uint32_t color = 0xAAFFFFFF;
+  float scale = 1.0f;
+  if (isDown_) {
+    color = 0xFFFFFFFF;
+    scale = 2.0f;
+  }
+	db.DrawImageRotated(imageIndex_, x_ + w_/2, y_ + h_/2, scale, rotationAngle_, color);
 	if (overlayImageIndex_ != -1)
-		db.DrawImageRotated(overlayImageIndex_, x_ + w_/2, y_ + h_/2, 1.0f, rotationAngle_, 0xFFFFFFFF);
+		db.DrawImageRotated(overlayImageIndex_, x_ + w_/2, y_ + h_/2, scale, rotationAngle_, color);
 }
 
 
 TouchStick::TouchStick(const Atlas *atlas, int bgImageIndex, int stickImageIndex, int stick)
 	: atlas_(atlas), bgImageIndex_(bgImageIndex), stickImageIndex_(stickImageIndex), stick_(stick)
 {
-	
+	stick_size_ = atlas_->images[bgImageIndex].w;
 }
 
 void TouchStick::update(InputState &input_state)

@@ -306,6 +306,9 @@ int main(int argc, char *argv[]) {
 		UpdateInputState(&input_state);
 		NativeUpdate(input_state);
 		NativeRender();
+
+    EndInputState(&input_state);
+
 		if (framecount % 60 == 0) {
 		  // glsl_refresh(); // auto-reloads modified GLSL shaders once per second.
 		}

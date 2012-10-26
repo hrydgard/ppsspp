@@ -211,6 +211,7 @@ extern "C" void Java_com_turboviking_libnative_NativeRenderer_displayRender(JNIE
     UpdateInputState(&input_state);
     NativeUpdate(input_state);
     NativeRender();
+    EndInputState(&input_state);
     time_update();
   } else {
     ELOG("Ended up in nativeRender even though app has quit.%s", "");
