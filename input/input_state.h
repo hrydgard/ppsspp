@@ -69,5 +69,8 @@ private:
 inline void UpdateInputState(InputState *input) {
   input->pad_buttons_down = (input->pad_last_buttons ^ input->pad_buttons) & input->pad_buttons;
   input->pad_buttons_up = (input->pad_last_buttons ^ input->pad_buttons) & input->pad_last_buttons;
+}
+
+inline void EndInputState(InputState *input) {
   input->pad_last_buttons = input->pad_buttons;
 }

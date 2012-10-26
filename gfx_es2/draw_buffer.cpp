@@ -26,7 +26,7 @@ enum {
   MAX_VERTS = 15000,
 };
 
-DrawBuffer::DrawBuffer() : count_(0) {
+DrawBuffer::DrawBuffer() : count_(0), atlas(0) {
   verts_ = new Vertex[MAX_VERTS];
   fontscalex = 1.0f;
   fontscaley = 1.0f;
