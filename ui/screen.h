@@ -31,10 +31,11 @@ class Screen {
 public:
 	Screen();
 	virtual ~Screen();
-	virtual void update(const InputState &input) = 0;
+	virtual void update(InputState &input) = 0;
 	virtual void render() {}
-
+	virtual void deviceLost() {}
   virtual void dialogFinished(const Screen *dialog, DialogResult result) {}
+
 private:
   DISALLOW_COPY_AND_ASSIGN(Screen);
 };
@@ -50,8 +51,9 @@ public:
 	virtual ~ScreenManager();
 
 	void switchScreen(Screen *screen);
-	void update(const InputState &input);
+	void update(InputState &input);
 	void render();
+	void deviceLost();
   void shutdown();
 
   // Push a dialog box in front. Currently 1-level only.

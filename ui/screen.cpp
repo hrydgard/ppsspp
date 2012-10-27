@@ -33,7 +33,7 @@ void ScreenManager::switchScreen(Screen *screen) {
   }
 }
 
-void ScreenManager::update(const InputState &input) {
+void ScreenManager::update(InputState &input) {
   if (dialog_.size()) {
     dialog_.back()->update(input);
     return;
@@ -64,6 +64,14 @@ void ScreenManager::render() {
 	else {
 		ELOG("No current screen!");
 	}
+}
+
+void ScreenManager::deviceLost()
+{
+	if (currentScreen_)
+		currentScreen_->deviceLost();
+	// Dialogs too? Nah, they should only use the standard UI texture anyway.
+	// TODO: Change this when it becomes necessary.
 }
 
 Screen *ScreenManager::topScreen() {

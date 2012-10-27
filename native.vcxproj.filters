@@ -194,9 +194,6 @@
     <ClInclude Include="base\linked_ptr.h">
       <Filter>base</Filter>
     </ClInclude>
-    <ClInclude Include="ui\list_screen.h">
-      <Filter>ui</Filter>
-    </ClInclude>
     <ClInclude Include="base\backtrace.h">
       <Filter>base</Filter>
     </ClInclude>
@@ -371,9 +368,6 @@
       <Filter>android</Filter>
     </ClCompile>
     <ClCompile Include="ui\screen.cpp">
-      <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="ui\list_screen.cpp">
       <Filter>ui</Filter>
     </ClCompile>
     <ClCompile Include="base\backtrace.cpp">

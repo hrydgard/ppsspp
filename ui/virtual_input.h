@@ -1,5 +1,9 @@
 #pragma once
 
+#include "gfx/texture_atlas.h"
+
+class DrawBuffer;
+
 // Multitouch-enabled emulation of a hardware button.
 // (any finger will work, simultaneously with other virtual button/stick actions).
 class TouchButton

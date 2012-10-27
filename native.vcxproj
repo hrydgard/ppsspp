@@ -237,7 +237,6 @@
     <ClInclude Include="net\http_client.h" />
     <ClInclude Include="net\resolve.h" />
     <ClInclude Include="profiler\profiler.h" />
-    <ClInclude Include="ui\list_screen.h" />
     <ClInclude Include="ui\screen.h" />
     <ClInclude Include="ui\ui.h" />
     <ClInclude Include="ui\virtual_input.h" />
@@ -317,7 +316,6 @@
     <ClCompile Include="net\http_client.cpp" />
     <ClCompile Include="net\resolve.cpp" />
     <ClCompile Include="profiler\profiler.cpp" />
-    <ClCompile Include="ui\list_screen.cpp" />
     <ClCompile Include="ui\screen.cpp" />
     <ClCompile Include="ui\ui.cpp" />
     <ClCompile Include="ui\virtual_input.cpp" />
