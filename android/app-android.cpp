@@ -24,9 +24,6 @@
 #include "net/resolve.h"
 #include "android/native_audio.h"
 
-#define coord_xres 480
-#define coord_yres 800
-
 static JNIEnv *jniEnvUI;
 
 std::string frameCommand;
@@ -175,8 +172,8 @@ extern "C" void Java_com_turboviking_libnative_NativeApp_shutdown(JNIEnv *, jcla
 static jmethodID postCommand;
 
 extern "C" void Java_com_turboviking_libnative_NativeRenderer_displayInit(JNIEnv * env, jobject obj) {
+	ILOG("displayInit()");
   if (!renderer_inited) {
-    ILOG("Calling NativeInitGraphics();  dpi = %i", g_dpi);
 
     // We default to 240 dpi and all UI code is written to assume it. (DENSITY_HIGH, like Nexus S).
     // Note that we don't compute dp_xscale and dp_yscale until later! This is so that NativeGetAppInfo
@@ -184,26 +181,23 @@ extern "C" void Java_com_turboviking_libnative_NativeRenderer_displayInit(JNIEnv
     dp_xres = pixel_xres * g_dpi_scale;
     dp_yres = pixel_yres * g_dpi_scale;
 
+		ILOG("Calling NativeInitGraphics();  dpi = %i, dp_xres = %i, dp_yres = %i", g_dpi, dp_xres, dp_yres);
     NativeInitGraphics();
 
     dp_xscale = (float)dp_xres / pixel_xres;
     dp_yscale = (float)dp_yres / pixel_yres;
+		renderer_inited = true;
   } else {
     ILOG("Calling NativeDeviceLost();");
+		NativeDeviceLost();
   }
-  renderer_inited = true;
   jclass cls = env->GetObjectClass(obj);
   postCommand = env->GetMethodID(cls, "postCommand", "(Ljava/lang/String;Ljava/lang/String;)V");
   ILOG("MethodID: %i", (int)postCommand);
 }
 
 extern "C" void Java_com_turboviking_libnative_NativeRenderer_displayResize(JNIEnv *, jobject clazz, jint w, jint h) {
-  ILOG("nativeResize (%i, %i), device lost!", w, h);
-  if (first_lost) {
-    first_lost = false;
-  } else {
-    NativeDeviceLost();
-  }
+  ILOG("displayResize (%i, %i)!", w, h);
 }
 
 extern "C" void Java_com_turboviking_libnative_NativeRenderer_displayRender(JNIEnv *env, jobject obj) {

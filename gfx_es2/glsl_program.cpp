@@ -210,13 +210,21 @@ bool glsl_recompile(GLSLProgram *program) {
 }
 
 void GLSLProgram::GLLost() {
-  ILOG("Restoring GLSL program %s/%s",
+	// Quoth http://developer.android.com/reference/android/opengl/GLSurfaceView.Renderer.html;
+	// "Note that when the EGL context is lost, all OpenGL resources associated with that context will be automatically deleted. 
+	// You do not need to call the corresponding "glDelete" methods such as glDeleteTextures to manually delete these lost resources."
+	// Hence, we comment out:
+	// glDeleteShader(this->vsh_);
+	// glDeleteShader(this->fsh_);
+	// glDeleteProgram(this->program_);
+	ILOG("Restoring GLSL program %s/%s",
 		this->vshader_filename ? this->vshader_filename : "(mem)",
 		this->fshader_filename ? this->fshader_filename : "(mem)");
   this->program_ = 0;
   this->vsh_ = 0;
   this->fsh_ = 0;
-  glsl_recompile(this);  
+  glsl_recompile(this);
+	// Note that uniforms are still lost, hopefully the client sets them every frame at a minimum...
 }
 
 
