@@ -12,10 +12,12 @@ bool readFileToString(bool text_file, const char *filename, std::string &str);
 struct FileInfo
 {
   std::string name;
+	std::string fullName;
   bool isDirectory;
 };
 
 size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files);
 void deleteFile(const char *file);
+bool exists(const std::string &filename);
 
 std::string getDir(const std::string &path);

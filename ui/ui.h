@@ -86,6 +86,7 @@ private:
 // Mouse out of habit, applies just as well to touch events.
 // UI does not yet support multitouch.
 // This struct is zeroed on init, so should be valid at that state.
+// Never inherit from this.
 struct UIState {
   int mousex[MAX_POINTERS];
   int mousey[MAX_POINTERS];
@@ -179,6 +180,9 @@ void UIBegin();
 
 void UIUpdateMouse(int i, float x, float y, bool down);
 
+// Call when you switch screens
+void UIReset();
+
 // Returns 1 if clicked
 int UIButton(int id, const LayoutManager &layout, float w, const char *text, int button_align);
 int UIImageButton(int id, const LayoutManager &layout, float w, int image_id, int button_align);  // uses current UI atlas for fetching images.
@@ -202,7 +206,7 @@ void UISlideChoice(int id, int y, const SlideItem *items, int numItems, UISlideS
 
 class UIList {
  public:
-  UIList() : scrollY(0.0f), startDragY(0.0f), dragFinger(-1), selected(-1) {}
+  UIList();
   float scrollY;
   float startDragY;
   int dragFinger;

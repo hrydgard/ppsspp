@@ -2,7 +2,7 @@
 #include "input/input_state.h"
 #include "ui/screen.h"
 
-Screen::Screen() { }
+Screen::Screen() : screenManager_(0) { }
 Screen::~Screen() { }
 
 ScreenManager::ScreenManager() {
@@ -30,6 +30,7 @@ void ScreenManager::switchScreen(Screen *screen) {
   }
   if (screen != currentScreen_) {
     nextScreen_ = screen;
+		nextScreen_->setScreenManager(this);
   }
 }
 
@@ -93,6 +94,7 @@ void ScreenManager::shutdown() {
 }
 
 void ScreenManager::push(Screen *screen) {
+	screen->setScreenManager(this);
   dialog_.push_back(screen);
 }
 

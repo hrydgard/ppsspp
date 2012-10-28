@@ -272,7 +272,7 @@ extern "C" void Java_com_turboviking_libnative_NativeApp_keyDown
   	  input_state.pad_buttons |= PAD_BUTTON_BACK;
   	  break;
   	case 2:  // Menu
-  	  input_state.pad_buttons |= PAD_BUTTON_START;
+  	  input_state.pad_buttons |= PAD_BUTTON_MENU;
   	  break;
   	case 3:  // Search
   	  input_state.pad_buttons |= PAD_BUTTON_A;
@@ -289,7 +289,7 @@ extern "C" void Java_com_turboviking_libnative_NativeApp_keyUp
   	  input_state.pad_buttons &= ~PAD_BUTTON_BACK;
   	  break;
   	case 2:  // Menu
-  	  input_state.pad_buttons &= ~PAD_BUTTON_START;
+  	  input_state.pad_buttons &= ~PAD_BUTTON_MENU;
   	  break;
   	case 3:  // Search
   	  input_state.pad_buttons &= ~PAD_BUTTON_A;

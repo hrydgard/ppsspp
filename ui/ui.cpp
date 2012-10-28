@@ -44,6 +44,10 @@ void UIUpdateMouse(int i, float x, float y, bool down) {
   uistate.mousedown[i] = down;
 }
 
+void UIReset() {
+	memset(&uistate, 0, sizeof(uistate));
+}
+
 bool UIRegionHit(int i, int x, int y, int w, int h, int margin) {
   // Input handling
   if (uistate.mousex[i] < x - margin ||
@@ -108,8 +112,9 @@ int UIButton(int id, const LayoutManager &layout, float w, const char *text, int
     // Check whether the button should be hot, use a generous margin for touch ease
     if (UIRegionHit(i, x, y, w, h, 8)) {
       uistate.hotitem[i] = id;
-      if (uistate.activeitem[i] == 0 && uistate.mousedown[i])
+      if (uistate.activeitem[i] == 0 && uistate.mousedown[i]) {
         uistate.activeitem[i] = id;
+			}
     }
 
     if (uistate.hotitem[i] == id) {
@@ -126,9 +131,9 @@ int UIButton(int id, const LayoutManager &layout, float w, const char *text, int
     // If button is hot and active, but mouse button is not
     // down, the user must have clicked the button.
     if (uistate.mousedown[i] == 0 && 
-      uistate.hotitem[i] == id && 
-      uistate.activeitem[i] == id) {
-        clicked = 1;
+				uistate.hotitem[i] == id && 
+				uistate.activeitem[i] == id) {
+      clicked = 1;
     }
   }
 
@@ -248,9 +253,12 @@ void StringVectorListAdapter::drawItem(int item, int x, int y, int w, int h, boo
   ui_draw2d.DrawTextShadow(theme.uiFont, (*items_)[item].c_str(), x + UI_SPACE , y, 0xFFFFFFFF, ALIGN_LEFT | ALIGN_VCENTER);
 }
 
-int UIList::Do(int id, int x, int y, int w, int h, UIListAdapter *adapter) {
-  const int item_h = 64;
+UIList::UIList() 
+	: scrollY(0.0f), startDragY(0.0f), dragFinger(-1), selected(-1) {
 
+}
+
+int UIList::Do(int id, int x, int y, int w, int h, UIListAdapter *adapter) {
   int clicked = 0;
 
   for (int i = 0; i < MAX_POINTERS; i++) {
@@ -276,13 +284,18 @@ int UIList::Do(int id, int x, int y, int w, int h, UIListAdapter *adapter) {
   int numItems = adapter->getCount();
   for (int i = 0; i < numItems; i++) {
     int item_y = y + i * itemHeight - scrollY;
-    if (uistate.mousedown &&
-        adapter->itemEnabled(i) && 
-        item_y >= y - itemHeight && 
-        item_y <= y + h && 
-        UIRegionHit(i, x, item_y, w, h, 0)) {
-      selected = i;
-    }
+
+		for (int k = 0; k < MAX_POINTERS; k++) {
+			if (uistate.mousedown[k] &&
+					uistate.mouseframesdown[k] > 10 &&
+					adapter->itemEnabled(i) && 
+					item_y >= y - itemHeight && 
+					item_y <= y + h &&
+					UIRegionHit(k, x, item_y, w, itemHeight, 0)) {
+				printf("%i", item_y);
+				selected = i;
+			}
+		}
     adapter->drawItem(i, x, item_y, w, itemHeight, i == selected);
   }
   uistate.lastwidget = id;

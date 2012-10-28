@@ -58,8 +58,53 @@ bool ReadFileToString(bool text_file, const char *filename, std::string &str)
 }
 
 #define DIR_SEP "/"
+#define DIR_SEP_CHR '\\'
 
 #ifndef METRO
+
+// Remove any ending forward slashes from directory paths
+// Modifies argument.
+static void stripTailDirSlashes(std::string &fname)
+{
+	if (fname.length() > 1)
+	{
+		size_t i = fname.length() - 1;
+		while (fname[i] == DIR_SEP_CHR)
+			fname[i--] = '\0';
+	}
+	return;
+}
+
+// Returns true if file filename exists
+bool exists(const std::string &filename)
+{
+	struct stat64 file_info;
+
+	std::string copy(filename);
+	stripTailDirSlashes(copy);
+
+	int result = stat64(copy.c_str(), &file_info);
+
+	return (result == 0);
+}
+
+// Returns true if filename is a directory
+bool isDirectory(const std::string &filename)
+{
+	struct stat64 file_info;
+
+	std::string copy(filename);
+	stripTailDirSlashes(copy);
+
+	int result = stat64(copy.c_str(), &file_info);
+
+	if (result < 0) {
+		WLOG("IsDirectory: stat failed on %s", filename.c_str());
+		return false;
+	}
+
+	return S_ISDIR(file_info.st_mode);
+}
 
 size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files) {
   size_t foundEntries = 0;
@@ -96,9 +141,14 @@ size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files) {
       ((virtualName[0] == '.') && (virtualName[1] == '.') && 
       (virtualName[2] == '\0')))
       continue;
+
+		// Remove dotfiles (should be made optional?)
+		if (virtualName[0] == '.')
+			continue;
     FileInfo info;
-    info.name = std::string(directory) + virtualName;
-    info.isDirectory = false;  // TODO
+    info.name = virtualName;
+    info.fullName = std::string(directory) + "/" + virtualName;
+    info.isDirectory = isDirectory(info.fullName);
     files->push_back(info);
 #ifdef _WIN32 
   } while (FindNextFile(hFind, &ffd) != 0);
@@ -127,6 +177,8 @@ void deleteFile(const char *file)
 
 std::string getDir(const std::string &path)
 {
+	if (path == "/")
+		return path;
   int n = path.size() - 1;
   while (n >= 0 && path[n] != '\\' && path[n] != '/')
     n--;

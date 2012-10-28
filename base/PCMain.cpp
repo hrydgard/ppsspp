@@ -56,6 +56,8 @@ void LaunchBrowser(const char *url)
 #ifdef _WIN32
 	ShellExecute(NULL, "open", url, NULL, NULL, SW_SHOWNORMAL);
 #else
+	ILOG("Would have gone to %s but LaunchBrowser is not implemented on this platform",
+			 url);
 #endif
 }
 
@@ -64,6 +66,8 @@ void LaunchMarket(const char *url)
 #ifdef _WIN32
 	ShellExecute(NULL, "open", url, NULL, NULL, SW_SHOWNORMAL);
 #else
+	ILOG("Would have gone to %s but LaunchMarket is not implemented on this platform",
+			 url);
 #endif
 }
 
@@ -72,12 +76,14 @@ void LaunchEmail(const char *email_address)
 #ifdef _WIN32
 	ShellExecute(NULL, "open", (std::string("mailto:") + email_address).c_str(), NULL, NULL, SW_SHOWNORMAL);
 #else
+	ILOG("Would have opened your email client for %s but LaunchEmail is not implemented on this platform",
+			 email_address);
 #endif
 }
 
 
 
-const int buttonMappings[12] = {
+const int buttonMappings[14] = {
 	SDLK_x,										//A						
 	SDLK_s,										//B						
 	SDLK_z,										//X						
@@ -85,11 +91,13 @@ const int buttonMappings[12] = {
 	SDLK_w,										//LBUMPER
 	SDLK_q,										//RBUMPER
 	SDLK_1,										//START
-	SDLK_2,										//BACK
+	SDLK_2,										//SELECT
 	SDLK_UP,									//UP		
 	SDLK_DOWN,								//DOWN 
 	SDLK_LEFT,								//LEFT				 
 	SDLK_RIGHT,								//RIGHT				 
+	SDLK_m,                   //MENU
+	SDLK_BACKSPACE,           //BACK
 };
 
 void SimulateGamepad(const uint8 *keys, InputState *input) {
@@ -98,7 +106,7 @@ void SimulateGamepad(const uint8 *keys, InputState *input) {
 	input->pad_lstick_y = 0;
 	input->pad_rstick_x = 0;
 	input->pad_rstick_y = 0;
-	for (int b = 0; b < 12; b++) {
+	for (int b = 0; b < 14; b++) {
 		if (keys[buttonMappings[b]])
 			input->pad_buttons |= (1<<b);
 	}

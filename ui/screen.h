@@ -27,6 +27,8 @@ enum DialogResult {
   DR_NO,
 };
 
+class ScreenManager;
+
 class Screen {
 public:
 	Screen();
@@ -36,7 +38,11 @@ public:
 	virtual void deviceLost() {}
   virtual void dialogFinished(const Screen *dialog, DialogResult result) {}
 
+	ScreenManager *screenManager() { return screenManager_; }
+	void setScreenManager(ScreenManager *sm) { screenManager_ = sm; }
+
 private:
+	ScreenManager *screenManager_;
   DISALLOW_COPY_AND_ASSIGN(Screen);
 };
 
