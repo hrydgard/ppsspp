@@ -187,5 +187,10 @@ std::string getDir(const std::string &path)
   {  
     if (cutpath[i] == '\\') cutpath[i] = '/';
   }
+#ifndef _WIN32
+	if (!cutpath.size()) {
+		return "/";
+	}
+#endif
   return cutpath;
 }
