@@ -103,7 +103,7 @@ int UIButton(int id, const LayoutManager &layout, float w, const char *text, int
 	if (button_align & ALIGN_HCENTER) x -= w / 2;
 	if (button_align & ALIGN_VCENTER) y -= h / 2;
 	if (button_align & ALIGN_RIGHT) x -= w;
-	if (button_align & ALIGN_BOTTOMRIGHT) y -= h;
+	if (button_align & ALIGN_BOTTOM) y -= h;
 
 	int txOffset = 0;
 
