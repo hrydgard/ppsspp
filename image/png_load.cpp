@@ -31,8 +31,8 @@ int pngLoad(const char *file, int *pwidth,
 	// ... but 'n' will always be the number that it would have been if you said 0
 
 	// TODO: Get rid of this silly copy which is only to make the buffer free-able with free()
-	*image_data_ptr = (unsigned char *)malloc(x * y * n);
-	memcpy(*image_data_ptr, data, x * y * n);
+	*image_data_ptr = (unsigned char *)malloc(x * y * 4);
+	memcpy(*image_data_ptr, data, x * y * 4);
 	stbi_image_free(data);
 	return 1;
 }
