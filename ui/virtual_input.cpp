@@ -10,13 +10,13 @@ TouchButton::TouchButton(const Atlas *atlas, int imageIndex, int overlayImageInd
 	memset(pointerDown, 0, sizeof(pointerDown));
 	w_ = atlas_->images[imageIndex_].w;
 	h_ = atlas_->images[imageIndex_].h;
-  rotationAngle_ = (float)rotationAngle * 3.1415927 / 180.0f;
-  isDown_ = false;
+	rotationAngle_ = (float)rotationAngle * 3.1415927 / 180.0f;
+	isDown_ = false;
 }
 
 void TouchButton::update(InputState &input_state)
 {
-  isDown_ = false;
+	isDown_ = false;
 	for (int i = 0; i < MAX_POINTERS; i++) {
 		if (input_state.pointer_down[i] && isInside(input_state.pointer_x[i], input_state.pointer_y[i]))
 			isDown_ = true;
@@ -31,12 +31,12 @@ void TouchButton::update(InputState &input_state)
 
 void TouchButton::draw(DrawBuffer &db)
 {
-  uint32_t color = 0xAAFFFFFF;
-  float scale = 1.0f;
-  if (isDown_) {
-    color = 0xFFFFFFFF;
-    scale = 2.0f;
-  }
+	uint32_t color = 0xAAFFFFFF;
+	float scale = 1.0f;
+	if (isDown_) {
+		color = 0xFFFFFFFF;
+		scale = 2.0f;
+	}
 	db.DrawImageRotated(imageIndex_, x_ + w_/2, y_ + h_/2, scale, rotationAngle_, color);
 	if (overlayImageIndex_ != -1)
 		db.DrawImageRotated(overlayImageIndex_, x_ + w_/2, y_ + h_/2, scale, rotationAngle_, color);

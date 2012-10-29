@@ -21,10 +21,10 @@
 struct InputState;
 
 enum DialogResult {
-  DR_OK,
-  DR_CANCEL,
-  DR_YES,
-  DR_NO,
+	DR_OK,
+	DR_CANCEL,
+	DR_YES,
+	DR_NO,
 };
 
 class ScreenManager;
@@ -36,14 +36,14 @@ public:
 	virtual void update(InputState &input) = 0;
 	virtual void render() {}
 	virtual void deviceLost() {}
-  virtual void dialogFinished(const Screen *dialog, DialogResult result) {}
+	virtual void dialogFinished(const Screen *dialog, DialogResult result) {}
 
 	ScreenManager *screenManager() { return screenManager_; }
 	void setScreenManager(ScreenManager *sm) { screenManager_ = sm; }
 
 private:
 	ScreenManager *screenManager_;
-  DISALLOW_COPY_AND_ASSIGN(Screen);
+	DISALLOW_COPY_AND_ASSIGN(Screen);
 };
 
 class Transition {
@@ -60,22 +60,22 @@ public:
 	void update(InputState &input);
 	void render();
 	void deviceLost();
-  void shutdown();
+	void shutdown();
 
-  // Push a dialog box in front. Currently 1-level only.
-  void push(Screen *screen);
+	// Push a dialog box in front. Currently 1-level only.
+	void push(Screen *screen);
 
-  // Pops the dialog away.
-  void finishDialog(const Screen *dialog, DialogResult result = DR_OK);
+	// Pops the dialog away.
+	void finishDialog(const Screen *dialog, DialogResult result = DR_OK);
 
 private:
-  void pop();
-  Screen *topScreen();
-  // Base screen. These don't "stack" and you can move in any order between them.
+	void pop();
+	Screen *topScreen();
+	// Base screen. These don't "stack" and you can move in any order between them.
 	Screen *currentScreen_;
 	Screen *nextScreen_;
 
-  // Dialog stack. These are shown "on top" of base screens and the Android back button works as expected.
-  // Used for options, in-game menus and other things you expect to be able to back out from onto something.
-  std::list<Screen *> dialog_;
+	// Dialog stack. These are shown "on top" of base screens and the Android back button works as expected.
+	// Used for options, in-game menus and other things you expect to be able to back out from onto something.
+	std::list<Screen *> dialog_;
 };

@@ -37,16 +37,16 @@ private:
 	float w_;
 	float h_;
 
-  bool isDown_;
+	bool isDown_;
 
 	// TODO: simplify into flags.
 	bool pointerDown[MAX_POINTERS];
 };
 
 
-// Multi-touch enabled virtual joystick 
+// Multi-touch enabled virtual joystick
 // (any finger will work, simultaneously with other virtual button/stick actions).
-class TouchStick 
+class TouchStick
 {
 public:
 	TouchStick(const Atlas *atlas, int bgImageIndex, int stickImageIndex, int stick);

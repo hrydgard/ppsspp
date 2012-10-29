@@ -31,84 +31,84 @@
 
 class LayoutManager {
 public:
-  virtual void GetPos(float *w, float *h, float *x, float *y) const = 0;
+	virtual void GetPos(float *w, float *h, float *x, float *y) const = 0;
 };
 
 class Pos : public LayoutManager {
 public:
-  Pos(float x, float y) : x_(x), y_(y) {}
-  virtual void GetPos(float *w, float *h, float *x, float *y) const {
-    *x = x_;
-    *y = y_;
-  }
+	Pos(float x, float y) : x_(x), y_(y) {}
+	virtual void GetPos(float *w, float *h, float *x, float *y) const {
+		*x = x_;
+		*y = y_;
+	}
 private:
-  float x_;
-  float y_;
+	float x_;
+	float y_;
 };
 
 class HLinear : public LayoutManager {
 public:
-  HLinear(float x, float y, float spacing = 2.0f) : x_(x), y_(y), spacing_(spacing) {}
-  virtual void GetPos(float *w, float *h, float *x, float *y) const {
-    *x = x_;
-    *y = y_;
-    x_ += *w + spacing_;
-  }
-  void Space(float x) {
-    x_ += x;
-  }
+	HLinear(float x, float y, float spacing = 2.0f) : x_(x), y_(y), spacing_(spacing) {}
+	virtual void GetPos(float *w, float *h, float *x, float *y) const {
+		*x = x_;
+		*y = y_;
+		x_ += *w + spacing_;
+	}
+	void Space(float x) {
+		x_ += x;
+	}
 
 private:
-  mutable float x_;
-  float y_;
-  float spacing_;
+	mutable float x_;
+	float y_;
+	float spacing_;
 };
 
 class VLinear : public LayoutManager {
 public:
-  VLinear(float x, float y, float spacing = 2.0f) : x_(x), y_(y), spacing_(spacing) {}
-  virtual void GetPos(float *w, float *h, float *x, float *y) const {
-    *x = x_;
-    *y = y_;
-    y_ += *h + spacing_;
-  }
+	VLinear(float x, float y, float spacing = 2.0f) : x_(x), y_(y), spacing_(spacing) {}
+	virtual void GetPos(float *w, float *h, float *x, float *y) const {
+		*x = x_;
+		*y = y_;
+		y_ += *h + spacing_;
+	}
 
 private:
-  float x_;
-  mutable float y_;
-  float spacing_;
+	float x_;
+	mutable float y_;
+	float spacing_;
 };
 
 #ifndef MAX_POINTERS
 #define MAX_POINTERS 8
 #endif
 
-// Mouse out of habit, applies just as well to touch events.
-// UI does not yet support multitouch.
+// "Mouse" out of habit, applies just as well to touch events.
+// TODO: Change to "pointer"
 // This struct is zeroed on init, so should be valid at that state.
 // Never inherit from this.
 struct UIState {
-  int mousex[MAX_POINTERS];
-  int mousey[MAX_POINTERS];
-  bool mousedown[MAX_POINTERS];
-  bool mousepressed[MAX_POINTERS];
-  short mouseframesdown[MAX_POINTERS];
+	int mousex[MAX_POINTERS];
+	int mousey[MAX_POINTERS];
+	bool mousedown[MAX_POINTERS];
+	bool mousepressed[MAX_POINTERS];
+	short mouseframesdown[MAX_POINTERS];
 
-  int mouseStartX[MAX_POINTERS];
-  int mouseStartY[MAX_POINTERS];
+	int mouseStartX[MAX_POINTERS];
+	int mouseStartY[MAX_POINTERS];
 
-  int hotitem[MAX_POINTERS];
-  int activeitem[MAX_POINTERS];
+	int hotitem[MAX_POINTERS];
+	int activeitem[MAX_POINTERS];
 
-  // keyboard focus, not currently used
-  int kbdwidget;
-  int lastwidget;
+	// keyboard focus, not currently used
+	int kbdwidget;
+	int lastwidget;
 
-  // Used by controls that need to keep track of the initial value for drags, for example.
-  // Should probably be indexed by finger - would be neat to be able to move two knobs at the same time.
-  float tempfloat;
+	// Used by controls that need to keep track of the initial value for drags, for example.
+	// Should probably be indexed by finger - would be neat to be able to move two knobs at the same time.
+	float tempfloat;
 
-  int ui_tick;
+	int ui_tick;
 };
 
 // This needs to be extern so that additional UI controls can be developed outside this file.
@@ -119,15 +119,15 @@ struct Atlas;
 // This is the drawbuffer used for UI. Remember to flush it at the end of the frame.
 // TODO: One should probably pass it in through UIInit.
 extern DrawBuffer ui_draw2d;
-extern DrawBuffer ui_draw2d_front;  // for things that need to be on top of the rest
+extern DrawBuffer ui_draw2d_front;	// for things that need to be on top of the rest
 
 struct UITheme {
-  int uiFont;
-  int uiFontSmall;
-  int uiFontSmaller;
-  int buttonImage;
-  int checkOn;
-  int checkOff;
+	int uiFont;
+	int uiFontSmall;
+	int uiFontSmaller;
+	int buttonImage;
+	int checkOn;
+	int checkOff;
 };
 
 // The atlas needs to stick around, the theme is copied.
@@ -143,32 +143,32 @@ const int LARGE_BUTTON_WIDTH = 192;
 const int BUTTON_HEIGHT = 72;
 
 struct SlideItem {
-  const char *text;
-  int image;
-  uint32_t bgColor;
+	const char *text;
+	int image;
+	uint32_t bgColor;
 };
 
 struct UISlideState {
-  float scroll;
+	float scroll;
 };
 
 // Implement this interface to style your lists
 class UIListAdapter {
 public:
-  virtual size_t getCount() const = 0;
-  virtual void drawItem(int item, int x, int y, int w, int h, bool active) const = 0;
-  virtual float itemHeight(int itemIndex) const { return 64; }
-  virtual bool itemEnabled(int itemIndex) const { return true; }
+	virtual size_t getCount() const = 0;
+	virtual void drawItem(int item, int x, int y, int w, int h, bool active) const = 0;
+	virtual float itemHeight(int itemIndex) const { return 64; }
+	virtual bool itemEnabled(int itemIndex) const { return true; }
 };
 
 class StringVectorListAdapter : public UIListAdapter {
 public:
-  StringVectorListAdapter(const std::vector<std::string> *items) : items_(items) {}
-  virtual size_t getCount() const { return items_->size(); }
-  virtual void drawItem(int item, int x, int y, int w, int h, bool active) const;
+	StringVectorListAdapter(const std::vector<std::string> *items) : items_(items) {}
+	virtual size_t getCount() const { return items_->size(); }
+	virtual void drawItem(int item, int x, int y, int w, int h, bool active) const;
 
 private:
-  const std::vector<std::string> *items_;
+	const std::vector<std::string> *items_;
 };
 
 
@@ -185,7 +185,7 @@ void UIReset();
 
 // Returns 1 if clicked
 int UIButton(int id, const LayoutManager &layout, float w, const char *text, int button_align);
-int UIImageButton(int id, const LayoutManager &layout, float w, int image_id, int button_align);  // uses current UI atlas for fetching images.
+int UIImageButton(int id, const LayoutManager &layout, float w, int image_id, int button_align);	// uses current UI atlas for fetching images.
 
 // Returns 1 if clicked, puts the value in *value (where it also gets the current state).
 int UICheckBox(int id, int x, int y, const char *text, int align, bool *value);
@@ -205,17 +205,23 @@ void UISlideChoice(int id, int y, const SlideItem *items, int numItems, UISlideS
 
 
 class UIList {
- public:
-  UIList();
-  float scrollY;
-  float startDragY;
-  int dragFinger;
-  int selected;
-  // List view.
-  // return -1 = no selection
-  int Do(int id, int x, int y, int w, int h, UIListAdapter *adapter);
- private:
-  DISALLOW_COPY_AND_ASSIGN(UIList);
+public:
+	UIList();
+
+	bool scrolling;
+	int activePointer;
+	float scrollY;
+	float startDragY;
+	float movedDistanceY;
+
+	int dragFinger;
+	int selected;
+	// List view.
+	// return -1 = no selection
+	int Do(int id, int x, int y, int w, int h, UIListAdapter *adapter);
+
+private:
+	DISALLOW_COPY_AND_ASSIGN(UIList);
 };
 
 // Call at end of frame.
