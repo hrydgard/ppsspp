@@ -3,6 +3,7 @@ set(SRCS
   lin/vec3.cpp
   lin/quat.cpp
   lin/aabb.cpp
+	curves.cpp
   )
 
 set(SRCS ${SRCS})
