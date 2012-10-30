@@ -11,9 +11,9 @@ struct Channel;
 
 // This struct is public for easy manipulation of running channels.
 struct PlayParams {
-  uint8_t volume;  // 0-255
-  uint8_t pan;  // 0-255, 127 is dead center.
-  int32_t delta;
+	uint8_t volume;	// 0-255
+	uint8_t pan;	// 0-255, 127 is dead center.
+	int32_t delta;
 };
 
 // Mixer

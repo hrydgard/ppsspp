@@ -7,7 +7,7 @@ const AtlasFont *Atlas::getFontByName(const char *name) const
 		if (!strcmp(name, fonts[i]->name))
 			return fonts[i];
 	}
-  return 0;
+	return 0;
 }
 
 const AtlasImage *Atlas::getImageByName(const char *name) const
@@ -16,5 +16,5 @@ const AtlasImage *Atlas::getImageByName(const char *name) const
 		if (!strcmp(name, images[i].name))
 			return &images[i];
 	}
-  return 0;
+	return 0;
 }

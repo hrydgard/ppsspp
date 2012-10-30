@@ -15,7 +15,7 @@ struct AABB {
 	bool Contains(const Vec3 &pt) const;
 	bool IntersectRay(const Ray &ray, float &tnear, float &tfar) const;
 
-  // Doesn't currently work.
+	// Doesn't currently work.
 	bool IntersectRay2(const Ray &ray, float &tnear, float &tfar) const;
 
 	bool IntersectsTriangle(const Vec3& a_V0, const Vec3& a_V1, const Vec3& a_V2) const;
@@ -36,5 +36,5 @@ struct AABB {
 		return maxB - minB;
 	}
 
-  bool BehindPlane(const Plane &plane) const;
+	bool BehindPlane(const Plane &plane) const;
 };

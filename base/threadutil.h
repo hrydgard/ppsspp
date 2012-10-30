@@ -22,17 +22,17 @@ void setCurrentThreadName(const char *name);
 class thread {
 private:
 #ifdef _WIN32
-  typedef HANDLE thread_;
+	typedef HANDLE thread_;
 #else
-  typedef pthread_t thread_;
+	typedef pthread_t thread_;
 #endif
 
 public:
-  //void run(std::function<void()> threadFunc) {
-  //   func_ = 
-  //}
+	//void run(std::function<void()> threadFunc) {
+	//	 func_ = 
+	//}
 
-  void wait() {
+	void wait() {
 
-  }
+	}
 };*/

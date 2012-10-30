@@ -34,7 +34,7 @@ unsigned int parseHex(const char *_szValue)
 		case 'e': Value += 14; break;
 		case 'F': Value += 15; break;
 		case 'f': Value += 15; break;
-		default: 
+		default:
 			Value = (Value >> 4);
 			Count = Finish;
 		}
@@ -43,11 +43,11 @@ unsigned int parseHex(const char *_szValue)
 }
 
 void DataToHexString(const uint8 *data, size_t size, std::string *output) {
-  Buffer buffer;
-  for (size_t i = 0; i < size; i++) {
-    buffer.Printf("%02x ", data[i]);
-    if (i && !(i & 15))
-      buffer.Printf("\n");
-  }
-  buffer.TakeAll(output);
+	Buffer buffer;
+	for (size_t i = 0; i < size; i++) {
+		buffer.Printf("%02x ", data[i]);
+		if (i && !(i & 15))
+			buffer.Printf("\n");
+	}
+	buffer.TakeAll(output);
 }

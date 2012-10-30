@@ -1,7 +1,7 @@
 #pragma once
 
 #include "base/basictypes.h"
- 
+
 uint32_t whiteAlpha(float alpha);
 uint32_t blackAlpha(float alpha);
 uint32_t colorAlpha(uint32_t color, float alpha);

@@ -10,38 +10,38 @@
 
 class Texture : public GfxResourceHolder {
 public:
-  Texture();
-  ~Texture();
+	Texture();
+	~Texture();
 
-  bool LoadZIM(const char *filename);
+	bool LoadZIM(const char *filename);
 #ifndef ANDROID
-  bool LoadPNG(const char *filename);
+	bool LoadPNG(const char *filename);
 #endif
-  bool LoadXOR();  // Loads a placeholder texture.
+	bool LoadXOR();	// Loads a placeholder texture.
 
-  // Deduces format from the filename.
-  // If loading fails, will load a 256x256 XOR texture.
-  // If filename begins with "gen:", will defer to texture_gen.cpp/h.
-  bool Load(const char *filename);
+	// Deduces format from the filename.
+	// If loading fails, will load a 256x256 XOR texture.
+	// If filename begins with "gen:", will defer to texture_gen.cpp/h.
+	bool Load(const char *filename);
 
-  void Bind(int stage = -1);
+	void Bind(int stage = -1);
 
-  void Destroy();
+	void Destroy();
 
-  unsigned int Handle() const {
-    return id_;
-  }
+	unsigned int Handle() const {
+		return id_;
+	}
 
-  virtual void GLLost();
-  std::string filename() const { return filename_; }
+	virtual void GLLost();
+	std::string filename() const { return filename_; }
 
 private:
-  std::string filename_;
+	std::string filename_;
 #ifdef METRO
-  ID3D11Texture2D *tex_;
+	ID3D11Texture2D *tex_;
 #endif
-  unsigned int id_;
-  int width_, height_;
+	unsigned int id_;
+	int width_, height_;
 };
 
 #endif

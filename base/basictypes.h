@@ -11,7 +11,7 @@
 #endif
 
 #define DISALLOW_COPY_AND_ASSIGN(t) \
- private: \
+private: \
 	t(const t &other);  \
 	void operator =(const t &other);
 

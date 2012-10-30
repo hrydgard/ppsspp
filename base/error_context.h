@@ -7,11 +7,11 @@
 class _ErrorContext
 {
 public:
-  _ErrorContext(const char *name, const char *data = 0);
-  ~_ErrorContext();
+	_ErrorContext(const char *name, const char *data = 0);
+	~_ErrorContext();
 
-  // Logs the current context stack.
-  static void Log(const char *message);
+	// Logs the current context stack.
+	static void Log(const char *message);
 };
 
 #define ErrorContext(...) _ErrorContext __ec(__VA_ARGS__)

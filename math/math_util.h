@@ -4,7 +4,7 @@
 #include <cmath>
 #include <cstring>
 
-inline float sqr(float f)  {return f*f;}
+inline float sqr(float f)	{return f*f;}
 inline float sqr_signed(float f) {return f<0 ? -f*f : f*f;}
 
 typedef unsigned short float16;
@@ -13,15 +13,15 @@ typedef unsigned short float16;
 // This choice is subject to change. Don't think I'm using this for anything at all now anyway.
 // DEPRECATED
 inline float16 FloatToFloat16(float x) {
-  int ix;
-  memcpy(&ix, &x, sizeof(float));
-  return ix >> 16;
+	int ix;
+	memcpy(&ix, &x, sizeof(float));
+	return ix >> 16;
 }
 
 inline float Float16ToFloat(float16 ix) {
-  float x;
-  memcpy(&x, &ix, sizeof(float));
-  return x;
+	float x;
+	memcpy(&x, &ix, sizeof(float));
+	return x;
 }
 
 
@@ -37,40 +37,40 @@ inline float Float16ToFloat(float16 ix) {
 void SetSeed(unsigned int seed);
 unsigned int GenerateRandomNumber();
 inline float GenerateRandomFloat01() {
-  return (float)((double)GenerateRandomNumber() / 0xFFFFFFFF);
+	return (float)((double)GenerateRandomNumber() / 0xFFFFFFFF);
 }
 inline float GenerateRandomSignedFloat() {
-  return (float)((double)GenerateRandomNumber() / 0x80000000) - 1.0f;
+	return (float)((double)GenerateRandomNumber() / 0x80000000) - 1.0f;
 }
 
 
 inline float GaussRand()
 {
-  float R1 = GenerateRandomFloat01();
-  float R2 = GenerateRandomFloat01();
+	float R1 = GenerateRandomFloat01();
+	float R2 = GenerateRandomFloat01();
 
-  float X = sqrtf(-2.0f * logf(R1)) * cosf(2.0f * PI * R2);
-  if (X > 4.0f) X = 4.0f;
-  if (X < -4.0f) X = -4.0f;
-  return X;
+	float X = sqrtf(-2.0f * logf(R1)) * cosf(2.0f * PI * R2);
+	if (X > 4.0f) X = 4.0f;
+	if (X < -4.0f) X = -4.0f;
+	return X;
 }
 
 // Accuracy unknown
 inline double atan_fast(double x) {
-  return (x / (1.0 + 0.28 * (x * x)));
+	return (x / (1.0 + 0.28 * (x * x)));
 }
 
 
 // linear -> dB conversion
 inline float lin2dB(float lin) {
-  const float LOG_2_DB = 8.6858896380650365530225783783321f;	// 20 / ln( 10 )
-  return logf(lin) * LOG_2_DB;
+	const float LOG_2_DB = 8.6858896380650365530225783783321f;	// 20 / ln( 10 )
+	return logf(lin) * LOG_2_DB;
 }
 
 // dB -> linear conversion
 inline float dB2lin(float dB) {
-  const float DB_2_LOG = 0.11512925464970228420089957273422f;	// ln( 10 ) / 20
-  return expf(dB * DB_2_LOG);
+	const float DB_2_LOG = 0.11512925464970228420089957273422f;	// ln( 10 ) / 20
+	return expf(dB * DB_2_LOG);
 }
 
 

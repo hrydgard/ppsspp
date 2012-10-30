@@ -25,36 +25,36 @@
 // A just-constructed object is valid but cannot be used as a shader program, meaning that
 // yes, you can declare these as globals if you like.
 struct GLSLProgram : public GfxResourceHolder {
-  char name[16];
-  char vshader_filename[256];
-  char fshader_filename[256];
-  const char *vshader_source;
-  const char *fshader_source;
-  time_t vshader_mtime;
-  time_t fshader_mtime;
+	char name[16];
+	char vshader_filename[256];
+	char fshader_filename[256];
+	const char *vshader_source;
+	const char *fshader_source;
+	time_t vshader_mtime;
+	time_t fshader_mtime;
 
-  // Locations to some common uniforms. Hardcoded for speed.
-  GLint sampler0;
-  GLint sampler1;
-  GLint u_worldviewproj;
-  GLint u_world;
-  GLint u_viewproj;
-  GLint u_fog;  // rgb = color, a = density
+	// Locations to some common uniforms. Hardcoded for speed.
+	GLint sampler0;
+	GLint sampler1;
+	GLint u_worldviewproj;
+	GLint u_world;
+	GLint u_viewproj;
+	GLint u_fog;	// rgb = color, a = density
 	GLint u_sundir;
 	GLint u_camerapos;
 
-  GLint a_position;
-  GLint a_color;
-  GLint a_normal;
-  GLint a_texcoord0;
-  GLint a_texcoord1;
+	GLint a_position;
+	GLint a_color;
+	GLint a_normal;
+	GLint a_texcoord0;
+	GLint a_texcoord1;
 
-  // Private to the implementation, do not touch
-  GLuint vsh_;
-  GLuint fsh_;
-  GLuint program_;
+	// Private to the implementation, do not touch
+	GLuint vsh_;
+	GLuint fsh_;
+	GLuint program_;
 
-  void GLLost();
+	void GLLost();
 };
 
 
@@ -81,4 +81,4 @@ void glsl_refresh();
 
 // Use glUseProgramObjectARB(NULL); to unset.
 
-#endif  // _RENDER_UTIL
+#endif	// _RENDER_UTIL

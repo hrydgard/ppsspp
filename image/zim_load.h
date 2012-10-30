@@ -18,26 +18,26 @@
 // Defined flags:
 
 enum {
-  ZIM_RGBA8888 = 0,  // Assumed format if no other format is set
-  ZIM_RGBA4444 = 1,  // GL_UNSIGNED_SHORT_4_4_4_4
-  ZIM_RGB565 = 2,    // GL_UNSIGNED_SHORT_5_6_5
-  ZIM_ETC1 = 3,
-  ZIM_RGB888 = 4,
-  ZIM_LUMINANCE_ALPHA = 5,
-  ZIM_LUMINANCE = 6,
-  ZIM_ALPHA = 7,
-  // There's space for plenty more formats.
-  ZIM_FORMAT_MASK = 15,
-  ZIM_HAS_MIPS = 16,  // If set, assumes that a full mip chain is present. Mips are zlib-compressed individually and stored in sequence. Always half sized.
-  ZIM_GEN_MIPS = 32,  // If set, the caller is advised to automatically generate mips. (maybe later, the ZIM lib will generate the mips for you).
-  ZIM_DITHER = 64,  // If set, dithers during save if color reduction is necessary.
-  ZIM_CLAMP = 128,  // Texture should default to clamp instead of wrap.
-  ZIM_ZLIB_COMPRESSED = 256,
+	ZIM_RGBA8888 = 0,	// Assumed format if no other format is set
+	ZIM_RGBA4444 = 1,	// GL_UNSIGNED_SHORT_4_4_4_4
+	ZIM_RGB565 = 2,		// GL_UNSIGNED_SHORT_5_6_5
+	ZIM_ETC1 = 3,
+	ZIM_RGB888 = 4,
+	ZIM_LUMINANCE_ALPHA = 5,
+	ZIM_LUMINANCE = 6,
+	ZIM_ALPHA = 7,
+	// There's space for plenty more formats.
+	ZIM_FORMAT_MASK = 15,
+	ZIM_HAS_MIPS = 16,	// If set, assumes that a full mip chain is present. Mips are zlib-compressed individually and stored in sequence. Always half sized.
+	ZIM_GEN_MIPS = 32,	// If set, the caller is advised to automatically generate mips. (maybe later, the ZIM lib will generate the mips for you).
+	ZIM_DITHER = 64,	// If set, dithers during save if color reduction is necessary.
+	ZIM_CLAMP = 128,	// Texture should default to clamp instead of wrap.
+	ZIM_ZLIB_COMPRESSED = 256,
 };
 
 // ZIM will only ever support up to 12 levels (4096x4096 max).
 enum {
-  ZIM_MAX_MIP_LEVELS = 12,
+	ZIM_MAX_MIP_LEVELS = 12,
 };
 
 // Delete the returned pointer using free()
