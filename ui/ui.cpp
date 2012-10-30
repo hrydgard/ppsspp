@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <cmath>
 
 #include "ui/ui.h"
 #include "gfx/texture_atlas.h"
@@ -256,15 +257,62 @@ void StringVectorListAdapter::drawItem(int item, int x, int y, int w, int h, boo
 UIList::UIList()
 	: scrollY(0.0f), startDragY(0.0f), dragFinger(-1), selected(-1) {
 	movedDistanceY = 0.0f;
+	scrolling = false;
+	inertiaY = 0.0f;
+}
 
+void UIList::pointerDown(int pointer, float x, float y) {
+	// printf("PointerDown %f %f\n", x, y);
+
+	// Instantly halt if intertia-scrolling
+	scrolling = false;
+	inertiaY = 0.0f;
+
+	startScrollY = scrollY;
+	startDragY = y;
+	movedDistanceY = 0.0f;
+}
+
+const int holdFrames = 6;
+
+void UIList::pointerMove(int pointer, float x, float y) {
+	// printf("PointerMove %f %f\n", x, y);
+
+	float deltaY = y - lastY;
+	movedDistanceY += fabsf(deltaY);
+
+	if (inertiaY <= 0.0f && deltaY > 0.0f) {
+		inertiaY = -deltaY;
+	} else if (inertiaY >= 0.0f && deltaY < 0.0f) {
+		inertiaY = -deltaY;
+	} else {
+		inertiaY = 0.8 * inertiaY + 0.2 * -deltaY;
+	}
+
+	if (movedDistanceY > 10 && !scrolling && uistate.mouseframesdown[0] > holdFrames) {
+		scrolling = true;
+	}
+
+	if (scrolling) {
+		// Pointer is down so stick to it
+		scrollY = startScrollY - (y - startDragY);
+	}
+}
+
+void UIList::pointerUp(int pointer, float x, float y, bool inside) {
+	// printf("PointerUp %f %f\n", x, y);
 }
 
 int UIList::Do(int id, int x, int y, int w, int h, UIListAdapter *adapter) {
-	bool pointerDown = false;
+	int clicked = 0;
+
+	// Pointer and focus handling
 
 	// UIList only cares about the first pointer for simplicity.
 	// Probably not much need to scroll one of these while dragging something
 	// else.
+
+	// TODO: Abstract this stuff out into EmulatePointerEvents
 	for (int i = 0; i < 1; i++) {
 		// Check for hover
 		if (UIRegionHit(i, x, y, w, h, 0)) {
@@ -272,40 +320,80 @@ int UIList::Do(int id, int x, int y, int w, int h, UIListAdapter *adapter) {
 			if (uistate.activeitem[i] == 0 && uistate.mousedown[i]) {
 				// Mousedown
 				uistate.activeitem[i] = id;
+				pointerDown(i, uistate.mousex[i], uistate.mousey[i]);
+			}
+		}
+
+		if (uistate.activeitem[i] == id) {
+			// NOTE: won't work with multiple pointers
+			if (uistate.mousex[i] != lastX || uistate.mousey[i] != lastY) {
+				pointerMove(i, uistate.mousex[i], uistate.mousey[i]);
 			}
 		}
 
 		// If button is hot and active, but mouse button is not
 		// down, the user must have clicked a list item (unless after the last item).
 		if (uistate.mousedown[i] == 0 &&
-				uistate.hotitem[i] == id &&
 				uistate.activeitem[i] == id &&
 				selected != -1) {
-			clicked = 1;
+			if (uistate.hotitem[i] == id) {
+				clicked = 1;
+			}
+			pointerUp(i, uistate.mousex[i], uistate.mousey[i], uistate.hotitem[i] == id);
 		}
 	}
 
-	// render items
 	int itemHeight = adapter->itemHeight(0);
 	int numItems = adapter->getCount();
+
+	// Process inertia scrolling
+	bool canScroll = itemHeight * numItems > h;
+	if (canScroll) {
+		if (inertiaY > 20) inertiaY = 20;
+		if (inertiaY < -20) inertiaY = -20;
+		if (!uistate.mousedown[0]) {
+			scrollY += inertiaY;
+		}
+		inertiaY *= 0.9f;
+		float maxScrollY = numItems * itemHeight - h;
+		if (scrollY > maxScrollY) {
+			scrollY -= 0.3 * (scrollY - maxScrollY);
+		} else if (scrollY < 0.0f) {
+			scrollY += 0.3f * -scrollY;
+		}
+		lastX = uistate.mousex[0];
+		lastY = uistate.mousey[0];
+		uistate.lastwidget = id;
+	} else {
+		scrollY = 0.0f;
+		scrolling = false;
+	}
+
+	// Drawing and item hittesting
+
+	// render items
 	for (int i = 0; i < numItems; i++) {
 		int item_y = y + i * itemHeight - scrollY;
 
-		for (int k = 0; k < MAX_POINTERS; k++) {
-			if (uistate.mousedown[k] &&
-					uistate.mouseframesdown[k] > 10 &&
-					adapter->itemEnabled(i) &&
-					item_y >= y - itemHeight &&
-					item_y <= y + h &&
-					UIRegionHit(k, x, item_y, w, itemHeight, 0)) {
-				printf("%i", item_y);
-				selected = i;
+		if (item_y >= y - itemHeight && item_y <= y + h) {
+			for (int k = 0; k < 1; k++) {  // MAX_POINTERS if we add back multitouch
+				if (uistate.mousedown[k] &&
+						uistate.mouseframesdown[k] >= holdFrames &&
+						adapter->itemEnabled(i) &&
+						!scrolling &&
+						selected == -1 &&
+						UIRegionHit(k, x, item_y, w, itemHeight, 0)) {
+					selected = i;
+				} else if (scrolling) {
+					selected = -1;
+				}
 			}
+			adapter->drawItem(i, x, item_y, w, itemHeight, i == selected);
 		}
-		adapter->drawItem(i, x, item_y, w, itemHeight, i == selected);
 	}
-	uistate.lastwidget = id;
 
+	// Prevent scroll-clicks from registering
+	if (selected == -1) clicked = 0;
 	// Otherwise, no clicky.
 	return clicked;
 }

@@ -104,10 +104,6 @@ struct UIState {
 	int kbdwidget;
 	int lastwidget;
 
-	// Used by controls that need to keep track of the initial value for drags, for example.
-	// Should probably be indexed by finger - would be neat to be able to move two knobs at the same time.
-	float tempfloat;
-
 	int ui_tick;
 };
 
@@ -210,9 +206,14 @@ public:
 
 	bool scrolling;
 	int activePointer;
+	float startScrollY;
 	float scrollY;
+	float lastX;
+	float lastY;
 	float startDragY;
 	float movedDistanceY;
+	float inertiaY;
+	float dY;
 
 	int dragFinger;
 	int selected;
@@ -221,11 +222,17 @@ public:
 	int Do(int id, int x, int y, int w, int h, UIListAdapter *adapter);
 
 private:
+	// TODO: Migrate to using these directly.
+	void pointerDown(int pointer, float x, float y);
+	void pointerUp(int pointer, float x, float y, bool inside);
+	void pointerMove(int pointer, float x, float y);
+
 	DISALLOW_COPY_AND_ASSIGN(UIList);
 };
 
 // Call at end of frame.
 // Do this afterwards (or similar):
+
 // ShaderManager::SetUIProgram();
 // ui_draw2d.Flush(ShaderManager::Program());
 // ui_draw2d_front.Flush(ShaderManager::Program());
