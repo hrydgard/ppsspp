@@ -105,6 +105,9 @@ struct UIState {
 	int lastwidget;
 
 	int ui_tick;
+
+	// deprecated: tempfloat
+	float tempfloat;
 };
 
 // This needs to be extern so that additional UI controls can be developed outside this file.
