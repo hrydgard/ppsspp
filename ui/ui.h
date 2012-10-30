@@ -122,6 +122,7 @@ struct UITheme {
 	int uiFontSmall;
 	int uiFontSmaller;
 	int buttonImage;
+	int buttonSelected;
 	int checkOn;
 	int checkOff;
 };

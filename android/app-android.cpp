@@ -29,6 +29,9 @@ static JNIEnv *jniEnvUI;
 std::string frameCommand;
 std::string frameCommandParam;
 
+static uint32_t pad_buttons_async_set;
+static uint32_t pad_buttons_async_clear;
+
 // Android implementation of callbacks to the Java part of the app
 void SystemToast(const char *text) {
   frameCommand = "toast";
@@ -106,6 +109,9 @@ extern "C" void Java_com_turboviking_libnative_NativeApp_init
   memset(&input_state, 0, sizeof(input_state));
   renderer_inited = false;
   first_lost = true;
+
+	pad_buttons_async_set = 0;
+	pad_buttons_async_clear = 0;
 
   std::string apkPath = GetJavaString(env, japkpath);
   ILOG("APK path: %s", apkPath.c_str());
@@ -202,9 +208,11 @@ extern "C" void Java_com_turboviking_libnative_NativeRenderer_displayResize(JNIE
 
 extern "C" void Java_com_turboviking_libnative_NativeRenderer_displayRender(JNIEnv *env, jobject obj) {
   if (renderer_inited) {
-    UpdateInputState(&input_state);
     {
 			lock_guard guard(input_state.lock);
+			input_state.pad_buttons |= pad_buttons_async_set;
+			input_state.pad_buttons &= ~pad_buttons_async_clear;
+			UpdateInputState(&input_state);
 			NativeUpdate(input_state);
 			EndInputState(&input_state);
 		}
@@ -266,38 +274,36 @@ extern "C" void JNICALL Java_com_turboviking_libnative_NativeApp_touch
   input_state.mouse_valid = true;
 }
 
-extern "C" void Java_com_turboviking_libnative_NativeApp_keyDown
-  (JNIEnv *, jclass, jint key) {
-  ILOG("Keydown %i", key);
-	lock_guard guard(input_state.lock);
-  // Need a mechanism to release these.
+extern "C" void Java_com_turboviking_libnative_NativeApp_keyDown(JNIEnv *, jclass, jint key) {
   switch (key) {
   	case 1:  // Back
-  	  input_state.pad_buttons |= PAD_BUTTON_BACK;
+  	  pad_buttons_async_set |= PAD_BUTTON_BACK;
+			pad_buttons_async_clear &= ~PAD_BUTTON_BACK;
   	  break;
   	case 2:  // Menu
-  	  input_state.pad_buttons |= PAD_BUTTON_MENU;
+  	  pad_buttons_async_set |= PAD_BUTTON_MENU;
+			pad_buttons_async_clear &= ~PAD_BUTTON_MENU;
   	  break;
   	case 3:  // Search
-  	  input_state.pad_buttons |= PAD_BUTTON_A;
+			pad_buttons_async_set |= PAD_BUTTON_A;
+  	  pad_buttons_async_clear &= ~PAD_BUTTON_A;
   	  break;
   }
 }
 
-extern "C" void Java_com_turboviking_libnative_NativeApp_keyUp
-  (JNIEnv *, jclass, jint key) {
-	ILOG("Keyup %i", key);
-	lock_guard guard(input_state.lock);
-  // Need a mechanism to release these.
+extern "C" void Java_com_turboviking_libnative_NativeApp_keyUp(JNIEnv *, jclass, jint key) {
   switch (key) {
   	case 1:  // Back
-  	  input_state.pad_buttons &= ~PAD_BUTTON_BACK;
+			pad_buttons_async_set &= ~PAD_BUTTON_BACK;
+  	  pad_buttons_async_clear |= PAD_BUTTON_BACK;
   	  break;
   	case 2:  // Menu
-  	  input_state.pad_buttons &= ~PAD_BUTTON_MENU;
+  	  pad_buttons_async_set &= ~PAD_BUTTON_MENU;
+			pad_buttons_async_clear |= PAD_BUTTON_MENU;
   	  break;
   	case 3:  // Search
-  	  input_state.pad_buttons &= ~PAD_BUTTON_A;
+  	  pad_buttons_async_set &= ~PAD_BUTTON_A;
+			pad_buttons_async_clear |= PAD_BUTTON_A;
   	  break;
   }
 }

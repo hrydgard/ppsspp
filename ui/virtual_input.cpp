@@ -29,17 +29,18 @@ void TouchButton::update(InputState &input_state)
 	}
 }
 
-void TouchButton::draw(DrawBuffer &db, uint32_t color)
+void TouchButton::draw(DrawBuffer &db, uint32_t color, uint32_t colorOverlay)
 {
 	float scale = 1.0f;
 	if (isDown_) {
 		color |= 0xFF000000;
+		colorOverlay |= 0xFF000000;
 		scale = 2.0f;
 	}
 	// We only mirror background
 	db.DrawImageRotated(imageIndex_, x_ + w_/2, y_ + h_/2, scale, rotationAngle_, color, mirror_h_);
 	if (overlayImageIndex_ != -1)
-		db.DrawImageRotated(overlayImageIndex_, x_ + w_/2, y_ + h_/2, scale, rotationAngle_, color);
+		db.DrawImageRotated(overlayImageIndex_, x_ + w_/2, y_ + h_/2, scale, rotationAngle_, colorOverlay);
 }
 
 TouchStick::TouchStick(const Atlas *atlas, int bgImageIndex, int stickImageIndex, int stick)
