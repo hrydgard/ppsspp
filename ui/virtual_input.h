@@ -5,14 +5,15 @@
 class DrawBuffer;
 
 // Multitouch-enabled emulation of a hardware button.
+// Many of these can be pressed simultaneously with multitouch.
 // (any finger will work, simultaneously with other virtual button/stick actions).
 class TouchButton
 {
 public:
-	TouchButton(const Atlas *atlas, int imageIndex, int overlayImageIndex, int button, int rotationAngle = 0);
+	TouchButton(const Atlas *atlas, int imageIndex, int overlayImageIndex, int button, int rotationAngle = 0, bool mirror_h = false);
 
 	void update(InputState &input_state);
-	void draw(DrawBuffer &db);
+	void draw(DrawBuffer &db, uint32_t color);
 
 	void setPos(float x, float y) {
 		x_ = x - w_ / 2;
@@ -32,6 +33,7 @@ private:
 	int overlayImageIndex_;
 	int button_;
 	float rotationAngle_;
+	bool mirror_h_;
 
 	float x_, y_;
 	float w_;
@@ -45,6 +47,7 @@ private:
 
 
 // Multi-touch enabled virtual joystick
+// Many of these can be used simultaneously with multitouch.
 // (any finger will work, simultaneously with other virtual button/stick actions).
 class TouchStick
 {
@@ -52,7 +55,7 @@ public:
 	TouchStick(const Atlas *atlas, int bgImageIndex, int stickImageIndex, int stick);
 
 	void update(InputState &input_state);
-	void draw(DrawBuffer &db);
+	void draw(DrawBuffer &db, uint32_t color);
 
 	void setPos(float x, float y) {
 		stick_x_ = x;

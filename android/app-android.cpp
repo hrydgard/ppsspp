@@ -203,9 +203,12 @@ extern "C" void Java_com_turboviking_libnative_NativeRenderer_displayResize(JNIE
 extern "C" void Java_com_turboviking_libnative_NativeRenderer_displayRender(JNIEnv *env, jobject obj) {
   if (renderer_inited) {
     UpdateInputState(&input_state);
-    NativeUpdate(input_state);
+    {
+			lock_guard guard(input_state.lock);
+			NativeUpdate(input_state);
+			EndInputState(&input_state);
+		}
     NativeRender();
-    EndInputState(&input_state);
     time_update();
   } else {
     ELOG("Ended up in nativeRender even though app has quit.%s", "");
@@ -266,6 +269,7 @@ extern "C" void JNICALL Java_com_turboviking_libnative_NativeApp_touch
 extern "C" void Java_com_turboviking_libnative_NativeApp_keyDown
   (JNIEnv *, jclass, jint key) {
   ILOG("Keydown %i", key);
+	lock_guard guard(input_state.lock);
   // Need a mechanism to release these.
   switch (key) {
   	case 1:  // Back
@@ -282,7 +286,8 @@ extern "C" void Java_com_turboviking_libnative_NativeApp_keyDown
 
 extern "C" void Java_com_turboviking_libnative_NativeApp_keyUp
   (JNIEnv *, jclass, jint key) {
-  ILOG("Keyup %i", key);
+	ILOG("Keyup %i", key);
+	lock_guard guard(input_state.lock);
   // Need a mechanism to release these.
   switch (key) {
   	case 1:  // Back

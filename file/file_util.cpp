@@ -78,6 +78,9 @@ static void stripTailDirSlashes(std::string &fname)
 // Returns true if file filename exists
 bool exists(const std::string &filename)
 {
+#ifdef _WIN32
+	return GetFileAttributes(filename.c_str()) != 0xFFFFFFFF;
+#else
 	struct stat64 file_info;
 
 	std::string copy(filename);
@@ -86,11 +89,15 @@ bool exists(const std::string &filename)
 	int result = stat64(copy.c_str(), &file_info);
 
 	return (result == 0);
+#endif
 }
 
 // Returns true if filename is a directory
 bool isDirectory(const std::string &filename)
 {
+#ifdef _WIN32
+	return (GetFileAttributes(filename.c_str()) & FILE_ATTRIBUTE_DIRECTORY) != 0;
+#else
 	struct stat64 file_info;
 
 	std::string copy(filename);
@@ -104,6 +111,7 @@ bool isDirectory(const std::string &filename)
 	}
 
 	return S_ISDIR(file_info.st_mode);
+#endif
 }
 
 size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files) {

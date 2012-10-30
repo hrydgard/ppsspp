@@ -4,8 +4,8 @@
 #include "input/input_state.h"
 #include "virtual_input.h"
 
-TouchButton::TouchButton(const Atlas *atlas, int imageIndex, int overlayImageIndex, int button, int rotationAngle)
-	: atlas_(atlas), imageIndex_(imageIndex), overlayImageIndex_(overlayImageIndex), button_(button)
+TouchButton::TouchButton(const Atlas *atlas, int imageIndex, int overlayImageIndex, int button, int rotationAngle, bool mirror_h)
+	: atlas_(atlas), imageIndex_(imageIndex), overlayImageIndex_(overlayImageIndex), button_(button), mirror_h_(mirror_h)
 {
 	memset(pointerDown, 0, sizeof(pointerDown));
 	w_ = atlas_->images[imageIndex_].w;
@@ -29,19 +29,18 @@ void TouchButton::update(InputState &input_state)
 	}
 }
 
-void TouchButton::draw(DrawBuffer &db)
+void TouchButton::draw(DrawBuffer &db, uint32_t color)
 {
-	uint32_t color = 0xAAFFFFFF;
 	float scale = 1.0f;
 	if (isDown_) {
-		color = 0xFFFFFFFF;
+		color |= 0xFF000000;
 		scale = 2.0f;
 	}
-	db.DrawImageRotated(imageIndex_, x_ + w_/2, y_ + h_/2, scale, rotationAngle_, color);
+	// We only mirror background
+	db.DrawImageRotated(imageIndex_, x_ + w_/2, y_ + h_/2, scale, rotationAngle_, color, mirror_h_);
 	if (overlayImageIndex_ != -1)
 		db.DrawImageRotated(overlayImageIndex_, x_ + w_/2, y_ + h_/2, scale, rotationAngle_, color);
 }
-
 
 TouchStick::TouchStick(const Atlas *atlas, int bgImageIndex, int stickImageIndex, int stick)
 	: atlas_(atlas), bgImageIndex_(bgImageIndex), stickImageIndex_(stickImageIndex), stick_(stick)
@@ -78,9 +77,9 @@ void TouchStick::update(InputState &input_state)
 	}
 }
 
-void TouchStick::draw(DrawBuffer &db)
+void TouchStick::draw(DrawBuffer &db, uint32_t color)
 {
 	if (bgImageIndex_ != -1)
-		db.DrawImage(bgImageIndex_, stick_x_, stick_y_, 1.0f, 0xFFFFFFFF, ALIGN_CENTER);
-	db.DrawImage(stickImageIndex_, stick_x_ + stick_delta_x_, stick_y_ + stick_delta_y_, 1.0f, 0xFFFFFFFF, ALIGN_CENTER);
+		db.DrawImage(bgImageIndex_, stick_x_, stick_y_, 1.0f, color, ALIGN_CENTER);
+	db.DrawImage(stickImageIndex_, stick_x_ + stick_delta_x_, stick_y_ + stick_delta_y_, 1.0f, color, ALIGN_CENTER);
 }

@@ -158,7 +158,7 @@ inline void rot(float *v, float angle, float xc, float yc) {
 }
 
 
-void DrawBuffer::DrawImageRotated(int atlas_image, float x, float y, float scale, float angle, Color color) {
+void DrawBuffer::DrawImageRotated(int atlas_image, float x, float y, float scale, float angle, Color color, bool mirror_h) {
   const AtlasImage &image = atlas->images[atlas_image];
   float w = (float)image.w * scale;
   float h = (float)image.h * scale;
@@ -174,13 +174,20 @@ void DrawBuffer::DrawImageRotated(int atlas_image, float x, float y, float scale
     {x2, y2},
     {x1, y2},
   };
+	float u1 = image.u1;
+	float u2 = image.u2;
+	if (mirror_h) {
+		float temp = u1;
+		u1 = u2;
+		u2 = temp;
+	}
   const float uv[6][2] = {
-    {image.u1, image.v1},
-    {image.u2, image.v1},
-    {image.u2, image.v2},
-    {image.u1, image.v1},
-    {image.u2, image.v2},
-    {image.u1, image.v2},
+		{u1, image.v1},
+		{u2, image.v1},
+		{u2, image.v2},
+		{u1, image.v1},
+		{u2, image.v2},
+		{u1, image.v2},
   };
   for (int i = 0; i < 6; i++) {
     rot(v[i], angle, x, y);

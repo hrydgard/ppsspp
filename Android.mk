@@ -26,7 +26,8 @@ LOCAL_SRC_FILES :=\
     file/file_util.cpp \
     file/zip_read.cpp \
     json/json_writer.cpp \
-    math/math_util.cpp.arm \
+    math/curves.cpp \
+    math/math_util.cpp \
     math/lin/aabb.cpp.arm \
     math/lin/plane.cpp.arm \
     math/lin/quat.cpp.arm \
@@ -51,7 +52,7 @@ LOCAL_SRC_FILES :=\
     util/random/perlin.cpp
 
 
-LOCAL_CFLAGS := -O2 -DGL_GLEXT_PROTOTYPES -fsigned-char
+LOCAL_CFLAGS := -O2 -DGL_GLEXT_PROTOTYPES -fsigned-char -fno-strict-aliasing
 LOCAL_CPPFLAGS := -fno-exceptions -fno-rtti -std=gnu++0x
 LOCAL_LDLIBS := -lz
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/ext/libzip

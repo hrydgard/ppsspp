@@ -94,7 +94,7 @@ public:
   void MeasureImage(int atlas_image, float *w, float *h);
   void DrawImage(int atlas_image, float x, float y, float scale, Color color = COLOR(0xFFFFFF), int align = ALIGN_TOPLEFT);
   void DrawImageStretch(int atlas_image, float x1, float y1, float x2, float y2, Color color = COLOR(0xFFFFFF));
-  void DrawImageRotated(int atlas_image, float x, float y, float scale, float angle, Color color = COLOR(0xFFFFFF));  // Always centers
+  void DrawImageRotated(int atlas_image, float x, float y, float scale, float angle, Color color = COLOR(0xFFFFFF), bool mirror_h = false);  // Always centers
   void DrawTexRect(float x1, float y1, float x2, float y2, float u1, float v1, float u2, float v2, Color color);
   // Results in 18 triangles. Kind of expensive for a button.
   void DrawImage4Grid(int atlas_image, float x1, float y1, float x2, float y2, Color color = COLOR(0xFFFFFF), float corner_scale = 1.0);
