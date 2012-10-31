@@ -56,8 +56,7 @@ void LaunchBrowser(const char *url)
 #ifdef _WIN32
 	ShellExecute(NULL, "open", url, NULL, NULL, SW_SHOWNORMAL);
 #else
-	ILOG("Would have gone to %s but LaunchBrowser is not implemented on this platform",
-			 url);
+	ILOG("Would have gone to %s but LaunchBrowser is not implemented on this platform", url);
 #endif
 }
 
@@ -66,8 +65,7 @@ void LaunchMarket(const char *url)
 #ifdef _WIN32
 	ShellExecute(NULL, "open", url, NULL, NULL, SW_SHOWNORMAL);
 #else
-	ILOG("Would have gone to %s but LaunchMarket is not implemented on this platform",
-			 url);
+	ILOG("Would have gone to %s but LaunchMarket is not implemented on this platform", url);
 #endif
 }
 
@@ -76,26 +74,25 @@ void LaunchEmail(const char *email_address)
 #ifdef _WIN32
 	ShellExecute(NULL, "open", (std::string("mailto:") + email_address).c_str(), NULL, NULL, SW_SHOWNORMAL);
 #else
-	ILOG("Would have opened your email client for %s but LaunchEmail is not implemented on this platform",
-			 email_address);
+	ILOG("Would have opened your email client for %s but LaunchEmail is not implemented on this platform", email_address);
 #endif
 }
 
 
 
 const int buttonMappings[14] = {
-	SDLK_x,										//A						
-	SDLK_s,										//B						
-	SDLK_z,										//X						
-	SDLK_a,										//Y						
+	SDLK_x,										//A
+	SDLK_s,										//B
+	SDLK_z,										//X
+	SDLK_a,										//Y
 	SDLK_w,										//LBUMPER
 	SDLK_q,										//RBUMPER
 	SDLK_1,										//START
 	SDLK_2,										//SELECT
-	SDLK_UP,									//UP		
-	SDLK_DOWN,								//DOWN 
-	SDLK_LEFT,								//LEFT				 
-	SDLK_RIGHT,								//RIGHT				 
+	SDLK_UP,									//UP
+	SDLK_DOWN,								//DOWN
+	SDLK_LEFT,								//LEFT
+	SDLK_RIGHT,								//RIGHT
 	SDLK_m,									 //MENU
 	SDLK_BACKSPACE,					 //BACK
 };
@@ -111,26 +108,26 @@ void SimulateGamepad(const uint8 *keys, InputState *input) {
 			input->pad_buttons |= (1<<b);
 	}
 
-	if			(keys[SDLK_i])
+	if (keys[SDLK_i])
 		input->pad_lstick_y=1;
 	else if (keys[SDLK_k])
-		input->pad_lstick_y=-1; 
-	if			(keys[SDLK_j])
+		input->pad_lstick_y=-1;
+	if (keys[SDLK_j])
 		input->pad_lstick_x=-1;
 	else if (keys[SDLK_l])
-		input->pad_lstick_x=1; 
-	if			(keys[SDLK_KP8])
+		input->pad_lstick_x=1;
+	if (keys[SDLK_KP8])
 		input->pad_rstick_y=1;
 	else if (keys[SDLK_KP2])
-		input->pad_rstick_y=-1; 
-	if			(keys[SDLK_KP4])
+		input->pad_rstick_y=-1;
+	if (keys[SDLK_KP4])
 		input->pad_rstick_x=-1;
 	else if (keys[SDLK_KP6])
-		input->pad_rstick_x=1; 
+		input->pad_rstick_x=1;
 }
 
 extern void mixaudio(void *userdata, Uint8 *stream, int len) {
-	NativeMix((short	*)stream, len / 4);
+	NativeMix((short *)stream, len / 4);
 }
 
 #ifdef _WIN32
@@ -152,8 +149,9 @@ int main(int argc, char *argv[]) {
 	if (zoomenv) {
 		zoom = atof(zoomenv);
 	}
-	if (tabletenv)
-		tablet = true;
+	if (tabletenv) {
+		tablet = (bool)atoi(tabletenv);
+	}
 
 	bool landscape;
 	NativeGetAppInfo(&app_name, &app_name_nice, &landscape);
@@ -171,8 +169,8 @@ int main(int argc, char *argv[]) {
 		//pixel_xres = 1580 * zoom;
 		//pixel_yres = 1000 * zoom;
 		if (tablet) {
-			pixel_xres = 800 * zoom;
-			pixel_yres = 1280 * zoom;
+			pixel_xres = 480 * zoom;
+			pixel_yres = 800 * zoom;
 		} else {
 			pixel_xres = 800 * zoom;
 			pixel_yres = 1280 * zoom;
