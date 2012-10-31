@@ -10,55 +10,55 @@
 // An false returned means cancel;
 bool OpenFileDialog(const char *title, const char *extension, std::string *filename)
 {
-  OPENFILENAME of;
-  memset(&of, 0, sizeof(of));
-  char buffer[512] = {0};
-  of.lStructSize = sizeof(OPENFILENAME);
-  of.hInstance = 0;
-  of.hwndOwner = GetActiveWindow();
+	OPENFILENAME of;
+	memset(&of, 0, sizeof(of));
+	char buffer[512] = {0};
+	of.lStructSize = sizeof(OPENFILENAME);
+	of.hInstance = 0;
+	of.hwndOwner = GetActiveWindow();
 
-  // These weird strings with zeroes in them can't be dealt with using normal string
-  // functions, so here we go - evil hackery.
-  char filter[256] = "XXX files\0*.XXX\0\0";
-  memcpy(filter, extension, 3);
-  memcpy(filter + 12, extension, 3);
-  of.lpstrFilter = filter;
+	// These weird strings with zeroes in them can't be dealt with using normal string
+	// functions, so here we go - evil hackery.
+	char filter[256] = "XXX files\0*.XXX\0\0";
+	memcpy(filter, extension, 3);
+	memcpy(filter + 12, extension, 3);
+	of.lpstrFilter = filter;
 
-  of.lpstrDefExt = extension;
-  of.lpstrFile = buffer;
-  of.nMaxFile = 511;
+	of.lpstrDefExt = extension;
+	of.lpstrFile = buffer;
+	of.nMaxFile = 511;
 
-  of.Flags = OFN_FILEMUSTEXIST;
-  if (!GetOpenFileName(&of)) return false;
-  *filename = of.lpstrFile;
-  return true;
+	of.Flags = OFN_FILEMUSTEXIST;
+	if (!GetOpenFileName(&of)) return false;
+	*filename = of.lpstrFile;
+	return true;
 }
 
 bool SaveFileDialog(const char *title, const char *extension, std::string *filename)
 {
-  OPENFILENAME of;
-  memset(&of, 0, sizeof(of));
-  char buffer[512] = {0};
-  of.lStructSize = sizeof(OPENFILENAME);
-  of.hInstance = 0;
-  of.hwndOwner = GetActiveWindow();
+	OPENFILENAME of;
+	memset(&of, 0, sizeof(of));
+	char buffer[512] = {0};
+	of.lStructSize = sizeof(OPENFILENAME);
+	of.hInstance = 0;
+	of.hwndOwner = GetActiveWindow();
 
-  // These weird strings with zeroes in them can't be dealt with using normal string
-  // functions, so here we go - evil hackery.
-  char filter[256] = "XXX files\0*.XXX\0\0";
-  memcpy(filter, extension, 3);
-  memcpy(filter + 12, extension, 3);
-  of.lpstrFilter = filter;
+	// These weird strings with zeroes in them can't be dealt with using normal string
+	// functions, so here we go - evil hackery.
+	char filter[256] = "XXX files\0*.XXX\0\0";
+	memcpy(filter, extension, 3);
+	memcpy(filter + 12, extension, 3);
+	of.lpstrFilter = filter;
 
-  of.lpstrDefExt = extension;
-  of.lpstrFile = buffer;
-  of.nMaxFile = 511;
+	of.lpstrDefExt = extension;
+	of.lpstrFile = buffer;
+	of.nMaxFile = 511;
 
-  of.Flags = OFN_OVERWRITEPROMPT | OFN_HIDEREADONLY;
-  if (!GetSaveFileName(&of))
-    return false;
-  *filename = of.lpstrFile;
-  return true;
+	of.Flags = OFN_OVERWRITEPROMPT | OFN_HIDEREADONLY;
+	if (!GetSaveFileName(&of))
+		return false;
+	*filename = of.lpstrFile;
+	return true;
 }
 
 #else
@@ -69,14 +69,14 @@ bool SaveFileDialog(const char *title, const char *extension, std::string *filen
 
 bool OpenFileDialog(const char *title, const char *extension, std::string *filename)
 {
-  ELOG("Asked for OpenFileDialog, not present on this platform.");
-  return false;
+	ELOG("Asked for OpenFileDialog, not present on this platform.");
+	return false;
 }
 
 bool SaveFileDialog(const char *title, const char *extension, std::string *filename)
 {
-  ELOG("Asked for SaveFileDialog, not present on this platform.");
-  return false;
+	ELOG("Asked for SaveFileDialog, not present on this platform.");
+	return false;
 }
 
 #endif

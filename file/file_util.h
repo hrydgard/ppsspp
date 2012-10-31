@@ -11,9 +11,9 @@ bool readFileToString(bool text_file, const char *filename, std::string &str);
 
 struct FileInfo
 {
-  std::string name;
+	std::string name;
 	std::string fullName;
-  bool isDirectory;
+	bool isDirectory;
 };
 
 size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files);
