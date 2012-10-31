@@ -71,7 +71,7 @@ class Installation {
     }
 }
 
-
+ 
 public class NativeActivity extends Activity {
 	// Remember to loadLibrary your JNI .so in a static {} block
 
@@ -86,7 +86,6 @@ public class NativeActivity extends Activity {
 	
 	public static String runCommand;
 	public static String commandParameter;
-	
 	public static String installID;
 	
 	String getApplicationLibraryDir(ApplicationInfo application) {    
@@ -184,10 +183,9 @@ public class NativeActivity extends Activity {
 		// Toast.makeText(this, "Value: " + input.getText().toString(), Toast.LENGTH_LONG).show();
     }  
     
-	@SuppressLint("NewApi")
 	public void lightsOut() {
 	     if (Build.VERSION.SDK_INT >= 11) {
-	    	 mGLSurfaceView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LOW_PROFILE);
+	    	 // mGLSurfaceView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LOW_PROFILE);
 	     }
 	}
 
@@ -223,7 +221,7 @@ public class NativeActivity extends Activity {
     @Override
     protected void onStop() {
     	super.onStop(); 
-    	Log.i(TAG, "onStop");
+    	Log.i(TAG, "onStop - do nothing");
     } 
   
 	@Override
@@ -241,8 +239,6 @@ public class NativeActivity extends Activity {
 	
     @Override 
     public boolean onKeyDown(int keyCode, KeyEvent event) {
-    	if (!overrideKeys())
-    		return false;
     	// Eat these keys, to avoid accidental exits / other screwups.
     	// Maybe there's even more we need to eat on tablets?
         if (keyCode == KeyEvent.KEYCODE_BACK) {
