@@ -221,6 +221,9 @@
     <ClInclude Include="ui\virtual_input.h">
       <Filter>ui</Filter>
     </ClInclude>
+    <ClInclude Include="math\curves.h">
+      <Filter>math</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -390,6 +393,9 @@
     </ClCompile>
     <ClCompile Include="ui\virtual_input.cpp">
       <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="math\curves.cpp">
+      <Filter>math</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

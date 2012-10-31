@@ -227,6 +227,7 @@
     <ClInclude Include="input\input_state.h" />
     <ClInclude Include="json\json_writer.h" />
     <ClInclude Include="math\compression.h" />
+    <ClInclude Include="math\curves.h" />
     <ClInclude Include="math\lin\aabb.h" />
     <ClInclude Include="math\lin\matrix4x4.h" />
     <ClInclude Include="math\lin\plane.h" />
@@ -306,6 +307,7 @@
     <ClCompile Include="image\zim_save.cpp" />
     <ClCompile Include="input\gesture_detector.cpp" />
     <ClCompile Include="json\json_writer.cpp" />
+    <ClCompile Include="math\curves.cpp" />
     <ClCompile Include="math\lin\aabb.cpp" />
     <ClCompile Include="math\lin\matrix4x4.cpp" />
     <ClCompile Include="math\lin\plane.cpp" />

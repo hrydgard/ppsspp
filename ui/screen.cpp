@@ -21,10 +21,10 @@ void ScreenManager::switchScreen(Screen *screen) {
 		while (dialog_.size())
 			pop();
 	}
-	// TODO: is this still true?
 	// Note that if a dialog is found, this will be a silent background switch that
 	// will only become apparent if the dialog is closed. The previous screen will stick around
 	// until that switch.
+	// TODO: is this still true?
 	if (nextScreen_ != 0) {
 		FLOG("WTF? Already had a nextScreen_");
 	}

@@ -231,7 +231,6 @@ void Matrix4x4::setOrtho(float left, float right, float bottom, float top, float
 	wz = -(far + near) / (far - near);
 }
 
-// This is a D3D style matrix.
 void Matrix4x4::setProjectionInf(const float near_plane, const float fov_horiz, const float aspect) {
 	empty();
 	float f = fov_horiz*0.5f;

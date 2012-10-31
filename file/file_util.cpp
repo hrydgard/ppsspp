@@ -9,6 +9,7 @@
 #include <set>
 #include <stdio.h>
 #include <sys/stat.h>
+#include <ctype.h>
 
 #include "base/logging.h"
 #include "base/basictypes.h"

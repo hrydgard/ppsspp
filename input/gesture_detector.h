@@ -16,6 +16,4 @@ namespace GestureDetector
 	// x/ydelta is (smoothed?) difference from current location to the position from the last frame.
 	// Returns true if button/finger is down, for convenience.
 	bool dragDelta(int finger, float *xdelta, float *ydelta);
-
-
 };

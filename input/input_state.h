@@ -27,7 +27,7 @@ enum {
 #define MAX_POINTERS 8
 #endif
 	
-// Agglomeration of all possible inputs, and automatically computed
+// Collection of all possible inputs, and automatically computed
 // deltas where applicable.
 struct InputState {
 	// Lock this whenever you access the data in this struct.
@@ -65,6 +65,8 @@ struct InputState {
 	// Accelerometer
 	bool accelerometer_valid;
 	Vec3 acc;
+
+	// TODO: Add key arrays
 
 private:
 	DISALLOW_COPY_AND_ASSIGN(InputState);
