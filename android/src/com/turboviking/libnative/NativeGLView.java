@@ -3,12 +3,16 @@ package com.turboviking.libnative;
 // Touch- and sensor-enabled GLSurfaceView.
 // Supports simple multitouch and pressure.
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+
 import android.app.Activity;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.opengl.GLSurfaceView;
+import android.os.Build;
 import android.util.Log;
 import android.view.MotionEvent;
 
@@ -17,9 +21,29 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener {
 	private SensorManager mSensorManager;
 	private Sensor mAccelerometer;
 	
+	
+	
 	public NativeGLView(NativeActivity activity) {
 		super(activity);
 		setEGLContextClientVersion(2);
+		
+		if (Build.VERSION.SDK_INT >= 11) {
+			try {
+				Method method_setPreserveEGLContextOnPause = GLSurfaceView.class.getMethod(
+						"setPreserveEGLContextOnPause", new Class[] { Boolean.class });
+				Log.i(TAG, "Invoking setPreserveEGLContextOnPause");
+				method_setPreserveEGLContextOnPause.invoke(this, true);
+			} catch (NoSuchMethodException e) {
+				e.printStackTrace();
+			} catch (IllegalArgumentException e) {
+				e.printStackTrace();
+			} catch (IllegalAccessException e) {
+				e.printStackTrace();
+			} catch (InvocationTargetException e) {
+				e.printStackTrace();
+			}
+		}
+		
      // setEGLConfigChooser(5, 5, 5, 0, 16, 0);
      // setDebugFlags(DEBUG_CHECK_GL_ERROR | DEBUG_LOG_GL_CALLS);
 		mSensorManager = (SensorManager)activity.getSystemService(Activity.SENSOR_SERVICE);

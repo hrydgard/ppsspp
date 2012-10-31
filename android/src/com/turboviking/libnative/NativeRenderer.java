@@ -8,24 +8,26 @@ import android.util.Log;
 
 
 public class NativeRenderer implements GLSurfaceView.Renderer {
-	private static String TAG = "RollerballRenderer";
+	private static String TAG = "NativeRenderer";
 	NativeActivity mActivity;
 	
 	NativeRenderer(NativeActivity act) {
 		mActivity = act;
 	}
 	
-	@Override
-	public void onSurfaceCreated(GL10 unused, EGLConfig config) {
-		Log.i(TAG, "onSurfaceCreated");
-		displayInit();
-	}
 	
 	@Override
 	public void onDrawFrame(GL10 unused /*use GLES20*/) {
         displayRender();
 	}
-	
+
+	@Override
+	public void onSurfaceCreated(GL10 unused, EGLConfig config) {
+		Log.i(TAG, "onSurfaceCreated - EGL context is new or was lost");
+		// Actually, it seems that it is here we should recreate lost GL objects.
+		displayInit();
+	}
+ 
 	@Override
 	public void onSurfaceChanged(GL10 unused, int width, int height) {
 		Log.i(TAG, "onSurfaceChanged");
@@ -35,9 +37,10 @@ public class NativeRenderer implements GLSurfaceView.Renderer {
 	
 	// NATIVE METHODS
 
-	public native void displayInit();
 	// Note: This also means "device lost" and you should reload
 	// all buffered objects. 
+	public native void displayInit(); 
+	
 	public native void displayResize(int w, int h);
 	public native void displayRender();
 	
