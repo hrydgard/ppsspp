@@ -46,19 +46,30 @@ void TouchButton::draw(DrawBuffer &db, uint32_t color, uint32_t colorOverlay)
 TouchStick::TouchStick(const Atlas *atlas, int bgImageIndex, int stickImageIndex, int stick)
 	: atlas_(atlas), bgImageIndex_(bgImageIndex), stickImageIndex_(stickImageIndex), stick_(stick)
 {
-	stick_size_ = atlas_->images[bgImageIndex].w;
+	stick_size_ = atlas_->images[bgImageIndex].w / 3.5f;
+	memset(dragging_, 0, sizeof(dragging_));
+	memset(lastPointerDown_, 0, sizeof(lastPointerDown_));
 }
 
 void TouchStick::update(InputState &input_state)
 {
 	float inv_stick_size = 1.0f / stick_size_;
+	bool all_up = true;
 	for (int i = 0; i < MAX_POINTERS; i++) {
 		if (input_state.pointer_down[i]) {
+			all_up = false;
 			float dx = (input_state.pointer_x[i] - stick_x_) * inv_stick_size;
 			float dy = (input_state.pointer_y[i] - stick_y_) * inv_stick_size;
 			// Ignore outside box
-			if (fabsf(dx) > 1.4f || fabsf(dy) > 1.4f)
-				continue;
+			if (!dragging_[i] && (fabsf(dx) > 1.4f || fabsf(dy) > 1.4f))
+				goto skip;
+			if (!lastPointerDown_[i] && (fabsf(dx) < 1.4f && fabsf(dy) < 1.4f))
+			{
+				dragging_[i] = true;
+			}
+			if (!dragging_[i])
+				goto skip;
+
 			// Clamp to a circle
 			float len = sqrtf(dx * dx + dy * dy);
 			if (len > 1.0f) {
@@ -74,6 +85,21 @@ void TouchStick::update(InputState &input_state)
 				input_state.pad_rstick_x = dx;
 				input_state.pad_rstick_y = -dy;
 			}
+		} else {
+			dragging_[i] = false;
+		}
+skip:
+		lastPointerDown_[i] = input_state.pointer_down[i];
+	}
+	if (all_up) {
+		stick_delta_x_ = 0.0f;
+		stick_delta_y_ = 0.0f;
+		if (stick_ == 0) {
+			input_state.pad_lstick_x = 0.0f;
+			input_state.pad_lstick_y = 0.0f;
+		} else if (stick_ == 1) {
+			input_state.pad_rstick_x = 0.0f;
+			input_state.pad_rstick_y = 0.0f;
 		}
 	}
 }
@@ -82,5 +108,5 @@ void TouchStick::draw(DrawBuffer &db, uint32_t color)
 {
 	if (bgImageIndex_ != -1)
 		db.DrawImage(bgImageIndex_, stick_x_, stick_y_, 1.0f, color, ALIGN_CENTER);
-	db.DrawImage(stickImageIndex_, stick_x_ + stick_delta_x_, stick_y_ + stick_delta_y_, 1.0f, color, ALIGN_CENTER);
+	db.DrawImage(stickImageIndex_, stick_x_ + stick_delta_x_ * stick_size_, stick_y_ + stick_delta_y_ * stick_size_, 1.0f, color, ALIGN_CENTER);
 }

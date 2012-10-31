@@ -11,12 +11,13 @@ bool readFileToString(bool text_file, const char *filename, std::string &str);
 
 struct FileInfo
 {
-  std::string name;
+	std::string name;
 	std::string fullName;
-  bool isDirectory;
+	bool isDirectory;
 };
 
-size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files);
+std::string getFileExtension(const std::string &fn);
+size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const char *filter = 0);
 void deleteFile(const char *file);
 bool exists(const std::string &filename);
 

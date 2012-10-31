@@ -70,6 +70,8 @@ private:
 	int stick_size_;
 	float stick_x_;
 	float stick_y_;
+	bool dragging_[MAX_POINTERS];
+	bool lastPointerDown_[MAX_POINTERS];
 
 	// maintained for drawing only
 	float stick_delta_x_;

@@ -56,8 +56,7 @@ void LaunchBrowser(const char *url)
 #ifdef _WIN32
 	ShellExecute(NULL, "open", url, NULL, NULL, SW_SHOWNORMAL);
 #else
-	ILOG("Would have gone to %s but LaunchBrowser is not implemented on this platform",
-			 url);
+	ILOG("Would have gone to %s but LaunchBrowser is not implemented on this platform", url);
 #endif
 }
 
@@ -66,8 +65,7 @@ void LaunchMarket(const char *url)
 #ifdef _WIN32
 	ShellExecute(NULL, "open", url, NULL, NULL, SW_SHOWNORMAL);
 #else
-	ILOG("Would have gone to %s but LaunchMarket is not implemented on this platform",
-			 url);
+	ILOG("Would have gone to %s but LaunchMarket is not implemented on this platform", url);
 #endif
 }
 
@@ -76,28 +74,27 @@ void LaunchEmail(const char *email_address)
 #ifdef _WIN32
 	ShellExecute(NULL, "open", (std::string("mailto:") + email_address).c_str(), NULL, NULL, SW_SHOWNORMAL);
 #else
-	ILOG("Would have opened your email client for %s but LaunchEmail is not implemented on this platform",
-			 email_address);
+	ILOG("Would have opened your email client for %s but LaunchEmail is not implemented on this platform", email_address);
 #endif
 }
 
 
 
 const int buttonMappings[14] = {
-	SDLK_x,										//A						
-	SDLK_s,										//B						
-	SDLK_z,										//X						
-	SDLK_a,										//Y						
+	SDLK_x,										//A
+	SDLK_s,										//B
+	SDLK_z,										//X
+	SDLK_a,										//Y
 	SDLK_w,										//LBUMPER
 	SDLK_q,										//RBUMPER
 	SDLK_1,										//START
 	SDLK_2,										//SELECT
-	SDLK_UP,									//UP		
-	SDLK_DOWN,								//DOWN 
-	SDLK_LEFT,								//LEFT				 
-	SDLK_RIGHT,								//RIGHT				 
-	SDLK_m,                   //MENU
-	SDLK_BACKSPACE,           //BACK
+	SDLK_UP,									//UP
+	SDLK_DOWN,								//DOWN
+	SDLK_LEFT,								//LEFT
+	SDLK_RIGHT,								//RIGHT
+	SDLK_m,									 //MENU
+	SDLK_BACKSPACE,					 //BACK
 };
 
 void SimulateGamepad(const uint8 *keys, InputState *input) {
@@ -111,26 +108,26 @@ void SimulateGamepad(const uint8 *keys, InputState *input) {
 			input->pad_buttons |= (1<<b);
 	}
 
-	if			(keys[SDLK_i])
-    input->pad_lstick_y=1;
+	if (keys[SDLK_i])
+		input->pad_lstick_y=1;
 	else if (keys[SDLK_k])
-    input->pad_lstick_y=-1; 
-	if			(keys[SDLK_j])
-    input->pad_lstick_x=-1;
+		input->pad_lstick_y=-1;
+	if (keys[SDLK_j])
+		input->pad_lstick_x=-1;
 	else if (keys[SDLK_l])
-    input->pad_lstick_x=1; 
-	if			(keys[SDLK_KP8])
-    input->pad_rstick_y=1;
+		input->pad_lstick_x=1;
+	if (keys[SDLK_KP8])
+		input->pad_rstick_y=1;
 	else if (keys[SDLK_KP2])
-    input->pad_rstick_y=-1; 
-	if			(keys[SDLK_KP4])
-    input->pad_rstick_x=-1;
+		input->pad_rstick_y=-1;
+	if (keys[SDLK_KP4])
+		input->pad_rstick_x=-1;
 	else if (keys[SDLK_KP6])
-    input->pad_rstick_x=1; 
+		input->pad_rstick_x=1;
 }
 
 extern void mixaudio(void *userdata, Uint8 *stream, int len) {
-	NativeMix((short	*)stream, len / 4);
+	NativeMix((short *)stream, len / 4);
 }
 
 #ifdef _WIN32
@@ -141,34 +138,49 @@ int main(int argc, char *argv[]) {
 	dp_xres = 1280;
 	dp_yres = 800;
 
-	*/ 
+	*/
 	std::string app_name;
 	std::string app_name_nice;
 
 	float zoom = 1.0f;
+	bool tablet = false;
 	const char *zoomenv = getenv("ZOOM");
+	const char *tabletenv = getenv("TABLET");
 	if (zoomenv) {
 		zoom = atof(zoomenv);
 	}
+	if (tabletenv) {
+		tablet = (bool)atoi(tabletenv);
+	}
 
-  bool landscape;
-  NativeGetAppInfo(&app_name, &app_name_nice, &landscape);
+	bool landscape;
+	NativeGetAppInfo(&app_name, &app_name_nice, &landscape);
 
-  if (landscape) {
-		pixel_xres = 800 * zoom;
-		pixel_yres = 480 * zoom;
+	if (landscape) {
+		if (tablet) {
+			pixel_xres = 1280 * zoom;
+			pixel_yres = 800 * zoom;
+		} else {
+			pixel_xres = 800 * zoom;
+			pixel_yres = 480 * zoom;
+		}
 	} else {
-    // PC development hack for more space
+		// PC development hack for more space
 		//pixel_xres = 1580 * zoom;
 		//pixel_yres = 1000 * zoom;
-    pixel_xres = 480 * zoom;
-    pixel_yres = 800 * zoom;
+		if (tablet) {
+			pixel_xres = 480 * zoom;
+			pixel_yres = 800 * zoom;
+		} else {
+			pixel_xres = 800 * zoom;
+			pixel_yres = 1280 * zoom;
+		}
 	}
 
 
 	net::Init();
 #ifdef __APPLE__
-  // Make sure to request a somewhat modern GL context at least - the
+	// Make sure to request a somewhat modern GL context at least - the
 	// latest supported by MacOSX (really, really sad...)
 	// Requires SDL 2.0 (which is even more sad, as that hasn't been released yet)
 	//SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
@@ -217,35 +229,35 @@ int main(int argc, char *argv[]) {
 	PathAppend(path, (app_name + "\\").c_str());
 #else
 	// Mac / Linux
-  char path[512];
+	char path[512];
 	const char *the_path = getenv("HOME");
 	if (!the_path) {
 		struct passwd* pwd = getpwuid(getuid());
 		if (pwd)
 			the_path = pwd->pw_dir;
 	}
-  strcpy(path, the_path);
-  if (path[strlen(path)-1] != '/')
-    strcat(path, "/");
+	strcpy(path, the_path);
+	if (path[strlen(path)-1] != '/')
+		strcat(path, "/");
 #endif
 
 #ifdef _WIN32
-  NativeInit(argc, (const char **)argv, path, "D:\\", "BADCOFFEE");
+	NativeInit(argc, (const char **)argv, path, "D:\\", "BADCOFFEE");
 #else
 	NativeInit(argc, (const char **)argv, path, "/tmp", "BADCOFFEE");
 #endif
 
-  float density = 1.0f;
-  dp_xres = (float)pixel_xres * density / zoom;
-  dp_yres = (float)pixel_yres * density / zoom;
+	float density = 1.0f;
+	dp_xres = (float)pixel_xres * density / zoom;
+	dp_yres = (float)pixel_yres * density / zoom;
 
 	NativeInitGraphics();
 
-  float dp_xscale = (float)dp_xres / pixel_xres;
-  float dp_yscale = (float)dp_yres / pixel_yres;
+	float dp_xscale = (float)dp_xres / pixel_xres;
+	float dp_yscale = (float)dp_yres / pixel_yres;
 
-  printf("Pixels: %i x %i\n", pixel_xres, pixel_yres);
-  printf("Virtual pixels: %i x %i\n", dp_xres, dp_yres);
+	printf("Pixels: %i x %i\n", pixel_xres, pixel_yres);
+	printf("Virtual pixels: %i x %i\n", dp_xres, dp_yres);
 
 	SDL_AudioSpec fmt;
 	fmt.freq = 44100;
@@ -266,16 +278,16 @@ int main(int argc, char *argv[]) {
 	InputState input_state;
 	int framecount = 0;
 	bool nextFrameMD = 0;
-  float t = 0;
+	float t = 0;
 	while (true) {
 		input_state.accelerometer_valid = false;
 		input_state.mouse_valid = true;
 		int quitRequested = 0;
-		
-    SDL_Event event;
+
+		SDL_Event event;
 		while (SDL_PollEvent(&event)) {
-      float mx = event.motion.x * dp_xscale;
-      float my = event.motion.y * dp_yscale;
+			float mx = event.motion.x * dp_xscale;
+			float my = event.motion.y * dp_yscale;
 
 			if (event.type == SDL_QUIT) {
 				quitRequested = 1;
@@ -286,20 +298,20 @@ int main(int argc, char *argv[]) {
 			} else if (event.type == SDL_MOUSEMOTION) {
 				input_state.pointer_x[0] = mx;
 				input_state.pointer_y[0] = my;
-        NativeTouch(0, mx, my, 0, TOUCH_MOVE);
+				NativeTouch(0, mx, my, 0, TOUCH_MOVE);
 			} else if (event.type == SDL_MOUSEBUTTONDOWN) {
 				if (event.button.button == SDL_BUTTON_LEFT) {
 					//input_state.mouse_buttons_down = 1;
 					input_state.pointer_down[0] = true;
 					nextFrameMD = true;
-          NativeTouch(0, mx, my, 0, TOUCH_DOWN);
+					NativeTouch(0, mx, my, 0, TOUCH_DOWN);
 				}
 			} else if (event.type == SDL_MOUSEBUTTONUP) {
 				if (event.button.button == SDL_BUTTON_LEFT) {
 					input_state.pointer_down[0] = false;
 					nextFrameMD = false;
 					//input_state.mouse_buttons_up = 1;
-          NativeTouch(0, mx, my, 0, TOUCH_UP);
+					NativeTouch(0, mx, my, 0, TOUCH_UP);
 				}
 			}
 		}
@@ -315,12 +327,12 @@ int main(int argc, char *argv[]) {
 		NativeUpdate(input_state);
 		NativeRender();
 
-    EndInputState(&input_state);
+		EndInputState(&input_state);
 
 		if (framecount % 60 == 0) {
-		  // glsl_refresh(); // auto-reloads modified GLSL shaders once per second.
+			// glsl_refresh(); // auto-reloads modified GLSL shaders once per second.
 		}
- 
+
 		SDL_GL_SwapBuffers();
 
 		// Simple frame rate limiting
@@ -333,7 +345,7 @@ int main(int argc, char *argv[]) {
 		framecount++;
 	}
 	// Faster exit, thanks to the OS. Remove this if you want to debug shutdown
-  // The speed difference is only really noticable on Linux. On Windows you do notice it though
+	// The speed difference is only really noticable on Linux. On Windows you do notice it though
 	// exit(0);
 
 	NativeShutdownGraphics();
@@ -341,7 +353,7 @@ int main(int argc, char *argv[]) {
 	NativeShutdown();
 	SDL_CloseAudio();
 	SDL_Quit();
-  net::Shutdown();
-  exit(0);
+	net::Shutdown();
+	exit(0);
 	return 0;
 }
