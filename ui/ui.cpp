@@ -262,9 +262,7 @@ UIList::UIList()
 }
 
 void UIList::pointerDown(int pointer, float x, float y) {
-	// printf("PointerDown %f %f\n", x, y);
-
-	// Instantly halt if intertia-scrolling
+	// Instantly halt on pointerDown if inertia-scrolling
 	scrolling = false;
 	inertiaY = 0.0f;
 
@@ -276,8 +274,6 @@ void UIList::pointerDown(int pointer, float x, float y) {
 const int holdFrames = 6;
 
 void UIList::pointerMove(int pointer, float x, float y) {
-	// printf("PointerMove %f %f\n", x, y);
-
 	float deltaY = y - lastY;
 	movedDistanceY += fabsf(deltaY);
 
@@ -385,7 +381,7 @@ int UIList::Do(int id, int x, int y, int w, int h, UIListAdapter *adapter) {
 						selected == -1 &&
 						UIRegionHit(k, x, item_y, w, itemHeight, 0)) {
 					selected = i;
-				} else if (scrolling && canScroll) {
+				} else if (scrolling) {
 					selected = -1;
 				}
 			}
