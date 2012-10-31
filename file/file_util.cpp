@@ -6,11 +6,13 @@
 #include <unistd.h>
 #endif
 #include <string>
+#include <set>
 #include <stdio.h>
+#include <sys/stat.h>
+
 #include "base/logging.h"
 #include "base/basictypes.h"
 #include "file/file_util.h"
-#include <sys/stat.h>
 
 bool writeStringToFile(bool text_file, const std::string &str, const char *filename)
 {
@@ -114,8 +116,31 @@ bool isDirectory(const std::string &filename)
 #endif
 }
 
-size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files) {
+std::string getFileExtension(const std::string &fn) {
+	int pos = fn.rfind(".");
+	if (pos < 0) return "";
+	std::string ext = fn.substr(pos+1);
+	for (size_t i = 0; i < ext.size(); i++) {
+		ext[i] = tolower(ext[i]);
+	}
+	return ext;
+}
+
+size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const char *filter) {
 	size_t foundEntries = 0;
+	std::set<std::string> filters;
+	std::string tmp;
+	if (filter) {
+		while (*filter) {
+			if (*filter == ':') {
+				filters.insert(tmp);
+				tmp = "";
+			} else {
+				tmp.push_back(*filter);
+			}
+			filter++;
+		}
+	}
 #ifdef _WIN32
 	// Find the first file in the directory.
 	WIN32_FIND_DATA ffd;
@@ -153,12 +178,22 @@ size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files) {
 		// Remove dotfiles (should be made optional?)
 		if (virtualName[0] == '.')
 			continue;
+
 		FileInfo info;
 		info.name = virtualName;
 		info.fullName = std::string(directory) + "/" + virtualName;
 		info.isDirectory = isDirectory(info.fullName);
+
+		if (!info.isDirectory) {
+			std::string ext = getFileExtension(info.fullName);
+			if (filter) {
+				if (filters.find(ext) == filters.end())
+					continue;
+			}
+		}
+
 		files->push_back(info);
-#ifdef _WIN32 
+#ifdef _WIN32
 	} while (FindNextFile(hFind, &ffd) != 0);
 	FindClose(hFind);
 #else

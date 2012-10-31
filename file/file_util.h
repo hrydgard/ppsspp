@@ -16,7 +16,8 @@ struct FileInfo
 	bool isDirectory;
 };
 
-size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files);
+std::string getFileExtension(const std::string &fn);
+size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const char *filter = 0);
 void deleteFile(const char *file);
 bool exists(const std::string &filename);
 
