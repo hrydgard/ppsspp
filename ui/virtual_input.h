@@ -13,7 +13,7 @@ public:
 	TouchButton(const Atlas *atlas, int imageIndex, int overlayImageIndex, int button, int rotationAngle = 0, bool mirror_h = false);
 
 	void update(InputState &input_state);
-	void draw(DrawBuffer &db, uint32_t color);
+	void draw(DrawBuffer &db, uint32_t color, uint32_t colorOverlay);
 
 	void setPos(float x, float y) {
 		x_ = x - w_ / 2;

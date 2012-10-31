@@ -140,7 +140,7 @@ int UIButton(int id, const LayoutManager &layout, float w, const char *text, int
 
 	// Render button
 
-	ui_draw2d.DrawImage2GridH(theme.buttonImage, x, y, x + w);
+	ui_draw2d.DrawImage2GridH((txOffset && theme.buttonSelected) ? theme.buttonSelected : theme.buttonImage, x, y, x + w);
 	ui_draw2d.DrawTextShadow(theme.uiFont, text, x + w/2, y + h/2 + txOffset, 0xFFFFFFFF, ALIGN_HCENTER | ALIGN_VCENTER);
 
 	uistate.lastwidget = id;
@@ -361,13 +361,14 @@ int UIList::Do(int id, int x, int y, int w, int h, UIListAdapter *adapter) {
 		} else if (scrollY < 0.0f) {
 			scrollY += 0.3f * -scrollY;
 		}
-		lastX = uistate.mousex[0];
-		lastY = uistate.mousey[0];
-		uistate.lastwidget = id;
 	} else {
 		scrollY = 0.0f;
-		scrolling = false;
+		inertiaY = 0.0f;
 	}
+
+	lastX = uistate.mousex[0];
+	lastY = uistate.mousey[0];
+	uistate.lastwidget = id;
 
 	// Drawing and item hittesting
 
@@ -384,7 +385,7 @@ int UIList::Do(int id, int x, int y, int w, int h, UIListAdapter *adapter) {
 						selected == -1 &&
 						UIRegionHit(k, x, item_y, w, itemHeight, 0)) {
 					selected = i;
-				} else if (scrolling) {
+				} else if (scrolling && canScroll) {
 					selected = -1;
 				}
 			}
