@@ -34,8 +34,8 @@ static uint32_t pad_buttons_async_clear;
 
 // Android implementation of callbacks to the Java part of the app
 void SystemToast(const char *text) {
-  frameCommand = "toast";
-  frameCommandParam = text;
+	frameCommand = "toast";
+	frameCommandParam = text;
 }
 
 // TODO: need a Hide or bool show;
@@ -49,23 +49,23 @@ void ShowKeyboard() {
 }
 
 void Vibrate(int length_ms) {
-  frameCommand = "vibrate";
-  frameCommandParam = "100";
+	frameCommand = "vibrate";
+	frameCommandParam = "100";
 }
 
 void LaunchBrowser(const char *url) {
-  frameCommand = "launchBrowser";
-  frameCommandParam = url;
+	frameCommand = "launchBrowser";
+	frameCommandParam = url;
 }
 
 void LaunchMarket(const char *url) {
-  frameCommand = "launchMarket";
-  frameCommandParam = url;
+	frameCommand = "launchMarket";
+	frameCommandParam = url;
 }
 
 void LaunchEmail(const char *email_address) {
-  frameCommand = "launchEmail";
-  frameCommandParam = email_address;
+	frameCommand = "launchEmail";
+	frameCommandParam = email_address;
 }
 
 // Remember that all of these need initialization on init! The process
@@ -82,10 +82,10 @@ static bool use_native_audio = false;
 
 std::string GetJavaString(JNIEnv *env, jstring jstr)
 {
-  const char *str = env->GetStringUTFChars(jstr, 0);
-  std::string cpp_string = std::string(str);
-  env->ReleaseStringUTFChars(jstr, str);
-  return cpp_string;
+	const char *str = env->GetStringUTFChars(jstr, 0);
+	std::string cpp_string = std::string(str);
+	env->ReleaseStringUTFChars(jstr, str);
+	return cpp_string;
 }
 
 extern "C" jboolean Java_com_turboviking_libnative_NativeApp_isLandscape(JNIEnv *env, jclass)
@@ -98,53 +98,53 @@ extern "C" jboolean Java_com_turboviking_libnative_NativeApp_isLandscape(JNIEnv 
 
 // For the Back button to work right.
 extern "C" jboolean Java_com_turboviking_libnative_NativeApp_isAtTopLevel(JNIEnv *env, jclass) {
-  return NativeIsAtTopLevel();
+	return NativeIsAtTopLevel();
 }
 
 extern "C" void Java_com_turboviking_libnative_NativeApp_init
-  (JNIEnv *env, jclass, jint xxres, jint yyres, jint dpi, jstring japkpath,
-   jstring jdataDir, jstring jexternalDir, jstring jlibraryDir, jstring jinstallID, jboolean juseNativeAudio) {
-  jniEnvUI = env;
+	(JNIEnv *env, jclass, jint xxres, jint yyres, jint dpi, jstring japkpath,
+	 jstring jdataDir, jstring jexternalDir, jstring jlibraryDir, jstring jinstallID, jboolean juseNativeAudio) {
+	jniEnvUI = env;
 
-  memset(&input_state, 0, sizeof(input_state));
-  renderer_inited = false;
-  first_lost = true;
+	memset(&input_state, 0, sizeof(input_state));
+	renderer_inited = false;
+	first_lost = true;
 
 	pad_buttons_async_set = 0;
 	pad_buttons_async_clear = 0;
 
-  std::string apkPath = GetJavaString(env, japkpath);
-  ILOG("APK path: %s", apkPath.c_str());
-  VFSRegister("", new ZipAssetReader(apkPath.c_str(), "assets/"));
+	std::string apkPath = GetJavaString(env, japkpath);
+	ILOG("APK path: %s", apkPath.c_str());
+	VFSRegister("", new ZipAssetReader(apkPath.c_str(), "assets/"));
 
-  std::string externalDir = GetJavaString(env, jexternalDir);
-  std::string user_data_path = GetJavaString(env, jdataDir) + "/";
-  std::string library_path = GetJavaString(env, jlibraryDir) + "/";
-  std::string installID = GetJavaString(env, jinstallID);
+	std::string externalDir = GetJavaString(env, jexternalDir);
+	std::string user_data_path = GetJavaString(env, jdataDir) + "/";
+	std::string library_path = GetJavaString(env, jlibraryDir) + "/";
+	std::string installID = GetJavaString(env, jinstallID);
 
-  ILOG("External storage path: %s", externalDir.c_str());
+	ILOG("External storage path: %s", externalDir.c_str());
 
 	std::string app_name;
 	std::string app_nice_name;
 	bool landscape;
 
-  net::Init();
+	net::Init();
 
-  g_dpi = dpi;
+	g_dpi = dpi;
 	g_dpi_scale = 240.0f / (float)g_dpi;
-  pixel_xres = xxres;
-  pixel_yres = yyres;
+	pixel_xres = xxres;
+	pixel_yres = yyres;
 
 	NativeGetAppInfo(&app_name, &app_nice_name, &landscape);
 
 	const char *argv[2] = {app_name.c_str(), 0};
-  NativeInit(1, argv, user_data_path.c_str(), externalDir.c_str(), installID.c_str());
+	NativeInit(1, argv, user_data_path.c_str(), externalDir.c_str(), installID.c_str());
 
-  use_native_audio = juseNativeAudio;
+	use_native_audio = juseNativeAudio;
 	if (use_native_audio) {
 		AndroidAudio_Init(&NativeMix, library_path);
 	}
-}  
+}	
 
 extern "C" void Java_com_turboviking_libnative_NativeApp_resume(JNIEnv *, jclass) {
 	ILOG("NativeResume");
@@ -161,54 +161,54 @@ extern "C" void Java_com_turboviking_libnative_NativeApp_pause(JNIEnv *, jclass)
 }
  
 extern "C" void Java_com_turboviking_libnative_NativeApp_shutdown(JNIEnv *, jclass) {
-  ILOG("NativeShutdown.");
+	ILOG("NativeShutdown.");
  	if (use_native_audio) {
 		AndroidAudio_Shutdown();
 	}
 	if (renderer_inited) {
-    NativeShutdownGraphics();
+		NativeShutdownGraphics();
 		renderer_inited = false;
-  }
-  NativeShutdown();
-  ILOG("VFSShutdown.");
-  VFSShutdown();
-  net::Shutdown();
+	}
+	NativeShutdown();
+	ILOG("VFSShutdown.");
+	VFSShutdown();
+	net::Shutdown();
 }
 
 static jmethodID postCommand;
 
 extern "C" void Java_com_turboviking_libnative_NativeRenderer_displayInit(JNIEnv * env, jobject obj) {
 	ILOG("displayInit()");
-  if (!renderer_inited) {
+	if (!renderer_inited) {
 
-    // We default to 240 dpi and all UI code is written to assume it. (DENSITY_HIGH, like Nexus S).
-    // Note that we don't compute dp_xscale and dp_yscale until later! This is so that NativeGetAppInfo
-    // can change the dp resolution if it feels like it.
-    dp_xres = pixel_xres * g_dpi_scale;
-    dp_yres = pixel_yres * g_dpi_scale;
+		// We default to 240 dpi and all UI code is written to assume it. (DENSITY_HIGH, like Nexus S).
+		// Note that we don't compute dp_xscale and dp_yscale until later! This is so that NativeGetAppInfo
+		// can change the dp resolution if it feels like it.
+		dp_xres = pixel_xres * g_dpi_scale;
+		dp_yres = pixel_yres * g_dpi_scale;
 
-		ILOG("Calling NativeInitGraphics();  dpi = %i, dp_xres = %i, dp_yres = %i", g_dpi, dp_xres, dp_yres);
-    NativeInitGraphics();
+		ILOG("Calling NativeInitGraphics();	dpi = %i, dp_xres = %i, dp_yres = %i", g_dpi, dp_xres, dp_yres);
+		NativeInitGraphics();
 
-    dp_xscale = (float)dp_xres / pixel_xres;
-    dp_yscale = (float)dp_yres / pixel_yres;
+		dp_xscale = (float)dp_xres / pixel_xres;
+		dp_yscale = (float)dp_yres / pixel_yres;
 		renderer_inited = true;
-  } else {
-    ILOG("Calling NativeDeviceLost();");
+	} else {
+		ILOG("Calling NativeDeviceLost();");
 		NativeDeviceLost();
-  }
-  jclass cls = env->GetObjectClass(obj);
-  postCommand = env->GetMethodID(cls, "postCommand", "(Ljava/lang/String;Ljava/lang/String;)V");
-  ILOG("MethodID: %i", (int)postCommand);
+	}
+	jclass cls = env->GetObjectClass(obj);
+	postCommand = env->GetMethodID(cls, "postCommand", "(Ljava/lang/String;Ljava/lang/String;)V");
+	ILOG("MethodID: %i", (int)postCommand);
 }
 
 extern "C" void Java_com_turboviking_libnative_NativeRenderer_displayResize(JNIEnv *, jobject clazz, jint w, jint h) {
-  ILOG("displayResize (%i, %i)!", w, h);
+	ILOG("displayResize (%i, %i)!", w, h);
 }
 
 extern "C" void Java_com_turboviking_libnative_NativeRenderer_displayRender(JNIEnv *env, jobject obj) {
-  if (renderer_inited) {
-    {
+	if (renderer_inited) {
+		{
 			lock_guard guard(input_state.lock);
 			input_state.pad_buttons |= pad_buttons_async_set;
 			input_state.pad_buttons &= ~pad_buttons_async_clear;
@@ -216,111 +216,111 @@ extern "C" void Java_com_turboviking_libnative_NativeRenderer_displayRender(JNIE
 			NativeUpdate(input_state);
 			EndInputState(&input_state);
 		}
-    NativeRender();
-    time_update();
-  } else {
-    ELOG("Ended up in nativeRender even though app has quit.%s", "");
-    // Shouldn't really get here.
-    glClearColor(1.0, 0.0, 1.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-  }
-  
-  if (!frameCommand.empty()) {
-    ILOG("frameCommand %s %s", frameCommand.c_str(), frameCommandParam.c_str());
+		NativeRender();
+		time_update();
+	} else {
+		ELOG("Ended up in nativeRender even though app has quit.%s", "");
+		// Shouldn't really get here.
+		glClearColor(1.0, 0.0, 1.0f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	}
+	
+	if (!frameCommand.empty()) {
+		ILOG("frameCommand %s %s", frameCommand.c_str(), frameCommandParam.c_str());
 
-    jstring cmd = env->NewStringUTF(frameCommand.c_str());
-    jstring param = env->NewStringUTF(frameCommandParam.c_str());
-    env->CallVoidMethod(obj, postCommand, cmd, param);
-    
-  	frameCommand = "";
-  	frameCommandParam = "";
-  }
+		jstring cmd = env->NewStringUTF(frameCommand.c_str());
+		jstring param = env->NewStringUTF(frameCommandParam.c_str());
+		env->CallVoidMethod(obj, postCommand, cmd, param);
+		
+		frameCommand = "";
+		frameCommandParam = "";
+	}
 }
 
-extern "C" void Java_com_turboviking_libnative_NativeApp_audioRender(JNIEnv*  env, jclass clazz, jshortArray array) {
-  // The audio thread can pretty safely enable Flush-to-Zero mode on the FPU.
-  EnableFZ();
+extern "C" void Java_com_turboviking_libnative_NativeApp_audioRender(JNIEnv*	env, jclass clazz, jshortArray array) {
+	// The audio thread can pretty safely enable Flush-to-Zero mode on the FPU.
+	EnableFZ();
 
-  int buf_size = env->GetArrayLength(array);
+	int buf_size = env->GetArrayLength(array);
 	if (buf_size) {
-    short *data = env->GetShortArrayElements(array, 0);
-	  int samples = buf_size / 2;
-    NativeMix(data, samples);
-	  env->ReleaseShortArrayElements(array, data, 0);
-  }
+		short *data = env->GetShortArrayElements(array, 0);
+		int samples = buf_size / 2;
+		NativeMix(data, samples);
+		env->ReleaseShortArrayElements(array, data, 0);
+	}
 }
 
 extern "C" void JNICALL Java_com_turboviking_libnative_NativeApp_touch
-  (JNIEnv *, jclass, float x, float y, int code, int pointerId) {
-  lock_guard guard(input_state.lock);
+	(JNIEnv *, jclass, float x, float y, int code, int pointerId) {
+	lock_guard guard(input_state.lock);
 
 	if (pointerId >= MAX_POINTERS) {
 		ELOG("Too many pointers: %i", pointerId);
-		return;  // We ignore 8+ pointers entirely.
+		return;	// We ignore 8+ pointers entirely.
 	}
-  float scaledX = (int)(x * dp_xscale);  // why the (int) cast?
-  float scaledY = (int)(y * dp_yscale);
-  input_state.pointer_x[pointerId] = scaledX;
-  input_state.pointer_y[pointerId] = scaledY;
-  if (code == 1) {
-  	input_state.pointer_down[pointerId] = true;
-    NativeTouch(pointerId, scaledX, scaledY, 0, TOUCH_DOWN);
-  } else if (code == 2) {
-  	input_state.pointer_down[pointerId] = false;
-    NativeTouch(pointerId, scaledX, scaledY, 0, TOUCH_UP);
-  } else {
-    NativeTouch(pointerId, scaledX, scaledY, 0, TOUCH_MOVE);
-  }
-  input_state.mouse_valid = true;
+	float scaledX = (int)(x * dp_xscale);	// why the (int) cast?
+	float scaledY = (int)(y * dp_yscale);
+	input_state.pointer_x[pointerId] = scaledX;
+	input_state.pointer_y[pointerId] = scaledY;
+	if (code == 1) {
+		input_state.pointer_down[pointerId] = true;
+		NativeTouch(pointerId, scaledX, scaledY, 0, TOUCH_DOWN);
+	} else if (code == 2) {
+		input_state.pointer_down[pointerId] = false;
+		NativeTouch(pointerId, scaledX, scaledY, 0, TOUCH_UP);
+	} else {
+		NativeTouch(pointerId, scaledX, scaledY, 0, TOUCH_MOVE);
+	}
+	input_state.mouse_valid = true;
 }
 
 extern "C" void Java_com_turboviking_libnative_NativeApp_keyDown(JNIEnv *, jclass, jint key) {
-  switch (key) {
-  	case 1:  // Back
-  	  pad_buttons_async_set |= PAD_BUTTON_BACK;
+	switch (key) {
+		case 1:	// Back
+			pad_buttons_async_set |= PAD_BUTTON_BACK;
 			pad_buttons_async_clear &= ~PAD_BUTTON_BACK;
-  	  break;
-  	case 2:  // Menu
-  	  pad_buttons_async_set |= PAD_BUTTON_MENU;
+			break;
+		case 2:	// Menu
+			pad_buttons_async_set |= PAD_BUTTON_MENU;
 			pad_buttons_async_clear &= ~PAD_BUTTON_MENU;
-  	  break;
-  	case 3:  // Search
+			break;
+		case 3:	// Search
 			pad_buttons_async_set |= PAD_BUTTON_A;
-  	  pad_buttons_async_clear &= ~PAD_BUTTON_A;
-  	  break;
-  }
+			pad_buttons_async_clear &= ~PAD_BUTTON_A;
+			break;
+	}
 }
 
 extern "C" void Java_com_turboviking_libnative_NativeApp_keyUp(JNIEnv *, jclass, jint key) {
-  switch (key) {
-  	case 1:  // Back
+	switch (key) {
+		case 1:	// Back
 			pad_buttons_async_set &= ~PAD_BUTTON_BACK;
-  	  pad_buttons_async_clear |= PAD_BUTTON_BACK;
-  	  break;
-  	case 2:  // Menu
-  	  pad_buttons_async_set &= ~PAD_BUTTON_MENU;
+			pad_buttons_async_clear |= PAD_BUTTON_BACK;
+			break;
+		case 2:	// Menu
+			pad_buttons_async_set &= ~PAD_BUTTON_MENU;
 			pad_buttons_async_clear |= PAD_BUTTON_MENU;
-  	  break;
-  	case 3:  // Search
-  	  pad_buttons_async_set &= ~PAD_BUTTON_A;
+			break;
+		case 3:	// Search
+			pad_buttons_async_set &= ~PAD_BUTTON_A;
 			pad_buttons_async_clear |= PAD_BUTTON_A;
-  	  break;
-  }
+			break;
+	}
 }
 
 extern "C" void JNICALL Java_com_turboviking_libnative_NativeApp_accelerometer
-  (JNIEnv *, jclass, float x, float y, float z) {
-  // Theoretically this needs locking but I doubt it matters. Worst case, the X
-  // from one "sensor frame" will be used together with Y from the next.
-  // Should look into quantization though, for compressed movement storage.
-  input_state.accelerometer_valid = true;
-  input_state.acc.x = x;
-  input_state.acc.y = y;
-  input_state.acc.z = z;
+	(JNIEnv *, jclass, float x, float y, float z) {
+	// Theoretically this needs locking but I doubt it matters. Worst case, the X
+	// from one "sensor frame" will be used together with Y from the next.
+	// Should look into quantization though, for compressed movement storage.
+	input_state.accelerometer_valid = true;
+	input_state.acc.x = x;
+	input_state.acc.y = y;
+	input_state.acc.z = z;
 }
 
 extern "C" void Java_com_turboviking_libnative_NativeApp_sendMessage
-  (JNIEnv *env, jclass, jstring message, jstring param) {
+	(JNIEnv *env, jclass, jstring message, jstring param) {
 	jboolean isCopy;
 	std::string msg = GetJavaString(env, message);
 	std::string prm = GetJavaString(env, param);
