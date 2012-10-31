@@ -288,11 +288,6 @@ void UIList::pointerMove(int pointer, float x, float y) {
 	if (movedDistanceY > 10 && !scrolling && uistate.mouseframesdown[0] > holdFrames) {
 		scrolling = true;
 	}
-
-	if (scrolling) {
-		// Pointer is down so stick to it
-		scrollY = startScrollY - (y - startDragY);
-	}
 }
 
 void UIList::pointerUp(int pointer, float x, float y, bool inside) {
@@ -342,24 +337,28 @@ int UIList::Do(int id, int x, int y, int w, int h, UIListAdapter *adapter) {
 	int itemHeight = adapter->itemHeight(0);
 	int numItems = adapter->getCount();
 
-	// Process inertia scrolling
-	bool canScroll = itemHeight * numItems > h;
-	if (canScroll) {
-		if (inertiaY > 20) inertiaY = 20;
-		if (inertiaY < -20) inertiaY = -20;
-		if (!uistate.mousedown[0]) {
-			scrollY += inertiaY;
-		}
-		inertiaY *= 0.9f;
-		float maxScrollY = numItems * itemHeight - h;
-		if (scrollY > maxScrollY) {
-			scrollY -= 0.3 * (scrollY - maxScrollY);
-		} else if (scrollY < 0.0f) {
-			scrollY += 0.3f * -scrollY;
-		}
-	} else {
-		scrollY = 0.0f;
-		inertiaY = 0.0f;
+	// Cap total inertia
+	if (inertiaY > 20) inertiaY = 20;
+	if (inertiaY < -20) inertiaY = -20;
+
+	if (!uistate.mousedown[0]) {
+		// Let it slide if the pointer is not down
+		scrollY += inertiaY;
+	} else if (scrolling) {
+		// Pointer is down so stick to it
+		scrollY = startScrollY - (uistate.mousey[0] - startDragY);
+	}
+
+	// Inertia gradually trails off
+	inertiaY *= 0.92f;
+
+	// Cap top and bottom softly.
+	float maxScrollY = numItems * itemHeight - h;
+	if (maxScrollY < 0.0f) maxScrollY = 0.0f;
+	if (scrollY > maxScrollY) {
+		scrollY -= 0.4f * (scrollY - maxScrollY);
+	} else if (scrollY < 0.0f) {
+		scrollY += 0.4f * -scrollY;
 	}
 
 	lastX = uistate.mousex[0];

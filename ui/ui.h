@@ -217,7 +217,6 @@ public:
 	float startDragY;
 	float movedDistanceY;
 	float inertiaY;
-	float dY;
 
 	int dragFinger;
 	int selected;
@@ -225,6 +224,11 @@ public:
 	// return -1 = no selection
 	int Do(int id, int x, int y, int w, int h, UIListAdapter *adapter);
 
+	// Call this when the content has changed, to reset scroll position etc.
+	void contentChanged() {
+		scrollY = 0.0f;
+		inertiaY = 0.0f;
+	}
 private:
 	// TODO: Migrate to using these directly.
 	void pointerDown(int pointer, float x, float y);
