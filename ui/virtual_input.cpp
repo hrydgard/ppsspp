@@ -54,8 +54,10 @@ TouchStick::TouchStick(const Atlas *atlas, int bgImageIndex, int stickImageIndex
 void TouchStick::update(InputState &input_state)
 {
 	float inv_stick_size = 1.0f / stick_size_;
+	bool all_up = true;
 	for (int i = 0; i < MAX_POINTERS; i++) {
 		if (input_state.pointer_down[i]) {
+			all_up = false;
 			float dx = (input_state.pointer_x[i] - stick_x_) * inv_stick_size;
 			float dy = (input_state.pointer_y[i] - stick_y_) * inv_stick_size;
 			// Ignore outside box
@@ -88,6 +90,17 @@ void TouchStick::update(InputState &input_state)
 		}
 skip:
 		lastPointerDown_[i] = input_state.pointer_down[i];
+	}
+	if (all_up) {
+		stick_delta_x_ = 0.0f;
+		stick_delta_y_ = 0.0f;
+		if (stick_ == 0) {
+			input_state.pad_lstick_x = 0.0f;
+			input_state.pad_lstick_y = 0.0f;
+		} else if (stick_ == 1) {
+			input_state.pad_rstick_x = 0.0f;
+			input_state.pad_rstick_y = 0.0f;
+		}
 	}
 }
 
