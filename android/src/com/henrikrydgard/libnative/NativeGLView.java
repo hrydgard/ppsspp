@@ -1,4 +1,4 @@
-package com.turboviking.libnative;
+package com.henrikrydgard.libnative;
 
 // Touch- and sensor-enabled GLSurfaceView.
 // Supports simple multitouch and pressure.

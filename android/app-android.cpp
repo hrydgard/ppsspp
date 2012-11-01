@@ -88,7 +88,7 @@ std::string GetJavaString(JNIEnv *env, jstring jstr)
 	return cpp_string;
 }
 
-extern "C" jboolean Java_com_turboviking_libnative_NativeApp_isLandscape(JNIEnv *env, jclass)
+extern "C" jboolean Java_com_henrikrydgard_libnative_NativeApp_isLandscape(JNIEnv *env, jclass)
 {
 	std::string app_name, app_nice_name;
 	bool landscape;
@@ -97,11 +97,11 @@ extern "C" jboolean Java_com_turboviking_libnative_NativeApp_isLandscape(JNIEnv 
 }
 
 // For the Back button to work right.
-extern "C" jboolean Java_com_turboviking_libnative_NativeApp_isAtTopLevel(JNIEnv *env, jclass) {
+extern "C" jboolean Java_com_henrikrydgard_libnative_NativeApp_isAtTopLevel(JNIEnv *env, jclass) {
 	return NativeIsAtTopLevel();
 }
 
-extern "C" void Java_com_turboviking_libnative_NativeApp_init
+extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
 	(JNIEnv *env, jclass, jint xxres, jint yyres, jint dpi, jstring japkpath,
 	 jstring jdataDir, jstring jexternalDir, jstring jlibraryDir, jstring jinstallID, jboolean juseNativeAudio) {
 	jniEnvUI = env;
@@ -146,21 +146,21 @@ extern "C" void Java_com_turboviking_libnative_NativeApp_init
 	}
 }	
 
-extern "C" void Java_com_turboviking_libnative_NativeApp_resume(JNIEnv *, jclass) {
+extern "C" void Java_com_henrikrydgard_libnative_NativeApp_resume(JNIEnv *, jclass) {
 	ILOG("NativeResume");
 	if (use_native_audio) {
 		AndroidAudio_Resume();
 	}
 }
 
-extern "C" void Java_com_turboviking_libnative_NativeApp_pause(JNIEnv *, jclass) {
+extern "C" void Java_com_henrikrydgard_libnative_NativeApp_pause(JNIEnv *, jclass) {
 	ILOG("NativePause");
 	if (use_native_audio) {
 		AndroidAudio_Pause();
 	}
 }
  
-extern "C" void Java_com_turboviking_libnative_NativeApp_shutdown(JNIEnv *, jclass) {
+extern "C" void Java_com_henrikrydgard_libnative_NativeApp_shutdown(JNIEnv *, jclass) {
 	ILOG("NativeShutdown.");
  	if (use_native_audio) {
 		AndroidAudio_Shutdown();
@@ -177,7 +177,7 @@ extern "C" void Java_com_turboviking_libnative_NativeApp_shutdown(JNIEnv *, jcla
 
 static jmethodID postCommand;
 
-extern "C" void Java_com_turboviking_libnative_NativeRenderer_displayInit(JNIEnv * env, jobject obj) {
+extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayInit(JNIEnv * env, jobject obj) {
 	ILOG("displayInit()");
 	if (!renderer_inited) {
 
@@ -202,11 +202,11 @@ extern "C" void Java_com_turboviking_libnative_NativeRenderer_displayInit(JNIEnv
 	ILOG("MethodID: %i", (int)postCommand);
 }
 
-extern "C" void Java_com_turboviking_libnative_NativeRenderer_displayResize(JNIEnv *, jobject clazz, jint w, jint h) {
+extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayResize(JNIEnv *, jobject clazz, jint w, jint h) {
 	ILOG("displayResize (%i, %i)!", w, h);
 }
 
-extern "C" void Java_com_turboviking_libnative_NativeRenderer_displayRender(JNIEnv *env, jobject obj) {
+extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayRender(JNIEnv *env, jobject obj) {
 	if (renderer_inited) {
 		{
 			lock_guard guard(input_state.lock);
@@ -237,7 +237,7 @@ extern "C" void Java_com_turboviking_libnative_NativeRenderer_displayRender(JNIE
 	}
 }
 
-extern "C" void Java_com_turboviking_libnative_NativeApp_audioRender(JNIEnv*	env, jclass clazz, jshortArray array) {
+extern "C" void Java_com_henrikrydgard_libnative_NativeApp_audioRender(JNIEnv*	env, jclass clazz, jshortArray array) {
 	// The audio thread can pretty safely enable Flush-to-Zero mode on the FPU.
 	EnableFZ();
 
@@ -250,7 +250,7 @@ extern "C" void Java_com_turboviking_libnative_NativeApp_audioRender(JNIEnv*	env
 	}
 }
 
-extern "C" void JNICALL Java_com_turboviking_libnative_NativeApp_touch
+extern "C" void JNICALL Java_com_henrikrydgard_libnative_NativeApp_touch
 	(JNIEnv *, jclass, float x, float y, int code, int pointerId) {
 	lock_guard guard(input_state.lock);
 
@@ -274,7 +274,7 @@ extern "C" void JNICALL Java_com_turboviking_libnative_NativeApp_touch
 	input_state.mouse_valid = true;
 }
 
-extern "C" void Java_com_turboviking_libnative_NativeApp_keyDown(JNIEnv *, jclass, jint key) {
+extern "C" void Java_com_henrikrydgard_libnative_NativeApp_keyDown(JNIEnv *, jclass, jint key) {
 	switch (key) {
 		case 1:	// Back
 			pad_buttons_async_set |= PAD_BUTTON_BACK;
@@ -291,7 +291,7 @@ extern "C" void Java_com_turboviking_libnative_NativeApp_keyDown(JNIEnv *, jclas
 	}
 }
 
-extern "C" void Java_com_turboviking_libnative_NativeApp_keyUp(JNIEnv *, jclass, jint key) {
+extern "C" void Java_com_henrikrydgard_libnative_NativeApp_keyUp(JNIEnv *, jclass, jint key) {
 	switch (key) {
 		case 1:	// Back
 			pad_buttons_async_set &= ~PAD_BUTTON_BACK;
@@ -308,7 +308,7 @@ extern "C" void Java_com_turboviking_libnative_NativeApp_keyUp(JNIEnv *, jclass,
 	}
 }
 
-extern "C" void JNICALL Java_com_turboviking_libnative_NativeApp_accelerometer
+extern "C" void JNICALL Java_com_henrikrydgard_libnative_NativeApp_accelerometer
 	(JNIEnv *, jclass, float x, float y, float z) {
 	// Theoretically this needs locking but I doubt it matters. Worst case, the X
 	// from one "sensor frame" will be used together with Y from the next.
@@ -319,7 +319,7 @@ extern "C" void JNICALL Java_com_turboviking_libnative_NativeApp_accelerometer
 	input_state.acc.z = z;
 }
 
-extern "C" void Java_com_turboviking_libnative_NativeApp_sendMessage
+extern "C" void Java_com_henrikrydgard_libnative_NativeApp_sendMessage
 	(JNIEnv *env, jclass, jstring message, jstring param) {
 	jboolean isCopy;
 	std::string msg = GetJavaString(env, message);

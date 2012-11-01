@@ -1,4 +1,4 @@
-package com.turboviking.libnative;
+package com.henrikrydgard.libnative;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;

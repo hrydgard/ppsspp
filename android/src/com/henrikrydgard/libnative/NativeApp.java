@@ -1,4 +1,4 @@
-package com.turboviking.libnative;
+package com.henrikrydgard.libnative;
 
 public class NativeApp {      
 	public static native void init(

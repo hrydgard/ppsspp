@@ -1,4 +1,4 @@
-package com.turboviking.libnative;
+package com.henrikrydgard.libnative;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;

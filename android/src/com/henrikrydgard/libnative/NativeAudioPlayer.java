@@ -1,4 +1,4 @@
-package com.turboviking.libnative;
+package com.henrikrydgard.libnative;
 
 import android.media.AudioFormat;
 import android.media.AudioManager;
