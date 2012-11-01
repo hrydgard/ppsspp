@@ -7,6 +7,7 @@
 #endif
 #include <string>
 #include <set>
+#include <algorithm>
 #include <stdio.h>
 #include <sys/stat.h>
 #include <ctype.h>
@@ -201,6 +202,7 @@ size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const 
 	}
 	closedir(dirp);
 #endif
+	std::sort(files->begin(), files->end());
 	return foundEntries;
 }
 

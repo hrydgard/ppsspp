@@ -14,6 +14,17 @@ struct FileInfo
 	std::string name;
 	std::string fullName;
 	bool isDirectory;
+
+	bool operator <(const FileInfo &other) const {
+		if (isDirectory && !other.isDirectory)
+			return true;
+		else if (!isDirectory && other.isDirectory)
+			return false;
+		if (name < other.name)
+			return true;
+		else
+			return false;
+	}
 };
 
 std::string getFileExtension(const std::string &fn);
