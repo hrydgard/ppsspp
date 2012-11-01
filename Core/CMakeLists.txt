@@ -1,0 +1,83 @@
+set(SRCS
+  Debugger/Breakpoints.cpp
+  Debugger/SymbolMap.cpp
+  MIPS/MIPS.cpp
+  MIPS/MIPSAnalyst.cpp
+  MIPS/MIPSCodeUtils.cpp
+  MIPS/MIPSDebugInterface.cpp
+  MIPS/MIPSDis.cpp
+  MIPS/MIPSDisVFPU.cpp
+  MIPS/MIPSInt.cpp
+  MIPS/MIPSIntVFPU.cpp
+  MIPS/MIPSTables.cpp
+  MIPS/MIPSVFPUUtils.cpp
+  MIPS/JitCommon/JitCommon.cpp
+  MIPS/x86/Asm.cpp
+  MIPS/x86/CompALU.cpp
+  MIPS/x86/CompBranch.cpp
+  MIPS/x86/CompLoadStore.cpp
+  MIPS/x86/CompFPU.cpp
+  MIPS/x86/Jit.cpp
+  MIPS/x86/JitCache.cpp
+  MIPS/x86/RegCache.cpp
+  ELF/ElfReader.cpp
+  HLE/HLE.cpp
+  HLE/HLETables.cpp
+  HLE/sceAtrac.cpp
+  HLE/__sceAudio.cpp
+  HLE/sceAudio.cpp
+  HLE/sceCtrl.cpp
+  HLE/sceDisplay.cpp
+  HLE/sceDmac.cpp
+  HLE/sceGe.cpp
+  HLE/sceHprm.cpp
+  HLE/sceHttp.cpp
+  HLE/sceIo.cpp
+  HLE/sceKernel.cpp
+  HLE/sceKernelAlarm.cpp
+  HLE/sceKernelCallback.cpp
+  HLE/sceKernelEventFlag.cpp
+  HLE/sceKernelInterrupt.cpp
+  HLE/sceKernelMemory.cpp
+  HLE/sceKernelModule.cpp
+  HLE/sceKernelMutex.cpp
+  HLE/sceKernelMbx.cpp
+  HLE/sceKernelMsgPipe.cpp
+  HLE/sceKernelSemaphore.cpp
+  HLE/sceKernelThread.cpp
+  HLE/sceKernelTime.cpp
+  HLE/sceKernelVTimer.cpp
+  HLE/sceMpeg.cpp
+  HLE/sceNet.cpp
+  HLE/scePower.cpp
+  HLE/scePsmf.cpp
+  HLE/sceRtc.cpp
+  HLE/sceSas.cpp
+  HLE/sceUmd.cpp
+  HLE/sceUtility.cpp
+  FileSystems/BlockDevices.cpp
+  FileSystems/ISOFileSystem.cpp
+  FileSystems/DirectoryFileSystem.cpp
+  FileSystems/MetaFileSystem.cpp
+  Util/BlockAllocator.cpp
+  CPU.cpp
+  CoreTiming.cpp
+  Config.cpp
+  Loaders.cpp
+  Host.cpp
+  MemMap.cpp
+  MemMapFunctions.cpp
+  PSPLoaders.cpp
+  PSPMixer.cpp
+  System.cpp
+  Core.cpp
+)
+
+set(SRCS ${SRCS})
+
+add_library(core STATIC ${SRCS})
+
+if(UNIX)
+  add_definitions(-fPIC)
+endif(UNIX)
+

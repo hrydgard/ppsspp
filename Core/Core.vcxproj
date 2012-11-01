@@ -1,0 +1,360 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{533F1D30-D04D-47CC-AD71-20F658907E36}</ProjectGuid>
+    <RootNamespace>Core</RootNamespace>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup />
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <AdditionalIncludeDirectories>../common;..;../native;../native/ext/glew;../zlib</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <AdditionalIncludeDirectories>../common;..;../native;../native/ext/glew;../zlib</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <AdditionalIncludeDirectories>../common;..;../native;../native/ext/glew;../zlib</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <AdditionalIncludeDirectories>../common;..;../native;../native/ext/glew;../zlib</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="Config.cpp" />
+    <ClCompile Include="Core.cpp" />
+    <ClCompile Include="CoreTiming.cpp" />
+    <ClCompile Include="CPU.cpp" />
+    <ClCompile Include="Debugger\Breakpoints.cpp" />
+    <ClCompile Include="Debugger\SymbolMap.cpp" />
+    <ClCompile Include="ELF\ElfReader.cpp" />
+    <ClCompile Include="FileSystems\BlockDevices.cpp" />
+    <ClCompile Include="FileSystems\DirectoryFileSystem.cpp" />
+    <ClCompile Include="FileSystems\ISOFileSystem.cpp" />
+    <ClCompile Include="FileSystems\MetaFileSystem.cpp" />
+    <ClCompile Include="HLE\HLE.cpp" />
+    <ClCompile Include="HLE\HLETables.cpp" />
+    <ClCompile Include="HLE\sceAtrac.cpp" />
+    <ClCompile Include="HLE\sceAudio.cpp" />
+    <ClCompile Include="HLE\sceCtrl.cpp" />
+    <ClCompile Include="HLE\sceDisplay.cpp" />
+    <ClCompile Include="HLE\sceDmac.cpp" />
+    <ClCompile Include="HLE\sceGe.cpp" />
+    <ClCompile Include="HLE\sceHprm.cpp" />
+    <ClCompile Include="HLE\sceHttp.cpp" />
+    <ClCompile Include="HLE\sceIo.cpp" />
+    <ClCompile Include="HLE\sceKernel.cpp" />
+    <ClCompile Include="HLE\sceKernelAlarm.cpp" />
+    <ClCompile Include="HLE\sceKernelCallback.cpp" />
+    <ClCompile Include="HLE\sceKernelEventFlag.cpp" />
+    <ClCompile Include="HLE\sceKernelInterrupt.cpp" />
+    <ClCompile Include="HLE\sceKernelMbx.cpp" />
+    <ClCompile Include="HLE\sceKernelMemory.cpp" />
+    <ClCompile Include="HLE\sceKernelModule.cpp" />
+    <ClCompile Include="HLE\sceKernelMsgPipe.cpp" />
+    <ClCompile Include="HLE\sceKernelMutex.cpp" />
+    <ClCompile Include="HLE\sceKernelSemaphore.cpp" />
+    <ClCompile Include="HLE\sceKernelThread.cpp" />
+    <ClCompile Include="HLE\sceKernelTime.cpp" />
+    <ClCompile Include="HLE\sceKernelVTimer.cpp" />
+    <ClCompile Include="HLE\sceMpeg.cpp" />
+    <ClCompile Include="HLE\sceNet.cpp" />
+    <ClCompile Include="HLE\scePower.cpp" />
+    <ClCompile Include="HLE\scePsmf.cpp" />
+    <ClCompile Include="HLE\sceRtc.cpp" />
+    <ClCompile Include="HLE\sceSas.cpp" />
+    <ClCompile Include="HLE\sceUmd.cpp" />
+    <ClCompile Include="HLE\sceUtility.cpp" />
+    <ClCompile Include="HLE\__sceAudio.cpp" />
+    <ClCompile Include="Host.cpp" />
+    <ClCompile Include="Loaders.cpp" />
+    <ClCompile Include="MemMap.cpp" />
+    <ClCompile Include="MemmapFunctions.cpp" />
+    <ClCompile Include="MIPS\ARM\Asm.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM\CompALU.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM\CompBranch.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM\CompFPU.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM\CompLoadStore.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM\Jit.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM\JitCache.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM\RegCache.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="MIPS\JitCommon\JitCommon.cpp" />
+    <ClCompile Include="Mips\MIPS.cpp" />
+    <ClCompile Include="Mips\MIPSAnalyst.cpp" />
+    <ClCompile Include="Mips\MIPSCodeUtils.cpp" />
+    <ClCompile Include="MIPS\MIPSDebugInterface.cpp" />
+    <ClCompile Include="Mips\MIPSDis.cpp" />
+    <ClCompile Include="MIPS\MIPSDisVFPU.cpp" />
+    <ClCompile Include="Mips\MIPSInt.cpp" />
+    <ClCompile Include="MIPS\MIPSIntVFPU.cpp" />
+    <ClCompile Include="Mips\MIPSTables.cpp" />
+    <ClCompile Include="MIPS\MIPSVFPUUtils.cpp" />
+    <ClCompile Include="MIPS\x86\Asm.cpp" />
+    <ClCompile Include="MIPS\x86\CompALU.cpp" />
+    <ClCompile Include="MIPS\x86\CompBranch.cpp" />
+    <ClCompile Include="MIPS\x86\CompFPU.cpp" />
+    <ClCompile Include="MIPS\x86\CompLoadStore.cpp" />
+    <ClCompile Include="MIPS\x86\CompVFPU.cpp" />
+    <ClCompile Include="MIPS\x86\Jit.cpp" />
+    <ClCompile Include="MIPS\x86\JitCache.cpp" />
+    <ClCompile Include="MIPS\x86\RegCache.cpp" />
+    <ClCompile Include="PSPLoaders.cpp" />
+    <ClCompile Include="PSPMixer.cpp" />
+    <ClCompile Include="System.cpp" />
+    <ClCompile Include="Util\BlockAllocator.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Config.h" />
+    <ClInclude Include="Core.h" />
+    <ClInclude Include="CoreParameter.h" />
+    <ClInclude Include="CoreTiming.h" />
+    <ClInclude Include="CPU.h" />
+    <ClInclude Include="Debugger\Breakpoints.h" />
+    <ClInclude Include="Debugger\DebugInterface.h" />
+    <ClInclude Include="Debugger\SymbolMap.h" />
+    <ClInclude Include="ELF\ElfReader.h" />
+    <ClInclude Include="ELF\ElfTypes.h" />
+    <ClInclude Include="FileSystems\BlockDevices.h" />
+    <ClInclude Include="FileSystems\DirectoryFileSystem.h" />
+    <ClInclude Include="FileSystems\FileSystem.h" />
+    <ClInclude Include="FileSystems\ISOFileSystem.h" />
+    <ClInclude Include="FileSystems\MetaFileSystem.h" />
+    <ClInclude Include="HLE\FunctionWrappers.h" />
+    <ClInclude Include="HLE\HLE.h" />
+    <ClInclude Include="HLE\HLETables.h" />
+    <ClInclude Include="HLE\sceAtrac.h" />
+    <ClInclude Include="HLE\sceAudio.h" />
+    <ClInclude Include="HLE\sceCtrl.h" />
+    <ClInclude Include="HLE\sceDisplay.h" />
+    <ClInclude Include="HLE\sceDmac.h" />
+    <ClInclude Include="HLE\sceGe.h" />
+    <ClInclude Include="HLE\sceHprm.h" />
+    <ClInclude Include="HLE\sceHttp.h" />
+    <ClInclude Include="HLE\sceIo.h" />
+    <ClInclude Include="HLE\sceKernel.h" />
+    <ClInclude Include="HLE\sceKernelAlarm.h" />
+    <ClInclude Include="HLE\sceKernelCallback.h" />
+    <ClInclude Include="HLE\sceKernelEventFlag.h" />
+    <ClInclude Include="HLE\sceKernelInterrupt.h" />
+    <ClInclude Include="HLE\sceKernelMemory.h" />
+    <ClInclude Include="HLE\sceKernelModule.h" />
+    <ClInclude Include="HLE\sceKernelMbx.h" />
+    <ClInclude Include="HLE\sceKernelMsgPipe.h" />
+    <ClInclude Include="HLE\sceKernelMutex.h" />
+    <ClInclude Include="HLE\sceKernelSemaphore.h" />
+    <ClInclude Include="HLE\sceKernelThread.h" />
+    <ClInclude Include="HLE\sceKernelTime.h" />
+    <ClInclude Include="HLE\sceMpeg.h" />
+    <ClInclude Include="HLE\sceNet.h" />
+    <ClInclude Include="HLE\scePower.h" />
+    <ClInclude Include="HLE\scePsmf.h" />
+    <ClInclude Include="HLE\sceRtc.h" />
+    <ClInclude Include="HLE\sceSas.h" />
+    <ClInclude Include="HLE\sceUmd.h" />
+    <ClInclude Include="HLE\sceUtility.h" />
+    <ClInclude Include="HLE\sceKernelVTimer.h" />
+    <ClInclude Include="HLE\__sceAudio.h" />
+    <ClInclude Include="Host.h" />
+    <ClInclude Include="Loaders.h" />
+    <ClInclude Include="MemMap.h" />
+    <ClInclude Include="MIPS\ARM\Asm.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClInclude>
+    <ClInclude Include="MIPS\ARM\Jit.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClInclude>
+    <ClInclude Include="MIPS\ARM\JitCache.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClInclude>
+    <ClInclude Include="MIPS\ARM\RegCache.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClInclude>
+    <ClInclude Include="MIPS\JitCommon\JitCommon.h" />
+    <ClInclude Include="Mips\MIPS.h" />
+    <ClInclude Include="Mips\MIPSAnalyst.h" />
+    <ClInclude Include="Mips\MIPSCodeUtils.h" />
+    <ClInclude Include="MIPS\MIPSDebugInterface.h" />
+    <ClInclude Include="Mips\MIPSDis.h" />
+    <ClInclude Include="MIPS\MIPSDisVFPU.h" />
+    <ClInclude Include="Mips\MIPSInt.h" />
+    <ClInclude Include="MIPS\MIPSIntVFPU.h" />
+    <ClInclude Include="Mips\MIPSTables.h" />
+    <ClInclude Include="MIPS\MIPSVFPUUtils.h" />
+    <ClInclude Include="MIPS\x86\Asm.h" />
+    <ClInclude Include="MIPS\x86\Jit.h" />
+    <ClInclude Include="MIPS\x86\JitCache.h" />
+    <ClInclude Include="MIPS\x86\RegCache.h" />
+    <ClInclude Include="PSPLoaders.h" />
+    <ClInclude Include="PSPMixer.h" />
+    <ClInclude Include="System.h" />
+    <ClInclude Include="Util\BlockAllocator.h" />
+    <ClInclude Include="Util\Pool.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\android\jni\Android.mk" />
+    <None Include="..\GameLogNotes.txt" />
+    <None Include="..\LICENSE.TXT" />
+    <None Include="CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Common\Common.vcxproj">
+      <Project>{3fcdbae2-5103-4350-9a8e-848ce9c73195}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\GPU\GPU.vcxproj">
+      <Project>{457f45d2-556f-47bc-a31d-aff0d15beaed}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\native\native.vcxproj">
+      <Project>{e8b58922-9827-493d-81e0-4b6e6bd77171}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\zlib\zlib.vcxproj">
+      <Project>{f761046e-6c38-4428-a5f1-38391a37bb34}</Project>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

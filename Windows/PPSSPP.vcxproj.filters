@@ -1,0 +1,191 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx</Extensions>
+    </Filter>
+    <Filter Include="Windows">
+      <UniqueIdentifier>{62201f4b-45e8-4ee7-a26e-bebdd67a7bca}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Windows\Debugger">
+      <UniqueIdentifier>{15b28fe0-299c-4200-a8f9-c93ffd3ae85b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Windows\W32Util">
+      <UniqueIdentifier>{c1ddb9f6-d854-4af9-bb56-c42697f62709}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Windows\UI">
+      <UniqueIdentifier>{6773bb6d-149e-4e08-af81-e9eaacc039d2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Windows\System">
+      <UniqueIdentifier>{45e2a327-0a36-4292-ab24-a297639b797e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Android">
+      <UniqueIdentifier>{d53d0871-8572-4393-822e-d14db0a88dab}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Debugger\CtrlDisAsmView.cpp">
+      <Filter>Windows\Debugger</Filter>
+    </ClCompile>
+    <ClCompile Include="Debugger\CtrlMemView.cpp">
+      <Filter>Windows\Debugger</Filter>
+    </ClCompile>
+    <ClCompile Include="Debugger\CtrlRegisterList.cpp">
+      <Filter>Windows\Debugger</Filter>
+    </ClCompile>
+    <ClCompile Include="Debugger\Debugger_MemoryDlg.cpp">
+      <Filter>Windows\Debugger</Filter>
+    </ClCompile>
+    <ClCompile Include="Debugger\Debugger_VFPUDlg.cpp">
+      <Filter>Windows\Debugger</Filter>
+    </ClCompile>
+    <ClCompile Include="W32Util\DialogManager.cpp">
+      <Filter>Windows\W32Util</Filter>
+    </ClCompile>
+    <ClCompile Include="W32Util\Misc.cpp">
+      <Filter>Windows\W32Util</Filter>
+    </ClCompile>
+    <ClCompile Include="W32Util\PropertySheet.cpp">
+      <Filter>Windows\W32Util</Filter>
+    </ClCompile>
+    <ClCompile Include="W32Util\ShellUtil.cpp">
+      <Filter>Windows\W32Util</Filter>
+    </ClCompile>
+    <ClCompile Include="InputBox.cpp">
+      <Filter>Windows\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="WndMainWindow.cpp">
+      <Filter>Windows\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="DSoundStream.cpp">
+      <Filter>Windows\System</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenGLBase.cpp">
+      <Filter>Windows\System</Filter>
+    </ClCompile>
+    <ClCompile Include="WindowsHost.cpp">
+      <Filter>Windows\System</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Globals.cpp" />
+    <ClCompile Include="..\main.cpp" />
+    <ClCompile Include="..\stdafx.cpp" />
+    <ClCompile Include="Debugger\Debugger_Disasm.cpp">
+      <Filter>Windows\Debugger</Filter>
+    </ClCompile>
+    <ClCompile Include="EmuThread.cpp">
+      <Filter>Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="..\native\ext\glew\glew.c" />
+    <ClCompile Include="..\android\jni\NativeApp.cpp">
+      <Filter>Android</Filter>
+    </ClCompile>
+    <ClCompile Include="..\android\jni\GamepadEmu.cpp">
+      <Filter>Android</Filter>
+    </ClCompile>
+    <ClCompile Include="..\android\jni\MenuScreens.cpp">
+      <Filter>Android</Filter>
+    </ClCompile>
+    <ClCompile Include="..\android\jni\EmuScreen.cpp">
+      <Filter>Android</Filter>
+    </ClCompile>
+    <ClCompile Include="..\android\jni\UIShader.cpp">
+      <Filter>Android</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Debugger\CtrlDisAsmView.h">
+      <Filter>Windows\Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="Debugger\CtrlMemView.h">
+      <Filter>Windows\Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="Debugger\CtrlRegisterList.h">
+      <Filter>Windows\Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="Debugger\Debugger_MemoryDlg.h">
+      <Filter>Windows\Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="Debugger\Debugger_VFPUDlg.h">
+      <Filter>Windows\Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="W32Util\DialogManager.h">
+      <Filter>Windows\W32Util</Filter>
+    </ClInclude>
+    <ClInclude Include="W32Util\Misc.h">
+      <Filter>Windows\W32Util</Filter>
+    </ClInclude>
+    <ClInclude Include="W32Util\PropertySheet.h">
+      <Filter>Windows\W32Util</Filter>
+    </ClInclude>
+    <ClInclude Include="W32Util\ShellUtil.h">
+      <Filter>Windows\W32Util</Filter>
+    </ClInclude>
+    <ClInclude Include="W32Util\XPTheme.h">
+      <Filter>Windows\W32Util</Filter>
+    </ClInclude>
+    <ClInclude Include="InputBox.h">
+      <Filter>Windows\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="WndMainWindow.h">
+      <Filter>Windows\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="DSoundStream.h">
+      <Filter>Windows\System</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenGLBase.h">
+      <Filter>Windows\System</Filter>
+    </ClInclude>
+    <ClInclude Include="WindowsHost.h">
+      <Filter>Windows\System</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Globals.h" />
+    <ClInclude Include="main.h" />
+    <ClInclude Include="resource.h" />
+    <ClInclude Include="..\stdafx.h" />
+    <ClInclude Include="Debugger\Debugger_Disasm.h">
+      <Filter>Windows\Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="EmuThread.h">
+      <Filter>Windows</Filter>
+    </ClInclude>
+    <ClInclude Include="..\android\jni\MenuScreens.h">
+      <Filter>Android</Filter>
+    </ClInclude>
+    <ClInclude Include="..\android\jni\GamepadEmu.h">
+      <Filter>Android</Filter>
+    </ClInclude>
+    <ClInclude Include="..\android\jni\EmuScreen.h">
+      <Filter>Android</Filter>
+    </ClInclude>
+    <ClInclude Include="..\android\jni\UIShader.h">
+      <Filter>Android</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="icon1.ico">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="rt_manif.bin">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="stop1.ico">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\android\jni\Android.mk">
+      <Filter>Android</Filter>
+    </None>
+    <None Include="ppsspp.ico">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\README.md" />
+    <None Include="..\android\atlasscript.txt">
+      <Filter>Android</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="ppsspp.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+</Project>

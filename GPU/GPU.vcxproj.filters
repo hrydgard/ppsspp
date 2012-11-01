@@ -1,0 +1,81 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="GLES">
+      <UniqueIdentifier>{f7563dba-8146-4c21-a092-e864ff145d79}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Software">
+      <UniqueIdentifier>{4f6d1284-2c23-4ebc-842c-666a1305bfed}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Common">
+      <UniqueIdentifier>{21783292-4dd7-447b-af93-356cd2eaa4d6}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="ge_constants.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Math3D.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="GLES\DisplayListInterpreter.h">
+      <Filter>GLES</Filter>
+    </ClInclude>
+    <ClInclude Include="GLES\FragmentShaderGenerator.h">
+      <Filter>GLES</Filter>
+    </ClInclude>
+    <ClInclude Include="GLES\Framebuffer.h">
+      <Filter>GLES</Filter>
+    </ClInclude>
+    <ClInclude Include="GLES\ShaderManager.h">
+      <Filter>GLES</Filter>
+    </ClInclude>
+    <ClInclude Include="GLES\TextureCache.h">
+      <Filter>GLES</Filter>
+    </ClInclude>
+    <ClInclude Include="GLES\TransformPipeline.h">
+      <Filter>GLES</Filter>
+    </ClInclude>
+    <ClInclude Include="GLES\VertexDecoder.h">
+      <Filter>GLES</Filter>
+    </ClInclude>
+    <ClInclude Include="GLES\VertexShaderGenerator.h">
+      <Filter>GLES</Filter>
+    </ClInclude>
+    <ClInclude Include="GPUState.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Math3D.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="GLES\DisplayListInterpreter.cpp">
+      <Filter>GLES</Filter>
+    </ClCompile>
+    <ClCompile Include="GLES\FragmentShaderGenerator.cpp">
+      <Filter>GLES</Filter>
+    </ClCompile>
+    <ClCompile Include="GLES\Framebuffer.cpp">
+      <Filter>GLES</Filter>
+    </ClCompile>
+    <ClCompile Include="GLES\ShaderManager.cpp">
+      <Filter>GLES</Filter>
+    </ClCompile>
+    <ClCompile Include="GLES\TextureCache.cpp">
+      <Filter>GLES</Filter>
+    </ClCompile>
+    <ClCompile Include="GLES\TransformPipeline.cpp">
+      <Filter>GLES</Filter>
+    </ClCompile>
+    <ClCompile Include="GLES\VertexDecoder.cpp">
+      <Filter>GLES</Filter>
+    </ClCompile>
+    <ClCompile Include="GLES\VertexShaderGenerator.cpp">
+      <Filter>GLES</Filter>
+    </ClCompile>
+    <ClCompile Include="GPUState.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

@@ -1,0 +1,2 @@
+To get to 100% compatibility, we will need a software renderer as there are games out there that do tricks
+that can't really be faked in a sensible way. Useful for homebrew too that mix sw and accel rendering.

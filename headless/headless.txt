@@ -1,0 +1,14 @@
+Plan:
+
+
+This is intended to be a port that does not have graphics, it just starts up the system without a display, prints all debug output (as configured) to the console using printf(), and exits when the emulated binary exits.
+
+Usage:
+
+ppsspp-headless test.elf [-m testdata.cso] [-j] [-l]
+  -j : Use the JIT
+  -m : Mount ISO on umd:
+  -l : Print full log output, instead of just the "emulator printfs"
+
+This is primarily intended to run non-graphical unit tests of the emulation engine, such as
+those in http://code.google.com/p/pspautotests/ .
