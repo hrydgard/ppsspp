@@ -49,6 +49,7 @@ LOCAL_SRC_FILES := \
   ui_atlas.cpp \
   $(SRC)/native/android/app-android.cpp \
   $(SRC)/Globals.cpp \
+  $(SRC)/Common/ArmABI.cpp \
   $(SRC)/Common/ArmEmitter.cpp \
   $(SRC)/Common/LogManager.cpp \
   $(SRC)/Common/MemArena.cpp \
@@ -58,6 +59,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Common/FileUtil.cpp \
   $(SRC)/Common/StringUtil.cpp \
   $(SRC)/Common/Timer.cpp \
+  $(SRC)/Common/ThunkARM.cpp \
   $(SRC)/Common/Misc.cpp \
   $(SRC)/GPU/Math3D.cpp \
   $(SRC)/GPU/GpuState.cpp \

@@ -187,18 +187,18 @@ namespace MIPSComp
 		case 42: //R(rd) = (int)R(rs) < (int)R(rt); break; //slt
 			CMP(gpr.RX(rs), gpr.RX(rt));
 			SetCC(CC_LT);
-			ARMABI_MOVIMM32(gpr.RX(rd), 1);
+			ARMABI_MOVI2R(gpr.RX(rd), 1);
 			SetCC(CC_GE);
-			ARMABI_MOVIMM32(gpr.RX(rd), 0);
+			ARMABI_MOVI2R(gpr.RX(rd), 0);
 			SetCC(CC_AL);
 			break; 
 
 		case 43: //R(rd) = R(rs) < R(rt);		break; //sltu
 			CMP(gpr.RX(rs), gpr.RX(rt));
 			SetCC(CC_LO);
-			ARMABI_MOVIMM32(gpr.RX(rd), 1);
+			ARMABI_MOVI2R(gpr.RX(rd), 1);
 			SetCC(CC_HS);
-			ARMABI_MOVIMM32(gpr.RX(rd), 0);
+			ARMABI_MOVI2R(gpr.RX(rd), 0);
 			SetCC(CC_AL);
 			break;
 

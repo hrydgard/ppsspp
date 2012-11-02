@@ -23,10 +23,6 @@
 #include "Common.h"
 #include "MemoryUtil.h"
 
-#ifndef _M_ARM32
-#error Compile this on ARM.
-#endif
-
 namespace ArmGen
 {
 
@@ -62,9 +58,9 @@ enum CCFlags
 {
 	CC_EQ = 0, // Equal
 	CC_NEQ, // Not equal
-	CC_CS, // Carry Set 
+	CC_CS, // Carry Set
 	CC_CC, // Carry Clear
-	CC_MI, // Minus
+	CC_MI, // Minus (Negative)
 	CC_PL, // Plus
 	CC_VS, // Overflow
 	CC_VC, // No Overflow
@@ -75,9 +71,8 @@ enum CCFlags
 	CC_GT, // Signed greater than
 	CC_LE, // Signed less than or equal
 	CC_AL, // Always (unconditional) 14
-
-  CC_HS = CC_CS,  // Higher or same
-  CC_LO = CC_CC,  // Unsigned Lower
+	CC_HS = 2, // Alias of CC_CS
+	CC_LO = 3, // Alias of CC_CC
 };
 const u32 NO_COND = 0xE0000000;
 
@@ -101,32 +96,45 @@ class ARMXEmitter;
 enum OpType
 {
 	TYPE_IMM = 0,
-	TYPE_MEM,
-	TYPE_REG
+	TYPE_REG,
+	TYPE_IMMSREG,
+	TYPE_RSR,
+	TYPE_MEM
 };
+
 class Operand2
 {
-private:
-
-	OpType Type;	
-	// IMM types
+	friend class ARMXEmitter;
+protected:
 	u32 Value;
+
+private:
+	OpType Type;	
+
+	// IMM types
 	u8	Rotation; // Only for u8 values
 
-	// Memory types
-	bool Away;
-	
 	// Register types
-	ARMReg Base;
-	ARMReg IndexOrShift;
+	u8 IndexOrShift;
 	ShiftType Shift;
 public:
-	Operand2() {}
-	Operand2(u32 imm, OpType type = TYPE_IMM, bool away = false )
+	OpType GetType()
+	{
+		return Type;
+	}
+	Operand2() {} 
+	Operand2(u32 imm, OpType type = TYPE_IMM)
 	{ 
 		Type = type; 
 		Value = imm; 
-		Away = away;
+		Rotation = 0;		
+	}
+
+	Operand2(ARMReg Reg)
+	{
+		Type = TYPE_REG;
+		Value = Reg;
+		Rotation = 0;
 	}
 	Operand2(u8 imm, u8 rotation)
 	{
@@ -134,26 +142,93 @@ public:
 		Value = imm;
 		Rotation = rotation;
 	}
-	Operand2(ARMReg base, ShiftType type, ARMReg shift)
+	Operand2(ARMReg base, ShiftType type, ARMReg shift) // RSR
 	{
-		Type = TYPE_REG;
+		Type = TYPE_RSR;
 		_assert_msg_(DYNA_REC, type != RRX, "Invalid Operand2: RRX does not take a register shift amount");
 		IndexOrShift = shift;
 		Shift = type;
-		Base = base;
+		Value = base;
 	}
-	Operand2(ARMReg base)
+
+	Operand2(u8 shift, ShiftType type, ARMReg base)// For IMM shifted register
 	{
-		_assert_msg_(DYNA_REC, false, "Can't have just register operand...yet");
+		if(shift == 32) shift = 0;
+		switch (type)
+		{
+		case LSL:
+			_assert_msg_(DYNA_REC, shift < 32, "Invalid Operand2: LSL %u", shift);
+			break;
+		case LSR:
+			_assert_msg_(DYNA_REC, shift <= 32, "Invalid Operand2: LSR %u", shift);
+			if (!shift)
+				type = LSL;
+			if (shift == 32)
+				shift = 0;
+			break;
+		case ASR:
+			_assert_msg_(DYNA_REC, shift < 32, "Invalid Operand2: LSR %u", shift);
+			if (!shift)
+				type = LSL;
+			if (shift == 32)
+				shift = 0;
+			break;
+		case ROR:
+			_assert_msg_(DYNA_REC, shift < 32, "Invalid Operand2: ROR %u", shift);
+			if (!shift)
+				type = LSL;
+			break;
+		case RRX:
+			_assert_msg_(DYNA_REC, shift == 0, "Invalid Operand2: RRX does not take an immediate shift amount");
+			type = ROR;
+			break;
+		}
+		IndexOrShift = shift;
+		Shift = type;
+		Value = base;
+		Type = TYPE_IMMSREG;
+	}
+	const u32 GetData()
+	{
+		switch(Type)
+		{
+			case TYPE_IMM:
+			return Imm12Mod(); // This'll need to be changed later
+			case TYPE_REG:
+			return Rm();
+			case TYPE_IMMSREG:
+			return IMMSR();
+			case TYPE_RSR:
+			return RSR();
+			default:
+				_assert_msg_(DYNA_REC, false, "GetData with Invalid Type");
+			break;
+		}
+	}
+	const u32 IMMSR() // IMM shifted register
+	{
+		_assert_msg_(DYNA_REC, Type = TYPE_IMMSREG, "IMMSR must be imm shifted register");
+		return ((IndexOrShift & 0x1f) << 7 | (Shift << 5) | Value);
 	}
 	const u32 RSR() // Register shifted register
 	{
-		_assert_msg_(DYNA_REC, !(Type == TYPE_IMM), "RSR can't be IMM");
-		return (IndexOrShift << 8) | (Shift << 5) | 0x10 | Base;
+		_assert_msg_(DYNA_REC, Type == TYPE_RSR, "RSR must be RSR Of Course");
+		return (IndexOrShift << 8) | (Shift << 5) | 0x10 | Value;
+	}
+	const u32 Rm()
+	{
+		_assert_msg_(DYNA_REC, Type == TYPE_REG, "Rm must be with Reg");
+		return Value;
+	}
+
+	const u32 Imm5()
+	{
+		_assert_msg_(DYNA_REC, (Type == TYPE_IMM), "Imm5 not IMM value");
+		return ((Value & 0x0000001F) << 7);
 	}
 	const u32 Imm8Rot() // IMM8 with Rotation
 	{
-		_assert_msg_(DYNA_REC, (Type == TYPE_IMM), "Imm8Rot not IMM value;");
+		_assert_msg_(DYNA_REC, (Type == TYPE_IMM), "Imm8Rot not IMM value");
 		_assert_msg_(DYNA_REC, (Rotation & 0xE1) != 0, "Invalid Operand2: immediate rotation %u", Rotation);
 		return (1 << 25) | (Rotation << 7) | (Value & 0x000000FF);
 	}
@@ -169,12 +244,7 @@ public:
 		// bottom eight being a IMM. This is for instructions that need to
 		// expand a 8bit IMM to a 32bit value and gives you some rotation as
 		// well.
-		// 0000 = no rotation
-		// 0001 = Rotate right 2 bits
-		// 0010 = Rotate right 4 bits
-		// 0011 = Rotate right 6 bits
-		// 0100 = Rotate right 8 bits (So the IMM is in the top 8 bits of the IMM32)
-		// See A5.2.4 in the Arm reference manual for more.
+		// Each rotation rotates to the right by 2 bits
 		_assert_msg_(DYNA_REC, (Type == TYPE_IMM), "Imm12Mod not IMM");
 		return ((Rotation & 0xF) << 8) | (Value & 0xFF);
 	}
@@ -182,7 +252,6 @@ public:
 	{
 		_assert_msg_(DYNA_REC, (Type == TYPE_IMM), "Imm16 not IMM");
 		return ( (Value & 0xF000) << 4) | (Value & 0x0FFF);
-	
 	}
 	const u32 Imm16Low()
 	{
@@ -192,49 +261,18 @@ public:
 	{
 		_assert_msg_(DYNA_REC, (Type == TYPE_IMM), "Imm16 not IMM");
 		return ( ((Value >> 16) & 0xF000) << 4) | ((Value >> 16) & 0x0FFF);
-
 	}
 	const u32 Imm24()
 	{
 		_assert_msg_(DYNA_REC, (Type == TYPE_IMM), "Imm16 not IMM");
 		return (Value & 0x0FFFFFFF);	
 	}
-	/*Operand2(ARMReg base, ShiftType type = LSL, u8 shift = 0)
-	{
-		switch (type)
-		{
-		case LSL:
-			_assert_msg_(DYNA_REC, shift >= 32, "Invalid Operand2: LSL %u", shift);
-			break;
-		case LSR:
-			_assert_msg_(DYNA_REC, shift > 32, "Invalid Operand2: LSR %u", shift);
-			if (!shift)
-				type = LSL;
-			if (shift == 32)
-				shift = 0;
-			break;
-		case ASR:
-			_assert_msg_(DYNA_REC, shift > 32, "Invalid Operand2: LSR %u", shift);
-			if (!shift)
-				type = LSL;
-			if (shift == 32)
-				shift = 0;
-			break;
-		case ROR:
-			_assert_msg_(DYNA_REC, shift >= 32, "Invalid Operand2: ROR %u", shift);
-			if (!shift)
-				type = LSL;
-			break;
-		case RRX:
-			_assert_msg_(DYNA_REC, shift != 0, "Invalid Operand2: RRX does not take an immediate shift amount");
-			type = ROR;
-			break;
-		}
-		encoding = (shift << 7) | (type << 5) | base;
-	} */
+	
 
 };
-inline Operand2 Mem(void *ptr) { return Operand2((u32)ptr, true); }
+inline Operand2 R(ARMReg Reg)	{ return Operand2(Reg, TYPE_REG); }
+inline Operand2 IMM(u32 Imm)	{ return Operand2(Imm, TYPE_IMM); }
+inline Operand2 Mem(void *ptr)	{ return Operand2((u32)ptr, TYPE_IMM); }
 //usage: int a[]; ARRAY_OFFSET(a,10)
 #define ARRAY_OFFSET(array,index) ((u32)((u64)&(array)[index]-(u64)&(array)[0]))
 //usage: struct {int e;} s; STRUCT_OFFSET(s,e)
@@ -256,13 +294,13 @@ private:
 	u8 *code, *startcode;
 	u32 condition;
 
-	void WriteDataOp(u32 op, ARMReg dest, ARMReg src, Operand2 op2);
-	void WriteDataOp(u32 op, ARMReg dest, ARMReg src, ARMReg op2);
-	void WriteDataOp(u32 op, ARMReg dest, ARMReg src);
-	void WriteMoveOp(u32 op, ARMReg dest, Operand2 op2, bool TopBits = false);
 	void WriteStoreOp(u32 op, ARMReg dest, ARMReg src, Operand2 op2);
 	void WriteRegStoreOp(u32 op, ARMReg dest, bool WriteBack, u16 RegList);
+	void WriteShiftedDataOp(u32 op, bool SetFlags, ARMReg dest, ARMReg src, ARMReg op2);
+	void WriteShiftedDataOp(u32 op, bool SetFlags, ARMReg dest, ARMReg src, Operand2 op2);
 
+	// New Ops
+	void WriteInstruction(u32 op, ARMReg Rd, ARMReg Rn, Operand2 Rm, bool SetFlags = false);
 
 protected:
 	inline void Write32(u32 value) {*(u32*)code = value; code+=4;}
@@ -282,6 +320,10 @@ public:
 
 	void SetCC(CCFlags cond = CC_AL);
 
+	// Special purpose instructions
+
+	// Dynamic Endian Switching
+	void SETEND(bool BE);
 	// Debug Breakpoint
 	void BKPT(u16 arg);
 
@@ -295,76 +337,65 @@ public:
 #undef CALL
 #endif
 
-	void B (Operand2 op2);
+	// Branching
 	FixupBranch B();
-	void BL(const void *ptr);
+	FixupBranch B_CC(CCFlags Cond);
+	void B_CC(CCFlags Cond, const void *fnptr);
 	FixupBranch BL();
-	void BLX(ARMReg src);
-	void BX (ARMReg src);
+	FixupBranch BL_CC(CCFlags Cond);
 	void SetJumpTarget(FixupBranch const &branch);
+	
+	void B (const void *fnptr);
+	void B (ARMReg src);
+	void BL(const void *fnptr);
+	void BL(ARMReg src);
 
 	void PUSH(const int num, ...);
 	void POP(const int num, ...);
-	
-	// Data operations
-	void AND (ARMReg dest, ARMReg src, Operand2 op2);
-	void ANDS(ARMReg dest, ARMReg src, Operand2 op2);
-	void AND (ARMReg dest, ARMReg src, ARMReg op2);
-	void ANDS(ARMReg dest, ARMReg src, ARMReg op2);
+
+	// New Data Ops
+	void AND (ARMReg Rd, ARMReg Rn, Operand2 Rm);
+	void ANDS(ARMReg Rd, ARMReg Rn, Operand2 Rm);
 	void EOR (ARMReg dest, ARMReg src, Operand2 op2);
 	void EORS(ARMReg dest, ARMReg src, Operand2 op2);
-	void EOR (ARMReg dest, ARMReg src, ARMReg op2);
-	void EORS(ARMReg dest, ARMReg src, ARMReg op2);
 	void SUB (ARMReg dest, ARMReg src, Operand2 op2);
 	void SUBS(ARMReg dest, ARMReg src, Operand2 op2);
-	void SUB (ARMReg dest, ARMReg src, ARMReg op2);
-	void SUBS(ARMReg dest, ARMReg src, ARMReg op2);
 	void RSB (ARMReg dest, ARMReg src, Operand2 op2);
 	void RSBS(ARMReg dest, ARMReg src, Operand2 op2);
-	void RSB (ARMReg dest, ARMReg src, ARMReg op2);
-	void RSBS(ARMReg dest, ARMReg src, ARMReg op2);
 	void ADD (ARMReg dest, ARMReg src, Operand2 op2);
 	void ADDS(ARMReg dest, ARMReg src, Operand2 op2);
-	void ADD (ARMReg dest, ARMReg src, ARMReg op2);
-	void ADDS(ARMReg dest, ARMReg src, ARMReg op2);
 	void ADC (ARMReg dest, ARMReg src, Operand2 op2);
 	void ADCS(ARMReg dest, ARMReg src, Operand2 op2);
-	void ADC (ARMReg dest, ARMReg src, ARMReg op2);
-	void ADCS(ARMReg dest, ARMReg src, ARMReg op2);
+	void LSL (ARMReg dest, ARMReg src, Operand2 op2);
+	void LSL (ARMReg dest, ARMReg src, ARMReg op2);
+	void LSLS(ARMReg dest, ARMReg src, Operand2 op2);
+	void LSLS(ARMReg dest, ARMReg src, ARMReg op2);
 	void SBC (ARMReg dest, ARMReg src, Operand2 op2);
 	void SBCS(ARMReg dest, ARMReg src, Operand2 op2);
-	void SBC (ARMReg dest, ARMReg src, ARMReg op2);
-	void SBCS(ARMReg dest, ARMReg src, ARMReg op2);
-	
 	void REV (ARMReg dest, ARMReg src			   );
 	void RSC (ARMReg dest, ARMReg src, Operand2 op2);
 	void RSCS(ARMReg dest, ARMReg src, Operand2 op2);
-	void RSC (ARMReg dest, ARMReg src, ARMReg op2);
-	void RSCS(ARMReg dest, ARMReg src, ARMReg op2);
 	void TST (             ARMReg src, Operand2 op2);
-	void TST (             ARMReg src, ARMReg op2);
 	void TEQ (             ARMReg src, Operand2 op2);
-	void TEQ (             ARMReg src, ARMReg op2);
 	void CMP (             ARMReg src, Operand2 op2);
-	void CMP (             ARMReg src, ARMReg op2);
 	void CMN (             ARMReg src, Operand2 op2);
-	void CMN (             ARMReg src, ARMReg op2);
 	void ORR (ARMReg dest, ARMReg src, Operand2 op2);
 	void ORRS(ARMReg dest, ARMReg src, Operand2 op2);
-	void ORR (ARMReg dest, ARMReg src, ARMReg op2);
-	void ORRS(ARMReg dest, ARMReg src, ARMReg op2);
 	void MOV (ARMReg dest,             Operand2 op2);
 	void MOVS(ARMReg dest,             Operand2 op2);
-	void MOV (ARMReg dest, ARMReg src			   );
-	void MOVS(ARMReg dest, ARMReg src			   );
 	void BIC (ARMReg dest, ARMReg src, Operand2 op2);
 	void BICS(ARMReg dest, ARMReg src, Operand2 op2);
-	void BIC (ARMReg dest, ARMReg src, ARMReg op2);
-	void BICS(ARMReg dest, ARMReg src, ARMReg op2);
 	void MVN (ARMReg dest,             Operand2 op2);
 	void MVNS(ARMReg dest,             Operand2 op2);
-	void MVN (ARMReg dest,             ARMReg op2);
-	void MVNS(ARMReg dest,             ARMReg op2);
+	void MOVW(ARMReg dest, 			   Operand2 op2);
+	void MOVT(ARMReg dest, Operand2 op2, bool TopBits = false);
+
+
+	void MUL (ARMReg dest,	ARMReg src, ARMReg op2);
+	void MULS(ARMReg dest,	ARMReg src, ARMReg op2);
+	void SXTB(ARMReg dest, ARMReg op2);
+	void SXTH(ARMReg dest, ARMReg op2, u8 rotation = 0);
+	void SXTAH(ARMReg dest, ARMReg src, ARMReg op2, u8 rotation = 0);
 	// Using just MSR here messes with our defines on the PPC side of stuff
 	// Just need to put an underscore here, bit annoying.
 	void _MSR (bool nzcvq, bool g,	   Operand2 op2);
@@ -372,26 +403,35 @@ public:
 	void MRS  (ARMReg dest);
 
 	// Memory load/store operations
-	void MOVT(ARMReg dest, Operand2 op2, bool TopBits = false);
-	void MOVW(ARMReg dest, 			   Operand2 op2);
-	void LDR (ARMReg dest, ARMReg src, Operand2 op2);
-	void LDR (ARMReg dest, ARMReg base, ARMReg offset = R0, bool Index = false, bool Add = false);
-	void LDRB(ARMReg dest, ARMReg src, Operand2 op2);
-	void STR (ARMReg dest, ARMReg src, Operand2 op2);
-	void STR (ARMReg dest, ARMReg base, ARMReg offset = R0, bool Index = false, bool Add = false);
+	void LDR (ARMReg dest, ARMReg src, Operand2 op2 = 0);
+	// Offset adds to the base register in LDR
+	void LDR (ARMReg dest, ARMReg base, ARMReg offset, bool Index, bool Add);
+	void LDRB(ARMReg dest, ARMReg src, Operand2 op2 = 0);
+	void STR (ARMReg dest, ARMReg src, Operand2 op2 = 0);
+	// Offset adds on to the destination register in STR
+	void STR (ARMReg dest, ARMReg base, ARMReg offset, bool Index, bool Add);
 
-	void STRB(ARMReg dest, ARMReg src, Operand2 op2);
+	void STRB(ARMReg dest, ARMReg src, Operand2 op2 = 0);
 	void STMFD(ARMReg dest, bool WriteBack, const int Regnum, ...);
 	void LDMFD(ARMReg dest, bool WriteBack, const int Regnum, ...);
+	
+	// Exclusive Access operations
+	void LDREX(ARMReg dest, ARMReg base);
+	// dest contains the result if the instruction managed to store the value
+	void STREX(ARMReg dest, ARMReg base, ARMReg op);
+	void DMB ();
 	
 	// Utility functions
 	// The difference between this and CALL is that this aligns the stack
 	// where appropriate.
-  void ARMABI_CallFunction(void *func);
+	void ARMABI_CallFunction(void *func);
+	void ARMABI_CallFunctionC(void *func, u32 Arg0);
+	void ARMABI_CallFunctionCC(void *func, u32 Arg1, u32 Arg2);
 	void ARMABI_PushAllCalleeSavedRegsAndAdjustStack(); 
 	void ARMABI_PopAllCalleeSavedRegsAndAdjustStack(); 
-	void ARMABI_MOVIMM32(ARMReg reg, u32 val);
-	void ARMABI_MOVIMM32(Operand2 op, u32 val);
+	void ARMABI_MOVI2R(ARMReg reg, Operand2 val);
+	void ARMABI_MOVI2M(Operand2 op, Operand2 val);
+	void ARMABI_ShowConditions();
 
 	void UpdateAPSR(bool NZCVQ, u8 Flags, bool GE, u8 GEval);
 

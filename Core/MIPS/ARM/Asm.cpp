@@ -121,7 +121,7 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 				}
 				//grab from list and jump to it
 				// ADD(R0, R10, LSL(R0, 2));
-				BX(R0);
+				B(R0);
 			SetJumpTarget(notfound);
 
 			//BL(&Jit);
@@ -146,7 +146,7 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 
 	//Landing pad for drec space
 	//ARMABI_PopAllCalleeSavedRegsAndAdjustStack();
-	BX(_LR); 
+	B(_LR); 
 
 	breakpointBailout = GetCodePtr();
 

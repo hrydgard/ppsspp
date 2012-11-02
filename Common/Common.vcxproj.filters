@@ -75,5 +75,6 @@
     <ClCompile Include="ArmABI.cpp" />
     <ClCompile Include="x86Disasm.cpp" />
     <ClCompile Include="Action.cpp" />
+    <ClCompile Include="ThunkArm.cpp" />
   </ItemGroup>
 </Project>

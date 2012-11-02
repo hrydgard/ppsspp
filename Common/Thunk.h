@@ -21,7 +21,11 @@
 #include <map>
 
 #include "Common.h"
+#ifdef ANDROID
+#include "ArmEmitter.h"
+#else
 #include "x64Emitter.h"
+#endif
 
 // This simple class creates a wrapper around a C/C++ function that saves all fp state
 // before entering it, and restores it upon exit. This is required to be able to selectively
@@ -34,8 +38,11 @@
 // we don't want to pollute the stack, so we store away regs somewhere global.
 // NOT THREAD SAFE. This may only be used from the CPU thread.
 // Any other thread using this stuff will be FATAL.
-
+#ifdef ANDROID
+class ThunkManager : public ArmGen::ARMXCodeBlock
+#else
 class ThunkManager : public Gen::XCodeBlock
+#endif
 {
 	std::map<void *, const u8 *> thunks;
 
