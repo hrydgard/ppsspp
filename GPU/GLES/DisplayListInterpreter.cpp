@@ -250,6 +250,7 @@ void GPU::ExecuteOp(u32 op, u32 diff)
 	switch (cmd)
 	{
 	case GE_CMD_BASE:
+		DEBUG_LOG(G3D,"DL BASE: %06x", data);
 		break;
 
 	case GE_CMD_VADDR:		/// <<8????
@@ -275,8 +276,7 @@ void GPU::ExecuteOp(u32 op, u32 diff)
 				"TRIANGLE_FAN=5,",
 				"RECTANGLES=6,",
 			};
-			DEBUG_LOG(G3D, "DrawPrim type: %s	count: %i", type<7 ? types[type] : "INVALID", count); 
-			DEBUG_LOG(G3D, "DrawPrim vaddr= %08x, iaddr= %08x", gstate.vertexAddr, gstate.indexAddr);
+			DEBUG_LOG(G3D, "DL DrawPrim type: %s count: %i vaddr= %08x, iaddr= %08x", type<7 ? types[type] : "INVALID", count, gstate.vertexAddr, gstate.indexAddr);
 
 			LinkedShader *linkedShader = shaderManager.ApplyShader();
 			// TODO: Split this so that we can collect sequences of primitives, can greatly speed things up
@@ -292,17 +292,21 @@ void GPU::ExecuteOp(u32 op, u32 diff)
 	// The arrow and other rotary items in Puzbob are bezier patches, strangely enough.
 	case GE_CMD_BEZIER:
 		{
-			drawBezier(data & 0xFF, (data >> 8) & 0xFF);
+			int bz_ucount = data & 0xFF;
+			int bz_vcount = (data >> 8) & 0xFF;
+			drawBezier(bz_ucount, bz_vcount);
+			DEBUG_LOG(G3D,"DL DRAW BEZIER: %i x %i", bz_ucount, bz_vcount);
 		}
 		break;
 
 	case GE_CMD_SPLINE:
 		{
-			//int sp_ucount = data & 0xFF;
-			//int sp_vcount = (data >> 8) & 0xFF;
-			//int sp_utype = (data >> 16) & 0x3;
-			//int sp_vtype = (data >> 18) & 0x3;
+			int sp_ucount = data & 0xFF;
+			int sp_vcount = (data >> 8) & 0xFF;
+			int sp_utype = (data >> 16) & 0x3;
+			int sp_vtype = (data >> 18) & 0x3;
 			//drawSpline(sp_ucount, sp_vcount, sp_utype, sp_vtype);
+			DEBUG_LOG(G3D,"DL DRAW SPLINE: %i x %i, %i x %i", sp_ucount, sp_vcount, sp_utype, sp_vtype);
 		}
 		break;
 
@@ -334,7 +338,7 @@ void GPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_SIGNAL:
-		ERROR_LOG(G3D, "GE_CMD_SIGNAL %08x", data & 0xFFFFFF);
+		ERROR_LOG(G3D, "DL GE_CMD_SIGNAL %08x", data & 0xFFFFFF);
 		{
 			// int behaviour = (data >> 16) & 0xFF;
 			// int signal = data & 0xFFFF;
@@ -353,10 +357,12 @@ void GPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_BJUMP:
 		// bounding box jump. Let's just not jump, for now.
+		DEBUG_LOG(G3D,"DL BBOX JUMP - unimplemented");
 		break;
 
 	case GE_CMD_BOUNDINGBOX:
 		// bounding box test. Let's do nothing.
+		DEBUG_LOG(G3D,"DL BBOX TEST - unimplemented");
 		break;
 
 	case GE_CMD_ORIGIN:
@@ -430,79 +436,83 @@ void GPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_CLIPENABLE:
+		DEBUG_LOG(G3D, "DL Clip Enable: %i   (ignoring)", data);
 		//we always clip, this is opengl
 		break;
 
 	case GE_CMD_CULLFACEENABLE: 
+		DEBUG_LOG(G3D, "DL CullFace Enable: %i   (ignoring)", data);
 		glEnDis(GL_CULL_FACE, data&1); 
 		break;
 
 	case GE_CMD_TEXTUREMAPENABLE: 
-		DEBUG_LOG(G3D, "Texture map enable: %i", data);
+		DEBUG_LOG(G3D, "DL Texture map enable: %i", data);
 		glEnDis(GL_TEXTURE_2D, data&1); 
 		break;
 
 	case GE_CMD_LIGHTINGENABLE:
-		DEBUG_LOG(G3D, "Lighting enable: %i", data);
+		DEBUG_LOG(G3D, "DL Lighting enable: %i", data);
 		data += 1;
 		//We don't use OpenGL lighting
 		break;
 
 	case GE_CMD_FOGENABLE:		
-		DEBUG_LOG(G3D, "Fog Enable: %i", gstate.fogEnable);
+		DEBUG_LOG(G3D, "DL Fog Enable: %i", gstate.fogEnable);
 		break;
 
 	case GE_CMD_DITHERENABLE:
-		DEBUG_LOG(G3D, "Dither Enable: %i", gstate.ditherEnable);
+		DEBUG_LOG(G3D, "DL Dither Enable: %i", gstate.ditherEnable);
 		break;
 
 	case GE_CMD_OFFSETX:		
-		DEBUG_LOG(G3D, "Offset X: %i", gstate.offsetx);
+		DEBUG_LOG(G3D, "DL Offset X: %i", gstate.offsetx);
 		break;
 
 	case GE_CMD_OFFSETY:		
-		DEBUG_LOG(G3D, "Offset Y: %i", gstate.offsety);
+		DEBUG_LOG(G3D, "DL Offset Y: %i", gstate.offsety);
 		break;
 
 	case GE_CMD_TEXSCALEU: 
 		gstate.uScale = getFloat24(data); 
-		DEBUG_LOG(G3D, "Texture U Scale: %f", gstate.uScale);
+		DEBUG_LOG(G3D, "DL Texture U Scale: %f", gstate.uScale);
 		break;
 
 	case GE_CMD_TEXSCALEV: 
 		gstate.vScale = getFloat24(data); 
-		DEBUG_LOG(G3D, "Texture V Scale: %f", gstate.vScale);
+		DEBUG_LOG(G3D, "DL Texture V Scale: %f", gstate.vScale);
 		break;
 
 	case GE_CMD_TEXOFFSETU: 
 		gstate.uOff = getFloat24(data);	
-		DEBUG_LOG(G3D, "Texture U Offset: %f", gstate.uOff);
+		DEBUG_LOG(G3D, "DL Texture U Offset: %f", gstate.uOff);
 		break;
 
 	case GE_CMD_TEXOFFSETV: 
 		gstate.vOff = getFloat24(data);	
-		DEBUG_LOG(G3D, "Texture V Offset: %f", gstate.vOff);
+		DEBUG_LOG(G3D, "DL Texture V Offset: %f", gstate.vOff);
 		break;
 
 	case GE_CMD_SCISSOR1:
 		{
 			int x1 = data & 0x3ff;
 			int y1 = data >> 10;
-			DEBUG_LOG(G3D, "Scissor TL: %i, %i", x1,y1);
+			DEBUG_LOG(G3D, "DL Scissor TL: %i, %i", x1,y1);
 		}
 		break;
 	case GE_CMD_SCISSOR2:
 		{
 			int x2 = data & 0x3ff;
 			int y2 = data >> 10;
-			DEBUG_LOG(G3D, "Scissor BR: %i, %i", x2, y2);
+			DEBUG_LOG(G3D, "DL Scissor BR: %i, %i", x2, y2);
 		}
 		break;
 
 	case GE_CMD_MINZ: 
+		DEBUG_LOG(G3D, "DL MinZ: %i", data);
 		break;
 
 	case GE_CMD_MAXZ: 
+		DEBUG_LOG(G3D, "DL MaxZ: %i", data);
 		break;
 
 	case GE_CMD_FRAMEBUFPTR:
@@ -551,7 +561,7 @@ void GPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_CLUTADDRUPPER:
-		DEBUG_LOG(G3D,"CLUT addr: %08x", ((gstate.clutaddrupper & 0xFF0000)<<8) | (gstate.clutaddr & 0xFFFFFF));
+		DEBUG_LOG(G3D,"DL CLUT addr: %08x", ((gstate.clutaddrupper & 0xFF0000)<<8) | (gstate.clutaddr & 0xFFFFFF));
 		break;
 
 	case GE_CMD_LOADCLUT:
@@ -564,11 +574,11 @@ void GPU::ExecuteOp(u32 op, u32 diff)
 					int numColors = 16 * (data&0x3F);
 					memcpy(&gstate.paletteMem[0], clut, numColors * 2);
 				}
-				DEBUG_LOG(G3D,"Clut load: %i palettes", data);
+				DEBUG_LOG(G3D,"DL Clut load: %i palettes", data);
 			}
 			else
 			{
-				DEBUG_LOG(G3D,"Empty Clut load");
+				DEBUG_LOG(G3D,"DL Empty Clut load");
 			}
 			// Should hash and invalidate all paletted textures on use
 		}
@@ -597,7 +607,7 @@ void GPU::ExecuteOp(u32 op, u32 diff)
 		{
 			u32 x = (data & 1023)+1;
 			u32 y = ((data>>10) & 1023)+1;
-			DEBUG_LOG(G3D,"Block Transfer Src Rect TL: %i, %i", x, y);
+			DEBUG_LOG(G3D, "DL Block Transfer Src Rect TL: %i, %i", x, y);
 			break;
 		}
 
@@ -605,7 +615,7 @@ void GPU::ExecuteOp(u32 op, u32 diff)
 		{
 			u32 x = (data & 1023)+1;
 			u32 y = ((data>>10) & 1023)+1;
-			DEBUG_LOG(G3D,"Block Transfer Dest Rect TL: %i, %i", x, y);
+			DEBUG_LOG(G3D, "DL Block Transfer Dest Rect TL: %i, %i", x, y);
 			break;
 		}
 
@@ -613,13 +623,16 @@ void GPU::ExecuteOp(u32 op, u32 diff)
 		{
 			u32 w = (data & 1023)+1;
 			u32 h = ((data>>10) & 1023)+1;
-			DEBUG_LOG(G3D,"Block Transfer Rect Size: %i x %i", w, h);
+			DEBUG_LOG(G3D, "DL Block Transfer Rect Size: %i x %i", w, h);
 			break;
 		}
 
 	case GE_CMD_TRANSFERSTART:
 		{
-			DEBUG_LOG(G3D,"Texture Transfer Start: PixFormat %i", data);
+			DEBUG_LOG(G3D, "DL Texture Transfer Start: PixFormat %i", data);
+			// TODO: Here we should check if the transfer overlaps a framebuffer or any textures,
+			// and take appropriate action. If not, this should just be a block transfer within
+			// GPU memory which could be implemented by a copy loop.
 			break;
 		}
 
@@ -776,6 +789,7 @@ void GPU::ExecuteOp(u32 op, u32 diff)
 	case GE_CMD_PATCHDIVISION:
 		gstate.patch_div_s = data & 0xFF;
 		gstate.patch_div_t = (data >> 8) & 0xFF;
+		DEBUG_LOG(G3D, "DL Patch subdivision: %i x %i", gstate.patch_div_s, gstate.patch_div_t);
 		break;
 
 	case GE_CMD_MATERIALUPDATE:
@@ -896,7 +910,12 @@ void GPU::ExecuteOp(u32 op, u32 diff)
 	case GE_CMD_MORPHWEIGHT5:
 	case GE_CMD_MORPHWEIGHT6:
 	case GE_CMD_MORPHWEIGHT7:
-		gstate.morphWeights[cmd-GE_CMD_MORPHWEIGHT0] = getFloat24(data);
+		{
+			int index = cmd - GE_CMD_MORPHWEIGHT0;
+			float weight = getFloat24(data);
+			DEBUG_LOG(G3D,"DL MorphWeight %i = %f", index, weight);
+			gstate.morphWeights[index] = weight;
+		}
 		break;
  
 	case GE_CMD_DITH0:
