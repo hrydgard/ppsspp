@@ -379,7 +379,7 @@ static const char *credits[] =
 	"",
 	"",
 	"Also check out Dolphin, the best Wii/GC emu around:",
-	"http://code.google.com/p/dolphin-emu/",
+	"http://www.dolphin-emu.org",
 	"",
 	"",
 	"PPSSPP is intended for educational purposes only.",
