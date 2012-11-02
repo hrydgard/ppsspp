@@ -2,13 +2,16 @@ PPSSPP - a fast and portable PSP emulator
 =========================================
 Written by Henrik Rydgård
 
-Released under the GPL 2.0 in October 2012
+Released under the GPL 2.0 in November 2012
 
 Official website:
 http://www.ppsspp.org/
 
+To contribute, see http://www.ppsspp.org/development.html .
+
 For the latest source code and build instructions, see
 http://github.com/hrydgard/ppsspp
+
 
 BASIC BUILD INSTRUCTIONS
 
