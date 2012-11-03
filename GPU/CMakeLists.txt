@@ -14,6 +14,8 @@ set(SRCS
 set(SRCS ${SRCS})
 
 add_library(gpu STATIC ${SRCS})
+target_link_libraries(gpu general gfx_es2)
+target_link_libraries(gpu general lin)
 
 if(UNIX)
   add_definitions(-fPIC)

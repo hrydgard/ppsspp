@@ -21,6 +21,8 @@ extern "C"
 };
 
 #include "BlockDevices.h"
+#include <cstdio>
+#include <cstring>
 
 FileBlockDevice::FileBlockDevice(std::string _filename)
 : filename(_filename)

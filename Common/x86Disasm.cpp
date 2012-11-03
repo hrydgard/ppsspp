@@ -5,8 +5,10 @@
 #error DO NOT COMPILE THIS INTO ANDROID BUILDS
 #endif
 
-#include <stdlib.h>
-#include <string.h>
+#include <cstdlib>
+#include <cstdio>
+#include <cstring>
+#include <cstdarg>
 #include "x86Disasm.h"
 
 /*==============================unasmt.h==============================*/

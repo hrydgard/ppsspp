@@ -76,8 +76,11 @@ set(SRCS
 set(SRCS ${SRCS})
 
 add_library(core STATIC ${SRCS})
+target_link_libraries(core general common)
+target_link_libraries(core general base)
 
 if(UNIX)
   add_definitions(-fPIC)
+  add_definitions(-std=gnu++0x)
 endif(UNIX)
 
