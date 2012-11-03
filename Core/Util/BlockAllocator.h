@@ -5,6 +5,7 @@
 
 #include <vector>
 #include <list>
+#include <cstring>
 
 
 // Generic allocator thingy

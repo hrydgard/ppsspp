@@ -19,6 +19,7 @@
 #include "Breakpoints.h"
 #include "SymbolMap.h"
 #include "FixedSizeUnorderedSet.h"
+#include <cstdio>
 
 #define MAX_BREAKPOINTS 16
 
