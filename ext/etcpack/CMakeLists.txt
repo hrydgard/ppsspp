@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.6)
 
 add_library(etcdec etcdec.cpp)
 #if UNIX
-add_definitions(-PIC)
+add_definitions(-fPIC)
 
 add_library(etcpack etcpack.cpp)
 

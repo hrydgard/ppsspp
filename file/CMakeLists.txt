@@ -8,6 +8,7 @@ set(SRCS
 set(SRCS ${SRCS})
 
 add_library(file STATIC ${SRCS})
+target_link_libraries(file general zip)
 
 if(UNIX)
   add_definitions(-fPIC)

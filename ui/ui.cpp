@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <cmath>
+#include <cstring>
 
 #include "ui/ui.h"
 #include "gfx/texture_atlas.h"
