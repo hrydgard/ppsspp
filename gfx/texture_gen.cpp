@@ -5,7 +5,8 @@
 // future.
 
 #include <cmath>
-#include <stdio.h>
+#include <cstdio>
+#include <cstring>
 
 #include "base/basictypes.h"
 #include "gfx/texture.h"

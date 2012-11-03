@@ -8,6 +8,7 @@
 #include <ShellAPI.h>
 #else
 #include <pwd.h>
+#include <unistd.h>
 #endif
 
 #include <string>
