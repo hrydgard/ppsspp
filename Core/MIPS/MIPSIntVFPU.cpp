@@ -656,7 +656,7 @@ namespace MIPSInt
       }
       colors[i] = col;
     }
-    u32 ov[2] =  {colors[0] | (colors[1] << 16), colors[2] | (colors[3] << 16)};
+    u32 ov[2] =  {(u32)colors[0] | (colors[1] << 16), (u32)colors[2] | (colors[3] << 16)};
     WriteVector((const float *)ov, V_Pair, vd);
     PC += 4;
     EatPrefixes();
@@ -967,7 +967,7 @@ namespace MIPSInt
 
 	void Int_Vcst(u32 op)
 	{
-		static const float constants[32] = 
+		static const float constants[32] =
 		{
 			0,
 			std::numeric_limits<float>::infinity(),  // or max() ??   pspautotests seem to indicate inf
@@ -986,9 +986,9 @@ namespace MIPSInt
 			(float)M_LN10,
 			2*(float)M_PI,
 			(float)M_PI/6,
-			log10(2.0f), 
-			log(10.0f)/log(2.0f), //"Log2(10)",
-			sqrt(3.0f)/2.0f, //"Sqrt(3)/2"
+			log10f(2.0f),
+			logf(10.0f)/logf(2.0f), //"Log2(10)",
+			sqrtf(3.0f)/2.0f, //"Sqrt(3)/2"
 		};
 
 		int conNum = (op >> 16) & 0x1f;
@@ -997,12 +997,12 @@ namespace MIPSInt
 		VectorSize sz = GetVecSize(op);
 		float c = constants[conNum];
 		float temp[4] = {c,c,c,c};
-		WriteVector(temp, sz, vd);	
+		WriteVector(temp, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
 
-	enum VCondition 
+	enum VCondition
 	{
 		VC_FL,
 		VC_EQ,

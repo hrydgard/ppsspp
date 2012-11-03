@@ -17,6 +17,15 @@ BASIC BUILD INSTRUCTIONS
 
 (for more detailed instructions, see http://www.ppsspp.org/development.html )
 
+First of all, after having checked out the source, don't forget to
+run:
+git submodule init
+git submodule update
+
+in order to get the "native" library.
+
+Now, the actual building:
+
 PPSSPP currently has three build systems, for building
 for the following platforms:
 * Win32: MSVC
