@@ -19,6 +19,9 @@
 
 #include <vector>
 #include <string>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
 #include "Log.h"
 

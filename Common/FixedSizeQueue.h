@@ -18,6 +18,8 @@
 #ifndef _FIXED_SIZE_QUEUE_H_
 #define _FIXED_SIZE_QUEUE_H_
 
+#include "../Globals.h"
+
 // STL-look-a-like interface, but name is mixed case to distinguish it clearly from the
 // real STL classes.
 
@@ -36,7 +38,7 @@ class FixedSizeQueue
 	// Make copy constructor private for now.
 	FixedSizeQueue(FixedSizeQueue &other) {	}
 
-public:
+    public:
 	FixedSizeQueue()
 	{
 		storage = new T[N];
