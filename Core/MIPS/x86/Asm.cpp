@@ -18,7 +18,7 @@
 #include "ABI.h"
 #include "x64Emitter.h"
 
-#include "../../Memmap.h"
+#include "../../MemMap.h"
 
 #include "../MIPS.h"
 #include "../../CoreTiming.h"

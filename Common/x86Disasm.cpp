@@ -5,6 +5,8 @@
 #error DO NOT COMPILE THIS INTO ANDROID BUILDS
 #endif
 
+#include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "x86Disasm.h"

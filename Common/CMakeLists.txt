@@ -22,6 +22,7 @@ set(SRCS
 	Timer.cpp
 	x64Analyzer.cpp
 	x64Emitter.cpp
+	x86Disasm.cpp
 )
 
 # TODO

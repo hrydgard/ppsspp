@@ -23,6 +23,7 @@ add_definitions(-DSDL)
 add_definitions(-Wno-multichar)
 add_definitions(-fno-strict-aliasing)
 add_definitions(-DUSE_PROFILER)
+add_definitions(-std=c++0x)
 
 #Damn MacOSX
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++0x")
@@ -61,7 +62,8 @@ add_subdirectory(../Common Common)
 add_subdirectory(../GPU GPU)
 add_subdirectory(../Core Core)
 
-set(LIBS ${LIBS} ${SDL_LIBRARY} ${OPENGL_LIBRARIES} GLEW file lin ${PNG_LIBRARY} z gfx gfx_es2 etcdec image stb_image mixer net ui profiler timeutil file zip base lin vjson stb_vorbis sha1 jsonwriter common core gpu)
+set(LIBS ${LIBS} ${SDL_LIBRARY} ${OPENGL_LIBRARIES} GLEW file lin
+${PNG_LIBRARY} z gfx etcdec image stb_image mixer net ui profiler zip base vjson stb_vorbis sha1 jsonwriter core common gpu timeutil file gfx_es2 lin)
 set(FILES
 	../android/jni/NativeApp.cpp
 	../android/jni/EmuScreen.cpp
