@@ -20,7 +20,7 @@
 #include "MemArena.h"
 #include "ChunkFile.h"
 
-#include "Memmap.h"
+#include "MemMap.h"
 #include "Core.h"
 #include "MIPS/MIPS.h"
 #include "MIPS/JitCommon/JitCommon.h"
