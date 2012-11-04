@@ -7,7 +7,6 @@ Logs
 *.dll
 *.rar
 *.exe
-*.bin
 *.ini
 *.map
 *.lib
