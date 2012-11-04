@@ -891,11 +891,11 @@ void GPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_ZTEST:
 		{
-			static const GLuint ztests[8] = 
-			{
-				GL_NEVER, GL_ALWAYS, GL_EQUAL, GL_NOTEQUAL, 
-				GL_LESS, GL_LEQUAL, GL_GREATER, GL_GEQUAL
-			};
+			//static const GLuint ztests[8] = 
+			//{
+			//	GL_NEVER, GL_ALWAYS, GL_EQUAL, GL_NOTEQUAL, 
+			//	GL_LESS, GL_LEQUAL, GL_GREATER, GL_GEQUAL
+			//};
 			//glDepthFunc(ztests[data&7]);
 			glDepthFunc(GL_LEQUAL);
 			DEBUG_LOG(G3D,"DL Z test mode: %i", data);

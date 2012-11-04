@@ -391,10 +391,10 @@ void sceSasGetOutputMode()
 
 const HLEFunction sceSasCore[] =
 {
-	{0x42778a9f, WrapU_UUUUU<sceSasInit>, "__sceSasInit"}, // (SceUID * sasCore, int grain, int maxVoices, int outputMode, int sampleRate)
+	{0x42778a9f, Wrap<sceSasInit>, "__sceSasInit"}, // (SceUID * sasCore, int grain, int maxVoices, int outputMode, int sampleRate)
 	{0xa3589d81, _sceSasCore, "__sceSasCore"},
 	{0x50a14dfc, _sceSasCoreWithMix, "__sceSasCoreWithMix"},	// Process and mix into buffer (int sasCore, int sasInOut, int leftVolume, int rightVolume)
-	{0x68a46b95, WrapU_V<sceSasGetEndFlag>, "__sceSasGetEndFlag"},	// int sasCore
+	{0x68a46b95, Wrap<sceSasGetEndFlag>, "__sceSasGetEndFlag"},	// int sasCore
 	{0x440ca7d8, sceSasSetVolume, "__sceSasSetVolume"},
 	{0xad84d37f, sceSasSetPitch, "__sceSasSetPitch"},
 	{0x99944089, sceSasSetVoice, "__sceSasSetVoice"},	// (int sasCore, int voice, int vagAddr, int size, int loopmode)
@@ -402,8 +402,8 @@ const HLEFunction sceSasCore[] =
 	{0x019b25eb, sceSasSetADSR, "__sceSasSetADSR"},
 	{0x9ec3676a, sceSasSetADSRMode, "__sceSasSetADSRmode"},
 	{0x5f9529f6, 0, "__sceSasSetSL"},
-	{0x74ae582a, WrapU_UU<sceSasGetEnvelopeHeight>, "__sceSasGetEnvelopeHeight"},	
-	{0xcbcd4f79, WrapU_UUUU<sceSasSetSimpleADSR>, "__sceSasSetSimpleADSR"},
+	{0x74ae582a, Wrap<sceSasGetEnvelopeHeight>, "__sceSasGetEnvelopeHeight"},	
+	{0xcbcd4f79, Wrap<sceSasSetSimpleADSR>, "__sceSasSetSimpleADSR"},
 	{0xa0cf2fa4, sceSasSetKeyOff, "__sceSasSetKeyOff"},
 	{0x76f01aca, sceSasSetKeyOn, "__sceSasSetKeyOn"},	// (int sasCore, int voice)
 	{0xf983b186, sceSasRevVON, "__sceSasRevVON"},	// int sasCore, int dry, int wet

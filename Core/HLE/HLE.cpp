@@ -28,6 +28,7 @@
 #include "../MIPS/MIPSCodeUtils.h"
 
 static std::vector<HLEModule> moduleDB;
+static std::vector<Syscall> unresolvedSyscalls;
 
 void HLEInit()
 {
@@ -38,32 +39,6 @@ void HLEShutdown()
 {
 	moduleDB.clear();
 }
-
-/*
-//unused
-struct PSPHeader
-{
-	char psp[4];
-	u32 version; //00080000
-	short whatever; //0101
-	char sometext[28];
-	short whatever2; //0102
-	u32 filesizedecrypted;
-	u32 filesize;
-	u32 unknownoffsets[3];
-	short whatever3[2]; //0x40 0x40
-	u32 whatever4[2]; //00
-	u32 whatever5; //1067008
-	u32 whatever6[2]; //00
-	u32 whatever7; //1067008
-	u32 whatever8; //2553296
-	u32 whatever9[8]; //0
-	u32 whatever10; //12
-	u32 encryptedStuff[12];
-	u32 filesizedecrypted2;
-	u32 whatever11;//0x80
-	u32 whatever12[6];
-};*/
 
 void RegisterModule(const char *name, int numFunctions, const HLEFunction *funcTable)
 {
@@ -157,8 +132,36 @@ void WriteSyscall(const char *moduleName, u32 nib, u32 address)
 		Memory::Write_U32(MIPS_MAKE_NOP(), address+4); //patched out?
 		return;
 	}
-	Memory::Write_U32(MIPS_MAKE_JR_RA(), address); // jr ra
-	Memory::Write_U32(GetSyscallOp(moduleName, nib), address + 4);
+	int modindex = GetModuleIndex(moduleName);
+	if (modindex != -1)
+	{
+		Memory::Write_U32(MIPS_MAKE_JR_RA(), address); // jr ra
+		Memory::Write_U32(GetSyscallOp(moduleName, nib), address + 4);
+	}
+	else
+	{
+		// Module inexistent.. for now; let's store the syscall for it to be resolved later
+		INFO_LOG(HLE,"Syscall (%s,%08x) unresolved, storing for later resolving", moduleName, nib);
+		Syscall sysc = {"", address, nib};
+		strncpy(sysc.moduleName, moduleName, 32);
+		sysc.moduleName[31] = '\0';
+		unresolvedSyscalls.push_back(sysc);
+	}
+}
+
+void ResolveSyscall(const char *moduleName, u32 nib, u32 address)
+{
+	for (size_t i = 0; i < unresolvedSyscalls.size(); i++)
+	{
+		Syscall *sysc = &unresolvedSyscalls[i];
+		if (strncmp(sysc->moduleName, moduleName, 32) == 0 && sysc->nid == nib)
+		{
+			INFO_LOG(HLE,"Resolving %s/%08x",moduleName,nib);
+			// Note: doing that, we can't trace external module calls, so maybe something else should be done to debug more efficiently
+			Memory::Write_U32(MIPS_MAKE_JAL(address), sysc->symAddr);
+			Memory::Write_U32(MIPS_MAKE_NOP(), sysc->symAddr + 4);
+		}
+	}
 }
 
 const char *GetFuncName(int moduleIndex, int func)

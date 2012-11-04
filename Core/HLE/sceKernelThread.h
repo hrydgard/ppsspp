@@ -34,7 +34,7 @@ void sceKernelExitDeleteThread();
 void sceKernelExitThread();
 void _sceKernelExitThread();
 void sceKernelGetThreadId();
-void sceKernelStartThread();
+u32 sceKernelStartThread();
 void sceKernelWaitThreadEnd();
 void sceKernelReferThreadStatus();
 void sceKernelChangeCurrentThreadAttr();
@@ -85,6 +85,13 @@ struct ThreadContext
   u32 fcr31;
 };
 
+struct CallbackNotification
+{
+  SceUID cbid;
+  int count;
+  int arg;
+};
+
 
 // Internal API, used by implementations of kernel functions
 
@@ -105,6 +112,7 @@ u32 __KernelGetWaitValue(SceUID threadID, u32 &error);
 void __KernelWaitCurThread(WaitType type, SceUID waitId, u32 waitValue, int timeout, bool processCallbacks);
 void __KernelReSchedule(const char *reason = "no reason");
 void __KernelNotifyCallback(SceUID threadID, SceUID cbid, u32 arg);
+CallbackNotification *__KernelGetCallbackNotification(SceUID cbid);
 
 
 SceUID __KernelGetCurThread();

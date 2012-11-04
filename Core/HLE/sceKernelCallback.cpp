@@ -43,16 +43,7 @@ public:
 
 	~Callback()
 	{
-		// kernelMemory.Free(hackAddress);
 	}
-	/*
-	void GrabAndWriteHack()
-	{
-		u32 blockSize = 8;
-		hackAddress = kernelMemory.Alloc(blockSize);
-		Memory::Write_U32(MIPS_MAKE_JAL(entrypoint), hackAddress);
-		Memory::Write_U32(MIPS_MAKE_NOP(), hackAddress+4);
-	}*/
 
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_CBID; }
 	int GetIDType() const { return SCE_KERNEL_TMID_Callback; }
@@ -62,8 +53,6 @@ public:
 	u32 entrypoint;
 	SceUID threadId;
 	u32 argument;
-	u32 notifyCount;
-	// u32 hackAddress;
 
 	u32 savedPC;
 	u32 savedRA;
@@ -71,9 +60,6 @@ public:
 	u32 savedV1;
 	u32 savedIdRegister;
 
-	int numParameters;
-	u32 parameters[6];
-	
 	/*
 	SceUInt 	attr;
 	SceUInt 	initPattern;
@@ -84,6 +70,8 @@ public:
 	bool forceDelete;
 	Action *actionAfter;
 };
+
+int g_inCbCount = 0;
 
 //////////////////////////////////////////////////////////////////////////
 // CALLBACKS
@@ -184,10 +172,26 @@ void __KernelCallCallback(SceUID id)
 			c->savedIdRegister = currentMIPS->r[MIPS_REG_CB_ID];
 
 			// Set up the new state
-			for (int i = 0; i < c->numParameters; c++)
-				currentMIPS->r[4 + i] = c->parameters[i];
+			// TODO: check?
+			CallbackNotification *notify = __KernelGetCallbackNotification(id);
+			if (notify != NULL)
+			{
+				currentMIPS->r[4] = notify->count;
+				currentMIPS->r[5] = notify->arg;
+				notify->count = 0;
+				notify->arg = 0;
+			}
+			else
+			{
+				currentMIPS->r[4] = 0;
+				currentMIPS->r[5] = 0;
+			}
+
+			currentMIPS->r[6] = c->argument;
 			currentMIPS->pc = c->entrypoint;
 			currentMIPS->r[MIPS_REG_RA] = __KernelCallbackReturnAddress();
+
+			g_inCbCount++;
 		}
 	}
 	else
@@ -228,10 +232,11 @@ void _sceKernelReturnFromCallback()
 	{
 		cb->actionAfter->run();
 	}
+	g_inCbCount--;
 	// yeah! back in the real world, let's keep going....
 }
 
-void sceKernelCheckCallback()
+u32 sceKernelCheckCallback()
 {
 	//only check those of current thread
 	ERROR_LOG(HLE,"UNIMPL sceKernelCheckCallback()");
@@ -240,6 +245,11 @@ void sceKernelCheckCallback()
 	// Probably because callbacks aren't working right.
 	__KernelReSchedule("checkcallbackhack");
 
-	RETURN(0);
+	return 0;
+}
+
+bool __KernelInCallback()
+{
+    return (g_inCbCount != 0);
 }
 

@@ -110,10 +110,9 @@ void sceGeListSync(u32 displayListID, u32 mode) //0 : wait for completion		1:che
 	DEBUG_LOG(HLE,"sceGeListSync(dlid=%08x, mode=%08x)", displayListID,mode);
 }
 
-u32 sceGeDrawSync(u32)
+u32 sceGeDrawSync(u32 mode)
 {
 	//wait/check entire drawing state
-	u32 mode = PARAM(0); //0 : wait for completion		1:check and return
 	DEBUG_LOG(HLE,"FAKE sceGeDrawSync(mode=%d)",mode);
 	if (mode == 1)
 	{
@@ -125,16 +124,16 @@ u32 sceGeDrawSync(u32)
 	}
 }
 
-void sceGeBreak()
+u32 sceGeBreak(u32 mode, u32)
 {
-	u32 mode = PARAM(0); //0 : current dlist 1: all drawing
 	ERROR_LOG(HLE,"UNIMPL sceGeBreak(mode=%d)",mode);
+	return 0;
 }
 
-void sceGeContinue()
+u32 sceGeContinue()
 {
 	ERROR_LOG(HLE,"UNIMPL sceGeContinue");
-	// no arguments
+	return 0;
 }
 
 u32 sceGeSetCallback(u32 structAddr)
@@ -173,32 +172,31 @@ void sceGeGetMtx()
 	ERROR_LOG(HLE,"UNIMPL sceGeGetMtx()");
 }
 
-void sceGeEdramSetAddrTranslation()
+int sceGeEdramSetAddrTranslation(int new_size)
 {
-	int new_size = PARAM(0);
 	INFO_LOG(HLE,"sceGeEdramSetAddrTranslation(%i)", new_size);
 	static int EDRamWidth;
 	int last = EDRamWidth;
 	EDRamWidth = new_size;
-	RETURN(last);
+	return last;
 }
 
 const HLEFunction sceGe_user[] =
 {
-	{0xE47E40E4,&WrapU_V<sceGeEdramGetAddr>,					"sceGeEdramGetAddr"},
-	{0xAB49E76A,&WrapU_UUUU<sceGeListEnQueue>,				"sceGeListEnQueue"},
-	{0x1C0D95A6,&WrapU_UUUU<sceGeListEnQueueHead>,		"sceGeListEnQueueHead"},
-	{0xE0D68148,&WrapV_UU<sceGeListUpdateStallAddr>,	"sceGeListUpdateStallAddr"},
-	{0x03444EB4,&WrapV_UU<sceGeListSync>,						 "sceGeListSync"},
-	{0xB287BD61,&WrapU_U<sceGeDrawSync>,							"sceGeDrawSync"},
-	{0xB448EC0D,sceGeBreak,							"sceGeBreak"},
-	{0x4C06E472,sceGeContinue,					 "sceGeContinue"},
-	{0xA4FC06A4,&WrapU_U<sceGeSetCallback>,	"sceGeSetCallback"},
-	{0x05DB22CE,&WrapV_U<sceGeUnsetCallback>,					 "sceGeUnsetCallback"},
-	{0x1F6752AD,&WrapU_V<sceGeEdramGetSize>, "sceGeEdramGetSize"},
-	{0xB77905EA,&sceGeEdramSetAddrTranslation,"sceGeEdramSetAddrTranslation"},
+	{0xE47E40E4,&Wrap<sceGeEdramGetAddr>,					"sceGeEdramGetAddr"},
+	{0xAB49E76A,&Wrap<sceGeListEnQueue>,				"sceGeListEnQueue"},
+	{0x1C0D95A6,&Wrap<sceGeListEnQueueHead>,		"sceGeListEnQueueHead"},
+	{0xE0D68148,&Wrap<sceGeListUpdateStallAddr>,	"sceGeListUpdateStallAddr"},
+	{0x03444EB4,&Wrap<sceGeListSync>,						 "sceGeListSync"},
+	{0xB287BD61,&Wrap<sceGeDrawSync>,							"sceGeDrawSync"},
+	{0xB448EC0D,&Wrap<sceGeBreak>,							"sceGeBreak"},
+	{0x4C06E472,&Wrap<sceGeContinue>,					 "sceGeContinue"},
+	{0xA4FC06A4,&Wrap<sceGeSetCallback>,	"sceGeSetCallback"},
+	{0x05DB22CE,&Wrap<sceGeUnsetCallback>,					 "sceGeUnsetCallback"},
+	{0x1F6752AD,&Wrap<sceGeEdramGetSize>, "sceGeEdramGetSize"},
+	{0xB77905EA,&Wrap<sceGeEdramSetAddrTranslation>,"sceGeEdramSetAddrTranslation"},
 	{0xDC93CFEF,0,"sceGeGetCmd"},
-	{0x57C8945B,&sceGeGetMtx,"sceGeGetMtx"},
+	{0x57C8945B,&Wrap<sceGeGetMtx>,"sceGeGetMtx"},
 	{0x438A385A,0,"sceGeSaveContext"},
 	{0x0BF608FB,0,"sceGeRestoreContext"},
 	{0x5FB86AB0,0,"sceGeListDeQueue"},

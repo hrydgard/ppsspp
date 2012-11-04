@@ -40,8 +40,16 @@ struct HLEModule
 	const HLEFunction *funcTable;
 };
 
+struct Syscall
+{
+    char moduleName[32];
+	u32 symAddr;
+	u32 nid;
+};
+
 #define PARAM(n) currentMIPS->r[4+n]
 #define RETURN(n) currentMIPS->r[2]=n
+#define RETURN2(n) currentMIPS->r[3]=n
 #define RETURNF(fl) currentMIPS->f[0]=fl
 
 #ifndef ARRAY_SIZE
@@ -68,6 +76,7 @@ u32 GetNibByName(const char *module, const char *function);
 u32 GetSyscallOp(const char *module, u32 nib);
 void WriteSyscall(const char *module, u32 nib, u32 address);
 void CallSyscall(u32 op);
+void ResolveSyscall(const char *moduleName, u32 nib, u32 address);
 
 // Need to be able to save entire kernel state
 int GetStateSize();
