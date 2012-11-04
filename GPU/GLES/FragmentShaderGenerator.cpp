@@ -25,6 +25,7 @@
 #include "FragmentShaderGenerator.h"
 #include "../ge_constants.h"
 #include "../GPUState.h"
+#include <cstdio>
 
 // TODO: remove
 static char buffer[16384];

@@ -23,9 +23,13 @@ add_definitions(-DSDL)
 add_definitions(-Wno-multichar)
 add_definitions(-fno-strict-aliasing)
 add_definitions(-DUSE_PROFILER)
+add_definitions(-D_DEBUG)
 
-#Damn MacOSX
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++0x")
+if (UNIX)
+	if (NOT APPLE)  # can't build the SDL .m file with -std=gnu++0x
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++0x")
+	endif()
+endif()
 
 include_directories(..)
 include_directories(../Common)
@@ -68,18 +72,18 @@ set(FILES
 	../android/jni/MenuScreens.cpp
 	../android/jni/GamepadEmu.cpp
 	../android/jni/UIShader.cpp
-  ../android/jni/ui_atlas.cpp
+	../android/jni/ui_atlas.cpp
 	../native/base/PCMain.cpp
 	)
 
 if (APPLE)
-  SET(FILES ${FILES} SDLMain.m)
+	SET(FILES ${FILES} SDLMain.m)
 endif (APPLE)
 
 add_executable(ppsspp ${FILES})
 
 target_link_libraries(ppsspp ${LIBS})
-	
+
 set(FILES ../headless/Headless.cpp)
 
 add_executable(ppsspp-headless ${FILES})

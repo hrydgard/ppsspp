@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <cstring>
 #include <string>
 #include "../Globals.h"
 

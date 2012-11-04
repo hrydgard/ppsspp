@@ -18,6 +18,7 @@
 #pragma once
 
 #include "../Globals.h"
+#include <cstring>
 
 // TODO: this doesn't belong here
 struct Color4

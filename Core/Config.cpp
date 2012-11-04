@@ -85,5 +85,7 @@ void CConfig::Save()
 
 		iniFile.Save(iniFilename_.c_str());
 		NOTICE_LOG(LOADER, "Config saved: %s", iniFilename_.c_str());
+	} else {
+		NOTICE_LOG(LOADER, "Error saving config: %s", iniFilename_.c_str());
 	}
 }

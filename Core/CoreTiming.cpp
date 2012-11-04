@@ -17,6 +17,7 @@
 
 
 #include <vector>
+#include <cstdio>
 
 #include "MsgHandler.h"
 #include "StdMutex.h"

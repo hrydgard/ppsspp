@@ -16,9 +16,10 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "../Core.h"
-#include "BreakPoints.h"
+#include "Breakpoints.h"
 #include "SymbolMap.h"
 #include "FixedSizeUnorderedSet.h"
+#include <cstdio>
 
 #define MAX_BREAKPOINTS 16
 

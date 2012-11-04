@@ -6,7 +6,7 @@
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	See the
 // GNU General Public License 2.0 for more details.
 
 // A copy of the GPL 2.0 should have been included with the program.
@@ -49,32 +49,32 @@
 
 Texture *uiTexture;
 
-ScreenManager screenManager;
+ScreenManager *screenManager;
 std::string config_filename;
 
 class AndroidLogger : public LogListener
 {
 public:
-  void Log(LogTypes::LOG_LEVELS level, const char *msg)
-  {
-    switch (level)
-    {
-    case LogTypes::LDEBUG:
-    case LogTypes::LINFO:
-      ILOG("%s", msg);
-      break;
-    case LogTypes::LERROR:
-      ELOG("%s", msg);
-      break;
-    case LogTypes::LWARNING:
-      WLOG("%s", msg);
-      break;
-    case LogTypes::LNOTICE:
-    default:
-      ILOG("%s", msg);
-      break;
-    }
-  }
+	void Log(LogTypes::LOG_LEVELS level, const char *msg)
+	{
+		switch (level)
+		{
+		case LogTypes::LDEBUG:
+		case LogTypes::LINFO:
+			ILOG("%s", msg);
+			break;
+		case LogTypes::LERROR:
+			ELOG("%s", msg);
+			break;
+		case LogTypes::LWARNING:
+			WLOG("%s", msg);
+			break;
+		case LogTypes::LNOTICE:
+		default:
+			ILOG("%s", msg);
+			break;
+		}
+	}
 };
 
 
@@ -86,30 +86,30 @@ public:
 		// hasRendered = false;
 	}
 
-  virtual void UpdateUI() {}
+	virtual void UpdateUI() {}
 
-  virtual void UpdateMemView() {}
-  virtual void UpdateDisassembly() {}
+	virtual void UpdateMemView() {}
+	virtual void UpdateDisassembly() {}
 
-  virtual void SetDebugMode(bool mode) { }
+	virtual void SetDebugMode(bool mode) { }
 
-  virtual void InitGL() {}
-  virtual void BeginFrame() {}
-  virtual void EndFrame() {}
-  virtual void ShutdownGL() {}
+	virtual void InitGL() {}
+	virtual void BeginFrame() {}
+	virtual void EndFrame() {}
+	virtual void ShutdownGL() {}
 
-  virtual void InitSound(PMixer *mixer);
-  virtual void UpdateSound() {};
-  virtual void ShutdownSound();
+	virtual void InitSound(PMixer *mixer);
+	virtual void UpdateSound() {};
+	virtual void ShutdownSound();
 
-  // this is sent from EMU thread! Make sure that Host handles it properly!
-  virtual void BootDone() {} 
-  virtual void PrepareShutdown() {}
+	// this is sent from EMU thread! Make sure that Host handles it properly!
+	virtual void BootDone() {}
+	virtual void PrepareShutdown() {}
 
-  virtual bool IsDebuggingEnabled() {return false;}
-  virtual bool AttemptLoadSymbolMap() {return false;}
-  virtual void ResetSymbolMap() {}
-  virtual void AddSymbol(std::string name, u32 addr, u32 size, int type=0) {}
+	virtual bool IsDebuggingEnabled() {return false;}
+	virtual bool AttemptLoadSymbolMap() {return false;}
+	virtual void ResetSymbolMap() {}
+	virtual void AddSymbol(std::string name, u32 addr, u32 size, int type=0) {}
 };
 
 // globals
@@ -130,10 +130,10 @@ void NativeHost::ShutdownSound()
 
 void NativeMix(short *audio, int num_samples)
 {
-  if (g_mixer)
-  {
-    g_mixer->Mix(audio, num_samples/2);
-  }
+	if (g_mixer)
+	{
+		g_mixer->Mix(audio, num_samples/2);
+	}
 	else
 	{
 		//memset(audio, 0, numSamples * 2);
@@ -149,32 +149,41 @@ void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, boo
 
 void NativeInit(int argc, const char *argv[], const char *savegame_directory, const char *external_directory, const char *installID)
 {
-  std::string user_data_path = savegame_directory;
+	std::string user_data_path = savegame_directory;
 
-  // We want this to be FIRST.
-  VFSRegister("", new DirectoryAssetReader("assets/"));
-  VFSRegister("", new DirectoryAssetReader(user_data_path.c_str()));
+	// We want this to be FIRST.
+	VFSRegister("", new DirectoryAssetReader("assets/"));
+	VFSRegister("", new DirectoryAssetReader(user_data_path.c_str()));
 
-  host = new NativeHost();
+	host = new NativeHost();
 
-  logger = new AndroidLogger();
+	logger = new AndroidLogger();
 
-  LogManager::Init();
-  LogManager *logman = LogManager::GetInstance();
-  ILOG("Logman: %p", logman);
+	LogManager::Init();
+	LogManager *logman = LogManager::GetInstance();
+	ILOG("Logman: %p", logman);
 
-	if (argc > 1) 
-	{
-		boot_filename = argv[1];
-
-		if (!File::Exists(boot_filename))
-		{
-			fprintf(stdout, "File not found: %s\n", boot_filename.c_str());
-			exit(1);
+	// Parse command line
+	LogTypes::LOG_LEVELS logLevel = LogTypes::LINFO;
+	for (int i = 1; i < argc; i++) {
+		if (argv[i][0] == '-') {
+			switch (argv[i][1]) {
+			case 'd':
+				// Enable debug logging
+				logLevel = LogTypes::LDEBUG;
+				break;
+			}
+		} else {
+			boot_filename = argv[i];
+			if (!File::Exists(boot_filename))
+			{
+				fprintf(stdout, "File not found: %s\n", boot_filename.c_str());
+				exit(1);
+			}
 		}
 	}
 
-	config_filename = user_data_path + "/config.ini";
+	config_filename = user_data_path + "ppsspp.ini";
 
 	g_Config.Load(config_filename.c_str());
 
@@ -186,17 +195,18 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 #endif
 	}
 
-  for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++)
-  {
-    LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
-    logman->SetEnable(type, true);
-    logman->SetLogLevel(type, LogTypes::LDEBUG);
+	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++)
+	{
+		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
+		logman->SetEnable(type, true);
+		logman->SetLogLevel(type, logLevel);
 #ifdef ANDROID
-    logman->AddListener(type, logger);
+		logman->AddListener(type, logger);
 #endif
-  }
-  logman->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
-  INFO_LOG(BOOT, "Logger inited.");
+	}
+	// Special hack for G3D as it's very spammy. Need to make a flag for this.
+	logman->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
+	INFO_LOG(BOOT, "Logger inited.");
 }
 
 void NativeInitGraphics()
@@ -205,8 +215,14 @@ void NativeInitGraphics()
 	gl_lost_manager_init();
 	ui_draw2d.SetAtlas(&ui_atlas);
 
-	screenManager.switchScreen(new LogoScreen(boot_filename));
-	// screenManager.switchScreen(new FileSelectScreen());
+	screenManager = new ScreenManager();
+	if (boot_filename.empty()) {
+		screenManager->switchScreen(new LogoScreen(boot_filename));
+	} else {
+		// Go directly into the game.
+		screenManager->switchScreen(new EmuScreen(boot_filename));
+	}
+	// screenManager->switchScreen(new FileSelectScreen());
 
 	UIShader_Init();
 
@@ -223,57 +239,57 @@ void NativeInitGraphics()
 
 	uiTexture = new Texture();
 	if (!uiTexture->Load("ui_atlas.zim"))
-  {
-    ELOG("Failed to load texture");
-  }
-  uiTexture->Bind(0);
+	{
+		ELOG("Failed to load texture");
+	}
+	uiTexture->Bind(0);
 
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 }
 
 void NativeRender()
 {
 	glViewport(0, 0, pixel_xres, pixel_yres);
-  Matrix4x4 ortho;
+	Matrix4x4 ortho;
 	ortho.setOrtho(0.0f, dp_xres, dp_yres, 0.0f, -1.0f, 1.0f);
 	glsl_bind(UIShader_Get());
 	glUniformMatrix4fv(UIShader_Get()->u_worldviewproj, 1, GL_FALSE, ortho.getReadPtr());
-	
-	screenManager.render();
+
+	screenManager->render();
 }
 
 void NativeUpdate(InputState &input)
 {
 	UIUpdateMouse(0, input.pointer_x[0], input.pointer_y[0], input.pointer_down[0]);
-	screenManager.update(input);
+	screenManager->update(input);
 }
 
 void NativeDeviceLost()
 {
-	screenManager.deviceLost();
+	screenManager->deviceLost();
 	gl_lost();
 	// Should dirty EVERYTHING
 }
 
 bool NativeIsAtTopLevel()
 {
-  // TODO
-  return false;
+	// TODO
+	return false;
 }
 
 void NativeTouch(int finger, float x, float y, double time, TouchEvent event)
 {
-  switch (event) {
-  case TOUCH_DOWN:
-    break;
-  case TOUCH_MOVE:
-    break;
-  case TOUCH_UP:
-    break;
-  }
+	switch (event) {
+	case TOUCH_DOWN:
+		break;
+	case TOUCH_MOVE:
+		break;
+	case TOUCH_UP:
+		break;
+	}
 }
 
 void NativeShutdownGraphics()
@@ -281,21 +297,25 @@ void NativeShutdownGraphics()
 	delete uiTexture;
 	uiTexture = NULL;
 
-	screenManager.shutdown();
+	screenManager->shutdown();
+	delete screenManager;
+	screenManager = 0;
 
 	UIShader_Shutdown();
 
-  gl_lost_manager_shutdown();
+	gl_lost_manager_shutdown();
 }
 
 void NativeShutdown()
 {
-  delete host;
-  host = 0;
-  LogManager::Shutdown();
+	delete host;
+	host = 0;
 	g_Config.Save();
+	LogManager::Shutdown();
 	// This means that the activity has been completely destroyed. PPSSPP does not
 	// boot up correctly with "dirty" global variables currently, so we hack around that
 	// by simply exiting.
+#ifdef ANDROID
 	exit(0);
+#endif
 }

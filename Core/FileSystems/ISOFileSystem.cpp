@@ -18,6 +18,8 @@
 #include "Globals.h"
 #include "Log.h"
 #include "ISOFileSystem.h"
+#include <cstring>
+#include <cstdio>
 
 const int sectorSize = 2048;
 
