@@ -95,24 +95,21 @@ void sceKernelSysClock2USecWide()
 	RETURN(0);
 }
 
-void sceKernelLibcClock()
+u32 sceKernelLibcClock()
 {
 	u32 retVal = clock()*1000;
 	DEBUG_LOG(HLE,"%i = sceKernelLibcClock",retVal);
-	RETURN(retVal); // TODO: fix
+	return retVal; // TODO: fix
 }
 
-void sceKernelLibcTime()
+u32 sceKernelLibcTime(time_t *t)
 {
-	time_t *t = 0;
-	if (PARAM(0))
-		t = (time_t*)Memory::GetPointer(PARAM(0));
 	u32 retVal = (u32)time(t);
 	DEBUG_LOG(HLE,"%i = sceKernelLibcTime()",retVal);
-	RETURN(retVal);
+	return retVal;
 }
 
-void sceKernelLibcGettimeofday()
+u32 sceKernelLibcGettimeofday(timeval *tv, u32)
 {
 #ifdef _WIN32
 	union {
@@ -126,28 +123,30 @@ void sceKernelLibcGettimeofday()
 		u32 tv_usec;
 	};
 
-	timeval *tv = (timeval*)Memory::GetPointer(PARAM(0));
 	DEBUG_LOG(HLE,"sceKernelLibcGettimeofday()");
 
 	GetSystemTimeAsFileTime (&now.ft);
 	tv->tv_usec = (long) ((now.ns100 / 10LL) % 1000000LL);
 	tv->tv_sec = (long) ((now.ns100 - 116444736000000000LL) / 10000000LL);
 #endif
-	RETURN(0);
-}
-void sceRtcGetCurrentClockLocalTime()
-{
-	DEBUG_LOG(HLE,"0=sceRtcGetCurrentClockLocalTime()");
-	RETURN(0);
-}
-void sceRtcGetTick()
-{
-	DEBUG_LOG(HLE,"0=sceRtcGetTick()");
-	RETURN(0);
+	return 0;
 }
 
-void sceRtcGetTickResolution()
+u32 sceRtcGetCurrentClockLocalTime(u32)
+{
+	DEBUG_LOG(HLE,"0=sceRtcGetCurrentClockLocalTime()");
+	return 0;
+}
+
+u32 sceRtcGetTick(u32, u32)
+{
+	DEBUG_LOG(HLE,"0=sceRtcGetTick()");
+	return 0;
+}
+
+u32 sceRtcGetTickResolution()
 {
 	DEBUG_LOG(HLE,"100=sceRtcGetTickResolution()");
-	RETURN(100);
+	return 100;
 }
+

@@ -189,31 +189,31 @@ void __IoShutdown()
 
 }
 
-void sceIoAssign()
+u32 sceIoAssign(u32 aliasNameAddr, u32 physNameAddr, u32 devNameAddr, u32 flag, u32, u32)
 {
-	const char *aliasname = Memory::GetCharPointer(PARAM(0));
-	const char *physname = Memory::GetCharPointer(PARAM(1));
-	const char *devname = Memory::GetCharPointer(PARAM(2));
-	u32 flag = PARAM(3);
+	const char *aliasname = Memory::GetCharPointer(aliasNameAddr);
+	const char *physname = Memory::GetCharPointer(physNameAddr);
+	const char *devname = Memory::GetCharPointer(devNameAddr);
 	ERROR_LOG(HLE,"UNIMPL sceIoAssign(%s, %s, %s, %08x, ...)",aliasname,physname,devname,flag);
-	RETURN(0);
+	return 0;
 }
 
-void sceKernelStdin()
+u32 sceKernelStdin()
 {
 	DEBUG_LOG(HLE,"3=sceKernelStdin()");
-	RETURN(3);
-}
-void sceKernelStdout()
-{
-	DEBUG_LOG(HLE,"1=sceKernelStdout()");
-	RETURN(1);
+	return 3;
 }
 
-void sceKernelStderr()
+u32 sceKernelStdout()
+{
+	DEBUG_LOG(HLE,"1=sceKernelStdout()");
+	return 1;
+}
+
+u32 sceKernelStderr()
 {
 	DEBUG_LOG(HLE,"2=sceKernelStderr()");
-	RETURN(2);
+	return 2;
 }
 
 void __IoCompleteAsyncIO(SceUID id)
@@ -247,97 +247,87 @@ void __IoGetStat(SceIoStat *stat, PSPFileInfo &info)
 }
 
 
-void sceIoGetstat()
+u32 sceIoGetstat(u32 fileAddr, u32 statAddr)
 {
-	const char *filename = Memory::GetCharPointer(PARAM(0));
-	u32 addr = PARAM(1);
-	DEBUG_LOG(HLE,"sceIoGetstat(%s, %08x)",filename,addr);
+	const char *filename = Memory::GetCharPointer(fileAddr);
+	DEBUG_LOG(HLE,"sceIoGetstat(%s, %08x)",filename,statAddr);
 
-	SceIoStat *stat = (SceIoStat*)Memory::GetPointer(addr);
+	SceIoStat *stat = (SceIoStat*)Memory::GetPointer(statAddr);
 	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
 	__IoGetStat(stat, info);
 
-	RETURN(0);
+    return 0;
 }
 
-void sceIoRead()	 //(int fd, void *data, int size);
+u32 sceIoRead(SceUID fd, u32 dataAddr, SceSize size)
 {
-	SceUID id = PARAM(0);
-	if (id == 3)
+	if (fd == 3)
 	{
 		DEBUG_LOG(HLE,"sceIoRead STDIN");
-		RETURN(0); //stdin
-		return;
+		return 0;
 	}
 
 	u32 error;
-	FileNode *f = kernelObjects.Get<FileNode>(id, error);
+	FileNode *f = kernelObjects.Get<FileNode>(fd, error);
 	if (f)
 	{
-		if (PARAM(1))
+		if (dataAddr)
 		{
-			u8 *data = (u8*)Memory::GetPointer(PARAM(1));
-			int size = PARAM(2);
-			f->asyncResult = RETURN((u32)pspFileSystem.ReadFile(f->handle, data, size));
-			DEBUG_LOG(HLE,"%i=sceIoRead(%d, %08x , %i)",f->asyncResult, id, PARAM(1), size);
+			u8 *data = (u8*)Memory::GetPointer(dataAddr);
+			f->asyncResult = (u32)pspFileSystem.ReadFile(f->handle, data, size);
+			DEBUG_LOG(HLE,"%i=sceIoRead(%d, %08x , %i)",f->asyncResult, fd, dataAddr, size);
+			return f->asyncResult;
 		}
 		else
 		{
 			ERROR_LOG(HLE,"sceIoRead Reading into zero pointer");
-			RETURN(-1);
+			return -1;
 		}
 	}
 	else
 	{
 		ERROR_LOG(HLE,"sceIoRead ERROR: no file open");
-		RETURN(error);
+		return error;
 	}
 }
 
-void sceIoWrite()	//(int fd, void *data, int size);
+u32 sceIoWrite(SceUID fd, u32 dataAddr, SceSize size)
 {
-	SceUID id = PARAM(0);
-	int size = PARAM(2);
-	if (PARAM(0) == 2)
+	if (fd == 2)
 	{
 		//stderr!
-		const char *str = Memory::GetCharPointer(PARAM(1));
+		const char *str = Memory::GetCharPointer(dataAddr);
 		DEBUG_LOG(HLE,"stderr: %s", str);
-		RETURN(size);
-		return;
+		return size;
 	}
-	if (PARAM(0) == 1)
+	if (fd == 1)
 	{
 		//stdout!
-		char *str = (char *)Memory::GetPointer(PARAM(1));
+		char *str = (char *)Memory::GetPointer(dataAddr);
 		char temp = str[size];
 		str[size]=0;
 		DEBUG_LOG(HLE,"stdout: %s", str);
 		str[size]=temp;
-		RETURN(size);
-		return;
+		return size;
 	}
 	u32 error;
-	FileNode *f = kernelObjects.Get<FileNode>(id, error);
+	FileNode *f = kernelObjects.Get<FileNode>(fd, error);
 	if (f)
 	{
-		u8 *data = (u8*)Memory::GetPointer(PARAM(1));
-		f->asyncResult = RETURN((u32)pspFileSystem.WriteFile(f->handle,data,size));
+		u8 *data = (u8*)Memory::GetPointer(dataAddr);
+		return (f->asyncResult = (u32)pspFileSystem.WriteFile(f->handle,data,size));
 	}
 	else
 	{
 		ERROR_LOG(HLE,"sceIoWrite ERROR: no file open");
-		RETURN(error);
+		return error;
 	}
 }
 
-void sceIoLseek() //(int fd, int64 offset, int whence);
+u64 sceIoLseek(SceUID fd, s64 offset, u32 whence)
 {
-	SceUID id = PARAM(0);
 	u32 error;
-	FileNode *f = kernelObjects.Get<FileNode>(id, error);
-	s64 offset = ((s64)PARAM(2)) | ((s64)(PARAM(3))<<32);
-	int whence = PARAM(4);
+	FileNode *f = kernelObjects.Get<FileNode>(fd, error);
 	if (f)
 	{
 		FileMove seek = FILEMOVE_BEGIN;
@@ -348,26 +338,24 @@ void sceIoLseek() //(int fd, int64 offset, int whence);
 		case 2: seek=FILEMOVE_END;break;
 		}
 
-		f->asyncResult = RETURN((u32)pspFileSystem.SeekFile(f->handle, (s32)offset, seek));
-		DEBUG_LOG(HLE,"%i = sceIoLseek(%d,%i,%i)",f->asyncResult, id,(int)offset,whence);
+		f->asyncResult = (u32)pspFileSystem.SeekFile(f->handle, offset, seek);
+		DEBUG_LOG(HLE,"%i = sceIoLseek(%d,%lli,%i)",f->asyncResult, fd, offset,whence);
+		return f->asyncResult;
 	}
 	else
 	{
-		ERROR_LOG(HLE,"sceIoLseek(%d, %i, %i) - ERROR: invalid file", id, (int)offset, whence);
-		RETURN(error);
+		ERROR_LOG(HLE,"sceIoLseek(%d, %lli, %i) - ERROR: invalid file", fd, offset, whence);
+		return error;
 	}
 }
 
-void sceIoLseek32() //(int fd, int offset, int whence); 
+u32 sceIoLseek32(SceUID fd, int offset, u32 whence)
 {
-	SceUID id = PARAM(0);
 	u32 error;
-	FileNode *f = kernelObjects.Get<FileNode>(id, error);
+	FileNode *f = kernelObjects.Get<FileNode>(fd, error);
 	if (f)
 	{
-		s32 offset = (s32)PARAM(2);
-		int whence = PARAM(3);
-		DEBUG_LOG(HLE,"sceIoLseek32(%d,%08x,%i)",id,(int)offset,whence);
+		DEBUG_LOG(HLE,"sceIoLseek32(%d,%08x,%i)",fd,offset,whence);
 
 		FileMove seek=FILEMOVE_BEGIN;
 		switch (whence)
@@ -377,34 +365,29 @@ void sceIoLseek32() //(int fd, int offset, int whence);
 		case 2: seek=FILEMOVE_END;break;
 		}
 
-		f->asyncResult = RETURN((u32)pspFileSystem.SeekFile(f->handle, (s32)offset, seek));
+		return (f->asyncResult = (u32)pspFileSystem.SeekFile(f->handle, (s32)offset, seek));
 	}
 	else
 	{
 		ERROR_LOG(HLE,"sceIoLseek32 ERROR: no file open");
-		RETURN(error);
+		return error;
 	}
 }
 
-// Try WrapI_CU
-void sceIoOpen()	 //(const char* file, int mode);
+u32 sceIoOpen(const char *filename, int flags, SceMode)
 {
-	const char *filename = Memory::GetCharPointer(PARAM(0));
-	int mode = PARAM(1);
-
 	//memory stick filename
 	int access=FILEACCESS_NONE;
-	if (mode & O_RDONLY) access |= FILEACCESS_READ;
-	if (mode & O_WRONLY) access |= FILEACCESS_WRITE;
-	if (mode & O_APPEND) access |= FILEACCESS_APPEND;
-	if (mode & O_CREAT)	access |= FILEACCESS_CREATE;
+	if (flags & O_RDONLY) access |= FILEACCESS_READ;
+	if (flags & O_WRONLY) access |= FILEACCESS_WRITE;
+	if (flags & O_APPEND) access |= FILEACCESS_APPEND;
+	if (flags & O_CREAT)	access |= FILEACCESS_CREATE;
 
 	u32 h = pspFileSystem.OpenFile(filename, (FileAccess)access);
 	if (h == 0)
 	{
-		ERROR_LOG(HLE,"ERROR_ERRNO_FILE_NOT_FOUND=sceIoOpen(%s, %08x) - file not found", filename, mode);
-		RETURN(ERROR_ERRNO_FILE_NOT_FOUND);
-		return;
+		ERROR_LOG(HLE,"ERROR_ERRNO_FILE_NOT_FOUND=sceIoOpen(%s, %08x) - file not found", filename, flags);
+		return ERROR_ERRNO_FILE_NOT_FOUND;
 	}
 
 	FileNode *f = new FileNode();
@@ -412,46 +395,43 @@ void sceIoOpen()	 //(const char* file, int mode);
 	f->handle = h;
 	f->fullpath = filename;
 	f->asyncResult = id;
-	DEBUG_LOG(HLE,"%i=sceIoOpen(%s, %08x)",id,filename,mode);
-	RETURN(id);
+	DEBUG_LOG(HLE,"%i=sceIoOpen(%s, %08x)",id,filename,flags);
+	return id;
 }
 
-void sceIoClose()	//(int fd);
+u32 sceIoClose(SceUID fd)
 {
-	SceUID f = PARAM(0);
-	DEBUG_LOG(HLE,"sceIoClose(%d)",f);
-	RETURN(kernelObjects.Destroy<FileNode>(f));
+	DEBUG_LOG(HLE,"sceIoClose(%d)",fd);
+	return kernelObjects.Destroy<FileNode>(fd);
 }
 
-void sceIoRemove() //(const char *file);
+u32 sceIoRemove(u32 filenameAddr)
 {
-	const char *filename = Memory::GetCharPointer(PARAM(0));
-	if (pspFileSystem.DeleteFile(filename))
-		RETURN(0);
-	else
-		RETURN(-1);
+	const char *filename = Memory::GetCharPointer(filenameAddr);
 	DEBUG_LOG(HLE,"sceIoRemove(%s)", filename);
+	if (pspFileSystem.DeleteFile(filename))
+	    return 0;
+	else
+	    return -1;
 }
 
-void sceIoMkdir()	//(const char *dir, int mode); 
+u32 sceIoMkdir(const char *filename, int mode)
 {
-	const char *filename = Memory::GetCharPointer(PARAM(0));
-	int mode = PARAM(1);
-	if (pspFileSystem.MkDir(filename))
-		RETURN(0);
-	else
-		RETURN(-1);
 	DEBUG_LOG(HLE,"sceIoMkdir(%s, %i)", filename, mode);
+	if (pspFileSystem.MkDir(filename))
+	    return 0;
+	else
+	    return -1;
 }
 
-void sceIoRmdir()	//(const char *dir); 
+u32 sceIoRmdir(u32 dirAddr)
 {
-	const char *filename = Memory::GetCharPointer(PARAM(0));
-	if (pspFileSystem.RmDir(filename))
-		RETURN(0);
-	else
-		RETURN(-1);
+	const char *filename = Memory::GetCharPointer(dirAddr);
 	DEBUG_LOG(HLE,"sceIoRmdir(%s)", filename);
+	if (pspFileSystem.RmDir(filename))
+	    return 0;
+	else
+	    return -1;
 }
 
 void sceIoSync()
@@ -468,14 +448,9 @@ struct DeviceSize
 	u32 freeClusters;	
 };
 
-void sceIoDevctl() //(const char *name, int cmd, void *arg, size_t arglen, void *buf, size_t *buflen); 
+u32 sceIoDevctl(u32 nameAddr, int cmd, u32 argAddr, int argLen, u32 outPtr, int outLen)
 {
-	const char *name = Memory::GetCharPointer(PARAM(0));
-	int cmd = PARAM(1);
-	u32 argAddr = PARAM(2);
-	int argLen = PARAM(3);
-	u32 outPtr = PARAM(4);
-	int outLen = PARAM(5);
+	const char *name = Memory::GetCharPointer(nameAddr);
 	int retVal = 0;
 	DEBUG_LOG(HLE,"%i=sceIoDevctl(\"%s\", %08x, %08x, %i, %08x, %i)", 
 		retVal, name, cmd,argAddr,argLen,outPtr,outLen);
@@ -490,8 +465,7 @@ void sceIoDevctl() //(const char *name, int cmd, void *arg, size_t arglen, void 
 		case 0x02025806:	// Memory stick inserted?
 		case 0x02025801:	// Memstick Driver status?
 			Memory::Write_U32(1, outPtr);
-			RETURN(0);
-			return;
+			return 0;
 		case 0x02425818:
 			// Pretend we have a 2GB memory stick.
 			{
@@ -504,8 +478,7 @@ void sceIoDevctl() //(const char *name, int cmd, void *arg, size_t arglen, void 
 				deviceSize.totalClusters		 = (u32)((totalSize * 95 / 100) / (deviceSize.sectorSize * deviceSize.sectorsPerCluster));
 				deviceSize.freeClusters			= (u32)((freeSize	* 95 / 100) / (deviceSize.sectorSize * deviceSize.sectorsPerCluster));
 				Memory::WriteStruct(outPtr, &deviceSize);
-				RETURN(0);
-				return;
+				return 0;
 			}
 
 		}
@@ -516,8 +489,7 @@ void sceIoDevctl() //(const char *name, int cmd, void *arg, size_t arglen, void 
 		if (Memory::IsValidAddress(outPtr))
 			Memory::Write_U32(1, outPtr);	 // TODO: Make a headless mode for running tests!
 
-		RETURN(0);
-		return;
+        return 0;
 	}
 
 
@@ -564,33 +536,33 @@ void sceIoDevctl() //(const char *name, int cmd, void *arg, size_t arglen, void 
 	089c6c78 ]: HLE: sceIoDevctl("fatms0:", 02415821, 09ffb9c4, 4, 00000000, 0) (z_un_089c6bc4)
 	089c6cac ]: HLE: sceIoDevctl("mscmhc0:", 02025806, 00000000, 0, 09ffb9c8, 4) (z_un_089c6bc4)
 	*/
-	RETURN(retVal);
+	return retVal;
 }
 
-void sceIoRename() //(const char *oldname, const char *newname); 
+u32 sceIoRename(u32 oldNameAddr, u32 newNameAddr)
 {
-	const char *from = Memory::GetCharPointer(PARAM(0));
-	const char *to = Memory::GetCharPointer(PARAM(1));
+	const char *from = Memory::GetCharPointer(oldNameAddr);
+	const char *to = Memory::GetCharPointer(newNameAddr);
 	ERROR_LOG(HLE,"UNIMPL sceIoRename(%s, %s)", from, to);
-	RETURN(0);
+	return 0;
 }
 
-void sceIoChdir()
+u32 sceIoChdir(u32 dirAddr)
 {
-	const char *dir = Memory::GetCharPointer(PARAM(0));
+	const char *dir = Memory::GetCharPointer(dirAddr);
 	pspFileSystem.ChDir(dir);
 	DEBUG_LOG(HLE,"sceIoChdir(%s)",dir);
-	RETURN(1);
+	return 1;
 }
 
 typedef u32 (*DeferredAction)(SceUID id, int param);
 DeferredAction defAction = 0;
 u32 defParam;
 
-void sceIoChangeAsyncPriority()
+u32 sceIoChangeAsyncPriority(u32 prio)
 {
-	ERROR_LOG(HLE,"UNIMPL sceIoChangeAsyncPriority(%d)", PARAM(0));
-	RETURN(0);
+	ERROR_LOG(HLE,"UNIMPL sceIoChangeAsyncPriority(%d)", prio);
+	return 0;
 }
 
 u32 __IoClose(SceUID id, int param)
@@ -600,154 +572,150 @@ u32 __IoClose(SceUID id, int param)
 	return kernelObjects.Destroy<FileNode>(id);
 }
 
-void sceIoCloseAsync()
+u32 sceIoCloseAsync(SceUID fd)
 {
-	DEBUG_LOG(HLE,"sceIoCloseAsync(%d)",PARAM(0));
+	DEBUG_LOG(HLE,"sceIoCloseAsync(%d)",fd);
 	//sceIoClose();
 	defAction = &__IoClose;
-	RETURN(0);
+	return 0;
 }
 
-void sceIoLseekAsync()
+u32 sceIoLseekAsync(SceUID fd, SceOff offset, u32 whence)
 {
-	sceIoLseek();
-	__IoCompleteAsyncIO(PARAM(0));
-	RETURN(0);
+	sceIoLseek(fd, offset, whence);
+	__IoCompleteAsyncIO(fd);
+	return 0;
 }
 
-void sceIoSetAsyncCallback()
+u32 sceIoSetAsyncCallback(SceUID fd, SceUID cb, u32 argAddr)
 {
-	DEBUG_LOG(HLE,"sceIoSetAsyncCallback(%d, %i, %08x)",PARAM(0), PARAM(1), PARAM(2));
+	DEBUG_LOG(HLE,"sceIoSetAsyncCallback(%d, %i, %08x)", fd, cb, argAddr);
 
-	SceUID id = PARAM(0);
 	u32 error;
-	FileNode *f = kernelObjects.Get<FileNode>(id, error);
+	FileNode *f = kernelObjects.Get<FileNode>(fd, error);
 	if (f)
 	{
-		f->callbackID = PARAM(1);
-		f->callbackArg = PARAM(2);
-		RETURN(0);
+		f->callbackID = cb;
+		f->callbackArg = argAddr;
+		return 0;
 	}
 	else
 	{
-		RETURN(error);
+	    return error;
 	}
 }
 
-void sceIoLseek32Async()
+u32 sceIoLseek32Async(SceUID fd, int offset, u32 whence)
 {
-	DEBUG_LOG(HLE,"sceIoLseek32Async(%d) sorta implemented",PARAM(0));
-	sceIoLseek32();
-	__IoCompleteAsyncIO(PARAM(0));
-	RETURN(0);
+	DEBUG_LOG(HLE,"sceIoLseek32Async(%d) sorta implemented",fd);
+	sceIoLseek32(fd, offset, whence);
+	__IoCompleteAsyncIO(fd);
+	return 0;
 }
 
-void sceIoOpenAsync()
+u32 sceIoOpenAsync(const char *filename, int flags, SceMode mode)
 {
 	DEBUG_LOG(HLE,"sceIoOpenAsync() sorta implemented");
-	sceIoOpen();
+	return sceIoOpen(filename, flags, mode);
 //	__IoCompleteAsyncIO(currentMIPS->r[2]);	// The return value
 	// We have to return a UID here, which may have been destroyed when we reach Wait if it failed.
 	// Now that we're just faking it, we just don't RETURN(0) here.
 }	
 
-void sceIoReadAsync()
+u32 sceIoReadAsync(SceUID fd, u32 dataAddr, SceSize size)
 {
-	DEBUG_LOG(HLE,"sceIoReadAsync(%d)",PARAM(0));
-	sceIoRead();
-	__IoCompleteAsyncIO(PARAM(0));
-	RETURN(0);
+	DEBUG_LOG(HLE,"sceIoReadAsync(%d)",fd);
+	sceIoRead(fd, dataAddr, size);
+	__IoCompleteAsyncIO(fd);
+	return 0;
 }
 
-void sceIoGetAsyncStat()
+u32 sceIoGetAsyncStat(SceUID fd, int poll, u32 resAddr)
 {
-	SceUID id = PARAM(0);
 	u32 error;
-	FileNode *f = kernelObjects.Get<FileNode>(id, error);
+	FileNode *f = kernelObjects.Get<FileNode>(fd, error);
 	if (f)
 	{
-		u64 *resPtr = (u64*)Memory::GetPointer(PARAM(2));
+		u64 *resPtr = (u64*)Memory::GetPointer(resAddr);
 		*resPtr = f->asyncResult;
-		DEBUG_LOG(HLE,"%i = sceIoGetAsyncStat(%i, %i, %08x) (HACK)", (u32)*resPtr, id, PARAM(1), PARAM(2));
-		RETURN(0); //completed
+		DEBUG_LOG(HLE,"%i = sceIoGetAsyncStat(%i, %i, %08x) (HACK)", (u32)*resPtr, fd, poll, resAddr);
+		return 0;
 	}
 	else
 	{
-		ERROR_LOG(HLE,"ERROR - sceIoGetAsyncStat with invalid id %i", id);
-		RETURN(-1);
+		ERROR_LOG(HLE,"ERROR - sceIoGetAsyncStat with invalid id %i", fd);
+		return -1;
 	}
 }
 
 
-void sceIoWaitAsync()
+u32 sceIoWaitAsync(SceUID fd, u32 resAddr)
 {
-	SceUID id = PARAM(0);
 	u32 error;
-	FileNode *f = kernelObjects.Get<FileNode>(id, error);
+	FileNode *f = kernelObjects.Get<FileNode>(fd, error);
 	if (f)
 	{
-		u64 *resPtr = (u64*)Memory::GetPointer(PARAM(1));
+		u64 *resPtr = (u64*)Memory::GetPointer(resAddr);
 		*resPtr = f->asyncResult;
 		if (defAction)
 		{
-			*resPtr = defAction(id, defParam);
+			*resPtr = defAction(fd, defParam);
 			defAction = 0;
 		}
-		DEBUG_LOG(HLE,"%i = sceIoWaitAsync(%i, %08x) (HACK)", (u32)*resPtr, id, PARAM(1));
-		RETURN(0); //completed
+		DEBUG_LOG(HLE,"%i = sceIoWaitAsync(%i, %08x) (HACK)", (u32)*resPtr, fd, resAddr);
+		return 0;
 	}
 	else
 	{
-		ERROR_LOG(HLE,"ERROR - sceIoWaitAsync waiting for invalid id %i", id);
-		RETURN(-1);
+		ERROR_LOG(HLE,"ERROR - sceIoWaitAsync waiting for invalid id %i", fd);
+		return -1;
 	}
 }
 
-void sceIoWaitAsyncCB()
+u32 sceIoWaitAsyncCB(SceUID fd, u32 resAddr)
 {
 	// Should process callbacks here
-
-	SceUID id = PARAM(0);
 	u32 error;
-	FileNode *f = kernelObjects.Get<FileNode>(id, error);
+	FileNode *f = kernelObjects.Get<FileNode>(fd, error);
 	if (f)
 	{
-		u64 *resPtr = (u64*)Memory::GetPointer(PARAM(1));
+		u64 *resPtr = (u64*)Memory::GetPointer(resAddr);
 		*resPtr = f->asyncResult;
 		if (defAction)
 		{
-			*resPtr = defAction(id, defParam);
+			*resPtr = defAction(fd, defParam);
 			defAction = 0;
 		}
-		DEBUG_LOG(HLE,"%i = sceIoWaitAsyncCB(%i, %08x) (HACK)", (u32)*resPtr, id, PARAM(1));
-		RETURN(0); //completed
+		DEBUG_LOG(HLE,"%i = sceIoWaitAsyncCB(%i, %08x) (HACK)", (u32)*resPtr, fd, resAddr);
+		return 0;
 	}
 	else
 	{
-		ERROR_LOG(HLE,"ERROR - sceIoWaitAsyncCB waiting for invalid id %i", id);
+		ERROR_LOG(HLE,"ERROR - sceIoWaitAsyncCB waiting for invalid id %i", fd);
+		return error;
 	}
 }
 
-void sceIoPollAsync()
+u32 sceIoPollAsync(SceUID fd, u32 resAddr)
 {
-	SceUID id = PARAM(0);
 	u32 error;
-	FileNode *f = kernelObjects.Get<FileNode>(id, error);
+	FileNode *f = kernelObjects.Get<FileNode>(fd, error);
 	if (f)
 	{
-		u64 *resPtr = (u64*)Memory::GetPointer(PARAM(1));
+		u64 *resPtr = (u64*)Memory::GetPointer(resAddr);
 		*resPtr = f->asyncResult;
 		if (defAction)
 		{
-			*resPtr = defAction(id, defParam);
+			*resPtr = defAction(fd, defParam);
 			defAction = 0;
 		}
-		DEBUG_LOG(HLE,"%i = sceIoPollAsync(%i, %08x) (HACK)", (u32)*resPtr, id, PARAM(1));
-		RETURN(0); //completed
+		DEBUG_LOG(HLE,"%i = sceIoPollAsync(%i, %08x) (HACK)", (u32)*resPtr, fd, resAddr);
+		return 0;
 	}
 	else
 	{
-		ERROR_LOG(HLE,"ERROR - sceIoPollAsync waiting for invalid id %i", id);
+		ERROR_LOG(HLE,"ERROR - sceIoPollAsync waiting for invalid id %i", fd);
+	    return error;
 	}
 }
 
@@ -764,9 +732,9 @@ public:
 	int index;
 };
 
-void sceIoDopen() //(const char *path); 
+u32 sceIoDopen(u32 pathAddr)
 {
-	const char *path = Memory::GetCharPointer(PARAM(0));
+	const char *path = Memory::GetCharPointer(pathAddr);
 	DEBUG_LOG(HLE,"sceIoDopen(\"%s\")",path);
 
 	DirListing *dir = new DirListing();
@@ -778,86 +746,84 @@ void sceIoDopen() //(const char *path);
 	dir->index = 0;
 	dir->name = std::string(path);
 
-	RETURN(id);
+    return id;
 }
 
-void sceIoDread()
+u32 sceIoDread(SceUID id, u32 dirEntAddr)
 {
-	SceUID id = PARAM(0);
 	u32 error;
 	DirListing *dir = kernelObjects.Get<DirListing>(id, error);
 	if (dir)
 	{
 		if (dir->index == (int)dir->listing.size())
 		{
-			RETURN(0);
-			return;
+		    return 0;
 		}
 
 		PSPFileInfo &info = dir->listing[dir->index];
 
-		SceIoDirEnt *entry = (SceIoDirEnt*)Memory::GetPointer(PARAM(1));
+		SceIoDirEnt *entry = (SceIoDirEnt*)Memory::GetPointer(dirEntAddr);
 
 		__IoGetStat(&entry->d_stat, info);
 
 		strncpy(entry->d_name, info.name.c_str(), 256);
 		entry->d_private = 0xC0DEBABE;
-		DEBUG_LOG(HLE,"sceIoDread( %d %08x ) = %s", PARAM(0), PARAM(1), entry->d_name);
+		DEBUG_LOG(HLE,"sceIoDread( %d %08x ) = %s", id, dirEntAddr, entry->d_name);
 
 		dir->index++;
-		RETURN((u32)(dir->listing.size()-dir->index+1));
+		return (u32)(dir->listing.size()-dir->index+1);
 	}
 	else
 	{
 		DEBUG_LOG(HLE,"sceIoDread - invalid listing %i, error %08x", id, error);
+		return error;
 	}
 }
 
-void sceIoDclose()
+u32 sceIoDclose(SceUID id)
 {
-	u32 id = PARAM(0);
 	DEBUG_LOG(HLE,"sceIoDclose(%d)",id);
-	RETURN(kernelObjects.Destroy<DirListing>(id));
+	return kernelObjects.Destroy<DirListing>(id);
 }
 
 const HLEFunction IoFileMgrForUser[] =
 {
-	{0xb29ddf9c,sceIoDopen, "sceIoDopen"},
-	{0xe3eb004c,sceIoDread, "sceIoDread"},
-	{0xeb092469,sceIoDclose,"sceIoDclose"},
+	{0xb29ddf9c,&Wrap<sceIoDopen>, "sceIoDopen"},
+	{0xe3eb004c,&Wrap<sceIoDread>, "sceIoDread"},
+	{0xeb092469,&Wrap<sceIoDclose>,"sceIoDclose"},
 	{0xe95a012b,0,"sceIoIoctlAsync"},
 	{0x63632449,0,"sceIoIoctl"},
-	{0xace946e8,sceIoGetstat,"sceIoGetstat"},
+	{0xace946e8,&Wrap<sceIoGetstat>,"sceIoGetstat"},
 	{0xb8a740f4,0,"sceIoChstat"},
-	{0x55f4717d,sceIoChdir,"sceIoChdir"},
+	{0x55f4717d,&Wrap<sceIoChdir>,"sceIoChdir"},
 	{0x08bd7374,0,"sceIoGetDevType"},
-	{0xB2A628C1,sceIoAssign,"sceIoAssign"},
+	{0xB2A628C1,&Wrap<sceIoAssign>,"sceIoAssign"},
 	{0xe8bc6571,0,"sceIoCancel"},
-	{0xb293727f,sceIoChangeAsyncPriority,"sceIoChangeAsyncPriority"},
-	{0x810C4BC3,sceIoClose, "sceIoClose"},	//(int fd); 
-	{0xff5940b6,sceIoCloseAsync,"sceIoCloseAsync"},
-	{0x54F5FB11,sceIoDevctl,"sceIoDevctl"}, //(const char *name int cmd, void *arg, size_t arglen, void *buf, size_t *buflen); 
-	{0xcb05f8d6,sceIoGetAsyncStat,"sceIoGetAsyncStat"},
-	{0x27EB27B8,sceIoLseek, "sceIoLseek"},	//(int fd, int offset, int whence); 
-	{0x68963324,sceIoLseek32,"sceIoLseek32"},
-	{0x1b385d8f,sceIoLseek32Async,"sceIoLseek32Async"},
-	{0x71b19e77,sceIoLseekAsync,"sceIoLseekAsync"},
-	{0x109F50BC,sceIoOpen,	"sceIoOpen"},	 //(const char* file, int mode); 
-	{0x89AA9906,sceIoOpenAsync,"sceIoOpenAsync"},
-	{0x06A70004,sceIoMkdir,"sceIoMkdir"},	//(const char *dir, int mode); 
-	{0x3251ea56,sceIoPollAsync,"sceIoPollAsync"},
-	{0x6A638D83,sceIoRead,	"sceIoRead"},	 //(int fd, void *data, int size); 
-	{0xa0b5a7c2,sceIoReadAsync,"sceIoReadAsync"},
-	{0xF27A9C51,sceIoRemove,"sceIoRemove"}, //(const char *file); 
-	{0x779103A0,sceIoRename,"sceIoRename"}, //(const char *oldname, const char *newname); 
-	{0x1117C65F,sceIoRmdir,"sceIoRmdir"},	//(const char *dir); 
-	{0xA12A0514,sceIoSetAsyncCallback,"sceIoSetAsyncCallback"},
-	{0xab96437f,sceIoSync,"sceIoSync"},
+	{0xb293727f,&Wrap<sceIoChangeAsyncPriority>,"sceIoChangeAsyncPriority"},
+	{0x810C4BC3,&Wrap<sceIoClose>, "sceIoClose"},	//(int fd); 
+	{0xff5940b6,&Wrap<sceIoCloseAsync>,"sceIoCloseAsync"},
+	{0x54F5FB11,&Wrap<sceIoDevctl>,"sceIoDevctl"}, //(const char *name int cmd, void *arg, size_t arglen, void *buf, size_t *buflen); 
+	{0xcb05f8d6,&Wrap<sceIoGetAsyncStat>,"sceIoGetAsyncStat"},
+	{0x27EB27B8,&Wrap<sceIoLseek>, "sceIoLseek"},	//(int fd, int offset, int whence); 
+	{0x68963324,&Wrap<sceIoLseek32>,"sceIoLseek32"},
+	{0x1b385d8f,&Wrap<sceIoLseek32Async>,"sceIoLseek32Async"},
+	{0x71b19e77,&Wrap<sceIoLseekAsync>,"sceIoLseekAsync"},
+	{0x109F50BC,&Wrap<sceIoOpen>,	"sceIoOpen"},	 //(const char* file, int mode); 
+	{0x89AA9906,&Wrap<sceIoOpenAsync>,"sceIoOpenAsync"},
+	{0x06A70004,&Wrap<sceIoMkdir>,"sceIoMkdir"},	//(const char *dir, int mode); 
+	{0x3251ea56,&Wrap<sceIoPollAsync>,"sceIoPollAsync"},
+	{0x6A638D83,&Wrap<sceIoRead>,	"sceIoRead"},	 //(int fd, void *data, int size); 
+	{0xa0b5a7c2,&Wrap<sceIoReadAsync>,"sceIoReadAsync"},
+	{0xF27A9C51,&Wrap<sceIoRemove>,"sceIoRemove"}, //(const char *file); 
+	{0x779103A0,&Wrap<sceIoRename>,"sceIoRename"}, //(const char *oldname, const char *newname); 
+	{0x1117C65F,&Wrap<sceIoRmdir>,"sceIoRmdir"},	//(const char *dir); 
+	{0xA12A0514,&Wrap<sceIoSetAsyncCallback>,"sceIoSetAsyncCallback"},
+	{0xab96437f,&Wrap<sceIoSync>,"sceIoSync"},
 	{0x6d08a871,0,"sceIoUnassign"},
-	{0x42EC03AC,sceIoWrite, "sceIoWrite"},	//(int fd, void *data, int size); 
+	{0x42EC03AC,&Wrap<sceIoWrite>, "sceIoWrite"},	//(int fd, void *data, int size); 
 	{0x0facab19,0,"sceIoWriteAsync"},
-	{0x35dbd746,sceIoWaitAsyncCB,"sceIoWaitAsyncCB"},
-	{0xe23eec33,sceIoWaitAsync,"sceIoWaitAsync"},
+	{0x35dbd746,&Wrap<sceIoWaitAsyncCB>,"sceIoWaitAsyncCB"},
+	{0xe23eec33,&Wrap<sceIoWaitAsync>,"sceIoWaitAsync"},
 };
 
 void Register_IoFileMgrForUser()
@@ -868,9 +834,9 @@ void Register_IoFileMgrForUser()
 
 const HLEFunction StdioForUser[] = 
 {
-	{0x172D316E,sceKernelStdin,"sceKernelStdin"},
-	{0xA6BAB2E9,sceKernelStdout,"sceKernelStdout"},
-	{0xF78BA90A,sceKernelStderr,"sceKernelStderr"},
+	{0x172D316E,&Wrap<sceKernelStdin>,"sceKernelStdin"},
+	{0xA6BAB2E9,&Wrap<sceKernelStdout>,"sceKernelStdout"},
+	{0xF78BA90A,&Wrap<sceKernelStderr>,"sceKernelStderr"},
 };
 
 void Register_StdioForUser()

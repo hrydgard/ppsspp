@@ -77,6 +77,20 @@ bool ElfReader::LoadInto(u32 vaddr)
 	bRelocate = (header->e_type != ET_EXEC);
 
 	entryPoint = header->e_entry;
+	u32 totalSize = 0;
+	for (int i=0; i<header->e_phnum; i++)
+	{
+		Elf32_Phdr *p = segments + i;
+		if (p->p_type == PT_LOAD && p->p_vaddr + p->p_memsz > totalSize)
+		{
+			totalSize = p->p_vaddr + p->p_memsz;
+		}
+	}
+	if (vaddr)
+		vaddr = userMemory.AllocAt(vaddr, totalSize, "ELF");
+	else
+		vaddr = userMemory.Alloc(totalSize, false, "ELF");
+
 	if (bRelocate)
 	{
 		DEBUG_LOG(LOADER,"Relocatable module");
@@ -108,8 +122,6 @@ bool ElfReader::LoadInto(u32 vaddr)
 			u8 *dst = Memory::GetPointer(writeAddr);
 			u32 srcSize = p->p_filesz;
 			u32 dstSize = p->p_memsz;
-
-			userMemory.AllocAt(writeAddr, dstSize, "ELF");
 
 			memcpy(dst, src, srcSize);
 			if (srcSize < dstSize)
@@ -154,7 +166,6 @@ bool ElfReader::LoadInto(u32 vaddr)
 		if (s->sh_type == SHT_PSPREL)
 		{
 			//We have a relocation table!
-			int symbolSection = s->sh_link;
 			int sectionToModify = s->sh_info;
 
 			if (!(sections[sectionToModify].sh_flags & SHF_ALLOC))
@@ -289,7 +300,6 @@ bool ElfReader::LoadInto(u32 vaddr)
 			else
 			{
 				//We have a relocation table!
-				int symbolSection = s->sh_link;
 				int sectionToModify = s->sh_info;
 				if (!(sections[sectionToModify].sh_flags & SHF_ALLOC))
 				{
@@ -341,7 +351,6 @@ bool ElfReader::LoadSymbols()
 			if (size == 0)
 				continue;
 
-			int bind = symtab[sym].st_info >> 4;
 			int type = symtab[sym].st_info & 0xF;
 			int sectionIndex = symtab[sym].st_shndx;
 			int value = symtab[sym].st_value;

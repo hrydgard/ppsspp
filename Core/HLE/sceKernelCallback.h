@@ -28,6 +28,8 @@ void sceKernelNotifyCallback();
 void sceKernelCancelCallback();
 void sceKernelGetCallbackCount();
 void _sceKernelReturnFromCallback();
-void sceKernelCheckCallback();
+u32 sceKernelCheckCallback();
 void sceKernelGetCallbackCount();
 void sceKernelReferCallbackStatus();
+bool __KernelInCallback();
+

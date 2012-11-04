@@ -28,19 +28,14 @@
 #define ATRAC_ERROR_API_FAIL 0x80630002
 #define ATRAC_ERROR_ALL_DATA_DECODED 0x80630024
 
-void sceAtracAddStreamData()
+u32 sceAtracAddStreamData(u32 atracID, u32 addByte)
 {
-	ERROR_LOG(HLE, "UNIMPL sceAtracAddStreamData(%i, %i)", PARAM(0), PARAM(1));
-	RETURN(0);
+	ERROR_LOG(HLE, "UNIMPL sceAtracAddStreamData(%i, %i)", atracID, addByte);
+	return 0;
 }
 
-void sceAtracDecodeData()
+u32 sceAtracDecodeData(u32 atracID, u32 outAddr, u32 numSamplesAddr, u32 finishFlagAddr, u32 remainAddr)
 {
-	u32 atracID = PARAM(0);
-	u32 outAddr = PARAM(1);
-	u32 numSamplesAddr = PARAM(2);
-	u32 finishFlagAddr = PARAM(3);
-	u32 remainAddr = PARAM(4);
 	ERROR_LOG(HLE, "FAKE sceAtracDecodeData(%i, %08x, %08x, %08x, %08x)", atracID, outAddr, numSamplesAddr, finishFlagAddr, remainAddr);
 
 	Memory::Write_U16(0, outAddr);	// Write a single 16-bit stereo
@@ -50,199 +45,193 @@ void sceAtracDecodeData()
 	Memory::Write_U32(1, finishFlagAddr);	// Lie that decoding is finished
 	Memory::Write_U32(0, remainAddr);	// Lie that decoding is finished
 
-	RETURN(0);
+	return 0;
 }
 
-void sceAtracEndEntry()
+u32 sceAtracEndEntry()
 {
 	ERROR_LOG(HLE, "UNIMPL sceAtracEndEntry");
-	RETURN(0);
+	return 0;
 }
 
-void sceAtracGetAtracID()
+u32 sceAtracGetAtracID(u32)
 {
 	ERROR_LOG(HLE, "UNIMPL sceAtracGetAtracID");
-	RETURN(0);
+	return 0;
 }
 
-void sceAtracGetBufferInfoForReseting()
+u32 sceAtracGetBufferInfoForReseting(u32, u32, u32)
 {
 	ERROR_LOG(HLE, "UNIMPL sceAtracGetBufferInfoForReseting");
-	RETURN(0);
+	return 0;
 }
 
-void sceAtracGetBitrate()
+u32 sceAtracGetBitrate(u32, u32)
 {
 	ERROR_LOG(HLE, "UNIMPL sceAtracGetBitrate");
-	RETURN(0);
+	return 0;
 }
 
-void sceAtracGetChannel()
+u32 sceAtracGetChannel(u32, u32)
 {
 	ERROR_LOG(HLE, "UNIMPL sceAtracGetChannel");
-	RETURN(0);
+	return 0;
 }
 
-void sceAtracGetLoopStatus()
+u32 sceAtracGetLoopStatus(u32, u32, u32)
 {
 	ERROR_LOG(HLE, "UNIMPL sceAtracGetLoopStatus");
-	RETURN(0);
+	return 0;
 }
 
-void sceAtracGetInternalErrorInfo()
+u32 sceAtracGetInternalErrorInfo(u32, u32)
 {
 	ERROR_LOG(HLE, "UNIMPL sceAtracGetInternalErrorInfo");
-	RETURN(0);
+	return 0;
 }
 
-void sceAtracGetMaxSample()
+u32 sceAtracGetMaxSample(u32, u32)
 {
 	ERROR_LOG(HLE, "UNIMPL sceAtracGetMaxSample");
-	RETURN(0);
+	return 0;
 }
 
-void sceAtracGetNextDecodePosition()
+u32 sceAtracGetNextDecodePosition(u32 atracID, u32 samplePositionAddr)
 {
-	ERROR_LOG(HLE, "UNIMPL sceAtracGetNextDecodePosition(%i, %08x)", PARAM(0), PARAM(1));
-	u32 *outPos = (u32*)Memory::GetPointer(PARAM(1));
+	ERROR_LOG(HLE, "UNIMPL sceAtracGetNextDecodePosition(%i, %08x)", atracID, samplePositionAddr);
+	u32 *outPos = (u32*)Memory::GetPointer(samplePositionAddr);
 	*outPos = 1;
-	RETURN(0);
+	return 0;
 }
 
-void sceAtracGetNextSample()
+u32 sceAtracGetNextSample(u32 atracID, u32 outN)
 {
-	u32 atracID = PARAM(0);
-	u32 outN = PARAM(1);
 	ERROR_LOG(HLE, "FAKE sceAtracGetNextSample(%i, %08x)", atracID, outN);
 	Memory::Write_U32(0, outN);
-	RETURN(0);
+	return 0;
 }
 
-void sceAtracGetRemainFrame()
+u32 sceAtracGetRemainFrame(u32 atracID, u32 remainAddr)
 {
-	ERROR_LOG(HLE, "sceAtracGetRemainFrame(%i, %08x)",PARAM(0),PARAM(1));
-	u32 *outPos = (u32*)Memory::GetPointer(PARAM(1));
+	ERROR_LOG(HLE, "sceAtracGetRemainFrame(%i, %08x)",atracID,remainAddr);
+	u32 *outPos = (u32*)Memory::GetPointer(remainAddr);
 	*outPos = 12;
-	RETURN(0);
+	return 0;
 }
 
-void sceAtracGetSecondBufferInfo()
+u32 sceAtracGetSecondBufferInfo(u32 atracID, u32 positionAddr, u32 dataAddr)
 {
-	ERROR_LOG(HLE, "sceAtracGetSecondBufferInfo(%i, %08x, %08x)",PARAM(0),PARAM(1),PARAM(2));
-	u32 *outPos = (u32*)Memory::GetPointer(PARAM(1));
-	u32 *outBytes = (u32*)Memory::GetPointer(PARAM(2));
+	ERROR_LOG(HLE, "sceAtracGetSecondBufferInfo(%i, %08x, %08x)",atracID,positionAddr,dataAddr);
+	u32 *outPos = (u32*)Memory::GetPointer(positionAddr);
+	u32 *outBytes = (u32*)Memory::GetPointer(dataAddr);
 	*outPos = 0;
 	*outBytes = 0x10000;
-	RETURN(0);
+	return 0;
 }
 
-void sceAtracGetSoundSample()
+u32 sceAtracGetSoundSample(u32 atracID, u32 endSampleAddr, u32 loopStartAddr, u32 loopEndAddr)
 {
-	ERROR_LOG(HLE, "UNIMPL sceAtracGetSoundSample(%i, %08x, %08x, %08x)",PARAM(0),PARAM(1),PARAM(2),PARAM(3));
-	u32 *outEndSample = (u32*)Memory::GetPointer(PARAM(1));
-	u32 *outLoopStartSample = (u32*)Memory::GetPointer(PARAM(2));
-	u32 *outLoopEndSample = (u32*)Memory::GetPointer(PARAM(2));
+	ERROR_LOG(HLE, "UNIMPL sceAtracGetSoundSample(%i, %08x, %08x, %08x)",atracID,endSampleAddr,loopStartAddr,loopEndAddr);
+	u32 *outEndSample = (u32*)Memory::GetPointer(endSampleAddr);
+	u32 *outLoopStartSample = (u32*)Memory::GetPointer(loopStartAddr);
+	u32 *outLoopEndSample = (u32*)Memory::GetPointer(loopEndAddr);
 	*outEndSample = 0x10000;
 	*outLoopStartSample = -1;
 	*outLoopEndSample = -1;
-	RETURN(0);
+	return 0;
 }
 
-void sceAtracGetStreamDataInfo()
+u32 sceAtracGetStreamDataInfo(u32 atracID, u32 writePointerAddr, u32 availableBytesAddr, u32 readOffsetAddr)
 {
-	u32 atracID = PARAM(0);
-	u32 writePointerAddr = PARAM(1);
-	u32 availableBytesAddr = PARAM(2);
-	u32 readOffsetAddr = PARAM(3);
 	ERROR_LOG(HLE, "FAKE sceAtracGetStreamDataInfo(%i, %08x, %08x, %08x)", atracID, writePointerAddr, availableBytesAddr, readOffsetAddr);
 	Memory::Write_U32(0, readOffsetAddr);
 	Memory::Write_U32(0, availableBytesAddr);
 	Memory::Write_U32(0, writePointerAddr);
-	RETURN(0);
+	return 0;
 }
 
-void sceAtracReleaseAtracID()
+u32 sceAtracReleaseAtracID(u32)
 {
 	ERROR_LOG(HLE, "UNIMPL sceAtracReleaseAtracID");
-	RETURN(0);
+	return 0;
 }
 
-void sceAtracResetPlayPosition()
+u32 sceAtracResetPlayPosition(u32, u32, u32, u32)
 {
 	ERROR_LOG(HLE, "UNIMPL sceAtracResetPlayPosition");
-	RETURN(0);
+	return 0;
 }
 
-void sceAtracSetHalfwayBuffer()
+u32 sceAtracSetHalfwayBuffer(u32, u32, u32, u32)
 {
 	ERROR_LOG(HLE, "UNIMPL sceAtracSetHalfwayBuffer");
-	RETURN(0);
+	return 0;
 }
 
-void sceAtracSetSecondBuffer()
+u32 sceAtracSetSecondBuffer(u32 atracID, u32 secondBufferAddr, u32 secondBufferSize)
 {
-	ERROR_LOG(HLE, "UNIMPL sceAtracSetSecondBuffer(%i, %08x, %i)", PARAM(0),PARAM(1),PARAM(2));
-	RETURN(0);
+	ERROR_LOG(HLE, "UNIMPL sceAtracSetSecondBuffer(%i, %08x, %i)", atracID, secondBufferAddr, secondBufferSize);
+	return 0;
 }
 
-void sceAtracSetData()
+u32 sceAtracSetData(u32, u32, u32)
 {
 	ERROR_LOG(HLE, "UNIMPL sceAtracSetData");
-	RETURN(0);
-} //?
-
-void sceAtracSetDataAndGetID()
-{
-	ERROR_LOG(HLE, "UNIMPL sceAtracSetDataAndGetID(%08x, %i)", PARAM(0), PARAM(1));
-	RETURN(1);
+	return 0;
 }
 
-void sceAtracSetHalfwayBufferAndGetID()
+u32 sceAtracSetDataAndGetID(u32 bufferAddr, u32 bufferSize)
+{
+	ERROR_LOG(HLE, "UNIMPL sceAtracSetDataAndGetID(%08x, %i)", bufferAddr, bufferSize);
+	return 1;
+}
+
+u32 sceAtracSetHalfwayBufferAndGetID(u32, u32, u32)
 {
 	ERROR_LOG(HLE, "UNIMPL sceAtracSetHalfwayBufferAndGetID");
-	RETURN(0);
+	return 0;
 }
 
-void sceAtracStartEntry()
+u32 sceAtracStartEntry()
 {
 	ERROR_LOG(HLE, "UNIMPL sceAtracStartEntry");
-	RETURN(0);
+	return 0;
 }
 
-void sceAtracSetLoopNum()
+u32 sceAtracSetLoopNum(u32 atracID, u32 loopNum)
 {
-	ERROR_LOG(HLE, "UNIMPL sceAtracSetLoopNum(%i, %i)", PARAM(0), PARAM(1));
-	RETURN(0);
+	ERROR_LOG(HLE, "UNIMPL sceAtracSetLoopNum(%i, %i)", atracID, loopNum);
+	return 0;
 }
 
 
 const HLEFunction sceAtrac3plus[] =
 {
-	{0x7db31251,sceAtracAddStreamData,"sceAtracAddStreamData"},
-	{0x6a8c3cd5,sceAtracDecodeData,"sceAtracDecodeData"},
-	{0xd5c28cc0,sceAtracEndEntry,"sceAtracEndEntry"},
-	{0x780f88d1,sceAtracGetAtracID,"sceAtracGetAtracID"},
-	{0xca3ca3d2,sceAtracGetBufferInfoForReseting,"sceAtracGetBufferInfoForReseting"},
-	{0xa554a158,sceAtracGetBitrate,"sceAtracGetBitrate"},
-	{0x31668baa,sceAtracGetChannel,"sceAtracGetChannel"},
-	{0xfaa4f89b,sceAtracGetLoopStatus,"sceAtracGetLoopStatus"},
-	{0xe88f759b,sceAtracGetInternalErrorInfo,"sceAtracGetInternalErrorInfo"},
-	{0xd6a5f2f7,sceAtracGetMaxSample,"sceAtracGetMaxSample"},
-	{0xe23e3a35,sceAtracGetNextDecodePosition,"sceAtracGetNextDecodePosition"},
-	{0x36faabfb,sceAtracGetNextSample,"sceAtracGetNextSample"},
-	{0x9ae849a7,sceAtracGetRemainFrame,"sceAtracGetRemainFrame"},
-	{0x83e85ea0,sceAtracGetSecondBufferInfo,"sceAtracGetSecondBufferInfo"},
-	{0xa2bba8be,sceAtracGetSoundSample,"sceAtracGetSoundSample"},
-	{0x5d268707,sceAtracGetStreamDataInfo,"sceAtracGetStreamDataInfo"},
-	{0x61eb33f5,sceAtracReleaseAtracID,"sceAtracReleaseAtracID"},
-	{0x644e5607,sceAtracResetPlayPosition,"sceAtracResetPlayPosition"},
-	{0x3f6e26b5,sceAtracSetHalfwayBuffer,"sceAtracSetHalfwayBuffer"},
-	{0x83bf7afd,sceAtracSetSecondBuffer,"sceAtracSetSecondBuffer"},
-	{0x0E2A73AB,sceAtracSetData,"sceAtracSetData"}, //?
-	{0x7a20e7af,sceAtracSetDataAndGetID,"sceAtracSetDataAndGetID"},
-	{0x0eb8dc38,sceAtracSetHalfwayBufferAndGetID,"sceAtracSetHalfwayBufferAndGetID"},
-	{0xd1f59fdb,sceAtracStartEntry,"sceAtracStartEntry"},
-	{0x868120b5,sceAtracSetLoopNum,"sceAtracSetLoopNum"},
+	{0x7db31251,&Wrap<sceAtracAddStreamData>,"sceAtracAddStreamData"},
+	{0x6a8c3cd5,&Wrap<sceAtracDecodeData>,"sceAtracDecodeData"},
+	{0xd5c28cc0,&Wrap<sceAtracEndEntry>,"sceAtracEndEntry"},
+	{0x780f88d1,&Wrap<sceAtracGetAtracID>,"sceAtracGetAtracID"},
+	{0xca3ca3d2,&Wrap<sceAtracGetBufferInfoForReseting>,"sceAtracGetBufferInfoForReseting"},
+	{0xa554a158,&Wrap<sceAtracGetBitrate>,"sceAtracGetBitrate"},
+	{0x31668baa,&Wrap<sceAtracGetChannel>,"sceAtracGetChannel"},
+	{0xfaa4f89b,&Wrap<sceAtracGetLoopStatus>,"sceAtracGetLoopStatus"},
+	{0xe88f759b,&Wrap<sceAtracGetInternalErrorInfo>,"sceAtracGetInternalErrorInfo"},
+	{0xd6a5f2f7,&Wrap<sceAtracGetMaxSample>,"sceAtracGetMaxSample"},
+	{0xe23e3a35,&Wrap<sceAtracGetNextDecodePosition>,"sceAtracGetNextDecodePosition"},
+	{0x36faabfb,&Wrap<sceAtracGetNextSample>,"sceAtracGetNextSample"},
+	{0x9ae849a7,&Wrap<sceAtracGetRemainFrame>,"sceAtracGetRemainFrame"},
+	{0x83e85ea0,&Wrap<sceAtracGetSecondBufferInfo>,"sceAtracGetSecondBufferInfo"},
+	{0xa2bba8be,&Wrap<sceAtracGetSoundSample>,"sceAtracGetSoundSample"},
+	{0x5d268707,&Wrap<sceAtracGetStreamDataInfo>,"sceAtracGetStreamDataInfo"},
+	{0x61eb33f5,&Wrap<sceAtracReleaseAtracID>,"sceAtracReleaseAtracID"},
+	{0x644e5607,&Wrap<sceAtracResetPlayPosition>,"sceAtracResetPlayPosition"},
+	{0x3f6e26b5,&Wrap<sceAtracSetHalfwayBuffer>,"sceAtracSetHalfwayBuffer"},
+	{0x83bf7afd,&Wrap<sceAtracSetSecondBuffer>,"sceAtracSetSecondBuffer"},
+	{0x0E2A73AB,&Wrap<sceAtracSetData>,"sceAtracSetData"}, //?
+	{0x7a20e7af,&Wrap<sceAtracSetDataAndGetID>,"sceAtracSetDataAndGetID"},
+	{0x0eb8dc38,&Wrap<sceAtracSetHalfwayBufferAndGetID>,"sceAtracSetHalfwayBufferAndGetID"},
+	{0xd1f59fdb,&Wrap<sceAtracStartEntry>,"sceAtracStartEntry"},
+	{0x868120b5,&Wrap<sceAtracSetLoopNum>,"sceAtracSetLoopNum"},
 	{0x132f1eca,0,"sceAtracReinit"},
 	{0xeca32a99,0,"sceAtracIsSecondBufferNeeded"},
 	{0x0fae370e,0,"sceAtracSetHalfwayBufferAndGetID"},

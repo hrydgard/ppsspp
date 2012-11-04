@@ -66,7 +66,7 @@ static int enterVblankEvent = -1;
 static int leaveVblankEvent = -1;
 
 static int hCount = 0;
-static int hCountTotal = 0; //unused
+//static int hCountTotal = 0; //unused
 static int vCount = 0;
 static int isVblank = 0;
 // STATE END
@@ -163,10 +163,10 @@ void hleLeaveVblank(u64 userdata, int cyclesLate)
 	CoreTiming::ScheduleEvent(msToCycles(frameMs - vblankMs) - cyclesLate, enterVblankEvent, userdata);
 }
 
-void sceDisplayIsVblank()
+u32 sceDisplayIsVblank()
 {
 	DEBUG_LOG(HLE,"%i=sceDisplayIsVblank()",isVblank);
-	RETURN(isVblank);
+	return isVblank;
 }
 
 u32 sceDisplaySetMode(u32 unknown, u32 xres, u32 yres)
@@ -181,14 +181,8 @@ u32 sceDisplaySetMode(u32 unknown, u32 xres, u32 yres)
 	return 0;
 }
 
-void sceDisplaySetFramebuf()
+u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync)
 {
-	//host->EndFrame();
-	u32 topaddr = PARAM(0);
-	int linesize = PARAM(1);
-	int pixelformat = PARAM(2);
-	int sync = PARAM(3);
-
 	FrameBufferState *fbstate = 0;
 	if (sync == PSP_DISPLAY_SETBUF_IMMEDIATE)
 	{
@@ -215,56 +209,60 @@ void sceDisplaySetFramebuf()
 		fbstate->pspFramebufLinesize = linesize;
 	}
 
-	RETURN(0);
+    return 0;
 }
 
-void sceDisplayGetFramebuf()
+u32 sceDisplayGetFramebuf(u32 topAddrAddr, u32 bufferWidthAddr, u32 pixelFormatAddr, int sync)
 {
-	DEBUG_LOG(HLE,"sceDisplayGetFramebuf");	
-	RETURN(framebuf.topaddr);
+	DEBUG_LOG(HLE,"sceDisplayGetFramebuf");
+	Memory::Write_U32(topAddrAddr, framebuf.topaddr);
+	Memory::Write_U32(bufferWidthAddr, framebuf.pspFramebufLinesize);
+	Memory::Write_U32(pixelFormatAddr, framebuf.pspFramebufFormat);
+	return 0;
 }
 
-void sceDisplayWaitVblankStart()
+u32 sceDisplayWaitVblankStart()
 {
 	DEBUG_LOG(HLE,"sceDisplayWaitVblankStart");
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, false);
-	RETURN(0);
+	return 0;
 }
 
-void sceDisplayWaitVblank()
+u32 sceDisplayWaitVblank()
 {
 	DEBUG_LOG(HLE,"sceDisplayWaitVblank");	
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, false);
-	sceDisplayWaitVblankStart();
+	return sceDisplayWaitVblankStart();
 }
 
-void sceDisplayWaitVblankStartCB()
+u32 sceDisplayWaitVblankStartCB()
 {
 	DEBUG_LOG(HLE,"sceDisplayWaitVblankStartCB");	
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, true);
+	return sceDisplayWaitVblankStart();
 }
 
-void sceDisplayGetVcount()
+u32 sceDisplayGetVcount()
 {
 	// Too spammy
 	// DEBUG_LOG(HLE,"%i=sceDisplayGetVcount()", vCount);	
 	// Games like Puyo Puyo call this in a tight loop at end-of-frame. We could have it consume some time from CoreTiming?
 	CoreTiming::Idle(100000);
-	RETURN(vCount);
+	return vCount;
 }
 
-void sceDisplayGetCurrentHcount()
+u32 sceDisplayGetCurrentHcount()
 {
-	RETURN(hCount++);
+	return (hCount++);
 }
 
 
-void sceDisplayGetAccumulatedHcount()
+u32 sceDisplayGetAccumulatedHcount()
 {
 	// Just do an estimate
 	u32 accumHCount = CoreTiming::GetTicks() / (222000000 / 60 / 272);
 	DEBUG_LOG(HLE,"%i=sceDisplayGetAccumulatedHcount()", accumHCount);	
-	RETURN(accumHCount);
+	return accumHCount;
 }
 
 float sceDisplayGetFramePerSec()
@@ -276,26 +274,26 @@ float sceDisplayGetFramePerSec()
 
 const HLEFunction sceDisplay[] = 
 {
-	{0x0E20F177,&WrapU_UUU<sceDisplaySetMode>,					"sceDisplaySetMode"},
-	{0x289D82FE,sceDisplaySetFramebuf,			"sceDisplaySetFramebuf"},
-	{0x36CDFADE,sceDisplayWaitVblank,			 "sceDisplayWaitVblank"},
-	{0x984C27E7,sceDisplayWaitVblankStart,	"sceDisplayWaitVblankStart"},
-	{0x46F186C3,sceDisplayWaitVblankStartCB,"sceDisplayWaitVblankStartCB"},
-	{0x8EB9EC49,sceDisplayWaitVblankStartCB,"sceDisplayWaitVblankCB"},
+	{0x0E20F177,&Wrap<sceDisplaySetMode>,					"sceDisplaySetMode"},
+	{0x289D82FE,&Wrap<sceDisplaySetFramebuf>,			"sceDisplaySetFramebuf"},
+	{0x36CDFADE,&Wrap<sceDisplayWaitVblank>,			 "sceDisplayWaitVblank"},
+	{0x984C27E7,&Wrap<sceDisplayWaitVblankStart>,	"sceDisplayWaitVblankStart"},
+	{0x46F186C3,&Wrap<sceDisplayWaitVblankStartCB>,"sceDisplayWaitVblankStartCB"},
+	{0x8EB9EC49,&Wrap<sceDisplayWaitVblankStartCB>,"sceDisplayWaitVblankCB"},
 
-	{0xdba6c4c4,&WrapF_V<sceDisplayGetFramePerSec>,"sceDisplayGetFramePerSec"},
-	{0x773dd3a3,sceDisplayGetCurrentHcount,"sceDisplayGetCurrentHcount"},
-	{0x210eab3a,sceDisplayGetAccumulatedHcount,"sceDisplayGetAccumulatedHcount"},
-	{0x9C6EAAD7,sceDisplayGetVcount,"sceDisplayGetVcount"},
+	{0xdba6c4c4,&Wrap<sceDisplayGetFramePerSec>,"sceDisplayGetFramePerSec"},
+	{0x773dd3a3,&Wrap<sceDisplayGetCurrentHcount>,"sceDisplayGetCurrentHcount"},
+	{0x210eab3a,&Wrap<sceDisplayGetAccumulatedHcount>,"sceDisplayGetAccumulatedHcount"},
+	{0x9C6EAAD7,&Wrap<sceDisplayGetVcount>,"sceDisplayGetVcount"},
 	{0x984C27E7,0,"sceDisplayWaitVblankStart"},
 	{0xDEA197D4,0,"sceDisplayGetMode"},
 	{0x7ED59BC4,0,"sceDisplaySetHoldMode"},
 	{0xA544C486,0,"sceDisplaySetResumeMode"},
 	{0x289D82FE,0,"sceDisplaySetFrameBuf"},
-	{0xEEDA2E54,sceDisplayGetFramebuf,"sceDisplayGetFrameBuf"},
+	{0xEEDA2E54,&Wrap<sceDisplayGetFramebuf>,"sceDisplayGetFrameBuf"},
 	{0xB4F378FA,0,"sceDisplayIsForeground"},
 	{0x31C4BAA8,0,"sceDisplayGetBrightness"},
-	{0x4D4E10EC,sceDisplayIsVblank,"sceDisplayIsVblank"},
+	{0x4D4E10EC,&Wrap<sceDisplayIsVblank>,"sceDisplayIsVblank"},
 };
 
 void Register_sceDisplay()
