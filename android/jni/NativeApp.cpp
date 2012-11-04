@@ -163,14 +163,23 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	LogManager *logman = LogManager::GetInstance();
 	ILOG("Logman: %p", logman);
 
-	if (argc > 1)
-	{
-		boot_filename = argv[1];
-
-		if (!File::Exists(boot_filename))
-		{
-			fprintf(stdout, "File not found: %s\n", boot_filename.c_str());
-			exit(1);
+	// Parse command line
+	LogTypes::LOG_LEVELS logLevel = LogTypes::LINFO;
+	for (int i = 1; i < argc; i++) {
+		if (argv[i][0] == '-') {
+			switch (argv[i][1]) {
+			case 'd':
+				// Enable debug logging
+				logLevel = LogTypes::LDEBUG;
+				break;
+			}
+		} else {
+			boot_filename = argv[i];
+			if (!File::Exists(boot_filename))
+			{
+				fprintf(stdout, "File not found: %s\n", boot_filename.c_str());
+				exit(1);
+			}
 		}
 	}
 
@@ -190,11 +199,12 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	{
 		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
 		logman->SetEnable(type, true);
-		logman->SetLogLevel(type, LogTypes::LDEBUG);
+		logman->SetLogLevel(type, logLevel);
 #ifdef ANDROID
 		logman->AddListener(type, logger);
 #endif
 	}
+	// Special hack for G3D as it's very spammy. Need to make a flag for this.
 	logman->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
 	INFO_LOG(BOOT, "Logger inited.");
 }
