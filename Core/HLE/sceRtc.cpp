@@ -26,12 +26,12 @@
 
 #include "sceRtc.h"
 
-void sceRtcGetCurrentTick()
+u32 sceRtcGetCurrentTick(u64)
 {
 #ifdef _WIN32
-	RETURN(GetTickCount());
+	return GetTickCount();
 #else
 	time_update();
-	RETURN(time_now_d());
+	return time_now_d();
 #endif
 }

@@ -17,4 +17,4 @@
 
 #pragma once
 
-void sceRtcGetCurrentTick();
+u32 sceRtcGetCurrentTick(u64);

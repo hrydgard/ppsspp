@@ -49,10 +49,10 @@ struct MsgPipe : public KernelObject
 void sceKernelCreateMsgPipe()
 {
 	const char *name = Memory::GetCharPointer(PARAM(0));
-	int memoryPartition = PARAM(1);
+	//int memoryPartition = PARAM(1);
 	SceUInt attr = PARAM(2);
 	int size = PARAM(3);
-	int opt = PARAM(4);
+	//int opt = PARAM(4);
 
 	MsgPipe *m = new MsgPipe();
 	SceUID id = kernelObjects.Create(m);
@@ -188,3 +188,4 @@ void sceKernelReferMsgPipeStatus()
 		RETURN(error);
 	}
 }
+

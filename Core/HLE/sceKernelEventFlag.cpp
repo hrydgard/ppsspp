@@ -178,6 +178,13 @@ retry:
 				goto retry;
 			}
 		}
+
+		if (wokeThreads)
+		{
+			// Probably useful to make things go faster: trigger thread change directly after the event flag has been set
+			__KernelReSchedule();
+		}
+
 		RETURN(0);
 	}
 	else
@@ -211,9 +218,9 @@ void sceKernelWaitEventFlag()
 			th.wait = wait;
 			th.outAddr = outBitsPtr;
 			e->waitingThreads.push_back(th);
-			u32 timeout;
-			if (Memory::IsValidAddress(timeoutPtr))
-				timeout = Memory::Read_U32(timeoutPtr);
+			//u32 timeout;
+			//if (Memory::IsValidAddress(timeoutPtr))
+			//	timeout = Memory::Read_U32(timeoutPtr);
 
 			__KernelWaitCurThread(WAITTYPE_EVENTFLAG, id, 0, 0, false);
 		}
@@ -250,9 +257,9 @@ void sceKernelWaitEventFlagCB()
 			th.wait = wait;
 			th.outAddr = outBitsPtr;
 			e->waitingThreads.push_back(th);
-			u32 timeout;
-			if (Memory::IsValidAddress(timeoutPtr))
-				timeout = Memory::Read_U32(timeoutPtr);
+			//u32 timeout;
+			//if (Memory::IsValidAddress(timeoutPtr))
+			//	timeout = Memory::Read_U32(timeoutPtr);
 
 			__KernelWaitCurThread(WAITTYPE_EVENTFLAG, id, 0, 0, true);
 		}
