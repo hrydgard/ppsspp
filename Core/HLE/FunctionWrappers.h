@@ -72,6 +72,10 @@ template<u32 func(int, u32)> void Wrap() {
   RETURN(retval);
 }
 
+template<u32 func(const char *, u32)> void Wrap() {
+  int retval = func(Memory::GetCharPointer(PARAM(0)), PARAM(1));
+  RETURN((u32)retval);
+}
 template<int func(const char *, u32)> void Wrap() {
   int retval = func(Memory::GetCharPointer(PARAM(0)), PARAM(1));
   RETURN((u32)retval);

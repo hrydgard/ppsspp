@@ -105,15 +105,14 @@ struct SceKernelSMOption {
 
 //////////////////////////////////////////////////////////////////////////
 // STATE BEGIN
-static int numLoadedModules;
 static SceUID mainModuleID;	// hack
 // STATE END
 //////////////////////////////////////////////////////////////////////////
 
-Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, SceUID &id, std::string *error_string)
+Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *error_string)
 {
-	Module *m = new Module;
-	kernelObjects.Create(m);
+	Module *module = new Module;
+	kernelObjects.Create(module);
 
 	u32 magic = *((u32*)ptr);
 
@@ -158,16 +157,10 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, SceUID &id, std::
 		u32 __entrytableAddr;
 	};
 
-	SectionID entSection = reader.GetSectionByName(".lib.ent");
 	SectionID textSection = reader.GetSectionByName(".text");
 
-	u32 sceResidentAddr = 0;
-	u32 moduleInfoAddr = 0;
 	u32 textStart = reader.GetSectionAddr(textSection);
 	u32 textSize = reader.GetSectionSize(textSection);
-
-	SectionID sceResidentSection = reader.GetSectionByName(".rodata.sceResident");
-	SectionID sceModuleInfoSection = reader.GetSectionByName(".rodata.sceModuleInfo");
 
 	bool hasSymbols = false;
 	bool dontadd = false;
@@ -186,28 +179,6 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, SceUID &id, std::
 		dontadd = true;
 	}
 
-	if (entSection != -1)
-	{
-		//libent *lib = (libent *)(Memory::GetPointer(reader.GetSectionAddr(entSection)));
-		//what's this for?
-		//lib->l1+=0;
-	}
-
-	sceResidentAddr = reader.GetSectionAddr(sceResidentSection);
-	moduleInfoAddr = reader.GetSectionAddr(sceModuleInfoSection);
-
-	struct PspResidentData 
-	{
-		u32 l1; // unknown 0xd632acdb
-		u32 l2; // unknown 0xf01d73a7
-		u32 startAddress; // address of _start
-		u32 moduleInfoAddr; // address of sceModuleInfo struct
-	};
-
-	DEBUG_LOG(LOADER,"Resident data addr: %08x",	sceResidentAddr);
-
-	//PspResidentData *resdata = (PspResidentData *)Memory::GetPointer(sceResidentAddr);
-
 	struct PspModuleInfo
 	{
 		// 0, 0, 1, 1 ?
@@ -222,23 +193,25 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, SceUID &id, std::
 		u32 libstubend;	 // ptr to end of .lib.stub section 
 	};
 
-	PspModuleInfo *modinfo = (PspModuleInfo *)Memory::GetPointer(moduleInfoAddr);
-	m->gp_value = modinfo->gp;
-	strncpy(m->name, modinfo->name, 28);	// TODO
+	SectionID sceModuleInfoSection = reader.GetSectionByName(".rodata.sceModuleInfo");
+	PspModuleInfo *modinfo;
+	if (sceModuleInfoSection != -1)
+		modinfo = (PspModuleInfo *)Memory::GetPointer(reader.GetSectionAddr(sceModuleInfoSection));
+	else
+		modinfo = (PspModuleInfo *)reader.GetPtr(reader.GetSegmentPaddr(0) + reader.GetSegmentOffset(0));
+
+	module->gp_value = modinfo->gp;
+	strncpy(module->name, modinfo->name, 28);
 
 	DEBUG_LOG(LOADER,"Module %s: %08x %08x %08x", modinfo->name, modinfo->gp, modinfo->libent,modinfo->libstub);
 
 	struct PspLibStubEntry
 	{
-		// pointer to module name (will be in .rodata.sceResident section)
-		u32 moduleNameSymbol;
-		// mod version??
-		unsigned short version;
-		unsigned short val1;
-		unsigned char val2; // 0x5
-		unsigned char val3;
-		// number of function symbols
-		unsigned short numFuncs;
+		u32 name;
+		u16 version;
+		u16 flags;
+		u16 size;
+		u16 numFuncs;
 		// each symbol has an associated nid; nidData is a pointer
 		// (in .rodata.sceNid section) to an array of longs, one
 		// for each function, which identifies the function whose
@@ -252,8 +225,6 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, SceUID &id, std::
 		// should be filled in
 		u32 firstSymAddr;
 	};
-	//sceDisplay at 5968-
-
 
 	int numModules = (modinfo->libstubend - modinfo->libstub)/sizeof(PspLibStubEntry);
 
@@ -265,9 +236,8 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, SceUID &id, std::
 	int numSyms=0;
 	for (int m=0; m<numModules; m++)
 	{
-		const char *modulename = (const char*)Memory::GetPointer(entry[m].moduleNameSymbol);
+		const char *modulename = (const char*)Memory::GetPointer(entry[m].name);
 		u32 *nidDataPtr = (u32*)Memory::GetPointer(entry[m].nidData);
-		//u32 *stubs = (u32*)Memory::GetPointer(entry[m].firstSymAddr);
 
 		DEBUG_LOG(LOADER,"Importing Module %s, stubs at %08x",modulename,entry[m].firstSymAddr);
 
@@ -288,9 +258,58 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, SceUID &id, std::
 		DEBUG_LOG(LOADER,"-------------------------------------------------------------");
 	}
 
-	m->entry_addr = reader.GetEntryPoint();
+	struct PspLibEntEntry
+	{
+		u32 name; /* ent's name (module name) address */
+		u16 version;
+		u16 flags;
+		u8 size;
+		u8 vcount;
+		u16 fcount;
+		u32 resident;
+	};
 
-	return m;
+	int numEnts = (modinfo->libentend - modinfo->libent)/sizeof(PspLibEntEntry);
+	PspLibEntEntry *ent = (PspLibEntEntry *)Memory::GetPointer(modinfo->libent);
+	for (int m=0; m<numEnts; m++)
+	{
+		const char *name;
+		if (ent->size == 0)
+		{
+			continue;
+		}
+
+		if (ent->name == 0)
+		{
+			// ?
+			name = module->name;
+		}
+		else
+		{
+			name = (const char*)Memory::GetPointer(ent->name);
+		}
+
+		INFO_LOG(HLE,"Exporting ent %d named %s, %d funcs, %d vars, resident %08x", m, name, ent->fcount, ent->vcount, ent->resident);
+		u32 *residentPtr = (u32*)Memory::GetPointer(ent[m].resident);
+		for (u32 j = 0; j < ent[m].fcount; j++)
+		{
+			u32 nid = residentPtr[j];
+			u32 exportAddr = residentPtr[ent->fcount + ent->vcount + j];
+			ResolveSyscall(name, nid, exportAddr);
+		}
+		if (ent->size > 4)
+		{
+			ent = (PspLibEntEntry*)((u8*)ent + ent->size * 4);
+		}
+		else
+		{
+			ent++;
+		}
+	}
+
+	module->entry_addr = reader.GetEntryPoint();
+
+	return module;
 }
 
 bool __KernelLoadPBP(const char *filename, std::string *error_string)
@@ -331,8 +350,7 @@ bool __KernelLoadPBP(const char *filename, std::string *error_string)
 	{
 		u8 *temp = new u8[1024*1024*8];
 		in.read((char*)temp, 1024*1024*8);
-		SceUID id;
-		Module *m = __KernelLoadELFFromPtr(temp, PSP_GetDefaultLoadAddress(), id, error_string);
+		Module *m = __KernelLoadELFFromPtr(temp, PSP_GetDefaultLoadAddress(), error_string);
 		if (!m)
 			return false;
 		mipsr4k.pc = m->entry_addr;
@@ -343,7 +361,7 @@ bool __KernelLoadPBP(const char *filename, std::string *error_string)
 }
 
 
-Module *__KernelLoadModule(u8 *fileptr, SceUID &id, SceKernelLMOption *options, std::string *error_string)
+Module *__KernelLoadModule(u8 *fileptr, SceKernelLMOption *options, std::string *error_string)
 {
 	Module *m = 0;
 	// Check for PBP
@@ -360,11 +378,11 @@ Module *__KernelLoadModule(u8 *fileptr, SceUID &id, SceKernelLMOption *options, 
 		offsets[0] = offset0;
 		for (int i = 1; i < numfiles; i++)
 			memcpy(&offsets[i], fileptr + 12 + 4*i, 4);
-		m = __KernelLoadELFFromPtr(fileptr + offsets[5], PSP_GetDefaultLoadAddress(), id, error_string);
+		m = __KernelLoadELFFromPtr(fileptr + offsets[5], PSP_GetDefaultLoadAddress(), error_string);
 	}
 	else
 	{
-		m = __KernelLoadELFFromPtr(fileptr, PSP_GetDefaultLoadAddress(), id, error_string);
+		m = __KernelLoadELFFromPtr(fileptr, PSP_GetDefaultLoadAddress(), error_string);
 	}
 
 	return m;
@@ -410,8 +428,7 @@ bool __KernelLoadExec(const char *filename, SceKernelLoadExecParam *param, std::
 
 	pspFileSystem.ReadFile(handle, temp, (size_t)size);
 
-	SceUID moduleID;
-	Module *m = __KernelLoadModule(temp, moduleID, 0, error_string);
+	Module *m = __KernelLoadModule(temp, 0, error_string);
 
 	if (!m) {
 		ERROR_LOG(LOADER, "Failed to load module %s", filename);
@@ -454,10 +471,33 @@ void sceKernelLoadExec()
 		ERROR_LOG(HLE, "sceKernelLoadExec failed: %s", error_string.c_str());
 }
 
-void sceKernelLoadModule()
+u32 sceKernelLoadModule(const char *name, u32 flags)
 {
-	const char *name = Memory::GetCharPointer(PARAM(0));
-	u32 flags = PARAM(1);
+    PSPFileInfo info = pspFileSystem.GetFileInfo(name);
+    std::string error_string;
+    s64 size = (s64)info.size;
+    if (!size)
+    {   
+        ERROR_LOG(LOADER, "Module file is size 0: %s", name);
+        return false;
+    }
+    u32 handle = pspFileSystem.OpenFile(name, FILEACCESS_READ);
+
+    u8 *temp = new u8[(int)size];
+
+    pspFileSystem.ReadFile(handle, temp, (size_t)size);
+
+    Module *m = __KernelLoadELFFromPtr(temp, 0, &error_string);
+            
+    if (!m) {
+        ERROR_LOG(LOADER, "Failed to load module %s", name);
+        return false;
+    }
+    
+    delete [] temp;                                                                                                                                                                                
+                                                                                                                                                                                                   
+    pspFileSystem.CloseFile(handle);
+
 	if (PARAM(2))
 	{
 		SceKernelLMOption *lmoption= (SceKernelLMOption *)Memory::GetPointer(PARAM(2));
@@ -467,14 +507,15 @@ void sceKernelLoadModule()
 		//Else, actually do load it and resolve pointers!
 
 		INFO_LOG(HLE,"%i=sceKernelLoadModule(name=%s,flag=%08x,%08x,%08x,%08x,%08x(...))",
-			numLoadedModules+1,name,flags,
+			m->GetUID(),name,flags,
 			lmoption->size,lmoption->mpidtext,lmoption->mpiddata,lmoption->position);
 	}
 	else
 	{
-		ERROR_LOG(HLE,"%i=sceKernelLoadModule(name=%s,flag=%08x,(...))", numLoadedModules+1, name, flags);
+		INFO_LOG(HLE,"%i=sceKernelLoadModule(name=%s,flag=%08x,(...))", m->GetUID(), name, flags);
 	}
-	RETURN(++numLoadedModules);
+
+	return m->GetUID();
 }
 
 void sceKernelStartModule()
@@ -528,18 +569,18 @@ u32 sceKernelFindModuleByName(u32)
 
 const HLEFunction ModuleMgrForUser[] = 
 {
-	{0x977DE386,sceKernelLoadModule,"sceKernelLoadModule"},
+	{0x977DE386,&Wrap<sceKernelLoadModule>,"sceKernelLoadModule"},
 	{0xb7f46618,0,"sceKernelLoadModuleByID"},
-	{0x50F0C1EC,sceKernelStartModule,"sceKernelStartModule"},
-	{0xD675EBB8,sceKernelExitGame,"sceKernelSelfStopUnloadModule"}, //HACK
-	{0xd1ff982a,sceKernelStopModule,"sceKernelStopModule"},
-	{0x2e0911aa,sceKernelUnloadModule,"sceKernelUnloadModule"},
+	{0x50F0C1EC,&Wrap<sceKernelStartModule>,"sceKernelStartModule"},
+	{0xD675EBB8,&Wrap<sceKernelExitGame>,"sceKernelSelfStopUnloadModule"}, //HACK
+	{0xd1ff982a,&Wrap<sceKernelStopModule>,"sceKernelStopModule"},
+	{0x2e0911aa,&Wrap<sceKernelUnloadModule>,"sceKernelUnloadModule"},
 	{0x710F61B5,0,"sceKernelLoadModuleMs"},
 	{0xF9275D98,0,"sceKernelLoadModuleBufferUsbWlan"}, ///???
 	{0xCC1D3699,0,"sceKernelStopUnloadSelfModule"},
 	{0x748CBED9,0,"sceKernelQueryModuleInfo"},
-	{0xd8b73127,sceKernelGetModuleIdByAddress, "sceKernelGetModuleIdByAddress"},
-	{0xf0a26395,sceKernelGetModuleId, "sceKernelGetModuleId"},
+	{0xd8b73127,&Wrap<sceKernelGetModuleIdByAddress>, "sceKernelGetModuleIdByAddress"},
+	{0xf0a26395,&Wrap<sceKernelGetModuleId>, "sceKernelGetModuleId"},
 	{0x8f2df740,0,"sceKernel_ModuleMgr_8f2df740"},
 };
 

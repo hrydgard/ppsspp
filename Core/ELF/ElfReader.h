@@ -95,6 +95,15 @@ public:
 	}
 	SectionID GetSectionByName(const char *name, int firstSection=0); //-1 for not found
 
+	u32 GetSegmentPaddr(int segment)
+	{
+	    return segments[segment].p_paddr;
+	}
+	u32 GetSegmentOffset(int segment)
+	{
+	    return segments[segment].p_offset;
+	}
+
 	bool DidRelocate() {
 		return bRelocate;
 	}
