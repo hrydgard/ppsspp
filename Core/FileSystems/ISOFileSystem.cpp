@@ -230,7 +230,8 @@ ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(std::string path)
 			for (size_t i=0; i<e->children.size(); i++)
 			{
 				std::string n = e->children[i]->name;
-				if (path.compare(0, n.length(), n) == 0) //TODO : bad
+				std::string curPath = path.substr(0, path.find_first_of('/'));
+				if (curPath == n)
 				{
 					//yay we got it
 					ne = e->children[i];

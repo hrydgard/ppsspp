@@ -100,11 +100,12 @@ u32 sceCtrlSetIdleCancelThreshold(u32, u32)
 u32 sceCtrlReadBufferPositive(u32 ctrlData, u32 nBufs)
 {
   std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
-	if (ctrlInited)
-	{
+  // Let's just ignore if ctrl is inited or not; some games don't init it (Super Fruit Fall)
+	//if (ctrlInited)
+	//{
 		static int frame = 0;
 		_ctrl_data &data = ctrl;
-		data.frame=frame;
+		data.frame=1;//frame;
     frame++;
 #ifdef _WIN32
     // TODO: Move this outta here!
@@ -150,7 +151,7 @@ u32 sceCtrlReadBufferPositive(u32 ctrlData, u32 nBufs)
 #endif
 
     memcpy(Memory::GetPointer(ctrlData), &data, sizeof(_ctrl_data));
-	}
+	//}
 	return 1;
 }
 

@@ -28,6 +28,7 @@
 #include "sceKernelThread.h"
 #include "sceKernelModule.h"
 #include "sceKernelInterrupt.h"
+#include "sceKernelCallback.h"
 
 #include <queue>
 
@@ -107,13 +108,6 @@ struct NativeThread
 	int numInterruptPreempts;
 	int numThreadPreempts;
 	int numReleases;
-};
-
-struct CallbackNotification
-{
-  SceUID cbid;
-  int count;
-  int arg;
 };
 
 class Thread : public KernelObject
@@ -324,6 +318,20 @@ void __KernelNotifyCallback(SceUID threadID, SceUID cbid, u32 notifyArg)
     //cb.count = 1;
   }
   // TODO: error checking
+}
+
+CallbackNotification *__KernelGetCallbackNotification(SceUID cbid)
+{
+	u32 error;
+	Thread *t = kernelObjects.Get<Thread>(__KernelGetCurThread(), error);
+	for (size_t i = 0; i < t->callbacks.size(); t++)
+	{ 
+		if (t->callbacks[i].cbid == cbid)
+		{
+		    return &t->callbacks[i];
+		}
+	}
+	return 0;
 }
 
 void sceKernelReferThreadStatus()
@@ -549,9 +557,11 @@ void __KernelRemoveFromThreadQueue(Thread *t)
 
 void __KernelReSchedule(const char *reason)
 {
-  if (__IsInInterrupt())
+  // cancel rescheduling when in interrupt or callback, otherwise everything will be fucked up
+  if (__IsInInterrupt() || __KernelInCallback())
   {
     reason = "WTF";
+    return;
   }
 	// round-robin scheduler
 	// seems to work ?
@@ -587,26 +597,20 @@ retry:
 
 	if (bestthread != -1)
 	{
-		//u32 pc = MIPS_GetNextPC();
-		//MIPS_ClearDelaySlot();
-    if (currentThread)  // It might just have been deleted.
-    {
-		  __KernelSaveContext(&currentThread->context);
-      // currentThread->context.pc = pc;
-      DEBUG_LOG(HLE,"Context saved (%s): %i - %s - pc: %08x", reason, currentThread->GetUID(), currentThread->GetName(), currentMIPS->pc);
-    }
-		//currentThread->nt.status = THREADSTATUS_READY;
-    currentThread = threadqueue[bestthread];
+	    if (currentThread)  // It might just have been deleted.
+	    {
+			__KernelSaveContext(&currentThread->context);
+	        DEBUG_LOG(HLE,"Context saved (%s): %i - %s - pc: %08x", reason, currentThread->GetUID(), currentThread->GetName(), currentMIPS->pc);
+	    }
+	    currentThread = threadqueue[bestthread];
 		__KernelLoadContext(&currentThread->context);
-    DEBUG_LOG(HLE,"Context loaded (%s): %i - %s - pc: %08x", reason, currentThread->GetUID(), currentThread->GetName(), currentMIPS->pc);
-		//currentThread->nt.status = THREADSTATUS_RUNNING;
-		// currentMIPS->pc -= 4; //compensate for +=4    ADJUSTPC
+	    DEBUG_LOG(HLE,"Context loaded (%s): %i - %s - pc: %08x", reason, currentThread->GetUID(), currentThread->GetName(), currentMIPS->pc);
 		return;
 	}
 	else
 	{
-    _dbg_assert_msg_(HLE,0,"No threads available to schedule! There should be at least one idle thread available.");
-    // This shouldn't happen anymore now that we have idle threads.
+		_dbg_assert_msg_(HLE,0,"No threads available to schedule! There should be at least one idle thread available.");
+		// This shouldn't happen anymore now that we have idle threads.
 
 		// No threads want to run : increase timers, skip time in general
 		// MessageBox(0,"Error: no thread to transition to",0,0);
@@ -745,7 +749,7 @@ void sceKernelCreateThread()
 }
 
 
-void sceKernelStartThread()
+u32 sceKernelStartThread()
 {
 	int threadToStartID = PARAM(0);
 	u32 argSize = PARAM(1);
@@ -755,41 +759,45 @@ void sceKernelStartThread()
 	{
 		u32 error;
 		Thread *startThread = kernelObjects.Get<Thread>(threadToStartID, error);
+		if (startThread == 0)
+		{
+			ERROR_LOG(HLE,"%08x=sceKernelStartThread(thread=%i, argSize=%i, argPtr= %08x): thread does not exist!",
+				error,threadToStartID,argSize,argBlockPtr)
+			return error;
+		}
 
 		if (startThread->nt.status != THREADSTATUS_DORMANT)
 		{
-      //Not dormant, WTF?
-      RETURN(ERROR_KERNEL_THREAD_IS_NOT_DORMANT);
-      return;
+			//Not dormant, WTF?
+			return ERROR_KERNEL_THREAD_IS_NOT_DORMANT;
 		}
 
 		INFO_LOG(HLE,"sceKernelStartThread(thread=%i, argSize=%i, argPtr= %08x )",
 			threadToStartID,argSize,argBlockPtr);
 
-		RETURN(0); //return success (this does not exit this function)
-			
 		startThread->nt.status = THREADSTATUS_READY;
 		u32 sp = startThread->context.r[MIPS_REG_SP];
-    if (argBlockPtr)
-    {
-		  startThread->context.r[MIPS_REG_A0] = argSize;
-		  startThread->context.r[MIPS_REG_A1] = sp; 
-    }
-    else
-    {
-      startThread->context.r[MIPS_REG_A0] = 0;
-      startThread->context.r[MIPS_REG_A1] = 0; 
-    }
-    startThread->context.r[MIPS_REG_GP] = startThread->nt.gpreg;
+		if (argBlockPtr)
+		{
+			startThread->context.r[MIPS_REG_A0] = argSize;
+			startThread->context.r[MIPS_REG_A1] = sp; 
+		}
+		else
+		{
+			startThread->context.r[MIPS_REG_A0] = 0;
+			startThread->context.r[MIPS_REG_A1] = 0; 
+		}
+		startThread->context.r[MIPS_REG_GP] = startThread->nt.gpreg;
 
 		//now copy argument to stack
 		for (int i = 0; i < (int)argSize; i++)
 			Memory::Write_U8(Memory::Read_U8(argBlockPtr + i), sp + i);
+		return 0;
 	}
 	else
 	{
 		ERROR_LOG(HLE,"thread %i trying to start itself", threadToStartID);
-		RETURN(-1);
+		return -1;
 	}
 }
 

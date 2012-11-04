@@ -466,11 +466,9 @@ void sceKernelLoadModule()
 		//If it is, don't load it.
 		//Else, actually do load it and resolve pointers!
 
-		DEBUG_LOG(HLE,"%i=sceKernelLoadModule(name=%s,flag=%08x,%08x,%08x,%08x,%08x(...))",
+		INFO_LOG(HLE,"%i=sceKernelLoadModule(name=%s,flag=%08x,%08x,%08x,%08x,%08x(...))",
 			numLoadedModules+1,name,flags,
 			lmoption->size,lmoption->mpidtext,lmoption->mpiddata,lmoption->position);
-
-			
 	}
 	else
 	{
