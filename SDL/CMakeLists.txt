@@ -23,6 +23,7 @@ add_definitions(-DSDL)
 add_definitions(-Wno-multichar)
 add_definitions(-fno-strict-aliasing)
 add_definitions(-DUSE_PROFILER)
+add_definitions(-D_DEBUG)
 
 if (UNIX)
 	if (NOT APPLE)  # can't build the SDL .m file with -std=gnu++0x

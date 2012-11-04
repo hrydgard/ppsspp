@@ -15,11 +15,10 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-#ifndef _LOG_H_
-#define _LOG_H_
+#pragma once
 
-#define	NOTICE_LEVEL  1  // VERY important information that is NOT errors. Like startup and OSReports.
-#define	ERROR_LEVEL   2  // Critical errors 
+#define	NOTICE_LEVEL  1  // VERY important information that is NOT errors. Like startup and debugprintfs from the game itself.
+#define	ERROR_LEVEL   2  // Important errors.
 #define	WARNING_LEVEL 3  // Something is suspicious.
 #define	INFO_LEVEL    4  // General information.
 #define	DEBUG_LEVEL   5  // Detailed debugging - might make things slow.
@@ -28,28 +27,28 @@ namespace LogTypes
 {
 
 enum LOG_TYPE {
-  MASTER_LOG,
-  BOOT,
-  COMMON,
-  CPU,
-  LOADER,
-  IO,
-  PAD,
-  FILESYS,
-  DISCIO,
-  G3D,
-  DMA,
-  INTC,
-  MEMMAP,
-  SOUND,
-  HLE,
-  TIMER,
-  VIDEO,
-  DYNA_REC,
-  NETPLAY,
+	MASTER_LOG,
+	BOOT,
+	COMMON,
+	CPU,
+	LOADER,
+	IO,
+	PAD,
+	FILESYS,
+	DISCIO,
+	G3D,
+	DMA,
+	INTC,
+	MEMMAP,
+	SOUND,
+	HLE,
+	TIMER,
+	VIDEO,
+	DYNA_REC,
+	NETPLAY,
 
-  NUMBER_OF_LOGS,  // Must be last
-  JIT = DYNA_REC,
+	NUMBER_OF_LOGS,  // Must be last
+	JIT = DYNA_REC,
 };
 
 // FIXME: should this be removed?
@@ -73,30 +72,25 @@ void GenericLog(LOGTYPES_LEVELS level, LOGTYPES_TYPE type,
 #endif
 		;
 
-#if defined(LOGGING) || defined(_DEBUG) || defined(DEBUGFAST) // || defined(ANDROID) //|| defined(__APPLE__)//
+#if defined(LOGGING) || defined(_DEBUG) || defined(DEBUGFAST)
 #define MAX_LOGLEVEL DEBUG_LEVEL
 #else
 #ifndef MAX_LOGLEVEL
 #define MAX_LOGLEVEL INFO_LEVEL
-//#define MAX_LOGLEVEL NOTICE_LEVEL
 #endif // loglevel
 #endif // logging
 
-#ifdef GEKKO
-#define GENERIC_LOG(t, v, ...)
-#else
 // Let the compiler optimize this out
 #define GENERIC_LOG(t, v, ...) { \
 	if (v <= MAX_LOGLEVEL) \
 		GenericLog(v, t, __FILE__, __LINE__, __VA_ARGS__); \
 	}
-#endif
 
-#define ERROR_LOG(t,...) { GENERIC_LOG(LogTypes::t, LogTypes::LERROR, __VA_ARGS__) }
-#define WARN_LOG(t,...) { GENERIC_LOG(LogTypes::t, LogTypes::LWARNING, __VA_ARGS__) }
+#define ERROR_LOG(t,...)  { GENERIC_LOG(LogTypes::t, LogTypes::LERROR, __VA_ARGS__) }
+#define WARN_LOG(t,...)   { GENERIC_LOG(LogTypes::t, LogTypes::LWARNING, __VA_ARGS__) }
 #define NOTICE_LOG(t,...) { GENERIC_LOG(LogTypes::t, LogTypes::LNOTICE, __VA_ARGS__) }
-#define INFO_LOG(t,...) { GENERIC_LOG(LogTypes::t, LogTypes::LINFO, __VA_ARGS__) }
-#define DEBUG_LOG(t,...) { GENERIC_LOG(LogTypes::t, LogTypes::LDEBUG, __VA_ARGS__) }
+#define INFO_LOG(t,...)   { GENERIC_LOG(LogTypes::t, LogTypes::LINFO, __VA_ARGS__) }
+#define DEBUG_LOG(t,...)  { GENERIC_LOG(LogTypes::t, LogTypes::LDEBUG, __VA_ARGS__) }
 
 #if MAX_LOGLEVEL >= DEBUG_LEVEL
 #define _dbg_assert_(_t_, _a_) \
@@ -123,8 +117,7 @@ void GenericLog(LOGTYPES_LEVELS level, LOGTYPES_TYPE type,
 
 #define _assert_(_a_) _dbg_assert_(MASTER_LOG, _a_)
 
-#ifndef GEKKO
-#ifdef _WIN32
+#ifdef _MSC_VER
 #define _assert_msg_(_t_, _a_, _fmt_, ...)		\
 	if (!(_a_)) {\
 		if (!PanicYesNo(_fmt_, __VA_ARGS__)) {Crash();} \
@@ -135,8 +128,3 @@ void GenericLog(LOGTYPES_LEVELS level, LOGTYPES_TYPE type,
 		if (!PanicYesNo(_fmt_, ##__VA_ARGS__)) {Crash();} \
 	}
 #endif // WIN32
-#else // GEKKO
-#define _assert_msg_(_t_, _a_, _fmt_, ...)
-#endif
-
-#endif // _LOG_H_
