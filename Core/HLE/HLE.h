@@ -30,7 +30,6 @@ struct HLEFunction
 	u32 ID;
 	HLEFunc func;
 	const char *name;
-	int minVersion;   // for example: 150 for 1.5, 271 for 2.71, etc. If 0, counts as 150.
 };
 
 struct HLEModule

@@ -221,6 +221,27 @@ enum
 	SCE_KERNEL_ERROR_ERRORMAX       = 0x8002044d,
 };
 
+enum TMIDPurpose
+{
+	SCE_KERNEL_TMID_Thread = 1,
+	SCE_KERNEL_TMID_Semaphore = 2,
+	SCE_KERNEL_TMID_EventFlag = 3,
+	SCE_KERNEL_TMID_Mbox = 4,
+	SCE_KERNEL_TMID_Vpl = 5,
+	SCE_KERNEL_TMID_Fpl = 6,
+	SCE_KERNEL_TMID_Mpipe = 7,
+	SCE_KERNEL_TMID_Callback = 8,
+	SCE_KERNEL_TMID_ThreadEventHandler = 9,
+	SCE_KERNEL_TMID_Alarm = 10,
+	SCE_KERNEL_TMID_VTimer = 11,
+	SCE_KERNEL_TMID_Mutex = 12,
+	SCE_KERNEL_TMID_LwMutex = 13,
+	SCE_KERNEL_TMID_SleepThread = 64,
+	SCE_KERNEL_TMID_DelayThread = 65,
+	SCE_KERNEL_TMID_SuspendThread = 66,
+	SCE_KERNEL_TMID_DormantThread = 67,
+};
+
 typedef int SceUID;
 typedef unsigned int SceSize;
 typedef int SceSSize;
@@ -232,8 +253,8 @@ typedef u64 SceIores;
 
 struct SceKernelLoadExecParam
 {
-	SceSize     size;  // Size of the structure
-	SceSize     args;  // Size of the arg string
+	SceSize size;  // Size of the structure
+	SceSize args;  // Size of the arg string
 	void *argp;        // Pointer to the arg string
 	const char *key; // Encryption key? Not yet used
 };
@@ -289,34 +310,11 @@ public:
 	// void DeSerialize(ChunkFile)
 };
 
-enum TMIDPurpose
-{
-	SCE_KERNEL_TMID_Thread = 1,
-	SCE_KERNEL_TMID_Semaphore = 2,
-	SCE_KERNEL_TMID_EventFlag = 3,
-	SCE_KERNEL_TMID_Mbox = 4,
-	SCE_KERNEL_TMID_Vpl = 5,
-	SCE_KERNEL_TMID_Fpl = 6,
-	SCE_KERNEL_TMID_Mpipe = 7,
-	SCE_KERNEL_TMID_Callback = 8,
-	SCE_KERNEL_TMID_ThreadEventHandler = 9,
-	SCE_KERNEL_TMID_Alarm = 10,
-	SCE_KERNEL_TMID_VTimer = 11,
-	SCE_KERNEL_TMID_Mutex = 12,
-	SCE_KERNEL_TMID_LwMutex = 13,
-	SCE_KERNEL_TMID_SleepThread = 64,
-	SCE_KERNEL_TMID_DelayThread = 65,
-	SCE_KERNEL_TMID_SuspendThread = 66,
-	SCE_KERNEL_TMID_DormantThread = 67,
-};
 
-class KernelObjectPool
-{
-	enum {maxCount=4096, handleOffset=0x100};
-	KernelObject *pool[maxCount];
-	bool occupied[maxCount];
+class KernelObjectPool {
 public:
 	KernelObjectPool();
+	~KernelObjectPool() {}
 
 	// Allocates a UID within the range and inserts the object into the map.
 	SceUID Create(KernelObject *obj, int rangeBottom = 16, int rangeTop = 0x7fffffff);
@@ -372,6 +370,11 @@ public:
 	void List();
 	void Clear();
 	int GetCount();
+
+private:
+	enum {maxCount=4096, handleOffset=0x100};
+	KernelObject *pool[maxCount];
+	bool occupied[maxCount];
 };
 
 extern KernelObjectPool kernelObjects;
