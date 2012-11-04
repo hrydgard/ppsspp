@@ -27,7 +27,7 @@
 #include "sceKernelThread.h"
 #include "sceKernelInterrupt.h"
 
-struct Interrupt 
+struct Interrupt
 {
 	PSPInterrupt intno;
 };
@@ -261,7 +261,7 @@ bool __RunOnePendingInterrupt()
 void __TriggerInterrupt(PSPInterrupt intno)
 {
 	intrHandlers[intno].queueUp();
-	DEBUG_LOG(HLE, "Triggering subinterrupts for interrupt %i (%i in queue)", intno, pendingInterrupts.size());
+	DEBUG_LOG(HLE, "Triggering subinterrupts for interrupt %i (%i in queue)", intno, (int)pendingInterrupts.size());
 	if (!inInterrupt)
 		__RunOnePendingInterrupt();
 }
@@ -287,7 +287,7 @@ u32 sceKernelRegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 handl
 {
 	DEBUG_LOG(HLE,"sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x)", intrNumber, subIntrNumber, handler, handlerArg);
 
-	if (intrNumber < 0 || intrNumber >= PSP_NUMBER_INTERRUPTS)
+	if (intrNumber >= PSP_NUMBER_INTERRUPTS)
 		return -1;
 
 	SubIntrHandler subIntrHandler;
@@ -306,12 +306,12 @@ u32 sceKernelReleaseSubIntrHandler(u32 intrNumber, u32 subIntrNumber)
 
 	// TODO: should check if it's pending and remove it from pending list! (although that's probably unlikely)
 
-	if (intrNumber < 0 || intrNumber >= PSP_NUMBER_INTERRUPTS)
+	if (intrNumber >= PSP_NUMBER_INTERRUPTS)
 		return -1;
 
 	if (!intrHandlers[intrNumber].has(subIntrNumber))
-		return -1; 
-	
+		return -1;
+
 	intrHandlers[intrNumber].remove(subIntrNumber);
 	return 0;
 }
@@ -319,12 +319,12 @@ u32 sceKernelReleaseSubIntrHandler(u32 intrNumber, u32 subIntrNumber)
 u32 sceKernelEnableSubIntr(u32 intrNumber, u32 subIntrNumber)
 {
 	ERROR_LOG(HLE,"sceKernelEnableSubIntr(%i, %i)", intrNumber, subIntrNumber);
-	if (intrNumber < 0 || intrNumber >= PSP_NUMBER_INTERRUPTS)
+	if (intrNumber >= PSP_NUMBER_INTERRUPTS)
 		return -1;
 
 	if (!intrHandlers[intrNumber].has(subIntrNumber))
 		return -1;
-	
+
 	intrHandlers[intrNumber].get(subIntrNumber).enabled = true;
 	return 0;
 }
@@ -332,7 +332,7 @@ u32 sceKernelEnableSubIntr(u32 intrNumber, u32 subIntrNumber)
 u32 sceKernelDisableSubIntr(u32 intrNumber, u32 subIntrNumber)
 {
 	ERROR_LOG(HLE,"sceKernelDisableSubIntr(%i, %i)", intrNumber, subIntrNumber);
-	if (intrNumber < 0 || intrNumber >= PSP_NUMBER_INTERRUPTS)
+	if (intrNumber >= PSP_NUMBER_INTERRUPTS)
 		return -1;
 
 	if (!intrHandlers[intrNumber].has(subIntrNumber))
