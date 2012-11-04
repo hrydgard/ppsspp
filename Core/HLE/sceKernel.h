@@ -312,13 +312,16 @@ enum TMIDPurpose
 
 class KernelObjectPool
 {
-	enum {maxCount=2048, handleOffset=0x100};
+	enum {maxCount=4096, handleOffset=0x100};
 	KernelObject *pool[maxCount];
 	bool occupied[maxCount];
 public:
 	KernelObjectPool();
 
-	SceUID Create(KernelObject *obj);
+	// Allocates a UID within the range and inserts the object into the map.
+	SceUID Create(KernelObject *obj, int rangeBottom = 16, int rangeTop = 0x7fffffff);
+
+	// TODO: How will we ever save/restore this pool?
 
 	template <class T>
 	u32 Destroy(SceUID handle)

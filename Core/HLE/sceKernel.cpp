@@ -131,12 +131,6 @@ void sceKernelDevkitVersion()
 	RETURN(1);
 }
 
-
-//////////////////////////////////////////////////////////////////////////
-// DEBUG
-//////////////////////////////////////////////////////////////////////////
-
-
 void sceKernelRegisterKprintfHandler()
 {
 	ERROR_LOG(HLE,"UNIMPL sceKernelRegisterKprintfHandler()");
@@ -161,21 +155,19 @@ void sceKernelGetGPI()
 	RETURN(0);
 }
 
+// Don't even log these, they're spammy and we probably won't
+// need to emulate them.
 void sceKernelDcacheWritebackAll()
 {
-	//RETURN(0);
 }
 void sceKernelDcacheWritebackRange()
 {
-	//RETURN(0);
 }
 void sceKernelDcacheWritebackInvalidateRange()
 {
-	//RETURN(0);
 }
 void sceKernelDcacheWritebackInvalidateAll()
 {
-	// RETURN(0)
 }
 
 KernelObjectPool kernelObjects;
@@ -185,13 +177,15 @@ KernelObjectPool::KernelObjectPool()
 	memset(occupied, 0, sizeof(bool)*maxCount);
 }
 
-SceUID KernelObjectPool::Create(KernelObject *obj)
+SceUID KernelObjectPool::Create(KernelObject *obj, int rangeBottom, int rangeTop)
 {
-	for (int i=0; i<maxCount; i++)
+	if (rangeTop > maxCount)
+		rangeTop = maxCount;
+	for (int i = rangeBottom; i < rangeTop; i++)
 	{
 		if (!occupied[i])
 		{
-			occupied[i]=true;
+			occupied[i] = true;
 			pool[i] = obj;
 			pool[i]->uid = i + handleOffset;
 			return i + handleOffset;
@@ -223,6 +217,7 @@ void KernelObjectPool::Clear()
 	}
 	memset(pool, 0, sizeof(KernelObject*)*maxCount);
 }
+
 KernelObject *&KernelObjectPool::operator [](SceUID handle)
 {
 	_dbg_assert_msg_(HLE, IsValid(handle), "GRABBING UNALLOCED KERNEL OBJ");
