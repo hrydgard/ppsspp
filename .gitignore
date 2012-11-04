@@ -25,5 +25,6 @@ libs
 obj
 *.exp
 Windows/x64
+Windows/ipch
 Memstick
 android/ui_atlas.zim
