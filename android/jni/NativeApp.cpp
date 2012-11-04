@@ -49,7 +49,7 @@
 
 Texture *uiTexture;
 
-ScreenManager screenManager;
+ScreenManager *screenManager;
 std::string config_filename;
 
 class AndroidLogger : public LogListener
@@ -183,7 +183,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 		}
 	}
 
-	config_filename = user_data_path + "/config.ini";
+	config_filename = user_data_path + "ppsspp.ini";
 
 	g_Config.Load(config_filename.c_str());
 
@@ -215,13 +215,14 @@ void NativeInitGraphics()
 	gl_lost_manager_init();
 	ui_draw2d.SetAtlas(&ui_atlas);
 
+	screenManager = new ScreenManager();
 	if (boot_filename.empty()) {
-		screenManager.switchScreen(new LogoScreen(boot_filename));
+		screenManager->switchScreen(new LogoScreen(boot_filename));
 	} else {
 		// Go directly into the game.
-		screenManager.switchScreen(new EmuScreen(boot_filename));
+		screenManager->switchScreen(new EmuScreen(boot_filename));
 	}
-	// screenManager.switchScreen(new FileSelectScreen());
+	// screenManager->switchScreen(new FileSelectScreen());
 
 	UIShader_Init();
 
@@ -256,19 +257,19 @@ void NativeRender()
 	ortho.setOrtho(0.0f, dp_xres, dp_yres, 0.0f, -1.0f, 1.0f);
 	glsl_bind(UIShader_Get());
 	glUniformMatrix4fv(UIShader_Get()->u_worldviewproj, 1, GL_FALSE, ortho.getReadPtr());
-	
-	screenManager.render();
+
+	screenManager->render();
 }
 
 void NativeUpdate(InputState &input)
 {
 	UIUpdateMouse(0, input.pointer_x[0], input.pointer_y[0], input.pointer_down[0]);
-	screenManager.update(input);
+	screenManager->update(input);
 }
 
 void NativeDeviceLost()
 {
-	screenManager.deviceLost();
+	screenManager->deviceLost();
 	gl_lost();
 	// Should dirty EVERYTHING
 }
@@ -296,7 +297,9 @@ void NativeShutdownGraphics()
 	delete uiTexture;
 	uiTexture = NULL;
 
-	screenManager.shutdown();
+	screenManager->shutdown();
+	delete screenManager;
+	screenManager = 0;
 
 	UIShader_Shutdown();
 
@@ -307,10 +310,12 @@ void NativeShutdown()
 {
 	delete host;
 	host = 0;
-	LogManager::Shutdown();
 	g_Config.Save();
+	LogManager::Shutdown();
 	// This means that the activity has been completely destroyed. PPSSPP does not
 	// boot up correctly with "dirty" global variables currently, so we hack around that
 	// by simply exiting.
+#ifdef ANDROID
 	exit(0);
+#endif
 }
