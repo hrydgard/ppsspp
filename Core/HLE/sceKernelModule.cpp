@@ -113,7 +113,7 @@ static SceUID mainModuleID;	// hack
 Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, SceUID &id, std::string *error_string)
 {
 	Module *m = new Module;
-	SceUID uid = kernelObjects.Create(m);
+	kernelObjects.Create(m);
 
 	u32 magic = *((u32*)ptr);
 
@@ -188,7 +188,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, SceUID &id, std::
 
 	if (entSection != -1)
 	{
-		libent *lib = (libent *)(Memory::GetPointer(reader.GetSectionAddr(entSection)));
+		//libent *lib = (libent *)(Memory::GetPointer(reader.GetSectionAddr(entSection)));
 		//what's this for?
 		//lib->l1+=0;
 	}
@@ -206,7 +206,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, SceUID &id, std::
 
 	DEBUG_LOG(LOADER,"Resident data addr: %08x",	sceResidentAddr);
 
-	PspResidentData *resdata = (PspResidentData *)Memory::GetPointer(sceResidentAddr);
+	//PspResidentData *resdata = (PspResidentData *)Memory::GetPointer(sceResidentAddr);
 
 	struct PspModuleInfo
 	{
@@ -267,7 +267,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, SceUID &id, std::
 	{
 		const char *modulename = (const char*)Memory::GetPointer(entry[m].moduleNameSymbol);
 		u32 *nidDataPtr = (u32*)Memory::GetPointer(entry[m].nidData);
-		u32 *stubs = (u32*)Memory::GetPointer(entry[m].firstSymAddr);
+		//u32 *stubs = (u32*)Memory::GetPointer(entry[m].firstSymAddr);
 
 		DEBUG_LOG(LOADER,"Importing Module %s, stubs at %08x",modulename,entry[m].firstSymAddr);
 
@@ -295,11 +295,11 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, SceUID &id, std::
 
 bool __KernelLoadPBP(const char *filename, std::string *error_string)
 {
-	static const char *FileNames[] =
-	{
-		"PARAM.SFO", "ICON0.PNG", "ICON1.PMF", "UNKNOWN.PNG",
-		"PIC1.PNG", "SND0.AT3", "UNKNOWN.PSP", "UNKNOWN.PSAR"
-	};
+	//static const char *FileNames[] =
+	//{
+	//	"PARAM.SFO", "ICON0.PNG", "ICON1.PMF", "UNKNOWN.PNG",
+	//	"PIC1.PNG", "SND0.AT3", "UNKNOWN.PSP", "UNKNOWN.PSAR"
+	//};
 
 	std::ifstream in(filename, std::ios::binary);
 
@@ -485,9 +485,9 @@ void sceKernelStartModule()
 	int argsize = PARAM(1);
 	u32 argptr = PARAM(2);
 	u32 ptrReturn = PARAM(3);
-	if (PARAM(4)) {
-		SceKernelSMOption *smoption = (SceKernelSMOption*)Memory::GetPointer(PARAM(4));
-	}
+	//if (PARAM(4)) {
+		//SceKernelSMOption *smoption = (SceKernelSMOption*)Memory::GetPointer(PARAM(4));
+	//}
 	ERROR_LOG(HLE,"UNIMPL sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,...)",
 		id,argsize,argptr,ptrReturn);
 	RETURN(0);
@@ -522,13 +522,11 @@ void sceKernelGetModuleId()
 
 }
 
-void sceKernelFindModuleByName()
+u32 sceKernelFindModuleByName(u32)
 {
 	ERROR_LOG(HLE,"UNIMPL sceKernelFindModuleByName()");
-	RETURN(1);
+	return 1;
 }
-
-
 
 const HLEFunction ModuleMgrForUser[] = 
 {

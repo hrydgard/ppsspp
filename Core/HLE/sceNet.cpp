@@ -175,8 +175,8 @@ const HLEFunction sceNetApctl[] =
 const HLEFunction sceWlanDrv[] =
 {
 	{0xd7763699, 0, "sceWlanGetSwitchState"},
-	{0x0c622081, WrapU_U<sceWlanGetEtherAddr>, "sceWlanGetEtherAddr"},
-	{0x93440B11, WrapU_V<sceWlanDevIsPowerOn>, "sceWlanDevIsPowerOn"},
+	{0x0c622081, Wrap<sceWlanGetEtherAddr>, "sceWlanGetEtherAddr"},
+	{0x93440B11, Wrap<sceWlanDevIsPowerOn>, "sceWlanDevIsPowerOn"},
 };
 
 void Register_sceNet()

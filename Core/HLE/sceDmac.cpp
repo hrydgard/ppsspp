@@ -28,7 +28,7 @@ u32 sceDmacMemcpy(u32 dst, u32 src, u32 size)
 
 const HLEFunction sceDmac[] =
 {
-	{0x617f3fe6, &WrapU_UUU<sceDmacMemcpy>, "sceDmacMemcpy"},
+	{0x617f3fe6, &Wrap<sceDmacMemcpy>, "sceDmacMemcpy"},
 };
 
 void Register_sceDmac()

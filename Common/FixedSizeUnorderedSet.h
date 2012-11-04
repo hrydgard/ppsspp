@@ -20,7 +20,7 @@ public:
 
   bool remove(T item)
   {
-    for (int i = 0; i < count_; i++)
+    for (u32 i = 0; i < count_; i++)
     {
       if (data_[i] == item)
       {
@@ -62,5 +62,5 @@ public:
 
 private:
   T data_[maxCount];
-  int count_;
+  u32 count_;
 };

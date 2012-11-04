@@ -183,6 +183,7 @@ public:
 		if (has(subIntrNum))
 			return subIntrHandlers[subIntrNum];
 		// what to do, what to do...
+		return voidSubIntr;
 	}
 
 	void queueUp()
@@ -197,6 +198,8 @@ public:
 
 private:
 	std::map<int, SubIntrHandler> subIntrHandlers;
+	// Only useful to handle when the subIntr doesn't exist
+	SubIntrHandler voidSubIntr;
 };
 
 
@@ -261,7 +264,7 @@ bool __RunOnePendingInterrupt()
 void __TriggerInterrupt(PSPInterrupt intno)
 {
 	intrHandlers[intno].queueUp();
-	DEBUG_LOG(HLE, "Triggering subinterrupts for interrupt %i (%i in queue)", intno, pendingInterrupts.size());
+	DEBUG_LOG(HLE, "Triggering subinterrupts for interrupt %i (%li in queue)", intno, pendingInterrupts.size());
 	if (!inInterrupt)
 		__RunOnePendingInterrupt();
 }
@@ -382,12 +385,12 @@ void sceKernelMemset()
 
 const HLEFunction Kernel_Library[] = 
 {
-	{0x092968F4,sceKernelCpuSuspendIntr,"sceKernelCpuSuspendIntr"},
-	{0x5F10D406,WrapV_U<sceKernelCpuResumeIntr>, "sceKernelCpuResumeIntr"}, //int oldstat
-	{0x3b84732d,WrapV_U<sceKernelCpuResumeIntrWithSync>, "sceKernelCpuResumeIntrWithSync"},
-	{0x47a0b729,sceKernelIsCpuIntrSuspended, "sceKernelIsCpuIntrSuspended"}, //flags
-	{0xb55249d2,sceKernelIsCpuIntrEnable, "sceKernelIsCpuIntrEnable"}, 
-	{0xa089eca4,sceKernelMemset, "sceKernelMemset"}, 
+	{0x092968F4,&Wrap<sceKernelCpuSuspendIntr>,"sceKernelCpuSuspendIntr"},
+	{0x5F10D406,&Wrap<sceKernelCpuResumeIntr>, "sceKernelCpuResumeIntr"}, //int oldstat
+	{0x3b84732d,&Wrap<sceKernelCpuResumeIntrWithSync>, "sceKernelCpuResumeIntrWithSync"},
+	{0x47a0b729,&Wrap<sceKernelIsCpuIntrSuspended>, "sceKernelIsCpuIntrSuspended"}, //flags
+	{0xb55249d2,&Wrap<sceKernelIsCpuIntrEnable>, "sceKernelIsCpuIntrEnable"}, 
+	{0xa089eca4,&Wrap<sceKernelMemset>, "sceKernelMemset"}, 
 	{0xbea46419,0, "sceKernelLockLwMutex"}, 
 	{0x15b6446b,0, "sceKernelUnlockLwMutex"}, 
 	{0x293b45b8,0, "sceKernelGetThreadId"}, 
@@ -403,10 +406,10 @@ void Register_Kernel_Library()
 
 const HLEFunction InterruptManager[] = 
 {
-	{0xCA04A2B9, WrapU_UUUU<sceKernelRegisterSubIntrHandler>, "sceKernelRegisterSubIntrHandler"},
-	{0xD61E6961, WrapU_UU<sceKernelReleaseSubIntrHandler>, "sceKernelReleaseSubIntrHandler"},
-	{0xFB8E22EC, WrapU_UU<sceKernelEnableSubIntr>, "sceKernelEnableSubIntr"},
-	{0x8A389411, WrapU_UU<sceKernelDisableSubIntr>, "sceKernelDisableSubIntr"},
+	{0xCA04A2B9, &Wrap<sceKernelRegisterSubIntrHandler>, "sceKernelRegisterSubIntrHandler"},
+	{0xD61E6961, &Wrap<sceKernelReleaseSubIntrHandler>, "sceKernelReleaseSubIntrHandler"},
+	{0xFB8E22EC, &Wrap<sceKernelEnableSubIntr>, "sceKernelEnableSubIntr"},
+	{0x8A389411, &Wrap<sceKernelDisableSubIntr>, "sceKernelDisableSubIntr"},
 	{0x5CB5A78B, 0, "sceKernelSuspendSubIntr"},
 	{0x7860E0DC, 0, "sceKernelResumeSubIntr"},
 	{0xFC4374B8, 0, "sceKernelIsSubInterruptOccurred"},
