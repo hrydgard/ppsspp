@@ -12,6 +12,11 @@ if (APPLE)
 	include_directories(/usr/X11/include)
 endif()
 
+# TODO: Rely on compiler define instead. __BLACKBERRY__ ?
+if (BLACKBERRY)
+    add_definitions(-DBLACKBERRY)
+endif()
+
 
 include(FindOpenGL)
 include(FindSDL)
@@ -23,11 +28,13 @@ add_definitions(-DSDL)
 add_definitions(-Wno-multichar)
 add_definitions(-fno-strict-aliasing)
 add_definitions(-DUSE_PROFILER)
-add_definitions(-D_DEBUG)
+if (NOT BLACKBERRY)
+    add_definitions(-D_DEBUG)
+endif()
 
 if (UNIX)
 	if (NOT APPLE)  # can't build the SDL .m file with -std=gnu++0x
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++0x")
+	    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++0x")
 	endif()
 endif()
 
@@ -65,7 +72,15 @@ add_subdirectory(../Common Common)
 add_subdirectory(../GPU GPU)
 add_subdirectory(../Core Core)
 
-set(LIBS ${LIBS} ${SDL_LIBRARY} ${OPENGL_LIBRARIES} GLEW file lin ${PNG_LIBRARY} z gfx gfx_es2 etcdec image stb_image mixer net ui profiler timeutil file zip base lin vjson stb_vorbis sha1 jsonwriter common core gpu)
+set(LIBS ${LIBS} ${SDL_LIBRARY} ${OPENGL_LIBRARIES} file lin ${PNG_LIBRARY} z gfx gfx_es2 etcdec image stb_image mixer net ui profiler timeutil file zip base lin vjson stb_vorbis sha1 jsonwriter common core gpu)
+
+# TODO: Blackberry specific libs (eg. TCO)
+if(BLACKBERRY)
+    set(LIBS ${LIBS} socket)
+else()
+    set(LIBS ${LIBS} GLEW)
+endif()
+
 set(FILES
 	../android/jni/NativeApp.cpp
 	../android/jni/EmuScreen.cpp
@@ -76,9 +91,9 @@ set(FILES
 	../native/base/PCMain.cpp
 	)
 
-if (APPLE)
-	SET(FILES ${FILES} SDLMain.m)
-endif (APPLE)
+if(APPLE)
+	set(FILES ${FILES} SDLMain.m)
+endif(APPLE)
 
 add_executable(ppsspp ${FILES})
 

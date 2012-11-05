@@ -19,7 +19,7 @@
 
 #include "MIPS/MIPS.h"
 
-#ifdef ANDROID
+#if defined(ANDROID) || defined(BLACKBERRY)
 #include "MIPS/ARM/Jit.h"
 #else
 #include "MIPS/x86/Jit.h"

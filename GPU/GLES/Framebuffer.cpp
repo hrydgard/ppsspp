@@ -15,7 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#ifdef ANDROID
+#if defined(ANDROID) || defined(BLACKBERRY)
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 #else
@@ -72,7 +72,7 @@ const char basic_vs[] =
 
 void DisplayDrawer_Init()
 {
-#ifndef ANDROID
+#if !defined(ANDROID) && !defined(BLACKBERRY)
 	// Old OpenGL stuff that probably has no effect
 
 	glPolygonMode (GL_FRONT_AND_BACK, GL_FILL); //GL_FILL);

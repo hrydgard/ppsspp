@@ -17,7 +17,7 @@
 
 #include "Jit.h"
 #include "RegCache.h"
-#include "ArmEmitter.h"
+#include <ArmEmitter.h>
 
 using namespace MIPSAnalyst;
 #define _RS ((op>>21) & 0x1F)

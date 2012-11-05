@@ -16,9 +16,9 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ABI.h"
-#include "ARMEmitter.h"
+#include <ArmEmitter.h>
 
-#include "../../Memmap.h"
+#include "../../MemMap.h"
 
 #include "../MIPS.h"
 #include "../../CoreTiming.h"
