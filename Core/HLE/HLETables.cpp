@@ -65,9 +65,9 @@ const HLEFunction FakeSysCalls[] =
 
 const HLEFunction UtilsForUser[] = 
 {
-	{0x91E4F6A7, &Wrap<sceKernelLibcClock>, "sceKernelLibcClock"},
-	{0x27CC57F0, &Wrap<sceKernelLibcTime>, "sceKernelLibcTime"},
-	{0x71EC4271, &Wrap<sceKernelLibcGettimeofday>, "sceKernelLibcGettimeofday"},
+	{0x91E4F6A7, sceKernelLibcClock, "sceKernelLibcClock"},
+	{0x27CC57F0, sceKernelLibcTime, "sceKernelLibcTime"},
+	{0x71EC4271, sceKernelLibcGettimeofday, "sceKernelLibcGettimeofday"},
 	{0xBFA98062, 0, "sceKernelDcacheInvalidateRange"},
 	{0xC8186A58, 0, "sceKernelUtilsMd5Digest"},
 	{0x9E5C5086, 0, "sceKernelUtilsMd5BlockInit"},
@@ -79,28 +79,28 @@ const HLEFunction UtilsForUser[] =
 	{0x585F1C09, 0, "sceKernelUtilsSha1BlockResult"},
 	{0xE860E75E, 0, "sceKernelUtilsMt19937Init"},
 	{0x06FB8A63, 0, "sceKernelUtilsMt19937UInt"},
-	{0x37FB5C42, &Wrap<sceKernelGetGPI>, "sceKernelGetGPI"},
-	{0x6AD345D7, &Wrap<sceKernelSetGPO>, "sceKernelSetGPO"},
-	{0x79D1C3FA, &Wrap<sceKernelDcacheWritebackAll>, "sceKernelDcacheWritebackAll"},
-	{0xB435DEC5, &Wrap<sceKernelDcacheWritebackInvalidateAll>, "sceKernelDcacheWritebackInvalidateAll"},
-	{0x3EE30821, &Wrap<sceKernelDcacheWritebackRange>, "sceKernelDcacheWritebackRange"},
-	{0x34B9FA9E, &Wrap<sceKernelDcacheWritebackInvalidateRange>, "sceKernelDcacheWritebackInvalidateRange"},
+	{0x37FB5C42, sceKernelGetGPI, "sceKernelGetGPI"},
+	{0x6AD345D7, sceKernelSetGPO, "sceKernelSetGPO"},
+	{0x79D1C3FA, sceKernelDcacheWritebackAll, "sceKernelDcacheWritebackAll"},
+	{0xB435DEC5, sceKernelDcacheWritebackInvalidateAll, "sceKernelDcacheWritebackInvalidateAll"},
+	{0x3EE30821, sceKernelDcacheWritebackRange, "sceKernelDcacheWritebackRange"},
+	{0x34B9FA9E, sceKernelDcacheWritebackInvalidateRange, "sceKernelDcacheWritebackInvalidateRange"},
 	{0x80001C4C, 0, "sceKernelDcacheProbe"},
 	{0x16641D70, 0, "sceKernelDcacheReadTag"},
 	{0x4FD31C9D, 0, "sceKernelIcacheProbe"},
 	{0xFB05FAD0, 0, "sceKernelIcacheReadTag"},
-	{0x920f104a, &Wrap<sceKernelIcacheInvalidateAll>, "sceKernelIcacheInvalidateAll"}
+	{0x920f104a, sceKernelIcacheInvalidateAll, "sceKernelIcacheInvalidateAll"}
 };				   
 
 
 const HLEFunction sceRtc[] = 
 {
-  {0xC41C2853, &Wrap<sceRtcGetTickResolution>, "sceRtcGetTickResolution"},
-  {0x3f7ad767, &Wrap<sceRtcGetCurrentTick>, "sceRtcGetCurrentTick"},	
+  {0xC41C2853, sceRtcGetTickResolution, "sceRtcGetTickResolution"},
+  {0x3f7ad767, sceRtcGetCurrentTick, "sceRtcGetCurrentTick"},	
   {0x011F03C1, 0, "sceRtcGetAccumulativeTime"},
   {0x029CA3B3, 0, "sceRtcGetAccumlativeTime"},
   {0x4cfa57b0, 0, "sceRtcGetCurrentClock"},
-  {0xE7C27D1B, &Wrap<sceRtcGetCurrentClockLocalTime>, "sceRtcGetCurrentClockLocalTime"},
+  {0xE7C27D1B, sceRtcGetCurrentClockLocalTime, "sceRtcGetCurrentClockLocalTime"},
   {0x34885E0D, 0, "sceRtcConvertUtcToLocalTime"},
   {0x779242A2, 0, "sceRtcConvertLocalTimeToUTC"},
   {0x42307A17, 0, "sceRtcIsLeapYear"},
@@ -114,7 +114,7 @@ const HLEFunction sceRtc[] =
   {0x7ACE4C04, 0, "sceRtcSetWin32FileTime"},
   {0xCF561893, 0, "sceRtcGetWin32FileTime"},
   {0x7ED29E40, 0, "sceRtcSetTick"},
-  {0x6FF40ACC, &Wrap<sceRtcGetTick>, "sceRtcGetTick"},
+  {0x6FF40ACC, sceRtcGetTick, "sceRtcGetTick"},
   {0x9ED0AE87, 0, "sceRtcCompareTick"},
   {0x44F45E05, 0, "sceRtcTickAddTicks"},
   {0x26D25A5D, 0, "sceRtcTickAddMicroseconds"},
@@ -179,7 +179,7 @@ const HLEFunction LoadCoreForKernel[] =
   {0xCCE4A157, 0, "sceKernelFindModuleByUID"},
   {0x82CE54ED, 0, "sceKernelModuleCount"},
   {0xC0584F0C, 0, "sceKernelGetModuleList"},
-  {0xCF8A41B1, &Wrap<sceKernelFindModuleByName>,"sceKernelFindModuleByName"},
+  {0xCF8A41B1, sceKernelFindModuleByName,"sceKernelFindModuleByName"},
 };
 
 
@@ -189,7 +189,7 @@ const HLEFunction KDebugForKernel[] =
 	{0x2FF4E9F9, 0, "sceKernelAssert"},
 	{0x9B868276, 0, "sceKernelGetDebugPutchar"},
 	{0xE146606D, 0, "sceKernelRegisterDebugPutchar"},
-	{0x7CEB2C09, &Wrap<sceKernelRegisterKprintfHandler>, "sceKernelRegisterKprintfHandler"},
+	{0x7CEB2C09, sceKernelRegisterKprintfHandler, "sceKernelRegisterKprintfHandler"},
 	{0x84F370BC, 0, "Kprintf"},
 	{0x5CE9838B, 0, "sceKernelDebugWrite"},
 	{0x66253C4E, 0, "sceKernelRegisterDebugWrite"},

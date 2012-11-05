@@ -24,7 +24,7 @@
 #include "MemoryUtil.h"
 
 #if !defined(_M_IX86) && !defined(_M_X64)
-#error Do not build this on arm.
+#error Don't build this on arm.
 #endif
 
 namespace Gen

@@ -17,15 +17,15 @@
 
 #pragma once
 
-u32 sceKernelLibcGettimeofday(timeval *tv, u32);
-u32 sceKernelLibcClock();
-u32 sceKernelLibcTime(time_t*);
+void sceKernelLibcGettimeofday();
+void sceKernelLibcClock();
+void sceKernelLibcTime();
 void sceKernelUSec2SysClock();
 void sceKernelGetSystemTime();
 void sceKernelGetSystemTimeLow();
 void sceKernelGetSystemTimeWide();
 void sceKernelSysClock2USec();
 void sceKernelSysClock2USecWide();
-u32 sceRtcGetCurrentClockLocalTime(u32);
-u32 sceRtcGetTickResolution();
-u32 sceRtcGetTick(u32, u32);
+void sceRtcGetCurrentClockLocalTime();
+void sceRtcGetTickResolution();
+void sceRtcGetTick();

@@ -72,15 +72,14 @@ void __CtrlSetAnalog(float x, float y)
   ctrl.analog[1] = (u8)(y * 127.f + 128.f);
 }
 
-u32 sceCtrlInit()
+void sceCtrlInit()
 {
 	ctrlInited = true;
   memset(&ctrl, 0, sizeof(ctrl));
 	DEBUG_LOG(HLE,"sceCtrlInit");
-	return 0;
 }
 
-u32 sceCtrlSetSamplingMode(u32)
+void sceCtrlSetSamplingMode()
 {
 	DEBUG_LOG(HLE,"sceCtrlSetSamplingMode");
 	if (ctrlInited)
@@ -88,17 +87,18 @@ u32 sceCtrlSetSamplingMode(u32)
     // Looks odd
 		analogEnabled = true;
 	}
-	return 0;
 }
 
-u32 sceCtrlSetIdleCancelThreshold(u32, u32)
+void sceCtrlSetIdleCancelThreshold()
 {
   DEBUG_LOG(HLE,"UNIMPL sceCtrlSetIdleCancelThreshold");
-  return 0;
 }
 
-u32 sceCtrlReadBufferPositive(u32 ctrlData, u32 nBufs)
+void sceCtrlReadBufferPositive()
 {
+	u32 ctrlData = PARAM(0);
+	// u32 nBufs = PARAM(1);
+
   std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
   // Let's just ignore if ctrl is inited or not; some games don't init it (Super Fruit Fall)
 	//if (ctrlInited)
@@ -152,19 +152,19 @@ u32 sceCtrlReadBufferPositive(u32 ctrlData, u32 nBufs)
 
     memcpy(Memory::GetPointer(ctrlData), &data, sizeof(_ctrl_data));
 	//}
-	return 1;
+  RETURN(1);
 }
 
 static const HLEFunction sceCtrl[] = 
 {
-  {0x6a2774f3, Wrap<sceCtrlInit>,          "sceCtrlInit"},
-  {0x1f4011e6, Wrap<sceCtrlSetSamplingMode>, "sceCtrlSetSamplingMode"},
-  {0x1f803938, Wrap<sceCtrlReadBufferPositive>,          "sceCtrlReadBufferPositive"},
-  {0x6A2774F3, 0, "sceCtrlSetSamplingCycle"},
-  {0x6A2774F3, Wrap<sceCtrlInit>,"sceCtrlSetSamplingCycle"},
+  {0x6a2774f3, sceCtrlInit,          "sceCtrlInit"}, //(int unknown), init with 0
+  {0x1f4011e6, sceCtrlSetSamplingMode, "sceCtrlSetSamplingMode"}, //(int on);
+  {0x1f803938, sceCtrlReadBufferPositive,          "sceCtrlReadBufferPositive"}, //(ctrl_data_t* paddata, int unknown) // unknown should be 1
+  {0x6A2774F3, 0, "sceCtrlSetSamplingCycle"}, //?
+  {0x6A2774F3,sceCtrlInit,"sceCtrlSetSamplingCycle"},
   {0x02BAAD91,0,"sceCtrlGetSamplingCycle"},
   {0xDA6B76A1,0,"sceCtrlGetSamplingMode"},
-  {0x3A622550, Wrap<sceCtrlReadBufferPositive>,"sceCtrlPeekBufferPositive"},
+  {0x3A622550,sceCtrlReadBufferPositive,"sceCtrlPeekBufferPositive"},
   {0xC152080A,0,"sceCtrlPeekBufferNegative"},
   {0x60B81F86,0,"sceCtrlReadBufferNegative"},
   {0xB1D0E5CD,0,"sceCtrlPeekLatch"},
@@ -173,7 +173,7 @@ static const HLEFunction sceCtrl[] =
   {0xAF5960F3,0,"sceCtrl_AF5960F3"},
   {0xA68FD260,0,"sceCtrlClearRapidFire"},
   {0x6841BE1A,0,"sceCtrlSetRapidFire"},
-  {0xa7144800, Wrap<sceCtrlSetIdleCancelThreshold>,"sceCtrlSetIdleCancelThreshold"},
+  {0xa7144800,sceCtrlSetIdleCancelThreshold,"sceCtrlSetIdleCancelThreshold"},
   {0x687660fa,0,"sceCtrlGetIdleCancelThreshold"},
 };	
 

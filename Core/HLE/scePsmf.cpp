@@ -60,19 +60,19 @@ u32 scePsmfSpecifyStreamWithStreamType(u32 psmfStruct, u32 streamType) // possib
 
 const HLEFunction scePsmf[] =
 {
-  {0xc22c8327,&Wrap<scePsmfSetPsmf>,"scePsmfSetPsmfFunction"},
+  {0xc22c8327,&WrapU_UU<scePsmfSetPsmf>,"scePsmfSetPsmfFunction"},
   {0xC7DB3A5B,0,"scePsmfGetCurrentStreamTypeFunction"},
   {0x28240568,0,"scePsmfGetCurrentStreamNumberFunction"},
-  {0x1E6D9013,&Wrap<scePsmfSpecifyStreamWithStreamType>,"scePsmfSpecifyStreamWithStreamTypeFunction"},
+  {0x1E6D9013,&WrapU_UU<scePsmfSpecifyStreamWithStreamType>,"scePsmfSpecifyStreamWithStreamTypeFunction"},
   {0x4BC9BDE0,0,"scePsmfSpecifyStreamFunction"},
   {0x76D3AEBA,0,"scePsmfGetPresentationStartTimeFunction"},
   {0xBD8AE0D8,0,"scePsmfGetPresentationEndTimeFunction"},
-  {0xEAED89CD,&Wrap<scePsmfGetNumberOfStreams>,"scePsmfGetNumberOfStreamsFunction"},
+  {0xEAED89CD,&WrapU_U<scePsmfGetNumberOfStreams>,"scePsmfGetNumberOfStreamsFunction"},
   {0x7491C438,0,"scePsmfGetNumberOfEPentriesFunction"},
   {0x0BA514E5,0,"scePsmfGetVideoInfoFunction"},
   {0xA83F7113,0,"scePsmfGetAudioInfoFunction"},
   {0x971A3A90,0,"scePsmfCheckEPmapFunction"},
-  {0x68d42328,&Wrap<scePsmfGetNumberOfSpecificStreams>,"scePsmfGetNumberOfSpecificStreamsFunction"},
+  {0x68d42328,&WrapU_UU<scePsmfGetNumberOfSpecificStreams>,"scePsmfGetNumberOfSpecificStreamsFunction"},
   {0x5b70fcc1,0,"scePsmfQueryStreamOffsetFunction"},
   {0x9553cc91,0,"scePsmfQueryStreamSizeFunction"},
   {0x0C120E1D,0,"scePsmfSpecifyStreamWithStreamTypeNumberFunction"},

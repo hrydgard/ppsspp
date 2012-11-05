@@ -134,7 +134,7 @@ void Light(float colorOut[4], const float colorIn[4], Vec3 pos, Vec3 normal, flo
 		else
 			toLight = Vec3(gstate.lightpos[l]) - pos;
 
-		//Vec3 dir = Vec3(gstate.lightdir[l]);
+		Vec3 dir = Vec3(gstate.lightdir[l]);
 
 		bool doSpecular = (comp != GE_LIGHTCOMP_ONLYDIFFUSE);
 		bool poweredDiffuse = comp == GE_LIGHTCOMP_BOTHWITHPOWDIFFUSE;
@@ -225,6 +225,7 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 
 
 	// TODO: Split up into multiple draw calls for Android where you can't guarantee support for more than 0x10000 verts.
+	int i = 0;
 
 #ifdef ANDROID
 	if (vertexCount > 0x10000/3)

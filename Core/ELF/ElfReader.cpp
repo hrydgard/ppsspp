@@ -166,6 +166,7 @@ bool ElfReader::LoadInto(u32 vaddr)
 		if (s->sh_type == SHT_PSPREL)
 		{
 			//We have a relocation table!
+			int symbolSection = s->sh_link;
 			int sectionToModify = s->sh_info;
 
 			if (!(sections[sectionToModify].sh_flags & SHF_ALLOC))
@@ -300,6 +301,7 @@ bool ElfReader::LoadInto(u32 vaddr)
 			else
 			{
 				//We have a relocation table!
+				int symbolSection = s->sh_link;
 				int sectionToModify = s->sh_info;
 				if (!(sections[sectionToModify].sh_flags & SHF_ALLOC))
 				{
@@ -351,6 +353,7 @@ bool ElfReader::LoadSymbols()
 			if (size == 0)
 				continue;
 
+			int bind = symtab[sym].st_info >> 4;
 			int type = symtab[sym].st_info & 0xF;
 			int sectionIndex = symtab[sym].st_shndx;
 			int value = symtab[sym].st_value;

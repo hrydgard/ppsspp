@@ -127,7 +127,7 @@ void sceKernelSignalSema()
 		s->ns.currentCount += signal;
 		DEBUG_LOG(HLE,"sceKernelSignalSema(%i, %i) (old: %i, new: %i)", id, signal, oldval, s->ns.currentCount);
 			
-		//bool wokeThreads = false;
+		bool wokeThreads = false;
 retry:
 		//TODO: check for threads to wake up - wake them
 		std::vector<SceUID>::iterator iter;
@@ -139,7 +139,7 @@ retry:
 			{
 				__KernelResumeThread(id);
 				s->ns.currentCount -= wVal;
-				//wokeThreads = true;
+				wokeThreads = true;
 				s->waitingThreads.erase(iter);
 				goto retry;
 			}

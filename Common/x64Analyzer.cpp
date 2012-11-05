@@ -31,9 +31,12 @@ bool DisassembleMov(const unsigned char *codePtr, InstructionInfo &info, int acc
 	info.hasImmediate = false;
 	info.isMemoryWrite = false;
 
+	int addressSize = 8;
 	u8 modRMbyte = 0;
 	u8 sibByte = 0;
     bool hasModRM = false;
+	bool hasSIBbyte = false;
+	bool hasDisplacement = false;
 
 	int displacementSize = 0;
 
@@ -44,6 +47,7 @@ bool DisassembleMov(const unsigned char *codePtr, InstructionInfo &info, int acc
 	} 
 	else if (*codePtr == 0x67)
 	{
+		addressSize = 4;
 		codePtr++;
 	}
 
@@ -109,6 +113,7 @@ bool DisassembleMov(const unsigned char *codePtr, InstructionInfo &info, int acc
 				info.otherReg = (sibByte & 7);
 				if (rex & 2) info.scaledReg += 8;
 				if (rex & 1) info.otherReg += 8;
+				hasSIBbyte = true;
 			}
 			else
 			{
@@ -117,6 +122,7 @@ bool DisassembleMov(const unsigned char *codePtr, InstructionInfo &info, int acc
 		}
 		if (mrm.mod == 1 || mrm.mod == 2)
 		{
+			hasDisplacement = true;
 			if (mrm.mod == 1)
 				displacementSize = 1;
 			else

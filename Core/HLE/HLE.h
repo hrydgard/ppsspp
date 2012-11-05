@@ -49,7 +49,6 @@ struct Syscall
 
 #define PARAM(n) currentMIPS->r[4+n]
 #define RETURN(n) currentMIPS->r[2]=n
-#define RETURN2(n) currentMIPS->r[3]=n
 #define RETURNF(fl) currentMIPS->f[0]=fl
 
 #ifndef ARRAY_SIZE

@@ -175,7 +175,7 @@ static const HLEFunction scePower[] =
   {0xBD681969,0,"scePowerGetBusClockFrequencyInt"},
   {0xB1A52C83,0,"scePowerGetCpuClockFrequencyFloat"},
   {0x9BADB3EB,0,"scePowerGetBusClockFrequencyFloat"},
-  {0x737486F2,&Wrap<scePowerSetClockFrequency>,"scePowerSetClockFrequency"},
+  {0x737486F2,&WrapV_UUU<scePowerSetClockFrequency>,"scePowerSetClockFrequency"},
   {0x34f9c463,0,"scePowerGetPllClockFrequencyInt"},
   {0xea382a27,0,"scePowerGetPllClockFrequencyFloat"},
   {0xebd177d6,0,"scePower_driver_EBD177D6"},

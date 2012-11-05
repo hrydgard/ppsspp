@@ -30,7 +30,7 @@ u32 sceHprmPeekCurrentKey(u32 keyAddress)
 const HLEFunction sceHprm[] = 
 {
 	{0x089fdfa4, 0, "sceHprm_0x089fdfa4"},
-	{0x1910B327, &Wrap<sceHprmPeekCurrentKey>, "sceHprmPeekCurrentKey"},
+	{0x1910B327, &WrapU_U<sceHprmPeekCurrentKey>, "sceHprmPeekCurrentKey"},
 	{0x208DB1BD, 0, "sceHprmIsRemoteExist"},
 	{0x7E69EDA4, 0, "sceHprmIsHeadphoneExist"},
 	{0x219C58F1, 0, "sceHprmIsMicrophoneExist"},

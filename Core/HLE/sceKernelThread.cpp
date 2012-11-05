@@ -312,10 +312,10 @@ void __KernelNotifyCallback(SceUID threadID, SceUID cbid, u32 notifyArg)
         return;
       }
     }
-    //CallbackNotification cb;
-    //cb.cbid = cbid;
-    //cb.arg = notifyArg;
-    //cb.count = 1;
+    CallbackNotification cb;
+    cb.cbid = cbid;
+    cb.arg = notifyArg;
+    cb.count = 1;
   }
   // TODO: error checking
 }
@@ -457,7 +457,7 @@ void __KernelLoadContext(ThreadContext *ctx)
 // If any changes were made, it will context switch
 bool __KernelTriggerWait(WaitType type, int id, bool dontSwitch)
 {
-	//bool doneAnything = false;
+	bool doneAnything = false;
 
 	for (std::vector<Thread *>::iterator iter = threadqueue.begin(); iter != threadqueue.end(); iter++)
 	{
@@ -472,7 +472,7 @@ bool __KernelTriggerWait(WaitType type, int id, bool dontSwitch)
         {
 					t->nt.status = THREADSTATUS_READY;
         }
-				//doneAnything = true;
+				doneAnything = true;
 			}
 		}
 	}
@@ -544,7 +544,7 @@ void __KernelScheduleWakeup(SceUID threadID, int usFromNow)
 
 void __KernelRemoveFromThreadQueue(Thread *t)
 {
-  for (u32 i = 0; i < threadqueue.size(); i++)
+  for (int i = 0; i < threadqueue.size(); i++)
   {
     if (threadqueue[i] == t)
     {

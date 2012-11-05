@@ -59,11 +59,11 @@ u32 sceAudioOutputPannedBlocking(u32 chan, u32 volume1, u32 volume2, u32 sampleP
 	}
 }
 
-u32 sceAudioGetChannelRestLen(u32 chanId)
+void sceAudioGetChannelRestLen()
 {
-	ERROR_LOG(HLE,"UNIMPL sceAudioGetChannelRestLen(%i)", chanId);
+	ERROR_LOG(HLE,"UNIMPL sceAudioGetChannelRestLen(%i)", PARAM(0));
 	// Remaining samples in that channel buffer.
-	return 0;
+	RETURN(0);
 }
 
 u32 sceAudioOutputPanned(u32 chan, u32 leftVol, u32 rightVol, u32 samplePtr)
@@ -147,7 +147,7 @@ u32 sceAudioChReserve(u32 channel, u32 sampleCount, u32 format) //.Allocate soun
   {
 		WARN_LOG(HLE, "WARNING: Reserving already reserved channel. Error?");
 	}
-	DEBUG_LOG(HLE,"%i = sceAudioChReserve(%i, %i, %i)", channel, channel, sampleCount, format);
+	DEBUG_LOG(HLE,"%i = sceAudioChReserve(%i, %i, %i)", channel, PARAM(0), sampleCount, format);
 
 	chans[channel].sampleCount = sampleCount;
 	chans[channel].reserved = true;
@@ -230,10 +230,10 @@ u32 sceAudioChangeChannelVolume(u32 chan, u32 lvolume, u32 rvolume)
   }
 }
  
-u32 sceAudioInit()
+void sceAudioInit()
 {
   ERROR_LOG(HLE,"UNIMPL sceAudioInit");
-  return 0;
+  RETURN(0);
 }
 
 const HLEFunction sceAudio[] = 
@@ -246,7 +246,7 @@ const HLEFunction sceAudio[] =
   {0x210567F7, 0, "sceAudioEnd"},
   {0x38553111, 0, "sceAudioSRCChReserve"},
   {0x5C37C0AE, 0, "sceAudioSRCChRelease"},
-  {0x80F1F7E0, Wrap<sceAudioInit>, "sceAudioInit"},
+  {0x80F1F7E0, sceAudioInit, "sceAudioInit"},
   {0x927AC32B, 0, "sceAudioSetVolumeOffset"},
   {0xA2BEAA6C, 0, "sceAudioSetFrequency"},
   {0xA633048E, 0, "sceAudioPollInputEnd"},
@@ -255,15 +255,15 @@ const HLEFunction sceAudio[] =
   {0xE0727056, 0, "sceAudioSRCOutputBlocking"},
   {0xE926D3FB, 0, "sceAudioInputInitEx"},
   {0x8c1009b2, 0, "sceAudioOutput"}, 
-  {0x136CAF51, Wrap<sceAudioOutputBlocking>, "sceAudioOutputBlocking"}, 
-  {0xE2D56B2D, Wrap<sceAudioOutputPanned>, "sceAudioOutputPanned"}, 
-  {0x13F592BC, Wrap<sceAudioOutputPannedBlocking>, "sceAudioOutputPannedBlocking"}, //(u32, u32, u32, void *)Output sound, blocking 
-  {0x5EC81C55, Wrap<sceAudioChReserve>, "sceAudioChReserve"}, //(u32, u32 samplecount, u32) Initialize channel and allocate buffer  long, long samplecount, long);//init buffer? returns handle, minus if error
-  {0x6FC46853, Wrap<sceAudioChRelease>, "sceAudioChRelease"}, //(long handle)Terminate channel and deallocate buffer //free buffer?
-  {0xE9D97901, Wrap<sceAudioGetChannelRestLen>, "sceAudioGetChannelRestLen"}, 
-  {0xCB2E439E, Wrap<sceAudioSetChannelDataLen>, "sceAudioSetChannelDataLen"}, //(u32, u32)
-  {0x95FD0C2D, Wrap<sceAudioChangeChannelConfig>, "sceAudioChangeChannelConfig"}, 
-  {0xB7E1D8E7, Wrap<sceAudioChangeChannelVolume>, "sceAudioChangeChannelVolume"}, 
+  {0x136CAF51, WrapU_UUU<sceAudioOutputBlocking>, "sceAudioOutputBlocking"}, 
+  {0xE2D56B2D, WrapU_UUUU<sceAudioOutputPanned>, "sceAudioOutputPanned"}, 
+  {0x13F592BC, WrapU_UUUU<sceAudioOutputPannedBlocking>, "sceAudioOutputPannedBlocking"}, //(u32, u32, u32, void *)Output sound, blocking 
+  {0x5EC81C55, WrapU_UUU<sceAudioChReserve>, "sceAudioChReserve"}, //(u32, u32 samplecount, u32) Initialize channel and allocate buffer  long, long samplecount, long);//init buffer? returns handle, minus if error
+  {0x6FC46853, WrapU_U<sceAudioChRelease>, "sceAudioChRelease"}, //(long handle)Terminate channel and deallocate buffer //free buffer?
+  {0xE9D97901, sceAudioGetChannelRestLen, "sceAudioGetChannelRestLen"}, 
+  {0xCB2E439E, WrapU_UU<sceAudioSetChannelDataLen>, "sceAudioSetChannelDataLen"}, //(u32, u32)
+  {0x95FD0C2D, WrapU_UU<sceAudioChangeChannelConfig>, "sceAudioChangeChannelConfig"}, 
+  {0xB7E1D8E7, WrapU_UUU<sceAudioChangeChannelVolume>, "sceAudioChangeChannelVolume"}, 
   {0x41efade7, 0, "sceAudioOneshotOutput"},
   {0x086e5895, 0, "sceAudioInputBlocking"},	 
   {0x6d4bec68, 0, "sceAudioInput"},	 

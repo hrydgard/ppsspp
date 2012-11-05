@@ -253,16 +253,16 @@ void sceKernelSleepThreadCB();
 
 void sceKernelDevkitVersion();
 
-void sceKernelRegisterKprintfHandler(u32, u32);
+void sceKernelRegisterKprintfHandler();
 void sceKernelRegisterDefaultExceptionHandler();
 
-u32 sceKernelFindModuleByName(u32);
+void sceKernelFindModuleByName();
 
-void sceKernelSetGPO(u32);
-u32 sceKernelGetGPI();
+void sceKernelSetGPO();
+void sceKernelGetGPI();
 void sceKernelDcacheWritebackAll();
-void sceKernelDcacheWritebackRange(u32, u32);
-void sceKernelDcacheWritebackInvalidateRange(u32, u32);
+void sceKernelDcacheWritebackRange();
+void sceKernelDcacheWritebackInvalidateRange();
 void sceKernelDcacheWritebackInvalidateAll();
 void sceKernelGetThreadStackFreeSize();
 void sceKernelIcacheInvalidateAll();

@@ -238,6 +238,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	{
 		const char *modulename = (const char*)Memory::GetPointer(entry[m].name);
 		u32 *nidDataPtr = (u32*)Memory::GetPointer(entry[m].nidData);
+		// u32 *stubs = (u32*)Memory::GetPointer(entry[m].firstSymAddr);
 
 		DEBUG_LOG(LOADER,"Importing Module %s, stubs at %08x",modulename,entry[m].firstSymAddr);
 
@@ -314,11 +315,11 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 
 bool __KernelLoadPBP(const char *filename, std::string *error_string)
 {
-	//static const char *FileNames[] =
-	//{
-	//	"PARAM.SFO", "ICON0.PNG", "ICON1.PMF", "UNKNOWN.PNG",
-	//	"PIC1.PNG", "SND0.AT3", "UNKNOWN.PSP", "UNKNOWN.PSAR"
-	//};
+	static const char *FileNames[] =
+	{
+		"PARAM.SFO", "ICON0.PNG", "ICON1.PMF", "UNKNOWN.PNG",
+		"PIC1.PNG", "SND0.AT3", "UNKNOWN.PSP", "UNKNOWN.PSAR"
+	};
 
 	std::ifstream in(filename, std::ios::binary);
 
@@ -524,9 +525,9 @@ void sceKernelStartModule()
 	int argsize = PARAM(1);
 	u32 argptr = PARAM(2);
 	u32 ptrReturn = PARAM(3);
-	//if (PARAM(4)) {
-		//SceKernelSMOption *smoption = (SceKernelSMOption*)Memory::GetPointer(PARAM(4));
-	//}
+	if (PARAM(4)) {
+		SceKernelSMOption *smoption = (SceKernelSMOption*)Memory::GetPointer(PARAM(4));
+	}
 	ERROR_LOG(HLE,"UNIMPL sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,...)",
 		id,argsize,argptr,ptrReturn);
 	RETURN(0);
@@ -554,33 +555,35 @@ void sceKernelGetModuleIdByAddress()
 	else
 		RETURN(0);
 }
+
 void sceKernelGetModuleId()
 {
 	ERROR_LOG(HLE,"UNIMPL sceKernelGetModuleId");
 	RETURN(0);
-
 }
 
-u32 sceKernelFindModuleByName(u32)
+void sceKernelFindModuleByName()
 {
 	ERROR_LOG(HLE,"UNIMPL sceKernelFindModuleByName()");
-	return 1;
+	RETURN(1);
 }
+
+
 
 const HLEFunction ModuleMgrForUser[] = 
 {
-	{0x977DE386,&Wrap<sceKernelLoadModule>,"sceKernelLoadModule"},
+	{0x977DE386,&WrapU_CU<sceKernelLoadModule>,"sceKernelLoadModule"},
 	{0xb7f46618,0,"sceKernelLoadModuleByID"},
-	{0x50F0C1EC,&Wrap<sceKernelStartModule>,"sceKernelStartModule"},
-	{0xD675EBB8,&Wrap<sceKernelExitGame>,"sceKernelSelfStopUnloadModule"}, //HACK
-	{0xd1ff982a,&Wrap<sceKernelStopModule>,"sceKernelStopModule"},
-	{0x2e0911aa,&Wrap<sceKernelUnloadModule>,"sceKernelUnloadModule"},
+	{0x50F0C1EC,&sceKernelStartModule,"sceKernelStartModule"},
+	{0xD675EBB8,&sceKernelExitGame,"sceKernelSelfStopUnloadModule"}, //HACK
+	{0xd1ff982a,&sceKernelStopModule,"sceKernelStopModule"},
+	{0x2e0911aa,&sceKernelUnloadModule,"sceKernelUnloadModule"},
 	{0x710F61B5,0,"sceKernelLoadModuleMs"},
 	{0xF9275D98,0,"sceKernelLoadModuleBufferUsbWlan"}, ///???
 	{0xCC1D3699,0,"sceKernelStopUnloadSelfModule"},
 	{0x748CBED9,0,"sceKernelQueryModuleInfo"},
-	{0xd8b73127,&Wrap<sceKernelGetModuleIdByAddress>, "sceKernelGetModuleIdByAddress"},
-	{0xf0a26395,&Wrap<sceKernelGetModuleId>, "sceKernelGetModuleId"},
+	{0xd8b73127,&sceKernelGetModuleIdByAddress, "sceKernelGetModuleIdByAddress"},
+	{0xf0a26395,&sceKernelGetModuleId, "sceKernelGetModuleId"},
 	{0x8f2df740,0,"sceKernel_ModuleMgr_8f2df740"},
 };
 
