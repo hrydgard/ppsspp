@@ -382,7 +382,7 @@ static int DecryptPRX1(const u8* pbIn, u8* pbOut, int cbTotal, u32 tag)
 	memcpy(buffer1+0xD0, b00, 0x80);
 	if (pti->codeExtra != 0)
 		ExtraV2Mangle(buffer1+0x10, pti->codeExtra);
-	memcpy(pbOut+0x40 /* 0x2C+20 */, buffer1+0x40, 0x40);
+	memcpy(pbOut+0x40, buffer1+0x40, 0x40);
 
 	int ret;
 	int iXOR;
