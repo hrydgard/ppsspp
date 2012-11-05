@@ -77,27 +77,27 @@ bool ElfReader::LoadInto(u32 vaddr)
 	bRelocate = (header->e_type != ET_EXEC);
 
 	entryPoint = header->e_entry;
-	u32 totalSize = 0;
-	for (int i=0; i<header->e_phnum; i++)
-	{
-		Elf32_Phdr *p = segments + i;
-		if (p->p_type == PT_LOAD && p->p_vaddr + p->p_memsz > totalSize)
-		{
-			totalSize = p->p_vaddr + p->p_memsz;
+	u32 totalStart = 0xFFFFFFFF;
+	u32 totalEnd = 0;
+	for (int i=0; i<header->e_phnum; i++) {
+		Elf32_Phdr *p = &segments[i];
+		if (p->p_type == PT_LOAD) {
+			if (p->p_vaddr < totalStart)
+				totalStart = p->p_vaddr;
+			if (p->p_vaddr + p->p_memsz > totalEnd)
+				totalEnd = p->p_vaddr + p->p_memsz;
 		}
 	}
+	u32 totalSize = totalEnd - totalStart;
 	if (vaddr)
 		vaddr = userMemory.AllocAt(vaddr, totalSize, "ELF");
 	else
 		vaddr = userMemory.Alloc(totalSize, false, "ELF");
 
-	if (bRelocate)
-	{
+	if (bRelocate) {
 		DEBUG_LOG(LOADER,"Relocatable module");
 		entryPoint += vaddr;
-	}
-	else
-	{
+	} else {
 		DEBUG_LOG(LOADER,"Prerelocated executable");
 	}
 
