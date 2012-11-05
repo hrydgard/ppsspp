@@ -68,11 +68,12 @@ add_subdirectory(../native/ext/vjson vjson)
 add_subdirectory(../native/ext/stb_vorbis stb_vorbis)
 add_subdirectory(../native/ext/stb_image stb_image)
 add_subdirectory(../native/ext/sha1 sha1)
+add_subdirectory(../ext/libkirk kirk)
 add_subdirectory(../Common Common)
 add_subdirectory(../GPU GPU)
 add_subdirectory(../Core Core)
 
-set(LIBS ${LIBS} ${SDL_LIBRARY} ${OPENGL_LIBRARIES} file lin ${PNG_LIBRARY} z gfx gfx_es2 etcdec image stb_image mixer net ui profiler timeutil file zip base lin vjson stb_vorbis sha1 jsonwriter common core gpu)
+set(LIBS ${LIBS} ${SDL_LIBRARY} ${OPENGL_LIBRARIES} file lin ${PNG_LIBRARY} z gfx gfx_es2 etcdec image stb_image mixer net ui profiler timeutil file zip base lin vjson stb_vorbis sha1 jsonwriter common core gpu kirk)
 
 # TODO: Blackberry specific libs (eg. TCO)
 if(BLACKBERRY)

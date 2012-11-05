@@ -164,7 +164,7 @@
     <ProjectReference Include="..\native\native.vcxproj">
       <Project>{e8b58922-9827-493d-81e0-4b6e6bd77171}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\zlib\zlib.vcxproj">
+    <ProjectReference Include="..\ext\zlib\zlib.vcxproj">
       <Project>{f761046e-6c38-4428-a5f1-38391a37bb34}</Project>
     </ProjectReference>
   </ItemGroup>

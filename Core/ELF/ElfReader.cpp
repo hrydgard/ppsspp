@@ -197,7 +197,7 @@ bool ElfReader::LoadInto(u32 vaddr)
 				addr += segmentVAddr[readwrite];
 				
 				u32 op = Memory::ReadUnchecked_U32(addr);
-        
+
 				const bool log = false;
 				//log=true;
 				if (log)

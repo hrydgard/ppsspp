@@ -20,7 +20,6 @@
 #include "sceKernel.h"
 #include "HLE.h"
 
-bool __KernelLoadPBP(const char *filename, std::string *error_string);
 u32 __KernelGetModuleGP(SceUID module);
 bool __KernelLoadExec(const char *filename, SceKernelLoadExecParam *param, std::string *error_string);
 
