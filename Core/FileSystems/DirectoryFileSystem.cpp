@@ -238,14 +238,14 @@ PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename)
 {
 	PSPFileInfo x; 
 	x.name = filename;
-	if (!File::Exists(filename)) {
-		return x;
-	}
 	
-	x.exists = true;
-	x.type = File::IsDirectory(filename) ? FILETYPE_NORMAL : FILETYPE_DIRECTORY;
 
   std::string fullName = GetLocalPath(filename);
+	if (!File::Exists(fullName)) {
+		return x;
+	}
+	x.type = File::IsDirectory(fullName) ? FILETYPE_NORMAL : FILETYPE_DIRECTORY;
+	x.exists = true;
 
 #ifdef _WIN32
 
