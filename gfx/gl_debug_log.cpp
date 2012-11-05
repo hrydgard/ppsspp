@@ -1,4 +1,4 @@
-#if defined(ANDROID)
+#if defined(ANDROID) || defined(BLACKBERRY)
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 typedef char GLchar;
@@ -20,7 +20,7 @@ void glCheckzor(const char *file, int line) {
 	}
 }
 
-#ifndef ANDROID
+#if !defined(ANDROID) && !defined(BLACKBERRY)
 #if 0
 void log_callback(GLenum source, GLenum type,
 	GLuint id,
@@ -56,7 +56,7 @@ void log_callback(GLenum source, GLenum type,
 #endif
 
 void gl_log_enable() {
-#ifndef ANDROID
+#if !defined(ANDROID) && !defined(BLACKBERRY)
 #if 0
 	glEnable(DEBUG_OUTPUT_SYNCHRONOUS_ARB);	// TODO: Look into disabling, for more perf
 	glDebugMessageCallback(&log_callback, 0);

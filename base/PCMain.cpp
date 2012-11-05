@@ -209,6 +209,7 @@ int main(int argc, char *argv[]) {
 		SDL_Quit();
 		return(2);
 	}
+#ifndef BLACKBERRY
 	SDL_WM_SetCaption(app_name_nice.c_str(), NULL);
 
 	if (GLEW_OK != glewInit()) {
@@ -222,6 +223,7 @@ int main(int argc, char *argv[]) {
 		printf("Sorry, this program requires OpenGL 2.0.\n");
 		return 1;
 	}
+#endif
 
 #ifdef _MSC_VER
 	// VFSRegister("temp/", new DirectoryAssetReader("E:\\Temp\\"));

@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#ifndef ANDROID
+#if !defined(ANDROID) && !defined(BLACKBERRY)
 #include "image/png_load.h"
 #include "ext/etcpack/etcdec.h"
 #endif
@@ -98,7 +98,7 @@ bool Texture::Load(const char *filename) {
 	const char *name = fn;
 	if (zim && 0 == memcmp(name, "Media/textures/", strlen("Media/textures"))) name += strlen("Media/textures/");
 	len = strlen(name);
-	#ifndef ANDROID
+	#if !defined(ANDROID) && !defined(BLACKBERRY)
 	if (!strcmp("png", &name[len-3]) ||
 			!strcmp("PNG", &name[len-3])) {
 		if (!LoadPNG(fn)) {
@@ -122,7 +122,7 @@ bool Texture::Load(const char *filename) {
 }
 
 #ifndef METRO
-#ifndef ANDROID
+#if !defined(ANDROID) && !defined(BLACKBERRY)
 bool Texture::LoadPNG(const char *filename) {
 	unsigned char *image_data;
 	if (1 != pngLoad(filename, &width_, &height_, &image_data, false)) {
@@ -176,7 +176,7 @@ bool Texture::LoadXOR() {
 }
 
 
-#ifndef ANDROID
+#if !defined(ANDROID) && !defined(BLACKBERRY)
 
 // Allocates using new[], doesn't free.
 uint8_t *ETC1ToRGBA(uint8_t *etc1, int width, int height) {
@@ -236,7 +236,7 @@ bool Texture::LoadZIM(const char *filename) {
 			int data_h = height[l];
 			if (data_w < 4) data_w = 4;
 			if (data_h < 4) data_h = 4;
-#if defined(ANDROID)
+#if defined(ANDROID) || defined(BLACKBERRY)
 			int compressed_image_bytes = data_w * data_h / 2;
 			glCompressedTexImage2D(GL_TEXTURE_2D, l, GL_ETC1_RGB8_OES, width[l], height[l], 0, compressed_image_bytes, image_data[l]);
 			GL_CHECK();
@@ -247,7 +247,7 @@ bool Texture::LoadZIM(const char *filename) {
 #endif
 		}
 		GL_CHECK();
-#if !defined(ANDROID)
+#if !defined(ANDROID) && !defined(BLACKBERRY)
 		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, num_levels - 2);
 #endif
 	} else {
