@@ -600,11 +600,6 @@ static int DecryptPRX2(const u8 *inbuf, u8 *outbuf, u32 size, u32 tag)
 		return -2;
 	}
 
-	if (((size_t)(void*)outbuf & 0x3F))
-	{
-		return -3;
-	}
-
 	if ((size - 0x150) < retsize)
 	{
 		return -4;

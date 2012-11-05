@@ -41,6 +41,7 @@ class ElfReader
 	u32 *sectionAddrs;
 	bool bRelocate;
 	u32 entryPoint;
+	u32 vaddr;
 public:
 	ElfReader(void *ptr)
 	{
@@ -107,6 +108,12 @@ public:
 	bool DidRelocate() {
 		return bRelocate;
 	}
+
+	u32 GetVaddr()
+	{
+		return vaddr;
+	}
+
 	// More indepth stuff:)
 	bool LoadInto(u32 vaddr);
 	bool LoadSymbols();

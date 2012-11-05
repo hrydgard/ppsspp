@@ -51,7 +51,7 @@ void addrToHiLo(u32 addr, u16 &hi, s16 &lo)
 }
 
 
-bool ElfReader::LoadInto(u32 vaddr)
+bool ElfReader::LoadInto(u32 loadAddress)
 {
 	DEBUG_LOG(LOADER,"String section: %i", header->e_shstrndx);
 
@@ -89,8 +89,8 @@ bool ElfReader::LoadInto(u32 vaddr)
 		}
 	}
 	u32 totalSize = totalEnd - totalStart;
-	if (vaddr)
-		vaddr = userMemory.AllocAt(vaddr, totalSize, "ELF");
+	if (loadAddress)
+		vaddr = userMemory.AllocAt(loadAddress, totalSize, "ELF");
 	else
 		vaddr = userMemory.Alloc(totalSize, false, "ELF");
 
@@ -110,7 +110,6 @@ bool ElfReader::LoadInto(u32 vaddr)
 	for (int i=0; i<header->e_phnum; i++)
 	{
 		Elf32_Phdr *p = segments + i;
-		INFO_LOG(LOADER, "p = %p", p);
 		DEBUG_LOG(LOADER, "Type: %i Vaddr: %08x Filesz: %i Memsz: %i ", (int)p->p_type, (u32)p->p_vaddr, (int)p->p_filesz, (int)p->p_memsz);
 
 		if (p->p_type == PT_LOAD)
