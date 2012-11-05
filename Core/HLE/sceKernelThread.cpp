@@ -544,7 +544,7 @@ void __KernelScheduleWakeup(SceUID threadID, int usFromNow)
 
 void __KernelRemoveFromThreadQueue(Thread *t)
 {
-  for (int i = 0; i < threadqueue.size(); i++)
+  for (size_t i = 0; i < threadqueue.size(); i++)
   {
     if (threadqueue[i] == t)
     {
@@ -628,7 +628,7 @@ void sceKernelCheckThreadStack()
 {
   u32 error;
   Thread *t = kernelObjects.Get<Thread>(__KernelGetCurThread(), error);
-  u32 diff = abs((s64)t->stackBlock - (s64)currentMIPS->r[MIPS_REG_SP]);
+  u32 diff = (u32)abs((s64)t->stackBlock - (s64)currentMIPS->r[MIPS_REG_SP]);
   ERROR_LOG(HLE, "%i=sceKernelCheckThreadStack()", diff);
 	RETURN(diff); //Blatant lie
 }

@@ -139,15 +139,12 @@ bool TryParse(const std::string &str, u32 *const output)
 
 	if (ULONG_MAX > UINT_MAX) {
 #ifdef _MSC_VER
-#pragma warning disable(4309);
+#pragma warning (disable:4309)
 #endif
 		// Note: The typecasts avoid GCC warnings when long is 32 bits wide.
 		if (value >= static_cast<unsigned long>(0x100000000ull)
 				&& value <= static_cast<unsigned long>(0xFFFFFFFF00000000ull))
 			return false;
-#ifdef _MSC_VER
-#pragma warning enable(4309);
-#endif
 	}
 
 	*output = static_cast<u32>(value);
