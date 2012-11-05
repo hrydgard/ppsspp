@@ -21,7 +21,7 @@
 #include <map>
 
 #include "Common.h"
-#ifdef ANDROID
+#if defined(ANDROID) || defined(BLACKBERRY)
 #include "ArmEmitter.h"
 #else
 #include "x64Emitter.h"
@@ -38,7 +38,7 @@
 // we don't want to pollute the stack, so we store away regs somewhere global.
 // NOT THREAD SAFE. This may only be used from the CPU thread.
 // Any other thread using this stuff will be FATAL.
-#ifdef ANDROID
+#if defined(ANDROID) || defined(BLACKBERRY)
 class ThunkManager : public ArmGen::ARMXCodeBlock
 #else
 class ThunkManager : public Gen::XCodeBlock

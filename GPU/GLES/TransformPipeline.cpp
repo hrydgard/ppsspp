@@ -15,7 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#ifdef ANDROID
+#if defined(ANDROID) || defined(BLACKBERRY)
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 #else
@@ -227,7 +227,7 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 	// TODO: Split up into multiple draw calls for Android where you can't guarantee support for more than 0x10000 verts.
 	int i = 0;
 
-#ifdef ANDROID
+#if defined(ANDROID) || defined(BLACKBERRY)
 	if (vertexCount > 0x10000/3)
 		vertexCount = 0x10000/3;
 #endif

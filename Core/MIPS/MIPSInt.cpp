@@ -55,7 +55,7 @@ void DelayBranchTo(u32 where)
 
 int MIPS_SingleStep()
 {
-#ifdef ANDROID
+#if defined(ANDROID) || defined(BLACKBERRY)
 	u32 op = Memory::ReadUnchecked_U32(mipsr4k.pc);
 #else
 	u32 op = Memory::Read_Opcode_JIT(mipsr4k.pc);

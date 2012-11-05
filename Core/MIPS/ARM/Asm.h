@@ -18,7 +18,7 @@
 #ifndef _JIT64ASM_H
 #define _JIT64ASM_H
 
-#include "ArmEmitter.h"
+#include <ArmEmitter.h>
 #include "../MIPS.h"
 
 // In PPSSPP, we don't use inline assembly. Instead, we generate all machine-near

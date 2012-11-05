@@ -12,14 +12,6 @@ set(SRCS
   MIPS/MIPSTables.cpp
   MIPS/MIPSVFPUUtils.cpp
   MIPS/JitCommon/JitCommon.cpp
-  MIPS/x86/Asm.cpp
-  MIPS/x86/CompALU.cpp
-  MIPS/x86/CompBranch.cpp
-  MIPS/x86/CompLoadStore.cpp
-  MIPS/x86/CompFPU.cpp
-  MIPS/x86/Jit.cpp
-  MIPS/x86/JitCache.cpp
-  MIPS/x86/RegCache.cpp
   ELF/ElfReader.cpp
   HLE/HLE.cpp
   HLE/HLETables.cpp
@@ -72,6 +64,28 @@ set(SRCS
   System.cpp
   Core.cpp
 )
+
+if(ARM)
+	set(SRCS ${SRCS} MIPS/ARM/Asm.cpp
+					 MIPS/ARM/CompALU.cpp
+					 MIPS/ARM/CompBranch.cpp
+					 MIPS/ARM/CompLoadStore.cpp
+					 MIPS/ARM/CompFPU.cpp
+					 MIPS/ARM/Jit.cpp
+					 MIPS/ARM/JitCache.cpp
+					 MIPS/ARM/RegCache.cpp
+	)
+else()
+	set(SRCS ${SRCS} MIPS/x86/Asm.cpp
+					 MIPS/x86/CompALU.cpp
+					 MIPS/x86/CompBranch.cpp
+					 MIPS/x86/CompLoadStore.cpp
+					 MIPS/x86/CompFPU.cpp
+					 MIPS/x86/Jit.cpp
+					 MIPS/x86/JitCache.cpp
+					 MIPS/x86/RegCache.cpp
+	)
+endif(ARM)
 
 set(SRCS ${SRCS})
 
