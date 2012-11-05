@@ -157,28 +157,6 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		u32 __entrytableAddr;
 	};
 
-	SectionID textSection = reader.GetSectionByName(".text");
-
-	u32 textStart = reader.GetSectionAddr(textSection);
-	u32 textSize = reader.GetSectionSize(textSection);
-
-	bool hasSymbols = false;
-	bool dontadd = false;
-
-	if (!host->AttemptLoadSymbolMap())
-	{
-		hasSymbols = reader.LoadSymbols();
-		if (!hasSymbols)
-		{
-			symbolMap.ResetSymbolMap();
-			MIPSAnalyst::ScanForFunctions(textStart, textStart+textSize);
-		}
-	}
-	else
-	{
-		dontadd = true;
-	}
-
 	struct PspModuleInfo
 	{
 		// 0, 0, 1, 1 ?
@@ -199,6 +177,34 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		modinfo = (PspModuleInfo *)Memory::GetPointer(reader.GetSectionAddr(sceModuleInfoSection));
 	else
 		modinfo = (PspModuleInfo *)reader.GetPtr(reader.GetSegmentPaddr(0) + reader.GetSegmentOffset(0));
+
+	// Check for module "blacklist" - if a module has the same name as a HLE'd module, we don't load it.
+	if (GetModuleIndex(modinfo->name) >= 0) {
+		ERROR_LOG(LOADER, "The module %s is HLE'd - ignoring in __KernelLoadELFFromPtr()", modinfo->name);
+		return 0;
+	}
+
+	bool hasSymbols = false;
+	bool dontadd = false;
+
+	SectionID textSection = reader.GetSectionByName(".text");
+
+	u32 textStart = reader.GetSectionAddr(textSection);
+	u32 textSize = reader.GetSectionSize(textSection);
+
+	if (!host->AttemptLoadSymbolMap())
+	{
+		hasSymbols = reader.LoadSymbols();
+		if (!hasSymbols)
+		{
+			symbolMap.ResetSymbolMap();
+			MIPSAnalyst::ScanForFunctions(textStart, textStart+textSize);
+		}
+	}
+	else
+	{
+		dontadd = true;
+	}
 
 	module->gp_value = modinfo->gp;
 	strncpy(module->name, modinfo->name, 28);
@@ -259,6 +265,10 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		DEBUG_LOG(LOADER,"-------------------------------------------------------------");
 	}
 
+
+	// Look at the exports, too.
+
+#pragma pack(push, 1)
 	struct PspLibEntEntry
 	{
 		u32 name; /* ent's name (module name) address */
@@ -269,6 +279,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		u16 fcount;
 		u32 resident;
 	};
+#pragma pack(pop)
 
 	int numEnts = (modinfo->libentend - modinfo->libent)/sizeof(PspLibEntEntry);
 	PspLibEntEntry *ent = (PspLibEntEntry *)Memory::GetPointer(modinfo->libent);
@@ -291,7 +302,11 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		}
 
 		INFO_LOG(HLE,"Exporting ent %d named %s, %d funcs, %d vars, resident %08x", m, name, ent->fcount, ent->vcount, ent->resident);
+		
+		// This appears to return bogus pointers for modules like sceAtrac3Plus (running Puzzle Bobble Pocket, name = sceAtrac3plus)
 		u32 *residentPtr = (u32*)Memory::GetPointer(ent[m].resident);
+
+		// TODO: Re-enable when it works
 		for (u32 j = 0; j < ent[m].fcount; j++)
 		{
 			u32 nid = residentPtr[j];
@@ -477,12 +492,14 @@ u32 sceKernelLoadModule(const char *name, u32 flags)
     PSPFileInfo info = pspFileSystem.GetFileInfo(name);
     std::string error_string;
     s64 size = (s64)info.size;
+		
     if (!size)
     {   
         ERROR_LOG(LOADER, "Module file is size 0: %s", name);
         return false;
     }
-    u32 handle = pspFileSystem.OpenFile(name, FILEACCESS_READ);
+
+		u32 handle = pspFileSystem.OpenFile(name, FILEACCESS_READ);
 
     u8 *temp = new u8[(int)size];
 
