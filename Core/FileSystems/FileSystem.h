@@ -53,10 +53,13 @@ public:
 
 struct PSPFileInfo
 {
-	PSPFileInfo() {size=0;access=0;type=FILETYPE_NORMAL;isOnSectorSystem=false;}
+	PSPFileInfo() 
+		: size(0), access(0), exists(false), type(FILETYPE_NORMAL), isOnSectorSystem(false), startSector(0), numSectors(0) {}
+
 	std::string name;
 	s64 size;
 	u32 access; //unix 777
+	bool exists;
 	FileType type;
 
 	bool isOnSectorSystem;

@@ -435,13 +435,15 @@ PSPFileInfo ISOFileSystem::GetFileInfo(std::string filename)
 	PSPFileInfo x; 
 	if (!entry)
 	{
-		x.size=0;
+		x.size = 0;
+		x.exists = false;
 	}
 	else
 	{
 		x.name = entry->name;
 		x.access = FILEACCESS_READ;
 		x.size = entry->size;
+		x.exists = true;
 		x.type = entry->isDirectory ? FILETYPE_DIRECTORY : FILETYPE_NORMAL;
 		x.isOnSectorSystem = true;
 		x.startSector = entry->startingPosition/2048;

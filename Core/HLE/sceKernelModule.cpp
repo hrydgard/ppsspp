@@ -18,6 +18,7 @@
 #include <fstream>
 #include "HLE.h"
 
+#include "Common/FileUtil.h"
 #include "../Host.h"
 #include "../MIPS/MIPS.h"
 #include "../MIPS/MIPSAnalyst.h"
@@ -38,6 +39,30 @@
 
 enum {
 	PSP_THREAD_ATTR_USER = 0x80000000
+};
+
+static const char *blacklistedModules[] = {
+	"LIBFONT",
+	"sc_sascore",
+	"audiocodec",
+	"libatrac3plus",
+	"videocodec",
+	"mpegbase",
+	"mpeg",
+	"psmf",
+	"pspnet",
+	"pspnet_adhoc",
+	"pspnet_adhocctl",
+	"pspnet_adhoc_matching",
+	"pspnet_adhoc_download",
+	"pspnet_apctl",
+	"pspnet_resolver",
+	"pspnet_ap_dialog_dummy",
+	"libparse_uri",
+	"libparse_http",
+	"libhttp_rfc",
+	"libssl",
+	"libsuppreacc",	
 };
 
 struct Module : public KernelObject
@@ -178,12 +203,6 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	else
 		modinfo = (PspModuleInfo *)reader.GetPtr(reader.GetSegmentPaddr(0) + reader.GetSegmentOffset(0));
 
-	// Check for module "blacklist" - if a module has the same name as a HLE'd module, we don't load it.
-	if (GetModuleIndex(modinfo->name) >= 0) {
-		ERROR_LOG(LOADER, "The module %s is HLE'd - ignoring in __KernelLoadELFFromPtr()", modinfo->name);
-		return 0;
-	}
-
 	bool hasSymbols = false;
 	bool dontadd = false;
 
@@ -265,10 +284,8 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		DEBUG_LOG(LOADER,"-------------------------------------------------------------");
 	}
 
-
 	// Look at the exports, too.
 
-#pragma pack(push, 1)
 	struct PspLibEntEntry
 	{
 		u32 name; /* ent's name (module name) address */
@@ -279,7 +296,6 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		u16 fcount;
 		u32 resident;
 	};
-#pragma pack(pop)
 
 	int numEnts = (modinfo->libentend - modinfo->libent)/sizeof(PspLibEntEntry);
 	PspLibEntEntry *ent = (PspLibEntEntry *)Memory::GetPointer(modinfo->libent);
@@ -366,10 +382,10 @@ bool __KernelLoadPBP(const char *filename, std::string *error_string)
 	{
 		u8 *temp = new u8[1024*1024*8];
 		in.read((char*)temp, 1024*1024*8);
-		Module *m = __KernelLoadELFFromPtr(temp, PSP_GetDefaultLoadAddress(), error_string);
-		if (!m)
+		Module *module = __KernelLoadELFFromPtr(temp, PSP_GetDefaultLoadAddress(), error_string);
+		if (!module)
 			return false;
-		mipsr4k.pc = m->entry_addr;
+		mipsr4k.pc = module->entry_addr;
 		delete [] temp;
 	}
 	in.close();
@@ -379,7 +395,7 @@ bool __KernelLoadPBP(const char *filename, std::string *error_string)
 
 Module *__KernelLoadModule(u8 *fileptr, SceKernelLMOption *options, std::string *error_string)
 {
-	Module *m = 0;
+	Module *module = 0;
 	// Check for PBP
 	if (memcmp(fileptr, "\0PBP", 4) == 0)
 	{
@@ -394,14 +410,14 @@ Module *__KernelLoadModule(u8 *fileptr, SceKernelLMOption *options, std::string 
 		offsets[0] = offset0;
 		for (int i = 1; i < numfiles; i++)
 			memcpy(&offsets[i], fileptr + 12 + 4*i, 4);
-		m = __KernelLoadELFFromPtr(fileptr + offsets[5], PSP_GetDefaultLoadAddress(), error_string);
+		module = __KernelLoadELFFromPtr(fileptr + offsets[5], PSP_GetDefaultLoadAddress(), error_string);
 	}
 	else
 	{
-		m = __KernelLoadELFFromPtr(fileptr, PSP_GetDefaultLoadAddress(), error_string);
+		module = __KernelLoadELFFromPtr(fileptr, PSP_GetDefaultLoadAddress(), error_string);
 	}
 
-	return m;
+	return module;
 }
 
 void __KernelStartModule(Module *m, int args, const char *argp, SceKernelSMOption *options)
@@ -430,19 +446,14 @@ bool __KernelLoadExec(const char *filename, SceKernelLoadExecParam *param, std::
 {
 	// Wipe kernel here, loadexec should reset the entire system
 	__KernelInit();
-
+	
 	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
-	s64 size = (s64)info.size;
-	if (!size)
-	{
-		ERROR_LOG(LOADER, "File is size 0: %s", filename);
-		return false;
-	}
+
 	u32 handle = pspFileSystem.OpenFile(filename, FILEACCESS_READ);
 
-	u8 *temp = new u8[(int)size];
+	u8 *temp = new u8[(int)info.size];
 
-	pspFileSystem.ReadFile(handle, temp, (size_t)size);
+	pspFileSystem.ReadFile(handle, temp, (size_t)info.size);
 
 	Module *m = __KernelLoadModule(temp, 0, error_string);
 
@@ -475,65 +486,115 @@ bool __KernelLoadExec(const char *filename, SceKernelLoadExecParam *param, std::
 //TODO: second param
 void sceKernelLoadExec()
 {
-	const char *name = Memory::GetCharPointer(PARAM(0));
+	const char *filename = Memory::GetCharPointer(PARAM(0));
 	SceKernelLoadExecParam *param = 0;
 	if (PARAM(1))
 	{
 		param = (SceKernelLoadExecParam*)Memory::GetPointer(PARAM(1));
 	}
-	DEBUG_LOG(HLE,"sceKernelLoadExec(name=%s,...)", name);
+
+	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
+	
+	if (!info.exists) {
+		ERROR_LOG(LOADER, "sceKernelLoadExec(%s, ...): File does not exist", filename);
+		RETURN(SCE_KERNEL_ERROR_NOFILE);
+		return;
+	}
+
+	s64 size = (s64)info.size;
+	if (!size)
+	{
+		ERROR_LOG(LOADER, "sceKernelLoadExec(%s, ...): File is size 0", filename);
+		RETURN(SCE_KERNEL_ERROR_ILLEGAL_OBJECT);
+		return;
+	}
+
+	DEBUG_LOG(HLE,"sceKernelLoadExec(name=%s,...)", filename);
 	std::string error_string;
-	if (!__KernelLoadExec(name, param, &error_string))
+	if (!__KernelLoadExec(filename, param, &error_string)) {
 		ERROR_LOG(HLE, "sceKernelLoadExec failed: %s", error_string.c_str());
+	}
 }
 
 u32 sceKernelLoadModule(const char *name, u32 flags)
 {
-    PSPFileInfo info = pspFileSystem.GetFileInfo(name);
-    std::string error_string;
-    s64 size = (s64)info.size;
-		
-    if (!size)
-    {   
-        ERROR_LOG(LOADER, "Module file is size 0: %s", name);
-        return false;
-    }
+	PSPFileInfo info = pspFileSystem.GetFileInfo(name);
+	std::string error_string;
+	s64 size = (s64)info.size;
 
-		u32 handle = pspFileSystem.OpenFile(name, FILEACCESS_READ);
+	if (!info.exists) {
+		ERROR_LOG(LOADER, "sceKernelLoadModule(%s, %08x): File does not exist", name, flags);
+		return SCE_KERNEL_ERROR_NOFILE;
+	}
 
-    u8 *temp = new u8[(int)size];
+	if (!size)
+	{   
+		ERROR_LOG(LOADER, "sceKernelLoadModule(%s, %08x): Module file is size 0", name, flags);
+		return SCE_KERNEL_ERROR_ILLEGAL_OBJECT;
+	}
 
-    pspFileSystem.ReadFile(handle, temp, (size_t)size);
-
-    Module *m = __KernelLoadELFFromPtr(temp, 0, &error_string);
-            
-    if (!m) {
-        ERROR_LOG(LOADER, "Failed to load module %s", name);
-        return false;
-    }
-    
-    delete [] temp;                                                                                                                                                                                
-                                                                                                                                                                                                   
-    pspFileSystem.CloseFile(handle);
-
+	SceKernelLMOption *lmoption = 0;
+	int position = 0;
+	// TODO: Use position to decide whether to load high or low
 	if (PARAM(2))
 	{
-		SceKernelLMOption *lmoption= (SceKernelLMOption *)Memory::GetPointer(PARAM(2));
+		SceKernelLMOption *lmoption = (SceKernelLMOption *)Memory::GetPointer(PARAM(2));
+	}
 
-		//TODO: Check if module name is in "blacklist" (HLE:d list)
-		//If it is, don't load it.
-		//Else, actually do load it and resolve pointers!
+	std::string fn(name);
+	int slashPos = fn.rfind('/');
+	if (slashPos != -1)
+	fn = fn.substr(slashPos + 1);
+		
+	// Check for module blacklist - we don't allow games to load these modules from disc
+	// as we have HLE implementations and the originals won't run in the emu because they
+	// directly access hardware or for other reasons.
+	bool blacklisted = false;
+	std::string guessedModuleName = fn.substr(0, fn.size() - 4);
+	if (GetModuleIndex(guessedModuleName.c_str()) >= 0) {
+		blacklisted = true;
+	}
+	for (int i = 0; i < ARRAY_SIZE(blacklistedModules); i++) {
+		if (guessedModuleName == blacklistedModules[i]) {
+			blacklisted = true;
+			break;
+		}
+	}
 
-		INFO_LOG(HLE,"%i=sceKernelLoadModule(name=%s,flag=%08x,%08x,%08x,%08x,%08x(...))",
-			m->GetUID(),name,flags,
+	Module *module = 0;
+	if (!blacklisted) {
+		u8 *temp = new u8[(int)size];
+		u32 handle = pspFileSystem.OpenFile(name, FILEACCESS_READ);
+		pspFileSystem.ReadFile(handle, temp, (size_t)size);
+		module = __KernelLoadELFFromPtr(temp, 0, &error_string);
+		delete [] temp;                                                                                                                                                                                
+		pspFileSystem.CloseFile(handle);
+	}
+
+	if (!module) {
+		// Lie about successfully loading blacklisted modules.
+		// Plus: Temporary hack until we have decryption: Lie that we succeeded. Helps compat.
+		if (error_string == "Executable encrypted - not yet supported" || blacklisted)
+		{
+			NOTICE_LOG(LOADER, "Module %s is blacklisted or encrypted - we lie about success", name);
+			return 1;
+		}
+
+		ERROR_LOG(LOADER, "Failed to load module %s", name);
+		return SCE_KERNEL_ERROR_ILLEGAL_OBJECT;
+	}
+
+	if (lmoption) {
+		INFO_LOG(HLE,"%i=sceKernelLoadModule(name=%s,flag=%08x,%08x,%08x,%08x,position = %08x)",
+			module->GetUID(),name,flags,
 			lmoption->size,lmoption->mpidtext,lmoption->mpiddata,lmoption->position);
 	}
 	else
 	{
-		INFO_LOG(HLE,"%i=sceKernelLoadModule(name=%s,flag=%08x,(...))", m->GetUID(), name, flags);
+		INFO_LOG(HLE,"%i=sceKernelLoadModule(name=%s,flag=%08x,(...))", module->GetUID(), name, flags);
 	}
 
-	return m->GetUID();
+	return module->GetUID();
 }
 
 void sceKernelStartModule()

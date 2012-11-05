@@ -237,7 +237,13 @@ size_t DirectoryFileSystem::SeekFile(u32 handle, s32 position, FileMove type)
 PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename) 
 {
 	PSPFileInfo x; 
-	x.size=0; 
+	x.name = filename;
+	if (!File::Exists(filename)) {
+		return x;
+	}
+	
+	x.exists = true;
+	x.type = File::IsDirectory(filename) ? FILETYPE_NORMAL : FILETYPE_DIRECTORY;
 
   std::string fullName = GetLocalPath(filename);
 
