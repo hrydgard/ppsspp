@@ -271,7 +271,7 @@ bool Texture::LoadZIM(const char *filename) {
 
 	GL_CHECK();
 	// Only free the top level, since the allocation is used for all of them.
-	delete [] image_data[0];
+	free(image_data[0]);
 	return true;
 }
 
