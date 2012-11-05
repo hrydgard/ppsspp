@@ -18,7 +18,7 @@
 #pragma once
 
 #include "../MIPSAnalyst.h"
-#include "ArmEmitter.h"
+#include <ArmEmitter.h>
 
 using namespace ArmGen;
 enum FlushMode

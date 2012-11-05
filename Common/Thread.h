@@ -33,7 +33,7 @@
 #define INFINITE 0xffffffff
 #endif
 
-#ifndef ANDROID
+#if !defined(ANDROID) && !defined(BLACKBERRY)
 #include <xmmintrin.h>
 #endif
 

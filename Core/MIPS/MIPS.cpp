@@ -23,7 +23,7 @@
 #include "../System.h"
 #include "../Debugger/Breakpoints.h"
 
-#ifdef ANDROID
+#if defined(ANDROID) || defined(BLACKBERRY)
 #include "ARM/JitCache.h"
 #include "ARM/Jit.h"
 #else
@@ -108,7 +108,7 @@ void MIPSState::RunLoopUntil(u64 globalTicks)
 {
 	// Don't subvert this by setting useJIT to true - other places also check the coreparameter
 	bool useJIT = PSP_CoreParameter().cpuCore == CPU_JIT;
-#ifdef ANDROID
+#if defined(ANDROID) || defined(BLACKBERRY)
 	useJIT = false;
 #endif
 

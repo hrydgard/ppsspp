@@ -20,7 +20,7 @@
 #include "../../../Globals.h"
 #include "Asm.h"
 
-#ifdef ANDROID
+#if defined(ANDROID) || defined(BLACKBERRY)
 #error DO NOT BUILD X86 JIT ON ANDROID
 #endif
 

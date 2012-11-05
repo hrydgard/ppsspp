@@ -24,7 +24,7 @@
 #include "Jit.h"
 #include "RegCache.h"
 #include "JitCache.h"
-#include "ArmEmitter.h"
+#include <ArmEmitter.h>
 
 #define _RS ((op>>21) & 0x1F)
 #define _RT ((op>>16) & 0x1F)
