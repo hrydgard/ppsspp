@@ -45,27 +45,15 @@ enum {
 };
 
 static const char *blacklistedModules[] = {
-	"LIBFONT",
-	"sc_sascore",
-	"audiocodec",
-	"libatrac3plus",
-	"videocodec",
-	"mpegbase",
-	"mpeg",
-	"psmf",
-	"pspnet",
-	"pspnet_adhoc",
-	"pspnet_adhocctl",
-	"pspnet_adhoc_matching",
-	"pspnet_adhoc_download",
-	"pspnet_apctl",
-	"pspnet_resolver",
-	"pspnet_ap_dialog_dummy",
-	"libparse_uri",
-	"libparse_http",
-	"libhttp_rfc",
-	"libssl",
-	"libsuppreacc",	
+	"sceATRAC3plus_Library",
+	"sceFont_Library",
+	"sceNetAdhocctl_Library",
+	"sceNetAdhocDownload_Library",
+	"sceNetAdhocMatching_Library",
+	"sceNetAdhoc_Library",
+	"sceNetApctl_Library",
+	"sceNetInet_Library",
+	"sceNet_Library",
 };
 
 struct Module : public KernelObject
@@ -216,6 +204,21 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	else
 		modinfo = (PspModuleInfo *)Memory::GetPointer(reader.GetVaddr() + (reader.GetSegmentPaddr(0) & 0x7FFFFFFF) - reader.GetSegmentOffset(0));
 
+	// Check for module blacklist - we don't allow games to load these modules from disc
+	// as we have HLE implementations and the originals won't run in the emu because they
+	// directly access hardware or for other reasons.
+	for (u32 i = 0; i < ARRAY_SIZE(blacklistedModules); i++) {
+		if (strcmp(modinfo->name, blacklistedModules[i]) == 0) {
+			*error_string = "Blacklisted";
+			if (newptr)
+			{
+				delete [] newptr;
+			}
+			kernelObjects.Destroy<Module>(module->GetUID());
+			return 0;
+		}
+	}
+
 	bool hasSymbols = false;
 	bool dontadd = false;
 
@@ -335,11 +338,9 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 
 		INFO_LOG(HLE,"Exporting ent %d named %s, %d funcs, %d vars, resident %08x", m, name, ent->fcount, ent->vcount, ent->resident);
 		
-		// This appears to return bogus pointers for modules like sceAtrac3Plus (running Puzzle Bobble Pocket, name = sceAtrac3plus)
-		u32 *residentPtr = (u32*)Memory::GetPointer(ent[m].resident);
+		u32 *residentPtr = (u32*)Memory::GetPointer(ent->resident);
 
-		// TODO: Re-enable when it works
-		for (u32 j = 0; j < ent[m].fcount; j++)
+		for (u32 j = 0; j < ent->fcount; j++)
 		{
 			u32 nid = residentPtr[j];
 			u32 exportAddr = residentPtr[ent->fcount + ent->vcount + j];
@@ -560,47 +561,19 @@ u32 sceKernelLoadModule(const char *name, u32 flags)
 		SceKernelLMOption *lmoption = (SceKernelLMOption *)Memory::GetPointer(PARAM(2));
 	}
 
-	std::string fn(name);
-	int slashPos = fn.rfind('/');
-	if (slashPos != -1)
-	fn = fn.substr(slashPos + 1);
-		
-	// Check for module blacklist - we don't allow games to load these modules from disc
-	// as we have HLE implementations and the originals won't run in the emu because they
-	// directly access hardware or for other reasons.
-	bool blacklisted = false;
-	std::string guessedModuleName = fn.substr(0, fn.size() - 4);
-	if (GetModuleIndex(guessedModuleName.c_str()) >= 0) {
-		blacklisted = true;
-	}
-	for (int i = 0; i < ARRAY_SIZE(blacklistedModules); i++) {
-		if (guessedModuleName == blacklistedModules[i]) {
-			blacklisted = true;
-			break;
-		}
-	}
-
 	Module *module = 0;
-	if (!blacklisted) {
-		u8 *temp = new u8[(int)size];
-		u32 handle = pspFileSystem.OpenFile(name, FILEACCESS_READ);
-		pspFileSystem.ReadFile(handle, temp, (size_t)size);
-		module = __KernelLoadELFFromPtr(temp, 0, &error_string);
-		delete [] temp;                                                                                                                                                                                
-		pspFileSystem.CloseFile(handle);
-	}
+	u8 *temp = new u8[(int)size];
+	u32 handle = pspFileSystem.OpenFile(name, FILEACCESS_READ);
+	pspFileSystem.ReadFile(handle, temp, (size_t)size);
+	module = __KernelLoadELFFromPtr(temp, 0, &error_string);
+	delete [] temp;
+	pspFileSystem.CloseFile(handle);
 
 	if (!module) {
-		// Lie about successfully loading blacklisted modules.
-		// Plus: Temporary hack until we have decryption: Lie that we succeeded. Helps compat.
-		if (error_string == "Executable encrypted - not yet supported" || blacklisted)
-		{
-			NOTICE_LOG(LOADER, "Module %s is blacklisted or encrypted - we lie about success", name);
-			return 1;
-		}
-
-		ERROR_LOG(LOADER, "Failed to load module %s", name);
-		return SCE_KERNEL_ERROR_ILLEGAL_OBJECT;
+		// Module was blacklisted or couldn't be decrypted, which means it's a kernel module we don't want to run.
+		// Let's just act as if it worked.
+		NOTICE_LOG(LOADER, "Module %s is blacklisted or undecryptable - we lie about success", name);
+		return 1;
 	}
 
 	if (lmoption) {

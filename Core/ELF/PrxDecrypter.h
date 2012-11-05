@@ -32,8 +32,8 @@ typedef struct
 	char    modname[28]; // 0A
 	u8      version; // 26
 	u8      nsegments; // 27
-	int     elf_size; // 28
-	int     psp_size; // 2C
+	u32     elf_size; // 28
+	u32     psp_size; // 2C
 	u32     entry;  // 30
 	u32     modinfo_offset; // 34
 	int     bss_size; // 38
