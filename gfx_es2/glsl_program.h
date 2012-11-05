@@ -4,7 +4,7 @@
 #ifndef _RENDER_UTIL
 #define _RENDER_UTIL
 
-#ifdef ANDROID
+#if defined(ANDROID) || defined(BLACKBERRY)
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 #else

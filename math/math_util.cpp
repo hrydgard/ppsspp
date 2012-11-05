@@ -17,7 +17,7 @@ unsigned int GenerateRandomNumber() {
 
 #include <math.h>
 
-#ifdef ANDROID
+#if defined(ANDROID) || defined(BLACKBERRY)
 
 void EnableFZ()
 {

@@ -6,7 +6,7 @@
 
 void gl_log_enable();
 
-#ifndef ANDROID
+#if !defined(ANDROID) && !defined(BLACKBERRY)
 //#define DEBUG_OPENGL
 #endif
 

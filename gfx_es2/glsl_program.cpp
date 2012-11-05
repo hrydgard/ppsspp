@@ -1,4 +1,4 @@
-#if defined(ANDROID)
+#if defined(ANDROID) || defined(BLACKBERRY)
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 typedef char GLchar;
@@ -37,7 +37,7 @@ bool CompileShader(const char *source, GLuint shader, const char *filename) {
 		ELOG("Error in shader compilation of %s!\n", filename);
 		ELOG("Info log: %s\n", infoLog);
 		ELOG("Shader source:\n%s\n", (const char *)source);
-#ifdef ANDROID
+#if defined(ANDROID) || defined(BLACKBERRY)
 		exit(1);
 #endif
 		return false;

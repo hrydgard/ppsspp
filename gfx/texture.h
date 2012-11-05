@@ -14,7 +14,7 @@ public:
 	~Texture();
 
 	bool LoadZIM(const char *filename);
-#ifndef ANDROID
+#if !defined(ANDROID) && !defined(BLACKBERRY)
 	bool LoadPNG(const char *filename);
 #endif
 	bool LoadXOR();	// Loads a placeholder texture.
