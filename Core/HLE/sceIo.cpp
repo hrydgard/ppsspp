@@ -511,11 +511,26 @@ void sceIoDevctl() //(const char *name, int cmd, void *arg, size_t arglen, void 
 		}
 	}
 
-	if (!strcmp(name, "fatms0:") && cmd == 0x02425823)
+	if (!strcmp(name, "fatms0:"))
 	{
-		if (Memory::IsValidAddress(outPtr))
-			Memory::Write_U32(1, outPtr);	 // TODO: Make a headless mode for running tests!
-
+		switch (cmd) {
+		case 0x02425823:
+			if (Memory::IsValidAddress(outPtr))
+				Memory::Write_U32(1, outPtr);	 // TODO: Make a headless mode for running tests!
+			break;
+		case 0x02415821:  // MScmRegisterMSInsertEjectCallback
+			{
+				u32 cbId = Memory::Read_U32(argAddr);
+				ERROR_LOG(HLE, "sceIoDevCtl: Registering memstick callbacks not yet supported (%08x)", cbId);
+			}
+			break;
+		case 0x02415822: // MScmUnregisterMSInsertEjectCallback
+			{
+				u32 cbId = Memory::Read_U32(argAddr);
+				ERROR_LOG(HLE, "sceIoDevCtl: Unregistering memstick callbacks not yet supported (%08x)", cbId);
+			}
+			break;
+		}
 		RETURN(0);
 		return;
 	}
