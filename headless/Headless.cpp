@@ -4,6 +4,7 @@
 
 #include <stdio.h>
 
+#include "../Core/Config.h"
 #include "../Core/Core.h"
 #include "../Core/CoreTiming.h"
 #include "../Core/System.h"
@@ -103,6 +104,10 @@ int main(int argc, const char* argv[])
 	coreParameter.gpuCore = GPU_NULL;
 	coreParameter.enableSound = false;
 	coreParameter.headLess = true;
+
+	g_Config.bEnableSound = true;
+	g_Config.bFirstRun = false;
+	g_Config.bIgnoreBadMemAccess = true;
 
 	std::string error_string;
 

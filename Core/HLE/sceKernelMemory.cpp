@@ -306,6 +306,7 @@ void sceKernelMaxFreeMemSize()
 	DEBUG_LOG(HLE,"%08x (dec %i)=sceKernelMaxFreeMemSize",retVal,retVal);
 	RETURN(retVal);
 }
+
 void sceKernelTotalFreeMemSize()
 {
 	u32 retVal = userMemory.GetLargestFreeBlockSize()-0x8000;

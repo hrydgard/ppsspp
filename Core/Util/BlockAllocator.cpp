@@ -1,3 +1,4 @@
+#include "Log.h"
 #include "BlockAllocator.h"
 
 // Slow freaking thing but works (eventually) :)
@@ -12,27 +13,34 @@ BlockAllocator::~BlockAllocator()
 	Shutdown();
 }
 
-void BlockAllocator::Init(u32 _rangeStart, u32 _rangeSize)
+void BlockAllocator::Init(u32 rangeStart, u32 rangeSize)
 {
 	Shutdown();
+	rangeStart_ = rangeStart;
+	rangeSize_ = rangeSize;
 	//Initial block, covering everything
-	blocks.push_back(Block(_rangeStart, _rangeSize, false));
+	blocks.push_back(Block(rangeStart_, rangeSize_, false));
 }
-
 
 void BlockAllocator::Shutdown()
 {
 	blocks.clear();
 }
 
-u32 BlockAllocator::Alloc(u32 &size, bool fromEnd, const char *tag)
+u32 BlockAllocator::Alloc(u32 &size, bool fromTop, const char *tag)
 {
-	//upalign size
+	// Sanity check
+	if (size > rangeSize_) {
+		ERROR_LOG(HLE, "Clearly bogus size: %08x - failing allocation", size);
+		return 0;
+	}
+
+	// upalign size to 16-byte blocks (is this right?)
 	size = (size+15) & ~15;
 
-	if (!fromEnd)
+	if (!fromTop)
 	{
-		//Allocate from start of mem
+		//Allocate from bottom of mem
 		for (std::list<Block>::iterator iter = blocks.begin(); iter != blocks.end(); iter++)
 		{
 			BlockAllocator::Block &b = *iter;
@@ -58,6 +66,7 @@ u32 BlockAllocator::Alloc(u32 &size, bool fromEnd, const char *tag)
 	}
 	else
 	{
+		// Allocate from top of mem.
 		for (std::list<Block>::reverse_iterator iter = blocks.rbegin(); iter != blocks.rend(); ++iter)
 		{
 			std::list<Block>::reverse_iterator hey = iter;
@@ -92,6 +101,11 @@ u32 BlockAllocator::Alloc(u32 &size, bool fromEnd, const char *tag)
 
 u32 BlockAllocator::AllocAt(u32 position, u32 size, const char *tag)
 {
+	if (size > rangeSize_) {
+		ERROR_LOG(HLE, "Clearly bogus size: %08x - failing allocation", size);
+		return 0;
+	}
+
 	//upalign size
 	size=(size+15) & ~15;
 	std::list<Block>::iterator iter = GetBlockIterFromAddress(position);
@@ -209,7 +223,6 @@ BlockAllocator::Block *BlockAllocator::GetBlockFromAddress(u32 addr)
 		return &(*iter);
 }
 
-
 u32 BlockAllocator::GetBlockStartFromAddress(u32 addr) 
 {
 	Block *b = GetBlockFromAddress(addr);
@@ -227,7 +240,6 @@ u32 BlockAllocator::GetBlockSizeFromAddress(u32 addr)
 	else
 		return -1;
 }
-
 
 void BlockAllocator::ListBlocks()
 {
@@ -253,7 +265,6 @@ u32 BlockAllocator::GetLargestFreeBlockSize()
 	}
 	return maxFreeBlock;
 }
-
 
 u32 BlockAllocator::GetTotalFreeBytes()
 {

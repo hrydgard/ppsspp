@@ -47,7 +47,7 @@ private:
 	{
 		Block(u32 _start, u32 _size, bool _taken) : start(_start), size(_size), taken(_taken)
 		{
-			strcpy(tag, "Empty");
+			strcpy(tag, "(untitled)");
 		}
 		void SetTag(const char *_tag) {
 			if (_tag)
@@ -62,6 +62,8 @@ private:
 	};
 
 	std::list<Block> blocks;
+	u32 rangeStart_;
+	u32 rangeSize_;
 
 	Block *GetBlockFromAddress(u32 addr);
 	std::list<Block>::iterator GetBlockIterFromAddress(u32 addr);
