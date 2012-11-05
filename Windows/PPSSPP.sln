@@ -1,5 +1,5 @@
-Microsoft Visual Studio Solution File, Format Version 11.00
-# Visual Studio 2010
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2012
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PPSSPPWindows", "PPSSPP.vcxproj", "{567AF8DB-42C1-4D08-96CD-D70A2DFEFC6B}"
 	ProjectSection(ProjectDependencies) = postProject
 		{E8B58922-9827-493D-81E0-4B6E6BD77171} = {E8B58922-9827-493D-81E0-4B6E6BD77171}
@@ -28,6 +28,8 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "native", "..\native\native.vcxproj", "{E8B58922-9827-493D-81E0-4B6E6BD77171}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PPSSPPHeadless", "..\headless\Headless.vcxproj", "{EE9BD869-CAA3-447D-8328-294D90DE2C1F}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libkirk", "..\ext\libkirk\libkirk.vcxproj", "{3BAAE095-E0AB-4B0E-B5DF-CE39C8AE31DE}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -123,6 +125,18 @@ Global
 		{EE9BD869-CAA3-447D-8328-294D90DE2C1F}.Release|Win32.Build.0 = Release|Win32
 		{EE9BD869-CAA3-447D-8328-294D90DE2C1F}.Release|x64.ActiveCfg = Release|x64
 		{EE9BD869-CAA3-447D-8328-294D90DE2C1F}.Release|x64.Build.0 = Release|x64
+		{3BAAE095-E0AB-4B0E-B5DF-CE39C8AE31DE}.Debug|Win32.ActiveCfg = Debug|Win32
+		{3BAAE095-E0AB-4B0E-B5DF-CE39C8AE31DE}.Debug|Win32.Build.0 = Debug|Win32
+		{3BAAE095-E0AB-4B0E-B5DF-CE39C8AE31DE}.Debug|x64.ActiveCfg = Debug|x64
+		{3BAAE095-E0AB-4B0E-B5DF-CE39C8AE31DE}.Debug|x64.Build.0 = Debug|x64
+		{3BAAE095-E0AB-4B0E-B5DF-CE39C8AE31DE}.DebugFast|Win32.ActiveCfg = Debug|Win32
+		{3BAAE095-E0AB-4B0E-B5DF-CE39C8AE31DE}.DebugFast|Win32.Build.0 = Debug|Win32
+		{3BAAE095-E0AB-4B0E-B5DF-CE39C8AE31DE}.DebugFast|x64.ActiveCfg = Debug|x64
+		{3BAAE095-E0AB-4B0E-B5DF-CE39C8AE31DE}.DebugFast|x64.Build.0 = Debug|x64
+		{3BAAE095-E0AB-4B0E-B5DF-CE39C8AE31DE}.Release|Win32.ActiveCfg = Release|Win32
+		{3BAAE095-E0AB-4B0E-B5DF-CE39C8AE31DE}.Release|Win32.Build.0 = Release|Win32
+		{3BAAE095-E0AB-4B0E-B5DF-CE39C8AE31DE}.Release|x64.ActiveCfg = Release|x64
+		{3BAAE095-E0AB-4B0E-B5DF-CE39C8AE31DE}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

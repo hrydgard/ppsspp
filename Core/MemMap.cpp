@@ -149,7 +149,7 @@ void Memset(const u32 _Address, const u8 _iValue, const u32 _iLength)
 	else
 	{
 		for (size_t i = 0; i < _iLength; i++)
-			Write_U8(_iValue, _Address + i);
+			Write_U8(_iValue, (u32)(_Address + i));
 	}
 }
 

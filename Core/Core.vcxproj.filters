@@ -282,6 +282,9 @@
     <ClCompile Include="Config.cpp">
       <Filter>Core</Filter>
     </ClCompile>
+    <ClCompile Include="ELF\PrxDecrypter.cpp">
+      <Filter>ELF</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -514,6 +517,9 @@
     </ClInclude>
     <ClInclude Include="Config.h">
       <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="ELF\PrxDecrypter.h">
+      <Filter>ELF</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -19,6 +19,9 @@
 
 #include "../../Globals.h"
 
+#ifdef _MSC_VER
+#pragma pack(push, 1)
+#endif
 typedef struct
 {
 	u32     signature;  // 0
@@ -50,7 +53,15 @@ typedef struct
 	u32     key_data2; // 12C
 	u32     oe_tag; // 130
 	u8      key_data3[0x1C]; // 134
+#ifdef _MSC_VER
+} PSP_Header;
+#else
 } __attribute__((packed)) PSP_Header;
+#endif
+
+#ifdef _MSC_VER
+#pragma pack(pop)
+#endif
 
 int pspDecryptPRX(const u8 *inbuf, u8 *outbuf, u32 size);
 

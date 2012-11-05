@@ -48,6 +48,11 @@ LOCAL_SRC_FILES := \
   GamepadEmu.cpp \
   ui_atlas.cpp \
   $(SRC)/native/android/app-android.cpp \
+  $(SRC)/ext/libkirk/AES.c \
+  $(SRC)/ext/libkirk/SHA1.c \
+  $(SRC)/ext/libkirk/bn.c \
+  $(SRC)/ext/libkirk/ec.c \
+  $(SRC)/ext/libkirk/kirk_engine.c \
   $(SRC)/Globals.cpp \
   $(SRC)/Common/ArmABI.cpp \
   $(SRC)/Common/ArmEmitter.cpp \
@@ -72,6 +77,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/GPU/GLES/VertexShaderGenerator.cpp \
   $(SRC)/GPU/GLES/FragmentShaderGenerator.cpp \
   $(SRC)/Core/ELF/ElfReader.cpp \
+  $(SRC)/Core/ELF/PrxDecrypter.cpp \
   $(SRC)/Core/Core.cpp \
   $(SRC)/Core/Config.cpp \
   $(SRC)/Core/CoreTiming.cpp \

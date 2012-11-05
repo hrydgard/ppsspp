@@ -16,6 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <fstream>
+#include <algorithm>
+
 #include "HLE.h"
 
 #include "Common/FileUtil.h"
@@ -143,20 +145,20 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	u8 *newptr = 0;
 
 	if (*(u32*)ptr == 0x5053507e) { // "~PSP"
-	    // Decrypt module! YAY!
-	    INFO_LOG(HLE, "Decrypting ~PSP file");
-	    PSP_Header *head = (PSP_Header*)ptr;
-	    const u8 *in = ptr;
-	    newptr = new u8[head->elf_size + 0x40];
-	    ptr = (u8*)(((size_t)newptr & ~0x3C) + 0x40);
-	    pspDecryptPRX(in, (u8*)ptr, head->psp_size);
+	  // Decrypt module! YAY!
+	  INFO_LOG(HLE, "Decrypting ~PSP file");
+	  PSP_Header *head = (PSP_Header*)ptr;
+	  const u8 *in = ptr;
+	  newptr = new u8[std::max(head->elf_size, head->psp_size) + 0x40];
+	  ptr = (u8*)(((size_t)(newptr + 0x3F) & ~0x3F));
+	  pspDecryptPRX(in, (u8*)ptr, head->psp_size);
 	}
 	
 	if (*(u32*)ptr != 0x464c457f)
 	{
 		ERROR_LOG(HLE, "Wrong magic number %08x",*(u32*)ptr);
 		*error_string = "File corrupt";
-		delete newptr;
+		delete [] newptr;
 		kernelObjects.Destroy<Module>(module->GetUID());
 		return 0;
 	}
@@ -166,7 +168,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	if (!reader.LoadInto(loadAddress))
 	{
 		ERROR_LOG(HLE, "LoadInto failed");
-		delete newptr;
+		delete [] newptr;
 		kernelObjects.Destroy<Module>(module->GetUID());
 		return 0;
 	}
@@ -341,7 +343,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 
 	module->entry_addr = reader.GetEntryPoint();
 
-	delete newptr;
+	delete [] newptr;
 	return module;
 }
 

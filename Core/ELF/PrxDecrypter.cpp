@@ -297,7 +297,11 @@ static TAG_INFO const* GetTagInfo(u32 tagFind)
 
 static void ExtraV2Mangle(u8* buffer1, u8 codeExtra)
 {
+#ifdef _MSC_VER
+	static u8 __declspec(align(64)) g_dataTmp[20+0xA0];
+#else
 	static u8 g_dataTmp[20+0xA0] __attribute__((aligned(0x40)));
+#endif
 	u8* buffer2 = g_dataTmp; // aligned
 
 	memcpy(buffer2+20, buffer1, 0xA0);
