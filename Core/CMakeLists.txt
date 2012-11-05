@@ -13,6 +13,7 @@ set(SRCS
   MIPS/MIPSVFPUUtils.cpp
   MIPS/JitCommon/JitCommon.cpp
   ELF/ElfReader.cpp
+  ELF/PrxDecrypter.cpp
   HLE/HLE.cpp
   HLE/HLETables.cpp
   HLE/sceAtrac.cpp
@@ -97,4 +98,3 @@ if(UNIX)
   add_definitions(-fPIC)
   add_definitions(-std=gnu++0x)
 endif(UNIX)
-
