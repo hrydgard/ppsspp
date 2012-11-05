@@ -23,6 +23,7 @@
 #include "../MIPS/MIPS.h"
 #include "../MIPS/MIPSAnalyst.h"
 #include "../ELF/ElfReader.h"
+#include "../ELF/PrxDecrypter.h"
 #include "../Debugger/SymbolMap.h"
 #include "../FileSystems/FileSystem.h"
 #include "../FileSystems/MetaFileSystem.h"
@@ -139,27 +140,24 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	Module *module = new Module;
 	kernelObjects.Create(module);
 
-	u32 magic = *((u32*)ptr);
+	u8 *newptr = 0;
 
-	if (magic == 0x5053507e) { // "~PSP"
-		ERROR_LOG(HLE, "File encrypted - not yet supported");
-		*error_string = "Executable encrypted - not yet supported";
-		return 0;
+	if (*(u32*)ptr == 0x5053507e) { // "~PSP"
+	    // Decrypt module! YAY!
+	    INFO_LOG(HLE, "Decrypting ~PSP file");
+	    PSP_Header *head = (PSP_Header*)ptr;
+	    const u8 *in = ptr;
+	    newptr = new u8[head->elf_size + 0x40];
+	    ptr = (u8*)(((size_t)newptr & ~0x3C) + 0x40);
+	    pspDecryptPRX(in, (u8*)ptr, head->psp_size);
 	}
 	
-	if (magic == 0x00000000) {
-		// BOOT.BIN is empty, we have to look for EBOOT.BIN which is encrypted.
-		ERROR_LOG(HLE, "File encrypted - not yet supported (2)");
-		*error_string = "Executable encrypted - not yet supported";
-		return 0;
-	}
-
 	if (*(u32*)ptr != 0x464c457f)
 	{
-		char c[4];
-		memcpy(c, ptr, 4);
-		ERROR_LOG(HLE, "Wrong magic number %c%c%c%c %08x", c[0],c[1],c[2],c[3],*(u32*)ptr);
-		*error_string = "File corrupt or encrypted?";
+		ERROR_LOG(HLE, "Wrong magic number %08x",*(u32*)ptr);
+		*error_string = "File corrupt";
+		delete newptr;
+		kernelObjects.Destroy<Module>(module->GetUID());
 		return 0;
 	}
 	// Open ELF reader
@@ -168,6 +166,8 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	if (!reader.LoadInto(loadAddress))
 	{
 		ERROR_LOG(HLE, "LoadInto failed");
+		delete newptr;
+		kernelObjects.Destroy<Module>(module->GetUID());
 		return 0;
 	}
 
@@ -341,6 +341,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 
 	module->entry_addr = reader.GetEntryPoint();
 
+	delete newptr;
 	return module;
 }
 
@@ -391,7 +392,6 @@ bool __KernelLoadPBP(const char *filename, std::string *error_string)
 	in.close();
 	return true;
 }
-
 
 Module *__KernelLoadModule(u8 *fileptr, SceKernelLMOption *options, std::string *error_string)
 {

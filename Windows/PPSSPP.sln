@@ -10,7 +10,7 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PPSSPPWindows", "PPSSPP.vcx
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Common", "..\Common\Common.vcxproj", "{3FCDBAE2-5103-4350-9A8E-848CE9C73195}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "zlib", "..\zlib\zlib.vcxproj", "{F761046E-6C38-4428-A5F1-38391A37BB34}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "zlib", "..\ext\zlib\zlib.vcxproj", "{F761046E-6C38-4428-A5F1-38391A37BB34}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "GPU", "..\GPU\GPU.vcxproj", "{457F45D2-556F-47BC-A31D-AFF0D15BEAED}"
 	ProjectSection(ProjectDependencies) = postProject
