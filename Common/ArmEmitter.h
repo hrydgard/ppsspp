@@ -23,6 +23,8 @@
 #include "Common.h"
 #include "MemoryUtil.h"
 
+#undef _SP
+
 namespace ArmGen
 {
 

@@ -20,12 +20,12 @@
 #include "../../../Globals.h"
 #include "Asm.h"
 
-#ifndef ANDROID
+#if !defined(ANDROID) && !defined(BLACKBERRY)
 #error DO NOT BUILD ARM JIT ON x86
 #endif
 
 
-#include "ArmEmitter.h"
+#include <ArmEmitter.h>
 #include "JitCache.h"
 #include "RegCache.h"
 

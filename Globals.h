@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <cstdio>
 #include <vector>
 #include <string>
 

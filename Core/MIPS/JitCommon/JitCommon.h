@@ -17,7 +17,7 @@
 
 #pragma once
 
-#ifdef ANDROID
+#if defined(ANDROID) || defined(BLACKBERRY)
 #include "../ARM/Jit.h"
 #else
 #include "../x86/Jit.h"
