@@ -150,13 +150,13 @@ void sceKernelRegisterDefaultExceptionHandler()
 void sceKernelSetGPO()
 {
 	// Sets debug LEDs.
-	INFO_LOG(HLE,"sceKernelSetGPO(%02x)", PARAM(0));
+	DEBUG_LOG(HLE,"sceKernelSetGPO(%02x)", PARAM(0));
 }
 
 void sceKernelGetGPI()
 {
 	// Always returns 0 on production systems.
-	INFO_LOG(HLE,"0=sceKernelGetGPI()");
+	DEBUG_LOG(HLE,"0=sceKernelGetGPI()");
 	RETURN(0);
 }
 
@@ -318,13 +318,13 @@ const HLEFunction ThreadManForUser[] =
 	{0x17c1684e,sceKernelReferThreadStatus,"sceKernelReferThreadStatus"},
 	{0x2C34E053,0,"sceKernelReleaseWaitThread"},
 	{0x75156e8f,sceKernelResumeThread,"sceKernelResumeThread"},
-	{0x27e22ec2,0,"sceKernelResumeDispatchThread"},
+	{0x3ad58b8c,&WrapU_V<sceKernelSuspendDispatchThread>,"sceKernelSuspendDispatchThread"},
+	{0x27e22ec2,&WrapU_U<sceKernelResumeDispatchThread>,"sceKernelResumeDispatchThread"},
 	{0x912354a7,sceKernelRotateThreadReadyQueue,"sceKernelRotateThreadReadyQueue"},
 	{0x9ACE131E,sceKernelSleepThread,"sceKernelSleepThread"},
 	{0x82826f70,sceKernelSleepThreadCB,"sceKernelSleepThreadCB"},
 	{0xF475845D,&WrapU_V<sceKernelStartThread>,"sceKernelStartThread"},
 	{0x9944f31f,sceKernelSuspendThread,"sceKernelSuspendThread"},
-	{0x3ad58b8c,0,"sceKernelSuspendDispatchThread"},
 	{0x616403ba,0,"sceKernelTerminateThread"},
 	{0x383f7bcc,sceKernelTerminateDeleteThread,"sceKernelTerminateDeleteThread"},
 	{0x840E8133,sceKernelWaitThreadEndCB,"sceKernelWaitThreadEndCB"},

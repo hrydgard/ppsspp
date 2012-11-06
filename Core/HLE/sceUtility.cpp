@@ -350,6 +350,33 @@ void sceUtilityOskGetStatus()
 }
 
 
+void sceUtilityNetconfInitStart()
+{
+	DEBUG_LOG(HLE,"FAKE sceUtilityNetconfInitStart(%i)", PARAM(0));
+	__UtilityInitStart();
+}
+
+void sceUtilityNetconfShutdownStart()
+{
+	DEBUG_LOG(HLE,"FAKE sceUtilityNetconfShutdownStart(%i)", PARAM(0));
+	__UtilityShutdownStart();
+	RETURN(0);
+}
+
+void sceUtilityNetconfUpdate()
+{
+	DEBUG_LOG(HLE,"FAKE sceUtilityNetconfUpdate(%i)", PARAM(0));
+	__UtilityUpdate();
+	RETURN(0);
+}
+
+void sceUtilityNetconfGetStatus()
+{
+	DEBUG_LOG(HLE,"sceUtilityNetconfGetStatus()");
+	RETURN(__UtilityGetStatus());
+}
+
+
 void sceUtilityGetSystemParamString()
 {
 	int id = PARAM(0);
@@ -388,10 +415,10 @@ u32 sceUtilityLoadNetModule(u32 module)
 const HLEFunction sceUtility[] = 
 {
 	{0x1579a159, &WrapU_U<sceUtilityLoadNetModule>, "sceUtilityLoadNetModule"},
-	{0xf88155f6, 0, "sceUtilityNetconfShutdownStart"}, 
-	{0x4db1e739, 0, "sceUtilityNetconfInitStart"}, 
-	{0x91e70e35, 0, "sceUtilityNetconfUpdate"},	 
-	{0x6332aa39, 0, "sceUtilityNetconfGetStatus"},				
+	{0xf88155f6, sceUtilityNetconfShutdownStart, "sceUtilityNetconfShutdownStart"},
+	{0x4db1e739, sceUtilityNetconfInitStart, "sceUtilityNetconfInitStart"},
+	{0x91e70e35, sceUtilityNetconfUpdate, "sceUtilityNetconfUpdate"},
+	{0x6332aa39, sceUtilityNetconfGetStatus, "sceUtilityNetconfGetStatus"},
 
 	{0x67af3428, sceUtilityMsgDialogShutdownStart, "sceUtilityMsgDialogShutdownStart"},	
 	{0x2ad8e239, sceUtilityMsgDialogInitStart, "sceUtilityMsgDialogInitStart"},			

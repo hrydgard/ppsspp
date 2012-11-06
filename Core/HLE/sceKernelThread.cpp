@@ -257,6 +257,9 @@ SceUID threadIdleID[2];
 
 int eventScheduledWakeup;
 
+bool dispatchSuspended = false;
+
+
 // This seems nasty
 SceUID curModule;
 
@@ -285,6 +288,8 @@ void hleScheduledWakeup(u64 userdata, int cyclesLate);
 void __KernelThreadingInit()
 {
   u32 blockSize = 4 * 4 + 4 * 2 * 3;  // One 16-byte thread plus 3 8-byte "hacks"
+
+	dispatchSuspended = false;
 
 	idleThreadHackAddr = kernelMemory.Alloc(blockSize, false, "threadrethack");
   // Make sure it got allocated where we expect it... at the very start of kernel RAM
@@ -928,6 +933,21 @@ void sceKernelExitDeleteThread()
   }
 }	
 
+u32 sceKernelSuspendDispatchThread()
+{
+	u32 oldDispatchSuspended = dispatchSuspended;
+	dispatchSuspended = true;
+	DEBUG_LOG(HLE,"%i=sceKernelSuspendDispatchThread()", oldDispatchSuspended);
+	return oldDispatchSuspended;
+}
+
+u32 sceKernelResumeDispatchThread(u32 suspended)
+{
+	u32 oldDispatchSuspended = dispatchSuspended;
+	dispatchSuspended = suspended;
+	DEBUG_LOG(HLE,"%i=sceKernelResumeDispatchThread(%i)",oldDispatchSuspended, suspended);
+	return oldDispatchSuspended;
+}
 
 void sceKernelRotateThreadReadyQueue()
 {

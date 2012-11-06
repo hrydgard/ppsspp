@@ -94,6 +94,11 @@ bool ElfReader::LoadInto(u32 loadAddress)
 	else
 		vaddr = userMemory.Alloc(totalSize, false, "ELF");
 
+	if (vaddr == -1) {
+		ERROR_LOG(LOADER, "Failed to allocate memory for ELF!");
+		return false;
+	}
+	
 	if (bRelocate) {
 		DEBUG_LOG(LOADER,"Relocatable module");
 		entryPoint += vaddr;
