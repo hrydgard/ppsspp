@@ -105,6 +105,10 @@ void __KernelShutdown()
 	kernelRunning = false;
 }
 
+bool __KernelIsRunning() {
+	return kernelRunning;
+}
+
 void sceKernelExitGame()
 {
 	INFO_LOG(HLE,"sceKernelExitGame");

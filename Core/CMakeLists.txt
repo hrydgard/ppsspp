@@ -28,7 +28,6 @@ set(SRCS
   HLE/sceIo.cpp
   HLE/sceKernel.cpp
   HLE/sceKernelAlarm.cpp
-  HLE/sceKernelCallback.cpp
   HLE/sceKernelEventFlag.cpp
   HLE/sceKernelInterrupt.cpp
   HLE/sceKernelMemory.cpp

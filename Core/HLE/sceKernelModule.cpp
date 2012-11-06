@@ -476,6 +476,9 @@ u32 __KernelGetModuleGP(SceUID module)
 bool __KernelLoadExec(const char *filename, SceKernelLoadExecParam *param, std::string *error_string)
 {
 	// Wipe kernel here, loadexec should reset the entire system
+	if (__KernelIsRunning())
+		__KernelShutdown();
+
 	__KernelInit();
 	
 	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);

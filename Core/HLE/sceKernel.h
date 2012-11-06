@@ -240,6 +240,7 @@ struct SceKernelLoadExecParam
 
 void __KernelInit();
 void __KernelShutdown();
+bool __KernelIsRunning();
 bool __KernelLoadExec(const char *filename, SceKernelLoadExecParam *param);
 	
 
