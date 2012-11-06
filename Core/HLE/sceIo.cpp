@@ -256,11 +256,11 @@ void sceIoGetstat()
 {
 	const char *filename = Memory::GetCharPointer(PARAM(0));
 	u32 addr = PARAM(1);
-	DEBUG_LOG(HLE,"sceIoGetstat(%s, %08x)",filename,addr);
 
 	SceIoStat *stat = (SceIoStat*)Memory::GetPointer(addr);
 	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
 	__IoGetStat(stat, info);
+	DEBUG_LOG(HLE,"sceIoGetstat(%s, %08x) : sector = %08x",filename,addr,info.startSector);
 
 	RETURN(0);
 }

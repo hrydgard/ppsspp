@@ -825,8 +825,11 @@ u32 sceKernelStartThread()
 
 		//now copy argument to stack
 		for (int i = 0; i < (int)argSize; i++)
-			Memory::Write_U8(Memory::Read_U8(argBlockPtr + i), sp + i);
+			Memory::Write_U8(argBlockPtr ? Memory::Read_U8(argBlockPtr + i) : 0, sp + i);
 
+		if (!argBlockPtr && argSize > 0) {
+			WARN_LOG(HLE,"sceKernelStartThread : had NULL arg");
+		}
 		return 0;
 	}
 	else

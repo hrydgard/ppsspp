@@ -379,9 +379,15 @@ void sceUtilityGetSystemParamInt()
 	RETURN(0);
 }
 
+u32 sceUtilityLoadNetModule(u32 module)
+{
+	DEBUG_LOG(HLE,"FAKE: sceUtilityLoadNetModule(%i)", module);
+	return 0;
+}
+
 const HLEFunction sceUtility[] = 
 {
-	{0x1579a159, 0, "sceUtilityLoadNetModule"},
+	{0x1579a159, &WrapU_U<sceUtilityLoadNetModule>, "sceUtilityLoadNetModule"},
 	{0xf88155f6, 0, "sceUtilityNetconfShutdownStart"}, 
 	{0x4db1e739, 0, "sceUtilityNetconfInitStart"}, 
 	{0x91e70e35, 0, "sceUtilityNetconfUpdate"},	 

@@ -273,7 +273,7 @@ u32 ISOFileSystem::OpenFile(std::string filename, FileAccess access)
 	{
 		u32 sectorStart = 0xFFFFFFFF, readSize = 0xFFFFFFFF;
 		parseLBN(filename, &sectorStart, &readSize);
-		INFO_LOG(FILESYS, "Got a raw sector read %s, sector %08x, size %08x", filename.c_str(), sectorStart, readSize);
+		INFO_LOG(FILESYS, "Got a raw sector open: %s, sector %08x, size %08x", filename.c_str(), sectorStart, readSize);
 		u32 newHandle = hAlloc->GetNewHandle();
 		entry.seekPos = 0;
 		entry.file = 0;

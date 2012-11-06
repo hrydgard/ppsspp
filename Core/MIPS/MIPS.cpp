@@ -126,7 +126,7 @@ void MIPSState::RunLoopUntil(u64 globalTicks)
 #ifdef _DEBUG
 			while (CoreTiming::downcount >= 0 && coreState == CORE_RUNNING)
 #else
-			while (CoreTiming::downcount >= 0)
+			while (CoreTiming::downcount >= 0 && mipsr4k.pc)
 #endif
 			{
 				// int cycles = 0;

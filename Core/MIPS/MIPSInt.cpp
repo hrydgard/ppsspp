@@ -302,22 +302,30 @@ namespace MIPSInt
 	}
 
 
+
 	void Int_RType3(u32 op)
 	{
 		int rt = _RT;
 		int rs = _RS;
 		int rd = _RD;
+		static bool has_warned = false;
 
 		switch (op & 63) 
 		{
 		case 10: if (R(rt) == 0) R(rd) = R(rs); break; //movz
 		case 11: if (R(rt) != 0) R(rd) = R(rs); break; //movn
 		case 32: 
-			ERROR_LOG(HLE,"WARNING : exception-causing add at %08x", PC);
+			if (!has_warned) {
+				ERROR_LOG(HLE,"WARNING : exception-causing add at %08x", PC);
+				has_warned = true;
+			}
 			R(rd) = R(rs) + R(rt);		break; //add
 		case 33: R(rd) = R(rs) + R(rt);		break; //addu
 		case 34: 
-			ERROR_LOG(HLE,"WARNING : exception-causing sub at %08x", PC);
+			if (!has_warned) {
+				ERROR_LOG(HLE,"WARNING : exception-causing sub at %08x", PC);
+				has_warned = true;
+			}
 			R(rd) = R(rs) - R(rt);		break; //sub
 		case 35: R(rd) = R(rs) - R(rt);		break; //subu
 		case 36: R(rd) = R(rs) & R(rt);		break; //and

@@ -83,10 +83,9 @@ void sceUmdActivate()
 {
 	u32 unknown = PARAM(0);
 	const char *name = Memory::GetCharPointer(PARAM(1));
-	u32 retVal	= 1;
+	u32 retVal	= 0;
 	__KernelUmdActivate();
 	DEBUG_LOG(HLE,"%i=sceUmdActivate(%08x, %s)", retVal, unknown, name);
-	//__KernelUMDActivate();
 	RETURN(retVal);
 }
 
