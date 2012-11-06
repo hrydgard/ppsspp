@@ -302,6 +302,7 @@ const HLEFunction sceDisplay[] =
 	{0xB4F378FA,0,"sceDisplayIsForeground"},
 	{0x31C4BAA8,0,"sceDisplayGetBrightness"},
 	{0x4D4E10EC,sceDisplayIsVblank,"sceDisplayIsVblank"},
+	{0x77ed8b3a,0,"sceDisplay_77ed8b3a"},
 };
 
 void Register_sceDisplay()

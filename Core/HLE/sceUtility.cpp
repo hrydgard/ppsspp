@@ -423,12 +423,14 @@ const HLEFunction sceUtility[] =
 	{0xf5ce1134, 0, "sceUtilityHtmlViewerShutdownStart"}, 
 	{0x05afb9e4, 0, "sceUtilityHtmlViewerUpdate"}, 
 	{0xc629af26, sceUtilityLoadAvModule, "sceUtilityLoadAvModule"}, 
-	{0xf7d8d092, 0, "sceUtilityUnloadAvModule"}, 
+	{0xf7d8d092, 0, "sceUtilityUnloadAvModule"},
 	{0x2a2b3de0, sceUtilityLoadModule, "sceUtilityLoadModule"},
 	{0xe49bfe92, 0, "sceUtilityUnloadModule"},
-	{0xab083ea9, 0, "sceUtility_ab083ea9"},
-	{0xd81957b7, 0, "sceUtility_d81957b7"},
-	{0xf9e0008c, 0, "sceUtility_f9e0008c"},
+	{0x0251B134, 0, "sceUtilityScreenshotInitStart"},
+	{0xF9E0008C, 0, "sceUtilityScreenshotShutdownStart"},
+	{0xAB083EA9, 0, "sceUtilityScreenshotUpdate"},
+	{0xD81957B7, 0, "sceUtilityScreenshotGetStatus"},
+	{0x86A03A27, 0, "sceUtilityScreenshotContStart"},
 };
 
 void Register_sceUtility()
