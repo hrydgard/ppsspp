@@ -20,6 +20,7 @@
 #include "../GPUState.h"
 #include "../ge_constants.h"
 #include "../../Core/MemMap.h"
+#include "../../Core/HLE/sceKernelInterrupt.h"
 
 struct DisplayState 
 {
@@ -97,6 +98,14 @@ void NullGPU::UpdateStall(int listid, u32 newstall)
 	}
 	
 	ProcessDLQueue();
+}
+
+void NullGPU::DrawSync(int mode)
+{
+	if (mode == 0)  // Wait for completion
+	{
+		__RunOnePendingInterrupt();
+	}
 }
 
 void NullGPU::ExecuteOp(u32 op, u32 diff)
@@ -186,21 +195,13 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_SIGNAL:
-		ERROR_LOG(G3D, "DL GE_CMD_SIGNAL %08x", data & 0xFFFFFF);
 		{
-			// int behaviour = (data >> 16) & 0xFF;
-			// int signal = data & 0xFFFF;
+			ERROR_LOG(G3D, "DL GE_CMD_SIGNAL %08x", data & 0xFFFFFF);
+			int behaviour = (data >> 16) & 0xFF;
+			int signal = data & 0xFFFF;
+
+			__TriggerInterruptWithArg(PSP_GE_INTR, PSP_GE_SUBINTR_SIGNAL, signal);
 		}
-
-		// This should generate a GE Interrupt 
-		// __TriggerInterrupt(PSP_GE_INTR);
-			
-		// Apparently, these callbacks should be done in a special interrupt way.
-		//for (size_t i = 0; i < signalCallbacks.size(); i++)
-		//{
-		//	__KernelNotifyCallback(-1, signalCallbacks[i].first, signal);
-		//}
-
 		break;
 
 	case GE_CMD_BJUMP:
@@ -229,15 +230,7 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_FINISH:
 		DEBUG_LOG(G3D,"DL CMD FINISH");
-		// Trigger the finish callbacks
-		{
-			// Apparently, these callbacks should be done in a special interrupt way.
-
-			//for (size_t i = 0; i < finishCallbacks.size(); i++)
-			//{
-			//	__KernelNotifyCallback(-1, finishCallbacks[i].first, 0);
-			//}
-		}
+		__TriggerInterruptWithArg(PSP_GE_INTR, PSP_GE_SUBINTR_FINISH, 0);
 		break;
 
 	case GE_CMD_END: 

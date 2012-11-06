@@ -108,14 +108,8 @@ u32 sceGeDrawSync(u32)
 	//wait/check entire drawing state
 	u32 mode = PARAM(0); //0 : wait for completion		1:check and return
 	DEBUG_LOG(HLE,"FAKE sceGeDrawSync(mode=%d)  (0=wait for completion)",mode);
-	if (mode == 1)
-	{
-		return 0;
-	}
-	else
-	{
-		return 0;
-	}
+	gpu->DrawSync(mode);
+	return 0;
 }
 
 void sceGeBreak()

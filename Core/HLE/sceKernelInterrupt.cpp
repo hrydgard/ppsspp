@@ -35,6 +35,8 @@ struct Interrupt
 // Yeah, this bit is a bit silly.
 static int interruptsEnabled = 1;
 
+static bool inInterrupt;
+
 void __InterruptsInit()
 {
 	interruptsEnabled = 1;
@@ -58,8 +60,6 @@ bool __InterruptsEnabled()
 {
 	return interruptsEnabled != 0;
 }
-
-
 
 
 // InterruptsManager
@@ -116,8 +116,6 @@ void sceKernelCpuResumeIntrWithSync(u32 enable)
 
 
 
-static bool inInterrupt;
-
 bool __IsInInterrupt() 
 {
 	return inInterrupt;
@@ -128,30 +126,51 @@ bool __CanExecuteInterrupt()
 	return !inInterrupt;
 }
 
+class AllegrexInterruptHandler;
+
+struct PendingInterrupt {
+	AllegrexInterruptHandler *handler;
+	int arg;
+	bool hasArg;
+};
+
 
 class AllegrexInterruptHandler
 {
 public:
 	virtual ~AllegrexInterruptHandler() {}
-	virtual void copyArgsToCPU() = 0;
+	virtual void copyArgsToCPU(const PendingInterrupt &pend) = 0;
 	virtual void queueUp() = 0;
+	virtual void queueUpWithArg(int arg) = 0;
 };
 
-
-std::list<AllegrexInterruptHandler *> pendingInterrupts;
+std::list<PendingInterrupt> pendingInterrupts;
 
 class SubIntrHandler : public AllegrexInterruptHandler
 {
 public:
-	virtual void queueUp() 
+	SubIntrHandler() {}
+	virtual void queueUp()
 	{
-		pendingInterrupts.push_back(this);
+		PendingInterrupt pend;
+		pend.handler = this;
+		pend.hasArg = false;
+		pendingInterrupts.push_back(pend);
+	}
+	virtual void queueUpWithArg(int arg)
+	{
+		PendingInterrupt pend;
+		pend.handler = this;
+		pend.arg = arg;
+		pend.hasArg = true;
+		pendingInterrupts.push_back(pend);
 	}
 
-	virtual void copyArgsToCPU()
+	virtual void copyArgsToCPU(const PendingInterrupt &pend)
 	{
+		DEBUG_LOG(CPU, "Entering interrupt handler %08x", handlerAddress);
 		currentMIPS->pc = handlerAddress;
-		currentMIPS->r[MIPS_REG_A0] = number;
+		currentMIPS->r[MIPS_REG_A0] = pend.hasArg ? pend.arg : number;
 		currentMIPS->r[MIPS_REG_A1] = handlerArg;
 		// RA is already taken care of
 	}
@@ -161,8 +180,6 @@ public:
 	u32 handlerAddress;
 	u32 handlerArg;
 };
-
-
 
 class IntrHandler {
 public:
@@ -185,13 +202,25 @@ public:
 		// what to do, what to do...
 	}
 
-	void queueUp()
+	void queueUp(int subintr)
 	{
 		// Just call execute on all the subintr handlers for this interrupt.
 		// They will get queued up.
 		for (std::map<int, SubIntrHandler>::iterator iter = subIntrHandlers.begin(); iter != subIntrHandlers.end(); ++iter)
 		{
-			iter->second.queueUp();
+			if (subintr == -1 || iter->first == subintr)
+				iter->second.queueUp();
+		}
+	}
+
+	void queueUpWithArg(int subintr, int arg)
+	{
+		// Just call execute on all the subintr handlers for this interrupt.
+		// They will get queued up.
+		for (std::map<int, SubIntrHandler>::iterator iter = subIntrHandlers.begin(); iter != subIntrHandlers.end(); ++iter)
+		{
+			if (subintr == -1 || iter->first == subintr)
+				iter->second.queueUpWithArg(arg);
 		}
 	}
 
@@ -242,13 +271,13 @@ bool __RunOnePendingInterrupt()
 	// Can easily prioritize between different kinds of interrupts if necessary.
 	if (pendingInterrupts.size())
 	{
-		AllegrexInterruptHandler *front = pendingInterrupts.front();
+		PendingInterrupt pend = pendingInterrupts.front();
 		pendingInterrupts.pop_front();
 		intState.save();
-		front->copyArgsToCPU();
+		pend.handler->copyArgsToCPU(pend);
+
 		currentMIPS->r[MIPS_REG_RA] = __KernelInterruptReturnAddress();
 		inInterrupt = true;
-		DEBUG_LOG(CPU, "Entering interrupt handler");
 		return true;
 	}
 	else
@@ -258,17 +287,25 @@ bool __RunOnePendingInterrupt()
 	}
 }
 
-void __TriggerInterrupt(PSPInterrupt intno)
+void __TriggerInterrupt(PSPInterrupt intno, int subintr)
 {
-	intrHandlers[intno].queueUp();
-	DEBUG_LOG(HLE, "Triggering subinterrupts for interrupt %i (%i in queue)", intno, pendingInterrupts.size());
+	intrHandlers[intno].queueUp(subintr);
+	DEBUG_LOG(HLE, "Triggering subinterrupts for interrupt %i sub %i (%i in queue)", intno, subintr, pendingInterrupts.size());
+	if (!inInterrupt)
+		__RunOnePendingInterrupt();
+}
+
+void __TriggerInterruptWithArg(PSPInterrupt intno, int subintr, int arg)
+{
+	intrHandlers[intno].queueUpWithArg(subintr, arg);
+	DEBUG_LOG(HLE, "Triggering subinterrupts for interrupt %i sub %i with arg %i (%i in queue)", intno, subintr, arg, pendingInterrupts.size());
 	if (!inInterrupt)
 		__RunOnePendingInterrupt();
 }
 
 void _sceKernelReturnFromInterrupt()
 {
-	DEBUG_LOG(CPU, "Left interrupt handler");
+	DEBUG_LOG(CPU, "Left interrupt handler at %08x", currentMIPS->pc);
 	inInterrupt = false;
 	// Restore context after running the interrupt.
 	intState.restore();
@@ -296,7 +333,6 @@ u32 sceKernelRegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 handl
 	subIntrHandler.handlerAddress = handler;
 	subIntrHandler.handlerArg = handlerArg;
 	intrHandlers[intrNumber].add(subIntrNumber, subIntrHandler);
-
 	return 0;
 }
 

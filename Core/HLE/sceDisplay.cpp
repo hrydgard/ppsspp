@@ -282,12 +282,12 @@ float sceDisplayGetFramePerSec()
 
 const HLEFunction sceDisplay[] = 
 {
-	{0x0E20F177,&WrapU_UUU<sceDisplaySetMode>,					"sceDisplaySetMode"},
-	{0x289D82FE,sceDisplaySetFramebuf,			"sceDisplaySetFramebuf"},
-	{0x36CDFADE,sceDisplayWaitVblank,			 "sceDisplayWaitVblank"},
-	{0x984C27E7,sceDisplayWaitVblankStart,	"sceDisplayWaitVblankStart"},
-	{0x46F186C3,sceDisplayWaitVblankStartCB,"sceDisplayWaitVblankStartCB"},
-	{0x8EB9EC49,sceDisplayWaitVblankStartCB,"sceDisplayWaitVblankCB"},
+	{0x0E20F177,&WrapU_UUU<sceDisplaySetMode>, "sceDisplaySetMode"},
+	{0x289D82FE,sceDisplaySetFramebuf, "sceDisplaySetFramebuf"},
+	{0x36CDFADE,sceDisplayWaitVblank, "sceDisplayWaitVblank"},
+	{0x984C27E7,sceDisplayWaitVblankStart, "sceDisplayWaitVblankStart"},
+	{0x46F186C3,sceDisplayWaitVblankStartCB, "sceDisplayWaitVblankStartCB"},
+	{0x8EB9EC49,sceDisplayWaitVblankStartCB, "sceDisplayWaitVblankCB"},
 
 	{0xdba6c4c4,&WrapF_V<sceDisplayGetFramePerSec>,"sceDisplayGetFramePerSec"},
 	{0x773dd3a3,sceDisplayGetCurrentHcount,"sceDisplayGetCurrentHcount"},
