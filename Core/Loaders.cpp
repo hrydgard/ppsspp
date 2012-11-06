@@ -30,7 +30,6 @@
 // TODO : improve, look in the file more
 EmuFileType Identify_File(const char *filename)
 {
-
 	//then: easy bulletproof IDs.
 	FILE *f = fopen(filename, "rb");
 	if (!f)
@@ -60,15 +59,15 @@ EmuFileType Identify_File(const char *filename)
 		{
 			return FILETYPE_PSP_PBP;
 		}
-		else if (strstr(filename,".iso"))
+		else if (strstr(filename,".iso") || strstr(filename,".ISO"))
 		{
 			return FILETYPE_PSP_ISO;
 		}
-		else if (strstr(filename,".cso"))
+		else if (strstr(filename,".cso") || strstr(filename,".CSO"))
 		{
 			return FILETYPE_PSP_ISO;
 		}
-		else if (strstr(filename,".bin"))
+		else if (strstr(filename,".bin") || strstr(filename,".BIN"))
 		{
 			return FILETYPE_UNKNOWN_BIN;
 		}

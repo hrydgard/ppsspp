@@ -516,7 +516,7 @@ void sceIoDevctl() //(const char *name, int cmd, void *arg, size_t arglen, void 
 		switch (cmd)
 		{
 		// does one of these set a callback as well? (see coded arms)
-		case 0x02025804:	// Register callback
+		case 0x02015804:	// Register callback
 			if (Memory::IsValidAddress(argAddr) && argLen == 4) {
 				u32 cbId = Memory::Read_U32(argAddr);
 				if (0 == __KernelRegisterCallback(THREAD_CALLBACK_MEMORYSTICK, cbId)) {

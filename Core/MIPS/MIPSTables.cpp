@@ -558,8 +558,8 @@ MIPSInstruction tableVFPU7[32] =
 	//16
 	{-2},
 	{-2},
-	INSTR("vf2h", &Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU),
-	INSTR("vh2f", &Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU),
+	INSTR("vf2h", &Jit::Comp_Generic, Dis_Generic, Int_Vh2f2h, IS_VFPU),
+	INSTR("vh2f", &Jit::Comp_Generic, Dis_Generic, Int_Vh2f2h, IS_VFPU),
 
 	{-2},
 	{-2},

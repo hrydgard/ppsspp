@@ -24,7 +24,8 @@ u32 sceKernelLockMutex(u32 id, u32 count, u32 timeoutPtr);
 u32 sceKernelLockMutexCB(u32 id, u32 count, u32 timeoutPtr);
 u32 sceKernelUnlockMutex(u32 id, u32 count);
 
-/*
 void sceKernelCreateLwMutex();
 void sceKernelDeleteLwMutex();
-*/
+void sceKernelTryLockLwMutex();
+void sceKernelLockLwMutex();
+void sceKernelUnlockLwMutex();

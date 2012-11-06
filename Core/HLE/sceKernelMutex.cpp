@@ -133,3 +133,45 @@ u32 sceKernelUnlockMutex(u32 id, u32 count)
 	// TODO....
 	return 0;
 }
+
+struct NativeLwMutex
+{
+	SceSize size;
+	char name[32];
+	SceUInt attr;
+	SceUID mutexUid;
+	SceUInt opaqueWorkAreaAddr;
+	int numWaitThreads;
+	int locked;
+	int threadid;  // thread holding the lock
+};
+
+void sceKernelCreateLwMutex()
+{
+	DEBUG_LOG(HLE,"UNIMPL sceKernelCreateLwMutex()");
+	RETURN(0);
+}
+
+void sceKernelDeleteLwMutex()
+{
+	DEBUG_LOG(HLE,"UNIMPL sceKernelDeleteLwMutex()");
+	RETURN(0);
+}
+
+void sceKernelTryLockLwMutex()
+{
+	DEBUG_LOG(HLE,"UNIMPL sceKernelTryLockLwMutex()");
+	RETURN(0);
+}
+
+void sceKernelLockLwMutex()
+{
+	DEBUG_LOG(HLE,"UNIMPL sceKernelLockLwMutex()");
+	RETURN(0);
+}
+
+void sceKernelUnlockLwMutex()
+{
+	DEBUG_LOG(HLE,"UNIMPL void sceKernelUnlockLwMutex()");
+	RETURN(0);
+}

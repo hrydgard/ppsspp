@@ -97,7 +97,7 @@ void sceKernelReceiveMbx()
 	u32 timeoutPtr = PARAM(2);
 
 	ERROR_LOG(HLE, "UNIMPL sceKernelReceiveMbx(%i, %08x, %08x)", uid, packetAddrPtr, timeoutPtr);
-	RETURN(0);
+	RETURN(SCE_KERNEL_ERROR_MBOX_NOMSG);
 }
 
 void sceKernelReceiveMbxCB()
@@ -108,7 +108,7 @@ void sceKernelReceiveMbxCB()
 	__KernelCheckCallbacks();
 
 	ERROR_LOG(HLE, "UNIMPL sceKernelReceiveMbxCB(%i, %08x, %08x)", uid, packetAddrPtr, timeoutPtr);
-	RETURN(0);
+	RETURN(SCE_KERNEL_ERROR_MBOX_NOMSG);
 }
 
 void sceKernelPollMbx()
@@ -117,7 +117,7 @@ void sceKernelPollMbx()
 	u32 packetAddrPtr = PARAM(1);
 
 	ERROR_LOG(HLE, "UNIMPL sceKernelPollMbx(%i, %08x)", uid, packetAddrPtr);
-	RETURN(0);
+	RETURN(SCE_KERNEL_ERROR_MBOX_NOMSG);
 }
 
 void sceKernelCancelReceiveMbx()

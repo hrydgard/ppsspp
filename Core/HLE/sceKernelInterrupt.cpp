@@ -354,7 +354,7 @@ u32 sceKernelReleaseSubIntrHandler(u32 intrNumber, u32 subIntrNumber)
 
 u32 sceKernelEnableSubIntr(u32 intrNumber, u32 subIntrNumber)
 {
-	ERROR_LOG(HLE,"sceKernelEnableSubIntr(%i, %i)", intrNumber, subIntrNumber);
+	DEBUG_LOG(HLE,"sceKernelEnableSubIntr(%i, %i)", intrNumber, subIntrNumber);
 	if (intrNumber < 0 || intrNumber >= PSP_NUMBER_INTERRUPTS)
 		return -1;
 
@@ -367,7 +367,7 @@ u32 sceKernelEnableSubIntr(u32 intrNumber, u32 subIntrNumber)
 
 u32 sceKernelDisableSubIntr(u32 intrNumber, u32 subIntrNumber)
 {
-	ERROR_LOG(HLE,"sceKernelDisableSubIntr(%i, %i)", intrNumber, subIntrNumber);
+	DEBUG_LOG(HLE,"sceKernelDisableSubIntr(%i, %i)", intrNumber, subIntrNumber);
 	if (intrNumber < 0 || intrNumber >= PSP_NUMBER_INTERRUPTS)
 		return -1;
 
@@ -377,8 +377,6 @@ u32 sceKernelDisableSubIntr(u32 intrNumber, u32 subIntrNumber)
 	intrHandlers[intrNumber].get(subIntrNumber).enabled = false;
 	return 0;
 }
-
-
 
 
 struct PspIntrHandlerOptionParam {
@@ -427,7 +425,7 @@ const HLEFunction Kernel_Library[] =
 	{0xDC692EE3,0, "sceKernelTryLockLwMutex"},
 	{0xbea46419,0, "sceKernelLockLwMutex"}, 
 	{0x15b6446b,0, "sceKernelUnlockLwMutex"}, 
-	{0x293b45b8,0, "sceKernelGetThreadId"}, 
+	{0x293b45b8,sceKernelGetThreadId, "sceKernelGetThreadId"}, 
 	{0x1839852A,0,"sce_paf_private_memcpy"},
 	{0xA089ECA4,0,"sce_paf_private_memset"},
 };

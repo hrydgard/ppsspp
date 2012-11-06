@@ -34,14 +34,14 @@ namespace MIPSInt
 	void Int_VMatrixInit(u32 op);
 	void Int_VVectorInit(u32 op);
 	void Int_Vmmul(u32 op);
-  void Int_Vmscl(u32 op);
+	void Int_Vmscl(u32 op);
 	void Int_Vmmov(u32 op);
 	void Int_VV2Op(u32 op);
 	void Int_Vrot(u32 op);
 	void Int_VDot(u32 op);
-  void Int_Vavg(u32 op);
-  void Int_Vfad(u32 op);
-  void Int_Vocp(u32 op);
+	void Int_Vavg(u32 op);
+	void Int_Vfad(u32 op);
+	void Int_Vocp(u32 op);
 	void Int_Vsgn(u32 op);
 	void Int_Vtfm(u32 op);
 	void Int_Viim(u32 op);
@@ -58,8 +58,9 @@ namespace MIPSInt
 	void Int_Vi2f(u32 op);
 	void Int_Vi2x(u32 op);
 	void Int_VBranch(u32 op);
-  void Int_Vrnds(u32 op);
-  void Int_VrndX(u32 op);
-  void Int_ColorConv(u32 op);
+	void Int_Vrnds(u32 op);
+	void Int_VrndX(u32 op);
+	void Int_ColorConv(u32 op);
+	void Int_Vh2f2h(u32 op);
 }
 

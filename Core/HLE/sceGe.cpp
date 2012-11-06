@@ -126,7 +126,7 @@ void sceGeContinue()
 
 u32 sceGeSetCallback(u32 structAddr)
 {
-	ERROR_LOG(HLE,"HALFIMPL sceGeSetCallback(struct=%08x)", structAddr);
+	DEBUG_LOG(HLE,"sceGeSetCallback(struct=%08x)", structAddr);
 
 	PspGeCallbackData ge_callback_data;
 	Memory::ReadStruct(structAddr, &ge_callback_data);

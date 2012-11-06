@@ -562,6 +562,34 @@ namespace MIPSInt
 		PC += 4;
 		EatPrefixes();
 	}
+
+	// TODO: CHECK
+	void Int_Vh2f2h(u32 op)
+	{
+		_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+
+		/*
+		int s[4];
+		float d[4];
+		int vd = _VD;
+		int vs = _VS;
+		int imm = (op >> 16) & 0x1f;
+		float mult = 1.0f/(float)(1 << imm);
+		VectorSize sz = GetVecSize(op);
+		ReadVector((float*)&s, sz, vs);
+		ApplySwizzleS((float*)&s, sz); //TODO: and the mask to kill everything but swizzle
+		
+		for (int i = 0; i < GetNumVectorElements(sz); i++)
+		{
+			d[i] = (float)s[i] * mult;
+		}
+		ApplyPrefixD(d, sz); //TODO: and the mask to kill everything but mask
+		WriteVector(d, sz, vd);
+		*/
+		PC += 4;
+		EatPrefixes();
+	}
+
 	void Int_Vi2x(u32 op)
 	{
 		int s[4];
