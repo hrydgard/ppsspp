@@ -21,7 +21,7 @@
 
 class ShaderManager;
 
-class GLES_GPU : public GPUInterface
+class NullGPU : public GPUInterface
 {
 public:
 	virtual u32 EnqueueList(u32 listpc, u32 stall);

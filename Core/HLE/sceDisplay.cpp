@@ -109,6 +109,11 @@ void __DisplayInit()
 	InitGfxState();
 }
 
+void __DisplayShutdown()
+{
+	ShutdownGfxState();
+}
+
 void hleEnterVblank(u64 userdata, int cyclesLate)
 {
 	int vbCount = userdata;

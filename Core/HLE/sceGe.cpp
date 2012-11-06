@@ -22,9 +22,8 @@
 #include "sceGe.h"
 #include "sceKernelThread.h"
 #include "sceKernelInterrupt.h"
-
-// TODO: Bad dependency.
-#include "../../GPU/GLES/DisplayListInterpreter.h"
+#include "../GPU/GPUState.h"
+#include "../GPU/GPUInterface.h"
 
 // TODO: This doesn't really belong here
 static int state;
@@ -61,13 +60,7 @@ u32 sceGeEdramGetSize()
 
 u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, u32 callbackId, u32 optParamAddr)
 {
-	if (PSP_CoreParameter().gpuCore == GPU_NULL)
-	{
-		DEBUG_LOG(HLE,"No GPU - ignoring sceGeListEnqueue");
-		return 0;
-	}
-
-	u32 listID = GPU::EnqueueList(listAddress, stallAddress);
+	u32 listID = gpu->EnqueueList(listAddress, stallAddress);
 	// HACKY
 	if (listID)
 		state = SCE_GE_LIST_STALLING;
@@ -83,7 +76,7 @@ u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, u32 callbackId, u32 optP
 
 u32 sceGeListEnQueueHead(u32 listAddress, u32 stallAddress, u32 callbackId, u32 optParamAddr)
 {
-	u32 listID = GPU::EnqueueList(listAddress,stallAddress);
+	u32 listID = gpu->EnqueueList(listAddress,stallAddress);
 	// HACKY
 	if (listID)
 		state = SCE_GE_LIST_STALLING;
@@ -102,7 +95,7 @@ void sceGeListUpdateStallAddr(u32 displayListID, u32 stallAddress)
 	DEBUG_LOG(HLE,"sceGeListUpdateStallAddr(dlid=%i,stalladdr=%08x)",
 		displayListID,stallAddress);
 
-	GPU::UpdateStall(displayListID, stallAddress);
+	gpu->UpdateStall(displayListID, stallAddress);
 }
 
 void sceGeListSync(u32 displayListID, u32 mode) //0 : wait for completion		1:check and return

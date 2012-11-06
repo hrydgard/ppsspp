@@ -9,6 +9,7 @@ set(SRCS
 	GLES/TransformPipeline.cpp
 	GLES/VertexDecoder.cpp
 	GLES/VertexShaderGenerator.cpp
+	Null/NullGpu.cpp
 )
 
 set(SRCS ${SRCS})

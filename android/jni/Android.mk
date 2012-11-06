@@ -76,6 +76,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/GPU/GLES/ShaderManager.cpp \
   $(SRC)/GPU/GLES/VertexShaderGenerator.cpp \
   $(SRC)/GPU/GLES/FragmentShaderGenerator.cpp \
+  $(SRC)/GPU/Null/NullGpu.cpp \
   $(SRC)/Core/ELF/ElfReader.cpp \
   $(SRC)/Core/ELF/PrxDecrypter.cpp \
   $(SRC)/Core/HW/MemoryStick.cpp \

@@ -76,7 +76,7 @@ bool finished;
 
 u8 bezierBuf[16000];
 
-bool GLES_GPU::ProcessDLQueue()
+bool ProcessDLQueue()
 {
 	std::vector<DisplayList>::iterator iter = dlQueue.begin();
 	while (!(iter == dlQueue.end()))
@@ -85,7 +85,7 @@ bool GLES_GPU::ProcessDLQueue()
 		dcontext.pc = l.listpc;
 		dcontext.stallAddr = l.stall;
 //		DEBUG_LOG(G3D,"Okay, starting DL execution at %08 - stall = %08x", context.pc, stallAddr);
-		if (!InterpretList())
+		if (!GPU::InterpretList())
 		{
 			l.listpc = dcontext.pc;
 			l.stall = dcontext.stallAddr;
@@ -102,7 +102,7 @@ bool GLES_GPU::ProcessDLQueue()
 	return true; //no more lists!
 }
 
-u32 GLES_GPU::EnqueueList(u32 listpc, u32 stall)
+u32 GPU::EnqueueList(u32 listpc, u32 stall)
 {
 	DisplayList dl;
 	dl.id = dlIdGenerator++;
@@ -115,7 +115,7 @@ u32 GLES_GPU::EnqueueList(u32 listpc, u32 stall)
 		return 0;
 }
 
-void GLES_GPU::UpdateStall(int listid, u32 newstall)
+void GPU::UpdateStall(int listid, u32 newstall)
 {
 	// this needs improvement....
 	for (std::vector<DisplayList>::iterator iter = dlQueue.begin(); iter != dlQueue.end(); iter++)
@@ -241,7 +241,7 @@ void SetBlendModePSP(u32 data)
 }
 
 
-void GLES_GPU::ExecuteOp(u32 op, u32 diff)
+void GPU::ExecuteOp(u32 op, u32 diff)
 {
 	u32 cmd = op >> 24;
 	u32 data = op & 0xFFFFFF;
@@ -984,7 +984,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 	}
 }
 
-bool GLES_GPU::InterpretList()
+bool GPU::InterpretList()
 {
 	// Reset stackptr for safety
 	stackptr = 0;

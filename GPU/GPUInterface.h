@@ -17,17 +17,13 @@
 
 #pragma once
 
-#include "../GPUInterface.h"
+#include "../../Globals.h"
 
-class ShaderManager;
-
-class GLES_GPU : public GPUInterface
+class GPUInterface
 {
 public:
-	virtual u32 EnqueueList(u32 listpc, u32 stall);
-	virtual void UpdateStall(int listid, u32 newstall);
-	virtual void ExecuteOp(u32 op, u32 diff);
-	virtual bool InterpretList();
-private:
-	bool ProcessDLQueue();
+	virtual u32 EnqueueList(u32 listpc, u32 stall) = 0;
+	virtual void UpdateStall(int listid, u32 newstall) = 0;
+	virtual void ExecuteOp(u32 op, u32 diff) = 0;
+	virtual bool InterpretList() = 0;
 };

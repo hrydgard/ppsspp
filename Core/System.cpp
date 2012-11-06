@@ -84,6 +84,7 @@ bool PSP_Init(const CoreParameter &coreParam, std::string *error_string)
 	{
 		DisplayDrawer_Init();
 	}
+
 	shaderManager.DirtyShader();
 	shaderManager.DirtyUniform(DIRTY_ALL);
 

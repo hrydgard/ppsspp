@@ -258,6 +258,7 @@ struct GPUgstate
 };
 
 void InitGfxState();
+void ShutdownGfxState();
 
 void ReapplyGfxState();
 
@@ -278,4 +279,7 @@ inline unsigned int toFloat24(float f) {
 	return i;
 }
 
+class GPUInterface;
+
 extern GPUgstate gstate;
+extern GPUInterface *gpu;

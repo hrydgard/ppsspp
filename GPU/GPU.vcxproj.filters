@@ -10,6 +10,9 @@
     <Filter Include="Common">
       <UniqueIdentifier>{21783292-4dd7-447b-af93-356cd2eaa4d6}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Null">
+      <UniqueIdentifier>{b31aa5a1-da08-47e6-9467-ab1d547b6ff3}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ge_constants.h">
@@ -45,6 +48,12 @@
     <ClInclude Include="GPUState.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="GPUInterface.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Null\NullGpu.h">
+      <Filter>Null</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -77,5 +86,11 @@
     <ClCompile Include="GPUState.cpp">
       <Filter>Common</Filter>
     </ClCompile>
+    <ClCompile Include="Null\NullGpu.cpp">
+      <Filter>Null</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="CMakeLists.txt" />
   </ItemGroup>
 </Project>

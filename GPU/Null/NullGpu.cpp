@@ -15,36 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#if defined(ANDROID) || defined(BLACKBERRY)
-#include <GLES2/gl2.h>
-#include <GLES2/gl2ext.h>
-#else
-#include <GL/glew.h>
-#if defined(__APPLE__)
-#include <OpenGL/gl.h>
-#else
-#include <GL/gl.h>
-#endif
-#endif
 
-
-#include "../../Core/MemMap.h"
-#include "../../Core/Host.h"
-
+#include "NullGpu.h"
 #include "../GPUState.h"
 #include "../ge_constants.h"
-
-#include "ShaderManager.h"
-#include "DisplayListInterpreter.h"
-#include "TransformPipeline.h"
-
-#include "../../Core/HLE/sceKernelThread.h"
-#include "../../Core/HLE/sceKernelInterrupt.h"
-
-inline void glEnDis(GLuint cmd, int value)
-{
-	(value ? glEnable : glDisable)(cmd);
-}
+#include "../../Core/MemMap.h"
 
 struct DisplayState 
 {
@@ -53,12 +28,6 @@ struct DisplayState
 };
 
 static DisplayState dcontext;
-ShaderManager shaderManager;
-
-extern u32 curTextureWidth;
-extern u32 curTextureHeight;
-
-int dlIdGenerator = 1;
 
 struct DisplayList
 {
@@ -67,16 +36,16 @@ struct DisplayList
 	u32 stall;
 };
 
-std::vector<DisplayList> dlQueue;
+static std::vector<DisplayList> dlQueue;
 
 static u32 prev;
-u32 stack[2];
-u32 stackptr = 0;
-bool finished;
+static u32 stack[2];
+static u32 stackptr = 0;
+static bool finished;
 
-u8 bezierBuf[16000];
+static int dlIdGenerator = 1;
 
-bool GLES_GPU::ProcessDLQueue()
+bool NullGPU::ProcessDLQueue()
 {
 	std::vector<DisplayList>::iterator iter = dlQueue.begin();
 	while (!(iter == dlQueue.end()))
@@ -102,7 +71,7 @@ bool GLES_GPU::ProcessDLQueue()
 	return true; //no more lists!
 }
 
-u32 GLES_GPU::EnqueueList(u32 listpc, u32 stall)
+u32 NullGPU::EnqueueList(u32 listpc, u32 stall)
 {
 	DisplayList dl;
 	dl.id = dlIdGenerator++;
@@ -115,7 +84,7 @@ u32 GLES_GPU::EnqueueList(u32 listpc, u32 stall)
 		return 0;
 }
 
-void GLES_GPU::UpdateStall(int listid, u32 newstall)
+void NullGPU::UpdateStall(int listid, u32 newstall)
 {
 	// this needs improvement....
 	for (std::vector<DisplayList>::iterator iter = dlQueue.begin(); iter != dlQueue.end(); iter++)
@@ -130,118 +99,7 @@ void GLES_GPU::UpdateStall(int listid, u32 newstall)
 	ProcessDLQueue();
 }
 
-// Just to get something on the screen, we'll just not subdivide correctly.
-void drawBezier(int ucount, int vcount)
-{
-	u16 indices[3 * 3 * 6];
-	float customUV[32];
-	int c = 0;
-	for (int y = 0; y < 3; y++) {
-		for (int x = 0; x < 3; x++) {
-			indices[c++] = y * 4 + x;
-			indices[c++] = y * 4 + x + 1;
-			indices[c++] = (y + 1) * 4 + x + 1;
-			indices[c++] = (y + 1) * 4 + x + 1;
-			indices[c++] = (y + 1) * 4 + x;
-			indices[c++] = y * 4 + x;
-		}
-	}
-
-	for (int y = 0; y < 4; y++) {
-		for (int x = 0; x < 4; x++) {
-			customUV[(y * 4 + x) * 2 + 0] = (float)x/3.0f;
-			customUV[(y * 4 + x) * 2 + 1] = (float)y/3.0f;
-		}
-	}
-
-	LinkedShader *linkedShader = shaderManager.ApplyShader();
-	TransformAndDrawPrim(Memory::GetPointer(gstate.vertexAddr), &indices[0], GE_PRIM_TRIANGLES, 3 * 3 * 6, linkedShader, customUV, GE_VTYPE_IDX_16BIT);
-}
-
-
-void EnterClearMode(u32 data)
-{
-	bool colMask = (data >> 8) & 1;
-	bool alphaMask = (data >> 9) & 1;
-	bool updateZ = (data >> 10) & 1;
-	glColorMask(colMask, colMask, colMask, alphaMask);
-	glDepthMask(updateZ); // Update Z or not
-	// Note that depth test must be enabled for depth writes to go through! So we use GL_ALWAYS
-	glEnable(GL_DEPTH_TEST);
-	glDepthFunc(GL_ALWAYS);
-	glDisable(GL_CULL_FACE);	// ??
-}
-
-void LeaveClearMode()
-{
-	// We have to reset the following state as per the state of the command registers:
-	// Back face culling
-	// Texture map enable	(meh)
-	// Fogging
-	// Antialiasing
-	// Alpha test
-	glDepthMask(1);
-	glColorMask(1,1,1,1);
-	glEnDis(GL_DEPTH_TEST, gstate.zTestEnable & 1);
-	glDepthFunc(GL_LEQUAL);	// TODO
-
-	// dirtyshader?
-}
-
-void SetBlendModePSP(u32 data)
-{
-	// This can't be done exactly as there are several PSP blend modes that are impossible to do on OpenGL ES 2.0, and some even on regular OpenGL for desktop.
-
-	// HOWEVER - we should be able to approximate the 2x modes in the shader, although they will clip wrongly.
-	
-	const GLint aLookup[] = {
-		GL_DST_COLOR,
-		GL_ONE_MINUS_DST_COLOR,
-		GL_SRC_ALPHA,
-		GL_ONE_MINUS_SRC_ALPHA,
-		GL_DST_ALPHA,
-		GL_ONE_MINUS_DST_ALPHA,
-		GL_SRC_ALPHA,	// should be 2x
-		GL_ONE_MINUS_SRC_ALPHA,	 // should be 2x
-		GL_DST_ALPHA,	 // should be 2x
-		GL_ONE_MINUS_DST_ALPHA,	 // should be 2x				 -	and COLOR?
-		GL_SRC_ALPHA,	// should be FIXA
-	};
-	const GLint bLookup[] = {
-		GL_SRC_COLOR,
-		GL_ONE_MINUS_SRC_COLOR,
-		GL_SRC_ALPHA,
-		GL_ONE_MINUS_SRC_ALPHA,
-		GL_DST_ALPHA,
-		GL_ONE_MINUS_DST_ALPHA,
-		GL_SRC_ALPHA,	// should be 2x
-		GL_ONE_MINUS_SRC_ALPHA,	 // should be 2x
-		GL_DST_ALPHA,	 // should be 2x
-		GL_ONE_MINUS_DST_ALPHA,	 // should be 2x
-		GL_SRC_ALPHA,	// should be FIXB
-	};
-	const GLint eqLookup[] = {
-		GL_FUNC_ADD,
-		GL_FUNC_SUBTRACT,
-		GL_FUNC_REVERSE_SUBTRACT,
-#if defined(ANDROID) || defined(BLACKBERRY)
-		GL_FUNC_ADD,
-		GL_FUNC_ADD,
-#else
-		GL_MIN,
-		GL_MAX,
-#endif
-		GL_FUNC_ADD, // should be abs(diff)
-	};
-	int a = data & 0xF;
-	int b = (data >> 4) & 0xF;
-	int eq = (data >> 8) & 0x7;
-	glBlendFunc(aLookup[a], bLookup[b]);
-	glBlendEquation(eqLookup[eq]);
-}
-
-
-void GLES_GPU::ExecuteOp(u32 op, u32 diff)
+void NullGPU::ExecuteOp(u32 op, u32 diff)
 {
 	u32 cmd = op >> 24;
 	u32 data = op & 0xFFFFFF;
@@ -277,15 +135,6 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 				"RECTANGLES=6,",
 			};
 			DEBUG_LOG(G3D, "DL DrawPrim type: %s count: %i vaddr= %08x, iaddr= %08x", type<7 ? types[type] : "INVALID", count, gstate.vertexAddr, gstate.indexAddr);
-
-			LinkedShader *linkedShader = shaderManager.ApplyShader();
-			// TODO: Split this so that we can collect sequences of primitives, can greatly speed things up
-			// on platforms where draw calls are expensive like mobile and D3D
-			void *verts = Memory::GetPointer(gstate.vertexAddr);
-			void *inds = 0;
-			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE)
-				inds = Memory::GetPointer(gstate.indexAddr);
-			TransformAndDrawPrim(verts, inds, type, count, linkedShader);
 		}
 		break;
 
@@ -294,7 +143,6 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 		{
 			int bz_ucount = data & 0xFF;
 			int bz_vcount = (data >> 8) & 0xFF;
-			drawBezier(bz_ucount, bz_vcount);
 			DEBUG_LOG(G3D,"DL DRAW BEZIER: %i x %i", bz_ucount, bz_vcount);
 		}
 		break;
@@ -371,13 +219,6 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_VERTEXTYPE:
 		DEBUG_LOG(G3D,"DL SetVertexType: %06x", data);
-		if (diff & GE_VTYPE_THROUGH) {
-			// Throughmode changed, let's make the proj matrix dirty.
-			shaderManager.DirtyUniform(DIRTY_PROJMATRIX);
-		}
-		if (data & GE_VTYPE_THROUGH) {
-			glDisable(GL_CULL_FACE);
-		}
 		// This sets through-mode or not, as well.
 		break;
 
@@ -442,12 +283,10 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_CULLFACEENABLE: 
 		DEBUG_LOG(G3D, "DL CullFace Enable: %i   (ignoring)", data);
-		glEnDis(GL_CULL_FACE, data&1); 
 		break;
 
 	case GE_CMD_TEXTUREMAPENABLE: 
 		DEBUG_LOG(G3D, "DL Texture map enable: %i", data);
-		glEnDis(GL_TEXTURE_2D, data&1); 
 		break;
 
 	case GE_CMD_LIGHTINGENABLE:
@@ -779,7 +618,6 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 		break;
 	case GE_CMD_CULL:
 		DEBUG_LOG(G3D,"DL cull: %06x", data);
-		glCullFace(data ? GL_BACK : GL_FRONT);
 		break;
 
 	case GE_CMD_LMODE:
@@ -802,10 +640,6 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 	//////////////////////////////////////////////////////////////////
 	case GE_CMD_CLEARMODE:
 		// If it becomes a performance problem, check diff&1
-		if (data & 1)
-			EnterClearMode(data);
-		else
-			LeaveClearMode();
 		DEBUG_LOG(G3D,"DL Clear mode: %06x", data);
 		break;
 
@@ -815,12 +649,10 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 	//////////////////////////////////////////////////////////////////
 	case GE_CMD_ALPHABLENDENABLE:
 		DEBUG_LOG(G3D,"DL Alpha blend enable: %d", data);
-		glEnDis(GL_BLEND, data);
 		break;
 
 	case GE_CMD_BLENDMODE:
 		DEBUG_LOG(G3D,"DL Blend mode: %06x", data);
-		SetBlendModePSP(data);
 		break;
 
 	case GE_CMD_BLENDFIXEDA:
@@ -838,7 +670,6 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_ALPHATEST:
 		DEBUG_LOG(G3D,"DL Alpha test settings");
-		shaderManager.DirtyUniform(DIRTY_ALPHAREF);
 		break;
 
 	case GE_CMD_TEXFUNC:
@@ -881,7 +712,6 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 	//////////////////////////////////////////////////////////////////
 
 	case GE_CMD_ZTESTENABLE:
-		glEnDis(GL_DEPTH_TEST, data & 1);
 		DEBUG_LOG(G3D,"DL Z test enable: %d", data & 1);
 		break;
 
@@ -891,13 +721,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_ZTEST:
 		{
-			static const GLuint ztests[8] = 
-			{
-				GL_NEVER, GL_ALWAYS, GL_EQUAL, GL_NOTEQUAL, 
-				GL_LESS, GL_LEQUAL, GL_GREATER, GL_GEQUAL
-			};
 			//glDepthFunc(ztests[data&7]);
-			glDepthFunc(GL_LEQUAL);
 			DEBUG_LOG(G3D,"DL Z test mode: %i", data);
 		}
 		break;
@@ -953,7 +777,6 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 	case GE_CMD_PROJMATRIXDATA:
 		DEBUG_LOG(G3D,"DL PROJECTION matrix data # %f", getFloat24(data));
 		gstate.projMatrix[gstate.projmtxnum++] = getFloat24(data);
-		shaderManager.DirtyUniform(DIRTY_PROJMATRIX);
 		break;
 
 	case GE_CMD_TGENMATRIXNUMBER:
@@ -984,7 +807,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 	}
 }
 
-bool GLES_GPU::InterpretList()
+bool NullGPU::InterpretList()
 {
 	// Reset stackptr for safety
 	stackptr = 0;
@@ -1008,3 +831,4 @@ bool GLES_GPU::InterpretList()
 	}
 	return true;
 }
+

@@ -46,11 +46,11 @@ void sceKernelCreateVTimer()
 
 	VTimer *vt = new VTimer();
 
-	SceUID id = kernelObjects.Create(vt);
+	SceUID uid = kernelObjects.Create(vt);
 	strncpy(vt->name, name, 32);
 	vt->running = true;
 	vt->startTime = 0; //TODO fix
-	RETURN(id); //TODO: return timer ID
+	RETURN(uid); //TODO: return timer ID
 }
 
 void sceKernelStartVTimer()
