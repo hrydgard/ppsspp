@@ -107,7 +107,6 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/HLE/sceIo.cpp \
   $(SRC)/Core/HLE/sceKernel.cpp \
   $(SRC)/Core/HLE/sceKernelAlarm.cpp \
-  $(SRC)/Core/HLE/sceKernelCallback.cpp \
   $(SRC)/Core/HLE/sceKernelEventFlag.cpp \
   $(SRC)/Core/HLE/sceKernelInterrupt.cpp \
   $(SRC)/Core/HLE/sceKernelMemory.cpp \
