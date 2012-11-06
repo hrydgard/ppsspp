@@ -77,6 +77,7 @@ void MIPSState::Reset()
 	SetWriteMask(b);
 
 	pc = 0;
+	prevPC = 0;
 	hi = 0;
 	lo = 0;
 	fpcond = 0;
@@ -155,7 +156,7 @@ void MIPSState::RunLoopUntil(u64 globalTicks)
 						break;
 					}
 #endif
-					// u32 lastpc = pc;
+					prevPC = pc;
 					if (inDelaySlot)
 					{
 						MIPSInterpret(op);

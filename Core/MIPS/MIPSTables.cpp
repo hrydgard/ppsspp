@@ -344,10 +344,10 @@ const MIPSInstruction tableRegImm[32] =
 	INSTR("tnei",  &Jit::Comp_Generic, Dis_Generic, 0, 0),
 	{-2},
 
-  INSTR("bltzal",  &Jit::Comp_Generic, Dis_RelBranch, 0, IS_CONDBRANCH|IN_RS|OUT_RA),  
-  INSTR("bgezal",  &Jit::Comp_Generic, Dis_RelBranch, 0, IS_CONDBRANCH|IN_RS|OUT_RA),
-  INSTR("bltzall", &Jit::Comp_Generic, Dis_RelBranch, 0, IS_CONDBRANCH|IN_RS|OUT_RA), //L = likely
-  INSTR("bgezall", &Jit::Comp_Generic, Dis_RelBranch, 0, IS_CONDBRANCH|IN_RS|OUT_RA),
+  INSTR("bltzal",  &Jit::Comp_Generic, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_RS|OUT_RA),  
+  INSTR("bgezal",  &Jit::Comp_Generic, Dis_RelBranch,	Int_RelBranchRI, IS_CONDBRANCH|IN_RS|OUT_RA),
+  INSTR("bltzall", &Jit::Comp_Generic, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_RS|OUT_RA), //L = likely
+  INSTR("bgezall", &Jit::Comp_Generic, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_RS|OUT_RA),
 	{-2},
 	{-2},
 	{-2},

@@ -36,7 +36,6 @@
 #include "sceDmac.h"
 #include "sceKernel.h"
 #include "sceKernelEventFlag.h"
-#include "sceKernelCallback.h"
 #include "sceKernelMemory.h"
 #include "sceKernelInterrupt.h"
 #include "sceKernelModule.h"

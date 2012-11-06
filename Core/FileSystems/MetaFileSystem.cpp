@@ -94,6 +94,11 @@ u32 MetaFileSystem::OpenFile(std::string filename, FileAccess access)
 PSPFileInfo MetaFileSystem::GetFileInfo(std::string filename)
 {
 	std::string of;
+	if (filename.find(':') == std::string::npos)
+	{
+		filename = currentDirectory + "/" + filename;
+		DEBUG_LOG(HLE,"GetFileInfo: Expanded path to %s", filename.c_str());
+	}
 	IFileSystem *system;
 	if (MapFilePath(filename, of, &system))
 	{

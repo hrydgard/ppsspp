@@ -34,7 +34,6 @@
 #include "sceIo.h"
 #include "sceKernel.h"
 #include "sceKernelAlarm.h"
-#include "sceKernelCallback.h"
 #include "sceKernelInterrupt.h"
 #include "sceKernelThread.h"
 #include "sceKernelMemory.h"
@@ -119,8 +118,8 @@ void sceKernelExitGame()
 
 void sceKernelRegisterExitCallback()
 {
-	u32 cbid = PARAM(0);
-	ERROR_LOG(HLE,"UNIMPL sceKernelRegisterExitCallback(%i)", cbid);
+	u32 cbId = PARAM(0);
+	ERROR_LOG(HLE,"UNIMPL sceKernelRegisterExitCallback(%i)", cbId);
 	RETURN(0);
 }
 
@@ -223,6 +222,7 @@ void KernelObjectPool::Clear()
 	}
 	memset(pool, 0, sizeof(KernelObject*)*maxCount);
 }
+
 KernelObject *&KernelObjectPool::operator [](SceUID handle)
 {
 	_dbg_assert_msg_(HLE, IsValid(handle), "GRABBING UNALLOCED KERNEL OBJ");
@@ -231,7 +231,7 @@ KernelObject *&KernelObjectPool::operator [](SceUID handle)
 
 void KernelObjectPool::List()
 {
-	for (int i=0; i<maxCount; i++)
+	for (int i = 0; i < maxCount; i++)
 	{
 		if (occupied[i])
 		{
@@ -248,6 +248,7 @@ void KernelObjectPool::List()
 		}
 	}
 }
+
 int KernelObjectPool::GetCount()
 {
 	int count = 0;
@@ -258,7 +259,6 @@ int KernelObjectPool::GetCount()
 	}
 	return count;
 }
-
 
 void sceKernelIcacheInvalidateAll()
 {

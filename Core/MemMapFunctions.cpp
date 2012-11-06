@@ -82,7 +82,7 @@ inline void ReadFromHardware(T &var, const u32 address)
 	}
 	else
 	{
-		WARN_LOG(MEMMAP, "ReadFromHardware: Invalid address %08x	PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
+		WARN_LOG(MEMMAP, "ReadFromHardware: Invalid address %08x	PC %08x PPC %08x LR %08x", address, currentMIPS->pc, currentMIPS->prevPC, currentMIPS->r[MIPS_REG_RA]);
 		if (!g_Config.bIgnoreBadMemAccess) {
 			// TODO: Not sure what the best way to crash is...
 			exit(0);

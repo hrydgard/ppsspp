@@ -146,6 +146,17 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		ptr = newptr;
 		pspDecryptPRX(in, (u8*)ptr, head->psp_size);
 	}
+
+	if (*(u32*)ptr == 0x4543537e) { // "~SCE"
+		ERROR_LOG(HLE, "Wrong magic number %08x (~SCE, kernel module?)",*(u32*)ptr);
+		*error_string = "Kernel module?";
+		if (newptr)
+		{
+			delete [] newptr;
+		}
+		kernelObjects.Destroy<Module>(module->GetUID());
+		return 0;
+	}
 	
 	if (*(u32*)ptr != 0x464c457f)
 	{

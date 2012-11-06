@@ -112,6 +112,7 @@ public:
 
 	u32 pc;
 	u32 nextPC;
+	u32 prevPC;
 	u32 hi;
 	u32 lo;
 

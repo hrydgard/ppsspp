@@ -220,28 +220,29 @@ void sceDisplaySetFramebuf()
 
 void sceDisplayGetFramebuf()
 {
-	DEBUG_LOG(HLE,"sceDisplayGetFramebuf");	
+	DEBUG_LOG(HLE,"sceDisplayGetFramebuf()");	
 	RETURN(framebuf.topaddr);
 }
 
 void sceDisplayWaitVblankStart()
 {
-	DEBUG_LOG(HLE,"sceDisplayWaitVblankStart");
+	DEBUG_LOG(HLE,"sceDisplayWaitVblankStart()");
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, false);
 	RETURN(0);
 }
 
 void sceDisplayWaitVblank()
 {
-	DEBUG_LOG(HLE,"sceDisplayWaitVblank");	
+	DEBUG_LOG(HLE,"sceDisplayWaitVblank()");
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, false);
 	sceDisplayWaitVblankStart();
 }
 
 void sceDisplayWaitVblankStartCB()
 {
-	DEBUG_LOG(HLE,"sceDisplayWaitVblankStartCB");	
+	DEBUG_LOG(HLE,"sceDisplayWaitVblankStartCB()");	
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, true);
+	__KernelCheckCallbacks();
 }
 
 void sceDisplayGetVcount()

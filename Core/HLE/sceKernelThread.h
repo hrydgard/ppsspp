@@ -85,14 +85,6 @@ struct ThreadContext
   u32 fcr31;
 };
 
-struct CallbackNotification
-{
-  SceUID cbid;
-  int count;
-  int arg;
-};
-
-
 // Internal API, used by implementations of kernel functions
 
 void __KernelThreadingInit();
@@ -111,9 +103,29 @@ u32 __KernelResumeThread(SceUID threadID);  // can return an error value
 u32 __KernelGetWaitValue(SceUID threadID, u32 &error);
 void __KernelWaitCurThread(WaitType type, SceUID waitId, u32 waitValue, int timeout, bool processCallbacks);
 void __KernelReSchedule(const char *reason = "no reason");
-void __KernelNotifyCallback(SceUID threadID, SceUID cbid, u32 arg);
-CallbackNotification *__KernelGetCallbackNotification(SceUID cbid);
 
+
+
+// Registered callback types
+enum RegisteredCallbackType {
+  THREAD_CALLBACK_UMD = 0,
+  THREAD_CALLBACK_IO = 1,
+  THREAD_CALLBACK_MEMORYSTICK = 2,
+  THREAD_CALLBACK_MEMORYSTICK_FAT = 3,
+  THREAD_CALLBACK_POWER = 4,
+  THREAD_CALLBACK_EXIT = 5,
+  THREAD_CALLBACK_USER_DEFINED = 6,
+  THREAD_CALLBACK_SIZE = 7,
+  THREAD_CALLBACK_NUM_TYPES = 8,
+};
+
+// These operate on the current thread
+u32 __KernelRegisterCallback(RegisteredCallbackType type, SceUID cbId);
+u32 __KernelUnregisterCallback(RegisteredCallbackType type, SceUID cbId);
+
+// If cbId == -1, all the callbacks of the type on all the threads get notified.
+// If not, only this particular callback gets notified.
+u32 __KernelNotifyCallbackType(RegisteredCallbackType type, SceUID cbId, int notifyArg);
 
 SceUID __KernelGetCurThread();
 void __KernelSetupRootThread(SceUID moduleId, int args, const char *argp, int prio, int stacksize, int attr); //represents the real PSP elf loader, run before execution
@@ -124,3 +136,20 @@ void _sceKernelIdle();
 
 u32 __KernelCallbackReturnAddress();
 u32 __KernelInterruptReturnAddress();
+
+// Internal access - used by sceSetGeCallback
+u32 __KernelCreateCallback(const char *name, u32 entrypoint, u32 signalArg);
+
+void sceKernelCreateCallback();
+void sceKernelDeleteCallback();
+void sceKernelNotifyCallback();
+void sceKernelCancelCallback();
+void sceKernelGetCallbackCount();
+void _sceKernelReturnFromCallback();
+u32 sceKernelCheckCallback();
+void sceKernelGetCallbackCount();
+void sceKernelReferCallbackStatus();
+bool __KernelInCallback();
+
+// Should be called by (nearly) all ...CB functions.
+bool __KernelCheckCallbacks();

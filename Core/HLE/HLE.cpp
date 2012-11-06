@@ -198,4 +198,3 @@ void CallSyscall(u32 op)
 		ERROR_LOG(HLE,"Unimplemented HLE function %s", moduleDB[modulenum].funcTable[funcnum].name);
 	}
 }
-

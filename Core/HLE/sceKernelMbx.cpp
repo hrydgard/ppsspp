@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "sceKernel.h"
+#include "sceKernelThread.h"
 #include "sceKernelMbx.h"
 #include "HLE.h"
 
@@ -104,6 +105,7 @@ void sceKernelReceiveMbxCB()
 	SceUInt uid = PARAM(0);
 	u32 packetAddrPtr = PARAM(1);
 	u32 timeoutPtr = PARAM(2);
+	__KernelCheckCallbacks();
 
 	ERROR_LOG(HLE, "UNIMPL sceKernelReceiveMbxCB(%i, %08x, %08x)", uid, packetAddrPtr, timeoutPtr);
 	RETURN(0);

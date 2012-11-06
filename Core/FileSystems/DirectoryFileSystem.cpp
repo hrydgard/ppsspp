@@ -81,7 +81,7 @@ bool DirectoryFileSystem::DeleteFile(const std::string &filename)
 u32 DirectoryFileSystem::OpenFile(std::string filename, FileAccess access)
 {
 	std::string fullName = GetLocalPath(filename);
-	INFO_LOG(HLE,"Actually opening %s",fullName.c_str());
+	INFO_LOG(HLE,"Actually opening %s (%s)", fullName.c_str(), filename.c_str());
 
 	OpenFileEntry entry;
 

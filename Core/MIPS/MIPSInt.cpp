@@ -176,10 +176,14 @@ namespace MIPSInt
 
 		switch ((op>>16) & 0x1F)
 		{
-		case 0: if ((s32)R(rs) <	0) DelayBranchTo(addr); else PC += 4; break;//bltz
+		case 0: if ((s32)R(rs) <  0) DelayBranchTo(addr); else PC += 4; break;//bltz
 		case 1: if ((s32)R(rs) >= 0) DelayBranchTo(addr); else PC += 4; break;//bgez
 		case 2: if ((s32)R(rs) <	0) DelayBranchTo(addr); else PC += 8; break;//bltzl
 		case 3: if ((s32)R(rs) >= 0) DelayBranchTo(addr); else PC += 8; break;//bgezl
+		case 16: R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) <  0) DelayBranchTo(addr); else PC += 4; break;//bltz
+		case 17: R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) >= 0) DelayBranchTo(addr); else PC += 4; break;//bgez
+		case 18: R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) <	0) DelayBranchTo(addr); else PC += 8; break;//bltzl
+		case 19: R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) >= 0) DelayBranchTo(addr); else PC += 8; break;//bgezl
 		default:
 			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
 			break;

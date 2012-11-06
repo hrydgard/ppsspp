@@ -23,6 +23,7 @@
 #include "../System.h"
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
+#include "../HW/MemoryStick.h"
 
 #include "../FileSystems/FileSystem.h"
 #include "../FileSystems/MetaFileSystem.h"
@@ -35,6 +36,10 @@
 #include "sceKernelThread.h"
 
 #define ERROR_ERRNO_FILE_NOT_FOUND													0x80010002
+
+
+#define ERROR_MEMSTICK_DEVCTL_BAD_PARAMS                    0x80220081
+#define ERROR_MEMSTICK_DEVCTL_TOO_MANY_CALLBACKS            0x80220082
 
 /*
 
@@ -178,10 +183,10 @@ void __IoInit()
 	memstick = new DirectoryFileSystem(&pspFileSystem, mypath);
 
 	pspFileSystem.Mount("ms0:",	memstick);
-	pspFileSystem.Mount("fatms0:",	memstick);
-	pspFileSystem.Mount("fatms:",	 memstick);
-	pspFileSystem.Mount("flash0:",	new EmptyFileSystem());
-	pspFileSystem.Mount("flash1:",	new EmptyFileSystem());
+	pspFileSystem.Mount("fatms0:", memstick);
+	pspFileSystem.Mount("fatms:", memstick);
+	pspFileSystem.Mount("flash0:", new EmptyFileSystem());
+	pspFileSystem.Mount("flash1:", new EmptyFileSystem());
 }
 
 void __IoShutdown()
@@ -224,7 +229,7 @@ void __IoCompleteAsyncIO(SceUID id)
 	{
 		if (f->callbackID)
 		{
-			__KernelNotifyCallback(__KernelGetCurThread(), f->callbackID, f->callbackArg);
+			// __KernelNotifyCallbackType(THREAD_CALLBACK_IO, __KernelGetCurThread(), f->callbackID, f->callbackArg);
 		}
 	}
 }
@@ -476,10 +481,32 @@ void sceIoDevctl() //(const char *name, int cmd, void *arg, size_t arglen, void 
 	int argLen = PARAM(3);
 	u32 outPtr = PARAM(4);
 	int outLen = PARAM(5);
-	int retVal = 0;
-	DEBUG_LOG(HLE,"%i=sceIoDevctl(\"%s\", %08x, %08x, %i, %08x, %i)", 
-		retVal, name, cmd,argAddr,argLen,outPtr,outLen);
+	DEBUG_LOG(HLE,"sceIoDevctl(\"%s\", %08x, %08x, %i, %08x, %i)", 
+		name, cmd,argAddr,argLen,outPtr,outLen);
 
+	// UMD checks
+	switch (cmd) {
+	case 0x01F20001:  // Get Disc Type.
+		if (Memory::IsValidAddress(outPtr)) {
+			Memory::Write_U32(0x10, outPtr);  // Game disc
+			RETURN(0); return;
+		} else {
+			RETURN(-1); return;
+		}
+		break;
+	case 0x01F20002:  // Get current LBA.
+		if (Memory::IsValidAddress(outPtr)) {
+			Memory::Write_U32(0, outPtr);  // Game disc
+			RETURN(0); return;
+		} else {
+			RETURN(-1); return;
+		}
+		break;
+	case 0x01F100A3:  // Seek
+		RETURN(0); return;
+		break;
+	}
+	
 	// This should really send it on to a FileSystem implementation instead.
 
 	if (!strcmp(name, "mscmhc0:"))
@@ -487,14 +514,48 @@ void sceIoDevctl() //(const char *name, int cmd, void *arg, size_t arglen, void 
 		switch (cmd)
 		{
 		// does one of these set a callback as well? (see coded arms)
+		case 0x02025804:	// Register callback
+			if (Memory::IsValidAddress(argAddr) && argLen == 4) {
+				u32 cbId = Memory::Read_U32(argAddr);
+				if (0 == __KernelRegisterCallback(THREAD_CALLBACK_MEMORYSTICK, cbId)) {
+					DEBUG_LOG(HLE, "sceIoDevCtl: Memstick callback %i registered, notifying immediately.", cbId);
+					__KernelNotifyCallbackType(THREAD_CALLBACK_MEMORYSTICK, cbId, MemoryStick_State());
+					RETURN(0);
+				} else {
+					RETURN(ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
+				}
+				return;
+			}
+			break;
+
+		case 0x02025805:	// Unregister callback
+			if (Memory::IsValidAddress(argAddr) && argLen == 4) {
+				u32 cbId = Memory::Read_U32(argAddr);
+				if (0 == __KernelUnregisterCallback(THREAD_CALLBACK_MEMORYSTICK, cbId)) {
+					DEBUG_LOG(HLE, "sceIoDevCtl: Unregistered memstick callback %i", cbId);
+					RETURN(0);
+				} else {
+					RETURN(ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
+				}
+				return;
+			}
+			break;
+
 		case 0x02025806:	// Memory stick inserted?
 		case 0x02025801:	// Memstick Driver status?
-			Memory::Write_U32(1, outPtr);
-			RETURN(0);
+			if (Memory::IsValidAddress(outPtr)) {
+				Memory::Write_U32(1, outPtr);
+				RETURN(0);
+			} else {
+				RETURN(ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
+			}
 			return;
-		case 0x02425818:
+
+		case 0x02425818:  // Get memstick size etc
 			// Pretend we have a 2GB memory stick.
-			{
+			if (Memory::IsValidAddress(argAddr)) {  // "Should" be outPtr but isn't
+				u32 pointer = Memory::Read_U32(argAddr);
+
 				u64 totalSize = (u32)2 * 1024 * 1024 * 1024;
 				u64 freeSize	= 1 * 1024 * 1024 * 1024;
 				DeviceSize deviceSize;
@@ -503,36 +564,68 @@ void sceIoDevctl() //(const char *name, int cmd, void *arg, size_t arglen, void 
 				deviceSize.sectorsPerCluster = 0x08;
 				deviceSize.totalClusters		 = (u32)((totalSize * 95 / 100) / (deviceSize.sectorSize * deviceSize.sectorsPerCluster));
 				deviceSize.freeClusters			= (u32)((freeSize	* 95 / 100) / (deviceSize.sectorSize * deviceSize.sectorsPerCluster));
-				Memory::WriteStruct(outPtr, &deviceSize);
+				Memory::WriteStruct(pointer, &deviceSize);
 				RETURN(0);
-				return;
+			} else {
+				RETURN(ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
 			}
-
+			return;
 		}
 	}
 
 	if (!strcmp(name, "fatms0:"))
 	{
 		switch (cmd) {
-		case 0x02425823:
-			if (Memory::IsValidAddress(outPtr))
-				Memory::Write_U32(1, outPtr);	 // TODO: Make a headless mode for running tests!
-			break;
 		case 0x02415821:  // MScmRegisterMSInsertEjectCallback
 			{
 				u32 cbId = Memory::Read_U32(argAddr);
-				ERROR_LOG(HLE, "sceIoDevCtl: Registering memstick callbacks not yet supported (%08x)", cbId);
+				if (0 == __KernelRegisterCallback(THREAD_CALLBACK_MEMORYSTICK_FAT, cbId)) {
+					DEBUG_LOG(HLE, "sceIoDevCtl: Memstick FAT callback %i registered, notifying immediately.", cbId);
+					__KernelNotifyCallbackType(THREAD_CALLBACK_MEMORYSTICK_FAT, cbId, MemoryStick_FatState());
+					RETURN(0);
+				} else {
+					RETURN(-1);
+				}
+				return;
 			}
 			break;
 		case 0x02415822: // MScmUnregisterMSInsertEjectCallback
 			{
 				u32 cbId = Memory::Read_U32(argAddr);
-				ERROR_LOG(HLE, "sceIoDevCtl: Unregistering memstick callbacks not yet supported (%08x)", cbId);
+				if (0 == __KernelUnregisterCallback(THREAD_CALLBACK_MEMORYSTICK_FAT, cbId)) {
+					DEBUG_LOG(HLE, "sceIoDevCtl: Unregistered memstick FAT callback %i", cbId);
+					RETURN(0);
+				} else {
+					RETURN(-1);
+				}
+				return;
 			}
+		case 0x02425823:  // Check if valid
+			if (Memory::IsValidAddress(outPtr))
+				Memory::Write_U32(1, outPtr);	 // TODO: Make a headless mode for running tests!
 			break;
+		case 0x02425818:  // Get memstick size etc
+			// Pretend we have a 2GB memory stick.
+			{
+				if (Memory::IsValidAddress(argAddr)) {  // "Should" be outPtr but isn't
+					u32 pointer = Memory::Read_U32(argAddr);
+
+					u64 totalSize = (u32)2 * 1024 * 1024 * 1024;
+					u64 freeSize	= 1 * 1024 * 1024 * 1024;
+					DeviceSize deviceSize;
+					deviceSize.maxSectors				= 512;
+					deviceSize.sectorSize				= 0x200;
+					deviceSize.sectorsPerCluster = 0x08;
+					deviceSize.totalClusters		 = (u32)((totalSize * 95 / 100) / (deviceSize.sectorSize * deviceSize.sectorsPerCluster));
+					deviceSize.freeClusters			= (u32)((freeSize	* 95 / 100) / (deviceSize.sectorSize * deviceSize.sectorsPerCluster));
+					Memory::WriteStruct(pointer, &deviceSize);
+					RETURN(0);
+				} else {
+					RETURN(ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
+				}
+				return;
+			}
 		}
-		RETURN(0);
-		return;
 	}
 
 
@@ -544,7 +637,8 @@ void sceIoDevctl() //(const char *name, int cmd, void *arg, size_t arglen, void 
 		case 1:	// EMULATOR_DEVCTL__GET_HAS_DISPLAY
 			if (Memory::IsValidAddress(outPtr))
 				Memory::Write_U32(0, outPtr);	 // TODO: Make a headless mode for running tests!
-			break;
+			RETURN(0);
+			return;
 		case 2:	// EMULATOR_DEVCTL__SEND_OUTPUT
 			{
 				std::string data(Memory::GetCharPointer(argAddr), argLen);
@@ -561,14 +655,20 @@ void sceIoDevctl() //(const char *name, int cmd, void *arg, size_t arglen, void 
 				{
 					DEBUG_LOG(HLE, "%s", data.c_str());
 				}
-				break;
+				RETURN(0);
+				return;
 			}
 		case 3:	// EMULATOR_DEVCTL__IS_EMULATOR
 			if (Memory::IsValidAddress(outPtr))
 				Memory::Write_U32(1, outPtr);	 // TODO: Make a headless mode for running tests!
-			break;	
+			RETURN(0);
+			return;
 		}
-		retVal = 0;
+
+		ERROR_LOG(HLE, "sceIoDevCtl: UNKNOWN PARAMETERS");
+		
+		RETURN(0);
+		return;
 	}
 
 	//089c6d1c weird branch
@@ -579,7 +679,7 @@ void sceIoDevctl() //(const char *name, int cmd, void *arg, size_t arglen, void 
 	089c6c78 ]: HLE: sceIoDevctl("fatms0:", 02415821, 09ffb9c4, 4, 00000000, 0) (z_un_089c6bc4)
 	089c6cac ]: HLE: sceIoDevctl("mscmhc0:", 02025806, 00000000, 0, 09ffb9c8, 4) (z_un_089c6bc4)
 	*/
-	RETURN(retVal);
+	RETURN(SCE_KERNEL_ERROR_UNSUP);
 }
 
 void sceIoRename() //(const char *oldname, const char *newname); 

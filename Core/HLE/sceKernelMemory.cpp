@@ -228,6 +228,7 @@ void sceKernelAllocateFplCB()
 			RETURN(0);
 		} else {
 			// TODO: Should block and process callbacks!
+			__KernelCheckCallbacks();
 			RETURN(0);
 		}
 
@@ -546,6 +547,7 @@ void sceKernelAllocateVplCB()
 		else
 		{
 			ERROR_LOG(HLE, "sceKernelAllocateVplCB FAILURE");
+			__KernelCheckCallbacks();
 			RETURN(-1);
 		}
 	}
@@ -633,8 +635,8 @@ const HLEFunction SysMemUserForUser[] =
 	{0x315AD3A0,0,"sceKernelSetCompiledSdkVersion380_390"},
 	{0xEBD5C3E6,0,"sceKernelSetCompiledSdkVersion395"},
 	{0xf77d77cb,sceKernelSetCompilerVersion,"sceKernelSetCompilerVersion"},
-	{0x35669d4c,0,"SysMemUserForUser_35669d4c"},
-	{0x1b4217bc,0,"SysMemUserForUser_1b4217bc"},
+	{0x35669d4c,0,"sceKernelSetCompiledSdkVersion600_602"},  //??
+	{0x1b4217bc,0,"sceKernelSetCompiledSdkVersion603_605"},
 };
 
 

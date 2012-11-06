@@ -30,7 +30,7 @@ void BlockAllocator::Shutdown()
 u32 BlockAllocator::Alloc(u32 &size, bool fromTop, const char *tag)
 {
 	// Sanity check
-	if (size > rangeSize_) {
+	if (size == 0 || size > rangeSize_) {
 		ERROR_LOG(HLE, "Clearly bogus size: %08x - failing allocation", size);
 		return 0;
 	}

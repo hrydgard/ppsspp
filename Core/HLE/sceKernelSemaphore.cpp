@@ -215,6 +215,7 @@ void sceKernelWaitSemaCB()
 		{
 			s->waitingThreads.push_back(__KernelGetCurThread());
 			__KernelWaitCurThread(WAITTYPE_SEMA, id, wantedCount, 0, true);
+			__KernelCheckCallbacks();
 			return;
 		}
 		DEBUG_LOG(HLE,"After: CurrentCount: %i, Signal: %i", s->ns.currentCount, wantedCount);

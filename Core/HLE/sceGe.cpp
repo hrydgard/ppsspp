@@ -20,7 +20,7 @@
 #include "../System.h"
 #include "../CoreParameter.h"
 #include "sceGe.h"
-#include "sceKernelCallback.h"
+#include "sceKernelThread.h"
 #include "sceKernelInterrupt.h"
 
 // TODO: Bad dependency.
@@ -114,7 +114,7 @@ u32 sceGeDrawSync(u32)
 {
 	//wait/check entire drawing state
 	u32 mode = PARAM(0); //0 : wait for completion		1:check and return
-	DEBUG_LOG(HLE,"FAKE sceGeDrawSync(mode=%d)",mode);
+	DEBUG_LOG(HLE,"FAKE sceGeDrawSync(mode=%d)  (0=wait for completion)",mode);
 	if (mode == 1)
 	{
 		return 0;
