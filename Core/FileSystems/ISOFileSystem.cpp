@@ -23,6 +23,15 @@
 
 const int sectorSize = 2048;
 
+static void parseLBN(std::string filename, u32 *sectorStart, u32 *readSize)
+{
+	std::string yo = filename;
+	filename.erase(0,10);
+	sscanf(filename.c_str(), "%08x", sectorStart);
+	filename.erase(0,filename.find('_') + 5);
+	sscanf(filename.c_str(), "%08x", readSize);
+}
+
 #pragma pack(push)
 #pragma pack(1)
 struct DirectoryEntry
@@ -262,13 +271,9 @@ u32 ISOFileSystem::OpenFile(std::string filename, FileAccess access)
 	OpenFileEntry entry;
 	if (filename.compare(0,8,"/sce_lbn") == 0)
 	{
-		std::string yo = filename;
-		filename.erase(0,10);
 		u32 sectorStart = 0xFFFFFFFF, readSize = 0xFFFFFFFF;
-		sscanf(filename.c_str(), "%08x", &sectorStart);
-		filename.erase(0,filename.find('_') + 5);
-		sscanf(filename.c_str(), "%08x", &readSize);
-		INFO_LOG(FILESYS, "Got a raw sector read %s, sector %08x, size %08x", yo.c_str(), sectorStart, readSize);
+		parseLBN(filename, &sectorStart, &readSize);
+		INFO_LOG(FILESYS, "Got a raw sector read %s, sector %08x, size %08x", filename.c_str(), sectorStart, readSize);
 		u32 newHandle = hAlloc->GetNewHandle();
 		entry.seekPos = 0;
 		entry.file = 0;
@@ -336,7 +341,7 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)
 				blockDevice->ReadBlock(e.seekPos, pointer + i * 2048);
 				e.seekPos++;
 			}
-			return size;
+			return (size_t)size;
 		}
 
 		u32 position;
@@ -431,6 +436,21 @@ size_t ISOFileSystem::SeekFile(u32 handle, s32 position, FileMove type)
 
 PSPFileInfo ISOFileSystem::GetFileInfo(std::string filename) 
 {
+	if (filename.compare(0,8,"/sce_lbn") == 0)
+	{
+		u32 sectorStart = 0xFFFFFFFF, readSize = 0xFFFFFFFF;
+		parseLBN(filename, &sectorStart, &readSize);
+
+		PSPFileInfo fileInfo;
+		fileInfo.name = filename;
+		fileInfo.exists = true;
+		fileInfo.size = readSize;
+		fileInfo.startSector = sectorStart;
+		fileInfo.isOnSectorSystem = true;
+		fileInfo.numSectors = (readSize + sectorSize - 1) / sectorSize;
+		return fileInfo;
+	}
+
 	TreeEntry *entry = GetFromPath(filename);
 	PSPFileInfo x; 
 	if (!entry)
