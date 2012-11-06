@@ -481,8 +481,10 @@ void sceIoDevctl() //(const char *name, int cmd, void *arg, size_t arglen, void 
 	int argLen = PARAM(3);
 	u32 outPtr = PARAM(4);
 	int outLen = PARAM(5);
-	DEBUG_LOG(HLE,"sceIoDevctl(\"%s\", %08x, %08x, %i, %08x, %i)", 
-		name, cmd,argAddr,argLen,outPtr,outLen);
+
+	if (strcmp(name, "emulator:")) {
+		DEBUG_LOG(HLE,"sceIoDevctl(\"%s\", %08x, %08x, %i, %08x, %i)", name, cmd,argAddr,argLen,outPtr,outLen);
+	}
 
 	// UMD checks
 	switch (cmd) {
