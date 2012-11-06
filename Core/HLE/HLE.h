@@ -25,11 +25,17 @@
 
 typedef void (* HLEFunc)();
 
+enum {
+	NOT_IN_INTERRUPT,
+	NOT_DISPATCH_SUSPENDED,
+};
+
 struct HLEFunction
 {
 	u32 ID;
 	HLEFunc func;
 	const char *name;
+	u32 flags;
 };
 
 struct HLEModule

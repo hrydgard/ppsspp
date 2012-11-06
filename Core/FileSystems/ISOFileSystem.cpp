@@ -223,6 +223,9 @@ ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(std::string path)
 		return &entireISO;
 	}
 
+	if (path.substr(0,2) == "./")
+		path.erase(0,2);
+
 	if (path[0] == '/')
 		path.erase(0,1);
 
