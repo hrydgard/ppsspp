@@ -295,6 +295,8 @@ const HLEFunction ThreadManForUser[] =
 	{0x5bf4dd27,&WrapU_UUU<sceKernelLockMutexCB>,"sceKernelLockMutexCB"},
 	{0x6b30100f,&WrapU_UU<sceKernelUnlockMutex>,"sceKernelUnlockMutex"},
 	{0xb7d098c6,&WrapU_CUU<sceKernelCreateMutex>,"sceKernelCreateMutex"},
+	{0x0DDCD2C9, 0, "sceKernelTryLockMutex"},
+
 	// NOTE: LockLwMutex and UnlockLwMutex are in Kernel_Library, see sceKernelInterrupt.cpp.
 
 	{0xFCCFAD26,0,"sceKernelCancelWakeupThread"},
@@ -308,7 +310,7 @@ const HLEFunction ThreadManForUser[] =
 	{0x68da9e36,sceKernelDelayThreadCB,"sceKernelDelayThreadCB"},
 	{0xaa73c935,sceKernelExitThread,"sceKernelExitThread"},
 	{0x809ce29b,sceKernelExitDeleteThread,"sceKernelExitDeleteThread"},
-	{0x94aa61ee,0,"sceKernelGetThreadCurrentPriority"},
+	{0x94aa61ee,sceKernelGetThreadCurrentPriority,"sceKernelGetThreadCurrentPriority"},
 	{0x293b45b8,sceKernelGetThreadId,"sceKernelGetThreadId"},
 	{0x3B183E26,sceKernelGetThreadExitStatus,"sceKernelGetThreadExitStatus"},
 	{0x52089CA1,sceKernelGetThreadStackFreeSize,"sceKernelGetThreadStackFreeSize"},
@@ -422,6 +424,7 @@ const HLEFunction ThreadManForUser[] =
 
 	{0x0E927AED, _sceKernelReturnFromTimerHandler, "_sceKernelReturnFromTimerHandler"},
 	{0x532A522E, _sceKernelExitThread,"_sceKernelExitThread"},
+
 
 	// Shouldn't hook this up. No games should import this function manually and call it.
 	// {0x6E9EA350, _sceKernelReturnFromCallback,"_sceKernelReturnFromCallback"},

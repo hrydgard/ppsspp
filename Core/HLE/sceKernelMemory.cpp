@@ -637,6 +637,10 @@ const HLEFunction SysMemUserForUser[] =
 	{0xf77d77cb,sceKernelSetCompilerVersion,"sceKernelSetCompilerVersion"},
 	{0x35669d4c,0,"sceKernelSetCompiledSdkVersion600_602"},  //??
 	{0x1b4217bc,0,"sceKernelSetCompiledSdkVersion603_605"},
+	{0xDB83A952,0,"SysMemUserForUser_DB83A952"},
+	{0x91DE343C,0,"SysMemUserForUser_91DE343C"},
+	{0x50F61D8A,0,"SysMemUserForUser_50F61D8A"},
+	{0xFE707FDF,0,"SysMemUserForUser_FE707FDF"},
 };
 
 

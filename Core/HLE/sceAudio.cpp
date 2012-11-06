@@ -238,11 +238,12 @@ void sceAudioInit()
 
 const HLEFunction sceAudio[] = 
 {
-  {0x01562ba3, 0, "sceAudioOutput2Reserve"},
+  {0x01562ba3, 0, "sceAudioOutput2Reserve"},  // Super Stardust Portable uses these
   {0x2d53f36e, 0, "sceAudioOutput2OutputBlocking"},
   {0x63f2889c, 0, "sceAudioOutput2ChangeLength"},
   {0x647cef33, 0, "sceAudioOutput2GetRestSample"},	
   {0x43196845, 0, "sceAudioOutput2Release"},
+
   {0x210567F7, 0, "sceAudioEnd"},
   {0x38553111, 0, "sceAudioSRCChReserve"},
   {0x5C37C0AE, 0, "sceAudioSRCChRelease"},

@@ -34,6 +34,7 @@ void sceKernelExitDeleteThread();
 void sceKernelExitThread();
 void _sceKernelExitThread();
 void sceKernelGetThreadId();
+void sceKernelGetThreadCurrentPriority();
 u32 sceKernelStartThread();
 void sceKernelWaitThreadEnd();
 void sceKernelReferThreadStatus();

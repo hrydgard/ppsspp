@@ -994,6 +994,13 @@ void sceKernelGetThreadId()
 	RETURN(retVal);
 }
 
+void sceKernelGetThreadCurrentPriority()
+{
+	u32 retVal = __GetCurrentThread()->nt.currentPriority;
+	DEBUG_LOG(HLE,"%i = sceKernelGetThreadCurrentPriority()", retVal);
+	RETURN(retVal);
+}
+
 void sceKernelChangeCurrentThreadAttr()
 {
 	int clearAttr = PARAM(0);
@@ -1018,7 +1025,7 @@ void sceKernelChangeThreadPriority()
 	}
 	else
 	{
-		ERROR_LOG(HLE,"%08x=sceKernelChangeThreadPriority(%i, %i) failed", error, id, PARAM(1));
+		ERROR_LOG(HLE,"%08x=sceKernelChangeThreadPriority(%i, %i) failed - no such thread", error, id, PARAM(1));
 		RETURN(error);
 	}
 }
