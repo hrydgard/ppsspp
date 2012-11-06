@@ -1043,6 +1043,7 @@ namespace MIPSInt
 			int c;
 			switch (cond)
 			{
+			case VC_EQ: c = s[i] == t[i]; break;
 			case VC_EZ: c = s[i] == 0.0f || s[i] == -0.0f; break;
 			case VC_LT: c = s[i] < t[i]; break;
 			case VC_LE: c = s[i] <= t[i]; break;
