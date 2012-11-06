@@ -48,9 +48,9 @@ u8 *GetPointer(const u32 address)
 	{
 		return m_pVRAM + (address & VRAM_MASK);
 	}
-	else if ((address & 0xFFFF0000) == 0x00010000)
+	else if ((address & 0xBFFF0000) == 0x00010000)
 	{
-		return m_pScratchPad + (address & VRAM_MASK);
+		return m_pScratchPad + (address & SCRATCHPAD_MASK);
 	}
 	else
 	{
@@ -75,7 +75,7 @@ inline void ReadFromHardware(T &var, const u32 address)
 	{
 		var = *((const T*)&m_pVRAM[address & VRAM_MASK]);
 	}
-	else if ((address & 0xFFFF0000) == 0x00010000)
+	else if ((address & 0xBFFF0000) == 0x00010000)
 	{
 		// Scratchpad
 		var = *((const T*)&m_pScratchPad[address & SCRATCHPAD_MASK]);
@@ -104,7 +104,7 @@ inline void WriteToHardware(u32 address, const T data)
 	{
 		*(T*)&m_pVRAM[address & VRAM_MASK] = data;
 	}
-	else if ((address & 0xFFFF0000) == 0x00010000)
+	else if ((address & 0xBFFF0000) == 0x00010000)
 	{
 		*(T*)&m_pScratchPad[address & SCRATCHPAD_MASK] = data;
 	}
@@ -130,7 +130,7 @@ bool IsValidAddress(const u32 address)
 	{
 		return true;
 	}
-	else if ((address & 0xFFFF0000) == 0x00010000)
+	else if ((address & 0xBFFF0000) == 0x00010000)
 	{
 		return true;
 	}

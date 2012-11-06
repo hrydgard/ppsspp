@@ -81,8 +81,10 @@ void sceKernelSysClock2USec()
 	Memory::ReadStruct(PARAM(0), &clock);
 	DEBUG_LOG(HLE, "sceKernelSysClock2USec(clock = , lo = %08x, hi = %08x)", PARAM(1), PARAM(2));
 	u64 time = clock.lo | ((u64)clock.hi << 32);
-	Memory::Write_U32((u32)(time / 1000000), PARAM(1));
-	Memory::Write_U32((u32)(time % 1000000), PARAM(2));
+	if (Memory::IsValidAddress(PARAM(1)))
+		Memory::Write_U32((u32)(time / 1000000), PARAM(1));
+	if (Memory::IsValidAddress(PARAM(2)))
+		Memory::Write_U32((u32)(time % 1000000), PARAM(2));
 	RETURN(0);
 }
 
@@ -90,8 +92,10 @@ void sceKernelSysClock2USecWide()
 {
 	u64 clock = PARAM(0) | ((u64)PARAM(1) << 32);
 	DEBUG_LOG(HLE, "sceKernelSysClock2USecWide(clock = %llu, lo = %08x, hi = %08x)", clock, PARAM(2), PARAM(3));
-	Memory::Write_U32((u32)(clock / 1000000), PARAM(2));
-	Memory::Write_U32((u32)(clock % 1000000), PARAM(3));
+	if (Memory::IsValidAddress(PARAM(2)))
+		Memory::Write_U32((u32)(clock / 1000000), PARAM(2));
+	if (Memory::IsValidAddress(PARAM(3)))
+		Memory::Write_U32((u32)(clock % 1000000), PARAM(3));
 	RETURN(0);
 }
 

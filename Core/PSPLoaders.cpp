@@ -71,7 +71,7 @@ bool Load_PSP_ISO(const char *filename, std::string *error_string)
 	{
 		u8 head[4];
 		pspFileSystem.ReadFile(fd, head, 4);
-		if (memcmp(head, "~PSP", 4) == 0)
+		if (memcmp(head, "~PSP", 4) == 0)  //  || memcmp(head + 1, "ELF", 3) == 0)
 		{
 			hasEncrypted = true;
 		}

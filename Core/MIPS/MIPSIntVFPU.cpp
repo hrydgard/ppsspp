@@ -1052,6 +1052,7 @@ namespace MIPSInt
 			case VC_GT: c = s[i] > t[i]; break;
 			case VC_GE: c = s[i] >= t[i]; break;
 			case VC_NZ: c = s[i] != 0; break;
+			case VC_ES: c = (s[i] != s[i]) || (s[i] == std::numeric_limits<float>::infinity()); break;   // Tekken Dark Resurrection
 			default:
 				_dbg_assert_msg_(CPU,0,"Unsupported vcmp condition code"); //, cond);
 				return;
