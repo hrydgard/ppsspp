@@ -138,7 +138,6 @@
     <ClCompile Include="HLE\sceIo.cpp" />
     <ClCompile Include="HLE\sceKernel.cpp" />
     <ClCompile Include="HLE\sceKernelAlarm.cpp" />
-    <ClCompile Include="HLE\sceKernelCallback.cpp" />
     <ClCompile Include="HLE\sceKernelEventFlag.cpp" />
     <ClCompile Include="HLE\sceKernelInterrupt.cpp" />
     <ClCompile Include="HLE\sceKernelMbx.cpp" />
@@ -160,6 +159,7 @@
     <ClCompile Include="HLE\sceUtility.cpp" />
     <ClCompile Include="HLE\__sceAudio.cpp" />
     <ClCompile Include="Host.cpp" />
+    <ClCompile Include="HW\MemoryStick.cpp" />
     <ClCompile Include="Loaders.cpp" />
     <ClCompile Include="MemMap.cpp" />
     <ClCompile Include="MemmapFunctions.cpp" />
@@ -267,7 +267,6 @@
     <ClInclude Include="HLE\sceIo.h" />
     <ClInclude Include="HLE\sceKernel.h" />
     <ClInclude Include="HLE\sceKernelAlarm.h" />
-    <ClInclude Include="HLE\sceKernelCallback.h" />
     <ClInclude Include="HLE\sceKernelEventFlag.h" />
     <ClInclude Include="HLE\sceKernelInterrupt.h" />
     <ClInclude Include="HLE\sceKernelMemory.h" />
@@ -289,6 +288,7 @@
     <ClInclude Include="HLE\sceKernelVTimer.h" />
     <ClInclude Include="HLE\__sceAudio.h" />
     <ClInclude Include="Host.h" />
+    <ClInclude Include="HW\MemoryStick.h" />
     <ClInclude Include="Loaders.h" />
     <ClInclude Include="MemMap.h" />
     <ClInclude Include="MIPS\ARM\Asm.h">
