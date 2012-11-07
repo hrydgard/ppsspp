@@ -63,6 +63,7 @@ bool __RunOnePendingInterrupt();
 void __KernelReturnFromInterrupt();
 
 u32 sceKernelRegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 handler, u32 handlerArg);
+u32 sceKernelReleaseSubIntrHandler(u32 intrNumber, u32 subIntrNumber);
 
 void Register_Kernel_Library();
 void Register_InterruptManager();

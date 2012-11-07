@@ -623,14 +623,22 @@ void sceKernelStopModule()
 {
 	ERROR_LOG(HLE,"UNIMPL sceKernelStopModule");
 	RETURN(0);
-
 }
 
 void sceKernelUnloadModule()
 {
-	ERROR_LOG(HLE,"UNIMPL sceKernelUnloadModule");
-	RETURN(0);
+	u32 moduleId = PARAM(0);
+	ERROR_LOG(HLE,"UNIMPL sceKernelUnloadModule(%i)", moduleId);
+	u32 error;
+	Module *module = kernelObjects.Get<Module>(moduleId, error);
+	if (!module)
+	{
+		RETURN(error);
+		return;
+	}
 
+	kernelObjects.Destroy<Module>(moduleId);
+	RETURN(0);
 }
 
 void sceKernelGetModuleIdByAddress()

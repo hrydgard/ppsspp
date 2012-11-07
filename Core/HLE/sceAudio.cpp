@@ -23,6 +23,11 @@
 #include "__sceAudio.h"
 #include "HLE.h"
 
+
+// There's a second Audio api called Audio2 that only has one channel, I guess the 8 channel api was overkill.
+// We simply map it to the first of the 8 channels.
+
+
 AudioChannel chans[8];
 
 // Enqueues the buffer pointer on the channel. If channel buffer queue is full (2 items?) will block until it isn't.
@@ -90,17 +95,17 @@ u32 sceAudioOutputPanned(u32 chan, u32 leftVol, u32 rightVol, u32 samplePtr)
 	}
 }
 
-u32 sceAudioOutputBlocking(u32 chan, u32 vol, u32 samplePtr)
+void sceAudioOutputBlocking(u32 chan, u32 vol, u32 samplePtr)
 {
 	if (chan < 0 || chan >= MAX_CHANNEL)
 	{
 		ERROR_LOG(HLE,"sceAudioOutputBlocking() - BAD CHANNEL");
-    return SCE_ERROR_AUDIO_INVALID_CHANNEL;
+    RETURN(SCE_ERROR_AUDIO_INVALID_CHANNEL);
 	}
   else if (!chans[chan].reserved)
   {
     ERROR_LOG(HLE,"sceAudioOutputBlocking() - channel not reserved");
-    return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
+    RETURN(SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED);
   }
   else
 	{
@@ -109,7 +114,7 @@ u32 sceAudioOutputBlocking(u32 chan, u32 vol, u32 samplePtr)
 		chans[chan].leftVolume = vol;
 		chans[chan].rightVolume = vol;
 		chans[chan].sampleAddress = samplePtr;
-    return __AudioEnqueue(chans[chan], chan, true);
+    __AudioEnqueue(chans[chan], chan, true);
 	}
 }
 
@@ -236,13 +241,56 @@ void sceAudioInit()
   RETURN(0);
 }
 
+void sceAudioOutput2Reserve()
+{
+	int sampleCount = PARAM(0);
+  ERROR_LOG(HLE,"sceAudioOutput2Reserve(%i)", sampleCount);
+	chans[0].sampleCount = sampleCount;
+	chans[0].reserved = true;
+	RETURN(0);
+}
+
+void sceAudioOutput2OutputBlocking()
+{
+	int vol = PARAM(0);
+	u32 dataPtr = PARAM(1);
+
+  ERROR_LOG(HLE,"UNIMPL sceAudioOutput2OutputBlocking(%i, %08x)", vol, dataPtr);
+	chans[0].running = true;
+	chans[0].leftVolume = vol;
+	chans[0].rightVolume = vol;
+	chans[0].sampleAddress = dataPtr;
+  __AudioEnqueue(chans[0], 0, true);
+
+	RETURN(0);
+}
+
+void sceAudioOutput2ChangeLength()
+{
+  ERROR_LOG(HLE,"UNIMPL sceAudioOutput2ChangeLength");
+	RETURN(0);
+}
+
+void sceAudioOutput2GetRestSample()
+{
+  ERROR_LOG(HLE,"UNIMPL sceAudioOutput2GetRestSample");
+	RETURN(0);
+}
+
+void sceAudioOutput2Release()
+{
+  ERROR_LOG(HLE,"sceAudioOutput2Release()");
+	chans[0].reserved = false;
+	RETURN(0);
+}
+
 const HLEFunction sceAudio[] = 
 {
-  {0x01562ba3, 0, "sceAudioOutput2Reserve"},  // Super Stardust Portable uses these
-  {0x2d53f36e, 0, "sceAudioOutput2OutputBlocking"},
-  {0x63f2889c, 0, "sceAudioOutput2ChangeLength"},
-  {0x647cef33, 0, "sceAudioOutput2GetRestSample"},	
-  {0x43196845, 0, "sceAudioOutput2Release"},
+  {0x01562ba3, sceAudioOutput2Reserve, "sceAudioOutput2Reserve"},  // N+, Super Stardust Portable uses these
+  {0x2d53f36e, sceAudioOutput2OutputBlocking, "sceAudioOutput2OutputBlocking"},
+  {0x63f2889c, sceAudioOutput2ChangeLength, "sceAudioOutput2ChangeLength"},
+  {0x647cef33, sceAudioOutput2GetRestSample, "sceAudioOutput2GetRestSample"},	
+  {0x43196845, sceAudioOutput2Release, "sceAudioOutput2Release"},
 
   {0x210567F7, 0, "sceAudioEnd"},
   {0x38553111, 0, "sceAudioSRCChReserve"},
@@ -256,7 +304,7 @@ const HLEFunction sceAudio[] =
   {0xE0727056, 0, "sceAudioSRCOutputBlocking"},
   {0xE926D3FB, 0, "sceAudioInputInitEx"},
   {0x8c1009b2, 0, "sceAudioOutput"}, 
-  {0x136CAF51, WrapU_UUU<sceAudioOutputBlocking>, "sceAudioOutputBlocking"}, 
+  {0x136CAF51, WrapV_UUU<sceAudioOutputBlocking>, "sceAudioOutputBlocking"}, 
   {0xE2D56B2D, WrapU_UUUU<sceAudioOutputPanned>, "sceAudioOutputPanned"}, 
   {0x13F592BC, WrapV_UUUU<sceAudioOutputPannedBlocking>, "sceAudioOutputPannedBlocking"}, //(u32, u32, u32, void *)Output sound, blocking 
   {0x5EC81C55, WrapU_UUU<sceAudioChReserve>, "sceAudioChReserve"}, //(u32, u32 samplecount, u32) Initialize channel and allocate buffer  long, long samplecount, long);//init buffer? returns handle, minus if error

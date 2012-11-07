@@ -97,7 +97,7 @@ const char *GetFuncName(const char *moduleName, u32 nib)
 	else
 	{
 		static char temp[256];
-		sprintf(temp,"[UNK:%08x]",nib);
+		sprintf(temp,"[UNK: 0x%08x ]",nib);
 		return temp;
 	}
 }

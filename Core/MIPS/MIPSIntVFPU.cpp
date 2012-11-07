@@ -646,9 +646,33 @@ namespace MIPSInt
       break;
 
     case 2:  //vi2us
-			//break;
+			{
+				for (int i = 0; i < GetNumVectorElements(sz) / 2; i++) {
+					int low = s[i * 2];
+					int high = s[i * 2 + 1];
+					if (low < 0) low = 0;
+					if (high < 0) high = 0;
+					low >>= 15;
+					high >>= 15;
+					d[i] = low | (high << 16);
+				}
+				if (sz == V_Quad) oz = V_Pair;
+				if (sz == V_Pair) oz = V_Single;
+			}
+			break;
 		case 3:  //vi2s
-			//break;
+			{
+				for (int i = 0; i < GetNumVectorElements(sz) / 2; i++) {
+					u32 low = s[i * 2];
+					u32 high = s[i * 2 + 1];
+					low >>= 16;
+					high >>= 16;
+					d[i] = low | (high << 16);
+				}
+				if (sz == V_Quad) oz = V_Pair;
+				if (sz == V_Pair) oz = V_Single;
+			}
+			break;
 		default:
 			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
 			break;

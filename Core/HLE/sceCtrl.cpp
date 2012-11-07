@@ -76,17 +76,22 @@ void sceCtrlInit()
 {
 	ctrlInited = true;
   memset(&ctrl, 0, sizeof(ctrl));
-	DEBUG_LOG(HLE,"sceCtrlInit");
+	ctrl.analog[0] = 128;
+	ctrl.analog[1] = 128;
+	DEBUG_LOG(HLE,"sceCtrlInit");	
 }
 
 void sceCtrlSetSamplingMode()
 {
-	DEBUG_LOG(HLE,"sceCtrlSetSamplingMode");
+	u32 mode = PARAM(0);
+	DEBUG_LOG(HLE,"sceCtrlSetSamplingMode(%i) ra=%08x", mode, currentMIPS->r[MIPS_REG_RA]);
 	if (ctrlInited)
 	{
+		RETURN((u32)analogEnabled);
     // Looks odd
-		analogEnabled = true;
+		analogEnabled = mode;
 	}
+	RETURN(0);
 }
 
 void sceCtrlSetIdleCancelThreshold()
@@ -146,8 +151,8 @@ void sceCtrlReadBufferPositive()
 			analogX += 100;
 		}
 
-    data.analog[0]=analogX;
-    data.analog[1]=analogY;
+    data.analog[0] = analogX;
+    data.analog[1] = analogY;
 #endif
 
     memcpy(Memory::GetPointer(ctrlData), &data, sizeof(_ctrl_data));

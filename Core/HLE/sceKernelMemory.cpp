@@ -432,7 +432,10 @@ void sceKernelGetBlockHeadAddr()
 
 void sceKernelPrintf()
 {
+	const char *formatString = Memory::GetCharPointer(PARAM(0));
+
 	ERROR_LOG(HLE,"UNIMPL sceKernelPrintf(%08x, %08x, %08x, %08x)", PARAM(0),PARAM(1),PARAM(2),PARAM(3));
+	ERROR_LOG(HLE,"%s", formatString);
 	RETURN(0);
 }
 
@@ -588,8 +591,24 @@ void sceKernelTryAllocateVpl()
 
 void sceKernelFreeVpl()
 {
-	ERROR_LOG(HLE,"UNIMPL: sceKernelFreeVpl()");
-	RETURN(0);
+	SceUID id = PARAM(0);
+	u32 blockPtr = PARAM(1);
+	DEBUG_LOG(HLE,"sceKernelFreeVpl(%i, %08x)", id, blockPtr);
+	u32 error;
+	VPL *vpl = kernelObjects.Get<VPL>(id, error);
+	if (vpl)
+	{
+		if (vpl->alloc.Free(blockPtr)) {
+			RETURN(0);
+			// Should trigger waiting threads
+		} else {
+			ERROR_LOG(HLE, "sceKernelFreeVpl: Error freeing %08x", blockPtr);
+			RETURN(-1);
+		}
+	}
+	else {
+		RETURN(error);
+	}
 }
 
 void sceKernelCancelVpl()

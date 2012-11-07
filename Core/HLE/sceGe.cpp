@@ -146,7 +146,9 @@ u32 sceGeSetCallback(u32 structAddr)
 
 void sceGeUnsetCallback(u32 cbID)
 {
-	ERROR_LOG(HLE,"UNIMPL sceGeUnsetCallback(cbid=%08x)", cbID);
+	DEBUG_LOG(HLE,"sceGeUnsetCallback(cbid=%08x)", cbID);
+	sceKernelReleaseSubIntrHandler(PSP_GE_INTR, PSP_GE_SUBINTR_FINISH);
+	sceKernelReleaseSubIntrHandler(PSP_GE_INTR, PSP_GE_SUBINTR_SIGNAL);
 }
 
 void sceGeSaveContext()

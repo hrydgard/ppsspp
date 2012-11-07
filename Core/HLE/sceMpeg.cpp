@@ -93,6 +93,11 @@ const HLEFunction sceMpeg[] =
 	{0xf2930c9c,0,"sceMpegAvcDecodeStopYCbCr"},
 	{0x31bd0272,0,"sceMpegAvcCsc"},
 	{0xa11c7026,0,"sceMpegAvcDecodeMode"},
+	{0x0558B075,0,"sceMpegAvcCopyYCbCr"},
+	{0x769BEBB6,0,"sceMpegRingbufferQueryPackNum"},
+	{0x8C1E027D,0,"sceMpegGetPcmAu"},
+	{0x9DCFB7EA,0,"sceMpegChangeGetAuMode"},
+	{0xC02CF6B5,0,"sceMpegQueryPcmEsSize"},
 };
 
 const HLEFunction sceMp3[] =
