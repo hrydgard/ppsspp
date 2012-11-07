@@ -4,10 +4,7 @@ set(SRCS
   threadutil.cpp
   error_context.cpp
   display.cpp
-  PCMain.cpp
   buffer.cpp)
-
-set(SRCS ${SRCS})
 
 add_library(base STATIC ${SRCS})
 

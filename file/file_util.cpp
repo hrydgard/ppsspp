@@ -5,6 +5,7 @@
 #include <dirent.h>
 #include <unistd.h>
 #endif
+#include <cstring>
 #include <string>
 #include <set>
 #include <algorithm>
@@ -130,6 +131,32 @@ std::string getFileExtension(const std::string &fn) {
 
 size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const char *filter) {
 	size_t foundEntries = 0;
+#ifdef BLACKBERRY
+	// WORKAROUND: Other implementation will crash on Blackberry (all versions).
+	struct dirent dirent, *result = NULL;
+
+	DIR *dirp = opendir(directory);
+	if (!dirp)
+		return 0;
+
+	while (!readdir_r(dirp, &dirent, &result) && result) {
+		if (result->d_name[0] == '.')
+			continue;
+		FileInfo info;
+		info.name = std::string(result->d_name);
+		info.fullName = std::string(directory) + "/" + info.name;
+		info.isDirectory = isDirectory(info.fullName);
+
+		if (!info.isDirectory) {
+			const char* ext = strrchr(result->d_name, '.');
+			if (ext && strstr(filter, ext+1) == NULL)
+				continue;
+		}
+
+		files->push_back(info);
+	}
+	closedir(dirp);
+#else
 	std::set<std::string> filters;
 	std::string tmp;
 	if (filter) {
@@ -165,7 +192,6 @@ size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const 
 	DIR *dirp = opendir(directory);
 	if (!dirp)
 		return 0;
-
 	// non windows loop
 	while (!readdir_r(dirp, &dirent, &result) && result)
 	{
@@ -202,6 +228,7 @@ size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const 
 	}
 	closedir(dirp);
 #endif
+#endif // Blackberry workaround
 	std::sort(files->begin(), files->end());
 	return foundEntries;
 }

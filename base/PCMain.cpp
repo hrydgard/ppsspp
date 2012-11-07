@@ -178,7 +178,6 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-
 	net::Init();
 #ifdef __APPLE__
 	// Make sure to request a somewhat modern GL context at least - the
@@ -203,13 +202,12 @@ int main(int argc, char *argv[]) {
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 	SDL_GL_SetAttribute(SDL_GL_SWAP_CONTROL, 1);
 
-
 	if (SDL_SetVideoMode(pixel_xres, pixel_yres, 0, SDL_OPENGL) == NULL) {
 		fprintf(stderr, "SDL SetVideoMode failed: Unable to create OpenGL screen: %s\n", SDL_GetError());
 		SDL_Quit();
 		return(2);
 	}
-#ifndef BLACKBERRY
+
 	SDL_WM_SetCaption(app_name_nice.c_str(), NULL);
 
 	if (GLEW_OK != glewInit()) {
@@ -223,7 +221,6 @@ int main(int argc, char *argv[]) {
 		printf("Sorry, this program requires OpenGL 2.0.\n");
 		return 1;
 	}
-#endif
 
 #ifdef _MSC_VER
 	// VFSRegister("temp/", new DirectoryAssetReader("E:\\Temp\\"));
