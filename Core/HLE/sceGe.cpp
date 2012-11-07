@@ -60,6 +60,10 @@ u32 sceGeEdramGetSize()
 
 u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, u32 callbackId, u32 optParamAddr)
 {
+	DEBUG_LOG(HLE,"sceGeListEnQueue(addr=%08x, stall=%08x, cbid=%08x, param=%08x)",
+		listAddress,stallAddress,callbackId,optParamAddr);
+	//if (!stallAddress)
+	//	stallAddress = listAddress;
 	u32 listID = gpu->EnqueueList(listAddress, stallAddress);
 	// HACKY
 	if (listID)
@@ -67,8 +71,6 @@ u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, u32 callbackId, u32 optP
 	else
 		state = SCE_GE_LIST_COMPLETED;
 
-	DEBUG_LOG(HLE,"%i=sceGeListEnQueue(addr=%08x, stall=%08x, cbid=%08x, param=%08x)",listID,
-		listAddress,stallAddress,callbackId,optParamAddr);
 	DEBUG_LOG(HLE,"List enqueued.");
 	//return display list ID
 	return listID;
@@ -76,6 +78,8 @@ u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, u32 callbackId, u32 optP
 
 u32 sceGeListEnQueueHead(u32 listAddress, u32 stallAddress, u32 callbackId, u32 optParamAddr)
 {
+	if (!stallAddress)
+		stallAddress = listAddress;
 	u32 listID = gpu->EnqueueList(listAddress,stallAddress);
 	// HACKY
 	if (listID)

@@ -53,6 +53,12 @@ void sceMpegRingbufferConstruct()
 	RETURN(0);
 }
 
+void sceMpegRegistStream() 
+{
+	DEBUG_LOG(HLE, "HACK sceMpegRegistStream(...)");
+	RETURN(0);
+}
+
 const HLEFunction sceMpeg[] =
 {
 	{0xe1ce83a7,0,"sceMpegGetAtracAu"},
@@ -62,7 +68,7 @@ const HLEFunction sceMpeg[] =
 	{0xc132e22f,sceMpegQueryMemSize,"sceMpegQueryMemSize"},
 	{0x21ff80e4,0,"sceMpegQueryStreamOffset"},
 	{0x611e9e11,0,"sceMpegQueryStreamSize"},
-	{0x42560f23,0,"sceMpegRegistStream"},
+	{0x42560f23,sceMpegRegistStream,"sceMpegRegistStream"},
 	{0x591a4aa2,0,"sceMpegUnRegistStream"},
 	{0x707b7629,0,"sceMpegFlushAllStream"},
 	{0xa780cf7e,0,"sceMpegMallocAvcEsBuf"},

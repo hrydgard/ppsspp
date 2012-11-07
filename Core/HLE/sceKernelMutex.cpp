@@ -110,13 +110,14 @@ u32 sceKernelLockMutex(u32 id, u32 count, u32 timeoutPtr)
 	else
 	{
 		// Yeah, we need to block. Somehow.
+		ERROR_LOG(HLE,"Mutex should block!");
 	}
 	return 0;
 }
 
 u32 sceKernelLockMutexCB(u32 id, u32 count, u32 timeoutPtr)
 {
-	DEBUG_LOG(HLE,"UNIMPL sceKernelLockMutexCB(%i, %i, %08x)", id, count, timeoutPtr);
+	ERROR_LOG(HLE,"UNIMPL sceKernelLockMutexCB(%i, %i, %08x)", id, count, timeoutPtr);
 	return 0;
 }
 
@@ -148,30 +149,36 @@ struct NativeLwMutex
 
 void sceKernelCreateLwMutex()
 {
-	DEBUG_LOG(HLE,"UNIMPL sceKernelCreateLwMutex()");
+	ERROR_LOG(HLE,"UNIMPL sceKernelCreateLwMutex()");
 	RETURN(0);
 }
 
 void sceKernelDeleteLwMutex()
 {
-	DEBUG_LOG(HLE,"UNIMPL sceKernelDeleteLwMutex()");
+	ERROR_LOG(HLE,"UNIMPL sceKernelDeleteLwMutex()");
 	RETURN(0);
 }
 
 void sceKernelTryLockLwMutex()
 {
-	DEBUG_LOG(HLE,"UNIMPL sceKernelTryLockLwMutex()");
+	ERROR_LOG(HLE,"UNIMPL sceKernelTryLockLwMutex()");
 	RETURN(0);
 }
 
 void sceKernelLockLwMutex()
 {
-	DEBUG_LOG(HLE,"UNIMPL sceKernelLockLwMutex()");
+	ERROR_LOG(HLE,"UNIMPL sceKernelLockLwMutex()");
+	RETURN(0);
+}
+
+void sceKernelLockLwMutexCB()
+{
+	ERROR_LOG(HLE,"UNIMPL sceKernelLockLwMutexCB()");
 	RETURN(0);
 }
 
 void sceKernelUnlockLwMutex()
 {
-	DEBUG_LOG(HLE,"UNIMPL void sceKernelUnlockLwMutex()");
+	ERROR_LOG(HLE,"UNIMPL void sceKernelUnlockLwMutex()");
 	RETURN(0);
 }

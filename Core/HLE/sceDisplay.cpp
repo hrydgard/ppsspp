@@ -255,7 +255,7 @@ void sceDisplayGetVcount()
 	// Too spammy
 	// DEBUG_LOG(HLE,"%i=sceDisplayGetVcount()", vCount);	
 	// Games like Puyo Puyo call this in a tight loop at end-of-frame. We could have it consume some time from CoreTiming?
-	CoreTiming::Idle(100000);
+	CoreTiming::Idle(1000000);
 	RETURN(vCount);
 }
 

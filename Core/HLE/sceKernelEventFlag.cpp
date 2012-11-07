@@ -171,7 +171,7 @@ retry:
 			EventFlagTh *t = &e->waitingThreads[i];
 			if (__KernelEventFlagMatches(&e->nef.currentPattern, t->bits, t->wait, t->outAddr))
 			{
-				__KernelResumeThread(t->tid);
+				__KernelResumeThreadFromWait(t->tid);
 				wokeThreads = true;
 				e->nef.numWaitThreads--;
 				e->waitingThreads.erase(e->waitingThreads.begin() + i);
@@ -216,8 +216,8 @@ void sceKernelWaitEventFlag()
 				timeout = Memory::Read_U32(timeoutPtr);
 
 			__KernelWaitCurThread(WAITTYPE_EVENTFLAG, id, 0, 0, false);
+			// MUST NOT return a value after __KernelWaitCurThread as we may have been rescheduled!
 		}
-		RETURN(0);
 	}
 	else
 	{
@@ -255,8 +255,8 @@ void sceKernelWaitEventFlagCB()
 				timeout = Memory::Read_U32(timeoutPtr);
 
 			__KernelWaitCurThread(WAITTYPE_EVENTFLAG, id, 0, 0, true);
+			__KernelCheckCallbacks();
 		}
-		RETURN(0);
 	}
 	else
 	{

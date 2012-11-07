@@ -464,6 +464,14 @@ const HLEFunction sceUtility[] =
 	{0xAB083EA9, 0, "sceUtilityScreenshotUpdate"},
 	{0xD81957B7, 0, "sceUtilityScreenshotGetStatus"},
 	{0x86A03A27, 0, "sceUtilityScreenshotContStart"},
+
+	{0x0D5BC6D2, 0, "sceUtilityLoadUsbModule"},
+	{0xF64910F0, 0, "sceUtilityUnloadUsbModule"},
+
+	{0x24AC31EB, 0, "sceUtilityGamedataInstallInitStart"},
+  {0x32E32DCB, 0, "sceUtilityGamedataInstallShutdownStart"},
+  {0x4AECD179, 0, "sceUtilityGamedataInstallUpdate"},
+  {0xB57E95D9, 0, "sceUtilityGamedataInstallGetStatus"},
 };
 
 void Register_sceUtility()

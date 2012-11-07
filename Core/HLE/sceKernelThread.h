@@ -106,8 +106,7 @@ u32 __KernelResumeThread(SceUID threadID);  // can return an error value
 u32 __KernelGetWaitValue(SceUID threadID, u32 &error);
 void __KernelWaitCurThread(WaitType type, SceUID waitId, u32 waitValue, int timeout, bool processCallbacks);
 void __KernelReSchedule(const char *reason = "no reason");
-
-
+void __KernelReSchedule(bool doCallbacks, const char *reason);
 
 // Registered callback types
 enum RegisteredCallbackType {
@@ -133,12 +132,12 @@ u32 __KernelNotifyCallbackType(RegisteredCallbackType type, SceUID cbId, int not
 SceUID __KernelGetCurThread();
 void __KernelSetupRootThread(SceUID moduleId, int args, const char *argp, int prio, int stacksize, int attr); //represents the real PSP elf loader, run before execution
 void __KernelStartIdleThreads();
+void __KernelReturnFromThread();  // Called as HLE function
 
-void _sceKernelReturnFromThread();
 void _sceKernelIdle();
 
-u32 __KernelCallbackReturnAddress();
-u32 __KernelInterruptReturnAddress();
+u32 __KernelMipsCallReturnAddress();
+u32 __KernelInterruptReturnAddress();  // TODO: remove
 
 // Internal access - used by sceSetGeCallback
 u32 __KernelCreateCallback(const char *name, u32 entrypoint, u32 signalArg);
@@ -148,11 +147,46 @@ void sceKernelDeleteCallback();
 void sceKernelNotifyCallback();
 void sceKernelCancelCallback();
 void sceKernelGetCallbackCount();
-void _sceKernelReturnFromCallback();
-u32 sceKernelCheckCallback();
+void sceKernelCheckCallback();
 void sceKernelGetCallbackCount();
 void sceKernelReferCallbackStatus();
+void __KernelReturnFromMipsCall();  // Called as HLE function
 bool __KernelInCallback();
 
 // Should be called by (nearly) all ...CB functions.
 bool __KernelCheckCallbacks();
+class Thread;
+void __KernelSwitchContext(Thread *target, const char *reason);
+u32 __KernelResumeThreadFromWait(SceUID threadID);
+bool __KernelExecutePendingMipsCalls();
+
+// A call into game code. These can be pending on a thread.
+// Similar to Callback-s (NOT CallbackInfos) in JPCSP.
+class Action;
+struct MipsCall {
+	u32 entryPoint;
+	u32 cbId;
+	u32 args[6];
+	int numArgs;
+	Action *doAfter;
+	u32 savedIdRegister;
+	u32 savedRa;
+	u32 savedPc;
+	u32 savedV0;
+	u32 savedV1;
+	bool returnVoid;
+	const char *tag;
+};
+enum ThreadStatus
+{
+	THREADSTATUS_RUNNING = 1,
+	THREADSTATUS_READY = 2,
+	THREADSTATUS_WAIT = 4,
+	THREADSTATUS_SUSPEND = 8,
+	THREADSTATUS_DORMANT = 16,
+	THREADSTATUS_DEAD = 32,
+
+	THREADSTATUS_WAITSUSPEND = THREADSTATUS_WAIT | THREADSTATUS_SUSPEND
+};
+
+void __KernelChangeThreadState(Thread *thread, ThreadStatus newStatus);

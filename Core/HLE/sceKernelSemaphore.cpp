@@ -137,7 +137,7 @@ retry:
 			int wVal = (int)__KernelGetWaitValue(id, error);
 			if (wVal <= s->ns.currentCount)
 			{
-				__KernelResumeThread(id);
+				__KernelResumeThreadFromWait(id);
 				s->ns.currentCount -= wVal;
 				wokeThreads = true;
 				s->waitingThreads.erase(iter);

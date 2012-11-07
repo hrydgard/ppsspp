@@ -229,11 +229,9 @@ void sceKernelAllocateFplCB()
 		} else {
 			// TODO: Should block and process callbacks!
 			__KernelCheckCallbacks();
-			RETURN(0);
 		}
 
 		DEBUG_LOG(HLE,"sceKernelAllocateFpl(%i, %08x, %i)", id, PARAM(1), timeOut);
-		RETURN(0);
 	}
 	else
 	{
@@ -620,6 +618,35 @@ void sceKernelReferVplStatus()
 	RETURN(0);
 }
 
+void AllocMemoryBlock() {
+	const char *pname = Memory::GetCharPointer(PARAM(0));
+	int type = PARAM(1);
+	u32 size = PARAM(2);
+	int paramsAddr = PARAM(3);
+	
+	DEBUG_LOG(HLE,"AllocMemoryBlock(SysMemUserForUser_FE707FDF)(%s, %i, %i, %08x)", pname, type, size, paramsAddr);
+
+	// Just support allocating a block in the user region.
+
+	u32 blockPtr = userMemory.Alloc(size, false, pname);
+
+	// Create a UID object??? Nah, let's just us the UID itself (hack!)
+
+	RETURN(blockPtr);
+}
+
+void FreeMemoryBlock() {
+	SceUID uid = PARAM(0);
+	DEBUG_LOG(HLE, "FreeMemoryBlock(%i)", uid);
+	userMemory.Free(uid);
+	RETURN(0);
+}
+
+void GetMemoryBlockPtr() {
+	SceUID uid = PARAM(0);
+	DEBUG_LOG(HLE, "GetMemoryBlockPtr(%i)", uid);
+	RETURN(uid);
+}
 
 const HLEFunction SysMemUserForUser[] = 
 {
@@ -637,10 +664,12 @@ const HLEFunction SysMemUserForUser[] =
 	{0xf77d77cb,sceKernelSetCompilerVersion,"sceKernelSetCompilerVersion"},
 	{0x35669d4c,0,"sceKernelSetCompiledSdkVersion600_602"},  //??
 	{0x1b4217bc,0,"sceKernelSetCompiledSdkVersion603_605"},
-	{0xDB83A952,0,"SysMemUserForUser_DB83A952"},
+
+	// Obscure raw block API
+	{0xDB83A952,GetMemoryBlockPtr,"SysMemUserForUser_DB83A952"},  // GetMemoryBlockAddr 
 	{0x91DE343C,0,"SysMemUserForUser_91DE343C"},
-	{0x50F61D8A,0,"SysMemUserForUser_50F61D8A"},
-	{0xFE707FDF,0,"SysMemUserForUser_FE707FDF"},
+	{0x50F61D8A,FreeMemoryBlock,"SysMemUserForUser_50F61D8A"},  // FreeMemoryBlock 
+	{0xFE707FDF,AllocMemoryBlock,"SysMemUserForUser_FE707FDF"},  // AllocMemoryBlock
 };
 
 

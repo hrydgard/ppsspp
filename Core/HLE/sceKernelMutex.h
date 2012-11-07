@@ -28,4 +28,5 @@ void sceKernelCreateLwMutex();
 void sceKernelDeleteLwMutex();
 void sceKernelTryLockLwMutex();
 void sceKernelLockLwMutex();
+void sceKernelLockLwMutexCB();
 void sceKernelUnlockLwMutex();

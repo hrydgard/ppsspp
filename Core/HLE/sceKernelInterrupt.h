@@ -60,8 +60,8 @@ void __InterruptsShutdown();
 void __TriggerInterrupt(PSPInterrupt intno, int subInterrupts = -1);
 void __TriggerInterruptWithArg(PSPInterrupt intno, int subintr, int arg);  // For GE "callbacks"
 bool __RunOnePendingInterrupt();
+void __KernelReturnFromInterrupt();
 
-void _sceKernelReturnFromInterrupt();
 u32 sceKernelRegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 handler, u32 handlerArg);
 
 void Register_Kernel_Library();

@@ -56,9 +56,9 @@
 //zlibdec
 const HLEFunction FakeSysCalls[] =
 {
-  {NID_THREADRETURN, _sceKernelReturnFromThread, "_sceKernelReturnFromThread"},
-  {NID_CALLBACKRETURN, _sceKernelReturnFromCallback, "_sceKernelReturnFromCallback"},
-	{NID_INTERRUPTRETURN, _sceKernelReturnFromInterrupt, "_sceKernelReturnFromInterrupt"},
+  {NID_THREADRETURN, __KernelReturnFromThread, "__KernelReturnFromThread"},
+  {NID_CALLBACKRETURN, __KernelReturnFromMipsCall, "__KernelReturnFromMipsCall"},
+	{NID_INTERRUPTRETURN, __KernelReturnFromInterrupt, "__KernelReturnFromInterrupt"},
   {NID_IDLE, _sceKernelIdle, "_sceKernelIdle"},
 };
 

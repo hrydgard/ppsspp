@@ -303,7 +303,7 @@ void __TriggerInterruptWithArg(PSPInterrupt intno, int subintr, int arg)
 		__RunOnePendingInterrupt();
 }
 
-void _sceKernelReturnFromInterrupt()
+void __KernelReturnFromInterrupt()
 {
 	DEBUG_LOG(CPU, "Left interrupt handler at %08x", currentMIPS->pc);
 	inInterrupt = false;
@@ -424,6 +424,7 @@ const HLEFunction Kernel_Library[] =
 	{0xa089eca4,sceKernelMemset, "sceKernelMemset"}, 
 	{0xDC692EE3,0, "sceKernelTryLockLwMutex"},
 	{0xbea46419,0, "sceKernelLockLwMutex"}, 
+	{0x1FC64E09,0, "sceKernelLockLwMutexCB"},
 	{0x15b6446b,0, "sceKernelUnlockLwMutex"}, 
 	{0x293b45b8,sceKernelGetThreadId, "sceKernelGetThreadId"}, 
 	{0x1839852A,0,"sce_paf_private_memcpy"},

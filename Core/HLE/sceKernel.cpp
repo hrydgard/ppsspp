@@ -379,13 +379,12 @@ const HLEFunction ThreadManForUser[] =
 	{0x72F3C145,0,"sceKernelReleaseThreadEventHandler"},
 	{0x369EEB6B,0,"sceKernelReferThreadEventHandlerStatus"},
 
-	{0x349d6d6c,&WrapU_V<sceKernelCheckCallback>,"sceKernelCheckCallback"},
+	{0x349d6d6c,sceKernelCheckCallback,"sceKernelCheckCallback"},
 	{0xE81CAF8F,sceKernelCreateCallback,"sceKernelCreateCallback"},
 	{0xEDBA5844,sceKernelDeleteCallback,"sceKernelDeleteCallback"},
 	{0xC11BA8C4,sceKernelNotifyCallback,"sceKernelNotifyCallback"},
 	{0xBA4051D6,sceKernelCancelCallback,"sceKernelCancelCallback"},
 	{0x2A3D44FF,sceKernelGetCallbackCount,"sceKernelGetCallbackCount"},
-	{0x349D6D6C,&WrapU_V<sceKernelCheckCallback>,"sceKernelCheckCallback"},
 	{0x730ED8BC,sceKernelReferCallbackStatus,"sceKernelReferCallbackStatus"},
 
 	{0x8125221D,sceKernelCreateMbx,"sceKernelCreateMbx"},
@@ -426,6 +425,7 @@ const HLEFunction ThreadManForUser[] =
 	{0xA8AA591F,sceKernelCancelFpl,"sceKernelCancelFpl"},
 	{0xD8199E4C,sceKernelReferFplStatus,"sceKernelReferFplStatus"},
 
+	// Not sure if these should be hooked up. See below.
 	{0x0E927AED, _sceKernelReturnFromTimerHandler, "_sceKernelReturnFromTimerHandler"},
 	{0x532A522E, _sceKernelExitThread,"_sceKernelExitThread"},
 

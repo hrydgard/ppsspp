@@ -50,8 +50,8 @@ enum
 	MIPS_REG_FP=30,
 	MIPS_REG_RA=31,
 
-	// ID for callback is stored here - from JPCSP
-	MIPS_REG_CB_ID=MIPS_REG_S0,
+	// ID for mipscall "callback" is stored here - from JPCSP
+	MIPS_REG_CALL_ID=MIPS_REG_S0,
 };
 
 enum

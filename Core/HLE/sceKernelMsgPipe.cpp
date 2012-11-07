@@ -18,6 +18,7 @@
 #include "HLE.h"
 #include "sceKernel.h"
 #include "sceKernelMsgPipe.h"
+#include "sceKernelThread.h"
 
 struct NativeMsgPipe
 {
@@ -44,6 +45,8 @@ struct MsgPipe : public KernelObject
 
 	// Ring buffer
 	u8 *buffer;
+	int writePos;
+	int readPos;
 };
 
 void sceKernelCreateMsgPipe()
@@ -66,6 +69,9 @@ void sceKernelCreateMsgPipe()
 	m->nmp.numReceiveWaitThreads = 0;
 
 	m->buffer = new u8[size];
+	m->writePos = 0;
+	m->readPos = 0;
+
 	RETURN(id);
 }
 
@@ -93,6 +99,35 @@ void sceKernelSendMsgPipe()
 	u32 resultAddr = PARAM(4);
 	u32 timeoutPtr = PARAM(5);
 
+	u32 error;
+	MsgPipe *pipe = kernelObjects.Get<MsgPipe>(uid, error);
+	if (!pipe) {
+		ERROR_LOG(HLE, "sceKernelSendMsgPipe(%i) - ERROR %08x", uid, error);
+		RETURN(error);
+		return;
+	}
+
+	if (sendSize > pipe->nmp.freeSize) {
+		// TODO: Block
+		ERROR_LOG(HLE, "sceKernelSendMsgPipe(%i) - Message won't fit", uid, error);
+		RETURN(SCE_KERNEL_ERROR_MPP_FULL);
+		return;
+	}
+
+	const u8 *source = Memory::GetPointer(sendBufAddr);
+
+	int destIndex = pipe->writePos;
+	if (pipe->writePos + sendSize > pipe->nmp.size) {
+		// Split in two
+		int firstCopySize = pipe->nmp.size - pipe->writePos;
+		memcpy(pipe->buffer + pipe->writePos, source, firstCopySize);
+		memcpy(pipe->buffer, source + firstCopySize, sendSize - firstCopySize);
+	} else {
+		memcpy(pipe->buffer + pipe->writePos, source, sendSize);
+	}
+	pipe->writePos += sendSize;
+	pipe->writePos %= pipe->nmp.size;
+	
 	ERROR_LOG(HLE, "UNIMPL sceKernelSendMsgPipe(%i, %08x, %i, %i, %08x, %08x)", uid, sendBufAddr, sendSize, waitMode, resultAddr, timeoutPtr);
 	RETURN(0);
 }
@@ -106,8 +141,38 @@ void sceKernelSendMsgPipeCB()
 	u32 resultAddr = PARAM(4);
 	u32 timeoutPtr = PARAM(5);
 
-	ERROR_LOG(HLE, "UNIMPL sceKernelSendMsgPipeCB(%i, %08x, %i, %i, %08x, %08x)", uid, sendBufAddr, sendSize, waitMode, resultAddr, timeoutPtr);
+	u32 error;
+	MsgPipe *pipe = kernelObjects.Get<MsgPipe>(uid, error);
+	if (!pipe) {
+		ERROR_LOG(HLE, "sceKernelSendMsgPipe(%i) - ERROR %08x", uid, error);
+		RETURN(error);
+		return;
+	}
+
+	if (sendSize > pipe->nmp.freeSize) {
+		// TODO: Block
+		ERROR_LOG(HLE, "sceKernelSendMsgPipe(%i) - Message won't fit", uid, error);
+		RETURN(SCE_KERNEL_ERROR_MPP_FULL);
+		return;
+	}
+
+	const u8 *source = Memory::GetPointer(sendBufAddr);
+
+	int destIndex = pipe->writePos;
+	if (pipe->writePos + sendSize > pipe->nmp.size) {
+		// Split in two
+		int firstCopySize = pipe->nmp.size - pipe->writePos;
+		memcpy(pipe->buffer + pipe->writePos, source, firstCopySize);
+		memcpy(pipe->buffer, source + firstCopySize, sendSize - firstCopySize);
+	} else {
+		memcpy(pipe->buffer + pipe->writePos, source, sendSize);
+	}
+	pipe->writePos += sendSize;
+	pipe->writePos %= pipe->nmp.size;
+	
+	ERROR_LOG(HLE, "UNIMPL sceKernelSendMsgPipe(%i, %08x, %i, %i, %08x, %08x)", uid, sendBufAddr, sendSize, waitMode, resultAddr, timeoutPtr);
 	RETURN(0);
+	__KernelCheckCallbacks();
 }
 
 void sceKernelTrySendMsgPipe()
@@ -117,8 +182,38 @@ void sceKernelTrySendMsgPipe()
 	u32 sendSize = PARAM(2);
 	int waitMode = PARAM(3);
 	u32 resultAddr = PARAM(4);
+	u32 timeoutPtr = PARAM(5);
 
-	ERROR_LOG(HLE, "UNIMPL sceKernelTrySendMsgPipe(%i, %08x, %i, %i, %08x)", uid, sendBufAddr, sendSize, waitMode, resultAddr);
+	u32 error;
+	MsgPipe *pipe = kernelObjects.Get<MsgPipe>(uid, error);
+	if (!pipe) {
+		ERROR_LOG(HLE, "sceKernelSendMsgPipe(%i) - ERROR %08x", uid, error);
+		RETURN(error);
+		return;
+	}
+
+	if (sendSize > pipe->nmp.freeSize) {
+		// TODO: Block
+		ERROR_LOG(HLE, "sceKernelSendMsgPipe(%i) - Message won't fit", uid, error);
+		RETURN(SCE_KERNEL_ERROR_MPP_FULL);
+		return;
+	}
+
+	const u8 *source = Memory::GetPointer(sendBufAddr);
+
+	int destIndex = pipe->writePos;
+	if (pipe->writePos + sendSize > pipe->nmp.size) {
+		// Split in two
+		int firstCopySize = pipe->nmp.size - pipe->writePos;
+		memcpy(pipe->buffer + pipe->writePos, source, firstCopySize);
+		memcpy(pipe->buffer, source + firstCopySize, sendSize - firstCopySize);
+	} else {
+		memcpy(pipe->buffer + pipe->writePos, source, sendSize);
+	}
+	pipe->writePos += sendSize;
+	pipe->writePos %= pipe->nmp.size;
+	
+	ERROR_LOG(HLE, "UNIMPL sceKernelSendMsgPipe(%i, %08x, %i, %i, %08x, %08x)", uid, sendBufAddr, sendSize, waitMode, resultAddr, timeoutPtr);
 	RETURN(0);
 }
 
@@ -132,7 +227,7 @@ void sceKernelReceiveMsgPipe()
 	u32 timeoutPtr = PARAM(5);
 
 	ERROR_LOG(HLE, "UNIMPL sceKernelReceiveMsgPipe(%i, %08x, %i, %i, %08x, %08x)", uid, receiveBufAddr, receiveSize, waitMode, resultAddr, timeoutPtr);
-	RETURN(0);
+	RETURN(SCE_KERNEL_ERROR_MPP_EMPTY);
 }
 
 void sceKernelReceiveMsgPipeCB()
@@ -145,7 +240,7 @@ void sceKernelReceiveMsgPipeCB()
 	u32 timeoutPtr = PARAM(5);
 
 	ERROR_LOG(HLE, "UNIMPL sceKernelReceiveMsgPipeCB(%i, %08x, %i, %i, %08x, %08x)", uid, receiveBufAddr, receiveSize, waitMode, resultAddr, timeoutPtr);
-	RETURN(0);
+	RETURN(SCE_KERNEL_ERROR_MPP_EMPTY);
 }
 
 void sceKernelTryReceiveMsgPipe()
@@ -157,7 +252,7 @@ void sceKernelTryReceiveMsgPipe()
 	u32 resultAddr = PARAM(4);
 
 	ERROR_LOG(HLE, "UNIMPL sceKernelTryReceiveMsgPipe(%i, %08x, %i, %i, %08x)", uid, receiveBufAddr, receiveSize, waitMode, resultAddr);
-	RETURN(0);
+	RETURN(SCE_KERNEL_ERROR_MPP_EMPTY);
 }
 
 void sceKernelCancelMsgPipe()

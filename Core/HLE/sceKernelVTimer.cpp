@@ -70,5 +70,6 @@ void sceKernelSetVTimerHandler()
 // Not sure why this is exposed...
 void _sceKernelReturnFromTimerHandler()
 {
+	DEBUG_LOG(HLE,"_sceKernelReturnFromTimerHandler");
 
 }

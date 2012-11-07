@@ -567,6 +567,8 @@ u32 sceKernelLoadModule(const char *name, u32 flags)
 		return SCE_KERNEL_ERROR_ILLEGAL_OBJECT;
 	}
 
+	DEBUG_LOG(LOADER, "sceKernelLoadModule(%s, %08x)", name, flags);
+
 	SceKernelLMOption *lmoption = 0;
 	int position = 0;
 	// TODO: Use position to decide whether to load high or low
@@ -633,8 +635,8 @@ void sceKernelUnloadModule()
 
 void sceKernelGetModuleIdByAddress()
 {
-	ERROR_LOG(HLE,"UNIMPL sceKernelGetModuleIdByAddress(%08x)", PARAM(0));
-	if (PARAM(0) == 0x08800000)
+	ERROR_LOG(HLE,"HACKIMPL sceKernelGetModuleIdByAddress(%08x)", PARAM(0));
+	if ((PARAM(0) & 0xFFFF0000) == 0x08800000)
 		RETURN(mainModuleID);
 	else
 		RETURN(0);
