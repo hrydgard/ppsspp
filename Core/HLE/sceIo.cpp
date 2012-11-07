@@ -907,6 +907,7 @@ void sceIoDread()
 	{
 		if (dir->index == (int)dir->listing.size())
 		{
+			DEBUG_LOG(HLE,"sceIoDread( %d %08x ) - end of the line", PARAM(0), PARAM(1));
 			RETURN(0);
 			return;
 		}

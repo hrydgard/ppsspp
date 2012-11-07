@@ -114,6 +114,11 @@ PSPFileInfo MetaFileSystem::GetFileInfo(std::string filename)
 std::vector<PSPFileInfo> MetaFileSystem::GetDirListing(std::string path)
 {
 	std::string of;
+	if (path.find(':') == std::string::npos)
+	{
+		path = currentDirectory + "/" + path;
+		DEBUG_LOG(HLE,"GetFileInfo: Expanded path to %s", path.c_str());
+	}
 	IFileSystem *system;
 	if (MapFilePath(path, of, &system))
 	{
