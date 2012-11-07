@@ -227,8 +227,8 @@ const MIPSInstruction tableSpecial[64] = /// 000000 ...... ...... .......... xxx
 	INSTR("sltu", &Jit::Comp_Generic, Dis_RType3, Int_RType3,IN_RS|IN_RT|OUT_RD),
 	INSTR("max",  &Jit::Comp_Generic, Dis_RType3, Int_RType3,IN_RS|IN_RT|OUT_RD),
 	INSTR("min",  &Jit::Comp_Generic, Dis_RType3, Int_RType3,IN_RS|IN_RT|OUT_RD),
-	{-2},
-	{-2},
+	INSTR("msub",  &Jit::Comp_Generic, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|OUT_OTHER),
+	INSTR("msubu", &Jit::Comp_Generic, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|OUT_OTHER),
 
 	//48
 	INSTR("tge",  &Jit::Comp_Generic, Dis_RType3, 0, 0),

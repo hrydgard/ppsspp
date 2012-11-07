@@ -525,6 +525,26 @@ namespace MIPSInt
 				HI = (u32)(result>>32);
 			}
 			break;
+		case 46: //msub
+			{
+				u32 a=R(rs),b=R(rt),hi=HI,lo=LO;
+				u64 origValBits = (u64)lo | ((u64)(hi)<<32);
+				s64 origVal = (s64)origValBits;
+				s64 result = origVal - (s64)(s32)a * (s64)(s32)b;
+				u64 resultBits = (u64)(result);
+				LO = (u32)(resultBits);
+				HI = (u32)(resultBits>>32);
+			}
+			break;
+		case 47: //msubu
+			{
+				u32 a=R(rs),b=R(rt),hi=HI,lo=LO;
+				u64 origVal = (u64)lo | ((u64)(hi)<<32);
+				u64 result = origVal - (u64)a * (u64)b;
+				LO = (u32)(result);
+				HI = (u32)(result>>32);
+			}
+			break;
 		case 16: R(rd) = HI; break; //mfhi
 		case 17: HI = R(rs); break; //mthi
 		case 18: R(rd) = LO; break; //mflo
