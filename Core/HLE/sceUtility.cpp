@@ -252,15 +252,15 @@ void sceUtilitySavedataUpdate()
 void sceUtilityLoadAvModule()
 {
 	DEBUG_LOG(HLE,"sceUtilityLoadAvModule(%i)", PARAM(0));
-	__KernelReSchedule("utilityloadavmodule");
 	RETURN(0);
+	__KernelReSchedule("utilityloadavmodule");
 }
 
 void sceUtilityLoadModule()
 {
 	DEBUG_LOG(HLE,"sceUtilityLoadModule(%i)", PARAM(0));
-	__KernelReSchedule("utilityloadmodule");
 	RETURN(0);
+	__KernelReSchedule("utilityloadmodule");
 }
 
 typedef struct

@@ -30,24 +30,24 @@ AudioChannel chans[8];
 
 // Not sure about the range of volume, I often see 0x800 so that might be either
 // max or 50%?
-u32 sceAudioOutputPannedBlocking(u32 chan, u32 volume1, u32 volume2, u32 samplePtr)
+void sceAudioOutputPannedBlocking(u32 chan, u32 volume1, u32 volume2, u32 samplePtr)
 {
   DEBUG_LOG(HLE,"sceAudioOutputPannedBlocking(%d,%d,%d, %08x )", chan, volume1, volume2, samplePtr);
 
   if (samplePtr == 0)
   {
     ERROR_LOG(HLE, "Sample pointer null");
-    return 0;
+    RETURN(0);
   }
 
 	if (chan < 0 || chan >= MAX_CHANNEL)
 	{
 		ERROR_LOG(HLE,"sceAudioOutputPannedBlocking() - BAD CHANNEL");
-    return SCE_ERROR_AUDIO_INVALID_CHANNEL;
+    RETURN(SCE_ERROR_AUDIO_INVALID_CHANNEL);
 	}
 	else if (!chans[chan].reserved)
   {
-    return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
+		RETURN(SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED);
   }
   else
 	{
@@ -55,7 +55,7 @@ u32 sceAudioOutputPannedBlocking(u32 chan, u32 volume1, u32 volume2, u32 sampleP
 		chans[chan].leftVolume = volume1;
 		chans[chan].rightVolume = volume2;
 		chans[chan].sampleAddress = samplePtr;
-    return __AudioEnqueue(chans[chan], chan, true);
+    __AudioEnqueue(chans[chan], chan, true);
 	}
 }
 
@@ -70,7 +70,7 @@ u32 sceAudioOutputPanned(u32 chan, u32 leftVol, u32 rightVol, u32 samplePtr)
 {
   if (chan < 0 || chan >= MAX_CHANNEL)
   {
-    ERROR_LOG(HLE,"sceAudioOutputPannedBlocking() - BAD CHANNEL");
+    ERROR_LOG(HLE,"sceAudioOutputPanned() - BAD CHANNEL");
     return SCE_ERROR_AUDIO_INVALID_CHANNEL;
   }
   else if (!chans[chan].reserved)
@@ -258,7 +258,7 @@ const HLEFunction sceAudio[] =
   {0x8c1009b2, 0, "sceAudioOutput"}, 
   {0x136CAF51, WrapU_UUU<sceAudioOutputBlocking>, "sceAudioOutputBlocking"}, 
   {0xE2D56B2D, WrapU_UUUU<sceAudioOutputPanned>, "sceAudioOutputPanned"}, 
-  {0x13F592BC, WrapU_UUUU<sceAudioOutputPannedBlocking>, "sceAudioOutputPannedBlocking"}, //(u32, u32, u32, void *)Output sound, blocking 
+  {0x13F592BC, WrapV_UUUU<sceAudioOutputPannedBlocking>, "sceAudioOutputPannedBlocking"}, //(u32, u32, u32, void *)Output sound, blocking 
   {0x5EC81C55, WrapU_UUU<sceAudioChReserve>, "sceAudioChReserve"}, //(u32, u32 samplecount, u32) Initialize channel and allocate buffer  long, long samplecount, long);//init buffer? returns handle, minus if error
   {0x6FC46853, WrapU_U<sceAudioChRelease>, "sceAudioChRelease"}, //(long handle)Terminate channel and deallocate buffer //free buffer?
   {0xE9D97901, sceAudioGetChannelRestLen, "sceAudioGetChannelRestLen"}, 

@@ -75,6 +75,10 @@ template<void func(u32, u32, u32)> void WrapV_UUU() {
   func(PARAM(0), PARAM(1), PARAM(2));
 }
 
+template<void func(u32, u32, u32, u32)> void WrapV_UUUU() {
+  func(PARAM(0), PARAM(1), PARAM(2), PARAM(3));
+}
+
 template<u32 func(u32, u32, u32, u32)> void WrapU_UUUU() {
   u32 retval = func(PARAM(0), PARAM(1), PARAM(2), PARAM(3));
   RETURN(retval);

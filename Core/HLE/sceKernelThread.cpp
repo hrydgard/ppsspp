@@ -1089,8 +1089,8 @@ void sceKernelDelayThreadCB()
 	SceUID curThread = __KernelGetCurThread();
 	__KernelScheduleWakeup(curThread, usec);
 	__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, true);
-	__KernelCheckCallbacks();
-	__KernelExecutePendingMipsCalls();
+	if (__KernelCheckCallbacks())
+		__KernelExecutePendingMipsCalls();
 }
 
 void sceKernelDelayThread()
