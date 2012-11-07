@@ -213,7 +213,15 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayRender(JN
 			input_state.pad_buttons |= pad_buttons_async_set;
 			input_state.pad_buttons &= ~pad_buttons_async_clear;
 			UpdateInputState(&input_state);
+		}
+
+		{
+			lock_guard guard(input_state.lock);
 			NativeUpdate(input_state);
+		}
+
+		{
+			lock_guard guard(input_state.lock);
 			EndInputState(&input_state);
 		}
 		NativeRender();
