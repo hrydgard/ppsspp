@@ -14,7 +14,7 @@
 class BlockAllocator
 {
 public:
-	BlockAllocator();
+	BlockAllocator(int grain = 16);  // 16 byte granularity by default.
 	~BlockAllocator();
 
 	void Init(u32 _rangeStart, u32 _rangeSize);
@@ -43,6 +43,8 @@ public:
 	u32 GetTotalFreeBytes();
 
 private:
+	void CheckBlocks();
+
 	struct Block
 	{
 		Block(u32 _start, u32 _size, bool _taken) : start(_start), size(_size), taken(_taken)
@@ -64,6 +66,8 @@ private:
 	std::list<Block> blocks;
 	u32 rangeStart_;
 	u32 rangeSize_;
+
+	u32 grain_;
 
 	Block *GetBlockFromAddress(u32 addr);
 	std::list<Block>::iterator GetBlockIterFromAddress(u32 addr);

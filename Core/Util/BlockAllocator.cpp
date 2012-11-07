@@ -3,7 +3,7 @@
 
 // Slow freaking thing but works (eventually) :)
 
-BlockAllocator::BlockAllocator()
+BlockAllocator::BlockAllocator(int grain) : grain_(grain)
 {
 	blocks.clear();
 }
@@ -35,8 +35,8 @@ u32 BlockAllocator::Alloc(u32 &size, bool fromTop, const char *tag)
 		return 0;
 	}
 
-	// upalign size to 16-byte blocks (is this right?)
-	size = (size+15) & ~15;
+	// upalign size to grain
+	size = (size + grain_ - 1) & ~(grain_ - 1);
 
 	if (!fromTop)
 	{
@@ -101,13 +101,20 @@ u32 BlockAllocator::Alloc(u32 &size, bool fromTop, const char *tag)
 
 u32 BlockAllocator::AllocAt(u32 position, u32 size, const char *tag)
 {
+	CheckBlocks();
 	if (size > rangeSize_) {
 		ERROR_LOG(HLE, "Clearly bogus size: %08x - failing allocation", size);
 		return 0;
 	}
 
-	//upalign size
-	size=(size+15) & ~15;
+	// upalign size to grain
+	size = (size + grain_ - 1) & ~(grain_ - 1);
+	
+	// check that position is aligned
+	if (position & (grain_ - 1)) {
+		ERROR_LOG(HLE, "Position %08x does not align to grain. Grain will be off.", position);
+	}
+
 	std::list<Block>::iterator iter = GetBlockIterFromAddress(position);
 	if (iter != blocks.end())
 	{
@@ -126,6 +133,7 @@ u32 BlockAllocator::AllocAt(u32 position, u32 size, const char *tag)
 				b.taken = true;
 				b.size = size;
 				b.SetTag(tag);
+				CheckBlocks();
 				return position;
 			}
 			else
@@ -159,31 +167,28 @@ u32 BlockAllocator::AllocAt(u32 position, u32 size, const char *tag)
 
 void BlockAllocator::MergeFreeBlocks()
 {
-	bool found;
-	do
+restart:
+	DEBUG_LOG(HLE, "Merging Blocks");
+	std::list<Block>::iterator iter1, iter2;
+	iter1 = blocks.begin();
+	iter2 = blocks.begin();
+	iter2++;
+	while (iter2 != blocks.end())
 	{
-		found = false;
-		std::list<Block>::iterator iter1, iter2;
-		iter1 = blocks.begin();
-		iter2 = blocks.begin();
-		iter2++;
-		while (iter2 != blocks.end())
-		{
-			BlockAllocator::Block &b1 = *iter1;
-			BlockAllocator::Block &b2 = *iter2;
+		BlockAllocator::Block &b1 = *iter1;
+		BlockAllocator::Block &b2 = *iter2;
 			
-			if (b1.taken == false && b2.taken == false)
-			{
-				DEBUG_LOG(HLE, "Block Alloc found adjacent free blocks - merging");
-				b1.size += b2.size;
-				blocks.erase(iter2);
-				found = true;
-				break; //iterators now invalid - we have to restart our search
-			}
-			iter1++;
-			iter2++;
+		if (b1.taken == false && b2.taken == false)
+		{
+			DEBUG_LOG(HLE, "Block Alloc found adjacent free blocks - merging");
+			b1.size += b2.size;
+			blocks.erase(iter2);
+			CheckBlocks();
+			goto restart; //iterators now invalid - we have to restart our search
 		}
-	} while (found);
+		iter1++;
+		iter2++;
+	}
 }
 
 void BlockAllocator::Free(u32 position)
@@ -197,6 +202,17 @@ void BlockAllocator::Free(u32 position)
 	else
 	{
 		ERROR_LOG(HLE, "BlockAllocator : invalid free %08x", position);
+	}
+}
+
+void BlockAllocator::CheckBlocks()
+{
+	for (std::list<Block>::iterator iter = blocks.begin(); iter != blocks.end(); iter++)
+	{
+		BlockAllocator::Block &b = *iter;
+		if (b.start > 0xc0000000) {  // probably free'd debug values
+			ERROR_LOG(HLE, "Bogus block in allocator");
+		}
 	}
 }
 
