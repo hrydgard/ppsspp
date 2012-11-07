@@ -511,7 +511,7 @@ bool __KernelLoadExec(const char *filename, SceKernelLoadExecParam *param, std::
 	option.priority = 0x20;
 	option.stacksize = 0x40000;	// crazy? but seems to be the truth
 
-	__KernelStartModule(m, (u32)strlen(filename), filename, &option);
+	__KernelStartModule(m, (u32)strlen(filename) + 1, filename, &option);
 
 	__KernelStartIdleThreads();
 	return true;
