@@ -169,7 +169,7 @@ void Shutdown()
 
 u64 GetTicks()
 {
-	return (u64)globalTimer; 
+	return (u64)globalTimer + slicelength - downcount;
 }
 
 u64 GetIdleTicks()

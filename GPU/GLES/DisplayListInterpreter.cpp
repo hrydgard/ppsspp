@@ -981,6 +981,10 @@ bool GLES_GPU::InterpretList()
 	finished = false;
 	while (!finished)
 	{
+		if (!Memory::IsValidAddress(dcontext.pc)) {
+			ERROR_LOG(G3D, "DL PC = %08x WTF!!!!", dcontext.pc);
+			return true;
+		}
 		if (dcontext.pc == dcontext.stallAddr)
 			return false;
 
