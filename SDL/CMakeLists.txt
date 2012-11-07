@@ -73,13 +73,13 @@ add_subdirectory(../Common Common)
 add_subdirectory(../GPU GPU)
 add_subdirectory(../Core Core)
 
-set(LIBS ${LIBS} ${SDL_LIBRARY} ${OPENGL_LIBRARIES} file lin ${PNG_LIBRARY} z gfx gfx_es2 etcdec image stb_image mixer net ui profiler timeutil file zip base lin vjson stb_vorbis sha1 jsonwriter common core gpu kirk)
+set(LIBS ${LIBS} ${SDL_LIBRARY} file lin ${PNG_LIBRARY} z gfx gfx_es2 image stb_image mixer net ui profiler timeutil file zip base lin vjson stb_vorbis sha1 jsonwriter common core gpu kirk)
 
 # TODO: Blackberry specific libs (eg. TCO)
 if(BLACKBERRY)
-    set(LIBS ${LIBS} socket)
+    set(LIBS ${LIBS} bps screen socket EGL GLESv2)
 else()
-    set(LIBS ${LIBS} GLEW)
+    set(LIBS ${LIBS} ${OPENGL_LIBRARIES} GLEW etcdec)
 endif()
 
 set(FILES
@@ -89,12 +89,16 @@ set(FILES
 	../android/jni/GamepadEmu.cpp
 	../android/jni/UIShader.cpp
 	../android/jni/ui_atlas.cpp
-	../native/base/PCMain.cpp
 	)
 
-if(APPLE)
-	set(FILES ${FILES} SDLMain.m)
-endif(APPLE)
+if(BLACKBERRY)
+	set(FILES ${FILES} ../native/base/BlackberryMain.cpp)
+else()
+	set(FILES ${FILES} ../native/base/PCMain.cpp)
+	if(APPLE)
+		set(FILES ${FILES} SDLMain.m)
+	endif(APPLE)
+endif()
 
 add_executable(ppsspp ${FILES})
 

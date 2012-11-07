@@ -175,10 +175,10 @@ void EmuScreen::render()
 	}
 
 	// Tiled renderers like PowerVR should benefit greatly from this. However - seems I can't call it?
-#ifdef ANDROID
+#if defined(ANDROID) || defined(BLACKBERRY)
 	bool hasDiscard = false;  // TODO
 	if (hasDiscard) {
-		//glDiscardFramebufferEXT(GL_COLOR_EXT | GL_DEPTH_EXT | GL_STENCIL_EXT);
+		//glDiscardFramebuffer(GL_COLOR_EXT | GL_DEPTH_EXT | GL_STENCIL_EXT);
 	}
 #endif
 }

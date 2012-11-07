@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<qnx xmlns="http://www.qnx.com/schemas/application/1.0">
+    <id>com.Qtness.PPSSPP</id>
+    <name>PPSSPP</name>
+    <filename>ppsspp</filename>
+    <versionNumber>0.0.1</versionNumber>
+    <buildId>1</buildId>
+    <description>Playstation portable emulator.</description>
+
+    <author>Qtness</author>
+    <authorId>gYAAgGE4qaHzBnzEAu8JKe4G1OI</authorId>
+   
+    <initialWindow>
+        <aspectRatio>landscape</aspectRatio>
+        <autoOrients>false</autoOrients>
+        <systemChrome>none</systemChrome>
+        <transparent>false</transparent>
+    </initialWindow>
+    
+    <category>core.games</category>
+    <icon>
+        <image>icon-114.png</image>
+    </icon>
+    
+    <!-- <splashscreen></splashscreen> -->
+
+    <action system="true">run_native</action>
+    <action>access_shared</action>
+    <action>play_audio</action>
+    
+    <env var="LD_LIBRARY_PATH" value="app/native/lib"/>
+</qnx>
