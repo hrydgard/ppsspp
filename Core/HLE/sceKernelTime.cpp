@@ -54,7 +54,7 @@ void sceKernelGetSystemTimeLow()
 {
 	// This clock should tick at 1 Mhz.
 	u64 t = CoreTiming::GetTicks() / CoreTiming::GetClockFrequencyMHz();
-	DEBUG_LOG(HLE,"%08x=sceKernelGetSystemTimeLow()",(u32)t);
+	// DEBUG_LOG(HLE,"%08x=sceKernelGetSystemTimeLow()",(u32)t);
 	RETURN((u32)t);
 }
 

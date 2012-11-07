@@ -29,16 +29,15 @@
 
 u8 umdActivated = 1;
 u32 umdStatus = 0;
+u32 umdErrorStat = 0;
 
 
 
 void __UmdInit() {
 	umdActivated = 1;
 	umdStatus = 0;
+	umdErrorStat = 0;
 }
-
-
-
 
 u8 __KernelUmdGetState()
 {
@@ -93,7 +92,7 @@ void sceUmdActivate()
 
 void sceUmdDeactivate()
 {
-	ERROR_LOG(HLE,"sceUmdDeactivate()");
+	DEBUG_LOG(HLE,"sceUmdDeactivate()");
 	bool triggerCallback = umdActivated;
 	__KernelUmdDeactivate();
 
@@ -163,6 +162,12 @@ void sceUmdCancelWaitDriveStat()
 	RETURN(0);
 }
 
+void sceUmdGetErrorStat()
+{
+	DEBUG_LOG(HLE,"%i=sceUmdGetErrorStat()", umdErrorStat);
+	RETURN(umdErrorStat);
+}
+
 
 const HLEFunction sceUmdUser[] = 
 {
@@ -175,7 +180,7 @@ const HLEFunction sceUmdUser[] =
 	{0x4A9E5E29,sceUmdWaitDriveStatCB,"sceUmdWaitDriveStatCB"},
 	{0x6af9b50a,sceUmdCancelWaitDriveStat,"sceUmdCancelWaitDriveStat"},
 	{0x6B4A146C,sceUmdGetDriveStat,"sceUmdGetDriveStat"},
-	{0x20628E6F,0,"sceUmdGetErrorStat"},
+	{0x20628E6F,sceUmdGetErrorStat,"sceUmdGetErrorStat"},
 	{0x340B7686,sceUmdGetDiscInfo,"sceUmdGetDiscInfo"},
 	{0xAEE7404D,&WrapU_U<sceUmdRegisterUMDCallBack>,"sceUmdRegisterUMDCallBack"},
 	{0xBD2BDE07,&WrapU_U<sceUmdUnRegisterUMDCallBack>,"sceUmdUnRegisterUMDCallBack"},

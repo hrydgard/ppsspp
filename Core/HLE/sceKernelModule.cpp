@@ -47,6 +47,7 @@ enum {
 static const char *blacklistedModules[] = {
 	"sceATRAC3plus_Library",
 	"sceFont_Library",
+	"SceFont_Library",
 	"sceNetAdhocctl_Library",
 	"sceNetAdhocDownload_Library",
 	"sceNetAdhocMatching_Library",

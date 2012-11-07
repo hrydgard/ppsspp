@@ -32,6 +32,9 @@ DirectoryFileSystem::DirectoryFileSystem(IHandleAllocator *_hAlloc, std::string 
 
 std::string DirectoryFileSystem::GetLocalPath(std::string localpath)
 {
+	if (localpath.empty())
+		return basePath;
+
   if (localpath[0] == '/')
     localpath.erase(0,1);
   //Convert slashes
