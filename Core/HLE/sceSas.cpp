@@ -161,7 +161,7 @@ void SasInstance::mix(u32 outAddr)
 	{
 		Voice &voice = sas.voices[v];
 
-		if (voice.playing)
+		if (voice.playing && voice.vagAddr != 0)
 		{
 			for (int i = 0; i < grainSize; i++)
 			{
@@ -419,6 +419,7 @@ const HLEFunction sceSasCore[] =
 	{0xe175ef66, sceSasGetOutputMode, "__sceSasGetOutputmode"},
 	{0xe855bf76, 0, "__sceSasSetOutputmode"},
 	{0x07f58c24, 0, "__sceSasGetAllEnvelopeHeights"},	// (int sasCore, int heightAddr)	32-bit heights, 0-0x40000000
+	{0xE1CD9561, 0, "__sceSasSetVoicePCM"},
 };
 
 void Register_sceSasCore()

@@ -18,7 +18,7 @@
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
 #include "sceUmd.h"
-
+#include "sceKernelThread.h"
 
 #define UMD_NOT_PRESENT 0x01
 #define UMD_PRESENT		 0x02
@@ -69,7 +69,7 @@ void __KernelUmdDeactivate()
 void sceUmdCheckMedium()
 {
 	DEBUG_LOG(HLE,"1=sceUmdCheckMedium(?)");
-	//ignore PARAM(0)
+	//ignore PARAM(0)	
 	RETURN(1); //non-zero: disc in drive
 }
 	
@@ -86,20 +86,34 @@ void sceUmdActivate()
 	u32 retVal	= 0;
 	__KernelUmdActivate();
 	DEBUG_LOG(HLE,"%i=sceUmdActivate(%08x, %s)", retVal, unknown, name);
+	u32 notifyArg = UMD_PRESENT | UMD_READABLE;
+	__KernelNotifyCallbackType(THREAD_CALLBACK_UMD, -1, notifyArg);
 	RETURN(retVal);
 }
 
 void sceUmdDeactivate()
 {
 	ERROR_LOG(HLE,"sceUmdDeactivate()");
+	bool triggerCallback = umdActivated;
 	__KernelUmdDeactivate();
+
+	if (triggerCallback) {
+		u32 notifyArg = UMD_PRESENT | UMD_READY;
+		__KernelNotifyCallbackType(THREAD_CALLBACK_UMD, -1, notifyArg);
+	}
 	RETURN(0);
 }
 
-void sceUmdRegisterUMDCallBack()
+u32 sceUmdRegisterUMDCallBack(u32 cbId)
 {
-	ERROR_LOG(HLE,"UNIMPL 0=sceUmdRegisterUMDCallback(id=%i)",PARAM(0));
-	RETURN(0);
+	DEBUG_LOG(HLE,"0=sceUmdRegisterUMDCallback(id=%i)",PARAM(0));
+	return __KernelRegisterCallback(THREAD_CALLBACK_UMD, cbId);
+}
+
+u32 sceUmdUnRegisterUMDCallBack(u32 cbId)
+{
+	DEBUG_LOG(HLE,"0=sceUmdUnRegisterUMDCallBack(id=%i)",PARAM(0));
+	return __KernelUnregisterCallback(THREAD_CALLBACK_UMD, cbId);
 }
 
 void sceUmdGetDriveStat()
@@ -163,8 +177,8 @@ const HLEFunction sceUmdUser[] =
 	{0x6B4A146C,sceUmdGetDriveStat,"sceUmdGetDriveStat"},
 	{0x20628E6F,0,"sceUmdGetErrorStat"},
 	{0x340B7686,sceUmdGetDiscInfo,"sceUmdGetDiscInfo"},
-	{0xAEE7404D,sceUmdRegisterUMDCallBack,"sceUmdRegisterUMDCallBack"},
-	{0xBD2BDE07,0,"sceUmdUnRegisterUMDCallBack"},
+	{0xAEE7404D,&WrapU_U<sceUmdRegisterUMDCallBack>,"sceUmdRegisterUMDCallBack"},
+	{0xBD2BDE07,&WrapU_U<sceUmdUnRegisterUMDCallBack>,"sceUmdUnRegisterUMDCallBack"},
 	{0x87533940,0,"sceUmdReplaceProhibit"},	// ??? sounds bogus
 };
 
