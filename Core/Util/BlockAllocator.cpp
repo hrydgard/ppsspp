@@ -191,17 +191,19 @@ restart:
 	}
 }
 
-void BlockAllocator::Free(u32 position)
+bool BlockAllocator::Free(u32 position)
 {
 	BlockAllocator::Block *b = GetBlockFromAddress(position);
-	if (b)
+	if (b && b->taken)
 	{
 		b->taken = false;
 		MergeFreeBlocks();
+		return true;
 	}
 	else
 	{
 		ERROR_LOG(HLE, "BlockAllocator : invalid free %08x", position);
+		return false;
 	}
 }
 

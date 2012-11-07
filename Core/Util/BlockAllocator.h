@@ -26,7 +26,7 @@ public:
 	u32 Alloc(u32 &size, bool fromTop = false, const char *tag = 0);
 	u32 AllocAt(u32 position, u32 size, const char *tag = 0);
 
-	void Free(u32 position);
+	bool Free(u32 position);
 	bool IsBlockFree(u32 position) {
 		Block *b = GetBlockFromAddress(position);
 		if (b)
@@ -53,14 +53,15 @@ private:
 		}
 		void SetTag(const char *_tag) {
 			if (_tag)
-				strcpy(tag, _tag);
+				strncpy(tag, _tag, 32);
 			else
-				strcpy(tag, "---");
+				strncpy(tag, "---", 32);
+			tag[31] = 0;
 		}
 		u32 start;
 		u32 size;
 		bool taken;
-		char tag[16];
+		char tag[32];
 	};
 
 	std::list<Block> blocks;
