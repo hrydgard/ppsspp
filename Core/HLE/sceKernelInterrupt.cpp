@@ -152,6 +152,8 @@ public:
 	SubIntrHandler() {}
 	virtual void queueUp()
 	{
+		if (!enabled)
+			return;
 		PendingInterrupt pend;
 		pend.handler = this;
 		pend.hasArg = false;
@@ -159,6 +161,8 @@ public:
 	}
 	virtual void queueUpWithArg(int arg)
 	{
+		if (!enabled)
+			return;
 		PendingInterrupt pend;
 		pend.handler = this;
 		pend.arg = arg;
