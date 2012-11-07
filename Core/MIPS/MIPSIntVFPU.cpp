@@ -515,6 +515,24 @@ namespace MIPSInt
     EatPrefixes();
   }
 
+	void Int_VRexp2(u32 op)
+	{
+		float s[4], d[4];
+		int vd = _VD;
+		int vs = _VS;
+		VectorSize sz = GetVecSize(op);
+		ReadVector(s, sz, vs);
+		ApplySwizzleS(s, sz);
+		for (int i = 0; i < GetNumVectorElements(sz); i++)
+		{
+			d[i] = 1.0f / expf(s[i] * (float)M_LOG2E);
+		}
+		ApplyPrefixD(d, sz);
+		WriteVector(d, sz, vd);
+		PC += 4;
+		EatPrefixes();
+	}
+
 	void Int_Vf2i(u32 op)
 	{
 		float s[4];
