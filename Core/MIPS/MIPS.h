@@ -124,6 +124,7 @@ public:
 	GMRng rng;	// VFPU hardware random number generator. Probably not the right type.
 
 	bool inDelaySlot;
+	int llBit;  // ll/sc
 
 	CPUType cpuType;
 

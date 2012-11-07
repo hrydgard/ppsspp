@@ -109,7 +109,7 @@ namespace MIPSInt
 {
 	void Int_Cache(u32 op)
 	{
-		DEBUG_LOG(CPU,"cache instruction %08x",op);
+		// DEBUG_LOG(CPU,"cache instruction %08x",op);
 		PC += 4;
 	}
 
@@ -301,6 +301,33 @@ namespace MIPSInt
 		PC += 4;
 	}
 
+	void Int_StoreSync(u32 op)
+	{
+		s32 imm = (signed short)(op&0xFFFF);
+		int base = ((op >> 21) & 0x1f);
+		int rt = (op >> 16) & 0x1f;
+		u32 addr = R(base) + imm;
+
+		switch (op >> 26)
+		{
+		case 48: // ll
+      R(rt) = Memory::Read_U32(addr);
+			currentMIPS->llBit = 1;
+			break;
+		case 56: // sc
+			if (currentMIPS->llBit) {
+				Memory::Write_U32(R(rt), addr);
+				R(rt) = 1;
+			} else {
+				R(rt) = 0;
+			}
+			break;
+		default:
+			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			break;
+		}
+		PC += 4;
+	}
 
 
 	void Int_RType3(u32 op)

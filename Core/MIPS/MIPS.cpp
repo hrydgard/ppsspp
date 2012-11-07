@@ -87,6 +87,7 @@ void MIPSState::Reset()
 	exceptions = 0;
 	currentMIPS = this;
 	inDelaySlot = false;
+	llBit = 0;
 	nextPC = 0;
 	// Initialize the VFPU random number generator with .. something?
 	rng.Init(0x1337);

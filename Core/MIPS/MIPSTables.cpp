@@ -148,7 +148,7 @@ const MIPSInstruction tableImmediate[64] =  //xxxxxx .....
 	INSTR("swr", &Jit::Comp_ITypeMem, Dis_ITypeMem, Int_ITypeMem, IN_IMM16|IN_RS_ADDR|IN_RT|OUT_MEM),
 	INSTR("cache", &Jit::Comp_Generic, Dis_Generic, Int_Cache, 0),
 	//48
-	INSTR("ll", &Jit::Comp_Generic, Dis_Generic, 0, 0),
+	INSTR("ll", &Jit::Comp_Generic, Dis_Generic, Int_StoreSync, 0),
 	INSTR("lwc1", &Jit::Comp_FPULS, Dis_FPULS, Int_FPULS, IN_RT|IN_RS_ADDR),
 	INSTR("lv.s", &Jit::Comp_Generic, Dis_SV, Int_SV, IS_VFPU),
 	{-2}, // HIT THIS IN WIPEOUT
@@ -157,7 +157,7 @@ const MIPSInstruction tableImmediate[64] =  //xxxxxx .....
 	INSTR("lv.q", &Jit::Comp_Generic, Dis_SVQ, Int_SVQ, IS_VFPU), //copU
 	{VFPU5},
 	//56
-	INSTR("sc", &Jit::Comp_Generic, Dis_Generic, 0, 0),
+	INSTR("sc", &Jit::Comp_Generic, Dis_Generic, Int_StoreSync, 0),
 	INSTR("swc1", &Jit::Comp_FPULS, Dis_FPULS, Int_FPULS, 0), //copU
 	INSTR("sv.s", &Jit::Comp_Generic, Dis_SV, Int_SV,IS_VFPU),
 	{-2}, 

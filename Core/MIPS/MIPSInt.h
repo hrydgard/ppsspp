@@ -53,4 +53,5 @@ namespace MIPSInt
 	void Int_Cache(u32 op);
 	void Int_Sync(u32 op);
 	void Int_Break(u32 op);
+	void Int_StoreSync(u32 op);
 }
