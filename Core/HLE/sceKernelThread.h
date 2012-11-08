@@ -133,6 +133,7 @@ SceUID __KernelGetCurThread();
 void __KernelSetupRootThread(SceUID moduleId, int args, const char *argp, int prio, int stacksize, int attr); //represents the real PSP elf loader, run before execution
 void __KernelStartIdleThreads();
 void __KernelReturnFromThread();  // Called as HLE function
+u32 __KernelGetThreadPrio(SceUID id);
 
 void _sceKernelIdle();
 
