@@ -36,9 +36,9 @@ struct SceKernelMbxInfo
 
 SceUID sceKernelCreateMbx(const char *name, int memoryPartition, SceUInt attr, int size, u32 optAddr);
 int sceKernelDeleteMbx(SceUID id);
-int sceKernelSendMbx(SceUID id, u32 addPacketAddr);
-int sceKernelReceiveMbx(SceUID id, u32 packetAddrPtr, u32 timeoutPtr);
-int sceKernelReceiveMbxCB(SceUID id, u32 packetAddrPtr, u32 timeoutPtr);
+void sceKernelSendMbx(SceUID id, u32 addPacketAddr);
+void sceKernelReceiveMbx(SceUID id, u32 packetAddrPtr, u32 timeoutPtr);
+void sceKernelReceiveMbxCB(SceUID id, u32 packetAddrPtr, u32 timeoutPtr);
 int sceKernelPollMbx(SceUID id, u32 packetAddrPtr);
 int sceKernelCancelReceiveMbx(SceUID id, u32 numWaitingThreadsAddr);
 int sceKernelReferMbxStatus(SceUID id, u32 infoAddr);

@@ -90,7 +90,7 @@ int sceKernelDeleteMbx(SceUID id)
 	return kernelObjects.Destroy<Mbx>(id);
 }
 
-int sceKernelSendMbx(SceUID id, u32 packetAddr)
+void sceKernelSendMbx(SceUID id, u32 packetAddr)
 {
 	u32 error;
 	Mbx *m = kernelObjects.Get<Mbx>(id, error);
@@ -98,13 +98,15 @@ int sceKernelSendMbx(SceUID id, u32 packetAddr)
 	if (addPacket == 0)
 	{
 		ERROR_LOG(HLE, "sceKernelSendMbx(%i, %08x): invalid packet address", id, packetAddr);
-		return -1;
+		RETURN(-1);
+		return;
 	}
 
 	if (!m)
 	{
 		ERROR_LOG(HLE, "sceKernelSendMbx(%i, %08x): invalid mbx id", id, packetAddr);
-		return error;
+		RETURN(error);
+		return;
 	}
 
 	if (m->waitingThreads.empty())
@@ -126,6 +128,7 @@ int sceKernelSendMbx(SceUID id, u32 packetAddr)
 		{
 			m->messageQueue.push_back(packetAddr);
 		}
+		RETURN(0);
 	}
 	else if (m->messageQueue.empty())
 	{
@@ -133,16 +136,17 @@ int sceKernelSendMbx(SceUID id, u32 packetAddr)
 		__KernelResumeThreadFromWait(m->waitingThreads.front().first);
 		DEBUG_LOG(HLE, "sceKernelSendMbx(%i, %08x): threads waiting, resuming %d", id, packetAddr, m->waitingThreads.front().first);
 		m->waitingThreads.erase(m->waitingThreads.begin());
+		RETURN(0);
 		__KernelReSchedule();
 	}
 	else
 	{
 		ERROR_LOG(HLE, "sceKernelSendMbx(%i, %08x): WTF!? thread waiting while there is a message in the queue?", id, packetAddr);
+		RETURN(-1);
 	}
-	return 0;
 }
 
-int sceKernelReceiveMbx(SceUID id, u32 packetAddrPtr, u32 timeoutPtr)
+void sceKernelReceiveMbx(SceUID id, u32 packetAddrPtr, u32 timeoutPtr)
 {
 	u32 error;
 	Mbx *m = kernelObjects.Get<Mbx>(id, error);
@@ -150,7 +154,8 @@ int sceKernelReceiveMbx(SceUID id, u32 packetAddrPtr, u32 timeoutPtr)
 	if (!m)
 	{
 		ERROR_LOG(HLE, "sceKernelReceiveMbx(%i, %08x, %08x): invalid mbx id", id, packetAddrPtr, timeoutPtr);
-		return error;
+		RETURN(error);
+		return;
 	}
 
 	if (!m->messageQueue.empty())
@@ -158,18 +163,18 @@ int sceKernelReceiveMbx(SceUID id, u32 packetAddrPtr, u32 timeoutPtr)
 		DEBUG_LOG(HLE, "sceKernelReceiveMbx(%i, %08x, %08x): sending first queue message", id, packetAddrPtr, timeoutPtr);
 		Memory::Write_U32(m->messageQueue.front(), packetAddrPtr);
 		m->messageQueue.erase(m->messageQueue.begin());
+		RETURN(0);
 	}
 	else
 	{
 		DEBUG_LOG(HLE, "sceKernelReceiveMbx(%i, %08x, %08x): no message in queue, waiting", id, packetAddrPtr, timeoutPtr);
 		m->AddWaitingThread(__KernelGetCurThread(), packetAddrPtr);
+		RETURN(0);
 		__KernelWaitCurThread(WAITTYPE_MBX, 0, 0, 0, false); // ?
 	}
-
-	return 0;
 }
 
-int sceKernelReceiveMbxCB(SceUID id, u32 packetAddrPtr, u32 timeoutPtr)
+void sceKernelReceiveMbxCB(SceUID id, u32 packetAddrPtr, u32 timeoutPtr)
 {
     u32 error;
     Mbx *m = kernelObjects.Get<Mbx>(id, error);
@@ -178,7 +183,8 @@ int sceKernelReceiveMbxCB(SceUID id, u32 packetAddrPtr, u32 timeoutPtr)
 	if (!m)
 	{
 		ERROR_LOG(HLE, "sceKernelReceiveMbxCB(%i, %08x, %08x): invalid mbx id", id, packetAddrPtr, timeoutPtr);
-		return error;
+		RETURN(error);
+		return;
 	}
 
 	if (!m->messageQueue.empty())
@@ -186,15 +192,15 @@ int sceKernelReceiveMbxCB(SceUID id, u32 packetAddrPtr, u32 timeoutPtr)
 		DEBUG_LOG(HLE, "sceKernelReceiveMbxCB(%i, %08x, %08x): sending first queue message", id, packetAddrPtr, timeoutPtr);
         Memory::Write_U32(m->messageQueue.front(), packetAddrPtr);
         m->messageQueue.erase(m->messageQueue.begin());
+        RETURN(0);
 	}
 	else
 	{
 		DEBUG_LOG(HLE, "sceKernelReceiveMbxCB(%i, %08x, %08x): no message in queue, waiting", id, packetAddrPtr, timeoutPtr);
 		m->AddWaitingThread(id, packetAddrPtr);
+		RETURN(0);
 		__KernelWaitCurThread(WAITTYPE_MBX, 0, 0, 0, true); // ?
 	}
-
-	return 0;
 }
 
 int sceKernelPollMbx(SceUID id, u32 packetAddrPtr)

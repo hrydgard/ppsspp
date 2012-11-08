@@ -389,9 +389,9 @@ const HLEFunction ThreadManForUser[] =
 
 	{0x8125221D,&WrapU_CIUIU<sceKernelCreateMbx>,"sceKernelCreateMbx"},
 	{0x86255ADA,&WrapI_I<sceKernelDeleteMbx>,"sceKernelDeleteMbx"},
-	{0xE9B3061E,&WrapI_IU<sceKernelSendMbx>,"sceKernelSendMbx"},
-	{0x18260574,&WrapI_IUU<sceKernelReceiveMbx>,"sceKernelReceiveMbx"},
-	{0xF3986382,&WrapI_IUU<sceKernelReceiveMbxCB>,"sceKernelReceiveMbxCB"},
+	{0xE9B3061E,&WrapV_IU<sceKernelSendMbx>,"sceKernelSendMbx"},
+	{0x18260574,&WrapV_IUU<sceKernelReceiveMbx>,"sceKernelReceiveMbx"},
+	{0xF3986382,&WrapV_IUU<sceKernelReceiveMbxCB>,"sceKernelReceiveMbxCB"},
 	{0x0D81716A,&WrapI_IU<sceKernelPollMbx>,"sceKernelPollMbx"},
 	{0x87D4DD36,&WrapI_IU<sceKernelCancelReceiveMbx>,"sceKernelCancelReceiveMbx"},
 	{0xA8E8C846,&WrapI_IU<sceKernelReferMbxStatus>,"sceKernelReferMbxStatus"},
