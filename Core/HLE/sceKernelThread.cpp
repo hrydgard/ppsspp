@@ -67,7 +67,7 @@ const char *waitTypeStrings[] =
   "Vpl",
   "Fpl",
   "",
-  "ThreadEnd",
+  "ThreadEnd",   // These are nonstandard wait types
   "AudioChannel",
   "Umd",
   "Vblank",
@@ -212,13 +212,21 @@ public:
     return true;
 	}
 
+	void FreeStack() {
+		if (stackBlock != 0) {
+			DEBUG_LOG(HLE, "Freeing thread stack %s", nt.name);
+			if (nt.attr & PSP_THREAD_ATTR_KERNEL) {
+				kernelMemory.Free(stackBlock);
+			} else {
+				userMemory.Free(stackBlock);
+			}
+			stackBlock = 0;
+		}
+	}
+
 	~Thread()
 	{
-		if (nt.attr & PSP_THREAD_ATTR_KERNEL) {
-			kernelMemory.Free(stackBlock);
-		} else {
-			userMemory.Free(stackBlock);
-		}
+		FreeStack();
 	}
 
 	// Utils
@@ -899,6 +907,11 @@ void sceKernelGetThreadStackFreeSize()
 void __KernelReturnFromThread()
 {
 	INFO_LOG(HLE,"__KernelReturnFromThread : %s", currentThread->GetName());
+	// TEMPORARY HACK: kill the stack of the root thread early:
+	if (!strcmp(currentThread->GetName(), "root")) {
+		currentThread->FreeStack();
+	}
+
 	currentThread->nt.exitStatus = currentThread->context.r[2];
 	currentThread->nt.status = THREADSTATUS_DORMANT;
 

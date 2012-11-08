@@ -821,10 +821,14 @@ namespace MIPSInt
 
 	void Int_Interrupt(u32 op)
 	{
+		static int reported = 0;
 		switch (op & 1)
 		{
 		case 0:
-			DEBUG_LOG(CPU,"Disable/Enable Interrupt CPU instruction");
+			if (!reported) {
+				WARN_LOG(CPU,"Disable/Enable Interrupt CPU instruction");
+				reported = 1;
+			}
 			break;
 		}
 		PC += 4;

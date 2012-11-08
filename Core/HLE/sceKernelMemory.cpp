@@ -366,7 +366,7 @@ public:
 void sceKernelMaxFreeMemSize() 
 {
 	// TODO: Fudge factor improvement
-	u32 retVal = userMemory.GetLargestFreeBlockSize()-0x8000;
+	u32 retVal = userMemory.GetLargestFreeBlockSize()-0x40000;
 	DEBUG_LOG(HLE,"%08x (dec %i)=sceKernelMaxFreeMemSize",retVal,retVal);
 	RETURN(retVal);
 }
