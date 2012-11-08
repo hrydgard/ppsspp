@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <set>
+#include <map>
 #include <queue>
 
 #include "HLE.h"
