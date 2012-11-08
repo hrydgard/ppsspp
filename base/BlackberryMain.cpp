@@ -32,6 +32,8 @@
 #include <bps/screen.h>		// Blackberry Window Manager
 #include <bps/navigator.h>	// Invoke Service
 #include <bps/virtualkeyboard.h>// Keyboard Service
+#include <sys/keycodes.h>
+#include <bps/dialog.h> 	// Dialog Service (Toast=BB10)
 #ifdef BLACKBERRY10
 #include <bps/vibration.h>	// Vibrate Service (BB10)
 #endif
@@ -49,8 +51,15 @@ static screen_display_t screen_disp;
 // Simple implementations of System functions
 
 void SystemToast(const char *text) {
+#ifdef BLACKBERRY10
+	dialog_instance_t dialog = 0;
+	dialog_create_toast(&dialog);
+	dialog_set_toast_message_text(dialog, text);
+	dialog_set_toast_position(dialog, DIALOG_POSITION_TOP_CENTER);
+	dialog_show(dialog);
+#else
 	puts(text);
-	// dialog_show( ... )
+#endif
 }
 
 void ShowAd(int x, int y, bool center_x) {
@@ -86,24 +95,24 @@ void LaunchEmail(const char *email_address)
 }
 
 const int buttonMappings[14] = {
-	SDLK_x,										//A
-	SDLK_s,										//B
-	SDLK_z,										//X
-	SDLK_a,										//Y
-	SDLK_w,										//LBUMPER
-	SDLK_q,										//RBUMPER
-	SDLK_1,										//START
-	SDLK_2,										//SELECT
-	SDLK_UP,									//UP
-	SDLK_DOWN,								//DOWN
-	SDLK_LEFT,								//LEFT
-	SDLK_RIGHT,								//RIGHT
-	SDLK_m,									 //MENU
-	SDLK_BACKSPACE,					 //BACK
+	KEYCODE_X,		//A
+	KEYCODE_S,		//B
+	KEYCODE_Z,		//X
+	KEYCODE_A,		//Y
+	KEYCODE_W,		//LBUMPER
+	KEYCODE_Q,		//RBUMPER
+	KEYCODE_ONE,		//START
+	KEYCODE_TWO,		//SELECT
+	KEYCODE_UP,		//UP
+	KEYCODE_DOWN,		//DOWN
+	KEYCODE_LEFT,		//LEFT
+	KEYCODE_RIGHT,		//RIGHT
+	KEYCODE_M,		//MENU
+	KEYCODE_BACKSPACE,	//BACK
 };
 
-void SimulateGamepad(const uint8 *keys, InputState *input) {
-	input->pad_buttons = 0;
+void SimulateGamepad(const bool *keys, InputState *input) {
+	input->pad_buttons  = 0;
 	input->pad_lstick_x = 0;
 	input->pad_lstick_y = 0;
 	input->pad_rstick_x = 0;
@@ -113,22 +122,22 @@ void SimulateGamepad(const uint8 *keys, InputState *input) {
 			input->pad_buttons |= (1<<b);
 	}
 
-	if (keys[SDLK_i])
+	if (keys[KEYCODE_I])
 		input->pad_lstick_y=1;
-	else if (keys[SDLK_k])
+	else if (keys[KEYCODE_K])
 		input->pad_lstick_y=-1;
-	if (keys[SDLK_j])
+	if (keys[KEYCODE_J])
 		input->pad_lstick_x=-1;
-	else if (keys[SDLK_l])
+	else if (keys[KEYCODE_L])
 		input->pad_lstick_x=1;
-	if (keys[SDLK_KP8])
+	/*if (keys[SDLK_KP8])
 		input->pad_rstick_y=1;
 	else if (keys[SDLK_KP2])
 		input->pad_rstick_y=-1;
 	if (keys[SDLK_KP4])
 		input->pad_rstick_x=-1;
 	else if (keys[SDLK_KP6])
-		input->pad_rstick_x=1;
+		input->pad_rstick_x=1;*/
 }
 
 extern void mixaudio(void *userdata, Uint8 *stream, int len) {
@@ -255,6 +264,7 @@ int main(int argc, char *argv[]) {
 	navigator_request_events(0);
 	// Yes, we only want landscape.
 	navigator_rotation_lock(false);
+	dialog_request_events(0);
 #ifdef BLACKBERRY10
 	vibration_request_events(0);
 #endif
@@ -280,6 +290,7 @@ int main(int argc, char *argv[]) {
 	bool nextFrameMD = 0;
 	float t = 0;
 	bool running = true;
+	bool* keys = new bool[1024];
 	while (running) {
 		// Handle Blackberry events
 		bps_event_t *event = NULL;
@@ -305,6 +316,9 @@ int main(int argc, char *argv[]) {
 					input_state.pointer_x[pointerId] = pair[0];
 					input_state.pointer_y[pointerId] = pair[1];
 					input_state.pointer_down[pointerId] = true;
+				} else if (screen_val == SCREEN_EVENT_MTOUCH_MOVE) {
+					input_state.pointer_x[pointerId] = pair[0];
+					input_state.pointer_y[pointerId] = pair[1];
 				} else if (screen_val == SCREEN_EVENT_MTOUCH_RELEASE) {
 					input_state.pointer_x[pointerId] = pair[0];
 					input_state.pointer_y[pointerId] = pair[1];
@@ -323,6 +337,18 @@ int main(int argc, char *argv[]) {
 						input_state.pointer_down[pointerId] = false;
 					}
 				}
+				// Keyboard
+				else if (screen_val == SCREEN_EVENT_KEYBOARD) {
+					int flags, value;
+					screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_KEY_FLAGS, &flags);
+					screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_KEY_SYM, &value);
+					if (value < 1024 && value > 0 && (flags & KEY_SYM_VALID)) {
+						if (flags & KEY_DOWN)
+							keys[value] = true;
+						else
+							keys[value] = false;
+					}
+				}
 			} else if ((domain == navigator_get_domain())
 			&& (NAVIGATOR_EXIT == bps_event_get_code(event))) {
 				running = false;
@@ -331,8 +357,8 @@ int main(int argc, char *argv[]) {
 		input_state.accelerometer_valid = false;
 		input_state.mouse_valid = true;
 
-//		Maybe ask BPS if there's a USB/BT keyboard attached?
-//		SimulateGamepad(keys, &input_state);
+//		Maybe ask BPS if there's a USB/BT keyboard attached and show settings to configure
+		SimulateGamepad(keys, &input_state);
 		UpdateInputState(&input_state);
 		NativeUpdate(input_state);
 		NativeRender();
@@ -354,6 +380,7 @@ int main(int argc, char *argv[]) {
 		t = time_now();
 		framecount++;
 	}
+	delete[] keys;
 
 	screen_stop_events(screen_cxt);
 	bps_shutdown();
