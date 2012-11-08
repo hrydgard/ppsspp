@@ -120,6 +120,17 @@ void sceKernelExitGame()
 	RETURN(0);
 }
 
+void sceKernelExitGameWithStatus()
+{
+	INFO_LOG(HLE,"sceKernelExitGameWithStatus");
+	if (PSP_CoreParameter().headLess)
+		exit(0);
+	else
+		PanicAlert("Game exited (with status)");
+	Core_Stop();
+	RETURN(0);
+}
+
 void sceKernelRegisterExitCallback()
 {
 	u32 cbId = PARAM(0);
@@ -445,7 +456,7 @@ const HLEFunction LoadExecForUser[] =
 	{0x05572A5F,sceKernelExitGame, "sceKernelExitGame"}, //()
 	{0x4AC57943,sceKernelRegisterExitCallback,"sceKernelRegisterExitCallback"},
 	{0xBD2F1094,sceKernelLoadExec,"sceKernelLoadExec"},
-	{0x2AC9954B,0,"sceKernelExitGameWithStatus"},
+	{0x2AC9954B,sceKernelExitGameWithStatus,"sceKernelExitGameWithStatus"},
 };
 
 void Register_LoadExecForUser()

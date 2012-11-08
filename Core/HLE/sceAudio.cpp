@@ -37,29 +37,29 @@ AudioChannel chans[8];
 // max or 50%?
 void sceAudioOutputPannedBlocking(u32 chan, u32 volume1, u32 volume2, u32 samplePtr)
 {
-  DEBUG_LOG(HLE,"sceAudioOutputPannedBlocking(%d,%d,%d, %08x )", chan, volume1, volume2, samplePtr);
-
   if (samplePtr == 0)
   {
-    ERROR_LOG(HLE, "Sample pointer null");
+    ERROR_LOG(HLE, "sceAudioOutputPannedBlocking - Sample pointer null");
     RETURN(0);
   }
-
-	if (chan < 0 || chan >= MAX_CHANNEL)
+	else if (chan < 0 || chan >= MAX_CHANNEL)
 	{
 		ERROR_LOG(HLE,"sceAudioOutputPannedBlocking() - BAD CHANNEL");
     RETURN(SCE_ERROR_AUDIO_INVALID_CHANNEL);
 	}
 	else if (!chans[chan].reserved)
   {
+		ERROR_LOG(HLE,"sceAudioOutputPannedBlocking() - CHANNEL NOT RESERVED");
 		RETURN(SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED);
   }
   else
 	{
-		chans[chan].running = true;
+	  DEBUG_LOG(HLE,"sceAudioOutputPannedBlocking(%d,%d,%d, %08x )", chan, volume1, volume2, samplePtr);
+ 	  chans[chan].running = true;
 		chans[chan].leftVolume = volume1;
 		chans[chan].rightVolume = volume2;
 		chans[chan].sampleAddress = samplePtr;
+		RETURN(0);
     __AudioEnqueue(chans[chan], chan, true);
 	}
 }
@@ -97,6 +97,11 @@ u32 sceAudioOutputPanned(u32 chan, u32 leftVol, u32 rightVol, u32 samplePtr)
 
 void sceAudioOutputBlocking(u32 chan, u32 vol, u32 samplePtr)
 {
+  if (samplePtr == 0)
+  {
+    ERROR_LOG(HLE, "sceAudioOutputBlocking - Sample pointer null");
+    RETURN(0);
+  }
 	if (chan < 0 || chan >= MAX_CHANNEL)
 	{
 		ERROR_LOG(HLE,"sceAudioOutputBlocking() - BAD CHANNEL");
@@ -114,6 +119,7 @@ void sceAudioOutputBlocking(u32 chan, u32 vol, u32 samplePtr)
 		chans[chan].leftVolume = vol;
 		chans[chan].rightVolume = vol;
 		chans[chan].sampleAddress = samplePtr;
+		RETURN(0);
     __AudioEnqueue(chans[chan], chan, true);
 	}
 }

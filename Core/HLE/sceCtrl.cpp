@@ -34,6 +34,13 @@ struct _ctrl_data
 	u8  unused[6];
 };
 
+struct CtrlLatch {
+	u32 btnMake;
+	u32 btnBreak;
+	u32 btnPress;
+	u32 btnRelease;
+};
+
 
 //////////////////////////////////////////////////////////////////////////
 // STATE BEGIN
@@ -84,7 +91,7 @@ void sceCtrlInit()
 void sceCtrlSetSamplingMode()
 {
 	u32 mode = PARAM(0);
-	DEBUG_LOG(HLE,"sceCtrlSetSamplingMode(%i) ra=%08x", mode, currentMIPS->r[MIPS_REG_RA]);
+	DEBUG_LOG(HLE,"sceCtrlSetSamplingMode(%i)", mode);
 	if (ctrlInited)
 	{
 		RETURN((u32)analogEnabled);
@@ -101,8 +108,9 @@ void sceCtrlSetIdleCancelThreshold()
 
 void sceCtrlReadBufferPositive()
 {
-	u32 ctrlData = PARAM(0);
+	u32 ctrlDataPtr = PARAM(0);
 	// u32 nBufs = PARAM(1);
+	DEBUG_LOG(HLE,"sceCtrlReadBufferPositive(%08x)", PARAM(0));
 
   std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
   // Let's just ignore if ctrl is inited or not; some games don't init it (Super Fruit Fall)
@@ -155,9 +163,23 @@ void sceCtrlReadBufferPositive()
     data.analog[1] = analogY;
 #endif
 
-    memcpy(Memory::GetPointer(ctrlData), &data, sizeof(_ctrl_data));
+    memcpy(Memory::GetPointer(ctrlDataPtr), &data, sizeof(_ctrl_data));
 	//}
   RETURN(1);
+}
+
+void sceCtrlPeekLatch() {
+	u32 latchDataPtr = PARAM(0);
+	ERROR_LOG(HLE,"UNIMPL sceCtrlPeekLatch(%08x)", latchDataPtr);
+
+	RETURN(1);
+}
+
+void sceCtrlReadLatch() {
+	u32 latchDataPtr = PARAM(0);
+	ERROR_LOG(HLE,"UNIMPL sceCtrlReadLatch(%08x)", latchDataPtr);
+
+	RETURN(1);
 }
 
 static const HLEFunction sceCtrl[] = 
@@ -172,8 +194,8 @@ static const HLEFunction sceCtrl[] =
   {0x3A622550,sceCtrlReadBufferPositive,"sceCtrlPeekBufferPositive"},
   {0xC152080A,0,"sceCtrlPeekBufferNegative"},
   {0x60B81F86,0,"sceCtrlReadBufferNegative"},
-  {0xB1D0E5CD,0,"sceCtrlPeekLatch"},
-  {0x0B588501,0,"sceCtrlReadLatch"},
+  {0xB1D0E5CD,sceCtrlPeekLatch,"sceCtrlPeekLatch"},
+  {0x0B588501,sceCtrlReadLatch,"sceCtrlReadLatch"},
   {0x348D99D4,0,"sceCtrl_348D99D4"},
   {0xAF5960F3,0,"sceCtrl_AF5960F3"},
   {0xA68FD260,0,"sceCtrlClearRapidFire"},

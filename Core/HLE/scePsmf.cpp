@@ -79,6 +79,7 @@ const HLEFunction scePsmf[] =
   {0xc7db3a5b,0,"scePsmfGetCurrentStreamTypeFunction"},
   {0xB78EB9E9,0,"scePsmfGetHeaderSizeFunction"},
   {0xA5EBFE81,0,"scePsmfGetStreamSizeFunction"},
+	{0xE1283895,0,"scePsmfGetPsmfVersionFunction"},
 };
 
 void scePsmfPlayerCreate() {

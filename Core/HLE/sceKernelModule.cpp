@@ -290,7 +290,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	PspLibStubEntry *entry = (PspLibStubEntry *)Memory::GetPointer(modinfo->libstub);
 
 	int numSyms=0;
-	for (int m=0; m<numModules; m++)
+	for (int m = 0; m < numModules; m++)
 	{
 		const char *modulename = (const char*)Memory::GetPointer(entry[m].name);
 		u32 *nidDataPtr = (u32*)Memory::GetPointer(entry[m].nidData);

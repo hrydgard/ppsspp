@@ -11,9 +11,8 @@ public class PpssppActivity extends NativeActivity {
 		super();
 	} 
 	
-	@Override
 	public boolean overrideKeys()
 	{   
 		return false;
 	}  
-}
+} 

@@ -362,6 +362,7 @@ void __KernelThreadingShutdown()
 	threadReturnHackAddr = 0;
   cbReturnHackAddr = 0;
 	currentThread = 0;
+	intReturnHackAddr = 0;
 	threadqueue.clear();
 }
 
@@ -391,8 +392,11 @@ void sceKernelReferThreadStatus()
 	{
 		DEBUG_LOG(HLE,"sceKernelReferThreadStatus(%i, %08x)", threadID, PARAM(1));
 		void *outptr = (void*)Memory::GetPointer(PARAM(1));
-		int sz = sizeof(NativeThread);
-		t->nt.nativeSize = sz;
+		u32 wantedSize = *(u32 *)outptr;
+		u32 sz = sizeof(NativeThread);
+		if (wantedSize) {
+			t->nt.nativeSize = sz = std::min(sz, wantedSize);
+		}
 		memcpy(outptr, &(t->nt), sz);
 		RETURN(0);
 	}
@@ -449,7 +453,7 @@ void sceKernelGetThreadmanIdType()
 // Saves the current CPU context
 void __KernelSaveContext(ThreadContext *ctx)
 {
-	for (int i=0; i<32; i++)
+	for (int i = 0; i < 32; i++)
 	{
 		ctx->r[i] = currentMIPS->r[i];
 		ctx->f[i] = currentMIPS->f[i];

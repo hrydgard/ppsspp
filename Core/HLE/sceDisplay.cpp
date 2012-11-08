@@ -242,6 +242,13 @@ void sceDisplayWaitVblank()
 	sceDisplayWaitVblankStart();
 }
 
+void sceDisplayWaitVblankCB()
+{
+	DEBUG_LOG(HLE,"sceDisplayWaitVblankCB()");	
+	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, true);
+	__KernelCheckCallbacks();
+}
+
 void sceDisplayWaitVblankStartCB()
 {
 	DEBUG_LOG(HLE,"sceDisplayWaitVblankStartCB()");	
@@ -285,8 +292,9 @@ const HLEFunction sceDisplay[] =
 	{0x289D82FE,sceDisplaySetFramebuf, "sceDisplaySetFramebuf"},
 	{0x36CDFADE,sceDisplayWaitVblank, "sceDisplayWaitVblank"},
 	{0x984C27E7,sceDisplayWaitVblankStart, "sceDisplayWaitVblankStart"},
+	{0x8EB9EC49,sceDisplayWaitVblankCB, "sceDisplayWaitVblankCB"},
 	{0x46F186C3,sceDisplayWaitVblankStartCB, "sceDisplayWaitVblankStartCB"},
-	{0x8EB9EC49,sceDisplayWaitVblankStartCB, "sceDisplayWaitVblankCB"},
+	{0x77ed8b3a,0,"sceDisplayWaitVblankStartMultiCB"},
 
 	{0xdba6c4c4,&WrapF_V<sceDisplayGetFramePerSec>,"sceDisplayGetFramePerSec"},
 	{0x773dd3a3,sceDisplayGetCurrentHcount,"sceDisplayGetCurrentHcount"},
@@ -301,7 +309,6 @@ const HLEFunction sceDisplay[] =
 	{0xB4F378FA,0,"sceDisplayIsForeground"},
 	{0x31C4BAA8,0,"sceDisplayGetBrightness"},
 	{0x4D4E10EC,sceDisplayIsVblank,"sceDisplayIsVblank"},
-	{0x77ed8b3a,0,"sceDisplay_77ed8b3a"},
 };
 
 void Register_sceDisplay()

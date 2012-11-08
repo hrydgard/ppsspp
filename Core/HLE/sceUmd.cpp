@@ -27,10 +27,19 @@
 #define UMD_READY			 0x10
 #define UMD_READABLE		0x20
 
+
 u8 umdActivated = 1;
 u32 umdStatus = 0;
 u32 umdErrorStat = 0;
 
+
+#define PSP_UMD_TYPE_GAME 0x10
+#define PSP_UMD_TYPE_VIDEO 0x20
+#define PSP_UMD_TYPE_AUDIO 0x40
+
+struct PspUmdInfo {
+	int type;
+};
 
 
 void __UmdInit() {
@@ -74,7 +83,14 @@ void sceUmdCheckMedium()
 	
 void sceUmdGetDiscInfo()
 {
-	ERROR_LOG(HLE,"UNIMPL sceUmdGetDiscInfo(?)");
+	u32 infoAddr = PARAM(0);
+	ERROR_LOG(HLE,"sceUmdGetDiscInfo(%08x)", infoAddr);
+	PspUmdInfo info;
+	info.type = PSP_UMD_TYPE_GAME;
+	if (Memory::IsValidAddress(infoAddr))
+	{
+		Memory::WriteStruct(infoAddr, &info);
+	}
 	RETURN(0);
 }
 
