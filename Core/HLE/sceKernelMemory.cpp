@@ -349,7 +349,7 @@ public:
 	PartitionMemoryBlock(BlockAllocator *_alloc, u32 size, bool fromEnd)
 	{
 		alloc = _alloc;
-		address = alloc->Alloc(size, fromEnd);
+		address = alloc->Alloc(size, fromEnd, "PMB");
 		alloc->ListBlocks();
 	}
 	~PartitionMemoryBlock()
