@@ -1103,6 +1103,15 @@ void sceKernelDelayThread()
 	__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, false);
 }
 
+u32 __KernelGetThreadPrio(SceUID id)
+{
+	u32 error;
+	Thread *thread = kernelObjects.Get<Thread>(id, error);
+	if (thread)
+		return thread->nt.currentPriority;
+	return 0;
+}
+
 //////////////////////////////////////////////////////////////////////////
 // WAIT/SLEEP ETC
 //////////////////////////////////////////////////////////////////////////
