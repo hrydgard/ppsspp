@@ -51,6 +51,9 @@ static TexCache cache;
 u32 tmpTexBuf32[1024 * 1024];
 u16 tmpTexBuf16[1024 * 1024];
 
+u16 tmpTexBufRearrange[1024 * 1024];
+
+
 u32 clutBuf32[4096];
 u16 clutBuf16[4096];
 
@@ -521,6 +524,7 @@ void PSPSetTexture()
 	int format = gstate.texformat & 0xF;
 	GLenum dstFmt = 0;
 	u32 texByteAlign = 1;
+
 	void *finalBuf = NULL;
 
 	DEBUG_LOG(G3D,"Texture Width %04x Height %04x Bufw %d Fmt %d", w, h, bufw, format);
@@ -697,9 +701,39 @@ void PSPSetTexture()
 		return;
 	}
 
-	glPixelStorei(GL_UNPACK_ROW_LENGTH, bufw);
+
+	if (w != bufw) {
+		int pixelSize;
+		switch (dstFmt) {
+		case GL_UNSIGNED_SHORT_4_4_4_4_REV:
+		case GL_UNSIGNED_SHORT_1_5_5_5_REV:
+		case GL_UNSIGNED_SHORT_5_6_5_REV:
+			pixelSize = 2;
+		default:
+			pixelSize = 4;
+		}
+		// Need to rearrange the buffer to simulate GL_UNPACK_ROW_LENGTH etc.
+		int inRowBytes = bufw * pixelSize;
+		int outRowBytes = w * pixelSize;
+		const u8 *read = (const u8 *)finalBuf;
+		u8 *write = 0;
+		if (w > bufw) {
+			write = (u8 *)tmpTexBufRearrange;
+			finalBuf = tmpTexBufRearrange;
+		} else {
+			write = (u8 *)finalBuf;
+		}
+		for (int y = 0; y < h; y++) {
+			memmove(write, read, outRowBytes);
+			read += inRowBytes;
+			write += outRowBytes;
+		}
+	}
+
+	// Can restore these and remove the above fixup on some platforms.
+	//glPixelStorei(GL_UNPACK_ROW_LENGTH, bufw);
 	glPixelStorei(GL_UNPACK_ALIGNMENT, texByteAlign);
-	glPixelStorei(GL_PACK_ROW_LENGTH, bufw);
+	//glPixelStorei(GL_PACK_ROW_LENGTH, bufw);
 	glPixelStorei(GL_PACK_ALIGNMENT, texByteAlign);
 
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, dstFmt, finalBuf);
