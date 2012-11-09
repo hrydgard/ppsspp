@@ -1,6 +1,19 @@
 #!/bin/bash
 
 BUILD_TYPE=Release
+
+if type "arm-unknown-nto-qnx8.0.0eabi-cpp" >/dev/null 2>&1; then
+    BB_OS=10.0.9
+    echo "Building for Blackberry 10.0"
+elif type "arm-unknown-nto-qnx6.5.0eabi-cpp" >/dev/null 2>&1; then
+    BB_OS=2.1.0
+    echo "Building for Blackberry 2.1"
+else
+    echo "Could not find your Blackberry NDK. Please source bbndk-env.sh"
+    exit
+fi
+
+
 if [ -z "$PPSSPP_ROOT" ]; then
 	PPSSPP_ROOT=${PWD}/..
 fi
@@ -13,8 +26,6 @@ PKG_CONFIG_LIBDIR=${PROJECT_ROOT}/install/lib/pkgconfig
 SDL_PROJECT=${PROJECT_ROOT}/SDL
 SDLIMAGE_PROJECT=${PROJECT_ROOT}/SDL_image
 SDLMIXER_PROJECT=${PROJECT_ROOT}/SDL_mixer
-SDLNET_PROJECT=${PROJECT_ROOT}/SDL_net
-SDLTTF_PROJECT=${PROJECT_ROOT}/SDL_ttf
 
 while true; do
 	case "$1" in
@@ -35,8 +46,6 @@ while true; do
 		echo "  --tco PATH                   TouchControlOverlay project directory (default is TouchControlOverlay)"
 		echo "  --sdl_image PATH             SDL_image project directory (default is SDL_image)"
 		echo "  --sdl_mixer PATH             SDL_mixer project directory (default is SDL_mixer)"
-		echo "  --sdl_net PATH               SDL_net project directory (default is SDL_net)"
-		echo "  --sdl_ttf PATH               SDL_ttf project directory (default is SDL_ttf)"
 		echo "  --ogg PATH                   ogg project directory (default is ogg)"
 		echo "  --vorbis PATH                vorbis project directory (default is vorbis)"
 		exit 0
@@ -48,8 +57,6 @@ while true; do
 	--sdl ) SDL_PROJECT="$2"; shift 2 ;;
 	--sdl_image ) SDLIMAGE_PROJECT="$2"; shift 2 ;;
 	--sdl_mixer ) SDLMIXER_PROJECT="$2"; shift 2 ;;
-	--sdl_net ) SDLNET_PROJECT="$2"; shift 2 ;;
-	--sdl_ttf ) SDLTTF_PROJECT="$2"; shift 2 ;;
 	--tco ) TCO_PROJECT="$2"; shift 2 ;;
 	--ogg ) OGG_PROJECT="$2"; shift 2 ;;
 	--vorbis ) VORBIS_PROJECT="$2"; shift 2 ;;
@@ -66,12 +73,6 @@ if [ -z "$SDLIMAGE_PROJECT" ]; then
 fi
 if [ -z "$SDLMIXER_PROJECT" ]; then
 	SDLMIXER_PROJECT="$PROJECT_ROOT/SDL_mixer"
-fi
-if [ -z "$SDLNET_PROJECT" ]; then
-	SDLNET_PROJECT="$PROJECT_ROOT/SDL_net"
-fi
-if [ -z "$SDLTTF_PROJECT" ]; then
-	SDLTTF_PROJECT="$PROJECT_ROOT/SDL_ttf"
 fi
 if [ -z "$TCO_PROJECT" ]; then
 	TCO_PROJECT="$PROJECT_ROOT/TouchControlOverlay"
@@ -107,15 +108,9 @@ cmake \
 -DSDLMIXER_INCLUDE_DIR="${SDLMIXER_PROJECT}" \
 -DSDLMIXER_LIBRARY="${SDLMIXER_PROJECT}/Device-${BUILD_TYPE}/libSDL_mixer.so;${OGG_PROJECT}/Device-${BUILD_TYPE}/libogg.so;${VORBIS_PROJECT}/Device-${BUILD_TYPE}/libvorbis.so" \
 -DSDLMIXER_FOUND=ON \
--DSDLNET_INCLUDE_DIR="${SDLNET_PROJECT}" \
--DSDLNET_LIBRARY="${SDLNET_PROJECT}/Device-${BUILD_TYPE}/libSDL_net.so;${QNX_TARGET}/armle-v7/lib/libsocket.so" \
--DSDLNET_FOUND=ON \
--DSDLTTF_INCLUDE_DIR="${SDLTTF_PROJECT}" \
--DSDLTTF_LIBRARY="${SDLTTF_PROJECT}/Device-${BUILD_TYPE}/libSDL_ttf.so" \
--DSDLTTF_FOUND=ON \
 -DPNG_LIBRARY="${QNX_TARGET}/armle-v7/usr/lib/libpng.so" \
 -DPNG_PNG_INCLUDE_DIR="${QNX_TARGET}/usr/include" \
--DBLACKBERRY=10.0.9 \
+-DBLACKBERRY=${BB_OS} \
 -DARM=7 \
 ${PWD}
 

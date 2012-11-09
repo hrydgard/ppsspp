@@ -14,7 +14,13 @@ endif()
 
 # TODO: Rely on compiler define instead. __BLACKBERRY__ ?
 if (BLACKBERRY)
-    add_definitions(-DBLACKBERRY)
+    message("Building for Blackberry")
+	add_definitions(-DBLACKBERRY)
+	if (BLACKBERRY GREATER 10)
+		add_definitions(-DBLACKBERRY10)
+	endif()
+else()
+    message("Not building for Blackberry")
 endif()
 
 
@@ -28,9 +34,7 @@ add_definitions(-DSDL)
 add_definitions(-Wno-multichar)
 add_definitions(-fno-strict-aliasing)
 add_definitions(-DUSE_PROFILER)
-if (NOT BLACKBERRY)
-    add_definitions(-D_DEBUG)
-endif()
+add_definitions(-D_DEBUG)
 
 if (UNIX)
 	if (NOT APPLE)  # can't build the SDL .m file with -std=gnu++0x
@@ -75,11 +79,11 @@ add_subdirectory(../Core Core)
 
 set(LIBS ${LIBS} ${SDL_LIBRARY} file lin ${PNG_LIBRARY} z gfx gfx_es2 image stb_image mixer net ui profiler timeutil file zip base lin vjson stb_vorbis sha1 jsonwriter common core gpu kirk)
 
-# TODO: Blackberry specific libs (eg. TCO)
+# TODO: Blackberry specific libs 
 if(BLACKBERRY)
-    set(LIBS ${LIBS} bps screen socket EGL GLESv2)
+	set(LIBS ${LIBS} bps screen socket EGL GLESv2)
 else()
-    set(LIBS ${LIBS} ${OPENGL_LIBRARIES} GLEW etcdec)
+	set(LIBS ${LIBS} ${OPENGL_LIBRARIES} GLEW etcdec)
 endif()
 
 set(FILES
