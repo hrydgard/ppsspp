@@ -294,7 +294,7 @@ void VertexDecoder::DecodeVerts(DecodedVertex *decoded, const void *verts, const
 			}
 		}
 
-		if (gstate.reversenormals)
+		if (gstate.reversenormals & 0xFFFFFF)
 		{
 			for (int j = 0; j < 3; j++)
 				normal[j] = -normal[j];

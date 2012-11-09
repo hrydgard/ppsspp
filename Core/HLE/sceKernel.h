@@ -341,7 +341,7 @@ public:
 	{
 		if (handle < handleOffset || handle >= handleOffset+maxCount || !occupied[handle-handleOffset])
 		{
-			ERROR_LOG(HLE, "Kernel: Bad object handle");
+			ERROR_LOG(HLE, "Kernel: Bad object handle %i (%08x)", handle, handle);
 			outError = T::GetMissingErrorCode(); // ?
 			return 0;
 		}
@@ -350,7 +350,7 @@ public:
 			T* t = dynamic_cast<T*>(pool[handle - handleOffset]);
 			if (t == 0)
 			{
-				ERROR_LOG(HLE, "Kernel: Wrong type object");
+				ERROR_LOG(HLE, "Kernel: Wrong type object %i (%08x)", handle, handle);
 				outError = T::GetMissingErrorCode(); //FIX
 				return 0;
 			}

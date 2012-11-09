@@ -282,6 +282,31 @@ void sceKernelIcacheInvalidateAll()
 }
 
 
+
+struct SystemStatus {
+	SceSize size;
+	SceUInt status;
+	SceUInt clockPart1;
+	SceUInt clockPart2;
+	SceUInt perfcounter1;
+	SceUInt perfcounter2;
+	SceUInt perfcounter3;
+};
+
+
+u32 sceKernelReferSystemStatus(u32 statusPtr)
+{
+	DEBUG_LOG(HLE, "sceKernelReferSystemStatus(%08x)", statusPtr);
+	if (Memory::IsValidAddress(statusPtr)) {
+		SystemStatus status;
+		memset(&status, 0, sizeof(SystemStatus));
+		status.size = sizeof(SystemStatus);
+		Memory::WriteStruct(statusPtr, &status);
+	}
+	return 0;
+}
+
+
 const HLEFunction ThreadManForUser[] =
 {
 	{0x55C20A00,sceKernelCreateEventFlag, "sceKernelCreateEventFlag"},
@@ -368,7 +393,7 @@ const HLEFunction ThreadManForUser[] =
 	{0x369ed59d,sceKernelGetSystemTimeLow,"sceKernelGetSystemTimeLow"},
 
 	{0x8218B4DD,0,"sceKernelReferGlobalProfiler"},
-	{0x627E6F3A,0,"sceKernelReferSystemStatus"},
+	{0x627E6F3A,&WrapU_U<sceKernelReferSystemStatus>,"sceKernelReferSystemStatus"},
 	{0x64D4540E,0,"sceKernelReferThreadProfiler"},
 
 	//Fifa Street 2 uses alarms

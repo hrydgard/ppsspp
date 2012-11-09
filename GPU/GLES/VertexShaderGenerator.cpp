@@ -59,19 +59,26 @@ char *GenerateVertexShader()
 	WRITE("#version 130");
 #endif
 
+	int lmode = gstate.lmode & 1;
+	lmode = 0;    // TODO: support separate specular
+
 	WRITE("attribute vec4 a_position;");
 	WRITE("attribute vec2 a_texcoord;");
 	WRITE("attribute vec4 a_color0;");
+	if (lmode)
+		WRITE("attribute vec4 a_color1;");
 
 	WRITE("uniform mat4 u_proj;");
 
 	WRITE("varying vec4 v_color0;");
-	WRITE("varying vec4 v_color1;");
+	if (lmode)
+		WRITE("varying vec4 v_color1;");
 	WRITE("varying vec2 v_texcoord;");
 
 	WRITE("void main() {");
 	WRITE("v_color0 = a_color0;");
-	WRITE("v_color1 = a_color0;");
+	if (lmode)
+		WRITE("v_color1 = a_color1;");
 	WRITE("v_texcoord = a_texcoord;");
 	WRITE("gl_Position = u_proj * a_position;");
 	WRITE("}");

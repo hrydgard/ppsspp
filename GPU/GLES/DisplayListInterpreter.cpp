@@ -259,12 +259,12 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_VADDR:		/// <<8????
-		gstate.vertexAddr = (gstate.base<<8)|data;
+		gstate.vertexAddr = ((gstate.base & 0x00FF0000) << 8)|data;
 		DEBUG_LOG(G3D,"DL VADDR: %06x", gstate.vertexAddr);
 		break;
 
 	case GE_CMD_IADDR:
-		gstate.indexAddr	= (gstate.base<<8)|data;
+		gstate.indexAddr	= ((gstate.base & 0x00FF0000) << 8)|data;
 		DEBUG_LOG(G3D,"DL IADDR: %06x", gstate.indexAddr);
 		break;
 
@@ -317,7 +317,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_JUMP: 
 		{
-			u32 target = ((gstate.base << 8) | (op & 0xFFFFFC)) & 0x0FFFFFFF;
+			u32 target = (((gstate.base & 0x00FF0000) << 8) | (op & 0xFFFFFC)) & 0x0FFFFFFF;
 			DEBUG_LOG(G3D,"DL CMD JUMP - %08x to %08x", dcontext.pc, target);
 			dcontext.pc = target - 4; // pc will be increased after we return, counteract that
 		}
@@ -327,7 +327,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 		{
 			u32 retval = dcontext.pc + 4;
 			stack[stackptr++] = retval; 
-			u32 target = ((gstate.base << 8) | (op & 0xFFFFFC)) & 0xFFFFFFF;
+			u32 target = (((gstate.base & 0x00FF0000) << 8) | (op & 0xFFFFFC)) & 0xFFFFFFF;
 			DEBUG_LOG(G3D,"DL CMD CALL - %08x to %08x, ret=%08x", dcontext.pc, target, retval);
 			dcontext.pc = target - 4;	// pc will be increased after we return, counteract that
 		}
@@ -354,12 +354,12 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_BJUMP:
 		// bounding box jump. Let's just not jump, for now.
-		DEBUG_LOG(G3D,"DL BBOX JUMP - unimplemented");
+		ERROR_LOG(G3D,"DL BBOX JUMP - unimplemented");
 		break;
 
 	case GE_CMD_BOUNDINGBOX:
 		// bounding box test. Let's do nothing.
-		DEBUG_LOG(G3D,"DL BBOX TEST - unimplemented");
+		ERROR_LOG(G3D,"DL BBOX TEST - unimplemented");
 		break;
 
 	case GE_CMD_ORIGIN:

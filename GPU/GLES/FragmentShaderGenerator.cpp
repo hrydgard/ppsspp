@@ -73,13 +73,16 @@ char *GenerateFragmentShader()
 	WRITE(p, "#version 130\n");
 #endif
 
+	int lmode = gstate.lmode & 1;
+	lmode = 0;  /// for now
+
 	if (gstate.textureMapEnable & 1)
 		WRITE(p, "uniform sampler2D tex;\n");
 	if (gstate.alphaTestEnable & 1)
 		WRITE(p, "uniform vec4 u_alpharef;\n");
 	WRITE(p, "uniform vec4 u_texenv;\n");
 	WRITE(p, "varying vec4 v_color0;\n");
-	if (gstate.lmode & 1)
+	if (lmode)
 		WRITE(p, "varying vec4 v_color1;\n");
 	WRITE(p, "varying vec2 v_texcoord;\n");
 
@@ -92,9 +95,12 @@ char *GenerateFragmentShader()
 	else
 	{
 		const char *secondary = "";
-		if (gstate.lmode & 1) {
-			WRITE(p, "	vec4 s = vec4(0.0, 0.0, 0.0, 0.0);\n");	// Secondary color, TODO
+		if (lmode) {
+			WRITE(p, "vec4 s = v_color1;");
 			secondary = " + s";
+		} else {
+			WRITE(p, "	vec4 s = vec4(0.0, 0.0, 0.0, 0.0);\n");	// Secondary color, TODO
+			secondary = "";
 		}
 
 		if (gstate.textureMapEnable & 1) {
@@ -103,8 +109,8 @@ char *GenerateFragmentShader()
 			WRITE(p, "	vec4 p = clamp(v_color0, 0.0, 1.0);\n");
 		} else {
 			// No texture mapping
-			WRITE(p, "	vec4 t = v_color0;\n"); //, secondary);
-			WRITE(p, "	vec4 p = t;\n"); // , secondary);
+			WRITE(p, "	vec4 t = vec4(1.0, 1.0, 1.0, 1.0);\n"); //, secondary);
+			WRITE(p, "	vec4 p = clamp(v_color0, 0.0, 1.0);\n"); // , secondary);
 		}
 
 		// Color doubling

@@ -48,12 +48,14 @@ GLuint glprim[8] =
 	GL_TRIANGLES,
 	GL_TRIANGLE_STRIP,
 	GL_TRIANGLE_FAN,
-	GL_TRIANGLES,	// With OpenGL ES we have to expand into triangles, tripling the data instead of doubling. sigh. OpenGL ES, Y U NO SUPPORT GL_QUADS?
+	GL_TRIANGLES,	 // With OpenGL ES we have to expand sprites into triangles, tripling the data instead of doubling. sigh. OpenGL ES, Y U NO SUPPORT GL_QUADS?
 };
 
 DecodedVertex decoded[65536];
 TransformedVertex transformed[65536];
 uint16_t indexBuffer[65536];	// Unused
+
+// TODO: This should really return 2 colors, one for specular and one for diffuse.
 
 void Light(float colorOut[4], const float colorIn[4], Vec3 pos, Vec3 normal, float dots[4])
 {
@@ -109,10 +111,8 @@ void Light(float colorOut[4], const float colorIn[4], Vec3 pos, Vec3 normal, flo
 	}
 
 	float specCoef = getFloat24(gstate.materialspecularcoef);
-
-	norm.Normalize();
-
-	Vec3 viewer(gstate.viewMatrix[8], gstate.viewMatrix[9], gstate.viewMatrix[10]);
+	
+	Vec3 viewer(-gstate.viewMatrix[9], -gstate.viewMatrix[10], -gstate.viewMatrix[11]);
 
 	Color4 lightSum = globalAmbient * ambient + emissive;
 
@@ -122,30 +122,27 @@ void Light(float colorOut[4], const float colorIn[4], Vec3 pos, Vec3 normal, flo
 	for (int l = 0; l < 4; l++)
 	{
 		// can we skip this light?
-		if ((gstate.lightEnable[l] & 1) == 0) // && !doShadeMapping)
-			continue;
+		//if ((gstate.lightEnable[l] & 1) == 0) // && !doShadeMapping)
+		//	continue;
 
 		GELightComputation comp = (GELightComputation)(gstate.ltype[l]&3);
 		GELightType type = (GELightType)((gstate.ltype[l]>>8)&3);
 		Vec3 toLight;
 
 		if (type == GE_LIGHTTYPE_DIRECTIONAL)
-			toLight = Vec3(gstate.lightpos[l]);
+			toLight = Vec3(gstate.lightpos[l]);  // lightdir is for spotlights
 		else
 			toLight = Vec3(gstate.lightpos[l]) - pos;
-
-		Vec3 dir = Vec3(gstate.lightdir[l]);
 
 		bool doSpecular = (comp != GE_LIGHTCOMP_ONLYDIFFUSE);
 		bool poweredDiffuse = comp == GE_LIGHTCOMP_BOTHWITHPOWDIFFUSE;
 
-		float distance = toLight.Normalize(); 
-
 		float lightScale = 1.0f;
 		if (type != GE_LIGHTTYPE_DIRECTIONAL)
 		{
+			float distance = toLight.Normalize(); 
 			lightScale = 1.0f / (gstate.lightatt[l][0] + gstate.lightatt[l][1]*distance + gstate.lightatt[l][2]*distance*distance);
-			if (lightScale>1.0f) lightScale=1.0f;
+			if (lightScale > 1.0f) lightScale = 1.0f;
 		}
 
 		float dot = toLight * norm;
@@ -156,13 +153,18 @@ void Light(float colorOut[4], const float colorIn[4], Vec3 pos, Vec3 normal, flo
 		if (poweredDiffuse)
 			dot = powf(dot, specCoef);
 
-		Color4 diff = (gstate.lightColor[1][l] * diffuse) * (dot*lightScale);	
+		Color4 diff = (gstate.lightColor[1][l] * diffuse) * (dot * lightScale);	
 		Color4 spec(0,0,0,0);
+
+		// Real PSP specular
+		Vec3 toViewer(0,0,1);
+		// Better specular
+		//Vec3 toViewer = (viewer - pos).Normalized();
 
 		if (doSpecular)
 		{
 			Vec3 halfVec = toLight;
-			halfVec += viewer.Normalized();
+			halfVec += toViewer;
 			halfVec.Normalize();
 
 			dot = halfVec * norm;
@@ -269,11 +271,11 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 			for (int j=0; j<2; j++)
 				uv[j] = decoded[index].uv[j];
 
-			//Rescale UV?
+			// Rescale UV?
 		}
 		else
 		{
-			//We do software T&L for now
+			// We do software T&L for now
 			float out[3], norm[3];
 			if ((gstate.vertType & GE_VTYPE_WEIGHT_MASK) == GE_VTYPE_WEIGHT_NONE)
 			{
@@ -312,14 +314,14 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 				else
 				{
 					// no lighting? copy the color.
-					for (int j=0; j<4; j++)
+					for (int j = 0; j < 4; j++)
 						c[j] = decoded[index].color[j];
 				}
 			}
 			else
 			{
 				// no color in the fragment program???
-				for (int j=0; j<4; j++)
+				for (int j = 0; j < 4; j++)
 					c[j] = decoded[index].color[j];
 			}
 
