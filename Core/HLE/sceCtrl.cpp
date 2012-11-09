@@ -34,6 +34,7 @@ struct _ctrl_data
 	u8  unused[6];
 };
 
+static u32 oldButtons;
 struct CtrlLatch {
 	u32 btnMake;
 	u32 btnBreak;
@@ -42,15 +43,80 @@ struct CtrlLatch {
 };
 
 
+
 //////////////////////////////////////////////////////////////////////////
 // STATE BEGIN
 static bool ctrlInited = false;
 static bool analogEnabled = false;
+
 static _ctrl_data ctrl;
+static CtrlLatch latch;
+
 static std::recursive_mutex ctrlMutex;
+
 // STATE END
 //////////////////////////////////////////////////////////////////////////
 
+
+void SampleControls() {
+	static int frame = 0;
+	_ctrl_data &data = ctrl;
+	data.frame=1;//frame;
+  frame++;
+#ifdef _WIN32
+  // TODO: Move this outta here!
+  data.buttons = 0;
+  int analogX = 128;
+  int analogY = 128;
+	if (GetAsyncKeyState(VK_SPACE))
+		data.buttons|=CTRL_START;
+	if (GetAsyncKeyState('V'))
+		data.buttons|=CTRL_SELECT;
+	if (GetAsyncKeyState('A'))
+		data.buttons|=CTRL_SQUARE;
+	if (GetAsyncKeyState('S'))
+		data.buttons|=CTRL_TRIANGLE;
+	if (GetAsyncKeyState('X'))
+		data.buttons|=CTRL_CIRCLE;
+	if (GetAsyncKeyState('Z'))
+		data.buttons|=CTRL_CROSS;
+	if (GetAsyncKeyState('Q'))
+		data.buttons|=CTRL_LTRIGGER;
+	if (GetAsyncKeyState('W'))
+		data.buttons|=CTRL_RTRIGGER;
+	if (GetAsyncKeyState(VK_UP)) {
+		data.buttons|=CTRL_UP;
+		analogY -= 100;
+	}
+	if (GetAsyncKeyState(VK_DOWN)) {
+		data.buttons|=CTRL_DOWN;
+		analogY += 100;
+	}
+	if (GetAsyncKeyState(VK_LEFT)) {
+		data.buttons|=CTRL_LEFT;
+		analogX -= 100;
+	}
+	if (GetAsyncKeyState(VK_RIGHT))
+	{
+		data.buttons|=CTRL_RIGHT;
+		analogX += 100;
+	}
+
+  data.analog[0] = analogX;
+  data.analog[1] = analogY;
+#endif
+}
+
+
+void UpdateLatch() {
+	u32 changed = ctrl.buttons ^ oldButtons;
+	latch.btnMake = ctrl.buttons & changed;
+	latch.btnBreak = oldButtons & changed;
+	latch.btnPress = ctrl.buttons;
+	latch.btnRelease = (oldButtons & ~ctrl.buttons) & changed;
+		
+	oldButtons = ctrl.buttons;
+}
 
 // Functions so that the rest of the emulator can control what the sceCtrl interface should return
 // to the game:
@@ -96,7 +162,8 @@ void sceCtrlSetSamplingMode()
 	{
 		RETURN((u32)analogEnabled);
     // Looks odd
-		analogEnabled = mode;
+		analogEnabled = mode == 1 ? true : false;
+		return;
 	}
 	RETURN(0);
 }
@@ -116,68 +183,32 @@ void sceCtrlReadBufferPositive()
   // Let's just ignore if ctrl is inited or not; some games don't init it (Super Fruit Fall)
 	//if (ctrlInited)
 	//{
-		static int frame = 0;
-		_ctrl_data &data = ctrl;
-		data.frame=1;//frame;
-    frame++;
-#ifdef _WIN32
-    // TODO: Move this outta here!
-    data.buttons = 0;
-    int analogX = 128;
-    int analogY = 128;
-		if (GetAsyncKeyState(VK_SPACE))
-			data.buttons|=CTRL_START;
-		if (GetAsyncKeyState('V'))
-			data.buttons|=CTRL_SELECT;
-		if (GetAsyncKeyState('A'))
-			data.buttons|=CTRL_SQUARE;
-		if (GetAsyncKeyState('S'))
-			data.buttons|=CTRL_TRIANGLE;
-		if (GetAsyncKeyState('X'))
-			data.buttons|=CTRL_CIRCLE;
-		if (GetAsyncKeyState('Z'))
-			data.buttons|=CTRL_CROSS;
-		if (GetAsyncKeyState('Q'))
-			data.buttons|=CTRL_LTRIGGER;
-		if (GetAsyncKeyState('W'))
-			data.buttons|=CTRL_RTRIGGER;
-		if (GetAsyncKeyState(VK_UP)) {
-			data.buttons|=CTRL_UP;
-			analogY -= 100;
-		}
-		if (GetAsyncKeyState(VK_DOWN)) {
-			data.buttons|=CTRL_DOWN;
-			analogY += 100;
-		}
-		if (GetAsyncKeyState(VK_LEFT)) {
-			data.buttons|=CTRL_LEFT;
-			analogX -= 100;
-		}
-		if (GetAsyncKeyState(VK_RIGHT))
-		{
-			data.buttons|=CTRL_RIGHT;
-			analogX += 100;
-		}
-
-    data.analog[0] = analogX;
-    data.analog[1] = analogY;
-#endif
-
-    memcpy(Memory::GetPointer(ctrlDataPtr), &data, sizeof(_ctrl_data));
+		SampleControls();
+    memcpy(Memory::GetPointer(ctrlDataPtr), &ctrl, sizeof(_ctrl_data));
 	//}
   RETURN(1);
 }
 
 void sceCtrlPeekLatch() {
 	u32 latchDataPtr = PARAM(0);
-	ERROR_LOG(HLE,"UNIMPL sceCtrlPeekLatch(%08x)", latchDataPtr);
+	ERROR_LOG(HLE,"FAKE sceCtrlPeekLatch(%08x)", latchDataPtr);
 
+	if (Memory::IsValidAddress(latchDataPtr))
+		Memory::WriteStruct(latchDataPtr, &latch);
 	RETURN(1);
 }
 
 void sceCtrlReadLatch() {
 	u32 latchDataPtr = PARAM(0);
-	ERROR_LOG(HLE,"UNIMPL sceCtrlReadLatch(%08x)", latchDataPtr);
+	ERROR_LOG(HLE,"FAKE sceCtrlReadLatch(%08x)", latchDataPtr);
+
+	// Hackery to do it here.
+	SampleControls();
+	UpdateLatch();
+
+
+	if (Memory::IsValidAddress(latchDataPtr))
+		Memory::WriteStruct(latchDataPtr, &latch);
 
 	RETURN(1);
 }
