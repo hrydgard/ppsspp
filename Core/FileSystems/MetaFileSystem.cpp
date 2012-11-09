@@ -31,6 +31,11 @@ IFileSystem *MetaFileSystem::GetHandleOwner(u32 handle)
 
 bool MetaFileSystem::MapFilePath(std::string inpath, std::string &outpath, IFileSystem **system)
 {
+	// host0 HACK
+	// need to figure out what to do about xxx:./... paths - is there a current dir per drive?
+	if (!inpath.compare(0, 8, "host0:./"))
+		inpath = currentDirectory + inpath.substr(7);
+
 	for (size_t i = 0; i < fileSystems.size(); i++)
 	{
 		int prefLen = fileSystems[i].prefix.size();
