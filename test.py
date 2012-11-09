@@ -51,7 +51,6 @@ tests_next = [
   "threads/vpl/vpl",
   "threads/vtimers/vtimers",
   "threads/wakeup/wakeup",
-  "umd/umd",
   "umd/callbacks/umd",
   "umd/io/umd_io",
   "umd/raw_access/raw_access",
@@ -64,6 +63,8 @@ tests_next = [
 tests_ignored = [
   "kirk/kirk",
   "me/me",
+
+  "umd/umd", # mostly fixed but output seems broken? (first retval of unregister...)
 ]
 
 

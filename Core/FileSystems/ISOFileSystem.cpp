@@ -23,13 +23,16 @@
 
 const int sectorSize = 2048;
 
-static void parseLBN(std::string filename, u32 *sectorStart, u32 *readSize)
+static bool parseLBN(std::string filename, u32 *sectorStart, u32 *readSize)
 {
+	if (filename.substr(0, 8) != "/sce_lbn")
+		return false;
 	std::string yo = filename;
-	filename.erase(0,10);
+	filename.erase(0, 10);
 	sscanf(filename.c_str(), "%08x", sectorStart);
-	filename.erase(0,filename.find('_') + 5);
+	filename.erase(0, filename.find("_size") + 7);
 	sscanf(filename.c_str(), "%08x", readSize);
+	return true;
 }
 
 #pragma pack(push)
@@ -273,6 +276,16 @@ ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(std::string path)
 
 u32 ISOFileSystem::OpenFile(std::string filename, FileAccess access)
 {
+	// LBN unittest
+	/*
+	u32 a, b;
+	if (parseLBN("/sce_lbn0x307aa_size0xefffe000", &a, &b)) {
+		ERROR_LOG(FILESYS, "lbn: %08x %08x", a, b);
+	} else {
+		ERROR_LOG(FILESYS, "faillbn: %08x %08x", a, b);
+	}*/
+
+
 	OpenFileEntry entry;
 	if (filename.compare(0,8,"/sce_lbn") == 0)
 	{
