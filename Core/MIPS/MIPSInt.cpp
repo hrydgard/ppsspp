@@ -736,15 +736,15 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-#ifdef _MSC_VER
-static float roundf(float num)
-{
-    float integer = ceilf(num);
-    if (num > 0)
-        return integer - num > 0.5f ? integer - 1.0f : integer;
-    return integer - num >= 0.5f ? integer - 1.0f : integer;
-}
-#endif
+	#ifdef _MSC_VER
+	static float roundf(float num)
+	{
+		float integer = ceilf(num);
+		if (num > 0)
+			return integer - num > 0.5f ? integer - 1.0f : integer;
+		return integer - num >= 0.5f ? integer - 1.0f : integer;
+	}
+	#endif
 
 	void Int_FPU2op(u32 op)
 	{
@@ -766,7 +766,7 @@ static float roundf(float num)
 		case 36:
 			switch (currentMIPS->fcr31 & 3)
 			{
-			case 0: FsI(fd) = roundf(F(fs)); break;  // RINT_0
+			case 0: FsI(fd) = roundf(F(fs)); break;  // RINT_0    // TODO: rintf or roundf?
 			case 1: FsI(fd) = (int)F(fs); break;  // CAST_1
 			case 2: FsI(fd) = ceilf(F(fs)); break;  // CEIL_2
 			case 3: FsI(fd) = floorf(F(fs)); break;  // FLOOR_3

@@ -17,15 +17,53 @@ tests_good = [
   "cpu/icache/icache",
   "cpu/lsu/lsu",
   "cpu/fpu/fpu",
+
+  "display/display",
+  "dmac/dmactest",
+  "intr/intr",
+  "intr/vblank/vblank",
+  "misc/testgp",
+  "string/string",
 ]
 
 # These are the next tests up for fixing.
 tests_next = [
+  "cpu/vfpu/vfpu",
+  "ctrl/ctrl",
+  "io/cwd/cwd",
+  "io/directory/directory",
+  "io/io/io",
+  "io/iodrv/iodrv",
+  "malloc/malloc",
+  "mstick/mstick",
+  "modules/loadexec/loader",
+  "power/power",
+  "rtc/rtc",
+  "sysmem/sysmem",
+  "threads/events/events",
+  "threads/fpl/fpl",
+  "threads/mbx/mbx",
+  "threads/msgpipe/msgpipe",
+  "threads/mutex/mutex",
+  "threads/scheduling/scheduling",
+  "threads/semaphores/semaphores",
+  "threads/threads/threads",
+  "threads/vpl/vpl",
+  "threads/vtimers/vtimers",
+  "threads/wakeup/wakeup",
+  "umd/umd",
+  "umd/callbacks/umd",
+  "umd/io/umd_io",
+  "umd/raw_access/raw_access",
+  "utility/systemparam",
+  "video/pmf",
+  "video/pmf_simple",
 ]
 
 # These are the tests we ignore (not important, or impossible to run)
 tests_ignored = [
-
+  "kirk/kirk",
+  "me/me",
 ]
 
 
