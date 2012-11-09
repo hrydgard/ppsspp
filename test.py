@@ -122,11 +122,12 @@ def run_tests(test_list):
     
     for i in range(0, len(expected_lines)):
       if output_lines[i] != expected_lines[i]:
-        print "First different line (output vs expected):"
-        print output_lines[i]
-        print " --- expected: ---"
-        print expected_lines[i]
+        #print "First different line (output vs expected):"
+        #print output_lines[i]
+        #print " --- expected: ---"
+        #print expected_lines[i]
         different = True
+		break
 
     if not different:
       print "  " + test + " - passed!"
