@@ -736,6 +736,16 @@ namespace MIPSInt
 		PC += 4;
 	}
 
+#ifdef _MSC_VER
+static float roundf(float num)
+{
+    float integer = ceilf(num);
+    if (num > 0)
+        return integer - num > 0.5f ? integer - 1.0f : integer;
+    return integer - num >= 0.5f ? integer - 1.0f : integer;
+}
+#endif
+
 	void Int_FPU2op(u32 op)
 	{
 		int fs = _FS;
@@ -752,7 +762,16 @@ namespace MIPSInt
 		case 14: FsI(fd) = (int)ceilf (F(fs)); break; //ceil.w.s
 		case 15: FsI(fd) = (int)floorf(F(fs)); break; //floor.w.s
 		case 32: F(fd) = (float)FsI(fs); break; //cvt.s.w
-		case 36: FsI(fd) = (int)	F(fs); break; //cvt.w.s
+
+		case 36:
+			switch (currentMIPS->fcr31 & 3)
+			{
+			case 0: FsI(fd) = roundf(F(fs)); break;  // RINT_0
+			case 1: FsI(fd) = (int)F(fs); break;  // CAST_1
+			case 2: FsI(fd) = ceilf(F(fs)); break;  // CEIL_2
+			case 3: FsI(fd) = floorf(F(fs)); break;  // FLOOR_3
+			}
+			break; //cvt.w.s
 		default:
 			_dbg_assert_msg_(CPU,0,"Trying to interpret FPU2Op instruction that can't be interpreted");
 			break;

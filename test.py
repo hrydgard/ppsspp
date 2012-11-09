@@ -16,11 +16,11 @@ tests_good = [
   "cpu/cpu/cpu",
   "cpu/icache/icache",
   "cpu/lsu/lsu",
+  "cpu/fpu/fpu",
 ]
 
 # These are the next tests up for fixing.
 tests_next = [
-  "cpu/fpu/fpu",
 ]
 
 # These are the tests we ignore (not important, or impossible to run)
@@ -84,6 +84,10 @@ def run_tests(test_list):
     
     for i in range(0, len(expected_lines)):
       if output_lines[i] != expected_lines[i]:
+        print "First different line (output vs expected):"
+        print output_lines[i]
+        print " --- expected: ---"
+        print expected_lines[i]
         different = True
 
     if not different:
