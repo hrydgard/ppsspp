@@ -135,10 +135,14 @@ u32 sceGeSetCallback(u32 structAddr)
 	PspGeCallbackData ge_callback_data;
 	Memory::ReadStruct(structAddr, &ge_callback_data);
 
-	if (ge_callback_data.finish_func)
+	if (ge_callback_data.finish_func) {
 		sceKernelRegisterSubIntrHandler(PSP_GE_INTR, PSP_GE_SUBINTR_FINISH, ge_callback_data.finish_func, ge_callback_data.finish_arg);
-	if (ge_callback_data.signal_func)
+		sceKernelEnableSubIntr(PSP_GE_INTR, PSP_GE_SUBINTR_FINISH);
+	}
+	if (ge_callback_data.signal_func) {
 		sceKernelRegisterSubIntrHandler(PSP_GE_INTR, PSP_GE_SUBINTR_SIGNAL, ge_callback_data.signal_func, ge_callback_data.signal_arg);
+		sceKernelEnableSubIntr(PSP_GE_INTR, PSP_GE_SUBINTR_SIGNAL);
+	}
 
 	// TODO: This should return a callback ID
 	return 0;

@@ -42,6 +42,33 @@ public:
 	virtual bool AttemptLoadSymbolMap() {return false;}
 };
 
+class PrintfLogger : public LogListener
+{
+public:
+	void Log(LogTypes::LOG_LEVELS level, const char *msg)
+	{
+		switch (level)
+		{
+		case LogTypes::LDEBUG:
+			printf("D %s", msg);
+			break;
+		case LogTypes::LINFO:
+			printf("I %s", msg);
+			break;
+		case LogTypes::LERROR:
+			printf("E %s", msg);
+			break;
+		case LogTypes::LWARNING:
+			printf("W %s", msg);
+			break;
+		case LogTypes::LNOTICE:
+		default:
+			printf("N %s", msg);
+			break;
+		}
+	}
+};
+
 void printUsage()
 {
 	fprintf(stderr, "PPSSPP Headless\n");
@@ -88,12 +115,14 @@ int main(int argc, const char* argv[])
 	LogManager::Init();
 	LogManager *logman = LogManager::GetInstance();
 	
+	PrintfLogger *printfLogger = new PrintfLogger();
+
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++)
 	{
 		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
 		logman->SetEnable(type, fullLog);
 		logman->SetLogLevel(type, LogTypes::LDEBUG);
-		// logman->AddListener(type, logger);
+		logman->AddListener(type, printfLogger);
 	}
 
 	CoreParameter coreParameter;
