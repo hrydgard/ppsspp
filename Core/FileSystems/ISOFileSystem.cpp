@@ -362,13 +362,15 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)
 			return (size_t)size;
 		}
 
-		u32 position;
+		u32 positionOnIso;
 		if (e.isRawSector)
 		{
-			position = e.sectorStart;
-			if (position + size > e.sectorStart + e.openSize)
+			// TODO: this seems bogus
+			positionOnIso = e.sectorStart * 2048;
+			
+			if (e.seekPos + size > e.openSize)
 			{
-				size = e.sectorStart + e.openSize - position;
+				size = e.openSize - e.seekPos;
 			}
 		}
 		else
@@ -379,13 +381,13 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)
 				size = e.file->size - (s64)e.seekPos;
 			}
 
-			position = e.file->startingPosition + e.seekPos;
+			positionOnIso = e.file->startingPosition + e.seekPos;
 		}
 		//okay, we have size and position, let's rock
 
 		u32 totalRead = 0;
-		int secNum = position / 2048;
-		int posInSector = position & 2047;
+		int secNum = positionOnIso / 2048;
+		int posInSector = positionOnIso & 2047;
 		s64 remain = size;		
 
 		u8 theSector[2048];
@@ -393,7 +395,7 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)
 		while (remain > 0)
 		{
 			blockDevice->ReadBlock(secNum, theSector);
-			size_t bytesToCopy = 2048-posInSector;
+			size_t bytesToCopy = 2048 - posInSector;
 			if ((s64)bytesToCopy > remain)
 				bytesToCopy = (size_t)remain;
 
