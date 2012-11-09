@@ -23,3 +23,8 @@ u64 MemoryStick_FreeSpace()
 {
 	return 1ULL * 1024 * 1024 * 1024; // 1GB
 }
+
+void MemoryStick_SetFatState(MemStickFatState state)
+{
+	memStickFatState = state;
+}

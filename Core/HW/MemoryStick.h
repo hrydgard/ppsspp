@@ -17,5 +17,7 @@ enum MemStickFatState {
 MemStickState MemoryStick_State();
 MemStickFatState MemoryStick_FatState();
 
+void MemoryStick_SetFatState(MemStickFatState state);
+
 u64 MemoryStick_SectorSize();
 u64 MemoryStick_FreeSpace();

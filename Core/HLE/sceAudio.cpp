@@ -261,7 +261,7 @@ void sceAudioOutput2OutputBlocking()
 	int vol = PARAM(0);
 	u32 dataPtr = PARAM(1);
 
-  ERROR_LOG(HLE,"UNIMPL sceAudioOutput2OutputBlocking(%i, %08x)", vol, dataPtr);
+  WARN_LOG(HLE,"FAKE sceAudioOutput2OutputBlocking(%i, %08x)", vol, dataPtr);
 	chans[0].running = true;
 	chans[0].leftVolume = vol;
 	chans[0].rightVolume = vol;

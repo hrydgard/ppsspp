@@ -148,13 +148,13 @@ retry:
 				break;
 			}
 		}
+		// RETURN(0);
 		//pop the thread that were released from waiting
 
 		// I don't think we should reschedule here
 		//if (wokeThreads)
 		//	__KernelReSchedule("semaphore signalled");
 
-		RETURN(0);
 	}
 	else
 	{

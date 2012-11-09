@@ -602,10 +602,27 @@ void sceIoDevctl() //(const char *name, int cmd, void *arg, size_t arglen, void 
 				}
 				return;
 			}
-		case 0x02425823:  // Check if valid
-			if (Memory::IsValidAddress(outPtr))
-				Memory::Write_U32(1, outPtr);	 // TODO: Make a headless mode for running tests!
+
+		case 0x02415823:  // Set FAT as enabled
+			if (Memory::IsValidAddress(argAddr) && argLen == 4) {
+				MemoryStick_SetFatState((MemStickFatState)Memory::Read_U32(argAddr));
+				RETURN(0);
+			} else {
+				ERROR_LOG(HLE, "Failed 0x02415823 fat");
+				RETURN(-1);
+			}
 			break;
+
+		case 0x02425823:  // Check if FAT enabled
+			if (Memory::IsValidAddress(outPtr) && outLen == 4) {
+				Memory::Write_U32(MemoryStick_FatState(), outPtr);
+				RETURN(0);
+			} else {
+				ERROR_LOG(HLE, "Failed 0x02425823 fat");
+				RETURN(-1);
+			}
+			break;
+
 		case 0x02425818:  // Get memstick size etc
 			// Pretend we have a 2GB memory stick.
 			{
