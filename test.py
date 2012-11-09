@@ -127,7 +127,7 @@ def run_tests(test_list):
         #print " --- expected: ---"
         #print expected_lines[i]
         different = True
-		break
+        break
 
     if not different:
       print "  " + test + " - passed!"
