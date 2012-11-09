@@ -104,6 +104,7 @@ int main(int argc, const char* argv[])
 	coreParameter.gpuCore = GPU_NULL;
 	coreParameter.enableSound = false;
 	coreParameter.headLess = true;
+	coreParameter.printfEmuLog = true;
 
 	g_Config.bEnableSound = true;
 	g_Config.bFirstRun = false;
@@ -112,7 +113,8 @@ int main(int argc, const char* argv[])
 	std::string error_string;
 
 	if (!PSP_Init(coreParameter, &error_string)) {
-		fprintf(stderr, "Failed to start PSP executable. Error: %s\n", error_string.c_str());
+		fprintf(stderr, "Failed to start %s. Error: %s\n", coreParameter.fileToStart.c_str(), error_string.c_str());
+		printf("TESTERROR\n");
 		return 1;
 	}
 

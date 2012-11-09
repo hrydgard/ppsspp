@@ -663,7 +663,7 @@ void sceIoDevctl() //(const char *name, int cmd, void *arg, size_t arglen, void 
 				std::string data(Memory::GetCharPointer(argAddr), argLen);
 				if (PSP_CoreParameter().printfEmuLog)
 				{
-					puts(data.c_str());
+					printf("%s", data.c_str());
 #ifdef _WIN32
 					OutputDebugString(data.c_str());
 #endif
