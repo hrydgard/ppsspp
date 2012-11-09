@@ -135,6 +135,7 @@
     <ClCompile Include="HLE\sceGe.cpp" />
     <ClCompile Include="HLE\sceHprm.cpp" />
     <ClCompile Include="HLE\sceHttp.cpp" />
+    <ClCompile Include="HLE\sceImpose.cpp" />
     <ClCompile Include="HLE\sceIo.cpp" />
     <ClCompile Include="HLE\sceKernel.cpp" />
     <ClCompile Include="HLE\sceKernelAlarm.cpp" />
@@ -264,6 +265,7 @@
     <ClInclude Include="HLE\sceGe.h" />
     <ClInclude Include="HLE\sceHprm.h" />
     <ClInclude Include="HLE\sceHttp.h" />
+    <ClInclude Include="HLE\sceImpose.h" />
     <ClInclude Include="HLE\sceIo.h" />
     <ClInclude Include="HLE\sceKernel.h" />
     <ClInclude Include="HLE\sceKernelAlarm.h" />

@@ -104,6 +104,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/HLE/sceGe.cpp \
   $(SRC)/Core/HLE/sceHprm.cpp \
   $(SRC)/Core/HLE/sceHttp.cpp \
+  $(SRC)/Core/HLE/sceImpose.cpp \
   $(SRC)/Core/HLE/sceIo.cpp \
   $(SRC)/Core/HLE/sceKernel.cpp \
   $(SRC)/Core/HLE/sceKernelAlarm.cpp \

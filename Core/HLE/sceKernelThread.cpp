@@ -1696,7 +1696,7 @@ u32 __KernelUnregisterCallback(RegisteredCallbackType type, SceUID cbId)
 		t->registeredCallbacks[type].erase(cbId);
 		return 0;
 	} else {
-		return SCE_KERNEL_ERROR_INVAL;
+		return 0x80010016;
 	}
 }
 

@@ -28,6 +28,7 @@
 #include "scePower.h"
 #include "sceNet.h"
 #include "sceMpeg.h"
+#include "sceImpose.h"
 #include "sceGe.h"
 #include "scePsmf.h"
 #include "sceRtc.h"
@@ -277,14 +278,6 @@ const HLEFunction sceUsbstorBoot[] =
 	{0xA55C9E16, 0, "sceUsbstorBootUnregisterNotify"},
 };
 
-//OSD stuff? home button?
-const HLEFunction sceImpose[] =
-{
-	{0x36aa6e91, 0, "sceImposeSetLanguageMode"},  // Seen
-	{0x381bd9e7, 0, "sceImposeHomeButton"},
-	{0x24fd7bcf, 0, "sceImposeGetLanguageMode"},
-	{0x8c943191, 0, "sceImposeGetBatteryIconStatus"},
-};
 
 const HLEFunction sceOpenPSID[] = 
 {
@@ -314,7 +307,6 @@ const HLEModule moduleList[] =
 	{"sceSsl"},
 	{"sceSIRCS_IrDA_Driver"},
 	{"sceRtc"},
-	{"sceImpose",SZ(sceImpose),sceImpose}, //r: [UNK:36aa6e91] : 08b2cd68		//305: [MIPS32 R4K 00000000 ]: Loader: [UNK:24fd7bcf] : 08b2cd70
 	{"Pspnet_Scan"},
 	{"Pspnet_Show_MacAddr"},
 	{"pspeDebug", SZ(pspeDebug), pspeDebug},
@@ -346,6 +338,7 @@ void RegisterAllModules() {
   Register_sceMp3();
   Register_sceHttp();
   Register_scePower();
+	Register_sceImpose();
   Register_sceSuspendForUser();
   Register_sceGe_user();
   Register_sceUmdUser();

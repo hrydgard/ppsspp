@@ -25,6 +25,7 @@ set(SRCS
   HLE/sceGe.cpp
   HLE/sceHprm.cpp
   HLE/sceHttp.cpp
+  HLE/sceImpose.cpp
   HLE/sceIo.cpp
   HLE/sceKernel.cpp
   HLE/sceKernelAlarm.cpp
