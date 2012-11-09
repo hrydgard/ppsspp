@@ -239,7 +239,6 @@ void sceDisplayWaitVblank()
 {
 	DEBUG_LOG(HLE,"sceDisplayWaitVblank()");
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, false);
-	sceDisplayWaitVblankStart();
 }
 
 void sceDisplayWaitVblankCB()
