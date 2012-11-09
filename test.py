@@ -24,12 +24,17 @@ tests_good = [
   "intr/vblank/vblank",
   "misc/testgp",
   "string/string",
+  "gpu/callbacks/ge_callbacks",
 ]
 
 # These are the next tests up for fixing.
 tests_next = [
   "cpu/vfpu/vfpu",
   "ctrl/ctrl",
+  "gpu/simple/simple",
+  "gpu/triangle/triangle",
+  "hle/check_not_used_uids",
+  "font/fonttest",
   "io/cwd/cwd",
   "io/directory/directory",
   "io/io/io",
@@ -53,7 +58,7 @@ tests_next = [
   "threads/wakeup/wakeup",
   "umd/callbacks/umd",
   "umd/io/umd_io",
-  "umd/raw_access/raw_access",
+  "umd/raw_access/raw_acess",
   "utility/systemparam",
   "video/pmf",
   "video/pmf_simple",
@@ -90,7 +95,7 @@ def init():
 
 
 
-def run_tests(test_list):
+def run_tests(test_list, args):
   global PPSSPP_EXE
   tests_passed = []
   tests_failed = []
@@ -107,7 +112,7 @@ def run_tests(test_list):
 
     expected_output = open(expected_filename).read()
 
-    cmdline = PPSSPP_EXE + " " + elf_filename
+    cmdline = PPSSPP_EXE + " " + elf_filename + " " + " ".join(args)
     #print "Cmdline: " + cmdline
     proc = subprocess.Popen(cmdline, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
 
@@ -141,16 +146,29 @@ def run_tests(test_list):
       print "==============================="
       tests_failed.append(test)
 
-  print "%i tests passed, %i tests failed" % (len(tests_passed), len(tests_failed))
+  print "%i tests passed, %i tests failed." % (
+      len(tests_passed), len(tests_failed))
+
   if len(tests_failed):
     print "Failed tests:"
     for t in tests_failed:
       print "  " + t
   print "Ran " + PPSSPP_EXE
 
+
 def main():
   init()
-  if len(sys.argv) == 1:
-    run_tests(tests_good)
+  tests = []
+  args = []
+  for arg in sys.argv[1:]:
+    if arg[0] == '-':
+      args.append(arg)
+    else:
+      tests.append(arg)
+
+  if not tests:
+    tests = tests_good
+
+  run_tests(tests, args)
 
 main()
