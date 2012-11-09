@@ -344,11 +344,11 @@ GLenum getClutDestFormat(GEPaletteFormat format)
 	switch (format)
 	{
 	case GE_CMODE_16BIT_ABGR4444:
-		return GL_UNSIGNED_SHORT_4_4_4_4_REV;
+		return GL_UNSIGNED_SHORT_4_4_4_4;
 	case GE_CMODE_16BIT_ABGR5551:
-		return GL_UNSIGNED_SHORT_1_5_5_5_REV;
+		return GL_UNSIGNED_SHORT_5_5_5_1;
 	case GE_CMODE_16BIT_BGR5650:
-		return GL_UNSIGNED_SHORT_5_6_5_REV;
+		return GL_UNSIGNED_SHORT_5_6_5;
 	case GE_CMODE_32BIT_ABGR8888:
 		return GL_UNSIGNED_BYTE;
 	}
@@ -453,6 +453,47 @@ void decodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch)
 			val <<= 2;
 		}
 		dst += pitch;
+	}
+}
+
+void convertColors(u8 *finalBuf, GLuint dstFmt, int numPixels)
+{
+	switch (dstFmt) {
+	case GL_UNSIGNED_SHORT_4_4_4_4:
+		{
+			u16 *p = (u16 *)finalBuf;
+			for (int i = 0; i < numPixels; i++) {
+				u16 c = p[i];
+				p[i] = (c >> 12) | ((c >> 4) & 0xF0) | ((c << 4) & 0xF00) | (c << 12);
+			}
+		}
+		break;
+	case GL_UNSIGNED_SHORT_5_5_5_1:
+		{
+			u16 *p = (u16 *)finalBuf;
+			for (int i = 0; i < numPixels; i++) {
+				u16 c = p[i];
+				p[i] = ((c & 0x8000) >> 15) | (c << 1);
+			}
+		}
+		break;
+	case GL_UNSIGNED_SHORT_5_6_5:
+		{
+			u16 *p = (u16 *)finalBuf;
+			for (int i = 0; i < numPixels; i++) {
+				u16 c = p[i];
+				p[i] = (c >> 11) | (c & 0x07E0) | (c << 11);
+			}
+		}
+		break;
+	default:
+		{
+			//u32 *p = (u32 *)finalBuf;
+			//for (int i = 0; i < numPixels; i++) {
+			//	p[i] = _byteswap_ulong(p[i]);
+			//}
+		}
+		break;
 	}
 }
 
@@ -638,11 +679,11 @@ void PSPSetTexture()
 	case GE_TFMT_5551:
 	case GE_TFMT_5650:
 		if (format == GE_TFMT_4444)
-			dstFmt = GL_UNSIGNED_SHORT_4_4_4_4_REV;
+			dstFmt = GL_UNSIGNED_SHORT_4_4_4_4;
 		else if (format == GE_TFMT_5551)
-			dstFmt = GL_UNSIGNED_SHORT_1_5_5_5_REV;
+			dstFmt = GL_UNSIGNED_SHORT_5_5_5_1;
 		else if (format == GE_TFMT_5650)
-			dstFmt = GL_UNSIGNED_SHORT_5_6_5_REV;
+			dstFmt = GL_UNSIGNED_SHORT_5_6_5;
 		texByteAlign = 2;
 
 		if (!(gstate.texmode & 1))
@@ -701,16 +742,19 @@ void PSPSetTexture()
 		return;
 	}
 
+	convertColors((u8*)finalBuf, dstFmt, bufw * h);
 
 	if (w != bufw) {
 		int pixelSize;
 		switch (dstFmt) {
-		case GL_UNSIGNED_SHORT_4_4_4_4_REV:
-		case GL_UNSIGNED_SHORT_1_5_5_5_REV:
-		case GL_UNSIGNED_SHORT_5_6_5_REV:
+		case GL_UNSIGNED_SHORT_4_4_4_4:
+		case GL_UNSIGNED_SHORT_5_5_5_1:
+		case GL_UNSIGNED_SHORT_5_6_5:
 			pixelSize = 2;
+			break;
 		default:
 			pixelSize = 4;
+			break;
 		}
 		// Need to rearrange the buffer to simulate GL_UNPACK_ROW_LENGTH etc.
 		int inRowBytes = bufw * pixelSize;
@@ -745,9 +789,9 @@ void PSPSetTexture()
 	// glGenerateMipmap(GL_TEXTURE_2D);
 	UpdateSamplingParams();
 
-	glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+	//glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-	glPixelStorei(GL_PACK_ROW_LENGTH, 0);
+	//glPixelStorei(GL_PACK_ROW_LENGTH, 0);
 	glPixelStorei(GL_PACK_ALIGNMENT, 1);
 
 	cache[texaddr] = entry;
