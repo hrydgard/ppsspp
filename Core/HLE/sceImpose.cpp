@@ -19,6 +19,9 @@
 #include "FunctionWrappers.h"
 #include "../MIPS/MIPS.h"
 
+u32 iLanguage = 0;
+u32 iButtonValue = 0;
+
 u32 sceImposeGetBatteryIconStatus(u32 chargingPtr, u32 iconStatusPtr)
 {
 	DEBUG_LOG(HLE,"%i=sceImposeGetBatteryIconStatus(%08x, %08x)", chargingPtr, iconStatusPtr);
@@ -29,13 +32,34 @@ u32 sceImposeGetBatteryIconStatus(u32 chargingPtr, u32 iconStatusPtr)
 	return 0;
 }
 
+u32 sceImposeSetLanguageMode(u32 languageVal, u32 buttonVal)
+{
+	DEBUG_LOG(HLE,"%i=sceImposeSetLanguageMode(%08x, %08x)", languageVal, buttonVal);
+	iLanguage = languageVal;
+	iButtonValue = buttonVal;
+	return 0;
+}
+
+
+
+
+
+u32 sceImposeGetLanguageMode(u32 languagePtr, u32 btnPtr)
+{
+	DEBUG_LOG(HLE,"%i=sceImposeGetLanguageMode(%08x, %08x)", languagePtr, btnPtr);
+	if (Memory::IsValidAddress(languagePtr))
+		Memory::Write_U32(iLanguage, languagePtr);
+	if (Memory::IsValidAddress(btnPtr))
+		Memory::Write_U32(iButtonValue, btnPtr);
+	return 0;
+}
 
 //OSD stuff? home button?
 const HLEFunction sceImpose[] =
 {
-	{0x36aa6e91, 0, "sceImposeSetLanguageMode"},  // Seen
+	{0x36aa6e91, &WrapU_UU<sceImposeSetLanguageMode>, "sceImposeSetLanguageMode"},  // Seen
 	{0x381bd9e7, 0, "sceImposeHomeButton"},
-	{0x24fd7bcf, 0, "sceImposeGetLanguageMode"},
+	{0x24fd7bcf, &WrapU_UU<sceImposeGetLanguageMode>, "sceImposeGetLanguageMode"},
 	{0x8c943191, &WrapU_UU<sceImposeGetBatteryIconStatus>, "sceImposeGetBatteryIconStatus"},
 };
 
