@@ -87,12 +87,10 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener {
 	} 
 
 	// Sensor management
-	@Override
 	public void onAccuracyChanged(Sensor sensor, int arg1) {
 		Log.i(TAG, "onAccuracyChanged");
 	}
 
-	@Override
 	public void onSensorChanged(SensorEvent event) {
 		if (event.sensor.getType() != Sensor.TYPE_ACCELEROMETER) {
 			return;

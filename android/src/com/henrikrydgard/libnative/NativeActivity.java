@@ -242,19 +242,24 @@ public class NativeActivity extends Activity {
     	// Eat these keys, to avoid accidental exits / other screwups.
     	// Maybe there's even more we need to eat on tablets?
         if (keyCode == KeyEvent.KEYCODE_BACK) {
-        	NativeApp.keyDown(1);
-            return true;
+        	if (event.isAltPressed()) {
+        		NativeApp.keyDown(1004); // special custom keycode
+        	} else {
+	        	NativeApp.keyDown(1);
+        	}
         }
         else if (keyCode == KeyEvent.KEYCODE_MENU) {
         	NativeApp.keyDown(2);  
-        	return true;
         }
         else if (keyCode == KeyEvent.KEYCODE_SEARCH) {
         	NativeApp.keyDown(3);
-        	return true;
         }
-        // Don't process any other keys.
-        return false;
+        else {
+        	// send the rest of the keys through.
+        	// TODO: get rid of the three special cases above by adjusting the native side of the code.
+        	NativeApp.keyDown(keyCode);
+        } 
+        return true;
     } 
     
     @Override
@@ -262,25 +267,29 @@ public class NativeActivity extends Activity {
     	// Eat these keys, to avoid accidental exits / other screwups.
     	// Maybe there's even more we need to eat on tablets?
         if (keyCode == KeyEvent.KEYCODE_BACK) {
-        	if (NativeApp.isAtTopLevel()) {
+        	if (event.isAltPressed()) {
+        		NativeApp.keyUp(1004); // special custom keycode
+        	}
+        	else if (NativeApp.isAtTopLevel()) {
         		return false;
         	} else {
         		NativeApp.keyUp(1);
-        		return true;
         	}
         }
         else if (keyCode == KeyEvent.KEYCODE_MENU) {
         	// Menu should be ignored from SDK 11 forwards. We send it to the app.
         	NativeApp.keyUp(2);  
-        	return true;
         }
         else if (keyCode == KeyEvent.KEYCODE_SEARCH) {
         	// Search probably should also be ignored. We send it to the app.
         	NativeApp.keyUp(3);
-        	return true;
         } 
-        // All other keys retain their default behavior.
-		return false; 
+        else {
+        	// send the rest of the keys through.
+        	// TODO: get rid of the three special cases above by adjusting the native side of the code.
+        	NativeApp.keyUp(keyCode);
+        } 
+    	return true;
     }  
    
     // Prevent destroying and recreating the main activity when the device rotates etc,
@@ -310,13 +319,11 @@ public class NativeActivity extends Activity {
     		.setView(fl)
     		.setTitle(title)
     		.setPositiveButton(defaultAction, new DialogInterface.OnClickListener(){
-    			@Override
     			public void onClick(DialogInterface d, int which) {
     				d.dismiss();
     			}
     		})
     		.setNegativeButton("Cancel", new DialogInterface.OnClickListener(){
-    			@Override
     			public void onClick(DialogInterface d, int which) {
     				d.cancel();
         	    	NativeActivity.inputBoxCancelled = false;

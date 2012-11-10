@@ -24,6 +24,22 @@
 #include "net/resolve.h"
 #include "android/native_audio.h"
 
+// For Xperia Play support
+enum AndroidKeyCodes {
+	KEYCODE_BUTTON_CROSS = 23,  // trackpad or X button(Xperia Play) is pressed
+	KEYCODE_BUTTON_CIRCLE = 1004, // Special custom keycode generated from 'O' button by our java code. Or 'O' button if Alt is pressed (TODO)
+	KEYCODE_BUTTON_SQUARE = 99,  // Square button(Xperia Play) is pressed
+	KEYCODE_BUTTON_TRIANGLE = 100, // 'Triangle button(Xperia Play) is pressed
+	KEYCODE_DPAD_LEFT = 21,
+	KEYCODE_DPAD_UP = 19,
+	KEYCODE_DPAD_RIGHT = 22,
+	KEYCODE_DPAD_DOWN = 20,
+	KEYCODE_BUTTON_L1 = 102,
+	KEYCODE_BUTTON_R1 = 103,
+	KEYCODE_BUTTON_START = 108,
+	KEYCODE_BUTTON_SELECT = 109,
+};
+
 static JNIEnv *jniEnvUI;
 
 std::string frameCommand;
@@ -282,36 +298,56 @@ extern "C" void JNICALL Java_com_henrikrydgard_libnative_NativeApp_touch
 	input_state.mouse_valid = true;
 }
 
+static void AsyncDown(int padbutton) {
+	pad_buttons_async_set |= padbutton;
+	pad_buttons_async_clear &= ~padbutton;
+}
+
+static void AsyncUp(int padbutton) {
+	pad_buttons_async_set &= ~padbutton;
+	pad_buttons_async_clear |= padbutton;
+}
+
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_keyDown(JNIEnv *, jclass, jint key) {
 	switch (key) {
-		case 1:	// Back
-			pad_buttons_async_set |= PAD_BUTTON_BACK;
-			pad_buttons_async_clear &= ~PAD_BUTTON_BACK;
-			break;
-		case 2:	// Menu
-			pad_buttons_async_set |= PAD_BUTTON_MENU;
-			pad_buttons_async_clear &= ~PAD_BUTTON_MENU;
-			break;
-		case 3:	// Search
-			pad_buttons_async_set |= PAD_BUTTON_A;
-			pad_buttons_async_clear &= ~PAD_BUTTON_A;
+		case 1: AsyncDown(PAD_BUTTON_BACK); break; 	// Back
+		case 2:	AsyncDown(PAD_BUTTON_MENU); break;  // Menu
+		case 3:	AsyncDown(PAD_BUTTON_A); break; // Search
+		case KEYCODE_BUTTON_CROSS: AsyncDown(PAD_BUTTON_A); break;
+		case KEYCODE_BUTTON_CIRCLE: AsyncDown(PAD_BUTTON_B); break;
+		case KEYCODE_BUTTON_SQUARE: AsyncDown(PAD_BUTTON_X); break;
+		case KEYCODE_BUTTON_TRIANGLE: AsyncDown(PAD_BUTTON_Y); break;
+		case KEYCODE_DPAD_LEFT: AsyncDown(PAD_BUTTON_LEFT); break;
+		case KEYCODE_DPAD_UP: AsyncDown(PAD_BUTTON_UP); break;
+		case KEYCODE_DPAD_RIGHT: AsyncDown(PAD_BUTTON_RIGHT); break;
+		case KEYCODE_DPAD_DOWN: AsyncDown(PAD_BUTTON_LEFT); break;
+		case KEYCODE_BUTTON_L1: AsyncDown(PAD_BUTTON_LBUMPER); break;
+		case KEYCODE_BUTTON_R1: AsyncDown(PAD_BUTTON_RBUMPER); break;
+		case KEYCODE_BUTTON_START: AsyncDown(PAD_BUTTON_START); break;
+		case KEYCODE_BUTTON_SELECT: AsyncDown(PAD_BUTTON_SELECT); break;
+		default:
 			break;
 	}
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_keyUp(JNIEnv *, jclass, jint key) {
 	switch (key) {
-		case 1:	// Back
-			pad_buttons_async_set &= ~PAD_BUTTON_BACK;
-			pad_buttons_async_clear |= PAD_BUTTON_BACK;
-			break;
-		case 2:	// Menu
-			pad_buttons_async_set &= ~PAD_BUTTON_MENU;
-			pad_buttons_async_clear |= PAD_BUTTON_MENU;
-			break;
-		case 3:	// Search
-			pad_buttons_async_set &= ~PAD_BUTTON_A;
-			pad_buttons_async_clear |= PAD_BUTTON_A;
+		case 1: AsyncUp(PAD_BUTTON_BACK); break; 	// Back
+		case 2:	AsyncUp(PAD_BUTTON_MENU); break;  // Menu
+		case 3:	AsyncUp(PAD_BUTTON_A); break; // Search
+		case KEYCODE_BUTTON_CROSS: AsyncUp(PAD_BUTTON_A); break;
+		case KEYCODE_BUTTON_CIRCLE: AsyncUp(PAD_BUTTON_B); break;
+		case KEYCODE_BUTTON_SQUARE: AsyncUp(PAD_BUTTON_X); break;
+		case KEYCODE_BUTTON_TRIANGLE: AsyncUp(PAD_BUTTON_Y); break;
+		case KEYCODE_DPAD_LEFT: AsyncUp(PAD_BUTTON_LEFT); break;
+		case KEYCODE_DPAD_UP: AsyncUp(PAD_BUTTON_UP); break;
+		case KEYCODE_DPAD_RIGHT: AsyncUp(PAD_BUTTON_RIGHT); break;
+		case KEYCODE_DPAD_DOWN: AsyncUp(PAD_BUTTON_LEFT); break;
+		case KEYCODE_BUTTON_L1: AsyncUp(PAD_BUTTON_LBUMPER); break;
+		case KEYCODE_BUTTON_R1: AsyncUp(PAD_BUTTON_RBUMPER); break;
+		case KEYCODE_BUTTON_START: AsyncUp(PAD_BUTTON_START); break;
+		case KEYCODE_BUTTON_SELECT: AsyncUp(PAD_BUTTON_SELECT); break;
+		default:
 			break;
 	}
 }

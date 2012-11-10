@@ -16,19 +16,16 @@ public class NativeRenderer implements GLSurfaceView.Renderer {
 	}
 	
 	
-	@Override
 	public void onDrawFrame(GL10 unused /*use GLES20*/) {
         displayRender();
 	}
 
-	@Override
 	public void onSurfaceCreated(GL10 unused, EGLConfig config) {
 		Log.i(TAG, "onSurfaceCreated - EGL context is new or was lost");
 		// Actually, it seems that it is here we should recreate lost GL objects.
 		displayInit();
 	}
  
-	@Override
 	public void onSurfaceChanged(GL10 unused, int width, int height) {
 		Log.i(TAG, "onSurfaceChanged");
 		displayResize(width, height);
@@ -50,7 +47,6 @@ public class NativeRenderer implements GLSurfaceView.Renderer {
 		final String cmd = command;
 		final String param = parameter;
 		mActivity.runOnUiThread(new Runnable() {
-			@Override
 			public void run() {
 				NativeRenderer.this.mActivity.processCommand(cmd, param);
 			}
