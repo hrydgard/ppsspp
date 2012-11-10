@@ -187,10 +187,18 @@ nextblock:
 			name[i] = buffer[33+i] ? buffer[33+i] : '.';
 		name[fnLength] = '\0';
 
+		bool relative = false;
+
 		if (!strcmp(name, "."))	// "." record
-			continue;
+		{
+			relative = true;
+		}
+
 		if (strlen(name) == 1 && name[0] == '\x01')	 // ".." record
-			continue;
+		{
+			strcpy(name,"..");
+			relative=true;
+		}
 
 		TreeEntry *e = new TreeEntry;
 		e->name = name;
@@ -202,7 +210,7 @@ nextblock:
 				
 		DEBUG_LOG(FILESYS, "%s: %s %08x %08x %i", e->isDirectory?"D":"F", name, dir.firstDataSectorLE, e->startingPosition, e->startingPosition);
 
-		if (e->isDirectory)
+		if (e->isDirectory && !relative)
 		{
 			if (dir.firstDataSectorLE == startsector)
 			{
@@ -500,18 +508,13 @@ std::vector<PSPFileInfo> ISOFileSystem::GetDirListing(std::string path)
 		return myVector;
 	}
 
-	// fake the . and ..
-	PSPFileInfo x;
-	x.type = FILETYPE_DIRECTORY;
-	x.name = ".";
-	x.isOnSectorSystem = true;
-	myVector.push_back(x);
-	x.name = "..";
-	myVector.push_back(x);
-
 	for (size_t i=0; i<entry->children.size(); i++)
 	{
 		TreeEntry *e = entry->children[i];
+
+		if(e->name[0] == '.') // do not include the relative entries in the list
+			continue;
+
 		PSPFileInfo x;
 		x.name = e->name;
 		x.access = FILEACCESS_READ;
