@@ -147,7 +147,7 @@ void MenuScreen::render() {
 
 	ui_draw2d.DrawTextShadow(UBUNTU48, "PPSSPP", dp_xres + xoff - w/2, 80, 0xFFFFFFFF, ALIGN_HCENTER | ALIGN_BOTTOM);
 	ui_draw2d.SetFontScale(0.7f, 0.7f);
-	ui_draw2d.DrawTextShadow(UBUNTU24, "V0.1", dp_xres + xoff, 80, 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_BOTTOM);
+	ui_draw2d.DrawTextShadow(UBUNTU24, "V0.2", dp_xres + xoff, 80, 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_BOTTOM);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 	VLinear vlinear(dp_xres + xoff, 95, 20);
 
@@ -353,7 +353,7 @@ void CreditsScreen::update(InputState &input_state) {
 
 static const char *credits[] =
 {
-	"PPSSPP v0.1",
+	"PPSSPP v0.2",
 	"",
 	"",
 	"A fast and portable PSP emulator",
