@@ -6,7 +6,7 @@ import os
 import subprocess
 
 
-PPSSPP_EXECUTABLES = [ "Windows/Release/PPSSPPHeadless.exe", "SDL/build/ppsspp_headless" ]
+PPSSPP_EXECUTABLES = [ "Windows/Release/PPSSPPHeadless.exe", "SDL/build/ppsspp-headless" ]
 PPSSPP_EXE = None
 TEST_ROOT = "pspautotests/tests/"
 
@@ -25,6 +25,7 @@ tests_good = [
   "misc/testgp",
   "string/string",
   "gpu/callbacks/ge_callbacks",
+  "threads/mbx/mbx",
 ]
 
 # These are the next tests up for fixing.
@@ -47,7 +48,6 @@ tests_next = [
   "sysmem/sysmem",
   "threads/events/events",
   "threads/fpl/fpl",
-  "threads/mbx/mbx",
   "threads/msgpipe/msgpipe",
   "threads/mutex/mutex",
   "threads/scheduling/scheduling",
@@ -114,7 +114,7 @@ def run_tests(test_list, args):
 
     cmdline = PPSSPP_EXE + " " + elf_filename + " " + " ".join(args)
     #print "Cmdline: " + cmdline
-    proc = subprocess.Popen(cmdline, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    proc = subprocess.Popen(cmdline, stdin=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
 
     output = proc.stdout.read().strip()
     if output.startswith("TESTERROR"):

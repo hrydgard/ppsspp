@@ -62,7 +62,7 @@ enum WaitType //probably not the real values
 	WAITTYPE_MBX = 5,
 	WAITTYPE_VPL = 6,
 	WAITTYPE_FPL = 7,
-  //
+	WAITTYPE_MSGPIPE = 8, // fake
 	WAITTYPE_THREADEND = 9,
 	WAITTYPE_AUDIOCHANNEL = 10, // this is fake, should be replaced with 8 eventflags   ( ?? )
 	WAITTYPE_UMD = 11,           // this is fake, should be replaced with 1 eventflag    ( ?? )
