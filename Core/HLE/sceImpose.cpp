@@ -37,6 +37,7 @@ const HLEFunction sceImpose[] =
 	{0x381bd9e7, 0, "sceImposeHomeButton"},
 	{0x24fd7bcf, 0, "sceImposeGetLanguageMode"},
 	{0x8c943191, &WrapU_UU<sceImposeGetBatteryIconStatus>, "sceImposeGetBatteryIconStatus"},
+	{0x72189C48, 0, "sceImposeSetUMDPopup"},
 };
 
 void Register_sceImpose()

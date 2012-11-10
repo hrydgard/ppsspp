@@ -529,7 +529,7 @@ void PSPSetTexture()
 			match = false;
 
 		//TODO: Check more clut parameters, compute clut hash
-		if(match && (format >= GE_TFMT_CLUT4 || format <= GE_TFMT_CLUT32) &&
+		if(match && (format >= GE_TFMT_CLUT4 && format <= GE_TFMT_CLUT32) &&
 			(entry.clutformat != clutformat ||
 		     entry.clutaddr   != GetClutAddr(clutformat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2) ||
 			 entry.cluthash   != Memory::Read_U32(entry.clutaddr)))
@@ -568,7 +568,7 @@ void PSPSetTexture()
 	entry.hash = *(u32*)texptr;
 	entry.format = format;
 
-	if(format >= GE_TFMT_CLUT4 || format <= GE_TFMT_CLUT32)
+	if(format >= GE_TFMT_CLUT4 && format <= GE_TFMT_CLUT32)
 	{
 		entry.clutformat = clutformat;
 		entry.clutaddr = GetClutAddr(clutformat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2);

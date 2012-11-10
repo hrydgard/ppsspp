@@ -512,7 +512,7 @@ std::vector<PSPFileInfo> ISOFileSystem::GetDirListing(std::string path)
 	{
 		TreeEntry *e = entry->children[i];
 
-		if(!strcmp(e->name, ".") || !strcmp(e->name, "..")) // do not include the relative entries in the list
+		if(!strcmp(e->name.c_str(), ".") || !strcmp(e->name.c_str(), "..")) // do not include the relative entries in the list
 			continue;
 
 		PSPFileInfo x;
