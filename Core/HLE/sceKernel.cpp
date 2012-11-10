@@ -45,6 +45,7 @@
 #include "sceKernelEventFlag.h"
 #include "sceKernelVTimer.h"
 #include "sceKernelTime.h"
+#include "scePower.h"
 #include "sceUtility.h"
 #include "sceUmd.h"
 
@@ -74,6 +75,7 @@ void __KernelInit()
 	__DisplayInit();
 	__InterruptsInit();
 	__GeInit();
+	__PowerInit();
 	__UtilityInit();
 	__UmdInit();
 
@@ -276,6 +278,13 @@ int KernelObjectPool::GetCount()
 }
 
 void sceKernelIcacheInvalidateAll()
+{
+	DEBUG_LOG(CPU, "Icache invalidated - should clear JIT someday");
+	RETURN(0);
+}
+
+
+void sceKernelIcacheClearAll()
 {
 	DEBUG_LOG(CPU, "Icache cleared - should clear JIT someday");
 	RETURN(0);

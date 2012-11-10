@@ -155,7 +155,7 @@ void MenuScreen::render() {
 	if (UIButton(GEN_ID, vlinear, w, "Load...", ALIGN_RIGHT)) {
 		FileSelectScreenOptions options;
 		options.allowChooseDirectory = true;
-		options.filter = "iso:cso:pbp:elf:";
+		options.filter = "iso:cso:pbp:elf:prx:";
 		options.folderIcon = I_ICON_FOLDER;
 		options.iconMapping["iso"] = I_ICON_UMD;
 		options.iconMapping["cso"] = I_ICON_UMD;

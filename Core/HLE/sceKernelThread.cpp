@@ -229,6 +229,8 @@ public:
 		FreeStack();
 	}
 
+	void setReturnValue(u32 retval);
+
 	// Utils
 	bool isRunning() const { return (nt.status & THREADSTATUS_RUNNING) != 0; }
 	bool isStopped() const { return (nt.status & THREADSTATUS_DORMANT) != 0; }
@@ -283,6 +285,15 @@ SceUID curModule;
 //////////////////////////////////////////////////////////////////////////
 //STATE END
 //////////////////////////////////////////////////////////////////////////
+
+void Thread::setReturnValue(u32 retval)
+{
+	if (this == currentThread) {
+		currentMIPS->r[2] = retval;
+	} else {
+		context.r[2] = retval;
+	}
+}
 
 // TODO: Should move to this wrapper so we can keep the current thread as a SceUID instead
 // of a dangerous raw pointer.
@@ -1146,8 +1157,10 @@ void sceKernelWakeupThread()
 			RETURN(0);
 		} else {
 			__KernelResumeThreadFromWait(uid);
-			__KernelReSchedule("wakeup");
 		}
+	} 
+	else {
+		RETURN(error);
 	}
 }
 
@@ -1287,9 +1300,9 @@ void sceKernelNotifyCallback()
 {
 	SceUID cbId = PARAM(0);
 	u32 arg = PARAM(1);
-	DEBUG_LOG(HLE,"sceKernelNotifyCallback(%i, %i) UNIMPL", cbId, arg);
+	DEBUG_LOG(HLE,"sceKernelNotifyCallback(%i, %i)", cbId, arg);
 
-	// __KernelNotifyCallback(__KernelGetCurThread(), cbId, arg);
+	__KernelNotifyCallback(THREAD_CALLBACK_USER_DEFINED, __KernelGetCurThread(), cbId, arg);
 	RETURN(0);
 }
 
@@ -1681,7 +1694,7 @@ bool __KernelInCallback()
 u32 __KernelRegisterCallback(RegisteredCallbackType type, SceUID cbId)
 {
 	Thread *t = __GetCurrentThread();
-	if (t->registeredCallbacks[type].find(cbId) == t->registeredCallbacks[type].end()) {
+	if (cbId > 0 && t->registeredCallbacks[type].find(cbId) == t->registeredCallbacks[type].end()) {
 		t->registeredCallbacks[type].insert(cbId);
 		return 0;
 	} else {
@@ -1705,6 +1718,11 @@ void __KernelNotifyCallback(RegisteredCallbackType type, SceUID threadId, SceUID
 	u32 error;
 
 	Callback *cb = kernelObjects.Get<Callback>(cbId, error);
+	if (!cb) {
+		// Yeah, we're screwed, this shouldn't happen.
+		ERROR_LOG(HLE, "__KernelNotifyCallback - invalid callback 0");
+		return;
+	}
 	cb->nc.notifyCount++;
 	cb->nc.notifyArg = notifyArg;
 

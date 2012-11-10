@@ -270,7 +270,6 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 			// TODO : check if has uv
 			for (int j=0; j<2; j++)
 				uv[j] = decoded[index].uv[j];
-
 			// Rescale UV?
 		}
 		else
@@ -284,6 +283,7 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 			}
 			else
 			{
+				// Skinning
 				Vec3 psum(0,0,0);
 				Vec3 nsum(0,0,0);
 				int nweights = (gstate.vertType & GE_VTYPE_WEIGHT_MASK) >> GE_VTYPE_WEIGHT_SHIFT;
@@ -376,6 +376,7 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 					break;
 				}
 			}
+
 			// Transform the coord by the view matrix. Should this be done before or after texcoord generation?
 			Vec3ByMatrix43(v, out, gstate.viewMatrix);
 		}

@@ -157,7 +157,7 @@ const HLEFunction LoadCoreForKernel[] =
   {0xB4D6FECC, 0, "sceKernelApplyElfRelSection"},
   {0x54AB2675, 0, "LoadCoreForKernel_54AB2675"},
   {0x2952F5AC, 0, "sceKernelDcacheWBinvAll"},
-  {0xD8779AC6, 0, "sceKernelIcacheClearAll"},
+  {0xD8779AC6, sceKernelIcacheClearAll, "sceKernelIcacheClearAll"},
   {0x99A695F0, 0, "sceKernelRegisterLibrary"},
   {0x5873A31F, 0, "sceKernelRegisterLibraryForUser"},
   {0x0B464512, 0, "sceKernelReleaseLibrary"},

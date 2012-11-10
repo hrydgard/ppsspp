@@ -458,19 +458,28 @@ void sceKernelSetCompilerVersion()
 void sceKernelCreateVpl()
 {
 	const char *name = Memory::GetCharPointer(PARAM(0));
+
+	u32 vplSize = PARAM(3);
+	u32 memBlockPtr = userMemory.Alloc(vplSize, false, "VPL");
+	if (memBlockPtr == -1) {
+		ERROR_LOG(HLE, "sceKernelCreateVpl: Failed to allocate %i bytes of pool data", vplSize);
+		RETURN(-1);
+		return;
+	}
+
 	VPL *vpl = new VPL;
 	SceUID id = kernelObjects.Create(vpl);
 
 	strncpy(vpl->nv.name, name, 32);
 	//vpl->nv.mpid = PARAM(1); //seems to be the standard memory partition (user, kernel etc)
 	vpl->nv.attr = PARAM(2);
-	vpl->size = PARAM(3);
+	vpl->size = vplSize;
 	vpl->nv.poolSize = vpl->size;
 	vpl->nv.size = sizeof(vpl->nv);
 	vpl->nv.numWaitThreads = 0;
 	vpl->nv.freeSize = vpl->nv.poolSize;
 		
-	vpl->address = userMemory.Alloc(vpl->size, false, "VPL");
+	vpl->address = memBlockPtr;
 	vpl->alloc.Init(vpl->address, vpl->size);
 
 	DEBUG_LOG(HLE,"sceKernelCreateVpl(\"%s\", block=%i, attr=%i, size=%i)", 

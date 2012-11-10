@@ -42,7 +42,7 @@ EmuFileType Identify_File(const char *filename)
 	fclose(f);
 	if (id == 'FLE\x7F')
 	{
-		if (strstr(filename,".plf") || strstr(filename,"BOOT.BIN") || strstr(filename,".elf") )
+		if (strstr(filename,".plf") || strstr(filename,"BOOT.BIN") || strstr(filename,".elf") || strstr(filename,".prx") )
 		{
 			return FILETYPE_PSP_ELF;
 		}

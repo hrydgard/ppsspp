@@ -511,7 +511,7 @@ void sceIoDevctl() //(const char *name, int cmd, void *arg, size_t arglen, void 
 	
 	// This should really send it on to a FileSystem implementation instead.
 
-	if (!strcmp(name, "mscmhc0:"))
+	if (!strcmp(name, "mscmhc0:") || !strcmp(name, "ms0:"))
 	{
 		switch (cmd)
 		{

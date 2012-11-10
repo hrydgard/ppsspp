@@ -266,9 +266,8 @@ void sceAudioOutput2OutputBlocking()
 	chans[0].leftVolume = vol;
 	chans[0].rightVolume = vol;
 	chans[0].sampleAddress = dataPtr;
+	RETURN(chans[0].sampleCount);
   __AudioEnqueue(chans[0], 0, true);
-
-	RETURN(0);
 }
 
 void sceAudioOutput2ChangeLength()

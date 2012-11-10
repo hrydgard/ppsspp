@@ -20,84 +20,264 @@
 
 void sceMpegInit()
 {
-	DEBUG_LOG(HLE, "HACK sceMpegInit(...)");
+	WARN_LOG(HLE, "HACK sceMpegInit(...)");
 	RETURN(0);
 }
 void sceMpegCreate()
 {
-	DEBUG_LOG(HLE, "HACK sceMpegCreate(...)");
+	WARN_LOG(HLE, "HACK sceMpegCreate(...)");
 	RETURN(0);
 }
 void sceMpegInitAu()
 {
-	DEBUG_LOG(HLE, "HACK sceMpegInitAu(...)");
+	WARN_LOG(HLE, "HACK sceMpegInitAu(...)");
 	RETURN(0);
 }
 
 void sceMpegQueryMemSize()
 {
-	DEBUG_LOG(HLE, "HACK sceMpegQueryMemSize(...)");
+	WARN_LOG(HLE, "HACK sceMpegQueryMemSize(...)");
 	RETURN(0x10000);	// 64K
 }
 
 void sceMpegRingbufferQueryMemSize()
 {
 	int packets = PARAM(0);
-	DEBUG_LOG(HLE, "HACK sceMpegRingbufferQueryMemSize(...)");
+	WARN_LOG(HLE, "HACK sceMpegRingbufferQueryMemSize(...)");
 	RETURN(packets * (104 + 2048));
 }
 
 void sceMpegRingbufferConstruct()
 {
-	DEBUG_LOG(HLE, "HACK sceMpegRingbufferConstruct(...)");
+	WARN_LOG(HLE, "HACK sceMpegRingbufferConstruct(...)");
 	RETURN(0);
 }
 
 void sceMpegRegistStream() 
 {
-	DEBUG_LOG(HLE, "HACK sceMpegRegistStream(...)");
+	WARN_LOG(HLE, "HACK sceMpegRegistStream(...)");
+	RETURN(0);
+}
+
+void sceMpegUnRegistStream() 
+{
+	WARN_LOG(HLE, "HACK sceMpegRegistStream(...)");
+	RETURN(0);
+}
+
+void sceMpegGetAtracAu() 
+{
+	WARN_LOG(HLE, "HACK sceMpegGetAtracAu(...)");
+	RETURN(0);
+}
+
+void sceMpegQueryPcmEsSize() 
+{
+	WARN_LOG(HLE, "HACK sceMpegQueryPcmEsSize(...)");
+	RETURN(0);
+}
+
+void sceMpegQueryAtracEsSize() 
+{
+	WARN_LOG(HLE, "HACK sceMpegQueryAtracEsSize(...)");
+	RETURN(0);
+}
+
+void sceMpegChangeGetAuMode() 
+{
+	WARN_LOG(HLE, "HACK sceMpegChangeGetAuMode(...)");
+	RETURN(0);
+}
+
+void sceMpegQueryStreamOffset() 
+{
+	WARN_LOG(HLE, "HACK sceMpegQueryStreamOffset(...)");
+	RETURN(0);
+}
+
+void sceMpegGetPcmAu() 
+{
+	WARN_LOG(HLE, "HACK sceMpegGetPcmAu(...)");
+	RETURN(0);
+}
+
+void sceMpegRingbufferQueryPackNum() 
+{
+	WARN_LOG(HLE, "HACK sceMpegRingbufferQueryPackNum(...)");
+	RETURN(0);
+}
+
+void sceMpegFlushAllStream() 
+{
+	WARN_LOG(HLE, "HACK sceMpegFlushAllStream(...)");
+	RETURN(0);
+}
+
+void sceMpegMallocAvcEsBuf() 
+{
+	WARN_LOG(HLE, "HACK sceMpegMallocAvcEsBuf(...)");
+	RETURN(0);
+}
+
+void sceMpegAvcCopyYCbCr() 
+{
+	WARN_LOG(HLE, "HACK sceMpegAvcCopyYCbCr(...)");
+	RETURN(0);
+}
+
+void sceMpegFreeAvcEsBuf() 
+{
+	WARN_LOG(HLE, "HACK sceMpegFreeAvcEsBuf(...)");
+	RETURN(0);
+}
+
+void sceMpegAtracDecode() 
+{
+	WARN_LOG(HLE, "HACK sceMpegAtracDecode(...)");
+	RETURN(0);
+}
+
+void sceMpegAvcDecodeStop() 
+{
+	WARN_LOG(HLE, "HACK sceMpegAvcDecodeStop(...)");
+	RETURN(0);
+}
+
+void sceMpegAvcDecodeMode() 
+{
+	WARN_LOG(HLE, "HACK sceMpegAvcDecodeMode(...)");
+	RETURN(0);
+}
+
+void sceMpegAvcDecode() 
+{
+	WARN_LOG(HLE, "HACK sceMpegAvcDecode(...)");
+	RETURN(0);
+}
+
+void sceMpegAvcCsc() 
+{
+	WARN_LOG(HLE, "HACK sceMpegAvcCsc(...)");
+	RETURN(0);
+}
+
+void sceMpegAvcDecodeStopYCbCr() 
+{
+	WARN_LOG(HLE, "HACK sceMpegAvcDecodeStopYCbCr(...)");
+	RETURN(0);
+}
+
+void sceMpegRingbufferDestruct() 
+{
+	WARN_LOG(HLE, "HACK sceMpegRingbufferDestruct(...)");
+	RETURN(0);
+}
+
+void sceMpegAvcDecodeYCbCr() 
+{
+	WARN_LOG(HLE, "HACK sceMpegAvcDecodeYCbCr(...)");
+	RETURN(0);
+}
+
+void sceMpegRingbufferPut() 
+{
+	WARN_LOG(HLE, "HACK sceMpegRingbufferPut(...)");
+	RETURN(0);
+}
+
+void sceMpegAvcInitYCbCr() 
+{
+	WARN_LOG(HLE, "HACK sceMpegAvcInitYCbCr(...)");
+	RETURN(0);
+}
+
+void sceMpegAvcQueryYCbCrSize() 
+{
+	WARN_LOG(HLE, "HACK sceMpegAvcQueryYCbCrSize(...)");
+	RETURN(0);
+}
+
+void sceMpegRingbufferAvailableSize() 
+{
+	WARN_LOG(HLE, "HACK sceMpegRingbufferAvailableSize(...)");
+	RETURN(0);
+}
+
+void sceMpegAvcDecodeDetail() 
+{
+	WARN_LOG(HLE, "HACK sceMpegAvcDecodeDetail(...)");
+	RETURN(0);
+}
+
+void sceMpegAvcDecodeFlush() 
+{
+	WARN_LOG(HLE, "HACK sceMpegAvcDecodeFlush(...)");
+	RETURN(0);
+}
+
+void sceMpegFinish() 
+{
+	WARN_LOG(HLE, "HACK sceMpegFinish(...)");
+	RETURN(0);
+}
+
+void sceMpegDelete() 
+{
+	WARN_LOG(HLE, "HACK sceMpegDelete(...)");
+	RETURN(0);
+}
+
+void sceMpegGetAvcAu() 
+{
+	WARN_LOG(HLE, "HACK sceMpegDelete(...)");
+	RETURN(0);
+}
+
+void sceMpegQueryStreamSize() 
+{
+	WARN_LOG(HLE, "HACK sceMpegDelete(...)");
 	RETURN(0);
 }
 
 const HLEFunction sceMpeg[] =
 {
-	{0xe1ce83a7,0,"sceMpegGetAtracAu"},
-	{0xfe246728,0,"sceMpegGetAvcAu"},
+	{0xe1ce83a7,sceMpegGetAtracAu,"sceMpegGetAtracAu"},
+	{0xfe246728,sceMpegGetAvcAu,"sceMpegGetAvcAu"},
 	{0xd8c5f121,sceMpegCreate,"sceMpegCreate"},
-	{0xf8dcb679,0,"sceMpegQueryAtracEsSize"},
+	{0xf8dcb679,sceMpegQueryAtracEsSize,"sceMpegQueryAtracEsSize"},
 	{0xc132e22f,sceMpegQueryMemSize,"sceMpegQueryMemSize"},
-	{0x21ff80e4,0,"sceMpegQueryStreamOffset"},
-	{0x611e9e11,0,"sceMpegQueryStreamSize"},
+	{0x21ff80e4,sceMpegQueryStreamOffset,"sceMpegQueryStreamOffset"},
+	{0x611e9e11,sceMpegQueryStreamSize,"sceMpegQueryStreamSize"},
 	{0x42560f23,sceMpegRegistStream,"sceMpegRegistStream"},
-	{0x591a4aa2,0,"sceMpegUnRegistStream"},
-	{0x707b7629,0,"sceMpegFlushAllStream"},
-	{0xa780cf7e,0,"sceMpegMallocAvcEsBuf"},
-	{0xceb870b1,0,"sceMpegFreeAvcEsBuf"},
+	{0x591a4aa2,sceMpegUnRegistStream,"sceMpegUnRegistStream"},
+	{0x707b7629,sceMpegFlushAllStream,"sceMpegFlushAllStream"},
+	{0xa780cf7e,sceMpegMallocAvcEsBuf,"sceMpegMallocAvcEsBuf"},
+	{0xceb870b1,sceMpegFreeAvcEsBuf,"sceMpegFreeAvcEsBuf"},
 	{0x167afd9e,sceMpegInitAu,"sceMpegInitAu"},
 	{0x682a619b,sceMpegInit,"sceMpegInit"},
-	{0x800c44df,0,"sceMpegAtracDecode"},
-	{0x740fccd1,0,"sceMpegAvcDecodeStop"},
-	{0x0e3c2e9d,0,"sceMpegAvcDecode"},
+	{0x800c44df,sceMpegAtracDecode,"sceMpegAtracDecode"},
+	{0x740fccd1,sceMpegAvcDecodeStop,"sceMpegAvcDecodeStop"},
+	{0x0e3c2e9d,sceMpegAvcDecode,"sceMpegAvcDecode"},
 	{0xd7a29f46,sceMpegRingbufferQueryMemSize,"sceMpegRingbufferQueryMemSize"},
 	{0x37295ed8,sceMpegRingbufferConstruct,"sceMpegRingbufferConstruct"},
-	{0x13407f13,0,"sceMpegRingbufferDestruct"},
-	{0xb240a59e,0,"sceMpegRingbufferPut"},
-	{0xb5f6dc87,0,"sceMpegRingbufferAvailableSize"},
-	{0x606a4649,0,"sceMpegDelete"},
-	{0x874624d6,0,"sceMpegFinish"},
-	{0x4571cc64,0,"sceMpegAvcDecodeFlush"},
-	{0x0f6c18d7,0,"sceMpegAvcDecodeDetail"},
-	{0x211a057c,0,"sceMpegAvcQueryYCbCrSize"},
-	{0x67179b1b,0,"sceMpegAvcInitYCbCr"},
-	{0xf0eb1125,0,"sceMpegAvcDecodeYCbCr"},
-	{0xf2930c9c,0,"sceMpegAvcDecodeStopYCbCr"},
-	{0x31bd0272,0,"sceMpegAvcCsc"},
-	{0xa11c7026,0,"sceMpegAvcDecodeMode"},
-	{0x0558B075,0,"sceMpegAvcCopyYCbCr"},
-	{0x769BEBB6,0,"sceMpegRingbufferQueryPackNum"},
-	{0x8C1E027D,0,"sceMpegGetPcmAu"},
-	{0x9DCFB7EA,0,"sceMpegChangeGetAuMode"},
-	{0xC02CF6B5,0,"sceMpegQueryPcmEsSize"},
+	{0x13407f13,sceMpegRingbufferDestruct,"sceMpegRingbufferDestruct"},
+	{0xb240a59e,sceMpegRingbufferPut,"sceMpegRingbufferPut"},
+	{0xb5f6dc87,sceMpegRingbufferAvailableSize,"sceMpegRingbufferAvailableSize"},
+	{0x606a4649,sceMpegDelete,"sceMpegDelete"},
+	{0x874624d6,sceMpegFinish,"sceMpegFinish"},
+	{0x4571cc64,sceMpegAvcDecodeFlush,"sceMpegAvcDecodeFlush"},
+	{0x0f6c18d7,sceMpegAvcDecodeDetail,"sceMpegAvcDecodeDetail"},
+	{0x211a057c,sceMpegAvcQueryYCbCrSize,"sceMpegAvcQueryYCbCrSize"},
+	{0x67179b1b,sceMpegAvcInitYCbCr,"sceMpegAvcInitYCbCr"},
+	{0xf0eb1125,sceMpegAvcDecodeYCbCr,"sceMpegAvcDecodeYCbCr"},
+	{0xf2930c9c,sceMpegAvcDecodeStopYCbCr,"sceMpegAvcDecodeStopYCbCr"},
+	{0x31bd0272,sceMpegAvcCsc,"sceMpegAvcCsc"},
+	{0xa11c7026,sceMpegAvcDecodeMode,"sceMpegAvcDecodeMode"},
+	{0x0558B075,sceMpegAvcCopyYCbCr,"sceMpegAvcCopyYCbCr"},
+	{0x769BEBB6,sceMpegRingbufferQueryPackNum,"sceMpegRingbufferQueryPackNum"},
+	{0x8C1E027D,sceMpegGetPcmAu,"sceMpegGetPcmAu"},
+	{0x9DCFB7EA,sceMpegChangeGetAuMode,"sceMpegChangeGetAuMode"},
+	{0xC02CF6B5,sceMpegQueryPcmEsSize,"sceMpegQueryPcmEsSize"},
 };
 
 const HLEFunction sceMp3[] =

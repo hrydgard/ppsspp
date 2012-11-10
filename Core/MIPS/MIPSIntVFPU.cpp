@@ -438,7 +438,7 @@ namespace MIPSInt
 
 	void Int_Vflush(u32 op)
 	{
-		DEBUG_LOG(CPU,"vflush");
+		// DEBUG_LOG(CPU,"vflush");
 		PC += 4;
 	}
 

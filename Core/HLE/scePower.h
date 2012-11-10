@@ -17,5 +17,7 @@
 
 #pragma once
 
+void __PowerInit();
+
 void Register_scePower();
 void Register_sceSuspendForUser();

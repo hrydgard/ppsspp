@@ -267,6 +267,8 @@ void sceKernelDcacheWritebackInvalidateRange();
 void sceKernelDcacheWritebackInvalidateAll();
 void sceKernelGetThreadStackFreeSize();
 void sceKernelIcacheInvalidateAll();
+void sceKernelIcacheClearAll();
+
 #define KERNELOBJECT_MAX_NAME_LENGTH 31
 
 class KernelObjectPool;

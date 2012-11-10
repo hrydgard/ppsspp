@@ -14,14 +14,21 @@
 
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
-
+#include <map>
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
 #include "../CoreTiming.h"
 
 #include "scePower.h"
+#include "sceKernelThread.h"
 
 static bool volatileMemLocked;
+
+static int powerCbSlots[16];
+
+void __PowerInit() {
+	memset(powerCbSlots, 0, sizeof(powerCbSlots));
+}
 
 void scePowerGetBatteryLifePercent()
 {
@@ -56,9 +63,28 @@ void scePowerIsLowBattery()
 
 void scePowerRegisterCallback()
 {
-	DEBUG_LOG(HLE,"0=scePowerRegisterCallback() UNIMPL");
+	int slot = PARAM(0);
+	int cbId = PARAM(1);
+	DEBUG_LOG(HLE,"0=scePowerRegisterCallback(%i, %i)", slot, cbId);
+	powerCbSlots[slot] = cbId;
+
+	__KernelRegisterCallback(THREAD_CALLBACK_POWER, cbId);
+
+	// Immediately notify
+	RETURN(0);
+
+	__KernelNotifyCallbackType(THREAD_CALLBACK_POWER, cbId, 0);
+}
+
+void scePowerUnregisterCallback()
+{
+	int slotId = PARAM(0);
+	int cbId = powerCbSlots[slotId];
+	DEBUG_LOG(HLE,"0=scePowerUnregisterCallback(%i) (cbid = %i)", slotId, cbId);
+	__KernelUnregisterCallback(THREAD_CALLBACK_POWER, cbId);
 	RETURN (0);
 }
+
 void sceKernelPowerLock()
 {
 	DEBUG_LOG(HLE,"UNIMPL 0=sceKernelPowerLock()");
@@ -164,9 +190,8 @@ static const HLEFunction scePower[] =
   {0xAC32C9CC,0,"scePowerRequestSuspend"},
   {0x2875994B,0,"scePower_2875994B"},
   {0x0074EF9B,0,"scePowerGetResumeCount"},
-  {0x04B7766E,0,"scePowerRegisterCallback"},
-  {0xDFA8BAF8,0,"scePowerUnregisterCallback"},
-  {0xDB9D28DD,0,"scePowerUnregitserCallback"},  //haha
+  {0xDFA8BAF8,scePowerUnregisterCallback,"scePowerUnregisterCallback"},
+  {0xDB9D28DD,scePowerUnregisterCallback,"scePowerUnregitserCallback"},  //haha
   {0x843FBF43,0,"scePowerSetCpuClockFrequency"},
   {0xB8D7B3FB,0,"scePowerSetBusClockFrequency"},
   {0xFEE03A2F,0,"scePowerGetCpuClockFrequency"},

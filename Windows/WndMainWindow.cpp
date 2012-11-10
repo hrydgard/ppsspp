@@ -170,7 +170,7 @@ namespace MainWindow
 
 		filter += "PSP";
 		filter += "|";
-		filter += "*.pbp;*.elf;*.iso;*.cso;";
+		filter += "*.pbp;*.elf;*.iso;*.cso;*.prx";
 		filter += "|";
 		filter += "|";
 		for (int i=0; i<(int)filter.length(); i++)
