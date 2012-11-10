@@ -553,6 +553,9 @@ void sceKernelLoadExec()
 
 u32 sceKernelLoadModule(const char *name, u32 flags)
 {
+	if(!name)
+		return 0;
+
 	PSPFileInfo info = pspFileSystem.GetFileInfo(name);
 	std::string error_string;
 	s64 size = (s64)info.size;
