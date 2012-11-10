@@ -41,6 +41,10 @@ struct TexCacheEntry
 	u32 hash;
 	u32 frameCounter;
 	u32 numMips;
+	u32 format;
+	u32 clutaddr;
+	u32 clutformat;
+	u32 cluthash;
 	int dim;
 	GLuint texture;
 };
@@ -505,6 +509,8 @@ void PSPSetTexture()
 	if (!texaddr) return;
 
 	u8 level = 0;
+	int format = gstate.texformat & 0xF;
+	int clutformat = gstate.clutformat & 3;
 
 	DEBUG_LOG(G3D,"Texture at %08x",texaddr);
 	u8 *texptr = Memory::GetPointer(texaddr);
@@ -516,8 +522,20 @@ void PSPSetTexture()
 		TexCacheEntry &entry = iter->second;
 
 		int dim = gstate.texsize[0] & 0xF0F;
+		bool match = true;
 		
-		if (dim == entry.dim && entry.hash == *(u32*)texptr)
+		//TODO: Check more texture parameters, compute real texture hash
+		if(dim != entry.dim || entry.hash != *(u32*)texptr || entry.format != format)
+			match = false;
+
+		//TODO: Check more clut parameters, compute clut hash
+		if(match && (format >= GE_TFMT_CLUT4 || format <= GE_TFMT_CLUT32) &&
+			(entry.clutformat != clutformat ||
+		     entry.clutaddr   != GetClutAddr(clutformat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2) ||
+			 entry.cluthash   != Memory::Read_U32(entry.clutaddr)))
+			match = false;
+
+		if (match)
 		{
 			//got one!
 			glBindTexture(GL_TEXTURE_2D, entry.texture);
@@ -548,6 +566,19 @@ void PSPSetTexture()
 
 	entry.addr = texaddr;
 	entry.hash = *(u32*)texptr;
+	entry.format = format;
+
+	if(format >= GE_TFMT_CLUT4 || format <= GE_TFMT_CLUT32)
+	{
+		entry.clutformat = clutformat;
+		entry.clutaddr = GetClutAddr(clutformat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2);
+		entry.cluthash = Memory::Read_U32(entry.clutaddr);
+	}
+	else
+	{
+		entry.clutaddr = 0;
+	}
+
 	glGenTextures(1, &entry.texture);
 	NOTICE_LOG(G3D, "Creating texture %i", entry.texture);
 
@@ -562,7 +593,6 @@ void PSPSetTexture()
 
 	gstate.curTextureHeight=h;
 	gstate.curTextureWidth=w;
-	int format = gstate.texformat & 0xF;
 	GLenum dstFmt = 0;
 	u32 texByteAlign = 1;
 
@@ -576,7 +606,7 @@ void PSPSetTexture()
 	{
 	case GE_TFMT_CLUT4:
 		dstFmt = getClutDestFormat((GEPaletteFormat)(gstate.clutformat & 3));
-		switch ((gstate.clutformat & 3))
+		switch (clutformat)
 		{
 		case GE_CMODE_16BIT_BGR5650:
 		case GE_CMODE_16BIT_ABGR5551:
