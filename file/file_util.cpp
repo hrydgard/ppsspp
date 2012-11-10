@@ -140,10 +140,11 @@ size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const 
 		return 0;
 
 	while (!readdir_r(dirp, &dirent, &result) && result) {
-		if (result->d_name[0] == '.')
+        const std::string filename = result->d_name;
+		if (filename[0] == '.')
 			continue;
 		FileInfo info;
-		info.name = std::string(result->d_name);
+		info.name = filename;
 		info.fullName = std::string(directory) + "/" + info.name;
 		info.isDirectory = isDirectory(info.fullName);
 
