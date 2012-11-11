@@ -29,3 +29,5 @@ void sceKernelSysClock2USecWide();
 void sceRtcGetCurrentClockLocalTime();
 void sceRtcGetTickResolution();
 void sceRtcGetTick();
+u32 sceRtcGetDaysInMonth(u32 year, u32 month);
+u32 sceRtcGetDayOfWeek(u32 year, u32 month, u32 day);

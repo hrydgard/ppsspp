@@ -26,6 +26,7 @@ tests_good = [
   "string/string",
   "gpu/callbacks/ge_callbacks",
   "threads/mbx/mbx",
+  "rtc/rtc",
 ]
 
 # These are the next tests up for fixing.
@@ -44,7 +45,6 @@ tests_next = [
   "mstick/mstick",
   "modules/loadexec/loader",
   "power/power",
-  "rtc/rtc",
   "sysmem/sysmem",
   "threads/events/events",
   "threads/fpl/fpl",
