@@ -22,6 +22,12 @@
 #include "sceKernelThread.h"
 #include "sceUtility.h"
 
+#ifdef WIN32
+//#	define WIN32_DIALOGS
+#	ifdef WIN32_DIALOGS
+#		include <Windows.h>
+#	endif
+#endif
 
 enum SceUtilitySavedataType
 {
@@ -78,7 +84,6 @@ enum SceUtilitySavedataType
 #define SCE_UTILITY_STATUS_RUNNING 		2
 #define SCE_UTILITY_STATUS_FINISHED 	3
 #define SCE_UTILITY_STATUS_SHUTDOWN 	4
-
 
 /** title, savedataTitle, detail: parts of the unencrypted SFO
 data, it contains what the VSH and standard load screen shows */
@@ -143,11 +148,20 @@ typedef struct SceUtilitySavedataParam
 	unsigned char unknown17[4];
 } SceUtilitySavedataParam;
 
+#define PSP_UTILITY_MSGDIALOG_MODE_ERROR 0
+#define PSP_UTILITY_MSGDIALOG_MODE_TEXT 1
 
+#define PSP_UTILITY_MSGDIALOG_OPTION_ERROR 0
+#define PSP_UTILITY_MSGDIALOG_OPTION_TEXT 0x00000001
+#define PSP_UTILITY_MSGDIALOG_OPTION_YESNO_BUTTONS 0x00000010
+#define PSP_UTILITY_MSGDIALOG_OPTION_DEFAULT_NO 0x00000100
+
+#define PSP_UTILITY_MSGDIALOG_RESULT_UNKNOWN1 0
+#define PSP_UTILITY_MSGDIALOG_RESULT_YES 1
+#define PSP_UTILITY_MSGDIALOG_RESULT_NO 2
+#define PSP_UTILITY_MSGDIALOG_RESULT_BACK 3
 
 static u32 utilityDialogState = SCE_UTILITY_STATUS_SHUTDOWN;
-
-
 
 void __UtilityInit()
 {
@@ -292,6 +306,41 @@ void sceUtilityMsgDialogInitStart()
 {
 	DEBUG_LOG(HLE,"FAKE sceUtilityMsgDialogInitStart(%i)", PARAM(0));
 	pspMessageDialog *dlg = (pspMessageDialog *)Memory::GetPointer(PARAM(0));
+
+#ifdef WIN32_DIALOGS
+	static char messageText[513];
+
+	int flag = 0;
+
+	if (dlg->type == 0) // number
+	{
+		_snprintf(messageText, 512, "%08x", dlg->errorNum);
+	}
+	else
+	{
+		_snprintf(messageText, 512, "%s", dlg->string);
+	}
+	messageText[512] = 0; // avoid buffer overflows
+
+	if(dlg->options & PSP_UTILITY_MSGDIALOG_OPTION_YESNO_BUTTONS)
+	{
+		flag = MB_YESNO;
+		if(dlg->options & PSP_UTILITY_MSGDIALOG_OPTION_DEFAULT_NO)
+			flag |= MB_DEFBUTTON2;
+	}
+	else
+	{
+		flag = MB_OK;
+	}
+
+	if(dlg->type == 0)
+		flag |= MB_ICONERROR;
+	
+	if(MessageBoxExA(0, messageText, "Game Message", flag, 0) == IDNO)
+		dlg->result = PSP_UTILITY_MSGDIALOG_RESULT_NO;
+	else
+		dlg->result = PSP_UTILITY_MSGDIALOG_RESULT_YES;
+#else
 	if (dlg->type == 0) // number
 	{
 		INFO_LOG(HLE, "MsgDialog: %08x", dlg->errorNum);
@@ -300,7 +349,16 @@ void sceUtilityMsgDialogInitStart()
 	{
 		INFO_LOG(HLE, "MsgDialog: %s", dlg->string);
 	}
-	__UtilityInitStart();
+
+	if(dlg->options & PSP_UTILITY_MSGDIALOG_OPTION_DEFAULT_NO)
+		dlg->result = PSP_UTILITY_MSGDIALOG_RESULT_NO;
+	else
+		dlg->result = PSP_UTILITY_MSGDIALOG_RESULT_YES;
+#endif
+
+	//__UtilityInitStart();
+
+	utilityDialogState = SCE_UTILITY_STATUS_FINISHED;
 }
 
 void sceUtilityMsgDialogShutdownStart()
