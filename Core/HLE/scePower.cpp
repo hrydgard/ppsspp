@@ -24,186 +24,228 @@
 
 static bool volatileMemLocked;
 
-static int powerCbSlots[16];
+const int POWER_CB_AUTO = -1;
+
+const int numberOfCBPowerSlots = 16;
+static int powerCbSlots[numberOfCBPowerSlots];
+
 
 void __PowerInit() {
 	memset(powerCbSlots, 0, sizeof(powerCbSlots));
 }
-
-void scePowerGetBatteryLifePercent()
+int scePowerGetBatteryLifePercent()
 {
 	DEBUG_LOG(HLE, "100=scePowerGetBatteryLifePercent");
-	RETURN(100);
+	return 100;
 }
-void scePowerIsPowerOnline()
+int scePowerIsPowerOnline()
 {
 	DEBUG_LOG(HLE, "1=scePowerIsPowerOnline");
-	RETURN( 1);
+	return 1;
 }
-void scePowerIsBatteryExist()
+int scePowerIsBatteryExist()
 {
 	DEBUG_LOG(HLE, "1=scePowerIsBatteryExist");
-	RETURN( 1);
+	return 1;
 }
-void scePowerIsBatteryCharging()
+int scePowerIsBatteryCharging()
 {
 	DEBUG_LOG(HLE, "0=scePowerIsBatteryCharging");
-	RETURN( 0);
+	return 0;
 }
-void scePowerGetBatteryChargingStatus()
+int scePowerGetBatteryChargingStatus()
 {
 	DEBUG_LOG(HLE, "0=scePowerGetBatteryChargingStatus");
-	RETURN( 0);
+	return 0;
 }
-void scePowerIsLowBattery()
+int scePowerIsLowBattery()
 {
 	DEBUG_LOG(HLE, "0=scePowerIsLowBattery");
-	RETURN( 0);
+	return 0;
 }
 
-void scePowerRegisterCallback()
+int scePowerRegisterCallback(int slot, int cbId)
 {
-	int slot = PARAM(0);
-	int cbId = PARAM(1);
 	DEBUG_LOG(HLE,"0=scePowerRegisterCallback(%i, %i)", slot, cbId);
-	powerCbSlots[slot] = cbId;
+	int foundSlot = -1;
 
-	__KernelRegisterCallback(THREAD_CALLBACK_POWER, cbId);
+	if (slot == POWER_CB_AUTO) // -1 signifies auto select of bank
+	{
+		for(int i=0; i < numberOfCBPowerSlots; i++)
+		{
+			if ((powerCbSlots[i]==0) && (foundSlot== POWER_CB_AUTO)) // found an empty slot
+			{
+				powerCbSlots[i] = cbId;
+				foundSlot = i;
+			}
+		}
+	}
+	else
+	{
+		if (powerCbSlots[slot] == 0)
+		{
+			powerCbSlots[slot] = cbId;
+			foundSlot= 0;
+		}
+		else
+		{
+			// slot already in use!
+			foundSlot = POWER_CB_AUTO;
+		}
+	}
+	if (foundSlot>=0)
+	{
+		__KernelRegisterCallback(THREAD_CALLBACK_POWER, cbId);
 
-	// Immediately notify
-	RETURN(0);
+		// Immediately notify
+		RETURN(0);
 
-	__KernelNotifyCallbackType(THREAD_CALLBACK_POWER, cbId, 0);
+		__KernelNotifyCallbackType(THREAD_CALLBACK_POWER, cbId, 0xE4); // TODO: I have no idea what the E4 is from the flags, but its needed for the test to pass. Need another example of it being called 
+	}
+	return foundSlot;
 }
 
-void scePowerUnregisterCallback()
+int scePowerUnregisterCallback(int slotId)
+{	
+		
+	   	if (slotId < 0 || slotId >= numberOfCBPowerSlots) 
+		{
+    		return -1;
+    	}
+
+    	if (powerCbSlots[slotId] != 0) {
+
+			int cbId = powerCbSlots[slotId];
+			DEBUG_LOG(HLE,"0=scePowerUnregisterCallback(%i) (cbid = %i)", slotId, cbId);
+			__KernelUnregisterCallback(THREAD_CALLBACK_POWER, cbId);
+            powerCbSlots[slotId] = 0;
+    	}
+		else
+		{
+			return 0x80000025; // TODO: docs say a value less than 0, test checks for this specifically. why??
+		}
+
+    	return 0;
+}
+
+int sceKernelPowerLock(int lockType)
 {
-	int slotId = PARAM(0);
-	int cbId = powerCbSlots[slotId];
-	DEBUG_LOG(HLE,"0=scePowerUnregisterCallback(%i) (cbid = %i)", slotId, cbId);
-	__KernelUnregisterCallback(THREAD_CALLBACK_POWER, cbId);
-	RETURN (0);
+	DEBUG_LOG(HLE,"UNIMPL 0=sceKernelPowerLock(%i)", lockType);
+	return 0;
 }
-
-void sceKernelPowerLock()
+int sceKernelPowerUnlock(int lockType)
 {
-	DEBUG_LOG(HLE,"UNIMPL 0=sceKernelPowerLock()");
-	RETURN (0);
+	DEBUG_LOG(HLE,"UNIMPL 0=sceKernelPowerUnlock(%i)");
+	return 0;
 }
-void sceKernelPowerUnlock()
-{
-	DEBUG_LOG(HLE,"UNIMPL 0=sceKernelPowerUnlock()");
-	RETURN (0);
-}
-void sceKernelPowerTick()
+int sceKernelPowerTick(int flag)
 {
 	DEBUG_LOG(HLE,"UNIMPL 0=sceKernelPowerTick()");
-	RETURN (0);
+	return 0;
 }
 
 #define ERROR_POWER_VMEM_IN_USE 0x802b0200
 
-void sceKernelVolatileMemTryLock()
+int sceKernelVolatileMemTryLock(int type, int paddr, int psize)
 {
-  int type = PARAM(0);
-  int paddr = PARAM(1);
-  int psize = PARAM(2);
 
-  if (!volatileMemLocked)
-  {
-    INFO_LOG(HLE,"sceKernelVolatileMemTryLock(%i, %08x, %i) - success", type, paddr, psize);
-    volatileMemLocked = true;
-  }
-  else
-  {
-    ERROR_LOG(HLE, "sceKernelVolatileMemTryLock - already locked!");
-    RETURN(ERROR_POWER_VMEM_IN_USE);
-    return;
-  }
+	if (!volatileMemLocked)
+	{
+		INFO_LOG(HLE,"sceKernelVolatileMemTryLock(%i, %08x, %i) - success", type, paddr, psize);
+		volatileMemLocked = true;
+	}
+	else
+	{
+		ERROR_LOG(HLE, "sceKernelVolatileMemTryLock - already locked!");
+		//RETURN(ERROR_POWER_VMEM_IN_USE); // does this line still need to be here??
+		return ERROR_POWER_VMEM_IN_USE;
+	}
 
-  // Volatile RAM is always at 0x08400000 and is of size 0x00400000.
-  // It's always available in the emu.
-  Memory::Write_U32(0x08400000, paddr);
-  Memory::Write_U32(0x00400000, psize);
+	// Volatile RAM is always at 0x08400000 and is of size 0x00400000.
+	// It's always available in the emu.
+	Memory::Write_U32(0x08400000, paddr);
+	Memory::Write_U32(0x00400000, psize);
 
-  RETURN(0);
+	return 0;
 }
 
-void sceKernelVolatileMemUnlock()
+int sceKernelVolatileMemUnlock(int type)
 {
-  INFO_LOG(HLE,"sceKernelVolatileMemUnlock()");
-  // TODO: sanity check
-  volatileMemLocked = false;
+	INFO_LOG(HLE,"sceKernelVolatileMemUnlock()");
+	// TODO: sanity check
+	volatileMemLocked = false;
+
+	return 0;
 }
 
-void sceKernelVolatileMemLock()
+int sceKernelVolatileMemLock(int type, int paddr, int psize)
 {
-  sceKernelVolatileMemTryLock();
+	return sceKernelVolatileMemTryLock(type, paddr, psize);
 }
 
 
 void scePowerSetClockFrequency(u32 cpufreq, u32 busfreq, u32 gpufreq)
 {
-  CoreTiming::SetClockFrequencyMHz(cpufreq);
+	CoreTiming::SetClockFrequencyMHz(cpufreq);
 
-  INFO_LOG(HLE,"scePowerSetClockFrequency(%i,%i,%i)", cpufreq, busfreq, gpufreq);
+	INFO_LOG(HLE,"scePowerSetClockFrequency(%i,%i,%i)", cpufreq, busfreq, gpufreq);
 }
 
 void scePowerGetCpuClockFrequencyInt() {
-  INFO_LOG(HLE,"scePowerGetCpuClockFrequencyInt()");
-  RETURN(CoreTiming::GetClockFrequencyMHz());
+	INFO_LOG(HLE,"scePowerGetCpuClockFrequencyInt()");
+	RETURN(CoreTiming::GetClockFrequencyMHz());
 }
 
 static const HLEFunction scePower[] = 
 {
-  {0x04B7766E,scePowerRegisterCallback,"scePowerRegisterCallback"},
-  {0x2B51FE2F,0,"scePower_2B51FE2F"},
-  {0x442BFBAC,0,"scePowerGetBacklightMaximum"},
-  {0xEFD3C963,0,"scePowerTick"},
-  {0xEDC13FE5,0,"scePowerGetIdleTimer"},
-  {0x7F30B3B1,0,"scePowerIdleTimerEnable"},
-  {0x972CE941,0,"scePowerIdleTimerDisable"},
-  {0x27F3292C,0,"scePowerBatteryUpdateInfo"},
-  {0xE8E4E204,0,"scePower_E8E4E204"},
-  {0xB999184C,0,"scePowerGetLowBatteryCapacity"},
-  {0x87440F5E,scePowerIsPowerOnline,"scePowerIsPowerOnline"},
-  {0x0AFD0D8B,scePowerIsBatteryExist,"scePowerIsBatteryExist"},
-  {0x1E490401,scePowerIsBatteryCharging,"scePowerIsBatteryCharging"},
-  {0xB4432BC8,scePowerGetBatteryChargingStatus,"scePowerGetBatteryChargingStatus"},
-  {0xD3075926,scePowerIsLowBattery,"scePowerIsLowBattery"},
-  {0x78A1A796,0,"scePowerIsSuspendRequired"},
-  {0x94F5A53F,0,"scePowerGetBatteryRemainCapacity"},
-  {0xFD18A0FF,0,"scePowerGetBatteryFullCapacity"},
-  {0x2085D15D,scePowerGetBatteryLifePercent,"scePowerGetBatteryLifePercent"},
-  {0x8EFB3FA2,0,"scePowerGetBatteryLifeTime"},
-  {0x28E12023,0,"scePowerGetBatteryTemp"},
-  {0x862AE1A6,0,"scePowerGetBatteryElec"},
-  {0x483CE86B,0,"scePowerGetBatteryVolt"},
-  {0x23436A4A,0,"scePowerGetInnerTemp"},
-  {0x0CD21B1F,0,"scePowerSetPowerSwMode"},
-  {0x165CE085,0,"scePowerGetPowerSwMode"},
-  {0xD6D016EF,0,"scePowerLock"},
-  {0xCA3D34C1,0,"scePowerUnlock"},
-  {0xDB62C9CF,0,"scePowerCancelRequest"},
-  {0x7FA406DD,0,"scePowerIsRequest"},
-  {0x2B7C7CF4,0,"scePowerRequestStandby"},
-  {0xAC32C9CC,0,"scePowerRequestSuspend"},
-  {0x2875994B,0,"scePower_2875994B"},
-  {0x0074EF9B,0,"scePowerGetResumeCount"},
-  {0xDFA8BAF8,scePowerUnregisterCallback,"scePowerUnregisterCallback"},
-  {0xDB9D28DD,scePowerUnregisterCallback,"scePowerUnregitserCallback"},  //haha
-  {0x843FBF43,0,"scePowerSetCpuClockFrequency"},
-  {0xB8D7B3FB,0,"scePowerSetBusClockFrequency"},
-  {0xFEE03A2F,0,"scePowerGetCpuClockFrequency"},
-  {0x478FE6F5,0,"scePowerGetBusClockFrequency"},
-  {0xFDB5BFE9,scePowerGetCpuClockFrequencyInt,"scePowerGetCpuClockFrequencyInt"},
-  {0xBD681969,0,"scePowerGetBusClockFrequencyInt"},
-  {0xB1A52C83,0,"scePowerGetCpuClockFrequencyFloat"},
-  {0x9BADB3EB,0,"scePowerGetBusClockFrequencyFloat"},
-  {0x737486F2,&WrapV_UUU<scePowerSetClockFrequency>,"scePowerSetClockFrequency"},
-  {0x34f9c463,0,"scePowerGetPllClockFrequencyInt"},
-  {0xea382a27,0,"scePowerGetPllClockFrequencyFloat"},
-  {0xebd177d6,0,"scePower_driver_EBD177D6"},
+	{0x04B7766E,&WrapI_II<scePowerRegisterCallback>,"scePowerRegisterCallback"},
+	{0x2B51FE2F,0,"scePower_2B51FE2F"},
+	{0x442BFBAC,0,"scePowerGetBacklightMaximum"},
+	{0xEFD3C963,0,"scePowerTick"},
+	{0xEDC13FE5,0,"scePowerGetIdleTimer"},
+	{0x7F30B3B1,0,"scePowerIdleTimerEnable"},
+	{0x972CE941,0,"scePowerIdleTimerDisable"},
+	{0x27F3292C,0,"scePowerBatteryUpdateInfo"},
+	{0xE8E4E204,0,"scePower_E8E4E204"},
+	{0xB999184C,0,"scePowerGetLowBatteryCapacity"},
+	{0x87440F5E,&WrapI_V<scePowerIsPowerOnline>,"scePowerIsPowerOnline"},
+	{0x0AFD0D8B,&WrapI_V<scePowerIsBatteryExist>,"scePowerIsBatteryExist"},
+	{0x1E490401,&WrapI_V<scePowerIsBatteryCharging>,"scePowerIsBatteryCharging"},
+	{0xB4432BC8,&WrapI_V<scePowerGetBatteryChargingStatus>,"scePowerGetBatteryChargingStatus"},
+	{0xD3075926,&WrapI_V<scePowerIsLowBattery>,"scePowerIsLowBattery"},
+	{0x78A1A796,0,"scePowerIsSuspendRequired"},
+	{0x94F5A53F,0,"scePowerGetBatteryRemainCapacity"},
+	{0xFD18A0FF,0,"scePowerGetBatteryFullCapacity"},
+	{0x2085D15D,&WrapI_V<scePowerGetBatteryLifePercent>,"scePowerGetBatteryLifePercent"},
+	{0x8EFB3FA2,0,"scePowerGetBatteryLifeTime"},
+	{0x28E12023,0,"scePowerGetBatteryTemp"},
+	{0x862AE1A6,0,"scePowerGetBatteryElec"},
+	{0x483CE86B,0,"scePowerGetBatteryVolt"},
+	{0x23436A4A,0,"scePowerGetInnerTemp"},
+	{0x0CD21B1F,0,"scePowerSetPowerSwMode"},
+	{0x165CE085,0,"scePowerGetPowerSwMode"},
+	{0xD6D016EF,0,"scePowerLock"},
+	{0xCA3D34C1,0,"scePowerUnlock"},
+	{0xDB62C9CF,0,"scePowerCancelRequest"},
+	{0x7FA406DD,0,"scePowerIsRequest"},
+	{0x2B7C7CF4,0,"scePowerRequestStandby"},
+	{0xAC32C9CC,0,"scePowerRequestSuspend"},
+	{0x2875994B,0,"scePower_2875994B"},
+	{0x0074EF9B,0,"scePowerGetResumeCount"},
+	{0xDFA8BAF8,&WrapI_I<scePowerUnregisterCallback>,"scePowerUnregisterCallback"},
+	{0xDB9D28DD,&WrapI_I<scePowerUnregisterCallback>,"scePowerUnregitserCallback"},  //haha
+	{0x843FBF43,0,"scePowerSetCpuClockFrequency"},
+	{0xB8D7B3FB,0,"scePowerSetBusClockFrequency"},
+	{0xFEE03A2F,0,"scePowerGetCpuClockFrequency"},
+	{0x478FE6F5,0,"scePowerGetBusClockFrequency"},
+	{0xFDB5BFE9,scePowerGetCpuClockFrequencyInt,"scePowerGetCpuClockFrequencyInt"},
+	{0xBD681969,0,"scePowerGetBusClockFrequencyInt"},
+	{0xB1A52C83,0,"scePowerGetCpuClockFrequencyFloat"},
+	{0x9BADB3EB,0,"scePowerGetBusClockFrequencyFloat"},
+	{0x737486F2,&WrapV_UUU<scePowerSetClockFrequency>,"scePowerSetClockFrequency"},
+	{0x34f9c463,0,"scePowerGetPllClockFrequencyInt"},
+	{0xea382a27,0,"scePowerGetPllClockFrequencyFloat"},
+	{0xebd177d6,0,"scePower_driver_EBD177D6"},
 	{0x469989ad,0,"scePower_469989ad"},
 	{0xa85880d0,0,"scePower_a85880d0"},
 };
@@ -211,22 +253,22 @@ static const HLEFunction scePower[] =
 //890129c in tyshooter looks bogus
 const HLEFunction sceSuspendForUser[] =
 {
-  {0xEADB1BD7,sceKernelPowerLock,"sceKernelPowerLock"}, //(int param) set param to 0
-  {0x3AEE7261,sceKernelPowerUnlock,"sceKernelPowerUnlock"},//(int param) set param to 0
-  {0x090ccb3f,sceKernelPowerTick,"sceKernelPowerTick"},
+	{0xEADB1BD7,&WrapI_I<sceKernelPowerLock>,"sceKernelPowerLock"}, //(int param) set param to 0
+	{0x3AEE7261,&WrapI_I<sceKernelPowerUnlock>,"sceKernelPowerUnlock"},//(int param) set param to 0
+	{0x090ccb3f,&WrapI_I<sceKernelPowerTick>,"sceKernelPowerTick"},
 
-  // There's an extra 4MB that can be allocated, which seems to be "volatile". These functions
-  // let you grab it.
-  {0xa14f40b2,sceKernelVolatileMemTryLock,"sceKernelVolatileMemTryLock"},
-  {0xa569e425,sceKernelVolatileMemUnlock,"sceKernelVolatileMemUnlock"},
-  {0x3e0271d3,sceKernelVolatileMemLock,"sceKernelVolatileMemLock"}, //when "acquiring mem pool" (fired up)
+	// There's an extra 4MB that can be allocated, which seems to be "volatile". These functions
+	// let you grab it.
+	{0xa14f40b2,&WrapI_III<sceKernelVolatileMemTryLock>,"sceKernelVolatileMemTryLock"},
+	{0xa569e425,&WrapI_I<sceKernelVolatileMemUnlock>,"sceKernelVolatileMemUnlock"},
+	{0x3e0271d3,&WrapI_III<sceKernelVolatileMemLock>,"sceKernelVolatileMemLock"}, //when "acquiring mem pool" (fired up)
 };
 
 
 void Register_scePower() {
-  RegisterModule("scePower",ARRAY_SIZE(scePower),scePower);
+	RegisterModule("scePower",ARRAY_SIZE(scePower),scePower);
 }
 
 void Register_sceSuspendForUser() {
-  RegisterModule("sceSuspendForUser", ARRAY_SIZE(sceSuspendForUser), sceSuspendForUser);
+	RegisterModule("sceSuspendForUser", ARRAY_SIZE(sceSuspendForUser), sceSuspendForUser);
 }

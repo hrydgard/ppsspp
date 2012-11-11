@@ -613,7 +613,7 @@ namespace MIPSInt
 		case 0:  // vuc2i  
 			// Quad is the only option
 			{
-				_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+				//_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
 				// this op appears to be bugged and most likely useless, and this stuff is wrong. I've disabled this op in the vfpu_convert test
 				u32 value = s[0];
 				u32 value2 = value / 2;

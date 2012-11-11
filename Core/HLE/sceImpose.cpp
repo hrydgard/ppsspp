@@ -19,8 +19,8 @@
 #include "FunctionWrappers.h"
 #include "../MIPS/MIPS.h"
 
-u32 iLanguage = 0;
-u32 iButtonValue = 0;
+static u32 iLanguage = 0;
+static u32 iButtonValue = 0;
 
 u32 sceImposeGetBatteryIconStatus(u32 chargingPtr, u32 iconStatusPtr)
 {
