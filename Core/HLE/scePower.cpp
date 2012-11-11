@@ -65,24 +65,44 @@ void scePowerRegisterCallback()
 {
 	int slot = PARAM(0);
 	int cbId = PARAM(1);
+	if (slot == -1) {
+		for (int i = 0; i < 16; i++) {
+			if (powerCbSlots[i] == 0) {
+				slot = i;
+				break;
+			}
+		}
+		if (slot == -1) {
+			ERROR_LOG(HLE,"0=scePowerRegisterCallback(%i, %i) OUT OF SLOTS", slot, cbId);
+			// Argh out of slots
+			RETURN(-1);
+			return;
+		}
+	}
 	DEBUG_LOG(HLE,"0=scePowerRegisterCallback(%i, %i)", slot, cbId);
 	powerCbSlots[slot] = cbId;
 
 	__KernelRegisterCallback(THREAD_CALLBACK_POWER, cbId);
 
 	// Immediately notify
-	RETURN(0);
+	RETURN(slot);
 
-	__KernelNotifyCallbackType(THREAD_CALLBACK_POWER, cbId, 0);
+	__KernelNotifyCallbackType(THREAD_CALLBACK_POWER, cbId, 0x185);   // 0x185 from real psp, don't know what it is
 }
 
 void scePowerUnregisterCallback()
 {
 	int slotId = PARAM(0);
-	int cbId = powerCbSlots[slotId];
-	DEBUG_LOG(HLE,"0=scePowerUnregisterCallback(%i) (cbid = %i)", slotId, cbId);
-	__KernelUnregisterCallback(THREAD_CALLBACK_POWER, cbId);
-	RETURN (0);
+	if (powerCbSlots[slotId] != 0) {
+		int cbId = powerCbSlots[slotId];
+		DEBUG_LOG(HLE,"0=scePowerUnregisterCallback(%i) (cbid = %i)", slotId, cbId);
+		__KernelUnregisterCallback(THREAD_CALLBACK_POWER, cbId);
+		powerCbSlots[slotId] = 0;
+		RETURN(0);
+	} else {
+		ERROR_LOG(HLE,"0=scePowerUnregisterCallback(%i) - callback slot not registered.", slotId);
+		RETURN(0x80000025);  // from real psp
+	}
 }
 
 void sceKernelPowerLock()

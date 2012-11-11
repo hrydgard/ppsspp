@@ -239,17 +239,18 @@ namespace MIPSComp
 
 	void Jit::Comp_ShiftType(u32 op)
 	{
+		int fd = _FD;
 		// WARNIGN : ROTR
 		// OLDD
 		switch (op & 0x3f)
 		{
 		case 0: CompShiftImm(op, &XEmitter::SHL); break;
-		case 2: CompShiftImm(op, &XEmitter::SHR); break;	// srl
+		case 2: CompShiftImm(op, fd == 1 ? &XEmitter::ROR : &XEmitter::SHR); break;	// srl, rotr
 		case 3: CompShiftImm(op, &XEmitter::SAR); break;	// sra
 
-		case 4: CompShiftVar(op, &XEmitter::SHL); break;	// R(rd) = R(rt) << R(rs);				break; //sllv
-		case 6: CompShiftVar(op, &XEmitter::SHR); break;	// R(rd) = R(rt) >> R(rs);				break; //srlv
-		case 7: CompShiftVar(op, &XEmitter::SAR); break;	// R(rd) = ((s32)R(rt)) >> R(rs); break; //srav
+		case 4: CompShiftVar(op, &XEmitter::SHL); break; //sllv
+		case 6: CompShiftVar(op, fd == 1 ? &XEmitter::ROR : &XEmitter::SHR); break;	break; //srlv
+		case 7: CompShiftVar(op, &XEmitter::SAR); break; //srav
 
 		default:
 			Comp_Generic(op);

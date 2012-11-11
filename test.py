@@ -30,6 +30,7 @@ tests_good = [
   "string/string",
   "gpu/callbacks/ge_callbacks",
   "threads/mbx/mbx",
+  "power/power",
   "rtc/rtc",
 ]
 
@@ -46,7 +47,6 @@ tests_next = [
   "io/iodrv/iodrv",
   "malloc/malloc",
   "modules/loadexec/loader",
-  "power/power",
   "threads/events/events",
   "threads/fpl/fpl",
   "threads/msgpipe/msgpipe",
@@ -108,8 +108,6 @@ def run_tests(test_list, args):
   tests_passed = []
   tests_failed = []
   
-  flags = ""
-
   for test in test_list:
     # Try prx first
     expected_filename = TEST_ROOT + test + ".expected"
@@ -161,11 +159,12 @@ def run_tests(test_list, args):
       print "  " + test + " - passed!"
       tests_passed.append(test)
     else:
-      #print "============== output from failed " + test + " :"
-      #print output
-      #print "============== expected output:"
-      #print expected_output
-      #print "==============================="
+      if '-v' in args:
+        print "============== output from failed " + test + " :"
+        print output
+        print "============== expected output:"
+        print expected_output
+        print "==============================="
       tests_failed.append(test)
 
   print "%i tests passed, %i tests failed." % (
