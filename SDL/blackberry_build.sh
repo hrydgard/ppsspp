@@ -24,7 +24,6 @@ PKG_CONFIG_PATH=${PROJECT_ROOT}/install/lib/pkgconfig
 PKG_CONFIG_LIBDIR=${PROJECT_ROOT}/install/lib/pkgconfig
 
 SDL_PROJECT=${PROJECT_ROOT}/SDL
-SDLIMAGE_PROJECT=${PROJECT_ROOT}/SDL_image
 SDLMIXER_PROJECT=${PROJECT_ROOT}/SDL_mixer
 
 while true; do
@@ -44,7 +43,6 @@ while true; do
 		echo "Dependency Paths (defaults are under project root): "
 		echo "  --sdl PATH                   SDL 1.2 project directory (default is SDL)"
 		echo "  --tco PATH                   TouchControlOverlay project directory (default is TouchControlOverlay)"
-		echo "  --sdl_image PATH             SDL_image project directory (default is SDL_image)"
 		echo "  --sdl_mixer PATH             SDL_mixer project directory (default is SDL_mixer)"
 		echo "  --ogg PATH                   ogg project directory (default is ogg)"
 		echo "  --vorbis PATH                vorbis project directory (default is vorbis)"
@@ -55,7 +53,6 @@ while true; do
 	-p | --project-root ) PROJECT_ROOT="$2"; shift 2 ;;
 	--pkg-config ) PKG_CONFIG_PATH="$2"; PKG_CONFIG_LIBDIR="$2"; shift 2 ;;
 	--sdl ) SDL_PROJECT="$2"; shift 2 ;;
-	--sdl_image ) SDLIMAGE_PROJECT="$2"; shift 2 ;;
 	--sdl_mixer ) SDLMIXER_PROJECT="$2"; shift 2 ;;
 	--tco ) TCO_PROJECT="$2"; shift 2 ;;
 	--ogg ) OGG_PROJECT="$2"; shift 2 ;;
@@ -67,9 +64,6 @@ done
 
 if [ -z "$SDL_PROJECT" ]; then
 	SDL_PROJECT="$PROJECT_ROOT/SDL"
-fi
-if [ -z "$SDLIMAGE_PROJECT" ]; then
-	SDLIMAGE_PROJECT="$PROJECT_ROOT/SDL_image"
 fi
 if [ -z "$SDLMIXER_PROJECT" ]; then
 	SDLMIXER_PROJECT="$PROJECT_ROOT/SDL_mixer"
@@ -95,16 +89,9 @@ cmake \
 -DCMAKE_C_COMPILER="${QNX_HOST}/usr/bin/ntoarmv7-gcc" \
 -DCMAKE_CXX_COMPILER="${QNX_HOST}/usr/bin/ntoarmv7-g++" \
 -DTHREADS_PTHREAD_ARG="" \
--DLIBINTL_INCLUDE_DIR="${QNX_TARGET}/usr/include" \
--DLIBINTL_LIB_FOUND=TRUE \
--DLIBINTL_LIBRARIES="${QNX_TARGET}/armle-v7/usr/lib/libintl.so" \
--DLIBINTL_LIBC_HAS_DGETTEXT=FALSE \
 -DSDL_INCLUDE_DIR="${SDL_PROJECT}/include" \
 -DSDL_LIBRARY="${SDL_PROJECT}/Device-${BUILD_TYPE}/libSDL12.so;${TCO_PROJECT}/Device-${BUILD_TYPE}/libTouchControlOverlay.so" \
 -DSDL_FOUND=ON \
--DSDLIMAGE_INCLUDE_DIR="${SDLIMAGE_PROJECT}" \
--DSDLIMAGE_LIBRARY="${SDLIMAGE_PROJECT}/Device-${BUILD_TYPE}/libSDL_image.so" \
--DSDLIMAGE_FOUND=ON \
 -DSDLMIXER_INCLUDE_DIR="${SDLMIXER_PROJECT}" \
 -DSDLMIXER_LIBRARY="${SDLMIXER_PROJECT}/Device-${BUILD_TYPE}/libSDL_mixer.so;${OGG_PROJECT}/Device-${BUILD_TYPE}/libogg.so;${VORBIS_PROJECT}/Device-${BUILD_TYPE}/libvorbis.so" \
 -DSDLMIXER_FOUND=ON \
