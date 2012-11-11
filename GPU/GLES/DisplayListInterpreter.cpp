@@ -739,9 +739,9 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 	case GE_CMD_LDC0:case GE_CMD_LDC1:case GE_CMD_LDC2:case GE_CMD_LDC3:
 	case GE_CMD_LSC0:case GE_CMD_LSC1:case GE_CMD_LSC2:case GE_CMD_LSC3:
 		{
-			float r = (float)(data>>16)/255.0f;
+			float r = (float)(data & 0xff)/255.0f;
 			float g = (float)((data>>8) & 0xff)/255.0f;
-			float b = (float)(data & 0xff)/255.0f;
+			float b = (float)(data>>16)/255.0f;
 
 			int l = (cmd - GE_CMD_LAC0) / 3;
 			int t = (cmd - GE_CMD_LAC0) % 3;
