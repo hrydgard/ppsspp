@@ -14,13 +14,10 @@ endif()
 
 # TODO: Rely on compiler define instead. __BLACKBERRY__ ?
 if (BLACKBERRY)
-    message("Building for Blackberry")
 	add_definitions(-DBLACKBERRY)
 	if (BLACKBERRY GREATER 10)
 		add_definitions(-DBLACKBERRY10)
 	endif()
-else()
-    message("Not building for Blackberry")
 endif()
 
 
