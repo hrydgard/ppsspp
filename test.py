@@ -14,6 +14,10 @@ TEST_ROOT = "pspautotests/tests/"
 # These have worked and should keep working always - regression tests.
 tests_good = [
   "cpu/cpu/cpu",
+  "cpu/vfpu/vfpu",
+  "cpu/vfpu/convert/vfpu_convert",
+  "cpu/vfpu/prefixes/vfpu_prefixes",
+  "cpu/vfpu/colors/vfpu_colors",
   "cpu/icache/icache",
   "cpu/lsu/lsu",
   "cpu/fpu/fpu",
@@ -31,7 +35,6 @@ tests_good = [
 
 # These are the next tests up for fixing.
 tests_next = [
-  "cpu/vfpu/vfpu",
   "ctrl/ctrl",
   "gpu/simple/simple",
   "gpu/triangle/triangle",
@@ -42,10 +45,8 @@ tests_next = [
   "io/io/io",
   "io/iodrv/iodrv",
   "malloc/malloc",
-  "mstick/mstick",
   "modules/loadexec/loader",
   "power/power",
-  "sysmem/sysmem",
   "threads/events/events",
   "threads/fpl/fpl",
   "threads/msgpipe/msgpipe",
@@ -63,6 +64,13 @@ tests_next = [
   "video/pmf",
   "video/pmf_simple",
 ]
+
+# These don't even run (or run correctly) on the real PSP
+test_broken = [
+  "sysmem/sysmem",
+  "mstick/mstick",
+]
+
 
 # These are the tests we ignore (not important, or impossible to run)
 tests_ignored = [
