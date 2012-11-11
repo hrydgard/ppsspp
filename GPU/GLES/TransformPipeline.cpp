@@ -286,7 +286,7 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 				// Skinning
 				Vec3 psum(0,0,0);
 				Vec3 nsum(0,0,0);
-				int nweights = (gstate.vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT;
+				int nweights = ((gstate.vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT) + 1;
 				for (int i = 0; i < nweights; i++)
 				{
 					if (decoded[index].weights[i] != 0.0f) {
