@@ -287,7 +287,7 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 				Vec3 psum(0,0,0);
 				Vec3 nsum(0,0,0);
 				int nweights = (gstate.vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT;
-				for (int i = 0; i < 8; i++)
+				for (int i = 0; i < nweights; i++)
 				{
 					if (decoded[index].weights[i] != 0.0f) {
 						Vec3ByMatrix43(out, decoded[index].pos, gstate.boneMatrix+i*12);
