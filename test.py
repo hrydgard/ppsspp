@@ -105,9 +105,12 @@ def run_tests(test_list, args):
   for test in test_list:
     # Try prx first
     expected_filename = TEST_ROOT + test + ".expected"
+
     elf_filename = TEST_ROOT + test + ".prx"
+    print elf_filename
 
     if not os.path.exists(elf_filename):
+      print "WARNING: no prx, trying elf"
       elf_filename = TEST_ROOT + test + ".elf"
 
     if not os.path.exists(elf_filename):
@@ -138,12 +141,9 @@ def run_tests(test_list, args):
     
     for i in range(0, min(len(output_lines), len(expected_lines))):
       if output_lines[i] != expected_lines[i]:
-        #print "First different line (output vs expected):"
-        #print output_lines[i]
-        #print " --- expected: ---"
-        #print expected_lines[i]
+        print "%i < %s" % (i, output_lines[i])
+        print "%i > %s" % (i, expected_lines[i])
         different = True
-        break
 
     if len(output_lines) != len(expected_lines):
       print "*** Different number of lines!"
@@ -153,11 +153,11 @@ def run_tests(test_list, args):
       print "  " + test + " - passed!"
       tests_passed.append(test)
     else:
-      print "============== output from failed " + test + " :"
-      print output
-      print "============== expected output:"
-      print expected_output
-      print "==============================="
+      #print "============== output from failed " + test + " :"
+      #print output
+      #print "============== expected output:"
+      #print expected_output
+      #print "==============================="
       tests_failed.append(test)
 
   print "%i tests passed, %i tests failed." % (

@@ -30,3 +30,5 @@ Windows/x64
 Windows/ipch
 Memstick
 android/ui_atlas.zim
+__testoutput.txt
+__testerror.txt

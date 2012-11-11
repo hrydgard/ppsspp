@@ -323,13 +323,14 @@ namespace MIPSInt
 	void Int_Viim(u32 op)
 	{
 		int vt = _VT;
-		int imm = op&0xFFFF;
+		s32 imm = (s16)(op&0xFFFF);
+		u16 uimm16 = (op&0xFFFF);
 		//V(vt) = (float)imm;
 		int type = (op >> 23) & 7;
 		if (type == 6)
 			V(vt) = (float)imm;
 		else if (type == 7)
-			V(vt) = Float16ToFloat32((u16)imm);
+			V(vt) = Float16ToFloat32((u16)uimm16);
 		else
 			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
 		
@@ -1040,7 +1041,7 @@ namespace MIPSInt
 		static const float constants[32] =
 		{
 			0,
-			std::numeric_limits<float>::infinity(),  // or max() ??   pspautotests seem to indicate inf
+			std::numeric_limits<float>::max(),  // or max() ??   pspautotests seem to indicate inf
 			sqrtf(2.0f),
 			sqrtf(0.5f),
 			2.0f/sqrtf((float)M_PI),

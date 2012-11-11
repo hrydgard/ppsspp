@@ -37,6 +37,10 @@ def gen_test(test):
   prx_path = TEST_ROOT + test + ".prx"
   expected_path = TEST_ROOT + test + ".expected"
 
+  if not os.path.exists(prx_path):
+    print "You must compile the test into a PRX first (" + prx_path + ")"
+    return
+
   # First, write a command file for PSPSH
 
   f = open("cmdfile.txt", "w")
@@ -50,7 +54,7 @@ def gen_test(test):
 
   if os.path.exists(OUTFILE):
     # Should check for size as well...
-    shutil.move(OUTFILE, expected_path)
+    shutil.copyfile(OUTFILE, expected_path)
     print "Expected file written: " + expected_path
   else:
     print "ERROR: No " + OUTFILE + " was written, can't write .expected"
