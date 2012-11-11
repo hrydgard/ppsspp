@@ -648,19 +648,20 @@ namespace MIPSInt
 
 		switch ((op >> 16) & 3) {
 		case 0:  // vuc2i  
-			// Quad is the only option
+			// Quad is the only option.
+			// This operation is weird. This particular way of working matches hw but does not 
+			// seem quite sane.
 			{
-				_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
-				// this op appears to be bugged and most likely useless, and this stuff is wrong. I've disabled this op in the vfpu_convert test
 				u32 value = s[0];
 				u32 value2 = value / 2;
 				for (int i = 0; i < 4; i++) {
-					d[i] = ((value & 0xFF) << 24) | replicate3(value2);
+					d[i] = (u32)((value & 0xFF) * 0x01010101) >> 1;
 					value >>= 8;
-					value2 >>= 8;
 				}
+				oz = V_Quad;
 			}
 			break;
+
 		case 1:  // vc2i
 			// Quad is the only option
 			{
@@ -669,6 +670,7 @@ namespace MIPSInt
 				d[1] = (value & 0xFF00) << 16;
 				d[2] = (value & 0xFF0000) << 8;
 				d[3] = (value & 0xFF000000);
+				oz = V_Quad;
 			}
 			break;
 

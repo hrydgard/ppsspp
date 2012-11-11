@@ -91,8 +91,8 @@ def init():
     print "Please run git submodule init; git submodule update;"
     sys.exit(1)
 
-  if not os.path.exists(TEST_ROOT + "cpu/cpu/cpu.elf"):
-    print "Please install the pspsdk and run build.sh or build.bat in pspautotests/tests"
+  if not os.path.exists(TEST_ROOT + "cpu/cpu/cpu.prx"):
+    print "Please install the pspsdk and run make in common/ and in all the tests" 
     sys.exit(1)
 
   for p in PPSSPP_EXECUTABLES:
