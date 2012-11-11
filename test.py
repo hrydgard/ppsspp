@@ -32,10 +32,13 @@ tests_good = [
   "threads/mbx/mbx",
   "power/power",
   "rtc/rtc",
+  "umd/callbacks/umd",
 ]
 
 # These are the next tests up for fixing.
 tests_next = [
+  "audio/atrac/atractest",
+  "audio/sascore/sascore",
   "ctrl/ctrl",
   "gpu/simple/simple",
   "gpu/triangle/triangle",
@@ -57,7 +60,6 @@ tests_next = [
   "threads/vpl/vpl",
   "threads/vtimers/vtimers",
   "threads/wakeup/wakeup",
-  "umd/callbacks/umd",
   "umd/io/umd_io",
   "umd/raw_access/raw_acess",
   "utility/systemparam",
@@ -156,6 +158,10 @@ def run_tests(test_list, args):
       different = True
 
     if not different:
+      if '-v' in args:
+        print "++++++++++++++ The Equal Output +++++++++++++"
+        print "\n".join(output_lines)
+        print "+++++++++++++++++++++++++++++++++++++++++++++"
       print "  " + test + " - passed!"
       tests_passed.append(test)
     else:

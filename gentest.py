@@ -50,7 +50,7 @@ def gen_test(test):
   os.system("pspsh -p %i cmdfile.txt" % (PORT,))
   
   # Allow the test a second to execute - TODO: tweak
-  time.sleep(1)
+  time.sleep(2)
 
   if os.path.exists(OUTFILE):
     # Should check for size as well...

@@ -580,9 +580,11 @@ namespace MIPSInt
 			{
 				s32 a = (s32)R(rs);
 				s32 b = (s32)R(rt);
-				if (b != 0) {
-					LO = (u32)(a/b);
-					HI = (u32)(a%b);
+				if (a == 0x80000000 && b == -1) {
+					LO = 0x80000000;
+				} else if (b != 0) {
+					LO = (u32)(a / b);
+					HI = (u32)(a % b);
 				} else {
 					LO = HI = 0;	// Not sure what the right thing to do is?
 				}

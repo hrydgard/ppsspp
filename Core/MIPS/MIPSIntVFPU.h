@@ -62,6 +62,7 @@ namespace MIPSInt
 	void Int_Vrnds(u32 op);
 	void Int_VrndX(u32 op);
 	void Int_ColorConv(u32 op);
-	void Int_Vh2f2h(u32 op);
+	void Int_Vh2f(u32 op);
+	void Int_Vf2h(u32 op);
 }
 

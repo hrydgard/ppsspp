@@ -47,19 +47,19 @@
 #define LO currentMIPS->lo
 
 #ifndef M_LOG2E
-#define M_E        2.71828182845904523536
-#define M_LOG2E    1.44269504088896340736
-#define M_LOG10E   0.434294481903251827651
-#define M_LN2      0.693147180559945309417
-#define M_LN10     2.30258509299404568402
-#define M_PI       3.14159265358979323846
-#define M_PI_2     1.57079632679489661923
-#define M_PI_4     0.785398163397448309616
-#define M_1_PI     0.318309886183790671538
-#define M_2_PI     0.636619772367581343076
-#define M_2_SQRTPI 1.12837916709551257390
-#define M_SQRT2    1.41421356237309504880
-#define M_SQRT1_2  0.707106781186547524401
+#define M_E        2.71828182845904523536f
+#define M_LOG2E    1.44269504088896340736f
+#define M_LOG10E   0.434294481903251827651f
+#define M_LN2      0.693147180559945309417f
+#define M_LN10     2.30258509299404568402f
+#define M_PI       3.14159265358979323846f
+#define M_PI_2     1.57079632679489661923f
+#define M_PI_4     0.785398163397448309616f
+#define M_1_PI     0.318309886183790671538f
+#define M_2_PI     0.636619772367581343076f
+#define M_2_SQRTPI 1.12837916709551257390f
+#define M_SQRT2    1.41421356237309504880f
+#define M_SQRT1_2  0.707106781186547524401f
 #endif
 
 void ApplyPrefixST(float *v, u32 data, VectorSize size)
@@ -110,25 +110,27 @@ void ApplySwizzleT(float *v, VectorSize size)
 	ApplyPrefixST(v, currentMIPS->vfpuCtrl[VFPU_CTRL_TPREFIX], size);
 }
 
-void ApplyPrefixD(float *v, VectorSize size)
+void ApplyPrefixD(float *v, VectorSize size, bool onlyWriteMask = false)
 {
 	int n = GetNumVectorElements(size);
 	bool writeMask[4];
 	u32 data = currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX];
 	for (int i = 0; i < n; i++)
 	{
-		int sat = (data >> i*2) & 3;
 		int mask = (data >> (8+i)) & 1;
 		writeMask[i] = mask ? true : false;
-		if (sat == 1)
-		{
-			if (v[i] > 1.0f) v[i]=1.0f;
-			if (v[i] < 0.0f) v[i]=0.0f;
-		}
-		else if (sat == 3)
-		{
-			if (v[i] > 1.0f)  v[i]=1.0f;
-			if (v[i] < -1.0f) v[i]=-1.0f;
+		if (!onlyWriteMask) {
+			int sat = (data >> i*2) & 3;
+			if (sat == 1)
+			{
+				if (v[i] > 1.0f) v[i]=1.0f;
+				if (v[i] < 0.0f) v[i]=0.0f;
+			}
+			else if (sat == 3)
+			{
+				if (v[i] > 1.0f)  v[i]=1.0f;
+				if (v[i] < -1.0f) v[i]=-1.0f;
+			}
 		}
 	}
   currentMIPS->SetWriteMask(writeMask);
@@ -281,9 +283,9 @@ namespace MIPSInt
 
 		switch ((op >> 16) & 0xF)
 		{
-		case 3: m=idt; break; //identity
-		case 6: m=zero; break;
-		case 7: m=one; break;
+		case 3: m=idt; break; //identity   // vmidt
+		case 6: m=zero; break;             // vzero
+		case 7: m=one; break;              // vone
 		default:
 			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
 			return;
@@ -299,13 +301,13 @@ namespace MIPSInt
 		int vd = _VD;
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
-		const float ones[4] = {1,1,1,1};
-		const float zeros[4] = {0,0,0,0};
+		static const float ones[4] = {1,1,1,1};
+		static const float zeros[4] = {0,0,0,0};
 		const float *v;
 		switch ((op >> 16) & 0xF)
 		{
-		case 6: v=zeros; break;
-		case 7: v=ones; break;
+		case 6: v=zeros; break;  //vzero
+		case 7: v=ones; break;   //vone
 		default:
 			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
 			return;
@@ -326,14 +328,17 @@ namespace MIPSInt
 		s32 imm = (s16)(op&0xFFFF);
 		u16 uimm16 = (op&0xFFFF);
 		//V(vt) = (float)imm;
+		float f[1];
 		int type = (op >> 23) & 7;
 		if (type == 6)
-			V(vt) = (float)imm;
+			f[0] = (float)imm;  // viim
 		else if (type == 7)
-			V(vt) = Float16ToFloat32((u16)uimm16);
+			f[0] = Float16ToFloat32((u16)uimm16);   // vfim
 		else
 			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
 		
+		ApplyPrefixD(f, V_Single);
+		V(vt) = f[0];
 		PC += 4;
 		EatPrefixes();
 	}
@@ -359,6 +364,7 @@ namespace MIPSInt
 			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
 			break;
 		}
+		ApplyPrefixD(f, sz);
 		WriteVector(f, sz, vd);
 		PC += 4;
 		EatPrefixes();
@@ -510,7 +516,12 @@ namespace MIPSInt
     ApplySwizzleS(s, sz);
     for (int i = 0; i < GetNumVectorElements(sz); i++)
     {
-      d[i] = s[i] > 0.0f ? 1.0f : (s[i] < 0.0f ? -1.0f : 0.0f);
+			if (s[i] > 0.0f)
+				d[i] = 1.0f;
+			else if (s[i] < 0.0f)
+				d[i] = -1.0f;
+			else
+				d[i] = 0.0f;
     }
     ApplyPrefixD(d, sz);
     WriteVector(d, sz, vd);
@@ -539,7 +550,7 @@ namespace MIPSInt
 			case 19: d[i] = (int)floor(s[i] * mult); break; //d
 			}
 		}
-		ApplyPrefixD((float*)d, sz); //TODO: and the mask to kill everything but mask
+		ApplyPrefixD((float*)d, sz, true);
 		WriteVector((float*)d, sz, vd);
 		PC += 4;
 		EatPrefixes();
@@ -567,7 +578,33 @@ namespace MIPSInt
 	}
 
 	// TODO: CHECK
-	void Int_Vh2f2h(u32 op)
+	void Int_Vh2f(u32 op)
+	{
+		_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+
+		/*
+		int s[4];
+		float d[4];
+		int vd = _VD;
+		int vs = _VS;
+		int imm = (op >> 16) & 0x1f;
+		float mult = 1.0f/(float)(1 << imm);
+		VectorSize sz = GetVecSize(op);
+		ReadVector((float*)&s, sz, vs);
+		ApplySwizzleS((float*)&s, sz); //TODO: and the mask to kill everything but swizzle
+		
+		for (int i = 0; i < GetNumVectorElements(sz); i++)
+		{
+			d[i] = (float)s[i] * mult;
+		}
+		ApplyPrefixD(d, sz); //TODO: and the mask to kill everything but mask
+		WriteVector(d, sz, vd);
+		*/
+		PC += 4;
+		EatPrefixes();
+	}
+
+	void Int_Vf2h(u32 op)
 	{
 		_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
 
@@ -651,7 +688,7 @@ namespace MIPSInt
 			break;
 		}
 		
-		ApplyPrefixD((float*)d,oz);  // Only write mask should be valid
+		ApplyPrefixD((float*)d,oz, true);  // Only write mask
 		WriteVector((float*)d,oz,vd);
 		PC += 4;
 		EatPrefixes();
@@ -726,7 +763,7 @@ namespace MIPSInt
 			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
 			break;
 		}
-		ApplyPrefixD((float*)d,oz);
+		ApplyPrefixD((float*)d,oz,true);
 		WriteVector((float*)d,oz,vd);
 		PC += 4;
 		EatPrefixes();
@@ -964,7 +1001,7 @@ namespace MIPSInt
 		int vs = _VS;
 		int imm = (op >> 16) & 0x1f;
 		VectorSize sz = GetVecSize(op);
-		float angle = V(vs) * (float)M_PI * 0.5f;
+		float angle = V(vs) * M_PI_2;
 		bool negSin = (imm & 0x10) ? true : false;
 		float sine = sinf(angle);
     float cosine = cosf(angle);
@@ -1186,7 +1223,7 @@ namespace MIPSInt
 			or_val |= c;
 			and_val &= c;
 		}
-		currentMIPS->vfpuCtrl[VFPU_CTRL_CC] = cc | (or_val<<4) | (and_val << 5);
+		currentMIPS->vfpuCtrl[VFPU_CTRL_CC] = cc | (or_val << 4) | (and_val << 5);
 		PC += 4;
 		EatPrefixes();
 	}
@@ -1212,9 +1249,9 @@ namespace MIPSInt
 
 		int CC = currentMIPS->vfpuCtrl[VFPU_CTRL_CC];
 
-		if (imm3<6)
+		if (imm3 < 6)
 		{
-			if (((CC>>imm3)&1) == !tf)
+			if (((CC >> imm3) & 1) == !tf)
 			{
 				for (int i = 0; i < n; i++)
 					d[i] = s[i];
@@ -1290,7 +1327,7 @@ bad:
 		EatPrefixes();
 	}
 
-
+	
 	void Int_CrossQuat(u32 op)
 	{
 		int vd = _VD;
@@ -1304,7 +1341,7 @@ bad:
 		ReadVector(t, sz, vt);
 		switch (sz)
 		{
-		case V_Triple:
+		case V_Triple:  // vcrsp
 			d[0] = s[1]*t[2] - s[2]*t[1];
 			d[1] = s[2]*t[0] - s[0]*t[2];
 			d[2] = s[0]*t[1] - s[1]*t[0];
@@ -1317,6 +1354,7 @@ bad:
 			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
 			break;
 		}
+		ApplyPrefixD(d, sz);
 		WriteVector(d, sz, vd);
 		PC += 4;
 		EatPrefixes();

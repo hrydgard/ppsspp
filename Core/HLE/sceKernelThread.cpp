@@ -286,14 +286,6 @@ SceUID curModule;
 //STATE END
 //////////////////////////////////////////////////////////////////////////
 
-void Thread::setReturnValue(u32 retval)
-{
-	if (this == currentThread) {
-		currentMIPS->r[2] = retval;
-	} else {
-		context.r[2] = retval;
-	}
-}
 
 // TODO: Should move to this wrapper so we can keep the current thread as a SceUID instead
 // of a dangerous raw pointer.
@@ -1411,6 +1403,26 @@ void ActionAfterMipsCall::run() {
 	}
 }
 
+
+void Thread::setReturnValue(u32 retval)
+{
+	if (this == currentThread) {
+		if (g_inCbCount) {
+			int callId = currentMIPS->r[MIPS_REG_CALL_ID];
+			MipsCall *call = mipsCalls.get(callId);
+			if (call) {
+				call->savedV0 = retval;
+			} else {
+				ERROR_LOG(HLE, "Failed to inject return value %08x in thread", retval);
+			}
+		} else {
+			currentMIPS->r[2] = retval;
+		}
+	} else {
+		context.r[2] = retval;
+	}
+}
+
 void __KernelSwitchContext(Thread *target, const char *reason) 
 {
 	if (currentThread)  // It might just have been deleted.
@@ -1676,7 +1688,7 @@ void sceKernelCheckCallback() {
 	curThread->isProcessingCallbacks = false;
 
 	if (callbacksProcessed) {
-		RETURN(1);
+		curThread->setReturnValue(1);
 		ERROR_LOG(HLE,"sceKernelCheckCallback() - processed a callback.");
 		__KernelExecutePendingMipsCalls();
 	} else {
