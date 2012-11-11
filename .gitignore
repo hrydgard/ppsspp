@@ -24,6 +24,7 @@ gen
 libs
 obj
 *.exp
+.pspsh.hist
 GameLogNotes.txt
 Windows/x64
 Windows/ipch

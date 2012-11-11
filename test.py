@@ -6,7 +6,7 @@ import os
 import subprocess
 
 
-PPSSPP_EXECUTABLES = [ "Windows/Release/PPSSPPHeadless.exe", "SDL/build/ppsspp-headless" ]
+PPSSPP_EXECUTABLES = [ "Windows\\Release\\PPSSPPHeadless.exe", "SDL/build/ppsspp-headless" ]
 PPSSPP_EXE = None
 TEST_ROOT = "pspautotests/tests/"
 
@@ -103,10 +103,20 @@ def run_tests(test_list, args):
   flags = ""
 
   for test in test_list:
-    elf_filename = TEST_ROOT + test + ".elf"
+    # Try prx first
     expected_filename = TEST_ROOT + test + ".expected"
+    elf_filename = TEST_ROOT + test + ".prx"
+
+    if not os.path.exists(elf_filename):
+      elf_filename = TEST_ROOT + test + ".elf"
+
+    if not os.path.exists(elf_filename):
+      print("ERROR: PRX/ELF file missing, failing test: " + test)
+      tests_failed.append(test)
+      continue
+
     if not os.path.exists(expected_filename):
-      print("WARNING: expects file missing, failing test: " + expected_filename)
+      print("WARNING: expects file missing, failing test: " + test)
       tests_failed.append(test)
       continue
 
@@ -126,7 +136,7 @@ def run_tests(test_list, args):
     expected_lines = expected_output.splitlines()
     output_lines = output.splitlines()
     
-    for i in range(0, len(expected_lines)):
+    for i in range(0, min(len(output_lines), len(expected_lines))):
       if output_lines[i] != expected_lines[i]:
         #print "First different line (output vs expected):"
         #print output_lines[i]
@@ -135,11 +145,15 @@ def run_tests(test_list, args):
         different = True
         break
 
+    if len(output_lines) != len(expected_lines):
+      print "*** Different number of lines!"
+      different = True
+
     if not different:
       print "  " + test + " - passed!"
       tests_passed.append(test)
     else:
-      print test + " failed ============== output:"
+      print "============== output from failed " + test + " :"
       print output
       print "============== expected output:"
       print expected_output
