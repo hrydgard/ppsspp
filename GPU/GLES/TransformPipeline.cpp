@@ -295,10 +295,13 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 					psum += tpos*decoded[index].weights[i];
 					nsum += tnorm*decoded[index].weights[i];
 				}
+
 				nsum.Normalize();
-				psum.Write(out);
-				nsum.Write(norm);
+
+				Vec3ByMatrix43(out, psum.v, gstate.worldMatrix);
+				Norm3ByMatrix43(norm, nsum.v, gstate.worldMatrix);
 			}
+
 
 			// Perform lighting here if enabled. don't need to check through, it's checked above.
 			float dots[4] = {0,0,0,0};
