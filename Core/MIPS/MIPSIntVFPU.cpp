@@ -468,7 +468,9 @@ namespace MIPSInt
 			case 21: d[i] = logf(s[i])/log(2.0f); break;
       case 22: d[i] = sqrtf(s[i]); break; //vsqrt
 			case 23: d[i] = asinf(s[i] * (float)M_2_PI); break; //vasin
-
+			// case 24: vnrcp
+			// case 26: vnsin
+			case 28: d[i] = 1.0f / expf(s[i] * (float)M_LOG2E); break; // vrexp2
 			default:
 				_dbg_assert_msg_(CPU,0,"Trying to interpret VV2Op instruction that can't be interpreted");
 				break;
@@ -515,24 +517,6 @@ namespace MIPSInt
     PC += 4;
     EatPrefixes();
   }
-
-	void Int_VRexp2(u32 op)
-	{
-		float s[4], d[4];
-		int vd = _VD;
-		int vs = _VS;
-		VectorSize sz = GetVecSize(op);
-		ReadVector(s, sz, vs);
-		ApplySwizzleS(s, sz);
-		for (int i = 0; i < GetNumVectorElements(sz); i++)
-		{
-			d[i] = 1.0f / expf(s[i] * (float)M_LOG2E);
-		}
-		ApplyPrefixD(d, sz);
-		WriteVector(d, sz, vd);
-		PC += 4;
-		EatPrefixes();
-	}
 
 	void Int_Vf2i(u32 op)
 	{
@@ -605,6 +589,70 @@ namespace MIPSInt
 		ApplyPrefixD(d, sz); //TODO: and the mask to kill everything but mask
 		WriteVector(d, sz, vd);
 		*/
+		PC += 4;
+		EatPrefixes();
+	}
+
+	u32 replicate3(u32 low) {
+		low &= 0xFF;
+		return low | (low << 8) | (low << 16);
+	}
+
+	void Int_Vx2i(u32 op)
+	{
+		int s[4];
+    u32 d[4] = {0};
+		int vd = _VD;
+		int vs = _VS;
+		VectorSize sz = GetVecSize(op);
+		VectorSize oz = sz;
+		ReadVector((float*)s, sz, vs);
+		// ForbidVPFXS
+
+		switch ((op >> 16) & 3) {
+		case 0:  // vuc2i  
+			// Quad is the only option
+			{
+				_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+				// this op appears to be bugged and most likely useless, and this stuff is wrong. I've disabled this op in the vfpu_convert test
+				u32 value = s[0];
+				u32 value2 = value / 2;
+				for (int i = 0; i < 4; i++) {
+					d[i] = ((value & 0xFF) << 24) | replicate3(value2);
+					value >>= 8;
+					value2 >>= 8;
+				}
+			}
+			break;
+		case 1:  // vc2i
+			// Quad is the only option
+			{
+				u32 value = s[0];
+				d[0] = (value & 0xFF) << 24;
+				d[1] = (value & 0xFF00) << 16;
+				d[2] = (value & 0xFF0000) << 8;
+				d[3] = (value & 0xFF000000);
+			}
+			break;
+
+		case 2:  // vus2i
+			// Actually identical to vs2i, the sign doesn't matter I think.
+		case 3:  // vs2i
+			for (int i = 0; i < GetNumVectorElements(sz); i++) {
+				u32 value = s[i];
+				d[i * 2] = (value & 0xFFFF) << 16;
+				d[i * 2 + 1] = value & 0xFFFF0000;
+			}
+			oz = V_Pair;
+			if (sz == V_Pair) oz = V_Quad;
+			break;
+		default:
+			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			break;
+		}
+		
+		ApplyPrefixD((float*)d,oz);  // Only write mask should be valid
+		WriteVector((float*)d,oz,vd);
 		PC += 4;
 		EatPrefixes();
 	}
@@ -694,7 +742,7 @@ namespace MIPSInt
     u16 colors[4];
     for (int i = 0; i < 4; i++)
     {
-      u32 in = colors[i];
+      u32 in = s[i];
       u16 col = 0;
       switch ((op >> 16) & 3)
       {
@@ -709,10 +757,10 @@ namespace MIPSInt
         }
       case 2:  // 5551
         {
-          int a = ((in >> 24) & 0xFF) >> 4;
-          int b = ((in >> 16) & 0xFF) >> 4;
-          int g = ((in >> 8) & 0xFF) >> 4;
-          int r = ((in) & 0xFF) >> 4;
+          int a = ((in >> 24) & 0xFF) >> 7;
+          int b = ((in >> 16) & 0xFF) >> 3;
+          int g = ((in >> 8) & 0xFF) >> 3;
+          int r = ((in) & 0xFF) >> 3;
           col = (a << 15) | (b << 10) | (g << 5) | (r);
           break;
         }

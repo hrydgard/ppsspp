@@ -57,11 +57,11 @@ namespace MIPSInt
 	void Int_Vf2i(u32 op);
 	void Int_Vi2f(u32 op);
 	void Int_Vi2x(u32 op);
+	void Int_Vx2i(u32 op);
 	void Int_VBranch(u32 op);
 	void Int_Vrnds(u32 op);
 	void Int_VrndX(u32 op);
 	void Int_ColorConv(u32 op);
 	void Int_Vh2f2h(u32 op);
-	void Int_VRexp2(u32 op);
 }
 

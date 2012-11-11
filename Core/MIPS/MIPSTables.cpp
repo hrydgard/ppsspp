@@ -241,7 +241,11 @@ const MIPSInstruction tableSpecial[64] = /// 000000 ...... ...... .......... xxx
 	{-2},
 
 	//56
-	{-2}, {-2}, {-2}, {-2}, {-2}, {-2}, {-2}, {-2},
+	{-2}, {-2}, {-2}, {-2}, {-2},
+	
+	{-2},
+	{-2},
+	{-2},
 };
 
 const MIPSInstruction tableSpecial2[64] = 
@@ -566,10 +570,10 @@ MIPSInstruction tableVFPU7[32] =
 	{-2},
 	INSTR("vlgb", &Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU),
 	//24
-	INSTR("vrexp2", &Jit::Comp_Generic, Dis_Generic, Int_VRexp2, IS_VFPU),  // vrexp2 Seen in BraveStory, initialization  110100 00001110000 000 0001 0000 0000
-	{-2},
-	INSTR("vus2i", &Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU),
-	INSTR("vs2i", &Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU),
+	INSTR("vuc2i", &Jit::Comp_Generic, Dis_Generic, Int_Vx2i, IS_VFPU),  // Seen in BraveStory, initialization  110100 00001110000 000 0001 0000 0000
+	INSTR("vc2i", &Jit::Comp_Generic, Dis_Generic, Int_Vx2i, IS_VFPU),
+	INSTR("vus2i", &Jit::Comp_Generic, Dis_Generic, Int_Vx2i, IS_VFPU),
+	INSTR("vs2i", &Jit::Comp_Generic, Dis_Generic, Int_Vx2i, IS_VFPU),
 
 	INSTR("vi2uc", &Jit::Comp_Generic, Dis_Vi2x, Int_Vi2x, IS_VFPU),
 	INSTR("vi2c",  &Jit::Comp_Generic, Dis_Vi2x, Int_Vi2x, IS_VFPU),
