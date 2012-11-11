@@ -122,8 +122,8 @@ void Light(float colorOut[4], const float colorIn[4], Vec3 pos, Vec3 normal, flo
 	for (int l = 0; l < 4; l++)
 	{
 		// can we skip this light?
-		//if ((gstate.lightEnable[l] & 1) == 0) // && !doShadeMapping)
-		//	continue;
+		if ((gstate.lightEnable[l] & 1) == 0 && !doShadeMapping)
+			continue;
 
 		GELightComputation comp = (GELightComputation)(gstate.ltype[l]&3);
 		GELightType type = (GELightType)((gstate.ltype[l]>>8)&3);
@@ -286,14 +286,16 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 				// Skinning
 				Vec3 psum(0,0,0);
 				Vec3 nsum(0,0,0);
-				int nweights = (gstate.vertType & GE_VTYPE_WEIGHT_MASK) >> GE_VTYPE_WEIGHT_SHIFT;
-				for (int i = 0; i < nweights; i++)
+				int nweights = (gstate.vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT;
+				for (int i = 0; i < 8; i++)
 				{
-					Vec3ByMatrix43(out, decoded[index].pos, gstate.boneMatrix+i*12);
-					Norm3ByMatrix43(norm, decoded[index].normal, gstate.boneMatrix+i*12);
-					Vec3 tpos(out), tnorm(norm);
-					psum += tpos*decoded[index].weights[i];
-					nsum += tnorm*decoded[index].weights[i];
+					if (decoded[index].weights[i] != 0.0f) {
+						Vec3ByMatrix43(out, decoded[index].pos, gstate.boneMatrix+i*12);
+						Norm3ByMatrix43(norm, decoded[index].normal, gstate.boneMatrix+i*12);
+						Vec3 tpos(out), tnorm(norm);
+						psum += tpos*decoded[index].weights[i];
+						nsum += tnorm*decoded[index].weights[i];
+					}
 				}
 
 				nsum.Normalize();
