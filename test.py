@@ -33,6 +33,7 @@ tests_good = [
   "power/power",
   "rtc/rtc",
   "umd/callbacks/umd",
+  "power/power",
 ]
 
 # These are the next tests up for fixing.
