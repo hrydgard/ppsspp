@@ -177,33 +177,30 @@ void sceCtrlSetIdleCancelThreshold()
   DEBUG_LOG(HLE,"UNIMPL sceCtrlSetIdleCancelThreshold");
 }
 
-void sceCtrlReadBufferPositive()
+u32 sceCtrlReadBufferPositive(u32 ctrlDataPtr, u32 nBufs)
 {
-	u32 ctrlDataPtr = PARAM(0);
-	// u32 nBufs = PARAM(1);
-	DEBUG_LOG(HLE,"sceCtrlReadBufferPositive(%08x)", PARAM(0));
+	DEBUG_LOG(HLE,"sceCtrlReadBufferPositive(%08x, %i)", ctrlDataPtr, nBufs);
+	_assert_msg_(HLE, nBufs > 0, "sceCtrlReadBufferPositive: trying to read nothing?");
 
-  std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
-  // Let's just ignore if ctrl is inited or not; some games don't init it (Super Fruit Fall)
+	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
+	// Let's just ignore if ctrl is inited or not; some games don't init it (Super Fruit Fall)
 	//if (ctrlInited)
 	//{
 		SampleControls();
-    memcpy(Memory::GetPointer(ctrlDataPtr), &ctrl, sizeof(_ctrl_data));
+		memcpy(Memory::GetPointer(ctrlDataPtr), &ctrl, sizeof(_ctrl_data));
 	//}
-  RETURN(1);
+	return 1;
 }
 
-void sceCtrlPeekLatch() {
-	u32 latchDataPtr = PARAM(0);
+u32 sceCtrlPeekLatch(u32 latchDataPtr) {
 	ERROR_LOG(HLE,"FAKE sceCtrlPeekLatch(%08x)", latchDataPtr);
 
 	if (Memory::IsValidAddress(latchDataPtr))
 		Memory::WriteStruct(latchDataPtr, &latch);
-	RETURN(1);
+	return 1;
 }
 
-void sceCtrlReadLatch() {
-	u32 latchDataPtr = PARAM(0);
+u32 sceCtrlReadLatch(u32 latchDataPtr) {
 	ERROR_LOG(HLE,"FAKE sceCtrlReadLatch(%08x)", latchDataPtr);
 
 	// Hackery to do it here.
@@ -214,23 +211,23 @@ void sceCtrlReadLatch() {
 	if (Memory::IsValidAddress(latchDataPtr))
 		Memory::WriteStruct(latchDataPtr, &latch);
 
-	RETURN(1);
+	return 1;
 }
 
 static const HLEFunction sceCtrl[] = 
 {
   {0x6a2774f3, sceCtrlInit,          "sceCtrlInit"}, //(int unknown), init with 0
   {0x1f4011e6, &WrapU_U<sceCtrlSetSamplingMode>, "sceCtrlSetSamplingMode"}, //(int on);
-  {0x1f803938, sceCtrlReadBufferPositive,          "sceCtrlReadBufferPositive"}, //(ctrl_data_t* paddata, int unknown) // unknown should be 1
+  {0x1f803938, &WrapU_UU<sceCtrlReadBufferPositive>,          "sceCtrlReadBufferPositive"}, //(ctrl_data_t* paddata, int unknown) // unknown should be 1
   {0x6A2774F3, 0, "sceCtrlSetSamplingCycle"}, //?
   {0x6A2774F3,sceCtrlInit,"sceCtrlSetSamplingCycle"},
   {0x02BAAD91,0,"sceCtrlGetSamplingCycle"},
   {0xDA6B76A1,0,"sceCtrlGetSamplingMode"},
-  {0x3A622550,sceCtrlReadBufferPositive,"sceCtrlPeekBufferPositive"},
+  {0x3A622550,&WrapU_UU<sceCtrlReadBufferPositive>,           "sceCtrlPeekBufferPositive"},
   {0xC152080A,0,"sceCtrlPeekBufferNegative"},
   {0x60B81F86,0,"sceCtrlReadBufferNegative"},
-  {0xB1D0E5CD,sceCtrlPeekLatch,"sceCtrlPeekLatch"},
-  {0x0B588501,sceCtrlReadLatch,"sceCtrlReadLatch"},
+  {0xB1D0E5CD,&WrapU_U<sceCtrlPeekLatch>,"sceCtrlPeekLatch"},
+  {0x0B588501,&WrapU_U<sceCtrlReadLatch>,"sceCtrlReadLatch"},
   {0x348D99D4,0,"sceCtrl_348D99D4"},
   {0xAF5960F3,0,"sceCtrl_AF5960F3"},
   {0xA68FD260,0,"sceCtrlClearRapidFire"},
