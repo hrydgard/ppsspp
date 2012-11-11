@@ -24,6 +24,9 @@
 #define CTRL_ANALOG_X   0
 #define CTRL_ANALOG_Y   1
 
+#define CTRL_MODE_DIGITAL   0
+#define CTRL_MODE_ANALOG    1
+
 
 // Returned control data
 struct _ctrl_data
@@ -154,18 +157,19 @@ void sceCtrlInit()
 	DEBUG_LOG(HLE,"sceCtrlInit");	
 }
 
-void sceCtrlSetSamplingMode()
+u32 sceCtrlSetSamplingMode(u32 mode)
 {
-	u32 mode = PARAM(0);
+	u32 retVal = 0;
+
 	DEBUG_LOG(HLE,"sceCtrlSetSamplingMode(%i)", mode);
+	_assert_msg_(HLE, mode >= 0 && mode <= 1, "sceCtrlSetSamplingMode: mode outside expected range.");
+
 	if (ctrlInited)
 	{
-		RETURN((u32)analogEnabled);
-    // Looks odd
-		analogEnabled = mode == 1 ? true : false;
-		return;
+		retVal = analogEnabled == true ? CTRL_MODE_ANALOG : CTRL_MODE_DIGITAL;
+		analogEnabled = mode == CTRL_MODE_ANALOG ? true : false;
 	}
-	RETURN(0);
+	return retVal;
 }
 
 void sceCtrlSetIdleCancelThreshold()
@@ -216,7 +220,7 @@ void sceCtrlReadLatch() {
 static const HLEFunction sceCtrl[] = 
 {
   {0x6a2774f3, sceCtrlInit,          "sceCtrlInit"}, //(int unknown), init with 0
-  {0x1f4011e6, sceCtrlSetSamplingMode, "sceCtrlSetSamplingMode"}, //(int on);
+  {0x1f4011e6, &WrapU_U<sceCtrlSetSamplingMode>, "sceCtrlSetSamplingMode"}, //(int on);
   {0x1f803938, sceCtrlReadBufferPositive,          "sceCtrlReadBufferPositive"}, //(ctrl_data_t* paddata, int unknown) // unknown should be 1
   {0x6A2774F3, 0, "sceCtrlSetSamplingCycle"}, //?
   {0x6A2774F3,sceCtrlInit,"sceCtrlSetSamplingCycle"},
