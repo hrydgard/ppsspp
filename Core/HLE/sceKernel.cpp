@@ -136,7 +136,7 @@ void sceKernelExitGameWithStatus()
 void sceKernelRegisterExitCallback()
 {
 	u32 cbId = PARAM(0);
-	ERROR_LOG(HLE,"UNIMPL sceKernelRegisterExitCallback(%i)", cbId);
+	DEBUG_LOG(HLE,"NOP sceKernelRegisterExitCallback(%i)", cbId);
 	RETURN(0);
 }
 
@@ -290,8 +290,6 @@ void sceKernelIcacheClearAll()
 	RETURN(0);
 }
 
-
-
 struct SystemStatus {
 	SceSize size;
 	SceUInt status;
@@ -301,7 +299,6 @@ struct SystemStatus {
 	SceUInt perfcounter2;
 	SceUInt perfcounter3;
 };
-
 
 u32 sceKernelReferSystemStatus(u32 statusPtr)
 {
@@ -315,6 +312,11 @@ u32 sceKernelReferSystemStatus(u32 statusPtr)
 	return 0;
 }
 
+u32 sceKernelReferGlobalProfiler(u32 statusPtr) {
+	DEBUG_LOG(HLE, "sceKernelReferGlobalProfiler(%08x)", statusPtr);
+	// Ignore for now
+	return 0;
+}
 
 const HLEFunction ThreadManForUser[] =
 {
@@ -348,7 +350,7 @@ const HLEFunction ThreadManForUser[] =
 
 	// NOTE: LockLwMutex and UnlockLwMutex are in Kernel_Library, see sceKernelInterrupt.cpp.
 
-	{0xFCCFAD26,0,"sceKernelCancelWakeupThread"},
+	{0xFCCFAD26,sceKernelCancelWakeupThread,"sceKernelCancelWakeupThread"},
 	{0xea748e31,sceKernelChangeCurrentThreadAttr,"sceKernelChangeCurrentThreadAttr"},
 	{0x71bc9871,sceKernelChangeThreadPriority,"sceKernelChangeThreadPriority"},
 	{0x446D8DE6,sceKernelCreateThread,"sceKernelCreateThread"},
@@ -401,7 +403,7 @@ const HLEFunction ThreadManForUser[] =
 	{0xdb738f35,sceKernelGetSystemTime,"sceKernelGetSystemTime"},
 	{0x369ed59d,sceKernelGetSystemTimeLow,"sceKernelGetSystemTimeLow"},
 
-	{0x8218B4DD,0,"sceKernelReferGlobalProfiler"},
+	{0x8218B4DD,&WrapU_U<sceKernelReferGlobalProfiler>,"sceKernelReferGlobalProfiler"},
 	{0x627E6F3A,&WrapU_U<sceKernelReferSystemStatus>,"sceKernelReferSystemStatus"},
 	{0x64D4540E,0,"sceKernelReferThreadProfiler"},
 

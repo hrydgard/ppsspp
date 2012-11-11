@@ -1152,6 +1152,26 @@ void sceKernelWakeupThread()
 		}
 	} 
 	else {
+		ERROR_LOG(HLE,"sceKernelWakeupThread(%i) - bad thread id");
+		RETURN(error);
+	}
+}
+
+void sceKernelCancelWakeupThread()
+{
+	SceUID uid = PARAM(0);
+	u32 error;
+	if (uid == 0) uid == __KernelGetCurThread();
+	Thread *t = kernelObjects.Get<Thread>(uid, error);
+	if (t)
+	{
+		int wCount = t->nt.wakeupCount;
+		t->nt.wakeupCount = 0;
+		DEBUG_LOG(HLE,"sceKernelCancelWakeupThread(%i) - wakeupCount reset from %i", uid, wCount);
+		RETURN(wCount);
+	} 
+	else {
+		ERROR_LOG(HLE,"sceKernelCancelWakeupThread(%i) - bad thread id");
 		RETURN(error);
 	}
 }

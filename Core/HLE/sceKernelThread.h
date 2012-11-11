@@ -46,6 +46,7 @@ void sceKernelCheckThreadStack();
 void sceKernelSuspendThread();
 void sceKernelResumeThread();
 void sceKernelWakeupThread();
+void sceKernelCancelWakeupThread();
 void sceKernelTerminateDeleteThread();
 void sceKernelWaitThreadEndCB();
 void sceKernelGetThreadExitStatus();

@@ -197,8 +197,21 @@ void scePowerSetClockFrequency(u32 cpufreq, u32 busfreq, u32 gpufreq)
 }
 
 void scePowerGetCpuClockFrequencyInt() {
-	INFO_LOG(HLE,"scePowerGetCpuClockFrequencyInt()");
-	RETURN(CoreTiming::GetClockFrequencyMHz());
+	int freq = CoreTiming::GetClockFrequencyMHz();
+	INFO_LOG(HLE,"%i=scePowerGetCpuClockFrequencyInt()", freq);
+	RETURN(freq);
+}
+
+void scePowerGetPllClockFrequencyInt() {
+	int freq = CoreTiming::GetClockFrequencyMHz() / 2;
+	INFO_LOG(HLE,"%i=scePowerGetPllClockFrequencyInt()", freq);
+	RETURN(freq);
+}
+
+void scePowerGetBusClockFrequencyInt() {
+	int freq = CoreTiming::GetClockFrequencyMHz() / 2;
+	INFO_LOG(HLE,"%i=scePowerGetBusClockFrequencyInt()", freq);
+	RETURN(freq);
 }
 
 static const HLEFunction scePower[] = 
@@ -244,11 +257,11 @@ static const HLEFunction scePower[] =
 	{0xFEE03A2F,0,"scePowerGetCpuClockFrequency"},
 	{0x478FE6F5,0,"scePowerGetBusClockFrequency"},
 	{0xFDB5BFE9,scePowerGetCpuClockFrequencyInt,"scePowerGetCpuClockFrequencyInt"},
-	{0xBD681969,0,"scePowerGetBusClockFrequencyInt"},
+	{0xBD681969,scePowerGetBusClockFrequencyInt,"scePowerGetBusClockFrequencyInt"},
 	{0xB1A52C83,0,"scePowerGetCpuClockFrequencyFloat"},
 	{0x9BADB3EB,0,"scePowerGetBusClockFrequencyFloat"},
 	{0x737486F2,&WrapV_UUU<scePowerSetClockFrequency>,"scePowerSetClockFrequency"},
-	{0x34f9c463,0,"scePowerGetPllClockFrequencyInt"},
+	{0x34f9c463,scePowerGetPllClockFrequencyInt,"scePowerGetPllClockFrequencyInt"},
 	{0xea382a27,0,"scePowerGetPllClockFrequencyFloat"},
 	{0xebd177d6,0,"scePower_driver_EBD177D6"},
 	{0x469989ad,0,"scePower_469989ad"},
