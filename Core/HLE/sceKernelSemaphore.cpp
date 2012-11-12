@@ -90,7 +90,34 @@ void sceKernelDeleteSema()
 {
 	SceUID id = PARAM(0);
 	DEBUG_LOG(HLE,"sceKernelDeleteSema(%i)", id);
-	RETURN(kernelObjects.Destroy<Semaphore>(id));
+
+	u32 error;
+	Semaphore *s = kernelObjects.Get<Semaphore>(id, error);
+	if (s)
+	{
+		bool wokeThreads = false;
+
+		std::vector<SceUID>::iterator iter;
+		for (iter = s->waitingThreads.begin(); iter!=s->waitingThreads.end(); iter++)
+		{
+			SceUID threadID = *iter;
+
+			__KernelResumeThreadFromWait(threadID);
+			wokeThreads = true;
+		}
+		s->waitingThreads.empty();
+
+		// TODO: Should this reschedule?  threads/semaphores fails if it doesn't.
+		if (wokeThreads)
+			__KernelReSchedule("semaphore signalled");
+
+		RETURN(kernelObjects.Destroy<Semaphore>(id));
+	}
+	else
+	{
+		ERROR_LOG(HLE, "sceKernelSignalSema : Trying to signal invalid semaphore %i", id);
+		RETURN(error);
+	}
 }
 
 int sceKernelReferSemaStatus(SceUID id, u32 infoPtr)
