@@ -1,4 +1,5 @@
 #include "../Core/Host.h"
+#include "XinputDevice.h"
 
 class WindowsHost : public Host
 {
@@ -30,4 +31,5 @@ public:
 
 private:
 	HWND displayWindow;
+	XinputDevice xinput;
 };

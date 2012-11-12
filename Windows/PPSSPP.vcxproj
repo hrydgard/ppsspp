@@ -141,7 +141,7 @@
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>Winmm.lib;Ws2_32.lib;opengl32.lib;glu32.lib;comctl32.lib;dsound.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Winmm.lib;Ws2_32.lib;opengl32.lib;glu32.lib;comctl32.lib;dsound.lib;xinput.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <ProgramDatabaseFile>$(OutDir)$(ProjectName).pdb</ProgramDatabaseFile>
       <SubSystem>Windows</SubSystem>
@@ -390,6 +390,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="XinputDevice.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\android\jni\EmuScreen.h" />
@@ -403,6 +404,7 @@
     <ClInclude Include="Debugger\Debugger_MemoryDlg.h" />
     <ClInclude Include="Debugger\Debugger_VFPUDlg.h" />
     <ClInclude Include="EmuThread.h" />
+    <ClInclude Include="InputDevice.h" />
     <ClInclude Include="W32Util\DialogManager.h" />
     <ClInclude Include="W32Util\Misc.h" />
     <ClInclude Include="W32Util\PropertySheet.h" />
@@ -417,6 +419,7 @@
     <ClInclude Include="main.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="..\stdafx.h" />
+    <ClInclude Include="XinputDevice.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\android\atlasscript.txt" />

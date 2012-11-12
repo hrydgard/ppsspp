@@ -85,6 +85,7 @@ void WindowsHost::SetDebugMode(bool mode)
 
 void WindowsHost::BeginFrame()
 {
+	xinput.UpdateState();
 	GL_BeginFrame();
 }
 void WindowsHost::EndFrame()
