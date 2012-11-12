@@ -23,6 +23,7 @@ tests_good = [
   "cpu/lsu/lsu",
   "cpu/fpu/fpu",
 
+  "malloc/malloc",
   "display/display",
   "dmac/dmactest",
   "intr/intr",
@@ -57,7 +58,6 @@ tests_next = [
   "io/directory/directory",
   "io/io/io",
   "io/iodrv/iodrv",
-  "malloc/malloc",
   "modules/loadexec/loader",
   "threads/fpl/fpl",
   "threads/msgpipe/msgpipe",
