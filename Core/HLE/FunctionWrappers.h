@@ -90,6 +90,11 @@ template<int func(int, int, int)> void WrapI_III() {
   RETURN(retval);
 }
 
+template<int func(int, int, u32)> void WrapI_IIU() {
+  int retval = func(PARAM(0), PARAM(1), PARAM(2));
+  RETURN(retval);
+}
+
 template<void func(int, u32)> void WrapV_IU() {
   func(PARAM(0), PARAM(1));
 }

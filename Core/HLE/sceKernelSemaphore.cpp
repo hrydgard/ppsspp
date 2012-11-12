@@ -93,31 +93,28 @@ void sceKernelDeleteSema()
 	RETURN(kernelObjects.Destroy<Semaphore>(id));
 }
 
-void sceKernelReferSemaStatus()
+int sceKernelReferSemaStatus(SceUID id, u32 infoPtr)
 {
-	SceUID id = PARAM(0);
 	u32 error;
 	Semaphore *s = kernelObjects.Get<Semaphore>(id, error);
 	if (s)
 	{
-		DEBUG_LOG(HLE,"sceKernelReferSemaStatus(%i, %08x)", id, PARAM(1));
-		NativeSemaphore *outptr = (NativeSemaphore*)Memory::GetPointer(PARAM(1));
+		DEBUG_LOG(HLE,"sceKernelReferSemaStatus(%i, %08x)", id, infoPtr);
+		NativeSemaphore *outptr = (NativeSemaphore*)Memory::GetPointer(infoPtr);
 		memcpy((char*)outptr, (char*)&s->ns, s->ns.size);
-		RETURN(0);
+		return 0;
 	}
 	else
 	{
 		ERROR_LOG(HLE,"Error %08x", error);
-		RETURN(error);
+		return error;
 	}
 }
 	
 //int sceKernelSignalSema(SceUID semaid, int signal);
-void sceKernelSignalSema()
+int sceKernelSignalSema(SceUID id, int signal)
 {
 	//TODO: check that this thing really works :)
-	SceUID id = PARAM(0);
-	u32 signal = PARAM(1);
 	u32 error;
 	Semaphore *s = kernelObjects.Get<Semaphore>(id, error);
 	if (s)
@@ -154,22 +151,18 @@ retry:
 		// I don't think we should reschedule here
 		//if (wokeThreads)
 		//	__KernelReSchedule("semaphore signalled");
-
+		return 0;
 	}
 	else
 	{
 		ERROR_LOG(HLE, "sceKernelSignalSema : Trying to signal invalid semaphore %i", id);
-		RETURN(error);
+		return error;
 	}
 }
 
 //int sceKernelWaitSema(SceUID semaid, int signal, SceUInt *timeout);
-void sceKernelWaitSema()
+int sceKernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr)
 {
-	SceUID id = PARAM(0);
-	int wantedCount = PARAM(1);
-	u32 timeoutPtr = PARAM(2);
-		
 	u32 error;
 	Semaphore *s = kernelObjects.Get<Semaphore>(id, error);
 	if (s)
@@ -178,29 +171,27 @@ void sceKernelWaitSema()
 		if (s->ns.currentCount >= wantedCount) //TODO fix
 		{
 			s->ns.currentCount -= wantedCount;
-			RETURN(0);
+			return 0;
 		}
 		else
 		{
 			s->waitingThreads.push_back(__KernelGetCurThread());
 			__KernelWaitCurThread(WAITTYPE_SEMA, id, wantedCount, 0, false);
-			return;
+			return 0;
 		}
 	}
 	else
 	{
 		ERROR_LOG(HLE, "sceKernelWaitSema : Trying to wait for invalid semaphore %i", id);
-		RETURN(error);
+		return error;
 	}
 } 
 
 //int sceKernelWaitSemaCB(SceUID semaid, int signal, SceUInt *timeout);
-void sceKernelWaitSemaCB()
+int sceKernelWaitSemaCB(SceUID id, int wantedCount, u32 timeoutPtr)
 {
-	SceUID id = PARAM(0);
-	int wantedCount = PARAM(1);
-	int timeout = PARAM(2);
-	DEBUG_LOG(HLE,"sceKernelWaitSemaCB(%i, %i, %i)", id, wantedCount, timeout);
+	DEBUG_LOG(HLE,"sceKernelWaitSemaCB(%i, %i, %i)", id, wantedCount, timeoutPtr);
+
 	u32 error;
 	Semaphore *s = kernelObjects.Get<Semaphore>(id, error);
 	if (s)
@@ -214,26 +205,24 @@ void sceKernelWaitSemaCB()
 		else
 		{
 			s->waitingThreads.push_back(__KernelGetCurThread());
+			// TODO: timeoutPtr?
 			__KernelWaitCurThread(WAITTYPE_SEMA, id, wantedCount, 0, true);
 			__KernelCheckCallbacks();
-			return;
+			return 0;
 		}
 		DEBUG_LOG(HLE,"After: CurrentCount: %i, Signal: %i", s->ns.currentCount, wantedCount);
-		RETURN(0);
+		return 0;
 	}
 	else
 	{
 		ERROR_LOG(HLE,"sceKernelWaitSemaCB - Bad semaphore");
-		RETURN(error);
+		return error;
 	}
 }
 
 // Should be same as WaitSema but without the wait, instead returning SCE_KERNEL_ERROR_SEMA_ZERO
-void sceKernelPollSema()
+int sceKernelPollSema(SceUID id, int wantedCount)
 {
-	SceUID id = PARAM(0);
-	int wantedCount = PARAM(1);
-
 	u32 error;
 	Semaphore *s = kernelObjects.Get<Semaphore>(id, error);
 	if (s)
@@ -242,17 +231,17 @@ void sceKernelPollSema()
 		if (s->ns.currentCount >= wantedCount) //TODO fix
 		{
 			s->ns.currentCount -= wantedCount;
-			RETURN(0);
+			return 0;
 		}
 		else
 		{
-			RETURN(SCE_KERNEL_ERROR_SEMA_ZERO);
+			return SCE_KERNEL_ERROR_SEMA_ZERO;
 		}
 	}
 	else
 	{
 		ERROR_LOG(HLE, "sceKernelPollSema : Trying to poll invalid semaphore %i", id);
-		RETURN(error);
+		return error;
 	}
 }
 

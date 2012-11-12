@@ -20,8 +20,8 @@
 void sceKernelCancelSema();
 void sceKernelCreateSema();
 void sceKernelDeleteSema();
-void sceKernelPollSema();
-void sceKernelReferSemaStatus();
-void sceKernelSignalSema();
-void sceKernelWaitSema();
-void sceKernelWaitSemaCB();
+int sceKernelPollSema(SceUID id, int wantedCount);
+int sceKernelReferSemaStatus(SceUID id, u32 infoPtr);
+int sceKernelSignalSema(SceUID id, int signal);
+int sceKernelWaitSema(SceUID semaid, int signal, u32 timeoutPtr);
+int sceKernelWaitSemaCB(SceUID semaid, int signal, u32 timeoutPtr);
