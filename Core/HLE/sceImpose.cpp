@@ -19,8 +19,23 @@
 #include "FunctionWrappers.h"
 #include "../MIPS/MIPS.h"
 
-static u32 iLanguage = 0;
+
+const int PSP_LANGUAGE_JAPANESE = 0;
+const int PSP_LANGUAGE_ENGLISH = 1;
+const int PSP_LANGUAGE_FRENCH = 2;
+const int PSP_LANGUAGE_SPANISH = 3;
+const int PSP_LANGUAGE_GERMAN = 4;
+const int PSP_LANGUAGE_ITALIAN = 5;
+const int PSP_LANGUAGE_DUTCH = 6;
+const int PSP_LANGUAGE_PORTUGUESE = 7;
+const int PSP_LANGUAGE_RUSSIAN = 8;
+const int PSP_LANGUAGE_KOREAN = 9;
+const int PSP_LANGUAGE_TRADITIONAL_CHINESE = 10;
+const int PSP_LANGUAGE_SIMPLIFIED_CHINESE = 11;
+
+static u32 iLanguage = PSP_LANGUAGE_ENGLISH;
 static u32 iButtonValue = 0;
+
 
 u32 sceImposeGetBatteryIconStatus(u32 chargingPtr, u32 iconStatusPtr)
 {
@@ -39,10 +54,6 @@ u32 sceImposeSetLanguageMode(u32 languageVal, u32 buttonVal)
 	iButtonValue = buttonVal;
 	return 0;
 }
-
-
-
-
 
 u32 sceImposeGetLanguageMode(u32 languagePtr, u32 btnPtr)
 {

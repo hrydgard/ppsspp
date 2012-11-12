@@ -859,7 +859,7 @@ u32 sceKernelStartThread()
 
 		startThread->nt.status = THREADSTATUS_READY;
 		u32 sp = startThread->context.r[MIPS_REG_SP];
-		if (argBlockPtr)
+		if (argBlockPtr && argSize > 0)
 		{
 			startThread->context.r[MIPS_REG_A0] = argSize;
 			startThread->context.r[MIPS_REG_A1] = sp; 
