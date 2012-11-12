@@ -72,6 +72,7 @@ void sceKernelCreateSema()
 	Semaphore *s = new Semaphore;
 	SceUID id = kernelObjects.Create(s);
 
+	s->ns.size = sizeof(NativeSemaphore);
 	strncpy(s->ns.name, name, 32);
 	s->ns.attr = PARAM(1);
 	s->ns.initCount = PARAM(2);
@@ -101,8 +102,7 @@ void sceKernelReferSemaStatus()
 	{
 		DEBUG_LOG(HLE,"sceKernelReferSemaStatus(%i, %08x)", id, PARAM(1));
 		NativeSemaphore *outptr = (NativeSemaphore*)Memory::GetPointer(PARAM(1));
-		int szToCopy = outptr->size - 4;
-		memcpy((char*)outptr + 4, (char*)s + 4, szToCopy);
+		memcpy((char*)outptr, (char*)&s->ns, s->ns.size);
 		RETURN(0);
 	}
 	else
