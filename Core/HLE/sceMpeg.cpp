@@ -346,17 +346,20 @@ void sceMpegQueryMemSize()
 	RETURN(0x10000);	// 64K
 }
 
-void sceMpegRingbufferQueryMemSize()
+u32 sceMpegRingbufferQueryMemSize(int packets)
 {
-	int packets = PARAM(0);
-	WARN_LOG(HLE, "HACK sceMpegRingbufferQueryMemSize(...)");
-	RETURN(packets * (104 + 2048));
+	DEBUG_LOG(HLE, "sceMpegRingbufferQueryMemSize(%i)", packets);
+	return packets * (104 + 2048);
 }
 
-void sceMpegRingbufferConstruct()
+u32 sceMpegRingbufferConstruct(u32 ringbufferAddr, u32 numPackets, u32 data, u32 size, u32 callbackAddr, u32 callbackArg)
 {
-	WARN_LOG(HLE, "HACK sceMpegRingbufferConstruct(...)");
-	RETURN(0);
+	DEBUG_LOG(HLE, "sceMpegRingbufferConstruct(%08x, %i, %08x, %i, %08x, %i)",
+		ringbufferAddr, numPackets, data, size, callbackAddr, callbackArg);
+	SceMpegRingBuffer ring;
+	InitRingbuffer(&ring, numPackets, data, size, callbackAddr, callbackArg);
+	Memory::WriteStruct(ringbufferAddr, &ring);
+	return 0;
 }
 
 void sceMpegRegistStream() 
@@ -517,11 +520,11 @@ const HLEFunction sceMpeg[] =
 	{0xf0eb1125,sceMpegAvcDecodeYCbCr,"sceMpegAvcDecodeYCbCr"},
 	{0xf2930c9c,sceMpegAvcDecodeStopYCbCr,"sceMpegAvcDecodeStopYCbCr"},
 	{0xa11c7026,sceMpegAvcDecodeMode,"sceMpegAvcDecodeMode"},
-	{0x37295ed8,sceMpegRingbufferConstruct,"sceMpegRingbufferConstruct"},
+	{0x37295ed8,WrapU_UUUUUU<sceMpegRingbufferConstruct>,"sceMpegRingbufferConstruct"},
 	{0x13407f13,sceMpegRingbufferDestruct,"sceMpegRingbufferDestruct"},
 	{0xb240a59e,sceMpegRingbufferPut,"sceMpegRingbufferPut"},
 	{0xb5f6dc87,sceMpegRingbufferAvailableSize,"sceMpegRingbufferAvailableSize"},
-	{0xd7a29f46,sceMpegRingbufferQueryMemSize,"sceMpegRingbufferQueryMemSize"},
+	{0xd7a29f46,WrapU_I<sceMpegRingbufferQueryMemSize>,"sceMpegRingbufferQueryMemSize"},
 	{0x769BEBB6,sceMpegRingbufferQueryPackNum,"sceMpegRingbufferQueryPackNum"},
 	{0x31bd0272,sceMpegAvcCsc,"sceMpegAvcCsc"},
 	{0x211a057c,sceMpegAvcQueryYCbCrSize,"sceMpegAvcQueryYCbCrSize"},

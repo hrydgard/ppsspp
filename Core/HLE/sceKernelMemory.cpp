@@ -384,23 +384,23 @@ void sceKernelAllocPartitionMemory()
 	const char *name = Memory::GetCharPointer(PARAM(1));
 	int type = PARAM(2);
 	u32 size = PARAM(3);
-	int addr = PARAM(4); //only if type == addr
+	int addr = PARAM(4); //only if type includes ADDR 
 
 	PartitionMemoryBlock *block = new PartitionMemoryBlock(&userMemory, size, type==1);
 	if (!block->IsValid())
 	{
-		ERROR_LOG(HLE, "ARGH! sceKernelAllocPartMem failed");
+		ERROR_LOG(HLE, "ARGH! sceKernelAllocPartitionMemory failed");
 		RETURN(-1);
 	}
-	SceUID id = kernelObjects.Create(block);
+	SceUID uid = kernelObjects.Create(block);
 	strncpy(block->name, name, 32);
 
-	DEBUG_LOG(HLE,"%i = sceKernelAllocPartMem(partition = %i, %s, type= %i, size= %i, addr= %08x)",
-		id, partid,name,type,size,addr);
+	DEBUG_LOG(HLE,"%i = sceKernelAllocPartitionMemory(partition = %i, %s, type= %i, size= %i, addr= %08x)",
+		uid, partid,name,type,size,addr);
 	if (type == 2)
-		ERROR_LOG(HLE, "ARGH! sceKernelAllocPartMem wants a specific address");
+		ERROR_LOG(HLE, "ARGH! sceKernelAllocPartitionMemory wants a specific address");
 
-	RETURN(id); //for now
+	RETURN(uid); //for now
 }
 
 void sceKernelFreePartitionMemory()
