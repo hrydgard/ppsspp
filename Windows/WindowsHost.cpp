@@ -85,6 +85,9 @@ void WindowsHost::SetDebugMode(bool mode)
 
 void WindowsHost::BeginFrame()
 {
+	for (auto iter = this->input.begin(); iter != this->input.end(); iter++)
+		if ((*iter)->UpdateState() == 0)
+			break; // *iter is std::shared_ptr, **iter is InputDevice
 	GL_BeginFrame();
 }
 void WindowsHost::EndFrame()

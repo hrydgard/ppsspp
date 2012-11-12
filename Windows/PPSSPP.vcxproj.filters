@@ -23,6 +23,9 @@
     <Filter Include="Android">
       <UniqueIdentifier>{d53d0871-8572-4393-822e-d14db0a88dab}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Windows\Input">
+      <UniqueIdentifier>{a1963305-bf88-43ef-8ba2-bb3933584b38}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Debugger\CtrlDisAsmView.cpp">
@@ -92,6 +95,15 @@
     <ClCompile Include="..\android\jni\UIShader.cpp">
       <Filter>Android</Filter>
     </ClCompile>
+    <ClCompile Include="XinputDevice.cpp">
+      <Filter>Windows\Input</Filter>
+    </ClCompile>
+    <ClCompile Include="KeyboardDevice.cpp">
+      <Filter>Windows\Input</Filter>
+    </ClCompile>
+    <ClCompile Include="InputDevice.cpp">
+      <Filter>Windows\Input</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Debugger\CtrlDisAsmView.h">
@@ -160,6 +172,15 @@
     </ClInclude>
     <ClInclude Include="..\android\jni\UIShader.h">
       <Filter>Android</Filter>
+    </ClInclude>
+    <ClInclude Include="InputDevice.h">
+      <Filter>Windows\Input</Filter>
+    </ClInclude>
+    <ClInclude Include="XinputDevice.h">
+      <Filter>Windows\Input</Filter>
+    </ClInclude>
+    <ClInclude Include="KeyboardDevice.h">
+      <Filter>Windows\Input</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
