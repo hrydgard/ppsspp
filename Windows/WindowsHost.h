@@ -1,5 +1,7 @@
 #include "../Core/Host.h"
-#include "XinputDevice.h"
+#include "InputDevice.h"
+#include <list>
+#include <memory>
 
 class WindowsHost : public Host
 {
@@ -7,6 +9,7 @@ public:
 	WindowsHost(HWND _displayWindow)
 	{
 		displayWindow = _displayWindow;
+		input = getInputDevices();
 	}
 	void UpdateMemView();
 	void UpdateDisassembly();
@@ -31,5 +34,5 @@ public:
 
 private:
 	HWND displayWindow;
-	XinputDevice xinput;
+	std::list<std::shared_ptr<InputDevice>> input;
 };

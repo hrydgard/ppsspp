@@ -40,12 +40,13 @@ int XinputDevice::UpdateState() {
 		__CtrlSetAnalog(left.x, left.y);
 		this->prevState = state;
 		this->check_delay = 0;
+		return 0;
 	} else {
 		// wait check_delay frames before polling the controller again
 		this->gamepad_idx = -1;
 		this->check_delay = 100;
+		return -1;
 	}
-	return 0;
 }
 
 // We only filter the left stick since PSP has no analog triggers or right stick

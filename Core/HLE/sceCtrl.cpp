@@ -66,48 +66,6 @@ void SampleControls() {
 	_ctrl_data &data = ctrl;
 	data.frame=1;//frame;
   frame++;
-#ifdef _WIN32
-  // TODO: Move this outta here!
-  data.buttons = 0;
-  int analogX = 128;
-  int analogY = 128;
-	if (GetAsyncKeyState(VK_SPACE))
-		data.buttons|=CTRL_START;
-	if (GetAsyncKeyState('V'))
-		data.buttons|=CTRL_SELECT;
-	if (GetAsyncKeyState('A'))
-		data.buttons|=CTRL_SQUARE;
-	if (GetAsyncKeyState('S'))
-		data.buttons|=CTRL_TRIANGLE;
-	if (GetAsyncKeyState('X'))
-		data.buttons|=CTRL_CIRCLE;
-	if (GetAsyncKeyState('Z'))
-		data.buttons|=CTRL_CROSS;
-	if (GetAsyncKeyState('Q'))
-		data.buttons|=CTRL_LTRIGGER;
-	if (GetAsyncKeyState('W'))
-		data.buttons|=CTRL_RTRIGGER;
-	if (GetAsyncKeyState(VK_UP)) {
-		data.buttons|=CTRL_UP;
-		analogY -= 100;
-	}
-	if (GetAsyncKeyState(VK_DOWN)) {
-		data.buttons|=CTRL_DOWN;
-		analogY += 100;
-	}
-	if (GetAsyncKeyState(VK_LEFT)) {
-		data.buttons|=CTRL_LEFT;
-		analogX -= 100;
-	}
-	if (GetAsyncKeyState(VK_RIGHT))
-	{
-		data.buttons|=CTRL_RIGHT;
-		analogX += 100;
-	}
-
-  data.analog[0] = analogX;
-  data.analog[1] = analogY;
-#endif
 }
 
 

@@ -8,3 +8,6 @@ public:
 	virtual int UpdateState() = 0;
 };
 
+#include <list>
+#include <memory>
+std::list<std::shared_ptr<InputDevice>> getInputDevices();
