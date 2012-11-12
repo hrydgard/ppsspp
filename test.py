@@ -9,6 +9,7 @@ import subprocess
 PPSSPP_EXECUTABLES = [ "Windows\\Release\\PPSSPPHeadless.exe", "SDL/build/ppsspp-headless" ]
 PPSSPP_EXE = None
 TEST_ROOT = "pspautotests/tests/"
+teamcity_mode = False
 
 # Test names are the C files without the .c extension.
 # These have worked and should keep working always - regression tests.
@@ -34,10 +35,8 @@ tests_good = [
   "rtc/rtc",
   "umd/callbacks/umd",
   "power/power",
-]
 
 # These are the next tests up for fixing.
-tests_next = [
   "audio/atrac/atractest",
   "audio/sascore/sascore",
   "ctrl/ctrl",
@@ -66,6 +65,9 @@ tests_next = [
   "utility/systemparam",
   "video/pmf",
   "video/pmf_simple",
+]
+
+tests_next = [
 ]
 
 # These don't even run (or run correctly) on the real PSP
@@ -104,7 +106,10 @@ def init():
     print "PPSSPP executable missing, please build one."
     sys.exit(1)
 
-
+def tcprint(arg):
+  global teamcity_mode
+  if teamcity_mode:
+    print arg
 
 def run_tests(test_list, args):
   global PPSSPP_EXE
@@ -125,14 +130,18 @@ def run_tests(test_list, args):
     if not os.path.exists(elf_filename):
       print("ERROR: PRX/ELF file missing, failing test: " + test)
       tests_failed.append(test)
+      tcprint("##teamcity[testIgnored name='%s' message='PRX/ELF missing']" % test)
       continue
 
     if not os.path.exists(expected_filename):
       print("WARNING: expects file missing, failing test: " + test)
       tests_failed.append(test)
+      tcprint("##teamcity[testIgnored name='%s' message='Expects file missing']" % test)
       continue
 
     expected_output = open(expected_filename).read()
+    
+    tcprint("##teamcity[testStarted name='%s' captureStandardOutput='true']" % test)
 
     cmdline = PPSSPP_EXE + " " + elf_filename + " " + " ".join(args)
     #print "Cmdline: " + cmdline
@@ -142,6 +151,8 @@ def run_tests(test_list, args):
     if output.startswith("TESTERROR"):
       print "Failed to run test " + elf_filename + "!"
       tests_failed.append(test)
+      tcprint("##teamcity[testFailed name='%s' message='Failed to run test']" % test)
+      tcprint("##teamcity[testFinished name='%s']" % test)
       continue
 
     different = False
@@ -165,6 +176,7 @@ def run_tests(test_list, args):
         print "+++++++++++++++++++++++++++++++++++++++++++++"
       print "  " + test + " - passed!"
       tests_passed.append(test)
+      tcprint("##teamcity[testFinished name='%s']" % test)
     else:
       if '-v' in args:
         print "============== output from failed " + test + " :"
@@ -173,6 +185,8 @@ def run_tests(test_list, args):
         print expected_output
         print "==============================="
       tests_failed.append(test)
+      tcprint("##teamcity[testFailed name='%s' message='Output different from expected file']" % test)
+      tcprint("##teamcity[testFinished name='%s']" % test)
 
   print "%i tests passed, %i tests failed." % (
       len(tests_passed), len(tests_failed))
@@ -185,11 +199,14 @@ def run_tests(test_list, args):
 
 
 def main():
+  global teamcity_mode
   init()
   tests = []
   args = []
   for arg in sys.argv[1:]:
-    if arg[0] == '-':
+    if arg == '--teamcity':
+      teamcity_mode = True
+    elif arg[0] == '-':
       args.append(arg)
     else:
       tests.append(arg)
