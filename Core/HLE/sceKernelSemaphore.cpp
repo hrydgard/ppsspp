@@ -121,7 +121,10 @@ int sceKernelSignalSema(SceUID id, int signal)
 	{
 		int oldval = s->ns.currentCount;
 
-		s->ns.currentCount += signal;
+		if (s->ns.currentCount + signal > s->ns.maxCount)
+			s->ns.currentCount += s->ns.maxCount;
+		else
+			s->ns.currentCount += signal;
 		DEBUG_LOG(HLE,"sceKernelSignalSema(%i, %i) (old: %i, new: %i)", id, signal, oldval, s->ns.currentCount);
 			
 		bool wokeThreads = false;
@@ -130,12 +133,14 @@ retry:
 		std::vector<SceUID>::iterator iter;
 		for (iter = s->waitingThreads.begin(); iter!=s->waitingThreads.end(); s++)
 		{
-			SceUID id = *iter;
-			int wVal = (int)__KernelGetWaitValue(id, error);
+			SceUID threadID = *iter;
+			int wVal = (int)__KernelGetWaitValue(threadID, error);
 			if (wVal <= s->ns.currentCount)
 			{
-				__KernelResumeThreadFromWait(id);
 				s->ns.currentCount -= wVal;
+				s->ns.numWaitThreads--;
+
+				__KernelResumeThreadFromWait(threadID);
 				wokeThreads = true;
 				s->waitingThreads.erase(iter);
 				goto retry;
@@ -175,6 +180,7 @@ int sceKernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr)
 		}
 		else
 		{
+			s->ns.numWaitThreads++;
 			s->waitingThreads.push_back(__KernelGetCurThread());
 			__KernelWaitCurThread(WAITTYPE_SEMA, id, wantedCount, 0, false);
 			return 0;
@@ -204,6 +210,7 @@ int sceKernelWaitSemaCB(SceUID id, int wantedCount, u32 timeoutPtr)
 		}
 		else
 		{
+			s->ns.numWaitThreads++;
 			s->waitingThreads.push_back(__KernelGetCurThread());
 			// TODO: timeoutPtr?
 			__KernelWaitCurThread(WAITTYPE_SEMA, id, wantedCount, 0, true);
