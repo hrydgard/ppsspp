@@ -119,7 +119,6 @@ void sceKernelExitGame()
 	else
 		PanicAlert("Game exited");
 	Core_Stop();
-	RETURN(0);
 }
 
 void sceKernelExitGameWithStatus()
@@ -130,14 +129,12 @@ void sceKernelExitGameWithStatus()
 	else
 		PanicAlert("Game exited (with status)");
 	Core_Stop();
-	RETURN(0);
 }
 
-void sceKernelRegisterExitCallback()
+u32 sceKernelRegisterExitCallback(u32 cbId)
 {
-	u32 cbId = PARAM(0);
 	DEBUG_LOG(HLE,"NOP sceKernelRegisterExitCallback(%i)", cbId);
-	RETURN(0);
+	return 0;
 }
 
 // TODO: What?
@@ -489,10 +486,10 @@ void Register_ThreadManForUser()
 
 const HLEFunction LoadExecForUser[] =
 {
-	{0x05572A5F,sceKernelExitGame, "sceKernelExitGame"}, //()
-	{0x4AC57943,sceKernelRegisterExitCallback,"sceKernelRegisterExitCallback"},
-	{0xBD2F1094,sceKernelLoadExec,"sceKernelLoadExec"},
-	{0x2AC9954B,sceKernelExitGameWithStatus,"sceKernelExitGameWithStatus"},
+	{0x05572A5F,&WrapV_V<sceKernelExitGame>, "sceKernelExitGame"}, //()
+	{0x4AC57943,&WrapU_U<sceKernelRegisterExitCallback>,"sceKernelRegisterExitCallback"},
+	{0xBD2F1094,&WrapI_CU<sceKernelLoadExec>,"sceKernelLoadExec"},
+	{0x2AC9954B,&WrapV_V<sceKernelExitGameWithStatus>,"sceKernelExitGameWithStatus"},
 };
 
 void Register_LoadExecForUser()

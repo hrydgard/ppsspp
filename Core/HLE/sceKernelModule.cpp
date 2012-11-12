@@ -519,36 +519,35 @@ bool __KernelLoadExec(const char *filename, SceKernelLoadExecParam *param, std::
 }
 
 //TODO: second param
-void sceKernelLoadExec()
+int sceKernelLoadExec(const char *filename, u32 paramPtr)
 {
-	const char *filename = Memory::GetCharPointer(PARAM(0));
 	SceKernelLoadExecParam *param = 0;
-	if (PARAM(1))
+	if (paramPtr)
 	{
-		param = (SceKernelLoadExecParam*)Memory::GetPointer(PARAM(1));
+		param = (SceKernelLoadExecParam*)Memory::GetPointer(paramPtr);
 	}
 
 	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
 	
 	if (!info.exists) {
 		ERROR_LOG(LOADER, "sceKernelLoadExec(%s, ...): File does not exist", filename);
-		RETURN(SCE_KERNEL_ERROR_NOFILE);
-		return;
+		return SCE_KERNEL_ERROR_NOFILE;
 	}
 
 	s64 size = (s64)info.size;
 	if (!size)
 	{
 		ERROR_LOG(LOADER, "sceKernelLoadExec(%s, ...): File is size 0", filename);
-		RETURN(SCE_KERNEL_ERROR_ILLEGAL_OBJECT);
-		return;
+		return SCE_KERNEL_ERROR_ILLEGAL_OBJECT;
 	}
 
 	DEBUG_LOG(HLE,"sceKernelLoadExec(name=%s,...)", filename);
 	std::string error_string;
 	if (!__KernelLoadExec(filename, param, &error_string)) {
 		ERROR_LOG(HLE, "sceKernelLoadExec failed: %s", error_string.c_str());
+		return -1;
 	}
+	return 0;
 }
 
 u32 sceKernelLoadModule(const char *name, u32 flags)
