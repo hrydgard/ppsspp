@@ -119,7 +119,6 @@ void sceKernelExitGame()
 	else
 		PanicAlert("Game exited");
 	Core_Stop();
-	RETURN(0);
 }
 
 void sceKernelExitGameWithStatus()
@@ -130,14 +129,12 @@ void sceKernelExitGameWithStatus()
 	else
 		PanicAlert("Game exited (with status)");
 	Core_Stop();
-	RETURN(0);
 }
 
-void sceKernelRegisterExitCallback()
+u32 sceKernelRegisterExitCallback(u32 cbId)
 {
-	u32 cbId = PARAM(0);
 	DEBUG_LOG(HLE,"NOP sceKernelRegisterExitCallback(%i)", cbId);
-	RETURN(0);
+	return 0;
 }
 
 // TODO: What?
@@ -320,15 +317,15 @@ u32 sceKernelReferGlobalProfiler(u32 statusPtr) {
 
 const HLEFunction ThreadManForUser[] =
 {
-	{0x55C20A00,sceKernelCreateEventFlag, "sceKernelCreateEventFlag"},
-	{0x812346E4,sceKernelClearEventFlag,	"sceKernelClearEventFlag"},
-	{0xEF9E4C70,sceKernelDeleteEventFlag, "sceKernelDeleteEventFlag"},
-	{0x1fb15a32,sceKernelSetEventFlag,		"sceKernelSetEventFlag"},
-	{0x402FCF22,sceKernelWaitEventFlag,	 "sceKernelWaitEventFlag"},
-	{0x328C546A,sceKernelWaitEventFlagCB, "sceKernelWaitEventFlagCB"},
-	{0x30FD48F0,sceKernelPollEventFlag,	 "sceKernelPollEventFlag"},
-	{0xCD203292,sceKernelCancelEventFlag, "sceKernelCancelEventFlag"},
-	{0xA66B0120,sceKernelReferEventFlagStatus,"sceKernelReferEventFlagStatus"},
+	{0x55C20A00,&WrapI_CUUU<sceKernelCreateEventFlag>,    "sceKernelCreateEventFlag"},
+	{0x812346E4,&WrapU_IU<sceKernelClearEventFlag>,       "sceKernelClearEventFlag"},
+	{0xEF9E4C70,&WrapU_I<sceKernelDeleteEventFlag>,       "sceKernelDeleteEventFlag"},
+	{0x1fb15a32,&WrapU_IU<sceKernelSetEventFlag>,         "sceKernelSetEventFlag"},
+	{0x402FCF22,&WrapV_IUUUU<sceKernelWaitEventFlag>,     "sceKernelWaitEventFlag"},
+	{0x328C546A,&WrapV_IUUUU<sceKernelWaitEventFlagCB>,   "sceKernelWaitEventFlagCB"},
+	{0x30FD48F0,&WrapI_IUUUU<sceKernelPollEventFlag>,     "sceKernelPollEventFlag"},
+	{0xCD203292,&WrapU_V<sceKernelCancelEventFlag>,       "sceKernelCancelEventFlag"},
+	{0xA66B0120,&WrapU_IU<sceKernelReferEventFlagStatus>, "sceKernelReferEventFlagStatus"},
 
 	{0x8FFDF9A2,sceKernelCancelSema,		"sceKernelCancelSema"},
 	{0xD6DA4BA1,sceKernelCreateSema,		"sceKernelCreateSema"},
@@ -489,10 +486,10 @@ void Register_ThreadManForUser()
 
 const HLEFunction LoadExecForUser[] =
 {
-	{0x05572A5F,sceKernelExitGame, "sceKernelExitGame"}, //()
-	{0x4AC57943,sceKernelRegisterExitCallback,"sceKernelRegisterExitCallback"},
-	{0xBD2F1094,sceKernelLoadExec,"sceKernelLoadExec"},
-	{0x2AC9954B,sceKernelExitGameWithStatus,"sceKernelExitGameWithStatus"},
+	{0x05572A5F,&WrapV_V<sceKernelExitGame>, "sceKernelExitGame"}, //()
+	{0x4AC57943,&WrapU_U<sceKernelRegisterExitCallback>,"sceKernelRegisterExitCallback"},
+	{0xBD2F1094,&WrapI_CU<sceKernelLoadExec>,"sceKernelLoadExec"},
+	{0x2AC9954B,&WrapV_V<sceKernelExitGameWithStatus>,"sceKernelExitGameWithStatus"},
 };
 
 void Register_LoadExecForUser()

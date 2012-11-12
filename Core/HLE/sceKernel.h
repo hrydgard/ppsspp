@@ -244,7 +244,7 @@ bool __KernelIsRunning();
 bool __KernelLoadExec(const char *filename, SceKernelLoadExecParam *param);
 	
 
-void sceKernelLoadExec();
+int sceKernelLoadExec(const char *filename, u32 paramPtr);
 
 void sceKernelRegisterExitCallback();
 void sceKernelExitGame();
