@@ -77,7 +77,9 @@ bool __KernelClearSemaThreads(Semaphore *s, int reason)
 	return wokeThreads;
 }
 
-int sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr)
+// int sceKernelCancelSema(SceUID id, int newCount, int *numWaitThreads);
+// void because it changes threads.
+void sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr)
 {
 	DEBUG_LOG(HLE,"sceKernelCancelSema(%i)", id);
 
@@ -97,16 +99,17 @@ int sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr)
 			s->ns.currentCount = newCount;
 		s->ns.numWaitThreads = 0;
 
+		// We need to set the return value BEFORE rescheduling threads.
+		RETURN(0);
+
 		// TODO: Should this reschedule?
 		if (__KernelClearSemaThreads(s, SCE_KERNEL_ERROR_WAIT_CANCEL))
 			__KernelReSchedule("semaphore cancelled");
-
-		return 0;
 	}
 	else
 	{
 		ERROR_LOG(HLE, "sceKernelCancelSema : Trying to cancel invalid semaphore %i", id);
-		return error;
+		RETURN(error);
 	}
 }
 
@@ -132,7 +135,8 @@ void sceKernelCreateSema()
 }
 
 //int sceKernelDeleteSema(SceUID semaid);
-int sceKernelDeleteSema(SceUID id)
+// void because it changes threads.
+void sceKernelDeleteSema(SceUID id)
 {
 	DEBUG_LOG(HLE,"sceKernelDeleteSema(%i)", id);
 
@@ -140,18 +144,18 @@ int sceKernelDeleteSema(SceUID id)
 	Semaphore *s = kernelObjects.Get<Semaphore>(id, error);
 	if (s)
 	{
-		// TODO: Should this reschedule?
-		// threads/semaphore doesn't get final threads if not, but gets wrong result if so.
-		// Probably it should and there's a bug with the registers?
 		if (__KernelClearSemaThreads(s, SCE_KERNEL_ERROR_WAIT_DELETE))
+		{
+			RETURN(kernelObjects.Destroy<Semaphore>(id));
 			__KernelReSchedule("semaphore deleted");
-
-		return kernelObjects.Destroy<Semaphore>(id);
+		}
+		else
+			RETURN(kernelObjects.Destroy<Semaphore>(id));
 	}
 	else
 	{
 		ERROR_LOG(HLE, "sceKernelDeleteSema : Trying to delete invalid semaphore %i", id);
-		return error;
+		RETURN(error);
 	}
 }
 
@@ -174,7 +178,8 @@ int sceKernelReferSemaStatus(SceUID id, u32 infoPtr)
 }
 	
 //int sceKernelSignalSema(SceUID semaid, int signal);
-int sceKernelSignalSema(SceUID id, int signal)
+// void because it changes threads.
+void sceKernelSignalSema(SceUID id, int signal)
 {
 	//TODO: check that this thing really works :)
 	u32 error;
@@ -188,7 +193,10 @@ int sceKernelSignalSema(SceUID id, int signal)
 		else
 			s->ns.currentCount += signal;
 		DEBUG_LOG(HLE,"sceKernelSignalSema(%i, %i) (old: %i, new: %i)", id, signal, oldval, s->ns.currentCount);
-			
+
+		// We need to set the return value BEFORE processing other threads.
+		RETURN(0);
+
 		bool wokeThreads = false;
 retry:
 		//TODO: check for threads to wake up - wake them
@@ -212,27 +220,28 @@ retry:
 				break;
 			}
 		}
-		// RETURN(0);
 		//pop the thread that were released from waiting
 
 		// I don't think we should reschedule here
 		//if (wokeThreads)
 		//	__KernelReSchedule("semaphore signalled");
-		return 0;
 	}
 	else
 	{
 		ERROR_LOG(HLE, "sceKernelSignalSema : Trying to signal invalid semaphore %i", id);
-		return error;
+		RETURN(error;)
 	}
 }
 
-int __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, const char *badSemaMessage, bool processCallbacks)
+void __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, const char *badSemaMessage, bool processCallbacks)
 {
 	u32 error;
 	Semaphore *s = kernelObjects.Get<Semaphore>(id, error);
 	if (s)
 	{
+		// We need to set the return value BEFORE processing callbacks / etc.
+		RETURN(0);
+
 		if (s->ns.currentCount >= wantedCount) //TODO fix
 			s->ns.currentCount -= wantedCount;
 		else
@@ -244,30 +253,30 @@ int __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, const char *bad
 			if (processCallbacks)
 				__KernelCheckCallbacks();
 		}
-
-		return 0;
 	}
 	else
 	{
 		ERROR_LOG(HLE, badSemaMessage, id);
-		return error;
+		RETURN(error);
 	}
 }
 
 //int sceKernelWaitSema(SceUID semaid, int signal, SceUInt *timeout);
-int sceKernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr)
+// void because it changes threads.
+void sceKernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr)
 {
 	DEBUG_LOG(HLE,"sceKernelWaitSema(%i, %i, %i)", id, wantedCount, timeoutPtr);
 
-	return __KernelWaitSema(id, wantedCount, timeoutPtr, "sceKernelWaitSema: Trying to wait for invalid semaphore %i", false);
+	__KernelWaitSema(id, wantedCount, timeoutPtr, "sceKernelWaitSema: Trying to wait for invalid semaphore %i", false);
 } 
 
 //int sceKernelWaitSemaCB(SceUID semaid, int signal, SceUInt *timeout);
-int sceKernelWaitSemaCB(SceUID id, int wantedCount, u32 timeoutPtr)
+// void because it changes threads.
+void sceKernelWaitSemaCB(SceUID id, int wantedCount, u32 timeoutPtr)
 {
 	DEBUG_LOG(HLE,"sceKernelWaitSemaCB(%i, %i, %i)", id, wantedCount, timeoutPtr);
 
-	return __KernelWaitSema(id, wantedCount, timeoutPtr, "sceKernelWaitSemaCB: Trying to wait for invalid semaphore %i", true);
+	__KernelWaitSema(id, wantedCount, timeoutPtr, "sceKernelWaitSemaCB: Trying to wait for invalid semaphore %i", true);
 }
 
 // Should be same as WaitSema but without the wait, instead returning SCE_KERNEL_ERROR_SEMA_ZERO

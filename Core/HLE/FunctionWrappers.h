@@ -142,6 +142,10 @@ template<void func(int, u32, u32)> void WrapV_IUU() {
   func(PARAM(0), PARAM(1), PARAM(2));
 }
 
+template<void func(int, int, u32)> void WrapV_IIU() {
+  func(PARAM(0), PARAM(1), PARAM(2));
+}
+
 template<void func(int, u32, u32, u32, u32)> void WrapV_IUUUU() {
   func(PARAM(0), PARAM(1), PARAM(2), PARAM(3), PARAM(4));
 }
