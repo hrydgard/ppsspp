@@ -320,15 +320,15 @@ u32 sceKernelReferGlobalProfiler(u32 statusPtr) {
 
 const HLEFunction ThreadManForUser[] =
 {
-	{0x55C20A00,sceKernelCreateEventFlag, "sceKernelCreateEventFlag"},
-	{0x812346E4,sceKernelClearEventFlag,	"sceKernelClearEventFlag"},
-	{0xEF9E4C70,sceKernelDeleteEventFlag, "sceKernelDeleteEventFlag"},
-	{0x1fb15a32,sceKernelSetEventFlag,		"sceKernelSetEventFlag"},
-	{0x402FCF22,sceKernelWaitEventFlag,	 "sceKernelWaitEventFlag"},
-	{0x328C546A,sceKernelWaitEventFlagCB, "sceKernelWaitEventFlagCB"},
-	{0x30FD48F0,sceKernelPollEventFlag,	 "sceKernelPollEventFlag"},
-	{0xCD203292,sceKernelCancelEventFlag, "sceKernelCancelEventFlag"},
-	{0xA66B0120,sceKernelReferEventFlagStatus,"sceKernelReferEventFlagStatus"},
+	{0x55C20A00,&WrapI_CUUU<sceKernelCreateEventFlag>,    "sceKernelCreateEventFlag"},
+	{0x812346E4,&WrapU_IU<sceKernelClearEventFlag>,       "sceKernelClearEventFlag"},
+	{0xEF9E4C70,&WrapU_I<sceKernelDeleteEventFlag>,       "sceKernelDeleteEventFlag"},
+	{0x1fb15a32,&WrapU_IU<sceKernelSetEventFlag>,         "sceKernelSetEventFlag"},
+	{0x402FCF22,&WrapV_IUUUU<sceKernelWaitEventFlag>,     "sceKernelWaitEventFlag"},
+	{0x328C546A,&WrapV_IUUUU<sceKernelWaitEventFlagCB>,   "sceKernelWaitEventFlagCB"},
+	{0x30FD48F0,&WrapI_IUUUU<sceKernelPollEventFlag>,     "sceKernelPollEventFlag"},
+	{0xCD203292,&WrapU_V<sceKernelCancelEventFlag>,       "sceKernelCancelEventFlag"},
+	{0xA66B0120,&WrapU_IU<sceKernelReferEventFlagStatus>, "sceKernelReferEventFlagStatus"},
 
 	{0x8FFDF9A2,sceKernelCancelSema,		"sceKernelCancelSema"},
 	{0xD6DA4BA1,sceKernelCreateSema,		"sceKernelCreateSema"},
