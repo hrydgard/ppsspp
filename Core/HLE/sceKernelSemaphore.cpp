@@ -59,8 +59,47 @@ struct Semaphore : public KernelObject
 
 int sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr)
 {
-	ERROR_LOG(HLE,"UNIMPL sceKernelCancelSema(%i)", id);
-	return 0;
+	DEBUG_LOG(HLE,"sceKernelCancelSema(%i)", id);
+
+	u32 error;
+	Semaphore *s = kernelObjects.Get<Semaphore>(id, error);
+	if (s)
+	{
+		if (numWaitThreadsPtr)
+		{
+			u32* numWaitThreads = (u32*)Memory::GetPointer(numWaitThreadsPtr);
+			*numWaitThreads = s->ns.numWaitThreads;
+		}
+
+		if (newCount == -1)
+			s->ns.currentCount = s->ns.initCount;
+		else
+			s->ns.currentCount = newCount;
+		s->ns.numWaitThreads = 0;
+
+		bool wokeThreads = false;
+
+		std::vector<SceUID>::iterator iter;
+		for (iter = s->waitingThreads.begin(); iter!=s->waitingThreads.end(); iter++)
+		{
+			SceUID threadID = *iter;
+
+			// TODO: Set SCE_KERNEL_ERROR_WAIT_CANCEL returnValue?
+			__KernelResumeThreadFromWait(threadID);
+			wokeThreads = true;
+		}
+		s->waitingThreads.empty();
+
+		if (wokeThreads)
+			__KernelReSchedule("semaphore cancelled");
+
+		return 0;
+	}
+	else
+	{
+		ERROR_LOG(HLE, "sceKernelCancelSema : Trying to cancel invalid semaphore %i", id);
+		return error;
+	}
 }
 
 //SceUID sceKernelCreateSema(const char *name, SceUInt attr, int initVal, int maxVal, SceKernelSemaOptParam *option);
