@@ -17,11 +17,11 @@
 
 #pragma once
 
-void sceKernelCancelSema();
+void sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr);
 void sceKernelCreateSema();
-void sceKernelDeleteSema();
-void sceKernelPollSema();
-void sceKernelReferSemaStatus();
-void sceKernelSignalSema();
-void sceKernelWaitSema();
-void sceKernelWaitSemaCB();
+void sceKernelDeleteSema(SceUID id);
+int sceKernelPollSema(SceUID id, int wantedCount);
+int sceKernelReferSemaStatus(SceUID id, u32 infoPtr);
+void sceKernelSignalSema(SceUID id, int signal);
+void sceKernelWaitSema(SceUID semaid, int signal, u32 timeoutPtr);
+void sceKernelWaitSemaCB(SceUID semaid, int signal, u32 timeoutPtr);

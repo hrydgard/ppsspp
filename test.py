@@ -31,6 +31,7 @@ tests_good = [
   "string/string",
   "gpu/callbacks/ge_callbacks",
   "threads/mbx/mbx",
+  "threads/semaphores/semaphores",
   "power/power",
   "rtc/rtc",
   "umd/callbacks/umd",
@@ -58,6 +59,14 @@ tests_next = [
   "io/iodrv/iodrv",
   "malloc/malloc",
   "modules/loadexec/loader",
+  "threads/fpl/fpl",
+  "threads/msgpipe/msgpipe",
+  "threads/mutex/mutex",
+  "threads/scheduling/scheduling",
+  "threads/threads/threads",
+  "threads/vpl/vpl",
+  "threads/vtimers/vtimers",
+  "threads/wakeup/wakeup",
   "umd/io/umd_io",
   "umd/raw_access/raw_acess",
   "utility/systemparam/systemparam",
@@ -68,9 +77,8 @@ tests_next = [
 # These should be fixed, but currently hang or crash and are thus inconvenient to have
 # in the general test.
 tests_hang = [
-  "audio/atrac/atractest",
   "threads/events/events",
-  "threads/semaphores/semaphores",
+  "audio/atrac/atractest",
 ]
 
 # These don't even run (or run correctly) on the real PSP
