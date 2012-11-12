@@ -675,7 +675,15 @@ namespace MIPSInt
 			break;
 
 		case 2:  // vus2i
-			// Actually identical to vs2i, the sign doesn't matter I think.
+			for (int i = 0; i < GetNumVectorElements(sz); i++) {
+				u32 value = s[i];
+				d[i * 2] = (value & 0xFFFF) << 15;
+				d[i * 2 + 1] = (value & 0xFFFF0000) >> 1;
+			}
+			oz = V_Pair;
+			if (sz == V_Pair) oz = V_Quad;
+			break;
+
 		case 3:  // vs2i
 			for (int i = 0; i < GetNumVectorElements(sz); i++) {
 				u32 value = s[i];

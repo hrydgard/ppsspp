@@ -39,6 +39,9 @@
 
 using namespace MIPSAnalyst;
 
+// NOTE: Can't use CONDITIONAL_DISABLE in this file, branches are so special
+// that they cannot be interpreted in the context of the Jit.
+
 namespace MIPSComp
 {
 

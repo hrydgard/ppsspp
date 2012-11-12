@@ -34,10 +34,18 @@ tests_good = [
   "power/power",
   "rtc/rtc",
   "umd/callbacks/umd",
-  "power/power",
+]
 
-# These are the next tests up for fixing.
-  "audio/atrac/atractest",
+tests_next = [
+# These are the next tests up for fixing. These run by default.
+  "threads/fpl/fpl",
+  "threads/msgpipe/msgpipe",
+  "threads/mutex/mutex",
+  "threads/scheduling/scheduling",
+  "threads/threads/threads",
+  "threads/vpl/vpl",
+  "threads/vtimers/vtimer",
+  "threads/wakeup/wakeup",
   "audio/sascore/sascore",
   "ctrl/ctrl",
   "gpu/simple/simple",
@@ -50,24 +58,19 @@ tests_good = [
   "io/iodrv/iodrv",
   "malloc/malloc",
   "modules/loadexec/loader",
-  "threads/events/events",
-  "threads/fpl/fpl",
-  "threads/msgpipe/msgpipe",
-  "threads/mutex/mutex",
-  "threads/scheduling/scheduling",
-  "threads/semaphores/semaphores",
-  "threads/threads/threads",
-  "threads/vpl/vpl",
-  "threads/vtimers/vtimers",
-  "threads/wakeup/wakeup",
   "umd/io/umd_io",
   "umd/raw_access/raw_acess",
-  "utility/systemparam",
+  "utility/systemparam/systemparam",
   "video/pmf",
   "video/pmf_simple",
 ]
 
-tests_next = [
+# These should be fixed, but currently hang or crash and are thus inconvenient to have
+# in the general test.
+tests_hang = [
+  "audio/atrac/atractest",
+  "threads/events/events",
+  "threads/semaphores/semaphores",
 ]
 
 # These don't even run (or run correctly) on the real PSP
@@ -212,7 +215,10 @@ def main():
       tests.append(arg)
 
   if not tests:
-    tests = tests_good
+    if '-g' in args:
+      tests = tests_good
+    else:
+      tests = tests_next + tests_good
 
   run_tests(tests, args)
 

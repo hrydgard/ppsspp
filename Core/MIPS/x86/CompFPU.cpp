@@ -30,7 +30,12 @@
 #define _POS	((op>>6 ) & 0x1F)
 #define _SIZE ((op>>11 ) & 0x1F)
 
-#define OLDD Comp_Generic(op); return;
+// All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
+// Currently known non working ones should have DISABLE.
+
+// #define CONDITIONAL_DISABLE Comp_Generic(op); return;
+#define CONDITIONAL_DISABLE ;
+#define DISABLE Comp_Generic(op); return;
 
 namespace MIPSComp
 {
@@ -65,12 +70,13 @@ void Jit::CompFPTriArith(u32 op, void (XEmitter::*arith)(X64Reg reg, OpArg), boo
 
 void Jit::Comp_FPU3op(u32 op)
 { 
+	CONDITIONAL_DISABLE;
 	switch (op & 0x3f) 
 	{
 	case 0: CompFPTriArith(op, &XEmitter::ADDSS, false); break; //F(fd) = F(fs) + F(ft); //add
-	case 1: CompFPTriArith(op, &XEmitter::SUBSS, true); break; //F(fd) = F(fs) - F(ft); //sub
+	case 1: CompFPTriArith(op, &XEmitter::SUBSS, true); break;  //F(fd) = F(fs) - F(ft); //sub
 	case 2: CompFPTriArith(op, &XEmitter::MULSS, false); break; //F(fd) = F(fs) * F(ft); //mul
-	case 3: CompFPTriArith(op, &XEmitter::DIVSS, true); break; //F(fd) = F(fs) / F(ft); //div
+	case 3: CompFPTriArith(op, &XEmitter::DIVSS, true); break;  //F(fd) = F(fs) / F(ft); //div
 	default:
 		_dbg_assert_msg_(CPU,0,"Trying to compile FPU3Op instruction that can't be interpreted");
 		break;
@@ -79,6 +85,8 @@ void Jit::Comp_FPU3op(u32 op)
 
 void Jit::Comp_FPULS(u32 op)
 {
+	CONDITIONAL_DISABLE;
+
 	s32 offset = (s16)(op&0xFFFF);
 	int ft = ((op>>16)&0x1f);
 	int rs = _RS;
@@ -128,6 +136,8 @@ static const u64 GC_ALIGNED16(ssNoSignMask[2]) = {0x7FFFFFFF7FFFFFFFULL, 0x7FFFF
 
 void Jit::Comp_FPU2op(u32 op)
 {
+	CONDITIONAL_DISABLE;
+	
 	int fs = _FS;
 	int fd = _FD;
 
@@ -189,6 +199,8 @@ void Jit::Comp_FPU2op(u32 op)
 
 void Jit::Comp_mxc1(u32 op)
 {
+	CONDITIONAL_DISABLE;
+
 	int fs = _FS;
 	int rt = _RT;
 
