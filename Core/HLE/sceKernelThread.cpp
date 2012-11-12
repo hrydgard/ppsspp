@@ -889,10 +889,24 @@ u32 sceKernelStartThread()
 
 void sceKernelGetThreadStackFreeSize()
 {
-  SceUID threadID = PARAM(0);
-  INFO_LOG(HLE,"sceKernelGetThreadStackFreeSize(%i)", threadID);
-  u32 error;
-  Thread *thread = kernelObjects.Get<Thread>(threadID, error);
+	SceUID threadID = PARAM(0);
+	Thread *thread;
+
+	INFO_LOG(HLE,"sceKernelGetThreadStackFreeSize(%i)", threadID);
+
+	if (threadID == 0)
+		thread = currentThread;
+	else
+	{
+		u32 error;
+		thread = kernelObjects.Get<Thread>(threadID, error);
+		if (thread == 0)
+		{
+			ERROR_LOG(HLE,"sceKernelGetThreadStackFreeSize: invalid thread id %i", threadID);
+			RETURN(error);
+			return;
+		}
+	}
 
   // Scan the stack for 0xFF
   int sz = 0;
