@@ -49,6 +49,7 @@ set(SRCS
   HLE/sceUmd.cpp
   HLE/sceUtility.cpp
   HW/MemoryStick.cpp
+  HW/MediaEngine.cpp
   FileSystems/BlockDevices.cpp
   FileSystems/ISOFileSystem.cpp
   FileSystems/DirectoryFileSystem.cpp

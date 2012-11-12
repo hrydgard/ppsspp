@@ -46,6 +46,7 @@ enum LOG_TYPE {
 	VIDEO,
 	DYNA_REC,
 	NETPLAY,
+	ME,
 
 	NUMBER_OF_LOGS,  // Must be last
 	JIT = DYNA_REC,

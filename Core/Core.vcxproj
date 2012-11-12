@@ -160,6 +160,7 @@
     <ClCompile Include="HLE\sceUtility.cpp" />
     <ClCompile Include="HLE\__sceAudio.cpp" />
     <ClCompile Include="Host.cpp" />
+    <ClCompile Include="HW\MediaEngine.cpp" />
     <ClCompile Include="HW\MemoryStick.cpp" />
     <ClCompile Include="Loaders.cpp" />
     <ClCompile Include="MemMap.cpp" />
@@ -290,6 +291,7 @@
     <ClInclude Include="HLE\sceKernelVTimer.h" />
     <ClInclude Include="HLE\__sceAudio.h" />
     <ClInclude Include="Host.h" />
+    <ClInclude Include="HW\MediaEngine.h" />
     <ClInclude Include="HW\MemoryStick.h" />
     <ClInclude Include="Loaders.h" />
     <ClInclude Include="MemMap.h" />

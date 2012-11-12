@@ -80,6 +80,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/ELF/ElfReader.cpp \
   $(SRC)/Core/ELF/PrxDecrypter.cpp \
   $(SRC)/Core/HW/MemoryStick.cpp \
+  $(SRC)/Core/HW/MediaEngine.cpp \
   $(SRC)/Core/Core.cpp \
   $(SRC)/Core/Config.cpp \
   $(SRC)/Core/CoreTiming.cpp \

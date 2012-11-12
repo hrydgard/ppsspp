@@ -1075,7 +1075,7 @@ SceUID __KernelGetCurThread()
 void sceKernelGetThreadId()
 {
 	u32 retVal = currentThread->GetUID();
-	DEBUG_LOG(HLE,"%i = sceKernelGetThreadId()", retVal);
+	// DEBUG_LOG(HLE,"%i = sceKernelGetThreadId()", retVal);
 	RETURN(retVal);
 }
 
