@@ -330,9 +330,9 @@ const HLEFunction ThreadManForUser[] =
 	{0xCD203292,sceKernelCancelEventFlag, "sceKernelCancelEventFlag"},
 	{0xA66B0120,sceKernelReferEventFlagStatus,"sceKernelReferEventFlagStatus"},
 
-	{0x8FFDF9A2,sceKernelCancelSema,		"sceKernelCancelSema"},
-	{0xD6DA4BA1,sceKernelCreateSema,		"sceKernelCreateSema"},
-	{0x28b6489c,sceKernelDeleteSema,		"sceKernelDeleteSema"},
+	{0x8FFDF9A2,&WrapI_IIU<sceKernelCancelSema>,			"sceKernelCancelSema"},
+	{0xD6DA4BA1,sceKernelCreateSema,					"sceKernelCreateSema"},
+	{0x28b6489c,&WrapI_I<sceKernelDeleteSema>,			"sceKernelDeleteSema"},
 	{0x58b1f937,&WrapI_II<sceKernelPollSema>,			"sceKernelPollSema"},
 	{0xBC6FEBC5,&WrapI_IU<sceKernelReferSemaStatus>,	"sceKernelReferSemaStatus"},
 	{0x3F53E640,&WrapI_II<sceKernelSignalSema>,			"sceKernelSignalSema"},

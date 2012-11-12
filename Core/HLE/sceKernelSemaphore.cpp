@@ -57,11 +57,10 @@ struct Semaphore : public KernelObject
 	std::vector<SceUID> waitingThreads;
 };
 
-void sceKernelCancelSema()
+int sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr)
 {
-	SceUID id = PARAM(0);
 	ERROR_LOG(HLE,"UNIMPL sceKernelCancelSema(%i)", id);
-	RETURN(0);
+	return 0;
 }
 
 //SceUID sceKernelCreateSema(const char *name, SceUInt attr, int initVal, int maxVal, SceKernelSemaOptParam *option);
@@ -86,9 +85,8 @@ void sceKernelCreateSema()
 }
 
 //int sceKernelDeleteSema(SceUID semaid);
-void sceKernelDeleteSema()
+int sceKernelDeleteSema(SceUID id)
 {
-	SceUID id = PARAM(0);
 	DEBUG_LOG(HLE,"sceKernelDeleteSema(%i)", id);
 
 	u32 error;
@@ -102,6 +100,7 @@ void sceKernelDeleteSema()
 		{
 			SceUID threadID = *iter;
 
+			// TODO: Set SCE_KERNEL_ERROR_WAIT_DELETE returnValue?
 			__KernelResumeThreadFromWait(threadID);
 			wokeThreads = true;
 		}
@@ -109,14 +108,14 @@ void sceKernelDeleteSema()
 
 		// TODO: Should this reschedule?  threads/semaphores fails if it doesn't.
 		if (wokeThreads)
-			__KernelReSchedule("semaphore signalled");
+			__KernelReSchedule("semaphore deleted");
 
-		RETURN(kernelObjects.Destroy<Semaphore>(id));
+		return kernelObjects.Destroy<Semaphore>(id);
 	}
 	else
 	{
-		ERROR_LOG(HLE, "sceKernelSignalSema : Trying to signal invalid semaphore %i", id);
-		RETURN(error);
+		ERROR_LOG(HLE, "sceKernelDeleteSema : Trying to delete invalid semaphore %i", id);
+		return error;
 	}
 }
 

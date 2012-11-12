@@ -17,9 +17,9 @@
 
 #pragma once
 
-void sceKernelCancelSema();
+int sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr);
 void sceKernelCreateSema();
-void sceKernelDeleteSema();
+int sceKernelDeleteSema(SceUID id);
 int sceKernelPollSema(SceUID id, int wantedCount);
 int sceKernelReferSemaStatus(SceUID id, u32 infoPtr);
 int sceKernelSignalSema(SceUID id, int signal);
