@@ -140,7 +140,9 @@ int sceKernelDeleteSema(SceUID id)
 	Semaphore *s = kernelObjects.Get<Semaphore>(id, error);
 	if (s)
 	{
-		// TODO: Should this reschedule?  threads/semaphores fails if it doesn't.
+		// TODO: Should this reschedule?
+		// threads/semaphore doesn't get final threads if not, but gets wrong result if so.
+		// Probably it should and there's a bug with the registers?
 		if (__KernelClearSemaThreads(s, SCE_KERNEL_ERROR_WAIT_DELETE))
 			__KernelReSchedule("semaphore deleted");
 
