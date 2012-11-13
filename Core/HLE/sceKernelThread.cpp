@@ -1175,7 +1175,7 @@ void sceKernelCancelWakeupThread()
 {
 	SceUID uid = PARAM(0);
 	u32 error;
-	if (uid == 0) uid == __KernelGetCurThread();
+	if (uid == 0) uid = __KernelGetCurThread();
 	Thread *t = kernelObjects.Get<Thread>(uid, error);
 	if (t)
 	{
@@ -1519,7 +1519,7 @@ void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, bo
 
 	MipsCall *call = new MipsCall();
 	call->entryPoint = entryPoint;
-	for (int i = 0; i < args.size(); i++) {
+	for (size_t i = 0; i < args.size(); i++) {
 		call->args[i] = args[i];
 	}
 	call->numArgs = args.size();
