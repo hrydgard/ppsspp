@@ -15,7 +15,7 @@ teamcity_mode = False
 # These have worked and should keep working always - regression tests.
 tests_good = [
   "cpu/cpu/cpu",
-  "cpu/vfpu/vfpu",
+  "cpu/vfpu/base/vfpu",
   "cpu/vfpu/convert/vfpu_convert",
   "cpu/vfpu/prefixes/vfpu_prefixes",
   "cpu/vfpu/colors/vfpu_colors",
@@ -59,6 +59,7 @@ tests_next = [
   "io/io/io",
   "io/iodrv/iodrv",
   "modules/loadexec/loader",
+  "threads/k0/k0",
   "threads/fpl/fpl",
   "threads/msgpipe/msgpipe",
   "threads/mutex/mutex",
