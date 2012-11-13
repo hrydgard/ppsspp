@@ -16,3 +16,20 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "MediaEngine.h"
+#include "../MemMap.h"
+
+static const int modeBpp[4] = { 2, 2, 2, 4 };
+
+
+void MediaEngine::writeVideoImage(u32 bufferPtr, int frameWidth, int videoPixelMode)
+{
+	int bpp = modeBpp[videoPixelMode];
+
+	// fake image. To be improved.
+	memset(Memory::GetPointer(bufferPtr), 0xDD, frameWidth * videoHeight_ * bpp);
+}
+
+void MediaEngine::feedPacketData(u32 addr, int size)
+{
+	// This media engine is totally incompetent and will just ignore all data sent to it.
+}

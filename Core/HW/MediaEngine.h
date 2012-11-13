@@ -19,16 +19,24 @@
 
 // Simulation of the hardware video/audio decoders.
 // The idea is high level emulation where we simply use FFMPEG.
+// TODO: Actually hook up to ffmpeg.
 
 #pragma once
 
 // An approximation of what the interface will look like. Similar to JPCSP's.
 
 #include "../../Globals.h"
+#include "../HLE/sceMpeg.h"
 
 class MediaEngine
 {
 public:
+	MediaEngine() : fakeMode_(false), readLength_(0), fakeFrameCounter_(0) {}
+
+	void setFakeMode(bool fake) {
+		fakeMode_ = fake;
+	}
+
 	void init(u32 bufferAddr, u32 mpegStreamSize, u32 mpegOffset) {
 		bufferAddr_ = bufferAddr;
 		mpegStreamSize_ = mpegStreamSize;
@@ -36,8 +44,41 @@ public:
 	}
 	void finish();
 
+	void setVideoDim(int w, int h) { videoWidth_ = w; videoHeight_ = h; }
+	void feedPacketData(u32 addr, int size);
+
+	bool readVideoAu(SceMpegAu *au) {
+		if (fakeMode_) {
+			au->pts += videoTimestampStep;
+		}
+		return true;
+	}
+	bool readAudioAu(SceMpegAu *au) {
+		if (fakeMode_) {
+
+		}
+		return true;
+	}
+
+	bool stepVideo() {
+		if (fakeMode_)
+			return true;
+		return true;
+	}
+
+	void writeVideoImage(u32 bufferPtr, int frameWidth, int videoPixelMode);
+
+	// WTF is this?
+	int readLength() { return readLength_; }
+	void setReadLength(int len) { readLength_ = len; }
+
 private:
+	bool fakeMode_;
 	u32 bufferAddr_;
 	u32 mpegStreamSize_;
 	u32 mpegOffset_;
+	int readLength_;
+	int videoWidth_;
+	int videoHeight_;
+	int fakeFrameCounter_;
 };

@@ -160,6 +160,17 @@ private:
 # define _M_SSE 0x402
 #endif
 
+
+#ifdef _MSC_VER
+inline unsigned int bswap32(unsigned int x) { return _byteswap_ulong(x); }
+inline unsigned int bswap16(unsigned int x) { return _byteswap_ushort(x); }
+#else
+// TODO: speedup
+inline unsigned int bswap32(unsigned int x) { return (x >> 24) | ((x & 0xFF0000) >> 8) | ((x & 0xFF00) << 8) | (x << 24);}
+inline unsigned short bswap16(unsigned short x) { return (x << 8) | (x >> 8); }
+#endif
+
+
 // Host communication.
 enum HOST_COMM
 {

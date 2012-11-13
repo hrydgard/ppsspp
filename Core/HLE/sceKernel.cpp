@@ -45,6 +45,7 @@
 #include "sceKernelEventFlag.h"
 #include "sceKernelVTimer.h"
 #include "sceKernelTime.h"
+#include "sceMpeg.h"
 #include "scePower.h"
 #include "sceUtility.h"
 #include "sceUmd.h"
@@ -78,6 +79,7 @@ void __KernelInit()
 	__PowerInit();
 	__UtilityInit();
 	__UmdInit();
+	__MpegInit(PSP_CoreParameter().useMediaEngine);
 
 	kernelRunning = true;
 	INFO_LOG(HLE, "Kernel initialized.");
@@ -94,6 +96,7 @@ void __KernelShutdown()
 	INFO_LOG(HLE, "Shutting down kernel - %i kernel objects alive", kernelObjects.GetCount());
 	kernelObjects.Clear();
 
+	__MpegShutdown();
 	__GeShutdown();
 	__AudioShutdown();
 	__IoShutdown();

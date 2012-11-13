@@ -1543,7 +1543,17 @@ void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, bo
 		thread->pendingMipsCalls.push_back(callId);
 	}
 }
-	
+
+void __KernelDirectMipsCall(u32 entryPoint, Action *afterAction, bool returnVoid, u32 args[], int numargs)
+{
+	// TODO: get rid of the vector
+	std::vector<int> argsv;
+	for (int i = 0; i < numargs; i++)
+		argsv.push_back(args[i]);
+
+	__KernelCallAddress(currentThread, entryPoint, afterAction, returnVoid, argsv);
+}
+
 void __KernelExecuteMipsCallOnCurrentThread(int callId)
 {
 	if (g_inCbCount > 0) {
@@ -1598,7 +1608,8 @@ void __KernelReturnFromMipsCall()
 	if (!__KernelExecutePendingMipsCalls())
 	{
 		// We should definitely reschedule as we might still be asleep. - except if we came from checkcallbacks?
-		__KernelReSchedule("return from callback");
+		// TODO: Should not do this for a plain Direct mipscall
+		__KernelReSchedule("return from mipscall");
 	}
 }
 

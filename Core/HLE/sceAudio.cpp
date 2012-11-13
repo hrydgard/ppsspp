@@ -44,7 +44,7 @@ void sceAudioOutputPannedBlocking(u32 chan, u32 volume1, u32 volume2, u32 sample
   }
 	else if (chan < 0 || chan >= MAX_CHANNEL)
 	{
-		ERROR_LOG(HLE,"sceAudioOutputPannedBlocking() - BAD CHANNEL");
+		ERROR_LOG(HLE,"sceAudioOutputPannedBlocking() - BAD CHANNEL: %08x", chan);
     RETURN(SCE_ERROR_AUDIO_INVALID_CHANNEL);
 	}
 	else if (!chans[chan].reserved)

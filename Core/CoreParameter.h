@@ -48,4 +48,5 @@ struct CoreParameter
 	bool enableDebugging;  // enables breakpoints and other time-consuming debugger features
 	bool printfEmuLog;  // writes "emulator:" logging to stdout
 	bool headLess;   // Try to avoid messageboxes etc
+	bool useMediaEngine;
 };
