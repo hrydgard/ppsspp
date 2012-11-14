@@ -59,6 +59,7 @@ const HLEFunction sceNet[] =
 	{0x0bf0a3ae, 0, "sceNetGetLocalEtherAddr"}, 
 	{0xd27961c9, 0, "sceNetEtherStrton"}, 
 	{0x50647530, 0, "sceNetFreeThreadinfo"}, 
+	{0xcc393e48, 0, "sceNetGetMallocStat"}
 };
 
 const HLEFunction sceNetAdhoc[] =

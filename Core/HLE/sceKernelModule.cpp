@@ -681,7 +681,7 @@ const HLEFunction ModuleMgrForUser[] =
 	{0x748CBED9,0,"sceKernelQueryModuleInfo"},
 	{0xd8b73127,&sceKernelGetModuleIdByAddress, "sceKernelGetModuleIdByAddress"},
 	{0xf0a26395,&sceKernelGetModuleId, "sceKernelGetModuleId"},
-	{0x8f2df740,0,"sceKernel_ModuleMgr_8f2df740"},
+	{0x8f2df740,0,"sceKernelStopUnloadSelfModuleWithStatus"},
 };
 
 
