@@ -417,14 +417,16 @@ u32 ScanDirectoryTree(const std::string &directory, FSTEntry& parentEntry)
 		FSTEntry entry;
 		const std::string virtualName(ffd.cFileName);
 #else
-	struct dirent dirent, *result = NULL;
+	struct dirent_large { struct dirent entry; char padding[FILENAME_MAX+1]; };
+	struct dirent_large diren;
+	struct dirent *result = NULL;
 
 	DIR *dirp = opendir(directory.c_str());
 	if (!dirp)
 		return 0;
 
 	// non windows loop
-	while (!readdir_r(dirp, &dirent, &result) && result)
+	while (!readdir_r(dirp, (dirent*)&diren, &result) && result)
 	{
 		FSTEntry entry;
 		const std::string virtualName(result->d_name);
@@ -534,11 +536,13 @@ void CopyDir(const std::string &source_path, const std::string &dest_path)
 	if (!File::Exists(source_path)) return;
 	if (!File::Exists(dest_path)) File::CreateFullPath(dest_path);
 
-	struct dirent dirent, *result = NULL;
+	struct dirent_large { struct dirent entry; char padding[FILENAME_MAX+1]; };
+	struct dirent_large diren;
+	struct dirent *result = NULL;
 	DIR *dirp = opendir(source_path.c_str());
 	if (!dirp) return;
 
-	while (!readdir_r(dirp, &dirent, &result) && result)
+	while (!readdir_r(dirp, (dirent*) &diren, &result) && result)
 	{
 		const std::string virtualName(result->d_name);
 		// check for "." and ".."
