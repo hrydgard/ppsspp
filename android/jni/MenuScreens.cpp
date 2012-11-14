@@ -290,7 +290,7 @@ FileSelectScreen::FileSelectScreen(const FileSelectScreenOptions &options) : opt
 
 void FileSelectScreen::updateListing() {
 	listing_.clear();
-	getFilesInDir(currentDirectory_.c_str(), &listing_, options_.filter.c_str());
+	getFilesInDir(currentDirectory_.c_str(), &listing_, options_.filter);
 	g_Config.currentDirectory = currentDirectory_;
 	list_.contentChanged();
 }
