@@ -263,7 +263,7 @@ static const HLEFunction scePower[] =
 	{0x737486F2,&WrapV_UUU<scePowerSetClockFrequency>,"scePowerSetClockFrequency"},
 	{0x34f9c463,scePowerGetPllClockFrequencyInt,"scePowerGetPllClockFrequencyInt"},
 	{0xea382a27,0,"scePowerGetPllClockFrequencyFloat"},
-	{0xebd177d6,0,"scePower_driver_EBD177D6"},
+	{0xebd177d6,&WrapV_UUU<scePowerSetClockFrequency>,"scePower_driver_EBD177D6"}, //TODO: used in a few places, jpcsp says is the same as scePowerSetClockFrequency
 	{0x469989ad,0,"scePower_469989ad"},
 	{0xa85880d0,0,"scePower_a85880d0"},
 };
