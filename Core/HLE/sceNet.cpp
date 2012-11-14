@@ -159,6 +159,10 @@ const HLEFunction sceNetInet[] =
 	{0x8ca3a97e, 0, "sceNetInetGetPspError"},
 	{0xa9ed66b9, 0, "sceNetInetTerm"},
 	{0xE30B8C19, 0, "sceNetInetInetPton"},
+	{0xE247B6D6, 0, "sceNetInetGetpeername"},
+	{0x162e6fd5 ,0, "sceNetInetGetsockname"},
+	{0x4a114c7c ,0, "sceNetInetGetsockopt"}, 
+	{0xfaabb1dd ,0, "sceNetInetPoll"},
 };
 const HLEFunction sceNetApctl[] = 
 {
