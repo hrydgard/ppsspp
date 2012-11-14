@@ -692,7 +692,7 @@ const HLEFunction SysMemUserForUser[] =
 	{0xf77d77cb,sceKernelSetCompilerVersion,"sceKernelSetCompilerVersion"},
 	{0x35669d4c,0,"sceKernelSetCompiledSdkVersion600_602"},  //??
 	{0x1b4217bc,0,"sceKernelSetCompiledSdkVersion603_605"},
-
+	{0x358ca1bb,0,"sceKernelSetCompiledSdkVersion606"}, 
 	// Obscure raw block API
 	{0xDB83A952,GetMemoryBlockPtr,"SysMemUserForUser_DB83A952"},  // GetMemoryBlockAddr 
 	{0x91DE343C,0,"SysMemUserForUser_91DE343C"},
