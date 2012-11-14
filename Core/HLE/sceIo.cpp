@@ -245,7 +245,7 @@ void __IoGetStat(SceIoStat *stat, PSPFileInfo &info)
 	else
 		type = SCE_STM_FREG, attr = TYPE_FILE;
 
-	stat->st_mode = 0777 | type;
+	stat->st_mode = type; //0777 | type;
 	stat->st_attr = attr;
 	stat->st_size = info.size;
 	stat->st_private[0] = info.startSector;

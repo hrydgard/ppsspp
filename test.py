@@ -36,6 +36,7 @@ tests_good = [
   "power/power",
   "rtc/rtc",
   "umd/callbacks/umd",
+  "io/directory/directory",
 ]
 
 tests_next = [
@@ -55,7 +56,6 @@ tests_next = [
   "hle/check_not_used_uids",
   "font/fonttest",
   "io/cwd/cwd",
-  "io/directory/directory",
   "io/io/io",
   "io/iodrv/iodrv",
   "modules/loadexec/loader",
