@@ -289,7 +289,10 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path)
 		else
 			entry.type = FILETYPE_NORMAL;
 
-		entry.size = findData.nFileSizeLow | ((u64)findData.nFileSizeHigh<<32);
+		if (!strcmp(findData.cFileName, "..") )// TODO: is this just for .. or all sub directories? Need to add a directory to the test to find out. Also why so different than the old test results?
+			entry.size = 4096;
+		else
+			entry.size = findData.nFileSizeLow | ((u64)findData.nFileSizeHigh<<32);
 		entry.name = findData.cFileName;
 		
 		myVector.push_back(entry);
