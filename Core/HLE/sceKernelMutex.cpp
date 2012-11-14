@@ -30,6 +30,7 @@
 // Not sure about the names of these
 #define PSP_MUTEX_ERROR_NOT_LOCKED 0x800201C7
 #define PSP_MUTEX_ERROR_NO_SUCH_MUTEX 0x800201C3
+#define PSP_MUTEX_ERROR_UNLOCK_UNDERFLOW 0x800201C7
 
 // Guesswork - not exposed anyway
 struct NativeMutex
@@ -96,6 +97,11 @@ u32 sceKernelLockMutex(u32 id, u32 count, u32 timeoutPtr)
 	Mutex *mutex = kernelObjects.Get<Mutex>(id, error);
 	if (!mutex)
 		return PSP_MUTEX_ERROR_NO_SUCH_MUTEX;
+	if (count <= 0)
+		return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
+	if (count > 1 && !(mutex->nm.attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE))
+		return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
+
 	if (mutex->nm.lockLevel == 0)
 	{
 		mutex->nm.lockLevel += count;
@@ -109,30 +115,96 @@ u32 sceKernelLockMutex(u32 id, u32 count, u32 timeoutPtr)
 	}
 	else
 	{
-		// Yeah, we need to block. Somehow.
-		ERROR_LOG(HLE,"Mutex should block!");
+		mutex->waitingThreads.push_back(__KernelGetCurThread());
+		__KernelWaitCurThread(WAITTYPE_MUTEX, id, count, 0, false);
 	}
 	return 0;
 }
 
 u32 sceKernelLockMutexCB(u32 id, u32 count, u32 timeoutPtr)
 {
-	ERROR_LOG(HLE,"UNIMPL sceKernelLockMutexCB(%i, %i, %08x)", id, count, timeoutPtr);
-	return 0;
-}
-
-u32 sceKernelUnlockMutex(u32 id, u32 count)
-{
-	DEBUG_LOG(HLE,"UNFINISHED sceKernelUnlockMutex(%i, %i)", id, count);
+	DEBUG_LOG(HLE,"sceKernelLockMutexCB(%i, %i, %08x)", id, count, timeoutPtr);
 	u32 error;
 	Mutex *mutex = kernelObjects.Get<Mutex>(id, error);
 	if (!mutex)
 		return PSP_MUTEX_ERROR_NO_SUCH_MUTEX;
+	if (count <= 0)
+		return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
+	if (count > 1 && !(mutex->nm.attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE))
+		return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
+
 	if (mutex->nm.lockLevel == 0)
-		return PSP_MUTEX_ERROR_NOT_LOCKED;
-	mutex->nm.lockLevel -= count;
-	// TODO....
+	{
+		mutex->nm.lockLevel += count;
+		mutex->nm.lockThread = __KernelGetCurThread();
+		// Nobody had it locked - no need to block
+	}
+	else if ((mutex->nm.attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE) && mutex->nm.lockThread == __KernelGetCurThread())
+	{
+		// Recursive mutex, let's just increase the lock count and keep going
+		mutex->nm.lockLevel += count;
+	}
+	else
+	{
+		mutex->waitingThreads.push_back(__KernelGetCurThread());
+		__KernelWaitCurThread(WAITTYPE_MUTEX, id, count, 0, true);
+		__KernelCheckCallbacks();
+	}
 	return 0;
+}
+
+// int sceKernelUnlockMutex(SceUID id, int count)
+// void because it changes threads.
+void sceKernelUnlockMutex(u32 id, u32 count)
+{
+	DEBUG_LOG(HLE,"sceKernelUnlockMutex(%i, %i)", id, count);
+	u32 error;
+	Mutex *mutex = kernelObjects.Get<Mutex>(id, error);
+	if (!mutex)
+	{
+		RETURN(PSP_MUTEX_ERROR_NO_SUCH_MUTEX);
+		return;
+	}
+	if (mutex->nm.lockLevel == 0)
+	{
+		RETURN(PSP_MUTEX_ERROR_NOT_LOCKED);
+		return;
+	}
+	if (mutex->nm.lockLevel < count)
+	{
+		RETURN(PSP_MUTEX_ERROR_UNLOCK_UNDERFLOW);
+		return;
+	}
+	mutex->nm.lockLevel -= count;
+	RETURN(0);
+
+	if (mutex->nm.lockLevel == 0)
+	{
+		mutex->nm.lockThread = -1;
+
+		// TODO: PSP_MUTEX_ATTR_PRIORITY
+		bool wokeThreads = false;
+		// TODO: Seems to go in reverse order.  Maybe do more testing / related to creation order?
+		std::vector<SceUID>::reverse_iterator iter, rend;
+		for (iter = mutex->waitingThreads.rbegin(), rend = mutex->waitingThreads.rend(); iter != rend; ++iter)
+		{
+			SceUID threadID = *iter;
+			int wVal = (int)__KernelGetWaitValue(threadID, error);
+
+			mutex->nm.lockThread = threadID;
+			mutex->nm.lockLevel = wVal;
+
+			__KernelResumeThreadFromWait(threadID);
+			wokeThreads = true;
+			// Plus/minus 0 - need an iterator not a reverse_iterator.
+			mutex->waitingThreads.erase((++iter).base());
+			break;
+		}
+
+		// Not sure if this should actually resched, need to test.
+		if (wokeThreads)
+			__KernelReSchedule("mutex unlocked");
+	}
 }
 
 struct NativeLwMutex
