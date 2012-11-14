@@ -200,7 +200,7 @@ void sceKernelSignalSema(SceUID id, int signal)
 retry:
 		//TODO: check for threads to wake up - wake them
 		std::vector<SceUID>::iterator iter;
-		for (iter = s->waitingThreads.begin(); iter!=s->waitingThreads.end(); s++)
+		for (iter = s->waitingThreads.begin(); iter!=s->waitingThreads.end(); iter++)
 		{
 			SceUID threadID = *iter;
 			int wVal = (int)__KernelGetWaitValue(threadID, error);
