@@ -36,14 +36,14 @@ void UIUpdateMouse(int i, float x, float y, bool down) {
 	} else {
 		uistate.mousepressed[i] = 0;
 	}
+	uistate.mousex[i] = x;
+	uistate.mousey[i] = y;
+	uistate.mousedown[i] = down;
+
 	if (uistate.mousedown[i])
 		uistate.mouseframesdown[i]++;
 	else
 		uistate.mouseframesdown[i] = 0;
-
-	uistate.mousex[i] = x;
-	uistate.mousey[i] = y;
-	uistate.mousedown[i] = down;
 }
 
 void UIReset() {
@@ -286,7 +286,7 @@ void UIList::pointerMove(int pointer, float x, float y) {
 		inertiaY = 0.8 * inertiaY + 0.2 * -deltaY;
 	}
 
-	if (movedDistanceY > 10 && !scrolling && uistate.mouseframesdown[0] > holdFrames) {
+	if (movedDistanceY > 15 && !scrolling && uistate.mouseframesdown[0] > holdFrames) {
 		scrolling = true;
 	}
 }

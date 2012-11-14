@@ -28,7 +28,6 @@
 #include "display.h"
 
 // Blackberry specific
-//#include <sys/asoundlib.h>	// Audio framework for Blackberry
 #include <bps/bps.h>			// Blackberry Platform Services
 #include <bps/screen.h>			// Blackberry Window Manager
 #include <bps/navigator.h>		// Invoke Service
@@ -262,9 +261,9 @@ int main(int argc, char *argv[]) {
 #ifdef BLACKBERRY10
 	int dpi;
 	screen_get_display_property_iv(screen_disp, SCREEN_PROPERTY_DPI, &dpi);
-	float dpi_scale = dpi / 160;
+	float dpi_scale = 222.5f / dpi;
 #else
-	float dpi_scale = 1.1;
+	float dpi_scale = 1.1f;
 #endif
 	dp_xres = (int)(pixel_xres * dpi_scale); dp_yres = (int)(pixel_yres * dpi_scale);
 
@@ -294,19 +293,6 @@ int main(int argc, char *argv[]) {
 
 	// Audio must be unpaused _after_ NativeInit()
 	SDL_PauseAudio(0);
-/*	snd_pcm_format_t fmt;
-	fmt.rate = 44100;
-	fmt.format = SND_PCM_SFMT_S16_LE;
-	fmt.voices = 2;
-	snd_pcm_channel_params params;
-	params.format =	fmt;
-	params.start_mode = SND_PCM_START_DATA;
-	snd_pcm_t* pcm_handle
-	snd_pcm_open_preferred(&pcm_handle, NULL, NULL, SND_PCM_OPEN_PLAYBACK | SND_PCM_OPEN_NONBLOCK);
-	snd_pcm_channel_params(pcm_handle, &params);
-	snd_pcm_playback_prepare(pcm_handle);
-	// How to do asound callbacks?
-	snd_pcm_playback_resume(pcm_handle);*/
 
 	InputState input_state;
 	int framecount = 0;
@@ -412,8 +398,6 @@ int main(int argc, char *argv[]) {
 	NativeShutdownGraphics();
 	SDL_PauseAudio(1);
 	NativeShutdown();
-	//snd_pcm_playback_pause(pcm_handle);
-	//snd_pcm_close();
 	SDL_CloseAudio();
 	SDL_Quit();
 	kill_GLES2();
