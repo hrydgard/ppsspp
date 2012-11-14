@@ -26,13 +26,10 @@ endif()
 
 include(FindSDL)
 
-if (0)		# RELEASE
-	add_definitions(-O2)
-else()		# DEBUG
-	add_definitions(-g)
-	add_definitions(-DUSE_PROFILER)
-	add_definitions(-D_DEBUG)
-endif()
+#add_definitions(-O2)
+add_definitions(-g)
+add_definitions(-DUSE_PROFILER)
+add_definitions(-D_DEBUG)
 add_definitions(-DSDL)
 
 # Apple can't build the SDL .m file with -std=gnu++0x
