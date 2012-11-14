@@ -17,6 +17,7 @@
 
 #include "base/basictypes.h"
 #include "base/display.h"
+#include "base/NativeApp.h"
 
 struct InputState;
 
@@ -37,6 +38,7 @@ public:
 	virtual void render() {}
 	virtual void deviceLost() {}
 	virtual void dialogFinished(const Screen *dialog, DialogResult result) {}
+	virtual void touch(int pointer, float x, float y, double time, TouchEvent event) {}
 
 	ScreenManager *screenManager() { return screenManager_; }
 	void setScreenManager(ScreenManager *sm) { screenManager_ = sm; }
@@ -67,6 +69,9 @@ public:
 
 	// Pops the dialog away.
 	void finishDialog(const Screen *dialog, DialogResult result = DR_OK);
+
+	// Instant touch, separate from the update() mechanism.
+	void touch(int pointer, float x, float y, double time, TouchEvent event);
 
 private:
 	void pop();

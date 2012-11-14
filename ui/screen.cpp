@@ -54,6 +54,18 @@ void ScreenManager::update(InputState &input) {
 	}
 }
 
+void ScreenManager::touch(int pointer, float x, float y, double time, TouchEvent event)
+{
+	if (dialog_.size()) {
+		dialog_.back()->touch(pointer, x, y, time, event);
+		return;
+	}
+	if (currentScreen_)
+	{
+		currentScreen_->touch(pointer, x, y, time, event);
+	}
+}
+
 void ScreenManager::render() {
 	if (dialog_.size()) {
 		dialog_.back()->render();
