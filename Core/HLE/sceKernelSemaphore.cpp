@@ -166,8 +166,7 @@ int sceKernelReferSemaStatus(SceUID id, u32 infoPtr)
 	if (s)
 	{
 		DEBUG_LOG(HLE,"sceKernelReferSemaStatus(%i, %08x)", id, infoPtr);
-		NativeSemaphore *outptr = (NativeSemaphore*)Memory::GetPointer(infoPtr);
-		memcpy((char*)outptr, (char*)&s->ns, s->ns.size);
+		Memory::WriteStruct(infoPtr, &s->ns);
 		return 0;
 	}
 	else
