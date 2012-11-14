@@ -1208,6 +1208,7 @@ namespace MIPSInt
 		int cc = 0;
 		int or_val = 0;
 		int and_val = 1;
+		int affected_bits = (1 << 4) | (1 << 5);  // 4 and 5
 		for (int i = 0; i < n; i++)
 		{
 			int c;
@@ -1232,8 +1233,11 @@ namespace MIPSInt
 			cc |= (c<<i);
 			or_val |= c;
 			and_val &= c;
+			affected_bits |= 1 << i;
 		}
-		currentMIPS->vfpuCtrl[VFPU_CTRL_CC] = cc | (or_val << 4) | (and_val << 5);
+		// Use masking to only change the affected bits
+		currentMIPS->vfpuCtrl[VFPU_CTRL_CC] = (currentMIPS->vfpuCtrl[VFPU_CTRL_CC] & ~affected_bits) |
+			(cc | (or_val << 4) | (and_val << 5)) & affected_bits;
 		PC += 4;
 		EatPrefixes();
 	}
@@ -1243,19 +1247,15 @@ namespace MIPSInt
 	{
 		int vs = _VS;
 		int vd = _VD; 
-		int tf = (op >> 19)&3;
-		int imm3 = (op >> 16)&7;
+		int tf = (op >> 19) & 1;
+		int imm3 = (op >> 16) & 7;
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
 		float s[4];
-		float t[4];
 		float d[4];
 		ReadVector(s, sz, vs);
 		ApplySwizzleS(s, sz);
-		ReadVector(t,sz,vd); //Yes!
-		ApplySwizzleT(t, sz);
-		for (int i = 0; i < n; i++)
-			d[i] = t[i];
+		ReadVector(d, sz, vd); //Yes!
 
 		int CC = currentMIPS->vfpuCtrl[VFPU_CTRL_CC];
 
@@ -1271,7 +1271,7 @@ namespace MIPSInt
 		{
 			for (int i = 0; i < n; i++)
 			{
-				if (((CC>>i)&1)  == !tf)
+				if (((CC >> i) & 1) == !tf)
 					d[i] = s[i];
 			}
 		}
