@@ -567,6 +567,7 @@ const HLEFunction sceUtility[] =
   {0x32E32DCB, 0, "sceUtilityGamedataInstallShutdownStart"},
   {0x4AECD179, 0, "sceUtilityGamedataInstallUpdate"},
   {0xB57E95D9, 0, "sceUtilityGamedataInstallGetStatus"},
+	{0x180F7B62, 0, "sceUtilityGamedataInstallAbortFunction"},
 };
 
 void Register_sceUtility()

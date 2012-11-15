@@ -427,6 +427,7 @@ const HLEFunction Kernel_Library[] =
 	{0xb55249d2,sceKernelIsCpuIntrEnable, "sceKernelIsCpuIntrEnable"}, 
 	{0xa089eca4,sceKernelMemset, "sceKernelMemset"}, 
 	{0xDC692EE3,0, "sceKernelTryLockLwMutex"},
+	{0x37431849,0, "sceKernelTryLockLwMutex_600"},
 	{0xbea46419,0, "sceKernelLockLwMutex"}, 
 	{0x1FC64E09,0, "sceKernelLockLwMutexCB"},
 	{0x15b6446b,0, "sceKernelUnlockLwMutex"}, 

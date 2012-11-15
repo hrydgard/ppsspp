@@ -65,6 +65,10 @@ bool Load_PSP_ISO(const char *filename, std::string *error_string)
 	pspFileSystem.Mount("DISC0:", umd2);
 
 	std::string bootpath("disc0:/PSP_GAME/SYSDIR/EBOOT.BIN");
+	// bypass patchers
+	if (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/SYSDIR/EBOOT.OLD").exists) {
+		bootpath = "disc0:/PSP_GAME/SYSDIR/EBOOT.OLD";
+	}
 	bool hasEncrypted = false;
 	u32 fd;
 	if ((fd = pspFileSystem.OpenFile(bootpath, FILEACCESS_READ)) != 0)

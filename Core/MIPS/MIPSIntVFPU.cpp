@@ -488,46 +488,49 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-  void Int_Vocp(u32 op)
-  {
-    float s[4], d[4];
-    int vd = _VD;
-    int vs = _VS;
-    VectorSize sz = GetVecSize(op);
-    ReadVector(s, sz, vs);
-    ApplySwizzleS(s, sz);
-    for (int i = 0; i < GetNumVectorElements(sz); i++)
-    {
-      d[i] = 1.0f - s[i]; //vocp
-    }
-    ApplyPrefixD(d, sz);
-    WriteVector(d, sz, vd);
-    PC += 4;
-    EatPrefixes();
-  }
+	void Int_Vocp(u32 op)
+	{
+		float s[4], d[4];
+		int vd = _VD;
+		int vs = _VS;
+		VectorSize sz = GetVecSize(op);
+		ReadVector(s, sz, vs);
+		ApplySwizzleS(s, sz);
+		for (int i = 0; i < GetNumVectorElements(sz); i++)
+		{
+			d[i] = 1.0f - s[i];
+		}
+		ApplyPrefixD(d, sz);
+		WriteVector(d, sz, vd);
+		PC += 4;
+		EatPrefixes();
+	}
 
-  void Int_Vsgn(u32 op)
-  {
-    float s[4], d[4];
-    int vd = _VD;
-    int vs = _VS;
-    VectorSize sz = GetVecSize(op);
-    ReadVector(s, sz, vs);
-    ApplySwizzleS(s, sz);
-    for (int i = 0; i < GetNumVectorElements(sz); i++)
-    {
-			if (s[i] > 0.0f)
-				d[i] = 1.0f;
-			else if (s[i] < 0.0f)
-				d[i] = -1.0f;
-			else
+	void Int_Vsgn(u32 op)
+	{
+		float s[4], d[4];
+		int vd = _VD;
+		int vs = _VS;
+		VectorSize sz = GetVecSize(op);
+		ReadVector(s, sz, vs);
+		ApplySwizzleS(s, sz);
+		for (int i = 0; i < GetNumVectorElements(sz); i++)
+		{
+			// To handle NaNs correctly, we do this with integer hackery
+			u32 val;
+			memcpy(&val, &s[i], sizeof(u32));
+			if (val == 0 || val == 0x80000000)
 				d[i] = 0.0f;
-    }
-    ApplyPrefixD(d, sz);
-    WriteVector(d, sz, vd);
-    PC += 4;
-    EatPrefixes();
-  }
+			else if ((val >> 31) == 0)
+				d[i] = 1.0f;
+			else
+				d[i] = -1.0f;
+		}
+		ApplyPrefixD(d, sz);
+		WriteVector(d, sz, vd);
+		PC += 4;
+		EatPrefixes();
+	}
 
 	void Int_Vf2i(u32 op)
 	{
@@ -581,7 +584,6 @@ namespace MIPSInt
 	void Int_Vh2f(u32 op)
 	{
 		_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
-
 		/*
 		int s[4];
 		float d[4];
@@ -607,6 +609,7 @@ namespace MIPSInt
 	void Int_Vf2h(u32 op)
 	{
 		_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+		// See http://stackoverflow.com/questions/1659440/32-bit-to-16-bit-floating-point-conversion
 
 		/*
 		int s[4];
@@ -628,11 +631,6 @@ namespace MIPSInt
 		*/
 		PC += 4;
 		EatPrefixes();
-	}
-
-	u32 replicate3(u32 low) {
-		low &= 0xFF;
-		return low | (low << 8) | (low << 16);
 	}
 
 	void Int_Vx2i(u32 op)
