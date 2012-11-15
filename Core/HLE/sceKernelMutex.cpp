@@ -63,16 +63,16 @@ struct LWMutex : public KernelObject
 	std::vector<SceUID> waitingThreads;
 };
 
-u32 sceKernelCreateMutex(const char *name, u32 attr, u32 initial_count, u32 options)
+SceUID sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optionsPtr)
 {
-	DEBUG_LOG(HLE,"sceKernelCreateMutex(%s, %08x, %08x)", name, attr, options);
+	DEBUG_LOG(HLE,"sceKernelCreateMutex(%s, %08x, %d, %08x)", name, attr, initialCount, optionsPtr);
 
 	Mutex *mutex = new Mutex();
 	SceUID id = kernelObjects.Create(mutex);
 
 	mutex->nm.size = sizeof(mutex);
 	mutex->nm.attr = attr;
-	mutex->nm.lockLevel = initial_count;
+	mutex->nm.lockLevel = initialCount;
 	// TODO: Does initial_count > 0 mean lock automatically by the current thread?  Would make sense.
 	mutex->nm.lockThread = -1;
 
@@ -80,28 +80,46 @@ u32 sceKernelCreateMutex(const char *name, u32 attr, u32 initial_count, u32 opti
 	return id;
 }
 
-u32 sceKernelDeleteMutex(u32 id)
+void sceKernelDeleteMutex(SceUID id)
 {
 	DEBUG_LOG(HLE,"sceKernelDeleteMutex(%i)", id);
 	u32 error;
 	Mutex *mutex = kernelObjects.Get<Mutex>(id, error);
-	if (!mutex)
-		return PSP_MUTEX_ERROR_NO_SUCH_MUTEX;
-	kernelObjects.Destroy<Mutex>(id);
-	return 0;
+	if (mutex)
+	{
+		RETURN(0);
+
+		kernelObjects.Destroy<Mutex>(id);
+		// TODO: Almost certainly need to reschedule (sometimes?)
+	}
+	else
+		RETURN(PSP_MUTEX_ERROR_NO_SUCH_MUTEX);
 }
 
-u32 sceKernelLockMutex(u32 id, u32 count, u32 timeoutPtr)
+// int sceKernelLockMutex(SceUID id, int count, int *timeout)
+// void because it changes threads.
+void sceKernelLockMutex(SceUID id, int count, u32 timeoutPtr)
 {
 	DEBUG_LOG(HLE,"sceKernelLockMutex(%i, %i, %08x)", id, count, timeoutPtr);
 	u32 error;
 	Mutex *mutex = kernelObjects.Get<Mutex>(id, error);
 	if (!mutex)
-		return PSP_MUTEX_ERROR_NO_SUCH_MUTEX;
+	{
+		RETURN(PSP_MUTEX_ERROR_NO_SUCH_MUTEX);
+		return;
+	}
 	if (count <= 0)
-		return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
+	{
+		RETURN(SCE_KERNEL_ERROR_ILLEGAL_COUNT);
+		return;
+	}
 	if (count > 1 && !(mutex->nm.attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE))
-		return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
+	{
+		RETURN(SCE_KERNEL_ERROR_ILLEGAL_COUNT);
+		return;
+	}
+
+	RETURN(0);
 
 	if (mutex->nm.lockLevel == 0)
 	{
@@ -119,20 +137,32 @@ u32 sceKernelLockMutex(u32 id, u32 count, u32 timeoutPtr)
 		mutex->waitingThreads.push_back(__KernelGetCurThread());
 		__KernelWaitCurThread(WAITTYPE_MUTEX, id, count, 0, false);
 	}
-	return 0;
 }
 
-u32 sceKernelLockMutexCB(u32 id, u32 count, u32 timeoutPtr)
+// int sceKernelLockMutexCB(SceUID id, int count, int *timeout)
+// void because it changes threads.
+void sceKernelLockMutexCB(SceUID id, int count, u32 timeoutPtr)
 {
 	DEBUG_LOG(HLE,"sceKernelLockMutexCB(%i, %i, %08x)", id, count, timeoutPtr);
 	u32 error;
 	Mutex *mutex = kernelObjects.Get<Mutex>(id, error);
 	if (!mutex)
-		return PSP_MUTEX_ERROR_NO_SUCH_MUTEX;
+	{
+		RETURN(PSP_MUTEX_ERROR_NO_SUCH_MUTEX);
+		return;
+	}
 	if (count <= 0)
-		return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
+	{
+		RETURN(SCE_KERNEL_ERROR_ILLEGAL_COUNT);
+		return;
+	}
 	if (count > 1 && !(mutex->nm.attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE))
-		return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
+	{
+		RETURN(SCE_KERNEL_ERROR_ILLEGAL_COUNT);
+		return;
+	}
+
+	RETURN(0);
 
 	if (mutex->nm.lockLevel == 0)
 	{
@@ -151,12 +181,13 @@ u32 sceKernelLockMutexCB(u32 id, u32 count, u32 timeoutPtr)
 		__KernelWaitCurThread(WAITTYPE_MUTEX, id, count, 0, true);
 		__KernelCheckCallbacks();
 	}
-	return 0;
+
+	__KernelReSchedule("mutex locked");
 }
 
 // int sceKernelUnlockMutex(SceUID id, int count)
 // void because it changes threads.
-void sceKernelUnlockMutex(u32 id, u32 count)
+void sceKernelUnlockMutex(SceUID id, int count)
 {
 	DEBUG_LOG(HLE,"sceKernelUnlockMutex(%i, %i)", id, count);
 	u32 error;
