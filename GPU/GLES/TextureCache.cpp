@@ -477,7 +477,7 @@ void convertColors(u8 *finalBuf, GLuint dstFmt, int numPixels)
 			u16 *p = (u16 *)finalBuf;
 			for (int i = 0; i < numPixels; i++) {
 				u16 c = p[i];
-				p[i] = ((c & 0x8000) >> 15) | (c << 1);
+				p[i] = ((c & 0x8000) >> 15) | ((c >> 9) & 0x3E) | ((c << 1) & 0x7C0) | ((c << 11) & 0xF800);
 			}
 		}
 		break;
