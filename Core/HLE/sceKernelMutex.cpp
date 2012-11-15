@@ -28,7 +28,7 @@
 #define PSP_MUTEX_ATTR_ALLOW_RECURSIVE 0x200
 
 // Not sure about the names of these
-#define PSP_MUTEX_ERROR_NOT_LOCKED 0x800201C7
+#define PSP_MUTEX_ERROR_NOT_LOCKED 0x800201C5
 #define PSP_MUTEX_ERROR_NO_SUCH_MUTEX 0x800201C3
 #define PSP_MUTEX_ERROR_UNLOCK_UNDERFLOW 0x800201C7
 
@@ -63,7 +63,7 @@ struct LWMutex : public KernelObject
 	std::vector<SceUID> waitingThreads;
 };
 
-u32 sceKernelCreateMutex(const char *name, u32 attr, u32 options)
+u32 sceKernelCreateMutex(const char *name, u32 attr, u32 initial_count, u32 options)
 {
 	DEBUG_LOG(HLE,"sceKernelCreateMutex(%s, %08x, %08x)", name, attr, options);
 
@@ -72,7 +72,8 @@ u32 sceKernelCreateMutex(const char *name, u32 attr, u32 options)
 
 	mutex->nm.size = sizeof(mutex);
 	mutex->nm.attr = attr;
-	mutex->nm.lockLevel = 0;
+	mutex->nm.lockLevel = initial_count;
+	// TODO: Does initial_count > 0 mean lock automatically by the current thread?  Would make sense.
 	mutex->nm.lockThread = -1;
 
 	strncpy(mutex->nm.name, name, 32);
