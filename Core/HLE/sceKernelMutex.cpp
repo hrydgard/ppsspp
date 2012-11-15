@@ -184,9 +184,8 @@ void sceKernelUnlockMutex(u32 id, u32 count)
 
 		// TODO: PSP_MUTEX_ATTR_PRIORITY
 		bool wokeThreads = false;
-		// TODO: Seems to go in reverse order.  Maybe do more testing / related to creation order?
-		std::vector<SceUID>::reverse_iterator iter, rend;
-		for (iter = mutex->waitingThreads.rbegin(), rend = mutex->waitingThreads.rend(); iter != rend; ++iter)
+		std::vector<SceUID>::iterator iter, end;
+		for (iter = mutex->waitingThreads.begin(), end = mutex->waitingThreads.end(); iter != end; ++iter)
 		{
 			SceUID threadID = *iter;
 			int wVal = (int)__KernelGetWaitValue(threadID, error);
@@ -196,8 +195,7 @@ void sceKernelUnlockMutex(u32 id, u32 count)
 
 			__KernelResumeThreadFromWait(threadID);
 			wokeThreads = true;
-			// Plus/minus 0 - need an iterator not a reverse_iterator.
-			mutex->waitingThreads.erase((++iter).base());
+			mutex->waitingThreads.erase(iter);
 			break;
 		}
 
