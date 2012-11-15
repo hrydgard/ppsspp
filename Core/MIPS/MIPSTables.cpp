@@ -505,9 +505,9 @@ MIPSInstruction tableVFPU1[8] =
 MIPSInstruction tableVFPU3[8] = //011011 xxx
 {
 	INSTR("vcmp",&Jit::Comp_Generic, Dis_Vcmp, Int_Vcmp, IS_VFPU),
-	INSTR("v???",&Jit::Comp_Generic, Dis_Generic, Int_Vcmp, IS_VFPU),   // 0x6de84848 in motogp
-	INSTR("vmin",&Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU),
-	INSTR("vmax",&Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU), 
+	{-2},
+	INSTR("vmin",&Jit::Comp_Generic, Dis_Generic, Int_Vminmax, IS_VFPU),
+	INSTR("vmax",&Jit::Comp_Generic, Dis_Generic, Int_Vminmax, IS_VFPU), 
 	{-2}, 
 	INSTR("vscmp",&Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU), 
 	INSTR("vsge",&Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU), 
@@ -782,7 +782,7 @@ const int encodingBits[NumEncodings][2] =
 	{0,  0}, //Cop2Rese
 	{23, 3}, //VFPU0
 	{23, 3}, //VFPU1
-	{23, 1}, //VFPU3
+	{23, 3}, //VFPU3
 	{21, 5}, //VFPU4Jump
 	{16, 5}, //VFPU7
 	{16, 5}, //VFPU4

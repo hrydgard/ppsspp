@@ -1240,6 +1240,40 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
+	void Int_Vminmax(u32 op) {
+		int vt = _VT;
+		int vs = _VS;
+		int vd = _VD;
+		int cond = op&15;
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+		float s[4];
+		float t[4];
+		float d[4];
+		ReadVector(s, sz, vs);
+		ApplySwizzleS(s, sz);
+		ReadVector(t, sz, vt);
+		ApplySwizzleT(t, sz);
+		// positive NAN always loses, unlike SSE
+		// negative NAN seems different? TODO
+		switch ((op >> 23) & 3) {
+		case 2: // vmin
+			for (int i = 0; i < GetNumVectorElements(sz); i++)
+				d[i] = isnan(t[i]) ? s[i] : (isnan(s[i]) ? t[i] : std::min(s[i], t[i]));
+			break;
+		case 3: // vmax
+			for (int i = 0; i < GetNumVectorElements(sz); i++)
+				d[i] = isnan(t[i]) ? s[i] : (isnan(s[i]) ? t[i] : std::max(s[i], t[i]));
+			break;
+		default:
+			_dbg_assert_msg_(CPU,0,"unknown min/max op %d", cond);
+			return;
+		}
+		ApplyPrefixD(d, sz);
+		WriteVector(d, sz, vd);
+		PC += 4;
+		EatPrefixes();
+	}
 
 	void Int_Vcmov(u32 op)
 	{
