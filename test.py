@@ -31,6 +31,7 @@ tests_good = [
   "string/string",
   "gpu/callbacks/ge_callbacks",
   "threads/mbx/mbx",
+  "threads/mutex/mutex",
   "threads/semaphores/semaphores",
   "threads/semaphores/cancel/cancel",
   "threads/semaphores/create/create",
@@ -49,7 +50,6 @@ tests_next = [
 # These are the next tests up for fixing. These run by default.
   "threads/fpl/fpl",
   "threads/msgpipe/msgpipe",
-  "threads/mutex/mutex",
   "threads/scheduling/scheduling",
   "threads/semaphores/priority/priority",
   "threads/semaphores/wait/wait",

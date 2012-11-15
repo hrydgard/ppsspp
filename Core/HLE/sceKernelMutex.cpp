@@ -125,7 +125,9 @@ void sceKernelLockMutex(SceUID id, int count, u32 timeoutPtr)
 	{
 		mutex->nm.lockLevel += count;
 		mutex->nm.lockThread = __KernelGetCurThread();
-		// Nobody had it locked - no need to block
+
+		// Needed to get the proper order per real PSP.
+		__KernelReSchedule("mutex locked");
 	}
 	else if ((mutex->nm.attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE) && mutex->nm.lockThread == __KernelGetCurThread())
 	{
