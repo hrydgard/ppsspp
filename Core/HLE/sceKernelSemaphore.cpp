@@ -91,6 +91,12 @@ void sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr)
 	Semaphore *s = kernelObjects.Get<Semaphore>(id, error);
 	if (s)
 	{
+		if (newCount > s->ns.maxCount)
+		{
+			RETURN(SCE_KERNEL_ERROR_ILLEGAL_COUNT);
+			return;
+		}
+
 		if (numWaitThreadsPtr)
 		{
 			u32* numWaitThreads = (u32*)Memory::GetPointer(numWaitThreadsPtr);
@@ -106,9 +112,9 @@ void sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr)
 		// We need to set the return value BEFORE rescheduling threads.
 		RETURN(0);
 
-		// TODO: Should this reschedule?
-		if (__KernelClearSemaThreads(s, SCE_KERNEL_ERROR_WAIT_CANCEL))
-			__KernelReSchedule("semaphore cancelled");
+		// Cancel appears to always reschedule.
+		__KernelClearSemaThreads(s, SCE_KERNEL_ERROR_WAIT_CANCEL);
+		__KernelReSchedule("semaphore cancelled");
 	}
 	else
 	{
