@@ -22,6 +22,9 @@
 #include "sceKernelThread.h"
 #include "sceKernelSemaphore.h"
 
+#define PSP_SEMA_ATTR_FIFO 0
+#define PSP_SEMA_ATTR_PRIORITY 0x100
+
 /** Current state of a semaphore.
 * @see sceKernelReferSemaStatus.
 */
@@ -63,6 +66,7 @@ bool __KernelClearSemaThreads(Semaphore *s, int reason)
 {
 	bool wokeThreads = false;
 
+	// TODO: PSP_SEMA_ATTR_PRIORITY
 	std::vector<SceUID>::iterator iter;
 	for (iter = s->waitingThreads.begin(); iter!=s->waitingThreads.end(); iter++)
 	{
@@ -198,7 +202,7 @@ void sceKernelSignalSema(SceUID id, int signal)
 
 		bool wokeThreads = false;
 retry:
-		//TODO: check for threads to wake up - wake them
+		// TODO: PSP_SEMA_ATTR_PRIORITY
 		std::vector<SceUID>::iterator iter;
 		for (iter = s->waitingThreads.begin(); iter!=s->waitingThreads.end(); iter++)
 		{
@@ -219,7 +223,6 @@ retry:
 				break;
 			}
 		}
-		//pop the thread that were released from waiting
 
 		// I don't think we should reschedule here
 		//if (wokeThreads)
