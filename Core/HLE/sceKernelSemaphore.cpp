@@ -118,24 +118,22 @@ void sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr)
 }
 
 //SceUID sceKernelCreateSema(const char *name, SceUInt attr, int initVal, int maxVal, SceKernelSemaOptParam *option);
-void sceKernelCreateSema()
+SceUID sceKernelCreateSema(const char* name, u32 attr, int initVal, int maxVal, u32 optionPtr)
 {
-	const char *name = Memory::GetCharPointer(PARAM(0));
-
 	Semaphore *s = new Semaphore;
 	SceUID id = kernelObjects.Create(s);
 
 	s->ns.size = sizeof(NativeSemaphore);
 	strncpy(s->ns.name, name, 32);
-	s->ns.attr = PARAM(1);
-	s->ns.initCount = PARAM(2);
+	s->ns.attr = attr;
+	s->ns.initCount = initVal;
 	s->ns.currentCount = s->ns.initCount;
-	s->ns.maxCount = PARAM(3);
+	s->ns.maxCount = maxVal;
 	s->ns.numWaitThreads = 0;
 
-	DEBUG_LOG(HLE,"%i=sceKernelCreateSema(%s, %08x, %i, %i, %08x)", id, s->ns.name, s->ns.attr, s->ns.initCount, s->ns.maxCount, PARAM(4));
+	DEBUG_LOG(HLE,"%i=sceKernelCreateSema(%s, %08x, %i, %i, %08x)", id, s->ns.name, s->ns.attr, s->ns.initCount, s->ns.maxCount, optionPtr);
 
-	RETURN(id);
+	return id;
 }
 
 //int sceKernelDeleteSema(SceUID semaid);
