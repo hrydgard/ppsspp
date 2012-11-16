@@ -496,7 +496,7 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 				trans->x = saved.x;
 				trans->uv[0] = saved.uv[0];
 				trans++;
-				
+
 				// bottom left
 				*trans = transVtx;
 				trans->y = saved.y;

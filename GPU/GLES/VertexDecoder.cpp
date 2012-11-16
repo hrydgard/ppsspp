@@ -216,8 +216,8 @@ void VertexDecoder::DecodeVerts(DecodedVertex *decoded, const void *verts, const
 				}
 				else
 				{
-					uv[0] = (float)uvdata[0] / 65535.0f;
-					uv[1] = (float)uvdata[1] / 65535.0f;
+					uv[0] = (float)uvdata[0] / 32768.0f;
+					uv[1] = (float)uvdata[1] / 32768.0f;
 				}
 			}
 			break;
