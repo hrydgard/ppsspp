@@ -22,6 +22,9 @@
 #include "sceKernelThread.h"
 #include "sceKernelSemaphore.h"
 
+#define PSP_SEMA_ATTR_FIFO 0
+#define PSP_SEMA_ATTR_PRIORITY 0x100
+
 /** Current state of a semaphore.
 * @see sceKernelReferSemaStatus.
 */
@@ -63,6 +66,7 @@ bool __KernelClearSemaThreads(Semaphore *s, int reason)
 {
 	bool wokeThreads = false;
 
+	// TODO: PSP_SEMA_ATTR_PRIORITY
 	std::vector<SceUID>::iterator iter;
 	for (iter = s->waitingThreads.begin(); iter!=s->waitingThreads.end(); iter++)
 	{
@@ -87,6 +91,12 @@ void sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr)
 	Semaphore *s = kernelObjects.Get<Semaphore>(id, error);
 	if (s)
 	{
+		if (newCount > s->ns.maxCount)
+		{
+			RETURN(SCE_KERNEL_ERROR_ILLEGAL_COUNT);
+			return;
+		}
+
 		if (numWaitThreadsPtr)
 		{
 			u32* numWaitThreads = (u32*)Memory::GetPointer(numWaitThreadsPtr);
@@ -102,9 +112,9 @@ void sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr)
 		// We need to set the return value BEFORE rescheduling threads.
 		RETURN(0);
 
-		// TODO: Should this reschedule?
-		if (__KernelClearSemaThreads(s, SCE_KERNEL_ERROR_WAIT_CANCEL))
-			__KernelReSchedule("semaphore cancelled");
+		// Cancel appears to always reschedule.
+		__KernelClearSemaThreads(s, SCE_KERNEL_ERROR_WAIT_CANCEL);
+		__KernelReSchedule("semaphore cancelled");
 	}
 	else
 	{
@@ -114,24 +124,26 @@ void sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr)
 }
 
 //SceUID sceKernelCreateSema(const char *name, SceUInt attr, int initVal, int maxVal, SceKernelSemaOptParam *option);
-void sceKernelCreateSema()
+SceUID sceKernelCreateSema(const char* name, u32 attr, int initVal, int maxVal, u32 optionPtr)
 {
-	const char *name = Memory::GetCharPointer(PARAM(0));
+	if (!name)
+		return SCE_KERNEL_ERROR_ERROR;
 
 	Semaphore *s = new Semaphore;
 	SceUID id = kernelObjects.Create(s);
 
 	s->ns.size = sizeof(NativeSemaphore);
-	strncpy(s->ns.name, name, 32);
-	s->ns.attr = PARAM(1);
-	s->ns.initCount = PARAM(2);
+	strncpy(s->ns.name, name, 31);
+	s->ns.name[31] = 0;
+	s->ns.attr = attr;
+	s->ns.initCount = initVal;
 	s->ns.currentCount = s->ns.initCount;
-	s->ns.maxCount = PARAM(3);
+	s->ns.maxCount = maxVal;
 	s->ns.numWaitThreads = 0;
 
-	DEBUG_LOG(HLE,"%i=sceKernelCreateSema(%s, %08x, %i, %i, %08x)", id, s->ns.name, s->ns.attr, s->ns.initCount, s->ns.maxCount, PARAM(4));
+	DEBUG_LOG(HLE,"%i=sceKernelCreateSema(%s, %08x, %i, %i, %08x)", id, s->ns.name, s->ns.attr, s->ns.initCount, s->ns.maxCount, optionPtr);
 
-	RETURN(id);
+	return id;
 }
 
 //int sceKernelDeleteSema(SceUID semaid);
@@ -166,8 +178,7 @@ int sceKernelReferSemaStatus(SceUID id, u32 infoPtr)
 	if (s)
 	{
 		DEBUG_LOG(HLE,"sceKernelReferSemaStatus(%i, %08x)", id, infoPtr);
-		NativeSemaphore *outptr = (NativeSemaphore*)Memory::GetPointer(infoPtr);
-		memcpy((char*)outptr, (char*)&s->ns, s->ns.size);
+		Memory::WriteStruct(infoPtr, &s->ns);
 		return 0;
 	}
 	else
@@ -186,12 +197,14 @@ void sceKernelSignalSema(SceUID id, int signal)
 	Semaphore *s = kernelObjects.Get<Semaphore>(id, error);
 	if (s)
 	{
-		int oldval = s->ns.currentCount;
-
 		if (s->ns.currentCount + signal > s->ns.maxCount)
-			s->ns.currentCount += s->ns.maxCount;
-		else
-			s->ns.currentCount += signal;
+		{
+			RETURN(SCE_KERNEL_ERROR_SEMA_OVF);
+			return;
+		}
+
+		int oldval = s->ns.currentCount;
+		s->ns.currentCount += signal;
 		DEBUG_LOG(HLE,"sceKernelSignalSema(%i, %i) (old: %i, new: %i)", id, signal, oldval, s->ns.currentCount);
 
 		// We need to set the return value BEFORE processing other threads.
@@ -199,9 +212,9 @@ void sceKernelSignalSema(SceUID id, int signal)
 
 		bool wokeThreads = false;
 retry:
-		//TODO: check for threads to wake up - wake them
+		// TODO: PSP_SEMA_ATTR_PRIORITY
 		std::vector<SceUID>::iterator iter;
-		for (iter = s->waitingThreads.begin(); iter!=s->waitingThreads.end(); s++)
+		for (iter = s->waitingThreads.begin(); iter!=s->waitingThreads.end(); iter++)
 		{
 			SceUID threadID = *iter;
 			int wVal = (int)__KernelGetWaitValue(threadID, error);
@@ -220,7 +233,6 @@ retry:
 				break;
 			}
 		}
-		//pop the thread that were released from waiting
 
 		// I don't think we should reschedule here
 		//if (wokeThreads)
@@ -283,6 +295,9 @@ void sceKernelWaitSemaCB(SceUID id, int wantedCount, u32 timeoutPtr)
 int sceKernelPollSema(SceUID id, int wantedCount)
 {
 	DEBUG_LOG(HLE,"sceKernelPollSema(%i, %i)", id, wantedCount);
+
+	if (wantedCount <= 0)
+		return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
 
 	u32 error;
 	Semaphore *s = kernelObjects.Get<Semaphore>(id, error);
