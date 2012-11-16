@@ -354,7 +354,7 @@ void VertexDecoder::DecodeVerts(DecodedVertex *decoded, const void *verts, const
 				{
 				case GE_VTYPE_POS_FLOAT >> 7:
 					{
-						const float *fv = (const float*)(ptr + posoff);
+						const float *fv = (const float*)(ptr + onesize_*n + posoff);
 						for (int j = 0; j < 3; j++)
 							v[j] += fv[j] * gstate.morphWeights[n];
 					}
@@ -364,7 +364,7 @@ void VertexDecoder::DecodeVerts(DecodedVertex *decoded, const void *verts, const
 					{
 						float multiplier = 1.0f / 32767.0f;
 						if (throughmode) multiplier = 1.0f;
-						const short *sv = (const short*)(ptr + posoff);
+						const short *sv = (const short*)(ptr + onesize_*n + posoff);
 						for (int j = 0; j < 3; j++)
 							v[j] += (sv[j] * multiplier) * gstate.morphWeights[n];
 					}
@@ -372,7 +372,7 @@ void VertexDecoder::DecodeVerts(DecodedVertex *decoded, const void *verts, const
 
 				case GE_VTYPE_POS_8BIT >> 7:
 					{
-						const s8 *sv = (const s8*)(ptr + posoff);
+						const s8 *sv = (const s8*)(ptr + onesize_*n + posoff);
 						for (int j = 0; j < 3; j++)
 							v[j] += (sv[j] / 127.f) * gstate.morphWeights[n];
 					}

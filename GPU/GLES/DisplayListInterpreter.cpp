@@ -375,6 +375,10 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 		if (data & GE_VTYPE_THROUGH) {
 			glDisable(GL_CULL_FACE);
 		}
+		else {
+			// this might get spammy
+			glEnDis(GL_CULL_FACE, gstate.cullfaceEnable & 1);
+		}
 		// This sets through-mode or not, as well.
 		break;
 
@@ -521,7 +525,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_TEXADDR0:
-		gstate.textureChanged=true;
+		gstate.textureChanged = true;
 	case GE_CMD_TEXADDR1:
 	case GE_CMD_TEXADDR2:
 	case GE_CMD_TEXADDR3:
@@ -533,7 +537,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_TEXBUFWIDTH0:
-		gstate.textureChanged=true;
+		gstate.textureChanged = true;
 	case GE_CMD_TEXBUFWIDTH1:
 	case GE_CMD_TEXBUFWIDTH2:
 	case GE_CMD_TEXBUFWIDTH3:
@@ -767,7 +771,8 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 		break;
 	case GE_CMD_CULL:
 		DEBUG_LOG(G3D,"DL cull: %06x", data);
-		glCullFace(data ? GL_BACK : GL_FRONT);
+		glCullFace(data & 1 ? GL_FRONT : GL_BACK);
+		//glCullFace(data & 1 ? GL_BACK : GL_FRONT);
 		break;
 
 	case GE_CMD_LMODE:
