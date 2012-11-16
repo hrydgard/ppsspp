@@ -120,11 +120,15 @@ void sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr)
 //SceUID sceKernelCreateSema(const char *name, SceUInt attr, int initVal, int maxVal, SceKernelSemaOptParam *option);
 SceUID sceKernelCreateSema(const char* name, u32 attr, int initVal, int maxVal, u32 optionPtr)
 {
+	if (!name)
+		return SCE_KERNEL_ERROR_ERROR;
+
 	Semaphore *s = new Semaphore;
 	SceUID id = kernelObjects.Create(s);
 
 	s->ns.size = sizeof(NativeSemaphore);
-	strncpy(s->ns.name, name, 32);
+	strncpy(s->ns.name, name, 31);
+	s->ns.name[31] = 0;
 	s->ns.attr = attr;
 	s->ns.initCount = initVal;
 	s->ns.currentCount = s->ns.initCount;
