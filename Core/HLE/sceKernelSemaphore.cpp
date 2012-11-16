@@ -290,6 +290,9 @@ int sceKernelPollSema(SceUID id, int wantedCount)
 {
 	DEBUG_LOG(HLE,"sceKernelPollSema(%i, %i)", id, wantedCount);
 
+	if (wantedCount <= 0)
+		return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
+
 	u32 error;
 	Semaphore *s = kernelObjects.Get<Semaphore>(id, error);
 	if (s)
