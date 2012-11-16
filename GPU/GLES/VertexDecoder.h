@@ -55,7 +55,7 @@ public:
 	VertexDecoder() : coloff(0), nrmoff(0), posoff(0) {}
 	~VertexDecoder() {}
 	void SetVertexType(u32 fmt);
-	void DecodeVerts(DecodedVertex *decoded, const void *verts, const void *inds, int prim, int count) const;
+	void DecodeVerts(DecodedVertex *decoded, const void *verts, const void *inds, int prim, int count, int *indexLowerBound, int *indexUpperBound) const;
 
 private:
 	u32 fmt;

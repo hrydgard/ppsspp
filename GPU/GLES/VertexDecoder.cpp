@@ -119,7 +119,7 @@ void VertexDecoder::SetVertexType(u32 fmt)
 	DEBUG_LOG(G3D,"SVT : size = %i, aligned to biggest %i", size, biggest);
 }
 
-void VertexDecoder::DecodeVerts(DecodedVertex *decoded, const void *verts, const void *inds, int prim, int count) const
+void VertexDecoder::DecodeVerts(DecodedVertex *decoded, const void *verts, const void *inds, int prim, int count, int *indexLowerBound, int *indexUpperBound) const
 {
 	if (morphcount == 1)
 		gstate.morphWeights[0] = 1.0f;
@@ -149,6 +149,8 @@ void VertexDecoder::DecodeVerts(DecodedVertex *decoded, const void *verts, const
 		lowerBound = 0;
 		upperBound = count - 1;
 	}
+	*indexLowerBound = lowerBound;
+	*indexUpperBound = upperBound;
 
 	// Decode the vertices within the found bounds, once each (unlike the previous way..)
 	for (int index = lowerBound; index <= upperBound; index++)
