@@ -5,7 +5,7 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := native_audio
-LOCAL_CFLAGS := -O2 -fsigned-char -Wall -Wno-multichar -Wno-psabi -std=gnu++0x
+LOCAL_CFLAGS := -O2 -fsigned-char -ffast-math -Wall -Wno-multichar -Wno-psabi -std=gnu++0x
 NATIVE := ../../native
 LOCAL_SRC_FILES := \
 		$(NATIVE)/android/native-audio-so.cpp
@@ -24,7 +24,7 @@ LOCAL_MODULE := ppsspp_jni
 NATIVE := ../../native
 SRC := ../..
 
-LOCAL_CFLAGS := -DUSE_PROFILER -DGL_GLEXT_PROTOTYPES -O2 -fsigned-char -Wall -Wno-multichar -Wno-psabi -std=gnu++0x -Wno-unused-variable -fno-strict-aliasing
+LOCAL_CFLAGS := -DUSE_PROFILER -DGL_GLEXT_PROTOTYPES -O2 -fsigned-char -Wall -Wno-multichar -Wno-psabi -std=gnu++0x -Wno-unused-variable -fno-strict-aliasing -ffast-math
 LOCAL_CPPFLAGS := 
 LOCAL_C_INCLUDES := \
   $(LOCAL_PATH)/../../Common \

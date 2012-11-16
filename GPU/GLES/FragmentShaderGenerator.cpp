@@ -74,7 +74,6 @@ char *GenerateFragmentShader()
 #endif
 
 	int lmode = gstate.lmode & 1;
-	lmode = 0;  /// for now
 
 	if (gstate.textureMapEnable & 1)
 		WRITE(p, "uniform sampler2D tex;\n");

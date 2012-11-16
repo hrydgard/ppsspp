@@ -57,72 +57,86 @@ uint16_t indexBuffer[65536];	// Unused
 
 // TODO: This should really return 2 colors, one for specular and one for diffuse.
 
-void Light(float colorOut[4], const float colorIn[4], Vec3 pos, Vec3 normal, float dots[4])
-{
-	// could cache a lot of stuff, such as ambient, across vertices...
+// Convenient way to do precomputation to save the parts of the lighting calculation
+// that's common between the many vertices of a draw call.
+class Lighter {
+public:
+	Lighter();
+	void Light(float colorOut0[4], float colorOut1[4], const float colorIn[4], Vec3 pos, Vec3 normal, float dots[4]);
 
-	bool doShadeMapping = (gstate.texmapmode & 0x3) == 2;
-	if (!doShadeMapping && !(gstate.lightEnable[0]&1) && !(gstate.lightEnable[1]&1) && !(gstate.lightEnable[2]&1) && !(gstate.lightEnable[3]&1))
-	{
-		memcpy(colorOut, colorIn, sizeof(float) * 4);
-		return;
-	}
-
-	Color4 emissive;
-	emissive.GetFromRGB(gstate.materialemissive);
+private:
+	bool disabled_;
 	Color4 globalAmbient;
+	Color4 materialEmissive;
+	Color4 materialAmbient;
+	Color4 materialDiffuse;
+	Color4 materialSpecular;
+	float specCoef_;
+	Vec3 viewer_;
+	bool doShadeMapping_;
+	int materialUpdate_;
+};
+
+Lighter::Lighter() {
+	disabled_ = false;
+	doShadeMapping_ = (gstate.texmapmode & 0x3) == 2;
+	if (!doShadeMapping_ && !(gstate.lightEnable[0]&1) && !(gstate.lightEnable[1]&1) && !(gstate.lightEnable[2]&1) && !(gstate.lightEnable[3]&1))
+	{
+		disabled_ = true;
+	}
+	materialEmissive.GetFromRGB(gstate.materialemissive);
+	materialEmissive.a = 0.0f;
 	globalAmbient.GetFromRGB(gstate.ambientcolor);
 	globalAmbient.GetFromA(gstate.ambientalpha);
+	materialAmbient.GetFromRGB(gstate.materialambient);
+	materialAmbient.a = 1.0f;
+	materialDiffuse.GetFromRGB(gstate.materialdiffuse);
+	materialDiffuse.a = 1.0f;
+	materialSpecular.GetFromRGB(gstate.materialspecular);
+	materialSpecular.a = 1.0f;
+	specCoef_ = getFloat24(gstate.materialspecularcoef);
+	viewer_ = Vec3(-gstate.viewMatrix[9], -gstate.viewMatrix[10], -gstate.viewMatrix[11]);
+	materialUpdate_ = gstate.materialupdate & 7;
+}
+
+void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[4], Vec3 pos, Vec3 normal, float dots[4])
+{
+	if (disabled_) {
+		memcpy(colorOut0, colorIn, sizeof(float) * 4);
+		memset(colorOut1, 0, sizeof(float) * 4);
+		return;
+	}
 
 	Vec3 norm = normal.Normalized();
 	Color4 in(colorIn);
 
-	Color4 ambient;
-	if (gstate.materialupdate & 1)
-	{
-		ambient = in;
-	}
+	const Color4 *ambient;
+	if (materialUpdate_ & 1)
+		ambient = &in;
 	else
-	{
-		ambient.GetFromRGB(gstate.materialambient);
-		ambient.a=1.0f;
-	}
+		ambient = &materialAmbient;
 
-	Color4 diffuse;
-	if (gstate.materialupdate & 2)
-	{
-		diffuse = in;
-	}
+	const Color4 *diffuse;
+	if (materialUpdate_ & 2)
+		diffuse = &in;
 	else
-	{
-		diffuse.GetFromRGB(gstate.materialdiffuse);
-		diffuse.a=1.0f;
-	}
+		diffuse = &materialDiffuse;
 
-	Color4 specular;
-	if (gstate.materialupdate & 4)
-	{
-		specular = in;
-	}
+	const Color4 *specular;
+	if (materialUpdate_ & 4)
+		specular = &in;
 	else
-	{
-		specular.GetFromRGB(gstate.materialspecular);
-		specular.a=1.0f;
-	}
-
-	float specCoef = getFloat24(gstate.materialspecularcoef);
-	
-	Vec3 viewer(-gstate.viewMatrix[9], -gstate.viewMatrix[10], -gstate.viewMatrix[11]);
-
-	Color4 lightSum = globalAmbient * ambient + emissive;
-
+		specular = &materialSpecular;
+		
+	Color4 lightSum0 = globalAmbient * *ambient + materialEmissive;
+	Color4 lightSum1(0,0,0,0);
 
 	// Try lights.elf - there's something wrong with the lighting
 
 	for (int l = 0; l < 4; l++)
 	{
 		// can we skip this light?
-		if ((gstate.lightEnable[l] & 1) == 0 && !doShadeMapping)
+		if ((gstate.lightEnable[l] & 1) == 0 && !doShadeMapping_)
 			continue;
 
 		GELightComputation comp = (GELightComputation)(gstate.ltype[l]&3);
@@ -151,10 +165,9 @@ void Light(float colorOut[4], const float colorIn[4], Vec3 pos, Vec3 normal, flo
 		if (dot < 0.0f) dot = 0.0f;
 
 		if (poweredDiffuse)
-			dot = powf(dot, specCoef);
+			dot = powf(dot, specCoef_);
 
-		Color4 diff = (gstate.lightColor[1][l] * diffuse) * (dot * lightScale);	
-		Color4 spec(0,0,0,0);
+		Color4 diff = (gstate.lightColor[1][l] * *diffuse) * (dot * lightScale);	
 
 		// Real PSP specular
 		Vec3 toViewer(0,0,1);
@@ -170,20 +183,27 @@ void Light(float colorOut[4], const float colorIn[4], Vec3 pos, Vec3 normal, flo
 			dot = halfVec * norm;
 			if (dot >= 0)
 			{
-				spec += (gstate.lightColor[2][l] * specular * (powf(dot, specCoef)*lightScale));
+				lightSum1 += (gstate.lightColor[2][l] * *specular * (powf(dot, specCoef_)*lightScale));
 			}	
 		}
 		dots[l] = dot;
 		if (gstate.lightEnable[l] & 1)
 		{
-			lightSum += gstate.lightColor[0][l]*ambient + diff + spec;
+			lightSum0 += gstate.lightColor[0][l] * *ambient + diff;
 		}
 	}
 
-	for (int i = 0; i < 3; i++)
-		colorOut[i] = lightSum[i];
+	// 4?
+	for (int i = 0; i < 4; i++) {
+		colorOut0[i] = lightSum0[i];
+		colorOut1[i] = lightSum1[i];
+	}
 }
 
+// This is the software transform pipeline, which is necessary for supporting RECT
+// primitives correctly. Other primitives are possible to transform and light in hardware
+// using vertex shader, which will be way, way faster, especially on mobile. This has
+// not yet been implemented though.
 void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, LinkedShader *program, float *customUV, int forceIndexType)
 {
 	// First, decode the verts and apply morphing
@@ -234,6 +254,8 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 		vertexCount = 0x10000/3;
 #endif
 
+	Lighter lighter;
+
 	for (int i = 0; i < vertexCount; i++)
 	{	
 		int indexType = (gstate.vertType & GE_VTYPE_IDX_MASK);
@@ -255,9 +277,10 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 			index = i;
 		}
 
-		float v[3] = {0,0,0};
-		float c[4] = {1,1,1,1};
-		float uv[2] = {0,0};
+		float v[3] = {0, 0, 0};
+		float c0[4] = {1, 1, 1, 1};
+		float c1[4] = {0, 0, 0, 0};
+		float uv[2] = {0, 0};
 
 		if (gstate.vertType & GE_VTYPE_THROUGH_MASK)
 		{
@@ -265,8 +288,11 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 			for (int j=0; j<3; j++)
 				v[j] = decoded[index].pos[j];
 			// TODO : check if has color
-			for (int j=0; j<4; j++)
-				c[j] = decoded[index].color[j];
+			for (int j=0; j<4; j++) {
+				c0[j] = decoded[index].color[j] / 255.0f;
+				c1[j] = 0.0f;
+			}
+
 			// TODO : check if has uv
 			for (int j=0; j<2; j++)
 				uv[j] = decoded[index].uv[j];
@@ -304,30 +330,51 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 				Norm3ByMatrix43(norm, nsum.v, gstate.worldMatrix);
 			}
 
-
 			// Perform lighting here if enabled. don't need to check through, it's checked above.
 			float dots[4] = {0,0,0,0};
 			if (program->a_color0 != -1)
 			{
-				//c[1] = norm[1];
-				float litColor[4] = {0,0,0,0};
-				Light(litColor, decoded[index].color, out, norm, dots);
+				float unlitColor[4];
+				for (int j = 0; j < 4; j++) {
+					unlitColor[j] = decoded[index].color[j] / 255.0f;
+				}
+				float litColor0[4];
+				float litColor1[4];
+				lighter.Light(litColor0, litColor1, unlitColor, out, norm, dots);
+				
 				if (gstate.lightingEnable & 1)
 				{
-					memcpy(c, litColor, sizeof(litColor));
+					// TODO: don't ignore gstate.lmode - we should send two colors in that case
+					if (gstate.lmode & 1) {
+						// Separate colors
+						for (int j = 0; j < 4; j++) {
+							c0[j] = litColor0[j];
+							c1[j] = litColor1[j];
+						}
+					} else {
+						// Summed color into c0
+						for (int j = 0; j < 4; j++) {
+							c0[j] = litColor0[j] + litColor1[j];
+							c1[j] = 0.0f;
+						}
+					}
 				}
 				else
 				{
 					// no lighting? copy the color.
-					for (int j = 0; j < 4; j++)
-						c[j] = decoded[index].color[j];
+					for (int j = 0; j < 4; j++) {
+						c0[j] = unlitColor[j];
+						c1[j] = 0.0f;
+					}
 				}
 			}
 			else
 			{
 				// no color in the fragment program???
-				for (int j = 0; j < 4; j++)
-					c[j] = decoded[index].color[j];
+				for (int j = 0; j < 4; j++) {
+					c0[j] = decoded[index].color[j] / 255.0f;
+					c1[j] = 0.0f;
+				}
 			}
 
 			if (customUV) {
@@ -382,10 +429,12 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 				}
 			}
 
-			// Transform the coord by the view matrix. Should this be done before or after texcoord generation?
+			// Transform the coord by the view matrix.
+			// We only really need to do it here for RECTANGLES drawing. However,
+			// there's no point in optimizing it out because all other primitives
+			// will be moved to hardware transform anyway.
 			Vec3ByMatrix43(v, out, gstate.viewMatrix);
 		}
-
 
 		// We need to tesselate axis-aligned rectangles, as they're only specified by two coordinates.
 		if (prim == GE_PRIM_RECTANGLES)
@@ -404,42 +453,48 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 				trans->x = v[0]; trans->y = v[1];
 				trans->z = v[2]; 
 				trans->uv[0] = uv[0]; trans->uv[1] = uv[1];
-				memcpy(trans->color, c, 4*sizeof(float));
+				memcpy(trans->color0, c0, 4*sizeof(float));
+				memcpy(trans->color1, c1, 4*sizeof(float));
 				trans++;
 
 				// top right
 				trans->x = v2[0]; trans->y = v[1];
 				trans->z = v[2]; 
 				trans->uv[0] = uv2[0]; trans->uv[1] = uv[1];
-				memcpy(trans->color, c, 4*sizeof(float));
+				memcpy(trans->color0, c0, 4*sizeof(float));
+				memcpy(trans->color1, c1, 4*sizeof(float));
 				trans++;
 
 				// bottom right
 				trans->x = v2[0]; trans->y = v2[1];
 				trans->z = v[2]; 
 				trans->uv[0] = uv2[0]; trans->uv[1] = uv2[1];
-				memcpy(trans->color, c, 4*sizeof(float));
+				memcpy(trans->color0, c0, 4*sizeof(float));
+				memcpy(trans->color1, c1, 4*sizeof(float));
 				trans++;
 
 				// bottom left
 				trans->x = v[0]; trans->y = v2[1];
 				trans->z = v[2]; 
 				trans->uv[0] = uv[0]; trans->uv[1] = uv2[1];
-				memcpy(trans->color, c, 4*sizeof(float));
+				memcpy(trans->color0, c0, 4*sizeof(float));
+				memcpy(trans->color1, c1, 4*sizeof(float));
 				trans++;
 
 				// top left
 				trans->x = v[0]; trans->y = v[1];
 				trans->z = v[2]; 
 				trans->uv[0] = uv[0]; trans->uv[1] = uv[1];
-				memcpy(trans->color, c, 4*sizeof(float));
+				memcpy(trans->color0, c0, 4*sizeof(float));
+				memcpy(trans->color1, c1, 4*sizeof(float));
 				trans++;
 
 				// bottom right
 				trans->x = v2[0]; trans->y = v2[1];
 				trans->z = v[2]; 
 				trans->uv[0] = uv2[0]; trans->uv[1] = uv2[1];
-				memcpy(trans->color, c, 4*sizeof(float));
+				memcpy(trans->color0, c0, 4*sizeof(float));
+				memcpy(trans->color1, c1, 4*sizeof(float));
 				trans++;
 
 				numTrans += 6;
@@ -448,7 +503,8 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 		else
 		{
 			memcpy(&trans->x, v, 3*sizeof(float));
-			memcpy(trans->color, c, 4*sizeof(float));
+			memcpy(trans->color0, c0, 4*sizeof(float));
+			memcpy(trans->color1, c1, 4*sizeof(float));
 			memcpy(trans->uv, uv, 2*sizeof(float));
 			trans++;
 			numTrans++;
@@ -458,15 +514,18 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 	glEnableVertexAttribArray(program->a_position);
 	if (useTexCoord && program->a_texcoord != -1) glEnableVertexAttribArray(program->a_texcoord);
 	if (program->a_color0 != -1) glEnableVertexAttribArray(program->a_color0);
+	if (program->a_color1 != -1) glEnableVertexAttribArray(program->a_color1);
 	const int vertexSize = sizeof(*trans);
 	glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, vertexSize, transformed);
 	if (useTexCoord && program->a_texcoord != -1) glVertexAttribPointer(program->a_texcoord, 2, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)transformed) + 3 * 4);	
 	if (program->a_color0 != -1) glVertexAttribPointer(program->a_color0, 4, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)transformed) + 5 * 4);
+	if (program->a_color1 != -1) glVertexAttribPointer(program->a_color1, 4, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)transformed) + 9 * 4);
 	// NOTICE_LOG(G3D,"DrawPrimitive: %i", numTrans);
 	glDrawArrays(glprim[prim], 0, numTrans);
 	glDisableVertexAttribArray(program->a_position);
 	if (useTexCoord && program->a_texcoord != -1) glDisableVertexAttribArray(program->a_texcoord);
 	if (program->a_color0 != -1) glDisableVertexAttribArray(program->a_color0);
+	if (program->a_color1 != -1) glDisableVertexAttribArray(program->a_color1);
 
 	/*
 	if (((gstate.vertType ) & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_8BIT)

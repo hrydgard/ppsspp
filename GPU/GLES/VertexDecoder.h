@@ -24,15 +24,16 @@ struct DecodedVertex
 	float pos[3];     // in case of morph, preblend during decode
 	float normal[3];  // in case of morph, preblend during decode
 	float uv[2];      // scaled by uscale, vscale, if there
-	float color[4];   // unlit
-	float weights[8];
+	u8 color[4];   // unlit
+	float weights[8];  // ugh, expensive
 };
 
 struct TransformedVertex
 {
 	float x, y, z;     // in case of morph, preblend during decode
 	float uv[2];      // scaled by uscale, vscale, if there
-	float color[4];   // prelit
+	float color0[4];   // prelit
+	float color1[4];   // prelit
 };
 
 
@@ -44,22 +45,30 @@ struct TransformedVertex
 //   - will compile into lighting fast specialized x86 
 //   - will not bother translating components that can be read directly
 //     by OpenGL ES. Will still have to translate 565 colors, and things
-//     like that. DecodedVertex will not be a fixed struct.
+//     like that. DecodedVertex will not be a fixed struct. Will have to
+//     do morphing here.
 //
 // We want 100% perf on 1Ghz even in vertex complex games!
 class VertexDecoder 
 {
+public:
+	VertexDecoder() : coloff(0), nrmoff(0), posoff(0) {}
+	~VertexDecoder() {}
+	void SetVertexType(u32 fmt);
+	void DecodeVerts(DecodedVertex *decoded, const void *verts, const void *inds, int prim, int count) const;
+
+private:
 	u32 fmt;
 	bool throughmode;
 	int biggest;
+	int size;
+	int onesize_;
 
 	int weightoff;
 	int tcoff;
 	int coloff;
 	int nrmoff;
 	int posoff;
-	int size;
-	int oneSize;
 
 	int tc;
 	int col;
@@ -70,11 +79,4 @@ class VertexDecoder
 	int morphcount;
 	int nweights;
 
-public:
-	VertexDecoder() : coloff(0), nrmoff(0), posoff(0) {}
-	~VertexDecoder() {}
-	void SetVertexType(u32 fmt);
-	void DecodeVerts(DecodedVertex *decoded, const void *verts, const void *inds, int prim, int count) const;
-
-	// void DoGLVertexAttribPointer()
 };

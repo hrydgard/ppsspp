@@ -400,18 +400,6 @@ struct DXT1Block
 	u16 color2;
 };
 
-inline u8 Convert5To8(u8 v)
-{
-	// Swizzle bits: 00012345 -> 12345123
-	return (v << 3) | (v >> 2);
-}
-
-inline u8 Convert6To8(u8 v)
-{
-	// Swizzle bits: 00123456 -> 12345612
-	return (v << 2) | (v >> 4);
-}
-
 inline u32 makecol(int r, int g, int b, int a)
 {
 	return (a << 24)|(r << 16)|(g << 8)|b;

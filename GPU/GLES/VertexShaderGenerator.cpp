@@ -60,7 +60,6 @@ char *GenerateVertexShader()
 #endif
 
 	int lmode = gstate.lmode & 1;
-	lmode = 0;    // TODO: support separate specular
 
 	WRITE("attribute vec4 a_position;");
 	WRITE("attribute vec2 a_texcoord;");
