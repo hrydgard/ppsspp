@@ -430,9 +430,25 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 		indexType = forceIndexType;
 	}
 
-	if (indexType == 0 && prim != GE_PRIM_RECTANGLES) {
+	bool drawIndexed = false;
+	GLuint glIndexType = 0;
+
+	if (prim != GE_PRIM_RECTANGLES) {
 		// We can simply draw the unexpanded buffer.
 		numTrans = vertexCount;
+		switch (indexType) {
+		case GE_VTYPE_IDX_8BIT:
+			drawIndexed = true;
+			glIndexType = GL_UNSIGNED_BYTE;
+			break;
+		case GE_VTYPE_IDX_16BIT:
+			drawIndexed = true;
+			glIndexType = GL_UNSIGNED_SHORT;
+			break;
+		default:
+			drawIndexed = false;
+			break;
+		}
 	} else {
 		numTrans = 0;
 		drawBuffer = transformedExpanded;
@@ -454,62 +470,52 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 			}
 
 			TransformedVertex &transVtx = transformed[index];
-
-			if (prim != GE_PRIM_RECTANGLES)
+			if ((i & 1) == 0)
 			{
+				// Save this vertex so we can generate when we get the next one. Color is taken from the last vertex.
+				saved = transVtx;
+			}
+			else
+			{
+				// We have to turn the rectangle into two triangles, so 6 points. Sigh.
+
+				// top left
 				*trans = transVtx;
 				trans++;
-				numTrans++;
-			}
-			else  // We need to tesselate axis-aligned rectangles, as they're only specified by two coordinates.
-			{
-				if ((i & 1) == 0)
-				{
-					// Save this vertex so we can generate when we get the next one. Color is taken from the last vertex.
-					saved = transVtx;
-				}
-				else
-				{
-					// We have to turn the rectangle into two triangles, so 6 points. Sigh.
 
-					// top left
-					*trans = transVtx;
-					trans++;
+				// bottom right
+				*trans = transVtx;
+				trans->x = saved.x;
+				trans->uv[0] = saved.uv[0];
+				trans->y = saved.y;
+				trans->uv[1] = saved.uv[1];
+				trans++;
 
-					// top right
-					*trans = transVtx;
-					trans->x = saved.x;
-					trans->uv[0] = saved.uv[0];
-					trans++;
+				// top right
+				*trans = transVtx;
+				trans->x = saved.x;
+				trans->uv[0] = saved.uv[0];
+				trans++;
+				
+				// bottom left
+				*trans = transVtx;
+				trans->y = saved.y;
+				trans->uv[1] = saved.uv[1];
+				trans++;
 
-					// bottom right
-					*trans = transVtx;
-					trans->x = saved.x;
-					trans->uv[0] = saved.uv[0];
-					trans->y = saved.y;
-					trans->uv[1] = saved.uv[1];
-					trans++;
+				// bottom right
+				*trans = transVtx;
+				trans->x = saved.x;
+				trans->uv[0] = saved.uv[0];
+				trans->y = saved.y;
+				trans->uv[1] = saved.uv[1];
+				trans++;
 
-					// bottom left
-					*trans = transVtx;
-					trans->y = saved.y;
-					trans->uv[1] = saved.uv[1];
-					trans++;
+				// top left
+				*trans = transVtx;
+				trans++;
 
-					// top left
-					*trans = transVtx;
-					trans++;
-
-					// bottom right
-					*trans = transVtx;
-					trans->x = saved.x;
-					trans->uv[0] = saved.uv[0];
-					trans->y = saved.y;
-					trans->uv[1] = saved.uv[1];
-					trans++;
-
-					numTrans += 6;
-				}
+				numTrans += 6;
 			}
 		}
 	}
@@ -524,7 +530,11 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 	if (program->a_color0 != -1) glVertexAttribPointer(program->a_color0, 4, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 5 * 4);
 	if (program->a_color1 != -1) glVertexAttribPointer(program->a_color1, 4, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 9 * 4);
 	// NOTICE_LOG(G3D,"DrawPrimitive: %i", numTrans);
-	glDrawArrays(glprim[prim], 0, numTrans);
+	if (drawIndexed) {
+		glDrawElements(glprim[prim], numTrans, glIndexType, (GLvoid *)inds);
+	} else {
+		glDrawArrays(glprim[prim], 0, numTrans);
+	}
 	glDisableVertexAttribArray(program->a_position);
 	if (useTexCoord && program->a_texcoord != -1) glDisableVertexAttribArray(program->a_texcoord);
 	if (program->a_color0 != -1) glDisableVertexAttribArray(program->a_color0);
