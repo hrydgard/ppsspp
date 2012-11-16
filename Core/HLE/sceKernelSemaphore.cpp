@@ -191,12 +191,14 @@ void sceKernelSignalSema(SceUID id, int signal)
 	Semaphore *s = kernelObjects.Get<Semaphore>(id, error);
 	if (s)
 	{
-		int oldval = s->ns.currentCount;
-
 		if (s->ns.currentCount + signal > s->ns.maxCount)
-			s->ns.currentCount += s->ns.maxCount;
-		else
-			s->ns.currentCount += signal;
+		{
+			RETURN(SCE_KERNEL_ERROR_SEMA_OVF);
+			return;
+		}
+
+		int oldval = s->ns.currentCount;
+		s->ns.currentCount += signal;
 		DEBUG_LOG(HLE,"sceKernelSignalSema(%i, %i) (old: %i, new: %i)", id, signal, oldval, s->ns.currentCount);
 
 		// We need to set the return value BEFORE processing other threads.
