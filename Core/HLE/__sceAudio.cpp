@@ -140,7 +140,7 @@ void __AudioUpdate()
 	// Sleep here until the host audio hardware is ready to receive samples.
 	// This will effectively throttle the frame rate.
 
-	if (!noThrottle) {
+	if (!noThrottle && g_Config.bEnableSound) {
 		while (true)
 		{
 			if (outAudioQueue.size() < hwBlockSize * 4)

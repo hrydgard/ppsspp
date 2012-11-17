@@ -135,7 +135,7 @@ int main(int argc, const char* argv[])
 	coreParameter.headLess = true;
 	coreParameter.printfEmuLog = true;
 
-	g_Config.bEnableSound = true;
+	g_Config.bEnableSound = false;
 	g_Config.bFirstRun = false;
 	g_Config.bIgnoreBadMemAccess = true;
 
