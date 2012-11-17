@@ -51,13 +51,6 @@ public:
 		count_++;
 	}
 
-	void push_array(const T *ptr, size_t num) {
-		// TODO: memcpy
-		for (size_t i = 0; i < num; i++) {
-			push(ptr[i]);
-		}
-	}
-
 	void pop() {
 		head_++;
 		if (head_ == N)
@@ -65,12 +58,20 @@ public:
 		count_--;
 	}
 
+	/*
+	void push_array(const T *ptr, size_t num) {
+		// TODO: memcpy
+		for (size_t i = 0; i < num; i++) {
+			push(ptr[i]);
+		}
+	}
+
 	void pop_array(T *outptr, size_t num) {
-		for (size_t i = 0; i < num) {
+		for (size_t i = 0; i < num; i++) {
 			outptr[i] = front();
 			pop();
 		}
-	}
+	}*/
 
 	T pop_front() {
 		const T &temp = storage_[head_];
