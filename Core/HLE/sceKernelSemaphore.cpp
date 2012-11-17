@@ -112,7 +112,6 @@ void sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr)
 		// We need to set the return value BEFORE rescheduling threads.
 		RETURN(0);
 
-		// Cancel appears to always reschedule.
 		__KernelClearSemaThreads(s, SCE_KERNEL_ERROR_WAIT_CANCEL);
 		__KernelReSchedule("semaphore cancelled");
 	}
@@ -124,10 +123,14 @@ void sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr)
 }
 
 //SceUID sceKernelCreateSema(const char *name, SceUInt attr, int initVal, int maxVal, SceKernelSemaOptParam *option);
-SceUID sceKernelCreateSema(const char* name, u32 attr, int initVal, int maxVal, u32 optionPtr)
+// void because it changes threads.
+void sceKernelCreateSema(const char* name, u32 attr, int initVal, int maxVal, u32 optionPtr)
 {
 	if (!name)
-		return SCE_KERNEL_ERROR_ERROR;
+	{
+		RETURN(SCE_KERNEL_ERROR_ERROR);
+		return;
+	}
 
 	Semaphore *s = new Semaphore;
 	SceUID id = kernelObjects.Create(s);
@@ -143,7 +146,9 @@ SceUID sceKernelCreateSema(const char* name, u32 attr, int initVal, int maxVal, 
 
 	DEBUG_LOG(HLE,"%i=sceKernelCreateSema(%s, %08x, %i, %i, %08x)", id, s->ns.name, s->ns.attr, s->ns.initCount, s->ns.maxCount, optionPtr);
 
-	return id;
+	RETURN(id);
+
+	__KernelReSchedule("semaphore created");
 }
 
 //int sceKernelDeleteSema(SceUID semaid);
@@ -156,13 +161,9 @@ void sceKernelDeleteSema(SceUID id)
 	Semaphore *s = kernelObjects.Get<Semaphore>(id, error);
 	if (s)
 	{
-		if (__KernelClearSemaThreads(s, SCE_KERNEL_ERROR_WAIT_DELETE))
-		{
-			RETURN(kernelObjects.Destroy<Semaphore>(id));
-			__KernelReSchedule("semaphore deleted");
-		}
-		else
-			RETURN(kernelObjects.Destroy<Semaphore>(id));
+		__KernelClearSemaThreads(s, SCE_KERNEL_ERROR_WAIT_DELETE);
+		RETURN(kernelObjects.Destroy<Semaphore>(id));
+		__KernelReSchedule("semaphore deleted");
 	}
 	else
 	{
@@ -171,7 +172,9 @@ void sceKernelDeleteSema(SceUID id)
 	}
 }
 
-int sceKernelReferSemaStatus(SceUID id, u32 infoPtr)
+//int sceKernelDeleteSema(SceUID semaid, SceKernelSemaInfo *info);
+// void because it changes threads.
+void sceKernelReferSemaStatus(SceUID id, u32 infoPtr)
 {
 	u32 error;
 	Semaphore *s = kernelObjects.Get<Semaphore>(id, error);
@@ -179,12 +182,13 @@ int sceKernelReferSemaStatus(SceUID id, u32 infoPtr)
 	{
 		DEBUG_LOG(HLE,"sceKernelReferSemaStatus(%i, %08x)", id, infoPtr);
 		Memory::WriteStruct(infoPtr, &s->ns);
-		return 0;
+		RETURN(0);
+		__KernelReSchedule("semaphore refer status");
 	}
 	else
 	{
 		ERROR_LOG(HLE,"Error %08x", error);
-		return error;
+		RETURN(error);
 	}
 }
 	
@@ -234,9 +238,7 @@ retry:
 			}
 		}
 
-		// I don't think we should reschedule here
-		//if (wokeThreads)
-		//	__KernelReSchedule("semaphore signalled");
+		__KernelReSchedule("semaphore signalled");
 	}
 	else
 	{
@@ -254,7 +256,7 @@ void __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, const char *ba
 		// We need to set the return value BEFORE processing callbacks / etc.
 		RETURN(0);
 
-		if (s->ns.currentCount >= wantedCount) //TODO fix
+		if (s->ns.currentCount >= wantedCount)
 			s->ns.currentCount -= wantedCount;
 		else
 		{
@@ -265,6 +267,8 @@ void __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, const char *ba
 			if (processCallbacks)
 				__KernelCheckCallbacks();
 		}
+
+		__KernelReSchedule("semaphore waited");
 	}
 	else
 	{
@@ -292,30 +296,34 @@ void sceKernelWaitSemaCB(SceUID id, int wantedCount, u32 timeoutPtr)
 }
 
 // Should be same as WaitSema but without the wait, instead returning SCE_KERNEL_ERROR_SEMA_ZERO
-int sceKernelPollSema(SceUID id, int wantedCount)
+void sceKernelPollSema(SceUID id, int wantedCount)
 {
 	DEBUG_LOG(HLE,"sceKernelPollSema(%i, %i)", id, wantedCount);
 
 	if (wantedCount <= 0)
-		return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
+	{
+		RETURN(SCE_KERNEL_ERROR_ILLEGAL_COUNT);
+		return;
+	}
 
 	u32 error;
 	Semaphore *s = kernelObjects.Get<Semaphore>(id, error);
 	if (s)
 	{
-		if (s->ns.currentCount >= wantedCount) //TODO fix
-			s->ns.currentCount -= wantedCount;
-		else
+		if (s->ns.currentCount >= wantedCount)
 		{
-			return SCE_KERNEL_ERROR_SEMA_ZERO;
+			s->ns.currentCount -= wantedCount;
+			RETURN(0);
 		}
+		else
+			RETURN(SCE_KERNEL_ERROR_SEMA_ZERO);
 
-		return 0;
+		__KernelReSchedule("semaphore polled");
 	}
 	else
 	{
 		ERROR_LOG(HLE, "sceKernelPollSema: Trying to poll invalid semaphore %i", id);
-		return error;
+		RETURN(error);
 	}
 }
 
