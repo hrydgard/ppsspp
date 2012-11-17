@@ -65,8 +65,8 @@
 void ApplyPrefixST(float *v, u32 data, VectorSize size)
 {
   // Possible optimization shortcut:
-  // if (data == 0xe4)
-  //   return;
+  if (data == 0xe4)
+    return;
 
 	int n = GetNumVectorElements(size);
 	float origV[4];
@@ -100,36 +100,38 @@ void ApplyPrefixST(float *v, u32 data, VectorSize size)
 	}
 }
 
-void ApplySwizzleS(float *v, VectorSize size)
+inline void ApplySwizzleS(float *v, VectorSize size)
 {
 	ApplyPrefixST(v, currentMIPS->vfpuCtrl[VFPU_CTRL_SPREFIX], size);
 }
 
-void ApplySwizzleT(float *v, VectorSize size)
+inline void ApplySwizzleT(float *v, VectorSize size)
 {
 	ApplyPrefixST(v, currentMIPS->vfpuCtrl[VFPU_CTRL_TPREFIX], size);
 }
 
 void ApplyPrefixD(float *v, VectorSize size, bool onlyWriteMask = false)
 {
+	u32 data = currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX];
+	if (!data)
+		return;
 	int n = GetNumVectorElements(size);
 	bool writeMask[4];
-	u32 data = currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX];
 	for (int i = 0; i < n; i++)
 	{
-		int mask = (data >> (8+i)) & 1;
+		int mask = (data >> (8 + i)) & 1;
 		writeMask[i] = mask ? true : false;
 		if (!onlyWriteMask) {
-			int sat = (data >> i*2) & 3;
+			int sat = (data >> (i * 2)) & 3;
 			if (sat == 1)
 			{
-				if (v[i] > 1.0f) v[i]=1.0f;
-				if (v[i] < 0.0f) v[i]=0.0f;
+				if (v[i] > 1.0f) v[i] = 1.0f;
+				if (v[i] < 0.0f) v[i] = 0.0f;
 			}
 			else if (sat == 3)
 			{
-				if (v[i] > 1.0f)  v[i]=1.0f;
-				if (v[i] < -1.0f) v[i]=-1.0f;
+				if (v[i] > 1.0f)  v[i] = 1.0f;
+				if (v[i] < -1.0f) v[i] = -1.0f;
 			}
 		}
 	}
@@ -138,8 +140,8 @@ void ApplyPrefixD(float *v, VectorSize size, bool onlyWriteMask = false)
 
 void EatPrefixes()
 {
-	currentMIPS->vfpuCtrl[VFPU_CTRL_SPREFIX] = 0xe4; //passthru
-	currentMIPS->vfpuCtrl[VFPU_CTRL_TPREFIX] = 0xe4; //passthru
+	currentMIPS->vfpuCtrl[VFPU_CTRL_SPREFIX] = 0xe4;  // passthru
+	currentMIPS->vfpuCtrl[VFPU_CTRL_TPREFIX] = 0xe4;  // passthru
 	currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] = 0;
   static const bool noWriteMask[4] = {false, false, false, false};
 	currentMIPS->SetWriteMask(noWriteMask);
@@ -147,12 +149,6 @@ void EatPrefixes()
 
 namespace MIPSInt
 {
-#define S_not(a,b,c) (a<<2) | (b) | (c << 5)
-#define SgetA(v) (((v)>>2)&0x7)
-#define SgetB(v) ((v)&3)
-#define SgetC(v) (((v)>>5)&0x3)
-#define VS(m,row,col) V(m*4+(row)+(col)*32)
-
 	void Int_VPFX(u32 op)
 	{
 		int data = op & 0xFFFFF;

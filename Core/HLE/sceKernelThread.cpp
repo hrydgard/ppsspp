@@ -731,7 +731,7 @@ void ThreadContext::reset()
   }
   vfpuCtrl[VFPU_CTRL_SPREFIX] = 0xe4; // neutral
   vfpuCtrl[VFPU_CTRL_TPREFIX] = 0xe4; // neutral
-  vfpuCtrl[VFPU_CTRL_DPREFIX] = 0x0;
+  vfpuCtrl[VFPU_CTRL_DPREFIX] = 0x0;  // neutral
   vfpuCtrl[VFPU_CTRL_CC] = 0x3f;
   vfpuCtrl[VFPU_CTRL_INF4] = 0;
   vfpuCtrl[VFPU_CTRL_RCX0] = 0x3f800001;

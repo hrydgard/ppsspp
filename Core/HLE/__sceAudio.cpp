@@ -131,7 +131,6 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking)
 // just sleep the main emulator thread a little.
 void __AudioUpdate()
 {
-	NOTICE_LOG(HLE, "__AudioUpdate");
 #ifdef _WIN32
 	// HACK - TODO: Remove
 	bool noThrottle = GetAsyncKeyState(VK_TAB) != 0;
