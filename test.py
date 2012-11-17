@@ -23,7 +23,6 @@ tests_good = [
   "cpu/lsu/lsu",
   "cpu/fpu/fpu",
 
-  "malloc/malloc",
   "display/display",
   "dmac/dmactest",
   "intr/intr",
@@ -46,6 +45,7 @@ tests_good = [
 ]
 
 tests_next = [
+  "malloc/malloc",
 # These are the next tests up for fixing. These run by default.
   "threads/fpl/fpl",
   "threads/msgpipe/msgpipe",

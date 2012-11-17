@@ -51,6 +51,7 @@ void CConfig::Load(const char *iniFileName)
 	general->Get("DisplayFramebuffer", &bDisplayFramebuffer, false);
 	general->Get("CurrentDirectory", &currentDirectory, "");
 	general->Get("ShowFPSCounter", &bShowFPSCounter, false);
+	general->Get("WindowZoom", &iWindowZoom, 1);
 
 	IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 	sound->Get("Enable", &bEnableSound, true);
@@ -76,6 +77,7 @@ void CConfig::Save()
 		general->Set("DisplayFramebuffer", bDisplayFramebuffer);
 		general->Set("CurrentDirectory", currentDirectory);
 		general->Set("ShowFPSCounter", bShowFPSCounter);
+		general->Set("WindowZoom", iWindowZoom);
 
 		IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 		sound->Set("Enable", bEnableSound);

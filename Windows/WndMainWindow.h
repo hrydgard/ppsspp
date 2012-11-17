@@ -13,5 +13,4 @@ namespace MainWindow
 	HINSTANCE GetHInstance();
 	HWND GetDisplayHWND();
 	void SetPlaying(const char*text);
-	void RequestWindowSize(int w, int h);
 }

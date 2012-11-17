@@ -46,6 +46,7 @@ public:
 
 	bool bShowAnalogStick;
 	bool bShowFPSCounter;
+	int iWindowZoom;  // for Windows
 
 	std::string currentDirectory;
 

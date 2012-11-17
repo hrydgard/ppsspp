@@ -11,7 +11,7 @@
 #include "commctrl.h"
 
 #include "../Core/Debugger/SymbolMap.h"
-
+#include "OpenGLBase.h"
 #include "Debugger/Debugger_Disasm.h"
 #include "Debugger/Debugger_MemoryDlg.h"
 #include "main.h"
@@ -96,34 +96,36 @@ namespace MainWindow
 		RegisterClassEx(&wcex);
 	}
 
-	void RequestWindowSize(int w, int h)
-	{
-		RECT rc;
-		rc.left=20;
-		rc.top=100;
+	void GetWindowRectAtZoom(int zoom, RECT &rcInner, RECT &rcOuter) {
+		rcInner.left=20;
+		rcInner.top=100;
 
-		rc.right=w+rc.left;//+client edge
-		rc.bottom=h+rc.top; //+client edge
+		rcInner.right=480*zoom + rcInner.left;//+client edge
+		rcInner.bottom=272*zoom + rcInner.top; //+client edge
 
-		AdjustWindowRect(&rc, WS_OVERLAPPEDWINDOW, TRUE);
-		SetWindowPos(hwndMain,0,0,0,rc.right-rc.left,rc.bottom-rc.top,SWP_NOMOVE|SWP_NOZORDER);
+		rcOuter=rcInner;
+		AdjustWindowRect(&rcOuter, WS_OVERLAPPEDWINDOW, TRUE);
+	}
+
+	void SetZoom(int zoom) {
+		g_Config.iWindowZoom = zoom;
+		RECT rc, rcOuter;
+		GetWindowRectAtZoom(zoom, rc, rcOuter);
+		MoveWindow(hwndMain, rcOuter.left, rcOuter.top, rcOuter.right - rcOuter.left, rcOuter.bottom - rcOuter.top, TRUE);
+		MoveWindow(hwndDisplay, 0, 0, rc.right - rc.left, rc.bottom - rc.top, TRUE);
+		GL_Resized();
 	}
 
 	BOOL Show(HINSTANCE hInstance, int nCmdShow)
 	{
 		hInst = hInstance; // Store instance handle in our global variable
 
+		int zoom = g_Config.iWindowZoom;
+		if (zoom < 1) zoom = 1;
+		if (zoom > 4) zoom = 4;
+		
 		RECT rc,rcOrig;
-		rc.left=20;
-		rc.top=100;
-
-    int zoom = 4;
-
-		rc.right=480*zoom+rc.left;//+client edge
-		rc.bottom=272*zoom+rc.top; //+client edge
-
-		rcOrig=rc;
-		AdjustWindowRect(&rc, WS_OVERLAPPEDWINDOW, TRUE);
+		GetWindowRectAtZoom(zoom, rcOrig, rc);
 
 		u32 style = skinMode ? WS_POPUP : WS_OVERLAPPEDWINDOW;
 
@@ -315,6 +317,23 @@ namespace MainWindow
 					SetCursor(LoadCursor(0,IDC_WAIT));
 					SetCursor(LoadCursor(0,IDC_ARROW));
 				}
+				break;
+
+			case ID_OPTIONS_SCREEN1X:
+				SetZoom(1);
+				UpdateMenus();
+				break;
+			case ID_OPTIONS_SCREEN2X:
+				SetZoom(2);
+				UpdateMenus();
+				break;
+			case ID_OPTIONS_SCREEN3X:
+				SetZoom(3);
+				UpdateMenus();
+				break;
+			case ID_OPTIONS_SCREEN4X:
+				SetZoom(4);
+				UpdateMenus();
 				break;
 
 			case ID_FILE_EXIT:
@@ -590,6 +609,16 @@ namespace MainWindow
 		EnableMenuItem(menu,ID_EMULATION_STOP,!enable);
 		EnableMenuItem(menu,ID_OPTIONS_SETTINGS,enable);
 		EnableMenuItem(menu,ID_PLUGINS_CHOOSEPLUGINS,enable);
+
+		const int zoomitems[4] = {
+			ID_OPTIONS_SCREEN1X,
+			ID_OPTIONS_SCREEN2X,
+			ID_OPTIONS_SCREEN3X,
+			ID_OPTIONS_SCREEN4X,
+		};
+		for (int i = 0; i < 4; i++) {
+			CheckMenuItem(menu, zoomitems[i], MF_BYCOMMAND | ((i == g_Config.iWindowZoom - 1) ? MF_CHECKED : MF_UNCHECKED));
+		}
 	}
 
 
