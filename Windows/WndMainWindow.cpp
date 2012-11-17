@@ -117,7 +117,7 @@ namespace MainWindow
 		rc.left=20;
 		rc.top=100;
 
-    int zoom = 4;
+		int zoom = g_Config.iZoom;
 
 		rc.right=480*zoom+rc.left;//+client edge
 		rc.bottom=272*zoom+rc.top; //+client edge
