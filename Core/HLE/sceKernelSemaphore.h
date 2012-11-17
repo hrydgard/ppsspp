@@ -18,10 +18,10 @@
 #pragma once
 
 void sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr);
-SceUID sceKernelCreateSema(const char* name, u32 attr, int initVal, int maxVal, u32 optionPtr);
+void sceKernelCreateSema(const char* name, u32 attr, int initVal, int maxVal, u32 optionPtr);
 void sceKernelDeleteSema(SceUID id);
-int sceKernelPollSema(SceUID id, int wantedCount);
-int sceKernelReferSemaStatus(SceUID id, u32 infoPtr);
+void sceKernelPollSema(SceUID id, int wantedCount);
+void sceKernelReferSemaStatus(SceUID id, u32 infoPtr);
 void sceKernelSignalSema(SceUID id, int signal);
 void sceKernelWaitSema(SceUID semaid, int signal, u32 timeoutPtr);
 void sceKernelWaitSemaCB(SceUID semaid, int signal, u32 timeoutPtr);
