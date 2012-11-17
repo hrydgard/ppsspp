@@ -93,6 +93,10 @@ CPUInfo::CPUInfo() {
 	Detect();
 }
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 // Detects the various cpu features
 void CPUInfo::Detect()
 {

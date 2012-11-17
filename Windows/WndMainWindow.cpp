@@ -5,6 +5,7 @@
 
 
 #include <windows.h>
+#include <tchar.h>
 #include "../globals.h"
 
 #include "shellapi.h"

@@ -8,6 +8,8 @@
 
 #include "../../Core/Debugger/DebugInterface.h"
 
+#include <windows.h>
+
 class CMemoryDlg : public Dialog
 {
 private:
