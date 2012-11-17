@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -31,6 +31,11 @@ IFileSystem *MetaFileSystem::GetHandleOwner(u32 handle)
 
 bool MetaFileSystem::MapFilePath(std::string inpath, std::string &outpath, IFileSystem **system)
 {
+	// host0 HACK
+	// need to figure out what to do about xxx:./... paths - is there a current dir per drive?
+	if (!inpath.compare(0, 8, "host0:./"))
+		inpath = currentDirectory + inpath.substr(7);
+
 	for (size_t i = 0; i < fileSystems.size(); i++)
 	{
 		int prefLen = fileSystems[i].prefix.size();
@@ -94,6 +99,11 @@ u32 MetaFileSystem::OpenFile(std::string filename, FileAccess access)
 PSPFileInfo MetaFileSystem::GetFileInfo(std::string filename)
 {
 	std::string of;
+	if (filename.find(':') == std::string::npos)
+	{
+		filename = currentDirectory + "/" + filename;
+		DEBUG_LOG(HLE,"GetFileInfo: Expanded path to %s", filename.c_str());
+	}
 	IFileSystem *system;
 	if (MapFilePath(filename, of, &system))
 	{
@@ -109,6 +119,11 @@ PSPFileInfo MetaFileSystem::GetFileInfo(std::string filename)
 std::vector<PSPFileInfo> MetaFileSystem::GetDirListing(std::string path)
 {
 	std::string of;
+	if (path.find(':') == std::string::npos)
+	{
+		path = currentDirectory + "/" + path;
+		DEBUG_LOG(HLE,"GetFileInfo: Expanded path to %s", path.c_str());
+	}
 	IFileSystem *system;
 	if (MapFilePath(path, of, &system))
 	{

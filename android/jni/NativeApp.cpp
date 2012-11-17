@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -152,7 +152,12 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	std::string user_data_path = savegame_directory;
 
 	// We want this to be FIRST.
+#ifdef BLACKBERRY
+	// Packed assets are included in app/native/ dir
+	VFSRegister("", new DirectoryAssetReader("app/native/assets/"));
+#else
 	VFSRegister("", new DirectoryAssetReader("assets/"));
+#endif
 	VFSRegister("", new DirectoryAssetReader(user_data_path.c_str()));
 
 	host = new NativeHost();
@@ -188,7 +193,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	g_Config.Load(config_filename.c_str());
 
 	if (g_Config.currentDirectory == "") {
-#ifdef ANDROID
+#if defined(ANDROID) || defined(BLACKBERRY)
 		g_Config.currentDirectory = external_directory;
 #else
 		g_Config.currentDirectory = getenv("HOME");

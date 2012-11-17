@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -20,7 +20,6 @@
 #include "sceKernel.h"
 #include "HLE.h"
 
-bool __KernelLoadPBP(const char *filename, std::string *error_string);
 u32 __KernelGetModuleGP(SceUID module);
 bool __KernelLoadExec(const char *filename, SceKernelLoadExecParam *param, std::string *error_string);
 

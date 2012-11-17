@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -110,13 +110,14 @@ u32 sceKernelLockMutex(u32 id, u32 count, u32 timeoutPtr)
 	else
 	{
 		// Yeah, we need to block. Somehow.
+		ERROR_LOG(HLE,"Mutex should block!");
 	}
 	return 0;
 }
 
 u32 sceKernelLockMutexCB(u32 id, u32 count, u32 timeoutPtr)
 {
-	DEBUG_LOG(HLE,"UNIMPL sceKernelLockMutexCB(%i, %i, %08x)", id, count, timeoutPtr);
+	ERROR_LOG(HLE,"UNIMPL sceKernelLockMutexCB(%i, %i, %08x)", id, count, timeoutPtr);
 	return 0;
 }
 
@@ -132,4 +133,52 @@ u32 sceKernelUnlockMutex(u32 id, u32 count)
 	mutex->nm.lockLevel -= count;
 	// TODO....
 	return 0;
+}
+
+struct NativeLwMutex
+{
+	SceSize size;
+	char name[32];
+	SceUInt attr;
+	SceUID mutexUid;
+	SceUInt opaqueWorkAreaAddr;
+	int numWaitThreads;
+	int locked;
+	int threadid;  // thread holding the lock
+};
+
+void sceKernelCreateLwMutex()
+{
+	ERROR_LOG(HLE,"UNIMPL sceKernelCreateLwMutex()");
+	RETURN(0);
+}
+
+void sceKernelDeleteLwMutex()
+{
+	ERROR_LOG(HLE,"UNIMPL sceKernelDeleteLwMutex()");
+	RETURN(0);
+}
+
+void sceKernelTryLockLwMutex()
+{
+	ERROR_LOG(HLE,"UNIMPL sceKernelTryLockLwMutex()");
+	RETURN(0);
+}
+
+void sceKernelLockLwMutex()
+{
+	ERROR_LOG(HLE,"UNIMPL sceKernelLockLwMutex()");
+	RETURN(0);
+}
+
+void sceKernelLockLwMutexCB()
+{
+	ERROR_LOG(HLE,"UNIMPL sceKernelLockLwMutexCB()");
+	RETURN(0);
+}
+
+void sceKernelUnlockLwMutex()
+{
+	ERROR_LOG(HLE,"UNIMPL void sceKernelUnlockLwMutex()");
+	RETURN(0);
 }

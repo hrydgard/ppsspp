@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -36,7 +36,7 @@ template<> struct CompileTimeAssert<true> {};
 #define ROUND_UP_POW2(x)	(b32(x - 1) + 1)
 
 #if defined __GNUC__ && !defined __SSSE3__
-#ifndef ANDROID
+#if !defined(ANDROID) && !defined(BLACKBERRY)
 #include <emmintrin.h>
 static __inline __m128i __attribute__((__always_inline__))
 _mm_shuffle_epi8(__m128i a, __m128i mask)
@@ -63,7 +63,7 @@ _mm_shuffle_epi8(__m128i a, __m128i mask)
 #ifdef GEKKO
 	#define Crash()
 #else
-#ifndef ANDROID
+#if !defined(ANDROID) && !defined(BLACKBERRY)
 	#define Crash() {asm ("int $3");}
 #else
   #define Crash() {kill( getpid(), SIGINT ) ; }

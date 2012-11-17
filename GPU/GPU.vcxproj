@@ -122,8 +122,10 @@
     <ClInclude Include="GLES\TransformPipeline.h" />
     <ClInclude Include="GLES\VertexDecoder.h" />
     <ClInclude Include="GLES\VertexShaderGenerator.h" />
+    <ClInclude Include="GPUInterface.h" />
     <ClInclude Include="GPUState.h" />
     <ClInclude Include="Math3D.h" />
+    <ClInclude Include="Null\NullGpu.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="GLES\DisplayListInterpreter.cpp" />
@@ -136,11 +138,15 @@
     <ClCompile Include="GLES\VertexShaderGenerator.cpp" />
     <ClCompile Include="GPUState.cpp" />
     <ClCompile Include="Math3D.cpp" />
+    <ClCompile Include="Null\NullGpu.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Common\Common.vcxproj">
       <Project>{3fcdbae2-5103-4350-9a8e-848ce9c73195}</Project>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="CMakeLists.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

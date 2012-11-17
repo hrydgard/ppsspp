@@ -5,7 +5,7 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := native_audio
-LOCAL_CFLAGS := -O2 -fsigned-char -Wall -Wno-multichar -Wno-psabi -std=gnu++0x
+LOCAL_CFLAGS := -O2 -fsigned-char -ffast-math -Wall -Wno-multichar -Wno-psabi -std=gnu++0x
 NATIVE := ../../native
 LOCAL_SRC_FILES := \
 		$(NATIVE)/android/native-audio-so.cpp
@@ -24,7 +24,7 @@ LOCAL_MODULE := ppsspp_jni
 NATIVE := ../../native
 SRC := ../..
 
-LOCAL_CFLAGS := -DUSE_PROFILER -DGL_GLEXT_PROTOTYPES -O2 -fsigned-char -Wall -Wno-multichar -Wno-psabi -std=gnu++0x -Wno-unused-variable -fno-strict-aliasing
+LOCAL_CFLAGS := -DUSE_PROFILER -DGL_GLEXT_PROTOTYPES -O2 -fsigned-char -Wall -Wno-multichar -Wno-psabi -std=gnu++0x -Wno-unused-variable -fno-strict-aliasing -ffast-math
 LOCAL_CPPFLAGS := 
 LOCAL_C_INCLUDES := \
   $(LOCAL_PATH)/../../Common \
@@ -48,6 +48,11 @@ LOCAL_SRC_FILES := \
   GamepadEmu.cpp \
   ui_atlas.cpp \
   $(SRC)/native/android/app-android.cpp \
+  $(SRC)/ext/libkirk/AES.c \
+  $(SRC)/ext/libkirk/SHA1.c \
+  $(SRC)/ext/libkirk/bn.c \
+  $(SRC)/ext/libkirk/ec.c \
+  $(SRC)/ext/libkirk/kirk_engine.c \
   $(SRC)/Globals.cpp \
   $(SRC)/Common/ArmABI.cpp \
   $(SRC)/Common/ArmEmitter.cpp \
@@ -71,7 +76,10 @@ LOCAL_SRC_FILES := \
   $(SRC)/GPU/GLES/ShaderManager.cpp \
   $(SRC)/GPU/GLES/VertexShaderGenerator.cpp \
   $(SRC)/GPU/GLES/FragmentShaderGenerator.cpp \
+  $(SRC)/GPU/Null/NullGpu.cpp \
   $(SRC)/Core/ELF/ElfReader.cpp \
+  $(SRC)/Core/ELF/PrxDecrypter.cpp \
+  $(SRC)/Core/HW/MemoryStick.cpp \
   $(SRC)/Core/Core.cpp \
   $(SRC)/Core/Config.cpp \
   $(SRC)/Core/CoreTiming.cpp \
@@ -96,10 +104,10 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/HLE/sceGe.cpp \
   $(SRC)/Core/HLE/sceHprm.cpp \
   $(SRC)/Core/HLE/sceHttp.cpp \
+  $(SRC)/Core/HLE/sceImpose.cpp \
   $(SRC)/Core/HLE/sceIo.cpp \
   $(SRC)/Core/HLE/sceKernel.cpp \
   $(SRC)/Core/HLE/sceKernelAlarm.cpp \
-  $(SRC)/Core/HLE/sceKernelCallback.cpp \
   $(SRC)/Core/HLE/sceKernelEventFlag.cpp \
   $(SRC)/Core/HLE/sceKernelInterrupt.cpp \
   $(SRC)/Core/HLE/sceKernelMemory.cpp \

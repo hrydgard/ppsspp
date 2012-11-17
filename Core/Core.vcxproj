@@ -66,7 +66,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>../common;..;../native;../native/ext/glew;../zlib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../common;..;../native;../native/ext/glew;../ext/zlib</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
@@ -77,7 +77,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>../common;..;../native;../native/ext/glew;../zlib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../common;..;../native;../native/ext/glew;../ext/zlib</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
@@ -90,7 +90,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>../common;..;../native;../native/ext/glew;../zlib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../common;..;../native;../native/ext/glew;../ext/zlib</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -104,7 +104,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>../common;..;../native;../native/ext/glew;../zlib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../common;..;../native;../native/ext/glew;../ext/zlib</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -120,6 +120,7 @@
     <ClCompile Include="Debugger\Breakpoints.cpp" />
     <ClCompile Include="Debugger\SymbolMap.cpp" />
     <ClCompile Include="ELF\ElfReader.cpp" />
+    <ClCompile Include="ELF\PrxDecrypter.cpp" />
     <ClCompile Include="FileSystems\BlockDevices.cpp" />
     <ClCompile Include="FileSystems\DirectoryFileSystem.cpp" />
     <ClCompile Include="FileSystems\ISOFileSystem.cpp" />
@@ -134,10 +135,10 @@
     <ClCompile Include="HLE\sceGe.cpp" />
     <ClCompile Include="HLE\sceHprm.cpp" />
     <ClCompile Include="HLE\sceHttp.cpp" />
+    <ClCompile Include="HLE\sceImpose.cpp" />
     <ClCompile Include="HLE\sceIo.cpp" />
     <ClCompile Include="HLE\sceKernel.cpp" />
     <ClCompile Include="HLE\sceKernelAlarm.cpp" />
-    <ClCompile Include="HLE\sceKernelCallback.cpp" />
     <ClCompile Include="HLE\sceKernelEventFlag.cpp" />
     <ClCompile Include="HLE\sceKernelInterrupt.cpp" />
     <ClCompile Include="HLE\sceKernelMbx.cpp" />
@@ -159,6 +160,7 @@
     <ClCompile Include="HLE\sceUtility.cpp" />
     <ClCompile Include="HLE\__sceAudio.cpp" />
     <ClCompile Include="Host.cpp" />
+    <ClCompile Include="HW\MemoryStick.cpp" />
     <ClCompile Include="Loaders.cpp" />
     <ClCompile Include="MemMap.cpp" />
     <ClCompile Include="MemmapFunctions.cpp" />
@@ -246,6 +248,7 @@
     <ClInclude Include="Debugger\SymbolMap.h" />
     <ClInclude Include="ELF\ElfReader.h" />
     <ClInclude Include="ELF\ElfTypes.h" />
+    <ClInclude Include="ELF\PrxDecrypter.h" />
     <ClInclude Include="FileSystems\BlockDevices.h" />
     <ClInclude Include="FileSystems\DirectoryFileSystem.h" />
     <ClInclude Include="FileSystems\FileSystem.h" />
@@ -262,10 +265,10 @@
     <ClInclude Include="HLE\sceGe.h" />
     <ClInclude Include="HLE\sceHprm.h" />
     <ClInclude Include="HLE\sceHttp.h" />
+    <ClInclude Include="HLE\sceImpose.h" />
     <ClInclude Include="HLE\sceIo.h" />
     <ClInclude Include="HLE\sceKernel.h" />
     <ClInclude Include="HLE\sceKernelAlarm.h" />
-    <ClInclude Include="HLE\sceKernelCallback.h" />
     <ClInclude Include="HLE\sceKernelEventFlag.h" />
     <ClInclude Include="HLE\sceKernelInterrupt.h" />
     <ClInclude Include="HLE\sceKernelMemory.h" />
@@ -287,6 +290,7 @@
     <ClInclude Include="HLE\sceKernelVTimer.h" />
     <ClInclude Include="HLE\__sceAudio.h" />
     <ClInclude Include="Host.h" />
+    <ClInclude Include="HW\MemoryStick.h" />
     <ClInclude Include="Loaders.h" />
     <ClInclude Include="MemMap.h" />
     <ClInclude Include="MIPS\ARM\Asm.h">
@@ -336,9 +340,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\android\jni\Android.mk" />
-    <None Include="..\GameLogNotes.txt" />
     <None Include="..\LICENSE.TXT" />
     <None Include="CMakeLists.txt" />
+    <None Include="GameLogNotes.txt" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Common\Common.vcxproj">
@@ -350,7 +354,7 @@
     <ProjectReference Include="..\native\native.vcxproj">
       <Project>{e8b58922-9827-493d-81e0-4b6e6bd77171}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\zlib\zlib.vcxproj">
+    <ProjectReference Include="..\ext\zlib\zlib.vcxproj">
       <Project>{f761046e-6c38-4428-a5f1-38391a37bb34}</Project>
     </ProjectReference>
   </ItemGroup>

@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -25,68 +25,84 @@
 
 // Not fully featured, no safety checking yet. Add features as needed.
 
-// TODO: "inline" storage?
-
 template <class T, int N>
-class FixedSizeQueue
-{
-	T *storage;
-	int head;
-	int tail;
-	int count;  // sacrifice 4 bytes for a simpler implementation. may optimize away in the future.
-
-	// Make copy constructor private for now.
-	FixedSizeQueue(FixedSizeQueue &other) {	}
-
+class FixedSizeQueue {
 public:
-	FixedSizeQueue()
-	{
-		storage = new T[N];
+	FixedSizeQueue() {
+		storage_ = new T[N];
 		clear();
 	}
 
-	~FixedSizeQueue()
-	{
-		delete [] storage;
+	~FixedSizeQueue() {
+		delete [] storage_;
 	}
 
 	void clear() {
-		head = 0;
-		tail = 0;
-		count = 0;
+		head_ = 0;
+		tail_ = 0;
+		count_ = 0;
 	}
 
 	void push(T t) {
-		storage[tail] = t;
-		tail++;
-		if (tail == N)
-			tail = 0;
-		count++;
+		storage_[tail_] = t;
+		tail_++;
+		if (tail_ == N)
+			tail_ = 0;
+		count_++;
 	}
 
 	void pop() {
-		head++;
-		if (head == N)
-			head = 0;
-		count--;
+		head_++;
+		if (head_ == N)
+			head_ = 0;
+		count_--;
 	}
 
+	/*
+	void push_array(const T *ptr, size_t num) {
+		// TODO: memcpy
+		for (size_t i = 0; i < num; i++) {
+			push(ptr[i]);
+		}
+	}
+
+	void pop_array(T *outptr, size_t num) {
+		for (size_t i = 0; i < num; i++) {
+			outptr[i] = front();
+			pop();
+		}
+	}*/
+
 	T pop_front() {
-		const T &temp = storage[head];
+		const T &temp = storage_[head_];
 		pop();
 		return temp;
 	}
 
-	T &front() { return storage[head]; }
-	const T &front() const { return storage[head]; }
+	T &front() { return storage_[head_]; }
+
+	const T &front() const { return storage_[head_]; }
 
 	size_t size() const {
-		return count;
+		return count_;
+	}
+
+	int room() const {
+		return N - count_;
 	}
 
   bool empty() {
-    return count;
+    return count_;
   }
+
+private:
+	T *storage_;
+	int head_;
+	int tail_;
+	int count_;  // sacrifice 4 bytes for a simpler implementation. may optimize away in the future.
+
+	// Make copy constructor private for now.
+	FixedSizeQueue(FixedSizeQueue &other) {	}
 };
 
 #endif // _FIXED_SIZE_QUEUE_H_

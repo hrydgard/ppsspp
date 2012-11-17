@@ -3,7 +3,6 @@ cmake_minimum_required(VERSION 2.6)
 project (PPSSPP)
 
 find_package(PkgConfig)
-
 find_package(PNG REQUIRED)
 pkg_check_modules(SDL sdl)
 
@@ -12,37 +11,43 @@ if (APPLE)
 	include_directories(/usr/X11/include)
 endif()
 
+# TODO: Rely on compiler define instead. __QNX__ __QNXNTO__ ?
+if (BLACKBERRY)
+	add_definitions(-DBLACKBERRY)
+	if (NOT BLACKBERRY LESS 10.0)
+		add_definitions(-DBLACKBERRY10)
+	endif()
+endif()
 
-include(FindOpenGL)
+# TODO: Desktop can use GLES too. -D USING_GLES2 ?
+if (NOT ARM)
+	include(FindOpenGL)
+endif()
+
 include(FindSDL)
 
+#add_definitions(-O2)
 add_definitions(-g)
-# add_definitions(-O2)
-add_definitions(-Wall)
-add_definitions(-DSDL)
-add_definitions(-Wno-multichar)
-add_definitions(-fno-strict-aliasing)
 add_definitions(-DUSE_PROFILER)
 add_definitions(-D_DEBUG)
+add_definitions(-DSDL)
 
-if (UNIX)
-	if (NOT APPLE)  # can't build the SDL .m file with -std=gnu++0x
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++0x")
-	endif()
+# Apple can't build the SDL .m file with -std=gnu++0x
+if (UNIX AND NOT APPLE)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++0x")
 endif()
 
 include_directories(..)
 include_directories(../Common)
 include_directories(../native)
 include_directories(../native/ext/libzip)
-include_directories(/opt/local/include)
-include_directories(/usr/local/include)
 include_directories(${SDL_INCLUDE_DIR})
 include_directories(${PNG_INCLUDE_DIR})
 
-link_directories(/usr/local/lib)
-link_directories(/opt/local/lib)
-link_directories(/usr/X11/lib)
+if (UNIX AND NOT ARM)
+	include_directories(/opt/local/include /usr/local/include)
+	link_directories(/usr/local/lib /opt/local/lib /usr/X11/lib)
+endif()
 
 add_subdirectory(../native/base base)
 add_subdirectory(../native/gfx gfx)
@@ -61,11 +66,20 @@ add_subdirectory(../native/ext/vjson vjson)
 add_subdirectory(../native/ext/stb_vorbis stb_vorbis)
 add_subdirectory(../native/ext/stb_image stb_image)
 add_subdirectory(../native/ext/sha1 sha1)
+add_subdirectory(../ext/libkirk kirk)
 add_subdirectory(../Common Common)
 add_subdirectory(../GPU GPU)
 add_subdirectory(../Core Core)
 
-set(LIBS ${LIBS} ${SDL_LIBRARY} ${OPENGL_LIBRARIES} GLEW file lin ${PNG_LIBRARY} z gfx gfx_es2 etcdec image stb_image mixer net ui profiler timeutil file zip base lin vjson stb_vorbis sha1 jsonwriter common core gpu)
+set(LIBS ${LIBS} ${SDL_LIBRARY} ${PNG_LIBRARY} z gfx gfx_es2 image stb_image mixer net ui profiler timeutil file zip base lin vjson stb_vorbis sha1 jsonwriter common core gpu kirk)
+
+if(BLACKBERRY)
+	set(LIBS ${LIBS} bps screen socket EGL GLESv2)
+else()
+	set(LIBS ${LIBS} ${OPENGL_LIBRARIES} GLEW etcdec)
+endif()
+
+# TODO: Why is cross-platform UI in ../android/jni?
 set(FILES
 	../android/jni/NativeApp.cpp
 	../android/jni/EmuScreen.cpp
@@ -73,12 +87,17 @@ set(FILES
 	../android/jni/GamepadEmu.cpp
 	../android/jni/UIShader.cpp
 	../android/jni/ui_atlas.cpp
-	../native/base/PCMain.cpp
 	)
 
-if (APPLE)
-	SET(FILES ${FILES} SDLMain.m)
-endif (APPLE)
+# Platform setup
+if(BLACKBERRY)
+	set(FILES ${FILES} ../native/base/BlackberryMain.cpp)
+else()
+	set(FILES ${FILES} ../native/base/PCMain.cpp)
+	if(APPLE)
+		set(FILES ${FILES} SDLMain.m)
+	endif(APPLE)
+endif()
 
 add_executable(ppsspp ${FILES})
 

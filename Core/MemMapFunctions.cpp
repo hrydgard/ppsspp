@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -48,9 +48,9 @@ u8 *GetPointer(const u32 address)
 	{
 		return m_pVRAM + (address & VRAM_MASK);
 	}
-	else if ((address & 0xFFFF0000) == 0x00010000)
+	else if ((address & 0xBFFF0000) == 0x00010000)
 	{
-		return m_pScratchPad + (address & VRAM_MASK);
+		return m_pScratchPad + (address & SCRATCHPAD_MASK);
 	}
 	else
 	{
@@ -75,14 +75,14 @@ inline void ReadFromHardware(T &var, const u32 address)
 	{
 		var = *((const T*)&m_pVRAM[address & VRAM_MASK]);
 	}
-	else if ((address & 0xFFFF0000) == 0x00010000)
+	else if ((address & 0xBFFF0000) == 0x00010000)
 	{
 		// Scratchpad
 		var = *((const T*)&m_pScratchPad[address & SCRATCHPAD_MASK]);
 	}
 	else
 	{
-		WARN_LOG(MEMMAP, "ReadFromHardware: Invalid address %08x	PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
+		WARN_LOG(MEMMAP, "ReadFromHardware: Invalid address %08x	PC %08x PPC %08x LR %08x", address, currentMIPS->pc, currentMIPS->prevPC, currentMIPS->r[MIPS_REG_RA]);
 		if (!g_Config.bIgnoreBadMemAccess) {
 			// TODO: Not sure what the best way to crash is...
 			exit(0);
@@ -104,7 +104,7 @@ inline void WriteToHardware(u32 address, const T data)
 	{
 		*(T*)&m_pVRAM[address & VRAM_MASK] = data;
 	}
-	else if ((address & 0xFFFF0000) == 0x00010000)
+	else if ((address & 0xBFFF0000) == 0x00010000)
 	{
 		*(T*)&m_pScratchPad[address & SCRATCHPAD_MASK] = data;
 	}
@@ -130,7 +130,7 @@ bool IsValidAddress(const u32 address)
 	{
 		return true;
 	}
-	else if ((address & 0xFFFF0000) == 0x00010000)
+	else if ((address & 0xBFFF0000) == 0x00010000)
 	{
 		return true;
 	}

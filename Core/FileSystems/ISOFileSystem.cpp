@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -22,6 +22,18 @@
 #include <cstdio>
 
 const int sectorSize = 2048;
+
+static bool parseLBN(std::string filename, u32 *sectorStart, u32 *readSize)
+{
+	if (filename.substr(0, 8) != "/sce_lbn")
+		return false;
+	std::string yo = filename;
+	filename.erase(0, 10);
+	sscanf(filename.c_str(), "%08x", sectorStart);
+	filename.erase(0, filename.find("_size") + 7);
+	sscanf(filename.c_str(), "%08x", readSize);
+	return true;
+}
 
 #pragma pack(push)
 #pragma pack(1)
@@ -175,10 +187,18 @@ nextblock:
 			name[i] = buffer[33+i] ? buffer[33+i] : '.';
 		name[fnLength] = '\0';
 
+		bool relative = false;
+
 		if (!strcmp(name, "."))	// "." record
-			continue;
+		{
+			relative = true;
+		}
+
 		if (strlen(name) == 1 && name[0] == '\x01')	 // ".." record
-			continue;
+		{
+			strcpy(name,"..");
+			relative=true;
+		}
 
 		TreeEntry *e = new TreeEntry;
 		e->name = name;
@@ -190,7 +210,7 @@ nextblock:
 				
 		DEBUG_LOG(FILESYS, "%s: %s %08x %08x %i", e->isDirectory?"D":"F", name, dir.firstDataSectorLE, e->startingPosition, e->startingPosition);
 
-		if (e->isDirectory)
+		if (e->isDirectory && !relative)
 		{
 			if (dir.firstDataSectorLE == startsector)
 			{
@@ -214,6 +234,9 @@ ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(std::string path)
 		return &entireISO;
 	}
 
+	if (path.substr(0,2) == "./")
+		path.erase(0,2);
+
 	if (path[0] == '/')
 		path.erase(0,1);
 
@@ -230,7 +253,8 @@ ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(std::string path)
 			for (size_t i=0; i<e->children.size(); i++)
 			{
 				std::string n = e->children[i]->name;
-				if (path.compare(0, n.length(), n) == 0) //TODO : bad
+				std::string curPath = path.substr(0, path.find_first_of('/'));
+				if (curPath == n)
 				{
 					//yay we got it
 					ne = e->children[i];
@@ -247,6 +271,8 @@ ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(std::string path)
 			if (path.length() == 0 || (path.length()==1 && path[0] == '/'))
 				return e;
 			path.erase(0, 1);
+			while (path[0] == '/')
+				path.erase(0, 1);
 		}
 		else
 		{
@@ -258,16 +284,22 @@ ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(std::string path)
 
 u32 ISOFileSystem::OpenFile(std::string filename, FileAccess access)
 {
+	// LBN unittest
+	/*
+	u32 a, b;
+	if (parseLBN("/sce_lbn0x307aa_size0xefffe000", &a, &b)) {
+		ERROR_LOG(FILESYS, "lbn: %08x %08x", a, b);
+	} else {
+		ERROR_LOG(FILESYS, "faillbn: %08x %08x", a, b);
+	}*/
+
+
 	OpenFileEntry entry;
 	if (filename.compare(0,8,"/sce_lbn") == 0)
 	{
-		std::string yo = filename;
-		filename.erase(0,10);
 		u32 sectorStart = 0xFFFFFFFF, readSize = 0xFFFFFFFF;
-		sscanf(filename.c_str(), "%08x", &sectorStart);
-		filename.erase(0,filename.find('_') + 5);
-		sscanf(filename.c_str(), "%08x", &readSize);
-		INFO_LOG(FILESYS, "Got a raw sector read %s, sector %08x, size %08x", yo.c_str(), sectorStart, readSize);
+		parseLBN(filename, &sectorStart, &readSize);
+		INFO_LOG(FILESYS, "Got a raw sector open: %s, sector %08x, size %08x", filename.c_str(), sectorStart, readSize);
 		u32 newHandle = hAlloc->GetNewHandle();
 		entry.seekPos = 0;
 		entry.file = 0;
@@ -335,16 +367,18 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)
 				blockDevice->ReadBlock(e.seekPos, pointer + i * 2048);
 				e.seekPos++;
 			}
-			return size;
+			return (size_t)size;
 		}
 
-		u32 position;
+		u32 positionOnIso;
 		if (e.isRawSector)
 		{
-			position = e.sectorStart;
-			if (position + size > e.sectorStart + e.openSize)
+			// TODO: this seems bogus
+			positionOnIso = e.sectorStart * 2048;
+			
+			if (e.seekPos + size > e.openSize)
 			{
-				size = e.sectorStart + e.openSize - position;
+				size = e.openSize - e.seekPos;
 			}
 		}
 		else
@@ -355,13 +389,13 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)
 				size = e.file->size - (s64)e.seekPos;
 			}
 
-			position = e.file->startingPosition + e.seekPos;
+			positionOnIso = e.file->startingPosition + e.seekPos;
 		}
 		//okay, we have size and position, let's rock
 
 		u32 totalRead = 0;
-		int secNum = position / 2048;
-		int posInSector = position & 2047;
+		int secNum = positionOnIso / 2048;
+		int posInSector = positionOnIso & 2047;
 		s64 remain = size;		
 
 		u8 theSector[2048];
@@ -369,7 +403,7 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)
 		while (remain > 0)
 		{
 			blockDevice->ReadBlock(secNum, theSector);
-			size_t bytesToCopy = 2048-posInSector;
+			size_t bytesToCopy = 2048 - posInSector;
 			if ((s64)bytesToCopy > remain)
 				bytesToCopy = (size_t)remain;
 
@@ -380,7 +414,7 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)
 			posInSector = 0;
 			secNum++;
 		}
-		e.seekPos += size;
+		e.seekPos += (unsigned int)size;
 		return totalRead;
 	}
 	else
@@ -415,7 +449,7 @@ size_t ISOFileSystem::SeekFile(u32 handle, s32 position, FileMove type)
 			if (e.isRawSector)
 				e.seekPos = e.openSize;
 			else
-				e.seekPos = e.file->size + position;		
+				e.seekPos = (unsigned int)(e.file->size + position);
 			break;
 		}
 		return (size_t)e.seekPos;
@@ -430,17 +464,34 @@ size_t ISOFileSystem::SeekFile(u32 handle, s32 position, FileMove type)
 
 PSPFileInfo ISOFileSystem::GetFileInfo(std::string filename) 
 {
+	if (filename.compare(0,8,"/sce_lbn") == 0)
+	{
+		u32 sectorStart = 0xFFFFFFFF, readSize = 0xFFFFFFFF;
+		parseLBN(filename, &sectorStart, &readSize);
+
+		PSPFileInfo fileInfo;
+		fileInfo.name = filename;
+		fileInfo.exists = true;
+		fileInfo.size = readSize;
+		fileInfo.startSector = sectorStart;
+		fileInfo.isOnSectorSystem = true;
+		fileInfo.numSectors = (readSize + sectorSize - 1) / sectorSize;
+		return fileInfo;
+	}
+
 	TreeEntry *entry = GetFromPath(filename);
 	PSPFileInfo x; 
 	if (!entry)
 	{
-		x.size=0;
+		x.size = 0;
+		x.exists = false;
 	}
 	else
 	{
 		x.name = entry->name;
 		x.access = FILEACCESS_READ;
 		x.size = entry->size;
+		x.exists = true;
 		x.type = entry->isDirectory ? FILETYPE_DIRECTORY : FILETYPE_NORMAL;
 		x.isOnSectorSystem = true;
 		x.startSector = entry->startingPosition/2048;
@@ -457,18 +508,13 @@ std::vector<PSPFileInfo> ISOFileSystem::GetDirListing(std::string path)
 		return myVector;
 	}
 
-	// fake the . and ..
-	PSPFileInfo x;
-	x.type = FILETYPE_DIRECTORY;
-	x.name = ".";
-	x.isOnSectorSystem = true;
-	myVector.push_back(x);
-	x.name = "..";
-	myVector.push_back(x);
-
 	for (size_t i=0; i<entry->children.size(); i++)
 	{
 		TreeEntry *e = entry->children[i];
+
+		if(!strcmp(e->name.c_str(), ".") || !strcmp(e->name.c_str(), "..")) // do not include the relative entries in the list
+			continue;
+
 		PSPFileInfo x;
 		x.name = e->name;
 		x.access = FILEACCESS_READ;

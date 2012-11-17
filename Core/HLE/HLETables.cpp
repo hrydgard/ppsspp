@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -28,6 +28,7 @@
 #include "scePower.h"
 #include "sceNet.h"
 #include "sceMpeg.h"
+#include "sceImpose.h"
 #include "sceGe.h"
 #include "scePsmf.h"
 #include "sceRtc.h"
@@ -36,7 +37,6 @@
 #include "sceDmac.h"
 #include "sceKernel.h"
 #include "sceKernelEventFlag.h"
-#include "sceKernelCallback.h"
 #include "sceKernelMemory.h"
 #include "sceKernelInterrupt.h"
 #include "sceKernelModule.h"
@@ -57,10 +57,10 @@
 //zlibdec
 const HLEFunction FakeSysCalls[] =
 {
-  {NID_THREADRETURN, _sceKernelReturnFromThread, "_sceKernelReturnFromThread"},
-  {NID_CALLBACKRETURN, _sceKernelReturnFromCallback, "_sceKernelReturnFromCallback"},
-	{NID_INTERRUPTRETURN, _sceKernelReturnFromInterrupt, "_sceKernelReturnFromInterrupt"},
-  {NID_IDLE, _sceKernelIdle, "_sceKernelIdle"},
+  {NID_THREADRETURN, __KernelReturnFromThread, "__KernelReturnFromThread"},
+  {NID_CALLBACKRETURN, __KernelReturnFromMipsCall, "__KernelReturnFromMipsCall"},
+	{NID_INTERRUPTRETURN, __KernelReturnFromInterrupt, "__KernelReturnFromInterrupt"},
+  {NID_IDLE, __KernelIdle, "_sceKernelIdle"},
 };
 
 const HLEFunction UtilsForUser[] = 
@@ -85,6 +85,7 @@ const HLEFunction UtilsForUser[] =
 	{0xB435DEC5, sceKernelDcacheWritebackInvalidateAll, "sceKernelDcacheWritebackInvalidateAll"},
 	{0x3EE30821, sceKernelDcacheWritebackRange, "sceKernelDcacheWritebackRange"},
 	{0x34B9FA9E, sceKernelDcacheWritebackInvalidateRange, "sceKernelDcacheWritebackInvalidateRange"},
+	{0xC2DF770E, 0, "sceKernelIcacheInvalidateRange"},
 	{0x80001C4C, 0, "sceKernelDcacheProbe"},
 	{0x16641D70, 0, "sceKernelDcacheReadTag"},
 	{0x4FD31C9D, 0, "sceKernelIcacheProbe"},
@@ -104,8 +105,8 @@ const HLEFunction sceRtc[] =
   {0x34885E0D, 0, "sceRtcConvertUtcToLocalTime"},
   {0x779242A2, 0, "sceRtcConvertLocalTimeToUTC"},
   {0x42307A17, 0, "sceRtcIsLeapYear"},
-  {0x05ef322c, 0, "sceRtcGetDaysInMonth"},
-  {0x57726bc1, 0, "sceRtcGetDayOfWeek"},
+  {0x05ef322c, &WrapU_UU<sceRtcGetDaysInMonth>, "sceRtcGetDaysInMonth"},
+  {0x57726bc1, &WrapU_UUU<sceRtcGetDayOfWeek>, "sceRtcGetDayOfWeek"},
   {0x4B1B5E82, 0, "sceRtcCheckValid"},
   {0x3a807cc8, 0, "sceRtcSetTime_t"},
   {0x27c4594c, 0, "sceRtcGetTime_t"},
@@ -157,7 +158,7 @@ const HLEFunction LoadCoreForKernel[] =
   {0xB4D6FECC, 0, "sceKernelApplyElfRelSection"},
   {0x54AB2675, 0, "LoadCoreForKernel_54AB2675"},
   {0x2952F5AC, 0, "sceKernelDcacheWBinvAll"},
-  {0xD8779AC6, 0, "sceKernelIcacheClearAll"},
+  {0xD8779AC6, sceKernelIcacheClearAll, "sceKernelIcacheClearAll"},
   {0x99A695F0, 0, "sceKernelRegisterLibrary"},
   {0x5873A31F, 0, "sceKernelRegisterLibraryForUser"},
   {0x0B464512, 0, "sceKernelReleaseLibrary"},
@@ -278,14 +279,6 @@ const HLEFunction sceUsbstorBoot[] =
 	{0xA55C9E16, 0, "sceUsbstorBootUnregisterNotify"},
 };
 
-//OSD stuff? home button?
-const HLEFunction sceImpose[] =
-{
-	{0x36aa6e91, 0, "sceImposeSetLanguageMode"},  // Seen
-	{0x381bd9e7, 0, "sceImposeHomeButton"},
-	{0x24fd7bcf, 0, "sceImposeGetLanguageMode"},
-	{0x8c943191, 0, "sceImposeGetBatteryIconStatus"},
-};
 
 const HLEFunction sceOpenPSID[] = 
 {
@@ -315,7 +308,6 @@ const HLEModule moduleList[] =
 	{"sceSsl"},
 	{"sceSIRCS_IrDA_Driver"},
 	{"sceRtc"},
-	{"sceImpose",SZ(sceImpose),sceImpose}, //r: [UNK:36aa6e91] : 08b2cd68		//305: [MIPS32 R4K 00000000 ]: Loader: [UNK:24fd7bcf] : 08b2cd70
 	{"Pspnet_Scan"},
 	{"Pspnet_Show_MacAddr"},
 	{"pspeDebug", SZ(pspeDebug), pspeDebug},
@@ -347,6 +339,7 @@ void RegisterAllModules() {
   Register_sceMp3();
   Register_sceHttp();
   Register_scePower();
+	Register_sceImpose();
   Register_sceSuspendForUser();
   Register_sceGe_user();
   Register_sceUmdUser();

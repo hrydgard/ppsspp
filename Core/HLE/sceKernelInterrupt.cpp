@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -35,6 +35,8 @@ struct Interrupt
 // Yeah, this bit is a bit silly.
 static int interruptsEnabled = 1;
 
+static bool inInterrupt;
+
 void __InterruptsInit()
 {
 	interruptsEnabled = 1;
@@ -58,8 +60,6 @@ bool __InterruptsEnabled()
 {
 	return interruptsEnabled != 0;
 }
-
-
 
 
 // InterruptsManager
@@ -116,8 +116,6 @@ void sceKernelCpuResumeIntrWithSync(u32 enable)
 
 
 
-static bool inInterrupt;
-
 bool __IsInInterrupt() 
 {
 	return inInterrupt;
@@ -128,30 +126,55 @@ bool __CanExecuteInterrupt()
 	return !inInterrupt;
 }
 
+class AllegrexInterruptHandler;
+
+struct PendingInterrupt {
+	AllegrexInterruptHandler *handler;
+	int arg;
+	bool hasArg;
+};
+
 
 class AllegrexInterruptHandler
 {
 public:
 	virtual ~AllegrexInterruptHandler() {}
-	virtual void copyArgsToCPU() = 0;
+	virtual void copyArgsToCPU(const PendingInterrupt &pend) = 0;
 	virtual void queueUp() = 0;
+	virtual void queueUpWithArg(int arg) = 0;
 };
 
-
-std::list<AllegrexInterruptHandler *> pendingInterrupts;
+std::list<PendingInterrupt> pendingInterrupts;
 
 class SubIntrHandler : public AllegrexInterruptHandler
 {
 public:
-	virtual void queueUp() 
+	SubIntrHandler() {}
+	virtual void queueUp()
 	{
-		pendingInterrupts.push_back(this);
+		if (!enabled)
+			return;
+		PendingInterrupt pend;
+		pend.handler = this;
+		pend.hasArg = false;
+		pendingInterrupts.push_back(pend);
+	}
+	virtual void queueUpWithArg(int arg)
+	{
+		if (!enabled)
+			return;
+		PendingInterrupt pend;
+		pend.handler = this;
+		pend.arg = arg;
+		pend.hasArg = true;
+		pendingInterrupts.push_back(pend);
 	}
 
-	virtual void copyArgsToCPU()
+	virtual void copyArgsToCPU(const PendingInterrupt &pend)
 	{
+		DEBUG_LOG(CPU, "Entering interrupt handler %08x", handlerAddress);
 		currentMIPS->pc = handlerAddress;
-		currentMIPS->r[MIPS_REG_A0] = number;
+		currentMIPS->r[MIPS_REG_A0] = pend.hasArg ? pend.arg : number;
 		currentMIPS->r[MIPS_REG_A1] = handlerArg;
 		// RA is already taken care of
 	}
@@ -161,8 +184,6 @@ public:
 	u32 handlerAddress;
 	u32 handlerArg;
 };
-
-
 
 class IntrHandler {
 public:
@@ -185,13 +206,25 @@ public:
 		// what to do, what to do...
 	}
 
-	void queueUp()
+	void queueUp(int subintr)
 	{
 		// Just call execute on all the subintr handlers for this interrupt.
 		// They will get queued up.
 		for (std::map<int, SubIntrHandler>::iterator iter = subIntrHandlers.begin(); iter != subIntrHandlers.end(); ++iter)
 		{
-			iter->second.queueUp();
+			if (subintr == -1 || iter->first == subintr)
+				iter->second.queueUp();
+		}
+	}
+
+	void queueUpWithArg(int subintr, int arg)
+	{
+		// Just call execute on all the subintr handlers for this interrupt.
+		// They will get queued up.
+		for (std::map<int, SubIntrHandler>::iterator iter = subIntrHandlers.begin(); iter != subIntrHandlers.end(); ++iter)
+		{
+			if (subintr == -1 || iter->first == subintr)
+				iter->second.queueUpWithArg(arg);
 		}
 	}
 
@@ -242,13 +275,13 @@ bool __RunOnePendingInterrupt()
 	// Can easily prioritize between different kinds of interrupts if necessary.
 	if (pendingInterrupts.size())
 	{
-		AllegrexInterruptHandler *front = pendingInterrupts.front();
+		PendingInterrupt pend = pendingInterrupts.front();
 		pendingInterrupts.pop_front();
 		intState.save();
-		front->copyArgsToCPU();
+		pend.handler->copyArgsToCPU(pend);
+
 		currentMIPS->r[MIPS_REG_RA] = __KernelInterruptReturnAddress();
 		inInterrupt = true;
-		DEBUG_LOG(CPU, "Entering interrupt handler");
 		return true;
 	}
 	else
@@ -258,17 +291,25 @@ bool __RunOnePendingInterrupt()
 	}
 }
 
-void __TriggerInterrupt(PSPInterrupt intno)
+void __TriggerInterrupt(PSPInterrupt intno, int subintr)
 {
-	intrHandlers[intno].queueUp();
-	DEBUG_LOG(HLE, "Triggering subinterrupts for interrupt %i (%i in queue)", intno, (int)pendingInterrupts.size());
+	intrHandlers[intno].queueUp(subintr);
+	DEBUG_LOG(HLE, "Triggering subinterrupts for interrupt %i sub %i (%i in queue)", intno, subintr, pendingInterrupts.size());
 	if (!inInterrupt)
 		__RunOnePendingInterrupt();
 }
 
-void _sceKernelReturnFromInterrupt()
+void __TriggerInterruptWithArg(PSPInterrupt intno, int subintr, int arg)
 {
-	DEBUG_LOG(CPU, "Left interrupt handler");
+	intrHandlers[intno].queueUpWithArg(subintr, arg);
+	DEBUG_LOG(HLE, "Triggering subinterrupts for interrupt %i sub %i with arg %i (%i in queue)", intno, subintr, arg, pendingInterrupts.size());
+	if (!inInterrupt)
+		__RunOnePendingInterrupt();
+}
+
+void __KernelReturnFromInterrupt()
+{
+	DEBUG_LOG(CPU, "Left interrupt handler at %08x", currentMIPS->pc);
 	inInterrupt = false;
 	// Restore context after running the interrupt.
 	intState.restore();
@@ -296,7 +337,6 @@ u32 sceKernelRegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 handl
 	subIntrHandler.handlerAddress = handler;
 	subIntrHandler.handlerArg = handlerArg;
 	intrHandlers[intrNumber].add(subIntrNumber, subIntrHandler);
-
 	return 0;
 }
 
@@ -318,8 +358,8 @@ u32 sceKernelReleaseSubIntrHandler(u32 intrNumber, u32 subIntrNumber)
 
 u32 sceKernelEnableSubIntr(u32 intrNumber, u32 subIntrNumber)
 {
-	ERROR_LOG(HLE,"sceKernelEnableSubIntr(%i, %i)", intrNumber, subIntrNumber);
-	if (intrNumber >= PSP_NUMBER_INTERRUPTS)
+	DEBUG_LOG(HLE,"sceKernelEnableSubIntr(%i, %i)", intrNumber, subIntrNumber);
+	if (intrNumber < 0 || intrNumber >= PSP_NUMBER_INTERRUPTS)
 		return -1;
 
 	if (!intrHandlers[intrNumber].has(subIntrNumber))
@@ -331,8 +371,8 @@ u32 sceKernelEnableSubIntr(u32 intrNumber, u32 subIntrNumber)
 
 u32 sceKernelDisableSubIntr(u32 intrNumber, u32 subIntrNumber)
 {
-	ERROR_LOG(HLE,"sceKernelDisableSubIntr(%i, %i)", intrNumber, subIntrNumber);
-	if (intrNumber >= PSP_NUMBER_INTERRUPTS)
+	DEBUG_LOG(HLE,"sceKernelDisableSubIntr(%i, %i)", intrNumber, subIntrNumber);
+	if (intrNumber < 0 || intrNumber >= PSP_NUMBER_INTERRUPTS)
 		return -1;
 
 	if (!intrHandlers[intrNumber].has(subIntrNumber))
@@ -341,8 +381,6 @@ u32 sceKernelDisableSubIntr(u32 intrNumber, u32 subIntrNumber)
 	intrHandlers[intrNumber].get(subIntrNumber).enabled = false;
 	return 0;
 }
-
-
 
 
 struct PspIntrHandlerOptionParam {
@@ -388,9 +426,12 @@ const HLEFunction Kernel_Library[] =
 	{0x47a0b729,sceKernelIsCpuIntrSuspended, "sceKernelIsCpuIntrSuspended"}, //flags
 	{0xb55249d2,sceKernelIsCpuIntrEnable, "sceKernelIsCpuIntrEnable"}, 
 	{0xa089eca4,sceKernelMemset, "sceKernelMemset"}, 
+	{0xDC692EE3,0, "sceKernelTryLockLwMutex"},
+	{0x37431849,0, "sceKernelTryLockLwMutex_600"},
 	{0xbea46419,0, "sceKernelLockLwMutex"}, 
+	{0x1FC64E09,0, "sceKernelLockLwMutexCB"},
 	{0x15b6446b,0, "sceKernelUnlockLwMutex"}, 
-	{0x293b45b8,0, "sceKernelGetThreadId"}, 
+	{0x293b45b8,sceKernelGetThreadId, "sceKernelGetThreadId"}, 
 	{0x1839852A,0,"sce_paf_private_memcpy"},
 	{0xA089ECA4,0,"sce_paf_private_memset"},
 };

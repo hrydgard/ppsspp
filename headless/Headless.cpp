@@ -4,6 +4,7 @@
 
 #include <stdio.h>
 
+#include "../Core/Config.h"
 #include "../Core/Core.h"
 #include "../Core/CoreTiming.h"
 #include "../Core/System.h"
@@ -39,6 +40,33 @@ public:
 
 	virtual bool IsDebuggingEnabled() {return false;}
 	virtual bool AttemptLoadSymbolMap() {return false;}
+};
+
+class PrintfLogger : public LogListener
+{
+public:
+	void Log(LogTypes::LOG_LEVELS level, const char *msg)
+	{
+		switch (level)
+		{
+		case LogTypes::LDEBUG:
+			printf("D %s", msg);
+			break;
+		case LogTypes::LINFO:
+			printf("I %s", msg);
+			break;
+		case LogTypes::LERROR:
+			printf("E %s", msg);
+			break;
+		case LogTypes::LWARNING:
+			printf("W %s", msg);
+			break;
+		case LogTypes::LNOTICE:
+		default:
+			printf("N %s", msg);
+			break;
+		}
+	}
 };
 
 void printUsage()
@@ -87,12 +115,14 @@ int main(int argc, const char* argv[])
 	LogManager::Init();
 	LogManager *logman = LogManager::GetInstance();
 	
+	PrintfLogger *printfLogger = new PrintfLogger();
+
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++)
 	{
 		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
 		logman->SetEnable(type, fullLog);
 		logman->SetLogLevel(type, LogTypes::LDEBUG);
-		// logman->AddListener(type, logger);
+		logman->AddListener(type, printfLogger);
 	}
 
 	CoreParameter coreParameter;
@@ -103,11 +133,17 @@ int main(int argc, const char* argv[])
 	coreParameter.gpuCore = GPU_NULL;
 	coreParameter.enableSound = false;
 	coreParameter.headLess = true;
+	coreParameter.printfEmuLog = true;
+
+	g_Config.bEnableSound = false;
+	g_Config.bFirstRun = false;
+	g_Config.bIgnoreBadMemAccess = true;
 
 	std::string error_string;
 
 	if (!PSP_Init(coreParameter, &error_string)) {
-		fprintf(stderr, "Failed to start PSP executable. Error: %s\n", error_string.c_str());
+		fprintf(stderr, "Failed to start %s. Error: %s\n", coreParameter.fileToStart.c_str(), error_string.c_str());
+		printf("TESTERROR\n");
 		return 1;
 	}
 

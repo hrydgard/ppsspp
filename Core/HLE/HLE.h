@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -25,11 +25,17 @@
 
 typedef void (* HLEFunc)();
 
+enum {
+	NOT_IN_INTERRUPT,
+	NOT_DISPATCH_SUSPENDED,
+};
+
 struct HLEFunction
 {
 	u32 ID;
 	HLEFunc func;
 	const char *name;
+	u32 flags;
 };
 
 struct HLEModule
@@ -37,6 +43,13 @@ struct HLEModule
 	const char *name;
 	int numFunctions;
 	const HLEFunction *funcTable;
+};
+
+struct Syscall
+{
+	char moduleName[32];
+	u32 symAddr;
+	u32 nid;
 };
 
 #define PARAM(n) currentMIPS->r[4+n]
@@ -67,6 +80,7 @@ u32 GetNibByName(const char *module, const char *function);
 u32 GetSyscallOp(const char *module, u32 nib);
 void WriteSyscall(const char *module, u32 nib, u32 address);
 void CallSyscall(u32 op);
+void ResolveSyscall(const char *moduleName, u32 nib, u32 address);
 
 // Need to be able to save entire kernel state
 int GetStateSize();

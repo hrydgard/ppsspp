@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -17,17 +17,4 @@
 
 #pragma once
 
-#include "Action.h"
-
-// Internal access - used by sceSetGeCallback
-u32 __KernelCreateCallback(const char *name, u32 entrypoint, u32 signalArg, Action *actionAfter = 0);
-
-void sceKernelCreateCallback();
-void sceKernelDeleteCallback();
-void sceKernelNotifyCallback();
-void sceKernelCancelCallback();
-void sceKernelGetCallbackCount();
-void _sceKernelReturnFromCallback();
-void sceKernelCheckCallback();
-void sceKernelGetCallbackCount();
-void sceKernelReferCallbackStatus();
+void Register_sceImpose();

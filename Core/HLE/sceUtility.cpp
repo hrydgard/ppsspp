@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -252,15 +252,15 @@ void sceUtilitySavedataUpdate()
 void sceUtilityLoadAvModule()
 {
 	DEBUG_LOG(HLE,"sceUtilityLoadAvModule(%i)", PARAM(0));
-	__KernelReSchedule("utilityloadavmodule");
 	RETURN(0);
+	__KernelReSchedule("utilityloadavmodule");
 }
 
 void sceUtilityLoadModule()
 {
 	DEBUG_LOG(HLE,"sceUtilityLoadModule(%i)", PARAM(0));
-	__KernelReSchedule("utilityloadmodule");
 	RETURN(0);
+	__KernelReSchedule("utilityloadmodule");
 }
 
 typedef struct
@@ -350,42 +350,170 @@ void sceUtilityOskGetStatus()
 }
 
 
-void sceUtilityGetSystemParamString()
+void sceUtilityNetconfInitStart()
 {
-	int id = PARAM(0);
-	DEBUG_LOG(HLE,"sceUtilityGetSystemParamString(%i, %08x, %i)", id, PARAM(1), PARAM(2));
-	char *buf = (char *)Memory::GetPointer(PARAM(1));
-	strcpy(buf, "FAKE");
+	DEBUG_LOG(HLE,"FAKE sceUtilityNetconfInitStart(%i)", PARAM(0));
+	__UtilityInitStart();
+}
+
+void sceUtilityNetconfShutdownStart()
+{
+	DEBUG_LOG(HLE,"FAKE sceUtilityNetconfShutdownStart(%i)", PARAM(0));
+	__UtilityShutdownStart();
 	RETURN(0);
 }
 
-void sceUtilityGetSystemParamInt()
+void sceUtilityNetconfUpdate()
 {
-	DEBUG_LOG(HLE,"sceUtilityGetSystemParamInt(%i, %08x)", PARAM(0), PARAM(1));
-	u32 *outPtr = (u32*)Memory::GetPointer(PARAM(1));
-	const int defaultValues[16] =
-	{
-		0,
-		0,
-		0,
-		0,//date notation
-		0,//time notation
-		0,//timezone offset in minutes
-		0,//daylight savings
-		1,//language (0=jap 1=eng)
-		0,
-	};
-	*outPtr = defaultValues[PARAM(0)];
+	DEBUG_LOG(HLE,"FAKE sceUtilityNetconfUpdate(%i)", PARAM(0));
+	__UtilityUpdate();
 	RETURN(0);
+}
+
+void sceUtilityNetconfGetStatus()
+{
+	DEBUG_LOG(HLE,"sceUtilityNetconfGetStatus()");
+	RETURN(__UtilityGetStatus());
+}
+
+#define PSP_SYSTEMPARAM_ID_STRING_NICKNAME	1
+#define PSP_SYSTEMPARAM_ID_INT_ADHOC_CHANNEL	2
+#define PSP_SYSTEMPARAM_ID_INT_WLAN_POWERSAVE	3
+#define PSP_SYSTEMPARAM_ID_INT_DATE_FORMAT	4
+#define PSP_SYSTEMPARAM_ID_INT_TIME_FORMAT	5
+//Timezone offset from UTC in minutes, (EST = -300 = -5 * 60)
+#define PSP_SYSTEMPARAM_ID_INT_TIMEZONE		6
+#define PSP_SYSTEMPARAM_ID_INT_DAYLIGHTSAVINGS	7
+#define PSP_SYSTEMPARAM_ID_INT_LANGUAGE		8
+/**
+ * #9 seems to be Region or maybe X/O button swap.
+ * It doesn't exist on JAP v1.0
+ * is 1 on NA v1.5s
+ * is 0 on JAP v1.5s
+ * is read-only
+ */
+#define PSP_SYSTEMPARAM_ID_INT_UNKNOWN		9
+
+/**
+ * Return values for the SystemParam functions
+ */
+#define PSP_SYSTEMPARAM_RETVAL_OK	0
+#define PSP_SYSTEMPARAM_RETVAL_FAIL	0x80110103
+
+/**
+ * Valid values for PSP_SYSTEMPARAM_ID_INT_ADHOC_CHANNEL
+ */
+#define PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC 0
+#define PSP_SYSTEMPARAM_ADHOC_CHANNEL_1		1
+#define PSP_SYSTEMPARAM_ADHOC_CHANNEL_6		6
+#define PSP_SYSTEMPARAM_ADHOC_CHANNEL_11	11
+
+/**
+ * Valid values for PSP_SYSTEMPARAM_ID_INT_WLAN_POWERSAVE
+ */
+#define PSP_SYSTEMPARAM_WLAN_POWERSAVE_OFF	0
+#define PSP_SYSTEMPARAM_WLAN_POWERSAVE_ON	1
+
+/**
+ * Valid values for PSP_SYSTEMPARAM_ID_INT_DATE_FORMAT
+ */
+#define PSP_SYSTEMPARAM_DATE_FORMAT_YYYYMMDD	0
+#define PSP_SYSTEMPARAM_DATE_FORMAT_MMDDYYYY	1
+#define PSP_SYSTEMPARAM_DATE_FORMAT_DDMMYYYY	2
+
+/**
+ * Valid values for PSP_SYSTEMPARAM_ID_INT_TIME_FORMAT
+ */
+#define PSP_SYSTEMPARAM_TIME_FORMAT_24HR	0
+#define PSP_SYSTEMPARAM_TIME_FORMAT_12HR	1
+
+/**
+ * Valid values for PSP_SYSTEMPARAM_ID_INT_DAYLIGHTSAVINGS
+ */
+#define PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_STD	0
+#define PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_SAVING	1
+
+/**
+ * Valid values for PSP_SYSTEMPARAM_ID_INT_LANGUAGE
+ */
+#define PSP_SYSTEMPARAM_LANGUAGE_JAPANESE	0
+#define PSP_SYSTEMPARAM_LANGUAGE_ENGLISH	1
+#define PSP_SYSTEMPARAM_LANGUAGE_FRENCH		2
+#define PSP_SYSTEMPARAM_LANGUAGE_SPANISH	3
+#define PSP_SYSTEMPARAM_LANGUAGE_GERMAN		4
+#define PSP_SYSTEMPARAM_LANGUAGE_ITALIAN	5
+#define PSP_SYSTEMPARAM_LANGUAGE_DUTCH		6
+#define PSP_SYSTEMPARAM_LANGUAGE_PORTUGUESE	7
+#define PSP_SYSTEMPARAM_LANGUAGE_KOREAN		8
+
+
+
+
+u32 sceUtilityGetSystemParamString(u32 id, u32 destaddr, u32 unknownparam)
+{
+	//DEBUG_LOG(HLE,"sceUtilityGetSystemParamString(%i, %08x, %i)", id,destaddr,unknownparam);
+	char *buf = (char *)Memory::GetPointer(destaddr);
+	switch (id) {
+		case PSP_SYSTEMPARAM_ID_STRING_NICKNAME:
+			strcpy(buf, "shadow");
+			break;
+
+		default:
+			return PSP_SYSTEMPARAM_RETVAL_FAIL;
+	}
+
+	return 0;
+}
+
+u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr)
+{
+	DEBUG_LOG(HLE,"sceUtilityGetSystemParamInt(%i, %08x)", id,destaddr);
+	u32 *outPtr = (u32*)Memory::GetPointer(destaddr);
+	switch (id) {
+		case PSP_SYSTEMPARAM_ID_INT_ADHOC_CHANNEL:
+			*outPtr = PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC;
+			break;
+		case PSP_SYSTEMPARAM_ID_INT_WLAN_POWERSAVE:
+			*outPtr = PSP_SYSTEMPARAM_WLAN_POWERSAVE_OFF;
+			break;
+		case PSP_SYSTEMPARAM_ID_INT_DATE_FORMAT:
+			*outPtr = PSP_SYSTEMPARAM_DATE_FORMAT_DDMMYYYY;
+			break;
+		case PSP_SYSTEMPARAM_ID_INT_TIME_FORMAT:
+			*outPtr = PSP_SYSTEMPARAM_TIME_FORMAT_24HR;
+			break;
+		case PSP_SYSTEMPARAM_ID_INT_TIMEZONE:
+			*outPtr = 60;
+			break;
+		case PSP_SYSTEMPARAM_ID_INT_DAYLIGHTSAVINGS:
+			*outPtr = PSP_SYSTEMPARAM_TIME_FORMAT_24HR;
+			break;
+		case PSP_SYSTEMPARAM_ID_INT_LANGUAGE:
+			*outPtr = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
+			break;
+		case PSP_SYSTEMPARAM_ID_INT_UNKNOWN:
+			*outPtr = 1;
+			break;
+		default:
+			return PSP_SYSTEMPARAM_RETVAL_FAIL;
+	}
+
+	return 0;
+}
+
+u32 sceUtilityLoadNetModule(u32 module)
+{
+	DEBUG_LOG(HLE,"FAKE: sceUtilityLoadNetModule(%i)", module);
+	return 0;
 }
 
 const HLEFunction sceUtility[] = 
 {
-	{0x1579a159, 0, "sceUtilityLoadNetModule"},
-	{0xf88155f6, 0, "sceUtilityNetconfShutdownStart"}, 
-	{0x4db1e739, 0, "sceUtilityNetconfInitStart"}, 
-	{0x91e70e35, 0, "sceUtilityNetconfUpdate"},	 
-	{0x6332aa39, 0, "sceUtilityNetconfGetStatus"},				
+	{0x1579a159, &WrapU_U<sceUtilityLoadNetModule>, "sceUtilityLoadNetModule"},
+	{0xf88155f6, sceUtilityNetconfShutdownStart, "sceUtilityNetconfShutdownStart"},
+	{0x4db1e739, sceUtilityNetconfInitStart, "sceUtilityNetconfInitStart"},
+	{0x91e70e35, sceUtilityNetconfUpdate, "sceUtilityNetconfUpdate"},
+	{0x6332aa39, sceUtilityNetconfGetStatus, "sceUtilityNetconfGetStatus"},
 
 	{0x67af3428, sceUtilityMsgDialogShutdownStart, "sceUtilityMsgDialogShutdownStart"},	
 	{0x2ad8e239, sceUtilityMsgDialogInitStart, "sceUtilityMsgDialogInitStart"},			
@@ -403,8 +531,8 @@ const HLEFunction sceUtility[] =
 	{0xf3f76017, sceUtilityOskGetStatus, "sceUtilityOskGetStatus"}, 
 
 	{0x41e30674, 0, "sceUtilitySetSystemParamString"},
-	{0x34b78343, sceUtilityGetSystemParamString, "sceUtilityGetSystemParamString"}, 
-	{0xA5DA2406, sceUtilityGetSystemParamInt, "sceUtilityGetSystemParamInt"},
+	{0x34b78343, &WrapU_UUU<sceUtilityGetSystemParamString>, "sceUtilityGetSystemParamString"}, 
+	{0xA5DA2406, &WrapU_UU<sceUtilityGetSystemParamInt>, "sceUtilityGetSystemParamInt"},
 	{0xc492f751, 0, "sceUtilityGameSharingInitStart"}, 
 	{0xefc6f80f, 0, "sceUtilityGameSharingShutdownStart"}, 
 	{0x7853182d, 0, "sceUtilityGameSharingUpdate"}, 
@@ -423,12 +551,23 @@ const HLEFunction sceUtility[] =
 	{0xf5ce1134, 0, "sceUtilityHtmlViewerShutdownStart"}, 
 	{0x05afb9e4, 0, "sceUtilityHtmlViewerUpdate"}, 
 	{0xc629af26, sceUtilityLoadAvModule, "sceUtilityLoadAvModule"}, 
-	{0xf7d8d092, 0, "sceUtilityUnloadAvModule"}, 
+	{0xf7d8d092, 0, "sceUtilityUnloadAvModule"},
 	{0x2a2b3de0, sceUtilityLoadModule, "sceUtilityLoadModule"},
 	{0xe49bfe92, 0, "sceUtilityUnloadModule"},
-	{0xab083ea9, 0, "sceUtility_ab083ea9"},
-	{0xd81957b7, 0, "sceUtility_d81957b7"},
-	{0xf9e0008c, 0, "sceUtility_f9e0008c"},
+	{0x0251B134, 0, "sceUtilityScreenshotInitStart"},
+	{0xF9E0008C, 0, "sceUtilityScreenshotShutdownStart"},
+	{0xAB083EA9, 0, "sceUtilityScreenshotUpdate"},
+	{0xD81957B7, 0, "sceUtilityScreenshotGetStatus"},
+	{0x86A03A27, 0, "sceUtilityScreenshotContStart"},
+
+	{0x0D5BC6D2, 0, "sceUtilityLoadUsbModule"},
+	{0xF64910F0, 0, "sceUtilityUnloadUsbModule"},
+
+	{0x24AC31EB, 0, "sceUtilityGamedataInstallInitStart"},
+  {0x32E32DCB, 0, "sceUtilityGamedataInstallShutdownStart"},
+  {0x4AECD179, 0, "sceUtilityGamedataInstallUpdate"},
+  {0xB57E95D9, 0, "sceUtilityGamedataInstallGetStatus"},
+	{0x180F7B62, 0, "sceUtilityGamedataInstallAbortFunction"},
 };
 
 void Register_sceUtility()

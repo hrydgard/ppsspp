@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -64,8 +64,26 @@ bool Load_PSP_ISO(const char *filename, std::string *error_string)
 	pspFileSystem.Mount("UMD1:", umd2);
 	pspFileSystem.Mount("DISC0:", umd2);
 
-	std::string bootpath("disc0:/PSP_GAME/SYSDIR/BOOT.BIN");
-	//std::string bootpath("/PSP_GAME/USRDIR/locoroco/locoroco.prx");
+	std::string bootpath("disc0:/PSP_GAME/SYSDIR/EBOOT.BIN");
+	// bypass patchers
+	if (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/SYSDIR/EBOOT.OLD").exists) {
+		bootpath = "disc0:/PSP_GAME/SYSDIR/EBOOT.OLD";
+	}
+	bool hasEncrypted = false;
+	u32 fd;
+	if ((fd = pspFileSystem.OpenFile(bootpath, FILEACCESS_READ)) != 0)
+	{
+		u8 head[4];
+		pspFileSystem.ReadFile(fd, head, 4);
+		if (memcmp(head, "~PSP", 4) == 0 || memcmp(head, "\x7F""ELF", 4) == 0) {
+			hasEncrypted = true;
+		}
+	}
+	if (!hasEncrypted)
+	{
+		// try unencrypted BOOT.BIN
+		bootpath = "disc0:/PSP_GAME/SYSDIR/BOOT.BIN";
+	}
 
 	INFO_LOG(LOADER,"Loading %s...", bootpath.c_str());
 	return __KernelLoadExec(bootpath.c_str(), 0, error_string);

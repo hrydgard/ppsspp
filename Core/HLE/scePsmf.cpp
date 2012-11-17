@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -79,13 +79,25 @@ const HLEFunction scePsmf[] =
   {0xc7db3a5b,0,"scePsmfGetCurrentStreamTypeFunction"},
   {0xB78EB9E9,0,"scePsmfGetHeaderSizeFunction"},
   {0xA5EBFE81,0,"scePsmfGetStreamSizeFunction"},
+	{0xE1283895,0,"scePsmfGetPsmfVersionFunction"},
 };
+
+void scePsmfPlayerCreate() {
+	DEBUG_LOG(HLE, "scePsmfPlayerCreate");
+	RETURN(0);
+}
+
+void scePsmfPlayerReleasePsmf() {
+	DEBUG_LOG(HLE, "scePsmfPlayerReleasePsmf");
+	RETURN(0);
+}
+
 
 const HLEFunction scePsmfPlayer[] =
 {
+  {0x235d8787,scePsmfPlayerCreate,"scePsmfPlayerCreateFunction"},
   {0x1078c008,0,"scePsmfPlayerStopFunction"},
   {0x1e57a8e7,0,"scePsmfPlayerConfigPlayer"},
-  {0x235d8787,0,"scePsmfPlayerCreateFunction"},
   {0x2beb1569,0,"scePsmfPlayerBreak"},
   {0x3d6d25a9,0,"scePsmfPlayerSetPsmfFunction"},
   {0x3ea82a4b,0,"scePsmfPlayerGetAudioOutSize"},
@@ -103,9 +115,14 @@ const HLEFunction scePsmfPlayer[] =
   {0xb8d10c56,0,"scePsmfPlayerSelectAudio"},
   {0xb9848a74,0,"scePsmfPlayerGetAudioData"},
   {0xdf089680,0,"scePsmfPlayerGetPsmfInfo"},
-  {0xe792cd94,0,"scePsmfPlayerReleasePsmfFunction"},
+  {0xe792cd94,scePsmfPlayerReleasePsmf,"scePsmfPlayerReleasePsmfFunction"},
   {0xf3efaa91,0,"scePsmfPlayerGetCurrentPlayMode"},
   {0xf8ef08a6,0,"scePsmfPlayerGetCurrentStatus"},
+	{0x2D0E4E0A,0,"scePsmfPlayerSetTempBufFunction"},
+	{0x58B83577,0,"scePsmfPlayerSetPsmfCBFunction"},
+	{0x2673646B,0,"scePsmfVerifyPsmf"},
+	{0x4E624A34,0,"scePsmfGetEPWithId"},
+	{0x5F457515,0,"scePsmfGetEPidWithTimestampFunction"},
 };
 
 void Register_scePsmf() {

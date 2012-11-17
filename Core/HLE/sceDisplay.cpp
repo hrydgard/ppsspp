@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -15,7 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#ifdef ANDROID
+#if defined(ANDROID) || defined(BLACKBERRY)
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 #else
@@ -107,6 +107,11 @@ void __DisplayInit()
 	vCount = 0;
 
 	InitGfxState();
+}
+
+void __DisplayShutdown()
+{
+	ShutdownGfxState();
 }
 
 void hleEnterVblank(u64 userdata, int cyclesLate)
@@ -220,28 +225,34 @@ void sceDisplaySetFramebuf()
 
 void sceDisplayGetFramebuf()
 {
-	DEBUG_LOG(HLE,"sceDisplayGetFramebuf");	
+	DEBUG_LOG(HLE,"sceDisplayGetFramebuf()");	
 	RETURN(framebuf.topaddr);
 }
 
 void sceDisplayWaitVblankStart()
 {
-	DEBUG_LOG(HLE,"sceDisplayWaitVblankStart");
+	DEBUG_LOG(HLE,"sceDisplayWaitVblankStart()");
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, false);
-	RETURN(0);
 }
 
 void sceDisplayWaitVblank()
 {
-	DEBUG_LOG(HLE,"sceDisplayWaitVblank");	
+	DEBUG_LOG(HLE,"sceDisplayWaitVblank()");
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, false);
-	sceDisplayWaitVblankStart();
+}
+
+void sceDisplayWaitVblankCB()
+{
+	DEBUG_LOG(HLE,"sceDisplayWaitVblankCB()");	
+	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, true);
+	__KernelCheckCallbacks();
 }
 
 void sceDisplayWaitVblankStartCB()
 {
-	DEBUG_LOG(HLE,"sceDisplayWaitVblankStartCB");	
+	DEBUG_LOG(HLE,"sceDisplayWaitVblankStartCB()");	
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, true);
+	__KernelCheckCallbacks();
 }
 
 void sceDisplayGetVcount()
@@ -249,7 +260,7 @@ void sceDisplayGetVcount()
 	// Too spammy
 	// DEBUG_LOG(HLE,"%i=sceDisplayGetVcount()", vCount);	
 	// Games like Puyo Puyo call this in a tight loop at end-of-frame. We could have it consume some time from CoreTiming?
-	CoreTiming::Idle(100000);
+	CoreTiming::Idle(1000000);
 	RETURN(vCount);
 }
 
@@ -276,12 +287,13 @@ float sceDisplayGetFramePerSec()
 
 const HLEFunction sceDisplay[] = 
 {
-	{0x0E20F177,&WrapU_UUU<sceDisplaySetMode>,					"sceDisplaySetMode"},
-	{0x289D82FE,sceDisplaySetFramebuf,			"sceDisplaySetFramebuf"},
-	{0x36CDFADE,sceDisplayWaitVblank,			 "sceDisplayWaitVblank"},
-	{0x984C27E7,sceDisplayWaitVblankStart,	"sceDisplayWaitVblankStart"},
-	{0x46F186C3,sceDisplayWaitVblankStartCB,"sceDisplayWaitVblankStartCB"},
-	{0x8EB9EC49,sceDisplayWaitVblankStartCB,"sceDisplayWaitVblankCB"},
+	{0x0E20F177,&WrapU_UUU<sceDisplaySetMode>, "sceDisplaySetMode"},
+	{0x289D82FE,sceDisplaySetFramebuf, "sceDisplaySetFramebuf"},
+	{0x36CDFADE,sceDisplayWaitVblank, "sceDisplayWaitVblank"},
+	{0x984C27E7,sceDisplayWaitVblankStart, "sceDisplayWaitVblankStart"},
+	{0x8EB9EC49,sceDisplayWaitVblankCB, "sceDisplayWaitVblankCB"},
+	{0x46F186C3,sceDisplayWaitVblankStartCB, "sceDisplayWaitVblankStartCB"},
+	{0x77ed8b3a,0,"sceDisplayWaitVblankStartMultiCB"},
 
 	{0xdba6c4c4,&WrapF_V<sceDisplayGetFramePerSec>,"sceDisplayGetFramePerSec"},
 	{0x773dd3a3,sceDisplayGetCurrentHcount,"sceDisplayGetCurrentHcount"},

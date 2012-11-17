@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -23,6 +23,7 @@
 #include "StdMutex.h"
 #include "CoreTiming.h"
 #include "Core.h"
+#include "HLE/sceKernelThread.h"
 
 int CPU_HZ = 222000000;
 
@@ -169,7 +170,7 @@ void Shutdown()
 
 u64 GetTicks()
 {
-	return (u64)globalTimer; 
+	return (u64)globalTimer + slicelength - downcount;
 }
 
 u64 GetIdleTicks()

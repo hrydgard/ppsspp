@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -29,7 +29,12 @@ using namespace MIPSAnalyst;
 #define _POS	((op>>6 ) & 0x1F)
 #define _SIZE ((op>>11 ) & 0x1F)
 
-#define OLDD Comp_Generic(op); return;
+// All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
+// Currently known non working ones should have DISABLE.
+
+//#define CONDITIONAL_DISABLE Comp_Generic(op); return;
+#define CONDITIONAL_DISABLE ;
+#define DISABLE Comp_Generic(op); return;
 
 namespace MIPSComp
 {
@@ -48,7 +53,7 @@ namespace MIPSComp
 
 	void Jit::Comp_IType(u32 op)
 	{
-		// OLDD
+		CONDITIONAL_DISABLE;
 		s32 simm = (s16)(op & 0xFFFF);
 		u32 uimm = (u16)(op & 0xFFFF);
 
@@ -141,7 +146,8 @@ namespace MIPSComp
 
 	void Jit::Comp_RType3(u32 op)
 	{
-		// OLDD
+		CONDITIONAL_DISABLE
+		
 		int rt = _RT;
 		int rs = _RS;
 		int rd = _RD;
@@ -175,8 +181,9 @@ namespace MIPSComp
 			break;
 
 		case 42: //R(rd) = (int)R(rs) < (int)R(rt); break; //slt
-			gpr.Lock(rt, rs);
+			gpr.Lock(rt, rs, rd);
 			gpr.BindToRegister(rs, true, true);
+			gpr.BindToRegister(rd, true, true);
 			XOR(32, R(EAX), R(EAX));
 			CMP(32, gpr.R(rs), gpr.R(rt));
 			SETcc(CC_L, R(EAX));
@@ -187,6 +194,7 @@ namespace MIPSComp
 		case 43: //R(rd) = R(rs) < R(rt);		break; //sltu
 			gpr.Lock(rd, rs, rt);
 			gpr.BindToRegister(rs, true, true);
+			gpr.BindToRegister(rd, true, true);
 			XOR(32, R(EAX), R(EAX));
 			CMP(32, gpr.R(rs), gpr.R(rt));
 			SETcc(CC_B, R(EAX));
@@ -222,6 +230,7 @@ namespace MIPSComp
 	// "over-shifts" work the same as on x86 - only bottom 5 bits are used to get the shift value
 	void Jit::CompShiftVar(u32 op, void (XEmitter::*shift)(int, OpArg, OpArg))
 	{
+		DISABLE;
 		int rd = _RD;
 		int rt = _RT;
 		int rs = _RS;
@@ -239,17 +248,19 @@ namespace MIPSComp
 
 	void Jit::Comp_ShiftType(u32 op)
 	{
+		CONDITIONAL_DISABLE
+		int rs = _RS;
+		int fd = _FD;
 		// WARNIGN : ROTR
-		// OLDD
 		switch (op & 0x3f)
 		{
 		case 0: CompShiftImm(op, &XEmitter::SHL); break;
-		case 2: CompShiftImm(op, &XEmitter::SHR); break;	// srl
+		case 2: CompShiftImm(op, rs == 1 ? &XEmitter::ROR : &XEmitter::SHR); break;	// srl, rotr
 		case 3: CompShiftImm(op, &XEmitter::SAR); break;	// sra
 
-		case 4: CompShiftVar(op, &XEmitter::SHL); break;	// R(rd) = R(rt) << R(rs);				break; //sllv
-		case 6: CompShiftVar(op, &XEmitter::SHR); break;	// R(rd) = R(rt) >> R(rs);				break; //srlv
-		case 7: CompShiftVar(op, &XEmitter::SAR); break;	// R(rd) = ((s32)R(rt)) >> R(rs); break; //srav
+		case 4: CompShiftVar(op, &XEmitter::SHL); break; //sllv
+		case 6: CompShiftVar(op, fd == 1 ? &XEmitter::ROR : &XEmitter::SHR); break;	//srlv
+		case 7: CompShiftVar(op, &XEmitter::SAR); break; //srav
 
 		default:
 			Comp_Generic(op);
@@ -260,7 +271,7 @@ namespace MIPSComp
 
 	void Jit::Comp_Allegrex(u32 op)
 	{
-		// OLDD
+		CONDITIONAL_DISABLE
 		int rt = _RT;
 		int rd = _RD;
 		switch ((op >> 6) & 31)

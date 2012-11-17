@@ -214,6 +214,11 @@ BEGIN
         MENUITEM "&Toggle Full Screen\tAlt+Enter", ID_OPTIONS_FULLSCREEN, GRAYED
         MENUITEM "&Display raw framebuffer",    ID_OPTIONS_DISPLAYRAWFRAMEBUFFER
         MENUITEM SEPARATOR
+        MENUITEM "Screen &1x",                  ID_OPTIONS_SCREEN1X
+        MENUITEM "Screen &2x",                  ID_OPTIONS_SCREEN2X
+        MENUITEM "Screen &3x",                  ID_OPTIONS_SCREEN3X
+        MENUITEM "Screen &4x",                  ID_OPTIONS_SCREEN4X
+        MENUITEM SEPARATOR
         MENUITEM "&Ignore illegal reads/writes", ID_OPTIONS_IGNOREILLEGALREADS
     END
     POPUP "&Help"
@@ -369,7 +374,7 @@ BEGIN
         BEGIN
             VALUE "Comments", "PPSSPP PSP emulator"
             VALUE "CompanyName", "Henrik Rydgård Inc."
-            VALUE "FileDescription", "PPSPP PSP emulator"
+            VALUE "FileDescription", "PPSSPP"
             VALUE "FileVersion", "1, 0, 0, 0"
             VALUE "InternalName", "s"
             VALUE "LegalCopyright", "Copyright (C) 2006-2012 by Henrik Rydgård"

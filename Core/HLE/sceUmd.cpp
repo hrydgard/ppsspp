@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -18,7 +18,7 @@
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
 #include "sceUmd.h"
-
+#include "sceKernelThread.h"
 
 #define UMD_NOT_PRESENT 0x01
 #define UMD_PRESENT		 0x02
@@ -27,18 +27,26 @@
 #define UMD_READY			 0x10
 #define UMD_READABLE		0x20
 
+
 u8 umdActivated = 1;
 u32 umdStatus = 0;
+u32 umdErrorStat = 0;
 
+
+#define PSP_UMD_TYPE_GAME 0x10
+#define PSP_UMD_TYPE_VIDEO 0x20
+#define PSP_UMD_TYPE_AUDIO 0x40
+
+struct PspUmdInfo {
+	int type;
+};
 
 
 void __UmdInit() {
 	umdActivated = 1;
 	umdStatus = 0;
+	umdErrorStat = 0;
 }
-
-
-
 
 u8 __KernelUmdGetState()
 {
@@ -69,46 +77,64 @@ void __KernelUmdDeactivate()
 void sceUmdCheckMedium()
 {
 	DEBUG_LOG(HLE,"1=sceUmdCheckMedium(?)");
-	//ignore PARAM(0)
+	//ignore PARAM(0)	
 	RETURN(1); //non-zero: disc in drive
 }
 	
 void sceUmdGetDiscInfo()
 {
-	ERROR_LOG(HLE,"UNIMPL sceUmdGetDiscInfo(?)");
+	u32 infoAddr = PARAM(0);
+	ERROR_LOG(HLE,"sceUmdGetDiscInfo(%08x)", infoAddr);
+	PspUmdInfo info;
+	info.type = PSP_UMD_TYPE_GAME;
+	if (Memory::IsValidAddress(infoAddr))
+	{
+		Memory::WriteStruct(infoAddr, &info);
+	}
 	RETURN(0);
 }
 
-void sceUmdActivate()
+u32 sceUmdActivate(u32 unknown, const char *name)
 {
-	u32 unknown = PARAM(0);
-	const char *name = Memory::GetCharPointer(PARAM(1));
-	u32 retVal	= 1;
+	u32 retVal	= 0;
 	__KernelUmdActivate();
 	DEBUG_LOG(HLE,"%i=sceUmdActivate(%08x, %s)", retVal, unknown, name);
-	//__KernelUMDActivate();
-	RETURN(retVal);
+	u32 notifyArg = UMD_PRESENT | UMD_READABLE;
+	__KernelNotifyCallbackType(THREAD_CALLBACK_UMD, -1, notifyArg);
+	return retVal;
 }
 
-void sceUmdDeactivate()
+u32 sceUmdDeactivate(u32 unknown, const char *name)
 {
-	ERROR_LOG(HLE,"sceUmdDeactivate()");
+	DEBUG_LOG(HLE,"sceUmdDeactivate()");
+	u8 triggerCallback = umdActivated;
 	__KernelUmdDeactivate();
-	RETURN(0);
+
+	if (triggerCallback) {
+		u32 notifyArg = UMD_PRESENT | UMD_READY;
+		__KernelNotifyCallbackType(THREAD_CALLBACK_UMD, -1, notifyArg);
+	}
+	return 0;
 }
 
-void sceUmdRegisterUMDCallBack()
+u32 sceUmdRegisterUMDCallBack(u32 cbId)
 {
-	ERROR_LOG(HLE,"UNIMPL 0=sceUmdRegisterUMDCallback(id=%i)",PARAM(0));
-	RETURN(0);
+	DEBUG_LOG(HLE,"0=sceUmdRegisterUMDCallback(id=%i)",PARAM(0));
+	return __KernelRegisterCallback(THREAD_CALLBACK_UMD, cbId);
 }
 
-void sceUmdGetDriveStat()
+u32 sceUmdUnRegisterUMDCallBack(u32 cbId)
+{
+	DEBUG_LOG(HLE,"0=sceUmdUnRegisterUMDCallBack(id=%i)",PARAM(0));
+	return __KernelUnregisterCallback(THREAD_CALLBACK_UMD, cbId);
+}
+
+u32 sceUmdGetDriveStat()
 {
 	//u32 retVal = PSP_UMD_INITED | PSP_UMD_READY | PSP_UMD_PRESENT;
 	u32 retVal = __KernelUmdGetState();
 	DEBUG_LOG(HLE,"0x%02x=sceUmdGetDriveStat()",retVal);
-	RETURN(retVal);
+	return retVal;
 }
 
 /** 
@@ -150,22 +176,28 @@ void sceUmdCancelWaitDriveStat()
 	RETURN(0);
 }
 
+u32 sceUmdGetErrorStat()
+{
+	DEBUG_LOG(HLE,"%i=sceUmdGetErrorStat()", umdErrorStat);
+	return umdErrorStat;
+}
+
 
 const HLEFunction sceUmdUser[] = 
 {
-	{0xC6183D47,sceUmdActivate,"sceUmdActivate"},
-	{0x6B4A146C,sceUmdGetDriveStat,"sceUmdGetDriveStat"},
+	{0xC6183D47,&WrapU_UC<sceUmdActivate>,"sceUmdActivate"},
+	{0x6B4A146C,&WrapU_V<sceUmdGetDriveStat>,"sceUmdGetDriveStat"},
 	{0x46EBB729,sceUmdCheckMedium,"sceUmdCheckMedium"},
-	{0xE83742BA,sceUmdDeactivate,"sceUmdDeactivate"},
+	{0xE83742BA,&WrapU_UC<sceUmdDeactivate>,"sceUmdDeactivate"},
 	{0x8EF08FCE,sceUmdWaitDriveStat,"sceUmdWaitDriveStat"},
 	{0x56202973,sceUmdWaitDriveStatWithTimer,"sceUmdWaitDriveStatWithTimer"},
 	{0x4A9E5E29,sceUmdWaitDriveStatCB,"sceUmdWaitDriveStatCB"},
 	{0x6af9b50a,sceUmdCancelWaitDriveStat,"sceUmdCancelWaitDriveStat"},
-	{0x6B4A146C,sceUmdGetDriveStat,"sceUmdGetDriveStat"},
-	{0x20628E6F,0,"sceUmdGetErrorStat"},
+	{0x6B4A146C,&WrapU_V<sceUmdGetDriveStat>,"sceUmdGetDriveStat"},
+	{0x20628E6F,&WrapU_V<sceUmdGetErrorStat>,"sceUmdGetErrorStat"},
 	{0x340B7686,sceUmdGetDiscInfo,"sceUmdGetDiscInfo"},
-	{0xAEE7404D,sceUmdRegisterUMDCallBack,"sceUmdRegisterUMDCallBack"},
-	{0xBD2BDE07,0,"sceUmdUnRegisterUMDCallBack"},
+	{0xAEE7404D,&WrapU_U<sceUmdRegisterUMDCallBack>,"sceUmdRegisterUMDCallBack"},
+	{0xBD2BDE07,&WrapU_U<sceUmdUnRegisterUMDCallBack>,"sceUmdUnRegisterUMDCallBack"},
 	{0x87533940,0,"sceUmdReplaceProhibit"},	// ??? sounds bogus
 };
 

@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -53,10 +53,13 @@ public:
 
 struct PSPFileInfo
 {
-	PSPFileInfo() {size=0;access=0;type=FILETYPE_NORMAL;isOnSectorSystem=false;}
+	PSPFileInfo() 
+		: size(0), access(0), exists(false), type(FILETYPE_NORMAL), isOnSectorSystem(false), startSector(0), numSectors(0) {}
+
 	std::string name;
 	s64 size;
 	u32 access; //unix 777
+	bool exists;
 	FileType type;
 
 	bool isOnSectorSystem;

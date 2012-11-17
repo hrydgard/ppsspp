@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -15,7 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#ifdef ANDROID
+#if defined(ANDROID) || defined(BLACKBERRY)
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 #else
@@ -76,7 +76,7 @@ bool finished;
 
 u8 bezierBuf[16000];
 
-bool ProcessDLQueue()
+bool GLES_GPU::ProcessDLQueue()
 {
 	std::vector<DisplayList>::iterator iter = dlQueue.begin();
 	while (!(iter == dlQueue.end()))
@@ -85,7 +85,7 @@ bool ProcessDLQueue()
 		dcontext.pc = l.listpc;
 		dcontext.stallAddr = l.stall;
 //		DEBUG_LOG(G3D,"Okay, starting DL execution at %08 - stall = %08x", context.pc, stallAddr);
-		if (!GPU::InterpretList())
+		if (!InterpretList())
 		{
 			l.listpc = dcontext.pc;
 			l.stall = dcontext.stallAddr;
@@ -102,7 +102,7 @@ bool ProcessDLQueue()
 	return true; //no more lists!
 }
 
-u32 GPU::EnqueueList(u32 listpc, u32 stall)
+u32 GLES_GPU::EnqueueList(u32 listpc, u32 stall)
 {
 	DisplayList dl;
 	dl.id = dlIdGenerator++;
@@ -115,7 +115,7 @@ u32 GPU::EnqueueList(u32 listpc, u32 stall)
 		return 0;
 }
 
-void GPU::UpdateStall(int listid, u32 newstall)
+void GLES_GPU::UpdateStall(int listid, u32 newstall)
 {
 	// this needs improvement....
 	for (std::vector<DisplayList>::iterator iter = dlQueue.begin(); iter != dlQueue.end(); iter++)
@@ -128,6 +128,11 @@ void GPU::UpdateStall(int listid, u32 newstall)
 	}
 	
 	ProcessDLQueue();
+}
+
+void GLES_GPU::DrawSync(int mode)
+{
+	
 }
 
 // Just to get something on the screen, we'll just not subdivide correctly.
@@ -224,7 +229,7 @@ void SetBlendModePSP(u32 data)
 		GL_FUNC_ADD,
 		GL_FUNC_SUBTRACT,
 		GL_FUNC_REVERSE_SUBTRACT,
-#ifdef ANDROID
+#if defined(ANDROID) || defined(BLACKBERRY)
 		GL_FUNC_ADD,
 		GL_FUNC_ADD,
 #else
@@ -241,7 +246,7 @@ void SetBlendModePSP(u32 data)
 }
 
 
-void GPU::ExecuteOp(u32 op, u32 diff)
+void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 {
 	u32 cmd = op >> 24;
 	u32 data = op & 0xFFFFFF;
@@ -250,15 +255,16 @@ void GPU::ExecuteOp(u32 op, u32 diff)
 	switch (cmd)
 	{
 	case GE_CMD_BASE:
+		DEBUG_LOG(G3D,"DL BASE: %06x", data);
 		break;
 
 	case GE_CMD_VADDR:		/// <<8????
-		gstate.vertexAddr = (gstate.base<<8)|data;
+		gstate.vertexAddr = ((gstate.base & 0x00FF0000) << 8)|data;
 		DEBUG_LOG(G3D,"DL VADDR: %06x", gstate.vertexAddr);
 		break;
 
 	case GE_CMD_IADDR:
-		gstate.indexAddr	= (gstate.base<<8)|data;
+		gstate.indexAddr	= ((gstate.base & 0x00FF0000) << 8)|data;
 		DEBUG_LOG(G3D,"DL IADDR: %06x", gstate.indexAddr);
 		break;
 
@@ -275,8 +281,7 @@ void GPU::ExecuteOp(u32 op, u32 diff)
 				"TRIANGLE_FAN=5,",
 				"RECTANGLES=6,",
 			};
-			DEBUG_LOG(G3D, "DrawPrim type: %s	count: %i", type<7 ? types[type] : "INVALID", count); 
-			DEBUG_LOG(G3D, "DrawPrim vaddr= %08x, iaddr= %08x", gstate.vertexAddr, gstate.indexAddr);
+			DEBUG_LOG(G3D, "DL DrawPrim type: %s count: %i vaddr= %08x, iaddr= %08x", type<7 ? types[type] : "INVALID", count, gstate.vertexAddr, gstate.indexAddr);
 
 			LinkedShader *linkedShader = shaderManager.ApplyShader();
 			// TODO: Split this so that we can collect sequences of primitives, can greatly speed things up
@@ -292,23 +297,27 @@ void GPU::ExecuteOp(u32 op, u32 diff)
 	// The arrow and other rotary items in Puzbob are bezier patches, strangely enough.
 	case GE_CMD_BEZIER:
 		{
-			drawBezier(data & 0xFF, (data >> 8) & 0xFF);
+			int bz_ucount = data & 0xFF;
+			int bz_vcount = (data >> 8) & 0xFF;
+			drawBezier(bz_ucount, bz_vcount);
+			DEBUG_LOG(G3D,"DL DRAW BEZIER: %i x %i", bz_ucount, bz_vcount);
 		}
 		break;
 
 	case GE_CMD_SPLINE:
 		{
-			//int sp_ucount = data & 0xFF;
-			//int sp_vcount = (data >> 8) & 0xFF;
-			//int sp_utype = (data >> 16) & 0x3;
-			//int sp_vtype = (data >> 18) & 0x3;
+			int sp_ucount = data & 0xFF;
+			int sp_vcount = (data >> 8) & 0xFF;
+			int sp_utype = (data >> 16) & 0x3;
+			int sp_vtype = (data >> 18) & 0x3;
 			//drawSpline(sp_ucount, sp_vcount, sp_utype, sp_vtype);
+			DEBUG_LOG(G3D,"DL DRAW SPLINE: %i x %i, %i x %i", sp_ucount, sp_vcount, sp_utype, sp_vtype);
 		}
 		break;
 
 	case GE_CMD_JUMP: 
 		{
-			u32 target = ((gstate.base << 8) | (op & 0xFFFFFC)) & 0x0FFFFFFF;
+			u32 target = (((gstate.base & 0x00FF0000) << 8) | (op & 0xFFFFFC)) & 0x0FFFFFFF;
 			DEBUG_LOG(G3D,"DL CMD JUMP - %08x to %08x", dcontext.pc, target);
 			dcontext.pc = target - 4; // pc will be increased after we return, counteract that
 		}
@@ -318,7 +327,7 @@ void GPU::ExecuteOp(u32 op, u32 diff)
 		{
 			u32 retval = dcontext.pc + 4;
 			stack[stackptr++] = retval; 
-			u32 target = ((gstate.base << 8) | (op & 0xFFFFFC)) & 0xFFFFFFF;
+			u32 target = (((gstate.base & 0x00FF0000) << 8) | (op & 0xFFFFFC)) & 0xFFFFFFF;
 			DEBUG_LOG(G3D,"DL CMD CALL - %08x to %08x, ret=%08x", dcontext.pc, target, retval);
 			dcontext.pc = target - 4;	// pc will be increased after we return, counteract that
 		}
@@ -334,29 +343,23 @@ void GPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_SIGNAL:
-		ERROR_LOG(G3D, "GE_CMD_SIGNAL %08x", data & 0xFFFFFF);
 		{
-			// int behaviour = (data >> 16) & 0xFF;
-			// int signal = data & 0xFFFF;
+			ERROR_LOG(G3D, "DL GE_CMD_SIGNAL %08x", data & 0xFFFFFF);
+			int behaviour = (data >> 16) & 0xFF;
+			int signal = data & 0xFFFF;
+
+			__TriggerInterruptWithArg(PSP_GE_INTR, PSP_GE_SUBINTR_SIGNAL, signal);
 		}
-
-		// This should generate a GE Interrupt 
-		// __TriggerInterrupt(PSP_GE_INTR);
-			
-		// Apparently, these callbacks should be done in a special interrupt way.
-		//for (size_t i = 0; i < signalCallbacks.size(); i++)
-		//{
-		//	__KernelNotifyCallback(-1, signalCallbacks[i].first, signal);
-		//}
-
 		break;
 
 	case GE_CMD_BJUMP:
 		// bounding box jump. Let's just not jump, for now.
+		ERROR_LOG(G3D,"DL BBOX JUMP - unimplemented");
 		break;
 
 	case GE_CMD_BOUNDINGBOX:
 		// bounding box test. Let's do nothing.
+		ERROR_LOG(G3D,"DL BBOX TEST - unimplemented");
 		break;
 
 	case GE_CMD_ORIGIN:
@@ -372,6 +375,10 @@ void GPU::ExecuteOp(u32 op, u32 diff)
 		if (data & GE_VTYPE_THROUGH) {
 			glDisable(GL_CULL_FACE);
 		}
+		else {
+			// this might get spammy
+			glEnDis(GL_CULL_FACE, gstate.cullfaceEnable & 1);
+		}
 		// This sets through-mode or not, as well.
 		break;
 
@@ -379,18 +386,9 @@ void GPU::ExecuteOp(u32 op, u32 diff)
 		//			offsetAddr = data<<8;
 		break;
 
-
 	case GE_CMD_FINISH:
 		DEBUG_LOG(G3D,"DL CMD FINISH");
-		// Trigger the finish callbacks
-		{
-			// Apparently, these callbacks should be done in a special interrupt way.
-
-			//for (size_t i = 0; i < finishCallbacks.size(); i++)
-			//{
-			//	__KernelNotifyCallback(-1, finishCallbacks[i].first, 0);
-			//}
-		}
+		__TriggerInterruptWithArg(PSP_GE_INTR, PSP_GE_SUBINTR_FINISH, 0);
 		break;
 
 	case GE_CMD_END: 
@@ -430,79 +428,83 @@ void GPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_CLIPENABLE:
+		DEBUG_LOG(G3D, "DL Clip Enable: %i   (ignoring)", data);
 		//we always clip, this is opengl
 		break;
 
 	case GE_CMD_CULLFACEENABLE: 
+		DEBUG_LOG(G3D, "DL CullFace Enable: %i   (ignoring)", data);
 		glEnDis(GL_CULL_FACE, data&1); 
 		break;
 
 	case GE_CMD_TEXTUREMAPENABLE: 
-		DEBUG_LOG(G3D, "Texture map enable: %i", data);
+		DEBUG_LOG(G3D, "DL Texture map enable: %i", data);
 		glEnDis(GL_TEXTURE_2D, data&1); 
 		break;
 
 	case GE_CMD_LIGHTINGENABLE:
-		DEBUG_LOG(G3D, "Lighting enable: %i", data);
+		DEBUG_LOG(G3D, "DL Lighting enable: %i", data);
 		data += 1;
 		//We don't use OpenGL lighting
 		break;
 
 	case GE_CMD_FOGENABLE:		
-		DEBUG_LOG(G3D, "Fog Enable: %i", gstate.fogEnable);
+		DEBUG_LOG(G3D, "DL Fog Enable: %i", gstate.fogEnable);
 		break;
 
 	case GE_CMD_DITHERENABLE:
-		DEBUG_LOG(G3D, "Dither Enable: %i", gstate.ditherEnable);
+		DEBUG_LOG(G3D, "DL Dither Enable: %i", gstate.ditherEnable);
 		break;
 
 	case GE_CMD_OFFSETX:		
-		DEBUG_LOG(G3D, "Offset X: %i", gstate.offsetx);
+		DEBUG_LOG(G3D, "DL Offset X: %i", gstate.offsetx);
 		break;
 
 	case GE_CMD_OFFSETY:		
-		DEBUG_LOG(G3D, "Offset Y: %i", gstate.offsety);
+		DEBUG_LOG(G3D, "DL Offset Y: %i", gstate.offsety);
 		break;
 
 	case GE_CMD_TEXSCALEU: 
 		gstate.uScale = getFloat24(data); 
-		DEBUG_LOG(G3D, "Texture U Scale: %f", gstate.uScale);
+		DEBUG_LOG(G3D, "DL Texture U Scale: %f", gstate.uScale);
 		break;
 
 	case GE_CMD_TEXSCALEV: 
 		gstate.vScale = getFloat24(data); 
-		DEBUG_LOG(G3D, "Texture V Scale: %f", gstate.vScale);
+		DEBUG_LOG(G3D, "DL Texture V Scale: %f", gstate.vScale);
 		break;
 
 	case GE_CMD_TEXOFFSETU: 
 		gstate.uOff = getFloat24(data);	
-		DEBUG_LOG(G3D, "Texture U Offset: %f", gstate.uOff);
+		DEBUG_LOG(G3D, "DL Texture U Offset: %f", gstate.uOff);
 		break;
 
 	case GE_CMD_TEXOFFSETV: 
 		gstate.vOff = getFloat24(data);	
-		DEBUG_LOG(G3D, "Texture V Offset: %f", gstate.vOff);
+		DEBUG_LOG(G3D, "DL Texture V Offset: %f", gstate.vOff);
 		break;
 
 	case GE_CMD_SCISSOR1:
 		{
 			int x1 = data & 0x3ff;
 			int y1 = data >> 10;
-			DEBUG_LOG(G3D, "Scissor TL: %i, %i", x1,y1);
+			DEBUG_LOG(G3D, "DL Scissor TL: %i, %i", x1,y1);
 		}
 		break;
 	case GE_CMD_SCISSOR2:
 		{
 			int x2 = data & 0x3ff;
 			int y2 = data >> 10;
-			DEBUG_LOG(G3D, "Scissor BR: %i, %i", x2, y2);
+			DEBUG_LOG(G3D, "DL Scissor BR: %i, %i", x2, y2);
 		}
 		break;
 
 	case GE_CMD_MINZ: 
+		DEBUG_LOG(G3D, "DL MinZ: %i", data);
 		break;
 
 	case GE_CMD_MAXZ: 
+		DEBUG_LOG(G3D, "DL MaxZ: %i", data);
 		break;
 
 	case GE_CMD_FRAMEBUFPTR:
@@ -523,7 +525,7 @@ void GPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_TEXADDR0:
-		gstate.textureChanged=true;
+		gstate.textureChanged = true;
 	case GE_CMD_TEXADDR1:
 	case GE_CMD_TEXADDR2:
 	case GE_CMD_TEXADDR3:
@@ -535,7 +537,7 @@ void GPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_TEXBUFWIDTH0:
-		gstate.textureChanged=true;
+		gstate.textureChanged = true;
 	case GE_CMD_TEXBUFWIDTH1:
 	case GE_CMD_TEXBUFWIDTH2:
 	case GE_CMD_TEXBUFWIDTH3:
@@ -551,7 +553,7 @@ void GPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_CLUTADDRUPPER:
-		DEBUG_LOG(G3D,"CLUT addr: %08x", ((gstate.clutaddrupper & 0xFF0000)<<8) | (gstate.clutaddr & 0xFFFFFF));
+		DEBUG_LOG(G3D,"DL CLUT addr: %08x", ((gstate.clutaddrupper & 0xFF0000)<<8) | (gstate.clutaddr & 0xFFFFFF));
 		break;
 
 	case GE_CMD_LOADCLUT:
@@ -564,11 +566,11 @@ void GPU::ExecuteOp(u32 op, u32 diff)
 					int numColors = 16 * (data&0x3F);
 					memcpy(&gstate.paletteMem[0], clut, numColors * 2);
 				}
-				DEBUG_LOG(G3D,"Clut load: %i palettes", data);
+				DEBUG_LOG(G3D,"DL Clut load: %i palettes", data);
 			}
 			else
 			{
-				DEBUG_LOG(G3D,"Empty Clut load");
+				DEBUG_LOG(G3D,"DL Empty Clut load");
 			}
 			// Should hash and invalidate all paletted textures on use
 		}
@@ -597,7 +599,7 @@ void GPU::ExecuteOp(u32 op, u32 diff)
 		{
 			u32 x = (data & 1023)+1;
 			u32 y = ((data>>10) & 1023)+1;
-			DEBUG_LOG(G3D,"Block Transfer Src Rect TL: %i, %i", x, y);
+			DEBUG_LOG(G3D, "DL Block Transfer Src Rect TL: %i, %i", x, y);
 			break;
 		}
 
@@ -605,7 +607,7 @@ void GPU::ExecuteOp(u32 op, u32 diff)
 		{
 			u32 x = (data & 1023)+1;
 			u32 y = ((data>>10) & 1023)+1;
-			DEBUG_LOG(G3D,"Block Transfer Dest Rect TL: %i, %i", x, y);
+			DEBUG_LOG(G3D, "DL Block Transfer Dest Rect TL: %i, %i", x, y);
 			break;
 		}
 
@@ -613,13 +615,16 @@ void GPU::ExecuteOp(u32 op, u32 diff)
 		{
 			u32 w = (data & 1023)+1;
 			u32 h = ((data>>10) & 1023)+1;
-			DEBUG_LOG(G3D,"Block Transfer Rect Size: %i x %i", w, h);
+			DEBUG_LOG(G3D, "DL Block Transfer Rect Size: %i x %i", w, h);
 			break;
 		}
 
 	case GE_CMD_TRANSFERSTART:
 		{
-			DEBUG_LOG(G3D,"Texture Transfer Start: PixFormat %i", data);
+			DEBUG_LOG(G3D, "DL Texture Transfer Start: PixFormat %i", data);
+			// TODO: Here we should check if the transfer overlaps a framebuffer or any textures,
+			// and take appropriate action. If not, this should just be a block transfer within
+			// GPU memory which could be implemented by a copy loop.
 			break;
 		}
 
@@ -738,9 +743,9 @@ void GPU::ExecuteOp(u32 op, u32 diff)
 	case GE_CMD_LDC0:case GE_CMD_LDC1:case GE_CMD_LDC2:case GE_CMD_LDC3:
 	case GE_CMD_LSC0:case GE_CMD_LSC1:case GE_CMD_LSC2:case GE_CMD_LSC3:
 		{
-			float r = (float)(data>>16)/255.0f;
+			float r = (float)(data & 0xff)/255.0f;
 			float g = (float)((data>>8) & 0xff)/255.0f;
-			float b = (float)(data & 0xff)/255.0f;
+			float b = (float)(data>>16)/255.0f;
 
 			int l = (cmd - GE_CMD_LAC0) / 3;
 			int t = (cmd - GE_CMD_LAC0) % 3;
@@ -766,7 +771,8 @@ void GPU::ExecuteOp(u32 op, u32 diff)
 		break;
 	case GE_CMD_CULL:
 		DEBUG_LOG(G3D,"DL cull: %06x", data);
-		glCullFace(data ? GL_BACK : GL_FRONT);
+		glCullFace(data & 1 ? GL_FRONT : GL_BACK);
+		//glCullFace(data & 1 ? GL_BACK : GL_FRONT);
 		break;
 
 	case GE_CMD_LMODE:
@@ -776,6 +782,7 @@ void GPU::ExecuteOp(u32 op, u32 diff)
 	case GE_CMD_PATCHDIVISION:
 		gstate.patch_div_s = data & 0xFF;
 		gstate.patch_div_t = (data >> 8) & 0xFF;
+		DEBUG_LOG(G3D, "DL Patch subdivision: %i x %i", gstate.patch_div_s, gstate.patch_div_t);
 		break;
 
 	case GE_CMD_MATERIALUPDATE:
@@ -896,7 +903,12 @@ void GPU::ExecuteOp(u32 op, u32 diff)
 	case GE_CMD_MORPHWEIGHT5:
 	case GE_CMD_MORPHWEIGHT6:
 	case GE_CMD_MORPHWEIGHT7:
-		gstate.morphWeights[cmd-GE_CMD_MORPHWEIGHT0] = getFloat24(data);
+		{
+			int index = cmd - GE_CMD_MORPHWEIGHT0;
+			float weight = getFloat24(data);
+			DEBUG_LOG(G3D,"DL MorphWeight %i = %f", index, weight);
+			gstate.morphWeights[index] = weight;
+		}
 		break;
  
 	case GE_CMD_DITH0:
@@ -965,7 +977,7 @@ void GPU::ExecuteOp(u32 op, u32 diff)
 	}
 }
 
-bool GPU::InterpretList()
+bool GLES_GPU::InterpretList()
 {
 	// Reset stackptr for safety
 	stackptr = 0;
@@ -974,6 +986,10 @@ bool GPU::InterpretList()
 	finished = false;
 	while (!finished)
 	{
+		if (!Memory::IsValidAddress(dcontext.pc)) {
+			ERROR_LOG(G3D, "DL PC = %08x WTF!!!!", dcontext.pc);
+			return true;
+		}
 		if (dcontext.pc == dcontext.stallAddr)
 			return false;
 

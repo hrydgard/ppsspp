@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -261,9 +261,10 @@ struct SceKernelLoadExecParam
 
 void __KernelInit();
 void __KernelShutdown();
+bool __KernelIsRunning();
 bool __KernelLoadExec(const char *filename, SceKernelLoadExecParam *param);
 
-void sceKernelLoadExec();
+int sceKernelLoadExec(const char *filename, u32 paramPtr);
 
 void sceKernelRegisterExitCallback();
 void sceKernelExitGame();
@@ -286,6 +287,8 @@ void sceKernelDcacheWritebackInvalidateRange();
 void sceKernelDcacheWritebackInvalidateAll();
 void sceKernelGetThreadStackFreeSize();
 void sceKernelIcacheInvalidateAll();
+void sceKernelIcacheClearAll();
+
 #define KERNELOBJECT_MAX_NAME_LENGTH 31
 
 class KernelObjectPool;
@@ -340,7 +343,7 @@ public:
 	{
 		if (handle < handleOffset || handle >= handleOffset+maxCount || !occupied[handle-handleOffset])
 		{
-			ERROR_LOG(HLE, "Kernel: Bad object handle");
+			ERROR_LOG(HLE, "Kernel: Bad object handle %i (%08x)", handle, handle);
 			outError = T::GetMissingErrorCode(); // ?
 			return 0;
 		}
@@ -349,7 +352,7 @@ public:
 			T* t = dynamic_cast<T*>(pool[handle - handleOffset]);
 			if (t == 0)
 			{
-				ERROR_LOG(HLE, "Kernel: Wrong type object");
+				ERROR_LOG(HLE, "Kernel: Wrong type object %i (%08x)", handle, handle);
 				outError = T::GetMissingErrorCode(); //FIX
 				return 0;
 			}

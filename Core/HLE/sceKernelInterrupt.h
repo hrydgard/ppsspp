@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -57,10 +57,14 @@ enum PSPGeSubInterrupts {
 bool __IsInInterrupt();
 void __InterruptsInit();
 void __InterruptsShutdown();
-void __TriggerInterrupt(PSPInterrupt intno);
+void __TriggerInterrupt(PSPInterrupt intno, int subInterrupts = -1);
+void __TriggerInterruptWithArg(PSPInterrupt intno, int subintr, int arg);  // For GE "callbacks"
+bool __RunOnePendingInterrupt();
+void __KernelReturnFromInterrupt();
 
-void _sceKernelReturnFromInterrupt();
 u32 sceKernelRegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 handler, u32 handlerArg);
+u32 sceKernelReleaseSubIntrHandler(u32 intrNumber, u32 subIntrNumber);
+u32 sceKernelEnableSubIntr(u32 intrNumber, u32 subIntrNumber);
 
 void Register_Kernel_Library();
 void Register_InterruptManager();

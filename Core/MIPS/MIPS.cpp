@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -23,7 +23,7 @@
 #include "../System.h"
 #include "../Debugger/Breakpoints.h"
 
-#ifdef ANDROID
+#if defined(ANDROID) || defined(BLACKBERRY)
 #include "ARM/JitCache.h"
 #include "ARM/Jit.h"
 #else
@@ -77,6 +77,7 @@ void MIPSState::Reset()
 	SetWriteMask(b);
 
 	pc = 0;
+	prevPC = 0;
 	hi = 0;
 	lo = 0;
 	fpcond = 0;
@@ -86,6 +87,7 @@ void MIPSState::Reset()
 	exceptions = 0;
 	currentMIPS = this;
 	inDelaySlot = false;
+	llBit = 0;
 	nextPC = 0;
 	// Initialize the VFPU random number generator with .. something?
 	rng.Init(0x1337);
@@ -108,7 +110,7 @@ void MIPSState::RunLoopUntil(u64 globalTicks)
 {
 	// Don't subvert this by setting useJIT to true - other places also check the coreparameter
 	bool useJIT = PSP_CoreParameter().cpuCore == CPU_JIT;
-#ifdef ANDROID
+#if defined(ANDROID) || defined(BLACKBERRY)
 	useJIT = false;
 #endif
 
@@ -125,7 +127,7 @@ void MIPSState::RunLoopUntil(u64 globalTicks)
 #ifdef _DEBUG
 			while (CoreTiming::downcount >= 0 && coreState == CORE_RUNNING)
 #else
-			while (CoreTiming::downcount >= 0)
+			while (CoreTiming::downcount >= 0 && mipsr4k.pc)
 #endif
 			{
 				// int cycles = 0;
@@ -155,7 +157,7 @@ void MIPSState::RunLoopUntil(u64 globalTicks)
 						break;
 					}
 #endif
-					// u32 lastpc = pc;
+					prevPC = pc;
 					if (inDelaySlot)
 					{
 						MIPSInterpret(op);

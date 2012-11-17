@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -45,6 +45,7 @@ u8 *m_pScratchPad;
 u8 *m_pVRAM;
 
 u8 *m_pPhysicalScratchPad;
+u8 *m_pUncachedScratchPad;
 // 64-bit: Pointers to high-mem mirrors
 // 32-bit: Same as above
 u8 *m_pPhysicalRAM;
@@ -59,6 +60,7 @@ u8 *m_pUncachedVRAM;
 static const MemoryView views[] =
 {
 	{&m_pScratchPad, &m_pPhysicalScratchPad,  0x00010000, SCRATCHPAD_SIZE, 0},
+	{NULL,           &m_pUncachedScratchPad,  0x40010000, SCRATCHPAD_SIZE, MV_MIRROR_PREVIOUS},
 	{&m_pVRAM,       &m_pPhysicalVRAM,        0x04000000, 0x00800000, 0},
 	{NULL,           &m_pUncachedVRAM,        0x44000000, 0x00800000, MV_MIRROR_PREVIOUS},
 	{&m_pRAM,        &m_pPhysicalRAM,         0x08000000, RAM_SIZE, 0},	// only from 0x08800000 is it usable (last 24 megs)
@@ -149,7 +151,7 @@ void Memset(const u32 _Address, const u8 _iValue, const u32 _iLength)
 	else
 	{
 		for (size_t i = 0; i < _iLength; i++)
-			Write_U8(_iValue, _Address + i);
+			Write_U8(_iValue, (u32)(_Address + i));
 	}
 }
 

@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -34,20 +34,21 @@ namespace MIPSInt
 	void Int_VMatrixInit(u32 op);
 	void Int_VVectorInit(u32 op);
 	void Int_Vmmul(u32 op);
-  void Int_Vmscl(u32 op);
+	void Int_Vmscl(u32 op);
 	void Int_Vmmov(u32 op);
 	void Int_VV2Op(u32 op);
 	void Int_Vrot(u32 op);
 	void Int_VDot(u32 op);
-  void Int_Vavg(u32 op);
-  void Int_Vfad(u32 op);
-  void Int_Vocp(u32 op);
+	void Int_Vavg(u32 op);
+	void Int_Vfad(u32 op);
+	void Int_Vocp(u32 op);
 	void Int_Vsgn(u32 op);
 	void Int_Vtfm(u32 op);
 	void Int_Viim(u32 op);
 	void Int_VScl(u32 op);
 	void Int_Vidt(u32 op);
 	void Int_Vcmp(u32 op);
+	void Int_Vminmax(u32 op);
 	void Int_Vcrs(u32 op);
 	void Int_Vcmov(u32 op);
 	void Int_CrossQuat(u32 op);
@@ -57,9 +58,12 @@ namespace MIPSInt
 	void Int_Vf2i(u32 op);
 	void Int_Vi2f(u32 op);
 	void Int_Vi2x(u32 op);
+	void Int_Vx2i(u32 op);
 	void Int_VBranch(u32 op);
-  void Int_Vrnds(u32 op);
-  void Int_VrndX(u32 op);
-  void Int_ColorConv(u32 op);
+	void Int_Vrnds(u32 op);
+	void Int_VrndX(u32 op);
+	void Int_ColorConv(u32 op);
+	void Int_Vh2f(u32 op);
+	void Int_Vf2h(u32 op);
 }
 

@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -30,7 +30,6 @@
 // TODO : improve, look in the file more
 EmuFileType Identify_File(const char *filename)
 {
-
 	//then: easy bulletproof IDs.
 	FILE *f = fopen(filename, "rb");
 	if (!f)
@@ -43,7 +42,7 @@ EmuFileType Identify_File(const char *filename)
 	fclose(f);
 	if (id == 'FLE\x7F')
 	{
-		if (strstr(filename,".plf") || strstr(filename,"BOOT.BIN") || strstr(filename,".elf") )
+		if (strstr(filename,".plf") || strstr(filename,"BOOT.BIN") || strstr(filename,".elf") || strstr(filename,".prx") )
 		{
 			return FILETYPE_PSP_ELF;
 		}
@@ -60,15 +59,15 @@ EmuFileType Identify_File(const char *filename)
 		{
 			return FILETYPE_PSP_PBP;
 		}
-		else if (strstr(filename,".iso"))
+		else if (strstr(filename,".iso") || strstr(filename,".ISO"))
 		{
 			return FILETYPE_PSP_ISO;
 		}
-		else if (strstr(filename,".cso"))
+		else if (strstr(filename,".cso") || strstr(filename,".CSO"))
 		{
 			return FILETYPE_PSP_ISO;
 		}
-		else if (strstr(filename,".bin"))
+		else if (strstr(filename,".bin") || strstr(filename,".BIN"))
 		{
 			return FILETYPE_UNKNOWN_BIN;
 		}

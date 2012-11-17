@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -258,6 +258,7 @@ struct GPUgstate
 };
 
 void InitGfxState();
+void ShutdownGfxState();
 
 void ReapplyGfxState();
 
@@ -278,4 +279,7 @@ inline unsigned int toFloat24(float f) {
 	return i;
 }
 
+class GPUInterface;
+
 extern GPUgstate gstate;
+extern GPUInterface *gpu;

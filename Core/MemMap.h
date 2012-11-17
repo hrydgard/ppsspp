@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -211,12 +211,15 @@ void Memcpy(const u32 _Address, const void *_Data, const u32 _iLength);
 template<class T>
 void ReadStruct(u32 address, T *ptr)
 {
-  memcpy(ptr, GetPointer(address), sizeof(*ptr));
+	size_t sz = sizeof(*ptr);
+  memcpy(ptr, GetPointer(address), sz);
 }
+
 template<class T>
 void WriteStruct(u32 address, T *ptr)
 {
-  memcpy(GetPointer(address), ptr, sizeof(*ptr));
+	size_t sz = sizeof(*ptr);
+  memcpy(GetPointer(address), ptr, sz);
 }
 
 const char *GetAddressName(u32 address);

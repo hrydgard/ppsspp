@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -55,7 +55,7 @@ void DelayBranchTo(u32 where)
 
 int MIPS_SingleStep()
 {
-#ifdef ANDROID
+#if defined(ANDROID) || defined(BLACKBERRY)
 	u32 op = Memory::ReadUnchecked_U32(mipsr4k.pc);
 #else
 	u32 op = Memory::Read_Opcode_JIT(mipsr4k.pc);
@@ -109,7 +109,7 @@ namespace MIPSInt
 {
 	void Int_Cache(u32 op)
 	{
-		DEBUG_LOG(CPU,"cache instruction %08x",op);
+		// DEBUG_LOG(CPU,"cache instruction %08x",op);
 		PC += 4;
 	}
 
@@ -176,10 +176,14 @@ namespace MIPSInt
 
 		switch ((op>>16) & 0x1F)
 		{
-		case 0: if ((s32)R(rs) <	0) DelayBranchTo(addr); else PC += 4; break;//bltz
+		case 0: if ((s32)R(rs) <  0) DelayBranchTo(addr); else PC += 4; break;//bltz
 		case 1: if ((s32)R(rs) >= 0) DelayBranchTo(addr); else PC += 4; break;//bgez
 		case 2: if ((s32)R(rs) <	0) DelayBranchTo(addr); else PC += 8; break;//bltzl
 		case 3: if ((s32)R(rs) >= 0) DelayBranchTo(addr); else PC += 8; break;//bgezl
+		case 16: R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) <  0) DelayBranchTo(addr); else PC += 4; break;//bltz
+		case 17: R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) >= 0) DelayBranchTo(addr); else PC += 4; break;//bgez
+		case 18: R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) <	0) DelayBranchTo(addr); else PC += 8; break;//bltzl
+		case 19: R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) >= 0) DelayBranchTo(addr); else PC += 8; break;//bgezl
 		default:
 			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
 			break;
@@ -297,23 +301,58 @@ namespace MIPSInt
 		PC += 4;
 	}
 
+	void Int_StoreSync(u32 op)
+	{
+		s32 imm = (signed short)(op&0xFFFF);
+		int base = ((op >> 21) & 0x1f);
+		int rt = (op >> 16) & 0x1f;
+		u32 addr = R(base) + imm;
+
+		switch (op >> 26)
+		{
+		case 48: // ll
+      R(rt) = Memory::Read_U32(addr);
+			currentMIPS->llBit = 1;
+			break;
+		case 56: // sc
+			if (currentMIPS->llBit) {
+				Memory::Write_U32(R(rt), addr);
+				R(rt) = 1;
+			} else {
+				R(rt) = 0;
+			}
+			break;
+		default:
+			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			break;
+		}
+		PC += 4;
+	}
+
 
 	void Int_RType3(u32 op)
 	{
 		int rt = _RT;
 		int rs = _RS;
 		int rd = _RD;
+		static bool has_warned = false;
 
 		switch (op & 63) 
 		{
 		case 10: if (R(rt) == 0) R(rd) = R(rs); break; //movz
 		case 11: if (R(rt) != 0) R(rd) = R(rs); break; //movn
 		case 32: 
-			ERROR_LOG(HLE,"WARNING : exception-causing add at %08x", PC);
+			if (!has_warned) {
+				ERROR_LOG(HLE,"WARNING : exception-causing add at %08x", PC);
+				has_warned = true;
+			}
 			R(rd) = R(rs) + R(rt);		break; //add
 		case 33: R(rd) = R(rs) + R(rt);		break; //addu
 		case 34: 
-			ERROR_LOG(HLE,"WARNING : exception-causing sub at %08x", PC);
+			if (!has_warned) {
+				ERROR_LOG(HLE,"WARNING : exception-causing sub at %08x", PC);
+				has_warned = true;
+			}
 			R(rd) = R(rs) - R(rt);		break; //sub
 		case 35: R(rd) = R(rs) - R(rt);		break; //subu
 		case 36: R(rd) = R(rs) & R(rt);		break; //and
@@ -513,6 +552,26 @@ namespace MIPSInt
 				HI = (u32)(result>>32);
 			}
 			break;
+		case 46: //msub
+			{
+				u32 a=R(rs),b=R(rt),hi=HI,lo=LO;
+				u64 origValBits = (u64)lo | ((u64)(hi)<<32);
+				s64 origVal = (s64)origValBits;
+				s64 result = origVal - (s64)(s32)a * (s64)(s32)b;
+				u64 resultBits = (u64)(result);
+				LO = (u32)(resultBits);
+				HI = (u32)(resultBits>>32);
+			}
+			break;
+		case 47: //msubu
+			{
+				u32 a=R(rs),b=R(rt),hi=HI,lo=LO;
+				u64 origVal = (u64)lo | ((u64)(hi)<<32);
+				u64 result = origVal - (u64)a * (u64)b;
+				LO = (u32)(result);
+				HI = (u32)(result>>32);
+			}
+			break;
 		case 16: R(rd) = HI; break; //mfhi
 		case 17: HI = R(rs); break; //mthi
 		case 18: R(rd) = LO; break; //mflo
@@ -521,9 +580,11 @@ namespace MIPSInt
 			{
 				s32 a = (s32)R(rs);
 				s32 b = (s32)R(rt);
-				if (b != 0) {
-					LO = (u32)(a/b);
-					HI = (u32)(a%b);
+				if (a == 0x80000000 && b == -1) {
+					LO = 0x80000000;
+				} else if (b != 0) {
+					LO = (u32)(a / b);
+					HI = (u32)(a % b);
 				} else {
 					LO = HI = 0;	// Not sure what the right thing to do is?
 				}
@@ -677,6 +738,16 @@ namespace MIPSInt
 		PC += 4;
 	}
 
+	#ifdef _MSC_VER
+	static float roundf(float num)
+	{
+		float integer = ceilf(num);
+		if (num > 0)
+			return integer - num > 0.5f ? integer - 1.0f : integer;
+		return integer - num >= 0.5f ? integer - 1.0f : integer;
+	}
+	#endif
+
 	void Int_FPU2op(u32 op)
 	{
 		int fs = _FS;
@@ -693,7 +764,16 @@ namespace MIPSInt
 		case 14: FsI(fd) = (int)ceilf (F(fs)); break; //ceil.w.s
 		case 15: FsI(fd) = (int)floorf(F(fs)); break; //floor.w.s
 		case 32: F(fd) = (float)FsI(fs); break; //cvt.s.w
-		case 36: FsI(fd) = (int)	F(fs); break; //cvt.w.s
+
+		case 36:
+			switch (currentMIPS->fcr31 & 3)
+			{
+			case 0: FsI(fd) = roundf(F(fs)); break;  // RINT_0    // TODO: rintf or roundf?
+			case 1: FsI(fd) = (int)F(fs); break;  // CAST_1
+			case 2: FsI(fd) = ceilf(F(fs)); break;  // CEIL_2
+			case 3: FsI(fd) = floorf(F(fs)); break;  // FLOOR_3
+			}
+			break; //cvt.w.s
 		default:
 			_dbg_assert_msg_(CPU,0,"Trying to interpret FPU2Op instruction that can't be interpreted");
 			break;
@@ -762,10 +842,14 @@ namespace MIPSInt
 
 	void Int_Interrupt(u32 op)
 	{
+		static int reported = 0;
 		switch (op & 1)
 		{
 		case 0:
-			DEBUG_LOG(CPU,"Disable/Enable Interrupt CPU instruction");
+			if (!reported) {
+				WARN_LOG(CPU,"Disable/Enable Interrupt CPU instruction");
+				reported = 1;
+			}
 			break;
 		}
 		PC += 4;

@@ -1,6 +1,6 @@
 #pragma once
 
-#ifdef ANDROID
+#if defined(ANDROID) || defined(BLACKBERRY)
 #error DO NOT COMPILE THIS INTO ANDROID BUILDS
 #endif
 

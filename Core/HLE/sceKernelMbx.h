@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -17,11 +17,29 @@
 
 #pragma once
 
-void sceKernelCreateMbx();
-void sceKernelDeleteMbx();
-void sceKernelSendMbx();
-void sceKernelReceiveMbx();
-void sceKernelReceiveMbxCB();
-void sceKernelPollMbx();
-void sceKernelCancelReceiveMbx();
-void sceKernelReferMbxStatus();
+struct NativeMbxPacket
+{
+	u32 next;
+	u8 priority;
+	u8 padding[3];
+};
+
+struct SceKernelMbxInfo
+{
+	SceSize size;
+	char name[KERNELOBJECT_MAX_NAME_LENGTH+1];
+	SceUInt attr;
+	int numWaitThreads;
+	int numMessage;
+	u32 topPacketAddr;
+};
+
+SceUID sceKernelCreateMbx(const char *name, int memoryPartition, SceUInt attr, int size, u32 optAddr);
+int sceKernelDeleteMbx(SceUID id);
+void sceKernelSendMbx(SceUID id, u32 addPacketAddr);
+void sceKernelReceiveMbx(SceUID id, u32 packetAddrPtr, u32 timeoutPtr);
+void sceKernelReceiveMbxCB(SceUID id, u32 packetAddrPtr, u32 timeoutPtr);
+int sceKernelPollMbx(SceUID id, u32 packetAddrPtr);
+int sceKernelCancelReceiveMbx(SceUID id, u32 numWaitingThreadsAddr);
+int sceKernelReferMbxStatus(SceUID id, u32 infoAddr);
+

@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -147,7 +147,7 @@ void MenuScreen::render() {
 
 	ui_draw2d.DrawTextShadow(UBUNTU48, "PPSSPP", dp_xres + xoff - w/2, 80, 0xFFFFFFFF, ALIGN_HCENTER | ALIGN_BOTTOM);
 	ui_draw2d.SetFontScale(0.7f, 0.7f);
-	ui_draw2d.DrawTextShadow(UBUNTU24, "V0.1", dp_xres + xoff, 80, 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_BOTTOM);
+	ui_draw2d.DrawTextShadow(UBUNTU24, "V0.2", dp_xres + xoff, 80, 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_BOTTOM);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 	VLinear vlinear(dp_xres + xoff, 95, 20);
 
@@ -155,7 +155,7 @@ void MenuScreen::render() {
 	if (UIButton(GEN_ID, vlinear, w, "Load...", ALIGN_RIGHT)) {
 		FileSelectScreenOptions options;
 		options.allowChooseDirectory = true;
-		options.filter = "iso:cso:pbp:elf:";
+		options.filter = "iso:cso:pbp:elf:prx:";
 		options.folderIcon = I_ICON_FOLDER;
 		options.iconMapping["iso"] = I_ICON_UMD;
 		options.iconMapping["cso"] = I_ICON_UMD;
@@ -290,7 +290,7 @@ FileSelectScreen::FileSelectScreen(const FileSelectScreenOptions &options) : opt
 
 void FileSelectScreen::updateListing() {
 	listing_.clear();
-	getFilesInDir(currentDirectory_.c_str(), &listing_, options_.filter.c_str());
+	getFilesInDir(currentDirectory_.c_str(), &listing_, options_.filter);
 	g_Config.currentDirectory = currentDirectory_;
 	list_.contentChanged();
 }
@@ -353,7 +353,7 @@ void CreditsScreen::update(InputState &input_state) {
 
 static const char *credits[] =
 {
-	"PPSSPP v0.1",
+	"PPSSPP v0.2",
 	"",
 	"",
 	"A fast and portable PSP emulator",
@@ -379,7 +379,7 @@ static const char *credits[] =
 	"",
 	"",
 	"Also check out Dolphin, the best Wii/GC emu around:",
-	"http://code.google.com/p/dolphin-emu/",
+	"http://www.dolphin-emu.org",
 	"",
 	"",
 	"PPSSPP is intended for educational purposes only.",

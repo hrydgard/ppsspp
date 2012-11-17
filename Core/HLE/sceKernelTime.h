@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -29,3 +29,5 @@ void sceKernelSysClock2USecWide();
 void sceRtcGetCurrentClockLocalTime();
 void sceRtcGetTickResolution();
 void sceRtcGetTick();
+u32 sceRtcGetDaysInMonth(u32 year, u32 month);
+u32 sceRtcGetDayOfWeek(u32 year, u32 month, u32 day);

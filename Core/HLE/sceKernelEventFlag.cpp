@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -87,30 +87,24 @@ enum PspEventFlagWaitTypes
 };
 
 //SceUID sceKernelCreateEventFlag(const char *name, int attr, int bits, SceKernelEventFlagOptParam *opt);
-void sceKernelCreateEventFlag()
+int sceKernelCreateEventFlag(const char *name, u32 flag_attr, u32 flag_initPattern, u32 optPtr)
 {
-	const char *name = Memory::GetCharPointer(PARAM(0));
-
 	EventFlag *e = new EventFlag();
 	SceUID id = kernelObjects.Create(e);
 
 	e->nef.size = sizeof(NativeEventFlag);
 	strncpy(e->nef.name, name, 32);
-	e->nef.attr = PARAM(1);
-	e->nef.initPattern = PARAM(2);
+	e->nef.attr = flag_attr;
+	e->nef.initPattern = flag_initPattern;
 	e->nef.currentPattern = e->nef.initPattern;
 	e->nef.numWaitThreads = 0;
 
-	DEBUG_LOG(HLE,"%i=sceKernelCreateEventFlag(\"%s\", %08x, %08x, %08x)", id, e->nef.name, e->nef.attr, e->nef.currentPattern, PARAM(3));
-	RETURN(id);
+	DEBUG_LOG(HLE,"%i=sceKernelCreateEventFlag(\"%s\", %08x, %08x, %08x)", id, e->nef.name, e->nef.attr, e->nef.currentPattern, optPtr);
+	return id;
 }
 
-//int sceKernelClearEventFlag(SceUID evid, u32 bits);
-void sceKernelClearEventFlag()
+u32 sceKernelClearEventFlag(SceUID id, u32 bits)
 {
-	SceUID id = PARAM(0);
-	u32 bits = PARAM(1);
-
 	u32 error;
 	EventFlag *e = kernelObjects.Get<EventFlag>(id, error);
 	if (e)
@@ -118,21 +112,19 @@ void sceKernelClearEventFlag()
 		DEBUG_LOG(HLE,"sceKernelClearEventFlag(%i, %08x)", id, bits);
 		e->nef.currentPattern &= bits;
 		// Note that it's not possible for threads to get woken up by this action.
-		RETURN(0);
+		return 0;
 	}
 	else
 	{
 		ERROR_LOG(HLE,"sceKernelClearEventFlag(%i, %08x) - error", id, bits);
-		RETURN(error);
+		return error;
 	}
 }
 
-//int sceKernelDeleteEventFlag(int evid);
-void sceKernelDeleteEventFlag()
+u32 sceKernelDeleteEventFlag(SceUID uid)
 {
-	SceUID uid = PARAM(0);
 	DEBUG_LOG(HLE,"sceKernelDeleteEventFlag(%i)", uid);
-	RETURN(kernelObjects.Destroy<EventFlag>(uid));
+	return kernelObjects.Destroy<EventFlag>(uid);
 }
 
 u8 __KernelEventFlagMatches(u32 *pattern, u32 bits, u8 wait, u32 outAddr)
@@ -151,11 +143,8 @@ u8 __KernelEventFlagMatches(u32 *pattern, u32 bits, u8 wait, u32 outAddr)
 	return 0;
 }			 
 
-//int sceKernelSetEventFlag(SceUID evid, u32 bits);
-void sceKernelSetEventFlag()
+u32 sceKernelSetEventFlag(SceUID id, u32 bitsToSet)
 {
-	SceUID id = PARAM(0);
-	u32 bitsToSet = PARAM(1);
 	u32 error;
 	DEBUG_LOG(HLE,"sceKernelSetEventFlag(%i, %08x)", id, bitsToSet);
 	EventFlag *e = kernelObjects.Get<EventFlag>(id, error);
@@ -171,30 +160,24 @@ retry:
 			EventFlagTh *t = &e->waitingThreads[i];
 			if (__KernelEventFlagMatches(&e->nef.currentPattern, t->bits, t->wait, t->outAddr))
 			{
-				__KernelResumeThread(t->tid);
+				__KernelResumeThreadFromWait(t->tid);
 				wokeThreads = true;
 				e->nef.numWaitThreads--;
 				e->waitingThreads.erase(e->waitingThreads.begin() + i);
 				goto retry;
 			}
 		}
-		RETURN(0);
+		return 0;
 	}
 	else
 	{
-		RETURN(error);
+		return error;
 	}
 }
 
-//int sceKernelWaitEventFlag(SceUID evid, u32 bits, u32 wait, u32 *outBits, SceUInt *timeout);
-void sceKernelWaitEventFlag()
+// Actually RETURNs a u32
+void sceKernelWaitEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 timeoutPtr)
 {
-	SceUID id = PARAM(0);
-	u32 bits = PARAM(1);
-	u32 wait = PARAM(2);
-	u32 outBitsPtr = PARAM(3);
-	u32 timeoutPtr = PARAM(4);
-
 	DEBUG_LOG(HLE,"sceKernelWaitEventFlag(%i, %08x, %i, %08x, %08x)", id, bits, wait, outBitsPtr, timeoutPtr);
 
 	u32 error;
@@ -215,9 +198,9 @@ void sceKernelWaitEventFlag()
 			if (Memory::IsValidAddress(timeoutPtr))
 				timeout = Memory::Read_U32(timeoutPtr);
 
-			__KernelWaitCurThread(WAITTYPE_EVENTFLAG, id, 0, 0, false);
+			__KernelWaitCurThread(WAITTYPE_EVENTFLAG, id, 0, 0, false); // sets RETURN
+			// Do not set RETURN here; it's already set for us and we'd overwrite the wrong thread's RETURN
 		}
-		RETURN(0);
 	}
 	else
 	{
@@ -225,15 +208,9 @@ void sceKernelWaitEventFlag()
 	}
 }
 
-//int sceKernelWaitEventFlagCB(SceUID evid, u32 bits, u32 wait, u32 *outBits, SceUInt *timeout);
-void sceKernelWaitEventFlagCB()
+// Actually RETURNs a u32
+void sceKernelWaitEventFlagCB(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 timeoutPtr)
 {
-	SceUID id = PARAM(0);
-	u32 bits = PARAM(1);
-	u32 wait = PARAM(2);
-	u32 outBitsPtr = PARAM(3);
-	u32 timeoutPtr = PARAM(4);
-
 	DEBUG_LOG(HLE,"sceKernelWaitEventFlagCB(%i, %08x, %i, %08x, %08x)", id, bits, wait, outBitsPtr, timeoutPtr);
 
 	u32 error;
@@ -254,9 +231,9 @@ void sceKernelWaitEventFlagCB()
 			if (Memory::IsValidAddress(timeoutPtr))
 				timeout = Memory::Read_U32(timeoutPtr);
 
-			__KernelWaitCurThread(WAITTYPE_EVENTFLAG, id, 0, 0, true);
+			__KernelWaitCurThread(WAITTYPE_EVENTFLAG, id, 0, 0, true); // sets RETURN
+			__KernelCheckCallbacks();
 		}
-		RETURN(0);
 	}
 	else
 	{
@@ -264,15 +241,8 @@ void sceKernelWaitEventFlagCB()
 	}
 }
 
-//int sceKernelPollEventFlag(int evid, u32 bits, u32 wait, u32 *outBits);
-void sceKernelPollEventFlag()
+int sceKernelPollEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 timeoutPtr)
 {
-	SceUID id = PARAM(0);
-	u32 bits = PARAM(1);
-	u32 wait = PARAM(2);
-	u32 outBitsPtr = PARAM(3);
-	u32 timeoutPtr = PARAM(4);
-
 	DEBUG_LOG(HLE,"sceKernelPollEventFlag(%i, %08x, %i, %08x, %08x)", id, bits, wait, outBitsPtr, timeoutPtr);
 
 	u32 error;
@@ -284,42 +254,39 @@ void sceKernelPollEventFlag()
 			if (Memory::IsValidAddress(outBitsPtr))
 				Memory::Write_U32(e->nef.currentPattern, outBitsPtr);
 			// No match - return that, this is polling, not waiting.
-			RETURN(SCE_KERNEL_ERROR_EVF_COND);
+			return SCE_KERNEL_ERROR_EVF_COND;
 		}
 		else
 		{
-			RETURN(0);
+			return 0;
 		}
 	}
 	else
 	{
-		RETURN(error);
+		return error;
 	}
 }
 
 //int sceKernelReferEventFlagStatus(SceUID event, SceKernelEventFlagInfo *status);
-void sceKernelReferEventFlagStatus()
+u32 sceKernelReferEventFlagStatus(SceUID id, u32 statusPtr)
 {
-	SceUID id = PARAM(0);
-	u32 statusAddr = PARAM(1);
-
-	DEBUG_LOG(HLE,"sceKernelReferEventFlagStatus(%i, %08x)", id, statusAddr);
+	DEBUG_LOG(HLE,"sceKernelReferEventFlagStatus(%i, %08x)", id, statusPtr);
 	u32 error;
 	EventFlag *e = kernelObjects.Get<EventFlag>(id, error);
 	if (e)
 	{
-		Memory::WriteStruct(statusAddr, &e->nef);
-		RETURN(0);
+		Memory::WriteStruct(statusPtr, &e->nef);
+		return 0;
 	}
 	else
 	{
-		RETURN(error);
+		return error;
 	}
 }
 
 // never seen this one
-void sceKernelCancelEventFlag()
+u32 sceKernelCancelEventFlag()
 {
 	ERROR_LOG(HLE,"UNIMPL: sceKernelCancelEventFlag()");
-	RETURN(0);
+	return 0;
 }

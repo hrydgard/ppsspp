@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -24,6 +24,7 @@
 void __AudioInit();
 void __AudioUpdate();
 void __AudioShutdown();
+void __AudioSetOutputFrequency(int freq);
 
 // May return SCE_ERROR_AUDIO_CHANNEL_BUSY if buffer too large
 u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking);

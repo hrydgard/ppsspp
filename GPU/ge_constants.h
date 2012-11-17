@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -289,6 +289,12 @@ enum GEBufferFormat
 #define GE_VTYPE_WEIGHT_MASK  (3<<9)
 #define GE_VTYPE_WEIGHT_SHIFT 9
 
+#define GE_VTYPE_WEIGHTCOUNT_MASK  (7<<14)
+#define GE_VTYPE_WEIGHTCOUNT_SHIFT 14
+
+#define GE_VTYPE_MORPHCOUNT_MASK  (7<<18)
+#define GE_VTYPE_MORPHCOUNT_SHIFT 18
+
 #define GE_VTYPE_IDX_NONE  (0<<11)
 #define GE_VTYPE_IDX_8BIT  (1<<11)
 #define GE_VTYPE_IDX_16BIT (2<<11)
@@ -444,5 +450,12 @@ enum GELogicOp
 	GE_LOGIC_DRAWINVERTED = 12,
 };
 
+enum GEPaletteFormat
+{
+    GE_CMODE_16BIT_BGR5650,
+    GE_CMODE_16BIT_ABGR5551,
+    GE_CMODE_16BIT_ABGR4444,
+    GE_CMODE_32BIT_ABGR8888
+};
 
 #endif

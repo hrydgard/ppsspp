@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -17,15 +17,18 @@
 
 #pragma once
 
-#include "../../Globals.h"
+#include "../GPUInterface.h"
 
 class ShaderManager;
 
-class GPU
+class GLES_GPU : public GPUInterface
 {
 public:
-	static u32 EnqueueList(u32 listpc, u32 stall);
-	static void UpdateStall(int listid, u32 newstall);
-	static void ExecuteOp(u32 op, u32 diff);
-	static bool InterpretList();
+	virtual u32 EnqueueList(u32 listpc, u32 stall);
+	virtual void UpdateStall(int listid, u32 newstall);
+	virtual void ExecuteOp(u32 op, u32 diff);
+	virtual bool InterpretList();
+	virtual void DrawSync(int mode);
+private:
+	bool ProcessDLQueue();
 };

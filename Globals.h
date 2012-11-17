@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -17,8 +17,10 @@
 
 #pragma once
 
+#include <cstdio>
 #include <vector>
 #include <string>
+#include <utility>
 
 #include "Log.h"
 
@@ -32,6 +34,24 @@ inline u32 _byteswap_ulong(u32 data)
 }
 
 #endif
+
+inline u8 Convert4To8(u8 v)
+{
+	// Swizzle bits: 00012345 -> 12345123
+	return (v << 4) | (v);
+}
+
+inline u8 Convert5To8(u8 v)
+{
+	// Swizzle bits: 00012345 -> 12345123
+	return (v << 3) | (v >> 2);
+}
+
+inline u8 Convert6To8(u8 v)
+{
+	// Swizzle bits: 00123456 -> 12345612
+	return (v << 2) | (v >> 4);
+}
 
 #ifndef DISALLOW_COPY_AND_ASSIGN
 #define DISALLOW_COPY_AND_ASSIGN(t) \

@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -53,25 +53,31 @@ void WriteLight(char *p, int l) {
 char *GenerateVertexShader()
 {
 	char *p = buffer;
-#if defined(ANDROID)
+#if defined(ANDROID) || defined(BLACKBERRY)
 	WRITE("precision highp float;");
 #elif !defined(FORCE_OPENGL_2_0)
 	WRITE("#version 130");
 #endif
 
+	int lmode = gstate.lmode & 1;
+
 	WRITE("attribute vec4 a_position;");
 	WRITE("attribute vec2 a_texcoord;");
 	WRITE("attribute vec4 a_color0;");
+	if (lmode)
+		WRITE("attribute vec4 a_color1;");
 
 	WRITE("uniform mat4 u_proj;");
 
 	WRITE("varying vec4 v_color0;");
-	WRITE("varying vec4 v_color1;");
+	if (lmode)
+		WRITE("varying vec4 v_color1;");
 	WRITE("varying vec2 v_texcoord;");
 
 	WRITE("void main() {");
 	WRITE("v_color0 = a_color0;");
-	WRITE("v_color1 = a_color0;");
+	if (lmode)
+		WRITE("v_color1 = a_color1;");
 	WRITE("v_texcoord = a_texcoord;");
 	WRITE("gl_Position = u_proj * a_position;");
 	WRITE("}");

@@ -104,9 +104,10 @@ DWORD TheThread(LPVOID x)
 
 	host->PrepareShutdown();
 
-shutdown:
 
 	PSP_Shutdown();
+
+shutdown:
 
 	host->ShutdownGL();
 	

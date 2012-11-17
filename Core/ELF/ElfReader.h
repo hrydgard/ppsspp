@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -41,6 +41,7 @@ class ElfReader
 	u32 *sectionAddrs;
 	bool bRelocate;
 	u32 entryPoint;
+	u32 vaddr;
 public:
 	ElfReader(void *ptr)
 	{
@@ -95,9 +96,24 @@ public:
 	}
 	SectionID GetSectionByName(const char *name, int firstSection=0); //-1 for not found
 
+	u32 GetSegmentPaddr(int segment)
+	{
+	    return segments[segment].p_paddr;
+	}
+	u32 GetSegmentOffset(int segment)
+	{
+	    return segments[segment].p_offset;
+	}
+
 	bool DidRelocate() {
 		return bRelocate;
 	}
+
+	u32 GetVaddr()
+	{
+		return vaddr;
+	}
+
 	// More indepth stuff:)
 	bool LoadInto(u32 vaddr);
 	bool LoadSymbols();

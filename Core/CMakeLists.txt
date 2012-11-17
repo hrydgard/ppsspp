@@ -12,15 +12,8 @@ set(SRCS
   MIPS/MIPSTables.cpp
   MIPS/MIPSVFPUUtils.cpp
   MIPS/JitCommon/JitCommon.cpp
-  MIPS/x86/Asm.cpp
-  MIPS/x86/CompALU.cpp
-  MIPS/x86/CompBranch.cpp
-  MIPS/x86/CompLoadStore.cpp
-  MIPS/x86/CompFPU.cpp
-  MIPS/x86/Jit.cpp
-  MIPS/x86/JitCache.cpp
-  MIPS/x86/RegCache.cpp
   ELF/ElfReader.cpp
+  ELF/PrxDecrypter.cpp
   HLE/HLE.cpp
   HLE/HLETables.cpp
   HLE/sceAtrac.cpp
@@ -32,10 +25,10 @@ set(SRCS
   HLE/sceGe.cpp
   HLE/sceHprm.cpp
   HLE/sceHttp.cpp
+  HLE/sceImpose.cpp
   HLE/sceIo.cpp
   HLE/sceKernel.cpp
   HLE/sceKernelAlarm.cpp
-  HLE/sceKernelCallback.cpp
   HLE/sceKernelEventFlag.cpp
   HLE/sceKernelInterrupt.cpp
   HLE/sceKernelMemory.cpp
@@ -55,6 +48,7 @@ set(SRCS
   HLE/sceSas.cpp
   HLE/sceUmd.cpp
   HLE/sceUtility.cpp
+  HW/MemoryStick.cpp
   FileSystems/BlockDevices.cpp
   FileSystems/ISOFileSystem.cpp
   FileSystems/DirectoryFileSystem.cpp
@@ -73,6 +67,28 @@ set(SRCS
   Core.cpp
 )
 
+if(ARM)
+	set(SRCS ${SRCS} MIPS/ARM/Asm.cpp
+					 MIPS/ARM/CompALU.cpp
+					 MIPS/ARM/CompBranch.cpp
+					 MIPS/ARM/CompLoadStore.cpp
+					 MIPS/ARM/CompFPU.cpp
+					 MIPS/ARM/Jit.cpp
+					 MIPS/ARM/JitCache.cpp
+					 MIPS/ARM/RegCache.cpp
+	)
+else()
+	set(SRCS ${SRCS} MIPS/x86/Asm.cpp
+					 MIPS/x86/CompALU.cpp
+					 MIPS/x86/CompBranch.cpp
+					 MIPS/x86/CompLoadStore.cpp
+					 MIPS/x86/CompFPU.cpp
+					 MIPS/x86/Jit.cpp
+					 MIPS/x86/JitCache.cpp
+					 MIPS/x86/RegCache.cpp
+	)
+endif(ARM)
+
 set(SRCS ${SRCS})
 
 add_library(core STATIC ${SRCS})
@@ -83,4 +99,3 @@ if(UNIX)
   add_definitions(-fPIC)
   add_definitions(-std=gnu++0x)
 endif(UNIX)
-

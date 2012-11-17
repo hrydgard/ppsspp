@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -34,7 +34,6 @@
 #include "sceIo.h"
 #include "sceKernel.h"
 #include "sceKernelAlarm.h"
-#include "sceKernelCallback.h"
 #include "sceKernelInterrupt.h"
 #include "sceKernelThread.h"
 #include "sceKernelMemory.h"
@@ -46,6 +45,7 @@
 #include "sceKernelEventFlag.h"
 #include "sceKernelVTimer.h"
 #include "sceKernelTime.h"
+#include "scePower.h"
 #include "sceUtility.h"
 #include "sceUmd.h"
 
@@ -75,6 +75,7 @@ void __KernelInit()
 	__DisplayInit();
 	__InterruptsInit();
 	__GeInit();
+	__PowerInit();
 	__UtilityInit();
 	__UmdInit();
 
@@ -106,6 +107,10 @@ void __KernelShutdown()
 	kernelRunning = false;
 }
 
+bool __KernelIsRunning() {
+	return kernelRunning;
+}
+
 void sceKernelExitGame()
 {
 	INFO_LOG(HLE,"sceKernelExitGame");
@@ -114,14 +119,22 @@ void sceKernelExitGame()
 	else
 		PanicAlert("Game exited");
 	Core_Stop();
-	RETURN(0);
 }
 
-void sceKernelRegisterExitCallback()
+void sceKernelExitGameWithStatus()
 {
-	u32 cbid = PARAM(0);
-	ERROR_LOG(HLE,"UNIMPL sceKernelRegisterExitCallback(%i)", cbid);
-	RETURN(0);
+	INFO_LOG(HLE,"sceKernelExitGameWithStatus");
+	if (PSP_CoreParameter().headLess)
+		exit(0);
+	else
+		PanicAlert("Game exited (with status)");
+	Core_Stop();
+}
+
+u32 sceKernelRegisterExitCallback(u32 cbId)
+{
+	DEBUG_LOG(HLE,"NOP sceKernelRegisterExitCallback(%i)", cbId);
+	return 0;
 }
 
 // TODO: What?
@@ -145,13 +158,13 @@ void sceKernelRegisterDefaultExceptionHandler()
 void sceKernelSetGPO()
 {
 	// Sets debug LEDs.
-	INFO_LOG(HLE,"sceKernelSetGPO(%02x)", PARAM(0));
+	DEBUG_LOG(HLE,"sceKernelSetGPO(%02x)", PARAM(0));
 }
 
 void sceKernelGetGPI()
 {
 	// Always returns 0 on production systems.
-	INFO_LOG(HLE,"0=sceKernelGetGPI()");
+	DEBUG_LOG(HLE,"0=sceKernelGetGPI()");
 	RETURN(0);
 }
 
@@ -226,7 +239,7 @@ KernelObject *&KernelObjectPool::operator [](SceUID handle)
 
 void KernelObjectPool::List()
 {
-	for (int i=0; i<maxCount; i++)
+	for (int i = 0; i < maxCount; i++)
 	{
 		if (occupied[i])
 		{
@@ -243,6 +256,7 @@ void KernelObjectPool::List()
 		}
 	}
 }
+
 int KernelObjectPool::GetCount()
 {
 	int count = 0;
@@ -254,34 +268,67 @@ int KernelObjectPool::GetCount()
 	return count;
 }
 
-
 void sceKernelIcacheInvalidateAll()
+{
+	DEBUG_LOG(CPU, "Icache invalidated - should clear JIT someday");
+	RETURN(0);
+}
+
+
+void sceKernelIcacheClearAll()
 {
 	DEBUG_LOG(CPU, "Icache cleared - should clear JIT someday");
 	RETURN(0);
 }
 
+struct SystemStatus {
+	SceSize size;
+	SceUInt status;
+	SceUInt clockPart1;
+	SceUInt clockPart2;
+	SceUInt perfcounter1;
+	SceUInt perfcounter2;
+	SceUInt perfcounter3;
+};
+
+u32 sceKernelReferSystemStatus(u32 statusPtr)
+{
+	DEBUG_LOG(HLE, "sceKernelReferSystemStatus(%08x)", statusPtr);
+	if (Memory::IsValidAddress(statusPtr)) {
+		SystemStatus status;
+		memset(&status, 0, sizeof(SystemStatus));
+		status.size = sizeof(SystemStatus);
+		Memory::WriteStruct(statusPtr, &status);
+	}
+	return 0;
+}
+
+u32 sceKernelReferGlobalProfiler(u32 statusPtr) {
+	DEBUG_LOG(HLE, "sceKernelReferGlobalProfiler(%08x)", statusPtr);
+	// Ignore for now
+	return 0;
+}
 
 const HLEFunction ThreadManForUser[] =
 {
-	{0x55C20A00,sceKernelCreateEventFlag, "sceKernelCreateEventFlag"},
-	{0x812346E4,sceKernelClearEventFlag,	"sceKernelClearEventFlag"},
-	{0xEF9E4C70,sceKernelDeleteEventFlag, "sceKernelDeleteEventFlag"},
-	{0x1fb15a32,sceKernelSetEventFlag,		"sceKernelSetEventFlag"},
-	{0x402FCF22,sceKernelWaitEventFlag,	 "sceKernelWaitEventFlag"},
-	{0x328C546A,sceKernelWaitEventFlagCB, "sceKernelWaitEventFlagCB"},
-	{0x30FD48F0,sceKernelPollEventFlag,	 "sceKernelPollEventFlag"},
-	{0xCD203292,sceKernelCancelEventFlag, "sceKernelCancelEventFlag"},
-	{0xA66B0120,sceKernelReferEventFlagStatus,"sceKernelReferEventFlagStatus"},
+	{0x55C20A00,&WrapI_CUUU<sceKernelCreateEventFlag>,    "sceKernelCreateEventFlag"},
+	{0x812346E4,&WrapU_IU<sceKernelClearEventFlag>,       "sceKernelClearEventFlag"},
+	{0xEF9E4C70,&WrapU_I<sceKernelDeleteEventFlag>,       "sceKernelDeleteEventFlag"},
+	{0x1fb15a32,&WrapU_IU<sceKernelSetEventFlag>,         "sceKernelSetEventFlag"},
+	{0x402FCF22,&WrapV_IUUUU<sceKernelWaitEventFlag>,     "sceKernelWaitEventFlag"},
+	{0x328C546A,&WrapV_IUUUU<sceKernelWaitEventFlagCB>,   "sceKernelWaitEventFlagCB"},
+	{0x30FD48F0,&WrapI_IUUUU<sceKernelPollEventFlag>,     "sceKernelPollEventFlag"},
+	{0xCD203292,&WrapU_V<sceKernelCancelEventFlag>,       "sceKernelCancelEventFlag"},
+	{0xA66B0120,&WrapU_IU<sceKernelReferEventFlagStatus>, "sceKernelReferEventFlagStatus"},
 
-	{0x8FFDF9A2,sceKernelCancelSema,		"sceKernelCancelSema"},
-	{0xD6DA4BA1,sceKernelCreateSema,		"sceKernelCreateSema"},
-	{0x28b6489c,sceKernelDeleteSema,		"sceKernelDeleteSema"},
-	{0x58b1f937,sceKernelPollSema,			"sceKernelPollSema"},
-	{0xBC6FEBC5,sceKernelReferSemaStatus,"sceKernelReferSemaStatus"},
-	{0x3F53E640,sceKernelSignalSema,		"sceKernelSignalSema"},
-	{0x4E3A1105,sceKernelWaitSema,			"sceKernelWaitSema"},
-	{0x6d212bac,sceKernelWaitSemaCB,		 "sceKernelWaitSemaCB"},
+	{0x8FFDF9A2,&WrapV_IIU<sceKernelCancelSema>,          "sceKernelCancelSema"},
+	{0xD6DA4BA1,&WrapV_CUIIU<sceKernelCreateSema>,        "sceKernelCreateSema"},
+	{0x28b6489c,&WrapV_I<sceKernelDeleteSema>,            "sceKernelDeleteSema"},
+	{0x58b1f937,&WrapV_II<sceKernelPollSema>,             "sceKernelPollSema"},
+	{0xBC6FEBC5,&WrapV_IU<sceKernelReferSemaStatus>,      "sceKernelReferSemaStatus"},
+	{0x3F53E640,&WrapV_II<sceKernelSignalSema>,           "sceKernelSignalSema"},
+	{0x4E3A1105,&WrapV_IIU<sceKernelWaitSema>,            "sceKernelWaitSema"},
+	{0x6d212bac,&WrapV_IIU<sceKernelWaitSemaCB>,          "sceKernelWaitSemaCB"},
 
 	{0x60107536,0,"sceKernelDeleteLwMutex"},
 	{0x19CFF145,0,"sceKernelCreateLwMutex"},
@@ -290,9 +337,10 @@ const HLEFunction ThreadManForUser[] =
 	{0x5bf4dd27,&WrapU_UUU<sceKernelLockMutexCB>,"sceKernelLockMutexCB"},
 	{0x6b30100f,&WrapU_UU<sceKernelUnlockMutex>,"sceKernelUnlockMutex"},
 	{0xb7d098c6,&WrapU_CUU<sceKernelCreateMutex>,"sceKernelCreateMutex"},
+	{0x0DDCD2C9, 0, "sceKernelTryLockMutex"},
 	// NOTE: LockLwMutex and UnlockLwMutex are in Kernel_Library, see sceKernelInterrupt.cpp.
 
-	{0xFCCFAD26,0,"sceKernelCancelWakeupThread"},
+	{0xFCCFAD26,sceKernelCancelWakeupThread,"sceKernelCancelWakeupThread"},
 	{0xea748e31,sceKernelChangeCurrentThreadAttr,"sceKernelChangeCurrentThreadAttr"},
 	{0x71bc9871,sceKernelChangeThreadPriority,"sceKernelChangeThreadPriority"},
 	{0x446D8DE6,sceKernelCreateThread,"sceKernelCreateThread"},
@@ -303,7 +351,7 @@ const HLEFunction ThreadManForUser[] =
 	{0x68da9e36,sceKernelDelayThreadCB,"sceKernelDelayThreadCB"},
 	{0xaa73c935,sceKernelExitThread,"sceKernelExitThread"},
 	{0x809ce29b,sceKernelExitDeleteThread,"sceKernelExitDeleteThread"},
-	{0x94aa61ee,0,"sceKernelGetThreadCurrentPriority"},
+	{0x94aa61ee,sceKernelGetThreadCurrentPriority,"sceKernelGetThreadCurrentPriority"},
 	{0x293b45b8,sceKernelGetThreadId,"sceKernelGetThreadId"},
 	{0x3B183E26,sceKernelGetThreadExitStatus,"sceKernelGetThreadExitStatus"},
 	{0x52089CA1,sceKernelGetThreadStackFreeSize,"sceKernelGetThreadStackFreeSize"},
@@ -311,13 +359,13 @@ const HLEFunction ThreadManForUser[] =
 	{0x17c1684e,sceKernelReferThreadStatus,"sceKernelReferThreadStatus"},
 	{0x2C34E053,0,"sceKernelReleaseWaitThread"},
 	{0x75156e8f,sceKernelResumeThread,"sceKernelResumeThread"},
-	{0x27e22ec2,0,"sceKernelResumeDispatchThread"},
+	{0x3ad58b8c,&WrapU_V<sceKernelSuspendDispatchThread>,"sceKernelSuspendDispatchThread"},
+	{0x27e22ec2,&WrapU_U<sceKernelResumeDispatchThread>,"sceKernelResumeDispatchThread"},
 	{0x912354a7,sceKernelRotateThreadReadyQueue,"sceKernelRotateThreadReadyQueue"},
 	{0x9ACE131E,sceKernelSleepThread,"sceKernelSleepThread"},
 	{0x82826f70,sceKernelSleepThreadCB,"sceKernelSleepThreadCB"},
-	{0xF475845D,sceKernelStartThread,"sceKernelStartThread"},
+	{0xF475845D,&WrapU_V<sceKernelStartThread>,"sceKernelStartThread"},
 	{0x9944f31f,sceKernelSuspendThread,"sceKernelSuspendThread"},
-	{0x3ad58b8c,0,"sceKernelSuspendDispatchThread"},
 	{0x616403ba,0,"sceKernelTerminateThread"},
 	{0x383f7bcc,sceKernelTerminateDeleteThread,"sceKernelTerminateDeleteThread"},
 	{0x840E8133,sceKernelWaitThreadEndCB,"sceKernelWaitThreadEndCB"},
@@ -345,8 +393,8 @@ const HLEFunction ThreadManForUser[] =
 	{0xdb738f35,sceKernelGetSystemTime,"sceKernelGetSystemTime"},
 	{0x369ed59d,sceKernelGetSystemTimeLow,"sceKernelGetSystemTimeLow"},
 
-	{0x8218B4DD,0,"sceKernelReferGlobalProfiler"},
-	{0x627E6F3A,0,"sceKernelReferSystemStatus"},
+	{0x8218B4DD,&WrapU_U<sceKernelReferGlobalProfiler>,"sceKernelReferGlobalProfiler"},
+	{0x627E6F3A,&WrapU_U<sceKernelReferSystemStatus>,"sceKernelReferSystemStatus"},
 	{0x64D4540E,0,"sceKernelReferThreadProfiler"},
 
 	//Fifa Street 2 uses alarms
@@ -374,17 +422,16 @@ const HLEFunction ThreadManForUser[] =
 	{0xC11BA8C4,sceKernelNotifyCallback,"sceKernelNotifyCallback"},
 	{0xBA4051D6,sceKernelCancelCallback,"sceKernelCancelCallback"},
 	{0x2A3D44FF,sceKernelGetCallbackCount,"sceKernelGetCallbackCount"},
-	{0x349D6D6C,sceKernelCheckCallback,"sceKernelCheckCallback"},
 	{0x730ED8BC,sceKernelReferCallbackStatus,"sceKernelReferCallbackStatus"},
 
-	{0x8125221D,sceKernelCreateMbx,"sceKernelCreateMbx"},
-	{0x86255ADA,sceKernelDeleteMbx,"sceKernelDeleteMbx"},
-	{0xE9B3061E,sceKernelSendMbx,"sceKernelSendMbx"},
-	{0x18260574,sceKernelReceiveMbx,"sceKernelReceiveMbx"},
-	{0xF3986382,sceKernelReceiveMbxCB,"sceKernelReceiveMbxCB"},
-	{0x0D81716A,sceKernelPollMbx,"sceKernelPollMbx"},
-	{0x87D4DD36,sceKernelCancelReceiveMbx,"sceKernelCancelReceiveMbx"},
-	{0xA8E8C846,sceKernelReferMbxStatus,"sceKernelReferMbxStatus"},
+	{0x8125221D,&WrapU_CIUIU<sceKernelCreateMbx>,"sceKernelCreateMbx"},
+	{0x86255ADA,&WrapI_I<sceKernelDeleteMbx>,"sceKernelDeleteMbx"},
+	{0xE9B3061E,&WrapV_IU<sceKernelSendMbx>,"sceKernelSendMbx"},
+	{0x18260574,&WrapV_IUU<sceKernelReceiveMbx>,"sceKernelReceiveMbx"},
+	{0xF3986382,&WrapV_IUU<sceKernelReceiveMbxCB>,"sceKernelReceiveMbxCB"},
+	{0x0D81716A,&WrapI_IU<sceKernelPollMbx>,"sceKernelPollMbx"},
+	{0x87D4DD36,&WrapI_IU<sceKernelCancelReceiveMbx>,"sceKernelCancelReceiveMbx"},
+	{0xA8E8C846,&WrapI_IU<sceKernelReferMbxStatus>,"sceKernelReferMbxStatus"},
 
 	{0x7C0DC2A0,sceKernelCreateMsgPipe,"sceKernelCreateMsgPipe"},
 	{0xF0B7DA1C,sceKernelDeleteMsgPipe,"sceKernelDeleteMsgPipe"},
@@ -415,8 +462,10 @@ const HLEFunction ThreadManForUser[] =
 	{0xA8AA591F,sceKernelCancelFpl,"sceKernelCancelFpl"},
 	{0xD8199E4C,sceKernelReferFplStatus,"sceKernelReferFplStatus"},
 
+	// Not sure if these should be hooked up. See below.
 	{0x0E927AED, _sceKernelReturnFromTimerHandler, "_sceKernelReturnFromTimerHandler"},
 	{0x532A522E, _sceKernelExitThread,"_sceKernelExitThread"},
+
 
 	// Shouldn't hook this up. No games should import this function manually and call it.
 	// {0x6E9EA350, _sceKernelReturnFromCallback,"_sceKernelReturnFromCallback"},
@@ -430,10 +479,10 @@ void Register_ThreadManForUser()
 
 const HLEFunction LoadExecForUser[] =
 {
-	{0x05572A5F,sceKernelExitGame, "sceKernelExitGame"}, //()
-	{0x4AC57943,sceKernelRegisterExitCallback,"sceKernelRegisterExitCallback"},
-	{0xBD2F1094,sceKernelLoadExec,"sceKernelLoadExec"},
-	{0x2AC9954B,0,"sceKernelExitGameWithStatus"},
+	{0x05572A5F,&WrapV_V<sceKernelExitGame>, "sceKernelExitGame"}, //()
+	{0x4AC57943,&WrapU_U<sceKernelRegisterExitCallback>,"sceKernelRegisterExitCallback"},
+	{0xBD2F1094,&WrapI_CU<sceKernelLoadExec>,"sceKernelLoadExec"},
+	{0x2AC9954B,&WrapV_V<sceKernelExitGameWithStatus>,"sceKernelExitGameWithStatus"},
 };
 
 void Register_LoadExecForUser()

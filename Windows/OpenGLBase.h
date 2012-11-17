@@ -5,5 +5,6 @@
 
 bool GL_Init(HWND window);
 void GL_Shutdown();
+void GL_Resized();
 void GL_BeginFrame();
 void GL_EndFrame();

@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -24,7 +24,7 @@
 #include "MIPSIntVFPU.h"
 #include "MIPSCodeUtils.h"
 
-#ifdef ANDROID
+#if defined(ANDROID) || defined(BLACKBERRY)
 #include "ARM/Jit.h"
 #else
 #include "x86/Jit.h"
@@ -148,7 +148,7 @@ const MIPSInstruction tableImmediate[64] =  //xxxxxx .....
 	INSTR("swr", &Jit::Comp_ITypeMem, Dis_ITypeMem, Int_ITypeMem, IN_IMM16|IN_RS_ADDR|IN_RT|OUT_MEM),
 	INSTR("cache", &Jit::Comp_Generic, Dis_Generic, Int_Cache, 0),
 	//48
-	INSTR("ll", &Jit::Comp_Generic, Dis_Generic, 0, 0),
+	INSTR("ll", &Jit::Comp_Generic, Dis_Generic, Int_StoreSync, 0),
 	INSTR("lwc1", &Jit::Comp_FPULS, Dis_FPULS, Int_FPULS, IN_RT|IN_RS_ADDR),
 	INSTR("lv.s", &Jit::Comp_Generic, Dis_SV, Int_SV, IS_VFPU),
 	{-2}, // HIT THIS IN WIPEOUT
@@ -157,7 +157,7 @@ const MIPSInstruction tableImmediate[64] =  //xxxxxx .....
 	INSTR("lv.q", &Jit::Comp_Generic, Dis_SVQ, Int_SVQ, IS_VFPU), //copU
 	{VFPU5},
 	//56
-	INSTR("sc", &Jit::Comp_Generic, Dis_Generic, 0, 0),
+	INSTR("sc", &Jit::Comp_Generic, Dis_Generic, Int_StoreSync, 0),
 	INSTR("swc1", &Jit::Comp_FPULS, Dis_FPULS, Int_FPULS, 0), //copU
 	INSTR("sv.s", &Jit::Comp_Generic, Dis_SV, Int_SV,IS_VFPU),
 	{-2}, 
@@ -183,8 +183,8 @@ const MIPSInstruction tableSpecial[64] = /// 000000 ...... ...... .......... xxx
 	//8
 	INSTR("jr",    &Jit::Comp_JumpReg, Dis_JumpRegType, Int_JumpRegType,0),
 	INSTR("jalr",  &Jit::Comp_JumpReg, Dis_JumpRegType, Int_JumpRegType,0),
-	INSTR("movz",  &Jit::Comp_Generic, Dis_RType3, Int_RType3, OUT_RD|IN_RS|IN_RT),
-	INSTR("movn",  &Jit::Comp_Generic, Dis_RType3, Int_RType3, OUT_RD|IN_RS|IN_RT),
+	INSTR("movz",  &Jit::Comp_RType3, Dis_RType3, Int_RType3, OUT_RD|IN_RS|IN_RT),
+	INSTR("movn",  &Jit::Comp_RType3, Dis_RType3, Int_RType3, OUT_RD|IN_RS|IN_RT),
 	INSTR("syscall", &Jit::Comp_Syscall, Dis_Syscall, Int_Syscall,0),
 	INSTR("break", &Jit::Comp_Generic, Dis_Generic, Int_Break, 0),
 	{-2},
@@ -223,12 +223,12 @@ const MIPSInstruction tableSpecial[64] = /// 000000 ...... ...... .......... xxx
 	//40
 	{-2},
 	{-2},
-	INSTR("slt",  &Jit::Comp_Generic, Dis_RType3, Int_RType3,IN_RS|IN_RT|OUT_RD),
-	INSTR("sltu", &Jit::Comp_Generic, Dis_RType3, Int_RType3,IN_RS|IN_RT|OUT_RD),
+	INSTR("slt",  &Jit::Comp_RType3, Dis_RType3, Int_RType3,IN_RS|IN_RT|OUT_RD),
+	INSTR("sltu", &Jit::Comp_RType3, Dis_RType3, Int_RType3,IN_RS|IN_RT|OUT_RD),
 	INSTR("max",  &Jit::Comp_Generic, Dis_RType3, Int_RType3,IN_RS|IN_RT|OUT_RD),
 	INSTR("min",  &Jit::Comp_Generic, Dis_RType3, Int_RType3,IN_RS|IN_RT|OUT_RD),
-	{-2},
-	{-2},
+	INSTR("msub",  &Jit::Comp_Generic, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|OUT_OTHER),
+	INSTR("msubu", &Jit::Comp_Generic, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|OUT_OTHER),
 
 	//48
 	INSTR("tge",  &Jit::Comp_Generic, Dis_RType3, 0, 0),
@@ -241,7 +241,11 @@ const MIPSInstruction tableSpecial[64] = /// 000000 ...... ...... .......... xxx
 	{-2},
 
 	//56
-	{-2}, {-2}, {-2}, {-2}, {-2}, {-2}, {-2}, {-2},
+	{-2}, {-2}, {-2}, {-2}, {-2},
+	
+	{-2},
+	{-2},
+	{-2},
 };
 
 const MIPSInstruction tableSpecial2[64] = 
@@ -344,10 +348,10 @@ const MIPSInstruction tableRegImm[32] =
 	INSTR("tnei",  &Jit::Comp_Generic, Dis_Generic, 0, 0),
 	{-2},
 
-  INSTR("bltzal",  &Jit::Comp_Generic, Dis_RelBranch, 0, IS_CONDBRANCH|IN_RS|OUT_RA),  
-  INSTR("bgezal",  &Jit::Comp_Generic, Dis_RelBranch, 0, IS_CONDBRANCH|IN_RS|OUT_RA),
-  INSTR("bltzall", &Jit::Comp_Generic, Dis_RelBranch, 0, IS_CONDBRANCH|IN_RS|OUT_RA), //L = likely
-  INSTR("bgezall", &Jit::Comp_Generic, Dis_RelBranch, 0, IS_CONDBRANCH|IN_RS|OUT_RA),
+  INSTR("bltzal",  &Jit::Comp_Generic, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_RS|OUT_RA),  
+  INSTR("bgezal",  &Jit::Comp_Generic, Dis_RelBranch,	Int_RelBranchRI, IS_CONDBRANCH|IN_RS|OUT_RA),
+  INSTR("bltzall", &Jit::Comp_Generic, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_RS|OUT_RA), //L = likely
+  INSTR("bgezall", &Jit::Comp_Generic, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_RS|OUT_RA),
 	{-2},
 	{-2},
 	{-2},
@@ -501,9 +505,9 @@ MIPSInstruction tableVFPU1[8] =
 MIPSInstruction tableVFPU3[8] = //011011 xxx
 {
 	INSTR("vcmp",&Jit::Comp_Generic, Dis_Vcmp, Int_Vcmp, IS_VFPU),
-	INSTR("v???",&Jit::Comp_Generic, Dis_Generic, Int_Vcmp, IS_VFPU),   // 0x6de84848 in motogp
-	INSTR("vmin",&Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU),
-	INSTR("vmax",&Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU), 
+	{-2},
+	INSTR("vmin",&Jit::Comp_Generic, Dis_Generic, Int_Vminmax, IS_VFPU),
+	INSTR("vmax",&Jit::Comp_Generic, Dis_Generic, Int_Vminmax, IS_VFPU), 
 	{-2}, 
 	INSTR("vscmp",&Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU), 
 	INSTR("vsge",&Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU), 
@@ -558,18 +562,18 @@ MIPSInstruction tableVFPU7[32] =
 	//16
 	{-2},
 	{-2},
-	INSTR("vf2h", &Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU),
-	INSTR("vh2f", &Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU),
+	INSTR("vf2h", &Jit::Comp_Generic, Dis_Generic, Int_Vf2h, IS_VFPU),
+	INSTR("vh2f", &Jit::Comp_Generic, Dis_Generic, Int_Vh2f, IS_VFPU),
 
 	{-2},
 	{-2},
 	{-2},
 	INSTR("vlgb", &Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU),
 	//24
-	{-2},  // Seen in BraveStory, initialization
-	{-2},
-	INSTR("vus2i", &Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU),
-	INSTR("vs2i", &Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU),
+	INSTR("vuc2i", &Jit::Comp_Generic, Dis_Generic, Int_Vx2i, IS_VFPU),  // Seen in BraveStory, initialization  110100 00001110000 000 0001 0000 0000
+	INSTR("vc2i", &Jit::Comp_Generic, Dis_Generic, Int_Vx2i, IS_VFPU),
+	INSTR("vus2i", &Jit::Comp_Generic, Dis_Generic, Int_Vx2i, IS_VFPU),
+	INSTR("vs2i", &Jit::Comp_Generic, Dis_Generic, Int_Vx2i, IS_VFPU),
 
 	INSTR("vi2uc", &Jit::Comp_Generic, Dis_Vi2x, Int_Vi2x, IS_VFPU),
 	INSTR("vi2c",  &Jit::Comp_Generic, Dis_Vi2x, Int_Vi2x, IS_VFPU),
@@ -778,7 +782,7 @@ const int encodingBits[NumEncodings][2] =
 	{0,  0}, //Cop2Rese
 	{23, 3}, //VFPU0
 	{23, 3}, //VFPU1
-	{23, 1}, //VFPU3
+	{23, 3}, //VFPU3
 	{21, 5}, //VFPU4Jump
 	{16, 5}, //VFPU7
 	{16, 5}, //VFPU4
@@ -854,6 +858,7 @@ const MIPSInstruction *MIPSGetInstruction(u32 op)
 		if (instr->altEncoding == -2)
 		{
 			//BAD!!
+			//ERROR_LOG(CPU, "Invalid instruction %08x in table %i, entry %i", op, (int)encoding, subop);
 			return 0; //invalid instruction
 		}
 		encoding = (MipsEncoding)instr->altEncoding;

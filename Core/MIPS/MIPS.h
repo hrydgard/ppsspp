@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -50,8 +50,8 @@ enum
 	MIPS_REG_FP=30,
 	MIPS_REG_RA=31,
 
-	// ID for callback is stored here - from JPCSP
-	MIPS_REG_CB_ID=MIPS_REG_S0,
+	// ID for mipscall "callback" is stored here - from JPCSP
+	MIPS_REG_CALL_ID=MIPS_REG_S0,
 };
 
 enum
@@ -112,6 +112,7 @@ public:
 
 	u32 pc;
 	u32 nextPC;
+	u32 prevPC;
 	u32 hi;
 	u32 lo;
 
@@ -123,6 +124,7 @@ public:
 	GMRng rng;	// VFPU hardware random number generator. Probably not the right type.
 
 	bool inDelaySlot;
+	int llBit;  // ll/sc
 
 	CPUType cpuType;
 

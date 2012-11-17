@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -51,6 +51,7 @@ void CConfig::Load(const char *iniFileName)
 	general->Get("DisplayFramebuffer", &bDisplayFramebuffer, false);
 	general->Get("CurrentDirectory", &currentDirectory, "");
 	general->Get("ShowFPSCounter", &bShowFPSCounter, false);
+	general->Get("WindowZoom", &iWindowZoom, 1);
 
 	IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 	sound->Get("Enable", &bEnableSound, true);
@@ -76,6 +77,7 @@ void CConfig::Save()
 		general->Set("DisplayFramebuffer", bDisplayFramebuffer);
 		general->Set("CurrentDirectory", currentDirectory);
 		general->Set("ShowFPSCounter", bShowFPSCounter);
+		general->Set("WindowZoom", iWindowZoom);
 
 		IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 		sound->Set("Enable", bEnableSound);

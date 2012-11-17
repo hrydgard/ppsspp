@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -20,6 +20,7 @@
 #include <queue>
 
 #include "CommonTypes.h"
+#include "sceKernel.h"
 #include "FixedSizeQueue.h"
 
 enum  	PspAudioFormats { PSP_AUDIO_FORMAT_STEREO = 0, PSP_AUDIO_FORMAT_MONO = 0x10 };
@@ -39,7 +40,9 @@ enum  	PspAudioFrequencies { PSP_AUDIO_FREQ_44K = 44100, PSP_AUDIO_FREQ_48K = 48
 
 struct AudioChannel
 {
-  AudioChannel() {clear();}
+  AudioChannel() {
+		clear();
+	}
 
   // PSP side
 
@@ -48,30 +51,32 @@ struct AudioChannel
   // last sample address
   u32 sampleAddress;
   u32 sampleCount;  // Number of samples written in each OutputBlocking
-
-  int running;
-  int triggered;
+	int dataLen;  // Probably internal queue size. Not currently used.
 
   int leftVolume;
   int rightVolume;
 
   int format;
 
+	SceUID waitingThread;
 
   // PC side - should probably split out
 
   // We copy samples as they are written into this simple ring buffer.
   // Might try something more efficient later.
-  FixedSizeQueue<s16, 16384> sampleQueue;
-
+  FixedSizeQueue<s16, 32768> sampleQueue;
 
   void clear() {
     reserved = false;
-    running = false;
+		waitingThread = 0;
+		leftVolume = 0;
+		rightVolume = 0;
+		format = 0;
+		sampleAddress = 0;
+		sampleCount = 0;
     sampleQueue.clear();
   }
 };
-
 
 extern AudioChannel chans[8];
 

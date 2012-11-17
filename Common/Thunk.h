@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -21,7 +21,7 @@
 #include <map>
 
 #include "Common.h"
-#ifdef ANDROID
+#if defined(ANDROID) || defined(BLACKBERRY)
 #include "ArmEmitter.h"
 #else
 #include "x64Emitter.h"
@@ -38,7 +38,7 @@
 // we don't want to pollute the stack, so we store away regs somewhere global.
 // NOT THREAD SAFE. This may only be used from the CPU thread.
 // Any other thread using this stuff will be FATAL.
-#ifdef ANDROID
+#if defined(ANDROID) || defined(BLACKBERRY)
 class ThunkManager : public ArmGen::ARMXCodeBlock
 #else
 class ThunkManager : public Gen::XCodeBlock

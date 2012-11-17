@@ -37,6 +37,9 @@
     <Filter Include="Core">
       <UniqueIdentifier>{75f0ee2b-1397-4cf3-9960-94ccd7d4d803}</UniqueIdentifier>
     </Filter>
+    <Filter Include="HW">
+      <UniqueIdentifier>{9696662f-7398-489a-a358-5ebbf4ad4d97}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ELF\ElfReader.cpp">
@@ -145,9 +148,6 @@
       <Filter>HLE</Filter>
     </ClCompile>
     <ClCompile Include="HLE\sceKernel.cpp">
-      <Filter>HLE\Kernel</Filter>
-    </ClCompile>
-    <ClCompile Include="HLE\sceKernelCallback.cpp">
       <Filter>HLE\Kernel</Filter>
     </ClCompile>
     <ClCompile Include="HLE\sceKernelEventFlag.cpp">
@@ -282,6 +282,15 @@
     <ClCompile Include="Config.cpp">
       <Filter>Core</Filter>
     </ClCompile>
+    <ClCompile Include="ELF\PrxDecrypter.cpp">
+      <Filter>ELF</Filter>
+    </ClCompile>
+    <ClCompile Include="HW\MemoryStick.cpp">
+      <Filter>HW</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\sceImpose.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -372,9 +381,6 @@
       <Filter>HLE</Filter>
     </ClInclude>
     <ClInclude Include="HLE\sceKernel.h">
-      <Filter>HLE\Kernel</Filter>
-    </ClInclude>
-    <ClInclude Include="HLE\sceKernelCallback.h">
       <Filter>HLE\Kernel</Filter>
     </ClInclude>
     <ClInclude Include="HLE\sceKernelEventFlag.h">
@@ -515,11 +521,20 @@
     <ClInclude Include="Config.h">
       <Filter>Core</Filter>
     </ClInclude>
+    <ClInclude Include="ELF\PrxDecrypter.h">
+      <Filter>ELF</Filter>
+    </ClInclude>
+    <ClInclude Include="HW\MemoryStick.h">
+      <Filter>HW</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceImpose.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />
-    <None Include="..\GameLogNotes.txt" />
     <None Include="..\LICENSE.TXT" />
     <None Include="..\android\jni\Android.mk" />
+    <None Include="GameLogNotes.txt" />
   </ItemGroup>
 </Project>

@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -17,11 +17,11 @@
 
 #pragma once
 
-void sceKernelCancelSema();
-void sceKernelCreateSema();
-void sceKernelDeleteSema();
-void sceKernelPollSema();
-void sceKernelReferSemaStatus();
-void sceKernelSignalSema();
-void sceKernelWaitSema();
-void sceKernelWaitSemaCB();
+void sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr);
+void sceKernelCreateSema(const char* name, u32 attr, int initVal, int maxVal, u32 optionPtr);
+void sceKernelDeleteSema(SceUID id);
+void sceKernelPollSema(SceUID id, int wantedCount);
+void sceKernelReferSemaStatus(SceUID id, u32 infoPtr);
+void sceKernelSignalSema(SceUID id, int signal);
+void sceKernelWaitSema(SceUID semaid, int signal, u32 timeoutPtr);
+void sceKernelWaitSemaCB(SceUID semaid, int signal, u32 timeoutPtr);

@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -27,8 +27,8 @@
 
 //////////////////////////////////////////////////////////////////////////
 // STATE BEGIN
-BlockAllocator userMemory;
-BlockAllocator kernelMemory;
+BlockAllocator userMemory(256);
+BlockAllocator kernelMemory(256);
 // STATE END
 //////////////////////////////////////////////////////////////////////////
 
@@ -39,6 +39,7 @@ struct NativeFPL
 	char name[KERNELOBJECT_MAX_NAME_LENGTH+1];
 	SceUID mpid;
 	u32 attr;
+
 	int blocksize;
 	int numBlocks;
 	int numFreeBlocks;
@@ -53,8 +54,31 @@ struct FPL : KernelObject
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_FPLID; }
 	int GetIDType() const { return SCE_KERNEL_TMID_Fpl; }
 	NativeFPL nf;
-	bool *freeBlocks;
+	bool *blocks;
 	u32 address;
+
+	int findFreeBlock() {
+		for (int i = 0; i < nf.numBlocks; i++) {
+			if (!blocks[i])
+				return i;
+		}
+		return -1;
+	}
+
+	int allocateBlock() {
+		int block = findFreeBlock();
+		if (block >= 0)
+			blocks[block] = true;
+		return block;
+	}
+	
+	bool freeBlock(int b) {
+		if (blocks[b]) {
+			blocks[b] = false;
+			return true;
+		}
+		return false;
+	}
 };
 
 struct SceKernelVplInfo
@@ -65,7 +89,6 @@ struct SceKernelVplInfo
 	int poolSize;
 	int freeSize;
 	int numWaitThreads;
-
 };
 
 struct VPL : KernelObject
@@ -110,7 +133,9 @@ void sceKernelCreateFpl()
 
 	u32 totalSize = blockSize * numBlocks;
 
-	u32 address = userMemory.Alloc(totalSize, false, "FPL");
+	bool atEnd = false;   // attr can change this I think
+
+	u32 address = userMemory.Alloc(totalSize, atEnd, "FPL");
 	if (address == (u32)-1)
 	{
 		DEBUG_LOG(HLE,"sceKernelCreateFpl(\"%s\", partition=%i, attr=%i, bsize=%i, nb=%i) FAILED - out of ram", 
@@ -124,16 +149,15 @@ void sceKernelCreateFpl()
 	strncpy(fpl->nf.name, name, 32);
 
 	fpl->nf.size = sizeof(fpl->nf);
-	fpl->nf.mpid = mpid; //partition
+	fpl->nf.mpid = mpid;  // partition
 	fpl->nf.attr = attr;
 	fpl->nf.blocksize = blockSize;
 	fpl->nf.numBlocks = numBlocks;
 	fpl->nf.numWaitThreads = 0;
-	fpl->freeBlocks = new bool[fpl->nf.numBlocks];
-		
+	fpl->blocks = new bool[fpl->nf.numBlocks];
+	memset(fpl->blocks, 0, fpl->nf.numBlocks * sizeof(bool));
 	fpl->address = address;
 
-	memset(fpl->freeBlocks, 0, fpl->nf.numBlocks * sizeof(bool));
 	DEBUG_LOG(HLE,"%i=sceKernelCreateFpl(\"%s\", partition=%i, attr=%i, bsize=%i, nb=%i)", 
 		id, name, mpid, attr, blockSize, numBlocks);
 
@@ -166,12 +190,23 @@ void sceKernelAllocateFpl()
 	{
 		u32 blockPtrAddr = PARAM(1);
 		int timeOut = PARAM(2);
-		DEBUG_LOG(HLE,"FAKEY sceKernelAllocateFpl(%i, %08x, %i)", id, PARAM(1), timeOut);
-		Memory::Write_U32(fpl->address, blockPtrAddr);
+
+		int blockNum = fpl->allocateBlock();
+		if (blockNum >= 0) {
+			u32 blockPtr = fpl->address + fpl->nf.blocksize * blockNum;
+			Memory::Write_U32(blockPtr, blockPtrAddr);
+			RETURN(0);
+		} else {
+			// TODO: Should block!
+			RETURN(0);
+		}
+
+		DEBUG_LOG(HLE,"sceKernelAllocateFpl(%i, %08x, %i)", id, blockPtrAddr, timeOut);
 		RETURN(0);
 	}
 	else
 	{
+		DEBUG_LOG(HLE,"ERROR: sceKernelAllocateFpl(%i)", id);
 		RETURN(error);
 	}
 }
@@ -179,15 +214,28 @@ void sceKernelAllocateFpl()
 void sceKernelAllocateFplCB()
 {
 	SceUID id = PARAM(0);
-	DEBUG_LOG(HLE,"UNIMPL: sceKernelAllocateFplCB(%i)", id);
 	u32 error;
 	FPL *fpl = kernelObjects.Get<FPL>(id, error);
 	if (fpl)
 	{
-		RETURN(0);
+		u32 blockPtrAddr = PARAM(1);
+		int timeOut = PARAM(2);
+
+		int blockNum = fpl->allocateBlock();
+		if (blockNum >= 0) {
+			u32 blockPtr = fpl->address + fpl->nf.blocksize * blockNum;
+			Memory::Write_U32(blockPtr, blockPtrAddr);
+			RETURN(0);
+		} else {
+			// TODO: Should block and process callbacks!
+			__KernelCheckCallbacks();
+		}
+
+		DEBUG_LOG(HLE,"sceKernelAllocateFpl(%i, %08x, %i)", id, PARAM(1), timeOut);
 	}
 	else
 	{
+		DEBUG_LOG(HLE,"ERROR: sceKernelAllocateFplCB(%i)", id);
 		RETURN(error);
 	}
 }
@@ -195,18 +243,25 @@ void sceKernelAllocateFplCB()
 void sceKernelTryAllocateFpl()
 {
 	SceUID id = PARAM(0);
-	DEBUG_LOG(HLE,"BAD sceKernelTryAllocateFpl(%i)", id);
 	u32 error;
 	FPL *fpl = kernelObjects.Get<FPL>(id, error);
 	if (fpl)
 	{
 		u32 blockPtrAddr = PARAM(1);
 		DEBUG_LOG(HLE,"sceKernelTryAllocateFpl(%i, %08x)", id, PARAM(1));
-		Memory::Write_U32(fpl->address, blockPtrAddr);
-		RETURN(0);
+
+		int blockNum = fpl->allocateBlock();
+		if (blockNum >= 0) {
+			u32 blockPtr = fpl->address + fpl->nf.blocksize * blockNum;
+			Memory::Write_U32(blockPtr, blockPtrAddr);
+			RETURN(0);
+		} else {
+			RETURN(SCE_KERNEL_ERROR_NO_MEMORY);
+		}
 	}
 	else
 	{
+		DEBUG_LOG(HLE,"sceKernelTryAllocateFpl(%i) - bad UID", id);
 		RETURN(error);
 	}
 }
@@ -214,12 +269,21 @@ void sceKernelTryAllocateFpl()
 void sceKernelFreeFpl()
 {
 	SceUID id = PARAM(0);
-	ERROR_LOG(HLE,"UNIMPL: sceKernelFreeFpl(%i)", id);
+	u32 blockAddr = PARAM(1);
+
+	DEBUG_LOG(HLE,"sceKernelFreeFpl(%i, %08x)", id, blockAddr);
 	u32 error;
 	FPL *fpl = kernelObjects.Get<FPL>(id, error);
-	if (fpl)
-	{
-		RETURN(0);
+	if (fpl) {
+		int blockNum = (blockAddr - fpl->address) / fpl->nf.blocksize;
+		if (blockNum < 0 || blockNum >= fpl->nf.numBlocks) {
+			RETURN(SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCK);
+		} else {
+			if (fpl->freeBlock(blockNum)) {
+				// TODO: If there are waiting threads, wake them up
+			}
+			RETURN(0);
+		}
 	}
 	else
 	{
@@ -285,7 +349,7 @@ public:
 	PartitionMemoryBlock(BlockAllocator *_alloc, u32 size, bool fromEnd)
 	{
 		alloc = _alloc;
-		address = alloc->Alloc(size, fromEnd);
+		address = alloc->Alloc(size, fromEnd, "PMB");
 		alloc->ListBlocks();
 	}
 	~PartitionMemoryBlock()
@@ -302,10 +366,11 @@ public:
 void sceKernelMaxFreeMemSize() 
 {
 	// TODO: Fudge factor improvement
-	u32 retVal = userMemory.GetLargestFreeBlockSize()-0x8000;
+	u32 retVal = userMemory.GetLargestFreeBlockSize()-0x40000;
 	DEBUG_LOG(HLE,"%08x (dec %i)=sceKernelMaxFreeMemSize",retVal,retVal);
 	RETURN(retVal);
 }
+
 void sceKernelTotalFreeMemSize()
 {
 	u32 retVal = userMemory.GetLargestFreeBlockSize()-0x8000;
@@ -367,7 +432,10 @@ void sceKernelGetBlockHeadAddr()
 
 void sceKernelPrintf()
 {
+	const char *formatString = Memory::GetCharPointer(PARAM(0));
+
 	ERROR_LOG(HLE,"UNIMPL sceKernelPrintf(%08x, %08x, %08x, %08x)", PARAM(0),PARAM(1),PARAM(2),PARAM(3));
+	ERROR_LOG(HLE,"%s", formatString);
 	RETURN(0);
 }
 
@@ -390,19 +458,28 @@ void sceKernelSetCompilerVersion()
 void sceKernelCreateVpl()
 {
 	const char *name = Memory::GetCharPointer(PARAM(0));
+
+	u32 vplSize = PARAM(3);
+	u32 memBlockPtr = userMemory.Alloc(vplSize, false, "VPL");
+	if (memBlockPtr == -1) {
+		ERROR_LOG(HLE, "sceKernelCreateVpl: Failed to allocate %i bytes of pool data", vplSize);
+		RETURN(-1);
+		return;
+	}
+
 	VPL *vpl = new VPL;
 	SceUID id = kernelObjects.Create(vpl);
 
 	strncpy(vpl->nv.name, name, 32);
 	//vpl->nv.mpid = PARAM(1); //seems to be the standard memory partition (user, kernel etc)
 	vpl->nv.attr = PARAM(2);
-	vpl->size = PARAM(3);
+	vpl->size = vplSize;
 	vpl->nv.poolSize = vpl->size;
 	vpl->nv.size = sizeof(vpl->nv);
 	vpl->nv.numWaitThreads = 0;
 	vpl->nv.freeSize = vpl->nv.poolSize;
 		
-	vpl->address = userMemory.Alloc(vpl->size, false, "VPL");
+	vpl->address = memBlockPtr;
 	vpl->alloc.Init(vpl->address, vpl->size);
 
 	DEBUG_LOG(HLE,"sceKernelCreateVpl(\"%s\", block=%i, attr=%i, size=%i)", 
@@ -480,6 +557,7 @@ void sceKernelAllocateVplCB()
 		else
 		{
 			ERROR_LOG(HLE, "sceKernelAllocateVplCB FAILURE");
+			__KernelCheckCallbacks();
 			RETURN(-1);
 		}
 	}
@@ -522,8 +600,24 @@ void sceKernelTryAllocateVpl()
 
 void sceKernelFreeVpl()
 {
-	ERROR_LOG(HLE,"UNIMPL: sceKernelFreeVpl()");
-	RETURN(0);
+	SceUID id = PARAM(0);
+	u32 blockPtr = PARAM(1);
+	DEBUG_LOG(HLE,"sceKernelFreeVpl(%i, %08x)", id, blockPtr);
+	u32 error;
+	VPL *vpl = kernelObjects.Get<VPL>(id, error);
+	if (vpl)
+	{
+		if (vpl->alloc.Free(blockPtr)) {
+			RETURN(0);
+			// Should trigger waiting threads
+		} else {
+			ERROR_LOG(HLE, "sceKernelFreeVpl: Error freeing %08x", blockPtr);
+			RETURN(-1);
+		}
+	}
+	else {
+		RETURN(error);
+	}
 }
 
 void sceKernelCancelVpl()
@@ -552,6 +646,35 @@ void sceKernelReferVplStatus()
 	RETURN(0);
 }
 
+void AllocMemoryBlock() {
+	const char *pname = Memory::GetCharPointer(PARAM(0));
+	int type = PARAM(1);
+	u32 size = PARAM(2);
+	int paramsAddr = PARAM(3);
+	
+	DEBUG_LOG(HLE,"AllocMemoryBlock(SysMemUserForUser_FE707FDF)(%s, %i, %i, %08x)", pname, type, size, paramsAddr);
+
+	// Just support allocating a block in the user region.
+
+	u32 blockPtr = userMemory.Alloc(size, false, pname);
+
+	// Create a UID object??? Nah, let's just us the UID itself (hack!)
+
+	RETURN(blockPtr);
+}
+
+void FreeMemoryBlock() {
+	SceUID uid = PARAM(0);
+	DEBUG_LOG(HLE, "FreeMemoryBlock(%i)", uid);
+	userMemory.Free(uid);
+	RETURN(0);
+}
+
+void GetMemoryBlockPtr() {
+	SceUID uid = PARAM(0);
+	DEBUG_LOG(HLE, "GetMemoryBlockPtr(%i)", uid);
+	RETURN(uid);
+}
 
 const HLEFunction SysMemUserForUser[] = 
 {
@@ -567,8 +690,14 @@ const HLEFunction SysMemUserForUser[] =
 	{0x315AD3A0,0,"sceKernelSetCompiledSdkVersion380_390"},
 	{0xEBD5C3E6,0,"sceKernelSetCompiledSdkVersion395"},
 	{0xf77d77cb,sceKernelSetCompilerVersion,"sceKernelSetCompilerVersion"},
-	{0x35669d4c,0,"SysMemUserForUser_35669d4c"},
-	{0x1b4217bc,0,"SysMemUserForUser_1b4217bc"},
+	{0x35669d4c,0,"sceKernelSetCompiledSdkVersion600_602"},  //??
+	{0x1b4217bc,0,"sceKernelSetCompiledSdkVersion603_605"},
+	{0x358ca1bb,0,"sceKernelSetCompiledSdkVersion606"}, 
+	// Obscure raw block API
+	{0xDB83A952,GetMemoryBlockPtr,"SysMemUserForUser_DB83A952"},  // GetMemoryBlockAddr 
+	{0x91DE343C,0,"SysMemUserForUser_91DE343C"},
+	{0x50F61D8A,FreeMemoryBlock,"SysMemUserForUser_50F61D8A"},  // FreeMemoryBlock 
+	{0xFE707FDF,AllocMemoryBlock,"SysMemUserForUser_FE707FDF"},  // AllocMemoryBlock
 };
 
 

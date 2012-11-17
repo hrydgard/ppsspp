@@ -82,6 +82,7 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>../Common;..;../Core;../native/ext/glew;</AdditionalIncludeDirectories>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -158,13 +159,16 @@
     <ProjectReference Include="..\Core\Core.vcxproj">
       <Project>{533f1d30-d04d-47cc-ad71-20f658907e36}</Project>
     </ProjectReference>
+    <ProjectReference Include="..\ext\libkirk\libkirk.vcxproj">
+      <Project>{3baae095-e0ab-4b0e-b5df-ce39c8ae31de}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\GPU\GPU.vcxproj">
       <Project>{457f45d2-556f-47bc-a31d-aff0d15beaed}</Project>
     </ProjectReference>
     <ProjectReference Include="..\native\native.vcxproj">
       <Project>{e8b58922-9827-493d-81e0-4b6e6bd77171}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\zlib\zlib.vcxproj">
+    <ProjectReference Include="..\ext\zlib\zlib.vcxproj">
       <Project>{f761046e-6c38-4428-a5f1-38391a37bb34}</Project>
     </ProjectReference>
   </ItemGroup>

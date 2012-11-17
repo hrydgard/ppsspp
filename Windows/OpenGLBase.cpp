@@ -1,6 +1,6 @@
 // NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
 
-#ifdef ANDROID
+#if defined(ANDROID) || defined(BLACKBERRY)
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 #else
@@ -41,8 +41,11 @@ void setVSync(int interval=1)
       wglSwapIntervalEXT(interval);
   }
 }
-GLvoid ResizeGLScene()					// Resize And Initialize The GL Window
+
+void GL_Resized()					// Resize And Initialize The GL Window
 {
+	if (!hWnd)
+		return;
 	RECT rc;
 	GetWindowRect(hWnd,&rc);
 	xres=rc.right-rc.left; //account for border :P
@@ -136,7 +139,7 @@ bool GL_Init(HWND window)
 
 	glewInit();
 
-	ResizeGLScene();								// Set Up Our Perspective GL Screen
+	GL_Resized();								// Set Up Our Perspective GL Screen
 
 	return true;												// Success
 }
@@ -162,4 +165,5 @@ void GL_Shutdown()
 		MessageBox(NULL,"Release Device Context Failed.","SHUTDOWN ERROR",MB_OK | MB_ICONINFORMATION);
 		hDC=NULL;								// Set DC To NULL
 	}
+	hWnd = NULL;
 }

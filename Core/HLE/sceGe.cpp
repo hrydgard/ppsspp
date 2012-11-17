@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -20,11 +20,10 @@
 #include "../System.h"
 #include "../CoreParameter.h"
 #include "sceGe.h"
-#include "sceKernelCallback.h"
+#include "sceKernelThread.h"
 #include "sceKernelInterrupt.h"
-
-// TODO: Bad dependency.
-#include "../../GPU/GLES/DisplayListInterpreter.h"
+#include "../GPU/GPUState.h"
+#include "../GPU/GPUInterface.h"
 
 // TODO: This doesn't really belong here
 static int state;
@@ -61,21 +60,17 @@ u32 sceGeEdramGetSize()
 
 u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, u32 callbackId, u32 optParamAddr)
 {
-	if (PSP_CoreParameter().gpuCore == GPU_NULL)
-	{
-		DEBUG_LOG(HLE,"No GPU - ignoring sceGeListEnqueue");
-		return 0;
-	}
-
-	u32 listID = GPU::EnqueueList(listAddress, stallAddress);
+	DEBUG_LOG(HLE,"sceGeListEnQueue(addr=%08x, stall=%08x, cbid=%08x, param=%08x)",
+		listAddress,stallAddress,callbackId,optParamAddr);
+	//if (!stallAddress)
+	//	stallAddress = listAddress;
+	u32 listID = gpu->EnqueueList(listAddress, stallAddress);
 	// HACKY
 	if (listID)
 		state = SCE_GE_LIST_STALLING;
 	else
 		state = SCE_GE_LIST_COMPLETED;
 
-	DEBUG_LOG(HLE,"%i=sceGeListEnQueue(addr=%08x, stall=%08x, cbid=%08x, param=%08x)",listID,
-		listAddress,stallAddress,callbackId,optParamAddr);
 	DEBUG_LOG(HLE,"List enqueued.");
 	//return display list ID
 	return listID;
@@ -83,7 +78,9 @@ u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, u32 callbackId, u32 optP
 
 u32 sceGeListEnQueueHead(u32 listAddress, u32 stallAddress, u32 callbackId, u32 optParamAddr)
 {
-	u32 listID = GPU::EnqueueList(listAddress,stallAddress);
+	if (!stallAddress)
+		stallAddress = listAddress;
+	u32 listID = gpu->EnqueueList(listAddress,stallAddress);
 	// HACKY
 	if (listID)
 		state = SCE_GE_LIST_STALLING;
@@ -102,7 +99,7 @@ void sceGeListUpdateStallAddr(u32 displayListID, u32 stallAddress)
 	DEBUG_LOG(HLE,"sceGeListUpdateStallAddr(dlid=%i,stalladdr=%08x)",
 		displayListID,stallAddress);
 
-	GPU::UpdateStall(displayListID, stallAddress);
+	gpu->UpdateStall(displayListID, stallAddress);
 }
 
 void sceGeListSync(u32 displayListID, u32 mode) //0 : wait for completion		1:check and return
@@ -110,19 +107,12 @@ void sceGeListSync(u32 displayListID, u32 mode) //0 : wait for completion		1:che
 	DEBUG_LOG(HLE,"sceGeListSync(dlid=%08x, mode=%08x)", displayListID,mode);
 }
 
-u32 sceGeDrawSync(u32)
+u32 sceGeDrawSync(u32 mode)
 {
 	//wait/check entire drawing state
-	u32 mode = PARAM(0); //0 : wait for completion		1:check and return
-	DEBUG_LOG(HLE,"FAKE sceGeDrawSync(mode=%d)",mode);
-	if (mode == 1)
-	{
-		return 0;
-	}
-	else
-	{
-		return 0;
-	}
+	DEBUG_LOG(HLE,"FAKE sceGeDrawSync(mode=%d)  (0=wait for completion)",mode);
+	gpu->DrawSync(mode);
+	return 0;
 }
 
 void sceGeBreak()
@@ -139,15 +129,19 @@ void sceGeContinue()
 
 u32 sceGeSetCallback(u32 structAddr)
 {
-	ERROR_LOG(HLE,"HALFIMPL sceGeSetCallback(struct=%08x)", structAddr);
+	DEBUG_LOG(HLE,"sceGeSetCallback(struct=%08x)", structAddr);
 
 	PspGeCallbackData ge_callback_data;
 	Memory::ReadStruct(structAddr, &ge_callback_data);
 
-	if (ge_callback_data.finish_func)
+	if (ge_callback_data.finish_func) {
 		sceKernelRegisterSubIntrHandler(PSP_GE_INTR, PSP_GE_SUBINTR_FINISH, ge_callback_data.finish_func, ge_callback_data.finish_arg);
-	if (ge_callback_data.signal_func)
+		sceKernelEnableSubIntr(PSP_GE_INTR, PSP_GE_SUBINTR_FINISH);
+	}
+	if (ge_callback_data.signal_func) {
 		sceKernelRegisterSubIntrHandler(PSP_GE_INTR, PSP_GE_SUBINTR_SIGNAL, ge_callback_data.signal_func, ge_callback_data.signal_arg);
+		sceKernelEnableSubIntr(PSP_GE_INTR, PSP_GE_SUBINTR_SIGNAL);
+	}
 
 	// TODO: This should return a callback ID
 	return 0;
@@ -155,7 +149,9 @@ u32 sceGeSetCallback(u32 structAddr)
 
 void sceGeUnsetCallback(u32 cbID)
 {
-	ERROR_LOG(HLE,"UNIMPL sceGeUnsetCallback(cbid=%08x)", cbID);
+	DEBUG_LOG(HLE,"sceGeUnsetCallback(cbid=%08x)", cbID);
+	sceKernelReleaseSubIntrHandler(PSP_GE_INTR, PSP_GE_SUBINTR_FINISH);
+	sceKernelReleaseSubIntrHandler(PSP_GE_INTR, PSP_GE_SUBINTR_SIGNAL);
 }
 
 void sceGeSaveContext()

@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -138,6 +138,9 @@ bool TryParse(const std::string &str, u32 *const output)
 		return false;
 
 	if (ULONG_MAX > UINT_MAX) {
+#ifdef _MSC_VER
+#pragma warning (disable:4309)
+#endif
 		// Note: The typecasts avoid GCC warnings when long is 32 bits wide.
 		if (value >= static_cast<unsigned long>(0x100000000ull)
 				&& value <= static_cast<unsigned long>(0xFFFFFFFF00000000ull))

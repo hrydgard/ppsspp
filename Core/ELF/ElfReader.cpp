@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -51,7 +51,7 @@ void addrToHiLo(u32 addr, u16 &hi, s16 &lo)
 }
 
 
-bool ElfReader::LoadInto(u32 vaddr)
+bool ElfReader::LoadInto(u32 loadAddress)
 {
 	DEBUG_LOG(LOADER,"String section: %i", header->e_shstrndx);
 
@@ -77,13 +77,32 @@ bool ElfReader::LoadInto(u32 vaddr)
 	bRelocate = (header->e_type != ET_EXEC);
 
 	entryPoint = header->e_entry;
-	if (bRelocate)
-	{
+	u32 totalStart = 0xFFFFFFFF;
+	u32 totalEnd = 0;
+	for (int i = 0; i < header->e_phnum; i++) {
+		Elf32_Phdr *p = &segments[i];
+		if (p->p_type == PT_LOAD) {
+			if (p->p_vaddr < totalStart)
+				totalStart = p->p_vaddr;
+			if (p->p_vaddr + p->p_memsz > totalEnd)
+				totalEnd = p->p_vaddr + p->p_memsz;
+		}
+	}
+	u32 totalSize = totalEnd - totalStart;
+	if (loadAddress)
+		vaddr = userMemory.AllocAt(loadAddress, totalSize, "ELF");
+	else
+		vaddr = userMemory.Alloc(totalSize, false, "ELF");
+
+	if (vaddr == -1) {
+		ERROR_LOG(LOADER, "Failed to allocate memory for ELF!");
+		return false;
+	}
+	
+	if (bRelocate) {
 		DEBUG_LOG(LOADER,"Relocatable module");
 		entryPoint += vaddr;
-	}
-	else
-	{
+	} else {
 		DEBUG_LOG(LOADER,"Prerelocated executable");
 	}
 
@@ -96,7 +115,6 @@ bool ElfReader::LoadInto(u32 vaddr)
 	for (int i=0; i<header->e_phnum; i++)
 	{
 		Elf32_Phdr *p = segments + i;
-		INFO_LOG(LOADER, "p = %p", p);
 		DEBUG_LOG(LOADER, "Type: %i Vaddr: %08x Filesz: %i Memsz: %i ", (int)p->p_type, (u32)p->p_vaddr, (int)p->p_filesz, (int)p->p_memsz);
 
 		if (p->p_type == PT_LOAD)
@@ -109,14 +127,12 @@ bool ElfReader::LoadInto(u32 vaddr)
 			u32 srcSize = p->p_filesz;
 			u32 dstSize = p->p_memsz;
 
-			userMemory.AllocAt(writeAddr, dstSize, "ELF");
-
-			memcpy(dst, src, srcSize);
 			if (srcSize < dstSize)
 			{
-				//memset(dst + srcSize, 0, dstSize-srcSize); //zero out bss
+				memset(dst + srcSize, 0, dstSize - srcSize); //zero out bss
 			}
 
+			memcpy(dst, src, srcSize);
 			DEBUG_LOG(LOADER,"Loadable Segment Copied to %08x, size %08x", writeAddr, (u32)p->p_memsz);
 		}
 	}
@@ -185,7 +201,7 @@ bool ElfReader::LoadInto(u32 vaddr)
 				addr += segmentVAddr[readwrite];
 				
 				u32 op = Memory::ReadUnchecked_U32(addr);
-        
+
 				const bool log = false;
 				//log=true;
 				if (log)

@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -16,9 +16,9 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ABI.h"
-#include "ARMEmitter.h"
+#include <ArmEmitter.h>
 
-#include "../../Memmap.h"
+#include "../../MemMap.h"
 
 #include "../MIPS.h"
 #include "../../CoreTiming.h"

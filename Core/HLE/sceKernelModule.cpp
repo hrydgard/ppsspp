@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -16,12 +16,16 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <fstream>
-#include "HLE.h"
+#include <algorithm>
 
+#include "HLE.h"
+#include "Common/Action.h"
+#include "Common/FileUtil.h"
 #include "../Host.h"
 #include "../MIPS/MIPS.h"
 #include "../MIPS/MIPSAnalyst.h"
 #include "../ELF/ElfReader.h"
+#include "../ELF/PrxDecrypter.h"
 #include "../Debugger/SymbolMap.h"
 #include "../FileSystems/FileSystem.h"
 #include "../FileSystems/MetaFileSystem.h"
@@ -40,37 +44,84 @@ enum {
 	PSP_THREAD_ATTR_USER = 0x80000000
 };
 
-struct Module : public KernelObject
+static const char *blacklistedModules[] = {
+	"sceATRAC3plus_Library",
+	"sceFont_Library",
+	"SceFont_Library",
+	"sceNetAdhocctl_Library",
+	"sceNetAdhocDownload_Library",
+	"sceNetAdhocMatching_Library",
+	"sceNetAdhoc_Library",
+	"sceNetApctl_Library",
+	"sceNetInet_Library",
+	"sceNet_Library",
+};
+
+struct NativeModule {
+	u32 next;
+	u16 attribute;
+	u8 version[2];
+	char name[28];
+	u32 status;
+	u32 unk1;
+	u32 usermod_thid;
+	u32 memid;
+	u32 mpidtext;
+	u32 mpiddata;
+	u32 ent_top;
+	u32 ent_size;
+	u32 stub_top;
+	u32 stub_size;
+	u32 module_start_func;
+	u32 module_stop_func;
+	u32 module_bootstart_func;
+	u32 module_reboot_before_func;
+	u32 module_reboot_phase_func;
+	u32 entry_addr;
+	u32 gp_value;
+	u32 text_addr;
+	u32 text_size;
+	u32 data_size;
+	u32 bss_size;
+	u32 nsegment;
+	u32 segmentaddr[4];
+	u32 segmentsize[4];
+	u32 module_start_thread_priority;
+	u32 module_start_thread_stacksize;
+	u32 module_start_thread_attr;
+	u32 module_stop_thread_priority;
+	u32 module_stop_thread_stacksize;
+	u32 module_stop_thread_attr;
+	u32 module_reboot_before_thread_priority;
+	u32 module_reboot_before_thread_stacksize;
+	u32 module_reboot_before_thread_attr;
+};
+
+class Module : public KernelObject
 {
-	const char *GetName() {return name;}
+public:
+	Module() : memoryBlockAddr(0) {}
+	~Module() {
+		if (memoryBlockAddr) {
+			userMemory.Free(memoryBlockAddr);
+		}
+	}
+	const char *GetName() {return nm.name;}
 	const char *GetTypeName() {return "Module";}
 	void GetQuickInfo(char *ptr, int size)
 	{
 		// ignore size
 		sprintf(ptr, "name=%s gp=%08x entry=%08x",
-			name,
-			gp_value,
-			entry_addr);
+			nm.name,
+			nm.gp_value,
+			nm.entry_addr);
 	}
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_MODULE; }
 	int GetIDType() const { return 0; }
 
-	SceSize size;
-	char nsegment;
-	char reserved[3];
-	int segmentaddr[4];
-	int segmentsize[4];
-	unsigned int entry_addr;
-	unsigned int gp_value;
-	unsigned int text_addr;
-	unsigned int text_size;
-	unsigned int data_size;
-	unsigned int bss_size;
-	// The following is only available in the v1.5 firmware and above,
-	// but as sceKernelQueryModuleInfo is broken in v1.0 it doesn't matter.
-	unsigned short attribute;
-	unsigned char version[2];
-	char name[28];
+	NativeModule nm;
+
+	u32 memoryBlockAddr;
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -105,37 +156,52 @@ struct SceKernelSMOption {
 
 //////////////////////////////////////////////////////////////////////////
 // STATE BEGIN
-static int numLoadedModules;
 static SceUID mainModuleID;	// hack
 // STATE END
 //////////////////////////////////////////////////////////////////////////
 
-Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, SceUID &id, std::string *error_string)
+Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *error_string)
 {
-	Module *m = new Module;
-	SceUID uid = kernelObjects.Create(m);
+	Module *module = new Module;
+	kernelObjects.Create(module);
 
-	u32 magic = *((u32*)ptr);
+	u8 *newptr = 0;
 
-	if (magic == 0x5053507e) { // "~PSP"
-		ERROR_LOG(HLE, "File encrypted - not yet supported");
-		*error_string = "Executable encrypted - not yet supported";
+	if (*(u32*)ptr == 0x5053507e) { // "~PSP"
+		// Decrypt module! YAY!
+		INFO_LOG(HLE, "Decrypting ~PSP file");
+		PSP_Header *head = (PSP_Header*)ptr;
+		const u8 *in = ptr;
+		u32 size = head->elf_size;
+		if (head->psp_size > size)
+		{
+			size = head->psp_size;
+		}
+		newptr = new u8[head->elf_size + head->psp_size];
+		ptr = newptr;
+		pspDecryptPRX(in, (u8*)ptr, head->psp_size);
+	}
+
+	if (*(u32*)ptr == 0x4543537e) { // "~SCE"
+		ERROR_LOG(HLE, "Wrong magic number %08x (~SCE, kernel module?)",*(u32*)ptr);
+		*error_string = "Kernel module?";
+		if (newptr)
+		{
+			delete [] newptr;
+		}
+		kernelObjects.Destroy<Module>(module->GetUID());
 		return 0;
 	}
 	
-	if (magic == 0x00000000) {
-		// BOOT.BIN is empty, we have to look for EBOOT.BIN which is encrypted.
-		ERROR_LOG(HLE, "File encrypted - not yet supported (2)");
-		*error_string = "Executable encrypted - not yet supported";
-		return 0;
-	}
-
 	if (*(u32*)ptr != 0x464c457f)
 	{
-		char c[4];
-		memcpy(c, ptr, 4);
-		ERROR_LOG(HLE, "Wrong magic number %c%c%c%c %08x", c[0],c[1],c[2],c[3],*(u32*)ptr);
-		*error_string = "File corrupt or encrypted?";
+		ERROR_LOG(HLE, "Wrong magic number %08x",*(u32*)ptr);
+		*error_string = "File corrupt";
+		if (newptr)
+		{
+			delete [] newptr;
+		}
+		kernelObjects.Destroy<Module>(module->GetUID());
 		return 0;
 	}
 	// Open ELF reader
@@ -144,8 +210,14 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, SceUID &id, std::
 	if (!reader.LoadInto(loadAddress))
 	{
 		ERROR_LOG(HLE, "LoadInto failed");
+		if (newptr)
+		{
+			delete [] newptr;
+		}
+		kernelObjects.Destroy<Module>(module->GetUID());
 		return 0;
 	}
+	module->memoryBlockAddr = reader.GetVaddr();
 
 	struct libent
 	{
@@ -157,56 +229,6 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, SceUID &id, std::
 		u16 numFunctions;
 		u32 __entrytableAddr;
 	};
-
-	SectionID entSection = reader.GetSectionByName(".lib.ent");
-	SectionID textSection = reader.GetSectionByName(".text");
-
-	u32 sceResidentAddr = 0;
-	u32 moduleInfoAddr = 0;
-	u32 textStart = reader.GetSectionAddr(textSection);
-	u32 textSize = reader.GetSectionSize(textSection);
-
-	SectionID sceResidentSection = reader.GetSectionByName(".rodata.sceResident");
-	SectionID sceModuleInfoSection = reader.GetSectionByName(".rodata.sceModuleInfo");
-
-	bool hasSymbols = false;
-	bool dontadd = false;
-
-	if (!host->AttemptLoadSymbolMap())
-	{
-		hasSymbols = reader.LoadSymbols();
-		if (!hasSymbols)
-		{
-			symbolMap.ResetSymbolMap();
-			MIPSAnalyst::ScanForFunctions(textStart, textStart+textSize);
-		}
-	}
-	else
-	{
-		dontadd = true;
-	}
-
-	if (entSection != -1)
-	{
-		libent *lib = (libent *)(Memory::GetPointer(reader.GetSectionAddr(entSection)));
-		//what's this for?
-		//lib->l1+=0;
-	}
-
-	sceResidentAddr = reader.GetSectionAddr(sceResidentSection);
-	moduleInfoAddr = reader.GetSectionAddr(sceModuleInfoSection);
-
-	struct PspResidentData 
-	{
-		u32 l1; // unknown 0xd632acdb
-		u32 l2; // unknown 0xf01d73a7
-		u32 startAddress; // address of _start
-		u32 moduleInfoAddr; // address of sceModuleInfo struct
-	};
-
-	DEBUG_LOG(LOADER,"Resident data addr: %08x",	sceResidentAddr);
-
-	PspResidentData *resdata = (PspResidentData *)Memory::GetPointer(sceResidentAddr);
 
 	struct PspModuleInfo
 	{
@@ -222,23 +244,65 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, SceUID &id, std::
 		u32 libstubend;	 // ptr to end of .lib.stub section 
 	};
 
-	PspModuleInfo *modinfo = (PspModuleInfo *)Memory::GetPointer(moduleInfoAddr);
-	m->gp_value = modinfo->gp;
-	strncpy(m->name, modinfo->name, 28);	// TODO
+	SectionID sceModuleInfoSection = reader.GetSectionByName(".rodata.sceModuleInfo");
+	PspModuleInfo *modinfo;
+	if (sceModuleInfoSection != -1)
+		modinfo = (PspModuleInfo *)Memory::GetPointer(reader.GetSectionAddr(sceModuleInfoSection));
+	else
+		modinfo = (PspModuleInfo *)Memory::GetPointer(reader.GetVaddr() + (reader.GetSegmentPaddr(0) & 0x7FFFFFFF) - reader.GetSegmentOffset(0));
 
-	DEBUG_LOG(LOADER,"Module %s: %08x %08x %08x", modinfo->name, modinfo->gp, modinfo->libent,modinfo->libstub);
+	// Check for module blacklist - we don't allow games to load these modules from disc
+	// as we have HLE implementations and the originals won't run in the emu because they
+	// directly access hardware or for other reasons.
+	for (u32 i = 0; i < ARRAY_SIZE(blacklistedModules); i++) {
+		if (strcmp(modinfo->name, blacklistedModules[i]) == 0) {
+			*error_string = "Blacklisted";
+			if (newptr)
+			{
+				delete [] newptr;
+			}
+			kernelObjects.Destroy<Module>(module->GetUID());
+			return 0;
+		}
+	}
+
+	bool hasSymbols = false;
+	bool dontadd = false;
+
+	SectionID textSection = reader.GetSectionByName(".text");
+
+	if (textSection != -1)
+	{
+		u32 textStart = reader.GetSectionAddr(textSection);
+		u32 textSize = reader.GetSectionSize(textSection);
+
+		if (!host->AttemptLoadSymbolMap())
+		{
+			hasSymbols = reader.LoadSymbols();
+			if (!hasSymbols)
+			{
+				symbolMap.ResetSymbolMap();
+				MIPSAnalyst::ScanForFunctions(textStart, textStart+textSize);
+			}
+		}
+		else
+		{
+			dontadd = true;
+		}
+	}
+
+	module->nm.gp_value = modinfo->gp;
+	strncpy(module->nm.name, modinfo->name, 28);
+
+	INFO_LOG(LOADER,"Module %s: %08x %08x %08x", modinfo->name, modinfo->gp, modinfo->libent,modinfo->libstub);
 
 	struct PspLibStubEntry
 	{
-		// pointer to module name (will be in .rodata.sceResident section)
-		u32 moduleNameSymbol;
-		// mod version??
-		unsigned short version;
-		unsigned short val1;
-		unsigned char val2; // 0x5
-		unsigned char val3;
-		// number of function symbols
-		unsigned short numFuncs;
+		u32 name;
+		u16 version;
+		u16 flags;
+		u16 size;
+		u16 numFuncs;
 		// each symbol has an associated nid; nidData is a pointer
 		// (in .rodata.sceNid section) to an array of longs, one
 		// for each function, which identifies the function whose
@@ -252,8 +316,6 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, SceUID &id, std::
 		// should be filled in
 		u32 firstSymAddr;
 	};
-	//sceDisplay at 5968-
-
 
 	int numModules = (modinfo->libstubend - modinfo->libstub)/sizeof(PspLibStubEntry);
 
@@ -263,11 +325,11 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, SceUID &id, std::
 	PspLibStubEntry *entry = (PspLibStubEntry *)Memory::GetPointer(modinfo->libstub);
 
 	int numSyms=0;
-	for (int m=0; m<numModules; m++)
+	for (int m = 0; m < numModules; m++)
 	{
-		const char *modulename = (const char*)Memory::GetPointer(entry[m].moduleNameSymbol);
+		const char *modulename = (const char*)Memory::GetPointer(entry[m].name);
 		u32 *nidDataPtr = (u32*)Memory::GetPointer(entry[m].nidData);
-		u32 *stubs = (u32*)Memory::GetPointer(entry[m].firstSymAddr);
+		// u32 *stubs = (u32*)Memory::GetPointer(entry[m].firstSymAddr);
 
 		DEBUG_LOG(LOADER,"Importing Module %s, stubs at %08x",modulename,entry[m].firstSymAddr);
 
@@ -288,9 +350,66 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, SceUID &id, std::
 		DEBUG_LOG(LOADER,"-------------------------------------------------------------");
 	}
 
-	m->entry_addr = reader.GetEntryPoint();
+	// Look at the exports, too.
 
-	return m;
+	struct PspLibEntEntry
+	{
+		u32 name; /* ent's name (module name) address */
+		u16 version;
+		u16 flags;
+		u8 size;
+		u8 vcount;
+		u16 fcount;
+		u32 resident;
+	};
+
+	int numEnts = (modinfo->libentend - modinfo->libent)/sizeof(PspLibEntEntry);
+	PspLibEntEntry *ent = (PspLibEntEntry *)Memory::GetPointer(modinfo->libent);
+	for (int m=0; m<numEnts; m++)
+	{
+		const char *name;
+		if (ent->size == 0)
+		{
+			continue;
+		}
+
+		if (ent->name == 0)
+		{
+			// ?
+			name = module->nm.name;
+		}
+		else
+		{
+			name = (const char*)Memory::GetPointer(ent->name);
+		}
+
+		INFO_LOG(HLE,"Exporting ent %d named %s, %d funcs, %d vars, resident %08x", m, name, ent->fcount, ent->vcount, ent->resident);
+		
+		u32 *residentPtr = (u32*)Memory::GetPointer(ent->resident);
+
+		for (u32 j = 0; j < ent->fcount; j++)
+		{
+			u32 nid = residentPtr[j];
+			u32 exportAddr = residentPtr[ent->fcount + ent->vcount + j];
+			ResolveSyscall(name, nid, exportAddr);
+		}
+		if (ent->size > 4)
+		{
+			ent = (PspLibEntEntry*)((u8*)ent + ent->size * 4);
+		}
+		else
+		{
+			ent++;
+		}
+	}
+
+	module->nm.entry_addr = reader.GetEntryPoint();
+
+	if (newptr)
+	{
+		delete [] newptr;
+	}
+	return module;
 }
 
 bool __KernelLoadPBP(const char *filename, std::string *error_string)
@@ -331,21 +450,19 @@ bool __KernelLoadPBP(const char *filename, std::string *error_string)
 	{
 		u8 *temp = new u8[1024*1024*8];
 		in.read((char*)temp, 1024*1024*8);
-		SceUID id;
-		Module *m = __KernelLoadELFFromPtr(temp, PSP_GetDefaultLoadAddress(), id, error_string);
-		if (!m)
+		Module *module = __KernelLoadELFFromPtr(temp, PSP_GetDefaultLoadAddress(), error_string);
+		if (!module)
 			return false;
-		mipsr4k.pc = m->entry_addr;
+		mipsr4k.pc = module->nm.entry_addr;
 		delete [] temp;
 	}
 	in.close();
 	return true;
 }
 
-
-Module *__KernelLoadModule(u8 *fileptr, SceUID &id, SceKernelLMOption *options, std::string *error_string)
+Module *__KernelLoadModule(u8 *fileptr, SceKernelLMOption *options, std::string *error_string)
 {
-	Module *m = 0;
+	Module *module = 0;
 	// Check for PBP
 	if (memcmp(fileptr, "\0PBP", 4) == 0)
 	{
@@ -360,14 +477,14 @@ Module *__KernelLoadModule(u8 *fileptr, SceUID &id, SceKernelLMOption *options, 
 		offsets[0] = offset0;
 		for (int i = 1; i < numfiles; i++)
 			memcpy(&offsets[i], fileptr + 12 + 4*i, 4);
-		m = __KernelLoadELFFromPtr(fileptr + offsets[5], PSP_GetDefaultLoadAddress(), id, error_string);
+		module = __KernelLoadELFFromPtr(fileptr + offsets[5], PSP_GetDefaultLoadAddress(), error_string);
 	}
 	else
 	{
-		m = __KernelLoadELFFromPtr(fileptr, PSP_GetDefaultLoadAddress(), id, error_string);
+		module = __KernelLoadELFFromPtr(fileptr, PSP_GetDefaultLoadAddress(), error_string);
 	}
 
-	return m;
+	return module;
 }
 
 void __KernelStartModule(Module *m, int args, const char *argp, SceKernelSMOption *options)
@@ -378,13 +495,13 @@ void __KernelStartModule(Module *m, int args, const char *argp, SceKernelSMOptio
 }
 
 
-u32 __KernelGetModuleGP(SceUID module)
+u32 __KernelGetModuleGP(SceUID uid)
 {
 	u32 error;
-	Module *m = kernelObjects.Get<Module>(module,error);
-	if (m)
+	Module *module = kernelObjects.Get<Module>(uid, error);
+	if (module)
 	{
-		return m->gp_value;
+		return module->nm.gp_value;
 	}
 	else
 	{
@@ -395,30 +512,27 @@ u32 __KernelGetModuleGP(SceUID module)
 bool __KernelLoadExec(const char *filename, SceKernelLoadExecParam *param, std::string *error_string)
 {
 	// Wipe kernel here, loadexec should reset the entire system
-	__KernelInit();
+	if (__KernelIsRunning())
+		__KernelShutdown();
 
+	__KernelInit();
+	
 	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
-	s64 size = (s64)info.size;
-	if (!size)
-	{
-		ERROR_LOG(LOADER, "File is size 0: %s", filename);
-		return false;
-	}
+
 	u32 handle = pspFileSystem.OpenFile(filename, FILEACCESS_READ);
 
-	u8 *temp = new u8[(int)size];
+	u8 *temp = new u8[(int)info.size + 0x1000000];
 
-	pspFileSystem.ReadFile(handle, temp, (size_t)size);
+	pspFileSystem.ReadFile(handle, temp, (size_t)info.size);
 
-	SceUID moduleID;
-	Module *m = __KernelLoadModule(temp, moduleID, 0, error_string);
+	Module *module = __KernelLoadModule(temp, 0, error_string);
 
-	if (!m) {
+	if (!module) {
 		ERROR_LOG(LOADER, "Failed to load module %s", filename);
 		return false;
 	}
 
-	mipsr4k.pc = m->entry_addr;
+	mipsr4k.pc = module->nm.entry_addr;
 
 	INFO_LOG(LOADER, "Module entry: %08x", mipsr4k.pc);
 
@@ -433,93 +547,195 @@ bool __KernelLoadExec(const char *filename, SceKernelLoadExecParam *param, std::
 	option.priority = 0x20;
 	option.stacksize = 0x40000;	// crazy? but seems to be the truth
 
-	__KernelStartModule(m, (u32)strlen(filename), filename, &option);
+	__KernelStartModule(module, (u32)strlen(filename) + 1, filename, &option);
 
 	__KernelStartIdleThreads();
 	return true;
 }
 
 //TODO: second param
-void sceKernelLoadExec()
+int sceKernelLoadExec(const char *filename, u32 paramPtr)
 {
-	const char *name = Memory::GetCharPointer(PARAM(0));
 	SceKernelLoadExecParam *param = 0;
-	if (PARAM(1))
+	if (paramPtr)
 	{
-		param = (SceKernelLoadExecParam*)Memory::GetPointer(PARAM(1));
+		param = (SceKernelLoadExecParam*)Memory::GetPointer(paramPtr);
 	}
-	DEBUG_LOG(HLE,"sceKernelLoadExec(name=%s,...)", name);
+
+	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
+	
+	if (!info.exists) {
+		ERROR_LOG(LOADER, "sceKernelLoadExec(%s, ...): File does not exist", filename);
+		return SCE_KERNEL_ERROR_NOFILE;
+	}
+
+	s64 size = (s64)info.size;
+	if (!size)
+	{
+		ERROR_LOG(LOADER, "sceKernelLoadExec(%s, ...): File is size 0", filename);
+		return SCE_KERNEL_ERROR_ILLEGAL_OBJECT;
+	}
+
+	DEBUG_LOG(HLE,"sceKernelLoadExec(name=%s,...)", filename);
 	std::string error_string;
-	if (!__KernelLoadExec(name, param, &error_string))
+	if (!__KernelLoadExec(filename, param, &error_string)) {
 		ERROR_LOG(HLE, "sceKernelLoadExec failed: %s", error_string.c_str());
+		return -1;
+	}
+	return 0;
 }
 
-void sceKernelLoadModule()
+u32 sceKernelLoadModule(const char *name, u32 flags)
 {
-	const char *name = Memory::GetCharPointer(PARAM(0));
-	u32 flags = PARAM(1);
+	if(!name)
+		return 0;
+
+	PSPFileInfo info = pspFileSystem.GetFileInfo(name);
+	std::string error_string;
+	s64 size = (s64)info.size;
+
+	if (!info.exists) {
+		ERROR_LOG(LOADER, "sceKernelLoadModule(%s, %08x): File does not exist", name, flags);
+		return SCE_KERNEL_ERROR_NOFILE;
+	}
+
+	if (!size)
+	{   
+		ERROR_LOG(LOADER, "sceKernelLoadModule(%s, %08x): Module file is size 0", name, flags);
+		return SCE_KERNEL_ERROR_ILLEGAL_OBJECT;
+	}
+
+	DEBUG_LOG(LOADER, "sceKernelLoadModule(%s, %08x)", name, flags);
+
+	SceKernelLMOption *lmoption = 0;
+	int position = 0;
+	// TODO: Use position to decide whether to load high or low
 	if (PARAM(2))
 	{
-		SceKernelLMOption *lmoption= (SceKernelLMOption *)Memory::GetPointer(PARAM(2));
+		SceKernelLMOption *lmoption = (SceKernelLMOption *)Memory::GetPointer(PARAM(2));
+		
+	}
 
-		//TODO: Check if module name is in "blacklist" (HLE:d list)
-		//If it is, don't load it.
-		//Else, actually do load it and resolve pointers!
+	Module *module = 0;
+	u8 *temp = new u8[(int)size];
+	u32 handle = pspFileSystem.OpenFile(name, FILEACCESS_READ);
+	pspFileSystem.ReadFile(handle, temp, (size_t)size);
+	module = __KernelLoadELFFromPtr(temp, 0, &error_string);
+	delete [] temp;
+	pspFileSystem.CloseFile(handle);
 
-		DEBUG_LOG(HLE,"%i=sceKernelLoadModule(name=%s,flag=%08x,%08x,%08x,%08x,%08x(...))",
-			numLoadedModules+1,name,flags,
+	if (!module) {
+		// Module was blacklisted or couldn't be decrypted, which means it's a kernel module we don't want to run.
+		// Let's just act as if it worked.
+		NOTICE_LOG(LOADER, "Module %s is blacklisted or undecryptable - we lie about success", name);
+		return 1;
+	}
+
+	if (lmoption) {
+		INFO_LOG(HLE,"%i=sceKernelLoadModule(name=%s,flag=%08x,%08x,%08x,%08x,position = %08x)",
+			module->GetUID(),name,flags,
 			lmoption->size,lmoption->mpidtext,lmoption->mpiddata,lmoption->position);
-
-			
 	}
 	else
 	{
-		ERROR_LOG(HLE,"%i=sceKernelLoadModule(name=%s,flag=%08x,(...))", numLoadedModules+1, name, flags);
+		INFO_LOG(HLE,"%i=sceKernelLoadModule(name=%s,flag=%08x,(...))", module->GetUID(), name, flags);
 	}
-	RETURN(++numLoadedModules);
+
+	return module->GetUID();
 }
 
-void sceKernelStartModule()
-{
-	int id = PARAM(0);
-	int argsize = PARAM(1);
-	u32 argptr = PARAM(2);
-	u32 ptrReturn = PARAM(3);
-	if (PARAM(4)) {
-		SceKernelSMOption *smoption = (SceKernelSMOption*)Memory::GetPointer(PARAM(4));
-	}
-	ERROR_LOG(HLE,"UNIMPL sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,...)",
-		id,argsize,argptr,ptrReturn);
-	RETURN(0);
+class AfterModuleEntryCall : public Action {
+public:
+	AfterModuleEntryCall() {}
+	Module *module_;
+	u32 retValAddr;
+	virtual void run();
+};
+
+void AfterModuleEntryCall::run() {
+	Memory::Write_U32(retValAddr, currentMIPS->r[2]);
 }
 
-void sceKernelStopModule()
+void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, u32 optionAddr)
 {
-	ERROR_LOG(HLE,"UNIMPL sceKernelStopModule");
-	RETURN(0);
+	// Dunno what these three defaults should be...
+	u32 priority = 0x20;
+	u32 stacksize = 0x40000; 
+	u32 attr = 0;
+	int stackPartition = 0;
+	if (optionAddr) {
+		SceKernelSMOption smoption;
+		Memory::ReadStruct(optionAddr, &smoption);;
+		priority = smoption.priority;
+		attr = smoption.attribute;
+		stacksize = smoption.stacksize;
+		stackPartition = smoption.mpidstack;
+	}
+	u32 error;
+	Module *module = kernelObjects.Get<Module>(moduleId, error);
+	if (!module) {
+		// TODO: Try not to lie so much.
+		/*
+		RETURN(error);
+		return;
+		*/
+	} else {
+		u32 entryAddr = module->nm.entry_addr;
+		if (entryAddr == -1) {
+			entryAddr = module->nm.module_start_func;
+			// attr = module->nm
+		}
+	}
 
+	//SceUID threadId;
+	//__KernelCreateThread(threadId, moduleId, module->nm.name, module->nm.entry_addr, priority, stacksize, attr);
+
+	ERROR_LOG(HLE,"UNIMPL sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x)",
+		moduleId,argsize,argAddr,returnValueAddr,optionAddr);
+
+	// Apparently, we need to call the entry point directly and insert the return value afterwards. This calls
+	// for a MipsCall and an Action. TODO
+	RETURN(0); // TODO: Delete
+}
+
+void sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 returnValueAddr, u32 optionAddr)
+{
+	ERROR_LOG(HLE,"UNIMPL sceKernelStopModule(%i, %i, %08x, %08x, %08x)",
+		moduleId, argSize, argAddr, returnValueAddr, optionAddr);
+
+	// We should call the "stop" entry point and return the value in returnValueAddr. See StartModule.
+	RETURN(0);
 }
 
 void sceKernelUnloadModule()
 {
-	ERROR_LOG(HLE,"UNIMPL sceKernelUnloadModule");
-	RETURN(0);
+	u32 moduleId = PARAM(0);
+	ERROR_LOG(HLE,"UNIMPL sceKernelUnloadModule(%i)", moduleId);
+	u32 error;
+	Module *module = kernelObjects.Get<Module>(moduleId, error);
+	if (!module)
+	{
+		RETURN(error);
+		return;
+	}
 
+	kernelObjects.Destroy<Module>(moduleId);
+	RETURN(0);
 }
 
 void sceKernelGetModuleIdByAddress()
 {
-	ERROR_LOG(HLE,"UNIMPL sceKernelGetModuleIdByAddress(%08x)", PARAM(0));
-	if (PARAM(0) == 0x08800000)
+	ERROR_LOG(HLE,"HACKIMPL sceKernelGetModuleIdByAddress(%08x)", PARAM(0));
+	if ((PARAM(0) & 0xFFFF0000) == 0x08800000)
 		RETURN(mainModuleID);
 	else
 		RETURN(0);
 }
+
 void sceKernelGetModuleId()
 {
-	ERROR_LOG(HLE,"UNIMPL sceKernelGetModuleId");
-	RETURN(0);
-
+	ERROR_LOG(HLE,"sceKernelGetModuleId()");
+	RETURN(__KernelGetCurThreadModuleId());
 }
 
 void sceKernelFindModuleByName()
@@ -528,23 +744,27 @@ void sceKernelFindModuleByName()
 	RETURN(1);
 }
 
-
+u32 sceKernelLoadModuleByID(u32 id) {
+	ERROR_LOG(HLE,"UNIMPL sceKernelLoadModuleById(%08x)", id);
+	// Apparenty, ID is a sceIo File UID. So this shouldn't be too hard when needed.
+	return 0;
+}
 
 const HLEFunction ModuleMgrForUser[] = 
 {
-	{0x977DE386,sceKernelLoadModule,"sceKernelLoadModule"},
-	{0xb7f46618,0,"sceKernelLoadModuleByID"},
-	{0x50F0C1EC,sceKernelStartModule,"sceKernelStartModule"},
-	{0xD675EBB8,sceKernelExitGame,"sceKernelSelfStopUnloadModule"}, //HACK
-	{0xd1ff982a,sceKernelStopModule,"sceKernelStopModule"},
-	{0x2e0911aa,sceKernelUnloadModule,"sceKernelUnloadModule"},
+	{0x977DE386,&WrapU_CU<sceKernelLoadModule>,"sceKernelLoadModule"},
+	{0xb7f46618,&WrapU_U<sceKernelLoadModuleByID>,"sceKernelLoadModuleByID"},
+	{0x50F0C1EC,&WrapV_UUUUU<sceKernelStartModule>,"sceKernelStartModule"},
+	{0xD675EBB8,&sceKernelExitGame,"sceKernelSelfStopUnloadModule"}, //HACK
+	{0xd1ff982a,&WrapV_UUUUU<sceKernelStopModule>,"sceKernelStopModule"},
+	{0x2e0911aa,&sceKernelUnloadModule,"sceKernelUnloadModule"},
 	{0x710F61B5,0,"sceKernelLoadModuleMs"},
 	{0xF9275D98,0,"sceKernelLoadModuleBufferUsbWlan"}, ///???
 	{0xCC1D3699,0,"sceKernelStopUnloadSelfModule"},
 	{0x748CBED9,0,"sceKernelQueryModuleInfo"},
-	{0xd8b73127,sceKernelGetModuleIdByAddress, "sceKernelGetModuleIdByAddress"},
-	{0xf0a26395,sceKernelGetModuleId, "sceKernelGetModuleId"},
-	{0x8f2df740,0,"sceKernel_ModuleMgr_8f2df740"},
+	{0xd8b73127,&sceKernelGetModuleIdByAddress, "sceKernelGetModuleIdByAddress"},
+	{0xf0a26395,&sceKernelGetModuleId, "sceKernelGetModuleId"},
+	{0x8f2df740,0,"sceKernelStopUnloadSelfModuleWithStatus"},
 };
 
 

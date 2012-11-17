@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -46,11 +46,11 @@ void sceKernelCreateVTimer()
 
 	VTimer *vt = new VTimer();
 
-	SceUID id = kernelObjects.Create(vt);
+	SceUID uid = kernelObjects.Create(vt);
 	strncpy(vt->name, name, 32);
 	vt->running = true;
 	vt->startTime = 0; //TODO fix
-	RETURN(id); //TODO: return timer ID
+	RETURN(uid); //TODO: return timer ID
 }
 
 void sceKernelStartVTimer()
@@ -70,5 +70,6 @@ void sceKernelSetVTimerHandler()
 // Not sure why this is exposed...
 void _sceKernelReturnFromTimerHandler()
 {
+	DEBUG_LOG(HLE,"_sceKernelReturnFromTimerHandler");
 
 }

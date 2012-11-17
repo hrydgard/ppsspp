@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -54,7 +54,7 @@ void sceKernelGetSystemTimeLow()
 {
 	// This clock should tick at 1 Mhz.
 	u64 t = CoreTiming::GetTicks() / CoreTiming::GetClockFrequencyMHz();
-	DEBUG_LOG(HLE,"%08x=sceKernelGetSystemTimeLow()",(u32)t);
+	// DEBUG_LOG(HLE,"%08x=sceKernelGetSystemTimeLow()",(u32)t);
 	RETURN((u32)t);
 }
 
@@ -81,8 +81,10 @@ void sceKernelSysClock2USec()
 	Memory::ReadStruct(PARAM(0), &clock);
 	DEBUG_LOG(HLE, "sceKernelSysClock2USec(clock = , lo = %08x, hi = %08x)", PARAM(1), PARAM(2));
 	u64 time = clock.lo | ((u64)clock.hi << 32);
-	Memory::Write_U32((u32)(time / 1000000), PARAM(1));
-	Memory::Write_U32((u32)(time % 1000000), PARAM(2));
+	if (Memory::IsValidAddress(PARAM(1)))
+		Memory::Write_U32((u32)(time / 1000000), PARAM(1));
+	if (Memory::IsValidAddress(PARAM(2)))
+		Memory::Write_U32((u32)(time % 1000000), PARAM(2));
 	RETURN(0);
 }
 
@@ -90,8 +92,10 @@ void sceKernelSysClock2USecWide()
 {
 	u64 clock = PARAM(0) | ((u64)PARAM(1) << 32);
 	DEBUG_LOG(HLE, "sceKernelSysClock2USecWide(clock = %llu, lo = %08x, hi = %08x)", clock, PARAM(2), PARAM(3));
-	Memory::Write_U32((u32)(clock / 1000000), PARAM(2));
-	Memory::Write_U32((u32)(clock % 1000000), PARAM(3));
+	if (Memory::IsValidAddress(PARAM(2)))
+		Memory::Write_U32((u32)(clock / 1000000), PARAM(2));
+	if (Memory::IsValidAddress(PARAM(3)))
+		Memory::Write_U32((u32)(clock % 1000000), PARAM(3));
 	RETURN(0);
 }
 
@@ -144,6 +148,42 @@ void sceRtcGetTick()
 {
 	DEBUG_LOG(HLE,"0=sceRtcGetTick()");
 	RETURN(0);
+}
+
+u32 sceRtcGetDayOfWeek(u32 year, u32 month, u32 day)
+{
+	static u32 t[] = { 0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4 };
+	 
+    year -= month < 3;
+    return ( year + year/4 - year/100 + year/400 + t[month-1] + day) % 7;
+}
+
+u32 sceRtcGetDaysInMonth(u32 year, u32 month)
+{
+	DEBUG_LOG(HLE,"0=sceRtcGetDaysInMonth()");
+	u32 numberOfDays;
+
+	switch (month)
+	{
+		case 4:
+		case 6:
+		case 9:
+		case 11:
+			numberOfDays = 30;
+			break;
+		case 2:
+			if ((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0))
+				numberOfDays = 29;
+			else
+				numberOfDays = 28;
+			break;
+
+		default:
+			numberOfDays = 31;
+			break;
+	}
+
+	return numberOfDays;
 }
 
 void sceRtcGetTickResolution()

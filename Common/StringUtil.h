@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -26,6 +26,38 @@
 #include <iomanip>
 
 #include "Common.h"
+
+#ifdef BLACKBERRY
+// QNX Does not have an implementation of vasprintf
+static inline int vasprintf(char **rResult, const char *aFormat, va_list aAp)
+{
+	int rVal;
+	char *result;
+	va_list ap;
+
+	result = (char *) malloc(16);
+	if (result == NULL) return -1;
+
+	va_copy(ap, aAp);
+	rVal = vsnprintf(result, 16, aFormat, ap);
+	va_end(ap);
+
+	if (rVal == -1) return rVal;
+	else if (rVal >= 16)
+	{
+	free(result);
+	result = (char *) malloc(rVal + 1);
+	if (result == NULL) return -1;
+
+	va_copy(ap, aAp);
+	rVal = vsnprintf(result, rVal + 1, aFormat, aAp);
+	va_end(ap);
+	}
+
+	*rResult = result;
+	return rVal;
+}
+#endif
 
 std::string StringFromFormat(const char* format, ...);
 // Cheap!

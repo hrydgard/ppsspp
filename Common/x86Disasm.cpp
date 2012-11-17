@@ -1,7 +1,7 @@
 // X86 disassembler - 95% ripped from some GNU source if I remember
 // correctly, probably GCC or some GCC tool
 
-#ifdef ANDROID
+#if defined(ANDROID) || defined(BLACKBERRY)
 #error DO NOT COMPILE THIS INTO ANDROID BUILDS
 #endif
 

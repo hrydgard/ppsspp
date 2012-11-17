@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -226,13 +226,13 @@ u8* MemArena::Find4GBBase()
 	}
 	return base;
 #else
-	void* base = mmap(0, 0x31000000, PROT_READ | PROT_WRITE,
+	void* base = mmap(0, 0x5000000, PROT_READ | PROT_WRITE,
 		MAP_ANON | MAP_SHARED, -1, 0);
 	if (base == MAP_FAILED) {
-		PanicAlert("Failed to map 1 GB of memory space: %s", strerror(errno));
+		PanicAlert("Failed to map 100 MB of memory space: %s", strerror(errno));
 		return 0;
 	}
-	munmap(base, 0x31000000);
+	munmap(base, 0x5000000);
 	return static_cast<u8*>(base);
 #endif
 #endif

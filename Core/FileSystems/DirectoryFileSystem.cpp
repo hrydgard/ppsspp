@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -32,6 +32,9 @@ DirectoryFileSystem::DirectoryFileSystem(IHandleAllocator *_hAlloc, std::string 
 
 std::string DirectoryFileSystem::GetLocalPath(std::string localpath)
 {
+	if (localpath.empty())
+		return basePath;
+
   if (localpath[0] == '/')
     localpath.erase(0,1);
   //Convert slashes
@@ -81,7 +84,7 @@ bool DirectoryFileSystem::DeleteFile(const std::string &filename)
 u32 DirectoryFileSystem::OpenFile(std::string filename, FileAccess access)
 {
 	std::string fullName = GetLocalPath(filename);
-	INFO_LOG(HLE,"Actually opening %s",fullName.c_str());
+	INFO_LOG(HLE,"Actually opening %s (%s)", fullName.c_str(), filename.c_str());
 
 	OpenFileEntry entry;
 
@@ -237,9 +240,15 @@ size_t DirectoryFileSystem::SeekFile(u32 handle, s32 position, FileMove type)
 PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename) 
 {
 	PSPFileInfo x; 
-	x.size=0; 
+	x.name = filename;
+	
 
   std::string fullName = GetLocalPath(filename);
+	if (!File::Exists(fullName)) {
+		return x;
+	}
+	x.type = File::IsDirectory(fullName) ? FILETYPE_NORMAL : FILETYPE_DIRECTORY;
+	x.exists = true;
 
 #ifdef _WIN32
 
@@ -280,7 +289,10 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path)
 		else
 			entry.type = FILETYPE_NORMAL;
 
-		entry.size = findData.nFileSizeLow | ((u64)findData.nFileSizeHigh<<32);
+		if (!strcmp(findData.cFileName, "..") )// TODO: is this just for .. or all sub directories? Need to add a directory to the test to find out. Also why so different than the old test results?
+			entry.size = 4096;
+		else
+			entry.size = findData.nFileSizeLow | ((u64)findData.nFileSizeHigh<<32);
 		entry.name = findData.cFileName;
 		
 		myVector.push_back(entry);

@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -15,7 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#ifdef ANDROID
+#if defined(ANDROID) || defined(BLACKBERRY)
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 #else
@@ -31,8 +31,12 @@
 #include "GPUState.h"
 #include "GLES/ShaderManager.h"
 #include "GLES/DisplayListInterpreter.h"
+#include "Null/NullGpu.h"
+#include "../Core/CoreParameter.h"
+#include "../Core/System.h"
 
 GPUgstate gstate;
+GPUInterface *gpu;
 
 void InitGfxState()
 {
@@ -60,6 +64,21 @@ void InitGfxState()
 	for (int i = 0; i < 8; i++) {
 		memcpy(gstate.boneMatrix + i * 12, identity4x3, 12 * sizeof(float));
 	}
+
+	switch (PSP_CoreParameter().gpuCore) {
+	case GPU_NULL:
+		gpu = new NullGPU();
+		break;
+	case GPU_GLES:
+		gpu = new GLES_GPU();
+		break;
+	}
+}
+
+void ShutdownGfxState()
+{
+	delete gpu;
+	gpu = NULL;
 }
 
 // When you have changed state outside the psp gfx core,
@@ -69,13 +88,13 @@ void ReapplyGfxState()
 	// ShaderManager_DirtyShader();
 	// The commands are embedded in the command memory so we can just reexecute the words. Convenient.
 	// To be safe we pass 0xFFFFFFF as the diff.
-	GPU::ExecuteOp(gstate.cmdmem[GE_CMD_ALPHABLENDENABLE], 0xFFFFFFFF);
-	GPU::ExecuteOp(gstate.cmdmem[GE_CMD_ALPHATESTENABLE], 0xFFFFFFFF);
-	GPU::ExecuteOp(gstate.cmdmem[GE_CMD_BLENDMODE], 0xFFFFFFFF);
-	GPU::ExecuteOp(gstate.cmdmem[GE_CMD_ZTEST], 0xFFFFFFFF);
-	GPU::ExecuteOp(gstate.cmdmem[GE_CMD_ZTESTENABLE], 0xFFFFFFFF);
-	GPU::ExecuteOp(gstate.cmdmem[GE_CMD_CULL], 0xFFFFFFFF);
-	GPU::ExecuteOp(gstate.cmdmem[GE_CMD_CULLFACEENABLE], 0xFFFFFFFF);
-	GPU::ExecuteOp(gstate.cmdmem[GE_CMD_SCISSOR1], 0xFFFFFFFF);
-	GPU::ExecuteOp(gstate.cmdmem[GE_CMD_SCISSOR2], 0xFFFFFFFF);
+	gpu->ExecuteOp(gstate.cmdmem[GE_CMD_ALPHABLENDENABLE], 0xFFFFFFFF);
+	gpu->ExecuteOp(gstate.cmdmem[GE_CMD_ALPHATESTENABLE], 0xFFFFFFFF);
+	gpu->ExecuteOp(gstate.cmdmem[GE_CMD_BLENDMODE], 0xFFFFFFFF);
+	gpu->ExecuteOp(gstate.cmdmem[GE_CMD_ZTEST], 0xFFFFFFFF);
+	gpu->ExecuteOp(gstate.cmdmem[GE_CMD_ZTESTENABLE], 0xFFFFFFFF);
+	gpu->ExecuteOp(gstate.cmdmem[GE_CMD_CULL], 0xFFFFFFFF);
+	gpu->ExecuteOp(gstate.cmdmem[GE_CMD_CULLFACEENABLE], 0xFFFFFFFF);
+	gpu->ExecuteOp(gstate.cmdmem[GE_CMD_SCISSOR1], 0xFFFFFFFF);
+	gpu->ExecuteOp(gstate.cmdmem[GE_CMD_SCISSOR2], 0xFFFFFFFF);
 }

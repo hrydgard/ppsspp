@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -17,12 +17,12 @@
 
 #pragma once
 
-void sceKernelCreateEventFlag();
-void sceKernelClearEventFlag();
-void sceKernelDeleteEventFlag();
-void sceKernelSetEventFlag();
-void sceKernelWaitEventFlag();
-void sceKernelWaitEventFlagCB();
-void sceKernelPollEventFlag();
-void sceKernelCancelEventFlag();
-void sceKernelReferEventFlagStatus();
+int sceKernelCreateEventFlag(const char *name, u32 flag_attr, u32 flag_initPattern, u32 optPtr);
+u32 sceKernelClearEventFlag(SceUID id, u32 bits);
+u32 sceKernelDeleteEventFlag(SceUID uid);
+u32 sceKernelSetEventFlag(SceUID id, u32 bitsToSet);
+void sceKernelWaitEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 timeoutPtr);
+void sceKernelWaitEventFlagCB(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 timeoutPtr);
+int sceKernelPollEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 timeoutPtr);
+u32 sceKernelReferEventFlagStatus(SceUID id, u32 statusPtr);
+u32 sceKernelCancelEventFlag();

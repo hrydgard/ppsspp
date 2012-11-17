@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0.
+// the Free Software Foundation, version 2.0 or later versions.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -175,10 +175,10 @@ void EmuScreen::render()
 	}
 
 	// Tiled renderers like PowerVR should benefit greatly from this. However - seems I can't call it?
-#ifdef ANDROID
+#if defined(ANDROID) || defined(BLACKBERRY)
 	bool hasDiscard = false;  // TODO
 	if (hasDiscard) {
-		//glDiscardFramebufferEXT(GL_COLOR_EXT | GL_DEPTH_EXT | GL_STENCIL_EXT);
+		//glDiscardFramebuffer(GL_COLOR_EXT | GL_DEPTH_EXT | GL_STENCIL_EXT);
 	}
 #endif
 }
