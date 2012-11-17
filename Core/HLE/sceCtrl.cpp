@@ -101,7 +101,7 @@ void __CtrlSetAnalog(float x, float y)
   if (x > 1.0f) x = 1.0f;
   if (y > 1.0f) y = 1.0f;
   if (x < -1.0f) x = -1.0f;
-  if (y > -1.0f) y = -1.0f;
+  if (y < -1.0f) y = -1.0f;
   ctrl.analog[0] = (u8)(x * 127.f + 128.f);
   ctrl.analog[1] = (u8)(y * 127.f + 128.f);
 }
