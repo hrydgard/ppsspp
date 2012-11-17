@@ -328,10 +328,10 @@ const HLEFunction ThreadManForUser[] =
 	{0xA66B0120,&WrapU_IU<sceKernelReferEventFlagStatus>, "sceKernelReferEventFlagStatus"},
 
 	{0x8FFDF9A2,&WrapV_IIU<sceKernelCancelSema>,          "sceKernelCancelSema"},
-	{0xD6DA4BA1,&WrapI_CUIIU<sceKernelCreateSema>,        "sceKernelCreateSema"},
+	{0xD6DA4BA1,&WrapV_CUIIU<sceKernelCreateSema>,        "sceKernelCreateSema"},
 	{0x28b6489c,&WrapV_I<sceKernelDeleteSema>,            "sceKernelDeleteSema"},
-	{0x58b1f937,&WrapI_II<sceKernelPollSema>,             "sceKernelPollSema"},
-	{0xBC6FEBC5,&WrapI_IU<sceKernelReferSemaStatus>,      "sceKernelReferSemaStatus"},
+	{0x58b1f937,&WrapV_II<sceKernelPollSema>,             "sceKernelPollSema"},
+	{0xBC6FEBC5,&WrapV_IU<sceKernelReferSemaStatus>,      "sceKernelReferSemaStatus"},
 	{0x3F53E640,&WrapV_II<sceKernelSignalSema>,           "sceKernelSignalSema"},
 	{0x4E3A1105,&WrapV_IIU<sceKernelWaitSema>,            "sceKernelWaitSema"},
 	{0x6d212bac,&WrapV_IIU<sceKernelWaitSemaCB>,          "sceKernelWaitSemaCB"},
