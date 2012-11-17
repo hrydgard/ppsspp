@@ -521,7 +521,7 @@ bool __KernelLoadExec(const char *filename, SceKernelLoadExecParam *param, std::
 
 	u32 handle = pspFileSystem.OpenFile(filename, FILEACCESS_READ);
 
-	u8 *temp = new u8[(int)info.size];
+	u8 *temp = new u8[(int)info.size + 0x1000000];
 
 	pspFileSystem.ReadFile(handle, temp, (size_t)info.size);
 

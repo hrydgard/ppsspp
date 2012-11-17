@@ -113,6 +113,12 @@ void sceCtrlInit()
 	ctrl.analog[0] = 128;
 	ctrl.analog[1] = 128;
 	DEBUG_LOG(HLE,"sceCtrlInit");	
+	RETURN(0);
+}
+
+void sceCtrlSetSamplingCycle() {
+	ERROR_LOG(HLE,"UNIMPL sceCtrlSetSamplingCycle");
+	RETURN(0);
 }
 
 u32 sceCtrlSetSamplingMode(u32 mode)
@@ -133,6 +139,7 @@ u32 sceCtrlSetSamplingMode(u32 mode)
 void sceCtrlSetIdleCancelThreshold()
 {
   DEBUG_LOG(HLE,"UNIMPL sceCtrlSetIdleCancelThreshold");
+	RETURN(0);
 }
 
 u32 sceCtrlReadBufferPositive(u32 ctrlDataPtr, u32 nBufs)
@@ -174,14 +181,14 @@ u32 sceCtrlReadLatch(u32 latchDataPtr) {
 
 static const HLEFunction sceCtrl[] = 
 {
-  {0x6a2774f3, sceCtrlInit,          "sceCtrlInit"}, //(int unknown), init with 0
+  {0x6a2774f3, sceCtrlInit, "sceCtrlInit"}, //(int unknown), init with 0
   {0x1f4011e6, &WrapU_U<sceCtrlSetSamplingMode>, "sceCtrlSetSamplingMode"}, //(int on);
-  {0x1f803938, &WrapU_UU<sceCtrlReadBufferPositive>,          "sceCtrlReadBufferPositive"}, //(ctrl_data_t* paddata, int unknown) // unknown should be 1
+  {0x1f803938, &WrapU_UU<sceCtrlReadBufferPositive>, "sceCtrlReadBufferPositive"}, //(ctrl_data_t* paddata, int unknown) // unknown should be 1
   {0x6A2774F3, 0, "sceCtrlSetSamplingCycle"}, //?
-  {0x6A2774F3,sceCtrlInit,"sceCtrlSetSamplingCycle"},
+  {0x6A2774F3,sceCtrlSetSamplingCycle,"sceCtrlSetSamplingCycle"},
   {0x02BAAD91,0,"sceCtrlGetSamplingCycle"},
   {0xDA6B76A1,0,"sceCtrlGetSamplingMode"},
-  {0x3A622550,&WrapU_UU<sceCtrlReadBufferPositive>,           "sceCtrlPeekBufferPositive"},
+  {0x3A622550,&WrapU_UU<sceCtrlReadBufferPositive>, "sceCtrlPeekBufferPositive"},
   {0xC152080A,0,"sceCtrlPeekBufferNegative"},
   {0x60B81F86,0,"sceCtrlReadBufferNegative"},
   {0xB1D0E5CD,&WrapU_U<sceCtrlPeekLatch>,"sceCtrlPeekLatch"},

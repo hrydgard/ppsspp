@@ -229,13 +229,13 @@ void sceMpegDelete()
 
 void sceMpegGetAvcAu() 
 {
-	WARN_LOG(HLE, "HACK sceMpegDelete(...)");
+	WARN_LOG(HLE, "HACK sceMpegGetAvcAu(...)");
 	RETURN(0);
 }
 
 void sceMpegQueryStreamSize() 
 {
-	WARN_LOG(HLE, "HACK sceMpegDelete(...)");
+	WARN_LOG(HLE, "HACK sceMpegQueryStreamSize(...)");
 	RETURN(0);
 }
 

@@ -159,7 +159,7 @@ void __AudioUpdate()
 		if (!chans[i].reserved)
 			continue;
 		if (!chans[i].sampleQueue.size()) {
-			DEBUG_LOG(HLE, "No queued samples, skipping channel %i", i);
+			// DEBUG_LOG(HLE, "No queued samples, skipping channel %i", i);
 			continue;
 		}
 
@@ -221,7 +221,8 @@ int __AudioMix(short *outstereo, int numFrames)
 	int underrun = -1;
 	s16 sampleL = 0;
 	s16 sampleR = 0;
-	for (size_t i = 0; i < numFrames; i++) {
+	bool anythingToPlay = false;
+	for (int i = 0; i < numFrames; i++) {
 		if (outAudioQueue.size() >= 2)
 		{
 			sampleL = outAudioQueue.front();
@@ -230,14 +231,15 @@ int __AudioMix(short *outstereo, int numFrames)
 			outAudioQueue.pop();
 			outstereo[i * 2] = sampleL;
 			outstereo[i * 2 + 1] = sampleR;
+			anythingToPlay = true;
 		} else {
 			underrun = i;
 			outstereo[i * 2] = sampleL;  // repeat last sample, can reduce clicking
 			outstereo[i * 2 + 1] = sampleR;  // repeat last sample, can reduce clicking
 		}
 	}
-	if (underrun >= 0) {
-		ERROR_LOG(HLE, "audio out buffer UNDERRUN at %i of %i", underrun, numFrames);
+	if (anythingToPlay && underrun >= 0) {
+		DEBUG_LOG(HLE, "audio out buffer UNDERRUN at %i of %i", underrun, numFrames);
 	} else {
 		// DEBUG_LOG(HLE, "No underrun, mixed %i samples fine", numFrames);
 	}

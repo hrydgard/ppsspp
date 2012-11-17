@@ -183,8 +183,8 @@ const MIPSInstruction tableSpecial[64] = /// 000000 ...... ...... .......... xxx
 	//8
 	INSTR("jr",    &Jit::Comp_JumpReg, Dis_JumpRegType, Int_JumpRegType,0),
 	INSTR("jalr",  &Jit::Comp_JumpReg, Dis_JumpRegType, Int_JumpRegType,0),
-	INSTR("movz",  &Jit::Comp_Generic, Dis_RType3, Int_RType3, OUT_RD|IN_RS|IN_RT),
-	INSTR("movn",  &Jit::Comp_Generic, Dis_RType3, Int_RType3, OUT_RD|IN_RS|IN_RT),
+	INSTR("movz",  &Jit::Comp_RType3, Dis_RType3, Int_RType3, OUT_RD|IN_RS|IN_RT),
+	INSTR("movn",  &Jit::Comp_RType3, Dis_RType3, Int_RType3, OUT_RD|IN_RS|IN_RT),
 	INSTR("syscall", &Jit::Comp_Syscall, Dis_Syscall, Int_Syscall,0),
 	INSTR("break", &Jit::Comp_Generic, Dis_Generic, Int_Break, 0),
 	{-2},
@@ -223,8 +223,8 @@ const MIPSInstruction tableSpecial[64] = /// 000000 ...... ...... .......... xxx
 	//40
 	{-2},
 	{-2},
-	INSTR("slt",  &Jit::Comp_Generic, Dis_RType3, Int_RType3,IN_RS|IN_RT|OUT_RD),
-	INSTR("sltu", &Jit::Comp_Generic, Dis_RType3, Int_RType3,IN_RS|IN_RT|OUT_RD),
+	INSTR("slt",  &Jit::Comp_RType3, Dis_RType3, Int_RType3,IN_RS|IN_RT|OUT_RD),
+	INSTR("sltu", &Jit::Comp_RType3, Dis_RType3, Int_RType3,IN_RS|IN_RT|OUT_RD),
 	INSTR("max",  &Jit::Comp_Generic, Dis_RType3, Int_RType3,IN_RS|IN_RT|OUT_RD),
 	INSTR("min",  &Jit::Comp_Generic, Dis_RType3, Int_RType3,IN_RS|IN_RT|OUT_RD),
 	INSTR("msub",  &Jit::Comp_Generic, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|OUT_OTHER),

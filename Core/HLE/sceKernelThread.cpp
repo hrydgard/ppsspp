@@ -822,9 +822,6 @@ void sceKernelCreateThread()
 	u32 attr  = PARAM(4);
 	//ignore PARAM(5) 
 
-  // HACK! Kill super big stacks.
-  // if (stacksize > 0x4000) stacksize = 0x4000;
-
 	SceUID id;
 	__KernelCreateThread(id, curModule, threadName, entry, prio, stacksize, attr);
 	INFO_LOG(HLE,"%i = sceKernelCreateThread(name=\"%s\", entry= %08x, stacksize=%i )", id, threadName, entry, stacksize);
@@ -1734,7 +1731,8 @@ void sceKernelCheckCallback() {
 		__KernelExecutePendingMipsCalls();
 	} else {
 		RETURN(0);
-		DEBUG_LOG(HLE,"sceKernelCheckCallback() - no callbacks to process, doing nothing");
+		DEBUG_LOG(HLE,"sceKernelCheckCallback() - no callbacks to process, simply rescheduling");
+		__KernelReSchedule(false, "checkcallbackhack");
 	}
 }
 

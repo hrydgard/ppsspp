@@ -229,7 +229,8 @@ u32 sceAudioSetChannelDataLen(u32 chan, u32 len)
   else
   {
     DEBUG_LOG(HLE, "sceAudioSetChannelDataLen(%i, %i)", chan, len);
-    chans[chan].dataLen = len;
+		//chans[chan].dataLen = len;
+		chans[chan].sampleCount = len;
     return 0;
   }
 }
@@ -277,8 +278,15 @@ u32 sceAudioChangeChannelVolume(u32 chan, u32 lvolume, u32 rvolume)
  
 void sceAudioInit()
 {
-  ERROR_LOG(HLE,"UNIMPL sceAudioInit");
+  DEBUG_LOG(HLE,"sceAudioInit()");
+	// Don't need to do anything
   RETURN(0);
+}
+void sceAudioEnd()
+{
+	DEBUG_LOG(HLE,"sceAudioEnd()");
+	// Don't need to do anything
+	RETURN(0);
 }
 
 void sceAudioOutput2Reserve()
@@ -309,15 +317,15 @@ void sceAudioOutput2ChangeLength()
 	RETURN(0);
 }
 
-void sceAudioOutput2GetRestSample()
+u32 sceAudioOutput2GetRestSample()
 {
-  ERROR_LOG(HLE,"UNIMPL sceAudioOutput2GetRestSample");
-	RETURN(0);
+  WARN_LOG(HLE,"UNTESTED sceAudioOutput2GetRestSample()");
+	return chans[0].sampleQueue.size() * 2;
 }
 
 void sceAudioOutput2Release()
 {
-  ERROR_LOG(HLE,"sceAudioOutput2Release()");
+  WARN_LOG(HLE,"sceAudioOutput2Release()");
 	chans[0].reserved = false;
 	RETURN(0);
 }
@@ -338,14 +346,14 @@ const HLEFunction sceAudio[] =
   {0x01562ba3, sceAudioOutput2Reserve, "sceAudioOutput2Reserve"},  // N+, Super Stardust Portable uses these
   {0x2d53f36e, sceAudioOutput2OutputBlocking, "sceAudioOutput2OutputBlocking"},
   {0x63f2889c, sceAudioOutput2ChangeLength, "sceAudioOutput2ChangeLength"},
-  {0x647cef33, sceAudioOutput2GetRestSample, "sceAudioOutput2GetRestSample"},	
+  {0x647cef33, WrapU_V<sceAudioOutput2GetRestSample>, "sceAudioOutput2GetRestSample"},	
   {0x43196845, sceAudioOutput2Release, "sceAudioOutput2Release"},
 
-  {0x210567F7, 0, "sceAudioEnd"},
   {0x38553111, 0, "sceAudioSRCChReserve"},
   {0x5C37C0AE, 0, "sceAudioSRCChRelease"},
   {0x80F1F7E0, sceAudioInit, "sceAudioInit"},
-  {0x927AC32B, 0, "sceAudioSetVolumeOffset"},
+	{0x210567F7, sceAudioEnd, "sceAudioEnd"},
+	{0x927AC32B, 0, "sceAudioSetVolumeOffset"},
   {0xA2BEAA6C, WrapU_U<sceAudioSetFrequency>, "sceAudioSetFrequency"},
   {0xE0727056, 0, "sceAudioSRCOutputBlocking"},
   {0x8c1009b2, WrapU_UUU<sceAudioOutput>, "sceAudioOutput"}, 

@@ -66,7 +66,6 @@ struct AudioChannel
   // Might try something more efficient later.
   FixedSizeQueue<s16, 32768> sampleQueue;
 
-
   void clear() {
     reserved = false;
 		waitingThread = 0;
@@ -78,7 +77,6 @@ struct AudioChannel
     sampleQueue.clear();
   }
 };
-
 
 extern AudioChannel chans[8];
 

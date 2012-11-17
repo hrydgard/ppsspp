@@ -75,8 +75,9 @@ static Stick NormalizedDeadzoneFilter(XINPUT_STATE &state) {
 		// normalize the axis
 		left.x = norm.x * magnitude;
 		left.y = norm.y * magnitude;
-	} else
+	} else {
 		left.x = left.y = 0;
+	}
 
 	return left;
 }
