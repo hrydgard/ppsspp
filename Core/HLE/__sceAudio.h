@@ -24,6 +24,7 @@
 void __AudioInit();
 void __AudioUpdate();
 void __AudioShutdown();
+void __AudioSetOutputFrequency(int freq);
 
 // May return SCE_ERROR_AUDIO_CHANNEL_BUSY if buffer too large
 u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking);

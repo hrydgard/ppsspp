@@ -19,7 +19,7 @@
 #include <algorithm>
 
 #include "HLE.h"
-
+#include "Common/Action.h"
 #include "Common/FileUtil.h"
 #include "../Host.h"
 #include "../MIPS/MIPS.h"
@@ -57,37 +57,71 @@ static const char *blacklistedModules[] = {
 	"sceNet_Library",
 };
 
-struct Module : public KernelObject
+struct NativeModule {
+	u32 next;
+	u16 attribute;
+	u8 version[2];
+	char name[28];
+	u32 status;
+	u32 unk1;
+	u32 usermod_thid;
+	u32 memid;
+	u32 mpidtext;
+	u32 mpiddata;
+	u32 ent_top;
+	u32 ent_size;
+	u32 stub_top;
+	u32 stub_size;
+	u32 module_start_func;
+	u32 module_stop_func;
+	u32 module_bootstart_func;
+	u32 module_reboot_before_func;
+	u32 module_reboot_phase_func;
+	u32 entry_addr;
+	u32 gp_value;
+	u32 text_addr;
+	u32 text_size;
+	u32 data_size;
+	u32 bss_size;
+	u32 nsegment;
+	u32 segmentaddr[4];
+	u32 segmentsize[4];
+	u32 module_start_thread_priority;
+	u32 module_start_thread_stacksize;
+	u32 module_start_thread_attr;
+	u32 module_stop_thread_priority;
+	u32 module_stop_thread_stacksize;
+	u32 module_stop_thread_attr;
+	u32 module_reboot_before_thread_priority;
+	u32 module_reboot_before_thread_stacksize;
+	u32 module_reboot_before_thread_attr;
+};
+
+class Module : public KernelObject
 {
-	const char *GetName() {return name;}
+public:
+	Module() : memoryBlockAddr(0) {}
+	~Module() {
+		if (memoryBlockAddr) {
+			userMemory.Free(memoryBlockAddr);
+		}
+	}
+	const char *GetName() {return nm.name;}
 	const char *GetTypeName() {return "Module";}
 	void GetQuickInfo(char *ptr, int size)
 	{
 		// ignore size
 		sprintf(ptr, "name=%s gp=%08x entry=%08x",
-			name,
-			gp_value,
-			entry_addr);
+			nm.name,
+			nm.gp_value,
+			nm.entry_addr);
 	}
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_MODULE; }
 	int GetIDType() const { return 0; }
 
-	SceSize size;
-	char nsegment;
-	char reserved[3];
-	int segmentaddr[4];
-	int segmentsize[4];
-	unsigned int entry_addr;
-	unsigned int gp_value;
-	unsigned int text_addr;
-	unsigned int text_size;
-	unsigned int data_size;
-	unsigned int bss_size;
-	// The following is only available in the v1.5 firmware and above,
-	// but as sceKernelQueryModuleInfo is broken in v1.0 it doesn't matter.
-	unsigned short attribute;
-	unsigned char version[2];
-	char name[28];
+	NativeModule nm;
+
+	u32 memoryBlockAddr;
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -183,6 +217,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		kernelObjects.Destroy<Module>(module->GetUID());
 		return 0;
 	}
+	module->memoryBlockAddr = reader.GetVaddr();
 
 	struct libent
 	{
@@ -256,8 +291,8 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		}
 	}
 
-	module->gp_value = modinfo->gp;
-	strncpy(module->name, modinfo->name, 28);
+	module->nm.gp_value = modinfo->gp;
+	strncpy(module->nm.name, modinfo->name, 28);
 
 	INFO_LOG(LOADER,"Module %s: %08x %08x %08x", modinfo->name, modinfo->gp, modinfo->libent,modinfo->libstub);
 
@@ -341,7 +376,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		if (ent->name == 0)
 		{
 			// ?
-			name = module->name;
+			name = module->nm.name;
 		}
 		else
 		{
@@ -368,7 +403,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		}
 	}
 
-	module->entry_addr = reader.GetEntryPoint();
+	module->nm.entry_addr = reader.GetEntryPoint();
 
 	if (newptr)
 	{
@@ -418,7 +453,7 @@ bool __KernelLoadPBP(const char *filename, std::string *error_string)
 		Module *module = __KernelLoadELFFromPtr(temp, PSP_GetDefaultLoadAddress(), error_string);
 		if (!module)
 			return false;
-		mipsr4k.pc = module->entry_addr;
+		mipsr4k.pc = module->nm.entry_addr;
 		delete [] temp;
 	}
 	in.close();
@@ -460,13 +495,13 @@ void __KernelStartModule(Module *m, int args, const char *argp, SceKernelSMOptio
 }
 
 
-u32 __KernelGetModuleGP(SceUID module)
+u32 __KernelGetModuleGP(SceUID uid)
 {
 	u32 error;
-	Module *m = kernelObjects.Get<Module>(module,error);
-	if (m)
+	Module *module = kernelObjects.Get<Module>(uid, error);
+	if (module)
 	{
-		return m->gp_value;
+		return module->nm.gp_value;
 	}
 	else
 	{
@@ -490,14 +525,14 @@ bool __KernelLoadExec(const char *filename, SceKernelLoadExecParam *param, std::
 
 	pspFileSystem.ReadFile(handle, temp, (size_t)info.size);
 
-	Module *m = __KernelLoadModule(temp, 0, error_string);
+	Module *module = __KernelLoadModule(temp, 0, error_string);
 
-	if (!m) {
+	if (!module) {
 		ERROR_LOG(LOADER, "Failed to load module %s", filename);
 		return false;
 	}
 
-	mipsr4k.pc = m->entry_addr;
+	mipsr4k.pc = module->nm.entry_addr;
 
 	INFO_LOG(LOADER, "Module entry: %08x", mipsr4k.pc);
 
@@ -512,7 +547,7 @@ bool __KernelLoadExec(const char *filename, SceKernelLoadExecParam *param, std::
 	option.priority = 0x20;
 	option.stacksize = 0x40000;	// crazy? but seems to be the truth
 
-	__KernelStartModule(m, (u32)strlen(filename) + 1, filename, &option);
+	__KernelStartModule(module, (u32)strlen(filename) + 1, filename, &option);
 
 	__KernelStartIdleThreads();
 	return true;
@@ -578,6 +613,7 @@ u32 sceKernelLoadModule(const char *name, u32 flags)
 	if (PARAM(2))
 	{
 		SceKernelLMOption *lmoption = (SceKernelLMOption *)Memory::GetPointer(PARAM(2));
+		
 	}
 
 	Module *module = 0;
@@ -608,23 +644,66 @@ u32 sceKernelLoadModule(const char *name, u32 flags)
 	return module->GetUID();
 }
 
-void sceKernelStartModule()
-{
-	int id = PARAM(0);
-	int argsize = PARAM(1);
-	u32 argptr = PARAM(2);
-	u32 ptrReturn = PARAM(3);
-	if (PARAM(4)) {
-		SceKernelSMOption *smoption = (SceKernelSMOption*)Memory::GetPointer(PARAM(4));
-	}
-	ERROR_LOG(HLE,"UNIMPL sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,...)",
-		id,argsize,argptr,ptrReturn);
-	RETURN(0);
+class AfterModuleEntryCall : public Action {
+public:
+	AfterModuleEntryCall() {}
+	Module *module_;
+	u32 retValAddr;
+	virtual void run();
+};
+
+void AfterModuleEntryCall::run() {
+	Memory::Write_U32(retValAddr, currentMIPS->r[2]);
 }
 
-void sceKernelStopModule()
+void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, u32 optionAddr)
 {
-	ERROR_LOG(HLE,"UNIMPL sceKernelStopModule");
+	// Dunno what these three defaults should be...
+	u32 priority = 0x20;
+	u32 stacksize = 0x40000; 
+	u32 attr = 0;
+	int stackPartition = 0;
+	if (optionAddr) {
+		SceKernelSMOption smoption;
+		Memory::ReadStruct(optionAddr, &smoption);;
+		priority = smoption.priority;
+		attr = smoption.attribute;
+		stacksize = smoption.stacksize;
+		stackPartition = smoption.mpidstack;
+	}
+	u32 error;
+	Module *module = kernelObjects.Get<Module>(moduleId, error);
+	if (!module) {
+		// TODO: Try not to lie so much.
+		/*
+		RETURN(error);
+		return;
+		*/
+	} else {
+		u32 entryAddr = module->nm.entry_addr;
+		if (entryAddr == -1) {
+			entryAddr = module->nm.module_start_func;
+			// attr = module->nm
+		}
+	}
+
+	//SceUID threadId;
+	//__KernelCreateThread(threadId, moduleId, module->nm.name, module->nm.entry_addr, priority, stacksize, attr);
+
+	ERROR_LOG(HLE,"UNIMPL sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x)",
+		moduleId,argsize,argAddr,returnValueAddr,optionAddr);
+
+	// Apparently, we need to call the entry point directly and insert the return value afterwards. This calls
+	// for a MipsCall and an Action. TODO
+	RETURN(0); // TODO: Delete
+}
+
+void sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 returnValueAddr, u32 optionAddr)
+{
+	ERROR_LOG(HLE,"UNIMPL sceKernelStopModule(%i, %i, %08x, %08x, %08x)",
+		moduleId, argSize, argAddr, returnValueAddr, optionAddr);
+
+	// We should call the "stop" entry point and return the value in returnValueAddr. See StartModule.
 	RETURN(0);
 }
 
@@ -655,8 +734,8 @@ void sceKernelGetModuleIdByAddress()
 
 void sceKernelGetModuleId()
 {
-	ERROR_LOG(HLE,"UNIMPL sceKernelGetModuleId");
-	RETURN(0);
+	ERROR_LOG(HLE,"sceKernelGetModuleId()");
+	RETURN(__KernelGetCurThreadModuleId());
 }
 
 void sceKernelFindModuleByName()
@@ -665,15 +744,19 @@ void sceKernelFindModuleByName()
 	RETURN(1);
 }
 
-
+u32 sceKernelLoadModuleByID(u32 id) {
+	ERROR_LOG(HLE,"UNIMPL sceKernelLoadModuleById(%08x)", id);
+	// Apparenty, ID is a sceIo File UID. So this shouldn't be too hard when needed.
+	return 0;
+}
 
 const HLEFunction ModuleMgrForUser[] = 
 {
 	{0x977DE386,&WrapU_CU<sceKernelLoadModule>,"sceKernelLoadModule"},
-	{0xb7f46618,0,"sceKernelLoadModuleByID"},
-	{0x50F0C1EC,&sceKernelStartModule,"sceKernelStartModule"},
+	{0xb7f46618,&WrapU_U<sceKernelLoadModuleByID>,"sceKernelLoadModuleByID"},
+	{0x50F0C1EC,&WrapV_UUUUU<sceKernelStartModule>,"sceKernelStartModule"},
 	{0xD675EBB8,&sceKernelExitGame,"sceKernelSelfStopUnloadModule"}, //HACK
-	{0xd1ff982a,&sceKernelStopModule,"sceKernelStopModule"},
+	{0xd1ff982a,&WrapV_UUUUU<sceKernelStopModule>,"sceKernelStopModule"},
 	{0x2e0911aa,&sceKernelUnloadModule,"sceKernelUnloadModule"},
 	{0x710F61B5,0,"sceKernelLoadModuleMs"},
 	{0xF9275D98,0,"sceKernelLoadModuleBufferUsbWlan"}, ///???

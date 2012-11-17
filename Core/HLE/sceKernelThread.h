@@ -102,7 +102,7 @@ void __KernelLoadContext(ThreadContext *ctx);
 
 // TODO: Replace this with __KernelResumeThread over time as it's misguided.
 bool __KernelTriggerWait(WaitType type, int id, bool dontSwitch = false);
-u32 __KernelResumeThread(SceUID threadID);  // can return an error value
+u32 __KernelResumeThreadFromWait(SceUID threadID); // can return an error value
 
 u32 __KernelGetWaitValue(SceUID threadID, u32 &error);
 void __KernelWaitCurThread(WaitType type, SceUID waitId, u32 waitValue, int timeout, bool processCallbacks);
@@ -131,12 +131,13 @@ u32 __KernelUnregisterCallback(RegisteredCallbackType type, SceUID cbId);
 u32 __KernelNotifyCallbackType(RegisteredCallbackType type, SceUID cbId, int notifyArg);
 
 SceUID __KernelGetCurThread();
+SceUID __KernelGetCurThreadModuleId();
 void __KernelSetupRootThread(SceUID moduleId, int args, const char *argp, int prio, int stacksize, int attr); //represents the real PSP elf loader, run before execution
 void __KernelStartIdleThreads();
 void __KernelReturnFromThread();  // Called as HLE function
 u32 __KernelGetThreadPrio(SceUID id);
 
-void _sceKernelIdle();
+void __KernelIdle();
 
 u32 __KernelMipsCallReturnAddress();
 u32 __KernelInterruptReturnAddress();  // TODO: remove
@@ -159,7 +160,6 @@ bool __KernelInCallback();
 bool __KernelCheckCallbacks();
 class Thread;
 void __KernelSwitchContext(Thread *target, const char *reason);
-u32 __KernelResumeThreadFromWait(SceUID threadID);
 bool __KernelExecutePendingMipsCalls();
 void __KernelNotifyCallback(RegisteredCallbackType type, SceUID threadId, SceUID cbId, int notifyArg);
 

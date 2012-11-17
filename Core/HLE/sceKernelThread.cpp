@@ -242,6 +242,7 @@ public:
 
 	ThreadWaitInfo waitInfo;
 	bool sleeping;
+	SceUID moduleId;
 
 	bool isProcessingCallbacks;
 
@@ -354,12 +355,11 @@ void __KernelStartIdleThreads()
   }
 }
 
-void _sceKernelIdle()
+void __KernelIdle()
 {
   CoreTiming::Idle();
   // Advance must happen between Idle and Reschedule, so that threads that were waiting for something
   // that was triggered at the end of the Idle period must get a chance to be scheduled.
-  // get a chance to be rescheduled.
   CoreTiming::Advance();
 
   // In Advance, we might trigger an interrupt such as vblank.
@@ -749,7 +749,7 @@ void ThreadContext::reset()
   lo = 0;
 }
 
-Thread *__KernelCreateThread(SceUID &id, SceUID moduleID, const char *name, u32 entryPoint, u32 priority, int stacksize, u32 attr)
+Thread *__KernelCreateThread(SceUID &id, SceUID moduleId, const char *name, u32 entryPoint, u32 priority, int stacksize, u32 attr)
 {
 	Thread *t = new Thread;
 	id = kernelObjects.Create(t);
@@ -780,10 +780,11 @@ Thread *__KernelCreateThread(SceUID &id, SceUID moduleID, const char *name, u32 
 	t->nt.runForClocks.hi = 0;
 	t->nt.wakeupCount = 0;
 	t->isProcessingCallbacks = false;
-  if (moduleID)
-    t->nt.gpreg = __KernelGetModuleGP(moduleID); 
+  if (moduleId)
+    t->nt.gpreg = __KernelGetModuleGP(moduleId); 
   else
     t->nt.gpreg = 0;  // sceKernelStartThread will take care of this.
+	t->moduleId = moduleId;
 
 	strncpy(t->nt.name, name, 32);
 	t->context.r[MIPS_REG_RA] = threadReturnHackAddr; //hack! TODO fix
@@ -806,8 +807,8 @@ void __KernelSetupRootThread(SceUID moduleID, int args, const char *argp, int pr
 	mipsr4k.r[MIPS_REG_SP] -= 256;
 	u32 location = mipsr4k.r[MIPS_REG_SP];
 	mipsr4k.r[MIPS_REG_A1] = location;
-	for (int i=0; i<args; i++)
-		Memory::Write_U8(argp[i], location+i); 
+	for (int i = 0; i < args; i++)
+		Memory::Write_U8(argp[i], location + i); 
 }
 
 
@@ -1071,6 +1072,12 @@ SceUID __KernelGetCurThread()
 {
 	return currentThread->GetUID();
 }
+
+SceUID __KernelGetCurThreadModuleId()
+{
+	return currentThread->moduleId;
+}
+
 
 void sceKernelGetThreadId()
 {

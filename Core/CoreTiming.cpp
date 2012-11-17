@@ -23,6 +23,7 @@
 #include "StdMutex.h"
 #include "CoreTiming.h"
 #include "Core.h"
+#include "HLE/sceKernelThread.h"
 
 int CPU_HZ = 222000000;
 
