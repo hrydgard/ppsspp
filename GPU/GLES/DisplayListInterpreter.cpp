@@ -172,6 +172,7 @@ void EnterClearMode(u32 data)
 	glColorMask(colMask, colMask, colMask, alphaMask);
 	glDepthMask(updateZ); // Update Z or not
 	// Note that depth test must be enabled for depth writes to go through! So we use GL_ALWAYS
+	glDisable(GL_BLEND);
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_ALWAYS);
 	glDisable(GL_CULL_FACE);	// ??
@@ -189,7 +190,7 @@ void LeaveClearMode()
 	glColorMask(1,1,1,1);
 	glEnDis(GL_DEPTH_TEST, gstate.zTestEnable & 1);
 	glDepthFunc(GL_LEQUAL);	// TODO
-
+	glEnDis(GL_BLEND, gstate.alphaBlendEnable & 1);
 	// dirtyshader?
 }
 
