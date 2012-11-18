@@ -17,8 +17,7 @@
 
 #pragma once
 
-// TODO
-SceUID sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optionsPtr);
+void sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optionsPtr);
 void sceKernelDeleteMutex(SceUID id);
 void sceKernelLockMutex(SceUID id, int count, u32 timeoutPtr);
 void sceKernelLockMutexCB(SceUID id, int count, u32 timeoutPtr);

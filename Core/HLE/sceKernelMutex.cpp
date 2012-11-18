@@ -47,7 +47,7 @@ struct Mutex : public KernelObject
 {
 	const char *GetName() {return nm.name;}
 	const char *GetTypeName() {return "Mutex";}
-	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_SEMID; }	// Not sure?
+	static u32 GetMissingErrorCode() { return PSP_MUTEX_ERROR_NO_SUCH_MUTEX; }	// Not sure?
 	int GetIDType() const { return SCE_KERNEL_TMID_Mutex; }
 	NativeMutex nm;
 	std::vector<SceUID> waitingThreads;
@@ -63,21 +63,37 @@ struct LWMutex : public KernelObject
 	std::vector<SceUID> waitingThreads;
 };
 
-SceUID sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optionsPtr)
+void sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optionsPtr)
 {
+	u32 error = 0;
+	if (!error && !name)
+		error = SCE_KERNEL_ERROR_ERROR;
+	if (!error && initialCount < 0)
+		error = SCE_KERNEL_ERROR_ILLEGAL_COUNT;
+	if (!error && (attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE) == 0 && initialCount > 1)
+		error = SCE_KERNEL_ERROR_ILLEGAL_COUNT;
+
+	if (error)
+	{
+		RETURN(error);
+		return;
+	}
+
 	DEBUG_LOG(HLE,"sceKernelCreateMutex(%s, %08x, %d, %08x)", name, attr, initialCount, optionsPtr);
 
 	Mutex *mutex = new Mutex();
 	SceUID id = kernelObjects.Create(mutex);
 
 	mutex->nm.size = sizeof(mutex);
+	strncpy(mutex->nm.name, name, 31);
+	mutex->nm.name[31] = 0;
 	mutex->nm.attr = attr;
 	mutex->nm.lockLevel = initialCount;
-	// TODO: Does initial_count > 0 mean lock automatically by the current thread?  Would make sense.
-	mutex->nm.lockThread = -1;
+	mutex->nm.lockThread = __KernelGetCurThread();
 
-	strncpy(mutex->nm.name, name, 32);
-	return id;
+	RETURN(id);
+
+	__KernelReSchedule("mutex created");
 }
 
 void sceKernelDeleteMutex(SceUID id)
@@ -87,13 +103,21 @@ void sceKernelDeleteMutex(SceUID id)
 	Mutex *mutex = kernelObjects.Get<Mutex>(id, error);
 	if (mutex)
 	{
-		RETURN(0);
+		std::vector<SceUID>::iterator iter, end;
+		for (iter = mutex->waitingThreads.begin(), end = mutex->waitingThreads.end(); iter != end; ++iter)
+		{
+			SceUID threadID = *iter;
 
-		kernelObjects.Destroy<Mutex>(id);
-		// TODO: Almost certainly need to reschedule (sometimes?)
+			// TODO: Set returnValue?
+			__KernelResumeThreadFromWait(threadID);
+		}
+		mutex->waitingThreads.empty();
+
+		RETURN(kernelObjects.Destroy<Mutex>(id));
+		__KernelReSchedule("mutex deleted");
 	}
 	else
-		RETURN(PSP_MUTEX_ERROR_NO_SUCH_MUTEX);
+		RETURN(error);
 }
 
 // int sceKernelLockMutex(SceUID id, int count, int *timeout)
