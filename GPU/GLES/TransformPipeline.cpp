@@ -145,9 +145,9 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		Vec3 toLight;
 
 		if (type == GE_LIGHTTYPE_DIRECTIONAL)
-			toLight = Vec3(gstate.lightpos[l]);  // lightdir is for spotlights
+			toLight = Vec3(gstate_c.lightpos[l]);  // lightdir is for spotlights
 		else
-			toLight = Vec3(gstate.lightpos[l]) - pos;
+			toLight = Vec3(gstate_c.lightpos[l]) - pos;
 
 		bool doSpecular = (comp != GE_LIGHTCOMP_ONLYDIFFUSE);
 		bool poweredDiffuse = comp == GE_LIGHTCOMP_BOTHWITHPOWDIFFUSE;
@@ -156,7 +156,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		if (type != GE_LIGHTTYPE_DIRECTIONAL)
 		{
 			float distance = toLight.Normalize(); 
-			lightScale = 1.0f / (gstate.lightatt[l][0] + gstate.lightatt[l][1]*distance + gstate.lightatt[l][2]*distance*distance);
+			lightScale = 1.0f / (gstate_c.lightatt[l][0] + gstate_c.lightatt[l][1]*distance + gstate_c.lightatt[l][2]*distance*distance);
 			if (lightScale > 1.0f) lightScale = 1.0f;
 		}
 
@@ -168,7 +168,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		if (poweredDiffuse)
 			dot = powf(dot, specCoef_);
 
-		Color4 diff = (gstate.lightColor[1][l] * *diffuse) * (dot * lightScale);	
+		Color4 diff = (gstate_c.lightColor[1][l] * *diffuse) * (dot * lightScale);	
 
 		// Real PSP specular
 		Vec3 toViewer(0,0,1);
@@ -184,13 +184,13 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 			dot = halfVec * norm;
 			if (dot >= 0)
 			{
-				lightSum1 += (gstate.lightColor[2][l] * *specular * (powf(dot, specCoef_)*lightScale));
+				lightSum1 += (gstate_c.lightColor[2][l] * *specular * (powf(dot, specCoef_)*lightScale));
 			}	
 		}
 		dots[l] = dot;
 		if (gstate.lightEnable[l] & 1)
 		{
-			lightSum0 += gstate.lightColor[0][l] * *ambient + diff;
+			lightSum0 += gstate_c.lightColor[0][l] * *ambient + diff;
 		}
 	}
 
@@ -216,9 +216,9 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 	bool useTexCoord = false;
 
 	// Check if anything needs updating
-	if (gstate.textureChanged)
+	if (gstate_c.textureChanged)
 	{
-		if (gstate.textureMapEnable && !(gstate.clearmode & 1))
+		if ((gstate.textureMapEnable & 1) && !(gstate.clearmode & 1))
 		{
 			PSPSetTexture();
 			useTexCoord = true;
@@ -356,16 +356,16 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 			}
 
 			if (customUV) {
-				uv[0] = customUV[index * 2 + 0]*gstate.uScale + gstate.uOff;
-				uv[1] = customUV[index * 2 + 1]*gstate.vScale + gstate.vOff;
+				uv[0] = customUV[index * 2 + 0]*gstate_c.uScale + gstate_c.uOff;
+				uv[1] = customUV[index * 2 + 1]*gstate_c.vScale + gstate_c.vOff;
 			} else {
 				// Perform texture coordinate generation after the transform and lighting - one style of UV depends on lights.
 				switch (gstate.texmapmode & 0x3)
 				{
 				case 0:	// UV mapping
 					// Texture scale/offset is only performed in this mode.
-					uv[0] = decoded[index].uv[0]*gstate.uScale + gstate.uOff;
-					uv[1] = decoded[index].uv[1]*gstate.vScale + gstate.vOff;
+					uv[0] = decoded[index].uv[0]*gstate_c.uScale + gstate_c.uOff;
+					uv[1] = decoded[index].uv[1]*gstate_c.vScale + gstate_c.vOff;
 					break;
 				case 1:
 					{

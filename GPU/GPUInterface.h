@@ -27,4 +27,7 @@ public:
 	virtual void ExecuteOp(u32 op, u32 diff) = 0;
 	virtual bool InterpretList() = 0;
 	virtual void DrawSync(int mode) = 0;
+
+	// Internal hack to avoid interrupts from "PPGe" drawing (utility UI, etc)
+	virtual void EnableInterrupts(bool enable) = 0;
 };

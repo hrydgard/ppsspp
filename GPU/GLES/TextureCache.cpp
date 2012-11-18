@@ -579,8 +579,8 @@ void PSPSetTexture()
 	u32 w = 1 << (gstate.texsize[0] & 0xf);
 	u32 h = 1 << ((gstate.texsize[0]>>8) & 0xf);
 
-	gstate.curTextureHeight=h;
-	gstate.curTextureWidth=w;
+	gstate_c.curTextureWidth=w;
+	gstate_c.curTextureHeight=h;
 	GLenum dstFmt = 0;
 	u32 texByteAlign = 1;
 

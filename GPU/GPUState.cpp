@@ -36,7 +36,9 @@
 #include "../Core/System.h"
 
 GPUgstate gstate;
+GPUStateCache gstate_c;
 GPUInterface *gpu;
+GPUStatistics gpuStats;
 
 void InitGfxState()
 {
@@ -53,9 +55,9 @@ void InitGfxState()
 	 0,0,0,};
 	static const float identity4x4[16] =
 	{1,0,0,0,
-	0,1,0,0,
-	0,0,1,0,
-	0,0,0,1};
+	 0,1,0,0,
+	 0,0,1,0,
+	 0,0,0,1};
 
 	memcpy(gstate.worldMatrix, identity4x3, 12 * sizeof(float));
 	memcpy(gstate.viewMatrix, identity4x3, 12 * sizeof(float));
@@ -85,9 +87,12 @@ void ShutdownGfxState()
 // or saved the context and has reloaded it, call this function.
 void ReapplyGfxState()
 {
+	if (!gpu)
+		return;
 	// ShaderManager_DirtyShader();
 	// The commands are embedded in the command memory so we can just reexecute the words. Convenient.
 	// To be safe we pass 0xFFFFFFF as the diff.
+	/*
 	gpu->ExecuteOp(gstate.cmdmem[GE_CMD_ALPHABLENDENABLE], 0xFFFFFFFF);
 	gpu->ExecuteOp(gstate.cmdmem[GE_CMD_ALPHATESTENABLE], 0xFFFFFFFF);
 	gpu->ExecuteOp(gstate.cmdmem[GE_CMD_BLENDMODE], 0xFFFFFFFF);
@@ -97,4 +102,24 @@ void ReapplyGfxState()
 	gpu->ExecuteOp(gstate.cmdmem[GE_CMD_CULLFACEENABLE], 0xFFFFFFFF);
 	gpu->ExecuteOp(gstate.cmdmem[GE_CMD_SCISSOR1], 0xFFFFFFFF);
 	gpu->ExecuteOp(gstate.cmdmem[GE_CMD_SCISSOR2], 0xFFFFFFFF);
+	*/
+	for (int i = GE_CMD_VERTEXTYPE; i < GE_CMD_BONEMATRIXNUMBER; i++)
+	{
+		gpu->ExecuteOp(gstate.cmdmem[i], 0xFFFFFFFF);		
+	}
+	
+	// Can't write to bonematrixnumber here
+
+	for (int i = GE_CMD_MORPHWEIGHT0; i < GE_CMD_PATCHFACING; i++)
+	{
+		gpu->ExecuteOp(gstate.cmdmem[i], 0xFFFFFFFF);		
+	}
+
+	// There are a few here in the middle that we shouldn't execute...
+
+	for (int i = GE_CMD_VIEWPORTX1; i < GE_CMD_TRANSFERSTART; i++)
+	{
+		gpu->ExecuteOp(gstate.cmdmem[i], 0xFFFFFFFF);		
+	}
+	// TODO: there's more...
 }

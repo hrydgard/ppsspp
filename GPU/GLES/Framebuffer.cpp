@@ -108,7 +108,8 @@ void DisplayDrawer_Init()
 	glUniformMatrix4fv(draw2dprogram->u_viewproj, 1, GL_FALSE, ortho.getReadPtr());
 	glsl_unbind();
 
-	// And an initial clear.
+	// And an initial clear. We don't clear per frame as the games are supposed to handle that
+	// by themselves.
 	glClearColor(0, 0, 0, 0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	

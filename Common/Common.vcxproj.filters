@@ -77,4 +77,7 @@
     <ClCompile Include="Action.cpp" />
     <ClCompile Include="ThunkArm.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="CMakeLists.txt" />
+  </ItemGroup>
 </Project>

@@ -22,6 +22,8 @@
 #include "sceKernelThread.h"
 #include "sceUtility.h"
 
+#include "sceCtrl.h"
+#include "../Util/PPGeDraw.h"
 
 enum SceUtilitySavedataType
 {
@@ -288,17 +290,20 @@ struct pspMessageDialog
 	u32 buttonPressed;	// 0=?, 1=Yes, 2=No, 3=Back
 };
 
+static pspMessageDialog messageDialog;
+
 void sceUtilityMsgDialogInitStart()
 {
-	DEBUG_LOG(HLE,"FAKE sceUtilityMsgDialogInitStart(%i)", PARAM(0));
-	pspMessageDialog *dlg = (pspMessageDialog *)Memory::GetPointer(PARAM(0));
-	if (dlg->type == 0) // number
+	u32 structAddr = PARAM(0);
+	DEBUG_LOG(HLE,"FAKE sceUtilityMsgDialogInitStart(%i)", structAddr);
+	Memory::ReadStruct(structAddr, &messageDialog);
+	if (messageDialog.type == 0) // number
 	{
-		INFO_LOG(HLE, "MsgDialog: %08x", dlg->errorNum);
+		INFO_LOG(HLE, "MsgDialog: %08x", messageDialog.errorNum);
 	}
 	else
 	{
-		INFO_LOG(HLE, "MsgDialog: %s", dlg->string);
+		INFO_LOG(HLE, "MsgDialog: %s", messageDialog.string);
 	}
 	__UtilityInitStart();
 }
@@ -314,6 +319,9 @@ void sceUtilityMsgDialogUpdate()
 {
 	DEBUG_LOG(HLE,"FAKE sceUtilityMsgDialogUpdate(%i)", PARAM(0));
 	__UtilityUpdate();
+	// PPGeBegin();
+		
+	// PPGeEnd();
 	RETURN(0);
 }
 
@@ -322,6 +330,9 @@ void sceUtilityMsgDialogGetStatus()
 	DEBUG_LOG(HLE,"sceUtilityMsgDialogGetStatus()");
 	RETURN(__UtilityGetStatus());
 }
+
+
+// On screen keyboard
 
 void sceUtilityOskInitStart()
 {

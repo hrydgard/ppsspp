@@ -121,8 +121,9 @@ void VertexDecoder::SetVertexType(u32 fmt)
 
 void VertexDecoder::DecodeVerts(DecodedVertex *decoded, const void *verts, const void *inds, int prim, int count, int *indexLowerBound, int *indexUpperBound) const
 {
+	// TODO: Remove
 	if (morphcount == 1)
-		gstate.morphWeights[0] = 1.0f;
+		gstate_c.morphWeights[0] = 1.0f;
 
 	char *ptr = (char *)verts;
 
@@ -211,8 +212,8 @@ void VertexDecoder::DecodeVerts(DecodedVertex *decoded, const void *verts, const
 				const u16 *uvdata = (const u16*)(ptr + tcoff);
 				if (throughmode)
 				{
-					uv[0] = (float)uvdata[0] / (float)(gstate.curTextureWidth);
-					uv[1] = (float)uvdata[1] / (float)(gstate.curTextureHeight);
+					uv[0] = (float)uvdata[0] / (float)(gstate_c.curTextureWidth);
+					uv[1] = (float)uvdata[1] / (float)(gstate_c.curTextureHeight);
 				}
 				else
 				{
@@ -273,7 +274,10 @@ void VertexDecoder::DecodeVerts(DecodedVertex *decoded, const void *verts, const
 			break;
 
 		default:
-			c[0]=255; c[1]=255; c[2]=255; c[3]=255;
+			c[0] = 255;
+			c[1] = 255;
+			c[2] = 255;
+			c[3] = 255;
 			break;
 		}
 
@@ -281,7 +285,7 @@ void VertexDecoder::DecodeVerts(DecodedVertex *decoded, const void *verts, const
 		memset(normal, 0, sizeof(float)*3);
 		for (int n = 0; n < morphcount; n++)
 		{
-			float multiplier = gstate.morphWeights[n];
+			float multiplier = gstate_c.morphWeights[n];
 			if (gstate.reversenormals & 0xFFFFFF) {
 				multiplier = -multiplier;
 			}
@@ -358,7 +362,7 @@ void VertexDecoder::DecodeVerts(DecodedVertex *decoded, const void *verts, const
 					{
 						const float *fv = (const float*)(ptr + onesize_*n + posoff);
 						for (int j = 0; j < 3; j++)
-							v[j] += fv[j] * gstate.morphWeights[n];
+							v[j] += fv[j] * gstate_c.morphWeights[n];
 					}
 					break;
 
@@ -368,7 +372,7 @@ void VertexDecoder::DecodeVerts(DecodedVertex *decoded, const void *verts, const
 						if (throughmode) multiplier = 1.0f;
 						const short *sv = (const short*)(ptr + onesize_*n + posoff);
 						for (int j = 0; j < 3; j++)
-							v[j] += (sv[j] * multiplier) * gstate.morphWeights[n];
+							v[j] += (sv[j] * multiplier) * gstate_c.morphWeights[n];
 					}
 					break;
 
@@ -376,7 +380,7 @@ void VertexDecoder::DecodeVerts(DecodedVertex *decoded, const void *verts, const
 					{
 						const s8 *sv = (const s8*)(ptr + onesize_*n + posoff);
 						for (int j = 0; j < 3; j++)
-							v[j] += (sv[j] / 127.f) * gstate.morphWeights[n];
+							v[j] += (sv[j] / 127.f) * gstate_c.morphWeights[n];
 					}
 					break;
 

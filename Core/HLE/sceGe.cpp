@@ -154,14 +154,42 @@ void sceGeUnsetCallback(u32 cbID)
 	sceKernelReleaseSubIntrHandler(PSP_GE_INTR, PSP_GE_SUBINTR_SIGNAL);
 }
 
-void sceGeSaveContext()
+// Points to 512 32-bit words, where we can probably layout the context however we want
+// unless some insane game pokes it and relies on it...
+u32 sceGeSaveContext(u32 ctxAddr)
 {
-	ERROR_LOG(HLE,"UNIMPL sceGeSaveContext()");
+	DEBUG_LOG(HLE,"sceGeSaveContext(%08x)", ctxAddr);
+
+	if (sizeof(gstate) > 512 * 4) {
+		ERROR_LOG(HLE, "AARGH! sizeof(gstate) has grown too large!");
+		return 0;
+	}
+
+	// Let's just dump gstate.
+	if (Memory::IsValidAddress(ctxAddr)) {
+		Memory::WriteStruct(ctxAddr, &gstate);
+	}
+
+	// This action should probably be pushed to the end of the queue of the display thread -
+	// when we have one.
+	return 0;
 }
 
-void sceGeRestoreContext()
+u32 sceGeRestoreContext(u32 ctxAddr)
 {
-	ERROR_LOG(HLE,"UNIMPL sceGeRestoreContext()");
+	DEBUG_LOG(HLE,"sceGeRestoreContext(%08x)", ctxAddr);
+
+	if (sizeof(gstate) > 512 * 4) {
+		ERROR_LOG(HLE, "AARGH! sizeof(gstate) has grown too large!");
+		return 0;
+	}
+
+	if (Memory::IsValidAddress(ctxAddr)) {
+		Memory::ReadStruct(ctxAddr, &gstate);
+	}
+	ReapplyGfxState();
+
+	return 0;
 }
 
 void sceGeGetMtx()
@@ -195,8 +223,8 @@ const HLEFunction sceGe_user[] =
 	{0xB77905EA,&sceGeEdramSetAddrTranslation,"sceGeEdramSetAddrTranslation"},
 	{0xDC93CFEF,0,"sceGeGetCmd"},
 	{0x57C8945B,&sceGeGetMtx,"sceGeGetMtx"},
-	{0x438A385A,0,"sceGeSaveContext"},
-	{0x0BF608FB,0,"sceGeRestoreContext"},
+	{0x438A385A,&WrapU_U<sceGeSaveContext>,"sceGeSaveContext"},
+	{0x0BF608FB,&WrapU_U<sceGeRestoreContext>,"sceGeRestoreContext"},
 	{0x5FB86AB0,0,"sceGeListDeQueue"},
 };
 

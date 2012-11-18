@@ -47,6 +47,9 @@
 #include "../../GPU/GLES/ShaderManager.h"
 #include "../../GPU/GPUState.h"
 
+// Internal drawing library
+#include "../Util/PPGeDraw.h"
+
 extern ShaderManager shaderManager;
 
 struct FrameBufferState
@@ -138,6 +141,14 @@ void hleEnterVblank(u64 userdata, int cyclesLate)
 		framebufIsLatched = false;
 	}
 
+	// Draw screen overlays before blitting. Saves and restores the Ge context.
+	
+	/*
+	PPGeBegin();
+	PPGeDrawImage(I_LOGO, 5, 5, 0, 0xFFFFFFFF);
+	PPGeDrawText("This is PPGeDraw speaking", 10, 100, 0, 0.5f, 0xFFFFFFFF);
+	PPGeEnd();
+	*/
 	// Yeah, this has to be the right moment to end the frame. Should possibly blit the right buffer
 	// depending on what's set in sceDisplaySetFramebuf, in order to support half-framerate games -
 	// an initial hack could be to NOT end the frame if the buffer didn't change? that should work okay.
