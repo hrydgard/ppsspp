@@ -103,7 +103,7 @@ void sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr)
 			*numWaitThreads = s->ns.numWaitThreads;
 		}
 
-		if (newCount == -1)
+		if (newCount < 0)
 			s->ns.currentCount = s->ns.initCount;
 		else
 			s->ns.currentCount = newCount;
