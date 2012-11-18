@@ -194,7 +194,7 @@ void sceUtilitySavedataInitStart()
 {
 	SceUtilitySavedataParam *param = (SceUtilitySavedataParam*)Memory::GetPointer(PARAM(0));
 
-	DEBUG_LOG(HLE,"sceUtilitySavedataInitStart(%08x)", PARAM(0));
+ 	DEBUG_LOG(HLE,"sceUtilitySavedataInitStart(%08x)", PARAM(0));
 	DEBUG_LOG(HLE,"Mode: %i", param->mode);
 	if (param->mode == 0) //load
 	{
@@ -210,9 +210,11 @@ void sceUtilitySavedataInitStart()
 
 	__UtilityInitStart();
 
+
 	// Returning 0 here breaks Bust a Move Deluxe! But should be the right thing to do...
+	// At least Cohort Chess expects this to return 0 or it locks up..
 	// The fix is probably to fully implement sceUtility so that it actually works.
-	// RETURN(0);
+	 RETURN(0);
 }
 
 void sceUtilitySavedataShutdownStart()

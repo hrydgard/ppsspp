@@ -1288,8 +1288,8 @@ u32 __KernelCreateCallback(const char *name, u32 entrypoint, u32 commonArg)
 	SceUID id = kernelObjects.Create(cb);
 
 	cb->nc.size = sizeof(NativeCallback);
-	strcpy(cb->nc.name, name);
-
+	strncpy(cb->nc.name, name, 32); 
+ 
 	cb->nc.entrypoint = entrypoint;
 	cb->nc.threadId = __KernelGetCurThread();
 	cb->nc.commonArgument = commonArg;

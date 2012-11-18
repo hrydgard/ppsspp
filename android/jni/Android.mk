@@ -68,7 +68,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Common/ThunkARM.cpp \
   $(SRC)/Common/Misc.cpp \
   $(SRC)/GPU/Math3D.cpp \
-  $(SRC)/GPU/GpuState.cpp \
+  $(SRC)/GPU/GPUState.cpp \
   $(SRC)/GPU/GLES/Framebuffer.cpp \
   $(SRC)/GPU/GLES/DisplayListInterpreter.cpp \
   $(SRC)/GPU/GLES/TextureCache.cpp \
@@ -89,7 +89,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/Loaders.cpp \
   $(SRC)/Core/PSPLoaders.cpp \
   $(SRC)/Core/MemMap.cpp \
-  $(SRC)/Core/MemmapFunctions.cpp \
+  $(SRC)/Core/MemMapFunctions.cpp \
   $(SRC)/Core/System.cpp \
   $(SRC)/Core/PSPMixer.cpp \
   $(SRC)/Core/Debugger/Breakpoints.cpp \
