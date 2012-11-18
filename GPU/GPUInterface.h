@@ -22,6 +22,7 @@
 class GPUInterface
 {
 public:
+	virtual void InitClear() = 0;
 	virtual u32 EnqueueList(u32 listpc, u32 stall) = 0;
 	virtual void UpdateStall(int listid, u32 newstall) = 0;
 	virtual void ExecuteOp(u32 op, u32 diff) = 0;

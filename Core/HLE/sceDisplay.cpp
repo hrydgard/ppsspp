@@ -15,18 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#if defined(ANDROID) || defined(BLACKBERRY)
-#include <GLES2/gl2.h>
-#include <GLES2/gl2ext.h>
-#else
-#include <GL/glew.h>
-#if defined(__APPLE__)
-#include <OpenGL/gl.h>
-#else
-#include <GL/gl.h>
-#endif
-#endif
-
 #include <vector>
 
 //#include "base/timeutil.h"
@@ -46,7 +34,7 @@
 #include "../../GPU/GLES/Framebuffer.h"
 #include "../../GPU/GLES/ShaderManager.h"
 #include "../../GPU/GPUState.h"
-
+#include "../../GPU/GPUInterface.h"
 // Internal drawing library
 #include "../Util/PPGeDraw.h"
 
@@ -190,9 +178,7 @@ u32 sceDisplaySetMode(u32 unknown, u32 xres, u32 yres)
 	DEBUG_LOG(HLE,"sceDisplaySetMode(%d,%d,%d)",unknown,xres,yres);
 	host->BeginFrame();
 
-	glClearColor(0,0,0,1);
-//	glClearColor(1,0,1,1);
-	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+	gpu->InitClear();
 
 	return 0;
 }

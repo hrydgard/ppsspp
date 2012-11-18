@@ -25,6 +25,7 @@ class GLES_GPU : public GPUInterface
 {
 public:
 	GLES_GPU() : interruptsEnabled_(true) {}
+	virtual void InitClear();
 	virtual u32 EnqueueList(u32 listpc, u32 stall);
 	virtual void UpdateStall(int listid, u32 newstall);
 	virtual void ExecuteOp(u32 op, u32 diff);

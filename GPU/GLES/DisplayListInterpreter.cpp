@@ -76,6 +76,13 @@ bool finished;
 
 u8 bezierBuf[16000];
 
+void GLES_GPU::InitClear()
+{
+	glClearColor(0,0,0,1);
+	//	glClearColor(1,0,1,1);
+	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+}
+
 bool GLES_GPU::ProcessDLQueue()
 {
 	std::vector<DisplayList>::iterator iter = dlQueue.begin();
