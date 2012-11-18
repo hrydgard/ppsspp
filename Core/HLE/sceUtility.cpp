@@ -145,9 +145,12 @@ struct SceUtilitySavedataParam
 static u32 utilityDialogState = SCE_UTILITY_STATUS_SHUTDOWN;
 
 
+u32 messageDialogAddr;
+
 
 void __UtilityInit()
 {
+	messageDialogAddr = 0;
 	utilityDialogState = SCE_UTILITY_STATUS_SHUTDOWN;
 	// Creates a directory for save on the sdcard or MemStick directory
 }
@@ -288,12 +291,15 @@ struct pspMessageDialog
 	u32 buttonPressed;	// 0=?, 1=Yes, 2=No, 3=Back
 };
 
-u32 messageDialogAddr;
-
 void sceUtilityMsgDialogInitStart()
 {
 	u32 structAddr = PARAM(0);
 	DEBUG_LOG(HLE,"sceUtilityMsgDialogInitStart(%i)", structAddr);
+	if (!Memory::IsValidAddress(structAddr))
+	{
+		RETURN(-1);
+		return;
+	}
 	messageDialogAddr = structAddr;
 	pspMessageDialog messageDialog;
 	Memory::ReadStruct(messageDialogAddr, &messageDialog);
@@ -317,7 +323,8 @@ void sceUtilityMsgDialogShutdownStart()
 
 void sceUtilityMsgDialogUpdate()
 {
-	DEBUG_LOG(HLE,"sceUtilityMsgDialogUpdate(%i)", PARAM(0));
+	int animSpeed = PARAM(0);
+	DEBUG_LOG(HLE,"sceUtilityMsgDialogUpdate(%i)", animSpeed);
 
 	switch (utilityDialogState) {
 	case SCE_UTILITY_STATUS_FINISHED:
@@ -328,6 +335,12 @@ void sceUtilityMsgDialogUpdate()
 	if (utilityDialogState != SCE_UTILITY_STATUS_RUNNING)
 	{
 		RETURN(0);
+		return;
+	}
+
+	if (!Memory::IsValidAddress(messageDialogAddr)) {
+		ERROR_LOG(HLE, "sceUtilityMsgDialogUpdate: Bad messagedialogaddr %08x", messageDialogAddr);
+		RETURN(-1);
 		return;
 	}
 	
@@ -350,7 +363,7 @@ void sceUtilityMsgDialogUpdate()
 	static u32 lastButtons = 0;
 	u32 buttons = __CtrlPeekButtons();
 
-	if (messageDialog.options & 0x10)  //yesnobutton
+	if (messageDialog.options & 0x10)  // yesnobutton
 	{
 		PPGeDrawImage(I_CROSS, 80, 220, 0, 0xFFFFFFFF);
 		PPGeDrawText("Yes", 140, 220, PPGE_ALIGN_HCENTER, 1.0f, 0xFFFFFFFF);
