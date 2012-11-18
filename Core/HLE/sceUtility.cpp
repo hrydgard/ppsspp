@@ -290,13 +290,15 @@ struct pspMessageDialog
 	u32 buttonPressed;	// 0=?, 1=Yes, 2=No, 3=Back
 };
 
-static pspMessageDialog messageDialog;
+u32 messageDialogAddr;
 
 void sceUtilityMsgDialogInitStart()
 {
 	u32 structAddr = PARAM(0);
 	DEBUG_LOG(HLE,"FAKE sceUtilityMsgDialogInitStart(%i)", structAddr);
-	Memory::ReadStruct(structAddr, &messageDialog);
+	messageDialogAddr = structAddr;
+	pspMessageDialog messageDialog;
+	Memory::ReadStruct(messageDialogAddr, &messageDialog);
 	if (messageDialog.type == 0) // number
 	{
 		INFO_LOG(HLE, "MsgDialog: %08x", messageDialog.errorNum);
@@ -317,11 +319,78 @@ void sceUtilityMsgDialogShutdownStart()
 
 void sceUtilityMsgDialogUpdate()
 {
-	DEBUG_LOG(HLE,"FAKE sceUtilityMsgDialogUpdate(%i)", PARAM(0));
-	__UtilityUpdate();
-	// PPGeBegin();
-		
-	// PPGeEnd();
+	DEBUG_LOG(HLE,"sceUtilityMsgDialogUpdate(%i)", PARAM(0));
+
+	switch (utilityDialogState) {
+	case SCE_UTILITY_STATUS_FINISHED:
+		utilityDialogState = SCE_UTILITY_STATUS_SHUTDOWN;
+		break;
+	}
+
+	if (utilityDialogState != SCE_UTILITY_STATUS_RUNNING)
+	{
+		RETURN(0);
+		return;
+	}
+	
+	pspMessageDialog messageDialog;
+	Memory::ReadStruct(messageDialogAddr, &messageDialog);
+	const char *text;
+	if (messageDialog.type == 0) {
+		char temp[256];
+		sprintf(temp, "Error code: %08x", messageDialog.errorNum);
+		text = temp;
+	} else {
+		text = messageDialog.string;
+	}
+
+	PPGeBegin();
+
+	PPGeDraw4Patch(I_BUTTON, 0, 0, 480, 272, 0xcFFFFFFF);
+	PPGeDrawText(text, 50, 50, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
+
+	static u32 lastButtons = 0;
+	u32 buttons = __CtrlPeekButtons();
+
+	if (messageDialog.options & 0x10)  //yesnobutton
+	{
+		PPGeDrawImage(I_CROSS, 80, 220, 0, 0xFFFFFFFF);
+		PPGeDrawText("Yes", 140, 220, PPGE_ALIGN_HCENTER, 1.0f, 0xFFFFFFFF);
+		PPGeDrawImage(I_CIRCLE, 200, 220, 0, 0xFFFFFFFF);
+		PPGeDrawText("No", 260, 220, PPGE_ALIGN_HCENTER, 1.0f, 0xFFFFFFFF);
+		PPGeDrawImage(I_TRIANGLE, 320, 220, 0, 0xcFFFFFFF);
+		PPGeDrawText("Back", 380, 220, PPGE_ALIGN_HCENTER, 1.0f, 0xcFFFFFFF);
+		if (!lastButtons) {
+			if (buttons & CTRL_TRIANGLE) {
+				messageDialog.buttonPressed = 3;  // back
+				utilityDialogState = SCE_UTILITY_STATUS_FINISHED;
+			} else if (buttons & CTRL_CROSS) {
+				messageDialog.buttonPressed = 1;
+				utilityDialogState = SCE_UTILITY_STATUS_FINISHED;
+			} else if (buttons & CTRL_CIRCLE) {
+				messageDialog.buttonPressed = 2;
+				utilityDialogState = SCE_UTILITY_STATUS_FINISHED;
+			}
+		}
+	}
+	else
+	{
+		PPGeDrawImage(I_CROSS, 150, 220, 0, 0xFFFFFFFF);
+		PPGeDrawText("OK", 480/2, 220, PPGE_ALIGN_HCENTER, 1.0f, 0xFFFFFFFF);
+		if (!lastButtons) {
+			if (buttons & (CTRL_CROSS | CTRL_CIRCLE)) {  // accept both
+				messageDialog.buttonPressed = 1;
+				utilityDialogState = SCE_UTILITY_STATUS_FINISHED;
+			}
+		}
+	}
+
+	lastButtons = buttons;
+
+	Memory::WriteStruct(messageDialogAddr, &messageDialog);
+
+	PPGeEnd();
+
 	RETURN(0);
 }
 

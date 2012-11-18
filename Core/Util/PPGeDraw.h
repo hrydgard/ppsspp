@@ -55,11 +55,11 @@ enum {
 // These functions must be called between PPGeBegin and PPGeEnd.
 
 // Draws some text using the one font we have.
-void PPGeDrawText(const char *text, float x, float y, int align, float scale, u32 color);
+void PPGeDrawText(const char *text, float x, float y, int align, float scale = 1.0f, u32 color = 0xFFFFFFFF);
 
 // Draws a "4-patch" for button-like things that can be resized
-void PPGeDraw4Patch(int atlasImage, float x, float y, float w, float h, u32 color);
+void PPGeDraw4Patch(int atlasImage, float x, float y, float w, float h, u32 color = 0xFFFFFFFF);
 
 // Just blits an image to the screen, multiplied with the color.
-void PPGeDrawImage(int atlasImage, float x, float y, int align, u32 color);
+void PPGeDrawImage(int atlasImage, float x, float y, int align, u32 color = 0xFFFFFFFF);
 

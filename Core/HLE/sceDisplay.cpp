@@ -132,6 +132,13 @@ void hleEnterVblank(u64 userdata, int cyclesLate)
 	// Draw screen overlays before blitting. Saves and restores the Ge context.
 	
 	/*
+	if (g_Config.bShowGPUStats)
+	{
+		char stats[512];
+		sprintf(stats, "Draw calls")
+	}*/
+
+	/*
 	PPGeBegin();
 	PPGeDrawImage(I_LOGO, 5, 5, 0, 0xFFFFFFFF);
 	PPGeDrawText("This is PPGeDraw speaking", 10, 100, 0, 0.5f, 0xFFFFFFFF);

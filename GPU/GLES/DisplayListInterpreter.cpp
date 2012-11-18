@@ -113,8 +113,8 @@ u32 GLES_GPU::EnqueueList(u32 listpc, u32 stall)
 {
 	DisplayList dl;
 	dl.id = dlIdGenerator++;
-	dl.listpc = listpc&0xFFFFFFF;
-	dl.stall = stall&0xFFFFFFF;
+	dl.listpc = listpc & 0xFFFFFFF;
+	dl.stall = stall & 0xFFFFFFF;
 	dlQueue.push_back(dl);
 	if (!ProcessDLQueue())
 		return dl.id;
