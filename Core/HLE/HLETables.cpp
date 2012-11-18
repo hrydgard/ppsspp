@@ -98,8 +98,8 @@ const HLEFunction sceRtc[] =
 {
   {0xC41C2853, sceRtcGetTickResolution, "sceRtcGetTickResolution"},
   {0x3f7ad767, sceRtcGetCurrentTick, "sceRtcGetCurrentTick"},	
-  {0x011F03C1, 0, "sceRtcGetAccumulativeTime"},
-  {0x029CA3B3, 0, "sceRtcGetAccumlativeTime"},
+  {0x011F03C1, sceRtcGetCurrentTick, "sceRtcGetAccumulativeTime"},
+  {0x029CA3B3, sceRtcGetCurrentTick, "sceRtcGetAccumlativeTime"},
   {0x4cfa57b0, 0, "sceRtcGetCurrentClock"},
   {0xE7C27D1B, sceRtcGetCurrentClockLocalTime, "sceRtcGetCurrentClockLocalTime"},
   {0x34885E0D, 0, "sceRtcConvertUtcToLocalTime"},

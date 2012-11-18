@@ -63,6 +63,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Common/IniFile.cpp \
   $(SRC)/Common/FileUtil.cpp \
   $(SRC)/Common/StringUtil.cpp \
+  $(SRC)/Common/Thread.cpp \
   $(SRC)/Common/Timer.cpp \
   $(SRC)/Common/ThunkARM.cpp \
   $(SRC)/Common/Misc.cpp \
@@ -150,7 +151,9 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/MIPS/ARM/Jit.cpp \
   $(SRC)/Core/MIPS/ARM/CompLoadStore.cpp \
   $(SRC)/Core/MIPS/ARM/RegCache.cpp \
-  $(SRC)/Core/Util/BlockAllocator.cpp
+  $(SRC)/Core/Util/BlockAllocator.cpp \
+  $(SRC)/Core/Util/ppge_atlas.cpp \
+  $(SRC)/Core/Util/PPGeDraw.cpp
 
 
 include $(BUILD_SHARED_LIBRARY)

@@ -238,7 +238,7 @@ void *readIndexedTex(u32 level, u32 texaddr, u32 bytesPerIndex)
 					u32 n = tmpTexBuf32[j];
 					u32 k;
 					for (k = 0; k < 4; k++) {
-						u8 index = (n >> (k * 4)) & 0xff;
+						u8 index = (n >> (k * 8)) & 0xff;
 						tmpTexBuf16[i + k] = clut[GetClutIndex(index)];
 					}
 				}
@@ -579,8 +579,8 @@ void PSPSetTexture()
 	u32 w = 1 << (gstate.texsize[0] & 0xf);
 	u32 h = 1 << ((gstate.texsize[0]>>8) & 0xf);
 
-	gstate.curTextureHeight=h;
-	gstate.curTextureWidth=w;
+	gstate_c.curTextureWidth=w;
+	gstate_c.curTextureHeight=h;
 	GLenum dstFmt = 0;
 	u32 texByteAlign = 1;
 

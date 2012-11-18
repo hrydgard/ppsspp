@@ -72,8 +72,6 @@ struct Color4
 
 struct GPUgstate
 {
-	u16 paletteMem[256*2];
-
 	union
 	{
 		u32 cmdmem[256];
@@ -230,6 +228,20 @@ struct GPUgstate
 		};
 	};
 
+	float worldMatrix[12];
+	float viewMatrix[12];
+	float projMatrix[16];
+	float tgenMatrix[12];
+	float boneMatrix[8*12];
+};
+
+struct GPUStateCache
+{
+	// Real data in the context ends here
+	// The rest is cached simplified/converted data for fast access.
+	// What we have here still fits into 512 words, but just barely so we should
+	// in the future just recompute the below on an sceGeRestoreContext().
+
 	u32 vertexAddr;
 	u32 indexAddr;
 
@@ -249,17 +261,22 @@ struct GPUgstate
 
 	u32 curTextureWidth;
 	u32 curTextureHeight;
+};
 
-	float worldMatrix[12];
-	float viewMatrix[12];
-	float projMatrix[16];
-	float tgenMatrix[12];
-	float boneMatrix[8*12];
+// TODO: Implement support for these.
+struct GPUStatistics
+{
+	// Per frame statistics
+	int numDrawCalls;
+	int numTextureSwitches;
+	int numShaderSwitches;
+
+	// Total statistics
+	int numFrames;
 };
 
 void InitGfxState();
 void ShutdownGfxState();
-
 void ReapplyGfxState();
 
 // PSP uses a curious 24-bit float - it's basically the top 24 bits of a regular IEEE754 32-bit float.
@@ -282,4 +299,6 @@ inline unsigned int toFloat24(float f) {
 class GPUInterface;
 
 extern GPUgstate gstate;
+extern GPUStateCache gstate_c;
 extern GPUInterface *gpu;
+extern GPUStatistics gpuStats;

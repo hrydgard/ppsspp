@@ -76,6 +76,13 @@ bool finished;
 
 u8 bezierBuf[16000];
 
+void GLES_GPU::InitClear()
+{
+	glClearColor(0,0,0,1);
+	//	glClearColor(1,0,1,1);
+	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+}
+
 bool GLES_GPU::ProcessDLQueue()
 {
 	std::vector<DisplayList>::iterator iter = dlQueue.begin();
@@ -106,8 +113,8 @@ u32 GLES_GPU::EnqueueList(u32 listpc, u32 stall)
 {
 	DisplayList dl;
 	dl.id = dlIdGenerator++;
-	dl.listpc = listpc&0xFFFFFFF;
-	dl.stall = stall&0xFFFFFFF;
+	dl.listpc = listpc & 0xFFFFFFF;
+	dl.stall = stall & 0xFFFFFFF;
 	dlQueue.push_back(dl);
 	if (!ProcessDLQueue())
 		return dl.id;
@@ -160,7 +167,7 @@ void drawBezier(int ucount, int vcount)
 	}
 
 	LinkedShader *linkedShader = shaderManager.ApplyShader();
-	TransformAndDrawPrim(Memory::GetPointer(gstate.vertexAddr), &indices[0], GE_PRIM_TRIANGLES, 3 * 3 * 6, linkedShader, customUV, GE_VTYPE_IDX_16BIT);
+	TransformAndDrawPrim(Memory::GetPointer(gstate_c.vertexAddr), &indices[0], GE_PRIM_TRIANGLES, 3 * 3 * 6, linkedShader, customUV, GE_VTYPE_IDX_16BIT);
 }
 
 
@@ -172,6 +179,7 @@ void EnterClearMode(u32 data)
 	glColorMask(colMask, colMask, colMask, alphaMask);
 	glDepthMask(updateZ); // Update Z or not
 	// Note that depth test must be enabled for depth writes to go through! So we use GL_ALWAYS
+	glDisable(GL_BLEND);
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_ALWAYS);
 	glDisable(GL_CULL_FACE);	// ??
@@ -189,7 +197,7 @@ void LeaveClearMode()
 	glColorMask(1,1,1,1);
 	glEnDis(GL_DEPTH_TEST, gstate.zTestEnable & 1);
 	glDepthFunc(GL_LEQUAL);	// TODO
-
+	glEnDis(GL_BLEND, gstate.alphaBlendEnable & 1);
 	// dirtyshader?
 }
 
@@ -255,17 +263,17 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 	switch (cmd)
 	{
 	case GE_CMD_BASE:
-		DEBUG_LOG(G3D,"DL BASE: %06x", data);
+		DEBUG_LOG(G3D,"DL BASE: %06x", data & 0xFFFFFF);
 		break;
 
 	case GE_CMD_VADDR:		/// <<8????
-		gstate.vertexAddr = ((gstate.base & 0x00FF0000) << 8)|data;
-		DEBUG_LOG(G3D,"DL VADDR: %06x", gstate.vertexAddr);
+		gstate_c.vertexAddr = ((gstate.base & 0x00FF0000) << 8)|data;
+		DEBUG_LOG(G3D,"DL VADDR: %06x", gstate_c.vertexAddr);
 		break;
 
 	case GE_CMD_IADDR:
-		gstate.indexAddr	= ((gstate.base & 0x00FF0000) << 8)|data;
-		DEBUG_LOG(G3D,"DL IADDR: %06x", gstate.indexAddr);
+		gstate_c.indexAddr	= ((gstate.base & 0x00FF0000) << 8)|data;
+		DEBUG_LOG(G3D,"DL IADDR: %06x", gstate_c.indexAddr);
 		break;
 
 	case GE_CMD_PRIM:
@@ -281,15 +289,15 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 				"TRIANGLE_FAN=5,",
 				"RECTANGLES=6,",
 			};
-			DEBUG_LOG(G3D, "DL DrawPrim type: %s count: %i vaddr= %08x, iaddr= %08x", type<7 ? types[type] : "INVALID", count, gstate.vertexAddr, gstate.indexAddr);
+			DEBUG_LOG(G3D, "DL DrawPrim type: %s count: %i vaddr= %08x, iaddr= %08x", type<7 ? types[type] : "INVALID", count, gstate_c.vertexAddr, gstate_c.indexAddr);
 
 			LinkedShader *linkedShader = shaderManager.ApplyShader();
 			// TODO: Split this so that we can collect sequences of primitives, can greatly speed things up
 			// on platforms where draw calls are expensive like mobile and D3D
-			void *verts = Memory::GetPointer(gstate.vertexAddr);
+			void *verts = Memory::GetPointer(gstate_c.vertexAddr);
 			void *inds = 0;
 			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE)
-				inds = Memory::GetPointer(gstate.indexAddr);
+				inds = Memory::GetPointer(gstate_c.indexAddr);
 			TransformAndDrawPrim(verts, inds, type, count, linkedShader);
 		}
 		break;
@@ -348,7 +356,8 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 			int behaviour = (data >> 16) & 0xFF;
 			int signal = data & 0xFFFF;
 
-			__TriggerInterruptWithArg(PSP_GE_INTR, PSP_GE_SUBINTR_SIGNAL, signal);
+			if (interruptsEnabled_)
+				__TriggerInterruptWithArg(PSP_GE_INTR, PSP_GE_SUBINTR_SIGNAL, signal);
 		}
 		break;
 
@@ -388,7 +397,8 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_FINISH:
 		DEBUG_LOG(G3D,"DL CMD FINISH");
-		__TriggerInterruptWithArg(PSP_GE_INTR, PSP_GE_SUBINTR_FINISH, 0);
+		if (interruptsEnabled_)
+			__TriggerInterruptWithArg(PSP_GE_INTR, PSP_GE_SUBINTR_FINISH, 0);
 		break;
 
 	case GE_CMD_END: 
@@ -406,7 +416,8 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 		}
 			
 		// This should generate a Reading Ended interrupt
-		// __TriggerInterrupt(PSP_GE_INTR);
+		// if (interruptsEnabled_)
+		//   __TriggerInterrupt(PSP_GE_INTR);
 
 		break;
 
@@ -465,23 +476,23 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_TEXSCALEU: 
-		gstate.uScale = getFloat24(data); 
-		DEBUG_LOG(G3D, "DL Texture U Scale: %f", gstate.uScale);
+		gstate_c.uScale = getFloat24(data); 
+		DEBUG_LOG(G3D, "DL Texture U Scale: %f", gstate_c.uScale);
 		break;
 
 	case GE_CMD_TEXSCALEV: 
-		gstate.vScale = getFloat24(data); 
-		DEBUG_LOG(G3D, "DL Texture V Scale: %f", gstate.vScale);
+		gstate_c.vScale = getFloat24(data); 
+		DEBUG_LOG(G3D, "DL Texture V Scale: %f", gstate_c.vScale);
 		break;
 
 	case GE_CMD_TEXOFFSETU: 
-		gstate.uOff = getFloat24(data);	
-		DEBUG_LOG(G3D, "DL Texture U Offset: %f", gstate.uOff);
+		gstate_c.uOff = getFloat24(data);	
+		DEBUG_LOG(G3D, "DL Texture U Offset: %f", gstate_c.uOff);
 		break;
 
 	case GE_CMD_TEXOFFSETV: 
-		gstate.vOff = getFloat24(data);	
-		DEBUG_LOG(G3D, "DL Texture V Offset: %f", gstate.vOff);
+		gstate_c.vOff = getFloat24(data);	
+		DEBUG_LOG(G3D, "DL Texture V Offset: %f", gstate_c.vOff);
 		break;
 
 	case GE_CMD_SCISSOR1:
@@ -525,7 +536,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_TEXADDR0:
-		gstate.textureChanged = true;
+		gstate_c.textureChanged = true;
 	case GE_CMD_TEXADDR1:
 	case GE_CMD_TEXADDR2:
 	case GE_CMD_TEXADDR3:
@@ -537,7 +548,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_TEXBUFWIDTH0:
-		gstate.textureChanged = true;
+		gstate_c.textureChanged = true;
 	case GE_CMD_TEXBUFWIDTH1:
 	case GE_CMD_TEXBUFWIDTH2:
 	case GE_CMD_TEXBUFWIDTH3:
@@ -557,16 +568,12 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_LOADCLUT:
+		// This could be used to "dirty" textures with clut.
 		{
-			u32 clutAttr = ((gstate.clutaddrupper & 0xFF0000)<<8) | (gstate.clutaddr & 0xFFFFFF);
-			if (clutAttr)
+			u32 clutAddr = ((gstate.clutaddrupper & 0xFF0000)<<8) | (gstate.clutaddr & 0xFFFFFF);
+			if (clutAddr)
 			{
-				u16 *clut = (u16*)Memory::GetPointer(clutAttr);
-				if (clut) {
-					int numColors = 16 * (data&0x3F);
-					memcpy(&gstate.paletteMem[0], clut, numColors * 2);
-				}
-				DEBUG_LOG(G3D,"DL Clut load: %i palettes", data);
+				DEBUG_LOG(G3D,"DL Clut load: %08x", clutAddr);
 			}
 			else
 			{
@@ -629,9 +636,9 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 		}
 
 	case GE_CMD_TEXSIZE0:
-		gstate.textureChanged=true;
-		gstate.curTextureWidth = 1 << (gstate.texsize[0] & 0xf);
-		gstate.curTextureHeight = 1 << ((gstate.texsize[0]>>8) & 0xf);
+		gstate_c.textureChanged=true;
+		gstate_c.curTextureWidth = 1 << (gstate.texsize[0] & 0xf);
+		gstate_c.curTextureHeight = 1 << ((gstate.texsize[0]>>8) & 0xf);
 		//fall thru - ignoring the mipmap sizes for now
 	case GE_CMD_TEXSIZE1:
 	case GE_CMD_TEXSIZE2:
@@ -706,7 +713,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 			int c = n % 3;
 			float val = getFloat24(data);
 			DEBUG_LOG(G3D,"DL Light %i %c pos: %f", l, c+'X', val);
-			gstate.lightpos[l][c] = val;
+			gstate_c.lightpos[l][c] = val;
 		}
 		break;
 
@@ -720,7 +727,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 			int c = n % 3;
 			float val = getFloat24(data);
 			DEBUG_LOG(G3D,"DL Light %i %c dir: %f", l, c+'X', val);
-			gstate.lightdir[l][c] = val;
+			gstate_c.lightdir[l][c] = val;
 		}
 		break;
 
@@ -734,7 +741,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 			int c = n % 3;
 			float val = getFloat24(data);
 			DEBUG_LOG(G3D,"DL Light %i %c att: %f", l, c+'X', val);
-			gstate.lightatt[l][c] = val;
+			gstate_c.lightatt[l][c] = val;
 		}
 		break;
 
@@ -749,9 +756,9 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 
 			int l = (cmd - GE_CMD_LAC0) / 3;
 			int t = (cmd - GE_CMD_LAC0) % 3;
-			gstate.lightColor[t][l].r = r;
-			gstate.lightColor[t][l].g = g;
-			gstate.lightColor[t][l].b = b;
+			gstate_c.lightColor[t][l].r = r;
+			gstate_c.lightColor[t][l].g = g;
+			gstate_c.lightColor[t][l].b = b;
 		}
 		break;
 
@@ -780,9 +787,9 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_PATCHDIVISION:
-		gstate.patch_div_s = data & 0xFF;
-		gstate.patch_div_t = (data >> 8) & 0xFF;
-		DEBUG_LOG(G3D, "DL Patch subdivision: %i x %i", gstate.patch_div_s, gstate.patch_div_t);
+		gstate_c.patch_div_s = data & 0xFF;
+		gstate_c.patch_div_t = (data >> 8) & 0xFF;
+		DEBUG_LOG(G3D, "DL Patch subdivision: %i x %i", gstate_c.patch_div_s, gstate_c.patch_div_t);
 		break;
 
 	case GE_CMD_MATERIALUPDATE:
@@ -907,7 +914,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 			int index = cmd - GE_CMD_MORPHWEIGHT0;
 			float weight = getFloat24(data);
 			DEBUG_LOG(G3D,"DL MorphWeight %i = %f", index, weight);
-			gstate.morphWeights[index] = weight;
+			gstate_c.morphWeights[index] = weight;
 		}
 		break;
  

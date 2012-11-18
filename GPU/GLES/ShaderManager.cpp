@@ -37,6 +37,9 @@
 #include "TransformPipeline.h"
 
 Shader::Shader(const char *code, uint32_t shaderType) {
+#ifdef _DEBUG
+	source_ = code;
+#endif
 #ifdef _WIN32
 	// OutputDebugString(code);
 #endif

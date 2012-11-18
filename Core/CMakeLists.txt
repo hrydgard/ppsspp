@@ -54,6 +54,8 @@ set(SRCS
   FileSystems/DirectoryFileSystem.cpp
   FileSystems/MetaFileSystem.cpp
   Util/BlockAllocator.cpp
+  Util/ppge_atlas.cpp
+  Util/PPGeDraw.cpp
   CPU.cpp
   CoreTiming.cpp
   Config.cpp

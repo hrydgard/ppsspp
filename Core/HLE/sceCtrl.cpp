@@ -46,7 +46,6 @@ struct CtrlLatch {
 };
 
 
-
 //////////////////////////////////////////////////////////////////////////
 // STATE BEGIN
 static bool ctrlInited = false;
@@ -77,6 +76,12 @@ void UpdateLatch() {
 	latch.btnRelease = (oldButtons & ~ctrl.buttons) & changed;
 		
 	oldButtons = ctrl.buttons;
+}
+
+
+u32 __CtrlPeekButtons()
+{
+	return ctrl.buttons;
 }
 
 // Functions so that the rest of the emulator can control what the sceCtrl interface should return

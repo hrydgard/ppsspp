@@ -22,9 +22,13 @@
 class GPUInterface
 {
 public:
+	virtual void InitClear() = 0;
 	virtual u32 EnqueueList(u32 listpc, u32 stall) = 0;
 	virtual void UpdateStall(int listid, u32 newstall) = 0;
 	virtual void ExecuteOp(u32 op, u32 diff) = 0;
 	virtual bool InterpretList() = 0;
 	virtual void DrawSync(int mode) = 0;
+
+	// Internal hack to avoid interrupts from "PPGe" drawing (utility UI, etc)
+	virtual void EnableInterrupts(bool enable) = 0;
 };

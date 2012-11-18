@@ -236,6 +236,8 @@
     <ClCompile Include="PSPMixer.cpp" />
     <ClCompile Include="System.cpp" />
     <ClCompile Include="Util\BlockAllocator.cpp" />
+    <ClCompile Include="Util\PPGeDraw.cpp" />
+    <ClCompile Include="Util\ppge_atlas.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Config.h" />
@@ -337,6 +339,8 @@
     <ClInclude Include="System.h" />
     <ClInclude Include="Util\BlockAllocator.h" />
     <ClInclude Include="Util\Pool.h" />
+    <ClInclude Include="Util\PPGeDraw.h" />
+    <ClInclude Include="Util\ppge_atlas.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\android\jni\Android.mk" />

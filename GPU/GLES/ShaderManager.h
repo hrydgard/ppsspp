@@ -72,8 +72,9 @@ enum
 struct Shader
 {
 	Shader(const char *code, uint32_t shaderType);
-	// const char *source;
 	uint32_t shader;
+private:
+	std::string source_;
 };
 
 

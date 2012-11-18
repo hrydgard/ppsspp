@@ -15,18 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#if defined(ANDROID) || defined(BLACKBERRY)
-#include <GLES2/gl2.h>
-#include <GLES2/gl2ext.h>
-#else
-#include <GL/glew.h>
-#if defined(__APPLE__)
-#include <OpenGL/gl.h>
-#else
-#include <GL/gl.h>
-#endif
-#endif
-
 #include <vector>
 
 //#include "base/timeutil.h"
@@ -46,6 +34,9 @@
 #include "../../GPU/GLES/Framebuffer.h"
 #include "../../GPU/GLES/ShaderManager.h"
 #include "../../GPU/GPUState.h"
+#include "../../GPU/GPUInterface.h"
+// Internal drawing library
+#include "../Util/PPGeDraw.h"
 
 extern ShaderManager shaderManager;
 
@@ -138,6 +129,21 @@ void hleEnterVblank(u64 userdata, int cyclesLate)
 		framebufIsLatched = false;
 	}
 
+	// Draw screen overlays before blitting. Saves and restores the Ge context.
+	
+	/*
+	if (g_Config.bShowGPUStats)
+	{
+		char stats[512];
+		sprintf(stats, "Draw calls")
+	}*/
+
+	/*
+	PPGeBegin();
+	PPGeDrawImage(I_LOGO, 5, 5, 0, 0xFFFFFFFF);
+	PPGeDrawText("This is PPGeDraw speaking", 10, 100, 0, 0.5f, 0xFFFFFFFF);
+	PPGeEnd();
+	*/
 	// Yeah, this has to be the right moment to end the frame. Should possibly blit the right buffer
 	// depending on what's set in sceDisplaySetFramebuf, in order to support half-framerate games -
 	// an initial hack could be to NOT end the frame if the buffer didn't change? that should work okay.
@@ -179,9 +185,7 @@ u32 sceDisplaySetMode(u32 unknown, u32 xres, u32 yres)
 	DEBUG_LOG(HLE,"sceDisplaySetMode(%d,%d,%d)",unknown,xres,yres);
 	host->BeginFrame();
 
-	glClearColor(0,0,0,1);
-//	glClearColor(1,0,1,1);
-	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+	gpu->InitClear();
 
 	return 0;
 }
@@ -255,6 +259,13 @@ void sceDisplayWaitVblankStartCB()
 	__KernelCheckCallbacks();
 }
 
+void sceDisplayWaitVblankStartMultiCB()
+{
+	DEBUG_LOG(HLE,"sceDisplayWaitVblankStartMultiCB()");	
+	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, true);
+	__KernelCheckCallbacks();
+}
+
 void sceDisplayGetVcount()
 {
 	// Too spammy
@@ -293,7 +304,7 @@ const HLEFunction sceDisplay[] =
 	{0x984C27E7,sceDisplayWaitVblankStart, "sceDisplayWaitVblankStart"},
 	{0x8EB9EC49,sceDisplayWaitVblankCB, "sceDisplayWaitVblankCB"},
 	{0x46F186C3,sceDisplayWaitVblankStartCB, "sceDisplayWaitVblankStartCB"},
-	{0x77ed8b3a,0,"sceDisplayWaitVblankStartMultiCB"},
+	{0x77ed8b3a,sceDisplayWaitVblankStartMultiCB,"sceDisplayWaitVblankStartMultiCB"},
 
 	{0xdba6c4c4,&WrapF_V<sceDisplayGetFramePerSec>,"sceDisplayGetFramePerSec"},
 	{0x773dd3a3,sceDisplayGetCurrentHcount,"sceDisplayGetCurrentHcount"},

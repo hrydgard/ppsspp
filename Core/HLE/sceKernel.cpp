@@ -49,6 +49,8 @@
 #include "sceUtility.h"
 #include "sceUmd.h"
 
+#include "../Util/PPGeDraw.h"
+
 extern MetaFileSystem pspFileSystem;
 
 /*
@@ -78,6 +80,9 @@ void __KernelInit()
 	__PowerInit();
 	__UtilityInit();
 	__UmdInit();
+	
+	// "Internal" PSP libraries
+	__PPGeInit();
 
 	kernelRunning = true;
 	INFO_LOG(HLE, "Kernel initialized.");
@@ -94,6 +99,8 @@ void __KernelShutdown()
 	INFO_LOG(HLE, "Shutting down kernel - %i kernel objects alive", kernelObjects.GetCount());
 	kernelObjects.Clear();
 
+	__PPGeShutdown();
+	
 	__GeShutdown();
 	__AudioShutdown();
 	__IoShutdown();

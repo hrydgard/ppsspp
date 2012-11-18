@@ -38,3 +38,10 @@ void Register_sceGe_user();
 
 void __GeInit();
 void __GeShutdown();
+
+
+// Export functions for use by Util/PPGe
+u32 sceGeRestoreContext(u32 ctxAddr);
+u32 sceGeSaveContext(u32 ctxAddr);
+
+u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, u32 callbackId, u32 optParamAddr);
