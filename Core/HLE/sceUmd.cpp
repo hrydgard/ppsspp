@@ -149,7 +149,7 @@ u32 sceUmdGetDriveStat()
 void sceUmdWaitDriveStat()
 {
 	u32 stat = PARAM(0);
-	ERROR_LOG(HLE,"UNIMPL 0=sceUmdWaitDriveStat(stat = %08x)", stat);
+	DEBUG_LOG(HLE,"HACK 0=sceUmdWaitDriveStat(stat = %08x)", stat);
 	if ((stat & __KernelUmdGetState()) != stat)
 		__KernelWaitCurThread(WAITTYPE_UMD, 0, stat, 0, 0);	//__KernelWaitCurThread(WAITTYPE_UMD, 0);
 	RETURN(0);
@@ -159,18 +159,17 @@ void sceUmdWaitDriveStatWithTimer()
 {
 	u32 stat = PARAM(0);
 	u32 timeout = PARAM(1);
-	ERROR_LOG(HLE,"UNIMPL 0=sceUmdWaitDriveStatWithTimer(stat = %08x)", stat);
+	DEBUG_LOG(HLE,"HACK 0=sceUmdWaitDriveStatWithTimer(stat = %08x)", stat);
 	if ((stat & __KernelUmdGetState()) != stat)
 		__KernelWaitCurThread(WAITTYPE_UMD, 0, stat, 0, 0);	//__KernelWaitCurThread(WAITTYPE_UMD, 0);
-	RETURN(stat);
+	RETURN(0);
 }
 
 
 void sceUmdWaitDriveStatCB()
 {
 	u32 stat = PARAM(0);
-	ERROR_LOG(HLE,"UNIMPL 0=sceUmdWaitDriveStatCB(stat = %08x)", stat);
-	//__KernelRegisterCallback(THREAD_CALLBACK_UMD, cbid);
+	DEBUG_LOG(HLE,"HACK 0=sceUmdWaitDriveStatCB(stat = %08x)", stat);
    // Immediately notify
     RETURN(0);
    __KernelNotifyCallbackType(THREAD_CALLBACK_UMD, driveCBId, __KernelUmdGetState()&stat); 

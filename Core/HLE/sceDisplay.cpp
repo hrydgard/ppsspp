@@ -259,6 +259,13 @@ void sceDisplayWaitVblankStartCB()
 	__KernelCheckCallbacks();
 }
 
+void sceDisplayWaitVblankStartMultiCB()
+{
+	DEBUG_LOG(HLE,"sceDisplayWaitVblankStartMultiCB()");	
+	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, true);
+	__KernelCheckCallbacks();
+}
+
 void sceDisplayGetVcount()
 {
 	// Too spammy
@@ -297,7 +304,7 @@ const HLEFunction sceDisplay[] =
 	{0x984C27E7,sceDisplayWaitVblankStart, "sceDisplayWaitVblankStart"},
 	{0x8EB9EC49,sceDisplayWaitVblankCB, "sceDisplayWaitVblankCB"},
 	{0x46F186C3,sceDisplayWaitVblankStartCB, "sceDisplayWaitVblankStartCB"},
-	{0x77ed8b3a,0,"sceDisplayWaitVblankStartMultiCB"},
+	{0x77ed8b3a,sceDisplayWaitVblankStartMultiCB,"sceDisplayWaitVblankStartMultiCB"},
 
 	{0xdba6c4c4,&WrapF_V<sceDisplayGetFramePerSec>,"sceDisplayGetFramePerSec"},
 	{0x773dd3a3,sceDisplayGetCurrentHcount,"sceDisplayGetCurrentHcount"},
