@@ -31,6 +31,7 @@
 u8 umdActivated = 1;
 u32 umdStatus = 0;
 u32 umdErrorStat = 0;
+static int driveCBId= -1;
 
 
 #define PSP_UMD_TYPE_GAME 0x10
@@ -46,6 +47,7 @@ void __UmdInit() {
 	umdActivated = 1;
 	umdStatus = 0;
 	umdErrorStat = 0;
+	driveCBId = -1;
 }
 
 u8 __KernelUmdGetState()
@@ -120,12 +122,21 @@ u32 sceUmdDeactivate(u32 unknown, const char *name)
 u32 sceUmdRegisterUMDCallBack(u32 cbId)
 {
 	DEBUG_LOG(HLE,"0=sceUmdRegisterUMDCallback(id=%i)",PARAM(0));
+	if (driveCBId == -1)
+	{
+		driveCBId = cbId;
+	}
+	else
+	{
+		ERROR_LOG(HLE," 0=sceUmdRegisterUMDCallback(id=%i) callback overwrite attempt",PARAM(0));
+	}
 	return __KernelRegisterCallback(THREAD_CALLBACK_UMD, cbId);
 }
 
 u32 sceUmdUnRegisterUMDCallBack(u32 cbId)
 {
 	DEBUG_LOG(HLE,"0=sceUmdUnRegisterUMDCallBack(id=%i)",PARAM(0));
+	driveCBId = -1;
 	return __KernelUnregisterCallback(THREAD_CALLBACK_UMD, cbId);
 }
 
@@ -147,25 +158,37 @@ u32 sceUmdGetDriveStat()
 void sceUmdWaitDriveStat()
 {
 	u32 stat = PARAM(0);
-	ERROR_LOG(HLE,"UNIMPL 0=sceUmdWaitDriveStat(stat = %08x)", stat);
-	//if ((stat & __KernelUmdGetState()) != stat)
-	//	__KernelWaitCurThread(WAITTYPE_UMD, 0, stat, 0, 0);	//__KernelWaitCurThread(WAITTYPE_UMD, 0);
+	DEBUG_LOG(HLE,"HACK 0=sceUmdWaitDriveStat(stat = %08x)", stat);
+	if ((stat & __KernelUmdGetState()) != stat)
+		__KernelWaitCurThread(WAITTYPE_UMD, 0, stat, 0, 0);	//__KernelWaitCurThread(WAITTYPE_UMD, 0);
 	RETURN(0);
 }
 
 void sceUmdWaitDriveStatWithTimer()
 {
 	u32 stat = PARAM(0);
-	ERROR_LOG(HLE,"UNIMPL 0=sceUmdWaitDriveStatWithTimer(stat = %08x)", stat);
-	//__KernelWaitCurThread(WAITTYPE_UMD, 0);
+	u32 timeout = PARAM(1);
+	DEBUG_LOG(HLE,"HACK 0=sceUmdWaitDriveStatWithTimer(stat = %08x)", stat);
+	if ((stat & __KernelUmdGetState()) != stat)
+		__KernelWaitCurThread(WAITTYPE_UMD, 0, stat, 0, 0);	//__KernelWaitCurThread(WAITTYPE_UMD, 0);
 	RETURN(0);
 }
+
 
 void sceUmdWaitDriveStatCB()
 {
 	u32 stat = PARAM(0);
-	ERROR_LOG(HLE,"UNIMPL 0=sceUmdWaitDriveStatCB(stat = %08x)", stat);
-	//__KernelWaitCurThread(WAITTYPE_UMD, 0);
+	DEBUG_LOG(HLE,"HACK 0=sceUmdWaitDriveStatCB(stat = %08x)", stat);
+   // Immediately notify
+    RETURN(0);
+	if (driveCBId != -1)
+	{
+		__KernelNotifyCallbackType(THREAD_CALLBACK_UMD, driveCBId, __KernelUmdGetState()&stat); 
+	}
+	else
+	{
+		ERROR_LOG(HLE, "HACK 0=sceUmdWaitDriveStatCB(stat = %08x) attempting to call unset callback", stat);
+	}
 	RETURN(0);
 }
 
