@@ -70,11 +70,11 @@ struct LWMutex : public KernelObject
 void sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optionsPtr)
 {
 	u32 error = 0;
-	if (!error && !name)
+	if (!name)
 		error = SCE_KERNEL_ERROR_ERROR;
-	if (!error && initialCount < 0)
+	else if (initialCount < 0)
 		error = SCE_KERNEL_ERROR_ILLEGAL_COUNT;
-	if (!error && (attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE) == 0 && initialCount > 1)
+	else if ((attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE) == 0 && initialCount > 1)
 		error = SCE_KERNEL_ERROR_ILLEGAL_COUNT;
 
 	if (error)
@@ -124,6 +124,48 @@ void sceKernelDeleteMutex(SceUID id)
 		RETURN(error);
 }
 
+bool __KernelLockMutex(Mutex *mutex, int count, u32 &error)
+{
+	if (!error)
+	{
+		if (count <= 0)
+			error = SCE_KERNEL_ERROR_ILLEGAL_COUNT;
+		else if (count > 1 && !(mutex->nm.attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE))
+			error = SCE_KERNEL_ERROR_ILLEGAL_COUNT;
+		// Two positive ints will always sum to negative.
+		else if (count + mutex->nm.lockLevel < 0)
+			error = PSP_MUTEX_ERROR_LOCK_OVERFLOW;
+	}
+
+	if (error)
+		return false;
+
+	if (mutex->nm.lockLevel == 0)
+	{
+		mutex->nm.lockLevel += count;
+		mutex->nm.lockThread = __KernelGetCurThread();
+		// Nobody had it locked - no need to block
+		return true;
+	}
+
+	if (mutex->nm.lockThread == __KernelGetCurThread())
+	{
+		// Recursive mutex, let's just increase the lock count and keep going
+		if ((mutex->nm.attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE))
+		{
+			mutex->nm.lockLevel += count;
+			return true;
+		}
+		else
+		{
+			error = PSP_MUTEX_ERROR_ALREADY_LOCKED;
+			return false;
+		}
+	}
+
+	return false;
+}
+
 // int sceKernelLockMutex(SceUID id, int count, int *timeout)
 // void because it changes threads.
 void sceKernelLockMutex(SceUID id, int count, u32 timeoutPtr)
@@ -132,38 +174,13 @@ void sceKernelLockMutex(SceUID id, int count, u32 timeoutPtr)
 	u32 error;
 	Mutex *mutex = kernelObjects.Get<Mutex>(id, error);
 
-	if (!error && count <= 0)
-		error = SCE_KERNEL_ERROR_ILLEGAL_COUNT;
-	if (!error && count > 1 && !(mutex->nm.attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE))
-		error = SCE_KERNEL_ERROR_ILLEGAL_COUNT;
-	// Two positive ints will always sum to negative.
-	if (!error && count + mutex->nm.lockLevel < 0)
-		error = PSP_MUTEX_ERROR_LOCK_OVERFLOW;
-
-	if (error)
+	if (__KernelLockMutex(mutex, count, error))
 	{
-		RETURN(error);
-		return;
-	}
-
-	RETURN(0);
-
-	if (mutex->nm.lockLevel == 0)
-	{
-		mutex->nm.lockLevel += count;
-		mutex->nm.lockThread = __KernelGetCurThread();
-
-		// Needed to get the proper order per real PSP.
+		RETURN(0);
 		__KernelReSchedule("mutex locked");
 	}
-	else if (mutex->nm.lockThread == __KernelGetCurThread())
-	{
-		// Recursive mutex, let's just increase the lock count and keep going
-		if ((mutex->nm.attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE))
-			mutex->nm.lockLevel += count;
-		else
-			RETURN(PSP_MUTEX_ERROR_ALREADY_LOCKED);
-	}
+	else if (error)
+		RETURN(error);
 	else
 	{
 		mutex->waitingThreads.push_back(__KernelGetCurThread());
@@ -179,36 +196,13 @@ void sceKernelLockMutexCB(SceUID id, int count, u32 timeoutPtr)
 	u32 error;
 	Mutex *mutex = kernelObjects.Get<Mutex>(id, error);
 
-	if (!error && count <= 0)
-		error = SCE_KERNEL_ERROR_ILLEGAL_COUNT;
-	if (!error && count > 1 && !(mutex->nm.attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE))
-		error = SCE_KERNEL_ERROR_ILLEGAL_COUNT;
-	// Two positive ints will always sum to negative.
-	if (!error && count + mutex->nm.lockLevel < 0)
-		error = PSP_MUTEX_ERROR_LOCK_OVERFLOW;
-
-	if (error)
+	if (__KernelLockMutex(mutex, count, error))
 	{
+		RETURN(0);
+		__KernelReSchedule("mutex locked");
+	}
+	else if (error)
 		RETURN(error);
-		return;
-	}
-
-	RETURN(0);
-
-	if (mutex->nm.lockLevel == 0)
-	{
-		mutex->nm.lockLevel += count;
-		mutex->nm.lockThread = __KernelGetCurThread();
-		// Nobody had it locked - no need to block
-	}
-	else if (mutex->nm.lockThread == __KernelGetCurThread())
-	{
-		// Recursive mutex, let's just increase the lock count and keep going
-		if ((mutex->nm.attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE))
-			mutex->nm.lockLevel += count;
-		else
-			RETURN(PSP_MUTEX_ERROR_ALREADY_LOCKED);
-	}
 	else
 	{
 		mutex->waitingThreads.push_back(__KernelGetCurThread());
@@ -227,40 +221,15 @@ void sceKernelTryLockMutex(SceUID id, int count)
 	u32 error;
 	Mutex *mutex = kernelObjects.Get<Mutex>(id, error);
 
-	if (!error && count <= 0)
-		error = SCE_KERNEL_ERROR_ILLEGAL_COUNT;
-	if (!error && count > 1 && !(mutex->nm.attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE))
-		error = SCE_KERNEL_ERROR_ILLEGAL_COUNT;
-	// Two positive ints will always sum to negative.
-	if (!error && count + mutex->nm.lockLevel < 0)
-		error = PSP_MUTEX_ERROR_LOCK_OVERFLOW;
-
-	if (error)
+	if (__KernelLockMutex(mutex, count, error))
 	{
+		RETURN(0);
+		__KernelReSchedule("mutex trylocked");
+	}
+	else if (error)
 		RETURN(error);
-		return;
-	}
-
-	RETURN(0);
-
-	if (mutex->nm.lockLevel == 0)
-	{
-		mutex->nm.lockLevel += count;
-		mutex->nm.lockThread = __KernelGetCurThread();
-		// Nobody had it locked - no need to block
-	}
-	else if (mutex->nm.lockThread == __KernelGetCurThread())
-	{
-		// Recursive mutex, let's just increase the lock count and keep going
-		if ((mutex->nm.attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE))
-			mutex->nm.lockLevel += count;
-		else
-			RETURN(PSP_MUTEX_ERROR_ALREADY_LOCKED);
-	}
 	else
 		RETURN(PSP_MUTEX_ERROR_TRYLOCK_FAILED);
-
-	__KernelReSchedule("mutex trylocked");
 }
 
 // int sceKernelUnlockMutex(SceUID id, int count)
@@ -271,14 +240,17 @@ void sceKernelUnlockMutex(SceUID id, int count)
 	u32 error;
 	Mutex *mutex = kernelObjects.Get<Mutex>(id, error);
 
-	if (!error && count <= 0)
-		error = SCE_KERNEL_ERROR_ILLEGAL_COUNT;
-	if (!error && (mutex->nm.attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE) == 0 && count > 1)
-		error = SCE_KERNEL_ERROR_ILLEGAL_COUNT;
-	if (!error && mutex->nm.lockLevel == 0)
-		error = PSP_MUTEX_ERROR_NOT_LOCKED;
-	if (!error && mutex->nm.lockLevel < count)
-		error = PSP_MUTEX_ERROR_UNLOCK_UNDERFLOW;
+	if (!error)
+	{
+		if (count <= 0)
+			error = SCE_KERNEL_ERROR_ILLEGAL_COUNT;
+		else if ((mutex->nm.attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE) == 0 && count > 1)
+			error = SCE_KERNEL_ERROR_ILLEGAL_COUNT;
+		else if (mutex->nm.lockLevel == 0)
+			error = PSP_MUTEX_ERROR_NOT_LOCKED;
+		else if (mutex->nm.lockLevel < count)
+			error = PSP_MUTEX_ERROR_UNLOCK_UNDERFLOW;
+	}
 
 	if (error)
 	{
