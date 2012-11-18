@@ -238,7 +238,7 @@ void *readIndexedTex(u32 level, u32 texaddr, u32 bytesPerIndex)
 					u32 n = tmpTexBuf32[j];
 					u32 k;
 					for (k = 0; k < 4; k++) {
-						u8 index = (n >> (k * 4)) & 0xff;
+						u8 index = (n >> (k * 8)) & 0xff;
 						tmpTexBuf16[i + k] = clut[GetClutIndex(index)];
 					}
 				}
