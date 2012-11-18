@@ -31,6 +31,7 @@
 u8 umdActivated = 1;
 u32 umdStatus = 0;
 u32 umdErrorStat = 0;
+static u32 driveCBId;
 
 
 #define PSP_UMD_TYPE_GAME 0x10
@@ -120,6 +121,7 @@ u32 sceUmdDeactivate(u32 unknown, const char *name)
 u32 sceUmdRegisterUMDCallBack(u32 cbId)
 {
 	DEBUG_LOG(HLE,"0=sceUmdRegisterUMDCallback(id=%i)",PARAM(0));
+	driveCBId = cbId;
 	return __KernelRegisterCallback(THREAD_CALLBACK_UMD, cbId);
 }
 
@@ -148,24 +150,30 @@ void sceUmdWaitDriveStat()
 {
 	u32 stat = PARAM(0);
 	ERROR_LOG(HLE,"UNIMPL 0=sceUmdWaitDriveStat(stat = %08x)", stat);
-	//if ((stat & __KernelUmdGetState()) != stat)
-	//	__KernelWaitCurThread(WAITTYPE_UMD, 0, stat, 0, 0);	//__KernelWaitCurThread(WAITTYPE_UMD, 0);
+	if ((stat & __KernelUmdGetState()) != stat)
+		__KernelWaitCurThread(WAITTYPE_UMD, 0, stat, 0, 0);	//__KernelWaitCurThread(WAITTYPE_UMD, 0);
 	RETURN(0);
 }
 
 void sceUmdWaitDriveStatWithTimer()
 {
 	u32 stat = PARAM(0);
+	u32 timeout = PARAM(1);
 	ERROR_LOG(HLE,"UNIMPL 0=sceUmdWaitDriveStatWithTimer(stat = %08x)", stat);
-	//__KernelWaitCurThread(WAITTYPE_UMD, 0);
-	RETURN(0);
+	if ((stat & __KernelUmdGetState()) != stat)
+		__KernelWaitCurThread(WAITTYPE_UMD, 0, stat, 0, 0);	//__KernelWaitCurThread(WAITTYPE_UMD, 0);
+	RETURN(stat);
 }
+
 
 void sceUmdWaitDriveStatCB()
 {
 	u32 stat = PARAM(0);
 	ERROR_LOG(HLE,"UNIMPL 0=sceUmdWaitDriveStatCB(stat = %08x)", stat);
-	//__KernelWaitCurThread(WAITTYPE_UMD, 0);
+	//__KernelRegisterCallback(THREAD_CALLBACK_UMD, cbid);
+   // Immediately notify
+    RETURN(0);
+   __KernelNotifyCallbackType(THREAD_CALLBACK_UMD, driveCBId, __KernelUmdGetState()&stat); 
 	RETURN(0);
 }
 
