@@ -8,10 +8,10 @@
 #include <unistd.h>
 #include <string>
 
+// TODO: Replace SDL with asound
 #include "SDL/SDL.h"
-#include "SDL/SDL_timer.h"
 #include "SDL/SDL_audio.h"
-// Our SDL does not support GLES2 so we will set this up with EGL
+
 #include <EGL/egl.h>
 #include <screen/screen.h>
 #include <sys/platform.h>
@@ -28,14 +28,14 @@
 #include "display.h"
 
 // Blackberry specific
-#include <bps/bps.h>		// Blackberry Platform Services
-#include <bps/screen.h>		// Blackberry Window Manager
-#include <bps/navigator.h>	// Invoke Service
+#include <bps/bps.h>			// Blackberry Platform Services
+#include <bps/screen.h>			// Blackberry Window Manager
+#include <bps/navigator.h>		// Invoke Service
 #include <bps/virtualkeyboard.h>// Keyboard Service
 #include <sys/keycodes.h>
-#include <bps/dialog.h> 	// Dialog Service (Toast=BB10)
+#include <bps/dialog.h> 		// Dialog Service (Toast=BB10)
 #ifdef BLACKBERRY10
-#include <bps/vibration.h>	// Vibrate Service (BB10)
+#include <bps/vibration.h>		// Vibrate Service (BB10)
 #endif
 
 EGLDisplay egl_disp;
@@ -94,41 +94,41 @@ void LaunchEmail(const char *email_address)
 	navigator_invoke((std::string("mailto:") + email_address).c_str(), &error);
 }
 
-const int buttonMappings[14] = {
-	KEYCODE_X,		//A
-	KEYCODE_S,		//B
-	KEYCODE_Z,		//X
-	KEYCODE_A,		//Y
-	KEYCODE_W,		//LBUMPER
-	KEYCODE_Q,		//RBUMPER
+const int buttonMappings[18] = {
+	KEYCODE_X,			//A
+	KEYCODE_S,			//B
+	KEYCODE_Z,			//X
+	KEYCODE_A,			//Y
+	KEYCODE_W,			//LBUMPER
+	KEYCODE_Q,			//RBUMPER
 	KEYCODE_ONE,		//START
 	KEYCODE_TWO,		//SELECT
-	KEYCODE_UP,		//UP
+	KEYCODE_UP,			//UP
 	KEYCODE_DOWN,		//DOWN
 	KEYCODE_LEFT,		//LEFT
 	KEYCODE_RIGHT,		//RIGHT
-	KEYCODE_M,		//MENU
+	KEYCODE_M,			//MENU
 	KEYCODE_BACKSPACE,	//BACK
+	KEYCODE_I,			//JOY UP
+	KEYCODE_K,			//JOY DOWN
+	KEYCODE_J,			//JOY LEFT
+	KEYCODE_L,			//JOY RIGHT
 };
 
-void SimulateGamepad(const bool *keys, InputState *input) {
+void SimulateGamepad(InputState *input) {
 	input->pad_buttons  = 0;
 	input->pad_lstick_x = 0;
 	input->pad_lstick_y = 0;
 	input->pad_rstick_x = 0;
 	input->pad_rstick_y = 0;
-	for (int b = 0; b < 14; b++) {
-		if (keys[buttonMappings[b]])
-			input->pad_buttons |= (1<<b);
-	}
 
-	if (keys[KEYCODE_I])
+	if (input->pad_buttons | (1<<14))
 		input->pad_lstick_y=1;
-	else if (keys[KEYCODE_K])
+	else if (input->pad_buttons | (1<<15))
 		input->pad_lstick_y=-1;
-	if (keys[KEYCODE_J])
+	if (input->pad_buttons | (1<<16))
 		input->pad_lstick_x=-1;
-	else if (keys[KEYCODE_L])
+	else if (input->pad_buttons | (1<<17))
 		input->pad_lstick_x=1;
 	/*if (keys[SDLK_KP8])
 		input->pad_rstick_y=1;
@@ -140,14 +140,11 @@ void SimulateGamepad(const bool *keys, InputState *input) {
 		input->pad_rstick_x=1;*/
 }
 
-extern void mixaudio(void *userdata, Uint8 *stream, int len) {
-	NativeMix((short *)stream, len / 4);
-}
-
 int init_GLES2(screen_context_t ctx) {
 	int usage = SCREEN_USAGE_DISPLAY | SCREEN_USAGE_OPENGL_ES2;
 	int format = SCREEN_FORMAT_RGBA8888;
 	int num_configs;
+	const int intInterval = 0;
 
 	EGLint attrib_list[]= { EGL_RED_SIZE,        8,
 				EGL_GREEN_SIZE,      8,
@@ -200,6 +197,7 @@ int init_GLES2(screen_context_t ctx) {
 			pixel_xres = screen_resolution[1];
 		}
 	}
+	screen_set_window_property_iv(screen_win, SCREEN_PROPERTY_SWAP_INTERVAL, &intInterval);
 	screen_set_window_property_iv(screen_win, SCREEN_PROPERTY_BUFFER_SIZE, buffer_size);
 	screen_set_window_property_iv(screen_win, SCREEN_PROPERTY_ROTATION, &angle);
 
@@ -242,6 +240,10 @@ void kill_GLES2() {
 	eglReleaseThread();
 }
 
+extern void mixaudio(void *userdata, Uint8 *stream, int len) {
+	NativeMix((short *)stream, len / 4);
+}
+
 int main(int argc, char *argv[]) {
 	static screen_context_t screen_cxt;
 	// Receive events from window manager
@@ -256,7 +258,14 @@ int main(int argc, char *argv[]) {
 	}
 	init_GLES2(screen_cxt);
 	// Playbook: 1024x600@7", Dev Alpha: 1280x768@4.2"
-	dp_xres = pixel_xres; dp_yres = pixel_yres;
+#ifdef BLACKBERRY10
+	int dpi;
+	screen_get_display_property_iv(screen_disp, SCREEN_PROPERTY_DPI, &dpi);
+	float dpi_scale = 222.5f / dpi;
+#else
+	float dpi_scale = 1.1f;
+#endif
+	dp_xres = (int)(pixel_xres * dpi_scale); dp_yres = (int)(pixel_yres * dpi_scale);
 
 	NativeInit(argc, (const char **)argv, "data/", "/accounts/1000/shared", "BADCOFFEE");
 	NativeInitGraphics();
@@ -287,16 +296,17 @@ int main(int argc, char *argv[]) {
 
 	InputState input_state;
 	int framecount = 0;
-	bool nextFrameMD = 0;
 	float t = 0;
 	bool running = true;
-	bool* keys = new bool[1024];
 	while (running) {
-		// Handle Blackberry events
-		bps_event_t *event = NULL;
-		bps_get_event(&event, 0);
-
-		if (event) {
+		input_state.mouse_valid = false;
+		input_state.accelerometer_valid = false;
+		while (true) {
+			// Handle Blackberry events
+			bps_event_t *event = NULL;
+			bps_get_event(&event, 0);
+			if (event == NULL)
+				break; // Ran out of events
 			int domain = bps_event_get_domain(event);
 			if (domain == screen_get_domain()) {
 				int screen_val, buttons, pointerId;
@@ -304,65 +314,66 @@ int main(int argc, char *argv[]) {
 
 				screen_event_t screen_event = screen_event_get_event(event);
 
-				screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_TYPE,
-					&screen_val);
-				screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_SOURCE_POSITION,
-					pair);
-				screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_TOUCH_ID,
-					&pointerId);
+				screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_TYPE, &screen_val);
+				screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_SOURCE_POSITION, pair);
+				screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_TOUCH_ID, &pointerId);
 
+				input_state.mouse_valid = true;
+				switch(screen_val)
+				{
 				// Touchscreen
-				if (screen_val == SCREEN_EVENT_MTOUCH_TOUCH) {
-					input_state.pointer_x[pointerId] = pair[0];
-					input_state.pointer_y[pointerId] = pair[1];
+				case SCREEN_EVENT_MTOUCH_TOUCH:
+					input_state.pointer_x[pointerId] = pair[0] * dpi_scale;
+					input_state.pointer_y[pointerId] = pair[1] * dpi_scale;
 					input_state.pointer_down[pointerId] = true;
-				} else if (screen_val == SCREEN_EVENT_MTOUCH_MOVE) {
-					input_state.pointer_x[pointerId] = pair[0];
-					input_state.pointer_y[pointerId] = pair[1];
-				} else if (screen_val == SCREEN_EVENT_MTOUCH_RELEASE) {
-					input_state.pointer_x[pointerId] = pair[0];
-					input_state.pointer_y[pointerId] = pair[1];
+					break;
+				case SCREEN_EVENT_MTOUCH_MOVE:
+					input_state.pointer_x[pointerId] = pair[0] * dpi_scale;
+					input_state.pointer_y[pointerId] = pair[1] * dpi_scale;
+					break;
+				case SCREEN_EVENT_MTOUCH_RELEASE:
+					input_state.pointer_x[pointerId] = pair[0] * dpi_scale;
+					input_state.pointer_y[pointerId] = pair[1] * dpi_scale;
 					input_state.pointer_down[pointerId] = false;
+					break;
 				// Mouse, Simulator
-    				} else if (screen_val == SCREEN_EVENT_POINTER) {
+    				case SCREEN_EVENT_POINTER:
 					screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_BUTTONS,
 						&buttons);
 					if (buttons == SCREEN_LEFT_MOUSE_BUTTON) { // Down
-						input_state.pointer_x[pointerId] = pair[0];
-						input_state.pointer_y[pointerId] = pair[1];
+						input_state.pointer_x[pointerId] = pair[0] * dpi_scale;
+						input_state.pointer_y[pointerId] = pair[1] * dpi_scale;
 						input_state.pointer_down[pointerId] = true;
 					} else if (input_state.pointer_down[pointerId]) {  // Up
-						input_state.pointer_x[pointerId] = pair[0];
-						input_state.pointer_y[pointerId] = pair[1];
+						input_state.pointer_x[pointerId] = pair[0] * dpi_scale;
+						input_state.pointer_y[pointerId] = pair[1] * dpi_scale;
 						input_state.pointer_down[pointerId] = false;
 					}
-				}
+					break;
 				// Keyboard
-				else if (screen_val == SCREEN_EVENT_KEYBOARD) {
+				case SCREEN_EVENT_KEYBOARD:
 					int flags, value;
 					screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_KEY_FLAGS, &flags);
 					screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_KEY_SYM, &value);
-					if (value < 1024 && value > 0 && (flags & KEY_SYM_VALID)) {
-						if (flags & KEY_DOWN)
-							keys[value] = true;
-						else
-							keys[value] = false;
+					if (flags & (KEY_DOWN | KEY_SYM_VALID)) {
+						for (int b = 0; b < 14; b++) {
+							if (value == buttonMappings[b])
+								input_state.pad_buttons |= (1<<b);
+						}
 					}
+					break;
 				}
 			} else if ((domain == navigator_get_domain())
 			&& (NAVIGATOR_EXIT == bps_event_get_code(event))) {
 				running = false;
 			}
 		}
-		input_state.accelerometer_valid = false;
-		input_state.mouse_valid = true;
 
 //		Maybe ask BPS if there's a USB/BT keyboard attached and show settings to configure
-		SimulateGamepad(keys, &input_state);
+		SimulateGamepad(&input_state);
 		UpdateInputState(&input_state);
 		NativeUpdate(input_state);
 		NativeRender();
-
 		EndInputState(&input_state);
 
 		if (framecount % 60 == 0) {
@@ -380,7 +391,6 @@ int main(int argc, char *argv[]) {
 		t = time_now();
 		framecount++;
 	}
-	delete[] keys;
 
 	screen_stop_events(screen_cxt);
 	bps_shutdown();
