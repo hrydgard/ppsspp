@@ -31,7 +31,7 @@
 u8 umdActivated = 1;
 u32 umdStatus = 0;
 u32 umdErrorStat = 0;
-static u32 driveCBId;
+static int driveCBId= -1;
 
 
 #define PSP_UMD_TYPE_GAME 0x10
@@ -47,6 +47,7 @@ void __UmdInit() {
 	umdActivated = 1;
 	umdStatus = 0;
 	umdErrorStat = 0;
+	driveCBId = -1;
 }
 
 u8 __KernelUmdGetState()
@@ -121,13 +122,21 @@ u32 sceUmdDeactivate(u32 unknown, const char *name)
 u32 sceUmdRegisterUMDCallBack(u32 cbId)
 {
 	DEBUG_LOG(HLE,"0=sceUmdRegisterUMDCallback(id=%i)",PARAM(0));
-	driveCBId = cbId;
+	if (driveCBId == -1)
+	{
+		driveCBId = cbId;
+	}
+	else
+	{
+		ERROR_LOG(HLE," 0=sceUmdRegisterUMDCallback(id=%i) callback overwrite attempt",PARAM(0));
+	}
 	return __KernelRegisterCallback(THREAD_CALLBACK_UMD, cbId);
 }
 
 u32 sceUmdUnRegisterUMDCallBack(u32 cbId)
 {
 	DEBUG_LOG(HLE,"0=sceUmdUnRegisterUMDCallBack(id=%i)",PARAM(0));
+	driveCBId = -1;
 	return __KernelUnregisterCallback(THREAD_CALLBACK_UMD, cbId);
 }
 
@@ -172,7 +181,14 @@ void sceUmdWaitDriveStatCB()
 	DEBUG_LOG(HLE,"HACK 0=sceUmdWaitDriveStatCB(stat = %08x)", stat);
    // Immediately notify
     RETURN(0);
-   __KernelNotifyCallbackType(THREAD_CALLBACK_UMD, driveCBId, __KernelUmdGetState()&stat); 
+	if (driveCBId != -1)
+	{
+		__KernelNotifyCallbackType(THREAD_CALLBACK_UMD, driveCBId, __KernelUmdGetState()&stat); 
+	}
+	else
+	{
+		ERROR_LOG(HLE, "HACK 0=sceUmdWaitDriveStatCB(stat = %08x) attempting to call unset callback", stat);
+	}
 	RETURN(0);
 }
 
