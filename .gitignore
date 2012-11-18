@@ -2,3 +2,4 @@ Release
 Debug
 *.vcxproj.user
 android/.settings
+local.properties
