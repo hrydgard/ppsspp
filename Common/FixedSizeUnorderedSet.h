@@ -10,7 +10,7 @@ class FixedSizeUnorderedSet
 public:
   bool insert(T item)
   {
-    if (count_ < maxCount - 1)
+    if (count_ < (int)maxCount - 1)
     {
       data_[count_++] = item;
       return true;
@@ -41,7 +41,7 @@ public:
 
   size_t size()
   {
-    return count_;
+    return (size_t)count_;
   }
 
   T &operator[](size_t index) {

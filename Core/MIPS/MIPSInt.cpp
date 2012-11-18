@@ -311,7 +311,7 @@ namespace MIPSInt
 		switch (op >> 26)
 		{
 		case 48: // ll
-      R(rt) = Memory::Read_U32(addr);
+			R(rt) = Memory::Read_U32(addr);
 			currentMIPS->llBit = 1;
 			break;
 		case 56: // sc
@@ -580,7 +580,7 @@ namespace MIPSInt
 			{
 				s32 a = (s32)R(rs);
 				s32 b = (s32)R(rt);
-				if (a == 0x80000000 && b == -1) {
+				if (a == (s32)0x80000000 && b == -1) {
 					LO = 0x80000000;
 				} else if (b != 0) {
 					LO = (u32)(a / b);
@@ -768,10 +768,10 @@ namespace MIPSInt
 		case 36:
 			switch (currentMIPS->fcr31 & 3)
 			{
-			case 0: FsI(fd) = roundf(F(fs)); break;  // RINT_0    // TODO: rintf or roundf?
+			case 0: FsI(fd) = (int)roundf(F(fs)); break;  // RINT_0    // TODO: rintf or roundf?
 			case 1: FsI(fd) = (int)F(fs); break;  // CAST_1
-			case 2: FsI(fd) = ceilf(F(fs)); break;  // CEIL_2
-			case 3: FsI(fd) = floorf(F(fs)); break;  // FLOOR_3
+			case 2: FsI(fd) = (int)ceilf(F(fs)); break;  // CEIL_2
+			case 3: FsI(fd) = (int)floorf(F(fs)); break;  // FLOOR_3
 			}
 			break; //cvt.w.s
 		default:
@@ -815,6 +815,7 @@ namespace MIPSInt
 
 		default:
 			_dbg_assert_msg_(CPU,0,"Trying to interpret FPUComp instruction that can't be interpreted");
+			cond = false;
 			break;
 		}
 		currentMIPS->fpcond = cond;

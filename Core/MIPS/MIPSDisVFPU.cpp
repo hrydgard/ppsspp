@@ -431,6 +431,7 @@ namespace MIPSDis
 			break;
 		default:
 			// invalid
+			name = "???";
 			break;
 		}
 		int vd = _VD;

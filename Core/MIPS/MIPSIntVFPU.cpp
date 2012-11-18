@@ -1206,6 +1206,7 @@ namespace MIPSInt
 		for (int i = 0; i < n; i++)
 		{
 			int c;
+			// These set c to 0 or 1, nothing else.
 			switch (cond)
 			{
 			case VC_EQ: c = s[i] == t[i]; break;
@@ -1230,8 +1231,9 @@ namespace MIPSInt
 			affected_bits |= 1 << i;
 		}
 		// Use masking to only change the affected bits
-		currentMIPS->vfpuCtrl[VFPU_CTRL_CC] = (currentMIPS->vfpuCtrl[VFPU_CTRL_CC] & ~affected_bits) |
-			(cc | (or_val << 4) | (and_val << 5)) & affected_bits;
+		currentMIPS->vfpuCtrl[VFPU_CTRL_CC] =
+			(currentMIPS->vfpuCtrl[VFPU_CTRL_CC] & ~affected_bits) |
+			((cc | (or_val << 4) | (and_val << 5)) & affected_bits);
 		PC += 4;
 		EatPrefixes();
 	}

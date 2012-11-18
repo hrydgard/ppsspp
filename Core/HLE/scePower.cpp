@@ -140,12 +140,12 @@ int sceKernelPowerLock(int lockType)
 }
 int sceKernelPowerUnlock(int lockType)
 {
-	DEBUG_LOG(HLE,"UNIMPL 0=sceKernelPowerUnlock(%i)");
+	DEBUG_LOG(HLE,"UNIMPL 0=sceKernelPowerUnlock(%i)", lockType);
 	return 0;
 }
 int sceKernelPowerTick(int flag)
 {
-	DEBUG_LOG(HLE,"UNIMPL 0=sceKernelPowerTick()");
+	DEBUG_LOG(HLE,"UNIMPL 0=sceKernelPowerTick(%i)", flag);
 	return 0;
 }
 

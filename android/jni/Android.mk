@@ -24,8 +24,8 @@ LOCAL_MODULE := ppsspp_jni
 NATIVE := ../../native
 SRC := ../..
 
-LOCAL_CFLAGS := -DUSE_PROFILER -DGL_GLEXT_PROTOTYPES -O2 -fsigned-char -Wall -Wno-multichar -Wno-psabi -std=gnu++0x -Wno-unused-variable -fno-strict-aliasing -ffast-math
-LOCAL_CPPFLAGS := 
+LOCAL_CFLAGS := -DUSE_PROFILER -DGL_GLEXT_PROTOTYPES -O2 -fsigned-char -Wall -Wno-multichar -Wno-psabi -Wno-unused-variable -fno-strict-aliasing -ffast-math
+LOCAL_CPPFLAGS := -std=gnu++0x 
 LOCAL_C_INCLUDES := \
   $(LOCAL_PATH)/../../Common \
   $(LOCAL_PATH)/../.. \

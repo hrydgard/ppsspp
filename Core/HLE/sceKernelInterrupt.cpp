@@ -199,10 +199,12 @@ public:
 	{
 		return subIntrHandlers.find(subIntrNum) != subIntrHandlers.end();
 	}
-	SubIntrHandler &get(int subIntrNum)
+	SubIntrHandler *get(int subIntrNum)
 	{
 		if (has(subIntrNum))
-			return subIntrHandlers[subIntrNum];
+			return &subIntrHandlers[subIntrNum];
+		else
+			return 0;
 		// what to do, what to do...
 	}
 
@@ -365,7 +367,7 @@ u32 sceKernelEnableSubIntr(u32 intrNumber, u32 subIntrNumber)
 	if (!intrHandlers[intrNumber].has(subIntrNumber))
 		return -1;
 	
-	intrHandlers[intrNumber].get(subIntrNumber).enabled = true;
+	intrHandlers[intrNumber].get(subIntrNumber)->enabled = true;
 	return 0;
 }
 
@@ -378,7 +380,7 @@ u32 sceKernelDisableSubIntr(u32 intrNumber, u32 subIntrNumber)
 	if (!intrHandlers[intrNumber].has(subIntrNumber))
 		return -1;
 
-	intrHandlers[intrNumber].get(subIntrNumber).enabled = false;
+	intrHandlers[intrNumber].get(subIntrNumber)->enabled = false;
 	return 0;
 }
 
