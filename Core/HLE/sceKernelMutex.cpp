@@ -31,8 +31,8 @@
 #define PSP_MUTEX_ERROR_NO_SUCH_MUTEX 0x800201C3
 #define PSP_MUTEX_ERROR_TRYLOCK_FAILED 0x800201C4
 #define PSP_MUTEX_ERROR_NOT_LOCKED 0x800201C5
+#define PSP_MUTEX_ERROR_LOCK_OVERFLOW 0x800201C6
 #define PSP_MUTEX_ERROR_UNLOCK_UNDERFLOW 0x800201C7
-// TODO: Have not yet found 0x800201C6
 #define PSP_MUTEX_ERROR_ALREADY_LOCKED 0x800201C8
 
 
@@ -136,6 +136,9 @@ void sceKernelLockMutex(SceUID id, int count, u32 timeoutPtr)
 		error = SCE_KERNEL_ERROR_ILLEGAL_COUNT;
 	if (!error && count > 1 && !(mutex->nm.attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE))
 		error = SCE_KERNEL_ERROR_ILLEGAL_COUNT;
+	// Two positive ints will always sum to negative.
+	if (!error && count + mutex->nm.lockLevel < 0)
+		error = PSP_MUTEX_ERROR_LOCK_OVERFLOW;
 
 	if (error)
 	{
@@ -180,6 +183,9 @@ void sceKernelLockMutexCB(SceUID id, int count, u32 timeoutPtr)
 		error = SCE_KERNEL_ERROR_ILLEGAL_COUNT;
 	if (!error && count > 1 && !(mutex->nm.attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE))
 		error = SCE_KERNEL_ERROR_ILLEGAL_COUNT;
+	// Two positive ints will always sum to negative.
+	if (!error && count + mutex->nm.lockLevel < 0)
+		error = PSP_MUTEX_ERROR_LOCK_OVERFLOW;
 
 	if (error)
 	{
@@ -225,6 +231,9 @@ void sceKernelTryLockMutex(SceUID id, int count)
 		error = SCE_KERNEL_ERROR_ILLEGAL_COUNT;
 	if (!error && count > 1 && !(mutex->nm.attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE))
 		error = SCE_KERNEL_ERROR_ILLEGAL_COUNT;
+	// Two positive ints will always sum to negative.
+	if (!error && count + mutex->nm.lockLevel < 0)
+		error = PSP_MUTEX_ERROR_LOCK_OVERFLOW;
 
 	if (error)
 	{
