@@ -168,78 +168,78 @@ namespace MIPSInt
 		switch (op >> 26)
 		{
 		case 53: //lvl.q/lvr.q
-      if (addr & 0x3)
-      {
-        _dbg_assert_msg_(CPU, 0, "Misaligned lvX.q");
-      }
-      if ((op&2) == 0)
-      {
-        // It's an LVL
-        float d[4];
-        ReadVector(d, V_Quad, vt);
-        int offset = (addr >> 2) & 3;
-        for (int i = 0; i < offset + 1; i++)
-        {
-          d[3 - i] = Memory::Read_Float(addr - i * 4);
-        }
-        WriteVector(d, V_Quad, vt);
-      }
-      else
-      {
-        // It's an LVR
-        float d[4];
-        ReadVector(d, V_Quad, vt);
-        int offset = (addr >> 2) & 3;
-        for (int i = 0; i < (3 - offset) + 1; i++)
-        {
-          d[i] = Memory::Read_Float(addr + 4 * i);
-        }
-        WriteVector(d, V_Quad, vt);
-      }
-      break;
+			if (addr & 0x3)
+			{
+				_dbg_assert_msg_(CPU, 0, "Misaligned lvX.q");
+			}
+			if ((op&2) == 0)
+			{
+				// It's an LVL
+				float d[4];
+				ReadVector(d, V_Quad, vt);
+				int offset = (addr >> 2) & 3;
+				for (int i = 0; i < offset + 1; i++)
+				{
+					d[3 - i] = Memory::Read_Float(addr - i * 4);
+				}
+				WriteVector(d, V_Quad, vt);
+			}
+			else
+			{
+				// It's an LVR
+				float d[4];
+				ReadVector(d, V_Quad, vt);
+				int offset = (addr >> 2) & 3;
+				for (int i = 0; i < (3 - offset) + 1; i++)
+				{
+					d[i] = Memory::Read_Float(addr + 4 * i);
+				}
+				WriteVector(d, V_Quad, vt);
+			}
+			break;
 
 		case 54: //lv.q
-      if (addr & 0xF)
-      {
-        _dbg_assert_msg_(CPU, 0, "Misaligned lv.q");
-      }
+			if (addr & 0xF)
+			{
+				_dbg_assert_msg_(CPU, 0, "Misaligned lv.q");
+			}
 			WriteVector((const float*)Memory::GetPointer(addr), V_Quad, vt);
 			break;
 
 		case 61: // svl.q/svr.q
-      if (addr & 0x3)
-      {
-        _dbg_assert_msg_(CPU, 0, "Misaligned svX.q");
-      }
-      if ((op&2) == 0)
-      {
-        // It's an SVL
-        float d[4];
-        ReadVector(d, V_Quad, vt);
-        int offset = (addr >> 2) & 3;
-        for (int i = 0; i < offset + 1; i++)
-        {
-          Memory::Write_Float(d[3 - i], addr - i * 4);
-        }
-      }
-      else
-      {
-        // It's an SVR
-        float d[4];
-        ReadVector(d, V_Quad, vt);
-        int offset = (addr >> 2) & 3;
-        for (int i = 0; i < (3 - offset) + 1; i++)
-        {
-          Memory::Write_Float(d[i], addr + 4 * i);
-        }
-      }
-      break;
+			if (addr & 0x3)
+			{
+				_dbg_assert_msg_(CPU, 0, "Misaligned svX.q");
+			}
+			if ((op&2) == 0)
+			{
+				// It's an SVL
+				float d[4];
+				ReadVector(d, V_Quad, vt);
+				int offset = (addr >> 2) & 3;
+				for (int i = 0; i < offset + 1; i++)
+				{
+					Memory::Write_Float(d[3 - i], addr - i * 4);
+				}
+			}
+			else
+			{
+				// It's an SVR
+				float d[4];
+				ReadVector(d, V_Quad, vt);
+				int offset = (addr >> 2) & 3;
+				for (int i = 0; i < (3 - offset) + 1; i++)
+				{
+					Memory::Write_Float(d[i], addr + 4 * i);
+				}
+			}
+			break;
 
 		case 62: //sv.q
-      if (addr & 0xF)
-      {
-        _dbg_assert_msg_(CPU, 0, "Misaligned sv.q");
-      }
+			if (addr & 0xF)
+			{
+				_dbg_assert_msg_(CPU, 0, "Misaligned sv.q");
+			}
 			ReadVector((float*)Memory::GetPointer(addr), V_Quad, vt);
 			break;
 
@@ -399,33 +399,33 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-  void Int_Vmscl(u32 op)
-  {
-    float s[16];
-    float t[16];
-    float d[16];
+	void Int_Vmscl(u32 op)
+	{
+		float d[16];
+		float s[16];
+		float t[1];
 
-    int vd = _VD;
-    int vs = _VS;
-    int vt = _VT;
-    MatrixSize sz = GetMtxSize(op);
-    int n = GetMatrixSide(sz);
+		int vd = _VD;
+		int vs = _VS;
+		int vt = _VT;
+		MatrixSize sz = GetMtxSize(op);
+		int n = GetMatrixSide(sz);
 
-    ReadMatrix(s, sz, vs);
-    ReadMatrix(t, sz, vt);
+		ReadMatrix(s, sz, vs);
+		ReadVector(t, V_Single, vt);
 
-    for (int a = 0; a < n; a++)
-    {
-      for (int b = 0; b < n; b++)
-      {
-        d[a*4 + b] = s[a*4 + b] * t[0];
-      }
-    }
+		for (int a = 0; a < n; a++)
+		{
+			for (int b = 0; b < n; b++)
+			{
+				d[a*4 + b] = s[a*4 + b] * t[0];
+			}
+		}
 
-    WriteMatrix(d, sz, vd);
-    PC += 4;
-    EatPrefixes();
-  }
+		WriteMatrix(d, sz, vd);
+		PC += 4;
+		EatPrefixes();
+	}
 
 	void Int_Vmmov(u32 op)
 	{
@@ -434,7 +434,7 @@ namespace MIPSInt
 		int vs = _VS;
 		MatrixSize sz = GetMtxSize(op);
 		ReadMatrix(s, sz, vs);
-		WriteMatrix(s,sz,vd);
+		WriteMatrix(s, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
@@ -468,7 +468,7 @@ namespace MIPSInt
 			case 19: d[i] = cosf((float)M_PI_2 * s[i]); break; //vcos
 			case 20: d[i] = powf(2.0f, s[i]); break;
 			case 21: d[i] = logf(s[i])/log(2.0f); break;
-      case 22: d[i] = sqrtf(s[i]); break; //vsqrt
+			case 22: d[i] = sqrtf(s[i]); break; //vsqrt
 			case 23: d[i] = asinf(s[i] * (float)M_2_PI); break; //vasin
 			// case 24: vnrcp
 			// case 26: vnsin
@@ -701,7 +701,7 @@ namespace MIPSInt
 	void Int_Vi2x(u32 op)
 	{
 		int s[4];
-    u32 d[2] = {0};
+		u32 d[2] = {0};
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
@@ -724,18 +724,18 @@ namespace MIPSInt
 			break;
 
 		case 1: //vi2c
-      {
-        for (int i = 0; i < 4; i++)
-        {
-          int v = s[i];
-          v >>= 24;
-          d[0] |= ((u32)v & 0xFF) << (i * 8);
-        }
-        oz = V_Single;
-      }
-      break;
+			{
+				for (int i = 0; i < 4; i++)
+				{
+					int v = s[i];
+					v >>= 24;
+					d[0] |= ((u32)v & 0xFF) << (i * 8);
+				}
+				oz = V_Single;
+			}
+			break;
 
-    case 2:  //vi2us
+		case 2:  //vi2us
 			{
 				for (int i = 0; i < GetNumVectorElements(sz) / 2; i++) {
 					int low = s[i * 2];
@@ -773,54 +773,54 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-  void Int_ColorConv(u32 op) 
-  {
-    int vd = _VD;
-    int vs = _VS;
-    u32 s[4];
-    VectorSize sz = V_Quad;
-    ReadVector((float *)s, sz, vs);
-    u16 colors[4];
-    for (int i = 0; i < 4; i++)
-    {
-      u32 in = s[i];
-      u16 col = 0;
-      switch ((op >> 16) & 3)
-      {
-      case 1:  // 4444
-        {
-          int a = ((in >> 24) & 0xFF) >> 4;
-          int b = ((in >> 16) & 0xFF) >> 4;
-          int g = ((in >> 8) & 0xFF) >> 4;
-          int r = ((in) & 0xFF) >> 4;
-          col = (a << 12) | (b << 8) | (g << 4 ) | (r);
-          break;
-        }
-      case 2:  // 5551
-        {
-          int a = ((in >> 24) & 0xFF) >> 7;
-          int b = ((in >> 16) & 0xFF) >> 3;
-          int g = ((in >> 8) & 0xFF) >> 3;
-          int r = ((in) & 0xFF) >> 3;
-          col = (a << 15) | (b << 10) | (g << 5) | (r);
-          break;
-        }
-      case 3:  // 565
-        {
-          int b = ((in >> 16) & 0xFF) >> 3;
-          int g = ((in >> 8) & 0xFF) >> 2;
-          int r = ((in) & 0xFF) >> 3;
-          col = (b << 11) | (g << 5) | (r); 
-          break;
-        }
-      }
-      colors[i] = col;
-    }
-    u32 ov[2] =  {(u32)colors[0] | (colors[1] << 16), (u32)colors[2] | (colors[3] << 16)};
-    WriteVector((const float *)ov, V_Pair, vd);
-    PC += 4;
-    EatPrefixes();
-  }
+	void Int_ColorConv(u32 op) 
+	{
+		int vd = _VD;
+		int vs = _VS;
+		u32 s[4];
+		VectorSize sz = V_Quad;
+		ReadVector((float *)s, sz, vs);
+		u16 colors[4];
+		for (int i = 0; i < 4; i++)
+		{
+			u32 in = s[i];
+			u16 col = 0;
+			switch ((op >> 16) & 3)
+			{
+			case 1:  // 4444
+				{
+					int a = ((in >> 24) & 0xFF) >> 4;
+					int b = ((in >> 16) & 0xFF) >> 4;
+					int g = ((in >> 8) & 0xFF) >> 4;
+					int r = ((in) & 0xFF) >> 4;
+					col = (a << 12) | (b << 8) | (g << 4 ) | (r);
+					break;
+				}
+			case 2:  // 5551
+				{
+					int a = ((in >> 24) & 0xFF) >> 7;
+					int b = ((in >> 16) & 0xFF) >> 3;
+					int g = ((in >> 8) & 0xFF) >> 3;
+					int r = ((in) & 0xFF) >> 3;
+					col = (a << 15) | (b << 10) | (g << 5) | (r);
+					break;
+				}
+			case 3:  // 565
+				{
+					int b = ((in >> 16) & 0xFF) >> 3;
+					int g = ((in >> 8) & 0xFF) >> 2;
+					int r = ((in) & 0xFF) >> 3;
+					col = (b << 11) | (g << 5) | (r); 
+					break;
+				}
+			}
+			colors[i] = col;
+		}
+		u32 ov[2] = {(u32)colors[0] | (colors[1] << 16), (u32)colors[2] | (colors[3] << 16)};
+		WriteVector((const float *)ov, V_Pair, vd);
+		PC += 4;
+		EatPrefixes();
+	}
 
 	void Int_VDot(u32 op)
 	{
@@ -925,27 +925,27 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-  void Int_Vavg(u32 op)
-  {
-    float s[4];
-    float d;
-    int vd = _VD;
-    int vs = _VS;
-    VectorSize sz = GetVecSize(op);
-    ReadVector(s, sz, vs);
-    ApplySwizzleS(s, sz);
-    float sum = 0.0f;
-    int n = GetNumVectorElements(sz);
-    for (int i = 0; i < n; i++)
-    {
-      sum += s[i];
-    }
-    d = sum / n;
-    ApplyPrefixD(&d, V_Single);
-    V(vd) = d;
-    PC += 4;
-    EatPrefixes();
-  }
+	void Int_Vavg(u32 op)
+	{
+		float s[4];
+		float d;
+		int vd = _VD;
+		int vs = _VS;
+		VectorSize sz = GetVecSize(op);
+		ReadVector(s, sz, vs);
+		ApplySwizzleS(s, sz);
+		float sum = 0.0f;
+		int n = GetNumVectorElements(sz);
+		for (int i = 0; i < n; i++)
+		{
+			sum += s[i];
+		}
+		d = sum / n;
+		ApplyPrefixD(&d, V_Single);
+		V(vd) = d;
+		PC += 4;
+		EatPrefixes();
+	}
 
 	void Int_VScl(u32 op)
 	{
@@ -969,36 +969,36 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-  void Int_Vrnds(u32 op)
-  {
-    int vd = _VD;
-    int seed = VI(vd);
-    currentMIPS->rng.Init(seed);
-  }
-  
-  void Int_VrndX(u32 op)
-  {
-    float d[4];
-    int vd = _VD;
-    VectorSize sz = GetVecSize(op);
-    int n = GetNumVectorElements(sz);
-    for (int i = 0; i < n; i++)
-    {
-      switch ((op >> 16) & 0x1f)
-      {
-      case 1: d[i] = (float)currentMIPS->rng.R32(); break;  // vrndi - TODO: copy bits instead?
-      case 2: d[i] = 1.0f + ((float)currentMIPS->rng.R32() / 0xFFFFFFFF); break; // vrndf1   TODO: make more accurate
-      case 3: d[i] = 2.0f + 2 * ((float)currentMIPS->rng.R32() / 0xFFFFFFFF); break; // vrndf2   TODO: make more accurate
-      case 4: d[i] = 0.0f;  // Should not get here
-      }
-    }
-    ApplyPrefixD(d, sz);
-    WriteVector(d, sz, vd);
-    PC += 4;
-    EatPrefixes();
-  }
+	void Int_Vrnds(u32 op)
+	{
+		int vd = _VD;
+		int seed = VI(vd);
+		currentMIPS->rng.Init(seed);
+	}
 
-  // Generates one line of a rotation matrix around one of the three axes
+	void Int_VrndX(u32 op)
+	{
+		float d[4];
+		int vd = _VD;
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+		for (int i = 0; i < n; i++)
+		{
+			switch ((op >> 16) & 0x1f)
+			{
+			case 1: d[i] = (float)currentMIPS->rng.R32(); break;  // vrndi - TODO: copy bits instead?
+			case 2: d[i] = 1.0f + ((float)currentMIPS->rng.R32() / 0xFFFFFFFF); break; // vrndf1   TODO: make more accurate
+			case 3: d[i] = 2.0f + 2 * ((float)currentMIPS->rng.R32() / 0xFFFFFFFF); break; // vrndf2   TODO: make more accurate
+			case 4: d[i] = 0.0f;  // Should not get here
+			}
+		}
+		ApplyPrefixD(d, sz);
+		WriteVector(d, sz, vd);
+		PC += 4;
+		EatPrefixes();
+	}
+
+	// Generates one line of a rotation matrix around one of the three axes
 	void Int_Vrot(u32 op)
 	{
 		int vd = _VD;
@@ -1008,9 +1008,9 @@ namespace MIPSInt
 		float angle = V(vs) * M_PI_2;
 		bool negSin = (imm & 0x10) ? true : false;
 		float sine = sinf(angle);
-    float cosine = cosf(angle);
+		float cosine = cosf(angle);
 		if (negSin)
-      sine = -sine;
+			sine = -sine;
 		float d[4] = {0};
 		if (((imm >> 2) & 3) == (imm & 3))
 		{
@@ -1033,23 +1033,23 @@ namespace MIPSInt
 
 		VectorSize sz = GetVecSize(op);
 		MatrixSize msz = GetMtxSize(op);
-    int n = GetNumVectorElements(sz);
+		int n = GetNumVectorElements(sz);
 
-    bool homogenous = false;
-    if (n == ins)
-    {
-      n++;
-      sz = (VectorSize)((int)(sz) + 1);
-      msz = (MatrixSize)((int)(msz) + 1);
-      homogenous = true;
-    }
-    
+		bool homogenous = false;
+		if (n == ins)
+		{
+			n++;
+			sz = (VectorSize)((int)(sz) + 1);
+			msz = (MatrixSize)((int)(msz) + 1);
+			homogenous = true;
+		}
+
 		float s[16];
 		ReadMatrix(s, msz, vs);
 		float t[4];
 		ReadVector(t, sz, vt);
 		float d[4];
-    
+
 		if (homogenous)
 		{
 			for (int i = 0; i < n; i++)
@@ -1080,7 +1080,7 @@ namespace MIPSInt
 		PC += 4;
 		EatPrefixes();
 	}
-  
+ 
 	void Int_SV(u32 op)
 	{
 		s32 imm = (signed short)(op&0xFFFC);
@@ -1091,7 +1091,7 @@ namespace MIPSInt
 		switch (op >> 26)
 		{
 		case 50: //lv.s
-      VI(vt) = Memory::Read_U32(addr);
+			VI(vt) = Memory::Read_U32(addr);
 			break;
 		case 58: //sv.s
 			Memory::Write_U32(VI(vt), addr);
@@ -1346,13 +1346,6 @@ namespace MIPSInt
 				default: goto bad;
 				}
 				break;
-				/*
-			case 27: //VFPU3
-				switch ((op >> 23)&7)
-				{
-				case 0: d[i] = s[i] * t[i]; break; //vmul
-				}
-				break;*/
 			default:
 bad:
 				_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
