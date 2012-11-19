@@ -10,6 +10,7 @@
     <target name="clean" depends="android_rules.clean">
         <exec executable="${ndk.dir}/ndk-build" failonerror="true">
             <arg value="clean"/>
+            <env key="NDK_MODULE_PATH" path="..:../native/ext"/>
         </exec>
     </target>
 </project>
