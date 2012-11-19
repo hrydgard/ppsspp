@@ -128,6 +128,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate)
 		DEBUG_LOG(HLE, "Setting latched framebuffer %08x (prev: %08x)", latchedFramebuf.topaddr, framebuf.topaddr);
 		framebuf = latchedFramebuf;
 		framebufIsLatched = false;
+		gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
 	}
 
 	// Draw screen overlays before blitting. Saves and restores the Ge context.
@@ -145,9 +146,10 @@ void hleEnterVblank(u64 userdata, int cyclesLate)
 	PPGeDrawText("This is PPGeDraw speaking", 10, 100, 0, 0.5f, 0xFFFFFFFF);
 	PPGeEnd();
 	*/
-	// Yeah, this has to be the right moment to end the frame. Should possibly blit the right buffer
-	// depending on what's set in sceDisplaySetFramebuf, in order to support half-framerate games -
-	// an initial hack could be to NOT end the frame if the buffer didn't change? that should work okay.
+	// Yeah, this has to be the right moment to end the frame. Give the graphics backend opportunity
+	// to blit the framebuffer, in order to support half-framerate games that otherwise wouldn't have
+	// anything to draw here.
+	gpu->CopyDisplayToOutput();
 	{
 		host->EndFrame();
 		host->BeginFrame();
@@ -215,6 +217,7 @@ void sceDisplaySetFramebuf()
 	{
 		// Write immediately to the current framebuffer parameters
 		framebuf = fbstate;
+		gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
 	}
 	else if (topaddr != 0)
 	{

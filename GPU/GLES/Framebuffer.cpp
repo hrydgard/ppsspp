@@ -103,9 +103,6 @@ void DisplayDrawer_Init()
 
 	glsl_bind(draw2dprogram);
 	glUniform1i(draw2dprogram->sampler0, 0);
-	Matrix4x4 ortho;
-	ortho.setOrtho(0, 480, 272, 0, -1, 1);
-	glUniformMatrix4fv(draw2dprogram->u_viewproj, 1, GL_FALSE, ortho.getReadPtr());
 	glsl_unbind();
 
 	// And an initial clear. We don't clear per frame as the games are supposed to handle that
@@ -125,9 +122,6 @@ void DisplayDrawer_Shutdown()
 
 void DisplayDrawer_DrawFramebuffer(u8 *framebuf, int pixelFormat, int linesize)
 {
-	float u1 = 1.0f;
-	float v1 = 1.0f;
-
 	for (int y = 0; y < 272; y++)
 	{
 		switch (pixelFormat)
@@ -196,10 +190,23 @@ void DisplayDrawer_DrawFramebuffer(u8 *framebuf, int pixelFormat, int linesize)
 	glBindTexture(GL_TEXTURE_2D,backbufTex);
 	glTexSubImage2D(GL_TEXTURE_2D,0,0,0,480,272, GL_RGBA, GL_UNSIGNED_BYTE, realFB);
 
-	const float pos[12] = {0,0,0, 480,0,0, 480,272,0, 0,272,0};
-	const float texCoords[8] = {0, 0, u1, 0, u1, v1, 0, v1};
+	DrawActiveTexture(480, 272);
+}
+
+void DrawActiveTexture(int w, int h, bool flip) 
+{
+	float u2 = 1.0f;
+	float v1 = flip ? 1.0 : 0.0f;
+	float v2 = flip ? 0.0 : 1.0f;
+
+	const float pos[12] = {0,0,0, w,0,0, w,h,0, 0,h,0};
+	const float texCoords[8] = {0, v1, u2, v1, u2, v2, 0, v2};
 
 	glsl_bind(draw2dprogram);
+	Matrix4x4 ortho;
+	ortho.setOrtho(0, 480, 272, 0, -1, 1);
+	glUniformMatrix4fv(draw2dprogram->u_viewproj, 1, GL_FALSE, ortho.getReadPtr());
+
 	glEnableVertexAttribArray(draw2dprogram->a_position);
 	glEnableVertexAttribArray(draw2dprogram->a_texcoord0);
 	glVertexAttribPointer(draw2dprogram->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);

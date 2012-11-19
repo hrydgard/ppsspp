@@ -31,6 +31,7 @@
 #include "../../Core/MemMap.h"
 #include "../../Core/Host.h"
 #include "../../Core/Config.h"
+#include "../../Core/System.h"
 
 #include "../GPUState.h"
 #include "../ge_constants.h"
@@ -53,14 +54,27 @@ ShaderManager shaderManager;
 extern u32 curTextureWidth;
 extern u32 curTextureHeight;
 
+GLES_GPU::~GLES_GPU()
+{
+	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter)
+	{
+		fbo_destroy((*iter)->fbo);
+		delete (*iter);
+	}
+	vfbs_.clear();
+}
+
 void GLES_GPU::InitClear(int renderWidth, int renderHeight)
 {
 	renderWidth_ = renderWidth;
 	renderHeight_ = renderHeight;
+	widthFactor_ = (float)renderWidth / 480.0f;
+	heightFactor_ = (float)renderHeight / 272.0f;
 
 	glClearColor(0,0,0,1);
 	//	glClearColor(1,0,1,1);
 	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+	glViewport(0, 0, renderWidth_, renderHeight_);
 }
 
 void GLES_GPU::BeginFrame()
@@ -75,14 +89,110 @@ void GLES_GPU::BeginFrame()
 
 void GLES_GPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, int format)
 {
-	// TODO
+	displayFramebufPtr_ = framebuf;
+	displayStride_ = stride;
+	displayFormat_ = format;
 }
 
 void GLES_GPU::CopyDisplayToOutput()
 {
-	// TODO
+	VirtualFramebuffer *vfb = GetDisplayFBO();
+	fbo_unbind();
+
+	glViewport(0, 0, PSP_CoreParameter().outputWidth, PSP_CoreParameter().outputHeight);
+
+	currentRenderVfb_ = 0;
+
+	if (!vfb) {
+		// No framebuffer to display! Clear to black.
+		glClearColor(0,0,0,1);
+		glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+		return;
+	}
+
+	glDisable(GL_CULL_FACE);
+	glDisable(GL_DEPTH_TEST);
+
+	fbo_bind_color_as_texture(vfb->fbo, 0);
+
+	// These are in the output pixel coordinates
+	DrawActiveTexture(480, 272, true);
+
+	shaderManager.DirtyShader();
+	shaderManager.DirtyUniform(DIRTY_ALL);
+
+	// Restore some state
+	ExecuteOp(gstate.cmdmem[GE_CMD_CULLFACEENABLE], 0xFFFFFFFF);		
+	ExecuteOp(gstate.cmdmem[GE_CMD_ZTESTENABLE], 0xFFFFFFFF);		
 }
 
+GLES_GPU::VirtualFramebuffer *GLES_GPU::GetDisplayFBO()
+{
+	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter)
+	{
+		if (((*iter)->fb_address & 0x3FFFFFF) == (displayFramebufPtr_ & 0x3FFFFFF)) {
+			// Could check w to but whatever
+			return *iter;
+		}
+	}
+	return 0;
+}
+
+void GLES_GPU::SetRenderFrameBuffer()
+{
+	// Get parameters
+	u32 fb_address = (gstate.fbptr & 0xFFE000) | ((gstate.fbwidth & 0xFF0000) << 8);
+	int fb_stride = gstate.fbwidth & 0x3C0;
+
+	u32 z_address = (gstate.zbptr & 0xFFE000) | ((gstate.zbwidth & 0xFF0000) << 8);
+	int z_stride = gstate.zbwidth & 0x3C0;
+	
+	// Yeah this is not completely right. but it'll do for now.
+	int drawing_width = ((gstate.region2) & 0x3FF) + 1;
+	int drawing_height = ((gstate.region2 >> 10) & 0x3FF) + 1;
+
+	int fmt = gstate.framebufpixformat & 3;
+	
+	// Find a matching framebuffer
+	VirtualFramebuffer *vfb = 0;
+	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter)
+	{
+		VirtualFramebuffer *v = *iter;
+		if (v->fb_address == fb_address) {
+			// Let's not be so picky for now. Let's say this is the one.
+			vfb = v;
+			// Update fb stride in case it changed
+			vfb->fb_stride = fb_stride;
+			break;
+		}
+	}
+	
+	// None found? Create one.
+	if (!vfb) {
+		vfb = new VirtualFramebuffer;
+		vfb->fb_address = fb_address;
+		vfb->fb_stride = fb_stride;
+		vfb->z_address = z_address;
+		vfb->z_stride = z_stride;
+		vfb->width = drawing_width;
+		vfb->height = drawing_height;
+		vfb->fbo = fbo_create(vfb->width * widthFactor_, vfb->height * heightFactor_, 1, true);
+		vfbs_.push_back(vfb);
+		fbo_bind_as_render_target(vfb->fbo);
+		glViewport(0, 0, renderWidth_, renderHeight_);
+		currentRenderVfb_ = vfb;
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+		return;
+	}
+
+	if (vfb != currentRenderVfb_)
+	{
+		// Use it as a render target.
+		fbo_bind_as_render_target(vfb->fbo);
+		glViewport(0, 0, renderWidth_, renderHeight_);
+		currentRenderVfb_ = vfb;
+	}
+}
 
 bool GLES_GPU::ProcessDLQueue()
 {
@@ -279,6 +389,8 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_PRIM:
 		{
+			SetRenderFrameBuffer();
+
 			u32 count = data & 0xFFFF;
 			u32 type = data >> 16;
 			static const char* types[7] = {
@@ -584,7 +696,11 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 		}
 		break;
 
-//		case GE_CMD_TRANSFERSRC:
+	case GE_CMD_TRANSFERSRC:
+		{
+			// Nothing to do, the next one prints
+		}
+		break;
 
 	case GE_CMD_TRANSFERSRCW:
 		{
@@ -593,7 +709,12 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 			DEBUG_LOG(G3D,"Block Transfer Src: %08x	W: %i", xferSrc, xferSrcW);
 			break;
 		}
-//		case GE_CMD_TRANSFERDST:
+
+	case GE_CMD_TRANSFERDST:
+		{
+			// Nothing to do, the next one prints
+		}
+		break;
 
 	case GE_CMD_TRANSFERDSTW:
 		{
@@ -629,7 +750,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_TRANSFERSTART:
 		{
-			DEBUG_LOG(G3D, "DL Texture Transfer Start: PixFormat %i", data);
+			ERROR_LOG(G3D, "UNIMPL DL Block Transfer Start: PixFormat %i", data);
 			// TODO: Here we should check if the transfer overlaps a framebuffer or any textures,
 			// and take appropriate action. If not, this should just be a block transfer within
 			// GPU memory which could be implemented by a copy loop.
