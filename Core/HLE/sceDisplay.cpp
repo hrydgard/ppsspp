@@ -61,6 +61,7 @@ static int hCount = 0;
 static int hCountTotal = 0; //unused
 static int vCount = 0;
 static int isVblank = 0;
+static bool hasSetMode = false;
 
 // STATE END
 
@@ -86,6 +87,7 @@ void hleLeaveVblank(u64 userdata, int cyclesLate);
 
 void __DisplayInit()
 {
+	hasSetMode = false;
 	framebufIsLatched = false;
 	framebuf.topaddr = 0x04000000;
 	framebuf.pspFramebufFormat = PSP_DISPLAY_PIXEL_FORMAT_8888;
@@ -140,16 +142,11 @@ void hleEnterVblank(u64 userdata, int cyclesLate)
 		sprintf(stats, "Draw calls")
 	}*/
 
-	/*
-	PPGeBegin();
-	PPGeDrawImage(I_LOGO, 5, 5, 0, 0xFFFFFFFF);
-	PPGeDrawText("This is PPGeDraw speaking", 10, 100, 0, 0.5f, 0xFFFFFFFF);
-	PPGeEnd();
-	*/
 	// Yeah, this has to be the right moment to end the frame. Give the graphics backend opportunity
 	// to blit the framebuffer, in order to support half-framerate games that otherwise wouldn't have
 	// anything to draw here.
 	gpu->CopyDisplayToOutput();
+
 	{
 		host->EndFrame();
 		host->BeginFrame();
@@ -170,7 +167,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate)
 void hleLeaveVblank(u64 userdata, int cyclesLate)
 {
 	isVblank = 0;
-	DEBUG_LOG(HLE,"Leave VBlank");
+	DEBUG_LOG(HLE,"Leave VBlank %i", (int)userdata - 1);
 	vCount++;
 	hCount = 0;
 	CoreTiming::ScheduleEvent(msToCycles(frameMs - vblankMs) - cyclesLate, enterVblankEvent, userdata);
@@ -187,7 +184,11 @@ u32 sceDisplaySetMode(u32 unknown, u32 xres, u32 yres)
 	DEBUG_LOG(HLE,"sceDisplaySetMode(%d,%d,%d)",unknown,xres,yres);
 	host->BeginFrame();
 
-	gpu->InitClear(PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
+	if (!hasSetMode)
+	{
+		gpu->InitClear(PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
+		hasSetMode = true;
+	}
 
 	return 0;
 }
@@ -231,9 +232,10 @@ void sceDisplaySetFramebuf()
 
 u32 sceDisplayGetFramebuf(u32 topaddrPtr, u32 linesizePtr, u32 pixelFormatPtr, int mode)
 {
-	DEBUG_LOG(HLE,"sceDisplayGetFramebuf(%08x, %08x, %08x, %i)");
-	
 	const FrameBufferState &fbState = mode == 1 ? latchedFramebuf : framebuf;
+	DEBUG_LOG(HLE,"sceDisplayGetFramebuf(*%08x = %08x, *%08x = %08x, *%08x = %08x, %i)",
+		topaddrPtr, fbState.topaddr, linesizePtr, fbState.pspFramebufLinesize, pixelFormatPtr, fbState.pspFramebufFormat, mode);
+	
 	if (Memory::IsValidAddress(topaddrPtr))
 		Memory::Write_U32(fbState.topaddr, topaddrPtr);
 	if (Memory::IsValidAddress(linesizePtr))

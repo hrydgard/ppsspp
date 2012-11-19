@@ -71,9 +71,9 @@ void GLES_GPU::InitClear(int renderWidth, int renderHeight)
 	widthFactor_ = (float)renderWidth / 480.0f;
 	heightFactor_ = (float)renderHeight / 272.0f;
 
-	glClearColor(0,0,0,1);
+	//glClearColor(0,0,0,1);
 	//	glClearColor(1,0,1,1);
-	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+	//glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 	glViewport(0, 0, renderWidth_, renderHeight_);
 }
 
@@ -108,14 +108,18 @@ void GLES_GPU::CopyDisplayToOutput()
 	currentRenderVfb_ = 0;
 
 	if (!vfb) {
+		DEBUG_LOG(HLE, "Found no FBO! displayFBPtr = %08x", displayFramebufPtr_);
 		// No framebuffer to display! Clear to black.
 		glClearColor(0,0,0,1);
 		glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 		return;
 	}
 
+	DEBUG_LOG(HLE, "Displaying FBO %08x", vfb->fb_address);
+
 	glDisable(GL_CULL_FACE);
 	glDisable(GL_DEPTH_TEST);
+	glDisable(GL_ALPHA_TEST);
 
 	fbo_bind_color_as_texture(vfb->fbo, 0);
 
@@ -124,10 +128,12 @@ void GLES_GPU::CopyDisplayToOutput()
 
 	shaderManager.DirtyShader();
 	shaderManager.DirtyUniform(DIRTY_ALL);
+	gstate_c.textureChanged = true;
 
 	// Restore some state
 	ExecuteOp(gstate.cmdmem[GE_CMD_CULLFACEENABLE], 0xFFFFFFFF);		
 	ExecuteOp(gstate.cmdmem[GE_CMD_ZTESTENABLE], 0xFFFFFFFF);		
+	ExecuteOp(gstate.cmdmem[GE_CMD_ALPHATESTENABLE], 0xFFFFFFFF);		
 }
 
 GLES_GPU::VirtualFramebuffer *GLES_GPU::GetDisplayFBO()
@@ -139,7 +145,6 @@ GLES_GPU::VirtualFramebuffer *GLES_GPU::GetDisplayFBO()
 			return *iter;
 		}
 	}
-
 
 	return 0;
 }
@@ -182,23 +187,29 @@ void GLES_GPU::SetRenderFrameBuffer()
 		vfb->z_stride = z_stride;
 		vfb->width = drawing_width;
 		vfb->height = drawing_height;
+		vfb->format = fmt;
 		vfb->fbo = fbo_create(vfb->width * widthFactor_, vfb->height * heightFactor_, 1, true);
 		vfbs_.push_back(vfb);
 		fbo_bind_as_render_target(vfb->fbo);
 		glViewport(0, 0, renderWidth_, renderHeight_);
 		currentRenderVfb_ = vfb;
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+		DEBUG_LOG(HLE, "Creating FBO for %08x", vfb->fb_address);
 		return;
 	}
 
 	if (vfb != currentRenderVfb_)
 	{
 		// Use it as a render target.
+		DEBUG_LOG(HLE, "Switching to FBO for %08x", vfb->fb_address);
 		fbo_bind_as_render_target(vfb->fbo);
 		glViewport(0, 0, renderWidth_, renderHeight_);
 		currentRenderVfb_ = vfb;
 	}
 }
+
+
+// Render queue
 
 bool GLES_GPU::ProcessDLQueue()
 {
