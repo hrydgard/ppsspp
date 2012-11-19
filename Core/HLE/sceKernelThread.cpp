@@ -402,7 +402,21 @@ u32 __KernelGetWaitTimeoutPtr(SceUID threadID, u32 &error)
 	}
 	else
 	{
-		ERROR_LOG(HLE, "__KernelGetWaitValue ERROR: thread %i", threadID);
+		ERROR_LOG(HLE, "__KernelGetWaitTimeoutPtr ERROR: thread %i", threadID);
+		return 0;
+	}
+}
+
+SceUID __KernelGetWaitID(SceUID threadID, u32 &error)
+{
+	Thread *t = kernelObjects.Get<Thread>(threadID, error);
+	if (t)
+	{
+		return t->nt.waitID;
+	}
+	else
+	{
+		ERROR_LOG(HLE, "__KernelGetWaitID ERROR: thread %i", threadID);
 		return 0;
 	}
 }

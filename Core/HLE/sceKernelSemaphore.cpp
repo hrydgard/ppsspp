@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
 #include "../../Core/CoreTiming.h"
@@ -279,6 +280,15 @@ void __KernelSemaTimeout(u64 userdata, int cycleslate)
 	if (timeoutPtr != 0)
 		Memory::Write_U32(0, timeoutPtr);
 
+	SceUID semaID = __KernelGetWaitID(threadID, error);
+	Semaphore *s = kernelObjects.Get<Semaphore>(semaID, error);
+	if (s)
+	{
+		// This thread isn't waiting anymore.
+		s->waitingThreads.erase(std::remove(s->waitingThreads.begin(), s->waitingThreads.end(), threadID), s->waitingThreads.end());
+		s->ns.numWaitThreads--;
+	}
+
 	__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
 }
 
@@ -301,6 +311,12 @@ void __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, const char *ba
 	Semaphore *s = kernelObjects.Get<Semaphore>(id, error);
 	if (s)
 	{
+		if (wantedCount > s->ns.maxCount || wantedCount <= 0)
+		{
+			RETURN(SCE_KERNEL_ERROR_ILLEGAL_COUNT);
+			return;
+		}
+
 		// We need to set the return value BEFORE processing callbacks / etc.
 		RETURN(0);
 
