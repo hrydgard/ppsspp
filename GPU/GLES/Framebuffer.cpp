@@ -193,7 +193,7 @@ void DisplayDrawer_DrawFramebuffer(u8 *framebuf, int pixelFormat, int linesize)
 	DrawActiveTexture(480, 272);
 }
 
-void DrawActiveTexture(int w, int h, bool flip) 
+void DrawActiveTexture(float w, float h, bool flip) 
 {
 	float u2 = 1.0f;
 	float v1 = flip ? 1.0 : 0.0f;

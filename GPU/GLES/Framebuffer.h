@@ -32,4 +32,4 @@ enum PspDisplayPixelFormat {
 void DisplayDrawer_Init();
 void DisplayDrawer_DrawFramebuffer(u8 *framebuf, int pixelFormat, int linesize);
 void DisplayDrawer_Shutdown();
-void DrawActiveTexture(int w, int h, bool flip = false);
+void DrawActiveTexture(float w, float h, bool flip = false);

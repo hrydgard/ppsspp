@@ -89,9 +89,13 @@ void GLES_GPU::BeginFrame()
 
 void GLES_GPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, int format)
 {
-	displayFramebufPtr_ = framebuf;
-	displayStride_ = stride;
-	displayFormat_ = format;
+	if (framebuf & 0x04000000) {
+		displayFramebufPtr_ = framebuf;
+		displayStride_ = stride;
+		displayFormat_ = format;
+	} else {
+		DEBUG_LOG(HLE, "Bogus framebufffer address: %08x", framebuf);
+	}
 }
 
 void GLES_GPU::CopyDisplayToOutput()
@@ -135,6 +139,8 @@ GLES_GPU::VirtualFramebuffer *GLES_GPU::GetDisplayFBO()
 			return *iter;
 		}
 	}
+
+
 	return 0;
 }
 

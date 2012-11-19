@@ -229,10 +229,19 @@ void sceDisplaySetFramebuf()
 	RETURN(0);
 }
 
-void sceDisplayGetFramebuf()
+u32 sceDisplayGetFramebuf(u32 topaddrPtr, u32 linesizePtr, u32 pixelFormatPtr, int mode)
 {
-	DEBUG_LOG(HLE,"sceDisplayGetFramebuf()");	
-	RETURN(framebuf.topaddr);
+	DEBUG_LOG(HLE,"sceDisplayGetFramebuf(%08x, %08x, %08x, %i)");
+	
+	const FrameBufferState &fbState = mode == 1 ? latchedFramebuf : framebuf;
+	if (Memory::IsValidAddress(topaddrPtr))
+		Memory::Write_U32(fbState.topaddr, topaddrPtr);
+	if (Memory::IsValidAddress(linesizePtr))
+		Memory::Write_U32(fbState.pspFramebufLinesize, linesizePtr);
+	if (Memory::IsValidAddress(pixelFormatPtr))
+		Memory::Write_U32(fbState.pspFramebufFormat, pixelFormatPtr);
+
+	return 0;
 }
 
 void sceDisplayWaitVblankStart()
@@ -302,6 +311,7 @@ const HLEFunction sceDisplay[] =
 {
 	{0x0E20F177,&WrapU_UUU<sceDisplaySetMode>, "sceDisplaySetMode"},
 	{0x289D82FE,sceDisplaySetFramebuf, "sceDisplaySetFramebuf"},
+	{0xEEDA2E54,&WrapU_UUUI<sceDisplayGetFramebuf>,"sceDisplayGetFrameBuf"},
 	{0x36CDFADE,sceDisplayWaitVblank, "sceDisplayWaitVblank"},
 	{0x984C27E7,sceDisplayWaitVblankStart, "sceDisplayWaitVblankStart"},
 	{0x8EB9EC49,sceDisplayWaitVblankCB, "sceDisplayWaitVblankCB"},
@@ -312,12 +322,9 @@ const HLEFunction sceDisplay[] =
 	{0x773dd3a3,sceDisplayGetCurrentHcount,"sceDisplayGetCurrentHcount"},
 	{0x210eab3a,sceDisplayGetAccumulatedHcount,"sceDisplayGetAccumulatedHcount"},
 	{0x9C6EAAD7,sceDisplayGetVcount,"sceDisplayGetVcount"},
-	{0x984C27E7,0,"sceDisplayWaitVblankStart"},
 	{0xDEA197D4,0,"sceDisplayGetMode"},
 	{0x7ED59BC4,0,"sceDisplaySetHoldMode"},
 	{0xA544C486,0,"sceDisplaySetResumeMode"},
-	{0x289D82FE,0,"sceDisplaySetFrameBuf"},
-	{0xEEDA2E54,sceDisplayGetFramebuf,"sceDisplayGetFrameBuf"},
 	{0xB4F378FA,0,"sceDisplayIsForeground"},
 	{0x31C4BAA8,0,"sceDisplayGetBrightness"},
 	{0x4D4E10EC,sceDisplayIsVblank,"sceDisplayIsVblank"},
