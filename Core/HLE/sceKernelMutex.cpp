@@ -196,13 +196,13 @@ void __KernelMutexTimeout(u64 userdata, int cyclesLate)
 	__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
 }
 
-void __kernelWaitMutex(Mutex *mutex, u32 timeoutPtr)
+void __KernelWaitMutex(Mutex *mutex, u32 timeoutPtr)
 {
 	if (timeoutPtr == 0)
 		return;
 
 	if (mutex->waitTimer == 0)
-		mutex->waitTimer = CoreTiming::RegisterEvent("ScheduledTimeout", &__KernelMutexTimeout);
+		mutex->waitTimer = CoreTiming::RegisterEvent("MutexTimeout", &__KernelMutexTimeout);
 
 	// This should call __KernelMutexTimeout() later, unless we cancel it.
 	int micro = (int) Memory::Read_U32(timeoutPtr);
@@ -227,7 +227,7 @@ void sceKernelLockMutex(SceUID id, int count, u32 timeoutPtr)
 	else
 	{
 		mutex->waitingThreads.push_back(__KernelGetCurThread());
-		__kernelWaitMutex(mutex, timeoutPtr);
+		__KernelWaitMutex(mutex, timeoutPtr);
 		__KernelWaitCurThread(WAITTYPE_MUTEX, id, count, timeoutPtr, false);
 	}
 }
@@ -250,7 +250,7 @@ void sceKernelLockMutexCB(SceUID id, int count, u32 timeoutPtr)
 	else
 	{
 		mutex->waitingThreads.push_back(__KernelGetCurThread());
-		__kernelWaitMutex(mutex, timeoutPtr);
+		__KernelWaitMutex(mutex, timeoutPtr);
 		__KernelWaitCurThread(WAITTYPE_MUTEX, id, count, timeoutPtr, true);
 		__KernelCheckCallbacks();
 	}

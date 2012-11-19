@@ -17,7 +17,7 @@
 
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
-
+#include "../../Core/CoreTiming.h"
 #include "sceKernel.h"
 #include "sceKernelThread.h"
 #include "sceKernelSemaphore.h"
@@ -58,6 +58,7 @@ struct Semaphore : public KernelObject
 
 	NativeSemaphore ns;
 	std::vector<SceUID> waitingThreads;
+	int waitTimer;
 };
 
 // Resume all waiting threads (for delete / cancel.)
@@ -72,11 +73,22 @@ bool __KernelClearSemaThreads(Semaphore *s, int reason)
 	{
 		SceUID threadID = *iter;
 
-		// TODO: Set returnValue = reason?
-		__KernelResumeThreadFromWait(threadID);
+		u32 error;
+		u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
+		if (timeoutPtr != 0 && s->waitTimer != 0)
+		{
+			// Remove any event for this thread.
+			int cyclesLeft = CoreTiming::UnscheduleEvent(s->waitTimer, threadID);
+			Memory::Write_U32(cyclesToUs(cyclesLeft), timeoutPtr);
+		}
+
+		__KernelResumeThreadFromWait(threadID, reason);
 		wokeThreads = true;
+		// TODO: set timeoutPtr.
 	}
 	s->waitingThreads.empty();
+
+	// TODO: Any way to erase the CoreTiming event type?  We leak.
 
 	return wokeThreads;
 }
@@ -143,6 +155,7 @@ void sceKernelCreateSema(const char* name, u32 attr, int initVal, int maxVal, u3
 	s->ns.currentCount = s->ns.initCount;
 	s->ns.maxCount = maxVal;
 	s->ns.numWaitThreads = 0;
+	s->waitTimer = 0;
 
 	DEBUG_LOG(HLE,"%i=sceKernelCreateSema(%s, %08x, %i, %i, %08x)", id, s->ns.name, s->ns.attr, s->ns.initCount, s->ns.maxCount, optionPtr);
 
@@ -221,13 +234,23 @@ retry:
 		for (iter = s->waitingThreads.begin(); iter!=s->waitingThreads.end(); iter++)
 		{
 			SceUID threadID = *iter;
+
 			int wVal = (int)__KernelGetWaitValue(threadID, error);
+			u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
+
 			if (wVal <= s->ns.currentCount)
 			{
 				s->ns.currentCount -= wVal;
 				s->ns.numWaitThreads--;
 
-				__KernelResumeThreadFromWait(threadID);
+				if (timeoutPtr != 0 && s->waitTimer != 0)
+				{
+					// Remove any event for this thread.
+					int cyclesLeft = CoreTiming::UnscheduleEvent(s->waitTimer, threadID);
+					Memory::Write_U32(cyclesToUs(cyclesLeft), timeoutPtr);
+				}
+
+				__KernelResumeThreadFromWait(threadID, 0);
 				wokeThreads = true;
 				s->waitingThreads.erase(iter);
 				goto retry;
@@ -247,6 +270,31 @@ retry:
 	}
 }
 
+void __KernelSemaTimeout(u64 userdata, int cycleslate)
+{
+	SceUID threadID = (SceUID)userdata;
+
+	u32 error;
+	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
+	if (timeoutPtr != 0)
+		Memory::Write_U32(0, timeoutPtr);
+
+	__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
+}
+
+void __KernelSetSemaTimeout(Semaphore *s, u32 timeoutPtr)
+{
+	if (timeoutPtr == 0)
+		return;
+
+	if (s->waitTimer == 0)
+		s->waitTimer = CoreTiming::RegisterEvent("SemaphoreTimeout", &__KernelSemaTimeout);
+
+	// This should call __KernelMutexTimeout() later, unless we cancel it.
+	int micro = (int) Memory::Read_U32(timeoutPtr);
+	CoreTiming::ScheduleEvent(usToCycles(micro), s->waitTimer, __KernelGetCurThread());
+}
+
 void __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, const char *badSemaMessage, bool processCallbacks)
 {
 	u32 error;
@@ -262,8 +310,8 @@ void __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, const char *ba
 		{
 			s->ns.numWaitThreads++;
 			s->waitingThreads.push_back(__KernelGetCurThread());
-			// TODO: timeoutPtr?
-			__KernelWaitCurThread(WAITTYPE_SEMA, id, wantedCount, 0, processCallbacks);
+			__KernelSetSemaTimeout(s, timeoutPtr);
+			__KernelWaitCurThread(WAITTYPE_SEMA, id, wantedCount, timeoutPtr, processCallbacks);
 			if (processCallbacks)
 				__KernelCheckCallbacks();
 		}
