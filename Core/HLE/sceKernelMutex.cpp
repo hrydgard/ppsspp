@@ -17,6 +17,7 @@
 
 // UNFINISHED
 
+#include <algorithm>
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
 #include "../../Core/CoreTiming.h"
@@ -235,6 +236,14 @@ void __KernelMutexTimeout(u64 userdata, int cyclesLate)
 	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
 	if (timeoutPtr != 0)
 		Memory::Write_U32(0, timeoutPtr);
+
+	SceUID mutexID = __KernelGetWaitID(threadID, error);
+	Mutex *mutex = kernelObjects.Get<Mutex>(mutexID, error);
+	if (mutex)
+	{
+		// This thread isn't waiting anymore.
+		mutex->waitingThreads.erase(std::remove(mutex->waitingThreads.begin(), mutex->waitingThreads.end(), threadID), mutex->waitingThreads.end());
+	}
 
 	__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
 }
