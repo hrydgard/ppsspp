@@ -119,7 +119,6 @@ void GLES_GPU::CopyDisplayToOutput()
 
 	glDisable(GL_CULL_FACE);
 	glDisable(GL_DEPTH_TEST);
-	glDisable(GL_ALPHA_TEST);
 
 	fbo_bind_color_as_texture(vfb->fbo, 0);
 
@@ -133,7 +132,6 @@ void GLES_GPU::CopyDisplayToOutput()
 	// Restore some state
 	ExecuteOp(gstate.cmdmem[GE_CMD_CULLFACEENABLE], 0xFFFFFFFF);		
 	ExecuteOp(gstate.cmdmem[GE_CMD_ZTESTENABLE], 0xFFFFFFFF);		
-	ExecuteOp(gstate.cmdmem[GE_CMD_ALPHATESTENABLE], 0xFFFFFFFF);		
 }
 
 GLES_GPU::VirtualFramebuffer *GLES_GPU::GetDisplayFBO()
