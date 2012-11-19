@@ -393,6 +393,20 @@ u32 __KernelGetWaitValue(SceUID threadID, u32 &error)
 	}
 }
 
+u32 __KernelGetWaitTimeoutPtr(SceUID threadID, u32 &error)
+{
+	Thread *t = kernelObjects.Get<Thread>(threadID, error);
+	if (t)
+	{
+		return t->waitInfo.timeoutPtr;
+	}
+	else
+	{
+		ERROR_LOG(HLE, "__KernelGetWaitValue ERROR: thread %i", threadID);
+		return 0;
+	}
+}
+
 void sceKernelReferThreadStatus()
 {
 	SceUID threadID = PARAM(0);

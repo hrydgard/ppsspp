@@ -249,14 +249,18 @@ void ScheduleEvent(int cyclesIntoFuture, int event_type, u64 userdata)
 	AddEventToQueue(ne);
 }
 
-void UnscheduleEvent(int event_type, u64 userdata)
+// Returns cycles left in timer.
+int UnscheduleEvent(int event_type, u64 userdata)
 {
+	int result = 0;
 	if (!first)
-		return;
+		return result;
 	while(first)
 	{
 		if (first->type == event_type && first->userdata == userdata)
 		{
+			result = (int)(first->time - globalTimer);
+
 			Event *next = first->next;
 			FreeEvent(first);
 			first = next;
@@ -267,13 +271,15 @@ void UnscheduleEvent(int event_type, u64 userdata)
 		}
 	}
 	if (!first)
-		return;
+		return result;
 	Event *prev = first;
 	Event *ptr = prev->next;
 	while (ptr)
 	{
 		if (ptr->type == event_type && ptr->userdata == userdata)
 		{
+			result = (int)(ptr->time - globalTimer);
+
 			prev->next = ptr->next;
 			FreeEvent(ptr);
 			ptr = prev->next;
@@ -284,6 +290,8 @@ void UnscheduleEvent(int event_type, u64 userdata)
 			ptr = ptr->next;
 		}
 	}
+
+	return result;
 }
 
 void RegisterAdvanceCallback(void (*callback)(int cyclesExecuted))

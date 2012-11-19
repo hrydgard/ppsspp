@@ -116,21 +116,24 @@ void sceKernelDeleteMutex(SceUID id)
 	Mutex *mutex = kernelObjects.Get<Mutex>(id, error);
 	if (mutex)
 	{
-		// Kill the timer, they're waking up now.
-		if (mutex->waitTimer != 0)
-		{
-			CoreTiming::RemoveEvent(mutex->waitTimer);
-			mutex->waitTimer = 0;
-		}
-
 		std::vector<SceUID>::iterator iter, end;
 		for (iter = mutex->waitingThreads.begin(), end = mutex->waitingThreads.end(); iter != end; ++iter)
 		{
 			SceUID threadID = *iter;
+
+			u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
+			if (timeoutPtr != 0 && mutex->waitTimer != 0)
+			{
+				// Remove any event for this thread.
+				int cyclesLeft = CoreTiming::UnscheduleEvent(mutex->waitTimer, threadID);
+				Memory::Write_U32(cyclesToUs(cyclesLeft), timeoutPtr);
+			}
+
 			__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_DELETE);
-			// TODO: set timeoutPtr.
 		}
 		mutex->waitingThreads.empty();
+
+		// TODO: Any way to erase the CoreTiming event type?  We leak.
 
 		RETURN(kernelObjects.Destroy<Mutex>(id));
 		__KernelReSchedule("mutex deleted");
@@ -184,7 +187,12 @@ bool __KernelLockMutex(Mutex *mutex, int count, u32 &error)
 void __KernelMutexTimeout(u64 userdata, int cyclesLate)
 {
 	SceUID threadID = (SceUID)userdata;
-	// TODO: set timeoutPtr.
+
+	u32 error;
+	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
+	if (timeoutPtr != 0)
+		Memory::Write_U32(0, timeoutPtr);
+
 	__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
 }
 
@@ -310,14 +318,17 @@ void sceKernelUnlockMutex(SceUID id, int count)
 			SceUID threadID = *iter;
 
 			int wVal = (int)__KernelGetWaitValue(threadID, error);
+			u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
 
 			mutex->nm.lockThread = threadID;
 			mutex->nm.lockLevel = wVal;
 
-			// Remove any event for this thread.
-			// TODO: Only if timeoutPtr?
-			if (mutex->waitTimer != 0)
-				CoreTiming::UnscheduleEvent(mutex->waitTimer, threadID);
+			if (timeoutPtr != 0 && mutex->waitTimer != 0)
+			{
+				// Remove any event for this thread.
+				int cyclesLeft = CoreTiming::UnscheduleEvent(mutex->waitTimer, threadID);
+				Memory::Write_U32(cyclesToUs(cyclesLeft), timeoutPtr);
+			}
 
 			__KernelResumeThreadFromWait(threadID, 0);
 			wokeThreads = true;
