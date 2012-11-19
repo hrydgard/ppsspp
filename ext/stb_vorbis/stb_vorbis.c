@@ -205,9 +205,6 @@
 #include <string.h>
 #include <assert.h>
 #include <math.h>
-#ifdef _MSC_VER
-#include <malloc.h>
-#endif
 #else
 #define NULL 0
 #endif
