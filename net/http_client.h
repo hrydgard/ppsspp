@@ -4,11 +4,15 @@
 #include "base/basictypes.h"
 #include "base/buffer.h"
 
-#ifndef _WIN32
-#include <arpa/inet.h>
-#include <sys/socket.h>
-#else
+#ifdef _WIN32
 #include <winsock2.h>
+#else
+#ifdef __FreeBSD__
+#include <netinet/in.h>
+#else
+#include <arpa/inet.h>
+#endif
+#include <sys/socket.h>
 #endif
 
 namespace net {

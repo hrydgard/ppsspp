@@ -205,9 +205,6 @@
 #include <string.h>
 #include <assert.h>
 #include <math.h>
-#if !(defined(__APPLE__) || defined(MACOSX) || defined(macintosh) || defined(Macintosh))
-#include <malloc.h>
-#endif
 #else
 #define NULL 0
 #endif

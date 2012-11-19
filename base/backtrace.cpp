@@ -1,6 +1,6 @@
 #include "base/backtrace.h"
 
-#ifndef _MSC_VER
+#ifdef __linux__
 
 // LINUX ONLY
 

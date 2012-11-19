@@ -17,6 +17,10 @@
 #include "base/basictypes.h"
 #include "file/file_util.h"
 
+#ifdef __FreeBSD__
+#define stat64 stat
+#endif
+
 bool writeStringToFile(bool text_file, const std::string &str, const char *filename)
 {
 	FILE *f = fopen(filename, text_file ? "w" : "wb");
