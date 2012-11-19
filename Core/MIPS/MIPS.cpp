@@ -22,6 +22,7 @@
 #include "MIPSVFPUUtils.h"
 #include "../System.h"
 #include "../Debugger/Breakpoints.h"
+#include "../HLE/sceDisplay.h"
 
 #if defined(ANDROID) || defined(BLACKBERRY)
 #include "ARM/JitCache.h"
@@ -105,7 +106,8 @@ void MIPSState::SingleStep()
 	CoreTiming::Advance();
 }
 
-void MIPSState::RunLoopUntil(u64 globalTicks)
+// returns 1 if reached ticks limit
+int MIPSState::RunLoopUntil(u64 globalTicks)
 {
 	// Don't subvert this by setting useJIT to true - other places also check the coreparameter
 	bool useJIT = PSP_CoreParameter().cpuCore == CPU_JIT;
@@ -189,19 +191,21 @@ void MIPSState::RunLoopUntil(u64 globalTicks)
 				CoreTiming::downcount -= 1;
 				if (CoreTiming::GetTicks() > globalTicks)
 				{
-					DEBUG_LOG(CPU, "Hit the max ticks, bailing : %llu, %llu", globalTicks, CoreTiming::GetTicks());
-					break;
+					// DEBUG_LOG(CPU, "Hit the max ticks, bailing 1 : %llu, %llu", globalTicks, CoreTiming::GetTicks());
+					return 1;
 				}
+#ifndef _WIN32   // Windows simply keeps running and control the refresh from sceDisplay
+				if (__DisplayFrameDone()) {
+					// End of frame! Need to quit the CPU loop temporarily.
+					return 0;
+				}
+#endif
 			}
 
 			CoreTiming::Advance();
-			if (CoreTiming::GetTicks() > globalTicks)
-			{
-				DEBUG_LOG(CPU, "Hit the max ticks, bailing : %llu, %llu", globalTicks, CoreTiming::GetTicks());
-				break;
-			}
 		}
 	}
+	return 1;
 }
 
 void MIPSState::WriteFCR(int reg, int value)

@@ -60,14 +60,16 @@ static int hCount = 0;
 static int hCountTotal = 0; //unused
 static int vCount = 0;
 static int isVblank = 0;
+
+static bool frameDone;
 // STATE END
-	
+
 // The vblank period is 731.5 us (0.7315 ms)
 const double vblankMs = 0.7315;
 const double frameMs = 1000.0 / 60.0;
 
 enum {
-	PSP_DISPLAY_SETBUF_IMMEDIATE = 0, 
+	PSP_DISPLAY_SETBUF_IMMEDIATE = 0,
 	PSP_DISPLAY_SETBUF_NEXTFRAME = 1
 };
 
@@ -85,6 +87,7 @@ void hleLeaveVblank(u64 userdata, int cyclesLate);
 void __DisplayInit()
 {
 	framebufIsLatched = false;
+	frameDone = false;
 	framebuf.topaddr = 0x04000000;
 	framebuf.pspframebuf = Memory::GetPointer(0x04000000);
 	framebuf.pspFramebufFormat = PSP_DISPLAY_PIXEL_FORMAT_8888;
@@ -103,6 +106,14 @@ void __DisplayInit()
 void __DisplayShutdown()
 {
 	ShutdownGfxState();
+}
+
+// will return true once after every end-of-frame.
+bool __DisplayFrameDone()
+{
+	bool retVal = frameDone;
+	frameDone = false;
+	return retVal;
 }
 
 void hleEnterVblank(u64 userdata, int cyclesLate)
@@ -149,7 +160,6 @@ void hleEnterVblank(u64 userdata, int cyclesLate)
 	// an initial hack could be to NOT end the frame if the buffer didn't change? that should work okay.
 	{
 		host->EndFrame();
-
 		host->BeginFrame();
 		if (g_Config.bDisplayFramebuffer)
 		{
@@ -161,7 +171,8 @@ void hleEnterVblank(u64 userdata, int cyclesLate)
 		shaderManager.DirtyUniform(DIRTY_ALL);
 	}
 
-	// TODO: Find a way to tell the CPU core to stop emulating here, when running on Android.
+	// Tell the emu core that it's time to stop emulating
+	frameDone = true;
 }
 
 

@@ -145,9 +145,17 @@ void EmuScreen::render()
 	// I think we need to allocate FBOs per framebuffer and just blit the displayed one here at the end of the frame.
 	// Also - we should add another option to the core that lets us run it until a vblank event happens or the N cycles have passed
 	// - then the synchronization would at least not be able to drift off.
-	u64 nowTicks = CoreTiming::GetTicks();
-	u64 frameTicks = usToCycles(1000000 / 60);
-	mipsr4k.RunLoopUntil(nowTicks + frameTicks);  // should really be relative to the last frame but whatever
+	int retval = 1;
+
+	// Let's do 120 "blocks" per second just to try it
+	int blockTicks = usToCycles(1000000 / 120);
+
+	while (retval == 1) {
+		u64 nowTicks = CoreTiming::GetTicks();
+		retval = mipsr4k.RunLoopUntil(nowTicks + blockTicks);
+		// If exited because of cycles, try again.
+		// If exited because of end of frame, great!
+	}
 
 	//if (hasRendered)
 	{

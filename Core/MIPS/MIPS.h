@@ -143,7 +143,7 @@ public:
 	void Abort();
 
 	void SingleStep();
-	void RunLoopUntil(u64 globalTicks);
+	int RunLoopUntil(u64 globalTicks);
 };
 
 

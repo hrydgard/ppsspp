@@ -20,3 +20,6 @@
 void __DisplayInit();
 
 void Register_sceDisplay();
+
+// will return true once after every end-of-frame.
+bool __DisplayFrameDone();
