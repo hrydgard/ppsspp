@@ -59,8 +59,16 @@ struct Semaphore : public KernelObject
 
 	NativeSemaphore ns;
 	std::vector<SceUID> waitingThreads;
-	int waitTimer;
 };
+
+bool semaInitComplete = false;
+int semaWaitTimer = 0;
+
+void __KernelSemaInit()
+{
+	semaWaitTimer = CoreTiming::RegisterEvent("SemaphoreTimeout", &__KernelSemaTimeout);
+	semaInitComplete = true;
+}
 
 // Resume all waiting threads (for delete / cancel.)
 // Returns true if it woke any threads.
@@ -76,20 +84,17 @@ bool __KernelClearSemaThreads(Semaphore *s, int reason)
 
 		u32 error;
 		u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
-		if (timeoutPtr != 0 && s->waitTimer != 0)
+		if (timeoutPtr != 0 && semaWaitTimer != 0)
 		{
 			// Remove any event for this thread.
-			int cyclesLeft = CoreTiming::UnscheduleEvent(s->waitTimer, threadID);
+			int cyclesLeft = CoreTiming::UnscheduleEvent(semaWaitTimer, threadID);
 			Memory::Write_U32(cyclesToUs(cyclesLeft), timeoutPtr);
 		}
 
 		__KernelResumeThreadFromWait(threadID, reason);
 		wokeThreads = true;
-		// TODO: set timeoutPtr.
 	}
 	s->waitingThreads.empty();
-
-	// TODO: Any way to erase the CoreTiming event type?  We leak.
 
 	return wokeThreads;
 }
@@ -139,6 +144,9 @@ void sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr)
 // void because it changes threads.
 void sceKernelCreateSema(const char* name, u32 attr, int initVal, int maxVal, u32 optionPtr)
 {
+	if (!semaInitComplete)
+		__KernelSemaInit();
+
 	if (!name)
 	{
 		RETURN(SCE_KERNEL_ERROR_ERROR);
@@ -156,7 +164,6 @@ void sceKernelCreateSema(const char* name, u32 attr, int initVal, int maxVal, u3
 	s->ns.currentCount = s->ns.initCount;
 	s->ns.maxCount = maxVal;
 	s->ns.numWaitThreads = 0;
-	s->waitTimer = 0;
 
 	DEBUG_LOG(HLE,"%i=sceKernelCreateSema(%s, %08x, %i, %i, %08x)", id, s->ns.name, s->ns.attr, s->ns.initCount, s->ns.maxCount, optionPtr);
 
@@ -247,10 +254,10 @@ retry:
 				s->ns.currentCount -= wVal;
 				s->ns.numWaitThreads--;
 
-				if (timeoutPtr != 0 && s->waitTimer != 0)
+				if (timeoutPtr != 0 && semaWaitTimer != 0)
 				{
 					// Remove any event for this thread.
-					int cyclesLeft = CoreTiming::UnscheduleEvent(s->waitTimer, threadID);
+					int cyclesLeft = CoreTiming::UnscheduleEvent(semaWaitTimer, threadID);
 					Memory::Write_U32(cyclesToUs(cyclesLeft), timeoutPtr);
 				}
 
@@ -297,15 +304,12 @@ void __KernelSemaTimeout(u64 userdata, int cycleslate)
 
 void __KernelSetSemaTimeout(Semaphore *s, u32 timeoutPtr)
 {
-	if (timeoutPtr == 0)
+	if (timeoutPtr == 0 || semaWaitTimer == 0)
 		return;
-
-	if (s->waitTimer == 0)
-		s->waitTimer = CoreTiming::RegisterEvent("SemaphoreTimeout", &__KernelSemaTimeout);
 
 	// This should call __KernelMutexTimeout() later, unless we cancel it.
 	int micro = (int) Memory::Read_U32(timeoutPtr);
-	CoreTiming::ScheduleEvent(usToCycles(micro), s->waitTimer, __KernelGetCurThread());
+	CoreTiming::ScheduleEvent(usToCycles(micro), semaWaitTimer, __KernelGetCurThread());
 }
 
 void __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, const char *badSemaMessage, bool processCallbacks)

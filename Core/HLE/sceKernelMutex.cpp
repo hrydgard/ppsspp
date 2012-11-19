@@ -57,7 +57,6 @@ struct Mutex : public KernelObject
 	int GetIDType() const { return SCE_KERNEL_TMID_Mutex; }
 	NativeMutex nm;
 	std::vector<SceUID> waitingThreads;
-	int waitTimer;
 };
 
 // Guesswork - not exposed anyway
@@ -99,11 +98,25 @@ struct LwMutex : public KernelObject
 	int GetIDType() const { return SCE_KERNEL_TMID_LwMutex; }
 	NativeLwMutex nm;
 	std::vector<SceUID> waitingThreads;
-	int waitTimer;
 };
+
+bool mutexInitComplete = false;
+int mutexWaitTimer = 0;
+int lwMutexWaitTimer = 0;
+
+void __KernelMutexInit()
+{
+	mutexWaitTimer = CoreTiming::RegisterEvent("MutexTimeout", &__KernelMutexTimeout);
+	// TODO: Write / enable.
+	//lwMutexWaitTimer = CoreTiming::RegisterEvent("LwMutexTimeout", &__KernelLwMutexTimeout);
+	mutexInitComplete = true;
+}
 
 void sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optionsPtr)
 {
+	if (!mutexInitComplete)
+		__KernelMutexInit();
+
 	u32 error = 0;
 	if (!name)
 		error = SCE_KERNEL_ERROR_ERROR;
@@ -132,7 +145,6 @@ void sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 opti
 		mutex->nm.lockThread = -1;
 	else
 		mutex->nm.lockThread = __KernelGetCurThread();
-	mutex->waitTimer = 0;
 
 	if (optionsPtr != 0)
 		WARN_LOG(HLE,"sceKernelCreateMutex(%s) unsupported options parameter.", name);
@@ -155,18 +167,16 @@ void sceKernelDeleteMutex(SceUID id)
 			SceUID threadID = *iter;
 
 			u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
-			if (timeoutPtr != 0 && mutex->waitTimer != 0)
+			if (timeoutPtr != 0 && mutexWaitTimer != 0)
 			{
 				// Remove any event for this thread.
-				int cyclesLeft = CoreTiming::UnscheduleEvent(mutex->waitTimer, threadID);
+				int cyclesLeft = CoreTiming::UnscheduleEvent(mutexWaitTimer, threadID);
 				Memory::Write_U32(cyclesToUs(cyclesLeft), timeoutPtr);
 			}
 
 			__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_DELETE);
 		}
 		mutex->waitingThreads.empty();
-
-		// TODO: Any way to erase the CoreTiming event type?  We leak.
 
 		RETURN(kernelObjects.Destroy<Mutex>(id));
 		__KernelReSchedule("mutex deleted");
@@ -231,15 +241,12 @@ void __KernelMutexTimeout(u64 userdata, int cyclesLate)
 
 void __KernelWaitMutex(Mutex *mutex, u32 timeoutPtr)
 {
-	if (timeoutPtr == 0)
+	if (timeoutPtr == 0 || mutexWaitTimer == 0)
 		return;
-
-	if (mutex->waitTimer == 0)
-		mutex->waitTimer = CoreTiming::RegisterEvent("MutexTimeout", &__KernelMutexTimeout);
 
 	// This should call __KernelMutexTimeout() later, unless we cancel it.
 	int micro = (int) Memory::Read_U32(timeoutPtr);
-	CoreTiming::ScheduleEvent(usToCycles(micro), mutex->waitTimer, __KernelGetCurThread());
+	CoreTiming::ScheduleEvent(usToCycles(micro), mutexWaitTimer, __KernelGetCurThread());
 }
 
 // int sceKernelLockMutex(SceUID id, int count, int *timeout)
@@ -356,10 +363,10 @@ void sceKernelUnlockMutex(SceUID id, int count)
 			mutex->nm.lockThread = threadID;
 			mutex->nm.lockLevel = wVal;
 
-			if (timeoutPtr != 0 && mutex->waitTimer != 0)
+			if (timeoutPtr != 0 && mutexWaitTimer != 0)
 			{
 				// Remove any event for this thread.
-				int cyclesLeft = CoreTiming::UnscheduleEvent(mutex->waitTimer, threadID);
+				int cyclesLeft = CoreTiming::UnscheduleEvent(mutexWaitTimer, threadID);
 				Memory::Write_U32(cyclesToUs(cyclesLeft), timeoutPtr);
 			}
 
@@ -375,6 +382,9 @@ void sceKernelUnlockMutex(SceUID id, int count)
 
 void sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int initialCount, u32 optionsPtr)
 {
+	if (!mutexInitComplete)
+		__KernelMutexInit();
+
 	DEBUG_LOG(HLE,"sceKernelCreateLwMutex(%08x, %s, %08x, %d, %08x)", workareaPtr, name, attr, initialCount, optionsPtr);
 
 	u32 error = 0;
@@ -398,7 +408,6 @@ void sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int ini
 	mutex->nm.name[31] = 0;
 	mutex->nm.attr = attr;
 	mutex->nm.workareaPtr = workareaPtr;
-	mutex->waitTimer = 0;
 
 	NativeLwMutexWorkarea workarea;
 	workarea.init();
@@ -443,18 +452,16 @@ void sceKernelDeleteLwMutex(u32 workareaPtr)
 			SceUID threadID = *iter;
 
 			u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
-			if (timeoutPtr != 0 && mutex->waitTimer != 0)
+			if (timeoutPtr != 0 && lwMutexWaitTimer != 0)
 			{
 				// Remove any event for this thread.
-				int cyclesLeft = CoreTiming::UnscheduleEvent(mutex->waitTimer, threadID);
+				int cyclesLeft = CoreTiming::UnscheduleEvent(lwMutexWaitTimer, threadID);
 				Memory::Write_U32(cyclesToUs(cyclesLeft), timeoutPtr);
 			}
 
 			__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_DELETE);
 		}
 		mutex->waitingThreads.empty();
-
-		// TODO: Any way to erase the CoreTiming event type?  We leak.
 
 		RETURN(kernelObjects.Destroy<LwMutex>(workarea.uid));
 		workarea.clear();
