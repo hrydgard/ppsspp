@@ -44,8 +44,6 @@
 #include "Asm.h"
 // #include "JitBase.h"
 
-#include "x86Disasm.h"
-
 #if defined USE_OPROFILE && USE_OPROFILE
 #include <opagent.h>
 
@@ -265,24 +263,6 @@ u32 JitBlockCache::GetOriginalFirstOp(int block_num)
 CompiledCode JitBlockCache::GetCompiledCodeFromBlock(int block_num)
 {		
 	return (CompiledCode)blockCodePointers[block_num];
-}
-
-std::string JitBlockCache::GetCompiledDisassembly(int block_num)
-{
-#ifndef __APPLE__
-	std::string buf;
-	const u8 *ptr = blockCodePointers[block_num];
-
-	while (ptr < blockCodePointers[block_num] + blocks[block_num].codeSize)
-	{
-		int len;
-		buf += std::string(disasmx86((unsigned char*)ptr, 0, &len)) + "\n";
-		ptr += len;
-	}
-	return buf;
-#else
-	return "disasm not available";
-#endif
 }
 
 

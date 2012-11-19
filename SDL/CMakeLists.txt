@@ -71,7 +71,7 @@ add_subdirectory(../Common Common)
 add_subdirectory(../GPU GPU)
 add_subdirectory(../Core Core)
 
-set(LIBS ${LIBS} ${SDL_LIBRARY} ${PNG_LIBRARY} z gfx gfx_es2 image stb_image mixer net ui profiler timeutil file zip base lin vjson stb_vorbis sha1 jsonwriter common core gpu kirk)
+set(LIBS ${LIBS} ${SDL_LIBRARY} ${PNG_LIBRARY} z gfx gfx_es2 mixer net ui profiler timeutil file zip base lin vjson stb_vorbis sha1 jsonwriter core common gpu kirk image stb_image)
 
 if(BLACKBERRY)
 	set(LIBS ${LIBS} bps screen socket EGL GLESv2)
