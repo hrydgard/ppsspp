@@ -68,7 +68,7 @@ enum WaitType //probably not the real values
 	WAITTYPE_AUDIOCHANNEL = 10, // this is fake, should be replaced with 8 eventflags   ( ?? )
 	WAITTYPE_UMD = 11,           // this is fake, should be replaced with 1 eventflag    ( ?? )
 	WAITTYPE_VBLANK = 12,           // fake
-  WAITTYPE_MUTEX = 13,
+	WAITTYPE_MUTEX = 13,
 };
 
 
@@ -103,9 +103,10 @@ void __KernelLoadContext(ThreadContext *ctx);
 // TODO: Replace this with __KernelResumeThread over time as it's misguided.
 bool __KernelTriggerWait(WaitType type, int id, bool dontSwitch = false);
 u32 __KernelResumeThreadFromWait(SceUID threadID); // can return an error value
+u32 __KernelResumeThreadFromWait(SceUID threadID, int retval);
 
 u32 __KernelGetWaitValue(SceUID threadID, u32 &error);
-void __KernelWaitCurThread(WaitType type, SceUID waitId, u32 waitValue, int timeout, bool processCallbacks);
+void __KernelWaitCurThread(WaitType type, SceUID waitId, u32 waitValue, u32 timeoutPtr, bool processCallbacks);
 void __KernelReSchedule(const char *reason = "no reason");
 void __KernelReSchedule(bool doCallbacks, const char *reason);
 

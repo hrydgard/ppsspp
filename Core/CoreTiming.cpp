@@ -249,6 +249,43 @@ void ScheduleEvent(int cyclesIntoFuture, int event_type, u64 userdata)
 	AddEventToQueue(ne);
 }
 
+void UnscheduleEvent(int event_type, u64 userdata)
+{
+	if (!first)
+		return;
+	while(first)
+	{
+		if (first->type == event_type && first->userdata == userdata)
+		{
+			Event *next = first->next;
+			FreeEvent(first);
+			first = next;
+		}
+		else
+		{
+			break;
+		}
+	}
+	if (!first)
+		return;
+	Event *prev = first;
+	Event *ptr = prev->next;
+	while (ptr)
+	{
+		if (ptr->type == event_type && ptr->userdata == userdata)
+		{
+			prev->next = ptr->next;
+			FreeEvent(ptr);
+			ptr = prev->next;
+		}
+		else
+		{
+			prev = ptr;
+			ptr = ptr->next;
+		}
+	}
+}
+
 void RegisterAdvanceCallback(void (*callback)(int cyclesExecuted))
 {
 	advanceCallback = callback;

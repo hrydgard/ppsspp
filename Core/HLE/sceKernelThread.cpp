@@ -159,6 +159,7 @@ struct NativeThread
 
 struct ThreadWaitInfo {
 	u32 waitValue;
+	u32 timeoutPtr;
 };
 
 class Thread : public KernelObject
@@ -512,6 +513,50 @@ void __KernelLoadContext(ThreadContext *ctx)
   // currentMIPS->fcr31 = ctx->fcr31;
 }
 
+void __KernelResumeThreadFromWait(Thread *t)
+{
+	t->nt.status &= ~THREADSTATUS_WAIT;
+	// TODO: What if DORMANT or DEAD?
+	if (!(t->nt.status & THREADSTATUS_WAITSUSPEND))
+		t->nt.status = THREADSTATUS_READY;
+
+	// Non-waiting threads do not process callbacks.
+	t->isProcessingCallbacks = false;
+}
+
+u32 __KernelResumeThreadFromWait(SceUID threadID)
+{
+	u32 error;
+	Thread *t = kernelObjects.Get<Thread>(threadID, error);
+	if (t)
+	{
+		__KernelResumeThreadFromWait(t);
+		return 0;
+	}
+	else
+	{
+		ERROR_LOG(HLE, "__KernelResumeThreadFromWait(%d): bad thread: %08x", threadID, error);
+		return error;
+	}
+}
+
+u32 __KernelResumeThreadFromWait(SceUID threadID, int retval)
+{
+	u32 error;
+	Thread *t = kernelObjects.Get<Thread>(threadID, error);
+	if (t)
+	{
+		__KernelResumeThreadFromWait(t);
+		t->setReturnValue(retval);
+		return 0;
+	}
+	else
+	{
+		ERROR_LOG(HLE, "__KernelResumeThreadFromWait(%d): bad thread: %08x", threadID, error);
+		return error;
+	}
+}
+
 // DANGEROUS
 // Only run when you can safely accept a context switch
 // Triggers a waitable event, that is, it wakes up all threads that waits for it
@@ -527,69 +572,41 @@ bool __KernelTriggerWait(WaitType type, int id, bool dontSwitch)
 		{
 			if (t->nt.waitType == type && t->nt.waitID == id)
 			{
-				// This threads is waiting for the triggered object
-				t->nt.status &= ~THREADSTATUS_WAIT;
-				if (t->nt.status == 0)
-        {
-					t->nt.status = THREADSTATUS_READY;
-        }
-				// Non-waiting threads do not process callbacks.
-				t->isProcessingCallbacks = false;
+				// This thread was waiting for the triggered object.
+				__KernelResumeThreadFromWait(t);
 				doneAnything = true;
 			}
 		}
 	}
 
-//  if (doneAnything)     // lumines?
-  {
-    if (!dontSwitch)
-    {
-      // TODO: time waster
-      char temp[256];
-      sprintf(temp, "resumed from wait %s", waitTypeStrings[(int)type]);
-      __KernelReSchedule(temp);
-    }
-  }
+//	if (doneAnything)     // lumines?
+	{
+		if (!dontSwitch)
+		{
+			// TODO: time waster
+			char temp[256];
+			sprintf(temp, "resumed from wait %s", waitTypeStrings[(int)type]);
+			__KernelReSchedule(temp);
+		}
+	}
 	return true;
 }
 
-u32 __KernelResumeThreadFromWait(SceUID threadID)
-{
-  u32 error;
-  Thread *t = kernelObjects.Get<Thread>(threadID, error);
-  if (t)
-  {
-    t->nt.status &= ~THREADSTATUS_WAIT;
-    if (!(t->nt.status & (THREADSTATUS_SUSPEND | THREADSTATUS_WAIT)))
-      t->nt.status |= THREADSTATUS_READY;
-		t->isProcessingCallbacks = false;
-    return 0;
-  }
-  else
-  {
-    ERROR_LOG(HLE, "__KernelResumeThreadFromWait(%d): bad thread: %08x", threadID, error);
-    return error;
-  }
-}
-
 // makes the current thread wait for an event
-void __KernelWaitCurThread(WaitType type, SceUID waitID, u32 waitValue, int timeout, bool processCallbacks)
+void __KernelWaitCurThread(WaitType type, SceUID waitID, u32 waitValue, u32 timeoutPtr, bool processCallbacks)
 {
 	currentThread->nt.waitID = waitID;
 	currentThread->nt.waitType = type;
 	__KernelChangeThreadState(currentThread, THREADSTATUS_WAIT);
 	currentThread->nt.numReleases++;
 	currentThread->waitInfo.waitValue = waitValue;
-  if (timeout)
-  {
-    // TODO:
-  }
+	currentThread->waitInfo.timeoutPtr = timeoutPtr;
 
 	RETURN(0); //pretend all went OK
 
-  // TODO: time waster
-  char temp[256];
-  sprintf(temp, "started wait %s", waitTypeStrings[(int)type]);
+	// TODO: time waster
+	char temp[256];
+	sprintf(temp, "started wait %s", waitTypeStrings[(int)type]);
   
 	__KernelReSchedule(processCallbacks, temp);
 	// TODO: Remove thread from Ready queue?

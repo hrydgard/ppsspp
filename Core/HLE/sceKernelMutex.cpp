@@ -19,6 +19,7 @@
 
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
+#include "../../Core/CoreTiming.h"
 #include "sceKernel.h"
 #include "sceKernelMutex.h"
 #include "sceKernelThread.h"
@@ -55,6 +56,7 @@ struct Mutex : public KernelObject
 	int GetIDType() const { return SCE_KERNEL_TMID_Mutex; }
 	NativeMutex nm;
 	std::vector<SceUID> waitingThreads;
+	int waitTimer;
 };
 
 struct LWMutex : public KernelObject
@@ -97,6 +99,7 @@ void sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 opti
 		mutex->nm.lockThread = -1;
 	else
 		mutex->nm.lockThread = __KernelGetCurThread();
+	mutex->waitTimer = 0;
 
 	if (optionsPtr != 0)
 		WARN_LOG(HLE,"sceKernelCreateMutex(%s) unsupported options parameter.", name);
@@ -113,13 +116,19 @@ void sceKernelDeleteMutex(SceUID id)
 	Mutex *mutex = kernelObjects.Get<Mutex>(id, error);
 	if (mutex)
 	{
+		// Kill the timer, they're waking up now.
+		if (mutex->waitTimer != 0)
+		{
+			CoreTiming::RemoveEvent(mutex->waitTimer);
+			mutex->waitTimer = 0;
+		}
+
 		std::vector<SceUID>::iterator iter, end;
 		for (iter = mutex->waitingThreads.begin(), end = mutex->waitingThreads.end(); iter != end; ++iter)
 		{
 			SceUID threadID = *iter;
-
-			// TODO: Set returnValue?
-			__KernelResumeThreadFromWait(threadID);
+			__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_DELETE);
+			// TODO: set timeoutPtr.
 		}
 		mutex->waitingThreads.empty();
 
@@ -172,6 +181,23 @@ bool __KernelLockMutex(Mutex *mutex, int count, u32 &error)
 	return false;
 }
 
+void __KernelMutexTimeout(u64 userdata, int cyclesLate)
+{
+	SceUID threadID = (SceUID)userdata;
+	// TODO: set timeoutPtr.
+	__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
+}
+
+void __kernelWaitMutex(Mutex *mutex, u32 timeoutPtr)
+{
+	if (mutex->waitTimer == 0)
+		mutex->waitTimer = CoreTiming::RegisterEvent("ScheduledTimeout", &__KernelMutexTimeout);
+
+	// This should call __KernelMutexTimeout() later, unless we cancel it.
+	int milliseconds = (int) Memory::Read_U32(timeoutPtr);
+	CoreTiming::ScheduleEvent(msToCycles(milliseconds), mutex->waitTimer, __KernelGetCurThread());
+}
+
 // int sceKernelLockMutex(SceUID id, int count, int *timeout)
 // void because it changes threads.
 void sceKernelLockMutex(SceUID id, int count, u32 timeoutPtr)
@@ -190,7 +216,8 @@ void sceKernelLockMutex(SceUID id, int count, u32 timeoutPtr)
 	else
 	{
 		mutex->waitingThreads.push_back(__KernelGetCurThread());
-		__KernelWaitCurThread(WAITTYPE_MUTEX, id, count, 0, false);
+		__kernelWaitMutex(mutex, timeoutPtr);
+		__KernelWaitCurThread(WAITTYPE_MUTEX, id, count, timeoutPtr, false);
 	}
 }
 
@@ -212,7 +239,8 @@ void sceKernelLockMutexCB(SceUID id, int count, u32 timeoutPtr)
 	else
 	{
 		mutex->waitingThreads.push_back(__KernelGetCurThread());
-		__KernelWaitCurThread(WAITTYPE_MUTEX, id, count, 0, true);
+		__kernelWaitMutex(mutex, timeoutPtr);
+		__KernelWaitCurThread(WAITTYPE_MUTEX, id, count, timeoutPtr, true);
 		__KernelCheckCallbacks();
 	}
 
@@ -277,12 +305,18 @@ void sceKernelUnlockMutex(SceUID id, int count)
 		for (iter = mutex->waitingThreads.begin(), end = mutex->waitingThreads.end(); iter != end; ++iter)
 		{
 			SceUID threadID = *iter;
+
 			int wVal = (int)__KernelGetWaitValue(threadID, error);
 
 			mutex->nm.lockThread = threadID;
 			mutex->nm.lockLevel = wVal;
 
-			__KernelResumeThreadFromWait(threadID);
+			// Remove any event for this thread.
+			// TODO: Only if timeoutPtr?
+			if (mutex->waitTimer != 0)
+				CoreTiming::UnscheduleEvent(mutex->waitTimer, threadID);
+
+			__KernelResumeThreadFromWait(threadID, 0);
 			wokeThreads = true;
 			mutex->waitingThreads.erase(iter);
 			break;
