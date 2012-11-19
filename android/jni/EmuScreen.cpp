@@ -47,7 +47,11 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true)
 	INFO_LOG(BOOT, "Starting up hardware.");
 
 	CoreParameter coreParam;
+#if defined(ANDROID) || defined(BLACKBERRY)
 	coreParam.cpuCore = CPU_INTERPRETER;
+#else
+	coreParam.cpuCore = g_Config.bJIT ? CPU_JIT : CPU_INTERPRETER;
+#endif
 	coreParam.gpuCore = GPU_GLES;
 	coreParam.enableSound = g_Config.bEnableSound;
 	coreParam.fileToStart = fileToStart;
@@ -150,11 +154,15 @@ void EmuScreen::render()
 	// Let's do 120 "blocks" per second just to try it
 	int blockTicks = usToCycles(1000000 / 120);
 
-	while (retval == 1) {
+	// Run until CORE_NEXTFRAME
+	while (coreState == CORE_RUNNING) {
 		u64 nowTicks = CoreTiming::GetTicks();
 		retval = mipsr4k.RunLoopUntil(nowTicks + blockTicks);
-		// If exited because of cycles, try again.
-		// If exited because of end of frame, great!
+	}
+	// Hopefully coreState is now CORE_NEXTFRAME
+	if (coreState == CORE_NEXTFRAME) {
+		// set back to running for the next frame
+		coreState = CORE_RUNNING;
 	}
 
 	//if (hasRendered)

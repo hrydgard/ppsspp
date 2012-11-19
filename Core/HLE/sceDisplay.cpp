@@ -25,6 +25,7 @@
 #include "sceAudio.h"
 #include "../Host.h"
 #include "../Config.h"
+#include "../Core/Core.h"
 #include "sceDisplay.h"
 #include "sceKernel.h"
 #include "sceKernelThread.h"
@@ -61,7 +62,6 @@ static int hCountTotal = 0; //unused
 static int vCount = 0;
 static int isVblank = 0;
 
-static bool frameDone;
 // STATE END
 
 // The vblank period is 731.5 us (0.7315 ms)
@@ -87,7 +87,6 @@ void hleLeaveVblank(u64 userdata, int cyclesLate);
 void __DisplayInit()
 {
 	framebufIsLatched = false;
-	frameDone = false;
 	framebuf.topaddr = 0x04000000;
 	framebuf.pspframebuf = Memory::GetPointer(0x04000000);
 	framebuf.pspFramebufFormat = PSP_DISPLAY_PIXEL_FORMAT_8888;
@@ -108,14 +107,6 @@ void __DisplayShutdown()
 	ShutdownGfxState();
 }
 
-// will return true once after every end-of-frame.
-bool __DisplayFrameDone()
-{
-	bool retVal = frameDone;
-	frameDone = false;
-	return retVal;
-}
-
 void hleEnterVblank(u64 userdata, int cyclesLate)
 {
 	int vbCount = userdata;
@@ -133,7 +124,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate)
 	CoreTiming::ScheduleEvent(msToCycles(vblankMs) - cyclesLate, leaveVblankEvent, vbCount+1);
 
 	// TODO: Should this be done here or in hleLeaveVblank?
-	if (framebufIsLatched) 
+	if (framebufIsLatched)
 	{
 		DEBUG_LOG(HLE, "Setting latched framebuffer %08x (prev: %08x)", latchedFramebuf.topaddr, framebuf.topaddr);
 		framebuf = latchedFramebuf;
@@ -141,7 +132,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate)
 	}
 
 	// Draw screen overlays before blitting. Saves and restores the Ge context.
-	
+
 	/*
 	if (g_Config.bShowGPUStats)
 	{
@@ -172,7 +163,10 @@ void hleEnterVblank(u64 userdata, int cyclesLate)
 	}
 
 	// Tell the emu core that it's time to stop emulating
-	frameDone = true;
+	// Win32 doesn't need this.
+#ifndef _WIN32
+	coreState = CORE_NEXTFRAME;
+#endif
 }
 
 

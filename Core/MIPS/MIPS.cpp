@@ -109,13 +109,7 @@ void MIPSState::SingleStep()
 // returns 1 if reached ticks limit
 int MIPSState::RunLoopUntil(u64 globalTicks)
 {
-	// Don't subvert this by setting useJIT to true - other places also check the coreparameter
-	bool useJIT = PSP_CoreParameter().cpuCore == CPU_JIT;
-#if defined(ANDROID) || defined(BLACKBERRY)
-	useJIT = false;
-#endif
-
-	if (useJIT)
+	if (PSP_CoreParameter().cpuCore == CPU_JIT)
 	{
 		MIPSComp::jit->RunLoopUntil(globalTicks);
 	}
@@ -194,12 +188,6 @@ int MIPSState::RunLoopUntil(u64 globalTicks)
 					// DEBUG_LOG(CPU, "Hit the max ticks, bailing 1 : %llu, %llu", globalTicks, CoreTiming::GetTicks());
 					return 1;
 				}
-#ifndef _WIN32   // Windows simply keeps running and control the refresh from sceDisplay
-				if (__DisplayFrameDone()) {
-					// End of frame! Need to quit the CPU loop temporarily.
-					return 0;
-				}
-#endif
 			}
 
 			CoreTiming::Advance();
