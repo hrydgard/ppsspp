@@ -397,6 +397,12 @@
     <ClCompile Include="math\curves.cpp">
       <Filter>math</Filter>
     </ClCompile>
+    <ClCompile Include="base\PCMain.cpp">
+      <Filter>base</Filter>
+    </ClCompile>
+    <ClCompile Include="base\BlackberryMain.cpp">
+      <Filter>base</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="gfx">
