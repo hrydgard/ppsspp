@@ -93,7 +93,13 @@ void sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 opti
 	mutex->nm.name[31] = 0;
 	mutex->nm.attr = attr;
 	mutex->nm.lockLevel = initialCount;
-	mutex->nm.lockThread = __KernelGetCurThread();
+	if (mutex->nm.lockLevel == 0)
+		mutex->nm.lockThread = -1;
+	else
+		mutex->nm.lockThread = __KernelGetCurThread();
+
+	if (optionsPtr != 0)
+		WARN_LOG(HLE,"sceKernelCreateMutex(%s) unsupported options parameter.", name);
 
 	RETURN(id);
 
