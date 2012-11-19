@@ -829,12 +829,10 @@ void sceKernelCreateThread()
 }
 
 
-u32 sceKernelStartThread()
+// int sceKernelStartThread(SceUID threadToStartID, SceSize argSize, void *argBlock)
+// void because it reschedules.
+void sceKernelStartThread(SceUID threadToStartID, u32 argSize, u32 argBlockPtr)
 {
-	int threadToStartID = PARAM(0);
-	u32 argSize = PARAM(1);
-	u32 argBlockPtr = PARAM(2);
-
 	if (threadToStartID != currentThread->GetUID())
 	{
 		u32 error;
@@ -843,13 +841,15 @@ u32 sceKernelStartThread()
 		{
 			ERROR_LOG(HLE,"%08x=sceKernelStartThread(thread=%i, argSize=%i, argPtr= %08x): thread does not exist!",
 				error,threadToStartID,argSize,argBlockPtr)
-			return error;
+			RETURN(error);
+			return;
 		}
 
 		if (startThread->nt.status != THREADSTATUS_DORMANT)
 		{
 			//Not dormant, WTF?
-			return ERROR_KERNEL_THREAD_IS_NOT_DORMANT;
+			RETURN(ERROR_KERNEL_THREAD_IS_NOT_DORMANT);
+			return;
 		}
 
 		INFO_LOG(HLE,"sceKernelStartThread(thread=%i, argSize=%i, argPtr= %08x )",
@@ -876,12 +876,14 @@ u32 sceKernelStartThread()
 		if (!argBlockPtr && argSize > 0) {
 			WARN_LOG(HLE,"sceKernelStartThread : had NULL arg");
 		}
-		return 0;
+		RETURN(0);
+
+		__KernelReSchedule("thread started");
 	}
 	else
 	{
 		ERROR_LOG(HLE,"thread %i trying to start itself", threadToStartID);
-		return -1;
+		RETURN(-1);
 	}
 }
 

@@ -35,7 +35,7 @@ void sceKernelExitThread();
 void _sceKernelExitThread();
 void sceKernelGetThreadId();
 void sceKernelGetThreadCurrentPriority();
-u32 sceKernelStartThread();
+void sceKernelStartThread(SceUID threadToStartID, u32 argSize, u32 argBlockPtr);
 u32 sceKernelSuspendDispatchThread();
 u32 sceKernelResumeDispatchThread(u32 suspended);
 void sceKernelWaitThreadEnd();
