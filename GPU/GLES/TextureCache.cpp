@@ -497,8 +497,8 @@ void PSPSetTexture()
 	if (!texaddr) return;
 
 	u8 level = 0;
-	int format = gstate.texformat & 0xF;
-	int clutformat = gstate.clutformat & 3;
+	u32 format = gstate.texformat & 0xF;
+	u32 clutformat = gstate.clutformat & 3;
 
 	DEBUG_LOG(G3D,"Texture at %08x",texaddr);
 	u8 *texptr = Memory::GetPointer(texaddr);
@@ -513,26 +513,23 @@ void PSPSetTexture()
 		bool match = true;
 		
 		//TODO: Check more texture parameters, compute real texture hash
-		if(dim != entry.dim || entry.hash != *(u32*)texptr || entry.format != format)
+		if (dim != entry.dim || entry.hash != *(u32*)texptr || entry.format != format)
 			match = false;
 
 		//TODO: Check more clut parameters, compute clut hash
-		if(match && (format >= GE_TFMT_CLUT4 && format <= GE_TFMT_CLUT32) &&
-			(entry.clutformat != clutformat ||
-		     entry.clutaddr   != GetClutAddr(clutformat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2) ||
-			 entry.cluthash   != Memory::Read_U32(entry.clutaddr)))
+		if (match && (format >= GE_TFMT_CLUT4 && format <= GE_TFMT_CLUT32) &&
+			 (entry.clutformat != clutformat ||
+				entry.clutaddr != GetClutAddr(clutformat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2) ||
+				entry.cluthash != Memory::Read_U32(entry.clutaddr))) 
 			match = false;
 
-		if (match)
-		{
+		if (match) {
 			//got one!
 			glBindTexture(GL_TEXTURE_2D, entry.texture);
 			UpdateSamplingParams();
 			DEBUG_LOG(G3D,"Texture at %08x Found in Cache, applying", texaddr);
 			return; //Done!
-		}
-		else
-		{
+		} else {
 			NOTICE_LOG(G3D,"Texture different or overwritten, reloading at %08x", texaddr);
 
 			//Damnit, got overwritten.
@@ -785,7 +782,7 @@ void PSPSetTexture()
 		} else {
 			write = (u8 *)finalBuf;
 		}
-		for (int y = 0; y < h; y++) {
+		for (u32 y = 0; y < h; y++) {
 			memmove(write, read, outRowBytes);
 			read += inRowBytes;
 			write += outRowBytes;

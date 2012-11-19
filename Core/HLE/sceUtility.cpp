@@ -82,30 +82,28 @@ enum SceUtilitySavedataType
 #define SCE_UTILITY_STATUS_SHUTDOWN 	4
 
 
-/** title, savedataTitle, detail: parts of the unencrypted SFO
-data, it contains what the VSH and standard load screen shows */
-typedef struct PspUtilitySavedataSFOParam
+// title, savedataTitle, detail: parts of the unencrypted SFO
+// data, it contains what the VSH and standard load screen shows
+struct PspUtilitySavedataSFOParam
 {
 	char title[0x80];
 	char savedataTitle[0x80];
 	char detail[0x400];
 	unsigned char parentalLevel;
 	unsigned char unknown[3];
-} PspUtilitySavedataSFOParam;
+};
 
-typedef struct PspUtilitySavedataFileData {
+struct PspUtilitySavedataFileData {
 	void *buf;
-	SceSize bufSize;
-	SceSize size;	/* ??? - why are there two sizes? */
+	SceSize bufSize;  // Size of the buffer pointed to by buf
+	SceSize size;	    // Actual file size to write / was read
 	int unknown;
-} PspUtilitySavedataFileData;
+};
 
-/** Structure to hold the parameters for the ::sceUtilitySavedataInitStart function.
-*/
-typedef struct SceUtilitySavedataParam
+// Structure to hold the parameters for the sceUtilitySavedataInitStart function.
+struct SceUtilitySavedataParam
 {
-	/** Size of the structure */
-	SceSize size;
+	SceSize size; // Size of the structure
 
 	int language;
 
@@ -115,12 +113,10 @@ typedef struct SceUtilitySavedataParam
 	int result;
 	int unknown2[4];
 
-	/** mode: 0 to load, 1 to save */
-	int mode;
+	int mode;  // 0 to load, 1 to save
 	int bind;
 
-	/** unknown13 use 0x10 */
-	int overwriteMode;
+	int overwriteMode;   // use 0x10  ?
 
 	/** gameName: name used from the game for saves, equal for all saves */
 	char gameName[16];
@@ -133,7 +129,7 @@ typedef struct SceUtilitySavedataParam
 	void *dataBuf;
 	/** size of allocated space to dataBuf */
 	SceSize dataBufSize;
-	SceSize dataSize;
+	SceSize dataSize;  // Size of the actual save data
 
 	PspUtilitySavedataSFOParam sfoParam;
 
@@ -143,17 +139,20 @@ typedef struct SceUtilitySavedataParam
 	PspUtilitySavedataFileData snd0FileData;
 
 	unsigned char unknown17[4];
-} SceUtilitySavedataParam;
-
+};
 
 
 static u32 utilityDialogState = SCE_UTILITY_STATUS_SHUTDOWN;
 
 
+u32 messageDialogAddr;
+
 
 void __UtilityInit()
 {
+	messageDialogAddr = 0;
 	utilityDialogState = SCE_UTILITY_STATUS_SHUTDOWN;
+	// Creates a directory for save on the sdcard or MemStick directory
 }
 
 
@@ -292,12 +291,15 @@ struct pspMessageDialog
 	u32 buttonPressed;	// 0=?, 1=Yes, 2=No, 3=Back
 };
 
-u32 messageDialogAddr;
-
 void sceUtilityMsgDialogInitStart()
 {
 	u32 structAddr = PARAM(0);
-	DEBUG_LOG(HLE,"FAKE sceUtilityMsgDialogInitStart(%i)", structAddr);
+	DEBUG_LOG(HLE,"sceUtilityMsgDialogInitStart(%i)", structAddr);
+	if (!Memory::IsValidAddress(structAddr))
+	{
+		RETURN(-1);
+		return;
+	}
 	messageDialogAddr = structAddr;
 	pspMessageDialog messageDialog;
 	Memory::ReadStruct(messageDialogAddr, &messageDialog);
@@ -321,7 +323,8 @@ void sceUtilityMsgDialogShutdownStart()
 
 void sceUtilityMsgDialogUpdate()
 {
-	DEBUG_LOG(HLE,"sceUtilityMsgDialogUpdate(%i)", PARAM(0));
+	int animSpeed = PARAM(0);
+	DEBUG_LOG(HLE,"sceUtilityMsgDialogUpdate(%i)", animSpeed);
 
 	switch (utilityDialogState) {
 	case SCE_UTILITY_STATUS_FINISHED:
@@ -332,6 +335,12 @@ void sceUtilityMsgDialogUpdate()
 	if (utilityDialogState != SCE_UTILITY_STATUS_RUNNING)
 	{
 		RETURN(0);
+		return;
+	}
+
+	if (!Memory::IsValidAddress(messageDialogAddr)) {
+		ERROR_LOG(HLE, "sceUtilityMsgDialogUpdate: Bad messagedialogaddr %08x", messageDialogAddr);
+		RETURN(-1);
 		return;
 	}
 	
@@ -354,7 +363,7 @@ void sceUtilityMsgDialogUpdate()
 	static u32 lastButtons = 0;
 	u32 buttons = __CtrlPeekButtons();
 
-	if (messageDialog.options & 0x10)  //yesnobutton
+	if (messageDialog.options & 0x10)  // yesnobutton
 	{
 		PPGeDrawImage(I_CROSS, 80, 220, 0, 0xFFFFFFFF);
 		PPGeDrawText("Yes", 140, 220, PPGE_ALIGN_HCENTER, 1.0f, 0xFFFFFFFF);

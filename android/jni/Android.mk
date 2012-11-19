@@ -24,8 +24,8 @@ LOCAL_MODULE := ppsspp_jni
 NATIVE := ../../native
 SRC := ../..
 
-LOCAL_CFLAGS := -DUSE_PROFILER -DGL_GLEXT_PROTOTYPES -O2 -fsigned-char -Wall -Wno-multichar -Wno-psabi -std=gnu++0x -Wno-unused-variable -fno-strict-aliasing -ffast-math
-LOCAL_CPPFLAGS := 
+LOCAL_CFLAGS := -DUSE_PROFILER -DGL_GLEXT_PROTOTYPES -O2 -fsigned-char -Wall -Wno-multichar -Wno-psabi -Wno-unused-variable -fno-strict-aliasing -ffast-math
+LOCAL_CPPFLAGS := -std=gnu++0x 
 LOCAL_C_INCLUDES := \
   $(LOCAL_PATH)/../../Common \
   $(LOCAL_PATH)/../.. \
@@ -68,7 +68,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Common/ThunkARM.cpp \
   $(SRC)/Common/Misc.cpp \
   $(SRC)/GPU/Math3D.cpp \
-  $(SRC)/GPU/GpuState.cpp \
+  $(SRC)/GPU/GPUState.cpp \
   $(SRC)/GPU/GLES/Framebuffer.cpp \
   $(SRC)/GPU/GLES/DisplayListInterpreter.cpp \
   $(SRC)/GPU/GLES/TextureCache.cpp \
@@ -89,7 +89,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/Loaders.cpp \
   $(SRC)/Core/PSPLoaders.cpp \
   $(SRC)/Core/MemMap.cpp \
-  $(SRC)/Core/MemmapFunctions.cpp \
+  $(SRC)/Core/MemMapFunctions.cpp \
   $(SRC)/Core/System.cpp \
   $(SRC)/Core/PSPMixer.cpp \
   $(SRC)/Core/Debugger/Breakpoints.cpp \

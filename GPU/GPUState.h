@@ -234,14 +234,12 @@ struct GPUgstate
 	float tgenMatrix[12];
 	float boneMatrix[8*12];
 };
+// Real data in the context ends here
 
+// The rest is cached simplified/converted data for fast access.
+// Does not need to be saved when saving/restoring context.
 struct GPUStateCache
 {
-	// Real data in the context ends here
-	// The rest is cached simplified/converted data for fast access.
-	// What we have here still fits into 512 words, but just barely so we should
-	// in the future just recompute the below on an sceGeRestoreContext().
-
 	u32 vertexAddr;
 	u32 indexAddr;
 

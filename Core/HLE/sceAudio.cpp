@@ -149,14 +149,14 @@ u32 sceAudioOutputPanned(u32 chan, u32 leftVol, u32 rightVol, u32 samplePtr)
 int sceAudioGetChannelRestLen(u32 chan)
 {
 	int sz = (int)chans[chan].sampleQueue.size() / 2;
-	DEBUG_LOG(HLE,"UNTESTED %i = sceAudioGetChannelRestLen(%i)", PARAM(0));
+	DEBUG_LOG(HLE,"UNTESTED %i = sceAudioGetChannelRestLen(%i)", sz, chan);
 	return sz;
 }
 
 int sceAudioGetChannelRestLength(u32 chan)
 {
 	int sz = (int)chans[chan].sampleQueue.size() / 2;
-	DEBUG_LOG(HLE,"UNTESTED %i = sceAudioGetChannelRestLen(%i)", PARAM(0));
+	DEBUG_LOG(HLE,"UNTESTED %i = sceAudioGetChannelRestLen(%i)", sz, chan);
 	return sz;
 }
 

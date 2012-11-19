@@ -1170,7 +1170,7 @@ void sceKernelWakeupThread()
 		}
 	} 
 	else {
-		ERROR_LOG(HLE,"sceKernelWakeupThread(%i) - bad thread id");
+		ERROR_LOG(HLE,"sceKernelWakeupThread(%i) - bad thread id", uid);
 		RETURN(error);
 	}
 }
@@ -1189,7 +1189,7 @@ void sceKernelCancelWakeupThread()
 		RETURN(wCount);
 	} 
 	else {
-		ERROR_LOG(HLE,"sceKernelCancelWakeupThread(%i) - bad thread id");
+		ERROR_LOG(HLE,"sceKernelCancelWakeupThread(%i) - bad thread id", uid);
 		RETURN(error);
 	}
 }

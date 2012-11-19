@@ -77,7 +77,6 @@ void MIPSState::Reset()
 	SetWriteMask(b);
 
 	pc = 0;
-	prevPC = 0;
 	hi = 0;
 	lo = 0;
 	fpcond = 0;
@@ -157,7 +156,6 @@ void MIPSState::RunLoopUntil(u64 globalTicks)
 						break;
 					}
 #endif
-					prevPC = pc;
 					if (inDelaySlot)
 					{
 						MIPSInterpret(op);
@@ -172,6 +170,7 @@ void MIPSState::RunLoopUntil(u64 globalTicks)
 						MIPSInterpret(op);
 					}
 
+					/*
 					if (!Memory::IsValidAddress(pc))
 					{
 						pc = pc;
@@ -179,9 +178,12 @@ void MIPSState::RunLoopUntil(u64 globalTicks)
 					if (r[MIPS_REG_RA] != 0 && !Memory::IsValidAddress(r[MIPS_REG_RA]))
 					{
 					//	pc = pc;
-					}
+					}*/
 					if (inDelaySlot)
+					{
+						CoreTiming::downcount -= 1;
 						goto again;
+					}
 				}
 
 				CoreTiming::downcount -= 1;
@@ -190,11 +192,9 @@ void MIPSState::RunLoopUntil(u64 globalTicks)
 					DEBUG_LOG(CPU, "Hit the max ticks, bailing : %llu, %llu", globalTicks, CoreTiming::GetTicks());
 					break;
 				}
-
 			}
 
 			CoreTiming::Advance();
-			// if (exceptions) checkExceptions();
 			if (CoreTiming::GetTicks() > globalTicks)
 			{
 				DEBUG_LOG(CPU, "Hit the max ticks, bailing : %llu, %llu", globalTicks, CoreTiming::GetTicks());

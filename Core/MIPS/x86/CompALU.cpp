@@ -161,17 +161,17 @@ namespace MIPSComp
 		case 33: //R(rd) = R(rs) + R(rt);		break; //addu
 			CompTriArith(op, &XEmitter::ADD);
 			break;
-		case 134: //R(rd) = R(rs) - R(rt);		break; //sub
-		case 135:
+		case 34: //R(rd) = R(rs) - R(rt);		break; //sub
+		case 35:
 			CompTriArith(op, &XEmitter::SUB);
 			break;
-		case 136: //R(rd) = R(rs) & R(rt);		break; //and
+		case 36: //R(rd) = R(rs) & R(rt);		break; //and
 			CompTriArith(op, &XEmitter::AND);
 			break;
-		case 137: //R(rd) = R(rs) | R(rt);		break; //or
+		case 37: //R(rd) = R(rs) | R(rt);		break; //or
 			CompTriArith(op, &XEmitter::OR);
 			break;
-		case 138: //R(rd) = R(rs) ^ R(rt);		break; //xor
+		case 38: //R(rd) = R(rs) ^ R(rt);		break; //xor
 			CompTriArith(op, &XEmitter::XOR);
 			break;
 

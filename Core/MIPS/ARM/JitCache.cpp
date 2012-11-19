@@ -365,7 +365,7 @@ void JitBlockCache::DestroyBlock(int block_num, bool invalidate)
 #ifdef JIT_UNLIMITED_ICACHE
 	Memory::Write_Opcode_JIT(b.originalAddress, b.originalFirstOpcode?b.originalFirstOpcode:JIT_ICACHE_INVALID_WORD);
 #else
-	if (Memory::ReadUnchecked_U32(b.originalAddress) == block_num)
+	if ((int)Memory::ReadUnchecked_U32(b.originalAddress) == block_num)
 		Memory::WriteUnchecked_U32(b.originalFirstOpcode, b.originalAddress);
 #endif
 
