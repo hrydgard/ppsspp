@@ -67,7 +67,11 @@ DWORD TheThread(LPVOID x)
   coreParameter.cpuCore = g_Config.bJIT ? CPU_JIT : CPU_INTERPRETER;
   coreParameter.enableDebugging = true;
   coreParameter.printfEmuLog = false;
-  coreParameter.headLess = false; //true;
+  coreParameter.headLess = false;
+	coreParameter.renderWidth = 480 * g_Config.iWindowZoom;
+	coreParameter.renderHeight = 272 * g_Config.iWindowZoom;
+	coreParameter.outputWidth = 480 * g_Config.iWindowZoom;
+	coreParameter.outputHeight = 272 * g_Config.iWindowZoom;
 
 	std::string error_string;
 	if (!PSP_Init(coreParameter, &error_string))

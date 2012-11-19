@@ -30,12 +30,14 @@
 
 #include "../../Core/MemMap.h"
 #include "../../Core/Host.h"
+#include "../../Core/Config.h"
 
 #include "../GPUState.h"
 #include "../ge_constants.h"
 
 #include "ShaderManager.h"
 #include "DisplayListInterpreter.h"
+#include "Framebuffer.h"
 #include "TransformPipeline.h"
 
 #include "../../Core/HLE/sceKernelThread.h"
@@ -46,42 +48,41 @@ inline void glEnDis(GLuint cmd, int value)
 	(value ? glEnable : glDisable)(cmd);
 }
 
-struct DisplayState 
-{
-	u32 pc;
-	u32 stallAddr;
-};
-
-static DisplayState dcontext;
 ShaderManager shaderManager;
 
 extern u32 curTextureWidth;
 extern u32 curTextureHeight;
 
-int dlIdGenerator = 1;
-
-struct DisplayList
+void GLES_GPU::InitClear(int renderWidth, int renderHeight)
 {
-	int id;
-	u32 listpc;
-	u32 stall;
-};
+	renderWidth_ = renderWidth;
+	renderHeight_ = renderHeight;
 
-std::vector<DisplayList> dlQueue;
-
-static u32 prev;
-u32 stack[2];
-u32 stackptr = 0;
-bool finished;
-
-u8 bezierBuf[16000];
-
-void GLES_GPU::InitClear()
-{
 	glClearColor(0,0,0,1);
 	//	glClearColor(1,0,1,1);
 	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 }
+
+void GLES_GPU::BeginFrame()
+{
+	if (g_Config.bDisplayFramebuffer && displayFramebufPtr_)
+	{
+		INFO_LOG(HLE, "Drawing the framebuffer");
+		u8 *pspframebuf = Memory::GetPointer((0x44000000)|(displayFramebufPtr_ & 0x1FFFFF));	// TODO - check
+		DisplayDrawer_DrawFramebuffer(pspframebuf, displayFormat_, displayStride_);
+	}
+}
+
+void GLES_GPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, int format)
+{
+	// TODO
+}
+
+void GLES_GPU::CopyDisplayToOutput()
+{
+	// TODO
+}
+
 
 bool GLES_GPU::ProcessDLQueue()
 {

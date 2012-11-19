@@ -22,12 +22,22 @@
 class GPUInterface
 {
 public:
-	virtual void InitClear() = 0;
+	virtual ~GPUInterface() {}
+
+	// Initialization
+	virtual void InitClear(int renderWidth, int renderHeight) = 0;
+
+	// Draw queue management
 	virtual u32 EnqueueList(u32 listpc, u32 stall) = 0;
 	virtual void UpdateStall(int listid, u32 newstall) = 0;
 	virtual void ExecuteOp(u32 op, u32 diff) = 0;
 	virtual bool InterpretList() = 0;
 	virtual void DrawSync(int mode) = 0;
+
+	// Framebuffer management
+	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, int format) = 0;
+	virtual void BeginFrame() = 0;  // Can be a good place to draw the "memory" framebuffer for accelerated plugins
+	virtual void CopyDisplayToOutput() = 0;
 
 	// Internal hack to avoid interrupts from "PPGe" drawing (utility UI, etc)
 	virtual void EnableInterrupts(bool enable) = 0;

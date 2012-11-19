@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <vector>
+
 #include "../GPUInterface.h"
 
 class ShaderManager;
@@ -24,8 +26,8 @@ class ShaderManager;
 class GLES_GPU : public GPUInterface
 {
 public:
-	GLES_GPU() : interruptsEnabled_(true) {}
-	virtual void InitClear();
+	GLES_GPU() : interruptsEnabled_(true), dlIdGenerator(1) {}
+	virtual void InitClear(int renderWidth, int renderHeight);
 	virtual u32 EnqueueList(u32 listpc, u32 stall);
 	virtual void UpdateStall(int listid, u32 newstall);
 	virtual void ExecuteOp(u32 op, u32 diff);
@@ -34,7 +36,46 @@ public:
 	virtual void EnableInterrupts(bool enable) {
 		interruptsEnabled_ = enable;
 	}
+
+	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, int format);
+	virtual void CopyDisplayToOutput();
+	virtual void BeginFrame();
+
 private:
 	bool ProcessDLQueue();
 	bool interruptsEnabled_;
+
+	u32 displayFramebufPtr_;
+	u32 displayStride_;
+	int displayFormat_;
+
+	int renderWidth_;
+	int renderHeight_;
+
+	struct CmdProcessorState
+	{
+		u32 pc;
+		u32 stallAddr;
+	};
+
+	CmdProcessorState dcontext;
+
+	int dlIdGenerator;
+
+	struct DisplayList
+	{
+		int id;
+		u32 listpc;
+		u32 stall;
+	};
+
+	std::vector<DisplayList> dlQueue;
+
+	u32 prev;
+	u32 stack[2];
+	u32 stackptr;
+	bool finished;
+
+	u8 bezierBuf[16000];
+
 };

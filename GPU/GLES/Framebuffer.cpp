@@ -123,7 +123,7 @@ void DisplayDrawer_Shutdown()
 	delete [] realFB;
 }
 
-void DisplayDrawer_DrawFramebuffer(u8 *framebuf, PspDisplayPixelFormat pixelFormat, int linesize)
+void DisplayDrawer_DrawFramebuffer(u8 *framebuf, int pixelFormat, int linesize)
 {
 	float u1 = 1.0f;
 	float v1 = 1.0f;

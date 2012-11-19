@@ -25,6 +25,7 @@
 #include "sceAudio.h"
 #include "../Host.h"
 #include "../Config.h"
+#include "../System.h"
 #include "../Core/Core.h"
 #include "sceDisplay.h"
 #include "sceKernel.h"
@@ -44,7 +45,6 @@ extern ShaderManager shaderManager;
 struct FrameBufferState
 {
 	u32 topaddr;
-	u8 *pspframebuf;
 	PspDisplayPixelFormat pspFramebufFormat;
 	int pspFramebufLinesize;
 };
@@ -88,7 +88,6 @@ void __DisplayInit()
 {
 	framebufIsLatched = false;
 	framebuf.topaddr = 0x04000000;
-	framebuf.pspframebuf = Memory::GetPointer(0x04000000);
 	framebuf.pspFramebufFormat = PSP_DISPLAY_PIXEL_FORMAT_8888;
 	framebuf.pspFramebufLinesize = 480; // ??
 
@@ -152,11 +151,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate)
 	{
 		host->EndFrame();
 		host->BeginFrame();
-		if (g_Config.bDisplayFramebuffer)
-		{
-			INFO_LOG(HLE, "Drawing the framebuffer");
-			DisplayDrawer_DrawFramebuffer(framebuf.pspframebuf, framebuf.pspFramebufFormat, framebuf.pspFramebufLinesize);
-		}
+		gpu->BeginFrame();
 
 		shaderManager.DirtyShader();
 		shaderManager.DirtyUniform(DIRTY_ALL);
@@ -190,7 +185,7 @@ u32 sceDisplaySetMode(u32 unknown, u32 xres, u32 yres)
 	DEBUG_LOG(HLE,"sceDisplaySetMode(%d,%d,%d)",unknown,xres,yres);
 	host->BeginFrame();
 
-	gpu->InitClear();
+	gpu->InitClear(PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
 
 	return 0;
 }
@@ -203,19 +198,7 @@ void sceDisplaySetFramebuf()
 	int pixelformat = PARAM(2);
 	int sync = PARAM(3);
 
-	FrameBufferState *fbstate = 0;
-	if (sync == PSP_DISPLAY_SETBUF_IMMEDIATE)
-	{
-		// Write immediately to the current framebuffer parameters
-		fbstate = &framebuf;
-	}
-	else if (topaddr != 0)
-	{
-		// Delay the write until vblank
-		fbstate = &latchedFramebuf;
-		framebufIsLatched = true;
-	}
-
+	FrameBufferState fbstate;
 	DEBUG_LOG(HLE,"sceDisplaySetFramebuf(topaddr=%08x,linesize=%d,pixelsize=%d,sync=%d)",topaddr,linesize,pixelformat,sync);
 	if (topaddr == 0)
 	{
@@ -223,10 +206,21 @@ void sceDisplaySetFramebuf()
 	}
 	else
 	{
-		fbstate->topaddr = topaddr;
-		fbstate->pspframebuf = Memory::GetPointer((0x44000000)|(topaddr & 0x1FFFFF));	// TODO - check
-		fbstate->pspFramebufFormat = (PspDisplayPixelFormat)pixelformat;
-		fbstate->pspFramebufLinesize = linesize;
+		fbstate.topaddr = topaddr;
+		fbstate.pspFramebufFormat = (PspDisplayPixelFormat)pixelformat;
+		fbstate.pspFramebufLinesize = linesize;
+	}
+
+	if (sync == PSP_DISPLAY_SETBUF_IMMEDIATE)
+	{
+		// Write immediately to the current framebuffer parameters
+		framebuf = fbstate;
+	}
+	else if (topaddr != 0)
+	{
+		// Delay the write until vblank
+		latchedFramebuf = fbstate;
+		framebufIsLatched = true;
 	}
 
 	RETURN(0);
