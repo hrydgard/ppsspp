@@ -135,12 +135,12 @@ int scePowerUnregisterCallback(int slotId)
 
 int sceKernelPowerLock(int lockType)
 {
-	DEBUG_LOG(HLE,"UNIMPL 0=sceKernelPowerLock(%i)", lockType);
+	DEBUG_LOG(HLE,"0=sceKernelPowerLock(%i)", lockType);
 	return 0;
 }
 int sceKernelPowerUnlock(int lockType)
 {
-	DEBUG_LOG(HLE,"UNIMPL 0=sceKernelPowerUnlock(%i)", lockType);
+	DEBUG_LOG(HLE,"0=sceKernelPowerUnlock(%i)", lockType);
 	return 0;
 }
 int sceKernelPowerTick(int flag)
@@ -161,13 +161,13 @@ int sceKernelVolatileMemTryLock(int type, int paddr, int psize)
 	}
 	else
 	{
-		ERROR_LOG(HLE, "sceKernelVolatileMemTryLock - already locked!");
-		//RETURN(ERROR_POWER_VMEM_IN_USE); // does this line still need to be here??
+		ERROR_LOG(HLE, "sceKernelVolatileMemTryLock(%i, %08x, %i) - already locked!", type, paddr, psize);
 		return ERROR_POWER_VMEM_IN_USE;
 	}
 
 	// Volatile RAM is always at 0x08400000 and is of size 0x00400000.
 	// It's always available in the emu.
+	// TODO: Should really reserve this properly!
 	Memory::Write_U32(0x08400000, paddr);
 	Memory::Write_U32(0x00400000, psize);
 
@@ -176,10 +176,9 @@ int sceKernelVolatileMemTryLock(int type, int paddr, int psize)
 
 int sceKernelVolatileMemUnlock(int type)
 {
-	INFO_LOG(HLE,"sceKernelVolatileMemUnlock()");
+	INFO_LOG(HLE,"sceKernelVolatileMemUnlock(%i)", type);
 	// TODO: sanity check
 	volatileMemLocked = false;
-
 	return 0;
 }
 
