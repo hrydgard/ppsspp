@@ -190,12 +190,15 @@ void __KernelMutexTimeout(u64 userdata, int cyclesLate)
 
 void __kernelWaitMutex(Mutex *mutex, u32 timeoutPtr)
 {
+	if (timeoutPtr == 0)
+		return;
+
 	if (mutex->waitTimer == 0)
 		mutex->waitTimer = CoreTiming::RegisterEvent("ScheduledTimeout", &__KernelMutexTimeout);
 
 	// This should call __KernelMutexTimeout() later, unless we cancel it.
-	int milliseconds = (int) Memory::Read_U32(timeoutPtr);
-	CoreTiming::ScheduleEvent(msToCycles(milliseconds), mutex->waitTimer, __KernelGetCurThread());
+	int micro = (int) Memory::Read_U32(timeoutPtr);
+	CoreTiming::ScheduleEvent(usToCycles(micro), mutex->waitTimer, __KernelGetCurThread());
 }
 
 // int sceKernelLockMutex(SceUID id, int count, int *timeout)
