@@ -160,6 +160,9 @@ void sceKernelCreateSema(const char* name, u32 attr, int initVal, int maxVal, u3
 
 	DEBUG_LOG(HLE,"%i=sceKernelCreateSema(%s, %08x, %i, %i, %08x)", id, s->ns.name, s->ns.attr, s->ns.initCount, s->ns.maxCount, optionPtr);
 
+	if (optionPtr != 0)
+		WARN_LOG(HLE,"sceKernelCreateSema(%s) unsupported options parameter.", name);
+
 	RETURN(id);
 
 	__KernelReSchedule("semaphore created");

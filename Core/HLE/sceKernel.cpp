@@ -337,14 +337,14 @@ const HLEFunction ThreadManForUser[] =
 	{0x4E3A1105,&WrapV_IIU<sceKernelWaitSema>,            "sceKernelWaitSema"},
 	{0x6d212bac,&WrapV_IIU<sceKernelWaitSemaCB>,          "sceKernelWaitSemaCB"},
 
-	{0x60107536,0,"sceKernelDeleteLwMutex"},
-	{0x19CFF145,0,"sceKernelCreateLwMutex"},
-	{0xf8170fbe,&WrapV_I<sceKernelDeleteMutex>,"sceKernelDeleteMutex"},
-	{0xB011B11F,&WrapV_IIU<sceKernelLockMutex>,"sceKernelLockMutex"},
-	{0x5bf4dd27,&WrapV_IIU<sceKernelLockMutexCB>,"sceKernelLockMutexCB"},
-	{0x6b30100f,&WrapV_II<sceKernelUnlockMutex>,"sceKernelUnlockMutex"},
-	{0xb7d098c6,&WrapV_CUIU<sceKernelCreateMutex>,"sceKernelCreateMutex"},
-	{0x0DDCD2C9,&WrapV_II<sceKernelTryLockMutex>, "sceKernelTryLockMutex"},
+	{0x60107536,&WrapV_U<sceKernelDeleteLwMutex>,         "sceKernelDeleteLwMutex"},
+	{0x19CFF145,&WrapV_UCUIU<sceKernelCreateLwMutex>,     "sceKernelCreateLwMutex"},
+	{0xf8170fbe,&WrapV_I<sceKernelDeleteMutex>,           "sceKernelDeleteMutex"},
+	{0xB011B11F,&WrapV_IIU<sceKernelLockMutex>,           "sceKernelLockMutex"},
+	{0x5bf4dd27,&WrapV_IIU<sceKernelLockMutexCB>,         "sceKernelLockMutexCB"},
+	{0x6b30100f,&WrapV_II<sceKernelUnlockMutex>,          "sceKernelUnlockMutex"},
+	{0xb7d098c6,&WrapV_CUIU<sceKernelCreateMutex>,        "sceKernelCreateMutex"},
+	{0x0DDCD2C9,&WrapV_II<sceKernelTryLockMutex>,         "sceKernelTryLockMutex"},
 	// NOTE: LockLwMutex and UnlockLwMutex are in Kernel_Library, see sceKernelInterrupt.cpp.
 
 	{0xFCCFAD26,sceKernelCancelWakeupThread,"sceKernelCancelWakeupThread"},

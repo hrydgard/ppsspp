@@ -36,6 +36,7 @@
 #define PSP_MUTEX_ERROR_UNLOCK_UNDERFLOW 0x800201C7
 #define PSP_MUTEX_ERROR_ALREADY_LOCKED 0x800201C8
 
+#define PSP_LWMUTEX_ERROR_NOT_FOUND 0x800201CA
 
 // Guesswork - not exposed anyway
 struct NativeMutex
@@ -52,21 +53,53 @@ struct Mutex : public KernelObject
 {
 	const char *GetName() {return nm.name;}
 	const char *GetTypeName() {return "Mutex";}
-	static u32 GetMissingErrorCode() { return PSP_MUTEX_ERROR_NO_SUCH_MUTEX; }	// Not sure?
+	static u32 GetMissingErrorCode() { return PSP_MUTEX_ERROR_NO_SUCH_MUTEX; }
 	int GetIDType() const { return SCE_KERNEL_TMID_Mutex; }
 	NativeMutex nm;
 	std::vector<SceUID> waitingThreads;
 	int waitTimer;
 };
 
-struct LWMutex : public KernelObject
+// Guesswork - not exposed anyway
+struct NativeLwMutex
+{
+	SceSize size;
+	char name[32];
+	SceUInt attr;
+	SceUInt workareaPtr;
+};
+
+struct NativeLwMutexWorkarea
+{
+	int lockLevel;
+	SceUID lockThread;
+	int attr;
+	int numWaitThreads;
+	SceUID uid;
+	int pad[3];
+
+	void init()
+	{
+		memset(this, 0, sizeof(NativeLwMutexWorkarea));
+	}
+
+	void clear()
+	{
+		lockLevel = 0;
+		lockThread = -1;
+		uid = -1;
+	}
+};
+
+struct LwMutex : public KernelObject
 {
 	const char *GetName() {return nm.name;}
-	const char *GetTypeName() {return "LWMutex";}
-	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_SEMID; }	// Not sure?
+	const char *GetTypeName() {return "LwMutex";}
+	static u32 GetMissingErrorCode() { return PSP_LWMUTEX_ERROR_NOT_FOUND; }
 	int GetIDType() const { return SCE_KERNEL_TMID_LwMutex; }
-	NativeMutex nm;
+	NativeLwMutex nm;
 	std::vector<SceUID> waitingThreads;
+	int waitTimer;
 };
 
 void sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optionsPtr)
@@ -340,28 +373,97 @@ void sceKernelUnlockMutex(SceUID id, int count)
 	}
 }
 
-struct NativeLwMutex
+void sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int initialCount, u32 optionsPtr)
 {
-	SceSize size;
-	char name[32];
-	SceUInt attr;
-	SceUID mutexUid;
-	SceUInt opaqueWorkAreaAddr;
-	int numWaitThreads;
-	int locked;
-	int threadid;  // thread holding the lock
-};
+	DEBUG_LOG(HLE,"sceKernelCreateLwMutex(%08x, %s, %08x, %d, %08x)", workareaPtr, name, attr, initialCount, optionsPtr);
 
-void sceKernelCreateLwMutex()
-{
-	ERROR_LOG(HLE,"UNIMPL sceKernelCreateLwMutex()");
+	u32 error = 0;
+	if (!name)
+		error = SCE_KERNEL_ERROR_ERROR;
+	else if (initialCount < 0)
+		error = SCE_KERNEL_ERROR_ILLEGAL_COUNT;
+	else if ((attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE) == 0 && initialCount > 1)
+		error = SCE_KERNEL_ERROR_ILLEGAL_COUNT;
+
+	if (error)
+	{
+		RETURN(error);
+		return;
+	}
+
+	LwMutex *mutex = new LwMutex();
+	SceUID id = kernelObjects.Create(mutex);
+	mutex->nm.size = sizeof(mutex);
+	strncpy(mutex->nm.name, name, 31);
+	mutex->nm.name[31] = 0;
+	mutex->nm.attr = attr;
+	mutex->nm.workareaPtr = workareaPtr;
+	mutex->waitTimer = 0;
+
+	NativeLwMutexWorkarea workarea;
+	workarea.init();
+	workarea.lockLevel = initialCount;
+	if (initialCount == 0)
+		workarea.lockThread = 0;
+	else
+		workarea.lockThread = __KernelGetCurThread();
+	workarea.attr = attr;
+	workarea.uid = id;
+
+	Memory::WriteStruct(workareaPtr, &workarea);
+
+	if (optionsPtr != 0)
+		WARN_LOG(HLE,"sceKernelCreateLwMutex(%s) unsupported options parameter.", name);
+
 	RETURN(0);
+
+	__KernelReSchedule("lwmutex created");
 }
 
-void sceKernelDeleteLwMutex()
+void sceKernelDeleteLwMutex(u32 workareaPtr)
 {
-	ERROR_LOG(HLE,"UNIMPL sceKernelDeleteLwMutex()");
-	RETURN(0);
+	DEBUG_LOG(HLE,"sceKernelDeleteLwMutex(%08x)", workareaPtr);
+
+	if (!workareaPtr || !Memory::IsValidAddress(workareaPtr))
+	{
+		RETURN(SCE_KERNEL_ERROR_ILLEGAL_ADDR);
+		return;
+	}
+
+	NativeLwMutexWorkarea workarea;
+	Memory::ReadStruct(workareaPtr, &workarea);
+
+	u32 error;
+	LwMutex *mutex = kernelObjects.Get<LwMutex>(workarea.uid, error);
+	if (mutex)
+	{
+		std::vector<SceUID>::iterator iter, end;
+		for (iter = mutex->waitingThreads.begin(), end = mutex->waitingThreads.end(); iter != end; ++iter)
+		{
+			SceUID threadID = *iter;
+
+			u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
+			if (timeoutPtr != 0 && mutex->waitTimer != 0)
+			{
+				// Remove any event for this thread.
+				int cyclesLeft = CoreTiming::UnscheduleEvent(mutex->waitTimer, threadID);
+				Memory::Write_U32(cyclesToUs(cyclesLeft), timeoutPtr);
+			}
+
+			__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_DELETE);
+		}
+		mutex->waitingThreads.empty();
+
+		// TODO: Any way to erase the CoreTiming event type?  We leak.
+
+		RETURN(kernelObjects.Destroy<LwMutex>(workarea.uid));
+		workarea.clear();
+		Memory::WriteStruct(workareaPtr, &workarea);
+
+		__KernelReSchedule("mutex deleted");
+	}
+	else
+		RETURN(error);
 }
 
 void sceKernelTryLockLwMutex()
