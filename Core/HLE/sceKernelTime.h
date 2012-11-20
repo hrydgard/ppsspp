@@ -26,6 +26,7 @@ void sceKernelGetSystemTimeLow();
 void sceKernelGetSystemTimeWide();
 void sceKernelSysClock2USec();
 void sceKernelSysClock2USecWide();
+void sceKernelUSec2SysClockWide();
 void sceRtcGetCurrentClockLocalTime();
 void sceRtcGetTickResolution();
 void sceRtcGetTick();

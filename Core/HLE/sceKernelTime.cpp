@@ -99,6 +99,12 @@ void sceKernelSysClock2USecWide()
 	RETURN(0);
 }
 
+void sceKernelUSec2SysClockWide()
+{
+	int usec = PARAM(0);
+	RETURN(usec * 1000000);  // ?
+}
+
 void sceKernelLibcClock()
 {
 	u32 retVal = clock()*1000;
