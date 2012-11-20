@@ -65,6 +65,8 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true)
 	coreParam.renderHeight = 272;
 	coreParam.outputWidth = dp_xres;
 	coreParam.outputHeight = dp_yres;
+	coreParam.pixelWidth = pixel_xres;
+	coreParam.pixelHeight = pixel_yres;
 
 	std::string error_string;
 	if (PSP_Init(coreParam, &error_string)) {
@@ -176,7 +178,7 @@ void EmuScreen::render()
 
 	uiTexture->Bind(0);
 
-	glViewport(0, 0, dp_xres, dp_yres);
+	glViewport(0, 0, pixel_xres, pixel_yres);
 
 	ui_draw2d.Begin(DBMODE_NORMAL);
 
