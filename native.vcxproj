@@ -39,6 +39,7 @@
     <UseDebugLibraries>false</UseDebugLibraries>
     <WholeProgramOptimization>false</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v100</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
@@ -173,6 +174,7 @@
     <None Include="file\CMakeLists.txt" />
     <None Include="README.md" />
     <None Include="tools\CMakeLists.txt" />
+    <None Include="ui\CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="android\native-audio-so.h" />
@@ -240,6 +242,7 @@
     <ClInclude Include="profiler\profiler.h" />
     <ClInclude Include="ui\screen.h" />
     <ClInclude Include="ui\ui.h" />
+    <ClInclude Include="ui\ui_context.h" />
     <ClInclude Include="ui\virtual_input.h" />
     <ClInclude Include="util\bits\bits.h" />
     <ClInclude Include="util\random\perlin.h" />
@@ -332,6 +335,7 @@
     <ClCompile Include="profiler\profiler.cpp" />
     <ClCompile Include="ui\screen.cpp" />
     <ClCompile Include="ui\ui.cpp" />
+    <ClCompile Include="ui\ui_context.cpp" />
     <ClCompile Include="ui\virtual_input.cpp" />
     <ClCompile Include="util\bits\bits.cpp" />
     <ClCompile Include="util\random\perlin.cpp">

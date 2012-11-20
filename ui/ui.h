@@ -133,6 +133,10 @@ struct UITheme {
 // The atlas needs to stick around, the theme is copied.
 void UIInit(const Atlas *atlas, const UITheme &theme);
 
+// Between these, UI components won't see pointer events.
+void UIDisableBegin();
+void UIDisableEnd();
+
 // Just lets you retrieve the theme that was passed into UIInit, for your own controls for example.
 UITheme &UIGetTheme();
 

@@ -48,6 +48,7 @@ LOCAL_SRC_FILES :=\
     gfx/texture_gen.cpp \
     image/zim_load.cpp \
 	ui/ui.cpp \
+	ui/ui_context.cpp \
 	ui/screen.cpp \
 	ui/virtual_input.cpp \
     util/random/perlin.cpp

@@ -170,11 +170,11 @@ int main(int argc, char *argv[]) {
 		//pixel_xres = 1580 * zoom;
 		//pixel_yres = 1000 * zoom;
 		if (tablet) {
-			pixel_xres = 480 * zoom;
-			pixel_yres = 800 * zoom;
-		} else {
 			pixel_xres = 800 * zoom;
 			pixel_yres = 1280 * zoom;
+		} else {
+			pixel_xres = 480 * zoom;
+			pixel_yres = 800 * zoom;
 		}
 	}
 

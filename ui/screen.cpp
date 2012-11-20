@@ -2,12 +2,13 @@
 #include "input/input_state.h"
 #include "ui/screen.h"
 
-Screen::Screen() : screenManager_(0) { }
+Screen::Screen(bool isUiScreen) : screenManager_(0), isUiScreen_(isUiScreen) { }
 Screen::~Screen() { }
 
 ScreenManager::ScreenManager() {
 	currentScreen_ = 0;
 	nextScreen_ = 0;
+	uiContext_ = 0;
 }
 
 ScreenManager::~ScreenManager() {

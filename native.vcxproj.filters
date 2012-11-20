@@ -15,6 +15,9 @@
     <None Include="tools\CMakeLists.txt">
       <Filter>tools</Filter>
     </None>
+    <None Include="ui\CMakeLists.txt">
+      <Filter>ui</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="gfx\gl_debug_log.h">
@@ -224,6 +227,9 @@
     <ClInclude Include="math\curves.h">
       <Filter>math</Filter>
     </ClInclude>
+    <ClInclude Include="ui\ui_context.h">
+      <Filter>ui</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -397,11 +403,8 @@
     <ClCompile Include="math\curves.cpp">
       <Filter>math</Filter>
     </ClCompile>
-    <ClCompile Include="base\PCMain.cpp">
-      <Filter>base</Filter>
-    </ClCompile>
-    <ClCompile Include="base\BlackberryMain.cpp">
-      <Filter>base</Filter>
+    <ClCompile Include="ui\ui_context.cpp">
+      <Filter>ui</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

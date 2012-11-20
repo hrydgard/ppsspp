@@ -15,6 +15,7 @@ DrawBuffer ui_draw2d_front;
 
 // This one, though, is OK.
 UIState uistate;
+UIState savedUistate;
 
 // Theme.
 static const Atlas *themeAtlas;
@@ -26,6 +27,17 @@ void UIInit(const Atlas *atlas, const UITheme &ui_theme) {
 	themeAtlas = atlas;
 	theme = ui_theme;
 	memset(&uistate, 0, sizeof(uistate));
+}
+
+void UIDisableBegin()
+{
+	savedUistate = uistate;
+	memset(&uistate, 0, sizeof(uistate));
+}
+
+void UIDisableEnd()
+{
+	uistate = savedUistate;
 }
 
 void UIUpdateMouse(int i, float x, float y, bool down) {

@@ -29,10 +29,11 @@ enum DialogResult {
 };
 
 class ScreenManager;
+class UIContext;
 
 class Screen {
 public:
-	Screen();
+	Screen(bool isUiScreen = false);
 	virtual ~Screen();
 	virtual void update(InputState &input) = 0;
 	virtual void render() {}
@@ -45,12 +46,18 @@ public:
 
 private:
 	ScreenManager *screenManager_;
+	bool isUiScreen_;
 	DISALLOW_COPY_AND_ASSIGN(Screen);
 };
 
 class Transition {
 public:
 	Transition() {}
+};
+
+enum {
+	LAYER_SIDEMENU = 1,
+	LAYER_TRANSPARENT = 2,
 };
 
 class ScreenManager {
@@ -60,6 +67,10 @@ public:
 
 	void switchScreen(Screen *screen);
 	void update(InputState &input);
+
+	void setUIContext(UIContext *context) { uiContext_ = context; }
+	UIContext *getUIContext() { return uiContext_; }
+
 	void render();
 	void deviceLost();
 	void shutdown();
@@ -76,9 +87,17 @@ public:
 private:
 	void pop();
 	Screen *topScreen();
+
 	// Base screen. These don't "stack" and you can move in any order between them.
 	Screen *currentScreen_;
 	Screen *nextScreen_;
+
+	UIContext *uiContext_;
+
+	struct Layer {
+		Screen *screen;
+		int flags;  // From LAYER_ enum above
+	};
 
 	// Dialog stack. These are shown "on top" of base screens and the Android back button works as expected.
 	// Used for options, in-game menus and other things you expect to be able to back out from onto something.
