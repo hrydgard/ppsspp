@@ -18,6 +18,7 @@
 // UNFINISHED
 
 #include <algorithm>
+#include <map>
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
 #include "../../Core/CoreTiming.h"
@@ -104,13 +105,38 @@ struct LwMutex : public KernelObject
 bool mutexInitComplete = false;
 int mutexWaitTimer = 0;
 int lwMutexWaitTimer = 0;
+// Thread -> Mutex locks for thread end.
+std::map<SceUID, SceUID> mutexHeldLocks;
 
 void __KernelMutexInit()
 {
 	mutexWaitTimer = CoreTiming::RegisterEvent("MutexTimeout", &__KernelMutexTimeout);
+	// TODO: Install on first mutex (if it's slow?)
+	__KernelListenThreadEnd(&__KernelMutexThreadEnd);
 	// TODO: Write / enable.
 	//lwMutexWaitTimer = CoreTiming::RegisterEvent("LwMutexTimeout", &__KernelLwMutexTimeout);
+
 	mutexInitComplete = true;
+}
+
+void __KernelMutexAcquireLock(Mutex *mutex, int count, SceUID thread)
+{
+	mutexHeldLocks.insert(std::make_pair(thread, mutex->GetUID()));
+
+	mutex->nm.lockLevel = count;
+	mutex->nm.lockThread = thread;
+}
+
+void __KernelMutexAcquireLock(Mutex *mutex, int count)
+{
+	__KernelMutexAcquireLock(mutex, count, __KernelGetCurThread());
+}
+
+void __KernelMutexEraseLock(Mutex *mutex)
+{
+	if (mutex->nm.lockThread != -1)
+		mutexHeldLocks.erase(mutex->nm.lockThread);
+	mutex->nm.lockThread = -1;
 }
 
 void sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optionsPtr)
@@ -141,11 +167,13 @@ void sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 opti
 	strncpy(mutex->nm.name, name, 31);
 	mutex->nm.name[31] = 0;
 	mutex->nm.attr = attr;
-	mutex->nm.lockLevel = initialCount;
-	if (mutex->nm.lockLevel == 0)
+	if (initialCount == 0)
+	{
+		mutex->nm.lockLevel = 0;
 		mutex->nm.lockThread = -1;
+	}
 	else
-		mutex->nm.lockThread = __KernelGetCurThread();
+		__KernelMutexAcquireLock(mutex, initialCount);
 
 	if (optionsPtr != 0)
 		WARN_LOG(HLE,"sceKernelCreateMutex(%s) unsupported options parameter.", name);
@@ -177,6 +205,8 @@ void sceKernelDeleteMutex(SceUID id)
 
 			__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_DELETE);
 		}
+		if (mutex->nm.lockThread != -1)
+			__KernelMutexEraseLock(mutex);
 		mutex->waitingThreads.empty();
 
 		RETURN(kernelObjects.Destroy<Mutex>(id));
@@ -204,8 +234,7 @@ bool __KernelLockMutex(Mutex *mutex, int count, u32 &error)
 
 	if (mutex->nm.lockLevel == 0)
 	{
-		mutex->nm.lockLevel += count;
-		mutex->nm.lockThread = __KernelGetCurThread();
+		__KernelMutexAcquireLock(mutex, count);
 		// Nobody had it locked - no need to block
 		return true;
 	}
@@ -228,6 +257,38 @@ bool __KernelLockMutex(Mutex *mutex, int count, u32 &error)
 	return false;
 }
 
+bool __KernelUnlockMutex(Mutex *mutex, u32 &error)
+{
+	__KernelMutexEraseLock(mutex);
+
+	// TODO: PSP_MUTEX_ATTR_PRIORITY
+	bool wokeThreads = false;
+	std::vector<SceUID>::iterator iter, end;
+	for (iter = mutex->waitingThreads.begin(), end = mutex->waitingThreads.end(); iter != end; ++iter)
+	{
+		SceUID threadID = *iter;
+
+		int wVal = (int)__KernelGetWaitValue(threadID, error);
+		u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
+
+		__KernelMutexAcquireLock(mutex, wVal, threadID);
+
+		if (timeoutPtr != 0 && mutexWaitTimer != 0)
+		{
+			// Remove any event for this thread.
+			int cyclesLeft = CoreTiming::UnscheduleEvent(mutexWaitTimer, threadID);
+			Memory::Write_U32(cyclesToUs(cyclesLeft), timeoutPtr);
+		}
+
+		__KernelResumeThreadFromWait(threadID, 0);
+		wokeThreads = true;
+		mutex->waitingThreads.erase(iter);
+		break;
+	}
+
+	return wokeThreads;
+}
+
 void __KernelMutexTimeout(u64 userdata, int cyclesLate)
 {
 	SceUID threadID = (SceUID)userdata;
@@ -237,7 +298,7 @@ void __KernelMutexTimeout(u64 userdata, int cyclesLate)
 	if (timeoutPtr != 0)
 		Memory::Write_U32(0, timeoutPtr);
 
-	SceUID mutexID = __KernelGetWaitID(threadID, error);
+	SceUID mutexID = __KernelGetWaitID(threadID, WAITTYPE_MUTEX, error);
 	Mutex *mutex = kernelObjects.Get<Mutex>(mutexID, error);
 	if (mutex)
 	{
@@ -246,6 +307,29 @@ void __KernelMutexTimeout(u64 userdata, int cyclesLate)
 	}
 
 	__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
+}
+
+void __KernelMutexThreadEnd(SceUID threadID)
+{
+	u32 error;
+
+	// If it was waiting on the mutex, it should finish now.
+	SceUID mutexID = __KernelGetWaitID(threadID, WAITTYPE_MUTEX, error);
+	if (mutexID)
+	{
+		Mutex *mutex = kernelObjects.Get<Mutex>(mutexID, error);
+		if (mutex)
+			mutex->waitingThreads.erase(std::remove(mutex->waitingThreads.begin(), mutex->waitingThreads.end(), threadID), mutex->waitingThreads.end());
+	}
+
+	std::map<SceUID, SceUID>::iterator iter = mutexHeldLocks.find(threadID);
+	if (iter != mutexHeldLocks.end())
+	{
+		SceUID mutexID = (*iter).second;
+		Mutex *mutex = kernelObjects.Get<Mutex>(mutexID, error);
+
+		__KernelUnlockMutex(mutex, error);
+	}
 }
 
 void __KernelWaitMutex(Mutex *mutex, u32 timeoutPtr)
@@ -357,34 +441,7 @@ void sceKernelUnlockMutex(SceUID id, int count)
 
 	if (mutex->nm.lockLevel == 0)
 	{
-		mutex->nm.lockThread = -1;
-
-		// TODO: PSP_MUTEX_ATTR_PRIORITY
-		bool wokeThreads = false;
-		std::vector<SceUID>::iterator iter, end;
-		for (iter = mutex->waitingThreads.begin(), end = mutex->waitingThreads.end(); iter != end; ++iter)
-		{
-			SceUID threadID = *iter;
-
-			int wVal = (int)__KernelGetWaitValue(threadID, error);
-			u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
-
-			mutex->nm.lockThread = threadID;
-			mutex->nm.lockLevel = wVal;
-
-			if (timeoutPtr != 0 && mutexWaitTimer != 0)
-			{
-				// Remove any event for this thread.
-				int cyclesLeft = CoreTiming::UnscheduleEvent(mutexWaitTimer, threadID);
-				Memory::Write_U32(cyclesToUs(cyclesLeft), timeoutPtr);
-			}
-
-			__KernelResumeThreadFromWait(threadID, 0);
-			wokeThreads = true;
-			mutex->waitingThreads.erase(iter);
-			break;
-		}
-
+		__KernelUnlockMutex(mutex, error);
 		__KernelReSchedule("mutex unlocked");
 	}
 }

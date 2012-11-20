@@ -290,7 +290,7 @@ void __KernelSemaTimeout(u64 userdata, int cycleslate)
 	if (timeoutPtr != 0)
 		Memory::Write_U32(0, timeoutPtr);
 
-	SceUID semaID = __KernelGetWaitID(threadID, error);
+	SceUID semaID = __KernelGetWaitID(threadID, WAITTYPE_SEMA, error);
 	Semaphore *s = kernelObjects.Get<Semaphore>(semaID, error);
 	if (s)
 	{

@@ -33,3 +33,4 @@ void sceKernelUnlockLwMutex();
 
 void __KernelMutexTimeout(u64 userdata, int cyclesLate);
 void __KernelLwMutexTimeout(u64 userdata, int cyclesLate);
+void __KernelMutexThreadEnd(SceUID thread);

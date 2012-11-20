@@ -273,6 +273,7 @@ u32 threadReturnHackAddr;
 u32 cbReturnHackAddr;
 u32 intReturnHackAddr;
 std::vector<Thread *> threadqueue; //Change to SceUID
+std::vector<ThreadCallback> threadEndListeners;
 
 SceUID threadIdleID[2];
 
@@ -343,6 +344,21 @@ void __KernelThreadingInit()
   // These idle threads are later started in LoadExec, which calls __KernelStartIdleThreads below.
 }
 
+void __KernelListenThreadEnd(ThreadCallback callback)
+{
+	threadEndListeners.push_back(callback);
+}
+
+void __KernelFireThreadEnd(Thread *thread)
+{
+	SceUID threadID = thread->GetUID();
+	for (std::vector<ThreadCallback>::iterator iter = threadEndListeners.begin(), end = threadEndListeners.end(); iter != end; ++iter)
+	{
+		ThreadCallback cb = *iter;
+		cb(threadID);
+	}
+}
+
 void __KernelStartIdleThreads()
 {
   for (int i = 0; i < 2; i++)
@@ -407,12 +423,15 @@ u32 __KernelGetWaitTimeoutPtr(SceUID threadID, u32 &error)
 	}
 }
 
-SceUID __KernelGetWaitID(SceUID threadID, u32 &error)
+SceUID __KernelGetWaitID(SceUID threadID, WaitType type, u32 &error)
 {
 	Thread *t = kernelObjects.Get<Thread>(threadID, error);
 	if (t)
 	{
-		return t->nt.waitID;
+		if (t->nt.waitType == type)
+			return t->nt.waitID;
+		else
+			return 0;
 	}
 	else
 	{
@@ -976,6 +995,7 @@ void __KernelReturnFromThread()
 
 	currentThread->nt.exitStatus = currentThread->context.r[2];
 	currentThread->nt.status = THREADSTATUS_DORMANT;
+	__KernelFireThreadEnd(currentThread);
 
 	// TODO: Need to remove the thread from any ready queues.
 
@@ -990,8 +1010,10 @@ void __KernelReturnFromThread()
 void sceKernelExitThread()
 {
 	ERROR_LOG(HLE,"sceKernelExitThread FAKED");
-  currentThread->nt.status = THREADSTATUS_DORMANT;
-  currentThread->nt.exitStatus = PARAM(0);
+	currentThread->nt.status = THREADSTATUS_DORMANT;
+	currentThread->nt.exitStatus = PARAM(0);
+	__KernelFireThreadEnd(currentThread);
+
 	//Find threads that waited for me
 	// Wake them
 	if (!__KernelTriggerWait(WAITTYPE_THREADEND, __KernelGetCurThread()))
@@ -1005,6 +1027,8 @@ void _sceKernelExitThread()
   ERROR_LOG(HLE,"_sceKernelExitThread FAKED");
   currentThread->nt.status = THREADSTATUS_DORMANT;
   currentThread->nt.exitStatus = PARAM(0);
+  __KernelFireThreadEnd(currentThread);
+
   //Find threads that waited for this one
   // Wake them
   if (!__KernelTriggerWait(WAITTYPE_THREADEND, __KernelGetCurThread()))
@@ -1023,6 +1047,7 @@ void sceKernelExitDeleteThread()
     ERROR_LOG(HLE,"sceKernelExitDeleteThread()");
     currentThread->nt.status = THREADSTATUS_DORMANT;
     currentThread->nt.exitStatus = PARAM(0);
+	__KernelFireThreadEnd(currentThread);
 		//userMemory.Free(currentThread->stackBlock);
 		currentThread->stackBlock = -1;
 
@@ -1075,6 +1100,7 @@ void sceKernelDeleteThread()
     if (t)
     {
       __KernelRemoveFromThreadQueue(t);
+	  __KernelFireThreadEnd(t);
 
       RETURN(kernelObjects.Destroy<Thread>(threadHandle));
 
