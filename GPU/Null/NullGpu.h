@@ -25,7 +25,7 @@ class NullGPU : public GPUInterface
 {
 public:
 	NullGPU() : interruptsEnabled_(true) {}
-	virtual void InitClear(int renderWidth, int renderHeight) {}
+	virtual void InitClear() {}
 	virtual u32 EnqueueList(u32 listpc, u32 stall);
 	virtual void UpdateStall(int listid, u32 newstall);
 	virtual void ExecuteOp(u32 op, u32 diff);

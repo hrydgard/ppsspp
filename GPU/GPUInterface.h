@@ -25,7 +25,7 @@ public:
 	virtual ~GPUInterface() {}
 
 	// Initialization
-	virtual void InitClear(int renderWidth, int renderHeight) = 0;
+	virtual void InitClear() = 0;
 
 	// Draw queue management
 	virtual u32 EnqueueList(u32 listpc, u32 stall) = 0;

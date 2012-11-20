@@ -99,17 +99,17 @@ void sceKernelSysClock2USecWide()
 	RETURN(0);
 }
 
-void sceKernelUSec2SysClockWide()
+u32 sceKernelUSec2SysClockWide(u32 usec)
 {
-	int usec = PARAM(0);
-	RETURN(usec * 1000000);  // ?
+	DEBUG_LOG(HLE, "sceKernelUSec2SysClockWide(%i)", usec);
+	return usec * 1000000;  // ?
 }
 
-void sceKernelLibcClock()
+u32 sceKernelLibcClock()
 {
-	u32 retVal = clock()*1000;
+	u32 retVal = clock()*1000;  // TODO: This can't be right
 	DEBUG_LOG(HLE,"%i = sceKernelLibcClock",retVal);
-	RETURN(retVal); // TODO: fix
+	return retVal;
 }
 
 void sceKernelLibcTime()

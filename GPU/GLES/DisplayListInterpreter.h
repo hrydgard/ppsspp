@@ -29,9 +29,9 @@ class ShaderManager;
 class GLES_GPU : public GPUInterface
 {
 public:
-	GLES_GPU() : interruptsEnabled_(true), dlIdGenerator(1) {}
+	GLES_GPU(int renderWidth, int renderHeight);
 	~GLES_GPU();
-	virtual void InitClear(int renderWidth, int renderHeight);
+	virtual void InitClear();
 	virtual u32 EnqueueList(u32 listpc, u32 stall);
 	virtual void UpdateStall(int listid, u32 newstall);
 	virtual void ExecuteOp(u32 op, u32 diff);

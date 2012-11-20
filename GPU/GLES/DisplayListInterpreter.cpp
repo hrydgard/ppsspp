@@ -54,6 +54,17 @@ ShaderManager shaderManager;
 extern u32 curTextureWidth;
 extern u32 curTextureHeight;
 
+GLES_GPU::GLES_GPU(int renderWidth, int renderHeight)
+	: interruptsEnabled_(true),
+	  dlIdGenerator(1),
+		renderWidth_(renderWidth),
+		renderHeight_(renderHeight)
+{
+	widthFactor_ = (float)renderWidth / 480.0f;
+	heightFactor_ = (float)renderHeight / 272.0f;
+
+}
+
 GLES_GPU::~GLES_GPU()
 {
 	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter)
@@ -64,16 +75,14 @@ GLES_GPU::~GLES_GPU()
 	vfbs_.clear();
 }
 
-void GLES_GPU::InitClear(int renderWidth, int renderHeight)
+void GLES_GPU::InitClear()
 {
-	renderWidth_ = renderWidth;
-	renderHeight_ = renderHeight;
-	widthFactor_ = (float)renderWidth / 480.0f;
-	heightFactor_ = (float)renderHeight / 272.0f;
-
-	//glClearColor(0,0,0,1);
-	//	glClearColor(1,0,1,1);
-	//glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+	if (!g_Config.bBufferedRendering)
+	{
+		glClearColor(0,0,0,1);
+		//	glClearColor(1,0,1,1);
+		glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+	}
 	glViewport(0, 0, renderWidth_, renderHeight_);
 }
 
@@ -100,6 +109,9 @@ void GLES_GPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, int format)
 
 void GLES_GPU::CopyDisplayToOutput()
 {
+	if (!g_Config.bBufferedRendering)
+		return;
+
 	VirtualFramebuffer *vfb = GetDisplayFBO();
 	fbo_unbind();
 
@@ -149,6 +161,8 @@ GLES_GPU::VirtualFramebuffer *GLES_GPU::GetDisplayFBO()
 
 void GLES_GPU::SetRenderFrameBuffer()
 {
+	if (!g_Config.bBufferedRendering)
+		return;
 	// Get parameters
 	u32 fb_address = (gstate.fbptr & 0xFFE000) | ((gstate.fbwidth & 0xFF0000) << 8);
 	int fb_stride = gstate.fbwidth & 0x3C0;

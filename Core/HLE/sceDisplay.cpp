@@ -186,7 +186,7 @@ u32 sceDisplaySetMode(u32 unknown, u32 xres, u32 yres)
 
 	if (!hasSetMode)
 	{
-		gpu->InitClear(PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
+		gpu->InitClear();
 		hasSetMode = true;
 	}
 

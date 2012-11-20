@@ -43,10 +43,12 @@ public:
 	bool bConfirmOnQuit;
 	bool bIgnoreBadMemAccess;
 	bool bDisplayFramebuffer;
+	bool bBufferedRendering;
 
 	bool bShowAnalogStick;
 	bool bShowFPSCounter;
 	int iWindowZoom;  // for Windows
+
 
 	std::string currentDirectory;
 

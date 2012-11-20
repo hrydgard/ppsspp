@@ -412,7 +412,7 @@ const HLEFunction ThreadManForUser[] =
 
 	{0xba6b92e2,sceKernelSysClock2USec,"sceKernelSysClock2USec"},
 	{0x110DEC9A,0,"sceKernelUSec2SysClock"},
-	{0xC8CD158C,sceKernelUSec2SysClockWide,"sceKernelUSec2SysClockWide"},
+	{0xC8CD158C,WrapU_U<sceKernelUSec2SysClockWide>,"sceKernelUSec2SysClockWide"},
 	{0xE1619D7C,sceKernelSysClock2USecWide,"sceKernelSysClock2USecWide"},
 
 	{0x110dec9a,sceKernelUSec2SysClock,"sceKernelUSec2SysClock"},

@@ -48,10 +48,13 @@ void CConfig::Load(const char *iniFileName)
 	general->Get("Jit", &bJIT, false);
 	general->Get("ConfirmOnQuit", &bConfirmOnQuit, false);
 	general->Get("IgnoreBadMemAccess", &bIgnoreBadMemAccess, true);
-	general->Get("DisplayFramebuffer", &bDisplayFramebuffer, false);
 	general->Get("CurrentDirectory", &currentDirectory, "");
-	general->Get("ShowFPSCounter", &bShowFPSCounter, false);
-	general->Get("WindowZoom", &iWindowZoom, 1);
+
+	IniFile::Section *graphics = iniFile.GetOrCreateSection("Graphics");
+	graphics->Get("ShowFPSCounter", &bShowFPSCounter, false);
+	graphics->Get("DisplayFramebuffer", &bDisplayFramebuffer, false);
+	graphics->Get("WindowZoom", &iWindowZoom, 1);
+	graphics->Get("BufferedRendering", &bBufferedRendering, true);
 
 	IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 	sound->Get("Enable", &bEnableSound, true);
@@ -74,10 +77,13 @@ void CConfig::Save()
 		general->Set("Jit", bJIT);
 		general->Set("ConfirmOnQuit", bConfirmOnQuit);
 		general->Set("IgnoreBadMemAccess", bIgnoreBadMemAccess);
-		general->Set("DisplayFramebuffer", bDisplayFramebuffer);
 		general->Set("CurrentDirectory", currentDirectory);
-		general->Set("ShowFPSCounter", bShowFPSCounter);
-		general->Set("WindowZoom", iWindowZoom);
+
+		IniFile::Section *graphics = iniFile.GetOrCreateSection("Graphics");
+		graphics->Set("ShowFPSCounter", bShowFPSCounter);
+		graphics->Set("DisplayFramebuffer", bDisplayFramebuffer);
+		graphics->Set("WindowZoom", iWindowZoom);
+		graphics->Set("BufferedRendering", bBufferedRendering);
 
 		IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 		sound->Set("Enable", bEnableSound);

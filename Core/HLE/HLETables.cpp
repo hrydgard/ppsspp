@@ -65,7 +65,7 @@ const HLEFunction FakeSysCalls[] =
 
 const HLEFunction UtilsForUser[] = 
 {
-	{0x91E4F6A7, sceKernelLibcClock, "sceKernelLibcClock"},
+	{0x91E4F6A7, WrapU_V<sceKernelLibcClock>, "sceKernelLibcClock"},
 	{0x27CC57F0, sceKernelLibcTime, "sceKernelLibcTime"},
 	{0x71EC4271, sceKernelLibcGettimeofday, "sceKernelLibcGettimeofday"},
 	{0xBFA98062, 0, "sceKernelDcacheInvalidateRange"},
