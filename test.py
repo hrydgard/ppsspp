@@ -4,12 +4,35 @@ import sys
 import io
 import os
 import subprocess
+import threading
 
 
 PPSSPP_EXECUTABLES = [ "Windows\\Release\\PPSSPPHeadless.exe", "SDL/build/ppsspp-headless" ]
 PPSSPP_EXE = None
 TEST_ROOT = "pspautotests/tests/"
 teamcity_mode = False
+TIMEOUT = 5
+
+class Command(object):
+  def __init__(self, cmd):
+    self.cmd = cmd
+    self.process = None
+    self.output = None
+    self.timeout = False
+
+  def run(self, timeout):
+    def target():
+      self.process = subprocess.Popen(self.cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+      self.output, _ = self.process.communicate()
+
+    thread = threading.Thread(target=target)
+    thread.start()
+
+    thread.join(timeout)
+    if thread.is_alive():
+      self.timeout = True
+      self.process.terminate()
+      thread.join()
 
 # Test names are the C files without the .c extension.
 # These have worked and should keep working always - regression tests.
@@ -132,7 +155,7 @@ def tcprint(arg):
     print arg
 
 def run_tests(test_list, args):
-  global PPSSPP_EXE
+  global PPSSPP_EXE, TIMEOUT
   tests_passed = []
   tests_failed = []
   
@@ -163,11 +186,21 @@ def run_tests(test_list, args):
     
     tcprint("##teamcity[testStarted name='%s' captureStandardOutput='true']" % test)
 
-    cmdline = PPSSPP_EXE + " " + elf_filename + " " + " ".join(args)
-    #print "Cmdline: " + cmdline
-    proc = subprocess.Popen(cmdline, stdin=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
+    cmdline = [PPSSPP_EXE, elf_filename]
+    cmdline.extend(args)
 
-    output = proc.stdout.read().strip()
+    c = Command(cmdline)
+    c.run(TIMEOUT)
+
+    output = c.output.strip()
+    
+    if c.timeout:
+      print output
+      print "Test exceded limit of %d seconds." % TIMEOUT
+      tcprint("##teamcity[testFailed name='%s' message='Test timeout']" % test)
+      tcprint("##teamcity[testFinished name='%s']" % test)
+      continue
+
     if output.startswith("TESTERROR"):
       print "Failed to run test " + elf_filename + "!"
       tests_failed.append(test)
