@@ -104,11 +104,8 @@ tests_next = [
   "utility/systemparam/systemparam",
   "video/pmf",
   "video/pmf_simple",
-]
 
-# These should be fixed, but currently hang or crash and are thus inconvenient to have
-# in the general test.
-tests_hang = [
+  # Currently hang or crash.
   "threads/events/events",
   "audio/atrac/atractest",
 ]
