@@ -56,13 +56,12 @@ extern u32 curTextureHeight;
 
 GLES_GPU::GLES_GPU(int renderWidth, int renderHeight)
 	: interruptsEnabled_(true),
-	  dlIdGenerator(1),
 		renderWidth_(renderWidth),
-		renderHeight_(renderHeight)
+		renderHeight_(renderHeight),
+		dlIdGenerator(1)
 {
 	widthFactor_ = (float)renderWidth / 480.0f;
 	heightFactor_ = (float)renderHeight / 272.0f;
-
 }
 
 GLES_GPU::~GLES_GPU()
@@ -94,6 +93,7 @@ void GLES_GPU::BeginFrame()
 		u8 *pspframebuf = Memory::GetPointer((0x44000000)|(displayFramebufPtr_ & 0x1FFFFF));	// TODO - check
 		DisplayDrawer_DrawFramebuffer(pspframebuf, displayFormat_, displayStride_);
 	}
+	currentRenderVfb_ = 0;
 }
 
 void GLES_GPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, int format)
@@ -128,7 +128,7 @@ void GLES_GPU::CopyDisplayToOutput()
 	}
 
 	DEBUG_LOG(HLE, "Displaying FBO %08x", vfb->fb_address);
-
+	glDisable(GL_BLEND);
 	glDisable(GL_CULL_FACE);
 	glDisable(GL_DEPTH_TEST);
 
@@ -142,6 +142,7 @@ void GLES_GPU::CopyDisplayToOutput()
 	gstate_c.textureChanged = true;
 
 	// Restore some state
+	ExecuteOp(gstate.cmdmem[GE_CMD_ALPHABLENDENABLE], 0xFFFFFFFF);		
 	ExecuteOp(gstate.cmdmem[GE_CMD_CULLFACEENABLE], 0xFFFFFFFF);		
 	ExecuteOp(gstate.cmdmem[GE_CMD_ZTESTENABLE], 0xFFFFFFFF);		
 }

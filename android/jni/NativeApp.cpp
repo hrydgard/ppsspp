@@ -237,7 +237,7 @@ void NativeInitGraphics()
 	theme.uiFontSmaller = UBUNTU24;
 	theme.buttonImage = I_BUTTON;
 	theme.buttonSelected = I_BUTTON_SELECTED;
-	theme.checkOn = I_CROSS;
+	theme.checkOn = I_CHECKEDBOX;
 	theme.checkOff = I_SQUARE;
 
 	UIInit(&ui_atlas, theme);

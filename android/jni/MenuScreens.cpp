@@ -240,7 +240,7 @@ void SettingsScreen::render() {
 	int y = 50;
 	UICheckBox(GEN_ID, x, y += 50, "Enable Sound Emulation", ALIGN_TOPLEFT, &g_Config.bEnableSound);
 	UICheckBox(GEN_ID, x, y += 50, "Show Analog Stick", ALIGN_TOPLEFT, &g_Config.bShowAnalogStick);
-	UICheckBox(GEN_ID, x, y += 50, "Buffered Rendering", ALIGN_TOPLEFT, &g_Config.bBufferedRendering);
+	UICheckBox(GEN_ID, x, y += 50, "Buffered Rendering (may fix flicker)", ALIGN_TOPLEFT, &g_Config.bBufferedRendering);
 	// UICheckBox(GEN_ID, x, y += 50, "Draw raw framebuffer (for some homebrew)", ALIGN_TOPLEFT, &g_Config.bDisplayFramebuffer);
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres-10), LARGE_BUTTON_WIDTH, "Back", ALIGN_RIGHT | ALIGN_BOTTOM)) {

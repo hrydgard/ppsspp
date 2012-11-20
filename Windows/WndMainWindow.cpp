@@ -336,6 +336,11 @@ namespace MainWindow
 				UpdateMenus();
 				break;
 
+			case ID_OPTIONS_BUFFEREDRENDERING:
+				g_Config.bBufferedRendering = !g_Config.bBufferedRendering;
+				UpdateMenus();
+				break;
+
 			case ID_FILE_EXIT:
 				DestroyWindow(hWnd);
 				break;
@@ -593,7 +598,7 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_IGNOREILLEGALREADS,g_Config.bIgnoreBadMemAccess);
 		CHECKITEM(ID_CPU_INTERPRETER,!g_Config.bJIT);
 		CHECKITEM(ID_CPU_DYNAREC,g_Config.bJIT);
-
+		CHECKITEM(ID_OPTIONS_BUFFEREDRENDERING, g_Config.bBufferedRendering);
 		BOOL enable = !Core_IsStepping();
 		EnableMenuItem(menu,ID_EMULATION_RUN,enable);
 		EnableMenuItem(menu,ID_EMULATION_PAUSE,!enable);

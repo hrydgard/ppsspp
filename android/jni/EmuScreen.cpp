@@ -155,15 +155,14 @@ void EmuScreen::render()
 	// I think we need to allocate FBOs per framebuffer and just blit the displayed one here at the end of the frame.
 	// Also - we should add another option to the core that lets us run it until a vblank event happens or the N cycles have passed
 	// - then the synchronization would at least not be able to drift off.
-	int retval = 1;
 
-	// Let's do 120 "blocks" per second just to try it
-	int blockTicks = usToCycles(1000000 / 120);
+	// The actual number of cycles doesn't matter so much here as we will break due to CORE_NEXTFRAME, most of the time hopefully...
+	int blockTicks = usToCycles(1000000 / 2);
 
 	// Run until CORE_NEXTFRAME
 	while (coreState == CORE_RUNNING) {
 		u64 nowTicks = CoreTiming::GetTicks();
-		retval = mipsr4k.RunLoopUntil(nowTicks + blockTicks);
+		mipsr4k.RunLoopUntil(nowTicks + blockTicks);
 	}
 	// Hopefully coreState is now CORE_NEXTFRAME
 	if (coreState == CORE_NEXTFRAME) {
@@ -171,30 +170,29 @@ void EmuScreen::render()
 		coreState = CORE_RUNNING;
 	}
 
-	//if (hasRendered)
-	{
-		UIShader_Prepare();
+	fbo_unbind();
 
-		uiTexture->Bind(0);
+	UIShader_Prepare();
 
-		ui_draw2d.Begin(DBMODE_NORMAL);
+	uiTexture->Bind(0);
 
-		// Don't want the gamepad on MacOSX and Linux
+	glViewport(0, 0, dp_xres, dp_yres);
+
+	ui_draw2d.Begin(DBMODE_NORMAL);
+
+	// Don't want the gamepad on MacOSX and Linux
 // #ifdef ANDROID
-		DrawGamepad(ui_draw2d);
+	DrawGamepad(ui_draw2d);
 // #endif
 
-		DrawWatermark();
+	DrawWatermark();
 
-		glsl_bind(UIShader_Get());
-		ui_draw2d.End();
-		ui_draw2d.Flush(UIShader_Get());
+	glsl_bind(UIShader_Get());
+	ui_draw2d.End();
+	ui_draw2d.Flush(UIShader_Get());
 
-		//hasRendered = false;
-
-		// Reapply the graphics state of the PSP
-		ReapplyGfxState();
-	}
+	// Reapply the graphics state of the PSP
+	ReapplyGfxState();
 
 	// Tiled renderers like PowerVR should benefit greatly from this. However - seems I can't call it?
 #if defined(ANDROID) || defined(BLACKBERRY)

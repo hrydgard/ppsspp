@@ -213,6 +213,7 @@ BEGIN
     BEGIN
         MENUITEM "&Toggle Full Screen\tAlt+Enter", ID_OPTIONS_FULLSCREEN, GRAYED
         MENUITEM "&Display raw framebuffer",    ID_OPTIONS_DISPLAYRAWFRAMEBUFFER
+        MENUITEM "&Buffered rendering",         ID_OPTIONS_BUFFEREDRENDERING
         MENUITEM SEPARATOR
         MENUITEM "Screen &1x",                  ID_OPTIONS_SCREEN1X
         MENUITEM "Screen &2x",                  ID_OPTIONS_SCREEN2X

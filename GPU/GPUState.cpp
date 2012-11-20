@@ -121,5 +121,6 @@ void ReapplyGfxState()
 	{
 		gpu->ExecuteOp(gstate.cmdmem[i], 0xFFFFFFFF);		
 	}
+
 	// TODO: there's more...
 }

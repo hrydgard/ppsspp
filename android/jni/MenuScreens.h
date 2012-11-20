@@ -68,7 +68,7 @@ public:
 
 
 struct FileSelectScreenOptions {
-	char* filter;  // Enforced extension filter. Case insensitive, extensions separated by ":".
+	const char* filter;  // Enforced extension filter. Case insensitive, extensions separated by ":".
 	bool allowChooseDirectory;
 	int folderIcon;
 	std::map<std::string, int> iconMapping;
