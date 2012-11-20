@@ -1,7 +1,7 @@
 // NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
 
 
-#define programname "PPSSPP v0.2"
+#define programname "PPSSPP v0.3"
 
 
 #include <windows.h>
