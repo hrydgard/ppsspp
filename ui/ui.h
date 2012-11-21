@@ -237,7 +237,7 @@ private:
 	// TODO: Migrate to using these directly.
 	void pointerDown(int pointer, float x, float y);
 	void pointerUp(int pointer, float x, float y, bool inside);
-	void pointerMove(int pointer, float x, float y);
+	void pointerMove(int pointer, float x, float y, bool inside);
 
 	DISALLOW_COPY_AND_ASSIGN(UIList);
 };

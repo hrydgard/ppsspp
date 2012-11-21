@@ -11,19 +11,24 @@ class UIContext {
 public:
 	UIContext() : uishader_(0), uitexture_(0), uidrawbuffer_(0), uidrawbufferTop_(0) {}
 
-	void Init(const GLSLProgram *uishader, Texture *uitexture, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop) {
+	void Init(const GLSLProgram *uishader, const GLSLProgram *uishadernotex, Texture *uitexture, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop) {
 		uishader_ = uishader;
+		uishadernotex_ = uishadernotex;
 		uitexture_ = uitexture;
 		uidrawbuffer_ = uidrawbuffer;
 		uidrawbufferTop_ = uidrawbufferTop;
 	}
 
 	void Begin();
+	void Flush();
+	void FlushNoTex();
 	void End();
+	void RebindTexture();
 
 private:
 	// TODO: Collect these into a UIContext
 	const GLSLProgram *uishader_;
+	const GLSLProgram *uishadernotex_;
 	Texture *uitexture_;
 	DrawBuffer *uidrawbuffer_;
 	DrawBuffer *uidrawbufferTop_;

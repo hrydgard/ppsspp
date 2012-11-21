@@ -44,6 +44,8 @@ public:
 	ScreenManager *screenManager() { return screenManager_; }
 	void setScreenManager(ScreenManager *sm) { screenManager_ = sm; }
 
+	virtual void *dialogData() { return 0; }
+
 private:
 	ScreenManager *screenManager_;
 	bool isUiScreen_;
@@ -76,7 +78,7 @@ public:
 	void shutdown();
 
 	// Push a dialog box in front. Currently 1-level only.
-	void push(Screen *screen);
+	void push(Screen *screen, int layerFlags = 0);
 
 	// Pops the dialog away.
 	void finishDialog(const Screen *dialog, DialogResult result = DR_OK);
@@ -86,13 +88,15 @@ public:
 
 private:
 	void pop();
+	void switchToNext();
+	void processFinishDialog();
 	Screen *topScreen();
 
-	// Base screen. These don't "stack" and you can move in any order between them.
-	Screen *currentScreen_;
 	Screen *nextScreen_;
-
 	UIContext *uiContext_;
+
+	const Screen *dialogFinished_;
+	DialogResult dialogResult_;
 
 	struct Layer {
 		Screen *screen;
@@ -101,5 +105,5 @@ private:
 
 	// Dialog stack. These are shown "on top" of base screens and the Android back button works as expected.
 	// Used for options, in-game menus and other things you expect to be able to back out from onto something.
-	std::list<Screen *> dialog_;
+	std::list<Layer> stack_;
 };

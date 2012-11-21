@@ -150,6 +150,7 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
 	g_dpi_scale = 240.0f / (float)g_dpi;
 	pixel_xres = xxres;
 	pixel_yres = yyres;
+	pixel_in_dps = (float)pixel_xres / (float)dp_xres;
 
 	NativeGetAppInfo(&app_name, &app_nice_name, &landscape);
 

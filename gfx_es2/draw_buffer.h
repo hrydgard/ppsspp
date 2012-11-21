@@ -4,6 +4,7 @@
 
 #include "base/basictypes.h"
 #include "base/color.h"
+#include "base/display.h"
 
 struct Atlas;
 
@@ -54,16 +55,16 @@ public:
   void Flush(const GLSLProgram *program, bool set_blend_state=true);
   
   void Rect(float x, float y, float w, float h, uint32 color, int align = ALIGN_TOPLEFT);
-  void hLine(float x1, float y, float x2, uint32 color) { Rect(x1, y, x2 - x1, 1, color); }
-  void vLine(float x, float y1, float y2, uint32 color) { Rect(x, y1, 1, y2 - y1, color); }
-  void vLineAlpha50(float x, float y1, float y2, uint32 color) { Rect(x, y1, 1, y2 - y1, (color | 0xFF000000) & 0x7F000000); }
+  void hLine(float x1, float y, float x2, uint32 color) { Rect(x1, y, x2 - x1, pixel_in_dps, color); }
+  void vLine(float x, float y1, float y2, uint32 color) { Rect(x, y1, pixel_in_dps, y2 - y1, color); }
+  void vLineAlpha50(float x, float y1, float y2, uint32 color) { Rect(x, y1, pixel_in_dps, y2 - y1, (color | 0xFF000000) & 0x7F000000); }
 
   void RectOutline(float x, float y, float w, float h, uint32 color, int align = ALIGN_TOPLEFT) {
-    hLine(x, y, x + w + 1, color);
-    hLine(x, y + h, x + w + 1, color);
+    hLine(x, y, x + w + pixel_in_dps, color);
+    hLine(x, y + h, x + w + pixel_in_dps, color);
 
-    vLine(x, y, y + h + 1, color);
-    vLine(x + w, y, y + h + 1, color);
+    vLine(x, y, y + h + pixel_in_dps, color);
+    vLine(x + w, y, y + h + pixel_in_dps, color);
   }
   
   void RectVGradient(float x, float y, float w, float h, uint32 colorTop, uint32 colorBottom);

@@ -36,6 +36,13 @@ float ease(float val) {
 	return ((-cosf(val * PI)) + 1.0f) * 0.5;
 }
 
+float ease(int t, int fadeLength)
+{
+	if (t < 0) return 0.0f;
+	if (t >= fadeLength) return 1.0f;
+	return ease((float)t / (float)fadeLength);
+}
+
 float sawtooth(int t, int period) {
 	return (t % period) * (1.0f / (period - 1));
 }

@@ -23,19 +23,54 @@ void UIContext::Begin()
 		uidrawbufferTop_->Begin();*/
 }
 
-void UIContext::End() 
+void UIContext::RebindTexture()
 {
-	UIEnd();
+	if (uitexture_)
+		uitexture_->Bind(0);
+}
+
+void UIContext::Flush()
+{
 	if (uidrawbuffer_)
 	{
 		uidrawbuffer_->End();
-		if (uishader_)
+		if (uishader_) {
+			glsl_bind(uishader_);
 			uidrawbuffer_->Flush(uishader_);
+		}
 	}
 	if (uidrawbufferTop_)
 	{
-		uidrawbuffer_->End();
-		if (uishader_)
+		uidrawbufferTop_->End();
+		if (uishader_) {
+			glsl_bind(uishader_);
 			uidrawbufferTop_->Flush(uishader_);
+		}
 	}
+}
+
+void UIContext::FlushNoTex()
+{
+	if (uidrawbuffer_)
+	{
+		uidrawbuffer_->End();
+		if (uishadernotex_) {
+			glsl_bind(uishadernotex_);
+			uidrawbuffer_->Flush(uishadernotex_);
+		}
+	}
+	if (uidrawbufferTop_)
+	{
+		uidrawbufferTop_->End();
+		if (uishadernotex_) {
+			glsl_bind(uishadernotex_);
+			uidrawbufferTop_->Flush(uishadernotex_);
+		}
+	}
+}
+
+void UIContext::End() 
+{
+	UIEnd();
+	Flush();
 }

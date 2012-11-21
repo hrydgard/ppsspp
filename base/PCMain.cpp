@@ -135,11 +135,6 @@ extern void mixaudio(void *userdata, Uint8 *stream, int len) {
 #undef main
 #endif
 int main(int argc, char *argv[]) {
-	/* // Xoom/Nexus 7 resolution. Other common tablet resolutions: 1024x600 , 1366x768
-	dp_xres = 1280;
-	dp_yres = 800;
-
-	*/
 	std::string app_name;
 	std::string app_name_nice;
 
@@ -156,7 +151,8 @@ int main(int argc, char *argv[]) {
 
 	bool landscape;
 	NativeGetAppInfo(&app_name, &app_name_nice, &landscape);
-
+	
+	tablet = false;
 	if (landscape) {
 		if (tablet) {
 			pixel_xres = 1280 * zoom;
@@ -250,11 +246,13 @@ int main(int argc, char *argv[]) {
 	float density = 1.0f;
 	dp_xres = (float)pixel_xres * density / zoom;
 	dp_yres = (float)pixel_yres * density / zoom;
+	pixel_in_dps = (float)pixel_xres / dp_xres;
 
 	NativeInitGraphics();
 
 	float dp_xscale = (float)dp_xres / pixel_xres;
 	float dp_yscale = (float)dp_yres / pixel_yres;
+
 
 	printf("Pixels: %i x %i\n", pixel_xres, pixel_yres);
 	printf("Virtual pixels: %i x %i\n", dp_xres, dp_yres);
@@ -350,8 +348,8 @@ int main(int argc, char *argv[]) {
 
 	NativeShutdownGraphics();
 	SDL_PauseAudio(1);
-	NativeShutdown();
 	SDL_CloseAudio();
+	NativeShutdown();
 	SDL_Quit();
 	net::Shutdown();
 	exit(0);

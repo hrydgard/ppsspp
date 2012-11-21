@@ -233,15 +233,15 @@ void DrawBuffer::DrawTexRect(float x1, float y1, float x2, float y2, float u1, f
 void DrawBuffer::DrawImage4Grid(int atlas_image, float x1, float y1, float x2, float y2, Color color, float corner_scale) {
   const AtlasImage &image = atlas->images[atlas_image];
 
-  float um = (image.u2 - image.u1) * 0.5f;
-  float vm = (image.v2 - image.v1) * 0.5f;
+	float u1 = image.u1, v1 = image.v1, u2 = image.u2, v2 = image.v2;
+	float um = (u2 + u1) * 0.5f;
+  float vm = (v2 + v1) * 0.5f;
   float iw2 = (image.w * 0.5f) * corner_scale;
   float ih2 = (image.h * 0.5f) * corner_scale;
   float xa = x1 + iw2;
   float xb = x2 - iw2;
   float ya = y1 + ih2;
   float yb = y2 - ih2;
-  float u1 = image.u1, v1 = image.v1, u2 = image.u2, v2 = image.v2;
   // Top row
   DrawTexRect(x1, y1, xa, ya, u1, v1, um, vm, color);
   DrawTexRect(xa, y1, xb, ya, um, v1, um, vm, color);
@@ -358,8 +358,11 @@ void DrawBuffer::DrawText(int font, const char *text, float x, float y, Color co
 
 void DrawBuffer::EnableBlend(bool enable) {
   if (enable)
+	{
     glEnable(GL_BLEND);
-  else
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	}
+	else
     glDisable(GL_BLEND);
 }
 

@@ -286,7 +286,7 @@ void UIList::pointerDown(int pointer, float x, float y) {
 
 const int holdFrames = 6;
 
-void UIList::pointerMove(int pointer, float x, float y) {
+void UIList::pointerMove(int pointer, float x, float y, bool inside) {
 	float deltaY = y - lastY;
 	movedDistanceY += fabsf(deltaY);
 
@@ -298,7 +298,7 @@ void UIList::pointerMove(int pointer, float x, float y) {
 		inertiaY = 0.8 * inertiaY + 0.2 * -deltaY;
 	}
 
-	if (movedDistanceY > 15 && !scrolling && uistate.mouseframesdown[0] > holdFrames) {
+	if (inside && movedDistanceY > 10 && !scrolling && uistate.mouseframesdown[0] > holdFrames) {
 		scrolling = true;
 	}
 }
@@ -319,7 +319,9 @@ int UIList::Do(int id, int x, int y, int w, int h, UIListAdapter *adapter) {
 	// TODO: Abstract this stuff out into EmulatePointerEvents
 	for (int i = 0; i < 1; i++) {
 		// Check for hover
+		bool isInside = false;
 		if (UIRegionHit(i, x, y, w, h, 0)) {
+			isInside = true;
 			uistate.hotitem[i] = id;
 			if (uistate.activeitem[i] == 0 && uistate.mousedown[i]) {
 				// Mousedown
@@ -331,7 +333,7 @@ int UIList::Do(int id, int x, int y, int w, int h, UIListAdapter *adapter) {
 		if (uistate.activeitem[i] == id) {
 			// NOTE: won't work with multiple pointers
 			if (uistate.mousex[i] != lastX || uistate.mousey[i] != lastY) {
-				pointerMove(i, uistate.mousex[i], uistate.mousey[i]);
+				pointerMove(i, uistate.mousex[i], uistate.mousey[i], isInside);
 			}
 		}
 
@@ -343,7 +345,7 @@ int UIList::Do(int id, int x, int y, int w, int h, UIListAdapter *adapter) {
 			if (uistate.hotitem[i] == id) {
 				clicked = 1;
 			}
-			pointerUp(i, uistate.mousex[i], uistate.mousey[i], uistate.hotitem[i] == id);
+			pointerUp(i, uistate.mousex[i], uistate.mousey[i], isInside);
 		}
 	}
 
@@ -358,13 +360,15 @@ int UIList::Do(int id, int x, int y, int w, int h, UIListAdapter *adapter) {
 	if (!uistate.mousedown[0]) {
 		// Let it slide if the pointer is not down
 		scrollY += inertiaY;
-	} else if (scrolling && mouseY > y && mouseY < y + h) {
+	} else if (scrolling /* && mouseY > y && mouseY < y + h*/ ) {
 		// Pointer is down so stick to it
 		scrollY = startScrollY - (uistate.mousey[0] - startDragY);
 	}
 
 	// Inertia gradually trails off
 	inertiaY *= 0.92f;
+	if (scrolling && fabsf(inertiaY) < 0.001f)
+		scrolling = false;
 
 	// Cap top and bottom softly.
 	float maxScrollY = numItems * itemHeight - h;

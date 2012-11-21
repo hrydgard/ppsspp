@@ -1,27 +1,22 @@
 #include "base/logging.h"
 #include "input/input_state.h"
 #include "ui/screen.h"
+#include "ui/ui.h"
 
 Screen::Screen(bool isUiScreen) : screenManager_(0), isUiScreen_(isUiScreen) { }
 Screen::~Screen() { }
 
 ScreenManager::ScreenManager() {
-	currentScreen_ = 0;
 	nextScreen_ = 0;
 	uiContext_ = 0;
+	dialogFinished_ = 0;
 }
 
 ScreenManager::~ScreenManager() {
-	delete currentScreen_;
+	shutdown();
 }
 
 void ScreenManager::switchScreen(Screen *screen) {
-	if (dialog_.size())
-	{
-		WLOG("Switching screens - dropping the whole dialog stack");
-		while (dialog_.size())
-			pop();
-	}
 	// Note that if a dialog is found, this will be a silent background switch that
 	// will only become apparent if the dialog is closed. The previous screen will stick around
 	// until that switch.
@@ -29,113 +24,148 @@ void ScreenManager::switchScreen(Screen *screen) {
 	if (nextScreen_ != 0) {
 		FLOG("WTF? Already had a nextScreen_");
 	}
-	if (screen != currentScreen_) {
+	if (stack_.empty() || screen != stack_.back().screen) {
 		nextScreen_ = screen;
 		nextScreen_->setScreenManager(this);
 	}
 }
 
 void ScreenManager::update(InputState &input) {
-	if (dialog_.size()) {
-		dialog_.back()->update(input);
-		return;
-	}
-
 	if (nextScreen_) {
-		ILOG("Screen switch!");
-		Screen *temp = currentScreen_;
-		currentScreen_ = nextScreen_;
-		delete temp;
-		temp = 0;
-		nextScreen_ = 0;
+		ILOG("Screen switch! Top of the stack switches.");
+		switchToNext();
 	}
 
-	if (currentScreen_) {
-		currentScreen_->update(input);
+	if (stack_.size()) {
+		stack_.back().screen->update(input);
 	}
+}
+
+void ScreenManager::switchToNext()
+{
+	Layer temp = {0, 0};
+	if (!stack_.empty())
+	{
+		temp = stack_.back();
+		stack_.pop_back();
+	}
+	Layer newLayer = {nextScreen_, 0};
+	stack_.push_back(newLayer);
+	delete temp.screen;
+	nextScreen_ = 0;
 }
 
 void ScreenManager::touch(int pointer, float x, float y, double time, TouchEvent event)
 {
-	if (dialog_.size()) {
-		dialog_.back()->touch(pointer, x, y, time, event);
+	if (stack_.size()) {
+		stack_.back().screen->touch(pointer, x, y, time, event);
 		return;
-	}
-	if (currentScreen_)
-	{
-		currentScreen_->touch(pointer, x, y, time, event);
 	}
 }
 
 void ScreenManager::render() {
-	if (dialog_.size()) {
-		dialog_.back()->render();
-		return;
-	}
-	if (currentScreen_) {
-		currentScreen_->render();
-	}
-	else {
+	if (stack_.size()) {
+		switch (stack_.back().flags)
+		{
+		case LAYER_SIDEMENU:
+			if (stack_.size() == 1)
+			{
+				ELOG("Can't have sidemenu over nothing");
+				break;
+			}
+			else
+			{
+				auto iter = stack_.end();
+				iter--;
+				iter--;
+				Layer backback = *iter;
+				UIDisableBegin();
+				// Also shift to the right somehow...
+				backback.screen->render();
+				UIDisableEnd();
+				stack_.back().screen->render();
+				break;
+			}
+		default:
+			stack_.back().screen->render();
+			break;
+		}
+	} else {
 		ELOG("No current screen!");
 	}
+
+	processFinishDialog();
 }
 
 void ScreenManager::deviceLost()
 {
-	if (currentScreen_)
-		currentScreen_->deviceLost();
+	if (stack_.size())
+		stack_.back().screen->deviceLost();
 	// Dialogs too? Nah, they should only use the standard UI texture anyway.
 	// TODO: Change this when it becomes necessary.
 }
 
 Screen *ScreenManager::topScreen() {
-	if (dialog_.size())
-		return dialog_.back();
+	if (stack_.size())
+		return stack_.back().screen;
 	else
-		return currentScreen_;
+		return 0;
 }
 
 void ScreenManager::shutdown() {
-	if (nextScreen_) {
-		delete nextScreen_;
-		nextScreen_ = 0;
+	for (auto x = stack_.begin(); x != stack_.end(); x++)
+	{
+		delete x->screen;
 	}
-	if (currentScreen_) {
-		delete currentScreen_;
-		currentScreen_ = 0;
-	}
+	stack_.clear();
+	delete nextScreen_;
 }
 
-void ScreenManager::push(Screen *screen) {
+void ScreenManager::push(Screen *screen, int layerFlags) {
+	if (nextScreen_ && stack_.empty()) {
+		// we're during init, this is OK
+		switchToNext();
+	}
 	screen->setScreenManager(this);
-	dialog_.push_back(screen);
+	Layer layer = {screen, layerFlags};
+	stack_.push_back(layer);
 }
 
 void ScreenManager::pop() {
-	if (dialog_.size()) {
-		delete dialog_.back();
-		dialog_.pop_back();
+	if (stack_.size()) {
+		delete stack_.back().screen;
+		stack_.pop_back();
 	} else {
-		ELOG("Can't push when no dialog is shown");
+		ELOG("Can't pop when stack empty");
 	}
 }
 
 void ScreenManager::finishDialog(const Screen *dialog, DialogResult result)
 {
-	if (!dialog_.size()) {
-		ELOG("Must be in a dialog to finishDialog");
-		return;
-	}
-	Screen *dlg = dialog_.back();
-	if (dialog != dialog_.back())
+	if (dialog != stack_.back().screen)
 	{
 		ELOG("Wrong dialog being finished!");
 		return;
 	}
-	if (dialog_.size()) {
-		dialog_.pop_back();
+	if (!stack_.size()) {
+		ELOG("Must be in a dialog to finishDialog");
+		return;
 	}
-	Screen *caller = topScreen();
-	caller->dialogFinished(dialog, result);
-	delete dialog;
+	dialogFinished_ = dialog;
+	dialogResult_ = result;
+}
+
+void ScreenManager::processFinishDialog()
+{
+	if (dialogFinished_)
+	{
+		if (stack_.size()) {
+			stack_.pop_back();
+		}
+
+		Screen *caller = topScreen();
+		caller->dialogFinished(dialogFinished_, dialogResult_);
+		delete dialogFinished_;
+		dialogFinished_ = 0;
+	}
 }

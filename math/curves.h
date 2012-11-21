@@ -12,6 +12,7 @@ float linearOut(int t, int fadeInLength);
 
 // smooth operator [0, 1] -> [0, 1]
 float ease(float val);
+float ease(int t, int fadeLength);
 
 // need a bouncy ease
 
