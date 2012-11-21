@@ -435,7 +435,7 @@ void sceKernelUnlockMutex(SceUID id, int count)
 			error = SCE_KERNEL_ERROR_ILLEGAL_COUNT;
 		else if ((mutex->nm.attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE) == 0 && count > 1)
 			error = SCE_KERNEL_ERROR_ILLEGAL_COUNT;
-		else if (mutex->nm.lockLevel == 0)
+		else if (mutex->nm.lockLevel == 0 || mutex->nm.lockThread != __KernelGetCurThread())
 			error = PSP_MUTEX_ERROR_NOT_LOCKED;
 		else if (mutex->nm.lockLevel < count)
 			error = PSP_MUTEX_ERROR_UNLOCK_UNDERFLOW;
@@ -787,7 +787,7 @@ void sceKernelUnlockLwMutex(u32 workareaPtr, int count)
 		error = SCE_KERNEL_ERROR_ILLEGAL_COUNT;
 	else if ((workarea.attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE) == 0 && count > 1)
 		error = SCE_KERNEL_ERROR_ILLEGAL_COUNT;
-	else if (workarea.lockLevel == 0)
+	else if (workarea.lockLevel == 0 || workarea.lockThread != __KernelGetCurThread())
 		error = PSP_LWMUTEX_ERROR_NOT_LOCKED;
 	else if (workarea.lockLevel < count)
 		error = PSP_LWMUTEX_ERROR_UNLOCK_UNDERFLOW;
