@@ -35,7 +35,7 @@ void sceKernelExitThread();
 void _sceKernelExitThread();
 void sceKernelGetThreadId();
 void sceKernelGetThreadCurrentPriority();
-u32 sceKernelStartThread();
+void sceKernelStartThread(SceUID threadToStartID, u32 argSize, u32 argBlockPtr);
 u32 sceKernelSuspendDispatchThread();
 u32 sceKernelResumeDispatchThread(u32 suspended);
 void sceKernelWaitThreadEnd();
@@ -68,7 +68,9 @@ enum WaitType //probably not the real values
 	WAITTYPE_AUDIOCHANNEL = 10, // this is fake, should be replaced with 8 eventflags   ( ?? )
 	WAITTYPE_UMD = 11,           // this is fake, should be replaced with 1 eventflag    ( ?? )
 	WAITTYPE_VBLANK = 12,           // fake
-  WAITTYPE_MUTEX = 13,
+	WAITTYPE_MUTEX = 13,
+	WAITTYPE_LWMUTEX = 14,
+	// Remember to update sceKernelThread.cpp's waitTypeStrings to match.
 };
 
 
@@ -103,9 +105,12 @@ void __KernelLoadContext(ThreadContext *ctx);
 // TODO: Replace this with __KernelResumeThread over time as it's misguided.
 bool __KernelTriggerWait(WaitType type, int id, bool dontSwitch = false);
 u32 __KernelResumeThreadFromWait(SceUID threadID); // can return an error value
+u32 __KernelResumeThreadFromWait(SceUID threadID, int retval);
 
 u32 __KernelGetWaitValue(SceUID threadID, u32 &error);
-void __KernelWaitCurThread(WaitType type, SceUID waitId, u32 waitValue, int timeout, bool processCallbacks);
+u32 __KernelGetWaitTimeoutPtr(SceUID threadID, u32 &error);
+SceUID __KernelGetWaitID(SceUID threadID, WaitType type, u32 &error);
+void __KernelWaitCurThread(WaitType type, SceUID waitId, u32 waitValue, u32 timeoutPtr, bool processCallbacks);
 void __KernelReSchedule(const char *reason = "no reason");
 void __KernelReSchedule(bool doCallbacks, const char *reason);
 
@@ -193,3 +198,6 @@ enum ThreadStatus
 };
 
 void __KernelChangeThreadState(Thread *thread, ThreadStatus newStatus);
+
+typedef void (*ThreadCallback)(SceUID threadID);
+void __KernelListenThreadEnd(ThreadCallback callback);

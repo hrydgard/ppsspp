@@ -26,6 +26,7 @@
 #include "sceKernel.h"
 #include "sceKernelThread.h"
 #include "sceKernelInterrupt.h"
+#include "sceKernelMutex.h"
 
 struct Interrupt
 {
@@ -428,11 +429,11 @@ const HLEFunction Kernel_Library[] =
 	{0x47a0b729,sceKernelIsCpuIntrSuspended, "sceKernelIsCpuIntrSuspended"}, //flags
 	{0xb55249d2,sceKernelIsCpuIntrEnable, "sceKernelIsCpuIntrEnable"}, 
 	{0xa089eca4,sceKernelMemset, "sceKernelMemset"}, 
-	{0xDC692EE3,0, "sceKernelTryLockLwMutex"},
-	{0x37431849,0, "sceKernelTryLockLwMutex_600"},
-	{0xbea46419,0, "sceKernelLockLwMutex"}, 
-	{0x1FC64E09,0, "sceKernelLockLwMutexCB"},
-	{0x15b6446b,0, "sceKernelUnlockLwMutex"}, 
+	{0xDC692EE3,&WrapV_UI<sceKernelTryLockLwMutex>, "sceKernelTryLockLwMutex"},
+	{0x37431849,&WrapV_UI<sceKernelTryLockLwMutex_600>, "sceKernelTryLockLwMutex_600"},
+	{0xbea46419,&WrapV_UIU<sceKernelLockLwMutex>, "sceKernelLockLwMutex"}, 
+	{0x1FC64E09,&WrapV_UIU<sceKernelLockLwMutexCB>, "sceKernelLockLwMutexCB"},
+	{0x15b6446b,&WrapV_UI<sceKernelUnlockLwMutex>, "sceKernelUnlockLwMutex"}, 
 	{0x293b45b8,sceKernelGetThreadId, "sceKernelGetThreadId"}, 
 	{0x1839852A,0,"sce_paf_private_memcpy"},
 	{0xA089ECA4,0,"sce_paf_private_memset"},

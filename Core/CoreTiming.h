@@ -58,6 +58,10 @@ inline int usToCycles(int us) {
 	return (int)(CPU_HZ / 1000000 * us);
 }
 
+inline int cyclesToUs(int cycles) {
+	return cycles / (CPU_HZ / 1000000);
+}
+
 namespace CoreTiming
 {
 	void Init();
@@ -77,8 +81,8 @@ namespace CoreTiming
 	void ScheduleEvent(int cyclesIntoFuture, int event_type, u64 userdata=0);
 	void ScheduleEvent_Threadsafe(int cyclesIntoFuture, int event_type, u64 userdata=0);
 	void ScheduleEvent_Threadsafe_Immediate(int event_type, u64 userdata=0);
+	int UnscheduleEvent(int event_type, u64 userdata);
 
-	// We only permit one event of each type in the queue at a time.
 	void RemoveEvent(int event_type);
 	void RemoveThreadsafeEvent(int event_type);
 	void RemoveAllEvents(int event_type);
