@@ -69,6 +69,8 @@ enum WaitType //probably not the real values
 	WAITTYPE_UMD = 11,           // this is fake, should be replaced with 1 eventflag    ( ?? )
 	WAITTYPE_VBLANK = 12,           // fake
 	WAITTYPE_MUTEX = 13,
+	WAITTYPE_LWMUTEX = 14,
+	// Remember to update sceKernelThread.cpp's waitTypeStrings to match.
 };
 
 
