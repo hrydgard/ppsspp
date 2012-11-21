@@ -19,6 +19,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#ifndef _MSC_VER
+#include <strings.h>
+#endif
+
 #include <string>
 #include <vector>
 #include <iostream>

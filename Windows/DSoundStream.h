@@ -1,6 +1,8 @@
 #ifndef __SOUNDSTREAM_H__
 #define __SOUNDSTREAM_H__
 
+#include <windows.h>
+
 namespace DSound
 {
 	typedef int (*StreamCallback)(short *buffer, int numSamples, int bits, int rate, int channels);

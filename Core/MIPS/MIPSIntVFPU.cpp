@@ -26,10 +26,6 @@
 
 #include <limits>
 
-#ifndef _MSC_VER
-using std::isnan;
-#endif
-
 #define R(i)   (currentMIPS->r[i])
 #define RF(i)  (*(float*)(&(currentMIPS->r[i])))
 #define V(i)   (currentMIPS->v[i])

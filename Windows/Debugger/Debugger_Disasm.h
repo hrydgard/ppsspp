@@ -10,6 +10,8 @@
 #include "../../Globals.h"
 #include "../../Core/CPU.h"
 
+#include <windows.h>
+
 class CDisasm : public Dialog
 {
 private:

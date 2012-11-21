@@ -5,6 +5,9 @@
 
 #include "ShellUtil.h"
 
+#include <shlobj.h>
+#include <commdlg.h>
+
 namespace W32Util
 {
 	std::string BrowseForFolder(HWND parent, char *title)
