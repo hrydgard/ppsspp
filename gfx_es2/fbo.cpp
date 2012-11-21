@@ -10,33 +10,11 @@
 #endif
 #endif
 
-// Required for Blackberry10/iOS GLES2 implementation
-
-#ifdef ANDROID
-
 #define GL_READ_FRAMEBUFFER GL_FRAMEBUFFER
 #define GL_DRAW_FRAMEBUFFER GL_FRAMEBUFFER
 #define GL_RGBA8 GL_RGBA
 #ifndef GL_DEPTH_COMPONENT24
 #define GL_DEPTH_COMPONENT24 GL_DEPTH_COMPONENT24_OES
-#endif
-
-#else
-
-#ifndef GL_RGBA8
-#define GL_RGBA8 GL_RGBA8_OES
-#endif
-#ifndef GL_READ_FRAMEBUFFER
-#define GL_READ_FRAMEBUFFER GL_READ_FRAMEBUFFER_APPLE
-#endif
-#ifndef GL_DRAW_FRAMEBUFFER
-#define GL_DRAW_FRAMEBUFFER GL_DRAW_FRAMEBUFFER_APPLE
-#endif
-
-#ifndef GL_DEPTH_COMPONENT24
-#define GL_DEPTH_COMPONENT24 GL_DEPTH_COMPONENT24_OES
-#endif
-
 #endif
 
 #include "base/logging.h"
@@ -74,13 +52,6 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil) {
 	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo->handle);
 	glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbo->color_texture, 0);
 	glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
-
-#if defined(BLACKBERRY)
-#define GL_FRAMEBUFFER_EXT 0x8D40
-#define GL_FRAMEBUFFER_COMPLETE_EXT 0x8CD5
-#define GL_FRAMEBUFFER_UNSUPPORTED_EXT 0x8CDD
-#define glCheckFramebufferStatusEXT glCheckFramebufferStatus
-#endif
 
 	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 	switch(status) {
