@@ -127,7 +127,7 @@ void __KernelMutexInit()
 
 void __KernelMutexAcquireLock(Mutex *mutex, int count, SceUID thread)
 {
-	_dbg_assert_msg_(HLE, mutexHeldLocks.find(threadID) == mutexHeldLocks.end(), "Thread %d wasn't removed from mutexHeldLocks properly.");
+	_dbg_assert_msg_(HLE, mutexHeldLocks.find(thread) == mutexHeldLocks.end(), "Thread %d wasn't removed from mutexHeldLocks properly.", thread);
 	mutexHeldLocks.insert(std::make_pair(thread, mutex->GetUID()));
 
 	mutex->nm.lockLevel = count;
