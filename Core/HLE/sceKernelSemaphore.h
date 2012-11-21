@@ -25,3 +25,5 @@ void sceKernelReferSemaStatus(SceUID id, u32 infoPtr);
 void sceKernelSignalSema(SceUID id, int signal);
 void sceKernelWaitSema(SceUID semaid, int signal, u32 timeoutPtr);
 void sceKernelWaitSemaCB(SceUID semaid, int signal, u32 timeoutPtr);
+
+void __KernelSemaTimeout(u64 userdata, int cycleslate);

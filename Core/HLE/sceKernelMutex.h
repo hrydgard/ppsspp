@@ -17,16 +17,21 @@
 
 #pragma once
 
-// TODO
-u32 sceKernelCreateMutex(const char *name, u32 attr, u32 options);
-u32 sceKernelDeleteMutex(u32 id);
-u32 sceKernelLockMutex(u32 id, u32 count, u32 timeoutPtr);
-u32 sceKernelLockMutexCB(u32 id, u32 count, u32 timeoutPtr);
-u32 sceKernelUnlockMutex(u32 id, u32 count);
+void sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optionsPtr);
+void sceKernelDeleteMutex(SceUID id);
+void sceKernelLockMutex(SceUID id, int count, u32 timeoutPtr);
+void sceKernelLockMutexCB(SceUID id, int count, u32 timeoutPtr);
+void sceKernelTryLockMutex(SceUID id, int count);
+void sceKernelUnlockMutex(SceUID id, int count);
 
-void sceKernelCreateLwMutex();
-void sceKernelDeleteLwMutex();
-void sceKernelTryLockLwMutex();
-void sceKernelLockLwMutex();
-void sceKernelLockLwMutexCB();
-void sceKernelUnlockLwMutex();
+void sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int initialCount, u32 optionsPtr);
+void sceKernelDeleteLwMutex(u32 workareaPtr);
+void sceKernelTryLockLwMutex(u32 workareaPtr, int count);
+void sceKernelTryLockLwMutex_600(u32 workareaPtr, int count);
+void sceKernelLockLwMutex(u32 workareaPtr, int count, u32 timeoutPtr);
+void sceKernelLockLwMutexCB(u32 workareaPtr, int count, u32 timeoutPtr);
+void sceKernelUnlockLwMutex(u32 workareaPtr, int count);
+
+void __KernelMutexTimeout(u64 userdata, int cyclesLate);
+void __KernelLwMutexTimeout(u64 userdata, int cyclesLate);
+void __KernelMutexThreadEnd(SceUID thread);

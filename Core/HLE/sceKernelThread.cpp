@@ -72,6 +72,7 @@ const char *waitTypeStrings[] =
   "Umd",
   "Vblank",
   "Mutex",
+  "LwMutex",
 };
 
 struct SceKernelSysClock {
@@ -159,6 +160,7 @@ struct NativeThread
 
 struct ThreadWaitInfo {
 	u32 waitValue;
+	u32 timeoutPtr;
 };
 
 class Thread : public KernelObject
@@ -272,6 +274,7 @@ u32 threadReturnHackAddr;
 u32 cbReturnHackAddr;
 u32 intReturnHackAddr;
 std::vector<Thread *> threadqueue; //Change to SceUID
+std::vector<ThreadCallback> threadEndListeners;
 
 SceUID threadIdleID[2];
 
@@ -342,6 +345,21 @@ void __KernelThreadingInit()
   // These idle threads are later started in LoadExec, which calls __KernelStartIdleThreads below.
 }
 
+void __KernelListenThreadEnd(ThreadCallback callback)
+{
+	threadEndListeners.push_back(callback);
+}
+
+void __KernelFireThreadEnd(Thread *thread)
+{
+	SceUID threadID = thread->GetUID();
+	for (std::vector<ThreadCallback>::iterator iter = threadEndListeners.begin(), end = threadEndListeners.end(); iter != end; ++iter)
+	{
+		ThreadCallback cb = *iter;
+		cb(threadID);
+	}
+}
+
 void __KernelStartIdleThreads()
 {
   for (int i = 0; i < 2; i++)
@@ -388,6 +406,37 @@ u32 __KernelGetWaitValue(SceUID threadID, u32 &error)
 	else
 	{
 		ERROR_LOG(HLE, "__KernelGetWaitValue ERROR: thread %i", threadID);
+		return 0;
+	}
+}
+
+u32 __KernelGetWaitTimeoutPtr(SceUID threadID, u32 &error)
+{
+	Thread *t = kernelObjects.Get<Thread>(threadID, error);
+	if (t)
+	{
+		return t->waitInfo.timeoutPtr;
+	}
+	else
+	{
+		ERROR_LOG(HLE, "__KernelGetWaitTimeoutPtr ERROR: thread %i", threadID);
+		return 0;
+	}
+}
+
+SceUID __KernelGetWaitID(SceUID threadID, WaitType type, u32 &error)
+{
+	Thread *t = kernelObjects.Get<Thread>(threadID, error);
+	if (t)
+	{
+		if (t->nt.waitType == type)
+			return t->nt.waitID;
+		else
+			return 0;
+	}
+	else
+	{
+		ERROR_LOG(HLE, "__KernelGetWaitID ERROR: thread %i", threadID);
 		return 0;
 	}
 }
@@ -512,6 +561,50 @@ void __KernelLoadContext(ThreadContext *ctx)
   // currentMIPS->fcr31 = ctx->fcr31;
 }
 
+void __KernelResumeThreadFromWait(Thread *t)
+{
+	t->nt.status &= ~THREADSTATUS_WAIT;
+	// TODO: What if DORMANT or DEAD?
+	if (!(t->nt.status & THREADSTATUS_WAITSUSPEND))
+		t->nt.status = THREADSTATUS_READY;
+
+	// Non-waiting threads do not process callbacks.
+	t->isProcessingCallbacks = false;
+}
+
+u32 __KernelResumeThreadFromWait(SceUID threadID)
+{
+	u32 error;
+	Thread *t = kernelObjects.Get<Thread>(threadID, error);
+	if (t)
+	{
+		__KernelResumeThreadFromWait(t);
+		return 0;
+	}
+	else
+	{
+		ERROR_LOG(HLE, "__KernelResumeThreadFromWait(%d): bad thread: %08x", threadID, error);
+		return error;
+	}
+}
+
+u32 __KernelResumeThreadFromWait(SceUID threadID, int retval)
+{
+	u32 error;
+	Thread *t = kernelObjects.Get<Thread>(threadID, error);
+	if (t)
+	{
+		__KernelResumeThreadFromWait(t);
+		t->setReturnValue(retval);
+		return 0;
+	}
+	else
+	{
+		ERROR_LOG(HLE, "__KernelResumeThreadFromWait(%d): bad thread: %08x", threadID, error);
+		return error;
+	}
+}
+
 // DANGEROUS
 // Only run when you can safely accept a context switch
 // Triggers a waitable event, that is, it wakes up all threads that waits for it
@@ -527,69 +620,41 @@ bool __KernelTriggerWait(WaitType type, int id, bool dontSwitch)
 		{
 			if (t->nt.waitType == type && t->nt.waitID == id)
 			{
-				// This threads is waiting for the triggered object
-				t->nt.status &= ~THREADSTATUS_WAIT;
-				if (t->nt.status == 0)
-        {
-					t->nt.status = THREADSTATUS_READY;
-        }
-				// Non-waiting threads do not process callbacks.
-				t->isProcessingCallbacks = false;
+				// This thread was waiting for the triggered object.
+				__KernelResumeThreadFromWait(t);
 				doneAnything = true;
 			}
 		}
 	}
 
-//  if (doneAnything)     // lumines?
-  {
-    if (!dontSwitch)
-    {
-      // TODO: time waster
-      char temp[256];
-      sprintf(temp, "resumed from wait %s", waitTypeStrings[(int)type]);
-      __KernelReSchedule(temp);
-    }
-  }
+//	if (doneAnything)     // lumines?
+	{
+		if (!dontSwitch)
+		{
+			// TODO: time waster
+			char temp[256];
+			sprintf(temp, "resumed from wait %s", waitTypeStrings[(int)type]);
+			__KernelReSchedule(temp);
+		}
+	}
 	return true;
 }
 
-u32 __KernelResumeThreadFromWait(SceUID threadID)
-{
-  u32 error;
-  Thread *t = kernelObjects.Get<Thread>(threadID, error);
-  if (t)
-  {
-    t->nt.status &= ~THREADSTATUS_WAIT;
-    if (!(t->nt.status & (THREADSTATUS_SUSPEND | THREADSTATUS_WAIT)))
-      t->nt.status |= THREADSTATUS_READY;
-		t->isProcessingCallbacks = false;
-    return 0;
-  }
-  else
-  {
-    ERROR_LOG(HLE, "__KernelResumeThreadFromWait(%d): bad thread: %08x", threadID, error);
-    return error;
-  }
-}
-
 // makes the current thread wait for an event
-void __KernelWaitCurThread(WaitType type, SceUID waitID, u32 waitValue, int timeout, bool processCallbacks)
+void __KernelWaitCurThread(WaitType type, SceUID waitID, u32 waitValue, u32 timeoutPtr, bool processCallbacks)
 {
 	currentThread->nt.waitID = waitID;
 	currentThread->nt.waitType = type;
 	__KernelChangeThreadState(currentThread, THREADSTATUS_WAIT);
 	currentThread->nt.numReleases++;
 	currentThread->waitInfo.waitValue = waitValue;
-  if (timeout)
-  {
-    // TODO:
-  }
+	currentThread->waitInfo.timeoutPtr = timeoutPtr;
 
 	RETURN(0); //pretend all went OK
 
-  // TODO: time waster
-  char temp[256];
-  sprintf(temp, "started wait %s", waitTypeStrings[(int)type]);
+	// TODO: time waster
+	char temp[256];
+	sprintf(temp, "started wait %s", waitTypeStrings[(int)type]);
   
 	__KernelReSchedule(processCallbacks, temp);
 	// TODO: Remove thread from Ready queue?
@@ -829,12 +894,10 @@ void sceKernelCreateThread()
 }
 
 
-u32 sceKernelStartThread()
+// int sceKernelStartThread(SceUID threadToStartID, SceSize argSize, void *argBlock)
+// void because it reschedules.
+void sceKernelStartThread(SceUID threadToStartID, u32 argSize, u32 argBlockPtr)
 {
-	int threadToStartID = PARAM(0);
-	u32 argSize = PARAM(1);
-	u32 argBlockPtr = PARAM(2);
-
 	if (threadToStartID != currentThread->GetUID())
 	{
 		u32 error;
@@ -843,13 +906,15 @@ u32 sceKernelStartThread()
 		{
 			ERROR_LOG(HLE,"%08x=sceKernelStartThread(thread=%i, argSize=%i, argPtr= %08x): thread does not exist!",
 				error,threadToStartID,argSize,argBlockPtr)
-			return error;
+			RETURN(error);
+			return;
 		}
 
 		if (startThread->nt.status != THREADSTATUS_DORMANT)
 		{
 			//Not dormant, WTF?
-			return ERROR_KERNEL_THREAD_IS_NOT_DORMANT;
+			RETURN(ERROR_KERNEL_THREAD_IS_NOT_DORMANT);
+			return;
 		}
 
 		INFO_LOG(HLE,"sceKernelStartThread(thread=%i, argSize=%i, argPtr= %08x )",
@@ -876,12 +941,14 @@ u32 sceKernelStartThread()
 		if (!argBlockPtr && argSize > 0) {
 			WARN_LOG(HLE,"sceKernelStartThread : had NULL arg");
 		}
-		return 0;
+		RETURN(0);
+
+		__KernelReSchedule("thread started");
 	}
 	else
 	{
 		ERROR_LOG(HLE,"thread %i trying to start itself", threadToStartID);
-		return -1;
+		RETURN(-1);
 	}
 }
 
@@ -929,6 +996,7 @@ void __KernelReturnFromThread()
 
 	currentThread->nt.exitStatus = currentThread->context.r[2];
 	currentThread->nt.status = THREADSTATUS_DORMANT;
+	__KernelFireThreadEnd(currentThread);
 
 	// TODO: Need to remove the thread from any ready queues.
 
@@ -943,8 +1011,10 @@ void __KernelReturnFromThread()
 void sceKernelExitThread()
 {
 	ERROR_LOG(HLE,"sceKernelExitThread FAKED");
-  currentThread->nt.status = THREADSTATUS_DORMANT;
-  currentThread->nt.exitStatus = PARAM(0);
+	currentThread->nt.status = THREADSTATUS_DORMANT;
+	currentThread->nt.exitStatus = PARAM(0);
+	__KernelFireThreadEnd(currentThread);
+
 	//Find threads that waited for me
 	// Wake them
 	if (!__KernelTriggerWait(WAITTYPE_THREADEND, __KernelGetCurThread()))
@@ -958,6 +1028,8 @@ void _sceKernelExitThread()
   ERROR_LOG(HLE,"_sceKernelExitThread FAKED");
   currentThread->nt.status = THREADSTATUS_DORMANT;
   currentThread->nt.exitStatus = PARAM(0);
+  __KernelFireThreadEnd(currentThread);
+
   //Find threads that waited for this one
   // Wake them
   if (!__KernelTriggerWait(WAITTYPE_THREADEND, __KernelGetCurThread()))
@@ -976,6 +1048,7 @@ void sceKernelExitDeleteThread()
     ERROR_LOG(HLE,"sceKernelExitDeleteThread()");
     currentThread->nt.status = THREADSTATUS_DORMANT;
     currentThread->nt.exitStatus = PARAM(0);
+	__KernelFireThreadEnd(currentThread);
 		//userMemory.Free(currentThread->stackBlock);
 		currentThread->stackBlock = -1;
 
@@ -1028,6 +1101,7 @@ void sceKernelDeleteThread()
     if (t)
     {
       __KernelRemoveFromThreadQueue(t);
+	  __KernelFireThreadEnd(t);
 
       RETURN(kernelObjects.Destroy<Thread>(threadHandle));
 
