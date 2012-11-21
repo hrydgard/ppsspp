@@ -323,28 +323,21 @@ int main(int argc, char *argv[]) {
 				{
 				// Touchscreen
 				case SCREEN_EVENT_MTOUCH_TOUCH:
-					input_state.pointer_x[pointerId] = pair[0] * dpi_scale;
-					input_state.pointer_y[pointerId] = pair[1] * dpi_scale;
-					input_state.pointer_down[pointerId] = true;
-					break;
+				case SCREEN_EVENT_MTOUCH_RELEASE: 	// Up, down
+					input_state.pointer_down[pointerId] = (screen_val == SCREEN_EVENT_MTOUCH_TOUCH);
 				case SCREEN_EVENT_MTOUCH_MOVE:
 					input_state.pointer_x[pointerId] = pair[0] * dpi_scale;
 					input_state.pointer_y[pointerId] = pair[1] * dpi_scale;
 					break;
-				case SCREEN_EVENT_MTOUCH_RELEASE:
-					input_state.pointer_x[pointerId] = pair[0] * dpi_scale;
-					input_state.pointer_y[pointerId] = pair[1] * dpi_scale;
-					input_state.pointer_down[pointerId] = false;
-					break;
 				// Mouse, Simulator
-    				case SCREEN_EVENT_POINTER:
+    			case SCREEN_EVENT_POINTER:
 					screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_BUTTONS,
 						&buttons);
-					if (buttons == SCREEN_LEFT_MOUSE_BUTTON) { // Down
+					if (buttons == SCREEN_LEFT_MOUSE_BUTTON) { 			// Down
 						input_state.pointer_x[pointerId] = pair[0] * dpi_scale;
 						input_state.pointer_y[pointerId] = pair[1] * dpi_scale;
 						input_state.pointer_down[pointerId] = true;
-					} else if (input_state.pointer_down[pointerId]) {  // Up
+					} else if (input_state.pointer_down[pointerId]) {	// Up
 						input_state.pointer_x[pointerId] = pair[0] * dpi_scale;
 						input_state.pointer_y[pointerId] = pair[1] * dpi_scale;
 						input_state.pointer_down[pointerId] = false;
@@ -369,16 +362,11 @@ int main(int argc, char *argv[]) {
 			}
 		}
 
-//		Maybe ask BPS if there's a USB/BT keyboard attached and show settings to configure
 		SimulateGamepad(&input_state);
 		UpdateInputState(&input_state);
 		NativeUpdate(input_state);
 		NativeRender();
 		EndInputState(&input_state);
-
-		if (framecount % 60 == 0) {
-			 // glsl_refresh(); // auto-reloads modified GLSL shaders once per second.
-		}
 
 		eglSwapBuffers(egl_disp, egl_surf);
 
