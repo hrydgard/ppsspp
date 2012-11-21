@@ -2,6 +2,8 @@
 #include "Misc.h"
 #include "PropertySheet.h"
 
+#include <commctrl.h>
+
 namespace W32Util
 {
 	bool centered;

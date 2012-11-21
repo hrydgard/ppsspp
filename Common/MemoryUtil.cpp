@@ -25,11 +25,8 @@
 #else
 #include <errno.h>
 #include <stdio.h>
+#endif
 #include <stdlib.h>
-#ifndef __APPLE__
-#include <malloc.h>
-#endif
-#endif
 
 
 #if !defined(_WIN32) && defined(__x86_64__) && !defined(MAP_32BIT)

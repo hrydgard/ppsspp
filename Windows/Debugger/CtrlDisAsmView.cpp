@@ -13,6 +13,9 @@
 #include "../../globals.h"
 #include "../main.h"
 
+#include <windows.h>
+#include <tchar.h>
+
 TCHAR CtrlDisAsmView::szClassName[] = _T("CtrlDisAsmView");
 extern HMENU g_hPopupMenus;
 

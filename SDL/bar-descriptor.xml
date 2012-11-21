@@ -2,7 +2,7 @@
 <qnx xmlns="http://www.qnx.com/schemas/application/1.0">
     <id>com.Qtness.PPSSPP</id>
     <name>PPSSPP</name>
-    <filename>ppsspp</filename>
+    <filename>PPSSPPBlackberry</filename>
     <versionNumber>0.31</versionNumber>
     <buildId>1</buildId>
     <description>Playstation portable emulator.</description>

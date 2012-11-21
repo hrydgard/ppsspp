@@ -8,6 +8,7 @@ public:
 	virtual int UpdateState() = 0;
 };
 
+#include <windows.h>
 #include <list>
 #include <memory>
 std::list<std::shared_ptr<InputDevice>> getInputDevices();

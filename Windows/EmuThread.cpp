@@ -10,6 +10,9 @@
 #include "../Core/System.h"
 #include "../Core/Config.h"
 
+#include <tchar.h>
+#include <process.h>
+
 char fileToStart[MAX_PATH];
 
 static HANDLE emuThread;
