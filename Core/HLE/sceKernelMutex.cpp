@@ -121,6 +121,7 @@ void __KernelMutexInit()
 
 void __KernelMutexAcquireLock(Mutex *mutex, int count, SceUID thread)
 {
+	_dbg_assert_msg_(HLE, mutexHeldLocks.find(threadID) == mutexHeldLocks.end(), "Thread %d wasn't removed from mutexHeldLocks properly.");
 	mutexHeldLocks.insert(std::make_pair(thread, mutex->GetUID()));
 
 	mutex->nm.lockLevel = count;
@@ -328,7 +329,8 @@ void __KernelMutexThreadEnd(SceUID threadID)
 		SceUID mutexID = (*iter).second;
 		Mutex *mutex = kernelObjects.Get<Mutex>(mutexID, error);
 
-		__KernelUnlockMutex(mutex, error);
+		if (mutex)
+			__KernelUnlockMutex(mutex, error);
 	}
 }
 
