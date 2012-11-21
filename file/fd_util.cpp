@@ -11,7 +11,6 @@
 #include <winsock2.h>
 #endif
 #include <fcntl.h>
-#include <sys/time.h>
 
 #include "base/logging.h"
 
