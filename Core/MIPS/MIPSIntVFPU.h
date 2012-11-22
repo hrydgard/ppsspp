@@ -67,5 +67,7 @@ namespace MIPSInt
 	void Int_Vf2h(u32 op);
 	void Int_Vsge(u32 op);
 	void Int_Vslt(u32 op);
+	void Int_Vmfvc(u32 op);
+	void Int_Vmtvc(u32 op);
 }
 

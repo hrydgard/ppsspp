@@ -1106,15 +1106,29 @@ namespace MIPSInt
 
 	void Int_Mftv(u32 op)
 	{
-		int vd = _VD;
+		int imm = op & 0xFF;
 		int rt = _RT;
 		switch ((op >> 21) & 0x1f)
 		{
-		case 3://mfv
-			R(rt) = VI(vd);
+		case 3: //mfv
+			if (imm < 128) {
+				R(rt) = VI(imm);
+			} else if (imm < 128 + VFPU_CTRL_MAX) {
+				R(rt) = currentMIPS->vfpuCtrl[imm - 128];
+			} else {
+				//ERROR
+				_dbg_assert_msg_(CPU,0,"mfv - invalid register");
+			}
 			break;
 		case 7: //mtv
-			VI(vd) = R(rt);
+			if (imm < 128) {
+				VI(imm) = R(rt);
+			} else if (imm < 128 + VFPU_CTRL_MAX) {
+				currentMIPS->vfpuCtrl[imm - 128] = R(rt);
+			} else {
+				//ERROR
+				_dbg_assert_msg_(CPU,0,"mtv - invalid register");
+			}
 			break;
 		default:
 			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
@@ -1188,9 +1202,9 @@ namespace MIPSInt
 
 	void Int_Vcmp(u32 op)
 	{
-		int vt = _VT;
 		int vs = _VS;
-		int cond = op&15;
+		int vt = _VT;
+		int cond = op & 0xf;
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
 		float s[4];
@@ -1209,20 +1223,28 @@ namespace MIPSInt
 			// These set c to 0 or 1, nothing else.
 			switch (cond)
 			{
+			case VC_FL: c = 0; break;
 			case VC_EQ: c = s[i] == t[i]; break;
-			case VC_EZ: c = s[i] == 0.0f || s[i] == -0.0f; break;
 			case VC_LT: c = s[i] < t[i]; break;
 			case VC_LE: c = s[i] <= t[i]; break;
+
 			case VC_TR: c = 1; break;
-			case VC_FL: c = 0; break;
 			case VC_NE: c = s[i] != t[i]; break;
-			case VC_GT: c = s[i] > t[i]; break;
 			case VC_GE: c = s[i] >= t[i]; break;
-			case VC_NZ: c = s[i] != 0; break;
-			case VC_ES: c = (s[i] != s[i]) || (s[i] == std::numeric_limits<float>::infinity()); break;   // Tekken Dark Resurrection
+			case VC_GT: c = s[i] > t[i]; break;
+
+			case VC_EZ: c = s[i] == 0.0f || s[i] == -0.0f; break;
 			case VC_EN: c = isnan(s[i]); break;
+			case VC_EI: c = 0; break;
+			case VC_ES: c = (s[i] != s[i]) || (s[i] == std::numeric_limits<float>::infinity()); break;   // Tekken Dark Resurrection
+
+			case VC_NZ: c = s[i] != 0; break;
+			case VC_NN: c = s[i] != 0; break;
+			case VC_NI: c = s[i] != 0; break;
+			case VC_NS: c = s[i] != 0; break;
 			default:
 				_dbg_assert_msg_(CPU,0,"Unsupported vcmp condition code %d", cond);
+				PC += 4;
 				return;
 			}
 			cc |= (c<<i);

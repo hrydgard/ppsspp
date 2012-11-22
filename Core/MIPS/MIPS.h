@@ -73,6 +73,7 @@ enum
 	VFPU_CTRL_RCX6,
 	VFPU_CTRL_RCX7,
 
+	VFPU_CTRL_MAX,
 	//unknown....
 };
 

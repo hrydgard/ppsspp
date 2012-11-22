@@ -622,8 +622,8 @@ MIPSInstruction tableVFPU5[8] =  //110111 xxx
 	INSTR("vpfxt",&Jit::Comp_Generic, Dis_VPFXST, Int_VPFX, IS_VFPU),
 	INSTR("vpfxd", &Jit::Comp_Generic, Dis_VPFXD, Int_VPFX, IS_VFPU),
 	INSTR("vpfxd", &Jit::Comp_Generic, Dis_VPFXD, Int_VPFX, IS_VFPU),
-	INSTR("viim.s",&Jit::Comp_Generic,Dis_Viim,Int_Viim, IS_VFPU),
-	INSTR("vfim.s",&Jit::Comp_Generic,Dis_Viim,Int_Viim, IS_VFPU),
+	INSTR("viim.s",&Jit::Comp_Generic, Dis_Viim,Int_Viim, IS_VFPU),
+	INSTR("vfim.s",&Jit::Comp_Generic, Dis_Viim,Int_Viim, IS_VFPU),
 };
 
 MIPSInstruction tableVFPU6[32] =  //111100 xxx
@@ -709,8 +709,8 @@ MIPSInstruction tableVFPU9[32] = //110100 00010 xxxxx
 	{-2},
 
 	//16
-	INSTR("vmfvc", &Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU),
-	INSTR("vmtvc", &Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU),
+	{-2}, //INSTR("vmfvc", &Jit::Comp_Generic, Dis_Generic, Int_Vmfvc, IS_VFPU),  MUST BE WRONG, covered by mfv
+	{-2}, //INSTR("vmtvc", &Jit::Comp_Generic, Dis_Generic, Int_Vmtvc, IS_VFPU),
 	{-2},
 	{-2},
 

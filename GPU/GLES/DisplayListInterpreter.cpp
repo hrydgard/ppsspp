@@ -778,7 +778,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 			break;
 		}
 
-	case GE_CMD_TRANSFERSTART:
+	case GE_CMD_TRANSFERSTART:  // Orphis calls this TRXKICK
 		{
 			ERROR_LOG(G3D, "UNIMPL DL Block Transfer Start: PixFormat %i", data);
 			// TODO: Here we should check if the transfer overlaps a framebuffer or any textures,
