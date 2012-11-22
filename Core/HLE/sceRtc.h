@@ -18,3 +18,4 @@
 #pragma once
 
 void sceRtcGetCurrentTick();
+void Register_sceRtc();

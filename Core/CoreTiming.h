@@ -58,7 +58,7 @@ inline int usToCycles(int us) {
 	return (int)(CPU_HZ / 1000000 * us);
 }
 
-inline int cyclesToUs(int cycles) {
+inline u64 cyclesToUs(u64 cycles) {
 	return cycles / (CPU_HZ / 1000000);
 }
 

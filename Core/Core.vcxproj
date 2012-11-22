@@ -132,6 +132,7 @@
     <ClCompile Include="HLE\sceCtrl.cpp" />
     <ClCompile Include="HLE\sceDisplay.cpp" />
     <ClCompile Include="HLE\sceDmac.cpp" />
+    <ClCompile Include="HLE\sceFont.cpp" />
     <ClCompile Include="HLE\sceGe.cpp" />
     <ClCompile Include="HLE\sceHprm.cpp" />
     <ClCompile Include="HLE\sceHttp.cpp" />
@@ -264,6 +265,7 @@
     <ClInclude Include="HLE\sceCtrl.h" />
     <ClInclude Include="HLE\sceDisplay.h" />
     <ClInclude Include="HLE\sceDmac.h" />
+    <ClInclude Include="HLE\sceFont.h" />
     <ClInclude Include="HLE\sceGe.h" />
     <ClInclude Include="HLE\sceHprm.h" />
     <ClInclude Include="HLE\sceHttp.h" />

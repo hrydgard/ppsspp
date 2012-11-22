@@ -23,6 +23,7 @@ set(SRCS
   HLE/sceDisplay.cpp
   HLE/sceDmac.cpp
   HLE/sceGe.cpp
+  HLE/sceFont.cpp
   HLE/sceHprm.cpp
   HLE/sceHttp.cpp
   HLE/sceImpose.cpp

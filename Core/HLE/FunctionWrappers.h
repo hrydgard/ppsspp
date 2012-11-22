@@ -29,6 +29,12 @@ template<u32 func()> void WrapU_V() {
   RETURN(func());
 }
 
+template<u64 func()> void WrapU64_V() {
+	u64 retval = func();
+	currentMIPS->r[2] = retval & 0xFFFFFFFF;
+	currentMIPS->r[3] = (retval >> 32) & 0xFFFFFFFF;
+}
+
 template<float func()> void WrapF_V() {
   RETURNF(func());
 }

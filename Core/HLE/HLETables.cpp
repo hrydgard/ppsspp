@@ -26,6 +26,7 @@
 #include "sceIo.h"
 #include "sceHprm.h"
 #include "scePower.h"
+#include "sceFont.h"
 #include "sceNet.h"
 #include "sceMpeg.h"
 #include "sceImpose.h"
@@ -35,6 +36,7 @@
 #include "sceSas.h"
 #include "sceUmd.h"
 #include "sceDmac.h"
+#include "sceRtc.h"
 #include "sceKernel.h"
 #include "sceKernelEventFlag.h"
 #include "sceKernelMemory.h"
@@ -93,46 +95,6 @@ const HLEFunction UtilsForUser[] =
 	{0x920f104a, sceKernelIcacheInvalidateAll, "sceKernelIcacheInvalidateAll"}
 };				   
 
-
-const HLEFunction sceRtc[] = 
-{
-  {0xC41C2853, sceRtcGetTickResolution, "sceRtcGetTickResolution"},
-  {0x3f7ad767, sceRtcGetCurrentTick, "sceRtcGetCurrentTick"},	
-  {0x011F03C1, sceRtcGetCurrentTick, "sceRtcGetAccumulativeTime"},
-  {0x029CA3B3, sceRtcGetCurrentTick, "sceRtcGetAccumlativeTime"},
-  {0x4cfa57b0, 0, "sceRtcGetCurrentClock"},
-  {0xE7C27D1B, sceRtcGetCurrentClockLocalTime, "sceRtcGetCurrentClockLocalTime"},
-  {0x34885E0D, 0, "sceRtcConvertUtcToLocalTime"},
-  {0x779242A2, 0, "sceRtcConvertLocalTimeToUTC"},
-  {0x42307A17, 0, "sceRtcIsLeapYear"},
-  {0x05ef322c, &WrapU_UU<sceRtcGetDaysInMonth>, "sceRtcGetDaysInMonth"},
-  {0x57726bc1, &WrapU_UUU<sceRtcGetDayOfWeek>, "sceRtcGetDayOfWeek"},
-  {0x4B1B5E82, 0, "sceRtcCheckValid"},
-  {0x3a807cc8, 0, "sceRtcSetTime_t"},
-  {0x27c4594c, 0, "sceRtcGetTime_t"},
-  {0xF006F264, 0, "sceRtcSetDosTime"},
-  {0x36075567, 0, "sceRtcGetDosTime"},
-  {0x7ACE4C04, 0, "sceRtcSetWin32FileTime"},
-  {0xCF561893, 0, "sceRtcGetWin32FileTime"},
-  {0x7ED29E40, 0, "sceRtcSetTick"},
-  {0x6FF40ACC, sceRtcGetTick, "sceRtcGetTick"},
-  {0x9ED0AE87, 0, "sceRtcCompareTick"},
-  {0x44F45E05, 0, "sceRtcTickAddTicks"},
-  {0x26D25A5D, 0, "sceRtcTickAddMicroseconds"},
-  {0xF2A4AFE5, 0, "sceRtcTickAddSeconds"},
-  {0xE6605BCA, 0, "sceRtcTickAddMinutes"},
-  {0x26D7A24A, 0, "sceRtcTickAddHours"},
-  {0xE51B4B7A, 0, "sceRtcTickAddDays"},
-  {0xCF3A2CA8, 0, "sceRtcTickAddWeeks"},
-  {0xDBF74F1B, 0, "sceRtcTickAddMonths"},
-  {0x42842C77, 0, "sceRtcTickAddYears"},
-  {0xC663B3B9, 0, "sceRtcFormatRFC2822"},
-  {0x7DE6711B, 0, "sceRtcFormatRFC2822LocalTime"},
-  {0x0498FB3C, 0, "sceRtcFormatRFC3339"},
-  {0x27F98543, 0, "sceRtcFormatRFC3339LocalTime"},
-  {0xDFBC5F16, 0, "sceRtcParseDateTime"},
-  {0x28E1E988, 0, "sceRtcParseRFC3339"},
-};
 
 const HLEFunction IoFileMgrForKernel[] =
 {
@@ -231,39 +193,6 @@ const HLEFunction sceUsb[] =
 };
 	
 
-const HLEFunction sceLibFont[] = 
-{
-	{0x67f17ed7, 0, "sceFontNewLib"},	
-	{0x574b6fbc, 0, "sceFontDoneLib"},
-	{0x48293280, 0, "sceFontSetResolution"},	
-	{0x27f6e642, 0, "sceFontGetNumFontList"},
-	{0xbc75d85b, 0, "sceFontGetFontList"},	
-	{0x099ef33c, 0, "sceFontFindOptimumFont"},	
-	{0x681e61a7, 0, "sceFontFindFont"},	
-	{0x2f67356a, 0, "sceFontCalcMemorySize"},	
-	{0x5333322d, 0, "sceFontGetFontInfoByIndexNumber"},
-	{0xa834319d, 0, "sceFontOpen"},	
-	{0x57fcb733, 0, "sceFontOpenUserFile"},	
-	{0xbb8e7fe6, 0, "sceFontOpenUserMemory"},	
-	{0x3aea8cb6, 0, "sceFontClose"},	
-	{0x0da7535e, 0, "sceFontGetFontInfo"},	
-	{0xdcc80c2f, 0, "sceFontGetCharInfo"},	
-	{0x5c3e4a9e, 0, "sceFontGetCharImageRect"},	
-	{0x980f4895, 0, "sceFontGetCharGlyphImage"},	
-	{0xca1e6945, 0, "sceFontGetCharGlyphImage_Clip"},
-	{0x74b21701, 0, "sceFontPixelToPointH"},	
-	{0xf8f0752e, 0, "sceFontPixelToPointV"},	
-	{0x472694cd, 0, "sceFontPointToPixelH"},	
-	{0x3c4b7e82, 0, "sceFontPointToPixelV"},	
-	{0xee232411, 0, "sceFontSetAltCharacterCode"},
-	{0xaa3de7b5, 0, "sceFontGetShadowInfo"}, 	 
-	{0x48b06520, 0, "sceFontGetShadowImageRect"},
-	{0x568be516, 0, "sceFontGetShadowGlyphImage"},
-  {0x5dcf6858, 0, "sceFontGetShadowGlyphImage_Clip"},
-	{0x02d7f94b, 0, "sceFontFlush"},
-
-};
-
 const HLEFunction sceUsbstor[] =
 {
 	{0x60066CFE, 0, "sceUsbstorGetStatus"},
@@ -293,7 +222,6 @@ const HLEModule moduleList[] =
 	{"UtilsForUser",SZ(UtilsForUser),UtilsForUser},
 	{"KDebugForKernel",SZ(KDebugForKernel),KDebugForKernel},
 	{"sceParseUri"},
-	{"sceRtc",SZ(sceRtc),sceRtc},
 	{"sceSAScore"},
 	{"sceUsbstor",SZ(sceUsbstor),sceUsbstor},
 	{"sceUsbstorBoot",SZ(sceUsbstorBoot),sceUsbstorBoot},
@@ -301,13 +229,11 @@ const HLEModule moduleList[] =
 	{"SceBase64_Library"},
 	{"sceCert_Loader"},
 	{"SceFont_Library"},
-	{"sceLibFont",SZ(sceLibFont),sceLibFont},
 	{"sceNetApctl"},
 	{"sceOpenPSID"},
 	{"sceParseHttp"},
 	{"sceSsl"},
 	{"sceSIRCS_IrDA_Driver"},
-	{"sceRtc"},
 	{"Pspnet_Scan"},
 	{"Pspnet_Show_MacAddr"},
 	{"pspeDebug", SZ(pspeDebug), pspeDebug},
@@ -333,7 +259,9 @@ void RegisterAllModules() {
   Register_sceDisplay();
   Register_sceAudio();
   Register_sceSasCore();
-  Register_sceNet();
+	Register_sceFont();
+	Register_sceNet();
+  Register_sceRtc();
   Register_sceWlanDrv();
   Register_sceMpeg();
   Register_sceMp3();

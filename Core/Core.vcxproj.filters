@@ -297,6 +297,9 @@
     <ClCompile Include="Util\ppge_atlas.cpp">
       <Filter>Util</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\sceFont.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -541,6 +544,9 @@
     </ClInclude>
     <ClInclude Include="Util\ppge_atlas.h">
       <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceFont.h">
+      <Filter>HLE\Libraries</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
