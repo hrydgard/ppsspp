@@ -3,10 +3,11 @@ project(PPSSPP)
 
 if(ANDROID OR BLACKBERRY)
     set(HEADLESS OFF)
+elseif(NOT DEFINED HEADLESS)
+    set(HEADLESS ON)
 endif()
 
 if(ANDROID_ABI)
-    set(ANDROID ON)
     if(ARMEABI OR ARMEABI_V7A)
         set(ARM ON)
     endif()
