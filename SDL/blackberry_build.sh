@@ -1,12 +1,7 @@
 #!/bin/bash
 
-BUILD_TYPE=Release
-
-if [ -f ${QNX_TARGET}/usr/include/bps/vibration.h ]; then
-    BB_OS=10.0
-elif [ -f ${QNX_TARGET}/usr/include/bps/virtualkeyboard.h ]; then
-    BB_OS=2.1
-else
+BB_OS=`cat ${QNX_TARGET}/etc/qversion 2>/dev/null`
+if [ -z "$BB_OS" ]; then
     echo "Could not find your Blackberry NDK. Please source bbndk-env.sh"
     exit 1
 fi
@@ -28,10 +23,8 @@ while true; do
 	case "$1" in
 	-h | --help ) 
 		echo "Build script for BlackBerry PlayBook"
-		echo "For normal usage, please use the NDK to build."
 		echo
 		echo "Options: "
-		echo "  -d, --debug             Create a debug build. (default is release)"
 		echo "  -h, --help              Show this help message."
 		echo "  -r, --root PATH         Specify the root directory of PPSSPP. (default is PWD parent)"
 		echo "  -p, --project-root PATH Specify the root directory containing all projects. (default is root dirs parent)"
@@ -43,7 +36,6 @@ while true; do
 		echo "  --tco PATH                   TouchControlOverlay project directory (default is TouchControlOverlay)"
 		exit 0
 		;;
-	-d | --debug ) BUILD_TYPE=Debug; shift ;;
 	-r | --root ) PPSSPP_ROOT="$2"; shift 2 ;;
 	-p | --project-root ) PROJECT_ROOT="$2"; shift 2 ;;
 	--pkg-config ) PKG_CONFIG_PATH="$2"; PKG_CONFIG_LIBDIR="$2"; shift 2 ;;
@@ -61,23 +53,15 @@ if [ -z "$TCO_PROJECT" ]; then
 	TCO_PROJECT="$PROJECT_ROOT/TouchControlOverlay"
 fi
 
-export PKG_CONFIG_PATH
-export PKG_CONFIG_LIBDIR
-
-echo "Build type: ${BUILD_TYPE}"
+#export PKG_CONFIG_PATH
+#export PKG_CONFIG_LIBDIR
 
 cmake \
--DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
--DCMAKE_SYSTEM_NAME=QNX \
 -DCMAKE_C_COMPILER="${QNX_HOST}/usr/bin/ntoarmv7-gcc" \
 -DCMAKE_CXX_COMPILER="${QNX_HOST}/usr/bin/ntoarmv7-g++" \
 -DSDL_INCLUDE_DIR="${SDL_PROJECT}/include" \
--DSDL_LIBRARY="${SDL_PROJECT}/Device-${BUILD_TYPE}/libSDL12.so;${TCO_PROJECT}/Device-${BUILD_TYPE}/libTouchControlOverlay.so" \
--DSDL_FOUND=ON \
--DPNG_LIBRARY="${QNX_TARGET}/armle-v7/usr/lib/libpng.so" \
--DPNG_PNG_INCLUDE_DIR="${QNX_TARGET}/usr/include" \
+-DSDL_LIBRARY="${SDL_PROJECT}/Device-Release/libSDL12.so;${TCO_PROJECT}/Device-Release/libTouchControlOverlay.so" \
 -DBLACKBERRY=${BB_OS} \
--DARM=7 \
-${PWD}
+${PWD}/..
 
 make -j4
