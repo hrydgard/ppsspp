@@ -316,7 +316,7 @@
     <ClInclude Include="..\Globals.h" />
     <ClInclude Include="main.h" />
     <ClInclude Include="resource.h" />
-    <ClInclude Include="..\stdafx.h" />
+    <ClInclude Include="stdafx.h" />
     <ClInclude Include="XinputDevice.h" />
   </ItemGroup>
   <ItemGroup>
