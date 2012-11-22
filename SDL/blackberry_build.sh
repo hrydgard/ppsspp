@@ -14,10 +14,13 @@ fi
 if [ -z "$PROJECT_ROOT" ]; then
 	PROJECT_ROOT=${PPSSPP_ROOT}/..
 fi
-PKG_CONFIG_PATH=${PROJECT_ROOT}/install/lib/pkgconfig
-PKG_CONFIG_LIBDIR=${PROJECT_ROOT}/install/lib/pkgconfig
 
-SDL_PROJECT=${PROJECT_ROOT}/SDL
+if [ -z "$SDL_PROJECT" ]; then
+	SDL_PROJECT="$PROJECT_ROOT/SDL"
+fi
+if [ -z "$TCO_PROJECT" ]; then
+	TCO_PROJECT="$PROJECT_ROOT/TouchControlOverlay"
+fi
 
 while true; do
 	case "$1" in
@@ -27,10 +30,7 @@ while true; do
 		echo "Options: "
 		echo "  -h, --help              Show this help message."
 		echo "  -r, --root PATH         Specify the root directory of PPSSPP. (default is PWD parent)"
-		echo "  -p, --project-root PATH Specify the root directory containing all projects. (default is root dirs parent)"
-		echo "                          If specific projects are in different directories, you can specify them below."
-		echo "  --pkg-config PATH       Specify the pkgconfig directory. (default is PPSSPP_ROOT/../install/lib/pkgconfig)"
-		echo
+		echo "  -p, --project-root PATH Specify the root directory containing all projects. (default is roots parent)"
 		echo "Dependency Paths (defaults are under project root): "
 		echo "  --sdl PATH                   SDL 1.2 project directory (default is SDL)"
 		echo "  --tco PATH                   TouchControlOverlay project directory (default is TouchControlOverlay)"
@@ -38,7 +38,6 @@ while true; do
 		;;
 	-r | --root ) PPSSPP_ROOT="$2"; shift 2 ;;
 	-p | --project-root ) PROJECT_ROOT="$2"; shift 2 ;;
-	--pkg-config ) PKG_CONFIG_PATH="$2"; PKG_CONFIG_LIBDIR="$2"; shift 2 ;;
 	--sdl ) SDL_PROJECT="$2"; shift 2 ;;
 	--tco ) TCO_PROJECT="$2"; shift 2 ;;
 	-- ) shift; break ;;
@@ -46,22 +45,12 @@ while true; do
   esac
 done
 
-if [ -z "$SDL_PROJECT" ]; then
-	SDL_PROJECT="$PROJECT_ROOT/SDL"
-fi
-if [ -z "$TCO_PROJECT" ]; then
-	TCO_PROJECT="$PROJECT_ROOT/TouchControlOverlay"
-fi
-
-#export PKG_CONFIG_PATH
-#export PKG_CONFIG_LIBDIR
-
 cmake \
 -DCMAKE_C_COMPILER="${QNX_HOST}/usr/bin/ntoarmv7-gcc" \
 -DCMAKE_CXX_COMPILER="${QNX_HOST}/usr/bin/ntoarmv7-g++" \
 -DSDL_INCLUDE_DIR="${SDL_PROJECT}/include" \
 -DSDL_LIBRARY="${SDL_PROJECT}/Device-Release/libSDL12.so;${TCO_PROJECT}/Device-Release/libTouchControlOverlay.so" \
 -DBLACKBERRY=${BB_OS} \
-${PWD}/..
+..
 
 make -j4
