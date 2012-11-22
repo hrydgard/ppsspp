@@ -296,12 +296,6 @@
     <ClCompile Include="ext\stb_vorbis\stb_vorbis.c" />
     <ClCompile Include="ext\vjson\block_allocator.cpp" />
     <ClCompile Include="ext\vjson\json.cpp" />
-    <ClCompile Include="ext\vjson\main.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
-    </ClCompile>
     <ClCompile Include="file\chunk_file.cpp" />
     <ClCompile Include="file\dialog.cpp" />
     <ClCompile Include="file\easy_file.cpp" />

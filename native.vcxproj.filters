@@ -116,9 +116,6 @@
     <ClInclude Include="gfx\texture.h">
       <Filter>gfx</Filter>
     </ClInclude>
-    <ClInclude Include="ext\stb_vorbis\stb_vorbis.h">
-      <Filter>audio</Filter>
-    </ClInclude>
     <ClInclude Include="input\gesture_detector.h">
       <Filter>input</Filter>
     </ClInclude>
@@ -230,6 +227,9 @@
     <ClInclude Include="ui\ui_context.h">
       <Filter>ui</Filter>
     </ClInclude>
+    <ClInclude Include="ext\stb_vorbis\stb_vorbis.h">
+      <Filter>ext</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -301,17 +301,11 @@
     <ClCompile Include="ext\vjson\json.cpp">
       <Filter>ext</Filter>
     </ClCompile>
-    <ClCompile Include="ext\vjson\main.cpp">
-      <Filter>ext</Filter>
-    </ClCompile>
     <ClCompile Include="ext\vjson\block_allocator.cpp">
       <Filter>ext</Filter>
     </ClCompile>
     <ClCompile Include="gfx\texture.cpp">
       <Filter>gfx</Filter>
-    </ClCompile>
-    <ClCompile Include="ext\stb_vorbis\stb_vorbis.c">
-      <Filter>audio</Filter>
     </ClCompile>
     <ClCompile Include="input\gesture_detector.cpp">
       <Filter>input</Filter>
@@ -405,6 +399,11 @@
     </ClCompile>
     <ClCompile Include="ui\ui_context.cpp">
       <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="base\BlackberryMain.cpp" />
+    <ClCompile Include="base\PCMain.cpp" />
+    <ClCompile Include="ext\stb_vorbis\stb_vorbis.c">
+      <Filter>ext</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
