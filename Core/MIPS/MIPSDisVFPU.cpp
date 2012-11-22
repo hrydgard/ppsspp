@@ -287,7 +287,7 @@ namespace MIPSDis
 
 	void Dis_Vflush(u32 op, char *out)
 	{
-		sprintf(out,"vflush\tand friends");
+		sprintf(out,"vflush");
 	}
 
 	void Dis_Vcrs(u32 op, char *out)

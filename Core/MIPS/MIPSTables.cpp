@@ -709,8 +709,8 @@ MIPSInstruction tableVFPU9[32] = //110100 00010 xxxxx
 	{-2},
 
 	//16
-	{-2}, //INSTR("vmfvc", &Jit::Comp_Generic, Dis_Generic, Int_Vmfvc, IS_VFPU),  MUST BE WRONG, covered by mfv
-	{-2}, //INSTR("vmtvc", &Jit::Comp_Generic, Dis_Generic, Int_Vmtvc, IS_VFPU),
+	INSTR("vmfvc", &Jit::Comp_Generic, Dis_Generic, Int_Vmfvc, IS_VFPU),
+	INSTR("vmtvc", &Jit::Comp_Generic, Dis_Generic, Int_Vmtvc, IS_VFPU),
 	{-2},
 	{-2},
 

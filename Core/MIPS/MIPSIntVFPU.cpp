@@ -1110,29 +1110,49 @@ namespace MIPSInt
 		int rt = _RT;
 		switch ((op >> 21) & 0x1f)
 		{
-		case 3: //mfv
+		case 3: //mfv / mfvc
 			if (imm < 128) {
 				R(rt) = VI(imm);
-			} else if (imm < 128 + VFPU_CTRL_MAX) {
+			} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc
 				R(rt) = currentMIPS->vfpuCtrl[imm - 128];
 			} else {
 				//ERROR
 				_dbg_assert_msg_(CPU,0,"mfv - invalid register");
 			}
 			break;
+
 		case 7: //mtv
 			if (imm < 128) {
 				VI(imm) = R(rt);
-			} else if (imm < 128 + VFPU_CTRL_MAX) {
+			} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc
 				currentMIPS->vfpuCtrl[imm - 128] = R(rt);
 			} else {
 				//ERROR
 				_dbg_assert_msg_(CPU,0,"mtv - invalid register");
 			}
 			break;
+
 		default:
 			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
 			break;
+		}
+		PC += 4;
+	}
+
+	void Int_Vmfvc(u32 op) {
+		int vs = _VS;
+		int imm = op & 0xFF;
+		if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
+			VI(vs) = currentMIPS->vfpuCtrl[imm - 128];
+		}
+		PC += 4;
+	}
+
+	void Int_Vmtvc(u32 op) {
+		int vs = _VS;
+		int imm = op & 0xFF;
+		if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
+			currentMIPS->vfpuCtrl[imm - 128] = VI(vs);
 		}
 		PC += 4;
 	}
