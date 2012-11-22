@@ -3,6 +3,8 @@ project(PPSSPP)
 
 if(ANDROID OR BLACKBERRY)
     set(HEADLESS OFF)
+elseif(NOT DEFINED HEADLESS)
+    set(HEADLESS ON)
 endif()
 
 if(ANDROID_ABI)
