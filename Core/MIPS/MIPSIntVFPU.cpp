@@ -365,7 +365,7 @@ namespace MIPSInt
 		PC += 4;
 		EatPrefixes();
 	}
-
+	// The test really needs some work.
 	void Int_Vmmul(u32 op)
 	{
 		float s[16];
@@ -390,7 +390,7 @@ namespace MIPSInt
 				{
 					sum += s[b*4 + c] * t[a*4 + c];
 				}
-				d[a*4 + b]=sum;
+				d[a*4 + b] = sum;
 			}
 		}
 
@@ -434,6 +434,7 @@ namespace MIPSInt
 		int vs = _VS;
 		MatrixSize sz = GetMtxSize(op);
 		ReadMatrix(s, sz, vs);
+		// This is just for matrices. No prefixes.
 		WriteMatrix(s, sz, vd);
 		PC += 4;
 		EatPrefixes();
@@ -543,8 +544,8 @@ namespace MIPSInt
 		{
 			switch ((op >> 21) & 0x1f)
 			{
-			case 16: d[i] = (int)floor(s[i] * mult + 0.5f); break; //n
-			case 17: d[i] = s[i]>=0?(int)floor(s[i] * mult) : (int)ceil(s[i] * mult); break; //z
+			case 16: d[i] = (int)round_ieee_754(s[i] * mult); break; //n
+			case 17: d[i] = s[i]>=0 ? (int)floor(s[i] * mult) : (int)ceil(s[i] * mult); break; //z
 			case 18: d[i] = (int)ceil(s[i] * mult); break; //u
 			case 19: d[i] = (int)floor(s[i] * mult); break; //d
 			}
@@ -727,9 +728,8 @@ namespace MIPSInt
 			{
 				for (int i = 0; i < 4; i++)
 				{
-					int v = s[i];
-					v >>= 24;
-					d[0] |= ((u32)v & 0xFF) << (i * 8);
+					u32 v = s[i];
+					d[0] |= (v >> 24) << (i * 8);
 				}
 				oz = V_Single;
 			}
@@ -1061,7 +1061,7 @@ namespace MIPSInt
 				}
 			}
 		}
-		else if (n == ins+1)
+		else if (n == ins + 1)
 		{
 			for (int i = 0; i < n; i++)
 			{
@@ -1130,7 +1130,7 @@ namespace MIPSInt
 		static const float constants[32] =
 		{
 			0,
-			std::numeric_limits<float>::max(),  // or max() ??   pspautotests seem to indicate inf
+			std::numeric_limits<float>::max(),  // all these are verified on real PSP
 			sqrtf(2.0f),
 			sqrtf(0.5f),
 			2.0f/sqrtf((float)M_PI),
@@ -1147,8 +1147,8 @@ namespace MIPSInt
 			2*(float)M_PI,
 			(float)M_PI/6,
 			log10f(2.0f),
-			logf(10.0f)/logf(2.0f), //"Log2(10)",
-			sqrtf(3.0f)/2.0f, //"Sqrt(3)/2"
+			logf(10.0f)/logf(2.0f),
+			sqrtf(3.0f)/2.0f,
 		};
 
 		int conNum = (op >> 16) & 0x1f;
@@ -1261,7 +1261,7 @@ namespace MIPSInt
 			break;
 		case 3: // vmax
 			for (int i = 0; i < GetNumVectorElements(sz); i++)
-				d[i] = isnan(t[i]) ? s[i] : (isnan(s[i]) ? t[i] : std::max(s[i], t[i]));
+				d[i] = isnan(t[i]) ? t[i] : (isnan(s[i]) ? s[i] : std::max(s[i], t[i]));
 			break;
 		default:
 			_dbg_assert_msg_(CPU,0,"unknown min/max op %d", cond);
@@ -1272,6 +1272,57 @@ namespace MIPSInt
 		PC += 4;
 		EatPrefixes();
 	}
+
+	void Int_Vsge(u32 op) {
+		int vt = _VT;
+		int vs = _VS;
+		int vd = _VD;
+		int cond = op&15;
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+		float s[4];
+		float t[4];
+		float d[4];
+		ReadVector(s, sz, vs);
+		ApplySwizzleS(s, sz);
+		ReadVector(t, sz, vt);
+		ApplySwizzleT(t, sz);
+		// positive NAN always loses, unlike SSE
+		// negative NAN seems different? TODO
+		for (int i = 0; i < GetNumVectorElements(sz); i++)
+			d[i] = s[i] >= t[i] ? 1.0f : 0.0f;
+
+		ApplyPrefixD(d, sz);
+		WriteVector(d, sz, vd);
+		PC += 4;
+		EatPrefixes();
+	}
+
+	void Int_Vslt(u32 op) {
+		int vt = _VT;
+		int vs = _VS;
+		int vd = _VD;
+		int cond = op&15;
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+		float s[4];
+		float t[4];
+		float d[4];
+		ReadVector(s, sz, vs);
+		ApplySwizzleS(s, sz);
+		ReadVector(t, sz, vt);
+		ApplySwizzleT(t, sz);
+		// positive NAN always loses, unlike SSE
+		// negative NAN seems different? TODO
+		for (int i = 0; i < GetNumVectorElements(sz); i++)
+			d[i] = s[i] < t[i] ? 1.0f : 0.0f;
+
+		ApplyPrefixD(d, sz);
+		WriteVector(d, sz, vd);
+		PC += 4;
+		EatPrefixes();
+	}
+
 
 	void Int_Vcmov(u32 op)
 	{
@@ -1374,20 +1425,23 @@ bad:
 		ReadVector(t, sz, vt);
 		switch (sz)
 		{
-		case V_Triple:  // vcrsp
+		case V_Triple:  // vcrsp.t
 			d[0] = s[1]*t[2] - s[2]*t[1];
 			d[1] = s[2]*t[0] - s[0]*t[2];
 			d[2] = s[0]*t[1] - s[1]*t[0];
-			//cross
 			break;
-		//case V_Quad:
-			//quat
-		//	break;
+
+		case V_Quad:   // vqmul.q
+			d[0] = s[0]*t[3] + s[1]*t[2] - s[2]*t[1] + s[3]*t[0];
+			d[1] = -s[0]*t[2] + s[1]*t[3] + s[2]*t[0] + s[3]*t[1];
+			d[2] = s[0]*t[1] - s[1]*t[0] + s[2]*t[3] + s[3]*t[2];
+			d[3] = -s[0]*t[0] - s[1]*t[1] - s[2]*t[2] + s[3]*t[3];
+			break;
+
 		default:
 			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
 			break;
 		}
-		ApplyPrefixD(d, sz);
 		WriteVector(d, sz, vd);
 		PC += 4;
 		EatPrefixes();

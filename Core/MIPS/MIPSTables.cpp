@@ -506,12 +506,12 @@ MIPSInstruction tableVFPU3[8] = //011011 xxx
 {
 	INSTR("vcmp",&Jit::Comp_Generic, Dis_Vcmp, Int_Vcmp, IS_VFPU),
 	{-2},
-	INSTR("vmin",&Jit::Comp_Generic, Dis_Generic, Int_Vminmax, IS_VFPU),
-	INSTR("vmax",&Jit::Comp_Generic, Dis_Generic, Int_Vminmax, IS_VFPU), 
+	INSTR("vmin",&Jit::Comp_Generic, Dis_VectorSet3, Int_Vminmax, IS_VFPU),
+	INSTR("vmax",&Jit::Comp_Generic, Dis_VectorSet3, Int_Vminmax, IS_VFPU), 
 	{-2}, 
 	INSTR("vscmp",&Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU), 
-	INSTR("vsge",&Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU), 
-	INSTR("vslt",&Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU),
+	INSTR("vsge",&Jit::Comp_Generic, Dis_VectorSet3, Int_Vsge, IS_VFPU), 
+	INSTR("vslt",&Jit::Comp_Generic, Dis_VectorSet3, Int_Vslt, IS_VFPU),
 };
 
 
@@ -570,10 +570,10 @@ MIPSInstruction tableVFPU7[32] =
 	{-2},
 	INSTR("vlgb", &Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU),
 	//24
-	INSTR("vuc2i", &Jit::Comp_Generic, Dis_Generic, Int_Vx2i, IS_VFPU),  // Seen in BraveStory, initialization  110100 00001110000 000 0001 0000 0000
-	INSTR("vc2i", &Jit::Comp_Generic, Dis_Generic, Int_Vx2i, IS_VFPU),
-	INSTR("vus2i", &Jit::Comp_Generic, Dis_Generic, Int_Vx2i, IS_VFPU),
-	INSTR("vs2i", &Jit::Comp_Generic, Dis_Generic, Int_Vx2i, IS_VFPU),
+	INSTR("vuc2i", &Jit::Comp_Generic, Dis_Vs2i, Int_Vx2i, IS_VFPU),  // Seen in BraveStory, initialization  110100 00001110000 000 0001 0000 0000
+	INSTR("vc2i", &Jit::Comp_Generic, Dis_Vs2i, Int_Vx2i, IS_VFPU),
+	INSTR("vus2i", &Jit::Comp_Generic, Dis_Vs2i, Int_Vx2i, IS_VFPU),
+	INSTR("vs2i", &Jit::Comp_Generic, Dis_Vs2i, Int_Vx2i, IS_VFPU),
 
 	INSTR("vi2uc", &Jit::Comp_Generic, Dis_Vi2x, Int_Vi2x, IS_VFPU),
 	INSTR("vi2c",  &Jit::Comp_Generic, Dis_Vi2x, Int_Vi2x, IS_VFPU),
@@ -654,10 +654,10 @@ MIPSInstruction tableVFPU6[32] =  //111100 xxx
 	INSTR("vmscl",&Jit::Comp_Generic, Dis_Generic, Int_Vmscl, IS_VFPU),
 	INSTR("vmscl",&Jit::Comp_Generic, Dis_Generic, Int_Vmscl, IS_VFPU),
 
-	INSTR("vcrsp/vqm",&Jit::Comp_Generic, Dis_CrossQuat, Int_CrossQuat, IS_VFPU),
-	INSTR("vcrsp/vqm",&Jit::Comp_Generic, Dis_CrossQuat, Int_CrossQuat, IS_VFPU),
-	INSTR("vcrsp/vqm",&Jit::Comp_Generic, Dis_CrossQuat, Int_CrossQuat, IS_VFPU),
-	INSTR("vcrsp/vqm",&Jit::Comp_Generic, Dis_CrossQuat, Int_CrossQuat, IS_VFPU),
+	INSTR("vcrsp.t/vqmul.q",&Jit::Comp_Generic, Dis_CrossQuat, Int_CrossQuat, IS_VFPU),
+	INSTR("vcrsp.t/vqmul.q",&Jit::Comp_Generic, Dis_CrossQuat, Int_CrossQuat, IS_VFPU),
+	INSTR("vcrsp.t/vqmul.q",&Jit::Comp_Generic, Dis_CrossQuat, Int_CrossQuat, IS_VFPU),
+	INSTR("vcrsp.t/vqmul.q",&Jit::Comp_Generic, Dis_CrossQuat, Int_CrossQuat, IS_VFPU),
 //24
 	{-2},
 	{-2},
@@ -788,7 +788,7 @@ const int encodingBits[NumEncodings][2] =
 	{16, 5}, //VFPU4
 	{23, 3}, //VFPU5
 	{21, 5}, //VFPU6
-	{16, 3}, //VFPUMatrix1
+	{16, 4}, //VFPUMatrix1
 	{16, 5}, //VFPU9
 	{6,  5}, //ALLEGREX0
 	{24, 2}, //EMUHACK

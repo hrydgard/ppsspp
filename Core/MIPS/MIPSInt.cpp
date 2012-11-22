@@ -46,6 +46,26 @@
 #define HI currentMIPS->hi
 #define LO currentMIPS->lo
 
+
+inline int is_even(float d) {
+	float int_part;
+	modff(d / 2.0f, &int_part);
+	return 2.0f * int_part == d;
+}
+
+// Rounds *.5 to closest even number
+float round_ieee_754(float d) {
+	float i = floorf(d);
+	d -= i;
+	if(d < 0.5f)
+		return i;
+	if(d > 0.5f)
+		return i + 1.0f;
+	if(is_even(i))
+		return i;
+	return i + 1.0f;
+}
+
 void DelayBranchTo(u32 where)
 {
 	PC += 4;
@@ -738,16 +758,6 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	#ifdef _MSC_VER
-	static float roundf(float num)
-	{
-		float integer = ceilf(num);
-		if (num > 0)
-			return integer - num > 0.5f ? integer - 1.0f : integer;
-		return integer - num >= 0.5f ? integer - 1.0f : integer;
-	}
-	#endif
-
 	void Int_FPU2op(u32 op)
 	{
 		int fs = _FS;
@@ -768,7 +778,7 @@ namespace MIPSInt
 		case 36:
 			switch (currentMIPS->fcr31 & 3)
 			{
-			case 0: FsI(fd) = (int)roundf(F(fs)); break;  // RINT_0    // TODO: rintf or roundf?
+			case 0: FsI(fd) = (int)round_ieee_754(F(fs)); break;  // RINT_0
 			case 1: FsI(fd) = (int)F(fs); break;  // CAST_1
 			case 2: FsI(fd) = (int)ceilf(F(fs)); break;  // CEIL_2
 			case 3: FsI(fd) = (int)floorf(F(fs)); break;  // FLOOR_3
@@ -788,30 +798,33 @@ namespace MIPSInt
 		bool cond;
 		switch (op & 0xf)
 		{
+		case 0: //f
+		case 1: //un
+		case 8: //sf
+		case 9: //ngle
+			cond = false;
+			break;
+
 		case 2: //eq
+		case 10: //seq
+		case 3: //ueq
+		case 11: //ngl
 			cond = (F(fs) == F(ft));
 			break;
+
+		case 4: //olt
+		case 5: //ult
 		case 12: //lt
 		case 13: //nge
 			cond = (F(fs) < F(ft));
 			break;
 
+		case 6: //ole
+		case 7: //ule
 		case 14: //le
 		case 15: //ngt
 			cond = (F(fs) <= F(ft));
 			break;
-
-		case 0: //f
-		case 1: //un
-		case 3: //ueq
-		case 4: //olt
-		case 5: //ult
-		case 6: //ole
-		case 7: //ule
-		case 8: //sf
-		case 9: //ngle
-		case 10: //seq
-		case 11: //ngl
 
 		default:
 			_dbg_assert_msg_(CPU,0,"Trying to interpret FPUComp instruction that can't be interpreted");

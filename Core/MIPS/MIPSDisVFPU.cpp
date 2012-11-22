@@ -459,6 +459,15 @@ namespace MIPSDis
 		sprintf(out, "%s%s\t%s, %s, %i",name,VSuff(op),VN(vd, sz),VN(vs, sz),imm);
 	}
 
+	void Dis_Vs2i(u32 op, char *out)
+	{
+		VectorSize sz = GetVecSize(op);
+		int vd = _VD;
+		int vs = _VS;
+		const char *name = MIPSGetName(op);
+		sprintf(out, "%s%s\t%s, %s",name,VSuff(op),VN(vd, sz),VN(vs, sz));
+	}
+
 	void Dis_Vi2x(u32 op, char *out)
 	{
 		VectorSize sz = GetVecSize(op);
