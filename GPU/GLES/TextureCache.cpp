@@ -35,6 +35,10 @@
 #include "TextureCache.h"
 
 
+// If a texture hasn't been seen for 200 frames, get rid of it.
+#define TEXTURE_KILL_AGE 200
+
+
 struct TexCacheEntry
 {
 	u32 addr;
@@ -76,6 +80,28 @@ void TextureCache_Clear(bool delete_them)
 		cache.clear();
 	}
 }
+
+// Removes old textures.
+void TextureCache_Decimate()
+{
+	// TODO: Need a better way to keep looping
+restart:
+	for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ++iter)
+	{
+		if (iter->second.frameCounter + TEXTURE_KILL_AGE < gpuStats.numFrames)
+		{
+			glDeleteTextures(1, &iter->second.texture);
+			cache.erase(iter);
+			goto restart;
+		}
+	}
+}
+
+int TextureCache_NumLoadedTextures() 
+{
+	return cache.size();
+}
+
 
 u32 GetClutAddr(u32 clutEntrySize)
 {
@@ -395,9 +421,9 @@ u16 convert5551(u16 c) {
 
 struct DXT1Block
 {
-	u8 lines[4];
 	u16 color1;
 	u16 color2;
+	u8 lines[4];
 };
 
 inline u32 makecol(int r, int g, int b, int a)
@@ -525,24 +551,20 @@ void PSPSetTexture()
 
 		if (match) {
 			//got one!
+			entry.frameCounter = gpuStats.numFrames;
 			glBindTexture(GL_TEXTURE_2D, entry.texture);
 			UpdateSamplingParams();
-			DEBUG_LOG(G3D,"Texture at %08x Found in Cache, applying", texaddr);
+			DEBUG_LOG(G3D, "Texture at %08x Found in Cache, applying", texaddr);
 			return; //Done!
 		} else {
-			NOTICE_LOG(G3D,"Texture different or overwritten, reloading at %08x", texaddr);
-
-			//Damnit, got overwritten.
-			//if (dim != entry.dim)
-			//{
-			//	glDeleteTextures(1, &entry.texture);
-			//}
+			INFO_LOG(G3D, "Texture different or overwritten, reloading at %08x", texaddr);
+			glDeleteTextures(1, &entry.texture);
 			cache.erase(iter);
 		}
 	}
 	else
 	{
-		NOTICE_LOG(G3D,"No texture in cache, decoding...");
+		INFO_LOG(G3D,"No texture in cache, decoding...");
 	}
 
 	//we have to decode it
@@ -552,6 +574,7 @@ void PSPSetTexture()
 	entry.addr = texaddr;
 	entry.hash = *(u32*)texptr;
 	entry.format = format;
+	entry.frameCounter = gpuStats.numFrames;
 
 	if(format >= GE_TFMT_CLUT4 && format <= GE_TFMT_CLUT32)
 	{
@@ -565,8 +588,6 @@ void PSPSetTexture()
 	}
 
 	glGenTextures(1, &entry.texture);
-	NOTICE_LOG(G3D, "Creating texture %i", entry.texture);
-
 	glBindTexture(GL_TEXTURE_2D, entry.texture);
 			
 	u32 bufw = gstate.texbufwidth[0] & 0x3ff;
@@ -575,6 +596,8 @@ void PSPSetTexture()
 
 	u32 w = 1 << (gstate.texsize[0] & 0xf);
 	u32 h = 1 << ((gstate.texsize[0]>>8) & 0xf);
+
+	NOTICE_LOG(G3D, "Creating texture %i from %08x: %i x %i (stride: %i). fmt: %i", entry.texture, entry.addr, w, h, bufw, entry.format);
 
 	gstate_c.curTextureWidth=w;
 	gstate_c.curTextureHeight=h;
@@ -586,6 +609,8 @@ void PSPSetTexture()
 	DEBUG_LOG(G3D,"Texture Width %04x Height %04x Bufw %d Fmt %d", w, h, bufw, format);
 
 	// TODO: Look into using BGRA for 32-bit textures when the GL_EXT_texture_format_BGRA8888 extension is available, as it's faster than RGBA on some chips.
+
+	// TODO: Actually decode the mipmaps.
 
 	switch (format)
 	{
@@ -744,6 +769,7 @@ void PSPSetTexture()
 					i++;
 				}
 			}
+			finalBuf = tmpTexBuf32;
 		}
 		break;
 

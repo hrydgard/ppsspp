@@ -40,6 +40,7 @@
 #include "DisplayListInterpreter.h"
 #include "Framebuffer.h"
 #include "TransformPipeline.h"
+#include "TextureCache.h"
 
 #include "../../Core/HLE/sceKernelThread.h"
 #include "../../Core/HLE/sceKernelInterrupt.h"
@@ -92,6 +93,8 @@ void GLES_GPU::InitClear()
 
 void GLES_GPU::BeginFrame()
 {
+	TextureCache_Decimate();
+
 	if (g_Config.bDisplayFramebuffer && displayFramebufPtr_)
 	{
 		INFO_LOG(HLE, "Drawing the framebuffer");

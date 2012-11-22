@@ -224,6 +224,8 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 			useTexCoord = true;
 		}
 	}
+	gpuStats.numDrawCalls++;
+	gpuStats.numVertsTransformed += vertexCount;
 
 	// Then, transform and draw in one big swoop (urgh!)
 	// need to move this to the shader.
@@ -479,11 +481,13 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 			{
 				// We have to turn the rectangle into two triangles, so 6 points. Sigh.
 
-				// top left
+				// TODO: there's supposed to be extra magic here to rotate the UV coordinates depending on if upside down etc.
+				
+				// bottom right
 				*trans = transVtx;
 				trans++;
 
-				// bottom right
+				// top left
 				*trans = transVtx;
 				trans->x = saved.x;
 				trans->uv[0] = saved.uv[0];

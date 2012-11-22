@@ -268,8 +268,19 @@ struct GPUStateCache
 // TODO: Implement support for these.
 struct GPUStatistics
 {
+	void reset() {
+		memset(this, 0, sizeof(this));
+	}
+	void resetFrame() {
+		numDrawCalls = 0;
+		numVertsTransformed = 0;
+		numTextureSwitches = 0;
+		numShaderSwitches = 0;
+	}
+
 	// Per frame statistics
 	int numDrawCalls;
+	int numVertsTransformed;
 	int numTextureSwitches;
 	int numShaderSwitches;
 

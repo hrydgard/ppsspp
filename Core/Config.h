@@ -47,6 +47,7 @@ public:
 
 	bool bShowAnalogStick;
 	bool bShowFPSCounter;
+	bool bShowDebugStats;
 	int iWindowZoom;  // for Windows
 
 

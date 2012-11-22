@@ -35,6 +35,7 @@
 // TODO: This file should not depend directly on GLES code.
 #include "../../GPU/GLES/Framebuffer.h"
 #include "../../GPU/GLES/ShaderManager.h"
+#include "../../GPU/GLES/TextureCache.h"
 #include "../../GPU/GPUState.h"
 #include "../../GPU/GPUInterface.h"
 // Internal drawing library
@@ -87,6 +88,7 @@ void hleLeaveVblank(u64 userdata, int cyclesLate);
 
 void __DisplayInit()
 {
+	gpuStats.reset();
 	hasSetMode = false;
 	framebufIsLatched = false;
 	framebuf.topaddr = 0x04000000;
@@ -135,12 +137,28 @@ void hleEnterVblank(u64 userdata, int cyclesLate)
 
 	// Draw screen overlays before blitting. Saves and restores the Ge context.
 
-	/*
-	if (g_Config.bShowGPUStats)
+	gpuStats.numFrames++;
+
+	// This doesn't work very well yet. PPGe is probably not a great choice to do custom overlays
+	// as we're not really sure which framebuffer it will end up in at this point.
+	if (false && g_Config.bShowDebugStats)
 	{
 		char stats[512];
-		sprintf(stats, "Draw calls")
-	}*/
+		sprintf(stats,
+			"Frames: %i\n"
+			"Draw calls: %i\n"
+			"Textures loaded: %i\n",
+			gpuStats.numFrames,
+			gpuStats.numDrawCalls,
+			TextureCache_NumLoadedTextures());
+		/*
+		PPGeBegin();
+		PPGeDrawText(stats, 2, 2, 0, 0.3f, 0x90000000);
+		PPGeDrawText(stats, 0, 0, 0, 0.3f);
+		PPGeEnd();
+		*/
+		gpuStats.resetFrame();
+	}
 
 	// Yeah, this has to be the right moment to end the frame. Give the graphics backend opportunity
 	// to blit the framebuffer, in order to support half-framerate games that otherwise wouldn't have
@@ -149,6 +167,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate)
 
 	{
 		host->EndFrame();
+
 		host->BeginFrame();
 		gpu->BeginFrame();
 
