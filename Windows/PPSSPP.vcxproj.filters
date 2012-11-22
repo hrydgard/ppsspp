@@ -70,9 +70,6 @@
     <ClCompile Include="WindowsHost.cpp">
       <Filter>Windows\System</Filter>
     </ClCompile>
-    <ClCompile Include="..\Globals.cpp" />
-    <ClCompile Include="..\main.cpp" />
-    <ClCompile Include="..\stdafx.cpp" />
     <ClCompile Include="Debugger\Debugger_Disasm.cpp">
       <Filter>Windows\Debugger</Filter>
     </ClCompile>
@@ -104,6 +101,9 @@
     <ClCompile Include="InputDevice.cpp">
       <Filter>Windows\Input</Filter>
     </ClCompile>
+    <ClCompile Include="Globals.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="stdafx.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Debugger\CtrlDisAsmView.h">
@@ -154,7 +154,6 @@
     <ClInclude Include="..\Globals.h" />
     <ClInclude Include="main.h" />
     <ClInclude Include="resource.h" />
-    <ClInclude Include="..\stdafx.h" />
     <ClInclude Include="Debugger\Debugger_Disasm.h">
       <Filter>Windows\Debugger</Filter>
     </ClInclude>
@@ -182,6 +181,7 @@
     <ClInclude Include="KeyboardDevice.h">
       <Filter>Windows\Input</Filter>
     </ClInclude>
+    <ClInclude Include="stdafx.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="icon1.ico">

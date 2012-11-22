@@ -137,10 +137,15 @@ void __PPGeInit()
 
 void __PPGeShutdown()
 {
-	kernelMemory.Free(atlasPtr);
-	kernelMemory.Free(dataPtr);
-	kernelMemory.Free(dlPtr);
-	kernelMemory.Free(savedContextPtr);
+	if (atlasPtr)
+		kernelMemory.Free(atlasPtr);
+	if (dataPtr)
+		kernelMemory.Free(dataPtr);
+	if (dlPtr)
+		kernelMemory.Free(dlPtr);
+	if (savedContextPtr)
+		kernelMemory.Free(savedContextPtr);
+
 	atlasPtr = 0;
 	dataPtr = 0;
 	dlPtr = 0;
