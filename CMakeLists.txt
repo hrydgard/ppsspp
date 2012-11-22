@@ -8,7 +8,6 @@ elseif(NOT DEFINED HEADLESS)
 endif()
 
 if(ANDROID_ABI)
-    set(ANDROID ON)
     if(ARMEABI OR ARMEABI_V7A)
         set(ARM ON)
     endif()
