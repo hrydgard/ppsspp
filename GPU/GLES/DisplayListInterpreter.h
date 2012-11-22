@@ -46,7 +46,7 @@ public:
 	virtual void BeginFrame();
 
 private:
-
+	void DoBlockTransfer();
 	bool ProcessDLQueue();
 	bool interruptsEnabled_;
 

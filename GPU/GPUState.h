@@ -220,7 +220,11 @@ struct GPUgstate
 				lop,
 				zmsk,
 				pmsk1,
-				pmsk2
+				pmsk2,
+				transferstart,
+				transfersrcpos,
+				transferdstpos,
+				transfersize				
 				;
 
 			u32 pad05[0x63-0x40];

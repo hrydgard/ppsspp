@@ -62,6 +62,11 @@ GLES_GPU::GLES_GPU(int renderWidth, int renderHeight)
 {
 	widthFactor_ = (float)renderWidth / 480.0f;
 	heightFactor_ = (float)renderHeight / 272.0f;
+
+	// Sanity check gstate
+	if ((int *)&gstate.transferstart - (int *)&gstate != 0xEA) {
+		ERROR_LOG(G3D, "gstate has drifted out of sync!");
+	}
 }
 
 GLES_GPU::~GLES_GPU()
@@ -780,15 +785,14 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_TRANSFERSTART:  // Orphis calls this TRXKICK
 		{
-			ERROR_LOG(G3D, "UNIMPL DL Block Transfer Start: PixFormat %i", data);
 			// TODO: Here we should check if the transfer overlaps a framebuffer or any textures,
-			// and take appropriate action. If not, this should just be a block transfer within
-			// GPU memory which could be implemented by a copy loop.
+			// and take appropriate action. This is a block transfer between RAM and VRAM, or vice versa.
+			DoBlockTransfer();
 			break;
 		}
 
 	case GE_CMD_TEXSIZE0:
-		gstate_c.textureChanged=true;
+		gstate_c.textureChanged = true;
 		gstate_c.curTextureWidth = 1 << (gstate.texsize[0] & 0xf);
 		gstate_c.curTextureHeight = 1 << ((gstate.texsize[0]>>8) & 0xf);
 		//fall thru - ignoring the mipmap sizes for now
@@ -799,7 +803,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 	case GE_CMD_TEXSIZE5:
 	case GE_CMD_TEXSIZE6:
 	case GE_CMD_TEXSIZE7:
-		DEBUG_LOG(G3D,"DL Texture Size: %06x",	data);
+		DEBUG_LOG(G3D,"DL Texture Size %i: %06x", cmd - GE_CMD_TEXSIZE0, data);
 		break;
 
 	case GE_CMD_ZBUFPTR:
@@ -1163,4 +1167,36 @@ bool GLES_GPU::InterpretList()
 		prev = op;
 	}
 	return true;
+}
+
+
+void GLES_GPU::DoBlockTransfer()
+{
+	u32 srcBasePtr = (gstate.transfersrc & 0xFFFFFF) | ((gstate.transfersrcw & 0xFF0000) << 8);
+	u32 srcStride = gstate.transfersrcw & 0x3FF;
+
+	u32 dstBasePtr = (gstate.transfersrc & 0xFFFFFF) | ((gstate.transfersrcw & 0xFF0000) << 8);
+	u32 dstStride = gstate.transfersrcw & 0x3FF;
+
+	int srcX = gstate.transfersrcpos & 0x3FF;
+	int srcY = (gstate.transfersrcpos >> 10) & 0x3FF;
+
+	int dstX = gstate.transferdstpos & 0x3FF;
+	int dstY = (gstate.transferdstpos >> 10) & 0x3FF;
+
+	int width = (gstate.transfersize & 0x3FF) + 1;
+	int height = ((gstate.transfersize >> 10) & 0x3FF) + 1;
+	
+	int bpp = (gstate.transferstart & 1) ? 4 : 2;
+
+	NOTICE_LOG(HLE, "Block transfer: %08x to %08x, %i x %i , ...", srcBasePtr, dstBasePtr, width, height);
+
+	// Do the copy!
+	for (int y = 0; y < height; y++) {
+		const u8 *src = Memory::GetPointer(srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp);
+		u8 *dst = Memory::GetPointer(dstBasePtr + ((y + dstY) * srcStride + dstX) * bpp);
+		memcpy(dst, src, width * bpp);
+	}
+
+	// TODO: Notify all overlapping textures that it's time to die/reload.
 }
