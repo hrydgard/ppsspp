@@ -1115,8 +1115,10 @@ namespace MIPSInt
 				R(rt) = VI(imm);
 			} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc
 				R(rt) = currentMIPS->vfpuCtrl[imm - 128];
+			} else if (rt == 0 && imm == 255) {
+				// This appears to be used as a CPU interlock by some games. Do nothing.
 			} else {
-				//ERROR
+				//ERROR - maybe need to make this value too an "interlock" value?
 				_dbg_assert_msg_(CPU,0,"mfv - invalid register");
 			}
 			break;

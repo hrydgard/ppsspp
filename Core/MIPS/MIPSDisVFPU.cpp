@@ -50,6 +50,30 @@
 
 inline const char *VN(int v, VectorSize size)
 {
+	static const char *vfpuCtrlNames[VFPU_CTRL_MAX] = {
+		"SPFX",
+		"TPFX",
+		"DPFX",
+		"CC",
+		"INF4",
+		"RSV5",
+		"RSV6",
+		"REV",
+		"RCX0",
+		"RCX1",
+		"RCX2",
+		"RCX3",
+		"RCX4",
+		"RCX5",
+		"RCX6",
+		"RCX7",
+	};
+	if (size == V_Single && v >= 128 && v < 128 + VFPU_CTRL_MAX) {
+		return vfpuCtrlNames[v - 128];
+	} else if (size == V_Single && v == 255) {
+		return "(interlock)";
+	}
+
 	return GetVectorNotation(v, size);
 }
 
