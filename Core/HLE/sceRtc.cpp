@@ -155,6 +155,6 @@ const HLEFunction sceRtc[] =
 
 void Register_sceRtc()
 {
-	RegisterModule("sceSasCore", ARRAY_SIZE(sceRtc), sceRtc);
+	RegisterModule("sceRtc", ARRAY_SIZE(sceRtc), sceRtc);
 }
 
