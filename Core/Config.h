@@ -39,7 +39,6 @@ public:
 	bool bFirstRun;
 	bool bAutoRun;
 	bool bSpeedLimit;
-	bool bJIT;
 	bool bConfirmOnQuit;
 	bool bIgnoreBadMemAccess;
 	bool bDisplayFramebuffer;
@@ -49,7 +48,7 @@ public:
 	bool bShowFPSCounter;
 	bool bShowDebugStats;
 	int iWindowZoom;  // for Windows
-
+	int iCpuCore;
 
 	std::string currentDirectory;
 

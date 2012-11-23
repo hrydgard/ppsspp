@@ -32,6 +32,7 @@
 #include "UIShader.h"
 
 #include "../../Core/Config.h"
+#include "../../Core/CoreParameter.h"
 
 #include "MenuScreens.h"
 #include "EmuScreen.h"
@@ -241,6 +242,11 @@ void SettingsScreen::render() {
 	UICheckBox(GEN_ID, x, y += 50, "Enable Sound Emulation", ALIGN_TOPLEFT, &g_Config.bEnableSound);
 	UICheckBox(GEN_ID, x, y += 50, "Show Analog Stick", ALIGN_TOPLEFT, &g_Config.bShowAnalogStick);
 	UICheckBox(GEN_ID, x, y += 50, "Buffered Rendering (may fix flicker)", ALIGN_TOPLEFT, &g_Config.bBufferedRendering);
+
+	bool useFastInt = g_Config.iCpuCore == CPU_FASTINTERPRETER;
+	UICheckBox(GEN_ID, x, y += 50, "Slightly faster interpreter (may crash)", ALIGN_TOPLEFT, &useFastInt);
+	ui_draw2d.DrawText(UBUNTU48, "much faster JIT coming later", x += 50, 0xcFFFFFFF, ALIGN_LEFT);
+	g_Config.iCpuCore = useFastInt ? CPU_FASTINTERPRETER : CPU_INTERPRETER;
 	// UICheckBox(GEN_ID, x, y += 50, "Draw raw framebuffer (for some homebrew)", ALIGN_TOPLEFT, &g_Config.bDisplayFramebuffer);
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres-10), LARGE_BUTTON_WIDTH, "Back", ALIGN_RIGHT | ALIGN_BOTTOM)) {

@@ -48,10 +48,10 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true)
 	INFO_LOG(BOOT, "Starting up hardware.");
 
 	CoreParameter coreParam;
+	coreParam.cpuCore = (CPUCore)g_Config.iCpuCore;
 #if defined(ANDROID) || defined(BLACKBERRY)
-	coreParam.cpuCore = CPU_INTERPRETER;
-#else
-	coreParam.cpuCore = g_Config.bJIT ? CPU_JIT : CPU_INTERPRETER;
+	if (coreParam.cpuCore == CPU_JIT)
+		coreParam.cpuCore = CPU_FASTINTERPRETER;
 #endif
 	coreParam.gpuCore = GPU_GLES;
 	coreParam.enableSound = g_Config.bEnableSound;

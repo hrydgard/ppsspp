@@ -22,6 +22,7 @@
 
 enum CPUCore {
 	CPU_INTERPRETER,
+	CPU_FASTINTERPRETER,  // unsafe, a bit faster than INTERPRETER
 	CPU_JIT,
 };
 
@@ -30,7 +31,6 @@ enum GPUCore {
 	GPU_GLES,
 	GPU_SOFTWARE,
 };
-
 
 struct CoreParameter
 {

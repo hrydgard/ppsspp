@@ -45,10 +45,12 @@ void CConfig::Load(const char *iniFileName)
 	general->Get("FirstRun", &bFirstRun, true);
 	general->Get("AutoLoadLast", &bAutoLoadLast, false);
 	general->Get("AutoRun", &bAutoRun, false);
-	general->Get("Jit", &bJIT, false);
 	general->Get("ConfirmOnQuit", &bConfirmOnQuit, false);
 	general->Get("IgnoreBadMemAccess", &bIgnoreBadMemAccess, true);
 	general->Get("CurrentDirectory", &currentDirectory, "");
+
+	IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
+	cpu->Get("Core", &iCpuCore, 0);
 
 	IniFile::Section *graphics = iniFile.GetOrCreateSection("Graphics");
 	graphics->Get("ShowFPSCounter", &bShowFPSCounter, false);
@@ -74,10 +76,12 @@ void CConfig::Save()
 		general->Set("FirstRun", bFirstRun);
 		general->Set("AutoLoadLast", bAutoLoadLast);
 		general->Set("AutoRun", bAutoRun);
-		general->Set("Jit", bJIT);
 		general->Set("ConfirmOnQuit", bConfirmOnQuit);
 		general->Set("IgnoreBadMemAccess", bIgnoreBadMemAccess);
 		general->Set("CurrentDirectory", currentDirectory);
+
+		IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
+		cpu->Set("Core", iCpuCore);
 
 		IniFile::Section *graphics = iniFile.GetOrCreateSection("Graphics");
 		graphics->Set("ShowFPSCounter", bShowFPSCounter);

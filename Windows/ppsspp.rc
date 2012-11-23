@@ -197,6 +197,7 @@ BEGIN
         MENUITEM "R&eset",                      ID_EMULATION_RESET
         MENUITEM SEPARATOR
         MENUITEM "&Interpreter",                ID_CPU_INTERPRETER
+        MENUITEM "&Slightly faster interpreter", ID_CPU_FASTINTERPRETER
         MENUITEM "&Dynarec",                    ID_CPU_DYNAREC, CHECKED
     END
     POPUP "Debu&g"

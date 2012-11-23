@@ -80,6 +80,7 @@ int main(int argc, const char* argv[])
 {
 	bool fullLog = false;
 	bool useJit = false;
+	bool fastInterpreter = false;
 	bool autoCompare = false;
 	
 	const char *bootFilename = argc > 1 ? argv[1] : 0;
@@ -100,6 +101,8 @@ int main(int argc, const char* argv[])
 			fullLog = true;
 		else if (!strcmp(argv[i], "-j"))
 			useJit = true;
+		else if (!strcmp(argv[i], "-f"))
+			fastInterpreter = true;
 		else if (!strcmp(argv[i], "-c"))
 			autoCompare = true;
 	}
@@ -129,7 +132,7 @@ int main(int argc, const char* argv[])
 	coreParameter.fileToStart = bootFilename;
 	coreParameter.mountIso = mountIso ? mountIso : "";
 	coreParameter.startPaused = false;
-	coreParameter.cpuCore = useJit ? CPU_JIT : CPU_INTERPRETER;
+	coreParameter.cpuCore = useJit ? CPU_JIT : (fastInterpreter ? CPU_FASTINTERPRETER : CPU_INTERPRETER);
 	coreParameter.gpuCore = GPU_NULL;
 	coreParameter.enableSound = false;
 	coreParameter.headLess = true;

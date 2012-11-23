@@ -21,7 +21,6 @@
 #include "MIPSDebugInterface.h"
 #include "MIPSVFPUUtils.h"
 #include "../System.h"
-#include "../Debugger/Breakpoints.h"
 #include "../HLE/sceDisplay.h"
 
 #if defined(ANDROID) || defined(BLACKBERRY)
@@ -42,6 +41,7 @@ MIPSDebugInterface *currentDebugMIPS = &debugr4k;
 MIPSState::MIPSState()
 {
 	cpuType = CPUTYPE_ALLEGREX;
+	MIPSComp::jit = 0;
 }
 
 MIPSState::~MIPSState()
@@ -109,85 +109,18 @@ void MIPSState::SingleStep()
 // returns 1 if reached ticks limit
 int MIPSState::RunLoopUntil(u64 globalTicks)
 {
-	if (PSP_CoreParameter().cpuCore == CPU_JIT)
+	switch (PSP_CoreParameter().cpuCore)
 	{
+	case CPU_JIT:
 		MIPSComp::jit->RunLoopUntil(globalTicks);
-	}
-	else
-	{
+		break;
+
+	case CPU_FASTINTERPRETER:  // For jit-less platforms. Crashier than INTERPRETER.
+		return MIPSInterpret_RunFastUntil(globalTicks);
+
+	case CPU_INTERPRETER:
 		// INFO_LOG(CPU, "Entering run loop for %i ticks, pc=%08x", (int)globalTicks, mipsr4k.pc);
-		while (coreState == CORE_RUNNING)
-		{
-			// NEVER stop in a delay slot!
-			while (CoreTiming::downcount >= 0 && coreState == CORE_RUNNING)
-			{
-				// int cycles = 0;
-				{
-					again:
-					u32 op = Memory::ReadUnchecked_U32(mipsr4k.pc);
-					//u32 op = Memory::Read_Opcode_JIT(mipsr4k.pc);
-					/*
-					// Choke on VFPU
-					u32 info = MIPSGetInfo(op);
-					if (info & IS_VFPU)
-					{
-						if (!Core_IsStepping() && !GetAsyncKeyState(VK_LSHIFT))
-						{
-							Core_EnableStepping(true);
-							return;
-						}
-					}*/
-
-			//2: check for breakpoint (VERY SLOW)
-#if defined(_DEBUG)
-					if (CBreakPoints::IsAddressBreakPoint(pc))
-					{
-						Core_EnableStepping(true);
-						if (CBreakPoints::IsTempBreakPoint(pc))
-							CBreakPoints::RemoveBreakPoint(pc);
-						break;
-					}
-#endif
-					if (inDelaySlot)
-					{
-						MIPSInterpret(op);
-						if (inDelaySlot)
-						{
-							pc = nextPC;
-							inDelaySlot = false;
-						}
-					}
-					else
-					{
-						MIPSInterpret(op);
-					}
-
-					/*
-					if (!Memory::IsValidAddress(pc))
-					{
-						pc = pc;
-					}
-					if (r[MIPS_REG_RA] != 0 && !Memory::IsValidAddress(r[MIPS_REG_RA]))
-					{
-					//	pc = pc;
-					}*/
-					if (inDelaySlot)
-					{
-						CoreTiming::downcount -= 1;
-						goto again;
-					}
-				}
-
-				CoreTiming::downcount -= 1;
-				if (CoreTiming::GetTicks() > globalTicks)
-				{
-					// DEBUG_LOG(CPU, "Hit the max ticks, bailing 1 : %llu, %llu", globalTicks, CoreTiming::GetTicks());
-					return 1;
-				}
-			}
-
-			CoreTiming::Advance();
-		}
+		return MIPSInterpret_RunUntil(globalTicks);
 	}
 	return 1;
 }

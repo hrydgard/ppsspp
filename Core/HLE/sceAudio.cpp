@@ -315,7 +315,7 @@ void sceAudioOutput2OutputBlocking()
 
 u32 sceAudioOutput2ChangeLength(u32 sampleCount)
 {
-  WARN_LOG(HLE,"sceAudioOutput2ChangeLength(%i)");
+  WARN_LOG(HLE,"sceAudioOutput2ChangeLength(%i)", sampleCount);
 	chans[0].sampleCount = sampleCount;
 	return 0;
 }

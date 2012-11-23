@@ -147,7 +147,7 @@ namespace MainWindow
 		info.cyMax = 0;
 		info.dwStyle = MNS_CHECKORBMP;
 		info.fMask = MIM_STYLE;
-		for (int i=0; i<GetMenuItemCount(menu); i++)
+		for (int i = 0; i < GetMenuItemCount(menu); i++)
 		{
 			SetMenuInfo(GetSubMenu(menu,i),&info);
 		}
@@ -350,11 +350,15 @@ namespace MainWindow
 			//CPU menu
 			//////////////////////////////////////////////////////////////////////////
 			case ID_CPU_DYNAREC:
-				g_Config.bJIT = true;
+				g_Config.iCpuCore = CPU_JIT;
 				UpdateMenus();
 				break;			
 			case ID_CPU_INTERPRETER:
-				g_Config.bJIT = false;
+				g_Config.iCpuCore = CPU_INTERPRETER;
+				UpdateMenus();
+				break;
+			case ID_CPU_FASTINTERPRETER:
+				g_Config.iCpuCore = CPU_FASTINTERPRETER;
 				UpdateMenus();
 				break;
 
@@ -597,9 +601,11 @@ namespace MainWindow
 //		CHECK(ID_OPTIONS_EMULATESYSCALL,g_bEmulateSyscall);
 		CHECKITEM(ID_OPTIONS_DISPLAYRAWFRAMEBUFFER, g_Config.bDisplayFramebuffer);
 		CHECKITEM(ID_OPTIONS_IGNOREILLEGALREADS,g_Config.bIgnoreBadMemAccess);
-		CHECKITEM(ID_CPU_INTERPRETER,!g_Config.bJIT);
-		CHECKITEM(ID_CPU_DYNAREC,g_Config.bJIT);
+		CHECKITEM(ID_CPU_INTERPRETER,g_Config.iCpuCore == CPU_INTERPRETER);
+		CHECKITEM(ID_CPU_FASTINTERPRETER,g_Config.iCpuCore == CPU_FASTINTERPRETER);
+		CHECKITEM(ID_CPU_DYNAREC,g_Config.iCpuCore == CPU_JIT);
 		CHECKITEM(ID_OPTIONS_BUFFEREDRENDERING, g_Config.bBufferedRendering);
+
 		BOOL enable = !Core_IsStepping();
 		EnableMenuItem(menu,ID_EMULATION_RUN,enable);
 		EnableMenuItem(menu,ID_EMULATION_PAUSE,!enable);
@@ -610,6 +616,7 @@ namespace MainWindow
 		//EnableMenuItem(menu,ID_FILE_LOAD_ELF,enable);
 		EnableMenuItem(menu,ID_CPU_DYNAREC,enable);
 		EnableMenuItem(menu,ID_CPU_INTERPRETER,enable);
+		EnableMenuItem(menu,ID_CPU_FASTINTERPRETER,enable);
 		EnableMenuItem(menu,ID_DVD_INSERTISO,enable);
 		EnableMenuItem(menu,ID_FILE_BOOTBIOS,enable);
 		EnableMenuItem(menu,ID_EMULATION_STOP,!enable);

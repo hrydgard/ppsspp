@@ -275,6 +275,8 @@ void Write_U64(const u64 _Data, const u32 _Address)
 	WriteToHardware<u64>(_Address, _Data);
 }
 
+#ifdef SAFE_MEMORY
+
 u8 ReadUnchecked_U8(const u32 _Address)
 {
 	u8 _var = 0;
@@ -289,8 +291,6 @@ u16 ReadUnchecked_U16(const u32 _Address)
 	return _var;
 }
 
-#ifdef SAFE_MEMORY
-
 u32 ReadUnchecked_U32(const u32 _Address)
 {
 	u32 _var = 0;
@@ -298,16 +298,21 @@ u32 ReadUnchecked_U32(const u32 _Address)
 	return _var;
 }
 
-#endif
-
 void WriteUnchecked_U8(const u8 _iValue, const u32 _Address)
 {
 	WriteToHardware<u8>(_Address, _iValue);
+}
+
+void WriteUnchecked_U8(const u16 _iValue, const u32 _Address)
+{
+	WriteToHardware<u16>(_Address, _iValue);
 }
 
 void WriteUnchecked_U32(const u32 _iValue, const u32 _Address)
 {
 	WriteToHardware<u32>(_Address, _iValue);
 }
+
+#endif
 
 }	// namespace Memory

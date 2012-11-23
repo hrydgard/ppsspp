@@ -66,7 +66,7 @@ float round_ieee_754(float d) {
 	return i + 1.0f;
 }
 
-void DelayBranchTo(u32 where)
+static inline void DelayBranchTo(u32 where)
 {
 	PC += 4;
 	mipsr4k.nextPC = where;
