@@ -138,6 +138,20 @@ u32 sceRtcGetCurrentClockLocalTime(u32 pspTimePtr)
 	return 0;
 }
 
+u32 sceRtcSetTick(u32 pspTimePtr, u32 tickPtr)
+{
+	DEBUG_LOG(HLE, "HACK sceRtcSetTick(%08x, %08x)", pspTimePtr, tickPtr);
+	if (Memory::IsValidAddress(pspTimePtr) && Memory::IsValidAddress(tickPtr))
+	{
+		time_t sec = (time_t)Memory::Read_U64(tickPtr);
+		tm *local = localtime(&sec);
+		ScePspDateTime ret;
+		__RtcTmToPspTime(ret, local);
+		Memory::WriteStruct(pspTimePtr, &ret);
+	}
+	return 0;
+}
+
 u32 sceRtcGetTick(u32 pspTimePtr, u32 tickPtr)
 {
 	DEBUG_LOG(HLE, "sceRtcGetTick(%08x, %08x)", pspTimePtr, tickPtr);
@@ -235,7 +249,7 @@ const HLEFunction sceRtc[] =
 	{0x36075567, 0, "sceRtcGetDosTime"},
 	{0x7ACE4C04, 0, "sceRtcSetWin32FileTime"},
 	{0xCF561893, 0, "sceRtcGetWin32FileTime"},
-	{0x7ED29E40, 0, "sceRtcSetTick"},
+	{0x7ED29E40, WrapU_UU<sceRtcSetTick>, "sceRtcSetTick"},
 	{0x6FF40ACC, WrapU_UU<sceRtcGetTick>, "sceRtcGetTick"},
 	{0x9ED0AE87, 0, "sceRtcCompareTick"},
 	{0x44F45E05, 0, "sceRtcTickAddTicks"},
