@@ -2,11 +2,11 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0 or later versions.
+// the Free Software Foundation, version 2.0.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License 2.0 for more details.
 
 // A copy of the GPL 2.0 should have been included with the program.
@@ -15,156 +15,82 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-#pragma once
+#ifndef _JITARMREGCACHE_H
+#define _JITARMREGCACHE_H
 
+#include "ArmEmitter.h"
+#include "../MIPS.h"
 #include "../MIPSAnalyst.h"
-#include <ArmEmitter.h>
+#include "ArmABI.h"
 
 using namespace ArmGen;
-enum FlushMode
-{
-	FLUSH_ALL
-};
 
-enum GrabMode
-{
-	M_READ = 1,
-	M_WRITE = 2, 
-	M_READWRITE = 3,
-};
-
-enum Loc {
-	LOC_IMM,
-	LOC_REG,
-	LOC_MEM
-};
-
-struct Location
-{
-	Loc loc;
-	bool IsSimpleReg() const {return loc == LOC_REG;}
-	ARMReg GetSimpleReg() const {return reg;}
-	bool IsImm() const { return loc == LOC_IMM; }
-	void SetImm32(u32 i) {loc = LOC_IMM; imm = i;}
-	void SetM(void *p) {loc = LOC_MEM; ptr = (u32 *)p;}
-	void SetReg(ARMReg r) {loc = LOC_REG; reg = r;}
-	
-	union {
-		u32 *ptr;
-		ARMReg reg;
-		u32 imm;
-	};
-};
+// This ARM Register cache actually pre loads the most used registers before
+// the block to increase speed since every memory load requires two
+// instructions to load it. We are going to use R0-RMAX as registers for the
+// use of MIPS Registers.
+// Allocation order as follows
+#define ARMREGS 16
+// Allocate R0 to R9 for MIPS first.
+// For General registers on the host side, start with R14 and go down as we go
+// R13 is reserved for our stack pointer, don't ever use that. Unless you save
+// it
+// So we have R14, R12, R11, R10 to work with instructions
 
 struct MIPSCachedReg
 {
-	Location location;
-	bool away;	// value not in source register
+	const u8 *location;
 };
 
-struct ARMCachedReg
+struct JRCPPC
 {
-	int ppcReg;
-	bool dirty;
+	u32 MIPSReg; // Tied to which MIPS Register
+	ARMReg Reg; // Tied to which ARM Register
+	u32 LastLoad;
+};
+struct JRCReg
+{
+	ARMReg Reg; // Which reg this is.
 	bool free;
 };
-
-typedef int XReg;
-typedef int PReg;
-
-#define NUMARMREGS 15
-
-class RegCache
+class ArmRegCache
 {
 private:
-	bool locks[32];
-	bool saved_locks[32];
-	bool saved_xlocks[NUMARMREGS];
+	MIPSCachedReg regs[32];
+	JRCPPC ArmCRegs[ARMREGS];
+	JRCReg ArmRegs[ARMREGS]; // Four registers remaining
+
+	int NUMMIPSREG;  //   + LO, HI, ...
+	int NUMARMREG;
+
+	ARMReg *GetAllocationOrder(int &count);
+	ARMReg *GetMIPSAllocationOrder(int &count);
+
+	MIPSState *mips_;
 
 protected:
-	bool xlocks[NUMARMREGS];
-	MIPSCachedReg regs[32];
-	ARMCachedReg xregs[NUMARMREGS];
-
-	MIPSCachedReg saved_regs[32];
-	ARMCachedReg saved_xregs[NUMARMREGS];
-
-	virtual const int *GetAllocationOrder(int &count) = 0;
-	
 	ARMXEmitter *emit;
 
 public:
-	MIPSState *mips;
-	RegCache();
+	ArmRegCache(MIPSState *mips);
+	~ArmRegCache() {}
 
-	virtual ~RegCache() {}
-	virtual void Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats) = 0;
+	void Init(ARMXEmitter *emitter);
+	void Start(MIPSAnalyst::AnalysisResults &stats);
 
-	void DiscardRegContentsIfCached(int preg);
 	void SetEmitter(ARMXEmitter *emitter) {emit = emitter;}
 
-	void FlushR(ARMReg reg); 
-	void FlushR(ARMReg reg, ARMReg reg2) {FlushR(reg); FlushR(reg2);}
-	void FlushLockX(ARMReg reg) {
-		FlushR(reg);
-		LockX(reg);
-	}
-	void FlushLockX(ARMReg reg1, ARMReg reg2) {
-		FlushR(reg1); FlushR(reg2);
-		LockX(reg1); LockX(reg2);
-	}
-	virtual void Flush(FlushMode mode);
-	// virtual void Flush(PPCAnalyst::CodeOp *op) {Flush(FLUSH_ALL);}
-	int SanityCheck() const;
-	void KillImmediate(int preg, bool doLoad, bool makeDirty);
+	// TODO: Add a way to lock MIPS registers so they aren't kicked out when you don't expect it.
 
-	//TODO - instead of doload, use "read", "write"
-	//read only will not set dirty flag
-	virtual void BindToRegister(int preg, bool doLoad = true, bool makeDirty = true) = 0;
-	virtual void StoreFromRegister(int preg) = 0;
+	ARMReg GetReg(bool AutoLock = true); // Return a ARM register we can use.
+	void Lock(ARMReg R0);
+	void Unlock(ARMReg R0, ARMReg R1 = INVALID_REG, ARMReg R2 = INVALID_REG, ARMReg R3 = INVALID_REG);
+	void Flush();
+	ARMReg R(int preg); // Returns a cached register
 
-	const Location &R(int preg) const {return regs[preg].location;}
-	ARMReg RX(int preg) const
-	{
-		if (regs[preg].away && regs[preg].location.IsSimpleReg()) 
-			return regs[preg].location.GetSimpleReg(); 
-		PanicAlert("Not so simple - %i", preg); 
-		return (ARMReg)-1;
-	}
-	virtual Location GetDefaultLocation(int reg) const = 0;
-
-	// Register locking. A locked registers will not be spilled when trying to find a new free register.
-	void Lock(int p1, int p2=0xff, int p3=0xff, int p4=0xff);
-	void LockX(int x1, int x2=0xff, int x3=0xff, int x4=0xff);
-	void UnlockAll();
-	void UnlockAllX();
-
-	bool IsFreeX(int xreg) const;
-
-	ARMReg GetFreeXReg();
-
-	void SaveState();
-	void LoadState();
-};
-
-class GPRRegCache : public RegCache
-{
-public:
-	void Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats);
-	void BindToRegister(int preg, bool doLoad = true, bool makeDirty = true);
-	void StoreFromRegister(int preg);
-	Location GetDefaultLocation(int reg) const;
-	const int *GetAllocationOrder(int &count);
-	void SetImmediate32(int preg, u32 immValue);
 };
 
 
-class FPURegCache : public RegCache
-{
-public:
-	void Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats);
-	void BindToRegister(int preg, bool doLoad = true, bool makeDirty = true);
-	void StoreFromRegister(int preg);
-	const int *GetAllocationOrder(int &count);
-	Location GetDefaultLocation(int reg) const;
-};
+
+
+#endif

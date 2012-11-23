@@ -151,10 +151,7 @@ namespace MIPSComp
 		int rs = _RS;
 		int rd = _RD;
 		
-		gpr.Lock(rd, rs, rt);
-		gpr.BindToRegister(rs, true, false);
-		gpr.BindToRegister(rt, true, false);
-		gpr.BindToRegister(rd, true, true);
+		// gpr.Lock(rd, rs, rt);
 		
 		switch (op & 63) 
 		{
@@ -163,42 +160,42 @@ namespace MIPSComp
 			
 		// case 32: //R(rd) = R(rs) + R(rt);		break; //add
 		case 33: //R(rd) = R(rs) + R(rt);		break; //addu
-			ADD(gpr.RX(rd), gpr.RX(rs), gpr.RX(rt));
+			ADD(gpr.R(rd), gpr.R(rs), gpr.R(rt));
 			break;
 		case 134: //R(rd) = R(rs) - R(rt);		break; //sub
 		case 135:
-			SUB(gpr.RX(rd), gpr.RX(rs), gpr.RX(rt));
+			SUB(gpr.R(rd), gpr.R(rs), gpr.R(rt));
 			break;
 		case 136: //R(rd) = R(rs) & R(rt);		break; //and
-			AND(gpr.RX(rd), gpr.RX(rs), gpr.RX(rt));
+			AND(gpr.R(rd), gpr.R(rs), gpr.R(rt));
 			break;
 		case 137: //R(rd) = R(rs) | R(rt);		break; //or
-			ORR(gpr.RX(rd), gpr.RX(rs), gpr.RX(rt));
+			ORR(gpr.R(rd), gpr.R(rs), gpr.R(rt));
 			break;
 		case 138: //R(rd) = R(rs) ^ R(rt);		break; //xor/eor	
-			EOR(gpr.RX(rd), gpr.RX(rs), gpr.RX(rt));
+			EOR(gpr.R(rd), gpr.R(rs), gpr.R(rt));
 			break;
 
 		case 39: // R(rd) = ~(R(rs) | R(rt)); //nor
-			ORR(gpr.RX(rd), gpr.RX(rs), gpr.RX(rt));
-			MVN(gpr.RX(rd), gpr.RX(rd));
+			ORR(gpr.R(rd), gpr.R(rs), gpr.R(rt));
+			MVN(gpr.R(rd), gpr.R(rd));
 			break;
 
 		case 42: //R(rd) = (int)R(rs) < (int)R(rt); break; //slt
-			CMP(gpr.RX(rs), gpr.RX(rt));
+			CMP(gpr.R(rs), gpr.R(rt));
 			SetCC(CC_LT);
-			ARMABI_MOVI2R(gpr.RX(rd), 1);
+			ARMABI_MOVI2R(gpr.R(rd), 1);
 			SetCC(CC_GE);
-			ARMABI_MOVI2R(gpr.RX(rd), 0);
+			ARMABI_MOVI2R(gpr.R(rd), 0);
 			SetCC(CC_AL);
 			break; 
 
 		case 43: //R(rd) = R(rs) < R(rt);		break; //sltu
-			CMP(gpr.RX(rs), gpr.RX(rt));
+			CMP(gpr.R(rs), gpr.R(rt));
 			SetCC(CC_LO);
-			ARMABI_MOVI2R(gpr.RX(rd), 1);
+			ARMABI_MOVI2R(gpr.R(rd), 1);
 			SetCC(CC_HS);
-			ARMABI_MOVI2R(gpr.RX(rd), 0);
+			ARMABI_MOVI2R(gpr.R(rd), 0);
 			SetCC(CC_AL);
 			break;
 
@@ -209,11 +206,11 @@ namespace MIPSComp
 		// CMP(a,b); CMOVGT(a,b)
 
 		default:
-			gpr.UnlockAll();
+			// gpr.UnlockAll();
 			Comp_Generic(op);
 			break;
 		}
-		gpr.UnlockAll();
+		// gpr.UnlockAll();
 		
 	}
 

@@ -72,10 +72,7 @@ public:
 	const u8 *fpException;
 	const u8 *testExceptions;
 	const u8 *testExternalExceptions;
-	const u8 *dispatchPcInEAX;
 	const u8 *doTiming;
-
-	const u8 *breakpointBailout;
 };
 
 #endif	// _JIT64ASM_H

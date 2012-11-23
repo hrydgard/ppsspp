@@ -62,20 +62,20 @@ void MovToReg(int reg, u32 value)
 }
 */
 
-Jit::Jit(MIPSState *mips) : blocks(mips), mips_(mips)
+Jit::Jit(MIPSState *mips) : blocks(mips), gpr(mips), mips_(mips)
 { 
 	blocks.Init();
 	asm_.Init(mips, this);
 	gpr.SetEmitter(this);
-	fpr.SetEmitter(this);
+	//fpr.SetEmitter(this);
 	AllocCodeSpace(1024 * 1024 * 16);
 }
 
 
 void Jit::FlushAll()
 {
-	gpr.Flush(FLUSH_ALL);
-	fpr.Flush(FLUSH_ALL);
+	gpr.Flush();
+	//fpr.Flush(FLUSH_ALL);
 }
 
 void Jit::ClearCache()
@@ -124,8 +124,8 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	// TODO: this needs work
 	MIPSAnalyst::AnalysisResults analysis; // = MIPSAnalyst::Analyze(em_address);
 
-	gpr.Start(mips_, analysis);
-	fpr.Start(mips_, analysis);
+	gpr.Start(analysis);
+	//fpr.Start(mips_, analysis);
 
 	int numInstructions = 0;
 	int cycles = 0;
@@ -164,10 +164,42 @@ void Jit::Comp_Generic(u32 op)
 	}
 }
 
+void Jit::DoDownCount()
+{
+	ARMReg A = gpr.GetReg();
+	ARMReg B = gpr.GetReg();
+	ARMABI_MOVI2R(A, Mem(&CoreTiming::downcount));
+	LDR(B, A);
+	if(js.downcountAmount < 255) // We can enlarge this if we used rotations
+	{
+		SUBS(B, B, js.downcountAmount);
+		STR(A, B);
+	}
+	else
+	{
+		ARMReg C = gpr.GetReg(false);
+		ARMABI_MOVI2R(C, js.downcountAmount);
+		SUBS(B, B, C);
+		STR(A, B);
+	}
+	gpr.Unlock(A, B);
+}
+
+void Jit::WriteExitDestInR(ARMReg Reg) 
+{
+	ARMReg A = gpr.GetReg();
+	ARMABI_MOVI2R(A, (u32)&mips_->pc);
+	STR(A, Reg);
+	gpr.Unlock(Reg); // This was locked in the instruction beforehand.
+	DoDownCount();
+	ARMABI_MOVI2R(A, (u32)asm_.dispatcher);
+	B(A);
+	gpr.Unlock(A);
+}
+
 void Jit::WriteExit(u32 destination, int exit_num)
 {
-	//SUB(32, M(&CoreTiming::downcount), js.downcountAmount > 127 ? Imm32(js.downcountAmount) : Imm8(js.downcountAmount)); 
-
+	DoDownCount(); 
 	//If nobody has taken care of this yet (this can be removed when all branches are done)
 	JitBlock *b = js.curBlock;
 	b->exitAddress[exit_num] = destination;
@@ -178,40 +210,27 @@ void Jit::WriteExit(u32 destination, int exit_num)
 	if (block >= 0 && jo.enableBlocklink) 
 	{
 		// It exists! Joy of joy!
-		//JMP(blocks.GetBlock(block)->checkedEntry, true);
+		B(blocks.GetBlock(block)->checkedEntry);
 		b->linkStatus[exit_num] = true;
 	}
 	else 
 	{
-		//MOV(32, M(&mips_->pc), Imm32(destination));
-		//JMP(asm_.dispatcher, true);
+		ARMABI_MOVI2R(R0, (u32)&mips_->pc); // Watch out! This uses R14 and R12!
+		ARMABI_MOVI2R(R1, destination); // Watch out! This uses R14 and R12!
+		STR(R0, R1); // Watch out! This uses R14 and R12!
+		ARMReg A = gpr.GetReg(false);
+		ARMABI_MOVI2R(A, (u32)asm_.dispatcher);
+		B(A);	
 	}
 }
 
-void Jit::WriteExitDestInEAX() 
-{
-	/*
-	MOV(32, M(&mips_->pc), R(EAX));
-	SUB(32, M(&CoreTiming::downcount), js.downcountAmount > 127 ? Imm32(js.downcountAmount) : Imm8(js.downcountAmount)); 
-	JMP(asm_.dispatcher, true);
-	*/
-}
-/*
-void Jit::WriteRfiExitDestInEAX() 
-{
-	MOV(32, M(&mips_->pc), R(EAX));
-	SUB(32, M(&CoreTiming::downcount), js.downcountAmount > 127 ? Imm32(js.downcountAmount) : Imm8(js.downcountAmount)); 
-	JMP(asm_routines.testExceptions, true);
-}*/
-
 void Jit::WriteSyscallExit()
 {
-	
-	/*
-	SUB(32, M(&CoreTiming::downcount), js.downcountAmount > 127 ? Imm32(js.downcountAmount) : Imm8(js.downcountAmount)); 
-	JMP(asm_.dispatcher, true);
-	*/
+	// Super basic
+	DoDownCount();
+	B((const void *)asm_.dispatcher);
 }
+
 
 #define _RS ((op>>21) & 0x1F)
 #define _RT ((op>>16) & 0x1F)

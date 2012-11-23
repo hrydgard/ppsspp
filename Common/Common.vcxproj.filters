@@ -74,6 +74,7 @@
     <ClCompile Include="ArmABI.cpp" />
     <ClCompile Include="Action.cpp" />
     <ClCompile Include="ThunkArm.cpp" />
+    <ClCompile Include="ArmCPUDetect.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />

@@ -128,6 +128,7 @@ if(ARM)
     set(CommonExtra ${CommonExtra}
         Common/ArmABI.h
         Common/ArmABI.cpp
+        Common/ArmCPUDetect.cpp
         Common/ArmEmitter.h
         Common/ArmEmitter.cpp
         Common/ThunkARM.cpp)

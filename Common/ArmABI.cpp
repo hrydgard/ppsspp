@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0 or later versions.
+// the Free Software Foundation, version 2.0.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -47,6 +47,17 @@ void ARMXEmitter::ARMABI_CallFunctionCC(void *func, u32 Arg1, u32 Arg2)
 	POP(5, R0, R1, R2, R3, _LR);
 
 }
+void ARMXEmitter::ARMABI_CallFunctionCCC(void *func, u32 Arg1, u32 Arg2, u32 Arg3)
+{
+	ARMABI_MOVI2R(R14, Mem(func));	
+	PUSH(5, R0, R1, R2, R3, _LR);
+	ARMABI_MOVI2R(R0, Arg1);
+	ARMABI_MOVI2R(R1, Arg2);
+	ARMABI_MOVI2R(R2, Arg3);
+	BL(R14);
+	POP(5, R0, R1, R2, R3, _LR);
+}
+
 void ARMXEmitter::ARMABI_PushAllCalleeSavedRegsAndAdjustStack() {
 	// Note: 4 * 4 = 16 bytes, so alignment is preserved.
 	PUSH(4, R0, R1, R2, R3);
@@ -55,6 +66,7 @@ void ARMXEmitter::ARMABI_PushAllCalleeSavedRegsAndAdjustStack() {
 void ARMXEmitter::ARMABI_PopAllCalleeSavedRegsAndAdjustStack() {
 	POP(4, R0, R1, R2, R3);
 }
+
 void ARMXEmitter::ARMABI_MOVI2R(ARMReg reg, Operand2 val)
 {
 	// TODO: There are more fancy ways to save calls if we check if 
@@ -72,6 +84,7 @@ void ARMXEmitter::ARMABI_MOVI2M(Operand2 op, Operand2 val)
 	MOVW(R12, op); MOVT(R12, op, true);
 	STR(R12, R14); // R10 is what we want to store
 }
+
 const char *conditions[] = {"EQ", "NEQ", "CS", "CC", "MI", "PL", "VS", "VC", "HI", "LS", "GE", "LT", "GT", "LE", "AL" };      
 static void ShowCondition(u32 cond)
 {
