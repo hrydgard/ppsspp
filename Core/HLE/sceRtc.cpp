@@ -24,6 +24,7 @@
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
 
+#include "sceKernel.h"
 #include "sceRtc.h"
 #include "../CoreTiming.h"
 
@@ -87,8 +88,11 @@ u32 sceRtcGetDayOfWeek(u32 year, u32 month, u32 day)
 
 u32 sceRtcGetDaysInMonth(u32 year, u32 month)
 {
-	DEBUG_LOG(HLE,"sceRtcGetDaysInMonth()");
+	DEBUG_LOG(HLE,"sceRtcGetDaysInMonth(%d, %d)", year, month);
 	u32 numberOfDays;
+
+	if (year <= 0 || month <= 0 || month > 12)
+		return SCE_KERNEL_ERROR_INVALID_ARGUMENT;
 
 	switch (month)
 	{
