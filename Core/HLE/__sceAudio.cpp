@@ -46,10 +46,9 @@ const int audioIntervalUs = (int)(1000000ULL * hwBlockSize / hwSampleRate);
 const int audioHostIntervalUs = (int)(1000000ULL * hostAttemptBlockSize / hwSampleRate);
 
 // High and low watermarks, basically.
-const int chanQueueMaxSizeFactor = 4;
-const int chanQueueMinSizeFactor = 2;
+const int chanQueueMaxSizeFactor = 2;
+const int chanQueueMinSizeFactor = 1;
 
-// A whole second, should be enough for anything.
 FixedSizeQueue<s16, hwBlockSize * 8> outAudioQueue;
 
 
@@ -131,25 +130,9 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking)
 // just sleep the main emulator thread a little.
 void __AudioUpdate()
 {
-#ifdef _WIN32
-	// HACK - TODO: Remove
-	bool noThrottle = GetAsyncKeyState(VK_TAB) != 0;
-#else
-	bool noThrottle = false;
-#endif
-	// Sleep here until the host audio hardware is ready to receive samples.
-	// This will effectively throttle the frame rate.
-
-	if (!noThrottle && g_Config.bEnableSound) {
-		while (true)
-		{
-			if (outAudioQueue.size() < hwBlockSize * 4)
-				break;  // room can only increase without us pushing, so there's no race condition between here and section.lock()
-			Common::SleepCurrentThread(0);
-		}
-	}
-
-	section.lock();
+	// Audio throttle doesn't really work on the PSP since the mixing intervals are so closely tied
+	// to the CPU. Much better to throttle the frame rate on frame display and just throw away audio
+	// if the buffer somehow gets full.
 
 	s32 mixBuffer[hwBlockSize * 2];
 	memset(mixBuffer, 0, sizeof(mixBuffer));
@@ -193,7 +176,9 @@ void __AudioUpdate()
 		}
 	}
 
-	if (!noThrottle && g_Config.bEnableSound) {
+	section.lock();
+
+	if (g_Config.bEnableSound && outAudioQueue.room() >= hwBlockSize * 2) {
 		// Push the mixed samples onto the output audio queue.
 		for (int i = 0; i < hwBlockSize; i++) {
 			s32 sampleL = mixBuffer[i * 2] >> 2;  // TODO - what factor?
@@ -233,7 +218,7 @@ int __AudioMix(short *outstereo, int numFrames)
 			outstereo[i * 2 + 1] = sampleR;
 			anythingToPlay = true;
 		} else {
-			underrun = i;
+			if (underrun == -1) underrun = i;
 			outstereo[i * 2] = sampleL;  // repeat last sample, can reduce clicking
 			outstereo[i * 2 + 1] = sampleR;  // repeat last sample, can reduce clicking
 		}

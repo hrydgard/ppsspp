@@ -17,8 +17,12 @@
 
 #include <vector>
 
-//#include "base/timeutil.h"
+// TODO: Move the relevant parts into common. Don't want the core
+// to be dependent on "native", I think. Or maybe should get rid of common
+// and move everything into native...
+#include "base/timeutil.h"
 
+#include "Thread.h"
 #include "../Core/CoreTiming.h"
 #include "../MIPS/MIPS.h"
 #include "../HLE/HLE.h"
@@ -63,6 +67,7 @@ static int hCountTotal = 0; //unused
 static int vCount = 0;
 static int isVblank = 0;
 static bool hasSetMode = false;
+double lastFrameTime = 0;
 
 // STATE END
 
@@ -165,15 +170,29 @@ void hleEnterVblank(u64 userdata, int cyclesLate)
 	// anything to draw here.
 	gpu->CopyDisplayToOutput();
 
-	{
-		host->EndFrame();
+	host->EndFrame();
 
-		host->BeginFrame();
-		gpu->BeginFrame();
-
-		shaderManager.DirtyShader();
-		shaderManager.DirtyUniform(DIRTY_ALL);
+#ifdef _WIN32
+	static double lastFrameTime = 0.0;
+	// Best place to throttle the frame rate on non vsynced platforms is probably here. Let's try it.
+	time_update();
+	if (lastFrameTime == 0.0)
+		lastFrameTime = time_now_d();
+	if (!GetAsyncKeyState(VK_TAB)) {
+		while (time_now_d() < lastFrameTime + 1.0 / 60.0f) {
+			Common::SleepCurrentThread(1);
+			time_update();
+		}
+		lastFrameTime = time_now_d();
 	}
+#endif
+
+
+	host->BeginFrame();
+	gpu->BeginFrame();
+
+	shaderManager.DirtyShader();
+	shaderManager.DirtyUniform(DIRTY_ALL);
 
 	// Tell the emu core that it's time to stop emulating
 	// Win32 doesn't need this.
