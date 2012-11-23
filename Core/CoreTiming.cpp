@@ -250,16 +250,16 @@ void ScheduleEvent(int cyclesIntoFuture, int event_type, u64 userdata)
 }
 
 // Returns cycles left in timer.
-int UnscheduleEvent(int event_type, u64 userdata)
+u64 UnscheduleEvent(int event_type, u64 userdata)
 {
-	int result = 0;
+	u64 result = 0;
 	if (!first)
 		return result;
 	while(first)
 	{
 		if (first->type == event_type && first->userdata == userdata)
 		{
-			result = (int)(first->time - globalTimer);
+			result = first->time - globalTimer;
 
 			Event *next = first->next;
 			FreeEvent(first);
@@ -278,7 +278,7 @@ int UnscheduleEvent(int event_type, u64 userdata)
 	{
 		if (ptr->type == event_type && ptr->userdata == userdata)
 		{
-			result = (int)(ptr->time - globalTimer);
+			result = ptr->time - globalTimer;
 
 			prev->next = ptr->next;
 			FreeEvent(ptr);

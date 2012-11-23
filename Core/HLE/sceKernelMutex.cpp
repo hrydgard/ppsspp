@@ -223,8 +223,8 @@ void sceKernelDeleteMutex(SceUID id)
 			if (timeoutPtr != 0 && mutexWaitTimer != 0)
 			{
 				// Remove any event for this thread.
-				int cyclesLeft = CoreTiming::UnscheduleEvent(mutexWaitTimer, threadID);
-				Memory::Write_U32(cyclesToUs(cyclesLeft), timeoutPtr);
+				u64 cyclesLeft = CoreTiming::UnscheduleEvent(mutexWaitTimer, threadID);
+				Memory::Write_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
 			}
 
 			__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_DELETE);
@@ -300,8 +300,8 @@ bool __KernelUnlockMutex(Mutex *mutex, u32 &error)
 		if (timeoutPtr != 0 && mutexWaitTimer != 0)
 		{
 			// Remove any event for this thread.
-			int cyclesLeft = CoreTiming::UnscheduleEvent(mutexWaitTimer, threadID);
-			Memory::Write_U32(cyclesToUs(cyclesLeft), timeoutPtr);
+			u64 cyclesLeft = CoreTiming::UnscheduleEvent(mutexWaitTimer, threadID);
+			Memory::Write_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
 		}
 
 		__KernelResumeThreadFromWait(threadID, 0);
@@ -554,8 +554,8 @@ void sceKernelDeleteLwMutex(u32 workareaPtr)
 			if (timeoutPtr != 0 && lwMutexWaitTimer != 0)
 			{
 				// Remove any event for this thread.
-				int cyclesLeft = CoreTiming::UnscheduleEvent(lwMutexWaitTimer, threadID);
-				Memory::Write_U32(cyclesToUs(cyclesLeft), timeoutPtr);
+				u64 cyclesLeft = CoreTiming::UnscheduleEvent(lwMutexWaitTimer, threadID);
+				Memory::Write_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
 			}
 
 			__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_DELETE);
@@ -648,8 +648,8 @@ bool __KernelUnlockLwMutex(NativeLwMutexWorkarea &workarea, u32 &error)
 		if (timeoutPtr != 0 && lwMutexWaitTimer != 0)
 		{
 			// Remove any event for this thread.
-			int cyclesLeft = CoreTiming::UnscheduleEvent(lwMutexWaitTimer, threadID);
-			Memory::Write_U32(cyclesToUs(cyclesLeft), timeoutPtr);
+			u64 cyclesLeft = CoreTiming::UnscheduleEvent(lwMutexWaitTimer, threadID);
+			Memory::Write_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
 		}
 
 		__KernelResumeThreadFromWait(threadID, 0);
