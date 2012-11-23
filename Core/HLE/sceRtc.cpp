@@ -32,10 +32,12 @@
 #include "../CoreTiming.h"
 
 // Grabbed from JPSCP
+// This is # of microseconds between January 1, 0001 and January 1, 1970.
 const u64 rtcMagicOffset = 62135596800000000L;
 
 u64 __RtcGetCurrentTick()
 {
+	// TODO: It's probably expecting ticks since January 1, 0001?
 	return cyclesToUs(CoreTiming::GetTicks()) + rtcMagicOffset;
 }
 
@@ -66,6 +68,11 @@ void __RtcTmToPspTime(ScePspDateTime &t, tm *val)
 	t.second = val->tm_sec;
 }
 
+bool __RtcValidatePspTime(ScePspDateTime &t)
+{
+	return t.year > 0;
+}
+
 u32 sceRtcGetTickResolution()
 {
 	DEBUG_LOG(HLE, "sceRtcGetTickResolution()");
@@ -78,10 +85,7 @@ u32 sceRtcGetCurrentTick(u32 tickPtr)
 
 	u64 curTick = __RtcGetCurrentTick();
 	if (Memory::IsValidAddress(tickPtr))
-	{
-		Memory::Write_U32(tickPtr, curTick & 0xFFFFFFFF);
-		Memory::Write_U32(tickPtr + 4, (curTick >> 32) & 0xFFFFFFFF);
-	}
+		Memory::Write_U64(curTick, tickPtr);
 
 	return 0;
 }
@@ -94,7 +98,7 @@ u64 sceRtcGetAcculumativeTime()
 
 u32 sceRtcGetCurrentClock(u32 pspTimePtr, int tz)
 {
-	DEBUG_LOG(HLE,"sceRtcGetCurrentClock(%08x, %d)", pspTimePtr, tz);
+	DEBUG_LOG(HLE, "sceRtcGetCurrentClock(%08x, %d)", pspTimePtr, tz);
 	timeval tv;
 	gettimeofday(&tv, NULL);
 
@@ -109,14 +113,15 @@ u32 sceRtcGetCurrentClock(u32 pspTimePtr, int tz)
 	__RtcTmToPspTime(ret, utc);
 	ret.microsecond = tv.tv_usec;
 
-	Memory::WriteStruct(pspTimePtr, &ret);
+	if (Memory::IsValidAddress(pspTimePtr))
+		Memory::WriteStruct(pspTimePtr, &ret);
 
 	return 0;
 }
 
 u32 sceRtcGetCurrentClockLocalTime(u32 pspTimePtr)
 {
-	DEBUG_LOG(HLE,"sceRtcGetCurrentClockLocalTime(%08x)", pspTimePtr);
+	DEBUG_LOG(HLE, "sceRtcGetCurrentClockLocalTime(%08x)", pspTimePtr);
 	timeval tv;
 	gettimeofday(&tv, NULL);
 
@@ -127,20 +132,48 @@ u32 sceRtcGetCurrentClockLocalTime(u32 pspTimePtr)
 	__RtcTmToPspTime(ret, local);
 	ret.microsecond = tv.tv_usec;
 
-	Memory::WriteStruct(pspTimePtr, &ret);
+	if (Memory::IsValidAddress(pspTimePtr))
+		Memory::WriteStruct(pspTimePtr, &ret);
 
 	return 0;
 }
 
-u32 sceRtcGetTick()
+u32 sceRtcGetTick(u32 pspTimePtr, u32 tickPtr)
 {
-	ERROR_LOG(HLE,"UNIMPL 0=sceRtcGetTick(...)");
+	DEBUG_LOG(HLE, "sceRtcGetTick(%08x, %08x)", pspTimePtr, tickPtr);
+	ScePspDateTime pt;
+
+	if (Memory::IsValidAddress(pspTimePtr) && Memory::IsValidAddress(tickPtr))
+	{
+		Memory::ReadStruct(pspTimePtr, &pt);
+
+		if (!__RtcValidatePspTime(pt))
+			return SCE_KERNEL_ERROR_INVALID_VALUE;
+
+		tm local;
+		local.tm_year = pt.year - 1900;
+		local.tm_mon = pt.month - 1;
+		local.tm_mday = pt.day;
+		local.tm_wday = -1;
+		local.tm_yday = -1;
+		local.tm_hour = pt.hour;
+		local.tm_min = pt.minute;
+		local.tm_sec = pt.second;
+		local.tm_isdst = -1;
+
+		time_t seconds = mktime(&local);
+		u64 result = rtcMagicOffset + (u64) seconds * 1000000ULL;
+		result += pt.microsecond;
+
+		Memory::Write_U64(result, tickPtr);
+	}
+
 	return 0;
 }
 
 u32 sceRtcGetDayOfWeek(u32 year, u32 month, u32 day)
 {
-	DEBUG_LOG(HLE,"sceRtcGetDayOfWeek(%d, %d, %d)", year, month, day);
+	DEBUG_LOG(HLE, "sceRtcGetDayOfWeek(%d, %d, %d)", year, month, day);
 	static u32 t[] = { 0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4 };
 	if (month > 12 || month < 1) {
 		// Preventive crashfix
@@ -153,7 +186,7 @@ u32 sceRtcGetDayOfWeek(u32 year, u32 month, u32 day)
 
 u32 sceRtcGetDaysInMonth(u32 year, u32 month)
 {
-	DEBUG_LOG(HLE,"sceRtcGetDaysInMonth(%d, %d)", year, month);
+	DEBUG_LOG(HLE, "sceRtcGetDaysInMonth(%d, %d)", year, month);
 	u32 numberOfDays;
 
 	if (year <= 0 || month <= 0 || month > 12)
@@ -203,7 +236,7 @@ const HLEFunction sceRtc[] =
 	{0x7ACE4C04, 0, "sceRtcSetWin32FileTime"},
 	{0xCF561893, 0, "sceRtcGetWin32FileTime"},
 	{0x7ED29E40, 0, "sceRtcSetTick"},
-	{0x6FF40ACC, WrapU_V<sceRtcGetTick>, "sceRtcGetTick"},
+	{0x6FF40ACC, WrapU_UU<sceRtcGetTick>, "sceRtcGetTick"},
 	{0x9ED0AE87, 0, "sceRtcCompareTick"},
 	{0x44F45E05, 0, "sceRtcTickAddTicks"},
 	{0x26D25A5D, 0, "sceRtcTickAddMicroseconds"},
