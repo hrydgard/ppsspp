@@ -272,7 +272,7 @@ add_library(stb_vorbis STATIC
     native/ext/stb_vorbis/stb_vorbis.h)
 include_directories(native/ext/stb_vorbis)
 
-if(NOT WIN32) # should be ANDROID, but native/file/zip_read.h depends on this
+if(ANDROID)
     add_library(libzip STATIC
         native/ext/libzip/zip.h
         native/ext/libzip/mkstemp.c
