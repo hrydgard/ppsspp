@@ -87,8 +87,8 @@ bool __KernelClearSemaThreads(Semaphore *s, int reason)
 		if (timeoutPtr != 0 && semaWaitTimer != 0)
 		{
 			// Remove any event for this thread.
-			int cyclesLeft = CoreTiming::UnscheduleEvent(semaWaitTimer, threadID);
-			Memory::Write_U32(cyclesToUs(cyclesLeft), timeoutPtr);
+			u64 cyclesLeft = CoreTiming::UnscheduleEvent(semaWaitTimer, threadID);
+			Memory::Write_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
 		}
 
 		__KernelResumeThreadFromWait(threadID, reason);
@@ -257,8 +257,8 @@ retry:
 				if (timeoutPtr != 0 && semaWaitTimer != 0)
 				{
 					// Remove any event for this thread.
-					int cyclesLeft = CoreTiming::UnscheduleEvent(semaWaitTimer, threadID);
-					Memory::Write_U32(cyclesToUs(cyclesLeft), timeoutPtr);
+					u64 cyclesLeft = CoreTiming::UnscheduleEvent(semaWaitTimer, threadID);
+					Memory::Write_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
 				}
 
 				__KernelResumeThreadFromWait(threadID, 0);
