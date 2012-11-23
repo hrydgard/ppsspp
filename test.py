@@ -186,7 +186,7 @@ def run_tests(test_list, args):
       tcprint("##teamcity[testIgnored name='%s' message='Expects file missing']" % test)
       continue
 
-    expected_output = open(expected_filename).read()
+    expected_output = open(expected_filename).read().strip()
     
     tcprint("##teamcity[testStarted name='%s' captureStandardOutput='true']" % test)
 
@@ -213,8 +213,8 @@ def run_tests(test_list, args):
       continue
 
     different = False
-    expected_lines = expected_output.splitlines()
-    output_lines = output.splitlines()
+    expected_lines = [x.strip() for x in expected_output.splitlines()]
+    output_lines = [x.strip() for x in output.splitlines()]
     
     for i in range(0, min(len(output_lines), len(expected_lines))):
       if output_lines[i] != expected_lines[i]:
