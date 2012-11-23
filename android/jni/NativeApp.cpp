@@ -47,6 +47,8 @@
 #include "MenuScreens.h"
 #include "UIShader.h"
 
+#include "ARMEmitterTest.h"
+
 Texture *uiTexture;
 
 ScreenManager *screenManager;
@@ -145,6 +147,8 @@ void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, boo
 	*app_nice_name = "PPSSPP";
 	*app_dir_name = "ppsspp";
 	*landscape = true;
+
+	ArmEmitterTest();
 }
 
 void NativeInit(int argc, const char *argv[], const char *savegame_directory, const char *external_directory, const char *installID)

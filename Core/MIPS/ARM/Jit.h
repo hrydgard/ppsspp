@@ -98,15 +98,16 @@ private:
 	void ClearCache();
 	void FlushAll();
 
+	void DoDownCount();
+
 	void WriteExit(u32 destination, int exit_num);
-	void WriteExitDestInEAX();
-//	void WriteRfiExitDestInEAX();
+	void WriteExitDestInR(ARMReg Reg);
 	void WriteSyscallExit();
 
 	// Utility compilation functions
-	//void BranchFPFlag(u32 op, ArmGen::CCFlags cc, bool likely);
-	//void BranchRSZeroComp(u32 op, ArmGen::CCFlags cc, bool likely);
-	//void BranchRSRTComp(u32 op, ArmGen::CCFlags cc, bool likely);
+	void BranchFPFlag(u32 op, ArmGen::CCFlags cc, bool likely);
+	void BranchRSZeroComp(u32 op, ArmGen::CCFlags cc, bool likely);
+	void BranchRSRTComp(u32 op, ArmGen::CCFlags cc, bool likely);
 
 	// Utilities to reduce duplicated code
 	/*
@@ -122,8 +123,8 @@ private:
 	JitOptions jo;
 	JitState js;
 
-	GPRRegCache gpr;
-	FPURegCache fpr;
+	ArmRegCache gpr;
+	// FPURegCache fpr;
 
 	AsmRoutineManager asm_;
 

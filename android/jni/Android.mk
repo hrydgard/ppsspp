@@ -46,6 +46,7 @@ LOCAL_SRC_FILES := \
   MenuScreens.cpp \
   UIShader.cpp \
   GamepadEmu.cpp \
+  ArmEmitterTest.cpp \
   ui_atlas.cpp \
   $(SRC)/native/android/app-android.cpp \
   $(SRC)/ext/libkirk/AES.c \
@@ -55,6 +56,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/ext/libkirk/kirk_engine.c \
   $(SRC)/Common/ArmABI.cpp \
   $(SRC)/Common/ArmEmitter.cpp \
+  $(SRC)/Common/ArmCPUDetect.cpp \
   $(SRC)/Common/LogManager.cpp \
   $(SRC)/Common/MemArena.cpp \
   $(SRC)/Common/MemoryUtil.cpp \
