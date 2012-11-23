@@ -418,7 +418,17 @@ void sceKernelMemset()
 	DEBUG_LOG(HLE, "sceKernelMemset(ptr = %08x, c = %02x, n = %08x)", addr, c, n);
 	for (size_t i = 0; i < n; i++)
 		Memory::Write_U8((u8)c, addr + i);
-	RETURN(addr); /* TODO: verify it should return this */
+	RETURN(0); /* TODO: verify it should return this */
+}
+
+u32 sceKernelMemcpy(u32 dst, u32 src, u32 size)
+{
+	DEBUG_LOG(HLE, "sceKernelMemcpy(dest=%08x, src=%08x, size=%i)", dst, src, size);
+	if (Memory::IsValidAddress(dst) && Memory::IsValidAddress(src+size)) // a bit of bound checking. Wrong??
+	{
+		memcpy(Memory::GetPointer(dst), Memory::GetPointer(src), size);
+	}
+	return 0;
 }
 
 const HLEFunction Kernel_Library[] = 
@@ -435,8 +445,7 @@ const HLEFunction Kernel_Library[] =
 	{0x1FC64E09,&WrapV_UIU<sceKernelLockLwMutexCB>, "sceKernelLockLwMutexCB"},
 	{0x15b6446b,&WrapV_UI<sceKernelUnlockLwMutex>, "sceKernelUnlockLwMutex"}, 
 	{0x293b45b8,sceKernelGetThreadId, "sceKernelGetThreadId"}, 
-	{0x1839852A,0,"sce_paf_private_memcpy"},
-	{0xA089ECA4,0,"sce_paf_private_memset"},
+	{0x1839852A,&WrapU_UUU<sceKernelMemcpy>,"sce_paf_private_memcpy"},
 };
 
 void Register_Kernel_Library()
