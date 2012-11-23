@@ -16,12 +16,18 @@
         <systemChrome>none</systemChrome>
         <transparent>false</transparent>
     </initialWindow>
+
+    <asset path="PPSSPPBlackberry" entry="true" type="Qnx/Elf">PPSSPPBlackberry</asset>
+    <asset path="icon-114.png">icon-114.png</asset>
+    <asset path="../android/assets">assets</asset>
+    <asset path="../../SDL12/Device-Release/libSDL12.so">lib/libSDL12.so</asset>
+    <asset path="../../TouchControlOverlay/Device-Release/libTouchControlOverlay.so">lib/libTouchControlOverlay.so</asset>
     
     <category>core.games</category>
     <icon>
         <image>icon-114.png</image>
     </icon>
-    
+
     <!-- <splashscreen></splashscreen> -->
 
     <action system="true">run_native</action>
