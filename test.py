@@ -62,7 +62,6 @@ tests_good = [
   "threads/semaphores/refer/refer",
   "threads/semaphores/signal/signal",
   "power/power",
-  "rtc/rtc",
   "umd/callbacks/umd",
   "io/directory/directory",
 ]
@@ -96,6 +95,7 @@ tests_next = [
   "io/io/io",
   "io/iodrv/iodrv",
   "modules/loadexec/loader",
+  "rtc/rtc",
   "threads/k0/k0",
   "threads/fpl/fpl",
   "threads/msgpipe/msgpipe",
