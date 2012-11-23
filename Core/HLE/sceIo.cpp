@@ -31,6 +31,7 @@
 #include "../FileSystems/DirectoryFileSystem.h"
 
 #include "sceIo.h"
+#include "sceRtc.h"
 #include "sceKernel.h"
 #include "sceKernelMemory.h"
 #include "sceKernelThread.h"
@@ -90,15 +91,7 @@ enum
 	TYPE_FILE=0x20 
 };
 
-struct ScePspDateTime {
-	unsigned short year;
-	unsigned short month;
-	unsigned short day;
-	unsigned short hour;
-	unsigned short minute;
-	unsigned short second;
-	unsigned int microsecond;
-};
+
 
 struct SceIoStat {
 	SceMode st_mode;

@@ -17,8 +17,11 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#else
+#include <sys/time.h>
 #endif
 
+#include <time.h>
 #include "base/timeutil.h"
 
 #include "HLE.h"
@@ -34,6 +37,33 @@ const u64 rtcMagicOffset = 62135596800000000L;
 u64 __RtcGetCurrentTick()
 {
 	return cyclesToUs(CoreTiming::GetTicks()) + rtcMagicOffset;
+}
+
+#ifdef _WIN32
+#define FILETIME_FROM_UNIX_EPOCH_US 11644473600000000ULL
+
+void gettimeofday(timeval *tv, void *ignore)
+{
+	FILETIME ft_utc, ft_local;
+	GetSystemTimeAsFileTime(&ft_utc);
+	ft_local = ft_utc;
+
+	u64 from_1601_us = (((u64) ft_local.dwHighDateTime << 32ULL) + (u64) ft_local.dwLowDateTime) / 10ULL;
+	u64 from_1970_us = from_1601_us - FILETIME_FROM_UNIX_EPOCH_US;
+
+	tv->tv_sec = long(from_1970_us / 1000000UL);
+	tv->tv_usec = from_1970_us % 1000000UL;
+}
+#endif
+
+void __RtcTmToPspTime(ScePspDateTime &t, tm *val)
+{
+	t.year = val->tm_year + 1900;
+	t.month = val->tm_mon + 1;
+	t.day = val->tm_mday;
+	t.hour = val->tm_hour;
+	t.minute = val->tm_min;
+	t.second = val->tm_sec;
 }
 
 u32 sceRtcGetTickResolution()
@@ -62,11 +92,46 @@ u64 sceRtcGetAcculumativeTime()
 	return __RtcGetCurrentTick();
 }
 
-u32 sceRtcGetCurrentClockLocalTime()
+u32 sceRtcGetCurrentClock(u32 pspTimePtr, int tz)
 {
-	ERROR_LOG(HLE,"UNIMPL 0=sceRtcGetCurrentClockLocalTime()");
+	DEBUG_LOG(HLE,"sceRtcGetCurrentClock(%08x, %d)", pspTimePtr, tz);
+	timeval tv;
+	gettimeofday(&tv, NULL);
+
+	time_t sec = (time_t) tv.tv_sec;
+	tm *utc = gmtime(&sec);
+
+	utc->tm_isdst = -1;
+	utc->tm_min += tz;
+	mktime(utc);
+
+	ScePspDateTime ret;
+	__RtcTmToPspTime(ret, utc);
+	ret.microsecond = tv.tv_usec;
+
+	Memory::WriteStruct(pspTimePtr, &ret);
+
 	return 0;
 }
+
+u32 sceRtcGetCurrentClockLocalTime(u32 pspTimePtr)
+{
+	DEBUG_LOG(HLE,"sceRtcGetCurrentClockLocalTime(%08x)", pspTimePtr);
+	timeval tv;
+	gettimeofday(&tv, NULL);
+
+	time_t sec = (time_t) tv.tv_sec;
+	tm *local = localtime(&sec);
+
+	ScePspDateTime ret;
+	__RtcTmToPspTime(ret, local);
+	ret.microsecond = tv.tv_usec;
+
+	Memory::WriteStruct(pspTimePtr, &ret);
+
+	return 0;
+}
+
 u32 sceRtcGetTick()
 {
 	ERROR_LOG(HLE,"UNIMPL 0=sceRtcGetTick(...)");
@@ -75,7 +140,7 @@ u32 sceRtcGetTick()
 
 u32 sceRtcGetDayOfWeek(u32 year, u32 month, u32 day)
 {
-	DEBUG_LOG(HLE,"sceRtcGetDayOfWeek()");
+	DEBUG_LOG(HLE,"sceRtcGetDayOfWeek(%d, %d, %d)", year, month, day);
 	static u32 t[] = { 0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4 };
 	if (month > 12 || month < 1) {
 		// Preventive crashfix
@@ -123,8 +188,8 @@ const HLEFunction sceRtc[] =
 	{0x3f7ad767, WrapU_U<sceRtcGetCurrentTick>, "sceRtcGetCurrentTick"},	
 	{0x011F03C1, WrapU64_V<sceRtcGetAcculumativeTime>, "sceRtcGetAccumulativeTime"},
 	{0x029CA3B3, WrapU64_V<sceRtcGetAcculumativeTime>, "sceRtcGetAccumlativeTime"},
-	{0x4cfa57b0, 0, "sceRtcGetCurrentClock"},
-	{0xE7C27D1B, WrapU_V<sceRtcGetCurrentClockLocalTime>, "sceRtcGetCurrentClockLocalTime"},
+	{0x4cfa57b0, WrapU_UI<sceRtcGetCurrentClock>, "sceRtcGetCurrentClock"},
+	{0xE7C27D1B, WrapU_U<sceRtcGetCurrentClockLocalTime>, "sceRtcGetCurrentClockLocalTime"},
 	{0x34885E0D, 0, "sceRtcConvertUtcToLocalTime"},
 	{0x779242A2, 0, "sceRtcConvertLocalTimeToUTC"},
 	{0x42307A17, 0, "sceRtcIsLeapYear"},

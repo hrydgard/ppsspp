@@ -19,3 +19,13 @@
 
 void sceRtcGetCurrentTick();
 void Register_sceRtc();
+
+struct ScePspDateTime {
+	unsigned short year;
+	unsigned short month;
+	unsigned short day;
+	unsigned short hour;
+	unsigned short minute;
+	unsigned short second;
+	unsigned int microsecond;
+};
