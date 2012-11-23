@@ -91,3 +91,18 @@ other than microsoft's, but `NMake Makefiles` works fine.
     "https://github.com/hrydgard/ppsspp"
 [ppsspp-devel]: <http://www.ppsspp.org/development.html>
     "http://www.ppsspp.org/development.html"
+
+Building for Blackberry
+-----------------------
+
+To build for Blackberry, you must first have the latest Native SDK installed from developer.blackberry.com/native and have compiled the SDL port available from github.com/blackberry/SDL to your NDK workspace. Then checkout the latest version of PPSSPP to your NDK workspace.
+
+To set up your environment for cross-compiling you must then use:
+    source ~/bbndk/bbndk-env.sh
+
+Finally, you are ready to compile. Change directory to ppsspp/SDL and run:
+    ./blackberry_build.sh
+
+If you are on Windows, you will need GNU tools and CMake to run the bash script.
+
+Currently SDL is required for sound output. EGL is used for the GLES2 interface, which is identical to the Android one. There are plans to move to a Qt interface and a different sound library (such as asound) in future.
