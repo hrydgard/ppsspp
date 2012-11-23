@@ -112,7 +112,8 @@ bool mutexInitComplete = false;
 int mutexWaitTimer = 0;
 int lwMutexWaitTimer = 0;
 // Thread -> Mutex locks for thread end.
-std::map<SceUID, SceUID> mutexHeldLocks;
+typedef std::multimap<SceUID, SceUID> MutexMap;
+MutexMap mutexHeldLocks;
 
 void __KernelMutexInit()
 {
@@ -127,7 +128,12 @@ void __KernelMutexInit()
 
 void __KernelMutexAcquireLock(Mutex *mutex, int count, SceUID thread)
 {
-	_dbg_assert_msg_(HLE, mutexHeldLocks.find(thread) == mutexHeldLocks.end(), "Thread %d wasn't removed from mutexHeldLocks properly.", thread);
+#if _DEBUG
+	std::pair<MutexMap::iterator, MutexMap::iterator> locked = mutexHeldLocks.equal_range(thread);
+	for (MutexMap::iterator iter = locked.first; iter != locked.second; ++iter)
+		_dbg_assert_msg_(HLE, (*iter).second != mutex->GetUID(), "Thread %d / mutex %d wasn't removed from mutexHeldLocks properly.", thread, mutex->GetUID());
+#endif
+
 	mutexHeldLocks.insert(std::make_pair(thread, mutex->GetUID()));
 
 	mutex->nm.lockLevel = count;
@@ -142,7 +148,18 @@ void __KernelMutexAcquireLock(Mutex *mutex, int count)
 void __KernelMutexEraseLock(Mutex *mutex)
 {
 	if (mutex->nm.lockThread != -1)
-		mutexHeldLocks.erase(mutex->nm.lockThread);
+	{
+		SceUID id = mutex->GetUID();
+		std::pair<MutexMap::iterator, MutexMap::iterator> locked = mutexHeldLocks.equal_range(mutex->nm.lockThread);
+		for (MutexMap::iterator iter = locked.first; iter != locked.second; ++iter)
+		{
+			if ((*iter).second == id)
+			{
+				mutexHeldLocks.erase(iter);
+				break;
+			}
+		}
+	}
 	mutex->nm.lockThread = -1;
 }
 
@@ -332,14 +349,19 @@ void __KernelMutexThreadEnd(SceUID threadID)
 			mutex->waitingThreads.erase(std::remove(mutex->waitingThreads.begin(), mutex->waitingThreads.end(), threadID), mutex->waitingThreads.end());
 	}
 
-	std::map<SceUID, SceUID>::iterator iter = mutexHeldLocks.find(threadID);
-	if (iter != mutexHeldLocks.end())
+	// Unlock all mutexes the thread had locked.
+	std::pair<MutexMap::iterator, MutexMap::iterator> locked = mutexHeldLocks.equal_range(threadID);
+	for (MutexMap::iterator iter = locked.first; iter != locked.second; )
 	{
-		SceUID mutexID = (*iter).second;
+		// Need to increment early so erase() doesn't invalidate.
+		SceUID mutexID = (*iter++).second;
 		Mutex *mutex = kernelObjects.Get<Mutex>(mutexID, error);
 
 		if (mutex)
+		{
+			mutex->nm.lockLevel = 0;
 			__KernelUnlockMutex(mutex, error);
+		}
 	}
 }
 
