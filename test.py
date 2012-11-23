@@ -218,15 +218,15 @@ def run_tests(test_list, args):
     
     for i in range(0, min(len(output_lines), len(expected_lines))):
       if output_lines[i] != expected_lines[i]:
-        print "E%i < %s" % (i, expected_lines[i])
-        print "O%i > %s" % (i, output_lines[i])
+        print "E%i < %s" % (i + 1, expected_lines[i])
+        print "O%i > %s" % (i + 1, output_lines[i])
         different = True
 
     if len(output_lines) != len(expected_lines):
       for i in range(len(output_lines), len(expected_lines)):
-        print "E%i < %s" % (i, expected_lines[i])
+        print "E%i < %s" % (i + 1, expected_lines[i])
       for i in range(len(expected_lines), len(output_lines)):
-        print "O%i > %s" % (i, output_lines[i])
+        print "O%i > %s" % (i + 1, output_lines[i])
       print "*** Different number of lines!"
       different = True
 
