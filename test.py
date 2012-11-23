@@ -1,3 +1,4 @@
+#!/usr/bin/env python 
 # Automated script to run the pspautotests test suite in PPSSPP.
 
 import sys
@@ -7,7 +8,7 @@ import subprocess
 import threading
 
 
-PPSSPP_EXECUTABLES = [ "Windows\\Release\\PPSSPPHeadless.exe", "SDL/build/ppsspp-headless" ]
+PPSSPP_EXECUTABLES = [ "Windows\\Release\\PPSSPPHeadless.exe", "SDL/build/PPSSPPHeadless" ]
 PPSSPP_EXE = None
 TEST_ROOT = "pspautotests/tests/"
 teamcity_mode = False
