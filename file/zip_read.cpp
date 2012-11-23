@@ -8,7 +8,7 @@
 #include "base/logging.h"
 #include "file/zip_read.h"
 
-#ifndef _WIN32
+#ifdef ANDROID
 uint8_t *ReadFromZip(zip *archive, const char* filename, size_t *size) {
 	// Figure out the file size first.
 	struct zip_stat zstat;
@@ -49,7 +49,7 @@ uint8_t *ReadLocalFile(const char *filename, size_t *size) {
 	return contents;
 }
 
-#ifndef _WIN32
+#ifdef ANDROID
 
 ZipAssetReader::ZipAssetReader(const char *zip_file, const char *in_zip_path) {
 	zip_file_ = zip_open(zip_file, 0, NULL);
