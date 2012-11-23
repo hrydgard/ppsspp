@@ -131,7 +131,7 @@ void GLES_GPU::CopyDisplayToOutput()
 		DEBUG_LOG(HLE, "Found no FBO! displayFBPtr = %08x", displayFramebufPtr_);
 		// No framebuffer to display! Clear to black.
 		glClearColor(0,0,0,1);
-		glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+		glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 		return;
 	}
 
@@ -367,7 +367,7 @@ void SetBlendModePSP(u32 data)
 		GL_ONE_MINUS_SRC_ALPHA,	 // should be 2x
 		GL_DST_ALPHA,	 // should be 2x
 		GL_ONE_MINUS_DST_ALPHA,	 // should be 2x				 -	and COLOR?
-		GL_SRC_ALPHA,	// should be FIXA
+		GL_ONE,	// should be FIXA
 	};
 	const GLint bLookup[] = {
 		GL_SRC_COLOR,
@@ -380,7 +380,7 @@ void SetBlendModePSP(u32 data)
 		GL_ONE_MINUS_SRC_ALPHA,	 // should be 2x
 		GL_DST_ALPHA,	 // should be 2x
 		GL_ONE_MINUS_DST_ALPHA,	 // should be 2x
-		GL_SRC_ALPHA,	// should be FIXB
+		GL_ONE,	// should be FIXB
 	};
 	const GLint eqLookup[] = {
 		GL_FUNC_ADD,
@@ -389,11 +389,12 @@ void SetBlendModePSP(u32 data)
 #if defined(ANDROID) || defined(BLACKBERRY)
 		GL_FUNC_ADD,
 		GL_FUNC_ADD,
+		GL_FUNC_ADD, // should be abs(diff)
 #else
 		GL_MIN,
 		GL_MAX,
+		GL_MAX, // should be abs(diff)
 #endif
-		GL_FUNC_ADD, // should be abs(diff)
 	};
 	int a = data & 0xF;
 	int b = (data >> 4) & 0xF;
