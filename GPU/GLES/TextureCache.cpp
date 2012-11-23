@@ -43,7 +43,7 @@ struct TexCacheEntry
 {
 	u32 addr;
 	u32 hash;
-	u32 frameCounter;
+	int frameCounter;
 	u32 numMips;
 	u32 format;
 	u32 clutaddr;

@@ -85,12 +85,12 @@ char *GenerateFragmentShader()
 		WRITE(p, "varying vec4 v_color1;\n");
 	WRITE(p, "varying vec2 v_texcoord;\n");
 
-	WRITE(p, "void main() {");
+	WRITE(p, "void main() {\n");
 	WRITE(p, "  vec4 v;\n");
 
 	if (gstate.clearmode & 1)
 	{
-		WRITE(p, "v = v_color0;\n");
+		WRITE(p, "  v = v_color0;\n");
 	}
 	else
 	{
@@ -126,6 +126,8 @@ char *GenerateFragmentShader()
 				WRITE(p, "	v = t%s;\n", secondary); break;
 			case GE_TEXFUNC_ADD:
 				WRITE(p, "	v = vec4(t.rgb + p.rgb, p.a * t.a)%s;\n", secondary); break;
+			default:
+				WRITE(p, "  v = p;\n"); break;
 			}
 		} else {	// texfmt == RGB
 			switch (gstate.texfunc & 0x7) {
@@ -139,25 +141,28 @@ char *GenerateFragmentShader()
 				WRITE(p, "	v = vec4(t.rgb, p.a)%s;\n", secondary); break;
 			case GE_TEXFUNC_ADD:
 				WRITE(p, "	v = vec4(t.rgb + p.rgb, p.a)%s;\n", secondary); break;
+			default:
+				WRITE(p, "  v = p;\n"); break;
 			}
 		}
-
 		// Color doubling
 		if (gstate.texfunc & 0x10000) {
-			WRITE(p, "  gl_FragColor = v * vec4(2.0, 2.0, 2.0, 1.0);");
-		} else {
-			WRITE(p, "  gl_FragColor = v;\n");
+			WRITE(p, "  v = v * vec4(2.0, 2.0, 2.0, 1.0);");
 		}
-
-/*
+		
+		
 		if (gstate.alphaTestEnable & 1) {
 			int alphaTestFunc = gstate.alphatest & 7;
 			const char *alphaTestFuncs[] = { "#", "#", " == ", " != ", " < ", " <= ", " > ", " >= " };	// never/always don't make sense
-			WRITE(p, "if (!(gl_FragColor.a %s u_alpharef.x)) discard;", alphaTestFuncs[alphaTestFunc]);
-		}*/
+			if (alphaTestFuncs[alphaTestFunc][0] != '#')
+				WRITE(p, "if (!(v.a %s u_alpharef.x)) discard;", alphaTestFuncs[alphaTestFunc]);
+		}
 		// Fogging should be added here - and disabled during clear mode
 
 	}
+
+	WRITE(p, "  gl_FragColor = v;\n");
+
 	//WRITE(p, "	gl_FragColor = vec4(1,0,1,1);");
 	WRITE(p, "}\n");
 

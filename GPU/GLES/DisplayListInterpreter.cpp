@@ -131,7 +131,7 @@ void GLES_GPU::CopyDisplayToOutput()
 		DEBUG_LOG(HLE, "Found no FBO! displayFBPtr = %08x", displayFramebufPtr_);
 		// No framebuffer to display! Clear to black.
 		glClearColor(0,0,0,1);
-		glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);  // Let's not add STENCIL_BUFFER_BIT until we have a stencil buffer (GL ES)
 		return;
 	}
 

@@ -196,8 +196,8 @@ void DisplayDrawer_DrawFramebuffer(u8 *framebuf, int pixelFormat, int linesize)
 void DrawActiveTexture(float w, float h, bool flip) 
 {
 	float u2 = 1.0f;
-	float v1 = flip ? 1.0 : 0.0f;
-	float v2 = flip ? 0.0 : 1.0f;
+	float v1 = flip ? 1.0f : 0.0f;
+	float v2 = flip ? 0.0f : 1.0f;
 
 	const float pos[12] = {0,0,0, w,0,0, w,h,0, 0,h,0};
 	const float texCoords[8] = {0, v1, u2, v1, u2, v2, 0, v2};
