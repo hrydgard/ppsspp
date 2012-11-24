@@ -148,6 +148,12 @@ u32 sceAudioOutputPanned(u32 chan, u32 leftVol, u32 rightVol, u32 samplePtr)
 
 int sceAudioGetChannelRestLen(u32 chan)
 {
+	if (chan < 0 || chan >= MAX_CHANNEL)
+	{
+		ERROR_LOG(HLE, "sceAudioGetChannelRestLen(%i) - BAD CHANNEL", chan);
+		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
+	}
+
 	int sz = (int)chans[chan].sampleQueue.size() / 2;
 	DEBUG_LOG(HLE,"UNTESTED %i = sceAudioGetChannelRestLen(%i)", sz, chan);
 	return sz;
@@ -155,6 +161,12 @@ int sceAudioGetChannelRestLen(u32 chan)
 
 int sceAudioGetChannelRestLength(u32 chan)
 {
+	if (chan < 0 || chan >= MAX_CHANNEL)
+	{
+		ERROR_LOG(HLE, "sceAudioGetChannelRestLength(%i) - BAD CHANNEL", chan);
+		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
+	}
+
 	int sz = (int)chans[chan].sampleQueue.size() / 2;
 	DEBUG_LOG(HLE,"UNTESTED %i = sceAudioGetChannelRestLen(%i)", sz, chan);
 	return sz;
@@ -181,17 +193,23 @@ u32 sceAudioChReserve(u32 channel, u32 sampleCount, u32 format) //.Allocate soun
 	else
 	{
 		ERROR_LOG(HLE,"sceAudioChReserve failed");
-    return SCE_ERROR_AUDIO_NO_CHANNELS_AVAILABLE;
+		return SCE_ERROR_AUDIO_NO_CHANNELS_AVAILABLE;
 	}
 
-  if (format != PSP_AUDIO_FORMAT_MONO && format != PSP_AUDIO_FORMAT_STEREO)
-  {
-    ERROR_LOG(HLE, "sceAudioChReserve(channel = %d, sampleCount = %d, format = %d): invalid format", channel, sampleCount, format);
-    return SCE_ERROR_AUDIO_INVALID_FORMAT;
-  }
+	if (channel < 0 || channel >= MAX_CHANNEL)
+	{
+		ERROR_LOG(HLE ,"sceAudioChReserve(channel = %d, sampleCount = %d, format = %d) - BAD CHANNEL", channel, sampleCount, format);
+		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
+	}
+
+	if (format != PSP_AUDIO_FORMAT_MONO && format != PSP_AUDIO_FORMAT_STEREO)
+	{
+		ERROR_LOG(HLE, "sceAudioChReserve(channel = %d, sampleCount = %d, format = %d): invalid format", channel, sampleCount, format);
+		return SCE_ERROR_AUDIO_INVALID_FORMAT;
+	}
 
 	if (chans[channel].reserved)
-  {
+	{
 		WARN_LOG(HLE, "WARNING: Reserving already reserved channel. Error?");
 	}
 	DEBUG_LOG(HLE, "%i = sceAudioChReserve(%i, %i, %i)", channel, PARAM(0), sampleCount, format);
@@ -203,11 +221,17 @@ u32 sceAudioChReserve(u32 channel, u32 sampleCount, u32 format) //.Allocate soun
 
 u32 sceAudioChRelease(u32 chan)
 {
-  if (!chans[chan].reserved)
-  {
-    ERROR_LOG(HLE,"sceAudioChRelease(%i): channel not reserved", chan);
-    return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
-  }
+	if (chan < 0 || chan >= MAX_CHANNEL)
+	{
+		ERROR_LOG(HLE, "sceAudioChRelease(%i) - BAD CHANNEL", chan);
+		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
+	}
+
+	if (!chans[chan].reserved)
+	{
+		ERROR_LOG(HLE,"sceAudioChRelease(%i): channel not reserved", chan);
+		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
+	}
 	chans[chan].reserved = false;
 
 	DEBUG_LOG(HLE, "sceAudioChRelease(%i)", chan);
