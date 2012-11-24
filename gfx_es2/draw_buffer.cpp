@@ -18,6 +18,7 @@
 #include "math/math_util.h"
 #include "gfx_es2/draw_buffer.h"
 #include "gfx_es2/glsl_program.h"
+#include "gfx_es2/gl_state.h"
 #include "gfx/texture_atlas.h"
 #include "gfx/gl_debug_log.h"
 
@@ -50,8 +51,8 @@ void DrawBuffer::Flush(const GLSLProgram *program, bool set_blend_state) {
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
   if (set_blend_state) {
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glstate.blend.enable();
+	glstate.blendFunc.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   }
   glUniform1i(program->sampler0, 0);
   glEnableVertexAttribArray(program->a_position);
@@ -357,13 +358,8 @@ void DrawBuffer::DrawText(int font, const char *text, float x, float y, Color co
 }
 
 void DrawBuffer::EnableBlend(bool enable) {
-  if (enable)
-	{
-    glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	}
-	else
-    glDisable(GL_BLEND);
+  glstate.blend.set(enable);
+  glstate.blendFunc.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
 void DrawBuffer::SetClipRect(float x, float y, float w, float h)

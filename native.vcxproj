@@ -221,6 +221,7 @@
     <ClInclude Include="gfx_es2\draw_buffer.h" />
     <ClInclude Include="gfx_es2\fbo.h" />
     <ClInclude Include="gfx_es2\glsl_program.h" />
+    <ClInclude Include="gfx_es2\gl_state.h" />
     <ClInclude Include="gfx_es2\vertex_format.h" />
     <ClInclude Include="image\png_load.h" />
     <ClInclude Include="image\zim_load.h" />
@@ -310,6 +311,7 @@
     <ClCompile Include="gfx_es2\draw_buffer.cpp" />
     <ClCompile Include="gfx_es2\fbo.cpp" />
     <ClCompile Include="gfx_es2\glsl_program.cpp" />
+    <ClCompile Include="gfx_es2\gl_state.cpp" />
     <ClCompile Include="gfx_es2\vertex_format.cpp" />
     <ClCompile Include="image\png_load.cpp" />
     <ClCompile Include="image\zim_load.cpp" />

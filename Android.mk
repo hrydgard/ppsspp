@@ -38,6 +38,7 @@ LOCAL_SRC_FILES :=\
     net/resolve.cpp \
     profiler/profiler.cpp \
     gfx_es2/glsl_program.cpp \
+    gfx_es2/gl_state.cpp \
     gfx_es2/draw_buffer.cpp.arm \
     gfx_es2/vertex_format.cpp \
     gfx_es2/fbo.cpp \
