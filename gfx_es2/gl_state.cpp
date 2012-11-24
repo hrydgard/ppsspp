@@ -19,5 +19,6 @@ void OpenGLState::Restore() {
 	cullFaceMode.restore();
 
 	depthTest.restore();
+	depthRange.restore();
 	depthFunc.restore();
 }

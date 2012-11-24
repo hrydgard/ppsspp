@@ -104,6 +104,7 @@ public:
 
 	BoolState<GL_DEPTH_TEST, false> depthTest;
 	STATE1(glDepthFunc, GLenum, GL_LESS) depthFunc;
+	STATE2(glDepthRangef, float, float, 0.f, 1.f) depthRange;
 };
 
 #undef STATE1
