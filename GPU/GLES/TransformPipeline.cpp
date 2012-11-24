@@ -557,6 +557,8 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 		glstate.depthFunc.set(ztests[depthTestFunc]);
 	}
 
+	glstate.depthRange.set(gstate_c.zOff - gstate_c.zScale, gstate_c.zOff + gstate_c.zScale);
+
 	glEnableVertexAttribArray(program->a_position);
 	if (useTexCoord && program->a_texcoord != -1) glEnableVertexAttribArray(program->a_texcoord);
 	if (program->a_color0 != -1) glEnableVertexAttribArray(program->a_color0);

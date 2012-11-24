@@ -260,8 +260,9 @@ struct GPUStateCache
 
 	bool textureChanged;
 
-	float uScale,vScale;
-	float uOff,vOff;
+	float uScale,vScale,zScale;
+	float uOff,vOff,zOff;
+	float zMin, zMax;
 	float lightpos[4][3];
 	float lightdir[4][3];
 	float lightatt[4][3];

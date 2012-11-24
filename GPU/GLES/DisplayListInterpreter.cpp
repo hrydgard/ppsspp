@@ -588,12 +588,14 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 		}
 		break;
 
-	case GE_CMD_MINZ: 
-		DEBUG_LOG(G3D, "DL MinZ: %i", data);
+	case GE_CMD_MINZ:
+		gstate_c.zMin = getFloat24(data) / 65535.f;
+		DEBUG_LOG(G3D, "DL MinZ: %i", gstate_c.zMin);
 		break;
 
-	case GE_CMD_MAXZ: 
-		DEBUG_LOG(G3D, "DL MaxZ: %i", data);
+	case GE_CMD_MAXZ:
+		gstate_c.zMax = getFloat24(data) / 65535.f;
+		DEBUG_LOG(G3D, "DL MaxZ: %i", gstate_c.zMax);
 		break;
 
 	case GE_CMD_FRAMEBUFPTR:
@@ -850,11 +852,17 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_VIEWPORTX1:
 	case GE_CMD_VIEWPORTY1:
-	case GE_CMD_VIEWPORTZ1:
 	case GE_CMD_VIEWPORTX2:
 	case GE_CMD_VIEWPORTY2:
-	case GE_CMD_VIEWPORTZ2:
 		DEBUG_LOG(G3D,"DL Viewport param %i: %f", cmd-GE_CMD_VIEWPORTX1, getFloat24(data));
+		break;
+	case GE_CMD_VIEWPORTZ1:
+		gstate_c.zScale = getFloat24(data) / 65535.f;
+		DEBUG_LOG(G3D,"DL Z scale: %f", gstate_c.zScale);
+		break;
+	case GE_CMD_VIEWPORTZ2:
+		gstate_c.zOff = getFloat24(data) / 65535.f;
+		DEBUG_LOG(G3D,"DL Z pos: %f", gstate_c.zOff);
 		break;
 	case GE_CMD_LIGHTENABLE0:
 	case GE_CMD_LIGHTENABLE1:
