@@ -46,6 +46,7 @@ void InitGfxState()
 	for (int i = 0; i < 256; i++) {
 		gstate.cmdmem[i] = i << 24;
 	}
+
 	gstate.lightingEnable = 0x17000001;
 
 	static const float identity4x3[12] = 
@@ -103,6 +104,7 @@ void ReapplyGfxState()
 	gpu->ExecuteOp(gstate.cmdmem[GE_CMD_SCISSOR1], 0xFFFFFFFF);
 	gpu->ExecuteOp(gstate.cmdmem[GE_CMD_SCISSOR2], 0xFFFFFFFF);
 	*/
+
 	for (int i = GE_CMD_VERTEXTYPE; i < GE_CMD_BONEMATRIXNUMBER; i++)
 	{
 		gpu->ExecuteOp(gstate.cmdmem[i], 0xFFFFFFFF);		

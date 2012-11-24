@@ -32,6 +32,7 @@
 #include "../../Core/Host.h"
 #include "../../Core/Config.h"
 #include "../../Core/System.h"
+#include "../../native/gfx_es2/gl_state.h"
 
 #include "../GPUState.h"
 #include "../ge_constants.h"
@@ -136,9 +137,9 @@ void GLES_GPU::CopyDisplayToOutput()
 	}
 
 	DEBUG_LOG(HLE, "Displaying FBO %08x", vfb->fb_address);
-	glDisable(GL_BLEND);
-	glDisable(GL_CULL_FACE);
-	glDisable(GL_DEPTH_TEST);
+	glstate.blend.disable();
+	glstate.cullFace.disable();
+	glstate.depthTest.disable();
 
 	fbo_bind_color_as_texture(vfb->fbo, 0);
 
@@ -148,11 +149,6 @@ void GLES_GPU::CopyDisplayToOutput()
 	shaderManager.DirtyShader();
 	shaderManager.DirtyUniform(DIRTY_ALL);
 	gstate_c.textureChanged = true;
-
-	// Restore some state
-	ExecuteOp(gstate.cmdmem[GE_CMD_ALPHABLENDENABLE], 0xFFFFFFFF);		
-	ExecuteOp(gstate.cmdmem[GE_CMD_CULLFACEENABLE], 0xFFFFFFFF);		
-	ExecuteOp(gstate.cmdmem[GE_CMD_ZTESTENABLE], 0xFFFFFFFF);		
 }
 
 GLES_GPU::VirtualFramebuffer *GLES_GPU::GetDisplayFBO()
@@ -327,11 +323,6 @@ void EnterClearMode(u32 data)
 	bool updateZ = (data >> 10) & 1;
 	glColorMask(colMask, colMask, colMask, alphaMask);
 	glDepthMask(updateZ); // Update Z or not
-	// Note that depth test must be enabled for depth writes to go through! So we use GL_ALWAYS
-	glDisable(GL_BLEND);
-	glEnable(GL_DEPTH_TEST);
-	glDepthFunc(GL_ALWAYS);
-	glDisable(GL_CULL_FACE);	// ??
 }
 
 void LeaveClearMode()
@@ -344,65 +335,8 @@ void LeaveClearMode()
 	// Alpha test
 	glDepthMask(1);
 	glColorMask(1,1,1,1);
-	glEnDis(GL_DEPTH_TEST, gstate.zTestEnable & 1);
-	glDepthFunc(GL_LEQUAL);	// TODO
-	glEnDis(GL_BLEND, gstate.alphaBlendEnable & 1);
 	// dirtyshader?
 }
-
-void SetBlendModePSP(u32 data)
-{
-	// This can't be done exactly as there are several PSP blend modes that are impossible to do on OpenGL ES 2.0, and some even on regular OpenGL for desktop.
-
-	// HOWEVER - we should be able to approximate the 2x modes in the shader, although they will clip wrongly.
-	
-	const GLint aLookup[] = {
-		GL_DST_COLOR,
-		GL_ONE_MINUS_DST_COLOR,
-		GL_SRC_ALPHA,
-		GL_ONE_MINUS_SRC_ALPHA,
-		GL_DST_ALPHA,
-		GL_ONE_MINUS_DST_ALPHA,
-		GL_SRC_ALPHA,	// should be 2x
-		GL_ONE_MINUS_SRC_ALPHA,	 // should be 2x
-		GL_DST_ALPHA,	 // should be 2x
-		GL_ONE_MINUS_DST_ALPHA,	 // should be 2x				 -	and COLOR?
-		GL_ONE,	// should be FIXA
-	};
-	const GLint bLookup[] = {
-		GL_SRC_COLOR,
-		GL_ONE_MINUS_SRC_COLOR,
-		GL_SRC_ALPHA,
-		GL_ONE_MINUS_SRC_ALPHA,
-		GL_DST_ALPHA,
-		GL_ONE_MINUS_DST_ALPHA,
-		GL_SRC_ALPHA,	// should be 2x
-		GL_ONE_MINUS_SRC_ALPHA,	 // should be 2x
-		GL_DST_ALPHA,	 // should be 2x
-		GL_ONE_MINUS_DST_ALPHA,	 // should be 2x
-		GL_ONE,	// should be FIXB
-	};
-	const GLint eqLookup[] = {
-		GL_FUNC_ADD,
-		GL_FUNC_SUBTRACT,
-		GL_FUNC_REVERSE_SUBTRACT,
-#if defined(ANDROID) || defined(BLACKBERRY)
-		GL_FUNC_ADD,
-		GL_FUNC_ADD,
-		GL_FUNC_ADD, // should be abs(diff)
-#else
-		GL_MIN,
-		GL_MAX,
-		GL_MAX, // should be abs(diff)
-#endif
-	};
-	int a = data & 0xF;
-	int b = (data >> 4) & 0xF;
-	int eq = (data >> 8) & 0x7;
-	glBlendFunc(aLookup[a], bLookup[b]);
-	glBlendEquation(eqLookup[eq]);
-}
-
 
 void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 {
@@ -533,13 +467,6 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 			// Throughmode changed, let's make the proj matrix dirty.
 			shaderManager.DirtyUniform(DIRTY_PROJMATRIX);
 		}
-		if (data & GE_VTYPE_THROUGH) {
-			glDisable(GL_CULL_FACE);
-		}
-		else {
-			// this might get spammy
-			glEnDis(GL_CULL_FACE, gstate.cullfaceEnable & 1);
-		}
 		// This sets through-mode or not, as well.
 		break;
 
@@ -597,7 +524,6 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_CULLFACEENABLE: 
 		DEBUG_LOG(G3D, "DL CullFace Enable: %i   (ignoring)", data);
-		glEnDis(GL_CULL_FACE, data&1); 
 		break;
 
 	case GE_CMD_TEXTUREMAPENABLE: 
@@ -938,8 +864,6 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 		break;
 	case GE_CMD_CULL:
 		DEBUG_LOG(G3D,"DL cull: %06x", data);
-		glCullFace(data & 1 ? GL_FRONT : GL_BACK);
-		//glCullFace(data & 1 ? GL_BACK : GL_FRONT);
 		break;
 
 	case GE_CMD_LMODE:
@@ -975,12 +899,10 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 	//////////////////////////////////////////////////////////////////
 	case GE_CMD_ALPHABLENDENABLE:
 		DEBUG_LOG(G3D,"DL Alpha blend enable: %d", data);
-		glEnDis(GL_BLEND, data);
 		break;
 
 	case GE_CMD_BLENDMODE:
 		DEBUG_LOG(G3D,"DL Blend mode: %06x", data);
-		SetBlendModePSP(data);
 		break;
 
 	case GE_CMD_BLENDFIXEDA:
@@ -1041,7 +963,6 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 	//////////////////////////////////////////////////////////////////
 
 	case GE_CMD_ZTESTENABLE:
-		glEnDis(GL_DEPTH_TEST, data & 1);
 		DEBUG_LOG(G3D,"DL Z test enable: %d", data & 1);
 		break;
 
@@ -1051,13 +972,6 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_ZTEST:
 		{
-			static const GLuint ztests[8] = 
-			{
-				GL_NEVER, GL_ALWAYS, GL_EQUAL, GL_NOTEQUAL, 
-				GL_LESS, GL_LEQUAL, GL_GREATER, GL_GEQUAL
-			};
-			//glDepthFunc(ztests[data&7]);
-			glDepthFunc(GL_LEQUAL);
 			DEBUG_LOG(G3D,"DL Z test mode: %i", data);
 		}
 		break;

@@ -28,6 +28,7 @@
 #endif
 
 #include "gfx_es2/glsl_program.h"
+#include "gfx_es2/gl_state.h"
 #include "math/lin/matrix4x4.h"
 
 #include "../../Core/Host.h"
@@ -80,9 +81,9 @@ void DisplayDrawer_Init()
 	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);	
 #endif
 
-	glDisable(GL_CULL_FACE);
-	glDisable(GL_DEPTH_TEST);
-	glDisable(GL_BLEND);
+	glstate.cullFace.disable();
+	glstate.depthTest.disable();
+	glstate.blend.disable();
 	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
 	glEnable(GL_TEXTURE_2D);

@@ -713,7 +713,6 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_ZTEST:
 		{
-			//glDepthFunc(ztests[data&7]);
 			DEBUG_LOG(G3D,"DL Z test mode: %i", data);
 		}
 		break;
