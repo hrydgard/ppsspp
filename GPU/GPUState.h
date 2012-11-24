@@ -18,6 +18,7 @@
 #pragma once
 
 #include "../Globals.h"
+#include "ge_constants.h"
 #include <cstring>
 
 // TODO: this doesn't belong here
@@ -237,6 +238,16 @@ struct GPUgstate
 	float projMatrix[16];
 	float tgenMatrix[12];
 	float boneMatrix[8*12];
+
+	inline bool isModeThrough() const { return vertType & GE_VTYPE_THROUGH; }
+	inline bool isModeClear()   const { return clearmode & 1; }
+	inline bool isCullEnabled() const { return cullfaceEnable & 1; }
+	inline u8   getCullMode()   const { return cullmode & 1; }
+	inline u8   getBlendFuncA() const { return blend & 0xF; }
+	inline u8   getBlendFuncB() const { return (blend >> 4) & 0xF; }
+	inline u8   getBlendEq()    const { return (blend >> 8) & 0x7; }
+	inline bool isDepthTestEnabled() const { return zTestEnable & 1; }
+	inline u8   getDepthTestFunc() const { return ztestfunc & 0x7; }
 };
 // Real data in the context ends here
 
@@ -286,7 +297,9 @@ struct GPUStatistics
 
 	// Total statistics
 	int numFrames;
+
 };
+
 
 void InitGfxState();
 void ShutdownGfxState();
