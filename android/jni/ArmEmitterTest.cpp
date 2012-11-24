@@ -40,8 +40,15 @@ void TestCode::Generate()
 	// Sonic1 commented that R11 is the frame pointer in debug mode, whatever "debug mode" means.
 	PUSH(2, R11, _LR);
 	ARMABI_MOVI2R(R0, 0x13371338);
-	ARMABI_MOVI2R(R1, 0x1337);
-	ARMABI_CallFunction((void*)&TestLeaf2);
+	AND(R1, R0, Operand2(0xFC, 4));
+	BIC(R0, R0, Operand2(0xFC, 4));
+	CMP(R1, Operand2(0x10, 4));
+	SetCC(CC_EQ);
+	MOV(R2, Operand2(0x99, 0));
+	SetCC(CC_NEQ);
+	MOV(R2, Operand2(0xFF, 0));
+	SetCC();
+	ARMABI_CallFunction((void*)&TestLeaf);
 
 	//ARMABI_CallFunctionCCC((void*)&TestLeaf, 0x1, 0x100, 0x1337);
 	//ARMABI_CallFunctionCCC((void*)&TestLeaf, 0x2, 0x100, 0x31337);

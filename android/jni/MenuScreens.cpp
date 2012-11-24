@@ -245,8 +245,13 @@ void SettingsScreen::render() {
 
 	bool useFastInt = g_Config.iCpuCore == CPU_FASTINTERPRETER;
 	UICheckBox(GEN_ID, x, y += 50, "Slightly faster interpreter (may crash)", ALIGN_TOPLEFT, &useFastInt);
-	ui_draw2d.DrawText(UBUNTU48, "much faster JIT coming later", x += 50, 0xcFFFFFFF, ALIGN_LEFT);
 	g_Config.iCpuCore = useFastInt ? CPU_FASTINTERPRETER : CPU_INTERPRETER;
+
+	bool useJit = g_Config.iCpuCore == CPU_JIT;
+	UICheckBox(GEN_ID, x, y += 50, "Use JIT (very crashy)", ALIGN_TOPLEFT, &useJit);
+	if (useJit) {
+		g_Config.iCpuCore = CPU_JIT;
+	}
 	// UICheckBox(GEN_ID, x, y += 50, "Draw raw framebuffer (for some homebrew)", ALIGN_TOPLEFT, &g_Config.bDisplayFramebuffer);
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres-10), LARGE_BUTTON_WIDTH, "Back", ALIGN_RIGHT | ALIGN_BOTTOM)) {

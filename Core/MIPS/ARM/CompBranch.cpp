@@ -81,7 +81,7 @@ void Jit::BranchRSRTComp(u32 op, ArmGen::CCFlags cc, bool likely)
     CompileAt(js.compilerPC + 4);
     FlushAll();
 		POP(1, R0);
-		_MSR(false, false, R0);  // Restore flags register
+		_MSR(true, false, R0);  // Restore flags register
     ptr = B_CC(cc);
   }
   else
@@ -133,7 +133,7 @@ void Jit::BranchRSZeroComp(u32 op, ArmGen::CCFlags cc, bool likely)
     FlushAll();
 
 		POP(1, R0);
-		_MSR(false, false, R0);  // Restore flags register
+		_MSR(true, false, R0);  // Restore flags register
     ptr = B_CC(cc);
   }
   else
@@ -224,7 +224,7 @@ void Jit::BranchFPFlag(u32 op, ArmGen::CCFlags cc, bool likely)
 
     // POPF(); // restore flag!
 		POP(1, R0);
-		_MSR(false, false, R0);  // Restore flags register
+		_MSR(true, false, R0);  // Restore flags register
     ptr = B_CC(cc);
   }
   else

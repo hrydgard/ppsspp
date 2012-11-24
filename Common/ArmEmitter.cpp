@@ -362,13 +362,13 @@ void ARMXEmitter::REV (ARMReg dest, ARMReg src				)
 	Write32(condition | (107 << 20) | (15 << 16) | (dest << 12) | (243 << 4) | src);
 }
 
-void ARMXEmitter::_MSR (bool nzcvq, bool g,		Operand2 op2)
+void ARMXEmitter::_MSR (bool write_nzcvq, bool write_g,		Operand2 op2)
 {
-	Write32(condition | (0x320F << 12) | (nzcvq << 19) | (g << 18) | op2.Imm12Mod());
+	Write32(condition | (0x320F << 12) | (write_nzcvq << 19) | (write_g << 18) | op2.Imm12Mod());
 }
-void ARMXEmitter::_MSR (bool nzcvq, bool g,		ARMReg src)
+void ARMXEmitter::_MSR (bool write_nzcvq, bool write_g,		ARMReg src)
 {
-	Write32(condition | (0x120F << 12) | (nzcvq << 19) | (g << 18) | src);
+	Write32(condition | (0x120F << 12) | (write_nzcvq << 19) | (write_g << 18) | src);
 }
 void ARMXEmitter::MRS (ARMReg dest)
 {
