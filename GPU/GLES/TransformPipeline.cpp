@@ -30,11 +30,13 @@
 #include "../../Core/MemMap.h"
 #include "../../Core/Host.h"
 #include "../../Core/System.h"
+#include "../../native/gfx_es2/gl_state.h"
 
 #include "../Math3D.h"
 #include "../GPUState.h"
 #include "../ge_constants.h"
 
+#include "StateMapping.h"
 #include "TextureCache.h"
 #include "TransformPipeline.h"
 #include "VertexDecoder.h"
@@ -218,7 +220,7 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 	// Check if anything needs updating
 	if (gstate_c.textureChanged)
 	{
-		if ((gstate.textureMapEnable & 1) && !(gstate.clearmode & 1))
+		if ((gstate.textureMapEnable & 1) && !gstate.isModeClear())
 		{
 			PSPSetTexture();
 			useTexCoord = true;
@@ -522,6 +524,37 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 				numTrans += 6;
 			}
 		}
+	}
+
+	// Set cull
+	bool wantCull = !gstate.isModeClear() && !gstate.isModeThrough() && gstate.isCullEnabled();
+	glstate.cullFace.set(wantCull);
+
+	if(wantCull) {
+		u8 cullMode = gstate.getCullMode();
+		glstate.cullFaceMode.set(cullingMode[cullMode]);
+	}
+
+	// Set blend
+	bool wantBlend = !gstate.isModeClear() && (gstate.alphaBlendEnable & 1);
+	glstate.blend.set(wantBlend);
+	if(wantBlend) {
+		// This can't be done exactly as there are several PSP blend modes that are impossible to do on OpenGL ES 2.0, and some even on regular OpenGL for desktop.
+		// HOWEVER - we should be able to approximate the 2x modes in the shader, although they will clip wrongly.
+		u8 blendFuncA  = gstate.getBlendFuncA();
+		u8 blendFuncB  = gstate.getBlendFuncB();
+		u8 blendFuncEq = gstate.getBlendEq();
+
+		glstate.blendFunc.set(aLookup[blendFuncA], bLookup[blendFuncB]);
+		glstate.blendEquation.set(eqLookup[blendFuncEq]);
+	}
+
+	bool wantDepthTest = gstate.isModeClear() || gstate.isDepthTestEnabled();
+	glstate.depthTest.set(wantDepthTest);
+	if(wantDepthTest) {
+		// Force GL_ALWAYS if mode clear
+		u8 depthTestFunc = gstate.isModeClear() ? 1 : gstate.getDepthTestFunc();
+		glstate.depthFunc.set(ztests[depthTestFunc]);
 	}
 
 	glEnableVertexAttribArray(program->a_position);

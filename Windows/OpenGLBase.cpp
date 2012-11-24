@@ -14,6 +14,7 @@
 
 #include <windows.h>
 #include <GL/gl.h>								// Header File For The OpenGL32 Library
+#include "../native/gfx_es2/gl_state.h"
 
 #include "OpenGLBase.h"
 
@@ -138,6 +139,7 @@ bool GL_Init(HWND window)
 	setVSync(0);
 
 	glewInit();
+	glstate.Initialize();
 
 	GL_Resized();								// Set Up Our Perspective GL Screen
 
