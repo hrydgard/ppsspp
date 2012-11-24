@@ -88,9 +88,6 @@ void TextureCache_Decimate()
 	{
 		if (iter->second.frameCounter + TEXTURE_KILL_AGE < gpuStats.numFrames)
 		{
-			TexCacheEntry &entry = iter->second;
-			NOTICE_LOG(G3D, "Deleted texture %i from %08x: fmt: %i", entry.texture, entry.addr, entry.format);
-
 			glDeleteTextures(1, &iter->second.texture);
 			cache.erase(iter++);
 		}
