@@ -417,6 +417,8 @@ add_library(native STATIC
     native/gfx_es2/draw_buffer.h
     native/gfx_es2/fbo.cpp
     native/gfx_es2/fbo.h
+    native/gfx_es2/gl_state.cpp
+    native/gfx_es2/gl_state.h
     native/gfx_es2/glsl_program.cpp
     native/gfx_es2/glsl_program.h
     native/gfx_es2/vertex_format.cpp
@@ -697,6 +699,8 @@ add_library(GPU OBJECT
     GPU/GLES/Framebuffer.h
     GPU/GLES/ShaderManager.cpp
     GPU/GLES/ShaderManager.h
+    GPU/GLES/StateMapping.cpp
+    GPU/GLES/StateMapping.h
     GPU/GLES/TextureCache.cpp
     GPU/GLES/TextureCache.h
     GPU/GLES/TransformPipeline.cpp
