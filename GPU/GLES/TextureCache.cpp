@@ -53,7 +53,7 @@ struct TexCacheEntry
 	GLuint texture;
 };
 
-typedef std::map<u32, TexCacheEntry> TexCache;
+typedef std::map<u64, TexCacheEntry> TexCache;
 static TexCache cache;
 
 u32 tmpTexBuf32[1024 * 1024];
@@ -527,11 +527,15 @@ void PSPSetTexture()
 	u8 level = 0;
 	u32 format = gstate.texformat & 0xF;
 	u32 clutformat = gstate.clutformat & 3;
+	u32 clutaddr = GetClutAddr(clutformat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2);
 
 	DEBUG_LOG(G3D,"Texture at %08x",texaddr);
 	u8 *texptr = Memory::GetPointer(texaddr);
+	u32 texhash = texptr ? *(u32*)texptr : 0;
 
-	TexCache::iterator iter = cache.find(texaddr);
+	u64 cachekey = texaddr ^ clutaddr;
+	cachekey |= (u64) texhash << 32;
+	TexCache::iterator iter = cache.find(cachekey);
 	if (iter != cache.end())
 	{
 		//Validate the texture here (width, height etc)
@@ -541,13 +545,13 @@ void PSPSetTexture()
 		bool match = true;
 		
 		//TODO: Check more texture parameters, compute real texture hash
-		if (dim != entry.dim || entry.hash != *(u32*)texptr || entry.format != format)
+		if (dim != entry.dim || entry.hash != texhash || entry.format != format)
 			match = false;
 
 		//TODO: Check more clut parameters, compute clut hash
 		if (match && (format >= GE_TFMT_CLUT4 && format <= GE_TFMT_CLUT32) &&
 			 (entry.clutformat != clutformat ||
-				entry.clutaddr != GetClutAddr(clutformat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2) ||
+				entry.clutaddr != clutaddr ||
 				entry.cluthash != Memory::Read_U32(entry.clutaddr))) 
 			match = false;
 
@@ -574,7 +578,7 @@ void PSPSetTexture()
 	TexCacheEntry entry;
 
 	entry.addr = texaddr;
-	entry.hash = *(u32*)texptr;
+	entry.hash = texhash;
 	entry.format = format;
 	entry.frameCounter = gpuStats.numFrames;
 
@@ -837,5 +841,5 @@ void PSPSetTexture()
 	//glPixelStorei(GL_PACK_ROW_LENGTH, 0);
 	glPixelStorei(GL_PACK_ALIGNMENT, 1);
 
-	cache[texaddr] = entry;
+	cache[cachekey] = entry;
 }
