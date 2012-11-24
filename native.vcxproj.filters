@@ -229,6 +229,7 @@
     </ClInclude>
     <ClInclude Include="ext\stb_vorbis\stb_vorbis.h">
       <Filter>ext</Filter>
+    </ClInclude>
     <ClInclude Include="gfx_es2\gl_state.h">
       <Filter>gfx</Filter>
     </ClInclude>
@@ -406,8 +407,10 @@
     <ClCompile Include="base\PCMain.cpp" />
     <ClCompile Include="ext\stb_vorbis\stb_vorbis.c">
       <Filter>ext</Filter>
+    </ClCompile>
     <ClCompile Include="base\BlackberryMain.cpp">
       <Filter>base</Filter>
+    </ClCompile>
     <ClCompile Include="gfx_es2\gl_state.cpp">
       <Filter>gfx</Filter>
     </ClCompile>
