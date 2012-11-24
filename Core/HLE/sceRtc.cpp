@@ -172,6 +172,11 @@ u32 sceRtcGetCurrentClock(u32 pspTimePtr, int tz)
 
 	time_t sec = (time_t) tv.tv_sec;
 	tm *utc = gmtime(&sec);
+	if (!utc)
+	{
+		ERROR_LOG(HLE, "Date is too high/low to handle, pretending to work.");
+		return 0;
+	}
 
 	utc->tm_isdst = -1;
 	utc->tm_min += tz;
@@ -195,6 +200,11 @@ u32 sceRtcGetCurrentClockLocalTime(u32 pspTimePtr)
 
 	time_t sec = (time_t) tv.tv_sec;
 	tm *local = localtime(&sec);
+	if (!local)
+	{
+		ERROR_LOG(HLE, "Date is too high/low to handle, pretending to work.");
+		return 0;
+	}
 
 	ScePspDateTime ret;
 	__RtcTmToPspTime(ret, local);
