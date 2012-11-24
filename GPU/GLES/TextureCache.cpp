@@ -84,16 +84,18 @@ void TextureCache_Clear(bool delete_them)
 // Removes old textures.
 void TextureCache_Decimate()
 {
-	// TODO: Need a better way to keep looping
-restart:
-	for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ++iter)
+	for (TexCache::iterator iter = cache.begin(); iter != cache.end(); )
 	{
 		if (iter->second.frameCounter + TEXTURE_KILL_AGE < gpuStats.numFrames)
 		{
+			TexCacheEntry &entry = iter->second;
+			NOTICE_LOG(G3D, "Deleted texture %i from %08x: fmt: %i", entry.texture, entry.addr, entry.format);
+
 			glDeleteTextures(1, &iter->second.texture);
-			cache.erase(iter);
-			goto restart;
+			cache.erase(iter++);
 		}
+		else
+			++iter;
 	}
 }
 
