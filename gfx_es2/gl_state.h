@@ -60,11 +60,11 @@ private:
 		void set(p1type newp1) { \
 		    if(newp1 != p1) { \
 			    p1 = newp1; \
-                ##func(p1); \
+                func(p1); \
 			} \
 	    } \
 		void restore() { \
-            ##func(p1); \
+            func(p1); \
 	    } \
 	}
 
@@ -78,11 +78,11 @@ private:
 		    if(newp1 != p1 || newp2 != p2) { \
 			    p1 = newp1; \
 				p2 = newp2; \
-                ##func(p1, p2); \
+                func(p1, p2); \
 			} \
 	    } \
 		inline void restore() { \
-            ##func(p1, p2); \
+            func(p1, p2); \
 	    } \
 	}
 
