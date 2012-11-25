@@ -13,10 +13,10 @@
 
 #include <string>
 
-#include "SDL/SDL.h"
-#include "SDL/SDL_timer.h"
-#include "SDL/SDL_audio.h"
-#include "SDL/SDL_video.h"
+#include "SDL.h"
+#include "SDL_timer.h"
+#include "SDL_audio.h"
+#include "SDL_video.h"
 
 #include "base/display.h"
 #include "base/logging.h"
