@@ -84,7 +84,6 @@ void DisplayDrawer_Init()
 	glstate.cullFace.disable();
 	glstate.depthTest.disable();
 	glstate.blend.disable();
-	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
 	glEnable(GL_TEXTURE_2D);
 

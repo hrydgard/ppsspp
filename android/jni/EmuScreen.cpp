@@ -150,6 +150,9 @@ void EmuScreen::render()
 	if (invalid_)
 		return;
 
+	// Reapply the graphics state of the PSP
+	ReapplyGfxState();
+
 	// First attempt at an Android-friendly execution loop.
 	// We simply run the CPU for 1/60th of a second each frame. If a swap doesn't happen, not sure what the best thing to do is :P
 	// Also if we happen to get half a frame or something, things will be screwed up so this doesn't actually really work.
@@ -193,8 +196,6 @@ void EmuScreen::render()
 	ui_draw2d.End();
 	ui_draw2d.Flush(UIShader_Get());
 
-	// Reapply the graphics state of the PSP
-	ReapplyGfxState();
 
 	// Tiled renderers like PowerVR should benefit greatly from this. However - seems I can't call it?
 #if defined(ANDROID) || defined(BLACKBERRY)

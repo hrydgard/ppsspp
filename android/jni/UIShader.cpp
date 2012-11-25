@@ -16,7 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "gfx_es2/glsl_program.h"
-
+#include "gfx_es2/gl_state.h"
 #include "UIShader.h"
 
 static GLSLProgram *glslModulate;
@@ -85,12 +85,14 @@ void UIShader_Shutdown()
 void UIShader_Prepare()
 {
 	// Draw 2D overlay stuff
-	glDisable(GL_CULL_FACE);
-	glDisable(GL_DEPTH_TEST);
-	glDisable(GL_BLEND);
-	glDisable(GL_SCISSOR_TEST);
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glstate.cullFace.disable();
+	glstate.depthTest.disable();
+	glstate.scissorTest.disable();
+
+	glstate.blend.enable();
+	glstate.blendFunc.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	glstate.Restore();
 
 	uiTexture->Bind(0);
 }
