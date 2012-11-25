@@ -974,6 +974,7 @@ namespace MIPSInt
 		int vd = _VD;
 		int seed = VI(vd);
 		currentMIPS->rng.Init(seed);
+		PC += 4;
 	}
 
 	void Int_VrndX(u32 op)
