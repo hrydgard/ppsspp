@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#ifndef _WIN32
+#ifdef ANDROID
 #include <zip.h>
 #endif
 

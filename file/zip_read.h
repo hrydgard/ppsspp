@@ -1,6 +1,6 @@
 // TODO: Move much of this code to vfs.cpp
 
-#ifndef _WIN32
+#ifdef ANDROID
 #include <zip.h>
 #endif
 
@@ -21,7 +21,7 @@ public:
 	virtual std::string toString() const = 0;
 };
 
-#ifndef _WIN32
+#ifdef ANDROID
 uint8_t *ReadFromZip(zip *archive, const char* filename, size_t *size);
 class ZipAssetReader : public AssetReader {
 public:
