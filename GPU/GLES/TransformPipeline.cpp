@@ -526,6 +526,8 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 		}
 	}
 
+	// TODO: All this setup is soon so expensive that we'll need dirty flags, or simply do it in the command writes where we detect dirty by xoring. Silly to do all this work on every drawcall.
+
 	// Set cull
 	bool wantCull = !gstate.isModeClear() && !gstate.isModeThrough() && gstate.isCullEnabled();
 	glstate.cullFace.set(wantCull);
@@ -541,12 +543,53 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 	if(wantBlend) {
 		// This can't be done exactly as there are several PSP blend modes that are impossible to do on OpenGL ES 2.0, and some even on regular OpenGL for desktop.
 		// HOWEVER - we should be able to approximate the 2x modes in the shader, although they will clip wrongly.
-		u8 blendFuncA  = gstate.getBlendFuncA();
-		u8 blendFuncB  = gstate.getBlendFuncB();
-		u8 blendFuncEq = gstate.getBlendEq();
+		int blendFuncA  = gstate.getBlendFuncA();
+		int blendFuncB  = gstate.getBlendFuncB();
+		int blendFuncEq = gstate.getBlendEq();
 
-		glstate.blendFunc.set(aLookup[blendFuncA], bLookup[blendFuncB]);
 		glstate.blendEquation.set(eqLookup[blendFuncEq]);
+
+		if (blendFuncA != GE_SRCBLEND_FIXA && blendFuncB != GE_DSTBLEND_FIXB) {
+			// All is valid, no blendcolor needed
+			glstate.blendFunc.set(aLookup[blendFuncA], bLookup[blendFuncB]);
+		} else {
+			GLuint glBlendFuncA = blendFuncA == GE_SRCBLEND_FIXA ? 0 : aLookup[blendFuncA];
+			GLuint glBlendFuncB = blendFuncB == GE_DSTBLEND_FIXB ? 0 : bLookup[blendFuncB];
+			u32 fixA = gstate.getFixA();
+			u32 fixB = gstate.getFixB();
+			// Shortcut by using GL_ONE where possible, no need to set blendcolor
+			if (!glBlendFuncA && blendFuncA == GE_SRCBLEND_FIXA && fixA == 0xFFFFFF) {
+				glBlendFuncA = GL_ONE;
+			} 
+			if (!glBlendFuncB && blendFuncB == GE_DSTBLEND_FIXB && fixB == 0xFFFFFF) {
+				glBlendFuncB = GL_ONE;
+			}
+			if (!glBlendFuncA && glBlendFuncB) {
+				// Can use blendcolor trivially.
+				const float blendColor[4] = {(fixA & 0xFF)/255.0f, ((fixA >> 8) & 0xFF)/255.0f, ((fixA >> 16) & 0xFF)/255.0f, 1.0f};
+				glstate.blendColor.set(blendColor);
+				glBlendFuncA = GL_CONSTANT_COLOR;
+			} else if (glBlendFuncA && !glBlendFuncB) {
+				// Can use blendcolor trivially.
+				const float blendColor[4] = {(fixB & 0xFF)/255.0f, ((fixB >> 8) & 0xFF)/255.0f, ((fixB >> 16) & 0xFF)/255.0f, 1.0f};
+				glstate.blendColor.set(blendColor);
+				glBlendFuncB = GL_CONSTANT_COLOR;
+			} else if (!glBlendFuncA && !glBlendFuncB) {  // Should also check for approximate equality
+				if (fixA == (fixB ^ 0xFFFFFF)) {
+					glBlendFuncA = GL_CONSTANT_COLOR;
+					glBlendFuncB = GL_ONE_MINUS_CONSTANT_COLOR;
+					const float blendColor[4] = {(fixA & 0xFF)/255.0f, ((fixA >> 8) & 0xFF)/255.0f, ((fixA >> 16) & 0xFF)/255.0f, 1.0f};
+					glstate.blendColor.set(blendColor);
+				} else {
+					NOTICE_LOG(HLE, "ERROR INVALID blendcolorstate: FixA=%06x FixB=%06x FuncA=%i FuncB=%i", gstate.getFixA(), gstate.getFixB(), gstate.getBlendFuncA(), gstate.getBlendFuncB());
+					glBlendFuncA = GL_ONE;
+					glBlendFuncB = GL_ONE;
+				}
+			}
+			// At this point, through all paths above, glBlendFuncA and glBlendFuncB will be set somehow.
+
+			glstate.blendFunc.set(glBlendFuncA, glBlendFuncB);
+		}
 	}
 
 	bool wantDepthTest = gstate.isModeClear() || gstate.isDepthTestEnabled();

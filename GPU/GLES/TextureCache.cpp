@@ -600,7 +600,7 @@ void PSPSetTexture()
 	u32 w = 1 << (gstate.texsize[0] & 0xf);
 	u32 h = 1 << ((gstate.texsize[0]>>8) & 0xf);
 
-	NOTICE_LOG(G3D, "Creating texture %i from %08x: %i x %i (stride: %i). fmt: %i", entry.texture, entry.addr, w, h, bufw, entry.format);
+	INFO_LOG(G3D, "Creating texture %i from %08x: %i x %i (stride: %i). fmt: %i", entry.texture, entry.addr, w, h, bufw, entry.format);
 
 	gstate_c.curTextureWidth=w;
 	gstate_c.curTextureHeight=h;
@@ -608,8 +608,6 @@ void PSPSetTexture()
 	u32 texByteAlign = 1;
 
 	void *finalBuf = NULL;
-
-	DEBUG_LOG(G3D,"Texture Width %04x Height %04x Bufw %d Fmt %d", w, h, bufw, format);
 
 	// TODO: Look into using BGRA for 32-bit textures when the GL_EXT_texture_format_BGRA8888 extension is available, as it's faster than RGBA on some chips.
 

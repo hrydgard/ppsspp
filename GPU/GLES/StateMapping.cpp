@@ -10,8 +10,8 @@ const GLint aLookup[] = {
 	GL_SRC_ALPHA,	// should be 2x
 	GL_ONE_MINUS_SRC_ALPHA,	 // should be 2x
 	GL_DST_ALPHA,	 // should be 2x
-	GL_ONE_MINUS_DST_ALPHA,	 // should be 2x				 -	and COLOR?
-	GL_SRC_ALPHA,	// should be FIXA
+	GL_ONE_MINUS_DST_ALPHA,	 // should be 2x	-	and COLOR?
+	GL_CONSTANT_COLOR,	// FIXA
 };
 
 const GLint bLookup[] = {
@@ -25,7 +25,7 @@ const GLint bLookup[] = {
 	GL_ONE_MINUS_SRC_ALPHA,	 // should be 2x
 	GL_DST_ALPHA,	 // should be 2x
 	GL_ONE_MINUS_DST_ALPHA,	 // should be 2x
-	GL_SRC_ALPHA,	// should be FIXB
+	GL_CONSTANT_COLOR,	// FIXB
 };
 const GLint eqLookup[] = {
 	GL_FUNC_ADD,

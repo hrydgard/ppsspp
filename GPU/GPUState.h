@@ -242,12 +242,14 @@ struct GPUgstate
 	inline bool isModeThrough() const { return (vertType & GE_VTYPE_THROUGH) != 0; }
 	inline bool isModeClear()   const { return clearmode & 1; }
 	inline bool isCullEnabled() const { return cullfaceEnable & 1; }
-	inline u8   getCullMode()   const { return cullmode & 1; }
-	inline u8   getBlendFuncA() const { return blend & 0xF; }
-	inline u8   getBlendFuncB() const { return (blend >> 4) & 0xF; }
-	inline u8   getBlendEq()    const { return (blend >> 8) & 0x7; }
+	inline int  getCullMode()   const { return cullmode & 1; }
+	inline int  getBlendFuncA() const { return blend & 0xF; }
+	inline u32 getFixA() const { return blendfixa & 0xFFFFFF; }
+	inline u32 getFixB() const { return blendfixb & 0xFFFFFF; }
+	inline int  getBlendFuncB() const { return (blend >> 4) & 0xF; }
+	inline int  getBlendEq()    const { return (blend >> 8) & 0x7; }
 	inline bool isDepthTestEnabled() const { return zTestEnable & 1; }
-	inline u8   getDepthTestFunc() const { return ztestfunc & 0x7; }
+	inline int  getDepthTestFunc() const { return ztestfunc & 0x7; }
 };
 // Real data in the context ends here
 
