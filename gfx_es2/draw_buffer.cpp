@@ -366,10 +366,10 @@ void DrawBuffer::SetClipRect(float x, float y, float w, float h)
 {
   // Sigh, OpenGL is upside down.
   glScissor(x, dp_yres - y, w, h);
-  glEnable(GL_SCISSOR_TEST);
+  glstate.scissorTest.enable();
 }
 
 void DrawBuffer::NoClip()
 {
-  glDisable(GL_SCISSOR_TEST);
+	glstate.scissorTest.disable();
 }

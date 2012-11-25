@@ -120,13 +120,15 @@ public:
 	STATE1(glBlendEquation, GLenum, GL_FUNC_ADD) blendEquation;
 	STATEFLOAT4(glBlendColor, 1.0f) blendColor;
 
+	BoolState<GL_SCISSOR_TEST, false> scissorTest;
+
 	BoolState<GL_CULL_FACE, false> cullFace;
 	STATE1(glCullFace, GLenum, GL_FRONT) cullFaceMode;
+	STATE1(glFrontFace, GLenum, GL_CCW) frontFace;
 
 	BoolState<GL_DEPTH_TEST, false> depthTest;
 	STATE1(glDepthFunc, GLenum, GL_LESS) depthFunc;
 	STATE2(glDepthRangef, float, float, 0.f, 1.f) depthRange;
-
 };
 
 #undef STATE1
