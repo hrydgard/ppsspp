@@ -128,7 +128,11 @@ public:
 
 	BoolState<GL_DEPTH_TEST, false> depthTest;
 	STATE1(glDepthFunc, GLenum, GL_LESS) depthFunc;
+#if defined(ANDROID) || defined(BLACKBERRY)
 	STATE2(glDepthRangef, float, float, 0.f, 1.f) depthRange;
+#else
+	STATE2(glDepthRange, double, double, 0.0, 1.0) depthRange;
+#endif
 };
 
 #undef STATE1
