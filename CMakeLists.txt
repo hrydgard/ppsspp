@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8.8)
 project(PPSSPP)
 
-if(ANDROID OR BLACKBERRY)
+if(ANDROID OR BLACKBERRY OR APPLE)
     set(HEADLESS OFF)
 elseif(NOT DEFINED HEADLESS)
     set(HEADLESS ON)
@@ -68,13 +68,12 @@ if(ARM)
     add_definitions(-DARM)
 endif()
 
-#add_definitions(-Wno-multichar)
-#add_definitions(-fno-strict-aliasing)
-#add_definitions(-DUSE_PROFILER)
-
 if(NOT MSVC)
-    add_definitions(-D_XOPEN_SOURCE=600 -D__BSD_VISIBLE=1)
-    add_definitions(-D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64)
+		add_definitions(-fno-strict-aliasing)
+		if(NOT APPLE)
+				add_definitions(-D_XOPEN_SOURCE=700 -D_XOPEN_SOURCE_EXTENDED -D__BSD_VISIBLE=1)
+				add_definitions(-D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64)
+		endif()
 
     if(BLACKBERRY)
         add_definitions(-D_QNX_SOURCE=1 -D_C99=1)
@@ -89,7 +88,7 @@ if(NOT MSVC)
         CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.7.0)
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
     else()
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
     endif()
 endif()
 
@@ -825,14 +824,21 @@ if(SDL_FOUND)
         if(APPLE)
             set(SDL_Main
                 SDL/SDLMain.h
-                SDL/SDLMain.m)
+                SDL/SDLMain.mm
+                native/base/PCMain.cpp)
         else()
             set(SDL_Main
                 native/base/PCMain.cpp)
         endif()
 
         add_executable(PPSSPPSDL ${SDL_Main} ${NativeAppSource})
-        target_link_libraries(PPSSPPSDL ${LinkCommon})
+
+				if(APPLE)
+					find_library(COCOA_LIBRARY Cocoa)
+					target_link_libraries(PPSSPPSDL ${COCOA_LIBRARY} ${LinkCommon})
+				else()
+				  target_link_libraries(PPSSPPSDL ${LinkCommon})
+				endif()
     endif()
 
     file(INSTALL ${AndroidAssets} DESTINATION assets)

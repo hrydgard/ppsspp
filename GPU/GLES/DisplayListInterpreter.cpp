@@ -590,12 +590,12 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_MINZ:
 		gstate_c.zMin = getFloat24(data) / 65535.f;
-		DEBUG_LOG(G3D, "DL MinZ: %i", gstate_c.zMin);
+		DEBUG_LOG(G3D, "DL MinZ: %f", gstate_c.zMin);
 		break;
 
 	case GE_CMD_MAXZ:
 		gstate_c.zMax = getFloat24(data) / 65535.f;
-		DEBUG_LOG(G3D, "DL MaxZ: %i", gstate_c.zMax);
+		DEBUG_LOG(G3D, "DL MaxZ: %f", gstate_c.zMax);
 		break;
 
 	case GE_CMD_FRAMEBUFPTR:

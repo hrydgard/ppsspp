@@ -237,9 +237,9 @@ struct GPUgstate
 	float viewMatrix[12];
 	float projMatrix[16];
 	float tgenMatrix[12];
-	float boneMatrix[8*12];
+	float boneMatrix[12 * 8];  // Eight bone matrices.
 
-	inline bool isModeThrough() const { return vertType & GE_VTYPE_THROUGH; }
+	inline bool isModeThrough() const { return (vertType & GE_VTYPE_THROUGH) != 0; }
 	inline bool isModeClear()   const { return clearmode & 1; }
 	inline bool isCullEnabled() const { return cullfaceEnable & 1; }
 	inline u8   getCullMode()   const { return cullmode & 1; }
@@ -266,7 +266,7 @@ struct GPUStateCache
 	float lightpos[4][3];
 	float lightdir[4][3];
 	float lightatt[4][3];
-	Color4 lightColor[3][4]; //ADS 
+	Color4 lightColor[3][4]; //Amtient Diffuse Specular
 	float morphWeights[8];
 
 	// bezier patch subdivision
@@ -281,7 +281,7 @@ struct GPUStateCache
 struct GPUStatistics
 {
 	void reset() {
-		memset(this, 0, sizeof(this));
+		memset(this, 0, sizeof(*this));
 	}
 	void resetFrame() {
 		numDrawCalls = 0;
@@ -298,18 +298,17 @@ struct GPUStatistics
 
 	// Total statistics
 	int numFrames;
-
 };
-
 
 void InitGfxState();
 void ShutdownGfxState();
 void ReapplyGfxState();
 
 // PSP uses a curious 24-bit float - it's basically the top 24 bits of a regular IEEE754 32-bit float.
+// This is used for light positions, transform matrices, you name it.
 inline float getFloat24(unsigned int data)
 {
-	data<<=8;
+	data <<= 8;
 	float f;
 	memcpy(&f, &data, 4);
 	return f;
@@ -319,8 +318,7 @@ inline float getFloat24(unsigned int data)
 inline unsigned int toFloat24(float f) {
 	unsigned int i;
 	memcpy(&i, &f, 4);
-	i >>= 8;
-	return i;
+	return i >> 8;
 }
 
 class GPUInterface;
