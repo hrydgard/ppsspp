@@ -158,6 +158,10 @@ int main(int argc, const char* argv[])
 		u64 nowTicks = CoreTiming::GetTicks();
 		u64 frameTicks = usToCycles(1000000/60);
 		mipsr4k.RunLoopUntil(nowTicks + frameTicks);
+
+		// If we were rendering, this might be a nice time to do something about it.
+		if (coreState == CORE_NEXTFRAME)
+			coreState = CORE_RUNNING;
 	}
 
 	// NOTE: we won't get here until I've gotten rid of the exit(0) in sceExitProcess or whatever it's called
