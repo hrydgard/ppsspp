@@ -152,7 +152,7 @@ namespace MIPSInt
 
 	void Int_Sync(u32 op)
 	{
-		DEBUG_LOG(CPU, "sync");
+		//DEBUG_LOG(CPU, "sync");
 		PC += 4;
 	}
 

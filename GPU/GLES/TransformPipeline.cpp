@@ -572,11 +572,17 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 			u32 fixA = gstate.getFixA();
 			u32 fixB = gstate.getFixB();
 			// Shortcut by using GL_ONE where possible, no need to set blendcolor
-			if (!glBlendFuncA && blendFuncA == GE_SRCBLEND_FIXA && fixA == 0xFFFFFF) {
-				glBlendFuncA = GL_ONE;
+			if (!glBlendFuncA && blendFuncA == GE_SRCBLEND_FIXA) {
+				if (fixA == 0xFFFFFF)
+					glBlendFuncA = GL_ONE;
+				else if (fixA == 0)
+					glBlendFuncA = GL_ZERO;
 			} 
-			if (!glBlendFuncB && blendFuncB == GE_DSTBLEND_FIXB && fixB == 0xFFFFFF) {
-				glBlendFuncB = GL_ONE;
+			if (!glBlendFuncB && blendFuncB == GE_DSTBLEND_FIXB) {
+				if (fixB == 0xFFFFFF)
+					glBlendFuncB = GL_ONE;
+				else if (fixB == 0)
+					glBlendFuncB = GL_ZERO;
 			}
 			if (!glBlendFuncA && glBlendFuncB) {
 				// Can use blendcolor trivially.
