@@ -71,7 +71,7 @@ endif()
 if(NOT MSVC)
 		add_definitions(-fno-strict-aliasing)
 		if(NOT APPLE)
-				add_definitions(-D_XOPEN_SOURCE=700 -D_XOPEN_SOURCE_EXTENDED -D__BSD_VISIBLE=1)
+				add_definitions(-D_XOPEN_SOURCE=600 -D_XOPEN_SOURCE_EXTENDED -D__BSD_VISIBLE=1)
 				add_definitions(-D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64)
 		endif()
 
