@@ -82,7 +82,7 @@ void __RtcTicksToPspTime(ScePspDateTime &t, u64 ticks)
 		{0,31,60,91,121,152,182,213,244,274,305,335,366}  // 366 days, leap
 	};
 	sec = ticks / 1000000UL;
-	wday = (u16)((sec / 86400 + 1) % 7); // day of week
+	wday = (u16)((sec / 86400 + 1) % 7); // day of week. unused.
 
 	// Remove multiples of 400 years (incl. 97 leap days)
 	quadricentennials = (u16)(sec / 12622780800ULL); // 400*365.2425*24*3600
@@ -120,11 +120,11 @@ void __RtcTicksToPspTime(ScePspDateTime &t, u64 ticks)
 	leap = !(year % 4) && (year % 100 || !(year % 400));
 
 	// Calculate the day of the year and the time
-	yday = sec / 86400;
+	yday = (u16)(sec / 86400);
 	sec %= 86400;
-	hour = sec / 3600;
+	hour = (u16)(sec / 3600);
 	sec %= 3600;
-	min = sec / 60;
+	min = (u16)(sec / 60);
 	sec %= 60;
 
 	// Calculate the month
@@ -142,7 +142,7 @@ void __RtcTicksToPspTime(ScePspDateTime &t, u64 ticks)
 	t.day = mday;
 	t.hour = hour;
 	t.minute = min;
-	t.second = sec;
+	t.second = (u16)sec;
 	t.microsecond = ticks % 1000000;
 }
 
