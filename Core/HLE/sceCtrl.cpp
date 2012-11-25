@@ -157,7 +157,13 @@ u32 sceCtrlReadBufferPositive(u32 ctrlDataPtr, u32 nBufs)
 	//if (ctrlInited)
 	//{
 		SampleControls();
-		Memory::WriteStruct(ctrlDataPtr, &ctrl);
+		_ctrl_data *ctrlData = (_ctrl_data*) Memory::GetPointer(ctrlDataPtr);
+		memcpy(ctrlData, &ctrl, sizeof(_ctrl_data));
+		if (!analogEnabled)
+		{
+			ctrlData->analog[0] = 128;
+			ctrlData->analog[1] = 128;
+		}
 	//}
 	return 1;
 }
