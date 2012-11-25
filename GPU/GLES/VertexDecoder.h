@@ -56,6 +56,7 @@ public:
 	~VertexDecoder() {}
 	void SetVertexType(u32 fmt);
 	void DecodeVerts(DecodedVertex *decoded, const void *verts, const void *inds, int prim, int count, int *indexLowerBound, int *indexUpperBound) const;
+	bool hasColor() const { return col != 0; }
 
 private:
 	u32 fmt;

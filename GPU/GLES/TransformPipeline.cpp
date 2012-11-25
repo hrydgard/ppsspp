@@ -269,10 +269,18 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 			// Do not touch the coordinates or the colors. No lighting.
 			for (int j=0; j<3; j++)
 				v[j] = decoded[index].pos[j];
-			// TODO : check if has color
-			for (int j=0; j<4; j++) {
-				c0[j] = decoded[index].color[j] / 255.0f;
-				c1[j] = 0.0f;
+			if(dec.hasColor()) {
+				for (int j=0; j<4; j++) {
+					c0[j] = decoded[index].color[j] / 255.0f;
+					c1[j] = 0.0f;
+				}
+			}
+			else
+			{
+				c0[0] = (gstate.materialambient & 0xFF) / 255.f;
+				c0[1] = ((gstate.materialambient >> 8) & 0xFF) / 255.f;
+				c0[2] = ((gstate.materialambient >> 16) & 0xFF) / 255.f;
+				c0[3] = (gstate.materialalpha & 0xFF) / 255.f;
 			}
 
 			// TODO : check if has uv
@@ -343,10 +351,16 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 				}
 				else
 				{
-					// no lighting? copy the color.
-					for (int j = 0; j < 4; j++) {
-						c0[j] = unlitColor[j];
-						c1[j] = 0.0f;
+					if(dec.hasColor()) {
+						for (int j = 0; j < 4; j++) {
+							c0[j] = unlitColor[j];
+							c1[j] = 0.0f;
+						}
+					} else {
+						c0[0] = (gstate.materialambient & 0xFF) / 255.f;
+						c0[1] = ((gstate.materialambient >> 8) & 0xFF) / 255.f;
+						c0[2] = ((gstate.materialambient >> 16) & 0xFF) / 255.f;
+						c0[3] = (gstate.materialalpha & 0xFF) / 255.f;
 					}
 				}
 			}
