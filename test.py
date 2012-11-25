@@ -191,7 +191,7 @@ def run_tests(test_list, args):
     tcprint("##teamcity[testStarted name='%s' captureStandardOutput='true']" % test)
 
     cmdline = [PPSSPP_EXE, elf_filename]
-    cmdline.extend(args)
+    cmdline.extend([i for i in args if i not in ['-v', '-g']])
 
     c = Command(cmdline)
     c.run(TIMEOUT)
