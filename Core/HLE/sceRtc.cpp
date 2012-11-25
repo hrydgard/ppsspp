@@ -223,10 +223,10 @@ u32 sceRtcSetTick(u32 pspTimePtr, u32 tickPtr)
 	DEBUG_LOG(HLE, "sceRtcSetTick(%08x, %08x)", pspTimePtr, tickPtr);
 	if (Memory::IsValidAddress(pspTimePtr) && Memory::IsValidAddress(tickPtr))
 	{
-		time_t seconds = Memory::Read_U64(tickPtr);
+		u64 ticks = Memory::Read_U64(tickPtr);
 
 		ScePspDateTime ret;
-		__RtcTicksToPspTime(ret, seconds);
+		__RtcTicksToPspTime(ret, ticks);
 		Memory::WriteStruct(pspTimePtr, &ret);
 	}
 	return 0;
