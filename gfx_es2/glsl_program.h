@@ -4,22 +4,11 @@
 #ifndef _RENDER_UTIL
 #define _RENDER_UTIL
 
-#if defined(ANDROID) || defined(BLACKBERRY)
-#include <GLES2/gl2.h>
-#include <GLES2/gl2ext.h>
-#else
-#include <GL/glew.h>
-#if defined(__APPLE__)
-#include <OpenGL/gl.h>
-#else
-#include <GL/gl.h>
-#endif
-#endif
-
 #include <map>
 #include <time.h>
 
 #include "gfx/gl_lost_manager.h"
+#include "gfx/gl_common.h"
 
 // Represent a compiled and linked vshader/fshader pair.
 // A just-constructed object is valid but cannot be used as a shader program, meaning that

@@ -6,7 +6,7 @@
 
 void gl_log_enable();
 
-#if !defined(ANDROID) && !defined(BLACKBERRY)
+#if !defined(USING_GLES2)
 //#define DEBUG_OPENGL
 #endif
 

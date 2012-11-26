@@ -1,18 +1,8 @@
 #pragma once
 
-#if defined(ANDROID) || defined(BLACKBERRY)
-#include <GLES2/gl2.h>
-#include <GLES2/gl2ext.h>
-#else
-#include <GL/glew.h>
-#if defined(__APPLE__)
-#include <OpenGL/gl.h>
-#else
-#include <GL/gl.h>
-#endif
-#endif
 #include <functional>
 #include <string.h>
+#include "gfx/gl_common.h"
 
 
 // OpenGL state cache. Should convert all code to use this instead of directly calling glEnable etc,
@@ -128,7 +118,7 @@ public:
 
 	BoolState<GL_DEPTH_TEST, false> depthTest;
 	STATE1(glDepthFunc, GLenum, GL_LESS) depthFunc;
-#if defined(ANDROID) || defined(BLACKBERRY)
+#if defined(USING_GLES2)
 	STATE2(glDepthRangef, float, float, 0.f, 1.f) depthRange;
 #else
 	STATE2(glDepthRange, double, double, 0.0, 1.0) depthRange;

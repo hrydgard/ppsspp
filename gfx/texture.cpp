@@ -1,30 +1,19 @@
-#if defined(ANDROID) || defined(BLACKBERRY)
-#include <GLES2/gl2.h>
-#include <GLES2/gl2ext.h>
-#else
-#include <GL/glew.h>
-#if defined(__APPLE__)
-#include <OpenGL/gl.h>
-#else
-#include <GL/gl.h>
-#endif
-#endif
-
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-#if !defined(ANDROID) && !defined(BLACKBERRY)
+#if !defined(USING_GLES2)
 #include "image/png_load.h"
 #include "ext/etcpack/etcdec.h"
 #endif
 
 #include "image/zim_load.h"
 #include "base/logging.h"
-#include "texture.h"
+#include "gfx/texture.h"
 #include "gfx/texture_gen.h"
 #include "gfx/gl_debug_log.h"
 #include "gfx/gl_lost_manager.h"
+#include "gfx/gl_common.h"
 
 Texture::Texture() : id_(0) {
 	register_gl_resource_holder(this);
@@ -76,7 +65,7 @@ bool Texture::Load(const char *filename) {
 		glBindTexture(GL_TEXTURE_2D, id_);
 		if (bpp == 1) {
 
-#if defined(ANDROID) || defined(BLACKBERRY)
+#if defined(USING_GLES2)
 			glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, w, h, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, data);
 #else
 			glTexImage2D(GL_TEXTURE_2D, 0, 1, w, h, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, data);
@@ -118,7 +107,7 @@ bool Texture::Load(const char *filename) {
 	const char *name = fn;
 	if (zim && 0==memcmp(name, "Media/textures/", strlen("Media/textures"))) name += strlen("Media/textures/");
 	len = strlen(name);
-#if !defined(ANDROID) && !defined(BLACKBERRY)
+#if !defined(USING_GLES2)
 	if (!strcmp("png", &name[len-3]) ||
 		!strcmp("PNG", &name[len-3])) {
 			if (!LoadPNG(fn)) {
@@ -141,7 +130,7 @@ bool Texture::Load(const char *filename) {
 	return false;
 }
 
-#if !defined(ANDROID) && !defined(BLACKBERRY)
+#if !defined(USING_GLES2)
 bool Texture::LoadPNG(const char *filename) {
 	unsigned char *image_data;
 	if (1 != pngLoad(filename, &width_, &height_, &image_data, false)) {
@@ -184,7 +173,7 @@ bool Texture::LoadXOR() {
 }
 
 
-#if !defined(ANDROID) && !defined(BLACKBERRY)
+#if !defined(USING_GLES2)
 
 // Allocates using new[], doesn't free.
 uint8_t *ETC1ToRGBA(uint8_t *etc1, int width, int height) {
@@ -244,7 +233,7 @@ bool Texture::LoadZIM(const char *filename) {
 			int data_h = height[l];
 			if (data_w < 4) data_w = 4;
 			if (data_h < 4) data_h = 4;
-#if defined(ANDROID) || defined(BLACKBERRY)
+#if defined(USING_GLES2)
 			int compressed_image_bytes = data_w * data_h / 2;
 			glCompressedTexImage2D(GL_TEXTURE_2D, l, GL_ETC1_RGB8_OES, width[l], height[l], 0, compressed_image_bytes, image_data[l]);
 			GL_CHECK();
@@ -255,7 +244,7 @@ bool Texture::LoadZIM(const char *filename) {
 #endif
 		}
 		GL_CHECK();
-#if !defined(ANDROID) && !defined(BLACKBERRY)
+#if !defined(USING_GLES2)
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, num_levels - 2);
 #endif
 	} else {
