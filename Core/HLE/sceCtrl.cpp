@@ -27,6 +27,7 @@
 #define CTRL_MODE_DIGITAL   0
 #define CTRL_MODE_ANALOG    1
 
+const int PSP_CTRL_ERROR_INVALID_MODE = 0x80000107;
 
 // Returned control data
 struct _ctrl_data
@@ -60,15 +61,13 @@ static std::recursive_mutex ctrlMutex;
 //////////////////////////////////////////////////////////////////////////
 
 
-void SampleControls() {
-	static int frame = 0;
-	_ctrl_data &data = ctrl;
-	data.frame=1;//frame;
-  frame++;
-}
+void sceCtrlInit();
 
+void UpdateLatch()
+{
+	if (!ctrlInited)
+		sceCtrlInit();
 
-void UpdateLatch() {
 	u32 changed = ctrl.buttons ^ oldButtons;
 	latch.btnMake = ctrl.buttons & changed;
 	latch.btnBreak = oldButtons & changed;
@@ -81,6 +80,9 @@ void UpdateLatch() {
 
 u32 __CtrlPeekButtons()
 {
+	if (!ctrlInited)
+		sceCtrlInit();
+
 	return ctrl.buttons;
 }
 
@@ -89,61 +91,91 @@ u32 __CtrlPeekButtons()
 
 void __CtrlButtonDown(u32 buttonBit)
 {
-  std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
-  ctrl.buttons |= buttonBit;
+	if (!ctrlInited)
+		sceCtrlInit();
+
+	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
+	ctrl.buttons |= buttonBit;
 }
 
 void __CtrlButtonUp(u32 buttonBit)
 {
-  std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
-  ctrl.buttons &= ~buttonBit;
+	if (!ctrlInited)
+		sceCtrlInit();
+
+	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
+	ctrl.buttons &= ~buttonBit;
 }
 
 void __CtrlSetAnalog(float x, float y)
 {
-  std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
-  // TODO: Circle!
-  if (x > 1.0f) x = 1.0f;
-  if (y > 1.0f) y = 1.0f;
-  if (x < -1.0f) x = -1.0f;
-  if (y < -1.0f) y = -1.0f;
-  ctrl.analog[0] = (u8)(x * 127.f + 128.f);
-  ctrl.analog[1] = (u8)(y * 127.f + 128.f);
+	if (!ctrlInited)
+		sceCtrlInit();
+
+	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
+	// TODO: Circle!
+	if (x > 1.0f) x = 1.0f;
+	if (y > 1.0f) y = 1.0f;
+	if (x < -1.0f) x = -1.0f;
+	if (y < -1.0f) y = -1.0f;
+	ctrl.analog[0] = (u8)(x * 127.f + 128.f);
+	ctrl.analog[1] = (u8)(y * 127.f + 128.f);
 }
 
 void sceCtrlInit()
 {
 	ctrlInited = true;
-  memset(&ctrl, 0, sizeof(ctrl));
+
+	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
+
+	memset(&ctrl, 0, sizeof(ctrl));
 	ctrl.analog[0] = 128;
 	ctrl.analog[1] = 128;
+	// TODO: Make this increment in the correct way.
+	ctrl.frame = 1;
+
 	DEBUG_LOG(HLE,"sceCtrlInit");	
 	RETURN(0);
 }
 
-void sceCtrlSetSamplingCycle() {
-	ERROR_LOG(HLE,"UNIMPL sceCtrlSetSamplingCycle");
-	RETURN(0);
+u32 sceCtrlSetSamplingCycle(u32 cycle)
+{
+	ERROR_LOG(HLE, "UNIMPL sceCtrlSetSamplingCycle(%u)", cycle);
+	return 0;
+}
+
+int sceCtrlGetSamplingCycle(u32 cyclePtr)
+{
+	ERROR_LOG(HLE, "UNIMPL sceCtrlSetSamplingCycle(%08x)", cyclePtr);
+	return 0;
 }
 
 u32 sceCtrlSetSamplingMode(u32 mode)
 {
 	u32 retVal = 0;
 
-	DEBUG_LOG(HLE,"sceCtrlSetSamplingMode(%i)", mode);
-	_assert_msg_(HLE, mode >= 0 && mode <= 1, "sceCtrlSetSamplingMode: mode outside expected range.");
+	DEBUG_LOG(HLE, "sceCtrlSetSamplingMode(%i)", mode);
+	if (mode > 1)
+		return PSP_CTRL_ERROR_INVALID_MODE;
 
-	if (ctrlInited)
-	{
-		retVal = analogEnabled == true ? CTRL_MODE_ANALOG : CTRL_MODE_DIGITAL;
-		analogEnabled = mode == CTRL_MODE_ANALOG ? true : false;
-	}
+	retVal = analogEnabled == true ? CTRL_MODE_ANALOG : CTRL_MODE_DIGITAL;
+	analogEnabled = mode == CTRL_MODE_ANALOG ? true : false;
 	return retVal;
+}
+
+int sceCtrlGetSamplingMode(u32 modePtr)
+{
+	u32 retVal = analogEnabled == true ? CTRL_MODE_ANALOG : CTRL_MODE_DIGITAL;
+
+	if (Memory::IsValidAddress(modePtr))
+		Memory::Write_U32(retVal, modePtr);
+
+	return 0;
 }
 
 void sceCtrlSetIdleCancelThreshold()
 {
-  DEBUG_LOG(HLE,"UNIMPL sceCtrlSetIdleCancelThreshold");
+	DEBUG_LOG(HLE,"UNIMPL sceCtrlSetIdleCancelThreshold");
 	RETURN(0);
 }
 
@@ -152,11 +184,13 @@ u32 sceCtrlReadBufferPositive(u32 ctrlDataPtr, u32 nBufs)
 	DEBUG_LOG(HLE,"sceCtrlReadBufferPositive(%08x, %i)", ctrlDataPtr, nBufs);
 	_assert_msg_(HLE, nBufs > 0, "sceCtrlReadBufferPositive: trying to read nothing?");
 
+	if (!ctrlInited)
+		sceCtrlInit();
+
 	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
-	// Let's just ignore if ctrl is inited or not; some games don't init it (Super Fruit Fall)
-	//if (ctrlInited)
-	//{
-		SampleControls();
+
+	if (Memory::IsValidAddress(ctrlDataPtr))
+	{
 		_ctrl_data *ctrlData = (_ctrl_data*) Memory::GetPointer(ctrlDataPtr);
 		memcpy(ctrlData, &ctrl, sizeof(_ctrl_data));
 		if (!analogEnabled)
@@ -164,11 +198,38 @@ u32 sceCtrlReadBufferPositive(u32 ctrlDataPtr, u32 nBufs)
 			ctrlData->analog[0] = 128;
 			ctrlData->analog[1] = 128;
 		}
-	//}
+	}
+
 	return 1;
 }
 
-u32 sceCtrlPeekLatch(u32 latchDataPtr) {
+u32 sceCtrlReadBufferNegative(u32 ctrlDataPtr, u32 nBufs)
+{
+	DEBUG_LOG(HLE,"sceCtrlReadBufferNegative(%08x, %i)", ctrlDataPtr, nBufs);
+	_assert_msg_(HLE, nBufs > 0, "sceCtrlReadBufferNegative: trying to read nothing?");
+
+	if (!ctrlInited)
+		sceCtrlInit();
+
+	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
+
+	if (Memory::IsValidAddress(ctrlDataPtr))
+	{
+		_ctrl_data *ctrlData = (_ctrl_data*) Memory::GetPointer(ctrlDataPtr);
+		memcpy(ctrlData, &ctrl, sizeof(_ctrl_data));
+		ctrlData->buttons = ~ctrlData->buttons;
+		if (!analogEnabled)
+		{
+			ctrlData->analog[0] = 128;
+			ctrlData->analog[1] = 128;
+		}
+	}
+
+	return 1;
+}
+
+u32 sceCtrlPeekLatch(u32 latchDataPtr)
+{
 	ERROR_LOG(HLE,"FAKE sceCtrlPeekLatch(%08x)", latchDataPtr);
 
 	if (Memory::IsValidAddress(latchDataPtr))
@@ -176,13 +237,12 @@ u32 sceCtrlPeekLatch(u32 latchDataPtr) {
 	return 1;
 }
 
-u32 sceCtrlReadLatch(u32 latchDataPtr) {
+u32 sceCtrlReadLatch(u32 latchDataPtr)
+{
 	ERROR_LOG(HLE,"FAKE sceCtrlReadLatch(%08x)", latchDataPtr);
 
 	// Hackery to do it here.
-	SampleControls();
 	UpdateLatch();
-
 
 	if (Memory::IsValidAddress(latchDataPtr))
 		Memory::WriteStruct(latchDataPtr, &latch);
@@ -192,26 +252,26 @@ u32 sceCtrlReadLatch(u32 latchDataPtr) {
 
 static const HLEFunction sceCtrl[] = 
 {
-  {0x6a2774f3, sceCtrlInit, "sceCtrlInit"}, //(int unknown), init with 0
-  {0x1f4011e6, &WrapU_U<sceCtrlSetSamplingMode>, "sceCtrlSetSamplingMode"}, //(int on);
-  {0x1f803938, &WrapU_UU<sceCtrlReadBufferPositive>, "sceCtrlReadBufferPositive"}, //(ctrl_data_t* paddata, int unknown) // unknown should be 1
-  {0x6A2774F3, 0, "sceCtrlSetSamplingCycle"}, //?
-  {0x6A2774F3,sceCtrlSetSamplingCycle,"sceCtrlSetSamplingCycle"},
-  {0x02BAAD91,0,"sceCtrlGetSamplingCycle"},
-  {0xDA6B76A1,0,"sceCtrlGetSamplingMode"},
-  {0x3A622550,&WrapU_UU<sceCtrlReadBufferPositive>, "sceCtrlPeekBufferPositive"},
-  {0xC152080A,0,"sceCtrlPeekBufferNegative"},
-  {0x60B81F86,0,"sceCtrlReadBufferNegative"},
-  {0xB1D0E5CD,&WrapU_U<sceCtrlPeekLatch>,"sceCtrlPeekLatch"},
-  {0x0B588501,&WrapU_U<sceCtrlReadLatch>,"sceCtrlReadLatch"},
-  {0x348D99D4,0,"sceCtrl_348D99D4"},
-  {0xAF5960F3,0,"sceCtrl_AF5960F3"},
-  {0xA68FD260,0,"sceCtrlClearRapidFire"},
-  {0x6841BE1A,0,"sceCtrlSetRapidFire"},
-  {0xa7144800,sceCtrlSetIdleCancelThreshold,"sceCtrlSetIdleCancelThreshold"},
-  {0x687660fa,0,"sceCtrlGetIdleCancelThreshold"},
+	{0x3E65A0EA, WrapV_V<sceCtrlInit>, "sceCtrlInit"}, //(int unknown), init with 0
+	{0x1f4011e6, WrapU_U<sceCtrlSetSamplingMode>, "sceCtrlSetSamplingMode"}, //(int on);
+	{0x6A2774F3, WrapU_U<sceCtrlSetSamplingCycle>, "sceCtrlSetSamplingCycle"},
+	{0x02BAAD91, WrapI_U<sceCtrlGetSamplingCycle>,"sceCtrlGetSamplingCycle"},
+	{0xDA6B76A1, WrapI_U<sceCtrlGetSamplingMode>, "sceCtrlGetSamplingMode"},
+	{0x1f803938, WrapU_UU<sceCtrlReadBufferPositive>, "sceCtrlReadBufferPositive"}, //(ctrl_data_t* paddata, int unknown) // unknown should be 1
+	{0x3A622550, WrapU_UU<sceCtrlReadBufferPositive>, "sceCtrlPeekBufferPositive"},
+	{0xC152080A, WrapU_UU<sceCtrlReadBufferNegative>, "sceCtrlPeekBufferNegative"},
+	{0x60B81F86, WrapU_UU<sceCtrlReadBufferNegative>, "sceCtrlReadBufferNegative"},
+	{0xB1D0E5CD, WrapU_U<sceCtrlPeekLatch>, "sceCtrlPeekLatch"},
+	{0x0B588501, WrapU_U<sceCtrlReadLatch>, "sceCtrlReadLatch"},
+	{0x348D99D4, 0, "sceCtrl_348D99D4"},
+	{0xAF5960F3, 0, "sceCtrl_AF5960F3"},
+	{0xA68FD260, 0, "sceCtrlClearRapidFire"},
+	{0x6841BE1A, 0, "sceCtrlSetRapidFire"},
+	{0xa7144800, WrapV_V<sceCtrlSetIdleCancelThreshold>, "sceCtrlSetIdleCancelThreshold"},
+	{0x687660fa, 0, "sceCtrlGetIdleCancelThreshold"},
 };	
 
-void Register_sceCtrl() {
-  RegisterModule("sceCtrl",ARRAY_SIZE(sceCtrl),sceCtrl);
+void Register_sceCtrl()
+{
+	RegisterModule("sceCtrl", ARRAY_SIZE(sceCtrl), sceCtrl);
 }
