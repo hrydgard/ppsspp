@@ -53,7 +53,7 @@ void WriteLight(char *p, int l) {
 char *GenerateVertexShader()
 {
 	char *p = buffer;
-#if defined(ANDROID) || defined(BLACKBERRY)
+#if defined(USING_GLES2)
 	WRITE("precision highp float;");
 #elif !defined(FORCE_OPENGL_2_0)
 	WRITE("#version 130");

@@ -20,8 +20,8 @@
 #include "../../../Globals.h"
 #include "Asm.h"
 
-#if defined(ANDROID) || defined(BLACKBERRY)
-#error DO NOT BUILD X86 JIT ON ANDROID
+#if defined(ARM)
+#error DO NOT BUILD X86 JIT ON ARM
 #endif
 
 #include "x64Emitter.h"

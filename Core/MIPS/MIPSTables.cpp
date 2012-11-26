@@ -26,11 +26,6 @@
 #include "../../Core/CoreTiming.h"
 #include "../Debugger/Breakpoints.h"
 
-#if defined(ANDROID) || defined(BLACKBERRY)
-#include "ARM/Jit.h"
-#else
-#include "x86/Jit.h"
-#endif
 #include "JitCommon/JitCommon.h"
 
 enum MipsEncoding

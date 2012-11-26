@@ -21,11 +21,7 @@
 #include "MIPSTables.h"
 #include "MIPSDebugInterface.h"
 
-#if defined(ANDROID) || defined(BLACKBERRY)
-#include "ARM/Jit.h"
-#else
-#include "x86/Jit.h"
-#endif
+#include "JitCommon/JitCommon.h"
 
 #define _RS ((op>>21) & 0x1F)
 #define _RT ((op>>16) & 0x1F)

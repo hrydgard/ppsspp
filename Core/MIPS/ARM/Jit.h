@@ -20,8 +20,8 @@
 #include "../../../Globals.h"
 #include "Asm.h"
 
-#if !defined(ANDROID) && !defined(BLACKBERRY)
-#error DO NOT BUILD ARM JIT ON x86
+#if !defined(ARM)
+#error DO NOT BUILD ARM JIT ON NON-ARM
 #endif
 
 

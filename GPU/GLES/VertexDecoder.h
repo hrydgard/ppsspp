@@ -16,6 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #pragma once
+
+#include "../GPUState.h"
 #include "../Globals.h"
 #include "base/basictypes.h"
 
