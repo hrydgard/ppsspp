@@ -24,7 +24,7 @@ else() # Assume x86
 	set(X86 ON)
 endif()
 
-if(ARM OR APPLE)
+if(ANDROID OR BLACKBERRY OR IOS)
 	set(HEADLESS OFF)
 elseif(NOT DEFINED HEADLESS)
 	set(HEADLESS ON)
