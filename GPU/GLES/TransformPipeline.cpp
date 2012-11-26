@@ -29,6 +29,7 @@
 #include "TransformPipeline.h"
 #include "VertexDecoder.h"
 #include "ShaderManager.h"
+#include "DisplayListInterpreter.h"
 
 GLuint glprim[8] =
 {
@@ -195,7 +196,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 // primitives correctly. Other primitives are possible to transform and light in hardware
 // using vertex shader, which will be way, way faster, especially on mobile. This has
 // not yet been implemented though.
-void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, LinkedShader *program, float *customUV, int forceIndexType)
+void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, LinkedShader *program, float *customUV, int forceIndexType)
 {
 	int indexLowerBound, indexUpperBound;
 	// First, decode the verts and apply morphing
@@ -217,6 +218,7 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 	gpuStats.numDrawCalls++;
 	gpuStats.numVertsTransformed += vertexCount;
 
+	bool throughmode = (gstate.vertType & GE_VTYPE_THROUGH_MASK) != 0;
 	// Then, transform and draw in one big swoop (urgh!)
 	// need to move this to the shader.
 	
@@ -252,7 +254,7 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 		float c1[4] = {0, 0, 0, 0};
 		float uv[2] = {0, 0};
 
-		if (gstate.vertType & GE_VTYPE_THROUGH_MASK)
+		if (throughmode)
 		{
 			// Do not touch the coordinates or the colors. No lighting.
 			for (int j=0; j<3; j++)
@@ -616,8 +618,64 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 		glstate.depthFunc.set(ztests[depthTestFunc]);
 	}
 
+	bool wantDepthWrite = gstate.isModeClear() || gstate.isDepthWriteEnabled();
+	glstate.depthWrite.set(wantDepthWrite ? GL_TRUE : GL_FALSE);
+
 	glstate.depthRange.set(gstate_c.zOff - gstate_c.zScale, gstate_c.zOff + gstate_c.zScale);
 
+
+	// Debugging code to mess around with the viewport
+#if 1
+	// We can probably use these to simply set scissors? Maybe we need to offset by regionX1/Y1
+	int regionX1 = gstate.region1 & 0x3FF;
+	int regionY1 = (gstate.region1 >> 10) & 0x3FF;
+	int regionX2 = (gstate.region2 & 0x3FF) + 1;
+	int regionY2 = ((gstate.region2 >> 10) & 0x3FF) + 1;
+
+	float offsetX = (float)(gstate.offsetx & 0xFFFF) / 16.0f;
+	float offsetY = (float)(gstate.offsety & 0xFFFF) / 16.0f;
+
+	if (throughmode) {
+		// No viewport transform here. Let's experiment with using region.
+		glViewport((0 + regionX1) * renderWidthFactor_, (0 - regionY1) * renderHeightFactor_, (regionX2 - regionX1) * renderWidthFactor_, (regionY2 - regionY1) * renderHeightFactor_);
+	} else {
+		// These we can turn into a glViewport call, offset by offsetX and offsetY. Math after.
+		float vpXa = getFloat24(gstate.viewportx1);
+		float vpXb = getFloat24(gstate.viewportx2);
+		float vpYa = getFloat24(gstate.viewporty1);
+		float vpYb = getFloat24(gstate.viewporty2);
+		float vpZa = getFloat24(gstate.viewportz1);  //  / 65536.0f   should map it to OpenGL's 0.0-1.0 Z range
+		float vpZb = getFloat24(gstate.viewportz2);  //  / 65536.0f
+
+		// The viewport transform appears to go like this: 
+		// Xscreen = -offsetX + vpXb + vpXa * Xview
+		// Yscreen = -offsetY + vpYb + vpYa * Yview
+		// Zscreen = vpZb + vpZa * Zview
+	
+		// This means that to get the analogue glViewport we must:
+		float vpX0 = vpXb - offsetX - vpXa;
+		float vpY0 = vpYb - offsetY + vpYa;   // Need to account for sign of Y
+		float vpWidth = vpXa * 2;
+		float vpHeight = -vpYa * 2;
+
+		// TODO: These two should feed into glDepthRange somehow.
+		float vpZ0 = (vpZb - vpZa) / 65536.0f;
+		float vpZ1 = (vpZa * 2) / 65536.0f;
+
+		vpX0 *= renderWidthFactor_;
+		vpY0 *= renderHeightFactor_;
+		vpWidth *= renderWidthFactor_;
+		vpHeight *= renderHeightFactor_;
+
+		// Flip vpY0 to match the OpenGL coordinate system.
+		vpY0 = renderHeight_ - (vpY0 + vpHeight);
+		glViewport(vpX0, vpY0, vpWidth, vpHeight); 
+		// Sadly, as glViewport takes integers, we will not be able to support sub pixel offsets this way. But meh.
+	}
+
+#endif
+
+	// TODO: Make a cache for glEnableVertexAttribArray and glVertexAttribPtr states, these spam the gDebugger log.
 	glEnableVertexAttribArray(program->a_position);
 	if (useTexCoord && program->a_texcoord != -1) glEnableVertexAttribArray(program->a_texcoord);
 	if (program->a_color0 != -1) glEnableVertexAttribArray(program->a_color0);
@@ -637,17 +695,4 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 	if (useTexCoord && program->a_texcoord != -1) glDisableVertexAttribArray(program->a_texcoord);
 	if (program->a_color0 != -1) glDisableVertexAttribArray(program->a_color0);
 	if (program->a_color1 != -1) glDisableVertexAttribArray(program->a_color1);
-
-	/*
-	if (((gstate.vertType ) & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_8BIT)
-	{
-		glDrawElements(glprim, vertexCount, GL_UNSIGNED_BYTE, inds);
-	} 
-	else if (((gstate.vertType ) & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT)
-	{
-		glDrawElements(glprim, vertexCount, GL_UNSIGNED_SHORT, inds);
-	}
-	else
-	{*/
-
 }

@@ -342,6 +342,11 @@ namespace MainWindow
 				UpdateMenus();
 				break;
 
+			case ID_OPTIONS_SHOWDEBUGSTATISTICS:
+				g_Config.bShowDebugStats = !g_Config.bShowDebugStats;
+				UpdateMenus();
+				break;
+
 			case ID_FILE_EXIT:
 				DestroyWindow(hWnd);
 				break;
@@ -605,6 +610,7 @@ namespace MainWindow
 		CHECKITEM(ID_CPU_FASTINTERPRETER,g_Config.iCpuCore == CPU_FASTINTERPRETER);
 		CHECKITEM(ID_CPU_DYNAREC,g_Config.iCpuCore == CPU_JIT);
 		CHECKITEM(ID_OPTIONS_BUFFEREDRENDERING, g_Config.bBufferedRendering);
+		CHECKITEM(ID_OPTIONS_SHOWDEBUGSTATISTICS, g_Config.bShowDebugStats);
 
 		BOOL enable = !Core_IsStepping();
 		EnableMenuItem(menu,ID_EMULATION_RUN,enable);
@@ -612,8 +618,6 @@ namespace MainWindow
 
 		enable = g_State.bEmuThreadStarted;
 		EnableMenuItem(menu,ID_FILE_LOAD,enable);
-		//EnableMenuItem(menu,ID_FILE_LOAD_DOL,enable);
-		//EnableMenuItem(menu,ID_FILE_LOAD_ELF,enable);
 		EnableMenuItem(menu,ID_CPU_DYNAREC,enable);
 		EnableMenuItem(menu,ID_CPU_INTERPRETER,enable);
 		EnableMenuItem(menu,ID_CPU_FASTINTERPRETER,enable);

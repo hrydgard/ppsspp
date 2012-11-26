@@ -823,3 +823,10 @@ bool NullGPU::InterpretList()
 	return true;
 }
 
+void NullGPU::UpdateStats()
+{
+	gpuStats.numVertexShaders = 0;
+	gpuStats.numFragmentShaders = 0;
+	gpuStats.numShaders = 0;
+	gpuStats.numTextures = 0;
+}

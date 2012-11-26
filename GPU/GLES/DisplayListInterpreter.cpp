@@ -49,8 +49,8 @@ GLES_GPU::GLES_GPU(int renderWidth, int renderHeight)
 		renderHeight_(renderHeight),
 		dlIdGenerator(1)
 {
-	widthFactor_ = (float)renderWidth / 480.0f;
-	heightFactor_ = (float)renderHeight / 272.0f;
+	renderWidthFactor_ = (float)renderWidth / 480.0f;
+	renderHeightFactor_ = (float)renderHeight / 272.0f;
 
 	// Sanity check gstate
 	if ((int *)&gstate.transferstart - (int *)&gstate != 0xEA) {
@@ -127,6 +127,7 @@ void GLES_GPU::CopyDisplayToOutput()
 	glstate.blend.disable();
 	glstate.cullFace.disable();
 	glstate.depthTest.disable();
+	glstate.scissorTest.disable();
 
 	fbo_bind_color_as_texture(vfb->fbo, 0);
 
@@ -192,7 +193,7 @@ void GLES_GPU::SetRenderFrameBuffer()
 		vfb->width = drawing_width;
 		vfb->height = drawing_height;
 		vfb->format = fmt;
-		vfb->fbo = fbo_create(vfb->width * widthFactor_, vfb->height * heightFactor_, 1, true);
+		vfb->fbo = fbo_create(vfb->width * renderWidthFactor_, vfb->height * renderHeightFactor_, 1, true);
 		vfbs_.push_back(vfb);
 		fbo_bind_as_render_target(vfb->fbo);
 		glViewport(0, 0, renderWidth_, renderHeight_);
@@ -275,7 +276,7 @@ void GLES_GPU::DrawSync(int mode)
 }
 
 // Just to get something on the screen, we'll just not subdivide correctly.
-void drawBezier(int ucount, int vcount)
+void GLES_GPU::DrawBezier(int ucount, int vcount)
 {
 	u16 indices[3 * 3 * 6];
 	float customUV[32];
@@ -371,7 +372,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 			void *inds = 0;
 			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE)
 				inds = Memory::GetPointer(gstate_c.indexAddr);
-			TransformAndDrawPrim(verts, inds, type, count, linkedShader);
+			TransformAndDrawPrim(verts, inds, type, count, linkedShader, 0, -1);
 		}
 		break;
 
@@ -380,7 +381,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 		{
 			int bz_ucount = data & 0xFF;
 			int bz_vcount = (data >> 8) & 0xFF;
-			drawBezier(bz_ucount, bz_vcount);
+			DrawBezier(bz_ucount, bz_vcount);
 			DEBUG_LOG(G3D,"DL DRAW BEZIER: %i x %i", bz_ucount, bz_vcount);
 		}
 		break;
@@ -1080,6 +1081,14 @@ bool GLES_GPU::InterpretList()
 		prev = op;
 	}
 	return true;
+}
+
+void GLES_GPU::UpdateStats()
+{
+	gpuStats.numVertexShaders = shaderManager.NumVertexShaders();
+	gpuStats.numFragmentShaders = shaderManager.NumFragmentShaders();
+	gpuStats.numShaders = shaderManager.NumPrograms();
+	gpuStats.numTextures = TextureCache_NumLoadedTextures();
 }
 
 

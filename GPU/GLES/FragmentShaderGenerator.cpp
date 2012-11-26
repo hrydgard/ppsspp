@@ -162,8 +162,6 @@ char *GenerateFragmentShader()
 	}
 
 	WRITE(p, "  gl_FragColor = v;\n");
-
-	//WRITE(p, "	gl_FragColor = vec4(1,0,1,1);");
 	WRITE(p, "}\n");
 
 	return buffer;

@@ -88,6 +88,10 @@ public:
 	void DirtyShader();
 	void DirtyUniform(u32 what);
 
+	int NumVertexShaders() const { return (int)vsCache.size(); }
+	int NumFragmentShaders() const { return (int)fsCache.size(); }
+	int NumPrograms() const { return (int)linkedShaderCache.size(); }
+
 private:
 	void Clear();
 

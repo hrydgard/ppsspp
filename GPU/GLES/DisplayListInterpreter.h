@@ -44,8 +44,12 @@ public:
 	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, int format);
 	virtual void CopyDisplayToOutput();
 	virtual void BeginFrame();
+	virtual void UpdateStats();
 
 private:
+	// TransformPipeline.cpp
+	void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, LinkedShader *program, float *customUV, int forceIndexType);
+	void DrawBezier(int ucount, int vcount);
 	void DoBlockTransfer();
 	bool ProcessDLQueue();
 	bool interruptsEnabled_;
@@ -57,8 +61,8 @@ private:
 	int renderWidth_;
 	int renderHeight_;
 
-	float widthFactor_;
-	float heightFactor_;
+	float renderWidthFactor_;
+	float renderHeightFactor_;
 
 	struct CmdProcessorState
 	{

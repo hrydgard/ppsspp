@@ -250,6 +250,7 @@ struct GPUgstate
 	inline int  getBlendFuncB() const { return (blend >> 4) & 0xF; }
 	inline int  getBlendEq()    const { return (blend >> 8) & 0x7; }
 	inline bool isDepthTestEnabled() const { return zTestEnable & 1; }
+	inline bool isDepthWriteEnabled() const { return !(zmsk & 1); }
 	inline int  getDepthTestFunc() const { return ztestfunc & 0x7; }
 };
 // Real data in the context ends here
@@ -299,8 +300,12 @@ struct GPUStatistics
 	int numTextureSwitches;
 	int numShaderSwitches;
 
-	// Total statistics
+	// Total statistics, updated by the GPU core in UpdateStats
 	int numFrames;
+	int numTextures;
+	int numVertexShaders;
+	int numFragmentShaders;
+	int numShaders;
 };
 
 void InitGfxState();

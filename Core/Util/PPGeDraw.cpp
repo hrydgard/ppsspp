@@ -25,6 +25,7 @@
 #include "../MemMap.h"
 #include "image/zim_load.h"
 #include "gfx/texture_atlas.h"
+#include "gfx/gl_common.h"
 #include "../System.h"
 
 static u32 atlasPtr;
@@ -213,7 +214,6 @@ void PPGeEnd()
 		gpu->EnableInterrupts(true);
 		sceGeRestoreContext(savedContextPtr);
 	}
-	
 }
 
 static void PPGeMeasureText(const char *text, float scale, float *w, float *h) {

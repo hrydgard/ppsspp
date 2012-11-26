@@ -620,7 +620,7 @@ void PSPSetTexture()
 				u32 addr = texaddr;
 				for (i = 0; i < bufw * h; i += 2)
 				{
-					u32 index = Memory::Read_U32(addr);
+					u8 index = Memory::Read_U8(addr);
 					tmpTexBuf16[i + 0] = clut[GetClutIndex((index >> 0) & 0xf) + clutSharingOff];
 					tmpTexBuf16[i + 1] = clut[GetClutIndex((index >> 4) & 0xf) + clutSharingOff];
 					addr++;
@@ -654,7 +654,7 @@ void PSPSetTexture()
 				u32 addr = texaddr;
 				for (i = 0; i < bufw * h; i += 2)
 				{
-					u32 index = Memory::Read_U32(addr);
+					u8 index = Memory::Read_U8(addr);
 					tmpTexBuf32[i + 0] = clut[GetClutIndex((index >> 0) & 0xf) + clutSharingOff];
 					tmpTexBuf32[i + 1] = clut[GetClutIndex((index >> 4) & 0xf) + clutSharingOff];
 					addr++;

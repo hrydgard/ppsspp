@@ -39,6 +39,9 @@ public:
 	virtual void BeginFrame() = 0;  // Can be a good place to draw the "memory" framebuffer for accelerated plugins
 	virtual void CopyDisplayToOutput() = 0;
 
+	// Tells the GPU to update the gpuStats structure.
+	virtual void UpdateStats() = 0;
+
 	// Internal hack to avoid interrupts from "PPGe" drawing (utility UI, etc)
 	virtual void EnableInterrupts(bool enable) = 0;
 };

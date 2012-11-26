@@ -36,6 +36,11 @@ void __PPGeShutdown();
 void PPGeBegin();
 void PPGeEnd();
 
+
+// If you want to draw using this texture but not go through the PSP GE emulation,
+// jsut call this. Will bind the texture to unit 0.
+void PPGeBindTexture();
+
 enum {
 	PPGE_ALIGN_LEFT = 0,
 	PPGE_ALIGN_RIGHT = 16,

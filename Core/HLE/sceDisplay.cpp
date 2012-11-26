@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <vector>
+#include <cmath>
 
 // TODO: Move the relevant parts into common. Don't want the core
 // to be dependent on "native", I think. Or maybe should get rid of common
@@ -144,31 +145,43 @@ void hleEnterVblank(u64 userdata, int cyclesLate)
 
 	gpuStats.numFrames++;
 
-	// This doesn't work very well yet. PPGe is probably not a great choice to do custom overlays
-	// as we're not really sure which framebuffer it will end up in at this point.
-	if (false && g_Config.bShowDebugStats)
-	{
-		char stats[512];
-		sprintf(stats,
-			"Frames: %i\n"
-			"Draw calls: %i\n"
-			"Textures loaded: %i\n",
-			gpuStats.numFrames,
-			gpuStats.numDrawCalls,
-			TextureCache_NumLoadedTextures());
-		/*
-		PPGeBegin();
-		PPGeDrawText(stats, 2, 2, 0, 0.3f, 0x90000000);
-		PPGeDrawText(stats, 0, 0, 0, 0.3f);
-		PPGeEnd();
-		*/
-		gpuStats.resetFrame();
-	}
-
 	// Yeah, this has to be the right moment to end the frame. Give the graphics backend opportunity
 	// to blit the framebuffer, in order to support half-framerate games that otherwise wouldn't have
 	// anything to draw here.
 	gpu->CopyDisplayToOutput();
+
+	// Now we can subvert the Ge engine in order to draw custom overlays like stat counters etc.
+	// Here we will be drawing to the non buffered front surface.
+	if (g_Config.bShowDebugStats)
+	{
+		gpu->UpdateStats();
+		char stats[512];
+		sprintf(stats,
+			"Frames: %i\n"
+			"Draw calls: %i\n"
+			"Vertices Transformed: %i\n"
+			"Textures active: %i\n"
+			"Vertex shaders loaded: %i\n"
+			"Fragment shaders loaded: %i\n"
+			"Combined shaders loaded: %i\n",
+			gpuStats.numFrames,
+			gpuStats.numDrawCalls,
+			gpuStats.numVertsTransformed,
+			gpuStats.numTextures,
+			gpuStats.numVertexShaders,
+			gpuStats.numFragmentShaders,
+			gpuStats.numShaders
+			);
+		
+		float zoom = 0.7f * sqrtf(g_Config.iWindowZoom);
+		PPGeBegin();
+		PPGeDrawText(stats, 2, 2, 0, zoom, 0x90000000);
+		PPGeDrawText(stats, 0, 0, 0, zoom);
+		PPGeEnd();
+		
+		gpuStats.resetFrame();
+	}
+
 
 	host->EndFrame();
 
@@ -186,7 +199,6 @@ void hleEnterVblank(u64 userdata, int cyclesLate)
 		lastFrameTime = time_now_d();
 	}
 #endif
-
 
 	host->BeginFrame();
 	gpu->BeginFrame();

@@ -38,6 +38,7 @@ public:
 	virtual void BeginFrame() {}
 	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, int format) {}
 	virtual void CopyDisplayToOutput() {}
+	virtual void UpdateStats();
 
 private:
 	bool ProcessDLQueue();
