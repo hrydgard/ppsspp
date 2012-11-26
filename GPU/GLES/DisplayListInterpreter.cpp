@@ -996,54 +996,76 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_WORLDMATRIXNUMBER:
-		DEBUG_LOG(G3D,"DL World matrix # %i", data);
-		gstate.worldmtxnum = data&0xF;
+		DEBUG_LOG(G3D,"DL World matrix # %i", data & 0xF);
+		gstate.worldmtxnum &= 0xFF00000F;
 		break;
 
 	case GE_CMD_WORLDMATRIXDATA:
 		DEBUG_LOG(G3D,"DL World matrix data # %f", getFloat24(data));
-		gstate.worldMatrix[gstate.worldmtxnum++] = getFloat24(data);
+		{
+			int num = gstate.worldmtxnum & 0xF;
+			if (num < 12)
+				gstate.worldMatrix[num++] = getFloat24(data);
+			gstate.worldmtxnum = (gstate.worldmtxnum & 0xFF000000) | (num & 0xF);
+		}
 		break;
 
 	case GE_CMD_VIEWMATRIXNUMBER:
-		DEBUG_LOG(G3D,"DL VIEW matrix # %i", data);
-		gstate.viewmtxnum = data&0xF;
+		DEBUG_LOG(G3D,"DL VIEW matrix # %i", data & 0xF);
+		gstate.viewmtxnum &= 0xFF00000F;
 		break;
 
 	case GE_CMD_VIEWMATRIXDATA:
 		DEBUG_LOG(G3D,"DL VIEW matrix data # %f", getFloat24(data));
-		gstate.viewMatrix[gstate.viewmtxnum++] = getFloat24(data);
+		{
+			int num = gstate.viewmtxnum & 0xF;
+			if (num < 12)
+				gstate.viewMatrix[num++] = getFloat24(data);
+			gstate.viewmtxnum = (gstate.viewmtxnum & 0xFF000000) | (num & 0xF);
+		}
 		break;
 
 	case GE_CMD_PROJMATRIXNUMBER:
-		DEBUG_LOG(G3D,"DL PROJECTION matrix # %i", data);
-		gstate.projmtxnum = data&0xF;
+		DEBUG_LOG(G3D,"DL PROJECTION matrix # %i", data & 0xF);
+		gstate.projmtxnum &= 0xFF00000F;
 		break;
 
 	case GE_CMD_PROJMATRIXDATA:
 		DEBUG_LOG(G3D,"DL PROJECTION matrix data # %f", getFloat24(data));
-		gstate.projMatrix[gstate.projmtxnum++] = getFloat24(data);
+		{
+			int num = gstate.projmtxnum & 0xF;
+			gstate.projMatrix[num++] = getFloat24(data);
+			gstate.projmtxnum = (gstate.projmtxnum & 0xFF000000) | (num & 0xF);
+		}
 		shaderManager.DirtyUniform(DIRTY_PROJMATRIX);
 		break;
 
 	case GE_CMD_TGENMATRIXNUMBER:
-		DEBUG_LOG(G3D,"DL TGEN matrix # %i", data);
-		gstate.texmtxnum = data&0xF;
+		DEBUG_LOG(G3D,"DL TGEN matrix # %i", data & 0xF);
+		gstate.texmtxnum &= 0xFF00000F;
 		break;
 
 	case GE_CMD_TGENMATRIXDATA:
 		DEBUG_LOG(G3D,"DL TGEN matrix data # %f", getFloat24(data));
-		gstate.tgenMatrix[gstate.texmtxnum++] = getFloat24(data);
+		{
+			int num = gstate.texmtxnum & 0xF;
+			gstate.tgenMatrix[num++] = getFloat24(data);
+			gstate.texmtxnum = (gstate.texmtxnum & 0xFF000000) | (num & 0xF);
+		}
 		break;
 
 	case GE_CMD_BONEMATRIXNUMBER:
 		DEBUG_LOG(G3D,"DL BONE matrix #%i", data);
-		gstate.boneMatrixNumber = data;
+		gstate.boneMatrixNumber &= 0xFF000007F;
 		break;
 
 	case GE_CMD_BONEMATRIXDATA:
-		DEBUG_LOG(G3D,"DL BONE matrix data #%i %f", gstate.boneMatrixNumber, getFloat24(data));
-		gstate.boneMatrix[gstate.boneMatrixNumber++] = getFloat24(data);
+		DEBUG_LOG(G3D,"DL BONE matrix data #%i %f", gstate.boneMatrixNumber & 0x7f, getFloat24(data));
+		{
+			int num = gstate.boneMatrixNumber & 0x7F;
+			gstate.boneMatrix[num++] = getFloat24(data);
+			gstate.boneMatrixNumber = (gstate.boneMatrixNumber & 0xFF000000) | (num & 0x7F);
+		}
 		break;
 
 	default:

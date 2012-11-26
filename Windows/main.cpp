@@ -102,7 +102,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	hidden = true;
 #endif
 	LogManager::GetInstance()->GetConsoleListener()->Open(hidden, 150, 120, "PPSSPP Debug Console");
-	LogManager::GetInstance()->SetLogLevel(LogTypes::G3D, LogTypes::LNOTICE);
+	LogManager::GetInstance()->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
 	if (strlen(fileToLoad))
 	{
 		// TODO: load the thing
