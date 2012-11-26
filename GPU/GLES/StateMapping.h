@@ -1,4 +1,4 @@
-#if defined(ANDROID) || defined(BLACKBERRY)
+#if defined(USING_GLES2)
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 #else

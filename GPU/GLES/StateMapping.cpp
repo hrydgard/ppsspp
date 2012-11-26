@@ -31,7 +31,7 @@ const GLint eqLookup[] = {
 	GL_FUNC_ADD,
 	GL_FUNC_SUBTRACT,
 	GL_FUNC_REVERSE_SUBTRACT,
-#if defined(ANDROID) || defined(BLACKBERRY)
+#if defined(USING_GLES2)
 	GL_FUNC_ADD,
 	GL_FUNC_ADD,
 #else

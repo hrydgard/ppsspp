@@ -15,7 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#if defined(ANDROID) || defined(BLACKBERRY)
+#if defined(USING_GLES2)
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 #else
@@ -224,7 +224,7 @@ void SetBlendModePSP(u32 data)
 		GL_FUNC_ADD,
 		GL_FUNC_SUBTRACT,
 		GL_FUNC_REVERSE_SUBTRACT,
-#if defined(ANDROID) || defined(BLACKBERRY)
+#if defined(USING_GLES2)
 		GL_FUNC_ADD,
 		GL_FUNC_ADD,
 #else

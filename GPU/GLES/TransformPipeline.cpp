@@ -15,18 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#if defined(ANDROID) || defined(BLACKBERRY)
-#include <GLES2/gl2.h>
-#include <GLES2/gl2ext.h>
-#else
-#include <GL/glew.h>
-#if defined(__APPLE__)
-#include <OpenGL/gl.h>
-#else
-#include <GL/gl.h>
-#endif
-#endif
-
 #include "../../Core/MemMap.h"
 #include "../../Core/Host.h"
 #include "../../Core/System.h"
@@ -248,9 +236,9 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 
 	// TODO: Could use glDrawElements in some cases, see below.
 
-	// TODO: Split up into multiple draw calls for Android where you can't guarantee support for more than 0x10000 verts.
+	// TODO: Split up into multiple draw calls for GLES 2.0 where you can't guarantee support for more than 0x10000 verts.
 
-#if defined(ANDROID) || defined(BLACKBERRY)
+#if defined(USING_GLES2)
 	if (vertexCount > 0x10000/3)
 		vertexCount = 0x10000/3;
 #endif

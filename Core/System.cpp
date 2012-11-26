@@ -19,11 +19,7 @@
 
 #include "MIPS/MIPS.h"
 
-#if defined(ANDROID) || defined(BLACKBERRY)
-#include "MIPS/ARM/Jit.h"
-#else
-#include "MIPS/x86/Jit.h"
-#endif
+#include "MIPS/JitCommon/JitCommon.h"
 
 #include "System.h"
 // Bad dependency

@@ -34,9 +34,9 @@ option(HEADLESS "Set to OFF to not generate the PPSSPPHeadless target" ${HEADLES
 if(ANDROID)
 	if(NOT ANDROID_ABI)
 		message(FATAL_ERROR "CMAKE_TOOLCHAIN_FILE was not set!\n"
-							"Delete the CMakeCache.txt file and CMakeFiles directory."
-							"Rerun ${CMAKE_COMMAND} with \"-DCMAKE_TOOLCHAIN_FILE"
-							"=${CMAKE_SOURCE_DIR}/android/android.toolchain.cmake\"")
+			"Delete the CMakeCache.txt file and CMakeFiles directory."
+			"Rerun ${CMAKE_COMMAND} with \"-DCMAKE_TOOLCHAIN_FILE"
+			"=${CMAKE_SOURCE_DIR}/android/android.toolchain.cmake\"")
 	endif()
 	set(CoreLibName ppsspp_jni)
 	set(CoreLinkType SHARED)
@@ -76,8 +76,9 @@ if (USING_GLES2)
 endif()
 
 if(NOT MSVC)
-	# Disable warnings about va_list mangling
+	# Disable some warnings
 	add_definitions(-Wno-psabi)
+	add_definitions(-Wno-multichar)
 	add_definitions(-fno-strict-aliasing)
 	if(NOT APPLE)
 		add_definitions(-D_XOPEN_SOURCE=600 -D_XOPEN_SOURCE_EXTENDED -D__BSD_VISIBLE=1)
