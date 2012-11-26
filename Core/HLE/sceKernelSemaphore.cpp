@@ -78,7 +78,7 @@ bool __KernelClearSemaThreads(Semaphore *s, int reason)
 
 	// TODO: PSP_SEMA_ATTR_PRIORITY
 	std::vector<SceUID>::iterator iter;
-	for (iter = s->waitingThreads.begin(); iter!=s->waitingThreads.end(); iter++)
+	for (iter = s->waitingThreads.begin(); iter != s->waitingThreads.end(); ++iter)
 	{
 		SceUID threadID = *iter;
 
@@ -94,7 +94,7 @@ bool __KernelClearSemaThreads(Semaphore *s, int reason)
 		__KernelResumeThreadFromWait(threadID, reason);
 		wokeThreads = true;
 	}
-	s->waitingThreads.empty();
+	s->waitingThreads.clear();
 
 	return wokeThreads;
 }
@@ -129,8 +129,8 @@ void sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr)
 		// We need to set the return value BEFORE rescheduling threads.
 		RETURN(0);
 
-		__KernelClearSemaThreads(s, SCE_KERNEL_ERROR_WAIT_CANCEL);
-		__KernelReSchedule("semaphore cancelled");
+		if (__KernelClearSemaThreads(s, SCE_KERNEL_ERROR_WAIT_CANCEL))
+			__KernelReSchedule("semaphore canceled");
 	}
 	else
 	{
@@ -170,8 +170,6 @@ void sceKernelCreateSema(const char* name, u32 attr, int initVal, int maxVal, u3
 		WARN_LOG(HLE,"sceKernelCreateSema(%s) unsupported options parameter.", name);
 
 	RETURN(id);
-
-	__KernelReSchedule("semaphore created");
 }
 
 //int sceKernelDeleteSema(SceUID semaid);
@@ -184,9 +182,11 @@ void sceKernelDeleteSema(SceUID id)
 	Semaphore *s = kernelObjects.Get<Semaphore>(id, error);
 	if (s)
 	{
-		__KernelClearSemaThreads(s, SCE_KERNEL_ERROR_WAIT_DELETE);
+		bool wokeThreads = __KernelClearSemaThreads(s, SCE_KERNEL_ERROR_WAIT_DELETE);
 		RETURN(kernelObjects.Destroy<Semaphore>(id));
-		__KernelReSchedule("semaphore deleted");
+
+		if (wokeThreads)
+			__KernelReSchedule("semaphore deleted");
 	}
 	else
 	{
@@ -206,7 +206,6 @@ void sceKernelReferSemaStatus(SceUID id, u32 infoPtr)
 		DEBUG_LOG(HLE,"sceKernelReferSemaStatus(%i, %08x)", id, infoPtr);
 		Memory::WriteStruct(infoPtr, &s->ns);
 		RETURN(0);
-		__KernelReSchedule("semaphore refer status");
 	}
 	else
 	{
@@ -219,7 +218,6 @@ void sceKernelReferSemaStatus(SceUID id, u32 infoPtr)
 // void because it changes threads.
 void sceKernelSignalSema(SceUID id, int signal)
 {
-	//TODO: check that this thing really works :)
 	u32 error;
 	Semaphore *s = kernelObjects.Get<Semaphore>(id, error);
 	if (s)
@@ -237,11 +235,11 @@ void sceKernelSignalSema(SceUID id, int signal)
 		// We need to set the return value BEFORE processing other threads.
 		RETURN(0);
 
-		bool wokeThreads = false;
-retry:
 		// TODO: PSP_SEMA_ATTR_PRIORITY
+		bool wokeThreads = false;
 		std::vector<SceUID>::iterator iter;
-		for (iter = s->waitingThreads.begin(); iter!=s->waitingThreads.end(); iter++)
+retry:
+		for (iter = s->waitingThreads.begin(); iter != s->waitingThreads.end(); ++iter)
 		{
 			SceUID threadID = *iter;
 
@@ -261,17 +259,14 @@ retry:
 				}
 
 				__KernelResumeThreadFromWait(threadID, 0);
-				wokeThreads = true;
 				s->waitingThreads.erase(iter);
+				wokeThreads = true;
 				goto retry;
-			}
-			else
-			{
-				break;
 			}
 		}
 
-		__KernelReSchedule("semaphore signalled");
+		if (wokeThreads)
+			__KernelReSchedule("semaphore signaled");
 	}
 	else
 	{
@@ -336,9 +331,9 @@ void __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, const char *ba
 			__KernelWaitCurThread(WAITTYPE_SEMA, id, wantedCount, timeoutPtr, processCallbacks);
 			if (processCallbacks)
 				__KernelCheckCallbacks();
-		}
 
-		__KernelReSchedule("semaphore waited");
+			__KernelReSchedule("semaphore waited");
+		}
 	}
 	else
 	{
@@ -387,8 +382,6 @@ void sceKernelPollSema(SceUID id, int wantedCount)
 		}
 		else
 			RETURN(SCE_KERNEL_ERROR_SEMA_ZERO);
-
-		__KernelReSchedule("semaphore polled");
 	}
 	else
 	{
