@@ -1,29 +1,16 @@
-#if defined(ANDROID) || defined(BLACKBERRY)
-#include <GLES2/gl2.h>
-#include <GLES2/gl2ext.h>
+#include <string.h>
+
+#include "base/logging.h"
+#include "gfx_es2/fbo.h"
+#include "gfx/gl_common.h"
+
+#if defined(USING_GLES2)
 #define GL_READ_FRAMEBUFFER GL_FRAMEBUFFER
 #define GL_DRAW_FRAMEBUFFER GL_FRAMEBUFFER
 #define GL_RGBA8 GL_RGBA
 #ifndef GL_DEPTH_COMPONENT24
 #define GL_DEPTH_COMPONENT24 GL_DEPTH_COMPONENT24_OES
 #endif
-#else
-#include <GL/glew.h>
-#if defined(__APPLE__)
-#include <OpenGL/gl.h>
-#else
-#include <GL/gl.h>
-#endif
-#endif
-
-#include <string.h>
-
-#include "base/logging.h"
-#include "gfx_es2/fbo.h"
-
-// TODO: Move out
-#if defined(ANDROID) || defined(BLACKBERRY)
-#define GLES
 #endif
 
 // TODO: Breakout this GL extension checker in its own file.
@@ -94,7 +81,7 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil) {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-#ifdef GLES
+#ifdef USING_GLES2
 	if (gl_extensions.OES_packed_depth_stencil) {
 		ILOG("Creating FBO using DEPTH24_STENCIL8");
 		// Standard method

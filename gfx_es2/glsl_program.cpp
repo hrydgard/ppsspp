@@ -1,16 +1,3 @@
-#if defined(ANDROID) || defined(BLACKBERRY)
-#include <GLES2/gl2.h>
-#include <GLES2/gl2ext.h>
-typedef char GLchar;
-#else
-#include <GL/glew.h>
-#if defined(__APPLE__)
-#include <OpenGL/gl.h>
-#else
-#include <GL/gl.h>
-#endif
-#endif
-
 #include <set>
 
 #include <stdio.h>
@@ -19,7 +6,7 @@ typedef char GLchar;
 
 #include "base/logging.h"
 #include "file/vfs.h"
-#include "gfx_es2/glsl_program.h"
+#include "glsl_program.h"
 
 static std::set<GLSLProgram *> active_programs;
 
@@ -37,7 +24,7 @@ bool CompileShader(const char *source, GLuint shader, const char *filename) {
 		ELOG("Error in shader compilation of %s!\n", filename);
 		ELOG("Info log: %s\n", infoLog);
 		ELOG("Shader source:\n%s\n", (const char *)source);
-#if defined(ANDROID) || defined(BLACKBERRY)
+#if defined(ARM)
 		exit(1);
 #endif
 		return false;

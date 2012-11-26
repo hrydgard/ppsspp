@@ -1,15 +1,3 @@
-#if defined(ANDROID) || defined(BLACKBERRY)
-#include <GLES2/gl2.h>
-#include <GLES2/gl2ext.h>
-#else
-#include <GL/glew.h>
-#if defined(__APPLE__)
-#include <OpenGL/gl.h>
-#else
-#include <GL/gl.h>
-#endif
-#endif
-
 #include <algorithm>
 #include <cmath>
 
@@ -21,6 +9,7 @@
 #include "gfx_es2/gl_state.h"
 #include "gfx/texture_atlas.h"
 #include "gfx/gl_debug_log.h"
+#include "gfx/gl_common.h"
 
 enum {
   // Enough?
