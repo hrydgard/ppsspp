@@ -822,7 +822,8 @@ void PSPSetTexture()
 	//glPixelStorei(GL_PACK_ROW_LENGTH, bufw);
 	glPixelStorei(GL_PACK_ALIGNMENT, texByteAlign);
 
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, dstFmt, finalBuf);
+	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
+	glTexImage2D(GL_TEXTURE_2D, 0, components, w, h, 0, components, dstFmt, finalBuf);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
