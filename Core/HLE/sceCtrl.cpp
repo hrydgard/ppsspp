@@ -40,7 +40,6 @@ struct _ctrl_data
 	u8  unused[6];
 };
 
-static u32 oldButtons;
 struct CtrlLatch {
 	u32 btnMake;
 	u32 btnBreak;
@@ -53,6 +52,8 @@ struct CtrlLatch {
 // STATE BEGIN
 static bool ctrlInited = false;
 static bool analogEnabled = false;
+static int ctrlLatchBufs = 0;
+static u32 ctrlOldButtons = 0;
 
 static _ctrl_data ctrl;
 static CtrlLatch latch;
@@ -65,20 +66,33 @@ static std::recursive_mutex ctrlMutex;
 
 void sceCtrlInit();
 
-void UpdateLatch()
+void __CtrlUpdateLatch()
 {
 	if (!ctrlInited)
 		sceCtrlInit();
 
-	u32 changed = ctrl.buttons ^ oldButtons;
-	latch.btnMake = ctrl.buttons & changed;
-	latch.btnBreak = oldButtons & changed;
-	latch.btnPress = ctrl.buttons;
-	latch.btnRelease = (oldButtons & ~ctrl.buttons) & changed;
+	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
+
+	u32 changed = ctrl.buttons ^ ctrlOldButtons;
+	latch.btnMake |= ctrl.buttons & changed;
+	latch.btnBreak |= ctrlOldButtons & changed;
+	latch.btnPress |= ctrl.buttons;
+	latch.btnRelease |= (ctrlOldButtons & ~ctrl.buttons) & changed;
+	// TODO: This should really be happening based on the "sampling cycle"...
+	ctrlLatchBufs++;
 		
-	oldButtons = ctrl.buttons;
+	ctrlOldButtons = ctrl.buttons;
 }
 
+int __CtrlResetLatch()
+{
+	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
+
+	int oldBufs = ctrlLatchBufs;
+	memset(&latch, 0, sizeof(CtrlLatch));
+	ctrlLatchBufs = 0;
+	return oldBufs;
+}
 
 u32 __CtrlPeekButtons()
 {
@@ -98,6 +112,7 @@ void __CtrlButtonDown(u32 buttonBit)
 
 	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
 	ctrl.buttons |= buttonBit;
+	__CtrlUpdateLatch();
 }
 
 void __CtrlButtonUp(u32 buttonBit)
@@ -107,6 +122,7 @@ void __CtrlButtonUp(u32 buttonBit)
 
 	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
 	ctrl.buttons &= ~buttonBit;
+	__CtrlUpdateLatch();
 }
 
 void __CtrlSetAnalog(float x, float y)
@@ -122,6 +138,8 @@ void __CtrlSetAnalog(float x, float y)
 	if (y < -1.0f) y = -1.0f;
 	ctrl.analog[0] = (u8)(x * 127.f + 128.f);
 	ctrl.analog[1] = (u8)(y * 127.f + 128.f);
+
+	__CtrlUpdateLatch();
 }
 
 void sceCtrlInit()
@@ -130,6 +148,7 @@ void sceCtrlInit()
 
 	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
 
+	memset(&latch, 0, sizeof(latch));
 	memset(&ctrl, 0, sizeof(ctrl));
 	ctrl.analog[0] = 128;
 	ctrl.analog[1] = 128;
@@ -200,7 +219,7 @@ u32 sceCtrlReadBufferPositive(u32 ctrlDataPtr, u32 nBufs)
 		_ctrl_data *ctrlData = (_ctrl_data*) Memory::GetPointer(ctrlDataPtr);
 		memcpy(ctrlData, &ctrl, sizeof(_ctrl_data));
 
-		ctrlData->frame = CoreTiming::GetTicks() / CoreTiming::GetClockFrequencyMHz();
+		ctrlData->frame = (u32) (CoreTiming::GetTicks() / CoreTiming::GetClockFrequencyMHz());
 		if (!analogEnabled)
 		{
 			ctrlData->analog[0] = 128;
@@ -228,7 +247,7 @@ u32 sceCtrlReadBufferNegative(u32 ctrlDataPtr, u32 nBufs)
 		memcpy(ctrlData, &ctrl, sizeof(_ctrl_data));
 
 		ctrlData->buttons = ~ctrlData->buttons;
-		ctrlData->frame = CoreTiming::GetTicks() / CoreTiming::GetClockFrequencyMHz();
+		ctrlData->frame = (u32) (CoreTiming::GetTicks() / CoreTiming::GetClockFrequencyMHz());
 		if (!analogEnabled)
 		{
 			ctrlData->analog[0] = 128;
@@ -243,22 +262,25 @@ u32 sceCtrlPeekLatch(u32 latchDataPtr)
 {
 	ERROR_LOG(HLE,"FAKE sceCtrlPeekLatch(%08x)", latchDataPtr);
 
+	// TODO: We don't really want to do this here, it should be on an interval.
+	__CtrlUpdateLatch();
+
 	if (Memory::IsValidAddress(latchDataPtr))
 		Memory::WriteStruct(latchDataPtr, &latch);
-	return 1;
+	return ctrlLatchBufs;
 }
 
 u32 sceCtrlReadLatch(u32 latchDataPtr)
 {
 	ERROR_LOG(HLE,"FAKE sceCtrlReadLatch(%08x)", latchDataPtr);
 
-	// Hackery to do it here.
-	UpdateLatch();
+	// TODO: We don't really want to do this here, it should be on an interval.
+	__CtrlUpdateLatch();
 
 	if (Memory::IsValidAddress(latchDataPtr))
 		Memory::WriteStruct(latchDataPtr, &latch);
 
-	return 1;
+	return __CtrlResetLatch();
 }
 
 static const HLEFunction sceCtrl[] = 
