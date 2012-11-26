@@ -16,6 +16,21 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #pragma once
+#if defined(USING_GLES2)
+#include <GLES2/gl2.h>
+#include <GLES2/gl2ext.h>
+#elif defined(IOS)
+#include <OpenGLES/ES2/gl.h>
+#include <OpenGLES/ES2/glext.h>
+typedef char GLchar;
+#else
+#include <GL/glew.h>
+#if defined(__APPLE__)
+#include <OpenGL/gl.h>
+#else
+#include <GL/gl.h>
+#endif
+#endif
 
 #include "../Globals.h"
 #include "ge_constants.h"

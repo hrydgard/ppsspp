@@ -49,7 +49,7 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true)
 
 	CoreParameter coreParam;
 	coreParam.cpuCore = (CPUCore)g_Config.iCpuCore;
-#if defined(ANDROID) || defined(BLACKBERRY)
+#if defined(ARM)
 	if (coreParam.cpuCore == CPU_JIT)
 		coreParam.cpuCore = CPU_FASTINTERPRETER;
 #endif
@@ -185,10 +185,9 @@ void EmuScreen::render()
 
 	ui_draw2d.Begin(DBMODE_NORMAL);
 
-	// Don't want the gamepad on MacOSX and Linux
-// #ifdef ANDROID
+	// Make this configurable.
+//  if (coreParam.useTouchControls)
 	DrawGamepad(ui_draw2d);
-// #endif
 
 	DrawWatermark();
 
@@ -198,7 +197,7 @@ void EmuScreen::render()
 
 
 	// Tiled renderers like PowerVR should benefit greatly from this. However - seems I can't call it?
-#if defined(ANDROID) || defined(BLACKBERRY)
+#if defined(USING_GLES2)
 	bool hasDiscard = false;  // TODO
 	if (hasDiscard) {
 		//glDiscardFramebuffer(GL_COLOR_EXT | GL_DEPTH_EXT | GL_STENCIL_EXT);

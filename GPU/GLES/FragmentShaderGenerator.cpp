@@ -15,7 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#if defined(ANDROID) || defined(BLACKBERRY)
+#if defined(USING_GLES2)
 #define GLSL_ES_1_0
 #else
 #define GLSL_1_3
