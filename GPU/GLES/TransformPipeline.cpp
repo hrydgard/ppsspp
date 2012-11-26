@@ -530,6 +530,9 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 
 	// TODO: All this setup is soon so expensive that we'll need dirty flags, or simply do it in the command writes where we detect dirty by xoring. Silly to do all this work on every drawcall.
 
+	// TODO: The top bit of the alpha channel should be written to the stencil bit somehow. This appears to require very expensive multipass rendering :( Alternatively, one could do a
+	// single fullscreen pass that converts alpha to stencil (or 2 passes, to set both the 0 and 1 values) very easily.
+
 	// Set cull
 	bool wantCull = !gstate.isModeClear() && !gstate.isModeThrough() && gstate.isCullEnabled();
 	glstate.cullFace.set(wantCull);
@@ -586,6 +589,11 @@ void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, Li
 				if (fixA == (fixB ^ 0xFFFFFF)) {
 					glBlendFuncA = GL_CONSTANT_COLOR;
 					glBlendFuncB = GL_ONE_MINUS_CONSTANT_COLOR;
+					const float blendColor[4] = {(fixA & 0xFF)/255.0f, ((fixA >> 8) & 0xFF)/255.0f, ((fixA >> 16) & 0xFF)/255.0f, 1.0f};
+					glstate.blendColor.set(blendColor);
+				} else if (fixA == fixB) {
+					glBlendFuncA = GL_CONSTANT_COLOR;
+					glBlendFuncB = GL_CONSTANT_COLOR;
 					const float blendColor[4] = {(fixA & 0xFF)/255.0f, ((fixA >> 8) & 0xFF)/255.0f, ((fixA >> 16) & 0xFF)/255.0f, 1.0f};
 					glstate.blendColor.set(blendColor);
 				} else {

@@ -190,7 +190,7 @@ void VertexDecoder::DecodeVerts(DecodedVertex *decoded, const void *verts, const
 			{
 				const u8 *uvdata = (const u8*)(ptr + tcoff);
 				for (int j = 0; j < 2; j++)
-					uv[j] = (float)uvdata[j]/255.0f;
+					uv[j] = (float)uvdata[j] / 255.0f;
 				break;
 			}
 
@@ -213,8 +213,13 @@ void VertexDecoder::DecodeVerts(DecodedVertex *decoded, const void *verts, const
 		case GE_VTYPE_TC_FLOAT:
 			{
 				const float *uvdata = (const float*)(ptr + tcoff);
-				for (int j = 0; j < 2; j++)
-					uv[j] = uvdata[j];
+				if (throughmode) {
+					uv[0] = uvdata[0] / (float)(gstate_c.curTextureWidth);
+					uv[1] = uvdata[1] / (float)(gstate_c.curTextureHeight);
+				} else {
+					uv[0] = uvdata[0];
+					uv[1] = uvdata[1];
+				}
 			}
 			break;
 		}
