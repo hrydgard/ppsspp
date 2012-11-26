@@ -25,6 +25,10 @@
 #define SLEEP(x) usleep(x*1000)
 #endif
 
+#ifdef IOS
+#include <signal.h>
+#endif
+
 template <bool> struct CompileTimeAssert;
 template<> struct CompileTimeAssert<true> {};
 

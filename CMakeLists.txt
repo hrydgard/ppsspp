@@ -1,14 +1,14 @@
 cmake_minimum_required(VERSION 2.8.8)
 project(PPSSPP)
 
-if(ANDROID OR BLACKBERRY OR APPLE)
-	set(HEADLESS OFF)
-elseif(NOT DEFINED HEADLESS)
-	set(HEADLESS ON)
+if(ANDROID)
+	if(ARMEABI OR ARMEABI_V7A)
+		set(ARM ON)
+	endif()
 endif()
 
-if(ANDROID_ABI)
-	if(ARMEABI OR ARMEABI_V7A)
+if (IOS)
+	if (${IOS_PLATFORM} STREQUAL "OS")
 		set(ARM ON)
 	endif()
 endif()
@@ -23,11 +23,18 @@ else() # Assume x86
 	set(X86 ON)
 endif()
 
+if(ARM OR APPLE)
+	set(HEADLESS OFF)
+elseif(NOT DEFINED HEADLESS)
+	set(HEADLESS ON)
+endif()
+
 # User-editable options (go into CMakeCache.txt)
 option(ARM "Set to ON if targeting an ARM processor" ${ARM})
 option(X86 "Set to ON if targeting an X86 processor" ${X86})
 option(ANDROID "Set to ON if targeting an Android device" ${ANDROID})
 option(BLACKBERRY "Set to ON if targeting a Blackberry device" ${BLACKBERRY})
+option(IOS "Set to ON if targeting an iOS device" ${IOS})
 option(USING_GLES2 "Set to ON if target device uses OpenGL ES 2.0" ${USING_GLES2})
 option(HEADLESS "Set to OFF to not generate the PPSSPPHeadless target" ${HEADLESS})
 
@@ -40,6 +47,15 @@ if(ANDROID)
 	endif()
 	set(CoreLibName ppsspp_jni)
 	set(CoreLinkType SHARED)
+elseif(IOS)
+	if (NOT IOS_PLATFORM)
+		message(FATAL_ERROR "CMAKE_TOOLCHAIN_FILE was not set!\n"
+			"Delete the CMakeCache.txt file and CMakeFiles directory."
+			"Rerun ${CMAKE_COMMAND} with \"-DCMAKE_TOOLCHAIN_FILE"
+			"=${CMAKE_SOURCE_DIR}/ios/ios.toolchain.cmake\"")
+	endif()
+	set(CoreLibName Core)
+	set(CoreLinkType STATIC)
 else()
 	set(CoreLibName Core)
 	set(CoreLinkType STATIC)
@@ -66,6 +82,10 @@ endif()
 
 if(ANDROID)
 	add_definitions(-DANDROID)
+endif()
+
+if(IOS)
+	add_definitions(-DIOS)
 endif()
 
 if(ARM)
@@ -819,6 +839,8 @@ if(SDL_FOUND)
 		add_executable(PPSSPPBlackberry	native/base/BlackberryMain.cpp ${NativeAppSource})
 		target_link_libraries(PPSSPPBlackberry ${LinkCommon} bps screen socket EGL GLESv2)
 	elseif(ANDROID)
+		# no target
+	elseif(IOS)
 		# no target
 	else()
 		set(SDL_Main native/base/PCMain.cpp)
