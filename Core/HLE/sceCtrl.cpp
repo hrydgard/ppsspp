@@ -17,6 +17,7 @@
 
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
+#include "../CoreTiming.h"
 #include "StdMutex.h"
 #include "sceCtrl.h"
 
@@ -28,6 +29,7 @@
 #define CTRL_MODE_ANALOG    1
 
 const int PSP_CTRL_ERROR_INVALID_MODE = 0x80000107;
+const int PSP_CTRL_ERROR_INVALID_NUM_BUFFERS = 0x80000104;
 
 // Returned control data
 struct _ctrl_data
@@ -131,7 +133,6 @@ void sceCtrlInit()
 	memset(&ctrl, 0, sizeof(ctrl));
 	ctrl.analog[0] = 128;
 	ctrl.analog[1] = 128;
-	// TODO: Make this increment in the correct way.
 	ctrl.frame = 1;
 
 	DEBUG_LOG(HLE,"sceCtrlInit");	
@@ -181,8 +182,13 @@ void sceCtrlSetIdleCancelThreshold()
 
 u32 sceCtrlReadBufferPositive(u32 ctrlDataPtr, u32 nBufs)
 {
+	// TODO: Test rescheduling.
 	DEBUG_LOG(HLE,"sceCtrlReadBufferPositive(%08x, %i)", ctrlDataPtr, nBufs);
 	_assert_msg_(HLE, nBufs > 0, "sceCtrlReadBufferPositive: trying to read nothing?");
+
+	// Pretend we have only 64 of them.
+	if (nBufs > 64)
+		return PSP_CTRL_ERROR_INVALID_NUM_BUFFERS;
 
 	if (!ctrlInited)
 		sceCtrlInit();
@@ -193,6 +199,8 @@ u32 sceCtrlReadBufferPositive(u32 ctrlDataPtr, u32 nBufs)
 	{
 		_ctrl_data *ctrlData = (_ctrl_data*) Memory::GetPointer(ctrlDataPtr);
 		memcpy(ctrlData, &ctrl, sizeof(_ctrl_data));
+
+		ctrlData->frame = CoreTiming::GetTicks() / CoreTiming::GetClockFrequencyMHz();
 		if (!analogEnabled)
 		{
 			ctrlData->analog[0] = 128;
@@ -205,6 +213,7 @@ u32 sceCtrlReadBufferPositive(u32 ctrlDataPtr, u32 nBufs)
 
 u32 sceCtrlReadBufferNegative(u32 ctrlDataPtr, u32 nBufs)
 {
+	// TODO: Test rescheduling.
 	DEBUG_LOG(HLE,"sceCtrlReadBufferNegative(%08x, %i)", ctrlDataPtr, nBufs);
 	_assert_msg_(HLE, nBufs > 0, "sceCtrlReadBufferNegative: trying to read nothing?");
 
@@ -217,7 +226,9 @@ u32 sceCtrlReadBufferNegative(u32 ctrlDataPtr, u32 nBufs)
 	{
 		_ctrl_data *ctrlData = (_ctrl_data*) Memory::GetPointer(ctrlDataPtr);
 		memcpy(ctrlData, &ctrl, sizeof(_ctrl_data));
+
 		ctrlData->buttons = ~ctrlData->buttons;
+		ctrlData->frame = CoreTiming::GetTicks() / CoreTiming::GetClockFrequencyMHz();
 		if (!analogEnabled)
 		{
 			ctrlData->analog[0] = 128;
