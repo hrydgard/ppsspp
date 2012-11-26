@@ -196,7 +196,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 // primitives correctly. Other primitives are possible to transform and light in hardware
 // using vertex shader, which will be way, way faster, especially on mobile. This has
 // not yet been implemented though.
-void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, LinkedShader *program, float *customUV, int forceIndexType)
+void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, float *customUV, int forceIndexType)
 {
 	int indexLowerBound, indexUpperBound;
 	// First, decode the verts and apply morphing
@@ -217,7 +217,7 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 	}
 	gpuStats.numDrawCalls++;
 	gpuStats.numVertsTransformed += vertexCount;
-
+	
 	bool throughmode = (gstate.vertType & GE_VTYPE_THROUGH_MASK) != 0;
 	// Then, transform and draw in one big swoop (urgh!)
 	// need to move this to the shader.
@@ -312,54 +312,43 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 
 			// Perform lighting here if enabled. don't need to check through, it's checked above.
 			float dots[4] = {0,0,0,0};
-			if (program->a_color0 != -1)
-			{
-				float unlitColor[4];
-				for (int j = 0; j < 4; j++) {
-					unlitColor[j] = decoded[index].color[j] / 255.0f;
-				}
-				float litColor0[4];
-				float litColor1[4];
-				lighter.Light(litColor0, litColor1, unlitColor, out, norm, dots);
+			float unlitColor[4];
+			for (int j = 0; j < 4; j++) {
+				unlitColor[j] = decoded[index].color[j] / 255.0f;
+			}
+			float litColor0[4];
+			float litColor1[4];
+			lighter.Light(litColor0, litColor1, unlitColor, out, norm, dots);
 				
-				if (gstate.lightingEnable & 1)
-				{
-					// TODO: don't ignore gstate.lmode - we should send two colors in that case
-					if (gstate.lmode & 1) {
-						// Separate colors
-						for (int j = 0; j < 4; j++) {
-							c0[j] = litColor0[j];
-							c1[j] = litColor1[j];
-						}
-					} else {
-						// Summed color into c0
-						for (int j = 0; j < 4; j++) {
-							c0[j] = litColor0[j] + litColor1[j];
-							c1[j] = 0.0f;
-						}
+			if (gstate.lightingEnable & 1)
+			{
+				// TODO: don't ignore gstate.lmode - we should send two colors in that case
+				if (gstate.lmode & 1) {
+					// Separate colors
+					for (int j = 0; j < 4; j++) {
+						c0[j] = litColor0[j];
+						c1[j] = litColor1[j];
 					}
-				}
-				else
-				{
-					if(dec.hasColor()) {
-						for (int j = 0; j < 4; j++) {
-							c0[j] = unlitColor[j];
-							c1[j] = 0.0f;
-						}
-					} else {
-						c0[0] = (gstate.materialambient & 0xFF) / 255.f;
-						c0[1] = ((gstate.materialambient >> 8) & 0xFF) / 255.f;
-						c0[2] = ((gstate.materialambient >> 16) & 0xFF) / 255.f;
-						c0[3] = (gstate.materialalpha & 0xFF) / 255.f;
+				} else {
+					// Summed color into c0
+					for (int j = 0; j < 4; j++) {
+						c0[j] = litColor0[j] + litColor1[j];
+						c1[j] = 0.0f;
 					}
 				}
 			}
 			else
 			{
-				// no color in the fragment program???
-				for (int j = 0; j < 4; j++) {
-					c0[j] = decoded[index].color[j] / 255.0f;
-					c1[j] = 0.0f;
+				if(dec.hasColor()) {
+					for (int j = 0; j < 4; j++) {
+						c0[j] = unlitColor[j];
+						c1[j] = 0.0f;
+					}
+				} else {
+					c0[0] = (gstate.materialambient & 0xFF) / 255.f;
+					c0[1] = ((gstate.materialambient >> 8) & 0xFF) / 255.f;
+					c0[2] = ((gstate.materialambient >> 16) & 0xFF) / 255.f;
+					c0[3] = (gstate.materialalpha & 0xFF) / 255.f;
 				}
 			}
 
@@ -623,57 +612,8 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 
 	glstate.depthRange.set(gstate_c.zOff - gstate_c.zScale, gstate_c.zOff + gstate_c.zScale);
 
-
-	// Debugging code to mess around with the viewport
-#if 1
-	// We can probably use these to simply set scissors? Maybe we need to offset by regionX1/Y1
-	int regionX1 = gstate.region1 & 0x3FF;
-	int regionY1 = (gstate.region1 >> 10) & 0x3FF;
-	int regionX2 = (gstate.region2 & 0x3FF) + 1;
-	int regionY2 = ((gstate.region2 >> 10) & 0x3FF) + 1;
-
-	float offsetX = (float)(gstate.offsetx & 0xFFFF) / 16.0f;
-	float offsetY = (float)(gstate.offsety & 0xFFFF) / 16.0f;
-
-	if (throughmode) {
-		// No viewport transform here. Let's experiment with using region.
-		glViewport((0 + regionX1) * renderWidthFactor_, (0 - regionY1) * renderHeightFactor_, (regionX2 - regionX1) * renderWidthFactor_, (regionY2 - regionY1) * renderHeightFactor_);
-	} else {
-		// These we can turn into a glViewport call, offset by offsetX and offsetY. Math after.
-		float vpXa = getFloat24(gstate.viewportx1);
-		float vpXb = getFloat24(gstate.viewportx2);
-		float vpYa = getFloat24(gstate.viewporty1);
-		float vpYb = getFloat24(gstate.viewporty2);
-		float vpZa = getFloat24(gstate.viewportz1);  //  / 65536.0f   should map it to OpenGL's 0.0-1.0 Z range
-		float vpZb = getFloat24(gstate.viewportz2);  //  / 65536.0f
-
-		// The viewport transform appears to go like this: 
-		// Xscreen = -offsetX + vpXb + vpXa * Xview
-		// Yscreen = -offsetY + vpYb + vpYa * Yview
-		// Zscreen = vpZb + vpZa * Zview
-	
-		// This means that to get the analogue glViewport we must:
-		float vpX0 = vpXb - offsetX - vpXa;
-		float vpY0 = vpYb - offsetY + vpYa;   // Need to account for sign of Y
-		float vpWidth = vpXa * 2;
-		float vpHeight = -vpYa * 2;
-
-		// TODO: These two should feed into glDepthRange somehow.
-		float vpZ0 = (vpZb - vpZa) / 65536.0f;
-		float vpZ1 = (vpZa * 2) / 65536.0f;
-
-		vpX0 *= renderWidthFactor_;
-		vpY0 *= renderHeightFactor_;
-		vpWidth *= renderWidthFactor_;
-		vpHeight *= renderHeightFactor_;
-
-		// Flip vpY0 to match the OpenGL coordinate system.
-		vpY0 = renderHeight_ - (vpY0 + vpHeight);
-		glViewport(vpX0, vpY0, vpWidth, vpHeight); 
-		// Sadly, as glViewport takes integers, we will not be able to support sub pixel offsets this way. But meh.
-	}
-
-#endif
+	UpdateViewportAndProjection();
+	LinkedShader *program = shaderManager_->ApplyShader();
 
 	// TODO: Make a cache for glEnableVertexAttribArray and glVertexAttribPtr states, these spam the gDebugger log.
 	glEnableVertexAttribArray(program->a_position);
@@ -695,4 +635,63 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 	if (useTexCoord && program->a_texcoord != -1) glDisableVertexAttribArray(program->a_texcoord);
 	if (program->a_color0 != -1) glDisableVertexAttribArray(program->a_color0);
 	if (program->a_color1 != -1) glDisableVertexAttribArray(program->a_color1);
+}
+
+void GLES_GPU::UpdateViewportAndProjection()
+{
+	bool throughmode = (gstate.vertType & GE_VTYPE_THROUGH_MASK) != 0;
+	
+	// We can probably use these to simply set scissors? Maybe we need to offset by regionX1/Y1
+	int regionX1 = gstate.region1 & 0x3FF;
+	int regionY1 = (gstate.region1 >> 10) & 0x3FF;
+	int regionX2 = (gstate.region2 & 0x3FF) + 1;
+	int regionY2 = ((gstate.region2 >> 10) & 0x3FF) + 1;
+
+	float offsetX = (float)(gstate.offsetx & 0xFFFF) / 16.0f;
+	float offsetY = (float)(gstate.offsety & 0xFFFF) / 16.0f;
+
+	if (throughmode) {
+		return;
+		// No viewport transform here. Let's experiment with using region.
+		glViewport((0 + regionX1) * renderWidthFactor_, (0 - regionY1) * renderHeightFactor_, (regionX2 - regionX1) * renderWidthFactor_, (regionY2 - regionY1) * renderHeightFactor_);
+	} else {
+		// These we can turn into a glViewport call, offset by offsetX and offsetY. Math after.
+		float vpXa = getFloat24(gstate.viewportx1);
+		float vpXb = getFloat24(gstate.viewportx2);
+		float vpYa = getFloat24(gstate.viewporty1);
+		float vpYb = getFloat24(gstate.viewporty2);
+		float vpZa = getFloat24(gstate.viewportz1);  //  / 65536.0f   should map it to OpenGL's 0.0-1.0 Z range
+		float vpZb = getFloat24(gstate.viewportz2);  //  / 65536.0f
+
+		// The viewport transform appears to go like this: 
+		// Xscreen = -offsetX + vpXb + vpXa * Xview
+		// Yscreen = -offsetY + vpYb + vpYa * Yview
+		// Zscreen = vpZb + vpZa * Zview
+
+		// This means that to get the analogue glViewport we must:
+		float vpX0 = vpXb - offsetX - vpXa;
+		float vpY0 = vpYb - offsetY + vpYa;   // Need to account for sign of Y
+		gstate_c.vpWidth = vpXa * 2;
+		gstate_c.vpHeight = -vpYa * 2;
+
+		return;
+
+		float vpWidth = fabsf(gstate_c.vpWidth);
+		float vpHeight = fabsf(gstate_c.vpHeight);
+
+		// TODO: These two should feed into glDepthRange somehow.
+		float vpZ0 = (vpZb - vpZa) / 65536.0f;
+		float vpZ1 = (vpZa * 2) / 65536.0f;
+
+		vpX0 *= renderWidthFactor_;
+		vpY0 *= renderWidthFactor_;
+		vpWidth *= renderWidthFactor_;
+		vpHeight *= renderWidthFactor_;
+
+		// Flip vpY0 to match the OpenGL coordinate system.
+		vpY0 = renderHeight_ - (vpY0 + vpHeight);
+		glViewport(vpX0, vpY0, vpWidth, vpHeight); 
+		// Sadly, as glViewport takes integers, we will not be able to support sub pixel offsets this way. But meh.
+		shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
+	}
 }

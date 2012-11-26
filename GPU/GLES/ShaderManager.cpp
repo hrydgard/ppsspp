@@ -111,8 +111,19 @@ void LinkedShader::use() {
 		else
 		{
 			glUniformMatrix4fv(u_proj, 1, GL_FALSE, gstate.projMatrix);
-		}
+			float flippedMatrix[16];
+			memcpy(flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
+			if (gstate_c.vpHeight < 0) {
+				flippedMatrix[5] = -flippedMatrix[5];
+				flippedMatrix[13] = -flippedMatrix[13];
+			}
+			if (gstate_c.vpWidth < 0) {
+				flippedMatrix[0] = -flippedMatrix[0];
+				flippedMatrix[12] = -flippedMatrix[12];
+			}
 
+			glUniformMatrix4fv(u_proj, 1, GL_FALSE, flippedMatrix);
+		}
 	}
 	if (u_texenv != -1 && dirtyUniforms & DIRTY_TEXENV) {
 		glUniform4f(u_texenv, 1.0, 1.0, 1.0, 1.0);	// TODO

@@ -51,6 +51,7 @@ GLES_GPU::GLES_GPU(int renderWidth, int renderHeight)
 {
 	renderWidthFactor_ = (float)renderWidth / 480.0f;
 	renderHeightFactor_ = (float)renderHeight / 272.0f;
+	shaderManager_ = &shaderManager;
 
 	// Sanity check gstate
 	if ((int *)&gstate.transferstart - (int *)&gstate != 0xEA) {
@@ -299,8 +300,7 @@ void GLES_GPU::DrawBezier(int ucount, int vcount)
 		}
 	}
 
-	LinkedShader *linkedShader = shaderManager.ApplyShader();
-	TransformAndDrawPrim(Memory::GetPointer(gstate_c.vertexAddr), &indices[0], GE_PRIM_TRIANGLES, 3 * 3 * 6, linkedShader, customUV, GE_VTYPE_IDX_16BIT);
+	TransformAndDrawPrim(Memory::GetPointer(gstate_c.vertexAddr), &indices[0], GE_PRIM_TRIANGLES, 3 * 3 * 6, customUV, GE_VTYPE_IDX_16BIT);
 }
 
 
@@ -365,14 +365,13 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 			};
 			DEBUG_LOG(G3D, "DL DrawPrim type: %s count: %i vaddr= %08x, iaddr= %08x", type<7 ? types[type] : "INVALID", count, gstate_c.vertexAddr, gstate_c.indexAddr);
 
-			LinkedShader *linkedShader = shaderManager.ApplyShader();
 			// TODO: Split this so that we can collect sequences of primitives, can greatly speed things up
 			// on platforms where draw calls are expensive like mobile and D3D
 			void *verts = Memory::GetPointer(gstate_c.vertexAddr);
 			void *inds = 0;
 			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE)
 				inds = Memory::GetPointer(gstate_c.indexAddr);
-			TransformAndDrawPrim(verts, inds, type, count, linkedShader, 0, -1);
+			TransformAndDrawPrim(verts, inds, type, count, 0, -1);
 		}
 		break;
 
@@ -1033,7 +1032,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 	case GE_CMD_PROJMATRIXDATA:
 		DEBUG_LOG(G3D,"DL PROJECTION matrix data # %f", getFloat24(data));
 		{
-			int num = gstate.projmtxnum & 0xF;
+			int num = gstate.projmtxnum & 0xF;	
 			gstate.projMatrix[num++] = getFloat24(data);
 			gstate.projmtxnum = (gstate.projmtxnum & 0xFF000000) | (num & 0xF);
 		}
@@ -1049,21 +1048,24 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 		DEBUG_LOG(G3D,"DL TGEN matrix data # %f", getFloat24(data));
 		{
 			int num = gstate.texmtxnum & 0xF;
-			gstate.tgenMatrix[num++] = getFloat24(data);
+			if (num < 12)
+				gstate.tgenMatrix[num++] = getFloat24(data);
 			gstate.texmtxnum = (gstate.texmtxnum & 0xFF000000) | (num & 0xF);
 		}
 		break;
 
 	case GE_CMD_BONEMATRIXNUMBER:
 		DEBUG_LOG(G3D,"DL BONE matrix #%i", data);
-		gstate.boneMatrixNumber &= 0xFF000007F;
+		gstate.boneMatrixNumber &= 0xFF00007F;
 		break;
 
 	case GE_CMD_BONEMATRIXDATA:
 		DEBUG_LOG(G3D,"DL BONE matrix data #%i %f", gstate.boneMatrixNumber & 0x7f, getFloat24(data));
 		{
 			int num = gstate.boneMatrixNumber & 0x7F;
-			gstate.boneMatrix[num++] = getFloat24(data);
+			if (num < 96) {
+				gstate.boneMatrix[num++] = getFloat24(data);
+			}
 			gstate.boneMatrixNumber = (gstate.boneMatrixNumber & 0xFF000000) | (num & 0x7F);
 		}
 		break;

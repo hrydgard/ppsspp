@@ -283,8 +283,12 @@ void VertexDecoder::DecodeVerts(DecodedVertex *decoded, const void *verts, const
 			}
 			switch (nrm)
 			{
-			case 0:
-				//no normals
+			case GE_VTYPE_NRM_8BIT:
+				{
+					const s8 *sv = (const s8*)(ptr + onesize_*n + nrmoff);
+					for (int j = 0; j < 3; j++)
+						normal[j] += (sv[j]/127.0f) * multiplier;
+				}
 				break;
 
 			case GE_VTYPE_NRM_FLOAT >> 5:
@@ -301,10 +305,6 @@ void VertexDecoder::DecodeVerts(DecodedVertex *decoded, const void *verts, const
 					for (int j = 0; j < 3; j++)
 						normal[j] += (sv[j]/32767.0f) * multiplier;
 				}
-				break;
-
-			default:
-				DEBUG_LOG(G3D,"Unknown normal format %i",nrm);
 				break;
 			}
 		}

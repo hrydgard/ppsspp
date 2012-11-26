@@ -48,10 +48,13 @@ public:
 
 private:
 	// TransformPipeline.cpp
-	void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, LinkedShader *program, float *customUV, int forceIndexType);
+	void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, float *customUV, int forceIndexType);
+	void UpdateViewportAndProjection();
 	void DrawBezier(int ucount, int vcount);
 	void DoBlockTransfer();
 	bool ProcessDLQueue();
+
+	ShaderManager *shaderManager_;
 	bool interruptsEnabled_;
 
 	u32 displayFramebufPtr_;

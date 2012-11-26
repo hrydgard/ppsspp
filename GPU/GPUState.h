@@ -279,6 +279,9 @@ struct GPUStateCache
 
 	u32 curTextureWidth;
 	u32 curTextureHeight;
+
+	float vpWidth;
+	float vpHeight;
 };
 
 // TODO: Implement support for these.
