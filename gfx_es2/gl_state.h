@@ -118,6 +118,9 @@ public:
 
 	BoolState<GL_DEPTH_TEST, false> depthTest;
 	STATE1(glDepthFunc, GLenum, GL_LESS) depthFunc;
+
+	STATE1(glDepthMask, GLboolean, GL_TRUE) depthWrite;
+
 #if defined(USING_GLES2)
 	STATE2(glDepthRangef, float, float, 0.f, 1.f) depthRange;
 #else
