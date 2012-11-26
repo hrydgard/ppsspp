@@ -70,6 +70,9 @@ else()
 endif()
 include(FindSDL)
 include(FindThreads)
+if(APPLE)
+	find_library(COCOA_LIBRARY Cocoa)
+endif()
 
 # Needed for Globals.h
 include_directories("${CMAKE_SOURCE_DIR}")
@@ -816,7 +819,8 @@ endif()
 
 if(HEADLESS)
 	add_executable(PPSSPPHeadless headless/Headless.cpp)
-	target_link_libraries(PPSSPPHeadless ${CoreLibName}	${CMAKE_THREAD_LIBS_INIT})
+	target_link_libraries(PPSSPPHeadless ${CoreLibName}
+		${COCOA_LIBRARY} ${CMAKE_THREAD_LIBS_INIT})
 	setup_target_project(PPSSPPHeadless headless)
 endif()
 
@@ -849,7 +853,6 @@ if(SDL_FOUND)
 			set(SDL_Main ${SDL_Main}
 				SDL/SDLMain.h
 				SDL/SDLMain.mm)
-			find_library(COCOA_LIBRARY Cocoa)
 			set(LinkCommon ${LinkCommon} ${COCOA_LIBRARY})
 		endif()
 
