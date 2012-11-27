@@ -140,23 +140,35 @@ int main(int argc, char *argv[]) {
 
 	float zoom = 1.0f;
 	bool tablet = false;
+	bool aspect43 = false;
 	const char *zoomenv = getenv("ZOOM");
 	const char *tabletenv = getenv("TABLET");
+	const char *ipad = getenv("IPAD");
+
 	if (zoomenv) {
 		zoom = atof(zoomenv);
 	}
 	if (tabletenv) {
 		tablet = (bool)atoi(tabletenv);
 	}
-
+	if (ipad) aspect43 = true;
+	
 	bool landscape;
 	NativeGetAppInfo(&app_name, &app_name_nice, &landscape);
 	
+	// Change these to temporarily test other resolutions.
+	aspect43 = false;
 	tablet = false;
+	float density = 1.0f;
+	zoom = 1.5f;
+
 	if (landscape) {
 		if (tablet) {
 			pixel_xres = 1280 * zoom;
 			pixel_yres = 800 * zoom;
+		} else if (aspect43) {
+			pixel_xres = 1024 * zoom;
+			pixel_yres = 768 * zoom;
 		} else {
 			pixel_xres = 800 * zoom;
 			pixel_yres = 480 * zoom;
@@ -168,6 +180,9 @@ int main(int argc, char *argv[]) {
 		if (tablet) {
 			pixel_xres = 800 * zoom;
 			pixel_yres = 1280 * zoom;
+		} else if (aspect43) {
+			pixel_xres = 768 * zoom;
+			pixel_yres = 1024 * zoom;
 		} else {
 			pixel_xres = 480 * zoom;
 			pixel_yres = 800 * zoom;
@@ -243,7 +258,6 @@ int main(int argc, char *argv[]) {
 	NativeInit(argc, (const char **)argv, path, "/tmp", "BADCOFFEE");
 #endif
 
-	float density = 1.0f;
 	dp_xres = (float)pixel_xres * density / zoom;
 	dp_yres = (float)pixel_yres * density / zoom;
 	pixel_in_dps = (float)pixel_xres / dp_xres;
@@ -344,8 +358,9 @@ int main(int argc, char *argv[]) {
 	}
 	// Faster exit, thanks to the OS. Remove this if you want to debug shutdown
 	// The speed difference is only really noticable on Linux. On Windows you do notice it though
-	// exit(0);
-
+#ifdef _WIN32
+	exit(0);
+#endif
 	NativeShutdownGraphics();
 	SDL_PauseAudio(1);
 	SDL_CloseAudio();

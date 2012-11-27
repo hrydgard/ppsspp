@@ -26,7 +26,7 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener {
 	public NativeGLView(NativeActivity activity) {
 		super(activity);
 		setEGLContextClientVersion(2);
-		
+		/*
 		if (Build.VERSION.SDK_INT >= 11) {
 			try {
 				Method method_setPreserveEGLContextOnPause = GLSurfaceView.class.getMethod(
@@ -42,7 +42,7 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener {
 			} catch (InvocationTargetException e) {
 				e.printStackTrace();
 			}
-		}
+		}*/
 		
      // setEGLConfigChooser(5, 5, 5, 0, 16, 0);
      // setDebugFlags(DEBUG_CHECK_GL_ERROR | DEBUG_LOG_GL_CALLS);

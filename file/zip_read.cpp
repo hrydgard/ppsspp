@@ -1,6 +1,8 @@
 #include <stdio.h>
+#include <set>
+#include <algorithm>
 
-#ifndef _WIN32
+#ifdef ANDROID
 #include <zip.h>
 #endif
 
@@ -8,7 +10,7 @@
 #include "base/logging.h"
 #include "file/zip_read.h"
 
-#ifndef _WIN32
+#ifdef ANDROID
 uint8_t *ReadFromZip(zip *archive, const char* filename, size_t *size) {
 	// Figure out the file size first.
 	struct zip_stat zstat;
@@ -49,23 +51,24 @@ uint8_t *ReadLocalFile(const char *filename, size_t *size) {
 	return contents;
 }
 
-#ifndef _WIN32
+#ifdef ANDROID
 
 ZipAssetReader::ZipAssetReader(const char *zip_file, const char *in_zip_path) {
+	ELOG("ZIP File %s", zip_file);
 	zip_file_ = zip_open(zip_file, 0, NULL);
 	strcpy(in_zip_path_, in_zip_path);
 	if (!zip_file_) {
 		ELOG("Failed to open %s as a zip file", zip_file);
 	}
-	// This is not really necessary.
-	int numFiles = zip_get_num_files(zip_file_);
-	for (int i = 0; i < numFiles; i++) {
-		const char* name = zip_get_name(zip_file_, i, 0);
-		if (name == NULL) {
-			ELOG("Error reading zip file name at index %i : %s", i, zip_strerror(zip_file_));
-			return;
+
+	std::vector<FileInfo> info;
+	GetFileListing("assets", &info, 0);
+	for (int i = 0; i < info.size(); i++) {
+		if (info[i].isDirectory) {
+			ILOG("Directory: %s", info[i].name.c_str());
+		} else {
+			ILOG("File: %s", info[i].name.c_str());
 		}
-		// ILOG("File %i : %s\n", i, name);
 	}
 }
 
@@ -78,6 +81,62 @@ uint8_t *ZipAssetReader::ReadAsset(const char *path, size_t *size) {
 	strcpy(temp_path, in_zip_path_);
 	strcat(temp_path, path);
 	return ReadFromZip(zip_file_, temp_path, size);
+}
+
+bool ZipAssetReader::GetFileListing(const char *path, std::vector<FileInfo> *listing, const char *filter = 0)
+{
+	// We just loop through the whole ZIP file and deduce what files are in this directory, and what subdirectories there are.
+	std::set<std::string> files;
+	std::set<std::string> directories;
+	int numFiles = zip_get_num_files(zip_file_);
+	size_t pathlen = strlen(path);
+	if (path[pathlen-1] == '/')
+		pathlen--;
+	for (int i = 0; i < numFiles; i++) {
+		const char* name = zip_get_name(zip_file_, i, 0);
+		if (!name)
+			continue;
+		// ILOG("Comparing %s %s %i", name, path, pathlen);
+		if (!memcmp(name, path, pathlen)) {
+			// The prefix is right. Let's see if this is a file or path.
+			char *slashPos = strchr(name + pathlen + 1, '/');
+			if (slashPos != 0) {
+				// A directory.
+				std::string dirName = std::string(name + pathlen + 1, slashPos - (name + pathlen + 1));
+				directories.insert(dirName);
+			} else {
+				files.insert(std::string(name + pathlen + 1));
+			}
+		}
+	}
+
+	for (auto diter = directories.begin(); diter != directories.end(); ++diter) {
+		FileInfo info;
+		info.name = *diter;
+		info.fullName = std::string(path);
+		if (info.fullName[info.fullName.size()-1] == '/')
+			info.fullName = info.fullName.substr(0, info.fullName.size() - 1);
+		info.fullName += "/" + *diter;
+		info.exists = true;
+		info.isDirectory = true;
+		listing->push_back(info);
+	}
+
+	for (auto fiter = files.begin(); fiter != files.end(); ++fiter) {
+		FileInfo info;
+		info.name = *fiter;
+		info.fullName = std::string(path);
+		if (info.fullName[info.fullName.size()-1] == '/')
+			info.fullName = info.fullName.substr(0, info.fullName.size() - 1);
+		info.fullName += "/" + *fiter;
+		info.exists = true;
+		info.isDirectory = false;
+		listing->push_back(info);
+	}
+	
+	std::sort(listing->begin(), listing->end());
+
+	return true;
 }
 
 #endif
@@ -94,6 +153,13 @@ uint8_t *DirectoryAssetReader::ReadAsset(const char *path, size_t *size) {
 	// ILOG("New path: %s", new_path);
 	return ReadLocalFile(new_path, size);
 }
+
+bool DirectoryAssetReader::GetFileListing(const char *path, std::vector<FileInfo> *listing, const char *filter = 0)
+{
+	getFilesInDir(path, listing, filter);
+	return true;
+}
+
 
 struct VFSEntry {
 	const char *prefix;
@@ -134,4 +200,19 @@ uint8_t *VFSReadFile(const char *filename, size_t *size) {
 	}
 	ELOG("Missing filesystem for %s", filename);
 	return 0;
+}
+
+bool VFSGetFileListing(const char *path, std::vector<FileInfo> *listing, const char *filter)
+{
+	int fn_len = strlen(path);
+	for (int i = 0; i < num_entries; i++) {
+		int prefix_len = strlen(entries[i].prefix);
+		if (prefix_len >= fn_len) continue;
+		if (0 == memcmp(path, entries[i].prefix, prefix_len)) {
+			entries[i].reader->GetFileListing(path + prefix_len, listing, filter);
+			return true;
+		}
+	}
+	ELOG("Missing filesystem for %s", path);
+	return false;
 }

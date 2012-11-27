@@ -1,6 +1,6 @@
 // TODO: Move much of this code to vfs.cpp
 
-#ifndef _WIN32
+#ifdef ANDROID
 #include <zip.h>
 #endif
 
@@ -9,6 +9,7 @@
 
 #include "base/basictypes.h"
 #include "file/vfs.h"
+#include "file/file_util.h"
 
 // Direct readers. deallocate using delete [].
 uint8_t *ReadLocalFile(const char *filename, size_t *size);
@@ -18,10 +19,12 @@ public:
 	virtual ~AssetReader() {}
 	// use delete[]
 	virtual uint8_t *ReadAsset(const char *path, size_t *size) = 0;
+	// Filter support is optional but nice to have
+	virtual bool GetFileListing(const char *path, std::vector<FileInfo> *listing, const char *filter = 0) = 0;
 	virtual std::string toString() const = 0;
 };
 
-#ifndef _WIN32
+#ifdef ANDROID
 uint8_t *ReadFromZip(zip *archive, const char* filename, size_t *size);
 class ZipAssetReader : public AssetReader {
 public:
@@ -29,6 +32,7 @@ public:
 	~ZipAssetReader();
 	// use delete[]
 	virtual uint8_t *ReadAsset(const char *path, size_t *size);
+	virtual bool GetFileListing(const char *path, std::vector<FileInfo> *listing, const char *filter);
 	virtual std::string toString() const {
 		return in_zip_path_;
 	}
@@ -46,6 +50,7 @@ public:
 	}
 	// use delete[]
 	virtual uint8_t *ReadAsset(const char *path, size_t *size);
+	virtual bool GetFileListing(const char *path, std::vector<FileInfo> *listing, const char *filter);
 	virtual std::string toString() const {
 		return path_;
 	}

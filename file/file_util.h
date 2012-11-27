@@ -13,6 +13,7 @@ struct FileInfo
 {
 	std::string name;
 	std::string fullName;
+	bool exists;
 	bool isDirectory;
 
 	bool operator <(const FileInfo &other) const {

@@ -191,7 +191,7 @@ size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const 
 		info.name = virtualName;
 		info.fullName = std::string(directory) + "/" + virtualName;
 		info.isDirectory = isDirectory(info.fullName);
-
+		info.exists = true;
 		if (!info.isDirectory) {
 			std::string ext = getFileExtension(info.fullName);
 			if (filter) {
