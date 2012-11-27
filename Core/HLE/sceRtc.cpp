@@ -379,7 +379,7 @@ int sceRtcCheckValid(u32 datePtr)
 	{
 		ScePspDateTime pt;
 		Memory::ReadStruct(datePtr, &pt);
-		if (pt.year >= 0) // is there a maximum?  
+		if (pt.year < 1 || pt.year > 9999) //what is the real maximum?  
 		{	
         	ret = PSP_TIME_INVALID_YEAR;
         } 
