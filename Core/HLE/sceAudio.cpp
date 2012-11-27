@@ -212,7 +212,7 @@ u32 sceAudioChReserve(u32 channel, u32 sampleCount, u32 format) //.Allocate soun
 	{
 		WARN_LOG(HLE, "WARNING: Reserving already reserved channel. Error?");
 	}
-	DEBUG_LOG(HLE, "%i = sceAudioChReserve(%i, %i, %i)", channel, PARAM(0), sampleCount, format);
+	DEBUG_LOG(HLE, "%i = sceAudioChReserve(%i, %i, %i)", channel, sampleCount, format);
 
 	chans[channel].sampleCount = sampleCount;
 	chans[channel].reserved = true;
@@ -300,46 +300,42 @@ u32 sceAudioChangeChannelVolume(u32 chan, u32 lvolume, u32 rvolume)
   }
 }
  
-void sceAudioInit()
+u32 sceAudioInit()
 {
-  DEBUG_LOG(HLE,"sceAudioInit()");
+	DEBUG_LOG(HLE,"sceAudioInit()");
 	// Don't need to do anything
-  RETURN(0);
+	return 0;
 }
-void sceAudioEnd()
+u32 sceAudioEnd()
 {
 	DEBUG_LOG(HLE,"sceAudioEnd()");
 	// Don't need to do anything
-	RETURN(0);
+	return 0;
 }
 
-void sceAudioOutput2Reserve()
+u32 sceAudioOutput2Reserve(u32 sampleCount)
 {
-	int sampleCount = PARAM(0);
-  ERROR_LOG(HLE,"sceAudioOutput2Reserve(%i)", sampleCount);
+	ERROR_LOG(HLE,"sceAudioOutput2Reserve(%i)", sampleCount);
 	chans[0].sampleCount = sampleCount;
 	chans[0].reserved = true;
-	RETURN(0);
+	return 0;
 }
 
-void sceAudioOutput2OutputBlocking()
+u32 sceAudioOutput2OutputBlocking(u32 vol, u32 dataPtr)
 {
-	int vol = PARAM(0);
-	u32 dataPtr = PARAM(1);
-
-  WARN_LOG(HLE,"FAKE sceAudioOutput2OutputBlocking(%i, %08x)", vol, dataPtr);
+	WARN_LOG(HLE,"FAKE sceAudioOutput2OutputBlocking(%i, %08x)", vol, dataPtr);
 	chans[0].leftVolume = vol;
 	chans[0].rightVolume = vol;
 	chans[0].sampleAddress = dataPtr;
-	RETURN(0);
-  u32 retval = __AudioEnqueue(chans[0], 0, true);
+	return 0;
+	u32 retval = __AudioEnqueue(chans[0], 0, true);
 	if (retval < 0)
-		RETURN(retval);
+		return retval;
 }
 
 u32 sceAudioOutput2ChangeLength(u32 sampleCount)
 {
-  WARN_LOG(HLE,"sceAudioOutput2ChangeLength(%i)", sampleCount);
+	WARN_LOG(HLE,"sceAudioOutput2ChangeLength(%i)", sampleCount);
 	chans[0].sampleCount = sampleCount;
 	return 0;
 }
@@ -350,11 +346,11 @@ u32 sceAudioOutput2GetRestSample()
 	return chans[0].sampleQueue.size() * 2;
 }
 
-void sceAudioOutput2Release()
+u32 sceAudioOutput2Release()
 {
-  WARN_LOG(HLE,"sceAudioOutput2Release()");
+	WARN_LOG(HLE,"sceAudioOutput2Release()");
 	chans[0].reserved = false;
-	RETURN(0);
+	return 0;
 }
 
 u32 sceAudioSetFrequency(u32 freq) {
@@ -372,14 +368,14 @@ const HLEFunction sceAudio[] =
 {
 	// Newer simplified single channel audio output. Presumably for games that use Atrac3
 	// directly from Sas instead of playing it on a separate audio channel.
-  {0x01562ba3, sceAudioOutput2Reserve, "sceAudioOutput2Reserve"},
-  {0x2d53f36e, sceAudioOutput2OutputBlocking, "sceAudioOutput2OutputBlocking"},
+  {0x01562ba3, WrapU_U<sceAudioOutput2Reserve>, "sceAudioOutput2Reserve"},
+  {0x2d53f36e, WrapU_UU<sceAudioOutput2OutputBlocking>, "sceAudioOutput2OutputBlocking"},
   {0x63f2889c, WrapU_U<sceAudioOutput2ChangeLength>, "sceAudioOutput2ChangeLength"},
   {0x647cef33, WrapU_V<sceAudioOutput2GetRestSample>, "sceAudioOutput2GetRestSample"},	
-  {0x43196845, sceAudioOutput2Release, "sceAudioOutput2Release"},
+  {0x43196845, WrapU_V<sceAudioOutput2Release>, "sceAudioOutput2Release"},
 
-	{0x80F1F7E0, sceAudioInit, "sceAudioInit"},
-	{0x210567F7, sceAudioEnd, "sceAudioEnd"},
+	{0x80F1F7E0, WrapU_V<sceAudioInit>, "sceAudioInit"},
+	{0x210567F7, WrapU_V<sceAudioEnd>, "sceAudioEnd"},
 
   {0xA2BEAA6C, WrapU_U<sceAudioSetFrequency>, "sceAudioSetFrequency"},
 	{0x927AC32B, 0, "sceAudioSetVolumeOffset"},
