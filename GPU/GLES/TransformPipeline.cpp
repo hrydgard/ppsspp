@@ -684,9 +684,9 @@ void GLES_GPU::UpdateViewportAndProjection()
 		float vpZ1 = (vpZa * 2) / 65536.0f;
 
 		vpX0 *= renderWidthFactor_;
-		vpY0 *= renderWidthFactor_;
+		vpY0 *= renderHeightFactor_;
 		vpWidth *= renderWidthFactor_;
-		vpHeight *= renderWidthFactor_;
+		vpHeight *= renderHeightFactor_;
 
 		// Flip vpY0 to match the OpenGL coordinate system.
 		vpY0 = renderHeight_ - (vpY0 + vpHeight);

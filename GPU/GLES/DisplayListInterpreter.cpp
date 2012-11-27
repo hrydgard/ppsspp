@@ -207,7 +207,7 @@ void GLES_GPU::SetRenderFrameBuffer()
 	if (vfb != currentRenderVfb_)
 	{
 		// Use it as a render target.
-		DEBUG_LOG(HLE, "Switching to FBO for %08x", vfb->fb_address);
+		DEBUG_LOG(HLE, "Switching render target to FBO for %08x", vfb->fb_address);
 		fbo_bind_as_render_target(vfb->fbo);
 		glViewport(0, 0, renderWidth_, renderHeight_);
 		currentRenderVfb_ = vfb;

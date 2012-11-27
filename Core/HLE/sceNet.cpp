@@ -140,6 +140,7 @@ const HLEFunction sceNetResolver[] =
 	{0x94523e09, 0, "sceNetResolverDelete"},
 	{0xf3370e61, 0, "sceNetResolverInit"},
 	{0x808F6063, 0, "sceNetResolverStop"},
+	{0x6138194A, 0, "sceNetResolverTermFunction"},
 };					 
 
 const HLEFunction sceNetInet[] = 
@@ -166,9 +167,10 @@ const HLEFunction sceNetInet[] =
 	{0xa9ed66b9, 0, "sceNetInetTerm"},
 	{0xE30B8C19, 0, "sceNetInetInetPton"},
 	{0xE247B6D6, 0, "sceNetInetGetpeername"},
-	{0x162e6fd5 ,0, "sceNetInetGetsockname"},
-	{0x4a114c7c ,0, "sceNetInetGetsockopt"}, 
-	{0xfaabb1dd ,0, "sceNetInetPoll"},
+	{0x162e6fd5, 0, "sceNetInetGetsockname"},
+	{0x4a114c7c, 0, "sceNetInetGetsockopt"}, 
+	{0xfaabb1dd, 0, "sceNetInetPoll"},
+	{0x1BDF5D13, 0, "sceNetInetInetAton"},
 };
 const HLEFunction sceNetApctl[] = 
 {
