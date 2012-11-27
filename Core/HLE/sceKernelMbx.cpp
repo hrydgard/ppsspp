@@ -246,7 +246,6 @@ int sceKernelCancelReceiveMbx(SceUID id, u32 numWaitingThreadsAddr)
 {
 	u32 error;
 	Mbx *m = kernelObjects.Get<Mbx>(id, error);
-	int *numWaitingThreads = (int*)Memory::GetPointer(numWaitingThreadsAddr);
 
 	if (!m)
 	{
@@ -262,8 +261,9 @@ int sceKernelCancelReceiveMbx(SceUID id, u32 numWaitingThreadsAddr)
 		__KernelResumeThreadFromWait(m->waitingThreads[i].first);
 	}
 	m->waitingThreads.clear();
-	if (numWaitingThreads)
-		*numWaitingThreads = count;
+
+	if (numWaitingThreadsAddr)
+		Memory::Write_U32(count, numWaitingThreadsAddr);
 	return 0;
 }
 

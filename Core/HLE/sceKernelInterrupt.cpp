@@ -426,7 +426,7 @@ u32 sceKernelMemcpy(u32 dst, u32 src, u32 size)
 	DEBUG_LOG(HLE, "sceKernelMemcpy(dest=%08x, src=%08x, size=%i)", dst, src, size);
 	if (Memory::IsValidAddress(dst) && Memory::IsValidAddress(src+size)) // a bit of bound checking. Wrong??
 	{
-		memcpy(Memory::GetPointer(dst), Memory::GetPointer(src), size);
+		Memory::Memcpy(dst, Memory::GetPointer(src), size);
 	}
 	return 0;
 }
