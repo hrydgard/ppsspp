@@ -1,15 +1,3 @@
-#if defined(ANDROID) || defined(BLACKBERRY)
-#include <GLES2/gl2.h>
-#include <GLES2/gl2ext.h>
-#else
-#include <GL/glew.h>
-#if defined(__APPLE__)
-#include <OpenGL/gl.h>
-#else
-#include <GL/gl.h>
-#endif
-#endif
-
 #include <algorithm>
 #include <cmath>
 
@@ -18,8 +6,10 @@
 #include "math/math_util.h"
 #include "gfx_es2/draw_buffer.h"
 #include "gfx_es2/glsl_program.h"
+#include "gfx_es2/gl_state.h"
 #include "gfx/texture_atlas.h"
 #include "gfx/gl_debug_log.h"
+#include "gfx/gl_common.h"
 
 enum {
   // Enough?
@@ -50,8 +40,8 @@ void DrawBuffer::Flush(const GLSLProgram *program, bool set_blend_state) {
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
   if (set_blend_state) {
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glstate.blend.enable();
+	glstate.blendFunc.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   }
   glUniform1i(program->sampler0, 0);
   glEnableVertexAttribArray(program->a_position);
@@ -357,23 +347,18 @@ void DrawBuffer::DrawText(int font, const char *text, float x, float y, Color co
 }
 
 void DrawBuffer::EnableBlend(bool enable) {
-  if (enable)
-	{
-    glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	}
-	else
-    glDisable(GL_BLEND);
+  glstate.blend.set(enable);
+  glstate.blendFunc.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
 void DrawBuffer::SetClipRect(float x, float y, float w, float h)
 {
   // Sigh, OpenGL is upside down.
   glScissor(x, dp_yres - y, w, h);
-  glEnable(GL_SCISSOR_TEST);
+  glstate.scissorTest.enable();
 }
 
 void DrawBuffer::NoClip()
 {
-  glDisable(GL_SCISSOR_TEST);
+	glstate.scissorTest.disable();
 }

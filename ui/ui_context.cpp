@@ -3,13 +3,14 @@
 #include "gfx/texture.h"
 #include "gfx_es2/draw_buffer.h"
 #include "gfx_es2/glsl_program.h"
+#include "gfx_es2/gl_state.h"
 
 void UIContext::Begin()
 {
-	glDisable(GL_CULL_FACE);
-	glDisable(GL_DEPTH_TEST);
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glstate.blend.enable();
+	glstate.blendFunc.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glstate.cullFace.disable();
+	glstate.depthTest.disable();
 	if (uishader_)
 		glsl_bind(uishader_);
 	if (uitexture_)

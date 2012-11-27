@@ -94,7 +94,7 @@
       <Project>{f761046e-6c38-4428-a5f1-38391a37bb34}</Project>
     </ProjectReference>
     <ProjectReference Include="..\..\native.vcxproj">
-      <Project>{e8b58922-9827-493d-81e0-4b6e6bd77171}</Project>
+      <Project>{C4DF647E-80EA-4111-A0A8-218B1B711E18}</Project>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

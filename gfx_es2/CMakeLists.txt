@@ -2,6 +2,7 @@ set(SRCS
   draw_buffer.cpp
   fbo.cpp
   glsl_program.cpp
+  gl_state.cpp
   vertex_format.cpp)
 
 set(SRCS ${SRCS})

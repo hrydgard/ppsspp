@@ -22,7 +22,7 @@ inline void Crash() { __asm { int 3 }; }
 
 #else
 
-#if defined(ANDROID) || defined(BLACKBERRY)
+#if defined(ARM)
 #undef Crash
 
 inline void Crash() {

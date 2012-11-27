@@ -38,6 +38,7 @@ LOCAL_SRC_FILES :=\
     net/resolve.cpp \
     profiler/profiler.cpp \
     gfx_es2/glsl_program.cpp \
+    gfx_es2/gl_state.cpp \
     gfx_es2/draw_buffer.cpp.arm \
     gfx_es2/vertex_format.cpp \
     gfx_es2/fbo.cpp \
@@ -54,7 +55,7 @@ LOCAL_SRC_FILES :=\
     util/random/perlin.cpp
 
 
-LOCAL_CFLAGS := -O2 -DGL_GLEXT_PROTOTYPES -fsigned-char -fno-strict-aliasing
+LOCAL_CFLAGS := -O2 -DGL_GLEXT_PROTOTYPES -DARM -DUSING_GLES2 -fsigned-char -fno-strict-aliasing
 LOCAL_CPPFLAGS := -fno-exceptions -fno-rtti -std=gnu++0x
 LOCAL_LDLIBS := -lz
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/ext/libzip
