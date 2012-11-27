@@ -12,12 +12,17 @@
 #endif
 
 #include <string>
-
+#ifdef _WIN32
+#include "SDL/SDL.h"
+#include "SDL/SDL_timer.h"
+#include "SDL/SDL_audio.h"
+#include "SDL/SDL_video.h"
+#else
 #include "SDL.h"
 #include "SDL_timer.h"
 #include "SDL_audio.h"
 #include "SDL_video.h"
-
+#endif
 #include "base/display.h"
 #include "base/logging.h"
 #include "base/timeutil.h"
