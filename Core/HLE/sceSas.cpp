@@ -211,7 +211,7 @@ void _sceSasCore()
 {
 	u32 outAddr = PARAM(1);
 	DEBUG_LOG(HLE,"0=sceSasCore(, %08x)	(grain: %i samples)", outAddr, sas.grainSize);
-	memset(Memory::GetPointer(outAddr), 0, sas.grainSize * 2 * 2);
+	Memory::Memset(outAddr, 0, sas.grainSize * 2 * 2);
 	sas.mix(outAddr);
 	RETURN(0);
 }

@@ -452,13 +452,12 @@ void sceKernelReferThreadStatus()
 	if (t)
 	{
 		DEBUG_LOG(HLE,"sceKernelReferThreadStatus(%i, %08x)", threadID, PARAM(1));
-		void *outptr = (void*)Memory::GetPointer(PARAM(1));
-		u32 wantedSize = *(u32 *)outptr;
+		u32 wantedSize = Memory::Read_U32(PARAM(1));
 		u32 sz = sizeof(NativeThread);
 		if (wantedSize) {
 			t->nt.nativeSize = sz = std::min(sz, wantedSize);
 		}
-		memcpy(outptr, &(t->nt), sz);
+		Memory::Memcpy(PARAM(1), &(t->nt), sz);
 		RETURN(0);
 	}
 	else

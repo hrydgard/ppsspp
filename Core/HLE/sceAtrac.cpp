@@ -104,8 +104,7 @@ void sceAtracGetMaxSample()
 void sceAtracGetNextDecodePosition()
 {
 	ERROR_LOG(HLE, "UNIMPL sceAtracGetNextDecodePosition(%i, %08x)", PARAM(0), PARAM(1));
-	u32 *outPos = (u32*)Memory::GetPointer(PARAM(1));
-	*outPos = 1;
+	Memory::Write_U32(1, PARAM(1)); // outpos
 	RETURN(0);
 }
 
@@ -121,30 +120,24 @@ void sceAtracGetNextSample()
 void sceAtracGetRemainFrame()
 {
 	ERROR_LOG(HLE, "sceAtracGetRemainFrame(%i, %08x)",PARAM(0),PARAM(1));
-	u32 *outPos = (u32*)Memory::GetPointer(PARAM(1));
-	*outPos = 12;
+	Memory::Write_U32(12, PARAM(1)); // outpos
 	RETURN(0);
 }
 
 void sceAtracGetSecondBufferInfo()
 {
 	ERROR_LOG(HLE, "sceAtracGetSecondBufferInfo(%i, %08x, %08x)",PARAM(0),PARAM(1),PARAM(2));
-	u32 *outPos = (u32*)Memory::GetPointer(PARAM(1));
-	u32 *outBytes = (u32*)Memory::GetPointer(PARAM(2));
-	*outPos = 0;
-	*outBytes = 0x10000;
+	Memory::Write_U32(0, PARAM(1)); // outpos
+	Memory::Write_U32(0x10000, PARAM(2)); // outBytes
 	RETURN(0);
 }
 
 void sceAtracGetSoundSample()
 {
 	ERROR_LOG(HLE, "UNIMPL sceAtracGetSoundSample(%i, %08x, %08x, %08x)",PARAM(0),PARAM(1),PARAM(2),PARAM(3));
-	u32 *outEndSample = (u32*)Memory::GetPointer(PARAM(1));
-	u32 *outLoopStartSample = (u32*)Memory::GetPointer(PARAM(2));
-	u32 *outLoopEndSample = (u32*)Memory::GetPointer(PARAM(2));
-	*outEndSample = 0x10000;
-	*outLoopStartSample = -1;
-	*outLoopEndSample = -1;
+	Memory::Write_U32(0x10000, PARAM(1)); // outEndSample
+	Memory::Write_U32(-1, PARAM(2)); // outLoopStartSample
+	Memory::Write_U32(-1, PARAM(3)); // outLoopEndSample
 	RETURN(0);
 }
 
