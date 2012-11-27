@@ -117,8 +117,7 @@ void sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr)
 
 		if (numWaitThreadsPtr)
 		{
-			u32* numWaitThreads = (u32*)Memory::GetPointer(numWaitThreadsPtr);
-			*numWaitThreads = s->ns.numWaitThreads;
+			Memory::Write_U32(s->ns.numWaitThreads, numWaitThreadsPtr);
 		}
 
 		if (newCount < 0)
