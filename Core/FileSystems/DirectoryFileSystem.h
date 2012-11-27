@@ -36,7 +36,7 @@ class DirectoryFileSystem : public IFileSystem
 #ifdef _WIN32
 		HANDLE hFile;
 #else
-    FILE *hFile;
+		FILE *hFile;
 #endif
 	};
 
@@ -61,6 +61,7 @@ public:
 	bool     OwnsHandle(u32 handle);
 	bool MkDir(const std::string &dirname);
 	bool RmDir(const std::string &dirname);
+	bool RenameFile(const std::string &from, const std::string &to);
 	bool DeleteFile(const std::string &filename);
 };
  

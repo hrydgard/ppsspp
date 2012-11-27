@@ -177,6 +177,21 @@ bool MetaFileSystem::RmDir(const std::string &dirname)
 	}
 }
 
+bool MetaFileSystem::RenameFile(const std::string &from, const std::string &to)
+{
+	std::string of;
+	std::string rf;
+	IFileSystem *system;
+	if (MapFilePath(from, of, &system) && MapFilePath(to, rf, &system))
+	{
+		return system->RenameFile(of, rf);
+	}
+	else
+	{
+		return false;
+	}
+}
+
 bool MetaFileSystem::DeleteFile(const std::string &filename)
 {
 	std::string of;

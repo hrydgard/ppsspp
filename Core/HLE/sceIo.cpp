@@ -700,8 +700,11 @@ void sceIoRename() //(const char *oldname, const char *newname);
 {
 	const char *from = Memory::GetCharPointer(PARAM(0));
 	const char *to = Memory::GetCharPointer(PARAM(1));
-	ERROR_LOG(HLE,"UNIMPL sceIoRename(%s, %s)", from, to);
-	RETURN(0);
+	if (pspFileSystem.RenameFile(from, to))
+		RETURN(0);
+	else
+		RETURN(-1);
+	DEBUG_LOG(HLE,"sceIoRename(%s, %s)", from, to);
 }
 
 void sceIoChdir()
