@@ -447,8 +447,6 @@ inline u32 makecol(int r, int g, int b, int a)
 	return (a << 24)|(r << 16)|(g << 8)|b;
 }
 
-inline u16 swap16(u16 data) {return (data >> 8) | (data << 8);}
-
 void decodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch, bool ignore1bitAlpha = false)
 {
 	// S3TC Decoder
