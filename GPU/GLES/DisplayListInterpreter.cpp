@@ -461,27 +461,31 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 		{
 		case GE_CMD_SIGNAL:
 			{
-				int behaviour = (data >> 16) & 0xFF;
-				int signal = data & 0xFFFF;
+				int behaviour = (prev >> 16) & 0xFF;
+				int signal = prev & 0xFFFF;
+				int enddata = data & 0xFFFF;
 				// We should probably defer to sceGe here, no sense in implementing this stuff in every GPU
 				switch (behaviour) {
 				case 1:  // Signal with Wait
-					ERROR_LOG(G3D, "Signal with Wait UNIMPLEMENTED!");
+					ERROR_LOG(G3D, "Signal with Wait UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
 					break;
 				case 2:
-					DEBUG_LOG(G3D, "Signal without wait");
+					DEBUG_LOG(G3D, "Signal without wait. signal/end: %04x %04x", signal, enddata);
 					break;
 				case 3:
-					ERROR_LOG(G3D, "Signal with Pause UNIMPLEMENTED");
+					ERROR_LOG(G3D, "Signal with Pause UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
 					break;
 				case 0x10:
-					ERROR_LOG(G3D, "Signal with Jump UNIMPLEMENTED");
+					ERROR_LOG(G3D, "Signal with Jump UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
 					break;
 				case 0x11:
-					ERROR_LOG(G3D, "Signal with Jump UNIMPLEMENTED");
+					ERROR_LOG(G3D, "Signal with Jump UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
 					break;
 				case 0x12:
-					ERROR_LOG(G3D, "Signal with Return UNIMPLEMENTED");
+					ERROR_LOG(G3D, "Signal with Return UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
+					break;
+				default:
+					ERROR_LOG(G3D, "UNKNOWN Signal UNIMPLEMENTED %i ! signal/end: %04x %04x", behaviour, signal, enddata);
 					break;
 				}
 				if (interruptsEnabled_)
