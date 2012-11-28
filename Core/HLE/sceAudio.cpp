@@ -321,16 +321,16 @@ u32 sceAudioOutput2Reserve(u32 sampleCount)
 	return 0;
 }
 
-u32 sceAudioOutput2OutputBlocking(u32 vol, u32 dataPtr)
+void sceAudioOutput2OutputBlocking(u32 vol, u32 dataPtr)
 {
 	WARN_LOG(HLE,"FAKE sceAudioOutput2OutputBlocking(%i, %08x)", vol, dataPtr);
 	chans[0].leftVolume = vol;
 	chans[0].rightVolume = vol;
 	chans[0].sampleAddress = dataPtr;
-	return 0;
+	RETURN(0);
 	u32 retval = __AudioEnqueue(chans[0], 0, true);
 	if (retval < 0)
-		return retval;
+		RETURN(retval);
 }
 
 u32 sceAudioOutput2ChangeLength(u32 sampleCount)
@@ -369,7 +369,7 @@ const HLEFunction sceAudio[] =
 	// Newer simplified single channel audio output. Presumably for games that use Atrac3
 	// directly from Sas instead of playing it on a separate audio channel.
   {0x01562ba3, WrapU_U<sceAudioOutput2Reserve>, "sceAudioOutput2Reserve"},
-  {0x2d53f36e, WrapU_UU<sceAudioOutput2OutputBlocking>, "sceAudioOutput2OutputBlocking"},
+  {0x2d53f36e, WrapV_UU<sceAudioOutput2OutputBlocking>, "sceAudioOutput2OutputBlocking"},
   {0x63f2889c, WrapU_U<sceAudioOutput2ChangeLength>, "sceAudioOutput2ChangeLength"},
   {0x647cef33, WrapU_V<sceAudioOutput2GetRestSample>, "sceAudioOutput2GetRestSample"},	
   {0x43196845, WrapU_V<sceAudioOutput2Release>, "sceAudioOutput2Release"},
