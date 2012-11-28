@@ -250,9 +250,11 @@ void sceIoGetstat()
 	const char *filename = Memory::GetCharPointer(PARAM(0));
 	u32 addr = PARAM(1);
 
-	SceIoStat *stat = (SceIoStat*)Memory::GetPointer(addr);
+	SceIoStat stat;
 	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
-	__IoGetStat(stat, info);
+	__IoGetStat(&stat, info);
+	Memory::WriteStruct(addr, &stat);
+
 	DEBUG_LOG(HLE,"sceIoGetstat(%s, %08x) : sector = %08x",filename,addr,info.startSector);
 
 	RETURN(0);
@@ -698,8 +700,11 @@ void sceIoRename() //(const char *oldname, const char *newname);
 {
 	const char *from = Memory::GetCharPointer(PARAM(0));
 	const char *to = Memory::GetCharPointer(PARAM(1));
-	ERROR_LOG(HLE,"UNIMPL sceIoRename(%s, %s)", from, to);
-	RETURN(0);
+	if (pspFileSystem.RenameFile(from, to))
+		RETURN(0);
+	else
+		RETURN(-1);
+	DEBUG_LOG(HLE,"sceIoRename(%s, %s)", from, to);
 }
 
 void sceIoChdir()
@@ -793,9 +798,8 @@ void sceIoGetAsyncStat()
 	FileNode *f = kernelObjects.Get<FileNode>(id, error);
 	if (f)
 	{
-		u64 *resPtr = (u64*)Memory::GetPointer(PARAM(2));
-		*resPtr = f->asyncResult;
-		DEBUG_LOG(HLE,"%i = sceIoGetAsyncStat(%i, %i, %08x) (HACK)", (u32)*resPtr, id, PARAM(1), PARAM(2));
+		Memory::Write_U64(f->asyncResult, PARAM(2));
+		DEBUG_LOG(HLE,"%i = sceIoGetAsyncStat(%i, %i, %08x) (HACK)", (u32)f->asyncResult, id, PARAM(1), PARAM(2));
 		RETURN(0); //completed
 	}
 	else
@@ -813,14 +817,14 @@ void sceIoWaitAsync()
 	FileNode *f = kernelObjects.Get<FileNode>(id, error);
 	if (f)
 	{
-		u64 *resPtr = (u64*)Memory::GetPointer(PARAM(1));
-		*resPtr = f->asyncResult;
+		u64 res = f->asyncResult;
 		if (defAction)
 		{
-			*resPtr = defAction(id, defParam);
+			res = defAction(id, defParam);
 			defAction = 0;
 		}
-		DEBUG_LOG(HLE,"%i = sceIoWaitAsync(%i, %08x) (HACK)", (u32)*resPtr, id, PARAM(1));
+		Memory::Write_U64(res, PARAM(1));
+		DEBUG_LOG(HLE,"%i = sceIoWaitAsync(%i, %08x) (HACK)", (u32)res, id, PARAM(1));
 		RETURN(0); //completed
 	}
 	else
@@ -839,14 +843,14 @@ void sceIoWaitAsyncCB()
 	FileNode *f = kernelObjects.Get<FileNode>(id, error);
 	if (f)
 	{
-		u64 *resPtr = (u64*)Memory::GetPointer(PARAM(1));
-		*resPtr = f->asyncResult;
+		u64 res = f->asyncResult;
 		if (defAction)
 		{
-			*resPtr = defAction(id, defParam);
+			res = defAction(id, defParam);
 			defAction = 0;
 		}
-		DEBUG_LOG(HLE,"%i = sceIoWaitAsyncCB(%i, %08x) (HACK)", (u32)*resPtr, id, PARAM(1));
+		Memory::Write_U64(res, PARAM(1));
+		DEBUG_LOG(HLE,"%i = sceIoWaitAsyncCB(%i, %08x) (HACK)", (u32)res, id, PARAM(1));
 		RETURN(0); //completed
 	}
 	else
@@ -862,14 +866,14 @@ void sceIoPollAsync()
 	FileNode *f = kernelObjects.Get<FileNode>(id, error);
 	if (f)
 	{
-		u64 *resPtr = (u64*)Memory::GetPointer(PARAM(1));
-		*resPtr = f->asyncResult;
+		u64 res = f->asyncResult;
 		if (defAction)
 		{
-			*resPtr = defAction(id, defParam);
+			res = defAction(id, defParam);
 			defAction = 0;
 		}
-		DEBUG_LOG(HLE,"%i = sceIoPollAsync(%i, %08x) (HACK)", (u32)*resPtr, id, PARAM(1));
+		Memory::Write_U64(res, PARAM(1));
+		DEBUG_LOG(HLE,"%i = sceIoPollAsync(%i, %08x) (HACK)", (u32)res, id, PARAM(1));
 		RETURN(0); //completed
 	}
 	else

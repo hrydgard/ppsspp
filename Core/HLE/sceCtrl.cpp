@@ -157,7 +157,7 @@ u32 sceCtrlReadBufferPositive(u32 ctrlDataPtr, u32 nBufs)
 	//if (ctrlInited)
 	//{
 		SampleControls();
-		memcpy(Memory::GetPointer(ctrlDataPtr), &ctrl, sizeof(_ctrl_data));
+		Memory::WriteStruct(ctrlDataPtr, &ctrl);
 	//}
 	return 1;
 }

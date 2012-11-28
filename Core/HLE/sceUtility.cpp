@@ -559,35 +559,37 @@ u32 sceUtilityGetSystemParamString(u32 id, u32 destaddr, u32 unknownparam)
 u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr)
 {
 	DEBUG_LOG(HLE,"sceUtilityGetSystemParamInt(%i, %08x)", id,destaddr);
-	u32 *outPtr = (u32*)Memory::GetPointer(destaddr);
+	u32 param = 0;
 	switch (id) {
 	case PSP_SYSTEMPARAM_ID_INT_ADHOC_CHANNEL:
-		*outPtr = PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC;
+		param = PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC;
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_WLAN_POWERSAVE:
-		*outPtr = PSP_SYSTEMPARAM_WLAN_POWERSAVE_OFF;
+		param = PSP_SYSTEMPARAM_WLAN_POWERSAVE_OFF;
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_DATE_FORMAT:
-		*outPtr = PSP_SYSTEMPARAM_DATE_FORMAT_DDMMYYYY;
+		param = PSP_SYSTEMPARAM_DATE_FORMAT_DDMMYYYY;
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_TIME_FORMAT:
-		*outPtr = PSP_SYSTEMPARAM_TIME_FORMAT_24HR;
+		param = PSP_SYSTEMPARAM_TIME_FORMAT_24HR;
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_TIMEZONE:
-		*outPtr = 60;
+		param = 60;
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_DAYLIGHTSAVINGS:
-		*outPtr = PSP_SYSTEMPARAM_TIME_FORMAT_24HR;
+		param = PSP_SYSTEMPARAM_TIME_FORMAT_24HR;
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_LANGUAGE:
-		*outPtr = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
+		param = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_UNKNOWN:
-		*outPtr = 1;
+		param = 1;
 		break;
 	default:
 		return PSP_SYSTEMPARAM_RETVAL_FAIL;
 	}
+
+	Memory::Write_U32(param, destaddr);
 
 	return 0;
 }

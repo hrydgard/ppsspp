@@ -83,6 +83,7 @@ public:
 	virtual bool     OwnsHandle(u32 handle) = 0;
 	virtual bool     MkDir(const std::string &dirname) = 0;
 	virtual bool     RmDir(const std::string &dirname) = 0;
+	virtual bool     RenameFile(const std::string &from, const std::string &to) = 0;
 	virtual bool     DeleteFile(const std::string &filename) = 0;
 };
 
@@ -100,6 +101,7 @@ public:
 	bool     OwnsHandle(u32 handle) {return false;}
 	virtual bool MkDir(const std::string &dirname) {return false;}
 	virtual bool RmDir(const std::string &dirname) {return false;}
+	virtual bool RenameFile(const std::string &from, const std::string &to) {return false;}
 	virtual bool DeleteFile(const std::string &filename) {return false;}
 };
 
