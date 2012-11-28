@@ -222,7 +222,7 @@ void sceKernelSignalSema(SceUID id, int signal)
 	Semaphore *s = kernelObjects.Get<Semaphore>(id, error);
 	if (s)
 	{
-		if (s->ns.currentCount + signal > s->ns.maxCount)
+		if (s->ns.currentCount + signal - s->ns.numWaitThreads > s->ns.maxCount)
 		{
 			RETURN(SCE_KERNEL_ERROR_SEMA_OVF);
 			return;
