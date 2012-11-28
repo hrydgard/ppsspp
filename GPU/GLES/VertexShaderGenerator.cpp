@@ -40,10 +40,10 @@ static char buffer[16384];
 
 void ComputeVertexShaderID(VertexShaderID *id)
 {
-	// There's currently only one vertex shader
-	// as we do the transform in software.
 	memset(id->d, 0, sizeof(id->d));
 	id->d[0] = gstate.lmode & 1;
+	id->d[0] |= ((int)gstate.isModeThrough()) << 1;
+	id->d[0] |= ((int)gstate.isFogEnabled()) << 2;
 }
 
 void WriteLight(char *p, int l) {
@@ -67,19 +67,32 @@ char *GenerateVertexShader()
 	if (lmode)
 		WRITE("attribute vec4 a_color1;");
 
-	WRITE("uniform mat4 u_proj;");
+	if (gstate.isModeThrough())	{
+		WRITE("uniform mat4 u_proj_through;");
+	} else {
+		WRITE("uniform mat4 u_proj;");
+		// Add all the uniforms we'll need to transform properly.
+	}
 
 	WRITE("varying vec4 v_color0;");
 	if (lmode)
 		WRITE("varying vec4 v_color1;");
 	WRITE("varying vec2 v_texcoord;");
-
+	if (gstate.isFogEnabled())
+		WRITE("varying float v_depth;");
 	WRITE("void main() {");
-	WRITE("v_color0 = a_color0;");
+	WRITE("  v_color0 = a_color0;");
 	if (lmode)
-		WRITE("v_color1 = a_color1;");
-	WRITE("v_texcoord = a_texcoord;");
-	WRITE("gl_Position = u_proj * a_position;");
+		WRITE("  v_color1 = a_color1;");
+	WRITE("  v_texcoord = a_texcoord;");
+	if (gstate.isModeThrough())	{
+		WRITE("  gl_Position = u_proj_through * a_position;");
+	} else {
+		WRITE("  gl_Position = u_proj * a_position;");
+	}
+	if (gstate.isFogEnabled()) {
+		WRITE("  v_depth = gl_Position.z;");
+	}
 	WRITE("}");
 
 	return buffer;

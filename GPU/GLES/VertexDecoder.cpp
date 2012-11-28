@@ -156,7 +156,7 @@ void VertexDecoder::DecodeVerts(DecodedVertex *decoded, const void *verts, const
 			{
 				const u8 *wdata = (const u8*)(ptr);
 				for (int j = 0; j < nweights; j++)
-					wt[j] = (float)wdata[j] / 255.0f;
+					wt[j] = (float)wdata[j] / 128.0f;
 			}
 			break;
 
@@ -164,7 +164,7 @@ void VertexDecoder::DecodeVerts(DecodedVertex *decoded, const void *verts, const
 			{
 				const u16 *wdata = (const u16*)(ptr);
 				for (int j = 0; j < nweights; j++)
-					wt[j] = (float)wdata[j] / 65535.0f;
+					wt[j] = (float)wdata[j] / 32768.0f;
 			}
 			break;
 
@@ -190,7 +190,7 @@ void VertexDecoder::DecodeVerts(DecodedVertex *decoded, const void *verts, const
 			{
 				const u8 *uvdata = (const u8*)(ptr + tcoff);
 				for (int j = 0; j < 2; j++)
-					uv[j] = (float)uvdata[j] / 255.0f;
+					uv[j] = (float)uvdata[j] / 128.0f;
 				break;
 			}
 

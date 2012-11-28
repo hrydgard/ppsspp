@@ -276,6 +276,16 @@ void GLES_GPU::DrawSync(int mode)
 	
 }
 
+void GLES_GPU::Continue()
+{
+
+}
+
+void GLES_GPU::Break()
+{
+
+}
+
 // Just to get something on the screen, we'll just not subdivide correctly.
 void GLES_GPU::DrawBezier(int ucount, int vcount)
 {
@@ -310,7 +320,7 @@ void EnterClearMode(u32 data)
 	bool alphaMask = (data >> 9) & 1;
 	bool updateZ = (data >> 10) & 1;
 	glColorMask(colMask, colMask, colMask, alphaMask);
-	glDepthMask(updateZ); // Update Z or not
+	glstate.depthWrite.set(updateZ ? GL_TRUE : GL_FALSE);
 }
 
 void LeaveClearMode()
@@ -321,8 +331,8 @@ void LeaveClearMode()
 	// Fogging
 	// Antialiasing
 	// Alpha test
-	glDepthMask(1);
 	glColorMask(1,1,1,1);
+	glstate.depthWrite.set(!(gstate.zmsk & 1) ? GL_TRUE : GL_FALSE);
 	// dirtyshader?
 }
 
@@ -371,7 +381,12 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 			void *inds = 0;
 			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE)
 				inds = Memory::GetPointer(gstate_c.indexAddr);
-			TransformAndDrawPrim(verts, inds, type, count, 0, -1);
+
+			// Seems we have to advance the vertex addr, at least in some cases. 
+			// Question: Should we also advance the index addr?
+			int bytesRead;
+			TransformAndDrawPrim(verts, inds, type, count, 0, -1, &bytesRead);
+			gstate_c.vertexAddr += bytesRead;
 		}
 		break;
 
@@ -407,17 +422,21 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 	case GE_CMD_CALL: 
 		{
 			u32 retval = dcontext.pc + 4;
-			stack[stackptr++] = retval; 
-			u32 target = (((gstate.base & 0x00FF0000) << 8) | (op & 0xFFFFFC)) & 0xFFFFFFF;
-			DEBUG_LOG(G3D,"DL CMD CALL - %08x to %08x, ret=%08x", dcontext.pc, target, retval);
-			dcontext.pc = target - 4;	// pc will be increased after we return, counteract that
+			if (stackptr == ARRAY_SIZE(stack)) {
+				ERROR_LOG(G3D, "CALL: Stack full!");
+			} else {
+				stack[stackptr++] = retval;
+				u32 target = (((gstate.base & 0x00FF0000) << 8) | (op & 0xFFFFFC)) & 0xFFFFFFF;
+				DEBUG_LOG(G3D,"DL CMD CALL - %08x to %08x, ret=%08x", dcontext.pc, target, retval);
+				dcontext.pc = target - 4;	// pc will be increased after we return, counteract that
+			}
 		}
 		break;
 
 	case GE_CMD_RET: 
 		//TODO : debug!
 		{
-			u32 target = stack[--stackptr] & 0xFFFFFFF; 
+			u32 target = dcontext.pc & 0xF0000000 | (stack[--stackptr] & 0x0FFFFFFF); 
 			DEBUG_LOG(G3D,"DL CMD RET - from %08x to %08x", dcontext.pc, target);
 			dcontext.pc = target - 4;
 		}
@@ -426,11 +445,55 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 	case GE_CMD_SIGNAL:
 		{
 			ERROR_LOG(G3D, "DL GE_CMD_SIGNAL %08x", data & 0xFFFFFF);
-			int behaviour = (data >> 16) & 0xFF;
-			int signal = data & 0xFFFF;
+			// Processed in GE_END.
+		}
+		break;
 
-			if (interruptsEnabled_)
-				__TriggerInterruptWithArg(PSP_GE_INTR, PSP_GE_SUBINTR_SIGNAL, signal);
+	case GE_CMD_FINISH:
+		DEBUG_LOG(G3D,"DL CMD FINISH");
+		if (interruptsEnabled_)
+			__TriggerInterruptWithArg(PSP_GE_INTR, PSP_GE_SUBINTR_FINISH, 0);
+		break;
+
+	case GE_CMD_END: 
+		DEBUG_LOG(G3D,"DL CMD END");
+		switch (prev >> 24)
+		{
+		case GE_CMD_SIGNAL:
+			{
+				int behaviour = (data >> 16) & 0xFF;
+				int signal = data & 0xFFFF;
+				// We should probably defer to sceGe here, no sense in implementing this stuff in every GPU
+				switch (behaviour) {
+				case 1:  // Signal with Wait
+					ERROR_LOG(G3D, "Signal with Wait UNIMPLEMENTED!");
+					break;
+				case 2:
+					DEBUG_LOG(G3D, "Signal without wait");
+					break;
+				case 3:
+					ERROR_LOG(G3D, "Signal with Pause UNIMPLEMENTED");
+					break;
+				case 0x10:
+					ERROR_LOG(G3D, "Signal with Jump UNIMPLEMENTED");
+					break;
+				case 0x11:
+					ERROR_LOG(G3D, "Signal with Jump UNIMPLEMENTED");
+					break;
+				case 0x12:
+					ERROR_LOG(G3D, "Signal with Return UNIMPLEMENTED");
+					break;
+				}
+				if (interruptsEnabled_)
+					__TriggerInterruptWithArg(PSP_GE_INTR, PSP_GE_SUBINTR_SIGNAL, signal);
+			}
+			break;
+		case GE_CMD_FINISH:
+			finished = true;
+			break;
+		default:
+			DEBUG_LOG(G3D,"Ah, not finished: %06x", prev & 0xFFFFFF);
+			break;
 		}
 		break;
 
@@ -461,32 +524,6 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 		//			offsetAddr = data<<8;
 		break;
 
-	case GE_CMD_FINISH:
-		DEBUG_LOG(G3D,"DL CMD FINISH");
-		if (interruptsEnabled_)
-			__TriggerInterruptWithArg(PSP_GE_INTR, PSP_GE_SUBINTR_FINISH, 0);
-		break;
-
-	case GE_CMD_END: 
-		DEBUG_LOG(G3D,"DL CMD END");
-		{
-			switch (prev >> 24)
-			{
-			case GE_CMD_FINISH:
-				finished = true;
-				break;
-			default:
-				DEBUG_LOG(G3D,"Ah, not finished: %06x", prev & 0xFFFFFF);
-				break;
-			}
-		}
-			
-		// This should generate a Reading Ended interrupt
-		// if (interruptsEnabled_)
-		//   __TriggerInterrupt(PSP_GE_INTR);
-
-		break;
-
 	case GE_CMD_REGION1:
 		{
 			int x1 = data & 0x3ff;
@@ -515,7 +552,6 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_TEXTUREMAPENABLE: 
 		DEBUG_LOG(G3D, "DL Texture map enable: %i", data);
-		glEnDis(GL_TEXTURE_2D, data&1); 
 		break;
 
 	case GE_CMD_LIGHTINGENABLE:
@@ -951,7 +987,19 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 			int mag = (data >> 8) & 1;
 			DEBUG_LOG(G3D,"DL TexFilter min: %i mag: %i", min, mag);
 		}
+		break;
 
+	case GE_CMD_TEXMODE:
+		DEBUG_LOG(G3D,"DL TexMode %08x", data);
+		break;
+	case GE_CMD_TEXFORMAT:
+		DEBUG_LOG(G3D,"DL TexFormat %08x", data);
+		break;
+	case GE_CMD_TEXFLUSH:
+		DEBUG_LOG(G3D,"DL TexFlush");
+		break;
+	case GE_CMD_TEXWRAP:
+		DEBUG_LOG(G3D,"DL TexWrap %08x", data);
 		break;
 	//////////////////////////////////////////////////////////////////
 	//	Z/STENCIL TESTING

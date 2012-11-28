@@ -108,6 +108,12 @@ void NullGPU::DrawSync(int mode)
 	}
 }
 
+void NullGPU::Continue()
+{
+
+}
+
+
 void NullGPU::ExecuteOp(u32 op, u32 diff)
 {
 	u32 cmd = op >> 24;

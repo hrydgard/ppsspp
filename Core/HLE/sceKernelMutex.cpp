@@ -827,7 +827,7 @@ void sceKernelUnlockLwMutex(u32 workareaPtr, int count)
 	{
 		__KernelUnlockLwMutex(workarea, error);
 		Memory::WriteStruct(workareaPtr, &workarea);
-		__KernelReSchedule("mutex unlocked");
+		__KernelReSchedule("lwmutex unlocked");
 	}
 	else
 		Memory::WriteStruct(workareaPtr, &workarea);

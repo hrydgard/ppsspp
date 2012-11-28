@@ -37,6 +37,8 @@ public:
 	virtual void ExecuteOp(u32 op, u32 diff);
 	virtual bool InterpretList();
 	virtual void DrawSync(int mode);
+	virtual void Continue();
+	virtual void Break();
 	virtual void EnableInterrupts(bool enable) {
 		interruptsEnabled_ = enable;
 	}
@@ -48,7 +50,7 @@ public:
 
 private:
 	// TransformPipeline.cpp
-	void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, float *customUV, int forceIndexType);
+	void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, float *customUV, int forceIndexType, int *bytesRead = 0);
 	void UpdateViewportAndProjection();
 	void DrawBezier(int ucount, int vcount);
 	void DoBlockTransfer();

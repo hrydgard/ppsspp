@@ -58,12 +58,14 @@ void ComputeFragmentShaderID(FragmentShaderID *id)
 		id->d[0] |= (gstate.textureMapEnable & 1) << 7;
 		id->d[0] |= (gstate.alphaTestEnable & 1) << 8;
 		id->d[0] |= (gstate.alphatest & 0x7) << 9;	 // alpha test func
-		//id->d[0] |= (gstate.fogEnable & 1) << 9;
+		id->d[0] |= (gstate.fogEnable & 1) << 9;
 	}
 }
 
 // Missing: Alpha test, color test, Z depth range, fog
 // Also, logic ops etc, of course. Urgh.
+// We could do all this with booleans, but I don't trust the shader compilers on
+// Android devices to be anything but stupid.
 char *GenerateFragmentShader()
 {
 	char *p = buffer;
@@ -79,11 +81,17 @@ char *GenerateFragmentShader()
 		WRITE(p, "uniform sampler2D tex;\n");
 	if (gstate.alphaTestEnable & 1)
 		WRITE(p, "uniform vec4 u_alpharef;\n");
+	if (gstate.fogEnable & 1) {
+		WRITE(p, "uniform vec3 u_fogcolor;\n");
+		WRITE(p, "uniform vec2 u_fogcoef;\n");
+	}
 	WRITE(p, "uniform vec4 u_texenv;\n");
 	WRITE(p, "varying vec4 v_color0;\n");
 	if (lmode)
 		WRITE(p, "varying vec4 v_color1;\n");
 	WRITE(p, "varying vec2 v_texcoord;\n");
+	if (gstate.isFogEnabled())
+		WRITE(p, "varying float v_depth;\n");
 
 	WRITE(p, "void main() {\n");
 	WRITE(p, "  vec4 v;\n");
@@ -106,12 +114,11 @@ char *GenerateFragmentShader()
 
 		if (gstate.textureMapEnable & 1) {
 			WRITE(p, "	vec4 t = texture2D(tex, v_texcoord);\n");
-			// WRITE(p, "	vec4 t = vec4(1,0,1,1);");
 			WRITE(p, "	vec4 p = clamp(v_color0, 0.0, 1.0);\n");
 		} else {
 			// No texture mapping
-			WRITE(p, "	vec4 t = vec4(1.0, 1.0, 1.0, 1.0);\n"); //, secondary);
-			WRITE(p, "	vec4 p = clamp(v_color0, 0.0, 1.0);\n"); // , secondary);
+			WRITE(p, "	vec4 t = vec4(1.0, 1.0, 1.0, 1.0);\n");
+			WRITE(p, "	vec4 p = clamp(v_color0, 0.0, 1.0);\n");
 		}
 
 		if (gstate.texfunc & 0x100) { // texfmt == RGBA
@@ -150,15 +157,19 @@ char *GenerateFragmentShader()
 			WRITE(p, "  v = v * vec4(2.0, 2.0, 2.0, 1.0);");
 		}
 		
-		
 		if (gstate.alphaTestEnable & 1) {
 			int alphaTestFunc = gstate.alphatest & 7;
 			const char *alphaTestFuncs[] = { "#", "#", " == ", " != ", " < ", " <= ", " > ", " >= " };	// never/always don't make sense
 			if (alphaTestFuncs[alphaTestFunc][0] != '#')
 				WRITE(p, "if (!(v.a %s u_alpharef.x)) discard;", alphaTestFuncs[alphaTestFunc]);
 		}
-		// Fogging should be added here - and disabled during clear mode
 
+		if (gstate.isFogEnabled()) {
+			// Haven't figured out how to adjust the depth range yet.
+			// WRITE(p, "  v = mix(v, u_fogcolor, u_fogcoef.x + u_fogcoef.y * v_depth;\n");
+			// WRITE(p, "  v.x = v_depth;\n");
+		}
+		// Fogging should be added here - and disabled during clear mode
 	}
 
 	WRITE(p, "  gl_FragColor = v;\n");

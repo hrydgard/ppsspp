@@ -115,17 +115,18 @@ u32 sceGeDrawSync(u32 mode)
 	return 0;
 }
 
+void sceGeContinue()
+{
+	ERROR_LOG(HLE,"UNIMPL sceGeContinue");
+	// no arguments
+}
+
 void sceGeBreak()
 {
 	u32 mode = PARAM(0); //0 : current dlist 1: all drawing
 	ERROR_LOG(HLE,"UNIMPL sceGeBreak(mode=%d)",mode);
 }
 
-void sceGeContinue()
-{
-	ERROR_LOG(HLE,"UNIMPL sceGeContinue");
-	// no arguments
-}
 
 u32 sceGeSetCallback(u32 structAddr)
 {

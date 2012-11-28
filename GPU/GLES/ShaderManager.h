@@ -46,25 +46,25 @@ struct LinkedShader
 
 	int u_tex;
 	int u_proj;
+	int u_proj_through;
 	int u_texenv;
 
 	// Fragment processing inputs
 	int u_alpharef;
-
-	// unused
 	int u_fogcolor;
-	int u_fogparam;
+	int u_fogcoef;
 };
 
 enum
 {
 	DIRTY_PROJMATRIX = (1 << 0),
-	DIRTY_FOGCOLOR	 = (1 << 1),
-	DIRTY_FOGPARAM	 = (1 << 2),
-	DIRTY_TEXENV		 = (1 << 3),
-	DIRTY_ALPHAREF	 = (1 << 4),
+	DIRTY_PROJTHROUGHMATRIX = (1 << 1),
+	DIRTY_FOGCOLOR	 = (1 << 2),
+	DIRTY_FOGCOEF    = (1 << 3),
+	DIRTY_TEXENV		 = (1 << 4),
+	DIRTY_ALPHAREF	 = (1 << 5),
 
-	DIRTY_ALL = (1 << 5) - 1
+	DIRTY_ALL = (1 << 6) - 1
 };
 
 // Real public interface

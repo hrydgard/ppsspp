@@ -240,18 +240,19 @@ struct GPUgstate
 	float tgenMatrix[12];
 	float boneMatrix[12 * 8];  // Eight bone matrices.
 
-	inline bool isModeThrough() const { return (vertType & GE_VTYPE_THROUGH) != 0; }
-	inline bool isModeClear()   const { return clearmode & 1; }
-	inline bool isCullEnabled() const { return cullfaceEnable & 1; }
-	inline int  getCullMode()   const { return cullmode & 1; }
-	inline int  getBlendFuncA() const { return blend & 0xF; }
-	inline u32 getFixA() const { return blendfixa & 0xFFFFFF; }
-	inline u32 getFixB() const { return blendfixb & 0xFFFFFF; }
-	inline int  getBlendFuncB() const { return (blend >> 4) & 0xF; }
-	inline int  getBlendEq()    const { return (blend >> 8) & 0x7; }
-	inline bool isDepthTestEnabled() const { return zTestEnable & 1; }
-	inline bool isDepthWriteEnabled() const { return !(zmsk & 1); }
-	inline int  getDepthTestFunc() const { return ztestfunc & 0x7; }
+	bool isModeThrough() const { return (vertType & GE_VTYPE_THROUGH) != 0; }
+	bool isModeClear()   const { return clearmode & 1; }
+	bool isCullEnabled() const { return cullfaceEnable & 1; }
+	int  getCullMode()   const { return cullmode & 1; }
+	int  getBlendFuncA() const { return blend & 0xF; }
+	u32 getFixA() const { return blendfixa & 0xFFFFFF; }
+	u32 getFixB() const { return blendfixb & 0xFFFFFF; }
+	int  getBlendFuncB() const { return (blend >> 4) & 0xF; }
+	int  getBlendEq()    const { return (blend >> 8) & 0x7; }
+	bool isDepthTestEnabled() const { return zTestEnable & 1; }
+	bool isDepthWriteEnabled() const { return !(zmsk & 1); }
+	int  getDepthTestFunc() const { return ztestfunc & 0x7; }
+	bool isFogEnabled() const { return fogEnable & 1; }
 };
 // Real data in the context ends here
 

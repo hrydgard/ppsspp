@@ -196,7 +196,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 // primitives correctly. Other primitives are possible to transform and light in hardware
 // using vertex shader, which will be way, way faster, especially on mobile. This has
 // not yet been implemented though.
-void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, float *customUV, int forceIndexType)
+void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, float *customUV, int forceIndexType, int *bytesRead)
 {
 	int indexLowerBound, indexUpperBound;
 	// First, decode the verts and apply morphing
@@ -218,6 +218,9 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 	gpuStats.numDrawCalls++;
 	gpuStats.numVertsTransformed += vertexCount;
 	
+	if (bytesRead)
+		*bytesRead = vertexCount * dec.VertexSize();
+
 	bool throughmode = (gstate.vertType & GE_VTYPE_THROUGH_MASK) != 0;
 	// Then, transform and draw in one big swoop (urgh!)
 	// need to move this to the shader.
