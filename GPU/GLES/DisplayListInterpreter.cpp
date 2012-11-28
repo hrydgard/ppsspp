@@ -52,7 +52,7 @@ GLES_GPU::GLES_GPU(int renderWidth, int renderHeight)
 	renderWidthFactor_ = (float)renderWidth / 480.0f;
 	renderHeightFactor_ = (float)renderHeight / 272.0f;
 	shaderManager_ = &shaderManager;
-
+	TextureCache_Init();
 	// Sanity check gstate
 	if ((int *)&gstate.transferstart - (int *)&gstate != 0xEA) {
 		ERROR_LOG(G3D, "gstate has drifted out of sync!");
@@ -61,6 +61,7 @@ GLES_GPU::GLES_GPU(int renderWidth, int renderHeight)
 
 GLES_GPU::~GLES_GPU()
 {
+	TextureCache_Shutdown();
 	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter)
 	{
 		fbo_destroy((*iter)->fbo);
@@ -479,7 +480,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 					ERROR_LOG(G3D, "Signal with Jump UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
 					break;
 				case 0x11:
-					ERROR_LOG(G3D, "Signal with Jump UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
+					ERROR_LOG(G3D, "Signal with Call UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
 					break;
 				case 0x12:
 					ERROR_LOG(G3D, "Signal with Return UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);

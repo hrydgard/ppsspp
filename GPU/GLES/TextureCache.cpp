@@ -44,14 +44,29 @@ struct TexCacheEntry
 typedef std::map<u64, TexCacheEntry> TexCache;
 static TexCache cache;
 
-u32 tmpTexBuf32[1024 * 1024];
-u16 tmpTexBuf16[1024 * 1024];
-
-u16 tmpTexBufRearrange[1024 * 1024];
-
+u32 *tmpTexBuf32;
+u16 *tmpTexBuf16;
+u32 *tmpTexBufRearrange;
 
 u32 clutBuf32[4096];
 u16 clutBuf16[4096];
+
+void TextureCache_Init()
+{
+	tmpTexBuf32 = new u32[1024 * 512];
+	tmpTexBuf16 = new u16[1024 * 512];
+	tmpTexBufRearrange = new u32[1024 * 512];
+}
+
+void TextureCache_Shutdown()
+{
+	delete [] tmpTexBuf32;
+	tmpTexBuf32 = 0;
+	delete [] tmpTexBuf16;
+	tmpTexBuf16 = 0;
+	delete [] tmpTexBufRearrange;
+	tmpTexBufRearrange = 0;
+}
 
 void TextureCache_Clear(bool delete_them)
 {
@@ -408,9 +423,23 @@ u16 convert5551(u16 c) {
 
 struct DXT1Block
 {
+	u8 lines[4];
 	u16 color1;
 	u16 color2;
-	u8 lines[4];
+};
+
+struct DXT3Block
+{
+	DXT1Block color;
+	u16 alphaLines[4];
+};
+
+struct DXT5Block 
+{
+	DXT1Block color;
+	u32 alphadata2;
+	u16 alphadata1;
+	u8 alpha1; u8 alpha2;
 };
 
 inline u32 makecol(int r, int g, int b, int a)
@@ -418,22 +447,24 @@ inline u32 makecol(int r, int g, int b, int a)
 	return (a << 24)|(r << 16)|(g << 8)|b;
 }
 
-void decodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch)
+inline u16 swap16(u16 data) {return (data >> 8) | (data << 8);}
+
+void decodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch, bool ignore1bitAlpha = false)
 {
 	// S3TC Decoder
 	// Needs more speed and debugging.
-	u16 c1 = src->color1;
-	u16 c2 = src->color2;
-	int blue1 = Convert5To8(c1 & 0x1F);
-	int blue2 = Convert5To8(c2 & 0x1F);
+	u16 c1 = (src->color1);
+	u16 c2 = (src->color2);
+	int red1 = Convert5To8(c1 & 0x1F);
+	int red2 = Convert5To8(c2 & 0x1F);
 	int green1 = Convert6To8((c1 >> 5) & 0x3F);
 	int green2 = Convert6To8((c2 >> 5) & 0x3F);
-	int red1 = Convert5To8((c1 >> 11) & 0x1F);
-	int red2 = Convert5To8((c2 >> 11) & 0x1F);
-	int colors[4];
+	int blue1 = Convert5To8((c1 >> 11) & 0x1F);
+	int blue2 = Convert5To8((c2 >> 11) & 0x1F);
+	u32 colors[4];
 	colors[0] = makecol(red1, green1, blue1, 255);
 	colors[1] = makecol(red2, green2, blue2, 255);
-	if (c1 > c2)
+	if (c1 > c2 || ignore1bitAlpha)
 	{
 		int blue3 = ((blue2 - blue1) >> 1) - ((blue2 - blue1) >> 3);
 		int green3 = ((green2 - green1) >> 1) - ((green2 - green1) >> 3);
@@ -454,8 +485,61 @@ void decodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch)
 		int val = src->lines[y];
 		for (int x = 0; x < 4; x++)
 		{
-			dst[x] = colors[(val >> 6) & 3];
-			val <<= 2;
+			dst[x] = colors[val & 3];
+			val >>= 2;
+		}
+		dst += pitch;
+	}
+}
+
+void decodeDXT3Block(u32 *dst, const DXT3Block *src, int pitch)
+{
+	decodeDXT1Block(dst, &src->color, pitch, true);
+	// Alpha: TODO
+}
+
+inline u8 lerp8(const DXT5Block *src, int n) {
+	float d = n / 7.0f;
+	return (u8)(src->alpha1 + (src->alpha2 - src->alpha1) * d);
+}
+
+inline u8 lerp6(const DXT5Block *src, int n) {
+	float d = n / 5.0f;
+	return (u8)(src->alpha1 + (src->alpha2 - src->alpha1) * d);
+}
+
+// The alpha channel is not 100% correct 
+void decodeDXT5Block(u32 *dst, const DXT5Block *src, int pitch)
+{
+	decodeDXT1Block(dst, &src->color, pitch, true);
+	u8 alpha[8];
+
+	alpha[0] = src->alpha1;
+	alpha[1] = src->alpha2;
+	if (alpha[0] > alpha[1]) {
+		alpha[2] = lerp8(src, 6);
+		alpha[3] = lerp8(src, 5);
+		alpha[4] = lerp8(src, 4);
+		alpha[5] = lerp8(src, 3);
+		alpha[6] = lerp8(src, 2);
+		alpha[7] = lerp8(src, 1);
+	} else {
+		alpha[2] = lerp6(src, 4);
+		alpha[3] = lerp6(src, 3);
+		alpha[4] = lerp6(src, 2);
+		alpha[5] = lerp6(src, 1);
+		alpha[6] = 0;
+		alpha[7] = 255;
+	}
+
+	u64 data = ((u64)src->alphadata1 << 32) | src->alphadata2;
+
+	for (int y = 0; y < 4; y++)
+	{
+		for (int x = 0; x < 4; x++)
+		{
+			dst[x] = (dst[x] & 0xFFFFFF) | (alpha[data & 7] << 24);
+			data >>= 3;
 		}
 		dst += pitch;
 	}
@@ -742,34 +826,81 @@ void PSPSetTexture()
 		break;
 
 	case GE_TFMT_DXT1:
-		ERROR_LOG(G3D, "Partial DXT1 texture decoding");
+		ERROR_LOG(G3D, "Partial DXT1 texture decoding. swizzle=%i w=%i h=%i bufw=%i", gstate.texmode & 1, w, h, bufw);
 		dstFmt = GL_UNSIGNED_BYTE;
 		{
+			memset(tmpTexBuf32, 0, 512*512*0);
 			// THIS IS VERY BROKEN but can be debugged! :)
 			u32 *dst = tmpTexBuf32;
 			DXT1Block *src = (DXT1Block*)texptr;
 
-			for (u32 y=0; y<h/4; y++)
+			for (int y = 0; y < h; y += 4)
 			{
-				u32 i = y*w/4;
-				for (u32 x=0; x<w/4; x++)
+				u32 blockIndex = (y / 4) * (bufw / 4);
+				for (int x = 0; x < w; x += 4)
 				{
-					decodeDXT1Block(dst + w*4 * y * 4 + x * 4, src + i, w);
-					i++;
+					decodeDXT1Block(dst + bufw * y + x, src + blockIndex, bufw);
+					blockIndex++;
 				}
 			}
 			finalBuf = tmpTexBuf32;
+			w = (w + 3) & ~3;
 		}
 		break;
 
 	case GE_TFMT_DXT3:
+		dstFmt = GL_UNSIGNED_BYTE;
+		{
+			memset(tmpTexBuf32, 0, 512*512*0);
+			// THIS IS VERY BROKEN but can be debugged! :)
+			u32 *dst = tmpTexBuf32;
+			DXT3Block *src = (DXT3Block*)texptr;
+
+			for (int y = 0; y < h; y += 4)
+			{
+				u32 blockIndex = (y / 4) * (bufw / 8);
+				for (int x = 0; x < bufw; x += 4)
+				{
+					decodeDXT3Block(dst + bufw * y + x, src + blockIndex, bufw);
+					blockIndex++;
+				}
+			}
+			w = (w + 3) & ~3;
+			finalBuf = tmpTexBuf32;
+		}
+		break;
+
 	case GE_TFMT_DXT5:
-		ERROR_LOG(G3D, "Unhandled compressed texture!");
+		ERROR_LOG(G3D, "Unhandled compressed texture, format %i! swizzle=%i", format, gstate.texmode & 1);
+		dstFmt = GL_UNSIGNED_BYTE;
+		{
+			memset(tmpTexBuf32, 0, 512*512*0);
+			// THIS IS VERY BROKEN but can be debugged! :)
+			u32 *dst = tmpTexBuf32;
+			DXT5Block *src = (DXT5Block*)texptr;
+
+			for (int y = 0; y < h; y += 4)
+			{
+				u32 blockIndex = (y / 4) * (bufw / 4);
+				for (int x = 0; x < bufw; x += 4)
+				{
+					decodeDXT5Block(dst + bufw * y + x, src + blockIndex, bufw);
+					blockIndex++;
+				}
+			}
+			w = (w + 3) & ~3;
+			finalBuf = tmpTexBuf32;
+		}
 		break;
 
 	default:
 		ERROR_LOG(G3D, "Unknown Texture Format %d!!!", format);
+		finalBuf = tmpTexBuf32;
 		return;
+	}
+
+	if (!finalBuf) {
+		ERROR_LOG(G3D, "NO finalbuf! Will crash!");
 	}
 
 	convertColors((u8*)finalBuf, dstFmt, bufw * h);
