@@ -665,12 +665,12 @@ void PSPSetTexture()
 	glGenTextures(1, &entry.texture);
 	glBindTexture(GL_TEXTURE_2D, entry.texture);
 			
-	u32 bufw = gstate.texbufwidth[0] & 0x3ff;
+	int bufw = gstate.texbufwidth[0] & 0x3ff;
 	
 	entry.dim = gstate.texsize[0] & 0xF0F;
 
-	u32 w = 1 << (gstate.texsize[0] & 0xf);
-	u32 h = 1 << ((gstate.texsize[0]>>8) & 0xf);
+	int w = 1 << (gstate.texsize[0] & 0xf);
+	int h = 1 << ((gstate.texsize[0]>>8) & 0xf);
 
 	INFO_LOG(G3D, "Creating texture %i from %08x: %i x %i (stride: %i). fmt: %i", entry.texture, entry.addr, w, h, bufw, entry.format);
 
@@ -700,9 +700,8 @@ void PSPSetTexture()
 			texByteAlign = 2;
 			if (!(gstate.texmode & 1))
 			{
-				u32 i;
 				u32 addr = texaddr;
-				for (i = 0; i < bufw * h; i += 2)
+				for (int i = 0; i < bufw * h; i += 2)
 				{
 					u8 index = Memory::Read_U8(addr);
 					tmpTexBuf16[i + 0] = clut[GetClutIndex((index >> 0) & 0xf) + clutSharingOff];
@@ -712,9 +711,8 @@ void PSPSetTexture()
 			}
 			else
 			{
-				u32 i, j;
 				UnswizzleFromMem(texaddr, 0, level);
-				for (i = 0, j = 0; i < bufw * h; i += 8, j++)
+				for (int i = 0, j = 0; i < bufw * h; i += 8, j++)
 				{
 					u32 n = tmpTexBuf32[j];
 					u32 k, index;
@@ -734,9 +732,8 @@ void PSPSetTexture()
 			u32 clutSharingOff = 0;//gstate.mipmapShareClut ? 0 : level * 16;
 			if (!(gstate.texmode & 1))
 			{
-				u32 i;
 				u32 addr = texaddr;
-				for (i = 0; i < bufw * h; i += 2)
+				for (int i = 0; i < bufw * h; i += 2)
 				{
 					u8 index = Memory::Read_U8(addr);
 					tmpTexBuf32[i + 0] = clut[GetClutIndex((index >> 0) & 0xf) + clutSharingOff];
@@ -746,16 +743,13 @@ void PSPSetTexture()
 			}
 			else
 			{
-				s32 i;
-				u32 j;
 				u32 pixels = bufw * h;
 				UnswizzleFromMem(texaddr, 0, level);
-				for (i = pixels - 8, j = (pixels / 8) - 1; i >= 0; i -= 8, j--)
+				for (int i = pixels - 8, j = (pixels / 8) - 1; i >= 0; i -= 8, j--)
 				{
 					u32 n = tmpTexBuf32[j];
-					u32 k, index;
-					for (k = 0; k < 8; k++) {
-						index = (n >> (k * 4)) & 0xf;
+					for (int k = 0; k < 8; k++) {
+						u32 index = (n >> (k * 4)) & 0xf;
 						tmpTexBuf32[i + k] = clut[GetClutIndex(index) + clutSharingOff];
 					}
 				}
@@ -801,9 +795,8 @@ void PSPSetTexture()
 
 		if (!(gstate.texmode & 1))
 		{
-			u32 len = (bufw > w ? bufw : w) * h;
-			u32 i;
-			for (i = 0; i < len; i++)
+			int len = std::max(bufw, w) * h;
+			for (int i = 0; i < len; i++)
 				tmpTexBuf16[i] = Memory::Read_U16(texaddr + i * 2);
 			finalBuf = tmpTexBuf16;
 		}
@@ -815,9 +808,8 @@ void PSPSetTexture()
 		dstFmt = GL_UNSIGNED_BYTE;
 		if (!(gstate.texmode & 1))
 		{
-			u32 len = bufw * h;
-			u32 i;
-			for (i = 0; i < len; i++)
+			int len = bufw * h;
+			for (int i = 0; i < len; i++)
 				tmpTexBuf32[i] = Memory::Read_U32(texaddr + i * 4);
 			finalBuf = tmpTexBuf32;
 		}
@@ -829,7 +821,6 @@ void PSPSetTexture()
 		ERROR_LOG(G3D, "Partial DXT1 texture decoding. swizzle=%i w=%i h=%i bufw=%i", gstate.texmode & 1, w, h, bufw);
 		dstFmt = GL_UNSIGNED_BYTE;
 		{
-			memset(tmpTexBuf32, 0, 512*512*0);
 			// THIS IS VERY BROKEN but can be debugged! :)
 			u32 *dst = tmpTexBuf32;
 			DXT1Block *src = (DXT1Block*)texptr;
@@ -837,7 +828,7 @@ void PSPSetTexture()
 			for (int y = 0; y < h; y += 4)
 			{
 				u32 blockIndex = (y / 4) * (bufw / 4);
-				for (int x = 0; x < w; x += 4)
+				for (int x = 0; x < std::min(bufw, w); x += 4)
 				{
 					decodeDXT1Block(dst + bufw * y + x, src + blockIndex, bufw);
 					blockIndex++;
@@ -851,15 +842,14 @@ void PSPSetTexture()
 	case GE_TFMT_DXT3:
 		dstFmt = GL_UNSIGNED_BYTE;
 		{
-			memset(tmpTexBuf32, 0, 512*512*0);
 			// THIS IS VERY BROKEN but can be debugged! :)
 			u32 *dst = tmpTexBuf32;
 			DXT3Block *src = (DXT3Block*)texptr;
 
 			for (int y = 0; y < h; y += 4)
 			{
-				u32 blockIndex = (y / 4) * (bufw / 8);
-				for (int x = 0; x < bufw; x += 4)
+				u32 blockIndex = (y / 4) * (bufw / 4);
+				for (int x = 0; x < std::min(bufw, w); x += 4)
 				{
 					decodeDXT3Block(dst + bufw * y + x, src + blockIndex, bufw);
 					blockIndex++;
@@ -874,7 +864,6 @@ void PSPSetTexture()
 		ERROR_LOG(G3D, "Unhandled compressed texture, format %i! swizzle=%i", format, gstate.texmode & 1);
 		dstFmt = GL_UNSIGNED_BYTE;
 		{
-			memset(tmpTexBuf32, 0, 512*512*0);
 			// THIS IS VERY BROKEN but can be debugged! :)
 			u32 *dst = tmpTexBuf32;
 			DXT5Block *src = (DXT5Block*)texptr;
@@ -882,7 +871,7 @@ void PSPSetTexture()
 			for (int y = 0; y < h; y += 4)
 			{
 				u32 blockIndex = (y / 4) * (bufw / 4);
-				for (int x = 0; x < bufw; x += 4)
+				for (int x = 0; x < std::min(bufw, w); x += 4)
 				{
 					decodeDXT5Block(dst + bufw * y + x, src + blockIndex, bufw);
 					blockIndex++;
@@ -928,7 +917,7 @@ void PSPSetTexture()
 		} else {
 			write = (u8 *)finalBuf;
 		}
-		for (u32 y = 0; y < h; y++) {
+		for (int y = 0; y < h; y++) {
 			memmove(write, read, outRowBytes);
 			read += inRowBytes;
 			write += outRowBytes;
