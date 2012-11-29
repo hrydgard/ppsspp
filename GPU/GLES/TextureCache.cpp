@@ -26,6 +26,7 @@
 // If a texture hasn't been seen for 200 frames, get rid of it.
 #define TEXTURE_KILL_AGE 200
 
+// TODO: Speed up by switching to ReadUnchecked*.
 
 struct TexCacheEntry
 {
@@ -44,28 +45,34 @@ struct TexCacheEntry
 typedef std::map<u64, TexCacheEntry> TexCache;
 static TexCache cache;
 
+// These two share memory, just different types for convenience.
 u32 *tmpTexBuf32;
 u16 *tmpTexBuf16;
+
 u32 *tmpTexBufRearrange;
 
-u32 clutBuf32[4096];
-u16 clutBuf16[4096];
+u32 *clutBuf32;
+u16 *clutBuf16;
 
 void TextureCache_Init()
 {
+	// TODO: Switch to aligned allocations for alignment. AllocateMemoryPages would do the trick.
 	tmpTexBuf32 = new u32[1024 * 512];
-	tmpTexBuf16 = new u16[1024 * 512];
+	tmpTexBuf16 = (u16 *)tmpTexBuf32;
 	tmpTexBufRearrange = new u32[1024 * 512];
+	clutBuf32 = new u32[4096];
+	clutBuf16 = new u16[4096];
 }
 
 void TextureCache_Shutdown()
 {
 	delete [] tmpTexBuf32;
 	tmpTexBuf32 = 0;
-	delete [] tmpTexBuf16;
-	tmpTexBuf16 = 0;
+	tmpTexBuf16 = 0;  //shares memory with tmpTexBuf32
 	delete [] tmpTexBufRearrange;
 	tmpTexBufRearrange = 0;
+	delete [] clutBuf32;
+	delete [] clutBuf16;
 }
 
 void TextureCache_Clear(bool delete_them)
@@ -421,6 +428,10 @@ u16 convert5551(u16 c) {
 	return ((c & 0x8000) >> 15) | (c << 1);
 }
 
+
+// All these DXT structs are in the reverse order, as compared to PC.
+// On PC, alpha comes before color, and interpolants are before the tile data.
+
 struct DXT1Block
 {
 	u8 lines[4];
@@ -447,6 +458,7 @@ inline u32 makecol(int r, int g, int b, int a)
 	return (a << 24)|(r << 16)|(g << 8)|b;
 }
 
+// This could probably be done faster by decoding two or four blocks at a time with SSE/NEON.
 void decodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch, bool ignore1bitAlpha = false)
 {
 	// S3TC Decoder
@@ -545,6 +557,8 @@ void decodeDXT5Block(u32 *dst, const DXT5Block *src, int pitch)
 
 void convertColors(u8 *finalBuf, GLuint dstFmt, int numPixels)
 {
+	// TODO: All these can be massively sped up with SSE, or even
+	// somewhat sped up using "manual simd" in 32 or 64-bit gprs.
 	switch (dstFmt) {
 	case GL_UNSIGNED_SHORT_4_4_4_4:
 		{
@@ -575,10 +589,7 @@ void convertColors(u8 *finalBuf, GLuint dstFmt, int numPixels)
 		break;
 	default:
 		{
-			//u32 *p = (u32 *)finalBuf;
-			//for (int i = 0; i < numPixels; i++) {
-			//	p[i] = _byteswap_ulong(p[i]);
-			//}
+			// No need to convert RGBA8888, right order already
 		}
 		break;
 	}
@@ -687,6 +698,7 @@ void PSPSetTexture()
 	{
 	case GE_TFMT_CLUT4:
 		dstFmt = getClutDestFormat((GEPaletteFormat)(gstate.clutformat & 3));
+
 		switch (clutformat)
 		{
 		case GE_CMODE_16BIT_BGR5650:
@@ -816,10 +828,8 @@ void PSPSetTexture()
 		break;
 
 	case GE_TFMT_DXT1:
-		ERROR_LOG(G3D, "Partial DXT1 texture decoding. swizzle=%i w=%i h=%i bufw=%i", gstate.texmode & 1, w, h, bufw);
 		dstFmt = GL_UNSIGNED_BYTE;
 		{
-			// THIS IS VERY BROKEN but can be debugged! :)
 			u32 *dst = tmpTexBuf32;
 			DXT1Block *src = (DXT1Block*)texptr;
 
@@ -840,10 +850,10 @@ void PSPSetTexture()
 	case GE_TFMT_DXT3:
 		dstFmt = GL_UNSIGNED_BYTE;
 		{
-			// THIS IS VERY BROKEN but can be debugged! :)
 			u32 *dst = tmpTexBuf32;
 			DXT3Block *src = (DXT3Block*)texptr;
 
+			// Alpha is off
 			for (int y = 0; y < h; y += 4)
 			{
 				u32 blockIndex = (y / 4) * (bufw / 4);
@@ -862,10 +872,10 @@ void PSPSetTexture()
 		ERROR_LOG(G3D, "Unhandled compressed texture, format %i! swizzle=%i", format, gstate.texmode & 1);
 		dstFmt = GL_UNSIGNED_BYTE;
 		{
-			// THIS IS VERY BROKEN but can be debugged! :)
 			u32 *dst = tmpTexBuf32;
 			DXT5Block *src = (DXT5Block*)texptr;
 
+			// Alpha is almost right
 			for (int y = 0; y < h; y += 4)
 			{
 				u32 blockIndex = (y / 4) * (bufw / 4);
