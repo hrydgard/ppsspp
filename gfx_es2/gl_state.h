@@ -80,6 +80,28 @@ private:
 		} \
 	}
 
+	#define STATE4(func, p1type, p2type, p3type, p4type, p1def, p2def, p3def, p4def) \
+	class SavedState4_##func { \
+		p1type p1; \
+		p2type p2; \
+		p3type p3; \
+		p4type p4; \
+	public: \
+		SavedState4_##func() : p1(p1def), p2(p2def), p3(p3def), p4(p4def) {}; \
+		inline void set(p1type newp1, p2type newp2, p3type newp3, p4type newp4) { \
+			if(newp1 != p1 || newp2 != p2 || newp3 != p3 || newp4 != p4) { \
+				p1 = newp1; \
+				p2 = newp2; \
+				p3 = newp3; \
+				p4 = newp4; \
+				func(p1, p2, p3, p4); \
+			} \
+		} \
+		inline void restore() { \
+			func(p1, p2, p3, p4); \
+		} \
+	}
+
 #define STATEFLOAT4(func, def) \
 	class SavedState4_##func { \
 		float p[4]; \
@@ -120,6 +142,8 @@ public:
 	STATE1(glDepthFunc, GLenum, GL_LESS) depthFunc;
 
 	STATE1(glDepthMask, GLboolean, GL_TRUE) depthWrite;
+
+	STATE4(glColorMask, bool, bool, bool, bool, true, true, true, true) colorMask;
 
 #if defined(USING_GLES2)
 	STATE2(glDepthRangef, float, float, 0.f, 1.f) depthRange;
