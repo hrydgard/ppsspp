@@ -38,7 +38,7 @@ class Command(object):
 # Test names are the C files without the .c extension.
 # These have worked and should keep working always - regression tests.
 tests_good = [
-  "cpu/cpu/cpu",
+  "cpu/cpu_alu/cpu_alu",
   "cpu/vfpu/base/vfpu",
   "cpu/vfpu/convert/vfpu_convert",
   "cpu/vfpu/prefixes/vfpu_prefixes",
@@ -140,8 +140,9 @@ def init():
     print "Please run git submodule init; git submodule update;"
     sys.exit(1)
 
-  if not os.path.exists(TEST_ROOT + "cpu/cpu/cpu.prx"):
+  if not os.path.exists(TEST_ROOT + "cpu/cpu_alu/cpu_alu.prx"):
     print "Please install the pspsdk and run make in common/ and in all the tests" 
+    print "(checked for existence of cpu/cpu_alu/cpu_alu.prx)" 
     sys.exit(1)
 
   for p in PPSSPP_EXECUTABLES:
