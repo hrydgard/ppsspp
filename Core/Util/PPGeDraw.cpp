@@ -132,7 +132,7 @@ void __PPGeInit()
 	Memory::Memcpy(atlasPtr, imageData, atlasSize);
 	free(imageData);
 
-	NOTICE_LOG(HLE, "PPGe drawing library initialized. DL: %08x Data: %08x Atlas: %08x (%i) Ctx: %08x",
+	DEBUG_LOG(HLE, "PPGe drawing library initialized. DL: %08x Data: %08x Atlas: %08x (%i) Ctx: %08x",
 		dlPtr, dataPtr, atlasPtr, atlasSize, savedContextPtr);
 }
 

@@ -207,8 +207,9 @@ nextblock:
 		e->isDirectory = !isFile;
 		e->flags = dir.flags;
 		e->isBlockSectorMode = false;
-				
-		DEBUG_LOG(FILESYS, "%s: %s %08x %08x %i", e->isDirectory?"D":"F", name, dir.firstDataSectorLE, e->startingPosition, e->startingPosition);
+
+		// Let's not excessively spam the log - I commented this line out.
+		// DEBUG_LOG(FILESYS, "%s: %s %08x %08x %i", e->isDirectory?"D":"F", name, dir.firstDataSectorLE, e->startingPosition, e->startingPosition);
 
 		if (e->isDirectory && !relative)
 		{
