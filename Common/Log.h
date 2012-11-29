@@ -101,6 +101,7 @@ void GenericLog(LOGTYPES_LEVELS level, LOGTYPES_TYPE type,
 	}
 #define _dbg_assert_msg_(_t_, _a_, ...)\
 	if (!(_a_)) {\
+		printf(_t_, __VA_ARGS__); \
 		ERROR_LOG(_t_, __VA_ARGS__); \
 		if (!PanicYesNo(__VA_ARGS__)) {Crash();} \
 	}
