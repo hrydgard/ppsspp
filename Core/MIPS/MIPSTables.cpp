@@ -950,7 +950,7 @@ int MIPSInterpret_RunUntil(u64 globalTicks)
 			// int cycles = 0;
 			{
 				again:
-				u32 op = Memory::ReadUnchecked_U32(curMips->pc);
+				u32 op = Memory::Read_U32(curMips->pc);
 				//u32 op = Memory::Read_Opcode_JIT(mipsr4k.pc);
 				/*
 				// Choke on VFPU

@@ -588,6 +588,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/ELF/ElfTypes.h
 	Core/ELF/PrxDecrypter.cpp
 	Core/ELF/PrxDecrypter.h
+	Core/ELF/ParamSFO.cpp
+	Core/ELF/ParamSFO.h
 	Core/FileSystems/BlockDevices.cpp
 	Core/FileSystems/BlockDevices.h
 	Core/FileSystems/DirectoryFileSystem.cpp

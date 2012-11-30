@@ -75,12 +75,12 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	InitCommonControlsEx(&comm);
 
 	MainWindow::Init(_hInstance);
-	host = new WindowsHost(MainWindow::GetDisplayHWND());
 
 	HACCEL hAccelTable = LoadAccelerators(_hInstance, (LPCTSTR)IDR_ACCELS);
 	g_hPopupMenus = LoadMenu(_hInstance, (LPCSTR)IDR_POPUPMENUS);
 
 	MainWindow::Show(_hInstance, iCmdShow);
+	host = new WindowsHost(MainWindow::GetHWND(), MainWindow::GetDisplayHWND());
 
 	HWND hwndMain = MainWindow::GetHWND();
 	HMENU menu = GetMenu(hwndMain);

@@ -13,6 +13,7 @@ set(SRCS
   MIPS/MIPSVFPUUtils.cpp
   MIPS/JitCommon/JitCommon.cpp
   ELF/ElfReader.cpp
+  ELF/ParamSFO.cpp
   ELF/PrxDecrypter.cpp
   HLE/HLE.cpp
   HLE/HLETables.cpp
