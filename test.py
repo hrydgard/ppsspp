@@ -49,6 +49,7 @@ tests_good = [
 
   "display/display",
   "dmac/dmactest",
+  "loader/bss/bss",
   "intr/intr",
   "intr/vblank/vblank",
   "misc/testgp",
@@ -68,10 +69,13 @@ tests_good = [
 ]
 
 tests_next = [
+  "audio/sascore/sascore",
   "malloc/malloc",
 # These are the next tests up for fixing. These run by default.
   "threads/fpl/fpl",
+  "threads/k0/k0",
   "threads/msgpipe/msgpipe",
+  "threads/mutex/mutex",
   "threads/mutex/create/create",
   "threads/mutex/lock/lock",
   "threads/mutex/priority/priority",
@@ -86,7 +90,6 @@ tests_next = [
   "threads/vpl/vpl",
   "threads/vtimers/vtimer",
   "threads/wakeup/wakeup",
-  "audio/sascore/sascore",
   "ctrl/ctrl",
   "gpu/simple/simple",
   "gpu/triangle/triangle",
@@ -97,20 +100,11 @@ tests_next = [
   "io/iodrv/iodrv",
   "modules/loadexec/loader",
   "rtc/rtc",
-  "threads/k0/k0",
-  "threads/fpl/fpl",
-  "threads/msgpipe/msgpipe",
-  "threads/mutex/mutex",
-  "threads/scheduling/scheduling",
-  "threads/threads/threads",
-  "threads/vpl/vpl",
-  "threads/vtimers/vtimers",
-  "threads/wakeup/wakeup",
   "umd/io/umd_io",
-  "umd/raw_access/raw_acess",
+  "umd/raw_access/raw_access",
   "utility/systemparam/systemparam",
-  "video/pmf",
-  "video/pmf_simple",
+  "video/pmf/pmf",
+  "video/pmf_simple/pmf_simple",
 
   # Currently hang or crash.
   "threads/events/events",
