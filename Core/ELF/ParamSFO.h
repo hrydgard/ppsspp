@@ -22,6 +22,7 @@
 struct ParamSFOData
 {
 	std::string discID;
+	std::string title;  // utf-8
 };
 
 bool ParseParamSFO(const u8 *paramsfo, size_t size, ParamSFOData *data);

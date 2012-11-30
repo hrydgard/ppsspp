@@ -73,15 +73,17 @@ bool Load_PSP_ISO(const char *filename, std::string *error_string)
 	PSPFileInfo fileInfo = pspFileSystem.GetFileInfo(sfoPath.c_str());
 	if (fileInfo.exists)
 	{
-		u8 *paramsfo = new u8[fileInfo.size];
+		u8 *paramsfo = new u8[(size_t)fileInfo.size];
 		u32 fd = pspFileSystem.OpenFile(sfoPath, FILEACCESS_READ);
 		pspFileSystem.ReadFile(fd, paramsfo, fileInfo.size);
 		pspFileSystem.CloseFile(fd);
 		ParamSFOData data;
-		if (ParseParamSFO(paramsfo, fileInfo.size, &data))
+		if (ParseParamSFO(paramsfo, (size_t)fileInfo.size, &data))
 		{
-			INFO_LOG(LOADER, "Disc ID: %s", data.discID.c_str());
-			host->SetWindowTitle(data.discID.c_str());
+			char title[1024];
+			sprintf(title, "%s : %s", data.discID.c_str(), data.title.c_str());
+			INFO_LOG(LOADER, "%s", title);
+			host->SetWindowTitle(title);
 		}
 		delete [] paramsfo;
 	}

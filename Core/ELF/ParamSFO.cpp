@@ -38,9 +38,10 @@ struct IndexTable
 
 void ParseDataString(const char *key, const char *utfdata, ParamSFOData *sfodata)
 {
-	if (!strcmp(key, "DISC_ID"))
-	{
+	if (!strcmp(key, "DISC_ID")) {
 		sfodata->discID = utfdata;
+	} else if (!strcmp(key, "TITLE")) {
+		sfodata->title = utfdata;
 	}
 }
 
@@ -48,17 +49,17 @@ void ParseDataString(const char *key, const char *utfdata, ParamSFOData *sfodata
 bool ParseParamSFO(const u8 *paramsfo, size_t size, ParamSFOData *data)
 {
 	const Header *header = (const Header *)paramsfo;
-	if (header->magic != 0x46535000) 
+	if (header->magic != 0x46535000)
 		return false;
 	if (header->version != 0x00000101)
 		WARN_LOG(LOADER, "Unexpected SFO header version: %08x", header->version);
-	
+
 	const IndexTable *indexTables = (const IndexTable *)(paramsfo + sizeof(Header));
 
 	const u8 *key_start = paramsfo + header->key_table_start;
 	const u8 *data_start = paramsfo + header->data_table_start;
 
-	for (int i = 0; i < header->index_table_entries; i++) 
+	for (int i = 0; i < header->index_table_entries; i++)
 	{
 		const char *key = (const char *)(key_start + indexTables[i].key_table_offset);
 
@@ -69,7 +70,7 @@ bool ParseParamSFO(const u8 *paramsfo, size_t size, ParamSFOData *data)
 				const u32 *data = (const u32 *)(data_start + indexTables[i].data_table_offset);
 				DEBUG_LOG(LOADER, "%s %08x", key, *data);
 			}
-			break; 
+			break;
 		case 0x0004:
 			// Special format UTF-8
 			{
