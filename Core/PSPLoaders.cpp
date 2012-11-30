@@ -59,10 +59,12 @@ bool Load_PSP_ISO(const char *filename, std::string *error_string)
 	//pspFileSystem.Mount("host0:",umd2);
 	pspFileSystem.Mount("umd0:", umd2);
 	pspFileSystem.Mount("umd1:", umd2);
-	pspFileSystem.Mount("disc0:", umd2);
+	pspFileSystem.Mount("disc0:", umd2);	
+	pspFileSystem.Mount("umd:", umd2);
 	pspFileSystem.Mount("UMD0:", umd2);
 	pspFileSystem.Mount("UMD1:", umd2);
 	pspFileSystem.Mount("DISC0:", umd2);
+	pspFileSystem.Mount("UMD:", umd2);
 
 	std::string bootpath("disc0:/PSP_GAME/SYSDIR/EBOOT.BIN");
 	// bypass patchers
