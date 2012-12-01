@@ -730,6 +730,14 @@ void __KernelReSchedule(const char *reason)
     return;
   }
 
+  // Execute any pending events while we're doing scheduling.
+  CoreTiming::Advance();
+  if (__IsInInterrupt() || __KernelInCallback())
+  {
+    reason = "In Interrupt Or Callback";
+    return;
+  }
+
 retry:
 	Thread *nextThread = __KernelNextThread();
 
