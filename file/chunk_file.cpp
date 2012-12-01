@@ -17,6 +17,7 @@ ChunkFile::ChunkFile(const char *filename, bool _read) {
 
 	if (fastMode) {
 		size_t size;
+		ILOG("VFSReadFile %s", filename);
 		data = (uint8_t *)VFSReadFile(filename, &size);
 		if (!data) {
 			ELOG("Chunkfile fail: %s", filename);

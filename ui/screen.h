@@ -40,6 +40,7 @@ public:
 	virtual void deviceLost() {}
 	virtual void dialogFinished(const Screen *dialog, DialogResult result) {}
 	virtual void touch(int pointer, float x, float y, double time, TouchEvent event) {}
+	virtual void sendMessage(const char *msg, const char *value) {}
 
 	ScreenManager *screenManager() { return screenManager_; }
 	void setScreenManager(ScreenManager *sm) { screenManager_ = sm; }
@@ -85,6 +86,9 @@ public:
 
 	// Instant touch, separate from the update() mechanism.
 	void touch(int pointer, float x, float y, double time, TouchEvent event);
+
+	// Generic facility for gross hacks :P
+	void sendMessage(const char *msg, const char *value);
 
 private:
 	void pop();

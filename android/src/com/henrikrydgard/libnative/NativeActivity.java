@@ -241,32 +241,37 @@ public class NativeActivity extends Activity {
     public boolean onKeyDown(int keyCode, KeyEvent event) {
     	// Eat these keys, to avoid accidental exits / other screwups.
     	// Maybe there's even more we need to eat on tablets?
-        if (keyCode == KeyEvent.KEYCODE_BACK) {
+        switch (keyCode) {
+        case KeyEvent.KEYCODE_BACK:
         	if (event.isAltPressed()) {
         		NativeApp.keyDown(1004); // special custom keycode
         	} else {
 	        	NativeApp.keyDown(1);
         	}
-        }
-        else if (keyCode == KeyEvent.KEYCODE_MENU) {
+        	return true;
+        case KeyEvent.KEYCODE_MENU:
         	NativeApp.keyDown(2);  
-        }
-        else if (keyCode == KeyEvent.KEYCODE_SEARCH) {
+        	return true;
+        case KeyEvent.KEYCODE_SEARCH:
         	NativeApp.keyDown(3);
-        }
-        else {
+        	return true;
+        case KeyEvent.KEYCODE_VOLUME_DOWN:
+        case KeyEvent.KEYCODE_VOLUME_UP:
+        	return false;
+        default:
         	// send the rest of the keys through.
         	// TODO: get rid of the three special cases above by adjusting the native side of the code.
         	NativeApp.keyDown(keyCode);
+            return true;
         } 
-        return true;
     } 
     
     @Override
     public boolean onKeyUp(int keyCode, KeyEvent event) {
     	// Eat these keys, to avoid accidental exits / other screwups.
     	// Maybe there's even more we need to eat on tablets?
-        if (keyCode == KeyEvent.KEYCODE_BACK) {
+        switch (keyCode) {
+        case KeyEvent.KEYCODE_BACK:
         	if (event.isAltPressed()) {
         		NativeApp.keyUp(1004); // special custom keycode
         	}
@@ -275,21 +280,24 @@ public class NativeActivity extends Activity {
         	} else {
         		NativeApp.keyUp(1);
         	}
-        }
-        else if (keyCode == KeyEvent.KEYCODE_MENU) {
+        	return true;
+        case KeyEvent.KEYCODE_MENU:
         	// Menu should be ignored from SDK 11 forwards. We send it to the app.
         	NativeApp.keyUp(2);  
-        }
-        else if (keyCode == KeyEvent.KEYCODE_SEARCH) {
+        	return true;
+        case KeyEvent.KEYCODE_SEARCH:
         	// Search probably should also be ignored. We send it to the app.
         	NativeApp.keyUp(3);
-        } 
-        else {
+        	return true;
+        case KeyEvent.KEYCODE_VOLUME_DOWN:
+        case KeyEvent.KEYCODE_VOLUME_UP:
+        	return false;
+        default:
         	// send the rest of the keys through.
         	// TODO: get rid of the three special cases above by adjusting the native side of the code.
         	NativeApp.keyUp(keyCode);
+        	return true;
         } 
-    	return true;
     }  
    
     // Prevent destroying and recreating the main activity when the device rotates etc,
@@ -333,6 +341,7 @@ public class NativeActivity extends Activity {
     	dlg.show();
     	if (inputBoxCancelled)
     		return null;
+    	NativeApp.sendMessage("INPUTBOX:" + title, input.getText().toString());
     	return input.getText().toString();
     }
      
@@ -356,11 +365,11 @@ public class NativeActivity extends Activity {
     	} else if (command.equals("toast"))  {
     		Toast toast = Toast.makeText(this, params, Toast.LENGTH_SHORT);
     		toast.show();
-    	} else if (command.equals("showkeyboard")) {
+    	} else if (command.equals("showKeyboard")) {
     		//InputMethodManager inputMethodManager=(InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);
     	    //inputMethodManager.toggleSoftInputFromWindow(this, InputMethodManager.SHOW_FORCED, 0);
-    	} else if (command.equals("gettext")) {
-    		inputBox("Enter text", params, "OK");
+    	} else if (command.equals("inputBox")) {
+    		inputBox(params, "", "OK");
     	} else {
     		Log.e(TAG, "Unsupported command " + command + " , param: " + params);
     	}

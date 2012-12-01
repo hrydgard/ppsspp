@@ -1,6 +1,7 @@
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
+#include <direct.h>
 #else
 #include <dirent.h>
 #include <unistd.h>
@@ -104,23 +105,40 @@ bool exists(const std::string &filename)
 // Returns true if filename is a directory
 bool isDirectory(const std::string &filename)
 {
+	FileInfo info;
+	getFileInfo(filename.c_str(), &info);
+	return info.isDirectory;
+}
+
+bool getFileInfo(const char *path, FileInfo *fileInfo)
+{
+	// TODO: Expand relative paths?
+	fileInfo->fullName = path;
+
 #ifdef _WIN32
-	return (GetFileAttributes(filename.c_str()) & FILE_ATTRIBUTE_DIRECTORY) != 0;
+	DWORD attributes = GetFileAttributes(path);
+	fileInfo->isDirectory = (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+	fileInfo->isWritable = (attributes & FILE_ATTRIBUTE_READONLY) == 0;
 #else
 	struct stat64 file_info;
 
-	std::string copy(filename);
+	std::string copy(path);
 	stripTailDirSlashes(copy);
 
 	int result = stat64(copy.c_str(), &file_info);
 
 	if (result < 0) {
-		WLOG("IsDirectory: stat failed on %s", filename.c_str());
+		WLOG("IsDirectory: stat failed on %s", path);
 		return false;
 	}
 
-	return S_ISDIR(file_info.st_mode);
+	fileInfo->isDirectory = S_ISDIR(file_info.st_mode);
+	fileInfo->isWritable = false;
+	// HACK: approximation
+	if (file_info.st_mode & 0200)
+		fileInfo->isWritable = true;
 #endif
+	return true;
 }
 
 std::string getFileExtension(const std::string &fn) {
@@ -245,4 +263,13 @@ std::string getDir(const std::string &path)
 	}
 #endif
 	return cutpath;
+}
+
+void mkDir(const std::string &path)
+{
+#ifdef _WIN32
+	mkdir(path.c_str());
+#else
+	mkdir(path.c_str(), 0777);
+#endif
 }

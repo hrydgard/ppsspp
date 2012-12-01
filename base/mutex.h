@@ -33,7 +33,11 @@ public:
 #ifdef _WIN32
     InitializeCriticalSection(&mut_);
 #else
-    pthread_mutex_init(&mut_, NULL);
+		// Critical sections are recursive so let's make these recursive too.
+		pthread_mutexattr_t attr;
+		pthread_mutexattr_init(&attr);
+		pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+    pthread_mutex_init(&mut_, &attr);
 #endif
   }
   ~recursive_mutex() {

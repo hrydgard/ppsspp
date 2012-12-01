@@ -15,6 +15,7 @@ struct FileInfo
 	std::string fullName;
 	bool exists;
 	bool isDirectory;
+	bool isWritable;
 
 	bool operator <(const FileInfo &other) const {
 		if (isDirectory && !other.isDirectory)
@@ -29,8 +30,9 @@ struct FileInfo
 };
 
 std::string getFileExtension(const std::string &fn);
+bool getFileInfo(const char *path, FileInfo *fileInfo);
 size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const char *filter = 0);
 void deleteFile(const char *file);
 bool exists(const std::string &filename);
-
+void mkDir(const std::string &path);
 std::string getDir(const std::string &path);

@@ -11,11 +11,14 @@
 // This is defined in input/input_state.h.
 struct InputState;
 
-// You must implement this. The first function to get called, just write strings to the two pointers.
+// The first function to get called, just write strings to the two pointers.
 // This might get called multiple times in some implementations, you must be able to handle that.
 // The detected DP dimensions of the screen are set as dp_xres and dp_yres and you're free to change
 // them if you have a fixed-size app that needs to stretch a little to fit.
 void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, bool *landscape);
+
+// Generic host->C++ messaging, used for functionality like system-native popup input boxes.
+void NativeMessageReceived(const char *message, const char *value);
 
 // For the back button to work right, this should return true on your main or title screen.
 // Otherwise, just return false.
@@ -90,3 +93,4 @@ void Vibrate(int length_ms);
 void LaunchBrowser(const char *url);
 void LaunchMarket(const char *url);
 void LaunchEmail(const char *email_address);
+void System_InputBox(const char *title, const char *defaultValue);

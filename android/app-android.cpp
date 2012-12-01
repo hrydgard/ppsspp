@@ -60,7 +60,7 @@ void ShowAd(int x, int y, bool center_x) {
 }
 
 void ShowKeyboard() {
-	frameCommand = "showkeyboard";
+	frameCommand = "showKeyboard";
 	frameCommandParam = "";
 }
 
@@ -82,6 +82,11 @@ void LaunchMarket(const char *url) {
 void LaunchEmail(const char *email_address) {
 	frameCommand = "launchEmail";
 	frameCommandParam = email_address;
+}
+
+void System_InputBox(const char *title, const char *defaultValue) {
+	frameCommand = "inputBox";
+	frameCommandParam = title;
 }
 
 // Remember that all of these need initialization on init! The process
@@ -370,6 +375,7 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_sendMessage
 	std::string msg = GetJavaString(env, message);
 	std::string prm = GetJavaString(env, param);
 	ILOG("Message received: %s %s", msg.c_str(), prm.c_str());
+	NativeMessageReceived(msg.c_str(), prm.c_str());
 }
 
 

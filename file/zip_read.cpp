@@ -118,6 +118,7 @@ bool ZipAssetReader::GetFileListing(const char *path, std::vector<FileInfo> *lis
 			info.fullName = info.fullName.substr(0, info.fullName.size() - 1);
 		info.fullName += "/" + *diter;
 		info.exists = true;
+		info.isWritable = false;
 		info.isDirectory = true;
 		listing->push_back(info);
 	}
@@ -130,13 +131,21 @@ bool ZipAssetReader::GetFileListing(const char *path, std::vector<FileInfo> *lis
 			info.fullName = info.fullName.substr(0, info.fullName.size() - 1);
 		info.fullName += "/" + *fiter;
 		info.exists = true;
+		info.isWritable = false;
 		info.isDirectory = false;
 		listing->push_back(info);
 	}
 	
 	std::sort(listing->begin(), listing->end());
-
 	return true;
+}
+
+bool ZipAssetReader::GetFileInfo(const char *path, FileInfo *info) 
+{
+	info->fullName = path;
+	info->exists = true; // TODO
+	info->isWritable = false;
+	info->isDirectory = false;    // TODO
 }
 
 #endif
@@ -150,16 +159,35 @@ uint8_t *DirectoryAssetReader::ReadAsset(const char *path, size_t *size) {
 		strcpy(new_path, path_);
 	}
 	strcat(new_path, path);
-	// ILOG("New path: %s", new_path);
 	return ReadLocalFile(new_path, size);
 }
 
 bool DirectoryAssetReader::GetFileListing(const char *path, std::vector<FileInfo> *listing, const char *filter = 0)
 {
-	getFilesInDir(path, listing, filter);
+	char new_path[256] = {0};
+	// Check if it already contains the path
+	if (strlen(path) > strlen(path_) && 0 == memcmp(path, path_, strlen(path_))) {
+	}
+	else {
+		strcpy(new_path, path_);
+	}
+	strcat(new_path, path);
+	getFilesInDir(new_path, listing, filter);
 	return true;
 }
 
+bool DirectoryAssetReader::GetFileInfo(const char *path, FileInfo *info) 
+{
+	char new_path[256] = {0};
+	// Check if it already contains the path
+	if (strlen(path) > strlen(path_) && 0 == memcmp(path, path_, strlen(path_))) {
+	}
+	else {
+		strcpy(new_path, path_);
+	}
+	strcat(new_path, path);
+	return getFileInfo(new_path, info);	
+}
 
 struct VFSEntry {
 	const char *prefix;
@@ -189,7 +217,7 @@ uint8_t *VFSReadFile(const char *filename, size_t *size) {
 		int prefix_len = strlen(entries[i].prefix);
 		if (prefix_len >= fn_len) continue;
 		if (0 == memcmp(filename, entries[i].prefix, prefix_len)) {
-			// ILOG("Prefix match: %s (%s) -> %s", entries[i].prefix, filename, filename + prefix_len);
+			ILOG("Prefix match: %s (%s) -> %s", entries[i].prefix, filename, filename + prefix_len);
 			uint8_t *data = entries[i].reader->ReadAsset(filename + prefix_len, size);
 			if (data)
 				return data;
@@ -211,6 +239,20 @@ bool VFSGetFileListing(const char *path, std::vector<FileInfo> *listing, const c
 		if (0 == memcmp(path, entries[i].prefix, prefix_len)) {
 			entries[i].reader->GetFileListing(path + prefix_len, listing, filter);
 			return true;
+		}
+	}
+	ELOG("Missing filesystem for %s", path);
+	return false;
+}
+
+bool VFSGetFileInfo(const char *path, FileInfo *info)
+{
+	int fn_len = strlen(path);
+	for (int i = 0; i < num_entries; i++) {
+		int prefix_len = strlen(entries[i].prefix);
+		if (prefix_len >= fn_len) continue;
+		if (0 == memcmp(path, entries[i].prefix, prefix_len)) {
+			return entries[i].reader->GetFileInfo(path + prefix_len, info);
 		}
 	}
 	ELOG("Missing filesystem for %s", path);

@@ -44,7 +44,6 @@ void SystemToast(const char *text) {
 #endif
 }
 
-
 void ShowAd(int x, int y, bool center_x) {
 	// Ignore ads on PC
 }
@@ -55,6 +54,11 @@ void ShowKeyboard() {
 
 void Vibrate(int length_ms) {
 	// Ignore on PC
+}
+
+void System_InputBox(const char *title, const char *defaultValue) {
+	// Stub
+	NativeMessageReceived((std::string("INPUTBOX:") + title).c_str(), "TestFile");
 }
 
 void LaunchBrowser(const char *url)
@@ -154,7 +158,7 @@ int main(int argc, char *argv[]) {
 		zoom = atof(zoomenv);
 	}
 	if (tabletenv) {
-		tablet = (bool)atoi(tabletenv);
+		tablet = atoi(tabletenv) ? true : false;
 	}
 	if (ipad) aspect43 = true;
 	
@@ -165,7 +169,7 @@ int main(int argc, char *argv[]) {
 	aspect43 = false;
 	tablet = false;
 	float density = 1.0f;
-	zoom = 1.5f;
+	//zoom = 1.5f;
 
 	if (landscape) {
 		if (tablet) {

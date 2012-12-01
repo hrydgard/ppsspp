@@ -21,6 +21,7 @@ public:
 	virtual uint8_t *ReadAsset(const char *path, size_t *size) = 0;
 	// Filter support is optional but nice to have
 	virtual bool GetFileListing(const char *path, std::vector<FileInfo> *listing, const char *filter = 0) = 0;
+	virtual bool GetFileInfo(const char *path, FileInfo *info) = 0;
 	virtual std::string toString() const = 0;
 };
 
@@ -33,6 +34,7 @@ public:
 	// use delete[]
 	virtual uint8_t *ReadAsset(const char *path, size_t *size);
 	virtual bool GetFileListing(const char *path, std::vector<FileInfo> *listing, const char *filter);
+	virtual bool GetFileInfo(const char *path, FileInfo *info);
 	virtual std::string toString() const {
 		return in_zip_path_;
 	}
@@ -51,6 +53,7 @@ public:
 	// use delete[]
 	virtual uint8_t *ReadAsset(const char *path, size_t *size);
 	virtual bool GetFileListing(const char *path, std::vector<FileInfo> *listing, const char *filter);
+	virtual bool GetFileInfo(const char *path, FileInfo *info);
 	virtual std::string toString() const {
 		return path_;
 	}

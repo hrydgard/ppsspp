@@ -97,6 +97,12 @@ void ScreenManager::render() {
 	processFinishDialog();
 }
 
+void ScreenManager::sendMessage(const char *msg, const char *value)
+{
+	if (stack_.size())
+		stack_.back().screen->sendMessage(msg, value);
+}
+
 void ScreenManager::deviceLost()
 {
 	if (stack_.size())
