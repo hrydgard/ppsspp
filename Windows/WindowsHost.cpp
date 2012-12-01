@@ -38,7 +38,7 @@ void WindowsHost::ShutdownGL()
 void WindowsHost::SetWindowTitle(const char *message)
 {
 	// Really need a better way to deal with versions.
-	std::string title = "PPSSPP v0.31 - ";
+	std::string title = "PPSSPP v0.4 - ";
 	title += message;
 	SetWindowText(mainWindow_, title.c_str());
 }
