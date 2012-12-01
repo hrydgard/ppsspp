@@ -348,8 +348,6 @@ void __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, const char *ba
 			__KernelWaitCurThread(WAITTYPE_SEMA, id, wantedCount, timeoutPtr, processCallbacks);
 			if (processCallbacks)
 				__KernelCheckCallbacks();
-
-			__KernelReSchedule("semaphore waited");
 		}
 	}
 	else
