@@ -618,18 +618,30 @@ int sceRtcTickAddMonths(u32 destTickPtr, u32 srcTickPtr, int numMonths)
 {
 	if (Memory::IsValidAddress(destTickPtr) && Memory::IsValidAddress(srcTickPtr))
 	{
-		s64 srcTick = (s64)Memory::Read_U64(srcTickPtr);
+		u64 srcTick = Memory::Read_U64(srcTickPtr);
 		
 		// slightly bodgy but we need to add months to a pt and then convert to ticks (untested and broken)
 		ScePspDateTime pt;
-
-		int years = numMonths /12;
-		int realmonths = numMonths % 12;
 		memset(&pt, 0, sizeof(pt));
-		pt.year = years;
-		pt.month = realmonths;
-		srcTick +=__RtcPspTimeToTicks(pt);
-
+		if (numMonths < 0)
+		{
+			numMonths =  (numMonths^0xFFFFFFFF)+1;
+			int years = numMonths /12;
+			int realmonths = numMonths % 12;
+			
+			pt.year = years;
+			pt.month = realmonths;
+			srcTick -=__RtcPspTimeToTicks(pt);
+		}
+		else
+		{
+			int years = numMonths /12;
+			int realmonths = numMonths % 12;
+			
+			pt.year = years;
+			pt.month = realmonths;
+			srcTick +=__RtcPspTimeToTicks(pt);
+		}
 		Memory::Write_U64(srcTick, destTickPtr);
 	}
 
