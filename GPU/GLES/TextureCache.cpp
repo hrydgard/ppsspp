@@ -45,7 +45,6 @@ struct TexCacheEntry
 typedef std::map<u64, TexCacheEntry> TexCache;
 static TexCache cache;
 
-// These two share memory, just different types for convenience.
 u32 *tmpTexBuf32;
 u16 *tmpTexBuf16;
 
@@ -58,7 +57,7 @@ void TextureCache_Init()
 {
 	// TODO: Switch to aligned allocations for alignment. AllocateMemoryPages would do the trick.
 	tmpTexBuf32 = new u32[1024 * 512];
-	tmpTexBuf16 = (u16 *)tmpTexBuf32;
+	tmpTexBuf16 = new u16[1024 * 512];
 	tmpTexBufRearrange = new u32[1024 * 512];
 	clutBuf32 = new u32[4096];
 	clutBuf16 = new u16[4096];
@@ -68,7 +67,8 @@ void TextureCache_Shutdown()
 {
 	delete [] tmpTexBuf32;
 	tmpTexBuf32 = 0;
-	tmpTexBuf16 = 0;  //shares memory with tmpTexBuf32
+	delete [] tmpTexBuf16;
+	tmpTexBuf16 = 0;
 	delete [] tmpTexBufRearrange;
 	tmpTexBufRearrange = 0;
 	delete [] clutBuf32;
