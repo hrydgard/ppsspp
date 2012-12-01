@@ -297,6 +297,11 @@ void NativeTouch(int finger, float x, float y, double time, TouchEvent event)
 	}
 }
 
+void NativeMessageReceived(const char *message, const char *value)
+{
+	// Unused
+}
+
 void NativeShutdownGraphics()
 {
 	delete uiTexture;
