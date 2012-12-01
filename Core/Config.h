@@ -44,6 +44,7 @@ public:
 	bool bDisplayFramebuffer;
 	bool bBufferedRendering;
 
+	bool bShowTouchControls;
 	bool bShowAnalogStick;
 	bool bShowFPSCounter;
 	bool bShowDebugStats;

@@ -63,6 +63,7 @@ void CConfig::Load(const char *iniFileName)
 
 	IniFile::Section *control = iniFile.GetOrCreateSection("Control");
 	control->Get("ShowStick", &bShowAnalogStick, false);
+	control->Get("ShowTouchControls", &bShowTouchControls, true);
 }
 
 void CConfig::Save()
@@ -94,6 +95,7 @@ void CConfig::Save()
 
 		IniFile::Section *control = iniFile.GetOrCreateSection("Control");
 		control->Set("ShowStick", bShowAnalogStick);
+		control->Set("ShowTouchControls", bShowTouchControls);
 
 		iniFile.Save(iniFilename_.c_str());
 		NOTICE_LOG(LOADER, "Config saved: %s", iniFilename_.c_str());

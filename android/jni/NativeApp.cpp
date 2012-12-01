@@ -168,6 +168,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	LogManager *logman = LogManager::GetInstance();
 	ILOG("Logman: %p", logman);
 
+	bool gfxLog = false;
 	// Parse command line
 	LogTypes::LOG_LEVELS logLevel = LogTypes::LINFO;
 	for (int i = 1; i < argc; i++) {
@@ -176,6 +177,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 			case 'd':
 				// Enable debug logging
 				logLevel = LogTypes::LDEBUG;
+				break;
+			case 'g':
+				gfxLog = true;
 				break;
 			}
 		} else {
@@ -210,7 +214,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 #endif
 	}
 	// Special hack for G3D as it's very spammy. Need to make a flag for this.
-	logman->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
+	if (!gfxLog)
+		logman->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
 	INFO_LOG(BOOT, "Logger inited.");
 }
 
