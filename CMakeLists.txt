@@ -38,6 +38,7 @@ option(BLACKBERRY "Set to ON if targeting a Blackberry device" ${BLACKBERRY})
 option(IOS "Set to ON if targeting an iOS device" ${IOS})
 option(USING_GLES2 "Set to ON if target device uses OpenGL ES 2.0" ${USING_GLES2})
 option(HEADLESS "Set to OFF to not generate the PPSSPPHeadless target" ${HEADLESS})
+option(DEBUG "Set to ON to enable full debug logging" ${DEBUG})
 
 if(ANDROID)
 	if(NOT ANDROID_ABI)
@@ -97,6 +98,10 @@ if(ARM)
 endif()
 if (USING_GLES2)
 	add_definitions(-DUSING_GLES2)
+endif()
+
+if(DEBUG)
+	add_definitions(-D_DEBUG)
 endif()
 
 if(NOT MSVC)

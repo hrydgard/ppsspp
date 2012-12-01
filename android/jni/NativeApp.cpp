@@ -27,6 +27,7 @@
 #include "base/NativeApp.h"
 #include "file/vfs.h"
 #include "file/zip_read.h"
+#include "gfx/gl_state.h"
 #include "gfx/gl_lost_manager.h"
 #include "gfx/texture.h"
 #include "input/input_state.h"
@@ -183,10 +184,15 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 				break;
 			}
 		} else {
-			boot_filename = argv[i];
-			if (!File::Exists(boot_filename))
-			{
-				fprintf(stdout, "File not found: %s\n", boot_filename.c_str());
+			if (boot_filename.empty()) {
+				boot_filename = argv[i];
+				if (!File::Exists(boot_filename))
+				{
+					fprintf(stderr, "File not found: %s\n", boot_filename.c_str());
+					exit(1);
+				}
+			} else {
+				fprintf(stderr, "Can only boot one file");
 				exit(1);
 			}
 		}
