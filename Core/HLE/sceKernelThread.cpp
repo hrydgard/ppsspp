@@ -265,6 +265,7 @@ void __KernelExecuteMipsCallOnCurrentThread(int callId);
 int g_inCbCount = 0;
 
 Thread *__KernelCreateThread(SceUID &id, SceUID moduleID, const char *name, u32 entryPoint, u32 priority, int stacksize, u32 attr);
+void __KernelCancelWakeup(SceUID threadID);
 
 //////////////////////////////////////////////////////////////////////////
 //STATE BEGIN
@@ -344,6 +345,8 @@ void __KernelThreadingInit()
   __KernelCreateThread(threadIdleID[0], 0, "idle0", idleThreadHackAddr, 0x7f, 4096, PSP_THREAD_ATTR_KERNEL);
   __KernelCreateThread(threadIdleID[1], 0, "idle1", idleThreadHackAddr, 0x7f, 4096, PSP_THREAD_ATTR_KERNEL);
   // These idle threads are later started in LoadExec, which calls __KernelStartIdleThreads below.
+
+  __KernelListenThreadEnd(__KernelCancelWakeup);
 }
 
 void __KernelListenThreadEnd(ThreadCallback callback)
@@ -681,6 +684,11 @@ void hleScheduledWakeup(u64 userdata, int cyclesLate)
 void __KernelScheduleWakeup(SceUID threadID, int usFromNow)
 {
 	CoreTiming::ScheduleEvent(usToCycles(usFromNow), eventScheduledWakeup, threadID);
+}
+
+void __KernelCancelWakeup(SceUID threadID)
+{
+	CoreTiming::UnscheduleEvent(eventScheduledWakeup, threadID);
 }
 
 void __KernelRemoveFromThreadQueue(Thread *t)
