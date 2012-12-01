@@ -685,8 +685,15 @@ void __KernelWaitLwMutex(LwMutex *mutex, u32 timeoutPtr)
 	if (timeoutPtr == 0 || lwMutexWaitTimer == 0)
 		return;
 
-	// This should call __KernelMutexTimeout() later, unless we cancel it.
 	int micro = (int) Memory::Read_U32(timeoutPtr);
+
+	// This happens to be how the hardware seems to time things.
+	if (micro <= 3)
+		micro = 15;
+	else if (micro <= 249)
+		micro = 250;
+
+	// This should call __KernelMutexTimeout() later, unless we cancel it.
 	CoreTiming::ScheduleEvent(usToCycles(micro), lwMutexWaitTimer, __KernelGetCurThread());
 }
 
