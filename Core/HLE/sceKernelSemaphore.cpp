@@ -80,9 +80,13 @@ bool __KernelClearSemaThreads(Semaphore *s, int reason)
 	std::vector<SceUID>::iterator iter;
 	for (iter = s->waitingThreads.begin(); iter != s->waitingThreads.end(); ++iter)
 	{
-		SceUID threadID = *iter;
-
 		u32 error;
+		SceUID threadID = *iter;
+		SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_SEMA, error);
+		// The waitID may be different after a timeout.
+		if (waitID != s->GetUID())
+			continue;
+
 		u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
 		if (timeoutPtr != 0 && semaWaitTimer != 0)
 		{
@@ -242,6 +246,13 @@ retry:
 		for (iter = s->waitingThreads.begin(); iter != s->waitingThreads.end(); ++iter)
 		{
 			SceUID threadID = *iter;
+			SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_SEMA, error);
+			// The waitID may be different after a timeout.
+			if (waitID != s->GetUID())
+			{
+				s->waitingThreads.erase(iter);
+				goto retry;
+			}
 
 			int wVal = (int)__KernelGetWaitValue(threadID, error);
 			u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
@@ -288,8 +299,7 @@ void __KernelSemaTimeout(u64 userdata, int cycleslate)
 	Semaphore *s = kernelObjects.Get<Semaphore>(semaID, error);
 	if (s)
 	{
-		// This thread isn't waiting anymore.
-		s->waitingThreads.erase(std::remove(s->waitingThreads.begin(), s->waitingThreads.end(), threadID), s->waitingThreads.end());
+		// This thread isn't waiting anymore, but we'll remove it from waitingThreads later.
 		s->ns.numWaitThreads--;
 	}
 

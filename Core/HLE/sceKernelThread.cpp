@@ -1545,6 +1545,10 @@ void __KernelSwitchContext(Thread *target, const char *reason)
 	__KernelLoadContext(&currentThread->context);
 	DEBUG_LOG(HLE,"Context loaded (%s): %i - %s - pc: %08x", reason, currentThread->GetUID(), currentThread->GetName(), currentMIPS->pc);
 
+	// No longer waiting.
+	currentThread->nt.waitType = WAITTYPE_NONE;
+	currentThread->nt.waitID = 0;
+
 	__KernelExecutePendingMipsCalls();
 }
 
