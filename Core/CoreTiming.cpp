@@ -409,6 +409,8 @@ void ProcessFifoWaitEvents()
 	{
 		if (first->time <= globalTimer)
 		{
+//			LOG(CPU, "[Scheduler] %s		 (%lld, %lld) ", 
+//				first->name ? first->name : "?", (u64)globalTimer, (u64)first->time);
 			Event* evt = first;
 			first = first->next;
 			event_types[evt->type].callback(evt->userdata, (int)(globalTimer - evt->time));
@@ -446,28 +448,12 @@ void MoveEvents()
 
 void Advance()
 {
-	MoveEvents();		
-
 	int cyclesExecuted = slicelength - downcount;
 	globalTimer += cyclesExecuted;
 	downcount = slicelength;
 
-	while (first)
-	{
-		if (first->time <= globalTimer)
-		{
-//			LOG(CPU, "[Scheduler] %s		 (%lld, %lld) ", 
-//				first->name ? first->name : "?", (u64)globalTimer, (u64)first->time);
-			Event* evt = first;
-			first = first->next;
-			event_types[evt->type].callback(evt->userdata, (int)(globalTimer - evt->time));
-			FreeEvent(evt);
-		}
-		else
-		{
-			break;
-		}
-	}
+	ProcessFifoWaitEvents();
+
 	if (!first) 
 	{
 		// WARN_LOG(CPU, "WARNING - no events in queue. Setting downcount to 10000");
