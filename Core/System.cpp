@@ -76,11 +76,6 @@ bool PSP_Init(const CoreParameter &coreParam, std::string *error_string)
 		return false;
 	}
 
-	if (coreParameter.gpuCore != GPU_NULL)
-	{
-		DisplayDrawer_Init();
-	}
-
 	shaderManager.DirtyShader();
 	shaderManager.DirtyUniform(DIRTY_ALL);
 
@@ -113,10 +108,6 @@ void PSP_Shutdown()
 	}
 	__KernelShutdown();
 	HLEShutdown();
-	if (coreParameter.gpuCore != GPU_NULL)
-	{
-		DisplayDrawer_Shutdown();
-	}
 	Memory::Shutdown() ;
 	currentCPU = 0;
 }

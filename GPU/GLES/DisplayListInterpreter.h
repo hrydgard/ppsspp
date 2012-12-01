@@ -21,7 +21,7 @@
 #include <vector>
 
 #include "../GPUInterface.h"
-
+#include "Framebuffer.h"
 #include "gfx_es2/fbo.h"
 
 class ShaderManager;
@@ -55,6 +55,8 @@ private:
 	void DrawBezier(int ucount, int vcount);
 	void DoBlockTransfer();
 	bool ProcessDLQueue();
+
+	FramebufferManager framebufferManager;
 
 	ShaderManager *shaderManager_;
 	bool interruptsEnabled_;

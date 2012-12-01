@@ -26,18 +26,6 @@
 
 #include "Framebuffer.h"
 
-//////////////////////////////////////////////////////////////////////////
-// STATE BEGIN
-static GLuint backbufTex;
-u8 *realFB;
-GLSLProgram *draw2dprogram;
-
-// STATE END
-//////////////////////////////////////////////////////////////////////////
-
-#if defined(__APPLE__)
-#endif
-
 const char tex_fs[] =
 	"#ifdef GL_ES\n"
 	"precision mediump float;\n"
@@ -59,22 +47,7 @@ const char basic_vs[] =
 	"	gl_Position = u_viewproj * a_position;\n"
 	"}\n";
 
-void DisplayDrawer_Init()
-{
-#if !defined(USING_GLES2)
-	// Old OpenGL stuff that probably has no effect
-
-	glPolygonMode (GL_FRONT_AND_BACK, GL_FILL); //GL_FILL);
-	glShadeModel(GL_SMOOTH);
-	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);	
-#endif
-
-	glstate.cullFace.disable();
-	glstate.depthTest.disable();
-	glstate.blend.disable();
-
-	glEnable(GL_TEXTURE_2D);
-
+FramebufferManager::FramebufferManager() {
 	glGenTextures(1, &backbufTex);
 
 	//initialize backbuffer texture
@@ -98,26 +71,24 @@ void DisplayDrawer_Init()
 	glClearColor(0, 0, 0, 0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	
-	realFB = new u8[480*272*4];
+	convBuf = new u8[480 * 272 * 4];
 }
 
-void DisplayDrawer_Shutdown()
-{
-	glDeleteTextures(1,&backbufTex);
+FramebufferManager::~FramebufferManager() {
+	glDeleteTextures(1, &backbufTex);
 	glsl_destroy(draw2dprogram);
-	delete [] realFB;
+	delete [] convBuf;
 }
 
-void DisplayDrawer_DrawFramebuffer(u8 *framebuf, int pixelFormat, int linesize)
-{
-	for (int y = 0; y < 272; y++)
-	{
-		switch (pixelFormat)
-		{
+void FramebufferManager::DrawPixels(const u8 *framebuf, int pixelFormat, int linesize) {
+	// TODO: We can trivially do these in the shader, and there's no need to
+	// upconvert to 8888 for the 16-bit formats.
+	for (int y = 0; y < 272; y++) {
+		switch (pixelFormat) {
 		case PSP_DISPLAY_PIXEL_FORMAT_565:
 			{
-				u16 *src = (u16 *)framebuf + linesize * y;
-				u8 *dst = realFB + 4 * 480 * y;
+				const u16 *src = (const u16 *)framebuf + linesize * y;
+				u8 *dst = convBuf + 4 * 480 * y;
 				for (int x = 0; x < 480; x++)
 				{
 					u16 col = src[x];
@@ -131,8 +102,8 @@ void DisplayDrawer_DrawFramebuffer(u8 *framebuf, int pixelFormat, int linesize)
 
 		case PSP_DISPLAY_PIXEL_FORMAT_5551:
 			{
-				u16 *src = (u16 *)framebuf + linesize * y;
-				u8 *dst = realFB + 4 * 480 * y;
+				const u16 *src = (const u16 *)framebuf + linesize * y;
+				u8 *dst = convBuf + 4 * 480 * y;
 				for (int x = 0; x < 480; x++)
 				{
 					u16 col = src[x];
@@ -146,8 +117,8 @@ void DisplayDrawer_DrawFramebuffer(u8 *framebuf, int pixelFormat, int linesize)
 
 		case PSP_DISPLAY_PIXEL_FORMAT_8888:
 			{
-				u8 *src = framebuf + linesize * 4 * y;
-				u8 *dst = realFB + 4 * 480 * y;
+				const u8 *src = framebuf + linesize * 4 * y;
+				u8 *dst = convBuf + 4 * 480 * y;
 				for (int x = 0; x < 480; x++)
 				{
 					dst[x * 4] = src[x * 4];
@@ -160,8 +131,8 @@ void DisplayDrawer_DrawFramebuffer(u8 *framebuf, int pixelFormat, int linesize)
 
 		case PSP_DISPLAY_PIXEL_FORMAT_4444:
 			{
-				u16 *src = (u16 *)framebuf + linesize * y;
-				u8 *dst = realFB + 4 * 480 * y;
+				const u16 *src = (const u16 *)framebuf + linesize * y;
+				u8 *dst = convBuf + 4 * 480 * y;
 				for (int x = 0; x < 480; x++)
 				{
 					u16 col = src[x];
@@ -176,13 +147,11 @@ void DisplayDrawer_DrawFramebuffer(u8 *framebuf, int pixelFormat, int linesize)
 	}
 
 	glBindTexture(GL_TEXTURE_2D,backbufTex);
-	glTexSubImage2D(GL_TEXTURE_2D,0,0,0,480,272, GL_RGBA, GL_UNSIGNED_BYTE, realFB);
-
+	glTexSubImage2D(GL_TEXTURE_2D,0,0,0,480,272, GL_RGBA, GL_UNSIGNED_BYTE, convBuf);
 	DrawActiveTexture(480, 272);
 }
 
-void DrawActiveTexture(float w, float h, bool flip) 
-{
+void FramebufferManager::DrawActiveTexture(float w, float h, bool flip) {
 	float u2 = 1.0f;
 	float v1 = flip ? 1.0f : 0.0f;
 	float v2 = flip ? 0.0f : 1.0f;
