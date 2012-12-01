@@ -36,12 +36,17 @@ struct IndexTable
 	u32 data_table_offset; /* Offset of the param_data from start of data_table */
 };
 
-void ParseDataString(const char *key, const char *utfdata, ParamSFOData *sfodata)
+void ParseDataString(const char *key, const char *utfdata, ParamSFOData *sfodata, int maxlen = 0)
 {
+	std::string data;
+	if (maxlen)
+		data = std::string(utfdata, maxlen);
+	else
+		data = std::string(utfdata);
 	if (!strcmp(key, "DISC_ID")) {
-		sfodata->discID = utfdata;
+		sfodata->discID = data;
 	} else if (!strcmp(key, "TITLE")) {
-		sfodata->title = utfdata;
+		sfodata->title = data;
 	}
 }
 
@@ -59,7 +64,7 @@ bool ParseParamSFO(const u8 *paramsfo, size_t size, ParamSFOData *data)
 	const u8 *key_start = paramsfo + header->key_table_start;
 	const u8 *data_start = paramsfo + header->data_table_start;
 
-	for (int i = 0; i < header->index_table_entries; i++)
+	for (u32 i = 0; i < header->index_table_entries; i++)
 	{
 		const char *key = (const char *)(key_start + indexTables[i].key_table_offset);
 
@@ -76,7 +81,7 @@ bool ParseParamSFO(const u8 *paramsfo, size_t size, ParamSFOData *data)
 			{
 				const char *utfdata = (const char *)(data_start + indexTables[i].data_table_offset);
 				DEBUG_LOG(LOADER, "%s %s", key, utfdata);
-				ParseDataString(key, utfdata, data);
+				ParseDataString(key, utfdata, data, indexTables[i].param_len);
 			}
 			break;
 		case 0x0204:
@@ -84,7 +89,7 @@ bool ParseParamSFO(const u8 *paramsfo, size_t size, ParamSFOData *data)
 			{
 				const char *utfdata = (const char *)(data_start + indexTables[i].data_table_offset);
 				DEBUG_LOG(LOADER, "%s %s", key, utfdata);
-				ParseDataString(key, utfdata, data);
+				ParseDataString(key, utfdata, data, indexTables[i].param_len);
 			}
 			break;
 		}
