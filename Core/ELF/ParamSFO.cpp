@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <stdio.h>
+#include <string.h>
 #include "../Globals.h"
 #include "ParamSFO.h"
 
