@@ -730,6 +730,14 @@ void __KernelReSchedule(const char *reason)
     return;
   }
 
+  // Execute any pending events while we're doing scheduling.
+  CoreTiming::Advance();
+  if (__IsInInterrupt() || __KernelInCallback())
+  {
+    reason = "In Interrupt Or Callback";
+    return;
+  }
+
 retry:
 	Thread *nextThread = __KernelNextThread();
 
@@ -1544,6 +1552,10 @@ void __KernelSwitchContext(Thread *target, const char *reason)
 	currentThread = target;
 	__KernelLoadContext(&currentThread->context);
 	DEBUG_LOG(HLE,"Context loaded (%s): %i - %s - pc: %08x", reason, currentThread->GetUID(), currentThread->GetName(), currentMIPS->pc);
+
+	// No longer waiting.
+	currentThread->nt.waitType = WAITTYPE_NONE;
+	currentThread->nt.waitID = 0;
 
 	__KernelExecutePendingMipsCalls();
 }
