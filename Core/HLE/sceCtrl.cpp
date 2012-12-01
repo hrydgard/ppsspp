@@ -214,9 +214,9 @@ u32 sceCtrlReadBufferPositive(u32 ctrlDataPtr, u32 nBufs)
 
 	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
 
-	if (Memory::IsValidAddress(ctrlDataPtr))
+	_ctrl_data *ctrlData = (_ctrl_data*) Memory::GetPointer(ctrlDataPtr);
+	if (Memory::IsValidAddress(ctrlDataPtr) && ctrlData)
 	{
-		_ctrl_data *ctrlData = (_ctrl_data*) Memory::GetPointer(ctrlDataPtr);
 		memcpy(ctrlData, &ctrl, sizeof(_ctrl_data));
 
 		ctrlData->frame = (u32) (CoreTiming::GetTicks() / CoreTiming::GetClockFrequencyMHz());
@@ -241,9 +241,9 @@ u32 sceCtrlReadBufferNegative(u32 ctrlDataPtr, u32 nBufs)
 
 	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
 
-	if (Memory::IsValidAddress(ctrlDataPtr))
+	_ctrl_data *ctrlData = (_ctrl_data*) Memory::GetPointer(ctrlDataPtr);
+	if (Memory::IsValidAddress(ctrlDataPtr) && ctrlData)
 	{
-		_ctrl_data *ctrlData = (_ctrl_data*) Memory::GetPointer(ctrlDataPtr);
 		memcpy(ctrlData, &ctrl, sizeof(_ctrl_data));
 
 		ctrlData->buttons = ~ctrlData->buttons;
