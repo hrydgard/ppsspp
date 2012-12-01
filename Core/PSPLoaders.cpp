@@ -37,7 +37,7 @@
 #include "HLE/sceKernelThread.h"
 #include "HLE/sceKernelModule.h"
 #include "HLE/sceKernelMemory.h"
-
+#include "ELF/ParamSFO.h"
 
 BlockDevice *constructBlockDevice(const char *filename)
 {
@@ -52,17 +52,42 @@ BlockDevice *constructBlockDevice(const char *filename)
 	}
 }
 
+
 bool Load_PSP_ISO(const char *filename, std::string *error_string)
 {
 	ISOFileSystem *umd2 = new ISOFileSystem(&pspFileSystem, constructBlockDevice(filename));
 
+	// Parse PARAM.SFO
+
 	//pspFileSystem.Mount("host0:",umd2);
 	pspFileSystem.Mount("umd0:", umd2);
 	pspFileSystem.Mount("umd1:", umd2);
-	pspFileSystem.Mount("disc0:", umd2);
+	pspFileSystem.Mount("disc0:", umd2);	
+	pspFileSystem.Mount("umd:", umd2);
 	pspFileSystem.Mount("UMD0:", umd2);
 	pspFileSystem.Mount("UMD1:", umd2);
 	pspFileSystem.Mount("DISC0:", umd2);
+	pspFileSystem.Mount("UMD:", umd2);
+
+	std::string sfoPath("disc0:/PSP_GAME/PARAM.SFO");
+	PSPFileInfo fileInfo = pspFileSystem.GetFileInfo(sfoPath.c_str());
+	if (fileInfo.exists)
+	{
+		u8 *paramsfo = new u8[(size_t)fileInfo.size];
+		u32 fd = pspFileSystem.OpenFile(sfoPath, FILEACCESS_READ);
+		pspFileSystem.ReadFile(fd, paramsfo, fileInfo.size);
+		pspFileSystem.CloseFile(fd);
+		ParamSFOData data;
+		if (ParseParamSFO(paramsfo, (size_t)fileInfo.size, &data))
+		{
+			char title[1024];
+			sprintf(title, "%s : %s", data.discID.c_str(), data.title.c_str());
+			INFO_LOG(LOADER, "%s", title);
+			host->SetWindowTitle(title);
+		}
+		delete [] paramsfo;
+	}
+
 
 	std::string bootpath("disc0:/PSP_GAME/SYSDIR/EBOOT.BIN");
 	// bypass patchers
@@ -78,6 +103,7 @@ bool Load_PSP_ISO(const char *filename, std::string *error_string)
 		if (memcmp(head, "~PSP", 4) == 0 || memcmp(head, "\x7F""ELF", 4) == 0) {
 			hasEncrypted = true;
 		}
+		pspFileSystem.CloseFile(fd);
 	}
 	if (!hasEncrypted)
 	{

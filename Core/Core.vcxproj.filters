@@ -300,6 +300,9 @@
     <ClCompile Include="HLE\sceFont.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
+    <ClCompile Include="ELF\ParamSFO.cpp">
+      <Filter>ELF</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -547,6 +550,9 @@
     </ClInclude>
     <ClInclude Include="HLE\sceFont.h">
       <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="ELF\ParamSFO.h">
+      <Filter>ELF</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

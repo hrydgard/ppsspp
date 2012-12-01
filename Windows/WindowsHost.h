@@ -6,9 +6,10 @@
 class WindowsHost : public Host
 {
 public:
-	WindowsHost(HWND _displayWindow)
+	WindowsHost(HWND mainWindow, HWND displayWindow)
 	{
-		displayWindow = _displayWindow;
+		mainWindow_ = mainWindow;
+		displayWindow_ = displayWindow;
 		input = getInputDevices();
 	}
 	void UpdateMemView();
@@ -31,8 +32,10 @@ public:
 	void BootDone();
 	void PrepareShutdown();
 	bool AttemptLoadSymbolMap();
+	void SetWindowTitle(const char *message);
 
 private:
-	HWND displayWindow;
+	HWND displayWindow_;
+	HWND mainWindow_;
 	std::list<std::shared_ptr<InputDevice>> input;
 };

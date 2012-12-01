@@ -80,6 +80,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/GPU/Null/NullGpu.cpp \
   $(SRC)/Core/ELF/ElfReader.cpp \
   $(SRC)/Core/ELF/PrxDecrypter.cpp \
+  $(SRC)/Core/ELF/ParamSFO.cpp \
   $(SRC)/Core/HW/MemoryStick.cpp \
   $(SRC)/Core/Core.cpp \
   $(SRC)/Core/Config.cpp \

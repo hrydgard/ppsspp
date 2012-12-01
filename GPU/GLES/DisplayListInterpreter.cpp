@@ -85,11 +85,16 @@ void GLES_GPU::BeginFrame()
 {
 	TextureCache_Decimate();
 
+	// NOTE - this is all wrong. At the beginning of the frame is a TERRIBLE time to draw the fb.
 	if (g_Config.bDisplayFramebuffer && displayFramebufPtr_)
 	{
 		INFO_LOG(HLE, "Drawing the framebuffer");
-		u8 *pspframebuf = Memory::GetPointer((0x44000000)|(displayFramebufPtr_ & 0x1FFFFF));	// TODO - check
-		DisplayDrawer_DrawFramebuffer(pspframebuf, displayFormat_, displayStride_);
+		const u8 *pspframebuf = Memory::GetPointer((0x44000000) | (displayFramebufPtr_ & 0x1FFFFF));	// TODO - check
+		glstate.cullFace.disable();
+		glstate.depthTest.disable();
+		glstate.blend.disable();
+		framebufferManager.DrawPixels(pspframebuf, displayFormat_, displayStride_);
+		// TODO: restore state?
 	}
 	currentRenderVfb_ = 0;
 }
@@ -101,7 +106,7 @@ void GLES_GPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, int format)
 		displayStride_ = stride;
 		displayFormat_ = format;
 	} else {
-		DEBUG_LOG(HLE, "Bogus framebufffer address: %08x", framebuf);
+		DEBUG_LOG(HLE, "Bogus framebuffer address: %08x", framebuf);
 	}
 }
 
@@ -133,8 +138,8 @@ void GLES_GPU::CopyDisplayToOutput()
 
 	fbo_bind_color_as_texture(vfb->fbo, 0);
 
-	// These are in the output pixel coordinates
-	DrawActiveTexture(480, 272, true);
+	// These are in the output display coordinates
+	framebufferManager.DrawActiveTexture(480, 272, true);
 
 	shaderManager.DirtyShader();
 	shaderManager.DirtyUniform(DIRTY_ALL);
@@ -320,7 +325,7 @@ void EnterClearMode(u32 data)
 	bool colMask = (data >> 8) & 1;
 	bool alphaMask = (data >> 9) & 1;
 	bool updateZ = (data >> 10) & 1;
-	glColorMask(colMask, colMask, colMask, alphaMask);
+	glstate.colorMask.set(colMask, colMask, colMask, alphaMask);
 	glstate.depthWrite.set(updateZ ? GL_TRUE : GL_FALSE);
 }
 
@@ -332,7 +337,7 @@ void LeaveClearMode()
 	// Fogging
 	// Antialiasing
 	// Alpha test
-	glColorMask(1,1,1,1);
+	glstate.colorMask.set(1,1,1,1);
 	glstate.depthWrite.set(!(gstate.zmsk & 1) ? GL_TRUE : GL_FALSE);
 	// dirtyshader?
 }
