@@ -620,7 +620,7 @@ int sceRtcTickAddMonths(u32 destTickPtr, u32 srcTickPtr, int numMonths)
 	{
 		u64 srcTick = Memory::Read_U64(srcTickPtr);
 		
-		// slightly bodgy but we need to add months to a pt and then convert to ticks (untested and broken)
+		// slightly bodgy but we need to add months to a pt and then convert to ticks
 		ScePspDateTime pt;
 		memset(&pt, 0, sizeof(pt));
 		if (numMonths < 0)
