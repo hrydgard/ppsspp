@@ -107,7 +107,7 @@ const int buttonMappings[18] = {
 	KEYCODE_DOWN,		//DOWN
 	KEYCODE_LEFT,		//LEFT
 	KEYCODE_RIGHT,		//RIGHT
-	KEYCODE_M,			//MENU
+	NULL,				//MENU (SwipeDown)
 	KEYCODE_BACKSPACE,	//BACK
 	KEYCODE_I,			//JOY UP
 	KEYCODE_K,			//JOY DOWN
@@ -301,6 +301,7 @@ int main(int argc, char *argv[]) {
 	while (running) {
 		input_state.mouse_valid = false;
 		input_state.accelerometer_valid = false;
+		SimulateGamepad(&input_state);
 		while (true) {
 			// Handle Blackberry events
 			bps_event_t *event = NULL;
@@ -356,17 +357,24 @@ int main(int argc, char *argv[]) {
 					}
 					break;
 				}
-			} else if ((domain == navigator_get_domain())
-			&& (NAVIGATOR_EXIT == bps_event_get_code(event))) {
-				running = false;
+			} else if (domain == navigator_get_domain()) {
+				switch(bps_event_get_code(event))
+				{
+				case NAVIGATOR_BACK:
+				case NAVIGATOR_SWIPE_DOWN:
+					input_state.pad_buttons |= PAD_BUTTON_MENU;
+					break;
+				case NAVIGATOR_EXIT:
+					running = false;
+					break;
+				}
 			}
 		}
 
-		SimulateGamepad(&input_state);
 		UpdateInputState(&input_state);
 		NativeUpdate(input_state);
-		NativeRender();
 		EndInputState(&input_state);
+		NativeRender();
 
 		eglSwapBuffers(egl_disp, egl_surf);
 
