@@ -376,16 +376,23 @@ static const char *credits[] =
 	"ced2911",
 	"soywiz",
 	"kovensky",
+	"xsacha",
 	"",
 	"Written in C++ for speed and portability",
 	"",
 	"",
 	"Free tools used:",
+#ifdef ANDROID
 	"Android SDK + NDK",
+#elif BLACKBERRY
+	"Blackberry NDK",
+#else
+	"SDL",
+#endif
 	"CMake",
 	"freetype2",
 	"zlib",
-	"the free PSP SDK",
+	"PSP SDK",
 	"",
 	"",
 	"Check out the website:",

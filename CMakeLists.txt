@@ -68,7 +68,9 @@ if(USING_GLES2)
 else()
 	include(FindOpenGL REQUIRED)
 endif()
-include(FindSDL)
+if (NOT BLACKBERRY AND NOT ANDROID)
+	include(FindSDL)
+endif()
 include(FindThreads)
 if(APPLE)
 	find_library(COCOA_LIBRARY Cocoa)
@@ -365,6 +367,7 @@ if(ANDROID)
 endif()
 
 set(nativeExtra)
+set(nativeExtraLibs)
 if(ANDROID)
 	set(nativeExtra ${nativeExtra}
 		native/base/NativeApp.h
@@ -376,10 +379,25 @@ if(ANDROID)
 		native/android/native-audio-so.cpp
 		native/android/native-audio-so.h)
 	target_link_libraries(native_audio OpenSLES)
-endif()
-if(BLACKBERRY)
-	set(nativeExtra ${nativeExtra}
-		native/base/BlackberryMain.cpp)
+	# No target
+elseif(BLACKBERRY)
+	set(nativeExtra ${nativeExtra} native/base/BlackberryMain.cpp)
+	set(nativeExtraLibs ${nativeExtraLibs} asound bps screen socket EGL)
+	set(TargetBin PPSSPPBlackberry)
+elseif(SDL_FOUND)
+# Require SDL
+	include_directories(${SDL_INCLUDE_DIR})
+	set(nativeExtra ${nativeExtra} native/base/PCMain.cpp)
+	set(nativeExtraLibs ${nativeExtraLibs} ${SDL_LIBRARY})
+	if(APPLE)
+		set(nativeExtra ${nativeExtra} SDL/SDLMain.h SDL/SDLMain.mm)
+		set(nativeExtraLibs ${nativeExtraLibs} ${COCOA_LIBRARY})
+	endif()
+	if(NOT IOS) # No target
+		set(TargetBin PPSSPPSDL)
+	endif()
+else()
+    message(FATAL_ERROR "Could not find SDL. Failing.")
 endif()
 
 if(X86)
@@ -409,7 +427,6 @@ add_library(native STATIC
 	native/base/linked_ptr.h
 	native/base/logging.h
 	native/base/mutex.h
-#	native/base/PCMain.cpp
 	native/base/scoped_ptr.h
 	native/base/stats.h
 	native/base/stringutil.cpp
@@ -826,43 +843,23 @@ if(HEADLESS)
 	setup_target_project(PPSSPPHeadless headless)
 endif()
 
-if(SDL_FOUND)
-	include_directories(${SDL_INCLUDE_DIR})
+set(NativeAppSource
+	android/jni/NativeApp.cpp
+	android/jni/EmuScreen.cpp
+	android/jni/MenuScreens.cpp
+	android/jni/GamepadEmu.cpp
+	android/jni/UIShader.cpp
+	android/jni/ui_atlas.cpp)
+set(AndroidAssets
+	android/assets/ui_atlas.zim
+	android/assets/ppge_atlas.zim)
+set(LinkCommon ${CoreLibName} ${CMAKE_THREAD_LIBS_INIT} ${nativeExtraLibs})
 
-	set(NativeAppSource
-		android/jni/NativeApp.cpp
-		android/jni/EmuScreen.cpp
-		android/jni/MenuScreens.cpp
-		android/jni/GamepadEmu.cpp
-		android/jni/UIShader.cpp
-		android/jni/ui_atlas.cpp)
-	set(AndroidAssets
-		android/assets/ui_atlas.zim
-		android/assets/ppge_atlas.zim)
-	set(LinkCommon ${CoreLibName}
-		${SDL_LIBRARY} ${CMAKE_THREAD_LIBS_INIT})
-
-	if(BLACKBERRY)
-		add_executable(PPSSPPBlackberry	native/base/BlackberryMain.cpp ${NativeAppSource})
-		target_link_libraries(PPSSPPBlackberry ${LinkCommon} bps screen socket EGL GLESv2)
-	elseif(ANDROID)
-		# no target
-	elseif(IOS)
-		# no target
-	else()
-		set(SDL_Main native/base/PCMain.cpp)
-		if(APPLE)
-			set(SDL_Main ${SDL_Main}
-				SDL/SDLMain.h
-				SDL/SDLMain.mm)
-			set(LinkCommon ${LinkCommon} ${COCOA_LIBRARY})
-		endif()
-
-		add_executable(PPSSPPSDL ${SDL_Main} ${NativeAppSource})
-		target_link_libraries(PPSSPPSDL ${LinkCommon})
-	endif()
-
-	file(INSTALL ${AndroidAssets} DESTINATION assets)
+if (TargetBin)
+	add_executable(${TargetBin} ${NativeAppSource})
+	target_link_libraries(${TargetBin} ${LinkCommon})
 endif()
+
+file(INSTALL ${AndroidAssets} DESTINATION assets)
 
 #include(CPack)
