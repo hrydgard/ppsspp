@@ -17,6 +17,7 @@
 
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
+#include "../../Core/CoreTiming.h"
 #include "sceUmd.h"
 #include "sceKernelThread.h"
 
@@ -34,6 +35,7 @@ u8 umdActivated = 1;
 u32 umdStatus = 0;
 u32 umdErrorStat = 0;
 static int driveCBId= -1;
+int umdStatTimer = 0;
 
 
 #define PSP_UMD_TYPE_GAME 0x10
@@ -171,6 +173,31 @@ u32 sceUmdGetDriveStat()
 	return retVal;
 }
 
+void __UmdStatTimeout(u64 userdata, int cyclesLate)
+{
+	SceUID threadID = (SceUID)userdata;
+
+	u32 error;
+	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_UMD, error);
+	// Assuming it's still waiting.
+	if (waitID == 1)
+		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
+}
+
+void __UmdWaitStat(u32 timeout)
+{
+	if (umdStatTimer == 0)
+		umdStatTimer = CoreTiming::RegisterEvent("MutexTimeout", &__UmdStatTimeout);
+
+	// This happens to be how the hardware seems to time things.
+	if (timeout <= 4)
+		timeout = 15;
+	else if (timeout <= 215)
+		timeout = 250;
+
+	CoreTiming::ScheduleEvent(usToCycles((int) timeout), umdStatTimer, __KernelGetCurThread());
+}
+
 /** 
 * Wait for a drive to reach a certain state
 *
@@ -180,40 +207,51 @@ u32 sceUmdGetDriveStat()
 */
 void sceUmdWaitDriveStat(u32 stat)
 {
-	ERROR_LOG(HLE,"HACK 0=sceUmdWaitDriveStat(stat = %08x)", stat);
+	DEBUG_LOG(HLE,"0=sceUmdWaitDriveStat(stat = %08x)", stat);
 	RETURN(0);
 
 	if ((stat & __KernelUmdGetState()) == 0)
-		__KernelWaitCurThread(WAITTYPE_UMD, 0, stat, 0, 0);	//__KernelWaitCurThread(WAITTYPE_UMD, 0);
+		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, 0);
 }
 
 void sceUmdWaitDriveStatWithTimer(u32 stat, u32 timeout)
 {
-	ERROR_LOG(HLE,"HACK 0=sceUmdWaitDriveStatWithTimer(stat = %08x, timeout = %08x)", stat, timeout);
+	DEBUG_LOG(HLE,"0=sceUmdWaitDriveStatWithTimer(stat = %08x, timeout = %d)", stat, timeout);
 	RETURN(0);
 
-	// TODO: timeout?
 	if ((stat & __KernelUmdGetState()) == 0)
-		__KernelWaitCurThread(WAITTYPE_UMD, 0, stat, 0, 0);	//__KernelWaitCurThread(WAITTYPE_UMD, 0);
+	{
+		__UmdWaitStat(timeout);
+		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, 0);
+	}
 }
 
 
 void sceUmdWaitDriveStatCB(u32 stat, u32 timeout)
 {
-	ERROR_LOG(HLE,"HACK 0=sceUmdWaitDriveStatCB(stat = %08x, timeout = %08x)", stat, timeout);
 	RETURN(0);
-
-	// TODO: wait and timeout?
 
 	if (driveCBId != -1)
 	{
+		DEBUG_LOG(HLE,"0=sceUmdWaitDriveStatCB(stat = %08x, timeout = %d)", stat, timeout);
+
 		bool callbacksProcessed = __KernelForceCallbacks();
 		if (callbacksProcessed)
 			__KernelExecutePendingMipsCalls();
 	}
 	else
 	{
-		ERROR_LOG(HLE, "HACK 0=sceUmdWaitDriveStatCB(stat = %08x) attempting to call unset callback", stat);
+		WARN_LOG(HLE, "0=sceUmdWaitDriveStatCB(stat = %08x, timeout = %d) without callback", stat, timeout);
+	}
+
+	if ((stat & __KernelUmdGetState()) == 0)
+	{
+		if (timeout == 0)
+			timeout = 8000;
+
+		__UmdWaitStat(timeout);
+		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, true);
+		__KernelCheckCallbacks();
 	}
 }
 
@@ -222,7 +260,9 @@ void sceUmdCancelWaitDriveStat()
 	DEBUG_LOG(HLE,"0=sceUmdCancelWaitDriveStat()");
 	RETURN(0);
 
-	__KernelTriggerWait(WAITTYPE_UMD, 0, SCE_KERNEL_ERROR_WAIT_CANCEL, false);
+	__KernelTriggerWait(WAITTYPE_UMD, 1, SCE_KERNEL_ERROR_WAIT_CANCEL, false);
+	// TODO: We should call UnscheduleEvent() event here?
+	// But it's not often used anyway, and worst-case it will just do nothing unless it waits again.
 }
 
 u32 sceUmdGetErrorStat()
