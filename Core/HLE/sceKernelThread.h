@@ -104,6 +104,7 @@ void __KernelLoadContext(ThreadContext *ctx);
 
 // TODO: Replace this with __KernelResumeThread over time as it's misguided.
 bool __KernelTriggerWait(WaitType type, int id, bool dontSwitch = false);
+bool __KernelTriggerWait(WaitType type, int id, int retVal, bool dontSwitch);
 u32 __KernelResumeThreadFromWait(SceUID threadID); // can return an error value
 u32 __KernelResumeThreadFromWait(SceUID threadID, int retval);
 
@@ -163,6 +164,7 @@ bool __KernelInCallback();
 
 // Should be called by (nearly) all ...CB functions.
 bool __KernelCheckCallbacks();
+bool __KernelForceCallbacks();
 class Thread;
 void __KernelSwitchContext(Thread *target, const char *reason);
 bool __KernelExecutePendingMipsCalls();
