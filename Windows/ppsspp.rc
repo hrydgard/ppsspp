@@ -236,6 +236,62 @@ END
 
 
 /////////////////////////////////////////////////////////////////////////////
+
+
+/////////////////////////////////////////////////////////////////////////////
+// Swedish (Sweden) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_SVE)
+LANGUAGE LANG_SWEDISH, SUBLANG_SWEDISH
+#pragma code_page(1252)
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Menu
+//
+
+IDR_POPUPMENUS MENU
+BEGIN
+    POPUP "memview"
+    BEGIN
+        MENUITEM "Go to in &Disasm",            ID_MEMVIEW_GOTOINDISASM
+        MENUITEM SEPARATOR
+        MENUITEM "&Copy value",                 ID_MEMVIEW_COPYVALUE
+        MENUITEM "&Dump...",                    ID_MEMVIEW_DUMP
+    END
+    POPUP "disasm"
+    BEGIN
+        MENUITEM "Copy &address",               ID_DISASM_COPYADDRESS
+        MENUITEM "Copy instruction (&hex)",     ID_DISASM_COPYINSTRUCTIONHEX
+        MENUITEM "Copy instruction (&disasm)",  ID_DISASM_COPYINSTRUCTIONDISASM
+        MENUITEM SEPARATOR
+        MENUITEM "&Run to here",                ID_DISASM_RUNTOHERE
+        MENUITEM "&Set Next Statement",         ID_DISASM_SETPCTOHERE
+        MENUITEM "&Toggle breakpoint",          ID_DISASM_TOGGLEBREAKPOINT
+        MENUITEM "&Follow branch",              ID_DISASM_FOLLOWBRANCH
+        MENUITEM SEPARATOR
+        MENUITEM "&Show Dynarec Results",       ID_DISASM_DYNARECRESULTS
+        MENUITEM "Go to in &Memory View",       ID_DISASM_GOTOINMEMORYVIEW
+        MENUITEM SEPARATOR
+        MENUITEM "&Kill function",              ID_DISASM_ADDHLE
+        MENUITEM "&Rename function...",         ID_DISASM_RENAMEFUNCTION
+    END
+    POPUP "funclist"
+    BEGIN
+        MENUITEM "&Kill function",              ID_FUNCLIST_KILLFUNCTION
+    END
+    POPUP "reglist"
+    BEGIN
+        MENUITEM "Go to in &memory view",       ID_REGLIST_GOTOINMEMORYVIEW
+        MENUITEM "Go to in &disasm",            ID_REGLIST_GOTOINDISASM
+        MENUITEM SEPARATOR
+        MENUITEM "&Copy value",                 ID_REGLIST_COPYVALUE
+        MENUITEM "C&hange...",                  ID_REGLIST_CHANGE
+    END
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
 //
 // RT_MANIFEST
 //
@@ -306,6 +362,25 @@ BEGIN
 END
 
 
+/////////////////////////////////////////////////////////////////////////////
+//
+// String Table
+//
+
+STRINGTABLE
+BEGIN
+    IDS_GAMELISTPATH        "Path"
+    IDS_UNIMPLEMENTED       "Unimplemented"
+END
+
+STRINGTABLE
+BEGIN
+    IDS_GAMELISTGENRE       "Genre"
+    IDS_APPNAME             "Potemkin"
+    IDS_GAMELISTTYPE        "Type"
+END
+
+#endif    // Swedish (Sweden) resources
 /////////////////////////////////////////////////////////////////////////////
 
 
