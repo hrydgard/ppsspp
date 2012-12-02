@@ -100,34 +100,44 @@ void sceUmdGetDiscInfo()
 	RETURN(0);
 }
 
-u32 sceUmdActivate(u32 unknown, const char *name)
+void sceUmdActivate(u32 unknown, const char *name)
 {
 	if (unknown < 1 || unknown > 2)
-		return PSP_ERROR_UMD_INVALID_PORT;
+	{
+		RETURN(PSP_ERROR_UMD_INVALID_PORT);
+		return;
+	}
 
-	u32 retVal	= 0;
+	bool changed = umdActivated == 0;
 	__KernelUmdActivate();
 
 	if (unknown == 1)
 	{
-		DEBUG_LOG(HLE, "%i=sceUmdActivate(%d, %s)", retVal, unknown, name);
+		DEBUG_LOG(HLE, "0=sceUmdActivate(%d, %s)", unknown, name);
 	}
 	else
 	{
-		ERROR_LOG(HLE, "UNTESTED %i=sceUmdActivate(%d, %s)", retVal, unknown, name);
+		ERROR_LOG(HLE, "UNTESTED 0=sceUmdActivate(%d, %s)", unknown, name);
 	}
 
 	u32 notifyArg = UMD_PRESENT | UMD_READABLE;
 	__KernelNotifyCallbackType(THREAD_CALLBACK_UMD, -1, notifyArg);
-	return retVal;
+	RETURN(0);
+
+	if (changed)
+		__KernelReSchedule("umd activated");
 }
 
-u32 sceUmdDeactivate(u32 unknown, const char *name)
+void sceUmdDeactivate(u32 unknown, const char *name)
 {
 	// Why 18?  No idea.
 	if (unknown < 0 || unknown > 18)
-		return PSP_ERROR_UMD_INVALID_PORT;
+	{
+		RETURN(PSP_ERROR_UMD_INVALID_PORT);
+		return;
+	}
 
+	bool changed = umdActivated != 0;
 	__KernelUmdDeactivate();
 
 	if (unknown == 1)
@@ -141,7 +151,10 @@ u32 sceUmdDeactivate(u32 unknown, const char *name)
 
 	u32 notifyArg = UMD_PRESENT | UMD_READY;
 	__KernelNotifyCallbackType(THREAD_CALLBACK_UMD, -1, notifyArg);
-	return 0;
+	RETURN(0);
+
+	if (changed)
+		__KernelReSchedule("umd deactivated");
 }
 
 u32 sceUmdRegisterUMDCallBack(u32 cbId)
@@ -274,10 +287,10 @@ u32 sceUmdGetErrorStat()
 
 const HLEFunction sceUmdUser[] = 
 {
-	{0xC6183D47,&WrapU_UC<sceUmdActivate>,"sceUmdActivate"},
+	{0xC6183D47,WrapV_UC<sceUmdActivate>,"sceUmdActivate"},
 	{0x6B4A146C,&WrapU_V<sceUmdGetDriveStat>,"sceUmdGetDriveStat"},
 	{0x46EBB729,WrapI_V<sceUmdCheckMedium>,"sceUmdCheckMedium"},
-	{0xE83742BA,&WrapU_UC<sceUmdDeactivate>,"sceUmdDeactivate"},
+	{0xE83742BA,WrapV_UC<sceUmdDeactivate>,"sceUmdDeactivate"},
 	{0x8EF08FCE,WrapV_U<sceUmdWaitDriveStat>,"sceUmdWaitDriveStat"},
 	{0x56202973,WrapV_UU<sceUmdWaitDriveStatWithTimer>,"sceUmdWaitDriveStatWithTimer"},
 	{0x4A9E5E29,WrapV_UU<sceUmdWaitDriveStatCB>,"sceUmdWaitDriveStatCB"},
