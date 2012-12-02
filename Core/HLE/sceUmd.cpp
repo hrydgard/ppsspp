@@ -43,7 +43,8 @@ int umdStatTimer = 0;
 #define PSP_UMD_TYPE_AUDIO 0x40
 
 struct PspUmdInfo {
-	int type;
+	u32 size;
+	u32 type;
 };
 
 
@@ -87,17 +88,23 @@ int sceUmdCheckMedium()
 	return 1; //non-zero: disc in drive
 }
 	
-void sceUmdGetDiscInfo()
+u32 sceUmdGetDiscInfo(u32 infoAddr)
 {
-	u32 infoAddr = PARAM(0);
-	ERROR_LOG(HLE,"sceUmdGetDiscInfo(%08x)", infoAddr);
-	PspUmdInfo info;
-	info.type = PSP_UMD_TYPE_GAME;
+	DEBUG_LOG(HLE, "sceUmdGetDiscInfo(%08x)", infoAddr);
+
 	if (Memory::IsValidAddress(infoAddr))
 	{
+		PspUmdInfo info;
+		Memory::ReadStruct(infoAddr, &info);
+		if (info.size != 8)
+			return PSP_ERROR_UMD_INVALID_PARAM;
+
+		info.type = PSP_UMD_TYPE_GAME;
 		Memory::WriteStruct(infoAddr, &info);
+		return 0;
 	}
-	RETURN(0);
+	else
+		return PSP_ERROR_UMD_INVALID_PARAM;
 }
 
 void sceUmdActivate(u32 unknown, const char *name)
@@ -310,7 +317,7 @@ const HLEFunction sceUmdUser[] =
 	{0x6af9b50a,sceUmdCancelWaitDriveStat,"sceUmdCancelWaitDriveStat"},
 	{0x6B4A146C,&WrapU_V<sceUmdGetDriveStat>,"sceUmdGetDriveStat"},
 	{0x20628E6F,&WrapU_V<sceUmdGetErrorStat>,"sceUmdGetErrorStat"},
-	{0x340B7686,sceUmdGetDiscInfo,"sceUmdGetDiscInfo"},
+	{0x340B7686,WrapU_U<sceUmdGetDiscInfo>,"sceUmdGetDiscInfo"},
 	{0xAEE7404D,&WrapU_U<sceUmdRegisterUMDCallBack>,"sceUmdRegisterUMDCallBack"},
 	{0xBD2BDE07,&WrapU_U<sceUmdUnRegisterUMDCallBack>,"sceUmdUnRegisterUMDCallBack"},
 	{0x87533940,0,"sceUmdReplaceProhibit"},	// ??? sounds bogus
