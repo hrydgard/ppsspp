@@ -192,7 +192,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate)
 	if (lastFrameTime == 0.0)
 		lastFrameTime = time_now_d();
 	if (!GetAsyncKeyState(VK_TAB)) {
-		while (time_now_d() < lastFrameTime + 1.0 / 60.0f) {
+		while (time_now_d() < lastFrameTime + 1.0 / 120.0f) {
 			Common::SleepCurrentThread(1);
 			time_update();
 		}
