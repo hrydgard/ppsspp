@@ -20,6 +20,8 @@
 #include "sceUmd.h"
 #include "sceKernelThread.h"
 
+const int PSP_ERROR_UMD_INVALID_PORT = 0x80010016;
+
 #define UMD_NOT_PRESENT 0x01
 #define UMD_PRESENT		 0x02
 #define UMD_CHANGED		 0x04
@@ -76,11 +78,11 @@ void __KernelUmdDeactivate()
 
 
 //int sceUmdCheckMedium(int a);
-void sceUmdCheckMedium()
+int sceUmdCheckMedium()
 {
 	DEBUG_LOG(HLE,"1=sceUmdCheckMedium(?)");
 	//ignore PARAM(0)	
-	RETURN(1); //non-zero: disc in drive
+	return 1; //non-zero: disc in drive
 }
 	
 void sceUmdGetDiscInfo()
@@ -98,9 +100,21 @@ void sceUmdGetDiscInfo()
 
 u32 sceUmdActivate(u32 unknown, const char *name)
 {
+	if (unknown < 1 || unknown > 2)
+		return PSP_ERROR_UMD_INVALID_PORT;
+
 	u32 retVal	= 0;
 	__KernelUmdActivate();
-	DEBUG_LOG(HLE,"%i=sceUmdActivate(%08x, %s)", retVal, unknown, name);
+
+	if (unknown == 1)
+	{
+		DEBUG_LOG(HLE, "%i=sceUmdActivate(%d, %s)", retVal, unknown, name);
+	}
+	else
+	{
+		ERROR_LOG(HLE, "UNTESTED %i=sceUmdActivate(%d, %s)", retVal, unknown, name);
+	}
+
 	u32 notifyArg = UMD_PRESENT | UMD_READABLE;
 	__KernelNotifyCallbackType(THREAD_CALLBACK_UMD, -1, notifyArg);
 	return retVal;
@@ -108,7 +122,19 @@ u32 sceUmdActivate(u32 unknown, const char *name)
 
 u32 sceUmdDeactivate(u32 unknown, const char *name)
 {
-	DEBUG_LOG(HLE,"sceUmdDeactivate()");
+	// Why 18?  No idea.
+	if (unknown < 0 || unknown > 18)
+		return PSP_ERROR_UMD_INVALID_PORT;
+
+	if (unknown == 1)
+	{
+		DEBUG_LOG(HLE, "0=sceUmdDeactivate(%d, %s)", unknown, name);
+	}
+	else
+	{
+		ERROR_LOG(HLE, "UNTESTED 0=sceUmdDeactivate(%d, %s)", unknown, name);
+	}
+
 	u8 triggerCallback = umdActivated;
 	__KernelUmdDeactivate();
 
@@ -210,7 +236,7 @@ const HLEFunction sceUmdUser[] =
 {
 	{0xC6183D47,&WrapU_UC<sceUmdActivate>,"sceUmdActivate"},
 	{0x6B4A146C,&WrapU_V<sceUmdGetDriveStat>,"sceUmdGetDriveStat"},
-	{0x46EBB729,sceUmdCheckMedium,"sceUmdCheckMedium"},
+	{0x46EBB729,WrapI_V<sceUmdCheckMedium>,"sceUmdCheckMedium"},
 	{0xE83742BA,&WrapU_UC<sceUmdDeactivate>,"sceUmdDeactivate"},
 	{0x8EF08FCE,sceUmdWaitDriveStat,"sceUmdWaitDriveStat"},
 	{0x56202973,sceUmdWaitDriveStatWithTimer,"sceUmdWaitDriveStatWithTimer"},
