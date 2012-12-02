@@ -149,6 +149,9 @@ void sceCtrlInit()
 	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
 
 	memset(&latch, 0, sizeof(latch));
+	// Start with everything released.
+	latch.btnRelease = 0xffffffff;
+
 	memset(&ctrl, 0, sizeof(ctrl));
 	ctrl.analog[0] = 128;
 	ctrl.analog[1] = 128;
