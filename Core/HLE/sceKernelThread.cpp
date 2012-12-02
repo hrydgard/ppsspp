@@ -1877,7 +1877,7 @@ void __KernelNotifyCallback(RegisteredCallbackType type, SceUID threadId, SceUID
 	Callback *cb = kernelObjects.Get<Callback>(cbId, error);
 	if (!cb) {
 		// Yeah, we're screwed, this shouldn't happen.
-		ERROR_LOG(HLE, "__KernelNotifyCallback - invalid callback 0");
+		ERROR_LOG(HLE, "__KernelNotifyCallback - invalid callback %08x", cbId);
 		return;
 	}
 	cb->nc.notifyCount++;
