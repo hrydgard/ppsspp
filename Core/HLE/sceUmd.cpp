@@ -21,7 +21,7 @@
 #include "sceUmd.h"
 #include "sceKernelThread.h"
 
-const int PSP_ERROR_UMD_INVALID_PORT = 0x80010016;
+const int PSP_ERROR_UMD_INVALID_PARAM = 0x80010016;
 
 #define UMD_NOT_PRESENT 0x01
 #define UMD_PRESENT		 0x02
@@ -104,7 +104,7 @@ void sceUmdActivate(u32 unknown, const char *name)
 {
 	if (unknown < 1 || unknown > 2)
 	{
-		RETURN(PSP_ERROR_UMD_INVALID_PORT);
+		RETURN(PSP_ERROR_UMD_INVALID_PARAM);
 		return;
 	}
 
@@ -133,7 +133,7 @@ void sceUmdDeactivate(u32 unknown, const char *name)
 	// Why 18?  No idea.
 	if (unknown < 0 || unknown > 18)
 	{
-		RETURN(PSP_ERROR_UMD_INVALID_PORT);
+		RETURN(PSP_ERROR_UMD_INVALID_PARAM);
 		return;
 	}
 
@@ -159,24 +159,36 @@ void sceUmdDeactivate(u32 unknown, const char *name)
 
 u32 sceUmdRegisterUMDCallBack(u32 cbId)
 {
-	if (driveCBId == -1)
-	{
-		DEBUG_LOG(HLE, "0=sceUmdRegisterUMDCallback(id=%i)", cbId);
-		driveCBId = cbId;
-	}
+	int retVal;
+
+	// TODO: If the callback is invalid, return PSP_ERROR_UMD_INVALID_PARAM.
+	if (cbId == 0)
+		retVal = PSP_ERROR_UMD_INVALID_PARAM;
 	else
 	{
-		WARN_LOG(HLE, "0=sceUmdRegisterUMDCallback(id=%i) overwrote callacbk", cbId);
+		retVal = __KernelRegisterCallback(THREAD_CALLBACK_UMD, cbId);
 		driveCBId = cbId;
 	}
-	return __KernelRegisterCallback(THREAD_CALLBACK_UMD, cbId);
+
+	DEBUG_LOG(HLE, "%d=sceUmdRegisterUMDCallback(id=%08x)", retVal, cbId);
+	return retVal;
 }
 
 u32 sceUmdUnRegisterUMDCallBack(u32 cbId)
 {
-	DEBUG_LOG(HLE,"0=sceUmdUnRegisterUMDCallBack(id=%i)",PARAM(0));
-	driveCBId = -1;
-	return __KernelUnregisterCallback(THREAD_CALLBACK_UMD, cbId);
+	u32 retVal;
+
+	if (cbId != driveCBId)
+		retVal = PSP_ERROR_UMD_INVALID_PARAM;
+	else
+	{
+		retVal = cbId;
+		driveCBId = -1;
+		__KernelUnregisterCallback(THREAD_CALLBACK_UMD, cbId);
+	}
+
+	DEBUG_LOG(HLE, "%08x=sceUmdUnRegisterUMDCallBack(id=%08x)", retVal, cbId);
+	return retVal;
 }
 
 u32 sceUmdGetDriveStat()
