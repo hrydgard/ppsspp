@@ -207,8 +207,6 @@ void sceUmdWaitDriveStatCB(u32 stat, u32 timeout)
 
 	if (driveCBId != -1)
 	{
-		// TODO: This is probably the unknown parameter from sceUmdActivate()?
-		__KernelNotifyCallbackType(THREAD_CALLBACK_UMD, 1, __KernelUmdGetState()); 
 		bool callbacksProcessed = __KernelForceCallbacks();
 		if (callbacksProcessed)
 			__KernelExecutePendingMipsCalls();
