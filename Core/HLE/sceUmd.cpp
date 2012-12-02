@@ -220,9 +220,10 @@ void sceUmdWaitDriveStatCB()
 
 void sceUmdCancelWaitDriveStat()
 {
-	u32 stat = PARAM(0);
-	ERROR_LOG(HLE,"UNIMPL 0=sceUmdCancelWaitDriveStat(stat = %08x)", stat);
+	DEBUG_LOG(HLE,"0=sceUmdCancelWaitDriveStat()");
 	RETURN(0);
+
+	__KernelTriggerWait(WAITTYPE_UMD, 0, SCE_KERNEL_ERROR_WAIT_CANCEL, false);
 }
 
 u32 sceUmdGetErrorStat()
