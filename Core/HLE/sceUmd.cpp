@@ -126,6 +126,8 @@ u32 sceUmdDeactivate(u32 unknown, const char *name)
 	if (unknown < 0 || unknown > 18)
 		return PSP_ERROR_UMD_INVALID_PORT;
 
+	__KernelUmdDeactivate();
+
 	if (unknown == 1)
 	{
 		DEBUG_LOG(HLE, "0=sceUmdDeactivate(%d, %s)", unknown, name);
@@ -135,13 +137,8 @@ u32 sceUmdDeactivate(u32 unknown, const char *name)
 		ERROR_LOG(HLE, "UNTESTED 0=sceUmdDeactivate(%d, %s)", unknown, name);
 	}
 
-	u8 triggerCallback = umdActivated;
-	__KernelUmdDeactivate();
-
-	if (triggerCallback) {
-		u32 notifyArg = UMD_PRESENT | UMD_READY;
-		__KernelNotifyCallbackType(THREAD_CALLBACK_UMD, -1, notifyArg);
-	}
+	u32 notifyArg = UMD_PRESENT | UMD_READY;
+	__KernelNotifyCallbackType(THREAD_CALLBACK_UMD, -1, notifyArg);
 	return 0;
 }
 
