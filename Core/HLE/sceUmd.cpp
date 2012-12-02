@@ -159,14 +159,15 @@ void sceUmdDeactivate(u32 unknown, const char *name)
 
 u32 sceUmdRegisterUMDCallBack(u32 cbId)
 {
-	DEBUG_LOG(HLE,"0=sceUmdRegisterUMDCallback(id=%i)",PARAM(0));
 	if (driveCBId == -1)
 	{
+		DEBUG_LOG(HLE, "0=sceUmdRegisterUMDCallback(id=%i)", cbId);
 		driveCBId = cbId;
 	}
 	else
 	{
-		ERROR_LOG(HLE," 0=sceUmdRegisterUMDCallback(id=%i) callback overwrite attempt",PARAM(0));
+		WARN_LOG(HLE, "0=sceUmdRegisterUMDCallback(id=%i) overwrote callacbk", cbId);
+		driveCBId = cbId;
 	}
 	return __KernelRegisterCallback(THREAD_CALLBACK_UMD, cbId);
 }
