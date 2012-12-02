@@ -5,6 +5,7 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE    := libnative
+LOCAL_ARM_MODE := arm
 LOCAL_SRC_FILES :=\
     android/native_audio.cpp \
     audio/wav_read.cpp \
@@ -27,7 +28,6 @@ LOCAL_SRC_FILES :=\
     file/zip_read.cpp \
     json/json_writer.cpp \
     math/curves.cpp \
-    math/math_util.cpp \
     math/lin/aabb.cpp.arm \
     math/lin/plane.cpp.arm \
     math/lin/quat.cpp.arm \
@@ -54,11 +54,17 @@ LOCAL_SRC_FILES :=\
 	ui/virtual_input.cpp \
     util/random/perlin.cpp
 
-
 LOCAL_CFLAGS := -O2 -DGL_GLEXT_PROTOTYPES -DARM -DUSING_GLES2 -fsigned-char -fno-strict-aliasing
 LOCAL_CPPFLAGS := -fno-exceptions -fno-rtti -std=gnu++0x
 LOCAL_LDLIBS := -lz
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/ext/libzip
 
+#Portable native and separate code on android in future is easy you needs add files 
+#by ($(target_arch_ABI),arquitecture (armeabi-v7a , armeabi , x86 , MIPS)
+ifeq ($(TARGET_ARCH_ABI), armeabi-v7a)
+LOCAL_SRC_FILES += math/math_util.cpp 
+else ifeq ($(TARGET_ARCH_ABI),armeabi)
+LOCAL_SRC_FILES += math/math_utilarmv6.cpp 
+endif
 
 include $(BUILD_STATIC_LIBRARY)
