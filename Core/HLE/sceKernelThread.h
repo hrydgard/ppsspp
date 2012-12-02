@@ -164,6 +164,7 @@ bool __KernelInCallback();
 
 // Should be called by (nearly) all ...CB functions.
 bool __KernelCheckCallbacks();
+bool __KernelForceCallbacks();
 class Thread;
 void __KernelSwitchContext(Thread *target, const char *reason);
 bool __KernelExecutePendingMipsCalls();

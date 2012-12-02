@@ -181,41 +181,45 @@ u32 sceUmdGetDriveStat()
 * @return < 0 on error
 *
 */
-void sceUmdWaitDriveStat()
+void sceUmdWaitDriveStat(u32 stat)
 {
-	u32 stat = PARAM(0);
-	DEBUG_LOG(HLE,"HACK 0=sceUmdWaitDriveStat(stat = %08x)", stat);
-	if ((stat & __KernelUmdGetState()) != stat)
-		__KernelWaitCurThread(WAITTYPE_UMD, 0, stat, 0, 0);	//__KernelWaitCurThread(WAITTYPE_UMD, 0);
+	ERROR_LOG(HLE,"HACK 0=sceUmdWaitDriveStat(stat = %08x)", stat);
 	RETURN(0);
+
+	if ((stat & __KernelUmdGetState()) == 0)
+		__KernelWaitCurThread(WAITTYPE_UMD, 0, stat, 0, 0);	//__KernelWaitCurThread(WAITTYPE_UMD, 0);
 }
 
-void sceUmdWaitDriveStatWithTimer()
+void sceUmdWaitDriveStatWithTimer(u32 stat, u32 timeout)
 {
-	u32 stat = PARAM(0);
-	u32 timeout = PARAM(1);
-	DEBUG_LOG(HLE,"HACK 0=sceUmdWaitDriveStatWithTimer(stat = %08x)", stat);
-	if ((stat & __KernelUmdGetState()) != stat)
-		__KernelWaitCurThread(WAITTYPE_UMD, 0, stat, 0, 0);	//__KernelWaitCurThread(WAITTYPE_UMD, 0);
+	ERROR_LOG(HLE,"HACK 0=sceUmdWaitDriveStatWithTimer(stat = %08x, timeout = %08x)", stat, timeout);
 	RETURN(0);
+
+	// TODO: timeout?
+	if ((stat & __KernelUmdGetState()) == 0)
+		__KernelWaitCurThread(WAITTYPE_UMD, 0, stat, 0, 0);	//__KernelWaitCurThread(WAITTYPE_UMD, 0);
 }
 
 
-void sceUmdWaitDriveStatCB()
+void sceUmdWaitDriveStatCB(u32 stat, u32 timeout)
 {
-	u32 stat = PARAM(0);
-	DEBUG_LOG(HLE,"HACK 0=sceUmdWaitDriveStatCB(stat = %08x)", stat);
-   // Immediately notify
-    RETURN(0);
+	ERROR_LOG(HLE,"HACK 0=sceUmdWaitDriveStatCB(stat = %08x, timeout = %08x)", stat, timeout);
+	RETURN(0);
+
+	// TODO: wait and timeout?
+
 	if (driveCBId != -1)
 	{
-		__KernelNotifyCallbackType(THREAD_CALLBACK_UMD, driveCBId, __KernelUmdGetState()&stat); 
+		// TODO: This is probably the unknown parameter from sceUmdActivate()?
+		__KernelNotifyCallbackType(THREAD_CALLBACK_UMD, 1, __KernelUmdGetState()); 
+		bool callbacksProcessed = __KernelForceCallbacks();
+		if (callbacksProcessed)
+			__KernelExecutePendingMipsCalls();
 	}
 	else
 	{
 		ERROR_LOG(HLE, "HACK 0=sceUmdWaitDriveStatCB(stat = %08x) attempting to call unset callback", stat);
 	}
-	RETURN(0);
 }
 
 void sceUmdCancelWaitDriveStat()
@@ -239,9 +243,9 @@ const HLEFunction sceUmdUser[] =
 	{0x6B4A146C,&WrapU_V<sceUmdGetDriveStat>,"sceUmdGetDriveStat"},
 	{0x46EBB729,WrapI_V<sceUmdCheckMedium>,"sceUmdCheckMedium"},
 	{0xE83742BA,&WrapU_UC<sceUmdDeactivate>,"sceUmdDeactivate"},
-	{0x8EF08FCE,sceUmdWaitDriveStat,"sceUmdWaitDriveStat"},
-	{0x56202973,sceUmdWaitDriveStatWithTimer,"sceUmdWaitDriveStatWithTimer"},
-	{0x4A9E5E29,sceUmdWaitDriveStatCB,"sceUmdWaitDriveStatCB"},
+	{0x8EF08FCE,WrapV_U<sceUmdWaitDriveStat>,"sceUmdWaitDriveStat"},
+	{0x56202973,WrapV_UU<sceUmdWaitDriveStatWithTimer>,"sceUmdWaitDriveStatWithTimer"},
+	{0x4A9E5E29,WrapV_UU<sceUmdWaitDriveStatCB>,"sceUmdWaitDriveStatCB"},
 	{0x6af9b50a,sceUmdCancelWaitDriveStat,"sceUmdCancelWaitDriveStat"},
 	{0x6B4A146C,&WrapU_V<sceUmdGetDriveStat>,"sceUmdGetDriveStat"},
 	{0x20628E6F,&WrapU_V<sceUmdGetErrorStat>,"sceUmdGetErrorStat"},

@@ -1811,7 +1811,8 @@ bool __KernelCheckCallbacks() {
 	return processed;
 }
 
-void sceKernelCheckCallback() {
+bool __KernelForceCallbacks()
+{
 	Thread *curThread = __GetCurrentThread();	
 
 	// This thread can now process callbacks.
@@ -1821,6 +1822,14 @@ void sceKernelCheckCallback() {
 
 	// Note - same thread as above - checking callbacks may switch threads.
 	curThread->isProcessingCallbacks = false;
+
+	return callbacksProcessed;
+}
+
+void sceKernelCheckCallback() {
+	Thread *curThread = __GetCurrentThread();
+
+	bool callbacksProcessed = __KernelForceCallbacks();
 
 	if (callbacksProcessed) {
 		curThread->setReturnValue(1);
