@@ -8,9 +8,8 @@
 #include <unistd.h>
 #include <string>
 
-// TODO: Replace SDL with asound
-#include "SDL/SDL.h"
-#include "SDL/SDL_audio.h"
+#include <sys/asoundlib.h>
+#include <sys/asound.h>
 
 #include <EGL/egl.h>
 #include <screen/screen.h>
@@ -94,25 +93,26 @@ void LaunchEmail(const char *email_address)
 	navigator_invoke((std::string("mailto:") + email_address).c_str(), &error);
 }
 
+// Input
 const int buttonMappings[18] = {
-	KEYCODE_X,			//A
-	KEYCODE_S,			//B
-	KEYCODE_Z,			//X
-	KEYCODE_A,			//Y
-	KEYCODE_W,			//LBUMPER
-	KEYCODE_Q,			//RBUMPER
-	KEYCODE_ONE,		//START
-	KEYCODE_TWO,		//SELECT
-	KEYCODE_UP,			//UP
-	KEYCODE_DOWN,		//DOWN
-	KEYCODE_LEFT,		//LEFT
-	KEYCODE_RIGHT,		//RIGHT
-	NULL,				//MENU (SwipeDown)
-	KEYCODE_BACKSPACE,	//BACK
-	KEYCODE_I,			//JOY UP
-	KEYCODE_K,			//JOY DOWN
-	KEYCODE_J,			//JOY LEFT
-	KEYCODE_L,			//JOY RIGHT
+	KEYCODE_X,          //A
+	KEYCODE_S,          //B
+	KEYCODE_Z,          //X
+	KEYCODE_A,          //Y
+	KEYCODE_W,          //LBUMPER
+	KEYCODE_Q,          //RBUMPER
+	KEYCODE_ONE,        //START
+	KEYCODE_TWO,        //SELECT
+	KEYCODE_UP,         //UP
+	KEYCODE_DOWN,       //DOWN
+	KEYCODE_LEFT,       //LEFT
+	KEYCODE_RIGHT,      //RIGHT
+	0,                  //MENU (SwipeDown)
+	KEYCODE_BACKSPACE,  //BACK
+	KEYCODE_I,          //JOY UP
+	KEYCODE_K,          //JOY DOWN
+	KEYCODE_J,          //JOY LEFT
+	KEYCODE_L,          //JOY RIGHT
 };
 
 void SimulateGamepad(InputState *input) {
@@ -130,33 +130,24 @@ void SimulateGamepad(InputState *input) {
 		input->pad_lstick_x=-1;
 	else if (input->pad_buttons | (1<<17))
 		input->pad_lstick_x=1;
-	/*if (keys[SDLK_KP8])
-		input->pad_rstick_y=1;
-	else if (keys[SDLK_KP2])
-		input->pad_rstick_y=-1;
-	if (keys[SDLK_KP4])
-		input->pad_rstick_x=-1;
-	else if (keys[SDLK_KP6])
-		input->pad_rstick_x=1;*/
 }
 
+// Video
 int init_GLES2(screen_context_t ctx) {
-	int usage = SCREEN_USAGE_DISPLAY | SCREEN_USAGE_OPENGL_ES2;
-	int format = SCREEN_FORMAT_RGBA8888;
+	int usage = SCREEN_USAGE_ROTATION | SCREEN_USAGE_OPENGL_ES2;
+	int format = SCREEN_FORMAT_RGBX8888;
 	int num_configs;
-	const int intInterval = 0;
 
-	EGLint attrib_list[]= { EGL_RED_SIZE,        8,
+	EGLint attrib_list[]= {
+				EGL_RED_SIZE,        8,
 				EGL_GREEN_SIZE,      8,
 				EGL_BLUE_SIZE,       8,
-				EGL_ALPHA_SIZE,      8,
 				EGL_DEPTH_SIZE,	     24,
 				EGL_STENCIL_SIZE,    8,
 				EGL_SURFACE_TYPE,    EGL_WINDOW_BIT,
 				EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
 				EGL_NONE};
 
-	usage = SCREEN_USAGE_OPENGL_ES2 | SCREEN_USAGE_ROTATION;
 	const EGLint attributes[] = { EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE };
 	const EGLint egl_surfaceAttr[] = { EGL_RENDER_BUFFER, EGL_BACK_BUFFER, EGL_NONE };
 
@@ -197,7 +188,6 @@ int init_GLES2(screen_context_t ctx) {
 			pixel_xres = screen_resolution[1];
 		}
 	}
-	screen_set_window_property_iv(screen_win, SCREEN_PROPERTY_SWAP_INTERVAL, &intInterval);
 	screen_set_window_property_iv(screen_win, SCREEN_PROPERTY_BUFFER_SIZE, buffer_size);
 	screen_set_window_property_iv(screen_win, SCREEN_PROPERTY_ROTATION, &angle);
 
@@ -205,10 +195,7 @@ int init_GLES2(screen_context_t ctx) {
 	egl_disp = eglGetDisplay(EGL_DEFAULT_DISPLAY);
 	eglInitialize(egl_disp, NULL, NULL);
 
-	if (eglChooseConfig(egl_disp, attrib_list, &egl_conf, 1, &num_configs) != EGL_TRUE || egl_conf == 0)
-	{
-		printf("Configs weren't set!\n");
-	}
+	eglChooseConfig(egl_disp, attrib_list, &egl_conf, 1, &num_configs);
 	egl_ctx = eglCreateContext(egl_disp, egl_conf, EGL_NO_CONTEXT, attributes);
 
 	egl_surf = eglCreateWindowSurface(egl_disp, egl_conf, screen_win, egl_surfaceAttr);
@@ -240,10 +227,129 @@ void kill_GLES2() {
 	eglReleaseThread();
 }
 
-extern void mixaudio(void *userdata, Uint8 *stream, int len) {
-	NativeMix((short *)stream, len / 4);
-}
+// Audio
+#define AUDIO_CHANNELS 2
+#define AUDIO_FREQ 44100
+#define AUDIO_SAMPLES 1024
+class BlackberryAudio
+{
+public:
+	BlackberryAudio()
+	{
+		paused = false;
+		OpenAudio();
+	}
+	~BlackberryAudio()
+	{
+		pthread_cancel(thread_handle);
+		snd_pcm_plugin_flush(pcm_handle, SND_PCM_CHANNEL_PLAYBACK);
+		snd_mixer_close(mixer_handle);
+		snd_pcm_close(pcm_handle);
+		free(mixer_handle);
+		free(pcm_handle);
+	}
+	void setPaused(bool pause)
+	{
+		paused = pause;
+	}
+	static void* staticThreadProc(void* arg)
+	{
+		return reinterpret_cast<BlackberryAudio*>(arg)->RunAudio();
+	}
+private:
+	void OpenAudio()
+	{
+		int card = -1, dev = 0;
 
+		snd_pcm_channel_info_t pi;
+		snd_mixer_group_t group;
+		snd_pcm_channel_params_t pp;
+		snd_pcm_channel_setup_t setup;
+
+		mixlen = 2*AUDIO_CHANNELS*AUDIO_SAMPLES;
+		mixbuf = (uint8_t*)malloc(mixlen);
+		if (mixbuf == NULL)
+			return;
+		memset(mixbuf, 0, mixlen);
+
+		if ((snd_pcm_open_preferred(&pcm_handle, &card, &dev, SND_PCM_OPEN_PLAYBACK)) < 0)
+			return;
+
+		memset(&pi, 0, sizeof (pi));
+		pi.channel = SND_PCM_CHANNEL_PLAYBACK;
+		if ((snd_pcm_plugin_info (pcm_handle, &pi)) < 0)
+			return;
+
+		memset(&pp, 0, sizeof (pp));
+		pp.mode = SND_PCM_MODE_BLOCK;
+		pp.channel = SND_PCM_CHANNEL_PLAYBACK;
+		pp.start_mode = SND_PCM_START_FULL;
+		pp.stop_mode = SND_PCM_STOP_STOP;
+
+		pp.buf.block.frag_size = pi.max_fragment_size;
+		pp.buf.block.frags_max = -1;
+		pp.buf.block.frags_min = 1;
+
+		pp.format.interleave = 1;
+		pp.format.rate = AUDIO_FREQ;
+		pp.format.voices = AUDIO_CHANNELS;
+		pp.format.format = SND_PCM_SFMT_S16_LE;
+
+		if ((snd_pcm_plugin_params (pcm_handle, &pp)) < 0)
+			return;
+
+		snd_pcm_plugin_prepare(pcm_handle, SND_PCM_CHANNEL_PLAYBACK);
+
+		memset (&setup, 0, sizeof(setup));
+		memset (&group, 0, sizeof(group));
+		setup.channel = SND_PCM_CHANNEL_PLAYBACK;
+		setup.mixer_gid = &group.gid;
+		if ((snd_pcm_plugin_setup (pcm_handle, &setup)) < 0)
+			return;
+		setup.buf.block.frag_size;
+		if ((snd_mixer_open(&mixer_handle, card, setup.mixer_device)) < 0)
+			return;
+		pthread_attr_t attr;
+		pthread_attr_init(&attr);
+		pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+		pthread_create(&thread_handle, &attr, &BlackberryAudio::staticThreadProc, this);
+	}
+	void* RunAudio()
+	{
+		while(true)
+		{
+			if (!paused)
+			{
+				memset(mixbuf, 0, mixlen);
+				NativeMix((short *)mixbuf, mixlen / 4);
+
+				fd_set rfds, wfds;
+				int nflds;
+				if (!paused && (FD_ISSET(snd_pcm_file_descriptor(pcm_handle, SND_PCM_CHANNEL_PLAYBACK), &wfds)))
+				{
+					snd_pcm_plugin_write(pcm_handle, mixbuf, mixlen);
+				}
+				FD_ZERO(&rfds);
+				FD_ZERO(&wfds);
+
+				FD_SET(snd_mixer_file_descriptor(mixer_handle), &rfds);
+				FD_SET(snd_pcm_file_descriptor(pcm_handle, SND_PCM_CHANNEL_PLAYBACK), &wfds);
+				nflds = std::max(snd_mixer_file_descriptor(mixer_handle), snd_pcm_file_descriptor(pcm_handle, SND_PCM_CHANNEL_PLAYBACK));
+				select (nflds+1, &rfds, &wfds, NULL, NULL);
+			}
+			else
+				delay((AUDIO_SAMPLES*1000)/AUDIO_FREQ);
+		}
+	}
+	snd_pcm_t* pcm_handle;
+	snd_mixer_t* mixer_handle;
+	int mixlen;
+	uint8_t* mixbuf;
+	pthread_t thread_handle;
+	bool paused;
+};
+
+// Entry Point
 int main(int argc, char *argv[]) {
 	static screen_context_t screen_cxt;
 	// Receive events from window manager
@@ -252,51 +358,34 @@ int main(int argc, char *argv[]) {
 	bps_initialize();
 
 	net::Init();
-	if (SDL_Init(SDL_INIT_AUDIO) < 0) {
-		fprintf(stderr, "Unable to initialize SDL: %s\n", SDL_GetError());
-		return 1;
-	}
 	init_GLES2(screen_cxt);
-	// Playbook: 1024x600@7", Dev Alpha: 1280x768@4.2"
 #ifdef BLACKBERRY10
+	// Dev Alpha: 1280x768, 4.2", 356DPI, 0.6f scale
 	int dpi;
 	screen_get_display_property_iv(screen_disp, SCREEN_PROPERTY_DPI, &dpi);
-	float dpi_scale = 222.5f / dpi;
 #else
-	float dpi_scale = 1.1f;
+	// Playbook: 1024x600, 7", 170DPI, 1.25f scale
+	int screen_phys_size[2];
+	screen_get_display_property_iv(screen_disp, SCREEN_PROPERTY_PHYSICAL_SIZE, screen_phys_size);
+	int screen_resolution[2];
+	screen_get_display_property_iv(screen_disp, SCREEN_PROPERTY_SIZE, screen_resolution);
+	double diagonal_pixels = sqrt(screen_resolution[0] * screen_resolution[0] + screen_resolution[1] * screen_resolution[1]);
+    double diagonal_inches = 0.0393700787 * sqrt(screen_phys_size[0] * screen_phys_size[0] + screen_phys_size[1] * screen_phys_size[1]);
+	int dpi = (int)(diagonal_pixels / diagonal_inches + 0.5);
 #endif
+	float dpi_scale = 213.6f / dpi;
 	dp_xres = (int)(pixel_xres * dpi_scale); dp_yres = (int)(pixel_yres * dpi_scale);
 
 	NativeInit(argc, (const char **)argv, "data/", "/accounts/1000/shared", "BADCOFFEE");
 	NativeInitGraphics();
 	screen_request_events(screen_cxt);
 	navigator_request_events(0);
-	// Yes, we only want landscape.
-	navigator_rotation_lock(false);
 	dialog_request_events(0);
 #ifdef BLACKBERRY10
 	vibration_request_events(0);
 #endif
-
-	SDL_AudioSpec fmt;
-	fmt.freq = 44100;
-	fmt.format = AUDIO_S16;
-	fmt.channels = 2;
-	fmt.samples = 1024;
-	fmt.callback = &mixaudio;
-	fmt.userdata = (void *)0;
-
-	if (SDL_OpenAudio(&fmt, NULL) < 0) {
-		ELOG("Failed to open audio: %s", SDL_GetError());
-		return 1;
-	}
-
-	// Audio must be unpaused _after_ NativeInit()
-	SDL_PauseAudio(0);
-
+	BlackberryAudio* audio = new BlackberryAudio();
 	InputState input_state;
-	int framecount = 0;
-	float t = 0;
 	bool running = true;
 	while (running) {
 		input_state.mouse_valid = false;
@@ -370,32 +459,20 @@ int main(int argc, char *argv[]) {
 				}
 			}
 		}
-
 		UpdateInputState(&input_state);
 		NativeUpdate(input_state);
 		EndInputState(&input_state);
 		NativeRender();
-
+		// On Blackberry, this handles VSync for us
 		eglSwapBuffers(egl_disp, egl_surf);
-
-		// Simple frame rate limiting
-		while (time_now() < t + 1.0f/60.0f) {
-			sleep_ms(0);
-			time_update();
-		}
-		time_update();
-		t = time_now();
-		framecount++;
 	}
 
 	screen_stop_events(screen_cxt);
 	bps_shutdown();
 
 	NativeShutdownGraphics();
-	SDL_PauseAudio(1);
+	delete audio;
 	NativeShutdown();
-	SDL_CloseAudio();
-	SDL_Quit();
 	kill_GLES2();
 	net::Shutdown();
 	screen_destroy_context(screen_cxt);
