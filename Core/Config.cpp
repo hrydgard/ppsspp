@@ -57,7 +57,8 @@ void CConfig::Load(const char *iniFileName)
 	graphics->Get("DisplayFramebuffer", &bDisplayFramebuffer, false);
 	graphics->Get("WindowZoom", &iWindowZoom, 1);
 	graphics->Get("BufferedRendering", &bBufferedRendering, true);
-
+        graphics->Get("ShowDebugStats", &bShowDebugStats, false);
+        
 	IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 	sound->Get("Enable", &bEnableSound, true);
 
@@ -88,7 +89,8 @@ void CConfig::Save()
 		graphics->Set("DisplayFramebuffer", bDisplayFramebuffer);
 		graphics->Set("WindowZoom", iWindowZoom);
 		graphics->Set("BufferedRendering", bBufferedRendering);
-
+                graphics->Set("ShowDebugStats", bShowDebugStats);
+                
 		IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 		sound->Set("Enable", bEnableSound);
 
