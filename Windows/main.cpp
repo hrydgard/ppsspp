@@ -73,7 +73,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	comm.dwSize = sizeof(comm);
 	comm.dwICC = ICC_BAR_CLASSES | ICC_LISTVIEW_CLASSES | ICC_TAB_CLASSES;
 	InitCommonControlsEx(&comm);
-
+	timeBeginPeriod(1);
 	MainWindow::Init(_hInstance);
 
 	HACCEL hAccelTable = LoadAccelerators(_hInstance, (LPCTSTR)IDR_ACCELS);
@@ -132,6 +132,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	LogManager::Shutdown();
 	DialogManager::DestroyAll();
+	timeEndPeriod(1);
 	g_Config.Save();
 	delete host;
 	return 0;
