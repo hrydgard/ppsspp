@@ -34,6 +34,8 @@
 const int PSP_CTRL_ERROR_INVALID_MODE = 0x80000107;
 const int PSP_CTRL_ERROR_INVALID_NUM_BUFFERS = 0x80000104;
 
+const int NUM_CTRL_BUFFERS = 64;
+
 enum
 {
 	CTRL_WAIT_POSITIVE = 1,
@@ -64,7 +66,7 @@ static bool analogEnabled = false;
 static int ctrlLatchBufs = 0;
 static u32 ctrlOldButtons = 0;
 
-static _ctrl_data ctrlBufs[64];
+static _ctrl_data ctrlBufs[NUM_CTRL_BUFFERS];
 static _ctrl_data ctrlCurrent;
 static int ctrlBuf = 0;
 static int ctrlBufRead = 0;
@@ -100,12 +102,12 @@ void __CtrlUpdateLatch()
 		ctrlBufs[ctrlBuf].analog[1] = 128;
 	}
 
-	ctrlBuf = (ctrlBuf + 1) % 64;
+	ctrlBuf = (ctrlBuf + 1) % NUM_CTRL_BUFFERS;
 
 	// If we wrapped around, push the read head forward.
 	// TODO: Is this right?
 	if (ctrlBufRead == ctrlBuf)
-		ctrlBufRead = (ctrlBufRead + 1) % 64;
+		ctrlBufRead = (ctrlBufRead + 1) % NUM_CTRL_BUFFERS;
 }
 
 int __CtrlResetLatch()
@@ -156,7 +158,7 @@ int __CtrlReadSingleBuffer(u32 ctrlDataPtr, bool negative)
 	if (Memory::IsValidAddress(ctrlDataPtr))
 	{
 		memcpy(&data, &ctrlBufs[ctrlBufRead], sizeof(_ctrl_data));
-		ctrlBufRead = (ctrlBufRead + 1) % 64;
+		ctrlBufRead = (ctrlBufRead + 1) % NUM_CTRL_BUFFERS;
 
 		if (negative)
 			data.buttons = ~data.buttons;
@@ -170,23 +172,26 @@ int __CtrlReadSingleBuffer(u32 ctrlDataPtr, bool negative)
 
 int __CtrlReadBuffer(u32 ctrlDataPtr, u32 nBufs, bool negative, bool peek)
 {
-	if (nBufs > 64)
+	if (nBufs > NUM_CTRL_BUFFERS)
 		return PSP_CTRL_ERROR_INVALID_NUM_BUFFERS;
 
 	int resetRead = ctrlBufRead;
 
-	u32 availBufs = (ctrlBuf - ctrlBufRead + 64) % 64;
-	if (availBufs > nBufs)
+	u32 availBufs;
+	// Peeks always work, they just go go from now X buffers.
+	if (peek)
 		availBufs = nBufs;
-	ctrlBufRead = (ctrlBuf - availBufs + 64) % 64;
+	else
+	{
+		availBufs = (ctrlBuf - ctrlBufRead + NUM_CTRL_BUFFERS) % NUM_CTRL_BUFFERS;
+		if (availBufs > nBufs)
+			availBufs = nBufs;
+	}
+	ctrlBufRead = (ctrlBuf - availBufs + NUM_CTRL_BUFFERS) % NUM_CTRL_BUFFERS;
 
 	int done = 0;
-	for (u32 i = 0; i < nBufs; ++i)
+	for (u32 i = 0; i < availBufs; ++i)
 	{
-		// Ran out of buffers.
-		if (ctrlBuf == ctrlBufRead)
-			break;
-
 		done += __CtrlReadSingleBuffer(ctrlDataPtr, negative);
 		ctrlDataPtr += sizeof(_ctrl_data);
 	}
@@ -241,11 +246,11 @@ void __CtrlInit()
 	latch.btnRelease = 0xffffffff;
 
 	memset(&ctrlCurrent, 0, sizeof(ctrlCurrent));
-	memset(&ctrlBufs, 0, sizeof(ctrlBufs));
 	ctrlCurrent.analog[0] = 128;
 	ctrlCurrent.analog[1] = 128;
-	ctrlBufs[0].analog[0] = 128;
-	ctrlBufs[0].analog[1] = 128;
+
+	for (int i = 0; i < NUM_CTRL_BUFFERS; i++)
+		memcpy(&ctrlBufs[i], &ctrlCurrent, sizeof(_ctrl_data));
 }
 
 void sceCtrlInit()
