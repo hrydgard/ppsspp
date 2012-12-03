@@ -226,7 +226,7 @@ void __CtrlInit()
 		ctrlInited = true;
 	}
 
-	ctrlBuf = 0;
+	ctrlBuf = 1;
 	ctrlBufRead = 0;
 	ctrlOldButtons = 0;
 	ctrlLatchBufs = 0;
@@ -239,6 +239,8 @@ void __CtrlInit()
 	memset(&ctrlBufs, 0, sizeof(ctrlBufs));
 	ctrlCurrent.analog[0] = 128;
 	ctrlCurrent.analog[1] = 128;
+	ctrlBufs[0].analog[0] = 128;
+	ctrlBufs[0].analog[1] = 128;
 }
 
 void sceCtrlInit()
