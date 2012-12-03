@@ -294,7 +294,7 @@ int sceCtrlPeekBufferNegative(u32 ctrlDataPtr, u32 nBufs)
 
 u32 sceCtrlPeekLatch(u32 latchDataPtr)
 {
-	ERROR_LOG(HLE, "sceCtrlPeekLatch(%08x)", latchDataPtr);
+	DEBUG_LOG(HLE, "sceCtrlPeekLatch(%08x)", latchDataPtr);
 
 	if (Memory::IsValidAddress(latchDataPtr))
 		Memory::WriteStruct(latchDataPtr, &latch);
@@ -304,7 +304,7 @@ u32 sceCtrlPeekLatch(u32 latchDataPtr)
 
 u32 sceCtrlReadLatch(u32 latchDataPtr)
 {
-	ERROR_LOG(HLE, "sceCtrlReadLatch(%08x)", latchDataPtr);
+	DEBUG_LOG(HLE, "sceCtrlReadLatch(%08x)", latchDataPtr);
 
 	if (Memory::IsValidAddress(latchDataPtr))
 		Memory::WriteStruct(latchDataPtr, &latch);
