@@ -47,6 +47,8 @@ tests_good = [
   "cpu/lsu/lsu",
   "cpu/fpu/fpu",
 
+  "ctrl/ctrl",
+  "ctrl/sampling/sampling",
   "display/display",
   "dmac/dmactest",
   "loader/bss/bss",
@@ -95,7 +97,6 @@ tests_next = [
   "threads/vpl/vpl",
   "threads/vtimers/vtimer",
   "threads/wakeup/wakeup",
-  "ctrl/ctrl",
   "gpu/simple/simple",
   "gpu/triangle/triangle",
   "hle/check_not_used_uids",

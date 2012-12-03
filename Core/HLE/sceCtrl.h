@@ -32,6 +32,8 @@ void Register_sceCtrl();
 #define CTRL_LTRIGGER   0x0100
 #define CTRL_RTRIGGER   0x0200
 
+void __CtrlInit();
+
 void __CtrlButtonDown(u32 buttonBit);
 void __CtrlButtonUp(u32 buttonBit);
 // -1 to 1, try to keep it in the circle

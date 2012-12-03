@@ -73,6 +73,7 @@ const char *waitTypeStrings[] =
   "Vblank",
   "Mutex",
   "LwMutex",
+  "Ctrl",
 };
 
 struct SceKernelSysClock {
