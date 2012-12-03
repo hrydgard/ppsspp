@@ -21,6 +21,8 @@
 #include "StdMutex.h"
 #include "sceCtrl.h"
 #include "sceDisplay.h"
+#include "sceKernel.h"
+#include "sceKernelThread.h"
 
 /* Index for the two analog directions */
 #define CTRL_ANALOG_X   0
@@ -31,6 +33,12 @@
 
 const int PSP_CTRL_ERROR_INVALID_MODE = 0x80000107;
 const int PSP_CTRL_ERROR_INVALID_NUM_BUFFERS = 0x80000104;
+
+enum
+{
+	CTRL_WAIT_POSITIVE = 1,
+	CTRL_WAIT_NEGATIVE = 2,
+};
 
 // Returned control data
 struct _ctrl_data
@@ -62,6 +70,7 @@ static int ctrlBuf = 0;
 static int ctrlBufRead = 0;
 static CtrlLatch latch;
 
+static std::vector<SceUID> waitingThreads;
 static std::recursive_mutex ctrlMutex;
 
 // STATE END
@@ -141,10 +150,70 @@ void __CtrlSetAnalog(float x, float y)
 	ctrlCurrent.analog[1] = (u8)(y * 127.f + 128.f);
 }
 
+int __CtrlReadSingleBuffer(u32 ctrlDataPtr, bool negative)
+{
+	_ctrl_data data;
+	if (Memory::IsValidAddress(ctrlDataPtr))
+	{
+		memcpy(&data, &ctrlBufs[ctrlBufRead], sizeof(_ctrl_data));
+		ctrlBufRead = (ctrlBufRead + 1) % 64;
+
+		if (negative)
+			data.buttons = ~data.buttons;
+
+		Memory::WriteStruct(ctrlDataPtr, &data);
+		return 1;
+	}
+
+	return 0;
+}
+
+int __CtrlReadBuffer(u32 ctrlDataPtr, u32 nBufs, bool negative, bool peek)
+{
+	if (nBufs > 64)
+		return PSP_CTRL_ERROR_INVALID_NUM_BUFFERS;
+
+	int resetRead = ctrlBufRead;
+
+	int done = 0;
+	for (u32 i = 0; i < nBufs; ++i)
+	{
+		// Ran out of buffers.
+		if (ctrlBuf == ctrlBufRead)
+			break;
+
+		done += __CtrlReadSingleBuffer(ctrlDataPtr, negative);
+		ctrlDataPtr += sizeof(_ctrl_data);
+	}
+
+	if (peek)
+		ctrlBufRead = resetRead;
+
+	return done;
+}
+
 void __CtrlVblank()
 {
 	// When in vblank sampling mode, this samples the ctrl data into the buffers and updates the latch.
 	__CtrlUpdateLatch();
+
+	// Wake up a single thread that was waiting for the buffer.
+retry:
+	if (!waitingThreads.empty() && ctrlBuf != ctrlBufRead)
+	{
+		SceUID threadID = waitingThreads[0];
+		waitingThreads.erase(waitingThreads.begin());
+
+		u32 error;
+		SceUID wVal = __KernelGetWaitID(threadID, WAITTYPE_CTRL, error);
+		// Make sure it didn't get woken or something.
+		if (wVal == 0)
+			goto retry;
+
+		u32 ctrlDataPtr = __KernelGetWaitValue(threadID, error);
+		int retVal = __CtrlReadSingleBuffer(ctrlDataPtr, wVal == CTRL_WAIT_NEGATIVE);
+		__KernelResumeThreadFromWait(threadID, retVal);
+	}
 }
 
 void __CtrlInit()
@@ -229,47 +298,19 @@ void sceCtrlSetIdleCancelThreshold()
 	RETURN(0);
 }
 
-int __CtrlReadBuffer(u32 ctrlDataPtr, u32 nBufs, bool negative, bool peek)
-{
-	if (nBufs > 64)
-		return PSP_CTRL_ERROR_INVALID_NUM_BUFFERS;
-
-	int resetRead = ctrlBufRead;
-
-	int done = 0;
-	_ctrl_data data;
-	for (u32 i = 0; i < nBufs; ++i)
-	{
-		// Ran out of buffers.
-		if (ctrlBuf == ctrlBufRead)
-			break;
-
-		if (Memory::IsValidAddress(ctrlDataPtr))
-		{
-			memcpy(&data, &ctrlBufs[ctrlBufRead], sizeof(_ctrl_data));
-			ctrlBufRead = (ctrlBufRead + 1) % 64;
-
-			if (negative)
-				data.buttons = ~data.buttons;
-
-			Memory::WriteStruct(ctrlDataPtr, &data);
-			done++;
-		}
-		ctrlDataPtr += sizeof(_ctrl_data);
-	}
-
-	if (peek)
-		ctrlBufRead = resetRead;
-
-	return done;
-}
-
 void sceCtrlReadBufferPositive(u32 ctrlDataPtr, u32 nBufs)
 {
 	// TODO: Wait for vblank if there are 0 buffers (resched.)
 	DEBUG_LOG(HLE,"sceCtrlReadBufferPositive(%08x, %i)", ctrlDataPtr, nBufs);
 
-	RETURN(__CtrlReadBuffer(ctrlDataPtr, nBufs, false, false));
+	int done = __CtrlReadBuffer(ctrlDataPtr, nBufs, false, false);
+	if (done != 0)
+		RETURN(done);
+	else
+	{
+		waitingThreads.push_back(__KernelGetCurThread());
+		__KernelWaitCurThread(WAITTYPE_CTRL, CTRL_WAIT_POSITIVE, ctrlDataPtr, 0, false);
+	}
 }
 
 void sceCtrlReadBufferNegative(u32 ctrlDataPtr, u32 nBufs)
@@ -277,7 +318,14 @@ void sceCtrlReadBufferNegative(u32 ctrlDataPtr, u32 nBufs)
 	// TODO: Wait for vblank if there are 0 buffers (resched.)
 	DEBUG_LOG(HLE,"sceCtrlReadBufferNegative(%08x, %i)", ctrlDataPtr, nBufs);
 
-	RETURN(__CtrlReadBuffer(ctrlDataPtr, nBufs, true, false));
+	int done = __CtrlReadBuffer(ctrlDataPtr, nBufs, true, false);
+	if (done != 0)
+		RETURN(done);
+	else
+	{
+		waitingThreads.push_back(__KernelGetCurThread());
+		__KernelWaitCurThread(WAITTYPE_CTRL, CTRL_WAIT_NEGATIVE, ctrlDataPtr, 0, false);
+	}
 }
 
 int sceCtrlPeekBufferPositive(u32 ctrlDataPtr, u32 nBufs)
