@@ -121,9 +121,9 @@ void sceGeContinue()
 	// no arguments
 }
 
-void sceGeBreak()
+void sceGeBreak(u32 mode)
 {
-	u32 mode = PARAM(0); //0 : current dlist 1: all drawing
+    //mode => 0 : current dlist 1: all drawing
 	ERROR_LOG(HLE,"UNIMPL sceGeBreak(mode=%d)",mode);
 }
 
@@ -198,14 +198,13 @@ void sceGeGetMtx()
 	ERROR_LOG(HLE,"UNIMPL sceGeGetMtx()");
 }
 
-void sceGeEdramSetAddrTranslation()
+u32 sceGeEdramSetAddrTranslation(int new_size)
 {
-	int new_size = PARAM(0);
 	INFO_LOG(HLE,"sceGeEdramSetAddrTranslation(%i)", new_size);
 	static int EDRamWidth;
 	int last = EDRamWidth;
 	EDRamWidth = new_size;
-	RETURN(last);
+    return last;
 }
 
 const HLEFunction sceGe_user[] =
@@ -216,12 +215,12 @@ const HLEFunction sceGe_user[] =
 	{0xE0D68148,&WrapV_UU<sceGeListUpdateStallAddr>,	"sceGeListUpdateStallAddr"},
 	{0x03444EB4,&WrapV_UU<sceGeListSync>,						 "sceGeListSync"},
 	{0xB287BD61,&WrapU_U<sceGeDrawSync>,							"sceGeDrawSync"},
-	{0xB448EC0D,sceGeBreak,							"sceGeBreak"},
+    {0xB448EC0D,&WrapV_U<sceGeBreak>,							"sceGeBreak"},
 	{0x4C06E472,sceGeContinue,					 "sceGeContinue"},
 	{0xA4FC06A4,&WrapU_U<sceGeSetCallback>,	"sceGeSetCallback"},
 	{0x05DB22CE,&WrapV_U<sceGeUnsetCallback>,					 "sceGeUnsetCallback"},
 	{0x1F6752AD,&WrapU_V<sceGeEdramGetSize>, "sceGeEdramGetSize"},
-	{0xB77905EA,&sceGeEdramSetAddrTranslation,"sceGeEdramSetAddrTranslation"},
+    {0xB77905EA,&WrapU_I<sceGeEdramSetAddrTranslation>,"sceGeEdramSetAddrTranslation"},
 	{0xDC93CFEF,0,"sceGeGetCmd"},
 	{0x57C8945B,&sceGeGetMtx,"sceGeGetMtx"},
 	{0x438A385A,&WrapU_U<sceGeSaveContext>,"sceGeSaveContext"},
