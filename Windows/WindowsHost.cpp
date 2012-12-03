@@ -53,7 +53,8 @@ void WindowsHost::SetWindowTitle(const char *message)
 		if (size > 0)
 		{
 			utf16_title[size] = 0;
-			SetWindowTextW(mainWindow_, utf16_title);
+			// Don't use SetWindowTextW because it will internally use DefWindowProcA.
+			DefWindowProcW(mainWindow_, WM_SETTEXT, 0, (LPARAM) utf16_title);
 			delete[] utf16_title;
 		}
 	}
