@@ -175,6 +175,11 @@ int __CtrlReadBuffer(u32 ctrlDataPtr, u32 nBufs, bool negative, bool peek)
 
 	int resetRead = ctrlBufRead;
 
+	u32 availBufs = (ctrlBuf - ctrlBufRead + 64) % 64;
+	if (availBufs > nBufs)
+		availBufs = nBufs;
+	ctrlBufRead = (ctrlBuf - availBufs + 64) % 64;
+
 	int done = 0;
 	for (u32 i = 0; i < nBufs; ++i)
 	{
@@ -296,50 +301,54 @@ int sceCtrlGetSamplingMode(u32 modePtr)
 
 void sceCtrlSetIdleCancelThreshold()
 {
-	DEBUG_LOG(HLE,"UNIMPL sceCtrlSetIdleCancelThreshold");
+	ERROR_LOG(HLE,"UNIMPL sceCtrlSetIdleCancelThreshold");
 	RETURN(0);
 }
 
 void sceCtrlReadBufferPositive(u32 ctrlDataPtr, u32 nBufs)
 {
-	// TODO: Wait for vblank if there are 0 buffers (resched.)
-	DEBUG_LOG(HLE,"sceCtrlReadBufferPositive(%08x, %i)", ctrlDataPtr, nBufs);
-
 	int done = __CtrlReadBuffer(ctrlDataPtr, nBufs, false, false);
 	if (done != 0)
+	{
 		RETURN(done);
+		DEBUG_LOG(HLE, "%d=sceCtrlReadBufferPositive(%08x, %i)", done, ctrlDataPtr, nBufs);
+	}
 	else
 	{
 		waitingThreads.push_back(__KernelGetCurThread());
 		__KernelWaitCurThread(WAITTYPE_CTRL, CTRL_WAIT_POSITIVE, ctrlDataPtr, 0, false);
+		DEBUG_LOG(HLE, "sceCtrlReadBufferPositive(%08x, %i) - waiting", ctrlDataPtr, nBufs);
 	}
 }
 
 void sceCtrlReadBufferNegative(u32 ctrlDataPtr, u32 nBufs)
 {
-	// TODO: Wait for vblank if there are 0 buffers (resched.)
-	DEBUG_LOG(HLE,"sceCtrlReadBufferNegative(%08x, %i)", ctrlDataPtr, nBufs);
-
 	int done = __CtrlReadBuffer(ctrlDataPtr, nBufs, true, false);
 	if (done != 0)
+	{
 		RETURN(done);
+		DEBUG_LOG(HLE, "%d=sceCtrlReadBufferNegative(%08x, %i)", done, ctrlDataPtr, nBufs);
+	}
 	else
 	{
 		waitingThreads.push_back(__KernelGetCurThread());
 		__KernelWaitCurThread(WAITTYPE_CTRL, CTRL_WAIT_NEGATIVE, ctrlDataPtr, 0, false);
+		DEBUG_LOG(HLE, "sceCtrlReadBufferNegative(%08x, %i) - waiting", ctrlDataPtr, nBufs);
 	}
 }
 
 int sceCtrlPeekBufferPositive(u32 ctrlDataPtr, u32 nBufs)
 {
-	DEBUG_LOG(HLE,"sceCtrlPeekBufferPositive(%08x, %i)", ctrlDataPtr, nBufs);
-	return __CtrlReadBuffer(ctrlDataPtr, nBufs, false, true);
+	int done = __CtrlReadBuffer(ctrlDataPtr, nBufs, false, true);
+	DEBUG_LOG(HLE, "%d=sceCtrlPeekBufferPositive(%08x, %i)", done, ctrlDataPtr, nBufs);
+	return done;
 }
 
 int sceCtrlPeekBufferNegative(u32 ctrlDataPtr, u32 nBufs)
 {
-	DEBUG_LOG(HLE,"sceCtrlPeekBufferNegative(%08x, %i)", ctrlDataPtr, nBufs);
-	return __CtrlReadBuffer(ctrlDataPtr, nBufs, true, true);
+	int done = __CtrlReadBuffer(ctrlDataPtr, nBufs, true, true);
+	DEBUG_LOG(HLE, "%d=sceCtrlPeekBufferNegative(%08x, %i)", done, ctrlDataPtr, nBufs);
+	return done;
 }
 
 u32 sceCtrlPeekLatch(u32 latchDataPtr)
