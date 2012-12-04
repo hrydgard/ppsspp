@@ -40,7 +40,28 @@ void WindowsHost::SetWindowTitle(const char *message)
 	// Really need a better way to deal with versions.
 	std::string title = "PPSSPP v0.4 - ";
 	title += message;
-	SetWindowText(mainWindow_, title.c_str());
+
+	int size = MultiByteToWideChar(CP_UTF8, 0, message, title.size(), NULL, 0);
+	if (size > 0)
+	{
+		wchar_t *utf16_title = new wchar_t[size + 1];
+		if (utf16_title)
+			size = MultiByteToWideChar(CP_UTF8, 0, message, title.size(), utf16_title, size);
+		else
+			size = 0;
+
+		if (size > 0)
+		{
+			utf16_title[size] = 0;
+			// Don't use SetWindowTextW because it will internally use DefWindowProcA.
+			DefWindowProcW(mainWindow_, WM_SETTEXT, 0, (LPARAM) utf16_title);
+			delete[] utf16_title;
+		}
+	}
+
+	// Something went wrong, fall back to using the local codepage.
+	if (size <= 0)
+		SetWindowTextA(mainWindow_, title.c_str());
 }
 
 void WindowsHost::InitSound(PMixer *mixer)
