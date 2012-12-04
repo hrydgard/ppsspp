@@ -580,7 +580,7 @@ namespace MainWindow
 		case WM_USER+1:
 			disasmWindow[0] = new CDisasm(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
 			DialogManager::AddDlg(disasmWindow[0]);
-			disasmWindow[0]->Show(TRUE);
+			disasmWindow[0]->Show(g_Config.bShowDebuggerOnLoad);
 			memoryWindow[0] = new CMemoryDlg(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
 			DialogManager::AddDlg(memoryWindow[0]);
 			if (disasmWindow[0])

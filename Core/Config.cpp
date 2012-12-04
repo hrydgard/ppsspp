@@ -48,7 +48,7 @@ void CConfig::Load(const char *iniFileName)
 	general->Get("ConfirmOnQuit", &bConfirmOnQuit, false);
 	general->Get("IgnoreBadMemAccess", &bIgnoreBadMemAccess, true);
 	general->Get("CurrentDirectory", &currentDirectory, "");
-
+	general->Get("ShowDebuggerOnLoad", &bShowDebuggerOnLoad, false);
 	IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 	cpu->Get("Core", &iCpuCore, 0);
 
@@ -79,7 +79,7 @@ void CConfig::Save()
 		general->Set("ConfirmOnQuit", bConfirmOnQuit);
 		general->Set("IgnoreBadMemAccess", bIgnoreBadMemAccess);
 		general->Set("CurrentDirectory", currentDirectory);
-
+		general->Set("ShowDebuggerOnLoad", bShowDebuggerOnLoad);
 		IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 		cpu->Set("Core", iCpuCore);
 

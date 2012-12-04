@@ -43,7 +43,7 @@ public:
 	bool bIgnoreBadMemAccess;
 	bool bDisplayFramebuffer;
 	bool bBufferedRendering;
-
+	bool bShowDebuggerOnLoad;	 
 	bool bShowAnalogStick;
 	bool bShowFPSCounter;
 	bool bShowDebugStats;
