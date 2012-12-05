@@ -128,6 +128,10 @@ struct Voice
 	int volumeRight;
 	int volumeLeftSend;	// volume to "Send" (audio-lingo) to the effects processing engine, like reverb
 	int volumeRightSend;
+	int attack;
+	int decay;
+	int sustain;
+	int release;
 	int pitch;
 	bool endFlag;
 	bool playing;
@@ -293,18 +297,22 @@ void sceSasSetKeyOff()
 	RETURN(0);
 }
 
-void sceSasSetADSR()
+u32 sceSasSetADSR(u32 core, int voiceNum,int flag ,int a, int d, int s, int r)
 {
-	u32 core = PARAM(0);
-	int voiceNum = PARAM(1);
-	int flag = PARAM(2);
-	int a = PARAM(3);
-	int d = PARAM(4);
-	int s = PARAM(5);
-	int r = PARAM(6); //??
-	DEBUG_LOG(HLE,"UNIMPL 0=sceSasSetADSR(core=%08x, voicenum=%i, flag=%i, a=%08x, d=%08x, s=%08x, r=%08x)", 
-		core, voiceNum, flag, a,d,s,r);
-	RETURN(0);
+	//u32 core = PARAM(0);
+	//int voiceNum = PARAM(1);
+	//int flag = PARAM(2);
+	//int a = PARAM(3);
+	//int d = PARAM(4);
+	//int s = PARAM(5);
+	//int r = PARAM(6); //??
+	DEBUG_LOG(HLE,"0=sceSasSetADSR(core=%08x, voicenum=%i, flag=%i, a=%08x, d=%08x, s=%08x, r=%08x)",core, voiceNum, flag, a,d,s,r)
+	Voice &v = sas.voices[voiceNum];
+	if ((flag & 0x1) != 0) v.attack  = a;
+	if ((flag & 0x2) != 0) v.decay   = d;
+	if ((flag & 0x4) != 0) v.sustain = s;
+	if ((flag & 0x8) != 0) v.release = r;
+	return 0;
 }
 
 void sceSasSetADSRMode()
@@ -412,7 +420,7 @@ const HLEFunction sceSasCore[] =
 	{0xad84d37f, sceSasSetPitch, "__sceSasSetPitch"},
 	{0x99944089, sceSasSetVoice, "__sceSasSetVoice"},	// (int sasCore, int voice, int vagAddr, int size, int loopmode)
 	{0xb7660a23, 0, "__sceSasSetNoise"},
-	{0x019b25eb, sceSasSetADSR, "__sceSasSetADSR"},
+	{0x019b25eb, WrapU_UIIIIII<sceSasSetADSR>, "__sceSasSetADSR"},
 	{0x9ec3676a, sceSasSetADSRMode, "__sceSasSetADSRmode"},
 	{0x5f9529f6, 0, "__sceSasSetSL"},
 	{0x74ae582a, WrapU_UU<sceSasGetEnvelopeHeight>, "__sceSasGetEnvelopeHeight"},	
