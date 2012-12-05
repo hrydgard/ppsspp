@@ -182,6 +182,12 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 			case 'g':
 				gfxLog = true;
 				break;
+			case 'j':
+				g_Config.iCpuCore = CPU_JIT;
+				break;
+			case 'i':
+				g_Config.iCpuCore = CPU_INTERPRETER;
+				break;
 			}
 		} else {
 			if (boot_filename.empty()) {
