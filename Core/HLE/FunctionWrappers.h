@@ -112,6 +112,11 @@ template<void func(u32, const char *)> void WrapV_UC() {
 	func(PARAM(0), Memory::GetCharPointer(PARAM(1)));
 }
 
+template<u32 func(u32, int , int , int, int, int, int)> void WrapU_UIIIIII() {
+	u32 retval = func(PARAM(0), PARAM(1), PARAM(2), PARAM(3), PARAM(4), PARAM(5), PARAM(6));
+	RETURN(retval);
+}
+
 template<u32 func(u32, u32)> void WrapU_UU() {
 	u32 retval = func(PARAM(0), PARAM(1));
 	RETURN(retval);
