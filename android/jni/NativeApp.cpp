@@ -27,7 +27,7 @@
 #include "base/NativeApp.h"
 #include "file/vfs.h"
 #include "file/zip_read.h"
-#include "gfx/gl_state.h"
+#include "gfx_es2/gl_state.h"
 #include "gfx/gl_lost_manager.h"
 #include "gfx/texture.h"
 #include "input/input_state.h"
@@ -214,7 +214,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	{
 		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
 		logman->SetEnable(type, true);
-		logman->SetLogLevel(type, logLevel);
+		logman->SetLogLevel(type, gfxLog && i == LogTypes::G3D ? LogTypes::LDEBUG : logLevel);
 #ifdef ANDROID
 		logman->AddListener(type, logger);
 #endif
@@ -268,6 +268,7 @@ void NativeInitGraphics()
 
 void NativeRender()
 {
+	glstate.Restore();
 	glViewport(0, 0, pixel_xres, pixel_yres);
 	Matrix4x4 ortho;
 	ortho.setOrtho(0.0f, dp_xres, dp_yres, 0.0f, -1.0f, 1.0f);

@@ -21,7 +21,6 @@
 #define GLSL_1_3
 #endif
 
-
 #include "FragmentShaderGenerator.h"
 #include "../ge_constants.h"
 #include "../GPUState.h"
@@ -77,7 +76,9 @@ char *GenerateFragmentShader()
 
 	int lmode = gstate.lmode & 1;
 
-	if (gstate.textureMapEnable & 1)
+	int doTexture = (gstate.textureMapEnable & 1) && !(gstate.clearmode & 1);
+
+	if (doTexture)
 		WRITE(p, "uniform sampler2D tex;\n");
 	if (gstate.alphaTestEnable & 1)
 		WRITE(p, "uniform vec4 u_alpharef;\n");
@@ -89,7 +90,8 @@ char *GenerateFragmentShader()
 	WRITE(p, "varying vec4 v_color0;\n");
 	if (lmode)
 		WRITE(p, "varying vec4 v_color1;\n");
-	WRITE(p, "varying vec2 v_texcoord;\n");
+	if (doTexture)
+		WRITE(p, "varying vec2 v_texcoord;\n");
 	if (gstate.isFogEnabled())
 		WRITE(p, "varying float v_depth;\n");
 
@@ -98,6 +100,7 @@ char *GenerateFragmentShader()
 
 	if (gstate.clearmode & 1)
 	{
+		// Clear mode does not allow any fancy shading.
 		WRITE(p, "  v = v_color0;\n");
 	}
 	else
@@ -156,7 +159,7 @@ char *GenerateFragmentShader()
 		if (gstate.texfunc & 0x10000) {
 			WRITE(p, "  v = v * vec4(2.0, 2.0, 2.0, 1.0);");
 		}
-		
+
 		if (gstate.alphaTestEnable & 1) {
 			int alphaTestFunc = gstate.alphatest & 7;
 			const char *alphaTestFuncs[] = { "#", "#", " == ", " != ", " < ", " <= ", " > ", " >= " };	// never/always don't make sense
@@ -169,7 +172,6 @@ char *GenerateFragmentShader()
 			// WRITE(p, "  v = mix(v, u_fogcolor, u_fogcoef.x + u_fogcoef.y * v_depth;\n");
 			// WRITE(p, "  v.x = v_depth;\n");
 		}
-		// Fogging should be added here - and disabled during clear mode
 	}
 
 	WRITE(p, "  gl_FragColor = v;\n");

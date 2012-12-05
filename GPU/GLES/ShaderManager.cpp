@@ -46,7 +46,7 @@ Shader::Shader(const char *code, uint32_t shaderType) {
 		ERROR_LOG(G3D, "Info log: %s\n", infoLog);
 		ERROR_LOG(G3D, "Shader source:\n%s\n", (const char *)code);
 	} else {
-		//NOTICE_LOG(G3D, "Compiled shader:\n%s\n", (const char *)code);
+		DEBUG_LOG(G3D, "Compiled shader:\n%s\n", (const char *)code);
 	}
 }
 
@@ -67,32 +67,30 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs)
 			glGetProgramInfoLog(program, bufLength, NULL, buf);
 			ERROR_LOG(G3D, "Could not link program:\n %s", buf);
 			delete [] buf;	// we're dead!
-
-			//_dbg_assert_msg_(HLE,0,"Could not link program");
 		}
 		return;
 	}
 
-	NOTICE_LOG(G3D, "Linked shader!");
+	INFO_LOG(G3D, "Linked shader: vs %i fs %i", (int)vs->shader, (int)fs->shader);
 
-	u_tex		= glGetUniformLocation(program, "tex");
-	u_proj	 = glGetUniformLocation(program, "u_proj");
+	u_tex = glGetUniformLocation(program, "tex");
+	u_proj = glGetUniformLocation(program, "u_proj");
 	u_proj_through = glGetUniformLocation(program, "u_proj_through");
 	u_texenv = glGetUniformLocation(program, "u_texenv");
 	u_fogcolor = glGetUniformLocation(program, "u_fogcolor");
 	u_fogcoef = glGetUniformLocation(program, "u_fogcoef");
 	u_alpharef = glGetUniformLocation(program, "u_alpharef");
 
-	a_position	= glGetAttribLocation(program, "a_position");
-	a_color0		= glGetAttribLocation(program, "a_color0");
-	a_color1		= glGetAttribLocation(program, "a_color1");
-	a_texcoord	= glGetAttribLocation(program, "a_texcoord");
+	a_position = glGetAttribLocation(program, "a_position");
+	a_color0 = glGetAttribLocation(program, "a_color0");
+	a_color1 = glGetAttribLocation(program, "a_color1");
+	a_texcoord = glGetAttribLocation(program, "a_texcoord");
 
 	glUseProgram(program);
 	// Default uniform values
 	glUniform1i(u_tex, 0);
 	// The rest, use the "dirty" mechanism.
-	dirtyUniforms = DIRTY_PROJMATRIX | DIRTY_TEXENV | DIRTY_ALPHAREF;
+	dirtyUniforms = DIRTY_PROJMATRIX | DIRTY_PROJTHROUGHMATRIX | DIRTY_TEXENV | DIRTY_ALPHAREF;
 }
 
 LinkedShader::~LinkedShader() {
@@ -100,7 +98,7 @@ LinkedShader::~LinkedShader() {
 }
 
 void LinkedShader::use() {
-	glUseProgram(program);	
+	glUseProgram(program);
 	glUniform1i(u_tex, 0);
 	// Update any dirty uniforms before we draw
 	if (u_proj != -1 && (dirtyUniforms & DIRTY_PROJMATRIX)) {
@@ -175,7 +173,7 @@ void ShaderManager::DirtyShader()
 }
 
 
-LinkedShader *ShaderManager::ApplyShader()
+LinkedShader *ShaderManager::ApplyShader(int prim)
 {
 	if (globalDirty) {
 		// Deferred dirtying! Let's see if we can make this even more clever later.
@@ -187,7 +185,7 @@ LinkedShader *ShaderManager::ApplyShader()
 
 	VertexShaderID VSID;
 	FragmentShaderID FSID;
-	ComputeVertexShaderID(&VSID);
+	ComputeVertexShaderID(&VSID, prim);
 	ComputeFragmentShaderID(&FSID);
 
 	// Bail quickly in the no-op case. TODO: why does it cause trouble?
@@ -206,7 +204,7 @@ LinkedShader *ShaderManager::ApplyShader()
 	} else {
 		vs = vsIter->second;
 	}
-	
+
 	FSCache::iterator fsIter = fsCache.find(FSID);
 	Shader *fs;
 	if (fsIter == fsCache.end())	{

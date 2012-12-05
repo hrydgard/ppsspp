@@ -40,26 +40,27 @@ struct TransformedVertex
 
 
 
-// Right now 
+// Right now
 //   - only contains computed information
 //   - does decoding in nasty branchfilled loops
-// Future TODO 
-//   - will compile into lighting fast specialized x86 
+// Future TODO
+//   - will compile into lighting fast specialized x86 and ARM
 //   - will not bother translating components that can be read directly
 //     by OpenGL ES. Will still have to translate 565 colors, and things
 //     like that. DecodedVertex will not be a fixed struct. Will have to
 //     do morphing here.
 //
 // We want 100% perf on 1Ghz even in vertex complex games!
-class VertexDecoder 
+class VertexDecoder
 {
 public:
 	VertexDecoder() : coloff(0), nrmoff(0), posoff(0) {}
 	~VertexDecoder() {}
-	void SetVertexType(u32 fmt);
+	void SetVertexType(u32 vtype);
 	void DecodeVerts(DecodedVertex *decoded, const void *verts, const void *inds, int prim, int count, int *indexLowerBound, int *indexUpperBound) const;
 	bool hasColor() const { return col != 0; }
 	int VertexSize() const { return size; }
+
 private:
 	u32 fmt;
 	bool throughmode;
@@ -81,5 +82,8 @@ private:
 	int idx;
 	int morphcount;
 	int nweights;
-
 };
+
+// Debugging utilities
+void PrintDecodedVertex(const DecodedVertex &vtx, u32 vtype);
+

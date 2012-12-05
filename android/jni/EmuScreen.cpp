@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "gfx_es2/glsl_program.h"
+#include "gfx_es2/gl_state.h"
 #include "gfx_es2/fbo.h"
 
 #include "input/input_state.h"

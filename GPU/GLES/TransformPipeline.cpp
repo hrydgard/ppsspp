@@ -119,9 +119,9 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		specular = &in;
 	else
 		specular = &materialSpecular;
-		
+
 	Color4 lightSum0 = globalAmbient * *ambient + materialEmissive;
-	Color4 lightSum1(0,0,0,0);
+	Color4 lightSum1(0, 0, 0, 0);
 
 	// Try lights.elf - there's something wrong with the lighting
 
@@ -131,8 +131,8 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		if ((gstate.lightEnable[l] & 1) == 0 && !doShadeMapping_)
 			continue;
 
-		GELightComputation comp = (GELightComputation)(gstate.ltype[l]&3);
-		GELightType type = (GELightType)((gstate.ltype[l]>>8)&3);
+		GELightComputation comp = (GELightComputation)(gstate.ltype[l] & 3);
+		GELightType type = (GELightType)((gstate.ltype[l] >> 8) & 3);
 		Vec3 toLight;
 
 		if (type == GE_LIGHTTYPE_DIRECTIONAL)
@@ -146,7 +146,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		float lightScale = 1.0f;
 		if (type != GE_LIGHTTYPE_DIRECTIONAL)
 		{
-			float distance = toLight.Normalize(); 
+			float distance = toLight.Normalize();
 			lightScale = 1.0f / (gstate_c.lightatt[l][0] + gstate_c.lightatt[l][1]*distance + gstate_c.lightatt[l][2]*distance*distance);
 			if (lightScale > 1.0f) lightScale = 1.0f;
 		}
@@ -159,12 +159,12 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		if (poweredDiffuse)
 			dot = powf(dot, specCoef_);
 
-		Color4 diff = (gstate_c.lightColor[1][l] * *diffuse) * (dot * lightScale);	
+		Color4 diff = (gstate_c.lightColor[1][l] * *diffuse) * (dot * lightScale);
 
 		// Real PSP specular
 		Vec3 toViewer(0,0,1);
 		// Better specular
-		//Vec3 toViewer = (viewer - pos).Normalized();
+		// Vec3 toViewer = (viewer - pos).Normalized();
 
 		if (doSpecular)
 		{
@@ -176,7 +176,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 			if (dot >= 0)
 			{
 				lightSum1 += (gstate_c.lightColor[2][l] * *specular * (powf(dot, specCoef_)*lightScale));
-			}	
+			}
 		}
 		dots[l] = dot;
 		if (gstate.lightEnable[l] & 1)
@@ -203,7 +203,11 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 	VertexDecoder dec;
 	dec.SetVertexType(gstate.vertType);
 	dec.DecodeVerts(decoded, verts, inds, prim, vertexCount, &indexLowerBound, &indexUpperBound);
-
+#if 0
+	for (int i = indexLowerBound; i <= indexUpperBound; i++) {
+		PrintDecodedVertex(decoded[i], gstate.vertType);
+	}
+#endif
 	bool useTexCoord = false;
 
 	// Check if anything needs updating
@@ -217,14 +221,14 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 	}
 	gpuStats.numDrawCalls++;
 	gpuStats.numVertsTransformed += vertexCount;
-	
+
 	if (bytesRead)
 		*bytesRead = vertexCount * dec.VertexSize();
 
 	bool throughmode = (gstate.vertType & GE_VTYPE_THROUGH_MASK) != 0;
 	// Then, transform and draw in one big swoop (urgh!)
 	// need to move this to the shader.
-	
+
 	// We're gonna have to keep software transforming RECTANGLES, unless we use a geom shader which we can't on OpenGL ES 2.0.
 	// Usually, though, these primitives don't use lighting etc so it's no biggie performance wise, but it would be nice to get rid of
 	// this code.
@@ -322,7 +326,7 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 			float litColor0[4];
 			float litColor1[4];
 			lighter.Light(litColor0, litColor1, unlitColor, out, norm, dots);
-				
+
 			if (gstate.lightingEnable & 1)
 			{
 				// TODO: don't ignore gstate.lmode - we should send two colors in that case
@@ -459,7 +463,7 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 			if (indexType == GE_VTYPE_IDX_8BIT)
 			{
 				index = ((u8*)inds)[i];
-			} 
+			}
 			else if (indexType == GE_VTYPE_IDX_16BIT)
 			{
 				index = ((u16*)inds)[i];
@@ -480,7 +484,7 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 				// We have to turn the rectangle into two triangles, so 6 points. Sigh.
 
 				// TODO: there's supposed to be extra magic here to rotate the UV coordinates depending on if upside down etc.
-				
+
 				// bottom right
 				*trans = transVtx;
 				trans++;
@@ -606,17 +610,19 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 	glstate.depthTest.set(wantDepthTest);
 	if(wantDepthTest) {
 		// Force GL_ALWAYS if mode clear
-		u8 depthTestFunc = gstate.isModeClear() ? 1 : gstate.getDepthTestFunc();
+		int depthTestFunc = gstate.isModeClear() ? 1 : gstate.getDepthTestFunc();
 		glstate.depthFunc.set(ztests[depthTestFunc]);
 	}
 
 	bool wantDepthWrite = gstate.isModeClear() || gstate.isDepthWriteEnabled();
 	glstate.depthWrite.set(wantDepthWrite ? GL_TRUE : GL_FALSE);
 
-	glstate.depthRange.set(gstate_c.zOff - gstate_c.zScale, gstate_c.zOff + gstate_c.zScale);
+	float depthRangeMin = gstate_c.zOff - gstate_c.zScale;
+	float depthRangeMax = gstate_c.zOff + gstate_c.zScale;
+	glstate.depthRange.set(depthRangeMin, depthRangeMax);
 
 	UpdateViewportAndProjection();
-	LinkedShader *program = shaderManager_->ApplyShader();
+	LinkedShader *program = shaderManager_->ApplyShader(prim);
 
 	// TODO: Make a cache for glEnableVertexAttribArray and glVertexAttribPtr states, these spam the gDebugger log.
 	glEnableVertexAttribArray(program->a_position);
@@ -625,7 +631,7 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 	if (program->a_color1 != -1) glEnableVertexAttribArray(program->a_color1);
 	const int vertexSize = sizeof(transformed[0]);
 	glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, vertexSize, drawBuffer);
-	if (useTexCoord && program->a_texcoord != -1) glVertexAttribPointer(program->a_texcoord, 2, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 3 * 4);	
+	if (useTexCoord && program->a_texcoord != -1) glVertexAttribPointer(program->a_texcoord, 2, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 3 * 4);
 	if (program->a_color0 != -1) glVertexAttribPointer(program->a_color0, 4, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 5 * 4);
 	if (program->a_color1 != -1) glVertexAttribPointer(program->a_color1, 4, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 9 * 4);
 	// NOTICE_LOG(G3D,"DrawPrimitive: %i", numTrans);
@@ -643,7 +649,7 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 void GLES_GPU::UpdateViewportAndProjection()
 {
 	bool throughmode = (gstate.vertType & GE_VTYPE_THROUGH_MASK) != 0;
-	
+
 	// We can probably use these to simply set scissors? Maybe we need to offset by regionX1/Y1
 	int regionX1 = gstate.region1 & 0x3FF;
 	int regionY1 = (gstate.region1 >> 10) & 0x3FF;
@@ -654,8 +660,8 @@ void GLES_GPU::UpdateViewportAndProjection()
 	float offsetY = (float)(gstate.offsety & 0xFFFF) / 16.0f;
 
 	if (throughmode) {
-		return;
 		// No viewport transform here. Let's experiment with using region.
+		return;
 		glViewport((0 + regionX1) * renderWidthFactor_, (0 - regionY1) * renderHeightFactor_, (regionX2 - regionX1) * renderWidthFactor_, (regionY2 - regionY1) * renderHeightFactor_);
 	} else {
 		// These we can turn into a glViewport call, offset by offsetX and offsetY. Math after.
@@ -693,7 +699,7 @@ void GLES_GPU::UpdateViewportAndProjection()
 
 		// Flip vpY0 to match the OpenGL coordinate system.
 		vpY0 = renderHeight_ - (vpY0 + vpHeight);
-		glViewport(vpX0, vpY0, vpWidth, vpHeight); 
+		glViewport(vpX0, vpY0, vpWidth, vpHeight);
 		// Sadly, as glViewport takes integers, we will not be able to support sub pixel offsets this way. But meh.
 		shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
 	}
