@@ -81,6 +81,7 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 #endif
 	*/
 
+	PUSH(8, R5, R6, R7, R8, R9, R10, R11, _LR);
 	SetCC(CC_AL);
 	//ARMABI_MOVIMM32(R11, (u32)Memory::base);
 	//ARMABI_MOVIMM32(R10, (u32)jit->GetBlockCache()->GetCodePointers());
@@ -107,26 +108,23 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 			//ARMABI_MOVIMM32(R1, Memory::MEMVIEW32_MASK + 1);
 			AND(R0, R0, R1);
 			LDR(R0, R11, R0);
-			MOV(R1, R0);
-			//AND(R1, R1, Imm32(MIPS_EMUHACK_MASK));
-			//AND(R0, R0, Imm32(MIPS_EMUHACK_VALUE_MASK));
-			//CMP(R0, Imm32(MIPS_EMUHACK_OPCODE));
-			SetCC(CC_NEQ);
-			FixupBranch notfound = B();
-				SetCC(CC_AL);
+			AND(R1, R0, Operand2(0xFC, 24));
+			BIC(R0, R0, Operand2(0xFC, 24));
+			CMP(R1, Operand2(MIPS_EMUHACK_OPCODE >> 24, 24));
+			FixupBranch notfound = B_CC(CC_NEQ);
 				// IDEA - we have 24 bits, why not just use offsets from base of code?
 				if (enableDebug)
 				{
-					// ADD(32, M(&mips->debugCount), Imm8(1));
+					//ADD(32, M(&mips->debugCount), Imm8(1));
 				}
-				//grab from list and jump to it
-				// ADD(R0, R10, LSL(R0, 2));
+				// grab from list and jump to it
+				ADD(R0, R10, Operand2(2, ST_LSL, R0));
+				LDR(R0, R0);
 				B(R0);
 			SetJumpTarget(notfound);
 
-			//BL(&Jit);
-
-			//B(dispatcherNoCheck); // no point in special casing this
+			ARMABI_CallFunction((void *)&Jit);
+			B(dispatcherNoCheck); // no point in special casing this
 
 		SetJumpTarget(bail);
 		doTiming = GetCodePtr();
@@ -148,11 +146,9 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 	//ARMABI_PopAllCalleeSavedRegsAndAdjustStack();
 	B(_LR); 
 
-	breakpointBailout = GetCodePtr();
+	PUSH(8, R5, R6, R7, R8, R9, R10, R11, _PC);  // Returns
 
-	//Landing pad for drec space
-	//ARMABI_PopAllCalleeSavedRegsAndAdjustStack();
-	//RET();
+
 
 	GenerateCommon();
 }

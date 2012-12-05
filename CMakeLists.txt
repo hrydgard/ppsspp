@@ -165,6 +165,7 @@ if(ARM)
 	set(CommonExtra ${CommonExtra}
 		Common/ArmABI.h
 		Common/ArmABI.cpp
+		Common/ArmCPUDetect.cpp
 		Common/ArmEmitter.h
 		Common/ArmEmitter.cpp
 		Common/ThunkARM.cpp)
@@ -854,7 +855,8 @@ set(NativeAppSource
 	android/jni/MenuScreens.cpp
 	android/jni/GamepadEmu.cpp
 	android/jni/UIShader.cpp
-	android/jni/ui_atlas.cpp)
+	android/jni/ui_atlas.cpp
+	android/jni/ArmEmitterTest.cpp)
 set(AndroidAssets
 	android/assets/ui_atlas.zim
 	android/assets/ppge_atlas.zim)
