@@ -47,7 +47,7 @@
 #include "MenuScreens.h"
 #include "UIShader.h"
 
-#include "ARMEmitterTest.h"
+#include "ArmEmitterTest.h"
 
 Texture *uiTexture;
 
