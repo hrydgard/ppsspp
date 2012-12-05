@@ -294,7 +294,7 @@ u32 sceRtcGetDayOfWeek(u32 year, u32 month, u32 day)
 	static u32 t[] = { 0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4 };
 	if (month > 12 || month < 1) {
 		// Preventive crashfix
-		ERROR_LOG(HLE,"Bad month");
+		ERROR_LOG(HLE,"Bad month"); // this might not be right as a game is checking for sceRtcGetDayOfWeek:166970016, 1024, 0 and expecting 3 returned..
 		return 0;
 	}
 	year -= month < 3;
