@@ -361,6 +361,19 @@ void sceSasRevParam()
 	RETURN(0);
 }
 
+u32 sceSasGetPauseFlag()
+{
+	u32 PauseFlag = 0;
+	for (int i = 0; i < sas.maxVoices; i++) {
+		if (!sas.voices[i].playing)
+			PauseFlag |= 1 << i;
+	}
+	DEBUG_LOG(HLE,"%08x=sceSasGetPauseFlag()", PauseFlag);
+	return PauseFlag;
+}
+
+
+
 void sceSasRevEVOL()
 {
 	u32 core = PARAM(0);
@@ -410,7 +423,7 @@ const HLEFunction sceSasCore[] =
 	{0xd5a229c9, sceSasRevEVOL, "__sceSasRevEVOL"},	// (int sasCore, int leftVol, int rightVol)	// effect volume
 	{0x33d4ab37, sceSasRevType, "__sceSasRevType"},	 // (int sasCore, int type)
 	{0x267a6dd2, sceSasRevParam, "__sceSasRevParam"},	// (int sasCore, int delay, int feedback)
-	{0x2c8e6ab3, 0, "__sceSasGetPauseFlag"}, // int sasCore
+	{0x2c8e6ab3, WrapU_V<sceSasGetPauseFlag>, "__sceSasGetPauseFlag"}, // int sasCore
 	{0x787d04d5, 0, "__sceSasSetPause"},
 	{0xa232cbe6, 0, "__sceSasSetTriangularWave"},		// (int sasCore, int voice, int unknown)
 	{0xd5ebbbcd, 0, "__sceSasSetSteepWave"},	 // (int sasCore, int voice, int unknown)		// square wave?
