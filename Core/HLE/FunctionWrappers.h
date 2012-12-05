@@ -29,6 +29,7 @@ template<u64 func()> void WrapU64_V() {
 	currentMIPS->r[3] = (retval >> 32) & 0xFFFFFFFF;
 }
 
+//This seems to be wrong
 template<int func(u32, u64)> void WrapI_UU64() {
 	u64 param_one = currentMIPS->r[5];
 	param_one |= (u64)(currentMIPS->r[6])<< 32;
@@ -43,6 +44,11 @@ template<int func(u32,u32,u64)> void WrapI_UUU64() {
 	RETURN(retval);
 }
 
+template<u32 func(int, s64, int)> void WrapU_II64I(){
+    s64 param_one = ((s64)PARAM(2)) | ((s64)(PARAM(3))<<32);
+    u32 retval = func(PARAM(0), param_one, PARAM(4));
+    RETURN(retval);
+}
 
 //32bit wrappers
 template<void func()> void WrapV_V() {
@@ -51,6 +57,11 @@ template<void func()> void WrapV_V() {
 
 template<u32 func()> void WrapU_V() {
 	RETURN(func());
+}
+
+template<u32 func(int, void *, int)> void WrapU_IVI(){
+    u32 retval = func(PARAM(0), Memory::GetPointer(PARAM(1)), PARAM(2));
+    RETURN(retval);
 }
 
 template<float func()> void WrapF_V() {
@@ -70,6 +81,11 @@ template<u32 func(u32, int)> void WrapU_UI() {
 template<int func(u32)> void WrapI_U() {
 	int retval = func(PARAM(0));
 	RETURN(retval);
+}
+
+template<u32 func(int, u32, int)> void WrapU_IUI() {
+    u32 retval = func(PARAM(0), PARAM(1),PARAM(2));
+    RETURN(retval);
 }
 
 template<int func(u32, u32)> void WrapI_UU() {
@@ -156,6 +172,17 @@ template<void func(u32, int)> void WrapV_UI() {
 	func(PARAM(0), PARAM(1));
 }
 
+template<u32 func(const char *)> void WrapU_C(){
+    u32 retval = func(Memory::GetCharPointer(PARAM(0)));
+    RETURN(retval);
+}
+
+template<u32 func(const char *, const char *, const char *, u32)> void WrapU_CCCU(){
+    u32 retval = func(Memory::GetCharPointer(PARAM(0)),Memory::GetCharPointer(PARAM(1)),
+                      Memory::GetCharPointer(PARAM(2)), PARAM(3));
+    RETURN(retval);
+}
+
 template<int func(const char *, u32)> void WrapI_CU() {
 	int retval = func(Memory::GetCharPointer(PARAM(0)), PARAM(1));
 	RETURN(retval);
@@ -167,18 +194,28 @@ template<int func(const char *, u32, u32, u32)> void WrapI_CUUU() {
 }
 
 template<u32 func(const char *, u32)> void WrapU_CU() {
-	int retval = func(Memory::GetCharPointer(PARAM(0)), PARAM(1));
+    u32 retval = func(Memory::GetCharPointer(PARAM(0)), PARAM(1));
 	RETURN((u32)retval);
 }
 
 template<u32 func(u32, const char *)> void WrapU_UC() {
-	int retval = func(PARAM(0), Memory::GetCharPointer(PARAM(1)));
+    u32 retval = func(PARAM(0), Memory::GetCharPointer(PARAM(1)));
 	RETURN(retval);
 }
 
 template<u32 func(const char *, u32, u32)> void WrapU_CUU() {
-	int retval = func(Memory::GetCharPointer(PARAM(0)), PARAM(1), PARAM(2));
+    u32 retval = func(Memory::GetCharPointer(PARAM(0)), PARAM(1), PARAM(2));
 	RETURN((u32)retval);
+}
+
+template<u32 func(int, int, int)> void WrapU_III() {
+    u32 retval = func(PARAM(0), PARAM(1), PARAM(2));
+    RETURN(retval);
+}
+
+template<u32 func(int, u32, u32)> void WrapU_IUU() {
+    u32 retval = func(PARAM(0), PARAM(1), PARAM(2));
+    RETURN(retval);
 }
 
 template<u32 func(u32, u32, u32)> void WrapU_UUU() {
@@ -251,9 +288,29 @@ template<void func(u32, u32, u32, u32, u32)> void WrapV_UUUUU() {
 	func(PARAM(0), PARAM(1), PARAM(2), PARAM(3), PARAM(4));
 }
 
+template<u32 func(const char *, const char *)> void WrapU_CC() {
+    int retval = func(Memory::GetCharPointer(PARAM(0)), Memory::GetCharPointer(PARAM(1)));
+    RETURN(retval);
+}
+
+template<void func(const char *, int)> void WrapV_CI() {
+    func(Memory::GetCharPointer(PARAM(0)), PARAM(1));
+}
+
+template<u32 func(const char *, int)> void WrapU_CI() {
+    int retval = func(Memory::GetCharPointer(PARAM(0)), PARAM(1));
+    RETURN(retval);
+}
+
 template<int func(const char *, int, u32, int, u32)> void WrapU_CIUIU() {
 	int retval = func(Memory::GetCharPointer(PARAM(0)), PARAM(1), PARAM(2), PARAM(3), PARAM(4));
 	RETURN(retval);
+}
+
+template<u32 func(const char *, int, u32, int, u32, int)> void WrapU_CIUIUI() {
+    u32 retval = func(Memory::GetCharPointer(PARAM(0)), PARAM(1), PARAM(2), PARAM(3), PARAM(4),
+                      PARAM(5));
+    RETURN(retval);
 }
 
 template<u32 func(u32, u32, u32, u32, u32, u32)> void WrapU_UUUUUU() {
