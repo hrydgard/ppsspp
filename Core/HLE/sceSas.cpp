@@ -415,7 +415,7 @@ const HLEFunction sceSasCore[] =
 	{0x99944089, sceSasSetVoice, "__sceSasSetVoice"},	// (int sasCore, int voice, int vagAddr, int size, int loopmode)
 	{0xb7660a23, 0, "__sceSasSetNoise"},
 	{0x019b25eb, WrapU_UIIIIII<sceSasSetADSR>, "__sceSasSetADSR"},
-	{0x9ec3676a, sceSasSetADSRMode, "__sceSasSetADSRmode"},
+	{0x9ec3676a, WrapU_UIIIIII<sceSasSetADSRMode>, "__sceSasSetADSRmode"},
 	{0x5f9529f6, 0, "__sceSasSetSL"},
 	{0x74ae582a, WrapU_UU<sceSasGetEnvelopeHeight>, "__sceSasGetEnvelopeHeight"},	
 	{0xcbcd4f79, WrapU_UUUU<sceSasSetSimpleADSR>, "__sceSasSetSimpleADSR"},
