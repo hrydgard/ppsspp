@@ -128,10 +128,14 @@ struct Voice
 	int volumeRight;
 	int volumeLeftSend;	// volume to "Send" (audio-lingo) to the effects processing engine, like reverb
 	int volumeRightSend;
-	int attack;
-	int decay;
-	int sustain;
-	int release;
+	int attackRate;
+	int decayRate;
+	int sustainRate;
+	int releaseRate;
+	int attackType;
+	int decayType;
+	int sustainType;
+	int releaseType;
 	int pitch;
 	bool endFlag;
 	bool playing;
@@ -301,25 +305,22 @@ u32 sceSasSetADSR(u32 core, int voiceNum,int flag ,int a, int d, int s, int r)
 {
 	DEBUG_LOG(HLE,"0=sceSasSetADSR(core=%08x, voicenum=%i, flag=%i, a=%08x, d=%08x, s=%08x, r=%08x)",core, voiceNum, flag, a,d,s,r)
 	Voice &v = sas.voices[voiceNum];
-	if ((flag & 0x1) != 0) v.attack  = a;
-	if ((flag & 0x2) != 0) v.decay   = d;
-	if ((flag & 0x4) != 0) v.sustain = s;
-	if ((flag & 0x8) != 0) v.release = r;
+	if ((flag & 0x1) != 0) v.attackRate  = a;
+	if ((flag & 0x2) != 0) v.decayRate   = d;
+	if ((flag & 0x4) != 0) v.sustainRate = s;
+	if ((flag & 0x8) != 0) v.releaseRate = r;
 	return 0;
 }
 
-void sceSasSetADSRMode()
+u32 sceSasSetADSRMode(u32 core, int voiceNum,int flag ,int a, int d, int s, int r)
 {
-	u32 core = PARAM(0);
-	int voiceNum = PARAM(1);
-	int flag = PARAM(2);
-	int a = PARAM(3);
-	int d = PARAM(4);
-	int s = PARAM(5);
-	int r = PARAM(6); //??
-	DEBUG_LOG(HLE,"UNIMPL 0=sceSasSetADSRMode(core=%08x, voicenum=%i, flag=%i, a=%08x, d=%08x, s=%08x, r=%08x)", 
-		core, voiceNum, flag, a,d,s,r);
-	RETURN(0);
+	DEBUG_LOG(HLE,"0=sceSasSetADSRMode(core=%08x, voicenum=%i, flag=%i, a=%08x, d=%08x, s=%08x, r=%08x)",core, voiceNum, flag, a,d,s,r)
+	Voice &v = sas.voices[voiceNum];
+	if ((flag & 0x1) != 0) v.attackType  = a;
+	if ((flag & 0x2) != 0) v.decayType   = d;
+	if ((flag & 0x4) != 0) v.sustainType = s;
+	if ((flag & 0x8) != 0) v.releaseType = r;
+	return 0;
 }
 
 // http://code.google.com/p/jpcsp/source/browse/trunk/src/jpcsp/HLE/modules150/sceSasCore.java
