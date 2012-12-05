@@ -55,7 +55,7 @@ BEGIN
     DEFPUSHBUTTON   "OK",IDOK,243,141,50,14
     ICON            IDI_PPSSPP,IDC_STATIC,10,9,20,20
     LTEXT           "PPSSPP",IDC_STATIC,40,8,127,9
-    LTEXT           "Copyright (c) by Henrik Rydgård 2012",IDC_STATIC,40,33,253,8
+    LTEXT           "Copyright (c) by Henrik Rydgï¿½rd 2012",IDC_STATIC,40,33,253,8
     LTEXT           "All trademarks are property of their respective owners.\nThe emulator is for educational and development purposes only and it may not be used to play games you do not legally own.",IDC_STATIC,40,102,253,24
     LTEXT           "PSP emulator and debugger",IDC_STATIC,40,19,253,8
     LTEXT           "CISO decompression code by BOOSTER",IDC_STATIC,48,73,240,8
@@ -211,7 +211,7 @@ BEGIN
     END
     POPUP "&Options"
     BEGIN
-        MENUITEM "&Toggle Full Screen\tAlt+Enter", ID_OPTIONS_FULLSCREEN, GRAYED
+        MENUITEM "&Toggle Full Screen\tAlt+Enter", ID_OPTIONS_FULLSCREEN
         MENUITEM "&Display raw framebuffer",    ID_OPTIONS_DISPLAYRAWFRAMEBUFFER
         MENUITEM "&Buffered rendering",         ID_OPTIONS_BUFFEREDRENDERING
         MENUITEM "&Show debug statistics",      ID_OPTIONS_SHOWDEBUGSTATISTICS
@@ -317,7 +317,7 @@ BEGIN
     VK_F5,          ID_FILE_REFRESHGAMELIST, VIRTKEY, NOINVERT
     VK_F2,          ID_FILE_SAVESTATE,      VIRTKEY, NOINVERT
     "W",            ID_FILE_UNLOAD,         VIRTKEY, CONTROL, NOINVERT
-    VK_RETURN,      ID_OPTIONS_FULLSCREEN,  VIRTKEY, ALT, NOINVERT
+    VK_F12,         ID_OPTIONS_FULLSCREEN,  VIRTKEY, NOINVERT
 END
 
 
@@ -344,11 +344,11 @@ BEGIN
         BLOCK "040904b0"
         BEGIN
             VALUE "Comments", "PPSSPP PSP emulator"
-            VALUE "CompanyName", "Henrik Rydgård Inc."
+            VALUE "CompanyName", "Henrik Rydgï¿½rd Inc."
             VALUE "FileDescription", "PPSSPP"
             VALUE "FileVersion", "1, 0, 0, 0"
             VALUE "InternalName", "s"
-            VALUE "LegalCopyright", "Copyright (C) 2006-2012 by Henrik Rydgård"
+            VALUE "LegalCopyright", "Copyright (C) 2006-2012 by Henrik Rydgï¿½rd"
             VALUE "LegalTrademarks", "All product names are trademarks of their respective owners."
             VALUE "OriginalFilename", "PPSSPP.exe"
             VALUE "ProductName", "PPSSPP"
