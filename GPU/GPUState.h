@@ -79,8 +79,8 @@ struct GPUgstate
 		u32 cmdmem[256];
 		struct
 		{
-			int nop;
-			u32 vaddr,
+			u32 nop,
+				vaddr,
 				iaddr,
 				pad00,
 				prim,
@@ -226,11 +226,9 @@ struct GPUgstate
 				transferstart,
 				transfersrcpos,
 				transferdstpos,
-				transfersize				
-				;
+				transfersize;
 
 			u32 pad05[0x63-0x40];
-
 		};
 	};
 

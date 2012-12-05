@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "gfx_es2/glsl_program.h"
+#include "gfx_es2/gl_state.h"
 #include "gfx_es2/fbo.h"
 
 #include "input/input_state.h"
@@ -153,14 +154,7 @@ void EmuScreen::render()
 	// Reapply the graphics state of the PSP
 	ReapplyGfxState();
 
-	// First attempt at an Android-friendly execution loop.
-	// We simply run the CPU for 1/60th of a second each frame. If a swap doesn't happen, not sure what the best thing to do is :P
-	// Also if we happen to get half a frame or something, things will be screwed up so this doesn't actually really work.
-	//
-	// I think we need to allocate FBOs per framebuffer and just blit the displayed one here at the end of the frame.
-	// Also - we should add another option to the core that lets us run it until a vblank event happens or the N cycles have passed
-	// - then the synchronization would at least not be able to drift off.
-
+	// We just run the CPU until we get to vblank. This will quickly sync up pretty nicely.
 	// The actual number of cycles doesn't matter so much here as we will break due to CORE_NEXTFRAME, most of the time hopefully...
 	int blockTicks = usToCycles(1000000 / 2);
 
@@ -186,8 +180,8 @@ void EmuScreen::render()
 	ui_draw2d.Begin(DBMODE_NORMAL);
 
 	// Make this configurable.
-//  if (coreParam.useTouchControls)
-	DrawGamepad(ui_draw2d);
+	if (g_Config.bShowTouchControls)
+		DrawGamepad(ui_draw2d);
 
 	DrawWatermark();
 

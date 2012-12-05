@@ -175,7 +175,7 @@ void GLES_GPU::SetRenderFrameBuffer()
 	int drawing_height = ((gstate.region2 >> 10) & 0x3FF) + 1;
 
 	int fmt = gstate.framebufpixformat & 3;
-	
+
 	// Find a matching framebuffer
 	VirtualFramebuffer *vfb = 0;
 	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter)
@@ -189,7 +189,7 @@ void GLES_GPU::SetRenderFrameBuffer()
 			break;
 		}
 	}
-	
+
 	// None found? Create one.
 	if (!vfb) {
 		vfb = new VirtualFramebuffer;
@@ -442,7 +442,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 	case GE_CMD_RET: 
 		//TODO : debug!
 		{
-			u32 target = dcontext.pc & 0xF0000000 | (stack[--stackptr] & 0x0FFFFFFF); 
+			u32 target = (dcontext.pc & 0xF0000000) | (stack[--stackptr] & 0x0FFFFFFF); 
 			DEBUG_LOG(G3D,"DL CMD RET - from %08x to %08x", dcontext.pc, target);
 			dcontext.pc = target - 4;
 		}
@@ -571,38 +571,38 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_FOGENABLE:		
-		DEBUG_LOG(G3D, "DL Fog Enable: %i", gstate.fogEnable);
+		DEBUG_LOG(G3D, "DL Fog Enable: %i", data);
 		break;
 
 	case GE_CMD_DITHERENABLE:
-		DEBUG_LOG(G3D, "DL Dither Enable: %i", gstate.ditherEnable);
+		DEBUG_LOG(G3D, "DL Dither Enable: %i", data);
 		break;
 
 	case GE_CMD_OFFSETX:		
-		DEBUG_LOG(G3D, "DL Offset X: %i", gstate.offsetx);
+		DEBUG_LOG(G3D, "DL Offset X: %i", data);
 		break;
 
 	case GE_CMD_OFFSETY:		
-		DEBUG_LOG(G3D, "DL Offset Y: %i", gstate.offsety);
+		DEBUG_LOG(G3D, "DL Offset Y: %i", data);
 		break;
 
-	case GE_CMD_TEXSCALEU: 
-		gstate_c.uScale = getFloat24(data); 
+	case GE_CMD_TEXSCALEU:
+		gstate_c.uScale = getFloat24(data);
 		DEBUG_LOG(G3D, "DL Texture U Scale: %f", gstate_c.uScale);
 		break;
 
-	case GE_CMD_TEXSCALEV: 
-		gstate_c.vScale = getFloat24(data); 
+	case GE_CMD_TEXSCALEV:
+		gstate_c.vScale = getFloat24(data);
 		DEBUG_LOG(G3D, "DL Texture V Scale: %f", gstate_c.vScale);
 		break;
 
-	case GE_CMD_TEXOFFSETU: 
-		gstate_c.uOff = getFloat24(data);	
+	case GE_CMD_TEXOFFSETU:
+		gstate_c.uOff = getFloat24(data);
 		DEBUG_LOG(G3D, "DL Texture U Offset: %f", gstate_c.uOff);
 		break;
 
-	case GE_CMD_TEXOFFSETV: 
-		gstate_c.vOff = getFloat24(data);	
+	case GE_CMD_TEXOFFSETV:
+		gstate_c.vOff = getFloat24(data);
 		DEBUG_LOG(G3D, "DL Texture V Offset: %f", gstate_c.vOff);
 		break;
 
@@ -998,7 +998,9 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 			DEBUG_LOG(G3D,"DL TexFilter min: %i mag: %i", min, mag);
 		}
 		break;
-
+	case GE_CMD_TEXENVCOLOR:
+		DEBUG_LOG(G3D,"DL TexEnvColor %06x", data);
+		break;
 	case GE_CMD_TEXMODE:
 		DEBUG_LOG(G3D,"DL TexMode %08x", data);
 		break;
@@ -1044,7 +1046,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 			gstate_c.morphWeights[index] = weight;
 		}
 		break;
- 
+
 	case GE_CMD_DITH0:
 	case GE_CMD_DITH1:
 	case GE_CMD_DITH2:
@@ -1053,12 +1055,12 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_WORLDMATRIXNUMBER:
-		DEBUG_LOG(G3D,"DL World matrix # %i", data & 0xF);
+		DEBUG_LOG(G3D,"DL World # %i", data & 0xF);
 		gstate.worldmtxnum &= 0xFF00000F;
 		break;
 
 	case GE_CMD_WORLDMATRIXDATA:
-		DEBUG_LOG(G3D,"DL World matrix data # %f", getFloat24(data));
+		DEBUG_LOG(G3D,"DL World data # %f", getFloat24(data));
 		{
 			int num = gstate.worldmtxnum & 0xF;
 			if (num < 12)
@@ -1068,12 +1070,12 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_VIEWMATRIXNUMBER:
-		DEBUG_LOG(G3D,"DL VIEW matrix # %i", data & 0xF);
+		DEBUG_LOG(G3D,"DL VIEW # %i", data & 0xF);
 		gstate.viewmtxnum &= 0xFF00000F;
 		break;
 
 	case GE_CMD_VIEWMATRIXDATA:
-		DEBUG_LOG(G3D,"DL VIEW matrix data # %f", getFloat24(data));
+		DEBUG_LOG(G3D,"DL VIEW data # %f", getFloat24(data));
 		{
 			int num = gstate.viewmtxnum & 0xF;
 			if (num < 12)
@@ -1083,14 +1085,14 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_PROJMATRIXNUMBER:
-		DEBUG_LOG(G3D,"DL PROJECTION matrix # %i", data & 0xF);
+		DEBUG_LOG(G3D,"DL PROJECTION # %i", data & 0xF);
 		gstate.projmtxnum &= 0xFF00000F;
 		break;
 
 	case GE_CMD_PROJMATRIXDATA:
 		DEBUG_LOG(G3D,"DL PROJECTION matrix data # %f", getFloat24(data));
 		{
-			int num = gstate.projmtxnum & 0xF;	
+			int num = gstate.projmtxnum & 0xF;
 			gstate.projMatrix[num++] = getFloat24(data);
 			gstate.projmtxnum = (gstate.projmtxnum & 0xFF000000) | (num & 0xF);
 		}
@@ -1098,12 +1100,12 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_TGENMATRIXNUMBER:
-		DEBUG_LOG(G3D,"DL TGEN matrix # %i", data & 0xF);
+		DEBUG_LOG(G3D,"DL TGEN # %i", data & 0xF);
 		gstate.texmtxnum &= 0xFF00000F;
 		break;
 
 	case GE_CMD_TGENMATRIXDATA:
-		DEBUG_LOG(G3D,"DL TGEN matrix data # %f", getFloat24(data));
+		DEBUG_LOG(G3D,"DL TGEN data # %f", getFloat24(data));
 		{
 			int num = gstate.texmtxnum & 0xF;
 			if (num < 12)
@@ -1113,12 +1115,12 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_BONEMATRIXNUMBER:
-		DEBUG_LOG(G3D,"DL BONE matrix #%i", data);
+		DEBUG_LOG(G3D,"DL BONE #%i", data);
 		gstate.boneMatrixNumber &= 0xFF00007F;
 		break;
 
 	case GE_CMD_BONEMATRIXDATA:
-		DEBUG_LOG(G3D,"DL BONE matrix data #%i %f", gstate.boneMatrixNumber & 0x7f, getFloat24(data));
+		DEBUG_LOG(G3D,"DL BONE data #%i %f", gstate.boneMatrixNumber & 0x7f, getFloat24(data));
 		{
 			int num = gstate.boneMatrixNumber & 0x7F;
 			if (num < 96) {

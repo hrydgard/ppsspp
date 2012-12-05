@@ -22,6 +22,15 @@
 
 #include "VertexDecoder.h"
 
+void PrintDecodedVertex(const DecodedVertex &vtx, u32 vtype)
+{
+	if (vtype & GE_VTYPE_NRM_MASK) printf("N: %f %f %f\n", vtx.normal[0], vtx.normal[1], vtx.normal[2]);
+	if (vtype & GE_VTYPE_TC_MASK) printf("TC: %f %f\n", vtx.uv[0], vtx.uv[1]);
+	if (vtype & GE_VTYPE_COL_MASK) printf("C: %02x %02x %02x %02x\n", vtx.color[0], vtx.color[1], vtx.color[2], vtx.color[3]);
+	if (vtype & GE_VTYPE_WEIGHT_MASK) printf("W: TODO\n");
+	printf("P: %f %f %f\n", vtx.pos[0], vtx.pos[1], vtx.pos[2]);
+}
+
 const int tcsize[4] = {0,2,4,8}, tcalign[4] = {0,1,2,4};
 const int colsize[8] = {0,0,0,0,2,2,2,4}, colalign[8] = {0,0,0,0,2,2,2,4};
 const int nrmsize[4] = {0,3,6,12}, nrmalign[4] = {0,1,2,4};
@@ -30,7 +39,7 @@ const int wtsize[4] = {0,1,2,4}, wtalign[4] = {0,1,2,4};
 
 inline int align(int n, int align)
 {
-	return (n+(align-1)) & ~(align-1);
+	return (n + (align - 1)) & ~(align - 1);
 }
 
 void VertexDecoder::SetVertexType(u32 fmt)
@@ -40,7 +49,7 @@ void VertexDecoder::SetVertexType(u32 fmt)
 
 	int biggest = 0;
 	size = 0;
-	
+
 	tc				 = fmt & 0x3;
 	col				= (fmt >> 2) & 0x7;
 	nrm				= (fmt >> 5) & 0x3;
@@ -51,7 +60,7 @@ void VertexDecoder::SetVertexType(u32 fmt)
 	nweights	 = ((fmt >> 14) & 0x7)+1;
 
 	DEBUG_LOG(G3D,"VTYPE: THRU=%i TC=%i COL=%i POS=%i NRM=%i WT=%i NW=%i IDX=%i MC=%i", (int)throughmode, tc,col,pos,nrm,weighttype,nweights,idx,morphcount);
-	
+
 	if (weighttype)
 	{
 		//size = align(size, wtalign[weighttype]);	unnecessary
