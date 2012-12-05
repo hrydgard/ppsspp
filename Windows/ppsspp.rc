@@ -211,7 +211,7 @@ BEGIN
     END
     POPUP "&Options"
     BEGIN
-        MENUITEM "&Toggle Full Screen\tAlt+Enter", ID_OPTIONS_FULLSCREEN
+        MENUITEM "&Toggle Full Screen\tF12",    ID_OPTIONS_FULLSCREEN
         MENUITEM "&Display raw framebuffer",    ID_OPTIONS_DISPLAYRAWFRAMEBUFFER
         MENUITEM "&Buffered rendering",         ID_OPTIONS_BUFFEREDRENDERING
         MENUITEM "&Show debug statistics",      ID_OPTIONS_SHOWDEBUGSTATISTICS
