@@ -419,14 +419,14 @@ int sceRtcCheckValid(u32 datePtr)
 	return ret;
 }
 
-int sceRtcSetTime_t(u32 datePtr, u64 time)
+int sceRtcSetTime_t(u32 datePtr, u32 time)
 {
 	ERROR_LOG(HLE, "HACK sceRtcSetTime_t(%d,%d)", datePtr, time);
 	if (Memory::IsValidAddress(datePtr))
 	{
 		ScePspDateTime pt;
-
-		__RtcTicksToPspTime(pt, time);
+		__RtcTicksToPspTime(pt, time*1000000ULL);
+		pt.year += 1969;
 		Memory::WriteStruct(datePtr, &pt);
 	}
 	else
@@ -620,18 +620,28 @@ int sceRtcTickAddMonths(u32 destTickPtr, u32 srcTickPtr, int numMonths)
 	{
 		u64 srcTick = Memory::Read_U64(srcTickPtr);
 		
-		// slightly bodgy but we need to add months to a pt and then convert to ticks
+		// slightly bodgy but we need to add months to a pt and then convert to ticks to cover different day count in months and leapyears
 		ScePspDateTime pt;
 		memset(&pt, 0, sizeof(pt));
 		if (numMonths < 0)
 		{
-			numMonths =  (numMonths^0xFFFFFFFF)+1;
+			numMonths = -numMonths;;
 			int years = numMonths /12;
 			int realmonths = numMonths % 12;
 			
 			pt.year = years;
 			pt.month = realmonths;
-			srcTick -=__RtcPspTimeToTicks(pt);
+			u64 monthTicks =__RtcPspTimeToTicks(pt);
+
+			if (monthTicks <= srcTick)
+			{
+				srcTick-=monthTicks;
+			}
+			else
+			{
+				srcTick=0;
+			}
+
 		}
 		else
 		{
@@ -661,7 +671,7 @@ int sceRtcTickAddYears(u32 destTickPtr, u32 srcTickPtr, int numYears)
 
 		if (numYears < 0)
 		{
-			pt.year = (numYears^0xFFFFFFFF)+1;
+			pt.year = -numYears;
 			u64 yearTicks = __RtcPspTimeToTicks(pt);
 			if (yearTicks <= srcTick)
 			{
@@ -706,7 +716,7 @@ const HLEFunction sceRtc[] =
 	{0x05ef322c, WrapU_UU<sceRtcGetDaysInMonth>, "sceRtcGetDaysInMonth"},
 	{0x57726bc1, WrapU_UUU<sceRtcGetDayOfWeek>, "sceRtcGetDayOfWeek"},
 	{0x4B1B5E82, WrapI_U<sceRtcCheckValid>, "sceRtcCheckValid"},
-	{0x3a807cc8, WrapI_UU64<sceRtcSetTime_t>, "sceRtcSetTime_t"},
+	{0x3a807cc8, WrapI_UU<sceRtcSetTime_t>, "sceRtcSetTime_t"},
 	{0x27c4594c, WrapI_UU<sceRtcGetTime_t>, "sceRtcGetTime_t"},
 	{0xF006F264, WrapI_UU<sceRtcSetDosTime>, "sceRtcSetDosTime"},
 	{0x36075567, WrapI_UU<sceRtcGetDosTime>, "sceRtcGetDosTime"},
