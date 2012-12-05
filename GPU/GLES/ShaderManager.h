@@ -33,7 +33,6 @@ struct LinkedShader
 	void use();
 
 	uint32_t program;
-
 	u32 dirtyUniforms;
 
 	// Pre-fetched attrs and uniforms
@@ -99,6 +98,7 @@ struct Shader
 {
 	Shader(const char *code, uint32_t shaderType);
 	uint32_t shader;
+	const std::string &source() const { return source_; }
 private:
 	std::string source_;
 };

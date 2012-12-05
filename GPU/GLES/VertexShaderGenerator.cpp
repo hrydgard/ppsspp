@@ -41,10 +41,13 @@ static char buffer[16384];
 // prim so we can special case for RECTANGLES :(
 void ComputeVertexShaderID(VertexShaderID *id, int prim)
 {
+	int doTexture = (gstate.textureMapEnable & 1) && !(gstate.clearmode & 1);
+
 	memset(id->d, 0, sizeof(id->d));
 	id->d[0] = gstate.lmode & 1;
 	id->d[0] |= ((int)gstate.isModeThrough()) << 1;
 	id->d[0] |= ((int)gstate.isFogEnabled()) << 2;
+	id->d[0] |= doTexture << 3;
 
 	// Bits that we will need:
 	// lightenable * 4

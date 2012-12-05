@@ -25,9 +25,7 @@
 #include "TransformPipeline.h"
 
 Shader::Shader(const char *code, uint32_t shaderType) {
-#ifdef _DEBUG
 	source_ = code;
-#endif
 #ifdef _WIN32
 	// OutputDebugString(code);
 #endif
@@ -66,6 +64,8 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs)
 			char* buf = new char[bufLength];
 			glGetProgramInfoLog(program, bufLength, NULL, buf);
 			ERROR_LOG(G3D, "Could not link program:\n %s", buf);
+			ERROR_LOG(G3D, "VS:\n%s", vs->source().c_str());
+			ERROR_LOG(G3D, "FS:\n%s", fs->source().c_str());
 			delete [] buf;	// we're dead!
 		}
 		return;
