@@ -14,9 +14,13 @@ void OpenGLState::Restore() {
 	blend.restore();
 	blendEquation.restore();
 	blendFunc.restore();
+	blendColor.restore();
+
+	scissorTest.restore();
 
 	cullFace.restore();
 	cullFaceMode.restore();
+	frontFace.restore();
 
 	depthTest.restore();
 	depthRange.restore();
