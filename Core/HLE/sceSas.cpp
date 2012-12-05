@@ -299,13 +299,6 @@ void sceSasSetKeyOff()
 
 u32 sceSasSetADSR(u32 core, int voiceNum,int flag ,int a, int d, int s, int r)
 {
-	//u32 core = PARAM(0);
-	//int voiceNum = PARAM(1);
-	//int flag = PARAM(2);
-	//int a = PARAM(3);
-	//int d = PARAM(4);
-	//int s = PARAM(5);
-	//int r = PARAM(6); //??
 	DEBUG_LOG(HLE,"0=sceSasSetADSR(core=%08x, voicenum=%i, flag=%i, a=%08x, d=%08x, s=%08x, r=%08x)",core, voiceNum, flag, a,d,s,r)
 	Voice &v = sas.voices[voiceNum];
 	if ((flag & 0x1) != 0) v.attack  = a;
