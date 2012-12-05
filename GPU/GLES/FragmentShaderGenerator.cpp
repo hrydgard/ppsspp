@@ -19,6 +19,12 @@
 #define GLSL_ES_1_0
 #else
 #define GLSL_1_3
+
+// SDL 1.2 on Apple does not have support for OpenGL 3 and hence needs
+// special treatment in the shader generator.
+#if defined(__APPLE__)
+#define FORCE_OPENGL_2_0
+#endif
 #endif
 
 #include "FragmentShaderGenerator.h"
@@ -28,13 +34,6 @@
 
 // TODO: remove
 static char buffer[16384];
-
-// SDL 1.2 on Apple does not have support for OpenGL 3 and hence needs
-// special treatment in the shader generator.
-#ifdef __APPLE__
-#define FORCE_OPENGL_2_0
-#endif
-
 
 #define WRITE p+=sprintf
 

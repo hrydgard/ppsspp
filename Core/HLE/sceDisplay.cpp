@@ -72,6 +72,8 @@ double lastFrameTime = 0;
 
 // STATE END
 
+std::vector<VblankCallback> vblankListeners;
+
 // The vblank period is 731.5 us (0.7315 ms)
 const double vblankMs = 0.7315;
 const double frameMs = 1000.0 / 60.0;
@@ -116,6 +118,20 @@ void __DisplayShutdown()
 	ShutdownGfxState();
 }
 
+void __DisplayListenVblank(VblankCallback callback)
+{
+	vblankListeners.push_back(callback);
+}
+
+void __DisplayFireVblank()
+{
+	for (std::vector<VblankCallback>::iterator iter = vblankListeners.begin(), end = vblankListeners.end(); iter != end; ++iter)
+	{
+		VblankCallback cb = *iter;
+		cb();
+	}
+}
+
 void hleEnterVblank(u64 userdata, int cyclesLate)
 {
 	int vbCount = userdata;
@@ -123,6 +139,9 @@ void hleEnterVblank(u64 userdata, int cyclesLate)
 	DEBUG_LOG(HLE, "Enter VBlank %i", vbCount);
 
 	isVblank = 1;
+
+	// Fire the vblank listeners before we wake threads.
+	__DisplayFireVblank();
 
 	// Wake up threads waiting for VBlank
 	__KernelTriggerWait(WAITTYPE_VBLANK, 0, true);

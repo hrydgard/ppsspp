@@ -442,7 +442,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 	case GE_CMD_RET: 
 		//TODO : debug!
 		{
-			u32 target = dcontext.pc & 0xF0000000 | (stack[--stackptr] & 0x0FFFFFFF); 
+			u32 target = (dcontext.pc & 0xF0000000) | (stack[--stackptr] & 0x0FFFFFFF); 
 			DEBUG_LOG(G3D,"DL CMD RET - from %08x to %08x", dcontext.pc, target);
 			dcontext.pc = target - 4;
 		}

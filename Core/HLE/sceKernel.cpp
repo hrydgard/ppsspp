@@ -29,6 +29,7 @@
 
 #include "__sceAudio.h"
 #include "sceAudio.h"
+#include "sceCtrl.h"
 #include "sceDisplay.h"
 #include "sceGe.h"
 #include "sceIo.h"
@@ -80,6 +81,7 @@ void __KernelInit()
 	__PowerInit();
 	__UtilityInit();
 	__UmdInit();
+	__CtrlInit();
 	
 	// "Internal" PSP libraries
 	__PPGeInit();

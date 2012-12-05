@@ -73,6 +73,7 @@ const char *waitTypeStrings[] =
   "Vblank",
   "Mutex",
   "LwMutex",
+  "Ctrl",
 };
 
 struct SceKernelSysClock {
@@ -608,7 +609,7 @@ u32 __KernelResumeThreadFromWait(SceUID threadID, int retval)
 // Only run when you can safely accept a context switch
 // Triggers a waitable event, that is, it wakes up all threads that waits for it
 // If any changes were made, it will context switch
-bool __KernelTriggerWait(WaitType type, int id, bool dontSwitch)
+bool __KernelTriggerWait(WaitType type, int id, bool useRetVal, int retVal, bool dontSwitch)
 {
 	bool doneAnything = false;
 
@@ -621,6 +622,8 @@ bool __KernelTriggerWait(WaitType type, int id, bool dontSwitch)
 			{
 				// This thread was waiting for the triggered object.
 				__KernelResumeThreadFromWait(t);
+				if (useRetVal)
+					t->setReturnValue(retVal);
 				doneAnything = true;
 			}
 		}
@@ -637,6 +640,16 @@ bool __KernelTriggerWait(WaitType type, int id, bool dontSwitch)
 		}
 	}
 	return true;
+}
+
+bool __KernelTriggerWait(WaitType type, int id, bool dontSwitch)
+{
+	return __KernelTriggerWait(type, id, false, 0, dontSwitch);
+}
+
+bool __KernelTriggerWait(WaitType type, int id, int retVal, bool dontSwitch)
+{
+	return __KernelTriggerWait(type, id, true, retVal, dontSwitch);
 }
 
 // makes the current thread wait for an event
@@ -1799,7 +1812,8 @@ bool __KernelCheckCallbacks() {
 	return processed;
 }
 
-void sceKernelCheckCallback() {
+bool __KernelForceCallbacks()
+{
 	Thread *curThread = __GetCurrentThread();	
 
 	// This thread can now process callbacks.
@@ -1809,6 +1823,14 @@ void sceKernelCheckCallback() {
 
 	// Note - same thread as above - checking callbacks may switch threads.
 	curThread->isProcessingCallbacks = false;
+
+	return callbacksProcessed;
+}
+
+void sceKernelCheckCallback() {
+	Thread *curThread = __GetCurrentThread();
+
+	bool callbacksProcessed = __KernelForceCallbacks();
 
 	if (callbacksProcessed) {
 		curThread->setReturnValue(1);
@@ -1856,7 +1878,7 @@ void __KernelNotifyCallback(RegisteredCallbackType type, SceUID threadId, SceUID
 	Callback *cb = kernelObjects.Get<Callback>(cbId, error);
 	if (!cb) {
 		// Yeah, we're screwed, this shouldn't happen.
-		ERROR_LOG(HLE, "__KernelNotifyCallback - invalid callback 0");
+		ERROR_LOG(HLE, "__KernelNotifyCallback - invalid callback %08x", cbId);
 		return;
 	}
 	cb->nc.notifyCount++;
