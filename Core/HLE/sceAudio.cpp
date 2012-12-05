@@ -323,7 +323,7 @@ u32 sceAudioOutput2Reserve(u32 sampleCount)
 
 void sceAudioOutput2OutputBlocking(u32 vol, u32 dataPtr)
 {
-	WARN_LOG(HLE,"FAKE sceAudioOutput2OutputBlocking(%i, %08x)", vol, dataPtr);
+	DEBUG_LOG(HLE,"FAKE sceAudioOutput2OutputBlocking(%i, %08x)", vol, dataPtr);
 	chans[0].leftVolume = vol;
 	chans[0].rightVolume = vol;
 	chans[0].sampleAddress = dataPtr;
