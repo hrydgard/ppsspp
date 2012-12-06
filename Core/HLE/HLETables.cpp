@@ -51,6 +51,7 @@
 #include "sceParseUri.h"
 #include "sceSsl.h"
 #include "sceParseHttp.h"
+#include "scesupPreAcc.h"
 
 #define N(s) s
 
@@ -271,6 +272,7 @@ void RegisterAllModules() {
 	Register_sceParseUri();
 	Register_sceSsl();
 	Register_sceParseHttp();
+	Register_scesupPreAcc();
 
 	for (int i = 0; i < numModules; i++)
 	{

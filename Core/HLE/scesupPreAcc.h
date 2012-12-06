@@ -15,31 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "HLE.h"
+#pragma once
 
-#include "sceOpenPSID.h"
+void Register_scesupPreAcc();
 
-int sceOpenPSIDGetOpenPSID(u32 OpenPSIDPtr)
-{
-	ERROR_LOG(HLE, "UNTESTED sceOpenPSIDGetOpenPSID(%d)", OpenPSIDPtr);
-	u8 dummyOpenPSID[16] = {0x10, 0x02, 0xA3, 0x44, 0x13, 0xF5, 0x93, 0xB0, 0xCC, 0x6E, 0xD1, 0x32, 0x27, 0x85, 0x0F, 0x9D};
-
-	if (Memory::IsValidAddress(OpenPSIDPtr))
-	{
-		for (int i = 0; i < 16; i++) 
-		{
-			Memory::Write_U8(dummyOpenPSID[i], OpenPSIDPtr+i);
-		}
-	}
-	return 0;
-}
-
-const HLEFunction sceOpenPSID[] = 
-{
-	{0xc69bebce, WrapI_U<sceOpenPSIDGetOpenPSID>, "sceOpenPSIDGetOpenPSID"},
-};
-
-void Register_sceOpenPSID()
-{
-	RegisterModule("sceOpenPSID", ARRAY_SIZE(sceOpenPSID), sceOpenPSID);
-}

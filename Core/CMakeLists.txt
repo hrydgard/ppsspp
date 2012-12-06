@@ -54,6 +54,7 @@ set(SRCS
   HLE/sceSsl.cpp
   HLE/sceParseUri.cpp
   HLE/sceParseHttp.cpp
+  HLE/scesupPreAcc.cpp
   HW/MemoryStick.cpp
   FileSystems/BlockDevices.cpp
   FileSystems/ISOFileSystem.cpp

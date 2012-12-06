@@ -17,29 +17,22 @@
 
 #include "HLE.h"
 
-#include "sceOpenPSID.h"
+#include "scesupPreAcc.h"
 
-int sceOpenPSIDGetOpenPSID(u32 OpenPSIDPtr)
+const HLEFunction scesupPreAcc[] = 
 {
-	ERROR_LOG(HLE, "UNTESTED sceOpenPSIDGetOpenPSID(%d)", OpenPSIDPtr);
-	u8 dummyOpenPSID[16] = {0x10, 0x02, 0xA3, 0x44, 0x13, 0xF5, 0x93, 0xB0, 0xCC, 0x6E, 0xD1, 0x32, 0x27, 0x85, 0x0F, 0x9D};
-
-	if (Memory::IsValidAddress(OpenPSIDPtr))
-	{
-		for (int i = 0; i < 16; i++) 
-		{
-			Memory::Write_U8(dummyOpenPSID[i], OpenPSIDPtr+i);
-		}
-	}
-	return 0;
-}
-
-const HLEFunction sceOpenPSID[] = 
-{
-	{0xc69bebce, WrapI_U<sceOpenPSIDGetOpenPSID>, "sceOpenPSIDGetOpenPSID"},
+	{0x110e318b, 0, "scesupPreAcc_0x110e318b"},
+	{0x13ae25b3, 0, "scesupPreAcc_0x13ae25b3"},
+	{0x28c5f696, 0, "scesupPreAcc_0x28c5f696"},
+	{0x348ba3e2, 0, "scesupPreAcc_0x348ba3e2"},
+	{0x86debd66, 0, "scesupPreAcc_0x86debd66"},
+	{0xa0eaf444, 0, "scesupPreAcc_0xa0eaf444"},
+	{0xb03ff882, 0, "scesupPreAcc_0xb03ff882"},
+	{0x2ec3f4d9, 0, "scesupPreAcc_0x2ec3f4d9"},
+	
 };
 
-void Register_sceOpenPSID()
+void Register_scesupPreAcc()
 {
-	RegisterModule("sceOpenPSID", ARRAY_SIZE(sceOpenPSID), sceOpenPSID);
+	RegisterModule("scesupPreAcc",ARRAY_SIZE(scesupPreAcc), scesupPreAcc );
 }
