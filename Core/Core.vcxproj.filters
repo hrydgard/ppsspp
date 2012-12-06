@@ -303,6 +303,18 @@
     <ClCompile Include="ELF\ParamSFO.cpp">
       <Filter>ELF</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\sceOpenPSID.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\sceParseUri.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\sceSsl.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\sceParseHttp.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -553,6 +565,18 @@
     </ClInclude>
     <ClInclude Include="ELF\ParamSFO.h">
       <Filter>ELF</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceOpenPSID.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceParseUri.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceSsl.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceParseHttp.h">
+      <Filter>HLE\Libraries</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
