@@ -82,19 +82,19 @@ const std::string &EmuDebugOutput() {
 	return emuDebugOutput;
 }
 
+typedef u32 (*DeferredAction)(SceUID id, int param);
+DeferredAction defAction = 0;
+u32 defParam;
+
 #define SCE_STM_FDIR 0x1000
 #define SCE_STM_FREG 0x2000
 #define SCE_STM_FLNK 0x4000
-enum
-{
+enum {
 	TYPE_DIR=0x10,
 	TYPE_FILE=0x20
 };
 
-
-
-struct SceIoStat
-{
+struct SceIoStat {
 	SceMode st_mode;
 	unsigned int st_attr;
 	SceOff st_size;
@@ -104,15 +104,13 @@ struct SceIoStat
 	unsigned int st_private[6];
 };
 
-struct SceIoDirEnt
-{
+struct SceIoDirEnt {
 	SceIoStat d_stat;
 	char d_name[256];
 	u32 d_private;
 };
 
-struct dirent
-{
+struct dirent {
 	u32 unk0;
 	u32 type;
 	u32 size;
@@ -120,18 +118,15 @@ struct dirent
 	char name[0x108];
 };
 
-class FileNode : public KernelObject
-{
+class FileNode : public KernelObject {
 public:
 	FileNode() : callbackID(0), callbackArg(0), asyncResult(0), pendingAsyncResult(false), sectorBlockMode(false) {}
-	~FileNode()
-	{
+	~FileNode() {
 		pspFileSystem.CloseFile(handle);
 	}
 	const char *GetName() {return fullpath.c_str();}
 	const char *GetTypeName() {return "OpenFile";}
-	void GetQuickInfo(char *ptr, int size)
-	{
+	void GetQuickInfo(char *ptr, int size) {
 		sprintf(ptr, "Seekpos: %08x", (u32)pspFileSystem.GetSeekPos(handle));
 	}
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_BADF; }
@@ -143,14 +138,13 @@ public:
 	u32 callbackID;
 	u32 callbackArg;
 
-    u32 asyncResult;
+	u32 asyncResult;
 
 	bool pendingAsyncResult;
 	bool sectorBlockMode;
 };
 
-void __IoInit()
-{
+void __IoInit() {
 	INFO_LOG(HLE, "Starting up I/O...");
 
 #ifdef _WIN32
@@ -184,51 +178,42 @@ void __IoInit()
 	pspFileSystem.Mount("flash1:", new EmptyFileSystem());
 }
 
-void __IoShutdown()
-{
+void __IoShutdown() {
 
 }
 
-u32 sceIoAssign(const char *aliasname, const char *physname,
-		const char *devname, u32 flag)
-{
+u32 sceIoAssign(const char *aliasname, const char *physname, const char *devname, u32 flag) {
 	ERROR_LOG(HLE, "UNIMPL sceIoAssign(%s, %s, %s, %08x, ...)", aliasname,
 			physname, devname, flag);
 	return 0;
 }
 
-u32 sceKernelStdin()
-{
+u32 sceKernelStdin() {
 	DEBUG_LOG(HLE, "3=sceKernelStdin()");
 	return 3;
 }
-u32 sceKernelStdout()
-{
+
+u32 sceKernelStdout() {
 	DEBUG_LOG(HLE, "1=sceKernelStdout()");
 	return 1;
 }
 
-u32 sceKernelStderr()
-{
+u32 sceKernelStderr() {
 	DEBUG_LOG(HLE, "2=sceKernelStderr()");
 	return 2;
 }
 
-void __IoCompleteAsyncIO(SceUID id)
-{
+void __IoCompleteAsyncIO(SceUID id) {
 	u32 error;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
-	if (f)
-	{
-		if (f->callbackID)
-		{
+	if (f) {
+		if (f->callbackID) {
 			// __KernelNotifyCallbackType(THREAD_CALLBACK_IO, __KernelGetCurThread(), f->callbackID, f->callbackArg);
 		}
 	}
 }
 
-void __IoGetStat(SceIoStat *stat, PSPFileInfo &info)
-{
+void __IoGetStat(SceIoStat *stat, PSPFileInfo &info) {
 	memset(stat, 0xfe, sizeof(SceIoStat));
 	stat->st_size = (s64) info.size;
 
@@ -244,8 +229,7 @@ void __IoGetStat(SceIoStat *stat, PSPFileInfo &info)
 	stat->st_private[0] = info.startSector;
 }
 
-u32 sceIoGetstat(const char *filename, u32 addr)
-{
+u32 sceIoGetstat(const char *filename, u32 addr) {
 	SceIoStat stat;
 	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
 	__IoGetStat(&stat, info);
@@ -258,35 +242,27 @@ u32 sceIoGetstat(const char *filename, u32 addr)
 }
 
 //Not sure about wrapping it or not, since the log seems to take the address of the data var
-u32 sceIoRead(int id, u32 data_addr, int size) //(int fd, void *data, int size);
-{
-	if (id == 3)
-	{
+u32 sceIoRead(int id, u32 data_addr, int size) {
+	if (id == 3) {
 		DEBUG_LOG(HLE, "sceIoRead STDIN");
 		return 0; //stdin
 	}
 
 	u32 error;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
-	if (f)
-	{
-		if (data_addr)
-		{
+	if (f) {
+		if (data_addr) {
 			u8 *data = (u8*) Memory::GetPointer(data_addr);
 			f->asyncResult = (u32) pspFileSystem.ReadFile(f->handle, data,
 					size);
 			DEBUG_LOG(HLE, "%i=sceIoRead(%d, %08x , %i)", f->asyncResult, id,
 					data_addr, size);
 			return f->asyncResult;
-		}
-		else
-		{
+		} else {
 			ERROR_LOG(HLE, "sceIoRead Reading into zero pointer");
 			return -1;
 		}
-	}
-	else
-	{
+	} else {
 		ERROR_LOG(HLE, "sceIoRead ERROR: no file open");
 		return error;
 	}
@@ -294,16 +270,12 @@ u32 sceIoRead(int id, u32 data_addr, int size) //(int fd, void *data, int size);
 
 u32 sceIoWrite(int id, void *data_ptr, int size) //(int fd, void *data, int size);
 {
-
-	if (id == 2)
-	{
+	if (id == 2) {
 		//stderr!
 		const char *str = (const char*) data_ptr;
 		DEBUG_LOG(HLE, "stderr: %s", str);
 		return size;
-	}
-	if (id == 1)
-	{
+	} else if (id == 1) {
 		//stdout!
 		char *str = (char *) data_ptr;
 		char temp = str[size];
@@ -314,28 +286,22 @@ u32 sceIoWrite(int id, void *data_ptr, int size) //(int fd, void *data, int size
 	}
 	u32 error;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
-	if (f)
-	{
+	if (f) {
 		u8 *data = (u8*) data_ptr;
 		f->asyncResult = (u32) pspFileSystem.WriteFile(f->handle, data, size);
 		return f->asyncResult;
-	}
-	else
-	{
+	} else {
 		ERROR_LOG(HLE, "sceIoWrite ERROR: no file open");
 		return error;
 	}
 }
 
-u32 sceIoLseek(int id, s64 offset, int whence) //(int fd, int64 offset, int whence);
-{
+u32 sceIoLseek(int id, s64 offset, int whence) {
 	u32 error;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
-	if (f)
-	{
+	if (f) {
 		FileMove seek = FILEMOVE_BEGIN;
-		switch (whence)
-		{
+		switch (whence) {
 		case 0:
 			break;
 		case 1:
@@ -351,26 +317,21 @@ u32 sceIoLseek(int id, s64 offset, int whence) //(int fd, int64 offset, int when
 		DEBUG_LOG(HLE, "%i = sceIoLseek(%d,%i,%i)", f->asyncResult, id,
 				(int) offset, whence);
 		return f->asyncResult;
-	}
-	else
-	{
+	} else {
 		ERROR_LOG(HLE, "sceIoLseek(%d, %i, %i) - ERROR: invalid file", id,
 				(int) offset, whence);
 		return error;
 	}
 }
 
-u32 sceIoLseek32(int id, int offset, int whence) //(int fd, int offset, int whence);
-{
+u32 sceIoLseek32(int id, int offset, int whence) {
 	u32 error;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
-	if (f)
-	{
+	if (f) {
 		DEBUG_LOG(HLE, "sceIoLseek32(%d,%08x,%i)", id, (int) offset, whence);
 
 		FileMove seek = FILEMOVE_BEGIN;
-		switch (whence)
-		{
+		switch (whence) {
 		case 0:
 			break;
 		case 1:
@@ -384,16 +345,13 @@ u32 sceIoLseek32(int id, int offset, int whence) //(int fd, int offset, int when
 		f->asyncResult = (u32) pspFileSystem.SeekFile(f->handle, (s32) offset,
 				seek);
 		return f->asyncResult;
-	}
-	else
-	{
+	} else {
 		ERROR_LOG(HLE, "sceIoLseek32 ERROR: no file open");
 		return error;
 	}
 }
 
-u32 sceIoOpen(const char* filename, int mode) //(const char* file, int mode);
-{
+u32 sceIoOpen(const char* filename, int mode) {
 	//memory stick filename
 	int access = FILEACCESS_NONE;
 	if (mode & O_RDONLY)
@@ -423,14 +381,12 @@ u32 sceIoOpen(const char* filename, int mode) //(const char* file, int mode);
 	return id;
 }
 
-u32 sceIoClose(int id) //(int fd);
-{
+u32 sceIoClose(int id) {
 	DEBUG_LOG(HLE, "sceIoClose(%d)", id);
 	return kernelObjects.Destroy < FileNode > (id);
 }
 
-u32 sceIoRemove(const char *filename) //(const char *file);
-{
+u32 sceIoRemove(const char *filename) {
 	DEBUG_LOG(HLE, "sceIoRemove(%s)", filename);
 	if (pspFileSystem.DeleteFile(filename))
 		return 0;
@@ -438,8 +394,7 @@ u32 sceIoRemove(const char *filename) //(const char *file);
 		return -1;
 }
 
-u32 sceIoMkdir(const char *dirname, int mode) //(const char *dir, int mode);
-{
+u32 sceIoMkdir(const char *dirname, int mode) {
 	DEBUG_LOG(HLE, "sceIoMkdir(%s, %i)", dirname, mode);
 	if (pspFileSystem.MkDir(dirname))
 		return 0;
@@ -447,8 +402,7 @@ u32 sceIoMkdir(const char *dirname, int mode) //(const char *dir, int mode);
 		return -1;
 }
 
-u32 sceIoRmdir(const char *dirname)
-{
+u32 sceIoRmdir(const char *dirname) {
 	DEBUG_LOG(HLE, "sceIoRmdir(%s)", dirname);
 	if (pspFileSystem.RmDir(dirname))
 		return 0;
@@ -456,13 +410,11 @@ u32 sceIoRmdir(const char *dirname)
 		return -1;
 }
 
-void sceIoSync()
-{
+void sceIoSync() {
 	DEBUG_LOG(HLE, "UNIMPL sceIoSync not implemented");
 }
 
-struct DeviceSize
-{
+struct DeviceSize {
 	u32 maxSectors;
 	u32 sectorSize;
 	u32 sectorsPerCluster;
@@ -470,219 +422,215 @@ struct DeviceSize
 	u32 freeClusters;
 };
 
-u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen,
-                u32 outPtr, int outLen) //(const char *name, int cmd, void *arg, size_t arglen, void *buf, size_t *buflen);
-{
+u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, int outLen) {
 
-    if (strcmp(name, "emulator:")) {
-        DEBUG_LOG(HLE,"sceIoDevctl(\"%s\", %08x, %08x, %i, %08x, %i)", name, cmd,argAddr,argLen,outPtr,outLen);
-    }
+	if (strcmp(name, "emulator:")) {
+		DEBUG_LOG(HLE,"sceIoDevctl(\"%s\", %08x, %08x, %i, %08x, %i)", name, cmd,argAddr,argLen,outPtr,outLen);
+	}
 
-    // UMD checks
-    switch (cmd) {
-    case 0x01F20001:  // Get Disc Type.
-        if (Memory::IsValidAddress(outPtr)) {
-            Memory::Write_U32(0x10, outPtr);  // Game disc
-            return 0;
-        } else {
-            return -1;
-        }
-        break;
-    case 0x01F20002:  // Get current LBA.
-        if (Memory::IsValidAddress(outPtr)) {
-            Memory::Write_U32(0, outPtr);  // Game disc
-            return 0;
-        } else {
-            return -1;
-        }
-        break;
-    case 0x01F100A3:  // Seek
-        return 0;
-    }
+	// UMD checks
+	switch (cmd) {
+	case 0x01F20001:  // Get Disc Type.
+		if (Memory::IsValidAddress(outPtr)) {
+			Memory::Write_U32(0x10, outPtr);  // Game disc
+			return 0;
+		} else {
+			return -1;
+		}
+		break;
+	case 0x01F20002:  // Get current LBA.
+		if (Memory::IsValidAddress(outPtr)) {
+			Memory::Write_U32(0, outPtr);  // Game disc
+			return 0;
+		} else {
+			return -1;
+		}
+		break;
+	case 0x01F100A3:  // Seek
+		return 0;
+	}
 
-    // This should really send it on to a FileSystem implementation instead.
+	// This should really send it on to a FileSystem implementation instead.
 
-    if (!strcmp(name, "mscmhc0:") || !strcmp(name, "ms0:"))
-    {
-        switch (cmd)
-        {
-        // does one of these set a callback as well? (see coded arms)
-        case 0x02015804:	// Register callback
-            if (Memory::IsValidAddress(argAddr) && argLen == 4) {
-                u32 cbId = Memory::Read_U32(argAddr);
-                if (0 == __KernelRegisterCallback(THREAD_CALLBACK_MEMORYSTICK, cbId)) {
-                    DEBUG_LOG(HLE, "sceIoDevCtl: Memstick callback %i registered, notifying immediately.", cbId);
-                    __KernelNotifyCallbackType(THREAD_CALLBACK_MEMORYSTICK, cbId, MemoryStick_State());
-                    return 0;
-                } else {
-                    return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
-                }
-            }
-            break;
+	if (!strcmp(name, "mscmhc0:") || !strcmp(name, "ms0:"))
+	{
+		switch (cmd)
+		{
+		// does one of these set a callback as well? (see coded arms)
+		case 0x02015804:	// Register callback
+			if (Memory::IsValidAddress(argAddr) && argLen == 4) {
+				u32 cbId = Memory::Read_U32(argAddr);
+				if (0 == __KernelRegisterCallback(THREAD_CALLBACK_MEMORYSTICK, cbId)) {
+					DEBUG_LOG(HLE, "sceIoDevCtl: Memstick callback %i registered, notifying immediately.", cbId);
+					__KernelNotifyCallbackType(THREAD_CALLBACK_MEMORYSTICK, cbId, MemoryStick_State());
+					return 0;
+				} else {
+					return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
+				}
+			}
+			break;
 
-        case 0x02025805:	// Unregister callback
-            if (Memory::IsValidAddress(argAddr) && argLen == 4) {
-                u32 cbId = Memory::Read_U32(argAddr);
-                if (0 == __KernelUnregisterCallback(THREAD_CALLBACK_MEMORYSTICK, cbId)) {
-                    DEBUG_LOG(HLE, "sceIoDevCtl: Unregistered memstick callback %i", cbId);
-                    return 0;
-                } else {
-                    return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
-                }
-            }
-            break;
+		case 0x02025805:	// Unregister callback
+			if (Memory::IsValidAddress(argAddr) && argLen == 4) {
+				u32 cbId = Memory::Read_U32(argAddr);
+				if (0 == __KernelUnregisterCallback(THREAD_CALLBACK_MEMORYSTICK, cbId)) {
+					DEBUG_LOG(HLE, "sceIoDevCtl: Unregistered memstick callback %i", cbId);
+					return 0;
+				} else {
+					return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
+				}
+			}
+			break;
 
-        case 0x02025806:	// Memory stick inserted?
-        case 0x02025801:	// Memstick Driver status?
-            if (Memory::IsValidAddress(outPtr)) {
-                Memory::Write_U32(1, outPtr);
-                return 0;
-            } else {
-                return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
-            }
+		case 0x02025806:	// Memory stick inserted?
+		case 0x02025801:	// Memstick Driver status?
+			if (Memory::IsValidAddress(outPtr)) {
+				Memory::Write_U32(1, outPtr);
+				return 0;
+			} else {
+				return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
+			}
 
-        case 0x02425818:  // Get memstick size etc
-            // Pretend we have a 2GB memory stick.
-            if (Memory::IsValidAddress(argAddr)) {  // "Should" be outPtr but isn't
-                u32 pointer = Memory::Read_U32(argAddr);
+		case 0x02425818:  // Get memstick size etc
+			// Pretend we have a 2GB memory stick.
+			if (Memory::IsValidAddress(argAddr)) {  // "Should" be outPtr but isn't
+				u32 pointer = Memory::Read_U32(argAddr);
 
-                u64 totalSize = (u32)2 * 1024 * 1024 * 1024;
-                u64 freeSize	= 1 * 1024 * 1024 * 1024;
-                DeviceSize deviceSize;
-                deviceSize.maxSectors				= 512;
-                deviceSize.sectorSize				= 0x200;
-                deviceSize.sectorsPerCluster = 0x08;
-                deviceSize.totalClusters		 = (u32)((totalSize * 95 / 100) / (deviceSize.sectorSize * deviceSize.sectorsPerCluster));
-                deviceSize.freeClusters			= (u32)((freeSize	* 95 / 100) / (deviceSize.sectorSize * deviceSize.sectorsPerCluster));
-                Memory::WriteStruct(pointer, &deviceSize);
-                return 0;
-            } else {
-                return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
-            }
-        }
-    }
+				u64 totalSize = (u32)2 * 1024 * 1024 * 1024;
+				u64 freeSize	= 1 * 1024 * 1024 * 1024;
+				DeviceSize deviceSize;
+				deviceSize.maxSectors				= 512;
+				deviceSize.sectorSize				= 0x200;
+				deviceSize.sectorsPerCluster = 0x08;
+				deviceSize.totalClusters		 = (u32)((totalSize * 95 / 100) / (deviceSize.sectorSize * deviceSize.sectorsPerCluster));
+				deviceSize.freeClusters			= (u32)((freeSize	* 95 / 100) / (deviceSize.sectorSize * deviceSize.sectorsPerCluster));
+				Memory::WriteStruct(pointer, &deviceSize);
+				return 0;
+			} else {
+				return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
+			}
+		}
+	}
 
-    if (!strcmp(name, "fatms0:"))
-    {
-        switch (cmd) {
-        case 0x02415821:  // MScmRegisterMSInsertEjectCallback
-            {
-                u32 cbId = Memory::Read_U32(argAddr);
-                if (0 == __KernelRegisterCallback(THREAD_CALLBACK_MEMORYSTICK_FAT, cbId)) {
-                    DEBUG_LOG(HLE, "sceIoDevCtl: Memstick FAT callback %i registered, notifying immediately.", cbId);
-                    __KernelNotifyCallbackType(THREAD_CALLBACK_MEMORYSTICK_FAT, cbId, MemoryStick_FatState());
-                    return 0;
-                } else {
-                    return -1;
-                }
-            }
-            break;
-        case 0x02415822: // MScmUnregisterMSInsertEjectCallback
-            {
-                u32 cbId = Memory::Read_U32(argAddr);
-                if (0 == __KernelUnregisterCallback(THREAD_CALLBACK_MEMORYSTICK_FAT, cbId)) {
-                    DEBUG_LOG(HLE, "sceIoDevCtl: Unregistered memstick FAT callback %i", cbId);
-                    return 0;
-                } else {
-                    return -1;
-                }
-            }
+	if (!strcmp(name, "fatms0:"))
+	{
+		switch (cmd) {
+		case 0x02415821:  // MScmRegisterMSInsertEjectCallback
+			{
+				u32 cbId = Memory::Read_U32(argAddr);
+				if (0 == __KernelRegisterCallback(THREAD_CALLBACK_MEMORYSTICK_FAT, cbId)) {
+					DEBUG_LOG(HLE, "sceIoDevCtl: Memstick FAT callback %i registered, notifying immediately.", cbId);
+					__KernelNotifyCallbackType(THREAD_CALLBACK_MEMORYSTICK_FAT, cbId, MemoryStick_FatState());
+					return 0;
+				} else {
+					return -1;
+				}
+			}
+			break;
+		case 0x02415822: // MScmUnregisterMSInsertEjectCallback
+			{
+				u32 cbId = Memory::Read_U32(argAddr);
+				if (0 == __KernelUnregisterCallback(THREAD_CALLBACK_MEMORYSTICK_FAT, cbId)) {
+					DEBUG_LOG(HLE, "sceIoDevCtl: Unregistered memstick FAT callback %i", cbId);
+					return 0;
+				} else {
+					return -1;
+				}
+			}
 
-        case 0x02415823:  // Set FAT as enabled
-            if (Memory::IsValidAddress(argAddr) && argLen == 4) {
-                MemoryStick_SetFatState((MemStickFatState)Memory::Read_U32(argAddr));
-                return 0;
-            } else {
-                ERROR_LOG(HLE, "Failed 0x02415823 fat");
-                return -1;
-            }
-            break;
+		case 0x02415823:  // Set FAT as enabled
+			if (Memory::IsValidAddress(argAddr) && argLen == 4) {
+				MemoryStick_SetFatState((MemStickFatState)Memory::Read_U32(argAddr));
+				return 0;
+			} else {
+				ERROR_LOG(HLE, "Failed 0x02415823 fat");
+				return -1;
+			}
+			break;
 
-        case 0x02425823:  // Check if FAT enabled
-            if (Memory::IsValidAddress(outPtr) && outLen == 4) {
-                Memory::Write_U32(MemoryStick_FatState(), outPtr);
-                return 0;
-            } else {
-                ERROR_LOG(HLE, "Failed 0x02425823 fat");
-                return -1;
-            }
-            break;
+		case 0x02425823:  // Check if FAT enabled
+			if (Memory::IsValidAddress(outPtr) && outLen == 4) {
+				Memory::Write_U32(MemoryStick_FatState(), outPtr);
+				return 0;
+			} else {
+				ERROR_LOG(HLE, "Failed 0x02425823 fat");
+				return -1;
+			}
+			break;
 
-        case 0x02425818:  // Get memstick size etc
-            // Pretend we have a 2GB memory stick.
-            {
-                if (Memory::IsValidAddress(argAddr)) {  // "Should" be outPtr but isn't
-                    u32 pointer = Memory::Read_U32(argAddr);
+		case 0x02425818:  // Get memstick size etc
+			// Pretend we have a 2GB memory stick.
+			{
+				if (Memory::IsValidAddress(argAddr)) {  // "Should" be outPtr but isn't
+					u32 pointer = Memory::Read_U32(argAddr);
 
-                    u64 totalSize = (u32)2 * 1024 * 1024 * 1024;
-                    u64 freeSize	= 1 * 1024 * 1024 * 1024;
-                    DeviceSize deviceSize;
-                    deviceSize.maxSectors				= 512;
-                    deviceSize.sectorSize				= 0x200;
-                    deviceSize.sectorsPerCluster = 0x08;
-                    deviceSize.totalClusters		 = (u32)((totalSize * 95 / 100) / (deviceSize.sectorSize * deviceSize.sectorsPerCluster));
-                    deviceSize.freeClusters			= (u32)((freeSize	* 95 / 100) / (deviceSize.sectorSize * deviceSize.sectorsPerCluster));
-                    Memory::WriteStruct(pointer, &deviceSize);
-                    return 0;
-                } else {
-                    return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
-                }
-            }
-        }
-    }
+					u64 totalSize = (u32)2 * 1024 * 1024 * 1024;
+					u64 freeSize	= 1 * 1024 * 1024 * 1024;
+					DeviceSize deviceSize;
+					deviceSize.maxSectors				= 512;
+					deviceSize.sectorSize				= 0x200;
+					deviceSize.sectorsPerCluster = 0x08;
+					deviceSize.totalClusters		 = (u32)((totalSize * 95 / 100) / (deviceSize.sectorSize * deviceSize.sectorsPerCluster));
+					deviceSize.freeClusters			= (u32)((freeSize	* 95 / 100) / (deviceSize.sectorSize * deviceSize.sectorsPerCluster));
+					Memory::WriteStruct(pointer, &deviceSize);
+					return 0;
+				} else {
+					return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
+				}
+			}
+		}
+	}
 
-
-    if (!strcmp(name, "kemulator:") || !strcmp(name, "emulator:"))
-    {
-        // Emulator special tricks!
-        switch (cmd)
-        {
-        case 1:	// EMULATOR_DEVCTL__GET_HAS_DISPLAY
-            if (Memory::IsValidAddress(outPtr))
-                Memory::Write_U32(0, outPtr);	 // TODO: Make a headless mode for running tests!
-            return 0;
-        case 2:	// EMULATOR_DEVCTL__SEND_OUTPUT
-            {
-                std::string data(Memory::GetCharPointer(argAddr), argLen);
-                if (PSP_CoreParameter().printfEmuLog)
-                {
-                    printf("%s", data.c_str());
+	if (!strcmp(name, "kemulator:") || !strcmp(name, "emulator:"))
+	{
+		// Emulator special tricks!
+		switch (cmd)
+		{
+		case 1:	// EMULATOR_DEVCTL__GET_HAS_DISPLAY
+			if (Memory::IsValidAddress(outPtr))
+				Memory::Write_U32(0, outPtr);	 // TODO: Make a headless mode for running tests!
+			return 0;
+		case 2:	// EMULATOR_DEVCTL__SEND_OUTPUT
+			{
+				std::string data(Memory::GetCharPointer(argAddr), argLen);
+				if (PSP_CoreParameter().printfEmuLog)
+				{
+					printf("%s", data.c_str());
 #ifdef _WIN32
-                    OutputDebugString(data.c_str());
+					OutputDebugString(data.c_str());
 #endif
-                    // Also collect the debug output
-                    emuDebugOutput += data;
-                }
-                else
-                {
-                    DEBUG_LOG(HLE, "%s", data.c_str());
-                }
-                return 0;
-            }
-        case 3:	// EMULATOR_DEVCTL__IS_EMULATOR
-            if (Memory::IsValidAddress(outPtr))
-                Memory::Write_U32(1, outPtr);	 // TODO: Make a headless mode for running tests!
-            return 0;
-        }
+					// Also collect the debug output
+					emuDebugOutput += data;
+				}
+				else
+				{
+					DEBUG_LOG(HLE, "%s", data.c_str());
+				}
+				return 0;
+			}
+		case 3:	// EMULATOR_DEVCTL__IS_EMULATOR
+			if (Memory::IsValidAddress(outPtr))
+				Memory::Write_U32(1, outPtr);	 // TODO: Make a headless mode for running tests!
+			return 0;
+		}
 
-        ERROR_LOG(HLE, "sceIoDevCtl: UNKNOWN PARAMETERS");
+		ERROR_LOG(HLE, "sceIoDevCtl: UNKNOWN PARAMETERS");
 
-        return 0;
-    }
+		return 0;
+	}
 
-    //089c6d1c weird branch
-    /*
-    089c6bdc ]: HLE: sceKernelCreateCallback(name= MemoryStick Detection ,entry= 089c7484 ) (z_un_089c6bc4)
-    089c6c18 ]: HLE: sceIoDevctl("mscmhc0:", 02015804, 09ffb9c0, 4, 00000000, 0) (z_un_089c6bc4)
-    089c6c40 ]: HLE: sceKernelCreateCallback(name= MemoryStick Assignment ,entry= 089c7534 ) (z_un_089c6bc4)
-    089c6c78 ]: HLE: sceIoDevctl("fatms0:", 02415821, 09ffb9c4, 4, 00000000, 0) (z_un_089c6bc4)
-    089c6cac ]: HLE: sceIoDevctl("mscmhc0:", 02025806, 00000000, 0, 09ffb9c8, 4) (z_un_089c6bc4)
-    */
-    return SCE_KERNEL_ERROR_UNSUP;
+	//089c6d1c weird branch
+	/*
+	089c6bdc ]: HLE: sceKernelCreateCallback(name= MemoryStick Detection ,entry= 089c7484 ) (z_un_089c6bc4)
+	089c6c18 ]: HLE: sceIoDevctl("mscmhc0:", 02015804, 09ffb9c0, 4, 00000000, 0) (z_un_089c6bc4)
+	089c6c40 ]: HLE: sceKernelCreateCallback(name= MemoryStick Assignment ,entry= 089c7534 ) (z_un_089c6bc4)
+	089c6c78 ]: HLE: sceIoDevctl("fatms0:", 02415821, 09ffb9c4, 4, 00000000, 0) (z_un_089c6bc4)
+	089c6cac ]: HLE: sceIoDevctl("mscmhc0:", 02025806, 00000000, 0, 09ffb9c8, 4) (z_un_089c6bc4)
+	*/
+	return SCE_KERNEL_ERROR_UNSUP;
 }
 
-u32 sceIoRename(const char *from, const char *to) //(const char *oldname, const char *newname);
-{
+u32 sceIoRename(const char *from, const char *to) {
 	DEBUG_LOG(HLE, "sceIoRename(%s, %s)", from, to);
 	if (pspFileSystem.RenameFile(from, to))
 		return 0;
@@ -690,16 +638,11 @@ u32 sceIoRename(const char *from, const char *to) //(const char *oldname, const 
 		return -1;
 }
 
-u32 sceIoChdir(const char *dirname)
-{
+u32 sceIoChdir(const char *dirname) {
 	pspFileSystem.ChDir(dirname);
 	DEBUG_LOG(HLE, "sceIoChdir(%s)", dirname);
 	return 1;
 }
-
-typedef u32 (*DeferredAction)(SceUID id, int param);
-DeferredAction defAction = 0;
-u32 defParam;
 
 void sceIoChangeAsyncPriority()
 {
@@ -792,15 +735,12 @@ u32 sceIoGetAsyncStat(int id, u32 address, u32 uknwn)
 	}
 }
 
-void sceIoWaitAsync(int id, u32 address, u32 uknwn)
-{
+void sceIoWaitAsync(int id, u32 address, u32 uknwn) {
 	u32 error;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
-	if (f)
-	{
+	if (f) {
 		u64 res = f->asyncResult;
-		if (defAction)
-		{
+		if (defAction) {
 			res = defAction(id, defParam);
 			defAction = 0;
 		}
@@ -808,25 +748,19 @@ void sceIoWaitAsync(int id, u32 address, u32 uknwn)
 		DEBUG_LOG(HLE, "%i = sceIoWaitAsync(%i, %08x) (HACK)", (u32) res, id,
 				uknwn);
 		RETURN(0); //completed
-	}
-	else
-	{
+	} else {
 		ERROR_LOG(HLE, "ERROR - sceIoWaitAsync waiting for invalid id %i", id);
 		RETURN(-1);
 	}
 }
 
-void sceIoWaitAsyncCB(int id, u32 address)
-{
+void sceIoWaitAsyncCB(int id, u32 address) {
 	// Should process callbacks here
-
 	u32 error;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
-	if (f)
-	{
+	if (f) {
 		u64 res = f->asyncResult;
-		if (defAction)
-		{
+		if (defAction) {
 			res = defAction(id, defParam);
 			defAction = 0;
 		}
@@ -834,23 +768,18 @@ void sceIoWaitAsyncCB(int id, u32 address)
 		DEBUG_LOG(HLE, "%i = sceIoWaitAsyncCB(%i, %08x) (HACK)", (u32) res, id,
 				address);
 		RETURN(0); //completed
-	}
-	else
-	{
+	} else {
 		ERROR_LOG(HLE, "ERROR - sceIoWaitAsyncCB waiting for invalid id %i",
 				id);
 	}
 }
 
-u32 sceIoPollAsync(int id, u32 address)
-{
+u32 sceIoPollAsync(int id, u32 address) {
 	u32 error;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
-	if (f)
-	{
+	if (f) {
 		u64 res = f->asyncResult;
-		if (defAction)
-		{
+		if (defAction) {
 			res = defAction(id, defParam);
 			defAction = 0;
 		}
@@ -858,15 +787,12 @@ u32 sceIoPollAsync(int id, u32 address)
 		DEBUG_LOG(HLE, "%i = sceIoPollAsync(%i, %08x) (HACK)", (u32) res, id,
 				address);
 		return 0; //completed
-	}
-	else
-	{
+	} else {
 		ERROR_LOG(HLE, "ERROR - sceIoPollAsync waiting for invalid id %i", id);
 	}
 }
 
-class DirListing : public KernelObject
-{
+class DirListing : public KernelObject {
 public:
 	const char *GetName() {return name.c_str();}
 	const char *GetTypeName() {return "DirListing";}
@@ -878,8 +804,7 @@ public:
 	int index;
 };
 
-u32 sceIoDopen(const char *path) //(const char *path);
-{
+u32 sceIoDopen(const char *path) {
 	DEBUG_LOG(HLE, "sceIoDopen(\"%s\")", path);
 
 	DirListing *dir = new DirListing();
@@ -894,15 +819,11 @@ u32 sceIoDopen(const char *path) //(const char *path);
 	return id;
 }
 
-u32 sceIoDread(int id, u32 dirent_addr)
-{
-
+u32 sceIoDread(int id, u32 dirent_addr) {
 	u32 error;
 	DirListing *dir = kernelObjects.Get < DirListing > (id, error);
-	if (dir)
-	{
-		if (dir->index == (int) dir->listing.size())
-		{
+	if (dir) {
+		if (dir->index == (int) dir->listing.size()) {
 			DEBUG_LOG(HLE, "sceIoDread( %d %08x ) - end of the line", id,
 					dirent_addr);
 			return 0;
@@ -921,22 +842,18 @@ u32 sceIoDread(int id, u32 dirent_addr)
 
 		dir->index++;
 		return (u32)(dir->listing.size() - dir->index + 1);
-	}
-	else
-	{
+	} else {
 		DEBUG_LOG(HLE, "sceIoDread - invalid listing %i, error %08x", id,
 				error);
 	}
 }
 
-u32 sceIoDclose(int id)
-{
+u32 sceIoDclose(int id) {
 	DEBUG_LOG(HLE, "sceIoDclose(%d)", id);
 	return kernelObjects.Destroy < DirListing > (id);
 }
 
-const HLEFunction IoFileMgrForUser[] =
-{
+const HLEFunction IoFileMgrForUser[] = {
 	{ 0xb29ddf9c, &WrapU_C<sceIoDopen>, "sceIoDopen" },
 	{ 0xe3eb004c, &WrapU_IU<sceIoDread>, "sceIoDread" },
 	{ 0xeb092469, &WrapU_I<sceIoDclose>, "sceIoDclose" },
@@ -975,20 +892,17 @@ const HLEFunction IoFileMgrForUser[] =
 	{ 0xe23eec33, &WrapV_IUU<sceIoWaitAsync>, "sceIoWaitAsync" }, 
 };
 
-void Register_IoFileMgrForUser()
-{
+void Register_IoFileMgrForUser() {
 	RegisterModule("IoFileMgrForUser", ARRAY_SIZE(IoFileMgrForUser), IoFileMgrForUser);
 }
 
 
-const HLEFunction StdioForUser[] =
-{
+const HLEFunction StdioForUser[] = {
 	{ 0x172D316E, &WrapU_V<sceKernelStdin>, "sceKernelStdin" },
 	{ 0xA6BAB2E9, &WrapU_V<sceKernelStdout>, "sceKernelStdout" },
 	{ 0xF78BA90A, &WrapU_V<sceKernelStderr>, "sceKernelStderr" }, 
 };
 
-void Register_StdioForUser()
-{
+void Register_StdioForUser() {
 	RegisterModule("StdioForUser", ARRAY_SIZE(StdioForUser), StdioForUser);
 }
