@@ -29,6 +29,18 @@
 #include "sceSas.h"
 #include "sceKernel.h"
 
+static const int PSP_SAS_ADSR_CURVE_MODE_LINEAR_INCREASE   = 0;
+static const int PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE   = 1;
+static const int PSP_SAS_ADSR_CURVE_MODE_LINEAR_BENT 	   = 2;
+static const int PSP_SAS_ADSR_CURVE_MODE_EXPONENT_DECREASE = 3;
+static const int PSP_SAS_ADSR_CURVE_MODE_EXPONENT_INCREASE = 4;
+static const int PSP_SAS_ADSR_CURVE_MODE_DIRECT            = 5;
+
+static const int PSP_SAS_ADSR_ATTACK  = 1;
+static const int PSP_SAS_ADSR_DECAY   = 2;
+static const int PSP_SAS_ADSR_SUSTAIN = 4;
+static const int PSP_SAS_ADSR_RELEASE = 8;
+
 static const double f[5][2] = 
 { { 0.0, 0.0 },
 {	 60.0 / 64.0,	0.0 },
@@ -306,12 +318,79 @@ u32 sceSasSetADSRMode(u32 core, int voiceNum,int flag ,int a, int d, int s, int 
 
 // http://code.google.com/p/jpcsp/source/browse/trunk/src/jpcsp/HLE/modules150/sceSasCore.java
 
+int simpleRate(int n) {
+    	n &= 0x7F;
+    	if (n == 0x7F) {
+    		return 0;
+    	}
+    	int rate = ((7 - (n & 0x3)) << 26) >> (n >> 2);
+    	if (rate == 0) {
+    		return 1;
+    	}
+    	return rate;
+}
+
+int attackRate(int bitfield1) {
+    return simpleRate(bitfield1 >> 8);
+}
+
+int attackType(int bitfield1) {
+    	return (bitfield1 & 0x8000) == 0 ? PSP_SAS_ADSR_CURVE_MODE_LINEAR_INCREASE : PSP_SAS_ADSR_CURVE_MODE_LINEAR_BENT;
+}
+
+int decayRate(int bitfield1) {
+    	return 0x80000000 >> ((bitfield1 >> 4) & 0x000F);
+}
+
+int sustainRate(int bitfield2) {
+   	return simpleRate(bitfield2 >> 6);
+}
+
+int sustainType(int bitfield2) {
+    	switch (bitfield2 >> 13) {
+    		case 0: return PSP_SAS_ADSR_CURVE_MODE_LINEAR_INCREASE;
+    		case 2: return PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE;
+    		case 4: return PSP_SAS_ADSR_CURVE_MODE_LINEAR_BENT;
+    		case 6: return PSP_SAS_ADSR_CURVE_MODE_EXPONENT_DECREASE;
+         }
+      DEBUG_LOG(HLE,"sasSetSimpleADSR,ERROR_SAS_INVALID_ADSR_CURVE_MODE");
+
+}
+
+int releaseType(int bitfield2) {
+    	return (bitfield2 & 0x0020) == 0 ? PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE : PSP_SAS_ADSR_CURVE_MODE_EXPONENT_DECREASE;
+}
+
+int releaseRate(int bitfield2) {
+    	int n = bitfield2 & 0x001F;
+    	if (n == 31) {
+    		return 0;
+    	}
+    	if (releaseType(bitfield2) == PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE) {
+    		return (0x40000000 >> (n + 2));
+    	}
+    	return (0x8000000 >> n);
+}
+
+int sustainLevel(int bitfield1) {
+    	return ((bitfield1 & 0x000F) + 1) << 26;
+}
+
 u32 sceSasSetSimpleADSR(u32 core, u32 voiceNum, u32 ADSREnv1, u32 ADSREnv2)
 {
 	DEBUG_LOG(HLE,"UNIMPL 0=sasSetSimpleADSR(%08x, %i, %08x, %08x)", core, voiceNum, ADSREnv1, ADSREnv2);
 	ADSREnv1 &= 0xFFFF;
 	ADSREnv2 &= 0xFFFF;
-	//....
+	Voice &v = sas.voices[voiceNum];
+	v.attackRate  = attackRate(ADSREnv1);
+	v.attackType  = attackType(ADSREnv1);
+	v.decayRate   = decayRate(ADSREnv1);
+	v.decayType   = PSP_SAS_ADSR_CURVE_MODE_EXPONENT_DECREASE;
+	v.sustainRate = sustainRate(ADSREnv2);
+	v.sustainType = sustainType(ADSREnv2);
+	v.releaseRate = releaseRate(ADSREnv2);
+	v.releaseType = releaseType(ADSREnv2);
+	v.sustainLevel = sustainLevel(ADSREnv1);
 	return 0;
 }
 
