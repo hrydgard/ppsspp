@@ -760,7 +760,7 @@ u32 sceIoLseek32Async(int id, int offset, int whence)
 void sceIoOpenAsync(const char *filename, int mode)
 {
 	DEBUG_LOG(HLE, "sceIoOpenAsync() sorta implemented");
-	sceIoOpen(filename, mode);
+    RETURN(sceIoOpen(filename, mode));
 //	__IoCompleteAsyncIO(currentMIPS->r[2]);	// The return value
 	// We have to return a UID here, which may have been destroyed when we reach Wait if it failed.
 	// Now that we're just faking it, we just don't RETURN(0) here.
