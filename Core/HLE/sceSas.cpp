@@ -138,6 +138,7 @@ struct Voice
 	int releaseType;
 	int pitch;
 	bool endFlag;
+	bool PauseFlag;
 	bool playing;
 
 	VagDecoder vag;
@@ -215,9 +216,8 @@ u32 sceSasGetEndFlag()
 }
 
 // Runs the mixer
-void _sceSasCore()
+void _sceSasCore(u32 outAddr)
 {
-	u32 outAddr = PARAM(1);
 	DEBUG_LOG(HLE,"0=sceSasCore(, %08x)	(grain: %i samples)", outAddr, sas.grainSize);
 	Memory::Memset(outAddr, 0, sas.grainSize * 2 * 2);
 	sas.mix(outAddr);
@@ -225,21 +225,15 @@ void _sceSasCore()
 }
 
 // Another way of running the mixer, what was the difference again?
-void _sceSasCoreWithMix()
+void _sceSasCoreWithMix(u32 outAddr)
 {
-	u32 outAddr = PARAM(1);
 	DEBUG_LOG(HLE,"0=sceSasCoreWithMix(, %08x)", outAddr);
 	sas.mix(outAddr);
 	RETURN(0);
 }
 
-void sceSasSetVoice()
+void sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop)
 {
-	u32 core = PARAM(0);
-	int voiceNum = PARAM(1);
-	u32 vagAddr = PARAM(2);
-	int size = PARAM(3);
-	int loop = PARAM(4);
 	DEBUG_LOG(HLE,"0=sceSasSetVoice(core=%08x, voicenum=%i, vag=%08x, size=%i, loop=%i)", 
 		core, voiceNum, vagAddr, size, loop);
 
@@ -252,14 +246,8 @@ void sceSasSetVoice()
 	RETURN(0);
 }
 
-void sceSasSetVolume()
+void sceSasSetVolume(u32 core, int voiceNum, int l, int r, int el, int er)
 {
-	u32 core = PARAM(0);
-	int voiceNum = PARAM(1);
-	int l = PARAM(2);
-	int r = PARAM(3);
-	int el = PARAM(4);
-	int er = PARAM(5);
 	DEBUG_LOG(HLE,"UNIMPL 0=sceSasSetVolume(core=%08x, voicenum=%i, l=%i, r=%i, el=%i, er=%i", core, voiceNum, l, r, el, er);
 	Voice &v = sas.voices[voiceNum];
 	v.volumeLeft = l;
@@ -267,21 +255,16 @@ void sceSasSetVolume()
 	RETURN(0);
 }
 
-void sceSasSetPitch()
+void sceSasSetPitch(u32 core, int voiceNum, int pitch)
 {
-	u32 core = PARAM(0);
-	int voiceNum = PARAM(1);
-	int pitch = PARAM(2);
 	Voice &v = sas.voices[voiceNum];
 	v.pitch = pitch;
 	DEBUG_LOG(HLE,"UNIMPL 0=sceSasSetPitch(core=%08x, voicenum=%i, pitch=%i)", core, voiceNum, pitch);
 	RETURN(0);
 }
 
-void sceSasSetKeyOn()
+void sceSasSetKeyOn(u32 core, int voiceNum)
 {
-	u32 core = PARAM(0);
-	int voiceNum = PARAM(1);
 	DEBUG_LOG(HLE,"0=sceSasSetKeyOff(core=%08x, voicenum=%i)", core, voiceNum);
 	Voice &v = sas.voices[voiceNum];
 	v.vag.Start(Memory::GetPointer(v.vagAddr));
@@ -291,10 +274,8 @@ void sceSasSetKeyOn()
 
 // TODO: We really need ADSR work: 
 // sceSasSetKeyOff can be used to start sounds, that just sound during the Release phase!
-void sceSasSetKeyOff()
+void sceSasSetKeyOff(u32 core, int voiceNum)
 {
-	u32 core = PARAM(0);
-	int voiceNum = PARAM(1);
 	DEBUG_LOG(HLE,"0=sceSasSetKeyOff(core=%08x, voicenum=%i)", core, voiceNum);
 	Voice &v = sas.voices[voiceNum];
 	v.playing = false;	// not right! Should directly enter Release envelope stage instead!
@@ -346,19 +327,14 @@ u32 sceSasGetEnvelopeHeight(u32 core, u32 voiceNum)
 	return v.playing ? 0x3fffffff : 0;
 }
 
-void sceSasRevType()
+void sceSasRevType(u32 core, int type)
 {
-	u32 core = PARAM(0);
-	int type = PARAM(1);
 	DEBUG_LOG(HLE,"UNIMPL 0=sceSasRevType(core=%08x, type=%i)", core, type);
 	RETURN(0);
 }
 
-void sceSasRevParam()
+void sceSasRevParam(u32 core, int param1, int param2)
 {
-	u32 core = PARAM(0);
-	int param1 = PARAM(1);
-	int param2 = PARAM(2);
 	DEBUG_LOG(HLE,"UNIMPL 0=sceSasRevParam(core=%08x, param1=%i, param2=%i)", core, param1, param2);
 	RETURN(0);
 }
@@ -376,29 +352,20 @@ u32 sceSasGetPauseFlag()
 
 
 
-void sceSasRevEVOL()
+void sceSasRevEVOL(u32 core, int param1, int param2)
 {
-	u32 core = PARAM(0);
-	int param1 = PARAM(1);
-	int param2 = PARAM(2);
 	DEBUG_LOG(HLE,"UNIMPL 0=sceSasRevEVOL(core=%08x, param1=%i, param2=%i)", core, param1, param2);
 	RETURN(0);
 }
 
-void sceSasRevVON()
+void sceSasRevVON(u32 core, int param1, int param2)
 {
-	u32 core = PARAM(0);
-	int param1 = PARAM(1);
-	int param2 = PARAM(2);
 	DEBUG_LOG(HLE,"UNIMPL 0=sceSasRevEVOL(core=%08x, param1=%i, param2=%i)", core, param1, param2);
 	RETURN(0);
 }
 
-void sceSasGetOutputMode()
+void sceSasGetOutputMode(u32 core, int param1, int param2)
 {
-	u32 core = PARAM(0);
-	int param1 = PARAM(1);
-	int param2 = PARAM(2);
 	DEBUG_LOG(HLE,"UNIMPL 0=sceSasGetOutputMode(core=%08x, param1=%i, param2=%i)", core, param1, param2);
 	RETURN(0);
 }
@@ -407,31 +374,31 @@ void sceSasGetOutputMode()
 const HLEFunction sceSasCore[] =
 {
 	{0x42778a9f, WrapU_UUUUU<sceSasInit>, "__sceSasInit"}, // (SceUID * sasCore, int grain, int maxVoices, int outputMode, int sampleRate)
-	{0xa3589d81, _sceSasCore, "__sceSasCore"},
-	{0x50a14dfc, _sceSasCoreWithMix, "__sceSasCoreWithMix"},	// Process and mix into buffer (int sasCore, int sasInOut, int leftVolume, int rightVolume)
+	{0xa3589d81, WrapV_U<sceSasCore>, "__sceSasCore"},
+	{0x50a14dfc, WrapV_U<sceSasCoreWithMix>, "__sceSasCoreWithMix"},	// Process and mix into buffer (int sasCore, int sasInOut, int leftVolume, int rightVolume)
 	{0x68a46b95, WrapU_V<sceSasGetEndFlag>, "__sceSasGetEndFlag"},	// int sasCore
-	{0x440ca7d8, sceSasSetVolume, "__sceSasSetVolume"},
-	{0xad84d37f, sceSasSetPitch, "__sceSasSetPitch"},
-	{0x99944089, sceSasSetVoice, "__sceSasSetVoice"},	// (int sasCore, int voice, int vagAddr, int size, int loopmode)
+	{0x440ca7d8, WrapV_UIIIII<sceSasSetVolume>, "__sceSasSetVolume"},
+	{0xad84d37f, WrapV_UII<sceSasSetPitch>, "__sceSasSetPitch"},
+	{0x99944089, WrapV_UIUII<sceSasSetVoice>, "__sceSasSetVoice"},	// (int sasCore, int voice, int vagAddr, int size, int loopmode)
 	{0xb7660a23, 0, "__sceSasSetNoise"},
 	{0x019b25eb, WrapU_UIIIIII<sceSasSetADSR>, "__sceSasSetADSR"},
 	{0x9ec3676a, WrapU_UIIIIII<sceSasSetADSRMode>, "__sceSasSetADSRmode"},
 	{0x5f9529f6, 0, "__sceSasSetSL"},
 	{0x74ae582a, WrapU_UU<sceSasGetEnvelopeHeight>, "__sceSasGetEnvelopeHeight"},	
 	{0xcbcd4f79, WrapU_UUUU<sceSasSetSimpleADSR>, "__sceSasSetSimpleADSR"},
-	{0xa0cf2fa4, sceSasSetKeyOff, "__sceSasSetKeyOff"},
-	{0x76f01aca, sceSasSetKeyOn, "__sceSasSetKeyOn"},	// (int sasCore, int voice)
-	{0xf983b186, sceSasRevVON, "__sceSasRevVON"},	// int sasCore, int dry, int wet
-	{0xd5a229c9, sceSasRevEVOL, "__sceSasRevEVOL"},	// (int sasCore, int leftVol, int rightVol)	// effect volume
-	{0x33d4ab37, sceSasRevType, "__sceSasRevType"},	 // (int sasCore, int type)
-	{0x267a6dd2, sceSasRevParam, "__sceSasRevParam"},	// (int sasCore, int delay, int feedback)
+	{0xa0cf2fa4, WrapV_UI<sceSasSetKeyOff>, "__sceSasSetKeyOff"},
+	{0x76f01aca, WrapV_UI<sceSasSetKeyOn>, "__sceSasSetKeyOn"},	// (int sasCore, int voice)
+	{0xf983b186, WrapV_UII<sceSasRevVON>, "__sceSasRevVON"},	// int sasCore, int dry, int wet
+	{0xd5a229c9, WrapV_UII<sceSasRevEVOL>, "__sceSasRevEVOL"},	// (int sasCore, int leftVol, int rightVol)	// effect volume
+	{0x33d4ab37, WrapV_UI<sceSasRevType>, "__sceSasRevType"},	 // (int sasCore, int type)
+	{0x267a6dd2, WrapV_UII<sceSasRevParam>, "__sceSasRevParam"},	// (int sasCore, int delay, int feedback)
 	{0x2c8e6ab3, WrapU_V<sceSasGetPauseFlag>, "__sceSasGetPauseFlag"}, // int sasCore
 	{0x787d04d5, 0, "__sceSasSetPause"},
 	{0xa232cbe6, 0, "__sceSasSetTriangularWave"},		// (int sasCore, int voice, int unknown)
 	{0xd5ebbbcd, 0, "__sceSasSetSteepWave"},	 // (int sasCore, int voice, int unknown)		// square wave?
 	{0xBD11B7C2, 0, "__sceSasGetGrain"},
 	{0xd1e0a01e, 0, "__sceSasSetGrain"},
-	{0xe175ef66, sceSasGetOutputMode, "__sceSasGetOutputmode"},
+	{0xe175ef66, WrapV_UII<sceSasGetOutputMode>, "__sceSasGetOutputmode"},
 	{0xe855bf76, 0, "__sceSasSetOutputmode"},
 	{0x07f58c24, 0, "__sceSasGetAllEnvelopeHeights"},	// (int sasCore, int heightAddr)	32-bit heights, 0-0x40000000
 	{0xE1CD9561, 0, "__sceSasSetVoicePCM"},
