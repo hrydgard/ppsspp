@@ -318,6 +318,9 @@
     <ClCompile Include="HLE\scesupPreAcc.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\sceVaudio.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -582,6 +585,9 @@
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="HLE\scesupPreAcc.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceVaudio.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
   </ItemGroup>

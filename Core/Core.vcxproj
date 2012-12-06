@@ -165,6 +165,7 @@
     <ClCompile Include="HLE\scesupPreAcc.cpp" />
     <ClCompile Include="HLE\sceUmd.cpp" />
     <ClCompile Include="HLE\sceUtility.cpp" />
+    <ClCompile Include="HLE\sceVaudio.cpp" />
     <ClCompile Include="HLE\__sceAudio.cpp" />
     <ClCompile Include="Host.cpp" />
     <ClCompile Include="HW\MemoryStick.cpp" />
@@ -304,6 +305,7 @@
     <ClInclude Include="HLE\sceUmd.h" />
     <ClInclude Include="HLE\sceUtility.h" />
     <ClInclude Include="HLE\sceKernelVTimer.h" />
+    <ClInclude Include="HLE\sceVaudio.h" />
     <ClInclude Include="HLE\__sceAudio.h" />
     <ClInclude Include="Host.h" />
     <ClInclude Include="HW\MemoryStick.h" />
