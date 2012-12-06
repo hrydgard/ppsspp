@@ -124,6 +124,7 @@ struct Voice
 	int samplePos;
 	int size;
 	int loop;
+	int freq;  //units?
 	int volumeLeft;
 	int volumeRight;
 	int volumeLeftSend;	// volume to "Send" (audio-lingo) to the effects processing engine, like reverb
@@ -135,6 +136,7 @@ struct Voice
 	int attackType;
 	int decayType;
 	int sustainType;
+	int sustainLevel;
 	int releaseType;
 	int pitch;
 	bool endFlag;
