@@ -49,6 +49,7 @@
 #include "scePower.h"
 #include "sceUtility.h"
 #include "sceUmd.h"
+#include "sceSsl.h"
 
 #include "../Util/PPGeDraw.h"
 
@@ -82,6 +83,7 @@ void __KernelInit()
 	__UtilityInit();
 	__UmdInit();
 	__CtrlInit();
+	__SslInit();
 	
 	// "Internal" PSP libraries
 	__PPGeInit();

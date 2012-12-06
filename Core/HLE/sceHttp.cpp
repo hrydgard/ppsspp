@@ -65,9 +65,16 @@ const HLEFunction sceHttp[] =
 	{0xae948fee,0,"sceHttpDisableAuth"},
 	{0xccbd167a,0,"sceHttpDisableCache"},
 	{0xd081ec8f,0,"sceHttpGetNetworkErrno"},
-	{0x76d1363b,0,"sceHttp_76d1363b"},
-	{0x87797bdd,0,"sceHttp_87797bdd"},
-	{0xf1657b22,0,"sceHttp_f1657b22"},
+	{0x76d1363b,0,"sceHttpSaveSystemCookie"},
+	{0x87797bdd,0,"sceHttpsLoadDefaultCert"},
+	{0xf1657b22,0,"sceHttpLoadSystemCookie"},
+	{0x9B1F1F36,0,"sceHttpCreateTemplate"},
+	{0xB509B09E,0,"sceHttpCreateRequestWithURL"},
+	{0xCDF8ECB9,0,"sceHttpCreateConnectionWithURL"},
+	{0x1F0FC3E3,0,"sceHttpSetRecvTimeOut"},
+	{0xDB266CCF,0,"sceHttpGetAllHeader"},
+	{0x68AB0F86,0,"sceHttpsInitWithPath"},
+	{0xB3FAF831,0,"sceHttpsDisableOption"},
 };				
 
 void Register_sceHttp()
