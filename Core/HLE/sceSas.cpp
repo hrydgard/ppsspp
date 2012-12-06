@@ -282,20 +282,20 @@ void sceSasSetKeyOff(u32 core, int voiceNum)
 	RETURN(0);
 }
 
-void sceSasSetNoise(u32 core, int voiceNum, int freq)
+u32 sceSasSetNoise(u32 core, int voiceNum, int freq)
 {
-		DEBUG_LOG(HLE,"0=sceSasSetVoice(core=%08x, voiceNum=%i, freq=%i)", core, voiceNum, freq);
-		Voice &v = sas.voices[voiceNum];
-		v.freq = freq;
-		return(0);
+	DEBUG_LOG(HLE,"0=sceSasSetVoice(core=%08x, voiceNum=%i, freq=%i)", core, voiceNum, freq);
+	Voice &v = sas.voices[voiceNum];
+	v.freq = freq;
+	return(0);
 }
 
-void sceSasSetSL(u32 core, int voiceNum, int level)
+u32 sceSasSetSL(u32 core, int voiceNum, int level)
 {
-		DEBUG_LOG(HLE,"0=sceSasSetSL(core=%08x, voicenum=%i, level=%i)", core, voiceNum, level);
-		Voice &v = sas.voices[voiceNum];
-		v.sustainLevel = level;
-		return(0);
+	DEBUG_LOG(HLE,"0=sceSasSetSL(core=%08x, voicenum=%i, level=%i)", core, voiceNum, level);
+	Voice &v = sas.voices[voiceNum];
+	v.sustainLevel = level;
+	return(0);
 }
 
 u32 sceSasSetADSR(u32 core, int voiceNum,int flag ,int a, int d, int s, int r)
@@ -396,10 +396,10 @@ const HLEFunction sceSasCore[] =
 	{0x440ca7d8, WrapV_UIIIII<sceSasSetVolume>, "__sceSasSetVolume"},
 	{0xad84d37f, WrapV_UII<sceSasSetPitch>, "__sceSasSetPitch"},
 	{0x99944089, WrapV_UIUII<sceSasSetVoice>, "__sceSasSetVoice"},	// (int sasCore, int voice, int vagAddr, int size, int loopmode)
-	{0xb7660a23, WrapV_UII<sceSasSetNoise>, "__sceSasSetNoise"},
+	{0xb7660a23, WrapU_UII<sceSasSetNoise>, "__sceSasSetNoise"},
 	{0x019b25eb, WrapU_UIIIIII<sceSasSetADSR>, "__sceSasSetADSR"},
 	{0x9ec3676a, WrapU_UIIIIII<sceSasSetADSRMode>, "__sceSasSetADSRmode"},
-	{0x5f9529f6, WrapV_UII<sceSasSetSL>, "__sceSasSetSL"},
+	{0x5f9529f6, WrapU_UII<sceSasSetSL>, "__sceSasSetSL"},
 	{0x74ae582a, WrapU_UU<sceSasGetEnvelopeHeight>, "__sceSasGetEnvelopeHeight"},	
 	{0xcbcd4f79, WrapU_UUUU<sceSasSetSimpleADSR>, "__sceSasSetSimpleADSR"},
 	{0xa0cf2fa4, WrapV_UI<sceSasSetKeyOff>, "__sceSasSetKeyOff"},
