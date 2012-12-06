@@ -789,6 +789,7 @@ u32 sceIoPollAsync(int id, u32 address) {
 		return 0; //completed
 	} else {
 		ERROR_LOG(HLE, "ERROR - sceIoPollAsync waiting for invalid id %i", id);
+		return -1;  // TODO: correct error code
 	}
 }
 
@@ -821,7 +822,7 @@ u32 sceIoDopen(const char *path) {
 
 u32 sceIoDread(int id, u32 dirent_addr) {
 	u32 error;
-	DirListing *dir = kernelObjects.Get < DirListing > (id, error);
+	DirListing *dir = kernelObjects.Get<DirListing>(id, error);
 	if (dir) {
 		if (dir->index == (int) dir->listing.size()) {
 			DEBUG_LOG(HLE, "sceIoDread( %d %08x ) - end of the line", id,
@@ -845,12 +846,13 @@ u32 sceIoDread(int id, u32 dirent_addr) {
 	} else {
 		DEBUG_LOG(HLE, "sceIoDread - invalid listing %i, error %08x", id,
 				error);
+		return -1;  // TODO
 	}
 }
 
 u32 sceIoDclose(int id) {
 	DEBUG_LOG(HLE, "sceIoDclose(%d)", id);
-	return kernelObjects.Destroy < DirListing > (id);
+	return kernelObjects.Destroy<DirListing>(id);
 }
 
 const HLEFunction IoFileMgrForUser[] = {

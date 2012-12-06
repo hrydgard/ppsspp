@@ -98,7 +98,8 @@ int ashmem_unpin_region(int fd, size_t offset, size_t len)
 
 
 #ifndef _WIN32
-static std::string ram_temp_file = "/tmp/gc_mem.tmp";
+// do not make this "static"
+std::string ram_temp_file = "/tmp/gc_mem.tmp";
 #else
 SYSTEM_INFO sysInfo;
 #endif

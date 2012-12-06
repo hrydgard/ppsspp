@@ -35,7 +35,7 @@ struct NativeMbx
 	u32 packetListHead;
 };
 
-struct Mbx : public KernelObject 
+struct Mbx : public KernelObject
 {
 	const char *GetName() {return nmb.name;}
 	const char *GetTypeName() {return "Mbx";}
@@ -46,7 +46,7 @@ struct Mbx : public KernelObject
 	{
 		if (nmb.attr & SCE_KERNEL_MBA_THPRI)
 		{
-			for (std::vector<std::pair<SceUID, u32>>::iterator it = waitingThreads.begin(); it != waitingThreads.end(); it++)
+			for (std::vector<std::pair<SceUID, u32> >::iterator it = waitingThreads.begin(); it != waitingThreads.end(); it++)
 			{
 				if (__KernelGetThreadPrio(id) >= __KernelGetThreadPrio((*it).first))
 				{
@@ -63,7 +63,7 @@ struct Mbx : public KernelObject
 
 	NativeMbx nmb;
 
-	std::vector<std::pair<SceUID, u32>> waitingThreads;
+	std::vector<std::pair<SceUID, u32> > waitingThreads;
 	std::vector<u32> messageQueue;
 };
 

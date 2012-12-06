@@ -6,7 +6,7 @@
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	See the
 // GNU General Public License 2.0 for more details.
 
 // A copy of the GPL 2.0 should have been included with the program.
@@ -39,27 +39,28 @@ LogManager *LogManager::m_logManager = NULL;
 LogManager::LogManager()
 {
 	// create log files
-  m_Log[LogTypes::MASTER_LOG] = new LogContainer("*",				"Master Log");
-  m_Log[LogTypes::BOOT]       = new LogContainer("BOOT",			"Boot");
-  m_Log[LogTypes::COMMON]     = new LogContainer("COMMON",		"Common");
-  m_Log[LogTypes::CPU]        = new LogContainer("CPU",			"CPU");
-  m_Log[LogTypes::LOADER]     = new LogContainer("LOAD",			"Loader");
-  m_Log[LogTypes::IO]         = new LogContainer("IO",	    	"IO");
-  m_Log[LogTypes::DISCIO]     = new LogContainer("DIO",	    	"DiscIO");
-  m_Log[LogTypes::PAD]        = new LogContainer("PAD",			"Pad");
-  m_Log[LogTypes::FILESYS]    = new LogContainer("FileSys",		"File System");
-  m_Log[LogTypes::G3D]        = new LogContainer("G3D",			"3D Graphics");
-  m_Log[LogTypes::DMA]        = new LogContainer("DMA",			"DMA");
-  m_Log[LogTypes::INTC]       = new LogContainer("INTC",			"Interrupts");
-  m_Log[LogTypes::MEMMAP]     = new LogContainer("MM",		"Memory Map");
-  m_Log[LogTypes::SOUND]      = new LogContainer("SND",			"Sound");
-  m_Log[LogTypes::HLE]        = new LogContainer("HLE",			"HLE");
-  m_Log[LogTypes::TIMER]      = new LogContainer("TMR",			"Timer");
-  m_Log[LogTypes::VIDEO]      = new LogContainer("VID",			"Video");
-  m_Log[LogTypes::DYNA_REC]   = new LogContainer("Jit",			"JIT compiler");
-  m_Log[LogTypes::NETPLAY]    = new LogContainer("NET",			"Net play");
+	m_Log[LogTypes::MASTER_LOG] = new LogContainer("*",				"Master Log");
+	m_Log[LogTypes::BOOT]       = new LogContainer("BOOT",			"Boot");
+	m_Log[LogTypes::COMMON]     = new LogContainer("COMMON",		"Common");
+	m_Log[LogTypes::CPU]        = new LogContainer("CPU",			"CPU");
+	m_Log[LogTypes::LOADER]     = new LogContainer("LOAD",			"Loader");
+	m_Log[LogTypes::IO]         = new LogContainer("IO",	    	"IO");
+	m_Log[LogTypes::DISCIO]     = new LogContainer("DIO",	    	"DiscIO");
+	m_Log[LogTypes::PAD]        = new LogContainer("PAD",			"Pad");
+	m_Log[LogTypes::FILESYS]    = new LogContainer("FileSys",		"File System");
+	m_Log[LogTypes::G3D]        = new LogContainer("G3D",			"3D Graphics");
+	m_Log[LogTypes::DMA]        = new LogContainer("DMA",			"DMA");
+	m_Log[LogTypes::INTC]       = new LogContainer("INTC",			"Interrupts");
+	m_Log[LogTypes::MEMMAP]     = new LogContainer("MM",		"Memory Map");
+	m_Log[LogTypes::SOUND]      = new LogContainer("SND",			"Sound");
+	m_Log[LogTypes::HLE]        = new LogContainer("HLE",			"HLE");
+	m_Log[LogTypes::TIMER]      = new LogContainer("TMR",			"Timer");
+	m_Log[LogTypes::VIDEO]      = new LogContainer("VID",			"Video");
+	m_Log[LogTypes::DYNA_REC]   = new LogContainer("Jit",			"JIT compiler");
+	m_Log[LogTypes::NETPLAY]    = new LogContainer("NET",			"Net play");
 
-#ifndef ANDROID
+	// Remove file logging on small devices
+#if !defined(ANDROID) && !defined(IOS) && !defined(BLACKBERRY)
 	m_fileLog = new FileLogListener(File::GetUserPath(F_MAINLOG_IDX).c_str());
 	m_consoleLog = new ConsoleListener();
 	m_debuggerLog = new DebuggerLogListener();
@@ -68,7 +69,7 @@ LogManager::LogManager()
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; ++i)
 	{
 		m_Log[i]->SetEnable(true);
-#ifndef ANDROID
+#if !defined(ANDROID) && !defined(IOS) && !defined(BLACKBERRY)
 		m_Log[i]->AddListener(m_fileLog);
 		m_Log[i]->AddListener(m_consoleLog);
 #ifdef _MSC_VER
@@ -83,7 +84,7 @@ LogManager::~LogManager()
 {
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; ++i)
 	{
-#ifndef ANDROID
+#if !defined(ANDROID) && !defined(IOS) && !defined(BLACKBERRY)
 		m_logManager->RemoveListener((LogTypes::LOG_TYPE)i, m_fileLog);
 		m_logManager->RemoveListener((LogTypes::LOG_TYPE)i, m_consoleLog);
 		m_logManager->RemoveListener((LogTypes::LOG_TYPE)i, m_debuggerLog);
@@ -92,7 +93,7 @@ LogManager::~LogManager()
 
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; ++i)
 		delete m_Log[i];
-#ifndef ANDROID
+#if !defined(ANDROID) && !defined(IOS) && !defined(BLACKBERRY)
 	delete m_fileLog;
 	delete m_consoleLog;
 #endif
@@ -100,24 +101,24 @@ LogManager::~LogManager()
 
 void LogManager::SaveConfig(IniFile::Section *section)
 {
-  for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++)
-  {
-    section->Set((std::string(m_Log[i]->GetShortName()) + "Enabled").c_str(), m_Log[i]->IsEnabled());
-    section->Set((std::string(m_Log[i]->GetShortName()) + "Level").c_str(), (int)m_Log[i]->GetLevel());
-  }
+	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++)
+	{
+		section->Set((std::string(m_Log[i]->GetShortName()) + "Enabled").c_str(), m_Log[i]->IsEnabled());
+		section->Set((std::string(m_Log[i]->GetShortName()) + "Level").c_str(), (int)m_Log[i]->GetLevel());
+	}
 }
 
 void LogManager::LoadConfig(IniFile::Section *section)
 {
-  for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++)
-  {
-    bool enabled;
-    int level;
-    section->Get((std::string(m_Log[i]->GetShortName()) + "Enabled").c_str(), &enabled, true);
-    section->Get((std::string(m_Log[i]->GetShortName()) + "Level").c_str(), &level, 0);
-    m_Log[i]->SetEnable(enabled);
-    m_Log[i]->SetLevel((LogTypes::LOG_LEVELS)level);
-  }
+	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++)
+	{
+		bool enabled;
+		int level;
+		section->Get((std::string(m_Log[i]->GetShortName()) + "Enabled").c_str(), &enabled, true);
+		section->Get((std::string(m_Log[i]->GetShortName()) + "Level").c_str(), &level, 0);
+		m_Log[i]->SetEnable(enabled);
+		m_Log[i]->SetLevel((LogTypes::LOG_LEVELS)level);
+	}
 }
 
 void LogManager::Log(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const char *file, int line, const char *format, va_list args)
@@ -131,8 +132,8 @@ void LogManager::Log(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const 
 	CharArrayFromFormatV(temp, MAX_MSGLEN, format, args);
 
 	static const char level_to_char[7] = "-NEWID";
-  char formattedTime[13];
-  Common::Timer::GetTimeFormatted(formattedTime);
+	char formattedTime[13];
+	Common::Timer::GetTimeFormatted(formattedTime);
 	sprintf(msg, "%s %s:%u %c[%s]: %s\n",
 		formattedTime,
 		file, line, level_to_char[(int)level],
