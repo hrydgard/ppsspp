@@ -124,12 +124,18 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/HLE/sceKernelVTimer.cpp \
   $(SRC)/Core/HLE/sceMpeg.cpp \
   $(SRC)/Core/HLE/sceNet.cpp \
+  $(SRC)/Core/HLE/sceOpenPSID.cpp \
+  $(SRC)/Core/HLE/sceParseHttp.cpp \
+  $(SRC)/Core/HLE/sceParseUri.cpp \
   $(SRC)/Core/HLE/scePower.cpp \
   $(SRC)/Core/HLE/sceRtc.cpp \
   $(SRC)/Core/HLE/scePsmf.cpp \
   $(SRC)/Core/HLE/sceSas.cpp \
+  $(SRC)/Core/HLE/sceSsl.cpp \
   $(SRC)/Core/HLE/sceUmd.cpp \
   $(SRC)/Core/HLE/sceUtility.cpp \
+  $(SRC)/Core/HLE/sceVaudio.cpp \
+  $(SRC)/Core/HLE/scesupPreAcc.cpp \
   $(SRC)/Core/FileSystems/BlockDevices.cpp \
   $(SRC)/Core/FileSystems/ISOFileSystem.cpp \
   $(SRC)/Core/FileSystems/MetaFileSystem.cpp \

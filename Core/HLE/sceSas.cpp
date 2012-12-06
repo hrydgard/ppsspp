@@ -150,7 +150,6 @@ struct Voice
 	int sustainType;
 	int sustainLevel;
 	int releaseType;
-	int sustainLevel;
 	int pitch;
 	bool endFlag;
 	bool PauseFlag;

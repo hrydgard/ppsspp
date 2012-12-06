@@ -680,6 +680,12 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceMpeg.h
 	Core/HLE/sceNet.cpp
 	Core/HLE/sceNet.h
+	Core/HLE/sceOpenPSID.cpp
+	Core/HLE/sceOpenPSID.h
+	Core/HLE/sceParseHttp.cpp
+	Core/HLE/sceParseHttp.h
+	Core/HLE/sceParseUri.cpp
+	Core/HLE/sceParseUri.h
 	Core/HLE/scePower.cpp
 	Core/HLE/scePower.h
 	Core/HLE/scePsmf.cpp
@@ -688,10 +694,16 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceRtc.h
 	Core/HLE/sceSas.cpp
 	Core/HLE/sceSas.h
+	Core/HLE/sceSsl.cpp
+	Core/HLE/sceSsl.h
+	Core/HLE/scesupPreAcc.cpp
+	Core/HLE/scesupPreAcc.h
 	Core/HLE/sceUmd.cpp
 	Core/HLE/sceUmd.h
 	Core/HLE/sceUtility.cpp
 	Core/HLE/sceUtility.h
+	Core/HLE/sceVaudio.cpp
+	Core/HLE/sceVaudio.h
 	Core/HW/MemoryStick.cpp
 	Core/HW/MemoryStick.h
 	Core/Host.cpp
