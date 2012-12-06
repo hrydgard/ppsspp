@@ -292,7 +292,7 @@ void sceSasSetNoise(u32 core, int voiceNum, int freq)
 
 void sceSasSetSL(u32 core, int voiceNum, int level)
 {
-		DEBUG_LOG(HLE,"0=sceSasSetVoice(core=%08x, voicenum=%i, freq=%i)", core, voiceNum, level);
+		DEBUG_LOG(HLE,"0=sceSasSetSL(core=%08x, voicenum=%i, level=%i)", core, voiceNum, level);
 		Voice &v = sas.voices[voiceNum];
 		v.sustainLevel = level;
 		return(0);
