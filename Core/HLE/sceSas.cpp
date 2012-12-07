@@ -230,7 +230,7 @@ u32 sceSasGetEndFlag()
 }
 
 // Runs the mixer
-void _sceSasCore(u32 outAddr)
+void _sceSasCore(u32 core, u32 outAddr)
 {
 	DEBUG_LOG(HLE,"0=sceSasCore(, %08x)	(grain: %i samples)", outAddr, sas.grainSize);
 	Memory::Memset(outAddr, 0, sas.grainSize * 2 * 2);
@@ -239,7 +239,7 @@ void _sceSasCore(u32 outAddr)
 }
 
 // Another way of running the mixer, what was the difference again?
-void _sceSasCoreWithMix(u32 outAddr)
+void _sceSasCoreWithMix(u32 core, u32 outAddr)
 {
 	DEBUG_LOG(HLE,"0=sceSasCoreWithMix(, %08x)", outAddr);
 	sas.mix(outAddr);
@@ -471,8 +471,8 @@ void sceSasGetOutputMode(u32 core, int param1, int param2)
 const HLEFunction sceSasCore[] =
 {
 	{0x42778a9f, WrapU_UUUUU<sceSasInit>, "__sceSasInit"}, // (SceUID * sasCore, int grain, int maxVoices, int outputMode, int sampleRate)
-	{0xa3589d81, WrapV_U<_sceSasCore>, "__sceSasCore"},
-	{0x50a14dfc, WrapV_U<_sceSasCoreWithMix>, "__sceSasCoreWithMix"},	// Process and mix into buffer (int sasCore, int sasInOut, int leftVolume, int rightVolume)
+	{0xa3589d81, WrapV_UU<_sceSasCore>, "__sceSasCore"},
+	{0x50a14dfc, WrapV_UU<_sceSasCoreWithMix>, "__sceSasCoreWithMix"},	// Process and mix into buffer (int sasCore, int sasInOut, int leftVolume, int rightVolume)
 	{0x68a46b95, WrapU_V<sceSasGetEndFlag>, "__sceSasGetEndFlag"},	// int sasCore
 	{0x440ca7d8, WrapV_UIIIII<sceSasSetVolume>, "__sceSasSetVolume"},
 	{0xad84d37f, WrapV_UII<sceSasSetPitch>, "__sceSasSetPitch"},
