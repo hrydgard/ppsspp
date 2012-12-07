@@ -177,7 +177,7 @@ public:
 			(nt.status & THREADSTATUS_READY) ? "READY" : "", 
 			(nt.status & THREADSTATUS_WAIT) ? "WAIT" : "", 
 			(nt.status & THREADSTATUS_SUSPEND) ? "SUSPEND" : "", 
-      (nt.status & THREADSTATUS_DORMANT) ? "DORMANT" : "",
+			(nt.status & THREADSTATUS_DORMANT) ? "DORMANT" : "",
 			(nt.status & THREADSTATUS_DEAD) ? "DEAD" : "",
 			nt.waitType,
 			nt.waitID,
@@ -190,29 +190,33 @@ public:
 
 	bool AllocateStack(u32 &stackSize)
 	{
-    if (nt.attr & PSP_THREAD_ATTR_KERNEL)
-    {
-      // Allocate stacks for kernel threads (idle) in kernel RAM
-      stackBlock = kernelMemory.Alloc(stackSize, true, (std::string("stack/") + nt.name).c_str());
-    }
-    else
-    {
-		  stackBlock = userMemory.Alloc(stackSize, true, (std::string("stack/") + nt.name).c_str());
-    }
-    if (stackBlock == (u32)-1)
-    {
-      ERROR_LOG(HLE, "Failed to allocate stack for thread");
-      return false;
-    }
-    // Fill the stack.
-    Memory::Memset(stackBlock, 0xFF, stackSize);
+		FreeStack();
+
+		if (nt.attr & PSP_THREAD_ATTR_KERNEL)
+		{
+			// Allocate stacks for kernel threads (idle) in kernel RAM
+			stackBlock = kernelMemory.Alloc(stackSize, true, (std::string("stack/") + nt.name).c_str());
+		}
+		else
+		{
+			stackBlock = userMemory.Alloc(stackSize, true, (std::string("stack/") + nt.name).c_str());
+		}
+		if (stackBlock == (u32)-1 || stackBlock == 0)
+		{
+			stackBlock = 0;
+			ERROR_LOG(HLE, "Failed to allocate stack for thread");
+			return false;
+		}
+
+		// Fill the stack.
+		Memory::Memset(stackBlock, 0xFF, stackSize);
 		context.r[MIPS_REG_SP] = stackBlock + stackSize;
 		nt.initialStack = context.r[MIPS_REG_SP];
-    nt.stackSize = stackSize;
-    // What's this 512?
+		nt.stackSize = stackSize;
+		// What's this 512?
 		context.r[MIPS_REG_K0] = context.r[MIPS_REG_SP] - 512;
 		context.r[MIPS_REG_SP] -= 512;
-    return true;
+		return true;
 	}
 
 	void FreeStack() {
@@ -225,6 +229,10 @@ public:
 			}
 			stackBlock = 0;
 		}
+	}
+
+	Thread() : stackBlock(0)
+	{
 	}
 
 	~Thread()
@@ -1078,7 +1086,7 @@ void sceKernelExitDeleteThread()
     currentThread->nt.exitStatus = PARAM(0);
 	__KernelFireThreadEnd(currentThread);
 		//userMemory.Free(currentThread->stackBlock);
-		currentThread->stackBlock = -1;
+		currentThread->stackBlock = 0;
 
     __KernelRemoveFromThreadQueue(t);
     currentThread = 0;
