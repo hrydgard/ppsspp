@@ -156,6 +156,7 @@ struct Voice
 	bool endFlag;
 	bool PauseFlag;
 	bool playing;
+	bool setPaused;
 
 	VagDecoder vag;
 };
@@ -260,6 +261,17 @@ void sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop)
 	v.loop = loop;
 	v.playing = false;
 	RETURN(0);
+}
+
+u32 sceSasSetPause(u32 core, int voicebit, const char *pause)
+{
+	DEBUG_LOG(HLE,"0=sceSasSetPause(core=%08x, voicebit=%i, pause=%c)", core, voicebit, pause);
+	for (int i = 0; voicebit != 0; i++, voicebit >>= 1) {
+		if ((voicebit & 1) != 0) {
+		sas.voices[i].setPaused=pause;
+            	}
+	}
+	return(0);
 }
 
 void sceSasSetVolume(u32 core, int voiceNum, int l, int r, int el, int er)
@@ -506,7 +518,7 @@ const HLEFunction sceSasCore[] =
 	{0x33d4ab37, WrapV_UI<sceSasRevType>, "__sceSasRevType"},	 // (int sasCore, int type)
 	{0x267a6dd2, WrapV_UII<sceSasRevParam>, "__sceSasRevParam"},	// (int sasCore, int delay, int feedback)
 	{0x2c8e6ab3, WrapU_V<sceSasGetPauseFlag>, "__sceSasGetPauseFlag"}, // int sasCore
-	{0x787d04d5, 0, "__sceSasSetPause"},
+	{0x787d04d5, WrapU_UIC<sceSasSetPause>, "__sceSasSetPause"},
 	{0xa232cbe6, 0, "__sceSasSetTriangularWave"},		// (int sasCore, int voice, int unknown)
 	{0xd5ebbbcd, 0, "__sceSasSetSteepWave"},	 // (int sasCore, int voice, int unknown)		// square wave?
 	{0xBD11B7C2, WrapU_U<sceSasGetGrain>, "__sceSasGetGrain"},
