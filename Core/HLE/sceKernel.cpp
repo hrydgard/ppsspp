@@ -377,7 +377,7 @@ const HLEFunction ThreadManForUser[] =
 	{0x82826f70,sceKernelSleepThreadCB,"sceKernelSleepThreadCB"},
 	{0xF475845D,&WrapV_IUU<sceKernelStartThread>,"sceKernelStartThread"},
 	{0x9944f31f,sceKernelSuspendThread,"sceKernelSuspendThread"},
-	{0x616403ba,0,"sceKernelTerminateThread"},
+	{0x616403ba,WrapV_U<sceKernelTerminateThread>,"sceKernelTerminateThread"},
 	{0x383f7bcc,sceKernelTerminateDeleteThread,"sceKernelTerminateDeleteThread"},
 	{0x840E8133,sceKernelWaitThreadEndCB,"sceKernelWaitThreadEndCB"},
 	{0xd13bde95,sceKernelCheckThreadStack,"sceKernelCheckThreadStack"},

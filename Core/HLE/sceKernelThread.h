@@ -48,6 +48,7 @@ void sceKernelResumeThread();
 void sceKernelWakeupThread();
 void sceKernelCancelWakeupThread();
 void sceKernelTerminateDeleteThread();
+void sceKernelTerminateThread(u32 threadID);
 void sceKernelWaitThreadEndCB();
 void sceKernelGetThreadExitStatus();
 void sceKernelGetThreadmanIdType();
