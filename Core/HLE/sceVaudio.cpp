@@ -19,11 +19,29 @@
 
 #include "sceVaudio.h"
 
+void sceVaudioOutputBlockingFunction() 
+{
+	WARN_LOG(HLE, "HACK sceVaudioOutputBlockingFunction(...)");
+	RETURN(0);
+}
+
+void sceVaudioChReserveFunction() 
+{
+	WARN_LOG(HLE, "HACK sceVaudioChReserveFunction(...)");
+	RETURN(0);
+}
+
+void sceVaudioChReleaseFunction() 
+{
+	WARN_LOG(HLE, "HACK sceVaudioChReleaseFunction(...)");
+	RETURN(0);
+}
+
 const HLEFunction sceVaudio[] = 
 {
-	{0x03b6807d, 0, "sceVaudio_0x03b6807d"},
-	{0x67585dfd, 0, "sceVaudio_0x67585dfd"},
-	{0x8986295e, 0, "sceVaudio_0x8986295e"},
+	{0x03b6807d, sceVaudioOutputBlockingFunction, "sceVaudioOutputBlockingFunction"},
+	{0x67585dfd, sceVaudioChReserveFunction, "sceVaudioChReserveFunction"},
+	{0x8986295e, sceVaudioChReleaseFunction, "sceVaudioChReleaseFunction"},
 };
 
 void Register_sceVaudio()
