@@ -41,6 +41,8 @@ static const int PSP_SAS_ADSR_DECAY=2;
 static const int PSP_SAS_ADSR_SUSTAIN=4;
 static const int PSP_SAS_ADSR_RELEASE=8;
 
+int grainSamples;
+
 static const double f[5][2] = 
 { { 0.0, 0.0 },
 {	 60.0 / 64.0,	0.0 },
@@ -154,6 +156,7 @@ struct Voice
 	bool endFlag;
 	bool PauseFlag;
 	bool playing;
+	bool setPaused;
 
 	VagDecoder vag;
 };
@@ -258,6 +261,17 @@ void sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop)
 	v.loop = loop;
 	v.playing = false;
 	RETURN(0);
+}
+
+u32 sceSasSetPause(u32 core, int voicebit, const char *pause)
+{
+	DEBUG_LOG(HLE,"0=sceSasSetPause(core=%08x, voicebit=%i, pause=%c)", core, voicebit, pause);
+	for (int i = 0; voicebit != 0; i++, voicebit >>= 1) {
+		if ((voicebit & 1) != 0) {
+		sas.voices[i].setPaused=pause;
+            	}
+	}
+	return(0);
 }
 
 void sceSasSetVolume(u32 core, int voiceNum, int l, int r, int el, int er)
@@ -461,6 +475,20 @@ void sceSasRevVON(u32 core, int param1, int param2)
 	RETURN(0);
 }
 
+u32 sceSasGetGrain(u32 core)
+{
+	DEBUG_LOG(HLE,"0=sceSasGetGrain(core=%08x)", core);
+	return grainSamples;
+}
+
+u32 sceSasSetGrain(u32 core, int grain)
+{
+	DEBUG_LOG(HLE,"0=sceSasSetGrain(core=%08x, grain=%i)", core, grain);
+	grainSamples=grain;
+	return(0);
+}
+
+
 void sceSasGetOutputMode(u32 core, int param1, int param2)
 {
 	DEBUG_LOG(HLE,"UNIMPL 0=sceSasGetOutputMode(core=%08x, param1=%i, param2=%i)", core, param1, param2);
@@ -490,11 +518,11 @@ const HLEFunction sceSasCore[] =
 	{0x33d4ab37, WrapV_UI<sceSasRevType>, "__sceSasRevType"},	 // (int sasCore, int type)
 	{0x267a6dd2, WrapV_UII<sceSasRevParam>, "__sceSasRevParam"},	// (int sasCore, int delay, int feedback)
 	{0x2c8e6ab3, WrapU_V<sceSasGetPauseFlag>, "__sceSasGetPauseFlag"}, // int sasCore
-	{0x787d04d5, 0, "__sceSasSetPause"},
+	{0x787d04d5, WrapU_UIC<sceSasSetPause>, "__sceSasSetPause"},
 	{0xa232cbe6, 0, "__sceSasSetTriangularWave"},		// (int sasCore, int voice, int unknown)
 	{0xd5ebbbcd, 0, "__sceSasSetSteepWave"},	 // (int sasCore, int voice, int unknown)		// square wave?
-	{0xBD11B7C2, 0, "__sceSasGetGrain"},
-	{0xd1e0a01e, 0, "__sceSasSetGrain"},
+	{0xBD11B7C2, WrapU_U<sceSasGetGrain>, "__sceSasGetGrain"},
+	{0xd1e0a01e, WrapU_UI<sceSasSetGrain>, "__sceSasSetGrain"},
 	{0xe175ef66, WrapV_UII<sceSasGetOutputMode>, "__sceSasGetOutputmode"},
 	{0xe855bf76, 0, "__sceSasSetOutputmode"},
 	{0x07f58c24, 0, "__sceSasGetAllEnvelopeHeights"},	// (int sasCore, int heightAddr)	32-bit heights, 0-0x40000000
