@@ -405,7 +405,6 @@ void sceKernelLockMutex(SceUID id, int count, u32 timeoutPtr)
 		mutex->waitingThreads.push_back(__KernelGetCurThread());
 		__KernelWaitMutex(mutex, timeoutPtr);
 		__KernelWaitCurThread(WAITTYPE_MUTEX, id, count, timeoutPtr, false);
-		__KernelReSchedule("mutex locked");
 	}
 }
 
@@ -429,7 +428,6 @@ void sceKernelLockMutexCB(SceUID id, int count, u32 timeoutPtr)
 		__KernelWaitMutex(mutex, timeoutPtr);
 		__KernelWaitCurThread(WAITTYPE_MUTEX, id, count, timeoutPtr, true);
 		__KernelCheckCallbacks();
-		__KernelReSchedule("mutex locked");
 	}
 }
 
@@ -481,7 +479,7 @@ void sceKernelUnlockMutex(SceUID id, int count)
 	if (mutex->nm.lockLevel == 0)
 	{
 		if (__KernelUnlockMutex(mutex, error))
-			__KernelReSchedule("mutex locked");
+			__KernelReSchedule("mutex unlocked");
 	}
 }
 
@@ -773,7 +771,6 @@ void sceKernelLockLwMutex(u32 workareaPtr, int count, u32 timeoutPtr)
 			mutex->waitingThreads.push_back(__KernelGetCurThread());
 			__KernelWaitLwMutex(mutex, timeoutPtr);
 			__KernelWaitCurThread(WAITTYPE_LWMUTEX, workarea.uid, count, timeoutPtr, false);
-			__KernelReSchedule("lwmutex locked");
 		}
 		else
 			RETURN(error);
@@ -804,7 +801,6 @@ void sceKernelLockLwMutexCB(u32 workareaPtr, int count, u32 timeoutPtr)
 			__KernelWaitLwMutex(mutex, timeoutPtr);
 			__KernelWaitCurThread(WAITTYPE_LWMUTEX, workarea.uid, count, timeoutPtr, true);
 			__KernelCheckCallbacks();
-			__KernelReSchedule("lwmutex locked");
 		}
 		else
 			RETURN(error);

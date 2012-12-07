@@ -177,7 +177,7 @@ public:
 			(nt.status & THREADSTATUS_READY) ? "READY" : "", 
 			(nt.status & THREADSTATUS_WAIT) ? "WAIT" : "", 
 			(nt.status & THREADSTATUS_SUSPEND) ? "SUSPEND" : "", 
-      (nt.status & THREADSTATUS_DORMANT) ? "DORMANT" : "",
+			(nt.status & THREADSTATUS_DORMANT) ? "DORMANT" : "",
 			(nt.status & THREADSTATUS_DEAD) ? "DEAD" : "",
 			nt.waitType,
 			nt.waitID,
@@ -190,29 +190,33 @@ public:
 
 	bool AllocateStack(u32 &stackSize)
 	{
-    if (nt.attr & PSP_THREAD_ATTR_KERNEL)
-    {
-      // Allocate stacks for kernel threads (idle) in kernel RAM
-      stackBlock = kernelMemory.Alloc(stackSize, true, (std::string("stack/") + nt.name).c_str());
-    }
-    else
-    {
-		  stackBlock = userMemory.Alloc(stackSize, true, (std::string("stack/") + nt.name).c_str());
-    }
-    if (stackBlock == (u32)-1)
-    {
-      ERROR_LOG(HLE, "Failed to allocate stack for thread");
-      return false;
-    }
-    // Fill the stack.
-    Memory::Memset(stackBlock, 0xFF, stackSize);
+		FreeStack();
+
+		if (nt.attr & PSP_THREAD_ATTR_KERNEL)
+		{
+			// Allocate stacks for kernel threads (idle) in kernel RAM
+			stackBlock = kernelMemory.Alloc(stackSize, true, (std::string("stack/") + nt.name).c_str());
+		}
+		else
+		{
+			stackBlock = userMemory.Alloc(stackSize, true, (std::string("stack/") + nt.name).c_str());
+		}
+		if (stackBlock == (u32)-1 || stackBlock == 0)
+		{
+			stackBlock = 0;
+			ERROR_LOG(HLE, "Failed to allocate stack for thread");
+			return false;
+		}
+
+		// Fill the stack.
+		Memory::Memset(stackBlock, 0xFF, stackSize);
 		context.r[MIPS_REG_SP] = stackBlock + stackSize;
 		nt.initialStack = context.r[MIPS_REG_SP];
-    nt.stackSize = stackSize;
-    // What's this 512?
+		nt.stackSize = stackSize;
+		// What's this 512?
 		context.r[MIPS_REG_K0] = context.r[MIPS_REG_SP] - 512;
 		context.r[MIPS_REG_SP] -= 512;
-    return true;
+		return true;
 	}
 
 	void FreeStack() {
@@ -225,6 +229,10 @@ public:
 			}
 			stackBlock = 0;
 		}
+	}
+
+	Thread() : stackBlock(0)
+	{
 	}
 
 	~Thread()
@@ -265,6 +273,8 @@ void __KernelExecuteMipsCallOnCurrentThread(int callId);
 int g_inCbCount = 0;
 
 Thread *__KernelCreateThread(SceUID &id, SceUID moduleID, const char *name, u32 entryPoint, u32 priority, int stacksize, u32 attr);
+void __KernelResetThread(Thread *t);
+void __KernelCancelWakeup(SceUID threadID);
 
 //////////////////////////////////////////////////////////////////////////
 //STATE BEGIN
@@ -341,9 +351,11 @@ void __KernelThreadingInit()
 
   // Create the two idle threads, as well. With the absolute minimal possible priority.
   // 4096 stack size - don't know what the right value is. Hm, if callbacks are ever to run on these threads...
-  __KernelCreateThread(threadIdleID[0], 0, "idle0", idleThreadHackAddr, 0x7f, 4096, PSP_THREAD_ATTR_KERNEL);
-  __KernelCreateThread(threadIdleID[1], 0, "idle1", idleThreadHackAddr, 0x7f, 4096, PSP_THREAD_ATTR_KERNEL);
+  __KernelResetThread(__KernelCreateThread(threadIdleID[0], 0, "idle0", idleThreadHackAddr, 0x7f, 4096, PSP_THREAD_ATTR_KERNEL));
+  __KernelResetThread(__KernelCreateThread(threadIdleID[1], 0, "idle1", idleThreadHackAddr, 0x7f, 4096, PSP_THREAD_ATTR_KERNEL));
   // These idle threads are later started in LoadExec, which calls __KernelStartIdleThreads below.
+
+  __KernelListenThreadEnd(__KernelCancelWakeup);
 }
 
 void __KernelListenThreadEnd(ThreadCallback callback)
@@ -683,6 +695,11 @@ void __KernelScheduleWakeup(SceUID threadID, int usFromNow)
 	CoreTiming::ScheduleEvent(usToCycles(usFromNow), eventScheduledWakeup, threadID);
 }
 
+void __KernelCancelWakeup(SceUID threadID)
+{
+	CoreTiming::UnscheduleEvent(eventScheduledWakeup, threadID);
+}
+
 void __KernelRemoveFromThreadQueue(Thread *t)
 {
   for (size_t i = 0; i < threadqueue.size(); i++)
@@ -834,6 +851,25 @@ void ThreadContext::reset()
   lo = 0;
 }
 
+void __KernelResetThread(Thread *t)
+{
+	t->context.reset();
+	t->context.hi = 0;
+	t->context.lo = 0;
+	t->context.pc = t->nt.entrypoint;
+
+	// TODO: Reset the priority?
+	t->nt.waitType = WAITTYPE_NONE;
+	t->nt.waitID = 0;
+	memset(&t->waitInfo, 0, sizeof(t->waitInfo));
+
+	t->nt.exitStatus = 0;
+	t->isProcessingCallbacks = false;
+
+	t->context.r[MIPS_REG_RA] = threadReturnHackAddr; //hack! TODO fix
+	t->AllocateStack(t->nt.stackSize);  // can change the stacksize!
+}
+
 Thread *__KernelCreateThread(SceUID &id, SceUID moduleId, const char *name, u32 entryPoint, u32 priority, int stacksize, u32 attr)
 {
 	Thread *t = new Thread;
@@ -841,39 +877,28 @@ Thread *__KernelCreateThread(SceUID &id, SceUID moduleId, const char *name, u32 
 
 	threadqueue.push_back(t);
 
-  t->context.reset();
-
-	t->context.hi = 0;
-	t->context.lo = 0;
-	t->context.pc = entryPoint;
 	memset(&t->nt, 0xCD, sizeof(t->nt));
 
-  t->nt.entrypoint = entryPoint;
-  t->nt.nativeSize = sizeof(t->nt);
-  t->nt.attr = attr;
-  t->nt.initialPriority = t->nt.currentPriority = priority;
+	t->nt.entrypoint = entryPoint;
+	t->nt.nativeSize = sizeof(t->nt);
+	t->nt.attr = attr;
+	t->nt.initialPriority = t->nt.currentPriority = priority;
 	t->nt.stackSize = stacksize;
 	t->nt.status = THREADSTATUS_DORMANT;
-	t->nt.waitType = WAITTYPE_NONE;
-	t->nt.waitID = 0;
-	memset(&t->waitInfo, 0, sizeof(t->waitInfo));
-	t->nt.exitStatus = 0;
+
 	t->nt.numInterruptPreempts = 0;
 	t->nt.numReleases = 0;
 	t->nt.numThreadPreempts = 0;
 	t->nt.runForClocks.low = 0;
 	t->nt.runForClocks.hi = 0;
 	t->nt.wakeupCount = 0;
-	t->isProcessingCallbacks = false;
-  if (moduleId)
-    t->nt.gpreg = __KernelGetModuleGP(moduleId); 
-  else
-    t->nt.gpreg = 0;  // sceKernelStartThread will take care of this.
+	if (moduleId)
+		t->nt.gpreg = __KernelGetModuleGP(moduleId);
+	else
+		t->nt.gpreg = 0;  // sceKernelStartThread will take care of this.
 	t->moduleId = moduleId;
 
 	strncpy(t->nt.name, name, 32);
-	t->context.r[MIPS_REG_RA] = threadReturnHackAddr; //hack! TODO fix
-	t->AllocateStack(t->nt.stackSize);  // can change the stacksize!
 	return t;
 }
 
@@ -883,6 +908,7 @@ void __KernelSetupRootThread(SceUID moduleID, int args, const char *argp, int pr
 	//grab mips regs
 	SceUID id;
 	currentThread = __KernelCreateThread(id, moduleID, "root", currentMIPS->pc, prio, stacksize, attr);
+	__KernelResetThread(currentThread);
 	currentThread->nt.status = THREADSTATUS_READY; // do not schedule
 
 	strcpy(currentThread->nt.name, "root");
@@ -932,6 +958,7 @@ void sceKernelStartThread(SceUID threadToStartID, u32 argSize, u32 argBlockPtr)
 
 		if (startThread->nt.status != THREADSTATUS_DORMANT)
 		{
+printf("NOT DORMANT\n");
 			//Not dormant, WTF?
 			RETURN(ERROR_KERNEL_THREAD_IS_NOT_DORMANT);
 			return;
@@ -939,6 +966,8 @@ void sceKernelStartThread(SceUID threadToStartID, u32 argSize, u32 argBlockPtr)
 
 		INFO_LOG(HLE,"sceKernelStartThread(thread=%i, argSize=%i, argPtr= %08x )",
 			threadToStartID,argSize,argBlockPtr);
+
+		__KernelResetThread(startThread);
 
 		startThread->nt.status = THREADSTATUS_READY;
 		u32 sp = startThread->context.r[MIPS_REG_SP];
@@ -1070,7 +1099,7 @@ void sceKernelExitDeleteThread()
     currentThread->nt.exitStatus = PARAM(0);
 	__KernelFireThreadEnd(currentThread);
 		//userMemory.Free(currentThread->stackBlock);
-		currentThread->stackBlock = -1;
+		currentThread->stackBlock = 0;
 
     __KernelRemoveFromThreadQueue(t);
     currentThread = 0;
@@ -1145,16 +1174,40 @@ void sceKernelTerminateDeleteThread()
 	if (threadno != currentThread->GetUID())
 	{
 		//TODO: remove from threadqueue!
-		INFO_LOG(HLE,"sceKernelTerminateDeleteThread(%i)",threadno);
+		INFO_LOG(HLE, "sceKernelTerminateDeleteThread(%i)", threadno);
 		RETURN(0); //kernelObjects.Destroy<Thread>(threadno));
 
-    //TODO: should we really reschedule here?
+		//TODO: should we really reschedule here?
 		if (!__KernelTriggerWait(WAITTYPE_THREADEND, threadno))
 			__KernelReSchedule("termdeletethread");
 	}
 	else
 	{
-		ERROR_LOG(HLE, "Thread \"%s\" tries to delete itself! :(",currentThread->GetName());
+		ERROR_LOG(HLE, "Thread \"%s\" trying to delete itself! :(", currentThread->GetName());
+		RETURN(-1);
+	}
+}
+
+void sceKernelTerminateThread(u32 threadID)
+{
+	if (threadID != currentThread->GetUID())
+	{
+		INFO_LOG(HLE, "sceKernelTerminateThread(%i)", threadID);
+		RETURN(0);
+
+		u32 error;
+		Thread *t = kernelObjects.Get<Thread>(threadID, error);
+		if (t)
+		{
+			t->nt.status = THREADSTATUS_DORMANT;
+			__KernelFireThreadEnd(t);
+			__KernelTriggerWait(WAITTYPE_THREADEND, threadID);
+		}
+		// TODO: Return an error if it doesn't exist?
+	}
+	else
+	{
+		ERROR_LOG(HLE, "Thread \"%s\" trying to delete itself! :(", currentThread->GetName());
 		RETURN(-1);
 	}
 }
