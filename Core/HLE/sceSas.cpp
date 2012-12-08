@@ -44,6 +44,7 @@ static const int PSP_SAS_ADSR_RELEASE=8;
 int grainSamples;
 int output;
 
+
 struct WaveformEffect 
 {
 	int type;
@@ -457,6 +458,7 @@ u32 sceSasGetEnvelopeHeight(u32 core, u32 voiceNum)
 void sceSasRevType(u32 core, int type)
 {
 	DEBUG_LOG(HLE,"0=sceSasRevType(core=%08x, type=%i)", core, type);
+
 	sas.waveformEffect.type=type;
 	RETURN(0);
 }
@@ -464,6 +466,7 @@ void sceSasRevType(u32 core, int type)
 void sceSasRevParam(u32 core, int delay, int feedback)
 {
 	DEBUG_LOG(HLE,"0=sceSasRevParam(core=%08x, delay=%i, feedback=%i)", core, delay, feedback);
+
 	sas.waveformEffect.delay = delay;
 	sas.waveformEffect.feedback = feedback;
 	RETURN(0);
@@ -483,6 +486,7 @@ u32 sceSasGetPauseFlag(u32 core)
 void sceSasRevEVOL(u32 core, int lv, int rv)
 {
 	DEBUG_LOG(HLE,"0=sceSasRevEVOL(core=%08x, leftVolume=%i, rightVolume=%i)", core, lv, rv);
+
 	sas.waveformEffect.leftVol = lv;
 	sas.waveformEffect.rightVol = rv;
 	RETURN(0);
@@ -491,6 +495,7 @@ void sceSasRevEVOL(u32 core, int lv, int rv)
 void sceSasRevVON(u32 core, int dry, int wet)
 {
 	DEBUG_LOG(HLE,"0=sceSasRevVON(core=%08x, dry=%i, wet=%i)", core, dry, wet);
+
 	sas.waveformEffect.isDryOn = (dry > 0);
 	sas.waveformEffect.isWetOn = (wet > 0);
 	RETURN(0);
@@ -500,6 +505,7 @@ u32 sceSasGetGrain(u32 core)
 {
 	DEBUG_LOG(HLE,"0=sceSasGetGrain(core=%08x)", core);
 	return grainSamples;
+
 }
 
 u32 sceSasSetGrain(u32 core, int grain)
@@ -509,6 +515,47 @@ u32 sceSasSetGrain(u32 core, int grain)
 	return 0;
 }
 
+u32 sceSasSetGrain(u32 core, int grain)
+{
+	DEBUG_LOG(HLE,"0=sceSasSetGrain(core=%08x, grain=%i)", core, grain);
+	grainSamples=grain;
+	return 0;
+}
+
+
+u32 sceSasGetOutputMode(u32 core)
+{
+	DEBUG_LOG(HLE,"0=sceSasGetOutputMode(core=%08x)", core);
+	return output;
+}
+
+u32 sceSasSetOutputMode(u32 core, u32 outputMode)
+{
+	DEBUG_LOG(HLE,"0=sceSasSetOutputMode(core=%08x, outputMode=%i)", core, outputMode);
+	output=outputMode;
+	return 0;
+}
+
+u32 sceSasGetAllEnvelopeHeights(u32 core, u32 heightsAddr)
+{
+	DEBUG_LOG(HLE,"0=sceSasGetAllEnvelopeHeights(core=%08x, heightsAddr=%i)", core, heightsAddr);
+	Memory::Memset(heightsAddr, 0 , sas.length * 4);
+	for (int i = 0; i < sas.length ; i++) {
+		int voiceHeight = sas.voices[i].height;
+	}
+        return 0;
+}
+
+void sceSasSetVoicePCM(u32 core, int voiceNum, u32 pcmAddr, int size, int loop)
+{
+	DEBUG_LOG(HLE,"0=sceSasSetVoicePCM(core=%08x, voicenum=%i, pcmAddr=%08x, size=%i, loop=%i)",core, voiceNum, pcmAddr, size, loop);
+	Voice &v = sas.voices[voiceNum];
+	v.pcmAddr = pcmAddr;
+	v.size = size;
+	v.loop = loop;
+	v.playing = true;
+	RETURN(0);
+}
 
 u32 sceSasGetOutputMode(u32 core)
 {
