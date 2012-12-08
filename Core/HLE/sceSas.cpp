@@ -46,13 +46,13 @@ int output;
 
 struct WaveformEffect 
 {
-int waveformEffectType;
-int waveformEffectDelay;
-int waveformEffectFeedback ;
-int waveformEffectLeftVol;
-int waveformEffectRightVol;
-int waveformEffectIsDryOn;
-int waveformEffectIsWetOn;
+	int type;
+	int delay;
+	int feedback ;
+	int leftVol;
+	int rightVol;
+	int isDryOn;
+	int isWetOn;
 };
 
 static const double f[5][2] = 
@@ -457,15 +457,15 @@ u32 sceSasGetEnvelopeHeight(u32 core, u32 voiceNum)
 void sceSasRevType(u32 core, int type)
 {
 	DEBUG_LOG(HLE,"0=sceSasRevType(core=%08x, type=%i)", core, type);
-	sas.waveformEffect.waveformEffectType=type;
+	sas.waveformEffect.type=type;
 	RETURN(0);
 }
 
 void sceSasRevParam(u32 core, int delay, int feedback)
 {
 	DEBUG_LOG(HLE,"0=sceSasRevParam(core=%08x, delay=%i, feedback=%i)", core, delay, feedback);
-	sas.waveformEffect.waveformEffectDelay = delay;
-	sas.waveformEffect.waveformEffectFeedback = feedback;
+	sas.waveformEffect.delay = delay;
+	sas.waveformEffect.feedback = feedback;
 	RETURN(0);
 }
 
@@ -483,16 +483,16 @@ u32 sceSasGetPauseFlag(u32 core)
 void sceSasRevEVOL(u32 core, int lv, int rv)
 {
 	DEBUG_LOG(HLE,"0=sceSasRevEVOL(core=%08x, leftVolume=%i, rightVolume=%i)", core, lv, rv);
-	sas.waveformEffect.waveformEffectLeftVol = lv;
-	sas.waveformEffect.waveformEffectRightVol = rv;
+	sas.waveformEffect.leftVol = lv;
+	sas.waveformEffect.rightVol = rv;
 	RETURN(0);
 }
 
 void sceSasRevVON(u32 core, int dry, int wet)
 {
 	DEBUG_LOG(HLE,"0=sceSasRevVON(core=%08x, dry=%i, wet=%i)", core, dry, wet);
-	sas.waveformEffect.waveformEffectIsDryOn = (dry > 0);
-	sas.waveformEffect.waveformEffectIsWetOn = (wet > 0);
+	sas.waveformEffect.isDryOn = (dry > 0);
+	sas.waveformEffect.isWetOn = (wet > 0);
 	RETURN(0);
 }
 
