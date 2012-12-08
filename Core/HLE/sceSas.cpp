@@ -221,7 +221,7 @@ u32 sceSasInit(u32 core, u32 grainSize, u32 maxVoices, u32 unknown, u32 sampleRa
 	return 0;
 }
 
-u32 sceSasGetEndFlag()
+u32 sceSasGetEndFlag(u32 core)
 {
 	u32 endFlag = 0;
 	for (int i = 0; i < sas.maxVoices; i++) {
@@ -450,7 +450,7 @@ void sceSasRevParam(u32 core, int param1, int param2)
 	RETURN(0);
 }
 
-u32 sceSasGetPauseFlag()
+u32 sceSasGetPauseFlag(u32 core)
 {
 	u32 PauseFlag = 0;
 	for (int i = 0; i < sas.maxVoices; i++) {
@@ -501,7 +501,7 @@ const HLEFunction sceSasCore[] =
 	{0x42778a9f, WrapU_UUUUU<sceSasInit>, "__sceSasInit"}, // (SceUID * sasCore, int grain, int maxVoices, int outputMode, int sampleRate)
 	{0xa3589d81, WrapV_U<_sceSasCore>, "__sceSasCore"},
 	{0x50a14dfc, WrapV_U<_sceSasCoreWithMix>, "__sceSasCoreWithMix"},	// Process and mix into buffer (int sasCore, int sasInOut, int leftVolume, int rightVolume)
-	{0x68a46b95, WrapU_V<sceSasGetEndFlag>, "__sceSasGetEndFlag"},	// int sasCore
+	{0x68a46b95, WrapU_U<sceSasGetEndFlag>, "__sceSasGetEndFlag"},	// int sasCore
 	{0x440ca7d8, WrapV_UIIIII<sceSasSetVolume>, "__sceSasSetVolume"},
 	{0xad84d37f, WrapV_UII<sceSasSetPitch>, "__sceSasSetPitch"},
 	{0x99944089, WrapV_UIUII<sceSasSetVoice>, "__sceSasSetVoice"},	// (int sasCore, int voice, int vagAddr, int size, int loopmode)
@@ -517,7 +517,7 @@ const HLEFunction sceSasCore[] =
 	{0xd5a229c9, WrapV_UII<sceSasRevEVOL>, "__sceSasRevEVOL"},	// (int sasCore, int leftVol, int rightVol)	// effect volume
 	{0x33d4ab37, WrapV_UI<sceSasRevType>, "__sceSasRevType"},	 // (int sasCore, int type)
 	{0x267a6dd2, WrapV_UII<sceSasRevParam>, "__sceSasRevParam"},	// (int sasCore, int delay, int feedback)
-	{0x2c8e6ab3, WrapU_V<sceSasGetPauseFlag>, "__sceSasGetPauseFlag"}, // int sasCore
+	{0x2c8e6ab3, WrapU_U<sceSasGetPauseFlag>, "__sceSasGetPauseFlag"}, // int sasCore
 	{0x787d04d5, WrapU_UIC<sceSasSetPause>, "__sceSasSetPause"},
 	{0xa232cbe6, 0, "__sceSasSetTriangularWave"},		// (int sasCore, int voice, int unknown)
 	{0xd5ebbbcd, 0, "__sceSasSetSteepWave"},	 // (int sasCore, int voice, int unknown)		// square wave?
