@@ -856,12 +856,18 @@ u32 sceIoDclose(int id) {
 	return kernelObjects.Destroy<DirListing>(id);
 }
 
+u32 sceIoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen) 
+{
+	ERROR_LOG(HLE, "sceIoIoctl id: %08x, cmd %08x, indataPtr %08x, inlen %08x, outdataPtr %08x, outLen %08x", id,cmd,indataPtr,inlen,outdataPtr,outlen);
+    return 0;
+}
+
 const HLEFunction IoFileMgrForUser[] = {
 	{ 0xb29ddf9c, &WrapU_C<sceIoDopen>, "sceIoDopen" },
 	{ 0xe3eb004c, &WrapU_IU<sceIoDread>, "sceIoDread" },
 	{ 0xeb092469, &WrapU_I<sceIoDclose>, "sceIoDclose" },
 	{ 0xe95a012b, 0, "sceIoIoctlAsync" },
-	{ 0x63632449, 0, "sceIoIoctl" },
+	{ 0x63632449, &WrapU_UUUUUU<sceIoIoctl>, "sceIoIoctl" },
 	{ 0xace946e8, &WrapU_CU<sceIoGetstat>, "sceIoGetstat" },
 	{ 0xb8a740f4, 0, "sceIoChstat" },
 	{ 0x55f4717d, &WrapU_C<sceIoChdir>, "sceIoChdir" },
