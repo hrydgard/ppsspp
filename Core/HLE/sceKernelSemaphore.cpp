@@ -353,7 +353,15 @@ void __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, const char *ba
 		RETURN(0);
 
 		if (s->ns.currentCount >= wantedCount)
+		{
 			s->ns.currentCount -= wantedCount;
+			if (processCallbacks)
+			{
+				bool callbacksProcessed = __KernelForceCallbacks();
+				if (callbacksProcessed)
+					__KernelExecutePendingMipsCalls();
+			}
+		}
 		else
 		{
 			s->ns.numWaitThreads++;

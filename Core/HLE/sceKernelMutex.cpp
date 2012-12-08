@@ -430,6 +430,9 @@ void sceKernelLockMutexCB(SceUID id, int count, u32 timeoutPtr)
 	if (__KernelLockMutex(mutex, count, error))
 	{
 		RETURN(0);
+		bool callbacksProcessed = __KernelForceCallbacks();
+		if (callbacksProcessed)
+			__KernelExecutePendingMipsCalls();
 	}
 	else if (error)
 		RETURN(error);
@@ -789,6 +792,9 @@ void sceKernelLockLwMutexCB(u32 workareaPtr, int count, u32 timeoutPtr)
 	{
 		Memory::WriteStruct(workareaPtr, &workarea);
 		RETURN(0);
+		bool callbacksProcessed = __KernelForceCallbacks();
+		if (callbacksProcessed)
+			__KernelExecutePendingMipsCalls();
 	}
 	else if (error)
 		RETURN(error);
