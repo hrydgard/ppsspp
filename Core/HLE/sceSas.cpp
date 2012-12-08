@@ -304,7 +304,7 @@ void sceSasSetPitch(u32 core, int voiceNum, int pitch)
 
 void sceSasSetKeyOn(u32 core, int voiceNum)
 {
-	DEBUG_LOG(HLE,"0=sceSasSetKeyOff(core=%08x, voiceNum=%i)", core, voiceNum);
+	DEBUG_LOG(HLE,"0=sceSasSetKeyOn(core=%08x, voiceNum=%i)", core, voiceNum);
 	Voice &v = sas.voices[voiceNum];
 	v.vag.Start(Memory::GetPointer(v.vagAddr));
 	v.playing = true;
@@ -323,7 +323,7 @@ void sceSasSetKeyOff(u32 core, int voiceNum)
 
 u32 sceSasSetNoise(u32 core, int voiceNum, int freq)
 {
-	DEBUG_LOG(HLE,"0=sceSasSetVoice(core=%08x, voiceNum=%i, freq=%i)", core, voiceNum, freq);
+	DEBUG_LOG(HLE,"0=sceSasSetNoise(core=%08x, voiceNum=%i, freq=%i)", core, voiceNum, freq);
 	Voice &v = sas.voices[voiceNum];
 	v.freq = freq;
 	return 0;
