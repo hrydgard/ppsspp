@@ -70,37 +70,71 @@ void __KernelSemaInit()
 	semaInitComplete = true;
 }
 
+// Returns whether the thread should be removed.
+bool __KernelUnlockSemaForThread(Semaphore *s, SceUID threadID, u32 &error, int result, bool &wokeThreads)
+{
+	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_SEMA, error);
+	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
+
+	// The waitID may be different after a timeout.
+	if (waitID != s->GetUID())
+		return true;
+
+	// If result is an error code, we're just letting it go.
+	if (result == 0)
+	{
+		int wVal = (int) __KernelGetWaitValue(threadID, error);
+		if (wVal > s->ns.currentCount)
+			return false;
+
+		s->ns.currentCount -= wVal;
+		s->ns.numWaitThreads--;
+	}
+
+	if (timeoutPtr != 0 && semaWaitTimer != 0)
+	{
+		// Remove any event for this thread.
+		u64 cyclesLeft = CoreTiming::UnscheduleEvent(semaWaitTimer, threadID);
+		Memory::Write_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
+	}
+
+	__KernelResumeThreadFromWait(threadID, result);
+	wokeThreads = true;
+	return true;
+}
+
 // Resume all waiting threads (for delete / cancel.)
 // Returns true if it woke any threads.
 bool __KernelClearSemaThreads(Semaphore *s, int reason)
 {
+	u32 error;
 	bool wokeThreads = false;
-
-	// TODO: PSP_SEMA_ATTR_PRIORITY
-	std::vector<SceUID>::iterator iter;
-	for (iter = s->waitingThreads.begin(); iter != s->waitingThreads.end(); ++iter)
-	{
-		u32 error;
-		SceUID threadID = *iter;
-		SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_SEMA, error);
-		// The waitID may be different after a timeout.
-		if (waitID != s->GetUID())
-			continue;
-
-		u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
-		if (timeoutPtr != 0 && semaWaitTimer != 0)
-		{
-			// Remove any event for this thread.
-			u64 cyclesLeft = CoreTiming::UnscheduleEvent(semaWaitTimer, threadID);
-			Memory::Write_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
-		}
-
-		__KernelResumeThreadFromWait(threadID, reason);
-		wokeThreads = true;
-	}
+	std::vector<SceUID>::iterator iter, end;
+	for (iter = s->waitingThreads.begin(), end = s->waitingThreads.end(); iter != end; ++iter)
+		__KernelUnlockSemaForThread(s, *iter, error, reason, wokeThreads);
 	s->waitingThreads.clear();
 
 	return wokeThreads;
+}
+
+std::vector<SceUID>::iterator __KernelSemaFindPriority(std::vector<SceUID> &waiting, std::vector<SceUID>::iterator begin)
+{
+	_dbg_assert_msg_(HLE, !waiting.empty(), "__KernelSemaFindPriority: Trying to find best of no threads.");
+
+	std::vector<SceUID>::iterator iter, end, best = waiting.end();
+	u32 best_prio = 0xFFFFFFFF;
+	for (iter = begin, end = waiting.end(); iter != end; ++iter)
+	{
+		u32 iter_prio = __KernelGetThreadPrio(*iter);
+		if (iter_prio < best_prio)
+		{
+			best = iter;
+			best_prio = iter_prio;
+		}
+	}
+
+	_dbg_assert_msg_(HLE, best != waiting.end(), "__KernelSemaFindPriority: Returning invalid best thread.");
+	return best;
 }
 
 // int sceKernelCancelSema(SceUID id, int newCount, int *numWaitThreads);
@@ -239,39 +273,19 @@ void sceKernelSignalSema(SceUID id, int signal)
 		// We need to set the return value BEFORE processing other threads.
 		RETURN(0);
 
-		// TODO: PSP_SEMA_ATTR_PRIORITY
 		bool wokeThreads = false;
-		std::vector<SceUID>::iterator iter;
+		std::vector<SceUID>::iterator iter, end, best;
 retry:
-		for (iter = s->waitingThreads.begin(); iter != s->waitingThreads.end(); ++iter)
+		for (iter = s->waitingThreads.begin(), end = s->waitingThreads.end(); iter != end; ++iter)
 		{
-			SceUID threadID = *iter;
-			SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_SEMA, error);
-			// The waitID may be different after a timeout.
-			if (waitID != s->GetUID())
+			if ((s->ns.attr & PSP_SEMA_ATTR_PRIORITY) != 0)
+				best = __KernelSemaFindPriority(s->waitingThreads, iter);
+			else
+				best = iter;
+
+			if (__KernelUnlockSemaForThread(s, *best, error, 0, wokeThreads))
 			{
-				s->waitingThreads.erase(iter);
-				goto retry;
-			}
-
-			int wVal = (int)__KernelGetWaitValue(threadID, error);
-			u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
-
-			if (wVal <= s->ns.currentCount)
-			{
-				s->ns.currentCount -= wVal;
-				s->ns.numWaitThreads--;
-
-				if (timeoutPtr != 0 && semaWaitTimer != 0)
-				{
-					// Remove any event for this thread.
-					u64 cyclesLeft = CoreTiming::UnscheduleEvent(semaWaitTimer, threadID);
-					Memory::Write_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
-				}
-
-				__KernelResumeThreadFromWait(threadID, 0);
-				s->waitingThreads.erase(iter);
-				wokeThreads = true;
+				s->waitingThreads.erase(best);
 				goto retry;
 			}
 		}
