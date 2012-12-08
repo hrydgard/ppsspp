@@ -170,7 +170,7 @@ bool __KernelForceCallbacks();
 class Thread;
 void __KernelSwitchContext(Thread *target, const char *reason);
 bool __KernelExecutePendingMipsCalls();
-void __KernelNotifyCallback(RegisteredCallbackType type, SceUID threadId, SceUID cbId, int notifyArg);
+void __KernelNotifyCallback(RegisteredCallbackType type, SceUID cbId, int notifyArg);
 
 // A call into game code. These can be pending on a thread.
 // Similar to Callback-s (NOT CallbackInfos) in JPCSP.

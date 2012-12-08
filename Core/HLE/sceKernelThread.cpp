@@ -1479,7 +1479,7 @@ void sceKernelNotifyCallback()
 	u32 arg = PARAM(1);
 	DEBUG_LOG(HLE,"sceKernelNotifyCallback(%i, %i)", cbId, arg);
 
-	__KernelNotifyCallback(THREAD_CALLBACK_USER_DEFINED, __KernelGetCurThread(), cbId, arg);
+	__KernelNotifyCallback(THREAD_CALLBACK_USER_DEFINED, cbId, arg);
 	RETURN(0);
 }
 
@@ -1924,7 +1924,7 @@ u32 __KernelUnregisterCallback(RegisteredCallbackType type, SceUID cbId)
 	}
 }
 
-void __KernelNotifyCallback(RegisteredCallbackType type, SceUID threadId, SceUID cbId, int notifyArg)
+void __KernelNotifyCallback(RegisteredCallbackType type, SceUID cbId, int notifyArg)
 {
 	u32 error;
 
@@ -1937,7 +1937,7 @@ void __KernelNotifyCallback(RegisteredCallbackType type, SceUID threadId, SceUID
 	cb->nc.notifyCount++;
 	cb->nc.notifyArg = notifyArg;
 
-	Thread *t = kernelObjects.Get<Thread>(threadId, error);
+	Thread *t = kernelObjects.Get<Thread>(cb->nc.threadId, error);
 	t->readyCallbacks[type].remove(cbId);
 	t->readyCallbacks[type].push_back(cbId);
 }
@@ -1949,7 +1949,7 @@ u32 __KernelNotifyCallbackType(RegisteredCallbackType type, SceUID cbId, int not
 		Thread *t = *iter;
 		for (std::set<SceUID>::iterator citer = t->registeredCallbacks[type].begin(); citer != t->registeredCallbacks[type].end(); citer++) {
 			if (cbId == -1 || cbId == *citer) {
-				__KernelNotifyCallback(type, t->GetUID(), *citer, notifyArg);
+				__KernelNotifyCallback(type, *citer, notifyArg);
 			}
 		}
 	}
