@@ -21,19 +21,19 @@
 
 void sceVaudioOutputBlockingFunction() 
 {
-	WARN_LOG(HLE, "HACK sceVaudioOutputBlockingFunction(...)");
+	WARN_LOG(HLE, "UNIMPL sceVaudioOutputBlockingFunction(...)");
 	RETURN(0);
 }
 
 void sceVaudioChReserveFunction() 
 {
-	WARN_LOG(HLE, "HACK sceVaudioChReserveFunction(...)");
+	WARN_LOG(HLE, "UNIMPL sceVaudioChReserveFunction(...)");
 	RETURN(0);
 }
 
 void sceVaudioChReleaseFunction() 
 {
-	WARN_LOG(HLE, "HACK sceVaudioChReleaseFunction(...)");
+	WARN_LOG(HLE, "UNIMPL sceVaudioChReleaseFunction(...)");
 	RETURN(0);
 }
 
