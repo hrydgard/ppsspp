@@ -276,7 +276,7 @@ void sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop)
 
 u32 sceSasSetPause(u32 core, int voicebit, int pause)
 {
-	DEBUG_LOG(HLE,"0=sceSasSetPause(core=%08x, voicebit=%i, pause=%c)", core, voicebit, pause);
+	DEBUG_LOG(HLE,"0=sceSasSetPause(core=%08x, voicebit=%i, pause=%i)", core, voicebit, pause);
 	for (int i = 0; voicebit != 0; i++, voicebit >>= 1) {
 		if ((voicebit & 1) != 0) {
 		sas.voices[i].setPaused=pause;
@@ -485,7 +485,7 @@ void sceSasRevEVOL(u32 core, int lv, int rv)
 
 void sceSasRevVON(u32 core, int dry, int wet)
 {
-	DEBUG_LOG(HLE,"0=sceSasRevEVOL(core=%08x, dry=%i, param2=%i)", core, dry, wet);
+	DEBUG_LOG(HLE,"0=sceSasRevEVOL(core=%08x, dry=%i, wet=%i)", core, dry, wet);
 	waveformEffectIsDryOn = (dry > 0);
 	waveformEffectIsWetOn = (wet > 0);
 	RETURN(0);
@@ -520,6 +520,7 @@ u32 sceSasSetOutputMode(u32 core, u32 outputMode)
 
 u32 sceSasGetAllEnvelopeHeights(u32 core, u32 heightsAddr)
 {
+	DEBUG_LOG(HLE,"0=sceSasGetAllEnvelopeHeights(core=%08x, heightsAddr=%i)", core, heightsAddr);
 	Memory::Memset(heightsAddr, 0 , sas.length * 4);
 	for (int i = 0; i < sas.length ; i++) {
 		int voiceHeight = sas.voices[i].height;
