@@ -1664,6 +1664,7 @@ void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, bo
 		after->waitType = thread->nt.waitType;
 		after->waitId = thread->nt.waitID;
 		after->waitInfo = thread->waitInfo;
+		after->isProcessingCallbacks = thread->isProcessingCallbacks;
 
 		afterAction = after;
 
@@ -1841,8 +1842,9 @@ void ActionAfterCallback::run() {
 
 // Check callbacks on the current thread only.
 // Returns true if any callbacks were processed on the current thread.
-bool __KernelCheckThreadCallbacks(Thread *thread) {
-	if (!thread->isProcessingCallbacks)
+bool __KernelCheckThreadCallbacks(Thread *thread, bool force)
+{
+	if (!thread->isProcessingCallbacks && !force)
 		return false;
 
 	for (int i = 0; i < THREAD_CALLBACK_NUM_TYPES; i++) {
@@ -1865,7 +1867,7 @@ bool __KernelCheckCallbacks() {
 
 		for (std::vector<Thread *>::iterator iter = threadqueue.begin(); iter != threadqueue.end(); iter++) {
 			Thread *thread = *iter;
-			if (thread->isProcessingCallbacks && __KernelCheckThreadCallbacks(thread)) {
+			if (__KernelCheckThreadCallbacks(thread, false)) {
 				processed = true;
 			}
 		}
@@ -1877,13 +1879,7 @@ bool __KernelForceCallbacks()
 {
 	Thread *curThread = __GetCurrentThread();	
 
-	// This thread can now process callbacks.
-	curThread->isProcessingCallbacks = true;
-
-	bool callbacksProcessed = __KernelCheckThreadCallbacks(curThread);
-
-	// Note - same thread as above - checking callbacks may switch threads.
-	curThread->isProcessingCallbacks = false;
+	bool callbacksProcessed = __KernelCheckThreadCallbacks(curThread, true);
 
 	return callbacksProcessed;
 }
