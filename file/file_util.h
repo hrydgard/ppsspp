@@ -7,6 +7,9 @@
 bool writeStringToFile(bool text_file, const std::string &str, const char *filename);
 bool readFileToString(bool text_file, const char *filename, std::string &str);
 
+bool writeDataToFile(bool text_file, const void* data, const unsigned int size, const char *filename);
+bool readDataFromFile(bool text_file, unsigned char* &data, const unsigned int size, const char *filename);
+
 // Beginnings of a directory utility system. TODO: Improve.
 
 struct FileInfo
