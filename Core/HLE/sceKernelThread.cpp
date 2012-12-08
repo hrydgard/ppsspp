@@ -256,6 +256,7 @@ public:
 	SceUID moduleId;
 
 	bool isProcessingCallbacks;
+	u32 currentCallbackId;
 
 	ThreadContext context;
 
@@ -1593,7 +1594,7 @@ void Thread::setReturnValue(u32 retval)
 {
 	if (this == currentThread) {
 		if (g_inCbCount) {
-			int callId = currentMIPS->r[MIPS_REG_CALL_ID];
+			int callId = this->currentCallbackId;
 			MipsCall *call = mipsCalls.get(callId);
 			if (call) {
 				call->savedV0 = retval;
@@ -1713,12 +1714,16 @@ void __KernelExecuteMipsCallOnCurrentThread(int callId)
 	call->savedV0 = currentMIPS->r[MIPS_REG_V0];
 	call->savedV1 = currentMIPS->r[MIPS_REG_V1];
 	call->savedIdRegister = currentMIPS->r[MIPS_REG_CALL_ID];
+	call->savedId = currentThread->currentCallbackId;
 	call->returnVoid = false;
 
 	// Set up the new state
 	currentMIPS->pc = call->entryPoint;
 	currentMIPS->r[MIPS_REG_RA] = __KernelMipsCallReturnAddress();
+	// We put this two places in case the game overwrites it.
+	// We may want it later to "inject" return values.
 	currentMIPS->r[MIPS_REG_CALL_ID] = callId;
+	currentThread->currentCallbackId = callId;
 	for (int i = 0; i < call->numArgs; i++) {
 		currentMIPS->r[MIPS_REG_A0 + i] = call->args[i];
 	}
@@ -1728,7 +1733,9 @@ void __KernelExecuteMipsCallOnCurrentThread(int callId)
 
 void __KernelReturnFromMipsCall()
 {
-	int callId = currentMIPS->r[MIPS_REG_CALL_ID];
+	int callId = currentThread->currentCallbackId;
+	if (currentMIPS->r[MIPS_REG_CALL_ID] != callId)
+		WARN_LOG(HLE, "__KernelReturnFromMipsCall(): s0 is %08x != %08x", currentMIPS->r[MIPS_REG_CALL_ID], callId);
 
 	MipsCall *call = mipsCalls.pop(callId);
 
@@ -1745,6 +1752,7 @@ void __KernelReturnFromMipsCall()
 	currentMIPS->r[MIPS_REG_V0] = call->savedV0;
 	currentMIPS->r[MIPS_REG_V1] = call->savedV1;
 	currentMIPS->r[MIPS_REG_CALL_ID] = call->savedIdRegister;
+	currentThread->currentCallbackId = call->savedId;
 
 	g_inCbCount--;
 

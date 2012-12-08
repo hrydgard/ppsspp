@@ -188,6 +188,7 @@ struct MipsCall {
 	u32 savedV1;
 	bool returnVoid;
 	const char *tag;
+	u32 savedId;
 };
 enum ThreadStatus
 {
