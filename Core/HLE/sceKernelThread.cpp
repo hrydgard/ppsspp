@@ -1891,8 +1891,6 @@ void sceKernelCheckCallback() {
 		__KernelExecutePendingMipsCalls();
 	} else {
 		RETURN(0);
-		DEBUG_LOG(HLE,"sceKernelCheckCallback() - no callbacks to process, simply rescheduling");
-		__KernelReSchedule(false, "checkcallbackhack");
 	}
 }
 
