@@ -48,8 +48,8 @@ int waveformEffectDelay;
 int waveformEffectFeedback ;
 int waveformEffectLeftVol;
 int waveformEffectRightVol;
-bool waveformEffectIsDryOn;
-bool waveformEffectIsWetOn;
+int waveformEffectIsDryOn;
+int waveformEffectIsWetOn;
 
 static const double f[5][2] = 
 { { 0.0, 0.0 },
@@ -162,10 +162,9 @@ struct Voice
 	int sustainLevel;
 	int releaseType;
 	int pitch;
-	bool endFlag;
-	bool PauseFlag;
+	int setPaused;
+	int height;
 	bool playing;
-	bool setPaused;
 
 	VagDecoder vag;
 };
@@ -178,7 +177,8 @@ public:
 	int grainSize;
 	int maxVoices;
 	int sampleRate;
-	int output;
+	int outputMode;
+	int length;
 
 	void mix(u32 outAddr);
 };
@@ -225,7 +225,7 @@ u32 sceSasInit(u32 core, u32 grainSize, u32 maxVoices, u32 outputMode, u32 sampl
 	sas.grainSize = grainSize;
 	sas.maxVoices = maxVoices;
 	sas.sampleRate = sampleRate;
-	sas.output = outputMode;
+	sas.outputMode = outputMode;
 	for (int i = 0; i < 32; i++) {
 		sas.voices[i].playing = false;
 	}
@@ -274,7 +274,7 @@ void sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop)
 	RETURN(0);
 }
 
-u32 sceSasSetPause(u32 core, int voicebit, const char *pause)
+u32 sceSasSetPause(u32 core, int voicebit, int pause)
 {
 	DEBUG_LOG(HLE,"0=sceSasSetPause(core=%08x, voicebit=%i, pause=%c)", core, voicebit, pause);
 	for (int i = 0; voicebit != 0; i++, voicebit >>= 1) {
@@ -282,7 +282,7 @@ u32 sceSasSetPause(u32 core, int voicebit, const char *pause)
 		sas.voices[i].setPaused=pause;
             	}
 	}
-	return(0);
+	return 0;
 }
 
 void sceSasSetVolume(u32 core, int voiceNum, int l, int r, int el, int er)
@@ -326,7 +326,7 @@ u32 sceSasSetNoise(u32 core, int voiceNum, int freq)
 	DEBUG_LOG(HLE,"0=sceSasSetVoice(core=%08x, voiceNum=%i, freq=%i)", core, voiceNum, freq);
 	Voice &v = sas.voices[voiceNum];
 	v.freq = freq;
-	return(0);
+	return 0;
 }
 
 u32 sceSasSetSL(u32 core, int voiceNum, int level)
@@ -334,7 +334,7 @@ u32 sceSasSetSL(u32 core, int voiceNum, int level)
 	DEBUG_LOG(HLE,"0=sceSasSetSL(core=%08x, voicenum=%i, level=%i)", core, voiceNum, level);
 	Voice &v = sas.voices[voiceNum];
 	v.sustainLevel = level;
-	return(0);
+	return 0;
 }
 
 u32 sceSasSetADSR(u32 core, int voiceNum,int flag ,int a, int d, int s, int r)
@@ -356,7 +356,7 @@ u32 sceSasSetADSRMode(u32 core, int voiceNum,int flag ,int a, int d, int s, int 
 	if ((flag & 0x2) != 0) v.decayType   = d;
 	if ((flag & 0x4) != 0) v.sustainType = s;
 	if ((flag & 0x8) != 0) v.releaseType = r;
-	return 0;
+	return 0 ;
 }
 
 // http://code.google.com/p/jpcsp/source/browse/trunk/src/jpcsp/HLE/modules150/sceSasCore.java
@@ -501,21 +501,21 @@ u32 sceSasSetGrain(u32 core, int grain)
 {
 	DEBUG_LOG(HLE,"0=sceSasSetGrain(core=%08x, grain=%i)", core, grain);
 	grainSamples=grain;
-	return(0);
+	return 0;
 }
 
 
 u32 sceSasGetOutputMode(u32 core)
 {
 	DEBUG_LOG(HLE,"0=sceSasGetOutputMode(core=%08x)", core);
-	RETURN output;
+	return output;
 }
 
 u32 sceSasSetOutputMode(u32 core, u32 outputMode)
 {
 	DEBUG_LOG(HLE,"0=sceSasSetOutputMode(core=%08x, outputMode=%i)", core, outputMode);
 	output=outputMode;
-	return(0);
+	return 0;
 }
 
 u32 sceSasGetAllEnvelopeHeights(u32 core, u32 heightsAddr)
@@ -560,13 +560,13 @@ const HLEFunction sceSasCore[] =
 	{0x33d4ab37, WrapV_UI<sceSasRevType>, "__sceSasRevType"},	 // (int sasCore, int type)
 	{0x267a6dd2, WrapV_UII<sceSasRevParam>, "__sceSasRevParam"},	// (int sasCore, int delay, int feedback)
 	{0x2c8e6ab3, WrapU_U<sceSasGetPauseFlag>, "__sceSasGetPauseFlag"}, // int sasCore
-	{0x787d04d5, WrapU_UIC<sceSasSetPause>, "__sceSasSetPause"},
+	{0x787d04d5, WrapU_UII<sceSasSetPause>, "__sceSasSetPause"},
 	{0xa232cbe6, 0, "__sceSasSetTriangularWave"},		// (int sasCore, int voice, int unknown)
 	{0xd5ebbbcd, 0, "__sceSasSetSteepWave"},	 // (int sasCore, int voice, int unknown)		// square wave?
 	{0xBD11B7C2, WrapU_U<sceSasGetGrain>, "__sceSasGetGrain"},
 	{0xd1e0a01e, WrapU_UI<sceSasSetGrain>, "__sceSasSetGrain"},
 	{0xe175ef66, WrapU_U<sceSasGetOutputMode>, "__sceSasGetOutputmode"},
-	{0xe855bf76, WrapU_UU<sceSasSetOutputmode>, "__sceSasSetOutputmode"},
+	{0xe855bf76, WrapU_UU<sceSasSetOutputMode>, "__sceSasSetOutputmode"},
 	{0x07f58c24, WrapU_UU<sceSasGetAllEnvelopeHeights>, "__sceSasGetAllEnvelopeHeights"},	// (int sasCore, int heightAddr)	32-bit heights, 0-0x40000000
 	{0xE1CD9561, WrapV_UIUII<sceSasSetVoicePCM>, "__sceSasSetVoicePCM"},
 };
