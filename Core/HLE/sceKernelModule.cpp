@@ -723,13 +723,24 @@ void sceKernelUnloadModule()
 	RETURN(0);
 }
 
-void sceKernelGetModuleIdByAddress()
+u32 sceKernelGetModuleIdByAddress(u32 moduleAddr)
 {
 	ERROR_LOG(HLE,"HACKIMPL sceKernelGetModuleIdByAddress(%08x)", PARAM(0));
-	if ((PARAM(0) & 0xFFFF0000) == 0x08800000)
-		RETURN(mainModuleID);
+
+	if ((moduleAddr & 0xFFFF0000) == 0x08800000)
+	{
+		return mainModuleID;
+	}
 	else
-		RETURN(0);
+	{
+		Module* foundMod= kernelObjects.GetByModuleByEntryAddr<Module>(moduleAddr);
+
+		if(foundMod)
+		{
+			return foundMod->GetUID();
+		}
+	}
+	return 0;
 }
 
 void sceKernelGetModuleId()
@@ -744,8 +755,8 @@ void sceKernelFindModuleByName()
 	RETURN(1);
 }
 
-u32 sceKernelLoadModuleByID(u32 id) {
-	ERROR_LOG(HLE,"UNIMPL sceKernelLoadModuleById(%08x)", id);
+u32 sceKernelLoadModuleByID(u32 id, u32 lmoptionPtr) {
+	ERROR_LOG(HLE,"UNIMPL sceKernelLoadModuleById(%08x, %08x)", id, lmoptionPtr);
 	// Apparenty, ID is a sceIo File UID. So this shouldn't be too hard when needed.
 	return 0;
 }
@@ -753,7 +764,7 @@ u32 sceKernelLoadModuleByID(u32 id) {
 const HLEFunction ModuleMgrForUser[] = 
 {
 	{0x977DE386,&WrapU_CU<sceKernelLoadModule>,"sceKernelLoadModule"},
-	{0xb7f46618,&WrapU_U<sceKernelLoadModuleByID>,"sceKernelLoadModuleByID"},
+	{0xb7f46618,&WrapU_UU<sceKernelLoadModuleByID>,"sceKernelLoadModuleByID"},
 	{0x50F0C1EC,&WrapV_UUUUU<sceKernelStartModule>,"sceKernelStartModule"},
 	{0xD675EBB8,&sceKernelExitGame,"sceKernelSelfStopUnloadModule"}, //HACK
 	{0xd1ff982a,&WrapV_UUUUU<sceKernelStopModule>,"sceKernelStopModule"},
@@ -762,7 +773,7 @@ const HLEFunction ModuleMgrForUser[] =
 	{0xF9275D98,0,"sceKernelLoadModuleBufferUsbWlan"}, ///???
 	{0xCC1D3699,0,"sceKernelStopUnloadSelfModule"},
 	{0x748CBED9,0,"sceKernelQueryModuleInfo"},
-	{0xd8b73127,&sceKernelGetModuleIdByAddress, "sceKernelGetModuleIdByAddress"},
+	{0xd8b73127,&WrapU_U<sceKernelGetModuleIdByAddress>, "sceKernelGetModuleIdByAddress"},
 	{0xf0a26395,&sceKernelGetModuleId, "sceKernelGetModuleId"},
 	{0x8f2df740,0,"sceKernelStopUnloadSelfModuleWithStatus"},
 };
