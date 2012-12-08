@@ -287,7 +287,7 @@ u32 sceSasSetPause(u32 core, int voicebit, int pause)
 
 void sceSasSetVolume(u32 core, int voiceNum, int l, int r, int el, int er)
 {
-	DEBUG_LOG(HLE,"UNIMPL 0=sceSasSetVolume(core=%08x, voicenum=%i, l=%i, r=%i, el=%i, er=%i", core, voiceNum, l, r, el, er);
+	DEBUG_LOG(HLE,"0=sceSasSetVolume(core=%08x, voiceNum=%i, l=%i, r=%i, el=%i, er=%i", core, voiceNum, l, r, el, er);
 	Voice &v = sas.voices[voiceNum];
 	v.volumeLeft = l;
 	v.volumeRight = r;
@@ -298,13 +298,13 @@ void sceSasSetPitch(u32 core, int voiceNum, int pitch)
 {
 	Voice &v = sas.voices[voiceNum];
 	v.pitch = pitch;
-	DEBUG_LOG(HLE,"UNIMPL 0=sceSasSetPitch(core=%08x, voicenum=%i, pitch=%i)", core, voiceNum, pitch);
+	DEBUG_LOG(HLE,"0=sceSasSetPitch(core=%08x, voiceNum=%i, pitch=%i)", core, voiceNum, pitch);
 	RETURN(0);
 }
 
 void sceSasSetKeyOn(u32 core, int voiceNum)
 {
-	DEBUG_LOG(HLE,"0=sceSasSetKeyOff(core=%08x, voicenum=%i)", core, voiceNum);
+	DEBUG_LOG(HLE,"0=sceSasSetKeyOff(core=%08x, voiceNum=%i)", core, voiceNum);
 	Voice &v = sas.voices[voiceNum];
 	v.vag.Start(Memory::GetPointer(v.vagAddr));
 	v.playing = true;
@@ -315,7 +315,7 @@ void sceSasSetKeyOn(u32 core, int voiceNum)
 // sceSasSetKeyOff can be used to start sounds, that just sound during the Release phase!
 void sceSasSetKeyOff(u32 core, int voiceNum)
 {
-	DEBUG_LOG(HLE,"0=sceSasSetKeyOff(core=%08x, voicenum=%i)", core, voiceNum);
+	DEBUG_LOG(HLE,"0=sceSasSetKeyOff(core=%08x, voiceNum=%i)", core, voiceNum);
 	Voice &v = sas.voices[voiceNum];
 	v.playing = false;	// not right! Should directly enter Release envelope stage instead!
 	RETURN(0);
@@ -331,7 +331,7 @@ u32 sceSasSetNoise(u32 core, int voiceNum, int freq)
 
 u32 sceSasSetSL(u32 core, int voiceNum, int level)
 {
-	DEBUG_LOG(HLE,"0=sceSasSetSL(core=%08x, voicenum=%i, level=%i)", core, voiceNum, level);
+	DEBUG_LOG(HLE,"0=sceSasSetSL(core=%08x, voiceNum=%i, level=%i)", core, voiceNum, level);
 	Voice &v = sas.voices[voiceNum];
 	v.sustainLevel = level;
 	return 0;
@@ -458,7 +458,7 @@ void sceSasRevType(u32 core, int type)
 
 void sceSasRevParam(u32 core, int delay, int feedback)
 {
-	DEBUG_LOG(HLE,"UNIMPL 0=sceSasRevParam(core=%08x, delay=%i, feedback=%i)", core, delay, feedback);
+	DEBUG_LOG(HLE,"0=sceSasRevParam(core=%08x, delay=%i, feedback=%i)", core, delay, feedback);
 	waveformEffectDelay = delay;
 	waveformEffectFeedback = feedback;
 	RETURN(0);
@@ -485,7 +485,7 @@ void sceSasRevEVOL(u32 core, int lv, int rv)
 
 void sceSasRevVON(u32 core, int dry, int wet)
 {
-	DEBUG_LOG(HLE,"0=sceSasRevEVOL(core=%08x, dry=%i, wet=%i)", core, dry, wet);
+	DEBUG_LOG(HLE,"0=sceSasRevVON(core=%08x, dry=%i, wet=%i)", core, dry, wet);
 	waveformEffectIsDryOn = (dry > 0);
 	waveformEffectIsWetOn = (wet > 0);
 	RETURN(0);
@@ -530,7 +530,7 @@ u32 sceSasGetAllEnvelopeHeights(u32 core, u32 heightsAddr)
 
 void sceSasSetVoicePCM(u32 core, int voiceNum, u32 pcmAddr, int size, int loop)
 {
-	DEBUG_LOG(HLE,"0=sceSasSetVoice(core=%08x, voicenum=%i, pcm=%08x, size=%i, loop=%i)",core, voiceNum, pcmAddr, size, loop);
+	DEBUG_LOG(HLE,"0=sceSasSetVoicePCM(core=%08x, voicenum=%i, pcmAddr=%08x, size=%i, loop=%i)",core, voiceNum, pcmAddr, size, loop);
 	Voice &v = sas.voices[voiceNum];
 	v.pcmAddr = pcmAddr;
 	v.size = size;
