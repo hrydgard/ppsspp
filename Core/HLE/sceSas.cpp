@@ -520,11 +520,11 @@ u32 sceSasSetOutputMode(u32 core, u32 outputMode)
 
 u32 sceSasGetAllEnvelopeHeights(u32 core, u32 heightsAddr)
 {
-		Memory::Memset(heightsAddr, 0 , sas.length * 4);
-		for (int i = 0; i < sas.length ; i++) {
-			int voiceHeight = sas.voices[i].height;
-		}
-        	return 0;
+	Memory::Memset(heightsAddr, 0 , sas.length * 4);
+	for (int i = 0; i < sas.length ; i++) {
+		int voiceHeight = sas.voices[i].height;
+	}
+        return 0;
 }
 
 void sceSasSetVoicePCM(u32 core, int voiceNum, u32 pcmAddr, int size, int loop)
