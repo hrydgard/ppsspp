@@ -238,8 +238,8 @@ int sceFontGetCharInfo(u32 libHandler, u32 charCode, u32 charInfoPtr)
 	{
 		CharInfo pspCharInfo;
 		memset(&pspCharInfo, 0, sizeof(pspCharInfo));
-		pspCharInfo.bitmapWidth = 64;
-		pspCharInfo.bitmapHeight = 64;
+		pspCharInfo.bitmapWidth = 16*2;
+		pspCharInfo.bitmapHeight = 16*2;
 		pspCharInfo.spf26Width = pspCharInfo.bitmapWidth << 6;
 		pspCharInfo.spf26Height = pspCharInfo.bitmapHeight << 6;
 		pspCharInfo.spf26AdvanceH = pspCharInfo.bitmapWidth << 6;
@@ -251,13 +251,13 @@ int sceFontGetCharInfo(u32 libHandler, u32 charCode, u32 charInfoPtr)
 
 int sceFontGetCharGlyphImage(u32 libHandler, u32 charCode, u32 glyphImagePtr)
 {
-	ERROR_LOG(HLE, "sceFontGetCharGlyphImage %x, %x, %x", libHandler, charCode, glyphImagePtr);
+	ERROR_LOG(HLE, "sceFontGetCharGlyphImage %x, %x, %x (%c)", libHandler, charCode, glyphImagePtr, charCode);
 	return 0;
 }
 
 int sceFontGetCharGlyphImage_Clip(u32 libHandler, u32 charCode, u32 glyphImagePtr, int clipXPos, int clipYPos, int clipWidth, int clipHeight)
 {
-	ERROR_LOG(HLE, "sceFontGetCharGlyphImage_Clip %x, %x, %x", libHandler, charCode, glyphImagePtr);
+	ERROR_LOG(HLE, "sceFontGetCharGlyphImage_Clip %x, %x, %x (%c)", libHandler, charCode, glyphImagePtr, charCode);
 	return 0;
 }
 
