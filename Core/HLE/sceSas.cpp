@@ -43,6 +43,9 @@ static const int PSP_SAS_ADSR_RELEASE=8;
 
 int grainSamples;
 int output;
+
+struct WaveformEffect 
+{
 int waveformEffectType;
 int waveformEffectDelay;
 int waveformEffectFeedback ;
@@ -50,6 +53,7 @@ int waveformEffectLeftVol;
 int waveformEffectRightVol;
 int waveformEffectIsDryOn;
 int waveformEffectIsWetOn;
+};
 
 static const double f[5][2] = 
 { { 0.0, 0.0 },
@@ -174,6 +178,7 @@ class SasInstance
 public:
 	enum { NUM_VOICES = 32 };
 	Voice voices[NUM_VOICES];
+	WaveformEffect waveformEffect;
 	int grainSize;
 	int maxVoices;
 	int sampleRate;
@@ -452,15 +457,15 @@ u32 sceSasGetEnvelopeHeight(u32 core, u32 voiceNum)
 void sceSasRevType(u32 core, int type)
 {
 	DEBUG_LOG(HLE,"0=sceSasRevType(core=%08x, type=%i)", core, type);
-	waveformEffectType=type;
+	sas.waveformEffect.waveformEffectType=type;
 	RETURN(0);
 }
 
 void sceSasRevParam(u32 core, int delay, int feedback)
 {
 	DEBUG_LOG(HLE,"0=sceSasRevParam(core=%08x, delay=%i, feedback=%i)", core, delay, feedback);
-	waveformEffectDelay = delay;
-	waveformEffectFeedback = feedback;
+	sas.waveformEffect.waveformEffectDelay = delay;
+	sas.waveformEffect.waveformEffectFeedback = feedback;
 	RETURN(0);
 }
 
@@ -478,16 +483,16 @@ u32 sceSasGetPauseFlag(u32 core)
 void sceSasRevEVOL(u32 core, int lv, int rv)
 {
 	DEBUG_LOG(HLE,"0=sceSasRevEVOL(core=%08x, leftVolume=%i, rightVolume=%i)", core, lv, rv);
-	waveformEffectLeftVol = lv;
-	waveformEffectRightVol = rv;
+	sas.waveformEffect.waveformEffectLeftVol = lv;
+	sas.waveformEffect.waveformEffectRightVol = rv;
 	RETURN(0);
 }
 
 void sceSasRevVON(u32 core, int dry, int wet)
 {
 	DEBUG_LOG(HLE,"0=sceSasRevVON(core=%08x, dry=%i, wet=%i)", core, dry, wet);
-	waveformEffectIsDryOn = (dry > 0);
-	waveformEffectIsWetOn = (wet > 0);
+	sas.waveformEffect.waveformEffectIsDryOn = (dry > 0);
+	sas.waveformEffect.waveformEffectIsWetOn = (wet > 0);
 	RETURN(0);
 }
 
