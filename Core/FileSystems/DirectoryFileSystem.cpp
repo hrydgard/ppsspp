@@ -27,6 +27,7 @@
 
 DirectoryFileSystem::DirectoryFileSystem(IHandleAllocator *_hAlloc, std::string _basePath) : basePath(_basePath)
 {
+	File::CreateFullPath(basePath);
 	hAlloc = _hAlloc;
 }
 
@@ -52,12 +53,9 @@ std::string DirectoryFileSystem::GetLocalPath(std::string localpath)
 bool DirectoryFileSystem::MkDir(const std::string &dirname)
 {
 	std::string fullName = GetLocalPath(dirname);
-#ifdef _WIN32
-	return CreateDirectory(fullName.c_str(), NULL) == TRUE;
-#else
-	mkdir(fullName.c_str(), 0777);
-	return true;
-#endif
+
+	return File::CreateFullPath(fullName);
+
 }
 
 bool DirectoryFileSystem::RmDir(const std::string &dirname)

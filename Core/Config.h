@@ -53,6 +53,7 @@ public:
 	int iCpuCore;
 
 	std::string currentDirectory;
+	std::string memCardDirectory;
 
 	void Load(const char *iniFileName = "ppsspp.ini");
 	void Save();
