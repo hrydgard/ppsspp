@@ -754,20 +754,27 @@ Thread *__KernelNextThread() {
 
 void __KernelReSchedule(const char *reason)
 {
-  // cancel rescheduling when in interrupt or callback, otherwise everything will be fucked up
-  if (__IsInInterrupt() || __KernelInCallback())
-  {
-    reason = "In Interrupt Or Callback";
-    return;
-  }
+	// cancel rescheduling when in interrupt or callback, otherwise everything will be fucked up
+	if (__IsInInterrupt() || __KernelInCallback())
+	{
+		reason = "In Interrupt Or Callback";
+		return;
+	}
 
-  // Execute any pending events while we're doing scheduling.
-  CoreTiming::Advance();
-  if (__IsInInterrupt() || __KernelInCallback())
-  {
-    reason = "In Interrupt Or Callback";
-    return;
-  }
+	// This may get us running a callback, don't reschedule out of it.
+	if (__KernelCheckCallbacks())
+	{
+		reason = "Began interrupt or callback.";
+		return;
+	}
+
+	// Execute any pending events while we're doing scheduling.
+	CoreTiming::Advance();
+	if (__IsInInterrupt() || __KernelInCallback())
+	{
+		reason = "In Interrupt Or Callback";
+		return;
+	}
 
 retry:
 	Thread *nextThread = __KernelNextThread();
@@ -793,7 +800,6 @@ void __KernelReSchedule(bool doCallbacks, const char *reason)
 	{
 		if (thread)
 			thread->isProcessingCallbacks = doCallbacks;
-		__KernelCheckCallbacks();
 	}
 	__KernelReSchedule(reason);
 	if (doCallbacks && thread == currentThread) {
