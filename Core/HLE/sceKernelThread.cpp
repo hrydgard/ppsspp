@@ -268,7 +268,7 @@ public:
 	u32 stackBlock;
 };
 
-void __KernelExecuteMipsCallOnCurrentThread(int callId);
+void __KernelExecuteMipsCallOnCurrentThread(int callId, bool reschedAfter);
 
 
 int g_inCbCount = 0;
@@ -1626,7 +1626,7 @@ void __KernelSwitchContext(Thread *target, const char *reason)
 	currentThread->nt.waitType = WAITTYPE_NONE;
 	currentThread->nt.waitID = 0;
 
-	__KernelExecutePendingMipsCalls();
+	__KernelExecutePendingMipsCalls(true);
 }
 
 void __KernelChangeThreadState(Thread *thread, ThreadStatus newStatus) {
@@ -1657,7 +1657,8 @@ bool __CanExecuteCallbackNow(Thread *thread) {
 	return g_inCbCount == 0;
 }
 
-void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, bool returnVoid, std::vector<int> args) {
+void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, bool returnVoid, std::vector<int> args, bool reschedAfter)
+{
 	if (thread) {
 		ActionAfterMipsCall *after = new ActionAfterMipsCall();
 		after->chainedAction = afterAction;
@@ -1692,7 +1693,7 @@ void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, bo
 		if (__CanExecuteCallbackNow(thread)) {
 			thread = currentThread;
 			__KernelChangeThreadState(thread, THREADSTATUS_RUNNING);
-			__KernelExecuteMipsCallOnCurrentThread(callId);
+			__KernelExecuteMipsCallOnCurrentThread(callId, reschedAfter);
 			called = true;
 		}
 	}
@@ -1703,7 +1704,7 @@ void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, bo
 	}
 }
 	
-void __KernelExecuteMipsCallOnCurrentThread(int callId)
+void __KernelExecuteMipsCallOnCurrentThread(int callId, bool reschedAfter)
 {
 	if (g_inCbCount > 0) {
 		WARN_LOG(HLE, "__KernelExecuteMipsCallOnCurrentThread: Already in a callback!");
@@ -1719,6 +1720,7 @@ void __KernelExecuteMipsCallOnCurrentThread(int callId)
 	call->savedIdRegister = currentMIPS->r[MIPS_REG_CALL_ID];
 	call->savedId = currentThread->currentCallbackId;
 	call->returnVoid = false;
+	call->reschedAfter = reschedAfter;
 
 	// Set up the new state
 	currentMIPS->pc = call->entryPoint;
@@ -1760,14 +1762,15 @@ void __KernelReturnFromMipsCall()
 	g_inCbCount--;
 
 	// yeah! back in the real world, let's keep going. Should we process more callbacks?
-	if (!__KernelCheckCallbacks())
+	if (!__KernelExecutePendingMipsCalls(call->reschedAfter))
 	{
-		// We should definitely reschedule as we might still be asleep. - except if we came from checkcallbacks?
-		__KernelReSchedule("return from callback");
+		// Sometimes, we want to stay on the thread.
+		if (call->reschedAfter)
+			__KernelReSchedule("return from callback");
 	}
 }
 
-bool __KernelExecutePendingMipsCalls()
+bool __KernelExecutePendingMipsCalls(bool reschedAfter)
 {
 	Thread *thread = __GetCurrentThread();
 
@@ -1781,7 +1784,7 @@ bool __KernelExecutePendingMipsCalls()
 		// Pop off the first pending mips call
 		int callId = thread->pendingMipsCalls.front();
 		thread->pendingMipsCalls.pop_front();
-		__KernelExecuteMipsCallOnCurrentThread(callId);
+		__KernelExecuteMipsCallOnCurrentThread(callId, reschedAfter);
 		return true;
 	}
 	return false;
@@ -1797,7 +1800,7 @@ public:
 };
 
 // Executes the callback, when it next is context switched to.
-void __KernelRunCallbackOnThread(SceUID cbId, Thread *thread)
+void __KernelRunCallbackOnThread(SceUID cbId, Thread *thread, bool reschedAfter)
 {
 	u32 error;
 	Callback *cb = kernelObjects.Get<Callback>(cbId, error);
@@ -1821,7 +1824,7 @@ void __KernelRunCallbackOnThread(SceUID cbId, Thread *thread)
 	cb->nc.notifyArg = 0;
 
 	Action *action = new ActionAfterCallback(cbId);
-	__KernelCallAddress(thread, cb->nc.entrypoint, action, false, args);
+	__KernelCallAddress(thread, cb->nc.entrypoint, action, false, args, reschedAfter);
 }
 
 void ActionAfterCallback::run() {
@@ -1852,7 +1855,7 @@ bool __KernelCheckThreadCallbacks(Thread *thread, bool force)
 		if (thread->readyCallbacks[i].size()) {
 			SceUID readyCallback = thread->readyCallbacks[i].front();
 			thread->readyCallbacks[i].pop_front();
-			__KernelRunCallbackOnThread(readyCallback, thread);   // makes pending
+			__KernelRunCallbackOnThread(readyCallback, thread, !force);   // makes pending
 			return true;
 		}
 	}
@@ -1875,7 +1878,7 @@ bool __KernelCheckCallbacks() {
 	// } while (processed && currentThread == __KernelGetCurThread());
 
 	if (processed)
-		return __KernelExecutePendingMipsCalls();
+		return __KernelExecutePendingMipsCalls(true);
 	return processed;
 }
 
@@ -1885,7 +1888,7 @@ bool __KernelForceCallbacks()
 
 	bool callbacksProcessed = __KernelCheckThreadCallbacks(curThread, true);
 	if (callbacksProcessed)
-		__KernelExecutePendingMipsCalls();
+		__KernelExecutePendingMipsCalls(false);
 
 	return callbacksProcessed;
 }

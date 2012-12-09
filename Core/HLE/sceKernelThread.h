@@ -169,7 +169,7 @@ bool __KernelCheckCallbacks();
 bool __KernelForceCallbacks();
 class Thread;
 void __KernelSwitchContext(Thread *target, const char *reason);
-bool __KernelExecutePendingMipsCalls();
+bool __KernelExecutePendingMipsCalls(bool reschedAfter);
 void __KernelNotifyCallback(RegisteredCallbackType type, SceUID cbId, int notifyArg);
 
 // A call into game code. These can be pending on a thread.
@@ -189,6 +189,7 @@ struct MipsCall {
 	bool returnVoid;
 	const char *tag;
 	u32 savedId;
+	bool reschedAfter;
 };
 enum ThreadStatus
 {
