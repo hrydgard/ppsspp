@@ -222,13 +222,49 @@ int sceFontFindFont(u32 libHandlePtr, u32 fontStylePtr, u32 errorCodePtr)
 int sceFontGetFontInfo(u32 fontHandle, u32 fontInfoPtr)
 {
 	ERROR_LOG(HLE, "sceFontGetFontInfo %x, %x", fontHandle, fontInfoPtr);
+
+	FontInfo fi;
+	memset (&fi, 0, sizeof(fi));
+	if (Memory::IsValidAddress(fontInfoPtr))
+	{
+		fi.BPP =4;
+		fi.charMapLength = 255;
+		//		fi.fontStyle =1;
+		fi.maxGlyphAdvanceXF = 2.0;
+		fi.maxGlyphAdvanceXI =2;
+		fi.maxGlyphAdvanceYF = 2.0;
+		fi.maxGlyphAdvanceYI = 32 << 6;
+		fi.maxGlyphAscenderF =32 << 6;
+		fi.maxGlyphAscenderI = 32 << 6;
+		fi.maxGlyphBaseYF= 0.0;
+		fi.maxGlyphBaseYI=0.0;
+		fi.maxGlyphDescenderF =0;
+		fi.maxGlyphDescenderI =0;
+		fi.maxGlyphHeight = 32;
+		fi.maxGlyphHeightF= 32;
+		fi.maxGlyphHeightI = 32;
+		fi.maxGlyphLeftXF= 0;
+		fi.maxGlyphLeftXI = 0;
+		fi.maxGlyphTopYF =0;
+		fi.maxGlyphTopYI = 0;
+		fi.maxGlyphWidth =32;
+		fi.maxGlyphWidthF = 32;
+		fi.maxGlyphWidthI= 32;
+		fi.minGlyphCenterXF = 16;
+		fi.minGlyphCenterXI= 16;
+		fi.shadowMapLength=0;
+		Memory::WriteStruct(fontInfoPtr, &fi);
+	}
+
 	return 0;
 }
 
 int sceFontGetFontInfoByIndexNumber(u32 libHandle, u32 fontInfoPtr, u32 unknown, u32 fontIndex)
 {
 	ERROR_LOG(HLE, "sceFontGetFontInfoByIndexNumber %x, %x, %x, %x", libHandle, fontInfoPtr, unknown, fontIndex);
-	return 0;
+	// clearly wrong..
+	return sceFontGetFontInfo(libHandle, fontInfoPtr);
+
 }
 
 int sceFontGetCharInfo(u32 libHandler, u32 charCode, u32 charInfoPtr)
@@ -237,9 +273,10 @@ int sceFontGetCharInfo(u32 libHandler, u32 charCode, u32 charInfoPtr)
 	if (Memory::IsValidAddress(charInfoPtr))
 	{
 		CharInfo pspCharInfo;
-		memset(&pspCharInfo, 0, sizeof(pspCharInfo));
-		pspCharInfo.bitmapWidth = 16*2;
-		pspCharInfo.bitmapHeight = 16*2;
+		memset(&pspCharInfo, 0, sizeof(pspCharInfo));		
+		pspCharInfo.bitmapWidth = 32;
+		pspCharInfo.bitmapHeight = 32;
+
 		pspCharInfo.spf26Width = pspCharInfo.bitmapWidth << 6;
 		pspCharInfo.spf26Height = pspCharInfo.bitmapHeight << 6;
 		pspCharInfo.spf26AdvanceH = pspCharInfo.bitmapWidth << 6;
@@ -252,12 +289,24 @@ int sceFontGetCharInfo(u32 libHandler, u32 charCode, u32 charInfoPtr)
 int sceFontGetCharGlyphImage(u32 libHandler, u32 charCode, u32 glyphImagePtr)
 {
 	ERROR_LOG(HLE, "sceFontGetCharGlyphImage %x, %x, %x (%c)", libHandler, charCode, glyphImagePtr, charCode);
+
+	int pixelFormat = Memory::Read_U32(glyphImagePtr);
+	int xPos64 = Memory::Read_U32(glyphImagePtr+4);
+	int yPos64 = Memory::Read_U32(glyphImagePtr+8);
+	int bufWidth = Memory::Read_U16(glyphImagePtr+12);
+	int bufHeight = Memory::Read_U16(glyphImagePtr+14);
+	int bytesPerLine = Memory::Read_U16(glyphImagePtr+16);
+	int buffer =Memory::Read_U32(glyphImagePtr+20);
+
+	Memory::Memset(buffer, 0x7F, bytesPerLine*bufHeight*pixelFormat);
+
 	return 0;
 }
 
 int sceFontGetCharGlyphImage_Clip(u32 libHandler, u32 charCode, u32 glyphImagePtr, int clipXPos, int clipYPos, int clipWidth, int clipHeight)
 {
 	ERROR_LOG(HLE, "sceFontGetCharGlyphImage_Clip %x, %x, %x (%c)", libHandler, charCode, glyphImagePtr, charCode);
+	//sceFontGetCharGlyphImage(libHandler, charCode, glyphImagePtr);
 	return 0;
 }
 
