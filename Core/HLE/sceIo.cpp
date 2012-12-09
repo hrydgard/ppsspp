@@ -21,6 +21,7 @@
 #endif
 
 #include "../System.h"
+#include "../Config.h"
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
 #include "../HW/MemoryStick.h"
@@ -165,7 +166,7 @@ void __IoInit() {
 	sprintf(mypath, "%s%sMemStick\\", drive, dir);
 #else
 	// TODO
-	char mypath[256] = "/mount/sdcard/memstick";
+	std::string mypath = g_Config.memCardDirectory;
 #endif
 
 	DirectoryFileSystem *memstick;
