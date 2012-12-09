@@ -45,7 +45,7 @@ enum
 static std::vector<HLEModule> moduleDB;
 static std::vector<Syscall> unresolvedSyscalls;
 static int hleAfterSyscall = HLE_AFTER_NOTHING;
-static const char *hleAfterSyscallReschedReason = NULL;
+static char hleAfterSyscallReschedReason[512];
 
 void HLEInit()
 {
@@ -207,9 +207,20 @@ void hleCheckCurrentCallbacks()
 void hleReSchedule(const char *reason)
 {
 	_dbg_assert_msg_(HLE, reason != 0, "hleReSchedule: Expecting a valid reason.");
+	_dbg_assert_msg_(HLE, strlen(reason) < 256, "hleReSchedule: Not too long reason.");
 
 	hleAfterSyscall |= HLE_AFTER_RESCHED;
-	hleAfterSyscallReschedReason = reason;
+
+	if (!reason)
+		strcpy(hleAfterSyscallReschedReason, "Invalid reason");
+	// You can't seriously need a reason that long, can you?
+	else if (strlen(reason) >= sizeof(hleAfterSyscallReschedReason))
+	{
+		memcpy(hleAfterSyscallReschedReason, reason, sizeof(hleAfterSyscallReschedReason) - 1);
+		hleAfterSyscallReschedReason[sizeof(hleAfterSyscallReschedReason) - 1] = 0;
+	}
+	else
+		strcpy(hleAfterSyscallReschedReason, reason);
 }
 
 void hleReSchedule(bool callbacks, const char *reason)
@@ -232,7 +243,7 @@ inline void hleFinishSyscall()
 		__KernelCheckCallbacks();
 
 	hleAfterSyscall = HLE_AFTER_NOTHING;
-	hleAfterSyscallReschedReason = NULL;
+	hleAfterSyscallReschedReason[0] = 0;
 }
 
 void CallSyscall(u32 op)
