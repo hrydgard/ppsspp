@@ -216,6 +216,12 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 #endif
 	}
 
+#if defined(ANDROID) || defined(BLACKBERRY)
+	g_Config.memCardDirectory = user_data_path;
+#else
+	g_Config.memCardDirectory = std::string(getenv("HOME"))+"/.ppsspp/";
+#endif
+
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++)
 	{
 		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
