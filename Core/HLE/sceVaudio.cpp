@@ -16,35 +16,30 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "HLE.h"
-
+#include "FunctionWrappers.h"
 #include "sceVaudio.h"
 
-void sceVaudioOutputBlockingFunction() 
-{
-	WARN_LOG(HLE, "UNIMPL sceVaudioOutputBlockingFunction(...)");
-	RETURN(0);
+u32 sceVaudioOutputBlocking() {
+	ERROR_LOG(HLE, "UNIMPL sceVaudioOutputBlocking(...)");
+	return 0;
 }
 
-void sceVaudioChReserveFunction() 
-{
-	WARN_LOG(HLE, "UNIMPL sceVaudioChReserveFunction(...)");
-	RETURN(0);
+u32 sceVaudioChReserve() {
+	ERROR_LOG(HLE, "UNIMPL sceVaudioChReserve(...)");
+	return 0;
 }
 
-void sceVaudioChReleaseFunction() 
-{
-	WARN_LOG(HLE, "UNIMPL sceVaudioChReleaseFunction(...)");
-	RETURN(0);
+u32 sceVaudioChRelease() {
+	ERROR_LOG(HLE, "UNIMPL sceVaudioChRelease(...)");
+	return 0;
 }
 
-const HLEFunction sceVaudio[] = 
-{
-	{0x03b6807d, sceVaudioOutputBlockingFunction, "sceVaudioOutputBlockingFunction"},
-	{0x67585dfd, sceVaudioChReserveFunction, "sceVaudioChReserveFunction"},
-	{0x8986295e, sceVaudioChReleaseFunction, "sceVaudioChReleaseFunction"},
+const HLEFunction sceVaudio[] = {
+	{0x03b6807d, WrapU_V<sceVaudioOutputBlocking>, "sceVaudioOutputBlockingFunction"},
+	{0x67585dfd, WrapU_V<sceVaudioChReserve>, "sceVaudioChReserveFunction"},
+	{0x8986295e, WrapU_V<sceVaudioChRelease>, "sceVaudioChReleaseFunction"},
 };
 
-void Register_sceVaudio()
-{
+void Register_sceVaudio() {
 	RegisterModule("sceVaudio",ARRAY_SIZE(sceVaudio), sceVaudio );
 }

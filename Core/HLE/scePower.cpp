@@ -34,133 +34,102 @@ void __PowerInit() {
 	memset(powerCbSlots, 0, sizeof(powerCbSlots));
 }
 
-int scePowerGetBatteryLifePercent()
-{
+int scePowerGetBatteryLifePercent() {
 	DEBUG_LOG(HLE, "100=scePowerGetBatteryLifePercent");
 	return 100;
 }
 
-int scePowerIsPowerOnline()
-{
+int scePowerIsPowerOnline() {
 	DEBUG_LOG(HLE, "1=scePowerIsPowerOnline");
 	return 1;
 }
 
-int scePowerIsBatteryExist()
-{
+int scePowerIsBatteryExist() {
 	DEBUG_LOG(HLE, "1=scePowerIsBatteryExist");
 	return 1;
 }
 
-int scePowerIsBatteryCharging()
-{
+int scePowerIsBatteryCharging() {
 	DEBUG_LOG(HLE, "0=scePowerIsBatteryCharging");
 	return 0;
 }
 
-int scePowerGetBatteryChargingStatus()
-{
+int scePowerGetBatteryChargingStatus() {
 	DEBUG_LOG(HLE, "0=scePowerGetBatteryChargingStatus");
 	return 0;
 }
 
-int scePowerIsLowBattery()
-{
+int scePowerIsLowBattery() {
 	DEBUG_LOG(HLE, "0=scePowerIsLowBattery");
 	return 0;
 }
 
-int scePowerRegisterCallback(int slot, int cbId)
-{
+int scePowerRegisterCallback(int slot, int cbId) {
 	DEBUG_LOG(HLE,"0=scePowerRegisterCallback(%i, %i)", slot, cbId);
 	int foundSlot = -1;
 
-	if (slot == POWER_CB_AUTO) // -1 signifies auto select of bank
-	{
-		for(int i=0; i < numberOfCBPowerSlots; i++)
-		{
-			if ((powerCbSlots[i]==0) && (foundSlot == POWER_CB_AUTO)) // found an empty slot
-			{
+	if (slot == POWER_CB_AUTO) { // -1 signifies auto select of bank
+		for (int i=0; i < numberOfCBPowerSlots; i++) {
+			if ((powerCbSlots[i]==0) && (foundSlot == POWER_CB_AUTO)) { // found an empty slot
 				powerCbSlots[i] = cbId;
 				foundSlot = i;
 			}
 		}
-	}
-	else
-	{
-		if (powerCbSlots[slot] == 0)
-		{
+	} else {
+		if (powerCbSlots[slot] == 0) {
 			powerCbSlots[slot] = cbId;
 			foundSlot = 0;
-		}
-		else
-		{
+		} else {
 			// slot already in use!
 			foundSlot = POWER_CB_AUTO;
 		}
 	}
-	if (foundSlot>=0)
-	{
+	if (foundSlot>=0) {
 		__KernelRegisterCallback(THREAD_CALLBACK_POWER, cbId);
-
-		// Immediately notify
-		RETURN(0);
-
-		__KernelNotifyCallbackType(THREAD_CALLBACK_POWER, cbId, 0x185); // TODO: I have no idea what the 0x185 is from the flags, but its needed for the test to pass. Need another example of it being called 
+		__KernelNotifyCallbackType(THREAD_CALLBACK_POWER, cbId, 0x185); // TODO: I have no idea what the 0x185 is from the flags, but its needed for the test to pass. Need another example of it being called
 	}
 	return foundSlot;
 }
 
-int scePowerUnregisterCallback(int slotId)
-{	
-	if (slotId < 0 || slotId >= numberOfCBPowerSlots) 
-	{
+int scePowerUnregisterCallback(int slotId) {
+	if (slotId < 0 || slotId >= numberOfCBPowerSlots) {
 		return -1;
 	}
 
-	if (powerCbSlots[slotId] != 0)
-	{
+	if (powerCbSlots[slotId] != 0) {
 		int cbId = powerCbSlots[slotId];
 		DEBUG_LOG(HLE,"0=scePowerUnregisterCallback(%i) (cbid = %i)", slotId, cbId);
 		__KernelUnregisterCallback(THREAD_CALLBACK_POWER, cbId);
 		powerCbSlots[slotId] = 0;
-	}
-	else
-	{
+	} else {
 		return 0x80000025; // TODO: docs say a value less than 0, test checks for this specifically. why??
 	}
 
 	return 0;
 }
 
-int sceKernelPowerLock(int lockType)
-{
+int sceKernelPowerLock(int lockType) {
 	DEBUG_LOG(HLE,"0=sceKernelPowerLock(%i)", lockType);
 	return 0;
 }
-int sceKernelPowerUnlock(int lockType)
-{
+
+int sceKernelPowerUnlock(int lockType) {
 	DEBUG_LOG(HLE,"0=sceKernelPowerUnlock(%i)", lockType);
 	return 0;
 }
-int sceKernelPowerTick(int flag)
-{
+
+int sceKernelPowerTick(int flag) {
 	DEBUG_LOG(HLE,"UNIMPL 0=sceKernelPowerTick(%i)", flag);
 	return 0;
 }
 
 #define ERROR_POWER_VMEM_IN_USE 0x802b0200
 
-int sceKernelVolatileMemTryLock(int type, int paddr, int psize)
-{
-
-	if (!volatileMemLocked)
-	{
+int sceKernelVolatileMemTryLock(int type, int paddr, int psize) {
+	if (!volatileMemLocked) {
 		INFO_LOG(HLE,"sceKernelVolatileMemTryLock(%i, %08x, %i) - success", type, paddr, psize);
 		volatileMemLocked = true;
-	}
-	else
-	{
+	} else {
 		ERROR_LOG(HLE, "sceKernelVolatileMemTryLock(%i, %08x, %i) - already locked!", type, paddr, psize);
 		return ERROR_POWER_VMEM_IN_USE;
 	}
@@ -174,47 +143,45 @@ int sceKernelVolatileMemTryLock(int type, int paddr, int psize)
 	return 0;
 }
 
-int sceKernelVolatileMemUnlock(int type)
-{
-	INFO_LOG(HLE,"sceKernelVolatileMemUnlock(%i)", type);
-	// TODO: sanity check
-	volatileMemLocked = false;
+int sceKernelVolatileMemUnlock(int type) {
+	if (volatileMemLocked) {
+		INFO_LOG(HLE,"sceKernelVolatileMemUnlock(%i)", type);
+		volatileMemLocked = false;
+	} else {
+		ERROR_LOG(HLE, "sceKernelVolatileMemUnlock(%i) FAILED - not locked", type);
+	}
 	return 0;
 }
 
-int sceKernelVolatileMemLock(int type, int paddr, int psize)
-{
+int sceKernelVolatileMemLock(int type, int paddr, int psize) {
 	return sceKernelVolatileMemTryLock(type, paddr, psize);
 }
 
 
-void scePowerSetClockFrequency(u32 cpufreq, u32 busfreq, u32 gpufreq)
-{
+void scePowerSetClockFrequency(u32 cpufreq, u32 busfreq, u32 gpufreq) {
 	CoreTiming::SetClockFrequencyMHz(cpufreq);
-
 	INFO_LOG(HLE,"scePowerSetClockFrequency(%i,%i,%i)", cpufreq, busfreq, gpufreq);
 }
 
-void scePowerGetCpuClockFrequencyInt() {
+u32 scePowerGetCpuClockFrequencyInt() {
 	int freq = CoreTiming::GetClockFrequencyMHz();
 	INFO_LOG(HLE,"%i=scePowerGetCpuClockFrequencyInt()", freq);
-	RETURN(freq);
+	return freq;
 }
 
-void scePowerGetPllClockFrequencyInt() {
+u32 scePowerGetPllClockFrequencyInt() {
 	int freq = CoreTiming::GetClockFrequencyMHz() / 2;
 	INFO_LOG(HLE,"%i=scePowerGetPllClockFrequencyInt()", freq);
-	RETURN(freq);
+	return freq;
 }
 
-void scePowerGetBusClockFrequencyInt() {
+u32 scePowerGetBusClockFrequencyInt() {
 	int freq = CoreTiming::GetClockFrequencyMHz() / 2;
 	INFO_LOG(HLE,"%i=scePowerGetBusClockFrequencyInt()", freq);
-	RETURN(freq);
+	return freq;
 }
 
-static const HLEFunction scePower[] = 
-{
+static const HLEFunction scePower[] = {
 	{0x04B7766E,&WrapI_II<scePowerRegisterCallback>,"scePowerRegisterCallback"},
 	{0x2B51FE2F,0,"scePower_2B51FE2F"},
 	{0x442BFBAC,0,"scePowerGetBacklightMaximum"},
@@ -249,27 +216,26 @@ static const HLEFunction scePower[] =
 	{0xAC32C9CC,0,"scePowerRequestSuspend"},
 	{0x2875994B,0,"scePower_2875994B"},
 	{0x0074EF9B,0,"scePowerGetResumeCount"},
-	{0xDFA8BAF8,&WrapI_I<scePowerUnregisterCallback>,"scePowerUnregisterCallback"},
-	{0xDB9D28DD,&WrapI_I<scePowerUnregisterCallback>,"scePowerUnregitserCallback"},	//haha
+	{0xDFA8BAF8,WrapI_I<scePowerUnregisterCallback>,"scePowerUnregisterCallback"},
+	{0xDB9D28DD,WrapI_I<scePowerUnregisterCallback>,"scePowerUnregitserCallback"},	//haha
 	{0x843FBF43,0,"scePowerSetCpuClockFrequency"},
 	{0xB8D7B3FB,0,"scePowerSetBusClockFrequency"},
 	{0xFEE03A2F,0,"scePowerGetCpuClockFrequency"},
 	{0x478FE6F5,0,"scePowerGetBusClockFrequency"},
-	{0xFDB5BFE9,scePowerGetCpuClockFrequencyInt,"scePowerGetCpuClockFrequencyInt"},
-	{0xBD681969,scePowerGetBusClockFrequencyInt,"scePowerGetBusClockFrequencyInt"},
+	{0xFDB5BFE9,WrapU_V<scePowerGetCpuClockFrequencyInt>,"scePowerGetCpuClockFrequencyInt"},
+	{0xBD681969,WrapU_V<scePowerGetBusClockFrequencyInt>,"scePowerGetBusClockFrequencyInt"},
 	{0xB1A52C83,0,"scePowerGetCpuClockFrequencyFloat"},
 	{0x9BADB3EB,0,"scePowerGetBusClockFrequencyFloat"},
-	{0x737486F2,&WrapV_UUU<scePowerSetClockFrequency>,"scePowerSetClockFrequency"},
-	{0x34f9c463,scePowerGetPllClockFrequencyInt,"scePowerGetPllClockFrequencyInt"},
+	{0x737486F2,WrapV_UUU<scePowerSetClockFrequency>,"scePowerSetClockFrequency"},
+	{0x34f9c463,WrapU_V<scePowerGetPllClockFrequencyInt>,"scePowerGetPllClockFrequencyInt"},
 	{0xea382a27,0,"scePowerGetPllClockFrequencyFloat"},
-	{0xebd177d6,&WrapV_UUU<scePowerSetClockFrequency>,"scePower_driver_EBD177D6"}, //TODO: used in a few places, jpcsp says is the same as scePowerSetClockFrequency
+	{0xebd177d6,WrapV_UUU<scePowerSetClockFrequency>,"scePower_driver_EBD177D6"}, //TODO: used in a few places, jpcsp says is the same as scePowerSetClockFrequency
 	{0x469989ad,0,"scePower_469989ad"},
 	{0xa85880d0,0,"scePower_a85880d0"},
 };
 
 //890129c in tyshooter looks bogus
-const HLEFunction sceSuspendForUser[] =
-{
+const HLEFunction sceSuspendForUser[] = {
 	{0xEADB1BD7,&WrapI_I<sceKernelPowerLock>,"sceKernelPowerLock"}, //(int param) set param to 0
 	{0x3AEE7261,&WrapI_I<sceKernelPowerUnlock>,"sceKernelPowerUnlock"},//(int param) set param to 0
 	{0x090ccb3f,&WrapI_I<sceKernelPowerTick>,"sceKernelPowerTick"},
