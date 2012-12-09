@@ -283,6 +283,8 @@ void sceUmdWaitDriveStatCB(u32 stat, u32 timeout)
 		__UmdWaitStat(timeout);
 		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, true);
 	}
+	else if (driveCBId != -1)
+		__KernelReSchedule("umd stat waited");
 }
 
 void sceUmdCancelWaitDriveStat()
