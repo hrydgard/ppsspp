@@ -58,6 +58,7 @@ public:
 
 	virtual bool IsDebuggingEnabled() {return true;}
 	virtual bool AttemptLoadSymbolMap() {return false;}
+	virtual void SetWindowTitle(const char *message) {}
 };
 
 extern Host *host;

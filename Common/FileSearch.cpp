@@ -24,6 +24,10 @@
 #include <windows.h>
 #endif
 
+// strcasecmp
+#ifdef __APPLE__
+#include <strings.h>
+#endif
 #include <string>
 
 #include "FileSearch.h"

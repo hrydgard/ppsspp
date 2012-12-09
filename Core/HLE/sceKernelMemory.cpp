@@ -515,13 +515,12 @@ void sceKernelAllocateVpl()
 	if (vpl)
 	{
 		u32 size = PARAM(1);
-		u32 *blockPtrPtr = (u32 *)Memory::GetPointer(PARAM(2));
-		int timeOut = PARAM(2);
+		int timeOut = PARAM(3);
 		DEBUG_LOG(HLE,"sceKernelAllocateVpl(vpl=%i, size=%i, ptrout= %08x , timeout=%i)", id, size, PARAM(2), timeOut);
 		u32 addr = vpl->alloc.Alloc(size);
 		if (addr != (u32)-1)
 		{
-			*blockPtrPtr = addr;
+			Memory::Write_U32(addr, PARAM(2));
 			RETURN(0);
 		}
 		else
@@ -545,13 +544,12 @@ void sceKernelAllocateVplCB()
 	if (vpl)
 	{
 		u32 size = PARAM(1);
-		u32 *blockPtrPtr = (u32 *)Memory::GetPointer(PARAM(2));
-		int timeOut = PARAM(2);
+		int timeOut = PARAM(3);
 		DEBUG_LOG(HLE,"sceKernelAllocateVplCB(vpl=%i, size=%i, ptrout= %08x , timeout=%i)", id, size, PARAM(2), timeOut);
 		u32 addr = vpl->alloc.Alloc(size);
 		if (addr != (u32)-1)
 		{
-			*blockPtrPtr = addr;
+			Memory::Write_U32(addr, PARAM(2));
 			RETURN(0);
 		}
 		else
@@ -576,13 +574,12 @@ void sceKernelTryAllocateVpl()
 	if (vpl)
 	{
 		u32 size = PARAM(1);
-		u32 *blockPtrPtr = (u32 *)Memory::GetPointer(PARAM(2));
-		int timeOut = PARAM(2);
+		int timeOut = PARAM(3);
 		DEBUG_LOG(HLE,"sceKernelAllocateVplCB(vpl=%i, size=%i, ptrout= %08x , timeout=%i)", id, size, PARAM(2), timeOut);
 		u32 addr = vpl->alloc.Alloc(size);
 		if (addr != (u32)-1)
 		{
-			*blockPtrPtr = addr;
+			Memory::Write_U32(addr, PARAM(2));
 			RETURN(0);
 		}
 		else
@@ -634,9 +631,8 @@ void sceKernelReferVplStatus()
 	if (v)
 	{
 		DEBUG_LOG(HLE,"sceKernelReferVplStatus(%i, %08x)", id, PARAM(1));
-		SceKernelVplInfo *info = (SceKernelVplInfo*)Memory::GetPointer(PARAM(1));
 		v->nv.freeSize = v->alloc.GetTotalFreeBytes();
-		*info = v->nv;
+		Memory::WriteStruct(PARAM(1), &v->nv);
 	}
 	else
 	{

@@ -148,7 +148,7 @@ void MenuScreen::render() {
 
 	ui_draw2d.DrawTextShadow(UBUNTU48, "PPSSPP", dp_xres + xoff - w/2, 80, 0xFFFFFFFF, ALIGN_HCENTER | ALIGN_BOTTOM);
 	ui_draw2d.SetFontScale(0.7f, 0.7f);
-	ui_draw2d.DrawTextShadow(UBUNTU24, "V0.31", dp_xres + xoff, 80, 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_BOTTOM);
+	ui_draw2d.DrawTextShadow(UBUNTU24, "V0.4", dp_xres + xoff, 80, 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_BOTTOM);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 	VLinear vlinear(dp_xres + xoff, 95, 20);
 
@@ -240,19 +240,22 @@ void SettingsScreen::render() {
 	int x = 30;
 	int y = 50;
 	UICheckBox(GEN_ID, x, y += 50, "Enable Sound Emulation", ALIGN_TOPLEFT, &g_Config.bEnableSound);
-	UICheckBox(GEN_ID, x, y += 50, "Show Analog Stick", ALIGN_TOPLEFT, &g_Config.bShowAnalogStick);
 	UICheckBox(GEN_ID, x, y += 50, "Buffered Rendering (may fix flicker)", ALIGN_TOPLEFT, &g_Config.bBufferedRendering);
+
 
 	bool useFastInt = g_Config.iCpuCore == CPU_FASTINTERPRETER;
 	UICheckBox(GEN_ID, x, y += 50, "Slightly faster interpreter (may crash)", ALIGN_TOPLEFT, &useFastInt);
-	ui_draw2d.DrawText(UBUNTU48, "much faster JIT coming later", x += 50, 0xcFFFFFFF, ALIGN_LEFT);
+	// ui_draw2d.DrawText(UBUNTU48, "much faster JIT coming later", x, y+=50, 0xcFFFFFFF, ALIGN_LEFT);
+	UICheckBox(GEN_ID, x, y += 50, "On-screen Touch Controls", ALIGN_TOPLEFT, &g_Config.bShowTouchControls);
+	if (g_Config.bShowTouchControls)
+		UICheckBox(GEN_ID, x + 50, y += 50, "Show Analog Stick", ALIGN_TOPLEFT, &g_Config.bShowAnalogStick);
 	g_Config.iCpuCore = useFastInt ? CPU_FASTINTERPRETER : CPU_INTERPRETER;
 	// UICheckBox(GEN_ID, x, y += 50, "Draw raw framebuffer (for some homebrew)", ALIGN_TOPLEFT, &g_Config.bDisplayFramebuffer);
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres-10), LARGE_BUTTON_WIDTH, "Back", ALIGN_RIGHT | ALIGN_BOTTOM)) {
 		screenManager()->switchScreen(new MenuScreen());
 	}
-	
+
 	UIEnd();
 
 	glsl_bind(UIShader_Get());
@@ -360,7 +363,7 @@ void CreditsScreen::update(InputState &input_state) {
 
 static const char *credits[] =
 {
-	"PPSSPP v0.31",
+	"PPSSPP v0.4",
 	"",
 	"",
 	"A fast and portable PSP emulator",
@@ -368,24 +371,31 @@ static const char *credits[] =
 	"",
 	"Created by Henrik Rydgard",
 	"",
-	"Top contributors:",
-	"kev",
+	"Contributors:",
+	"unknownbrackets",
 	"tmaul",
 	"orphis",
 	"artart78",
 	"ced2911",
 	"soywiz",
 	"kovensky",
+	"xsacha",
 	"",
 	"Written in C++ for speed and portability",
 	"",
 	"",
 	"Free tools used:",
+#ifdef ANDROID
 	"Android SDK + NDK",
+#elif BLACKBERRY
+	"Blackberry NDK",
+#else
+	"SDL",
+#endif
 	"CMake",
 	"freetype2",
 	"zlib",
-	"the free PSP SDK",
+	"PSP SDK",
 	"",
 	"",
 	"Check out the website:",

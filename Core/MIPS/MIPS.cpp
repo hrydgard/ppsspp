@@ -23,7 +23,7 @@
 #include "../System.h"
 #include "../HLE/sceDisplay.h"
 
-#if defined(ANDROID) || defined(BLACKBERRY)
+#if defined(ARM)
 #include "ARM/JitCache.h"
 #include "ARM/Jit.h"
 #else

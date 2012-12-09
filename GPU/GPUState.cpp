@@ -15,18 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#if defined(ANDROID) || defined(BLACKBERRY)
-#include <GLES2/gl2.h>
-#include <GLES2/gl2ext.h>
-#else
-#include <GL/glew.h>
-#if defined(__APPLE__)
-#include <OpenGL/gl.h>
-#else
-#include <GL/gl.h>
-#endif
-#endif
-
 #include "ge_constants.h"
 #include "GPUState.h"
 #include "GLES/ShaderManager.h"
@@ -46,6 +34,7 @@ void InitGfxState()
 	for (int i = 0; i < 256; i++) {
 		gstate.cmdmem[i] = i << 24;
 	}
+
 	gstate.lightingEnable = 0x17000001;
 
 	static const float identity4x3[12] = 
@@ -103,6 +92,7 @@ void ReapplyGfxState()
 	gpu->ExecuteOp(gstate.cmdmem[GE_CMD_SCISSOR1], 0xFFFFFFFF);
 	gpu->ExecuteOp(gstate.cmdmem[GE_CMD_SCISSOR2], 0xFFFFFFFF);
 	*/
+
 	for (int i = GE_CMD_VERTEXTYPE; i < GE_CMD_BONEMATRIXNUMBER; i++)
 	{
 		gpu->ExecuteOp(gstate.cmdmem[i], 0xFFFFFFFF);		

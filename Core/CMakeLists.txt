@@ -13,6 +13,7 @@ set(SRCS
   MIPS/MIPSVFPUUtils.cpp
   MIPS/JitCommon/JitCommon.cpp
   ELF/ElfReader.cpp
+  ELF/ParamSFO.cpp
   ELF/PrxDecrypter.cpp
   HLE/HLE.cpp
   HLE/HLETables.cpp
@@ -49,6 +50,12 @@ set(SRCS
   HLE/sceSas.cpp
   HLE/sceUmd.cpp
   HLE/sceUtility.cpp
+  HLE/sceParseUri.cpp
+  HLE/sceSsl.cpp
+  HLE/sceParseUri.cpp
+  HLE/sceParseHttp.cpp
+  HLE/scesupPreAcc.cpp
+  HLE/sceVaudio.cpp
   HW/MemoryStick.cpp
   FileSystems/BlockDevices.cpp
   FileSystems/ISOFileSystem.cpp

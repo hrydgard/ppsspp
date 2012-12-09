@@ -22,7 +22,7 @@ u32 sceDmacMemcpy(u32 dst, u32 src, u32 size)
 {
 	DEBUG_LOG(HLE, "sceDmacMemcpy(dest=%08x, src=%08x, size=%i)", dst, src, size);
 	// TODO: check the addresses.
-	memcpy(Memory::GetPointer(dst), Memory::GetPointer(src), size);
+	Memory::Memcpy(dst, Memory::GetPointer(src), size);
 	return 0;
 }
 

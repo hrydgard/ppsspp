@@ -30,6 +30,7 @@ public:
 	virtual void UpdateStall(int listid, u32 newstall);
 	virtual void ExecuteOp(u32 op, u32 diff);
 	virtual bool InterpretList();
+	virtual void Continue();
 	virtual void DrawSync(int mode);
 	virtual void EnableInterrupts(bool enable) {
 		interruptsEnabled_ = enable;
@@ -38,6 +39,7 @@ public:
 	virtual void BeginFrame() {}
 	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, int format) {}
 	virtual void CopyDisplayToOutput() {}
+	virtual void UpdateStats();
 
 private:
 	bool ProcessDLQueue();

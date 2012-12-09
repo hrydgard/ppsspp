@@ -44,6 +44,8 @@ public:
 	bool bDisplayFramebuffer;
 	bool bBufferedRendering;
 
+	bool bShowTouchControls;
+	bool bShowDebuggerOnLoad;
 	bool bShowAnalogStick;
 	bool bShowFPSCounter;
 	bool bShowDebugStats;
@@ -57,7 +59,6 @@ public:
 private:
 	std::string iniFilename_;
 };
-
 
 extern SState g_State;
 extern CConfig g_Config;

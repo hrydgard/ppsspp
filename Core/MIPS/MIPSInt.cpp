@@ -75,7 +75,7 @@ static inline void DelayBranchTo(u32 where)
 
 int MIPS_SingleStep()
 {
-#if defined(ANDROID) || defined(BLACKBERRY)
+#if defined(ARM)
 	u32 op = Memory::ReadUnchecked_U32(mipsr4k.pc);
 #else
 	u32 op = Memory::Read_Opcode_JIT(mipsr4k.pc);
@@ -152,7 +152,7 @@ namespace MIPSInt
 
 	void Int_Sync(u32 op)
 	{
-		DEBUG_LOG(CPU, "sync");
+		//DEBUG_LOG(CPU, "sync");
 		PC += 4;
 	}
 
@@ -721,6 +721,9 @@ namespace MIPSInt
 
 		switch (op & 0x3ff)
 		{
+		case 0xA0: //wsbh
+			R(rd) = ((R(rt) & 0xFF00FF00) >> 8) | ((R(rt) & 0x00FF00FF) << 8);
+			break;
 		case 0xE0: //wsbw
 			R(rd) = _byteswap_ulong(R(rt));
 			break;

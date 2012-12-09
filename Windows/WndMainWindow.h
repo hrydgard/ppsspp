@@ -14,4 +14,6 @@ namespace MainWindow
 	HINSTANCE GetHInstance();
 	HWND GetDisplayHWND();
 	void SetPlaying(const char*text);
+	void _ViewFullScreen(HWND hWnd);
+	void _ViewNormal(HWND hWnd);
 }

@@ -19,11 +19,7 @@
 
 #include "MIPS/MIPS.h"
 
-#if defined(ANDROID) || defined(BLACKBERRY)
-#include "MIPS/ARM/Jit.h"
-#else
-#include "MIPS/x86/Jit.h"
-#endif
+#include "MIPS/JitCommon/JitCommon.h"
 
 #include "System.h"
 // Bad dependency
@@ -80,11 +76,6 @@ bool PSP_Init(const CoreParameter &coreParam, std::string *error_string)
 		return false;
 	}
 
-	if (coreParameter.gpuCore != GPU_NULL)
-	{
-		DisplayDrawer_Init();
-	}
-
 	shaderManager.DirtyShader();
 	shaderManager.DirtyUniform(DIRTY_ALL);
 
@@ -117,10 +108,6 @@ void PSP_Shutdown()
 	}
 	__KernelShutdown();
 	HLEShutdown();
-	if (coreParameter.gpuCore != GPU_NULL)
-	{
-		DisplayDrawer_Shutdown();
-	}
 	Memory::Shutdown() ;
 	currentCPU = 0;
 }

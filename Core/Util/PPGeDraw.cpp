@@ -25,6 +25,7 @@
 #include "../MemMap.h"
 #include "image/zim_load.h"
 #include "gfx/texture_atlas.h"
+#include "gfx/gl_common.h"
 #include "../System.h"
 
 static u32 atlasPtr;
@@ -131,7 +132,7 @@ void __PPGeInit()
 	Memory::Memcpy(atlasPtr, imageData, atlasSize);
 	free(imageData);
 
-	NOTICE_LOG(HLE, "PPGe drawing library initialized. DL: %08x Data: %08x Atlas: %08x (%i) Ctx: %08x",
+	DEBUG_LOG(HLE, "PPGe drawing library initialized. DL: %08x Data: %08x Atlas: %08x (%i) Ctx: %08x",
 		dlPtr, dataPtr, atlasPtr, atlasSize, savedContextPtr);
 }
 
@@ -213,7 +214,6 @@ void PPGeEnd()
 		gpu->EnableInterrupts(true);
 		sceGeRestoreContext(savedContextPtr);
 	}
-	
 }
 
 static void PPGeMeasureText(const char *text, float scale, float *w, float *h) {

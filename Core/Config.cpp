@@ -48,7 +48,7 @@ void CConfig::Load(const char *iniFileName)
 	general->Get("ConfirmOnQuit", &bConfirmOnQuit, false);
 	general->Get("IgnoreBadMemAccess", &bIgnoreBadMemAccess, true);
 	general->Get("CurrentDirectory", &currentDirectory, "");
-
+	general->Get("ShowDebuggerOnLoad", &bShowDebuggerOnLoad, false);
 	IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 	cpu->Get("Core", &iCpuCore, 0);
 
@@ -63,6 +63,7 @@ void CConfig::Load(const char *iniFileName)
 
 	IniFile::Section *control = iniFile.GetOrCreateSection("Control");
 	control->Get("ShowStick", &bShowAnalogStick, false);
+	control->Get("ShowTouchControls", &bShowTouchControls, true);
 }
 
 void CConfig::Save()
@@ -79,7 +80,7 @@ void CConfig::Save()
 		general->Set("ConfirmOnQuit", bConfirmOnQuit);
 		general->Set("IgnoreBadMemAccess", bIgnoreBadMemAccess);
 		general->Set("CurrentDirectory", currentDirectory);
-
+		general->Set("ShowDebuggerOnLoad", bShowDebuggerOnLoad);
 		IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 		cpu->Set("Core", iCpuCore);
 
@@ -94,6 +95,7 @@ void CConfig::Save()
 
 		IniFile::Section *control = iniFile.GetOrCreateSection("Control");
 		control->Set("ShowStick", bShowAnalogStick);
+		control->Set("ShowTouchControls", bShowTouchControls);
 
 		iniFile.Save(iniFilename_.c_str());
 		NOTICE_LOG(LOADER, "Config saved: %s", iniFilename_.c_str());

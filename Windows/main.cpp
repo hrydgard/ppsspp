@@ -73,14 +73,14 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	comm.dwSize = sizeof(comm);
 	comm.dwICC = ICC_BAR_CLASSES | ICC_LISTVIEW_CLASSES | ICC_TAB_CLASSES;
 	InitCommonControlsEx(&comm);
-
+	timeBeginPeriod(1);
 	MainWindow::Init(_hInstance);
-	host = new WindowsHost(MainWindow::GetDisplayHWND());
 
 	HACCEL hAccelTable = LoadAccelerators(_hInstance, (LPCTSTR)IDR_ACCELS);
 	g_hPopupMenus = LoadMenu(_hInstance, (LPCSTR)IDR_POPUPMENUS);
 
 	MainWindow::Show(_hInstance, iCmdShow);
+	host = new WindowsHost(MainWindow::GetHWND(), MainWindow::GetDisplayHWND());
 
 	HWND hwndMain = MainWindow::GetHWND();
 	HMENU menu = GetMenu(hwndMain);
@@ -102,7 +102,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	hidden = true;
 #endif
 	LogManager::GetInstance()->GetConsoleListener()->Open(hidden, 150, 120, "PPSSPP Debug Console");
-	LogManager::GetInstance()->SetLogLevel(LogTypes::G3D, LogTypes::LNOTICE);
+	LogManager::GetInstance()->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
 	if (strlen(fileToLoad))
 	{
 		// TODO: load the thing
@@ -132,6 +132,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	LogManager::Shutdown();
 	DialogManager::DestroyAll();
+	timeEndPeriod(1);
 	g_Config.Save();
 	delete host;
 	return 0;

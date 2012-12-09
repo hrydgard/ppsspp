@@ -120,6 +120,7 @@
     <ClCompile Include="Debugger\Breakpoints.cpp" />
     <ClCompile Include="Debugger\SymbolMap.cpp" />
     <ClCompile Include="ELF\ElfReader.cpp" />
+    <ClCompile Include="ELF\ParamSFO.cpp" />
     <ClCompile Include="ELF\PrxDecrypter.cpp" />
     <ClCompile Include="FileSystems\BlockDevices.cpp" />
     <ClCompile Include="FileSystems\DirectoryFileSystem.cpp" />
@@ -153,12 +154,18 @@
     <ClCompile Include="HLE\sceKernelVTimer.cpp" />
     <ClCompile Include="HLE\sceMpeg.cpp" />
     <ClCompile Include="HLE\sceNet.cpp" />
+    <ClCompile Include="HLE\sceOpenPSID.cpp" />
+    <ClCompile Include="HLE\sceParseHttp.cpp" />
+    <ClCompile Include="HLE\sceParseUri.cpp" />
     <ClCompile Include="HLE\scePower.cpp" />
     <ClCompile Include="HLE\scePsmf.cpp" />
     <ClCompile Include="HLE\sceRtc.cpp" />
     <ClCompile Include="HLE\sceSas.cpp" />
+    <ClCompile Include="HLE\sceSsl.cpp" />
+    <ClCompile Include="HLE\scesupPreAcc.cpp" />
     <ClCompile Include="HLE\sceUmd.cpp" />
     <ClCompile Include="HLE\sceUtility.cpp" />
+    <ClCompile Include="HLE\sceVaudio.cpp" />
     <ClCompile Include="HLE\__sceAudio.cpp" />
     <ClCompile Include="Host.cpp" />
     <ClCompile Include="HW\MemoryStick.cpp" />
@@ -251,6 +258,7 @@
     <ClInclude Include="Debugger\SymbolMap.h" />
     <ClInclude Include="ELF\ElfReader.h" />
     <ClInclude Include="ELF\ElfTypes.h" />
+    <ClInclude Include="ELF\ParamSFO.h" />
     <ClInclude Include="ELF\PrxDecrypter.h" />
     <ClInclude Include="FileSystems\BlockDevices.h" />
     <ClInclude Include="FileSystems\DirectoryFileSystem.h" />
@@ -285,13 +293,19 @@
     <ClInclude Include="HLE\sceKernelTime.h" />
     <ClInclude Include="HLE\sceMpeg.h" />
     <ClInclude Include="HLE\sceNet.h" />
+    <ClInclude Include="HLE\sceOpenPSID.h" />
+    <ClInclude Include="HLE\sceParseHttp.h" />
+    <ClInclude Include="HLE\sceParseUri.h" />
     <ClInclude Include="HLE\scePower.h" />
     <ClInclude Include="HLE\scePsmf.h" />
     <ClInclude Include="HLE\sceRtc.h" />
     <ClInclude Include="HLE\sceSas.h" />
+    <ClInclude Include="HLE\sceSsl.h" />
+    <ClInclude Include="HLE\scesupPreAcc.h" />
     <ClInclude Include="HLE\sceUmd.h" />
     <ClInclude Include="HLE\sceUtility.h" />
     <ClInclude Include="HLE\sceKernelVTimer.h" />
+    <ClInclude Include="HLE\sceVaudio.h" />
     <ClInclude Include="HLE\__sceAudio.h" />
     <ClInclude Include="Host.h" />
     <ClInclude Include="HW\MemoryStick.h" />
@@ -358,7 +372,7 @@
       <Project>{457f45d2-556f-47bc-a31d-aff0d15beaed}</Project>
     </ProjectReference>
     <ProjectReference Include="..\native\native.vcxproj">
-      <Project>{e8b58922-9827-493d-81e0-4b6e6bd77171}</Project>
+      <Project>{C4DF647E-80EA-4111-A0A8-218B1B711E18}</Project>
     </ProjectReference>
     <ProjectReference Include="..\ext\zlib\zlib.vcxproj">
       <Project>{f761046e-6c38-4428-a5f1-38391a37bb34}</Project>

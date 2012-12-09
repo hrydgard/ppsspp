@@ -24,7 +24,7 @@ LOCAL_MODULE := ppsspp_jni
 NATIVE := ../../native
 SRC := ../..
 
-LOCAL_CFLAGS := -DUSE_PROFILER -DGL_GLEXT_PROTOTYPES -O2 -fsigned-char -Wall -Wno-multichar -Wno-psabi -Wno-unused-variable -fno-strict-aliasing -ffast-math
+LOCAL_CFLAGS := -DUSE_PROFILER -DARM -DGL_GLEXT_PROTOTYPES -DUSING_GLES2 -O2 -fsigned-char -Wall -Wno-multichar -Wno-psabi -Wno-unused-variable -fno-strict-aliasing -ffast-math
 LOCAL_CPPFLAGS := -std=gnu++0x 
 LOCAL_C_INCLUDES := \
   $(LOCAL_PATH)/../../Common \
@@ -74,6 +74,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/GPU/GLES/DisplayListInterpreter.cpp \
   $(SRC)/GPU/GLES/TextureCache.cpp \
   $(SRC)/GPU/GLES/TransformPipeline.cpp \
+  $(SRC)/GPU/GLES/StateMapping.cpp \
   $(SRC)/GPU/GLES/VertexDecoder.cpp \
   $(SRC)/GPU/GLES/ShaderManager.cpp \
   $(SRC)/GPU/GLES/VertexShaderGenerator.cpp \
@@ -81,6 +82,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/GPU/Null/NullGpu.cpp \
   $(SRC)/Core/ELF/ElfReader.cpp \
   $(SRC)/Core/ELF/PrxDecrypter.cpp \
+  $(SRC)/Core/ELF/ParamSFO.cpp \
   $(SRC)/Core/HW/MemoryStick.cpp \
   $(SRC)/Core/Core.cpp \
   $(SRC)/Core/Config.cpp \
@@ -124,12 +126,18 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/HLE/sceKernelVTimer.cpp \
   $(SRC)/Core/HLE/sceMpeg.cpp \
   $(SRC)/Core/HLE/sceNet.cpp \
+  $(SRC)/Core/HLE/sceOpenPSID.cpp \
+  $(SRC)/Core/HLE/sceParseHttp.cpp \
+  $(SRC)/Core/HLE/sceParseUri.cpp \
   $(SRC)/Core/HLE/scePower.cpp \
   $(SRC)/Core/HLE/sceRtc.cpp \
   $(SRC)/Core/HLE/scePsmf.cpp \
   $(SRC)/Core/HLE/sceSas.cpp \
+  $(SRC)/Core/HLE/sceSsl.cpp \
   $(SRC)/Core/HLE/sceUmd.cpp \
   $(SRC)/Core/HLE/sceUtility.cpp \
+  $(SRC)/Core/HLE/sceVaudio.cpp \
+  $(SRC)/Core/HLE/scesupPreAcc.cpp \
   $(SRC)/Core/FileSystems/BlockDevices.cpp \
   $(SRC)/Core/FileSystems/ISOFileSystem.cpp \
   $(SRC)/Core/FileSystems/MetaFileSystem.cpp \

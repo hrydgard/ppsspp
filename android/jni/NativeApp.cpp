@@ -27,6 +27,7 @@
 #include "base/NativeApp.h"
 #include "file/vfs.h"
 #include "file/zip_read.h"
+#include "gfx_es2/gl_state.h"
 #include "gfx/gl_lost_manager.h"
 #include "gfx/texture.h"
 #include "input/input_state.h"
@@ -172,6 +173,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	LogManager *logman = LogManager::GetInstance();
 	ILOG("Logman: %p", logman);
 
+	bool gfxLog = false;
 	// Parse command line
 	LogTypes::LOG_LEVELS logLevel = LogTypes::LINFO;
 	for (int i = 1; i < argc; i++) {
@@ -181,12 +183,26 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 				// Enable debug logging
 				logLevel = LogTypes::LDEBUG;
 				break;
+			case 'g':
+				gfxLog = true;
+				break;
+			case 'j':
+				g_Config.iCpuCore = CPU_JIT;
+				break;
+			case 'i':
+				g_Config.iCpuCore = CPU_INTERPRETER;
+				break;
 			}
 		} else {
-			boot_filename = argv[i];
-			if (!File::Exists(boot_filename))
-			{
-				fprintf(stdout, "File not found: %s\n", boot_filename.c_str());
+			if (boot_filename.empty()) {
+				boot_filename = argv[i];
+				if (!File::Exists(boot_filename))
+				{
+					fprintf(stderr, "File not found: %s\n", boot_filename.c_str());
+					exit(1);
+				}
+			} else {
+				fprintf(stderr, "Can only boot one file");
 				exit(1);
 			}
 		}
@@ -208,13 +224,14 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	{
 		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
 		logman->SetEnable(type, true);
-		logman->SetLogLevel(type, logLevel);
+		logman->SetLogLevel(type, gfxLog && i == LogTypes::G3D ? LogTypes::LDEBUG : logLevel);
 #ifdef ANDROID
 		logman->AddListener(type, logger);
 #endif
 	}
 	// Special hack for G3D as it's very spammy. Need to make a flag for this.
-	logman->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
+	if (!gfxLog)
+		logman->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
 	INFO_LOG(BOOT, "Logger inited.");
 }
 
@@ -261,6 +278,7 @@ void NativeInitGraphics()
 
 void NativeRender()
 {
+	glstate.Restore();
 	glViewport(0, 0, pixel_xres, pixel_yres);
 	Matrix4x4 ortho;
 	ortho.setOrtho(0.0f, dp_xres, dp_yres, 0.0f, -1.0f, 1.0f);
@@ -299,6 +317,11 @@ void NativeTouch(int finger, float x, float y, double time, TouchEvent event)
 	case TOUCH_UP:
 		break;
 	}
+}
+
+void NativeMessageReceived(const char *message, const char *value)
+{
+	// Unused
 }
 
 void NativeShutdownGraphics()

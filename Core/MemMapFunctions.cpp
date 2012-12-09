@@ -303,7 +303,7 @@ void WriteUnchecked_U8(const u8 _iValue, const u32 _Address)
 	WriteToHardware<u8>(_Address, _iValue);
 }
 
-void WriteUnchecked_U8(const u16 _iValue, const u32 _Address)
+void WriteUnchecked_U16(const u16 _iValue, const u32 _Address)
 {
 	WriteToHardware<u16>(_Address, _iValue);
 }
