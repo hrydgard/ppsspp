@@ -25,10 +25,27 @@
 #include "sceIo.h"
 #include "sceAudio.h"
 #include "sceKernelMemory.h"
+#include "sceKernelThread.h"
 #include "../MIPS/MIPSCodeUtils.h"
+
+enum
+{
+	// Do nothing after the syscall.
+	HLE_AFTER_NOTHING = 0x00,
+	// Reschedule immediately after the syscall.
+	HLE_AFTER_RESCHED = 0x01,
+	// Call current thread's callbacks after the syscall.
+	HLE_AFTER_CURRENT_CALLBACKS = 0x02,
+	// Check all threads' callbacks after the syscall.
+	HLE_AFTER_ALL_CALLBACKS = 0x04,
+	// Reschedule and process current thread's callbacks after the syscall.
+	HLE_AFTER_RESCHED_CALLBACKS = 0x08,
+};
 
 static std::vector<HLEModule> moduleDB;
 static std::vector<Syscall> unresolvedSyscalls;
+static int hleAfterSyscall = HLE_AFTER_NOTHING;
+static const char *hleAfterSyscallReschedReason = NULL;
 
 void HLEInit()
 {
@@ -177,6 +194,47 @@ const char *GetFuncName(int moduleIndex, int func)
 	return "[unknown]";
 }
 
+void hleCheckAllCallbacks()
+{
+	hleAfterSyscall |= HLE_AFTER_ALL_CALLBACKS;
+}
+
+void hleCheckCurrentCallbacks()
+{
+	hleAfterSyscall |= HLE_AFTER_CURRENT_CALLBACKS;
+}
+
+void hleReSchedule(const char *reason)
+{
+	_dbg_assert_msg_(HLE, reason != 0, "hleReSchedule: Expecting a valid reason.");
+
+	hleAfterSyscall |= HLE_AFTER_RESCHED;
+	hleAfterSyscallReschedReason = reason;
+}
+
+void hleReSchedule(bool callbacks, const char *reason)
+{
+	hleReSchedule(reason);
+	hleAfterSyscall |= HLE_AFTER_RESCHED_CALLBACKS;
+}
+
+inline void hleFinishSyscall()
+{
+	if ((hleAfterSyscall & HLE_AFTER_CURRENT_CALLBACKS) != 0)
+		__KernelForceCallbacks();
+
+	// Rescheduling will also do HLE_AFTER_ALL_CALLBACKS.
+	if ((hleAfterSyscall & HLE_AFTER_RESCHED_CALLBACKS) != 0)
+		__KernelReSchedule(true, hleAfterSyscallReschedReason);
+	else if ((hleAfterSyscall & HLE_AFTER_RESCHED) != 0)
+		__KernelReSchedule(hleAfterSyscallReschedReason);
+	else if ((hleAfterSyscall & HLE_AFTER_ALL_CALLBACKS) != 0)
+		__KernelCheckCallbacks();
+
+	hleAfterSyscall = HLE_AFTER_NOTHING;
+	hleAfterSyscallReschedReason = NULL;
+}
+
 void CallSyscall(u32 op)
 {
 	u32 callno = (op >> 6) & 0xFFFFF; //20 bits
@@ -192,6 +250,9 @@ void CallSyscall(u32 op)
 	if (func)
 	{
 		func();
+
+		if (hleAfterSyscall != HLE_AFTER_NOTHING)
+			hleFinishSyscall();
 	}
 	else
 	{

@@ -6,7 +6,7 @@
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	See the
 // GNU General Public License 2.0 for more details.
 
 // A copy of the GPL 2.0 should have been included with the program.
@@ -36,74 +36,48 @@ AudioChannel chans[8];
 // Not sure about the range of volume, I often see 0x800 so that might be either
 // max or 50%?
 
-void sceAudioOutputBlocking(u32 chan, u32 vol, u32 samplePtr)
-{
-	if (samplePtr == 0)
-	{
+u32 sceAudioOutputBlocking(u32 chan, u32 vol, u32 samplePtr) {
+	if (samplePtr == 0) {
 		ERROR_LOG(HLE, "sceAudioOutputBlocking - Sample pointer null");
-		RETURN(0);
+		return 0;
 	}
-	if (chan < 0 || chan >= MAX_CHANNEL)
-	{
+	if (chan < 0 || chan >= MAX_CHANNEL) {
 		ERROR_LOG(HLE,"sceAudioOutputBlocking() - BAD CHANNEL");
-		RETURN(SCE_ERROR_AUDIO_INVALID_CHANNEL);
-	}
-	else if (!chans[chan].reserved)
-	{
+		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
+	} else if (!chans[chan].reserved) {
 		ERROR_LOG(HLE,"sceAudioOutputBlocking() - channel not reserved");
-		RETURN(SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED);
-	}
-	else
-	{
+		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
+	} else {
 		DEBUG_LOG(HLE, "sceAudioOutputBlocking(%d, %d, %08x )",chan,vol,samplePtr);
 		chans[chan].leftVolume = vol;
 		chans[chan].rightVolume = vol;
 		chans[chan].sampleAddress = samplePtr;
-		RETURN(0);
-		int retval = __AudioEnqueue(chans[chan], chan, true);
-		if (retval != 0) {
-			// There was an error and didn't block (block always returns 0 here). Fine to RETURN.
-			RETURN(retval);
-		}
+		return __AudioEnqueue(chans[chan], chan, true);
 	}
 }
 
-void sceAudioOutputPannedBlocking(u32 chan, u32 volume1, u32 volume2, u32 samplePtr)
-{
-  if (samplePtr == 0)
-  {
-    ERROR_LOG(HLE, "sceAudioOutputPannedBlocking - Sample pointer null");
-    RETURN(0);
-  }
-	else if (chan < 0 || chan >= MAX_CHANNEL)
-	{
+u32 sceAudioOutputPannedBlocking(u32 chan, u32 volume1, u32 volume2, u32 samplePtr) {
+	if (samplePtr == 0) {
+		ERROR_LOG(HLE, "sceAudioOutputPannedBlocking - Sample pointer null");
+		return 0;
+	} else if (chan < 0 || chan >= MAX_CHANNEL) {
 		ERROR_LOG(HLE,"sceAudioOutputPannedBlocking() - BAD CHANNEL");
-    RETURN(SCE_ERROR_AUDIO_INVALID_CHANNEL);
-	}
-	else if (!chans[chan].reserved)
-  {
+		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
+	} else if (!chans[chan].reserved) {
 		ERROR_LOG(HLE,"sceAudioOutputPannedBlocking() - CHANNEL NOT RESERVED");
-		RETURN(SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED);
-  }
-  else
-	{
-	  DEBUG_LOG(HLE, "sceAudioOutputPannedBlocking(%d,%d,%d, %08x )", chan, volume1, volume2, samplePtr);
+		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
+	} else {
+		DEBUG_LOG(HLE, "sceAudioOutputPannedBlocking(%d,%d,%d, %08x )", chan, volume1, volume2, samplePtr);
 		chans[chan].leftVolume = volume1;
 		chans[chan].rightVolume = volume2;
 		chans[chan].sampleAddress = samplePtr;
-		RETURN(0);
-    int retval = __AudioEnqueue(chans[chan], chan, true);
-		if (retval != 0) {
-			// There was an error and didn't block (block always returns 0 here). Fine to RETURN.
-			RETURN(retval);
-		}
+		return __AudioEnqueue(chans[chan], chan, true);
 	}
 }
 
 u32 sceAudioOutput(u32 chan, u32 vol, u32 samplePtr)
 {
-	if (chan < 0 || chan >= MAX_CHANNEL)
-	{
+	if (chan < 0 || chan >= MAX_CHANNEL) {
 		ERROR_LOG(HLE,"sceAudioOutput() - BAD CHANNEL");
 		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
 	}
@@ -175,7 +149,7 @@ int sceAudioGetChannelRestLength(u32 chan)
 static int GetFreeChannel()
 {
 	for (int i = 0; i < MAX_CHANNEL; i++)
-  {
+	{
 		if (!chans[i].reserved)
 		{
 			return i;
@@ -240,64 +214,64 @@ u32 sceAudioChRelease(u32 chan)
 
 u32 sceAudioSetChannelDataLen(u32 chan, u32 len)
 {
-  if (chan < 0 || chan >= MAX_CHANNEL)
-  {
-    ERROR_LOG(HLE,"sceAudioSetChannelDataLen(%i, %i) - BAD CHANNEL", chan, len);
-    return SCE_ERROR_AUDIO_INVALID_CHANNEL;
-  }
-  else if (!chans[chan].reserved)
-  {
-    ERROR_LOG(HLE,"sceAudioSetChannelDataLen(%i, %i) - channel not reserved", chan, len);
-    return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
-  }
-  else
-  {
-    DEBUG_LOG(HLE, "sceAudioSetChannelDataLen(%i, %i)", chan, len);
+	if (chan < 0 || chan >= MAX_CHANNEL)
+	{
+		ERROR_LOG(HLE,"sceAudioSetChannelDataLen(%i, %i) - BAD CHANNEL", chan, len);
+		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
+	}
+	else if (!chans[chan].reserved)
+	{
+		ERROR_LOG(HLE,"sceAudioSetChannelDataLen(%i, %i) - channel not reserved", chan, len);
+		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
+	}
+	else
+	{
+		DEBUG_LOG(HLE, "sceAudioSetChannelDataLen(%i, %i)", chan, len);
 		//chans[chan].dataLen = len;
 		chans[chan].sampleCount = len;
-    return 0;
-  }
+		return 0;
+	}
 }
 
 u32 sceAudioChangeChannelConfig(u32 chan, u32 format)
 {
-  if (chan < 0 || chan >= MAX_CHANNEL)
-  {
-    ERROR_LOG(HLE,"sceAudioChangeChannelConfig(%i, %i) - invalid channel number", chan, format);
-    return SCE_ERROR_AUDIO_INVALID_CHANNEL;
-  }
-  else if (!chans[chan].reserved)
-  {
-    ERROR_LOG(HLE,"sceAudioChangeChannelConfig(%i, %i) - channel not reserved", chan, format);
-    return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
-  }
-  else
-  {
-	  DEBUG_LOG(HLE, "sceAudioChangeChannelConfig(%i, %i)", chan, format);
-    chans[chan].format = format;
-    return 0;
-  }
+	if (chan < 0 || chan >= MAX_CHANNEL)
+	{
+		ERROR_LOG(HLE,"sceAudioChangeChannelConfig(%i, %i) - invalid channel number", chan, format);
+		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
+	}
+	else if (!chans[chan].reserved)
+	{
+		ERROR_LOG(HLE,"sceAudioChangeChannelConfig(%i, %i) - channel not reserved", chan, format);
+		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
+	}
+	else
+	{
+		DEBUG_LOG(HLE, "sceAudioChangeChannelConfig(%i, %i)", chan, format);
+		chans[chan].format = format;
+		return 0;
+	}
 }
 
 u32 sceAudioChangeChannelVolume(u32 chan, u32 lvolume, u32 rvolume)
 {
-  if (chan < 0 || chan >= MAX_CHANNEL)
-  {
-    ERROR_LOG(HLE,"sceAudioChangeChannelVolume(%i, %i, %i) - invalid channel number", chan, lvolume, rvolume);
-    return SCE_ERROR_AUDIO_INVALID_CHANNEL;
-  }
-  else if (!chans[chan].reserved)
-  {
-    ERROR_LOG(HLE,"sceAudioChangeChannelVolume(%i, %i, %i) - channel not reserved", chan, lvolume, rvolume);
-    return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
-  }
-  else
-  {
-	  DEBUG_LOG(HLE, "sceAudioChangeChannelVolume(%i, %i, %i)", chan, lvolume, rvolume);
-    chans[chan].leftVolume = lvolume;
-    chans[chan].rightVolume = rvolume;
-	  return 0;
-  }
+	if (chan < 0 || chan >= MAX_CHANNEL)
+	{
+		ERROR_LOG(HLE,"sceAudioChangeChannelVolume(%i, %i, %i) - invalid channel number", chan, lvolume, rvolume);
+		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
+	}
+	else if (!chans[chan].reserved)
+	{
+		ERROR_LOG(HLE,"sceAudioChangeChannelVolume(%i, %i, %i) - channel not reserved", chan, lvolume, rvolume);
+		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
+	}
+	else
+	{
+		DEBUG_LOG(HLE, "sceAudioChangeChannelVolume(%i, %i, %i)", chan, lvolume, rvolume);
+		chans[chan].leftVolume = lvolume;
+		chans[chan].rightVolume = rvolume;
+		return 0;
+	}
 }
  
 u32 sceAudioInit()
@@ -321,16 +295,13 @@ u32 sceAudioOutput2Reserve(u32 sampleCount)
 	return 0;
 }
 
-void sceAudioOutput2OutputBlocking(u32 vol, u32 dataPtr)
+u32 sceAudioOutput2OutputBlocking(u32 vol, u32 dataPtr)
 {
 	DEBUG_LOG(HLE,"FAKE sceAudioOutput2OutputBlocking(%i, %08x)", vol, dataPtr);
 	chans[0].leftVolume = vol;
 	chans[0].rightVolume = vol;
 	chans[0].sampleAddress = dataPtr;
-	RETURN(0);
-	u32 retval = __AudioEnqueue(chans[0], 0, true);
-	if (retval < 0)
-		RETURN(retval);
+	return __AudioEnqueue(chans[0], 0, true);
 }
 
 u32 sceAudioOutput2ChangeLength(u32 sampleCount)
@@ -342,7 +313,7 @@ u32 sceAudioOutput2ChangeLength(u32 sampleCount)
 
 u32 sceAudioOutput2GetRestSample()
 {
-  WARN_LOG(HLE,"UNTESTED sceAudioOutput2GetRestSample()");
+	WARN_LOG(HLE,"UNTESTED sceAudioOutput2GetRestSample()");
 	return chans[0].sampleQueue.size() * 2;
 }
 
@@ -368,30 +339,30 @@ const HLEFunction sceAudio[] =
 {
 	// Newer simplified single channel audio output. Presumably for games that use Atrac3
 	// directly from Sas instead of playing it on a separate audio channel.
-  {0x01562ba3, WrapU_U<sceAudioOutput2Reserve>, "sceAudioOutput2Reserve"},
-  {0x2d53f36e, WrapV_UU<sceAudioOutput2OutputBlocking>, "sceAudioOutput2OutputBlocking"},
-  {0x63f2889c, WrapU_U<sceAudioOutput2ChangeLength>, "sceAudioOutput2ChangeLength"},
-  {0x647cef33, WrapU_V<sceAudioOutput2GetRestSample>, "sceAudioOutput2GetRestSample"},	
-  {0x43196845, WrapU_V<sceAudioOutput2Release>, "sceAudioOutput2Release"},
+	{0x01562ba3, WrapU_U<sceAudioOutput2Reserve>, "sceAudioOutput2Reserve"},
+	{0x2d53f36e, WrapU_UU<sceAudioOutput2OutputBlocking>, "sceAudioOutput2OutputBlocking"},
+	{0x63f2889c, WrapU_U<sceAudioOutput2ChangeLength>, "sceAudioOutput2ChangeLength"},
+	{0x647cef33, WrapU_V<sceAudioOutput2GetRestSample>, "sceAudioOutput2GetRestSample"},	
+	{0x43196845, WrapU_V<sceAudioOutput2Release>, "sceAudioOutput2Release"},
 
 	{0x80F1F7E0, WrapU_V<sceAudioInit>, "sceAudioInit"},
 	{0x210567F7, WrapU_V<sceAudioEnd>, "sceAudioEnd"},
 
-  {0xA2BEAA6C, WrapU_U<sceAudioSetFrequency>, "sceAudioSetFrequency"},
+	{0xA2BEAA6C, WrapU_U<sceAudioSetFrequency>, "sceAudioSetFrequency"},
 	{0x927AC32B, 0, "sceAudioSetVolumeOffset"},
 
 	// The oldest and standard audio interface. Supports 8 channels, most games use 1-2.
-	{0x8c1009b2, WrapU_UUU<sceAudioOutput>, "sceAudioOutput"}, 
-  {0x136CAF51, WrapV_UUU<sceAudioOutputBlocking>, "sceAudioOutputBlocking"}, 
-  {0xE2D56B2D, WrapU_UUUU<sceAudioOutputPanned>, "sceAudioOutputPanned"}, 
-  {0x13F592BC, WrapV_UUUU<sceAudioOutputPannedBlocking>, "sceAudioOutputPannedBlocking"}, //(u32, u32, u32, void *)Output sound, blocking 
-  {0x5EC81C55, WrapU_UUU<sceAudioChReserve>, "sceAudioChReserve"}, //(u32, u32 samplecount, u32) Initialize channel and allocate buffer  long, long samplecount, long);//init buffer? returns handle, minus if error
-  {0x6FC46853, WrapU_U<sceAudioChRelease>, "sceAudioChRelease"}, //(long handle)Terminate channel and deallocate buffer //free buffer?
-  {0xE9D97901, WrapI_U<sceAudioGetChannelRestLen>, "sceAudioGetChannelRestLen"}, 
-	{0xB011922F, WrapI_U<sceAudioGetChannelRestLen>, "sceAudioGetChannelRestLength"},  // Is there a difference between this and sceAudioGetChannelRestLen?
+	{0x8c1009b2, WrapU_UUU<sceAudioOutput>, "sceAudioOutput"},
+	{0x136CAF51, WrapU_UUU<sceAudioOutputBlocking>, "sceAudioOutputBlocking"},
+	{0xE2D56B2D, WrapU_UUUU<sceAudioOutputPanned>, "sceAudioOutputPanned"},
+	{0x13F592BC, WrapU_UUUU<sceAudioOutputPannedBlocking>, "sceAudioOutputPannedBlocking"}, //(u32, u32, u32, void *)Output sound, blocking
+	{0x5EC81C55, WrapU_UUU<sceAudioChReserve>, "sceAudioChReserve"}, //(u32, u32 samplecount, u32) Initialize channel and allocate buffer	long, long samplecount, long);//init buffer? returns handle, minus if error
+	{0x6FC46853, WrapU_U<sceAudioChRelease>, "sceAudioChRelease"}, //(long handle)Terminate channel and deallocate buffer //free buffer?
+	{0xE9D97901, WrapI_U<sceAudioGetChannelRestLen>, "sceAudioGetChannelRestLen"},
+	{0xB011922F, WrapI_U<sceAudioGetChannelRestLen>, "sceAudioGetChannelRestLength"},	// Is there a difference between this and sceAudioGetChannelRestLen?
 	{0xCB2E439E, WrapU_UU<sceAudioSetChannelDataLen>, "sceAudioSetChannelDataLen"}, //(u32, u32)
-  {0x95FD0C2D, WrapU_UU<sceAudioChangeChannelConfig>, "sceAudioChangeChannelConfig"}, 
-  {0xB7E1D8E7, WrapU_UUU<sceAudioChangeChannelVolume>, "sceAudioChangeChannelVolume"}, 
+	{0x95FD0C2D, WrapU_UU<sceAudioChangeChannelConfig>, "sceAudioChangeChannelConfig"},
+	{0xB7E1D8E7, WrapU_UUU<sceAudioChangeChannelVolume>, "sceAudioChangeChannelVolume"},
 
 	// I guess these are like the others but do sample rate conversion?
 	{0x38553111, 0, "sceAudioSRCChReserve"},
@@ -405,9 +376,9 @@ const HLEFunction sceAudio[] =
 	// Microphone interface
 	{0x7de61688, 0, "sceAudioInputInit"},
 	{0xE926D3FB, 0, "sceAudioInputInitEx"},
-	{0x6d4bec68, 0, "sceAudioInput"},	 
-	{0x086e5895, 0, "sceAudioInputBlocking"},	 
-  {0xa708c6a6, 0, "sceAudioGetInputLength"},
+	{0x6d4bec68, 0, "sceAudioInput"},
+	{0x086e5895, 0, "sceAudioInputBlocking"},
+	{0xa708c6a6, 0, "sceAudioGetInputLength"},
 	{0xA633048E, 0, "sceAudioPollInputEnd"},
 	{0x87b2e651, 0, "sceAudioWaitInputEnd"},
 };
@@ -416,5 +387,5 @@ const HLEFunction sceAudio[] =
 
 void Register_sceAudio()
 {
-  RegisterModule("sceAudio", ARRAY_SIZE(sceAudio), sceAudio);
+	RegisterModule("sceAudio", ARRAY_SIZE(sceAudio), sceAudio);
 }
