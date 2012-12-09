@@ -232,7 +232,6 @@ void sceKernelWaitEventFlagCB(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32
 				timeout = Memory::Read_U32(timeoutPtr);
 
 			__KernelWaitCurThread(WAITTYPE_EVENTFLAG, id, 0, 0, true); // sets RETURN
-			__KernelCheckCallbacks();
 		}
 	}
 	else
