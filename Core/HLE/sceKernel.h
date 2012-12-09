@@ -362,6 +362,24 @@ public:
 			return t;
 		}
 	}
+	template <class T>
+	T* GetByModuleByEntryAddr(u32 entryAddr)
+	{
+		for (int i=0; i <4096; i++)
+		{
+			T* t = dynamic_cast<T*>(pool[i]);
+
+			if (t)
+			{
+				if (t->nm.entry_addr == entryAddr)
+				{
+					return t;
+				}
+			}
+		}
+		return 0;
+	}
+
 	static u32 GetMissingErrorCode() { return -1; }	// TODO
 
 	bool GetIDType(SceUID handle, int *type) const

@@ -151,7 +151,8 @@ void __IoInit() {
 #ifdef _WIN32
 
 	char path_buffer[_MAX_PATH], drive[_MAX_DRIVE] ,dir[_MAX_DIR], file[_MAX_FNAME], ext[_MAX_EXT];
-	char mypath[_MAX_PATH];
+	char memstickpath[_MAX_PATH];
+	char flashpath[_MAX_PATH];
 
 	GetModuleFileName(NULL,path_buffer,sizeof(path_buffer));
 
@@ -163,20 +164,25 @@ void __IoInit() {
 	_splitpath_s(path_buffer, drive, dir, file, ext );
 
 	// Mount a couple of filesystems
-	sprintf(mypath, "%s%sMemStick\\", drive, dir);
+	sprintf(memstickpath, "%s%sMemStick\\", drive, dir);
+	sprintf(flashpath, "%s%sFlash\\", drive, dir);
+
 #else
 	// TODO
-	std::string mypath = g_Config.memCardDirectory;
+	std::string memstickpath = g_Config.memCardDirectory;
+	std::string flashpath = g_Config.flashDirectory;
 #endif
 
 	DirectoryFileSystem *memstick;
-	memstick = new DirectoryFileSystem(&pspFileSystem, mypath);
+	DirectoryFileSystem *flash;
 
+	memstick = new DirectoryFileSystem(&pspFileSystem, memstickpath);
+	flash = new DirectoryFileSystem(&pspFileSystem, flashpath);
 	pspFileSystem.Mount("ms0:", memstick);
 	pspFileSystem.Mount("fatms0:", memstick);
 	pspFileSystem.Mount("fatms:", memstick);
-	pspFileSystem.Mount("flash0:", new EmptyFileSystem());
-	pspFileSystem.Mount("flash1:", new EmptyFileSystem());
+	pspFileSystem.Mount("flash0:", flash);
+	pspFileSystem.Mount("flash1:", flash);
 }
 
 void __IoShutdown() {
@@ -856,12 +862,18 @@ u32 sceIoDclose(int id) {
 	return kernelObjects.Destroy<DirListing>(id);
 }
 
+u32 sceIoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen) 
+{
+	ERROR_LOG(HLE, "UNIMPL 0=sceIoIoctrl id: %08x, cmd %08x, indataPtr %08x, inlen %08x, outdataPtr %08x, outLen %08x", id,cmd,indataPtr,inlen,outdataPtr,outlen);
+    return 0;
+}
+
 const HLEFunction IoFileMgrForUser[] = {
 	{ 0xb29ddf9c, &WrapU_C<sceIoDopen>, "sceIoDopen" },
 	{ 0xe3eb004c, &WrapU_IU<sceIoDread>, "sceIoDread" },
 	{ 0xeb092469, &WrapU_I<sceIoDclose>, "sceIoDclose" },
 	{ 0xe95a012b, 0, "sceIoIoctlAsync" },
-	{ 0x63632449, 0, "sceIoIoctl" },
+	{ 0x63632449, &WrapU_UUUUUU<sceIoIoctl>, "sceIoIoctl" },
 	{ 0xace946e8, &WrapU_CU<sceIoGetstat>, "sceIoGetstat" },
 	{ 0xb8a740f4, 0, "sceIoChstat" },
 	{ 0x55f4717d, &WrapU_C<sceIoChdir>, "sceIoChdir" },
