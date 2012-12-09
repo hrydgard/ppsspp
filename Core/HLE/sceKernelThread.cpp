@@ -929,26 +929,19 @@ void __KernelSetupRootThread(SceUID moduleID, int args, const char *argp, int pr
 }
 
 
-void sceKernelCreateThread()
+int sceKernelCreateThread(const char *threadName, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr)
 {
-	u32 nameAddr = PARAM(0);
-	const char *threadName = Memory::GetCharPointer(nameAddr);
-	u32 entry = PARAM(1);
-	u32 prio  = PARAM(2);
-	int stacksize = PARAM(3);
-	u32 attr  = PARAM(4);
-	//ignore PARAM(5) 
-
 	SceUID id;
 	__KernelCreateThread(id, curModule, threadName, entry, prio, stacksize, attr);
-	INFO_LOG(HLE,"%i = sceKernelCreateThread(name=\"%s\", entry= %08x, stacksize=%i )", id, threadName, entry, stacksize);
-	RETURN(id);
+	INFO_LOG(HLE, "%i = sceKernelCreateThread(name=\"%s\", entry=%08x, prio=%x, stacksize=%i)", id, threadName, entry, prio, stacksize);
+	if (optionAddr != 0)
+		WARN_LOG(HLE, "sceKernelCreateThread: unsupported options parameter.", threadName);
+	return id;
 }
 
 
 // int sceKernelStartThread(SceUID threadToStartID, SceSize argSize, void *argBlock)
-// void because it reschedules.
-void sceKernelStartThread(SceUID threadToStartID, u32 argSize, u32 argBlockPtr)
+int sceKernelStartThread(SceUID threadToStartID, u32 argSize, u32 argBlockPtr)
 {
 	if (threadToStartID != currentThread->GetUID())
 	{
@@ -958,15 +951,13 @@ void sceKernelStartThread(SceUID threadToStartID, u32 argSize, u32 argBlockPtr)
 		{
 			ERROR_LOG(HLE,"%08x=sceKernelStartThread(thread=%i, argSize=%i, argPtr= %08x): thread does not exist!",
 				error,threadToStartID,argSize,argBlockPtr)
-			RETURN(error);
-			return;
+			return error;
 		}
 
 		if (startThread->nt.status != THREADSTATUS_DORMANT)
 		{
 			//Not dormant, WTF?
-			RETURN(ERROR_KERNEL_THREAD_IS_NOT_DORMANT);
-			return;
+			return ERROR_KERNEL_THREAD_IS_NOT_DORMANT;
 		}
 
 		INFO_LOG(HLE,"sceKernelStartThread(thread=%i, argSize=%i, argPtr= %08x )",
@@ -995,14 +986,14 @@ void sceKernelStartThread(SceUID threadToStartID, u32 argSize, u32 argBlockPtr)
 		if (!argBlockPtr && argSize > 0) {
 			WARN_LOG(HLE,"sceKernelStartThread : had NULL arg");
 		}
-		RETURN(0);
 
 		hleReSchedule("thread started");
+		return 0;
 	}
 	else
 	{
 		ERROR_LOG(HLE,"thread %i trying to start itself", threadToStartID);
-		RETURN(-1);
+		return -1;
 	}
 }
 
@@ -1142,63 +1133,60 @@ void sceKernelRotateThreadReadyQueue()
 	hleReSchedule("rotatethreadreadyqueue");
 }
 
-void sceKernelDeleteThread()
+int sceKernelDeleteThread(int threadHandle)
 {
-	int threadHandle = PARAM(0);
 	if (threadHandle != currentThread->GetUID())
 	{
 		//TODO: remove from threadqueue!
 		DEBUG_LOG(HLE,"sceKernelDeleteThread(%i)",threadHandle);
 		
-    u32 error;
-    Thread *t = kernelObjects.Get<Thread>(threadHandle, error);
-    if (t)
-    {
-      __KernelRemoveFromThreadQueue(t);
-	  __KernelFireThreadEnd(t);
+		u32 error;
+		Thread *t = kernelObjects.Get<Thread>(threadHandle, error);
+		if (t)
+		{
+			__KernelRemoveFromThreadQueue(t);
+			__KernelFireThreadEnd(t);
 
-      RETURN(kernelObjects.Destroy<Thread>(threadHandle));
+			__KernelTriggerWait(WAITTYPE_THREADEND, threadHandle);
 
-      __KernelTriggerWait(WAITTYPE_THREADEND, threadHandle);
-
-      //TODO: should we really reschedule here?
-      //if (!__KernelTriggerWait(WAITTYPE_THREADEND, threadHandle))
-      //  hleReSchedule("thread deleted");
-    }
+			//TODO: should we really reschedule here?
+			//if (!__KernelTriggerWait(WAITTYPE_THREADEND, threadHandle))
+			//	hleReSchedule("thread deleted");
+			return kernelObjects.Destroy<Thread>(threadHandle);
+		}
 	}
 	else
 	{
 		ERROR_LOG(HLE, "Thread \"%s\" tries to delete itself! :(",currentThread->GetName());
-		RETURN(-1);
+		return -1;
 	}
 }
 
-void sceKernelTerminateDeleteThread()
+int sceKernelTerminateDeleteThread(int threadno)
 {
-	int threadno = PARAM(0);
 	if (threadno != currentThread->GetUID())
 	{
 		//TODO: remove from threadqueue!
 		INFO_LOG(HLE, "sceKernelTerminateDeleteThread(%i)", threadno);
-		RETURN(0); //kernelObjects.Destroy<Thread>(threadno));
 
 		//TODO: should we really reschedule here?
 		if (!__KernelTriggerWait(WAITTYPE_THREADEND, threadno))
 			hleReSchedule("termdeletethread");
+
+		return 0; //kernelObjects.Destroy<Thread>(threadno));
 	}
 	else
 	{
 		ERROR_LOG(HLE, "Thread \"%s\" trying to delete itself! :(", currentThread->GetName());
-		RETURN(-1);
+		return -1;
 	}
 }
 
-void sceKernelTerminateThread(u32 threadID)
+int sceKernelTerminateThread(u32 threadID)
 {
 	if (threadID != currentThread->GetUID())
 	{
 		INFO_LOG(HLE, "sceKernelTerminateThread(%i)", threadID);
-		RETURN(0);
 
 		u32 error;
 		Thread *t = kernelObjects.Get<Thread>(threadID, error);
@@ -1209,11 +1197,12 @@ void sceKernelTerminateThread(u32 threadID)
 			__KernelTriggerWait(WAITTYPE_THREADEND, threadID);
 		}
 		// TODO: Return an error if it doesn't exist?
+		return 0;
 	}
 	else
 	{
 		ERROR_LOG(HLE, "Thread \"%s\" trying to delete itself! :(", currentThread->GetName());
-		RETURN(-1);
+		return -1;
 	}
 }
 

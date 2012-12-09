@@ -26,16 +26,16 @@
 
 
 void sceKernelChangeThreadPriority();
-void sceKernelCreateThread();
+int sceKernelCreateThread(const char *threadName, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr);
 void sceKernelDelayThread();
 void sceKernelDelayThreadCB();
-void sceKernelDeleteThread();
+int sceKernelDeleteThread(int threadHandle);
 void sceKernelExitDeleteThread();
 void sceKernelExitThread();
 void _sceKernelExitThread();
 void sceKernelGetThreadId();
 void sceKernelGetThreadCurrentPriority();
-void sceKernelStartThread(SceUID threadToStartID, u32 argSize, u32 argBlockPtr);
+int sceKernelStartThread(SceUID threadToStartID, u32 argSize, u32 argBlockPtr);
 u32 sceKernelSuspendDispatchThread();
 u32 sceKernelResumeDispatchThread(u32 suspended);
 void sceKernelWaitThreadEnd();
@@ -47,8 +47,8 @@ void sceKernelSuspendThread();
 void sceKernelResumeThread();
 void sceKernelWakeupThread();
 void sceKernelCancelWakeupThread();
-void sceKernelTerminateDeleteThread();
-void sceKernelTerminateThread(u32 threadID);
+int sceKernelTerminateDeleteThread(int threadno);
+int sceKernelTerminateThread(u32 threadID);
 void sceKernelWaitThreadEndCB();
 void sceKernelGetThreadExitStatus();
 void sceKernelGetThreadmanIdType();
