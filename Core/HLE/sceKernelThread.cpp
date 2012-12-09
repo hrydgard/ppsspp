@@ -959,7 +959,6 @@ void sceKernelStartThread(SceUID threadToStartID, u32 argSize, u32 argBlockPtr)
 
 		if (startThread->nt.status != THREADSTATUS_DORMANT)
 		{
-printf("NOT DORMANT\n");
 			//Not dormant, WTF?
 			RETURN(ERROR_KERNEL_THREAD_IS_NOT_DORMANT);
 			return;
@@ -1276,8 +1275,6 @@ void sceKernelDelayThreadCB()
 	SceUID curThread = __KernelGetCurThread();
 	__KernelScheduleWakeup(curThread, usec);
 	__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, true);
-	if (__KernelCheckCallbacks())
-		__KernelExecutePendingMipsCalls();
 }
 
 void sceKernelDelayThread()
@@ -1364,7 +1361,6 @@ void sceKernelSleepThreadCB()
 	DEBUG_LOG(HLE, "sceKernelSleepThreadCB()");
 	__KernelSleepThread(true);
 	__KernelCheckCallbacks();
-	__KernelExecutePendingMipsCalls();
 }
 
 void sceKernelWaitThreadEnd()
@@ -1758,8 +1754,7 @@ void __KernelReturnFromMipsCall()
 	g_inCbCount--;
 
 	// yeah! back in the real world, let's keep going. Should we process more callbacks?
-	__KernelCheckCallbacks();
-	if (!__KernelExecutePendingMipsCalls())
+	if (!__KernelCheckCallbacks())
 	{
 		// We should definitely reschedule as we might still be asleep. - except if we came from checkcallbacks?
 		__KernelReSchedule("return from callback");
@@ -1872,6 +1867,9 @@ bool __KernelCheckCallbacks() {
 			}
 		}
 	// } while (processed && currentThread == __KernelGetCurThread());
+
+	if (processed)
+		return __KernelExecutePendingMipsCalls();
 	return processed;
 }
 
@@ -1880,19 +1878,21 @@ bool __KernelForceCallbacks()
 	Thread *curThread = __GetCurrentThread();	
 
 	bool callbacksProcessed = __KernelCheckThreadCallbacks(curThread, true);
+	if (callbacksProcessed)
+		__KernelExecutePendingMipsCalls();
 
 	return callbacksProcessed;
 }
 
-void sceKernelCheckCallback() {
-	Thread *curThread = __GetCurrentThread();
+void sceKernelCheckCallback()
+{
+	// Start with yes.
+	RETURN(1);
 
 	bool callbacksProcessed = __KernelForceCallbacks();
 
 	if (callbacksProcessed) {
-		curThread->setReturnValue(1);
 		ERROR_LOG(HLE,"sceKernelCheckCallback() - processed a callback.");
-		__KernelExecutePendingMipsCalls();
 	} else {
 		RETURN(0);
 	}

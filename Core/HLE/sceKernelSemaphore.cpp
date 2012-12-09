@@ -356,11 +356,7 @@ void __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, const char *ba
 		{
 			s->ns.currentCount -= wantedCount;
 			if (processCallbacks)
-			{
-				bool callbacksProcessed = __KernelForceCallbacks();
-				if (callbacksProcessed)
-					__KernelExecutePendingMipsCalls();
-			}
+				__KernelForceCallbacks();
 		}
 		else
 		{
@@ -368,8 +364,6 @@ void __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, const char *ba
 			s->waitingThreads.push_back(__KernelGetCurThread());
 			__KernelSetSemaTimeout(s, timeoutPtr);
 			__KernelWaitCurThread(WAITTYPE_SEMA, id, wantedCount, timeoutPtr, processCallbacks);
-			if (processCallbacks)
-				__KernelCheckCallbacks();
 		}
 	}
 	else

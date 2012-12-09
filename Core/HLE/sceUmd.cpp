@@ -268,9 +268,7 @@ void sceUmdWaitDriveStatCB(u32 stat, u32 timeout)
 	{
 		DEBUG_LOG(HLE,"0=sceUmdWaitDriveStatCB(stat = %08x, timeout = %d)", stat, timeout);
 
-		bool callbacksProcessed = __KernelForceCallbacks();
-		if (callbacksProcessed)
-			__KernelExecutePendingMipsCalls();
+		__KernelForceCallbacks();
 	}
 	else
 	{
@@ -284,7 +282,6 @@ void sceUmdWaitDriveStatCB(u32 stat, u32 timeout)
 
 		__UmdWaitStat(timeout);
 		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, true);
-		__KernelCheckCallbacks();
 	}
 }
 

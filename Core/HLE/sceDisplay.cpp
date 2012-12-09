@@ -337,21 +337,18 @@ void sceDisplayWaitVblankCB()
 {
 	DEBUG_LOG(HLE,"sceDisplayWaitVblankCB()");	
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, true);
-	__KernelCheckCallbacks();
 }
 
 void sceDisplayWaitVblankStartCB()
 {
 	DEBUG_LOG(HLE,"sceDisplayWaitVblankStartCB()");	
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, true);
-	__KernelCheckCallbacks();
 }
 
 void sceDisplayWaitVblankStartMultiCB()
 {
 	DEBUG_LOG(HLE,"sceDisplayWaitVblankStartMultiCB()");	
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, true);
-	__KernelCheckCallbacks();
 }
 
 void sceDisplayGetVcount()

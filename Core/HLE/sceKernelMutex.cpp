@@ -430,9 +430,7 @@ void sceKernelLockMutexCB(SceUID id, int count, u32 timeoutPtr)
 	if (__KernelLockMutex(mutex, count, error))
 	{
 		RETURN(0);
-		bool callbacksProcessed = __KernelForceCallbacks();
-		if (callbacksProcessed)
-			__KernelExecutePendingMipsCalls();
+		__KernelForceCallbacks();
 	}
 	else if (error)
 		RETURN(error);
@@ -441,7 +439,6 @@ void sceKernelLockMutexCB(SceUID id, int count, u32 timeoutPtr)
 		mutex->waitingThreads.push_back(__KernelGetCurThread());
 		__KernelWaitMutex(mutex, timeoutPtr);
 		__KernelWaitCurThread(WAITTYPE_MUTEX, id, count, timeoutPtr, true);
-		__KernelCheckCallbacks();
 	}
 }
 
@@ -792,9 +789,7 @@ void sceKernelLockLwMutexCB(u32 workareaPtr, int count, u32 timeoutPtr)
 	{
 		Memory::WriteStruct(workareaPtr, &workarea);
 		RETURN(0);
-		bool callbacksProcessed = __KernelForceCallbacks();
-		if (callbacksProcessed)
-			__KernelExecutePendingMipsCalls();
+		__KernelForceCallbacks();
 	}
 	else if (error)
 		RETURN(error);
@@ -806,7 +801,6 @@ void sceKernelLockLwMutexCB(u32 workareaPtr, int count, u32 timeoutPtr)
 			mutex->waitingThreads.push_back(__KernelGetCurThread());
 			__KernelWaitLwMutex(mutex, timeoutPtr);
 			__KernelWaitCurThread(WAITTYPE_LWMUTEX, workarea.uid, count, timeoutPtr, true);
-			__KernelCheckCallbacks();
 		}
 		else
 			RETURN(error);
