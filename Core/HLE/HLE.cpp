@@ -28,11 +28,6 @@
 #include "sceKernelThread.h"
 #include "../MIPS/MIPSCodeUtils.h"
 
-static std::vector<HLEModule> moduleDB;
-static std::vector<Syscall> unresolvedSyscalls;
-static int hleAfterSyscall;
-static const char *hleAfterSyscallReschedReason;
-
 enum
 {
 	// Do nothing after the syscall.
@@ -46,6 +41,11 @@ enum
 	// Reschedule and process current thread's callbacks after the syscall.
 	HLE_AFTER_RESCHED_CALLBACKS = 0x08,
 };
+
+static std::vector<HLEModule> moduleDB;
+static std::vector<Syscall> unresolvedSyscalls;
+static int hleAfterSyscall = HLE_AFTER_NOTHING;
+static const char *hleAfterSyscallReschedReason = NULL;
 
 void HLEInit()
 {
@@ -218,6 +218,23 @@ void hleReSchedule(bool callbacks, const char *reason)
 	hleAfterSyscall |= HLE_AFTER_RESCHED_CALLBACKS;
 }
 
+inline void hleFinishSyscall()
+{
+	if ((hleAfterSyscall & HLE_AFTER_CURRENT_CALLBACKS) != 0)
+		__KernelForceCallbacks();
+
+	// Rescheduling will also do HLE_AFTER_ALL_CALLBACKS.
+	if ((hleAfterSyscall & HLE_AFTER_RESCHED_CALLBACKS) != 0)
+		__KernelReSchedule(true, hleAfterSyscallReschedReason);
+	else if ((hleAfterSyscall & HLE_AFTER_RESCHED) != 0)
+		__KernelReSchedule(hleAfterSyscallReschedReason);
+	else if ((hleAfterSyscall & HLE_AFTER_ALL_CALLBACKS) != 0)
+		__KernelCheckCallbacks();
+
+	hleAfterSyscall = HLE_AFTER_NOTHING;
+	hleAfterSyscallReschedReason = NULL;
+}
+
 void CallSyscall(u32 op)
 {
 	u32 callno = (op >> 6) & 0xFFFFF; //20 bits
@@ -232,21 +249,10 @@ void CallSyscall(u32 op)
 	HLEFunc func = moduleDB[modulenum].funcTable[funcnum].func;
 	if (func)
 	{
-		hleAfterSyscall = HLE_AFTER_NOTHING;
-		hleAfterSyscallReschedReason = 0;
-
 		func();
 
-		if ((hleAfterSyscall & HLE_AFTER_CURRENT_CALLBACKS) != 0)
-			__KernelForceCallbacks();
-
-		// Rescheduling will also do HLE_AFTER_ALL_CALLBACKS.
-		if ((hleAfterSyscall & HLE_AFTER_RESCHED_CALLBACKS) != 0)
-			__KernelReSchedule(true, hleAfterSyscallReschedReason);
-		else if ((hleAfterSyscall & HLE_AFTER_RESCHED) != 0)
-			__KernelReSchedule(hleAfterSyscallReschedReason);
-		else if ((hleAfterSyscall & HLE_AFTER_ALL_CALLBACKS) != 0)
-			__KernelCheckCallbacks();
+		if (hleAfterSyscall != HLE_AFTER_NOTHING)
+			hleFinishSyscall();
 	}
 	else
 	{
