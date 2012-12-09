@@ -107,13 +107,10 @@ u32 sceUmdGetDiscInfo(u32 infoAddr)
 		return PSP_ERROR_UMD_INVALID_PARAM;
 }
 
-void sceUmdActivate(u32 unknown, const char *name)
+int sceUmdActivate(u32 unknown, const char *name)
 {
 	if (unknown < 1 || unknown > 2)
-	{
-		RETURN(PSP_ERROR_UMD_INVALID_PARAM);
-		return;
-	}
+		return PSP_ERROR_UMD_INVALID_PARAM;
 
 	bool changed = umdActivated == 0;
 	__KernelUmdActivate();
@@ -129,20 +126,18 @@ void sceUmdActivate(u32 unknown, const char *name)
 
 	u32 notifyArg = UMD_PRESENT | UMD_READABLE;
 	__KernelNotifyCallbackType(THREAD_CALLBACK_UMD, -1, notifyArg);
-	RETURN(0);
 
 	if (changed)
 		hleReSchedule("umd activated");
+
+	return 0;
 }
 
-void sceUmdDeactivate(u32 unknown, const char *name)
+int sceUmdDeactivate(u32 unknown, const char *name)
 {
 	// Why 18?  No idea.
 	if (unknown < 0 || unknown > 18)
-	{
-		RETURN(PSP_ERROR_UMD_INVALID_PARAM);
-		return;
-	}
+		return PSP_ERROR_UMD_INVALID_PARAM;
 
 	bool changed = umdActivated != 0;
 	__KernelUmdDeactivate();
@@ -158,10 +153,11 @@ void sceUmdDeactivate(u32 unknown, const char *name)
 
 	u32 notifyArg = UMD_PRESENT | UMD_READY;
 	__KernelNotifyCallbackType(THREAD_CALLBACK_UMD, -1, notifyArg);
-	RETURN(0);
 
 	if (changed)
 		hleReSchedule("umd deactivated");
+
+	return 0;
 }
 
 u32 sceUmdRegisterUMDCallBack(u32 cbId)
@@ -260,10 +256,8 @@ void sceUmdWaitDriveStatWithTimer(u32 stat, u32 timeout)
 }
 
 
-void sceUmdWaitDriveStatCB(u32 stat, u32 timeout)
+int sceUmdWaitDriveStatCB(u32 stat, u32 timeout)
 {
-	RETURN(0);
-
 	if (driveCBId != -1)
 	{
 		DEBUG_LOG(HLE,"0=sceUmdWaitDriveStatCB(stat = %08x, timeout = %d)", stat, timeout);
@@ -285,6 +279,8 @@ void sceUmdWaitDriveStatCB(u32 stat, u32 timeout)
 	}
 	else if (driveCBId != -1)
 		hleReSchedule("umd stat waited");
+
+	return 0;
 }
 
 void sceUmdCancelWaitDriveStat()
@@ -306,13 +302,13 @@ u32 sceUmdGetErrorStat()
 
 const HLEFunction sceUmdUser[] = 
 {
-	{0xC6183D47,WrapV_UC<sceUmdActivate>,"sceUmdActivate"},
+	{0xC6183D47,WrapI_UC<sceUmdActivate>,"sceUmdActivate"},
 	{0x6B4A146C,&WrapU_V<sceUmdGetDriveStat>,"sceUmdGetDriveStat"},
 	{0x46EBB729,WrapI_V<sceUmdCheckMedium>,"sceUmdCheckMedium"},
-	{0xE83742BA,WrapV_UC<sceUmdDeactivate>,"sceUmdDeactivate"},
+	{0xE83742BA,WrapI_UC<sceUmdDeactivate>,"sceUmdDeactivate"},
 	{0x8EF08FCE,WrapV_U<sceUmdWaitDriveStat>,"sceUmdWaitDriveStat"},
 	{0x56202973,WrapV_UU<sceUmdWaitDriveStatWithTimer>,"sceUmdWaitDriveStatWithTimer"},
-	{0x4A9E5E29,WrapV_UU<sceUmdWaitDriveStatCB>,"sceUmdWaitDriveStatCB"},
+	{0x4A9E5E29,WrapI_UU<sceUmdWaitDriveStatCB>,"sceUmdWaitDriveStatCB"},
 	{0x6af9b50a,sceUmdCancelWaitDriveStat,"sceUmdCancelWaitDriveStat"},
 	{0x6B4A146C,&WrapU_V<sceUmdGetDriveStat>,"sceUmdGetDriveStat"},
 	{0x20628E6F,&WrapU_V<sceUmdGetErrorStat>,"sceUmdGetErrorStat"},
