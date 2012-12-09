@@ -37,6 +37,21 @@ bool writeStringToFile(bool text_file, const std::string &str, const char *filen
 	return true;
 }
 
+bool writeDataToFile(bool text_file, const void* data, const unsigned int size, const char *filename)
+{
+	FILE *f = fopen(filename, text_file ? "w" : "wb");
+	if (!f)
+		return false;
+	size_t len = size;
+	if (len != fwrite(data, 1, len, f))
+	{
+		fclose(f);
+		return false;
+	}
+	fclose(f);
+	return true;
+}
+
 uint64_t GetSize(FILE *f)
 {
 	// can't use off_t here because it can be 32-bit
@@ -66,6 +81,24 @@ bool ReadFileToString(bool text_file, const char *filename, std::string &str)
 	delete [] buf;
 	return true;
 }
+
+
+bool readDataFromFile(bool text_file, unsigned char* &data, const unsigned int size, const char *filename)
+{
+	FILE *f = fopen(filename, text_file ? "r" : "rb");
+	if (!f)
+		return false;
+	size_t len = (size_t)GetSize(f);
+	if(len < size)
+	{
+		fclose(f);
+		return false;
+	}
+	data[fread(data, 1, size, f)] = 0;
+	fclose(f);
+	return true;
+}
+
 
 #define DIR_SEP "/"
 #define DIR_SEP_CHR '\\'
