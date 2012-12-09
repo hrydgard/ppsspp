@@ -298,6 +298,10 @@ int sceUtilitySavedataInitStart(u32 paramAddr)
 		break;
 		case SCE_UTILITY_SAVEDATA_TYPE_LISTDELETE:
 		case SCE_UTILITY_SAVEDATA_TYPE_DELETE:
+		{
+			DEBUG_LOG(HLE, "Delete. Title: %s Save: %s File: %s", param->gameName, param->saveName, param->fileName);
+		}
+		break;
 		case SCE_UTILITY_SAVEDATA_TYPE_SIZES:
 		default: 
 		{
@@ -378,6 +382,27 @@ std::string GetSaveFilePath()
 		dirPath = std::string(param->gameName)+saveDialogInfo.saveNameListData[saveDialogInfo.menuListSelection];
 
 	return savePath + dirPath;
+}
+
+bool deleteSaveData()
+{
+	if (!saveDialogInfo.paramAddr)
+	{
+		return false;
+	}
+	SceUtilitySavedataParam *param = (SceUtilitySavedataParam*)Memory::GetPointer(saveDialogInfo.paramAddr);
+
+	std::string dirPath = GetSaveFilePath();
+	if(saveDialogInfo.saveNameListDataCount > 0) // if user selection, use it
+	{
+		if(saveDialogInfo.saveDataList[saveDialogInfo.menuListSelection].size == 0) // don't delete no existing file
+		{
+			return false;
+		}
+	}
+
+	pspFileSystem.RmDir(dirPath);
+	return true;
 }
 
 bool saveSaveData()
@@ -555,6 +580,24 @@ void sceUtilitySavedataUpdate(u32 unknown)
 				PPGeDrawText(saveDialogInfo.saveNameListData[i], 70, 70+15*i, PPGE_ALIGN_LEFT, 0.5f, color);
 			}
 		break;
+		case SCE_UTILITY_SAVEDATA_TYPE_LISTDELETE:
+			PPGeDrawText("Delete List", 50, 50, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
+
+			for(int i = 0; i < saveDialogInfo.saveNameListDataCount; i++)
+			{
+				u32 color = 0xFFFFFFFF;
+				if(i == saveDialogInfo.menuListSelection)
+					color = 0xFF0000FF;
+				else
+				{
+					if(saveDialogInfo.saveDataList[i].size > 0)
+						color = 0xFFFFFFFF;
+					else
+						color = 0x888888FF;
+				}
+				PPGeDrawText(saveDialogInfo.saveNameListData[i], 70, 70+15*i, PPGE_ALIGN_LEFT, 0.5f, color);
+			}
+		break;
 		case SCE_UTILITY_SAVEDATA_TYPE_LOAD: // Only load and exit
 		case SCE_UTILITY_SAVEDATA_TYPE_AUTOLOAD:
 			loadSaveData();
@@ -564,6 +607,11 @@ void sceUtilitySavedataUpdate(u32 unknown)
 		case SCE_UTILITY_SAVEDATA_TYPE_SAVE: // Only save and exit
 		case SCE_UTILITY_SAVEDATA_TYPE_AUTOSAVE:
 			saveSaveData();
+			saveDataDialogState = SCE_UTILITY_STATUS_FINISHED;
+			PPGeEnd();
+			return;
+		case SCE_UTILITY_SAVEDATA_TYPE_DELETE:
+			deleteSaveData();
 			saveDataDialogState = SCE_UTILITY_STATUS_FINISHED;
 			PPGeEnd();
 			return;
@@ -593,8 +641,6 @@ void sceUtilitySavedataUpdate(u32 unknown)
 		else if (buttons & (CTRL_CROSS)) {
 			switch(param->mode)
 			{
-				case SCE_UTILITY_SAVEDATA_TYPE_AUTOSAVE:
-				case SCE_UTILITY_SAVEDATA_TYPE_SAVE:
 				case SCE_UTILITY_SAVEDATA_TYPE_LISTSAVE:
 				{
 					if(saveSaveData())
@@ -603,9 +649,7 @@ void sceUtilitySavedataUpdate(u32 unknown)
 					}
 				}
 				break;
-				
-				case SCE_UTILITY_SAVEDATA_TYPE_AUTOLOAD:
-				case SCE_UTILITY_SAVEDATA_TYPE_LOAD:
+
 				case SCE_UTILITY_SAVEDATA_TYPE_LISTLOAD:
 				{
 					if(loadSaveData())
@@ -614,7 +658,12 @@ void sceUtilitySavedataUpdate(u32 unknown)
 					}
 				}
 				break;
-				
+				case SCE_UTILITY_SAVEDATA_TYPE_LISTDELETE:
+					if(deleteSaveData())
+					{
+						saveDataDialogState = SCE_UTILITY_STATUS_FINISHED;
+					}
+				break;
 				default:
 				break;
 			}
