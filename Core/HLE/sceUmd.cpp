@@ -132,7 +132,7 @@ void sceUmdActivate(u32 unknown, const char *name)
 	RETURN(0);
 
 	if (changed)
-		__KernelReSchedule("umd activated");
+		hleReSchedule("umd activated");
 }
 
 void sceUmdDeactivate(u32 unknown, const char *name)
@@ -161,7 +161,7 @@ void sceUmdDeactivate(u32 unknown, const char *name)
 	RETURN(0);
 
 	if (changed)
-		__KernelReSchedule("umd deactivated");
+		hleReSchedule("umd deactivated");
 }
 
 u32 sceUmdRegisterUMDCallBack(u32 cbId)
@@ -268,7 +268,7 @@ void sceUmdWaitDriveStatCB(u32 stat, u32 timeout)
 	{
 		DEBUG_LOG(HLE,"0=sceUmdWaitDriveStatCB(stat = %08x, timeout = %d)", stat, timeout);
 
-		__KernelForceCallbacks();
+		hleCheckCurrentCallbacks();
 	}
 	else
 	{
@@ -284,7 +284,7 @@ void sceUmdWaitDriveStatCB(u32 stat, u32 timeout)
 		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, true);
 	}
 	else if (driveCBId != -1)
-		__KernelReSchedule("umd stat waited");
+		hleReSchedule("umd stat waited");
 }
 
 void sceUmdCancelWaitDriveStat()

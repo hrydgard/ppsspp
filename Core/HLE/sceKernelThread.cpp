@@ -397,7 +397,7 @@ void __KernelIdle()
   // In Advance, we might trigger an interrupt such as vblank.
   // If we end up in an interrupt, we don't want to reschedule.
   // However, we have to reschedule... damn.
-  __KernelReSchedule("idle");
+  hleReSchedule("idle");
 }
 
 void __KernelThreadingShutdown()
@@ -618,10 +618,9 @@ u32 __KernelResumeThreadFromWait(SceUID threadID, int retval)
 	}
 }
 
-// DANGEROUS
 // Only run when you can safely accept a context switch
 // Triggers a waitable event, that is, it wakes up all threads that waits for it
-// If any changes were made, it will context switch
+// If any changes were made, it will context switch after the syscall
 bool __KernelTriggerWait(WaitType type, int id, bool useRetVal, int retVal, bool dontSwitch)
 {
 	bool doneAnything = false;
@@ -649,7 +648,7 @@ bool __KernelTriggerWait(WaitType type, int id, bool useRetVal, int retVal, bool
 			// TODO: time waster
 			char temp[256];
 			sprintf(temp, "resumed from wait %s", waitTypeStrings[(int)type]);
-			__KernelReSchedule(temp);
+			hleReSchedule(temp);
 		}
 	}
 	return true;
@@ -681,7 +680,7 @@ void __KernelWaitCurThread(WaitType type, SceUID waitID, u32 waitValue, u32 time
 	char temp[256];
 	sprintf(temp, "started wait %s", waitTypeStrings[(int)type]);
   
-	__KernelReSchedule(processCallbacks, temp);
+	hleReSchedule(processCallbacks, temp);
 	// TODO: Remove thread from Ready queue?
 }
 
@@ -998,7 +997,7 @@ void sceKernelStartThread(SceUID threadToStartID, u32 argSize, u32 argBlockPtr)
 		}
 		RETURN(0);
 
-		__KernelReSchedule("thread started");
+		hleReSchedule("thread started");
 	}
 	else
 	{
@@ -1058,7 +1057,7 @@ void __KernelReturnFromThread()
 	// Find threads that waited for me
 	// Wake them
 	if (!__KernelTriggerWait(WAITTYPE_THREADEND, __KernelGetCurThread()))
-		__KernelReSchedule("return from thread");
+		hleReSchedule("return from thread");
 
 	// The stack will be deallocated when the thread is deleted.
 }
@@ -1073,7 +1072,7 @@ void sceKernelExitThread()
 	//Find threads that waited for me
 	// Wake them
 	if (!__KernelTriggerWait(WAITTYPE_THREADEND, __KernelGetCurThread()))
-		__KernelReSchedule("exited thread");
+		hleReSchedule("exited thread");
 
 	// The stack will be deallocated when the thread is deleted.
 }
@@ -1088,7 +1087,7 @@ void _sceKernelExitThread()
   //Find threads that waited for this one
   // Wake them
   if (!__KernelTriggerWait(WAITTYPE_THREADEND, __KernelGetCurThread()))
-    __KernelReSchedule("exit-deleted thread");
+    hleReSchedule("exit-deleted thread");
 
 	// The stack will be deallocated when the thread is deleted.
 }
@@ -1140,7 +1139,7 @@ u32 sceKernelResumeDispatchThread(u32 suspended)
 void sceKernelRotateThreadReadyQueue()
 {
 	DEBUG_LOG(HLE,"sceKernelRotateThreadReadyQueue : rescheduling");
-	__KernelReSchedule("rotatethreadreadyqueue");
+	hleReSchedule("rotatethreadreadyqueue");
 }
 
 void sceKernelDeleteThread()
@@ -1164,7 +1163,7 @@ void sceKernelDeleteThread()
 
       //TODO: should we really reschedule here?
       //if (!__KernelTriggerWait(WAITTYPE_THREADEND, threadHandle))
-      //  __KernelReSchedule("thread deleted");
+      //  hleReSchedule("thread deleted");
     }
 	}
 	else
@@ -1185,7 +1184,7 @@ void sceKernelTerminateDeleteThread()
 
 		//TODO: should we really reschedule here?
 		if (!__KernelTriggerWait(WAITTYPE_THREADEND, threadno))
-			__KernelReSchedule("termdeletethread");
+			hleReSchedule("termdeletethread");
 	}
 	else
 	{
@@ -1766,7 +1765,7 @@ void __KernelReturnFromMipsCall()
 	{
 		// Sometimes, we want to stay on the thread.
 		if (call->reschedAfter)
-			__KernelReSchedule("return from callback");
+			hleReSchedule("return from callback");
 	}
 }
 

@@ -269,7 +269,7 @@ void sceKernelDeleteMutex(SceUID id)
 		RETURN(kernelObjects.Destroy<Mutex>(id));
 
 		if (wokeThreads)
-			__KernelReSchedule("mutex deleted");
+			hleReSchedule("mutex deleted");
 	}
 	else
 		RETURN(error);
@@ -430,7 +430,7 @@ void sceKernelLockMutexCB(SceUID id, int count, u32 timeoutPtr)
 	if (__KernelLockMutex(mutex, count, error))
 	{
 		RETURN(0);
-		__KernelForceCallbacks();
+		hleCheckCurrentCallbacks();
 	}
 	else if (error)
 		RETURN(error);
@@ -490,7 +490,7 @@ void sceKernelUnlockMutex(SceUID id, int count)
 	if (mutex->nm.lockLevel == 0)
 	{
 		if (__KernelUnlockMutex(mutex, error))
-			__KernelReSchedule("mutex unlocked");
+			hleReSchedule("mutex unlocked");
 	}
 }
 
@@ -596,7 +596,7 @@ void sceKernelDeleteLwMutex(u32 workareaPtr)
 		Memory::WriteStruct(workareaPtr, &workarea);
 
 		if (wokeThreads)
-			__KernelReSchedule("lwmutex deleted");
+			hleReSchedule("lwmutex deleted");
 	}
 	else
 		RETURN(error);
@@ -789,7 +789,7 @@ void sceKernelLockLwMutexCB(u32 workareaPtr, int count, u32 timeoutPtr)
 	{
 		Memory::WriteStruct(workareaPtr, &workarea);
 		RETURN(0);
-		__KernelForceCallbacks();
+		hleCheckCurrentCallbacks();
 	}
 	else if (error)
 		RETURN(error);
@@ -838,7 +838,7 @@ void sceKernelUnlockLwMutex(u32 workareaPtr, int count)
 	if (workarea.lockLevel == 0)
 	{
 		if (__KernelUnlockLwMutex(workarea, error))
-			__KernelReSchedule("lwmutex unlocked");
+			hleReSchedule("lwmutex unlocked");
 		Memory::WriteStruct(workareaPtr, &workarea);
 	}
 	else

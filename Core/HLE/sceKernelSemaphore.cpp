@@ -168,7 +168,7 @@ void sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr)
 		RETURN(0);
 
 		if (__KernelClearSemaThreads(s, SCE_KERNEL_ERROR_WAIT_CANCEL))
-			__KernelReSchedule("semaphore canceled");
+			hleReSchedule("semaphore canceled");
 	}
 	else
 	{
@@ -224,7 +224,7 @@ void sceKernelDeleteSema(SceUID id)
 		RETURN(kernelObjects.Destroy<Semaphore>(id));
 
 		if (wokeThreads)
-			__KernelReSchedule("semaphore deleted");
+			hleReSchedule("semaphore deleted");
 	}
 	else
 	{
@@ -291,12 +291,12 @@ retry:
 		}
 
 		if (wokeThreads)
-			__KernelReSchedule("semaphore signaled");
+			hleReSchedule("semaphore signaled");
 	}
 	else
 	{
 		ERROR_LOG(HLE, "sceKernelSignalSema : Trying to signal invalid semaphore %i", id);
-		RETURN(error;)
+		RETURN(error);
 	}
 }
 
@@ -356,7 +356,7 @@ void __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, const char *ba
 		{
 			s->ns.currentCount -= wantedCount;
 			if (processCallbacks)
-				__KernelForceCallbacks();
+				hleCheckCurrentCallbacks();
 		}
 		else
 		{
