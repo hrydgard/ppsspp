@@ -164,6 +164,8 @@ struct ThreadWaitInfo {
 	u32 timeoutPtr;
 };
 
+class ActionAfterMipsCall;
+
 class Thread : public KernelObject
 {
 public:
@@ -240,7 +242,12 @@ public:
 		FreeStack();
 	}
 
+	ActionAfterMipsCall *getRunningCallbackAction();
 	void setReturnValue(u32 retval);
+	void resumeFromWait();
+	bool isWaitingFor(WaitType type, int id);
+	int getWaitID(WaitType type);
+	ThreadWaitInfo getWaitInfo();
 
 	// Utils
 	bool isRunning() const { return (nt.status & THREADSTATUS_RUNNING) != 0; }
@@ -410,12 +417,21 @@ void __KernelThreadingShutdown()
 	threadqueue.clear();
 }
 
+const char *__KernelGetThreadName(SceUID threadID)
+{
+	u32 error;
+	Thread *t = kernelObjects.Get<Thread>(threadID, error);
+	if (t)
+		return t->nt.name;
+	return "ERROR";
+}
+
 u32 __KernelGetWaitValue(SceUID threadID, u32 &error)
 {
 	Thread *t = kernelObjects.Get<Thread>(threadID, error);
 	if (t)
 	{
-		return t->waitInfo.waitValue;
+		return t->getWaitInfo().waitValue;
 	}
 	else
 	{
@@ -429,7 +445,7 @@ u32 __KernelGetWaitTimeoutPtr(SceUID threadID, u32 &error)
 	Thread *t = kernelObjects.Get<Thread>(threadID, error);
 	if (t)
 	{
-		return t->waitInfo.timeoutPtr;
+		return t->getWaitInfo().timeoutPtr;
 	}
 	else
 	{
@@ -443,10 +459,7 @@ SceUID __KernelGetWaitID(SceUID threadID, WaitType type, u32 &error)
 	Thread *t = kernelObjects.Get<Thread>(threadID, error);
 	if (t)
 	{
-		if (t->nt.waitType == type)
-			return t->nt.waitID;
-		else
-			return 0;
+		return t->getWaitID(type);
 	}
 	else
 	{
@@ -574,24 +587,13 @@ void __KernelLoadContext(ThreadContext *ctx)
   // currentMIPS->fcr31 = ctx->fcr31;
 }
 
-void __KernelResumeThreadFromWait(Thread *t)
-{
-	t->nt.status &= ~THREADSTATUS_WAIT;
-	// TODO: What if DORMANT or DEAD?
-	if (!(t->nt.status & THREADSTATUS_WAITSUSPEND))
-		t->nt.status = THREADSTATUS_READY;
-
-	// Non-waiting threads do not process callbacks.
-	t->isProcessingCallbacks = false;
-}
-
 u32 __KernelResumeThreadFromWait(SceUID threadID)
 {
 	u32 error;
 	Thread *t = kernelObjects.Get<Thread>(threadID, error);
 	if (t)
 	{
-		__KernelResumeThreadFromWait(t);
+		t->resumeFromWait();
 		return 0;
 	}
 	else
@@ -607,7 +609,7 @@ u32 __KernelResumeThreadFromWait(SceUID threadID, int retval)
 	Thread *t = kernelObjects.Get<Thread>(threadID, error);
 	if (t)
 	{
-		__KernelResumeThreadFromWait(t);
+		t->resumeFromWait();
 		t->setReturnValue(retval);
 		return 0;
 	}
@@ -628,16 +630,13 @@ bool __KernelTriggerWait(WaitType type, int id, bool useRetVal, int retVal, bool
 	for (std::vector<Thread *>::iterator iter = threadqueue.begin(); iter != threadqueue.end(); iter++)
 	{
 		Thread *t = *iter;
-		if (t->nt.status & THREADSTATUS_WAIT)
+		if (t->isWaitingFor(type, id))
 		{
-			if (t->nt.waitType == type && t->nt.waitID == id)
-			{
-				// This thread was waiting for the triggered object.
-				__KernelResumeThreadFromWait(t);
-				if (useRetVal)
-					t->setReturnValue(retVal);
-				doneAnything = true;
-			}
+			// This thread was waiting for the triggered object.
+			t->resumeFromWait();
+			if (useRetVal)
+				t->setReturnValue(retVal);
+			doneAnything = true;
 		}
 	}
 
@@ -667,6 +666,10 @@ bool __KernelTriggerWait(WaitType type, int id, int retVal, bool dontSwitch)
 // makes the current thread wait for an event
 void __KernelWaitCurThread(WaitType type, SceUID waitID, u32 waitValue, u32 timeoutPtr, bool processCallbacks)
 {
+	// TODO: Need to defer if in callback?
+	if (g_inCbCount > 0)
+		WARN_LOG(HLE, "UNTESTED - waiting within a callback, probably bad mojo.");
+
 	currentThread->nt.waitID = waitID;
 	currentThread->nt.waitType = type;
 	__KernelChangeThreadState(currentThread, THREADSTATUS_WAIT);
@@ -674,6 +677,7 @@ void __KernelWaitCurThread(WaitType type, SceUID waitID, u32 waitValue, u32 time
 	currentThread->waitInfo.waitValue = waitValue;
 	currentThread->waitInfo.timeoutPtr = timeoutPtr;
 
+	// TODO: Remove this once all callers are cleaned up.
 	RETURN(0); //pretend all went OK
 
 	// TODO: time waster
@@ -871,6 +875,8 @@ void __KernelResetThread(Thread *t)
 
 	t->nt.exitStatus = 0;
 	t->isProcessingCallbacks = false;
+	// TODO: Is this correct?
+	t->pendingMipsCalls.clear();
 
 	t->context.r[MIPS_REG_RA] = threadReturnHackAddr; //hack! TODO fix
 	t->AllocateStack(t->nt.stackSize);  // can change the stacksize!
@@ -1559,7 +1565,7 @@ public:
 	// Saved thread state
 	int status;
 	WaitType waitType;
-	int waitId;
+	int waitID;
 	ThreadWaitInfo waitInfo;
 	bool isProcessingCallbacks;
 
@@ -1569,7 +1575,7 @@ public:
 void ActionAfterMipsCall::run() {
 	thread->nt.status = status;
 	thread->nt.waitType = waitType;
-	thread->nt.waitID = waitId;
+	thread->nt.waitID = waitID;
 	thread->waitInfo = waitInfo;
 	thread->isProcessingCallbacks = isProcessingCallbacks;
 
@@ -1579,6 +1585,27 @@ void ActionAfterMipsCall::run() {
 	}
 }
 
+
+ActionAfterMipsCall *Thread::getRunningCallbackAction()
+{
+	if (this == currentThread && g_inCbCount > 0)
+	{
+		MipsCall *call = mipsCalls.get(this->currentCallbackId);
+		ActionAfterMipsCall *action;
+		if (call)
+			action = dynamic_cast<ActionAfterMipsCall *>(call->doAfter);
+
+		if (!call || !action)
+		{
+			ERROR_LOG(HLE, "Failed to access deferred info for thread: %s", this->nt.name);
+			return NULL;
+		}
+
+		return action;
+	}
+
+	return NULL;
+}
 
 void Thread::setReturnValue(u32 retval)
 {
@@ -1597,6 +1624,74 @@ void Thread::setReturnValue(u32 retval)
 	} else {
 		context.r[2] = retval;
 	}
+}
+
+void Thread::resumeFromWait()
+{
+	// Do we need to "inject" it?
+	ActionAfterMipsCall *action = getRunningCallbackAction();
+	if (action)
+	{
+		action->status &= ~THREADSTATUS_WAIT;
+		// TODO: What if DORMANT or DEAD?
+		if (!(action->status & THREADSTATUS_WAITSUSPEND))
+			action->status = THREADSTATUS_READY;
+
+		// Non-waiting threads do not process callbacks.
+		action->isProcessingCallbacks = false;
+	}
+	else
+	{
+		this->nt.status &= ~THREADSTATUS_WAIT;
+		// TODO: What if DORMANT or DEAD?
+		if (!(this->nt.status & THREADSTATUS_WAITSUSPEND))
+			this->nt.status = THREADSTATUS_READY;
+
+		// Non-waiting threads do not process callbacks.
+		this->isProcessingCallbacks = false;
+	}
+}
+
+bool Thread::isWaitingFor(WaitType type, int id)
+{
+	// Thread might be in a callback right now.
+	ActionAfterMipsCall *action = getRunningCallbackAction();
+	if (action)
+	{
+		if (action->status & THREADSTATUS_WAIT)
+			return action->waitType == type && action->waitID == id;
+		return false;
+	}
+
+	if (this->nt.status & THREADSTATUS_WAIT)
+		return this->nt.waitType == type && this->nt.waitID == id;
+	return false;
+}
+
+int Thread::getWaitID(WaitType type)
+{
+	// Thread might be in a callback right now.
+	ActionAfterMipsCall *action = getRunningCallbackAction();
+	if (action)
+	{
+		if (action->waitType == type)
+			return action->waitID;
+		return 0;
+	}
+
+	if (this->nt.waitType == type)
+		return this->nt.waitID;
+	return 0;
+}
+
+ThreadWaitInfo Thread::getWaitInfo()
+{
+	// Thread might be in a callback right now.
+	ActionAfterMipsCall *action = getRunningCallbackAction();
+	if (action)
+		return action->waitInfo;
+
+	return this->waitInfo;
 }
 
 void __KernelSwitchContext(Thread *target, const char *reason) 
@@ -1653,7 +1748,7 @@ void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, bo
 		after->thread = thread;
 		after->status = thread->nt.status;
 		after->waitType = thread->nt.waitType;
-		after->waitId = thread->nt.waitID;
+		after->waitID = thread->nt.waitID;
 		after->waitInfo = thread->waitInfo;
 		after->isProcessingCallbacks = thread->isProcessingCallbacks;
 
