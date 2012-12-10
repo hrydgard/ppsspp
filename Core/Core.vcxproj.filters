@@ -321,6 +321,11 @@
     <ClCompile Include="HLE\sceVaudio.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
+    <ClCompile Include="Dialog\PSPDialog.cpp" />
+    <ClCompile Include="Dialog\PSPMsgDialog.cpp" />
+    <ClCompile Include="Dialog\PSPPlaceholderDialog.cpp" />
+    <ClCompile Include="Dialog\PSPSaveDialog.cpp" />
+    <ClCompile Include="Dialog\SavedataParam.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -590,6 +595,11 @@
     <ClInclude Include="HLE\sceVaudio.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
+    <ClInclude Include="Dialog\SavedataParam.h" />
+    <ClInclude Include="Dialog\PSPDialog.h" />
+    <ClInclude Include="Dialog\PSPMsgDialog.h" />
+    <ClInclude Include="Dialog\PSPPlaceholderDialog.h" />
+    <ClInclude Include="Dialog\PSPSaveDialog.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />
