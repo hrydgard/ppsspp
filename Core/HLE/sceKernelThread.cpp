@@ -405,7 +405,7 @@ void __KernelIdle()
   // In Advance, we might trigger an interrupt such as vblank.
   // If we end up in an interrupt, we don't want to reschedule.
   // However, we have to reschedule... damn.
-  hleReSchedule("idle");
+  __KernelReSchedule("idle");
 }
 
 void __KernelThreadingShutdown()
