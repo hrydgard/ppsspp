@@ -1160,6 +1160,9 @@ int sceKernelDeleteThread(int threadHandle)
 			//	hleReSchedule("thread deleted");
 			return kernelObjects.Destroy<Thread>(threadHandle);
 		}
+
+		// TODO: Error when doesn't exist?
+		return 0;
 	}
 	else
 	{
