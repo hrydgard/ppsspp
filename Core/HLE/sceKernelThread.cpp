@@ -1943,8 +1943,17 @@ bool __KernelCheckThreadCallbacks(Thread *thread, bool force)
 		if (thread->readyCallbacks[i].size()) {
 			SceUID readyCallback = thread->readyCallbacks[i].front();
 			thread->readyCallbacks[i].pop_front();
-			__KernelRunCallbackOnThread(readyCallback, thread, !force);   // makes pending
-			return true;
+
+			// If the callback was deleted, we're good.  Just skip it.
+			if (kernelObjects.IsValid(readyCallback))
+			{
+				__KernelRunCallbackOnThread(readyCallback, thread, !force);   // makes pending
+				return true;
+			}
+			else
+			{
+				WARN_LOG(HLE, "Ignoring deleted callback %08x", readyCallback);
+			}
 		}
 	}
 	return false;
