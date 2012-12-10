@@ -197,6 +197,12 @@ void sceAtracSetLoopNum()
 	RETURN(0);
 }
 
+int sceAtracReinit()
+{
+	ERROR_LOG(HLE, "UNIMPL sceAtracReinit(???)");
+	return 0;
+}
+
 
 const HLEFunction sceAtrac3plus[] =
 {
@@ -225,7 +231,7 @@ const HLEFunction sceAtrac3plus[] =
 	{0x0eb8dc38,sceAtracSetHalfwayBufferAndGetID,"sceAtracSetHalfwayBufferAndGetID"},
 	{0xd1f59fdb,sceAtracStartEntry,"sceAtracStartEntry"},
 	{0x868120b5,sceAtracSetLoopNum,"sceAtracSetLoopNum"},
-	{0x132f1eca,0,"sceAtracReinit"},
+	{0x132f1eca,WrapI_V<sceAtracReinit>,"sceAtracReinit"},
 	{0xeca32a99,0,"sceAtracIsSecondBufferNeeded"},
 	{0x0fae370e,0,"sceAtracSetHalfwayBufferAndGetID"},
 	{0x2DD3E298,0,"sceAtrac3plus_2DD3E298"},
