@@ -283,6 +283,7 @@ int g_inCbCount = 0;
 Thread *__KernelCreateThread(SceUID &id, SceUID moduleID, const char *name, u32 entryPoint, u32 priority, int stacksize, u32 attr);
 void __KernelResetThread(Thread *t);
 void __KernelCancelWakeup(SceUID threadID);
+bool __KernelCheckThreadCallbacks(Thread *thread, bool force);
 
 //////////////////////////////////////////////////////////////////////////
 //STATE BEGIN
@@ -1848,6 +1849,7 @@ void __KernelReturnFromMipsCall()
 	g_inCbCount--;
 
 	// yeah! back in the real world, let's keep going. Should we process more callbacks?
+	__KernelCheckThreadCallbacks(currentThread, !call->reschedAfter);
 	if (!__KernelExecutePendingMipsCalls(call->reschedAfter))
 	{
 		// Sometimes, we want to stay on the thread.
