@@ -84,7 +84,7 @@ void __KernelInit()
 	__UmdInit();
 	__CtrlInit();
 	__SslInit();
-	
+
 	// "Internal" PSP libraries
 	__PPGeInit();
 
@@ -104,7 +104,7 @@ void __KernelShutdown()
 	kernelObjects.Clear();
 
 	__PPGeShutdown();
-	
+
 	__GeShutdown();
 	__AudioShutdown();
 	__IoShutdown();
