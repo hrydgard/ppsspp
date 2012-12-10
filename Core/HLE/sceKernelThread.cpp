@@ -1853,8 +1853,9 @@ void __KernelReturnFromMipsCall()
 	if (!__KernelExecutePendingMipsCalls(call->reschedAfter))
 	{
 		// Sometimes, we want to stay on the thread.
-		if (call->reschedAfter)
-			hleReSchedule("return from callback");
+		int threadReady = currentThread->nt.status & (THREADSTATUS_READY | THREADSTATUS_RUNNING);
+		if (call->reschedAfter || threadReady == 0)
+			__KernelReSchedule("return from callback");
 	}
 }
 
