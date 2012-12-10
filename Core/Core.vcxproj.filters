@@ -40,6 +40,9 @@
     <Filter Include="HW">
       <UniqueIdentifier>{9696662f-7398-489a-a358-5ebbf4ad4d97}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Dialog">
+      <UniqueIdentifier>{41034c99-9b76-477f-8a77-bffaaffd5e82}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ELF\ElfReader.cpp">
@@ -321,11 +324,21 @@
     <ClCompile Include="HLE\sceVaudio.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
-    <ClCompile Include="Dialog\PSPDialog.cpp" />
-    <ClCompile Include="Dialog\PSPMsgDialog.cpp" />
-    <ClCompile Include="Dialog\PSPPlaceholderDialog.cpp" />
-    <ClCompile Include="Dialog\PSPSaveDialog.cpp" />
-    <ClCompile Include="Dialog\SavedataParam.cpp" />
+    <ClCompile Include="Dialog\PSPDialog.cpp">
+      <Filter>Dialog</Filter>
+    </ClCompile>
+    <ClCompile Include="Dialog\PSPMsgDialog.cpp">
+      <Filter>Dialog</Filter>
+    </ClCompile>
+    <ClCompile Include="Dialog\PSPPlaceholderDialog.cpp">
+      <Filter>Dialog</Filter>
+    </ClCompile>
+    <ClCompile Include="Dialog\PSPSaveDialog.cpp">
+      <Filter>Dialog</Filter>
+    </ClCompile>
+    <ClCompile Include="Dialog\SavedataParam.cpp">
+      <Filter>Dialog</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -595,11 +608,21 @@
     <ClInclude Include="HLE\sceVaudio.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
-    <ClInclude Include="Dialog\SavedataParam.h" />
-    <ClInclude Include="Dialog\PSPDialog.h" />
-    <ClInclude Include="Dialog\PSPMsgDialog.h" />
-    <ClInclude Include="Dialog\PSPPlaceholderDialog.h" />
-    <ClInclude Include="Dialog\PSPSaveDialog.h" />
+    <ClInclude Include="Dialog\PSPDialog.h">
+      <Filter>Dialog</Filter>
+    </ClInclude>
+    <ClInclude Include="Dialog\PSPMsgDialog.h">
+      <Filter>Dialog</Filter>
+    </ClInclude>
+    <ClInclude Include="Dialog\PSPPlaceholderDialog.h">
+      <Filter>Dialog</Filter>
+    </ClInclude>
+    <ClInclude Include="Dialog\PSPSaveDialog.h">
+      <Filter>Dialog</Filter>
+    </ClInclude>
+    <ClInclude Include="Dialog\SavedataParam.h">
+      <Filter>Dialog</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />
