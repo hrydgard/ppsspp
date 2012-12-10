@@ -23,613 +23,45 @@
 #include "sceUtility.h"
 
 #include "sceCtrl.h"
-#include "../Config.h"
 #include "../Util/PPGeDraw.h"
-#include "../System.h"
+#include "../Dialog/PSPSaveDialog.h"
+#include "../Dialog/PSPMsgDialog.h"
+#include "../Dialog/PSPPlaceholderDialog.h"
 
-enum SceUtilitySavedataType
-{
-	SCE_UTILITY_SAVEDATA_TYPE_AUTOLOAD		= 0,
-	SCE_UTILITY_SAVEDATA_TYPE_AUTOSAVE		= 1,
-	SCE_UTILITY_SAVEDATA_TYPE_LOAD			= 2,
-	SCE_UTILITY_SAVEDATA_TYPE_SAVE			= 3,
-	SCE_UTILITY_SAVEDATA_TYPE_LISTLOAD		= 4,
-	SCE_UTILITY_SAVEDATA_TYPE_LISTSAVE		= 5,
-	SCE_UTILITY_SAVEDATA_TYPE_LISTDELETE	= 6,
-	SCE_UTILITY_SAVEDATA_TYPE_DELETE		= 7,
-	SCE_UTILITY_SAVEDATA_TYPE_SIZES			= 8	
-} ;
-
-#define SCE_UTILITY_SAVEDATA_ERROR_TYPE					(0x80110300)
-
-#define SCE_UTILITY_SAVEDATA_ERROR_LOAD_NO_MS			(0x80110301)
-#define SCE_UTILITY_SAVEDATA_ERROR_LOAD_EJECT_MS		(0x80110302)
-#define SCE_UTILITY_SAVEDATA_ERROR_LOAD_ACCESS_ERROR	(0x80110305)
-#define SCE_UTILITY_SAVEDATA_ERROR_LOAD_DATA_BROKEN		(0x80110306)
-#define SCE_UTILITY_SAVEDATA_ERROR_LOAD_NO_DATA			(0x80110307)
-#define SCE_UTILITY_SAVEDATA_ERROR_LOAD_PARAM			(0x80110308)
-#define SCE_UTILITY_SAVEDATA_ERROR_LOAD_INTERNAL		(0x8011030b)
-
-#define SCE_UTILITY_SAVEDATA_ERROR_SAVE_NO_MS			(0x80110381)
-#define SCE_UTILITY_SAVEDATA_ERROR_SAVE_EJECT_MS		(0x80110382)
-#define SCE_UTILITY_SAVEDATA_ERROR_SAVE_MS_NOSPACE		(0x80110383)
-#define SCE_UTILITY_SAVEDATA_ERROR_SAVE_MS_PROTECTED	(0x80110384)
-#define SCE_UTILITY_SAVEDATA_ERROR_SAVE_ACCESS_ERROR	(0x80110385)
-#define SCE_UTILITY_SAVEDATA_ERROR_SAVE_PARAM			(0x80110388)
-#define SCE_UTILITY_SAVEDATA_ERROR_SAVE_NO_UMD			(0x80110389)
-#define SCE_UTILITY_SAVEDATA_ERROR_SAVE_WRONG_UMD		(0x8011038a)
-#define SCE_UTILITY_SAVEDATA_ERROR_SAVE_INTERNAL		(0x8011038b)
-
-#define SCE_UTILITY_SAVEDATA_ERROR_DELETE_NO_MS			(0x80110341)
-#define SCE_UTILITY_SAVEDATA_ERROR_DELETE_EJECT_MS		(0x80110342)
-#define SCE_UTILITY_SAVEDATA_ERROR_DELETE_MS_PROTECTED	(0x80110344)
-#define SCE_UTILITY_SAVEDATA_ERROR_DELETE_ACCESS_ERROR	(0x80110345)
-#define SCE_UTILITY_SAVEDATA_ERROR_DELETE_NO_DATA		(0x80110347)
-#define SCE_UTILITY_SAVEDATA_ERROR_DELETE_PARAM			(0x80110348)
-#define SCE_UTILITY_SAVEDATA_ERROR_DELETE_INTERNAL		(0x8011034b)
-
-#define SCE_UTILITY_SAVEDATA_ERROR_SIZES_NO_MS			(0x801103C1)
-#define SCE_UTILITY_SAVEDATA_ERROR_SIZES_EJECT_MS		(0x801103C2)
-#define SCE_UTILITY_SAVEDATA_ERROR_SIZES_ACCESS_ERROR	(0x801103C5)
-#define SCE_UTILITY_SAVEDATA_ERROR_SIZES_NO_DATA		(0x801103C7)
-#define SCE_UTILITY_SAVEDATA_ERROR_SIZES_PARAM			(0x801103C8)
-#define SCE_UTILITY_SAVEDATA_ERROR_SIZES_NO_UMD			(0x801103C9)
-#define SCE_UTILITY_SAVEDATA_ERROR_SIZES_WRONG_UMD		(0x801103Ca)
-#define SCE_UTILITY_SAVEDATA_ERROR_SIZES_INTERNAL		(0x801103Cb)
-
-#define SCE_UTILITY_STATUS_NONE 		0
-#define SCE_UTILITY_STATUS_INITIALIZE	1
-#define SCE_UTILITY_STATUS_RUNNING 		2
-#define SCE_UTILITY_STATUS_FINISHED 	3
-#define SCE_UTILITY_STATUS_SHUTDOWN 	4
-
-
-// title, savedataTitle, detail: parts of the unencrypted SFO
-// data, it contains what the VSH and standard load screen shows
-struct PspUtilitySavedataSFOParam
-{
-	char title[0x80];
-	char savedataTitle[0x80];
-	char detail[0x400];
-	unsigned char parentalLevel;
-	unsigned char unknown[3];
-};
-
-struct PspUtilitySavedataFileData {
-	int buf;
-	SceSize bufSize;  // Size of the buffer pointed to by buf
-	SceSize size;	    // Actual file size to write / was read
-	int unknown;
-};
-
-// Structure to hold the parameters for the sceUtilitySavedataInitStart function.
-struct SceUtilitySavedataParam
-{
-	SceSize size; // Size of the structure
-
-	int language;
-
-	int buttonSwap;
-
-	int unknown[4];
-	int result;
-	int unknown2[4];
-
-	int mode;  // 0 to load, 1 to save
-	int bind;
-
-	int overwriteMode;   // use 0x10  ?
-
-	/** gameName: name used from the game for saves, equal for all saves */
-	char gameName[13];
-	char unused[3];
-	/** saveName: name of the particular save, normally a number */
-	char saveName[20];
-	int saveNameList;
-	/** fileName: name of the data file of the game for example DATA.BIN */
-	char fileName[13];
-	char unused2[3];
-
-	/** pointer to a buffer that will contain data file unencrypted data */
-	int dataBuf; // Initially void*, but void* in 64bit system take 8 bytes.
-	/** size of allocated space to dataBuf */
-	SceSize dataBufSize;
-	SceSize dataSize;  // Size of the actual save data
-
-	PspUtilitySavedataSFOParam sfoParam;
-
-	PspUtilitySavedataFileData icon0FileData;
-	PspUtilitySavedataFileData icon1FileData;
-	PspUtilitySavedataFileData pic1FileData;
-	PspUtilitySavedataFileData snd0FileData;
-
-	unsigned char unknown17[4];
-};
-
-struct SaveFileInfo
-{
-	int size;
-};
-
-struct SaveDialogInfo
-{
-	int paramAddr;
-	int menuListSelection;
-	char (*saveNameListData)[20];
-	SaveFileInfo (*saveDataList);
-	int saveNameListDataCount;
-};
-
-
-static u32 utilityDialogState = SCE_UTILITY_STATUS_SHUTDOWN;
-static u32 saveDataDialogState = SCE_UTILITY_STATUS_SHUTDOWN;
-static u32 oskDialogState = SCE_UTILITY_STATUS_SHUTDOWN;
-static u32 msgDialogState = SCE_UTILITY_STATUS_SHUTDOWN;
-
-
-u32 messageDialogAddr;
-
-SaveDialogInfo saveDialogInfo;
-std::string icon0Name = "ICON0.PNG";
-std::string icon1Name = "ICON1.PNG";
-std::string pic1Name = "PIC1.PNG";
-std::string sfoName = "PARAM.SFO";
-
-std::string savePath = "ms0://PSP/SAVEDATA/";
+PSPSaveDialog saveDialog;
+PSPMsgDialog msgDialog;
+PSPPlaceholderDialog oskDialog;
+PSPPlaceholderDialog netDialog;
 
 void __UtilityInit()
 {
-	messageDialogAddr = 0;
-	utilityDialogState = SCE_UTILITY_STATUS_SHUTDOWN;
-	saveDataDialogState = SCE_UTILITY_STATUS_SHUTDOWN;
-	oskDialogState = SCE_UTILITY_STATUS_SHUTDOWN;
-	msgDialogState = SCE_UTILITY_STATUS_SHUTDOWN;
-	
-	saveDialogInfo.paramAddr = 0;
-	saveDialogInfo.saveDataList = 0;
-	saveDialogInfo.menuListSelection = 0;
-	
-	if(!pspFileSystem.GetFileInfo(savePath).exists)
-	{
-		pspFileSystem.MkDir(savePath);
-	}
-	
+
+	SavedataParam::Init();
 }
-
-
-void __UtilityInitStart()
-{
-	utilityDialogState = SCE_UTILITY_STATUS_INITIALIZE;
-}
-
-void __UtilityShutdownStart()
-{
-	utilityDialogState = SCE_UTILITY_STATUS_SHUTDOWN;
-}
-
-void __UtilityUpdate()
-{
-	if (utilityDialogState == SCE_UTILITY_STATUS_INITIALIZE)
-	{
-		utilityDialogState = SCE_UTILITY_STATUS_RUNNING;
-	}
-	else if (utilityDialogState == SCE_UTILITY_STATUS_RUNNING)
-	{
-		utilityDialogState = SCE_UTILITY_STATUS_FINISHED;
-	}
-	else if (utilityDialogState == SCE_UTILITY_STATUS_FINISHED)
-	{
-		utilityDialogState = SCE_UTILITY_STATUS_SHUTDOWN;
-	}
-}
-
-u32 __UtilityGetStatus()
-{
-	u32 ret = utilityDialogState;
-	if (utilityDialogState == SCE_UTILITY_STATUS_SHUTDOWN)
-		utilityDialogState = SCE_UTILITY_STATUS_NONE;
-	if (utilityDialogState == SCE_UTILITY_STATUS_INITIALIZE)
-		utilityDialogState = SCE_UTILITY_STATUS_RUNNING;
-	return ret;
-}
-
 
 int sceUtilitySavedataInitStart(u32 paramAddr)
 {
-	saveDialogInfo.paramAddr = paramAddr;
-	SceUtilitySavedataParam *param = (SceUtilitySavedataParam*)Memory::GetPointer(saveDialogInfo.paramAddr);
-	
-	if(param->saveNameList != 0)
-	{
-		saveDialogInfo.saveNameListData = (char(*)[20])Memory::GetPointer(param->saveNameList);
-
-		// Get number of fileName in array
-		int count = 0;
-		do
-		{
-			count++;
-		} while(saveDialogInfo.saveNameListData[count][0] != 0);
-		
-		if(saveDialogInfo.saveDataList)
-			delete[] saveDialogInfo.saveDataList;
-		saveDialogInfo.saveDataList = new SaveFileInfo[count];
-		saveDialogInfo.saveNameListDataCount = count;
-		
-		// get and stock file info for each file
-		for(int i = 0; i <count; i++)
-		{
-			DEBUG_LOG(HLE,"Name : %s",saveDialogInfo.saveNameListData[i]);
-
-			std::string fileDataPath = savePath+"/"+param->gameName+saveDialogInfo.saveNameListData[i]+"/"+param->fileName;
-			PSPFileInfo info = pspFileSystem.GetFileInfo(fileDataPath);
-			if(info.exists)
-			{
-				// TODO : Load PARAM.SFO when saved and save title and save info
-				saveDialogInfo.saveDataList[i].size = info.size;
-				DEBUG_LOG(HLE,"%s Exist",fileDataPath.c_str());
-			}
-			else
-			{
-				saveDialogInfo.saveDataList[i].size = 0;
-				DEBUG_LOG(HLE,"Don't Exist");
-			}
-		}
-	}
-	
-
-	DEBUG_LOG(HLE,"sceUtilitySavedataInitStart(%08x)", paramAddr);
-	DEBUG_LOG(HLE,"Mode: %i", param->mode);
-	messageDialogAddr = *((u32*)&param);
-	switch(param->mode)
-	{
-		case SCE_UTILITY_SAVEDATA_TYPE_AUTOLOAD:
-		case SCE_UTILITY_SAVEDATA_TYPE_LISTLOAD:
-		case SCE_UTILITY_SAVEDATA_TYPE_LOAD:
-		{
-			DEBUG_LOG(HLE, "Loading. Title: %s Save: %s File: %s", param->gameName, param->saveName, param->fileName);
-		}
-		break;
-		case SCE_UTILITY_SAVEDATA_TYPE_AUTOSAVE:
-		case SCE_UTILITY_SAVEDATA_TYPE_SAVE:
-		case SCE_UTILITY_SAVEDATA_TYPE_LISTSAVE:
-		{
-			DEBUG_LOG(HLE, "Saving. Title: %s Save: %s File: %s", param->gameName, param->saveName, param->fileName);
-		}
-		break;
-		case SCE_UTILITY_SAVEDATA_TYPE_LISTDELETE:
-		case SCE_UTILITY_SAVEDATA_TYPE_DELETE:
-		case SCE_UTILITY_SAVEDATA_TYPE_SIZES:
-		default: 
-		{
-			ERROR_LOG(HLE, "Load/Save function %d not coded. Title: %s Save: %s File: %s", param->mode, param->gameName, param->saveName, param->fileName);
-			return 0; // Return 0 should allow the game to continue, but missing function must be implemented and returning the right value or the game can block.
-		}
-		break;
-	}
-
-	saveDataDialogState = SCE_UTILITY_STATUS_INITIALIZE;
-
-
-	/*INFO_LOG(HLE,"Dump Param :");
-	INFO_LOG(HLE,"size : %d",param->size);
-	INFO_LOG(HLE,"language : %d",param->language);
-	INFO_LOG(HLE,"buttonSwap : %d",param->buttonSwap);
-	INFO_LOG(HLE,"result : %d",param->result);
-	INFO_LOG(HLE,"mode : %d",param->mode);
-	INFO_LOG(HLE,"bind : %d",param->bind);
-	INFO_LOG(HLE,"overwriteMode : %d",param->overwriteMode);
-	INFO_LOG(HLE,"gameName : %s",param->gameName);
-	INFO_LOG(HLE,"saveName : %s",param->saveName);
-	INFO_LOG(HLE,"saveNameList : %08x",*((unsigned int*)&param->saveNameList));
-	INFO_LOG(HLE,"fileName : %s",param->fileName);
-	INFO_LOG(HLE,"dataBuf : %08x",*((unsigned int*)&param->dataBuf));
-	INFO_LOG(HLE,"dataBufSize : %u",param->dataBufSize);
-	INFO_LOG(HLE,"dataSize : %u",param->dataSize);
-	
-	INFO_LOG(HLE,"sfo title : %s",param->sfoParam.title);
-	INFO_LOG(HLE,"sfo savedataTitle : %s",param->sfoParam.savedataTitle);
-	INFO_LOG(HLE,"sfo detail : %s",param->sfoParam.detail);
-
-	INFO_LOG(HLE,"icon0 data : %08x",*((unsigned int*)&param->icon0FileData.buf));
-	INFO_LOG(HLE,"icon0 size : %u",param->icon0FileData.bufSize);
-
-	INFO_LOG(HLE,"icon1 data : %08x",*((unsigned int*)&param->icon1FileData.buf));
-	INFO_LOG(HLE,"icon1 size : %u",param->icon1FileData.bufSize);
-
-	INFO_LOG(HLE,"pic1 data : %08x",*((unsigned int*)&param->pic1FileData.buf));
-	INFO_LOG(HLE,"pic1 size : %u",param->pic1FileData.bufSize);
-
-	INFO_LOG(HLE,"snd0 data : %08x",*((unsigned int*)&param->snd0FileData.buf));
-	INFO_LOG(HLE,"snd0 size : %u",param->snd0FileData.bufSize);*/
-	
+	saveDialog.Init(paramAddr);
 	return 0;
 }
 
 int sceUtilitySavedataShutdownStart()
 {
 	DEBUG_LOG(HLE,"sceUtilitySavedataShutdownStart()");
-
-	saveDataDialogState = SCE_UTILITY_STATUS_SHUTDOWN;
-	saveDialogInfo.paramAddr = 0;
+	saveDialog.Shutdown();
 	return 0;
 }
 
 int sceUtilitySavedataGetStatus()
 {
-	if (saveDataDialogState == SCE_UTILITY_STATUS_SHUTDOWN)
-		saveDataDialogState = SCE_UTILITY_STATUS_NONE;
-	if (saveDataDialogState == SCE_UTILITY_STATUS_INITIALIZE)
-		saveDataDialogState = SCE_UTILITY_STATUS_RUNNING;
-	u32 retval = saveDataDialogState;
-	DEBUG_LOG(HLE,"%i=sceUtilitySavedataGetStatus()", retval);
-	return retval;
-}
-
-std::string GetSaveFilePath()
-{
-	if (!saveDialogInfo.paramAddr) {
-			return "";
-	}
-
-	SceUtilitySavedataParam *param = (SceUtilitySavedataParam*)Memory::GetPointer(saveDialogInfo.paramAddr);
-
-	std::string dirPath = std::string(param->gameName)+param->saveName;
-	if(saveDialogInfo.saveNameListDataCount > 0) // if user selection, use it
-		dirPath = std::string(param->gameName)+saveDialogInfo.saveNameListData[saveDialogInfo.menuListSelection];
-
-	return savePath + dirPath;
-}
-
-bool saveSaveData()
-{
-	if (!saveDialogInfo.paramAddr) {
-		return false;
-	}
-
-	SceUtilitySavedataParam *param = (SceUtilitySavedataParam*)Memory::GetPointer(saveDialogInfo.paramAddr);
-	u8* data_ = (u8*)Memory::GetPointer(*((unsigned int*)&param->dataBuf));
-	
-	std::string dirPath = GetSaveFilePath();
-
-	if(!pspFileSystem.GetFileInfo(dirPath).exists)
-		pspFileSystem.MkDir(dirPath);
-
-	std::string filePath = dirPath+"/"+param->fileName;
-	INFO_LOG(HLE,"Saving file with size %u in %s",param->dataBufSize,filePath.c_str());
-	unsigned int handle = pspFileSystem.OpenFile(filePath,(FileAccess)(FILEACCESS_WRITE | FILEACCESS_CREATE));
-	if(handle == 0)
-	{
-		ERROR_LOG(HLE,"Error opening file %s",filePath.c_str());
-		return false;
-	}
-	if(!pspFileSystem.WriteFile(handle, data_, param->dataBufSize))
-	{
-		pspFileSystem.CloseFile(handle);
-		ERROR_LOG(HLE,"Error writing file %s",filePath.c_str());
-		return false;
-	}
-	else
-	{
-		pspFileSystem.CloseFile(handle);
-
-		// TODO SAVE PARAM.SFO
-		/*data_ = (u8*)Memory::GetPointer(*((unsigned int*)&param->dataBuf));
-		writeDataToFile(false, );*/
-		
-		// SAVE ICON0
-		if(param->icon0FileData.buf)
-		{
-			data_ = (u8*)Memory::GetPointer(*((unsigned int*)&param->icon0FileData.buf));
-			std::string icon0path = dirPath+"/"+icon0Name;
-			handle = pspFileSystem.OpenFile(icon0path,(FileAccess)(FILEACCESS_WRITE | FILEACCESS_CREATE));
-			if(handle)
-			{
-				pspFileSystem.WriteFile(handle, data_, param->icon0FileData.bufSize);
-				pspFileSystem.CloseFile(handle);
-			}
-		}
-		// SAVE ICON1
-		if(param->icon1FileData.buf)
-		{
-			data_ = (u8*)Memory::GetPointer(*((unsigned int*)&param->icon1FileData.buf));
-			std::string icon1path = dirPath+"/"+icon1Name;
-			handle = pspFileSystem.OpenFile(icon1path,(FileAccess)(FILEACCESS_WRITE | FILEACCESS_CREATE));
-			if(handle)
-			{
-				pspFileSystem.WriteFile(handle, data_, param->icon1FileData.bufSize);
-				pspFileSystem.CloseFile(handle);
-			}
-		}
-		// SAVE PIC1
-		if(param->pic1FileData.buf)
-		{
-			data_ = (u8*)Memory::GetPointer(*((unsigned int*)&param->pic1FileData.buf));
-			std::string pic1path = dirPath+"/"+pic1Name;
-			handle = pspFileSystem.OpenFile(pic1path,(FileAccess)(FILEACCESS_WRITE | FILEACCESS_CREATE));
-			if(handle)
-			{
-				pspFileSystem.WriteFile(handle, data_, param->pic1FileData.bufSize);
-				pspFileSystem.CloseFile(handle);
-			}
-		}
-
-		// TODO Save SND
-	}
-	return true;
-}
-
-bool loadSaveData()
-{
-	if (!saveDialogInfo.paramAddr) {
-		return false;
-	}
-	SceUtilitySavedataParam *param = (SceUtilitySavedataParam*)Memory::GetPointer(saveDialogInfo.paramAddr);
-
-	u8* data_ = (u8*)Memory::GetPointer(*((unsigned int*)&param->dataBuf));
-	
-	std::string dirPath = GetSaveFilePath();
-	if(saveDialogInfo.saveNameListDataCount > 0) // if user selection, use it
-	{
-		if(saveDialogInfo.saveDataList[saveDialogInfo.menuListSelection].size == 0) // don't read no existing file
-		{
-			return false;
-		}
-	}
-
-	std::string filePath = dirPath+"/"+param->fileName;
-	INFO_LOG(HLE,"Loading file with size %u in %s",param->dataBufSize,filePath.c_str());
-	u32 handle = pspFileSystem.OpenFile(filePath,FILEACCESS_READ);
-	if(!handle)
-	{
-		ERROR_LOG(HLE,"Error opening file %s",filePath.c_str());
-		return false;
-	}
-	if(!pspFileSystem.ReadFile(handle, data_, param->dataBufSize))
-	{
-		ERROR_LOG(HLE,"Error reading file %s",filePath.c_str());
-		return false;
-	}
-	return true;
+	return saveDialog.GetStatus();
 }
 
 void sceUtilitySavedataUpdate(u32 unknown)
 {
 	DEBUG_LOG(HLE,"sceUtilitySavedataUpdate()");
 
-	switch (saveDataDialogState) {
-	case SCE_UTILITY_STATUS_FINISHED:
-		saveDataDialogState = SCE_UTILITY_STATUS_SHUTDOWN;
-		break;
-	}
-
-	if (saveDataDialogState != SCE_UTILITY_STATUS_RUNNING)
-	{
-		return;
-	}
-	if (!saveDialogInfo.paramAddr) {
-		saveDataDialogState = SCE_UTILITY_STATUS_SHUTDOWN;
-		return;
-	}
-
-	SceUtilitySavedataParam *param = (SceUtilitySavedataParam*)Memory::GetPointer(saveDialogInfo.paramAddr);
-
-	PPGeBegin();
-
-	PPGeDraw4Patch(I_BUTTON, 0, 0, 480, 272, 0xcFFFFFFF);
-	switch(param->mode)
-	{
-		case SCE_UTILITY_SAVEDATA_TYPE_LISTSAVE:
-			PPGeDrawText("Save List", 50, 50, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
-			
-			for(int i = 0; i < saveDialogInfo.saveNameListDataCount; i++)
-			{
-				u32 color = 0xFFFFFFFF;
-				if(i == saveDialogInfo.menuListSelection)
-					color = 0xFF0000FF;
-				else
-				{
-					if(saveDialogInfo.saveDataList[i].size > 0)
-						color = 0xFFFFFFFF;
-					else
-						color = 0x888888FF;
-				}
-				PPGeDrawText(saveDialogInfo.saveNameListData[i], 70, 70+15*i, PPGE_ALIGN_LEFT, 0.5f, color);
-			}
-			
-		break;
-		case SCE_UTILITY_SAVEDATA_TYPE_LISTLOAD:
-			PPGeDrawText("Load List", 50, 50, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
-			
-			for(int i = 0; i < saveDialogInfo.saveNameListDataCount; i++)
-			{
-				u32 color = 0xFFFFFFFF;
-				if(i == saveDialogInfo.menuListSelection)
-					color = 0xFF0000FF;
-				else
-				{
-					if(saveDialogInfo.saveDataList[i].size > 0)
-						color = 0xFFFFFFFF;
-					else
-						color = 0x888888FF;
-				}
-				PPGeDrawText(saveDialogInfo.saveNameListData[i], 70, 70+15*i, PPGE_ALIGN_LEFT, 0.5f, color);
-			}
-		break;
-		case SCE_UTILITY_SAVEDATA_TYPE_LOAD: // Only load and exit
-		case SCE_UTILITY_SAVEDATA_TYPE_AUTOLOAD:
-			loadSaveData();
-			saveDataDialogState = SCE_UTILITY_STATUS_FINISHED;
-			PPGeEnd();
-			return;
-		case SCE_UTILITY_SAVEDATA_TYPE_SAVE: // Only save and exit
-		case SCE_UTILITY_SAVEDATA_TYPE_AUTOSAVE:
-			saveSaveData();
-			saveDataDialogState = SCE_UTILITY_STATUS_FINISHED;
-			PPGeEnd();
-			return;
-		default:
-			saveDataDialogState = SCE_UTILITY_STATUS_FINISHED;
-			PPGeEnd();
-			return;
-		break;
-	}
-
-	static u32 lastButtons = 0;
-	u32 buttons = __CtrlPeekButtons();
-
-	if(param->mode != SCE_UTILITY_SAVEDATA_TYPE_LISTLOAD || saveDialogInfo.saveDataList[saveDialogInfo.menuListSelection].size > 0) 
-	{
-		PPGeDrawImage(I_CROSS, 50, 220, 0, 0xFFFFFFFF);
-		PPGeDrawText("OK", 100, 220, PPGE_ALIGN_LEFT, 1.0f, 0xFFFFFFFF);
-	}
-	PPGeDrawImage(I_CIRCLE, 300, 220, 0, 0xFFFFFFFF);
-	PPGeDrawText("Cancel", 350, 220, PPGE_ALIGN_LEFT, 1.0f, 0xFFFFFFFF);
-	if (!lastButtons) {
-		// param contain a variable buttonSwap. Probably need to use this for cross and circle button.
-		if (buttons & (CTRL_CIRCLE)) {
-			saveDataDialogState = SCE_UTILITY_STATUS_FINISHED;
-			param->result = SCE_UTILITY_SAVEDATA_ERROR_LOAD_PARAM;
-		}
-		else if (buttons & (CTRL_CROSS)) {
-			switch(param->mode)
-			{
-				case SCE_UTILITY_SAVEDATA_TYPE_AUTOSAVE:
-				case SCE_UTILITY_SAVEDATA_TYPE_SAVE:
-				case SCE_UTILITY_SAVEDATA_TYPE_LISTSAVE:
-				{
-					if(saveSaveData())
-					{
-						saveDataDialogState = SCE_UTILITY_STATUS_FINISHED;
-					}
-				}
-				break;
-				
-				case SCE_UTILITY_SAVEDATA_TYPE_AUTOLOAD:
-				case SCE_UTILITY_SAVEDATA_TYPE_LOAD:
-				case SCE_UTILITY_SAVEDATA_TYPE_LISTLOAD:
-				{
-					if(loadSaveData())
-					{
-						saveDataDialogState = SCE_UTILITY_STATUS_FINISHED;
-					}
-				}
-				break;
-				
-				default:
-				break;
-			}
-		}
-		else if ((buttons & (CTRL_UP)) && saveDialogInfo.menuListSelection > 0) {
-			saveDialogInfo.menuListSelection--;
-		}
-		else if ((buttons & (CTRL_DOWN)) && saveDialogInfo.menuListSelection < (saveDialogInfo.saveNameListDataCount-1)) {
-			saveDialogInfo.menuListSelection++;
-		}
-	}
-
-	lastButtons = buttons;
-
-	PPGeEnd();
+	saveDialog.Update();
 
 	return;
 }
@@ -660,229 +92,80 @@ void sceUtilityLoadModule(u32 module)
 	__KernelReSchedule("utilityloadmodule");
 }
 
-typedef struct
-{
-	unsigned int size;	/** Size of the structure */
-	int language;		/** Language */
-	int buttonSwap;		/** Set to 1 for X/O button swap */
-	int graphicsThread;	/** Graphics thread priority */
-	int accessThread;	/** Access/fileio thread priority (SceJobThread) */
-	int fontThread;		/** Font thread priority (ScePafThread) */
-	int soundThread;	/** Sound thread priority */
-	int result;			/** Result */
-	int reserved[4];	/** Set to 0 */
-
-} pspUtilityDialogCommon;
-
-struct pspMessageDialog
-{
-	pspUtilityDialogCommon common;
-	int result;
-	int type;
-	u32 errorNum;
-	char string[512];
-	u32 options;
-	u32 buttonPressed;	// 0=?, 1=Yes, 2=No, 3=Back
-};
-
 void sceUtilityMsgDialogInitStart(u32 structAddr)
 {
 	DEBUG_LOG(HLE,"sceUtilityMsgDialogInitStart(%i)", structAddr);
-	if (!Memory::IsValidAddress(structAddr))
-	{
-		RETURN(-1);
-		return;
-	}
-	messageDialogAddr = structAddr;
-	pspMessageDialog messageDialog;
-	Memory::ReadStruct(messageDialogAddr, &messageDialog);
-	if (messageDialog.type == 0) // number
-	{
-		INFO_LOG(HLE, "MsgDialog: %08x", messageDialog.errorNum);
-	}
-	else
-	{
-		INFO_LOG(HLE, "MsgDialog: %s", messageDialog.string);
-	}
-	//__UtilityInitStart();
-	msgDialogState = SCE_UTILITY_STATUS_INITIALIZE;
+	msgDialog.Init(structAddr);
 }
 
 void sceUtilityMsgDialogShutdownStart(u32 unknown)
 {
 	DEBUG_LOG(HLE,"FAKE sceUtilityMsgDialogShutdownStart(%i)", unknown);
-	//__UtilityShutdownStart();
-	msgDialogState = SCE_UTILITY_STATUS_SHUTDOWN;
-	RETURN(0);
+	msgDialog.Shutdown();
 }
 
 void sceUtilityMsgDialogUpdate(int animSpeed)
 {
 	DEBUG_LOG(HLE,"sceUtilityMsgDialogUpdate(%i)", animSpeed);
-
-	switch (msgDialogState) {
-	case SCE_UTILITY_STATUS_FINISHED:
-		msgDialogState = SCE_UTILITY_STATUS_SHUTDOWN;
-		break;
-	}
-
-	if (msgDialogState != SCE_UTILITY_STATUS_RUNNING)
-	{
-		RETURN(0);
-		return;
-	}
-
-	if (!Memory::IsValidAddress(messageDialogAddr)) {
-		ERROR_LOG(HLE, "sceUtilityMsgDialogUpdate: Bad messagedialogaddr %08x", messageDialogAddr);
-		RETURN(-1);
-		return;
-	}
-
-	pspMessageDialog messageDialog;
-	Memory::ReadStruct(messageDialogAddr, &messageDialog);
-	const char *text;
-	if (messageDialog.type == 0) {
-		char temp[256];
-		sprintf(temp, "Error code: %08x", messageDialog.errorNum);
-		text = temp;
-	} else {
-		text = messageDialog.string;
-	}
-
-	PPGeBegin();
-
-	PPGeDraw4Patch(I_BUTTON, 0, 0, 480, 272, 0xcFFFFFFF);
-	PPGeDrawText(text, 50, 50, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
-
-	static u32 lastButtons = 0;
-	u32 buttons = __CtrlPeekButtons();
-
-	if (messageDialog.options & 0x10)  // yesnobutton
-	{
-		PPGeDrawImage(I_CROSS, 80, 220, 0, 0xFFFFFFFF);
-		PPGeDrawText("Yes", 140, 220, PPGE_ALIGN_HCENTER, 1.0f, 0xFFFFFFFF);
-		PPGeDrawImage(I_CIRCLE, 200, 220, 0, 0xFFFFFFFF);
-		PPGeDrawText("No", 260, 220, PPGE_ALIGN_HCENTER, 1.0f, 0xFFFFFFFF);
-		PPGeDrawImage(I_TRIANGLE, 320, 220, 0, 0xcFFFFFFF);
-		PPGeDrawText("Back", 380, 220, PPGE_ALIGN_HCENTER, 1.0f, 0xcFFFFFFF);
-		if (!lastButtons) {
-			if (buttons & CTRL_TRIANGLE) {
-				messageDialog.buttonPressed = 3;  // back
-				msgDialogState = SCE_UTILITY_STATUS_FINISHED;
-			} else if (buttons & CTRL_CROSS) {
-				messageDialog.buttonPressed = 1;
-				msgDialogState = SCE_UTILITY_STATUS_FINISHED;
-			} else if (buttons & CTRL_CIRCLE) {
-				messageDialog.buttonPressed = 2;
-				msgDialogState = SCE_UTILITY_STATUS_FINISHED;
-			}
-		}
-	}
-	else
-	{
-		PPGeDrawImage(I_CROSS, 150, 220, 0, 0xFFFFFFFF);
-		PPGeDrawText("OK", 480/2, 220, PPGE_ALIGN_HCENTER, 1.0f, 0xFFFFFFFF);
-		if (!lastButtons) {
-			if (buttons & (CTRL_CROSS | CTRL_CIRCLE)) {  // accept both
-				messageDialog.buttonPressed = 1;
-				msgDialogState = SCE_UTILITY_STATUS_FINISHED;
-			}
-		}
-	}
-
-	lastButtons = buttons;
-
-	Memory::WriteStruct(messageDialogAddr, &messageDialog);
-
-	PPGeEnd();
-
-	RETURN(0);
+	msgDialog.Update();
 }
 
 u32 sceUtilityMsgDialogGetStatus()
 {
-	if (msgDialogState == SCE_UTILITY_STATUS_SHUTDOWN)
-		msgDialogState = SCE_UTILITY_STATUS_NONE;
-	if (msgDialogState == SCE_UTILITY_STATUS_INITIALIZE)
-		msgDialogState = SCE_UTILITY_STATUS_RUNNING;
-	u32 retval = msgDialogState;
-	DEBUG_LOG(HLE,"sceUtilityMsgDialogGetStatus()");
-	return retval;
+	return msgDialog.GetStatus();
 }
 
 
 // On screen keyboard
 
-void sceUtilityOskInitStart()
+int sceUtilityOskInitStart(unsigned int)
 {
 	DEBUG_LOG(HLE,"FAKE sceUtilityOskInitStart(%i)", PARAM(0));
-	//__UtilityInitStart();
-	oskDialogState = SCE_UTILITY_STATUS_INITIALIZE;
+	oskDialog.Init();
+	return 0;
 }
 
-void sceUtilityOskShutdownStart()
+int sceUtilityOskShutdownStart()
 {
 	DEBUG_LOG(HLE,"FAKE sceUtilityOskShutdownStart(%i)", PARAM(0));
-	//__UtilityShutdownStart();
-	oskDialogState = SCE_UTILITY_STATUS_SHUTDOWN;
-	RETURN(0);
+	oskDialog.Shutdown();
+	return 0;
 }
 
-void sceUtilityOskUpdate()
+void sceUtilityOskUpdate(unsigned int unknown)
 {
-	DEBUG_LOG(HLE,"FAKE sceUtilityOskUpdate(%i)", PARAM(0));
-	//__UtilityUpdate();
-	if (oskDialogState == SCE_UTILITY_STATUS_INITIALIZE)
-	{
-		oskDialogState = SCE_UTILITY_STATUS_RUNNING;
-	}
-	else if (oskDialogState == SCE_UTILITY_STATUS_RUNNING)
-	{
-		oskDialogState = SCE_UTILITY_STATUS_FINISHED;
-	}
-	else if (oskDialogState == SCE_UTILITY_STATUS_FINISHED)
-	{
-		oskDialogState = SCE_UTILITY_STATUS_SHUTDOWN;
-	}
-	RETURN(0);
+	DEBUG_LOG(HLE,"FAKE sceUtilityOskUpdate(%i)", unknown);
+	oskDialog.Update();
 }
 
-void sceUtilityOskGetStatus()
+int sceUtilityOskGetStatus()
 {
-	if (oskDialogState == SCE_UTILITY_STATUS_SHUTDOWN)
-		oskDialogState = SCE_UTILITY_STATUS_NONE;
-	if (oskDialogState == SCE_UTILITY_STATUS_INITIALIZE)
-		oskDialogState = SCE_UTILITY_STATUS_RUNNING;
-	u32 retval = msgDialogState;
-	DEBUG_LOG(HLE,"sceUtilityOskGetStatus()");
-	RETURN(retval);
+	return oskDialog.GetStatus();
 }
 
 
-void sceUtilityNetconfInitStart()
+void sceUtilityNetconfInitStart(unsigned int unknown)
 {
-	DEBUG_LOG(HLE,"FAKE sceUtilityNetconfInitStart(%i)", PARAM(0));
-	__UtilityInitStart();
+	DEBUG_LOG(HLE,"FAKE sceUtilityNetconfInitStart(%i)", unknown);
+	netDialog.Init();
 }
 
-void sceUtilityNetconfShutdownStart()
+void sceUtilityNetconfShutdownStart(unsigned int unknown)
 {
-	DEBUG_LOG(HLE,"FAKE sceUtilityNetconfShutdownStart(%i)", PARAM(0));
-	__UtilityShutdownStart();
-	RETURN(0);
+	DEBUG_LOG(HLE,"FAKE sceUtilityNetconfShutdownStart(%i)", unknown);
+	netDialog.Shutdown();
 }
 
-void sceUtilityNetconfUpdate()
+void sceUtilityNetconfUpdate(int unknown)
 {
-	DEBUG_LOG(HLE,"FAKE sceUtilityNetconfUpdate(%i)", PARAM(0));
-	__UtilityUpdate();
-	RETURN(0);
+	DEBUG_LOG(HLE,"FAKE sceUtilityNetconfUpdate(%i)", unknown);
+	netDialog.Update();
 }
 
-void sceUtilityNetconfGetStatus()
+unsigned int sceUtilityNetconfGetStatus()
 {
 	DEBUG_LOG(HLE,"sceUtilityNetconfGetStatus()");
-	RETURN(__UtilityGetStatus());
+	return netDialog.GetStatus();
 }
 
 int sceUtilityScreenshotGetStatus()
@@ -1035,10 +318,10 @@ u32 sceUtilityLoadNetModule(u32 module)
 const HLEFunction sceUtility[] = 
 {
 	{0x1579a159, &WrapU_U<sceUtilityLoadNetModule>, "sceUtilityLoadNetModule"},
-	{0xf88155f6, sceUtilityNetconfShutdownStart, "sceUtilityNetconfShutdownStart"},
-	{0x4db1e739, sceUtilityNetconfInitStart, "sceUtilityNetconfInitStart"},
-	{0x91e70e35, sceUtilityNetconfUpdate, "sceUtilityNetconfUpdate"},
-	{0x6332aa39, sceUtilityNetconfGetStatus, "sceUtilityNetconfGetStatus"},
+	{0xf88155f6, &WrapV_U<sceUtilityNetconfShutdownStart>, "sceUtilityNetconfShutdownStart"},
+	{0x4db1e739, &WrapV_U<sceUtilityNetconfInitStart>, "sceUtilityNetconfInitStart"},
+	{0x91e70e35, &WrapV_I<sceUtilityNetconfUpdate>, "sceUtilityNetconfUpdate"},
+	{0x6332aa39, &WrapU_V<sceUtilityNetconfGetStatus>, "sceUtilityNetconfGetStatus"},
 
 	{0x67af3428, &WrapV_U<sceUtilityMsgDialogShutdownStart>, "sceUtilityMsgDialogShutdownStart"},	
 	{0x2ad8e239, &WrapV_U<sceUtilityMsgDialogInitStart>, "sceUtilityMsgDialogInitStart"},			
@@ -1050,10 +333,10 @@ const HLEFunction sceUtility[] =
 	{0xd4b95ffb, &WrapV_U<sceUtilitySavedataUpdate>, "sceUtilitySavedataUpdate"},					
 	{0x8874dbe0, &WrapI_V<sceUtilitySavedataGetStatus>, "sceUtilitySavedataGetStatus"},
 
-	{0x3dfaeba9, sceUtilityOskShutdownStart, "sceUtilityOskShutdownStart"}, 
-	{0xf6269b82, sceUtilityOskInitStart, "sceUtilityOskInitStart"}, 
-	{0x4b85c861, sceUtilityOskUpdate, "sceUtilityOskUpdate"}, 
-	{0xf3f76017, sceUtilityOskGetStatus, "sceUtilityOskGetStatus"}, 
+	{0x3dfaeba9, &WrapI_V<sceUtilityOskShutdownStart>, "sceUtilityOskShutdownStart"},
+	{0xf6269b82, &WrapI_U<sceUtilityOskInitStart>, "sceUtilityOskInitStart"},
+	{0x4b85c861, &WrapV_U<sceUtilityOskUpdate>, "sceUtilityOskUpdate"},
+	{0xf3f76017, &WrapI_V<sceUtilityOskGetStatus>, "sceUtilityOskGetStatus"},
 
 	{0x41e30674, 0, "sceUtilitySetSystemParamString"},
 	{0x34b78343, &WrapU_UUU<sceUtilityGetSystemParamString>, "sceUtilityGetSystemParamString"}, 
