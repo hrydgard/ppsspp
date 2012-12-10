@@ -60,7 +60,6 @@ void PSPDialog::Update()
 
 bool PSPDialog::IsButtonPressed(int checkButton)
 {
-	INFO_LOG(HLE,"%d %d %d %d",checkButton,lastButtons,buttons,(!(lastButtons & checkButton)) && (buttons & checkButton));
 	return (!(lastButtons & checkButton)) && (buttons & checkButton);
 }
 
