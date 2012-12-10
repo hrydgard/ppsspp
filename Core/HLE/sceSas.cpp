@@ -280,12 +280,19 @@ void sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop)
 
 u32 sceSasSetPause(u32 core, int voicebit, int pause)
 {
-	DEBUG_LOG(HLE,"0=sceSasSetPause(core=%08x, voicebit=%i, pause=%i)", core, voicebit, pause);
-	for (int i = 0; voicebit != 0; i++, voicebit >>= 1) {
-		if ((voicebit & 1) != 0) {
-		sas.voices[i].setPaused=pause;
-            	}
+	DEBUG_LOG(HLE,"0=sceSasSetPause(core=%08x, voicebit=%08x, pause=%i)", core, voicebit, pause);
+	for (int i = 0; voicebit != 0; i++, voicebit >>= 1)
+	{
+		if (i < SasInstance::NUM_VOICES && i >= 0)
+		{
+			if ((voicebit & 1) != 0)
+				sas.voices[i].setPaused=pause;
+		}
+		// TODO: Correct error code?  Mimana crashes otherwise.
+		else
+			return -1;
 	}
+
 	return 0;
 }
 
