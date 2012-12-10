@@ -334,3 +334,15 @@ void PPGeDrawImage(int atlasImage, float x, float y, int align, u32 color)
 	EndVertexDataAndDraw(GE_PRIM_RECTANGLES);
 }
 
+void PPGeDrawImage(int atlasImage, float x, float y, float w, float h, int align, u32 color)
+{
+	if (!dlPtr)
+		return;
+
+	const AtlasImage &img = ppge_atlas.images[atlasImage];
+	BeginVertexData();
+	Vertex(x, y, img.u1, img.v1, color);
+	Vertex(x + w, y + h, img.u2, img.v2, color);
+	EndVertexDataAndDraw(GE_PRIM_RECTANGLES);
+}
+

@@ -61,11 +61,12 @@ bool DirectoryFileSystem::MkDir(const std::string &dirname)
 bool DirectoryFileSystem::RmDir(const std::string &dirname)
 {
 	std::string fullName = GetLocalPath(dirname);
-#ifdef _WIN32
+/*#ifdef _WIN32
 	return RemoveDirectory(fullName.c_str()) == TRUE;
 #else
 	return 0 == rmdir(fullName.c_str());
-#endif
+#endif*/
+	return File::DeleteDirRecursively(fullName);
 }
 
 bool DirectoryFileSystem::RenameFile(const std::string &from, const std::string &to)

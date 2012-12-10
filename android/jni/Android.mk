@@ -95,6 +95,11 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/PSPMixer.cpp \
   $(SRC)/Core/Debugger/Breakpoints.cpp \
   $(SRC)/Core/Debugger/SymbolMap.cpp \
+  $(SRC)/Core/Dialog/PSPDialog.cpp \
+  $(SRC)/Core/Dialog/PSPMsgDialog.cpp \
+  $(SRC)/Core/Dialog/PSPPlaceholderDialog.cpp \
+  $(SRC)/Core/Dialog/PSPSaveDialog.cpp \
+  $(SRC)/Core/Dialog/SavedataParam.cpp \
   $(SRC)/Core/HLE/HLETables.cpp \
   $(SRC)/Core/HLE/HLE.cpp \
   $(SRC)/Core/HLE/sceAtrac.cpp \
