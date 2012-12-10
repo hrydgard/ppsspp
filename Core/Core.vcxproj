@@ -119,6 +119,11 @@
     <ClCompile Include="CPU.cpp" />
     <ClCompile Include="Debugger\Breakpoints.cpp" />
     <ClCompile Include="Debugger\SymbolMap.cpp" />
+    <ClCompile Include="Dialog\PSPDialog.cpp" />
+    <ClCompile Include="Dialog\PSPMsgDialog.cpp" />
+    <ClCompile Include="Dialog\PSPPlaceholderDialog.cpp" />
+    <ClCompile Include="Dialog\PSPSaveDialog.cpp" />
+    <ClCompile Include="Dialog\SavedataParam.cpp" />
     <ClCompile Include="ELF\ElfReader.cpp" />
     <ClCompile Include="ELF\ParamSFO.cpp" />
     <ClCompile Include="ELF\PrxDecrypter.cpp" />
@@ -256,6 +261,11 @@
     <ClInclude Include="Debugger\Breakpoints.h" />
     <ClInclude Include="Debugger\DebugInterface.h" />
     <ClInclude Include="Debugger\SymbolMap.h" />
+    <ClInclude Include="Dialog\PSPDialog.h" />
+    <ClInclude Include="Dialog\PSPMsgDialog.h" />
+    <ClInclude Include="Dialog\PSPPlaceholderDialog.h" />
+    <ClInclude Include="Dialog\PSPSaveDialog.h" />
+    <ClInclude Include="Dialog\SavedataParam.h" />
     <ClInclude Include="ELF\ElfReader.h" />
     <ClInclude Include="ELF\ElfTypes.h" />
     <ClInclude Include="ELF\ParamSFO.h" />
