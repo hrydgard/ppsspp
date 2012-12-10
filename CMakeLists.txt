@@ -605,6 +605,16 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Debugger/DebugInterface.h
 	Core/Debugger/SymbolMap.cpp
 	Core/Debugger/SymbolMap.h
+	Core/Dialog/PSPDialog.cpp
+	Core/Dialog/PSPDialog.h
+	Core/Dialog/PSPMsgDialog.cpp
+	Core/Dialog/PSPMsgDialog.h
+	Core/Dialog/PSPPlaceholderDialog.cpp
+	Core/Dialog/PSPPlaceholderDialog.h
+	Core/Dialog/PSPSaveDialog.cpp
+	Core/Dialog/PSPSaveDialog.h
+	Core/Dialog/SavedataParam.cpp
+	Core/Dialog/SavedataParam.h
 	Core/ELF/ElfReader.cpp
 	Core/ELF/ElfReader.h
 	Core/ELF/ElfTypes.h
