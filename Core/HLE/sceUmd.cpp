@@ -62,6 +62,7 @@ u8 __KernelUmdGetState()
 		state |= UMD_READY;
 		state |= UMD_READABLE;
 	}
+	// TODO: My tests give UMD_READY but I suppose that's when it's been sitting in the drive?
 	else
 		state |= UMD_NOT_READY;
 	return state;
@@ -127,9 +128,6 @@ int sceUmdActivate(u32 unknown, const char *name)
 	u32 notifyArg = UMD_PRESENT | UMD_READABLE;
 	__KernelNotifyCallbackType(THREAD_CALLBACK_UMD, -1, notifyArg);
 
-	if (changed)
-		hleReSchedule("umd activated");
-
 	return 0;
 }
 
@@ -154,9 +152,6 @@ int sceUmdDeactivate(u32 unknown, const char *name)
 	u32 notifyArg = UMD_PRESENT | UMD_READY;
 	__KernelNotifyCallbackType(THREAD_CALLBACK_UMD, -1, notifyArg);
 
-	if (changed)
-		hleReSchedule("umd deactivated");
-
 	return 0;
 }
 
@@ -169,6 +164,10 @@ u32 sceUmdRegisterUMDCallBack(u32 cbId)
 		retVal = PSP_ERROR_UMD_INVALID_PARAM;
 	else
 	{
+		// Remove the old one, we're replacing.
+		if (driveCBId != -1)
+			__KernelUnregisterCallback(THREAD_CALLBACK_UMD, driveCBId);
+
 		retVal = __KernelRegisterCallback(THREAD_CALLBACK_UMD, cbId);
 		driveCBId = cbId;
 	}
@@ -216,7 +215,7 @@ void __UmdStatTimeout(u64 userdata, int cyclesLate)
 void __UmdWaitStat(u32 timeout)
 {
 	if (umdStatTimer == 0)
-		umdStatTimer = CoreTiming::RegisterEvent("MutexTimeout", &__UmdStatTimeout);
+		umdStatTimer = CoreTiming::RegisterEvent("UmdTimeout", &__UmdStatTimeout);
 
 	// This happens to be how the hardware seems to time things.
 	if (timeout <= 4)
@@ -234,41 +233,43 @@ void __UmdWaitStat(u32 timeout)
 * @return < 0 on error
 *
 */
-void sceUmdWaitDriveStat(u32 stat)
+int sceUmdWaitDriveStat(u32 stat)
 {
 	DEBUG_LOG(HLE,"0=sceUmdWaitDriveStat(stat = %08x)", stat);
-	RETURN(0);
 
 	if ((stat & __KernelUmdGetState()) == 0)
 		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, 0);
+
+	return 0;
 }
 
-void sceUmdWaitDriveStatWithTimer(u32 stat, u32 timeout)
+int sceUmdWaitDriveStatWithTimer(u32 stat, u32 timeout)
 {
 	DEBUG_LOG(HLE,"0=sceUmdWaitDriveStatWithTimer(stat = %08x, timeout = %d)", stat, timeout);
-	RETURN(0);
 
 	if ((stat & __KernelUmdGetState()) == 0)
 	{
 		__UmdWaitStat(timeout);
 		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, 0);
 	}
-}
+	else
+		hleReSchedule("umd stat waited with timer");
 
+	return 0;
+}
 
 int sceUmdWaitDriveStatCB(u32 stat, u32 timeout)
 {
 	if (driveCBId != -1)
 	{
 		DEBUG_LOG(HLE,"0=sceUmdWaitDriveStatCB(stat = %08x, timeout = %d)", stat, timeout);
-
-		hleCheckCurrentCallbacks();
 	}
 	else
 	{
 		WARN_LOG(HLE, "0=sceUmdWaitDriveStatCB(stat = %08x, timeout = %d) without callback", stat, timeout);
 	}
 
+	hleCheckCurrentCallbacks();
 	if ((stat & __KernelUmdGetState()) == 0)
 	{
 		if (timeout == 0)
@@ -277,7 +278,7 @@ int sceUmdWaitDriveStatCB(u32 stat, u32 timeout)
 		__UmdWaitStat(timeout);
 		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, true);
 	}
-	else if (driveCBId != -1)
+	else
 		hleReSchedule("umd stat waited");
 
 	return 0;
@@ -288,7 +289,7 @@ void sceUmdCancelWaitDriveStat()
 	DEBUG_LOG(HLE,"0=sceUmdCancelWaitDriveStat()");
 	RETURN(0);
 
-	__KernelTriggerWait(WAITTYPE_UMD, 1, SCE_KERNEL_ERROR_WAIT_CANCEL, false);
+	__KernelTriggerWait(WAITTYPE_UMD, 1, SCE_KERNEL_ERROR_WAIT_CANCEL, true);
 	// TODO: We should call UnscheduleEvent() event here?
 	// But it's not often used anyway, and worst-case it will just do nothing unless it waits again.
 }
@@ -306,8 +307,8 @@ const HLEFunction sceUmdUser[] =
 	{0x6B4A146C,&WrapU_V<sceUmdGetDriveStat>,"sceUmdGetDriveStat"},
 	{0x46EBB729,WrapI_V<sceUmdCheckMedium>,"sceUmdCheckMedium"},
 	{0xE83742BA,WrapI_UC<sceUmdDeactivate>,"sceUmdDeactivate"},
-	{0x8EF08FCE,WrapV_U<sceUmdWaitDriveStat>,"sceUmdWaitDriveStat"},
-	{0x56202973,WrapV_UU<sceUmdWaitDriveStatWithTimer>,"sceUmdWaitDriveStatWithTimer"},
+	{0x8EF08FCE,WrapI_U<sceUmdWaitDriveStat>,"sceUmdWaitDriveStat"},
+	{0x56202973,WrapI_UU<sceUmdWaitDriveStatWithTimer>,"sceUmdWaitDriveStatWithTimer"},
 	{0x4A9E5E29,WrapI_UU<sceUmdWaitDriveStatCB>,"sceUmdWaitDriveStatCB"},
 	{0x6af9b50a,sceUmdCancelWaitDriveStat,"sceUmdCancelWaitDriveStat"},
 	{0x6B4A146C,&WrapU_V<sceUmdGetDriveStat>,"sceUmdGetDriveStat"},
