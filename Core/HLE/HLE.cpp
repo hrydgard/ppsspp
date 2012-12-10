@@ -226,7 +226,8 @@ void hleReSchedule(const char *reason)
 void hleReSchedule(bool callbacks, const char *reason)
 {
 	hleReSchedule(reason);
-	hleAfterSyscall |= HLE_AFTER_RESCHED_CALLBACKS;
+	if (callbacks)
+		hleAfterSyscall |= HLE_AFTER_RESCHED_CALLBACKS;
 }
 
 inline void hleFinishSyscall()
