@@ -50,13 +50,36 @@ std::string SavedataParam::GetSaveFilePath(SceUtilitySavedataParam* param, int s
 		return "";
 	}
 
-	std::string dirPath = std::string(param->gameName)+param->saveName;
+	std::string dirPath = GetGameName(param)+GetSaveName(param);
 	if(saveId >= 0 && saveNameListDataCount > 0) // if user selection, use it
-		dirPath = std::string(param->gameName)+GetFilename(saveId);
+		dirPath = std::string(GetGameName(param))+GetFilename(saveId);
 
 	return savePath + dirPath;
 }
 
+std::string SavedataParam::GetGameName(SceUtilitySavedataParam* param)
+{
+	char gameName[14];
+	memcpy(gameName,param->gameName,13);
+	gameName[13] = 0;
+	return gameName;
+}
+
+std::string SavedataParam::GetSaveName(SceUtilitySavedataParam* param)
+{
+	char saveName[21];
+	memcpy(saveName,param->saveName,20);
+	saveName[20] = 0;
+	return saveName;
+}
+
+std::string SavedataParam::GetFileName(SceUtilitySavedataParam* param)
+{
+	char fileName[14];
+	memcpy(fileName,param->fileName,13);
+	fileName[13] = 0;
+	return fileName;
+}
 
 bool SavedataParam::Delete(SceUtilitySavedataParam* param, int saveId)
 {
@@ -91,7 +114,7 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, int saveId)
 	if(!pspFileSystem.GetFileInfo(dirPath).exists)
 		pspFileSystem.MkDir(dirPath);
 
-	std::string filePath = dirPath+"/"+param->fileName;
+	std::string filePath = dirPath+"/"+GetFileName(param);
 	INFO_LOG(HLE,"Saving file with size %u in %s",param->dataBufSize,filePath.c_str());
 	unsigned int handle = pspFileSystem.OpenFile(filePath,(FileAccess)(FILEACCESS_WRITE | FILEACCESS_CREATE));
 	if(handle == 0)
@@ -164,7 +187,7 @@ bool SavedataParam::Load(SceUtilitySavedataParam* param, int saveId)
 	u8* data_ = (u8*)Memory::GetPointer(*((unsigned int*)&param->dataBuf));
 
 	std::string dirPath = GetSaveFilePath(param, saveId);
-	if(saveId >= 0) // if user selection, use it
+	if(saveId >= 0 && saveNameListDataCount > 0) // if user selection, use it
 	{
 		if(saveDataList[saveId].size == 0) // don't read no existing file
 		{
@@ -172,7 +195,7 @@ bool SavedataParam::Load(SceUtilitySavedataParam* param, int saveId)
 		}
 	}
 
-	std::string filePath = dirPath+"/"+param->fileName;
+	std::string filePath = dirPath+"/"+GetFileName(param);
 	INFO_LOG(HLE,"Loading file with size %u in %s",param->dataBufSize,filePath.c_str());
 	u32 handle = pspFileSystem.OpenFile(filePath,FILEACCESS_READ);
 	if(!handle)
@@ -186,6 +209,51 @@ bool SavedataParam::Load(SceUtilitySavedataParam* param, int saveId)
 		return false;
 	}
 	return true;
+}
+
+bool SavedataParam::GetSizes(SceUtilitySavedataParam* param)
+{
+	if (!param) {
+		return false;
+	}
+
+	if(Memory::IsValidAddress(param->msFree))
+	{
+		Memory::Write_U32(32768,param->msFree);
+		Memory::Write_U32(32768,param->msFree+4);
+		Memory::Write_U32(1048576,param->msFree+8);
+		Memory::Write_U8(0,param->msFree+12);
+	}
+	if(Memory::IsValidAddress(param->msData))
+	{
+		Memory::Write_U32(0,param->msData+36);
+		Memory::Write_U32(0,param->msData+40);
+		Memory::Write_U8(0,param->msData+44);
+		Memory::Write_U32(0,param->msData+52);
+		Memory::Write_U8(0,param->msData+56);
+	}
+	if(Memory::IsValidAddress(param->utilityData))
+	{
+		Memory::Write_U32(13,param->utilityData);
+		Memory::Write_U32(416,param->utilityData+4);
+		Memory::Write_U8(0,param->utilityData+8);
+		Memory::Write_U32(416,param->utilityData+16);
+		Memory::Write_U8(0,param->utilityData+20);
+	}
+	return true;
+
+}
+
+bool SavedataParam::GetList(SceUtilitySavedataParam* param)
+{
+	if (!param) {
+		return false;
+	}
+
+	if(Memory::IsValidAddress(param->idListAddr))
+	{
+		Memory::Write_U32(0,param->idListAddr+4);
+	}
 }
 
 void SavedataParam::SetPspParam(SceUtilitySavedataParam* param)
@@ -221,7 +289,7 @@ void SavedataParam::SetPspParam(SceUtilitySavedataParam* param)
 		{
 			DEBUG_LOG(HLE,"Name : %s",saveNameListData[i]);
 
-			std::string fileDataPath = savePath+"/"+param->gameName+saveNameListData[i]+"/"+param->fileName;
+			std::string fileDataPath = savePath+"/"+GetGameName(param)+saveNameListData[i]+"/"+GetFileName(param);
 			PSPFileInfo info = pspFileSystem.GetFileInfo(fileDataPath);
 			if(info.exists)
 			{
@@ -262,9 +330,12 @@ const SaveFileInfo& SavedataParam::GetFileInfo(int idx)
 {
 	return saveDataList[idx];
 }
-char* SavedataParam::GetFilename(int idx)
+std::string SavedataParam::GetFilename(int idx)
 {
-	return saveDataList[idx].saveName;
+	char fileName[21];
+	memcpy(fileName,saveDataList[idx].saveName,20);
+	fileName[20] = 0;
+	return fileName;
 }
 
 int SavedataParam::GetSelectedSave()
