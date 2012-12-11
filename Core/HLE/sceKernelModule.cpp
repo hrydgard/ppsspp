@@ -658,6 +658,9 @@ void AfterModuleEntryCall::run() {
 
 void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, u32 optionAddr)
 {
+	ERROR_LOG(HLE,"UNIMPL sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x)",
+	moduleId,argsize,argAddr,returnValueAddr,optionAddr);
+
 	// Dunno what these three defaults should be...
 	u32 priority = 0x20;
 	u32 stacksize = 0x40000; 
@@ -690,12 +693,9 @@ void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValu
 	//SceUID threadId;
 	//__KernelCreateThread(threadId, moduleId, module->nm.name, module->nm.entry_addr, priority, stacksize, attr);
 
-	ERROR_LOG(HLE,"UNIMPL sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x)",
-		moduleId,argsize,argAddr,returnValueAddr,optionAddr);
-
 	// Apparently, we need to call the entry point directly and insert the return value afterwards. This calls
 	// for a MipsCall and an Action. TODO
-	RETURN(0); // TODO: Delete
+	RETURN(moduleId); // TODO: Delete
 }
 
 void sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 returnValueAddr, u32 optionAddr)
