@@ -205,9 +205,11 @@ bool SavedataParam::Load(SceUtilitySavedataParam* param, int saveId)
 	}
 	if(!pspFileSystem.ReadFile(handle, data_, param->dataBufSize))
 	{
+		pspFileSystem.CloseFile(handle);
 		ERROR_LOG(HLE,"Error reading file %s",filePath.c_str());
 		return false;
 	}
+	pspFileSystem.CloseFile(handle);
 	return true;
 }
 
