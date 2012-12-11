@@ -23,7 +23,11 @@
 
 // Directory seperators, do we need this?
 #define DIR_SEP "/"
-#define DIR_SEP_CHR '/'
+#ifdef _WIN32
+	#define DIR_SEP_CHRS "/\\"
+#else
+	#define DIR_SEP_CHRS "/"
+#endif
 
 // The user data dir
 #define ROOT_DIR "."

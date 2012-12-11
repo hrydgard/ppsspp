@@ -66,7 +66,7 @@ static void StripTailDirSlashes(std::string &fname)
 	if (fname.length() > 1)
 	{
 		size_t i = fname.length() - 1;
-		while (fname[i] == DIR_SEP_CHR)
+		while (strchr(DIR_SEP_CHRS, fname[i]))
 			fname[i--] = '\0';
 	}
 	return;
@@ -188,10 +188,16 @@ bool CreateFullPath(const std::string &fullPath)
 	}
 
 	size_t position = 0;
+
+#ifdef _WIN32
+	// Skip the drive letter, no need to create C:\.
+	position = 3;
+#endif
+
 	while (true)
 	{
 		// Find next sub path
-		position = fullPath.find(DIR_SEP_CHR, position);
+		position = fullPath.find_first_of(DIR_SEP_CHRS, position);
 
 		// we're done, yay!
 		if (position == fullPath.npos)
@@ -507,7 +513,7 @@ bool DeleteDirRecursively(const std::string &directory)
 			 (virtualName[2] == '\0')))
 			continue;
 
-		std::string newPath = directory + DIR_SEP_CHR + virtualName;
+		std::string newPath = directory + DIR_SEP + virtualName;
 		if (IsDirectory(newPath))
 		{
 			if (!DeleteDirRecursively(newPath))
