@@ -30,7 +30,8 @@ enum SceUtilitySavedataType
 	SCE_UTILITY_SAVEDATA_TYPE_LISTSAVE		= 5,
 	SCE_UTILITY_SAVEDATA_TYPE_LISTDELETE	= 6,
 	SCE_UTILITY_SAVEDATA_TYPE_DELETE		= 7,
-	SCE_UTILITY_SAVEDATA_TYPE_SIZES			= 8
+	SCE_UTILITY_SAVEDATA_TYPE_SIZES			= 8,
+	SCE_UTILITY_SAVEDATA_TYPE_LIST			= 11
 } ;
 
 // title, savedataTitle, detail: parts of the unencrypted SFO
@@ -92,7 +93,29 @@ struct SceUtilitySavedataParam
 	PspUtilitySavedataFileData pic1FileData;
 	PspUtilitySavedataFileData snd0FileData;
 
-	unsigned char unknown17[4];
+	int newData;
+	int focus;
+	int abortStatus;
+
+	// Function SCE_UTILITY_SAVEDATA_TYPE_SIZES
+	int msFree;
+	int msData;
+	int utilityData;
+
+	char key[16];
+
+	int secureVersion;
+	int multiStatus;
+
+	// Function 11 LIST
+	int idListAddr;
+
+	// Function 12 FILES
+	int fileListAddr;
+
+	// Function 22 GETSIZES
+	int sizeAddr;
+
 };
 
 struct SaveFileInfo
@@ -110,6 +133,12 @@ public:
 	bool Delete(SceUtilitySavedataParam* param, int saveId = -1);
 	bool Save(SceUtilitySavedataParam* param, int saveId = -1);
 	bool Load(SceUtilitySavedataParam* param, int saveId = -1);
+	bool GetSizes(SceUtilitySavedataParam* param);
+	bool GetList(SceUtilitySavedataParam* param);
+
+	std::string GetGameName(SceUtilitySavedataParam* param);
+	std::string GetSaveName(SceUtilitySavedataParam* param);
+	std::string GetFileName(SceUtilitySavedataParam* param);
 
 	SavedataParam();
 
@@ -118,7 +147,7 @@ public:
 
 	int GetFilenameCount();
 	const SaveFileInfo& GetFileInfo(int idx);
-	char* GetFilename(int idx);
+	std::string GetFilename(int idx);
 
 	int GetSelectedSave();
 	void SetSelectedSave(int idx);

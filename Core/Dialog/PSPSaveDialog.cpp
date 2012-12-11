@@ -42,11 +42,11 @@ void PSPSaveDialog::Init(int paramAddr)
 	{
 		case SCE_UTILITY_SAVEDATA_TYPE_AUTOLOAD:
 		case SCE_UTILITY_SAVEDATA_TYPE_LOAD:
-			DEBUG_LOG(HLE, "Loading. Title: %s Save: %s File: %s", param.GetPspParam()->gameName, param.GetPspParam()->saveName, param.GetPspParam()->fileName);
+			DEBUG_LOG(HLE, "Loading. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetSaveName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
 			display = DS_NONE;
 			break;
 		case SCE_UTILITY_SAVEDATA_TYPE_LISTLOAD:
-			DEBUG_LOG(HLE, "Loading. Title: %s Save: %s File: %s", param.GetPspParam()->gameName, param.GetPspParam()->saveName, param.GetPspParam()->fileName);
+			DEBUG_LOG(HLE, "Loading. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
 			if(param.GetFilenameCount() == 0)
 				display = DS_LOAD_NODATA;
 			else
@@ -54,25 +54,31 @@ void PSPSaveDialog::Init(int paramAddr)
 			break;
 		case SCE_UTILITY_SAVEDATA_TYPE_AUTOSAVE:
 		case SCE_UTILITY_SAVEDATA_TYPE_SAVE:
-			DEBUG_LOG(HLE, "Saving. Title: %s Save: %s File: %s", param.GetPspParam()->gameName, param.GetPspParam()->saveName, param.GetPspParam()->fileName);
+			DEBUG_LOG(HLE, "Saving. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
 			display = DS_NONE;
 			break;
 		case SCE_UTILITY_SAVEDATA_TYPE_LISTSAVE:
-			DEBUG_LOG(HLE, "Saving. Title: %s Save: %s File: %s", param.GetPspParam()->gameName, param.GetPspParam()->saveName, param.GetPspParam()->fileName);
+			DEBUG_LOG(HLE, "Saving. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
 			display = DS_SAVE_LIST_CHOICE;
 			break;
 		case SCE_UTILITY_SAVEDATA_TYPE_LISTDELETE:
-			DEBUG_LOG(HLE, "Delete. Title: %s Save: %s File: %s", param.GetPspParam()->gameName, param.GetPspParam()->saveName, param.GetPspParam()->fileName);
+			DEBUG_LOG(HLE, "Delete. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
 			if(param.GetFilenameCount() == 0)
 				display = DS_DELETE_NODATA;
 			else
 				display = DS_DELETE_LIST_CHOICE;
 			break;
-		case SCE_UTILITY_SAVEDATA_TYPE_DELETE: // This run on PSP display a list of all save on the PSP. Weird.
 		case SCE_UTILITY_SAVEDATA_TYPE_SIZES:
+			display = DS_NONE;
+			break;
+		case SCE_UTILITY_SAVEDATA_TYPE_LIST:
+			display = DS_NONE;
+			break;
+		case SCE_UTILITY_SAVEDATA_TYPE_DELETE: // This run on PSP display a list of all save on the PSP. Weird.
 		default:
 		{
-			ERROR_LOG(HLE, "Load/Save function %d not coded. Title: %s Save: %s File: %s", param.GetPspParam()->mode, param.GetPspParam()->gameName, param.GetPspParam()->saveName, param.GetPspParam()->fileName);
+			ERROR_LOG(HLE, "Load/Save function %d not coded. Title: %s Save: %s File: %s", param.GetPspParam()->mode, param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
+			param.GetPspParam()->result = 0;
 			display = DS_NONE;
 			return; // Return 0 should allow the game to continue, but missing function must be implemented and returning the right value or the game can block.
 		}
@@ -85,36 +91,36 @@ void PSPSaveDialog::Init(int paramAddr)
 	lastButtons = __CtrlPeekButtons();
 
 	/*INFO_LOG(HLE,"Dump Param :");
-	INFO_LOG(HLE,"size : %d",param->size);
-	INFO_LOG(HLE,"language : %d",param->language);
-	INFO_LOG(HLE,"buttonSwap : %d",param->buttonSwap);
-	INFO_LOG(HLE,"result : %d",param->result);
-	INFO_LOG(HLE,"mode : %d",param->mode);
-	INFO_LOG(HLE,"bind : %d",param->bind);
-	INFO_LOG(HLE,"overwriteMode : %d",param->overwriteMode);
-	INFO_LOG(HLE,"gameName : %s",param->gameName);
-	INFO_LOG(HLE,"saveName : %s",param->saveName);
-	INFO_LOG(HLE,"saveNameList : %08x",*((unsigned int*)&param->saveNameList));
-	INFO_LOG(HLE,"fileName : %s",param->fileName);
-	INFO_LOG(HLE,"dataBuf : %08x",*((unsigned int*)&param->dataBuf));
-	INFO_LOG(HLE,"dataBufSize : %u",param->dataBufSize);
-	INFO_LOG(HLE,"dataSize : %u",param->dataSize);
+	INFO_LOG(HLE,"size : %d",param.GetPspParam()->size);
+	INFO_LOG(HLE,"language : %d",param.GetPspParam()->language);
+	INFO_LOG(HLE,"buttonSwap : %d",param.GetPspParam()->buttonSwap);
+	INFO_LOG(HLE,"result : %d",param.GetPspParam()->result);
+	INFO_LOG(HLE,"mode : %d",param.GetPspParam()->mode);
+	INFO_LOG(HLE,"bind : %d",param.GetPspParam()->bind);
+	INFO_LOG(HLE,"overwriteMode : %d",param.GetPspParam()->overwriteMode);
+	INFO_LOG(HLE,"gameName : %s",param.GetGameName(param.GetPspParam()).c_str());
+	INFO_LOG(HLE,"saveName : %s",param.GetPspParam()->saveName);
+	INFO_LOG(HLE,"saveNameList : %08x",*((unsigned int*)&param.GetPspParam()->saveNameList));
+	INFO_LOG(HLE,"fileName : %s",param.GetPspParam()->fileName);
+	INFO_LOG(HLE,"dataBuf : %08x",*((unsigned int*)&param.GetPspParam()->dataBuf));
+	INFO_LOG(HLE,"dataBufSize : %u",param.GetPspParam()->dataBufSize);
+	INFO_LOG(HLE,"dataSize : %u",param.GetPspParam()->dataSize);
 
-	INFO_LOG(HLE,"sfo title : %s",param->sfoParam.title);
-	INFO_LOG(HLE,"sfo savedataTitle : %s",param->sfoParam.savedataTitle);
-	INFO_LOG(HLE,"sfo detail : %s",param->sfoParam.detail);
+	INFO_LOG(HLE,"sfo title : %s",param.GetPspParam()->sfoParam.title);
+	INFO_LOG(HLE,"sfo savedataTitle : %s",param.GetPspParam()->sfoParam.savedataTitle);
+	INFO_LOG(HLE,"sfo detail : %s",param.GetPspParam()->sfoParam.detail);
 
-	INFO_LOG(HLE,"icon0 data : %08x",*((unsigned int*)&param->icon0FileData.buf));
-	INFO_LOG(HLE,"icon0 size : %u",param->icon0FileData.bufSize);
+	INFO_LOG(HLE,"icon0 data : %08x",*((unsigned int*)&param.GetPspParam()->icon0FileData.buf));
+	INFO_LOG(HLE,"icon0 size : %u",param.GetPspParam()->icon0FileData.bufSize);
 
-	INFO_LOG(HLE,"icon1 data : %08x",*((unsigned int*)&param->icon1FileData.buf));
-	INFO_LOG(HLE,"icon1 size : %u",param->icon1FileData.bufSize);
+	INFO_LOG(HLE,"icon1 data : %08x",*((unsigned int*)&param.GetPspParam()->icon1FileData.buf));
+	INFO_LOG(HLE,"icon1 size : %u",param.GetPspParam()->icon1FileData.bufSize);
 
-	INFO_LOG(HLE,"pic1 data : %08x",*((unsigned int*)&param->pic1FileData.buf));
-	INFO_LOG(HLE,"pic1 size : %u",param->pic1FileData.bufSize);
+	INFO_LOG(HLE,"pic1 data : %08x",*((unsigned int*)&param.GetPspParam()->pic1FileData.buf));
+	INFO_LOG(HLE,"pic1 size : %u",param.GetPspParam()->pic1FileData.bufSize);
 
-	INFO_LOG(HLE,"snd0 data : %08x",*((unsigned int*)&param->snd0FileData.buf));
-	INFO_LOG(HLE,"snd0 size : %u",param->snd0FileData.bufSize);*/
+	INFO_LOG(HLE,"snd0 data : %08x",*((unsigned int*)&param.GetPspParam()->snd0FileData.buf));
+	INFO_LOG(HLE,"snd0 size : %u",param.GetPspParam()->snd0FileData.bufSize);*/
 
 }
 
@@ -194,7 +200,7 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 	else
 	{
 		char txt[1024];
-		sprintf(txt,"%s\nSize : %d",param.GetFilename(currentSelectedSave),param.GetFileInfo(currentSelectedSave).size);
+		sprintf(txt,"%s\nSize : %d",param.GetFilename(currentSelectedSave).c_str(),param.GetFileInfo(currentSelectedSave).size);
 		std::string saveinfoTxt = txt;
 		PPGeDrawText(saveinfoTxt.c_str(), 200, 100, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
 	}
@@ -208,7 +214,7 @@ void PSPSaveDialog::DisplaySaveDataInfo2()
 	else
 	{
 		char txt[1024];
-		sprintf(txt,"%s\nSize : %d",param.GetFilename(currentSelectedSave),param.GetFileInfo(currentSelectedSave).size);
+		sprintf(txt,"%s\nSize : %d",param.GetFilename(currentSelectedSave).c_str(),param.GetFileInfo(currentSelectedSave).size);
 		std::string saveinfoTxt = txt;
 		PPGeDrawText(saveinfoTxt.c_str(), 10, 180, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
 	}
@@ -573,16 +579,32 @@ void PSPSaveDialog::Update()
 			{
 				case SCE_UTILITY_SAVEDATA_TYPE_LOAD: // Only load and exit
 				case SCE_UTILITY_SAVEDATA_TYPE_AUTOLOAD:
-					param.Save(param.GetPspParam(),param.GetSelectedSave());
+					if(param.Load(param.GetPspParam(),param.GetSelectedSave()))
+						param.GetPspParam()->result = 0;
+					else
+						param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_LOAD_NO_DATA;
 					status = SCE_UTILITY_STATUS_FINISHED;
 					return;
 				break;
 				case SCE_UTILITY_SAVEDATA_TYPE_SAVE: // Only save and exit
 				case SCE_UTILITY_SAVEDATA_TYPE_AUTOSAVE:
-					param.Load(param.GetPspParam(),param.GetSelectedSave());
+					if(param.Save(param.GetPspParam(),param.GetSelectedSave()))
+						param.GetPspParam()->result = 0;
+					else
+						param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_SAVE_MS_NOSPACE;
 					status = SCE_UTILITY_STATUS_FINISHED;
 					return;
 				break;
+				case SCE_UTILITY_SAVEDATA_TYPE_SIZES:
+					param.GetSizes(param.GetPspParam());
+					param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_SIZES_NO_DATA;
+					status = SCE_UTILITY_STATUS_FINISHED;
+					return;
+				case SCE_UTILITY_SAVEDATA_TYPE_LIST:
+					param.GetList(param.GetPspParam());
+					param.GetPspParam()->result = 0;
+					status = SCE_UTILITY_STATUS_FINISHED;
+					return;
 				default:
 					status = SCE_UTILITY_STATUS_FINISHED;
 					return;
