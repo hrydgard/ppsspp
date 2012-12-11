@@ -211,8 +211,8 @@ void BuildCompleteFilename(std::string& _CompleteFilename, const std::string& _P
 	_CompleteFilename = _Path;
 
 	// check for seperator
-	if (DIR_SEP_CHR != *_CompleteFilename.rbegin())
-		_CompleteFilename += DIR_SEP_CHR;
+	if (!strchr(DIR_SEP_CHRS, *_CompleteFilename.rbegin()))
+		_CompleteFilename += DIR_SEP;
 
 	// add the filename
 	_CompleteFilename += _Filename;

@@ -23,7 +23,7 @@ std::string icon1Name = "ICON1.PNG";
 std::string pic1Name = "PIC1.PNG";
 std::string sfoName = "PARAM.SFO";
 
-std::string savePath = "ms0://PSP/SAVEDATA/";
+std::string savePath = "ms0:/PSP/SAVEDATA/";
 
 SavedataParam::SavedataParam()
 	: pspParam(0)
@@ -221,7 +221,7 @@ void SavedataParam::SetPspParam(SceUtilitySavedataParam* param)
 		{
 			DEBUG_LOG(HLE,"Name : %s",saveNameListData[i]);
 
-			std::string fileDataPath = savePath+"/"+param->gameName+saveNameListData[i]+"/"+param->fileName;
+			std::string fileDataPath = savePath+param->gameName+saveNameListData[i]+"/"+param->fileName;
 			PSPFileInfo info = pspFileSystem.GetFileInfo(fileDataPath);
 			if(info.exists)
 			{
