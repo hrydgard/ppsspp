@@ -93,6 +93,7 @@ const HLEFunction sceNetAdhoc[] =
 	{0x0b2228e9, 0, "sceNetAdhocGameModeDeleteReplica"},
 	{0x7F75C338, 0, "sceNetAdhocGameModeCreateMaster"},
 	{0x73bfd52d, 0, "sceNetAdhocSetSocketAlert"},
+	{0x7a662d6b, 0, "sceNetAdhocPollSocket"}
 };							
 
 const HLEFunction sceNetAdhocMatching[] = 
