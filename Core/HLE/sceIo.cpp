@@ -303,7 +303,7 @@ u32 sceIoWrite(int id, void *data_ptr, int size) //(int fd, void *data, int size
 	}
 }
 
-u32 sceIoLseek(int id, s64 offset, int whence) {
+s64 sceIoLseek(int id, s64 offset, int whence) {
 	u32 error;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
 	if (f) {
@@ -885,7 +885,7 @@ const HLEFunction IoFileMgrForUser[] = {
 	{ 0xff5940b6, sceIoCloseAsync, "sceIoCloseAsync" },
 	{ 0x54F5FB11, &WrapU_CIUIUI<sceIoDevctl>, "sceIoDevctl" }, //(const char *name int cmd, void *arg, size_t arglen, void *buf, size_t *buflen);
 	{ 0xcb05f8d6, &WrapU_IUU<sceIoGetAsyncStat>, "sceIoGetAsyncStat" },
-	{ 0x27EB27B8, &WrapU_II64I<sceIoLseek>, "sceIoLseek" }, //(int fd, int offset, int whence);
+	{ 0x27EB27B8, &WrapI64_II64I<sceIoLseek>, "sceIoLseek" }, //(int fd, int offset, int whence);
 	{ 0x68963324, &WrapU_III<sceIoLseek32>, "sceIoLseek32" },
 	{ 0x1b385d8f, &WrapU_III<sceIoLseek32Async>, "sceIoLseek32Async" },
 	{ 0x71b19e77, &WrapU_II64I<sceIoLseekAsync>, "sceIoLseekAsync" },
