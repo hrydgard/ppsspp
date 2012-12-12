@@ -253,11 +253,17 @@ int sceUtilityGamedataInstallGetStatus()
 #define PSP_SYSTEMPARAM_LANGUAGE_KOREAN		8
 
 
+//TODO: should save to config file
+u32 sceUtilitySetSystemParamString(u32 id, u32 strPtr)
+{
+	DEBUG_LOG(HLE,"sceUtilitySetSystemParamString(%i, %08x)", id,strPtr);
+	return 0;
+}
 
-
+//TODO: Should load from config file
 u32 sceUtilityGetSystemParamString(u32 id, u32 destaddr, u32 unknownparam)
 {
-	//DEBUG_LOG(HLE,"sceUtilityGetSystemParamString(%i, %08x, %i)", id,destaddr,unknownparam);
+	DEBUG_LOG(HLE,"sceUtilityGetSystemParamString(%i, %08x, %i)", id,destaddr,unknownparam);
 	char *buf = (char *)Memory::GetPointer(destaddr);
 	switch (id) {
 	case PSP_SYSTEMPARAM_ID_STRING_NICKNAME:
@@ -271,6 +277,7 @@ u32 sceUtilityGetSystemParamString(u32 id, u32 destaddr, u32 unknownparam)
 	return 0;
 }
 
+//TODO: Should load from config file
 u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr)
 {
 	DEBUG_LOG(HLE,"sceUtilityGetSystemParamInt(%i, %08x)", id,destaddr);
@@ -315,18 +322,30 @@ u32 sceUtilityLoadNetModule(u32 module)
 	return 0;
 }
 
+u32 sceUtilityUnloadNetModule(u32 module)
+{
+	DEBUG_LOG(HLE,"FAKE: sceUtilityUnloadNetModule(%i)", module);
+	return 0;
+}
+
 const HLEFunction sceUtility[] = 
 {
 	{0x1579a159, &WrapU_U<sceUtilityLoadNetModule>, "sceUtilityLoadNetModule"},
+	{0x64d50c56, &WrapU_U<sceUtilityUnloadNetModule>, "sceUtilityUnloadNetModule"}, 
+
+
 	{0xf88155f6, &WrapV_U<sceUtilityNetconfShutdownStart>, "sceUtilityNetconfShutdownStart"},
 	{0x4db1e739, &WrapV_U<sceUtilityNetconfInitStart>, "sceUtilityNetconfInitStart"},
 	{0x91e70e35, &WrapV_I<sceUtilityNetconfUpdate>, "sceUtilityNetconfUpdate"},
 	{0x6332aa39, &WrapU_V<sceUtilityNetconfGetStatus>, "sceUtilityNetconfGetStatus"},
+	{0x5eee6548, 0, "sceUtilityCheckNetParam"}, 
+	{0x434d4b3a, 0, "sceUtilityGetNetParam"}, 
 
 	{0x67af3428, &WrapV_U<sceUtilityMsgDialogShutdownStart>, "sceUtilityMsgDialogShutdownStart"},	
 	{0x2ad8e239, &WrapV_U<sceUtilityMsgDialogInitStart>, "sceUtilityMsgDialogInitStart"},			
 	{0x95fc253b, &WrapV_I<sceUtilityMsgDialogUpdate>, "sceUtilityMsgDialogUpdate"},				 
-	{0x9a1c91d7, &WrapU_V<sceUtilityMsgDialogGetStatus>, "sceUtilityMsgDialogGetStatus"},			
+	{0x9a1c91d7, &WrapU_V<sceUtilityMsgDialogGetStatus>, "sceUtilityMsgDialogGetStatus"},		
+	{0x4928bd96, 0, "sceUtilityMsgDialogAbort"}, 
 
 	{0x9790b33c, &WrapI_V<sceUtilitySavedataShutdownStart>, "sceUtilitySavedataShutdownStart"},	 
 	{0x50c4cd57, &WrapI_U<sceUtilitySavedataInitStart>, "sceUtilitySavedataInitStart"},			 
@@ -338,30 +357,33 @@ const HLEFunction sceUtility[] =
 	{0x4b85c861, &WrapV_U<sceUtilityOskUpdate>, "sceUtilityOskUpdate"},
 	{0xf3f76017, &WrapI_V<sceUtilityOskGetStatus>, "sceUtilityOskGetStatus"},
 
-	{0x41e30674, 0, "sceUtilitySetSystemParamString"},
+	{0x41e30674, &WrapU_UU<sceUtilitySetSystemParamString>, "sceUtilitySetSystemParamString"},
+	{0x45c18506, 0, "sceUtilitySetSystemParamInt"}, 
 	{0x34b78343, &WrapU_UUU<sceUtilityGetSystemParamString>, "sceUtilityGetSystemParamString"}, 
 	{0xA5DA2406, &WrapU_UU<sceUtilityGetSystemParamInt>, "sceUtilityGetSystemParamInt"},
+
+
 	{0xc492f751, 0, "sceUtilityGameSharingInitStart"}, 
 	{0xefc6f80f, 0, "sceUtilityGameSharingShutdownStart"}, 
 	{0x7853182d, 0, "sceUtilityGameSharingUpdate"}, 
 	{0x946963f3, 0, "sceUtilityGameSharingGetStatus"}, 
+
 	{0x2995d020, 0, "sceUtility_2995d020"}, 
 	{0xb62a4061, 0, "sceUtility_b62a4061"}, 
 	{0xed0fad38, 0, "sceUtility_ed0fad38"}, 
 	{0x88bc7406, 0, "sceUtility_88bc7406"}, 
-	{0x45c18506, 0, "sceUtilitySetSystemParamInt"}, 
-	{0x5eee6548, 0, "sceUtilityCheckNetParam"}, 
-	{0x434d4b3a, 0, "sceUtilityGetNetParam"}, 
-	{0x64d50c56, 0, "sceUtilityUnloadNetModule"}, 
-	{0x4928bd96, 0, "sceUtilityMsgDialogAbort"}, 
+
 	{0xbda7d894, 0, "sceUtilityHtmlViewerGetStatus"}, 
 	{0xcdc3aa41, 0, "sceUtilityHtmlViewerInitStart"}, 
 	{0xf5ce1134, 0, "sceUtilityHtmlViewerShutdownStart"}, 
 	{0x05afb9e4, 0, "sceUtilityHtmlViewerUpdate"}, 
+
 	{0xc629af26, &WrapV_U<sceUtilityLoadAvModule>, "sceUtilityLoadAvModule"}, 
 	{0xf7d8d092, 0, "sceUtilityUnloadAvModule"},
+
 	{0x2a2b3de0, &WrapV_U<sceUtilityLoadModule>, "sceUtilityLoadModule"},
 	{0xe49bfe92, 0, "sceUtilityUnloadModule"},
+
 	{0x0251B134, 0, "sceUtilityScreenshotInitStart"},
 	{0xF9E0008C, 0, "sceUtilityScreenshotShutdownStart"},
 	{0xAB083EA9, 0, "sceUtilityScreenshotUpdate"},
@@ -381,6 +403,12 @@ const HLEFunction sceUtility[] =
 	{0xE19C97D6, 0, "sceUtilityNpSigninShutdownStart"},
 	{0xF3FBC572, 0, "sceUtilityNpSigninUpdate"},
 	{0x86ABDB1B, 0, "sceUtilityNpSigninGetStatus"},
+
+	{0x1281DA8E, 0, "sceUtilityInstallInitStart"},
+	{0x5EF1C24A, 0, "sceUtilityInstallShutdownStart"},
+	{0xA03D29BA, 0, "sceUtilityInstallUpdate"},
+	{0xC4700FA3, 0, "sceUtilityInstallGetStatus"}, 
+
 };
 
 void Register_sceUtility()
