@@ -64,7 +64,7 @@ const HLEFunction sceNet[] =
 	{0x0bf0a3ae, 0, "sceNetGetLocalEtherAddr"}, 
 	{0xd27961c9, 0, "sceNetEtherStrton"}, 
 	{0x50647530, 0, "sceNetFreeThreadinfo"}, 
-	{0xcc393e48, 0, "sceNetGetMallocStat"}
+	{0xcc393e48, 0, "sceNetGetMallocStat"},
 };
 
 const HLEFunction sceNetAdhoc[] =
@@ -93,7 +93,7 @@ const HLEFunction sceNetAdhoc[] =
 	{0x0b2228e9, 0, "sceNetAdhocGameModeDeleteReplica"},
 	{0x7F75C338, 0, "sceNetAdhocGameModeCreateMaster"},
 	{0x73bfd52d, 0, "sceNetAdhocSetSocketAlert"},
-	{0x7a662d6b, 0, "sceNetAdhocPollSocket"}
+	{0x7a662d6b, 0, "sceNetAdhocPollSocket"},
 };							
 
 const HLEFunction sceNetAdhocMatching[] = 

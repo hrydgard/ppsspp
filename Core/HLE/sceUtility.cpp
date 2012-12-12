@@ -340,6 +340,7 @@ const HLEFunction sceUtility[] =
 	{0x6332aa39, &WrapU_V<sceUtilityNetconfGetStatus>, "sceUtilityNetconfGetStatus"},
 	{0x5eee6548, 0, "sceUtilityCheckNetParam"}, 
 	{0x434d4b3a, 0, "sceUtilityGetNetParam"}, 
+	{0x4FED24D8, 0, "sceUtilityGetNetParamLatestID"},
 
 	{0x67af3428, &WrapV_U<sceUtilityMsgDialogShutdownStart>, "sceUtilityMsgDialogShutdownStart"},	
 	{0x2ad8e239, &WrapV_U<sceUtilityMsgDialogInitStart>, "sceUtilityMsgDialogInitStart"},			
