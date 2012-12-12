@@ -50,6 +50,14 @@ template<u32 func(int, s64, int)> void WrapU_II64I() {
 	RETURN(retval);
 }
 
+template<s64 func(int, s64, int)> void WrapI64_II64I() {
+	s64 param_one = currentMIPS->r[6];
+	param_one |= (s64)(currentMIPS->r[7]) << 32;
+	s64 retval = func(PARAM(0), param_one, PARAM(4));
+	currentMIPS->r[2] = (retval >> 0) & 0xFFFFFFFF;
+	currentMIPS->r[3] = (retval >> 32) & 0xFFFFFFFF;
+}
+
 //32bit wrappers
 template<void func()> void WrapV_V() {
 	func();
