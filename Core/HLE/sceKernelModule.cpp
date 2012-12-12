@@ -756,9 +756,15 @@ void sceKernelFindModuleByName()
 }
 
 u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr) {
-	ERROR_LOG(HLE,"UNIMPL sceKernelLoadModuleById(%08x, %08x)", id, lmoptionPtr);
+	ERROR_LOG(HLE,"UNIMPL (%008x=sceKernelLoadModuleById(%08x, %08x)",id,id,lmoptionPtr);
 	// Apparenty, ID is a sceIo File UID. So this shouldn't be too hard when needed.
 	return id;
+}
+
+int ModuleMgrForUser_0xfef27dc1()
+{
+	ERROR_LOG(HLE,"UNIMPL 0=ModuleMgrForUser_0xfef27dc1()");
+	return 0;
 }
 
 const HLEFunction ModuleMgrForUser[] = 
@@ -776,6 +782,7 @@ const HLEFunction ModuleMgrForUser[] =
 	{0xd8b73127,&WrapU_U<sceKernelGetModuleIdByAddress>, "sceKernelGetModuleIdByAddress"},
 	{0xf0a26395,&sceKernelGetModuleId, "sceKernelGetModuleId"},
 	{0x8f2df740,0,"sceKernelStopUnloadSelfModuleWithStatus"},
+	{0xfef27dc1,WrapI_V<ModuleMgrForUser_0xfef27dc1> , "ModuleMgrForUser_0xfef27dc1"},
 };
 
 
