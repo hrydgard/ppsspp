@@ -23,7 +23,8 @@
 #define stat64 stat
 #endif
 
-#if !defined(readdir_r)
+// Hack
+#ifdef __SYMBIAN32__
 static inline int readdir_r(DIR *dirp, struct dirent *entry, struct dirent **result) {
     struct dirent *readdir_entry;
 
