@@ -209,7 +209,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	g_Config.Load(config_filename.c_str());
 
 	if (g_Config.currentDirectory == "") {
-#if defined(ANDROID) || defined(BLACKBERRY)
+#if defined(ANDROID) || defined(BLACKBERRY) || defined(__SYMBIAN32__)
 		g_Config.currentDirectory = external_directory;
 #else
 		g_Config.currentDirectory = getenv("HOME");
