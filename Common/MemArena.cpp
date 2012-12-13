@@ -33,6 +33,11 @@
 #endif
 #endif
 
+#if defined(__SYMBIAN32__)
+	// Also Xbox 360
+	#define UNUSABLE_MMAP 1
+#endif
+
 
 #ifdef ANDROID
 
@@ -108,12 +113,12 @@ SYSTEM_INFO sysInfo;
 // Windows mappings need to be on 64K boundaries, due to Alpha legacy.
 #ifdef _WIN32
 size_t roundup(size_t x) {
-  int gran = sysInfo.dwAllocationGranularity ? sysInfo.dwAllocationGranularity : 0x10000;
-  return (x + gran - 1) & ~(gran - 1);
+	int gran = sysInfo.dwAllocationGranularity ? sysInfo.dwAllocationGranularity : 0x10000;
+	return (x + gran - 1) & ~(gran - 1);
 }
 #else
 size_t roundup(size_t x) {
-  return x;
+	return x;
 }
 #endif
 
@@ -122,8 +127,8 @@ void MemArena::GrabLowMemSpace(size_t size)
 {
 #ifdef _WIN32
 	hMemoryMapping = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, (DWORD)(size), NULL);
-  GetSystemInfo(&sysInfo);
-#elif ANDROID
+	GetSystemInfo(&sysInfo);
+#elif defined(ANDROID)
 	// Use ashmem so we don't have to allocate a file on disk!
 	fd = ashmem_create_region("PPSSPP_RAM", size);
 	// Note that it appears that ashmem is pinned by default, so no need to pin.
@@ -132,6 +137,8 @@ void MemArena::GrabLowMemSpace(size_t size)
 		ERROR_LOG(MEMMAP, "Failed to grab ashmem space of size: %08x  errno: %d", (int)size, (int)(errno));
 		return;
 	}
+#elif defined(UNUSABLE_MMAP)
+	// Do nothing as we are using malloc()
 #else
 	mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
 	fd = open(ram_temp_file.c_str(), O_RDWR | O_CREAT, mode);
@@ -156,6 +163,8 @@ void MemArena::ReleaseSpace()
 #ifdef _WIN32
 	CloseHandle(hMemoryMapping);
 	hMemoryMapping = 0;
+#elif defined(UNUSABLE_MMAP)
+	// Do nothing as we are using malloc()
 #else
 	close(fd);
 #endif
@@ -165,30 +174,32 @@ void MemArena::ReleaseSpace()
 void *MemArena::CreateView(s64 offset, size_t size, void *base)
 {
 #ifdef _WIN32
-  size = roundup(size);
-  void *ptr = MapViewOfFileEx(hMemoryMapping, FILE_MAP_ALL_ACCESS, 0, (DWORD)((u64)offset), size, base);
-  if (!ptr) {
-    //ERROR_LOG(MEMMAP, "Failed to map memory: %08x %08x %08x : %s", (u32)offset, (u32)size, (u32)base, GetLastErrorMsg());
-  } else {
-    //ERROR_LOG(MEMMAP, "Mapped memory: %08x %08x %08x : %s", (u32)offset, (u32)size, (u32)base, GetLastErrorMsg());
-  }
-  return ptr;
+	size = roundup(size);
+	void *ptr = MapViewOfFileEx(hMemoryMapping, FILE_MAP_ALL_ACCESS, 0, (DWORD)((u64)offset), size, base);
+	if (!ptr) {
+		//ERROR_LOG(MEMMAP, "Failed to map memory: %08x %08x %08x : %s", (u32)offset, (u32)size, (u32)base, GetLastErrorMsg());
+	} else {
+		//ERROR_LOG(MEMMAP, "Mapped memory: %08x %08x %08x : %s", (u32)offset, (u32)size, (u32)base, GetLastErrorMsg());
+	}
+	return ptr;
+#elif defined(UNUSABLE_MMAP)
+	void *retval = malloc(size);
+	if (!retval)
+	{
+		NOTICE_LOG(MEMMAP, "malloc failed: %s", strerror(errno));
+		return 0;
+	}
+	return retval;
 #else
-	void *retval = mmap(
-		base, size,
-		PROT_READ | PROT_WRITE,
-		MAP_SHARED | ((base == 0) ? 0 : MAP_FIXED),
-		fd, offset);
+	void *retval = mmap(base, size, PROT_READ | PROT_WRITE, MAP_SHARED |
+		((base == 0) ? 0 : MAP_FIXED), fd, offset);
 
 	if (retval == MAP_FAILED)
 	{
 		NOTICE_LOG(MEMMAP, "mmap on %s (fd: %d) failed", ram_temp_file.c_str(), (int)fd);
 		return 0;
 	}
-	else
-	{
-		return retval;
-	}
+	return retval;
 #endif
 }
 
@@ -197,6 +208,8 @@ void MemArena::ReleaseView(void* view, size_t size)
 {
 #ifdef _WIN32
 	UnmapViewOfFile(view);
+#elif defined(UNUSABLE_MMAP)
+	free(view);
 #else
 	munmap(view, size);
 #endif
@@ -226,6 +239,9 @@ u8* MemArena::Find4GBBase()
 		VirtualFree(base, 0, MEM_RELEASE);
 	}
 	return base;
+#elif defined(UNUSABLE_MMAP)
+	// We are unable to use relative addresses due to lack of mmap()
+	return NULL;
 #else
 	void* base = mmap(0, 0x5000000, PROT_READ | PROT_WRITE,
 		MAP_ANON | MAP_SHARED, -1, 0);
@@ -391,7 +407,7 @@ void MemoryMap_Shutdown(const MemoryView *views, int num_views, u32 flags, MemAr
 		if (*views[i].out_ptr && (views[i].out_ptr_low && *views[i].out_ptr != *views[i].out_ptr_low))
 			arena->ReleaseView(*views[i].out_ptr, views[i].size);
 		*views[i].out_ptr = NULL;
-		if (views[i].out_ptr_low) 
+		if (views[i].out_ptr_low)
 			*views[i].out_ptr_low = NULL;
 	}
 }

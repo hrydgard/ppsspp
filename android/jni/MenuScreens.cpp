@@ -387,8 +387,10 @@ static const char *credits[] =
 	"Free tools used:",
 #ifdef ANDROID
 	"Android SDK + NDK",
-#elif BLACKBERRY
+#elif defined(BLACKBERRY)
 	"Blackberry NDK",
+#elif defined(__SYMBIAN32__)
+	"Qt",
 #else
 	"SDL",
 #endif

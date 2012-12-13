@@ -22,6 +22,9 @@
 #include "Timer.h"
 #include "Thread.h"
 #include "FileUtil.h"
+#ifdef __SYMBIAN32__
+#include <e32debug.h>
+#endif
 
 void GenericLog(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, 
 		const char *file, int line, const char* fmt, ...)
@@ -197,7 +200,11 @@ void FileLogListener::Log(LogTypes::LOG_LEVELS, const char *msg)
 		return;
 
 	std::lock_guard<std::mutex> lk(m_log_lock);
+#ifdef __SYMBIAN32__
+	RDebug::Printf("%s",msg);
+#else
 	m_logfile << msg << std::flush;
+#endif
 }
 
 void DebuggerLogListener::Log(LogTypes::LOG_LEVELS, const char *msg)
