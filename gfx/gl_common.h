@@ -19,4 +19,8 @@ typedef char GLchar;
 #endif
 #endif
 
+#ifdef __SYMBIAN32__
+typedef char GLchar;
+#endif
+
 #endif //_GL_COMMON_H

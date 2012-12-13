@@ -46,6 +46,9 @@ extern "C" {
 // If you pass in a non-NULL buffer of the type below, allocation
 // will occur from it as described above. Otherwise just pass NULL
 // to use malloc()/alloca()
+#ifdef __SYMBIAN32__
+#define alloca(size) __builtin_alloca (size)
+#endif
 
 typedef struct
 {
