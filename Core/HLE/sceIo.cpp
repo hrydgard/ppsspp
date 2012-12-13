@@ -37,11 +37,10 @@
 #include "sceKernelMemory.h"
 #include "sceKernelThread.h"
 
-#define ERROR_ERRNO_FILE_NOT_FOUND													0x80010002
+#define ERROR_ERRNO_FILE_NOT_FOUND               0x80010002
 
-
-#define ERROR_MEMSTICK_DEVCTL_BAD_PARAMS                    0x80220081
-#define ERROR_MEMSTICK_DEVCTL_TOO_MANY_CALLBACKS            0x80220082
+#define ERROR_MEMSTICK_DEVCTL_BAD_PARAMS         0x80220081
+#define ERROR_MEMSTICK_DEVCTL_TOO_MANY_CALLBACKS 0x80220082
 
 /*
 
@@ -95,6 +94,12 @@ enum {
 	TYPE_FILE=0x20
 };
 
+#ifdef __SYMBIAN32__
+#undef st_ctime
+#undef st_atime
+#undef st_mtime
+#endif
+
 struct SceIoStat {
 	SceMode st_mode;
 	unsigned int st_attr;
@@ -110,7 +115,7 @@ struct SceIoDirEnt {
 	char d_name[256];
 	u32 d_private;
 };
-
+#ifndef __SYMBIAN32__
 struct dirent {
 	u32 unk0;
 	u32 type;
@@ -118,6 +123,7 @@ struct dirent {
 	u32 unk[19];
 	char name[0x108];
 };
+#endif
 
 class FileNode : public KernelObject {
 public:
