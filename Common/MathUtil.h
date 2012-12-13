@@ -20,7 +20,14 @@
 
 #include "Common.h"
 
+#ifndef ANDROID
+#define USE_SSE
+#endif
+
+#ifdef USE_SSE
 #include <xmmintrin.h>
+#endif
+
 #include <vector>
 
 namespace MathUtil

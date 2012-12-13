@@ -22,10 +22,10 @@
 #include <numeric>
 
 namespace {
-
+#ifdef USE_SSE
   static u32 saved_sse_state = _mm_getcsr();
   static const u32 default_sse_state = _mm_getcsr();
-
+#endif
 }
 
 namespace MathUtil
@@ -116,19 +116,25 @@ namespace MathUtil
 
 void LoadDefaultSSEState()
 {
+#ifdef USE_SSE
   _mm_setcsr(default_sse_state);
+#endif
 }
 
 
 void LoadSSEState()
 {
+#ifdef USE_SSE
   _mm_setcsr(saved_sse_state);
+#endif
 }
 
 
 void SaveSSEState()
 {
+#ifdef USE_SSE
   saved_sse_state = _mm_getcsr();
+#endif
 }
 
 inline void MatrixMul(int n, const float *a, const float *b, float *result)

@@ -66,6 +66,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Common/Timer.cpp \
   $(SRC)/Common/ThunkARM.cpp \
   $(SRC)/Common/Misc.cpp \
+  $(SRC)/Common/MathUtil.cpp \
   $(SRC)/GPU/Math3D.cpp \
   $(SRC)/GPU/GPUState.cpp \
   $(SRC)/GPU/GLES/Framebuffer.cpp \
