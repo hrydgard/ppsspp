@@ -53,19 +53,20 @@
 #define fstat64 fstat
 #endif
 
-#if !defined(readdir_r)
+// Hack
+#if defined(__SYMBIAN32__)
 static inline int readdir_r(DIR *dirp, struct dirent *entry, struct dirent **result) {
-    struct dirent *readdir_entry;
+	struct dirent *readdir_entry;
 
-    readdir_entry = readdir(dirp);
-    if (readdir_entry == NULL) {
-        *result = NULL;
-        return errno;
-    }
+	readdir_entry = readdir(dirp);
+	if (readdir_entry == NULL) {
+		*result = NULL;
+		return errno;
+	}
 
-    *entry = *readdir_entry;
-    *result = entry;
-    return 0;
+	*entry = *readdir_entry;
+	*result = entry;
+	return 0;
 }
 #endif
 
