@@ -19,6 +19,7 @@
 
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
+#include "../../Core/CoreTiming.h"
 
 #include "sceKernel.h"
 #include "sceKernelThread.h"
@@ -26,6 +27,7 @@
 
 #include <queue>
 
+void __KernelEventFlagTimeout(u64 userdata, int cycleslate);
 
 struct NativeEventFlag
 {
@@ -86,9 +88,21 @@ enum PspEventFlagWaitTypes
 	PSP_EVENT_WAITCLEAR = 0x20
 };
 
+bool eventFlagInitComplete = false;
+int eventFlagWaitTimer = 0;
+
+void __KernelEventFlagInit()
+{
+	eventFlagWaitTimer = CoreTiming::RegisterEvent("EventFlagTimeout", &__KernelEventFlagTimeout);
+	eventFlagInitComplete = true;
+}
+
 //SceUID sceKernelCreateEventFlag(const char *name, int attr, int bits, SceKernelEventFlagOptParam *opt);
 int sceKernelCreateEventFlag(const char *name, u32 flag_attr, u32 flag_initPattern, u32 optPtr)
 {
+	if (!eventFlagInitComplete)
+		__KernelEventFlagInit();
+
 	EventFlag *e = new EventFlag();
 	SceUID id = kernelObjects.Create(e);
 
@@ -175,8 +189,54 @@ retry:
 	}
 }
 
-// Actually RETURNs a u32
-void sceKernelWaitEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 timeoutPtr)
+void __KernelEventFlagTimeout(u64 userdata, int cycleslate)
+{
+	SceUID threadID = (SceUID)userdata;
+
+	u32 error;
+	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
+	if (timeoutPtr != 0)
+		Memory::Write_U32(0, timeoutPtr);
+
+	SceUID flagID = __KernelGetWaitID(threadID, WAITTYPE_EVENTFLAG, error);
+	EventFlag *e = kernelObjects.Get<EventFlag>(flagID, error);
+	if (e)
+	{
+		for (size_t i = 0; i < e->waitingThreads.size(); i++)
+		{
+			EventFlagTh *t = &e->waitingThreads[i];
+			if (t->tid == threadID)
+			{
+				if (Memory::IsValidAddress(t->outAddr))
+					Memory::Write_U32(e->nef.currentPattern, t->outAddr);
+				e->nef.numWaitThreads--;
+				e->waitingThreads.erase(e->waitingThreads.begin() + i);
+				break;
+			}
+		}
+	}
+
+	__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
+}
+
+void __KernelSetEventFlagTimeout(EventFlag *e, u32 timeoutPtr)
+{
+	if (timeoutPtr == 0 || eventFlagWaitTimer == 0)
+		return;
+
+	int micro = (int) Memory::Read_U32(timeoutPtr);
+
+	// TODO: Test actual timing.
+	if (micro <= 3)
+		micro = 15;
+	else if (micro <= 249)
+		micro = 250;
+
+	// This should call __KernelEventFlagTimeout() later, unless we cancel it.
+	CoreTiming::ScheduleEvent(usToCycles(micro), eventFlagWaitTimer, __KernelGetCurThread());
+}
+
+int sceKernelWaitEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 timeoutPtr)
 {
 	DEBUG_LOG(HLE,"sceKernelWaitEventFlag(%i, %08x, %i, %08x, %08x)", id, bits, wait, outBitsPtr, timeoutPtr);
 
@@ -198,18 +258,19 @@ void sceKernelWaitEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 t
 			if (Memory::IsValidAddress(timeoutPtr))
 				timeout = Memory::Read_U32(timeoutPtr);
 
-			__KernelWaitCurThread(WAITTYPE_EVENTFLAG, id, 0, 0, false); // sets RETURN
-			// Do not set RETURN here; it's already set for us and we'd overwrite the wrong thread's RETURN
+			__KernelSetEventFlagTimeout(e, timeoutPtr);
+			__KernelWaitCurThread(WAITTYPE_EVENTFLAG, id, 0, timeoutPtr, false);
 		}
+
+		return 0;
 	}
 	else
 	{
-		RETURN(error);
+		return error;
 	}
 }
 
-// Actually RETURNs a u32
-void sceKernelWaitEventFlagCB(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 timeoutPtr)
+int sceKernelWaitEventFlagCB(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 timeoutPtr)
 {
 	DEBUG_LOG(HLE,"sceKernelWaitEventFlagCB(%i, %08x, %i, %08x, %08x)", id, bits, wait, outBitsPtr, timeoutPtr);
 
@@ -231,12 +292,18 @@ void sceKernelWaitEventFlagCB(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32
 			if (Memory::IsValidAddress(timeoutPtr))
 				timeout = Memory::Read_U32(timeoutPtr);
 
-			__KernelWaitCurThread(WAITTYPE_EVENTFLAG, id, 0, 0, true); // sets RETURN
+			__KernelSetEventFlagTimeout(e, timeoutPtr);
+			__KernelWaitCurThread(WAITTYPE_EVENTFLAG, id, 0, timeoutPtr, true);
 		}
+		// TODO: Verify.
+		else
+			hleCheckCurrentCallbacks();
+
+		return 0;
 	}
 	else
 	{
-		RETURN(error);
+		return error;
 	}
 }
 
