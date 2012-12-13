@@ -6,6 +6,9 @@
 #ifndef _WIN32
 #include <unistd.h>
 #include <sys/time.h>
+#ifdef __SYMBIAN32__
+#include <sys/select.h>
+#endif
 #else
 #include <io.h>
 #include <winsock2.h>

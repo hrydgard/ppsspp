@@ -7,7 +7,7 @@
 #ifdef _WIN32
 #include <winsock2.h>
 #else
-#ifdef __FreeBSD__
+#if defined(__FreeBSD__) || defined(__SYMBIAN32__)
 #include <netinet/in.h>
 #else
 #include <arpa/inet.h>

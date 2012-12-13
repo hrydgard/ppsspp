@@ -11,6 +11,9 @@
 #ifndef GL_DEPTH_COMPONENT24
 #define GL_DEPTH_COMPONENT24 GL_DEPTH_COMPONENT24_OES
 #endif
+#ifndef GL_DEPTH24_STENCIL8_OES
+#define GL_DEPTH24_STENCIL8_OES 0x88F0
+#endif
 #endif
 
 // TODO: Breakout this GL extension checker in its own file.
@@ -101,10 +104,10 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil) {
 		ILOG("Creating FBO using separate stencil");
 		// TEGRA
 		fbo->z_stencil_buffer = 0;
-		// 16-bit Z, separate 8-bit stencil
+		// 16/24-bit Z, separate 8-bit stencil
 		glGenRenderbuffers(1, &fbo->z_buffer);
 		glBindRenderbuffer(GL_RENDERBUFFER, fbo->z_buffer);
-		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, width, height);
+		glRenderbufferStorage(GL_RENDERBUFFER, gl_extensions.OES_depth24 ? GL_DEPTH_COMPONENT24 : GL_DEPTH_COMPONENT16, width, height);
 
 		// 8-bit stencil buffer
 		glGenRenderbuffers(1, &fbo->stencil_buffer);

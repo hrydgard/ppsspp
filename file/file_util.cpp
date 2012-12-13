@@ -5,6 +5,7 @@
 #else
 #include <dirent.h>
 #include <unistd.h>
+#include <errno.h>
 #endif
 #include <cstring>
 #include <string>
@@ -18,8 +19,24 @@
 #include "base/basictypes.h"
 #include "file/file_util.h"
 
-#if defined(__FreeBSD__) || defined(__APPLE__)
+#if defined(__FreeBSD__) || defined(__APPLE__) || defined(__SYMBIAN32__)
 #define stat64 stat
+#endif
+
+#if !defined(readdir_r)
+static inline int readdir_r(DIR *dirp, struct dirent *entry, struct dirent **result) {
+    struct dirent *readdir_entry;
+
+    readdir_entry = readdir(dirp);
+    if (readdir_entry == NULL) {
+        *result = NULL;
+        return errno;
+    }
+
+    *entry = *readdir_entry;
+    *result = entry;
+    return 0;
+}
 #endif
 
 bool writeStringToFile(bool text_file, const std::string &str, const char *filename)
