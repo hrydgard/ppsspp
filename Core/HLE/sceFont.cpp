@@ -177,12 +177,20 @@ u32 sceFontOpen(u32 libHandle, u32 index, u32 mode, u32 errorCodePtr)
 u32 sceFontOpenUserMemory(u32 libHandle, u32 memoryFontAddrPtr, u32 memoryFontLength, u32 errorCodePtr)
 {
 	ERROR_LOG(HLE, "sceFontOpenUserMemory %x, %x, %x, %x", libHandle, memoryFontAddrPtr, memoryFontLength, errorCodePtr);
+	if (Memory::IsValidAddress(errorCodePtr))
+	{
+		Memory::Write_U32(0, errorCodePtr);
+	}
 	return 1;
 }
 
 u32 sceFontOpenUserFile(u32 libHandle, u32 fileNamePtr, u32 mode, u32 errorCodePtr)
 {
 	ERROR_LOG(HLE, "sceFontOpenUserFile %x, %x, %x, %x", libHandle, fileNamePtr, mode, errorCodePtr);
+	if (Memory::IsValidAddress(errorCodePtr))
+	{
+		Memory::Write_U32(0, errorCodePtr);
+	}
 	return 1;
 }
 

@@ -103,9 +103,10 @@ void sceGeListUpdateStallAddr(u32 displayListID, u32 stallAddress)
 	gpu->UpdateStall(displayListID, stallAddress);
 }
 
-void sceGeListSync(u32 displayListID, u32 mode) //0 : wait for completion		1:check and return
+int sceGeListSync(u32 displayListID, u32 mode) //0 : wait for completion		1:check and return
 {
 	DEBUG_LOG(HLE, "sceGeListSync(dlid=%08x, mode=%08x)", displayListID, mode);
+	return 0;
 }
 
 u32 sceGeDrawSync(u32 mode)
@@ -222,7 +223,7 @@ const HLEFunction sceGe_user[] =
 	{0xAB49E76A,&WrapU_UUUU<sceGeListEnQueue>,				"sceGeListEnQueue"},
 	{0x1C0D95A6,&WrapU_UUUU<sceGeListEnQueueHead>,		"sceGeListEnQueueHead"},
 	{0xE0D68148,&WrapV_UU<sceGeListUpdateStallAddr>,	"sceGeListUpdateStallAddr"},
-	{0x03444EB4,&WrapV_UU<sceGeListSync>,						 "sceGeListSync"},
+	{0x03444EB4,&WrapI_UU<sceGeListSync>,						 "sceGeListSync"},
 	{0xB287BD61,&WrapU_U<sceGeDrawSync>,							"sceGeDrawSync"},
     {0xB448EC0D,&WrapV_U<sceGeBreak>,							"sceGeBreak"},
 	{0x4C06E472,sceGeContinue,					 "sceGeContinue"},
