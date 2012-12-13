@@ -436,6 +436,24 @@ int sceRtcSetTime_t(u32 datePtr, u32 time)
 	return 0;
 }
 
+int sceRtcSetTime64_t(u32 datePtr, u64 time)
+{
+	ERROR_LOG(HLE, "HACK sceRtcSetTime64_t(%d,%d)", datePtr, time);
+	if (Memory::IsValidAddress(datePtr))
+	{
+		ScePspDateTime pt;
+		__RtcTicksToPspTime(pt, time*1000000ULL);
+		pt.year += 1969;
+		Memory::WriteStruct(datePtr, &pt);
+	}
+	else
+	{
+		return 1;
+	}
+	return 0;
+}
+
+
 int sceRtcGetTime_t(u32 datePtr, u32 timePtr)
 {
 	ERROR_LOG(HLE, "HACK sceRtcGetTime_t(%d,%d)", datePtr, time);
@@ -453,6 +471,27 @@ int sceRtcGetTime_t(u32 datePtr, u32 timePtr)
 	}
 	return 0;
 }
+
+
+int sceRtcGetTime64_t(u32 datePtr, u32 timePtr)
+{
+	ERROR_LOG(HLE, "HACK sceRtcGetTime64_t(%d,%d)", datePtr, time);
+	if (Memory::IsValidAddress(datePtr)&&Memory::IsValidAddress(timePtr))
+	{
+		ScePspDateTime pt;
+		Memory::ReadStruct(datePtr, &pt);
+		pt.year-=1969;
+		u64 result = __RtcPspTimeToTicks(pt)/1000000ULL;
+		Memory::Write_U64(result, timePtr);
+	}
+	else
+	{
+		return 1;
+	}
+	return 0;
+}
+
+
 
 int sceRtcSetDosTime(u32 datePtr, u32 dosTime)
 {
@@ -741,6 +780,8 @@ const HLEFunction sceRtc[] =
 	{0x27F98543, 0, "sceRtcFormatRFC3339LocalTime"},
 	{0xDFBC5F16, WrapI_UU<sceRtcParseDateTime>, "sceRtcParseDateTime"},
 	{0x28E1E988, 0, "sceRtcParseRFC3339"},
+	{0xe1c93e47, WrapI_UU<sceRtcGetTime64_t>, "sceRtcGetTime64_t"},
+	{0x1909c99b, WrapI_UU64<sceRtcSetTime64_t>, "sceRtcSetTime64_t"},
 };
 
 
