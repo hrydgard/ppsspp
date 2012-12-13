@@ -68,4 +68,9 @@ void PPGeDraw4Patch(int atlasImage, float x, float y, float w, float h, u32 colo
 // Just blits an image to the screen, multiplied with the color.
 void PPGeDrawImage(int atlasImage, float x, float y, int align, u32 color = 0xFFFFFFFF);
 void PPGeDrawImage(int atlasImage, float x, float y, float w, float h, int align, u32 color = 0xFFFFFFFF);
+void PPGeDrawImage(float x, float y, float w, float h, float u1, float v1, float u2, float v2, int tw, int th, u32 color);
+
+void PPGeSetDefaultTexture();
+void PPGeSetTexture(u32 dataAddr, int width, int height);
+void PPGeDisableTexture();
 

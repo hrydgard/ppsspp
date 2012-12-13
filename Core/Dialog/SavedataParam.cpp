@@ -17,6 +17,8 @@
 
 #include "SavedataParam.h"
 #include "../System.h"
+#include "image/png_load.h"
+#include "../HLE/sceKernelMemory.h"
 
 std::string icon0Name = "ICON0.PNG";
 std::string icon1Name = "ICON1.PNG";
@@ -259,10 +261,30 @@ bool SavedataParam::GetList(SceUtilitySavedataParam* param)
 	return true;
 }
 
+void SavedataParam::Clear()
+{
+	if(saveDataList)
+	{
+		for(int i = 0; i < saveNameListDataCount; i++)
+		{
+			if(saveDataList[i].textureData != 0)
+				kernelMemory.Free(saveDataList[i].textureData);
+			saveDataList[i].textureData = 0;
+		}
+
+		delete[] saveDataList;
+		saveDataList = 0;
+	}
+}
+
 void SavedataParam::SetPspParam(SceUtilitySavedataParam* param)
 {
 	pspParam = param;
-	if(!pspParam) return;
+	if(!pspParam)
+	{
+		Clear();
+		return;
+	}
 
 	bool listEmptyFile = true;
 	if(param->mode == SCE_UTILITY_SAVEDATA_TYPE_LISTLOAD ||
@@ -282,8 +304,7 @@ void SavedataParam::SetPspParam(SceUtilitySavedataParam* param)
 			count++;
 		} while(saveNameListData[count][0] != 0);
 
-		if(saveDataList)
-			delete[] saveDataList;
+		Clear();
 		saveDataList = new SaveFileInfo[count];
 
 		// get and stock file info for each file
@@ -300,6 +321,32 @@ void SavedataParam::SetPspParam(SceUtilitySavedataParam* param)
 				saveDataList[realCount].size = info.size;
 				saveDataList[realCount].saveName = saveNameListData[i];
 				saveDataList[realCount].idx = i;
+
+				// Search save image icon0
+				std::string fileDataPath2 = savePath+GetGameName(param)+saveNameListData[i]+"/"+icon0Name;
+				PSPFileInfo info2 = pspFileSystem.GetFileInfo(fileDataPath2);
+				if(info2.exists)
+				{
+					u8* textureDataPNG = new u8[info2.size];
+					int handle = pspFileSystem.OpenFile(fileDataPath2,FILEACCESS_READ);
+					pspFileSystem.ReadFile(handle,textureDataPNG,info2.size);
+					unsigned char* textureData;
+					int w,h;
+					pngLoadPtr(textureDataPNG, info2.size, &w, &h, &textureData, false);
+					delete[] textureDataPNG;
+					u32 texSize = w*h*4;
+					u32 atlasPtr = kernelMemory.Alloc(texSize, true, "SaveData Icon");
+					saveDataList[realCount].textureData = atlasPtr;
+					Memory::Memcpy(atlasPtr, textureData, texSize);
+					free(textureData);
+					saveDataList[realCount].textureWidth = w;
+					saveDataList[realCount].textureHeight = h;
+				}
+				else
+				{
+					saveDataList[realCount].textureData = 0;
+				}
+
 				DEBUG_LOG(HLE,"%s Exist",fileDataPath.c_str());
 				realCount++;
 			}
@@ -310,6 +357,7 @@ void SavedataParam::SetPspParam(SceUtilitySavedataParam* param)
 					saveDataList[realCount].size = 0;
 					saveDataList[realCount].saveName = saveNameListData[i];
 					saveDataList[realCount].idx = i;
+					saveDataList[realCount].textureData = 0;
 					DEBUG_LOG(HLE,"Don't Exist");
 					realCount++;
 				}

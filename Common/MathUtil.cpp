@@ -247,3 +247,28 @@ void Matrix44::Multiply(const Matrix44 &a, const Matrix44 &b, Matrix44 &result)
   MatrixMul(4, a.data, b.data, result.data);
 }
 
+int Pow2roundup(int x)
+{
+	if (x < 0)
+		return 0;
+	--x;
+	x |= x >> 1;
+	x |= x >> 2;
+	x |= x >> 4;
+	x |= x >> 8;
+	x |= x >> 16;
+	return x+1;
+}
+
+int GetPow2(int x)
+{
+	int ret = 0;
+	int val = 1;
+	while(x > val)
+	{
+		ret++;
+		val *= 2;
+	}
+	return ret;
+}
+

@@ -123,6 +123,10 @@ struct SaveFileInfo
 	int size;
 	char* saveName;
 	int idx;
+
+	u32 textureData;
+	int textureWidth;
+	int textureHeight;
 };
 
 class SavedataParam
@@ -153,6 +157,8 @@ public:
 	void SetSelectedSave(int idx);
 
 private:
+	void Clear();
+
 	SceUtilitySavedataParam* pspParam;
 	int selectedSave;
 	char (*saveNameListData)[20];

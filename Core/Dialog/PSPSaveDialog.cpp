@@ -129,7 +129,7 @@ void PSPSaveDialog::DisplaySaveList(bool canMove)
 	int displayCount = 0;
 	for(int i = 0; i < param.GetFilenameCount(); i++)
 	{
-		int textureColor = 0xFF000000; // Hack for differencing save existing and not while real texture not displayed
+		int textureColor = 0xFFFFFFFF;
 
 		if(param.GetFileInfo(i).size == 0)
 		{
@@ -154,8 +154,23 @@ void PSPSaveDialog::DisplaySaveList(bool canMove)
 			y += 90 + 50 * (displayCount - currentSelectedSave - 1);
 		}
 
-		PPGeDraw4Patch(I_BUTTON, x, y, w, h, textureColor); // TODO : Display save texture image, or default if no save
-
+		int tw = 256;
+		int th = 256;
+		if(param.GetFileInfo(i).textureData != 0)
+		{
+			tw = param.GetFileInfo(i).textureWidth;
+			th = param.GetFileInfo(i).textureHeight;
+			PPGeSetTexture(param.GetFileInfo(i).textureData, param.GetFileInfo(i).textureWidth, param.GetFileInfo(i).textureHeight);
+		}
+		else
+		{
+			PPGeDisableTexture();
+		}
+		PPGeDrawImage(x, y, w, h, 0, 0 ,1 ,1 ,tw, th, textureColor);
+		if(param.GetFileInfo(i).textureData != 0)
+		{
+			PPGeSetDefaultTexture();
+		}
 		displayCount++;
 	}
 
@@ -174,7 +189,7 @@ void PSPSaveDialog::DisplaySaveList(bool canMove)
 
 void PSPSaveDialog::DisplaySaveIcon()
 {
-	int textureColor = 0xFF000000; // Hack for differencing save existing and not while real texture not displayed
+	int textureColor = 0xFFFFFFFF;
 
 	if(param.GetFileInfo(currentSelectedSave).size == 0)
 	{
@@ -187,8 +202,23 @@ void PSPSaveDialog::DisplaySaveIcon()
 	int x = 20;
 	int y = 80;
 
-	PPGeDraw4Patch(I_BUTTON, x, y, w, h, textureColor); // TODO : Display save texture image, or default if no save
-
+	int tw = 256;
+	int th = 256;
+	if(param.GetFileInfo(currentSelectedSave).textureData != 0)
+	{
+		tw = param.GetFileInfo(currentSelectedSave).textureWidth;
+		th = param.GetFileInfo(currentSelectedSave).textureHeight;
+		PPGeSetTexture(param.GetFileInfo(currentSelectedSave).textureData, param.GetFileInfo(currentSelectedSave).textureWidth, param.GetFileInfo(currentSelectedSave).textureHeight);
+	}
+	else
+	{
+		PPGeDisableTexture();
+	}
+	PPGeDrawImage(x, y, w, h, 0, 0 ,1 ,1 ,tw, th, textureColor);
+	if(param.GetFileInfo(currentSelectedSave).textureData != 0)
+	{
+		PPGeSetDefaultTexture();
+	}
 }
 
 void PSPSaveDialog::DisplaySaveDataInfo1()
