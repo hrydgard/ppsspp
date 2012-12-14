@@ -187,13 +187,20 @@ int sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optio
 		__KernelMutexInit();
 
 	if (!name)
+	{
+		WARN_LOG(HLE, "%08x=sceKernelCreateMutex(): invalid name", SCE_KERNEL_ERROR_ERROR);
 		return SCE_KERNEL_ERROR_ERROR;
+	}
+	if (attr >= 0xC00)
+	{
+		WARN_LOG(HLE, "%08x=sceKernelCreateMutex(): invalid attr parameter: %08x", SCE_KERNEL_ERROR_ILLEGAL_ATTR, attr);
+		return SCE_KERNEL_ERROR_ILLEGAL_ATTR;
+	}
+
 	if (initialCount < 0)
 		return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
 	if ((attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE) == 0 && initialCount > 1)
 		return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
-
-	DEBUG_LOG(HLE, "sceKernelCreateMutex(%s, %08x, %d, %08x)", name, attr, initialCount, optionsPtr);
 
 	Mutex *mutex = new Mutex();
 	SceUID id = kernelObjects.Create(mutex);
@@ -210,8 +217,12 @@ int sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optio
 	else
 		__KernelMutexAcquireLock(mutex, initialCount);
 
+	DEBUG_LOG(HLE, "%i=sceKernelCreateMutex(%s, %08x, %d, %08x)", id, name, attr, initialCount, optionsPtr);
+
 	if (optionsPtr != 0)
-		WARN_LOG(HLE, "sceKernelCreateMutex(%s) unsupported options parameter.", name);
+		WARN_LOG(HLE, "sceKernelCreateMutex(%s) unsupported options parameter: %08x", name, optionsPtr);
+	if (attr != 0 && attr != 0x100 && attr != 0x200)
+		WARN_LOG(HLE, "sceKernelCreateMutex(%s) unsupported attr parameter: %08x", name, attr);
 
 	return id;
 }
@@ -486,13 +497,20 @@ int sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int init
 	if (!mutexInitComplete)
 		__KernelMutexInit();
 
-	DEBUG_LOG(HLE, "sceKernelCreateLwMutex(%08x, %s, %08x, %d, %08x)", workareaPtr, name, attr, initialCount, optionsPtr);
-
 	if (!name)
+	{
+		WARN_LOG(HLE, "%08x=sceKernelCreateLwMutex(): invalid name", SCE_KERNEL_ERROR_ERROR);
 		return SCE_KERNEL_ERROR_ERROR;
-	else if (initialCount < 0)
+	}
+	if (attr >= 0x400)
+	{
+		WARN_LOG(HLE, "%08x=sceKernelCreateLwMutex(): invalid attr parameter: %08x", SCE_KERNEL_ERROR_ILLEGAL_ATTR, attr);
+		return SCE_KERNEL_ERROR_ILLEGAL_ATTR;
+	}
+
+	if (initialCount < 0)
 		return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
-	else if ((attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE) == 0 && initialCount > 1)
+	if ((attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE) == 0 && initialCount > 1)
 		return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
 
 	LwMutex *mutex = new LwMutex();
@@ -515,8 +533,12 @@ int sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int init
 
 	Memory::WriteStruct(workareaPtr, &workarea);
 
+	DEBUG_LOG(HLE, "sceKernelCreateLwMutex(%08x, %s, %08x, %d, %08x)", workareaPtr, name, attr, initialCount, optionsPtr);
+
 	if (optionsPtr != 0)
-		WARN_LOG(HLE, "sceKernelCreateLwMutex(%s) unsupported options parameter.", name);
+		WARN_LOG(HLE, "sceKernelCreateLwMutex(%s) unsupported options parameter: %08x", name, optionsPtr);
+	if (attr != 0 && attr != 0x100 && attr != 0x200)
+		WARN_LOG(HLE, "sceKernelCreateLwMutex(%s) unsupported attr parameter: %08x", name, attr);
 
 	return 0;
 }

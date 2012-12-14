@@ -177,7 +177,15 @@ int sceKernelCreateSema(const char* name, u32 attr, int initVal, int maxVal, u32
 		__KernelSemaInit();
 
 	if (!name)
+	{
+		WARN_LOG(HLE, "%08x=sceKernelCreateSema(): invalid name", SCE_KERNEL_ERROR_ERROR);
 		return SCE_KERNEL_ERROR_ERROR;
+	}
+	if (attr >= 0x200)
+	{
+		WARN_LOG(HLE, "%08x=sceKernelCreateSema(): invalid attr parameter: %08x", SCE_KERNEL_ERROR_ILLEGAL_ATTR, attr);
+		return SCE_KERNEL_ERROR_ILLEGAL_ATTR;
+	}
 
 	Semaphore *s = new Semaphore;
 	SceUID id = kernelObjects.Create(s);
@@ -194,7 +202,9 @@ int sceKernelCreateSema(const char* name, u32 attr, int initVal, int maxVal, u32
 	DEBUG_LOG(HLE, "%i=sceKernelCreateSema(%s, %08x, %i, %i, %08x)", id, s->ns.name, s->ns.attr, s->ns.initCount, s->ns.maxCount, optionPtr);
 
 	if (optionPtr != 0)
-		WARN_LOG(HLE, "sceKernelCreateSema(%s) unsupported options parameter.", name);
+		WARN_LOG(HLE, "sceKernelCreateSema(%s) unsupported options parameter: %08x", name, optionPtr);
+	if (attr != 0 && attr != 0x100)
+		WARN_LOG(HLE, "sceKernelCreateSema(%s) unsupported attr parameter: %08x", name, attr);
 
 	return id;
 }

@@ -103,17 +103,37 @@ int sceKernelCreateEventFlag(const char *name, u32 flag_attr, u32 flag_initPatte
 	if (!eventFlagInitComplete)
 		__KernelEventFlagInit();
 
+	if (!name)
+	{
+		WARN_LOG(HLE, "%08x=sceKernelCreateEventFlag(): invalid name", SCE_KERNEL_ERROR_ERROR);
+		return SCE_KERNEL_ERROR_ERROR;
+	}
+
+	// These attributes aren't valid.
+	if ((flag_attr & 0x100) != 0 || flag_attr >= 0x300)
+	{
+		WARN_LOG(HLE, "%08x=sceKernelCreateEventFlag(): invalid attr parameter: %08x", SCE_KERNEL_ERROR_ILLEGAL_ATTR, flag_attr);
+		return SCE_KERNEL_ERROR_ILLEGAL_ATTR;
+	}
+
 	EventFlag *e = new EventFlag();
 	SceUID id = kernelObjects.Create(e);
 
 	e->nef.size = sizeof(NativeEventFlag);
-	strncpy(e->nef.name, name, 32);
+	strncpy(e->nef.name, name, 31);
+	e->nef.name[31] = 0;
 	e->nef.attr = flag_attr;
 	e->nef.initPattern = flag_initPattern;
 	e->nef.currentPattern = e->nef.initPattern;
 	e->nef.numWaitThreads = 0;
 
-	DEBUG_LOG(HLE,"%i=sceKernelCreateEventFlag(\"%s\", %08x, %08x, %08x)", id, e->nef.name, e->nef.attr, e->nef.currentPattern, optPtr);
+	DEBUG_LOG(HLE, "%i=sceKernelCreateEventFlag(\"%s\", %08x, %08x, %08x)", id, e->nef.name, e->nef.attr, e->nef.currentPattern, optPtr);
+
+	if (optPtr != 0)
+		WARN_LOG(HLE, "sceKernelCreateEventFlag(%s) unsupported options parameter: %08x", name, optPtr);
+	if (flag_attr != 0 && flag_attr != 0x200)
+		WARN_LOG(HLE, "sceKernelCreateEventFlag(%s) unsupported attr parameter: %08x", name, flag_attr);
+
 	return id;
 }
 
