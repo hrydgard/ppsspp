@@ -22,8 +22,9 @@
 #include "../ELF/ParamSFO.h"
 
 std::string icon0Name = "ICON0.PNG";
-std::string icon1Name = "ICON1.PNG";
+std::string icon1Name = "ICON1.PMF";
 std::string pic1Name = "PIC1.PNG";
+std::string snd0Name = "SND0.AT3";
 std::string sfoName = "PARAM.SFO";
 
 std::string savePath = "ms0:/PSP/SAVEDATA/";
@@ -151,8 +152,8 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, int saveId)
 		sfoFile.SetValue("PARENTAL_LEVEL",param->sfoParam.parentalLevel,4);
 		sfoFile.SetValue("CATEGORY","MS",4);
 		sfoFile.SetValue("SAVEDATA_DIRECTORY",GetSaveDir(param,saveId),64);
-		sfoFile.SetValue("SAVEDATA_FILE_LIST","",3168);
-		sfoFile.SetValue("SAVEDATA_PARAMS","",128);
+		sfoFile.SetValue("SAVEDATA_FILE_LIST","",3168); // This need to be filed with the save filename and a hash
+		sfoFile.SetValue("SAVEDATA_PARAMS","",128); // This need to be filled with a hash of the save file encrypted.
 		u8* sfoData;
 		size_t sfoSize;
 		sfoFile.WriteSFO(&sfoData,&sfoSize);
@@ -202,7 +203,18 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, int saveId)
 			}
 		}
 
-		// TODO Save SND
+		// Save SND
+		if(param->snd0FileData.buf)
+		{
+			data_ = (u8*)Memory::GetPointer(*((unsigned int*)&param->snd0FileData.buf));
+			std::string snd0path = dirPath+"/"+snd0Name;
+			handle = pspFileSystem.OpenFile(snd0path,(FileAccess)(FILEACCESS_WRITE | FILEACCESS_CREATE));
+			if(handle)
+			{
+				pspFileSystem.WriteFile(handle, data_, param->snd0FileData.bufSize);
+				pspFileSystem.CloseFile(handle);
+			}
+		}
 	}
 	return true;
 }
