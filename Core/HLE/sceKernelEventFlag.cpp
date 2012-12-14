@@ -158,7 +158,29 @@ u32 sceKernelClearEventFlag(SceUID id, u32 bits)
 u32 sceKernelDeleteEventFlag(SceUID uid)
 {
 	DEBUG_LOG(HLE,"sceKernelDeleteEventFlag(%i)", uid);
-	return kernelObjects.Destroy<EventFlag>(uid);
+
+	u32 error;
+	EventFlag *e = kernelObjects.Get<EventFlag>(uid, error);
+	if (e)
+	{
+		bool wokeThreads = false;
+		std::vector<EventFlagTh>::iterator iter, end;
+		for (iter = e->waitingThreads.begin(), end = e->waitingThreads.end(); iter != end; ++iter)
+		{
+			// TODO: timeoutPtr, outPtr?  Check still waiting.
+			__KernelResumeThreadFromWait(iter->tid, SCE_KERNEL_ERROR_WAIT_DELETE);
+			wokeThreads = true;
+		}
+
+		e->waitingThreads.clear();
+
+		if (wokeThreads)
+			hleReSchedule("event flag deleted");
+
+		return kernelObjects.Destroy<EventFlag>(uid);
+	}
+	else
+		return error;
 }
 
 u8 __KernelEventFlagMatches(u32 *pattern, u32 bits, u8 wait, u32 outAddr)
