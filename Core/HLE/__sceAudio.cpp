@@ -38,8 +38,8 @@ std::recursive_mutex section;
 
 int eventAudioUpdate = -1;
 int eventHostAudioUpdate = -1;
-int mixFrequency = 44100;
-const int hwSampleRate = 44100;
+int mixFrequency = 48000;
+const int hwSampleRate = 48000;
 const int hwBlockSize = 480;
 const int hostAttemptBlockSize = 64;
 const int audioIntervalUs = (int)(1000000ULL * hwBlockSize / hwSampleRate);
@@ -67,7 +67,7 @@ void hleHostAudioUpdate(u64 userdata, int cyclesLate)
 
 void __AudioInit()
 {
-	mixFrequency = 44100;
+	mixFrequency = 48000;
 
 	eventAudioUpdate = CoreTiming::RegisterEvent("AudioUpdate", &hleAudioUpdate);
 	eventHostAudioUpdate = CoreTiming::RegisterEvent("AudioUpdateHost", &hleHostAudioUpdate);
