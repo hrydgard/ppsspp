@@ -167,10 +167,7 @@ void PSPSaveDialog::DisplaySaveList(bool canMove)
 			PPGeDisableTexture();
 		}
 		PPGeDrawImage(x, y, w, h, 0, 0 ,1 ,1 ,tw, th, textureColor);
-		if(param.GetFileInfo(i).textureData != 0)
-		{
-			PPGeSetDefaultTexture();
-		}
+		PPGeSetDefaultTexture();
 		displayCount++;
 	}
 
