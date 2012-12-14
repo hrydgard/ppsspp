@@ -25,8 +25,6 @@
 #include "sceKernelThread.h"
 #include "sceKernelEventFlag.h"
 
-#include <queue>
-
 void __KernelEventFlagTimeout(u64 userdata, int cycleslate);
 
 struct NativeEventFlag
@@ -85,7 +83,9 @@ enum PspEventFlagWaitTypes
 	/** Wait for one or more bits in the pattern to be set */
 	PSP_EVENT_WAITOR	= 1,
 	/** Clear the wait pattern when it matches */
-	PSP_EVENT_WAITCLEAR = 0x20
+	PSP_EVENT_WAITCLEAR = 0x20,
+
+	PSP_EVENT_WAITKNOWN = 0x21,
 };
 
 bool eventFlagInitComplete = false;
@@ -268,11 +268,11 @@ void __KernelSetEventFlagTimeout(EventFlag *e, u32 timeoutPtr)
 
 	int micro = (int) Memory::Read_U32(timeoutPtr);
 
-	// TODO: Test actual timing.
-	if (micro <= 3)
-		micro = 15;
-	else if (micro <= 249)
-		micro = 250;
+	// This seems like the actual timing of timeouts on hardware.
+	if (micro <= 1)
+		micro = 5;
+	else if (micro <= 209)
+		micro = 240;
 
 	// This should call __KernelEventFlagTimeout() later, unless we cancel it.
 	CoreTiming::ScheduleEvent(usToCycles(micro), eventFlagWaitTimer, __KernelGetCurThread());
@@ -280,7 +280,16 @@ void __KernelSetEventFlagTimeout(EventFlag *e, u32 timeoutPtr)
 
 int sceKernelWaitEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 timeoutPtr)
 {
-	DEBUG_LOG(HLE,"sceKernelWaitEventFlag(%i, %08x, %i, %08x, %08x)", id, bits, wait, outBitsPtr, timeoutPtr);
+	DEBUG_LOG(HLE, "sceKernelWaitEventFlag(%i, %08x, %i, %08x, %08x)", id, bits, wait, outBitsPtr, timeoutPtr);
+
+	if ((wait & ~PSP_EVENT_WAITKNOWN) != 0)
+	{
+		WARN_LOG(HLE, "sceKernelWaitEventFlag(%i) invalid mode parameter: %08x", id, wait);
+		return SCE_KERNEL_ERROR_ILLEGAL_MODE;
+	}
+	// Can't wait on 0, that's guaranteed to wait forever.
+	if (bits == 0)
+		return SCE_KERNEL_ERROR_EVF_ILPAT;
 
 	u32 error;
 	EventFlag *e = kernelObjects.Get<EventFlag>(id, error);
@@ -289,16 +298,22 @@ int sceKernelWaitEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 ti
 		EventFlagTh th;
 		if (!__KernelEventFlagMatches(&e->nef.currentPattern, bits, wait, outBitsPtr))
 		{
+			u32 timeout;
+			if (Memory::IsValidAddress(timeoutPtr))
+				timeout = Memory::Read_U32(timeoutPtr);
+
+			// Do we allow more than one thread to wait?
+			if (e->nef.numWaitThreads > 0 && (e->nef.attr & PSP_EVENT_WAITMULTIPLE) == 0)
+				return SCE_KERNEL_ERROR_EVF_MULTI;
+
 			// No match - must wait.
 			e->nef.numWaitThreads++;
 			th.tid = __KernelGetCurThread();
 			th.bits = bits;
 			th.wait = wait;
-			th.outAddr = outBitsPtr;
+			// If < 5ms, sometimes hardware doesn't write this, but it's unpredictable.
+			th.outAddr = timeout == 0 ? NULL : outBitsPtr;
 			e->waitingThreads.push_back(th);
-			u32 timeout;
-			if (Memory::IsValidAddress(timeoutPtr))
-				timeout = Memory::Read_U32(timeoutPtr);
 
 			__KernelSetEventFlagTimeout(e, timeoutPtr);
 			__KernelWaitCurThread(WAITTYPE_EVENTFLAG, id, 0, timeoutPtr, false);
@@ -316,6 +331,15 @@ int sceKernelWaitEventFlagCB(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 
 {
 	DEBUG_LOG(HLE,"sceKernelWaitEventFlagCB(%i, %08x, %i, %08x, %08x)", id, bits, wait, outBitsPtr, timeoutPtr);
 
+	if ((wait & ~PSP_EVENT_WAITKNOWN) != 0)
+	{
+		WARN_LOG(HLE, "sceKernelWaitEventFlag(%i) invalid mode parameter: %08x", id, wait);
+		return SCE_KERNEL_ERROR_ILLEGAL_MODE;
+	}
+	// Can't wait on 0, that's guaranteed to wait forever.
+	if (bits == 0)
+		return SCE_KERNEL_ERROR_EVF_ILPAT;
+
 	u32 error;
 	EventFlag *e = kernelObjects.Get<EventFlag>(id, error);
 	if (e)
@@ -323,21 +347,26 @@ int sceKernelWaitEventFlagCB(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 
 		EventFlagTh th;
 		if (!__KernelEventFlagMatches(&e->nef.currentPattern, bits, wait, outBitsPtr))
 		{
+			u32 timeout;
+			if (Memory::IsValidAddress(timeoutPtr))
+				timeout = Memory::Read_U32(timeoutPtr);
+
+			// Do we allow more than one thread to wait?
+			if (e->nef.numWaitThreads > 0 && (e->nef.attr & PSP_EVENT_WAITMULTIPLE) == 0)
+				return SCE_KERNEL_ERROR_EVF_MULTI;
+
 			// No match - must wait.
 			e->nef.numWaitThreads++;
 			th.tid = __KernelGetCurThread();
 			th.bits = bits;
 			th.wait = wait;
-			th.outAddr = outBitsPtr;
+			// If < 5ms, sometimes hardware doesn't write this, but it's unpredictable.
+			th.outAddr = timeout == 0 ? NULL : outBitsPtr;
 			e->waitingThreads.push_back(th);
-			u32 timeout;
-			if (Memory::IsValidAddress(timeoutPtr))
-				timeout = Memory::Read_U32(timeoutPtr);
 
 			__KernelSetEventFlagTimeout(e, timeoutPtr);
 			__KernelWaitCurThread(WAITTYPE_EVENTFLAG, id, 0, timeoutPtr, true);
 		}
-		// TODO: Verify.
 		else
 			hleCheckCurrentCallbacks();
 
