@@ -19,6 +19,7 @@
 #include "../System.h"
 #include "image/png_load.h"
 #include "../HLE/sceKernelMemory.h"
+#include "../ELF/ParamSFO.h"
 
 std::string icon0Name = "ICON0.PNG";
 std::string icon1Name = "ICON1.PNG";
@@ -45,8 +46,7 @@ void SavedataParam::Init()
 	}
 }
 
-
-std::string SavedataParam::GetSaveFilePath(SceUtilitySavedataParam* param, int saveId)
+std::string SavedataParam::GetSaveDir(SceUtilitySavedataParam* param, int saveId)
 {
 	if (!param) {
 		return "";
@@ -56,7 +56,16 @@ std::string SavedataParam::GetSaveFilePath(SceUtilitySavedataParam* param, int s
 	if(saveId >= 0 && saveNameListDataCount > 0) // if user selection, use it
 		dirPath = std::string(GetGameName(param))+GetFilename(saveId);
 
-	return savePath + dirPath;
+	return dirPath;
+}
+
+std::string SavedataParam::GetSaveFilePath(SceUtilitySavedataParam* param, int saveId)
+{
+	if (!param) {
+		return "";
+	}
+
+	return savePath + GetSaveDir(param,saveId);
 }
 
 std::string SavedataParam::GetGameName(SceUtilitySavedataParam* param)
@@ -134,9 +143,27 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, int saveId)
 	{
 		pspFileSystem.CloseFile(handle);
 
-		// TODO SAVE PARAM.SFO
-		/*data_ = (u8*)Memory::GetPointer(*((unsigned int*)&param->dataBuf));
-		writeDataToFile(false, );*/
+		// SAVE PARAM.SFO
+		ParamSFOData sfoFile;
+		sfoFile.SetValue("TITLE",param->sfoParam.title,128);
+		sfoFile.SetValue("SAVEDATA_TITLE",param->sfoParam.savedataTitle,128);
+		sfoFile.SetValue("SAVEDATA_DETAIL",param->sfoParam.savedataTitle,1024);
+		sfoFile.SetValue("PARENTAL_LEVEL",param->sfoParam.parentalLevel,4);
+		sfoFile.SetValue("CATEGORY","MS",4);
+		sfoFile.SetValue("SAVEDATA_DIRECTORY",GetSaveDir(param,saveId),64);
+		sfoFile.SetValue("SAVEDATA_FILE_LIST","",3168);
+		sfoFile.SetValue("SAVEDATA_PARAMS","",128);
+		u8* sfoData;
+		size_t sfoSize;
+		sfoFile.WriteSFO(&sfoData,&sfoSize);
+		std::string sfopath = dirPath+"/"+sfoName;
+		handle = pspFileSystem.OpenFile(sfopath,(FileAccess)(FILEACCESS_WRITE | FILEACCESS_CREATE));
+		if(handle)
+		{
+			pspFileSystem.WriteFile(handle, sfoData, sfoSize);
+			pspFileSystem.CloseFile(handle);
+		}
+		delete[] sfoData;
 
 		// SAVE ICON0
 		if(param->icon0FileData.buf)

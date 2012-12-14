@@ -134,6 +134,7 @@ class SavedataParam
 public:
 	static void Init();
 	std::string GetSaveFilePath(SceUtilitySavedataParam* param, int saveId = -1);
+	std::string GetSaveDir(SceUtilitySavedataParam* param, int saveId = -1);
 	bool Delete(SceUtilitySavedataParam* param, int saveId = -1);
 	bool Save(SceUtilitySavedataParam* param, int saveId = -1);
 	bool Load(SceUtilitySavedataParam* param, int saveId = -1);
