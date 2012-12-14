@@ -124,6 +124,12 @@ struct SaveFileInfo
 	char* saveName;
 	int idx;
 
+	char title[128];
+	char saveTitle[128];
+	char saveDetail[1024];
+
+	tm modif_time;
+
 	u32 textureData;
 	int textureWidth;
 	int textureHeight;

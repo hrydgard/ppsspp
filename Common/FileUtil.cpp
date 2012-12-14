@@ -346,6 +346,34 @@ bool Copy(const std::string &srcFilename, const std::string &destFilename)
 #endif
 }
 
+tm GetModifTime(const std::string &filename)
+{
+	tm return_time;
+	if (!Exists(filename))
+	{
+		WARN_LOG(COMMON, "GetCreateTime: failed %s: No such file", filename.c_str());
+		return return_time;
+	}
+
+	if (IsDirectory(filename))
+	{
+		WARN_LOG(COMMON, "GetCreateTime: failed %s: is a directory", filename.c_str());
+		return return_time;
+	}
+	struct stat64 buf;
+	if (stat64(filename.c_str(), &buf) == 0)
+	{
+		DEBUG_LOG(COMMON, "GetCreateTime: %s: %lld",
+				filename.c_str(), (long long)buf.st_mtime);
+		localtime_r(&buf.st_mtime,&return_time);
+		return return_time;
+	}
+
+	ERROR_LOG(COMMON, "GetCreateTime: Stat failed %s: %s",
+			filename.c_str(), GetLastErrorMsg());
+	return return_time;
+}
+
 // Returns the size of filename (64bit)
 u64 GetSize(const std::string &filename)
 {

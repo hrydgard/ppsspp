@@ -148,7 +148,7 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, int saveId)
 		ParamSFOData sfoFile;
 		sfoFile.SetValue("TITLE",param->sfoParam.title,128);
 		sfoFile.SetValue("SAVEDATA_TITLE",param->sfoParam.savedataTitle,128);
-		sfoFile.SetValue("SAVEDATA_DETAIL",param->sfoParam.savedataTitle,1024);
+		sfoFile.SetValue("SAVEDATA_DETAIL",param->sfoParam.detail,1024);
 		sfoFile.SetValue("PARENTAL_LEVEL",param->sfoParam.parentalLevel,4);
 		sfoFile.SetValue("CATEGORY","MS",4);
 		sfoFile.SetValue("SAVEDATA_DIRECTORY",GetSaveDir(param,saveId),64);
@@ -356,12 +356,13 @@ void SavedataParam::SetPspParam(SceUtilitySavedataParam* param)
 			PSPFileInfo info = pspFileSystem.GetFileInfo(fileDataPath);
 			if(info.exists)
 			{
-				// TODO : Load PARAM.SFO when saved and save title and save info
 				saveDataList[realCount].size = info.size;
 				saveDataList[realCount].saveName = saveNameListData[i];
 				saveDataList[realCount].idx = i;
+				saveDataList[realCount].modif_time = info.mtime;
 
 				// Search save image icon0
+				// TODO : If icon0 don't exist, need to use icon1 which is a moving icon. Also play sound
 				std::string fileDataPath2 = savePath+GetGameName(param)+saveNameListData[i]+"/"+icon0Name;
 				PSPFileInfo info2 = pspFileSystem.GetFileInfo(fileDataPath2);
 				if(info2.exists)
@@ -369,6 +370,7 @@ void SavedataParam::SetPspParam(SceUtilitySavedataParam* param)
 					u8* textureDataPNG = new u8[info2.size];
 					int handle = pspFileSystem.OpenFile(fileDataPath2,FILEACCESS_READ);
 					pspFileSystem.ReadFile(handle,textureDataPNG,info2.size);
+					pspFileSystem.CloseFile(handle);
 					unsigned char* textureData;
 					int w,h;
 					pngLoadPtr(textureDataPNG, info2.size, &w, &h, &textureData, false);
@@ -384,6 +386,33 @@ void SavedataParam::SetPspParam(SceUtilitySavedataParam* param)
 				else
 				{
 					saveDataList[realCount].textureData = 0;
+				}
+
+				// Load info in PARAM.SFO
+				fileDataPath2 = savePath+GetGameName(param)+saveNameListData[i]+"/"+sfoName;
+				info2 = pspFileSystem.GetFileInfo(fileDataPath2);
+				if(info2.exists)
+				{
+					u8* sfoParam = new u8[info2.size];
+					int handle = pspFileSystem.OpenFile(fileDataPath2,FILEACCESS_READ);
+					pspFileSystem.ReadFile(handle,sfoParam,info2.size);
+					pspFileSystem.CloseFile(handle);
+					ParamSFOData sfoFile;
+					if(sfoFile.ReadSFO(sfoParam,info2.size))
+					{
+						std::string title = sfoFile.GetValueString("TITLE");
+						memcpy(saveDataList[realCount].title,title.c_str(),title.size());
+						saveDataList[realCount].title[title.size()] = 0;
+
+						std::string savetitle = sfoFile.GetValueString("SAVEDATA_TITLE");
+						memcpy(saveDataList[realCount].saveTitle,savetitle.c_str(),savetitle.size());
+						saveDataList[realCount].saveTitle[savetitle.size()] = 0;
+
+						std::string savedetail = sfoFile.GetValueString("SAVEDATA_DETAIL");
+						memcpy(saveDataList[realCount].saveDetail,savedetail.c_str(),savedetail.size());
+						saveDataList[realCount].saveDetail[savedetail.size()] = 0;
+					}
+					delete sfoParam;
 				}
 
 				DEBUG_LOG(HLE,"%s Exist",fileDataPath.c_str());

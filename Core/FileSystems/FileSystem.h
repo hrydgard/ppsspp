@@ -62,6 +62,8 @@ struct PSPFileInfo
 	bool exists;
 	FileType type;
 
+	tm mtime;
+
 	bool isOnSectorSystem;
 	u32 startSector;
 	u32 numSectors;
