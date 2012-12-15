@@ -58,6 +58,15 @@ tests_good = [
   "misc/testgp",
   "string/string",
   "gpu/callbacks/ge_callbacks",
+  "threads/events/events",
+  "threads/events/cancel/cancel",
+  "threads/events/clear/clear",
+  "threads/events/create/create",
+  "threads/events/delete/delete",
+  "threads/events/poll/poll",
+  "threads/events/refer/refer",
+  "threads/events/set/set",
+  "threads/events/wait/wait",
   "threads/lwmutex/create/create",
   "threads/lwmutex/delete/delete",
   "threads/lwmutex/lock/lock",
@@ -84,6 +93,7 @@ tests_good = [
   "threads/semaphores/wait/wait",
   "power/power",
   "umd/callbacks/umd",
+  "umd/wait/wait",
   "io/directory/directory",
 ]
 
@@ -115,7 +125,6 @@ tests_next = [
   "video/pmf_simple/pmf_simple",
 
   # Currently hang or crash.
-  "threads/events/events",
   "audio/atrac/atractest",
 ]
 
