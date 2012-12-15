@@ -85,7 +85,7 @@ enum PspEventFlagWaitTypes
 	/** Clear the wait pattern when it matches */
 	PSP_EVENT_WAITCLEAR = 0x20,
 
-	PSP_EVENT_WAITKNOWN = 0x21,
+	PSP_EVENT_WAITKNOWN = PSP_EVENT_WAITCLEAR | PSP_EVENT_WAITOR,
 };
 
 bool eventFlagInitComplete = false;
