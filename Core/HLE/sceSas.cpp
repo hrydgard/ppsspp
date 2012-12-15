@@ -269,6 +269,13 @@ void sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop)
 	DEBUG_LOG(HLE,"0=sceSasSetVoice(core=%08x, voicenum=%i, vag=%08x, size=%i, loop=%i)", 
 		core, voiceNum, vagAddr, size, loop);
 
+	if (voiceNum > SasInstance::NUM_VOICES || voiceNum < 0)
+	{
+		WARN_LOG(HLE, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
+		RETURN(0);
+		return;
+	}
+
 	//Real VAG header is 0x30 bytes behind the vagAddr
 	Voice &v = sas.voices[voiceNum];
 	v.vagAddr = vagAddr;
@@ -299,6 +306,14 @@ u32 sceSasSetPause(u32 core, int voicebit, int pause)
 void sceSasSetVolume(u32 core, int voiceNum, int l, int r, int el, int er)
 {
 	DEBUG_LOG(HLE,"0=sceSasSetVolume(core=%08x, voiceNum=%i, l=%i, r=%i, el=%i, er=%i", core, voiceNum, l, r, el, er);
+
+	if (voiceNum > SasInstance::NUM_VOICES || voiceNum < 0)
+	{
+		WARN_LOG(HLE, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
+		RETURN(0);
+		return;
+	}
+
 	Voice &v = sas.voices[voiceNum];
 	v.volumeLeft = l;
 	v.volumeRight = r;
@@ -307,15 +322,31 @@ void sceSasSetVolume(u32 core, int voiceNum, int l, int r, int el, int er)
 
 void sceSasSetPitch(u32 core, int voiceNum, int pitch)
 {
+	DEBUG_LOG(HLE,"0=sceSasSetPitch(core=%08x, voiceNum=%i, pitch=%i)", core, voiceNum, pitch);
+
+	if (voiceNum > SasInstance::NUM_VOICES || voiceNum < 0)
+	{
+		WARN_LOG(HLE, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
+		RETURN(0);
+		return;
+	}
+
 	Voice &v = sas.voices[voiceNum];
 	v.pitch = pitch;
-	DEBUG_LOG(HLE,"0=sceSasSetPitch(core=%08x, voiceNum=%i, pitch=%i)", core, voiceNum, pitch);
 	RETURN(0);
 }
 
 void sceSasSetKeyOn(u32 core, int voiceNum)
 {
 	DEBUG_LOG(HLE,"0=sceSasSetKeyOn(core=%08x, voiceNum=%i)", core, voiceNum);
+
+	if (voiceNum > SasInstance::NUM_VOICES || voiceNum < 0)
+	{
+		WARN_LOG(HLE, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
+		RETURN(0);
+		return;
+	}
+
 	Voice &v = sas.voices[voiceNum];
 	v.vag.Start(Memory::GetPointer(v.vagAddr));
 	v.playing = true;
@@ -327,6 +358,14 @@ void sceSasSetKeyOn(u32 core, int voiceNum)
 void sceSasSetKeyOff(u32 core, int voiceNum)
 {
 	DEBUG_LOG(HLE,"0=sceSasSetKeyOff(core=%08x, voiceNum=%i)", core, voiceNum);
+
+	if (voiceNum > SasInstance::NUM_VOICES || voiceNum < 0)
+	{
+		WARN_LOG(HLE, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
+		RETURN(0);
+		return;
+	}
+
 	Voice &v = sas.voices[voiceNum];
 	v.playing = false;	// not right! Should directly enter Release envelope stage instead!
 	RETURN(0);
@@ -335,6 +374,13 @@ void sceSasSetKeyOff(u32 core, int voiceNum)
 u32 sceSasSetNoise(u32 core, int voiceNum, int freq)
 {
 	DEBUG_LOG(HLE,"0=sceSasSetNoise(core=%08x, voiceNum=%i, freq=%i)", core, voiceNum, freq);
+
+	if (voiceNum > SasInstance::NUM_VOICES || voiceNum < 0)
+	{
+		WARN_LOG(HLE, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
+		return 0;
+	}
+
 	Voice &v = sas.voices[voiceNum];
 	v.freq = freq;
 	return 0;
@@ -343,6 +389,13 @@ u32 sceSasSetNoise(u32 core, int voiceNum, int freq)
 u32 sceSasSetSL(u32 core, int voiceNum, int level)
 {
 	DEBUG_LOG(HLE,"0=sceSasSetSL(core=%08x, voiceNum=%i, level=%i)", core, voiceNum, level);
+
+	if (voiceNum > SasInstance::NUM_VOICES || voiceNum < 0)
+	{
+		WARN_LOG(HLE, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
+		return 0;
+	}
+
 	Voice &v = sas.voices[voiceNum];
 	v.sustainLevel = level;
 	return 0;
@@ -351,6 +404,13 @@ u32 sceSasSetSL(u32 core, int voiceNum, int level)
 u32 sceSasSetADSR(u32 core, int voiceNum,int flag ,int a, int d, int s, int r)
 {
 	DEBUG_LOG(HLE,"0=sceSasSetADSR(core=%08x, voicenum=%i, flag=%i, a=%08x, d=%08x, s=%08x, r=%08x)",core, voiceNum, flag, a,d,s,r)
+
+	if (voiceNum > SasInstance::NUM_VOICES || voiceNum < 0)
+	{
+		WARN_LOG(HLE, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
+		return 0;
+	}
+
 	Voice &v = sas.voices[voiceNum];
 	if ((flag & 0x1) != 0) v.attackRate  = a;
 	if ((flag & 0x2) != 0) v.decayRate   = d;
@@ -362,6 +422,13 @@ u32 sceSasSetADSR(u32 core, int voiceNum,int flag ,int a, int d, int s, int r)
 u32 sceSasSetADSRMode(u32 core, int voiceNum,int flag ,int a, int d, int s, int r)
 {
 	DEBUG_LOG(HLE,"0=sceSasSetADSRMode(core=%08x, voicenum=%i, flag=%i, a=%08x, d=%08x, s=%08x, r=%08x)",core, voiceNum, flag, a,d,s,r)
+
+	if (voiceNum > SasInstance::NUM_VOICES || voiceNum < 0)
+	{
+		WARN_LOG(HLE, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
+		return 0;
+	}
+
 	Voice &v = sas.voices[voiceNum];
 	if ((flag & 0x1) != 0) v.attackType  = a;
 	if ((flag & 0x2) != 0) v.decayType   = d;
