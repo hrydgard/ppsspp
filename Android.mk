@@ -17,6 +17,7 @@ LOCAL_SRC_FILES :=\
     base/error_context.cpp \
     base/stringutil.cpp \
     ext/sha1/sha1.cpp \
+    ext/stb_image/stb_image.c \
     ext/stb_vorbis/stb_vorbis.c.arm \
     ext/vjson/json.cpp \
     ext/vjson/block_allocator.cpp \
@@ -48,6 +49,7 @@ LOCAL_SRC_FILES :=\
     gfx/texture_atlas.cpp \
     gfx/texture_gen.cpp \
     image/zim_load.cpp \
+    image/png_load.cpp \
 	ui/ui.cpp \
 	ui/ui_context.cpp \
 	ui/screen.cpp \

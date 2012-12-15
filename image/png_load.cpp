@@ -36,6 +36,31 @@ int pngLoad(const char *file, int *pwidth, int *pheight, unsigned char **image_d
 	return 1;
 }
 
+int pngLoadPtr(const unsigned char *input_ptr, const int input_len, int *pwidth, int *pheight, unsigned char **image_data_ptr,
+	bool flip) {
+	if (flip)
+	{
+		ELOG("pngLoad: flip flag not supported, image will be loaded upside down");
+	}
+
+	int x,y,n;
+	unsigned char *data = stbi_load_from_memory(input_ptr,input_len, &x, &y, &n, 4);	// 4 = force RGBA
+	if (!data)
+		return 0;
+
+	*pwidth = x;
+	*pheight = y;
+	// ... process data if not NULL ...
+	// ... x = width, y = height, n = # 8-bit components per pixel ...
+	// ... replace '0' with '1'..'4' to force that many components per pixel
+	// ... but 'n' will always be the number that it would have been if you said 0
+
+	// TODO: Get rid of this silly copy which is only to make the buffer free-able with free()
+	*image_data_ptr = (unsigned char *)malloc(x * y * 4);
+	memcpy(*image_data_ptr, data, x * y * 4);
+	stbi_image_free(data);
+	return 1;
+}
 
 #else
 
