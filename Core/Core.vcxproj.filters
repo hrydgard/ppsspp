@@ -339,6 +339,9 @@
     <ClCompile Include="Dialog\SavedataParam.cpp">
       <Filter>Dialog</Filter>
     </ClCompile>
+    <ClCompile Include="Dialog\PSPOskDialog.cpp">
+      <Filter>Dialog</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -621,6 +624,9 @@
       <Filter>Dialog</Filter>
     </ClInclude>
     <ClInclude Include="Dialog\SavedataParam.h">
+      <Filter>Dialog</Filter>
+    </ClInclude>
+    <ClInclude Include="Dialog\PSPOskDialog.h">
       <Filter>Dialog</Filter>
     </ClInclude>
   </ItemGroup>

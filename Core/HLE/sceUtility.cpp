@@ -27,15 +27,15 @@
 #include "../Dialog/PSPSaveDialog.h"
 #include "../Dialog/PSPMsgDialog.h"
 #include "../Dialog/PSPPlaceholderDialog.h"
+#include "../Dialog/PSPOskDialog.h"
 
 PSPSaveDialog saveDialog;
 PSPMsgDialog msgDialog;
-PSPPlaceholderDialog oskDialog;
+PSPOskDialog oskDialog;
 PSPPlaceholderDialog netDialog;
 
 void __UtilityInit()
 {
-
 	SavedataParam::Init();
 }
 
@@ -65,7 +65,6 @@ void sceUtilitySavedataUpdate(u32 unknown)
 
 	return;
 }
-
 
 #define PSP_AV_MODULE_AVCODEC					 0
 #define PSP_AV_MODULE_SASCORE					 1
@@ -118,29 +117,33 @@ u32 sceUtilityMsgDialogGetStatus()
 
 // On screen keyboard
 
-int sceUtilityOskInitStart(unsigned int)
+int sceUtilityOskInitStart(u32 oskPtr)
 {
-	DEBUG_LOG(HLE,"FAKE sceUtilityOskInitStart(%i)", PARAM(0));
-	oskDialog.Init();
-	return 0;
+	ERROR_LOG(HLE,"FAKE sceUtilityOskInitStart(%i)", PARAM(0));
+	return oskDialog.Init(oskPtr);
 }
 
 int sceUtilityOskShutdownStart()
 {
-	DEBUG_LOG(HLE,"FAKE sceUtilityOskShutdownStart(%i)", PARAM(0));
+	ERROR_LOG(HLE,"FAKE sceUtilityOskShutdownStart(%i)", PARAM(0));
 	oskDialog.Shutdown();
 	return 0;
 }
 
 void sceUtilityOskUpdate(unsigned int unknown)
 {
-	DEBUG_LOG(HLE,"FAKE sceUtilityOskUpdate(%i)", unknown);
+	ERROR_LOG(HLE,"FAKE sceUtilityOskUpdate(%i)", unknown);
 	oskDialog.Update();
 }
 
 int sceUtilityOskGetStatus()
 {
-	return oskDialog.GetStatus();
+	int statusa =  oskDialog.GetStatus();
+	if (statusa == 4)
+	{
+		statusa = 5;
+	}
+	return statusa;
 }
 
 
