@@ -27,6 +27,7 @@
 #define PSP_MUTEX_ATTR_FIFO 0
 #define PSP_MUTEX_ATTR_PRIORITY 0x100
 #define PSP_MUTEX_ATTR_ALLOW_RECURSIVE 0x200
+#define PSP_MUTEX_ATTR_KNOWN (PSP_MUTEX_ATTR_PRIORITY | PSP_MUTEX_ATTR_ALLOW_RECURSIVE)
 
 // Not sure about the names of these
 #define PSP_MUTEX_ERROR_NO_SUCH_MUTEX 0x800201C3
@@ -221,7 +222,7 @@ int sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optio
 
 	if (optionsPtr != 0)
 		WARN_LOG(HLE, "sceKernelCreateMutex(%s) unsupported options parameter: %08x", name, optionsPtr);
-	if (attr != 0 && attr != 0x100 && attr != 0x200)
+	if ((attr & ~PSP_MUTEX_ATTR_KNOWN) != 0)
 		WARN_LOG(HLE, "sceKernelCreateMutex(%s) unsupported attr parameter: %08x", name, attr);
 
 	return id;
@@ -537,7 +538,7 @@ int sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int init
 
 	if (optionsPtr != 0)
 		WARN_LOG(HLE, "sceKernelCreateLwMutex(%s) unsupported options parameter: %08x", name, optionsPtr);
-	if (attr != 0 && attr != 0x100 && attr != 0x200)
+	if ((attr & ~PSP_MUTEX_ATTR_KNOWN) != 0)
 		WARN_LOG(HLE, "sceKernelCreateLwMutex(%s) unsupported attr parameter: %08x", name, attr);
 
 	return 0;

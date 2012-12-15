@@ -179,7 +179,7 @@ int sceKernelCreateEventFlag(const char *name, u32 flag_attr, u32 flag_initPatte
 
 	if (optPtr != 0)
 		WARN_LOG(HLE, "sceKernelCreateEventFlag(%s) unsupported options parameter: %08x", name, optPtr);
-	if (flag_attr != 0 && flag_attr != 0x200)
+	if ((flag_attr & ~PSP_EVENT_WAITMULTIPLE) != 0)
 		WARN_LOG(HLE, "sceKernelCreateEventFlag(%s) unsupported attr parameter: %08x", name, flag_attr);
 
 	return id;
