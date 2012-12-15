@@ -57,6 +57,7 @@ tests_good = [
   "misc/testgp",
   "string/string",
   "gpu/callbacks/ge_callbacks",
+  "threads/events/events",
   "threads/lwmutex/create/create",
   "threads/lwmutex/delete/delete",
   "threads/lwmutex/lock/lock",
@@ -114,7 +115,6 @@ tests_next = [
   "video/pmf_simple/pmf_simple",
 
   # Currently hang or crash.
-  "threads/events/events",
   "audio/atrac/atractest",
 ]
 

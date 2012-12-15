@@ -329,7 +329,7 @@ const HLEFunction ThreadManForUser[] =
 	{0x402FCF22,&WrapI_IUUUU<sceKernelWaitEventFlag>,     "sceKernelWaitEventFlag"},
 	{0x328C546A,&WrapI_IUUUU<sceKernelWaitEventFlagCB>,   "sceKernelWaitEventFlagCB"},
 	{0x30FD48F0,&WrapI_IUUUU<sceKernelPollEventFlag>,     "sceKernelPollEventFlag"},
-	{0xCD203292,&WrapU_V<sceKernelCancelEventFlag>,       "sceKernelCancelEventFlag"},
+	{0xCD203292,&WrapU_IUU<sceKernelCancelEventFlag>,       "sceKernelCancelEventFlag"},
 	{0xA66B0120,&WrapU_IU<sceKernelReferEventFlagStatus>, "sceKernelReferEventFlagStatus"},
 
 	{0x8FFDF9A2,&WrapI_IIU<sceKernelCancelSema>,          "sceKernelCancelSema"},

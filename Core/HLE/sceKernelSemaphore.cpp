@@ -149,7 +149,7 @@ int sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr)
 		if (newCount > s->ns.maxCount)
 			return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
 
-		if (numWaitThreadsPtr)
+		if (Memory::IsValidAddress(numWaitThreadsPtr))
 			Memory::Write_U32(s->ns.numWaitThreads, numWaitThreadsPtr);
 
 		if (newCount < 0)
