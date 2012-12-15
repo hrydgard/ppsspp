@@ -27,6 +27,7 @@
 #define PSP_MUTEX_ATTR_FIFO 0
 #define PSP_MUTEX_ATTR_PRIORITY 0x100
 #define PSP_MUTEX_ATTR_ALLOW_RECURSIVE 0x200
+#define PSP_MUTEX_ATTR_KNOWN (PSP_MUTEX_ATTR_PRIORITY | PSP_MUTEX_ATTR_ALLOW_RECURSIVE)
 
 // Not sure about the names of these
 #define PSP_MUTEX_ERROR_NO_SUCH_MUTEX 0x800201C3
@@ -187,13 +188,20 @@ int sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optio
 		__KernelMutexInit();
 
 	if (!name)
+	{
+		WARN_LOG(HLE, "%08x=sceKernelCreateMutex(): invalid name", SCE_KERNEL_ERROR_ERROR);
 		return SCE_KERNEL_ERROR_ERROR;
+	}
+	if (attr >= 0xC00)
+	{
+		WARN_LOG(HLE, "%08x=sceKernelCreateMutex(): invalid attr parameter: %08x", SCE_KERNEL_ERROR_ILLEGAL_ATTR, attr);
+		return SCE_KERNEL_ERROR_ILLEGAL_ATTR;
+	}
+
 	if (initialCount < 0)
 		return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
 	if ((attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE) == 0 && initialCount > 1)
 		return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
-
-	DEBUG_LOG(HLE, "sceKernelCreateMutex(%s, %08x, %d, %08x)", name, attr, initialCount, optionsPtr);
 
 	Mutex *mutex = new Mutex();
 	SceUID id = kernelObjects.Create(mutex);
@@ -210,8 +218,12 @@ int sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optio
 	else
 		__KernelMutexAcquireLock(mutex, initialCount);
 
+	DEBUG_LOG(HLE, "%i=sceKernelCreateMutex(%s, %08x, %d, %08x)", id, name, attr, initialCount, optionsPtr);
+
 	if (optionsPtr != 0)
-		WARN_LOG(HLE, "sceKernelCreateMutex(%s) unsupported options parameter.", name);
+		WARN_LOG(HLE, "sceKernelCreateMutex(%s) unsupported options parameter: %08x", name, optionsPtr);
+	if ((attr & ~PSP_MUTEX_ATTR_KNOWN) != 0)
+		WARN_LOG(HLE, "sceKernelCreateMutex(%s) unsupported attr parameter: %08x", name, attr);
 
 	return id;
 }
@@ -342,6 +354,11 @@ void __KernelMutexTimeout(u64 userdata, int cyclesLate)
 		Memory::Write_U32(0, timeoutPtr);
 
 	__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
+
+	// We intentionally don't remove from waitingThreads here yet.
+	// The reason is, if it times out, but what it was waiting on is DELETED prior to it
+	// actually running, it will get a DELETE result instead of a TIMEOUT.
+	// So, we need to remember it or we won't be able to mark it DELETE instead later.
 }
 
 void __KernelMutexThreadEnd(SceUID threadID)
@@ -486,13 +503,20 @@ int sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int init
 	if (!mutexInitComplete)
 		__KernelMutexInit();
 
-	DEBUG_LOG(HLE, "sceKernelCreateLwMutex(%08x, %s, %08x, %d, %08x)", workareaPtr, name, attr, initialCount, optionsPtr);
-
 	if (!name)
+	{
+		WARN_LOG(HLE, "%08x=sceKernelCreateLwMutex(): invalid name", SCE_KERNEL_ERROR_ERROR);
 		return SCE_KERNEL_ERROR_ERROR;
-	else if (initialCount < 0)
+	}
+	if (attr >= 0x400)
+	{
+		WARN_LOG(HLE, "%08x=sceKernelCreateLwMutex(): invalid attr parameter: %08x", SCE_KERNEL_ERROR_ILLEGAL_ATTR, attr);
+		return SCE_KERNEL_ERROR_ILLEGAL_ATTR;
+	}
+
+	if (initialCount < 0)
 		return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
-	else if ((attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE) == 0 && initialCount > 1)
+	if ((attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE) == 0 && initialCount > 1)
 		return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
 
 	LwMutex *mutex = new LwMutex();
@@ -515,8 +539,12 @@ int sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int init
 
 	Memory::WriteStruct(workareaPtr, &workarea);
 
+	DEBUG_LOG(HLE, "sceKernelCreateLwMutex(%08x, %s, %08x, %d, %08x)", workareaPtr, name, attr, initialCount, optionsPtr);
+
 	if (optionsPtr != 0)
-		WARN_LOG(HLE, "sceKernelCreateLwMutex(%s) unsupported options parameter.", name);
+		WARN_LOG(HLE, "sceKernelCreateLwMutex(%s) unsupported options parameter: %08x", name, optionsPtr);
+	if ((attr & ~PSP_MUTEX_ATTR_KNOWN) != 0)
+		WARN_LOG(HLE, "sceKernelCreateLwMutex(%s) unsupported attr parameter: %08x", name, attr);
 
 	return 0;
 }
@@ -669,6 +697,11 @@ void __KernelLwMutexTimeout(u64 userdata, int cyclesLate)
 		Memory::Write_U32(0, timeoutPtr);
 
 	__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
+
+	// We intentionally don't remove from waitingThreads here yet.
+	// The reason is, if it times out, but what it was waiting on is DELETED prior to it
+	// actually running, it will get a DELETE result instead of a TIMEOUT.
+	// So, we need to remember it or we won't be able to mark it DELETE instead later.
 }
 
 void __KernelWaitLwMutex(LwMutex *mutex, u32 timeoutPtr)
