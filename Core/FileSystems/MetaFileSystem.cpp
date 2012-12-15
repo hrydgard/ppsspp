@@ -246,11 +246,6 @@ void MetaFileSystem::UnmountAll()
 u32 MetaFileSystem::OpenFile(std::string filename, FileAccess access)
 {
 	std::string of;
-	if (filename.find(':') == std::string::npos)
-	{
-		filename = currentDirectory + "/" + filename;
-		DEBUG_LOG(HLE,"OpenFile: Expanded path to %s", filename.c_str());
-	}
 	IFileSystem *system;
 	if (MapFilePath(filename, of, &system))
 	{
@@ -265,11 +260,6 @@ u32 MetaFileSystem::OpenFile(std::string filename, FileAccess access)
 PSPFileInfo MetaFileSystem::GetFileInfo(std::string filename)
 {
 	std::string of;
-	if (filename.find(':') == std::string::npos)
-	{
-		filename = currentDirectory + "/" + filename;
-		DEBUG_LOG(HLE,"GetFileInfo: Expanded path to %s", filename.c_str());
-	}
 	IFileSystem *system;
 	if (MapFilePath(filename, of, &system))
 	{
@@ -295,14 +285,6 @@ bool stringEndsWith (std::string const &fullString, std::string const &ending)
 std::vector<PSPFileInfo> MetaFileSystem::GetDirListing(std::string path)
 {
 	std::string of;
-	if (path.find(':') == std::string::npos)
-	{
-		if (!stringEndsWith(currentDirectory, "/"))
-		{
-			path = currentDirectory + "/" + path;
-		}
-		DEBUG_LOG(HLE,"GetFileInfo: Expanded path to %s", path.c_str());
-	}
 	IFileSystem *system;
 	if (MapFilePath(path, of, &system))
 	{
