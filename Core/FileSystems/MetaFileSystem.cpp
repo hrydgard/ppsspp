@@ -148,7 +148,7 @@ bool RealPath(const std::string &currentDirectory, const std::string &inPath, st
 		const std::string curDirAfter = currentDirectory.substr(curDirColon + 1);
 		if (! applyPathStringToComponentsVector(cmpnts, curDirAfter) )
 		{
-			DEBUG_LOG(HLE,"RealPath: currentDirectory is not a valid path: \"%s\"", currentDirectory.c_str());
+			ERROR_LOG(HLE,"RealPath: currentDirectory is not a valid path: \"%s\"", currentDirectory.c_str());
 			return false;
 		}
 
