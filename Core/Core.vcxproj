@@ -121,6 +121,7 @@
     <ClCompile Include="Debugger\SymbolMap.cpp" />
     <ClCompile Include="Dialog\PSPDialog.cpp" />
     <ClCompile Include="Dialog\PSPMsgDialog.cpp" />
+    <ClCompile Include="Dialog\PSPOskDialog.cpp" />
     <ClCompile Include="Dialog\PSPPlaceholderDialog.cpp" />
     <ClCompile Include="Dialog\PSPSaveDialog.cpp" />
     <ClCompile Include="Dialog\SavedataParam.cpp" />
@@ -263,6 +264,7 @@
     <ClInclude Include="Debugger\SymbolMap.h" />
     <ClInclude Include="Dialog\PSPDialog.h" />
     <ClInclude Include="Dialog\PSPMsgDialog.h" />
+    <ClInclude Include="Dialog\PSPOskDialog.h" />
     <ClInclude Include="Dialog\PSPPlaceholderDialog.h" />
     <ClInclude Include="Dialog\PSPSaveDialog.h" />
     <ClInclude Include="Dialog\SavedataParam.h" />

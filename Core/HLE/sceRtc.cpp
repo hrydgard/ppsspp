@@ -184,7 +184,8 @@ u32 sceRtcGetTickResolution()
 
 u32 sceRtcGetCurrentTick(u32 tickPtr)
 {
-	DEBUG_LOG(HLE, "sceRtcGetCurrentTick(%08x)", tickPtr);
+	//Don't spam the log
+	//DEBUG_LOG(HLE, "sceRtcGetCurrentTick(%08x)", tickPtr);
 
 	u64 curTick = __RtcGetCurrentTick();
 	if (Memory::IsValidAddress(tickPtr))
