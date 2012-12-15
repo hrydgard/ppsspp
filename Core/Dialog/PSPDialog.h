@@ -63,7 +63,7 @@ public:
 	void EndDraw();
 protected:
 	bool IsButtonPressed(int checkButton);
-
+	void DisplayMessage(std::string text);
 	DialogStatus status;
 
 	unsigned int lastButtons;

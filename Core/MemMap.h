@@ -246,9 +246,6 @@ inline void Write_Float(float f, u32 address)
 
 // Reads a zero-terminated string from memory at the address.
 void GetString(std::string& _string, const u32 _Address);
-void GetStringWide(std::string& _string, const u32 _Address);
-
-
 u8* GetPointer(const u32 address);
 bool IsValidAddress(const u32 address);
 

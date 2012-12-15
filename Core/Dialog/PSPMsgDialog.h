@@ -46,7 +46,6 @@ public:
 	void Shutdown();
 
 private :
-	void DisplayMessage(std::string text);
 	void DisplayBack();
 	void DisplayYesNo();
 	void DisplayEnterBack();

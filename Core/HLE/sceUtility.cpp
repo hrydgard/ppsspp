@@ -138,12 +138,13 @@ void sceUtilityOskUpdate(unsigned int unknown)
 
 int sceUtilityOskGetStatus()
 {
-	int statusa =  oskDialog.GetStatus();
-	if (statusa == 4)
+	int status =  oskDialog.GetStatus();
+	// Seems that 4 is the cancelled status for OSK?
+	if (status == 4)
 	{
-		statusa = 5;
+		status = 5;
 	}
-	return statusa;
+	return status;
 }
 
 

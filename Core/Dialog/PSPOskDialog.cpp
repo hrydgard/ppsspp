@@ -153,6 +153,22 @@ PSPOskDialog::~PSPOskDialog() {
 }
 
 
+// Same as get string but read out 16bit
+void PSPOskDialog::HackyGetStringWide(std::string& _string, const u32 em_address)
+{
+	char stringBuffer[2048];
+	char *string = stringBuffer;
+	char c;
+	u32 addr = em_address;
+	while ((c = (Memory::Read_U16(addr))))
+	{
+		*string++ = c;
+		addr+=2;
+	}
+	*string++ = '\0';
+	_string = stringBuffer;
+}
+
 
 int PSPOskDialog::Init(u32 oskPtr)
 {
@@ -165,9 +181,9 @@ int PSPOskDialog::Init(u32 oskPtr)
 	{
 		Memory::ReadStruct(oskPtr, &oskParams);
 		Memory::ReadStruct(oskParams.SceUtilityOskDataPtr, &oskData);
-		Memory::GetStringWide(oskDesc, oskData.descPtr);
-		Memory::GetStringWide(oskIntext, oskData.intextPtr);
-		Memory::GetString(oskOuttext, oskData.outtextPtr);
+		HackyGetStringWide(oskDesc, oskData.descPtr);
+		HackyGetStringWide(oskIntext, oskData.intextPtr);
+		HackyGetStringWide(oskOuttext, oskData.outtextPtr);
 		Memory::WriteStruct(oskParams.SceUtilityOskDataPtr, &oskData);
 		Memory::WriteStruct(oskPtr, &oskParams);
 	}
@@ -182,6 +198,7 @@ int PSPOskDialog::Init(u32 oskPtr)
 
 void PSPOskDialog::Update()
 {
+	buttons = __CtrlPeekButtons();
 	//__UtilityUpdate();
 	if (status == SCE_UTILITY_STATUS_INITIALIZE)
 	{
@@ -189,19 +206,30 @@ void PSPOskDialog::Update()
 	}
 	else if (status == SCE_UTILITY_STATUS_RUNNING)
 	{		
-		status = SCE_UTILITY_STATUS_FINISHED;
+		StartDraw();
+
+		DisplayMessage(oskDesc);
+		PPGeDrawImage(I_CROSS, 200, 220, 20, 20, 0, 0xFFFFFFFF);
+		PPGeDrawText("Ignore", 230, 220, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
+		// TODO : Dialogs should take control over input and not send them to the game while displaying
+		if (IsButtonPressed(CTRL_CROSS))
+		{
+			status = SCE_UTILITY_STATUS_FINISHED;
+		}
+		EndDraw();
 	}
 	else if (status == SCE_UTILITY_STATUS_FINISHED)
 	{
 		status = SCE_UTILITY_STATUS_SHUTDOWN;
 	}
-	Memory::Write_U16(0x0050,oskData.outtextPtr);
-	Memory::Write_U16(0x0050,oskData.outtextPtr+2);
-	Memory::Write_U16(0x0050,oskData.outtextPtr+4);
-	Memory::Write_U16(0x0050,oskData.outtextPtr+6);
-	Memory::Write_U16(0x0050,oskData.outtextPtr+8);
-	Memory::Write_U16(0x0050,oskData.outtextPtr+10);
-	Memory::Write_U16(0x0050,oskData.outtextPtr+12);
+
+	Memory::Write_U16(0x0030,oskData.outtextPtr);
+	Memory::Write_U16(0x0030,oskData.outtextPtr+2);
+	Memory::Write_U16(0x0030,oskData.outtextPtr+4);
+	Memory::Write_U16(0x0030,oskData.outtextPtr+6);
+	Memory::Write_U16(0x0030,oskData.outtextPtr+8);
+	Memory::Write_U16(0x0030,oskData.outtextPtr+10);
+	Memory::Write_U16(0x0030,oskData.outtextPtr+12);
 	oskData.outtextlength = 6;
 	oskParams.base.result= 0;
 	oskData.result = SceUtilityOskResult::PSP_UTILITY_OSK_RESULT_CHANGED;

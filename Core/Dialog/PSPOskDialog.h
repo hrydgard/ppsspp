@@ -26,5 +26,7 @@ public:
 
 	virtual int Init(u32 oskPtr);
 	virtual void Update();
+private:
+	void HackyGetStringWide(std::string& _string, const u32 em_address);
 };
 
