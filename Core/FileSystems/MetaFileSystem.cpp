@@ -87,21 +87,23 @@ bool RealPath(const std::string &currentDirectory, const std::string &inPath, st
 	{
 		curDirColon = currentDirectory.find(':');
 		
-		/*if (curDirColon == std::string::npos)
+#ifdef _DEBUG
+		if (curDirColon == std::string::npos)
 		{
-			WARN_LOG(HLE, "RealPath: currentDirectory has no prefix: \"%s\"", currentDirectory.c_str());
+			DEBUG_LOG(HLE, "RealPath: currentDirectory has no prefix: \"%s\"", currentDirectory.c_str());
 		}
 		else if (curDirColon + 1 == curDirLen)
 		{
-			WARN_LOG(HLE, "RealPath: currentDirectory is all prefix and no path: \"%s\"", currentDirectory.c_str());
+			DEBUG_LOG(HLE, "RealPath: currentDirectory is all prefix and no path: \"%s\"", currentDirectory.c_str());
 		}
 		else
 		{
 			curDirPrefix = currentDirectory.substr(0, curDirColon + 1);
-		}*/
-
+		}
+#else
 		if (curDirColon < curDirLen - 1)
 			curDirPrefix = currentDirectory.substr(0, curDirColon + 1);
+#endif
 	}
 
 	std::string inPrefix, inAfter;
@@ -124,7 +126,7 @@ bool RealPath(const std::string &currentDirectory, const std::string &inPath, st
 	{
 		if (curDirLen == 0)
 		{
-			ERROR_LOG(HLE, "RealPath: inPath \"%s\" is relative, but no current directory is set", inPath.c_str());
+			ERROR_LOG(HLE, "RealPath: inPath \"%s\" is relative, but current directory is empty", inPath.c_str());
 			return false;
 		}
 		
@@ -141,7 +143,7 @@ bool RealPath(const std::string &currentDirectory, const std::string &inPath, st
 		}
 		
 		if (inPrefix != curDirPrefix)
-			WARN_LOG(HLE, "RealPath: inPath \"%s\" is relative to current directory, but specifies a different prefix than current directory \"%s\"", inPath.c_str(), currentDirectory.c_str());
+			WARN_LOG(HLE, "RealPath: inPath \"%s\" is relative, but specifies a different prefix than current directory \"%s\"", inPath.c_str(), currentDirectory.c_str());
 
 		const std::string curDirAfter = currentDirectory.substr(curDirColon + 1);
 		if (! applyPathStringToComponentsVector(cmpnts, curDirAfter) )
@@ -149,6 +151,7 @@ bool RealPath(const std::string &currentDirectory, const std::string &inPath, st
 			DEBUG_LOG(HLE,"RealPath: currentDirectory is not a valid path: \"%s\"", currentDirectory.c_str());
 			return false;
 		}
+
 		capacityGuess += currentDirectory.length();
 	}
 
