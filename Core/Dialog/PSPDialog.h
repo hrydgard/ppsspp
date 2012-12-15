@@ -24,6 +24,20 @@
 #define SCE_UTILITY_DIALOG_RESULT_CANCEL				1
 #define SCE_UTILITY_DIALOG_RESULT_ABORT					2
 
+typedef struct
+{
+	unsigned int size;	/** Size of the structure */
+	int language;		/** Language */
+	int buttonSwap;		/** Set to 1 for X/O button swap */
+	int graphicsThread;	/** Graphics thread priority */
+	int accessThread;	/** Access/fileio thread priority (SceJobThread) */
+	int fontThread;		/** Font thread priority (ScePafThread) */
+	int soundThread;	/** Sound thread priority */
+	int result;			/** Result */
+	int reserved[4];	/** Set to 0 */
+
+} pspUtilityDialogCommon;
+
 
 class PSPDialog
 {
@@ -49,7 +63,7 @@ public:
 	void EndDraw();
 protected:
 	bool IsButtonPressed(int checkButton);
-
+	void DisplayMessage(std::string text);
 	DialogStatus status;
 
 	unsigned int lastButtons;

@@ -48,6 +48,11 @@ void PSPDialog::EndDraw()
 	PPGeEnd();
 }
 
+void PSPDialog::DisplayMessage(std::string text)
+{
+	PPGeDrawText(text.c_str(), 480/2, 100, PPGE_ALIGN_CENTER, 0.5f, 0xFFFFFFFF);
+}
+
 void PSPDialog::Shutdown()
 {
 	status = SCE_UTILITY_STATUS_SHUTDOWN;
