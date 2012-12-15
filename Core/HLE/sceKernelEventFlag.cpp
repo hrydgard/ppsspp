@@ -79,13 +79,15 @@ enum PspEventFlagAttributes
 enum PspEventFlagWaitTypes
 {
 	/** Wait for all bits in the pattern to be set */
-	PSP_EVENT_WAITAND = 0,
+	PSP_EVENT_WAITAND = 0x00,
 	/** Wait for one or more bits in the pattern to be set */
-	PSP_EVENT_WAITOR	= 1,
+	PSP_EVENT_WAITOR = 0x01,
+	/** Clear the entire pattern when it matches. */
+	PSP_EVENT_WAITCLEARALL = 0x10,
 	/** Clear the wait pattern when it matches */
 	PSP_EVENT_WAITCLEAR = 0x20,
 
-	PSP_EVENT_WAITKNOWN = PSP_EVENT_WAITCLEAR | PSP_EVENT_WAITOR,
+	PSP_EVENT_WAITKNOWN = PSP_EVENT_WAITCLEAR | PSP_EVENT_WAITCLEARALL | PSP_EVENT_WAITOR,
 };
 
 bool eventFlagInitComplete = false;
@@ -108,6 +110,8 @@ bool __KernelEventFlagMatches(u32 *pattern, u32 bits, u8 wait, u32 outAddr)
 
 		if (wait & PSP_EVENT_WAITCLEAR)
 			*pattern &= ~bits;
+		if (wait & PSP_EVENT_WAITCLEARALL)
+			*pattern = 0;
 		return true;
 	}
 	return false;
@@ -414,7 +418,7 @@ int sceKernelWaitEventFlagCB(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 
 
 	if ((wait & ~PSP_EVENT_WAITKNOWN) != 0)
 	{
-		WARN_LOG(HLE, "sceKernelWaitEventFlag(%i) invalid mode parameter: %08x", id, wait);
+		WARN_LOG(HLE, "sceKernelWaitEventFlagCB(%i) invalid mode parameter: %08x", id, wait);
 		return SCE_KERNEL_ERROR_ILLEGAL_MODE;
 	}
 	// Can't wait on 0, that's guaranteed to wait forever.
@@ -469,7 +473,13 @@ int sceKernelPollEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 ti
 
 	if ((wait & ~PSP_EVENT_WAITKNOWN) != 0)
 	{
-		WARN_LOG(HLE, "sceKernelWaitEventFlag(%i) invalid mode parameter: %08x", id, wait);
+		WARN_LOG(HLE, "sceKernelPollEventFlag(%i) invalid mode parameter: %08x", id, wait);
+		return SCE_KERNEL_ERROR_ILLEGAL_MODE;
+	}
+	// Poll seems to also fail when CLEAR and CLEARALL are used together, but not wait.
+	if ((wait & PSP_EVENT_WAITCLEAR) != 0 && (wait & PSP_EVENT_WAITCLEARALL) != 0)
+	{
+		WARN_LOG(HLE, "sceKernelPollEventFlag(%i) invalid mode parameter: %08x", id, wait);
 		return SCE_KERNEL_ERROR_ILLEGAL_MODE;
 	}
 	// Can't wait on 0, it never matches.
