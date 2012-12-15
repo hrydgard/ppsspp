@@ -87,23 +87,17 @@ bool RealPath(const std::string &currentDirectory, const std::string &inPath, st
 	{
 		curDirColon = currentDirectory.find(':');
 		
-#ifdef _DEBUG
 		if (curDirColon == std::string::npos)
 		{
 			DEBUG_LOG(HLE, "RealPath: currentDirectory has no prefix: \"%s\"", currentDirectory.c_str());
 		}
-		else if (curDirColon + 1 == curDirLen)
-		{
-			DEBUG_LOG(HLE, "RealPath: currentDirectory is all prefix and no path: \"%s\"", currentDirectory.c_str());
-		}
 		else
 		{
+			if (curDirColon + 1 == curDirLen)
+				DEBUG_LOG(HLE, "RealPath: currentDirectory is all prefix and no path: \"%s\"", currentDirectory.c_str());
+			
 			curDirPrefix = currentDirectory.substr(0, curDirColon + 1);
 		}
-#else
-		if (curDirColon < curDirLen - 1)
-			curDirPrefix = currentDirectory.substr(0, curDirColon + 1);
-#endif
 	}
 
 	std::string inPrefix, inAfter;
@@ -136,20 +130,21 @@ bool RealPath(const std::string &currentDirectory, const std::string &inPath, st
 			return false;
 		}
 		
-		if (curDirColon + 1 == curDirLen)
-		{
-			ERROR_LOG(HLE, "RealPath: inPath \"%s\" is relative, but current directory \"%s\" is all prefix and no path", inPath.c_str(), currentDirectory.c_str());
-			return false;
-		}
-		
 		if (inPrefix != curDirPrefix)
 			WARN_LOG(HLE, "RealPath: inPath \"%s\" is relative, but specifies a different prefix than current directory \"%s\"", inPath.c_str(), currentDirectory.c_str());
-
-		const std::string curDirAfter = currentDirectory.substr(curDirColon + 1);
-		if (! applyPathStringToComponentsVector(cmpnts, curDirAfter) )
+		
+		if (curDirColon + 1 == curDirLen)
 		{
-			ERROR_LOG(HLE,"RealPath: currentDirectory is not a valid path: \"%s\"", currentDirectory.c_str());
-			return false;
+			ERROR_LOG(HLE, "RealPath: inPath \"%s\" is relative, but current directory \"%s\" is all prefix and no path. Using \"/\" as path for current directory.", inPath.c_str(), currentDirectory.c_str());
+		}
+		else
+		{
+			const std::string curDirAfter = currentDirectory.substr(curDirColon + 1);
+			if (! applyPathStringToComponentsVector(cmpnts, curDirAfter) )
+			{
+				ERROR_LOG(HLE,"RealPath: currentDirectory is not a valid path: \"%s\"", currentDirectory.c_str());
+				return false;
+			}
 		}
 
 		capacityGuess += currentDirectory.length();
@@ -191,7 +186,7 @@ bool MetaFileSystem::MapFilePath(std::string inpath, std::string &outpath, IFile
 {
 	//TODO: implement current directory per thread (NOT per drive)
 	
-	DEBUG_LOG(HLE, "MapFilePath: starting with \"%s\"", inpath.c_str());
+	//DEBUG_LOG(HLE, "MapFilePath: starting with \"%s\"", inpath.c_str());
 
 	if ( RealPath(currentDirectory, inpath, inpath) )
 	{
@@ -210,7 +205,7 @@ bool MetaFileSystem::MapFilePath(std::string inpath, std::string &outpath, IFile
 		}
 	}
 
-	DEBUG_LOG(HLE, "MapFilePath: failed!!!");
+	DEBUG_LOG(HLE, "MapFilePath: failed, returning false");
 
 	return false;
 }
