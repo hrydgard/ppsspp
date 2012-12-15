@@ -354,6 +354,11 @@ void __KernelMutexTimeout(u64 userdata, int cyclesLate)
 		Memory::Write_U32(0, timeoutPtr);
 
 	__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
+
+	// We intentionally don't remove from waitingThreads here yet.
+	// The reason is, if it times out, but what it was waiting on is DELETED prior to it
+	// actually running, it will get a DELETE result instead of a TIMEOUT.
+	// So, we need to remember it or we won't be able to mark it DELETE instead later.
 }
 
 void __KernelMutexThreadEnd(SceUID threadID)
@@ -692,6 +697,11 @@ void __KernelLwMutexTimeout(u64 userdata, int cyclesLate)
 		Memory::Write_U32(0, timeoutPtr);
 
 	__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
+
+	// We intentionally don't remove from waitingThreads here yet.
+	// The reason is, if it times out, but what it was waiting on is DELETED prior to it
+	// actually running, it will get a DELETE result instead of a TIMEOUT.
+	// So, we need to remember it or we won't be able to mark it DELETE instead later.
 }
 
 void __KernelWaitLwMutex(LwMutex *mutex, u32 timeoutPtr)

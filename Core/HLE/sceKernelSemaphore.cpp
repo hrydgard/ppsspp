@@ -306,6 +306,9 @@ void __KernelSemaTimeout(u64 userdata, int cycleslate)
 	if (s)
 	{
 		// This thread isn't waiting anymore, but we'll remove it from waitingThreads later.
+		// The reason is, if it times out, but what it was waiting on is DELETED prior to it
+		// actually running, it will get a DELETE result instead of a TIMEOUT.
+		// So, we need to remember it or we won't be able to mark it DELETE instead later.
 		s->ns.numWaitThreads--;
 	}
 

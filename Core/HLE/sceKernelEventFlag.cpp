@@ -97,20 +97,36 @@ void __KernelEventFlagInit()
 	eventFlagInitComplete = true;
 }
 
-void __KernelUnlockEventFlagForThread(EventFlag *e, EventFlagTh &th, u32 &error, int result, bool &wokeThreads)
+bool __KernelEventFlagMatches(u32 *pattern, u32 bits, u8 wait, u32 outAddr)
+{
+	if ((wait & PSP_EVENT_WAITOR)
+		? (bits & *pattern) /* one or more bits of the mask */
+		: ((bits & *pattern) == bits)) /* all the bits of the mask */
+	{
+		if (Memory::IsValidAddress(outAddr))
+			Memory::Write_U32(*pattern, outAddr);
+
+		if (wait & PSP_EVENT_WAITCLEAR)
+			*pattern &= ~bits;
+		return true;
+	}
+	return false;
+}
+
+bool __KernelUnlockEventFlagForThread(EventFlag *e, EventFlagTh &th, u32 &error, int result, bool &wokeThreads)
 {
 	SceUID waitID = __KernelGetWaitID(th.tid, WAITTYPE_EVENTFLAG, error);
 	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(th.tid, error);
 
 	// The waitID may be different after a timeout.
 	if (waitID != e->GetUID())
-		return;
+		return true;
 
 	// If result is an error code, we're just letting it go.
 	if (result == 0)
 	{
-		if ((th.wait & PSP_EVENT_WAITCLEAR) != 0)
-			e->nef.currentPattern &= ~th.bits;
+		if (!__KernelEventFlagMatches(&e->nef.currentPattern, th.bits, th.wait, th.outAddr))
+			return false;
 
 		e->nef.numWaitThreads--;
 	}
@@ -130,7 +146,7 @@ void __KernelUnlockEventFlagForThread(EventFlag *e, EventFlagTh &th, u32 &error,
 
 	__KernelResumeThreadFromWait(th.tid, result);
 	wokeThreads = true;
-	return;
+	return true;
 }
 
 bool __KernelClearEventFlagThreads(EventFlag *e, int reason)
@@ -244,22 +260,6 @@ u32 sceKernelDeleteEventFlag(SceUID uid)
 		return error;
 }
 
-bool __KernelEventFlagMatches(u32 *pattern, u32 bits, u8 wait, u32 outAddr)
-{
-	if ((wait & PSP_EVENT_WAITOR)
-		? (bits & *pattern) /* one or more bits of the mask */
-		: ((bits & *pattern) == bits)) /* all the bits of the mask */
-	{
-		if (Memory::IsValidAddress(outAddr))
-			Memory::Write_U32(*pattern, outAddr);
-
-		if (wait & PSP_EVENT_WAITCLEAR)
-			*pattern &= ~bits;
-		return true;
-	}
-	return false;
-}			 
-
 u32 sceKernelSetEventFlag(SceUID id, u32 bitsToSet)
 {
 	u32 error;
@@ -274,9 +274,8 @@ u32 sceKernelSetEventFlag(SceUID id, u32 bitsToSet)
 		for (size_t i = 0; i < e->waitingThreads.size(); ++i)
 		{
 			EventFlagTh *t = &e->waitingThreads[i];
-			if (__KernelEventFlagMatches(&e->nef.currentPattern, t->bits, t->wait, t->outAddr))
+			if (__KernelUnlockEventFlagForThread(e, *t, error, 0, wokeThreads))
 			{
-				__KernelUnlockEventFlagForThread(e, *t, error, 0, wokeThreads);
 				e->waitingThreads.erase(e->waitingThreads.begin() + i);
 				// Try the one that used to be in this place next.
 				--i;
@@ -315,8 +314,10 @@ void __KernelEventFlagTimeout(u64 userdata, int cycleslate)
 				bool wokeThreads;
 
 				// This thread isn't waiting anymore, but we'll remove it from waitingThreads later.
+				// The reason is, if it times out, but what it was waiting on is DELETED prior to it
+				// actually running, it will get a DELETE result instead of a TIMEOUT.
+				// So, we need to remember it or we won't be able to mark it DELETE instead later.
 				__KernelUnlockEventFlagForThread(e, *t, error, SCE_KERNEL_ERROR_WAIT_TIMEOUT, wokeThreads);
-				e->waitingThreads.erase(e->waitingThreads.begin() + i);
 				e->nef.numWaitThreads--;
 				break;
 			}
@@ -341,6 +342,19 @@ void __KernelSetEventFlagTimeout(EventFlag *e, u32 timeoutPtr)
 	CoreTiming::ScheduleEvent(usToCycles(micro), eventFlagWaitTimer, __KernelGetCurThread());
 }
 
+void __KernelEventFlagRemoveThread(EventFlag *e, SceUID threadID)
+{
+	for (size_t i = 0; i < e->waitingThreads.size(); i++)
+	{
+		EventFlagTh *t = &e->waitingThreads[i];
+		if (t->tid == threadID)
+		{
+			e->waitingThreads.erase(e->waitingThreads.begin() + i);
+			break;
+		}
+	}
+}
+
 int sceKernelWaitEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 timeoutPtr)
 {
 	DEBUG_LOG(HLE, "sceKernelWaitEventFlag(%i, %08x, %i, %08x, %08x)", id, bits, wait, outBitsPtr, timeoutPtr);
@@ -361,6 +375,10 @@ int sceKernelWaitEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 ti
 		EventFlagTh th;
 		if (!__KernelEventFlagMatches(&e->nef.currentPattern, bits, wait, outBitsPtr))
 		{
+			// If this thread was left in waitingThreads after a timeout, remove it.
+			// Otherwise we might write the outBitsPtr in the wrong place.
+			__KernelEventFlagRemoveThread(e, __KernelGetCurThread());
+
 			u32 timeout = 0xFFFFFFFF;
 			if (Memory::IsValidAddress(timeoutPtr))
 				timeout = Memory::Read_U32(timeoutPtr);
@@ -410,6 +428,10 @@ int sceKernelWaitEventFlagCB(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 
 		EventFlagTh th;
 		if (!__KernelEventFlagMatches(&e->nef.currentPattern, bits, wait, outBitsPtr))
 		{
+			// If this thread was left in waitingThreads after a timeout, remove it.
+			// Otherwise we might write the outBitsPtr in the wrong place.
+			__KernelEventFlagRemoveThread(e, __KernelGetCurThread());
+
 			u32 timeout = 0xFFFFFFFF;
 			if (Memory::IsValidAddress(timeoutPtr))
 				timeout = Memory::Read_U32(timeoutPtr);
