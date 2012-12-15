@@ -83,7 +83,6 @@ void PSPMsgDialog::DisplayYesNo()
 }
 void PSPMsgDialog::DisplayEnterBack()
 {
-
 	PPGeDrawImage(okButtonImg, 200, 220, 20, 20, 0, 0xFFFFFFFF);
 	PPGeDrawText("Enter", 230, 220, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
 	PPGeDrawImage(cancelButtonImg, 290, 220, 20, 20, 0, 0xFFFFFFFF);
@@ -102,7 +101,6 @@ void PSPMsgDialog::Update()
 	{
 		return;
 	}
-
 
 	const char *text;
 	if (messageDialog.type == 0) {

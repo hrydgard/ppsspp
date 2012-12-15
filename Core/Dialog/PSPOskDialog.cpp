@@ -222,7 +222,7 @@ void PSPOskDialog::Update()
 	{
 		status = SCE_UTILITY_STATUS_SHUTDOWN;
 	}
-
+	// just fake the return values to be "000000" as this will work for most cases e.g. when restricted to entering just numbers
 	Memory::Write_U16(0x0030,oskData.outtextPtr);
 	Memory::Write_U16(0x0030,oskData.outtextPtr+2);
 	Memory::Write_U16(0x0030,oskData.outtextPtr+4);
@@ -235,5 +235,4 @@ void PSPOskDialog::Update()
 	oskData.result = SceUtilityOskResult::PSP_UTILITY_OSK_RESULT_CHANGED;
 	Memory::WriteStruct(oskParams.SceUtilityOskDataPtr, &oskData);
 	Memory::WriteStruct(oskParamsAddr, &oskParams);
-
 }
