@@ -325,7 +325,7 @@ private:
 
 				fd_set rfds, wfds;
 				int nflds;
-				if (!paused && (FD_ISSET(snd_pcm_file_descriptor(pcm_handle, SND_PCM_CHANNEL_PLAYBACK), &wfds)))
+				if (FD_ISSET(snd_pcm_file_descriptor(pcm_handle, SND_PCM_CHANNEL_PLAYBACK), &wfds))
 				{
 					snd_pcm_plugin_write(pcm_handle, mixbuf, mixlen);
 				}

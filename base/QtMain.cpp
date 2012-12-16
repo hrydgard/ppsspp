@@ -28,6 +28,8 @@ float CalculateDPIScale()
 	float dpi = sqrt((float)(pixel_xres*pixel_xres + pixel_yres*pixel_yres))
 		/ (sqrt((float)(sizeTwips.iHeight*sizeTwips.iHeight + sizeTwips.iWidth*sizeTwips.iWidth)) / KTwipsPerInch);
 	return dpi / 170.0f;
+#else
+	return 1.2f;
 #endif
 }
 
@@ -55,7 +57,11 @@ int main(int argc, char *argv[])
 	MainUI w(dpi_scale);
 	w.resize(pixel_xres, pixel_yres);
 	w.showFullScreen();
+
+	MainAudio *audio = new MainAudio();
+
 	int ret = a.exec();
+	delete audio;
 	NativeShutdown();
 	net::Shutdown();
 	return ret;

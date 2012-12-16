@@ -1,11 +1,11 @@
-#ifndef SYMBIANMAIN_H
-#define SYMBIANMAIN_H
+#ifndef QTMAIN_H
+#define QTMAIN_H
 
 #include <QTouchEvent>
 #include <QGLWidget>
 
-#include <math.h>
-#include <locale.h>
+#include <QAudioOutput>
+#include <QAudioFormat>
 
 #include "base/display.h"
 #include "base/logging.h"
@@ -81,6 +81,49 @@ protected:
 private:
 	InputState input_state;
 	float dpi_scale;
+};
+
+#define AUDIO_FREQ 44100
+#define AUDIO_CHANNELS 2
+#define AUDIO_SAMPLES 1024
+#define AUDIO_SAMPLESIZE 16
+class MainAudio: public QObject
+{
+	Q_OBJECT
+public:
+	MainAudio() {
+		QAudioFormat fmt;
+		fmt.setFrequency(AUDIO_FREQ);
+		fmt.setCodec("audio/pcm");
+		fmt.setChannelCount(AUDIO_CHANNELS);
+		fmt.setSampleSize(AUDIO_SAMPLESIZE);
+		fmt.setByteOrder(QAudioFormat::LittleEndian);
+		fmt.setSampleType(QAudioFormat::SignedInt);
+		mixlen = 2*AUDIO_CHANNELS*AUDIO_SAMPLES;
+		mixbuf = (char*)malloc(mixlen);
+		output = new QAudioOutput(fmt);
+		output->setNotifyInterval(1000*AUDIO_SAMPLES / AUDIO_FREQ);
+		output->setBufferSize(mixlen);
+		this->connect(output, SIGNAL(notify()), this, SLOT(writeData()));
+		feed = output->start();
+	}
+	~MainAudio() {
+		delete feed;
+		delete output;
+		free(mixbuf);
+	}
+
+private slots:
+	void writeData() {
+		memset(mixbuf, 0, mixlen);
+		NativeMix((short *)mixbuf, mixlen / 4);
+		feed->write(mixbuf, mixlen);
+	}
+private:
+	QIODevice* feed;
+	QAudioOutput* output;
+	int mixlen;
+	char* mixbuf;
 };
 
 #endif
