@@ -19,13 +19,19 @@
 #include "sceKernelThread.h"
 #include "sceKernelMbx.h"
 #include "HLE.h"
+#include "../../Core/CoreTiming.h"
 
 #define SCE_KERNEL_MBA_THPRI 0x100
 #define SCE_KERNEL_MBA_MSPRI 0x400
+#define SCE_KERNEL_MBA_ATTR_KNOWN (SCE_KERNEL_MBA_THPRI | SCE_KERNEL_MBA_MSPRI)
 
 // TODO: when a thread is being resumed (message received or cancellation), sceKernelReceiveMbx() always returns 0
 
 typedef std::pair<SceUID, u32> MbxWaitingThread;
+void __KernelMbxTimeout(u64 userdata, int cyclesLate);
+
+bool mbxInitComplete = false;
+int mbxWaitTimer = 0;
 
 struct NativeMbx
 {
@@ -69,14 +75,55 @@ struct Mbx : public KernelObject
 	std::vector<u32> messageQueue;
 };
 
+void __KernelMbxInit()
+{
+	mbxWaitTimer = CoreTiming::RegisterEvent("MbxTimeout", &__KernelMbxTimeout);
+
+	mbxInitComplete = true;
+}
+
+void __KernelMbxTimeout(u64 userdata, int cyclesLate)
+{
+	SceUID threadID = (SceUID)userdata;
+
+	u32 error;
+	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
+	if (timeoutPtr != 0)
+		Memory::Write_U32(0, timeoutPtr);
+
+	__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
+	// TODO: waitingThreads (but not here.)
+}
+
+void __KernelWaitMbx(Mbx *m, u32 timeoutPtr)
+{
+	if (timeoutPtr == 0 || mbxWaitTimer == 0)
+		return;
+
+	int micro = (int) Memory::Read_U32(timeoutPtr);
+
+	// TODO: test timing.
+	if (micro <= 3)
+		micro = 15;
+	else if (micro <= 249)
+		micro = 250;
+
+	// This should call __KernelMbxTimeout() later, unless we cancel it.
+	CoreTiming::ScheduleEvent(usToCycles(micro), mbxWaitTimer, __KernelGetCurThread());
+}
+
 SceUID sceKernelCreateMbx(const char *name, u32 attr, u32 optAddr)
 {
+	if (!mbxInitComplete)
+		__KernelMbxInit();
+
 	if (!name)
 	{
 		WARN_LOG(HLE, "%08x=%s(): invalid name", SCE_KERNEL_ERROR_ERROR, __FUNCTION__);
 		return SCE_KERNEL_ERROR_ERROR;
 	}
-	if (attr >= 0x300)
+	// Accepts 0x000 - 0x0FF, 0x100 - 0x1FF, and 0x400 - 0x4FF.
+	if (((attr & ~SCE_KERNEL_MBA_ATTR_KNOWN) & ~0xFF) != 0)
 	{
 		WARN_LOG(HLE, "%08x=%s(): invalid attr parameter: %08x", SCE_KERNEL_ERROR_ILLEGAL_ATTR, __FUNCTION__, attr);
 		return SCE_KERNEL_ERROR_ILLEGAL_ATTR;
@@ -97,7 +144,7 @@ SceUID sceKernelCreateMbx(const char *name, u32 attr, u32 optAddr)
 
 	if (optAddr != 0)
 		WARN_LOG(HLE, "%s(%s) unsupported options parameter: %08x", __FUNCTION__, name, optAddr);
-	if ((attr & ~SCE_KERNEL_MBA_THPRI) != 0)
+	if ((attr & ~SCE_KERNEL_MBA_ATTR_KNOWN) != 0)
 		WARN_LOG(HLE, "%s(%s) unsupported attr parameter: %08x", __FUNCTION__, name, attr);
 
 	return id;
@@ -207,7 +254,8 @@ void sceKernelReceiveMbx(SceUID id, u32 packetAddrPtr, u32 timeoutPtr)
 		DEBUG_LOG(HLE, "sceKernelReceiveMbx(%i, %08x, %08x): no message in queue, waiting", id, packetAddrPtr, timeoutPtr);
 		m->AddWaitingThread(__KernelGetCurThread(), packetAddrPtr);
 		RETURN(0);
-		__KernelWaitCurThread(WAITTYPE_MBX, id, 0, 0, false);
+		__KernelWaitMbx(m, timeoutPtr);
+		__KernelWaitCurThread(WAITTYPE_MBX, id, 0, timeoutPtr, false);
 	}
 }
 
@@ -236,7 +284,8 @@ void sceKernelReceiveMbxCB(SceUID id, u32 packetAddrPtr, u32 timeoutPtr)
 		DEBUG_LOG(HLE, "sceKernelReceiveMbxCB(%i, %08x, %08x): no message in queue, waiting", id, packetAddrPtr, timeoutPtr);
 		m->AddWaitingThread(__KernelGetCurThread(), packetAddrPtr);
 		RETURN(0);
-		__KernelWaitCurThread(WAITTYPE_MBX, id, 0, 0, true);
+		__KernelWaitMbx(m, timeoutPtr);
+		__KernelWaitCurThread(WAITTYPE_MBX, id, 0, timeoutPtr, true);
 	}
 }
 
@@ -281,7 +330,7 @@ int sceKernelCancelReceiveMbx(SceUID id, u32 numWaitingThreadsAddr)
 	for (size_t i = 0; i < m->waitingThreads.size(); i++)
 	{
 		Memory::Write_U32(0, m->waitingThreads[i].second);
-		__KernelResumeThreadFromWait(m->waitingThreads[i].first);
+		__KernelResumeThreadFromWait(m->waitingThreads[i].first, SCE_KERNEL_ERROR_WAIT_CANCEL);
 	}
 	m->waitingThreads.clear();
 
