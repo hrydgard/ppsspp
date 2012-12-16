@@ -25,6 +25,8 @@
 
 // TODO: when a thread is being resumed (message received or cancellation), sceKernelReceiveMbx() always returns 0
 
+typedef std::pair<SceUID, u32> MbxWaitingThread;
+
 struct NativeMbx
 {
 	SceSize size;
@@ -46,7 +48,7 @@ struct Mbx : public KernelObject
 	{
 		if (nmb.attr & SCE_KERNEL_MBA_THPRI)
 		{
-			for (std::vector<std::pair<SceUID, u32> >::iterator it = waitingThreads.begin(); it != waitingThreads.end(); it++)
+			for (std::vector<MbxWaitingThread>::iterator it = waitingThreads.begin(); it != waitingThreads.end(); it++)
 			{
 				if (__KernelGetThreadPrio(id) >= __KernelGetThreadPrio((*it).first))
 				{
@@ -63,23 +65,40 @@ struct Mbx : public KernelObject
 
 	NativeMbx nmb;
 
-	std::vector<std::pair<SceUID, u32> > waitingThreads;
+	std::vector<MbxWaitingThread> waitingThreads;
 	std::vector<u32> messageQueue;
 };
 
-SceUID sceKernelCreateMbx(const char *name, int memoryPartition, SceUInt attr, int size, u32 optAddr)
+SceUID sceKernelCreateMbx(const char *name, u32 attr, u32 optAddr)
 {
-	DEBUG_LOG(HLE, "sceKernelCreateMbx(%s, %i, %08x, %i, %08x)", name, memoryPartition, attr, size, optAddr);
+	if (!name)
+	{
+		WARN_LOG(HLE, "%08x=%s(): invalid name", SCE_KERNEL_ERROR_ERROR, __FUNCTION__);
+		return SCE_KERNEL_ERROR_ERROR;
+	}
+	if (attr >= 0x300)
+	{
+		WARN_LOG(HLE, "%08x=%s(): invalid attr parameter: %08x", SCE_KERNEL_ERROR_ILLEGAL_ATTR, __FUNCTION__, attr);
+		return SCE_KERNEL_ERROR_ILLEGAL_ATTR;
+	}
 
 	Mbx *m = new Mbx();
 	SceUID id = kernelObjects.Create(m);
 
 	m->nmb.size = sizeof(NativeMbx);
-	strncpy(m->nmb.name, name, sizeof(m->nmb.name));
+	strncpy(m->nmb.name, name, 31);
+	m->nmb.name[31] = 0;
 	m->nmb.attr = attr;
 	m->nmb.numWaitThreads = 0;
 	m->nmb.numMessages = 0;
 	m->nmb.packetListHead = 0;
+
+	DEBUG_LOG(HLE, "%i=sceKernelCreateMbx(%s, %08x, %08x)", id, name, attr, optAddr);
+
+	if (optAddr != 0)
+		WARN_LOG(HLE, "%s(%s) unsupported options parameter: %08x", __FUNCTION__, name, optAddr);
+	if ((attr & ~SCE_KERNEL_MBA_THPRI) != 0)
+		WARN_LOG(HLE, "%s(%s) unsupported attr parameter: %08x", __FUNCTION__, name, attr);
 
 	return id;
 }
@@ -94,8 +113,12 @@ int sceKernelDeleteMbx(SceUID id)
 		for (size_t i = 0; i < m->waitingThreads.size(); i++)
 		{
 			Memory::Write_U32(0, m->waitingThreads[i].second);
-			__KernelResumeThreadFromWait(m->waitingThreads[i].first);
+			__KernelResumeThreadFromWait(m->waitingThreads[i].first, SCE_KERNEL_ERROR_WAIT_DELETE);
 		}
+
+		if (!m->waitingThreads.empty())
+			hleReSchedule("mbx deleted");
+		m->waitingThreads.clear();
 	}
 	else
 	{
@@ -184,7 +207,7 @@ void sceKernelReceiveMbx(SceUID id, u32 packetAddrPtr, u32 timeoutPtr)
 		DEBUG_LOG(HLE, "sceKernelReceiveMbx(%i, %08x, %08x): no message in queue, waiting", id, packetAddrPtr, timeoutPtr);
 		m->AddWaitingThread(__KernelGetCurThread(), packetAddrPtr);
 		RETURN(0);
-		__KernelWaitCurThread(WAITTYPE_MBX, 0, 0, 0, false); // ?
+		__KernelWaitCurThread(WAITTYPE_MBX, id, 0, 0, false);
 	}
 }
 
@@ -211,9 +234,9 @@ void sceKernelReceiveMbxCB(SceUID id, u32 packetAddrPtr, u32 timeoutPtr)
 	else
 	{
 		DEBUG_LOG(HLE, "sceKernelReceiveMbxCB(%i, %08x, %08x): no message in queue, waiting", id, packetAddrPtr, timeoutPtr);
-		m->AddWaitingThread(id, packetAddrPtr);
+		m->AddWaitingThread(__KernelGetCurThread(), packetAddrPtr);
 		RETURN(0);
-		__KernelWaitCurThread(WAITTYPE_MBX, 0, 0, 0, true); // ?
+		__KernelWaitCurThread(WAITTYPE_MBX, id, 0, 0, true);
 	}
 }
 
@@ -281,6 +304,7 @@ int sceKernelReferMbxStatus(SceUID id, u32 infoAddr)
 	DEBUG_LOG(HLE, "sceKernelReferMbxStatus(%i, %08x)", id, infoAddr);
 	if (info)
 	{
+		info->size = m->nmb.size;
 		strncpy(info->name, m->nmb.name, 32);
 		info->attr = m->nmb.attr;
 		info->numWaitThreads = m->waitingThreads.size();
