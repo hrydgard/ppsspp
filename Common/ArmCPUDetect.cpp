@@ -19,6 +19,8 @@
 #include "CPUDetect.h"
 #include "StringUtil.h"
 
+// Only Linux platforms have /proc/cpuinfo
+#if !defined(BLACKBERRY) && !defined(IOS)
 const char procfile[] = "/proc/cpuinfo";
 
 char *GetCPUString()
@@ -68,8 +70,12 @@ bool CheckCPUFeature(const char *feature)
 	}
 	return false;
 }
+#endif
 int GetCoreCount()
 {
+#if defined(BLACKBERRY) || defined(IOS)
+	return 2;
+#else
 	const char marker[] = "processor\t: ";
 	int cores = 0;
 	char buf[1024];
@@ -86,6 +92,7 @@ int GetCoreCount()
 		++cores;
 	}
 	return cores;
+#endif
 }
 
 CPUInfo cpu_info;
@@ -106,8 +113,10 @@ void CPUInfo::Detect()
 	vendor = VENDOR_ARM;
 	
 	// Get the information about the CPU 
+	num_cores = GetCoreCount();
+// Hardcode this for now
+#if !defined(BLACKBERRY) && !defined(IOS)
 	strncpy(cpu_string, GetCPUString(), sizeof(cpu_string));
-	num_cores = GetCoreCount();	
 	bSwp = CheckCPUFeature("swp");
 	bHalf = CheckCPUFeature("half");
 	bThumb = CheckCPUFeature("thumb");
@@ -124,17 +133,37 @@ void CPUInfo::Detect()
 	// These two are ARMv8 specific.
 	bFP = CheckCPUFeature("fp");
 	bASIMD = CheckCPUFeature("asimd");
+#else
+	bSwp = true;
+	bHalf = true;
+	bThumb = false;
+	bFastMult = true;
+	bVFP = true;
+	bEDSP = true;
+	bThumbEE = true;
+	bNEON = true;
+	bVFPv3 = true;
+	bTLS = true;
+	bVFPv4 = false;
+	bIDIVa = false;
+	bIDIVt = false;
+	bFP = false;
+	bASIMD = false;
+#endif
 }
 
 // Turn the cpu info into a string we can show
 std::string CPUInfo::Summarize()
 {
 	std::string sum;
+#if defined(BLACKBERRY) || defined(IOS)
+	sum = StringFromFormat("%i cores", num_cores);
+#else
 	if (num_cores == 1)
 		sum = StringFromFormat("%s, %i core", cpu_string, num_cores);
 	else
 		sum = StringFromFormat("%s, %i cores", cpu_string, num_cores);
-
+#endif
 	if (bSwp) sum += ", SWP";
 	if (bHalf) sum += ", Half";
 	if (bThumb) sum += ", Thumb";
