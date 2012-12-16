@@ -91,12 +91,6 @@ public:
 		return *data_++;
 	}
 
-	void Loop() {
-		curSample = 0;
-		s_1 = 0;
-		s_2 = 0;
-	}
-
 private:
 	double samples[28];
 	int curSample;
@@ -155,6 +149,11 @@ struct SasVoice
 
 	int setPaused;
 
+	void Loop();
+	void Reset();
+
+	s16 resampleHist[2];
+
 	ADSREnvelope envelope;
 
 	VagDecoder vag;
@@ -163,8 +162,11 @@ struct SasVoice
 class SasInstance
 {
 public:
-	SasInstance() : mixBuffer(0), grainSize(256) {}
-
+	SasInstance() : mixBuffer(0), resampleBuffer(0), grainSize(0) {}
+	~SasInstance() {
+		delete [] mixBuffer;
+		delete [] resampleBuffer;
+	}
 	SasVoice voices[PSP_SAS_VOICES_MAX];
 	WaveformEffect waveformEffect;
 
@@ -174,6 +176,12 @@ public:
 		mixBuffer = new s32[newGrainSize * 2];
 		memset(mixBuffer, 0, sizeof(int) * newGrainSize * 2);
 		grainSize = newGrainSize;
+		if (resampleBuffer)
+			delete [] resampleBuffer;
+
+		// 2 samples padding at the start, that's where we copy the two last samples from the channel
+		// so that we can do bicubic resampling if necessary.
+		resampleBuffer = new s16[grainSize * 4 + 2];
 	}
 
 	int GetGrainSize() const { return grainSize; }
@@ -183,6 +191,7 @@ public:
 	int outputMode;
 	int length;
 
+	s16 *resampleBuffer;
 	int *mixBuffer;
 
 	void Mix(u32 outAddr);

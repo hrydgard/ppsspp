@@ -194,6 +194,7 @@ void __AudioUpdate()
 
 void __AudioSetOutputFrequency(int freq)
 {
+	WARN_LOG(HLE, "Switching audio frequency to %i", freq);
 	mixFrequency = freq;
 }
 

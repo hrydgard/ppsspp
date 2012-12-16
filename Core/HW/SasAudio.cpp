@@ -148,28 +148,54 @@ void SasInstance::Mix(u32 outAddr)
 		if (!voice.playing)
 			continue;
 
+		// TODO: Special case no-resample case for speed
+
 		if (voice.vagAddr != 0) {
-			for (int i = 0; i < grainSize; i++) {
+			// Load resample history (so we can use a wide filter)
+			resampleBuffer[0] = voice.resampleHist[0];
+			resampleBuffer[1] = voice.resampleHist[1];
+
+			// Figure out number of samples to read.
+			int curSample = voice.samplePos / PSP_SAS_PITCH_BASE;
+			int lastSample = (voice.samplePos + grainSize * voice.pitch) / PSP_SAS_PITCH_BASE;
+			int numSamples = lastSample - curSample;
+
+			// Read N samples into the resample buffer. Could do either PCM or VAG here.
+
+			for (int i = 0; i < numSamples; i++) {
 				int sample = voice.vag.GetSample();
-				voice.samplePos++;
 				if (voice.samplePos >= voice.vagSize || voice.vag.End()) {
 					if (voice.loop) {
-						voice.vag.Loop();
+						voice.Loop();
 					} else {
 						voice.playing = false;
+						// TODO: clear rest of buffer
+						memset(resampleBuffer, 0, (numSamples - i) * sizeof(resampleBuffer[0]));
 					}
 					break;
 				}
-				int l = sample * voice.volumeLeft >> 15;
-				int r = sample * voice.volumeRight >> 15;
+				resampleBuffer[i + 2] = sample;
+			}
+
+			// Save resample history
+			voice.resampleHist[0] = resampleBuffer[numSamples - 2];
+			voice.resampleHist[1] = resampleBuffer[numSamples - 1];
+
+			// Resample to the correct pitch, writing exactly "grainSize" samples.
+
+			int bufferPos = (voice.samplePos & (PSP_SAS_PITCH_BASE - 1)) + 2 * PSP_SAS_PITCH_BASE;
+			for (int i = 0; i < grainSize; i++) {
+				// For now: nearest neighbour, not even using the resample history at all.
+				int sample = resampleBuffer[bufferPos / PSP_SAS_PITCH_BASE];
+				bufferPos += voice.pitch;
 
 				// We mix into this 32-bit temp buffer and clip in a second loop
-				mixBuffer[i * 2] += l;
-				mixBuffer[i * 2 + 1] += r;
+				mixBuffer[i * 2] += sample * voice.volumeLeft >> 15;
+				mixBuffer[i * 2 + 1] += sample * voice.volumeRight >> 15;
 			}
 		}
 		else if (voice.pcmAddr != 0) {
-			// PCM mixing should be easy, can probably share code with VAG if we predecode those
+			// PCM mixing should be easy, can share code with VAG
 		}
 		else if (voice.noiseFreq != 0) {
 			// Generate noise?
@@ -184,5 +210,19 @@ void SasInstance::Mix(u32 outAddr)
 		if (sample > 32767) out[i] = 32767;
 		else if (sample < -32768) out[i] = -32768;
 		else out[i] = sample;
+	}
+}
+
+void SasVoice::Reset()
+{
+	resampleHist[0] = 0;
+	resampleHist[1] = 0;
+}
+
+void SasVoice::Loop()
+{
+	if (vagAddr) {
+		vag.Start(Memory::GetPointer(vagAddr));
+		samplePos = 0;
 	}
 }
