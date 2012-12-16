@@ -299,7 +299,7 @@ u32 sceRtcGetDayOfWeek(u32 year, u32 month, u32 day)
 		return 0;
 	}
 	year -= month < 3;
-	return ( year + year/4 - year/100 + year/400 + t[month-1] + day) % 7;
+	return (year + year/4 - year/100 + year/400 + t[month-1] + day) % 7;
 }
 
 u32 sceRtcGetDaysInMonth(u32 year, u32 month)
@@ -307,7 +307,7 @@ u32 sceRtcGetDaysInMonth(u32 year, u32 month)
 	DEBUG_LOG(HLE, "sceRtcGetDaysInMonth(%d, %d)", year, month);
 	u32 numberOfDays;
 
-	if (year <= 0 || month <= 0 || month > 12)
+	if (year == 0 || month == 0 || month > 12)
 		return SCE_KERNEL_ERROR_INVALID_ARGUMENT;
 
 	switch (month)
@@ -381,36 +381,32 @@ int sceRtcCheckValid(u32 datePtr)
 		ScePspDateTime pt;
 		Memory::ReadStruct(datePtr, &pt);
 		if (pt.year < 1 || pt.year > 9999)  
-		{	
-        	ret = PSP_TIME_INVALID_YEAR;
-        } 
+		{
+			ret = PSP_TIME_INVALID_YEAR;
+        }
 		else if (pt.month < 1 || pt.month > 12) 
 		{
-        	ret = PSP_TIME_INVALID_MONTH;
+			ret = PSP_TIME_INVALID_MONTH;
         } 
-		else if (pt.day < 1 || pt.day > 31) 
+		else if (pt.day < 1 || pt.day > 31) // TODO: Needs to check actual days in month, including leaps 
 		{
-        	ret = PSP_TIME_INVALID_DAY;
-        } 
-		else if (pt.day < 0 || pt.day > 31) // TODO: Needs to check actual days in month, including leaps 
-		{ 
-        	ret = PSP_TIME_INVALID_DAY;
+			ret = PSP_TIME_INVALID_DAY;
         }
-		else if (pt.hour < 0 || pt.hour > 23) 
+		else if (pt.hour > 23) 
 		{
-        	ret = PSP_TIME_INVALID_HOUR;
+			ret = PSP_TIME_INVALID_HOUR;
         } 
-		else if (pt.minute < 0 || pt.minute > 59) 
+		else if (pt.minute > 59) 
 		{
-        	ret = PSP_TIME_INVALID_MINUTES;
+			ret = PSP_TIME_INVALID_MINUTES;
         } 
-		else if (pt.second < 0 || pt.second > 59) 
+		else if (pt.second > 59) 
 		{
-        	ret = PSP_TIME_INVALID_SECONDS;
+			ret = PSP_TIME_INVALID_SECONDS;
         } 
-		else if (pt.microsecond < 0 || pt.microsecond >= 1000000) 
+		else if (pt.microsecond >= 1000000) 
 		{
-        	ret = PSP_TIME_INVALID_MICROSECONDS;
+			ret = PSP_TIME_INVALID_MICROSECONDS;
         } 
 	}
 	else
