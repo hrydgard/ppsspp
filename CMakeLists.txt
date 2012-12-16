@@ -889,7 +889,7 @@ set(NativeAppSource
 	android/jni/UIShader.cpp
 	android/jni/ui_atlas.cpp)
 set(NativeAssets
-	assets/ui_atlas.zim
+	android/assets/ui_atlas.zim
 	assets/ppge_atlas.zim)
 set(LinkCommon ${CoreLibName} ${CMAKE_THREAD_LIBS_INIT} ${nativeExtraLibs})
 
