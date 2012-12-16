@@ -70,6 +70,16 @@ static inline int readdir_r(DIR *dirp, struct dirent *entry, struct dirent **res
 }
 #endif
 
+// No thread safe
+#ifdef _WIN32
+inline struct tm* localtime_r (const time_t *clock, struct tm *result) {
+	if (!clock || !result) return NULL;
+	memcpy(result,localtime(clock),sizeof(*result));
+	return result;
+}
+#endif
+
+
 // This namespace has various generic functions related to files and paths.
 // The code still needs a ton of cleanup.
 // REMEMBER: strdup considered harmful!
@@ -344,6 +354,34 @@ bool Copy(const std::string &srcFilename, const std::string &destFilename)
 	fclose(output);
 	return true;
 #endif
+}
+
+tm GetModifTime(const std::string &filename)
+{
+	tm return_time;
+	if (!Exists(filename))
+	{
+		WARN_LOG(COMMON, "GetCreateTime: failed %s: No such file", filename.c_str());
+		return return_time;
+	}
+
+	if (IsDirectory(filename))
+	{
+		WARN_LOG(COMMON, "GetCreateTime: failed %s: is a directory", filename.c_str());
+		return return_time;
+	}
+	struct stat64 buf;
+	if (stat64(filename.c_str(), &buf) == 0)
+	{
+		DEBUG_LOG(COMMON, "GetCreateTime: %s: %lld",
+				filename.c_str(), (long long)buf.st_mtime);
+		localtime_r((time_t*)&buf.st_mtime,&return_time);
+		return return_time;
+	}
+
+	ERROR_LOG(COMMON, "GetCreateTime: Stat failed %s: %s",
+			filename.c_str(), GetLastErrorMsg());
+	return return_time;
 }
 
 // Returns the size of filename (64bit)

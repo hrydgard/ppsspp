@@ -18,11 +18,35 @@
 
 #pragma once
 
+#include <map>
 
-struct ParamSFOData
+class ParamSFOData
 {
-	std::string discID;
-	std::string title;  // utf-8
+public:
+	void SetValue(std::string key, unsigned int value, int max_size);
+	void SetValue(std::string key, std::string value, int max_size);
+
+	int GetValueInt(std::string key);
+	std::string GetValueString(std::string key);
+
+	bool ReadSFO(const u8 *paramsfo, size_t size);
+	bool WriteSFO(u8 **paramsfo, size_t *size);
+private:
+
+	enum ValueType
+	{
+		VT_INT,
+		VT_UTF8,
+		VT_UTF8_SPE
+	};
+	struct ValueData
+	{
+		ValueType type;
+		int max_size;
+		std::string s_value;
+		int i_value;
+	};
+
+	std::map<std::string,ValueData> values;
 };
 
-bool ParseParamSFO(const u8 *paramsfo, size_t size, ParamSFOData *data);

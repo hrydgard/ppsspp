@@ -277,6 +277,7 @@ PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename)
 	x.size = File::GetSize(fullName);
 	//TODO
 #endif
+	x.mtime = File::GetModifTime(fullName);
 
 	return x;
 }

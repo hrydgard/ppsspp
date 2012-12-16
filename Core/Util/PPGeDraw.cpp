@@ -27,8 +27,11 @@
 #include "gfx/texture_atlas.h"
 #include "gfx/gl_common.h"
 #include "../System.h"
+#include "MathUtil.h"
 
 static u32 atlasPtr;
+static int atlasWidth;
+static int atlasHeight;
 
 struct PPGeVertex {
 	u16 u, v;
@@ -78,11 +81,11 @@ static void BeginVertexData() {
 	vertexStart = dataWritePtr;
 }
 
-static void Vertex(float x, float y, float u, float v, u32 color = 0xFFFFFFFF)
+static void Vertex(float x, float y, float u, float v, int tw, int th, u32 color = 0xFFFFFFFF)
 {
 	PPGeVertex vtx;
 	vtx.x = x - 0.5f; vtx.y = y - 0.5f; vtx.z = 0;
-	vtx.u = u * 256 - 0.5f; vtx.v = v * 256 - 0.5f;
+	vtx.u = u * tw - 0.5f; vtx.v = v * th - 0.5f;
 	vtx.color = color;
 	Memory::WriteStruct(dataWritePtr, &vtx);
 	vertexCount++;
@@ -112,6 +115,8 @@ void __PPGeInit()
 	}
 
 	u32 atlasSize = height * width * 2;  // it's a 4444 texture
+	atlasWidth = width;
+	atlasHeight = height;
 	dlPtr = kernelMemory.Alloc(dlSize, false, "PPGe Display List");
 	dataPtr = kernelMemory.Alloc(dataSize, false, "PPGe Vertex Data");
 	atlasPtr = kernelMemory.Alloc(atlasSize, false, "PPGe Atlas Texture");
@@ -173,17 +178,7 @@ void PPGeBegin()
 	WriteCmd(GE_CMD_CULLFACEENABLE, 0);
 	WriteCmd(GE_CMD_CLEARMODE, 0);  // Normal mode
 
-	WriteCmd(GE_CMD_TEXTUREMAPENABLE, 1);
-	WriteCmd(GE_CMD_TEXSIZE0, 8 | (8 << 8));  // 1 << (7+1) = 256
-	WriteCmd(GE_CMD_TEXMAPMODE, 0 | (1 << 8));
-	WriteCmd(GE_CMD_TEXMODE, 0);
-	WriteCmd(GE_CMD_TEXFORMAT, 2);  // 4444
-	WriteCmd(GE_CMD_TEXFILTER, (1 << 8) | 1);   // mag = LINEAR min = LINEAR
-	WriteCmd(GE_CMD_TEXWRAP, (1 << 8) | 1);  // clamp texture wrapping
-	WriteCmd(GE_CMD_TEXFUNC, (0 << 16) | (1 << 8) | 0);  // RGBA texture reads, modulate, no color doubling
-	WriteCmd(GE_CMD_TEXADDR0, atlasPtr & 0xFFFFF0);
-	WriteCmd(GE_CMD_TEXBUFWIDTH0, 256 | ((atlasPtr & 0xFF000000) >> 8));
-	WriteCmd(GE_CMD_TEXFLUSH, 0);
+	PPGeSetDefaultTexture();
 
 	WriteCmd(GE_CMD_SCISSOR1, (0 << 10) | 0);
 	WriteCmd(GE_CMD_SCISSOR2, (1023 << 10) | 1023);
@@ -271,8 +266,8 @@ void PPGeDrawText(const char *text, float x, float y, int align, float scale, u3
 		float cy1 = y + c.oy * scale;
 		float cx2 = x + (c.ox + c.pw) * scale;
 		float cy2 = y + (c.oy + c.ph) * scale;
-		Vertex(cx1, cy1, c.sx, c.sy, color);
-		Vertex(cx2, cy2, c.ex, c.ey, color);
+		Vertex(cx1, cy1, c.sx, c.sy, 256, 256, color);
+		Vertex(cx2, cy2, c.ex, c.ey, 256, 256, color);
 		x += c.wx * scale;
 	}
 	EndVertexDataAndDraw(GE_PRIM_RECTANGLES);
@@ -296,26 +291,26 @@ void PPGeDraw4Patch(int atlasImage, float x, float y, float w, float h, u32 colo
 	float y2 = y + h;
 	BeginVertexData();
 	// Top row
-	Vertex(x, y, u1, v1, color);
-	Vertex(xmid1, ymid1, uhalf, vhalf, color);
-	Vertex(xmid1, y, uhalf, v1, color);
-	Vertex(xmid2, ymid1, uhalf, vhalf, color);
-	Vertex(xmid2, y, uhalf, v1, color);
-	Vertex(x2, ymid1, u2, vhalf, color);
+	Vertex(x, y, u1, v1, atlasWidth, atlasHeight, color);
+	Vertex(xmid1, ymid1, uhalf, vhalf, atlasWidth, atlasHeight, color);
+	Vertex(xmid1, y, uhalf, v1, atlasWidth, atlasHeight, color);
+	Vertex(xmid2, ymid1, uhalf, vhalf, atlasWidth, atlasHeight, color);
+	Vertex(xmid2, y, uhalf, v1, atlasWidth, atlasHeight, color);
+	Vertex(x2, ymid1, u2, vhalf, atlasWidth, atlasHeight, color);
 	// Middle row
-	Vertex(x, ymid1, u1, vhalf, color);
-	Vertex(xmid1, ymid2, uhalf, vhalf, color);
-	Vertex(xmid1, ymid1, uhalf, vhalf, color);
-	Vertex(xmid2, ymid2, uhalf, vhalf, color);
-	Vertex(xmid2, ymid1, uhalf, vhalf, color);
-	Vertex(x2, ymid2, u2, v2, color);
+	Vertex(x, ymid1, u1, vhalf, atlasWidth, atlasHeight, color);
+	Vertex(xmid1, ymid2, uhalf, vhalf, atlasWidth, atlasHeight, color);
+	Vertex(xmid1, ymid1, uhalf, vhalf, atlasWidth, atlasHeight, color);
+	Vertex(xmid2, ymid2, uhalf, vhalf, atlasWidth, atlasHeight, color);
+	Vertex(xmid2, ymid1, uhalf, vhalf, atlasWidth, atlasHeight, color);
+	Vertex(x2, ymid2, u2, v2, atlasWidth, atlasHeight, color);
 	// Bottom row
-	Vertex(x, ymid2, u1, vhalf, color);
-	Vertex(xmid1, y2, uhalf, v2, color);
-	Vertex(xmid1, ymid2, uhalf, vhalf, color);
-	Vertex(xmid2, y2, uhalf, v2, color);
-	Vertex(xmid2, ymid2, uhalf, vhalf, color);
-	Vertex(x2, y2, u2, v2, color);
+	Vertex(x, ymid2, u1, vhalf, atlasWidth, atlasHeight, color);
+	Vertex(xmid1, y2, uhalf, v2, atlasWidth, atlasHeight, color);
+	Vertex(xmid1, ymid2, uhalf, vhalf, atlasWidth, atlasHeight, color);
+	Vertex(xmid2, y2, uhalf, v2, atlasWidth, atlasHeight, color);
+	Vertex(xmid2, ymid2, uhalf, vhalf, atlasWidth, atlasHeight, color);
+	Vertex(x2, y2, u2, v2, atlasWidth, atlasHeight, color);
 	EndVertexDataAndDraw(GE_PRIM_RECTANGLES);
 }
 
@@ -329,8 +324,8 @@ void PPGeDrawImage(int atlasImage, float x, float y, int align, u32 color)
 	float w = img.w;
 	float h = img.h;
 	BeginVertexData();
-	Vertex(x, y, img.u1, img.v1, color);
-	Vertex(x + w, y + h, img.u2, img.v2, color);
+	Vertex(x, y, img.u1, img.v1, atlasWidth, atlasHeight, color);
+	Vertex(x + w, y + h, img.u2, img.v2, atlasWidth, atlasHeight, color);
 	EndVertexDataAndDraw(GE_PRIM_RECTANGLES);
 }
 
@@ -341,8 +336,57 @@ void PPGeDrawImage(int atlasImage, float x, float y, float w, float h, int align
 
 	const AtlasImage &img = ppge_atlas.images[atlasImage];
 	BeginVertexData();
-	Vertex(x, y, img.u1, img.v1, color);
-	Vertex(x + w, y + h, img.u2, img.v2, color);
+	Vertex(x, y, img.u1, img.v1, atlasWidth, atlasHeight, color);
+	Vertex(x + w, y + h, img.u2, img.v2, atlasWidth, atlasHeight, color);
 	EndVertexDataAndDraw(GE_PRIM_RECTANGLES);
+}
+
+void PPGeDrawImage(float x, float y, float w, float h, float u1, float v1, float u2, float v2, int tw, int th, u32 color)
+{
+	if (!dlPtr)
+		return;
+	BeginVertexData();
+	Vertex(x, y, u1, v1, tw, th, color);
+	Vertex(x + w, y + h, u2, v2, tw, th, color);
+	EndVertexDataAndDraw(GE_PRIM_RECTANGLES);
+}
+
+void PPGeSetDefaultTexture()
+{
+	WriteCmd(GE_CMD_TEXTUREMAPENABLE, 1);
+	int wp2 = GetPow2(atlasWidth);
+	int hp2 = GetPow2(atlasHeight);
+	WriteCmd(GE_CMD_TEXSIZE0, wp2 | (hp2 << 8));  // 1 << (7+1) = 256
+	WriteCmd(GE_CMD_TEXMAPMODE, 0 | (1 << 8));
+	WriteCmd(GE_CMD_TEXMODE, 0);
+	WriteCmd(GE_CMD_TEXFORMAT, 2);  // 4444
+	WriteCmd(GE_CMD_TEXFILTER, (1 << 8) | 1);   // mag = LINEAR min = LINEAR
+	WriteCmd(GE_CMD_TEXWRAP, (1 << 8) | 1);  // clamp texture wrapping
+	WriteCmd(GE_CMD_TEXFUNC, (0 << 16) | (1 << 8) | 0);  // RGBA texture reads, modulate, no color doubling
+	WriteCmd(GE_CMD_TEXADDR0, atlasPtr & 0xFFFFF0);
+	WriteCmd(GE_CMD_TEXBUFWIDTH0, atlasWidth | ((atlasPtr & 0xFF000000) >> 8));
+	WriteCmd(GE_CMD_TEXFLUSH, 0);
+}
+
+void PPGeSetTexture(u32 dataAddr, int width, int height)
+{
+	WriteCmd(GE_CMD_TEXTUREMAPENABLE, 1);
+	int wp2 = GetPow2(width);
+	int hp2 = GetPow2(height);
+	WriteCmd(GE_CMD_TEXSIZE0, wp2 | (hp2 << 8));  // 1 << (7+1) = 256
+	WriteCmd(GE_CMD_TEXMAPMODE, 0 | (1 << 8));
+	WriteCmd(GE_CMD_TEXMODE, 0);
+	WriteCmd(GE_CMD_TEXFORMAT, GE_TFMT_8888);  // 4444
+	WriteCmd(GE_CMD_TEXFILTER, (1 << 8) | 1);   // mag = LINEAR min = LINEAR
+	WriteCmd(GE_CMD_TEXWRAP, (1 << 8) | 1);  // clamp texture wrapping
+	WriteCmd(GE_CMD_TEXFUNC, (0 << 16) | (1 << 8) | 0);  // RGBA texture reads, modulate, no color doubling
+	WriteCmd(GE_CMD_TEXADDR0, dataAddr & 0xFFFFF0);
+	WriteCmd(GE_CMD_TEXBUFWIDTH0, width | ((dataAddr & 0xFF000000) >> 8));
+	WriteCmd(GE_CMD_TEXFLUSH, 0);
+}
+
+void PPGeDisableTexture()
+{
+	WriteCmd(GE_CMD_TEXTUREMAPENABLE, 0);
 }
 
