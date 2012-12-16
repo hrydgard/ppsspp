@@ -38,16 +38,16 @@ std::recursive_mutex section;
 
 int eventAudioUpdate = -1;
 int eventHostAudioUpdate = -1;
-int mixFrequency = 44100;
-const int hwSampleRate = 44100;
+int mixFrequency = 48000;
+const int hwSampleRate = 48000;
 const int hwBlockSize = 480;
 const int hostAttemptBlockSize = 64;
 const int audioIntervalUs = (int)(1000000ULL * hwBlockSize / hwSampleRate);
 const int audioHostIntervalUs = (int)(1000000ULL * hostAttemptBlockSize / hwSampleRate);
 
 // High and low watermarks, basically.
-const int chanQueueMaxSizeFactor = 4;
-const int chanQueueMinSizeFactor = 2;
+const int chanQueueMaxSizeFactor = 24;
+const int chanQueueMinSizeFactor = 1;
 
 FixedSizeQueue<s16, hwBlockSize * 8> outAudioQueue;
 
@@ -67,7 +67,7 @@ void hleHostAudioUpdate(u64 userdata, int cyclesLate)
 
 void __AudioInit()
 {
-	mixFrequency = 44100;
+	mixFrequency = 48000;
 
 	eventAudioUpdate = CoreTiming::RegisterEvent("AudioUpdate", &hleAudioUpdate);
 	eventHostAudioUpdate = CoreTiming::RegisterEvent("AudioUpdateHost", &hleHostAudioUpdate);
