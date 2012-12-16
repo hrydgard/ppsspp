@@ -727,6 +727,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceVaudio.h
 	Core/HW/MemoryStick.cpp
 	Core/HW/MemoryStick.h
+	Core/HW/SasAudio.cpp
+	Core/HW/SasAudio.h
 	Core/Host.cpp
 	Core/Host.h
 	Core/Loaders.cpp

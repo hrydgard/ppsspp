@@ -342,6 +342,9 @@
     <ClCompile Include="Dialog\PSPOskDialog.cpp">
       <Filter>Dialog</Filter>
     </ClCompile>
+    <ClCompile Include="HW\SasAudio.cpp">
+      <Filter>HW</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -628,6 +631,9 @@
     </ClInclude>
     <ClInclude Include="Dialog\PSPOskDialog.h">
       <Filter>Dialog</Filter>
+    </ClInclude>
+    <ClInclude Include="HW\SasAudio.h">
+      <Filter>HW</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

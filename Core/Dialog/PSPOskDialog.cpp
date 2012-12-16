@@ -232,7 +232,7 @@ void PSPOskDialog::Update()
 	Memory::Write_U16(0x0030,oskData.outtextPtr+12);
 	oskData.outtextlength = 6;
 	oskParams.base.result= 0;
-	oskData.result = SceUtilityOskResult::PSP_UTILITY_OSK_RESULT_CHANGED;
+	oskData.result = PSP_UTILITY_OSK_RESULT_CHANGED;
 	Memory::WriteStruct(oskParams.SceUtilityOskDataPtr, &oskData);
 	Memory::WriteStruct(oskParamsAddr, &oskParams);
 }

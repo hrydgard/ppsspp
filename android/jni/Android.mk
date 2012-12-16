@@ -83,6 +83,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/ELF/PrxDecrypter.cpp \
   $(SRC)/Core/ELF/ParamSFO.cpp \
   $(SRC)/Core/HW/MemoryStick.cpp \
+  $(SRC)/Core/HW/SasAudio.cpp \
   $(SRC)/Core/Core.cpp \
   $(SRC)/Core/Config.cpp \
   $(SRC)/Core/CoreTiming.cpp \
