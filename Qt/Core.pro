@@ -80,9 +80,11 @@ SOURCES += ../Core/MIPS/ARM/Asm.cpp \ #CoreARM
 			../Core/HLE/sceSsl.cpp \
 			../Core/HLE/scesupPreAcc.cpp \
 			../Core/HLE/sceUmd.cpp \
+			../Core/HLE/sceUsb.cpp \
 			../Core/HLE/sceUtility.cpp \
 			../Core/HLE/sceVaudio.cpp \
 			../Core/HW/MemoryStick.cpp \
+			../Core/HW/SasAudio.cpp \
 			../Core/Host.cpp \
 			../Core/Loaders.cpp \
 			../Core/MIPS/JitCommon/JitCommon.cpp \
@@ -186,9 +188,11 @@ HEADERS += ../Core/MIPS/ARM/Asm.h \
 			../Core/HLE/sceSsl.h \
 			../Core/HLE/scesupPreAcc.h \
 			../Core/HLE/sceUmd.h \
+			../Core/HLE/sceUsb.h \
 			../Core/HLE/sceUtility.h \
 			../Core/HLE/sceVaudio.h \
 			../Core/HW/MemoryStick.h \
+			../Core/HW/SasAudio.h \
 			../Core/Host.h \
 			../Core/Loaders.h \
 			../Core/MIPS/JitCommon/JitCommon.h \
