@@ -121,7 +121,7 @@ struct SceUtilitySavedataParam
 struct SaveFileInfo
 {
 	int size;
-	char* saveName;
+	std::string saveName;
 	int idx;
 
 	char title[128];

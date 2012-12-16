@@ -433,6 +433,95 @@ void SavedataParam::SetPspParam(SceUtilitySavedataParam* param)
 		}
 		saveNameListDataCount = realCount;
 	}
+	else // Load info on only save
+	{
+		saveNameListData == 0;
+
+		Clear();
+		saveDataList = new SaveFileInfo[1];
+
+		// get and stock file info for each file
+		DEBUG_LOG(HLE,"Name : %s",GetSaveName(param).c_str());
+
+		std::string fileDataPath = savePath+GetGameName(param)+GetSaveName(param)+"/"+param->fileName;
+		PSPFileInfo info = pspFileSystem.GetFileInfo(fileDataPath);
+		if(info.exists)
+		{
+			saveDataList[0].size = info.size;
+			saveDataList[0].saveName = GetSaveName(param);
+			saveDataList[0].idx = 0;
+			saveDataList[0].modif_time = info.mtime;
+
+			// Search save image icon0
+			// TODO : If icon0 don't exist, need to use icon1 which is a moving icon. Also play sound
+			std::string fileDataPath2 = savePath+GetGameName(param)+GetSaveName(param)+"/"+icon0Name;
+			PSPFileInfo info2 = pspFileSystem.GetFileInfo(fileDataPath2);
+			if(info2.exists)
+			{
+				u8* textureDataPNG = new u8[info2.size];
+				int handle = pspFileSystem.OpenFile(fileDataPath2,FILEACCESS_READ);
+				pspFileSystem.ReadFile(handle,textureDataPNG,info2.size);
+				pspFileSystem.CloseFile(handle);
+				unsigned char* textureData;
+				int w,h;
+				pngLoadPtr(textureDataPNG, info2.size, &w, &h, &textureData, false);
+				delete[] textureDataPNG;
+				u32 texSize = w*h*4;
+				u32 atlasPtr = kernelMemory.Alloc(texSize, true, "SaveData Icon");
+				saveDataList[0].textureData = atlasPtr;
+				Memory::Memcpy(atlasPtr, textureData, texSize);
+				free(textureData);
+				saveDataList[0].textureWidth = w;
+				saveDataList[0].textureHeight = h;
+			}
+			else
+			{
+				saveDataList[0].textureData = 0;
+			}
+
+			// Load info in PARAM.SFO
+			fileDataPath2 = savePath+GetGameName(param)+GetSaveName(param)+"/"+sfoName;
+			info2 = pspFileSystem.GetFileInfo(fileDataPath2);
+			if(info2.exists)
+			{
+				u8* sfoParam = new u8[info2.size];
+				int handle = pspFileSystem.OpenFile(fileDataPath2,FILEACCESS_READ);
+				pspFileSystem.ReadFile(handle,sfoParam,info2.size);
+				pspFileSystem.CloseFile(handle);
+				ParamSFOData sfoFile;
+				if(sfoFile.ReadSFO(sfoParam,info2.size))
+				{
+					std::string title = sfoFile.GetValueString("TITLE");
+					memcpy(saveDataList[0].title,title.c_str(),title.size());
+					saveDataList[0].title[title.size()] = 0;
+
+					std::string savetitle = sfoFile.GetValueString("SAVEDATA_TITLE");
+					memcpy(saveDataList[0].saveTitle,savetitle.c_str(),savetitle.size());
+					saveDataList[0].saveTitle[savetitle.size()] = 0;
+
+					std::string savedetail = sfoFile.GetValueString("SAVEDATA_DETAIL");
+					memcpy(saveDataList[0].saveDetail,savedetail.c_str(),savedetail.size());
+					saveDataList[0].saveDetail[savedetail.size()] = 0;
+				}
+				delete sfoParam;
+			}
+
+			DEBUG_LOG(HLE,"%s Exist",fileDataPath.c_str());
+			saveNameListDataCount = 1;
+		}
+		else
+		{
+			if(listEmptyFile)
+			{
+				saveDataList[0].size = 0;
+				saveDataList[0].saveName = GetSaveName(param);
+				saveDataList[0].idx = 0;
+				saveDataList[0].textureData = 0;
+				DEBUG_LOG(HLE,"Don't Exist");
+			}
+			saveNameListDataCount = 0;
+		}
+	}
 }
 
 SceUtilitySavedataParam* SavedataParam::GetPspParam()
@@ -451,10 +540,7 @@ const SaveFileInfo& SavedataParam::GetFileInfo(int idx)
 }
 std::string SavedataParam::GetFilename(int idx)
 {
-	char fileName[21];
-	memcpy(fileName,saveDataList[idx].saveName,20);
-	fileName[20] = 0;
-	return fileName;
+	return saveDataList[idx].saveName;
 }
 
 int SavedataParam::GetSelectedSave()
