@@ -149,7 +149,7 @@ int sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr)
 		if (newCount > s->ns.maxCount)
 			return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
 
-		if (numWaitThreadsPtr)
+		if (Memory::IsValidAddress(numWaitThreadsPtr))
 			Memory::Write_U32(s->ns.numWaitThreads, numWaitThreadsPtr);
 
 		if (newCount < 0)
@@ -177,7 +177,15 @@ int sceKernelCreateSema(const char* name, u32 attr, int initVal, int maxVal, u32
 		__KernelSemaInit();
 
 	if (!name)
+	{
+		WARN_LOG(HLE, "%08x=sceKernelCreateSema(): invalid name", SCE_KERNEL_ERROR_ERROR);
 		return SCE_KERNEL_ERROR_ERROR;
+	}
+	if (attr >= 0x200)
+	{
+		WARN_LOG(HLE, "%08x=sceKernelCreateSema(): invalid attr parameter: %08x", SCE_KERNEL_ERROR_ILLEGAL_ATTR, attr);
+		return SCE_KERNEL_ERROR_ILLEGAL_ATTR;
+	}
 
 	Semaphore *s = new Semaphore;
 	SceUID id = kernelObjects.Create(s);
@@ -194,7 +202,9 @@ int sceKernelCreateSema(const char* name, u32 attr, int initVal, int maxVal, u32
 	DEBUG_LOG(HLE, "%i=sceKernelCreateSema(%s, %08x, %i, %i, %08x)", id, s->ns.name, s->ns.attr, s->ns.initCount, s->ns.maxCount, optionPtr);
 
 	if (optionPtr != 0)
-		WARN_LOG(HLE, "sceKernelCreateSema(%s) unsupported options parameter.", name);
+		WARN_LOG(HLE, "sceKernelCreateSema(%s) unsupported options parameter: %08x", name, optionPtr);
+	if ((attr & ~PSP_SEMA_ATTR_PRIORITY) != 0)
+		WARN_LOG(HLE, "sceKernelCreateSema(%s) unsupported attr parameter: %08x", name, attr);
 
 	return id;
 }
@@ -296,6 +306,9 @@ void __KernelSemaTimeout(u64 userdata, int cycleslate)
 	if (s)
 	{
 		// This thread isn't waiting anymore, but we'll remove it from waitingThreads later.
+		// The reason is, if it times out, but what it was waiting on is DELETED prior to it
+		// actually running, it will get a DELETE result instead of a TIMEOUT.
+		// So, we need to remember it or we won't be able to mark it DELETE instead later.
 		s->ns.numWaitThreads--;
 	}
 

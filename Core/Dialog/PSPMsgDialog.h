@@ -24,20 +24,6 @@
 #define SCE_UTILITY_MSGDIALOG_OPTION_YESNO				0x00000010
 #define SCE_UTILITY_MSGDIALOG_OPTION_DEFAULT_NO			0x00000100
 
-typedef struct
-{
-	unsigned int size;	/** Size of the structure */
-	int language;		/** Language */
-	int buttonSwap;		/** Set to 1 for X/O button swap */
-	int graphicsThread;	/** Graphics thread priority */
-	int accessThread;	/** Access/fileio thread priority (SceJobThread) */
-	int fontThread;		/** Font thread priority (ScePafThread) */
-	int soundThread;	/** Sound thread priority */
-	int result;			/** Result */
-	int reserved[4];	/** Set to 0 */
-
-} pspUtilityDialogCommon;
-
 struct pspMessageDialog
 {
 	pspUtilityDialogCommon common;
@@ -60,7 +46,6 @@ public:
 	void Shutdown();
 
 private :
-	void DisplayMessage(std::string text);
 	void DisplayBack();
 	void DisplayYesNo();
 	void DisplayEnterBack();

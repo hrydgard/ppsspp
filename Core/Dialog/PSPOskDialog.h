@@ -17,12 +17,16 @@
 
 #pragma once
 
-int sceKernelCreateEventFlag(const char *name, u32 flag_attr, u32 flag_initPattern, u32 optPtr);
-u32 sceKernelClearEventFlag(SceUID id, u32 bits);
-u32 sceKernelDeleteEventFlag(SceUID uid);
-u32 sceKernelSetEventFlag(SceUID id, u32 bitsToSet);
-int sceKernelWaitEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 timeoutPtr);
-int sceKernelWaitEventFlagCB(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 timeoutPtr);
-int sceKernelPollEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 timeoutPtr);
-u32 sceKernelReferEventFlagStatus(SceUID id, u32 statusPtr);
-u32 sceKernelCancelEventFlag(SceUID uid, u32 pattern, u32 numWaitThreadsPtr);
+#include "PSPDialog.h"
+#include "../Core/MemMap.h"
+class PSPOskDialog: public PSPDialog {
+public:
+	PSPOskDialog();
+	virtual ~PSPOskDialog();
+
+	virtual int Init(u32 oskPtr);
+	virtual void Update();
+private:
+	void HackyGetStringWide(std::string& _string, const u32 em_address);
+};
+
