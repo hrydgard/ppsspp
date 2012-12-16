@@ -20,7 +20,14 @@
 
 #include "Common.h"
 
+#ifndef ANDROID
+#define USE_SSE
+#endif
+
+#ifdef USE_SSE
 #include <xmmintrin.h>
+#endif
+
 #include <vector>
 
 namespace MathUtil
@@ -146,6 +153,8 @@ struct Rectangle
 
 inline float pow2f(float x) {return x * x;}
 inline double pow2(double x) {return x * x;}
+int Pow2roundup(int x);
+int GetPow2(int x);
 
 
 /*
@@ -162,7 +171,6 @@ float MathFloatVectorSum(const std::vector<float>&);
 
 #define ROUND_UP(x, a)		(((x) + (a) - 1) & ~((a) - 1))
 #define ROUND_DOWN(x, a)	((x) & ~((a) - 1))
-
 
 // Tiny matrix/vector library.
 // Used for things like Free-Look in the gfx backend.

@@ -561,6 +561,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_TEXTUREMAPENABLE: 
+		gstate_c.textureChanged = true;
 		DEBUG_LOG(G3D, "DL Texture map enable: %i", data);
 		break;
 

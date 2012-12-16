@@ -121,8 +121,18 @@ struct SceUtilitySavedataParam
 struct SaveFileInfo
 {
 	int size;
-	char* saveName;
+	std::string saveName;
 	int idx;
+
+	char title[128];
+	char saveTitle[128];
+	char saveDetail[1024];
+
+	tm modif_time;
+
+	u32 textureData;
+	int textureWidth;
+	int textureHeight;
 };
 
 class SavedataParam
@@ -130,6 +140,7 @@ class SavedataParam
 public:
 	static void Init();
 	std::string GetSaveFilePath(SceUtilitySavedataParam* param, int saveId = -1);
+	std::string GetSaveDir(SceUtilitySavedataParam* param, int saveId = -1);
 	bool Delete(SceUtilitySavedataParam* param, int saveId = -1);
 	bool Save(SceUtilitySavedataParam* param, int saveId = -1);
 	bool Load(SceUtilitySavedataParam* param, int saveId = -1);
@@ -153,6 +164,8 @@ public:
 	void SetSelectedSave(int idx);
 
 private:
+	void Clear();
+
 	SceUtilitySavedataParam* pspParam;
 	int selectedSave;
 	char (*saveNameListData)[20];
