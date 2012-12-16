@@ -1,6 +1,12 @@
 set(SRCS
   Debugger/Breakpoints.cpp
   Debugger/SymbolMap.cpp
+  Dialog/PSPDialog.cpp
+  Dialog/PSPMsgDialog.cpp
+  Dialog/PSPPlaceholderDialog.cpp
+  Dialog/PSPSaveDialog.cpp
+  Dialog/SavedataParam.cpp
+  Dialog/PSPOskDialog.cpp
   MIPS/MIPS.cpp
   MIPS/MIPSAnalyst.cpp
   MIPS/MIPSCodeUtils.cpp

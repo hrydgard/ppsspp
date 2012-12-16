@@ -609,6 +609,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Dialog/PSPDialog.h
 	Core/Dialog/PSPMsgDialog.cpp
 	Core/Dialog/PSPMsgDialog.h
+	Core/Dialog/PSPOskDialog.cpp
+	Core/Dialog/PSPOskDialog.h
 	Core/Dialog/PSPPlaceholderDialog.cpp
 	Core/Dialog/PSPPlaceholderDialog.h
 	Core/Dialog/PSPSaveDialog.cpp
