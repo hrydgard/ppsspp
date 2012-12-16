@@ -25,8 +25,6 @@
 #define SCE_KERNEL_MBA_MSPRI 0x400
 #define SCE_KERNEL_MBA_ATTR_KNOWN (SCE_KERNEL_MBA_THPRI | SCE_KERNEL_MBA_MSPRI)
 
-// TODO: when a thread is being resumed (message received or cancellation), sceKernelReceiveMbx() always returns 0
-
 typedef std::pair<SceUID, u32> MbxWaitingThread;
 void __KernelMbxTimeout(u64 userdata, int cyclesLate);
 
@@ -82,6 +80,36 @@ void __KernelMbxInit()
 	mbxInitComplete = true;
 }
 
+bool __KernelUnlockMbxForThread(Mbx *m, MbxWaitingThread &th, u32 &error, int result, bool &wokeThreads)
+{
+	SceUID waitID = __KernelGetWaitID(th.first, WAITTYPE_MBX, error);
+	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(th.first, error);
+
+	// The waitID may be different after a timeout.
+	if (waitID != m->GetUID())
+		return true;
+
+	if (result == 0)
+		m->nmb.numWaitThreads--;
+	else
+	{
+		// Null it out since nothing was received.
+		if (Memory::IsValidAddress(th.second))
+			Memory::Write_U32(0, th.second);
+	}
+
+	if (timeoutPtr != 0 && mbxWaitTimer != 0)
+	{
+		// Remove any event for this thread.
+		u64 cyclesLeft = CoreTiming::UnscheduleEvent(mbxWaitTimer, th.first);
+		Memory::Write_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
+	}
+
+	__KernelResumeThreadFromWait(th.first, result);
+	wokeThreads = true;
+	return true;
+}
+
 void __KernelMbxTimeout(u64 userdata, int cyclesLate)
 {
 	SceUID threadID = (SceUID)userdata;
@@ -91,8 +119,18 @@ void __KernelMbxTimeout(u64 userdata, int cyclesLate)
 	if (timeoutPtr != 0)
 		Memory::Write_U32(0, timeoutPtr);
 
+	SceUID mbxID = __KernelGetWaitID(threadID, WAITTYPE_SEMA, error);
+	Mbx *m = kernelObjects.Get<Mbx>(mbxID, error);
+	if (m)
+	{
+		// This thread isn't waiting anymore, but we'll remove it from waitingThreads later.
+		// The reason is, if it times out, but what it was waiting on is DELETED prior to it
+		// actually running, it will get a DELETE result instead of a TIMEOUT.
+		// So, we need to remember it or we won't be able to mark it DELETE instead later.
+		m->nmb.numWaitThreads--;
+	}
+
 	__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
-	// TODO: waitingThreads (but not here.)
 }
 
 void __KernelWaitMbx(Mbx *m, u32 timeoutPtr)
@@ -110,6 +148,19 @@ void __KernelWaitMbx(Mbx *m, u32 timeoutPtr)
 
 	// This should call __KernelMbxTimeout() later, unless we cancel it.
 	CoreTiming::ScheduleEvent(usToCycles(micro), mbxWaitTimer, __KernelGetCurThread());
+}
+
+void __KernelMbxRemoveThread(Mbx *m, SceUID threadID)
+{
+	for (size_t i = 0; i < m->waitingThreads.size(); i++)
+	{
+		MbxWaitingThread *t = &m->waitingThreads[i];
+		if (t->first == threadID)
+		{
+			m->waitingThreads.erase(m->waitingThreads.begin() + i);
+			break;
+		}
+	}
 }
 
 SceUID sceKernelCreateMbx(const char *name, u32 attr, u32 optAddr)
@@ -157,15 +208,14 @@ int sceKernelDeleteMbx(SceUID id)
 	if (m)
 	{
 		DEBUG_LOG(HLE, "sceKernelDeleteMbx(%i)", id);
-		for (size_t i = 0; i < m->waitingThreads.size(); i++)
-		{
-			Memory::Write_U32(0, m->waitingThreads[i].second);
-			__KernelResumeThreadFromWait(m->waitingThreads[i].first, SCE_KERNEL_ERROR_WAIT_DELETE);
-		}
 
-		if (!m->waitingThreads.empty())
-			hleReSchedule("mbx deleted");
+		bool wokeThreads;
+		for (size_t i = 0; i < m->waitingThreads.size(); i++)
+			__KernelUnlockMbxForThread(m, m->waitingThreads[i], error, SCE_KERNEL_ERROR_WAIT_DELETE, wokeThreads);
 		m->waitingThreads.clear();
+
+		if (wokeThreads)
+			hleReSchedule("mbx deleted");
 	}
 	else
 	{
@@ -216,12 +266,13 @@ void sceKernelSendMbx(SceUID id, u32 packetAddr)
 	}
 	else if (m->messageQueue.empty())
 	{
+		//__KernelUnlockMbxForThread(m, m->waitingThreads[i], error, SCE_KERNEL_ERROR_WAIT_DELETE, wokeThreads);
 		Memory::Write_U32(packetAddr, m->waitingThreads.front().second);
-		__KernelResumeThreadFromWait(m->waitingThreads.front().first);
+		__KernelResumeThreadFromWait(m->waitingThreads.front().first, 0);
 		DEBUG_LOG(HLE, "sceKernelSendMbx(%i, %08x): threads waiting, resuming %d", id, packetAddr, m->waitingThreads.front().first);
 		m->waitingThreads.erase(m->waitingThreads.begin());
 		RETURN(0);
-		__KernelReSchedule();
+		hleReSchedule("mbx sent");
 	}
 	else
 	{
@@ -252,6 +303,7 @@ void sceKernelReceiveMbx(SceUID id, u32 packetAddrPtr, u32 timeoutPtr)
 	else
 	{
 		DEBUG_LOG(HLE, "sceKernelReceiveMbx(%i, %08x, %08x): no message in queue, waiting", id, packetAddrPtr, timeoutPtr);
+		__KernelMbxRemoveThread(m, __KernelGetCurThread());
 		m->AddWaitingThread(__KernelGetCurThread(), packetAddrPtr);
 		RETURN(0);
 		__KernelWaitMbx(m, timeoutPtr);
@@ -263,7 +315,6 @@ void sceKernelReceiveMbxCB(SceUID id, u32 packetAddrPtr, u32 timeoutPtr)
 {
 	u32 error;
 	Mbx *m = kernelObjects.Get<Mbx>(id, error);
-	__KernelCheckCallbacks();
 
 	if (!m)
 	{
@@ -277,11 +328,13 @@ void sceKernelReceiveMbxCB(SceUID id, u32 packetAddrPtr, u32 timeoutPtr)
 		DEBUG_LOG(HLE, "sceKernelReceiveMbxCB(%i, %08x, %08x): sending first queue message", id, packetAddrPtr, timeoutPtr);
 		Memory::Write_U32(m->messageQueue.front(), packetAddrPtr);
 		m->messageQueue.erase(m->messageQueue.begin());
+		hleCheckCurrentCallbacks();
 		RETURN(0);
 	}
 	else
 	{
 		DEBUG_LOG(HLE, "sceKernelReceiveMbxCB(%i, %08x, %08x): no message in queue, waiting", id, packetAddrPtr, timeoutPtr);
+		__KernelMbxRemoveThread(m, __KernelGetCurThread());
 		m->AddWaitingThread(__KernelGetCurThread(), packetAddrPtr);
 		RETURN(0);
 		__KernelWaitMbx(m, timeoutPtr);
@@ -327,12 +380,14 @@ int sceKernelCancelReceiveMbx(SceUID id, u32 numWaitingThreadsAddr)
 
 	u32 count = m->waitingThreads.size();
 	DEBUG_LOG(HLE, "sceKernelCancelReceiveMbx(%i, %08x): cancelling %d threads", id, numWaitingThreadsAddr, count);
+
+	bool wokeThreads;
 	for (size_t i = 0; i < m->waitingThreads.size(); i++)
-	{
-		Memory::Write_U32(0, m->waitingThreads[i].second);
-		__KernelResumeThreadFromWait(m->waitingThreads[i].first, SCE_KERNEL_ERROR_WAIT_CANCEL);
-	}
+		__KernelUnlockMbxForThread(m, m->waitingThreads[i], error, SCE_KERNEL_ERROR_WAIT_CANCEL, wokeThreads);
 	m->waitingThreads.clear();
+
+	if (wokeThreads)
+		hleReSchedule("mbx canceled");
 
 	if (numWaitingThreadsAddr)
 		Memory::Write_U32(count, numWaitingThreadsAddr);
@@ -349,34 +404,28 @@ int sceKernelReferMbxStatus(SceUID id, u32 infoAddr)
 		return error;
 	}
 
-	SceKernelMbxInfo *info = (SceKernelMbxInfo*)Memory::GetPointer(infoAddr);
-	DEBUG_LOG(HLE, "sceKernelReferMbxStatus(%i, %08x)", id, infoAddr);
-	if (info)
+	// TODO: Is there a correct error code?
+	if (!Memory::IsValidAddress(infoAddr))
+		return -1;
+
+	SceKernelMbxInfo info;
+	memcpy(&info, &m->nmb, sizeof(SceKernelMbxInfo));
+	info.numMessage = m->messageQueue.size();
+	info.numWaitThreads = m->waitingThreads.size();
+
+	if (!m->messageQueue.empty())
 	{
-		info->size = m->nmb.size;
-		strncpy(info->name, m->nmb.name, 32);
-		info->attr = m->nmb.attr;
-		info->numWaitThreads = m->waitingThreads.size();
-		info->numMessage = m->messageQueue.size();
-		// Fill the 'next' parameter of packets which we don't use by default but could be used by a game
-		if (m->messageQueue.size() != 0)
-		{
-			info->topPacketAddr = m->messageQueue[0];
-			for (u32 i = 0; i < m->messageQueue.size() - 1; i++)
-			{
-				Memory::Write_U32(m->messageQueue[i + 1], Memory::Read_U32(m->messageQueue[i]));
-			}
-			Memory::Write_U32(m->messageQueue[m->messageQueue.size() - 1], 0);
-		}
-		else
-		{
-			info->topPacketAddr = 0;
-		}
+		info.topPacketAddr = m->messageQueue[0];
+
+		// TODO: Do this when sending messages too?
+		// Fill in the next ptrs in a loop (0 => 1, 1 => 0 for 2.)
+		for (int dest = 0, src = 1, n = m->messageQueue.size(); dest < n; ++dest, ++src)
+			Memory::Write_U32(m->messageQueue[src % n], m->messageQueue[dest]);
 	}
 	else
-	{
-		return -1;
-	}
+		info.topPacketAddr = 0;
+
+	Memory::WriteStruct<SceKernelMbxInfo>(infoAddr, &info);
 
 	return 0;
 }
