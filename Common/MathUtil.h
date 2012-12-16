@@ -20,7 +20,7 @@
 
 #include "Common.h"
 
-#ifndef ANDROID
+#ifndef ARM
 #define USE_SSE
 #endif
 
