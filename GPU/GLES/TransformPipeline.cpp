@@ -215,13 +215,8 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 	{
 		if ((gstate.textureMapEnable & 1) && !gstate.isModeClear())
 		{
-			glEnable(GL_TEXTURE_2D);
 			PSPSetTexture();
 			useTexCoord = true;
-		}
-		else
-		{
-			glDisable(GL_TEXTURE_2D);
 		}
 	}
 	gpuStats.numDrawCalls++;

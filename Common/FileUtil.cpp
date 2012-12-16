@@ -375,7 +375,7 @@ tm GetModifTime(const std::string &filename)
 	{
 		DEBUG_LOG(COMMON, "GetCreateTime: %s: %lld",
 				filename.c_str(), (long long)buf.st_mtime);
-		localtime_r(&buf.st_mtime,&return_time);
+		localtime_r((time_t*)&buf.st_mtime,&return_time);
 		return return_time;
 	}
 
