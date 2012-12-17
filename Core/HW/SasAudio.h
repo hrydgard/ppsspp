@@ -44,6 +44,9 @@ enum {
 	PSP_SAS_ADSR_DECAY = 2,
 	PSP_SAS_ADSR_SUSTAIN = 4,
 	PSP_SAS_ADSR_RELEASE = 8,
+
+	PSP_SAS_ENVELOPE_HEIGHT_MAX = 0x40000000,
+	PSP_SAS_ENVELOPE_FREQ_MAX = 0x7FFFFFFF,
 };
 
 struct WaveformEffect
@@ -62,6 +65,8 @@ enum VoiceType {
 	VOICETYPE_PCM = 1,
 	VOICETYPE_NOISE = 2,
 	VOICETYPE_ATRAC3 = 3,
+	VOICETYPE_TRIWAVE = 4,  // are these used? there are functions for them (sceSetTriangularWave)
+	VOICETYPE_PULSEWAVE = 5,
 };
 
 // VAG is a Sony ADPCM audio compression format, which goes all the way back to the PSX.
@@ -71,24 +76,15 @@ enum VoiceType {
 class VagDecoder
 {
 public:
-	void Start(u8 *data);
+	void Start(u8 *data, bool loopEnabled);
 
-	int GetSample()
-	{
-		if (end_)
-			return 0;
-		if (curSample == 28)
-			Decode();
-		if (end_)
-			return 0;
-		return samples[curSample++];
-	}
+	void GetSamples(s16 *outSamples, int numSamples);
 
-	bool Decode();
+	bool DecodeBlock();
 	bool End() const { return end_; }
 
 	u8 GetByte() {
-		return *data_++;
+		return *read_++;
 	}
 
 private:
@@ -96,14 +92,18 @@ private:
 	int curSample;
 
 	u8 *data_;
+	u8 *read_;
+	int curBlock_;
+	int loopStartBlock_;
 
 	// rolling state. start at 0, should probably reset to 0 on loops?
 	double s_1;
 	double s_2;
 
+	bool loopEnabled_;
+	bool loopAtNextBlock_;
 	bool end_;
 };
-
 
 // Max height: 0x40000000 I think
 class ADSREnvelope
@@ -111,6 +111,19 @@ class ADSREnvelope
 public:
 	void SetSimpleEnvelope(u32 ADSREnv1, u32 ADSREnv2);
 
+	void WalkCurve(int rate, int type);
+
+	void KeyOn();
+	void KeyOff();
+
+	void Step();
+
+	int GetHeight() const {
+		return height_ > PSP_SAS_ENVELOPE_HEIGHT_MAX ? PSP_SAS_ENVELOPE_HEIGHT_MAX : height_; 
+	}
+	bool HasEnded() const {
+		return state_ == STATE_OFF;
+	}
 	int attackRate;
 	int decayRate;
 	int sustainRate;
@@ -120,7 +133,20 @@ public:
 	int sustainType;
 	int sustainLevel;
 	int releaseType;
-	int height;
+
+private:
+	enum ADSRState {
+		STATE_ATTACK,
+		STATE_DECAY,
+		STATE_SUSTAIN,
+		STATE_RELEASE,
+		STATE_OFF,
+	};
+	void SetState(ADSRState state);
+
+	ADSRState state_;
+	int steps_;
+	s64 height_;  // s64 to avoid having to care about overflow when calculatimg. TODO: this should be fine as s32
 };
 
 // A SAS voice.
@@ -129,6 +155,9 @@ public:
 struct SasVoice
 {
 	bool playing;
+	bool paused;  // a voice can be playing AND paused. In that case, it won't play.
+	bool on;   // key-on, key-off.
+
 	VoiceType type;
 
 	u32 vagAddr;
@@ -136,9 +165,10 @@ struct SasVoice
 	u32 pcmAddr;
 	int pcmSize;
 	int sampleRate;
+
 	int samplePos;
 	int pitch;
-	int loop;
+	bool loop;
 
 	int noiseFreq;
 
@@ -147,10 +177,12 @@ struct SasVoice
 	int volumeLeftSend;	// volume to "Send" (audio-lingo) to the effects processing engine, like reverb
 	int volumeRightSend;
 
-	int setPaused;
-
-	void Loop();
 	void Reset();
+
+	void KeyOn();
+	void KeyOff();
+
+	void ChangedParams();
 
 	s16 resampleHist[2];
 
@@ -162,28 +194,10 @@ struct SasVoice
 class SasInstance
 {
 public:
-	SasInstance() : mixBuffer(0), resampleBuffer(0), grainSize(0) {}
-	~SasInstance() {
-		delete [] mixBuffer;
-		delete [] resampleBuffer;
-	}
-	SasVoice voices[PSP_SAS_VOICES_MAX];
-	WaveformEffect waveformEffect;
+	SasInstance();
+	~SasInstance();
 
-	void SetGrainSize(int newGrainSize) {
-		if (mixBuffer)
-			delete [] mixBuffer;
-		mixBuffer = new s32[newGrainSize * 2];
-		memset(mixBuffer, 0, sizeof(int) * newGrainSize * 2);
-		grainSize = newGrainSize;
-		if (resampleBuffer)
-			delete [] resampleBuffer;
-
-		// 2 samples padding at the start, that's where we copy the two last samples from the channel
-		// so that we can do bicubic resampling if necessary.
-		resampleBuffer = new s16[grainSize * 4 + 2];
-	}
-
+	void SetGrainSize(int newGrainSize);
 	int GetGrainSize() const { return grainSize; }
 
 	int maxVoices;
@@ -191,10 +205,14 @@ public:
 	int outputMode;
 	int length;
 
-	s16 *resampleBuffer;
 	int *mixBuffer;
+	int *sendBuffer;
+	s16 *resampleBuffer;
 
 	void Mix(u32 outAddr);
+
+	SasVoice voices[PSP_SAS_VOICES_MAX];
+	WaveformEffect waveformEffect;
 
 private:
 	int grainSize;

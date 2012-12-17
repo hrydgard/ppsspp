@@ -56,6 +56,7 @@ LogManager::LogManager()
 	m_Log[LogTypes::INTC]       = new LogContainer("INTC",			"Interrupts");
 	m_Log[LogTypes::MEMMAP]     = new LogContainer("MM",		"Memory Map");
 	m_Log[LogTypes::SOUND]      = new LogContainer("SND",			"Sound");
+	m_Log[LogTypes::SAS]        = new LogContainer("SAS",			"Sound Mixer (Sas)");
 	m_Log[LogTypes::HLE]        = new LogContainer("HLE",			"HLE");
 	m_Log[LogTypes::TIMER]      = new LogContainer("TMR",			"Timer");
 	m_Log[LogTypes::VIDEO]      = new LogContainer("VID",			"Video");

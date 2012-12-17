@@ -486,19 +486,19 @@ void Idle(int maxIdle)
 	if (maxIdle != 0 && cyclesDown > maxIdle)
 		cyclesDown = maxIdle;
 
-    if (first && cyclesDown > 0)
-    {
-        int cyclesExecuted = slicelength - downcount;
-        int cyclesNextEvent = (int) (first->time - globalTimer);
+	if (first && cyclesDown > 0)
+	{
+		int cyclesExecuted = slicelength - downcount;
+		int cyclesNextEvent = (int) (first->time - globalTimer);
 
-        if (cyclesNextEvent < cyclesExecuted + cyclesDown)
-        {
-            cyclesDown = cyclesNextEvent - cyclesExecuted;
-            // Now, now... no time machines, please.
-            if (cyclesDown < 0)
-                cyclesDown = 0;
-        }
-    }
+		if (cyclesNextEvent < cyclesExecuted + cyclesDown)
+		{
+			cyclesDown = cyclesNextEvent - cyclesExecuted;
+			// Now, now... no time machines, please.
+			if (cyclesDown < 0)
+				cyclesDown = 0;
+		}
+	}
 
 	DEBUG_LOG(CPU, "Idle for %i cycles! (%f ms)", cyclesDown, cyclesDown / (float)(CPU_HZ * 0.001f));
 

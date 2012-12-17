@@ -74,7 +74,7 @@ void PSPSaveDialog::Init(int paramAddr)
 		case SCE_UTILITY_SAVEDATA_TYPE_LIST:
 			display = DS_NONE;
 			break;
-		case SCE_UTILITY_SAVEDATA_TYPE_DELETE: // This run on PSP display a list of all save on the PSP. Weird.
+		case SCE_UTILITY_SAVEDATA_TYPE_DELETE: // This run on PSP display a list of all save on the PSP. Weird. (Not really, it's to let you free up space)
 		default:
 		{
 			ERROR_LOG(HLE, "Load/Save function %d not coded. Title: %s Save: %s File: %s", param.GetPspParam()->mode, param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
