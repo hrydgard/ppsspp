@@ -104,7 +104,9 @@ SceUID __KernelGetCurThread();
 void __KernelSaveContext(ThreadContext *ctx);
 void __KernelLoadContext(ThreadContext *ctx);
 
-// TODO: Replace this with __KernelResumeThread over time as it's misguided.
+// TODO: Replace this with __KernelResumeThreadFromWait over time as it's misguided.
+// It's better that each subsystem keeps track of the list of waiting threads
+// and resumes them manually one by one using __KernelResumeThreadFromWait.
 bool __KernelTriggerWait(WaitType type, int id, bool dontSwitch = false);
 bool __KernelTriggerWait(WaitType type, int id, int retVal, bool dontSwitch);
 u32 __KernelResumeThreadFromWait(SceUID threadID); // can return an error value

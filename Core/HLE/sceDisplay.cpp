@@ -85,8 +85,9 @@ enum {
 
 struct WaitVBlankInfo
 {
+	WaitVBlankInfo(u32 tid) : threadID(tid), vcountUnblock(0) {}
 	u32 threadID;
-	int vcountUnblock;
+	int vcountUnblock; // what was this for again?
 };
 
 std::vector<WaitVBlankInfo> vblankWaitingThreads;
@@ -144,7 +145,10 @@ void hleEnterVblank(u64 userdata, int cyclesLate)
 	__DisplayFireVblank();
 
 	// Wake up threads waiting for VBlank
-	__KernelTriggerWait(WAITTYPE_VBLANK, 0, true);
+	for (int i = 0; i < vblankWaitingThreads.size(); i++) {
+		__KernelResumeThreadFromWait(vblankWaitingThreads[i].threadID, 0);
+	}
+	vblankWaitingThreads.clear();
 
 	// Trigger VBlank interrupt handlers.
 	__TriggerInterrupt(PSP_VBLANK_INTR);
@@ -200,7 +204,6 @@ void hleEnterVblank(u64 userdata, int cyclesLate)
 		
 		gpuStats.resetFrame();
 	}
-
 
 	host->EndFrame();
 
@@ -318,36 +321,42 @@ u32 sceDisplayGetFramebuf(u32 topaddrPtr, u32 linesizePtr, u32 pixelFormatPtr, i
 void sceDisplayWaitVblankStart()
 {
 	DEBUG_LOG(HLE,"sceDisplayWaitVblankStart()");
+	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread()));
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, false);
 }
 
 void sceDisplayWaitVblank()
 {
 	DEBUG_LOG(HLE,"sceDisplayWaitVblank()");
+	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread()));
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, false);
 }
 
 void sceDisplayWaitVblankStartMulti()
 {
 	DEBUG_LOG(HLE,"sceDisplayWaitVblankStartMulti()");
+	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread()));
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, false);
 }
 
 void sceDisplayWaitVblankCB()
 {
 	DEBUG_LOG(HLE,"sceDisplayWaitVblankCB()");	
+	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread()));
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, true);
 }
 
 void sceDisplayWaitVblankStartCB()
 {
 	DEBUG_LOG(HLE,"sceDisplayWaitVblankStartCB()");	
+	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread()));
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, true);
 }
 
 void sceDisplayWaitVblankStartMultiCB()
 {
 	DEBUG_LOG(HLE,"sceDisplayWaitVblankStartMultiCB()");	
+	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread()));
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, true);
 }
 
