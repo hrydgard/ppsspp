@@ -138,7 +138,7 @@ u32 DirectoryFileSystem::OpenFile(std::string filename, FileAccess access)
 	if (!success)
 	{
 #ifdef _WIN32
-    ERROR_LOG(HLE, "DirectoryFileSystem::OpenFile: FAILED, %i", GetLastError());
+    ERROR_LOG(HLE, "DirectoryFileSystem::OpenFile: FAILED, %i - access = %i", GetLastError(), (int)access);
 #endif
 		//wwwwaaaaahh!!
 		return 0;
