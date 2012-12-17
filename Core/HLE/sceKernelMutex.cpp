@@ -49,7 +49,7 @@
 struct NativeMutex
 {
 	SceSize size;
-	char name[32];
+	char name[KERNELOBJECT_MAX_NAME_LENGTH + 1];
 	SceUInt attr;
 
 	int lockLevel;
@@ -70,7 +70,7 @@ struct Mutex : public KernelObject
 struct NativeLwMutex
 {
 	SceSize size;
-	char name[32];
+	char name[KERNELOBJECT_MAX_NAME_LENGTH + 1];
 	SceUInt attr;
 	SceUInt workareaPtr;
 };
@@ -207,8 +207,8 @@ int sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optio
 	SceUID id = kernelObjects.Create(mutex);
 
 	mutex->nm.size = sizeof(mutex);
-	strncpy(mutex->nm.name, name, 31);
-	mutex->nm.name[31] = 0;
+	strncpy(mutex->nm.name, name, KERNELOBJECT_MAX_NAME_LENGTH);
+	mutex->nm.name[KERNELOBJECT_MAX_NAME_LENGTH] = 0;
 	mutex->nm.attr = attr;
 	if (initialCount == 0)
 	{
@@ -522,8 +522,8 @@ int sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int init
 	LwMutex *mutex = new LwMutex();
 	SceUID id = kernelObjects.Create(mutex);
 	mutex->nm.size = sizeof(mutex);
-	strncpy(mutex->nm.name, name, 31);
-	mutex->nm.name[31] = 0;
+	strncpy(mutex->nm.name, name, KERNELOBJECT_MAX_NAME_LENGTH);
+	mutex->nm.name[KERNELOBJECT_MAX_NAME_LENGTH] = 0;
 	mutex->nm.attr = attr;
 	mutex->nm.workareaPtr = workareaPtr;
 

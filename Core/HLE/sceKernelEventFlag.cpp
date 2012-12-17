@@ -30,7 +30,7 @@ void __KernelEventFlagTimeout(u64 userdata, int cycleslate);
 struct NativeEventFlag
 {
 	u32 size;
-	char name[32];
+	char name[KERNELOBJECT_MAX_NAME_LENGTH + 1];
 	u32 attr;
 	u32 initPattern;
 	u32 currentPattern;
@@ -188,8 +188,8 @@ int sceKernelCreateEventFlag(const char *name, u32 flag_attr, u32 flag_initPatte
 	SceUID id = kernelObjects.Create(e);
 
 	e->nef.size = sizeof(NativeEventFlag);
-	strncpy(e->nef.name, name, 31);
-	e->nef.name[31] = 0;
+	strncpy(e->nef.name, name, KERNELOBJECT_MAX_NAME_LENGTH);
+	e->nef.name[KERNELOBJECT_MAX_NAME_LENGTH] = 0;
 	e->nef.attr = flag_attr;
 	e->nef.initPattern = flag_initPattern;
 	e->nef.currentPattern = e->nef.initPattern;
