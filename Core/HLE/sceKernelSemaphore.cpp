@@ -35,7 +35,7 @@ struct NativeSemaphore
 	/** Size of the ::SceKernelSemaInfo structure. */
 	SceSize 	size;
 	/** NUL-terminated name of the semaphore. */
-	char 		name[32];
+	char 		name[KERNELOBJECT_MAX_NAME_LENGTH + 1];
 	/** Attributes. */
 	SceUInt 	attr;
 	/** The initial count the semaphore was created with. */
@@ -191,8 +191,8 @@ int sceKernelCreateSema(const char* name, u32 attr, int initVal, int maxVal, u32
 	SceUID id = kernelObjects.Create(s);
 
 	s->ns.size = sizeof(NativeSemaphore);
-	strncpy(s->ns.name, name, 31);
-	s->ns.name[31] = 0;
+	strncpy(s->ns.name, name, KERNELOBJECT_MAX_NAME_LENGTH);
+	s->ns.name[KERNELOBJECT_MAX_NAME_LENGTH] = 0;
 	s->ns.attr = attr;
 	s->ns.initCount = initVal;
 	s->ns.currentCount = s->ns.initCount;
