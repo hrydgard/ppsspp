@@ -168,7 +168,8 @@ void ADSREnvelope::SetSimpleEnvelope(u32 ADSREnv1, u32 ADSREnv2) {
 	sustainLevel 	= getSustainLevel(ADSREnv1);
 }
 
-SasInstance::SasInstance() : mixBuffer(0), sendBuffer(0), resampleBuffer(0), grainSize(0) {
+SasInstance::SasInstance() 
+	: mixBuffer(0), sendBuffer(0), resampleBuffer(0), grainSize(0) {
 }
 
 SasInstance::~SasInstance() {
@@ -318,9 +319,11 @@ void SasVoice::KeyOff() {
 	envelope.KeyOff();
 }
 
-void SasVoice::ChangedParams() {
+void SasVoice::ChangedParams(bool changedVag) {
 	if (!playing && on) {
 		playing = true;
+		if (changedVag)
+			vag.Start(Memory::GetPointer(vagAddr), loop);
 	}
 	// TODO: restart VAG somehow
 }

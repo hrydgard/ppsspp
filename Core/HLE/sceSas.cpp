@@ -44,19 +44,27 @@ enum {
 
 // TODO - allow more than one, associating each with one Core pointer (passed in to all the functions)
 // No known games use more than one instance of Sas though.
-SasInstance sas;	
+SasInstance *sas;
+
+void __SasInit() {
+	sas = new SasInstance();
+}
+
+void __SasShutdown() {
+	delete sas;
+	sas = 0;
+}
 
 
 u32 sceSasInit(u32 core, u32 grainSize, u32 maxVoices, u32 outputMode, u32 sampleRate)
 {
 	INFO_LOG(HLE,"0=sceSasInit(%08x, grainSize=%i, maxVoices=%i, %i, %i)", core, grainSize, maxVoices, outputMode, sampleRate);
-	memset(&sas, 0, sizeof(sas));
-	sas.SetGrainSize(grainSize);
-	sas.maxVoices = maxVoices;
-	sas.sampleRate = sampleRate;
-	sas.outputMode = outputMode;
+	sas->SetGrainSize(grainSize);
+	sas->maxVoices = maxVoices;
+	sas->sampleRate = sampleRate;
+	sas->outputMode = outputMode;
 	for (int i = 0; i < 32; i++) {
-		sas.voices[i].playing = false;
+		sas->voices[i].playing = false;
 	}
 	return 0;
 }
@@ -64,8 +72,8 @@ u32 sceSasInit(u32 core, u32 grainSize, u32 maxVoices, u32 outputMode, u32 sampl
 u32 sceSasGetEndFlag(u32 core)
 {
 	u32 endFlag = 0;
-	for (int i = 0; i < sas.maxVoices; i++) {
-		if (!sas.voices[i].playing)
+	for (int i = 0; i < sas->maxVoices; i++) {
+		if (!sas->voices[i].playing)
 			endFlag |= 1 << i;
 	}
 	DEBUG_LOG(HLE,"%08x=sceSasGetEndFlag()", endFlag);
@@ -75,23 +83,23 @@ u32 sceSasGetEndFlag(u32 core)
 // Runs the mixer
 u32 _sceSasCore(u32 core, u32 outAddr)
 {
-	DEBUG_LOG(HLE,"0=sceSasCore(, %08x)	(grain: %i samples)", outAddr, sas.GetGrainSize());
+	DEBUG_LOG(HLE,"0=sceSasCore(, %08x)	(grain: %i samples)", outAddr, sas->GetGrainSize());
 	if (!Memory::IsValidAddress(outAddr)) {
 		return ERROR_SAS_INVALID_PARAMETER;
 	}
-	Memory::Memset(outAddr, 0, sas.GetGrainSize() * 2 * 2);
-	sas.Mix(outAddr);
+	Memory::Memset(outAddr, 0, sas->GetGrainSize() * 2 * 2);
+	sas->Mix(outAddr);
 	return 0;
 }
 
 // Another way of running the mixer, what was the difference again?
 u32 _sceSasCoreWithMix(u32 core, u32 outAddr)
 {
-	DEBUG_LOG(HLE,"0=sceSasCoreWithMix(, %08x) (grain: %i samples)", outAddr, sas.GetGrainSize());
+	DEBUG_LOG(HLE,"0=sceSasCoreWithMix(, %08x) (grain: %i samples)", outAddr, sas->GetGrainSize());
 	if (!Memory::IsValidAddress(outAddr)) {
 		return ERROR_SAS_INVALID_PARAMETER;
 	}
-	sas.Mix(outAddr);
+	sas->Mix(outAddr);
 	return 0;
 }
 
@@ -107,20 +115,32 @@ u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop)
 	}
 
 	//Real VAG header is 0x30 bytes behind the vagAddr
-	SasVoice &v = sas.voices[voiceNum];
+	SasVoice &v = sas->voices[voiceNum];
 	v.type = VOICETYPE_VAG;
 	v.vagAddr = vagAddr;
 	v.vagSize = size;
 	v.loop = loop ? true : false;
-	v.ChangedParams();
+	v.ChangedParams(true);
+	return 0;
+}
+
+u32 sceSasSetVoicePCM(u32 core, int voiceNum, u32 pcmAddr, int size, int loop)
+{
+	DEBUG_LOG(HLE,"0=sceSasSetVoicePCM(core=%08x, voicenum=%i, pcmAddr=%08x, size=%i, loop=%i)",core, voiceNum, pcmAddr, size, loop);
+	SasVoice &v = sas->voices[voiceNum];
+	v.type = VOICETYPE_PCM;
+	v.pcmAddr = pcmAddr;
+	v.pcmSize = size;
+	v.loop = loop ? true : false;
+	v.playing = true;
 	return 0;
 }
 
 u32 sceSasGetPauseFlag(u32 core)
 {
 	u32 pauseFlag = 0;
-	for (int i = 0; i < sas.maxVoices; i++) {
-		if (sas.voices[i].paused)
+	for (int i = 0; i < sas->maxVoices; i++) {
+		if (sas->voices[i].paused)
 			pauseFlag |= 1 << i;
 	}
 	DEBUG_LOG(HLE,"%08x=sceSasGetPauseFlag()", pauseFlag);
@@ -135,7 +155,7 @@ u32 sceSasSetPause(u32 core, int voicebit, int pause)
 		if (i < PSP_SAS_VOICES_MAX && i >= 0)
 		{
 			if ((voicebit & 1) != 0)
-				sas.voices[i].paused = pause ? true : false;
+				sas->voices[i].paused = pause ? true : false;
 		}
 		// TODO: Correct error code?  Mimana crashes otherwise.
 		else
@@ -155,7 +175,7 @@ u32 sceSasSetVolume(u32 core, int voiceNum, int l, int r, int el, int er)
 		return ERROR_SAS_INVALID_VOICE;
 	}
 
-	SasVoice &v = sas.voices[voiceNum];
+	SasVoice &v = sas->voices[voiceNum];
 	v.volumeLeft = l;
 	v.volumeRight = r;
 	return 0;
@@ -171,7 +191,7 @@ u32 sceSasSetPitch(u32 core, int voiceNum, int pitch)
 		return ERROR_SAS_INVALID_VOICE;
 	}
 
-	SasVoice &v = sas.voices[voiceNum];
+	SasVoice &v = sas->voices[voiceNum];
 	v.pitch = pitch;
 	return 0;
 }
@@ -186,7 +206,7 @@ u32 sceSasSetKeyOn(u32 core, int voiceNum)
 		return ERROR_SAS_INVALID_VOICE;
 	}
 
-	SasVoice &v = sas.voices[voiceNum];
+	SasVoice &v = sas->voices[voiceNum];
 	v.KeyOn();
 	return 0;
 }
@@ -202,7 +222,7 @@ u32 sceSasSetKeyOff(u32 core, int voiceNum)
 		return ERROR_SAS_INVALID_VOICE;
 	}
 
-	SasVoice &v = sas.voices[voiceNum];
+	SasVoice &v = sas->voices[voiceNum];
 	v.KeyOff();
 	return 0;
 }
@@ -217,7 +237,7 @@ u32 sceSasSetNoise(u32 core, int voiceNum, int freq)
 		return ERROR_SAS_INVALID_VOICE;
 	}
 
-	SasVoice &v = sas.voices[voiceNum];
+	SasVoice &v = sas->voices[voiceNum];
 	v.type = VOICETYPE_NOISE;
 	v.noiseFreq = freq;
 	return 0;
@@ -233,7 +253,7 @@ u32 sceSasSetSL(u32 core, int voiceNum, int level)
 		return ERROR_SAS_INVALID_VOICE;
 	}
 
-	SasVoice &v = sas.voices[voiceNum];
+	SasVoice &v = sas->voices[voiceNum];
 	v.envelope.sustainLevel = level;
 	return 0;
 }
@@ -248,7 +268,7 @@ u32 sceSasSetADSR(u32 core, int voiceNum,int flag ,int a, int d, int s, int r)
 		return ERROR_SAS_INVALID_VOICE;
 	}
 
-	SasVoice &v = sas.voices[voiceNum];
+	SasVoice &v = sas->voices[voiceNum];
 	if ((flag & 0x1) != 0) v.envelope.attackRate  = a;
 	if ((flag & 0x2) != 0) v.envelope.decayRate   = d;
 	if ((flag & 0x4) != 0) v.envelope.sustainRate = s;
@@ -266,7 +286,7 @@ u32 sceSasSetADSRMode(u32 core, int voiceNum,int flag ,int a, int d, int s, int 
 		return ERROR_SAS_INVALID_VOICE;
 	}
 
-	SasVoice &v = sas.voices[voiceNum];
+	SasVoice &v = sas->voices[voiceNum];
 	if ((flag & 0x1) != 0) v.envelope.attackType  = a;
 	if ((flag & 0x2) != 0) v.envelope.decayType   = d;
 	if ((flag & 0x4) != 0) v.envelope.sustainType = s;
@@ -278,7 +298,7 @@ u32 sceSasSetADSRMode(u32 core, int voiceNum,int flag ,int a, int d, int s, int 
 u32 sceSasSetSimpleADSR(u32 core, u32 voiceNum, u32 ADSREnv1, u32 ADSREnv2)
 {
 	DEBUG_LOG(HLE,"0=sasSetSimpleADSR(%08x, %i, %08x, %08x)", core, voiceNum, ADSREnv1, ADSREnv2);
-	SasVoice &v = sas.voices[voiceNum];
+	SasVoice &v = sas->voices[voiceNum];
 	v.envelope.SetSimpleEnvelope(ADSREnv1 & 0xFFFF, ADSREnv2 & 0xFFFF);
 	return 0;
 }
@@ -296,85 +316,74 @@ u32 sceSasGetEnvelopeHeight(u32 core, u32 voiceNum)
 		return ERROR_SAS_INVALID_VOICE;
 	}
 
-	SasVoice &v = sas.voices[voiceNum];
+	SasVoice &v = sas->voices[voiceNum];
 	return v.envelope.GetHeight();
 }
 
 u32 sceSasRevType(u32 core, int type)
 {
 	DEBUG_LOG(HLE,"0=sceSasRevType(core=%08x, type=%i)", core, type);
-	sas.waveformEffect.type = type;
+	sas->waveformEffect.type = type;
 	return 0;
 }
 
 u32 sceSasRevParam(u32 core, int delay, int feedback)
 {
 	DEBUG_LOG(HLE,"0=sceSasRevParam(core=%08x, delay=%i, feedback=%i)", core, delay, feedback);
-	sas.waveformEffect.delay = delay;
-	sas.waveformEffect.feedback = feedback;
+	sas->waveformEffect.delay = delay;
+	sas->waveformEffect.feedback = feedback;
 	return 0;
 }
 
 u32 sceSasRevEVOL(u32 core, int lv, int rv)
 {
 	DEBUG_LOG(HLE,"0=sceSasRevEVOL(core=%08x, leftVolume=%i, rightVolume=%i)", core, lv, rv);
-	sas.waveformEffect.leftVol = lv;
-	sas.waveformEffect.rightVol = rv;
+	sas->waveformEffect.leftVol = lv;
+	sas->waveformEffect.rightVol = rv;
 	return 0;
 }
 
 u32 sceSasRevVON(u32 core, int dry, int wet)
 {
 	DEBUG_LOG(HLE,"0=sceSasRevVON(core=%08x, dry=%i, wet=%i)", core, dry, wet);
-	sas.waveformEffect.isDryOn = (dry > 0);
-	sas.waveformEffect.isWetOn = (wet > 0);
+	sas->waveformEffect.isDryOn = (dry > 0);
+	sas->waveformEffect.isWetOn = (wet > 0);
 	return 0;
 }
 
 u32 sceSasGetGrain(u32 core)
 {
 	DEBUG_LOG(HLE,"0=sceSasGetGrain(core=%08x)", core);
-	return sas.GetGrainSize();
+	return sas->GetGrainSize();
 }
 
 u32 sceSasSetGrain(u32 core, int grain)
 {
 	INFO_LOG(HLE,"0=sceSasSetGrain(core=%08x, grain=%i)", core, grain);
-	sas.SetGrainSize(grain);
+	sas->SetGrainSize(grain);
 	return 0;
 }
 
 u32 sceSasGetOutputMode(u32 core)
 {
 	DEBUG_LOG(HLE,"0=sceSasGetOutputMode(core=%08x)", core);
-	return sas.outputMode;
+	return sas->outputMode;
 }
 
 u32 sceSasSetOutputMode(u32 core, u32 outputMode)
 {
 	DEBUG_LOG(HLE,"0=sceSasSetOutputMode(core=%08x, outputMode=%i)", core, outputMode);
-	sas.outputMode = outputMode;
+	sas->outputMode = outputMode;
 	return 0;
 }
 
-u32 sceSasSetVoicePCM(u32 core, int voiceNum, u32 pcmAddr, int size, int loop)
-{
-	DEBUG_LOG(HLE,"0=sceSasSetVoicePCM(core=%08x, voicenum=%i, pcmAddr=%08x, size=%i, loop=%i)",core, voiceNum, pcmAddr, size, loop);
-	SasVoice &v = sas.voices[voiceNum];
-	v.type = VOICETYPE_PCM;
-	v.pcmAddr = pcmAddr;
-	v.pcmSize = size;
-	v.loop = loop ? true : false;
-	v.playing = true;
-	return 0;
-}
 
 u32 sceSasGetAllEnvelopeHeights(u32 core, u32 heightsAddr)
 {
 	DEBUG_LOG(HLE,"0=sceSasGetAllEnvelopeHeights(core=%08x, heightsAddr=%i)", core, heightsAddr);
 	if (Memory::IsValidAddress(heightsAddr)) {
-		for (int i = 0; i < sas.length; i++) {
-			int voiceHeight = sas.voices[i].envelope.GetHeight();
+		for (int i = 0; i < PSP_SAS_VOICES_MAX; i++) {
+			int voiceHeight = sas->voices[i].envelope.GetHeight();
 			Memory::Write_U32(voiceHeight, heightsAddr + i * 4);
 		}
 	}
