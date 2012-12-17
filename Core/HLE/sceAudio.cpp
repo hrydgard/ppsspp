@@ -226,7 +226,7 @@ u32 sceAudioSetChannelDataLen(u32 chan, u32 len)
 	}
 	else
 	{
-		INFO_LOG(HLE, "sceAudioSetChannelDataLen(%i, %i)", chan, len);
+		DEBUG_LOG(HLE, "sceAudioSetChannelDataLen(%i, %i)", chan, len);
 		chans[chan].sampleCount = len;
 		return 0;
 	}

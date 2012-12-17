@@ -385,8 +385,8 @@ const HLEFunction ThreadManForUser[] =
 	{0x840E8133,sceKernelWaitThreadEndCB,"sceKernelWaitThreadEndCB"},
 	{0xd13bde95,sceKernelCheckThreadStack,"sceKernelCheckThreadStack"},
 
-	{0x94416130,0,"sceKernelGetThreadmanIdList"},
-	{0x57CF62DD,sceKernelGetThreadmanIdType,"sceKernelGetThreadmanIdType"},
+	{0x94416130,WrapU_UUUU<sceKernelGetThreadmanIdList>,"sceKernelGetThreadmanIdList"},
+	{0x57CF62DD,WrapU_U<sceKernelGetThreadmanIdType>,"sceKernelGetThreadmanIdType"},
 
 	{0x20fff560,sceKernelCreateVTimer,"sceKernelCreateVTimer"},
 	{0x328F9E52,0,"sceKernelDeleteVTimer"},

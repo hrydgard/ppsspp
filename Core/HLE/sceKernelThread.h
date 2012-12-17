@@ -51,7 +51,8 @@ int sceKernelTerminateDeleteThread(int threadno);
 int sceKernelTerminateThread(u32 threadID);
 void sceKernelWaitThreadEndCB();
 void sceKernelGetThreadExitStatus();
-void sceKernelGetThreadmanIdType();
+u32 sceKernelGetThreadmanIdType(u32);
+u32 sceKernelGetThreadmanIdList(u32 type, u32 readBufPtr, u32 readBufSize, u32 idCountPtr);
 
 
 enum WaitType //probably not the real values
