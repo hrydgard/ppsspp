@@ -53,6 +53,7 @@
 #include "sceParseHttp.h"
 #include "scesupPreAcc.h"
 #include "sceVaudio.h"
+#include "sceUsb.h"
 
 #define N(s) s
 
@@ -185,43 +186,12 @@ const HLEFunction pspeDebug[] =
 };
 
 
-const HLEFunction sceUsb[] = 
-{
-	{0xae5de6af, 0, "sceUsbStart"},
-	{0xc2464fa0, 0, "sceUsbStop"},
-	{0xc21645a4, 0, "sceUsbGetState"},
-	{0x4e537366, 0, "sceUsbGetDrvList"},
-	{0x112cc951, 0, "sceUsbGetDrvState"},
-	{0x586db82c, 0, "sceUsbActivate"},
-	{0xc572a9c8, 0, "sceUsbDeactivate"},
-	{0x5be0e002, 0, "sceUsbWaitState"},
-	{0x1c360735, 0, "sceUsbWaitCancel"},
-};
-
-const HLEFunction sceUsbstor[] =
-{
-	{0x60066CFE, 0, "sceUsbstorGetStatus"},
-};
-
-const HLEFunction sceUsbstorBoot[] =
-{
-	{0xE58818A8, 0, "sceUsbstorBootSetCapacity"},
-	{0x594BBF95, 0, "sceUsbstorBootSetLoadAddr"},
-	{0x6D865ECD, 0, "sceUsbstorBootGetDataSize"},
-	{0xA1119F0D, 0, "sceUsbstorBootSetStatus"},
-	{0x1F080078, 0, "sceUsbstorBootRegisterNotify"},
-	{0xA55C9E16, 0, "sceUsbstorBootUnregisterNotify"},
-};
-
 const HLEModule moduleList[] = 
 {
 	{"FakeSysCalls", SZ(FakeSysCalls), FakeSysCalls},
 	{"UtilsForUser",SZ(UtilsForUser),UtilsForUser},
 	{"KDebugForKernel",SZ(KDebugForKernel),KDebugForKernel},
 	{"sceSAScore"},
-	{"sceUsbstor",SZ(sceUsbstor),sceUsbstor},
-	{"sceUsbstorBoot",SZ(sceUsbstorBoot),sceUsbstorBoot},
-	{"sceUsb", SZ(sceUsb), sceUsb},
 	{"SceBase64_Library"},
 	{"sceCert_Loader"},
 	{"SceFont_Library"},
@@ -275,6 +245,7 @@ void RegisterAllModules() {
 	Register_sceParseHttp();
 	Register_scesupPreAcc();
 	Register_sceVaudio();
+	Register_sceUsb();
 
 	for (int i = 0; i < numModules; i++)
 	{

@@ -170,6 +170,7 @@
     <ClCompile Include="HLE\sceSsl.cpp" />
     <ClCompile Include="HLE\scesupPreAcc.cpp" />
     <ClCompile Include="HLE\sceUmd.cpp" />
+    <ClCompile Include="HLE\sceUsb.cpp" />
     <ClCompile Include="HLE\sceUtility.cpp" />
     <ClCompile Include="HLE\sceVaudio.cpp" />
     <ClCompile Include="HLE\__sceAudio.cpp" />
@@ -316,6 +317,7 @@
     <ClInclude Include="HLE\sceSsl.h" />
     <ClInclude Include="HLE\scesupPreAcc.h" />
     <ClInclude Include="HLE\sceUmd.h" />
+    <ClInclude Include="HLE\sceUsb.h" />
     <ClInclude Include="HLE\sceUtility.h" />
     <ClInclude Include="HLE\sceKernelVTimer.h" />
     <ClInclude Include="HLE\sceVaudio.h" />

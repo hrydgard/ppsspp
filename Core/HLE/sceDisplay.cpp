@@ -265,7 +265,7 @@ u32 sceDisplaySetMode(u32 unknown, u32 xres, u32 yres)
 	return 0;
 }
 
-void sceDisplaySetFramebuf()
+u32 sceDisplaySetFramebuf()
 {
 	//host->EndFrame();
 	u32 topaddr = PARAM(0);
@@ -298,8 +298,7 @@ void sceDisplaySetFramebuf()
 		latchedFramebuf = fbstate;
 		framebufIsLatched = true;
 	}
-
-	RETURN(0);
+	return 0;
 }
 
 u32 sceDisplayGetFramebuf(u32 topaddrPtr, u32 linesizePtr, u32 pixelFormatPtr, int mode)
@@ -392,16 +391,16 @@ float sceDisplayGetFramePerSec()
 
 const HLEFunction sceDisplay[] = 
 {
-	{0x0E20F177,&WrapU_UUU<sceDisplaySetMode>, "sceDisplaySetMode"},
-	{0x289D82FE,sceDisplaySetFramebuf, "sceDisplaySetFramebuf"},
-	{0xEEDA2E54,&WrapU_UUUI<sceDisplayGetFramebuf>,"sceDisplayGetFrameBuf"},
+	{0x0E20F177,WrapU_UUU<sceDisplaySetMode>, "sceDisplaySetMode"},
+	{0x289D82FE,WrapU_V<sceDisplaySetFramebuf>, "sceDisplaySetFramebuf"},
+	{0xEEDA2E54,WrapU_UUUI<sceDisplayGetFramebuf>,"sceDisplayGetFrameBuf"},
 	{0x36CDFADE,sceDisplayWaitVblank, "sceDisplayWaitVblank"},
 	{0x984C27E7,sceDisplayWaitVblankStart, "sceDisplayWaitVblankStart"},
 	{0x40f1469c,sceDisplayWaitVblankStartMulti, "sceDisplayWaitVblankStartMulti"},
 	{0x8EB9EC49,sceDisplayWaitVblankCB, "sceDisplayWaitVblankCB"},
 	{0x46F186C3,sceDisplayWaitVblankStartCB, "sceDisplayWaitVblankStartCB"},
 	{0x77ed8b3a,sceDisplayWaitVblankStartMultiCB,"sceDisplayWaitVblankStartMultiCB"},
-	{0xdba6c4c4,&WrapF_V<sceDisplayGetFramePerSec>,"sceDisplayGetFramePerSec"},
+	{0xdba6c4c4,WrapF_V<sceDisplayGetFramePerSec>,"sceDisplayGetFramePerSec"},
 	{0x773dd3a3,sceDisplayGetCurrentHcount,"sceDisplayGetCurrentHcount"},
 	{0x210eab3a,sceDisplayGetAccumulatedHcount,"sceDisplayGetAccumulatedHcount"},
 	{0x9C6EAAD7,sceDisplayGetVcount,"sceDisplayGetVcount"},

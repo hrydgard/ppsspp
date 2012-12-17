@@ -721,6 +721,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/scesupPreAcc.h
 	Core/HLE/sceUmd.cpp
 	Core/HLE/sceUmd.h
+	Core/HLE/sceUsb.cpp
+	Core/HLE/sceUsb.h
 	Core/HLE/sceUtility.cpp
 	Core/HLE/sceUtility.h
 	Core/HLE/sceVaudio.cpp

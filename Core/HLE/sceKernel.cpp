@@ -50,6 +50,7 @@
 #include "sceUtility.h"
 #include "sceUmd.h"
 #include "sceSsl.h"
+#include "sceSas.h"
 
 #include "../Util/PPGeDraw.h"
 
@@ -76,6 +77,7 @@ void __KernelInit()
 	__KernelThreadingInit();
 	__IoInit();
 	__AudioInit();
+	__SasInit();
 	__DisplayInit();
 	__InterruptsInit();
 	__GeInit();
@@ -106,6 +108,7 @@ void __KernelShutdown()
 	__PPGeShutdown();
 
 	__GeShutdown();
+	__SasShutdown();
 	__AudioShutdown();
 	__IoShutdown();
 	__InterruptsShutdown();
