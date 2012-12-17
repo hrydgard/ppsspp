@@ -69,58 +69,94 @@ struct Mbx : public KernelObject
 			waitingThreads.push_back(std::make_pair(id, addr));
 	}
 
-	void AddMessage(int insertPos, u32 ptr)
+	inline void AddInitialMessage(u32 ptr)
 	{
-		int size = messageQueue.size() + 1;
-		if (insertPos >= 0)
-			messageQueue.insert(messageQueue.begin() + insertPos, ptr);
-		else
-		{
-			messageQueue.push_back(ptr);
-			insertPos = size - 1;
-		}
 		nmb.numMessages++;
-
-		// Link up the linked list.
-		if (insertPos >= 1)
-			Memory::Write_U32(ptr, messageQueue[insertPos - 1]);
-		else
-		{
-			nmb.packetListHead = ptr;
-			if (size > 1)
-				Memory::Write_U32(ptr, messageQueue[size - 1]);
-			else
-				Memory::Write_U32(ptr, ptr);
-		}
-		if (insertPos + 1 >= size)
-			Memory::Write_U32(nmb.packetListHead, ptr);
-		else
-			Memory::Write_U32(messageQueue[insertPos + 1], ptr);
+		Memory::Write_U32(ptr, ptr);
+		nmb.packetListHead = ptr;
 	}
 
-	void ReceiveMessage(u32 receivePtr)
+	inline void AddFirstMessage(u32 endPtr, u32 ptr)
 	{
-		u32 ptr = messageQueue[0];
-		messageQueue.erase(messageQueue.begin());
-		nmb.numMessages--;
+		nmb.numMessages++;
+		Memory::Write_U32(nmb.packetListHead, ptr);
+		Memory::Write_U32(ptr, endPtr);
+		nmb.packetListHead = ptr;
+	}
+
+	inline void AddLastMessage(u32 endPtr, u32 ptr)
+	{
+		nmb.numMessages++;
+		Memory::Write_U32(ptr, endPtr);
+		Memory::Write_U32(nmb.packetListHead, ptr);
+	}
+
+	inline void AddMessage(u32 beforePtr, u32 afterPtr, u32 ptr)
+	{
+		nmb.numMessages++;
+		Memory::Write_U32(afterPtr, ptr);
+		Memory::Write_U32(ptr, beforePtr);
+	}
+
+	int ReceiveMessage(u32 receivePtr)
+	{
+		u32 ptr = nmb.packetListHead;
+
+		if (nmb.numMessages == 991)
+		{
+			u32 next = Memory::Read_U32(nmb.packetListHead);
+			u32 next2 = Memory::Read_U32(next);
+			if (next2 == ptr && next != ptr)
+			{
+				Memory::Write_U32(next, next);
+				nmb.packetListHead = next;
+			}
+			else
+				nmb.packetListHead = 0;
+		}
+		else
+		{
+			// Check over the linked list and reset the head.
+			int c = 0;
+			while (true)
+			{
+				u32 next = Memory::Read_U32(nmb.packetListHead);
+				if (!Memory::IsValidAddress(next))
+					return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+				if (next == ptr)
+				{
+					if (nmb.packetListHead != ptr)
+					{
+						next = Memory::Read_U32(next);
+						Memory::Write_U32(next, nmb.packetListHead);
+						nmb.packetListHead = next;
+						break;
+					}
+					else
+					{
+						if (c < nmb.numMessages - 1)
+							return PSP_MBX_ERROR_DUPLICATE_MSG;
+
+						nmb.packetListHead = 0;
+						break;
+					}
+				}
+
+				nmb.packetListHead = next;
+				c++;
+			}
+		}
 
 		// Tell the receiver about the message.
 		Memory::Write_U32(ptr, receivePtr);
+		nmb.numMessages--;
 
-		// Clean up the linked list.
-		if (messageQueue.empty())
-			nmb.packetListHead = 0;
-		else
-		{
-			nmb.packetListHead = messageQueue[0];
-			Memory::Write_U32(nmb.packetListHead, messageQueue[messageQueue.size() - 1]);
-		}
+		return 0;
 	}
 
 	NativeMbx nmb;
 
 	std::vector<MbxWaitingThread> waitingThreads;
-	std::vector<u32> messageQueue;
 };
 
 void __KernelMbxInit()
@@ -305,7 +341,7 @@ int sceKernelSendMbx(SceUID id, u32 packetAddr)
 
 	// If the queue is empty, maybe someone is waiting.
 	// We have to check them first, they might've timed out.
-	if (m->messageQueue.empty())
+	if (m->nmb.numMessages == 0)
 	{
 		bool wokeThreads = false;
 		std::vector<MbxWaitingThread>::iterator iter;
@@ -332,32 +368,48 @@ int sceKernelSendMbx(SceUID id, u32 packetAddr)
 		}
 	}
 
-	std::vector<u32>::iterator it, end;
-	for (it = m->messageQueue.begin(), end = m->messageQueue.end(); it != end; it++)
-	{
-		if (*it == packetAddr)
-			return PSP_MBX_ERROR_DUPLICATE_MSG;
-	}
-
 	DEBUG_LOG(HLE, "sceKernelSendMbx(%i, %08x): no threads currently waiting, adding message to queue", id, packetAddr);
 
-	bool inserted = false;
-	if (m->nmb.attr & SCE_KERNEL_MBA_MSPRI)
+	if (m->nmb.numMessages == 0)
+		m->AddInitialMessage(packetAddr);
+	else
 	{
-		NativeMbxPacket p;
-		for (int i = 0, n = m->messageQueue.size(); i < n; ++i)
+		u32 next = m->nmb.packetListHead, prev;
+		for (int i = 0, n = m->nmb.numMessages; i < n; i++)
 		{
-			Memory::ReadStruct<NativeMbxPacket>(m->messageQueue[i], &p);
-			if (addPacket->priority < p.priority)
+			if (next == packetAddr)
+				return PSP_MBX_ERROR_DUPLICATE_MSG;
+			if (!Memory::IsValidAddress(next))
+				return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+
+			prev = next;
+			next = Memory::Read_U32(next);
+		}
+
+		bool inserted = false;
+		if (m->nmb.attr & SCE_KERNEL_MBA_MSPRI)
+		{
+			NativeMbxPacket p;
+			for (int i = 0, n = m->nmb.numMessages; i < n; i++)
 			{
-				m->AddMessage(i, packetAddr);
-				inserted = true;
-				break;
+				Memory::ReadStruct<NativeMbxPacket>(next, &p);
+				if (addPacket->priority < p.priority)
+				{
+					if (i == 0)
+						m->AddFirstMessage(prev, packetAddr);
+					else
+						m->AddMessage(prev, next, packetAddr);
+					inserted = true;
+					break;
+				}
+
+				prev = next;
+				next = Memory::Read_U32(next);
 			}
 		}
+		if (!inserted)
+			m->AddLastMessage(prev, packetAddr);
 	}
-	if (!inserted)
-		m->AddMessage(-1, packetAddr);
 
 	return 0;
 }
@@ -373,11 +425,10 @@ int sceKernelReceiveMbx(SceUID id, u32 packetAddrPtr, u32 timeoutPtr)
 		return error;
 	}
 
-	if (!m->messageQueue.empty())
+	if (m->nmb.numMessages > 0)
 	{
 		DEBUG_LOG(HLE, "sceKernelReceiveMbx(%i, %08x, %08x): sending first queue message", id, packetAddrPtr, timeoutPtr);
-		m->ReceiveMessage(packetAddrPtr);
-		return 0;
+		return m->ReceiveMessage(packetAddrPtr);
 	}
 	else
 	{
@@ -401,12 +452,11 @@ int sceKernelReceiveMbxCB(SceUID id, u32 packetAddrPtr, u32 timeoutPtr)
 		return error;
 	}
 
-	if (!m->messageQueue.empty())
+	if (m->nmb.numMessages > 0)
 	{
 		DEBUG_LOG(HLE, "sceKernelReceiveMbxCB(%i, %08x, %08x): sending first queue message", id, packetAddrPtr, timeoutPtr);
-		m->ReceiveMessage(packetAddrPtr);
 		hleCheckCurrentCallbacks();
-		return 0;
+		return m->ReceiveMessage(packetAddrPtr);
 	}
 	else
 	{
@@ -430,11 +480,10 @@ int sceKernelPollMbx(SceUID id, u32 packetAddrPtr)
 		return error;
 	}
 
-	if (!m->messageQueue.empty())
+	if (m->nmb.numMessages > 0)
 	{
 		DEBUG_LOG(HLE, "sceKernelPollMbx(%i, %08x): sending first queue message", id, packetAddrPtr);
-		m->ReceiveMessage(packetAddrPtr);
-		return 0;
+		return m->ReceiveMessage(packetAddrPtr);
 	}
 	else
 	{
@@ -483,6 +532,9 @@ int sceKernelReferMbxStatus(SceUID id, u32 infoAddr)
 	// Should we crash the thread somehow?
 	if (!Memory::IsValidAddress(infoAddr))
 		return -1;
+
+	for (int i = 0, n = m->nmb.numMessages; i < n; ++i)
+		m->nmb.packetListHead = Memory::Read_U32(m->nmb.packetListHead);
 
 	// For whatever reason, it won't write if the size (first member) is 0.
 	if (Memory::Read_U32(infoAddr) != 0)
