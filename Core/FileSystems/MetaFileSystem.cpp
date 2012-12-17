@@ -20,6 +20,7 @@
 
 bool applyPathStringToComponentsVector(std::vector<std::string> &vector, const std::string &pathString)
 {
+	vector.clear();
 	size_t len = pathString.length();
 	size_t start = 0;
 
