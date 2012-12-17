@@ -38,15 +38,15 @@ std::recursive_mutex section;
 
 int eventAudioUpdate = -1;
 int eventHostAudioUpdate = -1;
-int mixFrequency = 48000;
-const int hwSampleRate = 48000;
+int mixFrequency = 44100;
+const int hwSampleRate = 44100;
 const int hwBlockSize = 480;
 const int hostAttemptBlockSize = 64;
 const int audioIntervalUs = (int)(1000000ULL * hwBlockSize / hwSampleRate);
 const int audioHostIntervalUs = (int)(1000000ULL * hostAttemptBlockSize / hwSampleRate);
 
 // High and low watermarks, basically.
-const int chanQueueMaxSizeFactor = 12;
+const int chanQueueMaxSizeFactor = 8;
 const int chanQueueMinSizeFactor = 1;
 
 FixedSizeQueue<s16, hwBlockSize * 8> outAudioQueue;
@@ -67,7 +67,7 @@ void hleHostAudioUpdate(u64 userdata, int cyclesLate)
 
 void __AudioInit()
 {
-	mixFrequency = 48000;
+	mixFrequency = 44100;
 
 	eventAudioUpdate = CoreTiming::RegisterEvent("AudioUpdate", &hleAudioUpdate);
 	eventHostAudioUpdate = CoreTiming::RegisterEvent("AudioUpdateHost", &hleHostAudioUpdate);
@@ -151,8 +151,8 @@ void __AudioUpdate()
 			if (chans[i].sampleQueue.size() >= 2)
 			{
 				s16 sampleL = chans[i].sampleQueue.front();
-				s16 sampleR = chans[i].sampleQueue.front();
 				chans[i].sampleQueue.pop();
+				s16 sampleR = chans[i].sampleQueue.front();
 				chans[i].sampleQueue.pop();
 				mixBuffer[s * 2] += sampleL;
 				mixBuffer[s * 2 + 1] += sampleR;
@@ -225,7 +225,7 @@ int __AudioMix(short *outstereo, int numFrames)
 		}
 	}
 	if (anythingToPlay && underrun >= 0) {
-		DEBUG_LOG(HLE, "audio out buffer UNDERRUN at %i of %i", underrun, numFrames);
+		ERROR_LOG(HLE, "audio out buffer UNDERRUN at %i of %i", underrun, numFrames);
 	} else {
 		// DEBUG_LOG(HLE, "No underrun, mixed %i samples fine", numFrames);
 	}
