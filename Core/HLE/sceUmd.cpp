@@ -284,14 +284,14 @@ int sceUmdWaitDriveStatCB(u32 stat, u32 timeout)
 	return 0;
 }
 
-void sceUmdCancelWaitDriveStat()
+u32 sceUmdCancelWaitDriveStat()
 {
 	DEBUG_LOG(HLE,"0=sceUmdCancelWaitDriveStat()");
-	RETURN(0);
 
 	__KernelTriggerWait(WAITTYPE_UMD, 1, SCE_KERNEL_ERROR_WAIT_CANCEL, true);
 	// TODO: We should call UnscheduleEvent() event here?
 	// But it's not often used anyway, and worst-case it will just do nothing unless it waits again.
+	return 0;
 }
 
 u32 sceUmdGetErrorStat()
@@ -310,7 +310,7 @@ const HLEFunction sceUmdUser[] =
 	{0x8EF08FCE,WrapI_U<sceUmdWaitDriveStat>,"sceUmdWaitDriveStat"},
 	{0x56202973,WrapI_UU<sceUmdWaitDriveStatWithTimer>,"sceUmdWaitDriveStatWithTimer"},
 	{0x4A9E5E29,WrapI_UU<sceUmdWaitDriveStatCB>,"sceUmdWaitDriveStatCB"},
-	{0x6af9b50a,sceUmdCancelWaitDriveStat,"sceUmdCancelWaitDriveStat"},
+	{0x6af9b50a,WrapU_V<sceUmdCancelWaitDriveStat>,"sceUmdCancelWaitDriveStat"},
 	{0x6B4A146C,&WrapU_V<sceUmdGetDriveStat>,"sceUmdGetDriveStat"},
 	{0x20628E6F,&WrapU_V<sceUmdGetErrorStat>,"sceUmdGetErrorStat"},
 	{0x340B7686,WrapU_U<sceUmdGetDiscInfo>,"sceUmdGetDiscInfo"},

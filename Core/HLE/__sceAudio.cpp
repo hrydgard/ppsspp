@@ -95,8 +95,8 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking)
 			chan.waitingThread = __KernelGetCurThread();
 			// WARNING: This changes currentThread so must grab waitingThread before (line above).
 			__KernelWaitCurThread(WAITTYPE_AUDIOCHANNEL, (SceUID)chanNum, 0, 0, false);
-			section.unlock();
-			return 0;
+			// Fall through to the sample queueing, don't want to lose the samples even though
+			// we're getting full.
 		}
 		else
 		{

@@ -49,7 +49,7 @@ SasInstance sas;
 
 u32 sceSasInit(u32 core, u32 grainSize, u32 maxVoices, u32 outputMode, u32 sampleRate)
 {
-	DEBUG_LOG(HLE,"0=sceSasInit(%08x, %i, maxVoices=%i, %i, %i)", core, grainSize, maxVoices, outputMode, sampleRate);
+	INFO_LOG(HLE,"0=sceSasInit(%08x, grainSize=%i, maxVoices=%i, %i, %i)", core, grainSize, maxVoices, outputMode, sampleRate);
 	memset(&sas, 0, sizeof(sas));
 	sas.SetGrainSize(grainSize);
 	sas.maxVoices = maxVoices;
@@ -339,7 +339,7 @@ u32 sceSasGetGrain(u32 core)
 
 u32 sceSasSetGrain(u32 core, int grain)
 {
-	DEBUG_LOG(HLE,"0=sceSasSetGrain(core=%08x, grain=%i)", core, grain);
+	INFO_LOG(HLE,"0=sceSasSetGrain(core=%08x, grain=%i)", core, grain);
 	sas.SetGrainSize(grain);
 	return 0;
 }

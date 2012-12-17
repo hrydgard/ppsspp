@@ -51,7 +51,6 @@ struct AudioChannel
   // last sample address
   u32 sampleAddress;
   u32 sampleCount;  // Number of samples written in each OutputBlocking
-	int dataLen;  // Probably internal queue size. Not currently used.
 
   int leftVolume;
   int rightVolume;

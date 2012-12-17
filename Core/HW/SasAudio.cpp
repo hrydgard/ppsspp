@@ -182,15 +182,16 @@ SasInstance::~SasInstance() {
 }
 
 void SasInstance::SetGrainSize(int newGrainSize) {
+	grainSize = newGrainSize;
+
 	if (mixBuffer)
 		delete [] mixBuffer;
 	if (sendBuffer)
 		delete [] sendBuffer;
-	mixBuffer = new s32[newGrainSize * 2];
-	sendBuffer = new s32[newGrainSize * 2];
-	memset(mixBuffer, 0, sizeof(int) * newGrainSize * 2);
-	memset(sendBuffer, 0, sizeof(int) * newGrainSize * 2);
-	grainSize = newGrainSize;
+	mixBuffer = new s32[grainSize * 2];
+	sendBuffer = new s32[grainSize * 2];
+	memset(mixBuffer, 0, sizeof(int) * grainSize * 2);
+	memset(sendBuffer, 0, sizeof(int) * grainSize * 2);
 	if (resampleBuffer)
 		delete [] resampleBuffer;
 
@@ -218,6 +219,10 @@ void SasInstance::Mix(u32 outAddr) {
 			int curSample = voice.samplePos / PSP_SAS_PITCH_BASE;
 			int lastSample = (voice.samplePos + grainSize * voice.pitch) / PSP_SAS_PITCH_BASE;
 			int numSamples = lastSample - curSample;
+			if (numSamples > grainSize * 4) {
+				ERROR_LOG(SAS, "numSamples too large, clamping: %i vs %i", numSamples, grainSize * 4);
+				numSamples = grainSize * 4;
+			}
 
 			// Read N samples into the resample buffer. Could do either PCM or VAG here.
 			voice.vag.GetSamples(resampleBuffer + 2, numSamples);
@@ -254,6 +259,7 @@ void SasInstance::Mix(u32 outAddr) {
 				sendBuffer[i * 2 + 1] += sample * voice.volumeRightSend >> 15;
 				voice.envelope.Step();
 			}
+			voice.samplePos += voice.pitch * grainSize;
 			if (voice.envelope.HasEnded())
 			{
 				// NOTICE_LOG(SAS, "Hit end of envelope");
