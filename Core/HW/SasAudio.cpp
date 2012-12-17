@@ -207,7 +207,7 @@ void SasInstance::Mix(u32 outAddr) {
 
 		// TODO: Special case no-resample case for speed
 
-		if (voice.vagAddr != 0) {
+		if (voice.type == VOICETYPE_VAG && voice.vagAddr != 0) {
 			// Load resample history (so we can use a wide filter)
 			resampleBuffer[0] = voice.resampleHist[0];
 			resampleBuffer[1] = voice.resampleHist[1];
@@ -263,10 +263,10 @@ void SasInstance::Mix(u32 outAddr) {
 				voice.playing = false;
 			}
 		}
-		else if (voice.pcmAddr != 0) {
+		else if (voice.type == VOICETYPE_PCM && voice.pcmAddr != 0) {
 			// PCM mixing should be easy, can share code with VAG
 		}
-		else if (voice.noiseFreq != 0) {
+		else if (voice.type == VOICETYPE_NOISE && voice.noiseFreq != 0) {
 			// Generate noise?
 		}
 	}
@@ -301,17 +301,22 @@ void SasVoice::Reset() {
 }
 
 void SasVoice::KeyOn() {
-	on = true;
-	playing = true;
-	paused = false;
 	envelope.KeyOn();
 	switch (type) {
 	case VOICETYPE_VAG:
-		vag.Start(Memory::GetPointer(vagAddr), loop);
+		if (Memory::IsValidAddress(vagAddr)) {
+			vag.Start(Memory::GetPointer(vagAddr), loop);
+		} else {
+			ERROR_LOG(SAS, "Invalid VAG address %08x", vagAddr);
+			return;
+		}
 		break;
 	default:
 		break;
 	}
+	playing = true;
+	on = true;
+	paused = false;
 }
 
 void SasVoice::KeyOff() {

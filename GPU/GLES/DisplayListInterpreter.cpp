@@ -106,7 +106,7 @@ void GLES_GPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, int format)
 		displayStride_ = stride;
 		displayFormat_ = format;
 	} else {
-		DEBUG_LOG(HLE, "Bogus framebuffer address: %08x", framebuf);
+		ERROR_LOG(HLE, "Bogus framebuffer address: %08x", framebuf);
 	}
 }
 
