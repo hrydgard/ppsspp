@@ -504,6 +504,8 @@ void Idle(int maxIdle)
 
 	idledCycles += cyclesDown;
 	downcount -= cyclesDown;
+	if (downcount == 0)
+		downcount = -1;
 }
 
 std::string GetScheduledEventsSummary()

@@ -359,13 +359,18 @@ void sceDisplayWaitVblankStartMultiCB()
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, true);
 }
 
-void sceDisplayGetVcount()
+u32 sceDisplayGetVcount()
 {
 	// Too spammy
 	// DEBUG_LOG(HLE,"%i=sceDisplayGetVcount()", vCount);	
-	// Games like Puyo Puyo call this in a tight loop at end-of-frame. We could have it consume some time from CoreTiming?
+
+	// Puyo Puyo Fever polls this as a substitute for waiting vblank.
+	// As a result, the game never gets to reschedule so it doesn't mix audio and things break.
+	// I added this as a workaround until we figure out what call actually does reschedule - it doesn't call much though...
+
 	CoreTiming::Idle(1000000);
-	RETURN(vCount);
+	__KernelReSchedule();  // Puyo puyo hack?
+	return vCount;
 }
 
 void sceDisplayGetCurrentHcount()
@@ -403,7 +408,7 @@ const HLEFunction sceDisplay[] =
 	{0xdba6c4c4,WrapF_V<sceDisplayGetFramePerSec>,"sceDisplayGetFramePerSec"},
 	{0x773dd3a3,sceDisplayGetCurrentHcount,"sceDisplayGetCurrentHcount"},
 	{0x210eab3a,sceDisplayGetAccumulatedHcount,"sceDisplayGetAccumulatedHcount"},
-	{0x9C6EAAD7,sceDisplayGetVcount,"sceDisplayGetVcount"},
+	{0x9C6EAAD7,WrapU_V<sceDisplayGetVcount>,"sceDisplayGetVcount"},
 	{0xDEA197D4,0,"sceDisplayGetMode"},
 	{0x7ED59BC4,0,"sceDisplaySetHoldMode"},
 	{0xA544C486,0,"sceDisplaySetResumeMode"},

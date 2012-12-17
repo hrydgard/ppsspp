@@ -300,6 +300,19 @@ u32 sceUmdGetErrorStat()
 	return umdErrorStat;
 }
 
+u32 sceUmdReplaceProhibit()
+{
+	DEBUG_LOG(HLE,"sceUmdReplaceProhibit()");
+	return 0;
+}
+
+u32 sceUmdReplacePermit()
+{
+	DEBUG_LOG(HLE,"sceUmdReplacePermit()");
+	return 0;
+}
+
+
 
 const HLEFunction sceUmdUser[] = 
 {
@@ -316,7 +329,8 @@ const HLEFunction sceUmdUser[] =
 	{0x340B7686,WrapU_U<sceUmdGetDiscInfo>,"sceUmdGetDiscInfo"},
 	{0xAEE7404D,&WrapU_U<sceUmdRegisterUMDCallBack>,"sceUmdRegisterUMDCallBack"},
 	{0xBD2BDE07,&WrapU_U<sceUmdUnRegisterUMDCallBack>,"sceUmdUnRegisterUMDCallBack"},
-	{0x87533940,0,"sceUmdReplaceProhibit"},	// ??? sounds bogus
+	{0x87533940,WrapU_V<sceUmdReplaceProhibit>,"sceUmdReplaceProhibit"},
+	{0x87533940,WrapU_V<sceUmdReplacePermit>,"sceUmdReplacePermit"},
 };
 
 void Register_sceUmdUser()
