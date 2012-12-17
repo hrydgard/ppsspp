@@ -358,7 +358,7 @@ bool Copy(const std::string &srcFilename, const std::string &destFilename)
 
 tm GetModifTime(const std::string &filename)
 {
-	tm return_time;
+	tm return_time = {0};
 	if (!Exists(filename))
 	{
 		WARN_LOG(COMMON, "GetCreateTime: failed %s: No such file", filename.c_str());
