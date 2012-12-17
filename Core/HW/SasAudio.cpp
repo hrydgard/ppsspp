@@ -61,13 +61,9 @@ bool VagDecoder::DecodeBlock()
 	for (int i = 0; i < 28; i += 2) 
 	{
 		int d = GetByte();
-		int s = (d & 0xf) << 12;
-		if (s & 0x8000)
-			s |= 0xffff0000;
+		int s = (short)((d & 0xf) << 12);
 		samples[i] = (double)(s >> shift_factor);
-		s = (d & 0xf0) << 8;
-		if (s & 0x8000)
-			s |= 0xffff0000;
+		s = (short)((d & 0xf0) << 8);
 		samples[i + 1] = (double)(s >> shift_factor);
 	}
 	for (int i = 0; i < 28; i++)
@@ -83,7 +79,7 @@ bool VagDecoder::DecodeBlock()
 
 void VagDecoder::GetSamples(s16 *outSamples, int numSamples) {
 	if (end_) {
-		memset(outSamples, 0, numSamples * sizeof(int));
+		memset(outSamples, 0, numSamples * sizeof(s16));
 		return;
 	}
 	for (int i = 0; i < numSamples; i++) {
@@ -218,7 +214,7 @@ void SasInstance::Mix(u32 outAddr) {
 			// Figure out number of samples to read.
 			int curSample = voice.samplePos / PSP_SAS_PITCH_BASE;
 			int lastSample = (voice.samplePos + grainSize * voice.pitch) / PSP_SAS_PITCH_BASE;
-			int numSamples = lastSample - curSample;
+			u32 numSamples = lastSample - curSample;
 			if (numSamples > grainSize * 4) {
 				ERROR_LOG(SAS, "numSamples too large, clamping: %i vs %i", numSamples, grainSize * 4);
 				numSamples = grainSize * 4;

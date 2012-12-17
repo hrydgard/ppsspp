@@ -46,7 +46,7 @@ const int audioIntervalUs = (int)(1000000ULL * hwBlockSize / hwSampleRate);
 const int audioHostIntervalUs = (int)(1000000ULL * hostAttemptBlockSize / hwSampleRate);
 
 // High and low watermarks, basically.
-const int chanQueueMaxSizeFactor = 8;
+const int chanQueueMaxSizeFactor = 4;
 const int chanQueueMinSizeFactor = 1;
 
 FixedSizeQueue<s16, hwBlockSize * 8> outAudioQueue;
