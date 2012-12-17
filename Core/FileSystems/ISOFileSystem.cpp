@@ -21,6 +21,7 @@
 #include <cstring>
 #include <cstdio>
 
+
 const int sectorSize = 2048;
 
 static bool parseLBN(std::string filename, u32 *sectorStart, u32 *readSize)
@@ -209,7 +210,7 @@ nextblock:
 		e->isBlockSectorMode = false;
 
 		// Let's not excessively spam the log - I commented this line out.
-		// DEBUG_LOG(FILESYS, "%s: %s %08x %08x %i", e->isDirectory?"D":"F", name, dir.firstDataSectorLE, e->startingPosition, e->startingPosition);
+		DEBUG_LOG(FILESYS, "%s: %s %08x %08x %i", e->isDirectory?"D":"F", name, dir.firstDataSectorLE, e->startingPosition, e->startingPosition);
 
 		if (e->isDirectory && !relative)
 		{
@@ -253,8 +254,15 @@ ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(std::string path)
 		{
 			for (size_t i=0; i<e->children.size(); i++)
 			{
-				std::string n = e->children[i]->name;
+				std::string n = (e->children[i]->name);
+				for (size_t i = 0; i < n.size(); i++) {
+					n[i] = tolower(n[i]);
+				}
 				std::string curPath = path.substr(0, path.find_first_of('/'));
+				for (size_t i = 0; i < curPath.size(); i++) {
+					curPath[i] = tolower(curPath[i]);
+				}
+
 				if (curPath == n)
 				{
 					//yay we got it
