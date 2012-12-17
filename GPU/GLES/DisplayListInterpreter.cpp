@@ -1182,8 +1182,8 @@ void GLES_GPU::DoBlockTransfer()
 	u32 srcBasePtr = (gstate.transfersrc & 0xFFFFFF) | ((gstate.transfersrcw & 0xFF0000) << 8);
 	u32 srcStride = gstate.transfersrcw & 0x3FF;
 
-	u32 dstBasePtr = (gstate.transfersrc & 0xFFFFFF) | ((gstate.transfersrcw & 0xFF0000) << 8);
-	u32 dstStride = gstate.transfersrcw & 0x3FF;
+	u32 dstBasePtr = (gstate.transferdst & 0xFFFFFF) | ((gstate.transferdstw & 0xFF0000) << 8);
+	u32 dstStride = gstate.transferdstw & 0x3FF;
 
 	int srcX = gstate.transfersrcpos & 0x3FF;
 	int srcY = (gstate.transfersrcpos >> 10) & 0x3FF;
