@@ -318,12 +318,12 @@ int sceFontGetCharGlyphImage_Clip(u32 libHandler, u32 charCode, u32 glyphImagePt
 	return 0;
 }
 
- int sceFontGetFontList(u32 fontLibHandle, u32 fontStylePtr, u32 numFonts)
- {
-	 ERROR_LOG(HLE, "sceFontGetFontList %x, %x, %x", fontLibHandle, fontStylePtr, numFonts);
-	 
-	 FontStyle style;
-	 memset(&style, 0, sizeof (style));
+int sceFontGetFontList(u32 fontLibHandle, u32 fontStylePtr, u32 numFonts)
+{
+	ERROR_LOG(HLE, "sceFontGetFontList %x, %x, %x", fontLibHandle, fontStylePtr, numFonts);
+
+	FontStyle style;
+	memset(&style, 0, sizeof (style));
 
 	style.fontH = 20 / 64.f;
 	style.fontV = 20 / 64.f;
@@ -331,9 +331,9 @@ int sceFontGetCharGlyphImage_Clip(u32 libHandler, u32 charCode, u32 glyphImagePt
 	style.fontVRes = 20 / 64.f;
 	style.fontStyle = 1;
 
-	 Memory::WriteStruct(fontStylePtr, &style);
-	 return 0;
- }
+	Memory::WriteStruct(fontStylePtr, &style);
+	return 0;
+}
 
 const HLEFunction sceLibFont[] = 
 {
