@@ -207,8 +207,9 @@ nextblock:
 		e->isDirectory = !isFile;
 		e->flags = dir.flags;
 		e->isBlockSectorMode = false;
-				
-		DEBUG_LOG(FILESYS, "%s: %s %08x %08x %i", e->isDirectory?"D":"F", name, dir.firstDataSectorLE, e->startingPosition, e->startingPosition);
+
+		// Let's not excessively spam the log - I commented this line out.
+		// DEBUG_LOG(FILESYS, "%s: %s %08x %08x %i", e->isDirectory?"D":"F", name, dir.firstDataSectorLE, e->startingPosition, e->startingPosition);
 
 		if (e->isDirectory && !relative)
 		{
@@ -414,7 +415,7 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)
 			posInSector = 0;
 			secNum++;
 		}
-		e.seekPos += size;
+		e.seekPos += (unsigned int)size;
 		return totalRead;
 	}
 	else
@@ -449,7 +450,7 @@ size_t ISOFileSystem::SeekFile(u32 handle, s32 position, FileMove type)
 			if (e.isRawSector)
 				e.seekPos = e.openSize;
 			else
-				e.seekPos = e.file->size + position;		
+				e.seekPos = (unsigned int)(e.file->size + position);
 			break;
 		}
 		return (size_t)e.seekPos;

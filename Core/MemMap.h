@@ -34,6 +34,10 @@
 // If safe memory is enabled and JIT is disabled, all memory access will go through the proper
 // memory access functions, and thus won't crash the emu when they go out of bounds.
 #if defined(_DEBUG)
+//#define SAFE_MEMORY
+#endif
+// Required for UNUSABLE_MMAP. Can define this in cmake instead later
+#ifdef __SYMBIAN32__
 #define SAFE_MEMORY
 #endif
 
@@ -53,7 +57,9 @@ typedef void (*readFn64)(u64&, const u32);
 
 
 inline u32 PSP_GetKernelMemoryBase() { return 0x08000000;}
-inline u32 PSP_GetKernelMemoryEnd()  { return 0x08800000;}
+inline u32 PSP_GetKernelMemoryEnd()  { return 0x08400000;} 
+// "Volatile" RAM is between 0x08400000 and 0x08800000, can be requested by the
+// game through sceKernelVolatileMemTryLock.
 
 inline u32 PSP_GetUserMemoryBase() { return 0x08800000;}
 inline u32 PSP_GetUserMemoryEnd()  { return 0x0A000000;}
@@ -114,13 +120,6 @@ void DoState(PointerWrap &p);
 void Clear();
 bool AreMemoryBreakpointsActivated();
 
-// ONLY for use by GUI
-u8 ReadUnchecked_U8(const u32 _Address);
-u16 ReadUnchecked_U16(const u32 _Address);
-
-void WriteUnchecked_U8(const u8 _Data, const u32 _Address);
-void WriteUnchecked_U32(const u32 _Data, const u32 _Address);
-
 inline u8* GetMainRAMPtr() {return m_pRAM;}
 
 // used by interpreter to read instructions, uses iCache
@@ -146,19 +145,69 @@ u16 Read_U16(const u32 _Address);
 u32 Read_U32(const u32 _Address);
 u64 Read_U64(const u32 _Address);
 
+#if (defined(ARM) || defined(_ARM)) && !defined(_M_ARM)
+#define _M_ARM
+#endif
+
 
 #ifdef SAFE_MEMORY
 u32 ReadUnchecked_U32(const u32 _Address);
+// ONLY for use by GUI and fast interpreter
+u8 ReadUnchecked_U8(const u32 _Address);
+u16 ReadUnchecked_U16(const u32 _Address);
+void WriteUnchecked_U8(const u8 _Data, const u32 _Address);
+void WriteUnchecked_U16(const u16 _Data, const u32 _Address);
+void WriteUnchecked_U32(const u32 _Data, const u32 _Address);
 #else
-inline u32 ReadUnchecked_U32(const u32 _Address) {
+
+inline u32 ReadUnchecked_U32(const u32 address) {
 #if defined(_M_IX86) || defined(_M_ARM32)
-  return (*(u32 *)(base + (_Address & MEMVIEW32_MASK)));  // ReadUnchecked_U32(_Address);
-#elif defined(_M_X64)
-  return (*(u32 *)(base + _Address));
+  return (*(u32 *)(base + (address & MEMVIEW32_MASK)));
 #else
-  return (*(u32 *)(base + _Address));
+  return (*(u32 *)(base + address));
 #endif
 }
+
+inline u16 ReadUnchecked_U16(const u32 address) {
+#if defined(_M_IX86) || defined(_M_ARM32)
+	return (*(u16 *)(base + (address & MEMVIEW32_MASK)));
+#else
+	return (*(u16 *)(base + address));
+#endif
+}
+
+inline u8 ReadUnchecked_U8(const u32 address) {
+#if defined(_M_IX86) || defined(_M_ARM32)
+	return (*(u8 *)(base + (address & MEMVIEW32_MASK))); 
+#else
+	return (*(u8 *)(base + address));
+#endif
+}
+
+inline void WriteUnchecked_U32(u32 data, u32 address) {
+#if defined(_M_IX86) || defined(_M_ARM32)
+	(*(u32 *)(base + (address & MEMVIEW32_MASK))) = data;
+#else
+	(*(u32 *)(base + address)) = data;
+#endif
+}
+
+inline void WriteUnchecked_U16(u16 data, u32 address) {
+#if defined(_M_IX86) || defined(_M_ARM32)
+	(*(u16 *)(base + (address & MEMVIEW32_MASK))) = data;
+#else
+	(*(u16 *)(base + address)) = data;
+#endif
+}
+
+inline void WriteUnchecked_U8(u8 data, u32 address) {
+#if defined(_M_IX86) || defined(_M_ARM32)
+	(*(u8 *)(base + (address & MEMVIEW32_MASK))) = data;
+#else
+	(*(u8 *)(base + address)) = data;
+#endif
+}
+
 #endif
 
 
@@ -197,7 +246,6 @@ inline void Write_Float(float f, u32 address)
 
 // Reads a zero-terminated string from memory at the address.
 void GetString(std::string& _string, const u32 _Address);
-
 u8* GetPointer(const u32 address);
 bool IsValidAddress(const u32 address);
 

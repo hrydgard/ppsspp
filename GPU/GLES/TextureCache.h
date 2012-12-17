@@ -16,8 +16,13 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #pragma once
+
 #include "../Globals.h"
 
 
 void PSPSetTexture();
+void TextureCache_Init();
+void TextureCache_Shutdown();
 void TextureCache_Clear(bool delete_them);
+void TextureCache_Decimate();  // Run this once per frame to get rid of old textures.
+int TextureCache_NumLoadedTextures();

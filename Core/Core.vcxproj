@@ -119,7 +119,14 @@
     <ClCompile Include="CPU.cpp" />
     <ClCompile Include="Debugger\Breakpoints.cpp" />
     <ClCompile Include="Debugger\SymbolMap.cpp" />
+    <ClCompile Include="Dialog\PSPDialog.cpp" />
+    <ClCompile Include="Dialog\PSPMsgDialog.cpp" />
+    <ClCompile Include="Dialog\PSPOskDialog.cpp" />
+    <ClCompile Include="Dialog\PSPPlaceholderDialog.cpp" />
+    <ClCompile Include="Dialog\PSPSaveDialog.cpp" />
+    <ClCompile Include="Dialog\SavedataParam.cpp" />
     <ClCompile Include="ELF\ElfReader.cpp" />
+    <ClCompile Include="ELF\ParamSFO.cpp" />
     <ClCompile Include="ELF\PrxDecrypter.cpp" />
     <ClCompile Include="FileSystems\BlockDevices.cpp" />
     <ClCompile Include="FileSystems\DirectoryFileSystem.cpp" />
@@ -132,6 +139,7 @@
     <ClCompile Include="HLE\sceCtrl.cpp" />
     <ClCompile Include="HLE\sceDisplay.cpp" />
     <ClCompile Include="HLE\sceDmac.cpp" />
+    <ClCompile Include="HLE\sceFont.cpp" />
     <ClCompile Include="HLE\sceGe.cpp" />
     <ClCompile Include="HLE\sceHprm.cpp" />
     <ClCompile Include="HLE\sceHttp.cpp" />
@@ -152,16 +160,23 @@
     <ClCompile Include="HLE\sceKernelVTimer.cpp" />
     <ClCompile Include="HLE\sceMpeg.cpp" />
     <ClCompile Include="HLE\sceNet.cpp" />
+    <ClCompile Include="HLE\sceOpenPSID.cpp" />
+    <ClCompile Include="HLE\sceParseHttp.cpp" />
+    <ClCompile Include="HLE\sceParseUri.cpp" />
     <ClCompile Include="HLE\scePower.cpp" />
     <ClCompile Include="HLE\scePsmf.cpp" />
     <ClCompile Include="HLE\sceRtc.cpp" />
     <ClCompile Include="HLE\sceSas.cpp" />
+    <ClCompile Include="HLE\sceSsl.cpp" />
+    <ClCompile Include="HLE\scesupPreAcc.cpp" />
     <ClCompile Include="HLE\sceUmd.cpp" />
     <ClCompile Include="HLE\sceUtility.cpp" />
+    <ClCompile Include="HLE\sceVaudio.cpp" />
     <ClCompile Include="HLE\__sceAudio.cpp" />
     <ClCompile Include="Host.cpp" />
     <ClCompile Include="HW\MediaEngine.cpp" />
     <ClCompile Include="HW\MemoryStick.cpp" />
+    <ClCompile Include="HW\SasAudio.cpp" />
     <ClCompile Include="Loaders.cpp" />
     <ClCompile Include="MemMap.cpp" />
     <ClCompile Include="MemmapFunctions.cpp" />
@@ -237,6 +252,8 @@
     <ClCompile Include="PSPMixer.cpp" />
     <ClCompile Include="System.cpp" />
     <ClCompile Include="Util\BlockAllocator.cpp" />
+    <ClCompile Include="Util\PPGeDraw.cpp" />
+    <ClCompile Include="Util\ppge_atlas.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Config.h" />
@@ -247,8 +264,15 @@
     <ClInclude Include="Debugger\Breakpoints.h" />
     <ClInclude Include="Debugger\DebugInterface.h" />
     <ClInclude Include="Debugger\SymbolMap.h" />
+    <ClInclude Include="Dialog\PSPDialog.h" />
+    <ClInclude Include="Dialog\PSPMsgDialog.h" />
+    <ClInclude Include="Dialog\PSPOskDialog.h" />
+    <ClInclude Include="Dialog\PSPPlaceholderDialog.h" />
+    <ClInclude Include="Dialog\PSPSaveDialog.h" />
+    <ClInclude Include="Dialog\SavedataParam.h" />
     <ClInclude Include="ELF\ElfReader.h" />
     <ClInclude Include="ELF\ElfTypes.h" />
+    <ClInclude Include="ELF\ParamSFO.h" />
     <ClInclude Include="ELF\PrxDecrypter.h" />
     <ClInclude Include="FileSystems\BlockDevices.h" />
     <ClInclude Include="FileSystems\DirectoryFileSystem.h" />
@@ -263,6 +287,7 @@
     <ClInclude Include="HLE\sceCtrl.h" />
     <ClInclude Include="HLE\sceDisplay.h" />
     <ClInclude Include="HLE\sceDmac.h" />
+    <ClInclude Include="HLE\sceFont.h" />
     <ClInclude Include="HLE\sceGe.h" />
     <ClInclude Include="HLE\sceHprm.h" />
     <ClInclude Include="HLE\sceHttp.h" />
@@ -282,16 +307,23 @@
     <ClInclude Include="HLE\sceKernelTime.h" />
     <ClInclude Include="HLE\sceMpeg.h" />
     <ClInclude Include="HLE\sceNet.h" />
+    <ClInclude Include="HLE\sceOpenPSID.h" />
+    <ClInclude Include="HLE\sceParseHttp.h" />
+    <ClInclude Include="HLE\sceParseUri.h" />
     <ClInclude Include="HLE\scePower.h" />
     <ClInclude Include="HLE\scePsmf.h" />
     <ClInclude Include="HLE\sceRtc.h" />
     <ClInclude Include="HLE\sceSas.h" />
+    <ClInclude Include="HLE\sceSsl.h" />
+    <ClInclude Include="HLE\scesupPreAcc.h" />
     <ClInclude Include="HLE\sceUmd.h" />
     <ClInclude Include="HLE\sceUtility.h" />
     <ClInclude Include="HLE\sceKernelVTimer.h" />
+    <ClInclude Include="HLE\sceVaudio.h" />
     <ClInclude Include="HLE\__sceAudio.h" />
     <ClInclude Include="Host.h" />
     <ClInclude Include="HW\MediaEngine.h" />
+    <ClInclude Include="HW\SasAudio.h" />
     <ClInclude Include="HW\MemoryStick.h" />
     <ClInclude Include="Loaders.h" />
     <ClInclude Include="MemMap.h" />
@@ -339,6 +371,8 @@
     <ClInclude Include="System.h" />
     <ClInclude Include="Util\BlockAllocator.h" />
     <ClInclude Include="Util\Pool.h" />
+    <ClInclude Include="Util\PPGeDraw.h" />
+    <ClInclude Include="Util\ppge_atlas.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\android\jni\Android.mk" />
@@ -354,7 +388,7 @@
       <Project>{457f45d2-556f-47bc-a31d-aff0d15beaed}</Project>
     </ProjectReference>
     <ProjectReference Include="..\native\native.vcxproj">
-      <Project>{e8b58922-9827-493d-81e0-4b6e6bd77171}</Project>
+      <Project>{C4DF647E-80EA-4111-A0A8-218B1B711E18}</Project>
     </ProjectReference>
     <ProjectReference Include="..\ext\zlib\zlib.vcxproj">
       <Project>{f761046e-6c38-4428-a5f1-38391a37bb34}</Project>

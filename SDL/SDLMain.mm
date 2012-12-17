@@ -30,9 +30,9 @@ typedef struct CPSProcessSerNum
 	UInt32		hi;
 } CPSProcessSerNum;
 
-extern OSErr	CPSGetCurrentProcess( CPSProcessSerNum *psn);
-extern OSErr 	CPSEnableForegroundOperation( CPSProcessSerNum *psn, UInt32 _arg2, UInt32 _arg3, UInt32 _arg4, UInt32 _arg5);
-extern OSErr	CPSSetFrontProcess( CPSProcessSerNum *psn);
+extern "C" OSErr	CPSGetCurrentProcess( CPSProcessSerNum *psn);
+extern "C" OSErr 	CPSEnableForegroundOperation( CPSProcessSerNum *psn, UInt32 _arg2, UInt32 _arg3, UInt32 _arg4, UInt32 _arg5);
+extern "C" OSErr	CPSSetFrontProcess( CPSProcessSerNum *psn);
 
 #endif /* SDL_USE_CPS */
 
@@ -350,7 +350,7 @@ static void CustomApplicationMain (int argc, char **argv)
 #  undef main
 #endif
 
-
+extern "C" {
 /* Main entry point to executable - should *not* be SDL_main! */
 int main (int argc, char **argv)
 {
@@ -379,3 +379,4 @@ int main (int argc, char **argv)
     return 0;
 }
 
+}  // extern "C"

@@ -17,18 +17,105 @@
 
 #pragma once
 
+#include <list>
+#include <vector>
+
 #include "../GPUInterface.h"
+#include "Framebuffer.h"
+#include "gfx_es2/fbo.h"
 
 class ShaderManager;
 
 class GLES_GPU : public GPUInterface
 {
 public:
+	GLES_GPU(int renderWidth, int renderHeight);
+	~GLES_GPU();
+	virtual void InitClear();
 	virtual u32 EnqueueList(u32 listpc, u32 stall);
 	virtual void UpdateStall(int listid, u32 newstall);
 	virtual void ExecuteOp(u32 op, u32 diff);
 	virtual bool InterpretList();
 	virtual void DrawSync(int mode);
+	virtual void Continue();
+	virtual void Break();
+	virtual void EnableInterrupts(bool enable) {
+		interruptsEnabled_ = enable;
+	}
+
+	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, int format);
+	virtual void CopyDisplayToOutput();
+	virtual void BeginFrame();
+	virtual void UpdateStats();
+
 private:
+	// TransformPipeline.cpp
+	void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, float *customUV, int forceIndexType, int *bytesRead = 0);
+	void UpdateViewportAndProjection();
+	void DrawBezier(int ucount, int vcount);
+	void DoBlockTransfer();
 	bool ProcessDLQueue();
+
+	FramebufferManager framebufferManager;
+
+	ShaderManager *shaderManager_;
+	bool interruptsEnabled_;
+
+	u32 displayFramebufPtr_;
+	u32 displayStride_;
+	int displayFormat_;
+
+	int renderWidth_;
+	int renderHeight_;
+
+	float renderWidthFactor_;
+	float renderHeightFactor_;
+
+	struct CmdProcessorState
+	{
+		u32 pc;
+		u32 stallAddr;
+	};
+
+	CmdProcessorState dcontext;
+
+	int dlIdGenerator;
+
+	struct DisplayList
+	{
+		int id;
+		u32 listpc;
+		u32 stall;
+	};
+
+	std::vector<DisplayList> dlQueue;
+
+	u32 prev;
+	u32 stack[2];
+	u32 stackptr;
+	bool finished;
+
+	struct VirtualFramebuffer {
+		u32 fb_address;
+		u32 z_address;
+		int fb_stride;
+		int z_stride;
+
+		// There's also a top left of the drawing region, but meh...
+		int width;
+		int height;
+
+		int format;  // virtual, right now they are all RGBA8888
+		FBO *fbo;
+	};
+
+	void SetRenderFrameBuffer();  // Uses parameters computed from gstate
+	// TODO: Break out into some form of FBO manager
+	VirtualFramebuffer *GetDisplayFBO();
+
+	std::list<VirtualFramebuffer *> vfbs_;
+
+	VirtualFramebuffer *currentRenderVfb_;
+
+	u8 bezierBuf[16000];
 };

@@ -108,6 +108,12 @@ void NullGPU::DrawSync(int mode)
 	}
 }
 
+void NullGPU::Continue()
+{
+
+}
+
+
 void NullGPU::ExecuteOp(u32 op, u32 diff)
 {
 	u32 cmd = op >> 24;
@@ -121,13 +127,13 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_VADDR:		/// <<8????
-		gstate.vertexAddr = ((gstate.base & 0x00FF0000) << 8)|data;
-		DEBUG_LOG(G3D,"DL VADDR: %06x", gstate.vertexAddr);
+		gstate_c.vertexAddr = ((gstate.base & 0x00FF0000) << 8)|data;
+		DEBUG_LOG(G3D,"DL VADDR: %06x", gstate_c.vertexAddr);
 		break;
 
 	case GE_CMD_IADDR:
-		gstate.indexAddr	= ((gstate.base & 0x00FF0000) << 8)|data;
-		DEBUG_LOG(G3D,"DL IADDR: %06x", gstate.indexAddr);
+		gstate_c.indexAddr	= ((gstate.base & 0x00FF0000) << 8)|data;
+		DEBUG_LOG(G3D,"DL IADDR: %06x", gstate_c.indexAddr);
 		break;
 
 	case GE_CMD_PRIM:
@@ -143,7 +149,7 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 				"TRIANGLE_FAN=5,",
 				"RECTANGLES=6,",
 			};
-			DEBUG_LOG(G3D, "DL DrawPrim type: %s count: %i vaddr= %08x, iaddr= %08x", type<7 ? types[type] : "INVALID", count, gstate.vertexAddr, gstate.indexAddr);
+			DEBUG_LOG(G3D, "DL DrawPrim type: %s count: %i vaddr= %08x, iaddr= %08x", type<7 ? types[type] : "INVALID", count, gstate_c.vertexAddr, gstate_c.indexAddr);
 		}
 		break;
 
@@ -200,7 +206,8 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 			int behaviour = (data >> 16) & 0xFF;
 			int signal = data & 0xFFFF;
 
-			__TriggerInterruptWithArg(PSP_GE_INTR, PSP_GE_SUBINTR_SIGNAL, signal);
+			if (interruptsEnabled_)
+				__TriggerInterruptWithArg(PSP_GE_INTR, PSP_GE_SUBINTR_SIGNAL, signal);
 		}
 		break;
 
@@ -230,7 +237,8 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_FINISH:
 		DEBUG_LOG(G3D,"DL CMD FINISH");
-		__TriggerInterruptWithArg(PSP_GE_INTR, PSP_GE_SUBINTR_FINISH, 0);
+		if (interruptsEnabled_)
+			__TriggerInterruptWithArg(PSP_GE_INTR, PSP_GE_SUBINTR_FINISH, 0);
 		break;
 
 	case GE_CMD_END: 
@@ -248,6 +256,7 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 		}
 			
 		// This should generate a Reading Ended interrupt
+		// if (interruptsEnabled_)
 		// __TriggerInterrupt(PSP_GE_INTR);
 
 		break;
@@ -305,23 +314,23 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_TEXSCALEU: 
-		gstate.uScale = getFloat24(data); 
-		DEBUG_LOG(G3D, "DL Texture U Scale: %f", gstate.uScale);
+		gstate_c.uScale = getFloat24(data); 
+		DEBUG_LOG(G3D, "DL Texture U Scale: %f", gstate_c.uScale);
 		break;
 
 	case GE_CMD_TEXSCALEV: 
-		gstate.vScale = getFloat24(data); 
-		DEBUG_LOG(G3D, "DL Texture V Scale: %f", gstate.vScale);
+		gstate_c.vScale = getFloat24(data); 
+		DEBUG_LOG(G3D, "DL Texture V Scale: %f", gstate_c.vScale);
 		break;
 
 	case GE_CMD_TEXOFFSETU: 
-		gstate.uOff = getFloat24(data);	
-		DEBUG_LOG(G3D, "DL Texture U Offset: %f", gstate.uOff);
+		gstate_c.uOff = getFloat24(data);	
+		DEBUG_LOG(G3D, "DL Texture U Offset: %f", gstate_c.uOff);
 		break;
 
 	case GE_CMD_TEXOFFSETV: 
-		gstate.vOff = getFloat24(data);	
-		DEBUG_LOG(G3D, "DL Texture V Offset: %f", gstate.vOff);
+		gstate_c.vOff = getFloat24(data);	
+		DEBUG_LOG(G3D, "DL Texture V Offset: %f", gstate_c.vOff);
 		break;
 
 	case GE_CMD_SCISSOR1:
@@ -365,7 +374,7 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_TEXADDR0:
-		gstate.textureChanged=true;
+		gstate_c.textureChanged=true;
 	case GE_CMD_TEXADDR1:
 	case GE_CMD_TEXADDR2:
 	case GE_CMD_TEXADDR3:
@@ -377,7 +386,7 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_TEXBUFWIDTH0:
-		gstate.textureChanged=true;
+		gstate_c.textureChanged=true;
 	case GE_CMD_TEXBUFWIDTH1:
 	case GE_CMD_TEXBUFWIDTH2:
 	case GE_CMD_TEXBUFWIDTH3:
@@ -397,16 +406,12 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_LOADCLUT:
+		// This could be used to "dirty" textures with clut.
 		{
-			u32 clutAttr = ((gstate.clutaddrupper & 0xFF0000)<<8) | (gstate.clutaddr & 0xFFFFFF);
-			if (clutAttr)
+			u32 clutAddr = ((gstate.clutaddrupper & 0xFF0000)<<8) | (gstate.clutaddr & 0xFFFFFF);
+			if (clutAddr)
 			{
-				u16 *clut = (u16*)Memory::GetPointer(clutAttr);
-				if (clut) {
-					int numColors = 16 * (data&0x3F);
-					memcpy(&gstate.paletteMem[0], clut, numColors * 2);
-				}
-				DEBUG_LOG(G3D,"DL Clut load: %i palettes", data);
+				DEBUG_LOG(G3D,"DL Clut load: %08x", clutAddr);
 			}
 			else
 			{
@@ -416,7 +421,7 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 		}
 		break;
 
-//		case GE_CMD_TRANSFERSRC:
+//case GE_CMD_TRANSFERSRC:
 
 	case GE_CMD_TRANSFERSRCW:
 		{
@@ -469,9 +474,9 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 		}
 
 	case GE_CMD_TEXSIZE0:
-		gstate.textureChanged=true;
-		gstate.curTextureWidth = 1 << (gstate.texsize[0] & 0xf);
-		gstate.curTextureHeight = 1 << ((gstate.texsize[0]>>8) & 0xf);
+		gstate_c.textureChanged=true;
+		gstate_c.curTextureWidth = 1 << (gstate.texsize[0] & 0xf);
+		gstate_c.curTextureHeight = 1 << ((gstate.texsize[0]>>8) & 0xf);
 		//fall thru - ignoring the mipmap sizes for now
 	case GE_CMD_TEXSIZE1:
 	case GE_CMD_TEXSIZE2:
@@ -546,7 +551,7 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 			int c = n % 3;
 			float val = getFloat24(data);
 			DEBUG_LOG(G3D,"DL Light %i %c pos: %f", l, c+'X', val);
-			gstate.lightpos[l][c] = val;
+			gstate_c.lightpos[l][c] = val;
 		}
 		break;
 
@@ -560,7 +565,7 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 			int c = n % 3;
 			float val = getFloat24(data);
 			DEBUG_LOG(G3D,"DL Light %i %c dir: %f", l, c+'X', val);
-			gstate.lightdir[l][c] = val;
+			gstate_c.lightdir[l][c] = val;
 		}
 		break;
 
@@ -574,7 +579,7 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 			int c = n % 3;
 			float val = getFloat24(data);
 			DEBUG_LOG(G3D,"DL Light %i %c att: %f", l, c+'X', val);
-			gstate.lightatt[l][c] = val;
+			gstate_c.lightatt[l][c] = val;
 		}
 		break;
 
@@ -589,9 +594,9 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 
 			int l = (cmd - GE_CMD_LAC0) / 3;
 			int t = (cmd - GE_CMD_LAC0) % 3;
-			gstate.lightColor[t][l].r = r;
-			gstate.lightColor[t][l].g = g;
-			gstate.lightColor[t][l].b = b;
+			gstate_c.lightColor[t][l].r = r;
+			gstate_c.lightColor[t][l].g = g;
+			gstate_c.lightColor[t][l].b = b;
 		}
 		break;
 
@@ -618,9 +623,9 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_PATCHDIVISION:
-		gstate.patch_div_s = data & 0xFF;
-		gstate.patch_div_t = (data >> 8) & 0xFF;
-		DEBUG_LOG(G3D, "DL Patch subdivision: %i x %i", gstate.patch_div_s, gstate.patch_div_t);
+		gstate_c.patch_div_s = data & 0xFF;
+		gstate_c.patch_div_t = (data >> 8) & 0xFF;
+		DEBUG_LOG(G3D, "DL Patch subdivision: %i x %i", gstate_c.patch_div_s, gstate_c.patch_div_t);
 		break;
 
 	case GE_CMD_MATERIALUPDATE:
@@ -714,7 +719,6 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_ZTEST:
 		{
-			//glDepthFunc(ztests[data&7]);
 			DEBUG_LOG(G3D,"DL Z test mode: %i", data);
 		}
 		break;
@@ -731,7 +735,7 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 			int index = cmd - GE_CMD_MORPHWEIGHT0;
 			float weight = getFloat24(data);
 			DEBUG_LOG(G3D,"DL MorphWeight %i = %f", index, weight);
-			gstate.morphWeights[index] = weight;
+			gstate_c.morphWeights[index] = weight;
 		}
 		break;
  
@@ -825,3 +829,10 @@ bool NullGPU::InterpretList()
 	return true;
 }
 
+void NullGPU::UpdateStats()
+{
+	gpuStats.numVertexShaders = 0;
+	gpuStats.numFragmentShaders = 0;
+	gpuStats.numShaders = 0;
+	gpuStats.numTextures = 0;
+}

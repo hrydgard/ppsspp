@@ -48,6 +48,7 @@ namespace MIPSInt
 	void Int_VScl(u32 op);
 	void Int_Vidt(u32 op);
 	void Int_Vcmp(u32 op);
+	void Int_Vminmax(u32 op);
 	void Int_Vcrs(u32 op);
 	void Int_Vcmov(u32 op);
 	void Int_CrossQuat(u32 op);
@@ -64,5 +65,9 @@ namespace MIPSInt
 	void Int_ColorConv(u32 op);
 	void Int_Vh2f(u32 op);
 	void Int_Vf2h(u32 op);
+	void Int_Vsge(u32 op);
+	void Int_Vslt(u32 op);
+	void Int_Vmfvc(u32 op);
+	void Int_Vmtvc(u32 op);
 }
 

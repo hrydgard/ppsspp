@@ -55,5 +55,6 @@ namespace MIPSDis
 	void Dis_Vbfy(u32 op, char *out);
 	void Dis_Vf2i(u32 op, char *out);
 	void Dis_Vi2x(u32 op, char *out);
+	void Dis_Vs2i(u32 op, char *out);
 	void Dis_VBranch(u32 op, char *out);
 }

@@ -14,6 +14,7 @@ image I_DIR source_assets/image/dir.png copy
 image I_ROUND source_assets/image/round.png copy
 image I_STICK source_assets/image/stick.png copy
 image I_SHOULDER source_assets/image/shoulder.png copy
+image I_CHECKEDBOX source_assets/image/checkedbox.png copy
 image I_RECT source_assets/image/rect.png copy
 image I_STICKBG source_assets/image/stick_bg.png copy
 image I_BG source_assets/image/background.png copy
@@ -21,8 +22,6 @@ image I_L source_assets/image/L.png copy
 image I_R source_assets/image/R.png copy
 image I_BUTTON source_assets/image/button.png copy
 image I_BUTTON_SELECTED source_assets/image/button_selected.png copy
-image I_ACTIVE_ITEM source_assets/image/active_item.png copy
-image I_INACTIVE_ITEM source_assets/image/inactive_item.png copy
 image I_ICON_UMD source_assets/image/umd48.png copy
 image I_ICON_FOLDER source_assets/image/folder.png copy
 image I_ICON_EXE source_assets/image/exe.png copy

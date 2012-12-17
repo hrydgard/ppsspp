@@ -20,3 +20,9 @@
 void __DisplayInit();
 
 void Register_sceDisplay();
+
+// will return true once after every end-of-frame.
+bool __DisplayFrameDone();
+
+typedef void (*VblankCallback)();
+void __DisplayListenVblank(VblankCallback callback);

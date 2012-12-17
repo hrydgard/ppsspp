@@ -73,6 +73,7 @@ enum
 	VFPU_CTRL_RCX6,
 	VFPU_CTRL_RCX7,
 
+	VFPU_CTRL_MAX,
 	//unknown....
 };
 
@@ -112,7 +113,6 @@ public:
 
 	u32 pc;
 	u32 nextPC;
-	u32 prevPC;
 	u32 hi;
 	u32 lo;
 
@@ -144,7 +144,7 @@ public:
 	void Abort();
 
 	void SingleStep();
-	void RunLoopUntil(u64 globalTicks);
+	int RunLoopUntil(u64 globalTicks);
 };
 
 

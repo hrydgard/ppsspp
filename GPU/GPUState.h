@@ -18,6 +18,8 @@
 #pragma once
 
 #include "../Globals.h"
+#include "../native/gfx/gl_common.h"
+#include "ge_constants.h"
 #include <cstring>
 
 // TODO: this doesn't belong here
@@ -72,15 +74,13 @@ struct Color4
 
 struct GPUgstate
 {
-	u16 paletteMem[256*2];
-
 	union
 	{
 		u32 cmdmem[256];
 		struct
 		{
-			int nop;
-			u32 vaddr,
+			u32 nop,
+				vaddr,
 				iaddr,
 				pad00,
 				prim,
@@ -151,10 +151,10 @@ struct GPUgstate
 				materialupdate,
 				materialemissive,
 				materialambient,
-				pad333[2],
 				materialdiffuse,
 				materialspecular,
 				materialalpha,
+				pad333[2],
 				materialspecularcoef,
 				ambientcolor,
 				ambientalpha,
@@ -222,25 +222,54 @@ struct GPUgstate
 				lop,
 				zmsk,
 				pmsk1,
-				pmsk2
-				;
+				pmsk2,
+				transferstart,
+				transfersrcpos,
+				transferdstpos,
+				transfersize;
 
 			u32 pad05[0x63-0x40];
-
 		};
 	};
 
+	float worldMatrix[12];
+	float viewMatrix[12];
+	float projMatrix[16];
+	float tgenMatrix[12];
+	float boneMatrix[12 * 8];  // Eight bone matrices.
+
+	bool isModeThrough() const { return (vertType & GE_VTYPE_THROUGH) != 0; }
+	bool isModeClear()   const { return clearmode & 1; }
+	bool isCullEnabled() const { return cullfaceEnable & 1; }
+	int  getCullMode()   const { return cullmode & 1; }
+	int  getBlendFuncA() const { return blend & 0xF; }
+	u32 getFixA() const { return blendfixa & 0xFFFFFF; }
+	u32 getFixB() const { return blendfixb & 0xFFFFFF; }
+	int  getBlendFuncB() const { return (blend >> 4) & 0xF; }
+	int  getBlendEq()    const { return (blend >> 8) & 0x7; }
+	bool isDepthTestEnabled() const { return zTestEnable & 1; }
+	bool isDepthWriteEnabled() const { return !(zmsk & 1); }
+	int  getDepthTestFunc() const { return ztestfunc & 0x7; }
+	bool isFogEnabled() const { return fogEnable & 1; }
+};
+// Real data in the context ends here
+
+// The rest is cached simplified/converted data for fast access.
+// Does not need to be saved when saving/restoring context.
+struct GPUStateCache
+{
 	u32 vertexAddr;
 	u32 indexAddr;
 
 	bool textureChanged;
 
-	float uScale,vScale;
-	float uOff,vOff;
+	float uScale,vScale,zScale;
+	float uOff,vOff,zOff;
+	float zMin, zMax;
 	float lightpos[4][3];
 	float lightdir[4][3];
 	float lightatt[4][3];
-	Color4 lightColor[3][4]; //ADS 
+	Color4 lightColor[3][4]; //Amtient Diffuse Specular
 	float morphWeights[8];
 
 	// bezier patch subdivision
@@ -250,22 +279,46 @@ struct GPUgstate
 	u32 curTextureWidth;
 	u32 curTextureHeight;
 
-	float worldMatrix[12];
-	float viewMatrix[12];
-	float projMatrix[16];
-	float tgenMatrix[12];
-	float boneMatrix[8*12];
+	float vpWidth;
+	float vpHeight;
+};
+
+// TODO: Implement support for these.
+struct GPUStatistics
+{
+	void reset() {
+		memset(this, 0, sizeof(*this));
+	}
+	void resetFrame() {
+		numDrawCalls = 0;
+		numVertsTransformed = 0;
+		numTextureSwitches = 0;
+		numShaderSwitches = 0;
+	}
+
+	// Per frame statistics
+	int numDrawCalls;
+	int numVertsTransformed;
+	int numTextureSwitches;
+	int numShaderSwitches;
+
+	// Total statistics, updated by the GPU core in UpdateStats
+	int numFrames;
+	int numTextures;
+	int numVertexShaders;
+	int numFragmentShaders;
+	int numShaders;
 };
 
 void InitGfxState();
 void ShutdownGfxState();
-
 void ReapplyGfxState();
 
 // PSP uses a curious 24-bit float - it's basically the top 24 bits of a regular IEEE754 32-bit float.
+// This is used for light positions, transform matrices, you name it.
 inline float getFloat24(unsigned int data)
 {
-	data<<=8;
+	data <<= 8;
 	float f;
 	memcpy(&f, &data, 4);
 	return f;
@@ -275,11 +328,12 @@ inline float getFloat24(unsigned int data)
 inline unsigned int toFloat24(float f) {
 	unsigned int i;
 	memcpy(&i, &f, 4);
-	i >>= 8;
-	return i;
+	return i >> 8;
 }
 
 class GPUInterface;
 
 extern GPUgstate gstate;
+extern GPUStateCache gstate_c;
 extern GPUInterface *gpu;
+extern GPUStatistics gpuStats;

@@ -23,6 +23,7 @@
 #include "StdMutex.h"
 #include "CoreTiming.h"
 #include "Core.h"
+#include "HLE/sceKernelThread.h"
 
 int CPU_HZ = 222000000;
 
@@ -248,6 +249,51 @@ void ScheduleEvent(int cyclesIntoFuture, int event_type, u64 userdata)
 	AddEventToQueue(ne);
 }
 
+// Returns cycles left in timer.
+u64 UnscheduleEvent(int event_type, u64 userdata)
+{
+	u64 result = 0;
+	if (!first)
+		return result;
+	while(first)
+	{
+		if (first->type == event_type && first->userdata == userdata)
+		{
+			result = first->time - globalTimer;
+
+			Event *next = first->next;
+			FreeEvent(first);
+			first = next;
+		}
+		else
+		{
+			break;
+		}
+	}
+	if (!first)
+		return result;
+	Event *prev = first;
+	Event *ptr = prev->next;
+	while (ptr)
+	{
+		if (ptr->type == event_type && ptr->userdata == userdata)
+		{
+			result = ptr->time - globalTimer;
+
+			prev->next = ptr->next;
+			FreeEvent(ptr);
+			ptr = prev->next;
+		}
+		else
+		{
+			prev = ptr;
+			ptr = ptr->next;
+		}
+	}
+
+	return result;
+}
+
 void RegisterAdvanceCallback(void (*callback)(int cyclesExecuted))
 {
 	advanceCallback = callback;
@@ -363,6 +409,8 @@ void ProcessFifoWaitEvents()
 	{
 		if (first->time <= globalTimer)
 		{
+//			LOG(CPU, "[Scheduler] %s		 (%lld, %lld) ", 
+//				first->name ? first->name : "?", (u64)globalTimer, (u64)first->time);
 			Event* evt = first;
 			first = first->next;
 			event_types[evt->type].callback(evt->userdata, (int)(globalTimer - evt->time));
@@ -400,28 +448,12 @@ void MoveEvents()
 
 void Advance()
 {
-	MoveEvents();		
-
 	int cyclesExecuted = slicelength - downcount;
 	globalTimer += cyclesExecuted;
 	downcount = slicelength;
 
-	while (first)
-	{
-		if (first->time <= globalTimer)
-		{
-//			LOG(CPU, "[Scheduler] %s		 (%lld, %lld) ", 
-//				first->name ? first->name : "?", (u64)globalTimer, (u64)first->time);
-			Event* evt = first;
-			first = first->next;
-			event_types[evt->type].callback(evt->userdata, (int)(globalTimer - evt->time));
-			FreeEvent(evt);
-		}
-		else
-		{
-			break;
-		}
-	}
+	ProcessFifoWaitEvents();
+
 	if (!first) 
 	{
 		// WARN_LOG(CPU, "WARNING - no events in queue. Setting downcount to 10000");
@@ -454,6 +486,20 @@ void Idle(int maxIdle)
 	if (maxIdle != 0 && cyclesDown > maxIdle)
 		cyclesDown = maxIdle;
 
+	if (first && cyclesDown > 0)
+	{
+		int cyclesExecuted = slicelength - downcount;
+		int cyclesNextEvent = (int) (first->time - globalTimer);
+
+		if (cyclesNextEvent < cyclesExecuted + cyclesDown)
+		{
+			cyclesDown = cyclesNextEvent - cyclesExecuted;
+			// Now, now... no time machines, please.
+			if (cyclesDown < 0)
+				cyclesDown = 0;
+		}
+	}
+
 	DEBUG_LOG(CPU, "Idle for %i cycles! (%f ms)", cyclesDown, cyclesDown / (float)(CPU_HZ * 0.001f));
 
 	idledCycles += cyclesDown;
@@ -474,7 +520,7 @@ std::string GetScheduledEventsSummary()
 		if (!name)
 			name = "[unknown]";
 		char temp[512];
-		sprintf(temp, "%s : %i %08x%08x\n", event_types[ptr->type].name, (int)ptr->time, (u32)(ptr->userdata >> 32), (u32)(ptr->userdata));
+		sprintf(temp, "%s : %i %08x%08x\n", name, (int)ptr->time, (u32)(ptr->userdata >> 32), (u32)(ptr->userdata));
 		text += temp;
 		ptr = ptr->next;
 	}

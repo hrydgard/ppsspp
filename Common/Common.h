@@ -25,7 +25,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#if defined(ANDROID) || defined(BLACKBERRY)
+#if defined(ARM)
 #define _M_ARM32
 #endif
 

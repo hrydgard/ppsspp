@@ -17,8 +17,12 @@
 
 #include "Common.h"
 
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(__SYMBIAN32__)
 #define __thread
+#endif
+
+#ifdef _WIN32
+#include <windows.h>
 #endif
 
 // Generic function to get last error message.

@@ -99,11 +99,17 @@ void sceKernelSysClock2USecWide()
 	RETURN(0);
 }
 
-void sceKernelLibcClock()
+u32 sceKernelUSec2SysClockWide(u32 usec)
 {
-	u32 retVal = clock()*1000;
+	DEBUG_LOG(HLE, "sceKernelUSec2SysClockWide(%i)", usec);
+	return usec * 1000000;  // ?
+}
+
+u32 sceKernelLibcClock()
+{
+	u32 retVal = clock()*1000;  // TODO: This can't be right
 	DEBUG_LOG(HLE,"%i = sceKernelLibcClock",retVal);
-	RETURN(retVal); // TODO: fix
+	return retVal;
 }
 
 void sceKernelLibcTime()
@@ -138,56 +144,4 @@ void sceKernelLibcGettimeofday()
 	tv->tv_sec = (long) ((now.ns100 - 116444736000000000LL) / 10000000LL);
 #endif
 	RETURN(0);
-}
-void sceRtcGetCurrentClockLocalTime()
-{
-	DEBUG_LOG(HLE,"0=sceRtcGetCurrentClockLocalTime()");
-	RETURN(0);
-}
-void sceRtcGetTick()
-{
-	DEBUG_LOG(HLE,"0=sceRtcGetTick()");
-	RETURN(0);
-}
-
-u32 sceRtcGetDayOfWeek(u32 year, u32 month, u32 day)
-{
-	static u32 t[] = { 0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4 };
-	 
-    year -= month < 3;
-    return ( year + year/4 - year/100 + year/400 + t[month-1] + day) % 7;
-}
-
-u32 sceRtcGetDaysInMonth(u32 year, u32 month)
-{
-	DEBUG_LOG(HLE,"0=sceRtcGetDaysInMonth()");
-	u32 numberOfDays;
-
-	switch (month)
-	{
-		case 4:
-		case 6:
-		case 9:
-		case 11:
-			numberOfDays = 30;
-			break;
-		case 2:
-			if ((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0))
-				numberOfDays = 29;
-			else
-				numberOfDays = 28;
-			break;
-
-		default:
-			numberOfDays = 31;
-			break;
-	}
-
-	return numberOfDays;
-}
-
-void sceRtcGetTickResolution()
-{
-	DEBUG_LOG(HLE,"100=sceRtcGetTickResolution()");
-	RETURN(100);
 }

@@ -39,7 +39,7 @@ static u32 iButtonValue = 0;
 
 u32 sceImposeGetBatteryIconStatus(u32 chargingPtr, u32 iconStatusPtr)
 {
-	DEBUG_LOG(HLE,"%i=sceImposeGetBatteryIconStatus(%08x, %08x)", chargingPtr, iconStatusPtr);
+	DEBUG_LOG(HLE, "sceImposeGetBatteryIconStatus(%08x, %08x)", chargingPtr, iconStatusPtr);
 	if (Memory::IsValidAddress(chargingPtr))
 		Memory::Write_U32(1, chargingPtr);
 	if (Memory::IsValidAddress(iconStatusPtr))
@@ -49,7 +49,7 @@ u32 sceImposeGetBatteryIconStatus(u32 chargingPtr, u32 iconStatusPtr)
 
 u32 sceImposeSetLanguageMode(u32 languageVal, u32 buttonVal)
 {
-	DEBUG_LOG(HLE,"%i=sceImposeSetLanguageMode(%08x, %08x)", languageVal, buttonVal);
+	DEBUG_LOG(HLE, "sceImposeSetLanguageMode(%08x, %08x)", languageVal, buttonVal);
 	iLanguage = languageVal;
 	iButtonValue = buttonVal;
 	return 0;
@@ -57,7 +57,7 @@ u32 sceImposeSetLanguageMode(u32 languageVal, u32 buttonVal)
 
 u32 sceImposeGetLanguageMode(u32 languagePtr, u32 btnPtr)
 {
-	DEBUG_LOG(HLE,"%i=sceImposeGetLanguageMode(%08x, %08x)", languagePtr, btnPtr);
+	DEBUG_LOG(HLE, "sceImposeGetLanguageMode(%08x, %08x)", languagePtr, btnPtr);
 	if (Memory::IsValidAddress(languagePtr))
 		Memory::Write_U32(iLanguage, languagePtr);
 	if (Memory::IsValidAddress(btnPtr))

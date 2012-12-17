@@ -15,18 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#if defined(ANDROID) || defined(BLACKBERRY)
-#include <GLES2/gl2.h>
-#include <GLES2/gl2ext.h>
-#else
-#include <GL/glew.h>
-#if defined(__APPLE__)
-#include <OpenGL/gl.h>
-#else
-#include <GL/gl.h>
-#endif
-#endif
-
 #include "ge_constants.h"
 #include "GPUState.h"
 #include "GLES/ShaderManager.h"
@@ -36,7 +24,9 @@
 #include "../Core/System.h"
 
 GPUgstate gstate;
+GPUStateCache gstate_c;
 GPUInterface *gpu;
+GPUStatistics gpuStats;
 
 void InitGfxState()
 {
@@ -44,6 +34,7 @@ void InitGfxState()
 	for (int i = 0; i < 256; i++) {
 		gstate.cmdmem[i] = i << 24;
 	}
+
 	gstate.lightingEnable = 0x17000001;
 
 	static const float identity4x3[12] = 
@@ -53,9 +44,9 @@ void InitGfxState()
 	 0,0,0,};
 	static const float identity4x4[16] =
 	{1,0,0,0,
-	0,1,0,0,
-	0,0,1,0,
-	0,0,0,1};
+	 0,1,0,0,
+	 0,0,1,0,
+	 0,0,0,1};
 
 	memcpy(gstate.worldMatrix, identity4x3, 12 * sizeof(float));
 	memcpy(gstate.viewMatrix, identity4x3, 12 * sizeof(float));
@@ -70,7 +61,7 @@ void InitGfxState()
 		gpu = new NullGPU();
 		break;
 	case GPU_GLES:
-		gpu = new GLES_GPU();
+		gpu = new GLES_GPU(PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
 		break;
 	}
 }
@@ -85,9 +76,12 @@ void ShutdownGfxState()
 // or saved the context and has reloaded it, call this function.
 void ReapplyGfxState()
 {
+	if (!gpu)
+		return;
 	// ShaderManager_DirtyShader();
 	// The commands are embedded in the command memory so we can just reexecute the words. Convenient.
 	// To be safe we pass 0xFFFFFFF as the diff.
+	/*
 	gpu->ExecuteOp(gstate.cmdmem[GE_CMD_ALPHABLENDENABLE], 0xFFFFFFFF);
 	gpu->ExecuteOp(gstate.cmdmem[GE_CMD_ALPHATESTENABLE], 0xFFFFFFFF);
 	gpu->ExecuteOp(gstate.cmdmem[GE_CMD_BLENDMODE], 0xFFFFFFFF);
@@ -97,4 +91,26 @@ void ReapplyGfxState()
 	gpu->ExecuteOp(gstate.cmdmem[GE_CMD_CULLFACEENABLE], 0xFFFFFFFF);
 	gpu->ExecuteOp(gstate.cmdmem[GE_CMD_SCISSOR1], 0xFFFFFFFF);
 	gpu->ExecuteOp(gstate.cmdmem[GE_CMD_SCISSOR2], 0xFFFFFFFF);
+	*/
+
+	for (int i = GE_CMD_VERTEXTYPE; i < GE_CMD_BONEMATRIXNUMBER; i++)
+	{
+		gpu->ExecuteOp(gstate.cmdmem[i], 0xFFFFFFFF);		
+	}
+	
+	// Can't write to bonematrixnumber here
+
+	for (int i = GE_CMD_MORPHWEIGHT0; i < GE_CMD_PATCHFACING; i++)
+	{
+		gpu->ExecuteOp(gstate.cmdmem[i], 0xFFFFFFFF);		
+	}
+
+	// There are a few here in the middle that we shouldn't execute...
+
+	for (int i = GE_CMD_VIEWPORTX1; i < GE_CMD_TRANSFERSTART; i++)
+	{
+		gpu->ExecuteOp(gstate.cmdmem[i], 0xFFFFFFFF);		
+	}
+
+	// TODO: there's more...
 }

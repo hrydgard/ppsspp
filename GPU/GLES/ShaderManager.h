@@ -33,7 +33,6 @@ struct LinkedShader
 	void use();
 
 	uint32_t program;
-
 	u32 dirtyUniforms;
 
 	// Pre-fetched attrs and uniforms
@@ -46,25 +45,51 @@ struct LinkedShader
 
 	int u_tex;
 	int u_proj;
+	int u_proj_through;
 	int u_texenv;
 
 	// Fragment processing inputs
 	int u_alpharef;
-
-	// unused
 	int u_fogcolor;
-	int u_fogparam;
+	int u_fogcoef;
+
+	// Lighting
+	int u_ambientcolor;
+	int u_light[4];  // each light consist of vec4[3]
 };
 
+// Will reach 32 bits soon :P
 enum
 {
 	DIRTY_PROJMATRIX = (1 << 0),
-	DIRTY_FOGCOLOR	 = (1 << 1),
-	DIRTY_FOGPARAM	 = (1 << 2),
-	DIRTY_TEXENV		 = (1 << 3),
-	DIRTY_ALPHAREF	 = (1 << 4),
+	DIRTY_PROJTHROUGHMATRIX = (1 << 1),
+	DIRTY_FOGCOLOR	 = (1 << 2),
+	DIRTY_FOGCOEF    = (1 << 3),
+	DIRTY_TEXENV		 = (1 << 4),
+	DIRTY_ALPHAREF	 = (1 << 5),
+	DIRTY_COLORREF	 = (1 << 6),
 
-	DIRTY_ALL = (1 << 5) - 1
+	DIRTY_LIGHT0 = (1 << 12),
+	DIRTY_LIGHT1 = (1 << 13),
+	DIRTY_LIGHT2 = (1 << 14),
+	DIRTY_LIGHT3 = (1 << 15),
+
+	DIRTY_GLOBALAMBIENT = (1 << 16),
+	DIRTY_MATERIAL = (1 << 17),  // let's set all 4 together (emissive ambient diffuse specular). We hide specular coef in specular.a
+	DIRTY_UVSCALEOFFSET = (1 << 18),  // this will be dirtied ALL THE TIME... maybe we'll need to do "last value with this shader compares"
+
+	DIRTY_VIEWMATRIX = (1 << 22),  // Maybe we'll fold this into projmatrix eventually
+	DIRTY_TEXMATRIX = (1 << 23),
+	DIRTY_BONEMATRIX0 = (1 << 24),
+	DIRTY_BONEMATRIX1 = (1 << 25),
+	DIRTY_BONEMATRIX2 = (1 << 26),
+	DIRTY_BONEMATRIX3 = (1 << 27),
+	DIRTY_BONEMATRIX4 = (1 << 28),
+	DIRTY_BONEMATRIX5 = (1 << 29),
+	DIRTY_BONEMATRIX6 = (1 << 30),
+	DIRTY_BONEMATRIX7 = (1 << 31),
+
+	DIRTY_ALL = 0xFFFFFFFF
 };
 
 // Real public interface
@@ -72,8 +97,10 @@ enum
 struct Shader
 {
 	Shader(const char *code, uint32_t shaderType);
-	// const char *source;
 	uint32_t shader;
+	const std::string &source() const { return source_; }
+private:
+	std::string source_;
 };
 
 
@@ -83,9 +110,13 @@ public:
 	ShaderManager() : globalDirty(0xFFFFFFFF) {}
 
 	void ClearCache(bool deleteThem);  // TODO: deleteThem currently not respected
-	LinkedShader *ApplyShader();
+	LinkedShader *ApplyShader(int prim);
 	void DirtyShader();
 	void DirtyUniform(u32 what);
+
+	int NumVertexShaders() const { return (int)vsCache.size(); }
+	int NumFragmentShaders() const { return (int)fsCache.size(); }
+	int NumPrograms() const { return (int)linkedShaderCache.size(); }
 
 private:
 	void Clear();

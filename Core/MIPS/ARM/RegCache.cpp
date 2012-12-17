@@ -282,7 +282,7 @@ void GPRRegCache::BindToRegister(int i, bool doLoad, bool makeDirty)
 		{
 			if (i != j && regs[j].location.IsSimpleReg() && regs[j].location.GetSimpleReg() == xr)
 			{
-				PanicAlert("");
+				PanicAlert("bad");
 			}
 		}
 		regs[i].away = true;
@@ -318,7 +318,8 @@ void GPRRegCache::StoreFromRegister(int i)
 			doStore = true;
 		}
 		Location newLoc = GetDefaultLocation(i);
-		//if (doStore)
+		if (doStore)
+			;
 		//	emit->MOV(32, newLoc, regs[i].location);
 		regs[i].location = newLoc;
 		regs[i].away = false;

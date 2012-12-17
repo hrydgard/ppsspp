@@ -25,18 +25,26 @@
 #else
 #include <errno.h>
 #include <stdio.h>
+#endif
+
+#ifdef __APPLE__
+#include <sys/types.h>
+#include <sys/mman.h>
+#endif
+
 #include <stdlib.h>
-#ifndef __APPLE__
-#include <malloc.h>
-#endif
-#endif
 
 
 #if !defined(_WIN32) && defined(__x86_64__) && !defined(MAP_32BIT)
 #include <unistd.h>
+#ifdef __APPLE__
+#define PAGE_MASK (4096-1)
+#else
 #define PAGE_MASK     (getpagesize() - 1)
+#endif
 #define round_page(x) ((((unsigned long)(x)) + PAGE_MASK) & ~(PAGE_MASK))
 #endif
+
 
 // This is purposely not a full wrapper for virtualalloc/mmap, but it
 // provides exactly the primitive operations that Dolphin needs.
@@ -45,6 +53,9 @@ void* AllocateExecutableMemory(size_t size, bool low)
 {
 #if defined(_WIN32)
 	void* ptr = VirtualAlloc(0, size, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+#elif defined(__SYMBIAN32__)
+	// On Symbian, we will need to create an RChunk and allocate with ->CreateLocalCode(size, size);
+	void* ptr = mmap(map_hint, size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE, -1, 0);
 #else
 	static char *map_hint = 0;
 #if defined(__x86_64__) && !defined(MAP_32BIT)
@@ -67,7 +78,7 @@ void* AllocateExecutableMemory(size_t size, bool low)
 
 	// printf("Mapped executable memory at %p (size %ld)\n", ptr,
 	//	(unsigned long)size);
-	
+
 #if defined(__FreeBSD__)
 	if (ptr == MAP_FAILED)
 	{
@@ -75,7 +86,7 @@ void* AllocateExecutableMemory(size_t size, bool low)
 #else
 	if (ptr == NULL)
 	{
-#endif	
+#endif
 		PanicAlert("Failed to allocate executable memory");
 	}
 #if !defined(_WIN32) && defined(__x86_64__) && !defined(MAP_32BIT)
@@ -122,9 +133,12 @@ void* AllocateAlignedMemory(size_t size,size_t alignment)
 #else
 	void* ptr = NULL;
 #ifdef ANDROID
-  ptr = memalign(alignment, size);
+	ptr = memalign(alignment, size);
+#elif defined(__SYMBIAN32__)
+	// On Symbian, we will want to create an RChunk.
+	ptr = malloc(size);
 #else
-  posix_memalign(&ptr, alignment, size);
+	posix_memalign(&ptr, alignment, size);
 #endif
 #endif
 

@@ -47,7 +47,12 @@ u32 sceWlanGetEtherAddr(u32 addrAddr)
 
 u32 sceWlanDevIsPowerOn()
 {
-	DEBUG_LOG(HLE, "0=sceWlanDevIsPowerOn()");
+	DEBUG_LOG(HLE, "UNTESTED 0=sceWlanDevIsPowerOn()");
+	return 0;
+}
+
+u32 sceWlanGetSwitchState() {
+	DEBUG_LOG(HLE, "UNTESTED sceWlanGetSwitchState()");
 	return 0;
 }
 
@@ -59,6 +64,7 @@ const HLEFunction sceNet[] =
 	{0x0bf0a3ae, 0, "sceNetGetLocalEtherAddr"}, 
 	{0xd27961c9, 0, "sceNetEtherStrton"}, 
 	{0x50647530, 0, "sceNetFreeThreadinfo"}, 
+	{0xcc393e48, 0, "sceNetGetMallocStat"},
 };
 
 const HLEFunction sceNetAdhoc[] =
@@ -86,6 +92,8 @@ const HLEFunction sceNetAdhoc[] =
 	{0xa0229362, 0, "sceNetAdhocGameModeDeleteMaster"},
 	{0x0b2228e9, 0, "sceNetAdhocGameModeDeleteReplica"},
 	{0x7F75C338, 0, "sceNetAdhocGameModeCreateMaster"},
+	{0x73bfd52d, 0, "sceNetAdhocSetSocketAlert"},
+	{0x7a662d6b, 0, "sceNetAdhocPollSocket"},
 };							
 
 const HLEFunction sceNetAdhocMatching[] = 
@@ -125,6 +133,7 @@ const HLEFunction sceNetAdhocctl[] =
 	{0x1ff89745, 0, "sceNetAdhocctlJoinEnterGameMode"},
 	{0xcf8e084d, 0, "sceNetAdhocctlExitGameMode"},
 	{0xe162cb14, 0, "sceNetAdhocctlGetPeerList"},
+	{0x362cbe8f, 0, "sceNetAdhocctlGetAdhocId"},
 };
 
 const HLEFunction sceNetResolver[] =
@@ -134,6 +143,7 @@ const HLEFunction sceNetResolver[] =
 	{0x94523e09, 0, "sceNetResolverDelete"},
 	{0xf3370e61, 0, "sceNetResolverInit"},
 	{0x808F6063, 0, "sceNetResolverStop"},
+	{0x6138194A, 0, "sceNetResolverTermFunction"},
 };					 
 
 const HLEFunction sceNetInet[] = 
@@ -159,6 +169,12 @@ const HLEFunction sceNetInet[] =
 	{0x8ca3a97e, 0, "sceNetInetGetPspError"},
 	{0xa9ed66b9, 0, "sceNetInetTerm"},
 	{0xE30B8C19, 0, "sceNetInetInetPton"},
+	{0xE247B6D6, 0, "sceNetInetGetpeername"},
+	{0x162e6fd5, 0, "sceNetInetGetsockname"},
+	{0x4a114c7c, 0, "sceNetInetGetsockopt"}, 
+	{0xfaabb1dd, 0, "sceNetInetPoll"},
+	{0x1BDF5D13, 0, "sceNetInetInetAton"},
+	{0x80A21ABD, 0, "sceNetInetSocketAbort"},
 };
 const HLEFunction sceNetApctl[] = 
 {
@@ -174,7 +190,7 @@ const HLEFunction sceNetApctl[] =
 
 const HLEFunction sceWlanDrv[] =
 {
-	{0xd7763699, 0, "sceWlanGetSwitchState"},
+	{0xd7763699, WrapU_V<sceWlanGetSwitchState>, "sceWlanGetSwitchState"},
 	{0x0c622081, WrapU_U<sceWlanGetEtherAddr>, "sceWlanGetEtherAddr"},
 	{0x93440B11, WrapU_V<sceWlanDevIsPowerOn>, "sceWlanDevIsPowerOn"},
 };

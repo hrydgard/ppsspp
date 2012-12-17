@@ -26,16 +26,16 @@
 
 
 void sceKernelChangeThreadPriority();
-void sceKernelCreateThread();
+int sceKernelCreateThread(const char *threadName, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr);
 void sceKernelDelayThread();
 void sceKernelDelayThreadCB();
-void sceKernelDeleteThread();
+int sceKernelDeleteThread(int threadHandle);
 void sceKernelExitDeleteThread();
 void sceKernelExitThread();
 void _sceKernelExitThread();
 void sceKernelGetThreadId();
 void sceKernelGetThreadCurrentPriority();
-u32 sceKernelStartThread();
+int sceKernelStartThread(SceUID threadToStartID, u32 argSize, u32 argBlockPtr);
 u32 sceKernelSuspendDispatchThread();
 u32 sceKernelResumeDispatchThread(u32 suspended);
 void sceKernelWaitThreadEnd();
@@ -47,7 +47,8 @@ void sceKernelSuspendThread();
 void sceKernelResumeThread();
 void sceKernelWakeupThread();
 void sceKernelCancelWakeupThread();
-void sceKernelTerminateDeleteThread();
+int sceKernelTerminateDeleteThread(int threadno);
+int sceKernelTerminateThread(u32 threadID);
 void sceKernelWaitThreadEndCB();
 void sceKernelGetThreadExitStatus();
 void sceKernelGetThreadmanIdType();
@@ -68,7 +69,10 @@ enum WaitType //probably not the real values
 	WAITTYPE_AUDIOCHANNEL = 10, // this is fake, should be replaced with 8 eventflags   ( ?? )
 	WAITTYPE_UMD = 11,           // this is fake, should be replaced with 1 eventflag    ( ?? )
 	WAITTYPE_VBLANK = 12,           // fake
-  WAITTYPE_MUTEX = 13,
+	WAITTYPE_MUTEX = 13,
+	WAITTYPE_LWMUTEX = 14,
+	WAITTYPE_CTRL = 15,
+	// Remember to update sceKernelThread.cpp's waitTypeStrings to match.
 };
 
 
@@ -102,10 +106,14 @@ void __KernelLoadContext(ThreadContext *ctx);
 
 // TODO: Replace this with __KernelResumeThread over time as it's misguided.
 bool __KernelTriggerWait(WaitType type, int id, bool dontSwitch = false);
-u32 __KernelResumeThread(SceUID threadID);  // can return an error value
+bool __KernelTriggerWait(WaitType type, int id, int retVal, bool dontSwitch);
+u32 __KernelResumeThreadFromWait(SceUID threadID); // can return an error value
+u32 __KernelResumeThreadFromWait(SceUID threadID, int retval);
 
 u32 __KernelGetWaitValue(SceUID threadID, u32 &error);
-void __KernelWaitCurThread(WaitType type, SceUID waitId, u32 waitValue, int timeout, bool processCallbacks);
+u32 __KernelGetWaitTimeoutPtr(SceUID threadID, u32 &error);
+SceUID __KernelGetWaitID(SceUID threadID, WaitType type, u32 &error);
+void __KernelWaitCurThread(WaitType type, SceUID waitId, u32 waitValue, u32 timeoutPtr, bool processCallbacks);
 void __KernelReSchedule(const char *reason = "no reason");
 void __KernelReSchedule(bool doCallbacks, const char *reason);
 
@@ -131,12 +139,13 @@ u32 __KernelUnregisterCallback(RegisteredCallbackType type, SceUID cbId);
 u32 __KernelNotifyCallbackType(RegisteredCallbackType type, SceUID cbId, int notifyArg);
 
 SceUID __KernelGetCurThread();
+SceUID __KernelGetCurThreadModuleId();
 void __KernelSetupRootThread(SceUID moduleId, int args, const char *argp, int prio, int stacksize, int attr); //represents the real PSP elf loader, run before execution
 void __KernelStartIdleThreads();
 void __KernelReturnFromThread();  // Called as HLE function
 u32 __KernelGetThreadPrio(SceUID id);
 
-void _sceKernelIdle();
+void __KernelIdle();
 
 u32 __KernelMipsCallReturnAddress();
 u32 __KernelInterruptReturnAddress();  // TODO: remove
@@ -156,18 +165,18 @@ void sceKernelReferCallbackStatus();
 class Action;
 
 // Not an official Callback object, just calls a mips function on the current thread.
-void __KernelDirectMipsCall(u32 entryPoint, Action *afterAction, bool returnVoid, u32 args[], int numargs);
+void __KernelDirectMipsCall(u32 entryPoint, Action *afterAction, bool returnVoid, u32 args[], int numargs, bool reschedAfter);
 
 void __KernelReturnFromMipsCall();  // Called as HLE function
 bool __KernelInCallback();
 
 // Should be called by (nearly) all ...CB functions.
 bool __KernelCheckCallbacks();
+bool __KernelForceCallbacks();
 class Thread;
 void __KernelSwitchContext(Thread *target, const char *reason);
-u32 __KernelResumeThreadFromWait(SceUID threadID);
-bool __KernelExecutePendingMipsCalls();
-void __KernelNotifyCallback(RegisteredCallbackType type, SceUID threadId, SceUID cbId, int notifyArg);
+bool __KernelExecutePendingMipsCalls(bool reschedAfter);
+void __KernelNotifyCallback(RegisteredCallbackType type, SceUID cbId, int notifyArg);
 
 // A call into game code. These can be pending on a thread.
 // Similar to Callback-s (NOT CallbackInfos) in JPCSP.
@@ -184,6 +193,8 @@ struct MipsCall {
 	u32 savedV1;
 	bool returnVoid;
 	const char *tag;
+	u32 savedId;
+	bool reschedAfter;
 };
 enum ThreadStatus
 {
@@ -198,3 +209,6 @@ enum ThreadStatus
 };
 
 void __KernelChangeThreadState(Thread *thread, ThreadStatus newStatus);
+
+typedef void (*ThreadCallback)(SceUID threadID);
+void __KernelListenThreadEnd(ThreadCallback callback);

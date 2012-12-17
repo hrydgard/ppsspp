@@ -26,8 +26,9 @@
 #include "sceKernel.h"
 #include "sceKernelThread.h"
 #include "sceKernelInterrupt.h"
+#include "sceKernelMutex.h"
 
-struct Interrupt 
+struct Interrupt
 {
 	PSPInterrupt intno;
 };
@@ -199,10 +200,12 @@ public:
 	{
 		return subIntrHandlers.find(subIntrNum) != subIntrHandlers.end();
 	}
-	SubIntrHandler &get(int subIntrNum)
+	SubIntrHandler *get(int subIntrNum)
 	{
 		if (has(subIntrNum))
-			return subIntrHandlers[subIntrNum];
+			return &subIntrHandlers[subIntrNum];
+		else
+			return 0;
 		// what to do, what to do...
 	}
 
@@ -328,7 +331,7 @@ u32 sceKernelRegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 handl
 {
 	DEBUG_LOG(HLE,"sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x)", intrNumber, subIntrNumber, handler, handlerArg);
 
-	if (intrNumber < 0 || intrNumber >= PSP_NUMBER_INTERRUPTS)
+	if (intrNumber >= PSP_NUMBER_INTERRUPTS)
 		return -1;
 
 	SubIntrHandler subIntrHandler;
@@ -346,12 +349,12 @@ u32 sceKernelReleaseSubIntrHandler(u32 intrNumber, u32 subIntrNumber)
 
 	// TODO: should check if it's pending and remove it from pending list! (although that's probably unlikely)
 
-	if (intrNumber < 0 || intrNumber >= PSP_NUMBER_INTERRUPTS)
+	if (intrNumber >= PSP_NUMBER_INTERRUPTS)
 		return -1;
 
 	if (!intrHandlers[intrNumber].has(subIntrNumber))
-		return -1; 
-	
+		return -1;
+
 	intrHandlers[intrNumber].remove(subIntrNumber);
 	return 0;
 }
@@ -364,8 +367,8 @@ u32 sceKernelEnableSubIntr(u32 intrNumber, u32 subIntrNumber)
 
 	if (!intrHandlers[intrNumber].has(subIntrNumber))
 		return -1;
-	
-	intrHandlers[intrNumber].get(subIntrNumber).enabled = true;
+
+	intrHandlers[intrNumber].get(subIntrNumber)->enabled = true;
 	return 0;
 }
 
@@ -378,7 +381,7 @@ u32 sceKernelDisableSubIntr(u32 intrNumber, u32 subIntrNumber)
 	if (!intrHandlers[intrNumber].has(subIntrNumber))
 		return -1;
 
-	intrHandlers[intrNumber].get(subIntrNumber).enabled = false;
+	intrHandlers[intrNumber].get(subIntrNumber)->enabled = false;
 	return 0;
 }
 
@@ -415,7 +418,17 @@ void sceKernelMemset()
 	DEBUG_LOG(HLE, "sceKernelMemset(ptr = %08x, c = %02x, n = %08x)", addr, c, n);
 	for (size_t i = 0; i < n; i++)
 		Memory::Write_U8((u8)c, addr + i);
-	RETURN(addr); /* TODO: verify it should return this */
+	RETURN(0); /* TODO: verify it should return this */
+}
+
+u32 sceKernelMemcpy(u32 dst, u32 src, u32 size)
+{
+	DEBUG_LOG(HLE, "sceKernelMemcpy(dest=%08x, src=%08x, size=%i)", dst, src, size);
+	if (Memory::IsValidAddress(dst) && Memory::IsValidAddress(src+size)) // a bit of bound checking. Wrong??
+	{
+		Memory::Memcpy(dst, Memory::GetPointer(src), size);
+	}
+	return 0;
 }
 
 const HLEFunction Kernel_Library[] = 
@@ -426,13 +439,13 @@ const HLEFunction Kernel_Library[] =
 	{0x47a0b729,sceKernelIsCpuIntrSuspended, "sceKernelIsCpuIntrSuspended"}, //flags
 	{0xb55249d2,sceKernelIsCpuIntrEnable, "sceKernelIsCpuIntrEnable"}, 
 	{0xa089eca4,sceKernelMemset, "sceKernelMemset"}, 
-	{0xDC692EE3,0, "sceKernelTryLockLwMutex"},
-	{0xbea46419,0, "sceKernelLockLwMutex"}, 
-	{0x1FC64E09,0, "sceKernelLockLwMutexCB"},
-	{0x15b6446b,0, "sceKernelUnlockLwMutex"}, 
+	{0xDC692EE3,&WrapI_UI<sceKernelTryLockLwMutex>, "sceKernelTryLockLwMutex"},
+	{0x37431849,&WrapI_UI<sceKernelTryLockLwMutex_600>, "sceKernelTryLockLwMutex_600"},
+	{0xbea46419,&WrapI_UIU<sceKernelLockLwMutex>, "sceKernelLockLwMutex"}, 
+	{0x1FC64E09,&WrapI_UIU<sceKernelLockLwMutexCB>, "sceKernelLockLwMutexCB"},
+	{0x15b6446b,&WrapI_UI<sceKernelUnlockLwMutex>, "sceKernelUnlockLwMutex"}, 
 	{0x293b45b8,sceKernelGetThreadId, "sceKernelGetThreadId"}, 
-	{0x1839852A,0,"sce_paf_private_memcpy"},
-	{0xA089ECA4,0,"sce_paf_private_memset"},
+	{0x1839852A,&WrapU_UUU<sceKernelMemcpy>,"sce_paf_private_memcpy"},
 };
 
 void Register_Kernel_Library()

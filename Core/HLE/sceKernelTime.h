@@ -18,7 +18,6 @@
 #pragma once
 
 void sceKernelLibcGettimeofday();
-void sceKernelLibcClock();
 void sceKernelLibcTime();
 void sceKernelUSec2SysClock();
 void sceKernelGetSystemTime();
@@ -26,8 +25,5 @@ void sceKernelGetSystemTimeLow();
 void sceKernelGetSystemTimeWide();
 void sceKernelSysClock2USec();
 void sceKernelSysClock2USecWide();
-void sceRtcGetCurrentClockLocalTime();
-void sceRtcGetTickResolution();
-void sceRtcGetTick();
-u32 sceRtcGetDaysInMonth(u32 year, u32 month);
-u32 sceRtcGetDayOfWeek(u32 year, u32 month, u32 day);
+u32 sceKernelUSec2SysClockWide(u32 usec);
+u32 sceKernelLibcClock();

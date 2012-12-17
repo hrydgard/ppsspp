@@ -5,6 +5,7 @@ set(SRCS
 	GLES/FragmentShaderGenerator.cpp
 	GLES/Framebuffer.cpp
 	GLES/ShaderManager.cpp
+	GLES/StateMapping.cpp
 	GLES/TextureCache.cpp
 	GLES/TransformPipeline.cpp
 	GLES/VertexDecoder.cpp

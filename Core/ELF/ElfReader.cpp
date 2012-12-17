@@ -79,7 +79,7 @@ bool ElfReader::LoadInto(u32 loadAddress)
 	entryPoint = header->e_entry;
 	u32 totalStart = 0xFFFFFFFF;
 	u32 totalEnd = 0;
-	for (int i=0; i<header->e_phnum; i++) {
+	for (int i = 0; i < header->e_phnum; i++) {
 		Elf32_Phdr *p = &segments[i];
 		if (p->p_type == PT_LOAD) {
 			if (p->p_vaddr < totalStart)
@@ -127,12 +127,12 @@ bool ElfReader::LoadInto(u32 loadAddress)
 			u32 srcSize = p->p_filesz;
 			u32 dstSize = p->p_memsz;
 
-			memcpy(dst, src, srcSize);
 			if (srcSize < dstSize)
 			{
-				//memset(dst + srcSize, 0, dstSize-srcSize); //zero out bss
+				memset(dst + srcSize, 0, dstSize - srcSize); //zero out bss
 			}
 
+			memcpy(dst, src, srcSize);
 			DEBUG_LOG(LOADER,"Loadable Segment Copied to %08x, size %08x", writeAddr, (u32)p->p_memsz);
 		}
 	}

@@ -32,3 +32,6 @@ Memstick
 android/ui_atlas.zim
 __testoutput.txt
 __testerror.txt
+ppge_atlas.zim.png
+local.properties
+build*/

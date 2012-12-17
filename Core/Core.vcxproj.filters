@@ -40,6 +40,9 @@
     <Filter Include="HW">
       <UniqueIdentifier>{9696662f-7398-489a-a358-5ebbf4ad4d97}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Dialog">
+      <UniqueIdentifier>{41034c99-9b76-477f-8a77-bffaaffd5e82}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ELF\ElfReader.cpp">
@@ -291,7 +294,59 @@
     <ClCompile Include="HLE\sceImpose.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
+<<<<<<< HEAD
     <ClCompile Include="HW\MediaEngine.cpp">
+=======
+    <ClCompile Include="Util\PPGeDraw.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
+    <ClCompile Include="Util\ppge_atlas.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\sceFont.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="ELF\ParamSFO.cpp">
+      <Filter>ELF</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\sceOpenPSID.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\sceParseUri.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\sceSsl.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\sceParseHttp.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\scesupPreAcc.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\sceVaudio.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="Dialog\PSPDialog.cpp">
+      <Filter>Dialog</Filter>
+    </ClCompile>
+    <ClCompile Include="Dialog\PSPMsgDialog.cpp">
+      <Filter>Dialog</Filter>
+    </ClCompile>
+    <ClCompile Include="Dialog\PSPPlaceholderDialog.cpp">
+      <Filter>Dialog</Filter>
+    </ClCompile>
+    <ClCompile Include="Dialog\PSPSaveDialog.cpp">
+      <Filter>Dialog</Filter>
+    </ClCompile>
+    <ClCompile Include="Dialog\SavedataParam.cpp">
+      <Filter>Dialog</Filter>
+    </ClCompile>
+    <ClCompile Include="Dialog\PSPOskDialog.cpp">
+      <Filter>Dialog</Filter>
+    </ClCompile>
+    <ClCompile Include="HW\SasAudio.cpp">
+>>>>>>> master
       <Filter>HW</Filter>
     </ClCompile>
   </ItemGroup>
@@ -534,6 +589,55 @@
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="HW\MediaEngine.h">
+    <ClInclude Include="Util\PPGeDraw.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Util\ppge_atlas.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceFont.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="ELF\ParamSFO.h">
+      <Filter>ELF</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceOpenPSID.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceParseUri.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceSsl.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceParseHttp.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\scesupPreAcc.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceVaudio.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="Dialog\PSPDialog.h">
+      <Filter>Dialog</Filter>
+    </ClInclude>
+    <ClInclude Include="Dialog\PSPMsgDialog.h">
+      <Filter>Dialog</Filter>
+    </ClInclude>
+    <ClInclude Include="Dialog\PSPPlaceholderDialog.h">
+      <Filter>Dialog</Filter>
+    </ClInclude>
+    <ClInclude Include="Dialog\PSPSaveDialog.h">
+      <Filter>Dialog</Filter>
+    </ClInclude>
+    <ClInclude Include="Dialog\SavedataParam.h">
+      <Filter>Dialog</Filter>
+    </ClInclude>
+    <ClInclude Include="Dialog\PSPOskDialog.h">
+      <Filter>Dialog</Filter>
+    </ClInclude>
+    <ClInclude Include="HW\SasAudio.h">
       <Filter>HW</Filter>
     </ClInclude>
   </ItemGroup>

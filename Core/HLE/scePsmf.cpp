@@ -212,10 +212,16 @@ u32 scePsmfGetNumberOfSpecificStreams(u32 psmfStruct, u32 streamType)
   return 1;
 }
 
-u32 scePsmfSpecifyStreamWithStreamType(u32 psmfStruct, u32 streamType) // possibly more params
+u32 scePsmfSpecifyStreamWithStreamType(u32 psmfStruct, u32 streamType, u32 channel)
 {
-  INFO_LOG(HLE, "scePsmfSpecifyStreamWithStreamTypeFunction(%08x, %08x)", psmfStruct, streamType);
+  ERROR_LOG(HLE, "UNIMPL scePsmfSpecifyStreamWithStreamType(%08x, %08x, %i)", psmfStruct, streamType, channel);
   return 0;
+}
+
+u32 scePsmfSpecifyStreamWithStreamTypeNumber(u32 psmfStruct, u32 streamType, u32 typeNum)
+{
+	ERROR_LOG(HLE, "UNIMPL scePsmfSpecifyStreamWithStreamTypeNumber(%08x, %08x, %08x)", psmfStruct, streamType, typeNum);
+	return 0;
 }
 
 u32 scePsmfGetVideoInfo(u32 psmfStruct, u32 videoInfoAddr)
@@ -254,8 +260,9 @@ const HLEFunction scePsmf[] =
   {0xc22c8327,&WrapU_UU<scePsmfSetPsmf>,"scePsmfSetPsmfFunction"},
   {0xC7DB3A5B,0,"scePsmfGetCurrentStreamTypeFunction"},
   {0x28240568,0,"scePsmfGetCurrentStreamNumberFunction"},
-  {0x1E6D9013,&WrapU_UU<scePsmfSpecifyStreamWithStreamType>,"scePsmfSpecifyStreamWithStreamTypeFunction"},
-  {0x4BC9BDE0,0,"scePsmfSpecifyStreamFunction"},
+  {0x1E6D9013,&WrapU_UUU<scePsmfSpecifyStreamWithStreamType>,"scePsmfSpecifyStreamWithStreamTypeFunction"},
+	{0x0C120E1D,&WrapU_UUU<scePsmfSpecifyStreamWithStreamTypeNumber>,"scePsmfSpecifyStreamWithStreamTypeNumberFunction"},
+	{0x4BC9BDE0,0,"scePsmfSpecifyStreamFunction"},
   {0x76D3AEBA,0,"scePsmfGetPresentationStartTimeFunction"},
   {0xBD8AE0D8,0,"scePsmfGetPresentationEndTimeFunction"},
   {0xEAED89CD,&WrapU_U<scePsmfGetNumberOfStreams>,"scePsmfGetNumberOfStreamsFunction"},
@@ -266,7 +273,6 @@ const HLEFunction scePsmf[] =
   {0x68d42328,&WrapU_UU<scePsmfGetNumberOfSpecificStreams>,"scePsmfGetNumberOfSpecificStreamsFunction"},
   {0x5b70fcc1,0,"scePsmfQueryStreamOffsetFunction"},
   {0x9553cc91,0,"scePsmfQueryStreamSizeFunction"},
-  {0x0C120E1D,0,"scePsmfSpecifyStreamWithStreamTypeNumberFunction"},
   {0xc7db3a5b,0,"scePsmfGetCurrentStreamTypeFunction"},
   {0xB78EB9E9,0,"scePsmfGetHeaderSizeFunction"},
   {0xA5EBFE81,0,"scePsmfGetStreamSizeFunction"},

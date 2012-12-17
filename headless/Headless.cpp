@@ -69,24 +69,34 @@ public:
 	}
 };
 
-void printUsage()
+void printUsage(const char *progname, const char *reason)
 {
+	if (reason != NULL)
+		fprintf(stderr, "Error: %s\n\n", reason);
 	fprintf(stderr, "PPSSPP Headless\n");
-	fprintf(stderr, "Usage: ppsspp-headless file.elf [-c] [-m] [-j] [-c]\n");
-	fprintf(stderr, "See headless.txt for details.\n");
+	fprintf(stderr, "This is primarily meant for non-inactive test tool.\n\n");
+	fprintf(stderr, "Usage: %s [options] file.elf\n\n", progname);
+	fprintf(stderr, "Options:\n");
+	fprintf(stderr, "  -m, --mount umd.cso   mount iso on umd:\n");
+	fprintf(stderr, "  -l, --log             full log output, not just emulated printfs\n");
+	fprintf(stderr, "  -f                    use the fast interpreter\n");
+	fprintf(stderr, "  -j                    use jit (overrides -f)\n");
+	fprintf(stderr, "  -c, --compare         compare with output in file.expected\n");
+	fprintf(stderr, "\nSee headless.txt for details.\n");
 }
 
 int main(int argc, const char* argv[])
 {
 	bool fullLog = false;
 	bool useJit = false;
+	bool fastInterpreter = false;
 	bool autoCompare = false;
 	
-	const char *bootFilename = argc > 1 ? argv[1] : 0;
+	const char *bootFilename = 0;
 	const char *mountIso = 0;
 	bool readMount = false;
 
-	for (int i = 2; i < argc; i++)
+	for (int i = 1; i < argc; i++)
 	{
 		if (readMount)
 		{
@@ -94,19 +104,39 @@ int main(int argc, const char* argv[])
 			readMount = false;
 			continue;
 		}
-		if (!strcmp(argv[i], "-m"))
+		if (!strcmp(argv[i], "-m") || !strcmp(argv[i], "--mount"))
 			readMount = true;
-		else if (!strcmp(argv[i], "-l"))
+		else if (!strcmp(argv[i], "-l") || !strcmp(argv[i], "--log"))
 			fullLog = true;
 		else if (!strcmp(argv[i], "-j"))
 			useJit = true;
-		else if (!strcmp(argv[i], "-c"))
+		else if (!strcmp(argv[i], "-f"))
+			fastInterpreter = true;
+		else if (!strcmp(argv[i], "-c") || !strcmp(argv[i], "--compare"))
 			autoCompare = true;
+		else if (bootFilename == 0)
+			bootFilename = argv[i];
+		else
+		{
+			if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h"))
+				printUsage(argv[0], NULL);
+			else
+			{
+				std::string reason = "Unexpected argument " + std::string(argv[i]);
+				printUsage(argv[0], reason.c_str());
+			}
+			return 1;
+		}
 	}
 
+	if (readMount)
+	{
+		printUsage(argv[0], "Missing argument after -m");
+		return 1;
+	}
 	if (!bootFilename)
 	{
-		printUsage();
+		printUsage(argv[0], argc <= 1 ? NULL : "No executable specified");
 		return 1;
 	}
 
@@ -129,13 +159,13 @@ int main(int argc, const char* argv[])
 	coreParameter.fileToStart = bootFilename;
 	coreParameter.mountIso = mountIso ? mountIso : "";
 	coreParameter.startPaused = false;
-	coreParameter.cpuCore = useJit ? CPU_JIT : CPU_INTERPRETER;
+	coreParameter.cpuCore = useJit ? CPU_JIT : (fastInterpreter ? CPU_FASTINTERPRETER : CPU_INTERPRETER);
 	coreParameter.gpuCore = GPU_NULL;
 	coreParameter.enableSound = false;
 	coreParameter.headLess = true;
 	coreParameter.printfEmuLog = true;
 
-	g_Config.bEnableSound = true;
+	g_Config.bEnableSound = false;
 	g_Config.bFirstRun = false;
 	g_Config.bIgnoreBadMemAccess = true;
 
@@ -155,6 +185,10 @@ int main(int argc, const char* argv[])
 		u64 nowTicks = CoreTiming::GetTicks();
 		u64 frameTicks = usToCycles(1000000/60);
 		mipsr4k.RunLoopUntil(nowTicks + frameTicks);
+
+		// If we were rendering, this might be a nice time to do something about it.
+		if (coreState == CORE_NEXTFRAME)
+			coreState = CORE_RUNNING;
 	}
 
 	// NOTE: we won't get here until I've gotten rid of the exit(0) in sceExitProcess or whatever it's called

@@ -50,6 +50,30 @@
 
 inline const char *VN(int v, VectorSize size)
 {
+	static const char *vfpuCtrlNames[VFPU_CTRL_MAX] = {
+		"SPFX",
+		"TPFX",
+		"DPFX",
+		"CC",
+		"INF4",
+		"RSV5",
+		"RSV6",
+		"REV",
+		"RCX0",
+		"RCX1",
+		"RCX2",
+		"RCX3",
+		"RCX4",
+		"RCX5",
+		"RCX6",
+		"RCX7",
+	};
+	if (size == V_Single && v >= 128 && v < 128 + VFPU_CTRL_MAX) {
+		return vfpuCtrlNames[v - 128];
+	} else if (size == V_Single && v == 255) {
+		return "(interlock)";
+	}
+
 	return GetVectorNotation(v, size);
 }
 
@@ -287,7 +311,7 @@ namespace MIPSDis
 
 	void Dis_Vflush(u32 op, char *out)
 	{
-		sprintf(out,"vflush\tand friends");
+		sprintf(out,"vflush");
 	}
 
 	void Dis_Vcrs(u32 op, char *out)
@@ -431,6 +455,7 @@ namespace MIPSDis
 			break;
 		default:
 			// invalid
+			name = "???";
 			break;
 		}
 		int vd = _VD;
@@ -456,6 +481,15 @@ namespace MIPSDis
 		int imm = (op>>16)&0x1f;
 		const char *name = MIPSGetName(op);
 		sprintf(out, "%s%s\t%s, %s, %i",name,VSuff(op),VN(vd, sz),VN(vs, sz),imm);
+	}
+
+	void Dis_Vs2i(u32 op, char *out)
+	{
+		VectorSize sz = GetVecSize(op);
+		int vd = _VD;
+		int vs = _VS;
+		const char *name = MIPSGetName(op);
+		sprintf(out, "%s%s\t%s, %s",name,VSuff(op),VN(vd, sz),VN(vs, sz));
 	}
 
 	void Dis_Vi2x(u32 op, char *out)

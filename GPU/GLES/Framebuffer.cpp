@@ -15,19 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#if defined(ANDROID) || defined(BLACKBERRY)
-#include <GLES2/gl2.h>
-#include <GLES2/gl2ext.h>
-#else
-#include <GL/glew.h>
-#if defined(__APPLE__)
-#include <OpenGL/gl.h>
-#else
-#include <GL/gl.h>
-#endif
-#endif
-
 #include "gfx_es2/glsl_program.h"
+#include "gfx_es2/gl_state.h"
 #include "math/lin/matrix4x4.h"
 
 #include "../../Core/Host.h"
@@ -36,18 +25,6 @@
 #include "../GPUState.h"
 
 #include "Framebuffer.h"
-
-//////////////////////////////////////////////////////////////////////////
-// STATE BEGIN
-static GLuint backbufTex;
-u8 *realFB;
-GLSLProgram *draw2dprogram;
-
-// STATE END
-//////////////////////////////////////////////////////////////////////////
-
-#if defined(__APPLE__)
-#endif
 
 const char tex_fs[] =
 	"#ifdef GL_ES\n"
@@ -70,23 +47,7 @@ const char basic_vs[] =
 	"	gl_Position = u_viewproj * a_position;\n"
 	"}\n";
 
-void DisplayDrawer_Init()
-{
-#if !defined(ANDROID) && !defined(BLACKBERRY)
-	// Old OpenGL stuff that probably has no effect
-
-	glPolygonMode (GL_FRONT_AND_BACK, GL_FILL); //GL_FILL);
-	glShadeModel(GL_SMOOTH);
-	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);	
-#endif
-
-	glDisable(GL_CULL_FACE);
-	glDisable(GL_DEPTH_TEST);
-	glDisable(GL_BLEND);
-	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-
-	glEnable(GL_TEXTURE_2D);
-
+FramebufferManager::FramebufferManager() {
 	glGenTextures(1, &backbufTex);
 
 	//initialize backbuffer texture
@@ -103,38 +64,31 @@ void DisplayDrawer_Init()
 
 	glsl_bind(draw2dprogram);
 	glUniform1i(draw2dprogram->sampler0, 0);
-	Matrix4x4 ortho;
-	ortho.setOrtho(0, 480, 272, 0, -1, 1);
-	glUniformMatrix4fv(draw2dprogram->u_viewproj, 1, GL_FALSE, ortho.getReadPtr());
 	glsl_unbind();
 
-	// And an initial clear.
+	// And an initial clear. We don't clear per frame as the games are supposed to handle that
+	// by themselves.
 	glClearColor(0, 0, 0, 0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	
-	realFB = new u8[480*272*4];
+	convBuf = new u8[480 * 272 * 4];
 }
 
-void DisplayDrawer_Shutdown()
-{
-	glDeleteTextures(1,&backbufTex);
+FramebufferManager::~FramebufferManager() {
+	glDeleteTextures(1, &backbufTex);
 	glsl_destroy(draw2dprogram);
-	delete [] realFB;
+	delete [] convBuf;
 }
 
-void DisplayDrawer_DrawFramebuffer(u8 *framebuf, PspDisplayPixelFormat pixelFormat, int linesize)
-{
-	float u1 = 1.0f;
-	float v1 = 1.0f;
-
-	for (int y = 0; y < 272; y++)
-	{
-		switch (pixelFormat)
-		{
+void FramebufferManager::DrawPixels(const u8 *framebuf, int pixelFormat, int linesize) {
+	// TODO: We can trivially do these in the shader, and there's no need to
+	// upconvert to 8888 for the 16-bit formats.
+	for (int y = 0; y < 272; y++) {
+		switch (pixelFormat) {
 		case PSP_DISPLAY_PIXEL_FORMAT_565:
 			{
-				u16 *src = (u16 *)framebuf + linesize * y;
-				u8 *dst = realFB + 4 * 480 * y;
+				const u16 *src = (const u16 *)framebuf + linesize * y;
+				u8 *dst = convBuf + 4 * 480 * y;
 				for (int x = 0; x < 480; x++)
 				{
 					u16 col = src[x];
@@ -148,8 +102,8 @@ void DisplayDrawer_DrawFramebuffer(u8 *framebuf, PspDisplayPixelFormat pixelForm
 
 		case PSP_DISPLAY_PIXEL_FORMAT_5551:
 			{
-				u16 *src = (u16 *)framebuf + linesize * y;
-				u8 *dst = realFB + 4 * 480 * y;
+				const u16 *src = (const u16 *)framebuf + linesize * y;
+				u8 *dst = convBuf + 4 * 480 * y;
 				for (int x = 0; x < 480; x++)
 				{
 					u16 col = src[x];
@@ -163,8 +117,8 @@ void DisplayDrawer_DrawFramebuffer(u8 *framebuf, PspDisplayPixelFormat pixelForm
 
 		case PSP_DISPLAY_PIXEL_FORMAT_8888:
 			{
-				u8 *src = framebuf + linesize * 4 * y;
-				u8 *dst = realFB + 4 * 480 * y;
+				const u8 *src = framebuf + linesize * 4 * y;
+				u8 *dst = convBuf + 4 * 480 * y;
 				for (int x = 0; x < 480; x++)
 				{
 					dst[x * 4] = src[x * 4];
@@ -177,8 +131,8 @@ void DisplayDrawer_DrawFramebuffer(u8 *framebuf, PspDisplayPixelFormat pixelForm
 
 		case PSP_DISPLAY_PIXEL_FORMAT_4444:
 			{
-				u16 *src = (u16 *)framebuf + linesize * y;
-				u8 *dst = realFB + 4 * 480 * y;
+				const u16 *src = (const u16 *)framebuf + linesize * y;
+				u8 *dst = convBuf + 4 * 480 * y;
 				for (int x = 0; x < 480; x++)
 				{
 					u16 col = src[x];
@@ -193,12 +147,23 @@ void DisplayDrawer_DrawFramebuffer(u8 *framebuf, PspDisplayPixelFormat pixelForm
 	}
 
 	glBindTexture(GL_TEXTURE_2D,backbufTex);
-	glTexSubImage2D(GL_TEXTURE_2D,0,0,0,480,272, GL_RGBA, GL_UNSIGNED_BYTE, realFB);
+	glTexSubImage2D(GL_TEXTURE_2D,0,0,0,480,272, GL_RGBA, GL_UNSIGNED_BYTE, convBuf);
+	DrawActiveTexture(480, 272);
+}
 
-	const float pos[12] = {0,0,0, 480,0,0, 480,272,0, 0,272,0};
-	const float texCoords[8] = {0, 0, u1, 0, u1, v1, 0, v1};
+void FramebufferManager::DrawActiveTexture(float w, float h, bool flip) {
+	float u2 = 1.0f;
+	float v1 = flip ? 1.0f : 0.0f;
+	float v2 = flip ? 0.0f : 1.0f;
+
+	const float pos[12] = {0,0,0, w,0,0, w,h,0, 0,h,0};
+	const float texCoords[8] = {0, v1, u2, v1, u2, v2, 0, v2};
 
 	glsl_bind(draw2dprogram);
+	Matrix4x4 ortho;
+	ortho.setOrtho(0, 480, 272, 0, -1, 1);
+	glUniformMatrix4fv(draw2dprogram->u_viewproj, 1, GL_FALSE, ortho.getReadPtr());
+
 	glEnableVertexAttribArray(draw2dprogram->a_position);
 	glEnableVertexAttribArray(draw2dprogram->a_texcoord0);
 	glVertexAttribPointer(draw2dprogram->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);

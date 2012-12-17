@@ -29,6 +29,7 @@
 
 #include "__sceAudio.h"
 #include "sceAudio.h"
+#include "sceCtrl.h"
 #include "sceDisplay.h"
 #include "sceGe.h"
 #include "sceIo.h"
@@ -49,6 +50,9 @@
 #include "scePower.h"
 #include "sceUtility.h"
 #include "sceUmd.h"
+#include "sceSsl.h"
+
+#include "../Util/PPGeDraw.h"
 
 extern MetaFileSystem pspFileSystem;
 
@@ -80,6 +84,11 @@ void __KernelInit()
 	__UtilityInit();
 	__UmdInit();
 	__MpegInit(PSP_CoreParameter().useMediaEngine);
+	__CtrlInit();
+	__SslInit();
+
+	// "Internal" PSP libraries
+	__PPGeInit();
 
 	kernelRunning = true;
 	INFO_LOG(HLE, "Kernel initialized.");
@@ -97,6 +106,8 @@ void __KernelShutdown()
 	kernelObjects.Clear();
 
 	__MpegShutdown();
+	__PPGeShutdown();
+
 	__GeShutdown();
 	__AudioShutdown();
 	__IoShutdown();
@@ -147,12 +158,6 @@ void sceKernelDevkitVersion()
 	RETURN(1);
 }
 
-
-//////////////////////////////////////////////////////////////////////////
-// DEBUG
-//////////////////////////////////////////////////////////////////////////
-
-
 void sceKernelRegisterKprintfHandler()
 {
 	ERROR_LOG(HLE,"UNIMPL sceKernelRegisterKprintfHandler()");
@@ -177,21 +182,19 @@ void sceKernelGetGPI()
 	RETURN(0);
 }
 
+// Don't even log these, they're spammy and we probably won't
+// need to emulate them.
 void sceKernelDcacheWritebackAll()
 {
-	//RETURN(0);
 }
 void sceKernelDcacheWritebackRange()
 {
-	//RETURN(0);
 }
 void sceKernelDcacheWritebackInvalidateRange()
 {
-	//RETURN(0);
 }
 void sceKernelDcacheWritebackInvalidateAll()
 {
-	// RETURN(0)
 }
 
 KernelObjectPool kernelObjects;
@@ -201,13 +204,15 @@ KernelObjectPool::KernelObjectPool()
 	memset(occupied, 0, sizeof(bool)*maxCount);
 }
 
-SceUID KernelObjectPool::Create(KernelObject *obj)
+SceUID KernelObjectPool::Create(KernelObject *obj, int rangeBottom, int rangeTop)
 {
-	for (int i=0; i<maxCount; i++)
+	if (rangeTop > maxCount)
+		rangeTop = maxCount;
+	for (int i = rangeBottom; i < rangeTop; i++)
 	{
 		if (!occupied[i])
 		{
-			occupied[i]=true;
+			occupied[i] = true;
 			pool[i] = obj;
 			pool[i]->uid = i + handleOffset;
 			return i + handleOffset;
@@ -324,37 +329,36 @@ const HLEFunction ThreadManForUser[] =
 	{0x812346E4,&WrapU_IU<sceKernelClearEventFlag>,       "sceKernelClearEventFlag"},
 	{0xEF9E4C70,&WrapU_I<sceKernelDeleteEventFlag>,       "sceKernelDeleteEventFlag"},
 	{0x1fb15a32,&WrapU_IU<sceKernelSetEventFlag>,         "sceKernelSetEventFlag"},
-	{0x402FCF22,&WrapV_IUUUU<sceKernelWaitEventFlag>,     "sceKernelWaitEventFlag"},
-	{0x328C546A,&WrapV_IUUUU<sceKernelWaitEventFlagCB>,   "sceKernelWaitEventFlagCB"},
+	{0x402FCF22,&WrapI_IUUUU<sceKernelWaitEventFlag>,     "sceKernelWaitEventFlag"},
+	{0x328C546A,&WrapI_IUUUU<sceKernelWaitEventFlagCB>,   "sceKernelWaitEventFlagCB"},
 	{0x30FD48F0,&WrapI_IUUUU<sceKernelPollEventFlag>,     "sceKernelPollEventFlag"},
-	{0xCD203292,&WrapU_V<sceKernelCancelEventFlag>,       "sceKernelCancelEventFlag"},
+	{0xCD203292,&WrapU_IUU<sceKernelCancelEventFlag>,       "sceKernelCancelEventFlag"},
 	{0xA66B0120,&WrapU_IU<sceKernelReferEventFlagStatus>, "sceKernelReferEventFlagStatus"},
 
-	{0x8FFDF9A2,&WrapV_IIU<sceKernelCancelSema>,			"sceKernelCancelSema"},
-	{0xD6DA4BA1,sceKernelCreateSema,					"sceKernelCreateSema"},
-	{0x28b6489c,&WrapV_I<sceKernelDeleteSema>,			"sceKernelDeleteSema"},
-	{0x58b1f937,&WrapI_II<sceKernelPollSema>,			"sceKernelPollSema"},
-	{0xBC6FEBC5,&WrapI_IU<sceKernelReferSemaStatus>,	"sceKernelReferSemaStatus"},
-	{0x3F53E640,&WrapV_II<sceKernelSignalSema>,			"sceKernelSignalSema"},
-	{0x4E3A1105,&WrapV_IIU<sceKernelWaitSema>,			"sceKernelWaitSema"},
-	{0x6d212bac,&WrapV_IIU<sceKernelWaitSemaCB>,		"sceKernelWaitSemaCB"},
+	{0x8FFDF9A2,&WrapI_IIU<sceKernelCancelSema>,          "sceKernelCancelSema"},
+	{0xD6DA4BA1,&WrapI_CUIIU<sceKernelCreateSema>,        "sceKernelCreateSema"},
+	{0x28b6489c,&WrapI_I<sceKernelDeleteSema>,            "sceKernelDeleteSema"},
+	{0x58b1f937,&WrapI_II<sceKernelPollSema>,             "sceKernelPollSema"},
+	{0xBC6FEBC5,&WrapI_IU<sceKernelReferSemaStatus>,      "sceKernelReferSemaStatus"},
+	{0x3F53E640,&WrapI_II<sceKernelSignalSema>,           "sceKernelSignalSema"},
+	{0x4E3A1105,&WrapI_IIU<sceKernelWaitSema>,            "sceKernelWaitSema"},
+	{0x6d212bac,&WrapI_IIU<sceKernelWaitSemaCB>,          "sceKernelWaitSemaCB"},
 
-	{0x60107536,0,"sceKernelDeleteLwMutex"},
-	{0x19CFF145,0,"sceKernelCreateLwMutex"},
-	{0xf8170fbe,&WrapU_U<sceKernelDeleteMutex>,"sceKernelDeleteMutex"},
-	{0xB011B11F,&WrapU_UUU<sceKernelLockMutex>,"sceKernelLockMutex"},
-	{0x5bf4dd27,&WrapU_UUU<sceKernelLockMutexCB>,"sceKernelLockMutexCB"},
-	{0x6b30100f,&WrapU_UU<sceKernelUnlockMutex>,"sceKernelUnlockMutex"},
-	{0xb7d098c6,&WrapU_CUU<sceKernelCreateMutex>,"sceKernelCreateMutex"},
-	{0x0DDCD2C9, 0, "sceKernelTryLockMutex"},
-
+	{0x60107536,&WrapI_U<sceKernelDeleteLwMutex>,         "sceKernelDeleteLwMutex"},
+	{0x19CFF145,&WrapI_UCUIU<sceKernelCreateLwMutex>,     "sceKernelCreateLwMutex"},
+	{0xf8170fbe,&WrapI_I<sceKernelDeleteMutex>,           "sceKernelDeleteMutex"},
+	{0xB011B11F,&WrapI_IIU<sceKernelLockMutex>,           "sceKernelLockMutex"},
+	{0x5bf4dd27,&WrapI_IIU<sceKernelLockMutexCB>,         "sceKernelLockMutexCB"},
+	{0x6b30100f,&WrapI_II<sceKernelUnlockMutex>,          "sceKernelUnlockMutex"},
+	{0xb7d098c6,&WrapI_CUIU<sceKernelCreateMutex>,        "sceKernelCreateMutex"},
+	{0x0DDCD2C9,&WrapI_II<sceKernelTryLockMutex>,         "sceKernelTryLockMutex"},
 	// NOTE: LockLwMutex and UnlockLwMutex are in Kernel_Library, see sceKernelInterrupt.cpp.
 
 	{0xFCCFAD26,sceKernelCancelWakeupThread,"sceKernelCancelWakeupThread"},
 	{0xea748e31,sceKernelChangeCurrentThreadAttr,"sceKernelChangeCurrentThreadAttr"},
 	{0x71bc9871,sceKernelChangeThreadPriority,"sceKernelChangeThreadPriority"},
-	{0x446D8DE6,sceKernelCreateThread,"sceKernelCreateThread"},
-	{0x9fa03cd3,sceKernelDeleteThread,"sceKernelDeleteThread"},
+	{0x446D8DE6,WrapI_CUUIUU<sceKernelCreateThread>,"sceKernelCreateThread"},
+	{0x9fa03cd3,WrapI_I<sceKernelDeleteThread>,"sceKernelDeleteThread"},
 	{0xBD123D9E,0,"sceKernelDelaySysClockThread"},
 	{0x1181E963,0,"sceKernelDelaySysClockThreadCB"},
 	{0xceadeb47,sceKernelDelayThread,"sceKernelDelayThread"},
@@ -374,10 +378,10 @@ const HLEFunction ThreadManForUser[] =
 	{0x912354a7,sceKernelRotateThreadReadyQueue,"sceKernelRotateThreadReadyQueue"},
 	{0x9ACE131E,sceKernelSleepThread,"sceKernelSleepThread"},
 	{0x82826f70,sceKernelSleepThreadCB,"sceKernelSleepThreadCB"},
-	{0xF475845D,&WrapU_V<sceKernelStartThread>,"sceKernelStartThread"},
+	{0xF475845D,&WrapI_IUU<sceKernelStartThread>,"sceKernelStartThread"},
 	{0x9944f31f,sceKernelSuspendThread,"sceKernelSuspendThread"},
-	{0x616403ba,0,"sceKernelTerminateThread"},
-	{0x383f7bcc,sceKernelTerminateDeleteThread,"sceKernelTerminateDeleteThread"},
+	{0x616403ba,WrapI_U<sceKernelTerminateThread>,"sceKernelTerminateThread"},
+	{0x383f7bcc,WrapI_I<sceKernelTerminateDeleteThread>,"sceKernelTerminateDeleteThread"},
 	{0x840E8133,sceKernelWaitThreadEndCB,"sceKernelWaitThreadEndCB"},
 	{0xd13bde95,sceKernelCheckThreadStack,"sceKernelCheckThreadStack"},
 
@@ -415,7 +419,7 @@ const HLEFunction ThreadManForUser[] =
 
 	{0xba6b92e2,sceKernelSysClock2USec,"sceKernelSysClock2USec"},
 	{0x110DEC9A,0,"sceKernelUSec2SysClock"},
-	{0xC8CD158C,0,"sceKernelUSec2SysClockWide"},
+	{0xC8CD158C,WrapU_U<sceKernelUSec2SysClockWide>,"sceKernelUSec2SysClockWide"},
 	{0xE1619D7C,sceKernelSysClock2USecWide,"sceKernelSysClock2USecWide"},
 
 	{0x110dec9a,sceKernelUSec2SysClock,"sceKernelUSec2SysClock"},
@@ -434,11 +438,11 @@ const HLEFunction ThreadManForUser[] =
 	{0x2A3D44FF,sceKernelGetCallbackCount,"sceKernelGetCallbackCount"},
 	{0x730ED8BC,sceKernelReferCallbackStatus,"sceKernelReferCallbackStatus"},
 
-	{0x8125221D,&WrapU_CIUIU<sceKernelCreateMbx>,"sceKernelCreateMbx"},
+	{0x8125221D,&WrapI_CUU<sceKernelCreateMbx>,"sceKernelCreateMbx"},
 	{0x86255ADA,&WrapI_I<sceKernelDeleteMbx>,"sceKernelDeleteMbx"},
-	{0xE9B3061E,&WrapV_IU<sceKernelSendMbx>,"sceKernelSendMbx"},
-	{0x18260574,&WrapV_IUU<sceKernelReceiveMbx>,"sceKernelReceiveMbx"},
-	{0xF3986382,&WrapV_IUU<sceKernelReceiveMbxCB>,"sceKernelReceiveMbxCB"},
+	{0xE9B3061E,&WrapI_IU<sceKernelSendMbx>,"sceKernelSendMbx"},
+	{0x18260574,&WrapI_IUU<sceKernelReceiveMbx>,"sceKernelReceiveMbx"},
+	{0xF3986382,&WrapI_IUU<sceKernelReceiveMbxCB>,"sceKernelReceiveMbxCB"},
 	{0x0D81716A,&WrapI_IU<sceKernelPollMbx>,"sceKernelPollMbx"},
 	{0x87D4DD36,&WrapI_IU<sceKernelCancelReceiveMbx>,"sceKernelCancelReceiveMbx"},
 	{0xA8E8C846,&WrapI_IU<sceKernelReferMbxStatus>,"sceKernelReferMbxStatus"},

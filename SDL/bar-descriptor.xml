@@ -2,8 +2,8 @@
 <qnx xmlns="http://www.qnx.com/schemas/application/1.0">
     <id>com.Qtness.PPSSPP</id>
     <name>PPSSPP</name>
-    <filename>ppsspp</filename>
-    <versionNumber>0.2</versionNumber>
+    <filename>PPSSPPBlackberry</filename>
+    <versionNumber>0.4</versionNumber>
     <buildId>1</buildId>
     <description>Playstation portable emulator.</description>
 
@@ -16,17 +16,19 @@
         <systemChrome>none</systemChrome>
         <transparent>false</transparent>
     </initialWindow>
+
+    <asset path="PPSSPPBlackberry" entry="true" type="Qnx/Elf">PPSSPPBlackberry</asset>
+    <asset path="../assets/icon-114.png">icon-114.png</asset>
+    <asset path="../android/assets">assets</asset>
     
     <category>core.games</category>
     <icon>
         <image>icon-114.png</image>
     </icon>
-    
+
     <!-- <splashscreen></splashscreen> -->
 
     <action system="true">run_native</action>
     <action>access_shared</action>
     <action>play_audio</action>
-    
-    <env var="LD_LIBRARY_PATH" value="app/native/lib"/>
 </qnx>

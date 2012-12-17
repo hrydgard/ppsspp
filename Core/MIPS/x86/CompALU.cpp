@@ -161,17 +161,17 @@ namespace MIPSComp
 		case 33: //R(rd) = R(rs) + R(rt);		break; //addu
 			CompTriArith(op, &XEmitter::ADD);
 			break;
-		case 134: //R(rd) = R(rs) - R(rt);		break; //sub
-		case 135:
+		case 34: //R(rd) = R(rs) - R(rt);		break; //sub
+		case 35:
 			CompTriArith(op, &XEmitter::SUB);
 			break;
-		case 136: //R(rd) = R(rs) & R(rt);		break; //and
+		case 36: //R(rd) = R(rs) & R(rt);		break; //and
 			CompTriArith(op, &XEmitter::AND);
 			break;
-		case 137: //R(rd) = R(rs) | R(rt);		break; //or
+		case 37: //R(rd) = R(rs) | R(rt);		break; //or
 			CompTriArith(op, &XEmitter::OR);
 			break;
-		case 138: //R(rd) = R(rs) ^ R(rt);		break; //xor
+		case 38: //R(rd) = R(rs) ^ R(rt);		break; //xor
 			CompTriArith(op, &XEmitter::XOR);
 			break;
 
@@ -181,8 +181,9 @@ namespace MIPSComp
 			break;
 
 		case 42: //R(rd) = (int)R(rs) < (int)R(rt); break; //slt
-			gpr.Lock(rt, rs);
+			gpr.Lock(rt, rs, rd);
 			gpr.BindToRegister(rs, true, true);
+			gpr.BindToRegister(rd, true, true);
 			XOR(32, R(EAX), R(EAX));
 			CMP(32, gpr.R(rs), gpr.R(rt));
 			SETcc(CC_L, R(EAX));
@@ -193,6 +194,7 @@ namespace MIPSComp
 		case 43: //R(rd) = R(rs) < R(rt);		break; //sltu
 			gpr.Lock(rd, rs, rt);
 			gpr.BindToRegister(rs, true, true);
+			gpr.BindToRegister(rd, true, true);
 			XOR(32, R(EAX), R(EAX));
 			CMP(32, gpr.R(rs), gpr.R(rt));
 			SETcc(CC_B, R(EAX));
@@ -234,7 +236,7 @@ namespace MIPSComp
 		int rs = _RS;
 		gpr.FlushLockX(ECX);
 		gpr.Lock(rd, rt, rs);
-		gpr.BindToRegister(rd, rd == rt, true);
+		gpr.BindToRegister(rd, true, true);
 		if (rd != rt)
 			MOV(32, gpr.R(rd), gpr.R(rt));
 		MOV(32, R(ECX), gpr.R(rs));	// Only ECX can be used for variable shifts.

@@ -10,6 +10,9 @@
 #include "../Core/System.h"
 #include "../Core/Config.h"
 
+#include <tchar.h>
+#include <process.h>
+
 char fileToStart[MAX_PATH];
 
 static HANDLE emuThread;
@@ -60,14 +63,20 @@ DWORD TheThread(LPVOID x)
 
 	INFO_LOG(BOOT, "Starting up hardware.");
 
-  CoreParameter coreParameter;
-  coreParameter.fileToStart = fileToStart;
-  coreParameter.enableSound = true;
-  coreParameter.gpuCore = GPU_GLES;
-  coreParameter.cpuCore = g_Config.bJIT ? CPU_JIT : CPU_INTERPRETER;
-  coreParameter.enableDebugging = true;
-  coreParameter.printfEmuLog = false;
-  coreParameter.headLess = false; //true;
+	CoreParameter coreParameter;
+	coreParameter.fileToStart = fileToStart;
+	coreParameter.enableSound = true;
+	coreParameter.gpuCore = GPU_GLES;
+	coreParameter.cpuCore = (CPUCore)g_Config.iCpuCore;
+	coreParameter.enableDebugging = true;
+	coreParameter.printfEmuLog = false;
+	coreParameter.headLess = false;
+	coreParameter.renderWidth = 480 * g_Config.iWindowZoom;
+	coreParameter.renderHeight = 272 * g_Config.iWindowZoom;
+	coreParameter.outputWidth = 480 * g_Config.iWindowZoom;
+	coreParameter.outputHeight = 272 * g_Config.iWindowZoom;
+	coreParameter.pixelWidth = 480 * g_Config.iWindowZoom;
+	coreParameter.pixelHeight = 272 * g_Config.iWindowZoom;
 
 	std::string error_string;
 	if (!PSP_Init(coreParameter, &error_string))

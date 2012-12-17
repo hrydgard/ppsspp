@@ -22,7 +22,7 @@ set(SRCS
 if (ARM)
 	set(SRCS ${SRCS} ArmEmitter.cpp ArmABI.cpp)
 else()
-	set(SRCS ${SRCS} CPUDetect.cpp MathUtil.cpp Thunk.cpp x64Analyzer.cpp x64Emitter.cpp x86Disasm.cpp ABI.cpp)
+	set(SRCS ${SRCS} CPUDetect.cpp MathUtil.cpp Thunk.cpp x64Analyzer.cpp x64Emitter.cpp ABI.cpp)
 endif (ARM)
 
 set(SRCS ${SRCS})

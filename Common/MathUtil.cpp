@@ -22,10 +22,10 @@
 #include <numeric>
 
 namespace {
-
+#ifdef USE_SSE
   static u32 saved_sse_state = _mm_getcsr();
   static const u32 default_sse_state = _mm_getcsr();
-
+#endif
 }
 
 namespace MathUtil
@@ -116,19 +116,25 @@ namespace MathUtil
 
 void LoadDefaultSSEState()
 {
+#ifdef USE_SSE
   _mm_setcsr(default_sse_state);
+#endif
 }
 
 
 void LoadSSEState()
 {
+#ifdef USE_SSE
   _mm_setcsr(saved_sse_state);
+#endif
 }
 
 
 void SaveSSEState()
 {
+#ifdef USE_SSE
   saved_sse_state = _mm_getcsr();
+#endif
 }
 
 inline void MatrixMul(int n, const float *a, const float *b, float *result)
@@ -245,5 +251,30 @@ void Matrix44::Translate(Matrix44 &mtx, const float vec[3])
 void Matrix44::Multiply(const Matrix44 &a, const Matrix44 &b, Matrix44 &result)
 {
   MatrixMul(4, a.data, b.data, result.data);
+}
+
+int Pow2roundup(int x)
+{
+	if (x < 0)
+		return 0;
+	--x;
+	x |= x >> 1;
+	x |= x >> 2;
+	x |= x >> 4;
+	x |= x >> 8;
+	x |= x >> 16;
+	return x+1;
+}
+
+int GetPow2(int x)
+{
+	int ret = 0;
+	int val = 1;
+	while(x > val)
+	{
+		ret++;
+		val *= 2;
+	}
+	return ret;
 }
 

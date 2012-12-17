@@ -3,6 +3,10 @@
 #include <limits.h>
 #include <iostream>
 
+#ifndef XUSER_MAX_COUNT
+#define XUSER_MAX_COUNT 4
+#endif
+
 XinputDevice::XinputDevice() {
 	ZeroMemory( &this->prevState, sizeof(this->prevState) );
 	this->check_delay = 0;
@@ -71,8 +75,9 @@ static Stick NormalizedDeadzoneFilter(XINPUT_STATE &state) {
 		// normalize the axis
 		left.x = norm.x * magnitude;
 		left.y = norm.y * magnitude;
-	} else
+	} else {
 		left.x = left.y = 0;
+	}
 
 	return left;
 }

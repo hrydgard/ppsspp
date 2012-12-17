@@ -21,6 +21,8 @@
 #include "Debugger/Debugger_Disasm.h"
 #include "Debugger/Debugger_MemoryDlg.h"
 
+#include <windows.h>
+
 #define MAX_CPUCOUNT 1
 
 extern CDisasm *disasmWindow[MAX_CPUCOUNT];

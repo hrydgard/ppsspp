@@ -46,7 +46,27 @@
 #define HI currentMIPS->hi
 #define LO currentMIPS->lo
 
-void DelayBranchTo(u32 where)
+
+inline int is_even(float d) {
+	float int_part;
+	modff(d / 2.0f, &int_part);
+	return 2.0f * int_part == d;
+}
+
+// Rounds *.5 to closest even number
+float round_ieee_754(float d) {
+	float i = floorf(d);
+	d -= i;
+	if(d < 0.5f)
+		return i;
+	if(d > 0.5f)
+		return i + 1.0f;
+	if(is_even(i))
+		return i;
+	return i + 1.0f;
+}
+
+static inline void DelayBranchTo(u32 where)
 {
 	PC += 4;
 	mipsr4k.nextPC = where;
@@ -55,7 +75,7 @@ void DelayBranchTo(u32 where)
 
 int MIPS_SingleStep()
 {
-#if defined(ANDROID) || defined(BLACKBERRY)
+#if defined(ARM)
 	u32 op = Memory::ReadUnchecked_U32(mipsr4k.pc);
 #else
 	u32 op = Memory::Read_Opcode_JIT(mipsr4k.pc);
@@ -132,7 +152,7 @@ namespace MIPSInt
 
 	void Int_Sync(u32 op)
 	{
-		DEBUG_LOG(CPU, "sync");
+		//DEBUG_LOG(CPU, "sync");
 		PC += 4;
 	}
 
@@ -311,7 +331,7 @@ namespace MIPSInt
 		switch (op >> 26)
 		{
 		case 48: // ll
-      R(rt) = Memory::Read_U32(addr);
+			R(rt) = Memory::Read_U32(addr);
 			currentMIPS->llBit = 1;
 			break;
 		case 56: // sc
@@ -580,7 +600,7 @@ namespace MIPSInt
 			{
 				s32 a = (s32)R(rs);
 				s32 b = (s32)R(rt);
-				if (a == 0x80000000 && b == -1) {
+				if (a == (s32)0x80000000 && b == -1) {
 					LO = 0x80000000;
 				} else if (b != 0) {
 					LO = (u32)(a / b);
@@ -701,6 +721,9 @@ namespace MIPSInt
 
 		switch (op & 0x3ff)
 		{
+		case 0xA0: //wsbh
+			R(rd) = ((R(rt) & 0xFF00FF00) >> 8) | ((R(rt) & 0x00FF00FF) << 8);
+			break;
 		case 0xE0: //wsbw
 			R(rd) = _byteswap_ulong(R(rt));
 			break;
@@ -738,16 +761,6 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	#ifdef _MSC_VER
-	static float roundf(float num)
-	{
-		float integer = ceilf(num);
-		if (num > 0)
-			return integer - num > 0.5f ? integer - 1.0f : integer;
-		return integer - num >= 0.5f ? integer - 1.0f : integer;
-	}
-	#endif
-
 	void Int_FPU2op(u32 op)
 	{
 		int fs = _FS;
@@ -768,10 +781,10 @@ namespace MIPSInt
 		case 36:
 			switch (currentMIPS->fcr31 & 3)
 			{
-			case 0: FsI(fd) = roundf(F(fs)); break;  // RINT_0    // TODO: rintf or roundf?
+			case 0: FsI(fd) = (int)round_ieee_754(F(fs)); break;  // RINT_0
 			case 1: FsI(fd) = (int)F(fs); break;  // CAST_1
-			case 2: FsI(fd) = ceilf(F(fs)); break;  // CEIL_2
-			case 3: FsI(fd) = floorf(F(fs)); break;  // FLOOR_3
+			case 2: FsI(fd) = (int)ceilf(F(fs)); break;  // CEIL_2
+			case 3: FsI(fd) = (int)floorf(F(fs)); break;  // FLOOR_3
 			}
 			break; //cvt.w.s
 		default:
@@ -788,33 +801,37 @@ namespace MIPSInt
 		bool cond;
 		switch (op & 0xf)
 		{
+		case 0: //f
+		case 1: //un
+		case 8: //sf
+		case 9: //ngle
+			cond = false;
+			break;
+
 		case 2: //eq
+		case 10: //seq
+		case 3: //ueq
+		case 11: //ngl
 			cond = (F(fs) == F(ft));
 			break;
+
+		case 4: //olt
+		case 5: //ult
 		case 12: //lt
 		case 13: //nge
 			cond = (F(fs) < F(ft));
 			break;
 
+		case 6: //ole
+		case 7: //ule
 		case 14: //le
 		case 15: //ngt
 			cond = (F(fs) <= F(ft));
 			break;
 
-		case 0: //f
-		case 1: //un
-		case 3: //ueq
-		case 4: //olt
-		case 5: //ult
-		case 6: //ole
-		case 7: //ule
-		case 8: //sf
-		case 9: //ngle
-		case 10: //seq
-		case 11: //ngl
-
 		default:
 			_dbg_assert_msg_(CPU,0,"Trying to interpret FPUComp instruction that can't be interpreted");
+			cond = false;
 			break;
 		}
 		currentMIPS->fpcond = cond;

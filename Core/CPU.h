@@ -41,7 +41,7 @@ private:
 	u32 id;
 public:
 	virtual void SingleStep() = 0;
-	virtual void RunLoopUntil(u64 globalTicks) = 0;
+	virtual int RunLoopUntil(u64 globalTicks) = 0;
 };
 
 #define MAX_NUM_CPU 2

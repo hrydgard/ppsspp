@@ -18,5 +18,3 @@
 #pragma once
 
 struct LinkedShader;
-
-void TransformAndDrawPrim(void *verts, void *inds, int prim, int count, LinkedShader *shader, float *customUV = 0, int forceIndexType = -1);

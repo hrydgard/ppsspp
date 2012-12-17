@@ -306,7 +306,7 @@ u32 sceMpegDelete(u32 mpeg)
 	ctx->mediaengine = 0;
 
 	// delete ctx;  only when it's no longer a global
-	RETURN(0);
+	return 0;
 }
 
 
@@ -703,7 +703,7 @@ u32 sceMpegRingbufferPut(u32 ringbufferAddr, u32 numPackets, u32 available)
 	if (ringbuffer.callback_addr) {
 		PostPutAction *action = new PostPutAction(ringbufferAddr);
 		u32 args[3] = {ringbuffer.data, numPackets, ringbuffer.callback_args};
-		__KernelDirectMipsCall(ringbuffer.callback_addr, action, false, args, 3);
+		__KernelDirectMipsCall(ringbuffer.callback_addr, action, false, args, 3, false);
 	} else {
 		ERROR_LOG(HLE, "sceMpegRingbufferPut: callback_addr zero");
 	}

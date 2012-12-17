@@ -16,6 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #pragma once
+
+#include "../GPUState.h"
 #include "../Globals.h"
 #include "base/basictypes.h"
 
@@ -24,42 +26,53 @@ struct DecodedVertex
 	float pos[3];     // in case of morph, preblend during decode
 	float normal[3];  // in case of morph, preblend during decode
 	float uv[2];      // scaled by uscale, vscale, if there
-	float color[4];   // unlit
-	float weights[8];
+	u8 color[4];   // unlit
+	float weights[8];  // ugh, expensive
 };
 
 struct TransformedVertex
 {
 	float x, y, z;     // in case of morph, preblend during decode
 	float uv[2];      // scaled by uscale, vscale, if there
-	float color[4];   // prelit
+	float color0[4];   // prelit
+	float color1[4];   // prelit
 };
 
 
 
-// Right now 
+// Right now
 //   - only contains computed information
 //   - does decoding in nasty branchfilled loops
-// Future TODO 
-//   - will compile into lighting fast specialized x86 
+// Future TODO
+//   - will compile into lighting fast specialized x86 and ARM
 //   - will not bother translating components that can be read directly
 //     by OpenGL ES. Will still have to translate 565 colors, and things
-//     like that. DecodedVertex will not be a fixed struct.
+//     like that. DecodedVertex will not be a fixed struct. Will have to
+//     do morphing here.
 //
 // We want 100% perf on 1Ghz even in vertex complex games!
-class VertexDecoder 
+class VertexDecoder
 {
+public:
+	VertexDecoder() : coloff(0), nrmoff(0), posoff(0) {}
+	~VertexDecoder() {}
+	void SetVertexType(u32 vtype);
+	void DecodeVerts(DecodedVertex *decoded, const void *verts, const void *inds, int prim, int count, int *indexLowerBound, int *indexUpperBound) const;
+	bool hasColor() const { return col != 0; }
+	int VertexSize() const { return size; }
+
+private:
 	u32 fmt;
 	bool throughmode;
 	int biggest;
+	int size;
+	int onesize_;
 
 	int weightoff;
 	int tcoff;
 	int coloff;
 	int nrmoff;
 	int posoff;
-	int size;
-	int oneSize;
 
 	int tc;
 	int col;
@@ -69,12 +82,8 @@ class VertexDecoder
 	int idx;
 	int morphcount;
 	int nweights;
-
-public:
-	VertexDecoder() : coloff(0), nrmoff(0), posoff(0) {}
-	~VertexDecoder() {}
-	void SetVertexType(u32 fmt);
-	void DecodeVerts(DecodedVertex *decoded, const void *verts, const void *inds, int prim, int count) const;
-
-	// void DoGLVertexAttribPointer()
 };
+
+// Debugging utilities
+void PrintDecodedVertex(const DecodedVertex &vtx, u32 vtype);
+

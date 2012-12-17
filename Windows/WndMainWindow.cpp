@@ -1,17 +1,18 @@
 // NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
 
 
-#define programname "PPSSPP v0.2"
+#define programname "PPSSPP v0.4"
 
 
 #include <windows.h>
+#include <tchar.h>
 #include "../globals.h"
 
 #include "shellapi.h"
 #include "commctrl.h"
 
 #include "../Core/Debugger/SymbolMap.h"
-
+#include "OpenGLBase.h"
 #include "Debugger/Debugger_Disasm.h"
 #include "Debugger/Debugger_MemoryDlg.h"
 #include "main.h"
@@ -33,6 +34,9 @@
 #ifdef THEMES
 #include "XPTheme.h"
 #endif
+
+BOOL g_bFullScreen = FALSE;                  
+RECT rc = {0};
 
 namespace MainWindow
 {
@@ -80,7 +84,7 @@ namespace MainWindow
 		wcex.hInstance		= hInstance;
 		wcex.hIcon			= LoadIcon(hInstance, (LPCTSTR)IDI_PPSSPP); 
 		wcex.hCursor		= LoadCursor(NULL, IDC_ARROW);
-		wcex.hbrBackground	= (HBRUSH)GetStockObject(NULL_BRUSH);
+		wcex.hbrBackground	= (HBRUSH)GetStockObject(BLACK_BRUSH);
 		wcex.lpszMenuName	= (LPCSTR)IDR_MENU1;
 		wcex.lpszClassName	= szWindowClass;
 		wcex.hIconSm		= (HICON)LoadImage(hInstance, (LPCTSTR)IDI_PPSSPP, IMAGE_ICON, 16,16,LR_SHARED);
@@ -96,34 +100,36 @@ namespace MainWindow
 		RegisterClassEx(&wcex);
 	}
 
-	void RequestWindowSize(int w, int h)
-	{
-		RECT rc;
-		rc.left=20;
-		rc.top=100;
+	void GetWindowRectAtZoom(int zoom, RECT &rcInner, RECT &rcOuter) {
+		rcInner.left=20;
+		rcInner.top=100;
 
-		rc.right=w+rc.left;//+client edge
-		rc.bottom=h+rc.top; //+client edge
+		rcInner.right=480*zoom + rcInner.left;//+client edge
+		rcInner.bottom=272*zoom + rcInner.top; //+client edge
 
-		AdjustWindowRect(&rc, WS_OVERLAPPEDWINDOW, TRUE);
-		SetWindowPos(hwndMain,0,0,0,rc.right-rc.left,rc.bottom-rc.top,SWP_NOMOVE|SWP_NOZORDER);
+		rcOuter=rcInner;
+		AdjustWindowRect(&rcOuter, WS_OVERLAPPEDWINDOW, TRUE);
+	}
+
+	void SetZoom(int zoom) {
+		g_Config.iWindowZoom = zoom;
+		RECT rc, rcOuter;
+		GetWindowRectAtZoom(zoom, rc, rcOuter);
+		MoveWindow(hwndMain, rcOuter.left, rcOuter.top, rcOuter.right - rcOuter.left, rcOuter.bottom - rcOuter.top, TRUE);
+		MoveWindow(hwndDisplay, 0, 0, rc.right - rc.left, rc.bottom - rc.top, TRUE);
+		GL_Resized();
 	}
 
 	BOOL Show(HINSTANCE hInstance, int nCmdShow)
 	{
 		hInst = hInstance; // Store instance handle in our global variable
 
+		int zoom = g_Config.iWindowZoom;
+		if (zoom < 1) zoom = 1;
+		if (zoom > 4) zoom = 4;
+		
 		RECT rc,rcOrig;
-		rc.left=20;
-		rc.top=100;
-
-    int zoom = 1;
-
-		rc.right=480*zoom+rc.left;//+client edge
-		rc.bottom=272*zoom+rc.top; //+client edge
-
-		rcOrig=rc;
-		AdjustWindowRect(&rc, WS_OVERLAPPEDWINDOW, TRUE);
+		GetWindowRectAtZoom(zoom, rcOrig, rc);
 
 		u32 style = skinMode ? WS_POPUP : WS_OVERLAPPEDWINDOW;
 
@@ -144,7 +150,7 @@ namespace MainWindow
 		info.cyMax = 0;
 		info.dwStyle = MNS_CHECKORBMP;
 		info.fMask = MIM_STYLE;
-		for (int i=0; i<GetMenuItemCount(menu); i++)
+		for (int i = 0; i < GetMenuItemCount(menu); i++)
 		{
 			SetMenuInfo(GetSubMenu(menu,i),&info);
 		}
@@ -317,6 +323,33 @@ namespace MainWindow
 				}
 				break;
 
+			case ID_OPTIONS_SCREEN1X:
+				SetZoom(1);
+				UpdateMenus();
+				break;
+			case ID_OPTIONS_SCREEN2X:
+				SetZoom(2);
+				UpdateMenus();
+				break;
+			case ID_OPTIONS_SCREEN3X:
+				SetZoom(3);
+				UpdateMenus();
+				break;
+			case ID_OPTIONS_SCREEN4X:
+				SetZoom(4);
+				UpdateMenus();
+				break;
+
+			case ID_OPTIONS_BUFFEREDRENDERING:
+				g_Config.bBufferedRendering = !g_Config.bBufferedRendering;
+				UpdateMenus();
+				break;
+
+			case ID_OPTIONS_SHOWDEBUGSTATISTICS:
+				g_Config.bShowDebugStats = !g_Config.bShowDebugStats;
+				UpdateMenus();
+				break;
+
 			case ID_FILE_EXIT:
 				DestroyWindow(hWnd);
 				break;
@@ -325,11 +358,15 @@ namespace MainWindow
 			//CPU menu
 			//////////////////////////////////////////////////////////////////////////
 			case ID_CPU_DYNAREC:
-				g_Config.bJIT = true;
+				g_Config.iCpuCore = CPU_JIT;
 				UpdateMenus();
 				break;			
 			case ID_CPU_INTERPRETER:
-				g_Config.bJIT = false;
+				g_Config.iCpuCore = CPU_INTERPRETER;
+				UpdateMenus();
+				break;
+			case ID_CPU_FASTINTERPRETER:
+				g_Config.iCpuCore = CPU_FASTINTERPRETER;
 				UpdateMenus();
 				break;
 
@@ -431,8 +468,12 @@ namespace MainWindow
 				g_Config.bIgnoreBadMemAccess = !g_Config.bIgnoreBadMemAccess;
 				UpdateMenus();
 				break;
-				//case ID_OPTIONS_FULLSCREEN:
-				//	break;
+			case ID_OPTIONS_FULLSCREEN:
+				if(g_bFullScreen)
+					_ViewNormal(hWnd); 
+				else
+					_ViewFullScreen(hWnd);
+				break;
 
 			case ID_OPTIONS_DISPLAYRAWFRAMEBUFFER:
 				g_Config.bDisplayFramebuffer = !g_Config.bDisplayFramebuffer;
@@ -546,7 +587,7 @@ namespace MainWindow
 		case WM_USER+1:
 			disasmWindow[0] = new CDisasm(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
 			DialogManager::AddDlg(disasmWindow[0]);
-			disasmWindow[0]->Show(TRUE);
+			disasmWindow[0]->Show(g_Config.bShowDebuggerOnLoad);
 			memoryWindow[0] = new CMemoryDlg(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
 			DialogManager::AddDlg(memoryWindow[0]);
 			if (disasmWindow[0])
@@ -572,8 +613,11 @@ namespace MainWindow
 //		CHECK(ID_OPTIONS_EMULATESYSCALL,g_bEmulateSyscall);
 		CHECKITEM(ID_OPTIONS_DISPLAYRAWFRAMEBUFFER, g_Config.bDisplayFramebuffer);
 		CHECKITEM(ID_OPTIONS_IGNOREILLEGALREADS,g_Config.bIgnoreBadMemAccess);
-		CHECKITEM(ID_CPU_INTERPRETER,!g_Config.bJIT);
-		CHECKITEM(ID_CPU_DYNAREC,g_Config.bJIT);
+		CHECKITEM(ID_CPU_INTERPRETER,g_Config.iCpuCore == CPU_INTERPRETER);
+		CHECKITEM(ID_CPU_FASTINTERPRETER,g_Config.iCpuCore == CPU_FASTINTERPRETER);
+		CHECKITEM(ID_CPU_DYNAREC,g_Config.iCpuCore == CPU_JIT);
+		CHECKITEM(ID_OPTIONS_BUFFEREDRENDERING, g_Config.bBufferedRendering);
+		CHECKITEM(ID_OPTIONS_SHOWDEBUGSTATISTICS, g_Config.bShowDebugStats);
 
 		BOOL enable = !Core_IsStepping();
 		EnableMenuItem(menu,ID_EMULATION_RUN,enable);
@@ -581,15 +625,24 @@ namespace MainWindow
 
 		enable = g_State.bEmuThreadStarted;
 		EnableMenuItem(menu,ID_FILE_LOAD,enable);
-		//EnableMenuItem(menu,ID_FILE_LOAD_DOL,enable);
-		//EnableMenuItem(menu,ID_FILE_LOAD_ELF,enable);
 		EnableMenuItem(menu,ID_CPU_DYNAREC,enable);
 		EnableMenuItem(menu,ID_CPU_INTERPRETER,enable);
+		EnableMenuItem(menu,ID_CPU_FASTINTERPRETER,enable);
 		EnableMenuItem(menu,ID_DVD_INSERTISO,enable);
 		EnableMenuItem(menu,ID_FILE_BOOTBIOS,enable);
 		EnableMenuItem(menu,ID_EMULATION_STOP,!enable);
 		EnableMenuItem(menu,ID_OPTIONS_SETTINGS,enable);
 		EnableMenuItem(menu,ID_PLUGINS_CHOOSEPLUGINS,enable);
+
+		const int zoomitems[4] = {
+			ID_OPTIONS_SCREEN1X,
+			ID_OPTIONS_SCREEN2X,
+			ID_OPTIONS_SCREEN3X,
+			ID_OPTIONS_SCREEN4X,
+		};
+		for (int i = 0; i < 4; i++) {
+			CheckMenuItem(menu, zoomitems[i], MF_BYCOMMAND | ((i == g_Config.iWindowZoom - 1) ? MF_CHECKED : MF_UNCHECKED));
+		}
 	}
 
 
@@ -624,6 +677,53 @@ namespace MainWindow
 	{
 		InvalidateRect(hwndDisplay,0,0);
 	}
+	void _ViewNormal(HWND hWnd)
+	{
+   // put caption and border styles back
+   DWORD dwOldStyle = ::GetWindowLong(hWnd, GWL_STYLE);
+   DWORD dwNewStyle = dwOldStyle | WS_CAPTION | WS_THICKFRAME;
+   ::SetWindowLong(hWnd, GWL_STYLE, dwNewStyle);
+
+   // put back the menu bar
+   ::SetMenu(hWnd, menu);
+
+   // resize to normal view
+   // NOTE: use SWP_FRAMECHANGED to force redraw non-client
+   const int x = rc.left;
+   const int y = rc.top;
+   const int cx = rc.right - rc.left;
+   const int cy = rc.bottom - rc.top; 
+   ::SetWindowPos(hWnd, HWND_NOTOPMOST, x, y, cx, cy, SWP_FRAMECHANGED);
+
+   // reset full screen indicator
+   g_bFullScreen = FALSE;
+	}
+
+void _ViewFullScreen(HWND hWnd)
+{
+   // keep in mind normal window rectangle
+   ::GetWindowRect(hWnd, &rc);
+
+   // remove caption and border styles
+   DWORD dwOldStyle = ::GetWindowLong(hWnd, GWL_STYLE);
+   DWORD dwNewStyle = dwOldStyle & ~(WS_CAPTION | WS_THICKFRAME);
+   ::SetWindowLong(hWnd, GWL_STYLE, dwNewStyle);
+
+   // remove the menu bar
+   ::SetMenu(hWnd, NULL);
+
+   // resize to full screen view
+   // NOTE: use SWP_FRAMECHANGED to force redraw non-client
+   const int x = 0;
+   const int y = 0;
+   const int cx = ::GetSystemMetrics(SM_CXSCREEN);
+   const int cy = ::GetSystemMetrics(SM_CYSCREEN); 
+   ::SetWindowPos(hWnd, HWND_TOPMOST, x, y, cx, cy, SWP_FRAMECHANGED);
+
+   // set full screen indicator
+   g_bFullScreen = TRUE;
+}
+
 
 	void SetPlaying(const char *text)
 	{

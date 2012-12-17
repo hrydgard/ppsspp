@@ -27,6 +27,7 @@
 
 DirectoryFileSystem::DirectoryFileSystem(IHandleAllocator *_hAlloc, std::string _basePath) : basePath(_basePath)
 {
+	File::CreateFullPath(basePath);
 	hAlloc = _hAlloc;
 }
 
@@ -35,17 +36,16 @@ std::string DirectoryFileSystem::GetLocalPath(std::string localpath)
 	if (localpath.empty())
 		return basePath;
 
-  if (localpath[0] == '/')
-    localpath.erase(0,1);
+	if (localpath[0] == '/')
+		localpath.erase(0,1);
   //Convert slashes
 #ifdef _WIN32
 	for (size_t i = 0; i < localpath.size(); i++)
 	{
 		if (localpath[i] == '/')
 			localpath[i] = '\\';
-  }
+	}
 #endif
-
 	return basePath + localpath;
 }
 
@@ -53,21 +53,38 @@ std::string DirectoryFileSystem::GetLocalPath(std::string localpath)
 bool DirectoryFileSystem::MkDir(const std::string &dirname)
 {
 	std::string fullName = GetLocalPath(dirname);
-#ifdef _WIN32
-	return CreateDirectory(fullName.c_str(), NULL) == TRUE;
-#else
-  mkdir(fullName.c_str(), 0777);
-  return true;
-#endif
+
+	return File::CreateFullPath(fullName);
+
 }
 
 bool DirectoryFileSystem::RmDir(const std::string &dirname)
 {
 	std::string fullName = GetLocalPath(dirname);
-#ifdef _WIN32
+/*#ifdef _WIN32
 	return RemoveDirectory(fullName.c_str()) == TRUE;
 #else
-  return 0 == rmdir(fullName.c_str());
+	return 0 == rmdir(fullName.c_str());
+#endif*/
+	return File::DeleteDirRecursively(fullName);
+}
+
+bool DirectoryFileSystem::RenameFile(const std::string &from, const std::string &to)
+{
+	std::string fullFrom = GetLocalPath(from);
+	std::string fullTo = to;
+	// TO filename may not include path. Intention is that it uses FROM's path
+	if (to.find("/") != std::string::npos) {
+		int offset = from.find_last_of("/");
+		if (offset >= 0) {
+			fullTo = from.substr(0, offset + 1) + to;
+		}
+	}
+	fullTo = GetLocalPath(fullTo);
+#ifdef _WIN32
+	return MoveFile(fullFrom.c_str(), fullTo.c_str()) == TRUE;
+#else
+	return 0 == rename(fullFrom.c_str(), fullTo.c_str());
 #endif
 }
 
@@ -77,7 +94,7 @@ bool DirectoryFileSystem::DeleteFile(const std::string &filename)
 #ifdef _WIN32
 	return DeleteFile(fullName.c_str()) == TRUE;
 #else
-  return 0 == unlink(fullName.c_str());
+	return 0 == unlink(fullName.c_str());
 #endif
 }
 
@@ -243,7 +260,7 @@ PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename)
 	x.name = filename;
 	
 
-  std::string fullName = GetLocalPath(filename);
+	std::string fullName = GetLocalPath(filename);
 	if (!File::Exists(fullName)) {
 		return x;
 	}
@@ -257,9 +274,10 @@ PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename)
 
 	x.size = data.nFileSizeLow | ((u64)data.nFileSizeHigh<<32);
 #else
-  x.size = File::GetSize(fullName);
-  //TODO
+	x.size = File::GetSize(fullName);
+	//TODO
 #endif
+	x.mtime = File::GetModifTime(fullName);
 
 	return x;
 }
@@ -289,7 +307,10 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path)
 		else
 			entry.type = FILETYPE_NORMAL;
 
-		entry.size = findData.nFileSizeLow | ((u64)findData.nFileSizeHigh<<32);
+		if (!strcmp(findData.cFileName, "..") )// TODO: is this just for .. or all sub directories? Need to add a directory to the test to find out. Also why so different than the old test results?
+			entry.size = 4096;
+		else
+			entry.size = findData.nFileSizeLow | ((u64)findData.nFileSizeHigh<<32);
 		entry.name = findData.cFileName;
 		
 		myVector.push_back(entry);

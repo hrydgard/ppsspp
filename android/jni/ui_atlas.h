@@ -22,19 +22,18 @@
 #define I_ROUND 9
 #define I_STICK 10
 #define I_SHOULDER 11
-#define I_RECT 12
-#define I_STICKBG 13
-#define I_BG 14
-#define I_L 15
-#define I_R 16
-#define I_BUTTON 17
-#define I_BUTTON_SELECTED 18
-#define I_ACTIVE_ITEM 19
-#define I_INACTIVE_ITEM 20
-#define I_ICON_UMD 21
-#define I_ICON_FOLDER 22
-#define I_ICON_EXE 23
+#define I_CHECKEDBOX 12
+#define I_RECT 13
+#define I_STICKBG 14
+#define I_BG 15
+#define I_L 16
+#define I_R 17
+#define I_BUTTON 18
+#define I_BUTTON_SELECTED 19
+#define I_ICON_UMD 20
+#define I_ICON_FOLDER 21
+#define I_ICON_EXE 22
 
 
 extern const Atlas ui_atlas;
-extern const AtlasImage ui_images[24];
+extern const AtlasImage ui_images[23];

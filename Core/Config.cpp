@@ -45,18 +45,25 @@ void CConfig::Load(const char *iniFileName)
 	general->Get("FirstRun", &bFirstRun, true);
 	general->Get("AutoLoadLast", &bAutoLoadLast, false);
 	general->Get("AutoRun", &bAutoRun, false);
-	general->Get("Jit", &bJIT, false);
 	general->Get("ConfirmOnQuit", &bConfirmOnQuit, false);
 	general->Get("IgnoreBadMemAccess", &bIgnoreBadMemAccess, true);
-	general->Get("DisplayFramebuffer", &bDisplayFramebuffer, false);
 	general->Get("CurrentDirectory", &currentDirectory, "");
-	general->Get("ShowFPSCounter", &bShowFPSCounter, false);
+	general->Get("ShowDebuggerOnLoad", &bShowDebuggerOnLoad, false);
+	IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
+	cpu->Get("Core", &iCpuCore, 0);
+
+	IniFile::Section *graphics = iniFile.GetOrCreateSection("Graphics");
+	graphics->Get("ShowFPSCounter", &bShowFPSCounter, false);
+	graphics->Get("DisplayFramebuffer", &bDisplayFramebuffer, false);
+	graphics->Get("WindowZoom", &iWindowZoom, 1);
+	graphics->Get("BufferedRendering", &bBufferedRendering, true);
 
 	IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 	sound->Get("Enable", &bEnableSound, true);
 
 	IniFile::Section *control = iniFile.GetOrCreateSection("Control");
 	control->Get("ShowStick", &bShowAnalogStick, false);
+	control->Get("ShowTouchControls", &bShowTouchControls, true);
 }
 
 void CConfig::Save()
@@ -70,18 +77,25 @@ void CConfig::Save()
 		general->Set("FirstRun", bFirstRun);
 		general->Set("AutoLoadLast", bAutoLoadLast);
 		general->Set("AutoRun", bAutoRun);
-		general->Set("Jit", bJIT);
 		general->Set("ConfirmOnQuit", bConfirmOnQuit);
 		general->Set("IgnoreBadMemAccess", bIgnoreBadMemAccess);
-		general->Set("DisplayFramebuffer", bDisplayFramebuffer);
 		general->Set("CurrentDirectory", currentDirectory);
-		general->Set("ShowFPSCounter", bShowFPSCounter);
+		general->Set("ShowDebuggerOnLoad", bShowDebuggerOnLoad);
+		IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
+		cpu->Set("Core", iCpuCore);
+
+		IniFile::Section *graphics = iniFile.GetOrCreateSection("Graphics");
+		graphics->Set("ShowFPSCounter", bShowFPSCounter);
+		graphics->Set("DisplayFramebuffer", bDisplayFramebuffer);
+		graphics->Set("WindowZoom", iWindowZoom);
+		graphics->Set("BufferedRendering", bBufferedRendering);
 
 		IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 		sound->Set("Enable", bEnableSound);
 
 		IniFile::Section *control = iniFile.GetOrCreateSection("Control");
 		control->Set("ShowStick", bShowAnalogStick);
+		control->Set("ShowTouchControls", bShowTouchControls);
 
 		iniFile.Save(iniFilename_.c_str());
 		NOTICE_LOG(LOADER, "Config saved: %s", iniFilename_.c_str());

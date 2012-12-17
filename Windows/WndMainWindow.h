@@ -1,5 +1,6 @@
 #pragma once
 
+#include <windows.h>
 
 namespace MainWindow
 {
@@ -13,5 +14,6 @@ namespace MainWindow
 	HINSTANCE GetHInstance();
 	HWND GetDisplayHWND();
 	void SetPlaying(const char*text);
-	void RequestWindowSize(int w, int h);
+	void _ViewFullScreen(HWND hWnd);
+	void _ViewNormal(HWND hWnd);
 }

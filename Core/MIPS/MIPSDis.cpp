@@ -21,11 +21,7 @@
 #include "MIPSTables.h"
 #include "MIPSDebugInterface.h"
 
-#if defined(ANDROID) || defined(BLACKBERRY)
-#include "ARM/Jit.h"
-#else
-#include "x86/Jit.h"
-#endif
+#include "JitCommon/JitCommon.h"
 
 #define _RS ((op>>21) & 0x1F)
 #define _RT ((op>>16) & 0x1F)
@@ -51,25 +47,25 @@ namespace MIPSDis
 
 	void Dis_mxc1(u32 op, char *out)
 	{
-		int fs = (op>>11) & 0x1F;
-		int rt = (op>>16) & 0x1F;
+		int fs = _FS;
+		int rt = _RT;
 		const char *name = MIPSGetName(op);
 		sprintf(out, "%s\t%s, %s",name,RN(rt),FN(fs));
 	}
 
 	void Dis_FPU3op(u32 op, char *out)
 	{
-		int ft = (op>>16) & 0x1F;
-		int fs = (op>>11) & 0x1F;
-		int fd = (op>>6) & 0x1F;
+		int ft = _FT;
+		int fs = _FS;
+		int fd = _FD;;
 		const char *name = MIPSGetName(op);
 		sprintf(out, "%s\t%s, %s, %s",name,FN(fd),FN(fs),FN(ft));
 	}
 
 	void Dis_FPU2op(u32 op, char *out)
 	{
-		int fs = (op>>11) & 0x1F;
-		int fd = (op>>6) & 0x1F;
+		int fs = _FS;
+		int fd = _FD;;
 		const char *name = MIPSGetName(op);
 		sprintf(out, "%s\t%s, %s",name,FN(fd),FN(fs));
 	}
@@ -77,17 +73,17 @@ namespace MIPSDis
 	void Dis_FPULS(u32 op, char *out)
 	{
 		int offset = (signed short)(op&0xFFFF);
-		int ft = ((op>>16)&0x1f);
-		int rs = (op>>21) & 0x1f;
+		int ft = _FT;
+		int rs = _RS;
 		const char *name = MIPSGetName(op);
 		sprintf(out, "%s\t%s, %d(%s)",name,FN(ft),offset,RN(rs));
 	}
 	void Dis_FPUComp(u32 op, char *out)
 	{
-		int fs = ((op>>11)&0x1f);
-		int ft = ((op>>16)&0x1f);
+		int fs = _FS;
+		int ft = _FT;
 		const char *name = MIPSGetName(op);
-		sprintf(out, "%s\t%s, %s",name,FN(fs),RN(ft));
+		sprintf(out, "%s\t%s, %s",name,FN(fs),FN(ft));
 	}
 
 	void Dis_FPUBranch(u32 op, char *out)
@@ -103,7 +99,7 @@ namespace MIPSDis
 	{
 		u32 off = disPC;
 		int imm = (signed short)(op&0xFFFF)<<2;
-		int rs = (op>>21) & 0x1F;
+		int rs = _RS;
 		off += imm + 4;
 
 		const char *name = MIPSGetName(op);
@@ -120,13 +116,13 @@ namespace MIPSDis
 
 	void Dis_ToHiloTransfer(u32 op, char *out)
 	{
-		int rs = (op>>21) & 0x1F;
+		int rs = _RS;
 		const char *name = MIPSGetName(op);
 		sprintf(out, "%s\t%s",name,RN(rs));
 	}
 	void Dis_FromHiloTransfer(u32 op, char *out)
 	{
-		int rd = (op>>11) & 0x1F;
+		int rd = _RD;
 		const char *name = MIPSGetName(op);
 		sprintf(out, "%s\t%s",name,RN(rd));
 	}
@@ -135,8 +131,8 @@ namespace MIPSDis
 	{
 		u32 off = disPC;
 		int imm = (signed short)(op&0xFFFF)<<2;
-		int rt = (op>>16) & 0x1F;
-		int rs = (op>>21) & 0x1F;
+		int rt = _RT;
+		int rs = _RS;
 		off += imm + 4;
 
 		const char *name = MIPSGetName(op);
@@ -152,16 +148,16 @@ namespace MIPSDis
 	void Dis_IType(u32 op, char *out)
 	{
 		int imm = (signed short)(op&0xFFFF);
-		int rt = (op>>16) & 0x1F;
-		int rs = (op>>21) & 0x1F;
+		int rt = _RT;
+		int rs = _RS;
 		const char *name = MIPSGetName(op);
 		sprintf(out, "%s\t%s, %s, %i",name,RN(rt),RN(rs),imm);
 	}
 	void Dis_ori(u32 op, char *out)
 	{
 		int imm = (signed short)(op&0xFFFF);
-		int rt = (op>>16) & 0x1F;
-		int rs = (op>>21) & 0x1F;
+		int rt = _RT;
+		int rs = _RS;
 		const char *name = MIPSGetName(op);
 		if (rs == 0)
 			sprintf(out, "li\t%s, %i",RN(rt),imm);
@@ -169,12 +165,10 @@ namespace MIPSDis
 			sprintf(out, "%s\t%s, %s, %i",name,RN(rt),RN(rs),imm);
 	}
 
-
-
 	void Dis_IType1(u32 op, char *out)
 	{
 		int imm = (signed short)(op&0xFFFF);
-		int rt = (op>>16) & 0x1F;
+		int rt = _RT;
 		const char *name = MIPSGetName(op);
 		sprintf(out, "%s\t%s, %i",name,RN(rt),imm);
 	}
@@ -182,8 +176,8 @@ namespace MIPSDis
 	void Dis_addi(u32 op, char *out)
 	{
 		int imm = (signed short)(op&0xFFFF);
-		int rt = (op>>16) & 0x1F;
-		int rs = (op>>21) & 0x1F;
+		int rt = _RT;
+		int rs = _RS;
 		if (rs == 0)
 			sprintf(out, "li\t%s, %i",RN(rt),imm);
 		else
@@ -193,34 +187,34 @@ namespace MIPSDis
 	void Dis_ITypeMem(u32 op, char *out)
 	{
 		int imm = (signed short)(op&0xFFFF);
-		int rt = (op>>16) & 0x1F;
-		int rs = (op>>21) & 0x1F;
+		int rt = _RT;
+		int rs = _RS;
 		const char *name = MIPSGetName(op);
 		sprintf(out, "%s\t%s, %i(%s)",name,RN(rt),imm,RN(rs));
 	}
 
 	void Dis_RType2(u32 op, char *out)
 	{
-		int rs = (op>>21) & 0x1F;
-		int rd = (op>>11) & 0x1F;
+		int rs = _RS;
+		int rd = _RD;
 		const char *name = MIPSGetName(op);
 		sprintf(out, "%s\t%s, %s",name,RN(rd),RN(rs));
 	}
 
 	void Dis_RType3(u32 op, char *out)
 	{
-		int rt = (op>>16) & 0x1F;
-		int rs = (op>>21) & 0x1F;
-		int rd = (op>>11) & 0x1F;
+		int rt = _RT;
+		int rs = _RS;
+		int rd = _RD;
 		const char *name = MIPSGetName(op);
 		sprintf(out, "%s\t%s, %s, %s",name,RN(rd),RN(rs),RN(rt));
 	}
 
 	void Dis_addu(u32 op, char *out)
 	{
-		int rt = (op>>16) & 0x1F;
-		int rs = (op>>21) & 0x1F;
-		int rd = (op>>11) & 0x1F;
+		int rt = _RT;
+		int rs = _RS;
+		int rd = _RD;
 		const char *name = MIPSGetName(op);
 		if (rs==0 && rt==0)
 			sprintf(out,"li\t%s, 0",RN(rd));
@@ -234,9 +228,9 @@ namespace MIPSDis
 
 	void Dis_ShiftType(u32 op, char *out)
 	{
-		int rt = (op>>16) & 0x1F;
-		int rs = (op>>21) & 0x1F;
-		int rd = (op>>11) & 0x1F;
+		int rt = _RT;
+		int rs = _RS;
+		int rd = _RD;
 		int sa = (op>>6)	& 0x1F;
 		const char *name = MIPSGetName(op);
 		if (((op & 0x3f) == 2) && rs == 1)
@@ -248,9 +242,9 @@ namespace MIPSDis
 
 	void Dis_VarShiftType(u32 op, char *out)
 	{
-		int rt = (op>>16) & 0x1F;
-		int rs = (op>>21) & 0x1F;
-		int rd = (op>>11) & 0x1F;
+		int rt = _RT;
+		int rs = _RS;
+		int rd = _RD;
 		const char *name = MIPSGetName(op);
 		sprintf(out, "%s\t%s, %s, %s",name,RN(rd),RN(rt),RN(rs));
 	}
@@ -258,8 +252,8 @@ namespace MIPSDis
 
 	void Dis_MulDivType(u32 op, char *out)
 	{
-		int rt = (op>>16) & 0x1F;
-		int rs = (op>>21) & 0x1F;
+		int rt = _RT;
+		int rs = _RS;
 		const char *name = MIPSGetName(op);
 		sprintf(out, "%s\t%s, %s",name,RN(rs),RN(rt));
 	}
@@ -306,16 +300,16 @@ namespace MIPSDis
 
 	void Dis_Allegrex(u32 op, char *out)
 	{
-		int rt = (op>>16) & 0x1F;
-		int rd = (op>>11) & 0x1F;
+		int rt = _RT;
+		int rd = _RD;
 		const char *name = MIPSGetName(op);
 		sprintf(out,"%s\t%s,%s",name,RN(rd),RN(rt));
 	}
 
 	void Dis_Allegrex2(u32 op, char *out)
 	{
-		int rt = (op>>16) & 0x1F;
-		int rd = (op>>11) & 0x1F;
+		int rt = _RT;
+		int rd = _RD;
 		const char *name = MIPSGetName(op);
 		sprintf(out,"%s\t%s,%s",name,RN(rd),RN(rt));
 	}
@@ -325,6 +319,7 @@ namespace MIPSDis
 		//const char *name = MIPSGetName(op);
 		//sprintf(out,"%s\t-",name);
 		out[0]='*';
+		out[1]=0;
 		// MIPSDisAsm(MIPSComp::GetOriginalOp(op), currentDebugMIPS->GetPC(), out+1);
 	}
 

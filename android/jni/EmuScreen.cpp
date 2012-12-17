@@ -16,6 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "gfx_es2/glsl_program.h"
+#include "gfx_es2/gl_state.h"
+#include "gfx_es2/fbo.h"
 
 #include "input/input_state.h"
 #include "ui/ui.h"
@@ -47,7 +49,11 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true)
 	INFO_LOG(BOOT, "Starting up hardware.");
 
 	CoreParameter coreParam;
-	coreParam.cpuCore = CPU_INTERPRETER;
+	coreParam.cpuCore = (CPUCore)g_Config.iCpuCore;
+#if defined(ARM)
+	if (coreParam.cpuCore == CPU_JIT)
+		coreParam.cpuCore = CPU_FASTINTERPRETER;
+#endif
 	coreParam.gpuCore = GPU_GLES;
 	coreParam.enableSound = g_Config.bEnableSound;
 	coreParam.fileToStart = fileToStart;
@@ -56,6 +62,12 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true)
 	coreParam.enableDebugging = false;
 	coreParam.printfEmuLog = false;
 	coreParam.headLess = false;
+	coreParam.renderWidth = 480;
+	coreParam.renderHeight = 272;
+	coreParam.outputWidth = dp_xres;
+	coreParam.outputHeight = dp_yres;
+	coreParam.pixelWidth = pixel_xres;
+	coreParam.pixelHeight = pixel_yres;
 
 	std::string error_string;
 	if (PSP_Init(coreParam, &error_string)) {
@@ -129,6 +141,7 @@ void EmuScreen::update(InputState &input)
 	}
 
 	if (input.pad_buttons_down & (PAD_BUTTON_MENU | PAD_BUTTON_BACK)) {
+		fbo_unbind();
 		screenManager()->push(new InGameMenuScreen());
 	}
 }
@@ -138,44 +151,47 @@ void EmuScreen::render()
 	if (invalid_)
 		return;
 
-	// First attempt at an Android-friendly execution loop.
-	// We simply run the CPU for 1/60th of a second each frame. If a swap doesn't happen, not sure what the best thing to do is :P
-	// Also if we happen to get half a frame or something, things will be screwed up so this doesn't actually really work.
-	//
-	// I think we need to allocate FBOs per framebuffer and just blit the displayed one here at the end of the frame.
-	// Also - we should add another option to the core that lets us run it until a vblank event happens or the N cycles have passed
-	// - then the synchronization would at least not be able to drift off.
-	u64 nowTicks = CoreTiming::GetTicks();
-	u64 frameTicks = usToCycles(1000000 / 60);
-	mipsr4k.RunLoopUntil(nowTicks + frameTicks);  // should really be relative to the last frame but whatever
+	// Reapply the graphics state of the PSP
+	ReapplyGfxState();
 
-	//if (hasRendered)
-	{
-		UIShader_Prepare();
+	// We just run the CPU until we get to vblank. This will quickly sync up pretty nicely.
+	// The actual number of cycles doesn't matter so much here as we will break due to CORE_NEXTFRAME, most of the time hopefully...
+	int blockTicks = usToCycles(1000000 / 2);
 
-		uiTexture->Bind(0);
-
-		ui_draw2d.Begin(DBMODE_NORMAL);
-
-		// Don't want the gamepad on MacOSX and Linux
-// #ifdef ANDROID
-		DrawGamepad(ui_draw2d);
-// #endif
-
-		DrawWatermark();
-
-		glsl_bind(UIShader_Get());
-		ui_draw2d.End();
-		ui_draw2d.Flush(UIShader_Get());
-
-		//hasRendered = false;
-
-		// Reapply the graphics state of the PSP
-		ReapplyGfxState();
+	// Run until CORE_NEXTFRAME
+	while (coreState == CORE_RUNNING) {
+		u64 nowTicks = CoreTiming::GetTicks();
+		mipsr4k.RunLoopUntil(nowTicks + blockTicks);
+	}
+	// Hopefully coreState is now CORE_NEXTFRAME
+	if (coreState == CORE_NEXTFRAME) {
+		// set back to running for the next frame
+		coreState = CORE_RUNNING;
 	}
 
+	fbo_unbind();
+
+	UIShader_Prepare();
+
+	uiTexture->Bind(0);
+
+	glViewport(0, 0, pixel_xres, pixel_yres);
+
+	ui_draw2d.Begin(DBMODE_NORMAL);
+
+	// Make this configurable.
+	if (g_Config.bShowTouchControls)
+		DrawGamepad(ui_draw2d);
+
+	DrawWatermark();
+
+	glsl_bind(UIShader_Get());
+	ui_draw2d.End();
+	ui_draw2d.Flush(UIShader_Get());
+
+
 	// Tiled renderers like PowerVR should benefit greatly from this. However - seems I can't call it?
-#if defined(ANDROID) || defined(BLACKBERRY)
+#if defined(USING_GLES2)
 	bool hasDiscard = false;  // TODO
 	if (hasDiscard) {
 		//glDiscardFramebuffer(GL_COLOR_EXT | GL_DEPTH_EXT | GL_STENCIL_EXT);

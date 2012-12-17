@@ -23,12 +23,9 @@
 #include "MIPSInt.h"
 #include "MIPSIntVFPU.h"
 #include "MIPSCodeUtils.h"
+#include "../../Core/CoreTiming.h"
+#include "../Debugger/Breakpoints.h"
 
-#if defined(ANDROID) || defined(BLACKBERRY)
-#include "ARM/Jit.h"
-#else
-#include "x86/Jit.h"
-#endif
 #include "JitCommon/JitCommon.h"
 
 enum MipsEncoding
@@ -183,8 +180,8 @@ const MIPSInstruction tableSpecial[64] = /// 000000 ...... ...... .......... xxx
 	//8
 	INSTR("jr",    &Jit::Comp_JumpReg, Dis_JumpRegType, Int_JumpRegType,0),
 	INSTR("jalr",  &Jit::Comp_JumpReg, Dis_JumpRegType, Int_JumpRegType,0),
-	INSTR("movz",  &Jit::Comp_Generic, Dis_RType3, Int_RType3, OUT_RD|IN_RS|IN_RT),
-	INSTR("movn",  &Jit::Comp_Generic, Dis_RType3, Int_RType3, OUT_RD|IN_RS|IN_RT),
+	INSTR("movz",  &Jit::Comp_RType3, Dis_RType3, Int_RType3, OUT_RD|IN_RS|IN_RT),
+	INSTR("movn",  &Jit::Comp_RType3, Dis_RType3, Int_RType3, OUT_RD|IN_RS|IN_RT),
 	INSTR("syscall", &Jit::Comp_Syscall, Dis_Syscall, Int_Syscall,0),
 	INSTR("break", &Jit::Comp_Generic, Dis_Generic, Int_Break, 0),
 	{-2},
@@ -223,10 +220,10 @@ const MIPSInstruction tableSpecial[64] = /// 000000 ...... ...... .......... xxx
 	//40
 	{-2},
 	{-2},
-	INSTR("slt",  &Jit::Comp_Generic, Dis_RType3, Int_RType3,IN_RS|IN_RT|OUT_RD),
-	INSTR("sltu", &Jit::Comp_Generic, Dis_RType3, Int_RType3,IN_RS|IN_RT|OUT_RD),
-	INSTR("max",  &Jit::Comp_Generic, Dis_RType3, Int_RType3,IN_RS|IN_RT|OUT_RD),
-	INSTR("min",  &Jit::Comp_Generic, Dis_RType3, Int_RType3,IN_RS|IN_RT|OUT_RD),
+	INSTR("slt",  &Jit::Comp_RType3, Dis_RType3, Int_RType3,IN_RS|IN_RT|OUT_RD),
+	INSTR("sltu", &Jit::Comp_RType3, Dis_RType3, Int_RType3,IN_RS|IN_RT|OUT_RD),
+	INSTR("max",  &Jit::Comp_RType3, Dis_RType3, Int_RType3,IN_RS|IN_RT|OUT_RD),
+	INSTR("min",  &Jit::Comp_RType3, Dis_RType3, Int_RType3,IN_RS|IN_RT|OUT_RD),
 	INSTR("msub",  &Jit::Comp_Generic, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|OUT_OTHER),
 	INSTR("msubu", &Jit::Comp_Generic, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|OUT_OTHER),
 
@@ -505,13 +502,13 @@ MIPSInstruction tableVFPU1[8] =
 MIPSInstruction tableVFPU3[8] = //011011 xxx
 {
 	INSTR("vcmp",&Jit::Comp_Generic, Dis_Vcmp, Int_Vcmp, IS_VFPU),
-	INSTR("v???",&Jit::Comp_Generic, Dis_Generic, Int_Vcmp, IS_VFPU),   // 0x6de84848 in motogp
-	INSTR("vmin",&Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU),
-	INSTR("vmax",&Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU), 
+	{-2},
+	INSTR("vmin",&Jit::Comp_Generic, Dis_VectorSet3, Int_Vminmax, IS_VFPU),
+	INSTR("vmax",&Jit::Comp_Generic, Dis_VectorSet3, Int_Vminmax, IS_VFPU), 
 	{-2}, 
 	INSTR("vscmp",&Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU), 
-	INSTR("vsge",&Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU), 
-	INSTR("vslt",&Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU),
+	INSTR("vsge",&Jit::Comp_Generic, Dis_VectorSet3, Int_Vsge, IS_VFPU), 
+	INSTR("vslt",&Jit::Comp_Generic, Dis_VectorSet3, Int_Vslt, IS_VFPU),
 };
 
 
@@ -570,10 +567,10 @@ MIPSInstruction tableVFPU7[32] =
 	{-2},
 	INSTR("vlgb", &Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU),
 	//24
-	INSTR("vuc2i", &Jit::Comp_Generic, Dis_Generic, Int_Vx2i, IS_VFPU),  // Seen in BraveStory, initialization  110100 00001110000 000 0001 0000 0000
-	INSTR("vc2i", &Jit::Comp_Generic, Dis_Generic, Int_Vx2i, IS_VFPU),
-	INSTR("vus2i", &Jit::Comp_Generic, Dis_Generic, Int_Vx2i, IS_VFPU),
-	INSTR("vs2i", &Jit::Comp_Generic, Dis_Generic, Int_Vx2i, IS_VFPU),
+	INSTR("vuc2i", &Jit::Comp_Generic, Dis_Vs2i, Int_Vx2i, IS_VFPU),  // Seen in BraveStory, initialization  110100 00001110000 000 0001 0000 0000
+	INSTR("vc2i", &Jit::Comp_Generic, Dis_Vs2i, Int_Vx2i, IS_VFPU),
+	INSTR("vus2i", &Jit::Comp_Generic, Dis_Vs2i, Int_Vx2i, IS_VFPU),
+	INSTR("vs2i", &Jit::Comp_Generic, Dis_Vs2i, Int_Vx2i, IS_VFPU),
 
 	INSTR("vi2uc", &Jit::Comp_Generic, Dis_Vi2x, Int_Vi2x, IS_VFPU),
 	INSTR("vi2c",  &Jit::Comp_Generic, Dis_Vi2x, Int_Vi2x, IS_VFPU),
@@ -622,8 +619,8 @@ MIPSInstruction tableVFPU5[8] =  //110111 xxx
 	INSTR("vpfxt",&Jit::Comp_Generic, Dis_VPFXST, Int_VPFX, IS_VFPU),
 	INSTR("vpfxd", &Jit::Comp_Generic, Dis_VPFXD, Int_VPFX, IS_VFPU),
 	INSTR("vpfxd", &Jit::Comp_Generic, Dis_VPFXD, Int_VPFX, IS_VFPU),
-	INSTR("viim.s",&Jit::Comp_Generic,Dis_Viim,Int_Viim, IS_VFPU),
-	INSTR("vfim.s",&Jit::Comp_Generic,Dis_Viim,Int_Viim, IS_VFPU),
+	INSTR("viim.s",&Jit::Comp_Generic, Dis_Viim,Int_Viim, IS_VFPU),
+	INSTR("vfim.s",&Jit::Comp_Generic, Dis_Viim,Int_Viim, IS_VFPU),
 };
 
 MIPSInstruction tableVFPU6[32] =  //111100 xxx
@@ -654,10 +651,10 @@ MIPSInstruction tableVFPU6[32] =  //111100 xxx
 	INSTR("vmscl",&Jit::Comp_Generic, Dis_Generic, Int_Vmscl, IS_VFPU),
 	INSTR("vmscl",&Jit::Comp_Generic, Dis_Generic, Int_Vmscl, IS_VFPU),
 
-	INSTR("vcrsp/vqm",&Jit::Comp_Generic, Dis_CrossQuat, Int_CrossQuat, IS_VFPU),
-	INSTR("vcrsp/vqm",&Jit::Comp_Generic, Dis_CrossQuat, Int_CrossQuat, IS_VFPU),
-	INSTR("vcrsp/vqm",&Jit::Comp_Generic, Dis_CrossQuat, Int_CrossQuat, IS_VFPU),
-	INSTR("vcrsp/vqm",&Jit::Comp_Generic, Dis_CrossQuat, Int_CrossQuat, IS_VFPU),
+	INSTR("vcrsp.t/vqmul.q",&Jit::Comp_Generic, Dis_CrossQuat, Int_CrossQuat, IS_VFPU),
+	INSTR("vcrsp.t/vqmul.q",&Jit::Comp_Generic, Dis_CrossQuat, Int_CrossQuat, IS_VFPU),
+	INSTR("vcrsp.t/vqmul.q",&Jit::Comp_Generic, Dis_CrossQuat, Int_CrossQuat, IS_VFPU),
+	INSTR("vcrsp.t/vqmul.q",&Jit::Comp_Generic, Dis_CrossQuat, Int_CrossQuat, IS_VFPU),
 //24
 	{-2},
 	{-2},
@@ -709,8 +706,8 @@ MIPSInstruction tableVFPU9[32] = //110100 00010 xxxxx
 	{-2},
 
 	//16
-	INSTR("vmfvc", &Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU),
-	INSTR("vmtvc", &Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU),
+	INSTR("vmfvc", &Jit::Comp_Generic, Dis_Generic, Int_Vmfvc, IS_VFPU),
+	INSTR("vmtvc", &Jit::Comp_Generic, Dis_Generic, Int_Vmtvc, IS_VFPU),
 	{-2},
 	{-2},
 
@@ -782,13 +779,13 @@ const int encodingBits[NumEncodings][2] =
 	{0,  0}, //Cop2Rese
 	{23, 3}, //VFPU0
 	{23, 3}, //VFPU1
-	{23, 1}, //VFPU3
+	{23, 3}, //VFPU3
 	{21, 5}, //VFPU4Jump
 	{16, 5}, //VFPU7
 	{16, 5}, //VFPU4
 	{23, 3}, //VFPU5
 	{21, 5}, //VFPU6
-	{16, 3}, //VFPUMatrix1
+	{16, 4}, //VFPUMatrix1
 	{16, 5}, //VFPU9
 	{6,  5}, //ALLEGREX0
 	{24, 2}, //EMUHACK
@@ -939,44 +936,197 @@ void MIPSInterpret(u32 op) //only for those rare ones
 #define _RS   ((op>>21) & 0x1F)
 #define _RT   ((op>>16) & 0x1F)
 #define _RD   ((op>>11) & 0x1F)
-#define R(i)   (currentMIPS->r[i])
+#define R(i)   (curMips->r[i])
 
-void MIPSInterpret_Fast(u32 op)
+
+int MIPSInterpret_RunUntil(u64 globalTicks)
 {
-	switch (op >> 29)
+	MIPSState *curMips = currentMIPS;
+	while (coreState == CORE_RUNNING)
 	{
-	case 0x1:
+		// NEVER stop in a delay slot!
+		while (CoreTiming::downcount >= 0 && coreState == CORE_RUNNING)
 		{
-			s32 simm = (s32)(s16)(op & 0xFFFF);
-			u32 uimm = (u32)(u16)(op & 0xFFFF);
-			u32 suimm = (u32)simm;
-
-			int rt = _RT;
-			int rs = _RS;
-
-			if (rt == 0) //destination register is zero register
-				return; //nop
-
-			switch (op>>26) 
+			// int cycles = 0;
 			{
-			case 8:  R(rt) = R(rs) + simm; break; //addi
-			case 9:  R(rt) = R(rs) + simm; break;  //addiu
-			case 10: R(rt) = (s32)R(rs) < simm; break; //slti
-			case 11: R(rt) = R(rs) < suimm; break; //sltiu
-			case 12: R(rt) = R(rs) & uimm; break; //andi
-			case 13: R(rt) = R(rs) | uimm; break; //ori
-			case 14: R(rt) = R(rs) ^ uimm; break; //xori
-			case 15: R(rt) = uimm << 16;   break; //lui
-			default:
-				break;
-			}
-			currentMIPS->pc += 4;
-		}
-		break;
+				again:
+				u32 op = Memory::Read_U32(curMips->pc);
+				//u32 op = Memory::Read_Opcode_JIT(mipsr4k.pc);
+				/*
+				// Choke on VFPU
+				u32 info = MIPSGetInfo(op);
+				if (info & IS_VFPU)
+				{
+					if (!Core_IsStepping() && !GetAsyncKeyState(VK_LSHIFT))
+					{
+						Core_EnableStepping(true);
+						return;
+					}
+				}*/
 
-	default:
-		MIPSInterpret(op);
+		//2: check for breakpoint (VERY SLOW)
+#if defined(_DEBUG)
+				if (CBreakPoints::IsAddressBreakPoint(curMips->pc))
+				{
+					Core_EnableStepping(true);
+					if (CBreakPoints::IsTempBreakPoint(curMips->pc))
+						CBreakPoints::RemoveBreakPoint(curMips->pc);
+					break;
+				}
+#endif
+
+				bool wasInDelaySlot = curMips->inDelaySlot;
+
+				MIPSInterpret(op);
+
+				if (curMips->inDelaySlot)
+				{
+					// The reason we have to check this is the delay slot hack in Int_Syscall.
+					if (wasInDelaySlot)
+					{
+						curMips->pc = curMips->nextPC;
+						curMips->inDelaySlot = false;
+					}
+					CoreTiming::downcount -= 1;
+					goto again;
+				}
+			}
+
+			if (CoreTiming::GetTicks() > globalTicks)
+			{
+				// DEBUG_LOG(CPU, "Hit the max ticks, bailing 1 : %llu, %llu", globalTicks, CoreTiming::GetTicks());
+				return 1;
+			}
+		}
+
+		CoreTiming::Advance();
 	}
+
+	return 1;
+}
+
+static inline void DelayBranchTo(MIPSState *curMips, u32 where)
+{
+	curMips->pc += 4;
+	curMips->nextPC = where;
+	curMips->inDelaySlot = true;
+}
+
+// Optimized interpreter loop that shortcuts the most common instructions.
+// For slow platforms without JITs.
+#define SIMM16 (s32)(s16)(op & 0xFFFF)
+#define UIMM16 (u32)(u16)(op & 0xFFFF)
+#define SUIMM16 (u32)(s32)(s16)(op & 0xFFFF)
+int MIPSInterpret_RunFastUntil(u64 globalTicks)
+{
+	MIPSState *curMips = currentMIPS;
+	while (coreState == CORE_RUNNING) 
+	{
+		while (CoreTiming::downcount >= 0 && coreState == CORE_RUNNING)   // TODO: Try to get rid of the latter check
+		{
+			again:
+			bool wasInDelaySlot = curMips->inDelaySlot;
+			u32 op = Memory::ReadUnchecked_U32(curMips->pc);
+			switch (op >> 29)
+			{
+			case 0x0:
+				{
+					int imm = (s16)(op&0xFFFF) << 2;
+					int rs = _RS;
+					int rt = _RT;
+					u32 addr = curMips->pc + imm + 4;
+					switch (op >> 26) 
+					{
+					case 4:	if (R(rt) == R(rs))	DelayBranchTo(curMips, addr); else curMips->pc += 4; break; //beq
+					case 5:	if (R(rt) != R(rs))	DelayBranchTo(curMips, addr); else curMips->pc += 4; break; //bne
+					case 6:	if ((s32)R(rs) <= 0) DelayBranchTo(curMips, addr); else curMips->pc += 4; break; //blez
+					case 7:	 if ((s32)R(rs) >	0) DelayBranchTo(curMips, addr); else curMips->pc += 4; break; //bgtz
+					default:
+						goto interpret;
+					}
+				}
+				break;
+
+			case 0x1:
+				{
+					int rt = _RT;
+					int rs = _RS;
+					switch (op >> 26) 
+					{
+					case 8:  R(rt) = R(rs) + SIMM16; break;      //addi
+					case 9:  R(rt) = R(rs) + SIMM16; break;      //addiu
+					case 10: R(rt) = (s32)R(rs) < SIMM16; break; //slti
+					case 11: R(rt) = R(rs) < SUIMM16; break;     //sltiu
+					case 12: R(rt) = R(rs) & UIMM16; break;      //andi
+					case 13: R(rt) = R(rs) | UIMM16; break;      //ori
+					case 14: R(rt) = R(rs) ^ UIMM16; break;      //xori
+					case 15: R(rt) = UIMM16 << 16;   break;      //lui
+					default:
+						goto interpret;
+					}
+					currentMIPS->pc += 4;
+				}
+				break;
+				
+			case 0x4:
+				{
+					int rt = _RT;
+					int rs = _RS;
+					int imm = (s16)(op & 0xFFFF);
+					u32 addr = R(rs) + imm;
+					switch (op >> 26) 
+					{
+					case 32: R(rt) = (u32)(s32)(s8) Memory::ReadUnchecked_U8(addr); break; //lb
+					case 33: R(rt) = (u32)(s32)(s16)Memory::ReadUnchecked_U16(addr); break; //lh
+					case 35: R(rt) = Memory::ReadUnchecked_U32(addr); break; //lw
+					case 36: R(rt) = Memory::ReadUnchecked_U8(addr); break; //lbu
+					case 37: R(rt) = Memory::ReadUnchecked_U16(addr); break; //lhu
+					default:
+						goto interpret;
+					}
+					currentMIPS->pc += 4;
+				}
+			  break;
+
+			case 0x5:
+				{
+					int rt = _RT;
+					int rs = _RS;
+					int imm = (s16)(op & 0xFFFF);
+					u32 addr = R(rs) + imm;
+					switch (op >> 26)
+					{
+					case 40: Memory::WriteUnchecked_U8(R(rt), addr); break; //sb
+					case 41: Memory::WriteUnchecked_U16(R(rt), addr); break; //sh
+					case 43: Memory::WriteUnchecked_U32(R(rt), addr); break; //sw
+					default:
+						goto interpret;
+					}
+					currentMIPS->pc += 4;
+				}
+				break;
+				
+			default:
+				interpret:
+				MIPSInterpret(op);
+			}
+
+			if (curMips->inDelaySlot)
+			{
+				// The reason we have to check this is the delay slot hack in Int_Syscall.
+				if (wasInDelaySlot)
+				{
+					curMips->pc = curMips->nextPC;
+					curMips->inDelaySlot = false;
+				}
+				CoreTiming::downcount -= 1;
+				goto again;
+			}
+		}
+
+		CoreTiming::Advance();
+	}
+	return 1;
 }
 
 

@@ -130,8 +130,6 @@ public:
 	void InvalidateICache(u32 address, const u32 length);
 	void DestroyBlock(int block_num, bool invalidate);
 
-	std::string GetCompiledDisassembly(int block_num);
-
 	// Not currently used
 	//void DestroyBlocksWithFlag(BlockFlag death_flag);
 };
