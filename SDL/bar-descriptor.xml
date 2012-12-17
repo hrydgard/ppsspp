@@ -18,7 +18,7 @@
     </initialWindow>
 
     <asset path="PPSSPPBlackberry" entry="true" type="Qnx/Elf">PPSSPPBlackberry</asset>
-    <asset path="icon-114.png">icon-114.png</asset>
+    <asset path="../assets/icon-114.png">icon-114.png</asset>
     <asset path="../android/assets">assets</asset>
     
     <category>core.games</category>

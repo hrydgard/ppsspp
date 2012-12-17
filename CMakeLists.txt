@@ -890,9 +890,9 @@ set(NativeAppSource
 	android/jni/GamepadEmu.cpp
 	android/jni/UIShader.cpp
 	android/jni/ui_atlas.cpp)
-set(AndroidAssets
+set(NativeAssets
 	android/assets/ui_atlas.zim
-	android/assets/ppge_atlas.zim)
+	assets/ppge_atlas.zim)
 set(LinkCommon ${CoreLibName} ${CMAKE_THREAD_LIBS_INIT} ${nativeExtraLibs})
 
 if (TargetBin)
@@ -900,6 +900,6 @@ if (TargetBin)
 	target_link_libraries(${TargetBin} ${LinkCommon})
 endif()
 
-file(INSTALL ${AndroidAssets} DESTINATION assets)
+file(INSTALL ${NativeAssets} DESTINATION assets)
 
 #include(CPack)
