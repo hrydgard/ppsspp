@@ -190,8 +190,8 @@ BEGIN
     END
     POPUP "&Emulation"
     BEGIN
-        MENUITEM "&Run",                        ID_EMULATION_RUN
-        MENUITEM "&Pause",                      ID_EMULATION_PAUSE
+        MENUITEM "&Run\tF7",                    ID_EMULATION_RUN
+        MENUITEM "&Pause\tF8",                  ID_EMULATION_PAUSE
         MENUITEM SEPARATOR
         MENUITEM "R&eset",                      ID_EMULATION_RESET
         MENUITEM SEPARATOR
@@ -313,9 +313,6 @@ BEGIN
     "R",            ID_DEBUG_REGISTERS,     VIRTKEY, CONTROL, NOINVERT
     VK_F8,          ID_EMULATION_PAUSE,     VIRTKEY, NOINVERT
     VK_F7,          ID_EMULATION_RUN,       VIRTKEY, NOINVERT
-    //VK_F4,          ID_FILE_LOADSTATE,      VIRTKEY, NOINVERT
-    //VK_F5,          ID_FILE_REFRESHGAMELIST, VIRTKEY, NOINVERT
-    //VK_F2,          ID_FILE_SAVESTATE,      VIRTKEY, NOINVERT
     "1",          ID_OPTIONS_SCREEN1X,       VIRTKEY, CONTROL, NOINVERT
     "2",          ID_OPTIONS_SCREEN2X,       VIRTKEY, CONTROL, NOINVERT
     "3",          ID_OPTIONS_SCREEN3X,       VIRTKEY, CONTROL, NOINVERT

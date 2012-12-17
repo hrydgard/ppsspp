@@ -18,6 +18,7 @@
 #include "main.h"
 
 #include "../Core/Core.h"
+#include "../Core/System.h"
 #include "../Core/MemMap.h"
 #include "EmuThread.h"
 
@@ -117,6 +118,8 @@ namespace MainWindow
 		GetWindowRectAtZoom(zoom, rc, rcOuter);
 		MoveWindow(hwndMain, rcOuter.left, rcOuter.top, rcOuter.right - rcOuter.left, rcOuter.bottom - rcOuter.top, TRUE);
 		MoveWindow(hwndDisplay, 0, 0, rc.right - rc.left, rc.bottom - rc.top, TRUE);
+		PSP_CoreParameter().pixelWidth = 480 * zoom;
+		PSP_CoreParameter().pixelHeight = 272 * zoom;
 		GL_Resized();
 	}
 

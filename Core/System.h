@@ -29,4 +29,4 @@ bool PSP_IsInited();
 void PSP_Shutdown();
 void PSP_HWAdvance(int cycles);
 void PSP_SWI();
-const CoreParameter &PSP_CoreParameter();
+CoreParameter &PSP_CoreParameter();

@@ -112,7 +112,7 @@ void PSP_Shutdown()
 	currentCPU = 0;
 }
 
-const CoreParameter &PSP_CoreParameter()
+CoreParameter &PSP_CoreParameter()
 {
 	return coreParameter;
 }

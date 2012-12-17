@@ -78,7 +78,7 @@ void GLES_GPU::InitClear()
 		//	glClearColor(1,0,1,1);
 		glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 	}
-	glViewport(0, 0, 480 * g_Config.iWindowZoom , 272 * g_Config.iWindowZoom );
+	glViewport(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 }
 
 void GLES_GPU::BeginFrame()
@@ -118,7 +118,7 @@ void GLES_GPU::CopyDisplayToOutput()
 	VirtualFramebuffer *vfb = GetDisplayFBO();
 	fbo_unbind();
 
-	glViewport(0, 0, 480 * g_Config.iWindowZoom , 272 * g_Config.iWindowZoom );
+	glViewport(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 
 	currentRenderVfb_ = 0;
 
