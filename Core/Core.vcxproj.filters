@@ -349,6 +349,9 @@
 >>>>>>> master
       <Filter>HW</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\sceUsb.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -639,6 +642,9 @@
     </ClInclude>
     <ClInclude Include="HW\SasAudio.h">
       <Filter>HW</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceUsb.h">
+      <Filter>HLE\Libraries</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

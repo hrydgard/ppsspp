@@ -227,7 +227,6 @@ u32 sceAudioSetChannelDataLen(u32 chan, u32 len)
 	else
 	{
 		DEBUG_LOG(HLE, "sceAudioSetChannelDataLen(%i, %i)", chan, len);
-		//chans[chan].dataLen = len;
 		chans[chan].sampleCount = len;
 		return 0;
 	}
@@ -335,6 +334,11 @@ u32 sceAudioSetFrequency(u32 freq) {
 	}
 }
 
+u32 sceAudioSetVolumeOffset(u32 unknown) {
+	ERROR_LOG(HLE, "UNIMPL sceAudioSetVolumeOffset(%i)", unknown);
+	return 0;
+}
+
 const HLEFunction sceAudio[] = 
 {
 	// Newer simplified single channel audio output. Presumably for games that use Atrac3
@@ -349,7 +353,7 @@ const HLEFunction sceAudio[] =
 	{0x210567F7, WrapU_V<sceAudioEnd>, "sceAudioEnd"},
 
 	{0xA2BEAA6C, WrapU_U<sceAudioSetFrequency>, "sceAudioSetFrequency"},
-	{0x927AC32B, 0, "sceAudioSetVolumeOffset"},
+	{0x927AC32B, WrapU_U<sceAudioSetVolumeOffset>, "sceAudioSetVolumeOffset"},
 
 	// The oldest and standard audio interface. Supports 8 channels, most games use 1-2.
 	{0x8c1009b2, WrapU_UUU<sceAudioOutput>, "sceAudioOutput"},

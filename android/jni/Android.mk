@@ -142,6 +142,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/HLE/sceSas.cpp \
   $(SRC)/Core/HLE/sceSsl.cpp \
   $(SRC)/Core/HLE/sceUmd.cpp \
+  $(SRC)/Core/HLE/sceUsb.cpp \
   $(SRC)/Core/HLE/sceUtility.cpp \
   $(SRC)/Core/HLE/sceVaudio.cpp \
   $(SRC)/Core/HLE/scesupPreAcc.cpp \

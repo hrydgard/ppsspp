@@ -61,13 +61,9 @@ bool VagDecoder::DecodeBlock()
 	for (int i = 0; i < 28; i += 2) 
 	{
 		int d = GetByte();
-		int s = (d & 0xf) << 12;
-		if (s & 0x8000)
-			s |= 0xffff0000;
+		int s = (short)((d & 0xf) << 12);
 		samples[i] = (double)(s >> shift_factor);
-		s = (d & 0xf0) << 8;
-		if (s & 0x8000)
-			s |= 0xffff0000;
+		s = (short)((d & 0xf0) << 8);
 		samples[i + 1] = (double)(s >> shift_factor);
 	}
 	for (int i = 0; i < 28; i++)
@@ -83,7 +79,7 @@ bool VagDecoder::DecodeBlock()
 
 void VagDecoder::GetSamples(s16 *outSamples, int numSamples) {
 	if (end_) {
-		memset(outSamples, 0, numSamples * sizeof(int));
+		memset(outSamples, 0, numSamples * sizeof(s16));
 		return;
 	}
 	for (int i = 0; i < numSamples; i++) {
@@ -172,7 +168,8 @@ void ADSREnvelope::SetSimpleEnvelope(u32 ADSREnv1, u32 ADSREnv2) {
 	sustainLevel 	= getSustainLevel(ADSREnv1);
 }
 
-SasInstance::SasInstance() : mixBuffer(0), sendBuffer(0), resampleBuffer(0), grainSize(0) {
+SasInstance::SasInstance() 
+	: mixBuffer(0), sendBuffer(0), resampleBuffer(0), grainSize(0) {
 }
 
 SasInstance::~SasInstance() {
@@ -182,15 +179,16 @@ SasInstance::~SasInstance() {
 }
 
 void SasInstance::SetGrainSize(int newGrainSize) {
+	grainSize = newGrainSize;
+
 	if (mixBuffer)
 		delete [] mixBuffer;
 	if (sendBuffer)
 		delete [] sendBuffer;
-	mixBuffer = new s32[newGrainSize * 2];
-	sendBuffer = new s32[newGrainSize * 2];
-	memset(mixBuffer, 0, sizeof(int) * newGrainSize * 2);
-	memset(sendBuffer, 0, sizeof(int) * newGrainSize * 2);
-	grainSize = newGrainSize;
+	mixBuffer = new s32[grainSize * 2];
+	sendBuffer = new s32[grainSize * 2];
+	memset(mixBuffer, 0, sizeof(int) * grainSize * 2);
+	memset(sendBuffer, 0, sizeof(int) * grainSize * 2);
 	if (resampleBuffer)
 		delete [] resampleBuffer;
 
@@ -209,7 +207,7 @@ void SasInstance::Mix(u32 outAddr) {
 
 		// TODO: Special case no-resample case for speed
 
-		if (voice.vagAddr != 0) {
+		if (voice.type == VOICETYPE_VAG && voice.vagAddr != 0) {
 			// Load resample history (so we can use a wide filter)
 			resampleBuffer[0] = voice.resampleHist[0];
 			resampleBuffer[1] = voice.resampleHist[1];
@@ -217,7 +215,11 @@ void SasInstance::Mix(u32 outAddr) {
 			// Figure out number of samples to read.
 			int curSample = voice.samplePos / PSP_SAS_PITCH_BASE;
 			int lastSample = (voice.samplePos + grainSize * voice.pitch) / PSP_SAS_PITCH_BASE;
-			int numSamples = lastSample - curSample;
+			u32 numSamples = lastSample - curSample;
+			if (numSamples > grainSize * 4) {
+				ERROR_LOG(SAS, "numSamples too large, clamping: %i vs %i", numSamples, grainSize * 4);
+				numSamples = grainSize * 4;
+			}
 
 			// Read N samples into the resample buffer. Could do either PCM or VAG here.
 			voice.vag.GetSamples(resampleBuffer + 2, numSamples);
@@ -254,16 +256,17 @@ void SasInstance::Mix(u32 outAddr) {
 				sendBuffer[i * 2 + 1] += sample * voice.volumeRightSend >> 15;
 				voice.envelope.Step();
 			}
+			voice.samplePos += voice.pitch * grainSize;
 			if (voice.envelope.HasEnded())
 			{
 				// NOTICE_LOG(SAS, "Hit end of envelope");
 				voice.playing = false;
 			}
 		}
-		else if (voice.pcmAddr != 0) {
+		else if (voice.type == VOICETYPE_PCM && voice.pcmAddr != 0) {
 			// PCM mixing should be easy, can share code with VAG
 		}
-		else if (voice.noiseFreq != 0) {
+		else if (voice.type == VOICETYPE_NOISE && voice.noiseFreq != 0) {
 			// Generate noise?
 		}
 	}
@@ -298,17 +301,22 @@ void SasVoice::Reset() {
 }
 
 void SasVoice::KeyOn() {
-	on = true;
-	playing = true;
-	paused = false;
 	envelope.KeyOn();
 	switch (type) {
 	case VOICETYPE_VAG:
-		vag.Start(Memory::GetPointer(vagAddr), loop);
+		if (Memory::IsValidAddress(vagAddr)) {
+			vag.Start(Memory::GetPointer(vagAddr), loop);
+		} else {
+			ERROR_LOG(SAS, "Invalid VAG address %08x", vagAddr);
+			return;
+		}
 		break;
 	default:
 		break;
 	}
+	playing = true;
+	on = true;
+	paused = false;
 }
 
 void SasVoice::KeyOff() {
@@ -316,9 +324,11 @@ void SasVoice::KeyOff() {
 	envelope.KeyOff();
 }
 
-void SasVoice::ChangedParams() {
+void SasVoice::ChangedParams(bool changedVag) {
 	if (!playing && on) {
 		playing = true;
+		if (changedVag)
+			vag.Start(Memory::GetPointer(vagAddr), loop);
 	}
 	// TODO: restart VAG somehow
 }

@@ -116,6 +116,12 @@ bool RealPath(const std::string &currentDirectory, const std::string &inPath, st
 	std::vector<std::string> cmpnts;  // path components
 	size_t capacityGuess = inPath.length();
 
+	// Special hack for strange root paths.
+	// Don't understand why this is needed. I don't think the current
+	// directory should be the root.
+	if (inAfter.substr(0, 11) == "./PSP_GAME/")
+		inAfter = inAfter.substr(1);
+
 	if ((inAfter[0] != '/'))
 	{
 		if (curDirLen == 0)

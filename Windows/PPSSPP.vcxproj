@@ -323,6 +323,7 @@
   <ItemGroup>
     <None Include="..\android\atlasscript.txt" />
     <None Include="..\android\jni\Android.mk" />
+    <None Include="..\CMakeLists.txt" />
     <None Include="..\README.md" />
     <None Include="ppsspp.ico" />
     <None Include="icon1.ico" />

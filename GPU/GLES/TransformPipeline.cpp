@@ -556,34 +556,34 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 			// All is valid, no blendcolor needed
 			glstate.blendFunc.set(aLookup[blendFuncA], bLookup[blendFuncB]);
 		} else {
-			GLuint glBlendFuncA = blendFuncA == GE_SRCBLEND_FIXA ? 0 : aLookup[blendFuncA];
-			GLuint glBlendFuncB = blendFuncB == GE_DSTBLEND_FIXB ? 0 : bLookup[blendFuncB];
+			GLuint glBlendFuncA = blendFuncA == GE_SRCBLEND_FIXA ? GL_INVALID_ENUM : aLookup[blendFuncA];
+			GLuint glBlendFuncB = blendFuncB == GE_DSTBLEND_FIXB ? GL_INVALID_ENUM : bLookup[blendFuncB];
 			u32 fixA = gstate.getFixA();
 			u32 fixB = gstate.getFixB();
 			// Shortcut by using GL_ONE where possible, no need to set blendcolor
-			if (!glBlendFuncA && blendFuncA == GE_SRCBLEND_FIXA) {
+			if (glBlendFuncA == GL_INVALID_ENUM && blendFuncA == GE_SRCBLEND_FIXA) {
 				if (fixA == 0xFFFFFF)
 					glBlendFuncA = GL_ONE;
 				else if (fixA == 0)
 					glBlendFuncA = GL_ZERO;
 			} 
-			if (!glBlendFuncB && blendFuncB == GE_DSTBLEND_FIXB) {
+			if (glBlendFuncB == GL_INVALID_ENUM && blendFuncB == GE_DSTBLEND_FIXB) {
 				if (fixB == 0xFFFFFF)
 					glBlendFuncB = GL_ONE;
 				else if (fixB == 0)
 					glBlendFuncB = GL_ZERO;
 			}
-			if (!glBlendFuncA && glBlendFuncB) {
+			if (glBlendFuncA == GL_INVALID_ENUM && glBlendFuncB != GL_INVALID_ENUM) {
 				// Can use blendcolor trivially.
 				const float blendColor[4] = {(fixA & 0xFF)/255.0f, ((fixA >> 8) & 0xFF)/255.0f, ((fixA >> 16) & 0xFF)/255.0f, 1.0f};
 				glstate.blendColor.set(blendColor);
 				glBlendFuncA = GL_CONSTANT_COLOR;
-			} else if (glBlendFuncA && !glBlendFuncB) {
+			} else if (glBlendFuncA != GL_INVALID_ENUM && glBlendFuncB == GL_INVALID_ENUM) {
 				// Can use blendcolor trivially.
 				const float blendColor[4] = {(fixB & 0xFF)/255.0f, ((fixB >> 8) & 0xFF)/255.0f, ((fixB >> 16) & 0xFF)/255.0f, 1.0f};
 				glstate.blendColor.set(blendColor);
 				glBlendFuncB = GL_CONSTANT_COLOR;
-			} else if (!glBlendFuncA && !glBlendFuncB) {  // Should also check for approximate equality
+			} else if (glBlendFuncA == GL_INVALID_ENUM && glBlendFuncB == GL_INVALID_ENUM) {  // Should also check for approximate equality
 				if (fixA == (fixB ^ 0xFFFFFF)) {
 					glBlendFuncA = GL_CONSTANT_COLOR;
 					glBlendFuncB = GL_ONE_MINUS_CONSTANT_COLOR;

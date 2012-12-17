@@ -61,12 +61,13 @@ struct WaveformEffect
 };
 
 enum VoiceType {
-	VOICETYPE_VAG = 0,  // default
-	VOICETYPE_PCM = 1,
-	VOICETYPE_NOISE = 2,
-	VOICETYPE_ATRAC3 = 3,
-	VOICETYPE_TRIWAVE = 4,  // are these used? there are functions for them (sceSetTriangularWave)
-	VOICETYPE_PULSEWAVE = 5,
+	VOICETYPE_OFF,
+	VOICETYPE_VAG,  // default
+	VOICETYPE_PCM,
+	VOICETYPE_NOISE,
+	VOICETYPE_ATRAC3,
+	VOICETYPE_TRIWAVE,  // are these used? there are functions for them (sceSetTriangularWave)
+	VOICETYPE_PULSEWAVE,
 };
 
 // VAG is a Sony ADPCM audio compression format, which goes all the way back to the PSX.
@@ -76,6 +77,7 @@ enum VoiceType {
 class VagDecoder
 {
 public:
+	VagDecoder() : data_(0), read_(0) {}
 	void Start(u8 *data, bool loopEnabled);
 
 	void GetSamples(s16 *outSamples, int numSamples);
@@ -154,6 +156,23 @@ private:
 // It's not very likely that games encode VAG dynamically.
 struct SasVoice
 {
+	SasVoice()
+		: playing(false), paused(false), on(false),
+		  type(VOICETYPE_OFF),
+			vagAddr(0),
+			vagSize(0),
+			pcmAddr(0),
+			pcmSize(0),
+			sampleRate(44100),
+			samplePos(0),
+			pitch(PSP_SAS_PITCH_BASE),
+			loop(false),
+			noiseFreq(0),
+			volumeLeft(0),
+			volumeRight(0),
+			volumeLeftSend(0),
+			volumeRightSend(0) {}
+
 	bool playing;
 	bool paused;  // a voice can be playing AND paused. In that case, it won't play.
 	bool on;   // key-on, key-off.
@@ -182,7 +201,7 @@ struct SasVoice
 	void KeyOn();
 	void KeyOff();
 
-	void ChangedParams();
+	void ChangedParams(bool changedVag);
 
 	s16 resampleHist[2];
 
@@ -203,7 +222,6 @@ public:
 	int maxVoices;
 	int sampleRate;
 	int outputMode;
-	int length;
 
 	int *mixBuffer;
 	int *sendBuffer;

@@ -522,20 +522,35 @@ void sceKernelGetThreadExitStatus()
   }
 }
 
-void sceKernelGetThreadmanIdType()
+u32 sceKernelGetThreadmanIdType(u32 uid) {
+	int type;
+	if (kernelObjects.GetIDType(uid, &type)) {
+		DEBUG_LOG(HLE, "%i=sceKernelGetThreadmanIdType(%i)", type, uid);
+		return type;
+	} else {
+		ERROR_LOG(HLE, "sceKernelGetThreadmanIdType(%i) - FAILED", uid);
+		return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
+	}
+}
+
+u32 sceKernelGetThreadmanIdList(u32 type, u32 readBufPtr, u32 readBufSize, u32 idCountPtr)
 {
-  SceUID uid = PARAM(0);
-  int type;
-  if (kernelObjects.GetIDType(uid, &type))
-  {
-    RETURN(type);
-    DEBUG_LOG(HLE, "%i=sceKernelGetThreadmanIdType(%i)", type, uid);
-  }
-  else
-  {
-    ERROR_LOG(HLE, "sceKernelGetThreadmanIdType(%i) - FAILED", uid);
-    RETURN(SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT);
-  }
+	DEBUG_LOG(HLE, "sceKernelGetThreadmanIdList(%i, %08x, %i, %08x)",
+		type, readBufPtr, readBufSize, idCountPtr);
+	if (!Memory::IsValidAddress(readBufPtr))
+		return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
+
+	if (type != SCE_KERNEL_TMID_Thread) {
+		ERROR_LOG(HLE, "sceKernelGetThreadmanIdList only implemented for threads");
+		return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
+	}
+
+	for (size_t i = 0; i < std::min(readBufSize, threadqueue.size()); i++)
+	{
+		Memory::Write_U32(threadqueue[i]->GetUID(), readBufPtr + i * 4);
+	}
+	Memory::Write_U32(threadqueue.size(), idCountPtr);
+	return 0;
 }
 
 // Saves the current CPU context

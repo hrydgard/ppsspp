@@ -226,9 +226,10 @@ struct GPUgstate
 				transferstart,
 				transfersrcpos,
 				transferdstpos,
-				transfersize;
+				pad99,
+				transfersize;  // 0xEE
 
-			u32 pad05[0x63-0x40];
+			u32 pad05[0xFF- 0xEE];
 		};
 	};
 

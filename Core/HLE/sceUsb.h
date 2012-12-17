@@ -17,7 +17,4 @@
 
 #pragma once
 
-void __SasInit();
-void __SasShutdown();
-
-void Register_sceSasCore();
+void Register_sceUsb();

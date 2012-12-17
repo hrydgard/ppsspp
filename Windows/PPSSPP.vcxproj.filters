@@ -203,6 +203,7 @@
     <None Include="..\android\atlasscript.txt">
       <Filter>Android</Filter>
     </None>
+    <None Include="..\CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="ppsspp.rc">
