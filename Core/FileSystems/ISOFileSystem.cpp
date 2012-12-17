@@ -255,12 +255,12 @@ ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(std::string path)
 			for (size_t i=0; i<e->children.size(); i++)
 			{
 				std::string n = (e->children[i]->name);
-				for (size_t i = 0; i < n.size(); i++) {
-					n[i] = tolower(n[i]);
+				for (size_t j = 0; j < n.size(); j++) {
+					n[j] = tolower(n[j]);
 				}
 				std::string curPath = path.substr(0, path.find_first_of('/'));
-				for (size_t i = 0; i < curPath.size(); i++) {
-					curPath[i] = tolower(curPath[i]);
+				for (size_t j = 0; j < curPath.size(); j++) {
+					curPath[j] = tolower(curPath[j]);
 				}
 
 				if (curPath == n)
