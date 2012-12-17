@@ -56,6 +56,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	token = strtok(szCmdLine," ");
 
 	g_Config.Load();
+	VFSRegister("", new DirectoryAssetReader("assets/"));
 	VFSRegister("", new DirectoryAssetReader(""));
 
 	while (token)
