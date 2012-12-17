@@ -175,7 +175,8 @@ void ResolveSyscall(const char *moduleName, u32 nib, u32 address)
 		{
 			INFO_LOG(HLE,"Resolving %s/%08x",moduleName,nib);
 			// Note: doing that, we can't trace external module calls, so maybe something else should be done to debug more efficiently
-			Memory::Write_U32(MIPS_MAKE_JAL(address), sysc->symAddr);
+			// Note that this should be J not JAL, as otherwise control will return to the stub..
+			Memory::Write_U32(MIPS_MAKE_J(address), sysc->symAddr);
 			Memory::Write_U32(MIPS_MAKE_NOP(), sysc->symAddr + 4);
 		}
 	}
