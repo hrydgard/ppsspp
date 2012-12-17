@@ -34,7 +34,7 @@ int mbxWaitTimer = 0;
 struct NativeMbx
 {
 	SceSize size;
-	char name[32];
+	char name[KERNELOBJECT_MAX_NAME_LENGTH + 1];
 	SceUInt attr;
 	int numWaitThreads;
 	int numMessages;
@@ -184,8 +184,8 @@ SceUID sceKernelCreateMbx(const char *name, u32 attr, u32 optAddr)
 	SceUID id = kernelObjects.Create(m);
 
 	m->nmb.size = sizeof(NativeMbx);
-	strncpy(m->nmb.name, name, 31);
-	m->nmb.name[31] = 0;
+	strncpy(m->nmb.name, name, KERNELOBJECT_MAX_NAME_LENGTH);
+	m->nmb.name[KERNELOBJECT_MAX_NAME_LENGTH] = 0;
 	m->nmb.attr = attr;
 	m->nmb.numWaitThreads = 0;
 	m->nmb.numMessages = 0;
