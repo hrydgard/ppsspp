@@ -472,10 +472,16 @@ namespace MainWindow
 				UpdateMenus();
 				break;
 			case ID_OPTIONS_FULLSCREEN:
-				if(g_bFullScreen)
+				if(g_bFullScreen) {
 					_ViewNormal(hWnd); 
-				else
+					SetZoom(1); //restore window to original size
+				}
+				else {
+					int cx = ::GetSystemMetrics(SM_CXSCREEN);
+					float screenfactor = cx / 480.0f;
+					SetZoom(screenfactor);
 					_ViewFullScreen(hWnd);
+				}
 				break;
 
 			case ID_OPTIONS_DISPLAYRAWFRAMEBUFFER:
