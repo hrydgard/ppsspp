@@ -372,10 +372,10 @@ u32 sceDisplayGetVcount()
 
 	// Puyo Puyo Fever polls this as a substitute for waiting for vblank.
 	// As a result, the game never gets to reschedule so it doesn't mix audio and things break.
-	// I added this as a workaround until we figure out what call actually does reschedule - it doesn't call much though...
+	// Need to find a better hack as this breaks games like Project Diva.
+	// hleReSchedule("sceDisplayGetVcount hack");  // Puyo puyo hack?
 
 	CoreTiming::Idle(1000000);
-	hleReSchedule("sceDisplayGetVcount hack");  // Puyo puyo hack?
 	return vCount;
 }
 
