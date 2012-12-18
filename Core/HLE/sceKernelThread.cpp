@@ -2038,7 +2038,7 @@ void sceKernelCheckCallback()
 	bool callbacksProcessed = __KernelForceCallbacks();
 
 	if (callbacksProcessed) {
-		ERROR_LOG(HLE,"sceKernelCheckCallback() - processed a callback.");
+		DEBUG_LOG(HLE,"sceKernelCheckCallback() - processed a callback.");
 	} else {
 		RETURN(0);
 	}
