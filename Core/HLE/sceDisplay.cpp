@@ -196,7 +196,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate)
 			gpuStats.numShaders
 			);
 		
-		float zoom = 0.7f * sqrtf(g_Config.iWindowZoom);
+		float zoom = 0.7f / g_Config.iWindowZoom;
 		PPGeBegin();
 		PPGeDrawText(stats, 2, 2, 0, zoom, 0x90000000);
 		PPGeDrawText(stats, 0, 0, 0, zoom);
