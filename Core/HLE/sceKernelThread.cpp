@@ -395,6 +395,30 @@ void __KernelStartIdleThreads()
   }
 }
 
+bool __KernelSwitchOffThread(const char *reason)
+{
+	if (!reason)
+		reason = "switch off thread";
+
+	SceUID threadID = currentThread->GetUID();
+
+	if (threadID != threadIdleID[0] && threadID != threadIdleID[1])
+	{
+		u32 error;
+		// Idle 0 chosen entirely arbitrarily.
+		Thread *t = kernelObjects.Get<Thread>(threadIdleID[0], error);
+		if (t)
+		{
+			__KernelSwitchContext(t, reason);
+			return true;
+		}
+		else
+			ERROR_LOG(HLE, "Unable to switch to idle thread.");
+	}
+
+	return false;
+}
+
 void __KernelIdle()
 {
   CoreTiming::Idle();
