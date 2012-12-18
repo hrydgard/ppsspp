@@ -364,12 +364,12 @@ u32 sceDisplayGetVcount()
 	// Too spammy
 	// DEBUG_LOG(HLE,"%i=sceDisplayGetVcount()", vCount);	
 
-	// Puyo Puyo Fever polls this as a substitute for waiting vblank.
+	// Puyo Puyo Fever polls this as a substitute for waiting for vblank.
 	// As a result, the game never gets to reschedule so it doesn't mix audio and things break.
 	// I added this as a workaround until we figure out what call actually does reschedule - it doesn't call much though...
 
 	CoreTiming::Idle(1000000);
-	__KernelReSchedule();  // Puyo puyo hack?
+	hleReSchedule("sceDisplayGetVcount hack");  // Puyo puyo hack?
 	return vCount;
 }
 
