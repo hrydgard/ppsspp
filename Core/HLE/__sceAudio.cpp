@@ -28,20 +28,15 @@
 #include "FixedSizeQueue.h"
 #include "Common/Thread.h"
 
-// While buffers == MAX_BUFFERS, block on blocking write
-// non-blocking writes will return busy, I guess
-
-#define MAX_BUFFERS 2
-#define MIN_BUFFERS 1
-
 std::recursive_mutex section;
 
 int eventAudioUpdate = -1;
 int eventHostAudioUpdate = -1;
 int mixFrequency = 44100;
+
 const int hwSampleRate = 44100;
-const int hwBlockSize = 480;
-const int hostAttemptBlockSize = 64;
+const int hwBlockSize = 60;
+const int hostAttemptBlockSize = 256;
 const int audioIntervalUs = (int)(1000000ULL * hwBlockSize / hwSampleRate);
 const int audioHostIntervalUs = (int)(1000000ULL * hostAttemptBlockSize / hwSampleRate);
 
@@ -49,20 +44,20 @@ const int audioHostIntervalUs = (int)(1000000ULL * hostAttemptBlockSize / hwSamp
 const int chanQueueMaxSizeFactor = 4;
 const int chanQueueMinSizeFactor = 1;
 
-FixedSizeQueue<s16, hwBlockSize * 8> outAudioQueue;
+FixedSizeQueue<s16, hostAttemptBlockSize * 16> outAudioQueue;
 
 
 void hleAudioUpdate(u64 userdata, int cyclesLate)
 {
 	__AudioUpdate();
 
-	CoreTiming::ScheduleEvent(usToCycles(audioIntervalUs), eventAudioUpdate, 0);
+	CoreTiming::ScheduleEvent(usToCycles(audioIntervalUs) - cyclesLate, eventAudioUpdate, 0);
 }
 
 void hleHostAudioUpdate(u64 userdata, int cyclesLate)
 {
 	host->UpdateSound();
-	CoreTiming::ScheduleEvent(usToCycles(audioHostIntervalUs), eventHostAudioUpdate, 0);
+	CoreTiming::ScheduleEvent(usToCycles(audioHostIntervalUs) - cyclesLate, eventHostAudioUpdate, 0);
 }
 
 void __AudioInit()
@@ -142,7 +137,7 @@ void __AudioUpdate()
 		if (!chans[i].reserved)
 			continue;
 		if (!chans[i].sampleQueue.size()) {
-			// DEBUG_LOG(HLE, "No queued samples, skipping channel %i", i);
+			// ERROR_LOG(HLE, "No queued samples, skipping channel %i", i);
 			continue;
 		}
 
@@ -178,14 +173,20 @@ void __AudioUpdate()
 
 	section.lock();
 
-	if (g_Config.bEnableSound && outAudioQueue.room() >= hwBlockSize * 2) {
-		// Push the mixed samples onto the output audio queue.
-		for (int i = 0; i < hwBlockSize; i++) {
-			s32 sampleL = mixBuffer[i * 2] >> 2;  // TODO - what factor?
-			s32 sampleR = mixBuffer[i * 2 + 1] >> 2;
+	if (g_Config.bEnableSound) {
+		if (outAudioQueue.room() >= hwBlockSize * 2) {
+			// Push the mixed samples onto the output audio queue.
+			for (int i = 0; i < hwBlockSize; i++) {
+				s32 sampleL = mixBuffer[i * 2] >> 2;  // TODO - what factor?
+				s32 sampleR = mixBuffer[i * 2 + 1] >> 2;
 
-			outAudioQueue.push((s16)sampleL);
-			outAudioQueue.push((s16)sampleR);
+				outAudioQueue.push((s16)sampleL);
+				outAudioQueue.push((s16)sampleR);
+			}
+		} else {
+			// This happens quite a lot. There's still something slightly off
+			// about the amount of audio we produce.
+			DEBUG_LOG(HLE, "Audio outbuffer overrun! room = %i / %i", outAudioQueue.room(), outAudioQueue.capacity());
 		}
 	}
 	
@@ -225,7 +226,7 @@ int __AudioMix(short *outstereo, int numFrames)
 		}
 	}
 	if (anythingToPlay && underrun >= 0) {
-		ERROR_LOG(HLE, "audio out buffer UNDERRUN at %i of %i", underrun, numFrames);
+		DEBUG_LOG(HLE, "audio out buffer UNDERRUN at %i of %i", underrun, numFrames);
 	} else {
 		// DEBUG_LOG(HLE, "No underrun, mixed %i samples fine", numFrames);
 	}

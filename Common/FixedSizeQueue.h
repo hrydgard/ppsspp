@@ -87,6 +87,10 @@ public:
 		return count_;
 	}
 
+	size_t capacity() const {
+		return N;
+	}
+
 	int room() const {
 		return N - count_;
 	}
