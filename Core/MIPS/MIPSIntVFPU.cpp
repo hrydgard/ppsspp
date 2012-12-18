@@ -851,6 +851,31 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
+	void Int_VHdp(u32 op)
+	{
+		float s[4], t[4];
+		float d;
+		int vd = _VD;
+		int vs = _VS;
+		int vt = _VT;
+		VectorSize sz = GetVecSize(op);
+		ReadVector(s, sz, vs);
+		ApplySwizzleS(s, sz);
+		ReadVector(t, sz, vt);
+		ApplySwizzleT(t, sz);
+		float sum = 0.0f;
+		int n = GetNumVectorElements(sz);
+		for (int i = 0; i < n; i++)
+		{
+			sum += (i == n - 1) ? t[i] : s[i]*t[i];
+		}
+		d = sum;
+		ApplyPrefixD(&d,V_Single);
+		V(vd) = d;
+		PC += 4;
+		EatPrefixes();
+	}
+
 	void Int_Vbfy(u32 op)
 	{
 		float s[4];
