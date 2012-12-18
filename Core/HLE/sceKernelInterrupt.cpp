@@ -278,6 +278,10 @@ bool __RunOnePendingInterrupt()
 	// Can easily prioritize between different kinds of interrupts if necessary.
 	if (pendingInterrupts.size())
 	{
+		// If we came from CoreTiming::Advance(), we might've come from a waiting thread's callback.
+		// To avoid "injecting" return values into our saved state, we context switch here.
+		__KernelSwitchOffThread("interrupt");
+
 		PendingInterrupt pend = pendingInterrupts.front();
 		pendingInterrupts.pop_front();
 		intState.save();
