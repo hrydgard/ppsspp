@@ -214,12 +214,18 @@ void hleEnterVblank(u64 userdata, int cyclesLate)
 	if (lastFrameTime == 0.0)
 		lastFrameTime = time_now_d();
 	if (!GetAsyncKeyState(VK_TAB)) {
-		while (time_now_d() < lastFrameTime + 1.0 / 60.0f) {
+		while (time_now_d() < lastFrameTime + 1.0 / 60.0) {
 			Common::SleepCurrentThread(1);
 			time_update();
 		}
-		lastFrameTime = time_now_d();
+		// Advance lastFrameTime by a constant amount each frame,
+		// but don't let it get too far behind.
+		lastFrameTime = std::max(lastFrameTime + 1.0 / 60.0, time_now_d() - 1.5 / 60.0);
 	}
+
+	// We are going to have to do something about audio timing for platforms that
+	// are vsynced to something that's not exactly 60fps..
+
 #endif
 
 	host->BeginFrame();
