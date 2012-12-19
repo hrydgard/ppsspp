@@ -79,18 +79,21 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs)
 	u_texenv = glGetUniformLocation(program, "u_texenv");
 	u_fogcolor = glGetUniformLocation(program, "u_fogcolor");
 	u_fogcoef = glGetUniformLocation(program, "u_fogcoef");
-	u_alpharef = glGetUniformLocation(program, "u_alpharef");
+	u_alphacolorref = glGetUniformLocation(program, "u_alphacolorref");
 
 	a_position = glGetAttribLocation(program, "a_position");
 	a_color0 = glGetAttribLocation(program, "a_color0");
 	a_color1 = glGetAttribLocation(program, "a_color1");
 	a_texcoord = glGetAttribLocation(program, "a_texcoord");
+	a_normal = glGetAttribLocation(program, "a_normal");
+	a_weight0123 = glGetAttribLocation(program, "a_weight0123");
+	a_weight4567 = glGetAttribLocation(program, "a_weight4567");
 
 	glUseProgram(program);
 	// Default uniform values
 	glUniform1i(u_tex, 0);
 	// The rest, use the "dirty" mechanism.
-	dirtyUniforms = DIRTY_PROJMATRIX | DIRTY_PROJTHROUGHMATRIX | DIRTY_TEXENV | DIRTY_ALPHAREF;
+	dirtyUniforms = DIRTY_PROJMATRIX | DIRTY_PROJTHROUGHMATRIX | DIRTY_TEXENV | DIRTY_ALPHACOLORREF;
 }
 
 LinkedShader::~LinkedShader() {
@@ -135,8 +138,8 @@ void LinkedShader::use() {
 	if (u_texenv != -1 && (dirtyUniforms & DIRTY_TEXENV)) {
 		SetColorUniform3(u_texenv, gstate.texenvcolor);
 	}
-	if (u_alpharef != -1 && (dirtyUniforms & DIRTY_ALPHAREF)) {
-		glUniform4f(u_alpharef, ((float)((gstate.alphatest >> 8) & 0xFF)) / 255.0f, 0.0f, 0.0f, 0.0f);
+	if (u_alphacolorref != -1 && (dirtyUniforms & DIRTY_ALPHACOLORREF)) {
+		glUniform4f(u_alphacolorref, 0.0f, 0.0f, 0.0f, ((float)((gstate.alphatest >> 8) & 0xFF)) / 255.0f);
 	}
 	if (u_fogcolor != -1 && (dirtyUniforms & DIRTY_FOGCOLOR)) {
 		SetColorUniform3(u_fogcolor, gstate.fogcolor);

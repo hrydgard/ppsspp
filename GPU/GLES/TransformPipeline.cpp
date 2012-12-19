@@ -203,6 +203,15 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 	VertexDecoder dec;
 	dec.SetVertexType(gstate.vertType);
 	dec.DecodeVerts(decoded, verts, inds, prim, vertexCount, &indexLowerBound, &indexUpperBound);
+	if (bytesRead)
+		*bytesRead = vertexCount * dec.VertexSize();
+
+	// And here we should return, having collected the morphed but untransformed vertices.
+	// Note that DecodeVerts should convert strips into indexed lists etc, adding to our
+	// current vertex buffer and index buffer.
+
+	// The rest below here should only execute on Flush.
+
 #if 0
 	for (int i = indexLowerBound; i <= indexUpperBound; i++) {
 		PrintDecodedVertex(decoded[i], gstate.vertType);
@@ -221,9 +230,6 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 	}
 	gpuStats.numDrawCalls++;
 	gpuStats.numVertsTransformed += vertexCount;
-
-	if (bytesRead)
-		*bytesRead = vertexCount * dec.VertexSize();
 
 	bool throughmode = (gstate.vertType & GE_VTYPE_THROUGH_MASK) != 0;
 
@@ -535,8 +541,12 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 		}
 	}
 
+	// TODO: This should not be done on every drawcall, we should collect vertex data
+	// until critical state changes. That's when we draw (flush).
+
 	ApplyDrawState();
 	UpdateViewportAndProjection();
+
 	LinkedShader *program = shaderManager_->ApplyShader(prim);
 
 	// TODO: Make a cache for glEnableVertexAttribArray and glVertexAttribPtr states, these spam the gDebugger log.
@@ -559,6 +569,61 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 	if (useTexCoord && program->a_texcoord != -1) glDisableVertexAttribArray(program->a_texcoord);
 	if (program->a_color0 != -1) glDisableVertexAttribArray(program->a_color0);
 	if (program->a_color1 != -1) glDisableVertexAttribArray(program->a_color1);
+}
+
+struct GlTypeInfo {
+	GLuint type;
+	int count;
+	GLboolean normalized;
+};
+
+const GlTypeInfo GLComp[8] = {
+	{0}, // 	DEC_NONE,
+	{GL_FLOAT, 1, GL_FALSE}, // 	DEC_FLOAT_1,
+	{GL_FLOAT, 2, GL_FALSE}, // 	DEC_FLOAT_2,
+	{GL_FLOAT, 3, GL_FALSE}, // 	DEC_FLOAT_3,
+	{GL_FLOAT, 4, GL_FALSE}, // 	DEC_FLOAT_4,
+	{GL_BYTE, 3, GL_TRUE}, // 	DEC_S8_3,
+	{GL_SHORT, 3, GL_TRUE},// 	DEC_S16_3,
+	{GL_BYTE, 4, GL_TRUE},// 	DEC_U8_4,
+};
+
+static inline void VertexAttribSetup(int attrib, int fmt, int stride, u8 *ptr) {
+	if (attrib != -1 && fmt) {
+		const GlTypeInfo &type = GLComp[fmt];
+		glEnableVertexAttribArray(attrib);
+		glVertexAttribPointer(attrib, type.count, type.type, type.normalized, stride, ptr);
+	}
+}
+static inline void VertexAttribDisable(int attrib, int fmt) {
+	if (attrib != -1 && fmt) {
+		glDisableVertexAttribArray(attrib);
+	}
+}
+
+// TODO: Use VBO and get rid of the vertexData pointers - with that, we will supply only offsets
+static void SetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decFmt, u8 *vertexData) {
+	VertexAttribSetup(program->a_weight0123, decFmt.w0fmt, decFmt.stride, vertexData + decFmt.w0off);
+	VertexAttribSetup(program->a_weight4567, decFmt.w1fmt, decFmt.stride, vertexData + decFmt.w1off);
+	VertexAttribSetup(program->a_texcoord, decFmt.uvfmt, decFmt.stride, vertexData + decFmt.uvoff);
+	VertexAttribSetup(program->a_color0, decFmt.c0fmt, decFmt.stride, vertexData + decFmt.c0off);
+	VertexAttribSetup(program->a_color1, decFmt.c1fmt, decFmt.stride, vertexData + decFmt.c1off);
+	VertexAttribSetup(program->a_normal, decFmt.nrmfmt, decFmt.stride, vertexData + decFmt.nrmoff);
+	VertexAttribSetup(program->a_position, decFmt.posfmt, decFmt.stride, vertexData + decFmt.posoff);
+}
+
+static void DesetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decFmt) {
+	VertexAttribDisable(program->a_weight0123, decFmt.w0fmt);
+	VertexAttribDisable(program->a_weight4567, decFmt.w1fmt);
+	VertexAttribDisable(program->a_texcoord, decFmt.uvfmt);
+	VertexAttribDisable(program->a_color0, decFmt.c0fmt);
+	VertexAttribDisable(program->a_color1, decFmt.c1fmt);
+	VertexAttribDisable(program->a_normal, decFmt.nrmfmt);
+	VertexAttribDisable(program->a_position, decFmt.posfmt);
+}
+
+void GLES_GPU::Flush(int prim) {
+	// TODO
 }
 
 void GLES_GPU::ApplyDrawState()

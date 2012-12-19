@@ -40,8 +40,9 @@ struct LinkedShader
 	int a_color0;
 	int a_color1;
 	int a_texcoord;
-	// int a_blendWeight0123;
-	// int a_blendWeight4567;
+	int a_normal;
+	int a_weight0123;
+	int a_weight4567;
 
 	int u_tex;
 	int u_proj;
@@ -49,7 +50,7 @@ struct LinkedShader
 	int u_texenv;
 
 	// Fragment processing inputs
-	int u_alpharef;
+	int u_alphacolorref;
 	int u_fogcolor;
 	int u_fogcoef;
 
@@ -66,7 +67,7 @@ enum
 	DIRTY_FOGCOLOR	 = (1 << 2),
 	DIRTY_FOGCOEF    = (1 << 3),
 	DIRTY_TEXENV		 = (1 << 4),
-	DIRTY_ALPHAREF	 = (1 << 5),
+	DIRTY_ALPHACOLORREF	 = (1 << 5),
 	DIRTY_COLORREF	 = (1 << 6),
 
 	DIRTY_LIGHT0 = (1 << 12),

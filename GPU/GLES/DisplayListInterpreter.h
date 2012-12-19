@@ -52,7 +52,7 @@ private:
 	// TransformPipeline.cpp
 	void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, float *customUV, int forceIndexType, int *bytesRead = 0);
 	void ApplyDrawState();
-	void Flush();
+	void Flush(int prim);
 	void UpdateViewportAndProjection();
 	void DrawBezier(int ucount, int vcount);
 	void DoBlockTransfer();

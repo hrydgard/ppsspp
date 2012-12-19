@@ -22,8 +22,7 @@
 
 #include "VertexDecoder.h"
 
-void PrintDecodedVertex(const DecodedVertex &vtx, u32 vtype)
-{
+void PrintDecodedVertex(const DecodedVertex &vtx, u32 vtype) {
 	if (vtype & GE_VTYPE_NRM_MASK) printf("N: %f %f %f\n", vtx.normal[0], vtx.normal[1], vtx.normal[2]);
 	if (vtype & GE_VTYPE_TC_MASK) printf("TC: %f %f\n", vtx.uv[0], vtx.uv[1]);
 	if (vtype & GE_VTYPE_COL_MASK) printf("C: %02x %02x %02x %02x\n", vtx.color[0], vtx.color[1], vtx.color[2], vtx.color[3]);
@@ -37,67 +36,137 @@ const int nrmsize[4] = {0,3,6,12}, nrmalign[4] = {0,1,2,4};
 const int possize[4] = {0,3,6,12}, posalign[4] = {0,1,2,4};
 const int wtsize[4] = {0,1,2,4}, wtalign[4] = {0,1,2,4};
 
-inline int align(int n, int align)
-{
+inline int align(int n, int align) {
 	return (n + (align - 1)) & ~(align - 1);
 }
 
-void VertexDecoder::SetVertexType(u32 fmt)
-{
+int DecFmtSize(u8 fmt) {
+	switch (fmt) {
+	case DEC_NONE: return 0;
+	case DEC_FLOAT_1: return 4;
+	case DEC_FLOAT_2: return 8;
+	case DEC_FLOAT_3: return 12;
+	case DEC_FLOAT_4: return 16;
+	case DEC_S8_3: return 4;
+	case DEC_S16_3: return 8;
+	case DEC_U8_4: return 4;
+	default:
+		return 0;
+	}
+}
+
+// This is what the software transform spits out, and thus w
+DecVtxFormat GetTransformedVtxFormat(const DecVtxFormat &fmt) {
+	DecVtxFormat tfm = {0};
+	int size = 0;
+	int offset = 0;
+	// Weights disappear during transform.
+	if (fmt.uvfmt) {
+		// UV always becomes float2.
+		tfm.uvfmt = DEC_FLOAT_2;
+		tfm.uvoff = offset;
+		offset += DecFmtSize(tfm.uvfmt);
+	}
+	// We always (?) get two colors out, they're floats (although we'd probably be fine with less precision).
+	tfm.c0fmt = DEC_FLOAT_4;
+	tfm.c0off = offset;
+	offset += DecFmtSize(tfm.c0fmt);
+	tfm.c1fmt = DEC_FLOAT_3;  // color1 (specular) doesn't have alpha.
+	tfm.c1off = offset;
+	offset += DecFmtSize(tfm.c1fmt);
+	// We never get a normal, it's gone.
+	// But we do get a position, and it's always float3.
+	tfm.posfmt = DEC_FLOAT_3;
+	tfm.posoff = offset;
+	offset += DecFmtSize(tfm.posfmt);
+	// Update stride.
+	tfm.stride = offset;
+	return tfm;
+}
+
+void VertexDecoder::SetVertexType(u32 fmt) {
 	fmt = fmt;
 	throughmode = (fmt & GE_VTYPE_THROUGH) != 0;
 
 	int biggest = 0;
 	size = 0;
 
-	tc				 = fmt & 0x3;
-	col				= (fmt >> 2) & 0x7;
-	nrm				= (fmt >> 5) & 0x3;
-	pos				= (fmt >> 7) & 0x3;
+	tc = fmt & 0x3;
+	col = (fmt >> 2) & 0x7;
+	nrm = (fmt >> 5) & 0x3;
+	pos = (fmt >> 7) & 0x3;
 	weighttype = (fmt >> 9) & 0x3;
-	idx				= (fmt >> 11) & 0x3;
+	idx = (fmt >> 11) & 0x3;
 	morphcount = ((fmt >> 18) & 0x7)+1;
-	nweights	 = ((fmt >> 14) & 0x7)+1;
+	nweights = ((fmt >> 14) & 0x7)+1;
+
+	int decOff = 0;
+	memset(&decFmt, 0, sizeof(decFmt));
 
 	DEBUG_LOG(G3D,"VTYPE: THRU=%i TC=%i COL=%i POS=%i NRM=%i WT=%i NW=%i IDX=%i MC=%i", (int)throughmode, tc,col,pos,nrm,weighttype,nweights,idx,morphcount);
 
-	if (weighttype)
-	{
+	if (weighttype) { // && nweights?
 		//size = align(size, wtalign[weighttype]);	unnecessary
 		size += wtsize[weighttype] * nweights;
 		if (wtalign[weighttype] > biggest)
 			biggest = wtalign[weighttype];
+
+		if (nweights < 5) {
+			decFmt.w0off = decOff;
+			decFmt.w0fmt = DEC_FLOAT_1 + nweights - 1;
+		} else {
+			decFmt.w0off = decOff;
+			decFmt.w0fmt = DEC_FLOAT_4;
+			decFmt.w1off = decOff + 4 * 4;
+			decFmt.w1fmt = DEC_FLOAT_1 + nweights - 5;
+		}
+		decOff += nweights * 4;
 	}
 
-	if (tc)
-	{
+	if (tc) {
 		size = align(size, tcalign[tc]);
 		tcoff = size;
 		size += tcsize[tc];
 		if (tcalign[tc] > biggest)
 			biggest = tcalign[tc];
+
+		// All UV decode to DEC_FLOAT2 currently.
+		decFmt.uvfmt = DEC_FLOAT_2;
+		decFmt.uvoff = decOff;
+		decOff += DecFmtSize(decFmt.uvfmt);
 	}
 
-	if (col)
-	{
+	if (col) {
 		size = align(size, colalign[col]);
 		coloff = size;
 		size += colsize[col];
 		if (colalign[col] > biggest)
 			biggest = colalign[col]; 
-	}
-	else
-	{
+
+		// All color formats decode to DEC_U8_4 currently.
+		// They can become floats later during transform though.
+		decFmt.c0fmt = DEC_U8_4;
+		decFmt.c0off = decOff;
+		decOff += DecFmtSize(decFmt.c0fmt);
+	} else {
 		coloff = 0;
 	}
 
-	if (nrm)
-	{
+	if (nrm) {
 		size = align(size, nrmalign[nrm]);
 		nrmoff = size;
 		size += nrmsize[nrm];
 		if (nrmalign[nrm] > biggest)
 			biggest = nrmalign[nrm]; 
+
+		// The normal formats match the gl formats perfectly, let's use 'em.
+		switch (nrm) {
+		case GE_VTYPE_NRM_8BIT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_S8_3; break;
+		case GE_VTYPE_NRM_16BIT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_S16_3; break;
+		case GE_VTYPE_NRM_FLOAT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_FLOAT_3; break;
+		}
+		decFmt.nrmoff = decOff;
+		decOff += DecFmtSize(decFmt.nrmfmt);
 	}
 
 	//if (pos)  - there's always a position
@@ -107,6 +176,19 @@ void VertexDecoder::SetVertexType(u32 fmt)
 		size += possize[pos];
 		if (posalign[pos] > biggest)
 			biggest = posalign[pos];
+
+		if (throughmode) {
+			decFmt.posfmt = DEC_FLOAT_3;
+		} else {
+			// The non-through-mode position formats match the gl formats perfectly, let's use 'em.
+			switch (pos) {
+			case GE_VTYPE_POS_8BIT >> GE_VTYPE_POS_SHIFT: decFmt.posfmt = DEC_S8_3; break;
+			case GE_VTYPE_POS_16BIT >> GE_VTYPE_POS_SHIFT: decFmt.posfmt = DEC_S16_3; break;
+			case GE_VTYPE_POS_FLOAT >> GE_VTYPE_POS_SHIFT: decFmt.posfmt = DEC_FLOAT_3; break;
+			}
+		}
+		decFmt.posoff = decOff;
+		decOff += DecFmtSize(decFmt.posfmt);
 	}
 
 	size = align(size, biggest);
@@ -343,14 +425,16 @@ void VertexDecoder::DecodeVerts(DecodedVertex *decoded, const void *verts, const
 
 			case GE_VTYPE_POS_8BIT >> 7:
 				{
+					float multiplier = 1.0f / 127.0f;
+					if (throughmode) multiplier = 1.0f;
 					const s8 *sv = (const s8*)(ptr + posoff);
 					for (int j = 0; j < 3; j++)
-						v[j] = sv[j] / 127.f;
+						v[j] = sv[j] * multiplier;
 				}
 				break;
 
 			default:
-				ERROR_LOG(G3D,"Unknown position format %i",pos);
+				ERROR_LOG(G3D, "Unknown position format %i",pos);
 				break;
 			}
 		} else {

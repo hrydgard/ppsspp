@@ -995,7 +995,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_ALPHATEST:
 		DEBUG_LOG(G3D,"DL Alpha test settings");
-		shaderManager.DirtyUniform(DIRTY_ALPHAREF);
+		shaderManager.DirtyUniform(DIRTY_ALPHACOLORREF);
 		break;
 
 	case GE_CMD_TEXFUNC:
