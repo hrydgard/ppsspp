@@ -18,7 +18,7 @@
 #include <set>
 #include "MetaFileSystem.h"
 
-bool applyPathStringToComponentsVector(std::vector<std::string> &vector, const std::string &pathString)
+static bool ApplyPathStringToComponentsVector(std::vector<std::string> &vector, const std::string &pathString)
 {
 	size_t len = pathString.length();
 	size_t start = 0;
@@ -63,7 +63,7 @@ bool applyPathStringToComponentsVector(std::vector<std::string> &vector, const s
  * Changes relative paths to absolute, removes ".", "..", and trailing "/"
  * babel (and possibly other games) use "/directoryThatDoesNotExist/../directoryThatExists/filename"
  */
-bool RealPath(const std::string &currentDirectory, const std::string &inPath, std::string &outPath)
+static bool RealPath(const std::string &currentDirectory, const std::string &inPath, std::string &outPath)
 {
 	size_t inLen = inPath.length();
 	if (inLen == 0)
@@ -152,7 +152,7 @@ bool RealPath(const std::string &currentDirectory, const std::string &inPath, st
 		else
 		{
 			const std::string curDirAfter = currentDirectory.substr(curDirColon + 1);
-			if (! applyPathStringToComponentsVector(cmpnts, curDirAfter) )
+			if (! ApplyPathStringToComponentsVector(cmpnts, curDirAfter) )
 			{
 				ERROR_LOG(HLE,"RealPath: currentDirectory is not a valid path: \"%s\"", currentDirectory.c_str());
 				return false;
@@ -162,7 +162,7 @@ bool RealPath(const std::string &currentDirectory, const std::string &inPath, st
 		capacityGuess += currentDirectory.length();
 	}
 
-	if (! applyPathStringToComponentsVector(cmpnts, inAfter) )
+	if (! ApplyPathStringToComponentsVector(cmpnts, inAfter) )
 	{
 		DEBUG_LOG(HLE, "RealPath: inPath is not a valid path: \"%s\"", inPath.c_str());
 		return false;
@@ -194,30 +194,31 @@ IFileSystem *MetaFileSystem::GetHandleOwner(u32 handle)
 	return 0;
 }
 
-bool MetaFileSystem::MapFilePath(std::string inpath, std::string &outpath, IFileSystem **system)
+bool MetaFileSystem::MapFilePath(const std::string &inpath, std::string &outpath, IFileSystem **system)
 {
 	//TODO: implement current directory per thread (NOT per drive)
 	
 	//DEBUG_LOG(HLE, "MapFilePath: starting with \"%s\"", inpath.c_str());
 
-	if ( RealPath(currentDirectory, inpath, inpath) )
+	std::string realpath;
+	if ( RealPath(currentDirectory, inpath, realpath) )
 	{
 		for (size_t i = 0; i < fileSystems.size(); i++)
 		{
 			size_t prefLen = fileSystems[i].prefix.size();
-			if (fileSystems[i].prefix == inpath.substr(0, prefLen))
+			if (fileSystems[i].prefix == realpath.substr(0, prefLen))
 			{
-				outpath = inpath.substr(prefLen);
+				outpath = realpath.substr(prefLen);
 				*system = fileSystems[i].system;
 
-				DEBUG_LOG(HLE, "MapFilePath: mapped to prefix: \"%s\", path: \"%s\"", fileSystems[i].prefix.c_str(), outpath.c_str());
+				DEBUG_LOG(HLE, "MapFilePath: mapped \"%s\" to prefix: \"%s\", path: \"%s\"", inpath.c_str(), fileSystems[i].prefix.c_str(), outpath.c_str());
 
 				return true;
 			}
 		}
 	}
 
-	DEBUG_LOG(HLE, "MapFilePath: failed, returning false");
+	DEBUG_LOG(HLE, "MapFilePath: failed mapping \"%s\", returning false", inpath.c_str());
 
 	return false;
 }
