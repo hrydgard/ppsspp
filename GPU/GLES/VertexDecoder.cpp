@@ -104,9 +104,446 @@ DecVtxFormat GetTransformedVtxFormat(const DecVtxFormat &fmt) {
 	return tfm;
 }
 
+void VertexDecoder::Step_WeightsU8() const
+{
+	float *wt = (float *)decoded_;
+	const u8 *wdata = (const u8*)(ptr_);
+	for (int j = 0; j < nweights; j++)
+		wt[j] = (float)wdata[j] / 128.0f;
+	decoded_ += nweights * sizeof(float);
+}
+
+void VertexDecoder::Step_WeightsU16() const
+{
+	float *wt = (float *)decoded_;
+	const u16 *wdata = (const u16*)(ptr_);
+	for (int j = 0; j < nweights; j++)
+		wt[j] = (float)wdata[j] / 32768.0f;
+	decoded_ += nweights * sizeof(float);
+}
+
+void VertexDecoder::Step_WeightsFloat() const
+{
+	float *wt = (float *)decoded_;
+	const float *wdata = (const float*)(ptr_);
+	for (int j = 0; j < nweights; j++)
+		wt[j] = wdata[j];
+	decoded_ += nweights * sizeof(float);
+}
+
+void VertexDecoder::Step_TcU8() const
+{
+	float *uv = (float *)decoded_;
+	const u8 *uvdata = (const u8*)(ptr_ + tcoff);
+	for (int j = 0; j < 2; j++)
+		uv[j] = (float)uvdata[j] / 128.0f;
+	decoded_ += 2 * sizeof(float);
+}
+
+void VertexDecoder::Step_TcU16() const
+{
+	float *uv = (float *)decoded_;
+	const u16 *uvdata = (const u16*)(ptr_ + tcoff);
+	uv[0] = (float)uvdata[0] / 32768.0f;
+	uv[1] = (float)uvdata[1] / 32768.0f;
+	decoded_ += 2 * sizeof(float);
+}
+
+void VertexDecoder::Step_TcU16Through() const
+{
+	float *uv = (float *)decoded_;
+	const u16 *uvdata = (const u16*)(ptr_ + tcoff);
+	uv[0] = (float)uvdata[0] / (float)(gstate_c.curTextureWidth);
+	uv[1] = (float)uvdata[1] / (float)(gstate_c.curTextureHeight);
+	decoded_ += 2 * sizeof(float);
+}
+
+void VertexDecoder::Step_TcFloat() const
+{
+	float *uv = (float *)decoded_;
+	const float *uvdata = (const float*)(ptr_ + tcoff);
+	uv[0] = uvdata[0];
+	uv[1] = uvdata[1];
+	decoded_ += 2 * sizeof(float);
+}
+
+void VertexDecoder::Step_TcFloatThrough() const
+{
+	float *uv = (float *)decoded_;
+	const float *uvdata = (const float*)(ptr_ + tcoff);
+	uv[0] = uvdata[0] / (float)(gstate_c.curTextureWidth);
+	uv[1] = uvdata[1] / (float)(gstate_c.curTextureHeight);
+	decoded_ += 2 * sizeof(float);
+}
+
+void VertexDecoder::Step_Color565() const
+{
+	u8 *c = decoded_;
+	u16 cdata = *(u16*)(ptr_ + coloff);
+	c[0] = Convert5To8(cdata & 0x1f);
+	c[1] = Convert6To8((cdata>>5) & 0x3f);
+	c[2] = Convert5To8((cdata>>11) & 0x1f);
+	c[3] = 1.0f;
+	decoded_ += 4;
+}
+
+void VertexDecoder::Step_Color5551() const
+{
+	u8 *c = decoded_;
+	u16 cdata = *(u16*)(ptr_ + coloff);
+	c[0] = Convert5To8(cdata & 0x1f);
+	c[1] = Convert5To8((cdata>>5) & 0x1f);
+	c[2] = Convert5To8((cdata>>10) & 0x1f);
+	c[3] = (cdata>>15) ? 255 : 0;
+	decoded_ += 4;
+}
+
+void VertexDecoder::Step_Color4444() const
+{
+	u8 *c = decoded_;
+	u16 cdata = *(u16*)(ptr_ + coloff);
+	for (int j = 0; j < 4; j++)
+		c[j] = Convert4To8((cdata >> (j * 4)) & 0xF);
+	decoded_ += 4;
+}
+
+void VertexDecoder::Step_Color8888() const
+{
+	u8 *c = decoded_;
+	// TODO: speedup
+	u8 *cdata = (u8*)(ptr_ + coloff);
+	for (int j = 0; j < 4; j++)
+		c[j] = cdata[j];
+	decoded_ += 4;
+}
+
+void VertexDecoder::Step_Color565Morph() const
+{
+	float col[3] = {0};
+	for (int n = 0; n < morphcount; n++)
+	{
+		float w = gstate_c.morphWeights[n];
+		u16 cdata = *(u16*)(ptr_ + onesize_*n + coloff);
+		col[0] += w * (cdata & 0x1f) / 31.f;
+		col[1] += w * ((cdata>>5) & 0x3f) / 63.f;
+		col[2] += w * ((cdata>>11) & 0x1f) / 31.f;
+	}
+	for (int i = 0; i < 3; i++) {
+		decoded_[i] = (u8)(col[i] * 255.0f);
+	}
+	decoded_[3] = 255;
+	decoded_ += 4;
+}
+
+void VertexDecoder::Step_Color5551Morph() const
+{
+	float col[4] = {0};
+	for (int n = 0; n < morphcount; n++)
+	{
+		float w = gstate_c.morphWeights[n];
+		u16 cdata = *(u16*)(ptr_ + onesize_*n + coloff);
+		col[0] += w * (cdata & 0x1f) / 31.f;
+		col[1] += w * ((cdata>>5) & 0x1f) / 31.f;
+		col[2] += w * ((cdata>>10) & 0x1f) / 31.f;
+		col[3] += w * (cdata>>15) ? 1.0f : 0.0f;
+	}
+	for (int i = 0; i < 4; i++) {
+		decoded_[i] = (u8)(col[i] * 255.0f);
+	}
+	decoded_ += 4;
+}
+
+void VertexDecoder::Step_Color4444Morph() const
+{
+	float col[4] = {0};
+	for (int n = 0; n < morphcount; n++)
+	{
+		float w = gstate_c.morphWeights[n];
+		u16 cdata = *(u16*)(ptr_ + onesize_*n + coloff);
+		for (int j = 0; j < 4; j++)
+			col[j] += w * ((cdata >> (j * 4)) & 0xF) / 15.f;
+	}
+	for (int i = 0; i < 4; i++) {
+		decoded_[i] = (u8)(col[i] * 255.0f);
+	}
+	decoded_ += 4;
+}
+
+void VertexDecoder::Step_Color8888Morph() const
+{
+	float col[4] = {0};
+	for (int n = 0; n < morphcount; n++)
+	{
+		float w = gstate_c.morphWeights[n];
+		const u8 *cdata = (const u8*)(ptr_ + onesize_*n + coloff);
+		for (int j = 0; j < 4; j++)
+			col[j] += w * cdata[j];
+	}
+	for (int i = 0; i < 4; i++) {
+		decoded_[i] = (u8)(col[i]);
+	}
+	decoded_ += 4;
+}
+
+void VertexDecoder::Step_NormalS8() const
+{
+	float *normal = (float *)decoded_;
+	float multiplier = 1.0f;
+	if (gstate.reversenormals & 0xFFFFFF)
+		multiplier = -multiplier;
+	const s8 *sv = (const s8*)(ptr_ + nrmoff);
+	for (int j = 0; j < 3; j++)
+		normal[j] = (sv[j]/127.0f) * multiplier;
+	decoded_ += 12;
+}
+
+void VertexDecoder::Step_NormalS16() const
+{
+	float *normal = (float *)decoded_;
+	float multiplier = 1.0f;
+	if (gstate.reversenormals & 0xFFFFFF)
+		multiplier = -multiplier;
+	const short *sv = (const short*)(ptr_ + nrmoff);
+	for (int j = 0; j < 3; j++)
+		normal[j] = (sv[j]/32767.0f) * multiplier;
+	decoded_ += 12;
+}
+
+void VertexDecoder::Step_NormalFloat() const
+{
+	float *normal = (float *)decoded_;
+	float multiplier = 1.0f;
+	if (gstate.reversenormals & 0xFFFFFF)
+		multiplier = -multiplier;
+	const float *fv = (const float*)(ptr_ + nrmoff);
+	for (int j = 0; j < 3; j++)
+		normal[j] = fv[j] * multiplier;
+	decoded_ += 12;
+}
+
+void VertexDecoder::Step_NormalS8Morph() const
+{
+	float *normal = (float *)decoded_;
+	memset(normal, 0, sizeof(float)*3);
+	for (int n = 0; n < morphcount; n++)
+	{
+		float multiplier = gstate_c.morphWeights[n];
+		if (gstate.reversenormals & 0xFFFFFF) {
+			multiplier = -multiplier;
+		}
+		const s8 *sv = (const s8*)(ptr_ + onesize_*n + nrmoff);
+		for (int j = 0; j < 3; j++)
+			normal[j] += (sv[j]/32767.0f) * multiplier;
+	}
+	decoded_ += 12;
+}
+
+void VertexDecoder::Step_NormalS16Morph() const
+{
+	float *normal = (float *)decoded_;
+	memset(normal, 0, sizeof(float)*3);
+	for (int n = 0; n < morphcount; n++)
+	{
+		float multiplier = gstate_c.morphWeights[n];
+		if (gstate.reversenormals & 0xFFFFFF) {
+			multiplier = -multiplier;
+		}
+		const float *fv = (const float*)(ptr_ + onesize_*n + nrmoff);
+		for (int j = 0; j < 3; j++)
+			normal[j] += fv[j] * multiplier;
+	}
+	decoded_ += 12;
+}
+
+void VertexDecoder::Step_NormalFloatMorph() const
+{
+	float *normal = (float *)decoded_;
+	memset(normal, 0, sizeof(float)*3);
+	for (int n = 0; n < morphcount; n++)
+	{
+		float multiplier = gstate_c.morphWeights[n];
+		if (gstate.reversenormals & 0xFFFFFF) {
+			multiplier = -multiplier;
+		}
+		const float *fv = (const float*)(ptr_ + onesize_*n + nrmoff);
+		for (int j = 0; j < 3; j++)
+			normal[j] += fv[j] * multiplier;
+	}
+	decoded_ += 12;
+}
+
+void VertexDecoder::Step_PosS8() const
+{
+	float *v = (float *)decoded_;
+	float multiplier = 1.0f / 127.0f;
+	const s8 *sv = (const s8*)(ptr_ + posoff);
+	for (int j = 0; j < 3; j++)
+		v[j] = sv[j] * multiplier;
+	decoded_ += 12;
+}
+
+void VertexDecoder::Step_PosS16() const
+{
+	float *v = (float *)decoded_;
+	float multiplier = 1.0f / 32767.0f;
+	const short *sv = (const short*)(ptr_ + posoff);
+	for (int j = 0; j < 3; j++)
+		v[j] = sv[j] * multiplier;
+	decoded_ += 12;
+}
+
+void VertexDecoder::Step_PosFloat() const
+{
+	float *v = (float *)decoded_;
+	const float *fv = (const float*)(ptr_ + posoff);
+	for (int j = 0; j < 3; j++)
+		v[j] = fv[j];
+	decoded_ += 12;
+}
+
+void VertexDecoder::Step_PosS8Through() const
+{
+	float *v = (float *)decoded_;
+	const s8 *sv = (const s8*)(ptr_ + posoff);
+	for (int j = 0; j < 3; j++)
+		v[j] = sv[j];
+	decoded_ += 12;
+}
+
+void VertexDecoder::Step_PosS16Through() const
+{
+	float *v = (float *)decoded_;
+	const short *sv = (const short*)(ptr_ + posoff);
+	for (int j = 0; j < 3; j++)
+		v[j] = sv[j];
+	decoded_ += 12;
+}
+
+void VertexDecoder::Step_PosFloatThrough() const
+{
+	float *v = (float *)decoded_;
+	const float *fv = (const float*)(ptr_ + posoff);
+	for (int j = 0; j < 3; j++)
+		v[j] = fv[j];
+	decoded_ += 12;
+}
+
+void VertexDecoder::Step_PosS8Morph() const
+{
+	float *v = (float *)decoded_;
+	memset(v, 0, sizeof(float) * 3);
+	for (int n = 0; n < morphcount; n++) {
+		const s8 *sv = (const s8*)(ptr_ + onesize_*n + posoff);
+		for (int j = 0; j < 3; j++)
+			v[j] += (sv[j] / 127.f) * gstate_c.morphWeights[n];
+	}
+	decoded_ += 12;
+}
+
+void VertexDecoder::Step_PosS16Morph() const
+{
+	float *v = (float *)decoded_;
+	memset(v, 0, sizeof(float) * 3);
+	for (int n = 0; n < morphcount; n++) {
+		float multiplier = 1.0f / 32767.0f;
+		const short *sv = (const short*)(ptr_ + onesize_*n + posoff);
+		for (int j = 0; j < 3; j++)
+			v[j] += (sv[j] * multiplier) * gstate_c.morphWeights[n];
+	}
+	decoded_ += 12;
+}
+
+void VertexDecoder::Step_PosFloatMorph() const
+{
+	float *v = (float *)decoded_;
+	memset(v, 0, sizeof(float) * 3);
+	for (int n = 0; n < morphcount; n++) {
+		const float *fv = (const float*)(ptr_ + onesize_*n + posoff);
+		for (int j = 0; j < 3; j++)
+			v[j] += fv[j] * gstate_c.morphWeights[n];
+	}
+	decoded_ += 12;
+}
+
+const StepFunction wtstep[4] = {
+	0,
+	&VertexDecoder::Step_WeightsU8,
+	&VertexDecoder::Step_WeightsU16,
+	&VertexDecoder::Step_WeightsFloat,
+};
+
+const StepFunction tcstep[4] = {
+	0,
+	&VertexDecoder::Step_TcU8,
+	&VertexDecoder::Step_TcU16,
+	&VertexDecoder::Step_TcFloat,
+};
+
+const StepFunction tcstep_through[4] = {
+	0,
+	&VertexDecoder::Step_TcU8,
+	&VertexDecoder::Step_TcU16Through,
+	&VertexDecoder::Step_TcFloatThrough,
+};
+
+// TODO: Tc Morph
+
+const StepFunction colstep[8] = {
+	0, 0, 0, 0,
+	&VertexDecoder::Step_Color565,
+	&VertexDecoder::Step_Color5551,
+	&VertexDecoder::Step_Color4444,
+	&VertexDecoder::Step_Color8888,
+};
+
+const StepFunction colstep_morph[8] = {
+	0, 0, 0, 0,
+	&VertexDecoder::Step_Color565Morph,
+	&VertexDecoder::Step_Color5551Morph,
+	&VertexDecoder::Step_Color4444Morph,
+	&VertexDecoder::Step_Color8888Morph,
+};
+
+const StepFunction nrmstep[4] = {
+	0,
+	&VertexDecoder::Step_NormalS8,
+	&VertexDecoder::Step_NormalS16,
+	&VertexDecoder::Step_NormalFloat,
+};
+
+const StepFunction nrmstep_morph[4] = {
+	0,
+	&VertexDecoder::Step_NormalS8Morph,
+	&VertexDecoder::Step_NormalS16Morph,
+	&VertexDecoder::Step_NormalFloatMorph,
+};
+
+const StepFunction posstep[4] = {
+	0,
+	&VertexDecoder::Step_PosS8,
+	&VertexDecoder::Step_PosS16,
+	&VertexDecoder::Step_PosFloat,
+};
+
+const StepFunction posstep_morph[4] = {
+	0,
+	&VertexDecoder::Step_PosS8Morph,
+	&VertexDecoder::Step_PosS16Morph,
+	&VertexDecoder::Step_PosFloatMorph,
+};
+
+const StepFunction posstep_through[4] = {
+	0,
+	&VertexDecoder::Step_PosS8Through,
+	&VertexDecoder::Step_PosS16Through,
+	&VertexDecoder::Step_PosFloatThrough,
+};
+
+
 void VertexDecoder::SetVertexType(u32 fmt) {
 	fmt_ = fmt;
 	throughmode = (fmt & GE_VTYPE_THROUGH) != 0;
+	numSteps_ = 0;
 
 	int biggest = 0;
 	size = 0;
@@ -131,6 +568,8 @@ void VertexDecoder::SetVertexType(u32 fmt) {
 		if (wtalign[weighttype] > biggest)
 			biggest = wtalign[weighttype];
 
+		steps_[numSteps_++] = wtstep[weighttype];
+
 		if (nweights < 5) {
 			decFmt.w0off = decOff;
 			decFmt.w0fmt = DEC_FLOAT_1 + nweights - 1;
@@ -150,6 +589,8 @@ void VertexDecoder::SetVertexType(u32 fmt) {
 		if (tcalign[tc] > biggest)
 			biggest = tcalign[tc];
 
+		steps_[numSteps_++] = throughmode ? tcstep_through[tc] : tcstep[tc];
+
 		// All UV decode to DEC_FLOAT2 currently.
 		decFmt.uvfmt = DEC_FLOAT_2;
 		decFmt.uvoff = decOff;
@@ -162,6 +603,8 @@ void VertexDecoder::SetVertexType(u32 fmt) {
 		size += colsize[col];
 		if (colalign[col] > biggest)
 			biggest = colalign[col]; 
+
+		steps_[numSteps_++] = morphcount == 1 ? colstep[col] : colstep_morph[col];
 
 		// All color formats decode to DEC_U8_4 currently.
 		// They can become floats later during transform though.
@@ -179,12 +622,15 @@ void VertexDecoder::SetVertexType(u32 fmt) {
 		if (nrmalign[nrm] > biggest)
 			biggest = nrmalign[nrm]; 
 
+		steps_[numSteps_++] = morphcount == 1 ? nrmstep[nrm] : nrmstep_morph[nrm];
+
 		// The normal formats match the gl formats perfectly, let's use 'em.
 		switch (nrm) {
 		case GE_VTYPE_NRM_8BIT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_S8_3; break;
 		case GE_VTYPE_NRM_16BIT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_S16_3; break;
 		case GE_VTYPE_NRM_FLOAT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_FLOAT_3; break;
 		}
+
 		// Actually, temporarily let's not.
 		decFmt.nrmfmt = DEC_FLOAT_3;
 		decFmt.nrmoff = decOff;
@@ -200,8 +646,11 @@ void VertexDecoder::SetVertexType(u32 fmt) {
 			biggest = posalign[pos];
 
 		if (throughmode) {
+			steps_[numSteps_++] = posstep_through[pos];
 			decFmt.posfmt = DEC_FLOAT_3;
 		} else {
+			steps_[numSteps_++] = morphcount == 1 ? posstep[pos] : posstep_morph[pos];
+
 			// The non-through-mode position formats match the gl formats perfectly, let's use 'em.
 			switch (pos) {
 			case GE_VTYPE_POS_8BIT >> GE_VTYPE_POS_SHIFT: decFmt.posfmt = DEC_S8_3; break;
@@ -222,12 +671,8 @@ void VertexDecoder::SetVertexType(u32 fmt) {
 	DEBUG_LOG(G3D,"SVT : size = %i, aligned to biggest %i", size, biggest);
 }
 
-void VertexDecoder::DecodeVerts(u8 *decoded, const void *verts, const void *inds, int prim, int count, int *indexLowerBound, int *indexUpperBound) const
+void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, const void *inds, int prim, int count, int *indexLowerBound, int *indexUpperBound) const
 {
-	// TODO: Remove
-	if (morphcount == 1)
-		gstate_c.morphWeights[0] = 1.0f;
-
 	// Find index bounds. Could cache this in display lists.
 	int lowerBound = 0x7FFFFFFF;
 	int upperBound = 0;
@@ -254,261 +699,15 @@ void VertexDecoder::DecodeVerts(u8 *decoded, const void *verts, const void *inds
 	*indexLowerBound = lowerBound;
 	*indexUpperBound = upperBound;
 
-	// Decode the vertices within the found bounds, once each (unlike the previous way..)
+	// Decode the vertices within the found bounds, once each
+	decoded_ = decodedptr;
+	ptr_ = (const u8*)verts + lowerBound * size;
 	for (int index = lowerBound; index <= upperBound; index++)
 	{
-		u8 *ptr = (u8*)verts + (index * size);
-
-		// TODO: Should weights be morphed?
-		float *wt = (float *)decoded;
-		switch (weighttype)
-		{
-		case GE_VTYPE_WEIGHT_NONE >> 9:
-			break;
-
-		case GE_VTYPE_WEIGHT_8BIT >> 9:
-			{
-				const u8 *wdata = (const u8*)(ptr);
-				for (int j = 0; j < nweights; j++)
-					wt[j] = (float)wdata[j] / 128.0f;
-			}
-			break;
-
-		case GE_VTYPE_WEIGHT_16BIT >> 9:
-			{
-				const u16 *wdata = (const u16*)(ptr);
-				for (int j = 0; j < nweights; j++)
-					wt[j] = (float)wdata[j] / 32768.0f;
-			}
-			break;
-
-		case GE_VTYPE_WEIGHT_FLOAT >> 9:
-			{
-				const float *wdata = (const float*)(ptr+0);
-				for (int j = 0; j < nweights; j++)
-					wt[j] = wdata[j];
-			}
-			break;
+		for (int i = 0; i < numSteps_; i++) {
+			((*this).*steps_[i])();
 		}
-		if (weighttype)
-			decoded += nweights * sizeof(float);
-
-		// TODO: Not morphing UV yet
-		switch (tc)
-		{
-		case GE_VTYPE_TC_NONE:
-			break;
-
-		case GE_VTYPE_TC_8BIT:
-			{
-				float *uv = (float *)decoded;
-				const u8 *uvdata = (const u8*)(ptr + tcoff);
-				for (int j = 0; j < 2; j++)
-					uv[j] = (float)uvdata[j] / 128.0f;
-				decoded += 2 * sizeof(float);
-				break;
-			}
-
-		case GE_VTYPE_TC_16BIT:
-			{
-				float *uv = (float *)decoded;
-				const u16 *uvdata = (const u16*)(ptr + tcoff);
-				if (throughmode)
-				{
-					uv[0] = (float)uvdata[0] / (float)(gstate_c.curTextureWidth);
-					uv[1] = (float)uvdata[1] / (float)(gstate_c.curTextureHeight);
-				}
-				else
-				{
-					uv[0] = (float)uvdata[0] / 32768.0f;
-					uv[1] = (float)uvdata[1] / 32768.0f;
-				}
-				decoded += 2 * sizeof(float);
-			}
-			break;
-
-		case GE_VTYPE_TC_FLOAT:
-			{
-				float *uv = (float *)decoded;
-				const float *uvdata = (const float*)(ptr + tcoff);
-				if (throughmode) {
-					uv[0] = uvdata[0] / (float)(gstate_c.curTextureWidth);
-					uv[1] = uvdata[1] / (float)(gstate_c.curTextureHeight);
-				} else {
-					uv[0] = uvdata[0];
-					uv[1] = uvdata[1];
-				}
-				decoded += 2 * sizeof(float);
-			}
-			break;
-		}
-
-		// TODO: Not morphing color yet
-		switch (col)
-		{
-		case GE_VTYPE_COL_4444 >> 2:
-			{
-				u8 *c = decoded;
-				u16 cdata = *(u16*)(ptr + coloff);
-				for (int j = 0; j < 4; j++)
-					c[j] = Convert4To8((cdata >> (j * 4)) & 0xF);
-				decoded += 4;
-			}
-			break;
-
-		case GE_VTYPE_COL_565 >> 2:
-			{
-				u8 *c = decoded;
-				u16 cdata = *(u16*)(ptr + coloff);
-				c[0] = Convert5To8(cdata & 0x1f);
-				c[1] = Convert6To8((cdata>>5) & 0x3f);
-				c[2] = Convert5To8((cdata>>11) & 0x1f);
-				c[3] = 1.0f;
-				decoded += 4;
-			}
-			break;
-
-		case GE_VTYPE_COL_5551 >> 2:
-			{
-				u8 *c = decoded;
-				u16 cdata = *(u16*)(ptr + coloff);
-				c[0] = Convert5To8(cdata & 0x1f);
-				c[1] = Convert5To8((cdata>>5) & 0x1f);
-				c[2] = Convert5To8((cdata>>10) & 0x1f);
-				c[3] = (cdata>>15) ? 255 : 0;
-				decoded += 4;
-			}
-			break;
-
-		case GE_VTYPE_COL_8888 >> 2:
-			{
-				u8 *c = decoded;
-				// TODO: speedup
-				u8 *cdata = (u8*)(ptr + coloff);
-				for (int j = 0; j < 4; j++)
-					c[j] = cdata[j];
-				decoded += 4;
-			}
-			break;
-
-		default:
-			break;
-		}
-
-		float *normal = (float *)decoded;
-		if (nrm) {
-			memset(normal, 0, sizeof(float)*3);
-			for (int n = 0; n < morphcount; n++)
-			{
-				float multiplier = gstate_c.morphWeights[n];
-				if (gstate.reversenormals & 0xFFFFFF) {
-					multiplier = -multiplier;
-				}
-				switch (nrm)
-				{
-				case GE_VTYPE_NRM_8BIT:
-					{
-						const s8 *sv = (const s8*)(ptr + onesize_*n + nrmoff);
-						for (int j = 0; j < 3; j++)
-							normal[j] += (sv[j]/127.0f) * multiplier;
-					}
-					break;
-
-				case GE_VTYPE_NRM_FLOAT >> 5:
-					{
-						const float *fv = (const float*)(ptr + onesize_*n + nrmoff);
-						for (int j = 0; j < 3; j++)
-							normal[j] += fv[j] * multiplier;
-					}
-					break;
-
-				case GE_VTYPE_NRM_16BIT >> 5:
-					{
-						const short *sv = (const short*)(ptr + onesize_*n + nrmoff);
-						for (int j = 0; j < 3; j++)
-							normal[j] += (sv[j]/32767.0f) * multiplier;
-					}
-					break;
-				}
-			}
-			decoded += 12;
-		}
-
-		float *v = (float *)decoded;
-		if (morphcount == 1) {
-			switch (pos)
-			{
-			case GE_VTYPE_POS_FLOAT >> 7:
-				{
-					const float *fv = (const float*)(ptr + posoff);
-					for (int j = 0; j < 3; j++)
-						v[j] = fv[j];
-				}
-				break;
-
-			case GE_VTYPE_POS_16BIT >> 7:
-				{
-					float multiplier = 1.0f / 32767.0f;
-					if (throughmode) multiplier = 1.0f;
-					const short *sv = (const short*)(ptr + posoff);
-					for (int j = 0; j < 3; j++)
-						v[j] = sv[j] * multiplier;
-				}
-				break;
-
-			case GE_VTYPE_POS_8BIT >> 7:
-				{
-					float multiplier = 1.0f / 127.0f;
-					if (throughmode) multiplier = 1.0f;
-					const s8 *sv = (const s8*)(ptr + posoff);
-					for (int j = 0; j < 3; j++)
-						v[j] = sv[j] * multiplier;
-				}
-				break;
-
-			default:
-				ERROR_LOG(G3D, "Unknown position format %i",pos);
-				break;
-			}
-		} else {
-			memset(v, 0, sizeof(float) * 3);
-			for (int n = 0; n < morphcount; n++)
-			{
-				switch (pos)
-				{
-				case GE_VTYPE_POS_FLOAT >> 7:
-					{
-						const float *fv = (const float*)(ptr + onesize_*n + posoff);
-						for (int j = 0; j < 3; j++)
-							v[j] += fv[j] * gstate_c.morphWeights[n];
-					}
-					break;
-
-				case GE_VTYPE_POS_16BIT >> 7:
-					{
-						float multiplier = 1.0f / 32767.0f;
-						if (throughmode) multiplier = 1.0f;
-						const short *sv = (const short*)(ptr + onesize_*n + posoff);
-						for (int j = 0; j < 3; j++)
-							v[j] += (sv[j] * multiplier) * gstate_c.morphWeights[n];
-					}
-					break;
-
-				case GE_VTYPE_POS_8BIT >> 7:
-					{
-						const s8 *sv = (const s8*)(ptr + onesize_*n + posoff);
-						for (int j = 0; j < 3; j++)
-							v[j] += (sv[j] / 127.f) * gstate_c.morphWeights[n];
-					}
-					break;
-
-				default:
-					ERROR_LOG(G3D,"Unknown position format %i",pos);
-					break;
-				}
-			}
-		}
-		decoded += 12;
+		ptr_ += size;
 	}
 }
 

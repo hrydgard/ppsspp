@@ -91,6 +91,9 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <AdditionalIncludeDirectories>../common;..;../native;../native/ext/glew;</AdditionalIncludeDirectories>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+      <FloatingPointModel>Fast</FloatingPointModel>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -136,7 +139,9 @@
     <ClCompile Include="GLES\StateMapping.cpp" />
     <ClCompile Include="GLES\TextureCache.cpp" />
     <ClCompile Include="GLES\TransformPipeline.cpp" />
-    <ClCompile Include="GLES\VertexDecoder.cpp" />
+    <ClCompile Include="GLES\VertexDecoder.cpp">
+      <AssemblerOutput Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AssemblyAndSourceCode</AssemblerOutput>
+    </ClCompile>
     <ClCompile Include="GLES\VertexShaderGenerator.cpp" />
     <ClCompile Include="GPUState.cpp" />
     <ClCompile Include="Math3D.cpp" />

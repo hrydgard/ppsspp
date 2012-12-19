@@ -61,6 +61,10 @@ struct TransformedVertex
 
 DecVtxFormat GetTransformedVtxFormat(const DecVtxFormat &fmt);
 
+class VertexDecoder;
+
+typedef void (VertexDecoder::*StepFunction)() const;
+
 
 // Right now
 //   - only contains computed information
@@ -86,7 +90,59 @@ public:
 	bool hasColor() const { return col != 0; }
 	int VertexSize() const { return size; }
 
-private:
+	void Step_WeightsU8() const;
+	void Step_WeightsU16() const;
+	void Step_WeightsFloat() const;
+
+	void Step_TcU8() const;
+	void Step_TcU16() const;
+	void Step_TcFloat() const;
+	void Step_TcU16Through() const;
+	void Step_TcFloatThrough() const;
+
+	// TODO: tcmorph
+
+	void Step_Color4444() const;
+	void Step_Color565() const;
+	void Step_Color5551() const;
+	void Step_Color8888() const;
+
+	void Step_Color4444Morph() const;
+	void Step_Color565Morph() const;
+	void Step_Color5551Morph() const;
+	void Step_Color8888Morph() const;
+
+	void Step_NormalS8() const;
+	void Step_NormalS16() const;
+	void Step_NormalFloat() const;
+
+	void Step_NormalS8Morph() const;
+	void Step_NormalS16Morph() const;
+	void Step_NormalFloatMorph() const;
+
+	void Step_PosS8() const;
+	void Step_PosS16() const;
+	void Step_PosFloat() const;
+
+	void Step_PosS8Morph() const;
+	void Step_PosS16Morph() const;
+	void Step_PosFloatMorph() const;
+
+	void Step_PosS8Through() const;
+	void Step_PosS16Through() const;
+	void Step_PosFloatThrough() const;
+
+
+	// Mutable decoder state
+	mutable u8 *decoded_;
+	mutable const u8 *ptr_;
+
+	// "Immutable" state, set at startup
+
+	// The decoding steps
+	StepFunction steps_[5];
+	int numSteps_;
+
 	u32 fmt_;
 	DecVtxFormat decFmt;
 
