@@ -435,7 +435,7 @@ void SavedataParam::SetPspParam(SceUtilitySavedataParam* param)
 	}
 	else // Load info on only save
 	{
-		saveNameListData == 0;
+		saveNameListData = 0;
 
 		Clear();
 		saveDataList = new SaveFileInfo[1];

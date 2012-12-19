@@ -33,6 +33,11 @@ PSPSaveDialog::~PSPSaveDialog() {
 
 void PSPSaveDialog::Init(int paramAddr)
 {
+	// Ignore if already running
+	if (status != SCE_UTILITY_STATUS_NONE && status != SCE_UTILITY_STATUS_SHUTDOWN)
+	{
+		return;
+	}
 	param.SetPspParam((SceUtilitySavedataParam*)Memory::GetPointer(paramAddr));
 
 	DEBUG_LOG(HLE,"sceUtilitySavedataInitStart(%08x)", paramAddr);

@@ -179,6 +179,11 @@ int sceUtilityScreenshotGetStatus()
 	return retval;
 }
 
+void sceUtilityGamedataInstallInitStart(u32 unkown)
+{
+	DEBUG_LOG(HLE,"FAKE sceUtilityGamedataInstallInitStart(%i)", unkown);
+}
+
 int sceUtilityGamedataInstallGetStatus()
 {
 	u32 retval = 0;//__UtilityGetStatus();
@@ -332,6 +337,11 @@ u32 sceUtilityUnloadNetModule(u32 module)
 	return 0;
 }
 
+void sceUtilityInstallInitStart(u32 unknown)
+{
+	DEBUG_LOG(HLE,"FAKE sceUtilityInstallInitStart()");
+}
+
 const HLEFunction sceUtility[] = 
 {
 	{0x1579a159, &WrapU_U<sceUtilityLoadNetModule>, "sceUtilityLoadNetModule"},
@@ -398,7 +408,7 @@ const HLEFunction sceUtility[] =
 	{0x0D5BC6D2, 0, "sceUtilityLoadUsbModule"},
 	{0xF64910F0, 0, "sceUtilityUnloadUsbModule"},
 
-	{0x24AC31EB, 0, "sceUtilityGamedataInstallInitStart"},
+	{0x24AC31EB, &WrapV_U<sceUtilityGamedataInstallInitStart>, "sceUtilityGamedataInstallInitStart"},
 	{0x32E32DCB, 0, "sceUtilityGamedataInstallShutdownStart"},
 	{0x4AECD179, 0, "sceUtilityGamedataInstallUpdate"},
 	{0xB57E95D9, &WrapI_V<sceUtilityGamedataInstallGetStatus>, "sceUtilityGamedataInstallGetStatus"},
@@ -409,7 +419,7 @@ const HLEFunction sceUtility[] =
 	{0xF3FBC572, 0, "sceUtilityNpSigninUpdate"},
 	{0x86ABDB1B, 0, "sceUtilityNpSigninGetStatus"},
 
-	{0x1281DA8E, 0, "sceUtilityInstallInitStart"},
+	{0x1281DA8E, &WrapV_U<sceUtilityInstallInitStart>, "sceUtilityInstallInitStart"},
 	{0x5EF1C24A, 0, "sceUtilityInstallShutdownStart"},
 	{0xA03D29BA, 0, "sceUtilityInstallUpdate"},
 	{0xC4700FA3, 0, "sceUtilityInstallGetStatus"}, 
