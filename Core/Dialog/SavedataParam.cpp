@@ -35,7 +35,7 @@ namespace
 	int getSizeNormalized(int size)
 	{
 		int sizeCluster = MemoryStick_SectorSize();
-		return ((size + sizeCluster - 1) / sizeCluster) * sizeCluster;
+		return ((int)((size + sizeCluster - 1) / sizeCluster)) * sizeCluster;
 	}
 }
 
@@ -266,24 +266,38 @@ bool SavedataParam::Load(SceUtilitySavedataParam* param, int saveId)
 
 std::string SavedataParam::GetSpaceText(int size)
 {
+	char text[50];
+
 	if(size < 1024)
-		return size + " B";
+	{
+		sprintf(text,"%d B",size);
+		return std::string(text);
+	}
 
 	size /= 1024;
 
 	if(size < 1024)
-		return size + " KB";
+	{
+		sprintf(text,"%d KB",size);
+		return std::string(text);
+	}
 
 	size /= 1024;
 
 	if(size < 1024)
-		return size + " MB";
+	{
+		sprintf(text,"%d MB",size);
+		return std::string(text);
+	}
 
-	return size + " GB";
+	size /= 1024;
+	sprintf(text,"%d GB",size);
+	return std::string(text);
 }
 
 // From my test, PSP only answer with data for save of size 1500 (sdk < 2)
-// Perhaps remplaced with mode 22 id SDK >= 2
+// Perhaps changed to use mode 22 id SDK >= 2
+// For now we always return results
 bool SavedataParam::GetSizes(SceUtilitySavedataParam* param)
 {
 	if (!param) {
@@ -305,7 +319,7 @@ bool SavedataParam::GetSizes(SceUtilitySavedataParam* param)
 		PSPFileInfo finfo = pspFileSystem.GetFileInfo(path);
 		if(finfo.exists)
 		{
-			// TODO : fill correctly
+			// TODO : fill correctly with the total save size
 			Memory::Write_U32(1,param->msData+36);	//1
 			Memory::Write_U32(0x20,param->msData+40);	// 0x20
 			Memory::Write_U8(0,param->msData+44);	// "32 KB" // 8 u8
