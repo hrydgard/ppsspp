@@ -17,28 +17,104 @@
 
 #include "sceKernel.h"
 #include "sceKernelAlarm.h"
+#include "sceKernelInterrupt.h"
 #include "HLE.h"
+#include "../../Core/CoreTiming.h"
 
-void sceKernelSetAlarm()
+struct NativeAlarm
 {
-  ERROR_LOG(HLE,"UNIMPL sceKernelSetAlarm");
-  RETURN(-1);
+	SceSize size;
+	u64 schedule;
+	u32 handlerPtr;
+	u32 commonPtr;
+};
+
+struct Alarm : public KernelObject
+{
+	const char *GetName() {return "[Alarm]";}
+	const char *GetTypeName() {return "Alarm";}
+	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_ALMID; }
+	int GetIDType() const { return SCE_KERNEL_TMID_Alarm; }
+	NativeAlarm alm;
+};
+
+bool alarmInitComplete = false;
+int alarmTimer = 0;
+
+void __KernelTriggerAlarm(u64 userdata, int cyclesLate);
+
+void __KernelAlarmInit()
+{
+	alarmTimer = CoreTiming::RegisterEvent("Alarm", __KernelTriggerAlarm);
+
+	alarmInitComplete = true;
 }
 
-void sceKernelSetSysClockAlarm()
+void __KernelTriggerAlarm(u64 userdata, int cyclesLate)
 {
-  ERROR_LOG(HLE,"UNIMPL sceKernelSetSysClockAlarm");
-  RETURN(-1);
+	int uid = (int) userdata;
+
+	u32 error;
+	Alarm *alarm = kernelObjects.Get<Alarm>(uid, error);
+
+	// TODO: Need to find out the return value.
+	if (alarm)
+		__TriggerInterruptWithArg(PSP_SYSTIMER0_INTR, uid, alarm->alm.commonPtr);
 }
 
-void sceKernelCancelAlarm()
+SceUID __KernelSetAlarm(u64 ticks, u32 handlerPtr, u32 commonPtr)
 {
-  ERROR_LOG(HLE,"UNIMPL sceKernelCancelAlarm");
-  RETURN(-1);
+	if (!alarmInitComplete)
+		__KernelAlarmInit();
+
+	Alarm *alarm = new Alarm;
+	SceUID uid = kernelObjects.Create(alarm);
+
+	alarm->alm.size = sizeof(NativeAlarm);
+	alarm->alm.schedule = CoreTiming::GetTicks() + ticks;
+	alarm->alm.handlerPtr = handlerPtr;
+	alarm->alm.commonPtr = commonPtr;
+
+	sceKernelRegisterSubIntrHandler(PSP_SYSTIMER0_INTR, uid, handlerPtr, commonPtr);
+	sceKernelEnableSubIntr(PSP_SYSTIMER0_INTR, uid);
+	CoreTiming::ScheduleEvent(ticks, alarmTimer, uid);
+
+	return uid;
 }
 
-void sceKernelReferAlarmStatus()
+SceUID sceKernelSetAlarm(SceUInt micro, u32 handlerPtr, u32 commonPtr)
 {
-  ERROR_LOG(HLE,"UNIMPL sceKernelReferAlarmStatus");
-  RETURN(-1);
+	ERROR_LOG(HLE, "HACK sceKernelSetAlarm(%d, %08x, %08x)", micro, handlerPtr, commonPtr);
+	return __KernelSetAlarm(usToCycles((int) micro), handlerPtr, commonPtr);
+}
+
+SceUID sceKernelSetSysClockAlarm(u32 ticksPtr, u32 handlerPtr, u32 commonPtr)
+{
+	u64 ticks;
+
+	if (Memory::IsValidAddress(ticksPtr))
+		ticks = Memory::Read_U64(ticksPtr);
+	// TODO: What to do when invalid?
+	else
+		return -1;
+
+	ERROR_LOG(HLE, "UNIMPL sceKernelSetSysClockAlarm(%lld, %08x, %08x)", ticks, handlerPtr, commonPtr);
+	// TODO: Is this precise or is this relative?
+	return __KernelSetAlarm(ticks, handlerPtr, commonPtr);
+}
+
+int sceKernelCancelAlarm(SceUID uid)
+{
+	DEBUG_LOG(HLE, "sceKernelCancelAlarm(%08x)", uid);
+
+	CoreTiming::UnscheduleEvent(alarmTimer, uid);
+	sceKernelReleaseSubIntrHandler(PSP_SYSTIMER0_INTR, uid);
+
+	return kernelObjects.Destroy<Alarm>(uid);
+}
+
+int sceKernelReferAlarmStatus(SceUID uid, u32 infoPtr)
+{
+	ERROR_LOG(HLE, "UNIMPL sceKernelReferAlarmStatus(%08x, %08x)", uid, infoPtr);
+	return -1;
 }
