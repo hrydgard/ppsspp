@@ -20,6 +20,7 @@
 #include "image/png_load.h"
 #include "../HLE/sceKernelMemory.h"
 #include "../ELF/ParamSFO.h"
+#include "Core/HW/MemoryStick.h"
 
 std::string icon0Name = "ICON0.PNG";
 std::string icon1Name = "ICON1.PMF";
@@ -28,6 +29,15 @@ std::string snd0Name = "SND0.AT3";
 std::string sfoName = "PARAM.SFO";
 
 std::string savePath = "ms0:/PSP/SAVEDATA/";
+
+namespace
+{
+	int getSizeNormalized(int size)
+	{
+		int sizeCluster = MemoryStick_SectorSize();
+		return ((size + sizeCluster - 1) / sizeCluster) * sizeCluster;
+	}
+}
 
 SavedataParam::SavedataParam()
 	: pspParam(0)
@@ -254,6 +264,26 @@ bool SavedataParam::Load(SceUtilitySavedataParam* param, int saveId)
 	return true;
 }
 
+std::string SavedataParam::GetSpaceText(int size)
+{
+	if(size < 1024)
+		return size + " B";
+
+	size /= 1024;
+
+	if(size < 1024)
+		return size + " KB";
+
+	size /= 1024;
+
+	if(size < 1024)
+		return size + " MB";
+
+	return size + " GB";
+}
+
+// From my test, PSP only answer with data for save of size 1500 (sdk < 2)
+// Perhaps remplaced with mode 22 id SDK >= 2
 bool SavedataParam::GetSizes(SceUtilitySavedataParam* param)
 {
 	if (!param) {
@@ -262,26 +292,55 @@ bool SavedataParam::GetSizes(SceUtilitySavedataParam* param)
 
 	if(Memory::IsValidAddress(param->msFree))
 	{
-		Memory::Write_U32(32768,param->msFree);
-		Memory::Write_U32(32768,param->msFree+4);
-		Memory::Write_U32(1048576,param->msFree+8);
-		Memory::Write_U8(0,param->msFree+12);
+		Memory::Write_U32((u32)MemoryStick_SectorSize(),param->msFree); // cluster Size
+		Memory::Write_U32((u32)(MemoryStick_FreeSpace() / MemoryStick_SectorSize()),param->msFree+4);	// Free cluster
+		Memory::Write_U32((u32)(MemoryStick_FreeSpace() / 0x400),param->msFree+8); // Free space (in KB)
+		std::string spaceTxt = SavedataParam::GetSpaceText(MemoryStick_FreeSpace());
+		Memory::Memset(param->msFree+12,0,spaceTxt.size()+1);
+		Memory::Memcpy(param->msFree+12,spaceTxt.c_str(),spaceTxt.size()); // Text representing free space
 	}
 	if(Memory::IsValidAddress(param->msData))
 	{
-		Memory::Write_U32(0,param->msData+36);
-		Memory::Write_U32(0,param->msData+40);
-		Memory::Write_U8(0,param->msData+44);
-		Memory::Write_U32(0,param->msData+52);
-		Memory::Write_U8(0,param->msData+56);
+		std::string path = GetSaveFilePath(param,0);
+		PSPFileInfo finfo = pspFileSystem.GetFileInfo(path);
+		if(finfo.exists)
+		{
+			// TODO : fill correctly
+			Memory::Write_U32(1,param->msData+36);	//1
+			Memory::Write_U32(0x20,param->msData+40);	// 0x20
+			Memory::Write_U8(0,param->msData+44);	// "32 KB" // 8 u8
+			Memory::Write_U32(0x20,param->msData+52);	//  0x20
+			Memory::Write_U8(0,param->msData+56);	// "32 KB" // 8 u8
+		}
+		else
+		{
+			Memory::Write_U32(1,param->msData+36);
+			Memory::Write_U32(0x20,param->msData+40);
+			Memory::Write_U8(0,param->msData+44);
+			Memory::Write_U32(0x20,param->msData+52);
+			Memory::Write_U8(0,param->msData+56);
+			//return false;
+		}
 	}
-	if(Memory::IsValidAddress(param->utilityData))
+	if(Memory::IsValidAddress(param->utilityData)) // Calc space required for save
 	{
-		Memory::Write_U32(13,param->utilityData);
-		Memory::Write_U32(416,param->utilityData+4);
-		Memory::Write_U8(0,param->utilityData+8);
-		Memory::Write_U32(416,param->utilityData+16);
-		Memory::Write_U8(0,param->utilityData+20);
+		int total_size = 0;
+		total_size += getSizeNormalized(1); // SFO;
+		total_size += getSizeNormalized(param->dataSize); // Save Data
+		total_size += getSizeNormalized(param->icon0FileData.size);
+		total_size += getSizeNormalized(param->icon1FileData.size);
+		total_size += getSizeNormalized(param->pic1FileData.size);
+		total_size += getSizeNormalized(param->snd0FileData.size);
+
+		Memory::Write_U32(total_size / MemoryStick_SectorSize(),param->utilityData);	// num cluster
+		Memory::Write_U32(total_size / 0x400,param->utilityData+4);	// save size in KB
+		std::string spaceTxt = SavedataParam::GetSpaceText(total_size);
+		Memory::Memset(param->utilityData+8,0,spaceTxt.size()+1);
+		Memory::Memcpy(param->utilityData+8,spaceTxt.c_str(),spaceTxt.size()); // save size in text
+		Memory::Write_U32(total_size / 0x400,param->utilityData+16);	// save size in KB
+		spaceTxt = SavedataParam::GetSpaceText(total_size);
+		Memory::Memset(param->utilityData+20,0,spaceTxt.size()+1);
+		Memory::Memcpy(param->utilityData+20,spaceTxt.c_str(),spaceTxt.size()); // save size in text
 	}
 	return true;
 
