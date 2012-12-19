@@ -41,8 +41,8 @@ void __UtilityInit()
 
 int sceUtilitySavedataInitStart(u32 paramAddr)
 {
-	saveDialog.Init(paramAddr);
-	return 0;
+	DEBUG_LOG(HLE,"sceUtilitySavedataInitStart(%08x)", paramAddr);
+	return (u32)saveDialog.Init(paramAddr);
 }
 
 int sceUtilitySavedataShutdownStart()
