@@ -42,7 +42,7 @@ symbian: {
 	assets.sources = ../android/assets/ui_atlas.zim ../android/assets/ppge_atlas.zim
 	assets.path = E:/PPSSPP
 	DEPLOYMENT += my_deployment assets
-        ICON = ../assets/icon.svg
+	ICON = ../assets/icon.svg
 # 268MB maximum
 	TARGET.EPOCHEAPSIZE = 0x40000 0x10000000
 	TARGET.EPOCSTACKSIZE = 0x10000

@@ -189,6 +189,6 @@ QMAKE_CXXFLAGS += -std=c++0x -Wno-unused-function -Wno-unused-variable -Wno-mult
 DEFINES += ARM USING_GLES2
 blackberry: DEFINES += BLACKBERRY BLACKBERRY10
 symbian: {
-		QMAKE_CXXFLAGS += -march=armv6 -mfpu=vfp -mfloat-abi=softfp -marm -Wno-parentheses -Wno-comment
-		DEFINES += SYMBIAN
+	QMAKE_CXXFLAGS += -march=armv6 -mfpu=vfp -mfloat-abi=softfp -marm -Wno-parentheses -Wno-comment
+	DEFINES += SYMBIAN
 }
