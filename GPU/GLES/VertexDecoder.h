@@ -92,12 +92,12 @@ public:
 	void SetVertexType(u32 vtype);
 
 	const DecVtxFormat &GetDecVtxFmt() { return decFmt; }
-	void DecodeVerts(DecodedVertex *decoded, const void *verts, const void *inds, int prim, int count, int *indexLowerBound, int *indexUpperBound) const;
+	void DecodeVerts(u8 *decoded, const void *verts, const void *inds, int prim, int count, int *indexLowerBound, int *indexUpperBound) const;
 	bool hasColor() const { return col != 0; }
 	int VertexSize() const { return size; }
 
 private:
-	u32 fmt;
+	u32 fmt_;
 	DecVtxFormat decFmt;
 
 	bool throughmode;
@@ -121,16 +121,17 @@ private:
 	int nweights;
 };
 
-
 // Reads decoded vertex formats in a convenient way. For software transform and debugging.
 class VertexReader
 {
 public:
-	VertexReader(u8 *data, const DecVtxFormat &decFmt) : data_(data), decFmt_(decFmt) {}
+	VertexReader(u8 *base, const DecVtxFormat &decFmt) : base_(base), data_(base), decFmt_(decFmt) {}
 
 	void ReadPos(float pos[3]) {
 		switch (decFmt_.posfmt) {
-		case DEC_FLOAT_3: memcpy(pos, data_ + decFmt_.posoff, 12); break;
+		case DEC_FLOAT_3:
+			memcpy(pos, data_ + decFmt_.posoff, 12);
+			break;
 		case DEC_S16_3:
 			{
 				s16 *p = (s16 *)(data_ + decFmt_.posoff);
@@ -149,8 +150,10 @@ public:
 	}
 
 	void ReadNrm(float nrm[3]) {
-		switch (decFmt_.nrmoff) {
-		case DEC_FLOAT_3: memcpy(nrm, data_ + decFmt_.nrmoff, 12); break;
+		switch (decFmt_.nrmfmt) {
+		case DEC_FLOAT_3:
+			memcpy(nrm, data_ + decFmt_.nrmoff, 12);
+			break;
 		case DEC_S16_3:
 			{
 				s16 *p = (s16 *)(data_ + decFmt_.nrmoff);
@@ -171,7 +174,7 @@ public:
 	void ReadUV(float uv[2]) {
 		switch (decFmt_.uvfmt) {
 		case DEC_FLOAT_2:
-			memcpy(uv, data_ + decFmt_.nrmoff, 8); break;
+			memcpy(uv, data_ + decFmt_.uvoff, 8); break;
 		}
 	}
 
@@ -218,11 +221,16 @@ public:
 		}
 	}
 
-	void Next() {
-		data_ += decFmt_.stride;
+	bool hasColor0() const { return decFmt_.c0fmt != 0; }
+	bool hasNormal() const { return decFmt_.nrmfmt != 0; }
+	bool hasUV() const { return decFmt_.uvfmt != 0; }
+
+	void Goto(int index) {
+		data_ = base_ + index * decFmt_.stride;
 	}
 
 private:
+	u8 *base_;
 	u8 *data_;
 	DecVtxFormat decFmt_;
 	int vtype_;

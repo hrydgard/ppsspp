@@ -42,7 +42,7 @@ GLuint glprim[8] =
 	GL_TRIANGLES,	 // With OpenGL ES we have to expand sprites into triangles, tripling the data instead of doubling. sigh. OpenGL ES, Y U NO SUPPORT GL_QUADS?
 };
 
-DecodedVertex decoded[65536];
+u8 decoded[65536 * 32];
 TransformedVertex transformed[65536];
 TransformedVertex transformedExpanded[65536];
 uint16_t indexBuffer[65536];	// Unused
@@ -270,8 +270,11 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 
 	Lighter lighter;
 
+	VertexReader reader(decoded, dec.GetDecVtxFmt());
 	for (int index = indexLowerBound; index <= indexUpperBound; index++)
 	{	
+		reader.Goto(index);
+
 		float v[3] = {0, 0, 0};
 		float c0[4] = {1, 1, 1, 1};
 		float c1[4] = {0, 0, 0, 0};
@@ -280,11 +283,10 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 		if (throughmode)
 		{
 			// Do not touch the coordinates or the colors. No lighting.
-			for (int j=0; j<3; j++)
-				v[j] = decoded[index].pos[j];
-			if(dec.hasColor()) {
-				for (int j=0; j<4; j++) {
-					c0[j] = decoded[index].color[j] / 255.0f;
+			reader.ReadPos(v);
+			if (reader.hasColor0()) {
+				reader.ReadColor0(c0);
+				for (int j = 0; j < 4; j++) {
 					c1[j] = 0.0f;
 				}
 			}
@@ -296,48 +298,69 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 				c0[3] = (gstate.materialalpha & 0xFF) / 255.f;
 			}
 
-			// TODO : check if has uv
-			for (int j=0; j<2; j++)
-				uv[j] = decoded[index].uv[j];
-			// Rescale UV?
+			if (reader.hasUV()) {
+				reader.ReadUV(uv);
+			}
+			// Scale UV?
 		}
 		else
 		{
 			// We do software T&L for now
 			float out[3], norm[3];
+			float pos[3], nrm[3];
+			reader.ReadPos(pos);
+			if (reader.hasNormal())
+				reader.ReadNrm(nrm);
+
 			if ((gstate.vertType & GE_VTYPE_WEIGHT_MASK) == GE_VTYPE_WEIGHT_NONE)
 			{
-				Vec3ByMatrix43(out, decoded[index].pos, gstate.worldMatrix);
-				Norm3ByMatrix43(norm, decoded[index].normal, gstate.worldMatrix);
+				Vec3ByMatrix43(out, pos, gstate.worldMatrix);
+				if (reader.hasNormal()) {
+					Norm3ByMatrix43(norm, nrm, gstate.worldMatrix);
+				} else {
+					memset(norm, 0, 12);
+				}
 			}
 			else
 			{
+				float weights[8];
+				reader.ReadPos(pos);
+				if (reader.hasNormal()) {
+					reader.ReadNrm(nrm);
+				} else {
+					memset(nrm, 0, 12);
+				}
+				reader.ReadWeights(weights);
 				// Skinning
 				Vec3 psum(0,0,0);
 				Vec3 nsum(0,0,0);
 				int nweights = ((gstate.vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT) + 1;
 				for (int i = 0; i < nweights; i++)
 				{
-					if (decoded[index].weights[i] != 0.0f) {
-						Vec3ByMatrix43(out, decoded[index].pos, gstate.boneMatrix+i*12);
-						Norm3ByMatrix43(norm, decoded[index].normal, gstate.boneMatrix+i*12);
-						Vec3 tpos(out), tnorm(norm);
-						psum += tpos*decoded[index].weights[i];
-						nsum += tnorm*decoded[index].weights[i];
+					if (weights[i] != 0.0f) {
+						Vec3ByMatrix43(out, pos, gstate.boneMatrix+i*12);
+						Vec3 tpos(out);
+						psum += tpos * weights[i];
+						if (reader.hasNormal()) {
+							Norm3ByMatrix43(norm, nrm, gstate.boneMatrix+i*12);
+							Vec3 tnorm(norm);
+							nsum += tnorm * weights[i];
+						}
 					}
 				}
-
-				nsum.Normalize();
-
+				
 				Vec3ByMatrix43(out, psum.v, gstate.worldMatrix);
-				Norm3ByMatrix43(norm, nsum.v, gstate.worldMatrix);
+				if (reader.hasNormal()) {
+					nsum.Normalize();
+					Norm3ByMatrix43(norm, nsum.v, gstate.worldMatrix);
+				}
 			}
 
 			// Perform lighting here if enabled. don't need to check through, it's checked above.
 			float dots[4] = {0,0,0,0};
-			float unlitColor[4];
-			for (int j = 0; j < 4; j++) {
-				unlitColor[j] = decoded[index].color[j] / 255.0f;
+			float unlitColor[4] = {1, 1, 1, 1};
+			if (reader.hasColor0()) {
+				reader.ReadColor0(unlitColor);
 			}
 			float litColor0[4];
 			float litColor1[4];
@@ -378,14 +401,16 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 			if (customUV) {
 				uv[0] = customUV[index * 2 + 0]*gstate_c.uScale + gstate_c.uOff;
 				uv[1] = customUV[index * 2 + 1]*gstate_c.vScale + gstate_c.vOff;
-			} else {
+			} else if (reader.hasUV()) {
+				float ruv[2];
+				reader.ReadUV(ruv);
 				// Perform texture coordinate generation after the transform and lighting - one style of UV depends on lights.
 				switch (gstate.texmapmode & 0x3)
 				{
 				case 0:	// UV mapping
 					// Texture scale/offset is only performed in this mode.
-					uv[0] = decoded[index].uv[0]*gstate_c.uScale + gstate_c.uOff;
-					uv[1] = decoded[index].uv[1]*gstate_c.vScale + gstate_c.vOff;
+					uv[0] = ruv[0]*gstate_c.uScale + gstate_c.uOff;
+					uv[1] = ruv[1]*gstate_c.vScale + gstate_c.vOff;
 					break;
 				case 1:
 					{
@@ -394,10 +419,10 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 						switch ((gstate.texmapmode >> 8) & 0x3)
 						{
 						case 0: // Use model space XYZ as source
-							source = decoded[index].pos;
+							source = pos;
 							break;
 						case 1: // Use unscaled UV as source
-							source = Vec3(decoded[index].uv[0], decoded[index].uv[1], 0.0f);
+							source = Vec3(ruv[0], ruv[1], 0.0f);
 							break;
 						case 2: // Use normalized normal as source
 							source = Vec3(norm).Normalized();
@@ -406,6 +431,7 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 							source = Vec3(norm);
 							break;
 						}
+
 						float uvw[3];
 						Vec3ByMatrix43(uvw, &source.x, gstate.tgenMatrix);
 						uv[0] = uvw[0];
@@ -433,6 +459,8 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 			// will be moved to hardware transform anyway.
 			Vec3ByMatrix43(v, out, gstate.viewMatrix);
 		}
+
+		// TODO: Write to a flexible buffer.
 		memcpy(&transformed[index].x, v, 3 * sizeof(float));
 		memcpy(&transformed[index].uv, uv, 2 * sizeof(float));
 		memcpy(&transformed[index].color0, c0, 4 * sizeof(float));

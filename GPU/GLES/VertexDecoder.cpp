@@ -85,7 +85,7 @@ DecVtxFormat GetTransformedVtxFormat(const DecVtxFormat &fmt) {
 }
 
 void VertexDecoder::SetVertexType(u32 fmt) {
-	fmt = fmt;
+	fmt_ = fmt;
 	throughmode = (fmt & GE_VTYPE_THROUGH) != 0;
 
 	int biggest = 0;
@@ -165,6 +165,8 @@ void VertexDecoder::SetVertexType(u32 fmt) {
 		case GE_VTYPE_NRM_16BIT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_S16_3; break;
 		case GE_VTYPE_NRM_FLOAT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_FLOAT_3; break;
 		}
+		// Actually, temporarily let's not.
+		decFmt.nrmfmt = DEC_FLOAT_3;
 		decFmt.nrmoff = decOff;
 		decOff += DecFmtSize(decFmt.nrmfmt);
 	}
@@ -186,10 +188,13 @@ void VertexDecoder::SetVertexType(u32 fmt) {
 			case GE_VTYPE_POS_16BIT >> GE_VTYPE_POS_SHIFT: decFmt.posfmt = DEC_S16_3; break;
 			case GE_VTYPE_POS_FLOAT >> GE_VTYPE_POS_SHIFT: decFmt.posfmt = DEC_FLOAT_3; break;
 			}
+			// Actually, temporarily let's not.
+			decFmt.posfmt = DEC_FLOAT_3;
 		}
 		decFmt.posoff = decOff;
 		decOff += DecFmtSize(decFmt.posfmt);
 	}
+	decFmt.stride = decOff;
 
 	size = align(size, biggest);
 	onesize_ = size;
@@ -197,13 +202,11 @@ void VertexDecoder::SetVertexType(u32 fmt) {
 	DEBUG_LOG(G3D,"SVT : size = %i, aligned to biggest %i", size, biggest);
 }
 
-void VertexDecoder::DecodeVerts(DecodedVertex *decoded, const void *verts, const void *inds, int prim, int count, int *indexLowerBound, int *indexUpperBound) const
+void VertexDecoder::DecodeVerts(u8 *decoded, const void *verts, const void *inds, int prim, int count, int *indexLowerBound, int *indexUpperBound) const
 {
 	// TODO: Remove
 	if (morphcount == 1)
 		gstate_c.morphWeights[0] = 1.0f;
-
-	char *ptr = (char *)verts;
 
 	// Find index bounds. Could cache this in display lists.
 	int lowerBound = 0x7FFFFFFF;
@@ -234,10 +237,10 @@ void VertexDecoder::DecodeVerts(DecodedVertex *decoded, const void *verts, const
 	// Decode the vertices within the found bounds, once each (unlike the previous way..)
 	for (int index = lowerBound; index <= upperBound; index++)
 	{
-		ptr = (char*)verts + (index * size);
+		u8 *ptr = (u8*)verts + (index * size);
 
 		// TODO: Should weights be morphed?
-		float *wt = decoded[index].weights;
+		float *wt = (float *)decoded;
 		switch (weighttype)
 		{
 		case GE_VTYPE_WEIGHT_NONE >> 9:
@@ -267,26 +270,28 @@ void VertexDecoder::DecodeVerts(DecodedVertex *decoded, const void *verts, const
 			}
 			break;
 		}
+		if (weighttype)
+			decoded += nweights * sizeof(float);
 
 		// TODO: Not morphing UV yet
-		float *uv = decoded[index].uv;
 		switch (tc)
 		{
 		case GE_VTYPE_TC_NONE:
-			uv[0] = 0.0f;
-			uv[1] = 0.0f;
 			break;
 
 		case GE_VTYPE_TC_8BIT:
 			{
+				float *uv = (float *)decoded;
 				const u8 *uvdata = (const u8*)(ptr + tcoff);
 				for (int j = 0; j < 2; j++)
 					uv[j] = (float)uvdata[j] / 128.0f;
+				decoded += 2 * sizeof(float);
 				break;
 			}
 
 		case GE_VTYPE_TC_16BIT:
 			{
+				float *uv = (float *)decoded;
 				const u16 *uvdata = (const u16*)(ptr + tcoff);
 				if (throughmode)
 				{
@@ -298,11 +303,13 @@ void VertexDecoder::DecodeVerts(DecodedVertex *decoded, const void *verts, const
 					uv[0] = (float)uvdata[0] / 32768.0f;
 					uv[1] = (float)uvdata[1] / 32768.0f;
 				}
+				decoded += 2 * sizeof(float);
 			}
 			break;
 
 		case GE_VTYPE_TC_FLOAT:
 			{
+				float *uv = (float *)decoded;
 				const float *uvdata = (const float*)(ptr + tcoff);
 				if (throughmode) {
 					uv[0] = uvdata[0] / (float)(gstate_c.curTextureWidth);
@@ -311,97 +318,103 @@ void VertexDecoder::DecodeVerts(DecodedVertex *decoded, const void *verts, const
 					uv[0] = uvdata[0];
 					uv[1] = uvdata[1];
 				}
+				decoded += 2 * sizeof(float);
 			}
 			break;
 		}
 
 		// TODO: Not morphing color yet
-		u8 *c = decoded[index].color;
 		switch (col)
 		{
 		case GE_VTYPE_COL_4444 >> 2:
 			{
+				u8 *c = decoded;
 				u16 cdata = *(u16*)(ptr + coloff);
 				for (int j = 0; j < 4; j++)
 					c[j] = Convert4To8((cdata >> (j * 4)) & 0xF);
+				decoded += 4;
 			}
 			break;
 
 		case GE_VTYPE_COL_565 >> 2:
 			{
+				u8 *c = decoded;
 				u16 cdata = *(u16*)(ptr + coloff);
 				c[0] = Convert5To8(cdata & 0x1f);
 				c[1] = Convert6To8((cdata>>5) & 0x3f);
 				c[2] = Convert5To8((cdata>>11) & 0x1f);
 				c[3] = 1.0f;
+				decoded += 4;
 			}
 			break;
 
 		case GE_VTYPE_COL_5551 >> 2:
 			{
+				u8 *c = decoded;
 				u16 cdata = *(u16*)(ptr + coloff);
 				c[0] = Convert5To8(cdata & 0x1f);
 				c[1] = Convert5To8((cdata>>5) & 0x1f);
 				c[2] = Convert5To8((cdata>>10) & 0x1f);
 				c[3] = (cdata>>15) ? 255 : 0;
+				decoded += 4;
 			}
 			break;
 
 		case GE_VTYPE_COL_8888 >> 2:
 			{
+				u8 *c = decoded;
 				// TODO: speedup
 				u8 *cdata = (u8*)(ptr + coloff);
 				for (int j = 0; j < 4; j++)
 					c[j] = cdata[j];
+				decoded += 4;
 			}
 			break;
 
 		default:
-			c[0] = 255;
-			c[1] = 255;
-			c[2] = 255;
-			c[3] = 255;
 			break;
 		}
 
-		float *normal = decoded[index].normal;
-		memset(normal, 0, sizeof(float)*3);
-		for (int n = 0; n < morphcount; n++)
-		{
-			float multiplier = gstate_c.morphWeights[n];
-			if (gstate.reversenormals & 0xFFFFFF) {
-				multiplier = -multiplier;
-			}
-			switch (nrm)
+		float *normal = (float *)decoded;
+		if (nrm) {
+			memset(normal, 0, sizeof(float)*3);
+			for (int n = 0; n < morphcount; n++)
 			{
-			case GE_VTYPE_NRM_8BIT:
-				{
-					const s8 *sv = (const s8*)(ptr + onesize_*n + nrmoff);
-					for (int j = 0; j < 3; j++)
-						normal[j] += (sv[j]/127.0f) * multiplier;
+				float multiplier = gstate_c.morphWeights[n];
+				if (gstate.reversenormals & 0xFFFFFF) {
+					multiplier = -multiplier;
 				}
-				break;
+				switch (nrm)
+				{
+				case GE_VTYPE_NRM_8BIT:
+					{
+						const s8 *sv = (const s8*)(ptr + onesize_*n + nrmoff);
+						for (int j = 0; j < 3; j++)
+							normal[j] += (sv[j]/127.0f) * multiplier;
+					}
+					break;
 
-			case GE_VTYPE_NRM_FLOAT >> 5:
-				{
-					const float *fv = (const float*)(ptr + onesize_*n + nrmoff);
-					for (int j = 0; j < 3; j++)
-						normal[j] += fv[j] * multiplier;
-				}
-				break;
+				case GE_VTYPE_NRM_FLOAT >> 5:
+					{
+						const float *fv = (const float*)(ptr + onesize_*n + nrmoff);
+						for (int j = 0; j < 3; j++)
+							normal[j] += fv[j] * multiplier;
+					}
+					break;
 
-			case GE_VTYPE_NRM_16BIT >> 5:
-				{
-					const short *sv = (const short*)(ptr + onesize_*n + nrmoff);
-					for (int j = 0; j < 3; j++)
-						normal[j] += (sv[j]/32767.0f) * multiplier;
+				case GE_VTYPE_NRM_16BIT >> 5:
+					{
+						const short *sv = (const short*)(ptr + onesize_*n + nrmoff);
+						for (int j = 0; j < 3; j++)
+							normal[j] += (sv[j]/32767.0f) * multiplier;
+					}
+					break;
 				}
-				break;
 			}
+			decoded += 12;
 		}
 
-		float *v = decoded[index].pos;
-
+		float *v = (float *)decoded;
 		if (morphcount == 1) {
 			switch (pos)
 			{
@@ -475,6 +488,7 @@ void VertexDecoder::DecodeVerts(DecodedVertex *decoded, const void *verts, const
 				}
 			}
 		}
+		decoded += 12;
 	}
 }
 
