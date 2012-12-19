@@ -50,16 +50,6 @@ struct DecVtxFormat {
 	short stride;
 };
 
-// This is going away soon enough.
-struct DecodedVertex
-{
-	float pos[3];     // in case of morph, preblend during decode
-	float normal[3];  // in case of morph, preblend during decode
-	float uv[2];      // scaled by uscale, vscale, if there
-	u8 color[4];   // unlit
-	float weights[8];  // ugh, expensive
-};
-
 // This struct too.
 struct TransformedVertex
 {
@@ -192,12 +182,12 @@ public:
 		}
 	}
 
-	void ReadColor1(float color[4]) {
+	void ReadColor1(float color[3]) {
 		switch (decFmt_.c1fmt) {
 		case DEC_U8_4:
 			{
 				u8 *p = (u8 *)(data_ + decFmt_.c1off);
-				for (int i = 0; i < 4; i++)
+				for (int i = 0; i < 3; i++)
 					color[i] = p[i] / 255.0f;
 			}
 			break;
@@ -237,6 +227,6 @@ private:
 };
 
 // Debugging utilities
-void PrintDecodedVertex(const DecodedVertex &vtx, u32 vtype);
+void PrintDecodedVertex(VertexReader &vtx);
 
 

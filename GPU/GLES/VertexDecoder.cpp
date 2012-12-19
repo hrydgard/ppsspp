@@ -22,12 +22,32 @@
 
 #include "VertexDecoder.h"
 
-void PrintDecodedVertex(const DecodedVertex &vtx, u32 vtype) {
-	if (vtype & GE_VTYPE_NRM_MASK) printf("N: %f %f %f\n", vtx.normal[0], vtx.normal[1], vtx.normal[2]);
-	if (vtype & GE_VTYPE_TC_MASK) printf("TC: %f %f\n", vtx.uv[0], vtx.uv[1]);
-	if (vtype & GE_VTYPE_COL_MASK) printf("C: %02x %02x %02x %02x\n", vtx.color[0], vtx.color[1], vtx.color[2], vtx.color[3]);
-	if (vtype & GE_VTYPE_WEIGHT_MASK) printf("W: TODO\n");
-	printf("P: %f %f %f\n", vtx.pos[0], vtx.pos[1], vtx.pos[2]);
+void PrintDecodedVertex(VertexReader &vtx) {
+	if (vtx.hasNormal())
+	{
+		float nrm[3];
+		vtx.ReadNrm(nrm);
+		printf("N: %f %f %f\n", nrm[0], nrm[1], nrm[2]);
+	}
+	if (vtx.hasUV()) {
+		float uv[2];
+		vtx.ReadUV(uv);
+		printf("TC: %f %f\n", uv[0], uv[1]);
+	}
+	if (vtx.hasColor0()) {
+		float col0[4];
+		vtx.ReadColor0(col0);
+		printf("C0: %f %f %f %f\n", col0[0], col0[1], col0[2], col0[3]);
+	}
+	if (vtx.hasColor0()) {
+		float col1[3];
+		vtx.ReadColor1(col1);
+		printf("C1: %f %f %f\n", col1[0], col1[1], col1[2]);
+	}
+	// Etc..
+	float pos[3];
+	vtx.ReadPos(pos);
+	printf("P: %f %f %f\n", pos[0], pos[1], pos[2]);
 }
 
 const int tcsize[4] = {0,2,4,8}, tcalign[4] = {0,1,2,4};
