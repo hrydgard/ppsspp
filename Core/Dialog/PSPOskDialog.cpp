@@ -172,6 +172,11 @@ void PSPOskDialog::HackyGetStringWide(std::string& _string, const u32 em_address
 
 int PSPOskDialog::Init(u32 oskPtr)
 {
+	// Ignore if already running
+	if (status != SCE_UTILITY_STATUS_NONE && status != SCE_UTILITY_STATUS_SHUTDOWN)
+	{
+		return -1;
+	}
 	status = SCE_UTILITY_STATUS_INITIALIZE;
 
 	memset(&oskParams, 0, sizeof(oskParams));

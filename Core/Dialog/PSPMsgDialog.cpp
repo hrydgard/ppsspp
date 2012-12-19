@@ -31,6 +31,12 @@ PSPMsgDialog::~PSPMsgDialog() {
 
 void PSPMsgDialog::Init(unsigned int paramAddr)
 {
+	// Ignore if already running
+	if (status != SCE_UTILITY_STATUS_NONE && status != SCE_UTILITY_STATUS_SHUTDOWN)
+	{
+		return;
+	}
+
 	messageDialogAddr = paramAddr;
 	if (!Memory::IsValidAddress(messageDialogAddr))
 	{
