@@ -35,8 +35,8 @@ struct Interrupt
 
 // Yeah, this bit is a bit silly.
 static int interruptsEnabled = 1;
-
 static bool inInterrupt;
+
 
 void __InterruptsInit()
 {
@@ -127,74 +127,19 @@ bool __CanExecuteInterrupt()
 	return !inInterrupt;
 }
 
-class AllegrexInterruptHandler;
-
-struct PendingInterrupt {
-	AllegrexInterruptHandler *handler;
-	int arg;
-	bool hasArg;
-};
-
-
-class AllegrexInterruptHandler
-{
-public:
-	virtual ~AllegrexInterruptHandler() {}
-	virtual void copyArgsToCPU(const PendingInterrupt &pend) = 0;
-	virtual void queueUp() = 0;
-	virtual void queueUpWithArg(int arg) = 0;
-};
-
-std::list<PendingInterrupt> pendingInterrupts;
-
-class SubIntrHandler : public AllegrexInterruptHandler
-{
-public:
-	SubIntrHandler() {}
-	virtual void queueUp()
-	{
-		if (!enabled)
-			return;
-		PendingInterrupt pend;
-		pend.handler = this;
-		pend.hasArg = false;
-		pendingInterrupts.push_back(pend);
-	}
-	virtual void queueUpWithArg(int arg)
-	{
-		if (!enabled)
-			return;
-		PendingInterrupt pend;
-		pend.handler = this;
-		pend.arg = arg;
-		pend.hasArg = true;
-		pendingInterrupts.push_back(pend);
-	}
-
-	virtual void copyArgsToCPU(const PendingInterrupt &pend)
-	{
-		DEBUG_LOG(CPU, "Entering interrupt handler %08x", handlerAddress);
-		currentMIPS->pc = handlerAddress;
-		currentMIPS->r[MIPS_REG_A0] = pend.hasArg ? pend.arg : number;
-		currentMIPS->r[MIPS_REG_A1] = handlerArg;
-		// RA is already taken care of
-	}
-
-	bool enabled;
-	int number;
-	u32 handlerAddress;
-	u32 handlerArg;
-};
-
 class IntrHandler {
 public:
-	void add(int subIntrNum, SubIntrHandler handler)
+	void add(int subIntrNum, SubIntrHandler *handler)
 	{
 		subIntrHandlers[subIntrNum] = handler;
 	}
 	void remove(int subIntrNum)
 	{
-		subIntrHandlers.erase(subIntrNum);
+		if (has(subIntrNum))
+		{
+			delete subIntrHandlers[subIntrNum];
+			subIntrHandlers.erase(subIntrNum);
+		}
 	}
 	bool has(int subIntrNum) const
 	{
@@ -203,7 +148,7 @@ public:
 	SubIntrHandler *get(int subIntrNum)
 	{
 		if (has(subIntrNum))
-			return &subIntrHandlers[subIntrNum];
+			return subIntrHandlers[subIntrNum];
 		else
 			return 0;
 		// what to do, what to do...
@@ -213,10 +158,10 @@ public:
 	{
 		// Just call execute on all the subintr handlers for this interrupt.
 		// They will get queued up.
-		for (std::map<int, SubIntrHandler>::iterator iter = subIntrHandlers.begin(); iter != subIntrHandlers.end(); ++iter)
+		for (std::map<int, SubIntrHandler *>::iterator iter = subIntrHandlers.begin(); iter != subIntrHandlers.end(); ++iter)
 		{
 			if (subintr == -1 || iter->first == subintr)
-				iter->second.queueUp();
+				iter->second->queueUp();
 		}
 	}
 
@@ -224,17 +169,16 @@ public:
 	{
 		// Just call execute on all the subintr handlers for this interrupt.
 		// They will get queued up.
-		for (std::map<int, SubIntrHandler>::iterator iter = subIntrHandlers.begin(); iter != subIntrHandlers.end(); ++iter)
+		for (std::map<int, SubIntrHandler *>::iterator iter = subIntrHandlers.begin(); iter != subIntrHandlers.end(); ++iter)
 		{
 			if (subintr == -1 || iter->first == subintr)
-				iter->second.queueUpWithArg(arg);
+				iter->second->queueUpWithArg(arg);
 		}
 	}
 
 private:
-	std::map<int, SubIntrHandler> subIntrHandlers;
+	std::map<int, SubIntrHandler *> subIntrHandlers;
 };
-
 
 class InterruptState
 {
@@ -261,10 +205,42 @@ public:
 
 InterruptState intState;
 IntrHandler intrHandlers[PSP_NUMBER_INTERRUPTS];
+std::list<PendingInterrupt> pendingInterrupts;
+
 
 // http://forums.ps2dev.org/viewtopic.php?t=5687
 
 // http://www.google.se/url?sa=t&rct=j&q=&esrc=s&source=web&cd=7&ved=0CFYQFjAG&url=http%3A%2F%2Fdev.psnpt.com%2Fredmine%2Fprojects%2Fuofw%2Frepository%2Frevisions%2F65%2Fraw%2Ftrunk%2Finclude%2Finterruptman.h&ei=J4pCUKvyK4nl4QSu-YC4Cg&usg=AFQjCNFxJcgzQnv6dK7aiQlht_BM9grfQQ&sig2=GGk5QUEWI6qouYDoyE07YQ
+
+void SubIntrHandler::queueUp()
+{
+	if (!enabled)
+		return;
+	PendingInterrupt pend;
+	pend.handler = this;
+	pend.hasArg = false;
+	pendingInterrupts.push_back(pend);
+};
+
+void SubIntrHandler::queueUpWithArg(int arg)
+{
+	if (!enabled)
+		return;
+	PendingInterrupt pend;
+	pend.handler = this;
+	pend.arg = arg;
+	pend.hasArg = true;
+	pendingInterrupts.push_back(pend);
+}
+
+void SubIntrHandler::copyArgsToCPU(const PendingInterrupt &pend)
+{
+	DEBUG_LOG(CPU, "Entering interrupt handler %08x", handlerAddress);
+	currentMIPS->pc = handlerAddress;
+	currentMIPS->r[MIPS_REG_A0] = pend.hasArg ? pend.arg : number;
+	currentMIPS->r[MIPS_REG_A1] = handlerArg;
+	// RA is already taken care of
+}
 
 
 // Returns true if anything was executed.
@@ -331,6 +307,24 @@ void __KernelReturnFromInterrupt()
 	}
 }
 
+u32 __RegisterSubInterruptHandler(u32 intrNumber, u32 subIntrNumber, SubIntrHandler *subIntrHandler)
+{
+	subIntrHandler->number = subIntrNumber;
+	intrHandlers[intrNumber].add(subIntrNumber, subIntrHandler);
+	return 0;
+}
+
+u32 __ReleaseSubInterruptHandler(u32 intrNumber, u32 subIntrNumber)
+{
+	if (!intrHandlers[intrNumber].has(subIntrNumber))
+		return -1;
+
+	// TODO: should check if it's pending and remove it from pending list! (although that's probably unlikely)
+
+	intrHandlers[intrNumber].remove(subIntrNumber);
+	return 0;
+}
+
 u32 sceKernelRegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 handler, u32 handlerArg)
 {
 	DEBUG_LOG(HLE,"sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x)", intrNumber, subIntrNumber, handler, handlerArg);
@@ -338,29 +332,21 @@ u32 sceKernelRegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 handl
 	if (intrNumber >= PSP_NUMBER_INTERRUPTS)
 		return -1;
 
-	SubIntrHandler subIntrHandler;
-	subIntrHandler.number = subIntrNumber;
-	subIntrHandler.enabled = false;
-	subIntrHandler.handlerAddress = handler;
-	subIntrHandler.handlerArg = handlerArg;
-	intrHandlers[intrNumber].add(subIntrNumber, subIntrHandler);
-	return 0;
+	SubIntrHandler *subIntrHandler = new SubIntrHandler();
+	subIntrHandler->enabled = false;
+	subIntrHandler->handlerAddress = handler;
+	subIntrHandler->handlerArg = handlerArg;
+	return __RegisterSubInterruptHandler(intrNumber, subIntrNumber, subIntrHandler);
 }
 
 u32 sceKernelReleaseSubIntrHandler(u32 intrNumber, u32 subIntrNumber)
 {
 	DEBUG_LOG(HLE,"sceKernelReleaseSubIntrHandler(%i, %i)", PARAM(0), PARAM(1));
 
-	// TODO: should check if it's pending and remove it from pending list! (although that's probably unlikely)
-
 	if (intrNumber >= PSP_NUMBER_INTERRUPTS)
 		return -1;
 
-	if (!intrHandlers[intrNumber].has(subIntrNumber))
-		return -1;
-
-	intrHandlers[intrNumber].remove(subIntrNumber);
-	return 0;
+	return __ReleaseSubInterruptHandler(intrNumber, subIntrNumber);
 }
 
 u32 sceKernelEnableSubIntr(u32 intrNumber, u32 subIntrNumber)

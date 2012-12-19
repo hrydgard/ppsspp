@@ -54,6 +54,38 @@ enum PSPGeSubInterrupts {
   PSP_GE_SUBINTR_SIGNAL = 15
 };
 
+class AllegrexInterruptHandler;
+
+struct PendingInterrupt {
+	AllegrexInterruptHandler *handler;
+	int arg;
+	bool hasArg;
+};
+
+
+class AllegrexInterruptHandler
+{
+public:
+	virtual ~AllegrexInterruptHandler() {}
+	virtual void copyArgsToCPU(const PendingInterrupt &pend) = 0;
+	virtual void queueUp() = 0;
+	virtual void queueUpWithArg(int arg) = 0;
+};
+
+class SubIntrHandler : public AllegrexInterruptHandler
+{
+public:
+	SubIntrHandler() {}
+	virtual void queueUp();
+	virtual void queueUpWithArg(int arg);
+	virtual void copyArgsToCPU(const PendingInterrupt &pend);
+
+	bool enabled;
+	int number;
+	u32 handlerAddress;
+	u32 handlerArg;
+};
+
 bool __IsInInterrupt();
 void __InterruptsInit();
 void __InterruptsShutdown();
@@ -61,6 +93,9 @@ void __TriggerInterrupt(PSPInterrupt intno, int subInterrupts = -1);
 void __TriggerInterruptWithArg(PSPInterrupt intno, int subintr, int arg);  // For GE "callbacks"
 bool __RunOnePendingInterrupt();
 void __KernelReturnFromInterrupt();
+
+u32 __RegisterSubInterruptHandler(u32 intrNumber, u32 subIntrNumber, SubIntrHandler *subIntrHandler);
+u32 __ReleaseSubInterruptHandler(u32 intrNumber, u32 subIntrNumber);
 
 u32 sceKernelRegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 handler, u32 handlerArg);
 u32 sceKernelReleaseSubIntrHandler(u32 intrNumber, u32 subIntrNumber);
