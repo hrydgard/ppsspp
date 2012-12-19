@@ -492,8 +492,8 @@ MIPSInstruction tableVFPU1[8] =
 	INSTR("vmul",&Jit::Comp_Generic, Dis_VectorSet3, Int_VecDo3, IS_VFPU),
 	INSTR("vdot",&Jit::Comp_Generic, Dis_VectorDot, Int_VDot, IS_VFPU), 
 	INSTR("vscl",&Jit::Comp_Generic, Dis_VScl, Int_VScl, IS_VFPU),
-	INSTR("vhdp",&Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU), 
-	{-2}, 
+	{-2},
+	INSTR("vhdp",&Jit::Comp_Generic, Dis_Generic, Int_VHdp, IS_VFPU), 
 	INSTR("vcrs",&Jit::Comp_Generic, Dis_Vcrs, Int_Vcrs, IS_VFPU), 
 	INSTR("vdet",&Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU), 
 	{-2},
@@ -848,13 +848,10 @@ const MIPSInstruction *MIPSGetInstruction(u32 op)
 		instr = &table[subop];
 		if (encoding == Rese)
 			return 0; //invalid instruction
-//		if (encoding == Spe3)
-//			__asm int 3
 		if (!instr)
 			return 0;
 		if (instr->altEncoding == -2)
 		{
-			//BAD!!
 			//ERROR_LOG(CPU, "Invalid instruction %08x in table %i, entry %i", op, (int)encoding, subop);
 			return 0; //invalid instruction
 		}
@@ -924,7 +921,7 @@ void MIPSInterpret(u32 op) //only for those rare ones
 		instr->interpret(op);
 	else
   {
-    ERROR_LOG(CPU,"Unknown instruction %08x", op);
+    ERROR_LOG(CPU,"Unknown instruction %08x at %08x", op, currentMIPS->pc);
     // Try to disassemble it
     char disasm[256];
     MIPSDisAsm(op, currentMIPS->pc, disasm);

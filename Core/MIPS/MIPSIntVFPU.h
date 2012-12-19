@@ -39,6 +39,7 @@ namespace MIPSInt
 	void Int_VV2Op(u32 op);
 	void Int_Vrot(u32 op);
 	void Int_VDot(u32 op);
+	void Int_VHdp(u32 op);
 	void Int_Vavg(u32 op);
 	void Int_Vfad(u32 op);
 	void Int_Vocp(u32 op);
