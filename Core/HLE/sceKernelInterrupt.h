@@ -70,6 +70,7 @@ public:
 	virtual void copyArgsToCPU(const PendingInterrupt &pend) = 0;
 	virtual void queueUp() = 0;
 	virtual void queueUpWithArg(int arg) = 0;
+	virtual void handleResult(int result) = 0;
 };
 
 class SubIntrHandler : public AllegrexInterruptHandler
@@ -79,6 +80,7 @@ public:
 	virtual void queueUp();
 	virtual void queueUpWithArg(int arg);
 	virtual void copyArgsToCPU(const PendingInterrupt &pend);
+	virtual void handleResult(int result) {}
 
 	bool enabled;
 	int number;

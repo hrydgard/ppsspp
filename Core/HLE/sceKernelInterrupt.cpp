@@ -259,7 +259,6 @@ bool __RunOnePendingInterrupt()
 		__KernelSwitchOffThread("interrupt");
 
 		PendingInterrupt pend = pendingInterrupts.front();
-		pendingInterrupts.pop_front();
 		intState.save();
 		pend.handler->copyArgsToCPU(pend);
 
@@ -294,6 +293,12 @@ void __KernelReturnFromInterrupt()
 {
 	DEBUG_LOG(CPU, "Left interrupt handler at %08x", currentMIPS->pc);
 	inInterrupt = false;
+
+	// This is what we just ran.
+	PendingInterrupt pend = pendingInterrupts.front();
+	pendingInterrupts.pop_front();
+	pend.handler->handleResult(currentMIPS->r[MIPS_REG_V0]);
+
 	// Restore context after running the interrupt.
 	intState.restore();
 	// All should now be back to normal, including PC.
