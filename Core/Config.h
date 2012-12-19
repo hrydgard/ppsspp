@@ -43,6 +43,7 @@ public:
 	bool bIgnoreBadMemAccess;
 	bool bDisplayFramebuffer;
 	bool bBufferedRendering;
+	bool bDrawWireframe;
 
 	bool bShowTouchControls;
 	bool bShowDebuggerOnLoad;

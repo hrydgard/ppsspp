@@ -64,6 +64,10 @@ void CConfig::Load(const char *iniFileName)
 	IniFile::Section *control = iniFile.GetOrCreateSection("Control");
 	control->Get("ShowStick", &bShowAnalogStick, false);
 	control->Get("ShowTouchControls", &bShowTouchControls, true);
+
+
+	// Ephemeral settings
+	bDrawWireframe = false;
 }
 
 void CConfig::Save()

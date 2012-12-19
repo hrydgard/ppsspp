@@ -226,6 +226,16 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 		*bytesRead = vertexCount * dec.VertexSize();
 
 	bool throughmode = (gstate.vertType & GE_VTYPE_THROUGH_MASK) != 0;
+
+	/*
+	DEBUG_LOG(G3D, "View matrix:");
+	const float *m = &gstate.viewMatrix[0];
+	DEBUG_LOG(G3D, "%f %f %f", m[0], m[1], m[2]);
+	DEBUG_LOG(G3D, "%f %f %f", m[3], m[4], m[5]);
+	DEBUG_LOG(G3D, "%f %f %f", m[6], m[7], m[8]);
+	DEBUG_LOG(G3D, "%f %f %f", m[9], m[10], m[11]);
+	*/
+
 	// Then, transform and draw in one big swoop (urgh!)
 	// need to move this to the shader.
 
@@ -423,7 +433,6 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 		memcpy(&transformed[index].color1, c1, 4 * sizeof(float));
 	}
 
-
 	// Step 2: Expand using the index buffer, and expand rectangles.
 
 	const TransformedVertex *drawBuffer = transformed;
@@ -526,6 +535,35 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 		}
 	}
 
+	ApplyDrawState();
+	UpdateViewportAndProjection();
+	LinkedShader *program = shaderManager_->ApplyShader(prim);
+
+	// TODO: Make a cache for glEnableVertexAttribArray and glVertexAttribPtr states, these spam the gDebugger log.
+	glEnableVertexAttribArray(program->a_position);
+	if (useTexCoord && program->a_texcoord != -1) glEnableVertexAttribArray(program->a_texcoord);
+	if (program->a_color0 != -1) glEnableVertexAttribArray(program->a_color0);
+	if (program->a_color1 != -1) glEnableVertexAttribArray(program->a_color1);
+	const int vertexSize = sizeof(transformed[0]);
+	glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, vertexSize, drawBuffer);
+	if (useTexCoord && program->a_texcoord != -1) glVertexAttribPointer(program->a_texcoord, 2, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 3 * 4);
+	if (program->a_color0 != -1) glVertexAttribPointer(program->a_color0, 4, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 5 * 4);
+	if (program->a_color1 != -1) glVertexAttribPointer(program->a_color1, 4, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 9 * 4);
+	// NOTICE_LOG(G3D,"DrawPrimitive: %i", numTrans);
+	if (drawIndexed) {
+		glDrawElements(glprim[prim], numTrans, glIndexType, (GLvoid *)inds);
+	} else {
+		glDrawArrays(glprim[prim], 0, numTrans);
+	}
+	glDisableVertexAttribArray(program->a_position);
+	if (useTexCoord && program->a_texcoord != -1) glDisableVertexAttribArray(program->a_texcoord);
+	if (program->a_color0 != -1) glDisableVertexAttribArray(program->a_color0);
+	if (program->a_color1 != -1) glDisableVertexAttribArray(program->a_color1);
+}
+
+void GLES_GPU::ApplyDrawState()
+{
+
 	// TODO: All this setup is soon so expensive that we'll need dirty flags, or simply do it in the command writes where we detect dirty by xoring. Silly to do all this work on every drawcall.
 
 	// TODO: The top bit of the alpha channel should be written to the stencil bit somehow. This appears to require very expensive multipass rendering :( Alternatively, one could do a
@@ -620,30 +658,6 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 	float depthRangeMin = gstate_c.zOff - gstate_c.zScale;
 	float depthRangeMax = gstate_c.zOff + gstate_c.zScale;
 	glstate.depthRange.set(depthRangeMin, depthRangeMax);
-
-	UpdateViewportAndProjection();
-	LinkedShader *program = shaderManager_->ApplyShader(prim);
-
-	// TODO: Make a cache for glEnableVertexAttribArray and glVertexAttribPtr states, these spam the gDebugger log.
-	glEnableVertexAttribArray(program->a_position);
-	if (useTexCoord && program->a_texcoord != -1) glEnableVertexAttribArray(program->a_texcoord);
-	if (program->a_color0 != -1) glEnableVertexAttribArray(program->a_color0);
-	if (program->a_color1 != -1) glEnableVertexAttribArray(program->a_color1);
-	const int vertexSize = sizeof(transformed[0]);
-	glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, vertexSize, drawBuffer);
-	if (useTexCoord && program->a_texcoord != -1) glVertexAttribPointer(program->a_texcoord, 2, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 3 * 4);
-	if (program->a_color0 != -1) glVertexAttribPointer(program->a_color0, 4, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 5 * 4);
-	if (program->a_color1 != -1) glVertexAttribPointer(program->a_color1, 4, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 9 * 4);
-	// NOTICE_LOG(G3D,"DrawPrimitive: %i", numTrans);
-	if (drawIndexed) {
-		glDrawElements(glprim[prim], numTrans, glIndexType, (GLvoid *)inds);
-	} else {
-		glDrawArrays(glprim[prim], 0, numTrans);
-	}
-	glDisableVertexAttribArray(program->a_position);
-	if (useTexCoord && program->a_texcoord != -1) glDisableVertexAttribArray(program->a_texcoord);
-	if (program->a_color0 != -1) glDisableVertexAttribArray(program->a_color0);
-	if (program->a_color1 != -1) glDisableVertexAttribArray(program->a_color1);
 }
 
 void GLES_GPU::UpdateViewportAndProjection()

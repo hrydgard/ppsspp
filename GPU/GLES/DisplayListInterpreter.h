@@ -51,10 +51,16 @@ public:
 private:
 	// TransformPipeline.cpp
 	void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, float *customUV, int forceIndexType, int *bytesRead = 0);
+	void ApplyDrawState();
+	void Flush();
 	void UpdateViewportAndProjection();
 	void DrawBezier(int ucount, int vcount);
 	void DoBlockTransfer();
 	bool ProcessDLQueue();
+
+	// Applies states for debugging if enabled.
+	void BeginDebugDraw();
+	void EndDebugDraw();
 
 	FramebufferManager framebufferManager;
 

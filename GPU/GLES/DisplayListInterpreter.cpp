@@ -116,6 +116,8 @@ void GLES_GPU::CopyDisplayToOutput()
 	if (!g_Config.bBufferedRendering)
 		return;
 
+	EndDebugDraw();
+
 	VirtualFramebuffer *vfb = GetDisplayFBO();
 	fbo_unbind();
 
@@ -145,6 +147,8 @@ void GLES_GPU::CopyDisplayToOutput()
 	shaderManager.DirtyShader();
 	shaderManager.DirtyUniform(DIRTY_ALL);
 	gstate_c.textureChanged = true;
+
+	BeginDebugDraw();
 }
 
 GLES_GPU::VirtualFramebuffer *GLES_GPU::GetDisplayFBO()
@@ -221,6 +225,20 @@ void GLES_GPU::SetRenderFrameBuffer()
 	}
 }
 
+void GLES_GPU::BeginDebugDraw()
+{
+	if (g_Config.bDrawWireframe) {
+#ifndef USING_GLES2
+		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+#endif
+		// glClear(GL_COLOR_BUFFER_BIT);
+	}
+}
+void GLES_GPU::EndDebugDraw() {
+#ifndef USING_GLES2
+	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+#endif
+}
 
 // Render queue
 
@@ -695,6 +713,20 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 				DEBUG_LOG(G3D,"DL Empty Clut load");
 			}
 			// Should hash and invalidate all paletted textures on use
+		}
+		break;
+
+	case GE_CMD_TEXMAPMODE:
+		DEBUG_LOG(G3D,"Tex map mode: %06x", data);
+		break;
+
+	case GE_CMD_TEXSHADELS:
+		DEBUG_LOG(G3D,"Tex shade light sources: %06x", data);
+		break;
+
+	case GE_CMD_CLUTFORMAT:
+		{
+			DEBUG_LOG(G3D,"DL Clut format: %06x", data);
 		}
 		break;
 

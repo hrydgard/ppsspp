@@ -97,9 +97,20 @@ LinkedShader::~LinkedShader() {
 	glDeleteProgram(program);
 }
 
+// Utility
+static void SetColorUniform3(int uniform, u32 color)
+{
+	const float col[3] = { ((color & 0xFF0000) >> 16) / 255.0f, ((color & 0xFF00) >> 8) / 255.0f, ((color & 0xFF)) / 255.0f};
+	glUniform3fv(uniform, 1, col);
+}
+
 void LinkedShader::use() {
 	glUseProgram(program);
 	glUniform1i(u_tex, 0);
+
+	if (!dirtyUniforms)
+		return;
+
 	// Update any dirty uniforms before we draw
 	if (u_proj != -1 && (dirtyUniforms & DIRTY_PROJMATRIX)) {
 		glUniformMatrix4fv(u_proj, 1, GL_FALSE, gstate.projMatrix);
@@ -122,14 +133,13 @@ void LinkedShader::use() {
 		glUniformMatrix4fv(u_proj_through, 1, GL_FALSE, proj_through.getReadPtr());
 	}
 	if (u_texenv != -1 && (dirtyUniforms & DIRTY_TEXENV)) {
-		glUniform4f(u_texenv, 1.0, 1.0, 1.0, 1.0);	// TODO
+		SetColorUniform3(u_texenv, gstate.texenvcolor);
 	}
 	if (u_alpharef != -1 && (dirtyUniforms & DIRTY_ALPHAREF)) {
 		glUniform4f(u_alpharef, ((float)((gstate.alphatest >> 8) & 0xFF)) / 255.0f, 0.0f, 0.0f, 0.0f);
 	}
 	if (u_fogcolor != -1 && (dirtyUniforms & DIRTY_FOGCOLOR)) {
-		const float fogc[3] = { ((gstate.fogcolor & 0xFF0000) >> 16) / 255.0f, ((gstate.fogcolor & 0xFF00) >> 8) / 255.0f, ((gstate.fogcolor & 0xFF)) / 255.0f};
-		glUniform3fv(u_fogcolor, 1, fogc);
+		SetColorUniform3(u_fogcolor, gstate.fogcolor);
 	}
 	if (u_fogcoef != -1 && (dirtyUniforms & DIRTY_FOGCOEF)) {
 		const float fogcoef[2] = { getFloat24(gstate.fog1), getFloat24(gstate.fog2) };

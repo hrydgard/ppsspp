@@ -85,7 +85,7 @@ char *GenerateFragmentShader()
 		WRITE(p, "uniform vec3 u_fogcolor;\n");
 		WRITE(p, "uniform vec2 u_fogcoef;\n");
 	}
-	WRITE(p, "uniform vec4 u_texenv;\n");
+	WRITE(p, "uniform vec3 u_texenv;\n");
 	WRITE(p, "varying vec4 v_color0;\n");
 	if (lmode)
 		WRITE(p, "varying vec4 v_color1;\n");

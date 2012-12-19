@@ -483,6 +483,10 @@ namespace MainWindow
 					_ViewFullScreen(hWnd);
 				}
 				break;
+			case ID_OPTIONS_WIREFRAME:
+				g_Config.bDrawWireframe = !g_Config.bDrawWireframe;
+				UpdateMenus();
+				break;
 
 			case ID_OPTIONS_DISPLAYRAWFRAMEBUFFER:
 				g_Config.bDisplayFramebuffer = !g_Config.bDisplayFramebuffer;
@@ -627,6 +631,7 @@ namespace MainWindow
 		CHECKITEM(ID_CPU_DYNAREC,g_Config.iCpuCore == CPU_JIT);
 		CHECKITEM(ID_OPTIONS_BUFFEREDRENDERING, g_Config.bBufferedRendering);
 		CHECKITEM(ID_OPTIONS_SHOWDEBUGSTATISTICS, g_Config.bShowDebugStats);
+		CHECKITEM(ID_OPTIONS_WIREFRAME, g_Config.bDrawWireframe);
 
 		BOOL enable = !Core_IsStepping();
 		EnableMenuItem(menu,ID_EMULATION_RUN,enable);
