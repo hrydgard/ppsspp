@@ -569,7 +569,7 @@ u32 sceKernelGetThreadmanIdList(u32 type, u32 readBufPtr, u32 readBufSize, u32 i
 		return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
 	}
 
-	for (size_t i = 0; i < std::min(readBufSize, threadqueue.size()); i++)
+	for (size_t i = 0; i < std::min((size_t)readBufSize, threadqueue.size()); i++)
 	{
 		Memory::Write_U32(threadqueue[i]->GetUID(), readBufPtr + i * 4);
 	}
