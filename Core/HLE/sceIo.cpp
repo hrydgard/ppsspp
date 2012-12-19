@@ -494,9 +494,16 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 			}
 			break;
 
-		case 0x02025806:	// Memory stick inserted?
 		case 0x02025801:	// Memstick Driver status?
-			if (Memory::IsValidAddress(outPtr)) {
+			if (Memory::IsValidAddress(outPtr) && outLen >= 4) {
+				Memory::Write_U32(4, outPtr);  // JPSCP: The right return value is 4 for some reason
+				return 0;
+			} else {
+				return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
+			}
+
+		case 0x02025806:	// Memory stick inserted?
+			if (Memory::IsValidAddress(outPtr) && outLen >= 4) {
 				Memory::Write_U32(1, outPtr);
 				return 0;
 			} else {
