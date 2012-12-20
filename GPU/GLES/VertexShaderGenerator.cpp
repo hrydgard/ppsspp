@@ -85,6 +85,11 @@ void ComputeVertexShaderID(VertexShaderID *id, int prim)
 		id->d[0] |= (gstate.getNumBoneWeights() - 1) << 22;
 
 		// Light bits
+		for (int i = 0; i < 4; i++) {
+			id->d[1] |= (gstate.ltype[i] & 3) << (i * 4);
+			id->d[1] |= ((gstate.ltype[i] >> 8) & 3) << (i * 4 + 2);
+		}
+		id->d[1] |= (gstate.materialupdate & 7) << 16;
 	}
 
 	// Bits that we will need:
@@ -101,7 +106,7 @@ void WriteLight(char *p, int l) {
 }
 
 const char *boneWeightAttrDecl[8] = {
-	"#ERROR",
+	"attribute float a_weight0123;\n",
 	"attribute vec2 a_weight0123;\n",
 	"attribute vec3 a_weight0123;\n",
 	"attribute vec4 a_weight0123;\n",
@@ -198,6 +203,28 @@ char *GenerateVertexShader(int prim)
 				WRITE(p, "uniform mat4x3 u_bone%i;\n", i);
 			}
 		}
+		if (gstate.lightingEnable & 1) {
+			WRITE(p, "uniform vec4 u_ambient;\n");
+			if ((gstate.materialupdate & 2) == 0)
+				WRITE(p, "uniform vec3 u_matdiffuse;\n");
+			// if ((gstate.materialupdate & 4) == 0)
+			WRITE(p, "uniform vec4 u_matspecular;\n");  // Specular coef is contained in alpha
+			WRITE(p, "uniform vec3 u_matemissive;\n");
+		}
+		for (int i = 0; i < 4; i++) {
+			if (doLight[i] != LIGHT_OFF) {
+				// These are needed for dot product only (for shade mapping)
+				WRITE(p, "uniform vec3 u_lightpos%i;\n", i);
+				WRITE(p, "uniform vec3 u_lightdir%i;\n", i);
+				WRITE(p, "uniform vec3 u_lightatt%i;\n", i);
+			}
+			if (doLight[i] == LIGHT_FULL) {
+				// These are needed for the full thing
+				WRITE(p, "uniform vec3 u_lightambient%i;\n", i);
+				WRITE(p, "uniform vec3 u_lightdiffuse%i;\n", i);
+				WRITE(p, "uniform vec3 u_lightspecular%i;\n", i);
+			}
+		}
 	}
 
 	WRITE(p, "varying vec4 v_color0;\n");
@@ -239,9 +266,13 @@ char *GenerateVertexShader(int prim)
 				WRITE(p, "  vec3 worldnormal = vec3(0.0, 0.0, 0.0);\n");
 			int numWeights = 1 + ((gstate.vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT);
 			for (int i = 0; i < numWeights; i++) {
-				WRITE(p, "  worldpos += %s * (u_bone%i * vec4(a_position, 1.0));\n", boneWeightAttr[i], i);
+				const char *weightAttr = boneWeightAttr[i];
+				// workaround for "cant do .x of scalar" issue
+				if (numWeights == 1 && i == 0) weightAttr = "a_weight0123";
+				if (numWeights == 5 && i == 4) weightAttr = "a_weight4567";
+				WRITE(p, "  worldpos += %s * (u_bone%i * vec4(a_position, 1.0));\n", weightAttr, i);
 				if (hasNormal)
-					WRITE(p, "  worldnormal += %s * (u_bone%i * vec4(a_normal, 0.0));\n", boneWeightAttr[i], i);
+					WRITE(p, "  worldnormal += %s * (u_bone%i * vec4(a_normal, 0.0));\n", weightAttr, i);
 			}
 			// Finally, multiply by world matrix (yes, we have to).
 			WRITE(p, "  worldpos = u_world * vec4(worldpos, 1.0);\n");
@@ -251,23 +282,21 @@ char *GenerateVertexShader(int prim)
 
 		// Step 2: Color/Lighting
 		if (hasColor) {
-			WRITE(p, "  vec4 unlitColor = a_color0;\n");
+			WRITE(p, "  vec3 unlitColor = a_color0.rgb;\n");
 		} else {
-			WRITE(p, "  vec4 unlitColor(1.0, 1.0, 1.0, 1.0);\n");
+			WRITE(p, "  vec3 unlitColor = vec3(1.0, 1.0, 1.0);\n");
 		}
-
 		// TODO: Declare variables for dots for shade mapping if needed.
 
-		const char *ambient = (gstate.materialupdate & 1) ? "a_color0" : "u_ambientalpha";
-		const char *diffuse = (gstate.materialupdate & 2) ? "a_color0" : "u_matdiffuse";
-		const char *specular = (gstate.materialupdate & 4) ? "a_color0" : "u_matspecular";
+		const char *ambient = (gstate.materialupdate & 1) ? "unlitColor" : "u_matambientalpha.rgb";
+		const char *diffuse = (gstate.materialupdate & 2) ? "unlitColor" : "u_matdiffuse";
+		const char *specular = (gstate.materialupdate & 4) ? "unlitColor" : "u_matspecular";
 
 		if (gstate.lightingEnable & 1) {
 			WRITE(p, "  vec4 lightSum0 = vec4(0.0);\n");
 			WRITE(p, "  vec3 lightSum1 = vec3(0.0);\n");
 		}
 
-		/*
 		// Calculate lights if needed. If shade mapping is enabled, lights may need to be
 		// at least partially calculated 
 		for (int i = 0; i < 4; i++) {
@@ -285,15 +314,33 @@ char *GenerateVertexShader(int prim)
 			bool doSpecular = (comp != GE_LIGHTCOMP_ONLYDIFFUSE);
 			bool poweredDiffuse = comp == GE_LIGHTCOMP_BOTHWITHPOWDIFFUSE;
 
-			WRITE(p, "  float dot%i = dot(tolight, worldnormal);");
+			WRITE(p, "  float dot%i = dot(toLight%i, worldnormal);\n", i, i);
+			if (poweredDiffuse) {
+				WRITE(p, "  dot%i = pow(dot%i, materialspecular.a);\n");
+			}
+			
 			if (doLight[i] == LIGHT_DOTONLY)
 				continue;  // Actually, might want specular dot.... TODO
 
-		}*/
+			WRITE(p, "  float lightScale%i = 1.0f;\n", i);
+			if (type != GE_LIGHTTYPE_DIRECTIONAL) {
+				// Attenuation
+				WRITE(p, "  float distance = length(toLight%i);\n", i);
+				WRITE(p, "  lightScale%i = dot(u_lightatt%i, vec3(1.0, distance, distance*distance));\n", i, i);
+			}
+			WRITE(p, "  vec3 diffuse%i = (u_lightdiffuse%i * %s) * (dot%i * lightScale%i);\n", i, i, diffuse, i, i);
+			if (doSpecular) {
+				WRITE(p, "  vec3 halfVec%i = normalize(toLight%i + vec3(0, 0, 1));\n", i, i);
+				WRITE(p, "  dot%i = dot(halfVec%i, worldnormal);\n", i);
+				WRITE(p, "  if (dot%i > 0.0)\n", i);
+				WRITE(p, "    lightSum1 += u_lightspecular%i * %s * (pow(dot, materialspecular.a) * lightScale);\n", i);
+			}
+			WRITE(p, "  lightSum0 += vec4(u_lightambient%i, 0.0) + diffuse%i;\n", i, i);
+		}
 
-		if (false && (gstate.lightingEnable & 1)) {
+		if (gstate.lightingEnable & 1) {
 			// Sum up ambient, emissive here.
-			WRITE(p, "  v_color0 = lightSum0 + u_ambient * %s + u_matemissive;\n", ambient);
+			WRITE(p, "  v_color0 = lightSum0 + u_ambient * vec4(%s, 1.0) + vec4(u_matemissive, 0.0);\n", ambient);
 			if (lmode) {
 				WRITE(p, "  v_color1 = lightSum1;\n");
 			} else {
@@ -302,7 +349,7 @@ char *GenerateVertexShader(int prim)
 		} else {
 			// Lighting doesn't affect color.
 			if (hasColor) {
-				WRITE(p, "  v_color0 = unlitColor;\n");
+				WRITE(p, "  v_color0 = a_color0;\n");
  			} else {
 				WRITE(p, "  v_color0 = u_matambientalpha;\n");
 			}
@@ -326,14 +373,14 @@ char *GenerateVertexShader(int prim)
 					WRITE(p, "  vec3 temp_tc = vec3(a_texcoord.xy, 0.0);\n");
 					break;
 				case 2:  // Use normalized transformed normal as source
-					WRITE(p, "  vec3 temp_tc = normalize(v_normal);\n");
+					WRITE(p, "  vec3 temp_tc = normalize(worldnormal);\n");
 					break;
 				case 3:  // Use non-normalized transformed normal as source
-					WRITE(p, "  vec3 temp_tc = normalize(v_normal);\n");
+					WRITE(p, "  vec3 temp_tc = worldnormal;\n");
 					break;
 				}
 				// Transform by texture matrix
-				WRITE(p, "  v_texcoord = (u_texmtx * temp_tc).xy;\n");
+				WRITE(p, "  v_texcoord = (u_texmtx * vec4(temp_tc, 1.0)).xy;\n");
 				break;
 
 			case 2:  // Shade mapping - use dots from light sources.

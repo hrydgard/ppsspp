@@ -62,8 +62,17 @@ struct LinkedShader
 	int u_uvscaleoffset;
 
 	// Lighting
+	int u_ambient;
 	int u_matambientalpha;
-	int u_light[4];  // each light consist of vec4[3]
+	int u_matdiffuse;
+	int u_matspecular;
+	int u_matemissive;
+	int u_lightpos[4];
+	int u_lightdir[4];
+	int u_lightatt[4];  // attenuation
+	int u_lightdiffuse[4];  // each light consist of vec4[3]
+	int u_lightspecular[4];  // attenuation
+	int u_lightambient[4];  // attenuation
 };
 
 // Will reach 32 bits soon :P
@@ -77,11 +86,15 @@ enum
 	DIRTY_ALPHACOLORREF	 = (1 << 5),
 	DIRTY_COLORREF	 = (1 << 6),
 
-	DIRTY_LIGHT0 = (1 << 12),
-	DIRTY_LIGHT1 = (1 << 13),
-	DIRTY_LIGHT2 = (1 << 14),
-	DIRTY_LIGHT3 = (1 << 15),
+	DIRTY_LIGHT0 = (1 << 8),
+	DIRTY_LIGHT1 = (1 << 9),
+	DIRTY_LIGHT2 = (1 << 10),
+	DIRTY_LIGHT3 = (1 << 11),
 
+	DIRTY_MATDIFFUSE = (1 << 12),
+	DIRTY_MATSPECULAR = (1 << 13),
+	DIRTY_MATEMISSIVE = (1 << 14),
+	DIRTY_AMBIENT = (1 << 15),
 	DIRTY_MATAMBIENTALPHA = (1 << 16),
 	DIRTY_MATERIAL = (1 << 17),  // let's set all 4 together (emissive ambient diffuse specular). We hide specular coef in specular.a
 	DIRTY_UVSCALEOFFSET = (1 << 18),  // this will be dirtied ALL THE TIME... maybe we'll need to do "last value with this shader compares"

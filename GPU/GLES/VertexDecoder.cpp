@@ -107,7 +107,7 @@ DecVtxFormat GetTransformedVtxFormat(const DecVtxFormat &fmt) {
 
 void VertexDecoder::Step_WeightsU8() const
 {
-	float *wt = (float *)decoded_;
+	float *wt = (float *)(decoded_ + decFmt.w0off);
 	const u8 *wdata = (const u8*)(ptr_);
 	for (int j = 0; j < nweights; j++)
 		wt[j] = (float)wdata[j] / 128.0f;
@@ -115,7 +115,7 @@ void VertexDecoder::Step_WeightsU8() const
 
 void VertexDecoder::Step_WeightsU16() const
 {
-	float *wt = (float *)decoded_;
+	float *wt = (float *)(decoded_  + decFmt.w0off);
 	const u16 *wdata = (const u16*)(ptr_);
 	for (int j = 0; j < nweights; j++)
 		wt[j] = (float)wdata[j] / 32768.0f;
@@ -123,7 +123,7 @@ void VertexDecoder::Step_WeightsU16() const
 
 void VertexDecoder::Step_WeightsFloat() const
 {
-	float *wt = (float *)decoded_;
+	float *wt = (float *)(decoded_ + decFmt.w0off);
 	const float *wdata = (const float*)(ptr_);
 	for (int j = 0; j < nweights; j++)
 		wt[j] = wdata[j];
@@ -131,7 +131,7 @@ void VertexDecoder::Step_WeightsFloat() const
 
 void VertexDecoder::Step_TcU8() const
 {
-	float *uv = (float *)decoded_;
+	float *uv = (float *)(decoded_ + decFmt.uvoff);
 	const u8 *uvdata = (const u8*)(ptr_ + tcoff);
 	for (int j = 0; j < 2; j++)
 		uv[j] = (float)uvdata[j] / 128.0f;
@@ -139,7 +139,7 @@ void VertexDecoder::Step_TcU8() const
 
 void VertexDecoder::Step_TcU16() const
 {
-	float *uv = (float *)decoded_;
+	float *uv = (float *)(decoded_ + decFmt.uvoff);
 	const u16 *uvdata = (const u16*)(ptr_ + tcoff);
 	uv[0] = (float)uvdata[0] / 32768.0f;
 	uv[1] = (float)uvdata[1] / 32768.0f;
@@ -147,7 +147,7 @@ void VertexDecoder::Step_TcU16() const
 
 void VertexDecoder::Step_TcU16Through() const
 {
-	float *uv = (float *)decoded_;
+	float *uv = (float *)(decoded_ + decFmt.uvoff);
 	const u16 *uvdata = (const u16*)(ptr_ + tcoff);
 	uv[0] = (float)uvdata[0] / (float)(gstate_c.curTextureWidth);
 	uv[1] = (float)uvdata[1] / (float)(gstate_c.curTextureHeight);
@@ -155,7 +155,7 @@ void VertexDecoder::Step_TcU16Through() const
 
 void VertexDecoder::Step_TcFloat() const
 {
-	float *uv = (float *)decoded_;
+	float *uv = (float *)(decoded_ + decFmt.uvoff);
 	const float *uvdata = (const float*)(ptr_ + tcoff);
 	uv[0] = uvdata[0];
 	uv[1] = uvdata[1];
@@ -163,7 +163,7 @@ void VertexDecoder::Step_TcFloat() const
 
 void VertexDecoder::Step_TcFloatThrough() const
 {
-	float *uv = (float *)decoded_;
+	float *uv = (float *)(decoded_ + decFmt.uvoff);
 	const float *uvdata = (const float*)(ptr_ + tcoff);
 	uv[0] = uvdata[0] / (float)(gstate_c.curTextureWidth);
 	uv[1] = uvdata[1] / (float)(gstate_c.curTextureHeight);

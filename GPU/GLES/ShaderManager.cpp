@@ -92,8 +92,28 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs)
 	}
 
 	// Lighting, texturing
+	u_ambient = glGetUniformLocation(program, "u_ambient");
 	u_matambientalpha = glGetUniformLocation(program, "u_matambientalpha");
+	u_matdiffuse = glGetUniformLocation(program, "u_matdiffuse");
+	u_matspecular = glGetUniformLocation(program, "u_matspecular");
+	u_matemissive = glGetUniformLocation(program, "u_matemissive");
 	u_uvscaleoffset = glGetUniformLocation(program, "u_uvscaleoffset");
+
+	for (int i = 0; i < 4; i++) {
+		char temp[64];
+		sprintf(temp, "u_lightpos%i", i);
+		u_lightpos[i] = glGetUniformLocation(program, temp);
+		sprintf(temp, "u_lightdir%i", i);
+		u_lightdir[i] = glGetUniformLocation(program, temp);
+		sprintf(temp, "u_lightatt%i", i);
+		u_lightatt[i] = glGetUniformLocation(program, temp);
+		sprintf(temp, "u_lightambient%i", i);
+		u_lightambient[i] = glGetUniformLocation(program, temp);
+		sprintf(temp, "u_lightdiffuse%i", i);
+		u_lightdiffuse[i] = glGetUniformLocation(program, temp);
+		sprintf(temp, "u_lightspecular%i", i);
+		u_lightspecular[i] = glGetUniformLocation(program, temp);
+	}
 
 	a_position = glGetAttribLocation(program, "a_position");
 	a_color0 = glGetAttribLocation(program, "a_color0");
@@ -124,6 +144,12 @@ static void SetColorUniform3(int uniform, u32 color)
 static void SetColorUniform3Alpha(int uniform, u32 color, u8 alpha)
 {
 	const float col[4] = { ((color & 0xFF0000) >> 16) / 255.0f, ((color & 0xFF00) >> 8) / 255.0f, ((color & 0xFF)) / 255.0f, alpha/255.0f};
+	glUniform4fv(uniform, 1, col);
+}
+
+static void SetColorUniform3ExtraFloat(int uniform, u32 color, float extra)
+{
+	const float col[4] = { ((color & 0xFF0000) >> 16) / 255.0f, ((color & 0xFF00) >> 8) / 255.0f, ((color & 0xFF)) / 255.0f, extra};
 	glUniform4fv(uniform, 1, col);
 }
 
@@ -192,10 +218,32 @@ void LinkedShader::use() {
 	}
 
 	// Lighting
+	if (u_ambient != -1 && (dirtyUniforms & DIRTY_MATDIFFUSE)) {
+		SetColorUniform3Alpha(u_ambient, gstate.ambientcolor, gstate.ambientalpha & 0xFF);
+	}
 	if (u_matambientalpha != -1 && (dirtyUniforms & DIRTY_MATAMBIENTALPHA)) {
 		SetColorUniform3Alpha(u_matambientalpha, gstate.materialambient, gstate.materialalpha & 0xFF);
 	}
+	if (u_matdiffuse != -1 && (dirtyUniforms & DIRTY_MATDIFFUSE)) {
+		SetColorUniform3(u_matdiffuse, gstate.materialdiffuse);
+	}
+	if (u_matemissive != -1 && (dirtyUniforms & DIRTY_MATEMISSIVE)) {
+		SetColorUniform3(u_matemissive, gstate.materialemissive);
+	}
+	if (u_matspecular != -1 && (dirtyUniforms & DIRTY_MATSPECULAR)) {
+		SetColorUniform3ExtraFloat(u_matemissive, gstate.materialspecular, getFloat24(gstate.materialspecularcoef));
+	}
 
+	for (int i = 0; i < 4; i++) {
+		if (u_lightdiffuse[i] != -1 && (dirtyUniforms & (DIRTY_LIGHT0 << i))) {
+			glUniform3fv(u_lightpos[i], 1, gstate_c.lightpos[i]);
+			glUniform3fv(u_lightdir[i], 1, gstate_c.lightdir[i]);
+			glUniform3fv(u_lightatt[i], 1, gstate_c.lightatt[i]);
+			glUniform3fv(u_lightambient[i], 1, &gstate_c.lightColor[0][i].r);
+			glUniform3fv(u_lightdiffuse[i], 1, &gstate_c.lightColor[1][i].r);
+			glUniform3fv(u_lightspecular[i], 1, &gstate_c.lightColor[2][i].r);
+		}
+	}
 
 	dirtyUniforms = 0;
 }

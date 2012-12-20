@@ -64,7 +64,7 @@ private:
 	Color4 materialDiffuse;
 	Color4 materialSpecular;
 	float specCoef_;
-	Vec3 viewer_;
+	// Vec3 viewer_;
 	bool doShadeMapping_;
 	int materialUpdate_;
 };
@@ -87,7 +87,7 @@ Lighter::Lighter() {
 	materialSpecular.GetFromRGB(gstate.materialspecular);
 	materialSpecular.a = 1.0f;
 	specCoef_ = getFloat24(gstate.materialspecularcoef);
-	viewer_ = Vec3(-gstate.viewMatrix[9], -gstate.viewMatrix[10], -gstate.viewMatrix[11]);
+	// viewer_ = Vec3(-gstate.viewMatrix[9], -gstate.viewMatrix[10], -gstate.viewMatrix[11]);
 	materialUpdate_ = gstate.materialupdate & 7;
 }
 
@@ -322,7 +322,7 @@ void GLES_GPU::SoftwareTransformAndDraw(int prim, LinkedShader *program, int for
 		{
 			// We do software T&L for now
 			float out[3], norm[3];
-			float pos[3], nrm[3];
+			float pos[3], nrm[3] = {0};
 			reader.ReadPos(pos);
 			if (reader.hasNormal())
 				reader.ReadNrm(nrm);
@@ -339,12 +339,6 @@ void GLES_GPU::SoftwareTransformAndDraw(int prim, LinkedShader *program, int for
 			else
 			{
 				float weights[8];
-				reader.ReadPos(pos);
-				if (reader.hasNormal()) {
-					reader.ReadNrm(nrm);
-				} else {
-					memset(nrm, 0, 12);
-				}
 				reader.ReadWeights(weights);
 				// Skinning
 				Vec3 psum(0,0,0);

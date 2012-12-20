@@ -851,14 +851,20 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_MATERIALDIFFUSE:
 		DEBUG_LOG(G3D,"DL Material Diffuse Color: %06x",	data);
+		if (diff)
+			shaderManager.DirtyUniform(DIRTY_MATDIFFUSE);
 		break;
 
 	case GE_CMD_MATERIALEMISSIVE:
 		DEBUG_LOG(G3D,"DL Material Emissive Color: %06x",	data);
+		if (diff)
+			shaderManager.DirtyUniform(DIRTY_MATEMISSIVE);
 		break;
 
 	case GE_CMD_MATERIALSPECULAR:
 		DEBUG_LOG(G3D,"DL Material Specular Color: %06x",	data);
+		if (diff)
+			shaderManager.DirtyUniform(DIRTY_MATSPECULAR);
 		break;
 
 	case GE_CMD_MATERIALALPHA:
@@ -869,6 +875,8 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_MATERIALSPECULARCOEF:
 		DEBUG_LOG(G3D,"DL Material specular coef: %f", getFloat24(data));
+		if (diff)
+			shaderManager.DirtyUniform(DIRTY_MATSPECULAR);
 		break;
 
 	case GE_CMD_LIGHTTYPE0:
@@ -889,6 +897,8 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 			float val = getFloat24(data);
 			DEBUG_LOG(G3D,"DL Light %i %c pos: %f", l, c+'X', val);
 			gstate_c.lightpos[l][c] = val;
+			if (diff)
+				shaderManager.DirtyUniform(DIRTY_LIGHT0 << l);
 		}
 		break;
 
@@ -903,6 +913,8 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 			float val = getFloat24(data);
 			DEBUG_LOG(G3D,"DL Light %i %c dir: %f", l, c+'X', val);
 			gstate_c.lightdir[l][c] = val;
+			if (diff)
+				shaderManager.DirtyUniform(DIRTY_LIGHT0 << l);
 		}
 		break;
 
@@ -917,6 +929,8 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 			float val = getFloat24(data);
 			DEBUG_LOG(G3D,"DL Light %i %c att: %f", l, c+'X', val);
 			gstate_c.lightatt[l][c] = val;
+			if (diff)
+				shaderManager.DirtyUniform(DIRTY_LIGHT0 << l);
 		}
 		break;
 
@@ -934,6 +948,8 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 			gstate_c.lightColor[t][l].r = r;
 			gstate_c.lightColor[t][l].g = g;
 			gstate_c.lightColor[t][l].b = b;
+			if (diff)
+				shaderManager.DirtyUniform(DIRTY_LIGHT0 << l);
 		}
 		break;
 
