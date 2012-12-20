@@ -506,7 +506,7 @@ MIPSInstruction tableVFPU3[8] = //011011 xxx
 	INSTR("vmin",&Jit::Comp_Generic, Dis_VectorSet3, Int_Vminmax, IS_VFPU),
 	INSTR("vmax",&Jit::Comp_Generic, Dis_VectorSet3, Int_Vminmax, IS_VFPU), 
 	{-2}, 
-	INSTR("vscmp",&Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU), 
+	INSTR("vscmp",&Jit::Comp_Generic, Dis_VectorSet3, Int_Vscmp, IS_VFPU), 
 	INSTR("vsge",&Jit::Comp_Generic, Dis_VectorSet3, Int_Vsge, IS_VFPU), 
 	INSTR("vslt",&Jit::Comp_Generic, Dis_VectorSet3, Int_Vslt, IS_VFPU),
 };
