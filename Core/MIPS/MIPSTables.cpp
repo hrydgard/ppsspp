@@ -495,7 +495,7 @@ MIPSInstruction tableVFPU1[8] =
 	{-2},
 	INSTR("vhdp",&Jit::Comp_Generic, Dis_Generic, Int_VHdp, IS_VFPU), 
 	INSTR("vcrs",&Jit::Comp_Generic, Dis_Vcrs, Int_Vcrs, IS_VFPU), 
-	INSTR("vdet",&Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU), 
+	INSTR("vdet",&Jit::Comp_Generic, Dis_Generic, Int_Vdet, IS_VFPU), 
 	{-2},
 };
 
