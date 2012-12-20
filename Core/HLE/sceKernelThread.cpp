@@ -1739,14 +1739,22 @@ ThreadWaitInfo Thread::getWaitInfo()
 
 void __KernelSwitchContext(Thread *target, const char *reason) 
 {
+	u32 oldPC = 0;
+	u32 oldUID = 0;
+	const char *oldName = "(none)";
 	if (currentThread)  // It might just have been deleted.
 	{
 		__KernelSaveContext(&currentThread->context);
-		DEBUG_LOG(HLE,"Context saved (%s): %i - %s - pc: %08x", reason, currentThread->GetUID(), currentThread->GetName(), currentMIPS->pc);
+		oldPC = currentMIPS->pc;
+		oldUID = currentThread->GetUID();
+		oldName = currentThread->GetName();
 	}
 	currentThread = target;
 	__KernelLoadContext(&currentThread->context);
-	DEBUG_LOG(HLE,"Context loaded (%s): %i - %s - pc: %08x", reason, currentThread->GetUID(), currentThread->GetName(), currentMIPS->pc);
+	DEBUG_LOG(HLE,"Context switched: %s -> %s (%s) (%i - pc: %08x -> %i - pc: %08)",
+		oldName, currentThread->GetName(),
+		reason,
+		oldUID, oldPC, currentThread->GetUID(), currentMIPS->pc);
 
 	// No longer waiting.
 	currentThread->nt.waitType = WAITTYPE_NONE;
