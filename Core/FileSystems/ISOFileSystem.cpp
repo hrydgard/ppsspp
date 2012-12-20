@@ -20,6 +20,7 @@
 #include "ISOFileSystem.h"
 #include <cstring>
 #include <cstdio>
+#include <ctype.h>
 
 
 const int sectorSize = 2048;
