@@ -192,6 +192,9 @@ public:
 					pos[i] = p[i] / 127.0f;
 			}
 			break;
+		default:
+			ERROR_LOG(G3D, "Reader: Unsupported Pos Format");
+			break;
 		}
 	}
 
@@ -214,6 +217,9 @@ public:
 					nrm[i] = p[i] / 127.0f;
 			}
 			break;
+		default:
+			ERROR_LOG(G3D, "Reader: Unsupported Nrm Format");
+			break;
 		}
 	}
 
@@ -221,6 +227,9 @@ public:
 		switch (decFmt_.uvfmt) {
 		case DEC_FLOAT_2:
 			memcpy(uv, data_ + decFmt_.uvoff, 8); break;
+		default:
+			ERROR_LOG(G3D, "Reader: Unsupported UV Format");
+			break;
 		}
 	}
 
@@ -235,6 +244,9 @@ public:
 			break;
 		case DEC_FLOAT_4:
 			memcpy(color, data_ + decFmt_.c0off, 16); break;
+		default:
+			ERROR_LOG(G3D, "Reader: Unsupported C0 Format");
+			break;
 		}
 	}
 
@@ -249,6 +261,9 @@ public:
 			break;
 		case DEC_FLOAT_4:
 			memcpy(color, data_ + decFmt_.c1off, 16); break;
+		default:
+			ERROR_LOG(G3D, "Reader: Unsupported C1 Format");
+			break;
 		}
 	}
 
@@ -258,12 +273,18 @@ public:
 		case DEC_FLOAT_2: memcpy(weights, data_ + decFmt_.w0off, 8); break;
 		case DEC_FLOAT_3: memcpy(weights, data_ + decFmt_.w0off, 12); break;
 		case DEC_FLOAT_4: memcpy(weights, data_ + decFmt_.w0off, 16); break;
+		default:
+			ERROR_LOG(G3D, "Reader: Unsupported W0 Format");
+			break;
 		}
 		switch (decFmt_.w1fmt) {
 		case DEC_FLOAT_1: memcpy(weights + 4, data_ + decFmt_.w1off, 4); break;
 		case DEC_FLOAT_2: memcpy(weights + 4, data_ + decFmt_.w1off, 8); break;
 		case DEC_FLOAT_3: memcpy(weights + 4, data_ + decFmt_.w1off, 12); break;
 		case DEC_FLOAT_4: memcpy(weights + 4, data_ + decFmt_.w1off, 16); break;
+		default:
+			ERROR_LOG(G3D, "Reader: Unsupported W1 Format");
+			break;
 		}
 	}
 

@@ -400,12 +400,24 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 			};
 			DEBUG_LOG(G3D, "DL DrawPrim type: %s count: %i vaddr= %08x, iaddr= %08x", type<7 ? types[type] : "INVALID", count, gstate_c.vertexAddr, gstate_c.indexAddr);
 
+			if (!Memory::IsValidAddress(gstate_c.vertexAddr))
+			{
+				ERROR_LOG(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
+				break;
+			}
 			// TODO: Split this so that we can collect sequences of primitives, can greatly speed things up
 			// on platforms where draw calls are expensive like mobile and D3D
 			void *verts = Memory::GetPointer(gstate_c.vertexAddr);
 			void *inds = 0;
 			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE)
+			{
+				if (!Memory::IsValidAddress(gstate_c.indexAddr))
+				{
+					ERROR_LOG(G3D, "Bad index address %08x!", gstate_c.indexAddr);
+					break;
+				}
 				inds = Memory::GetPointer(gstate_c.indexAddr);
+			}
 
 			// Seems we have to advance the vertex addr, at least in some cases. 
 			// Question: Should we also advance the index addr?
