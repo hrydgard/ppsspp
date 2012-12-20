@@ -252,9 +252,18 @@ struct GPUgstate
 	bool isDepthWriteEnabled() const { return !(zmsk & 1); }
 	int  getDepthTestFunc() const { return ztestfunc & 0x7; }
 	bool isFogEnabled() const { return fogEnable & 1; }
-};
-// Real data in the context ends here
 
+	int getUVGenMode() const { return texmapmode & 3;}   // 2 bits
+	int getUVProjMode() const { return (texmapmode >> 8) & 3;}   // 2 bits
+	int getUVLS0() const { return texshade & 0x3; }  // 2 bits
+	int getUVLS1() const { return (texshade >> 8) & 0x3; }  // 2 bits
+
+	int getNumBoneWeights() const {
+		return 1 + ((vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT);
+	}
+// Real data in the context ends here
+};
+	
 // The rest is cached simplified/converted data for fast access.
 // Does not need to be saved when saving/restoring context.
 struct GPUStateCache

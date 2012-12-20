@@ -81,6 +81,20 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs)
 	u_fogcoef = glGetUniformLocation(program, "u_fogcoef");
 	u_alphacolorref = glGetUniformLocation(program, "u_alphacolorref");
 
+	// Transform
+	u_view = glGetUniformLocation(program, "u_view");
+	u_world = glGetUniformLocation(program, "u_world");
+	u_texmtx = glGetUniformLocation(program, "u_texmtx");
+	for (int i = 0; i < 8; i++) {
+		char name[64];
+		sprintf(name, "u_bone%i", i);
+		u_bone[i] = glGetUniformLocation(program, name);
+	}
+
+	// Lighting, texturing
+	u_matambientalpha = glGetUniformLocation(program, "u_matambientalpha");
+	u_uvscaleoffset = glGetUniformLocation(program, "u_uvscaleoffset");
+
 	a_position = glGetAttribLocation(program, "a_position");
 	a_color0 = glGetAttribLocation(program, "a_color0");
 	a_color1 = glGetAttribLocation(program, "a_color1");
@@ -93,7 +107,7 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs)
 	// Default uniform values
 	glUniform1i(u_tex, 0);
 	// The rest, use the "dirty" mechanism.
-	dirtyUniforms = DIRTY_PROJMATRIX | DIRTY_PROJTHROUGHMATRIX | DIRTY_TEXENV | DIRTY_ALPHACOLORREF;
+	dirtyUniforms = DIRTY_ALL;
 }
 
 LinkedShader::~LinkedShader() {
@@ -105,6 +119,12 @@ static void SetColorUniform3(int uniform, u32 color)
 {
 	const float col[3] = { ((color & 0xFF0000) >> 16) / 255.0f, ((color & 0xFF00) >> 8) / 255.0f, ((color & 0xFF)) / 255.0f};
 	glUniform3fv(uniform, 1, col);
+}
+
+static void SetColorUniform3Alpha(int uniform, u32 color, u8 alpha)
+{
+	const float col[4] = { ((color & 0xFF0000) >> 16) / 255.0f, ((color & 0xFF00) >> 8) / 255.0f, ((color & 0xFF)) / 255.0f, alpha/255.0f};
+	glUniform4fv(uniform, 1, col);
 }
 
 void LinkedShader::use() {
@@ -148,6 +168,34 @@ void LinkedShader::use() {
 		const float fogcoef[2] = { getFloat24(gstate.fog1), getFloat24(gstate.fog2) };
 		glUniform2fv(u_fogcoef, 1, fogcoef);
 	}
+
+	// Texturing
+	if (u_uvscaleoffset != -1 && (dirtyUniforms & DIRTY_UVSCALEOFFSET)) {
+		const float uvscaleoff[4] = { gstate_c.uScale, gstate_c.vScale, gstate_c.uOff, gstate_c.vOff};
+		glUniform4fv(u_uvscaleoffset, 1, uvscaleoff);
+	}
+
+	// Transform
+	if (u_world != -1 && (dirtyUniforms & DIRTY_WORLDMATRIX)) {
+		glUniformMatrix4x3fv(u_world, 1, GL_FALSE, gstate.worldMatrix);
+	}
+	if (u_view != -1 && (dirtyUniforms & DIRTY_VIEWMATRIX)) {
+		glUniformMatrix4x3fv(u_view, 1, GL_FALSE, gstate.viewMatrix);
+	}
+	if (u_texmtx != -1 && (dirtyUniforms & DIRTY_TEXMATRIX)) {
+		glUniformMatrix4x3fv(u_texmtx, 1, GL_FALSE, gstate.tgenMatrix);
+	}
+	for (int i = 0; i < 8; i++) {
+		if (u_bone[i] != -1 && (dirtyUniforms & (DIRTY_BONEMATRIX0 << i))) {
+			glUniformMatrix4x3fv(u_bone[i], 1, GL_FALSE, gstate.boneMatrix + 12 * i);
+		}
+	}
+
+	// Lighting
+	if (u_matambientalpha != -1 && (dirtyUniforms & DIRTY_MATAMBIENTALPHA)) {
+		SetColorUniform3Alpha(u_matambientalpha, gstate.materialambient, gstate.materialalpha & 0xFF);
+	}
+
 
 	dirtyUniforms = 0;
 }
@@ -211,7 +259,7 @@ LinkedShader *ShaderManager::ApplyShader(int prim)
 	Shader *vs;
 	if (vsIter == vsCache.end())	{
 		// Vertex shader not in cache. Let's compile it.
-		char *shaderCode = GenerateVertexShader();
+		char *shaderCode = GenerateVertexShader(prim);
 		vs = new Shader(shaderCode, GL_VERTEX_SHADER);
 		vsCache[VSID] = vs;
 	} else {

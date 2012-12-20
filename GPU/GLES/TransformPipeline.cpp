@@ -143,14 +143,6 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		bool doSpecular = (comp != GE_LIGHTCOMP_ONLYDIFFUSE);
 		bool poweredDiffuse = comp == GE_LIGHTCOMP_BOTHWITHPOWDIFFUSE;
 
-		float lightScale = 1.0f;
-		if (type != GE_LIGHTTYPE_DIRECTIONAL)
-		{
-			float distance = toLight.Normalize();
-			lightScale = 1.0f / (gstate_c.lightatt[l][0] + gstate_c.lightatt[l][1]*distance + gstate_c.lightatt[l][2]*distance*distance);
-			if (lightScale > 1.0f) lightScale = 1.0f;
-		}
-
 		float dot = toLight * norm;
 
 		// Clamp dot to zero.
@@ -158,6 +150,14 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 
 		if (poweredDiffuse)
 			dot = powf(dot, specCoef_);
+
+		float lightScale = 1.0f;
+		if (type != GE_LIGHTTYPE_DIRECTIONAL)
+		{
+			float distance = toLight.Normalize();
+			lightScale = 1.0f / (gstate_c.lightatt[l][0] + gstate_c.lightatt[l][1]*distance + gstate_c.lightatt[l][2]*distance*distance);
+			if (lightScale > 1.0f) lightScale = 1.0f;
+		}
 
 		Color4 diff = (gstate_c.lightColor[1][l] * *diffuse) * (dot * lightScale);
 
@@ -192,47 +192,59 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 	}
 }
 
-// This is the software transform pipeline, which is necessary for supporting RECT
-// primitives correctly. Other primitives are possible to transform and light in hardware
-// using vertex shader, which will be way, way faster, especially on mobile. This has
-// not yet been implemented though.
-void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, float *customUV, int forceIndexType, int *bytesRead)
+struct GlTypeInfo {
+	GLuint type;
+	int count;
+	GLboolean normalized;
+};
+
+const GlTypeInfo GLComp[8] = {
+	{0}, // 	DEC_NONE,
+	{GL_FLOAT, 1, GL_FALSE}, // 	DEC_FLOAT_1,
+	{GL_FLOAT, 2, GL_FALSE}, // 	DEC_FLOAT_2,
+	{GL_FLOAT, 3, GL_FALSE}, // 	DEC_FLOAT_3,
+	{GL_FLOAT, 4, GL_FALSE}, // 	DEC_FLOAT_4,
+	{GL_BYTE, 3, GL_TRUE}, // 	DEC_S8_3,
+	{GL_SHORT, 3, GL_TRUE},// 	DEC_S16_3,
+	{GL_UNSIGNED_BYTE, 4, GL_TRUE},// 	DEC_U8_4,
+};
+
+static inline void VertexAttribSetup(int attrib, int fmt, int stride, u8 *ptr) {
+	if (attrib != -1 && fmt) {
+		const GlTypeInfo &type = GLComp[fmt];
+		glEnableVertexAttribArray(attrib);
+		glVertexAttribPointer(attrib, type.count, type.type, type.normalized, stride, ptr);
+	}
+}
+static inline void VertexAttribDisable(int attrib, int fmt) {
+	if (attrib != -1 && fmt) {
+		glDisableVertexAttribArray(attrib);
+	}
+}
+
+// TODO: Use VBO and get rid of the vertexData pointers - with that, we will supply only offsets
+static void SetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decFmt, u8 *vertexData) {
+	VertexAttribSetup(program->a_weight0123, decFmt.w0fmt, decFmt.stride, vertexData + decFmt.w0off);
+	VertexAttribSetup(program->a_weight4567, decFmt.w1fmt, decFmt.stride, vertexData + decFmt.w1off);
+	VertexAttribSetup(program->a_texcoord, decFmt.uvfmt, decFmt.stride, vertexData + decFmt.uvoff);
+	VertexAttribSetup(program->a_color0, decFmt.c0fmt, decFmt.stride, vertexData + decFmt.c0off);
+	VertexAttribSetup(program->a_color1, decFmt.c1fmt, decFmt.stride, vertexData + decFmt.c1off);
+	VertexAttribSetup(program->a_normal, decFmt.nrmfmt, decFmt.stride, vertexData + decFmt.nrmoff);
+	VertexAttribSetup(program->a_position, decFmt.posfmt, decFmt.stride, vertexData + decFmt.posoff);
+}
+
+static void DesetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decFmt) {
+	VertexAttribDisable(program->a_weight0123, decFmt.w0fmt);
+	VertexAttribDisable(program->a_weight4567, decFmt.w1fmt);
+	VertexAttribDisable(program->a_texcoord, decFmt.uvfmt);
+	VertexAttribDisable(program->a_color0, decFmt.c0fmt);
+	VertexAttribDisable(program->a_color1, decFmt.c1fmt);
+	VertexAttribDisable(program->a_normal, decFmt.nrmfmt);
+	VertexAttribDisable(program->a_position, decFmt.posfmt);
+}
+
+void GLES_GPU::SoftwareTransformAndDraw(int prim, LinkedShader *program, int forceIndexType, int vertexCount, void *inds, const DecVtxFormat &decVtxFormat, int indexLowerBound, int indexUpperBound, float *customUV)
 {
-	int indexLowerBound, indexUpperBound;
-	// First, decode the verts and apply morphing
-	VertexDecoder dec;
-	dec.SetVertexType(gstate.vertType);
-	dec.DecodeVerts(decoded, verts, inds, prim, vertexCount, &indexLowerBound, &indexUpperBound);
-	if (bytesRead)
-		*bytesRead = vertexCount * dec.VertexSize();
-
-	// And here we should return, having collected the morphed but untransformed vertices.
-	// Note that DecodeVerts should convert strips into indexed lists etc, adding to our
-	// current vertex buffer and index buffer.
-
-	// The rest below here should only execute on Flush.
-
-#if 0
-	for (int i = indexLowerBound; i <= indexUpperBound; i++) {
-		PrintDecodedVertex(decoded[i], gstate.vertType);
-	}
-#endif
-	bool useTexCoord = false;
-
-	// Check if anything needs updating
-	if (gstate_c.textureChanged)
-	{
-		if ((gstate.textureMapEnable & 1) && !gstate.isModeClear())
-		{
-			PSPSetTexture();
-			useTexCoord = true;
-		}
-	}
-	gpuStats.numDrawCalls++;
-	gpuStats.numVertsTransformed += vertexCount;
-
-	bool throughmode = (gstate.vertType & GE_VTYPE_THROUGH_MASK) != 0;
-
 	/*
 	DEBUG_LOG(G3D, "View matrix:");
 	const float *m = &gstate.viewMatrix[0];
@@ -259,6 +271,9 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 	float v2[3] = {0};
 	float uv2[2] = {0};
 
+	bool throughmode = (gstate.vertType & GE_VTYPE_THROUGH_MASK) != 0;
+
+
 	// TODO: Could use glDrawElements in some cases, see below.
 
 	// TODO: Split up into multiple draw calls for GLES 2.0 where you can't guarantee support for more than 0x10000 verts.
@@ -270,7 +285,7 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 
 	Lighter lighter;
 
-	VertexReader reader(decoded, dec.GetDecVtxFmt());
+	VertexReader reader(decoded, decVtxFormat);
 	for (int index = indexLowerBound; index <= indexUpperBound; index++)
 	{	
 		reader.Goto(index);
@@ -349,6 +364,7 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 					}
 				}
 				
+				// Yes, we really must multiply by the world matrix too.
 				Vec3ByMatrix43(out, psum.v, gstate.worldMatrix);
 				if (reader.hasNormal()) {
 					nsum.Normalize();
@@ -368,7 +384,7 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 
 			if (gstate.lightingEnable & 1)
 			{
-				// TODO: don't ignore gstate.lmode - we should send two colors in that case
+				// Don't ignore gstate.lmode - we should send two colors in that case
 				if (gstate.lmode & 1) {
 					// Separate colors
 					for (int j = 0; j < 4; j++) {
@@ -385,7 +401,7 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 			}
 			else
 			{
-				if(dec.hasColor()) {
+				if (reader.hasColor0()) {
 					for (int j = 0; j < 4; j++) {
 						c0[j] = unlitColor[j];
 						c1[j] = 0.0f;
@@ -405,7 +421,7 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 				float ruv[2];
 				reader.ReadUV(ruv);
 				// Perform texture coordinate generation after the transform and lighting - one style of UV depends on lights.
-				switch (gstate.texmapmode & 0x3)
+				switch (gstate.getUVGenMode())
 				{
 				case 0:	// UV mapping
 					// Texture scale/offset is only performed in this mode.
@@ -416,7 +432,7 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 					{
 						// Projection mapping
 						Vec3 source;
-						switch ((gstate.texmapmode >> 8) & 0x3)
+						switch (gstate.getUVProjMode())
 						{
 						case 0: // Use model space XYZ as source
 							source = pos;
@@ -439,12 +455,10 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 					}
 					break;
 				case 2:
-					// Shade mapping
+					// Shade mapping - use dots from light sources to generate U and V.
 					{
-						int lightsource1 = gstate.texshade & 0x3;
-						int lightsource2 = (gstate.texshade >> 8) & 0x3;
-						uv[0] = dots[lightsource1];
-						uv[1] = dots[lightsource2];
+						uv[0] = dots[gstate.getUVLS0()];
+						uv[1] = dots[gstate.getUVLS1()];
 					}
 					break;
 				case 3:
@@ -569,22 +583,14 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 		}
 	}
 
-	// TODO: This should not be done on every drawcall, we should collect vertex data
-	// until critical state changes. That's when we draw (flush).
-
-	ApplyDrawState();
-	UpdateViewportAndProjection();
-
-	LinkedShader *program = shaderManager_->ApplyShader(prim);
-
 	// TODO: Make a cache for glEnableVertexAttribArray and glVertexAttribPtr states, these spam the gDebugger log.
 	glEnableVertexAttribArray(program->a_position);
-	if (useTexCoord && program->a_texcoord != -1) glEnableVertexAttribArray(program->a_texcoord);
+	if (program->a_texcoord != -1) glEnableVertexAttribArray(program->a_texcoord);
 	if (program->a_color0 != -1) glEnableVertexAttribArray(program->a_color0);
 	if (program->a_color1 != -1) glEnableVertexAttribArray(program->a_color1);
 	const int vertexSize = sizeof(transformed[0]);
 	glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, vertexSize, drawBuffer);
-	if (useTexCoord && program->a_texcoord != -1) glVertexAttribPointer(program->a_texcoord, 2, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 3 * 4);
+	if (program->a_texcoord != -1) glVertexAttribPointer(program->a_texcoord, 2, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 3 * 4);
 	if (program->a_color0 != -1) glVertexAttribPointer(program->a_color0, 4, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 5 * 4);
 	if (program->a_color1 != -1) glVertexAttribPointer(program->a_color1, 4, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 9 * 4);
 	// NOTICE_LOG(G3D,"DrawPrimitive: %i", numTrans);
@@ -594,60 +600,92 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 		glDrawArrays(glprim[prim], 0, numTrans);
 	}
 	glDisableVertexAttribArray(program->a_position);
-	if (useTexCoord && program->a_texcoord != -1) glDisableVertexAttribArray(program->a_texcoord);
+	if (program->a_texcoord != -1) glDisableVertexAttribArray(program->a_texcoord);
 	if (program->a_color0 != -1) glDisableVertexAttribArray(program->a_color0);
 	if (program->a_color1 != -1) glDisableVertexAttribArray(program->a_color1);
 }
 
-struct GlTypeInfo {
-	GLuint type;
-	int count;
-	GLboolean normalized;
-};
+// This is the software transform pipeline, which is necessary for supporting RECT
+// primitives correctly. Other primitives are possible to transform and light in hardware
+// using vertex shader, which will be way, way faster, especially on mobile. This has
+// not yet been implemented though.
+void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, float *customUV, int forceIndexType, int *bytesRead)
+{
+	int indexLowerBound, indexUpperBound;
+	// First, decode the verts and apply morphing
+	VertexDecoder dec;
+	dec.SetVertexType(gstate.vertType);
+	dec.DecodeVerts(decoded, verts, inds, prim, vertexCount, &indexLowerBound, &indexUpperBound);
+	if (bytesRead)
+		*bytesRead = vertexCount * dec.VertexSize();
 
-const GlTypeInfo GLComp[8] = {
-	{0}, // 	DEC_NONE,
-	{GL_FLOAT, 1, GL_FALSE}, // 	DEC_FLOAT_1,
-	{GL_FLOAT, 2, GL_FALSE}, // 	DEC_FLOAT_2,
-	{GL_FLOAT, 3, GL_FALSE}, // 	DEC_FLOAT_3,
-	{GL_FLOAT, 4, GL_FALSE}, // 	DEC_FLOAT_4,
-	{GL_BYTE, 3, GL_TRUE}, // 	DEC_S8_3,
-	{GL_SHORT, 3, GL_TRUE},// 	DEC_S16_3,
-	{GL_BYTE, 4, GL_TRUE},// 	DEC_U8_4,
-};
+	// And here we should return, having collected the morphed but untransformed vertices.
+	// Note that DecodeVerts should convert strips into indexed lists etc, adding to our
+	// current vertex buffer and index buffer.
 
-static inline void VertexAttribSetup(int attrib, int fmt, int stride, u8 *ptr) {
-	if (attrib != -1 && fmt) {
-		const GlTypeInfo &type = GLComp[fmt];
-		glEnableVertexAttribArray(attrib);
-		glVertexAttribPointer(attrib, type.count, type.type, type.normalized, stride, ptr);
+	// The rest below here should only execute on Flush.
+
+#if 0
+	for (int i = indexLowerBound; i <= indexUpperBound; i++) {
+		PrintDecodedVertex(decoded[i], gstate.vertType);
 	}
-}
-static inline void VertexAttribDisable(int attrib, int fmt) {
-	if (attrib != -1 && fmt) {
-		glDisableVertexAttribArray(attrib);
+#endif
+	bool useTexCoord = false;
+
+	// Check if anything needs updating
+	if (gstate_c.textureChanged)
+	{
+		if ((gstate.textureMapEnable & 1) && !gstate.isModeClear())
+		{
+			PSPSetTexture();
+			useTexCoord = true;
+		}
 	}
-}
+	gpuStats.numDrawCalls++;
+	gpuStats.numVertsTransformed += vertexCount;
 
-// TODO: Use VBO and get rid of the vertexData pointers - with that, we will supply only offsets
-static void SetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decFmt, u8 *vertexData) {
-	VertexAttribSetup(program->a_weight0123, decFmt.w0fmt, decFmt.stride, vertexData + decFmt.w0off);
-	VertexAttribSetup(program->a_weight4567, decFmt.w1fmt, decFmt.stride, vertexData + decFmt.w1off);
-	VertexAttribSetup(program->a_texcoord, decFmt.uvfmt, decFmt.stride, vertexData + decFmt.uvoff);
-	VertexAttribSetup(program->a_color0, decFmt.c0fmt, decFmt.stride, vertexData + decFmt.c0off);
-	VertexAttribSetup(program->a_color1, decFmt.c1fmt, decFmt.stride, vertexData + decFmt.c1off);
-	VertexAttribSetup(program->a_normal, decFmt.nrmfmt, decFmt.stride, vertexData + decFmt.nrmoff);
-	VertexAttribSetup(program->a_position, decFmt.posfmt, decFmt.stride, vertexData + decFmt.posoff);
-}
+	// TODO: This should not be done on every drawcall, we should collect vertex data
+	// until critical state changes. That's when we draw (flush).
 
-static void DesetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decFmt) {
-	VertexAttribDisable(program->a_weight0123, decFmt.w0fmt);
-	VertexAttribDisable(program->a_weight4567, decFmt.w1fmt);
-	VertexAttribDisable(program->a_texcoord, decFmt.uvfmt);
-	VertexAttribDisable(program->a_color0, decFmt.c0fmt);
-	VertexAttribDisable(program->a_color1, decFmt.c1fmt);
-	VertexAttribDisable(program->a_normal, decFmt.nrmfmt);
-	VertexAttribDisable(program->a_position, decFmt.posfmt);
+	ApplyDrawState();
+	UpdateViewportAndProjection();
+
+	LinkedShader *program = shaderManager_->ApplyShader(prim);
+
+	if (CanUseHardwareTransform(prim)) {
+		SetupDecFmtForDraw(program, dec.GetDecVtxFmt(), decoded);
+
+		bool drawIndexed;
+		GLuint glIndexType;
+		int indexType = (gstate.vertType & GE_VTYPE_IDX_MASK);
+		if (forceIndexType != -1) {
+			indexType = forceIndexType;
+		}
+		int numTrans = vertexCount;
+		switch (indexType) {
+		case GE_VTYPE_IDX_8BIT:
+			drawIndexed = true;
+			glIndexType = GL_UNSIGNED_BYTE;
+			break;
+		case GE_VTYPE_IDX_16BIT:
+			drawIndexed = true;
+			glIndexType = GL_UNSIGNED_SHORT;
+			break;
+		default:
+			drawIndexed = false;
+			break;
+		}
+		// NOTICE_LOG(G3D,"DrawPrimitive: %i", numTrans);
+		if (drawIndexed) {
+			glDrawElements(glprim[prim], numTrans, glIndexType, (GLvoid *)inds);
+		} else {
+			glDrawArrays(glprim[prim], 0, numTrans);
+		}
+
+		DesetupDecFmtForDraw(program, dec.GetDecVtxFmt());
+	} else {
+		SoftwareTransformAndDraw(prim, program, forceIndexType, vertexCount, inds, dec.GetDecVtxFmt(), indexLowerBound, indexUpperBound, customUV);
+	}
 }
 
 void GLES_GPU::Flush(int prim) {

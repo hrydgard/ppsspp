@@ -48,14 +48,21 @@ struct LinkedShader
 	int u_proj;
 	int u_proj_through;
 	int u_texenv;
-
+	int u_view;
+	int u_texmtx;
+	int u_world;
+	int u_bone[8];
+	
 	// Fragment processing inputs
 	int u_alphacolorref;
 	int u_fogcolor;
 	int u_fogcoef;
 
+	// Texturing
+	int u_uvscaleoffset;
+
 	// Lighting
-	int u_ambientcolor;
+	int u_matambientalpha;
 	int u_light[4];  // each light consist of vec4[3]
 };
 
@@ -75,10 +82,11 @@ enum
 	DIRTY_LIGHT2 = (1 << 14),
 	DIRTY_LIGHT3 = (1 << 15),
 
-	DIRTY_GLOBALAMBIENT = (1 << 16),
+	DIRTY_MATAMBIENTALPHA = (1 << 16),
 	DIRTY_MATERIAL = (1 << 17),  // let's set all 4 together (emissive ambient diffuse specular). We hide specular coef in specular.a
 	DIRTY_UVSCALEOFFSET = (1 << 18),  // this will be dirtied ALL THE TIME... maybe we'll need to do "last value with this shader compares"
 
+	DIRTY_WORLDMATRIX = (1 << 21),
 	DIRTY_VIEWMATRIX = (1 << 22),  // Maybe we'll fold this into projmatrix eventually
 	DIRTY_TEXMATRIX = (1 << 23),
 	DIRTY_BONEMATRIX0 = (1 << 24),

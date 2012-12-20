@@ -609,21 +609,25 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 	case GE_CMD_TEXSCALEU:
 		gstate_c.uScale = getFloat24(data);
 		DEBUG_LOG(G3D, "DL Texture U Scale: %f", gstate_c.uScale);
+		shaderManager.DirtyUniform(DIRTY_UVSCALEOFFSET);
 		break;
 
 	case GE_CMD_TEXSCALEV:
 		gstate_c.vScale = getFloat24(data);
 		DEBUG_LOG(G3D, "DL Texture V Scale: %f", gstate_c.vScale);
+		shaderManager.DirtyUniform(DIRTY_UVSCALEOFFSET);
 		break;
 
 	case GE_CMD_TEXOFFSETU:
 		gstate_c.uOff = getFloat24(data);
 		DEBUG_LOG(G3D, "DL Texture U Offset: %f", gstate_c.uOff);
+		shaderManager.DirtyUniform(DIRTY_UVSCALEOFFSET);
 		break;
 
 	case GE_CMD_TEXOFFSETV:
 		gstate_c.vOff = getFloat24(data);
 		DEBUG_LOG(G3D, "DL Texture V Offset: %f", gstate_c.vOff);
+		shaderManager.DirtyUniform(DIRTY_UVSCALEOFFSET);
 		break;
 
 	case GE_CMD_SCISSOR1:
@@ -829,6 +833,8 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_MATERIALAMBIENT:
 		DEBUG_LOG(G3D,"DL Material Ambient Color: %06x",	data);
+		if (diff)
+			shaderManager.DirtyUniform(DIRTY_MATAMBIENTALPHA);
 		break;
 
 	case GE_CMD_MATERIALDIFFUSE:
@@ -845,6 +851,8 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_MATERIALALPHA:
 		DEBUG_LOG(G3D,"DL Material Alpha Color: %06x",	data);
+		if (diff)
+			shaderManager.DirtyUniform(DIRTY_MATAMBIENTALPHA);
 		break;
 
 	case GE_CMD_MATERIALSPECULARCOEF:
@@ -1034,6 +1042,8 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 		break;
 	case GE_CMD_TEXENVCOLOR:
 		DEBUG_LOG(G3D,"DL TexEnvColor %06x", data);
+		if (diff)
+			shaderManager.DirtyUniform(DIRTY_TEXENV);
 		break;
 	case GE_CMD_TEXMODE:
 		DEBUG_LOG(G3D,"DL TexMode %08x", data);
@@ -1100,6 +1110,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 			if (num < 12)
 				gstate.worldMatrix[num++] = getFloat24(data);
 			gstate.worldmtxnum = (gstate.worldmtxnum & 0xFF000000) | (num & 0xF);
+			shaderManager.DirtyUniform(DIRTY_WORLDMATRIX);
 		}
 		break;
 
@@ -1115,6 +1126,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 			if (num < 12)
 				gstate.viewMatrix[num++] = getFloat24(data);
 			gstate.viewmtxnum = (gstate.viewmtxnum & 0xFF000000) | (num & 0xF);
+			shaderManager.DirtyUniform(DIRTY_VIEWMATRIX);
 		}
 		break;
 
@@ -1146,6 +1158,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 				gstate.tgenMatrix[num++] = getFloat24(data);
 			gstate.texmtxnum = (gstate.texmtxnum & 0xFF000000) | (num & 0xF);
 		}
+		shaderManager.DirtyUniform(DIRTY_TEXMATRIX);
 		break;
 
 	case GE_CMD_BONEMATRIXNUMBER:
@@ -1157,6 +1170,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 		DEBUG_LOG(G3D,"DL BONE data #%i %f", gstate.boneMatrixNumber & 0x7f, getFloat24(data));
 		{
 			int num = gstate.boneMatrixNumber & 0x7F;
+			shaderManager.DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
 			if (num < 96) {
 				gstate.boneMatrix[num++] = getFloat24(data);
 			}

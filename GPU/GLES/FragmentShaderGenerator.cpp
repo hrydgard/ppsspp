@@ -88,7 +88,7 @@ char *GenerateFragmentShader()
 	WRITE(p, "uniform vec3 u_texenv;\n");
 	WRITE(p, "varying vec4 v_color0;\n");
 	if (lmode)
-		WRITE(p, "varying vec4 v_color1;\n");
+		WRITE(p, "varying vec3 v_color1;\n");
 	if (doTexture)
 		WRITE(p, "varying vec2 v_texcoord;\n");
 	if (gstate.isFogEnabled())
@@ -107,7 +107,7 @@ char *GenerateFragmentShader()
 		const char *secondary = "";
 		// Secondary color for specular on top of texture
 		if (lmode) {
-			WRITE(p, "  vec4 s = vec4(v_color1.xyz, 0.0);");
+			WRITE(p, "  vec4 s = vec4(v_color1, 0.0);");
 			secondary = " + s";
 		} else {
 			WRITE(p, "	vec4 s = vec4(0.0, 0.0, 0.0, 0.0);\n");
