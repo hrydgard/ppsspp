@@ -61,6 +61,7 @@ static bool ApplyPathStringToComponentsVector(std::vector<std::string> &vector, 
 
 /*
  * Changes relative paths to absolute, removes ".", "..", and trailing "/"
+ * "drive:./blah" is absolute (ignore the dot) and "/blah" is relative (because it's missing "drive:")
  * babel (and possibly other games) use "/directoryThatDoesNotExist/../directoryThatExists/filename"
  */
 static bool RealPath(const std::string &currentDirectory, const std::string &inPath, std::string &outPath)
@@ -81,70 +82,27 @@ static bool RealPath(const std::string &currentDirectory, const std::string &inP
 		return true;
 	}
 
-	std::string curDirPrefix;
-	size_t curDirColon = std::string::npos, curDirLen = currentDirectory.length();
-	if (curDirLen != 0)
-	{
-		curDirColon = currentDirectory.find(':');
-		
-		if (curDirColon == std::string::npos)
-		{
-			DEBUG_LOG(HLE, "RealPath: currentDirectory has no prefix: \"%s\"", currentDirectory.c_str());
-		}
-		else
-		{
-			if (curDirColon + 1 == curDirLen)
-				DEBUG_LOG(HLE, "RealPath: currentDirectory is all prefix and no path: \"%s\"", currentDirectory.c_str());
-			
-			curDirPrefix = currentDirectory.substr(0, curDirColon + 1);
-		}
-	}
-
-	std::string inPrefix, inAfter;
-
-	if (inColon == std::string::npos)
-	{
-		inPrefix = curDirPrefix;
-		inAfter = inPath;
-	}
-	else
-	{
-		inPrefix = inPath.substr(0, inColon + 1);
-		inAfter = inPath.substr(inColon + 1);
-	}
-
+	bool relative = (inColon == std::string::npos);
+	
+	std::string prefix, inAfterColon;
 	std::vector<std::string> cmpnts;  // path components
-	size_t capacityGuess = inPath.length();
+	size_t outPathCapacityGuess = inPath.length();
 
-	// Special hack for strange root paths.
-	// Don't understand why this is needed. I don't think the current
-	// directory should be the root.
-	if (inAfter.substr(0, 11) == "./PSP_GAME/")
-		inAfter = inAfter.substr(1);
-
-	// Apparently it's okay for relative paths to start with '/'.
-	// For example, kahoots does sceIoChdir(disc0:/PSP_GAME/USRDIR/)
-	// then opens paths like "/images/gui". Support this.
-	if (inColon == std::string::npos && inAfter[0] == '/')
-		inAfter = inAfter.substr(1);
-
-	if (inAfter[0] != '/')
+	if (relative)
 	{
+		size_t curDirLen = currentDirectory.length();
 		if (curDirLen == 0)
 		{
 			ERROR_LOG(HLE, "RealPath: inPath \"%s\" is relative, but current directory is empty", inPath.c_str());
 			return false;
 		}
 		
-		if (curDirColon == std::string::npos || curDirPrefix.length() == 0)
+		size_t curDirColon = currentDirectory.find(':');
+		if (curDirColon == std::string::npos)
 		{
 			ERROR_LOG(HLE, "RealPath: inPath \"%s\" is relative, but current directory \"%s\" has no prefix", inPath.c_str(), currentDirectory.c_str());
 			return false;
 		}
-		
-		if (inPrefix != curDirPrefix)
-			WARN_LOG(HLE, "RealPath: inPath \"%s\" is relative, but specifies a different prefix than current directory \"%s\"", inPath.c_str(), currentDirectory.c_str());
-		
 		if (curDirColon + 1 == curDirLen)
 		{
 			ERROR_LOG(HLE, "RealPath: inPath \"%s\" is relative, but current directory \"%s\" is all prefix and no path. Using \"/\" as path for current directory.", inPath.c_str(), currentDirectory.c_str());
@@ -157,21 +115,29 @@ static bool RealPath(const std::string &currentDirectory, const std::string &inP
 				ERROR_LOG(HLE,"RealPath: currentDirectory is not a valid path: \"%s\"", currentDirectory.c_str());
 				return false;
 			}
+
+			outPathCapacityGuess += curDirLen;
 		}
 
-		capacityGuess += currentDirectory.length();
+		prefix = currentDirectory.substr(0, curDirColon + 1);
+		inAfterColon = inPath;
+	}
+	else
+	{
+		prefix = inPath.substr(0, inColon + 1);
+		inAfterColon = inPath.substr(inColon + 1);
 	}
 
-	if (! ApplyPathStringToComponentsVector(cmpnts, inAfter) )
+	if (! ApplyPathStringToComponentsVector(cmpnts, inAfterColon) )
 	{
-		DEBUG_LOG(HLE, "RealPath: inPath is not a valid path: \"%s\"", inPath.c_str());
+		WARN_LOG(HLE, "RealPath: inPath is not a valid path: \"%s\"", inPath.c_str());
 		return false;
 	}
 
 	outPath.clear();
-	outPath.reserve(capacityGuess);
+	outPath.reserve(outPathCapacityGuess);
 
-	outPath.append(inPrefix);
+	outPath.append(prefix);
 
 	size_t numCmpnts = cmpnts.size();
 	for (size_t i = 0; i < numCmpnts; i++)
