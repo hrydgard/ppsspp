@@ -44,7 +44,7 @@ static char buffer[16384];
 bool CanUseHardwareTransform(int prim)
 {
 	return !gstate.isModeThrough() && false; // prim != GE_PRIM_RECTANGLES;
-	// return !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES;
+	//return !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES;
 }
 
 // prim so we can special case for RECTANGLES :(
@@ -259,7 +259,7 @@ char *GenerateVertexShader(int prim)
 			// No skinning, just standard T&L.
 			WRITE(p, "  vec3 worldpos = u_world * vec4(a_position, 1.0);\n");
 			if (hasNormal)
-				WRITE(p, "  vec3 worldnormal = u_world * vec4(a_normal, 0.0);\n");
+				WRITE(p, "  vec3 worldnormal = normalize(u_world * vec4(a_normal, 0.0));\n");
 		} else {
 			WRITE(p, "  vec3 worldpos = vec3(0.0, 0.0, 0.0);\n");
 			if (hasNormal)
@@ -314,7 +314,7 @@ char *GenerateVertexShader(int prim)
 			bool doSpecular = (comp != GE_LIGHTCOMP_ONLYDIFFUSE);
 			bool poweredDiffuse = comp == GE_LIGHTCOMP_BOTHWITHPOWDIFFUSE;
 
-			WRITE(p, "  float dot%i = dot(toLight%i, worldnormal);\n", i, i);
+			WRITE(p, "  float dot%i = dot(normalize(toLight%i), worldnormal);\n", i, i);
 			if (poweredDiffuse) {
 				WRITE(p, "  dot%i = pow(dot%i, u_matspecular.a);\n");
 			}
@@ -326,14 +326,15 @@ char *GenerateVertexShader(int prim)
 			if (type != GE_LIGHTTYPE_DIRECTIONAL) {
 				// Attenuation
 				WRITE(p, "  float distance%i = length(toLight%i);\n", i, i);
-				WRITE(p, "  lightScale%i = dot(u_lightatt%i, vec3(1.0, distance%i, distance%i*distance%i));\n", i, i, i, i, i);
+				WRITE(p, "  lightScale%i = 1.0 / dot(u_lightatt%i, vec3(1.0, distance%i, distance%i*distance%i));\n", i, i, i, i, i);
+				WRITE(p, "  if (lightScale%i > 1.0) lightScale%i = 1.0;\n", i, i);
 			}
 			WRITE(p, "  vec3 diffuse%i = (u_lightdiffuse%i * %s) * (dot%i * lightScale%i);\n", i, i, diffuse, i, i);
 			if (doSpecular) {
-				WRITE(p, "  vec3 halfVec%i = normalize(toLight%i + vec3(0, 0, 1));\n", i, i);
+				WRITE(p, "  vec3 halfVec%i = normalize(normalize(toLight%i) + vec3(0, 0, 1));\n", i, i);
 				WRITE(p, "  dot%i = dot(halfVec%i, worldnormal);\n", i, i);
 				WRITE(p, "  if (dot%i > 0.0)\n", i);
-				WRITE(p, "    lightSum1 += u_lightspecular%i * %s * (pow(dot%i, u_matspecular.a) * lightScale%i);\n", i, specular, i, i);
+				WRITE(p, "    lightSum1 += u_lightspecular%i * %s * (pow(dot%i, u_matspecular.a) * (dot%i * lightScale%i));\n", i, specular, i, i, i);
 			}
 			WRITE(p, "  lightSum0 += vec4(u_lightambient%i + diffuse%i, 0.0);\n", i, i);
 		}

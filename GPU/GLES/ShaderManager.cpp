@@ -218,7 +218,7 @@ void LinkedShader::use() {
 	}
 
 	// Lighting
-	if (u_ambient != -1 && (dirtyUniforms & DIRTY_MATDIFFUSE)) {
+	if (u_ambient != -1 && (dirtyUniforms & DIRTY_AMBIENT)) {
 		SetColorUniform3Alpha(u_ambient, gstate.ambientcolor, gstate.ambientalpha & 0xFF);
 	}
 	if (u_matambientalpha != -1 && (dirtyUniforms & DIRTY_MATAMBIENTALPHA)) {
@@ -231,7 +231,7 @@ void LinkedShader::use() {
 		SetColorUniform3(u_matemissive, gstate.materialemissive);
 	}
 	if (u_matspecular != -1 && (dirtyUniforms & DIRTY_MATSPECULAR)) {
-		SetColorUniform3ExtraFloat(u_matemissive, gstate.materialspecular, getFloat24(gstate.materialspecularcoef));
+		SetColorUniform3ExtraFloat(u_matspecular, gstate.materialspecular, getFloat24(gstate.materialspecularcoef));
 	}
 
 	for (int i = 0; i < 4; i++) {

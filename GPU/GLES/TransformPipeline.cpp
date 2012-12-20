@@ -152,9 +152,9 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 			dot = powf(dot, specCoef_);
 
 		float lightScale = 1.0f;
+		float distance = toLight.Normalize();
 		if (type != GE_LIGHTTYPE_DIRECTIONAL)
 		{
-			float distance = toLight.Normalize();
 			lightScale = 1.0f / (gstate_c.lightatt[l][0] + gstate_c.lightatt[l][1]*distance + gstate_c.lightatt[l][2]*distance*distance);
 			if (lightScale > 1.0f) lightScale = 1.0f;
 		}
@@ -361,7 +361,6 @@ void GLES_GPU::SoftwareTransformAndDraw(int prim, LinkedShader *program, int for
 				// Yes, we really must multiply by the world matrix too.
 				Vec3ByMatrix43(out, psum.v, gstate.worldMatrix);
 				if (reader.hasNormal()) {
-					nsum.Normalize();
 					Norm3ByMatrix43(norm, nsum.v, gstate.worldMatrix);
 				}
 			}
@@ -371,6 +370,11 @@ void GLES_GPU::SoftwareTransformAndDraw(int prim, LinkedShader *program, int for
 			float unlitColor[4] = {1, 1, 1, 1};
 			if (reader.hasColor0()) {
 				reader.ReadColor0(unlitColor);
+			} else {
+				unlitColor[0] = (gstate.materialambient & 0xFF) / 255.f;
+				unlitColor[1] = ((gstate.materialambient >> 8) & 0xFF) / 255.f;
+				unlitColor[2] = ((gstate.materialambient >> 16) & 0xFF) / 255.f;
+				unlitColor[3] = (gstate.materialalpha & 0xFF) / 255.f;
 			}
 			float litColor0[4];
 			float litColor1[4];
@@ -472,7 +476,7 @@ void GLES_GPU::SoftwareTransformAndDraw(int prim, LinkedShader *program, int for
 		memcpy(&transformed[index].x, v, 3 * sizeof(float));
 		memcpy(&transformed[index].uv, uv, 2 * sizeof(float));
 		memcpy(&transformed[index].color0, c0, 4 * sizeof(float));
-		memcpy(&transformed[index].color1, c1, 4 * sizeof(float));
+		memcpy(&transformed[index].color1, c1, 3 * sizeof(float));
 	}
 
 	// Step 2: Expand using the index buffer, and expand rectangles.
@@ -586,7 +590,7 @@ void GLES_GPU::SoftwareTransformAndDraw(int prim, LinkedShader *program, int for
 	glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, vertexSize, drawBuffer);
 	if (program->a_texcoord != -1) glVertexAttribPointer(program->a_texcoord, 2, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 3 * 4);
 	if (program->a_color0 != -1) glVertexAttribPointer(program->a_color0, 4, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 5 * 4);
-	if (program->a_color1 != -1) glVertexAttribPointer(program->a_color1, 4, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 9 * 4);
+	if (program->a_color1 != -1) glVertexAttribPointer(program->a_color1, 3, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 9 * 4);
 	// NOTICE_LOG(G3D,"DrawPrimitive: %i", numTrans);
 	if (drawIndexed) {
 		glDrawElements(glprim[prim], numTrans, glIndexType, (GLvoid *)inds);

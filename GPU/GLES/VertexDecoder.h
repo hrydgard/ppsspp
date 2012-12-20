@@ -56,7 +56,7 @@ struct TransformedVertex
 	float x, y, z;     // in case of morph, preblend during decode
 	float uv[2];      // scaled by uscale, vscale, if there
 	float color0[4];   // prelit
-	float color1[4];   // prelit
+	float color1[3];   // prelit
 };
 
 DecVtxFormat GetTransformedVtxFormat(const DecVtxFormat &fmt);
