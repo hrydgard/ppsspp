@@ -114,6 +114,11 @@ u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop)
 		return ERROR_SAS_INVALID_VOICE;
 	}
 
+	if (!Memory::IsValidAddress(vagAddr)) {
+		ERROR_LOG(HLE, "Ignoring invalid VAG audio address %08x", vagAddr);
+		return 0;
+	}
+
 	//Real VAG header is 0x30 bytes behind the vagAddr
 	SasVoice &v = sas->voices[voiceNum];
 	v.type = VOICETYPE_VAG;
@@ -126,7 +131,7 @@ u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop)
 
 u32 sceSasSetVoicePCM(u32 core, int voiceNum, u32 pcmAddr, int size, int loop)
 {
-	DEBUG_LOG(HLE,"0=sceSasSetVoicePCM(core=%08x, voicenum=%i, pcmAddr=%08x, size=%i, loop=%i)",core, voiceNum, pcmAddr, size, loop);
+	DEBUG_LOG(HLE,"0=sceSasSetVoicePCM(core=%08x, voicenum=%i, pcmAddr=%08x, size=%i, loop=%i)", core, voiceNum, pcmAddr, size, loop);
 	SasVoice &v = sas->voices[voiceNum];
 	v.type = VOICETYPE_PCM;
 	v.pcmAddr = pcmAddr;
