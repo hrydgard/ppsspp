@@ -316,7 +316,7 @@ char *GenerateVertexShader(int prim)
 
 			WRITE(p, "  float dot%i = dot(toLight%i, worldnormal);\n", i, i);
 			if (poweredDiffuse) {
-				WRITE(p, "  dot%i = pow(dot%i, materialspecular.a);\n");
+				WRITE(p, "  dot%i = pow(dot%i, u_matspecular.a);\n");
 			}
 			
 			if (doLight[i] == LIGHT_DOTONLY)
@@ -325,17 +325,17 @@ char *GenerateVertexShader(int prim)
 			WRITE(p, "  float lightScale%i = 1.0f;\n", i);
 			if (type != GE_LIGHTTYPE_DIRECTIONAL) {
 				// Attenuation
-				WRITE(p, "  float distance = length(toLight%i);\n", i);
-				WRITE(p, "  lightScale%i = dot(u_lightatt%i, vec3(1.0, distance, distance*distance));\n", i, i);
+				WRITE(p, "  float distance%i = length(toLight%i);\n", i, i);
+				WRITE(p, "  lightScale%i = dot(u_lightatt%i, vec3(1.0, distance%i, distance%i*distance%i));\n", i, i, i, i, i);
 			}
 			WRITE(p, "  vec3 diffuse%i = (u_lightdiffuse%i * %s) * (dot%i * lightScale%i);\n", i, i, diffuse, i, i);
 			if (doSpecular) {
 				WRITE(p, "  vec3 halfVec%i = normalize(toLight%i + vec3(0, 0, 1));\n", i, i);
-				WRITE(p, "  dot%i = dot(halfVec%i, worldnormal);\n", i);
+				WRITE(p, "  dot%i = dot(halfVec%i, worldnormal);\n", i, i);
 				WRITE(p, "  if (dot%i > 0.0)\n", i);
-				WRITE(p, "    lightSum1 += u_lightspecular%i * %s * (pow(dot, materialspecular.a) * lightScale);\n", i);
+				WRITE(p, "    lightSum1 += u_lightspecular%i * %s * (pow(dot%i, u_matspecular.a) * lightScale%i);\n", i, specular, i, i);
 			}
-			WRITE(p, "  lightSum0 += vec4(u_lightambient%i, 0.0) + diffuse%i;\n", i, i);
+			WRITE(p, "  lightSum0 += vec4(u_lightambient%i + diffuse%i, 0.0);\n", i, i);
 		}
 
 		if (gstate.lightingEnable & 1) {
