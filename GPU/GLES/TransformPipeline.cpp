@@ -768,7 +768,7 @@ void GLES_GPU::UpdateViewportAndProjection()
 
 	if (throughmode) {
 		// No viewport transform here. Let's experiment with using region.
-		return;
+		//return;
 		glViewport((0 + regionX1) * renderWidthFactor_, (0 - regionY1) * renderHeightFactor_, (regionX2 - regionX1) * renderWidthFactor_, (regionY2 - regionY1) * renderHeightFactor_);
 	} else {
 		// These we can turn into a glViewport call, offset by offsetX and offsetY. Math after.
@@ -787,13 +787,15 @@ void GLES_GPU::UpdateViewportAndProjection()
 		// This means that to get the analogue glViewport we must:
 		float vpX0 = vpXb - offsetX - vpXa;
 		float vpY0 = vpYb - offsetY + vpYa;   // Need to account for sign of Y
-		gstate_c.vpWidth = vpXa * 2;
-		gstate_c.vpHeight = -vpYa * 2;
+		float vpWidth = vpXa * 2;
+		float vpHeight = -vpYa * 2;
+		//gstate_c.vpWidth = vpXa * 2;
+		//gstate_c.vpHeight = -vpYa * 2;
 
-		return;
+		//return;
 
-		float vpWidth = fabsf(gstate_c.vpWidth);
-		float vpHeight = fabsf(gstate_c.vpHeight);
+		//float vpWidth = fabsf(gstate_c.vpWidth);
+		//float vpHeight = fabsf(gstate_c.vpHeight);
 
 		// TODO: These two should feed into glDepthRange somehow.
 		float vpZ0 = (vpZb - vpZa) / 65536.0f;
