@@ -329,7 +329,7 @@ char *GenerateVertexShader(int prim)
 				WRITE(p, "  lightScale%i = 1.0 / dot(u_lightatt%i, vec3(1.0, distance%i, distance%i*distance%i));\n", i, i, i, i, i);
 				WRITE(p, "  if (lightScale%i > 1.0) lightScale%i = 1.0;\n", i, i);
 			}
-			WRITE(p, "  vec3 diffuse%i = (u_lightdiffuse%i * %s) * (dot%i * lightScale%i);\n", i, i, diffuse, i, i);
+			WRITE(p, "  vec3 diffuse%i = (u_lightdiffuse%i * %s) * (max(dot%i, 0.0) * lightScale%i);\n", i, i, diffuse, i, i);
 			if (doSpecular) {
 				WRITE(p, "  vec3 halfVec%i = normalize(normalize(toLight%i) + vec3(0, 0, 1));\n", i, i);
 				WRITE(p, "  dot%i = dot(halfVec%i, worldnormal);\n", i, i);

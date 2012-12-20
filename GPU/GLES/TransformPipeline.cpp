@@ -638,6 +638,7 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 			PSPSetTexture();
 			useTexCoord = true;
 		}
+		gstate_c.textureChanged = false;
 	}
 	gpuStats.numDrawCalls++;
 	gpuStats.numVertsTransformed += vertexCount;
