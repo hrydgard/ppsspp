@@ -50,6 +50,7 @@ namespace MIPSInt
 	void Int_Vcmp(u32 op);
 	void Int_Vminmax(u32 op);
 	void Int_Vcrs(u32 op);
+	void Int_Vdet(u32 op);
 	void Int_Vcmov(u32 op);
 	void Int_CrossQuat(u32 op);
 	void Int_VPFX(u32 op);

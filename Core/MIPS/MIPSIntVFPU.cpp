@@ -906,7 +906,26 @@ namespace MIPSInt
 		PC += 4;
 		EatPrefixes();
 	}
-
+	
+	void Int_Vdet(u32 op)
+	{
+		float s[4], t[4];
+		float d[4];
+		int vd = _VD;
+		int vs = _VS;
+		int vt = _VT;
+		VectorSize sz = GetVecSize(op);
+		if (sz != V_Pair)
+			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+		ReadVector(s, sz, vs);
+		ReadVector(t, sz, vt);
+		d[0] = s[0] * t[1] - s[1] * t[0];
+		ApplyPrefixD(d, sz);
+		WriteVector(d, sz, vd);
+		PC += 4;
+		EatPrefixes();
+	}
+	
 	void Int_Vfad(u32 op)
 	{
 		float s[4];
