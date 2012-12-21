@@ -41,7 +41,7 @@ int XinputDevice::UpdateState() {
 	if ( dwResult == ERROR_SUCCESS ) {
 		this->ApplyDiff(state);
 		Stick left = NormalizedDeadzoneFilter(state);
-		__CtrlSetAnalog(left.x, left.y);
+		__CtrlSetAnalog(left.x, -left.y);
 		this->prevState = state;
 		this->check_delay = 0;
 		return 0;
