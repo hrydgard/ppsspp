@@ -145,7 +145,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate)
 	__DisplayFireVblank();
 
 	// Wake up threads waiting for VBlank
-	for (int i = 0; i < vblankWaitingThreads.size(); i++) {
+	for (size_t i = 0; i < vblankWaitingThreads.size(); i++) {
 		__KernelResumeThreadFromWait(vblankWaitingThreads[i].threadID, 0);
 	}
 	vblankWaitingThreads.clear();
