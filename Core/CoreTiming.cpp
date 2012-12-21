@@ -245,7 +245,7 @@ void ScheduleEvent(int cyclesIntoFuture, int event_type, u64 userdata)
 	Event *ne = GetNewEvent();
 	ne->userdata = userdata;
 	ne->type = event_type;
-	ne->time = globalTimer + cyclesIntoFuture;
+	ne->time = GetTicks() + cyclesIntoFuture;
 	AddEventToQueue(ne);
 }
 
