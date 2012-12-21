@@ -450,7 +450,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_SIGNAL:
 		{
-			ERROR_LOG(G3D, "DL GE_CMD_SIGNAL %08x", data & 0xFFFFFF);
+			DEBUG_LOG(G3D, "DL GE_CMD_SIGNAL %08x", data & 0xFFFFFF);
 			// Processed in GE_END.
 		}
 		break;
@@ -509,12 +509,12 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_BJUMP:
 		// bounding box jump. Let's just not jump, for now.
-		ERROR_LOG(G3D,"DL BBOX JUMP - unimplemented");
+		DEBUG_LOG(G3D,"DL BBOX JUMP - unimplemented");
 		break;
 
 	case GE_CMD_BOUNDINGBOX:
 		// bounding box test. Let's do nothing.
-		ERROR_LOG(G3D,"DL BBOX TEST - unimplemented");
+		DEBUG_LOG(G3D,"DL BBOX TEST - unimplemented");
 		break;
 
 	case GE_CMD_ORIGIN:
