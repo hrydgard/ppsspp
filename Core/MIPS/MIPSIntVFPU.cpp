@@ -882,7 +882,99 @@ namespace MIPSInt
 		PC += 4;
 		EatPrefixes();
 	}
+	
+	void Int_Vsrt1(u32 op)
+	{
+		float s[4];
+		float d[4];
+		int vd = _VD;
+		int vs = _VS;
+		VectorSize sz = GetVecSize(op);
+		ReadVector(s, sz, vs);
+		ApplySwizzleS(s, sz);
+		float x = s[0];
+		float y = s[1];
+		float z = s[2];
+		float w = s[3];
+		d[0] = std::min(x, y);
+		d[1] = std::max(x, y);
+		d[2] = std::min(z, w);
+		d[3] = std::max(z, w);
+		ApplyPrefixD(d, sz);
+		WriteVector(d, sz, vd);
+		PC += 4;
+		EatPrefixes();
+	}
 
+	void Int_Vsrt2(u32 op)
+	{
+		float s[4];
+		float d[4];
+		int vd = _VD;
+		int vs = _VS;
+		VectorSize sz = GetVecSize(op);
+		ReadVector(s, sz, vs);
+		ApplySwizzleS(s, sz);
+		float x = s[0];
+		float y = s[1];
+		float z = s[2];
+		float w = s[3];
+		d[0] = std::min(x, w);
+		d[1] = std::min(y, z);
+		d[2] = std::max(y, z);
+		d[3] = std::max(x, w);
+		ApplyPrefixD(d, sz);
+		WriteVector(d, sz, vd);
+		PC += 4;
+		EatPrefixes();
+	}
+
+	void Int_Vsrt3(u32 op)
+	{
+		float s[4];
+		float d[4];
+		int vd = _VD;
+		int vs = _VS;
+		VectorSize sz = GetVecSize(op);
+		ReadVector(s, sz, vs);
+		ApplySwizzleS(s, sz);
+		float x = s[0];
+		float y = s[1];
+		float z = s[2];
+		float w = s[3];
+		d[0] = std::max(x, y);
+		d[1] = std::min(x, y);
+		d[2] = std::max(z, w);
+		d[3] = std::min(z, w);
+		ApplyPrefixD(d, sz);
+		WriteVector(d, sz, vd);
+		PC += 4;
+		EatPrefixes();
+	}
+
+	void Int_Vsrt4(u32 op)
+	{
+		float s[4];
+		float d[4];
+		int vd = _VD;
+		int vs = _VS;
+		VectorSize sz = GetVecSize(op);
+		ReadVector(s, sz, vs);
+		ApplySwizzleS(s, sz);
+		float x = s[0];
+		float y = s[1];
+		float z = s[2];
+		float w = s[3];
+		d[0] = std::max(x, w);
+		d[1] = std::max(y, z);
+		d[2] = std::min(y, z);
+		d[3] = std::min(x, w);
+		ApplyPrefixD(d, sz);
+		WriteVector(d, sz, vd);
+		PC += 4;
+		EatPrefixes();
+	}
+	
 	void Int_Vcrs(u32 op)
 	{
 		//half a cross product

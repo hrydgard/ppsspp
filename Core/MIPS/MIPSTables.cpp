@@ -685,8 +685,8 @@ MIPSInstruction tableVFPUMatrixSet1[16] = //111100 11100 0xxxx   (rm x is 16)
 
 MIPSInstruction tableVFPU9[32] = //110100 00010 xxxxx
 {
-	INSTR("vsrt1", &Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU),
-	INSTR("vsrt2", &Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU),
+	INSTR("vsrt1", &Jit::Comp_Generic, Dis_Vbfy, Int_Vsrt1, IS_VFPU),
+	INSTR("vsrt2", &Jit::Comp_Generic, Dis_Vbfy, Int_Vsrt2, IS_VFPU),
 	INSTR("vbfy1", &Jit::Comp_Generic, Dis_Vbfy, Int_Vbfy, IS_VFPU),
 	INSTR("vbfy2", &Jit::Comp_Generic, Dis_Vbfy, Int_Vbfy, IS_VFPU),
 	//4
@@ -695,8 +695,8 @@ MIPSInstruction tableVFPU9[32] = //110100 00010 xxxxx
 	INSTR("vfad", &Jit::Comp_Generic, Dis_Vfad, Int_Vfad, IS_VFPU),
 	INSTR("vavg", &Jit::Comp_Generic, Dis_Vfad, Int_Vavg, IS_VFPU),
 	//8
-	INSTR("vsrt3", &Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU),
-	INSTR("vsrt4", &Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU),
+	INSTR("vsrt3", &Jit::Comp_Generic, Dis_Vbfy, Int_Vsrt3, IS_VFPU),
+	INSTR("vsrt4", &Jit::Comp_Generic, Dis_Vbfy, Int_Vsrt4, IS_VFPU),
 	INSTR("vsgn", &Jit::Comp_Generic, Dis_Vbfy, Int_Vsgn, IS_VFPU),
 	{-2},
 	//12
