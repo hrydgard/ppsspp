@@ -168,6 +168,8 @@ int sceKernelReferAlarmStatus(SceUID uid, u32 infoPtr)
 		return error;
 	}
 
+	DEBUG_LOG(HLE, "sceKernelReferAlarmStatus(%08x, %08x)", uid, infoPtr);
+
 	if (!Memory::IsValidAddress(infoPtr))
 		return -1;
 
