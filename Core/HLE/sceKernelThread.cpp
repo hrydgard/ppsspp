@@ -1751,7 +1751,7 @@ void __KernelSwitchContext(Thread *target, const char *reason)
 	}
 	currentThread = target;
 	__KernelLoadContext(&currentThread->context);
-	DEBUG_LOG(HLE,"Context switched: %s -> %s (%s) (%i - pc: %08x -> %i - pc: %08)",
+	DEBUG_LOG(HLE,"Context switched: %s -> %s (%s) (%i - pc: %08x -> %i - pc: %08x)",
 		oldName, currentThread->GetName(),
 		reason,
 		oldUID, oldPC, currentThread->GetUID(), currentMIPS->pc);

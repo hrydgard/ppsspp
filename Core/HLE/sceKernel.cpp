@@ -412,10 +412,10 @@ const HLEFunction ThreadManForUser[] =
 	{0x64D4540E,0,"sceKernelReferThreadProfiler"},
 
 	//Fifa Street 2 uses alarms
-	{0x6652b8ca,sceKernelSetAlarm,"sceKernelSetAlarm"},
-	{0xB2C25152,sceKernelSetSysClockAlarm,"sceKernelSetSysClockAlarm"},
-	{0x7e65b999,sceKernelCancelAlarm,"sceKernelCancelAlarm"},
-	{0xDAA3F564,sceKernelReferAlarmStatus,"sceKernelReferAlarmStatus"},
+	{0x6652b8ca,WrapI_UUU<sceKernelSetAlarm>,"sceKernelSetAlarm"},
+	{0xB2C25152,WrapI_UUU<sceKernelSetSysClockAlarm>,"sceKernelSetSysClockAlarm"},
+	{0x7e65b999,WrapI_I<sceKernelCancelAlarm>,"sceKernelCancelAlarm"},
+	{0xDAA3F564,WrapI_IU<sceKernelReferAlarmStatus>,"sceKernelReferAlarmStatus"},
 
 	{0xba6b92e2,sceKernelSysClock2USec,"sceKernelSysClock2USec"},
 	{0x110DEC9A,0,"sceKernelUSec2SysClock"},

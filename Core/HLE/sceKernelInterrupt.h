@@ -54,13 +54,62 @@ enum PSPGeSubInterrupts {
   PSP_GE_SUBINTR_SIGNAL = 15
 };
 
+enum PSPInterruptTriggerType {
+	// Trigger immediately, for CoreTiming events.
+	PSP_INTR_IMMEDIATE = 0x0,
+	// Trigger after the HLE syscall finishes.
+	PSP_INTR_HLE = 0x1,
+	// Only trigger (as above) if interrupts are not suspended.
+	PSP_INTR_ONLY_IF_ENABLED = 0x2,
+};
+
+class AllegrexInterruptHandler;
+
+struct PendingInterrupt {
+	AllegrexInterruptHandler *handler;
+	int arg;
+	bool hasArg;
+	int intr;
+	int subintr;
+};
+
+
+class AllegrexInterruptHandler
+{
+public:
+	virtual ~AllegrexInterruptHandler() {}
+	virtual void copyArgsToCPU(const PendingInterrupt &pend) = 0;
+	virtual void queueUp() = 0;
+	virtual void queueUpWithArg(int arg) = 0;
+	virtual void handleResult(int result) = 0;
+};
+
+class SubIntrHandler : public AllegrexInterruptHandler
+{
+public:
+	SubIntrHandler() {}
+	virtual void queueUp();
+	virtual void queueUpWithArg(int arg);
+	virtual void copyArgsToCPU(const PendingInterrupt &pend);
+	virtual void handleResult(int result) {}
+
+	bool enabled;
+	int intrNumber;
+	int number;
+	u32 handlerAddress;
+	u32 handlerArg;
+};
+
 bool __IsInInterrupt();
 void __InterruptsInit();
 void __InterruptsShutdown();
-void __TriggerInterrupt(PSPInterrupt intno, int subInterrupts = -1);
-void __TriggerInterruptWithArg(PSPInterrupt intno, int subintr, int arg);  // For GE "callbacks"
+void __TriggerInterrupt(int type, PSPInterrupt intno, int subInterrupts = -1);
+void __TriggerInterruptWithArg(int type, PSPInterrupt intno, int subintr, int arg);  // For GE "callbacks"
 bool __RunOnePendingInterrupt();
 void __KernelReturnFromInterrupt();
+
+u32 __RegisterSubInterruptHandler(u32 intrNumber, u32 subIntrNumber, SubIntrHandler *subIntrHandler);
+u32 __ReleaseSubInterruptHandler(u32 intrNumber, u32 subIntrNumber);
 
 u32 sceKernelRegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 handler, u32 handlerArg);
 u32 sceKernelReleaseSubIntrHandler(u32 intrNumber, u32 subIntrNumber);
