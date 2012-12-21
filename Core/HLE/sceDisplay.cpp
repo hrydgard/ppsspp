@@ -185,6 +185,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate)
 			"Draw flushes: %i\n"
 			"Vertices Transformed: %i\n"
 			"Textures active: %i\n"
+			"Textures decoded: %i\n"
 			"Vertex shaders loaded: %i\n"
 			"Fragment shaders loaded: %i\n"
 			"Combined shaders loaded: %i\n",
@@ -193,15 +194,15 @@ void hleEnterVblank(u64 userdata, int cyclesLate)
 			gpuStats.numFlushes,
 			gpuStats.numVertsTransformed,
 			gpuStats.numTextures,
+			gpuStats.numTexturesDecoded,
 			gpuStats.numVertexShaders,
 			gpuStats.numFragmentShaders,
 			gpuStats.numShaders
 			);
 		
-		float zoom = 0.7f / g_Config.iWindowZoom;
+		float zoom = 0.7f; /// g_Config.iWindowZoom;
 		PPGeBegin();
-		PPGeDrawText(stats, 2, 2, 0, zoom, 0x90000000);
-		PPGeDrawText(stats, 0, 0, 0, zoom);
+		PPGeDrawText(stats, 0, 0, 0, zoom, 0xFFc0c0c0);
 		PPGeEnd();
 		
 		gpuStats.resetFrame();

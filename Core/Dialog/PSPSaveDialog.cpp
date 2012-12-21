@@ -33,6 +33,7 @@ PSPSaveDialog::~PSPSaveDialog() {
 
 u32 PSPSaveDialog::Init(int paramAddr)
 {
+	return 0;
 	// Ignore if already running
 	if (status != SCE_UTILITY_STATUS_NONE && status != SCE_UTILITY_STATUS_SHUTDOWN)
 	{

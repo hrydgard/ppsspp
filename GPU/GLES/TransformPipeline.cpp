@@ -44,9 +44,8 @@ const GLuint glprim[8] = {
 
 u8 decoded[65536 * 32];
 VertexDecoder dec;
-uint16_t decIndex[65536];	// Unused
+uint16_t decIndex[65536];
 int numVerts;
-int numInds;
 
 IndexGenerator indexGen;
 
@@ -577,6 +576,7 @@ void SoftwareTransformAndDraw(int prim, LinkedShader *program, int vertexCount, 
 
 void GLES_GPU::InitTransform() {
 	indexGen.Setup(decIndex);
+	numVerts = 0;
 }
 
 void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, float *customUV, int forceIndexType, int *bytesRead)
@@ -585,13 +585,18 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 	if (!indexGen.PrimCompatible(prim))
 		Flush();
 
+	if (!indexGen.Empty()) {
+		gpuStats.numJoins++;
+	}
 	gpuStats.numDrawCalls++;
 	gpuStats.numVertsTransformed += vertexCount;
 
+	indexGen.SetIndex(numVerts);
 	int indexLowerBound, indexUpperBound;
 	// First, decode the verts and apply morphing
 	dec.SetVertexType(gstate.vertType);
-	dec.DecodeVerts(decoded, verts, inds, prim, vertexCount, &indexLowerBound, &indexUpperBound);
+	dec.DecodeVerts(decoded + numVerts * (int)dec.GetDecVtxFmt().stride, verts, inds, prim, vertexCount, &indexLowerBound, &indexUpperBound);
+	numVerts += indexUpperBound - indexLowerBound + 1;
 
 	if (bytesRead)
 		*bytesRead = vertexCount * dec.VertexSize();
@@ -613,7 +618,7 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 
 	case GE_VTYPE_IDX_8BIT:
 		switch (prim) {
-		case GE_PRIM_POINTS: indexGen.TranslatePoints(vertexCount, (const u16 *)inds, -indexLowerBound); break;
+		case GE_PRIM_POINTS: indexGen.TranslatePoints(vertexCount, (const u8 *)inds, -indexLowerBound); break;
 		case GE_PRIM_LINES: indexGen.TranslateLineList(vertexCount, (const u8 *)inds, -indexLowerBound); break;
 		case GE_PRIM_LINE_STRIP: indexGen.TranslateLineStrip(vertexCount, (const u8 *)inds, -indexLowerBound); break;
 		case GE_PRIM_TRIANGLES: indexGen.TranslateList(vertexCount, (const u8 *)inds, -indexLowerBound); break;
@@ -677,6 +682,8 @@ void GLES_GPU::Flush()
 
 	LinkedShader *program = shaderManager_->ApplyShader(prim);
 
+	DEBUG_LOG(G3D, "Flush prim %i! %i verts in one go", prim, numVerts);
+
 	if (CanUseHardwareTransform(prim)) {
 		SetupDecFmtForDraw(program, dec.GetDecVtxFmt(), decoded);
 		glDrawElements(glprim[prim], indexGen.VertexCount(), GL_UNSIGNED_SHORT, (GLvoid *)decIndex);
@@ -687,4 +694,5 @@ void GLES_GPU::Flush()
 	}
 
 	indexGen.Reset();
+	numVerts = 0;
 }

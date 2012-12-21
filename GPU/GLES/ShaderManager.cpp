@@ -176,8 +176,10 @@ static void SetMatrix4x3(int uniform, const float *m4x3) {
 
 void LinkedShader::use() {
 	glUseProgram(program);
-	glUniform1i(u_tex, 0);
+	updateUniforms();
+}
 
+void LinkedShader::updateUniforms() {
 	if (!dirtyUniforms)
 		return;
 
@@ -300,6 +302,7 @@ void ShaderManager::DirtyShader()
 	// Forget the last shader ID
 	lastFSID.clear();
 	lastVSID.clear();
+	lastShader = 0;
 }
 
 
@@ -318,8 +321,11 @@ LinkedShader *ShaderManager::ApplyShader(int prim)
 	ComputeVertexShaderID(&VSID, prim);
 	ComputeFragmentShaderID(&FSID);
 
-	// Bail quickly in the no-op case. TODO: why does it cause trouble?
-	//	if (VSID == lastVSID && FSID == lastFSID) return lastShader;	// Already all set.
+	// Just update uniforms if this is the same shader as last time.
+	if (lastShader != 0 && VSID == lastVSID && FSID == lastFSID) {
+		lastShader->updateUniforms();
+		return lastShader;	// Already all set.
+	}
 
 	lastVSID = VSID;
 	lastFSID = FSID;
@@ -355,9 +361,8 @@ LinkedShader *ShaderManager::ApplyShader(int prim)
 		linkedShaderCache[linkedID] = ls;
 	} else {
 		ls = iter->second;
+		ls->use();
 	}
-
-	ls->use();
 
 	lastShader = ls;
 	return ls;

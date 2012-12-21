@@ -41,7 +41,7 @@ public:
 	// Rectangles
 	void AddRectangles(int numVerts);
 
-	void TranslatePoints(int numVerts, const u8 *inds, int offset);
+	void TranslatePoints(int numVerts, const u8 *inds, int offset);	
 	void TranslatePoints(int numVerts, const u16 *inds, int offset);
 	// Translates already indexed lists
 	void TranslateLineList(int numVerts, const u8 *inds, int offset);
@@ -64,6 +64,8 @@ public:
 	int VertexCount() { return count_; }
 
 	bool Empty() { return index_ == 0; }
+
+	void SetIndex(int ind) { index_ = ind; }
 
 private:
 	u16 *indsBase_;

@@ -255,18 +255,23 @@ struct GPUStatistics
 		memset(this, 0, sizeof(*this));
 	}
 	void resetFrame() {
+		numJoins = 0;
 		numDrawCalls = 0;
 		numVertsTransformed = 0;
 		numTextureSwitches = 0;
 		numShaderSwitches = 0;
+		numFlushes = 0;
+		numTexturesDecoded = 0;
 	}
 
 	// Per frame statistics
+	int numJoins;
 	int numDrawCalls;
 	int numFlushes;
 	int numVertsTransformed;
 	int numTextureSwitches;
 	int numShaderSwitches;
+	int numTexturesDecoded;
 
 	// Total statistics, updated by the GPU core in UpdateStats
 	int numFrames;
