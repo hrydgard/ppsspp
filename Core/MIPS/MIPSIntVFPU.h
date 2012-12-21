@@ -58,6 +58,10 @@ namespace MIPSInt
 	void Int_VPFX(u32 op);
 	void Int_Vflush(u32 op);
 	void Int_Vbfy(u32 op);
+	void Int_Vsrt1(u32 op);
+	void Int_Vsrt2(u32 op);
+	void Int_Vsrt3(u32 op);
+	void Int_Vsrt4(u32 op);
 	void Int_Vf2i(u32 op);
 	void Int_Vi2f(u32 op);
 	void Int_Vi2x(u32 op);
