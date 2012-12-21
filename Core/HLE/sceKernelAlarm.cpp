@@ -104,6 +104,9 @@ SceUID __KernelSetAlarm(u64 ticks, u32 handlerPtr, u32 commonPtr)
 	if (!alarmInitComplete)
 		__KernelAlarmInit();
 
+	if (!Memory::IsValidAddress(handlerPtr))
+		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+
 	Alarm *alarm = new Alarm;
 	SceUID uid = kernelObjects.Create(alarm);
 
@@ -131,7 +134,6 @@ SceUID sceKernelSetSysClockAlarm(u32 microPtr, u32 handlerPtr, u32 commonPtr)
 
 	if (Memory::IsValidAddress(microPtr))
 		micro = Memory::Read_U64(microPtr);
-	// TODO: What to do when invalid?
 	else
 		return -1;
 
