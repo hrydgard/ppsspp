@@ -435,7 +435,7 @@ int sceRtcSetTime_t(u32 datePtr, u32 time)
 
 int sceRtcSetTime64_t(u32 datePtr, u64 time)
 {
-	ERROR_LOG(HLE, "HACK sceRtcSetTime64_t(%d,%d)", datePtr, time);
+	ERROR_LOG(HLE, "HACK sceRtcSetTime64_t(%d,%lld)", datePtr, time);
 	if (Memory::IsValidAddress(datePtr))
 	{
 		ScePspDateTime pt;
@@ -453,7 +453,7 @@ int sceRtcSetTime64_t(u32 datePtr, u64 time)
 
 int sceRtcGetTime_t(u32 datePtr, u32 timePtr)
 {
-	ERROR_LOG(HLE, "HACK sceRtcGetTime_t(%d,%d)", datePtr, time);
+	ERROR_LOG(HLE, "HACK sceRtcGetTime_t(%d,%d)", datePtr, timePtr);
 	if (Memory::IsValidAddress(datePtr)&&Memory::IsValidAddress(timePtr))
 	{
 		ScePspDateTime pt;
@@ -472,7 +472,7 @@ int sceRtcGetTime_t(u32 datePtr, u32 timePtr)
 
 int sceRtcGetTime64_t(u32 datePtr, u32 timePtr)
 {
-	ERROR_LOG(HLE, "HACK sceRtcGetTime64_t(%d,%d)", datePtr, time);
+	ERROR_LOG(HLE, "HACK sceRtcGetTime64_t(%d,%d)", datePtr, timePtr);
 	if (Memory::IsValidAddress(datePtr)&&Memory::IsValidAddress(timePtr))
 	{
 		ScePspDateTime pt;
@@ -568,7 +568,7 @@ int sceRtcTickAddTicks(u32 destTickPtr, u32 srcTickPtr, u64 numTicks)
 		Memory::Write_U64(srcTick, destTickPtr);
 	}
 
-	DEBUG_LOG(HLE, "sceRtcTickAddTicks(%d,%d,%d)", destTickPtr, srcTickPtr, numTicks);
+	DEBUG_LOG(HLE, "sceRtcTickAddTicks(%x,%x,%llu)", destTickPtr, srcTickPtr, numTicks);
 	return 0;
 }
 
@@ -582,7 +582,7 @@ int sceRtcTickAddMicroseconds(u32 destTickPtr,u32 srcTickPtr, u64 numMS)
 		Memory::Write_U64(srcTick, destTickPtr);
 	}
 
-	ERROR_LOG(HLE, "HACK sceRtcTickAddMicroseconds(%d,%d,%d)", destTickPtr, srcTickPtr, numMS);
+	ERROR_LOG(HLE, "HACK sceRtcTickAddMicroseconds(%x,%x,%llu)", destTickPtr, srcTickPtr, numMS);
 	return 0;
 }
 
@@ -595,7 +595,7 @@ int sceRtcTickAddSeconds(u32 destTickPtr, u32 srcTickPtr, u64 numSecs)
 		srcTick += numSecs * 1000000UL;
 		Memory::Write_U64(srcTick, destTickPtr);
 	}
-	ERROR_LOG(HLE, "HACK sceRtcTickAddSeconds(%d,%d,%d)", destTickPtr, srcTickPtr, numSecs);
+	ERROR_LOG(HLE, "HACK sceRtcTickAddSeconds(%x,%x,%llu)", destTickPtr, srcTickPtr, numSecs);
 	return 0;
 }
 
@@ -608,7 +608,7 @@ int sceRtcTickAddMinutes(u32 destTickPtr, u32 srcTickPtr, u64 numMins)
 		srcTick += numMins*60000000UL;
 		Memory::Write_U64(srcTick, destTickPtr);
 	}
-	ERROR_LOG(HLE, "HACK sceRtcTickAddMinutes(%d,%d,%d)", destTickPtr, srcTickPtr, numMins);
+	ERROR_LOG(HLE, "HACK sceRtcTickAddMinutes(%x,%x,%llu)", destTickPtr, srcTickPtr, numMins);
 	return 0;
 }
 

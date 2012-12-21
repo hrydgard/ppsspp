@@ -981,7 +981,7 @@ int sceKernelCreateThread(const char *threadName, u32 entry, u32 prio, int stack
 	__KernelCreateThread(id, curModule, threadName, entry, prio, stacksize, attr);
 	INFO_LOG(HLE, "%i = sceKernelCreateThread(name=\"%s\", entry=%08x, prio=%x, stacksize=%i)", id, threadName, entry, prio, stacksize);
 	if (optionAddr != 0)
-		WARN_LOG(HLE, "sceKernelCreateThread: unsupported options parameter.", threadName);
+		WARN_LOG(HLE, "sceKernelCreateThread(name=\"%s\"): unsupported options parameter %08x", threadName, optionAddr);
 	return id;
 }
 
