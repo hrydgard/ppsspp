@@ -517,13 +517,13 @@ namespace MIPSInt
 		ApplySwizzleS(s, sz);
 		int n=GetNumVectorElements(sz);
 		float x = s[0];
-        	d[0] = std::min(std::max(0.0f, 1.0f - x), 1.0f);
-        	d[1] = std::min(std::max(0.0f, x), 1.0f);
-        	if (n > 1) {
-            		float y = s[1];
-            		d[2] = std::min(std::max(0.0f, 1.0f - y), 1.0f);
-            		d[3] = std::min(std::max(0.0f, y), 1.0f);
-        	} 
+		d[0] = std::min(std::max(0.0f, 1.0f - x), 1.0f);
+		d[1] = std::min(std::max(0.0f, x), 1.0f);
+		if (n > 1) {
+			float y = s[1];
+			d[2] = std::min(std::max(0.0f, 1.0f - y), 1.0f);
+			d[3] = std::min(std::max(0.0f, y), 1.0f);
+		} 
 		ApplyPrefixD(d, sz);
 		WriteVector(d, sz, vd);
 		PC += 4;
