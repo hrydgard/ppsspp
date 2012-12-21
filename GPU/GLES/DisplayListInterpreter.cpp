@@ -44,11 +44,11 @@ extern u32 curTextureWidth;
 extern u32 curTextureHeight;
 
 GLES_GPU::GLES_GPU(int renderWidth, int renderHeight)
-	: interruptsEnabled_(true),
+:		interruptsEnabled_(true),
+		displayFramebufPtr_(0),
 		renderWidth_(renderWidth),
 		renderHeight_(renderHeight),
-		dlIdGenerator(1),
-		displayFramebufPtr_(0)
+		dlIdGenerator(1)
 {
 	renderWidthFactor_ = (float)renderWidth / 480.0f;
 	renderHeightFactor_ = (float)renderHeight / 272.0f;
