@@ -26,6 +26,7 @@
 
 #include "../ge_constants.h"
 #include "../GPUState.h"
+#include "../../Core/Config.h"
 
 #include "VertexShaderGenerator.h"
 
@@ -44,8 +45,9 @@ static char buffer[16384];
 
 bool CanUseHardwareTransform(int prim)
 {
-	return !gstate.isModeThrough() && false; // prim != GE_PRIM_RECTANGLES;
-	//return !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES;
+	if (!g_Config.bHardwareTransform)
+		return false;
+	return !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES;
 }
 
 // prim so we can special case for RECTANGLES :(
@@ -192,16 +194,16 @@ char *GenerateVertexShader(int prim)
 
 	if (hwXForm) {
 		// When transforming by hardware, we need a great deal more uniforms...
-		WRITE(p, "uniform mat4x3 u_world;\n");
-		WRITE(p, "uniform mat4x3 u_view;\n");
+		WRITE(p, "uniform mat4 u_world;\n");
+		WRITE(p, "uniform mat4 u_view;\n");
 		if (gstate.getUVGenMode() == 0)
 			WRITE(p, "uniform vec4 u_uvscaleoffset;\n");
 		else if (gstate.getUVGenMode() == 1)
-			WRITE(p, "uniform mat4x3 u_texmtx;\n");
+			WRITE(p, "uniform mat4 u_texmtx;\n");
 		if ((gstate.vertType & GE_VTYPE_WEIGHT_MASK) != GE_VTYPE_WEIGHT_NONE) {
 			int numBones = 1 + ((gstate.vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT);
 			for (int i = 0; i < numBones; i++) {
-				WRITE(p, "uniform mat4x3 u_bone%i;\n", i);
+				WRITE(p, "uniform mat4 u_bone%i;\n", i);
 			}
 		}
 		if (gstate.lightingEnable & 1) {
@@ -258,9 +260,9 @@ char *GenerateVertexShader(int prim)
 		// Step 1: World Transform / Skinning
 		if ((gstate.vertType & GE_VTYPE_WEIGHT_MASK) == GE_VTYPE_WEIGHT_NONE) {
 			// No skinning, just standard T&L.
-			WRITE(p, "  vec3 worldpos = u_world * vec4(a_position, 1.0);\n");
+			WRITE(p, "  vec3 worldpos = (u_world * vec4(a_position, 1.0)).xyz;\n");
 			if (hasNormal)
-				WRITE(p, "  vec3 worldnormal = normalize(u_world * vec4(a_normal, 0.0));\n");
+				WRITE(p, "  vec3 worldnormal = (u_world * vec4(a_normal, 0.0)).xyz;\n");
 		} else {
 			WRITE(p, "  vec3 worldpos = vec3(0.0, 0.0, 0.0);\n");
 			if (hasNormal)
@@ -271,15 +273,17 @@ char *GenerateVertexShader(int prim)
 				// workaround for "cant do .x of scalar" issue
 				if (numWeights == 1 && i == 0) weightAttr = "a_weight0123";
 				if (numWeights == 5 && i == 4) weightAttr = "a_weight4567";
-				WRITE(p, "  worldpos += %s * (u_bone%i * vec4(a_position, 1.0));\n", weightAttr, i);
+				WRITE(p, "  worldpos += %s * (u_bone%i * vec4(a_position, 1.0)).xyz;\n", weightAttr, i);
 				if (hasNormal)
-					WRITE(p, "  worldnormal += %s * (u_bone%i * vec4(a_normal, 0.0));\n", weightAttr, i);
+					WRITE(p, "  worldnormal += %s * (u_bone%i * vec4(a_normal, 0.0)).xyz;\n", weightAttr, i);
 			}
 			// Finally, multiply by world matrix (yes, we have to).
-			WRITE(p, "  worldpos = u_world * vec4(worldpos, 1.0);\n");
+			WRITE(p, "  worldpos = (u_world * vec4(worldpos, 1.0)).xyz;\n");
 			if (hasNormal)
-				WRITE(p, "  worldnormal = u_world * vec4(worldnormal, 0.0);\n");
+				WRITE(p, "  worldnormal = (u_world * vec4(worldnormal, 0.0)).xyz;\n");
 		}
+		if (hasNormal)
+			WRITE(p, "  worldnormal = normalize(worldnormal);\n");
 
 		// Step 2: Color/Lighting
 		if (hasColor) {
@@ -395,7 +399,7 @@ char *GenerateVertexShader(int prim)
 			}
 		}
 		// Step 4: Final view and projection transforms.
-		WRITE(p, "  gl_Position = u_proj * vec4(u_view * vec4(worldpos, 1.0), 1.0);\n");
+		WRITE(p, "  gl_Position = u_proj * (u_view * vec4(worldpos, 1.0));\n");
 	}
 	if (gstate.isFogEnabled())
 		WRITE(p, "  v_depth = gl_Position.z;\n");

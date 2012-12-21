@@ -353,6 +353,11 @@ namespace MainWindow
 				UpdateMenus();
 				break;
 
+			case ID_OPTIONS_HARDWARETRANSFORM:
+				g_Config.bHardwareTransform = !g_Config.bHardwareTransform;
+				UpdateMenus();
+				break;
+
 			case ID_FILE_EXIT:
 				DestroyWindow(hWnd);
 				break;
@@ -632,6 +637,7 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_BUFFEREDRENDERING, g_Config.bBufferedRendering);
 		CHECKITEM(ID_OPTIONS_SHOWDEBUGSTATISTICS, g_Config.bShowDebugStats);
 		CHECKITEM(ID_OPTIONS_WIREFRAME, g_Config.bDrawWireframe);
+		CHECKITEM(ID_OPTIONS_HARDWARETRANSFORM, g_Config.bHardwareTransform);
 
 		BOOL enable = !Core_IsStepping();
 		EnableMenuItem(menu,ID_EMULATION_RUN,enable);

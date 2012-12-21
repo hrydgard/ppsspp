@@ -241,7 +241,7 @@ void SettingsScreen::render() {
 	int y = 50;
 	UICheckBox(GEN_ID, x, y += 50, "Enable Sound Emulation", ALIGN_TOPLEFT, &g_Config.bEnableSound);
 	UICheckBox(GEN_ID, x, y += 50, "Buffered Rendering (may fix flicker)", ALIGN_TOPLEFT, &g_Config.bBufferedRendering);
-
+	UICheckBox(GEN_ID, x, y += 50, "Hardware Transform (experimental)", ALIGN_TOPLEFT, &g_Config.bHardwareTransform);
 
 	bool useFastInt = g_Config.iCpuCore == CPU_FASTINTERPRETER;
 	UICheckBox(GEN_ID, x, y += 50, "Slightly faster interpreter (may crash)", ALIGN_TOPLEFT, &useFastInt);

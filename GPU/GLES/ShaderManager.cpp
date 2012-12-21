@@ -153,6 +153,27 @@ static void SetColorUniform3ExtraFloat(int uniform, u32 color, float extra)
 	glUniform4fv(uniform, 1, col);
 }
 
+static void SetMatrix4x3(int uniform, const float *m4x3) {
+	float m4x4[16];
+	m4x4[0] = m4x3[0];
+	m4x4[1] = m4x3[1];
+	m4x4[2] = m4x3[2];
+	m4x4[3] = 0.0f;
+	m4x4[4] = m4x3[3];
+	m4x4[5] = m4x3[4];
+	m4x4[6] = m4x3[5];
+	m4x4[7] = 0.0f;
+	m4x4[8] = m4x3[6];
+	m4x4[9] = m4x3[7];
+	m4x4[10] = m4x3[8];
+	m4x4[11] = 0.0f;
+	m4x4[12] = m4x3[9];
+	m4x4[13] = m4x3[10];
+	m4x4[14] = m4x3[11];
+	m4x4[15] = 1.0f;
+	glUniformMatrix4fv(uniform, 1, GL_FALSE, m4x4);
+}
+
 void LinkedShader::use() {
 	glUseProgram(program);
 	glUniform1i(u_tex, 0);
@@ -203,17 +224,17 @@ void LinkedShader::use() {
 
 	// Transform
 	if (u_world != -1 && (dirtyUniforms & DIRTY_WORLDMATRIX)) {
-		glUniformMatrix4x3fv(u_world, 1, GL_FALSE, gstate.worldMatrix);
+		SetMatrix4x3(u_world, gstate.worldMatrix);
 	}
 	if (u_view != -1 && (dirtyUniforms & DIRTY_VIEWMATRIX)) {
-		glUniformMatrix4x3fv(u_view, 1, GL_FALSE, gstate.viewMatrix);
+		SetMatrix4x3(u_view, gstate.viewMatrix);
 	}
 	if (u_texmtx != -1 && (dirtyUniforms & DIRTY_TEXMATRIX)) {
-		glUniformMatrix4x3fv(u_texmtx, 1, GL_FALSE, gstate.tgenMatrix);
+		SetMatrix4x3(u_texmtx, gstate.tgenMatrix);
 	}
 	for (int i = 0; i < 8; i++) {
 		if (u_bone[i] != -1 && (dirtyUniforms & (DIRTY_BONEMATRIX0 << i))) {
-			glUniformMatrix4x3fv(u_bone[i], 1, GL_FALSE, gstate.boneMatrix + 12 * i);
+			SetMatrix4x3(u_bone[i], gstate.boneMatrix + 12 * i);
 		}
 	}
 
