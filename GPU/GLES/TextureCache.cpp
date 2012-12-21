@@ -635,7 +635,7 @@ void PSPSetTexture()
 		if (match) {
 			//got one!
 			entry.frameCounter = gpuStats.numFrames;
-			if (entry.texture != lastBoundTexture) {
+			if (true || entry.texture != lastBoundTexture) {
 				glBindTexture(GL_TEXTURE_2D, entry.texture);
 				UpdateSamplingParams();
 				lastBoundTexture = entry.texture;

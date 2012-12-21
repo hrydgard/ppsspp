@@ -38,7 +38,7 @@ void IndexGenerator::Reset() {
 bool IndexGenerator::PrimCompatible(int prim) {
 	if (prim_ == -1)
 		return true;
-	return indexedPrimitiveType[prim] == indexedPrimitiveType[prim_];
+	return indexedPrimitiveType[prim] == prim_;
 }
 
 void IndexGenerator::Setup(u16 *inds)
