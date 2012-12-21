@@ -106,6 +106,26 @@ void TextureCache_Decimate()
 	}
 }
 
+void TextureCache_Invalidate(u32 addr, int size)
+{
+	u32 addr_end = addr + size;
+
+	for (TexCache::iterator iter = cache.begin(); iter != cache.end(); )
+	{
+		// Clear if either the addr or clutaddr is in the range.
+		bool invalidate = iter->second.addr >= addr && iter->second.addr < addr_end;
+		invalidate |= iter->second.clutaddr >= addr && iter->second.clutaddr < addr_end;
+
+		if (invalidate)
+		{
+			glDeleteTextures(1, &iter->second.texture);
+			cache.erase(iter++);
+		}
+		else
+			++iter;
+	}
+}
+
 int TextureCache_NumLoadedTextures() 
 {
 	return cache.size();

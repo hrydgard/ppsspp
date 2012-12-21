@@ -295,7 +295,7 @@ void __TriggerInterrupt(int type, PSPInterrupt intno, int subintr)
 	if (interruptsEnabled || (type & PSP_INTR_ONLY_IF_ENABLED) == 0)
 	{
 		intrHandlers[intno].queueUp(subintr);
-		DEBUG_LOG(HLE, "Triggering subinterrupts for interrupt %i sub %i (%i in queue)", intno, subintr, pendingInterrupts.size());
+		DEBUG_LOG(HLE, "Triggering subinterrupts for interrupt %i sub %i (%i in queue)", intno, subintr, (u32)pendingInterrupts.size());
 		__TriggerRunInterrupts(type);
 	}
 }
@@ -305,7 +305,8 @@ void __TriggerInterruptWithArg(int type, PSPInterrupt intno, int subintr, int ar
 	if (interruptsEnabled || (type & PSP_INTR_ONLY_IF_ENABLED) == 0)
 	{
 		intrHandlers[intno].queueUpWithArg(subintr, arg);
-		DEBUG_LOG(HLE, "Triggering subinterrupts for interrupt %i sub %i with arg %i (%i in queue)", intno, subintr, arg, pendingInterrupts.size());
+		DEBUG_LOG(HLE, "Triggering subinterrupts for interrupt %i sub %i with arg %i (%i in queue)", intno, subintr, arg,
+                  (u32)pendingInterrupts.size());
 		__TriggerRunInterrupts(type);
 	}
 }

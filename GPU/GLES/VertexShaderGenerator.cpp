@@ -307,7 +307,7 @@ char *GenerateVertexShader(int prim)
 
 			WRITE(p, "  float dot%i = dot(normalize(toLight%i), worldnormal);\n", i, i);
 			if (poweredDiffuse) {
-				WRITE(p, "  dot%i = pow(dot%i, u_matspecular.a);\n", i);
+				WRITE(p, "  dot%i = pow(dot%i, u_matspecular.a);\n", i, i);
 			}
 			
 			if (doLight[i] == LIGHT_DOTONLY)

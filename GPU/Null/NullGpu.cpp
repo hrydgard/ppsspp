@@ -838,3 +838,8 @@ void NullGPU::UpdateStats()
 	gpuStats.numShaders = 0;
 	gpuStats.numTextures = 0;
 }
+
+void NullGPU::InvalidateCache(u32 addr, int size)
+{
+	// Nothing to invalidate.
+}

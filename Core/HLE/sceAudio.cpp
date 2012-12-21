@@ -186,7 +186,7 @@ u32 sceAudioChReserve(u32 channel, u32 sampleCount, u32 format) //.Allocate soun
 	{
 		WARN_LOG(HLE, "WARNING: Reserving already reserved channel. Error?");
 	}
-	DEBUG_LOG(HLE, "%i = sceAudioChReserve(%i, %i, %i)", channel, sampleCount, format);
+	DEBUG_LOG(HLE, "sceAudioChReserve(channel = %d, sampleCount = %d, format = %d)", channel, sampleCount, format);
 
 	chans[channel].sampleCount = sampleCount;
 	chans[channel].reserved = true;

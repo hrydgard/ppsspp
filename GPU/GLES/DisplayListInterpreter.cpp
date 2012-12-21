@@ -156,11 +156,11 @@ const int flushBeforeCommandList[] = {
 };
 
 GLES_GPU::GLES_GPU(int renderWidth, int renderHeight)
-	: interruptsEnabled_(true),
+:		interruptsEnabled_(true),
+		displayFramebufPtr_(0),
 		renderWidth_(renderWidth),
 		renderHeight_(renderHeight),
-		dlIdGenerator(1),
-		displayFramebufPtr_(0)
+		dlIdGenerator(1)
 {
 	renderWidthFactor_ = (float)renderWidth / 480.0f;
 	renderHeightFactor_ = (float)renderHeight / 272.0f;
@@ -320,6 +320,7 @@ void GLES_GPU::SetRenderFrameBuffer()
 	// None found? Create one.
 	if (!vfb) {
 		Flush();
+		gstate_c.textureChanged = true;
 		vfb = new VirtualFramebuffer;
 		vfb->fb_address = fb_address;
 		vfb->fb_stride = fb_stride;
@@ -343,6 +344,7 @@ void GLES_GPU::SetRenderFrameBuffer()
 		Flush();
 		// Use it as a render target.
 		DEBUG_LOG(HLE, "Switching render target to FBO for %08x", vfb->fb_address);
+		gstate_c.textureChanged = true;
 		fbo_bind_as_render_target(vfb->fbo);
 		glViewport(0, 0, renderWidth_, renderHeight_);
 		currentRenderVfb_ = vfb;
@@ -812,7 +814,6 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_TEXADDR0:
-		gstate_c.textureChanged = true;
 	case GE_CMD_TEXADDR1:
 	case GE_CMD_TEXADDR2:
 	case GE_CMD_TEXADDR3:
@@ -820,11 +821,11 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 	case GE_CMD_TEXADDR5:
 	case GE_CMD_TEXADDR6:
 	case GE_CMD_TEXADDR7:
+		gstate_c.textureChanged = true;
 		DEBUG_LOG(G3D,"DL Texture address %i: %06x", cmd-GE_CMD_TEXADDR0, data);
 		break;
 
 	case GE_CMD_TEXBUFWIDTH0:
-		gstate_c.textureChanged = true;
 	case GE_CMD_TEXBUFWIDTH1:
 	case GE_CMD_TEXBUFWIDTH2:
 	case GE_CMD_TEXBUFWIDTH3:
@@ -832,18 +833,22 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 	case GE_CMD_TEXBUFWIDTH5:
 	case GE_CMD_TEXBUFWIDTH6:
 	case GE_CMD_TEXBUFWIDTH7:
+		gstate_c.textureChanged = true;
 		DEBUG_LOG(G3D,"DL Texture BUFWIDTHess %i: %06x", cmd-GE_CMD_TEXBUFWIDTH0, data);
 		break;
 
 	case GE_CMD_CLUTADDR:
-		DEBUG_LOG(G3D,"CLUT base addr: %06x", data);
+		//DEBUG_LOG(G3D,"CLUT base addr: %06x", data);
+		gstate_c.textureChanged = true;
 		break;
 
 	case GE_CMD_CLUTADDRUPPER:
+		gstate_c.textureChanged = true;
 		DEBUG_LOG(G3D,"DL CLUT addr: %08x", ((gstate.clutaddrupper & 0xFF0000)<<8) | (gstate.clutaddr & 0xFFFFFF));
 		break;
 
 	case GE_CMD_LOADCLUT:
+		gstate_c.textureChanged = true;
 		// This could be used to "dirty" textures with clut.
 		{
 			u32 clutAddr = ((gstate.clutaddrupper & 0xFF0000)<<8) | (gstate.clutaddr & 0xFFFFFF);
@@ -869,6 +874,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_CLUTFORMAT:
 		{
+			gstate_c.textureChanged = true;
 			DEBUG_LOG(G3D,"DL Clut format: %06x", data);
 		}
 		break;
@@ -934,7 +940,6 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 		}
 
 	case GE_CMD_TEXSIZE0:
-		gstate_c.textureChanged = true;
 		gstate_c.curTextureWidth = 1 << (gstate.texsize[0] & 0xf);
 		gstate_c.curTextureHeight = 1 << ((gstate.texsize[0]>>8) & 0xf);
 		//fall thru - ignoring the mipmap sizes for now
@@ -946,6 +951,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 	case GE_CMD_TEXSIZE6:
 	case GE_CMD_TEXSIZE7:
 		DEBUG_LOG(G3D,"DL Texture Size %i: %06x", cmd - GE_CMD_TEXSIZE0, data);
+		gstate_c.textureChanged = true;
 		break;
 
 	case GE_CMD_ZBUFPTR:
@@ -1386,7 +1392,7 @@ void GLES_GPU::DoBlockTransfer()
 {
 	// TODO: This is used a lot to copy data around between render targets and textures,
 	// and also to quickly load textures from RAM to VRAM. So we should do checks like the following:
-	//  * Does dstBasePtr point to an existing texture? If so invalidate it and reload it immediately.
+	//  * Does dstBasePtr point to an existing texture? If so maybe reload it immediately.
 	//
 	//  * Does srcBasePtr point to a render target, and dstBasePtr to a texture? If so
 	//    either copy between rt and texture or reassign the texture to point to the render target
@@ -1420,4 +1426,14 @@ void GLES_GPU::DoBlockTransfer()
 	}
 
 	// TODO: Notify all overlapping textures that it's time to die/reload.
+
+	TextureCache_Invalidate(dstBasePtr + dstY * dstStride + dstX, height * dstStride + width * bpp);
+}
+
+void GLES_GPU::InvalidateCache(u32 addr, int size)
+{
+	if (size > 0)
+		TextureCache_Invalidate(addr, size);
+	else
+		TextureCache_Clear(true);
 }

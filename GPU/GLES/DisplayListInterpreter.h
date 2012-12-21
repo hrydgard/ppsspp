@@ -49,6 +49,7 @@ public:
 	virtual void CopyDisplayToOutput();
 	virtual void BeginFrame();
 	virtual void UpdateStats();
+	virtual void InvalidateCache(u32 addr, int size);
 
 private:
 	// TransformPipeline.cpp

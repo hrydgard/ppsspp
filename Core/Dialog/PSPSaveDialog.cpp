@@ -231,7 +231,7 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 	else
 	{
 		char txt[1024];
-		sprintf(txt,"%s\n%02d/%02d/%d %02d:%02d %d KB\n%s\n%s"
+		sprintf(txt,"%s\n%02d/%02d/%d %02d:%02d %lld KB\n%s\n%s"
 				, param.GetFileInfo(currentSelectedSave).title
 				, param.GetFileInfo(currentSelectedSave).modif_time.tm_mday
 				, param.GetFileInfo(currentSelectedSave).modif_time.tm_mon + 1
@@ -255,7 +255,7 @@ void PSPSaveDialog::DisplaySaveDataInfo2()
 	else
 	{
 		char txt[1024];
-		sprintf(txt,"%s\n%02d/%02d/%d %02d:%02d\n%d KB"
+		sprintf(txt,"%s\n%02d/%02d/%d %02d:%02d\n%lld KB"
 						, param.GetFileInfo(currentSelectedSave).saveTitle
 						, param.GetFileInfo(currentSelectedSave).modif_time.tm_mday
 						, param.GetFileInfo(currentSelectedSave).modif_time.tm_mon + 1
