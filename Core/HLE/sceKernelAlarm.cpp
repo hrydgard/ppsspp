@@ -21,6 +21,8 @@
 #include "HLE.h"
 #include "../../Core/CoreTiming.h"
 
+const int NATIVEALARM_SIZE = 20;
+
 struct NativeAlarm
 {
 	SceSize size;
@@ -38,7 +40,7 @@ struct Alarm : public KernelObject
 	NativeAlarm alm;
 };
 
-void __KernelScheduleAlarm(Alarm *alarm, int ticks);
+void __KernelScheduleAlarm(Alarm *alarm, u64 ticks);
 
 class AlarmIntrHandler : public SubIntrHandler
 {
@@ -60,9 +62,8 @@ public:
 	virtual void handleResult(int result)
 	{
 		// A non-zero result means to reschedule.
-		// TODO: Do sysclock alarms return a different value unit?
 		if (result > 0)
-			__KernelScheduleAlarm(alarm, usToCycles(result));
+			__KernelScheduleAlarm(alarm, (u64) usToCycles(result));
 		else if (result < 0)
 			WARN_LOG(HLE, "Alarm requested reschedule for negative value %u, ignoring", (unsigned) result);
 	}
@@ -92,9 +93,9 @@ void __KernelTriggerAlarm(u64 userdata, int cyclesLate)
 		__TriggerInterrupt(PSP_INTR_IMMEDIATE, PSP_SYSTIMER0_INTR, uid);
 }
 
-void __KernelScheduleAlarm(Alarm *alarm, int ticks)
+void __KernelScheduleAlarm(Alarm *alarm, u64 ticks)
 {
-	alarm->alm.schedule = CoreTiming::GetTicks() + ticks;
+	alarm->alm.schedule = (CoreTiming::GetTicks() + ticks) / (u64) CoreTiming::GetClockFrequencyMHz();
 	CoreTiming::ScheduleEvent((int) ticks, alarmTimer, alarm->GetUID());
 }
 
@@ -106,8 +107,7 @@ SceUID __KernelSetAlarm(u64 ticks, u32 handlerPtr, u32 commonPtr)
 	Alarm *alarm = new Alarm;
 	SceUID uid = kernelObjects.Create(alarm);
 
-	alarm->alm.size = sizeof(NativeAlarm);
-	alarm->alm.schedule = CoreTiming::GetTicks() + ticks;
+	alarm->alm.size = NATIVEALARM_SIZE;
 	alarm->alm.handlerPtr = handlerPtr;
 	alarm->alm.commonPtr = commonPtr;
 
@@ -115,29 +115,28 @@ SceUID __KernelSetAlarm(u64 ticks, u32 handlerPtr, u32 commonPtr)
 	if (error != 0)
 		return error;
 
-	__KernelScheduleAlarm(alarm, (int) ticks);
+	__KernelScheduleAlarm(alarm, ticks);
 	return uid;
 }
 
 SceUID sceKernelSetAlarm(SceUInt micro, u32 handlerPtr, u32 commonPtr)
 {
 	DEBUG_LOG(HLE, "sceKernelSetAlarm(%d, %08x, %08x)", micro, handlerPtr, commonPtr);
-	return __KernelSetAlarm(usToCycles((int) micro), handlerPtr, commonPtr);
+	return __KernelSetAlarm(usToCycles((u64) micro), handlerPtr, commonPtr);
 }
 
-SceUID sceKernelSetSysClockAlarm(u32 ticksPtr, u32 handlerPtr, u32 commonPtr)
+SceUID sceKernelSetSysClockAlarm(u32 microPtr, u32 handlerPtr, u32 commonPtr)
 {
-	u64 ticks;
+	u64 micro;
 
-	if (Memory::IsValidAddress(ticksPtr))
-		ticks = Memory::Read_U64(ticksPtr);
+	if (Memory::IsValidAddress(microPtr))
+		micro = Memory::Read_U64(microPtr);
 	// TODO: What to do when invalid?
 	else
 		return -1;
 
-	ERROR_LOG(HLE, "UNTESTED sceKernelSetSysClockAlarm(%lld, %08x, %08x)", ticks, handlerPtr, commonPtr);
-	// TODO: Is this precise or is this relative?
-	return __KernelSetAlarm(ticks, handlerPtr, commonPtr);
+	DEBUG_LOG(HLE, "sceKernelSetSysClockAlarm(%lld, %08x, %08x)", micro, handlerPtr, commonPtr);
+	return __KernelSetAlarm(usToCycles(micro), handlerPtr, commonPtr);
 }
 
 int sceKernelCancelAlarm(SceUID uid)
@@ -152,6 +151,29 @@ int sceKernelCancelAlarm(SceUID uid)
 
 int sceKernelReferAlarmStatus(SceUID uid, u32 infoPtr)
 {
-	ERROR_LOG(HLE, "UNIMPL sceKernelReferAlarmStatus(%08x, %08x)", uid, infoPtr);
-	return -1;
+	u32 error;
+	Alarm *alarm = kernelObjects.Get<Alarm>(uid, error);
+	if (!alarm)
+	{
+		ERROR_LOG(HLE, "sceKernelReferAlarmStatus(%08x, %08x): invalid alarm", uid, infoPtr);
+		return error;
+	}
+
+	if (!Memory::IsValidAddress(infoPtr))
+		return -1;
+
+	u32 size = Memory::Read_U32(infoPtr);
+
+	// Alarms actually respect size and write (kinda) what it can hold.
+	// Intentionally 1 not 4.
+	if (size >= 1)
+		Memory::Write_U32(alarm->alm.size, infoPtr);
+	if (size >= 12)
+		Memory::Write_U64(alarm->alm.schedule, infoPtr + 4);
+	if (size >= 16)
+		Memory::Write_U32(alarm->alm.handlerPtr, infoPtr + 12);
+	if (size >= 20)
+		Memory::Write_U32(alarm->alm.commonPtr, infoPtr + 16);
+
+	return 0;
 }
