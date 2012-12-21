@@ -51,4 +51,6 @@ public:
 
 	// Internal hack to avoid interrupts from "PPGe" drawing (utility UI, etc)
 	virtual void EnableInterrupts(bool enable) = 0;
+
+	virtual void Flush() = 0;
 };

@@ -32,6 +32,7 @@ public:
 	~LinkedShader();
 
 	void use();
+	void updateUniforms();
 
 	uint32_t program;
 	u32 dirtyUniforms;

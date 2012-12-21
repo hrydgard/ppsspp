@@ -166,7 +166,7 @@ void sceGeUnsetCallback(u32 cbID) {
 u32 sceGeSaveContext(u32 ctxAddr)
 {
 	DEBUG_LOG(HLE, "sceGeSaveContext(%08x)", ctxAddr);
-
+	gpu->Flush();
 	if (sizeof(gstate) > 512 * 4)
 	{
 		ERROR_LOG(HLE, "AARGH! sizeof(gstate) has grown too large!");
@@ -187,6 +187,7 @@ u32 sceGeSaveContext(u32 ctxAddr)
 u32 sceGeRestoreContext(u32 ctxAddr)
 {
 	DEBUG_LOG(HLE, "sceGeRestoreContext(%08x)", ctxAddr);
+	gpu->Flush();
 
 	if (sizeof(gstate) > 512 * 4)
 	{
@@ -225,12 +226,12 @@ const HLEFunction sceGe_user[] =
 	{0xE0D68148,&WrapV_UU<sceGeListUpdateStallAddr>,	"sceGeListUpdateStallAddr"},
 	{0x03444EB4,&WrapI_UU<sceGeListSync>,						 "sceGeListSync"},
 	{0xB287BD61,&WrapU_U<sceGeDrawSync>,							"sceGeDrawSync"},
-    {0xB448EC0D,&WrapV_U<sceGeBreak>,							"sceGeBreak"},
+	{0xB448EC0D,&WrapV_U<sceGeBreak>,							"sceGeBreak"},
 	{0x4C06E472,sceGeContinue,					 "sceGeContinue"},
 	{0xA4FC06A4,&WrapU_U<sceGeSetCallback>,	"sceGeSetCallback"},
 	{0x05DB22CE,&WrapV_U<sceGeUnsetCallback>,					 "sceGeUnsetCallback"},
 	{0x1F6752AD,&WrapU_V<sceGeEdramGetSize>, "sceGeEdramGetSize"},
-    {0xB77905EA,&WrapU_I<sceGeEdramSetAddrTranslation>,"sceGeEdramSetAddrTranslation"},
+	{0xB77905EA,&WrapU_I<sceGeEdramSetAddrTranslation>,"sceGeEdramSetAddrTranslation"},
 	{0xDC93CFEF,0,"sceGeGetCmd"},
 	{0x57C8945B,&sceGeGetMtx,"sceGeGetMtx"},
 	{0x438A385A,&WrapU_U<sceGeSaveContext>,"sceGeSaveContext"},

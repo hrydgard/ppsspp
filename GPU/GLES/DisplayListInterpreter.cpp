@@ -43,6 +43,120 @@ ShaderManager shaderManager;
 extern u32 curTextureWidth;
 extern u32 curTextureHeight;
 
+bool *flushBeforeCommand = 0;
+const int flushBeforeCommandList[] = {
+	GE_CMD_BEZIER,
+	GE_CMD_SPLINE,
+	GE_CMD_SIGNAL,
+	GE_CMD_FINISH,
+	GE_CMD_BJUMP,
+	GE_CMD_VERTEXTYPE,
+	GE_CMD_OFFSETADDR,
+	GE_CMD_REGION1,
+	GE_CMD_REGION2,
+	GE_CMD_CULLFACEENABLE, 
+	GE_CMD_TEXTUREMAPENABLE, 
+	GE_CMD_LIGHTINGENABLE,
+	GE_CMD_FOGENABLE,		
+	GE_CMD_TEXSCALEU,
+	GE_CMD_TEXSCALEV,
+	GE_CMD_TEXOFFSETU,
+	GE_CMD_TEXOFFSETV,
+	GE_CMD_MINZ,
+	GE_CMD_MAXZ,
+	GE_CMD_FRAMEBUFPTR,
+	GE_CMD_FRAMEBUFWIDTH,
+	GE_CMD_FRAMEBUFPIXFORMAT,
+	GE_CMD_TEXADDR0,
+	GE_CMD_CLUTADDR,
+	GE_CMD_LOADCLUT,
+	GE_CMD_TEXMAPMODE,
+	GE_CMD_TEXSHADELS,
+	GE_CMD_CLUTFORMAT,
+	GE_CMD_TRANSFERSTART,
+	GE_CMD_TEXSIZE0,
+	GE_CMD_TEXSIZE1,
+	GE_CMD_TEXSIZE2,
+	GE_CMD_TEXSIZE3,
+	GE_CMD_TEXSIZE4,
+	GE_CMD_TEXSIZE5,
+	GE_CMD_TEXSIZE6,
+	GE_CMD_TEXSIZE7,
+	GE_CMD_ZBUFPTR,
+	GE_CMD_ZBUFWIDTH,
+	GE_CMD_AMBIENTCOLOR,
+	GE_CMD_AMBIENTALPHA,
+	GE_CMD_MATERIALAMBIENT,
+	GE_CMD_MATERIALDIFFUSE,
+	GE_CMD_MATERIALEMISSIVE,
+	GE_CMD_MATERIALSPECULAR,
+	GE_CMD_MATERIALALPHA,
+	GE_CMD_MATERIALSPECULARCOEF,
+	GE_CMD_LIGHTTYPE0,
+	GE_CMD_LIGHTTYPE1,
+	GE_CMD_LIGHTTYPE2,
+	GE_CMD_LIGHTTYPE3,
+	GE_CMD_LX0,
+	GE_CMD_LX1,
+	GE_CMD_LX2,
+	GE_CMD_LX3,
+	GE_CMD_LDX0,
+	GE_CMD_LDX1,
+	GE_CMD_LDX2,
+	GE_CMD_LDX3,
+	GE_CMD_LKA0,
+	GE_CMD_LAC0,
+	GE_CMD_LDC0,
+	GE_CMD_LSC0,
+	GE_CMD_VIEWPORTX1,
+	GE_CMD_VIEWPORTY1,
+	GE_CMD_VIEWPORTX2,
+	GE_CMD_VIEWPORTY2,
+	GE_CMD_VIEWPORTZ1,
+	GE_CMD_VIEWPORTZ2,
+	GE_CMD_LIGHTENABLE0,
+	GE_CMD_LIGHTENABLE1,
+	GE_CMD_LIGHTENABLE2,
+	GE_CMD_LIGHTENABLE3,
+	GE_CMD_CULL,
+	GE_CMD_LMODE,
+	GE_CMD_REVERSENORMAL,
+	GE_CMD_PATCHDIVISION,
+	GE_CMD_MATERIALUPDATE,
+	GE_CMD_CLEARMODE,
+	GE_CMD_ALPHABLENDENABLE,
+	GE_CMD_BLENDMODE,
+	GE_CMD_BLENDFIXEDA,
+	GE_CMD_BLENDFIXEDB,
+	GE_CMD_ALPHATESTENABLE,
+	GE_CMD_ALPHATEST,
+	GE_CMD_TEXFUNC,
+	GE_CMD_TEXFILTER,
+	GE_CMD_TEXENVCOLOR,
+	GE_CMD_TEXMODE,
+	GE_CMD_TEXFORMAT,
+	GE_CMD_TEXFLUSH,
+	GE_CMD_TEXWRAP,
+	GE_CMD_ZTESTENABLE,
+	GE_CMD_STENCILTESTENABLE,
+	GE_CMD_STENCILOP,
+	GE_CMD_ZTEST,
+	GE_CMD_MORPHWEIGHT0,
+	GE_CMD_MORPHWEIGHT1,
+	GE_CMD_MORPHWEIGHT2,
+	GE_CMD_MORPHWEIGHT3,
+	GE_CMD_MORPHWEIGHT4,
+	GE_CMD_MORPHWEIGHT5,
+	GE_CMD_MORPHWEIGHT6,
+	GE_CMD_MORPHWEIGHT7,
+	GE_CMD_WORLDMATRIXNUMBER,
+	GE_CMD_VIEWMATRIXNUMBER,
+	GE_CMD_PROJMATRIXNUMBER,
+	GE_CMD_PROJMATRIXDATA,
+	GE_CMD_TGENMATRIXNUMBER,
+	GE_CMD_BONEMATRIXNUMBER,
+};
+
 GLES_GPU::GLES_GPU(int renderWidth, int renderHeight)
 :		interruptsEnabled_(true),
 		displayFramebufPtr_(0),
@@ -54,10 +168,18 @@ GLES_GPU::GLES_GPU(int renderWidth, int renderHeight)
 	renderHeightFactor_ = (float)renderHeight / 272.0f;
 	shaderManager_ = &shaderManager;
 	TextureCache_Init();
+	InitTransform();
 	// Sanity check gstate
 	if ((int *)&gstate.transferstart - (int *)&gstate != 0xEA) {
 		ERROR_LOG(G3D, "gstate has drifted out of sync!");
 	}
+
+	flushBeforeCommand = new bool[256];
+	memset(flushBeforeCommand, 0, 256 * sizeof(bool));
+	for (int i = 0; i < ARRAY_SIZE(flushBeforeCommandList); i++) {
+		flushBeforeCommand[flushBeforeCommandList[i]] = true;
+	}
+	flushBeforeCommand[1] = false;
 }
 
 GLES_GPU::~GLES_GPU()
@@ -103,6 +225,7 @@ void GLES_GPU::BeginFrame()
 void GLES_GPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, int format)
 {
 	if (framebuf & 0x04000000) {
+		DEBUG_LOG(G3D, "Switch display framebuffer %08x", framebuf);
 		displayFramebufPtr_ = framebuf;
 		displayStride_ = stride;
 		displayFormat_ = format;
@@ -113,6 +236,7 @@ void GLES_GPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, int format)
 
 void GLES_GPU::CopyDisplayToOutput()
 {
+	Flush();
 	if (!g_Config.bBufferedRendering)
 		return;
 
@@ -197,6 +321,7 @@ void GLES_GPU::SetRenderFrameBuffer()
 
 	// None found? Create one.
 	if (!vfb) {
+		Flush();
 		gstate_c.textureChanged = true;
 		vfb = new VirtualFramebuffer;
 		vfb->fb_address = fb_address;
@@ -218,6 +343,7 @@ void GLES_GPU::SetRenderFrameBuffer()
 
 	if (vfb != currentRenderVfb_)
 	{
+		Flush();
 		// Use it as a render target.
 		DEBUG_LOG(HLE, "Switching render target to FBO for %08x", vfb->fb_address);
 		gstate_c.textureChanged = true;
@@ -300,7 +426,7 @@ void GLES_GPU::UpdateStall(int listid, u32 newstall)
 
 void GLES_GPU::DrawSync(int mode)
 {
-	
+	Flush();
 }
 
 void GLES_GPU::Continue()
@@ -716,6 +842,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 	case GE_CMD_CLUTADDR:
 		gstate_c.textureChanged = true;
 		//DEBUG_LOG(G3D,"CLUT base addr: %06x", data);
+		gstate_c.textureChanged = true;
 		break;
 
 	case GE_CMD_CLUTADDRUPPER:
@@ -954,6 +1081,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 
 			int l = (cmd - GE_CMD_LAC0) / 3;
 			int t = (cmd - GE_CMD_LAC0) % 3;
+			DEBUG_LOG(G3D,"DL Light color %i", l);
 			gstate_c.lightColor[t][l][0] = r;
 			gstate_c.lightColor[t][l][1] = g;
 			gstate_c.lightColor[t][l][2] = b;
@@ -1242,6 +1370,8 @@ bool GLES_GPU::InterpretList()
 		op = Memory::ReadUnchecked_U32(dcontext.pc); //read from memory
 		u32 cmd = op >> 24;
 		u32 diff = op ^ gstate.cmdmem[cmd];
+		if (diff && flushBeforeCommand[cmd])
+			Flush();
 		gstate.cmdmem[cmd] = op;
 
 		ExecuteOp(op, diff);

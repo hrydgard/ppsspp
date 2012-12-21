@@ -41,6 +41,7 @@ public:
 	virtual void CopyDisplayToOutput() {}
 	virtual void UpdateStats();
 	virtual void InvalidateCache(u32 addr, int size);
+	virtual void Flush() {}
 
 private:
 	bool ProcessDLQueue();

@@ -25,24 +25,39 @@ const u8 indexedPrimitiveType[7] = {
 	GE_PRIM_TRIANGLES,
 	GE_PRIM_TRIANGLES,
 	GE_PRIM_TRIANGLES,
-	GE_PRIM_TRIANGLES,
+	GE_PRIM_RECTANGLES,
 };
 
 void IndexGenerator::Reset() {
 	prim_ = -1;
-	inds_ = 0;
+	count_ = 0;
+	index_ = 0;
+	this->inds_ = indsBase_;
 }
 
 bool IndexGenerator::PrimCompatible(int prim) {
 	if (prim_ == -1)
 		return true;
-	return indexedPrimitiveType[prim] == indexedPrimitiveType[prim_];
+	return indexedPrimitiveType[prim] == prim_;
 }
 
-void IndexGenerator::Start(u16 *inds, int baseIndex, int prim)
+void IndexGenerator::Setup(u16 *inds)
 {
-	this->inds_ = inds;
-	index_ = baseIndex;
+	this->indsBase_ = inds;
+	Reset();
+}
+
+void IndexGenerator::AddPoints(int numVerts)
+{
+	//if we have no vertices return
+	for (int i = 0; i < numVerts; i++)
+	{
+		*inds_++ = index_ + i;
+	}
+	// ignore overflow verts
+	index_ += numVerts;
+	count_ += numVerts;
+	prim_ = GE_PRIM_POINTS;
 }
 
 void IndexGenerator::AddList(int numVerts)
@@ -58,6 +73,8 @@ void IndexGenerator::AddList(int numVerts)
 
 	// ignore overflow verts
 	index_ += numVerts;
+	count_ += numTris * 3;
+	prim_ = GE_PRIM_TRIANGLES;
 }
 
 void IndexGenerator::AddStrip(int numVerts)
@@ -72,6 +89,8 @@ void IndexGenerator::AddStrip(int numVerts)
 		wind = !wind;
 	}
 	index_ += numVerts;
+	count_ += numTris * 3;
+	prim_ = GE_PRIM_TRIANGLES;
 }
 
 void IndexGenerator::AddFan(int numVerts)
@@ -84,6 +103,30 @@ void IndexGenerator::AddFan(int numVerts)
 		*inds_++ = index_ + i + 2;
 	}
 	index_ += numVerts;
+	count_ += numTris * 3;
+	prim_ = GE_PRIM_TRIANGLES;
+}
+
+void IndexGenerator::TranslatePoints(int numVerts, const u8 *inds, int offset)
+{
+	for (int i = 0; i < numVerts; i++)
+	{
+		*inds_++ = index_ + offset + inds[i];
+	}
+	index_ += numVerts;
+	count_ += numVerts;
+	prim_ = GE_PRIM_POINTS;
+}
+
+void IndexGenerator::TranslatePoints(int numVerts, const u16 *inds, int offset)
+{
+	for (int i = 0; i < numVerts; i++)
+	{
+		*inds_++ = index_ + offset + inds[i];
+	}
+	index_ += numVerts;
+	count_ += numVerts;
+	prim_ = GE_PRIM_POINTS;
 }
 
 void IndexGenerator::TranslateList(int numVerts, const u8 *inds, int offset)
@@ -96,6 +139,8 @@ void IndexGenerator::TranslateList(int numVerts, const u8 *inds, int offset)
 		*inds_++ = index_ + offset + inds[i*3 + 2];
 	}
 	index_ += numVerts;
+	count_ += numTris * 3;
+	prim_ = GE_PRIM_TRIANGLES;
 }
 
 void IndexGenerator::TranslateStrip(int numVerts, const u8 *inds, int offset)
@@ -110,6 +155,8 @@ void IndexGenerator::TranslateStrip(int numVerts, const u8 *inds, int offset)
 		wind = !wind;
 	}
 	index_ += numVerts;
+	count_ += numTris * 3;
+	prim_ = GE_PRIM_TRIANGLES;
 }
 
 void IndexGenerator::TranslateFan(int numVerts, const u8 *inds, int offset)
@@ -123,6 +170,8 @@ void IndexGenerator::TranslateFan(int numVerts, const u8 *inds, int offset)
 		*inds_++ = index_ + offset + inds[i + 2];
 	}
 	index_ += numVerts;
+	count_ += numTris * 3;
+	prim_ = GE_PRIM_TRIANGLES;
 }
 
 void IndexGenerator::TranslateList(int numVerts, const u16 *inds, int offset)
@@ -135,6 +184,8 @@ void IndexGenerator::TranslateList(int numVerts, const u16 *inds, int offset)
 		*inds_++ = index_ + offset + inds[i*3 + 2];
 	}
 	index_ += numVerts;
+	count_ += numTris * 3;
+	prim_ = GE_PRIM_TRIANGLES;
 }
 
 void IndexGenerator::TranslateStrip(int numVerts, const u16 *inds, int offset)
@@ -149,6 +200,8 @@ void IndexGenerator::TranslateStrip(int numVerts, const u16 *inds, int offset)
 		wind = !wind;
 	}
 	index_ += numVerts;
+	count_ += numTris * 3;
+	prim_ = GE_PRIM_TRIANGLES;
 }
 
 void IndexGenerator::TranslateFan(int numVerts, const u16 *inds, int offset)
@@ -162,6 +215,8 @@ void IndexGenerator::TranslateFan(int numVerts, const u16 *inds, int offset)
 		*inds_++ = index_ + offset + inds[i + 2];
 	}
 	index_ += numVerts;
+	count_ += numTris * 3;
+	prim_ = GE_PRIM_TRIANGLES;
 }
 
 //Lines
@@ -174,6 +229,8 @@ void IndexGenerator::AddLineList(int numVerts)
 		*inds_++ = index_ + i*2+1;
 	}
 	index_ += numVerts;
+	count_ += numLines * 2;
+	prim_ = GE_PRIM_LINES;
 }
 
 void IndexGenerator::AddLineStrip(int numVerts)
@@ -185,6 +242,21 @@ void IndexGenerator::AddLineStrip(int numVerts)
 		*inds_++ = index_ + i + 1;
 	}
 	index_ += numVerts;
+	count_ += numLines * 2;
+	prim_ = GE_PRIM_LINES;
+}
+
+void IndexGenerator::AddRectangles(int numVerts)
+{
+	int numRects = numVerts / 2;
+	for (int i = 0; i < numRects; i++)
+	{
+		*inds_++ = index_ + i*2;
+		*inds_++ = index_ + i*2+1;
+	}
+	index_ += numVerts;
+	count_ += numRects * 2;
+	prim_ = GE_PRIM_RECTANGLES;
 }
 
 void IndexGenerator::TranslateLineList(int numVerts, const u8 *inds, int offset)
@@ -196,6 +268,8 @@ void IndexGenerator::TranslateLineList(int numVerts, const u8 *inds, int offset)
 		*inds_++ = index_ + i*2+1;
 	}
 	index_ += numVerts;
+	count_ += numLines * 2;
+	prim_ = GE_PRIM_LINES;
 }
 
 void IndexGenerator::TranslateLineStrip(int numVerts, const u8 *inds, int offset)
@@ -207,6 +281,8 @@ void IndexGenerator::TranslateLineStrip(int numVerts, const u8 *inds, int offset
 		*inds_++ = index_ + i + 1;
 	}
 	index_ += numVerts;
+	count_ += numLines * 2;
+	prim_ = GE_PRIM_LINES;
 }
 
 void IndexGenerator::TranslateLineList(int numVerts, const u16 *inds, int offset)
@@ -218,6 +294,8 @@ void IndexGenerator::TranslateLineList(int numVerts, const u16 *inds, int offset
 		*inds_++ = index_ + i*2+1;
 	}
 	index_ += numVerts;
+	count_ += numLines * 2;
+	prim_ = GE_PRIM_LINES;
 }
 
 void IndexGenerator::TranslateLineStrip(int numVerts, const u16 *inds, int offset)
@@ -229,4 +307,32 @@ void IndexGenerator::TranslateLineStrip(int numVerts, const u16 *inds, int offse
 		*inds_++ = index_ + i + 1;
 	}
 	index_ += numVerts;
+	count_ += numLines * 2;
+	prim_ = GE_PRIM_LINES;
+}
+
+void IndexGenerator::TranslateRectangles(int numVerts, const u8 *inds, int offset)
+{
+	int numRects = numVerts / 2;
+	for (int i = 0; i < numRects; i++)
+	{
+		*inds_++ = index_ + i*2;
+		*inds_++ = index_ + i*2+1;
+	}
+	index_ += numVerts;
+	count_ += numRects * 2;
+	prim_ = GE_PRIM_RECTANGLES;
+}
+
+void IndexGenerator::TranslateRectangles(int numVerts, const u16 *inds, int offset)
+{
+	int numRects = numVerts / 2;
+	for (int i = 0; i < numRects; i++)
+	{
+		*inds_++ = index_ + i*2;
+		*inds_++ = index_ + i*2+1;
+	}
+	index_ += numVerts;
+	count_ += numRects * 2;
+	prim_ = GE_PRIM_RECTANGLES;
 }

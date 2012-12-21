@@ -22,11 +22,11 @@
 
 #include "../GPUInterface.h"
 #include "Framebuffer.h"
+#include "VertexDecoder.h"
 #include "gfx_es2/fbo.h"
 
 class ShaderManager;
 class LinkedShader;
-struct DecVtxFormat;
 
 class GLES_GPU : public GPUInterface
 {
@@ -53,10 +53,11 @@ public:
 
 private:
 	// TransformPipeline.cpp
+	void InitTransform();
 	void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, float *customUV, int forceIndexType, int *bytesRead = 0);
 	//void SoftwareTransformAndDraw(int prim, LinkedShader *program, int forceIndexType, int vertexCount, void *inds, const DecVtxFormat &decVtxFormat, int indexLowerBound, int indexUpperBound, float *customUV);
 	void ApplyDrawState();
-	void Flush(int prim);
+	void Flush();
 	void UpdateViewportAndProjection();
 	void DrawBezier(int ucount, int vcount);
 	void DoBlockTransfer();

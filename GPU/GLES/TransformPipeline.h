@@ -65,4 +65,4 @@ struct Color4
 	}
 };
 
-void SoftwareTransformAndDraw(int prim, LinkedShader *program, int forceIndexType, int vertexCount, void *inds, const DecVtxFormat &decVtxFormat, int indexLowerBound, int indexUpperBound, float *customUV);
+// void SoftwareTransformAndDraw(int prim, LinkedShader *program, int vertexCount, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex, float *customUV);

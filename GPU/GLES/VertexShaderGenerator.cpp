@@ -88,19 +88,11 @@ void ComputeVertexShaderID(VertexShaderID *id, int prim)
 			id->d[1] |= ((gstate.ltype[i] >> 8) & 3) << (i * 4 + 2);
 		}
 		id->d[1] |= (gstate.materialupdate & 7) << 16;
+		id->d[1] |= (gstate.lightingEnable & 1) << 19;
+		for (int i = 0; i < 4; i++) {
+			id->d[1] |= (gstate.lightEnable[i] & 1) << (20 + i);
+		}
 	}
-
-	// Bits that we will need:
-	// lightenable * 4
-	// lighttype * 4
-	// lightcomp * 4
-	// uv gen:
-	// mapping type
-	// texshade light choices (ONLY IF uv mapping type is shade)
-}
-
-void WriteLight(char *p, int l) {
-	// TODO
 }
 
 const char *boneWeightAttrDecl[8] = {
@@ -130,7 +122,6 @@ enum DoLightComputation {
 	LIGHT_DOTONLY,
 	LIGHT_FULL,
 };
-
 
 char *GenerateVertexShader(int prim)
 {
@@ -400,10 +391,6 @@ char *GenerateVertexShader(int prim)
 		WRITE(p, "  v_depth = gl_Position.z;\n");
 	WRITE(p, "}\n");
 
-	// DEBUG_LOG(HLE, "\n%s", buffer);
-#if defined(_WIN32) && defined(_DEBUG)
-	OutputDebugString(buffer);
-#endif
 	return buffer;
 }
 
