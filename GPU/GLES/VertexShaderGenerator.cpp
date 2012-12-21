@@ -15,10 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-// TODO: We should transition from doing the transform in software, as seen in TransformPipeline.cpp,
-// into doing the transform in the vertex shader - except for Rectangles, there we really need to do
-// the transforms ourselves.
-
 #include <stdio.h>
 #if defined(_WIN32) && defined(_DEBUG)
 #include <windows.h>
@@ -41,7 +37,6 @@
 static char buffer[16384];
 
 #define WRITE p+=sprintf
-
 
 bool CanUseHardwareTransform(int prim)
 {

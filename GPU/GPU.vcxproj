@@ -120,6 +120,7 @@
     <ClInclude Include="GLES\DisplayListInterpreter.h" />
     <ClInclude Include="GLES\FragmentShaderGenerator.h" />
     <ClInclude Include="GLES\Framebuffer.h" />
+    <ClInclude Include="GLES\IndexGenerator.h" />
     <ClInclude Include="GLES\ShaderManager.h" />
     <ClInclude Include="GLES\StateMapping.h" />
     <ClInclude Include="GLES\TextureCache.h" />
@@ -135,6 +136,7 @@
     <ClCompile Include="GLES\DisplayListInterpreter.cpp" />
     <ClCompile Include="GLES\FragmentShaderGenerator.cpp" />
     <ClCompile Include="GLES\Framebuffer.cpp" />
+    <ClCompile Include="GLES\IndexGenerator.cpp" />
     <ClCompile Include="GLES\ShaderManager.cpp" />
     <ClCompile Include="GLES\StateMapping.cpp" />
     <ClCompile Include="GLES\TextureCache.cpp" />
