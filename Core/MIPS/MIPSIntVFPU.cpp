@@ -506,6 +506,29 @@ namespace MIPSInt
 		PC += 4;
 		EatPrefixes();
 	}
+	
+	void Int_Vsocp(u32 op)
+	{
+		float s[4], d[4];
+		int vd = _VD;
+		int vs = _VS;
+		VectorSize sz = GetVecSize(op);
+		ReadVector(s, sz, vs);
+		ApplySwizzleS(s, sz);
+		int n=GetNumVectorElements(sz);
+		float x = s[0];
+        	d[0] = std::min(std::max(0.0f, 1.0f - x), 1.0f);
+        	d[1] = std::min(std::max(0.0f, x), 1.0f);
+        	if (n > 1) {
+            		float y = s[1];
+            		d[2] = std::min(std::max(0.0f, 1.0f - y), 1.0f);
+            		d[3] = std::min(std::max(0.0f, y), 1.0f);
+        	} 
+		ApplyPrefixD(d, sz);
+		WriteVector(d, sz, vd);
+		PC += 4;
+		EatPrefixes();
+	}
 
 	void Int_Vsgn(u32 op)
 	{

@@ -691,7 +691,7 @@ MIPSInstruction tableVFPU9[32] = //110100 00010 xxxxx
 	INSTR("vbfy2", &Jit::Comp_Generic, Dis_Vbfy, Int_Vbfy, IS_VFPU),
 	//4
 	INSTR("vocp", &Jit::Comp_Generic, Dis_Vbfy, Int_Vocp, IS_VFPU),  // one's complement
-	INSTR("vsocp", &Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU),
+	INSTR("vsocp", &Jit::Comp_Generic, Dis_Vbfy, Int_Vsocp, IS_VFPU),
 	INSTR("vfad", &Jit::Comp_Generic, Dis_Vfad, Int_Vfad, IS_VFPU),
 	INSTR("vavg", &Jit::Comp_Generic, Dis_Vfad, Int_Vavg, IS_VFPU),
 	//8
