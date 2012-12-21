@@ -278,6 +278,9 @@ public:
 			break;
 		}
 		switch (decFmt_.w1fmt) {
+		case 0:
+			// It's fine for there to be w0 weights but not w1.
+			break;
 		case DEC_FLOAT_1: memcpy(weights + 4, data_ + decFmt_.w1off, 4); break;
 		case DEC_FLOAT_2: memcpy(weights + 4, data_ + decFmt_.w1off, 8); break;
 		case DEC_FLOAT_3: memcpy(weights + 4, data_ + decFmt_.w1off, 12); break;
