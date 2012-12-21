@@ -64,8 +64,15 @@ public:
 		// A non-zero result means to reschedule.
 		if (result > 0)
 			__KernelScheduleAlarm(alarm, (u64) usToCycles(result));
-		else if (result < 0)
-			WARN_LOG(HLE, "Alarm requested reschedule for negative value %u, ignoring", (unsigned) result);
+		else
+		{
+			if (result < 0)
+				WARN_LOG(HLE, "Alarm requested reschedule for negative value %u, ignoring", (unsigned) result);
+
+			// Delete the alarm if it's not rescheduled.
+			__ReleaseSubInterruptHandler(PSP_SYSTIMER0_INTR, alarm->GetUID());
+			kernelObjects.Destroy<Alarm>(alarm->GetUID());
+		}
 	}
 
 	Alarm *alarm;
@@ -167,14 +174,13 @@ int sceKernelReferAlarmStatus(SceUID uid, u32 infoPtr)
 	u32 size = Memory::Read_U32(infoPtr);
 
 	// Alarms actually respect size and write (kinda) what it can hold.
-	// Intentionally 1 not 4.
-	if (size >= 1)
+	if (size > 0)
 		Memory::Write_U32(alarm->alm.size, infoPtr);
-	if (size >= 12)
+	if (size > 4)
 		Memory::Write_U64(alarm->alm.schedule, infoPtr + 4);
-	if (size >= 16)
+	if (size > 12)
 		Memory::Write_U32(alarm->alm.handlerPtr, infoPtr + 12);
-	if (size >= 20)
+	if (size > 16)
 		Memory::Write_U32(alarm->alm.commonPtr, infoPtr + 16);
 
 	return 0;
