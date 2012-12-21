@@ -320,12 +320,8 @@ void __KernelReturnFromInterrupt()
 	// All should now be back to normal, including PC.
 
 	// Alright, let's see if there's any more interrupts queued...
-
 	if (!__RunOnePendingInterrupt())
-	{
-		// Hmmm...
-		//__KernelReSchedule("return from interrupt");
-	}
+		__KernelReSchedule("return from interrupt");
 }
 
 u32 __RegisterSubInterruptHandler(u32 intrNumber, u32 subIntrNumber, SubIntrHandler *subIntrHandler)
