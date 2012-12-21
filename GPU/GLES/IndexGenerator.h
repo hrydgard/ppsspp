@@ -28,6 +28,8 @@ public:
 	void Start(u16 *indexptr, int baseIndex, int prim);
 	bool PrimCompatible(int prim);
 
+	// Points (why index these? code simplicity)
+	void AddPoints(int numVerts);
 	// Triangles
 	void AddList(int numVerts);
 	void AddStrip(int numVerts);
@@ -36,6 +38,8 @@ public:
 	void AddLineList(int numVerts);
 	void AddLineStrip(int numVerts);
 
+	void TranslatePoints(int numVerts, const u8 *inds, int offset);
+	void TranslatePoints(int numVerts, const u16 *inds, int offset);
 	// Translates already indexed lists
 	void TranslateLineList(int numVerts, const u8 *inds, int offset);
 	void TranslateLineStrip(int numVerts, const u8 *inds, int offset);
@@ -49,9 +53,13 @@ public:
 	void TranslateStrip(int numVerts, const u16 *inds, int offset);
 	void TranslateFan(int numVerts, const u16 *inds, int offset);
 
+	int MaxIndex() { return index_; }
+	int VertexCount() { return count_; }
+
 private:
 	u16 *inds_;
 	int index_;
+	int count_;
 	int prim_;
 };
 

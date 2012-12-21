@@ -30,6 +30,7 @@
 #include "VertexDecoder.h"
 #include "ShaderManager.h"
 #include "DisplayListInterpreter.h"
+#include "IndexGenerator.h"
 
 const GLuint glprim[8] = {
 	GL_POINTS,
@@ -42,7 +43,9 @@ const GLuint glprim[8] = {
 };
 
 u8 decoded[65536 * 32];
-// uint16_t decIndex[65536];	// Unused
+uint16_t decIndex[65536];	// Unused
+
+IndexGenerator indexGen;
 
 TransformedVertex transformed[65536];
 TransformedVertex transformedExpanded[65536];
@@ -262,7 +265,7 @@ static void DesetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decF
 
 // Actually again, single quads could be drawn more efficiently using GL_TRIANGLE_STRIP, no need to duplicate verts as for
 // GL_TRIANGLES. Still need to sw transform to compute the extra two corners though.
-void SoftwareTransformAndDraw(int prim, LinkedShader *program, int forceIndexType, int vertexCount, void *inds, const DecVtxFormat &decVtxFormat, int indexLowerBound, int indexUpperBound, float *customUV)
+void SoftwareTransformAndDraw(int prim, LinkedShader *program, int vertexCount, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex, float *customUV)
 {
 	/*
 	DEBUG_LOG(G3D, "View matrix:");
@@ -289,7 +292,7 @@ void SoftwareTransformAndDraw(int prim, LinkedShader *program, int forceIndexTyp
 	Lighter lighter;
 
 	VertexReader reader(decoded, decVtxFormat);
-	for (int index = indexLowerBound; index <= indexUpperBound; index++)
+	for (int index = 0; index < maxIndex; index++)
 	{	
 		reader.Goto(index);
 
@@ -483,48 +486,19 @@ void SoftwareTransformAndDraw(int prim, LinkedShader *program, int forceIndexTyp
 	const TransformedVertex *drawBuffer = transformed;
 	int numTrans = 0;
 
-	int indexType = (gstate.vertType & GE_VTYPE_IDX_MASK);
-	if (forceIndexType != -1) {
-		indexType = forceIndexType;
-	}
 	bool drawIndexed = false;
-	GLuint glIndexType = 0;
 
 	if (prim != GE_PRIM_RECTANGLES) {
 		// We can simply draw the unexpanded buffer.
 		numTrans = vertexCount;
-		switch (indexType) {
-		case GE_VTYPE_IDX_8BIT:
-			drawIndexed = true;
-			glIndexType = GL_UNSIGNED_BYTE;
-			break;
-		case GE_VTYPE_IDX_16BIT:
-			drawIndexed = true;
-			glIndexType = GL_UNSIGNED_SHORT;
-			break;
-		default:
-			drawIndexed = false;
-			break;
-		}
+		drawIndexed = true;
 	} else {
 		numTrans = 0;
 		drawBuffer = transformedExpanded;
 		TransformedVertex *trans = &transformedExpanded[0];
 		TransformedVertex saved;
 		for (int i = 0; i < vertexCount; i++) {
-			int index;
-			if (indexType == GE_VTYPE_IDX_8BIT)
-			{
-				index = ((u8*)inds)[i];
-			}
-			else if (indexType == GE_VTYPE_IDX_16BIT)
-			{
-				index = ((u16*)inds)[i];
-			}
-			else
-			{
-				index = i;
-			}
+			int index = ((u16*)inds)[i];
 
 			TransformedVertex &transVtx = transformed[index];
 			if ((i & 1) == 0)
@@ -591,7 +565,7 @@ void SoftwareTransformAndDraw(int prim, LinkedShader *program, int forceIndexTyp
 	if (program->a_color0 != -1) glVertexAttribPointer(program->a_color0, 4, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 5 * 4);
 	if (program->a_color1 != -1) glVertexAttribPointer(program->a_color1, 3, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 9 * 4);
 	if (drawIndexed) {
-		glDrawElements(glprim[prim], numTrans, glIndexType, (GLvoid *)inds);
+		glDrawElements(glprim[prim], numTrans, GL_UNSIGNED_SHORT, (GLvoid *)inds);
 	} else {
 		glDrawArrays(glprim[prim], 0, numTrans);
 	}
@@ -603,6 +577,10 @@ void SoftwareTransformAndDraw(int prim, LinkedShader *program, int forceIndexTyp
 
 void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, float *customUV, int forceIndexType, int *bytesRead)
 {
+	// For the future
+	if (!indexGen.PrimCompatible(prim))
+		Flush(prim);
+
 	int indexLowerBound, indexUpperBound;
 	// First, decode the verts and apply morphing
 	VertexDecoder dec;
@@ -610,6 +588,51 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 	dec.DecodeVerts(decoded, verts, inds, prim, vertexCount, &indexLowerBound, &indexUpperBound);
 	if (bytesRead)
 		*bytesRead = vertexCount * dec.VertexSize();
+
+	indexGen.Start(decIndex, 0, prim);
+
+	int indexType = (gstate.vertType & GE_VTYPE_IDX_MASK);
+	if (forceIndexType != -1) indexType = forceIndexType;
+	switch (indexType) {
+	case GE_VTYPE_IDX_NONE:
+		switch (prim) {
+		case GE_PRIM_POINTS: indexGen.AddPoints(vertexCount); break;
+		case GE_PRIM_LINES: indexGen.AddLineList(vertexCount); break;
+		case GE_PRIM_LINE_STRIP: indexGen.AddLineStrip(vertexCount); break;
+		case GE_PRIM_TRIANGLES: indexGen.AddList(vertexCount); break;
+		case GE_PRIM_TRIANGLE_STRIP: indexGen.AddStrip(vertexCount); break;
+		case GE_PRIM_TRIANGLE_FAN: indexGen.AddFan(vertexCount); break;
+		case GE_PRIM_RECTANGLES: indexGen.AddLineList(vertexCount); break;  // Same
+		}
+		break;
+
+	case GE_VTYPE_IDX_8BIT:
+		switch (prim) {
+		case GE_PRIM_POINTS: indexGen.TranslatePoints(vertexCount, (const u16 *)inds, -indexLowerBound); break;
+		case GE_PRIM_LINES: indexGen.TranslateLineList(vertexCount, (const u8 *)inds, -indexLowerBound); break;
+		case GE_PRIM_LINE_STRIP: indexGen.TranslateLineStrip(vertexCount, (const u8 *)inds, -indexLowerBound); break;
+		case GE_PRIM_TRIANGLES: indexGen.TranslateList(vertexCount, (const u8 *)inds, -indexLowerBound); break;
+		case GE_PRIM_TRIANGLE_STRIP: indexGen.TranslateStrip(vertexCount, (const u8 *)inds, -indexLowerBound); break;
+		case GE_PRIM_TRIANGLE_FAN: indexGen.TranslateFan(vertexCount, (const u8 *)inds, -indexLowerBound); break;
+		case GE_PRIM_RECTANGLES: indexGen.TranslateLineList(vertexCount, (const u8 *)inds, -indexLowerBound); break;  // Same
+		}
+		break;
+
+	case GE_VTYPE_IDX_16BIT:
+		switch (prim) {
+		case GE_PRIM_POINTS: indexGen.TranslatePoints(vertexCount, (const u16 *)inds, -indexLowerBound); break;
+		case GE_PRIM_LINES: indexGen.TranslateLineList(vertexCount, (const u16 *)inds, -indexLowerBound); break;
+		case GE_PRIM_LINE_STRIP: indexGen.TranslateLineStrip(vertexCount, (const u16 *)inds, -indexLowerBound); break;
+		case GE_PRIM_TRIANGLES: indexGen.TranslateList(vertexCount, (const u16 *)inds, -indexLowerBound); break;
+		case GE_PRIM_TRIANGLE_STRIP: indexGen.TranslateStrip(vertexCount, (const u16 *)inds, -indexLowerBound); break;
+		case GE_PRIM_TRIANGLE_FAN: indexGen.TranslateFan(vertexCount, (const u16 *)inds, -indexLowerBound); break;
+		case GE_PRIM_RECTANGLES: indexGen.TranslateLineList(vertexCount, (const u16 *)inds, -indexLowerBound); break;  // Same
+		}
+		break;
+	}
+
+	indexType = GE_VTYPE_IDX_16BIT;
+	// From here on out, the index type is ALWAYS 16-bit. Deal with it.
 
 	// And here we should return, having collected the morphed but untransformed vertices.
 	// Note that DecodeVerts should convert strips into indexed lists etc, adding to our
@@ -622,15 +645,12 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 		PrintDecodedVertex(decoded[i], gstate.vertType);
 	}
 #endif
-	bool useTexCoord = false;
-
 	// Check if anything needs updating
 	if (gstate_c.textureChanged)
 	{
 		if ((gstate.textureMapEnable & 1) && !gstate.isModeClear())
 		{
 			PSPSetTexture();
-			useTexCoord = true;
 		}
 		gstate_c.textureChanged = false;
 	}
@@ -647,35 +667,11 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 
 	if (CanUseHardwareTransform(prim)) {
 		SetupDecFmtForDraw(program, dec.GetDecVtxFmt(), decoded);
-		bool drawIndexed;
-		GLuint glIndexType;
-		int indexType = (gstate.vertType & GE_VTYPE_IDX_MASK);
-		if (forceIndexType != -1) {
-			indexType = forceIndexType;
-		}
-		int numTrans = vertexCount;
-		switch (indexType) {
-		case GE_VTYPE_IDX_8BIT:
-			drawIndexed = true;
-			glIndexType = GL_UNSIGNED_BYTE;
-			break;
-		case GE_VTYPE_IDX_16BIT:
-			drawIndexed = true;
-			glIndexType = GL_UNSIGNED_SHORT;
-			break;
-		default:
-			drawIndexed = false;
-			break;
-		}
-		// NOTICE_LOG(G3D,"DrawPrimitive: %i", numTrans);
-		if (drawIndexed) {
-			glDrawElements(glprim[prim], numTrans, glIndexType, (GLvoid *)inds);
-		} else {
-			glDrawArrays(glprim[prim], 0, numTrans);
-		}
+		glDrawElements(glprim[prim], indexGen.VertexCount(), GL_UNSIGNED_SHORT, (GLvoid *)decIndex);
 		DesetupDecFmtForDraw(program, dec.GetDecVtxFmt());
 	} else {
-		SoftwareTransformAndDraw(prim, program, forceIndexType, vertexCount, inds, dec.GetDecVtxFmt(), indexLowerBound, indexUpperBound, customUV);
+		SoftwareTransformAndDraw(prim, program, indexGen.VertexCount(), (void *)decIndex, indexType, dec.GetDecVtxFmt(),
+			indexGen.MaxIndex(), customUV);
 	}
 }
 

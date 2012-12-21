@@ -31,6 +31,7 @@ const u8 indexedPrimitiveType[7] = {
 void IndexGenerator::Reset() {
 	prim_ = -1;
 	inds_ = 0;
+	count_ = 0;
 }
 
 bool IndexGenerator::PrimCompatible(int prim) {
@@ -41,8 +42,22 @@ bool IndexGenerator::PrimCompatible(int prim) {
 
 void IndexGenerator::Start(u16 *inds, int baseIndex, int prim)
 {
+	count_ = 0;
 	this->inds_ = inds;
 	index_ = baseIndex;
+	prim_ = indexedPrimitiveType[prim];
+}
+
+void IndexGenerator::AddPoints(int numVerts)
+{
+	//if we have no vertices return
+	for (int i = 0; i < numVerts; i++)
+	{
+		*inds_++ = index_ + i;
+	}
+	// ignore overflow verts
+	index_ += numVerts;
+	count_ += numVerts;
 }
 
 void IndexGenerator::AddList(int numVerts)
@@ -58,6 +73,7 @@ void IndexGenerator::AddList(int numVerts)
 
 	// ignore overflow verts
 	index_ += numVerts;
+	count_ += numTris * 3;
 }
 
 void IndexGenerator::AddStrip(int numVerts)
@@ -72,6 +88,7 @@ void IndexGenerator::AddStrip(int numVerts)
 		wind = !wind;
 	}
 	index_ += numVerts;
+	count_ += numTris * 3;
 }
 
 void IndexGenerator::AddFan(int numVerts)
@@ -84,6 +101,27 @@ void IndexGenerator::AddFan(int numVerts)
 		*inds_++ = index_ + i + 2;
 	}
 	index_ += numVerts;
+	count_ += numTris * 3;
+}
+
+void IndexGenerator::TranslatePoints(int numVerts, const u8 *inds, int offset)
+{
+	for (int i = 0; i < numVerts; i++)
+	{
+		*inds_++ = index_ + offset + inds[i];
+	}
+	index_ += numVerts;
+	count_ += numVerts;
+}
+
+void IndexGenerator::TranslatePoints(int numVerts, const u16 *inds, int offset)
+{
+	for (int i = 0; i < numVerts; i++)
+	{
+		*inds_++ = index_ + offset + inds[i];
+	}
+	index_ += numVerts;
+	count_ += numVerts;
 }
 
 void IndexGenerator::TranslateList(int numVerts, const u8 *inds, int offset)
@@ -96,6 +134,7 @@ void IndexGenerator::TranslateList(int numVerts, const u8 *inds, int offset)
 		*inds_++ = index_ + offset + inds[i*3 + 2];
 	}
 	index_ += numVerts;
+	count_ += numTris * 3;
 }
 
 void IndexGenerator::TranslateStrip(int numVerts, const u8 *inds, int offset)
@@ -110,6 +149,7 @@ void IndexGenerator::TranslateStrip(int numVerts, const u8 *inds, int offset)
 		wind = !wind;
 	}
 	index_ += numVerts;
+	count_ += numTris * 3;
 }
 
 void IndexGenerator::TranslateFan(int numVerts, const u8 *inds, int offset)
@@ -123,6 +163,7 @@ void IndexGenerator::TranslateFan(int numVerts, const u8 *inds, int offset)
 		*inds_++ = index_ + offset + inds[i + 2];
 	}
 	index_ += numVerts;
+	count_ += numTris * 3;
 }
 
 void IndexGenerator::TranslateList(int numVerts, const u16 *inds, int offset)
@@ -135,6 +176,7 @@ void IndexGenerator::TranslateList(int numVerts, const u16 *inds, int offset)
 		*inds_++ = index_ + offset + inds[i*3 + 2];
 	}
 	index_ += numVerts;
+	count_ += numTris * 3;
 }
 
 void IndexGenerator::TranslateStrip(int numVerts, const u16 *inds, int offset)
@@ -149,6 +191,7 @@ void IndexGenerator::TranslateStrip(int numVerts, const u16 *inds, int offset)
 		wind = !wind;
 	}
 	index_ += numVerts;
+	count_ += numTris * 3;
 }
 
 void IndexGenerator::TranslateFan(int numVerts, const u16 *inds, int offset)
@@ -162,6 +205,7 @@ void IndexGenerator::TranslateFan(int numVerts, const u16 *inds, int offset)
 		*inds_++ = index_ + offset + inds[i + 2];
 	}
 	index_ += numVerts;
+	count_ += numTris * 3;
 }
 
 //Lines
@@ -174,6 +218,7 @@ void IndexGenerator::AddLineList(int numVerts)
 		*inds_++ = index_ + i*2+1;
 	}
 	index_ += numVerts;
+	count_ += numLines * 2;
 }
 
 void IndexGenerator::AddLineStrip(int numVerts)
@@ -185,6 +230,7 @@ void IndexGenerator::AddLineStrip(int numVerts)
 		*inds_++ = index_ + i + 1;
 	}
 	index_ += numVerts;
+	count_ += numLines * 2;
 }
 
 void IndexGenerator::TranslateLineList(int numVerts, const u8 *inds, int offset)
@@ -196,6 +242,7 @@ void IndexGenerator::TranslateLineList(int numVerts, const u8 *inds, int offset)
 		*inds_++ = index_ + i*2+1;
 	}
 	index_ += numVerts;
+	count_ += numLines * 2;
 }
 
 void IndexGenerator::TranslateLineStrip(int numVerts, const u8 *inds, int offset)
@@ -207,6 +254,7 @@ void IndexGenerator::TranslateLineStrip(int numVerts, const u8 *inds, int offset
 		*inds_++ = index_ + i + 1;
 	}
 	index_ += numVerts;
+	count_ += numLines * 2;
 }
 
 void IndexGenerator::TranslateLineList(int numVerts, const u16 *inds, int offset)
@@ -218,6 +266,7 @@ void IndexGenerator::TranslateLineList(int numVerts, const u16 *inds, int offset
 		*inds_++ = index_ + i*2+1;
 	}
 	index_ += numVerts;
+	count_ += numLines * 2;
 }
 
 void IndexGenerator::TranslateLineStrip(int numVerts, const u16 *inds, int offset)
@@ -229,4 +278,5 @@ void IndexGenerator::TranslateLineStrip(int numVerts, const u16 *inds, int offse
 		*inds_++ = index_ + i + 1;
 	}
 	index_ += numVerts;
+	count_ += numLines * 2;
 }

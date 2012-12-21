@@ -675,7 +675,7 @@ void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, const void *i
 	*indexUpperBound = upperBound;
 
 	// Decode the vertices within the found bounds, once each
-	decoded_ = decodedptr + lowerBound * decFmt.stride;
+	decoded_ = decodedptr;  // + lowerBound * decFmt.stride;
 	ptr_ = (const u8*)verts + lowerBound * size;
 	for (int index = lowerBound; index <= upperBound; index++)
 	{

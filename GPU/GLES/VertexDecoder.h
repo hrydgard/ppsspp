@@ -86,6 +86,7 @@ public:
 	void SetVertexType(u32 vtype);
 
 	const DecVtxFormat &GetDecVtxFmt() { return decFmt; }
+
 	void DecodeVerts(u8 *decoded, const void *verts, const void *inds, int prim, int count, int *indexLowerBound, int *indexUpperBound) const;
 	bool hasColor() const { return col != 0; }
 	int VertexSize() const { return size; }
