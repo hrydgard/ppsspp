@@ -114,13 +114,13 @@ namespace MainWindow
 
 	void SetZoom(float zoom) {
 		if (zoom < 5)
-			g_Config.iWindowZoom = zoom;
+			g_Config.iWindowZoom = (int) zoom;
 		RECT rc, rcOuter;
-		GetWindowRectAtZoom(zoom, rc, rcOuter);
+		GetWindowRectAtZoom((int) zoom, rc, rcOuter);
 		MoveWindow(hwndMain, rcOuter.left, rcOuter.top, rcOuter.right - rcOuter.left, rcOuter.bottom - rcOuter.top, TRUE);
 		MoveWindow(hwndDisplay, 0, 0, rc.right - rc.left, rc.bottom - rc.top, TRUE);
-		PSP_CoreParameter().pixelWidth = 480 * zoom;
-		PSP_CoreParameter().pixelHeight = 272 * zoom;
+		PSP_CoreParameter().pixelWidth = (int) (480 * zoom);
+		PSP_CoreParameter().pixelHeight = (int) (272 * zoom);
 		GL_Resized();
 	}
 
