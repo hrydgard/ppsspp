@@ -25,6 +25,8 @@
 #include "../PSPLoaders.h"
 #include "../../Core/CoreTiming.h"
 #include "../../Core/System.h"
+#include "../../GPU/GPUInterface.h"
+#include "../../GPU/GPUState.h"
 
 
 #include "__sceAudio.h"
@@ -187,6 +189,7 @@ void sceKernelGetGPI()
 // textures, and in the future display lists, in some cases though.
 void sceKernelDcacheInvalidateRange(u32 addr, int size)
 {
+	gpu->InvalidateCache(addr, size);
 }
 void sceKernelDcacheWritebackAll()
 {
@@ -196,9 +199,11 @@ void sceKernelDcacheWritebackRange(u32 addr, int size)
 }
 void sceKernelDcacheWritebackInvalidateRange(u32 addr, int size)
 {
+	gpu->InvalidateCache(addr, size);
 }
 void sceKernelDcacheWritebackInvalidateAll()
 {
+	gpu->InvalidateCache(0, -1);
 }
 
 KernelObjectPool kernelObjects;

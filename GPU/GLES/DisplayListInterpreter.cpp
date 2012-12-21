@@ -1259,7 +1259,7 @@ void GLES_GPU::DoBlockTransfer()
 {
 	// TODO: This is used a lot to copy data around between render targets and textures,
 	// and also to quickly load textures from RAM to VRAM. So we should do checks like the following:
-	//  * Does dstBasePtr point to an existing texture? If so invalidate it and reload it immediately.
+	//  * Does dstBasePtr point to an existing texture? If so maybe reload it immediately.
 	//
 	//  * Does srcBasePtr point to a render target, and dstBasePtr to a texture? If so
 	//    either copy between rt and texture or reassign the texture to point to the render target
@@ -1293,4 +1293,14 @@ void GLES_GPU::DoBlockTransfer()
 	}
 
 	// TODO: Notify all overlapping textures that it's time to die/reload.
+
+	TextureCache_Invalidate(srcBasePtr + srcY * srcStride + srcX, height * srcStride + width * bpp);
+}
+
+void GLES_GPU::InvalidateCache(u32 addr, int size)
+{
+	if (size > 0)
+		TextureCache_Invalidate(addr, size);
+	else
+		TextureCache_Clear(true);
 }
