@@ -1294,7 +1294,7 @@ void GLES_GPU::DoBlockTransfer()
 
 	// TODO: Notify all overlapping textures that it's time to die/reload.
 
-	TextureCache_Invalidate(srcBasePtr + srcY * srcStride + srcX, height * srcStride + width * bpp);
+	TextureCache_Invalidate(dstBasePtr + dstY * dstStride + dstX, height * dstStride + width * bpp);
 }
 
 void GLES_GPU::InvalidateCache(u32 addr, int size)
