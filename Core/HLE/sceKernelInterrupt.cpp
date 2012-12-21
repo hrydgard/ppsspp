@@ -273,20 +273,36 @@ bool __RunOnePendingInterrupt()
 	}
 }
 
-void __TriggerInterrupt(PSPInterrupt intno, int subintr)
+void __TriggerInterrupt(int type, PSPInterrupt intno, int subintr)
 {
-	intrHandlers[intno].queueUp(subintr);
-	DEBUG_LOG(HLE, "Triggering subinterrupts for interrupt %i sub %i (%i in queue)", intno, subintr, pendingInterrupts.size());
-	if (!inInterrupt)
-		__RunOnePendingInterrupt();
+	if (interruptsEnabled || (type & PSP_INTR_ONLY_IF_ENABLED) == 0)
+	{
+		intrHandlers[intno].queueUp(subintr);
+		DEBUG_LOG(HLE, "Triggering subinterrupts for interrupt %i sub %i (%i in queue)", intno, subintr, pendingInterrupts.size());
+		if (!inInterrupt)
+		{
+			if ((type & PSP_INTR_HLE) != 0)
+				hleRunInterrupts();
+			else
+				__RunOnePendingInterrupt();
+		}
+	}
 }
 
-void __TriggerInterruptWithArg(PSPInterrupt intno, int subintr, int arg)
+void __TriggerInterruptWithArg(int type, PSPInterrupt intno, int subintr, int arg)
 {
-	intrHandlers[intno].queueUpWithArg(subintr, arg);
-	DEBUG_LOG(HLE, "Triggering subinterrupts for interrupt %i sub %i with arg %i (%i in queue)", intno, subintr, arg, pendingInterrupts.size());
-	if (!inInterrupt)
-		__RunOnePendingInterrupt();
+	if (interruptsEnabled || (type & PSP_INTR_ONLY_IF_ENABLED) == 0)
+	{
+		intrHandlers[intno].queueUpWithArg(subintr, arg);
+		DEBUG_LOG(HLE, "Triggering subinterrupts for interrupt %i sub %i with arg %i (%i in queue)", intno, subintr, arg, pendingInterrupts.size());
+		if (!inInterrupt)
+		{
+			if ((type & PSP_INTR_HLE) != 0)
+				hleRunInterrupts();
+			else
+				__RunOnePendingInterrupt();
+		}
+	}
 }
 
 void __KernelReturnFromInterrupt()

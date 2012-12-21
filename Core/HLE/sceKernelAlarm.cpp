@@ -88,10 +88,8 @@ void __KernelTriggerAlarm(u64 userdata, int cyclesLate)
 
 	u32 error;
 	Alarm *alarm = kernelObjects.Get<Alarm>(uid, error);
-
-	// TODO: Need to find out the return value.
 	if (alarm)
-		__TriggerInterrupt(PSP_SYSTIMER0_INTR, uid);
+		__TriggerInterrupt(PSP_INTR_IMMEDIATE, PSP_SYSTIMER0_INTR, uid);
 }
 
 void __KernelScheduleAlarm(Alarm *alarm, int ticks)

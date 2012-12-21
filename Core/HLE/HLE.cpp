@@ -26,6 +26,7 @@
 #include "sceAudio.h"
 #include "sceKernelMemory.h"
 #include "sceKernelThread.h"
+#include "sceKernelInterrupt.h"
 #include "../MIPS/MIPSCodeUtils.h"
 
 enum
@@ -40,6 +41,8 @@ enum
 	HLE_AFTER_ALL_CALLBACKS = 0x04,
 	// Reschedule and process current thread's callbacks after the syscall.
 	HLE_AFTER_RESCHED_CALLBACKS = 0x08,
+	// Run interrupts (and probably reschedule) after the syscall.
+	HLE_AFTER_RUN_INTERRUPTS = 0x10,
 };
 
 static std::vector<HLEModule> moduleDB;
@@ -231,10 +234,18 @@ void hleReSchedule(bool callbacks, const char *reason)
 		hleAfterSyscall |= HLE_AFTER_RESCHED_CALLBACKS;
 }
 
+void hleRunInterrupts()
+{
+	hleAfterSyscall |= HLE_AFTER_RUN_INTERRUPTS;
+}
+
 inline void hleFinishSyscall()
 {
 	if ((hleAfterSyscall & HLE_AFTER_CURRENT_CALLBACKS) != 0)
 		__KernelForceCallbacks();
+
+	if ((hleAfterSyscall & HLE_AFTER_RUN_INTERRUPTS) != 0)
+		__RunOnePendingInterrupt();
 
 	// Rescheduling will also do HLE_AFTER_ALL_CALLBACKS.
 	if ((hleAfterSyscall & HLE_AFTER_RESCHED_CALLBACKS) != 0)

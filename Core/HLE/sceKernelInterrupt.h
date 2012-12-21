@@ -54,6 +54,15 @@ enum PSPGeSubInterrupts {
   PSP_GE_SUBINTR_SIGNAL = 15
 };
 
+enum PSPInterruptTriggerType {
+	// Trigger immediately, for CoreTiming events.
+	PSP_INTR_IMMEDIATE = 0x0,
+	// Trigger after the HLE syscall finishes.
+	PSP_INTR_HLE = 0x1,
+	// Only trigger (as above) if interrupts are not suspended.
+	PSP_INTR_ONLY_IF_ENABLED = 0x2,
+};
+
 class AllegrexInterruptHandler;
 
 struct PendingInterrupt {
@@ -91,8 +100,8 @@ public:
 bool __IsInInterrupt();
 void __InterruptsInit();
 void __InterruptsShutdown();
-void __TriggerInterrupt(PSPInterrupt intno, int subInterrupts = -1);
-void __TriggerInterruptWithArg(PSPInterrupt intno, int subintr, int arg);  // For GE "callbacks"
+void __TriggerInterrupt(int type, PSPInterrupt intno, int subInterrupts = -1);
+void __TriggerInterruptWithArg(int type, PSPInterrupt intno, int subintr, int arg);  // For GE "callbacks"
 bool __RunOnePendingInterrupt();
 void __KernelReturnFromInterrupt();
 
