@@ -498,6 +498,10 @@ namespace MainWindow
 				g_Config.bDisplayFramebuffer = !g_Config.bDisplayFramebuffer;
 				UpdateMenus();
 				break;
+			case ID_OPTIONS_FASTMEMORY:
+				g_Config.bFastMemory = !g_Config.bFastMemory;
+				UpdateMenus();
+				break;
 
 			
 			//////////////////////////////////////////////////////////////////////////
