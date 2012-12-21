@@ -165,7 +165,7 @@ void IndexGenerator::TranslateFan(int numVerts, const u8 *inds, int offset)
 	int numTris = numVerts - 2;
 	for (int i = 0; i < numTris; i++)
 	{
-		*inds_++ = index_ + offset + inds[i];
+		*inds_++ = index_ + offset + inds[0];
 		*inds_++ = index_ + offset + inds[i + 1];
 		*inds_++ = index_ + offset + inds[i + 2];
 	}
@@ -210,7 +210,7 @@ void IndexGenerator::TranslateFan(int numVerts, const u16 *inds, int offset)
 	int numTris = numVerts - 2;
 	for (int i = 0; i < numTris; i++)
 	{
-		*inds_++ = index_ + offset + inds[i];
+		*inds_++ = index_ + offset + inds[0];
 		*inds_++ = index_ + offset + inds[i + 1];
 		*inds_++ = index_ + offset + inds[i + 2];
 	}
