@@ -78,6 +78,7 @@ void ReapplyGfxState()
 {
 	if (!gpu)
 		return;
+	gpu->Flush();
 	// ShaderManager_DirtyShader();
 	// The commands are embedded in the command memory so we can just reexecute the words. Convenient.
 	// To be safe we pass 0xFFFFFFF as the diff.
