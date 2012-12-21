@@ -786,6 +786,8 @@ add_library(GPU OBJECT
 	GPU/GLES/FragmentShaderGenerator.h
 	GPU/GLES/Framebuffer.cpp
 	GPU/GLES/Framebuffer.h
+	GPU/GLES/IndexGenerator.cpp
+	GPU/GLES/IndexGenerator.h
 	GPU/GLES/ShaderManager.cpp
 	GPU/GLES/ShaderManager.h
 	GPU/GLES/StateMapping.cpp

@@ -72,6 +72,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/GPU/GLES/Framebuffer.cpp \
   $(SRC)/GPU/GLES/DisplayListInterpreter.cpp \
   $(SRC)/GPU/GLES/TextureCache.cpp \
+  $(SRC)/GPU/GLES/IndexGenerator.cpp \
   $(SRC)/GPU/GLES/TransformPipeline.cpp \
   $(SRC)/GPU/GLES/StateMapping.cpp \
   $(SRC)/GPU/GLES/VertexDecoder.cpp \
