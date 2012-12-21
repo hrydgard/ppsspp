@@ -648,6 +648,7 @@ void VertexDecoder::SetVertexType(u32 fmt) {
 void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, const void *inds, int prim, int count, int *indexLowerBound, int *indexUpperBound) const
 {
 	// Find index bounds. Could cache this in display lists.
+	// Also, this could be greatly sped up with SSE2, although rarely a bottleneck.
 	int lowerBound = 0x7FFFFFFF;
 	int upperBound = 0;
 	if (idx == (GE_VTYPE_IDX_8BIT >> GE_VTYPE_IDX_SHIFT)) {
@@ -685,4 +686,3 @@ void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, const void *i
 		decoded_ += decFmt.stride;
 	}
 }
-

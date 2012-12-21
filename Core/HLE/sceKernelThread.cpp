@@ -1136,10 +1136,10 @@ void sceKernelExitDeleteThread()
   Thread *t = kernelObjects.Get<Thread>(threadHandle, error);
   if (t)
   {
-    ERROR_LOG(HLE,"sceKernelExitDeleteThread()");
+    INFO_LOG(HLE,"sceKernelExitDeleteThread()");
     currentThread->nt.status = THREADSTATUS_DORMANT;
     currentThread->nt.exitStatus = PARAM(0);
-	__KernelFireThreadEnd(currentThread);
+		__KernelFireThreadEnd(currentThread);
 		//userMemory.Free(currentThread->stackBlock);
 		currentThread->stackBlock = 0;
 

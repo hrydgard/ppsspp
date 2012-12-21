@@ -327,7 +327,7 @@ char *GenerateVertexShader(int prim)
 			if (doLight[i] == LIGHT_DOTONLY)
 				continue;  // Actually, might want specular dot.... TODO
 
-			WRITE(p, "  float lightScale%i = 1.0f;\n", i);
+			WRITE(p, "  float lightScale%i = 1.0;\n", i);
 			if (type != GE_LIGHTTYPE_DIRECTIONAL) {
 				// Attenuation
 				WRITE(p, "  float distance%i = length(toLight%i);\n", i, i);
