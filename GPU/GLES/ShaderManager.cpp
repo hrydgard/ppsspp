@@ -260,9 +260,9 @@ void LinkedShader::use() {
 			glUniform3fv(u_lightpos[i], 1, gstate_c.lightpos[i]);
 			glUniform3fv(u_lightdir[i], 1, gstate_c.lightdir[i]);
 			glUniform3fv(u_lightatt[i], 1, gstate_c.lightatt[i]);
-			glUniform3fv(u_lightambient[i], 1, &gstate_c.lightColor[0][i].r);
-			glUniform3fv(u_lightdiffuse[i], 1, &gstate_c.lightColor[1][i].r);
-			glUniform3fv(u_lightspecular[i], 1, &gstate_c.lightColor[2][i].r);
+			glUniform3fv(u_lightambient[i], 1, gstate_c.lightColor[0][i]);
+			glUniform3fv(u_lightdiffuse[i], 1, gstate_c.lightColor[1][i]);
+			glUniform3fv(u_lightspecular[i], 1, gstate_c.lightColor[2][i]);
 		}
 	}
 

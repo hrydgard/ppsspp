@@ -31,8 +31,7 @@
 #include "ShaderManager.h"
 #include "DisplayListInterpreter.h"
 
-GLuint glprim[8] =
-{
+const GLuint glprim[8] = {
 	GL_POINTS,
 	GL_LINES,
 	GL_LINE_STRIP,
@@ -43,9 +42,11 @@ GLuint glprim[8] =
 };
 
 u8 decoded[65536 * 32];
+// uint16_t decIndex[65536];	// Unused
+
 TransformedVertex transformed[65536];
 TransformedVertex transformedExpanded[65536];
-uint16_t indexBuffer[65536];	// Unused
+
 
 // TODO: This should really return 2 colors, one for specular and one for diffuse.
 
@@ -159,7 +160,8 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 			if (lightScale > 1.0f) lightScale = 1.0f;
 		}
 
-		Color4 diff = (gstate_c.lightColor[1][l] * *diffuse) * (dot * lightScale);
+		Color4 lightDiff(gstate_c.lightColor[1][l], 0.0f);
+		Color4 diff = (lightDiff * *diffuse) * (dot * lightScale);
 
 		// Real PSP specular
 		Vec3 toViewer(0,0,1);
@@ -175,13 +177,15 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 			dot = halfVec * norm;
 			if (dot >= 0)
 			{
-				lightSum1 += (gstate_c.lightColor[2][l] * *specular * (powf(dot, specCoef_)*lightScale));
+				Color4 lightSpec(gstate_c.lightColor[2][l], 0.0f);
+				lightSum1 += (lightSpec * *specular * (powf(dot, specCoef_)*lightScale));
 			}
 		}
 		dots[l] = dot;
 		if (gstate.lightEnable[l] & 1)
 		{
-			lightSum0 += gstate_c.lightColor[0][l] * *ambient + diff;
+			Color4 lightAmbient(gstate_c.lightColor[2][l], 1.0f);
+			lightSum0 += lightAmbient * *ambient + diff;
 		}
 	}
 
@@ -243,7 +247,22 @@ static void DesetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decF
 	VertexAttribDisable(program->a_position, decFmt.posfmt);
 }
 
-void GLES_GPU::SoftwareTransformAndDraw(int prim, LinkedShader *program, int forceIndexType, int vertexCount, void *inds, const DecVtxFormat &decVtxFormat, int indexLowerBound, int indexUpperBound, float *customUV)
+// This is the software transform pipeline, which is necessary for supporting RECT
+// primitives correctly, and may be easier to use for debugging than the hardware
+// transform pipeline.
+
+// There's code here that simply expands transformed RECTANGLES into plain triangles.
+
+// We're gonna have to keep software transforming RECTANGLES, unless we use a geom shader which we can't on OpenGL ES 2.0.
+// Usually, though, these primitives don't use lighting etc so it's no biggie performance wise, but it would be nice to get rid of
+// this code.
+
+// Actually, if we find the camera-relative right and down vectors, it might even be possible to add the extra points in pre-transformed
+// space and thus make decent use of hardware transform.
+
+// Actually again, single quads could be drawn more efficiently using GL_TRIANGLE_STRIP, no need to duplicate verts as for
+// GL_TRIANGLES. Still need to sw transform to compute the extra two corners though.
+void SoftwareTransformAndDraw(int prim, LinkedShader *program, int forceIndexType, int vertexCount, void *inds, const DecVtxFormat &decVtxFormat, int indexLowerBound, int indexUpperBound, float *customUV)
 {
 	/*
 	DEBUG_LOG(G3D, "View matrix:");
@@ -254,27 +273,11 @@ void GLES_GPU::SoftwareTransformAndDraw(int prim, LinkedShader *program, int for
 	DEBUG_LOG(G3D, "%f %f %f", m[9], m[10], m[11]);
 	*/
 
-	// Then, transform and draw in one big swoop (urgh!)
-	// need to move this to the shader.
-
-	// We're gonna have to keep software transforming RECTANGLES, unless we use a geom shader which we can't on OpenGL ES 2.0.
-	// Usually, though, these primitives don't use lighting etc so it's no biggie performance wise, but it would be nice to get rid of
-	// this code.
-
-	// Actually, if we find the camera-relative right and down vectors, it might even be possible to add the extra points in pre-transformed
-	// space and thus make decent use of hardware transform.
-
-	// Actually again, single quads could be drawn more efficiently using GL_TRIANGLE_STRIP, no need to duplicate verts as for
-	// GL_TRIANGLES. Still need to sw transform to compute the extra two corners though.
-	
 	// Temporary storage for RECTANGLES emulation
 	float v2[3] = {0};
 	float uv2[2] = {0};
 
 	bool throughmode = (gstate.vertType & GE_VTYPE_THROUGH_MASK) != 0;
-
-
-	// TODO: Could use glDrawElements in some cases, see below.
 
 	// TODO: Split up into multiple draw calls for GLES 2.0 where you can't guarantee support for more than 0x10000 verts.
 
@@ -453,7 +456,7 @@ void GLES_GPU::SoftwareTransformAndDraw(int prim, LinkedShader *program, int for
 					}
 					break;
 				case 2:
-					// Shade mapping - use dots from light sources to generate U and V.
+					// Shade mapping - use dot products from light sources to generate U and V.
 					{
 						uv[0] = dots[gstate.getUVLS0()];
 						uv[1] = dots[gstate.getUVLS1()];
@@ -466,21 +469,17 @@ void GLES_GPU::SoftwareTransformAndDraw(int prim, LinkedShader *program, int for
 			}
 
 			// Transform the coord by the view matrix.
-			// We only really need to do it here for RECTANGLES drawing. However,
-			// there's no point in optimizing it out because all other primitives
-			// will be moved to hardware transform anyway.
 			Vec3ByMatrix43(v, out, gstate.viewMatrix);
 		}
 
-		// TODO: Write to a flexible buffer.
+		// TODO: Write to a flexible buffer, we don't always need all four components.
 		memcpy(&transformed[index].x, v, 3 * sizeof(float));
 		memcpy(&transformed[index].uv, uv, 2 * sizeof(float));
 		memcpy(&transformed[index].color0, c0, 4 * sizeof(float));
 		memcpy(&transformed[index].color1, c1, 3 * sizeof(float));
 	}
 
-	// Step 2: Expand using the index buffer, and expand rectangles.
-
+	// Step 2: expand rectangles.
 	const TransformedVertex *drawBuffer = transformed;
 	int numTrans = 0;
 
@@ -488,7 +487,6 @@ void GLES_GPU::SoftwareTransformAndDraw(int prim, LinkedShader *program, int for
 	if (forceIndexType != -1) {
 		indexType = forceIndexType;
 	}
-
 	bool drawIndexed = false;
 	GLuint glIndexType = 0;
 
@@ -581,7 +579,8 @@ void GLES_GPU::SoftwareTransformAndDraw(int prim, LinkedShader *program, int for
 		}
 	}
 
-	// TODO: Make a cache for glEnableVertexAttribArray and glVertexAttribPtr states, these spam the gDebugger log.
+	// TODO: Make a cache for glEnableVertexAttribArray and glVertexAttribPtr states,
+	// these spam the gDebugger log.
 	glEnableVertexAttribArray(program->a_position);
 	if (program->a_texcoord != -1) glEnableVertexAttribArray(program->a_texcoord);
 	if (program->a_color0 != -1) glEnableVertexAttribArray(program->a_color0);
@@ -591,7 +590,6 @@ void GLES_GPU::SoftwareTransformAndDraw(int prim, LinkedShader *program, int for
 	if (program->a_texcoord != -1) glVertexAttribPointer(program->a_texcoord, 2, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 3 * 4);
 	if (program->a_color0 != -1) glVertexAttribPointer(program->a_color0, 4, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 5 * 4);
 	if (program->a_color1 != -1) glVertexAttribPointer(program->a_color1, 3, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 9 * 4);
-	// NOTICE_LOG(G3D,"DrawPrimitive: %i", numTrans);
 	if (drawIndexed) {
 		glDrawElements(glprim[prim], numTrans, glIndexType, (GLvoid *)inds);
 	} else {
@@ -603,10 +601,6 @@ void GLES_GPU::SoftwareTransformAndDraw(int prim, LinkedShader *program, int for
 	if (program->a_color1 != -1) glDisableVertexAttribArray(program->a_color1);
 }
 
-// This is the software transform pipeline, which is necessary for supporting RECT
-// primitives correctly. Other primitives are possible to transform and light in hardware
-// using vertex shader, which will be way, way faster, especially on mobile. This has
-// not yet been implemented though.
 void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, float *customUV, int forceIndexType, int *bytesRead)
 {
 	int indexLowerBound, indexUpperBound;
@@ -653,7 +647,6 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 
 	if (CanUseHardwareTransform(prim)) {
 		SetupDecFmtForDraw(program, dec.GetDecVtxFmt(), decoded);
-
 		bool drawIndexed;
 		GLuint glIndexType;
 		int indexType = (gstate.vertType & GE_VTYPE_IDX_MASK);
@@ -680,7 +673,6 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 		} else {
 			glDrawArrays(glprim[prim], 0, numTrans);
 		}
-
 		DesetupDecFmtForDraw(program, dec.GetDecVtxFmt());
 	} else {
 		SoftwareTransformAndDraw(prim, program, forceIndexType, vertexCount, inds, dec.GetDecVtxFmt(), indexLowerBound, indexUpperBound, customUV);
@@ -689,162 +681,4 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 
 void GLES_GPU::Flush(int prim) {
 	// TODO
-}
-
-void GLES_GPU::ApplyDrawState()
-{
-
-	// TODO: All this setup is soon so expensive that we'll need dirty flags, or simply do it in the command writes where we detect dirty by xoring. Silly to do all this work on every drawcall.
-
-	// TODO: The top bit of the alpha channel should be written to the stencil bit somehow. This appears to require very expensive multipass rendering :( Alternatively, one could do a
-	// single fullscreen pass that converts alpha to stencil (or 2 passes, to set both the 0 and 1 values) very easily.
-
-	// Set cull
-	bool wantCull = !gstate.isModeClear() && !gstate.isModeThrough() && gstate.isCullEnabled();
-	glstate.cullFace.set(wantCull);
-
-	if(wantCull) {
-		u8 cullMode = gstate.getCullMode();
-		glstate.cullFaceMode.set(cullingMode[cullMode]);
-	}
-
-	// Set blend
-	bool wantBlend = !gstate.isModeClear() && (gstate.alphaBlendEnable & 1);
-	glstate.blend.set(wantBlend);
-	if(wantBlend) {
-		// This can't be done exactly as there are several PSP blend modes that are impossible to do on OpenGL ES 2.0, and some even on regular OpenGL for desktop.
-		// HOWEVER - we should be able to approximate the 2x modes in the shader, although they will clip wrongly.
-		int blendFuncA  = gstate.getBlendFuncA();
-		int blendFuncB  = gstate.getBlendFuncB();
-		int blendFuncEq = gstate.getBlendEq();
-
-		glstate.blendEquation.set(eqLookup[blendFuncEq]);
-
-		if (blendFuncA != GE_SRCBLEND_FIXA && blendFuncB != GE_DSTBLEND_FIXB) {
-			// All is valid, no blendcolor needed
-			glstate.blendFunc.set(aLookup[blendFuncA], bLookup[blendFuncB]);
-		} else {
-			GLuint glBlendFuncA = blendFuncA == GE_SRCBLEND_FIXA ? GL_INVALID_ENUM : aLookup[blendFuncA];
-			GLuint glBlendFuncB = blendFuncB == GE_DSTBLEND_FIXB ? GL_INVALID_ENUM : bLookup[blendFuncB];
-			u32 fixA = gstate.getFixA();
-			u32 fixB = gstate.getFixB();
-			// Shortcut by using GL_ONE where possible, no need to set blendcolor
-			if (glBlendFuncA == GL_INVALID_ENUM && blendFuncA == GE_SRCBLEND_FIXA) {
-				if (fixA == 0xFFFFFF)
-					glBlendFuncA = GL_ONE;
-				else if (fixA == 0)
-					glBlendFuncA = GL_ZERO;
-			} 
-			if (glBlendFuncB == GL_INVALID_ENUM && blendFuncB == GE_DSTBLEND_FIXB) {
-				if (fixB == 0xFFFFFF)
-					glBlendFuncB = GL_ONE;
-				else if (fixB == 0)
-					glBlendFuncB = GL_ZERO;
-			}
-			if (glBlendFuncA == GL_INVALID_ENUM && glBlendFuncB != GL_INVALID_ENUM) {
-				// Can use blendcolor trivially.
-				const float blendColor[4] = {(fixA & 0xFF)/255.0f, ((fixA >> 8) & 0xFF)/255.0f, ((fixA >> 16) & 0xFF)/255.0f, 1.0f};
-				glstate.blendColor.set(blendColor);
-				glBlendFuncA = GL_CONSTANT_COLOR;
-			} else if (glBlendFuncA != GL_INVALID_ENUM && glBlendFuncB == GL_INVALID_ENUM) {
-				// Can use blendcolor trivially.
-				const float blendColor[4] = {(fixB & 0xFF)/255.0f, ((fixB >> 8) & 0xFF)/255.0f, ((fixB >> 16) & 0xFF)/255.0f, 1.0f};
-				glstate.blendColor.set(blendColor);
-				glBlendFuncB = GL_CONSTANT_COLOR;
-			} else if (glBlendFuncA == GL_INVALID_ENUM && glBlendFuncB == GL_INVALID_ENUM) {  // Should also check for approximate equality
-				if (fixA == (fixB ^ 0xFFFFFF)) {
-					glBlendFuncA = GL_CONSTANT_COLOR;
-					glBlendFuncB = GL_ONE_MINUS_CONSTANT_COLOR;
-					const float blendColor[4] = {(fixA & 0xFF)/255.0f, ((fixA >> 8) & 0xFF)/255.0f, ((fixA >> 16) & 0xFF)/255.0f, 1.0f};
-					glstate.blendColor.set(blendColor);
-				} else if (fixA == fixB) {
-					glBlendFuncA = GL_CONSTANT_COLOR;
-					glBlendFuncB = GL_CONSTANT_COLOR;
-					const float blendColor[4] = {(fixA & 0xFF)/255.0f, ((fixA >> 8) & 0xFF)/255.0f, ((fixA >> 16) & 0xFF)/255.0f, 1.0f};
-					glstate.blendColor.set(blendColor);
-				} else {
-					NOTICE_LOG(HLE, "ERROR INVALID blendcolorstate: FixA=%06x FixB=%06x FuncA=%i FuncB=%i", gstate.getFixA(), gstate.getFixB(), gstate.getBlendFuncA(), gstate.getBlendFuncB());
-					glBlendFuncA = GL_ONE;
-					glBlendFuncB = GL_ONE;
-				}
-			}
-			// At this point, through all paths above, glBlendFuncA and glBlendFuncB will be set somehow.
-
-			glstate.blendFunc.set(glBlendFuncA, glBlendFuncB);
-		}
-	}
-
-	bool wantDepthTest = gstate.isModeClear() || gstate.isDepthTestEnabled();
-	glstate.depthTest.set(wantDepthTest);
-	if(wantDepthTest) {
-		// Force GL_ALWAYS if mode clear
-		int depthTestFunc = gstate.isModeClear() ? 1 : gstate.getDepthTestFunc();
-		glstate.depthFunc.set(ztests[depthTestFunc]);
-	}
-
-	bool wantDepthWrite = gstate.isModeClear() || gstate.isDepthWriteEnabled();
-	glstate.depthWrite.set(wantDepthWrite ? GL_TRUE : GL_FALSE);
-
-	float depthRangeMin = gstate_c.zOff - gstate_c.zScale;
-	float depthRangeMax = gstate_c.zOff + gstate_c.zScale;
-	glstate.depthRange.set(depthRangeMin, depthRangeMax);
-}
-
-void GLES_GPU::UpdateViewportAndProjection()
-{
-	bool throughmode = (gstate.vertType & GE_VTYPE_THROUGH_MASK) != 0;
-
-	// We can probably use these to simply set scissors? Maybe we need to offset by regionX1/Y1
-	int regionX1 = gstate.region1 & 0x3FF;
-	int regionY1 = (gstate.region1 >> 10) & 0x3FF;
-	int regionX2 = (gstate.region2 & 0x3FF) + 1;
-	int regionY2 = ((gstate.region2 >> 10) & 0x3FF) + 1;
-
-	float offsetX = (float)(gstate.offsetx & 0xFFFF) / 16.0f;
-	float offsetY = (float)(gstate.offsety & 0xFFFF) / 16.0f;
-
-	if (throughmode) {
-		// No viewport transform here. Let's experiment with using region.
-		return;
-		glViewport((0 + regionX1) * renderWidthFactor_, (0 - regionY1) * renderHeightFactor_, (regionX2 - regionX1) * renderWidthFactor_, (regionY2 - regionY1) * renderHeightFactor_);
-	} else {
-		// These we can turn into a glViewport call, offset by offsetX and offsetY. Math after.
-		float vpXa = getFloat24(gstate.viewportx1);
-		float vpXb = getFloat24(gstate.viewportx2);
-		float vpYa = getFloat24(gstate.viewporty1);
-		float vpYb = getFloat24(gstate.viewporty2);
-		float vpZa = getFloat24(gstate.viewportz1);  //  / 65536.0f   should map it to OpenGL's 0.0-1.0 Z range
-		float vpZb = getFloat24(gstate.viewportz2);  //  / 65536.0f
-
-		// The viewport transform appears to go like this: 
-		// Xscreen = -offsetX + vpXb + vpXa * Xview
-		// Yscreen = -offsetY + vpYb + vpYa * Yview
-		// Zscreen = vpZb + vpZa * Zview
-
-		// This means that to get the analogue glViewport we must:
-		float vpX0 = vpXb - offsetX - vpXa;
-		float vpY0 = vpYb - offsetY + vpYa;   // Need to account for sign of Y
-		gstate_c.vpWidth = vpXa * 2;
-		gstate_c.vpHeight = -vpYa * 2;
-
-		return;
-
-		float vpWidth = fabsf(gstate_c.vpWidth);
-		float vpHeight = fabsf(gstate_c.vpHeight);
-
-		// TODO: These two should feed into glDepthRange somehow.
-		float vpZ0 = (vpZb - vpZa) / 65536.0f;
-		float vpZ1 = (vpZa * 2) / 65536.0f;
-
-		vpX0 *= renderWidthFactor_;
-		vpY0 *= renderHeightFactor_;
-		vpWidth *= renderWidthFactor_;
-		vpHeight *= renderHeightFactor_;
-
-		// Flip vpY0 to match the OpenGL coordinate system.
-		vpY0 = renderHeight_ - (vpY0 + vpHeight);
-		glViewport(vpX0, vpY0, vpWidth, vpHeight);
-		// Sadly, as glViewport takes integers, we will not be able to support sub pixel offsets this way. But meh.
-		shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
-	}
 }

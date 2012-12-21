@@ -596,9 +596,9 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 
 			int l = (cmd - GE_CMD_LAC0) / 3;
 			int t = (cmd - GE_CMD_LAC0) % 3;
-			gstate_c.lightColor[t][l].r = r;
-			gstate_c.lightColor[t][l].g = g;
-			gstate_c.lightColor[t][l].b = b;
+			gstate_c.lightColor[t][l][0] = r;
+			gstate_c.lightColor[t][l][1] = g;
+			gstate_c.lightColor[t][l][2] = b;
 		}
 		break;
 

@@ -948,9 +948,9 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 
 			int l = (cmd - GE_CMD_LAC0) / 3;
 			int t = (cmd - GE_CMD_LAC0) % 3;
-			gstate_c.lightColor[t][l].r = r;
-			gstate_c.lightColor[t][l].g = g;
-			gstate_c.lightColor[t][l].b = b;
+			gstate_c.lightColor[t][l][0] = r;
+			gstate_c.lightColor[t][l][1] = g;
+			gstate_c.lightColor[t][l][2] = b;
 			if (diff)
 				shaderManager.DirtyUniform(DIRTY_LIGHT0 << l);
 		}
@@ -1236,7 +1236,7 @@ bool GLES_GPU::InterpretList()
 		op = Memory::ReadUnchecked_U32(dcontext.pc); //read from memory
 		u32 cmd = op >> 24;
 		u32 diff = op ^ gstate.cmdmem[cmd];
-		gstate.cmdmem[cmd] = op;	 // crashes if I try to put the whole op there??
+		gstate.cmdmem[cmd] = op;
 
 		ExecuteOp(op, diff);
 
@@ -1257,6 +1257,15 @@ void GLES_GPU::UpdateStats()
 
 void GLES_GPU::DoBlockTransfer()
 {
+	// TODO: This is used a lot to copy data around between render targets and textures,
+	// and also to quickly load textures from RAM to VRAM. So we should do checks like the following:
+	//  * Does dstBasePtr point to an existing texture? If so invalidate it and reload it immediately.
+	//
+	//  * Does srcBasePtr point to a render target, and dstBasePtr to a texture? If so
+	//    either copy between rt and texture or reassign the texture to point to the render target
+	//
+	// etc....
+
 	u32 srcBasePtr = (gstate.transfersrc & 0xFFFFFF) | ((gstate.transfersrcw & 0xFF0000) << 8);
 	u32 srcStride = gstate.transfersrcw & 0x3FF;
 

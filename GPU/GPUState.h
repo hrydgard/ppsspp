@@ -22,58 +22,10 @@
 #include "ge_constants.h"
 #include <cstring>
 
-// TODO: this doesn't belong here
-struct Color4
-{
-	float r,g,b,a;
-	Color4() : r(0), g(0), b(0), a(0) { }
-	Color4(float _r, float _g, float _b, float _a=1.0f)
-	{
-		r=_r; g=_g; b=_b; a=_a;
-	}
-	Color4(const float in[4]) {r=in[0];g=in[1];b=in[2];a=in[3];}
-
-	float &operator [](int i) {return *(&r + i);}
-	const float &operator [](int i) const {return *(&r + i);}
-
-	Color4 operator *(float f) const
-	{
-		return Color4(f*r,f*g,f*b,f*a);
-	}
-	Color4 operator *(const Color4 &c) const
-	{
-		return Color4(r*c.r,g*c.g,b*c.b,a*c.a);
-	}
-	void operator *=(const Color4 &c)
-	{
-		r*=c.r,g*=c.g,b*=c.b,a*=c.a;
-	}
-	Color4 operator +(const Color4 &c) const
-	{
-		return Color4(r+c.r,g+c.g,b+c.b,a+c.a);
-	}
-	void operator +=(const Color4 &c)
-	{
-		r+=c.r;
-		g+=c.g;
-		b+=c.b;
-		a+=c.a;
-	}
-	void GetFromRGB(u32 col)
-	{
-		r = ((col>>16)&0xff)/255.0f;
-		g = ((col>>8)&0xff)/255.0f;
-		b = ((col>>0)&0xff)/255.0f;
-	}
-	void GetFromA(u32 col)
-	{
-		a = (col&0xff)/255.0f;
-	}
-};
-
-
 struct GPUgstate
 {
+	// Getting rid of this ugly union in favor of the accessor functions
+	// might be a good idea....
 	union
 	{
 		u32 cmdmem[256];
@@ -239,25 +191,28 @@ struct GPUgstate
 	float tgenMatrix[12];
 	float boneMatrix[12 * 8];  // Eight bone matrices.
 
-	bool isModeThrough() const { return (vertType & GE_VTYPE_THROUGH) != 0; }
+	// Pixel Pipeline
 	bool isModeClear()   const { return clearmode & 1; }
 	bool isCullEnabled() const { return cullfaceEnable & 1; }
-	int  getCullMode()   const { return cullmode & 1; }
-	int  getBlendFuncA() const { return blend & 0xF; }
+	int getCullMode()   const { return cullmode & 1; }
+	int getBlendFuncA() const { return blend & 0xF; }
 	u32 getFixA() const { return blendfixa & 0xFFFFFF; }
 	u32 getFixB() const { return blendfixb & 0xFFFFFF; }
-	int  getBlendFuncB() const { return (blend >> 4) & 0xF; }
-	int  getBlendEq()    const { return (blend >> 8) & 0x7; }
+	int getBlendFuncB() const { return (blend >> 4) & 0xF; }
+	int getBlendEq()    const { return (blend >> 8) & 0x7; }
 	bool isDepthTestEnabled() const { return zTestEnable & 1; }
 	bool isDepthWriteEnabled() const { return !(zmsk & 1); }
-	int  getDepthTestFunc() const { return ztestfunc & 0x7; }
+	int getDepthTestFunc() const { return ztestfunc & 0x7; }
 	bool isFogEnabled() const { return fogEnable & 1; }
 
+	// UV gen
 	int getUVGenMode() const { return texmapmode & 3;}   // 2 bits
 	int getUVProjMode() const { return (texmapmode >> 8) & 3;}   // 2 bits
 	int getUVLS0() const { return texshade & 0x3; }  // 2 bits
 	int getUVLS1() const { return (texshade >> 8) & 0x3; }  // 2 bits
 
+	// Vertex type
+	bool isModeThrough() const { return (vertType & GE_VTYPE_THROUGH) != 0; }
 	int getNumBoneWeights() const {
 		return 1 + ((vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT);
 	}
@@ -279,7 +234,7 @@ struct GPUStateCache
 	float lightpos[4][3];
 	float lightdir[4][3];
 	float lightatt[4][3];
-	Color4 lightColor[3][4]; //Amtient Diffuse Specular
+	float lightColor[3][4][3]; //Amtient Diffuse Specular
 	float morphWeights[8];
 
 	// bezier patch subdivision

@@ -23,10 +23,11 @@
 #include "VertexShaderGenerator.h"
 #include "FragmentShaderGenerator.h"
 
-struct Shader;
+class Shader;
 
-struct LinkedShader
+class LinkedShader
 {
+public:
 	LinkedShader(Shader *vs, Shader *fs);
 	~LinkedShader();
 
@@ -116,11 +117,12 @@ enum
 
 // Real public interface
 
-struct Shader
-{
+class Shader {
+public:
 	Shader(const char *code, uint32_t shaderType);
 	uint32_t shader;
 	const std::string &source() const { return source_; }
+
 private:
 	std::string source_;
 };

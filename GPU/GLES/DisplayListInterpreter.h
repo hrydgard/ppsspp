@@ -25,6 +25,7 @@
 #include "gfx_es2/fbo.h"
 
 class ShaderManager;
+class LinkedShader;
 struct DecVtxFormat;
 
 class GLES_GPU : public GPUInterface
@@ -52,7 +53,7 @@ public:
 private:
 	// TransformPipeline.cpp
 	void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, float *customUV, int forceIndexType, int *bytesRead = 0);
-	void SoftwareTransformAndDraw(int prim, LinkedShader *program, int forceIndexType, int vertexCount, void *inds, const DecVtxFormat &decVtxFormat, int indexLowerBound, int indexUpperBound, float *customUV);
+	//void SoftwareTransformAndDraw(int prim, LinkedShader *program, int forceIndexType, int vertexCount, void *inds, const DecVtxFormat &decVtxFormat, int indexLowerBound, int indexUpperBound, float *customUV);
 	void ApplyDrawState();
 	void Flush(int prim);
 	void UpdateViewportAndProjection();
