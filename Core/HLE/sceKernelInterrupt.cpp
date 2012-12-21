@@ -89,6 +89,7 @@ void sceKernelCpuResumeIntr(u32 enable)
 	if (enable)
 	{
 		__EnableInterrupts();
+		hleRunInterrupts();
 	}
 	else
 	{
@@ -219,6 +220,8 @@ void SubIntrHandler::queueUp()
 	PendingInterrupt pend;
 	pend.handler = this;
 	pend.hasArg = false;
+	pend.intr = intrNumber;
+	pend.subintr = number;
 	pendingInterrupts.push_back(pend);
 };
 
@@ -230,6 +233,8 @@ void SubIntrHandler::queueUpWithArg(int arg)
 	pend.handler = this;
 	pend.arg = arg;
 	pend.hasArg = true;
+	pend.intr = intrNumber;
+	pend.subintr = number;
 	pendingInterrupts.push_back(pend);
 }
 
@@ -246,7 +251,7 @@ void SubIntrHandler::copyArgsToCPU(const PendingInterrupt &pend)
 // Returns true if anything was executed.
 bool __RunOnePendingInterrupt()
 {
-	if (inInterrupt)
+	if (inInterrupt || !interruptsEnabled)
 	{
 		// Already in an interrupt! We'll keep going when it's done.
 		return false;
@@ -273,19 +278,25 @@ bool __RunOnePendingInterrupt()
 	}
 }
 
+void __TriggerRunInterrupts(int type)
+{
+	// If interrupts aren't enabled, we run them later.
+	if (interruptsEnabled && !inInterrupt)
+	{
+		if ((type & PSP_INTR_HLE) != 0)
+			hleRunInterrupts();
+		else
+			__RunOnePendingInterrupt();
+	}
+}
+
 void __TriggerInterrupt(int type, PSPInterrupt intno, int subintr)
 {
 	if (interruptsEnabled || (type & PSP_INTR_ONLY_IF_ENABLED) == 0)
 	{
 		intrHandlers[intno].queueUp(subintr);
 		DEBUG_LOG(HLE, "Triggering subinterrupts for interrupt %i sub %i (%i in queue)", intno, subintr, pendingInterrupts.size());
-		if (!inInterrupt)
-		{
-			if ((type & PSP_INTR_HLE) != 0)
-				hleRunInterrupts();
-			else
-				__RunOnePendingInterrupt();
-		}
+		__TriggerRunInterrupts(type);
 	}
 }
 
@@ -295,13 +306,7 @@ void __TriggerInterruptWithArg(int type, PSPInterrupt intno, int subintr, int ar
 	{
 		intrHandlers[intno].queueUpWithArg(subintr, arg);
 		DEBUG_LOG(HLE, "Triggering subinterrupts for interrupt %i sub %i with arg %i (%i in queue)", intno, subintr, arg, pendingInterrupts.size());
-		if (!inInterrupt)
-		{
-			if ((type & PSP_INTR_HLE) != 0)
-				hleRunInterrupts();
-			else
-				__RunOnePendingInterrupt();
-		}
+		__TriggerRunInterrupts(type);
 	}
 }
 
@@ -327,6 +332,7 @@ void __KernelReturnFromInterrupt()
 u32 __RegisterSubInterruptHandler(u32 intrNumber, u32 subIntrNumber, SubIntrHandler *subIntrHandler)
 {
 	subIntrHandler->number = subIntrNumber;
+	subIntrHandler->intrNumber = intrNumber;
 	intrHandlers[intrNumber].add(subIntrNumber, subIntrHandler);
 	return 0;
 }
@@ -336,7 +342,13 @@ u32 __ReleaseSubInterruptHandler(u32 intrNumber, u32 subIntrNumber)
 	if (!intrHandlers[intrNumber].has(subIntrNumber))
 		return -1;
 
-	// TODO: should check if it's pending and remove it from pending list! (although that's probably unlikely)
+	for (std::list<PendingInterrupt>::iterator it = pendingInterrupts.begin(); it != pendingInterrupts.end(); )
+	{
+		if (it->intr == intrNumber && it->subintr == subIntrNumber)
+			pendingInterrupts.erase(it++);
+		else
+			++it;
+	}
 
 	intrHandlers[intrNumber].remove(subIntrNumber);
 	return 0;

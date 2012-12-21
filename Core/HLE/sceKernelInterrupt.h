@@ -69,6 +69,8 @@ struct PendingInterrupt {
 	AllegrexInterruptHandler *handler;
 	int arg;
 	bool hasArg;
+	int intr;
+	int subintr;
 };
 
 
@@ -92,6 +94,7 @@ public:
 	virtual void handleResult(int result) {}
 
 	bool enabled;
+	int intrNumber;
 	int number;
 	u32 handlerAddress;
 	u32 handlerArg;
