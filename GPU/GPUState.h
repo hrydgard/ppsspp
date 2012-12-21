@@ -263,6 +263,7 @@ struct GPUStatistics
 
 	// Per frame statistics
 	int numDrawCalls;
+	int numFlushes;
 	int numVertsTransformed;
 	int numTextureSwitches;
 	int numShaderSwitches;

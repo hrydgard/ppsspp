@@ -24,9 +24,10 @@
 class IndexGenerator
 {
 public:
+	void Setup(u16 *indexptr);
 	void Reset();
-	void Start(u16 *indexptr, int baseIndex, int prim);
 	bool PrimCompatible(int prim);
+	int Prim() const { return prim_; }
 
 	// Points (why index these? code simplicity)
 	void AddPoints(int numVerts);
@@ -37,14 +38,20 @@ public:
 	// Lines
 	void AddLineList(int numVerts);
 	void AddLineStrip(int numVerts);
+	// Rectangles
+	void AddRectangles(int numVerts);
 
 	void TranslatePoints(int numVerts, const u8 *inds, int offset);
 	void TranslatePoints(int numVerts, const u16 *inds, int offset);
 	// Translates already indexed lists
 	void TranslateLineList(int numVerts, const u8 *inds, int offset);
-	void TranslateLineStrip(int numVerts, const u8 *inds, int offset);
 	void TranslateLineList(int numVerts, const u16 *inds, int offset);
+	void TranslateLineStrip(int numVerts, const u8 *inds, int offset);
 	void TranslateLineStrip(int numVerts, const u16 *inds, int offset);
+
+	void TranslateRectangles(int numVerts, const u8 *inds, int offset);
+	void TranslateRectangles(int numVerts, const u16 *inds, int offset);
+
 
 	void TranslateList(int numVerts, const u8 *inds, int offset);
 	void TranslateStrip(int numVerts, const u8 *inds, int offset);
@@ -56,7 +63,10 @@ public:
 	int MaxIndex() { return index_; }
 	int VertexCount() { return count_; }
 
+	bool Empty() { return index_ == 0; }
+
 private:
+	u16 *indsBase_;
 	u16 *inds_;
 	int index_;
 	int count_;

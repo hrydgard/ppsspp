@@ -182,6 +182,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate)
 		sprintf(stats,
 			"Frames: %i\n"
 			"Draw calls: %i\n"
+			"Draw flushes: %i\n"
 			"Vertices Transformed: %i\n"
 			"Textures active: %i\n"
 			"Vertex shaders loaded: %i\n"
@@ -189,6 +190,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate)
 			"Combined shaders loaded: %i\n",
 			gpuStats.numFrames,
 			gpuStats.numDrawCalls,
+			gpuStats.numFlushes,
 			gpuStats.numVertsTransformed,
 			gpuStats.numTextures,
 			gpuStats.numVertexShaders,

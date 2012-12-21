@@ -54,6 +54,7 @@ GLES_GPU::GLES_GPU(int renderWidth, int renderHeight)
 	renderHeightFactor_ = (float)renderHeight / 272.0f;
 	shaderManager_ = &shaderManager;
 	TextureCache_Init();
+	InitTransform();
 	// Sanity check gstate
 	if ((int *)&gstate.transferstart - (int *)&gstate != 0xEA) {
 		ERROR_LOG(G3D, "gstate has drifted out of sync!");
@@ -113,6 +114,7 @@ void GLES_GPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, int format)
 
 void GLES_GPU::CopyDisplayToOutput()
 {
+	Flush();
 	if (!g_Config.bBufferedRendering)
 		return;
 
