@@ -52,15 +52,14 @@ public:
 	void TranslateRectangles(int numVerts, const u8 *inds, int offset);
 	void TranslateRectangles(int numVerts, const u16 *inds, int offset);
 
-
 	void TranslateList(int numVerts, const u8 *inds, int offset);
 	void TranslateStrip(int numVerts, const u8 *inds, int offset);
 	void TranslateFan(int numVerts, const u8 *inds, int offset);
 	void TranslateList(int numVerts, const u16 *inds, int offset);
 	void TranslateStrip(int numVerts, const u16 *inds, int offset);
 	void TranslateFan(int numVerts, const u16 *inds, int offset);
-
-	int MaxIndex() { return index_; }
+	
+  int MaxIndex() { return index_; }
 	int VertexCount() { return count_; }
 
 	bool Empty() { return index_ == 0; }
