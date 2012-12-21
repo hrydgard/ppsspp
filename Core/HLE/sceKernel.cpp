@@ -183,14 +183,18 @@ void sceKernelGetGPI()
 }
 
 // Don't even log these, they're spammy and we probably won't
-// need to emulate them.
+// need to emulate them. Might be useful for invalidating cached
+// textures, and in the future display lists, in some cases though.
+void sceKernelDcacheInvalidateRange(u32 addr, int size)
+{
+}
 void sceKernelDcacheWritebackAll()
 {
 }
-void sceKernelDcacheWritebackRange()
+void sceKernelDcacheWritebackRange(u32 addr, int size)
 {
 }
-void sceKernelDcacheWritebackInvalidateRange()
+void sceKernelDcacheWritebackInvalidateRange(u32 addr, int size)
 {
 }
 void sceKernelDcacheWritebackInvalidateAll()

@@ -522,7 +522,7 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 				u32 sectorCount = memStickSectorSize / sectorSize;
 				u64 freeSize = 1 * 1024 * 1024 * 1024;
 				DeviceSize deviceSize;
-				deviceSize.maxClusters = (freeSize  * 95 / 100) / (sectorSize * sectorCount);
+				deviceSize.maxClusters = (u32)((freeSize  * 95 / 100) / (sectorSize * sectorCount));
 				deviceSize.freeClusters = deviceSize.maxClusters;
 				deviceSize.maxSectors = deviceSize.maxClusters;
 				deviceSize.sectorSize = sectorSize;
@@ -593,7 +593,7 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 					u32 sectorCount = memStickSectorSize / sectorSize;
 					u64 freeSize = 1 * 1024 * 1024 * 1024;
 					DeviceSize deviceSize;
-					deviceSize.maxClusters = (freeSize  * 95 / 100) / (sectorSize * sectorCount);
+					deviceSize.maxClusters = (u32)((freeSize  * 95 / 100) / (sectorSize * sectorCount));
 					deviceSize.freeClusters = deviceSize.maxClusters;
 					deviceSize.maxSectors = deviceSize.maxClusters;
 					deviceSize.sectorSize = sectorSize;
@@ -883,8 +883,29 @@ u32 sceIoDclose(int id) {
 
 u32 sceIoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen) 
 {
-	ERROR_LOG(HLE, "UNIMPL 0=sceIoIoctrl id: %08x, cmd %08x, indataPtr %08x, inlen %08x, outdataPtr %08x, outLen %08x", id,cmd,indataPtr,inlen,outdataPtr,outlen);
-    return 0;
+	ERROR_LOG(HLE, "UNIMPL PARTIAL 0=sceIoIoctl id: %08x, cmd %08x, indataPtr %08x, inlen %08x, outdataPtr %08x, outLen %08x", id,cmd,indataPtr,inlen,outdataPtr,outlen);
+
+	u32 error;
+	FileNode *f = kernelObjects.Get<FileNode>(id, error);
+	if (error) {
+		return error;
+	}
+
+	//KD Hearts:
+	//56:46:434 HLE\sceIo.cpp:886 E[HLE]: UNIMPL 0=sceIoIoctrl id: 0000011f, cmd 04100001, indataPtr 08b313d8, inlen 00000010, outdataPtr 00000000, outLen 0
+	//	0000000
+	switch (cmd) {
+	case 0x04100001:  // Define decryption key (amctrl.prx DRM)
+		if (Memory::IsValidAddress(indataPtr) && inlen == 16) {
+			u8 keybuf[16];
+			memcpy(keybuf, Memory::GetPointer(indataPtr), 16);
+			ERROR_LOG(HLE, "PGD DRM not yet supported, sorry.");
+		}
+		break;
+
+	}
+
+  return 0;
 }
 
 const HLEFunction IoFileMgrForUser[] = {

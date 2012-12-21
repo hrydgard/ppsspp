@@ -79,6 +79,7 @@ void (*advanceCallback)(int cyclesExecuted) = NULL;
 void SetClockFrequencyMHz(int cpuMhz)
 {
 	CPU_HZ = cpuMhz * 1000000;
+	// TODO: Rescale times of scheduled events?
 }
 
 int GetClockFrequencyMHz()

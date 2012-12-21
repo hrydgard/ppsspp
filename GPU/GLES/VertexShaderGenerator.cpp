@@ -41,6 +41,7 @@ static char buffer[16384];
 
 #define WRITE p+=sprintf
 
+
 bool CanUseHardwareTransform(int prim)
 {
 	return !gstate.isModeThrough() && false; // prim != GE_PRIM_RECTANGLES;

@@ -499,6 +499,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 		{
 		case GE_CMD_SIGNAL:
 			{
+				// TODO: see http://code.google.com/p/jpcsp/source/detail?r=2935#
 				int behaviour = (prev >> 16) & 0xFF;
 				int signal = prev & 0xFFFF;
 				int enddata = data & 0xFFFF;

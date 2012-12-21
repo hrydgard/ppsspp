@@ -283,9 +283,10 @@ void sceKernelFindModuleByName();
 
 void sceKernelSetGPO();
 void sceKernelGetGPI();
+void sceKernelDcacheInvalidateRange(u32 addr, int size);
 void sceKernelDcacheWritebackAll();
-void sceKernelDcacheWritebackRange();
-void sceKernelDcacheWritebackInvalidateRange();
+void sceKernelDcacheWritebackRange(u32 addr, int size);
+void sceKernelDcacheWritebackInvalidateRange(u32 addr, int size);
 void sceKernelDcacheWritebackInvalidateAll();
 void sceKernelGetThreadStackFreeSize();
 void sceKernelIcacheInvalidateAll();
