@@ -179,7 +179,6 @@ void EmuScreen::render()
 
 	ui_draw2d.Begin(DBMODE_NORMAL);
 
-	// Make this configurable.
 	if (g_Config.bShowTouchControls)
 		DrawGamepad(ui_draw2d);
 

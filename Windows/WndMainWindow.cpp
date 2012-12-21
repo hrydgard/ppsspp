@@ -112,8 +112,9 @@ namespace MainWindow
 		AdjustWindowRect(&rcOuter, WS_OVERLAPPEDWINDOW, TRUE);
 	}
 
-	void SetZoom(int zoom) {
-		g_Config.iWindowZoom = zoom;
+	void SetZoom(float zoom) {
+		if (zoom < 5)
+			g_Config.iWindowZoom = zoom;
 		RECT rc, rcOuter;
 		GetWindowRectAtZoom(zoom, rc, rcOuter);
 		MoveWindow(hwndMain, rcOuter.left, rcOuter.top, rcOuter.right - rcOuter.left, rcOuter.bottom - rcOuter.top, TRUE);
@@ -638,6 +639,7 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_SHOWDEBUGSTATISTICS, g_Config.bShowDebugStats);
 		CHECKITEM(ID_OPTIONS_WIREFRAME, g_Config.bDrawWireframe);
 		CHECKITEM(ID_OPTIONS_HARDWARETRANSFORM, g_Config.bHardwareTransform);
+		CHECKITEM(ID_OPTIONS_FASTMEMORY, g_Config.bFastMemory);
 
 		BOOL enable = !Core_IsStepping();
 		EnableMenuItem(menu,ID_EMULATION_RUN,enable);

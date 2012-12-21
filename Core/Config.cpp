@@ -49,8 +49,10 @@ void CConfig::Load(const char *iniFileName)
 	general->Get("IgnoreBadMemAccess", &bIgnoreBadMemAccess, true);
 	general->Get("CurrentDirectory", &currentDirectory, "");
 	general->Get("ShowDebuggerOnLoad", &bShowDebuggerOnLoad, false);
+
 	IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 	cpu->Get("Core", &iCpuCore, 0);
+	cpu->Get("FastMemory", &bFastMemory, false);
 
 	IniFile::Section *graphics = iniFile.GetOrCreateSection("Graphics");
 	graphics->Get("ShowFPSCounter", &bShowFPSCounter, false);
@@ -88,6 +90,7 @@ void CConfig::Save()
 		general->Set("ShowDebuggerOnLoad", bShowDebuggerOnLoad);
 		IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 		cpu->Set("Core", iCpuCore);
+		cpu->Set("FastMemory", bFastMemory);
 
 		IniFile::Section *graphics = iniFile.GetOrCreateSection("Graphics");
 		graphics->Set("ShowFPSCounter", bShowFPSCounter);
