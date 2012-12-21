@@ -197,6 +197,7 @@ void GLES_GPU::SetRenderFrameBuffer()
 
 	// None found? Create one.
 	if (!vfb) {
+		gstate_c.textureChanged = true;
 		vfb = new VirtualFramebuffer;
 		vfb->fb_address = fb_address;
 		vfb->fb_stride = fb_stride;
@@ -219,6 +220,7 @@ void GLES_GPU::SetRenderFrameBuffer()
 	{
 		// Use it as a render target.
 		DEBUG_LOG(HLE, "Switching render target to FBO for %08x", vfb->fb_address);
+		gstate_c.textureChanged = true;
 		fbo_bind_as_render_target(vfb->fbo);
 		glViewport(0, 0, renderWidth_, renderHeight_);
 		currentRenderVfb_ = vfb;
@@ -688,7 +690,6 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_TEXADDR0:
-		gstate_c.textureChanged = true;
 	case GE_CMD_TEXADDR1:
 	case GE_CMD_TEXADDR2:
 	case GE_CMD_TEXADDR3:
@@ -696,11 +697,11 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 	case GE_CMD_TEXADDR5:
 	case GE_CMD_TEXADDR6:
 	case GE_CMD_TEXADDR7:
+		gstate_c.textureChanged = true;
 		DEBUG_LOG(G3D,"DL Texture address %i: %06x", cmd-GE_CMD_TEXADDR0, data);
 		break;
 
 	case GE_CMD_TEXBUFWIDTH0:
-		gstate_c.textureChanged = true;
 	case GE_CMD_TEXBUFWIDTH1:
 	case GE_CMD_TEXBUFWIDTH2:
 	case GE_CMD_TEXBUFWIDTH3:
@@ -708,18 +709,22 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 	case GE_CMD_TEXBUFWIDTH5:
 	case GE_CMD_TEXBUFWIDTH6:
 	case GE_CMD_TEXBUFWIDTH7:
+		gstate_c.textureChanged = true;
 		DEBUG_LOG(G3D,"DL Texture BUFWIDTHess %i: %06x", cmd-GE_CMD_TEXBUFWIDTH0, data);
 		break;
 
 	case GE_CMD_CLUTADDR:
+		gstate_c.textureChanged = true;
 		//DEBUG_LOG(G3D,"CLUT base addr: %06x", data);
 		break;
 
 	case GE_CMD_CLUTADDRUPPER:
+		gstate_c.textureChanged = true;
 		DEBUG_LOG(G3D,"DL CLUT addr: %08x", ((gstate.clutaddrupper & 0xFF0000)<<8) | (gstate.clutaddr & 0xFFFFFF));
 		break;
 
 	case GE_CMD_LOADCLUT:
+		gstate_c.textureChanged = true;
 		// This could be used to "dirty" textures with clut.
 		{
 			u32 clutAddr = ((gstate.clutaddrupper & 0xFF0000)<<8) | (gstate.clutaddr & 0xFFFFFF);
@@ -745,6 +750,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_CLUTFORMAT:
 		{
+			gstate_c.textureChanged = true;
 			DEBUG_LOG(G3D,"DL Clut format: %06x", data);
 		}
 		break;
@@ -810,7 +816,6 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 		}
 
 	case GE_CMD_TEXSIZE0:
-		gstate_c.textureChanged = true;
 		gstate_c.curTextureWidth = 1 << (gstate.texsize[0] & 0xf);
 		gstate_c.curTextureHeight = 1 << ((gstate.texsize[0]>>8) & 0xf);
 		//fall thru - ignoring the mipmap sizes for now
@@ -822,6 +827,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 	case GE_CMD_TEXSIZE6:
 	case GE_CMD_TEXSIZE7:
 		DEBUG_LOG(G3D,"DL Texture Size %i: %06x", cmd - GE_CMD_TEXSIZE0, data);
+		gstate_c.textureChanged = true;
 		break;
 
 	case GE_CMD_ZBUFPTR:
