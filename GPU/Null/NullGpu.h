@@ -40,6 +40,7 @@ public:
 	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, int format) {}
 	virtual void CopyDisplayToOutput() {}
 	virtual void UpdateStats();
+	virtual void InvalidateCache(u32 addr, int size);
 
 private:
 	bool ProcessDLQueue();
