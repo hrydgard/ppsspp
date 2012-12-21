@@ -952,9 +952,9 @@ void PSPSetTexture()
 	gpuStats.numTexturesDecoded++;
 	// Can restore these and remove the above fixup on some platforms.
 	//glPixelStorei(GL_UNPACK_ROW_LENGTH, bufw);
-	//glPixelStorei(GL_UNPACK_ALIGNMENT, texByteAlign);
+	glPixelStorei(GL_UNPACK_ALIGNMENT, texByteAlign);
 	//glPixelStorei(GL_PACK_ROW_LENGTH, bufw);
-	//glPixelStorei(GL_PACK_ALIGNMENT, texByteAlign);
+	glPixelStorei(GL_PACK_ALIGNMENT, texByteAlign);
 
 	INFO_LOG(G3D, "Creating texture %i from %08x: %i x %i (stride: %i). fmt: %i", entry.texture, entry.addr, w, h, bufw, entry.format);
 
@@ -967,9 +967,9 @@ void PSPSetTexture()
 	UpdateSamplingParams();
 
 	//glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-	//glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 	//glPixelStorei(GL_PACK_ROW_LENGTH, 0);
-	//glPixelStorei(GL_PACK_ALIGNMENT, 1);
+	glPixelStorei(GL_PACK_ALIGNMENT, 1);
 
 	cache[cachekey] = entry;
 }
