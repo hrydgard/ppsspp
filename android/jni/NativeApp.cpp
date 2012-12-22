@@ -185,6 +185,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 			case 'j':
 				g_Config.iCpuCore = CPU_JIT;
 				break;
+			case 'f':
+				g_Config.iCpuCore = CPU_FASTINTERPRETER;
+				break;
 			case 'i':
 				g_Config.iCpuCore = CPU_INTERPRETER;
 				break;
