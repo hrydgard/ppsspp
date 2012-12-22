@@ -92,7 +92,7 @@ bool DirectoryFileSystem::DeleteFile(const std::string &filename)
 {
 	std::string fullName = GetLocalPath(filename);
 #ifdef _WIN32
-	return DeleteFile(fullName.c_str()) == TRUE;
+	return ::DeleteFile(fullName.c_str()) == TRUE;
 #else
 	return 0 == unlink(fullName.c_str());
 #endif
