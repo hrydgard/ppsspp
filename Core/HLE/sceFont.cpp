@@ -237,7 +237,6 @@ int sceFontGetFontInfo(u32 fontHandle, u32 fontInfoPtr)
 	{
 		fi.BPP = 4;
 		fi.charMapLength = 255;
-		//		fi.fontStyle =1;
 		fi.maxGlyphAdvanceXF = 2.0;
 		fi.maxGlyphAdvanceXI = 2;
 		fi.maxGlyphAdvanceYF = 2.0;
@@ -331,7 +330,10 @@ int sceFontGetFontList(u32 fontLibHandle, u32 fontStylePtr, u32 numFonts)
 	style.fontVRes = 20 / 64.f;
 	style.fontStyle = 1;
 
-	Memory::WriteStruct(fontStylePtr, &style);
+	for (u32 i = 0; i < numFonts; i++)
+	{
+		Memory::WriteStruct(fontStylePtr+ (sizeof(style)), &style);
+	}
 	return 0;
 }
 
