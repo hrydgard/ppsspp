@@ -281,7 +281,6 @@ void PSPOskDialog::Update()
 	int selectedRow = selectedChar / (KEYSPERROW-1);
 	int selectedExtra = selectedChar % (KEYSPERROW-1);
 
-	//__UtilityUpdate();
 	if (status == SCE_UTILITY_STATUS_INITIALIZE)
 	{
 		status = SCE_UTILITY_STATUS_RUNNING;
@@ -327,9 +326,6 @@ void PSPOskDialog::Update()
 		{
 			selectedChar = 0;
 		}
-
-
-
 		// TODO : Dialogs should take control over input and not send them to the game while displaying
 		if (IsButtonPressed(CTRL_CROSS))
 		{
@@ -352,20 +348,19 @@ void PSPOskDialog::Update()
 		{
 			status = SCE_UTILITY_STATUS_FINISHED;
 		}
-
-
 		EndDraw();
 	}
 	else if (status == SCE_UTILITY_STATUS_FINISHED)
 	{
 		status = SCE_UTILITY_STATUS_SHUTDOWN;
 	}
+
 	for (int i=0; i<oskData.outtextlimit; i++)
 	{
 		Memory::Write_U16(0x0000^inputChars[i],oskData.outtextPtr + (2*i));
 	}
 
-	oskData.outtextlength = oskData.outtextlimit;
+	oskData.outtextlength = currentInputChar;
 	oskParams.base.result= 0;
 	oskData.result = PSP_UTILITY_OSK_RESULT_CHANGED;
 	Memory::WriteStruct(oskParams.SceUtilityOskDataPtr, &oskData);
