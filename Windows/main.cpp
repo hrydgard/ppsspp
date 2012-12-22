@@ -21,6 +21,7 @@
 #include "file/zip_read.h"
 
 #include "../Core/Config.h"
+#include "EmuThread.h"
 
 #include "LogManager.h"
 #include "ConsoleListener.h"
@@ -50,23 +51,51 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 {
 	Common::EnableCrashingOnCrashes();
 
-	char *token = szCmdLine;
-	char fileToLoad[256] = "";
-
-	token = strtok(szCmdLine," ");
+	const char *fileToStart = NULL;
+	bool showLog = false;
+	bool autoRun = true;
 
 	g_Config.Load();
 	VFSRegister("", new DirectoryAssetReader("assets/"));
 	VFSRegister("", new DirectoryAssetReader(""));
 
-	while (token)
+	for (int i = 1; i < __argc; i++)
 	{
-		if (strcmp(token,"-run"))
-		{
-			//run immediately
-		}
+		if (__targv[i][0] == '\0')
+			continue;
 
-		token = strtok(NULL," ");
+		if (__targv[i][0] == '-')
+		{
+			switch (__targv[i][1])
+			{
+			case 'j':
+				g_Config.iCpuCore = CPU_JIT;
+				break;
+			case 'i':
+				g_Config.iCpuCore = CPU_INTERPRETER;
+				break;
+			case 'l':
+				showLog = true;
+				break;
+			case 's':
+				autoRun = false;
+				break;
+			}
+		}
+		else if (fileToStart == NULL)
+		{
+			fileToStart = __targv[i];
+			if (!File::Exists(fileToStart))
+			{
+				fprintf(stderr, "File not found: %s\n", fileToStart);
+				exit(1);
+			}
+		}
+		else
+		{
+			fprintf(stderr, "Can only boot one file");
+			exit(1);
+		}
 	}
 
 	//Windows, API init stuff
@@ -104,10 +133,21 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 #endif
 	LogManager::GetInstance()->GetConsoleListener()->Open(hidden, 150, 120, "PPSSPP Debug Console");
 	LogManager::GetInstance()->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
-	if (strlen(fileToLoad))
+	if (fileToStart != NULL)
 	{
-		// TODO: load the thing
+		MainWindow::SetPlaying(fileToStart);
+		MainWindow::Update();
+		MainWindow::UpdateMenus();
+
+		EmuThread_Start(fileToStart);
 	}
+	else
+		MainWindow::BrowseAndBoot();
+
+	if (showLog)
+		PostMessage(hwndMain, WM_COMMAND, ID_DEBUG_LOG, 0);
+	if (autoRun)
+		MainWindow::SetNextState(CORE_RUNNING);
 
 	//so.. we're at the message pump of the GUI thread
 	MSG msg;
