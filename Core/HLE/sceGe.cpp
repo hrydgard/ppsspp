@@ -87,12 +87,19 @@ u32 sceGeListEnQueueHead(u32 listAddress, u32 stallAddress, u32 callbackId,
 	return listID;
 }
 
-void sceGeListUpdateStallAddr(u32 displayListID, u32 stallAddress)
+int sceGeListDeQueue(u32 listID)
+{
+	ERROR_LOG(HLE, "UNIMPL sceGeListDeQueue(%08x)", listID);
+	return 0;
+}
+
+int sceGeListUpdateStallAddr(u32 displayListID, u32 stallAddress)
 {
 	DEBUG_LOG(HLE, "sceGeListUpdateStallAddr(dlid=%i,stalladdr=%08x)",
 			displayListID, stallAddress);
 
 	gpu->UpdateStall(displayListID, stallAddress);
+	return 0;
 }
 
 int sceGeListSync(u32 displayListID, u32 mode) //0 : wait for completion		1:check and return
@@ -113,18 +120,19 @@ u32 sceGeDrawSync(u32 mode)
 	return 0;
 }
 
-void sceGeContinue()
+int sceGeContinue()
 {
 	ERROR_LOG(HLE, "UNIMPL sceGeContinue");
 	// no arguments
+	return 0;
 }
 
-void sceGeBreak(u32 mode)
+int sceGeBreak(u32 mode)
 {
 	//mode => 0 : current dlist 1: all drawing
 	ERROR_LOG(HLE, "UNIMPL sceGeBreak(mode=%d)", mode);
+	return 0;
 }
-
 
 u32 sceGeSetCallback(u32 structAddr)
 {
@@ -150,10 +158,14 @@ u32 sceGeSetCallback(u32 structAddr)
 	return 0;
 }
 
-void sceGeUnsetCallback(u32 cbID) {
+int sceGeUnsetCallback(u32 cbID)
+{
 	DEBUG_LOG(HLE, "sceGeUnsetCallback(cbid=%08x)", cbID);
+
 	sceKernelReleaseSubIntrHandler(PSP_GE_INTR, PSP_GE_SUBINTR_FINISH);
 	sceKernelReleaseSubIntrHandler(PSP_GE_INTR, PSP_GE_SUBINTR_SIGNAL);
+
+	return 0;
 }
 
 // Points to 512 32-bit words, where we can probably layout the context however we want
@@ -199,9 +211,16 @@ u32 sceGeRestoreContext(u32 ctxAddr)
 	return 0;
 }
 
-void sceGeGetMtx()
+int sceGeGetMtx(int type, u32 matrixPtr)
 {
-	ERROR_LOG(HLE, "UNIMPL sceGeGetMtx()");
+	ERROR_LOG(HLE, "UNIMPL sceGeGetMtx(%d, %08x)", type, matrixPtr);
+	return 0;
+}
+
+u32 sceGeGetCmd(int cmd)
+{
+	ERROR_LOG(HLE, "UNIMPL sceGeGetCmd()");
+	return 0;
 }
 
 u32 sceGeEdramSetAddrTranslation(int new_size)
@@ -215,23 +234,23 @@ u32 sceGeEdramSetAddrTranslation(int new_size)
 
 const HLEFunction sceGe_user[] =
 {
-	{0xE47E40E4,&WrapU_V<sceGeEdramGetAddr>,					"sceGeEdramGetAddr"},
-	{0xAB49E76A,&WrapU_UUUU<sceGeListEnQueue>,				"sceGeListEnQueue"},
-	{0x1C0D95A6,&WrapU_UUUU<sceGeListEnQueueHead>,		"sceGeListEnQueueHead"},
-	{0xE0D68148,&WrapV_UU<sceGeListUpdateStallAddr>,	"sceGeListUpdateStallAddr"},
-	{0x03444EB4,&WrapI_UU<sceGeListSync>,						 "sceGeListSync"},
-	{0xB287BD61,&WrapU_U<sceGeDrawSync>,							"sceGeDrawSync"},
-	{0xB448EC0D,&WrapV_U<sceGeBreak>,							"sceGeBreak"},
-	{0x4C06E472,sceGeContinue,					 "sceGeContinue"},
-	{0xA4FC06A4,&WrapU_U<sceGeSetCallback>,	"sceGeSetCallback"},
-	{0x05DB22CE,&WrapV_U<sceGeUnsetCallback>,					 "sceGeUnsetCallback"},
-	{0x1F6752AD,&WrapU_V<sceGeEdramGetSize>, "sceGeEdramGetSize"},
-	{0xB77905EA,&WrapU_I<sceGeEdramSetAddrTranslation>,"sceGeEdramSetAddrTranslation"},
-	{0xDC93CFEF,0,"sceGeGetCmd"},
-	{0x57C8945B,&sceGeGetMtx,"sceGeGetMtx"},
-	{0x438A385A,&WrapU_U<sceGeSaveContext>,"sceGeSaveContext"},
-	{0x0BF608FB,&WrapU_U<sceGeRestoreContext>,"sceGeRestoreContext"},
-	{0x5FB86AB0,0,"sceGeListDeQueue"},
+	{0xE47E40E4, WrapU_V<sceGeEdramGetAddr>,            "sceGeEdramGetAddr"},
+	{0xAB49E76A, WrapU_UUUU<sceGeListEnQueue>,          "sceGeListEnQueue"},
+	{0x1C0D95A6, WrapU_UUUU<sceGeListEnQueueHead>,      "sceGeListEnQueueHead"},
+	{0xE0D68148, WrapI_UU<sceGeListUpdateStallAddr>,    "sceGeListUpdateStallAddr"},
+	{0x03444EB4, WrapI_UU<sceGeListSync>,               "sceGeListSync"},
+	{0xB287BD61, WrapU_U<sceGeDrawSync>,                "sceGeDrawSync"},
+	{0xB448EC0D, WrapI_U<sceGeBreak>,                   "sceGeBreak"},
+	{0x4C06E472, WrapI_V<sceGeContinue>,                "sceGeContinue"},
+	{0xA4FC06A4, WrapU_U<sceGeSetCallback>,             "sceGeSetCallback"},
+	{0x05DB22CE, WrapI_U<sceGeUnsetCallback>,           "sceGeUnsetCallback"},
+	{0x1F6752AD, WrapU_V<sceGeEdramGetSize>,            "sceGeEdramGetSize"},
+	{0xB77905EA, WrapU_I<sceGeEdramSetAddrTranslation>, "sceGeEdramSetAddrTranslation"},
+	{0xDC93CFEF, WrapU_I<sceGeGetCmd>,                  "sceGeGetCmd"},
+	{0x57C8945B, WrapI_IU<sceGeGetMtx>,                 "sceGeGetMtx"},
+	{0x438A385A, WrapU_U<sceGeSaveContext>,             "sceGeSaveContext"},
+	{0x0BF608FB, WrapU_U<sceGeRestoreContext>,          "sceGeRestoreContext"},
+	{0x5FB86AB0, WrapI_U<sceGeListDeQueue>,             "sceGeListDeQueue"},
 };
 
 void Register_sceGe_user()
