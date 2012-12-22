@@ -281,7 +281,7 @@ char *GenerateVertexShader(int prim)
 
 		const char *ambient = (gstate.materialupdate & 1) ? "unlitColor" : "u_matambientalpha.rgb";
 		const char *diffuse = (gstate.materialupdate & 2) ? "unlitColor" : "u_matdiffuse";
-		const char *specular = (gstate.materialupdate & 4) ? "unlitColor" : "u_matspecular";
+		const char *specular = (gstate.materialupdate & 4) ? "unlitColor" : "u_matspecular.rgb";
 
 		if (gstate.lightingEnable & 1) {
 			WRITE(p, "  vec4 lightSum0 = vec4(0.0);\n");

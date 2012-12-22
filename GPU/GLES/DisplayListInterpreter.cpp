@@ -1370,7 +1370,7 @@ bool GLES_GPU::InterpretList()
 		op = Memory::ReadUnchecked_U32(dcontext.pc); //read from memory
 		u32 cmd = op >> 24;
 		u32 diff = op ^ gstate.cmdmem[cmd];
-		if (diff && flushBeforeCommand[cmd])
+		if (flushBeforeCommand[cmd])
 			Flush();
 		gstate.cmdmem[cmd] = op;
 
