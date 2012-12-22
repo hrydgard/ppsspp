@@ -301,13 +301,13 @@ namespace MIPSAnalyst
 			{
 				if (addr >= furthestBranch)
 				{
-					u32 target = GetSureBranchTarget(addr);
-					if (target != INVALIDTARGET && target < addr)
+					u32 sureTarget = GetSureBranchTarget(addr);
+					if (sureTarget != INVALIDTARGET && sureTarget < addr)
 					{
 						end = true;
 					}
-					target = GetJumpTarget(addr);
-					if (target != INVALIDTARGET && target < addr && ((op&0xFC000000)==0x08000000))
+					sureTarget = GetJumpTarget(addr);
+					if (sureTarget != INVALIDTARGET && sureTarget < addr && ((op&0xFC000000)==0x08000000))
 					{
 						end = true;
 					}

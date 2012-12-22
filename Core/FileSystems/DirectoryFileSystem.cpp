@@ -183,11 +183,11 @@ size_t DirectoryFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)
 	EntryMap::iterator iter = entries.find(handle);
 	if (iter != entries.end())
 	{
-    size_t bytesRead;
+		size_t bytesRead;
 #ifdef _WIN32
 		::ReadFile(iter->second.hFile, (LPVOID)pointer, (DWORD)size, (LPDWORD)&bytesRead, 0);
 #else
-    bytesRead = fread(pointer, 1, size, iter->second.hFile);
+		bytesRead = fread(pointer, 1, size, iter->second.hFile);
 #endif
 		return bytesRead;
 	}

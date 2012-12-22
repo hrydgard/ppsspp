@@ -270,12 +270,12 @@ void KernelObjectPool::List()
 			if (pool[i])
 			{
 				pool[i]->GetQuickInfo(buffer,256);
+				INFO_LOG(HLE, "KO %i: %s \"%s\": %s", i + handleOffset, pool[i]->GetTypeName(), pool[i]->GetName(), buffer);
 			}
 			else
 			{
 				strcpy(buffer,"WTF? Zero Pointer");
 			}
-			INFO_LOG(HLE, "KO %i: %s \"%s\": %s", i + handleOffset, pool[i]->GetTypeName(), pool[i]->GetName(), buffer);
 		}
 	}
 }

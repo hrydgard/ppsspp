@@ -29,11 +29,13 @@ static bool parseLBN(std::string filename, u32 *sectorStart, u32 *readSize)
 {
 	if (filename.substr(0, 8) != "/sce_lbn")
 		return false;
-	std::string yo = filename;
+	std::string prev = filename;
 	filename.erase(0, 10);
-	sscanf(filename.c_str(), "%08x", sectorStart);
+	if (sscanf(filename.c_str(), "%08x", sectorStart) != 1)
+		WARN_LOG(FILESYS, "Invalid LBN reference: %s", prev.c_str());
 	filename.erase(0, filename.find("_size") + 7);
-	sscanf(filename.c_str(), "%08x", readSize);
+	if (sscanf(filename.c_str(), "%08x", readSize) != 1)
+		WARN_LOG(FILESYS, "Incomplete LBN reference: %s", prev.c_str());
 	return true;
 }
 
@@ -393,6 +395,8 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)
 		}
 		else
 		{
+			_dbg_assert_msg_(HLE, e.file != 0, "Expecting non-raw fd to have a tree entry.");
+
 			//clamp read length
 			if ((s64)e.seekPos > e.file->size - (s64)size)
 			{
