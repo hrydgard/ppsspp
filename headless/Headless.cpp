@@ -74,8 +74,8 @@ void printUsage(const char *progname, const char *reason)
 	if (reason != NULL)
 		fprintf(stderr, "Error: %s\n\n", reason);
 	fprintf(stderr, "PPSSPP Headless\n");
-	fprintf(stderr, "This is primarily meant for non-inactive test tool.\n\n");
-	fprintf(stderr, "Usage: %s [options] file.elf\n\n", progname);
+	fprintf(stderr, "This is primarily meant as a non-interactive test tool.\n\n");
+	fprintf(stderr, "Usage: %s file.elf [options]\n\n", progname);
 	fprintf(stderr, "Options:\n");
 	fprintf(stderr, "  -m, --mount umd.cso   mount iso on umd:\n");
 	fprintf(stderr, "  -l, --log             full log output, not just emulated printfs\n");
