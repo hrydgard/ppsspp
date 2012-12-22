@@ -265,7 +265,6 @@ bool SavedataParam::Load(SceUtilitySavedataParam *param, int saveId)
 	return true;
 }
 
-<<<<<<< HEAD
 std::string SavedataParam::GetSpaceText(int size)
 {
 	char text[50];
@@ -300,10 +299,7 @@ std::string SavedataParam::GetSpaceText(int size)
 // From my test, PSP only answer with data for save of size 1500 (sdk < 2)
 // Perhaps changed to use mode 22 id SDK >= 2
 // For now we always return results
-bool SavedataParam::GetSizes(SceUtilitySavedataParam* param)
-=======
 bool SavedataParam::GetSizes(SceUtilitySavedataParam *param)
->>>>>>> upstream/master
 {
 	if (!param) {
 		return false;
@@ -341,11 +337,7 @@ bool SavedataParam::GetSizes(SceUtilitySavedataParam *param)
 			//return false;
 		}
 	}
-<<<<<<< HEAD
-	if(Memory::IsValidAddress(param->utilityData)) // Calc space required for save
-=======
 	if (Memory::IsValidAddress(param->utilityData))
->>>>>>> upstream/master
 	{
 		int total_size = 0;
 		total_size += getSizeNormalized(1); // SFO;
