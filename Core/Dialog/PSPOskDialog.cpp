@@ -143,19 +143,26 @@ std::string oskIntext;
 std::string oskOuttext;
 int oskParamsAddr;
 
+char inputChars[255]; // must be a better way of doing this...
+int currentInputChar;
+int selectedChar;
+
 #define NUMKEYROWS 4
-#define KEYSPERROW 11
+#define KEYSPERROW 13
 const char oskKeys[NUMKEYROWS][KEYSPERROW] = 
 {
-	{'1','2','3','4','5','6','7','8','9','0',}, 
-	{'Q','W','E','R','T','Y','U','I','O','P'},
-	{'A','S','D','F','G','H','J','K','L'},
-	{'Z','X','C','V','B','N','M',},
+	{'1','2','3','4','5','6','7','8','9','0','-','+','\0'}, 
+	{'Q','W','E','R','T','Y','U','I','O','P','[',']','\0'},
+	{'A','S','D','F','G','H','J','K','L',';','@','~','\0'},
+	{'Z','X','C','V','B','N','M',',','.','/','?','\\','\0'},
 };
 
 
-PSPOskDialog::PSPOskDialog() : PSPDialog() {
 
+PSPOskDialog::PSPOskDialog() : PSPDialog() {
+	selectedChar = 15;
+	currentInputChar = 0;
+	memset(inputChars, 0x00, sizeof(inputChars));
 }
 
 PSPOskDialog::~PSPOskDialog() {
@@ -212,21 +219,68 @@ int PSPOskDialog::Init(u32 oskPtr)
 
 void PSPOskDialog::RenderKeyboard()
 {
+	int selectedRow = selectedChar / (KEYSPERROW-1);
+	int selectedExtra = selectedChar % (KEYSPERROW-1);
+	char SelectedLine[KEYSPERROW];
+
 	PPGeDrawText(oskDesc.c_str(), 480/2, 20, PPGE_ALIGN_CENTER, 0.5f, 0xFFFFFFFF);
 	for (int i=0; i<oskData.outtextlimit; i++)
 	{
-		PPGeDrawText("_", 20 + (i*16), 40, NULL , 0.5f, 0xFFFFFFFF);
+		if (inputChars[i] != 0)
+		{
+			const char aa = inputChars[i];
+			PPGeDrawText(&aa, 20 + (i*16), 40, NULL , 0.5f, 0xFFFFFFFF);
+		}
+		else
+		{
+			if (currentInputChar == i)
+			{
+				char key = oskKeys[selectedRow][selectedExtra];
+				PPGeDrawText(&key, 20 + (i*16), 40, NULL , 0.5f, 0xFF3060FF);	
+			}
+			else
+			{
+				PPGeDrawText("_", 20 + (i*16), 40, NULL , 0.5f, 0xFFFFFFFF);	
+			}
+		}
 	}
 
 	for (int row = 0; row < NUMKEYROWS; row++)
 	{
-		PPGeDrawText(oskKeys[row], 20, 60 + (25 * row), NULL , 0.6f, 0xFFFFFFFF);
+		if (selectedRow == row)
+		{
+			PPGeDrawText(oskKeys[row], 20, 70 + (25 * row), NULL , 0.6f, 0xFF7f7f7f);
+		}
+		else
+		{
+			PPGeDrawText(oskKeys[row], 20, 70 + (25 * row), NULL , 0.6f, 0xFFFFFFFF);
+		}
 	}
+
+
+
+	for (int selectedItemCounter = 0; selectedItemCounter < KEYSPERROW; selectedItemCounter++ )
+	{
+		if (selectedItemCounter!=selectedExtra)
+		{
+			SelectedLine[selectedItemCounter] = oskKeys[selectedRow][selectedItemCounter];
+		}
+		else
+		{
+			SelectedLine[selectedItemCounter] = '_';
+		}
+	}
+
+	PPGeDrawText(SelectedLine, 20, 71 + (25 * selectedRow), NULL , 0.6f, 0xFFFFFFFF);
+
 }
 
 void PSPOskDialog::Update()
 {
 	buttons = __CtrlPeekButtons();
+	int selectedRow = selectedChar / (KEYSPERROW-1);
+	int selectedExtra = selectedChar % (KEYSPERROW-1);
+
 	//__UtilityUpdate();
 	if (status == SCE_UTILITY_STATUS_INITIALIZE)
 	{
@@ -238,21 +292,69 @@ void PSPOskDialog::Update()
 		RenderKeyboard();
 		PPGeDrawImage(I_CROSS, 200, 220, 20, 20, 0, 0xFFFFFFFF);
 		PPGeDrawText("Ignore", 230, 220, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
+
+		if (IsButtonPressed(CTRL_UP))
+		{
+			selectedChar += 10;
+		}
+		else if (IsButtonPressed(CTRL_DOWN))
+		{
+			selectedChar -=10;
+		}
+		else if (IsButtonPressed(CTRL_LEFT))
+		{
+			selectedChar--;
+		}
+		else if (IsButtonPressed(CTRL_RIGHT))
+		{
+			selectedChar++;
+		}
+
+		if (selectedChar < 0)
+		{
+			selectedChar = 44;
+		}
+
+		if (selectedChar > 44)
+		{
+			selectedChar = 0;
+		}
+
+
+
 		// TODO : Dialogs should take control over input and not send them to the game while displaying
 		if (IsButtonPressed(CTRL_CROSS))
 		{
+			if (currentInputChar < oskData.outtextlimit)
+			{
+				inputChars[currentInputChar]= oskKeys[selectedRow][selectedExtra];
+				currentInputChar++;
+			}
+			else
+			{
+				currentInputChar = oskData.outtextlimit; // just in case
+			}
+		}
+		else if (IsButtonPressed(CTRL_CIRCLE))
+		{
+			inputChars[currentInputChar] = 0x00;
+			currentInputChar--;
+		}
+		else if (IsButtonPressed(CTRL_START))
+		{
 			status = SCE_UTILITY_STATUS_FINISHED;
 		}
+
+
 		EndDraw();
 	}
 	else if (status == SCE_UTILITY_STATUS_FINISHED)
 	{
 		status = SCE_UTILITY_STATUS_SHUTDOWN;
 	}
-	// just fake the return values to be "000000" as this will work for most cases e.g. when restricted to entering just numbers
 	for (int i=0; i<oskData.outtextlimit; i++)
 	{
-		Memory::Write_U16(0x0030,oskData.outtextPtr + (2*i));
+		Memory::Write_U16(0x0000^inputChars[i],oskData.outtextPtr + (2*i));
 	}
 
 	oskData.outtextlength = oskData.outtextlimit;
