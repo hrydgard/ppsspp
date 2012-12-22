@@ -298,8 +298,13 @@ u32 sceDisplaySetFramebuf()
 	if (sync == PSP_DISPLAY_SETBUF_IMMEDIATE)
 	{
 		// Write immediately to the current framebuffer parameters
-		framebuf = fbstate;
-		gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
+		if (topaddr != 0)
+		{
+			framebuf = fbstate;
+			gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
+		}
+		else
+			WARN_LOG(HLE, "%s: PSP_DISPLAY_SETBUF_IMMEDIATE without topaddr?", __FUNCTION__);
 	}
 	else if (topaddr != 0)
 	{

@@ -192,7 +192,6 @@ void __IoInit() {
 }
 
 void __IoShutdown() {
-
 }
 
 u32 sceIoAssign(const char *aliasname, const char *physname, const char *devname, u32 flag) {

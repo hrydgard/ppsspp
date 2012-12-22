@@ -144,10 +144,9 @@ bool SymbolMap::LoadSymbolMap(const char *filename)
 	{
 		char line[512],temp[256];
 		fgets(line,511,f);
-		if (strlen(line)<4)
+		if (strlen(line) < 4 || sscanf(line, "%s", temp) != 1)
 			continue;
 
-		sscanf(line,"%s",temp);
 		if (strcmp(temp,"UNUSED")==0) continue;
 		if (strcmp(temp,".text")==0)  {started=true;continue;};
 		if (strcmp(temp,".init")==0)  {started=true;continue;};
@@ -233,7 +232,7 @@ int SymbolMap::GetSymbolNum(unsigned int address, SymbolType symmask)
 }
 
 
-char temp[256];
+char descriptionTemp[256];
 
 char *SymbolMap::GetDescription(unsigned int address)
 {
@@ -244,8 +243,8 @@ char *SymbolMap::GetDescription(unsigned int address)
 		return entries[fun].name;
 	else
 	{
-		sprintf(temp, "(%08x)", address);
-		return temp;
+		sprintf(descriptionTemp, "(%08x)", address);
+		return descriptionTemp;
 	}
 	//}
 	//else
@@ -438,11 +437,12 @@ void SymbolMap::UseFuncSignaturesFile(const char *filename, u32 maxAddress)
 	//#1: Read the signature file and put them in a fast data structure
 	FILE *f = fopen(filename, "r");
 	int count;
-	fscanf(f,"%08x\n",&count);
-	u32 inst,size,hash;
+	if (fscanf(f, "%08x\n", &count) != 1)
+		count = 0;
 	char name[256];
 	for (int a=0; a<count; a++)
 	{
+		u32 inst, size, hash;
 		if (fscanf(f,"%08x\t%08x\t%08x\t%s\n",&inst,&size,&hash,name)!=EOF)
 			sigs[numSigs++]=Sig(inst,size,hash,name);
 		else

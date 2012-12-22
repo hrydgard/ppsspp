@@ -845,7 +845,7 @@ void __KernelReSchedule(bool doCallbacks, const char *reason)
 			thread->isProcessingCallbacks = doCallbacks;
 	}
 	__KernelReSchedule(reason);
-	if (doCallbacks && thread == currentThread) {
+	if (doCallbacks && thread != NULL && thread == currentThread) {
 		if (thread->isRunning()) {
 			thread->isProcessingCallbacks = false;
 		}
@@ -1833,8 +1833,12 @@ void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, bo
 	}
 
 	if (!called) {
-		DEBUG_LOG(HLE, "Making mipscall pending on thread");
-		thread->pendingMipsCalls.push_back(callId);
+		if (thread) {
+			DEBUG_LOG(HLE, "Making mipscall pending on thread");
+			thread->pendingMipsCalls.push_back(callId);
+		} else {
+			WARN_LOG(HLE, "Ignoring mispcall on NULL/deleted thread");
+		}
 	}
 }
 	

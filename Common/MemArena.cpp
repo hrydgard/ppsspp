@@ -283,7 +283,7 @@ static bool Memory_TryBase(u8 *base, const MemoryView *views, int num_views, u32
 	int i;
 	for (i = 0; i < num_views; i++)
 	{
-    const MemoryView &view = views[i];
+		const MemoryView &view = views[i];
 		SKIP(flags, view.flags);
 		if (view.flags & MV_MIRROR_PREVIOUS) {
 			position = last_position;
