@@ -175,7 +175,10 @@ u32 sceGeSetCallback(u32 structAddr)
 		}
 
 	if (cbID == -1)
+	{
+		WARN_LOG(HLE, "sceGeSetCallback(): out of callback ids");
 		return SCE_KERNEL_ERROR_OUT_OF_MEMORY;
+	}
 
 	ge_used_callbacks[cbID] = true;
 	Memory::ReadStruct(structAddr, &ge_callback_data[cbID]);
@@ -203,7 +206,10 @@ int sceGeUnsetCallback(u32 cbID)
 	DEBUG_LOG(HLE, "sceGeUnsetCallback(cbid=%08x)", cbID);
 
 	if (cbID >= ARRAY_SIZE(ge_used_callbacks))
+	{
+		WARN_LOG(HLE, "sceGeUnsetCallback(cbid=%08x): invalid callback id", cbID);
 		return SCE_KERNEL_ERROR_INVALID_ID;
+	}
 
 	if (ge_used_callbacks[cbID])
 	{
@@ -212,6 +218,8 @@ int sceGeUnsetCallback(u32 cbID)
 		sceKernelReleaseSubIntrHandler(PSP_GE_INTR, subIntrBase | PSP_GE_SUBINTR_FINISH);
 		sceKernelReleaseSubIntrHandler(PSP_GE_INTR, subIntrBase | PSP_GE_SUBINTR_SIGNAL);
 	}
+	else
+		WARN_LOG(HLE, "sceGeUnsetCallback(cbid=%08x): ignoring unregistered callback id", cbID);
 
 	ge_used_callbacks[cbID] = false;
 
