@@ -29,7 +29,8 @@ DWORD TheThread(LPVOID x);
 void EmuThread_Start(const char *filename)
 {
 	// _dbg_clear_();
-	_tcscpy(fileToStart, filename);
+	_tcsncpy(fileToStart, filename, sizeof(fileToStart) - 1);
+	fileToStart[sizeof(fileToStart) - 1] = 0;
 
 	unsigned int i;
 	emuThread = (HANDLE)_beginthreadex(0,0,(unsigned int (__stdcall *)(void *))TheThread,(LPVOID)0,0,&i);

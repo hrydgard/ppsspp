@@ -37,7 +37,7 @@
 #endif
 
 BOOL g_bFullScreen = FALSE;                  
-RECT rc = {0};
+RECT g_normalRC = {0};
 
 namespace MainWindow
 {
@@ -705,51 +705,50 @@ namespace MainWindow
 	}
 	void _ViewNormal(HWND hWnd)
 	{
-   // put caption and border styles back
-   DWORD dwOldStyle = ::GetWindowLong(hWnd, GWL_STYLE);
-   DWORD dwNewStyle = dwOldStyle | WS_CAPTION | WS_THICKFRAME;
-   ::SetWindowLong(hWnd, GWL_STYLE, dwNewStyle);
+		// put caption and border styles back
+		DWORD dwOldStyle = ::GetWindowLong(hWnd, GWL_STYLE);
+		DWORD dwNewStyle = dwOldStyle | WS_CAPTION | WS_THICKFRAME;
+		::SetWindowLong(hWnd, GWL_STYLE, dwNewStyle);
 
-   // put back the menu bar
-   ::SetMenu(hWnd, menu);
+		// put back the menu bar
+		::SetMenu(hWnd, menu);
 
-   // resize to normal view
-   // NOTE: use SWP_FRAMECHANGED to force redraw non-client
-   const int x = rc.left;
-   const int y = rc.top;
-   const int cx = rc.right - rc.left;
-   const int cy = rc.bottom - rc.top; 
-   ::SetWindowPos(hWnd, HWND_NOTOPMOST, x, y, cx, cy, SWP_FRAMECHANGED);
+		// resize to normal view
+		// NOTE: use SWP_FRAMECHANGED to force redraw non-client
+		const int x = g_normalRC.left;
+		const int y = g_normalRC.top;
+		const int cx = g_normalRC.right - g_normalRC.left;
+		const int cy = g_normalRC.bottom - g_normalRC.top;
+		::SetWindowPos(hWnd, HWND_NOTOPMOST, x, y, cx, cy, SWP_FRAMECHANGED);
 
-   // reset full screen indicator
-   g_bFullScreen = FALSE;
+		// reset full screen indicator
+		g_bFullScreen = FALSE;
 	}
 
-void _ViewFullScreen(HWND hWnd)
-{
-   // keep in mind normal window rectangle
-   ::GetWindowRect(hWnd, &rc);
+	void _ViewFullScreen(HWND hWnd)
+	{
+		// keep in mind normal window rectangle
+		::GetWindowRect(hWnd, &g_normalRC);
 
-   // remove caption and border styles
-   DWORD dwOldStyle = ::GetWindowLong(hWnd, GWL_STYLE);
-   DWORD dwNewStyle = dwOldStyle & ~(WS_CAPTION | WS_THICKFRAME);
-   ::SetWindowLong(hWnd, GWL_STYLE, dwNewStyle);
+		// remove caption and border styles
+		DWORD dwOldStyle = ::GetWindowLong(hWnd, GWL_STYLE);
+		DWORD dwNewStyle = dwOldStyle & ~(WS_CAPTION | WS_THICKFRAME);
+		::SetWindowLong(hWnd, GWL_STYLE, dwNewStyle);
 
-   // remove the menu bar
-   ::SetMenu(hWnd, NULL);
+		// remove the menu bar
+		::SetMenu(hWnd, NULL);
 
-   // resize to full screen view
-   // NOTE: use SWP_FRAMECHANGED to force redraw non-client
-   const int x = 0;
-   const int y = 0;
-   const int cx = ::GetSystemMetrics(SM_CXSCREEN);
-   const int cy = ::GetSystemMetrics(SM_CYSCREEN); 
-   ::SetWindowPos(hWnd, HWND_TOPMOST, x, y, cx, cy, SWP_FRAMECHANGED);
+		// resize to full screen view
+		// NOTE: use SWP_FRAMECHANGED to force redraw non-client
+		const int x = 0;
+		const int y = 0;
+		const int cx = ::GetSystemMetrics(SM_CXSCREEN);
+		const int cy = ::GetSystemMetrics(SM_CYSCREEN);
+		::SetWindowPos(hWnd, HWND_TOPMOST, x, y, cx, cy, SWP_FRAMECHANGED);
 
-   // set full screen indicator
-   g_bFullScreen = TRUE;
-}
-
+		// set full screen indicator
+		g_bFullScreen = TRUE;
+	}
 
 	void SetPlaying(const char *text)
 	{
