@@ -331,7 +331,10 @@ int sceFontGetFontList(u32 fontLibHandle, u32 fontStylePtr, u32 numFonts)
 	style.fontVRes = 20 / 64.f;
 	style.fontStyle = 1;
 
-	Memory::WriteStruct(fontStylePtr, &style);
+	for (u32 i = 0; i < numFonts; i++)
+	{
+		Memory::WriteStruct(fontStylePtr+ (sizeof(style)), &style);
+	}
 	return 0;
 }
 
