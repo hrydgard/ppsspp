@@ -118,9 +118,10 @@ struct SceUtilitySavedataParam
 
 };
 
+// Non native, this one we can reorganize as we like
 struct SaveFileInfo
 {
-	int size;
+	s64 size;
 	std::string saveName;
 	int idx;
 
@@ -155,7 +156,7 @@ public:
 
 	SavedataParam();
 
-	void SetPspParam(SceUtilitySavedataParam* param);
+	u32 SetPspParam(SceUtilitySavedataParam* param);
 	SceUtilitySavedataParam* GetPspParam();
 
 	int GetFilenameCount();

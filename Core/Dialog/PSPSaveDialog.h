@@ -62,7 +62,7 @@ public:
 	PSPSaveDialog();
 	virtual ~PSPSaveDialog();
 
-	virtual void Init(int paramAddr);
+	virtual u32 Init(int paramAddr);
 	virtual void Update();
 	void Shutdown();
 

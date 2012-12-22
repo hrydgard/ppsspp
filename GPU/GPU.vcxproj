@@ -91,6 +91,9 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <AdditionalIncludeDirectories>../common;..;../native;../native/ext/glew;</AdditionalIncludeDirectories>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+      <FloatingPointModel>Fast</FloatingPointModel>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -117,6 +120,7 @@
     <ClInclude Include="GLES\DisplayListInterpreter.h" />
     <ClInclude Include="GLES\FragmentShaderGenerator.h" />
     <ClInclude Include="GLES\Framebuffer.h" />
+    <ClInclude Include="GLES\IndexGenerator.h" />
     <ClInclude Include="GLES\ShaderManager.h" />
     <ClInclude Include="GLES\StateMapping.h" />
     <ClInclude Include="GLES\TextureCache.h" />
@@ -132,11 +136,14 @@
     <ClCompile Include="GLES\DisplayListInterpreter.cpp" />
     <ClCompile Include="GLES\FragmentShaderGenerator.cpp" />
     <ClCompile Include="GLES\Framebuffer.cpp" />
+    <ClCompile Include="GLES\IndexGenerator.cpp" />
     <ClCompile Include="GLES\ShaderManager.cpp" />
     <ClCompile Include="GLES\StateMapping.cpp" />
     <ClCompile Include="GLES\TextureCache.cpp" />
     <ClCompile Include="GLES\TransformPipeline.cpp" />
-    <ClCompile Include="GLES\VertexDecoder.cpp" />
+    <ClCompile Include="GLES\VertexDecoder.cpp">
+      <AssemblerOutput Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AssemblyAndSourceCode</AssemblerOutput>
+    </ClCompile>
     <ClCompile Include="GLES\VertexShaderGenerator.cpp" />
     <ClCompile Include="GPUState.cpp" />
     <ClCompile Include="Math3D.cpp" />

@@ -160,7 +160,7 @@ void PSPOskDialog::HackyGetStringWide(std::string& _string, const u32 em_address
 	char *string = stringBuffer;
 	char c;
 	u32 addr = em_address;
-	while ((c = (Memory::Read_U16(addr))))
+	while ((c = (char)(Memory::Read_U16(addr))))
 	{
 		*string++ = c;
 		addr+=2;

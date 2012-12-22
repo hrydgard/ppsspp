@@ -569,7 +569,7 @@ u32 sceKernelGetThreadmanIdList(u32 type, u32 readBufPtr, u32 readBufSize, u32 i
 		return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
 	}
 
-	for (size_t i = 0; i < std::min(readBufSize, threadqueue.size()); i++)
+	for (size_t i = 0; i < std::min((size_t)readBufSize, threadqueue.size()); i++)
 	{
 		Memory::Write_U32(threadqueue[i]->GetUID(), readBufPtr + i * 4);
 	}
@@ -845,7 +845,7 @@ void __KernelReSchedule(bool doCallbacks, const char *reason)
 			thread->isProcessingCallbacks = doCallbacks;
 	}
 	__KernelReSchedule(reason);
-	if (doCallbacks && thread == currentThread) {
+	if (doCallbacks && thread != NULL && thread == currentThread) {
 		if (thread->isRunning()) {
 			thread->isProcessingCallbacks = false;
 		}
@@ -981,7 +981,7 @@ int sceKernelCreateThread(const char *threadName, u32 entry, u32 prio, int stack
 	__KernelCreateThread(id, curModule, threadName, entry, prio, stacksize, attr);
 	INFO_LOG(HLE, "%i = sceKernelCreateThread(name=\"%s\", entry=%08x, prio=%x, stacksize=%i)", id, threadName, entry, prio, stacksize);
 	if (optionAddr != 0)
-		WARN_LOG(HLE, "sceKernelCreateThread: unsupported options parameter.", threadName);
+		WARN_LOG(HLE, "sceKernelCreateThread(name=\"%s\"): unsupported options parameter %08x", threadName, optionAddr);
 	return id;
 }
 
@@ -1136,10 +1136,10 @@ void sceKernelExitDeleteThread()
   Thread *t = kernelObjects.Get<Thread>(threadHandle, error);
   if (t)
   {
-    ERROR_LOG(HLE,"sceKernelExitDeleteThread()");
+    INFO_LOG(HLE,"sceKernelExitDeleteThread()");
     currentThread->nt.status = THREADSTATUS_DORMANT;
     currentThread->nt.exitStatus = PARAM(0);
-	__KernelFireThreadEnd(currentThread);
+		__KernelFireThreadEnd(currentThread);
 		//userMemory.Free(currentThread->stackBlock);
 		currentThread->stackBlock = 0;
 
@@ -1739,14 +1739,22 @@ ThreadWaitInfo Thread::getWaitInfo()
 
 void __KernelSwitchContext(Thread *target, const char *reason) 
 {
+	u32 oldPC = 0;
+	u32 oldUID = 0;
+	const char *oldName = "(none)";
 	if (currentThread)  // It might just have been deleted.
 	{
 		__KernelSaveContext(&currentThread->context);
-		DEBUG_LOG(HLE,"Context saved (%s): %i - %s - pc: %08x", reason, currentThread->GetUID(), currentThread->GetName(), currentMIPS->pc);
+		oldPC = currentMIPS->pc;
+		oldUID = currentThread->GetUID();
+		oldName = currentThread->GetName();
 	}
 	currentThread = target;
 	__KernelLoadContext(&currentThread->context);
-	DEBUG_LOG(HLE,"Context loaded (%s): %i - %s - pc: %08x", reason, currentThread->GetUID(), currentThread->GetName(), currentMIPS->pc);
+	DEBUG_LOG(HLE,"Context switched: %s -> %s (%s) (%i - pc: %08x -> %i - pc: %08x)",
+		oldName, currentThread->GetName(),
+		reason,
+		oldUID, oldPC, currentThread->GetUID(), currentMIPS->pc);
 
 	// No longer waiting.
 	currentThread->nt.waitType = WAITTYPE_NONE;
@@ -1825,8 +1833,12 @@ void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, bo
 	}
 
 	if (!called) {
-		DEBUG_LOG(HLE, "Making mipscall pending on thread");
-		thread->pendingMipsCalls.push_back(callId);
+		if (thread) {
+			DEBUG_LOG(HLE, "Making mipscall pending on thread");
+			thread->pendingMipsCalls.push_back(callId);
+		} else {
+			WARN_LOG(HLE, "Ignoring mispcall on NULL/deleted thread");
+		}
 	}
 }
 	

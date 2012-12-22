@@ -133,7 +133,7 @@ void NativeMix(short *audio, int num_samples)
 {
 	if (g_mixer)
 	{
-		g_mixer->Mix(audio, num_samples/2);
+		g_mixer->Mix(audio, num_samples);
 	}
 	else
 	{

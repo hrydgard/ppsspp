@@ -26,6 +26,7 @@
 #include "sceAudio.h"
 #include "sceKernelMemory.h"
 #include "sceKernelThread.h"
+#include "sceKernelInterrupt.h"
 #include "../MIPS/MIPSCodeUtils.h"
 
 enum
@@ -40,6 +41,8 @@ enum
 	HLE_AFTER_ALL_CALLBACKS = 0x04,
 	// Reschedule and process current thread's callbacks after the syscall.
 	HLE_AFTER_RESCHED_CALLBACKS = 0x08,
+	// Run interrupts (and probably reschedule) after the syscall.
+	HLE_AFTER_RUN_INTERRUPTS = 0x10,
 };
 
 static std::vector<HLEModule> moduleDB;
@@ -208,7 +211,7 @@ void hleCheckCurrentCallbacks()
 void hleReSchedule(const char *reason)
 {
 	_dbg_assert_msg_(HLE, reason != 0, "hleReSchedule: Expecting a valid reason.");
-	_dbg_assert_msg_(HLE, strlen(reason) < 256, "hleReSchedule: Not too long reason.");
+	_dbg_assert_msg_(HLE, reason != 0 && strlen(reason) < 256, "hleReSchedule: Not too long reason.");
 
 	hleAfterSyscall |= HLE_AFTER_RESCHED;
 
@@ -231,10 +234,18 @@ void hleReSchedule(bool callbacks, const char *reason)
 		hleAfterSyscall |= HLE_AFTER_RESCHED_CALLBACKS;
 }
 
+void hleRunInterrupts()
+{
+	hleAfterSyscall |= HLE_AFTER_RUN_INTERRUPTS;
+}
+
 inline void hleFinishSyscall()
 {
 	if ((hleAfterSyscall & HLE_AFTER_CURRENT_CALLBACKS) != 0)
 		__KernelForceCallbacks();
+
+	if ((hleAfterSyscall & HLE_AFTER_RUN_INTERRUPTS) != 0)
+		__RunOnePendingInterrupt();
 
 	// Rescheduling will also do HLE_AFTER_ALL_CALLBACKS.
 	if ((hleAfterSyscall & HLE_AFTER_RESCHED_CALLBACKS) != 0)
@@ -253,7 +264,7 @@ void CallSyscall(u32 op)
 	u32 callno = (op >> 6) & 0xFFFFF; //20 bits
 	int funcnum = callno & 0xFFF;
 	int modulenum = (callno & 0xFF000) >> 12;
-	if (funcnum == 0xfff)
+	if (funcnum == 0xfff || op == 0xffff)
 	{
 		_dbg_assert_msg_(HLE,0,"Unknown syscall");
 		ERROR_LOG(HLE,"Unknown syscall: Module: %s", moduleDB[modulenum].name); 

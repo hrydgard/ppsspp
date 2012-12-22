@@ -79,6 +79,7 @@ void (*advanceCallback)(int cyclesExecuted) = NULL;
 void SetClockFrequencyMHz(int cpuMhz)
 {
 	CPU_HZ = cpuMhz * 1000000;
+	// TODO: Rescale times of scheduled events?
 }
 
 int GetClockFrequencyMHz()
@@ -245,7 +246,7 @@ void ScheduleEvent(int cyclesIntoFuture, int event_type, u64 userdata)
 	Event *ne = GetNewEvent();
 	ne->userdata = userdata;
 	ne->type = event_type;
-	ne->time = globalTimer + cyclesIntoFuture;
+	ne->time = GetTicks() + cyclesIntoFuture;
 	AddEventToQueue(ne);
 }
 

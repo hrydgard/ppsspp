@@ -17,6 +17,7 @@
 
 #include "../../MemMap.h"
 #include "../MIPSAnalyst.h"
+#include "../../Config.h"
 
 #include "Jit.h"
 #include "RegCache.h"
@@ -42,7 +43,11 @@ namespace MIPSComp
 {
 	void Jit::Comp_ITypeMem(u32 op)
 	{
-		// OLDD
+		if (!g_Config.bFastMemory)
+		{
+			DISABLE;
+		}
+
 		int offset = (signed short)(op&0xFFFF);
 		int rt = _RT;
 		int rs = _RS;

@@ -31,19 +31,17 @@ PSPSaveDialog::PSPSaveDialog()
 PSPSaveDialog::~PSPSaveDialog() {
 }
 
-void PSPSaveDialog::Init(int paramAddr)
+u32 PSPSaveDialog::Init(int paramAddr)
 {
 	// Ignore if already running
 	if (status != SCE_UTILITY_STATUS_NONE && status != SCE_UTILITY_STATUS_SHUTDOWN)
 	{
-		return;
+		return 0;
 	}
-	param.SetPspParam((SceUtilitySavedataParam*)Memory::GetPointer(paramAddr));
-
-	DEBUG_LOG(HLE,"sceUtilitySavedataInitStart(%08x)", paramAddr);
+	u32 retval = param.SetPspParam((SceUtilitySavedataParam*)Memory::GetPointer(paramAddr));
 	DEBUG_LOG(HLE,"Mode: %i", param.GetPspParam()->mode);
 
-	switch(param.GetPspParam()->mode)
+	switch (param.GetPspParam()->mode)
 	{
 		case SCE_UTILITY_SAVEDATA_TYPE_AUTOLOAD:
 		case SCE_UTILITY_SAVEDATA_TYPE_LOAD:
@@ -85,12 +83,12 @@ void PSPSaveDialog::Init(int paramAddr)
 			ERROR_LOG(HLE, "Load/Save function %d not coded. Title: %s Save: %s File: %s", param.GetPspParam()->mode, param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
 			param.GetPspParam()->result = 0;
 			display = DS_NONE;
-			return; // Return 0 should allow the game to continue, but missing function must be implemented and returning the right value or the game can block.
+			return 0; // Return 0 should allow the game to continue, but missing function must be implemented and returning the right value or the game can block.
 		}
 		break;
 	}
 
-	status = SCE_UTILITY_STATUS_INITIALIZE;
+	status = (int)retval < 0 ? SCE_UTILITY_STATUS_SHUTDOWN : SCE_UTILITY_STATUS_INITIALIZE;
 
 	currentSelectedSave = 0;
 	lastButtons = __CtrlPeekButtons();
@@ -126,7 +124,7 @@ void PSPSaveDialog::Init(int paramAddr)
 
 	INFO_LOG(HLE,"snd0 data : %08x",*((unsigned int*)&param.GetPspParam()->snd0FileData.buf));
 	INFO_LOG(HLE,"snd0 size : %u",param.GetPspParam()->snd0FileData.bufSize);*/
-
+	return retval;
 }
 
 void PSPSaveDialog::DisplaySaveList(bool canMove)
@@ -142,16 +140,16 @@ void PSPSaveDialog::DisplaySaveList(bool canMove)
 		}
 
 		// Calc save image position on screen
-		int w = 150;
-		int h = 80;
-		int x = 20;
+		float w = 150;
+		float h = 80;
+		float x = 20;
 		if(displayCount != currentSelectedSave)
 		{
 			w = 80;
 			h = 40;
 			x = 50;
 		}
-		int y = 80;
+		float y = 80;
 		if(displayCount < currentSelectedSave)
 			y -= 50 * (currentSelectedSave - displayCount);
 		else if(displayCount > currentSelectedSave)
@@ -199,10 +197,10 @@ void PSPSaveDialog::DisplaySaveIcon()
 	}
 
 	// Calc save image position on screen
-	int w = 150;
-	int h = 80;
-	int x = 20;
-	int y = 80;
+	float w = 150;
+	float h = 80;
+	float x = 20;
+	float y = 80;
 
 	int tw = 256;
 	int th = 256;
@@ -232,7 +230,7 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 	else
 	{
 		char txt[1024];
-		sprintf(txt,"%s\n%02d/%02d/%d %02d:%02d %d KB\n%s\n%s"
+		sprintf(txt,"%s\n%02d/%02d/%d %02d:%02d %lld KB\n%s\n%s"
 				, param.GetFileInfo(currentSelectedSave).title
 				, param.GetFileInfo(currentSelectedSave).modif_time.tm_mday
 				, param.GetFileInfo(currentSelectedSave).modif_time.tm_mon + 1
@@ -256,7 +254,7 @@ void PSPSaveDialog::DisplaySaveDataInfo2()
 	else
 	{
 		char txt[1024];
-		sprintf(txt,"%s\n%02d/%02d/%d %02d:%02d\n%d KB"
+		sprintf(txt,"%s\n%02d/%02d/%d %02d:%02d\n%lld KB"
 						, param.GetFileInfo(currentSelectedSave).saveTitle
 						, param.GetFileInfo(currentSelectedSave).modif_time.tm_mday
 						, param.GetFileInfo(currentSelectedSave).modif_time.tm_mon + 1

@@ -81,6 +81,8 @@ void hleCheckAllCallbacks();
 void hleReSchedule(const char *reason);
 // Reschedule and go into a callback processing state after the syscall finishes.
 void hleReSchedule(bool callbacks, const char *reason);
+// Run interrupts after the syscall finishes.
+void hleRunInterrupts();
 
 void HLEInit();
 void HLEShutdown();

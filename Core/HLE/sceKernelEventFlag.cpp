@@ -397,7 +397,7 @@ int sceKernelWaitEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 ti
 			th.bits = bits;
 			th.wait = wait;
 			// If < 5ms, sometimes hardware doesn't write this, but it's unpredictable.
-			th.outAddr = timeout == 0 ? NULL : outBitsPtr;
+			th.outAddr = timeout == 0 ? 0 : outBitsPtr;
 			e->waitingThreads.push_back(th);
 
 			__KernelSetEventFlagTimeout(e, timeoutPtr);
@@ -450,7 +450,7 @@ int sceKernelWaitEventFlagCB(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 
 			th.bits = bits;
 			th.wait = wait;
 			// If < 5ms, sometimes hardware doesn't write this, but it's unpredictable.
-			th.outAddr = timeout == 0 ? NULL : outBitsPtr;
+			th.outAddr = timeout == 0 ? 0 : outBitsPtr;
 			e->waitingThreads.push_back(th);
 
 			__KernelSetEventFlagTimeout(e, timeoutPtr);

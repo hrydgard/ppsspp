@@ -192,7 +192,6 @@ void __IoInit() {
 }
 
 void __IoShutdown() {
-
 }
 
 u32 sceIoAssign(const char *aliasname, const char *physname, const char *devname, u32 flag) {
@@ -245,13 +244,16 @@ void __IoGetStat(SceIoStat *stat, PSPFileInfo &info) {
 u32 sceIoGetstat(const char *filename, u32 addr) {
 	SceIoStat stat;
 	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
-	__IoGetStat(&stat, info);
-	Memory::WriteStruct(addr, &stat);
-
-	DEBUG_LOG(HLE, "sceIoGetstat(%s, %08x) : sector = %08x", filename, addr,
+	if (info.exists) {
+		__IoGetStat(&stat, info);
+		Memory::WriteStruct(addr, &stat);
+		DEBUG_LOG(HLE, "sceIoGetstat(%s, %08x) : sector = %08x", filename, addr,
 			info.startSector);
-
-	return 0;
+		return 0;
+	} else {
+		DEBUG_LOG(HLE, "sceIoGetstat(%s, %08x) : FILE NOT FOUND", filename, addr);
+		return SCE_KERNEL_ERROR_NOFILE;
+	}
 }
 
 //Not sure about wrapping it or not, since the log seems to take the address of the data var
@@ -428,11 +430,11 @@ void sceIoSync() {
 }
 
 struct DeviceSize {
+	u32 maxClusters;
+	u32 freeClusters;
 	u32 maxSectors;
 	u32 sectorSize;
-	u32 sectorsPerCluster;
-	u32 totalClusters;
-	u32 freeClusters;
+	u32 sectorCount;
 };
 
 u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, int outLen) {
@@ -494,9 +496,16 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 			}
 			break;
 
-		case 0x02025806:	// Memory stick inserted?
 		case 0x02025801:	// Memstick Driver status?
-			if (Memory::IsValidAddress(outPtr)) {
+			if (Memory::IsValidAddress(outPtr) && outLen >= 4) {
+				Memory::Write_U32(4, outPtr);  // JPSCP: The right return value is 4 for some reason
+				return 0;
+			} else {
+				return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
+			}
+
+		case 0x02025806:	// Memory stick inserted?
+			if (Memory::IsValidAddress(outPtr) && outLen >= 4) {
 				Memory::Write_U32(1, outPtr);
 				return 0;
 			} else {
@@ -505,20 +514,23 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 
 		case 0x02425818:  // Get memstick size etc
 			// Pretend we have a 2GB memory stick.
-			if (Memory::IsValidAddress(argAddr)) {  // "Should" be outPtr but isn't
+			if (Memory::IsValidAddress(argAddr) && argLen >= 4) {  // "Should" be outPtr but isn't
 				u32 pointer = Memory::Read_U32(argAddr);
-
-				u64 totalSize = (u32)2 * 1024 * 1024 * 1024;
-				u64 freeSize	= 1 * 1024 * 1024 * 1024;
+				u32 sectorSize = 0x200;
+				u32 memStickSectorSize = 32 * 1024;
+				u32 sectorCount = memStickSectorSize / sectorSize;
+				u64 freeSize = 1 * 1024 * 1024 * 1024;
 				DeviceSize deviceSize;
-				deviceSize.maxSectors				= 512;
-				deviceSize.sectorSize				= 0x200;
-				deviceSize.sectorsPerCluster = 0x08;
-				deviceSize.totalClusters		 = (u32)((totalSize * 95 / 100) / (deviceSize.sectorSize * deviceSize.sectorsPerCluster));
-				deviceSize.freeClusters			= (u32)((freeSize	* 95 / 100) / (deviceSize.sectorSize * deviceSize.sectorsPerCluster));
+				deviceSize.maxClusters = (u32)((freeSize  * 95 / 100) / (sectorSize * sectorCount));
+				deviceSize.freeClusters = deviceSize.maxClusters;
+				deviceSize.maxSectors = deviceSize.maxClusters;
+				deviceSize.sectorSize = sectorSize;
+				deviceSize.sectorCount = sectorCount;
 				Memory::WriteStruct(pointer, &deviceSize);
+				DEBUG_LOG(HLE, "Returned memstick size: maxSectors=%i", deviceSize.maxSectors);
 				return 0;
 			} else {
+				ERROR_LOG(HLE, "memstick size query: bad params");
 				return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
 			}
 		}
@@ -573,17 +585,18 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 		case 0x02425818:  // Get memstick size etc
 			// Pretend we have a 2GB memory stick.
 			{
-				if (Memory::IsValidAddress(argAddr)) {  // "Should" be outPtr but isn't
+				if (Memory::IsValidAddress(argAddr) && argLen >= 4) {  // NOTE: not outPtr
 					u32 pointer = Memory::Read_U32(argAddr);
-
-					u64 totalSize = (u32)2 * 1024 * 1024 * 1024;
-					u64 freeSize	= 1 * 1024 * 1024 * 1024;
+					u32 sectorSize = 0x200;
+					u32 memStickSectorSize = 32 * 1024;
+					u32 sectorCount = memStickSectorSize / sectorSize;
+					u64 freeSize = 1 * 1024 * 1024 * 1024;
 					DeviceSize deviceSize;
-					deviceSize.maxSectors				= 512;
-					deviceSize.sectorSize				= 0x200;
-					deviceSize.sectorsPerCluster = 0x08;
-					deviceSize.totalClusters		 = (u32)((totalSize * 95 / 100) / (deviceSize.sectorSize * deviceSize.sectorsPerCluster));
-					deviceSize.freeClusters			= (u32)((freeSize	* 95 / 100) / (deviceSize.sectorSize * deviceSize.sectorsPerCluster));
+					deviceSize.maxClusters = (u32)((freeSize  * 95 / 100) / (sectorSize * sectorCount));
+					deviceSize.freeClusters = deviceSize.maxClusters;
+					deviceSize.maxSectors = deviceSize.maxClusters;
+					deviceSize.sectorSize = sectorSize;
+					deviceSize.sectorCount = sectorCount;
 					Memory::WriteStruct(pointer, &deviceSize);
 					return 0;
 				} else {
@@ -869,8 +882,29 @@ u32 sceIoDclose(int id) {
 
 u32 sceIoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen) 
 {
-	ERROR_LOG(HLE, "UNIMPL 0=sceIoIoctrl id: %08x, cmd %08x, indataPtr %08x, inlen %08x, outdataPtr %08x, outLen %08x", id,cmd,indataPtr,inlen,outdataPtr,outlen);
-    return 0;
+	ERROR_LOG(HLE, "UNIMPL PARTIAL 0=sceIoIoctl id: %08x, cmd %08x, indataPtr %08x, inlen %08x, outdataPtr %08x, outLen %08x", id,cmd,indataPtr,inlen,outdataPtr,outlen);
+
+	u32 error;
+	FileNode *f = kernelObjects.Get<FileNode>(id, error);
+	if (error) {
+		return error;
+	}
+
+	//KD Hearts:
+	//56:46:434 HLE\sceIo.cpp:886 E[HLE]: UNIMPL 0=sceIoIoctrl id: 0000011f, cmd 04100001, indataPtr 08b313d8, inlen 00000010, outdataPtr 00000000, outLen 0
+	//	0000000
+	switch (cmd) {
+	case 0x04100001:  // Define decryption key (amctrl.prx DRM)
+		if (Memory::IsValidAddress(indataPtr) && inlen == 16) {
+			u8 keybuf[16];
+			memcpy(keybuf, Memory::GetPointer(indataPtr), 16);
+			ERROR_LOG(HLE, "PGD DRM not yet supported, sorry.");
+		}
+		break;
+
+	}
+
+  return 0;
 }
 
 const HLEFunction IoFileMgrForUser[] = {

@@ -98,7 +98,7 @@ struct MsgPipe : public KernelObject
 		if (sendWaitingThreads.empty())
 			return;
 		MsgPipeWaitingThread *thread = &sendWaitingThreads.front();
-		if (nmp.freeSize >= thread->bufSize)
+		if ((u32) nmp.freeSize >= thread->bufSize)
 		{
 			// Put all the data to the buffer
 			memcpy(buffer + (nmp.bufSize - nmp.freeSize), Memory::GetPointer(thread->bufAddr), thread->bufSize);
@@ -126,7 +126,7 @@ struct MsgPipe : public KernelObject
 		if (receiveWaitingThreads.empty())
 			return;
 		MsgPipeWaitingThread *thread = &receiveWaitingThreads.front();
-		if (nmp.bufSize - nmp.freeSize >= thread->bufSize)
+		if ((u32) nmp.bufSize - (u32) nmp.freeSize >= thread->bufSize)
 		{
 			// Get the needed data from the buffer
 			Memory::Memcpy(thread->bufAddr, buffer, thread->bufSize);
@@ -271,7 +271,7 @@ void __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode
 	}
 	else
 	{
-		if (sendSize <= m->nmp.freeSize)
+		if (sendSize <= (u32) m->nmp.freeSize)
 		{
 			memcpy(m->buffer + (m->nmp.bufSize - m->nmp.freeSize), Memory::GetPointer(sendBufAddr), sendSize);
 			m->nmp.freeSize -= sendSize;
@@ -445,7 +445,7 @@ void __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int
 	else
 	{
 		// Enough data in the buffer: copy just the needed amount of data
-		if (receiveSize <= m->nmp.bufSize - m->nmp.freeSize)
+		if (receiveSize <= (u32) m->nmp.bufSize - (u32) m->nmp.freeSize)
 		{
 			Memory::Memcpy(receiveBufAddr, m->buffer, receiveSize);
 			m->nmp.freeSize += receiveSize;

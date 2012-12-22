@@ -145,13 +145,13 @@ void hleEnterVblank(u64 userdata, int cyclesLate)
 	__DisplayFireVblank();
 
 	// Wake up threads waiting for VBlank
-	for (int i = 0; i < vblankWaitingThreads.size(); i++) {
+	for (size_t i = 0; i < vblankWaitingThreads.size(); i++) {
 		__KernelResumeThreadFromWait(vblankWaitingThreads[i].threadID, 0);
 	}
 	vblankWaitingThreads.clear();
 
 	// Trigger VBlank interrupt handlers.
-	__TriggerInterrupt(PSP_VBLANK_INTR);
+	__TriggerInterrupt(PSP_INTR_IMMEDIATE | PSP_INTR_ONLY_IF_ENABLED, PSP_VBLANK_INTR);
 
 	CoreTiming::ScheduleEvent(msToCycles(vblankMs) - cyclesLate, leaveVblankEvent, vbCount+1);
 
@@ -182,24 +182,27 @@ void hleEnterVblank(u64 userdata, int cyclesLate)
 		sprintf(stats,
 			"Frames: %i\n"
 			"Draw calls: %i\n"
+			"Draw flushes: %i\n"
 			"Vertices Transformed: %i\n"
 			"Textures active: %i\n"
+			"Textures decoded: %i\n"
 			"Vertex shaders loaded: %i\n"
 			"Fragment shaders loaded: %i\n"
 			"Combined shaders loaded: %i\n",
 			gpuStats.numFrames,
 			gpuStats.numDrawCalls,
+			gpuStats.numFlushes,
 			gpuStats.numVertsTransformed,
 			gpuStats.numTextures,
+			gpuStats.numTexturesDecoded,
 			gpuStats.numVertexShaders,
 			gpuStats.numFragmentShaders,
 			gpuStats.numShaders
 			);
 		
-		float zoom = 0.7f / g_Config.iWindowZoom;
+		float zoom = 0.7f; /// g_Config.iWindowZoom;
 		PPGeBegin();
-		PPGeDrawText(stats, 2, 2, 0, zoom, 0x90000000);
-		PPGeDrawText(stats, 0, 0, 0, zoom);
+		PPGeDrawText(stats, 0, 0, 0, zoom, 0xFFc0c0c0);
 		PPGeEnd();
 		
 		gpuStats.resetFrame();
@@ -295,8 +298,13 @@ u32 sceDisplaySetFramebuf()
 	if (sync == PSP_DISPLAY_SETBUF_IMMEDIATE)
 	{
 		// Write immediately to the current framebuffer parameters
-		framebuf = fbstate;
-		gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
+		if (topaddr != 0)
+		{
+			framebuf = fbstate;
+			gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
+		}
+		else
+			WARN_LOG(HLE, "%s: PSP_DISPLAY_SETBUF_IMMEDIATE without topaddr?", __FUNCTION__);
 	}
 	else if (topaddr != 0)
 	{

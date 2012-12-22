@@ -186,7 +186,7 @@ u32 sceAudioChReserve(u32 channel, u32 sampleCount, u32 format) //.Allocate soun
 	{
 		WARN_LOG(HLE, "WARNING: Reserving already reserved channel. Error?");
 	}
-	DEBUG_LOG(HLE, "%i = sceAudioChReserve(%i, %i, %i)", channel, sampleCount, format);
+	DEBUG_LOG(HLE, "sceAudioChReserve(channel = %d, sampleCount = %d, format = %d)", channel, sampleCount, format);
 
 	chans[channel].sampleCount = sampleCount;
 	chans[channel].reserved = true;
@@ -288,7 +288,7 @@ u32 sceAudioEnd()
 
 u32 sceAudioOutput2Reserve(u32 sampleCount)
 {
-	ERROR_LOG(HLE,"sceAudioOutput2Reserve(%i)", sampleCount);
+	DEBUG_LOG(HLE,"sceAudioOutput2Reserve(%i)", sampleCount);
 	chans[0].sampleCount = sampleCount;
 	chans[0].reserved = true;
 	return 0;
@@ -305,20 +305,20 @@ u32 sceAudioOutput2OutputBlocking(u32 vol, u32 dataPtr)
 
 u32 sceAudioOutput2ChangeLength(u32 sampleCount)
 {
-	WARN_LOG(HLE,"sceAudioOutput2ChangeLength(%i)", sampleCount);
+	DEBUG_LOG(HLE,"sceAudioOutput2ChangeLength(%i)", sampleCount);
 	chans[0].sampleCount = sampleCount;
 	return 0;
 }
 
 u32 sceAudioOutput2GetRestSample()
 {
-	WARN_LOG(HLE,"UNTESTED sceAudioOutput2GetRestSample()");
+	DEBUG_LOG(HLE,"UNTESTED sceAudioOutput2GetRestSample()");
 	return chans[0].sampleQueue.size() * 2;
 }
 
 u32 sceAudioOutput2Release()
 {
-	WARN_LOG(HLE,"sceAudioOutput2Release()");
+	DEBUG_LOG(HLE,"sceAudioOutput2Release()");
 	chans[0].reserved = false;
 	return 0;
 }

@@ -41,8 +41,13 @@ public:
 	bool bSpeedLimit;
 	bool bConfirmOnQuit;
 	bool bIgnoreBadMemAccess;
+	bool bFastMemory;
+
+	// GFX
 	bool bDisplayFramebuffer;
+	bool bHardwareTransform;
 	bool bBufferedRendering;
+	bool bDrawWireframe;
 
 	bool bShowTouchControls;
 	bool bShowDebuggerOnLoad;

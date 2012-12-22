@@ -206,8 +206,9 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 			int behaviour = (data >> 16) & 0xFF;
 			int signal = data & 0xFFFF;
 
+			// TODO: Should this run while interrupts are suspended?
 			if (interruptsEnabled_)
-				__TriggerInterruptWithArg(PSP_GE_INTR, PSP_GE_SUBINTR_SIGNAL, signal);
+				__TriggerInterruptWithArg(PSP_INTR_HLE, PSP_GE_INTR, PSP_GE_SUBINTR_SIGNAL, signal);
 		}
 		break;
 
@@ -237,8 +238,9 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_FINISH:
 		DEBUG_LOG(G3D,"DL CMD FINISH");
+		// TODO: Should this run while interrupts are suspended?
 		if (interruptsEnabled_)
-			__TriggerInterruptWithArg(PSP_GE_INTR, PSP_GE_SUBINTR_FINISH, 0);
+			__TriggerInterruptWithArg(PSP_INTR_HLE, PSP_GE_INTR, PSP_GE_SUBINTR_FINISH, 0);
 		break;
 
 	case GE_CMD_END: 
@@ -594,9 +596,9 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 
 			int l = (cmd - GE_CMD_LAC0) / 3;
 			int t = (cmd - GE_CMD_LAC0) % 3;
-			gstate_c.lightColor[t][l].r = r;
-			gstate_c.lightColor[t][l].g = g;
-			gstate_c.lightColor[t][l].b = b;
+			gstate_c.lightColor[t][l][0] = r;
+			gstate_c.lightColor[t][l][1] = g;
+			gstate_c.lightColor[t][l][2] = b;
 		}
 		break;
 
@@ -835,4 +837,9 @@ void NullGPU::UpdateStats()
 	gpuStats.numFragmentShaders = 0;
 	gpuStats.numShaders = 0;
 	gpuStats.numTextures = 0;
+}
+
+void NullGPU::InvalidateCache(u32 addr, int size)
+{
+	// Nothing to invalidate.
 }

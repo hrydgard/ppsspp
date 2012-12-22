@@ -25,6 +25,8 @@
 #include "../PSPLoaders.h"
 #include "../../Core/CoreTiming.h"
 #include "../../Core/System.h"
+#include "../../GPU/GPUInterface.h"
+#include "../../GPU/GPUState.h"
 
 
 #include "__sceAudio.h"
@@ -183,18 +185,25 @@ void sceKernelGetGPI()
 }
 
 // Don't even log these, they're spammy and we probably won't
-// need to emulate them.
+// need to emulate them. Might be useful for invalidating cached
+// textures, and in the future display lists, in some cases though.
+void sceKernelDcacheInvalidateRange(u32 addr, int size)
+{
+	gpu->InvalidateCache(addr, size);
+}
 void sceKernelDcacheWritebackAll()
 {
 }
-void sceKernelDcacheWritebackRange()
+void sceKernelDcacheWritebackRange(u32 addr, int size)
 {
 }
-void sceKernelDcacheWritebackInvalidateRange()
+void sceKernelDcacheWritebackInvalidateRange(u32 addr, int size)
 {
+	gpu->InvalidateCache(addr, size);
 }
 void sceKernelDcacheWritebackInvalidateAll()
 {
+	gpu->InvalidateCache(0, -1);
 }
 
 KernelObjectPool kernelObjects;
@@ -261,12 +270,12 @@ void KernelObjectPool::List()
 			if (pool[i])
 			{
 				pool[i]->GetQuickInfo(buffer,256);
+				INFO_LOG(HLE, "KO %i: %s \"%s\": %s", i + handleOffset, pool[i]->GetTypeName(), pool[i]->GetName(), buffer);
 			}
 			else
 			{
 				strcpy(buffer,"WTF? Zero Pointer");
 			}
-			INFO_LOG(HLE, "KO %i: %s \"%s\": %s", i + handleOffset, pool[i]->GetTypeName(), pool[i]->GetName(), buffer);
 		}
 	}
 }
@@ -412,10 +421,10 @@ const HLEFunction ThreadManForUser[] =
 	{0x64D4540E,0,"sceKernelReferThreadProfiler"},
 
 	//Fifa Street 2 uses alarms
-	{0x6652b8ca,sceKernelSetAlarm,"sceKernelSetAlarm"},
-	{0xB2C25152,sceKernelSetSysClockAlarm,"sceKernelSetSysClockAlarm"},
-	{0x7e65b999,sceKernelCancelAlarm,"sceKernelCancelAlarm"},
-	{0xDAA3F564,sceKernelReferAlarmStatus,"sceKernelReferAlarmStatus"},
+	{0x6652b8ca,WrapI_UUU<sceKernelSetAlarm>,"sceKernelSetAlarm"},
+	{0xB2C25152,WrapI_UUU<sceKernelSetSysClockAlarm>,"sceKernelSetSysClockAlarm"},
+	{0x7e65b999,WrapI_I<sceKernelCancelAlarm>,"sceKernelCancelAlarm"},
+	{0xDAA3F564,WrapI_IU<sceKernelReferAlarmStatus>,"sceKernelReferAlarmStatus"},
 
 	{0xba6b92e2,sceKernelSysClock2USec,"sceKernelSysClock2USec"},
 	{0x110DEC9A,0,"sceKernelUSec2SysClock"},
