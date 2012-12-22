@@ -141,9 +141,7 @@ SceUtilityOskData oskData;
 std::string oskDesc;
 std::string oskIntext;
 std::string oskOuttext;
-
 int oskParamsAddr;
-
 
 PSPOskDialog::PSPOskDialog() : PSPDialog() {
 
@@ -151,7 +149,6 @@ PSPOskDialog::PSPOskDialog() : PSPDialog() {
 
 PSPOskDialog::~PSPOskDialog() {
 }
-
 
 // Same as get string but read out 16bit
 void PSPOskDialog::HackyGetStringWide(std::string& _string, const u32 em_address)
@@ -201,6 +198,17 @@ int PSPOskDialog::Init(u32 oskPtr)
 	return 0;
 }
 
+
+void PSPOskDialog::RenderKeyboard()
+{
+	//First render the characters
+	for (int i=0; i<oskData.outtextlimit; i++)
+	{
+		PPGeDrawText("_", 20 + (i*16), 20, NULL , 0.5f, 0xFFFFFFFF);
+	}
+
+}
+
 void PSPOskDialog::Update()
 {
 	buttons = __CtrlPeekButtons();
@@ -214,6 +222,7 @@ void PSPOskDialog::Update()
 		StartDraw();
 
 		DisplayMessage(oskDesc);
+		RenderKeyboard();
 		PPGeDrawImage(I_CROSS, 200, 220, 20, 20, 0, 0xFFFFFFFF);
 		PPGeDrawText("Ignore", 230, 220, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
 		// TODO : Dialogs should take control over input and not send them to the game while displaying
@@ -228,14 +237,12 @@ void PSPOskDialog::Update()
 		status = SCE_UTILITY_STATUS_SHUTDOWN;
 	}
 	// just fake the return values to be "000000" as this will work for most cases e.g. when restricted to entering just numbers
-	Memory::Write_U16(0x0030,oskData.outtextPtr);
-	Memory::Write_U16(0x0030,oskData.outtextPtr+2);
-	Memory::Write_U16(0x0030,oskData.outtextPtr+4);
-	Memory::Write_U16(0x0030,oskData.outtextPtr+6);
-	Memory::Write_U16(0x0030,oskData.outtextPtr+8);
-	Memory::Write_U16(0x0030,oskData.outtextPtr+10);
-	Memory::Write_U16(0x0030,oskData.outtextPtr+12);
-	oskData.outtextlength = 6;
+	for (int i=0; i<oskData.outtextlimit; i++)
+	{
+		Memory::Write_U16(0x0030,oskData.outtextPtr + (2*i));
+	}
+
+	oskData.outtextlength = oskData.outtextlimit;
 	oskParams.base.result= 0;
 	oskData.result = PSP_UTILITY_OSK_RESULT_CHANGED;
 	Memory::WriteStruct(oskParams.SceUtilityOskDataPtr, &oskData);

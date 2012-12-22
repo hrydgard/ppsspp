@@ -237,7 +237,6 @@ int sceFontGetFontInfo(u32 fontHandle, u32 fontInfoPtr)
 	{
 		fi.BPP = 4;
 		fi.charMapLength = 255;
-		//		fi.fontStyle =1;
 		fi.maxGlyphAdvanceXF = 2.0;
 		fi.maxGlyphAdvanceXI = 2;
 		fi.maxGlyphAdvanceYF = 2.0;
