@@ -149,6 +149,7 @@ int selectedChar;
 
 #define NUMKEYROWS 4
 #define KEYSPERROW 13
+#define NUMBEROFVALIDCHARS 44
 const char oskKeys[NUMKEYROWS][KEYSPERROW] = 
 {
 	{'1','2','3','4','5','6','7','8','9','0','-','+','\0'}, 
@@ -160,9 +161,7 @@ const char oskKeys[NUMKEYROWS][KEYSPERROW] =
 
 
 PSPOskDialog::PSPOskDialog() : PSPDialog() {
-	selectedChar = 15;
-	currentInputChar = 0;
-	memset(inputChars, 0x00, sizeof(inputChars));
+
 }
 
 PSPOskDialog::~PSPOskDialog() {
@@ -196,7 +195,12 @@ int PSPOskDialog::Init(u32 oskPtr)
 
 	memset(&oskParams, 0, sizeof(oskParams));
 	memset(&oskData, 0, sizeof(oskData));
+	// TODO: should this be init'd to oskIntext?
+	memset(inputChars, 0x00, sizeof(inputChars));
 	oskParamsAddr = oskPtr;
+	selectedChar = 0;
+	currentInputChar = 0;
+
 	if (Memory::IsValidAddress(oskPtr))
 	{
 		Memory::ReadStruct(oskPtr, &oskParams);
@@ -211,7 +215,6 @@ int PSPOskDialog::Init(u32 oskPtr)
 	{
 		return -1;
 	}
-
 
 	return 0;
 }
@@ -244,7 +247,6 @@ void PSPOskDialog::RenderKeyboard()
 			}
 		}
 	}
-
 	for (int row = 0; row < NUMKEYROWS; row++)
 	{
 		if (selectedRow == row)
@@ -256,9 +258,6 @@ void PSPOskDialog::RenderKeyboard()
 			PPGeDrawText(oskKeys[row], 20, 70 + (25 * row), NULL , 0.6f, 0xFFFFFFFF);
 		}
 	}
-
-
-
 	for (int selectedItemCounter = 0; selectedItemCounter < KEYSPERROW; selectedItemCounter++ )
 	{
 		if (selectedItemCounter!=selectedExtra)
@@ -299,7 +298,6 @@ void PSPOskDialog::Update()
 		PPGeDrawText("Start", 305, 220, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
 		PPGeDrawText("Finish", 350, 220, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
 
-
 		if (IsButtonPressed(CTRL_UP))
 		{
 			selectedChar += 10;
@@ -319,13 +317,13 @@ void PSPOskDialog::Update()
 
 		if (selectedChar < 0)
 		{
-			selectedChar = 44;
+			selectedChar = NUMBEROFVALIDCHARS;
 		}
-
-		if (selectedChar > 44)
+		if (selectedChar > NUMBEROFVALIDCHARS)
 		{
 			selectedChar = 0;
 		}
+
 		// TODO : Dialogs should take control over input and not send them to the game while displaying
 		if (IsButtonPressed(CTRL_CROSS))
 		{
