@@ -53,8 +53,12 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	const char *fileToStart = NULL;
 	const char *fileToLog = NULL;
-	bool showLog = false;
+	bool hideLog = true;
 	bool autoRun = true;
+
+#ifdef _DEBUG
+	hideLog = false;
+#endif
 
 	g_Config.Load();
 	VFSRegister("", new DirectoryAssetReader("assets/"));
@@ -79,7 +83,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 				g_Config.iCpuCore = CPU_FASTINTERPRETER;
 				break;
 			case 'l':
-				showLog = true;
+				hideLog = false;
 				break;
 			case 's':
 				autoRun = false;
@@ -139,11 +143,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	LogManager::Init();
 	if (fileToLog != NULL)
 		LogManager::GetInstance()->ChangeFileLog(fileToLog);
-	bool hidden = false;
-#ifndef _DEBUG
-	hidden = true;
-#endif
-	LogManager::GetInstance()->GetConsoleListener()->Open(hidden, 150, 120, "PPSSPP Debug Console");
+	LogManager::GetInstance()->GetConsoleListener()->Open(hideLog, 150, 120, "PPSSPP Debug Console");
 	LogManager::GetInstance()->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
 	if (fileToStart != NULL)
 	{
@@ -156,8 +156,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	else
 		MainWindow::BrowseAndBoot();
 
-	if (showLog)
-		PostMessage(hwndMain, WM_COMMAND, ID_DEBUG_LOG, 0);
 	if (autoRun)
 		MainWindow::SetNextState(CORE_RUNNING);
 
