@@ -220,7 +220,7 @@ void PSPOskDialog::RenderKeyboard()
 
 	for (int row = 0; row < NUMKEYROWS; row++)
 	{
-		PPGeDrawText(oskKeys[row], 20, 60 + (20 * row), NULL , 0.6f, 0xFFFFFFFF);
+		PPGeDrawText(oskKeys[row], 20, 60 + (25 * row), NULL , 0.6f, 0xFFFFFFFF);
 	}
 }
 
