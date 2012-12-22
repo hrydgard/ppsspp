@@ -234,6 +234,7 @@ const HLEFunction sceAtrac3plus[] =
 	{0xeca32a99,0,"sceAtracIsSecondBufferNeeded"},
 	{0x0fae370e,sceAtracSetHalfwayBufferAndGetID,"sceAtracSetHalfwayBufferAndGetID"},
 	{0x2DD3E298,0,"sceAtrac3plus_2DD3E298"},
+	{0x5CF9D852,0,"sceAtracSetMOutHalfwayBuffer"},
 };
 
 
