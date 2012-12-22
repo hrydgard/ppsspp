@@ -109,6 +109,7 @@ SOURCES += ../Core/MIPS/ARM/Asm.cpp \ #CoreARM
 			../GPU/GLES/DisplayListInterpreter.cpp \
 			../GPU/GLES/FragmentShaderGenerator.cpp \
 			../GPU/GLES/Framebuffer.cpp \
+			../GPU/GLES/IndexGenerator.cpp \
 			../GPU/GLES/ShaderManager.cpp \
 			../GPU/GLES/StateMapping.cpp \
 			../GPU/GLES/TextureCache.cpp \
@@ -219,6 +220,7 @@ HEADERS += ../Core/MIPS/ARM/Asm.h \
 			../GPU/GLES/DisplayListInterpreter.h \
 			../GPU/GLES/FragmentShaderGenerator.h \
 			../GPU/GLES/Framebuffer.h \
+			../GPU/GLES/IndexGenerator.h \
 			../GPU/GLES/ShaderManager.h \
 			../GPU/GLES/StateMapping.h \
 			../GPU/GLES/TextureCache.h \
