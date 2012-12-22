@@ -75,6 +75,9 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 			case 'i':
 				g_Config.iCpuCore = CPU_INTERPRETER;
 				break;
+			case 'f':
+				g_Config.iCpuCore = CPU_FASTINTERPRETER;
+				break;
 			case 'l':
 				showLog = true;
 				break;
