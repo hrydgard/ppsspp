@@ -156,7 +156,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	else
 		MainWindow::BrowseAndBoot();
 
-	if (autoRun)
+	if (autoRun && fileToLog != NULL)
 		MainWindow::SetNextState(CORE_RUNNING);
 
 	//so.. we're at the message pump of the GUI thread
