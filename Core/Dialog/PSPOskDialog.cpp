@@ -143,6 +143,17 @@ std::string oskIntext;
 std::string oskOuttext;
 int oskParamsAddr;
 
+#define NUMKEYROWS 4
+#define KEYSPERROW 11
+const char oskKeys[NUMKEYROWS][KEYSPERROW] = 
+{
+	{'1','2','3','4','5','6','7','8','9','0',}, 
+	{'Q','W','E','R','T','Y','U','I','O','P'},
+	{'A','S','D','F','G','H','J','K','L'},
+	{'Z','X','C','V','B','N','M',},
+};
+
+
 PSPOskDialog::PSPOskDialog() : PSPDialog() {
 
 }
@@ -201,12 +212,16 @@ int PSPOskDialog::Init(u32 oskPtr)
 
 void PSPOskDialog::RenderKeyboard()
 {
-	//First render the characters
+	PPGeDrawText(oskDesc.c_str(), 480/2, 20, PPGE_ALIGN_CENTER, 0.5f, 0xFFFFFFFF);
 	for (int i=0; i<oskData.outtextlimit; i++)
 	{
-		PPGeDrawText("_", 20 + (i*16), 20, NULL , 0.5f, 0xFFFFFFFF);
+		PPGeDrawText("_", 20 + (i*16), 40, NULL , 0.5f, 0xFFFFFFFF);
 	}
 
+	for (int row = 0; row < NUMKEYROWS; row++)
+	{
+		PPGeDrawText(oskKeys[row], 20, 60 + (20 * row), NULL , 0.6f, 0xFFFFFFFF);
+	}
 }
 
 void PSPOskDialog::Update()
@@ -220,8 +235,6 @@ void PSPOskDialog::Update()
 	else if (status == SCE_UTILITY_STATUS_RUNNING)
 	{		
 		StartDraw();
-
-		DisplayMessage(oskDesc);
 		RenderKeyboard();
 		PPGeDrawImage(I_CROSS, 200, 220, 20, 20, 0, 0xFFFFFFFF);
 		PPGeDrawText("Ignore", 230, 220, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
