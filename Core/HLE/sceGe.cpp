@@ -25,13 +25,19 @@
 #include "../GPU/GPUState.h"
 #include "../GPU/GPUInterface.h"
 
+static PspGeCallbackData ge_callback_data[16];
+static bool ge_used_callbacks[16] = {0};
+
 void __GeInit()
 {
+	memset(&ge_used_callbacks, 0, sizeof(ge_used_callbacks));
 }
 
 void __GeDoState(PointerWrap &p)
 {
-	// Everything is done in sceDisplay.
+	p.DoArray(ge_callback_data, ARRAY_SIZE(ge_callback_data));
+	p.DoArray(ge_used_callbacks, ARRAY_SIZE(ge_used_callbacks));
+	// Everything else is done in sceDisplay.
 	p.DoMarker("sceGe");
 }
 
@@ -57,7 +63,29 @@ u32 sceGeEdramGetSize()
 	return retVal;
 }
 
-u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, u32 callbackId,
+// TODO: Probably shouldn't use an interrupt?
+int __GeSubIntrBase(int callbackId)
+{
+	// Negative means don't use.
+	if (callbackId < 0)
+		return 0;
+
+	if (callbackId >= ARRAY_SIZE(ge_used_callbacks))
+	{
+		WARN_LOG(HLE, "Unexpected (too high) GE callback id %d, ignoring", callbackId);
+		return 0;
+	}
+
+	if (!ge_used_callbacks[callbackId])
+	{
+		WARN_LOG(HLE, "Unregistered GE callback id %d, ignoring", callbackId);
+		return 0;
+	}
+
+	return (callbackId + 1) << 16;
+}
+
+u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, int callbackId,
 		u32 optParamAddr)
 {
 	DEBUG_LOG(HLE,
@@ -65,14 +93,14 @@ u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, u32 callbackId,
 			listAddress, stallAddress, callbackId, optParamAddr);
 	//if (!stallAddress)
 	//	stallAddress = listAddress;
-	u32 listID = gpu->EnqueueList(listAddress, stallAddress, false);
+	u32 listID = gpu->EnqueueList(listAddress, stallAddress, __GeSubIntrBase(callbackId), false);
 
 	DEBUG_LOG(HLE, "List %i enqueued.", listID);
 	//return display list ID
 	return listID;
 }
 
-u32 sceGeListEnQueueHead(u32 listAddress, u32 stallAddress, u32 callbackId,
+u32 sceGeListEnQueueHead(u32 listAddress, u32 stallAddress, int callbackId,
 		u32 optParamAddr)
 {
 	DEBUG_LOG(HLE,
@@ -80,7 +108,7 @@ u32 sceGeListEnQueueHead(u32 listAddress, u32 stallAddress, u32 callbackId,
 			listAddress, stallAddress, callbackId, optParamAddr);
 	//if (!stallAddress)
 	//	stallAddress = listAddress;
-	u32 listID = gpu->EnqueueList(listAddress, stallAddress, true);
+	u32 listID = gpu->EnqueueList(listAddress, stallAddress, __GeSubIntrBase(callbackId), true);
 
 	DEBUG_LOG(HLE, "List %i enqueued.", listID);
 	//return display list ID
@@ -138,32 +166,54 @@ u32 sceGeSetCallback(u32 structAddr)
 {
 	DEBUG_LOG(HLE, "sceGeSetCallback(struct=%08x)", structAddr);
 
-	PspGeCallbackData ge_callback_data;
-	Memory::ReadStruct(structAddr, &ge_callback_data);
+	int cbID = -1;
+	for (int i = 0; i < ARRAY_SIZE(ge_used_callbacks); ++i)
+		if (!ge_used_callbacks[i])
+		{
+			cbID = i;
+			break;
+		}
 
-	if (ge_callback_data.finish_func)
+	if (cbID == -1)
+		return SCE_KERNEL_ERROR_OUT_OF_MEMORY;
+
+	ge_used_callbacks[cbID] = true;
+	Memory::ReadStruct(structAddr, &ge_callback_data[cbID]);
+
+	int subIntrBase = __GeSubIntrBase(cbID);
+
+	if (ge_callback_data[cbID].finish_func)
 	{
-		sceKernelRegisterSubIntrHandler(PSP_GE_INTR, PSP_GE_SUBINTR_FINISH,
-				ge_callback_data.finish_func, ge_callback_data.finish_arg);
-		sceKernelEnableSubIntr(PSP_GE_INTR, PSP_GE_SUBINTR_FINISH);
+		sceKernelRegisterSubIntrHandler(PSP_GE_INTR, subIntrBase | PSP_GE_SUBINTR_FINISH,
+				ge_callback_data[cbID].finish_func, ge_callback_data[cbID].finish_arg);
+		sceKernelEnableSubIntr(PSP_GE_INTR, subIntrBase | PSP_GE_SUBINTR_FINISH);
 	}
-	if (ge_callback_data.signal_func)
+	if (ge_callback_data[cbID].signal_func)
 	{
-		sceKernelRegisterSubIntrHandler(PSP_GE_INTR, PSP_GE_SUBINTR_SIGNAL,
-				ge_callback_data.signal_func, ge_callback_data.signal_arg);
-		sceKernelEnableSubIntr(PSP_GE_INTR, PSP_GE_SUBINTR_SIGNAL);
+		sceKernelRegisterSubIntrHandler(PSP_GE_INTR, subIntrBase | PSP_GE_SUBINTR_SIGNAL,
+				ge_callback_data[cbID].signal_func, ge_callback_data[cbID].signal_arg);
+		sceKernelEnableSubIntr(PSP_GE_INTR, subIntrBase | PSP_GE_SUBINTR_SIGNAL);
 	}
 
-	// TODO: This should return a callback ID
-	return 0;
+	return cbID;
 }
 
 int sceGeUnsetCallback(u32 cbID)
 {
 	DEBUG_LOG(HLE, "sceGeUnsetCallback(cbid=%08x)", cbID);
 
-	sceKernelReleaseSubIntrHandler(PSP_GE_INTR, PSP_GE_SUBINTR_FINISH);
-	sceKernelReleaseSubIntrHandler(PSP_GE_INTR, PSP_GE_SUBINTR_SIGNAL);
+	if (cbID >= ARRAY_SIZE(ge_used_callbacks))
+		return SCE_KERNEL_ERROR_INVALID_ID;
+
+	if (ge_used_callbacks[cbID])
+	{
+		int subIntrBase = __GeSubIntrBase(cbID);
+
+		sceKernelReleaseSubIntrHandler(PSP_GE_INTR, subIntrBase | PSP_GE_SUBINTR_FINISH);
+		sceKernelReleaseSubIntrHandler(PSP_GE_INTR, subIntrBase | PSP_GE_SUBINTR_SIGNAL);
+	}
+
+	ge_used_callbacks[cbID] = false;
 
 	return 0;
 }
@@ -235,8 +285,8 @@ u32 sceGeEdramSetAddrTranslation(int new_size)
 const HLEFunction sceGe_user[] =
 {
 	{0xE47E40E4, WrapU_V<sceGeEdramGetAddr>,            "sceGeEdramGetAddr"},
-	{0xAB49E76A, WrapU_UUUU<sceGeListEnQueue>,          "sceGeListEnQueue"},
-	{0x1C0D95A6, WrapU_UUUU<sceGeListEnQueueHead>,      "sceGeListEnQueueHead"},
+	{0xAB49E76A, WrapU_UUIU<sceGeListEnQueue>,          "sceGeListEnQueue"},
+	{0x1C0D95A6, WrapU_UUIU<sceGeListEnQueueHead>,      "sceGeListEnQueueHead"},
 	{0xE0D68148, WrapI_UU<sceGeListUpdateStallAddr>,    "sceGeListUpdateStallAddr"},
 	{0x03444EB4, WrapI_UU<sceGeListSync>,               "sceGeListSync"},
 	{0xB287BD61, WrapU_U<sceGeDrawSync>,                "sceGeDrawSync"},
