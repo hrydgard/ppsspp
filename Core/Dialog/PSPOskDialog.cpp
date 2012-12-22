@@ -290,8 +290,16 @@ void PSPOskDialog::Update()
 	{		
 		StartDraw();
 		RenderKeyboard();
-		PPGeDrawImage(I_CROSS, 200, 220, 20, 20, 0, 0xFFFFFFFF);
-		PPGeDrawText("Ignore", 230, 220, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
+		PPGeDrawImage(I_CROSS, 100, 220, 20, 20, 0, 0xFFFFFFFF);
+		PPGeDrawText("Select", 130, 220, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
+
+		PPGeDrawImage(I_CIRCLE, 200, 220, 20, 20, 0, 0xFFFFFFFF);
+		PPGeDrawText("Delete", 230, 220, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
+
+		PPGeDrawImage(I_BUTTON, 290, 220, 50, 20, 0, 0xFFFFFFFF);
+		PPGeDrawText("Start", 305, 220, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
+		PPGeDrawText("Finish", 350, 220, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
+
 
 		if (IsButtonPressed(CTRL_UP))
 		{
