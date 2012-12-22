@@ -234,7 +234,7 @@ void VertexDecoder::Step_Color5551Morph() const
 		col[0] += w * (cdata & 0x1f) / 31.f;
 		col[1] += w * ((cdata>>5) & 0x1f) / 31.f;
 		col[2] += w * ((cdata>>10) & 0x1f) / 31.f;
-		col[3] += w * (cdata>>15) ? 1.0f : 0.0f;
+		col[3] += w * ((cdata>>15) ? 1.0f : 0.0f);
 	}
 	u8 *c = decoded_ + decFmt.c0off;
 	for (int i = 0; i < 4; i++) {

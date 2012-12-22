@@ -448,13 +448,13 @@ bool __KernelLoadPBP(const char *filename, std::string *error_string)
 	in.seekg(offsets[5]);
 	//in.read((char*)&id,4);
 	{
-		u8 *temp = new u8[1024*1024*8];
-		in.read((char*)temp, 1024*1024*8);
-		Module *module = __KernelLoadELFFromPtr(temp, PSP_GetDefaultLoadAddress(), error_string);
+		u8 *elftemp = new u8[1024*1024*8];
+		in.read((char*)elftemp, 1024*1024*8);
+		Module *module = __KernelLoadELFFromPtr(elftemp, PSP_GetDefaultLoadAddress(), error_string);
 		if (!module)
 			return false;
 		mipsr4k.pc = module->nm.entry_addr;
-		delete [] temp;
+		delete [] elftemp;
 	}
 	in.close();
 	return true;
@@ -612,7 +612,7 @@ u32 sceKernelLoadModule(const char *name, u32 flags)
 	// TODO: Use position to decide whether to load high or low
 	if (PARAM(2))
 	{
-		SceKernelLMOption *lmoption = (SceKernelLMOption *)Memory::GetPointer(PARAM(2));
+		lmoption = (SceKernelLMOption *)Memory::GetPointer(PARAM(2));
 		
 	}
 

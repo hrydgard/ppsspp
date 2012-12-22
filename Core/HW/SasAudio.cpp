@@ -215,7 +215,7 @@ void SasInstance::Mix(u32 outAddr) {
 			// Figure out number of samples to read.
 			int curSample = voice.samplePos / PSP_SAS_PITCH_BASE;
 			int lastSample = (voice.samplePos + grainSize * voice.pitch) / PSP_SAS_PITCH_BASE;
-			u32 numSamples = lastSample - curSample;
+			int numSamples = lastSample - curSample;
 			if (numSamples > grainSize * 4) {
 				ERROR_LOG(SAS, "numSamples too large, clamping: %i vs %i", numSamples, grainSize * 4);
 				numSamples = grainSize * 4;

@@ -1495,10 +1495,8 @@ namespace MIPSInt
 		ApplySwizzleT(t, sz);
 		int n = GetNumVectorElements(sz);
 		for (int i = 0; i < n ; i++) {
-			int a=s[i] - t[i];
-			if (a > 0) d[i]=1;
-			else if (a < 0) d[i]=-1;
-			else d[i]=0;
+			float a = s[i] - t[i];
+			d[i] = (float) ((0.0 < a) - (a < 0.0));
 		}
 		ApplyPrefixD(d, sz);
 		WriteVector(d, sz, vd);

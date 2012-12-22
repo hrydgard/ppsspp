@@ -413,7 +413,7 @@ u32 SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 						memcpy(saveDataList[realCount].saveDetail,savedetail.c_str(),savedetail.size());
 						saveDataList[realCount].saveDetail[savedetail.size()] = 0;
 					}
-					delete sfoParam;
+					delete [] sfoParam;
 				}
 
 				DEBUG_LOG(HLE,"%s Exist",fileDataPath.c_str());
@@ -504,7 +504,7 @@ u32 SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 					memcpy(saveDataList[0].saveDetail,savedetail.c_str(),savedetail.size());
 					saveDataList[0].saveDetail[savedetail.size()] = 0;
 				}
-				delete sfoParam;
+				delete [] sfoParam;
 			}
 
 			DEBUG_LOG(HLE,"%s Exist",fileDataPath.c_str());

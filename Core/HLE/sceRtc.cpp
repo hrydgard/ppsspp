@@ -459,7 +459,7 @@ int sceRtcGetTime_t(u32 datePtr, u32 timePtr)
 		ScePspDateTime pt;
 		Memory::ReadStruct(datePtr, &pt);
 		pt.year-=1969;
-		u64 result = __RtcPspTimeToTicks(pt)/1000000ULL;
+		u32 result = (u32) (__RtcPspTimeToTicks(pt)/1000000ULL);
 		Memory::Write_U32(result, timePtr);
 	}
 	else
