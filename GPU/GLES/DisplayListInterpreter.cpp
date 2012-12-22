@@ -587,7 +587,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 	case GE_CMD_CALL: 
 		{
 			u32 retval = dcontext.pc + 4;
-			if (stackptr == ARRAY_SIZE(stack) - 1) {
+			if (stackptr == ARRAY_SIZE(stack)) {
 				ERROR_LOG(G3D, "CALL: Stack full!");
 			} else {
 				stack[stackptr++] = retval;
