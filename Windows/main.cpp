@@ -52,6 +52,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	Common::EnableCrashingOnCrashes();
 
 	const char *fileToStart = NULL;
+	const char *fileToLog = NULL;
 	bool showLog = false;
 	bool autoRun = true;
 
@@ -59,14 +60,14 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	VFSRegister("", new DirectoryAssetReader("assets/"));
 	VFSRegister("", new DirectoryAssetReader(""));
 
-	for (int i = 1; i < __argc; i++)
+	for (int i = 1; i < __argc; ++i)
 	{
-		if (__targv[i][0] == '\0')
+		if (__argv[i][0] == '\0')
 			continue;
 
-		if (__targv[i][0] == '-')
+		if (__argv[i][0] == '-')
 		{
-			switch (__targv[i][1])
+			switch (__argv[i][1])
 			{
 			case 'j':
 				g_Config.iCpuCore = CPU_JIT;
@@ -80,11 +81,17 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 			case 's':
 				autoRun = false;
 				break;
+			case '-':
+				if (!strcmp(__argv[i], "--log") && i < __argc - 1)
+					fileToLog = __argv[++i];
+				if (!strncmp(__argv[i], "--log=", strlen("--log=")) && strlen(__argv[i]) > strlen("--log="))
+					fileToLog = __argv[i] + strlen("--log=");
+				break;
 			}
 		}
 		else if (fileToStart == NULL)
 		{
-			fileToStart = __targv[i];
+			fileToStart = __argv[i];
 			if (!File::Exists(fileToStart))
 			{
 				fprintf(stderr, "File not found: %s\n", fileToStart);
@@ -127,6 +134,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	MainWindow::UpdateMenus();
 
 	LogManager::Init();
+	if (fileToLog != NULL)
+		LogManager::GetInstance()->ChangeFileLog(fileToLog);
 	bool hidden = false;
 #ifndef _DEBUG
 	hidden = true;
