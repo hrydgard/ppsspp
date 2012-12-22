@@ -16,7 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Globals.h"
-#include "Log.h"
+#include "Common.h"
 #include "ISOFileSystem.h"
 #include <cstring>
 #include <cstdio>
