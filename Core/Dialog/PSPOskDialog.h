@@ -157,8 +157,7 @@ private:
 	std::string oskOuttext;
 	int oskParamsAddr;
 
-	int currentInputChar;
 	int selectedChar;
-
+	std::string inputChars;
 };
 

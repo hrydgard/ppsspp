@@ -30,8 +30,6 @@ const char oskKeys[NUMKEYROWS][KEYSPERROW] =
 	{'Z','X','C','V','B','N','M',',','.','/','?','\\','\0'},
 };
 
-char inputChars[255]; // must be a better way of doing this...
-
 
 PSPOskDialog::PSPOskDialog() : PSPDialog() {
 
@@ -69,10 +67,9 @@ int PSPOskDialog::Init(u32 oskPtr)
 	memset(&oskParams, 0, sizeof(oskParams));
 	memset(&oskData, 0, sizeof(oskData));
 	// TODO: should this be init'd to oskIntext?
-	memset(inputChars, 0x00, sizeof(inputChars));
+	inputChars.clear();
 	oskParamsAddr = oskPtr;
 	selectedChar = 0;
-	currentInputChar = 0;
 
 	if (Memory::IsValidAddress(oskPtr))
 	{
@@ -83,13 +80,6 @@ int PSPOskDialog::Init(u32 oskPtr)
 		HackyGetStringWide(oskOuttext, oskData.outtextPtr);
 		Memory::WriteStruct(oskParams.SceUtilityOskDataPtr, &oskData);
 		Memory::WriteStruct(oskPtr, &oskParams);
-
-		if (oskData.outtextlimit >= sizeof(inputChars))
-		{
-			// TODO: Check actual behavior.
-			ERROR_LOG(HLE, "OskDialog requested %d characters, failing", oskData.outtextlimit);
-			return -1;
-		}
 	}
 	else
 	{
@@ -118,9 +108,9 @@ void PSPOskDialog::RenderKeyboard()
 	for (int i = 0; i < limit; ++i)
 	{
 		u32 color = 0xFFFFFFFF;
-		if (inputChars[i] != 0)
+		if (i < inputChars.size())
 			temp[0] = inputChars[i];
-		else if (currentInputChar == i)
+		else if (i == inputChars.size())
 		{
 			temp[0] = oskKeys[selectedRow][selectedExtra];
 			color = 0xFF3060FF;
@@ -212,23 +202,13 @@ void PSPOskDialog::Update()
 		// TODO : Dialogs should take control over input and not send them to the game while displaying
 		if (IsButtonPressed(CTRL_CROSS))
 		{
-			if (currentInputChar < limit)
-			{
-				inputChars[currentInputChar]= oskKeys[selectedRow][selectedExtra];
-				currentInputChar++;
-			}
-			else
-			{
-				currentInputChar = limit; // just in case
-			}
+			if (inputChars.size() < limit)
+				inputChars += oskKeys[selectedRow][selectedExtra];
 		}
 		else if (IsButtonPressed(CTRL_CIRCLE))
 		{
-			if (currentInputChar > 0)
-			{
-				inputChars[currentInputChar] = 0x00;
-				currentInputChar--;
-			}
+			if (inputChars.size() > 0)
+				inputChars.resize(inputChars.size() - 1);
 		}
 		else if (IsButtonPressed(CTRL_START))
 		{
@@ -243,10 +223,13 @@ void PSPOskDialog::Update()
 
 	for (int i = 0; i < limit; ++i)
 	{
-		Memory::Write_U16(0x0000^inputChars[i],oskData.outtextPtr + (2*i));
+		u16 value = 0;
+		if (i < inputChars.size())
+			value = 0x0000 ^ inputChars[i];
+		Memory::Write_U16(value, oskData.outtextPtr + (2 * i));
 	}
 
-	oskData.outtextlength = currentInputChar;
+	oskData.outtextlength = inputChars.size();
 	oskParams.base.result= 0;
 	oskData.result = PSP_UTILITY_OSK_RESULT_CHANGED;
 	Memory::WriteStruct(oskParams.SceUtilityOskDataPtr, &oskData);
