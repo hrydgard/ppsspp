@@ -1,5 +1,5 @@
 blackberry|symbian: CONFIG += mobile_platform
-unix:!blackberry:!macx: CONFIG += linux
+unix:!blackberry:!symbian:!macx: CONFIG += linux
 
 # Global specific
 QMAKE_CXXFLAGS += -std=c++0x -Wno-unused-function -Wno-unused-variable -Wno-multichar -Wno-uninitialized -Wno-ignored-qualifiers -Wno-missing-field-initializers -Wno-unused-parameter
