@@ -255,14 +255,11 @@ void __CtrlInit()
 
 	for (int i = 0; i < NUM_CTRL_BUFFERS; i++)
 		memcpy(&ctrlBufs[i], &ctrlCurrent, sizeof(_ctrl_data));
-}
 
-void sceCtrlInit()
-{
-	__CtrlInit();
+	ctrlIdleReset = -1;
+	ctrlIdleBack = -1;
 
-	DEBUG_LOG(HLE,"sceCtrlInit");	
-	RETURN(0);
+	waitingThreads.clear();
 }
 
 u32 sceCtrlSetSamplingCycle(u32 cycle)
@@ -406,7 +403,7 @@ u32 sceCtrlReadLatch(u32 latchDataPtr)
 
 static const HLEFunction sceCtrl[] = 
 {
-	{0x3E65A0EA, WrapV_V<sceCtrlInit>, "sceCtrlInit"}, //(int unknown), init with 0
+	{0x3E65A0EA, 0, "sceCtrlInit"}, //(int unknown), init with 0
 	{0x1f4011e6, WrapU_U<sceCtrlSetSamplingMode>, "sceCtrlSetSamplingMode"}, //(int on);
 	{0x6A2774F3, WrapU_U<sceCtrlSetSamplingCycle>, "sceCtrlSetSamplingCycle"},
 	{0x02BAAD91, WrapI_U<sceCtrlGetSamplingCycle>,"sceCtrlGetSamplingCycle"},
