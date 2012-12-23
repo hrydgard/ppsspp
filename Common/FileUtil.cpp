@@ -713,6 +713,8 @@ std::string &GetUserPath(const unsigned int DirIDX, const std::string &newPath)
 #ifdef _WIN32
 		// TODO: use GetExeDirectory() here instead of ROOT_DIR so that if the cwd is changed we still have the correct paths?
 		paths[D_USER_IDX] = ROOT_DIR DIR_SEP USERDATA_DIR DIR_SEP;
+#elif defined(__SYMBIAN32__)
+        paths[D_USER_IDX] = "E:" DIR_SEP "PPSSPP" DIR_SEP;
 #else
 		if (File::Exists(ROOT_DIR DIR_SEP USERDATA_DIR))
 			paths[D_USER_IDX] = ROOT_DIR DIR_SEP USERDATA_DIR DIR_SEP;
