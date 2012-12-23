@@ -297,6 +297,7 @@ u32 sceCtrlSetSamplingMode(u32 mode)
 int sceCtrlGetSamplingMode(u32 modePtr)
 {
 	u32 retVal = analogEnabled == true ? CTRL_MODE_ANALOG : CTRL_MODE_DIGITAL;
+	DEBUG_LOG(HLE, "%d=sceCtrlGetSamplingMode(%i)", retVal);
 
 	if (Memory::IsValidAddress(modePtr))
 		Memory::Write_U32(retVal, modePtr);
@@ -304,10 +305,16 @@ int sceCtrlGetSamplingMode(u32 modePtr)
 	return 0;
 }
 
-void sceCtrlSetIdleCancelThreshold()
+int sceCtrlSetIdleCancelThreshold(int idleReset, int idleBack)
 {
-	ERROR_LOG(HLE,"UNIMPL sceCtrlSetIdleCancelThreshold");
-	RETURN(0);
+	ERROR_LOG(HLE, "UNIMPL sceCtrlSetIdleCancelThreshold(%d, %d)", idleReset, idleBack);
+	return 0;
+}
+
+int sceCtrlGetIdleCancelThreshold(u32 idleResetPtr, u32 idleBackPtr)
+{
+	ERROR_LOG(HLE, "UNIMPL sceCtrlSetIdleCancelThreshold(%08x, %08x)", idleResetPtr, idleBackPtr);
+	return 0;
 }
 
 void sceCtrlReadBufferPositive(u32 ctrlDataPtr, u32 nBufs)
@@ -393,8 +400,8 @@ static const HLEFunction sceCtrl[] =
 	{0xAF5960F3, 0, "sceCtrl_AF5960F3"},
 	{0xA68FD260, 0, "sceCtrlClearRapidFire"},
 	{0x6841BE1A, 0, "sceCtrlSetRapidFire"},
-	{0xa7144800, WrapV_V<sceCtrlSetIdleCancelThreshold>, "sceCtrlSetIdleCancelThreshold"},
-	{0x687660fa, 0, "sceCtrlGetIdleCancelThreshold"},
+	{0xa7144800, WrapI_II<sceCtrlSetIdleCancelThreshold>, "sceCtrlSetIdleCancelThreshold"},
+	{0x687660fa, WrapI_UU<sceCtrlGetIdleCancelThreshold>, "sceCtrlGetIdleCancelThreshold"},
 };	
 
 void Register_sceCtrl()
