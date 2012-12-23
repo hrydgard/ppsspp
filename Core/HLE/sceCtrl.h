@@ -41,3 +41,4 @@ void __CtrlSetAnalog(float x, float y);
 
 // For use by internal UI like MsgDialog
 u32 __CtrlPeekButtons();
+u32 __CtrlReadLatch();

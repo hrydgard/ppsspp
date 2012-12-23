@@ -133,6 +133,13 @@ u32 __CtrlPeekButtons()
 	return ctrlCurrent.buttons;
 }
 
+u32 __CtrlReadLatch()
+{
+	u32 ret = latch.btnMake;
+	__CtrlResetLatch();
+	return ret;
+}
+
 // Functions so that the rest of the emulator can control what the sceCtrl interface should return
 // to the game:
 
