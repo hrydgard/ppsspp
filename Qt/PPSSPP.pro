@@ -1,41 +1,40 @@
 TARGET = PPSSPPQt
-QT += core gui opengl multimedia
+QT += core gui opengl
 
-symbian: {
-	LIBS += -lCore.lib -lCommon.lib -lNative.lib -lcone -leikcore -lavkon -lezlib
-	CONFIG += 4.6.3
+include(Settings.pri)
+linux {
+	CONFIG += mobility
+	MOBILITY += multimedia
 }
-# They try to force QCC with all mkspecs
-# QCC is 4.4.1, we need 4.6.3
-blackberry: {
-	QMAKE_CC = ntoarmv7-gcc
-	QMAKE_CXX = ntoarmv7-g++
-	DEFINES += "_QNX_SOURCE=1" "_C99=1"
-	LIBS += -L. -lCore -lCommon -lNative -lscreen -lsocket -lstdc++
+else {
+	QT += multimedia
 }
+
+# Libs
+symbian: LIBS += -lCore.lib -lCommon.lib -lNative.lib -lcone -leikcore -lavkon -lezlib
+
+blackberry: LIBS += -L. -lCore -lCommon -lNative -lscreen -lsocket -lstdc++
+
+win32: LIBS += -L. -lCore -lCommon -lNative -lwinmm -lws2_32 -lkernel32 -luser32 -lgdi32 -lshell32 -lcomctl32 -ldsound -lxinput
+
+linux: LIBS += -L. -lCore -lCommon -lNative
 
 # Main
 SOURCES += ../native/base/QtMain.cpp
 HEADERS += ../native/base/QtMain.h
 
 # Native
-
 SOURCES += ../android/jni/NativeApp.cpp \
-			../android/jni/EmuScreen.cpp \
-			../android/jni/MenuScreens.cpp \
-			../android/jni/GamepadEmu.cpp \
-			../android/jni/UIShader.cpp \
-			../android/jni/ui_atlas.cpp
+	../android/jni/EmuScreen.cpp \
+	../android/jni/MenuScreens.cpp \
+	../android/jni/GamepadEmu.cpp \
+	../android/jni/UIShader.cpp \
+	../android/jni/ui_atlas.cpp
 
 INCLUDEPATH += .. ../Common ../native
 
-QMAKE_CXXFLAGS += -std=c++0x -Wno-unused-function -Wno-unused-variable -Wno-multichar -Wno-uninitialized -Wno-ignored-qualifiers -Wno-missing-field-initializers -Wno-unused-parameter
-DEFINES += ARM USING_GLES2
-blackberry: DEFINES += BLACKBERRY BLACKBERRY10
-symbian: {
-	QMAKE_CXXFLAGS += -march=armv6 -mfpu=vfp -mfloat-abi=softfp -marm -Wno-parentheses -Wno-comment
-	DEFINES += SYMBIAN
-
+# Packaging
+symbian {
 	vendorinfo = "%{\"Qtness\"}" ":\"Qtness\""
 	packageheader = "$${LITERAL_HASH}{\"PPSSPP\"}, (0xE0095B1D), 0, 0, 4, TYPE=SA"
 	my_deployment.pkg_prerules = packageheader vendorinfo
