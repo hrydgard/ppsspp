@@ -108,7 +108,7 @@ void PSPOskDialog::RenderKeyboard()
 	for (int i = 0; i < limit; ++i)
 	{
 		u32 color = 0xFFFFFFFF;
-		if (i < inputChars.size())
+		if (i < (int) inputChars.size())
 			temp[0] = inputChars[i];
 		else if (i == inputChars.size())
 		{
@@ -146,7 +146,7 @@ void PSPOskDialog::RenderKeyboard()
 
 void PSPOskDialog::Update()
 {
-	buttons = __CtrlPeekButtons();
+	buttons = __CtrlReadLatch();
 	int selectedRow = selectedChar / (KEYSPERROW-1);
 	int selectedExtra = selectedChar % (KEYSPERROW-1);
 
@@ -179,7 +179,7 @@ void PSPOskDialog::Update()
 		}
 		else if (IsButtonPressed(CTRL_DOWN))
 		{
-			selectedChar -=10;
+			selectedChar -= 10;
 		}
 		else if (IsButtonPressed(CTRL_LEFT))
 		{
@@ -202,7 +202,7 @@ void PSPOskDialog::Update()
 		// TODO : Dialogs should take control over input and not send them to the game while displaying
 		if (IsButtonPressed(CTRL_CROSS))
 		{
-			if (inputChars.size() < limit)
+			if ((int) inputChars.size() < limit)
 				inputChars += oskKeys[selectedRow][selectedExtra];
 		}
 		else if (IsButtonPressed(CTRL_CIRCLE))
@@ -224,7 +224,7 @@ void PSPOskDialog::Update()
 	for (int i = 0; i < limit; ++i)
 	{
 		u16 value = 0;
-		if (i < inputChars.size())
+		if (i < (int) inputChars.size())
 			value = 0x0000 ^ inputChars[i];
 		Memory::Write_U16(value, oskData.outtextPtr + (2 * i));
 	}
