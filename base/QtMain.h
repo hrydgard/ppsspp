@@ -2,6 +2,8 @@
 #define QTMAIN_H
 
 #include <QTouchEvent>
+#include <QMouseEvent>
+#include "gfx_es2/glsl_program.h"
 #include <QGLWidget>
 
 #include <QAudioOutput>
@@ -10,7 +12,6 @@
 #include "base/display.h"
 #include "base/logging.h"
 #include "base/timeutil.h"
-#include "gfx_es2/glsl_program.h"
 #include "file/zip_read.h"
 #include "input/input_state.h"
 #include "base/NativeApp.h"
@@ -56,6 +57,13 @@ protected:
 				}
 			}
 			break;
+		case QEvent::MouseButtonPress:
+		case QEvent::MouseButtonRelease:
+			input_state.pointer_down[0] = (e->type() == QEvent::MouseButtonPress);
+		case QEvent::MouseMove:
+			input_state.pointer_x[0] = ((QMouseEvent*)e)->pos().x() * dpi_scale;
+			input_state.pointer_y[0] = ((QMouseEvent*)e)->pos().y() * dpi_scale;
+		break;
 		default:
 			return QWidget::event(e);
 		}
@@ -65,6 +73,9 @@ protected:
 
 	void initializeGL()
 	{
+#ifndef USING_GLES2
+		glewInit();
+#endif
 		NativeInitGraphics();
 	}
 

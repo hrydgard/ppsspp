@@ -3,7 +3,7 @@
  *
  */
 // Qt implementation of the framework.
-// Currently supports: Symbian
+// Currently supports: Symbian, Blackberry, Linux
 
 #include <QtGui/QApplication>
 #include <QUrl>
@@ -48,11 +48,12 @@ int main(int argc, char *argv[])
 	float dpi_scale = CalculateDPIScale();
 	dp_xres = (int)(pixel_xres * dpi_scale); dp_yres = (int)(pixel_yres * dpi_scale);
 	net::Init();
-	NativeInit(argc, (const char **)argv,
 #ifdef __SYMBIAN32__
-			   "E:/PPSSPP/", "E:", "BADCOFFEE");
+	NativeInit(argc, (const char **)argv, "E:/PPSSPP/", "E:", "BADCOFFEE");
+#elif defined(BLACKBERRY)
+	NativeInit(argc, (const char **)argv, "data/", "/tmp", "BADCOFFEE");
 #else
-			   "./","/tmp","BADCOFFEE");
+	NativeInit(argc, (const char **)argv, "./", "/tmp", "BADCOFFEE");
 #endif
 	MainUI w(dpi_scale);
 	w.resize(pixel_xres, pixel_yres);
