@@ -33,6 +33,7 @@
 
 const int PSP_CTRL_ERROR_INVALID_MODE = 0x80000107;
 const int PSP_CTRL_ERROR_INVALID_NUM_BUFFERS = 0x80000104;
+const int PSP_CTRL_ERROR_INVALID_IDLE_PTR = 0x80000023;
 
 const int NUM_CTRL_BUFFERS = 64;
 
@@ -71,6 +72,9 @@ static _ctrl_data ctrlCurrent;
 static int ctrlBuf = 0;
 static int ctrlBufRead = 0;
 static CtrlLatch latch;
+
+static int ctrlIdleReset = -1;
+static int ctrlIdleBack = -1;
 
 static std::vector<SceUID> waitingThreads;
 static std::recursive_mutex ctrlMutex;
@@ -307,13 +311,30 @@ int sceCtrlGetSamplingMode(u32 modePtr)
 
 int sceCtrlSetIdleCancelThreshold(int idleReset, int idleBack)
 {
-	ERROR_LOG(HLE, "UNIMPL sceCtrlSetIdleCancelThreshold(%d, %d)", idleReset, idleBack);
+	DEBUG_LOG(HLE, "FAKE sceCtrlSetIdleCancelThreshold(%d, %d)", idleReset, idleBack);
+
+	if (idleReset < -1 || idleBack < -1 || idleReset > 128 || idleBack > 128)
+		return SCE_KERNEL_ERROR_INVALID_VALUE;
+
+	ctrlIdleReset = idleReset;
+	ctrlIdleBack = idleBack;
 	return 0;
 }
 
 int sceCtrlGetIdleCancelThreshold(u32 idleResetPtr, u32 idleBackPtr)
 {
-	ERROR_LOG(HLE, "UNIMPL sceCtrlSetIdleCancelThreshold(%08x, %08x)", idleResetPtr, idleBackPtr);
+	DEBUG_LOG(HLE, "sceCtrlSetIdleCancelThreshold(%08x, %08x)", idleResetPtr, idleBackPtr);
+
+	if (idleResetPtr && !Memory::IsValidAddress(idleResetPtr))
+		return PSP_CTRL_ERROR_INVALID_IDLE_PTR;
+	if (idleBackPtr && !Memory::IsValidAddress(idleBackPtr))
+		return PSP_CTRL_ERROR_INVALID_IDLE_PTR;
+
+	if (idleResetPtr)
+		Memory::Write_U32(ctrlIdleReset, idleResetPtr);
+	if (idleBackPtr)
+		Memory::Write_U32(ctrlIdleBack, idleBackPtr);
+
 	return 0;
 }
 
