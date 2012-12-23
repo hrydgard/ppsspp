@@ -634,7 +634,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 				// We should probably defer to sceGe here, no sense in implementing this stuff in every GPU
 				switch (behaviour) {
 				case 1:  // Signal with Wait
-					ERROR_LOG(G3D, "Signal with Wait UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
+					DEBUG_LOG(G3D, "Signal with Wait UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
 					break;
 				case 2:
 					DEBUG_LOG(G3D, "Signal without wait. signal/end: %04x %04x", signal, enddata);
@@ -1419,7 +1419,7 @@ void GLES_GPU::DoBlockTransfer()
 	
 	int bpp = (gstate.transferstart & 1) ? 4 : 2;
 
-	NOTICE_LOG(HLE, "Block transfer: %08x to %08x, %i x %i , ...", srcBasePtr, dstBasePtr, width, height);
+	DEBUG_LOG(HLE, "Block transfer: %08x to %08x, %i x %i , ...", srcBasePtr, dstBasePtr, width, height);
 
 	// Do the copy!
 	for (int y = 0; y < height; y++) {
