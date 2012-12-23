@@ -36,7 +36,7 @@ enum  	PspAudioFrequencies { PSP_AUDIO_FREQ_44K = 44100, PSP_AUDIO_FREQ_48K = 48
 #define SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED                    0x80260008
 #define SCE_ERROR_AUDIO_NOT_OUTPUT                              0x80260009
 
-#define MAX_CHANNEL 8
+#define PSP_AUDIO_CHANNEL_MAX 8
 
 struct AudioChannel
 {
