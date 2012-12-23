@@ -183,10 +183,14 @@ void PSPOskDialog::Update()
 		else if (IsButtonPressed(CTRL_LEFT))
 		{
 			selectedChar--;
+			if (((selectedChar + KEYSPERROW) % KEYSPERROW) == KEYSPERROW - 1)
+				selectedChar += KEYSPERROW;
 		}
 		else if (IsButtonPressed(CTRL_RIGHT))
 		{
 			selectedChar++;
+			if ((selectedChar % KEYSPERROW) == 0)
+				selectedChar -= KEYSPERROW;
 		}
 
 		selectedChar = (selectedChar + NUMBEROFVALIDCHARS) % NUMBEROFVALIDCHARS;
