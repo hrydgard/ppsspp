@@ -86,6 +86,9 @@ int PSPOskDialog::Init(u32 oskPtr)
 		return -1;
 	}
 
+	// Eat any keys pressed before the dialog inited.
+	__CtrlReadLatch();
+
 	return 0;
 }
 
