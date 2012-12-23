@@ -5,13 +5,13 @@ unix:!blackberry:!macx: CONFIG += linux
 QMAKE_CXXFLAGS += -std=c++0x -Wno-unused-function -Wno-unused-variable -Wno-multichar -Wno-uninitialized -Wno-ignored-qualifiers -Wno-missing-field-initializers -Wno-unused-parameter
 
 # Arch specific
-contains(QT_ARCH, arm): {
-	DEFINES += ARM
-	CONFIG += arm
-}
-contains(QT_ARCH, x86)|contains(QT_ARCH, x86_64): {
+contains(QT_ARCH, i686)|contains(QT_ARCH, x86)|contains(QT_ARCH, x86_64): {
 	QMAKE_CXXFLAGS += -msse2
 	CONFIG += x86
+}
+else { # Assume ARM
+	DEFINES += ARM
+	CONFIG += arm
 }
 mobile_platform: DEFINES += USING_GLES2
 
