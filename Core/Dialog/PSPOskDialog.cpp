@@ -20,9 +20,9 @@
 #include "../HLE/sceCtrl.h"
 
 #define NUMKEYROWS 4
-#define KEYSPERROW 13
-#define NUMBEROFVALIDCHARS 44
-const char oskKeys[NUMKEYROWS][KEYSPERROW] = 
+#define KEYSPERROW 12
+#define NUMBEROFVALIDCHARS (KEYSPERROW * NUMKEYROWS)
+const char oskKeys[NUMKEYROWS][KEYSPERROW + 1] =
 {
 	{'1','2','3','4','5','6','7','8','9','0','-','+','\0'}, 
 	{'Q','W','E','R','T','Y','U','I','O','P','[',']','\0'},
@@ -92,8 +92,8 @@ int PSPOskDialog::Init(u32 oskPtr)
 
 void PSPOskDialog::RenderKeyboard()
 {
-	int selectedRow = selectedChar / (KEYSPERROW-1);
-	int selectedExtra = selectedChar % (KEYSPERROW-1);
+	int selectedRow = selectedChar / KEYSPERROW;
+	int selectedExtra = selectedChar % KEYSPERROW;
 	char SelectedLine[KEYSPERROW + 1];
 
 	char temp[2];
@@ -147,8 +147,8 @@ void PSPOskDialog::RenderKeyboard()
 void PSPOskDialog::Update()
 {
 	buttons = __CtrlReadLatch();
-	int selectedRow = selectedChar / (KEYSPERROW-1);
-	int selectedExtra = selectedChar % (KEYSPERROW-1);
+	int selectedRow = selectedChar / KEYSPERROW;
+	int selectedExtra = selectedChar % KEYSPERROW;
 
 	int limit = oskData.outtextlimit;
 	// TODO: Test more thoroughly.  Encountered a game where this was 0.
@@ -175,11 +175,11 @@ void PSPOskDialog::Update()
 
 		if (IsButtonPressed(CTRL_UP))
 		{
-			selectedChar += 10;
+			selectedChar -= KEYSPERROW;
 		}
 		else if (IsButtonPressed(CTRL_DOWN))
 		{
-			selectedChar -= 10;
+			selectedChar += KEYSPERROW;
 		}
 		else if (IsButtonPressed(CTRL_LEFT))
 		{
@@ -190,14 +190,7 @@ void PSPOskDialog::Update()
 			selectedChar++;
 		}
 
-		if (selectedChar < 0)
-		{
-			selectedChar = NUMBEROFVALIDCHARS;
-		}
-		if (selectedChar > NUMBEROFVALIDCHARS)
-		{
-			selectedChar = 0;
-		}
+		selectedChar = (selectedChar + NUMBEROFVALIDCHARS) % NUMBEROFVALIDCHARS;
 
 		// TODO : Dialogs should take control over input and not send them to the game while displaying
 		if (IsButtonPressed(CTRL_CROSS))
