@@ -157,7 +157,6 @@ private:
 	std::string oskOuttext;
 	int oskParamsAddr;
 
-	char inputChars[255]; // must be a better way of doing this...
 	int currentInputChar;
 	int selectedChar;
 

@@ -30,6 +30,8 @@ const char oskKeys[NUMKEYROWS][KEYSPERROW] =
 	{'Z','X','C','V','B','N','M',',','.','/','?','\\','\0'},
 };
 
+char inputChars[255]; // must be a better way of doing this...
+
 
 PSPOskDialog::PSPOskDialog() : PSPDialog() {
 
@@ -81,6 +83,13 @@ int PSPOskDialog::Init(u32 oskPtr)
 		HackyGetStringWide(oskOuttext, oskData.outtextPtr);
 		Memory::WriteStruct(oskParams.SceUtilityOskDataPtr, &oskData);
 		Memory::WriteStruct(oskPtr, &oskParams);
+
+		if (oskData.outtextlimit >= sizeof(inputChars))
+		{
+			// TODO: Check actual behavior.
+			ERROR_LOG(HLE, "OskDialog requested %d characters, failing", oskData.outtextlimit);
+			return -1;
+		}
 	}
 	else
 	{
@@ -97,37 +106,36 @@ void PSPOskDialog::RenderKeyboard()
 	int selectedExtra = selectedChar % (KEYSPERROW-1);
 	char SelectedLine[KEYSPERROW];
 
+	char temp[2];
+	temp[1] = '\0';
+
+	int limit = oskData.outtextlimit;
+	// TODO: Test more thoroughly.  Encountered a game where this was 0.
+	if (limit <= 0)
+		limit = 16;
+
 	PPGeDrawText(oskDesc.c_str(), 480/2, 20, PPGE_ALIGN_CENTER, 0.5f, 0xFFFFFFFF);
-	for (int i=0; i<oskData.outtextlimit; i++)
+	for (int i = 0; i < limit; ++i)
 	{
+		u32 color = 0xFFFFFFFF;
 		if (inputChars[i] != 0)
+			temp[0] = inputChars[i];
+		else if (currentInputChar == i)
 		{
-			const char aa = inputChars[i];
-			PPGeDrawText(&aa, 20 + (i*16), 40, NULL , 0.5f, 0xFFFFFFFF);
+			temp[0] = oskKeys[selectedRow][selectedExtra];
+			color = 0xFF3060FF;
 		}
 		else
-		{
-			if (currentInputChar == i)
-			{
-				char key = oskKeys[selectedRow][selectedExtra];
-				PPGeDrawText(&key, 20 + (i*16), 40, NULL , 0.5f, 0xFF3060FF);	
-			}
-			else
-			{
-				PPGeDrawText("_", 20 + (i*16), 40, NULL , 0.5f, 0xFFFFFFFF);	
-			}
-		}
+			temp[0] = '_';
+
+		PPGeDrawText(temp, 20.0f + (i * 16.0f), 40, NULL, 0.5f, color);
 	}
 	for (int row = 0; row < NUMKEYROWS; row++)
 	{
+		u32 color = 0xFFFFFFFF;
 		if (selectedRow == row)
-		{
-			PPGeDrawText(oskKeys[row], 20, 70 + (25 * row), NULL , 0.6f, 0xFF7f7f7f);
-		}
-		else
-		{
-			PPGeDrawText(oskKeys[row], 20, 70 + (25 * row), NULL , 0.6f, 0xFFFFFFFF);
-		}
+			color = 0xFF7f7f7f;
+		PPGeDrawText(oskKeys[row], 20.0f, 70.0f + (25.0f * row), NULL, 0.6f, color);
 	}
 	for (int selectedItemCounter = 0; selectedItemCounter < KEYSPERROW; selectedItemCounter++ )
 	{
@@ -141,7 +149,8 @@ void PSPOskDialog::RenderKeyboard()
 		}
 	}
 
-	PPGeDrawText(SelectedLine, 20, 71 + (25 * selectedRow), NULL , 0.6f, 0xFFFFFFFF);
+	SelectedLine[KEYSPERROW] = '\0';
+	PPGeDrawText(SelectedLine, 20, 71.0f + (25.0f * selectedRow), NULL, 0.6f, 0xFFFFFFFF);
 
 }
 
@@ -150,6 +159,11 @@ void PSPOskDialog::Update()
 	buttons = __CtrlPeekButtons();
 	int selectedRow = selectedChar / (KEYSPERROW-1);
 	int selectedExtra = selectedChar % (KEYSPERROW-1);
+
+	int limit = oskData.outtextlimit;
+	// TODO: Test more thoroughly.  Encountered a game where this was 0.
+	if (limit <= 0)
+		limit = 16;
 
 	if (status == SCE_UTILITY_STATUS_INITIALIZE)
 	{
@@ -198,20 +212,23 @@ void PSPOskDialog::Update()
 		// TODO : Dialogs should take control over input and not send them to the game while displaying
 		if (IsButtonPressed(CTRL_CROSS))
 		{
-			if (currentInputChar < oskData.outtextlimit)
+			if (currentInputChar < limit)
 			{
 				inputChars[currentInputChar]= oskKeys[selectedRow][selectedExtra];
 				currentInputChar++;
 			}
 			else
 			{
-				currentInputChar = oskData.outtextlimit; // just in case
+				currentInputChar = limit; // just in case
 			}
 		}
 		else if (IsButtonPressed(CTRL_CIRCLE))
 		{
-			inputChars[currentInputChar] = 0x00;
-			currentInputChar--;
+			if (currentInputChar > 0)
+			{
+				inputChars[currentInputChar] = 0x00;
+				currentInputChar--;
+			}
 		}
 		else if (IsButtonPressed(CTRL_START))
 		{
@@ -224,7 +241,7 @@ void PSPOskDialog::Update()
 		status = SCE_UTILITY_STATUS_SHUTDOWN;
 	}
 
-	for (int i=0; i<oskData.outtextlimit; i++)
+	for (int i = 0; i < limit; ++i)
 	{
 		Memory::Write_U16(0x0000^inputChars[i],oskData.outtextPtr + (2*i));
 	}
