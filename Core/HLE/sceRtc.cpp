@@ -541,7 +541,7 @@ int sceRtcGetWin32FileTime(u32 datePtr, u32 win32TimePtr)
 int sceRtcCompareTick(u32 tick1Ptr, u32 tick2Ptr)
 {
 	ERROR_LOG(HLE, "HACK sceRtcCompareTick(%d,%d)", tick1Ptr, tick2Ptr);
-	if (Memory::IsValidAddress(tick1Ptr)&&Memory::IsValidAddress(tick1Ptr))
+	if (Memory::IsValidAddress(tick1Ptr) && Memory::IsValidAddress(tick2Ptr))
 	{
 		u64 tick1 = Memory::Read_U64(tick1Ptr);
 		u64 tick2 = Memory::Read_U64(tick2Ptr);

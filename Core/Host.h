@@ -26,6 +26,7 @@ class PMixer
 {
 public:
 	PMixer() {}
+	virtual ~PMixer() {}
 	virtual int Mix(short *stereoout, int numSamples) {memset(stereoout,0,numSamples*2*sizeof(short)); return numSamples;}
 };
 
