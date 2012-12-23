@@ -58,9 +58,8 @@ u32 sceAtracEndEntry()
 
 u32 sceAtracGetAtracID(int codecType)
 {
-	int id;
 	ERROR_LOG(HLE, "UNIMPL sceAtracGetAtracID(%i)", codecType);
-	return id;
+	return 0;
 }
 
 u32 sceAtracGetBufferInfoForReseting(int atracID, int sample, u32 bufferInfoAddr)
@@ -178,16 +177,14 @@ u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize)
 
 int sceAtracSetDataAndGetID(u32 buffer, u32 bufferSize)
 {	
-	int id;
-	ERROR_LOG(HLE, "UNIMPL sceAtracSetDataAndGetID(%i, %08x, %08x)", buffer, bufferSize);
-	return id;
+	ERROR_LOG(HLE, "UNIMPL sceAtracSetDataAndGetID(%08x, %08x)", buffer, bufferSize);
+	return 0;
 }
 
 int sceAtracSetHalfwayBufferAndGetID(int atracID, u32 halfBuffer, u32 readSize, u32 halfBufferSize)
 {
-	int id;
 	ERROR_LOG(HLE, "UNIMPL sceAtracSetHalfwayBufferAndGetID(%i, %08x, %08x, %08x)", atracID, halfBuffer, readSize, halfBufferSize);
-	return id;
+	return 0;
 }
 
 u32 sceAtracStartEntry()

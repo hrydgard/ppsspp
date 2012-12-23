@@ -1452,7 +1452,7 @@ namespace MIPSInt
 		int vd = _VD;
 		int cond = op&15;
 		VectorSize sz = GetVecSize(op);
-		int n = GetNumVectorElements(sz);
+		int numElements = GetNumVectorElements(sz);
 		float s[4];
 		float t[4];
 		float d[4];
@@ -1510,7 +1510,7 @@ namespace MIPSInt
 		int vd = _VD;
 		int cond = op&15;
 		VectorSize sz = GetVecSize(op);
-		int n = GetNumVectorElements(sz);
+		int numElements = GetNumVectorElements(sz);
 		float s[4];
 		float t[4];
 		float d[4];
@@ -1535,7 +1535,7 @@ namespace MIPSInt
 		int vd = _VD;
 		int cond = op&15;
 		VectorSize sz = GetVecSize(op);
-		int n = GetNumVectorElements(sz);
+		int numElements = GetNumVectorElements(sz);
 		float s[4];
 		float t[4];
 		float d[4];
