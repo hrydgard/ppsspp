@@ -35,3 +35,6 @@ int sceKernelUnlockLwMutex(u32 workareaPtr, int count);
 void __KernelMutexTimeout(u64 userdata, int cyclesLate);
 void __KernelLwMutexTimeout(u64 userdata, int cyclesLate);
 void __KernelMutexThreadEnd(SceUID thread);
+
+void __KernelMutexInit();
+void __KernelMutexShutdown();
