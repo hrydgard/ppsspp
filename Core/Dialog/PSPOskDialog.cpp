@@ -94,7 +94,6 @@ void PSPOskDialog::RenderKeyboard()
 {
 	int selectedRow = selectedChar / KEYSPERROW;
 	int selectedExtra = selectedChar % KEYSPERROW;
-	char SelectedLine[KEYSPERROW + 1];
 
 	char temp[2];
 	temp[1] = '\0';
@@ -103,6 +102,9 @@ void PSPOskDialog::RenderKeyboard()
 	// TODO: Test more thoroughly.  Encountered a game where this was 0.
 	if (limit <= 0)
 		limit = 16;
+
+	const float keyboardLeftSide = (480.0f - (16.0f * KEYSPERROW)) / 2.0f;
+	float previewLeftSide = (480.0f - (16.0f * limit)) / 2.0f;
 
 	PPGeDrawText(oskDesc.c_str(), 480/2, 20, PPGE_ALIGN_CENTER, 0.5f, 0xFFFFFFFF);
 	for (int i = 0; i < limit; ++i)
@@ -118,29 +120,23 @@ void PSPOskDialog::RenderKeyboard()
 		else
 			temp[0] = '_';
 
-		PPGeDrawText(temp, 20.0f + (i * 16.0f), 40, NULL, 0.5f, color);
+		PPGeDrawText(temp, previewLeftSide + (i * 16.0f), 40.0f, NULL, 0.5f, color);
 	}
-	for (int row = 0; row < NUMKEYROWS; row++)
+	for (int row = 0; row < NUMKEYROWS; ++row)
 	{
-		u32 color = 0xFFFFFFFF;
-		if (selectedRow == row)
-			color = 0xFF7f7f7f;
-		PPGeDrawText(oskKeys[row], 20.0f, 70.0f + (25.0f * row), NULL, 0.6f, color);
-	}
-	for (int selectedItemCounter = 0; selectedItemCounter < KEYSPERROW; selectedItemCounter++ )
-	{
-		if (selectedItemCounter!=selectedExtra)
+		for (int col = 0; col < KEYSPERROW; ++col)
 		{
-			SelectedLine[selectedItemCounter] = oskKeys[selectedRow][selectedItemCounter];
-		}
-		else
-		{
-			SelectedLine[selectedItemCounter] = '_';
-		}
-	}
+			u32 color = 0xFFFFFFFF;
+			if (selectedRow == row && col == selectedExtra)
+				color = 0xFF7f7f7f;
 
-	SelectedLine[KEYSPERROW] = '\0';
-	PPGeDrawText(SelectedLine, 20, 71.0f + (25.0f * selectedRow), NULL, 0.6f, 0xFFFFFFFF);
+			temp[0] = oskKeys[row][col];
+			PPGeDrawText(temp, keyboardLeftSide + (16.0f * col), 70.0f + (25.0f * row), NULL, 0.6f, color);
+
+			if (selectedRow == row && col == selectedExtra)
+				PPGeDrawText("_", keyboardLeftSide + (16.0f * col), 70.0f + (25.0f * row), NULL, 0.6f, 0xFFFFFFFF);
+		}
+	}
 
 }
 
