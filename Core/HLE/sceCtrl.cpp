@@ -76,6 +76,8 @@ static CtrlLatch latch;
 static int ctrlIdleReset = -1;
 static int ctrlIdleBack = -1;
 
+static u32 ctrlCycle = 0;
+
 static std::vector<SceUID> waitingThreads;
 static std::recursive_mutex ctrlMutex;
 
@@ -258,27 +260,40 @@ void __CtrlInit()
 
 	ctrlIdleReset = -1;
 	ctrlIdleBack = -1;
+	ctrlCycle = 0;
 
 	waitingThreads.clear();
 }
 
 u32 sceCtrlSetSamplingCycle(u32 cycle)
 {
+	WARN_LOG(HLE, "FAKE sceCtrlSetSamplingCycle(%u)", cycle);
+
+	if ((cycle > 0 && cycle < 5555) || cycle > 20000)
+	{
+		WARN_LOG(HLE, "SCE_KERNEL_ERROR_INVALID_VALUE=sceCtrlSetSamplingCycle(%u)", cycle);
+		return SCE_KERNEL_ERROR_INVALID_VALUE;
+	}
+
+	u32 prev = ctrlCycle;
+	ctrlCycle = cycle;
+
 	if (cycle == 0)
 	{
-		// TODO: Change to vblank when we support something else.
-		DEBUG_LOG(HLE, "sceCtrlSetSamplingCycle(%u)", cycle);
+		// TODO: Cancel the timer.
 	}
 	else
 	{
-		ERROR_LOG(HLE, "UNIMPL sceCtrlSetSamplingCycle(%u)", cycle);
+		// TODO: Setup the timer.
 	}
-	return 0;
+	return prev;
 }
 
 int sceCtrlGetSamplingCycle(u32 cyclePtr)
 {
-	ERROR_LOG(HLE, "UNIMPL sceCtrlSetSamplingCycle(%08x)", cyclePtr);
+	DEBUG_LOG(HLE, "sceCtrlSetSamplingCycle(%08x)", cyclePtr);
+	if (Memory::IsValidAddress(cyclePtr))
+		Memory::Write_U32(ctrlCycle, cyclePtr);
 	return 0;
 }
 
