@@ -30,12 +30,26 @@
 #include "Common.h"
 #include "LogManager.h" // Common
 #include "ConsoleListener.h" // Common
+#include "Atomic.h"
+
+#ifdef _WIN32
+const int LOG_PENDING_MAX = 1000;
+const int LOG_LATENCY_DELAY_MS = 20;
+const int LOG_WORST_DELAY_MS = 5;
+const int LOG_SHUTDOWN_DELAY_MS = 250;
+#endif
 
 ConsoleListener::ConsoleListener()
 {
 #ifdef _WIN32
 	hConsole = NULL;
 	bUseColor = true;
+
+	hThread = NULL;
+	hTriggerEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
+	InitializeCriticalSection(&criticalSection);
+	logPending = NULL;
+	logPendingSize = 0;
 #else
 	bUseColor = isatty(fileno(stdout));
 #endif
@@ -44,6 +58,13 @@ ConsoleListener::ConsoleListener()
 ConsoleListener::~ConsoleListener()
 {
 	Close();
+
+#ifdef _WIN32
+	DeleteCriticalSection(&criticalSection);
+
+	if (logPending != NULL)
+		delete [] logPending;
+#endif
 }
 
 // 100, 100, "Dolphin Log Console"
@@ -70,6 +91,13 @@ void ConsoleListener::Open(bool Hidden, int Width, int Height, const char *Title
 	else
 	{
 		hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+	}
+
+	if (hTriggerEvent != NULL)
+	{
+		logPending = new ConsolePendingEvent[LOG_PENDING_MAX];
+		memset(logPending, 0, sizeof(ConsolePendingEvent) * LOG_PENDING_MAX);
+		hThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) &ConsoleListener::RunThread, this, 0, NULL);
 	}
 #endif
 }
@@ -104,6 +132,19 @@ void ConsoleListener::Close()
 #ifdef _WIN32
 	if (hConsole == NULL)
 		return;
+
+	if (hThread != NULL)
+	{
+		Common::AtomicStoreRelease(logPendingSize, (u32) -1);
+
+		SetEvent(hTriggerEvent);
+		WaitForSingleObject(hThread, LOG_SHUTDOWN_DELAY_MS);
+		CloseHandle(hThread);
+		hThread = NULL;
+	}
+	if (hTriggerEvent != NULL)
+		CloseHandle(hTriggerEvent);
+
 	FreeConsole();
 	hConsole = NULL;
 #else
@@ -175,6 +216,7 @@ void ConsoleListener::LetterSpace(int Width, int Height)
 	//MoveWindow(GetConsoleWindow(), 200,200, (Width*8 + 50),(NewScreenHeight*12 + 200), true);
 #endif
 }
+
 #ifdef _WIN32
 COORD ConsoleListener::GetCoordinates(int BytesRead, int BufferWidth)
 {
@@ -186,7 +228,129 @@ COORD ConsoleListener::GetCoordinates(int BytesRead, int BufferWidth)
 	Ret.X = BytesRead - (BufferWidth * Step);
 	return Ret;
 }
+
+DWORD WINAPI ConsoleListener::RunThread(LPVOID lpParam)
+{
+	ConsoleListener *consoleLog = (ConsoleListener *) lpParam;
+	consoleLog->LogWriterThread();
+	return 0;
+}
+
+void ConsoleListener::LogWriterThread()
+{
+	ConsolePendingEvent *logLocal = new ConsolePendingEvent[LOG_PENDING_MAX];
+	int logLocalSize = 0;
+
+	while (true)
+	{
+		WaitForSingleObject(hTriggerEvent, INFINITE);
+		Sleep(LOG_LATENCY_DELAY_MS);
+
+		u32 logRemoteSize = Common::AtomicLoadAcquire(logPendingSize);
+		if (logRemoteSize == (u32) -1)
+			break;
+		else if (logRemoteSize == 0)
+			continue;
+		else if (logRemoteSize > 0)
+		{
+			EnterCriticalSection(&criticalSection);
+			// Copy down the events from the main thread so it can flush them.
+			memcpy(logLocal, logPending, logPendingSize * sizeof(ConsolePendingEvent));
+			logLocalSize = logPendingSize;
+			logPendingSize = 0;
+			LeaveCriticalSection(&criticalSection);
+		}
+
+		for (int i = 0; i < logLocalSize; ++i)
+		{
+			WriteToConsole(logLocal[i].Level, logLocal[i].Text);
+			// Allocated by main thread, but deallocated here.
+			delete [] logLocal[i].Text;
+		}
+	}
+
+	delete [] logLocal;
+}
+
+void ConsoleListener::SendToThread(LogTypes::LOG_LEVELS Level, const char *Text)
+{
+	// Make a copy of Text (probably on stack or has its own lifecycle.)
+	// Note that the thread deletes it.
+	char *TextCopy = new char[strlen(Text) + 1];
+	strcpy(TextCopy, Text);
+
+	// Oops, quitting.
+	if (logPendingSize == (u32) -1)
+		return;
+	if (logPendingSize >= LOG_PENDING_MAX)
+	{
+		// Hope that it's able to process some.
+		Sleep(LOG_WORST_DELAY_MS);
+
+		if (logPendingSize >= LOG_PENDING_MAX)
+		{
+			// TODO: Overwrite the last one with a message?
+			return;
+		}
+	}
+
+	EnterCriticalSection(&criticalSection);
+	logPending[logPendingSize].Level = Level;
+	logPending[logPendingSize].Text = TextCopy;
+	++logPendingSize;
+	LeaveCriticalSection(&criticalSection);
+
+	SetEvent(hTriggerEvent);
+}
+
+void ConsoleListener::WriteToConsole(LogTypes::LOG_LEVELS Level, const char *Text)
+{
+	/*
+	const int MAX_BYTES = 1024*10;
+	char Str[MAX_BYTES];
+	va_list ArgPtr;
+	int Cnt;
+	va_start(ArgPtr, Text);
+	Cnt = vsnprintf(Str, MAX_BYTES, Text, ArgPtr);
+	va_end(ArgPtr);
+	*/
+	DWORD cCharsWritten;
+	WORD Color;
+
+	switch (Level)
+	{
+	case NOTICE_LEVEL: // light green
+		Color = FOREGROUND_GREEN | FOREGROUND_INTENSITY;
+		break;
+	case ERROR_LEVEL: // light red
+		Color = FOREGROUND_RED | FOREGROUND_INTENSITY;
+		break;
+	case WARNING_LEVEL: // light yellow
+		Color = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY;
+		break;
+	case INFO_LEVEL: // cyan
+		Color = FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY;
+		break;
+	case DEBUG_LEVEL: // gray
+		Color = FOREGROUND_INTENSITY;
+		break;
+	default: // off-white
+		Color = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE;
+		break;
+	}
+	if (strlen(Text) > 10)
+	{
+		// First 10 chars white
+		SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY);
+		WriteConsole(hConsole, Text, 10, &cCharsWritten, NULL);
+		Text += 10;
+	}
+	SetConsoleTextAttribute(hConsole, Color);
+	size_t len = strlen(Text);
+	WriteConsole(hConsole, Text, (DWORD)len, &cCharsWritten, NULL);
+}
 #endif
+
 void ConsoleListener::PixelSpace(int Left, int Top, int Width, int Height, bool Resize)
 {
 #ifdef _WIN32
@@ -277,49 +441,10 @@ void ConsoleListener::PixelSpace(int Left, int Top, int Width, int Height, bool 
 void ConsoleListener::Log(LogTypes::LOG_LEVELS Level, const char *Text)
 {
 #if defined(_WIN32)
-	/*
-	const int MAX_BYTES = 1024*10;
-	char Str[MAX_BYTES];
-	va_list ArgPtr;
-	int Cnt;
-	va_start(ArgPtr, Text);
-	Cnt = vsnprintf(Str, MAX_BYTES, Text, ArgPtr);
-	va_end(ArgPtr);
-	*/
-	DWORD cCharsWritten;
-	WORD Color;
-	
-	switch (Level)
-	{
-	case NOTICE_LEVEL: // light green
-		Color = FOREGROUND_GREEN | FOREGROUND_INTENSITY;
-		break;
-	case ERROR_LEVEL: // light red
-		Color = FOREGROUND_RED | FOREGROUND_INTENSITY;
-		break;
-	case WARNING_LEVEL: // light yellow
-		Color = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY;
-		break;
-	case INFO_LEVEL: // cyan
-		Color = FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY;
-		break;
-	case DEBUG_LEVEL: // gray
-		Color = FOREGROUND_INTENSITY;
-		break;
-	default: // off-white
-		Color = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE;
-		break;
-	}
-	if (strlen(Text) > 10)
-	{
-		// First 10 chars white
-		SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY);
-		WriteConsole(hConsole, Text, 10, &cCharsWritten, NULL);
-		Text += 10;
-	}
-	SetConsoleTextAttribute(hConsole, Color);
-	size_t len = strlen(Text);
-	WriteConsole(hConsole, Text, (DWORD)len, &cCharsWritten, NULL);
+	if (hThread == NULL)
+		WriteToConsole(Level, Text);
+	else
+		SendToThread(Level, Text);
 #else
 	char ColorAttr[16] = "";
 	char ResetAttr[16] = "";
