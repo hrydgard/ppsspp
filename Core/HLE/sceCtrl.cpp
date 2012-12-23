@@ -76,10 +76,12 @@ static CtrlLatch latch;
 static int ctrlIdleReset = -1;
 static int ctrlIdleBack = -1;
 
-static u32 ctrlCycle = 0;
+static int ctrlCycle = 0;
 
 static std::vector<SceUID> waitingThreads;
 static std::recursive_mutex ctrlMutex;
+
+static int ctrlTimer = -1;
 
 // STATE END
 //////////////////////////////////////////////////////////////////////////
@@ -208,9 +210,9 @@ int __CtrlReadBuffer(u32 ctrlDataPtr, u32 nBufs, bool negative, bool peek)
 	return done;
 }
 
-void __CtrlVblank()
+void __CtrlDoSample()
 {
-	// When in vblank sampling mode, this samples the ctrl data into the buffers and updates the latch.
+	// This samples the ctrl data into the buffers and updates the latch.
 	__CtrlUpdateLatch();
 
 	// Wake up a single thread that was waiting for the buffer.
@@ -230,6 +232,22 @@ retry:
 		int retVal = __CtrlReadSingleBuffer(ctrlDataPtr, wVal == CTRL_WAIT_NEGATIVE);
 		__KernelResumeThreadFromWait(threadID, retVal);
 	}
+}
+
+void __CtrlVblank()
+{
+	// This always runs, so make sure we're in vblank mode.
+	if (ctrlCycle == 0)
+		__CtrlDoSample();
+}
+
+void __CtrlTimerUpdate(u64 userdata, int cyclesLate)
+{
+	// This only runs in timer mode (ctrlCycle > 0.)
+	_dbg_assert_msg_(HLE, ctrlCycle > 0, "Ctrl: sampling cycle should be > 0");
+
+	__CtrlDoSample();
+	CoreTiming::ScheduleEvent(usToCycles(ctrlCycle), ctrlTimer, 0);
 }
 
 void __CtrlInit()
@@ -263,11 +281,13 @@ void __CtrlInit()
 	ctrlCycle = 0;
 
 	waitingThreads.clear();
+
+	ctrlTimer = CoreTiming::RegisterEvent("CtrlSampleTimer", __CtrlTimerUpdate);
 }
 
 u32 sceCtrlSetSamplingCycle(u32 cycle)
 {
-	WARN_LOG(HLE, "FAKE sceCtrlSetSamplingCycle(%u)", cycle);
+	DEBUG_LOG(HLE, "sceCtrlSetSamplingCycle(%u)", cycle);
 
 	if ((cycle > 0 && cycle < 5555) || cycle > 20000)
 	{
@@ -278,14 +298,11 @@ u32 sceCtrlSetSamplingCycle(u32 cycle)
 	u32 prev = ctrlCycle;
 	ctrlCycle = cycle;
 
-	if (cycle == 0)
-	{
-		// TODO: Cancel the timer.
-	}
-	else
-	{
-		// TODO: Setup the timer.
-	}
+	if (prev > 0)
+		CoreTiming::UnscheduleEvent(ctrlTimer, 0);
+	if (cycle > 0)
+		CoreTiming::ScheduleEvent(usToCycles(ctrlCycle), ctrlTimer, 0);
+
 	return prev;
 }
 
