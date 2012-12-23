@@ -261,7 +261,7 @@ public:
 			}
 			break;
 		case DEC_FLOAT_4:
-			memcpy(color, data_ + decFmt_.c1off, 3); break;
+			memcpy(color, data_ + decFmt_.c1off, 12); break;
 		default:
 			ERROR_LOG(G3D, "Reader: Unsupported C1 Format");
 			break;
