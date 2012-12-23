@@ -41,7 +41,7 @@ u32 sceAudioOutputBlocking(u32 chan, u32 vol, u32 samplePtr) {
 		ERROR_LOG(HLE, "sceAudioOutputBlocking - Sample pointer null");
 		return 0;
 	}
-	if (chan >= MAX_CHANNEL) {
+	if (chan >= PSP_AUDIO_CHANNEL_MAX) {
 		ERROR_LOG(HLE,"sceAudioOutputBlocking() - BAD CHANNEL");
 		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
 	} else if (!chans[chan].reserved) {
@@ -60,7 +60,7 @@ u32 sceAudioOutputPannedBlocking(u32 chan, u32 volume1, u32 volume2, u32 sampleP
 	if (samplePtr == 0) {
 		ERROR_LOG(HLE, "sceAudioOutputPannedBlocking - Sample pointer null");
 		return 0;
-	} else if (chan >= MAX_CHANNEL) {
+	} else if (chan >= PSP_AUDIO_CHANNEL_MAX) {
 		ERROR_LOG(HLE,"sceAudioOutputPannedBlocking() - BAD CHANNEL");
 		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
 	} else if (!chans[chan].reserved) {
@@ -77,7 +77,7 @@ u32 sceAudioOutputPannedBlocking(u32 chan, u32 volume1, u32 volume2, u32 sampleP
 
 u32 sceAudioOutput(u32 chan, u32 vol, u32 samplePtr)
 {
-	if (chan >= MAX_CHANNEL) {
+	if (chan >= PSP_AUDIO_CHANNEL_MAX) {
 		ERROR_LOG(HLE,"sceAudioOutput() - BAD CHANNEL");
 		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
 	}
@@ -99,7 +99,7 @@ u32 sceAudioOutput(u32 chan, u32 vol, u32 samplePtr)
 
 u32 sceAudioOutputPanned(u32 chan, u32 leftVol, u32 rightVol, u32 samplePtr)
 {
-	if (chan >= MAX_CHANNEL)
+	if (chan >= PSP_AUDIO_CHANNEL_MAX)
 	{
 		ERROR_LOG(HLE,"sceAudioOutputPanned() - BAD CHANNEL");
 		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
@@ -122,7 +122,7 @@ u32 sceAudioOutputPanned(u32 chan, u32 leftVol, u32 rightVol, u32 samplePtr)
 
 int sceAudioGetChannelRestLen(u32 chan)
 {
-	if (chan >= MAX_CHANNEL)
+	if (chan >= PSP_AUDIO_CHANNEL_MAX)
 	{
 		ERROR_LOG(HLE, "sceAudioGetChannelRestLen(%i) - BAD CHANNEL", chan);
 		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
@@ -135,7 +135,7 @@ int sceAudioGetChannelRestLen(u32 chan)
 
 int sceAudioGetChannelRestLength(u32 chan)
 {
-	if (chan >= MAX_CHANNEL)
+	if (chan >= PSP_AUDIO_CHANNEL_MAX)
 	{
 		ERROR_LOG(HLE, "sceAudioGetChannelRestLength(%i) - BAD CHANNEL", chan);
 		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
@@ -148,7 +148,7 @@ int sceAudioGetChannelRestLength(u32 chan)
 
 static int GetFreeChannel()
 {
-	for (int i = 0; i < MAX_CHANNEL; i++)
+	for (int i = 0; i < PSP_AUDIO_CHANNEL_MAX ; i++)
 		if (!chans[i].reserved)
 			return i;
 	return -1;
@@ -166,7 +166,7 @@ u32 sceAudioChReserve(u32 channel, u32 sampleCount, u32 format) //.Allocate soun
 		return SCE_ERROR_AUDIO_NO_CHANNELS_AVAILABLE;
 	}
 
-	if (channel >= MAX_CHANNEL)
+	if (channel >= PSP_AUDIO_CHANNEL_MAX)
 	{
 		ERROR_LOG(HLE ,"sceAudioChReserve(channel = %d, sampleCount = %d, format = %d) - BAD CHANNEL", channel, sampleCount, format);
 		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
@@ -191,7 +191,7 @@ u32 sceAudioChReserve(u32 channel, u32 sampleCount, u32 format) //.Allocate soun
 
 u32 sceAudioChRelease(u32 chan)
 {
-	if (chan >= MAX_CHANNEL)
+	if (chan >= PSP_AUDIO_CHANNEL_MAX)
 	{
 		ERROR_LOG(HLE, "sceAudioChRelease(%i) - BAD CHANNEL", chan);
 		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
@@ -210,7 +210,7 @@ u32 sceAudioChRelease(u32 chan)
 
 u32 sceAudioSetChannelDataLen(u32 chan, u32 len)
 {
-	if (chan >= MAX_CHANNEL)
+	if (chan >= PSP_AUDIO_CHANNEL_MAX)
 	{
 		ERROR_LOG(HLE,"sceAudioSetChannelDataLen(%i, %i) - BAD CHANNEL", chan, len);
 		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
@@ -230,7 +230,7 @@ u32 sceAudioSetChannelDataLen(u32 chan, u32 len)
 
 u32 sceAudioChangeChannelConfig(u32 chan, u32 format)
 {
-	if (chan >= MAX_CHANNEL)
+	if (chan >= PSP_AUDIO_CHANNEL_MAX)
 	{
 		ERROR_LOG(HLE,"sceAudioChangeChannelConfig(%i, %i) - invalid channel number", chan, format);
 		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
@@ -250,7 +250,7 @@ u32 sceAudioChangeChannelConfig(u32 chan, u32 format)
 
 u32 sceAudioChangeChannelVolume(u32 chan, u32 lvolume, u32 rvolume)
 {
-	if (chan >= MAX_CHANNEL)
+	if (chan >= PSP_AUDIO_CHANNEL_MAX)
 	{
 		ERROR_LOG(HLE,"sceAudioChangeChannelVolume(%i, %i, %i) - invalid channel number", chan, lvolume, rvolume);
 		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
