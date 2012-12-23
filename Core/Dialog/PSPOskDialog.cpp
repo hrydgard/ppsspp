@@ -104,7 +104,7 @@ void PSPOskDialog::RenderKeyboard()
 {
 	int selectedRow = selectedChar / (KEYSPERROW-1);
 	int selectedExtra = selectedChar % (KEYSPERROW-1);
-	char SelectedLine[KEYSPERROW];
+	char SelectedLine[KEYSPERROW + 1];
 
 	char temp[2];
 	temp[1] = '\0';
