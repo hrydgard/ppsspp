@@ -640,6 +640,7 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 		}
 		break;
 	}
+	Flush();
 }
 
 void GLES_GPU::Flush()
