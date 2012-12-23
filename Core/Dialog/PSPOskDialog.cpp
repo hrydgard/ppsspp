@@ -20,9 +20,9 @@
 #include "../HLE/sceCtrl.h"
 
 #define NUMKEYROWS 4
-#define KEYSPERROW 13
-#define NUMBEROFVALIDCHARS 44
-const char oskKeys[NUMKEYROWS][KEYSPERROW] = 
+#define KEYSPERROW 12
+#define NUMBEROFVALIDCHARS (KEYSPERROW * NUMKEYROWS)
+const char oskKeys[NUMKEYROWS][KEYSPERROW + 1] =
 {
 	{'1','2','3','4','5','6','7','8','9','0','-','+','\0'}, 
 	{'Q','W','E','R','T','Y','U','I','O','P','[',']','\0'},
@@ -67,10 +67,9 @@ int PSPOskDialog::Init(u32 oskPtr)
 	memset(&oskParams, 0, sizeof(oskParams));
 	memset(&oskData, 0, sizeof(oskData));
 	// TODO: should this be init'd to oskIntext?
-	memset(inputChars, 0x00, sizeof(inputChars));
+	inputChars.clear();
 	oskParamsAddr = oskPtr;
 	selectedChar = 0;
-	currentInputChar = 0;
 
 	if (Memory::IsValidAddress(oskPtr))
 	{
@@ -87,69 +86,73 @@ int PSPOskDialog::Init(u32 oskPtr)
 		return -1;
 	}
 
+	// Eat any keys pressed before the dialog inited.
+	__CtrlReadLatch();
+
 	return 0;
 }
 
 
 void PSPOskDialog::RenderKeyboard()
 {
-	int selectedRow = selectedChar / (KEYSPERROW-1);
-	int selectedExtra = selectedChar % (KEYSPERROW-1);
-	char SelectedLine[KEYSPERROW];
+	int selectedRow = selectedChar / KEYSPERROW;
+	int selectedExtra = selectedChar % KEYSPERROW;
+
+	char temp[2];
+	temp[1] = '\0';
+
+	int limit = oskData.outtextlimit;
+	// TODO: Test more thoroughly.  Encountered a game where this was 0.
+	if (limit <= 0)
+		limit = 16;
+
+	const float keyboardLeftSide = (480.0f - (16.0f * KEYSPERROW)) / 2.0f;
+	float previewLeftSide = (480.0f - (16.0f * limit)) / 2.0f;
 
 	PPGeDrawText(oskDesc.c_str(), 480/2, 20, PPGE_ALIGN_CENTER, 0.5f, 0xFFFFFFFF);
-	for (int i=0; i<oskData.outtextlimit; i++)
+	for (int i = 0; i < limit; ++i)
 	{
-		if (inputChars[i] != 0)
+		u32 color = 0xFFFFFFFF;
+		if (i < (int) inputChars.size())
+			temp[0] = inputChars[i];
+		else if (i == inputChars.size())
 		{
-			const char aa = inputChars[i];
-			PPGeDrawText(&aa, 20 + (i*16), 40, NULL , 0.5f, 0xFFFFFFFF);
+			temp[0] = oskKeys[selectedRow][selectedExtra];
+			color = 0xFF3060FF;
 		}
 		else
-		{
-			if (currentInputChar == i)
-			{
-				char key = oskKeys[selectedRow][selectedExtra];
-				PPGeDrawText(&key, 20 + (i*16), 40, NULL , 0.5f, 0xFF3060FF);	
-			}
-			else
-			{
-				PPGeDrawText("_", 20 + (i*16), 40, NULL , 0.5f, 0xFFFFFFFF);	
-			}
-		}
-	}
-	for (int row = 0; row < NUMKEYROWS; row++)
-	{
-		if (selectedRow == row)
-		{
-			PPGeDrawText(oskKeys[row], 20, 70 + (25 * row), NULL , 0.6f, 0xFF7f7f7f);
-		}
-		else
-		{
-			PPGeDrawText(oskKeys[row], 20, 70 + (25 * row), NULL , 0.6f, 0xFFFFFFFF);
-		}
-	}
-	for (int selectedItemCounter = 0; selectedItemCounter < KEYSPERROW; selectedItemCounter++ )
-	{
-		if (selectedItemCounter!=selectedExtra)
-		{
-			SelectedLine[selectedItemCounter] = oskKeys[selectedRow][selectedItemCounter];
-		}
-		else
-		{
-			SelectedLine[selectedItemCounter] = '_';
-		}
-	}
+			temp[0] = '_';
 
-	PPGeDrawText(SelectedLine, 20, 71 + (25 * selectedRow), NULL , 0.6f, 0xFFFFFFFF);
+		PPGeDrawText(temp, previewLeftSide + (i * 16.0f), 40.0f, NULL, 0.5f, color);
+	}
+	for (int row = 0; row < NUMKEYROWS; ++row)
+	{
+		for (int col = 0; col < KEYSPERROW; ++col)
+		{
+			u32 color = 0xFFFFFFFF;
+			if (selectedRow == row && col == selectedExtra)
+				color = 0xFF7f7f7f;
+
+			temp[0] = oskKeys[row][col];
+			PPGeDrawText(temp, keyboardLeftSide + (16.0f * col), 70.0f + (25.0f * row), NULL, 0.6f, color);
+
+			if (selectedRow == row && col == selectedExtra)
+				PPGeDrawText("_", keyboardLeftSide + (16.0f * col), 70.0f + (25.0f * row), NULL, 0.6f, 0xFFFFFFFF);
+		}
+	}
 
 }
 
 void PSPOskDialog::Update()
 {
-	buttons = __CtrlPeekButtons();
-	int selectedRow = selectedChar / (KEYSPERROW-1);
-	int selectedExtra = selectedChar % (KEYSPERROW-1);
+	buttons = __CtrlReadLatch();
+	int selectedRow = selectedChar / KEYSPERROW;
+	int selectedExtra = selectedChar % KEYSPERROW;
+
+	int limit = oskData.outtextlimit;
+	// TODO: Test more thoroughly.  Encountered a game where this was 0.
+	if (limit <= 0)
+		limit = 16;
 
 	if (status == SCE_UTILITY_STATUS_INITIALIZE)
 	{
@@ -171,47 +174,37 @@ void PSPOskDialog::Update()
 
 		if (IsButtonPressed(CTRL_UP))
 		{
-			selectedChar += 10;
+			selectedChar -= KEYSPERROW;
 		}
 		else if (IsButtonPressed(CTRL_DOWN))
 		{
-			selectedChar -=10;
+			selectedChar += KEYSPERROW;
 		}
 		else if (IsButtonPressed(CTRL_LEFT))
 		{
 			selectedChar--;
+			if (((selectedChar + KEYSPERROW) % KEYSPERROW) == KEYSPERROW - 1)
+				selectedChar += KEYSPERROW;
 		}
 		else if (IsButtonPressed(CTRL_RIGHT))
 		{
 			selectedChar++;
+			if ((selectedChar % KEYSPERROW) == 0)
+				selectedChar -= KEYSPERROW;
 		}
 
-		if (selectedChar < 0)
-		{
-			selectedChar = NUMBEROFVALIDCHARS;
-		}
-		if (selectedChar > NUMBEROFVALIDCHARS)
-		{
-			selectedChar = 0;
-		}
+		selectedChar = (selectedChar + NUMBEROFVALIDCHARS) % NUMBEROFVALIDCHARS;
 
 		// TODO : Dialogs should take control over input and not send them to the game while displaying
 		if (IsButtonPressed(CTRL_CROSS))
 		{
-			if (currentInputChar < oskData.outtextlimit)
-			{
-				inputChars[currentInputChar]= oskKeys[selectedRow][selectedExtra];
-				currentInputChar++;
-			}
-			else
-			{
-				currentInputChar = oskData.outtextlimit; // just in case
-			}
+			if ((int) inputChars.size() < limit)
+				inputChars += oskKeys[selectedRow][selectedExtra];
 		}
 		else if (IsButtonPressed(CTRL_CIRCLE))
 		{
-			inputChars[currentInputChar] = 0x00;
-			currentInputChar--;
+			if (inputChars.size() > 0)
+				inputChars.resize(inputChars.size() - 1);
 		}
 		else if (IsButtonPressed(CTRL_START))
 		{
@@ -224,12 +217,15 @@ void PSPOskDialog::Update()
 		status = SCE_UTILITY_STATUS_SHUTDOWN;
 	}
 
-	for (int i=0; i<oskData.outtextlimit; i++)
+	for (int i = 0; i < limit; ++i)
 	{
-		Memory::Write_U16(0x0000^inputChars[i],oskData.outtextPtr + (2*i));
+		u16 value = 0;
+		if (i < (int) inputChars.size())
+			value = 0x0000 ^ inputChars[i];
+		Memory::Write_U16(value, oskData.outtextPtr + (2 * i));
 	}
 
-	oskData.outtextlength = currentInputChar;
+	oskData.outtextlength = inputChars.size();
 	oskParams.base.result= 0;
 	oskData.result = PSP_UTILITY_OSK_RESULT_CHANGED;
 	Memory::WriteStruct(oskParams.SceUtilityOskDataPtr, &oskData);
