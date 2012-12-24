@@ -23,6 +23,12 @@ static const int modeBpp[4] = { 2, 2, 2, 4 };
 
 void MediaEngine::writeVideoImage(u32 bufferPtr, int frameWidth, int videoPixelMode)
 {
+	if (videoPixelMode > (sizeof(modeBpp) / sizeof(modeBpp[0])) || videoPixelMode < 0)
+	{
+		ERROR_LOG(ME, "Unexpected videoPixelMode %d, using 0 instead.", videoPixelMode);
+		videoPixelMode = 0;
+	}
+
 	int bpp = modeBpp[videoPixelMode];
 
 	// fake image. To be improved.
