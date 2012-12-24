@@ -47,8 +47,8 @@ int PSPSaveDialog::Init(int paramAddr)
 
 	u32 retval = param.SetPspParam(&request);
 
-	DEBUG_LOG(HLE,"sceUtilitySavedataInitStart(%08x)", paramAddr);
-	DEBUG_LOG(HLE,"Mode: %i", param.GetPspParam()->mode);
+	INFO_LOG(HLE,"sceUtilitySavedataInitStart(%08x)", paramAddr);
+	INFO_LOG(HLE,"Mode: %i", param.GetPspParam()->mode);
 
 	switch(param.GetPspParam()->mode)
 	{
