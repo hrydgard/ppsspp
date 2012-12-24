@@ -19,3 +19,6 @@
 
 void Register_scePsmf();
 void Register_scePsmfPlayer();
+
+void __PsmfInit();
+void __PsmfShutdown();
