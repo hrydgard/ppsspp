@@ -36,6 +36,11 @@ const int PSP_LANGUAGE_SIMPLIFIED_CHINESE = 11;
 static u32 iLanguage = PSP_LANGUAGE_ENGLISH;
 static u32 iButtonValue = 0;
 
+void __ImposeInit()
+{
+	iLanguage = PSP_LANGUAGE_ENGLISH;
+	iButtonValue = 0;
+}
 
 u32 sceImposeGetBatteryIconStatus(u32 chargingPtr, u32 iconStatusPtr)
 {

@@ -18,3 +18,5 @@
 #pragma once
 
 void Register_sceUsb();
+
+void __UsbInit();

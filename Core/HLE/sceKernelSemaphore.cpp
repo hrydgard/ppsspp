@@ -61,13 +61,11 @@ struct Semaphore : public KernelObject
 	std::vector<SceUID> waitingThreads;
 };
 
-bool semaInitComplete = false;
-int semaWaitTimer = 0;
+static int semaWaitTimer = 0;
 
 void __KernelSemaInit()
 {
 	semaWaitTimer = CoreTiming::RegisterEvent("SemaphoreTimeout", &__KernelSemaTimeout);
-	semaInitComplete = true;
 }
 
 // Returns whether the thread should be removed.
@@ -173,9 +171,6 @@ int sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr)
 //SceUID sceKernelCreateSema(const char *name, SceUInt attr, int initVal, int maxVal, SceKernelSemaOptParam *option);
 int sceKernelCreateSema(const char* name, u32 attr, int initVal, int maxVal, u32 optionPtr)
 {
-	if (!semaInitComplete)
-		__KernelSemaInit();
-
 	if (!name)
 	{
 		WARN_LOG(HLE, "%08x=sceKernelCreateSema(): invalid name", SCE_KERNEL_ERROR_ERROR);

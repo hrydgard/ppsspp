@@ -191,6 +191,8 @@ GLES_GPU::~GLES_GPU()
 		delete (*iter);
 	}
 	vfbs_.clear();
+
+	delete flushBeforeCommand;
 }
 
 void GLES_GPU::InitClear()

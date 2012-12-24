@@ -90,13 +90,11 @@ enum PspEventFlagWaitTypes
 	PSP_EVENT_WAITKNOWN = PSP_EVENT_WAITCLEAR | PSP_EVENT_WAITCLEARALL | PSP_EVENT_WAITOR,
 };
 
-bool eventFlagInitComplete = false;
 int eventFlagWaitTimer = 0;
 
 void __KernelEventFlagInit()
 {
 	eventFlagWaitTimer = CoreTiming::RegisterEvent("EventFlagTimeout", &__KernelEventFlagTimeout);
-	eventFlagInitComplete = true;
 }
 
 bool __KernelEventFlagMatches(u32 *pattern, u32 bits, u8 wait, u32 outAddr)
@@ -168,9 +166,6 @@ bool __KernelClearEventFlagThreads(EventFlag *e, int reason)
 //SceUID sceKernelCreateEventFlag(const char *name, int attr, int bits, SceKernelEventFlagOptParam *opt);
 int sceKernelCreateEventFlag(const char *name, u32 flag_attr, u32 flag_initPattern, u32 optPtr)
 {
-	if (!eventFlagInitComplete)
-		__KernelEventFlagInit();
-
 	if (!name)
 	{
 		WARN_LOG(HLE, "%08x=sceKernelCreateEventFlag(): invalid name", SCE_KERNEL_ERROR_ERROR);

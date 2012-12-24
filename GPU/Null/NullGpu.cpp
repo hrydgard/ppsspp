@@ -46,6 +46,17 @@ static bool finished;
 
 static int dlIdGenerator = 1;
 
+NullGPU::NullGPU()
+{
+	interruptsEnabled_ = true;
+	dlIdGenerator = 1;
+}
+
+NullGPU::~NullGPU()
+{
+	dlQueue.clear();
+}
+
 bool NullGPU::ProcessDLQueue()
 {
 	std::vector<DisplayList>::iterator iter = dlQueue.begin();

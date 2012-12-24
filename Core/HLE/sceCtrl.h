@@ -33,6 +33,7 @@ void Register_sceCtrl();
 #define CTRL_RTRIGGER   0x0200
 
 void __CtrlInit();
+void __CtrlShutdown();
 
 void __CtrlButtonDown(u32 buttonBit);
 void __CtrlButtonUp(u32 buttonBit);

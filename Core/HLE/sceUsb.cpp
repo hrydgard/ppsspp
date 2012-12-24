@@ -22,6 +22,11 @@
 
 bool usbActivated = false;
 
+void __UsbInit()
+{
+	usbActivated = false;
+}
+
 u32 sceUsbActivate() {
 	ERROR_LOG(HLE, "UNIMPL sceUsbActivate");
 	usbActivated = true;

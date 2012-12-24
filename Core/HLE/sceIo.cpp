@@ -84,7 +84,7 @@ const std::string &EmuDebugOutput() {
 
 typedef u32 (*DeferredAction)(SceUID id, int param);
 DeferredAction defAction = 0;
-u32 defParam;
+u32 defParam = 0;
 
 #define SCE_STM_FDIR 0x1000
 #define SCE_STM_FREG 0x2000
@@ -154,6 +154,8 @@ public:
 void __IoInit() {
 	INFO_LOG(HLE, "Starting up I/O...");
 
+	MemoryStick_SetFatState(PSP_FAT_MEMORYSTICK_STATE_ASSIGNED);
+
 #ifdef _WIN32
 
 	char path_buffer[_MAX_PATH], drive[_MAX_DRIVE] ,dir[_MAX_DIR], file[_MAX_FNAME], ext[_MAX_EXT];
@@ -192,6 +194,8 @@ void __IoInit() {
 }
 
 void __IoShutdown() {
+	defAction = 0;
+	defParam = 0;
 }
 
 u32 sceIoAssign(const char *aliasname, const char *physname, const char *devname, u32 flag) {
