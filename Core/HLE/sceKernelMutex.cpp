@@ -107,7 +107,6 @@ struct LwMutex : public KernelObject
 	std::vector<SceUID> waitingThreads;
 };
 
-bool mutexInitComplete = false;
 int mutexWaitTimer = 0;
 int lwMutexWaitTimer = 0;
 // Thread -> Mutex locks for thread end.
@@ -119,12 +118,7 @@ void __KernelMutexInit()
 	mutexWaitTimer = CoreTiming::RegisterEvent("MutexTimeout", &__KernelMutexTimeout);
 	lwMutexWaitTimer = CoreTiming::RegisterEvent("LwMutexTimeout", &__KernelLwMutexTimeout);
 
-	// TODO: Install on first mutex (if it's slow?)
 	__KernelListenThreadEnd(&__KernelMutexThreadEnd);
-
-	mutexInitComplete = true;
-	mutexWaitTimer = 0;
-	lwMutexWaitTimer = 0;
 }
 
 void __KernelMutexShutdown()
@@ -191,9 +185,6 @@ std::vector<SceUID>::iterator __KernelMutexFindPriority(std::vector<SceUID> &wai
 
 int sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optionsPtr)
 {
-	if (!mutexInitComplete)
-		__KernelMutexInit();
-
 	if (!name)
 	{
 		WARN_LOG(HLE, "%08x=sceKernelCreateMutex(): invalid name", SCE_KERNEL_ERROR_ERROR);
@@ -507,9 +498,6 @@ int sceKernelUnlockMutex(SceUID id, int count)
 
 int sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int initialCount, u32 optionsPtr)
 {
-	if (!mutexInitComplete)
-		__KernelMutexInit();
-
 	if (!name)
 	{
 		WARN_LOG(HLE, "%08x=sceKernelCreateLwMutex(): invalid name", SCE_KERNEL_ERROR_ERROR);
