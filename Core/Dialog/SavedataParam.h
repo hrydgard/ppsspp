@@ -152,6 +152,8 @@ public:
 	std::string GetSaveName(SceUtilitySavedataParam* param);
 	std::string GetFileName(SceUtilitySavedataParam* param);
 
+	static std::string GetSpaceText(int size);
+
 	SavedataParam();
 
 	u32 SetPspParam(SceUtilitySavedataParam* param);

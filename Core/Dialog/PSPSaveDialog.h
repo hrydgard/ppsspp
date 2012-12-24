@@ -102,6 +102,8 @@ private :
 	DisplayState display;
 
 	SavedataParam param;
+	SceUtilitySavedataParam request;
+	int requestAddr;
 	int currentSelectedSave;
 
 	int yesnoChoice;

@@ -160,6 +160,11 @@ void Memcpy(const u32 address, const void *data, const u32 len)
 	memcpy(GetPointer(address), data, len);
 }
 
+void Memcpy(void *data, const u32 address, const u32 len)
+{
+	memcpy(data,GetPointer(address),len);
+}
+
 void GetString(std::string& _string, const u32 em_address)
 {
 	char stringBuffer[2048];
