@@ -236,7 +236,10 @@ void __MpegInit(bool useMediaEngine_) {
 void __MpegShutdown() {
 	std::map<u32, MpegContext *>::iterator it, end;
 	for (it = mpegMap.begin(), end = mpegMap.end(); it != end; ++it)
+	{
+		delete it->second->mediaengine;
 		delete it->second;
+	}
 	mpegMap.clear();
 }
 
@@ -384,7 +387,11 @@ u32 sceMpegQueryStreamSize(u32 bufferAddr, u32 sizeAddr)
 	DEBUG_LOG(HLE, "sceMpegQueryStreamSize(%08x, %08x)", bufferAddr, sizeAddr);
 
 	MpegContext temp;
+	temp.mediaengine = new MediaEngine();
+
 	AnalyzeMpeg(bufferAddr, &temp);
+
+	delete temp.mediaengine;
 
 	if (temp.mpegMagic != PSMF_MAGIC) {
 		ERROR_LOG(HLE, "sceMpegQueryStreamOffset: Bad PSMF magic");
