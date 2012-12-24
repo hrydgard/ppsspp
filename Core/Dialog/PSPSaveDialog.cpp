@@ -38,10 +38,19 @@ u32 PSPSaveDialog::Init(int paramAddr)
 	{
 		return 0;
 	}
-	u32 retval = param.SetPspParam((SceUtilitySavedataParam*)Memory::GetPointer(paramAddr));
+
+	int size = Memory::Read_U32(paramAddr);
+	memset(&request,0,sizeof(request));
+	// Only copy the right size to support different save request format
+	Memory::Memcpy(&request,paramAddr,size);
+	requestAddr = paramAddr;
+
+	u32 retval = param.SetPspParam(&request);
+
+	DEBUG_LOG(HLE,"sceUtilitySavedataInitStart(%08x)", paramAddr);
 	DEBUG_LOG(HLE,"Mode: %i", param.GetPspParam()->mode);
 
-	switch (param.GetPspParam()->mode)
+	switch(param.GetPspParam()->mode)
 	{
 		case SCE_UTILITY_SAVEDATA_TYPE_AUTOLOAD:
 		case SCE_UTILITY_SAVEDATA_TYPE_LOAD:
@@ -311,6 +320,8 @@ void PSPSaveDialog::Update()
 	switch (status) {
 	case SCE_UTILITY_STATUS_FINISHED:
 		status = SCE_UTILITY_STATUS_SHUTDOWN;
+		break;
+	default:
 		break;
 	}
 
@@ -632,7 +643,6 @@ void PSPSaveDialog::Update()
 					else
 						param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_LOAD_NO_DATA;
 					status = SCE_UTILITY_STATUS_FINISHED;
-					return;
 				break;
 				case SCE_UTILITY_SAVEDATA_TYPE_SAVE: // Only save and exit
 				case SCE_UTILITY_SAVEDATA_TYPE_AUTOSAVE:
@@ -641,34 +651,39 @@ void PSPSaveDialog::Update()
 					else
 						param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_SAVE_MS_NOSPACE;
 					status = SCE_UTILITY_STATUS_FINISHED;
-					return;
 				break;
 				case SCE_UTILITY_SAVEDATA_TYPE_SIZES:
-					param.GetSizes(param.GetPspParam());
-					param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_SIZES_NO_DATA;
+					if(param.GetSizes(param.GetPspParam()))
+					{
+						param.GetPspParam()->result = 0;
+					}
+					else
+					{
+						param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_SIZES_NO_DATA;
+					}
 					status = SCE_UTILITY_STATUS_FINISHED;
-					return;
 				case SCE_UTILITY_SAVEDATA_TYPE_LIST:
 					param.GetList(param.GetPspParam());
 					param.GetPspParam()->result = 0;
 					status = SCE_UTILITY_STATUS_FINISHED;
-					return;
 				default:
 					status = SCE_UTILITY_STATUS_FINISHED;
-					return;
 				break;
 			}
 		}
 		break;
 		default:
 			status = SCE_UTILITY_STATUS_FINISHED;
-			return;
 		break;
 	}
 
 	lastButtons = buttons;
 
-
+	if(status == SCE_UTILITY_STATUS_FINISHED)
+	{
+		Memory::Memcpy(requestAddr,&request,request.size);
+	}
+	
 }
 
 void PSPSaveDialog::Shutdown()
