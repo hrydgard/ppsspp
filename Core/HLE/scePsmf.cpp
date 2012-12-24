@@ -164,7 +164,8 @@ Psmf::Psmf(u32 data) {
 
 std::map<u32, Psmf *> psmfMap;
 
-Psmf *getPsmf(u32 psmf) {
+Psmf *getPsmf(u32 psmf)
+{
 	auto iter = psmfMap.find(psmf);
 	if (iter != psmfMap.end())
 		return iter->second;
@@ -172,22 +173,32 @@ Psmf *getPsmf(u32 psmf) {
 		return 0;
 }
 
+void __PsmfInit()
+{
+}
+
+void __PsmfShutdown()
+{
+	for (auto it = psmfMap.begin(), end = psmfMap.end(); it != end; ++it)
+		delete it->second;
+	psmfMap.clear();
+}
 
 u32 scePsmfSetPsmf(u32 psmfStruct, u32 psmfData)
 {
-  INFO_LOG(HLE, "scePsmfSetPsmf(%08x, %08x)", psmfStruct, psmfData);
+	INFO_LOG(HLE, "scePsmfSetPsmf(%08x, %08x)", psmfStruct, psmfData);
 
 	Psmf *psmf = new Psmf(psmfData);
 	psmfMap[psmfStruct] = psmf;
 
-  PsmfData data = {0};
-  data.version = psmf->version;
-  data.headerSize = 0x800;
+	PsmfData data = {0};
+	data.version = psmf->version;
+	data.headerSize = 0x800;
 	data.streamSize = psmf->streamSize;
 	data.streamNum = psmf->numStreams;
 	data.headerOffset = psmf->headerOffset;
-  Memory::WriteStruct(psmfStruct, &data);
-  return 0;
+	Memory::WriteStruct(psmfStruct, &data);
+	return 0;
 }
 
 u32 scePsmfGetNumberOfStreams(u32 psmfStruct)
@@ -197,8 +208,8 @@ u32 scePsmfGetNumberOfStreams(u32 psmfStruct)
 		ERROR_LOG(HLE, "scePsmfGetNumberOfStreams - invalid psmf");
 		return ERROR_PSMF_NOT_FOUND;
 	}
-  INFO_LOG(HLE, "%i=scePsmfGetNumberOfStreams(%08x)", psmf->getNumStreams(), psmf);
-  return psmf->getNumStreams();
+	INFO_LOG(HLE, "%i=scePsmfGetNumberOfStreams(%08x)", psmf->getNumStreams(), psmf);
+	return psmf->getNumStreams();
 }
 
 u32 scePsmfGetNumberOfSpecificStreams(u32 psmfStruct, u32 streamType)
@@ -208,14 +219,14 @@ u32 scePsmfGetNumberOfSpecificStreams(u32 psmfStruct, u32 streamType)
 		ERROR_LOG(HLE, "scePsmfGetNumberOfSpecificStreams - invalid psmf");
 		return ERROR_PSMF_NOT_FOUND;
 	}
-  INFO_LOG(HLE, "scePsmfGetNumberOfSpecificStreams(%08x, %08x)", psmfStruct, streamType);
-  return 1;
+	INFO_LOG(HLE, "scePsmfGetNumberOfSpecificStreams(%08x, %08x)", psmfStruct, streamType);
+	return 1;
 }
 
 u32 scePsmfSpecifyStreamWithStreamType(u32 psmfStruct, u32 streamType, u32 channel)
 {
-  ERROR_LOG(HLE, "UNIMPL scePsmfSpecifyStreamWithStreamType(%08x, %08x, %i)", psmfStruct, streamType, channel);
-  return 0;
+	ERROR_LOG(HLE, "UNIMPL scePsmfSpecifyStreamWithStreamType(%08x, %08x, %i)", psmfStruct, streamType, channel);
+	return 0;
 }
 
 u32 scePsmfSpecifyStreamWithStreamTypeNumber(u32 psmfStruct, u32 streamType, u32 typeNum)
@@ -226,7 +237,7 @@ u32 scePsmfSpecifyStreamWithStreamTypeNumber(u32 psmfStruct, u32 streamType, u32
 
 u32 scePsmfGetVideoInfo(u32 psmfStruct, u32 videoInfoAddr)
 {
-  INFO_LOG(HLE, "scePsmfGetVideoInfo(%08x, %08x)", psmfStruct, videoInfoAddr);
+	INFO_LOG(HLE, "scePsmfGetVideoInfo(%08x, %08x)", psmfStruct, videoInfoAddr);
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
 		ERROR_LOG(HLE, "scePsmfGetNumberOfSpecificStreams - invalid psmf");
@@ -236,12 +247,12 @@ u32 scePsmfGetVideoInfo(u32 psmfStruct, u32 videoInfoAddr)
 		Memory::Write_U32(psmf->videoWidth, videoInfoAddr);
 		Memory::Write_U32(psmf->videoWidth, videoInfoAddr + 4);
 	}
-  return 0;
+	return 0;
 }
 
 u32 scePsmfGetAudioInfo(u32 psmfStruct, u32 audioInfoAddr)
 {
-  INFO_LOG(HLE, "scePsmfGetAudioInfo(%08x, %08x)", psmfStruct, audioInfoAddr);
+	INFO_LOG(HLE, "scePsmfGetAudioInfo(%08x, %08x)", psmfStruct, audioInfoAddr);
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
 		ERROR_LOG(HLE, "scePsmfGetNumberOfSpecificStreams - invalid psmf");
@@ -251,31 +262,31 @@ u32 scePsmfGetAudioInfo(u32 psmfStruct, u32 audioInfoAddr)
 		Memory::Write_U32(psmf->audioChannels, audioInfoAddr);
 		Memory::Write_U32(psmf->audioFrequency, audioInfoAddr + 4);
 	}
-  return 0;
+	return 0;
 }
 
 
 const HLEFunction scePsmf[] =
 {
-  {0xc22c8327,&WrapU_UU<scePsmfSetPsmf>,"scePsmfSetPsmfFunction"},
-  {0xC7DB3A5B,0,"scePsmfGetCurrentStreamTypeFunction"},
-  {0x28240568,0,"scePsmfGetCurrentStreamNumberFunction"},
-  {0x1E6D9013,&WrapU_UUU<scePsmfSpecifyStreamWithStreamType>,"scePsmfSpecifyStreamWithStreamTypeFunction"},
+	{0xc22c8327,&WrapU_UU<scePsmfSetPsmf>,"scePsmfSetPsmfFunction"},
+	{0xC7DB3A5B,0,"scePsmfGetCurrentStreamTypeFunction"},
+	{0x28240568,0,"scePsmfGetCurrentStreamNumberFunction"},
+	{0x1E6D9013,&WrapU_UUU<scePsmfSpecifyStreamWithStreamType>,"scePsmfSpecifyStreamWithStreamTypeFunction"},
 	{0x0C120E1D,&WrapU_UUU<scePsmfSpecifyStreamWithStreamTypeNumber>,"scePsmfSpecifyStreamWithStreamTypeNumberFunction"},
 	{0x4BC9BDE0,0,"scePsmfSpecifyStreamFunction"},
-  {0x76D3AEBA,0,"scePsmfGetPresentationStartTimeFunction"},
-  {0xBD8AE0D8,0,"scePsmfGetPresentationEndTimeFunction"},
-  {0xEAED89CD,&WrapU_U<scePsmfGetNumberOfStreams>,"scePsmfGetNumberOfStreamsFunction"},
-  {0x7491C438,0,"scePsmfGetNumberOfEPentriesFunction"},
-  {0x0BA514E5,&WrapU_UU<scePsmfGetVideoInfo>,"scePsmfGetVideoInfoFunction"},
-  {0xA83F7113,&WrapU_UU<scePsmfGetAudioInfo>,"scePsmfGetAudioInfoFunction"},
-  {0x971A3A90,0,"scePsmfCheckEPmapFunction"},
-  {0x68d42328,&WrapU_UU<scePsmfGetNumberOfSpecificStreams>,"scePsmfGetNumberOfSpecificStreamsFunction"},
-  {0x5b70fcc1,0,"scePsmfQueryStreamOffsetFunction"},
-  {0x9553cc91,0,"scePsmfQueryStreamSizeFunction"},
-  {0xc7db3a5b,0,"scePsmfGetCurrentStreamTypeFunction"},
-  {0xB78EB9E9,0,"scePsmfGetHeaderSizeFunction"},
-  {0xA5EBFE81,0,"scePsmfGetStreamSizeFunction"},
+	{0x76D3AEBA,0,"scePsmfGetPresentationStartTimeFunction"},
+	{0xBD8AE0D8,0,"scePsmfGetPresentationEndTimeFunction"},
+	{0xEAED89CD,&WrapU_U<scePsmfGetNumberOfStreams>,"scePsmfGetNumberOfStreamsFunction"},
+	{0x7491C438,0,"scePsmfGetNumberOfEPentriesFunction"},
+	{0x0BA514E5,&WrapU_UU<scePsmfGetVideoInfo>,"scePsmfGetVideoInfoFunction"},
+	{0xA83F7113,&WrapU_UU<scePsmfGetAudioInfo>,"scePsmfGetAudioInfoFunction"},
+	{0x971A3A90,0,"scePsmfCheckEPmapFunction"},
+	{0x68d42328,&WrapU_UU<scePsmfGetNumberOfSpecificStreams>,"scePsmfGetNumberOfSpecificStreamsFunction"},
+	{0x5b70fcc1,0,"scePsmfQueryStreamOffsetFunction"},
+	{0x9553cc91,0,"scePsmfQueryStreamSizeFunction"},
+	{0xc7db3a5b,0,"scePsmfGetCurrentStreamTypeFunction"},
+	{0xB78EB9E9,0,"scePsmfGetHeaderSizeFunction"},
+	{0xA5EBFE81,0,"scePsmfGetStreamSizeFunction"},
 	{0xE1283895,0,"scePsmfGetPsmfVersionFunction"},
 };
 
@@ -292,29 +303,29 @@ void scePsmfPlayerReleasePsmf() {
 
 const HLEFunction scePsmfPlayer[] =
 {
-  {0x235d8787,scePsmfPlayerCreate,"scePsmfPlayerCreateFunction"},
-  {0x1078c008,0,"scePsmfPlayerStopFunction"},
-  {0x1e57a8e7,0,"scePsmfPlayerConfigPlayer"},
-  {0x2beb1569,0,"scePsmfPlayerBreak"},
-  {0x3d6d25a9,0,"scePsmfPlayerSetPsmfFunction"},
-  {0x3ea82a4b,0,"scePsmfPlayerGetAudioOutSize"},
-  {0x3ed62233,0,"scePsmfPlayerGetCurrentPts"},
-  {0x46f61f8b,0,"scePsmfPlayerGetVideoData"},
-  {0x68f07175,0,"scePsmfPlayerGetCurrentAudioStream"},
-  {0x75f03fa2,0,"scePsmfPlayerSelectSpecificVideo"},
-  {0x85461eff,0,"scePsmfPlayerSelectSpecificAudio"},
-  {0x8a9ebdcd,0,"scePsmfPlayerSelectVideo"},
-  {0x95a84ee5,0,"scePsmfPlayerStart"},
-  {0x9b71a274,0,"scePsmfPlayerDeleteFunction"},
-  {0x9ff2b2e7,0,"scePsmfPlayerGetCurrentVideoStream"},
-  {0xa0b8ca55,0,"scePsmfPlayerUpdateFunction"},
-  {0xa3d81169,0,"scePsmfPlayerChangePlayMode"},
-  {0xb8d10c56,0,"scePsmfPlayerSelectAudio"},
-  {0xb9848a74,0,"scePsmfPlayerGetAudioData"},
-  {0xdf089680,0,"scePsmfPlayerGetPsmfInfo"},
-  {0xe792cd94,scePsmfPlayerReleasePsmf,"scePsmfPlayerReleasePsmfFunction"},
-  {0xf3efaa91,0,"scePsmfPlayerGetCurrentPlayMode"},
-  {0xf8ef08a6,0,"scePsmfPlayerGetCurrentStatus"},
+	{0x235d8787,scePsmfPlayerCreate,"scePsmfPlayerCreateFunction"},
+	{0x1078c008,0,"scePsmfPlayerStopFunction"},
+	{0x1e57a8e7,0,"scePsmfPlayerConfigPlayer"},
+	{0x2beb1569,0,"scePsmfPlayerBreak"},
+	{0x3d6d25a9,0,"scePsmfPlayerSetPsmfFunction"},
+	{0x3ea82a4b,0,"scePsmfPlayerGetAudioOutSize"},
+	{0x3ed62233,0,"scePsmfPlayerGetCurrentPts"},
+	{0x46f61f8b,0,"scePsmfPlayerGetVideoData"},
+	{0x68f07175,0,"scePsmfPlayerGetCurrentAudioStream"},
+	{0x75f03fa2,0,"scePsmfPlayerSelectSpecificVideo"},
+	{0x85461eff,0,"scePsmfPlayerSelectSpecificAudio"},
+	{0x8a9ebdcd,0,"scePsmfPlayerSelectVideo"},
+	{0x95a84ee5,0,"scePsmfPlayerStart"},
+	{0x9b71a274,0,"scePsmfPlayerDeleteFunction"},
+	{0x9ff2b2e7,0,"scePsmfPlayerGetCurrentVideoStream"},
+	{0xa0b8ca55,0,"scePsmfPlayerUpdateFunction"},
+	{0xa3d81169,0,"scePsmfPlayerChangePlayMode"},
+	{0xb8d10c56,0,"scePsmfPlayerSelectAudio"},
+	{0xb9848a74,0,"scePsmfPlayerGetAudioData"},
+	{0xdf089680,0,"scePsmfPlayerGetPsmfInfo"},
+	{0xe792cd94,scePsmfPlayerReleasePsmf,"scePsmfPlayerReleasePsmfFunction"},
+	{0xf3efaa91,0,"scePsmfPlayerGetCurrentPlayMode"},
+	{0xf8ef08a6,0,"scePsmfPlayerGetCurrentStatus"},
 	{0x2D0E4E0A,0,"scePsmfPlayerSetTempBufFunction"},
 	{0x58B83577,0,"scePsmfPlayerSetPsmfCBFunction"},
 	{0x2673646B,0,"scePsmfVerifyPsmf"},
@@ -323,9 +334,9 @@ const HLEFunction scePsmfPlayer[] =
 };
 
 void Register_scePsmf() {
-  RegisterModule("scePsmf",ARRAY_SIZE(scePsmf),scePsmf);
+	RegisterModule("scePsmf",ARRAY_SIZE(scePsmf),scePsmf);
 }
 
 void Register_scePsmfPlayer() {
-  RegisterModule("scePsmfPlayer",ARRAY_SIZE(scePsmfPlayer),scePsmfPlayer);
+	RegisterModule("scePsmfPlayer",ARRAY_SIZE(scePsmfPlayer),scePsmfPlayer);
 }
