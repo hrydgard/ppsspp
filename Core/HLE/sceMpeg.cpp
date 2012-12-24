@@ -72,9 +72,6 @@ int getMaxAheadTimestamp(const SceMpegRingBuffer &ringbuf) {
 	return std::max(40000, ringbuf.packets * 700);  // empiric value from JPCSP, thanks!
 }
 
-bool isCurrentMpegAnalyzed;
-bool fakeMode;
-
 // Internal structure
 struct AvcContext {
 	int avcDetailFrameWidth;
@@ -122,12 +119,26 @@ struct MpegContext {
 	MediaEngine *mediaengine;
 };
 
-int streamIdGen;
+static int streamIdGen;
+static bool isCurrentMpegAnalyzed;
+static bool fakeMode;
+static std::map<u32, MpegContext *> mpegMap;
+// TODO: Remove.
+static u32 lastMpegHandle = 0;
 
-// TODO: This should not be a single global, the program can potentially have multiple mpeg contexts
-MpegContext mpegCtx;
-MpegContext *getMpegCtx(u32 mpeg) {
-	return &mpegCtx;
+MpegContext *getMpegCtx(u32 mpegAddr) {
+	u32 mpeg = Memory::Read_U32(mpegAddr);
+
+	// TODO: Remove.
+	if (mpegMap.find(mpeg) == mpegMap.end())
+	{
+		ERROR_LOG(HLE, "Bad mpeg handle %08x - using last one (%08x) instead", mpeg, lastMpegHandle);
+		mpeg = lastMpegHandle;
+	}
+
+	if (mpegMap.find(mpeg) == mpegMap.end())
+		return NULL;
+	return mpegMap[mpeg];
 }
 
 u32 getMpegHandle(u32 mpeg) {
@@ -218,11 +229,15 @@ void AnalyzeMpeg(u32 buffer_addr, MpegContext *ctx) {
 void __MpegInit(bool useMediaEngine_) {
 	streamIdGen = 1;
 	fakeMode = !useMediaEngine_;
+	isCurrentMpegAnalyzed = false;
 }
 
 
 void __MpegShutdown() {
-
+	std::map<u32, MpegContext *>::iterator it, end;
+	for (it = mpegMap.begin(), end = mpegMap.end(); it != end; ++it)
+		delete it->second;
+	mpegMap.clear();
 }
 
 void sceMpegInit()
@@ -275,7 +290,9 @@ u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr, u32 f
 	Memory::Write_U32(ringbufferAddr, mpegHandle + 16);
 	Memory::Write_U32(ringbuffer.dataUpperBound, mpegHandle + 20);
 
-	MpegContext *ctx = getMpegCtx(mpegHandle);
+	MpegContext *ctx = new MpegContext;
+	mpegMap[mpegHandle] = ctx;
+	lastMpegHandle = mpegHandle;
 
 	ctx->mpegRingbufferAddr = ringbufferAddr;
 	ctx->videoFrameCount = 0;
@@ -305,9 +322,9 @@ int sceMpegDelete(u32 mpeg)
 	DEBUG_LOG(HLE, "sceMpegDelete(%08x)", mpeg);
 
 	delete ctx->mediaengine;
-	ctx->mediaengine = 0;
+	delete ctx;
+	mpegMap.erase(mpeg);
 
-	// delete ctx;  only when it's no longer a global
 	return 0;
 }
 
