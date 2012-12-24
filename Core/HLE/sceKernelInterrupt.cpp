@@ -33,35 +33,9 @@ struct Interrupt
 	PSPInterrupt intno;
 };
 
-// Yeah, this bit is a bit silly.
-static int interruptsEnabled = 1;
-static bool inInterrupt;
-
-
-void __InterruptsInit()
-{
-	interruptsEnabled = 1;
-}
-
-void __InterruptsShutdown()
-{
-}
-
-void __DisableInterrupts()
-{
-	interruptsEnabled = 0;
-}
-
-void __EnableInterrupts()
-{
-	interruptsEnabled = 1;
-}
-
-bool __InterruptsEnabled()
-{
-	return interruptsEnabled != 0;
-}
-
+void __DisableInterrupts();
+void __EnableInterrupts();
+bool __InterruptsEnabled();
 
 // InterruptsManager
 //////////////////////////////////////////////////////////////////////////
@@ -116,18 +90,6 @@ void sceKernelCpuResumeIntrWithSync(u32 enable)
 	sceKernelCpuResumeIntr(enable);
 }
 
-
-
-bool __IsInInterrupt() 
-{
-	return inInterrupt;
-}
-
-bool __CanExecuteInterrupt()
-{
-	return !inInterrupt;
-}
-
 class IntrHandler {
 public:
 	void add(int subIntrNum, SubIntrHandler *handler)
@@ -153,6 +115,13 @@ public:
 		else
 			return 0;
 		// what to do, what to do...
+	}
+	void clear()
+	{
+		std::map<int, SubIntrHandler *>::iterator it, end;
+		for (it = subIntrHandlers.begin(), end = subIntrHandlers.end(); it != end; ++it)
+			delete it->second;
+		subIntrHandlers.clear();
 	}
 
 	void queueUp(int subintr)
@@ -184,17 +153,9 @@ private:
 class InterruptState
 {
 public:
-	void save()
-	{
-		insideInterrupt = __IsInInterrupt();
-		__KernelSaveContext(&savedCpu);
-	}
-
-	void restore()
-	{
-		::inInterrupt = insideInterrupt;
-		__KernelLoadContext(&savedCpu);
-	}
+	void save();
+	void restore();
+	void clear();
 
 	bool insideInterrupt;
 	ThreadContext savedCpu;
@@ -208,6 +169,66 @@ InterruptState intState;
 IntrHandler intrHandlers[PSP_NUMBER_INTERRUPTS];
 std::list<PendingInterrupt> pendingInterrupts;
 
+// Yeah, this bit is a bit silly.
+static int interruptsEnabled = 1;
+static bool inInterrupt;
+
+
+void __InterruptsInit()
+{
+	interruptsEnabled = 1;
+	inInterrupt = false;
+	intState.clear();
+}
+
+void __InterruptsShutdown()
+{
+	for (int i = 0; i < PSP_NUMBER_INTERRUPTS; ++i)
+		intrHandlers[i].clear();
+	pendingInterrupts.clear();
+}
+
+void __DisableInterrupts()
+{
+	interruptsEnabled = 0;
+}
+
+void __EnableInterrupts()
+{
+	interruptsEnabled = 1;
+}
+
+bool __InterruptsEnabled()
+{
+	return interruptsEnabled != 0;
+}
+
+bool __IsInInterrupt()
+{
+	return inInterrupt;
+}
+
+bool __CanExecuteInterrupt()
+{
+	return !inInterrupt;
+}
+
+void InterruptState::save()
+{
+	insideInterrupt = __IsInInterrupt();
+	__KernelSaveContext(&savedCpu);
+}
+
+void InterruptState::restore()
+{
+	::inInterrupt = insideInterrupt;
+	__KernelLoadContext(&savedCpu);
+}
+
+void InterruptState::clear()
+{
+	insideInterrupt = false;
+}
 
 // http://forums.ps2dev.org/viewtopic.php?t=5687
 
