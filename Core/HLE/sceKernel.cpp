@@ -118,6 +118,8 @@ void __KernelShutdown()
 
 	__PPGeShutdown();
 
+	__CtrlShutdown();
+	__UtilityShutdown();
 	__GeShutdown();
 	__SasShutdown();
 	__AudioShutdown();

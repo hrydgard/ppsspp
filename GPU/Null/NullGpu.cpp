@@ -50,6 +50,10 @@ NullGPU::NullGPU()
 {
 	interruptsEnabled_ = true;
 	dlIdGenerator = 1;
+}
+
+NullGPU::~NullGPU()
+{
 	dlQueue.clear();
 }
 

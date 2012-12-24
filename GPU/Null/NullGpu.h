@@ -25,6 +25,7 @@ class NullGPU : public GPUInterface
 {
 public:
 	NullGPU();
+	~NullGPU();
 	virtual void InitClear() {}
 	virtual u32 EnqueueList(u32 listpc, u32 stall);
 	virtual void UpdateStall(int listid, u32 newstall);

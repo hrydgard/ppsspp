@@ -260,7 +260,6 @@ void __CtrlInit()
 {
 	ctrlTimer = CoreTiming::RegisterEvent("CtrlSampleTimer", __CtrlTimerUpdate);
 	__DisplayListenVblank(__CtrlVblank);
-	waitingThreads.clear();
 
 	ctrlIdleReset = -1;
 	ctrlIdleBack = -1;
@@ -283,6 +282,11 @@ void __CtrlInit()
 
 	for (int i = 0; i < NUM_CTRL_BUFFERS; i++)
 		memcpy(&ctrlBufs[i], &ctrlCurrent, sizeof(_ctrl_data));
+}
+
+void __CtrlShutdown()
+{
+	waitingThreads.clear();
 }
 
 u32 sceCtrlSetSamplingCycle(u32 cycle)

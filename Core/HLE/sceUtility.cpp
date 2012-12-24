@@ -36,12 +36,15 @@ PSPPlaceholderDialog netDialog;
 
 void __UtilityInit()
 {
+	SavedataParam::Init();
+}
+
+void __UtilityShutdown()
+{
 	saveDialog.Shutdown();
 	msgDialog.Shutdown();
 	oskDialog.Shutdown();
 	netDialog.Shutdown();
-
-	SavedataParam::Init();
 }
 
 int sceUtilitySavedataInitStart(u32 paramAddr)
