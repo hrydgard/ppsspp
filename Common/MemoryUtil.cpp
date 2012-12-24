@@ -115,7 +115,11 @@ void* AllocateMemoryPages(size_t size)
 #ifdef _WIN32
 	void* ptr = VirtualAlloc(0, size, MEM_COMMIT, PAGE_READWRITE);
 #else
-	void* ptr = mmap(0, size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
+	void* ptr = mmap(0, size, PROT_READ | PROT_WRITE,
+#ifndef __SYMBIAN32__
+		MAP_ANON |
+#endif
+		MAP_PRIVATE, -1, 0);
 #endif
 
 	// printf("Mapped memory at %p (size %ld)\n", ptr,
