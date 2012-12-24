@@ -265,9 +265,9 @@ u32 sceMpegRingbufferConstruct(u32 ringbufferAddr, u32 numPackets, u32 data, u32
 
 u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr, u32 frameWidth, u32 mode, u32 ddrTop)
 {
-	INFO_LOG(HLE, "sceMpegCreate(%i, %08x, %i, %08x, %i, %i, %i)",
-		mpegAddr, dataPtr, size, ringbufferAddr, frameWidth, mode, ddrTop);
 	if (size < MPEG_MEMSIZE) {
+		WARN_LOG(HLE, "ERROR_MPEG_NO_MEMORY=sceMpegCreate(%08x, %08x, %i, %08x, %i, %i, %i)",
+			mpegAddr, dataPtr, size, ringbufferAddr, frameWidth, mode, ddrTop);
 		return ERROR_MPEG_NO_MEMORY;
 	}
 
@@ -308,6 +308,9 @@ u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr, u32 f
 	// Detailed "analysis" is done later in Query* for some reason.
 	ctx->isAnalyzed = false;
 	ctx->mediaengine = new MediaEngine();
+
+	INFO_LOG(HLE, "%08x=sceMpegCreate(%08x, %08x, %i, %08x, %i, %i, %i)",
+		mpegHandle, mpegAddr, dataPtr, size, ringbufferAddr, frameWidth, mode, ddrTop);
 	return 0;
 }
 
@@ -619,10 +622,10 @@ void sceMpegAvcDecodeStopYCbCr()
 	RETURN(0);
 }
 
-void sceMpegAvcDecodeYCbCr()
+int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initAddr)
 {
-	WARN_LOG(HLE, "HACK sceMpegAvcDecodeYCbCr(...)");
-	RETURN(0);
+	WARN_LOG(HLE, "HACK sceMpegAvcDecodeYCbCr(%08x, %08x, %08x, %08x)", mpeg, auAddr, bufferAddr, initAddr);
+	return 0;
 }
 
 u32 sceMpegAvcDecodeFlush(u32 mpeg)
@@ -969,7 +972,7 @@ const HLEFunction sceMpeg[] =
 	{0xd7a29f46,WrapU_I<sceMpegRingbufferQueryMemSize>,"sceMpegRingbufferQueryMemSize"},
 	{0x769BEBB6,sceMpegRingbufferQueryPackNum,"sceMpegRingbufferQueryPackNum"},
 	{0x211a057c,WrapI_UUUUU<sceMpegAvcQueryYCbCrSize>,"sceMpegAvcQueryYCbCrSize"},
-	{0xf0eb1125,sceMpegAvcDecodeYCbCr,"sceMpegAvcDecodeYCbCr"},
+	{0xf0eb1125,WrapI_UUUU<sceMpegAvcDecodeYCbCr>,"sceMpegAvcDecodeYCbCr"},
 	{0xf2930c9c,sceMpegAvcDecodeStopYCbCr,"sceMpegAvcDecodeStopYCbCr"},
 	{0x67179b1b,sceMpegAvcInitYCbCr,"sceMpegAvcInitYCbCr"},
 	{0x0558B075,sceMpegAvcCopyYCbCr,"sceMpegAvcCopyYCbCr"},
