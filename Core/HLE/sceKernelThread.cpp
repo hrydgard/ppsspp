@@ -1317,7 +1317,8 @@ Thread *__KernelCreateThread(SceUID &id, SceUID moduleId, const char *name, u32 
 		t->nt.gpreg = 0;  // sceKernelStartThread will take care of this.
 	t->moduleId = moduleId;
 
-	strncpy(t->nt.name, name, 32);
+	strncpy(t->nt.name, name, KERNELOBJECT_MAX_NAME_LENGTH);
+	t->nt.name[KERNELOBJECT_MAX_NAME_LENGTH] = '\0';
 	return t;
 }
 
@@ -1346,6 +1347,27 @@ void __KernelSetupRootThread(SceUID moduleID, int args, const char *argp, int pr
 
 int sceKernelCreateThread(const char *threadName, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr)
 {
+	if (threadName == NULL)
+	{
+		ERROR_LOG(HLE, "SCE_KERNEL_ERROR_ERROR = sceKernelCreateThread(): NULL name");
+		return SCE_KERNEL_ERROR_ERROR;
+	}
+
+	// TODO: PSP actually fails for many of these cases, but trying for compat.
+	if (stacksize < 0x200 || stacksize >= 0x20000000)
+	{
+		WARN_LOG(HLE, "sceKernelCreateThread(name=\"%s\"): bogus stack size %08x, using 0x4000", threadName, stacksize);
+		stacksize = 0x4000;
+	}
+	if (prio < 0x08 || prio > 0x77)
+		WARN_LOG(HLE, "sceKernelCreateThread(name=\"%s\"): bogus priority %08x", threadName, prio);
+	if (!Memory::IsValidAddress(entry))
+		WARN_LOG(HLE, "sceKernelCreateThread(name=\"%s\"): invalid entry %08x", threadName, entry);
+
+	// We're assuming all threads created are user threads.
+	if ((attr & PSP_THREAD_ATTR_KERNEL) == 0)
+		attr |= PSP_THREAD_ATTR_USER;
+
 	SceUID id;
 	__KernelCreateThread(id, curModule, threadName, entry, prio, stacksize, attr);
 	INFO_LOG(HLE, "%i = sceKernelCreateThread(name=\"%s\", entry=%08x, prio=%x, stacksize=%i)", id, threadName, entry, prio, stacksize);
