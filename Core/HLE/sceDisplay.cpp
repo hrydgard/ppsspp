@@ -63,12 +63,12 @@ static bool framebufIsLatched;
 static int enterVblankEvent = -1;
 static int leaveVblankEvent = -1;
 
-static int hCount = 0;
-static int hCountTotal = 0; //unused
-static int vCount = 0;
-static int isVblank = 0;
-static bool hasSetMode = false;
-double lastFrameTime = 0;
+static int hCount;
+static int hCountTotal; //unused
+static int vCount;
+static int isVblank;
+static bool hasSetMode;
+double lastFrameTime;
 
 // STATE END
 
@@ -110,12 +110,18 @@ void __DisplayInit()
 	CoreTiming::ScheduleEvent(msToCycles(frameMs - vblankMs), enterVblankEvent, 0);
 	isVblank = 0;
 	vCount = 0;
+	hCount = 0;
+	hCountTotal = 0;
+	hasSetMode = false;
+	lastFrameTime = 0;
 
 	InitGfxState();
 }
 
 void __DisplayShutdown()
 {
+	vblankListeners.clear();
+	vblankWaitingThreads.clear();
 	ShutdownGfxState();
 }
 

@@ -49,7 +49,9 @@ tests_good = [
   "cpu/fpu/fpu",
 
   "ctrl/ctrl",
+  "ctrl/idle/idle",
   "ctrl/sampling/sampling",
+  "ctrl/sampling2/sampling2",
   "display/display",
   "dmac/dmactest",
   "loader/bss/bss",

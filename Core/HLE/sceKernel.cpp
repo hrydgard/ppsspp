@@ -77,6 +77,7 @@ void __KernelInit()
 
 	__KernelMemoryInit();
 	__KernelThreadingInit();
+	__KernelMutexInit();
 	__IoInit();
 	__AudioInit();
 	__SasInit();
@@ -115,6 +116,7 @@ void __KernelShutdown()
 	__IoShutdown();
 	__InterruptsShutdown();
 	__KernelThreadingShutdown();
+	__KernelMutexShutdown();
 	__KernelMemoryShutdown();
 
 	CoreTiming::ClearPendingEvents();

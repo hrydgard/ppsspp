@@ -43,6 +43,9 @@ Of course in-tree builds are supported, but that makes cleanup
 harder to do; with out-of-tree builds you can just remove the
 `build` directory.
 
+Note: There is also a Qt frontend available. Simply compile
+PPSSPPQt.pro from [QtCreator][qt-creator].
+
 Building for Linux/BSD/etc
 --------------------------
 
@@ -51,7 +54,9 @@ Install the libsdl1.2 (SDL 1.2) development headers. This is called
 `sdl12` on BSD ports.
 
 Currently the user interface is identical to Android's, operated
-with the mouse. A Qt-based interface is planned.
+with the mouse.
+
+Alternatively, a Qt-based frontend is available in the Qt/ dir.
 
 Building for OSX
 ----------------
@@ -92,10 +97,7 @@ other than Microsoft's, but `NMake Makefiles` works fine.
 Building for Blackberry
 -----------------------
 
-To build for Blackberry, you must first have the latest Native SDK installed
-from developer.blackberry.com/native and have compiled the SDL port available
-from github.com/blackberry/SDL to your NDK workspace. Then checkout the latest
-version of PPSSPP to your NDK workspace.
+To build for Blackberry, you must first have the [latest Native SDK][blackberry-ndk] installed.
 
 To set up your environment for cross-compiling you must then use:
     source ~/bbndk/bbndk-env.sh
@@ -105,20 +107,28 @@ Finally, you are ready to compile. Change directory to ppsspp/SDL and run:
 
 If you are on Windows, you will need GNU and CMake to run the bash script.
 
-Alternatively, you can use the Qt UI by compiling the PPSSPPQt.pro in the Qt/
-directory with qmake from the NDK or QtCreator 2.6+.
+Alternatively, you can use the Qt frontend by compiling the PPSSPPQt.pro in
+the Qt/ directory with `qmake` from the NDK or [QtCreator 2.6+][qt-creator].
 
 Building for Symbian
 --------------------
 
 To build for Symbian, you require:
-1) GCC 4.6.3 from Mentor Graphics: http://www.mentor.com/embedded-software/sourcery-tools/sourcery-codebench/editions/lite-edition/
-2) Symbian Qt libraries. You can find these in the final Nokia Qt SDK.
 
-Then simply compile the PPSSPPQt.pro with qmake from the SDK or QtCreator 2.6+.
+1) [GCC 4.6.3][symbian-gcc] from Mentor Graphics.
+
+2) Symbian Qt libraries. You can find these in the final Nokia Qt SDK or online.
+
+Then simply compile the PPSSPPQt.pro with `qmake` from the SDK or [QtCreator 2.6+][qt-creator].
 
 
 [ppsspp-repo]: <https://github.com/hrydgard/ppsspp>
     "https://github.com/hrydgard/ppsspp"
 [ppsspp-devel]: <http://www.ppsspp.org/development.html>
     "http://www.ppsspp.org/development.html"
+[qt-creator]: <http://qt-project.org/downloads>
+    "http://qt-project.org/downloads"
+[blackberry-ndk]: <http://developer.blackberry.com/native>
+    "http://developer.blackberry.com/native"
+[symbian-gcc]: <http://www.mentor.com/embedded-software/sourcery-tools/sourcery-codebench/editions/lite-edition/>
+    "http://www.mentor.com/embedded-software/sourcery-tools/sourcery-codebench/editions/lite-edition/"

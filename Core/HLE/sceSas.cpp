@@ -315,7 +315,7 @@ u32 sceSasGetEnvelopeHeight(u32 core, u32 voiceNum)
 	{
 		DEBUG_LOG(HLE,"UNIMPL 0=sceSasGetEnvelopeHeight(core=%08x, voicenum=%i)", core, voiceNum);
 	}
-	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)
+	if (voiceNum >= PSP_SAS_VOICES_MAX)
 	{
 		WARN_LOG(HLE, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;

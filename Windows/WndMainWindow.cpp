@@ -46,6 +46,7 @@ namespace MainWindow
 	HWND hwndGameList;
 	HMENU menu;
 	BOOL skinMode = FALSE;
+	CoreState nextState = CORE_POWERDOWN;
 
 	HINSTANCE hInst;
 
@@ -244,7 +245,6 @@ namespace MainWindow
 		switch (message) 
 		{
 		case WM_CREATE:
-			PostMessage(hWnd, WM_COMMAND, ID_FILE_LOAD, 0);
 			break;
 
 		case WM_MOVE:
@@ -467,7 +467,7 @@ namespace MainWindow
 					memoryWindow[0]->Show(true);
 				break;
 			case ID_DEBUG_LOG:
-        LogManager::GetInstance()->GetConsoleListener()->Show(LogManager::GetInstance()->GetConsoleListener()->Hidden());
+				LogManager::GetInstance()->GetConsoleListener()->Show(LogManager::GetInstance()->GetConsoleListener()->Hidden());
 				break;
 
 			//////////////////////////////////////////////////////////////////////////
@@ -617,6 +617,9 @@ namespace MainWindow
 				disasmWindow[0]->NotifyMapLoaded();
 			if (memoryWindow[0])
 				memoryWindow[0]->NotifyMapLoaded();
+
+			if (nextState == CORE_RUNNING)
+				PostMessage(hwndMain, WM_COMMAND, ID_EMULATION_RUN, 0);
 			break;
 
 		default:
@@ -760,6 +763,11 @@ namespace MainWindow
 			sprintf(temp, "%s - %s", text, programname);
 			SetWindowText(hwndMain,temp);
 		}
+	}
+
+	void SetNextState(CoreState state)
+	{
+		nextState = state;
 	}
 
 	HINSTANCE GetHInstance()

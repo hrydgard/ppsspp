@@ -132,7 +132,7 @@ void __AudioUpdate()
 	s32 mixBuffer[hwBlockSize * 2];
 	memset(mixBuffer, 0, sizeof(mixBuffer));
 
-	for (int i = 0; i < MAX_CHANNEL; i++)
+	for (int i = 0; i < PSP_AUDIO_CHANNEL_MAX; i++)
 	{
 		if (!chans[i].reserved)
 			continue;

@@ -134,7 +134,7 @@ int sceUmdActivate(u32 unknown, const char *name)
 int sceUmdDeactivate(u32 unknown, const char *name)
 {
 	// Why 18?  No idea.
-	if (unknown < 0 || unknown > 18)
+	if (unknown > 18)
 		return PSP_ERROR_UMD_INVALID_PARAM;
 
 	bool changed = umdActivated != 0;

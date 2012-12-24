@@ -382,7 +382,7 @@ u32 sceKernelReleaseSubIntrHandler(u32 intrNumber, u32 subIntrNumber)
 u32 sceKernelEnableSubIntr(u32 intrNumber, u32 subIntrNumber)
 {
 	DEBUG_LOG(HLE,"sceKernelEnableSubIntr(%i, %i)", intrNumber, subIntrNumber);
-	if (intrNumber < 0 || intrNumber >= PSP_NUMBER_INTERRUPTS)
+	if (intrNumber >= PSP_NUMBER_INTERRUPTS)
 		return -1;
 
 	if (!intrHandlers[intrNumber].has(subIntrNumber))
@@ -395,7 +395,7 @@ u32 sceKernelEnableSubIntr(u32 intrNumber, u32 subIntrNumber)
 u32 sceKernelDisableSubIntr(u32 intrNumber, u32 subIntrNumber)
 {
 	DEBUG_LOG(HLE,"sceKernelDisableSubIntr(%i, %i)", intrNumber, subIntrNumber);
-	if (intrNumber < 0 || intrNumber >= PSP_NUMBER_INTERRUPTS)
+	if (intrNumber >= PSP_NUMBER_INTERRUPTS)
 		return -1;
 
 	if (!intrHandlers[intrNumber].has(subIntrNumber))
@@ -430,15 +430,14 @@ void QueryIntrHandlerInfo()
 	RETURN(0);
 }
 
-void sceKernelMemset()
+// TODO: speedup
+u32 sceKernelMemset(u32 addr, u32 fillc, u32 n)
 {
-	u32 addr = PARAM(0);
-	u8 c = PARAM(1) & 0xff;
-	u32 n = PARAM(2);
+	u8 c = fillc & 0xff;
 	DEBUG_LOG(HLE, "sceKernelMemset(ptr = %08x, c = %02x, n = %08x)", addr, c, n);
 	for (size_t i = 0; i < n; i++)
 		Memory::Write_U8((u8)c, addr + i);
-	RETURN(0); /* TODO: verify it should return this */
+	return 0; // TODO: verify it should return this
 }
 
 u32 sceKernelMemcpy(u32 dst, u32 src, u32 size)
@@ -451,21 +450,21 @@ u32 sceKernelMemcpy(u32 dst, u32 src, u32 size)
 	return 0;
 }
 
-const HLEFunction Kernel_Library[] = 
+const HLEFunction Kernel_Library[] =
 {
 	{0x092968F4,sceKernelCpuSuspendIntr,"sceKernelCpuSuspendIntr"},
 	{0x5F10D406,WrapV_U<sceKernelCpuResumeIntr>, "sceKernelCpuResumeIntr"}, //int oldstat
 	{0x3b84732d,WrapV_U<sceKernelCpuResumeIntrWithSync>, "sceKernelCpuResumeIntrWithSync"},
 	{0x47a0b729,sceKernelIsCpuIntrSuspended, "sceKernelIsCpuIntrSuspended"}, //flags
-	{0xb55249d2,sceKernelIsCpuIntrEnable, "sceKernelIsCpuIntrEnable"}, 
-	{0xa089eca4,sceKernelMemset, "sceKernelMemset"}, 
-	{0xDC692EE3,&WrapI_UI<sceKernelTryLockLwMutex>, "sceKernelTryLockLwMutex"},
-	{0x37431849,&WrapI_UI<sceKernelTryLockLwMutex_600>, "sceKernelTryLockLwMutex_600"},
-	{0xbea46419,&WrapI_UIU<sceKernelLockLwMutex>, "sceKernelLockLwMutex"}, 
-	{0x1FC64E09,&WrapI_UIU<sceKernelLockLwMutexCB>, "sceKernelLockLwMutexCB"},
-	{0x15b6446b,&WrapI_UI<sceKernelUnlockLwMutex>, "sceKernelUnlockLwMutex"}, 
-	{0x293b45b8,sceKernelGetThreadId, "sceKernelGetThreadId"}, 
-	{0x1839852A,&WrapU_UUU<sceKernelMemcpy>,"sce_paf_private_memcpy"},
+	{0xb55249d2,sceKernelIsCpuIntrEnable, "sceKernelIsCpuIntrEnable"},
+	{0xa089eca4,WrapU_UUU<sceKernelMemset>, "sceKernelMemset"},
+	{0xDC692EE3,WrapI_UI<sceKernelTryLockLwMutex>, "sceKernelTryLockLwMutex"},
+	{0x37431849,WrapI_UI<sceKernelTryLockLwMutex_600>, "sceKernelTryLockLwMutex_600"},
+	{0xbea46419,WrapI_UIU<sceKernelLockLwMutex>, "sceKernelLockLwMutex"},
+	{0x1FC64E09,WrapI_UIU<sceKernelLockLwMutexCB>, "sceKernelLockLwMutexCB"},
+	{0x15b6446b,WrapI_UI<sceKernelUnlockLwMutex>, "sceKernelUnlockLwMutex"},
+	{0x293b45b8,sceKernelGetThreadId, "sceKernelGetThreadId"},
+	{0x1839852A,WrapU_UUU<sceKernelMemcpy>,"sce_paf_private_memcpy"},
 };
 
 void Register_Kernel_Library()
@@ -474,7 +473,7 @@ void Register_Kernel_Library()
 }
 
 
-const HLEFunction InterruptManager[] = 
+const HLEFunction InterruptManager[] =
 {
 	{0xCA04A2B9, WrapU_UUUU<sceKernelRegisterSubIntrHandler>, "sceKernelRegisterSubIntrHandler"},
 	{0xD61E6961, WrapU_UU<sceKernelReleaseSubIntrHandler>, "sceKernelReleaseSubIntrHandler"},
@@ -483,7 +482,7 @@ const HLEFunction InterruptManager[] =
 	{0x5CB5A78B, 0, "sceKernelSuspendSubIntr"},
 	{0x7860E0DC, 0, "sceKernelResumeSubIntr"},
 	{0xFC4374B8, 0, "sceKernelIsSubInterruptOccurred"},
-	{0xD2E8363F, 0, "QueryIntrHandlerInfo"},	// No sce prefix for some reason
+	{0xD2E8363F, QueryIntrHandlerInfo, "QueryIntrHandlerInfo"},	// No sce prefix for some reason
 	{0xEEE43F47, 0, "sceKernelRegisterUserSpaceIntrStack"},
 };
 

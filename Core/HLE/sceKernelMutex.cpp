@@ -123,6 +123,13 @@ void __KernelMutexInit()
 	__KernelListenThreadEnd(&__KernelMutexThreadEnd);
 
 	mutexInitComplete = true;
+	mutexWaitTimer = 0;
+	lwMutexWaitTimer = 0;
+}
+
+void __KernelMutexShutdown()
+{
+	mutexHeldLocks.clear();
 }
 
 void __KernelMutexAcquireLock(Mutex *mutex, int count, SceUID thread)
