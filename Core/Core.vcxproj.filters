@@ -294,9 +294,9 @@
     <ClCompile Include="HLE\sceImpose.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
-<<<<<<< HEAD
     <ClCompile Include="HW\MediaEngine.cpp">
-=======
+      <Filter>HW</Filter>
+    </ClCompile>
     <ClCompile Include="Util\PPGeDraw.cpp">
       <Filter>Util</Filter>
     </ClCompile>
@@ -346,7 +346,6 @@
       <Filter>Dialog</Filter>
     </ClCompile>
     <ClCompile Include="HW\SasAudio.cpp">
->>>>>>> master
       <Filter>HW</Filter>
     </ClCompile>
     <ClCompile Include="HLE\sceUsb.cpp">
@@ -592,6 +591,8 @@
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="HW\MediaEngine.h">
+      <Filter>HW</Filter>
+    </ClInclude>
     <ClInclude Include="Util\PPGeDraw.h">
       <Filter>Util</Filter>
     </ClInclude>
