@@ -52,6 +52,7 @@
 #include "sceUmd.h"
 #include "sceSsl.h"
 #include "sceSas.h"
+#include "scePsmf.h"
 
 #include "../Util/PPGeDraw.h"
 
@@ -86,6 +87,7 @@ void __KernelInit()
 	__UtilityInit();
 	__UmdInit();
 	__MpegInit(PSP_CoreParameter().useMediaEngine);
+	__PsmfInit();
 	__CtrlInit();
 	__SslInit();
 
@@ -108,6 +110,7 @@ void __KernelShutdown()
 	kernelObjects.Clear();
 
 	__MpegShutdown();
+	__PsmfShutdown();
 	__PPGeShutdown();
 
 	__GeShutdown();
