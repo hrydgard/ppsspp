@@ -22,16 +22,15 @@
 #include "scePower.h"
 #include "sceKernelThread.h"
 
-static bool volatileMemLocked;
-
 const int POWER_CB_AUTO = -1;
-
 const int numberOfCBPowerSlots = 16;
-static int powerCbSlots[numberOfCBPowerSlots];
 
+static bool volatileMemLocked;
+static int powerCbSlots[numberOfCBPowerSlots];
 
 void __PowerInit() {
 	memset(powerCbSlots, 0, sizeof(powerCbSlots));
+	volatileMemLocked = false;
 }
 
 int scePowerGetBatteryLifePercent() {

@@ -648,11 +648,12 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_HARDWARETRANSFORM, g_Config.bHardwareTransform);
 		CHECKITEM(ID_OPTIONS_FASTMEMORY, g_Config.bFastMemory);
 
-		BOOL enable = !Core_IsStepping();
-		EnableMenuItem(menu,ID_EMULATION_RUN,enable);
-		EnableMenuItem(menu,ID_EMULATION_PAUSE,!enable);
+		UINT enable = !Core_IsStepping() ? MF_GRAYED : MF_ENABLED;
+		EnableMenuItem(menu,ID_EMULATION_RUN, g_State.bEmuThreadStarted ? enable : MF_GRAYED);
+		EnableMenuItem(menu,ID_EMULATION_PAUSE, g_State.bEmuThreadStarted ? !enable : MF_GRAYED);
+		EnableMenuItem(menu,ID_EMULATION_RESET, g_State.bEmuThreadStarted ? MF_ENABLED : MF_GRAYED);
 
-		enable = g_State.bEmuThreadStarted;
+		enable = g_State.bEmuThreadStarted ? MF_GRAYED : MF_ENABLED;
 		EnableMenuItem(menu,ID_FILE_LOAD,enable);
 		EnableMenuItem(menu,ID_CPU_DYNAREC,enable);
 		EnableMenuItem(menu,ID_CPU_INTERPRETER,enable);

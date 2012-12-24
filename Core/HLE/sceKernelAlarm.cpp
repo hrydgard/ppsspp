@@ -78,17 +78,7 @@ public:
 	Alarm *alarm;
 };
 
-bool alarmInitComplete = false;
-int alarmTimer = 0;
-
-void __KernelTriggerAlarm(u64 userdata, int cyclesLate);
-
-void __KernelAlarmInit()
-{
-	alarmTimer = CoreTiming::RegisterEvent("Alarm", __KernelTriggerAlarm);
-
-	alarmInitComplete = true;
-}
+static int alarmTimer = 0;
 
 void __KernelTriggerAlarm(u64 userdata, int cyclesLate)
 {
@@ -100,6 +90,11 @@ void __KernelTriggerAlarm(u64 userdata, int cyclesLate)
 		__TriggerInterrupt(PSP_INTR_IMMEDIATE, PSP_SYSTIMER0_INTR, uid);
 }
 
+void __KernelAlarmInit()
+{
+	alarmTimer = CoreTiming::RegisterEvent("Alarm", __KernelTriggerAlarm);
+}
+
 void __KernelScheduleAlarm(Alarm *alarm, u64 ticks)
 {
 	alarm->alm.schedule = (CoreTiming::GetTicks() + ticks) / (u64) CoreTiming::GetClockFrequencyMHz();
@@ -108,9 +103,6 @@ void __KernelScheduleAlarm(Alarm *alarm, u64 ticks)
 
 SceUID __KernelSetAlarm(u64 ticks, u32 handlerPtr, u32 commonPtr)
 {
-	if (!alarmInitComplete)
-		__KernelAlarmInit();
-
 	if (!Memory::IsValidAddress(handlerPtr))
 		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
 

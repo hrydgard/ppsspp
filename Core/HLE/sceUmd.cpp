@@ -47,8 +47,11 @@ struct PspUmdInfo {
 	u32 type;
 };
 
+void __UmdStatTimeout(u64 userdata, int cyclesLate);
 
-void __UmdInit() {
+void __UmdInit()
+{
+	umdStatTimer = CoreTiming::RegisterEvent("UmdTimeout", &__UmdStatTimeout);
 	umdActivated = 1;
 	umdStatus = 0;
 	umdErrorStat = 0;
@@ -214,9 +217,6 @@ void __UmdStatTimeout(u64 userdata, int cyclesLate)
 
 void __UmdWaitStat(u32 timeout)
 {
-	if (umdStatTimer == 0)
-		umdStatTimer = CoreTiming::RegisterEvent("UmdTimeout", &__UmdStatTimeout);
-
 	// This happens to be how the hardware seems to time things.
 	if (timeout <= 4)
 		timeout = 15;

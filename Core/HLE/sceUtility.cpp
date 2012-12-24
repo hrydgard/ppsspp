@@ -39,6 +39,14 @@ void __UtilityInit()
 	SavedataParam::Init();
 }
 
+void __UtilityShutdown()
+{
+	saveDialog.Shutdown();
+	msgDialog.Shutdown();
+	oskDialog.Shutdown();
+	netDialog.Shutdown();
+}
+
 int sceUtilitySavedataInitStart(u32 paramAddr)
 {
 	DEBUG_LOG(HLE,"sceUtilitySavedataInitStart(%08x)", paramAddr);

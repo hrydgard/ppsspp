@@ -18,3 +18,4 @@
 #pragma once
 
 void Register_sceImpose();
+void __ImposeInit();
