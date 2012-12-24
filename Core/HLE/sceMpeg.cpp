@@ -713,7 +713,7 @@ void PostPutAction::run() {
 	SceMpegRingBuffer ringbuffer;
 	Memory::ReadStruct(ringAddr_, &ringbuffer);
 
-	MpegContext *ctx = getMpegCtx(Memory::Read_U32(ringbuffer.mpeg));
+	MpegContext *ctx = getMpegCtx(ringbuffer.mpeg);
 
 	int packetsAdded = currentMIPS->r[2];
 	if (packetsAdded > 0) {
@@ -746,9 +746,9 @@ u32 sceMpegRingbufferPut(u32 ringbufferAddr, u32 numPackets, u32 available)
 
 	numPackets = std::min(numPackets, available);
 
-	MpegContext *ctx = getMpegCtx(Memory::Read_U32(ringbuffer.mpeg));
+	MpegContext *ctx = getMpegCtx(ringbuffer.mpeg);
 	if (!ctx) {
-		WARN_LOG(HLE, "sceMpegRingbufferPut(%08x, %i, %i): Bad mpeg context %08x", ringbufferAddr, numPackets, available, Memory::Read_U32(ringbuffer.mpeg));
+		WARN_LOG(HLE, "sceMpegRingbufferPut(%08x, %i, %i): bad mpeg handle %08x", ringbufferAddr, numPackets, available, ringbuffer.mpeg);
 		return 0;
 	}
 
