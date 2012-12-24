@@ -2172,7 +2172,10 @@ void __KernelSwitchContext(Thread *target, const char *reason)
 		__KernelSaveContext(&cur->context);
 		oldPC = currentMIPS->pc;
 		oldUID = cur->GetUID();
-		oldName = cur->GetName();
+
+		// Profile on Windows shows this takes time, skip it.
+		if (DEBUG_LEVEL <= MAX_LOGLEVEL)
+			oldName = cur->GetName();
 	}
 	currentThread = target->GetUID();
 	__KernelLoadContext(&target->context);
