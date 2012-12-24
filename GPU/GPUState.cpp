@@ -56,8 +56,6 @@ void InitGfxState()
 		memcpy(gstate.boneMatrix + i * 12, identity4x3, 12 * sizeof(float));
 	}
 
-	gpuStats.reset();
-
 	switch (PSP_CoreParameter().gpuCore) {
 	case GPU_NULL:
 		gpu = new NullGPU();
