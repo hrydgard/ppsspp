@@ -342,7 +342,6 @@ int eventScheduledWakeup;
 
 bool dispatchEnabled = true;
 
-class MipsCallManager;
 MipsCallManager mipsCalls;
 
 // This seems nasty
