@@ -62,7 +62,6 @@ struct CtrlLatch {
 
 //////////////////////////////////////////////////////////////////////////
 // STATE BEGIN
-static bool ctrlInited = false;
 static bool analogEnabled = false;
 static int ctrlLatchBufs = 0;
 static u32 ctrlOldButtons = 0;
@@ -259,13 +258,15 @@ void __CtrlTimerUpdate(u64 userdata, int cyclesLate)
 
 void __CtrlInit()
 {
-	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
+	ctrlTimer = CoreTiming::RegisterEvent("CtrlSampleTimer", __CtrlTimerUpdate);
+	__DisplayListenVblank(__CtrlVblank);
+	waitingThreads.clear();
 
-	if (!ctrlInited)
-	{
-		__DisplayListenVblank(__CtrlVblank);
-		ctrlInited = true;
-	}
+	ctrlIdleReset = -1;
+	ctrlIdleBack = -1;
+	ctrlCycle = 0;
+
+	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
 
 	ctrlBuf = 1;
 	ctrlBufRead = 0;
@@ -282,14 +283,6 @@ void __CtrlInit()
 
 	for (int i = 0; i < NUM_CTRL_BUFFERS; i++)
 		memcpy(&ctrlBufs[i], &ctrlCurrent, sizeof(_ctrl_data));
-
-	ctrlIdleReset = -1;
-	ctrlIdleBack = -1;
-	ctrlCycle = 0;
-
-	waitingThreads.clear();
-
-	ctrlTimer = CoreTiming::RegisterEvent("CtrlSampleTimer", __CtrlTimerUpdate);
 }
 
 u32 sceCtrlSetSamplingCycle(u32 cycle)

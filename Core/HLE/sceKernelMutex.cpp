@@ -107,11 +107,11 @@ struct LwMutex : public KernelObject
 	std::vector<SceUID> waitingThreads;
 };
 
-int mutexWaitTimer = 0;
-int lwMutexWaitTimer = 0;
+static int mutexWaitTimer = 0;
+static int lwMutexWaitTimer = 0;
 // Thread -> Mutex locks for thread end.
 typedef std::multimap<SceUID, SceUID> MutexMap;
-MutexMap mutexHeldLocks;
+static MutexMap mutexHeldLocks;
 
 void __KernelMutexInit()
 {

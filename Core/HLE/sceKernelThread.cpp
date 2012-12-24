@@ -435,6 +435,7 @@ void __KernelThreadingShutdown()
 {
 	kernelMemory.Free(threadReturnHackAddr);
 	threadqueue.clear();
+	threadEndListeners.clear();
 	threadReturnHackAddr = 0;
 	cbReturnHackAddr = 0;
 	currentThread = 0;

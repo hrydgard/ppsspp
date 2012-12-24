@@ -21,3 +21,5 @@ SceUID sceKernelSetAlarm(SceUInt clock, u32 handlerPtr, u32 commonPtr);
 SceUID sceKernelSetSysClockAlarm(u32 sysClockPtr, u32 handlerPtr, u32 commonPtr);
 int sceKernelCancelAlarm(SceUID uid);
 int sceKernelReferAlarmStatus(SceUID uid, u32 infoPtr);
+
+void __KernelAlarmInit();
