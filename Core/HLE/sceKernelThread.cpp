@@ -162,7 +162,50 @@ struct ThreadWaitInfo {
 	u32 timeoutPtr;
 };
 
-class ActionAfterMipsCall;
+// Owns outstanding MIPS calls and provides a way to get them by ID.
+// TODO: MipsCall structs are kinda big, try to cut down on the copying by owning pointers instead.
+class MipsCallManager {
+public:
+	MipsCallManager() : idGen_(0) {}
+	int add(MipsCall *call) {
+		int id = genId();
+		calls_.insert(std::pair<int, MipsCall *>(id, call));
+		return id;
+	}
+	MipsCall *get(int id) {
+		return calls_[id];
+	}
+	MipsCall *pop(int id) {
+		MipsCall *temp = calls_[id];
+		calls_.erase(id);
+		return temp;
+	}
+	void clear() {
+		calls_.clear();
+		idGen_ = 0;
+	}
+
+private:
+	int genId() { return ++idGen_; }
+	std::map<int, MipsCall *> calls_;
+	int idGen_;
+};
+
+class ActionAfterMipsCall : public Action
+{
+public:
+	virtual void run();
+	Thread *thread;
+
+	// Saved thread state
+	int status;
+	WaitType waitType;
+	int waitID;
+	ThreadWaitInfo waitInfo;
+	bool isProcessingCallbacks;
+
+	Action *chainedAction;
+};
 
 class Thread : public KernelObject
 {
@@ -276,8 +319,6 @@ public:
 void __KernelExecuteMipsCallOnCurrentThread(int callId, bool reschedAfter);
 
 
-int g_inCbCount = 0;
-
 Thread *__KernelCreateThread(SceUID &id, SceUID moduleID, const char *name, u32 entryPoint, u32 priority, int stacksize, u32 attr);
 void __KernelResetThread(Thread *t);
 void __KernelCancelWakeup(SceUID threadID);
@@ -286,6 +327,7 @@ bool __KernelCheckThreadCallbacks(Thread *thread, bool force);
 //////////////////////////////////////////////////////////////////////////
 //STATE BEGIN
 //////////////////////////////////////////////////////////////////////////
+int g_inCbCount = 0;
 Thread *currentThread;
 u32 idleThreadHackAddr;
 u32 threadReturnHackAddr;
@@ -300,6 +342,8 @@ int eventScheduledWakeup;
 
 bool dispatchEnabled = true;
 
+class MipsCallManager;
+MipsCallManager mipsCalls;
 
 // This seems nasty
 SceUID curModule;
@@ -436,10 +480,12 @@ void __KernelThreadingShutdown()
 	kernelMemory.Free(threadReturnHackAddr);
 	threadqueue.clear();
 	threadEndListeners.clear();
+	mipsCalls.clear();
 	threadReturnHackAddr = 0;
 	cbReturnHackAddr = 0;
 	currentThread = 0;
 	intReturnHackAddr = 0;
+	curModule = 0;
 }
 
 const char *__KernelGetThreadName(SceUID threadID)
@@ -1569,50 +1615,6 @@ void sceKernelReferCallbackStatus()
 	}
 }
 
-// Owns outstanding MIPS calls and provides a way to get them by ID.
-// TODO: MipsCall structs are kinda big, try to cut down on the copying by owning pointers instead.
-class MipsCallManager {
-public:
-	MipsCallManager() : idGen_(0) {}
-	int add(MipsCall *call) {
-		int id = genId();
-		calls_.insert(std::pair<int, MipsCall *>(id, call));
-		return id;
-	}
-	MipsCall *get(int id) {
-		return calls_[id];
-	}
-	MipsCall *pop(int id) {
-		MipsCall *temp = calls_[id];
-		calls_.erase(id);
-		return temp;
-	}
-
-private:
-	int genId() { return ++idGen_; }
-	std::map<int, MipsCall *> calls_;
-	int idGen_;
-};
-
-MipsCallManager mipsCalls;
-
-
-class ActionAfterMipsCall : public Action
-{
-public:
-	virtual void run();
-	Thread *thread;
-
-	// Saved thread state
-	int status;
-	WaitType waitType;
-	int waitID;
-	ThreadWaitInfo waitInfo;
-	bool isProcessingCallbacks;
-
-	Action *chainedAction;
-};
-
 void ActionAfterMipsCall::run() {
 	thread->nt.status = status;
 	thread->nt.waitType = waitType;
@@ -1625,7 +1627,6 @@ void ActionAfterMipsCall::run() {
 		delete chainedAction;
 	}
 }
-
 
 ActionAfterMipsCall *Thread::getRunningCallbackAction()
 {
