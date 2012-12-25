@@ -44,6 +44,30 @@ namespace
 		strncpy(str, value.c_str(), strLength - 1);
 		str[strLength - 1] = 0;
 	}
+
+	bool ReadPSPFile(std::string filename, u8 *data, s64 dataSize)
+	{
+		u32 handle = pspFileSystem.OpenFile(filename, FILEACCESS_READ);
+		if (handle == 0)
+			return false;
+
+		int result = pspFileSystem.ReadFile(handle, data, dataSize);
+		pspFileSystem.CloseFile(handle);
+
+		return result != 0;
+	}
+
+	bool WritePSPFile(std::string filename, u8 *data, int dataSize)
+	{
+		u32 handle = pspFileSystem.OpenFile(filename, (FileAccess)(FILEACCESS_WRITE | FILEACCESS_CREATE));
+		if (handle == 0)
+			return false;
+
+		int result = pspFileSystem.WriteFile(handle, data, dataSize);
+		pspFileSystem.CloseFile(handle);
+
+		return result != 0;
+	}
 }
 
 SavedataParam::SavedataParam()
@@ -145,22 +169,13 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, int saveId)
 
 	std::string filePath = dirPath+"/"+GetFileName(param);
 	INFO_LOG(HLE,"Saving file with size %u in %s",param->dataBufSize,filePath.c_str());
-	unsigned int handle = pspFileSystem.OpenFile(filePath,(FileAccess)(FILEACCESS_WRITE | FILEACCESS_CREATE));
-	if (handle == 0)
+	if (!WritePSPFile(filePath, data_, param->dataBufSize))
 	{
-		ERROR_LOG(HLE,"Error opening file %s",filePath.c_str());
-		return false;
-	}
-	if (!pspFileSystem.WriteFile(handle, data_, param->dataBufSize))
-	{
-		pspFileSystem.CloseFile(handle);
 		ERROR_LOG(HLE,"Error writing file %s",filePath.c_str());
 		return false;
 	}
 	else
 	{
-		pspFileSystem.CloseFile(handle);
-
 		// SAVE PARAM.SFO
 		ParamSFOData sfoFile;
 		sfoFile.SetValue("TITLE",param->sfoParam.title,128);
@@ -175,12 +190,7 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, int saveId)
 		size_t sfoSize;
 		sfoFile.WriteSFO(&sfoData,&sfoSize);
 		std::string sfopath = dirPath+"/"+sfoName;
-		handle = pspFileSystem.OpenFile(sfopath,(FileAccess)(FILEACCESS_WRITE | FILEACCESS_CREATE));
-		if (handle)
-		{
-			pspFileSystem.WriteFile(handle, sfoData, sfoSize);
-			pspFileSystem.CloseFile(handle);
-		}
+		WritePSPFile(sfopath, sfoData, sfoSize);
 		delete[] sfoData;
 
 		// SAVE ICON0
@@ -188,36 +198,21 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, int saveId)
 		{
 			data_ = (u8*)Memory::GetPointer(*((unsigned int*)&param->icon0FileData.buf));
 			std::string icon0path = dirPath+"/"+icon0Name;
-			handle = pspFileSystem.OpenFile(icon0path,(FileAccess)(FILEACCESS_WRITE | FILEACCESS_CREATE));
-			if (handle)
-			{
-				pspFileSystem.WriteFile(handle, data_, param->icon0FileData.bufSize);
-				pspFileSystem.CloseFile(handle);
-			}
+			WritePSPFile(icon0path, data_, param->icon0FileData.bufSize);
 		}
 		// SAVE ICON1
 		if (param->icon1FileData.buf)
 		{
 			data_ = (u8*)Memory::GetPointer(*((unsigned int*)&param->icon1FileData.buf));
 			std::string icon1path = dirPath+"/"+icon1Name;
-			handle = pspFileSystem.OpenFile(icon1path,(FileAccess)(FILEACCESS_WRITE | FILEACCESS_CREATE));
-			if (handle)
-			{
-				pspFileSystem.WriteFile(handle, data_, param->icon1FileData.bufSize);
-				pspFileSystem.CloseFile(handle);
-			}
+			WritePSPFile(icon1path, data_, param->icon1FileData.bufSize);
 		}
 		// SAVE PIC1
 		if (param->pic1FileData.buf)
 		{
 			data_ = (u8*)Memory::GetPointer(*((unsigned int*)&param->pic1FileData.buf));
 			std::string pic1path = dirPath+"/"+pic1Name;
-			handle = pspFileSystem.OpenFile(pic1path,(FileAccess)(FILEACCESS_WRITE | FILEACCESS_CREATE));
-			if (handle)
-			{
-				pspFileSystem.WriteFile(handle, data_, param->pic1FileData.bufSize);
-				pspFileSystem.CloseFile(handle);
-			}
+			WritePSPFile(pic1path, data_, param->pic1FileData.bufSize);
 		}
 
 		// Save SND
@@ -225,12 +220,7 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, int saveId)
 		{
 			data_ = (u8*)Memory::GetPointer(*((unsigned int*)&param->snd0FileData.buf));
 			std::string snd0path = dirPath+"/"+snd0Name;
-			handle = pspFileSystem.OpenFile(snd0path,(FileAccess)(FILEACCESS_WRITE | FILEACCESS_CREATE));
-			if (handle)
-			{
-				pspFileSystem.WriteFile(handle, data_, param->snd0FileData.bufSize);
-				pspFileSystem.CloseFile(handle);
-			}
+			WritePSPFile(snd0path, data_, param->snd0FileData.bufSize);
 		}
 	}
 	return true;
@@ -255,19 +245,11 @@ bool SavedataParam::Load(SceUtilitySavedataParam *param, int saveId)
 
 	std::string filePath = dirPath+"/"+GetFileName(param);
 	INFO_LOG(HLE,"Loading file with size %u in %s",param->dataBufSize,filePath.c_str());
-	u32 handle = pspFileSystem.OpenFile(filePath,FILEACCESS_READ);
-	if (!handle)
+	if (!ReadPSPFile(filePath, data_, param->dataBufSize))
 	{
-		ERROR_LOG(HLE,"Error opening file %s",filePath.c_str());
-		return false;
-	}
-	if (!pspFileSystem.ReadFile(handle, data_, param->dataBufSize))
-	{
-		pspFileSystem.CloseFile(handle);
 		ERROR_LOG(HLE,"Error reading file %s",filePath.c_str());
 		return false;
 	}
-	pspFileSystem.CloseFile(handle);
 	return true;
 }
 
@@ -506,9 +488,7 @@ void SavedataParam::SetFileInfo(int idx, PSPFileInfo &info)
 	if (info2.exists)
 	{
 		u8 *textureDataPNG = new u8[(size_t)info2.size];
-		int handle = pspFileSystem.OpenFile(fileDataPath2,FILEACCESS_READ);
-		pspFileSystem.ReadFile(handle,textureDataPNG,info2.size);
-		pspFileSystem.CloseFile(handle);
+		ReadPSPFile(fileDataPath2, textureDataPNG, info2.size);
 		unsigned char *textureData;
 		int w,h;
 
@@ -544,9 +524,7 @@ void SavedataParam::SetFileInfo(int idx, PSPFileInfo &info)
 	if (info2.exists)
 	{
 		u8 *sfoParam = new u8[(size_t)info2.size];
-		int handle = pspFileSystem.OpenFile(fileDataPath2,FILEACCESS_READ);
-		pspFileSystem.ReadFile(handle,sfoParam,info2.size);
-		pspFileSystem.CloseFile(handle);
+		ReadPSPFile(fileDataPath2, sfoParam, info2.size);
 		ParamSFOData sfoFile;
 		if (sfoFile.ReadSFO(sfoParam,(size_t)info2.size))
 		{
