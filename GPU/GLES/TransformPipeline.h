@@ -42,12 +42,13 @@ private:
 
 	// Vertex collector buffers
 	VertexDecoder dec;
+	u32 lastVType;
 	u8 *decoded;
 	u16 *decIndex;
 
 	TransformedVertex *transformed;
 	TransformedVertex *transformedExpanded;
-	
+
 	// Other
 	ShaderManager *shaderManager_;
 };

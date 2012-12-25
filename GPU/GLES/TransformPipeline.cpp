@@ -43,6 +43,7 @@ const GLuint glprim[8] = {
 
 TransformDrawEngine::TransformDrawEngine(ShaderManager *shaderManager)
 	: numVerts(0),
+		lastVType(-1),
 		shaderManager_(shaderManager) {
 	decoded = new u8[65536 * 48];
 	decIndex = new u16[65536];
@@ -618,8 +619,13 @@ void TransformDrawEngine::SubmitPrim(void *verts, void *inds, int prim, int vert
 
 	indexGen.SetIndex(numVerts);
 	int indexLowerBound, indexUpperBound;
-	// First, decode the verts and apply morphing
-	dec.SetVertexType(gstate.vertType);
+	// If vtype has changed, setup the vertex decoder.
+	// TODO: Simply cache the setup decoders instead.
+	if (gstate.vertType != lastVType) {
+		dec.SetVertexType(gstate.vertType);
+		lastVType = gstate.vertType;
+	}
+	// Decode the verts and apply morphing
 	dec.DecodeVerts(decoded + numVerts * (int)dec.GetDecVtxFmt().stride, verts, inds, prim, vertexCount, &indexLowerBound, &indexUpperBound);
 	numVerts += indexUpperBound - indexLowerBound + 1;
 
