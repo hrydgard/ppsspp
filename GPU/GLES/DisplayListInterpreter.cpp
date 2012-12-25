@@ -33,8 +33,6 @@
 #include "../../Core/HLE/sceKernelThread.h"
 #include "../../Core/HLE/sceKernelInterrupt.h"
 
-ShaderManager shaderManager;
-
 extern u32 curTextureWidth;
 extern u32 curTextureHeight;
 
@@ -157,11 +155,11 @@ GLES_GPU::GLES_GPU(int renderWidth, int renderHeight)
 		displayFramebufPtr_(0),
 		renderWidth_(renderWidth),
 		renderHeight_(renderHeight),
-		dlIdGenerator(1),
-		transformDraw_(&shaderManager) {
+		dlIdGenerator(1) {
 	renderWidthFactor_ = (float)renderWidth / 480.0f;
 	renderHeightFactor_ = (float)renderHeight / 272.0f;
-	shaderManager_ = &shaderManager;
+	shaderManager_ = new ShaderManager();
+	transformDraw_.SetShaderManager(shaderManager_);
 	TextureCache_Init();
 	// Sanity check gstate
 	if ((int *)&gstate.transferstart - (int *)&gstate != 0xEA) {
@@ -183,8 +181,16 @@ GLES_GPU::~GLES_GPU() {
 		delete (*iter);
 	}
 	vfbs_.clear();
-
+	shaderManager_->ClearCache(true);
+	delete shaderManager_;
 	delete [] flushBeforeCommand_;
+}
+
+void GLES_GPU::DeviceLost() {
+	// Simply drop all caches and textures.
+	// FBO:s appear to survive? Or no?
+	shaderManager_->ClearCache(false);
+	TextureCache_Clear(false);
 }
 
 void GLES_GPU::InitClear() {
@@ -198,6 +204,11 @@ void GLES_GPU::InitClear() {
 
 void GLES_GPU::BeginFrame() {
 	TextureCache_Decimate();
+
+	shaderManager_->DirtyShader();
+
+	// Not sure if this is really needed.
+	shaderManager_->DirtyUniform(DIRTY_ALL);
 
 	// NOTE - this is all wrong. At the beginning of the frame is a TERRIBLE time to draw the fb.
 	if (g_Config.bDisplayFramebuffer && displayFramebufPtr_) {

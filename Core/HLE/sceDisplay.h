@@ -18,6 +18,7 @@
 #pragma once
 
 void __DisplayInit();
+void __DisplayShutdown();
 
 void Register_sceDisplay();
 

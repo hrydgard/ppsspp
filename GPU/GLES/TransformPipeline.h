@@ -27,11 +27,14 @@ struct DecVtxFormat;
 // Handles transform, lighting and drawing.
 class TransformDrawEngine {
 public:
-	TransformDrawEngine(ShaderManager *shaderManager);
+	TransformDrawEngine();
 	~TransformDrawEngine();
 	void SubmitPrim(void *verts, void *inds, int prim, int vertexCount, float *customUV, int forceIndexType, int *bytesRead);
 	void DrawBezier(int ucount, int vcount);
 	void Flush();
+	void SetShaderManager(ShaderManager *shaderManager) {
+		shaderManager_ = shaderManager;
+	}
 
 private:
 	void SoftwareTransformAndDraw(int prim, u8 *decoded, LinkedShader *program, int vertexCount, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex);

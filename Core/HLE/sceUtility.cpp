@@ -103,7 +103,7 @@ int sceUtilityMsgDialogInitStart(u32 structAddr)
 
 int sceUtilityMsgDialogShutdownStart(u32 unknown)
 {
-	DEBUG_LOG(HLE,"FAKE sceUtilityMsgDialogShutdownStart(%i)", unknown);
+	DEBUG_LOG(HLE,"sceUtilityMsgDialogShutdownStart(%i)", unknown);
 	return msgDialog.Shutdown();
 }
 
@@ -124,25 +124,25 @@ int sceUtilityMsgDialogGetStatus()
 
 int sceUtilityOskInitStart(u32 oskPtr)
 {
-	ERROR_LOG(HLE,"FAKE sceUtilityOskInitStart(%i)", PARAM(0));
+	DEBUG_LOG(HLE,"sceUtilityOskInitStart(%i)", PARAM(0));
 	return oskDialog.Init(oskPtr);
 }
 
 int sceUtilityOskShutdownStart()
 {
-	ERROR_LOG(HLE,"FAKE sceUtilityOskShutdownStart(%i)", PARAM(0));
+	DEBUG_LOG(HLE,"sceUtilityOskShutdownStart(%i)", PARAM(0));
 	return oskDialog.Shutdown();
 }
 
 int sceUtilityOskUpdate(unsigned int unknown)
 {
-	ERROR_LOG(HLE,"FAKE sceUtilityOskUpdate(%i)", unknown);
+	DEBUG_LOG(HLE,"FAKE sceUtilityOskUpdate(%i)", unknown);
 	return oskDialog.Update();
 }
 
 int sceUtilityOskGetStatus()
 {
-	int status =  oskDialog.GetStatus();
+	int status = oskDialog.GetStatus();
 	// Seems that 4 is the cancelled status for OSK?
 	if (status == 4)
 	{
@@ -185,13 +185,13 @@ int sceUtilityScreenshotGetStatus()
 
 void sceUtilityGamedataInstallInitStart(u32 unkown)
 {
-	DEBUG_LOG(HLE,"FAKE sceUtilityGamedataInstallInitStart(%i)", unkown);
+	DEBUG_LOG(HLE,"UNIMPL sceUtilityGamedataInstallInitStart(%i)", unkown);
 }
 
 int sceUtilityGamedataInstallGetStatus()
 {
 	u32 retval = 0;//__UtilityGetStatus();
-	DEBUG_LOG(HLE,"%i=sceUtilityGamedataInstallGetStatus()", retval);
+	DEBUG_LOG(HLE,"UNIMPL %i=sceUtilityGamedataInstallGetStatus()", retval);
 	return retval;
 }
 

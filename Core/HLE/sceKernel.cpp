@@ -122,6 +122,7 @@ void __KernelShutdown()
 	__UtilityShutdown();
 	__GeShutdown();
 	__SasShutdown();
+	__DisplayShutdown();
 	__AudioShutdown();
 	__IoShutdown();
 	__InterruptsShutdown();

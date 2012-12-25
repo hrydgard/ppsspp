@@ -44,6 +44,8 @@ public:
 	virtual void InvalidateCache(u32 addr, int size);
 	virtual void Flush() {}
 
+	virtual void DeviceLost() {}
+
 private:
 	bool ProcessDLQueue();
 	bool interruptsEnabled_;

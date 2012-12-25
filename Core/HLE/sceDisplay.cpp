@@ -46,10 +46,7 @@
 // Internal drawing library
 #include "../Util/PPGeDraw.h"
 
-extern ShaderManager shaderManager;
-
-struct FrameBufferState
-{
+struct FrameBufferState {
 	u32 topaddr;
 	PspDisplayPixelFormat pspFramebufFormat;
 	int pspFramebufLinesize;
@@ -95,8 +92,7 @@ std::vector<WaitVBlankInfo> vblankWaitingThreads;
 void hleEnterVblank(u64 userdata, int cyclesLate);
 void hleLeaveVblank(u64 userdata, int cyclesLate);
 
-void __DisplayInit()
-{
+void __DisplayInit() {
 	gpuStats.reset();
 	hasSetMode = false;
 	framebufIsLatched = false;
@@ -118,29 +114,24 @@ void __DisplayInit()
 	InitGfxState();
 }
 
-void __DisplayShutdown()
-{
+void __DisplayShutdown() {
 	vblankListeners.clear();
 	vblankWaitingThreads.clear();
 	ShutdownGfxState();
 }
 
-void __DisplayListenVblank(VblankCallback callback)
-{
+void __DisplayListenVblank(VblankCallback callback) {
 	vblankListeners.push_back(callback);
 }
 
-void __DisplayFireVblank()
-{
-	for (std::vector<VblankCallback>::iterator iter = vblankListeners.begin(), end = vblankListeners.end(); iter != end; ++iter)
-	{
+void __DisplayFireVblank() {
+	for (std::vector<VblankCallback>::iterator iter = vblankListeners.begin(), end = vblankListeners.end(); iter != end; ++iter) {
 		VblankCallback cb = *iter;
 		cb();
 	}
 }
 
-void hleEnterVblank(u64 userdata, int cyclesLate)
-{
+void hleEnterVblank(u64 userdata, int cyclesLate) {
 	int vbCount = userdata;
 
 	DEBUG_LOG(HLE, "Enter VBlank %i", vbCount);
@@ -162,8 +153,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate)
 	CoreTiming::ScheduleEvent(msToCycles(vblankMs) - cyclesLate, leaveVblankEvent, vbCount+1);
 
 	// TODO: Should this be done here or in hleLeaveVblank?
-	if (framebufIsLatched)
-	{
+	if (framebufIsLatched) {
 		DEBUG_LOG(HLE, "Setting latched framebuffer %08x (prev: %08x)", latchedFramebuf.topaddr, framebuf.topaddr);
 		framebuf = latchedFramebuf;
 		framebufIsLatched = false;
@@ -181,8 +171,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate)
 
 	// Now we can subvert the Ge engine in order to draw custom overlays like stat counters etc.
 	// Here we will be drawing to the non buffered front surface.
-	if (g_Config.bShowDebugStats)
-	{
+	if (g_Config.bShowDebugStats) {
 		gpu->UpdateStats();
 		char stats[512];
 		sprintf(stats,
@@ -205,12 +194,12 @@ void hleEnterVblank(u64 userdata, int cyclesLate)
 			gpuStats.numFragmentShaders,
 			gpuStats.numShaders
 			);
-		
+
 		float zoom = 0.7f; /// g_Config.iWindowZoom;
 		PPGeBegin();
 		PPGeDrawText(stats, 0, 0, 0, zoom, 0xFFc0c0c0);
 		PPGeEnd();
-		
+
 		gpuStats.resetFrame();
 	}
 
@@ -240,9 +229,6 @@ void hleEnterVblank(u64 userdata, int cyclesLate)
 	host->BeginFrame();
 	gpu->BeginFrame();
 
-	shaderManager.DirtyShader();
-	shaderManager.DirtyUniform(DIRTY_ALL);
-
 	// Tell the emu core that it's time to stop emulating
 	// Win32 doesn't need this.
 #ifndef _WIN32
@@ -250,9 +236,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate)
 #endif
 }
 
-
-void hleLeaveVblank(u64 userdata, int cyclesLate)
-{
+void hleLeaveVblank(u64 userdata, int cyclesLate) {
 	isVblank = 0;
 	DEBUG_LOG(HLE,"Leave VBlank %i", (int)userdata - 1);
 	vCount++;
@@ -260,19 +244,16 @@ void hleLeaveVblank(u64 userdata, int cyclesLate)
 	CoreTiming::ScheduleEvent(msToCycles(frameMs - vblankMs) - cyclesLate, enterVblankEvent, userdata);
 }
 
-void sceDisplayIsVblank()
-{
+void sceDisplayIsVblank() {
 	DEBUG_LOG(HLE,"%i=sceDisplayIsVblank()",isVblank);
 	RETURN(isVblank);
 }
 
-u32 sceDisplaySetMode(u32 unknown, u32 xres, u32 yres)
-{
+u32 sceDisplaySetMode(u32 unknown, u32 xres, u32 yres) {
 	DEBUG_LOG(HLE,"sceDisplaySetMode(%d,%d,%d)",unknown,xres,yres);
 	host->BeginFrame();
 
-	if (!hasSetMode)
-	{
+	if (!hasSetMode) {
 		gpu->InitClear();
 		hasSetMode = true;
 	}
@@ -280,9 +261,7 @@ u32 sceDisplaySetMode(u32 unknown, u32 xres, u32 yres)
 	return 0;
 }
 
-u32 sceDisplaySetFramebuf()
-{
-	//host->EndFrame();
+u32 sceDisplaySetFramebuf() {
 	u32 topaddr = PARAM(0);
 	int linesize = PARAM(1);
 	int pixelformat = PARAM(2);
@@ -290,19 +269,15 @@ u32 sceDisplaySetFramebuf()
 
 	FrameBufferState fbstate;
 	DEBUG_LOG(HLE,"sceDisplaySetFramebuf(topaddr=%08x,linesize=%d,pixelsize=%d,sync=%d)",topaddr,linesize,pixelformat,sync);
-	if (topaddr == 0)
-	{
+	if (topaddr == 0) {
 		DEBUG_LOG(HLE,"- screen off");
-	}
-	else
-	{
+	} else {
 		fbstate.topaddr = topaddr;
 		fbstate.pspFramebufFormat = (PspDisplayPixelFormat)pixelformat;
 		fbstate.pspFramebufLinesize = linesize;
 	}
 
-	if (sync == PSP_DISPLAY_SETBUF_IMMEDIATE)
-	{
+	if (sync == PSP_DISPLAY_SETBUF_IMMEDIATE) {
 		// Write immediately to the current framebuffer parameters
 		if (topaddr != 0)
 		{
@@ -311,9 +286,7 @@ u32 sceDisplaySetFramebuf()
 		}
 		else
 			WARN_LOG(HLE, "%s: PSP_DISPLAY_SETBUF_IMMEDIATE without topaddr?", __FUNCTION__);
-	}
-	else if (topaddr != 0)
-	{
+	} else if (topaddr != 0) {
 		// Delay the write until vblank
 		latchedFramebuf = fbstate;
 		framebufIsLatched = true;
@@ -321,12 +294,11 @@ u32 sceDisplaySetFramebuf()
 	return 0;
 }
 
-u32 sceDisplayGetFramebuf(u32 topaddrPtr, u32 linesizePtr, u32 pixelFormatPtr, int mode)
-{
+u32 sceDisplayGetFramebuf(u32 topaddrPtr, u32 linesizePtr, u32 pixelFormatPtr, int mode) {
 	const FrameBufferState &fbState = mode == 1 ? latchedFramebuf : framebuf;
 	DEBUG_LOG(HLE,"sceDisplayGetFramebuf(*%08x = %08x, *%08x = %08x, *%08x = %08x, %i)",
 		topaddrPtr, fbState.topaddr, linesizePtr, fbState.pspFramebufLinesize, pixelFormatPtr, fbState.pspFramebufFormat, mode);
-	
+
 	if (Memory::IsValidAddress(topaddrPtr))
 		Memory::Write_U32(fbState.topaddr, topaddrPtr);
 	if (Memory::IsValidAddress(linesizePtr))
@@ -337,52 +309,45 @@ u32 sceDisplayGetFramebuf(u32 topaddrPtr, u32 linesizePtr, u32 pixelFormatPtr, i
 	return 0;
 }
 
-void sceDisplayWaitVblankStart()
-{
+void sceDisplayWaitVblankStart() {
 	DEBUG_LOG(HLE,"sceDisplayWaitVblankStart()");
 	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread()));
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, false);
 }
 
-void sceDisplayWaitVblank()
-{
+void sceDisplayWaitVblank() {
 	DEBUG_LOG(HLE,"sceDisplayWaitVblank()");
 	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread()));
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, false);
 }
 
-void sceDisplayWaitVblankStartMulti()
-{
+void sceDisplayWaitVblankStartMulti() {
 	DEBUG_LOG(HLE,"sceDisplayWaitVblankStartMulti()");
 	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread()));
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, false);
 }
 
-void sceDisplayWaitVblankCB()
-{
-	DEBUG_LOG(HLE,"sceDisplayWaitVblankCB()");	
+void sceDisplayWaitVblankCB() {
+	DEBUG_LOG(HLE,"sceDisplayWaitVblankCB()");
 	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread()));
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, true);
 }
 
-void sceDisplayWaitVblankStartCB()
-{
-	DEBUG_LOG(HLE,"sceDisplayWaitVblankStartCB()");	
+void sceDisplayWaitVblankStartCB() {
+	DEBUG_LOG(HLE,"sceDisplayWaitVblankStartCB()");
 	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread()));
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, true);
 }
 
-void sceDisplayWaitVblankStartMultiCB()
-{
-	DEBUG_LOG(HLE,"sceDisplayWaitVblankStartMultiCB()");	
+void sceDisplayWaitVblankStartMultiCB() {
+	DEBUG_LOG(HLE,"sceDisplayWaitVblankStartMultiCB()");
 	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread()));
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, true);
 }
 
-u32 sceDisplayGetVcount()
-{
+u32 sceDisplayGetVcount() {
 	// Too spammy
-	// DEBUG_LOG(HLE,"%i=sceDisplayGetVcount()", vCount);	
+	// DEBUG_LOG(HLE,"%i=sceDisplayGetVcount()", vCount);
 
 	// Puyo Puyo Fever polls this as a substitute for waiting for vblank.
 	// As a result, the game never gets to reschedule so it doesn't mix audio and things break.
@@ -393,29 +358,24 @@ u32 sceDisplayGetVcount()
 	return vCount;
 }
 
-void sceDisplayGetCurrentHcount()
-{
+void sceDisplayGetCurrentHcount() {
 	RETURN(hCount++);
 }
 
-
-void sceDisplayGetAccumulatedHcount()
-{
+void sceDisplayGetAccumulatedHcount() {
 	// Just do an estimate
 	u32 accumHCount = CoreTiming::GetTicks() / (222000000 / 60 / 272);
-	DEBUG_LOG(HLE,"%i=sceDisplayGetAccumulatedHcount()", accumHCount);	
+	DEBUG_LOG(HLE,"%i=sceDisplayGetAccumulatedHcount()", accumHCount);
 	RETURN(accumHCount);
 }
 
-float sceDisplayGetFramePerSec()
-{
+float sceDisplayGetFramePerSec() {
 	float fps = 59.9400599f;
 	DEBUG_LOG(HLE,"%f=sceDisplayGetFramePerSec()", fps);
-	return fps;	// (9MHz * 1)/(525 * 286) 
+	return fps;	// (9MHz * 1)/(525 * 286)
 }
 
-const HLEFunction sceDisplay[] = 
-{
+const HLEFunction sceDisplay[] = {
 	{0x0E20F177,WrapU_UUU<sceDisplaySetMode>, "sceDisplaySetMode"},
 	{0x289D82FE,WrapU_V<sceDisplaySetFramebuf>, "sceDisplaySetFramebuf"},
 	{0xEEDA2E54,WrapU_UUUI<sceDisplayGetFramebuf>,"sceDisplayGetFrameBuf"},
@@ -435,10 +395,8 @@ const HLEFunction sceDisplay[] =
 	{0xB4F378FA,0,"sceDisplayIsForeground"},
 	{0x31C4BAA8,0,"sceDisplayGetBrightness"},
 	{0x4D4E10EC,sceDisplayIsVblank,"sceDisplayIsVblank"},
-	
 };
 
-void Register_sceDisplay()
-{
+void Register_sceDisplay() {
 	RegisterModule("sceDisplay", ARRAY_SIZE(sceDisplay), sceDisplay);
 }

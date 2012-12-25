@@ -29,9 +29,8 @@
 #include "../../Core/Host.h"
 #include "../../Core/System.h"
 #include "../../Core/MIPS/MIPS.h"
-#include "../../GPU/GLES/TextureCache.h"
-#include "../../GPU/GLES/ShaderManager.h"
 #include "../../GPU/GPUState.h"
+#include "../../GPU/GPUInterface.h"
 #include "../../Core/HLE/sceCtrl.h"
 
 #include "GamepadEmu.h"
@@ -39,8 +38,6 @@
 
 #include "MenuScreens.h"
 #include "EmuScreen.h"
-
-extern ShaderManager shaderManager;
 
 EmuScreen::EmuScreen(const std::string &filename) : invalid_(true)
 {
@@ -200,6 +197,5 @@ void EmuScreen::render()
 
 void EmuScreen::deviceLost()
 {
-	TextureCache_Clear(false);  // This doesn't seem to help?
-	shaderManager.ClearCache(false);
+	gpu->DeviceLost();
 }

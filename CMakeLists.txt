@@ -806,8 +806,6 @@ add_library(GPU OBJECT
 	GPU/GPUState.h
 	GPU/Math3D.cpp
 	GPU/Math3D.h
-#	GPU/Null/NullDisplayListInterpreter.cpp
-#	GPU/Null/NullDisplayListInterpreter.h
 	GPU/Null/NullGpu.cpp
 	GPU/Null/NullGpu.h
 	GPU/ge_constants.h)

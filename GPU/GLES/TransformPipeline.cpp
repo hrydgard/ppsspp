@@ -41,10 +41,10 @@ const GLuint glprim[8] = {
 	GL_TRIANGLES,	 // With OpenGL ES we have to expand sprites into triangles, tripling the data instead of doubling. sigh. OpenGL ES, Y U NO SUPPORT GL_QUADS?
 };
 
-TransformDrawEngine::TransformDrawEngine(ShaderManager *shaderManager)
+TransformDrawEngine::TransformDrawEngine()
 	: numVerts(0),
 		lastVType(-1),
-		shaderManager_(shaderManager) {
+		shaderManager_(0) {
 	decoded = new u8[65536 * 48];
 	decIndex = new u16[65536];
 	transformed = new TransformedVertex[65536];
