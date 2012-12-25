@@ -16,7 +16,6 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "SavedataParam.h"
-#include "../System.h"
 #include "image/png_load.h"
 #include "../HLE/sceKernelMemory.h"
 #include "../ELF/ParamSFO.h"
@@ -430,64 +429,7 @@ u32 SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 			PSPFileInfo info = pspFileSystem.GetFileInfo(fileDataPath);
 			if (info.exists)
 			{
-				saveDataList[realCount].size = info.size;
-				saveDataList[realCount].saveName = saveNameListData[i];
-				saveDataList[realCount].idx = i;
-				saveDataList[realCount].modif_time = info.mtime;
-
-				// Search save image icon0
-				// TODO : If icon0 don't exist, need to use icon1 which is a moving icon. Also play sound
-				std::string fileDataPath2 = savePath+GetGameName(param)+saveNameListData[i]+"/"+icon0Name;
-				PSPFileInfo info2 = pspFileSystem.GetFileInfo(fileDataPath2);
-				if (info2.exists)
-				{
-					u8 *textureDataPNG = new u8[(size_t)info2.size];
-					int handle = pspFileSystem.OpenFile(fileDataPath2,FILEACCESS_READ);
-					pspFileSystem.ReadFile(handle,textureDataPNG,info2.size);
-					pspFileSystem.CloseFile(handle);
-					unsigned char* textureData;
-					int w,h;
-					pngLoadPtr(textureDataPNG, (int)info2.size, &w, &h, &textureData, false);
-					delete[] textureDataPNG;
-					u32 texSize = w*h*4;
-					u32 atlasPtr = kernelMemory.Alloc(texSize, true, "SaveData Icon");
-					saveDataList[realCount].textureData = atlasPtr;
-					Memory::Memcpy(atlasPtr, textureData, texSize);
-					free(textureData);
-					saveDataList[realCount].textureWidth = w;
-					saveDataList[realCount].textureHeight = h;
-				}
-				else
-				{
-					saveDataList[realCount].textureData = 0;
-				}
-
-				// Load info in PARAM.SFO
-				fileDataPath2 = savePath+GetGameName(param)+saveNameListData[i]+"/"+sfoName;
-				info2 = pspFileSystem.GetFileInfo(fileDataPath2);
-				if (info2.exists)
-				{
-					u8 *sfoParam = new u8[(size_t)info2.size];
-					int handle = pspFileSystem.OpenFile(fileDataPath2,FILEACCESS_READ);
-					pspFileSystem.ReadFile(handle,sfoParam,info2.size);
-					pspFileSystem.CloseFile(handle);
-					ParamSFOData sfoFile;
-					if (sfoFile.ReadSFO(sfoParam, (size_t)info2.size))
-					{
-						std::string title = sfoFile.GetValueString("TITLE");
-						memcpy(saveDataList[realCount].title,title.c_str(),title.size());
-						saveDataList[realCount].title[title.size()] = 0;
-
-						std::string savetitle = sfoFile.GetValueString("SAVEDATA_TITLE");
-						memcpy(saveDataList[realCount].saveTitle,savetitle.c_str(),savetitle.size());
-						saveDataList[realCount].saveTitle[savetitle.size()] = 0;
-
-						std::string savedetail = sfoFile.GetValueString("SAVEDATA_DETAIL");
-						memcpy(saveDataList[realCount].saveDetail,savedetail.c_str(),savedetail.size());
-						saveDataList[realCount].saveDetail[savedetail.size()] = 0;
-					}
-					delete [] sfoParam;
-				}
+				LoadFileInfo(realCount, info);
 
 				DEBUG_LOG(HLE,"%s Exist",fileDataPath.c_str());
 				realCount++;
@@ -521,64 +463,7 @@ u32 SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 		PSPFileInfo info = pspFileSystem.GetFileInfo(fileDataPath);
 		if (info.exists)
 		{
-			saveDataList[0].size = info.size;
-			saveDataList[0].saveName = GetSaveName(param);
-			saveDataList[0].idx = 0;
-			saveDataList[0].modif_time = info.mtime;
-
-			// Search save image icon0
-			// TODO : If icon0 don't exist, need to use icon1 which is a moving icon. Also play sound
-			std::string fileDataPath2 = savePath+GetGameName(param)+GetSaveName(param)+"/"+icon0Name;
-			PSPFileInfo info2 = pspFileSystem.GetFileInfo(fileDataPath2);
-			if (info2.exists)
-			{
-				u8 *textureDataPNG = new u8[(size_t)info2.size];
-				int handle = pspFileSystem.OpenFile(fileDataPath2,FILEACCESS_READ);
-				pspFileSystem.ReadFile(handle,textureDataPNG,info2.size);
-				pspFileSystem.CloseFile(handle);
-				unsigned char *textureData;
-				int w,h;
-				pngLoadPtr(textureDataPNG, (int)info2.size, &w, &h, &textureData, false);
-				delete[] textureDataPNG;
-				u32 texSize = w*h*4;
-				u32 atlasPtr = kernelMemory.Alloc(texSize, true, "SaveData Icon");
-				saveDataList[0].textureData = atlasPtr;
-				Memory::Memcpy(atlasPtr, textureData, texSize);
-				free(textureData);
-				saveDataList[0].textureWidth = w;
-				saveDataList[0].textureHeight = h;
-			}
-			else
-			{
-				saveDataList[0].textureData = 0;
-			}
-
-			// Load info in PARAM.SFO
-			fileDataPath2 = savePath+GetGameName(param)+GetSaveName(param)+"/"+sfoName;
-			info2 = pspFileSystem.GetFileInfo(fileDataPath2);
-			if (info2.exists)
-			{
-				u8 *sfoParam = new u8[(size_t)info2.size];
-				int handle = pspFileSystem.OpenFile(fileDataPath2,FILEACCESS_READ);
-				pspFileSystem.ReadFile(handle,sfoParam,info2.size);
-				pspFileSystem.CloseFile(handle);
-				ParamSFOData sfoFile;
-				if (sfoFile.ReadSFO(sfoParam,(size_t)info2.size))
-				{
-					std::string title = sfoFile.GetValueString("TITLE");
-					memcpy(saveDataList[0].title,title.c_str(),title.size());
-					saveDataList[0].title[title.size()] = 0;
-
-					std::string savetitle = sfoFile.GetValueString("SAVEDATA_TITLE");
-					memcpy(saveDataList[0].saveTitle,savetitle.c_str(),savetitle.size());
-					saveDataList[0].saveTitle[savetitle.size()] = 0;
-
-					std::string savedetail = sfoFile.GetValueString("SAVEDATA_DETAIL");
-					memcpy(saveDataList[0].saveDetail,savedetail.c_str(),savedetail.size());
-					saveDataList[0].saveDetail[savedetail.size()] = 0;
-				}
-				delete [] sfoParam;
-			}
+			LoadFileInfo(0, info);
 
 			DEBUG_LOG(HLE,"%s Exist",fileDataPath.c_str());
 			saveNameListDataCount = 1;
@@ -598,6 +483,68 @@ u32 SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 		}
 	}
 	return 0;
+}
+
+void SavedataParam::LoadFileInfo(int idx, PSPFileInfo &info)
+{
+	saveDataList[idx].size = info.size;
+	saveDataList[idx].saveName = GetSaveName(pspParam);
+	saveDataList[idx].idx = 0;
+	saveDataList[idx].modif_time = info.mtime;
+
+	// Search save image icon0
+	// TODO : If icon0 don't exist, need to use icon1 which is a moving icon. Also play sound
+	std::string fileDataPath2 = savePath+GetGameName(pspParam)+GetSaveName(pspParam)+"/"+icon0Name;
+	PSPFileInfo info2 = pspFileSystem.GetFileInfo(fileDataPath2);
+	if (info2.exists)
+	{
+		u8 *textureDataPNG = new u8[(size_t)info2.size];
+		int handle = pspFileSystem.OpenFile(fileDataPath2,FILEACCESS_READ);
+		pspFileSystem.ReadFile(handle,textureDataPNG,info2.size);
+		pspFileSystem.CloseFile(handle);
+		unsigned char *textureData;
+		int w,h;
+		pngLoadPtr(textureDataPNG, (int)info2.size, &w, &h, &textureData, false);
+		delete[] textureDataPNG;
+		u32 texSize = w*h*4;
+		u32 atlasPtr = kernelMemory.Alloc(texSize, true, "SaveData Icon");
+		saveDataList[idx].textureData = atlasPtr;
+		Memory::Memcpy(atlasPtr, textureData, texSize);
+		free(textureData);
+		saveDataList[idx].textureWidth = w;
+		saveDataList[idx].textureHeight = h;
+	}
+	else
+	{
+		saveDataList[idx].textureData = 0;
+	}
+
+	// Load info in PARAM.SFO
+	fileDataPath2 = savePath+GetGameName(pspParam)+GetSaveName(pspParam)+"/"+sfoName;
+	info2 = pspFileSystem.GetFileInfo(fileDataPath2);
+	if (info2.exists)
+	{
+		u8 *sfoParam = new u8[(size_t)info2.size];
+		int handle = pspFileSystem.OpenFile(fileDataPath2,FILEACCESS_READ);
+		pspFileSystem.ReadFile(handle,sfoParam,info2.size);
+		pspFileSystem.CloseFile(handle);
+		ParamSFOData sfoFile;
+		if (sfoFile.ReadSFO(sfoParam,(size_t)info2.size))
+		{
+			std::string title = sfoFile.GetValueString("TITLE");
+			memcpy(saveDataList[idx].title,title.c_str(),title.size());
+			saveDataList[idx].title[title.size()] = 0;
+
+			std::string savetitle = sfoFile.GetValueString("SAVEDATA_TITLE");
+			memcpy(saveDataList[idx].saveTitle,savetitle.c_str(),savetitle.size());
+			saveDataList[idx].saveTitle[savetitle.size()] = 0;
+
+			std::string savedetail = sfoFile.GetValueString("SAVEDATA_DETAIL");
+			memcpy(saveDataList[idx].saveDetail,savedetail.c_str(),savedetail.size());
+			saveDataList[idx].saveDetail[savedetail.size()] = 0;
+		}
+		delete [] sfoParam;
+	}
 }
 
 SceUtilitySavedataParam* SavedataParam::GetPspParam()

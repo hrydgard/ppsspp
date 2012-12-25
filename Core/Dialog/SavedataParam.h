@@ -18,7 +18,7 @@
 #pragma once
 
 #include "../HLE/sceKernel.h"
-
+#include "../System.h"
 
 enum SceUtilitySavedataType
 {
@@ -168,6 +168,7 @@ public:
 
 private:
 	void Clear();
+	void LoadFileInfo(int idx, PSPFileInfo &info);
 
 	SceUtilitySavedataParam* pspParam;
 	int selectedSave;
