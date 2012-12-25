@@ -20,7 +20,7 @@
 #include "../MemMap.h"
 #include "SasAudio.h"
 
-static const double f[5][2] = 
+static const double f[5][2] =
 { { 0.0, 0.0 },
 {	 60.0 / 64.0,	0.0 },
 {	115.0 / 64.0, -52.0 / 64.0 },
@@ -58,7 +58,7 @@ bool VagDecoder::DecodeBlock()
 	else if (flags == 3 && loopEnabled_) {
 		loopAtNextBlock_ = true;
 	}
-	for (int i = 0; i < 28; i += 2) 
+	for (int i = 0; i < 28; i += 2)
 	{
 		int d = GetByte();
 		int s = (short)((d & 0xf) << 12);
@@ -168,8 +168,14 @@ void ADSREnvelope::SetSimpleEnvelope(u32 ADSREnv1, u32 ADSREnv2) {
 	sustainLevel 	= getSustainLevel(ADSREnv1);
 }
 
-SasInstance::SasInstance() 
-	: mixBuffer(0), sendBuffer(0), resampleBuffer(0), grainSize(0) {
+SasInstance::SasInstance()
+	: maxVoices(PSP_SAS_VOICES_MAX),
+		sampleRate(44100),
+		outputMode(0),
+		mixBuffer(0),
+		sendBuffer(0),
+		resampleBuffer(0),
+		grainSize(0) {
 }
 
 SasInstance::~SasInstance() {
@@ -407,6 +413,12 @@ static int getExpCurveAt(int index, int duration) {
 
 	float sample = expCurve[curveIndex1] * (1.f - curveIndexFraction) + expCurve[curveIndex2] * curveIndexFraction;
 	return (short)(sample);
+}
+
+ADSREnvelope::ADSREnvelope()
+	: steps_(0),
+		state_(STATE_OFF),
+		height_(0) {
 }
 
 void ADSREnvelope::WalkCurve(int rate, int type) {

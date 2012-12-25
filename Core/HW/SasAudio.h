@@ -111,6 +111,7 @@ private:
 class ADSREnvelope
 {
 public:
+	ADSREnvelope();
 	void SetSimpleEnvelope(u32 ADSREnv1, u32 ADSREnv2);
 
 	void WalkCurve(int rate, int type);
@@ -121,7 +122,7 @@ public:
 	void Step();
 
 	int GetHeight() const {
-		return height_ > PSP_SAS_ENVELOPE_HEIGHT_MAX ? PSP_SAS_ENVELOPE_HEIGHT_MAX : height_; 
+		return height_ > PSP_SAS_ENVELOPE_HEIGHT_MAX ? PSP_SAS_ENVELOPE_HEIGHT_MAX : height_;
 	}
 	bool HasEnded() const {
 		return state_ == STATE_OFF;
@@ -158,7 +159,7 @@ struct SasVoice
 {
 	SasVoice()
 		: playing(false), paused(false), on(false),
-		  type(VOICETYPE_OFF),
+			type(VOICETYPE_OFF),
 			vagAddr(0),
 			vagSize(0),
 			pcmAddr(0),
@@ -171,7 +172,13 @@ struct SasVoice
 			volumeLeft(0),
 			volumeRight(0),
 			volumeLeftSend(0),
-			volumeRightSend(0) {}
+			volumeRightSend(0) {
+	}
+
+	void Reset();
+	void KeyOn();
+	void KeyOff();
+	void ChangedParams(bool changedVag);
 
 	bool playing;
 	bool paused;  // a voice can be playing AND paused. In that case, it won't play.
@@ -195,14 +202,6 @@ struct SasVoice
 	int volumeRight;
 	int volumeLeftSend;	// volume to "Send" (audio-lingo) to the effects processing engine, like reverb
 	int volumeRightSend;
-
-	void Reset();
-
-	void KeyOn();
-	void KeyOff();
-
-	void ChangedParams(bool changedVag);
-
 	s16 resampleHist[2];
 
 	ADSREnvelope envelope;
