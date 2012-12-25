@@ -33,9 +33,10 @@ void Core_Halt(const char *msg);
 
 bool Core_IsStepping();
 
+// RUNNING must be at 0.
 enum CoreState
 {
-	CORE_RUNNING,
+	CORE_RUNNING = 0,
 	CORE_STEPPING,
 	CORE_POWERDOWN,
 	CORE_ERROR,

@@ -421,7 +421,7 @@ void ProcessFifoWaitEvents()
 		{
 			break;
 		}
-	}	
+	}
 }
 
 void MoveEvents()
@@ -438,7 +438,7 @@ void MoveEvents()
 
 	// Move free events to threadsafe pool
 	while(allocatedTsEvents > 0 && eventPool)
-	{		    
+	{
 		Event *ev = eventPool;
 		eventPool = ev->next;
 		ev->next = eventTsPool;
@@ -455,7 +455,7 @@ void Advance()
 
 	ProcessFifoWaitEvents();
 
-	if (!first) 
+	if (!first)
 	{
 		// WARN_LOG(CPU, "WARNING - no events in queue. Setting downcount to 10000");
 		downcount += 10000;
