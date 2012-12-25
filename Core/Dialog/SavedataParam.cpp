@@ -68,6 +68,13 @@ namespace
 
 		return result != 0;
 	}
+
+	struct EncryptFileInfo
+	{
+		int fileVersion;
+		u8 key[16];
+		int sdkVersion;
+	};
 }
 
 SavedataParam::SavedataParam()
@@ -237,17 +244,20 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, int saveId)
 
 		// Save Encryption Data
 		{
-			int dataSize = 16+16; // key + save filename
-			data_ = new u8[dataSize];
-			memset(data_,0,dataSize);
-			sprintf((char*)data_,GetFileName(param).c_str(),GetFileName(param).size());
+			EncryptFileInfo encryptInfo;
+			int dataSize = sizeof(encryptInfo); // version + key + sdkVersion
+			memset(&encryptInfo,0,dataSize);
+
+			encryptInfo.fileVersion = 1;
+			encryptInfo.sdkVersion = sceKernelGetCompiledSdkVersion();
 			if(param->size > 1500)
-				memcpy(data_+16,param->key,16);
+				memcpy(encryptInfo.key,param->key,16);
+
 			std::string encryptInfoPath = dirPath+"/"+"ENCRYPT_INFO.BIN";
 			handle = pspFileSystem.OpenFile(encryptInfoPath,(FileAccess)(FILEACCESS_WRITE | FILEACCESS_CREATE));
 			if (handle)
 			{
-				pspFileSystem.WriteFile(handle, data_, dataSize);
+				pspFileSystem.WriteFile(handle, (u8*)&encryptInfo, dataSize);
 				pspFileSystem.CloseFile(handle);
 			}
 		}
