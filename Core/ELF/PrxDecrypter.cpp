@@ -576,9 +576,9 @@ static TAG_INFO2 *GetTagInfo2(u32 tagFind)
 }
 
 // Moving these out here is a really ugly hack to avoid a stack corruption warning, warranted or not
-static u8 padding1[0x100];
-static u8  tmp1[0x150], tmp2[0x90+0x14], tmp3[0x60+0x14], tmp4[0x20];
-static u8 padding2[0x100];
+//static u8 padding1[0x100];
+//static u8  tmp1[0x150], tmp2[0x90+0x14], tmp3[0x60+0x14], tmp4[0x20];
+//static u8 padding2[0x100];
 
 static int DecryptPRX2(const u8 *inbuf, u8 *outbuf, u32 size, u32 tag)
 {
@@ -590,10 +590,11 @@ static int DecryptPRX2(const u8 *inbuf, u8 *outbuf, u32 size, u32 tag)
 	}
 
 	int retsize = *(int *)&inbuf[0xB0];
+	u8 tmp1[0x150], tmp2[0x90+0x14], tmp3[0x90+0x14], tmp4[0x20];
 
 	memset(tmp1, 0, 0x150);
 	memset(tmp2, 0, 0x90+0x14);
-	memset(tmp3, 0, 0x60+0x14);
+	memset(tmp3, 0, 0x90+0x14);
 	memset(tmp4, 0, 0x20);
 
 	if (inbuf != outbuf)
