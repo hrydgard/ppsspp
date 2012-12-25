@@ -37,6 +37,13 @@ namespace
 		int sizeCluster = (int)MemoryStick_SectorSize();
 		return ((int)((size + sizeCluster - 1) / sizeCluster)) * sizeCluster;
 	}
+
+	void SetStringFromSFO(ParamSFOData &sfoFile, const char *name, char *str, int strLength)
+	{
+		std::string value = sfoFile.GetValueString(name);
+		strncpy(str, value.c_str(), strLength - 1);
+		str[strLength - 1] = 0;
+	}
 }
 
 SavedataParam::SavedataParam()
@@ -543,17 +550,9 @@ void SavedataParam::SetFileInfo(int idx, PSPFileInfo &info)
 		ParamSFOData sfoFile;
 		if (sfoFile.ReadSFO(sfoParam,(size_t)info2.size))
 		{
-			std::string title = sfoFile.GetValueString("TITLE");
-			memcpy(saveDataList[idx].title,title.c_str(),title.size());
-			saveDataList[idx].title[title.size()] = 0;
-
-			std::string savetitle = sfoFile.GetValueString("SAVEDATA_TITLE");
-			memcpy(saveDataList[idx].saveTitle,savetitle.c_str(),savetitle.size());
-			saveDataList[idx].saveTitle[savetitle.size()] = 0;
-
-			std::string savedetail = sfoFile.GetValueString("SAVEDATA_DETAIL");
-			memcpy(saveDataList[idx].saveDetail,savedetail.c_str(),savedetail.size());
-			saveDataList[idx].saveDetail[savedetail.size()] = 0;
+			SetStringFromSFO(sfoFile, "TITLE", saveDataList[idx].title, sizeof(saveDataList[idx].title));
+			SetStringFromSFO(sfoFile, "SAVEDATA_TITLE", saveDataList[idx].saveTitle, sizeof(saveDataList[idx].saveTitle));
+			SetStringFromSFO(sfoFile, "SAVEDATA_DETAIL", saveDataList[idx].saveDetail, sizeof(saveDataList[idx].saveDetail));
 		}
 		delete [] sfoParam;
 	}
