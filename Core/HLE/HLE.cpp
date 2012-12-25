@@ -28,6 +28,7 @@
 #include "sceKernelThread.h"
 #include "sceKernelInterrupt.h"
 #include "../MIPS/MIPSCodeUtils.h"
+#include "../Host.h"
 
 enum
 {
@@ -43,6 +44,8 @@ enum
 	HLE_AFTER_RESCHED_CALLBACKS = 0x08,
 	// Run interrupts (and probably reschedule) after the syscall.
 	HLE_AFTER_RUN_INTERRUPTS = 0x10,
+	// Switch to CORE_STEPPING after the syscall (for debugging.)
+	HLE_AFTER_DEBUG_BREAK = 0x20,
 };
 
 static std::vector<HLEModule> moduleDB;
@@ -241,8 +244,33 @@ void hleRunInterrupts()
 	hleAfterSyscall |= HLE_AFTER_RUN_INTERRUPTS;
 }
 
-inline void hleFinishSyscall()
+void hleDebugBreak()
 {
+	hleAfterSyscall |= HLE_AFTER_DEBUG_BREAK;
+}
+
+// Pauses execution after an HLE call.
+void hleExecuteDebugBreak(const HLEFunction &func)
+{
+	const u32 NID_SUSPEND_INTR = 0x092968F4, NID_RESUME_INTR = 0x5F10D406;
+
+	// Never break on these, they're noise.
+	u32 blacklistedNIDs[] = {NID_SUSPEND_INTR, NID_RESUME_INTR, NID_IDLE};
+	for (int i = 0; i < ARRAY_SIZE(blacklistedNIDs); ++i)
+	{
+		if (func.ID == blacklistedNIDs[i])
+			return;
+	}
+
+	Core_EnableStepping(true);
+	host->SetDebugMode(true);
+}
+
+inline void hleFinishSyscall(int modulenum, int funcnum)
+{
+	if ((hleAfterSyscall & HLE_AFTER_DEBUG_BREAK) != 0)
+		hleExecuteDebugBreak(moduleDB[modulenum].funcTable[funcnum]);
+
 	if ((hleAfterSyscall & HLE_AFTER_CURRENT_CALLBACKS) != 0)
 		__KernelForceCallbacks();
 
@@ -278,7 +306,7 @@ void CallSyscall(u32 op)
 		func();
 
 		if (hleAfterSyscall != HLE_AFTER_NOTHING)
-			hleFinishSyscall();
+			hleFinishSyscall(modulenum, funcnum);
 	}
 	else
 	{
