@@ -419,6 +419,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 			if (info.exists)
 			{
 				SetFileInfo(realCount, info);
+				saveDataList[realCount].saveName = saveNameListData[i];
 
 				DEBUG_LOG(HLE,"%s Exist",fileDataPath.c_str());
 				realCount++;
@@ -453,6 +454,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 		if (info.exists)
 		{
 			SetFileInfo(0, info);
+			saveDataList[0].saveName = GetSaveName(pspParam);
 
 			DEBUG_LOG(HLE,"%s Exist",fileDataPath.c_str());
 			saveNameListDataCount = 1;
@@ -477,7 +479,6 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 void SavedataParam::SetFileInfo(int idx, PSPFileInfo &info)
 {
 	saveDataList[idx].size = info.size;
-	saveDataList[idx].saveName = GetSaveName(pspParam);
 	saveDataList[idx].idx = 0;
 	saveDataList[idx].modif_time = info.mtime;
 
