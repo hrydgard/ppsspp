@@ -429,7 +429,7 @@ u32 SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 			PSPFileInfo info = pspFileSystem.GetFileInfo(fileDataPath);
 			if (info.exists)
 			{
-				LoadFileInfo(realCount, info);
+				SetFileInfo(realCount, info);
 
 				DEBUG_LOG(HLE,"%s Exist",fileDataPath.c_str());
 				realCount++;
@@ -463,7 +463,7 @@ u32 SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 		PSPFileInfo info = pspFileSystem.GetFileInfo(fileDataPath);
 		if (info.exists)
 		{
-			LoadFileInfo(0, info);
+			SetFileInfo(0, info);
 
 			DEBUG_LOG(HLE,"%s Exist",fileDataPath.c_str());
 			saveNameListDataCount = 1;
@@ -485,7 +485,7 @@ u32 SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 	return 0;
 }
 
-void SavedataParam::LoadFileInfo(int idx, PSPFileInfo &info)
+void SavedataParam::SetFileInfo(int idx, PSPFileInfo &info)
 {
 	saveDataList[idx].size = info.size;
 	saveDataList[idx].saveName = GetSaveName(pspParam);
@@ -508,10 +508,12 @@ void SavedataParam::LoadFileInfo(int idx, PSPFileInfo &info)
 		int success = pngLoadPtr(textureDataPNG, (int)info2.size, &w, &h, &textureData, false);
 		delete[] textureDataPNG;
 
+		u32 texSize = w*h*4;
+		u32 atlasPtr;
 		if (success)
+			atlasPtr = kernelMemory.Alloc(texSize, true, "SaveData Icon");
+		if (success && atlasPtr > 0)
 		{
-			u32 texSize = w*h*4;
-			u32 atlasPtr = kernelMemory.Alloc(texSize, true, "SaveData Icon");
 			saveDataList[idx].textureData = atlasPtr;
 			Memory::Memcpy(atlasPtr, textureData, texSize);
 			free(textureData);
@@ -519,7 +521,10 @@ void SavedataParam::LoadFileInfo(int idx, PSPFileInfo &info)
 			saveDataList[idx].textureHeight = h;
 		}
 		else
+		{
+			WARN_LOG(HLE, "Unable to load PNG data for savedata.");
 			saveDataList[idx].textureData = 0;
+		}
 	}
 	else
 	{

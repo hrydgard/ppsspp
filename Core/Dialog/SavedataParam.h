@@ -168,7 +168,7 @@ public:
 
 private:
 	void Clear();
-	void LoadFileInfo(int idx, PSPFileInfo &info);
+	void SetFileInfo(int idx, PSPFileInfo &info);
 
 	SceUtilitySavedataParam* pspParam;
 	int selectedSave;
