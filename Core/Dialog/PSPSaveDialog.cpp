@@ -238,7 +238,9 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 	}
 	else
 	{
-		char txt[1024];
+		char txt[2048];
+		_dbg_assert_msg_(HLE, sizeof(txt) > sizeof(SaveFileInfo), "Local buffer is too small.");
+
 		sprintf(txt,"%s\n%02d/%02d/%d %02d:%02d %lld KB\n%s\n%s"
 				, param.GetFileInfo(currentSelectedSave).title
 				, param.GetFileInfo(currentSelectedSave).modif_time.tm_mday
