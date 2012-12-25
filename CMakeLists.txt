@@ -109,6 +109,7 @@ endif()
 
 if(NOT MSVC)
 	# Disable some warnings
+	add_definitions(-O2)
 	add_definitions(-Wno-multichar)
 	add_definitions(-fno-strict-aliasing)
 	if(NOT APPLE)
