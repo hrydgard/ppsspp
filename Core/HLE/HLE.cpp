@@ -57,7 +57,9 @@ void HLEInit()
 
 void HLEShutdown()
 {
+	hleAfterSyscall = HLE_AFTER_NOTHING;
 	moduleDB.clear();
+	unresolvedSyscalls.clear();
 }
 
 void RegisterModule(const char *name, int numFunctions, const HLEFunction *funcTable)
