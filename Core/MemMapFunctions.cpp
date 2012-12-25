@@ -20,6 +20,7 @@
 
 #include "MemMap.h"
 #include "Config.h"
+#include "Host.h"
 
 #include "MIPS/MIPS.h"
 
@@ -84,8 +85,8 @@ inline void ReadFromHardware(T &var, const u32 address)
 	{
 		WARN_LOG(MEMMAP, "ReadFromHardware: Invalid address %08x	PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
 		if (!g_Config.bIgnoreBadMemAccess) {
-			// TODO: Not sure what the best way to crash is...
-			exit(0);
+			Core_EnableStepping(true);
+			host->SetDebugMode(true);
 		}
 		var = 0;
 	}
@@ -112,8 +113,8 @@ inline void WriteToHardware(u32 address, const T data)
 	{
 		WARN_LOG(MEMMAP, "WriteToHardware: Invalid address %08x	PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
 		if (!g_Config.bIgnoreBadMemAccess) {
-			// TODO: Not sure what the best way to crash is...
-			exit(0);
+			Core_EnableStepping(true);
+			host->SetDebugMode(true);
 		}
 	}
 }
