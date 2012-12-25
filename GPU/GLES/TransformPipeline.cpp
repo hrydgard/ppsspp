@@ -30,7 +30,6 @@
 #include "VertexDecoder.h"
 #include "ShaderManager.h"
 #include "DisplayListInterpreter.h"
-#include "IndexGenerator.h"
 
 const GLuint glprim[8] = {
 	GL_POINTS,
@@ -45,15 +44,44 @@ const GLuint glprim[8] = {
 u8 decoded[65536 * 32];
 VertexDecoder dec;
 uint16_t decIndex[65536];
-int numVerts;
-
-IndexGenerator indexGen;
 
 TransformedVertex transformed[65536];
 TransformedVertex transformedExpanded[65536];
 
+TransformDrawEngine::TransformDrawEngine(ShaderManager *shaderManager)
+	: numVerts(0),
+		shaderManager_(shaderManager) {
+	indexGen.Setup(decIndex);
+}
 
-// TODO: This should really return 2 colors, one for specular and one for diffuse.
+TransformDrawEngine::~TransformDrawEngine() {
+}
+
+// Just to get something on the screen, we'll just not subdivide correctly.
+void TransformDrawEngine::DrawBezier(int ucount, int vcount) {
+	u16 indices[3 * 3 * 6];
+	float customUV[32];
+	int c = 0;
+	for (int y = 0; y < 3; y++) {
+		for (int x = 0; x < 3; x++) {
+			indices[c++] = y * 4 + x;
+			indices[c++] = y * 4 + x + 1;
+			indices[c++] = (y + 1) * 4 + x + 1;
+			indices[c++] = (y + 1) * 4 + x + 1;
+			indices[c++] = (y + 1) * 4 + x;
+			indices[c++] = y * 4 + x;
+		}
+	}
+
+	for (int y = 0; y < 4; y++) {
+		for (int x = 0; x < 4; x++) {
+			customUV[(y * 4 + x) * 2 + 0] = (float)x/3.0f;
+			customUV[(y * 4 + x) * 2 + 1] = (float)y/3.0f;
+		}
+	}
+
+	SubmitPrim(Memory::GetPointer(gstate_c.vertexAddr), &indices[0], GE_PRIM_TRIANGLES, 3 * 3 * 6, customUV, GE_VTYPE_IDX_16BIT, 0);
+}
 
 // Convenient way to do precomputation to save the parts of the lighting calculation
 // that's common between the many vertices of a draw call.
@@ -295,7 +323,7 @@ void SoftwareTransformAndDraw(int prim, LinkedShader *program, int vertexCount, 
 
 	VertexReader reader(decoded, decVtxFormat);
 	for (int index = 0; index < maxIndex; index++)
-	{	
+	{
 		reader.Goto(index);
 
 		float v[3] = {0, 0, 0};
@@ -365,7 +393,7 @@ void SoftwareTransformAndDraw(int prim, LinkedShader *program, int vertexCount, 
 						}
 					}
 				}
-				
+
 				// Yes, we really must multiply by the world matrix too.
 				Vec3ByMatrix43(out, psum.v, gstate.worldMatrix);
 				if (reader.hasNormal()) {
@@ -574,12 +602,7 @@ void SoftwareTransformAndDraw(int prim, LinkedShader *program, int vertexCount, 
 	if (program->a_color1 != -1) glDisableVertexAttribArray(program->a_color1);
 }
 
-void GLES_GPU::InitTransform() {
-	indexGen.Setup(decIndex);
-	numVerts = 0;
-}
-
-void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, float *customUV, int forceIndexType, int *bytesRead)
+void TransformDrawEngine::SubmitPrim(void *verts, void *inds, int prim, int vertexCount, float *customUV, int forceIndexType, int *bytesRead)
 {
 	// For the future
 	if (!indexGen.PrimCompatible(prim))
@@ -642,8 +665,7 @@ void GLES_GPU::TransformAndDrawPrim(void *verts, void *inds, int prim, int verte
 	}
 }
 
-void GLES_GPU::Flush()
-{
+void TransformDrawEngine::Flush() {
 	if (indexGen.Empty())
 		return;
 	// From here on out, the index type is ALWAYS 16-bit. Deal with it.
@@ -660,10 +682,8 @@ void GLES_GPU::Flush()
 	}
 #endif
 	// Check if anything needs updating
-	if (gstate_c.textureChanged)
-	{
-		if ((gstate.textureMapEnable & 1) && !gstate.isModeClear())
-		{
+	if (gstate_c.textureChanged) {
+		if ((gstate.textureMapEnable & 1) && !gstate.isModeClear()) {
 			PSPSetTexture();
 		}
 		gstate_c.textureChanged = false;

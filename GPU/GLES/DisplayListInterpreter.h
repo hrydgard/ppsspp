@@ -23,6 +23,7 @@
 #include "../GPUInterface.h"
 #include "Framebuffer.h"
 #include "VertexDecoder.h"
+#include "TransformPipeline.h"
 #include "gfx_es2/fbo.h"
 
 class ShaderManager;
@@ -51,15 +52,8 @@ public:
 	virtual void UpdateStats();
 	virtual void InvalidateCache(u32 addr, int size);
 
+	virtual void Flush();
 private:
-	// TransformPipeline.cpp
-	void InitTransform();
-	void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, float *customUV, int forceIndexType, int *bytesRead = 0);
-	//void SoftwareTransformAndDraw(int prim, LinkedShader *program, int forceIndexType, int vertexCount, void *inds, const DecVtxFormat &decVtxFormat, int indexLowerBound, int indexUpperBound, float *customUV);
-	void ApplyDrawState();
-	void Flush();
-	void UpdateViewportAndProjection();
-	void DrawBezier(int ucount, int vcount);
 	void DoBlockTransfer();
 	bool ProcessDLQueue();
 
@@ -68,8 +62,9 @@ private:
 	void EndDebugDraw();
 
 	FramebufferManager framebufferManager;
-
+	TransformDrawEngine transformDraw_;
 	ShaderManager *shaderManager_;
+	bool *flushBeforeCommand_;
 	bool interruptsEnabled_;
 
 	u32 displayFramebufPtr_;
@@ -82,8 +77,7 @@ private:
 	float renderWidthFactor_;
 	float renderHeightFactor_;
 
-	struct CmdProcessorState
-	{
+	struct CmdProcessorState {
 		u32 pc;
 		u32 stallAddr;
 	};
@@ -92,8 +86,7 @@ private:
 
 	int dlIdGenerator;
 
-	struct DisplayList
-	{
+	struct DisplayList {
 		int id;
 		u32 listpc;
 		u32 stall;

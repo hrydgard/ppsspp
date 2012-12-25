@@ -37,7 +37,7 @@ void InitGfxState()
 
 	gstate.lightingEnable = 0x17000001;
 
-	static const float identity4x3[12] = 
+	static const float identity4x3[12] =
 	{1,0,0,
  	 0,1,0,
  	 0,0,1,
@@ -78,7 +78,6 @@ void ReapplyGfxState()
 {
 	if (!gpu)
 		return;
-	gpu->Flush();
 	// ShaderManager_DirtyShader();
 	// The commands are embedded in the command memory so we can just reexecute the words. Convenient.
 	// To be safe we pass 0xFFFFFFF as the diff.
@@ -96,9 +95,9 @@ void ReapplyGfxState()
 
 	for (int i = GE_CMD_VERTEXTYPE; i < GE_CMD_BONEMATRIXNUMBER; i++)
 	{
-		gpu->ExecuteOp(gstate.cmdmem[i], 0xFFFFFFFF);		
+		gpu->ExecuteOp(gstate.cmdmem[i], 0xFFFFFFFF);
 	}
-	
+
 	// Can't write to bonematrixnumber here
 
 	for (int i = GE_CMD_MORPHWEIGHT0; i < GE_CMD_PATCHFACING; i++)

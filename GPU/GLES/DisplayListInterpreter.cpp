@@ -33,17 +33,11 @@
 #include "../../Core/HLE/sceKernelThread.h"
 #include "../../Core/HLE/sceKernelInterrupt.h"
 
-inline void glEnDis(GLuint cmd, int value)
-{
-	(value ? glEnable : glDisable)(cmd);
-}
-
 ShaderManager shaderManager;
 
 extern u32 curTextureWidth;
 extern u32 curTextureHeight;
 
-bool *flushBeforeCommand = 0;
 const int flushBeforeCommandList[] = {
 	GE_CMD_BEZIER,
 	GE_CMD_SPLINE,
@@ -54,10 +48,10 @@ const int flushBeforeCommandList[] = {
 	GE_CMD_OFFSETADDR,
 	GE_CMD_REGION1,
 	GE_CMD_REGION2,
-	GE_CMD_CULLFACEENABLE, 
-	GE_CMD_TEXTUREMAPENABLE, 
+	GE_CMD_CULLFACEENABLE,
+	GE_CMD_TEXTUREMAPENABLE,
 	GE_CMD_LIGHTINGENABLE,
-	GE_CMD_FOGENABLE,		
+	GE_CMD_FOGENABLE,
 	GE_CMD_TEXSCALEU,
 	GE_CMD_TEXSCALEV,
 	GE_CMD_TEXOFFSETU,
@@ -163,43 +157,38 @@ GLES_GPU::GLES_GPU(int renderWidth, int renderHeight)
 		displayFramebufPtr_(0),
 		renderWidth_(renderWidth),
 		renderHeight_(renderHeight),
-		dlIdGenerator(1)
-{
+		dlIdGenerator(1),
+		transformDraw_(&shaderManager) {
 	renderWidthFactor_ = (float)renderWidth / 480.0f;
 	renderHeightFactor_ = (float)renderHeight / 272.0f;
 	shaderManager_ = &shaderManager;
 	TextureCache_Init();
-	InitTransform();
 	// Sanity check gstate
 	if ((int *)&gstate.transferstart - (int *)&gstate != 0xEA) {
 		ERROR_LOG(G3D, "gstate has drifted out of sync!");
 	}
 
-	flushBeforeCommand = new bool[256];
-	memset(flushBeforeCommand, 0, 256 * sizeof(bool));
+	flushBeforeCommand_ = new bool[256];
+	memset(flushBeforeCommand_, 0, 256 * sizeof(bool));
 	for (int i = 0; i < ARRAY_SIZE(flushBeforeCommandList); i++) {
-		flushBeforeCommand[flushBeforeCommandList[i]] = true;
+		flushBeforeCommand_[flushBeforeCommandList[i]] = true;
 	}
-	flushBeforeCommand[1] = false;
+	flushBeforeCommand_[1] = false;
 }
 
-GLES_GPU::~GLES_GPU()
-{
+GLES_GPU::~GLES_GPU() {
 	TextureCache_Shutdown();
-	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter)
-	{
+	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
 		fbo_destroy((*iter)->fbo);
 		delete (*iter);
 	}
 	vfbs_.clear();
 
-	delete flushBeforeCommand;
+	delete [] flushBeforeCommand_;
 }
 
-void GLES_GPU::InitClear()
-{
-	if (!g_Config.bBufferedRendering)
-	{
+void GLES_GPU::InitClear() {
+	if (!g_Config.bBufferedRendering) {
 		glClearColor(0,0,0,1);
 		//	glClearColor(1,0,1,1);
 		glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
@@ -207,13 +196,11 @@ void GLES_GPU::InitClear()
 	glViewport(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 }
 
-void GLES_GPU::BeginFrame()
-{
+void GLES_GPU::BeginFrame() {
 	TextureCache_Decimate();
 
 	// NOTE - this is all wrong. At the beginning of the frame is a TERRIBLE time to draw the fb.
-	if (g_Config.bDisplayFramebuffer && displayFramebufPtr_)
-	{
+	if (g_Config.bDisplayFramebuffer && displayFramebufPtr_) {
 		INFO_LOG(HLE, "Drawing the framebuffer");
 		const u8 *pspframebuf = Memory::GetPointer((0x44000000) | (displayFramebufPtr_ & 0x1FFFFF));	// TODO - check
 		glstate.cullFace.disable();
@@ -225,8 +212,7 @@ void GLES_GPU::BeginFrame()
 	currentRenderVfb_ = 0;
 }
 
-void GLES_GPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, int format)
-{
+void GLES_GPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, int format) {
 	if (framebuf & 0x04000000) {
 		DEBUG_LOG(G3D, "Switch display framebuffer %08x", framebuf);
 		displayFramebufPtr_ = framebuf;
@@ -237,9 +223,8 @@ void GLES_GPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, int format)
 	}
 }
 
-void GLES_GPU::CopyDisplayToOutput()
-{
-	Flush();
+void GLES_GPU::CopyDisplayToOutput() {
+	transformDraw_.Flush();
 	if (!g_Config.bBufferedRendering)
 		return;
 
@@ -271,17 +256,15 @@ void GLES_GPU::CopyDisplayToOutput()
 	// These are in the output display coordinates
 	framebufferManager.DrawActiveTexture(480, 272, true);
 
-	shaderManager.DirtyShader();
-	shaderManager.DirtyUniform(DIRTY_ALL);
+	shaderManager_->DirtyShader();
+	shaderManager_->DirtyUniform(DIRTY_ALL);
 	gstate_c.textureChanged = true;
 
 	BeginDebugDraw();
 }
 
-GLES_GPU::VirtualFramebuffer *GLES_GPU::GetDisplayFBO()
-{
-	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter)
-	{
+GLES_GPU::VirtualFramebuffer *GLES_GPU::GetDisplayFBO() {
+	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
 		if (((*iter)->fb_address & 0x3FFFFFF) == (displayFramebufPtr_ & 0x3FFFFFF)) {
 			// Could check w to but whatever
 			return *iter;
@@ -291,8 +274,7 @@ GLES_GPU::VirtualFramebuffer *GLES_GPU::GetDisplayFBO()
 	return 0;
 }
 
-void GLES_GPU::SetRenderFrameBuffer()
-{
+void GLES_GPU::SetRenderFrameBuffer() {
 	if (!g_Config.bBufferedRendering)
 		return;
 	// Get parameters
@@ -301,7 +283,7 @@ void GLES_GPU::SetRenderFrameBuffer()
 
 	u32 z_address = (gstate.zbptr & 0xFFE000) | ((gstate.zbwidth & 0xFF0000) << 8);
 	int z_stride = gstate.zbwidth & 0x3C0;
-	
+
 	// Yeah this is not completely right. but it'll do for now.
 	int drawing_width = ((gstate.region2) & 0x3FF) + 1;
 	int drawing_height = ((gstate.region2 >> 10) & 0x3FF) + 1;
@@ -310,8 +292,7 @@ void GLES_GPU::SetRenderFrameBuffer()
 
 	// Find a matching framebuffer
 	VirtualFramebuffer *vfb = 0;
-	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter)
-	{
+	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
 		VirtualFramebuffer *v = *iter;
 		if (v->fb_address == fb_address) {
 			// Let's not be so picky for now. Let's say this is the one.
@@ -324,7 +305,7 @@ void GLES_GPU::SetRenderFrameBuffer()
 
 	// None found? Create one.
 	if (!vfb) {
-		Flush();
+		transformDraw_.Flush();
 		gstate_c.textureChanged = true;
 		vfb = new VirtualFramebuffer;
 		vfb->fb_address = fb_address;
@@ -344,9 +325,8 @@ void GLES_GPU::SetRenderFrameBuffer()
 		return;
 	}
 
-	if (vfb != currentRenderVfb_)
-	{
-		Flush();
+	if (vfb != currentRenderVfb_) {
+		transformDraw_.Flush();
 		// Use it as a render target.
 		DEBUG_LOG(HLE, "Switching render target to FBO for %08x", vfb->fb_address);
 		gstate_c.textureChanged = true;
@@ -356,8 +336,7 @@ void GLES_GPU::SetRenderFrameBuffer()
 	}
 }
 
-void GLES_GPU::BeginDebugDraw()
-{
+void GLES_GPU::BeginDebugDraw() {
 	if (g_Config.bDrawWireframe) {
 #ifndef USING_GLES2
 		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -373,23 +352,18 @@ void GLES_GPU::EndDebugDraw() {
 
 // Render queue
 
-bool GLES_GPU::ProcessDLQueue()
-{
+bool GLES_GPU::ProcessDLQueue() {
 	std::vector<DisplayList>::iterator iter = dlQueue.begin();
-	while (!(iter == dlQueue.end()))
-	{
+	while (!(iter == dlQueue.end())) {
 		DisplayList &l = *iter;
 		dcontext.pc = l.listpc;
 		dcontext.stallAddr = l.stall;
 //		DEBUG_LOG(G3D,"Okay, starting DL execution at %08 - stall = %08x", context.pc, stallAddr);
-		if (!InterpretList())
-		{
+		if (!InterpretList()) {
 			l.listpc = dcontext.pc;
 			l.stall = dcontext.stallAddr;
 			return false;
-		}
-		else
-		{
+		} else {
 			//At the end, we can remove it from the queue and continue
 			dlQueue.erase(iter);
 			//this invalidated the iterator, let's fix it
@@ -399,8 +373,7 @@ bool GLES_GPU::ProcessDLQueue()
 	return true; //no more lists!
 }
 
-u32 GLES_GPU::EnqueueList(u32 listpc, u32 stall)
-{
+u32 GLES_GPU::EnqueueList(u32 listpc, u32 stall) {
 	DisplayList dl;
 	dl.id = dlIdGenerator++;
 	dl.listpc = listpc & 0xFFFFFFF;
@@ -412,8 +385,7 @@ u32 GLES_GPU::EnqueueList(u32 listpc, u32 stall)
 		return 0;
 }
 
-void GLES_GPU::UpdateStall(int listid, u32 newstall)
-{
+void GLES_GPU::UpdateStall(int listid, u32 newstall) {
 	// this needs improvement....
 	for (std::vector<DisplayList>::iterator iter = dlQueue.begin(); iter != dlQueue.end(); iter++)
 	{
@@ -423,55 +395,23 @@ void GLES_GPU::UpdateStall(int listid, u32 newstall)
 			l.stall = newstall & 0xFFFFFFF;
 		}
 	}
-	
 	ProcessDLQueue();
 }
 
-void GLES_GPU::DrawSync(int mode)
-{
-	Flush();
+void GLES_GPU::DrawSync(int mode) {
+	transformDraw_.Flush();
 }
 
-void GLES_GPU::Continue()
-{
-
-}
-
-void GLES_GPU::Break()
-{
+void GLES_GPU::Continue() {
 
 }
 
-// Just to get something on the screen, we'll just not subdivide correctly.
-void GLES_GPU::DrawBezier(int ucount, int vcount)
-{
-	u16 indices[3 * 3 * 6];
-	float customUV[32];
-	int c = 0;
-	for (int y = 0; y < 3; y++) {
-		for (int x = 0; x < 3; x++) {
-			indices[c++] = y * 4 + x;
-			indices[c++] = y * 4 + x + 1;
-			indices[c++] = (y + 1) * 4 + x + 1;
-			indices[c++] = (y + 1) * 4 + x + 1;
-			indices[c++] = (y + 1) * 4 + x;
-			indices[c++] = y * 4 + x;
-		}
-	}
+void GLES_GPU::Break() {
 
-	for (int y = 0; y < 4; y++) {
-		for (int x = 0; x < 4; x++) {
-			customUV[(y * 4 + x) * 2 + 0] = (float)x/3.0f;
-			customUV[(y * 4 + x) * 2 + 1] = (float)y/3.0f;
-		}
-	}
-
-	TransformAndDrawPrim(Memory::GetPointer(gstate_c.vertexAddr), &indices[0], GE_PRIM_TRIANGLES, 3 * 3 * 6, customUV, GE_VTYPE_IDX_16BIT);
 }
 
 
-void EnterClearMode(u32 data)
-{
+static void EnterClearMode(u32 data) {
 	bool colMask = (data >> 8) & 1;
 	bool alphaMask = (data >> 9) & 1;
 	bool updateZ = (data >> 10) & 1;
@@ -479,8 +419,7 @@ void EnterClearMode(u32 data)
 	glstate.depthWrite.set(updateZ ? GL_TRUE : GL_FALSE);
 }
 
-void LeaveClearMode()
-{
+static void LeaveClearMode() {
 	// We have to reset the following state as per the state of the command registers:
 	// Back face culling
 	// Texture map enable	(meh)
@@ -492,8 +431,7 @@ void LeaveClearMode()
 	// dirtyshader?
 }
 
-void GLES_GPU::ExecuteOp(u32 op, u32 diff)
-{
+void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	u32 cmd = op >> 24;
 	u32 data = op & 0xFFFFFF;
 
@@ -553,7 +491,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 			// Seems we have to advance the vertex addr, at least in some cases. 
 			// Question: Should we also advance the index addr?
 			int bytesRead;
-			TransformAndDrawPrim(verts, inds, type, count, 0, -1, &bytesRead);
+			transformDraw_.SubmitPrim(verts, inds, type, count, 0, -1, &bytesRead);
 			gstate_c.vertexAddr += bytesRead;
 		}
 		break;
@@ -563,7 +501,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 		{
 			int bz_ucount = data & 0xFF;
 			int bz_vcount = (data >> 8) & 0xFF;
-			DrawBezier(bz_ucount, bz_vcount);
+			transformDraw_.DrawBezier(bz_ucount, bz_vcount);
 			DEBUG_LOG(G3D,"DL DRAW BEZIER: %i x %i", bz_ucount, bz_vcount);
 		}
 		break;
@@ -690,7 +628,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 		DEBUG_LOG(G3D,"DL SetVertexType: %06x", data);
 		if (diff & GE_VTYPE_THROUGH) {
 			// Throughmode changed, let's make the proj matrix dirty.
-			shaderManager.DirtyUniform(DIRTY_PROJMATRIX);
+			shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
 		}
 		// This sets through-mode or not, as well.
 		break;
@@ -755,25 +693,25 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 	case GE_CMD_TEXSCALEU:
 		gstate_c.uScale = getFloat24(data);
 		DEBUG_LOG(G3D, "DL Texture U Scale: %f", gstate_c.uScale);
-		shaderManager.DirtyUniform(DIRTY_UVSCALEOFFSET);
+		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 		break;
 
 	case GE_CMD_TEXSCALEV:
 		gstate_c.vScale = getFloat24(data);
 		DEBUG_LOG(G3D, "DL Texture V Scale: %f", gstate_c.vScale);
-		shaderManager.DirtyUniform(DIRTY_UVSCALEOFFSET);
+		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 		break;
 
 	case GE_CMD_TEXOFFSETU:
 		gstate_c.uOff = getFloat24(data);
 		DEBUG_LOG(G3D, "DL Texture U Offset: %f", gstate_c.uOff);
-		shaderManager.DirtyUniform(DIRTY_UVSCALEOFFSET);
+		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 		break;
 
 	case GE_CMD_TEXOFFSETV:
 		gstate_c.vOff = getFloat24(data);
 		DEBUG_LOG(G3D, "DL Texture V Offset: %f", gstate_c.vOff);
-		shaderManager.DirtyUniform(DIRTY_UVSCALEOFFSET);
+		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 		break;
 
 	case GE_CMD_SCISSOR1:
@@ -985,37 +923,37 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 	case GE_CMD_MATERIALAMBIENT:
 		DEBUG_LOG(G3D,"DL Material Ambient Color: %06x",	data);
 		if (diff)
-			shaderManager.DirtyUniform(DIRTY_MATAMBIENTALPHA);
+			shaderManager_->DirtyUniform(DIRTY_MATAMBIENTALPHA);
 		break;
 
 	case GE_CMD_MATERIALDIFFUSE:
 		DEBUG_LOG(G3D,"DL Material Diffuse Color: %06x",	data);
 		if (diff)
-			shaderManager.DirtyUniform(DIRTY_MATDIFFUSE);
+			shaderManager_->DirtyUniform(DIRTY_MATDIFFUSE);
 		break;
 
 	case GE_CMD_MATERIALEMISSIVE:
 		DEBUG_LOG(G3D,"DL Material Emissive Color: %06x",	data);
 		if (diff)
-			shaderManager.DirtyUniform(DIRTY_MATEMISSIVE);
+			shaderManager_->DirtyUniform(DIRTY_MATEMISSIVE);
 		break;
 
 	case GE_CMD_MATERIALSPECULAR:
 		DEBUG_LOG(G3D,"DL Material Specular Color: %06x",	data);
 		if (diff)
-			shaderManager.DirtyUniform(DIRTY_MATSPECULAR);
+			shaderManager_->DirtyUniform(DIRTY_MATSPECULAR);
 		break;
 
 	case GE_CMD_MATERIALALPHA:
 		DEBUG_LOG(G3D,"DL Material Alpha Color: %06x",	data);
 		if (diff)
-			shaderManager.DirtyUniform(DIRTY_MATAMBIENTALPHA);
+			shaderManager_->DirtyUniform(DIRTY_MATAMBIENTALPHA);
 		break;
 
 	case GE_CMD_MATERIALSPECULARCOEF:
 		DEBUG_LOG(G3D,"DL Material specular coef: %f", getFloat24(data));
 		if (diff)
-			shaderManager.DirtyUniform(DIRTY_MATSPECULAR);
+			shaderManager_->DirtyUniform(DIRTY_MATSPECULAR);
 		break;
 
 	case GE_CMD_LIGHTTYPE0:
@@ -1037,7 +975,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 			DEBUG_LOG(G3D,"DL Light %i %c pos: %f", l, c+'X', val);
 			gstate_c.lightpos[l][c] = val;
 			if (diff)
-				shaderManager.DirtyUniform(DIRTY_LIGHT0 << l);
+				shaderManager_->DirtyUniform(DIRTY_LIGHT0 << l);
 		}
 		break;
 
@@ -1053,7 +991,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 			DEBUG_LOG(G3D,"DL Light %i %c dir: %f", l, c+'X', val);
 			gstate_c.lightdir[l][c] = val;
 			if (diff)
-				shaderManager.DirtyUniform(DIRTY_LIGHT0 << l);
+				shaderManager_->DirtyUniform(DIRTY_LIGHT0 << l);
 		}
 		break;
 
@@ -1069,7 +1007,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 			DEBUG_LOG(G3D,"DL Light %i %c att: %f", l, c+'X', val);
 			gstate_c.lightatt[l][c] = val;
 			if (diff)
-				shaderManager.DirtyUniform(DIRTY_LIGHT0 << l);
+				shaderManager_->DirtyUniform(DIRTY_LIGHT0 << l);
 		}
 		break;
 
@@ -1089,7 +1027,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 			gstate_c.lightColor[t][l][1] = g;
 			gstate_c.lightColor[t][l][2] = b;
 			if (diff)
-				shaderManager.DirtyUniform(DIRTY_LIGHT0 << l);
+				shaderManager_->DirtyUniform(DIRTY_LIGHT0 << l);
 		}
 		break;
 
@@ -1171,7 +1109,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_ALPHATEST:
 		DEBUG_LOG(G3D,"DL Alpha test settings");
-		shaderManager.DirtyUniform(DIRTY_ALPHACOLORREF);
+		shaderManager_->DirtyUniform(DIRTY_ALPHACOLORREF);
 		break;
 
 	case GE_CMD_TEXFUNC:
@@ -1211,7 +1149,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 	case GE_CMD_TEXENVCOLOR:
 		DEBUG_LOG(G3D,"DL TexEnvColor %06x", data);
 		if (diff)
-			shaderManager.DirtyUniform(DIRTY_TEXENV);
+			shaderManager_->DirtyUniform(DIRTY_TEXENV);
 		break;
 	case GE_CMD_TEXMODE:
 		DEBUG_LOG(G3D,"DL TexMode %08x", data);
@@ -1278,7 +1216,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 			if (num < 12)
 				gstate.worldMatrix[num++] = getFloat24(data);
 			gstate.worldmtxnum = (gstate.worldmtxnum & 0xFF000000) | (num & 0xF);
-			shaderManager.DirtyUniform(DIRTY_WORLDMATRIX);
+			shaderManager_->DirtyUniform(DIRTY_WORLDMATRIX);
 		}
 		break;
 
@@ -1294,7 +1232,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 			if (num < 12)
 				gstate.viewMatrix[num++] = getFloat24(data);
 			gstate.viewmtxnum = (gstate.viewmtxnum & 0xFF000000) | (num & 0xF);
-			shaderManager.DirtyUniform(DIRTY_VIEWMATRIX);
+			shaderManager_->DirtyUniform(DIRTY_VIEWMATRIX);
 		}
 		break;
 
@@ -1310,7 +1248,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 			gstate.projMatrix[num++] = getFloat24(data);
 			gstate.projmtxnum = (gstate.projmtxnum & 0xFF000000) | (num & 0xF);
 		}
-		shaderManager.DirtyUniform(DIRTY_PROJMATRIX);
+		shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
 		break;
 
 	case GE_CMD_TGENMATRIXNUMBER:
@@ -1326,7 +1264,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 				gstate.tgenMatrix[num++] = getFloat24(data);
 			gstate.texmtxnum = (gstate.texmtxnum & 0xFF000000) | (num & 0xF);
 		}
-		shaderManager.DirtyUniform(DIRTY_TEXMATRIX);
+		shaderManager_->DirtyUniform(DIRTY_TEXMATRIX);
 		break;
 
 	case GE_CMD_BONEMATRIXNUMBER:
@@ -1338,7 +1276,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff)
 		DEBUG_LOG(G3D,"DL BONE data #%i %f", gstate.boneMatrixNumber & 0x7f, getFloat24(data));
 		{
 			int num = gstate.boneMatrixNumber & 0x7F;
-			shaderManager.DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
+			shaderManager_->DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
 			if (num < 96) {
 				gstate.boneMatrix[num++] = getFloat24(data);
 			}
@@ -1373,8 +1311,8 @@ bool GLES_GPU::InterpretList()
 		op = Memory::ReadUnchecked_U32(dcontext.pc); //read from memory
 		u32 cmd = op >> 24;
 		u32 diff = op ^ gstate.cmdmem[cmd];
-		if (flushBeforeCommand[cmd])
-			Flush();
+		if (flushBeforeCommand_[cmd])
+			transformDraw_.Flush();
 		gstate.cmdmem[cmd] = op;
 
 		ExecuteOp(op, diff);
@@ -1387,9 +1325,9 @@ bool GLES_GPU::InterpretList()
 
 void GLES_GPU::UpdateStats()
 {
-	gpuStats.numVertexShaders = shaderManager.NumVertexShaders();
-	gpuStats.numFragmentShaders = shaderManager.NumFragmentShaders();
-	gpuStats.numShaders = shaderManager.NumPrograms();
+	gpuStats.numVertexShaders = shaderManager_->NumVertexShaders();
+	gpuStats.numFragmentShaders = shaderManager_->NumFragmentShaders();
+	gpuStats.numShaders = shaderManager_->NumPrograms();
 	gpuStats.numTextures = TextureCache_NumLoadedTextures();
 }
 
@@ -1442,4 +1380,8 @@ void GLES_GPU::InvalidateCache(u32 addr, int size)
 		TextureCache_Invalidate(addr, size);
 	else
 		TextureCache_Clear(true);
+}
+
+void GLES_GPU::Flush() {
+	transformDraw_.Flush();
 }

@@ -33,7 +33,7 @@ public:
 	virtual void UpdateStall(int listid, u32 newstall) = 0;
 	virtual void DrawSync(int mode) = 0;
 	virtual void Continue() = 0;
-	
+
 	virtual void ExecuteOp(u32 op, u32 diff) = 0;
 	virtual bool InterpretList() = 0;
 

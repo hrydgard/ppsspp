@@ -3,6 +3,7 @@
 
 #include "../Math3D.h"
 #include "../GPUState.h"
+#include "../../Core/System.h"
 #include "../ge_constants.h"
 #include "DisplayListInterpreter.h"
 #include "ShaderManager.h"
@@ -59,7 +60,7 @@ const GLuint ztests[] =
 	GL_LESS, GL_LEQUAL, GL_GREATER, GL_GEQUAL,
 };
 
-void GLES_GPU::ApplyDrawState()
+void ApplyDrawState()
 {
 
 	// TODO: All this setup is soon so expensive that we'll need dirty flags, or simply do it in the command writes where we detect dirty by xoring. Silly to do all this work on every drawcall.
@@ -71,7 +72,7 @@ void GLES_GPU::ApplyDrawState()
 	bool wantCull = !gstate.isModeClear() && !gstate.isModeThrough() && gstate.isCullEnabled();
 	glstate.cullFace.set(wantCull);
 
-	if(wantCull) {
+	if (wantCull) {
 		u8 cullMode = gstate.getCullMode();
 		glstate.cullFaceMode.set(cullingMode[cullMode]);
 	}
@@ -162,8 +163,11 @@ void GLES_GPU::ApplyDrawState()
 	glstate.depthRange.set(depthRangeMin, depthRangeMax);
 }
 
-void GLES_GPU::UpdateViewportAndProjection()
-{
+void UpdateViewportAndProjection() {
+	int renderWidth = PSP_CoreParameter().renderWidth;
+	int renderHeight = PSP_CoreParameter().renderHeight;
+	float renderWidthFactor = (float)renderWidth / 480.0f;
+	float renderHeightFactor = (float)renderHeight / 272.0f;
 	bool throughmode = (gstate.vertType & GE_VTYPE_THROUGH_MASK) != 0;
 
 	// We can probably use these to simply set scissors? Maybe we need to offset by regionX1/Y1
@@ -178,7 +182,7 @@ void GLES_GPU::UpdateViewportAndProjection()
 	if (throughmode) {
 		// No viewport transform here. Let's experiment with using region.
 		return;
-		glViewport((0 + regionX1) * renderWidthFactor_, (0 - regionY1) * renderHeightFactor_, (regionX2 - regionX1) * renderWidthFactor_, (regionY2 - regionY1) * renderHeightFactor_);
+		glViewport((0 + regionX1) * renderWidthFactor, (0 - regionY1) * renderHeightFactor, (regionX2 - regionX1) * renderWidthFactor, (regionY2 - regionY1) * renderHeightFactor);
 	} else {
 		// These we can turn into a glViewport call, offset by offsetX and offsetY. Math after.
 		float vpXa = getFloat24(gstate.viewportx1);
@@ -208,15 +212,15 @@ void GLES_GPU::UpdateViewportAndProjection()
 		float vpZ0 = (vpZb - vpZa) / 65536.0f;
 		float vpZ1 = (vpZa * 2) / 65536.0f;
 
-		vpX0 *= renderWidthFactor_;
-		vpY0 *= renderHeightFactor_;
-		vpWidth *= renderWidthFactor_;
-		vpHeight *= renderHeightFactor_;
+		vpX0 *= renderWidthFactor;
+		vpY0 *= renderHeightFactor;
+		vpWidth *= renderWidthFactor;
+		vpHeight *= renderHeightFactor;
 
 		// Flip vpY0 to match the OpenGL coordinate system.
-		vpY0 = renderHeight_ - (vpY0 + vpHeight);
+		vpY0 = renderHeight - (vpY0 + vpHeight);
 		glViewport(vpX0, vpY0, vpWidth, vpHeight);
 		// Sadly, as glViewport takes integers, we will not be able to support sub pixel offsets this way. But meh.
-		shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
+		// shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
 	}
 }
