@@ -169,6 +169,10 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	LogManager *logman = LogManager::GetInstance();
 	ILOG("Logman: %p", logman);
 
+	config_filename = user_data_path + "ppsspp.ini";
+
+	g_Config.Load(config_filename.c_str());
+
 	bool gfxLog = false;
 	// Parse command line
 	LogTypes::LOG_LEVELS logLevel = LogTypes::LINFO;
@@ -184,12 +188,15 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 				break;
 			case 'j':
 				g_Config.iCpuCore = CPU_JIT;
+				g_Config.bSaveSettings = false;
 				break;
 			case 'f':
 				g_Config.iCpuCore = CPU_FASTINTERPRETER;
+				g_Config.bSaveSettings = false;
 				break;
 			case 'i':
 				g_Config.iCpuCore = CPU_INTERPRETER;
+				g_Config.bSaveSettings = false;
 				break;
 			}
 		} else {
@@ -206,10 +213,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 			}
 		}
 	}
-
-	config_filename = user_data_path + "ppsspp.ini";
-
-	g_Config.Load(config_filename.c_str());
 
 	if (g_Config.currentDirectory == "") {
 #if defined(ANDROID) || defined(BLACKBERRY) || defined(__SYMBIAN32__)
