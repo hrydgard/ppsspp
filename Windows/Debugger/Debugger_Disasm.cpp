@@ -14,6 +14,7 @@
 
 #include "../../Core/Core.h"
 #include "../../Core/CPU.h"
+#include "../../Core/HLE/HLE.h"
 
 #include "base/stringutil.h"
 
@@ -136,10 +137,10 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				break;
 
 			case IDC_FUNCTIONLIST: 
-        switch (HIWORD(wParam)) 
-        { 
-				  case CBN_DBLCLK:
-          case CBN_SELCHANGE: 
+				switch (HIWORD(wParam))
+				{
+				case CBN_DBLCLK:
+				case CBN_SELCHANGE:
 					{
 						HWND lb = GetDlgItem(m_hDlg,LOWORD(wParam));
 						int n = ListBox_GetCurSel(lb);
@@ -154,9 +155,9 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				break;
 
 			case IDC_GOTOINT:
-        switch (HIWORD(wParam)) 
-        { 
-        case LBN_SELCHANGE: 
+				switch (HIWORD(wParam))
+				{
+				case LBN_SELCHANGE:
 					{
 						HWND lb =GetDlgItem(m_hDlg,LOWORD(wParam));
 						int n = ComboBox_GetCurSel(lb);
@@ -192,7 +193,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					SetDebugMode(false);
 					CBreakPoints::AddBreakPoint(cpu->GetPC()+cpu->getInstructionSize(0),true);
 					_dbg_update_();
-					Core_EnableStepping(false);	
+					Core_EnableStepping(false);
 					MainWindow::UpdateMenus();
 					Sleep(1);
 					ptr->gotoPC();
@@ -200,6 +201,16 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				}
 				break;
 				
+			case IDC_STEPHLE:
+				{
+					hleDebugBreak();
+					SetDebugMode(false);
+					_dbg_update_();
+					Core_EnableStepping(false);
+					MainWindow::UpdateMenus();
+				}
+				break;
+
 			case IDC_STOP:
 				{				
 					SetDebugMode(true);
@@ -241,8 +252,8 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					HWND list = GetDlgItem(hDlg,IDC_CALLSTACK);
 					ComboBox_ResetContent(list);
 					
-          u32 pc = currentMIPS->pc;
-          u32 ra = currentMIPS->r[MIPS_REG_RA];
+					u32 pc = currentMIPS->pc;
+					u32 ra = currentMIPS->r[MIPS_REG_RA];
 					DWORD addr = Memory::ReadUnchecked_U32(pc);
 					int count=1;
 					ComboBox_SetItemData(list,ComboBox_AddString(list,symbolMap.GetDescription(pc)),pc);
@@ -341,6 +352,7 @@ void CDisasm::SetDebugMode(bool _bDebug)
 		EnableWindow( GetDlgItem(hDlg, IDC_GO),	  TRUE);
 		EnableWindow( GetDlgItem(hDlg, IDC_STEP), TRUE);
 		EnableWindow( GetDlgItem(hDlg, IDC_STEPOVER), TRUE);
+		EnableWindow( GetDlgItem(hDlg, IDC_STEPHLE), TRUE);
 		EnableWindow( GetDlgItem(hDlg, IDC_STOP), FALSE);
 		EnableWindow( GetDlgItem(hDlg, IDC_SKIP), TRUE);
 		CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
@@ -353,6 +365,7 @@ void CDisasm::SetDebugMode(bool _bDebug)
 		EnableWindow( GetDlgItem(hDlg, IDC_GO),	  FALSE);
 		EnableWindow( GetDlgItem(hDlg, IDC_STEP), FALSE);
 		EnableWindow( GetDlgItem(hDlg, IDC_STEPOVER), FALSE);
+		EnableWindow( GetDlgItem(hDlg, IDC_STEPHLE), FALSE);
 		EnableWindow( GetDlgItem(hDlg, IDC_STOP), TRUE);
 		EnableWindow( GetDlgItem(hDlg, IDC_SKIP), FALSE);		
 	}
