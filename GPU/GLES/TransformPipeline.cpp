@@ -41,20 +41,22 @@ const GLuint glprim[8] = {
 	GL_TRIANGLES,	 // With OpenGL ES we have to expand sprites into triangles, tripling the data instead of doubling. sigh. OpenGL ES, Y U NO SUPPORT GL_QUADS?
 };
 
-u8 decoded[65536 * 32];
-VertexDecoder dec;
-uint16_t decIndex[65536];
-
-TransformedVertex transformed[65536];
-TransformedVertex transformedExpanded[65536];
-
 TransformDrawEngine::TransformDrawEngine(ShaderManager *shaderManager)
 	: numVerts(0),
 		shaderManager_(shaderManager) {
+	decoded = new u8[65536 * 48];
+	decIndex = new u16[65536];
+	transformed = new TransformedVertex[65536];
+	transformedExpanded = new TransformedVertex[65536 * 3];
+
 	indexGen.Setup(decIndex);
 }
 
 TransformDrawEngine::~TransformDrawEngine() {
+	delete [] decoded;
+	delete [] decIndex;
+	delete [] transformed;
+	delete [] transformedExpanded;
 }
 
 // Just to get something on the screen, we'll just not subdivide correctly.
@@ -295,7 +297,8 @@ static void DesetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decF
 
 // Actually again, single quads could be drawn more efficiently using GL_TRIANGLE_STRIP, no need to duplicate verts as for
 // GL_TRIANGLES. Still need to sw transform to compute the extra two corners though.
-void SoftwareTransformAndDraw(int prim, LinkedShader *program, int vertexCount, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex)
+void TransformDrawEngine::SoftwareTransformAndDraw(
+		int prim, u8 *decoded, LinkedShader *program, int vertexCount, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex)
 {
 	/*
 	DEBUG_LOG(G3D, "View matrix:");
@@ -322,8 +325,7 @@ void SoftwareTransformAndDraw(int prim, LinkedShader *program, int vertexCount, 
 	Lighter lighter;
 
 	VertexReader reader(decoded, decVtxFormat);
-	for (int index = 0; index < maxIndex; index++)
-	{
+	for (int index = 0; index < maxIndex; index++) {
 		reader.Goto(index);
 
 		float v[3] = {0, 0, 0};
@@ -707,7 +709,7 @@ void TransformDrawEngine::Flush() {
 		glDrawElements(glprim[prim], indexGen.VertexCount(), GL_UNSIGNED_SHORT, (GLvoid *)decIndex);
 		DesetupDecFmtForDraw(program, dec.GetDecVtxFmt());
 	} else {
-		SoftwareTransformAndDraw(prim, program, indexGen.VertexCount(), (void *)decIndex, GE_VTYPE_IDX_16BIT, dec.GetDecVtxFmt(),
+		SoftwareTransformAndDraw(prim, decoded, program, indexGen.VertexCount(), (void *)decIndex, GE_VTYPE_IDX_16BIT, dec.GetDecVtxFmt(),
 			indexGen.MaxIndex());
 	}
 

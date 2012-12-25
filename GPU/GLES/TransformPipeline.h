@@ -18,6 +18,7 @@
 #pragma once
 
 #include "IndexGenerator.h"
+#include "VertexDecoder.h"
 
 class LinkedShader;
 class ShaderManager;
@@ -33,11 +34,19 @@ public:
 	void Flush();
 
 private:
+	void SoftwareTransformAndDraw(int prim, u8 *decoded, LinkedShader *program, int vertexCount, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex);
+
 	// Vertex collector state
 	IndexGenerator indexGen;
 	int numVerts;
 
 	// Vertex collector buffers
+	VertexDecoder dec;
+	u8 *decoded;
+	u16 *decIndex;
+
+	TransformedVertex *transformed;
+	TransformedVertex *transformedExpanded;
 	
 	// Other
 	ShaderManager *shaderManager_;
