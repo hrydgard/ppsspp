@@ -143,7 +143,7 @@ void PSPOskDialog::RenderKeyboard()
 
 }
 
-void PSPOskDialog::Update()
+int PSPOskDialog::Update()
 {
 	buttons = __CtrlReadLatch();
 	int selectedRow = selectedChar / KEYSPERROW;
@@ -230,4 +230,6 @@ void PSPOskDialog::Update()
 	oskData.result = PSP_UTILITY_OSK_RESULT_CHANGED;
 	Memory::WriteStruct(oskParams.SceUtilityOskDataPtr, &oskData);
 	Memory::WriteStruct(oskParamsAddr, &oskParams);
+
+	return 0;
 }

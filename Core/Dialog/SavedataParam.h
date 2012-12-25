@@ -156,7 +156,7 @@ public:
 
 	SavedataParam();
 
-	u32 SetPspParam(SceUtilitySavedataParam* param);
+	int SetPspParam(SceUtilitySavedataParam* param);
 	SceUtilitySavedataParam* GetPspParam();
 
 	int GetFilenameCount();

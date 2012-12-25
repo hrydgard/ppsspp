@@ -378,7 +378,7 @@ void SavedataParam::Clear()
 	}
 }
 
-u32 SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
+int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 {
 	pspParam = param;
 	if (!pspParam)
