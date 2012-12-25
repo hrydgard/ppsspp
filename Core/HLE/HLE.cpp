@@ -250,7 +250,7 @@ void hleDebugBreak()
 }
 
 // Pauses execution after an HLE call.
-void hleExecuteDebugBreak(const HLEFunction &func)
+bool hleExecuteDebugBreak(const HLEFunction &func)
 {
 	const u32 NID_SUSPEND_INTR = 0x092968F4, NID_RESUME_INTR = 0x5F10D406;
 
@@ -259,18 +259,16 @@ void hleExecuteDebugBreak(const HLEFunction &func)
 	for (int i = 0; i < ARRAY_SIZE(blacklistedNIDs); ++i)
 	{
 		if (func.ID == blacklistedNIDs[i])
-			return;
+			return false;
 	}
 
 	Core_EnableStepping(true);
 	host->SetDebugMode(true);
+	return true;
 }
 
 inline void hleFinishSyscall(int modulenum, int funcnum)
 {
-	if ((hleAfterSyscall & HLE_AFTER_DEBUG_BREAK) != 0)
-		hleExecuteDebugBreak(moduleDB[modulenum].funcTable[funcnum]);
-
 	if ((hleAfterSyscall & HLE_AFTER_CURRENT_CALLBACKS) != 0)
 		__KernelForceCallbacks();
 
@@ -284,6 +282,17 @@ inline void hleFinishSyscall(int modulenum, int funcnum)
 		__KernelReSchedule(hleAfterSyscallReschedReason);
 	else if ((hleAfterSyscall & HLE_AFTER_ALL_CALLBACKS) != 0)
 		__KernelCheckCallbacks();
+
+	if ((hleAfterSyscall & HLE_AFTER_DEBUG_BREAK) != 0)
+	{
+		if (!hleExecuteDebugBreak(moduleDB[modulenum].funcTable[funcnum]))
+		{
+			// We'll do it next syscall.
+			hleAfterSyscall = HLE_AFTER_DEBUG_BREAK;
+			hleAfterSyscallReschedReason[0] = 0;
+			return;
+		}
+	}
 
 	hleAfterSyscall = HLE_AFTER_NOTHING;
 	hleAfterSyscallReschedReason[0] = 0;
