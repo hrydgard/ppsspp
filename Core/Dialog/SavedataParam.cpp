@@ -504,15 +504,22 @@ void SavedataParam::LoadFileInfo(int idx, PSPFileInfo &info)
 		pspFileSystem.CloseFile(handle);
 		unsigned char *textureData;
 		int w,h;
-		pngLoadPtr(textureDataPNG, (int)info2.size, &w, &h, &textureData, false);
+
+		int success = pngLoadPtr(textureDataPNG, (int)info2.size, &w, &h, &textureData, false);
 		delete[] textureDataPNG;
-		u32 texSize = w*h*4;
-		u32 atlasPtr = kernelMemory.Alloc(texSize, true, "SaveData Icon");
-		saveDataList[idx].textureData = atlasPtr;
-		Memory::Memcpy(atlasPtr, textureData, texSize);
-		free(textureData);
-		saveDataList[idx].textureWidth = w;
-		saveDataList[idx].textureHeight = h;
+
+		if (success)
+		{
+			u32 texSize = w*h*4;
+			u32 atlasPtr = kernelMemory.Alloc(texSize, true, "SaveData Icon");
+			saveDataList[idx].textureData = atlasPtr;
+			Memory::Memcpy(atlasPtr, textureData, texSize);
+			free(textureData);
+			saveDataList[idx].textureWidth = w;
+			saveDataList[idx].textureHeight = h;
+		}
+		else
+			saveDataList[idx].textureData = 0;
 	}
 	else
 	{
