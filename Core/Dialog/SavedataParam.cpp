@@ -418,8 +418,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 			PSPFileInfo info = pspFileSystem.GetFileInfo(fileDataPath);
 			if (info.exists)
 			{
-				SetFileInfo(realCount, info);
-				saveDataList[realCount].saveName = saveNameListData[i];
+				SetFileInfo(realCount, info, saveNameListData[i]);
 
 				DEBUG_LOG(HLE,"%s Exist",fileDataPath.c_str());
 				realCount++;
@@ -453,8 +452,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 		PSPFileInfo info = pspFileSystem.GetFileInfo(fileDataPath);
 		if (info.exists)
 		{
-			SetFileInfo(0, info);
-			saveDataList[0].saveName = GetSaveName(pspParam);
+			SetFileInfo(0, info, GetSaveName(pspParam));
 
 			DEBUG_LOG(HLE,"%s Exist",fileDataPath.c_str());
 			saveNameListDataCount = 1;
@@ -476,15 +474,22 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 	return 0;
 }
 
-void SavedataParam::SetFileInfo(int idx, PSPFileInfo &info)
+void SavedataParam::SetFileInfo(int idx, PSPFileInfo &info, std::string saveName)
 {
 	saveDataList[idx].size = info.size;
+	saveDataList[idx].saveName = saveName;
 	saveDataList[idx].idx = 0;
 	saveDataList[idx].modif_time = info.mtime;
 
+	// Start with a blank slate.
+	saveDataList[idx].textureData = 0;
+	saveDataList[idx].title[0] = 0;
+	saveDataList[idx].saveTitle[0] = 0;
+	saveDataList[idx].saveDetail[0] = 0;
+
 	// Search save image icon0
 	// TODO : If icon0 don't exist, need to use icon1 which is a moving icon. Also play sound
-	std::string fileDataPath2 = savePath+GetGameName(pspParam)+GetSaveName(pspParam)+"/"+icon0Name;
+	std::string fileDataPath2 = savePath + GetGameName(pspParam) + saveName + "/" + icon0Name;
 	PSPFileInfo info2 = pspFileSystem.GetFileInfo(fileDataPath2);
 	if (info2.exists)
 	{
@@ -509,18 +514,11 @@ void SavedataParam::SetFileInfo(int idx, PSPFileInfo &info)
 			saveDataList[idx].textureHeight = h;
 		}
 		else
-		{
 			WARN_LOG(HLE, "Unable to load PNG data for savedata.");
-			saveDataList[idx].textureData = 0;
-		}
-	}
-	else
-	{
-		saveDataList[idx].textureData = 0;
 	}
 
 	// Load info in PARAM.SFO
-	fileDataPath2 = savePath+GetGameName(pspParam)+GetSaveName(pspParam)+"/"+sfoName;
+	fileDataPath2 = savePath + GetGameName(pspParam) + saveName + "/" + sfoName;
 	info2 = pspFileSystem.GetFileInfo(fileDataPath2);
 	if (info2.exists)
 	{

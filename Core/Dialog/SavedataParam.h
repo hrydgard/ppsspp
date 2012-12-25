@@ -168,7 +168,7 @@ public:
 
 private:
 	void Clear();
-	void SetFileInfo(int idx, PSPFileInfo &info);
+	void SetFileInfo(int idx, PSPFileInfo &info, std::string saveName);
 
 	SceUtilitySavedataParam* pspParam;
 	int selectedSave;
