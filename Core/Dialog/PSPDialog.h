@@ -45,8 +45,8 @@ public:
 	PSPDialog();
 	virtual ~PSPDialog();
 
-	virtual void Update();
-	virtual void Shutdown();
+	virtual int Update();
+	virtual int Shutdown();
 
 	enum DialogStatus
 	{

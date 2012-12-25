@@ -25,12 +25,13 @@ PSPPlaceholderDialog::~PSPPlaceholderDialog() {
 }
 
 
-void PSPPlaceholderDialog::Init()
+int PSPPlaceholderDialog::Init()
 {
 	status = SCE_UTILITY_STATUS_INITIALIZE;
+	return 0;
 }
 
-void PSPPlaceholderDialog::Update()
+int PSPPlaceholderDialog::Update()
 {
 	//__UtilityUpdate();
 	if (status == SCE_UTILITY_STATUS_INITIALIZE)
@@ -45,4 +46,5 @@ void PSPPlaceholderDialog::Update()
 	{
 		status = SCE_UTILITY_STATUS_SHUTDOWN;
 	}
+	return 0;
 }

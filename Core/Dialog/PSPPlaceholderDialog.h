@@ -24,7 +24,7 @@ public:
 	PSPPlaceholderDialog();
 	virtual ~PSPPlaceholderDialog();
 
-	virtual void Init();
-	virtual void Update();
+	virtual int Init();
+	virtual int Update();
 };
 

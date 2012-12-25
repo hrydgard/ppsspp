@@ -31,7 +31,7 @@ PSPSaveDialog::PSPSaveDialog()
 PSPSaveDialog::~PSPSaveDialog() {
 }
 
-u32 PSPSaveDialog::Init(int paramAddr)
+int PSPSaveDialog::Init(int paramAddr)
 {
 	// Ignore if already running
 	if (status != SCE_UTILITY_STATUS_NONE && status != SCE_UTILITY_STATUS_SHUTDOWN)
@@ -238,7 +238,9 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 	}
 	else
 	{
-		char txt[1024];
+		char txt[2048];
+		_dbg_assert_msg_(HLE, sizeof(txt) > sizeof(SaveFileInfo), "Local buffer is too small.");
+
 		sprintf(txt,"%s\n%02d/%02d/%d %02d:%02d %lld KB\n%s\n%s"
 				, param.GetFileInfo(currentSelectedSave).title
 				, param.GetFileInfo(currentSelectedSave).modif_time.tm_mday
@@ -315,7 +317,7 @@ void PSPSaveDialog::DisplayBack()
 	PPGeDrawText("Back", 270, 220, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
 }
 
-void PSPSaveDialog::Update()
+int PSPSaveDialog::Update()
 {
 	switch (status) {
 	case SCE_UTILITY_STATUS_FINISHED:
@@ -327,12 +329,12 @@ void PSPSaveDialog::Update()
 
 	if (status != SCE_UTILITY_STATUS_RUNNING)
 	{
-		return;
+		return 0;
 	}
 
 	if (!param.GetPspParam()) {
 		status = SCE_UTILITY_STATUS_SHUTDOWN;
-		return;
+		return 0;
 	}
 
 	buttons = __CtrlPeekButtons();
@@ -684,11 +686,14 @@ void PSPSaveDialog::Update()
 		Memory::Memcpy(requestAddr,&request,request.size);
 	}
 	
+	return 0;
 }
 
-void PSPSaveDialog::Shutdown()
+int PSPSaveDialog::Shutdown()
 {
 	PSPDialog::Shutdown();
 	param.SetPspParam(0);
+
+	return 0;
 }
 
