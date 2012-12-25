@@ -34,7 +34,7 @@ namespace
 {
 	int getSizeNormalized(int size)
 	{
-		int sizeCluster = MemoryStick_SectorSize();
+		int sizeCluster = (int)MemoryStick_SectorSize();
 		return ((int)((size + sizeCluster - 1) / sizeCluster)) * sizeCluster;
 	}
 }
@@ -309,7 +309,7 @@ bool SavedataParam::GetSizes(SceUtilitySavedataParam *param)
 		Memory::Write_U32((u32)MemoryStick_SectorSize(),param->msFree); // cluster Size
 		Memory::Write_U32((u32)(MemoryStick_FreeSpace() / MemoryStick_SectorSize()),param->msFree+4);	// Free cluster
 		Memory::Write_U32((u32)(MemoryStick_FreeSpace() / 0x400),param->msFree+8); // Free space (in KB)
-		std::string spaceTxt = SavedataParam::GetSpaceText(MemoryStick_FreeSpace());
+		std::string spaceTxt = SavedataParam::GetSpaceText((int)MemoryStick_FreeSpace());
 		Memory::Memset(param->msFree+12,0,spaceTxt.size()+1);
 		Memory::Memcpy(param->msFree+12,spaceTxt.c_str(),spaceTxt.size()); // Text representing free space
 	}
@@ -346,7 +346,7 @@ bool SavedataParam::GetSizes(SceUtilitySavedataParam *param)
 		total_size += getSizeNormalized(param->pic1FileData.size);
 		total_size += getSizeNormalized(param->snd0FileData.size);
 
-		Memory::Write_U32(total_size / MemoryStick_SectorSize(),param->utilityData);	// num cluster
+		Memory::Write_U32(total_size / (u32)MemoryStick_SectorSize(),param->utilityData);	// num cluster
 		Memory::Write_U32(total_size / 0x400,param->utilityData+4);	// save size in KB
 		std::string spaceTxt = SavedataParam::GetSpaceText(total_size);
 		Memory::Memset(param->utilityData+8,0,spaceTxt.size()+1);
