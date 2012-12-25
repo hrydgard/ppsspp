@@ -83,6 +83,8 @@ void hleReSchedule(const char *reason);
 void hleReSchedule(bool callbacks, const char *reason);
 // Run interrupts after the syscall finishes.
 void hleRunInterrupts();
+// Pause emulation after the syscall finishes.
+void hleDebugBreak();
 
 void HLEInit();
 void HLEShutdown();
