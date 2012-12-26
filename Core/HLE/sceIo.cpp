@@ -755,6 +755,8 @@ u32 sceIoGetAsyncStat(int id, u32 poll, u32 address)
 		Memory::Write_U64(f->asyncResult, address);
 		DEBUG_LOG(HLE, "%i = sceIoGetAsyncStat(%i, %i, %08x) (HACK)",
 				(u32) f->asyncResult, id, poll, address);
+		if (!poll)
+			hleReSchedule("io waited");
 		return 0; //completed
 	}
 	else
@@ -764,7 +766,7 @@ u32 sceIoGetAsyncStat(int id, u32 poll, u32 address)
 	}
 }
 
-void sceIoWaitAsync(int id, u32 address, u32 uknwn) {
+int sceIoWaitAsync(int id, u32 address) {
 	u32 error;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
 	if (f) {
@@ -775,15 +777,16 @@ void sceIoWaitAsync(int id, u32 address, u32 uknwn) {
 		}
 		Memory::Write_U64(res, address);
 		DEBUG_LOG(HLE, "%i = sceIoWaitAsync(%i, %08x) (HACK)", (u32) res, id,
-				uknwn);
-		RETURN(0); //completed
+				address);
+		hleReSchedule("io waited");
+		return 0; //completed
 	} else {
 		ERROR_LOG(HLE, "ERROR - sceIoWaitAsync waiting for invalid id %i", id);
-		RETURN(-1);
+		return -1;
 	}
 }
 
-void sceIoWaitAsyncCB(int id, u32 address) {
+int sceIoWaitAsyncCB(int id, u32 address) {
 	// Should process callbacks here
 	u32 error;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
@@ -796,10 +799,13 @@ void sceIoWaitAsyncCB(int id, u32 address) {
 		Memory::Write_U64(res, address);
 		DEBUG_LOG(HLE, "%i = sceIoWaitAsyncCB(%i, %08x) (HACK)", (u32) res, id,
 				address);
-		RETURN(0); //completed
+		hleCheckCurrentCallbacks();
+		hleReSchedule(true, "io waited");
+		return 0; //completed
 	} else {
 		ERROR_LOG(HLE, "ERROR - sceIoWaitAsyncCB waiting for invalid id %i",
 				id);
+		return -1;
 	}
 }
 
@@ -946,8 +952,8 @@ const HLEFunction IoFileMgrForUser[] = {
 	{ 0x6d08a871, 0, "sceIoUnassign" },
 	{ 0x42EC03AC, &WrapU_IVI<sceIoWrite>, "sceIoWrite" }, //(int fd, void *data, int size);
 	{ 0x0facab19, 0, "sceIoWriteAsync" },
-	{ 0x35dbd746, &WrapV_IU<sceIoWaitAsyncCB>, "sceIoWaitAsyncCB" },
-	{ 0xe23eec33, &WrapV_IUU<sceIoWaitAsync>, "sceIoWaitAsync" }, 
+	{ 0x35dbd746, &WrapI_IU<sceIoWaitAsyncCB>, "sceIoWaitAsyncCB" },
+	{ 0xe23eec33, &WrapI_IU<sceIoWaitAsync>, "sceIoWaitAsync" },
 };
 
 void Register_IoFileMgrForUser() {
