@@ -78,7 +78,7 @@ class VagDecoder
 {
 public:
 	VagDecoder() : data_(0), read_(0) {}
-	void Start(u8 *data, bool loopEnabled);
+	void Start(u8 *data, int vagSize, bool loopEnabled);
 
 	void GetSamples(s16 *outSamples, int numSamples);
 
@@ -97,6 +97,7 @@ private:
 	u8 *read_;
 	int curBlock_;
 	int loopStartBlock_;
+	int numBlocks_;
 
 	// rolling state. start at 0, should probably reset to 0 on loops?
 	double s_1;

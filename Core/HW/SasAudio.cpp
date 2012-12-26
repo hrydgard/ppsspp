@@ -27,11 +27,11 @@ static const double f[5][2] =
 {	 98.0 / 64.0, -55.0 / 64.0 },
 {	122.0 / 64.0, -60.0 / 64.0 } };
 
-void VagDecoder::Start(u8 *data, bool loopEnabled)
-{
+void VagDecoder::Start(u8 *data, int vagSize, bool loopEnabled) {
 	loopEnabled_ = loopEnabled;
 	loopAtNextBlock_ = false;
 	loopStartBlock_ = 0;
+	numBlocks_ = vagSize / 16;
 	end_ = false;
 	data_ = data;
 	read_ = data;
@@ -41,8 +41,7 @@ void VagDecoder::Start(u8 *data, bool loopEnabled)
 	s_2 = 0.0;
 }
 
-bool VagDecoder::DecodeBlock()
-{
+bool VagDecoder::DecodeBlock() {
 	int predict_nr = GetByte();
 	int shift_factor = predict_nr & 0xf;
 	predict_nr >>= 4;
@@ -71,6 +70,9 @@ bool VagDecoder::DecodeBlock()
 	}
 	curSample = 0;
 	curBlock_++;
+	if (curBlock_ == numBlocks_) {
+		end_ = true;
+	}
 	return true;
 }
 
@@ -307,7 +309,7 @@ void SasVoice::KeyOn() {
 	switch (type) {
 	case VOICETYPE_VAG:
 		if (Memory::IsValidAddress(vagAddr)) {
-			vag.Start(Memory::GetPointer(vagAddr), loop);
+			vag.Start(Memory::GetPointer(vagAddr), vagSize, loop);
 		} else {
 			ERROR_LOG(SAS, "Invalid VAG address %08x", vagAddr);
 			return;
@@ -330,7 +332,7 @@ void SasVoice::ChangedParams(bool changedVag) {
 	if (!playing && on) {
 		playing = true;
 		if (changedVag)
-			vag.Start(Memory::GetPointer(vagAddr), loop);
+			vag.Start(Memory::GetPointer(vagAddr), vagSize, loop);
 	}
 	// TODO: restart VAG somehow
 }
