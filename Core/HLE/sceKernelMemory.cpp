@@ -634,11 +634,11 @@ void sceKernelReferVplStatus()
 // TODO: Make proper kernel objects for these instead of using the UID as a pointer.
 
 u32 AllocMemoryBlock(const char *pname, u32 type, u32 size, u32 paramsAddr) {
-	INFO_LOG(HLE,"AllocMemoryBlock(SysMemUserForUser_FE707FDF)(%s, %i, %i, %08x)", pname, type, size, paramsAddr);
 
 	// Just support allocating a block in the user region.
 
-	u32 blockPtr = userMemory.Alloc(size, false, pname);
+	u32 blockPtr = userMemory.Alloc(size, type == 1, pname);
+	INFO_LOG(HLE,"%08x=AllocMemoryBlock(SysMemUserForUser_FE707FDF)(%s, %i, %08x, %08x)", blockPtr, pname, type, size, paramsAddr);
 
 	// Create a UID object??? Nah, let's just us the UID itself (hack!)
 
@@ -646,14 +646,15 @@ u32 AllocMemoryBlock(const char *pname, u32 type, u32 size, u32 paramsAddr) {
 }
 
 u32 FreeMemoryBlock(u32 uid) {
-	INFO_LOG(HLE, "FreeMemoryBlock(%i)", uid);
+	INFO_LOG(HLE, "FreeMemoryBlock(%08x)", uid);
 	userMemory.Free(uid);
 	return 0;
 }
 
-u32 GetMemoryBlockPtr(u32 uid) {
-	INFO_LOG(HLE, "GetMemoryBlockPtr(%i)", uid);
-	return uid;
+u32 GetMemoryBlockPtr(u32 uid, u32 addr) {
+	INFO_LOG(HLE, "GetMemoryBlockPtr(%08x, %08x)", uid, addr);
+	Memory::Write_U32(uid, addr);
+	return 0;
 }
 
 u32 sceKernelSetCompiledSdkVersion(u32 param) {
@@ -691,7 +692,7 @@ const HLEFunction SysMemUserForUser[] = {
 	{0x358ca1bb,0,"sceKernelSetCompiledSdkVersion606"},
 
 	// Obscure raw block API
-	{0xDB83A952,WrapU_U<GetMemoryBlockPtr>,"SysMemUserForUser_DB83A952"},  // GetMemoryBlockAddr
+	{0xDB83A952,WrapU_UU<GetMemoryBlockPtr>,"SysMemUserForUser_DB83A952"},  // GetMemoryBlockAddr
 	{0x91DE343C,0,"SysMemUserForUser_91DE343C"},
 	{0x50F61D8A,WrapU_U<FreeMemoryBlock>,"SysMemUserForUser_50F61D8A"},  // FreeMemoryBlock
 	{0xFE707FDF,WrapU_CUUU<AllocMemoryBlock>,"SysMemUserForUser_FE707FDF"},  // AllocMemoryBlock
