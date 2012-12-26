@@ -40,6 +40,10 @@ class CtrlRegisterList
 	DebugInterface *cpu;
 	static TCHAR szClassName[];
 
+	u32 lastPC;
+	u32 *lastCat0Values;
+	bool *changedCat0Regs;
+
 public:
 	CtrlRegisterList(HWND _wnd);
 	~CtrlRegisterList();
@@ -60,6 +64,12 @@ public:
 	void setCPU(DebugInterface *deb)
 	{
 		cpu = deb;
+
+		int regs = cpu->GetNumRegsInCategory(0);
+		lastCat0Values = new u32[regs];
+		changedCat0Regs = new bool[regs];
+		memset(lastCat0Values, 0, regs * sizeof(u32));
+		memset(changedCat0Regs, 0, regs * sizeof(bool));
 	}
 	DebugInterface *getCPU()
 	{
