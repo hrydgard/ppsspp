@@ -382,8 +382,6 @@ u32 sceIoOpen(const char* filename, int flags, int mode) {
 	if (flags & O_CREAT)
 		access |= FILEACCESS_CREATE;
 
-	hleReSchedule("file opened");
-
 	u32 h = pspFileSystem.OpenFile(filename, (FileAccess) access);
 	if (h == 0)
 	{
