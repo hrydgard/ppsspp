@@ -283,6 +283,27 @@ static void DesetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decF
 	VertexAttribDisable(program->a_position, decFmt.posfmt);
 }
 
+// The verts are in the order:  BR BL TL TR
+static void SwapUVs(TransformedVertex &a, TransformedVertex &b) {
+	float tempu = a.u;
+	float tempv = a.v;
+	a.u = b.u;
+	a.v = b.v;
+	b.u = tempu;
+	b.v = tempv;
+}
+// 2   3       3   2        0   3          2   1
+//        to           to            or
+// 1   0       0   1        1   2          3   0
+
+static void RotateUVs(TransformedVertex v[4]) {
+	if (v[0].y < v[2].y && v[0].x > v[2].x) {
+		SwapUVs(v[0], v[2]);
+	} else if (v[0].y > v[2].y && v[0].x < v[2].x) {
+		SwapUVs(v[1], v[3]);
+	}
+}
+
 // This is the software transform pipeline, which is necessary for supporting RECT
 // primitives correctly, and may be easier to use for debugging than the hardware
 // transform pipeline.
@@ -299,8 +320,7 @@ static void DesetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decF
 // Actually again, single quads could be drawn more efficiently using GL_TRIANGLE_STRIP, no need to duplicate verts as for
 // GL_TRIANGLES. Still need to sw transform to compute the extra two corners though.
 void TransformDrawEngine::SoftwareTransformAndDraw(
-		int prim, u8 *decoded, LinkedShader *program, int vertexCount, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex)
-{
+		int prim, u8 *decoded, LinkedShader *program, int vertexCount, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex) {
 	/*
 	DEBUG_LOG(G3D, "View matrix:");
 	const float *m = &gstate.viewMatrix[0];
@@ -334,8 +354,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		float c1[4] = {0, 0, 0, 0};
 		float uv[2] = {0, 0};
 
-		if (throughmode)
-		{
+		if (throughmode) {
 			// Do not touch the coordinates or the colors. No lighting.
 			reader.ReadPos(v);
 			if (reader.hasColor0()) {
@@ -343,9 +362,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 				for (int j = 0; j < 4; j++) {
 					c1[j] = 0.0f;
 				}
-			}
-			else
-			{
+			} else {
 				c0[0] = (gstate.materialambient & 0xFF) / 255.f;
 				c0[1] = ((gstate.materialambient >> 8) & 0xFF) / 255.f;
 				c0[2] = ((gstate.materialambient >> 16) & 0xFF) / 255.f;
@@ -356,9 +373,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 				reader.ReadUV(uv);
 			}
 			// Scale UV?
-		}
-		else
-		{
+		} else {
 			// We do software T&L for now
 			float out[3], norm[3];
 			float pos[3], nrm[3] = {0};
@@ -366,17 +381,14 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			if (reader.hasNormal())
 				reader.ReadNrm(nrm);
 
-			if ((gstate.vertType & GE_VTYPE_WEIGHT_MASK) == GE_VTYPE_WEIGHT_NONE)
-			{
+			if ((gstate.vertType & GE_VTYPE_WEIGHT_MASK) == GE_VTYPE_WEIGHT_NONE) {
 				Vec3ByMatrix43(out, pos, gstate.worldMatrix);
 				if (reader.hasNormal()) {
 					Norm3ByMatrix43(norm, nrm, gstate.worldMatrix);
 				} else {
 					memset(norm, 0, 12);
 				}
-			}
-			else
-			{
+			} else {
 				float weights[8];
 				reader.ReadWeights(weights);
 				// Skinning
@@ -419,8 +431,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			float litColor1[4];
 			lighter.Light(litColor0, litColor1, unlitColor, out, norm, dots);
 
-			if (gstate.lightingEnable & 1)
-			{
+			if (gstate.lightingEnable & 1) {
 				// Don't ignore gstate.lmode - we should send two colors in that case
 				if (gstate.lmode & 1) {
 					// Separate colors
@@ -435,9 +446,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 						c1[j] = 0.0f;
 					}
 				}
-			}
-			else
-			{
+			} else {
 				if (reader.hasColor0()) {
 					for (int j = 0; j < 4; j++) {
 						c0[j] = unlitColor[j];
@@ -507,7 +516,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 
 		// TODO: Write to a flexible buffer, we don't always need all four components.
 		memcpy(&transformed[index].x, v, 3 * sizeof(float));
-		memcpy(&transformed[index].uv, uv, 2 * sizeof(float));
+		memcpy(&transformed[index].u, uv, 2 * sizeof(float));
 		memcpy(&transformed[index].color0, c0, 4 * sizeof(float));
 		memcpy(&transformed[index].color1, c1, 3 * sizeof(float));
 	}
@@ -540,43 +549,35 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			{
 				// We have to turn the rectangle into two triangles, so 6 points. Sigh.
 
-				// TODO: there's supposed to be extra magic here to rotate the UV coordinates depending on if upside down etc.
-
 				// bottom right
-				*trans = transVtx;
-				trans++;
-
-				// top left
-				*trans = transVtx;
-				trans->x = saved.x;
-				trans->uv[0] = saved.uv[0];
-				trans->y = saved.y;
-				trans->uv[1] = saved.uv[1];
-				trans++;
-
-				// top right
-				*trans = transVtx;
-				trans->x = saved.x;
-				trans->uv[0] = saved.uv[0];
-				trans++;
+				trans[0] = transVtx;
 
 				// bottom left
-				*trans = transVtx;
-				trans->y = saved.y;
-				trans->uv[1] = saved.uv[1];
-				trans++;
-
-				// bottom right
-				*trans = transVtx;
-				trans->x = saved.x;
-				trans->uv[0] = saved.uv[0];
-				trans->y = saved.y;
-				trans->uv[1] = saved.uv[1];
-				trans++;
+				trans[1] = transVtx;
+				trans[1].y = saved.y;
+				trans[1].v = saved.v;
 
 				// top left
-				*trans = transVtx;
-				trans++;
+				trans[2] = transVtx;
+				trans[2].x = saved.x;
+				trans[2].y = saved.y;
+				trans[2].u = saved.u;
+				trans[2].v = saved.v;
+
+				// top right
+				trans[3] = transVtx;
+				trans[3].x = saved.x;
+				trans[3].u = saved.u;
+
+				// That's the four corners. Now process UV rotation.
+				RotateUVs(trans);
+
+				// bottom right
+				trans[4] = trans[0];
+
+				// top left
+				trans[5] = trans[2];
+				trans += 6;
 
 				numTrans += 6;
 			}
@@ -605,8 +606,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 	if (program->a_color1 != -1) glDisableVertexAttribArray(program->a_color1);
 }
 
-void TransformDrawEngine::SubmitPrim(void *verts, void *inds, int prim, int vertexCount, float *customUV, int forceIndexType, int *bytesRead)
-{
+void TransformDrawEngine::SubmitPrim(void *verts, void *inds, int prim, int vertexCount, float *customUV, int forceIndexType, int *bytesRead) {
 	// For the future
 	if (!indexGen.PrimCompatible(prim))
 		Flush();
@@ -628,7 +628,6 @@ void TransformDrawEngine::SubmitPrim(void *verts, void *inds, int prim, int vert
 	// Decode the verts and apply morphing
 	dec.DecodeVerts(decoded + numVerts * (int)dec.GetDecVtxFmt().stride, verts, inds, prim, vertexCount, &indexLowerBound, &indexUpperBound);
 	numVerts += indexUpperBound - indexLowerBound + 1;
-
 	if (bytesRead)
 		*bytesRead = vertexCount * dec.VertexSize();
 
@@ -676,19 +675,13 @@ void TransformDrawEngine::SubmitPrim(void *verts, void *inds, int prim, int vert
 void TransformDrawEngine::Flush() {
 	if (indexGen.Empty())
 		return;
-	// From here on out, the index type is ALWAYS 16-bit. Deal with it.
-
-	// And here we should return, having collected the morphed but untransformed vertices.
-	// Note that DecodeVerts should convert strips into indexed lists etc, adding to our
-	// current vertex buffer and index buffer.
-
-	// The rest below here should only execute on Flush.
 
 #if 0
 	for (int i = indexLowerBound; i <= indexUpperBound; i++) {
 		PrintDecodedVertex(decoded[i], gstate.vertType);
 	}
 #endif
+
 	// Check if anything needs updating
 	if (gstate_c.textureChanged) {
 		if ((gstate.textureMapEnable & 1) && !gstate.isModeClear()) {
@@ -712,7 +705,15 @@ void TransformDrawEngine::Flush() {
 
 	if (CanUseHardwareTransform(prim)) {
 		SetupDecFmtForDraw(program, dec.GetDecVtxFmt(), decoded);
-		glDrawElements(glprim[prim], indexGen.VertexCount(), GL_UNSIGNED_SHORT, (GLvoid *)decIndex);
+		// If there's only been one primitive type, and it's either TRIANGLES, LINES or POINTS,
+		// there is no need for the index buffer we built. We can then use glDrawArrays instead
+		// for a very minor speed boost.
+		int seen = indexGen.SeenPrims() | 0x83204820;
+		if (seen == (1 << GE_PRIM_TRIANGLES) || seen == (1 << GE_PRIM_LINES) || seen == (1 << GE_PRIM_POINTS)) {
+			glDrawArrays(glprim[prim], 0, indexGen.VertexCount());
+		} else {
+			glDrawElements(glprim[prim], indexGen.VertexCount(), GL_UNSIGNED_SHORT, (GLvoid *)decIndex);
+		}
 		DesetupDecFmtForDraw(program, dec.GetDecVtxFmt());
 	} else {
 		SoftwareTransformAndDraw(prim, decoded, program, indexGen.VertexCount(), (void *)decIndex, GE_VTYPE_IDX_16BIT, dec.GetDecVtxFmt(),

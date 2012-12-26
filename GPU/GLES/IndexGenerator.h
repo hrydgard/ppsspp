@@ -58,13 +58,14 @@ public:
 	void TranslateList(int numVerts, const u16 *inds, int offset);
 	void TranslateStrip(int numVerts, const u16 *inds, int offset);
 	void TranslateFan(int numVerts, const u16 *inds, int offset);
-	
-  int MaxIndex() { return index_; }
+
+	int MaxIndex() { return index_; }
 	int VertexCount() { return count_; }
 
 	bool Empty() { return index_ == 0; }
 
 	void SetIndex(int ind) { index_ = ind; }
+	int SeenPrims() const { return seenPrims_; }
 
 private:
 	u16 *indsBase_;
@@ -72,5 +73,6 @@ private:
 	int index_;
 	int count_;
 	int prim_;
+	int seenPrims_;
 };
 
