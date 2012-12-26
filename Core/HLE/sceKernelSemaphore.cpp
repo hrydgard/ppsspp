@@ -135,7 +135,6 @@ std::vector<SceUID>::iterator __KernelSemaFindPriority(std::vector<SceUID> &wait
 	return best;
 }
 
-// int sceKernelCancelSema(SceUID id, int newCount, int *numWaitThreads);
 int sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr)
 {
 	DEBUG_LOG(HLE, "sceKernelCancelSema(%i)", id);
@@ -168,7 +167,6 @@ int sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr)
 	}
 }
 
-//SceUID sceKernelCreateSema(const char *name, SceUInt attr, int initVal, int maxVal, SceKernelSemaOptParam *option);
 int sceKernelCreateSema(const char* name, u32 attr, int initVal, int maxVal, u32 optionPtr)
 {
 	if (!name)
@@ -204,7 +202,6 @@ int sceKernelCreateSema(const char* name, u32 attr, int initVal, int maxVal, u32
 	return id;
 }
 
-//int sceKernelDeleteSema(SceUID semaid);
 int sceKernelDeleteSema(SceUID id)
 {
 	DEBUG_LOG(HLE, "sceKernelDeleteSema(%i)", id);
@@ -226,7 +223,6 @@ int sceKernelDeleteSema(SceUID id)
 	}
 }
 
-//int sceKernelDeleteSema(SceUID semaid, SceKernelSemaInfo *info);
 int sceKernelReferSemaStatus(SceUID id, u32 infoPtr)
 {
 	u32 error;
@@ -243,8 +239,7 @@ int sceKernelReferSemaStatus(SceUID id, u32 infoPtr)
 		return error;
 	}
 }
-	
-//int sceKernelSignalSema(SceUID semaid, int signal);
+
 int sceKernelSignalSema(SceUID id, int signal)
 {
 	u32 error;
@@ -359,15 +354,13 @@ int __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, const char *bad
 	}
 }
 
-//int sceKernelWaitSema(SceUID semaid, int signal, SceUInt *timeout);
 int sceKernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr)
 {
 	DEBUG_LOG(HLE, "sceKernelWaitSema(%i, %i, %i)", id, wantedCount, timeoutPtr);
 
 	return __KernelWaitSema(id, wantedCount, timeoutPtr, "sceKernelWaitSema: Trying to wait for invalid semaphore %i", false);
-} 
+}
 
-//int sceKernelWaitSemaCB(SceUID semaid, int signal, SceUInt *timeout);
 int sceKernelWaitSemaCB(SceUID id, int wantedCount, u32 timeoutPtr)
 {
 	DEBUG_LOG(HLE, "sceKernelWaitSemaCB(%i, %i, %i)", id, wantedCount, timeoutPtr);

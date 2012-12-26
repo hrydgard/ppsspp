@@ -599,8 +599,7 @@ u32 sceKernelLoadModule(const char *name, u32 flags)
 		return SCE_KERNEL_ERROR_NOFILE;
 	}
 
-	if (!size)
-	{   
+	if (!size) {
 		ERROR_LOG(LOADER, "sceKernelLoadModule(%s, %08x): Module file is size 0", name, flags);
 		return SCE_KERNEL_ERROR_ILLEGAL_OBJECT;
 	}
@@ -610,10 +609,8 @@ u32 sceKernelLoadModule(const char *name, u32 flags)
 	SceKernelLMOption *lmoption = 0;
 	int position = 0;
 	// TODO: Use position to decide whether to load high or low
-	if (PARAM(2))
-	{
+	if (PARAM(2)) {
 		lmoption = (SceKernelLMOption *)Memory::GetPointer(PARAM(2));
-		
 	}
 
 	Module *module = 0;
@@ -635,9 +632,7 @@ u32 sceKernelLoadModule(const char *name, u32 flags)
 		INFO_LOG(HLE,"%i=sceKernelLoadModule(name=%s,flag=%08x,%08x,%08x,%08x,position = %08x)",
 			module->GetUID(),name,flags,
 			lmoption->size,lmoption->mpidtext,lmoption->mpiddata,lmoption->position);
-	}
-	else
-	{
+	} else {
 		INFO_LOG(HLE,"%i=sceKernelLoadModule(name=%s,flag=%08x,(...))", module->GetUID(), name, flags);
 	}
 

@@ -128,7 +128,7 @@ void __KernelMutexShutdown()
 
 void __KernelMutexAcquireLock(Mutex *mutex, int count, SceUID thread)
 {
-#if _DEBUG
+#if defined(_DEBUG)
 	std::pair<MutexMap::iterator, MutexMap::iterator> locked = mutexHeldLocks.equal_range(thread);
 	for (MutexMap::iterator iter = locked.first; iter != locked.second; ++iter)
 		_dbg_assert_msg_(HLE, (*iter).second != mutex->GetUID(), "Thread %d / mutex %d wasn't removed from mutexHeldLocks properly.", thread, mutex->GetUID());

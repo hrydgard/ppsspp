@@ -439,18 +439,6 @@ void sceKernelPrintf()
 	RETURN(0);
 }
 
-void sceKernelSetCompiledSdkVersion()
-{
-	//pretty sure this only takes one arg
-	ERROR_LOG(HLE,"UNIMPL sceKernelSetCompiledSdkVersion(%08x)", PARAM(0));
-	RETURN(0);
-}
-
-void sceKernelSetCompilerVersion()
-{
-	ERROR_LOG(HLE,"UNIMPL sceKernelSetCompilerVersion(%08x, %08x, %08x, %08x)", PARAM(0),PARAM(1),PARAM(2),PARAM(3));
-	RETURN(0);
-}
 
 // VPL = variable length memory pool
 
@@ -642,13 +630,11 @@ void sceKernelReferVplStatus()
 	RETURN(0);
 }
 
-void AllocMemoryBlock() {
-	const char *pname = Memory::GetCharPointer(PARAM(0));
-	int type = PARAM(1);
-	u32 size = PARAM(2);
-	int paramsAddr = PARAM(3);
-	
-	DEBUG_LOG(HLE,"AllocMemoryBlock(SysMemUserForUser_FE707FDF)(%s, %i, %i, %08x)", pname, type, size, paramsAddr);
+
+// TODO: Make proper kernel objects for these instead of using the UID as a pointer.
+
+u32 AllocMemoryBlock(const char *pname, u32 type, u32 size, u32 paramsAddr) {
+	INFO_LOG(HLE,"AllocMemoryBlock(SysMemUserForUser_FE707FDF)(%s, %i, %i, %08x)", pname, type, size, paramsAddr);
 
 	// Just support allocating a block in the user region.
 
@@ -656,44 +642,59 @@ void AllocMemoryBlock() {
 
 	// Create a UID object??? Nah, let's just us the UID itself (hack!)
 
-	RETURN(blockPtr);
+	return blockPtr;
 }
 
-void FreeMemoryBlock() {
-	SceUID uid = PARAM(0);
-	DEBUG_LOG(HLE, "FreeMemoryBlock(%i)", uid);
+u32 FreeMemoryBlock(u32 uid) {
+	INFO_LOG(HLE, "FreeMemoryBlock(%i)", uid);
 	userMemory.Free(uid);
-	RETURN(0);
+	return 0;
 }
 
-void GetMemoryBlockPtr() {
-	SceUID uid = PARAM(0);
-	DEBUG_LOG(HLE, "GetMemoryBlockPtr(%i)", uid);
-	RETURN(uid);
+u32 GetMemoryBlockPtr(u32 uid) {
+	INFO_LOG(HLE, "GetMemoryBlockPtr(%i)", uid);
+	return uid;
 }
 
-const HLEFunction SysMemUserForUser[] = 
-{
+u32 sceKernelSetCompiledSdkVersion(u32 param) {
+	// pretty sure this only takes one arg
+	ERROR_LOG(HLE,"UNIMPL sceKernelSetCompiledSdkVersion(%08x)", param);
+	return 0;
+}
+
+u32 sceKernelSetCompiledSdkVersion395(u32 param) {
+	// pretty sure this only takes one arg
+	ERROR_LOG(HLE,"UNIMPL sceKernelSetCompiledSdkVersion395(%08x)", param);
+	return 0;
+}
+
+u32 sceKernelSetCompilerVersion(u32 a, u32 b, u32 c, u32 d) {
+	ERROR_LOG(HLE,"UNIMPL sceKernelSetCompilerVersion(%08x, %08x, %08x, %08x)", a, b, c, d);
+	return 0;
+}
+
+const HLEFunction SysMemUserForUser[] = {
 	{0xA291F107,sceKernelMaxFreeMemSize,	"sceKernelMaxFreeMemSize"},
 	{0xF919F628,sceKernelTotalFreeMemSize,"sceKernelTotalFreeMemSize"},
-	{0x3FC9AE6A,sceKernelDevkitVersion,	 "sceKernelDevkitVersion"},	
+	{0x3FC9AE6A,sceKernelDevkitVersion,	 "sceKernelDevkitVersion"},
 	{0x237DBD4F,sceKernelAllocPartitionMemory,"sceKernelAllocPartitionMemory"},	//(int size) ?
 	{0xB6D61D02,sceKernelFreePartitionMemory,"sceKernelFreePartitionMemory"},	 //(void *ptr) ?
 	{0x9D9A5BA1,sceKernelGetBlockHeadAddr,"sceKernelGetBlockHeadAddr"},			//(void *ptr) ?
 	{0x13a5abef,sceKernelPrintf,"sceKernelPrintf 0x13a5abef"},
-	{0x7591c7db,sceKernelSetCompiledSdkVersion,"sceKernelSetCompiledSdkVersion"},
+	{0x7591c7db,WrapU_U<sceKernelSetCompiledSdkVersion>,"sceKernelSetCompiledSdkVersion"},
 	{0x342061E5,0,"sceKernelSetCompiledSdkVersion370"},
 	{0x315AD3A0,0,"sceKernelSetCompiledSdkVersion380_390"},
-	{0xEBD5C3E6,0,"sceKernelSetCompiledSdkVersion395"},
-	{0xf77d77cb,sceKernelSetCompilerVersion,"sceKernelSetCompilerVersion"},
+	{0xEBD5C3E6,WrapU_U<sceKernelSetCompiledSdkVersion395>,"sceKernelSetCompiledSdkVersion395"},
+	{0xf77d77cb,WrapU_UUUU<sceKernelSetCompilerVersion>,"sceKernelSetCompilerVersion"},
 	{0x35669d4c,0,"sceKernelSetCompiledSdkVersion600_602"},  //??
 	{0x1b4217bc,0,"sceKernelSetCompiledSdkVersion603_605"},
-	{0x358ca1bb,0,"sceKernelSetCompiledSdkVersion606"}, 
+	{0x358ca1bb,0,"sceKernelSetCompiledSdkVersion606"},
+
 	// Obscure raw block API
-	{0xDB83A952,GetMemoryBlockPtr,"SysMemUserForUser_DB83A952"},  // GetMemoryBlockAddr 
+	{0xDB83A952,WrapU_U<GetMemoryBlockPtr>,"SysMemUserForUser_DB83A952"},  // GetMemoryBlockAddr
 	{0x91DE343C,0,"SysMemUserForUser_91DE343C"},
-	{0x50F61D8A,FreeMemoryBlock,"SysMemUserForUser_50F61D8A"},  // FreeMemoryBlock 
-	{0xFE707FDF,AllocMemoryBlock,"SysMemUserForUser_FE707FDF"},  // AllocMemoryBlock
+	{0x50F61D8A,WrapU_U<FreeMemoryBlock>,"SysMemUserForUser_50F61D8A"},  // FreeMemoryBlock
+	{0xFE707FDF,WrapU_CUUU<AllocMemoryBlock>,"SysMemUserForUser_FE707FDF"},  // AllocMemoryBlock
 };
 
 
