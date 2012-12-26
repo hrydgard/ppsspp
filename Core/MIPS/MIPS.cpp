@@ -53,7 +53,11 @@ MIPSState::~MIPSState()
 void MIPSState::Reset()
 {
 	if (MIPSComp::jit)
+	{
 		delete MIPSComp::jit;
+		MIPSComp::jit = 0;
+	}
+
 	if (PSP_CoreParameter().cpuCore == CPU_JIT)
 		MIPSComp::jit = new MIPSComp::Jit(this);
 
