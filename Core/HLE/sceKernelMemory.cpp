@@ -682,18 +682,18 @@ const HLEFunction SysMemUserForUser[] = {
 	{0xB6D61D02,sceKernelFreePartitionMemory,"sceKernelFreePartitionMemory"},	 //(void *ptr) ?
 	{0x9D9A5BA1,sceKernelGetBlockHeadAddr,"sceKernelGetBlockHeadAddr"},			//(void *ptr) ?
 	{0x13a5abef,sceKernelPrintf,"sceKernelPrintf 0x13a5abef"},
+	{0xf77d77cb,WrapU_UUUU<sceKernelSetCompilerVersion>,"sceKernelSetCompilerVersion"},
 	{0x7591c7db,WrapU_U<sceKernelSetCompiledSdkVersion>,"sceKernelSetCompiledSdkVersion"},
 	{0x342061E5,0,"sceKernelSetCompiledSdkVersion370"},
 	{0x315AD3A0,0,"sceKernelSetCompiledSdkVersion380_390"},
 	{0xEBD5C3E6,WrapU_U<sceKernelSetCompiledSdkVersion395>,"sceKernelSetCompiledSdkVersion395"},
-	{0xf77d77cb,WrapU_UUUU<sceKernelSetCompilerVersion>,"sceKernelSetCompilerVersion"},
+	{0x91DE343C,0,"sceKernelSetCompiledSdkVersion_500_505"},
 	{0x35669d4c,0,"sceKernelSetCompiledSdkVersion600_602"},  //??
 	{0x1b4217bc,0,"sceKernelSetCompiledSdkVersion603_605"},
 	{0x358ca1bb,0,"sceKernelSetCompiledSdkVersion606"},
 
 	// Obscure raw block API
 	{0xDB83A952,WrapU_UU<GetMemoryBlockPtr>,"SysMemUserForUser_DB83A952"},  // GetMemoryBlockAddr
-	{0x91DE343C,0,"SysMemUserForUser_91DE343C"},
 	{0x50F61D8A,WrapU_U<FreeMemoryBlock>,"SysMemUserForUser_50F61D8A"},  // FreeMemoryBlock
 	{0xFE707FDF,WrapU_CUUU<AllocMemoryBlock>,"SysMemUserForUser_FE707FDF"},  // AllocMemoryBlock
 };
