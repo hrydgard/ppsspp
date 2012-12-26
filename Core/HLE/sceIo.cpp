@@ -746,7 +746,7 @@ u32 sceIoReadAsync(int id, u32 data_addr, int size)
 	return 0;
 }
 
-u32 sceIoGetAsyncStat(int id, u32 address, u32 uknwn)
+u32 sceIoGetAsyncStat(int id, u32 poll, u32 address)
 {
 	u32 error;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
@@ -754,7 +754,7 @@ u32 sceIoGetAsyncStat(int id, u32 address, u32 uknwn)
 	{
 		Memory::Write_U64(f->asyncResult, address);
 		DEBUG_LOG(HLE, "%i = sceIoGetAsyncStat(%i, %i, %08x) (HACK)",
-				(u32) f->asyncResult, id, address, uknwn);
+				(u32) f->asyncResult, id, poll, address);
 		return 0; //completed
 	}
 	else
