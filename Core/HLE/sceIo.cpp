@@ -717,9 +717,7 @@ u32 sceIoSetAsyncCallback(int id, u32 clbckId, u32 clbckArg)
 		// TODO: Check replacing / updating?
 		f->callbackID = clbckId;
 		f->callbackArg = clbckArg;
-		// TODO: Not sure when this is unregistered?
-		error = __KernelRegisterCallback(THREAD_CALLBACK_IO, clbckId);
-		return error;
+		return 0;
 	}
 	else
 	{
