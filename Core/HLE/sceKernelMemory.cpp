@@ -167,7 +167,7 @@ void sceKernelCreateFpl()
 void sceKernelDeleteFpl()
 {
 	SceUID id = PARAM(0);
-	u32 error;
+	u32 error=0;
 	FPL *fpl = kernelObjects.Get<FPL>(id, error);
 	if (fpl)
 	{
@@ -184,7 +184,7 @@ void sceKernelDeleteFpl()
 void sceKernelAllocateFpl()
 {
 	SceUID id = PARAM(0);
-	u32 error;
+	u32 error=0;
 	FPL *fpl = kernelObjects.Get<FPL>(id, error);
 	if (fpl)
 	{
@@ -214,7 +214,7 @@ void sceKernelAllocateFpl()
 void sceKernelAllocateFplCB()
 {
 	SceUID id = PARAM(0);
-	u32 error;
+	u32 error=0;
 	FPL *fpl = kernelObjects.Get<FPL>(id, error);
 	if (fpl)
 	{
@@ -243,7 +243,7 @@ void sceKernelAllocateFplCB()
 void sceKernelTryAllocateFpl()
 {
 	SceUID id = PARAM(0);
-	u32 error;
+	u32 error=0;
 	FPL *fpl = kernelObjects.Get<FPL>(id, error);
 	if (fpl)
 	{
@@ -272,7 +272,7 @@ void sceKernelFreeFpl()
 	u32 blockAddr = PARAM(1);
 
 	DEBUG_LOG(HLE,"sceKernelFreeFpl(%i, %08x)", id, blockAddr);
-	u32 error;
+	u32 error=0;
 	FPL *fpl = kernelObjects.Get<FPL>(id, error);
 	if (fpl) {
 		int blockNum = (blockAddr - fpl->address) / fpl->nf.blocksize;
@@ -295,7 +295,7 @@ void sceKernelCancelFpl()
 {
 	SceUID id = PARAM(0);
 	DEBUG_LOG(HLE,"UNIMPL: sceKernelCancelFpl(%i)", id);
-	u32 error;
+	u32 error=0;
 	FPL *fpl = kernelObjects.Get<FPL>(id, error);
 	if (fpl)
 	{
@@ -312,7 +312,7 @@ void sceKernelReferFplStatus()
 	SceUID id = PARAM(0);
 	u32 statusAddr = PARAM(1);
 	DEBUG_LOG(HLE,"sceKernelReferFplStatus(%i, %08x)", id, statusAddr);
-	u32 error;
+	u32 error=0;
 	FPL *fpl = kernelObjects.Get<FPL>(id, error);
 	if (fpl)
 	{
@@ -415,7 +415,7 @@ void sceKernelGetBlockHeadAddr()
 {
 	SceUID id = PARAM(0);
 
-	u32 error;
+	u32 error=0;
 	PartitionMemoryBlock *block = kernelObjects.Get<PartitionMemoryBlock>(id, error);
 	if (block)
 	{
@@ -480,7 +480,7 @@ void sceKernelDeleteVpl()
 {
 	SceUID id = PARAM(0);
 	DEBUG_LOG(HLE,"sceKernelDeleteVpl(%i)", id);
-	u32 error;
+	u32 error=0;
 	VPL *vpl = kernelObjects.Get<VPL>(id, error);
 	if (vpl)
 	{
@@ -498,7 +498,7 @@ void sceKernelAllocateVpl()
 {
 	SceUID id = PARAM(0);
 	DEBUG_LOG(HLE,"sceKernelAllocateVpl()");
-	u32 error;
+	u32 error=0;
 	VPL *vpl = kernelObjects.Get<VPL>(id, error);
 	if (vpl)
 	{
@@ -527,7 +527,7 @@ void sceKernelAllocateVpl()
 void sceKernelAllocateVplCB()
 {
 	SceUID id = PARAM(0);
-	u32 error;
+	u32 error=0;
 	VPL *vpl = kernelObjects.Get<VPL>(id, error);
 	if (vpl)
 	{
@@ -557,7 +557,7 @@ void sceKernelAllocateVplCB()
 void sceKernelTryAllocateVpl()
 {
 	SceUID id = PARAM(0);
-	u32 error;
+	u32 error=0;
 	VPL *vpl = kernelObjects.Get<VPL>(id, error);
 	if (vpl)
 	{
@@ -588,7 +588,7 @@ void sceKernelFreeVpl()
 	SceUID id = PARAM(0);
 	u32 blockPtr = PARAM(1);
 	DEBUG_LOG(HLE,"sceKernelFreeVpl(%i, %08x)", id, blockPtr);
-	u32 error;
+	u32 error=0;
 	VPL *vpl = kernelObjects.Get<VPL>(id, error);
 	if (vpl)
 	{
@@ -614,7 +614,7 @@ void sceKernelCancelVpl()
 void sceKernelReferVplStatus()
 {
 	SceUID id = PARAM(0);
-	u32 error;
+	u32 error=0;
 	VPL *v = kernelObjects.Get<VPL>(id, error);
 	if (v)
 	{
