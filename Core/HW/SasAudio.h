@@ -165,7 +165,7 @@ struct SasVoice
 			pcmAddr(0),
 			pcmSize(0),
 			sampleRate(44100),
-			samplePos(0),
+			sampleFrac(0),
 			pitch(PSP_SAS_PITCH_BASE),
 			loop(false),
 			noiseFreq(0),
@@ -192,7 +192,7 @@ struct SasVoice
 	int pcmSize;
 	int sampleRate;
 
-	int samplePos;
+	int sampleFrac;
 	int pitch;
 	bool loop;
 

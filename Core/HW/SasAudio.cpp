@@ -47,8 +47,7 @@ bool VagDecoder::DecodeBlock()
 	int shift_factor = predict_nr & 0xf;
 	predict_nr >>= 4;
 	int flags = GetByte();
-	if (flags == 7)
-	{
+	if (flags == 7) {
 		end_ = true;
 		return false;
 	}
@@ -58,16 +57,14 @@ bool VagDecoder::DecodeBlock()
 	else if (flags == 3 && loopEnabled_) {
 		loopAtNextBlock_ = true;
 	}
-	for (int i = 0; i < 28; i += 2)
-	{
+	for (int i = 0; i < 28; i += 2) {
 		int d = GetByte();
 		int s = (short)((d & 0xf) << 12);
 		samples[i] = (double)(s >> shift_factor);
 		s = (short)((d & 0xf0) << 8);
 		samples[i + 1] = (double)(s >> shift_factor);
 	}
-	for (int i = 0; i < 28; i++)
-	{
+	for (int i = 0; i < 28; i++) {
 		samples[i] = samples[i] + s_1 * f[predict_nr][0] + s_2 * f[predict_nr][1];
 		s_2 = s_1;
 		s_1 = samples[i];
@@ -219,9 +216,7 @@ void SasInstance::Mix(u32 outAddr) {
 			resampleBuffer[1] = voice.resampleHist[1];
 
 			// Figure out number of samples to read.
-			int curSample = voice.samplePos / PSP_SAS_PITCH_BASE;
-			int lastSample = (voice.samplePos + grainSize * voice.pitch) / PSP_SAS_PITCH_BASE;
-			u32 numSamples = lastSample - curSample;
+			u32 numSamples = (voice.sampleFrac + grainSize * voice.pitch) / PSP_SAS_PITCH_BASE;
 			if (numSamples > grainSize * 4) {
 				ERROR_LOG(SAS, "numSamples too large, clamping: %i vs %i", numSamples, grainSize * 4);
 				numSamples = grainSize * 4;
@@ -240,7 +235,7 @@ void SasInstance::Mix(u32 outAddr) {
 			voice.resampleHist[1] = resampleBuffer[2 + numSamples - 1];
 
 			// Resample to the correct pitch, writing exactly "grainSize" samples.
-			u32 bufferPos = (voice.samplePos & (PSP_SAS_PITCH_BASE - 1)) + 2 * PSP_SAS_PITCH_BASE;
+			u32 bufferPos = voice.sampleFrac + 2 * PSP_SAS_PITCH_BASE;
 			for (int i = 0; i < grainSize; i++) {
 				// For now: nearest neighbour, not even using the resample history at all.
 				int sample = resampleBuffer[bufferPos / PSP_SAS_PITCH_BASE];
@@ -262,7 +257,8 @@ void SasInstance::Mix(u32 outAddr) {
 				sendBuffer[i * 2 + 1] += sample * voice.volumeRightSend >> 12;
 				voice.envelope.Step();
 			}
-			voice.samplePos += voice.pitch * grainSize;
+			voice.sampleFrac += voice.pitch * grainSize;
+			voice.sampleFrac &= (PSP_SAS_PITCH_BASE - 1);
 			if (voice.envelope.HasEnded())
 			{
 				// NOTICE_LOG(SAS, "Hit end of envelope");
