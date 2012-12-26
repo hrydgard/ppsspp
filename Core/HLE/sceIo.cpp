@@ -224,7 +224,7 @@ void __IoCompleteAsyncIO(SceUID id) {
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
 	if (f) {
 		if (f->callbackID) {
-			// __KernelNotifyCallbackType(THREAD_CALLBACK_IO, __KernelGetCurThread(), f->callbackID, f->callbackArg);
+			__KernelNotifyCallback(THREAD_CALLBACK_IO, f->callbackID, f->callbackArg);
 		}
 	}
 }
@@ -714,9 +714,12 @@ u32 sceIoSetAsyncCallback(int id, u32 clbckId, u32 clbckArg)
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
 	if (f)
 	{
+		// TODO: Check replacing / updating?
 		f->callbackID = clbckId;
 		f->callbackArg = clbckArg;
-		return 0;
+		// TODO: Not sure when this is unregistered?
+		error = __KernelRegisterCallback(THREAD_CALLBACK_IO, clbckId);
+		return error;
 	}
 	else
 	{
@@ -736,7 +739,8 @@ u32 sceIoOpenAsync(const char *filename, int flags, int mode)
 {
 	DEBUG_LOG(HLE, "sceIoOpenAsync() sorta implemented");
 	u32 fd = sceIoOpen(filename, flags, mode);
-	//__IoCompleteAsyncIO(fd);	// The return value
+	// TODO: This can't actually have a callback yet, but if it's set before waiting, it should be called.
+	__IoCompleteAsyncIO(fd);
 	// We have to return an fd here, which may have been destroyed when we reach Wait if it failed.
 	return fd;
 }
