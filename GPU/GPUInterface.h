@@ -54,4 +54,7 @@ public:
 
 	virtual void DeviceLost() = 0;
 	virtual void Flush() = 0;
+
+	// Debugging
+	virtual void DumpNextFrame() = 0;
 };

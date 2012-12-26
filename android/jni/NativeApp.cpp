@@ -174,6 +174,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 
 	g_Config.Load(config_filename.c_str());
 
+	const char *fileToLog = 0;
+
 	bool gfxLog = false;
 	// Parse command line
 	LogTypes::LOG_LEVELS logLevel = LogTypes::LINFO;
@@ -199,6 +201,10 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 				g_Config.iCpuCore = CPU_INTERPRETER;
 				g_Config.bSaveSettings = false;
 				break;
+			case '-':
+				if (!strncmp(argv[i], "--log=", strlen("--log=")) && strlen(argv[i]) > strlen("--log="))
+					fileToLog = argv[i] + strlen("--log=");
+				break;
 			}
 		} else {
 			if (boot_filename.empty()) {
@@ -214,6 +220,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 			}
 		}
 	}
+
+	if (fileToLog != NULL)
+		LogManager::GetInstance()->ChangeFileLog(fileToLog);
 
 	if (g_Config.currentDirectory == "") {
 #if defined(ANDROID) || defined(BLACKBERRY) || defined(__SYMBIAN32__)

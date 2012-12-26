@@ -45,6 +45,7 @@ public:
 	virtual void Flush() {}
 
 	virtual void DeviceLost() {}
+	virtual void DumpNextFrame() {}
 
 private:
 	bool ProcessDLQueue();

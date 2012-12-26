@@ -69,6 +69,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Common/MathUtil.cpp \
   $(SRC)/GPU/Math3D.cpp \
   $(SRC)/GPU/GPUState.cpp \
+  $(SRC)/GPU/GeDisasm.cpp \
   $(SRC)/GPU/GLES/Framebuffer.cpp \
   $(SRC)/GPU/GLES/DisplayListInterpreter.cpp \
   $(SRC)/GPU/GLES/TextureCache.cpp \

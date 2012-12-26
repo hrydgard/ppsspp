@@ -53,7 +53,9 @@ public:
 	virtual void InvalidateCache(u32 addr, int size);
 	virtual void DeviceLost();  // Only happens on Android. Drop all textures and shaders.
 
+	virtual void DumpNextFrame();
 	virtual void Flush();
+
 private:
 	void DoBlockTransfer();
 	bool ProcessDLQueue();
@@ -65,7 +67,7 @@ private:
 	FramebufferManager framebufferManager;
 	TransformDrawEngine transformDraw_;
 	ShaderManager *shaderManager_;
-	bool *flushBeforeCommand_;
+	u8 *flushBeforeCommand_;
 	bool interruptsEnabled_;
 
 	u32 displayFramebufPtr_;
@@ -77,6 +79,9 @@ private:
 
 	float renderWidthFactor_;
 	float renderHeightFactor_;
+
+	bool dumpNextFrame_;
+	bool dumpThisFrame_;
 
 	struct CmdProcessorState {
 		u32 pc;
