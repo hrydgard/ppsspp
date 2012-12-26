@@ -241,8 +241,6 @@ char *GenerateVertexShader(int prim)
 			WRITE(p, "  gl_Position = u_proj * vec4(a_position, 1.0);\n");
 		}
 	} else {
-		// This is the real deal.
-		
 		// Step 1: World Transform / Skinning
 		if ((gstate.vertType & GE_VTYPE_WEIGHT_MASK) == GE_VTYPE_WEIGHT_NONE) {
 			// No skinning, just standard T&L.
@@ -289,11 +287,11 @@ char *GenerateVertexShader(int prim)
 		}
 
 		// Calculate lights if needed. If shade mapping is enabled, lights may need to be
-		// at least partially calculated 
+		// at least partially calculated.
 		for (int i = 0; i < 4; i++) {
 			if (doLight[i] == LIGHT_OFF)
 				continue;
-			
+
 			GELightComputation comp = (GELightComputation)(gstate.ltype[i] & 3);
 			GELightType type = (GELightType)((gstate.ltype[i] >> 8) & 3);
 
@@ -309,9 +307,9 @@ char *GenerateVertexShader(int prim)
 			if (poweredDiffuse) {
 				WRITE(p, "  dot%i = pow(dot%i, u_matspecular.a);\n", i, i);
 			}
-			
+
 			if (doLight[i] == LIGHT_DOTONLY)
-				continue;  // Actually, might want specular dot.... TODO
+				continue;  // TODO: Actually, might want specular dot.... TODO
 
 			WRITE(p, "  float lightScale%i = 1.0;\n", i);
 			if (type != GE_LIGHTTYPE_DIRECTIONAL) {
@@ -332,9 +330,9 @@ char *GenerateVertexShader(int prim)
 
 		if (gstate.lightingEnable & 1) {
 			// Sum up ambient, emissive here.
-			WRITE(p, "  v_color0 = lightSum0 + u_ambient * vec4(%s, 1.0) + vec4(u_matemissive, 0.0);\n", ambient);
+			WRITE(p, "  v_color0 = clamp(lightSum0 + u_ambient * vec4(%s, 1.0) + vec4(u_matemissive, 0.0), 0.0, 1.0);\n", ambient);
 			if (lmode) {
-				WRITE(p, "  v_color1 = lightSum1;\n");
+				WRITE(p, "  v_color1 = clamp(lightSum1, 0.0, 1.0);\n");
 			} else {
 				WRITE(p, "  v_color0 += vec4(lightSum1, 0.0);\n");
 			}
@@ -342,7 +340,7 @@ char *GenerateVertexShader(int prim)
 			// Lighting doesn't affect color.
 			if (hasColor) {
 				WRITE(p, "  v_color0 = a_color0;\n");
- 			} else {
+			} else {
 				WRITE(p, "  v_color0 = u_matambientalpha;\n");
 			}
 			if (lmode)
@@ -379,7 +377,7 @@ char *GenerateVertexShader(int prim)
 				WRITE(p, "  v_texcoord = vec2(dot%i, dot%i);\n", gstate.getUVLS0(), gstate.getUVLS1());
 				break;
 
-			case 3: 
+			case 3:
 				// ILLEGAL
 				break;
 			}
