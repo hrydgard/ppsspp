@@ -41,14 +41,14 @@ void VagDecoder::Start(u8 *data, int vagSize, bool loopEnabled) {
 	s_2 = 0.0;
 }
 
-bool VagDecoder::DecodeBlock() {
+void VagDecoder::DecodeBlock() {
 	int predict_nr = GetByte();
 	int shift_factor = predict_nr & 0xf;
 	predict_nr >>= 4;
 	int flags = GetByte();
 	if (flags == 7) {
 		end_ = true;
-		return false;
+		return;
 	}
 	else if (flags == 6) {
 		loopStartBlock_ = curBlock_;
@@ -73,7 +73,6 @@ bool VagDecoder::DecodeBlock() {
 	if (curBlock_ == numBlocks_) {
 		end_ = true;
 	}
-	return true;
 }
 
 void VagDecoder::GetSamples(s16 *outSamples, int numSamples) {
@@ -90,6 +89,11 @@ void VagDecoder::GetSamples(s16 *outSamples, int numSamples) {
 				s_2 = 0.0;
 			}
 			DecodeBlock();
+			if (end_) {
+				// Clear the rest of the buffer and return.
+				memset(&outSamples[i], 0, (numSamples - i) * sizeof(s16));
+				return;
+			}
 		}
 		outSamples[i] = end_ ? 0 : samples[curSample++];
 	}

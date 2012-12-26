@@ -74,15 +74,14 @@ enum VoiceType {
 // It compresses 28 16-bit samples into a block of 16 bytes.
 // TODO: Get rid of the doubles, making sure it does not impact sound quality.
 // Doubles are pretty fast on Android devices these days though.
-class VagDecoder
-{
+class VagDecoder {
 public:
 	VagDecoder() : data_(0), read_(0) {}
 	void Start(u8 *data, int vagSize, bool loopEnabled);
 
 	void GetSamples(s16 *outSamples, int numSamples);
 
-	bool DecodeBlock();
+	void DecodeBlock();
 	bool End() const { return end_; }
 
 	u8 GetByte() {
