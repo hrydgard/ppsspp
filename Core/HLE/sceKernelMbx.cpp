@@ -295,7 +295,7 @@ SceUID sceKernelCreateMbx(const char *name, u32 attr, u32 optAddr)
 
 int sceKernelDeleteMbx(SceUID id)
 {
-	u32 error;
+	u32 error=0;
 	Mbx *m = kernelObjects.Get<Mbx>(id, error);
 	if (m)
 	{
@@ -318,7 +318,7 @@ int sceKernelDeleteMbx(SceUID id)
 
 int sceKernelSendMbx(SceUID id, u32 packetAddr)
 {
-	u32 error;
+	u32 error=0;
 	Mbx *m = kernelObjects.Get<Mbx>(id, error);
 	if (!m)
 	{

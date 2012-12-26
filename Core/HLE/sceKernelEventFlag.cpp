@@ -204,7 +204,7 @@ u32 sceKernelCancelEventFlag(SceUID uid, u32 pattern, u32 numWaitThreadsPtr)
 {
 	DEBUG_LOG(HLE, "sceKernelCancelEventFlag(%i, %08X, %08X)", uid, pattern, numWaitThreadsPtr);
 
-	u32 error;
+	u32 error=0;
 	EventFlag *e = kernelObjects.Get<EventFlag>(uid, error);
 	if (e)
 	{
@@ -225,7 +225,7 @@ u32 sceKernelCancelEventFlag(SceUID uid, u32 pattern, u32 numWaitThreadsPtr)
 
 u32 sceKernelClearEventFlag(SceUID id, u32 bits)
 {
-	u32 error;
+	u32 error=0;
 	EventFlag *e = kernelObjects.Get<EventFlag>(id, error);
 	if (e)
 	{
@@ -245,7 +245,7 @@ u32 sceKernelDeleteEventFlag(SceUID uid)
 {
 	DEBUG_LOG(HLE, "sceKernelDeleteEventFlag(%i)", uid);
 
-	u32 error;
+	u32 error=0;
 	EventFlag *e = kernelObjects.Get<EventFlag>(uid, error);
 	if (e)
 	{
@@ -261,7 +261,7 @@ u32 sceKernelDeleteEventFlag(SceUID uid)
 
 u32 sceKernelSetEventFlag(SceUID id, u32 bitsToSet)
 {
-	u32 error;
+	u32 error=0;
 	DEBUG_LOG(HLE, "sceKernelSetEventFlag(%i, %08x)", id, bitsToSet);
 	EventFlag *e = kernelObjects.Get<EventFlag>(id, error);
 	if (e)
@@ -367,7 +367,7 @@ int sceKernelWaitEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 ti
 	if (bits == 0)
 		return SCE_KERNEL_ERROR_EVF_ILPAT;
 
-	u32 error;
+	u32 error=0;
 	EventFlag *e = kernelObjects.Get<EventFlag>(id, error);
 	if (e)
 	{
@@ -420,7 +420,7 @@ int sceKernelWaitEventFlagCB(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 
 	if (bits == 0)
 		return SCE_KERNEL_ERROR_EVF_ILPAT;
 
-	u32 error;
+	u32 error=0;
 	EventFlag *e = kernelObjects.Get<EventFlag>(id, error);
 	if (e)
 	{
@@ -481,7 +481,7 @@ int sceKernelPollEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 ti
 	if (bits == 0)
 		return SCE_KERNEL_ERROR_EVF_ILPAT;
 
-	u32 error;
+	u32 error=0;
 	EventFlag *e = kernelObjects.Get<EventFlag>(id, error);
 	if (e)
 	{
@@ -511,7 +511,7 @@ int sceKernelPollEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 ti
 u32 sceKernelReferEventFlagStatus(SceUID id, u32 statusPtr)
 {
 	DEBUG_LOG(HLE, "sceKernelReferEventFlagStatus(%i, %08x)", id, statusPtr);
-	u32 error;
+	u32 error=0;
 	EventFlag *e = kernelObjects.Get<EventFlag>(id, error);
 	if (e)
 	{

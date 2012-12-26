@@ -84,7 +84,7 @@ void __KernelTriggerAlarm(u64 userdata, int cyclesLate)
 {
 	int uid = (int) userdata;
 
-	u32 error;
+	u32 error=0;
 	Alarm *alarm = kernelObjects.Get<Alarm>(uid, error);
 	if (alarm)
 		__TriggerInterrupt(PSP_INTR_IMMEDIATE, PSP_SYSTIMER0_INTR, uid);
@@ -152,7 +152,7 @@ int sceKernelCancelAlarm(SceUID uid)
 
 int sceKernelReferAlarmStatus(SceUID uid, u32 infoPtr)
 {
-	u32 error;
+	u32 error=0;
 	Alarm *alarm = kernelObjects.Get<Alarm>(uid, error);
 	if (!alarm)
 	{

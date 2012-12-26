@@ -220,7 +220,7 @@ u32 sceKernelStderr() {
 }
 
 void __IoCompleteAsyncIO(SceUID id) {
-	u32 error;
+	u32 error=0;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
 	if (f) {
 		if (f->callbackID) {
@@ -267,7 +267,7 @@ u32 sceIoRead(int id, u32 data_addr, int size) {
 		return 0; //stdin
 	}
 
-	u32 error;
+	u32 error = 0;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
 	if (f) {
 		if (data_addr) {
@@ -303,7 +303,7 @@ u32 sceIoWrite(int id, void *data_ptr, int size) //(int fd, void *data, int size
 		str[size] = temp;
 		return size;
 	}
-	u32 error;
+	u32 error = 0;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
 	if (f) {
 		u8 *data = (u8*) data_ptr;
@@ -316,7 +316,7 @@ u32 sceIoWrite(int id, void *data_ptr, int size) //(int fd, void *data, int size
 }
 
 s64 sceIoLseek(int id, s64 offset, int whence) {
-	u32 error;
+	u32 error = 0;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
 	if (f) {
 		FileMove seek = FILEMOVE_BEGIN;
@@ -344,7 +344,7 @@ s64 sceIoLseek(int id, s64 offset, int whence) {
 }
 
 u32 sceIoLseek32(int id, int offset, int whence) {
-	u32 error;
+	u32 error=0;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
 	if (f) {
 		DEBUG_LOG(HLE, "sceIoLseek32(%d,%08x,%i)", id, (int) offset, whence);
@@ -708,7 +708,7 @@ u32 sceIoSetAsyncCallback(int id, u32 clbckId, u32 clbckArg)
 	DEBUG_LOG(HLE, "sceIoSetAsyncCallback(%d, %i, %08x)", id, clbckId,
 			clbckArg);
 
-	u32 error;
+	u32 error=0;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
 	if (f)
 	{
@@ -751,7 +751,7 @@ u32 sceIoReadAsync(int id, u32 data_addr, int size)
 
 u32 sceIoGetAsyncStat(int id, u32 poll, u32 address)
 {
-	u32 error;
+	u32 error=0;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
 	if (f)
 	{
@@ -770,7 +770,7 @@ u32 sceIoGetAsyncStat(int id, u32 poll, u32 address)
 }
 
 int sceIoWaitAsync(int id, u32 address) {
-	u32 error;
+	u32 error=0;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
 	if (f) {
 		u64 res = f->asyncResult;
@@ -791,7 +791,7 @@ int sceIoWaitAsync(int id, u32 address) {
 
 int sceIoWaitAsyncCB(int id, u32 address) {
 	// Should process callbacks here
-	u32 error;
+	u32 error=0;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
 	if (f) {
 		u64 res = f->asyncResult;
@@ -813,7 +813,7 @@ int sceIoWaitAsyncCB(int id, u32 address) {
 }
 
 u32 sceIoPollAsync(int id, u32 address) {
-	u32 error;
+	u32 error=0;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
 	if (f) {
 		u64 res = f->asyncResult;
@@ -859,7 +859,7 @@ u32 sceIoDopen(const char *path) {
 }
 
 u32 sceIoDread(int id, u32 dirent_addr) {
-	u32 error;
+	u32 error=0;
 	DirListing *dir = kernelObjects.Get<DirListing>(id, error);
 	if (dir) {
 		if (dir->index == (int) dir->listing.size()) {
