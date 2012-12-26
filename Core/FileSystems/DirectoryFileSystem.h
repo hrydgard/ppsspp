@@ -28,29 +28,11 @@
 typedef void * HANDLE;
 #endif
 
-
-class DirectoryFileSystem : public IFileSystem
-{
-	struct OpenFileEntry
-	{
-#ifdef _WIN32
-		HANDLE hFile;
-#else
-		FILE *hFile;
-#endif
-	};
-
-	typedef std::map<u32,OpenFileEntry> EntryMap;
-	EntryMap entries;
-	std::string basePath;
-	IHandleAllocator *hAlloc;
-
-
-  // In case of Windows: Translate slashes, etc.
-	std::string GetLocalPath(std::string localpath);
-
+class DirectoryFileSystem : public IFileSystem {
 public:
 	DirectoryFileSystem(IHandleAllocator *_hAlloc, std::string _basePath);
+	~DirectoryFileSystem();
+
 	std::vector<PSPFileInfo> GetDirListing(std::string path);
 	u32      OpenFile(std::string filename, FileAccess access);
 	void     CloseFile(u32 handle);
@@ -59,9 +41,26 @@ public:
 	size_t   SeekFile(u32 handle, s32 position, FileMove type);
 	PSPFileInfo GetFileInfo(std::string filename);
 	bool     OwnsHandle(u32 handle);
+
 	bool MkDir(const std::string &dirname);
 	bool RmDir(const std::string &dirname);
 	bool RenameFile(const std::string &from, const std::string &to);
 	bool DeleteFile(const std::string &filename);
+
+private:
+	struct OpenFileEntry {
+#ifdef _WIN32
+		HANDLE hFile;
+#else
+		FILE *hFile;
+#endif
+	};
+
+	typedef std::map<u32, OpenFileEntry> EntryMap;
+	EntryMap entries;
+	std::string basePath;
+	IHandleAllocator *hAlloc;
+
+	// In case of Windows: Translate slashes, etc.
+	std::string GetLocalPath(std::string localpath);
 };
- 

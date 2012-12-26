@@ -160,13 +160,19 @@ IFileSystem *MetaFileSystem::GetHandleOwner(u32 handle)
 	return 0;
 }
 
-bool MetaFileSystem::MapFilePath(const std::string &inpath, std::string &outpath, IFileSystem **system)
+bool MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpath, IFileSystem **system)
 {
 	//TODO: implement current directory per thread (NOT per drive)
-	
-	//DEBUG_LOG(HLE, "MapFilePath: starting with \"%s\"", inpath.c_str());
-
 	std::string realpath;
+
+	// Special handling: host0:command.txt (as seen in Super Monkey Ball Adventures, for example)
+	// appears to mean the current directory on the UMD. Let's just assume the current directory.
+	std::string inpath = _inpath;
+	if (inpath.substr(0, 6) == "host0:") {
+		INFO_LOG(HLE, "Host0 path detected, stripping: %s", inpath.c_str());
+		inpath = inpath.substr(6);
+	}
+
 	if ( RealPath(currentDirectory, inpath, realpath) )
 	{
 		for (size_t i = 0; i < fileSystems.size(); i++)
@@ -185,7 +191,6 @@ bool MetaFileSystem::MapFilePath(const std::string &inpath, std::string &outpath
 	}
 
 	DEBUG_LOG(HLE, "MapFilePath: failed mapping \"%s\", returning false", inpath.c_str());
-
 	return false;
 }
 

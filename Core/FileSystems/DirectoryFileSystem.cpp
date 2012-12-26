@@ -25,23 +25,33 @@
 #include "FileUtil.h"
 #include "DirectoryFileSystem.h"
 
-DirectoryFileSystem::DirectoryFileSystem(IHandleAllocator *_hAlloc, std::string _basePath) : basePath(_basePath)
-{
+// TODO: Simulate case insensitivity on Unix.
+// NOTE: MacOSX is already case insensitive.
+
+DirectoryFileSystem::DirectoryFileSystem(IHandleAllocator *_hAlloc, std::string _basePath) : basePath(_basePath) {
 	File::CreateFullPath(basePath);
 	hAlloc = _hAlloc;
 }
 
-std::string DirectoryFileSystem::GetLocalPath(std::string localpath)
-{
+DirectoryFileSystem::~DirectoryFileSystem() {
+	for (auto iter = entries.begin(); iter != entries.end(); ++iter) {
+#ifdef _WIN32
+		CloseHandle((*iter).second.hFile);
+#else
+		fclose((*iter).second.hFile);
+#endif
+	}
+}
+
+std::string DirectoryFileSystem::GetLocalPath(std::string localpath) {
 	if (localpath.empty())
 		return basePath;
 
 	if (localpath[0] == '/')
 		localpath.erase(0,1);
-  //Convert slashes
+	//Convert slashes
 #ifdef _WIN32
-	for (size_t i = 0; i < localpath.size(); i++)
-	{
+	for (size_t i = 0; i < localpath.size(); i++) {
 		if (localpath[i] == '/')
 			localpath[i] = '\\';
 	}
@@ -49,17 +59,11 @@ std::string DirectoryFileSystem::GetLocalPath(std::string localpath)
 	return basePath + localpath;
 }
 
-
-bool DirectoryFileSystem::MkDir(const std::string &dirname)
-{
-	std::string fullName = GetLocalPath(dirname);
-
-	return File::CreateFullPath(fullName);
-
+bool DirectoryFileSystem::MkDir(const std::string &dirname) {
+	return File::CreateFullPath(GetLocalPath(dirname));
 }
 
-bool DirectoryFileSystem::RmDir(const std::string &dirname)
-{
+bool DirectoryFileSystem::RmDir(const std::string &dirname) {
 	std::string fullName = GetLocalPath(dirname);
 /*#ifdef _WIN32
 	return RemoveDirectory(fullName.c_str()) == TRUE;
@@ -69,8 +73,7 @@ bool DirectoryFileSystem::RmDir(const std::string &dirname)
 	return File::DeleteDirRecursively(fullName);
 }
 
-bool DirectoryFileSystem::RenameFile(const std::string &from, const std::string &to)
-{
+bool DirectoryFileSystem::RenameFile(const std::string &from, const std::string &to) {
 	std::string fullFrom = GetLocalPath(from);
 	std::string fullTo = to;
 	// TO filename may not include path. Intention is that it uses FROM's path
@@ -88,8 +91,7 @@ bool DirectoryFileSystem::RenameFile(const std::string &from, const std::string 
 #endif
 }
 
-bool DirectoryFileSystem::DeleteFile(const std::string &filename)
-{
+bool DirectoryFileSystem::DeleteFile(const std::string &filename) {
 	std::string fullName = GetLocalPath(filename);
 #ifdef _WIN32
 	return ::DeleteFile(fullName.c_str()) == TRUE;
@@ -98,8 +100,7 @@ bool DirectoryFileSystem::DeleteFile(const std::string &filename)
 #endif
 }
 
-u32 DirectoryFileSystem::OpenFile(std::string filename, FileAccess access)
-{
+u32 DirectoryFileSystem::OpenFile(std::string filename, FileAccess access) {
 	std::string fullName = GetLocalPath(filename);
 	INFO_LOG(HLE,"Actually opening %s (%s)", fullName.c_str(), filename.c_str());
 
@@ -110,23 +111,19 @@ u32 DirectoryFileSystem::OpenFile(std::string filename, FileAccess access)
 	DWORD desired = 0;
 	DWORD sharemode = 0;
 	DWORD openmode = 0;
-	if (access & FILEACCESS_READ)
-	{
+	if (access & FILEACCESS_READ) {
 		desired   |= GENERIC_READ;
 		sharemode |= FILE_SHARE_READ;
 	}
-	if (access & FILEACCESS_WRITE)
-	{
+	if (access & FILEACCESS_WRITE) {
 		desired   |= GENERIC_WRITE;
 		sharemode |= FILE_SHARE_WRITE;
 	}
-	if (access & FILEACCESS_CREATE)
-	{
+	if (access & FILEACCESS_CREATE) {
 		openmode = OPEN_ALWAYS;
-	}
-	else
+	} else {
 		openmode = OPEN_EXISTING;
-
+	}
 	//Let's do it!
 	entry.hFile = CreateFile(fullName.c_str(), desired, sharemode, 0, openmode, 0, 0);
 	bool success = entry.hFile != INVALID_HANDLE_VALUE;
@@ -135,16 +132,13 @@ u32 DirectoryFileSystem::OpenFile(std::string filename, FileAccess access)
   bool success = entry.hFile != 0;
 #endif
 
-	if (!success)
-	{
+	if (!success) {
 #ifdef _WIN32
-    ERROR_LOG(HLE, "DirectoryFileSystem::OpenFile: FAILED, %i - access = %i", GetLastError(), (int)access);
+		ERROR_LOG(HLE, "DirectoryFileSystem::OpenFile: FAILED, %i - access = %i", GetLastError(), (int)access);
 #endif
 		//wwwwaaaaahh!!
 		return 0;
-	}
-	else
-	{
+	} else {
 		u32 newHandle = hAlloc->GetNewHandle();
 		entries[newHandle] = entry;
 
@@ -152,34 +146,28 @@ u32 DirectoryFileSystem::OpenFile(std::string filename, FileAccess access)
 	}
 }
 
-void DirectoryFileSystem::CloseFile(u32 handle)
-{
+void DirectoryFileSystem::CloseFile(u32 handle) {
 	EntryMap::iterator iter = entries.find(handle);
-	if (iter != entries.end())
-	{
+	if (iter != entries.end()) {
 		hAlloc->FreeHandle(handle);
 #ifdef _WIN32
 		CloseHandle((*iter).second.hFile);
 #else
-    fclose((*iter).second.hFile);
+		fclose((*iter).second.hFile);
 #endif
 		entries.erase(iter);
-	}
-	else
-	{
+	} else {
 		//This shouldn't happen...
 		ERROR_LOG(HLE,"Cannot close file that hasn't been opened: %08x", handle);
 	}
 }
 
-bool DirectoryFileSystem::OwnsHandle(u32 handle)
-{
+bool DirectoryFileSystem::OwnsHandle(u32 handle) {
 	EntryMap::iterator iter = entries.find(handle);
 	return (iter != entries.end());
 }
 
-size_t DirectoryFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)
-{
+size_t DirectoryFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
 	EntryMap::iterator iter = entries.find(handle);
 	if (iter != entries.end())
 	{
@@ -190,17 +178,14 @@ size_t DirectoryFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)
 		bytesRead = fread(pointer, 1, size, iter->second.hFile);
 #endif
 		return bytesRead;
-	}
-	else
-	{
+	} else {
 		//This shouldn't happen...
 		ERROR_LOG(HLE,"Cannot read file that hasn't been opened: %08x", handle);
 		return 0;
 	}
 }
 
-size_t DirectoryFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size) 
-{
+size_t DirectoryFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size) {
 	EntryMap::iterator iter = entries.find(handle);
 	if (iter != entries.end())
 	{
@@ -208,57 +193,48 @@ size_t DirectoryFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size)
 #ifdef _WIN32
 		::WriteFile(iter->second.hFile, (LPVOID)pointer, (DWORD)size, (LPDWORD)&bytesWritten, 0);
 #else
-    bytesWritten = fwrite(pointer, 1, size, iter->second.hFile);
+		bytesWritten = fwrite(pointer, 1, size, iter->second.hFile);
 #endif
 		return bytesWritten;
-	}
-	else
-	{
+	} else {
 		//This shouldn't happen...
 		ERROR_LOG(HLE,"Cannot write to file that hasn't been opened: %08x", handle);
 		return 0;
 	}
 }
 
-size_t DirectoryFileSystem::SeekFile(u32 handle, s32 position, FileMove type) 
-{
+size_t DirectoryFileSystem::SeekFile(u32 handle, s32 position, FileMove type) {
 	EntryMap::iterator iter = entries.find(handle);
-	if (iter != entries.end())
-	{
+	if (iter != entries.end()) {
 #ifdef _WIN32
 		DWORD moveMethod = 0;
-		switch (type)
-		{
+		switch (type) {
 		case FILEMOVE_BEGIN: moveMethod = FILE_BEGIN; break;
 		case FILEMOVE_CURRENT: moveMethod = FILE_CURRENT; break;
 		case FILEMOVE_END: moveMethod = FILE_END; break;
 		}
 		DWORD newPos = SetFilePointer((*iter).second.hFile, (LONG)position, 0, moveMethod);
-    return newPos;
+		return newPos;
 #else
-    int moveMethod = 0;
-    switch (type) {
-    case FILEMOVE_BEGIN: moveMethod = SEEK_SET; break;
-    case FILEMOVE_CURRENT: moveMethod = SEEK_CUR; break;
-    case FILEMOVE_END: moveMethod = SEEK_END; break;
-    }
-    fseek(iter->second.hFile, position, moveMethod);
+		int moveMethod = 0;
+		switch (type) {
+		case FILEMOVE_BEGIN: moveMethod = SEEK_SET; break;
+		case FILEMOVE_CURRENT: moveMethod = SEEK_CUR; break;
+		case FILEMOVE_END: moveMethod = SEEK_END; break;
+		}
+		fseek(iter->second.hFile, position, moveMethod);
 		return ftell(iter->second.hFile);
 #endif
-	}
-	else
-	{
+	} else {
 		//This shouldn't happen...
 		ERROR_LOG(HLE,"Cannot seek in file that hasn't been opened: %08x", handle);
 		return 0;
 	}
 }
 
-PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename) 
-{
-	PSPFileInfo x; 
+PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename) {
+	PSPFileInfo x;
 	x.name = filename;
-	
 
 	std::string fullName = GetLocalPath(filename);
 	if (!File::Exists(fullName)) {
@@ -268,7 +244,6 @@ PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename)
 	x.exists = true;
 
 #ifdef _WIN32
-
 	WIN32_FILE_ATTRIBUTE_DATA data;
 	GetFileAttributesEx(fullName.c_str(), GetFileExInfoStandard, &data);
 
@@ -282,8 +257,7 @@ PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename)
 	return x;
 }
 
-std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path)
-{
+std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 	std::vector<PSPFileInfo> myVector;
 #ifdef _WIN32
 	WIN32_FIND_DATA findData;
@@ -293,26 +267,23 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path)
 
 	hFind = FindFirstFile(w32path.c_str(), &findData);
 
-	if (hFind == INVALID_HANDLE_VALUE)
-	{
+	if (hFind == INVALID_HANDLE_VALUE) {
 		return myVector; //the empty list
 	}
 
-	while (true)
-	{
+	while (true) {
 		PSPFileInfo entry;
-
 		if (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 			entry.type = FILETYPE_DIRECTORY;
 		else
 			entry.type = FILETYPE_NORMAL;
-
-		if (!strcmp(findData.cFileName, "..") )// TODO: is this just for .. or all sub directories? Need to add a directory to the test to find out. Also why so different than the old test results?
+		// TODO: is this just for .. or all subdirectories? Need to add a directory to the test
+		// to find out. Also why so different than the old test results?
+		if (!strcmp(findData.cFileName, "..") )
 			entry.size = 4096;
 		else
 			entry.size = findData.nFileSizeLow | ((u64)findData.nFileSizeHigh<<32);
 		entry.name = findData.cFileName;
-		
 		myVector.push_back(entry);
 
 		int retval = FindNextFile(hFind, &findData);
