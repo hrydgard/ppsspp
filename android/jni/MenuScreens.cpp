@@ -207,6 +207,11 @@ void InGameMenuScreen::render() {
 
 	ui_draw2d.DrawText(UBUNTU48, "Emulation Paused", dp_xres / 2, 30, 0xFFFFFFFF, ALIGN_HCENTER);
 
+	int x = 30;
+	int y = 50;
+	UICheckBox(GEN_ID, x, y += 50, "Show Debug Statistics (experimental)", ALIGN_TOPLEFT, &g_Config.bShowDebugStats);
+	UICheckBox(GEN_ID, x, y += 50, "Hardware Transform (experimental)", ALIGN_TOPLEFT, &g_Config.bHardwareTransform);
+
 	VLinear vlinear(dp_xres - 10, 160, 20);
 	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH, "Continue", ALIGN_RIGHT)) {
 		screenManager()->finishDialog(this, DR_CANCEL);

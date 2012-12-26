@@ -171,7 +171,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 
 	// Now we can subvert the Ge engine in order to draw custom overlays like stat counters etc.
 	// Here we will be drawing to the non buffered front surface.
-	if (g_Config.bShowDebugStats) {
+	if (g_Config.bShowDebugStats && gpuStats.numDrawCalls) {
 		gpu->UpdateStats();
 		char stats[512];
 		sprintf(stats,
