@@ -16,6 +16,7 @@ TouchButton::TouchButton(const Atlas *atlas, int imageIndex, int overlayImageInd
 
 void TouchButton::update(InputState &input_state)
 {
+	bool oldIsDown = isDown_;
 	isDown_ = false;
 	for (int i = 0; i < MAX_POINTERS; i++) {
 		if (input_state.pointer_down[i] && isInside(input_state.pointer_x[i], input_state.pointer_y[i]))
@@ -24,7 +25,7 @@ void TouchButton::update(InputState &input_state)
 
 	if (isDown_) {
 		input_state.pad_buttons |= button_;
-	} else {
+	} else if (oldIsDown && !isDown_) {
 		input_state.pad_buttons &= ~button_;
 	}
 }

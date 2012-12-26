@@ -91,14 +91,14 @@ void LaunchEmail(const char *email_address)
 
 
 const int buttonMappings[14] = {
-	SDLK_x,										//A
-	SDLK_s,										//B
-	SDLK_z,										//X
-	SDLK_a,										//Y
+	SDLK_z,										//A
+	SDLK_x,										//B
+	SDLK_a,										//X
+	SDLK_s,										//Y
 	SDLK_w,										//LBUMPER
 	SDLK_q,										//RBUMPER
-	SDLK_1,										//START
-	SDLK_2,										//SELECT
+	SDLK_SPACE,								//START
+	SDLK_v,										//SELECT
 	SDLK_UP,									//UP
 	SDLK_DOWN,								//DOWN
 	SDLK_LEFT,								//LEFT
