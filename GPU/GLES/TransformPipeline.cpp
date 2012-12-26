@@ -298,8 +298,10 @@ static void SwapUVs(TransformedVertex &a, TransformedVertex &b) {
 
 static void RotateUVs(TransformedVertex v[4]) {
 	if (v[0].y < v[2].y && v[0].x > v[2].x) {
-		SwapUVs(v[0], v[2]);
+		// This appears to be wrong.
+		// SwapUVs(v[0], v[2]);
 	} else if (v[0].y > v[2].y && v[0].x < v[2].x) {
+		// This works fine in Star Soldier.
 		SwapUVs(v[1], v[3]);
 	}
 }
