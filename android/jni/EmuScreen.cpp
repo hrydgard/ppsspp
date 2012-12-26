@@ -109,6 +109,7 @@ void EmuScreen::update(InputState &input)
 
 	if (invalid_)
 		return;
+
 	// First translate touches into pad input.
 	UpdateGamepad(input);
 	UpdateInputState(&input);
@@ -117,8 +118,8 @@ void EmuScreen::update(InputState &input)
 
 	static const int mapping[12][2] = {
 		{PAD_BUTTON_A, CTRL_CROSS},
-		{PAD_BUTTON_B, CTRL_SQUARE},
-		{PAD_BUTTON_X, CTRL_CIRCLE},
+		{PAD_BUTTON_B, CTRL_CIRCLE},
+		{PAD_BUTTON_X, CTRL_SQUARE},
 		{PAD_BUTTON_Y, CTRL_TRIANGLE},
 		{PAD_BUTTON_UP, CTRL_UP},
 		{PAD_BUTTON_DOWN, CTRL_DOWN},
@@ -127,15 +128,18 @@ void EmuScreen::update(InputState &input)
 		{PAD_BUTTON_LBUMPER, CTRL_LTRIGGER},
 		{PAD_BUTTON_RBUMPER, CTRL_RTRIGGER},
 		{PAD_BUTTON_START, CTRL_START},
-		{PAD_BUTTON_BACK, CTRL_SELECT},
+		{PAD_BUTTON_SELECT, CTRL_SELECT},
 	};
 
 	for (int i = 0; i < 12; i++) {
-		if (input.pad_buttons_down & mapping[i][0])
+		if (input.pad_buttons_down & mapping[i][0]) {
 			__CtrlButtonDown(mapping[i][1]);
-		if (input.pad_buttons_up & mapping[i][0])
+		}
+		if (input.pad_buttons_up & mapping[i][0]) {
 			__CtrlButtonUp(mapping[i][1]);
+		}
 	}
+	__CtrlSetAnalog(input.pad_lstick_x, input.pad_lstick_y);
 
 	if (input.pad_buttons_down & (PAD_BUTTON_MENU | PAD_BUTTON_BACK)) {
 		fbo_unbind();

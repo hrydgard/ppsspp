@@ -40,6 +40,7 @@
 #include "../../Core/PSPMixer.h"
 #include "../../Core/CPU.h"
 #include "../../Core/Config.h"
+#include "../../Core/HLE/sceCtrl.h"
 #include "../../Core/Host.h"
 #include "../../Common/MemArena.h"
 
