@@ -59,9 +59,6 @@ struct FPL : KernelObject
 	const char *GetTypeName() {return "FPL";}
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_FPLID; }
 	int GetIDType() const { return SCE_KERNEL_TMID_Fpl; }
-	NativeFPL nf;
-	bool *blocks;
-	u32 address;
 
 	int findFreeBlock() {
 		for (int i = 0; i < nf.numBlocks; i++) {
@@ -85,6 +82,18 @@ struct FPL : KernelObject
 		}
 		return false;
 	}
+
+	virtual void DoState(PointerWrap &p)
+	{
+		p.Do(nf);
+		p.DoArray(blocks, nf.numBlocks);
+		p.Do(address);
+		p.DoMarker("FPL");
+	}
+
+	NativeFPL nf;
+	bool *blocks;
+	u32 address;
 };
 
 struct SceKernelVplInfo
@@ -103,9 +112,18 @@ struct VPL : KernelObject
 	const char *GetTypeName() {return "VPL";}
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_VPLID; }
 	int GetIDType() const { return SCE_KERNEL_TMID_Vpl; }
+
+	virtual void DoState(PointerWrap &p)
+	{
+		p.Do(nv);
+		p.Do(size);
+		p.Do(address);
+		alloc.DoState(p);
+		p.DoMarker("VPL");
+	}
+
 	SceKernelVplInfo nv;
 	u32 size;
-	bool *freeBlocks;
 	u32 address;
 	BlockAllocator alloc;
 };
@@ -364,6 +382,14 @@ public:
 	}
 	bool IsValid() {return address != (u32)-1;}
 	BlockAllocator *alloc;
+
+	virtual void DoState(PointerWrap &p)
+	{
+		p.Do(address);
+		p.Do(name);
+		p.DoMarker("PMB");
+	}
+
 	u32 address;
 	char name[32];
 };

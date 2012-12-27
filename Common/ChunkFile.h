@@ -31,6 +31,7 @@
 #include <vector>
 #include <deque>
 #include <string>
+#include <list>
 
 #include "Common.h"
 #include "FileUtil.h"
@@ -133,7 +134,26 @@ public:
 		for(i = 0; i < deq_size; i++)
 			DoVoid(&x[i],sizeof(T));
 	}
-	
+
+	// Store STL lists.
+	template<class T>
+	void Do(std::list<T> &x)
+	{
+		T dv;
+		Do(x, dv);
+	}
+
+	template<class T>
+	void Do(std::list<T> &x, T &default_val)
+	{
+		u32 list_size = (u32)x.size();
+		x.resize(list_size, default_val);
+
+		typename std::list<T>::iterator itr, end;
+		for (itr = x.begin(), end = x.end(); itr != end; ++itr)
+			Do(*itr);
+	}
+
 	// Store strings.
 	void Do(std::string &x) 
 	{
