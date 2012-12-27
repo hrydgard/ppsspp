@@ -52,7 +52,12 @@ void __KernelScheduleAlarm(Alarm *alarm, u64 ticks);
 class AlarmIntrHandler : public SubIntrHandler
 {
 public:
-	AlarmIntrHandler(Alarm *alarm)
+	static SubIntrHandler *Create()
+	{
+		return new AlarmIntrHandler();
+	}
+
+	void setAlarm(Alarm *alarm)
 	{
 		alarmID = alarm->GetUID();
 		handlerAddress = alarm->alm.handlerPtr;
@@ -87,8 +92,15 @@ public:
 
 			// Delete the alarm if it's not rescheduled.
 			kernelObjects.Destroy<Alarm>(alarmID);
-			__ReleaseSubInterruptHandler(PSP_SYSTIMER0_INTR, alarmID);
+			__ReleaseSubIntrHandler(PSP_SYSTIMER0_INTR, alarmID);
 		}
+	}
+
+	virtual void DoState(PointerWrap &p)
+	{
+		SubIntrHandler::DoState(p);
+		p.Do(alarmID);
+		p.DoMarker("AlarmIntrHandler");
 	}
 
 	SceUID alarmID;
@@ -109,6 +121,7 @@ void __KernelTriggerAlarm(u64 userdata, int cyclesLate)
 void __KernelAlarmInit()
 {
 	alarmTimer = CoreTiming::RegisterEvent("Alarm", __KernelTriggerAlarm);
+	__RegisterSubIntrCreator(PSP_SYSTIMER0_INTR, AlarmIntrHandler::Create);
 }
 
 void __KernelAlarmDoState(PointerWrap &p)
@@ -142,10 +155,15 @@ SceUID __KernelSetAlarm(u64 ticks, u32 handlerPtr, u32 commonPtr)
 	alarm->alm.handlerPtr = handlerPtr;
 	alarm->alm.commonPtr = commonPtr;
 
-	u32 error = __RegisterSubInterruptHandler(PSP_SYSTIMER0_INTR, uid, new AlarmIntrHandler(alarm));
+	u32 error;
+	AlarmIntrHandler *handler = (AlarmIntrHandler *) __RegisterSubIntrHandler(PSP_SYSTIMER0_INTR, uid, error);
 	if (error != 0)
+	{
+		kernelObjects.Destroy<Alarm>(uid);
 		return error;
+	}
 
+	handler->setAlarm(alarm);
 	__KernelScheduleAlarm(alarm, ticks);
 	return uid;
 }
@@ -174,7 +192,7 @@ int sceKernelCancelAlarm(SceUID uid)
 	DEBUG_LOG(HLE, "sceKernelCancelAlarm(%08x)", uid);
 
 	CoreTiming::UnscheduleEvent(alarmTimer, uid);
-	__ReleaseSubInterruptHandler(PSP_SYSTIMER0_INTR, uid);
+	__ReleaseSubIntrHandler(PSP_SYSTIMER0_INTR, uid);
 
 	return kernelObjects.Destroy<Alarm>(uid);
 }

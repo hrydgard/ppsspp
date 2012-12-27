@@ -78,18 +78,18 @@ void __KernelInit()
 	}
 
 	SaveState::Init();
+	__InterruptsInit();
 	__KernelMemoryInit();
 	__KernelThreadingInit();
-	__KernelMutexInit();
-	__KernelSemaInit();
 	__KernelAlarmInit();
 	__KernelEventFlagInit();
 	__KernelMbxInit();
+	__KernelMutexInit();
+	__KernelSemaInit();
 	__IoInit();
 	__AudioInit();
 	__SasInit();
 	__DisplayInit();
-	__InterruptsInit();
 	__GeInit();
 	__PowerInit();
 	__UtilityInit();
@@ -126,10 +126,10 @@ void __KernelShutdown()
 	__DisplayShutdown();
 	__AudioShutdown();
 	__IoShutdown();
-	__InterruptsShutdown();
 	__KernelMutexShutdown();
 	__KernelThreadingShutdown();
 	__KernelMemoryShutdown();
+	__InterruptsShutdown();
 
 	CoreTiming::ClearPendingEvents();
 	CoreTiming::UnregisterAllEvents();
@@ -144,14 +144,17 @@ void __KernelDoState(PointerWrap &p)
 	p.DoMarker("KernelObjects");
 
 	// TODO: Put these in the correct order...
+	__InterruptsDoState(p);
+	__KernelMemoryDoState(p);
+	// TODO: __KernelThreadingDoState(p);
 	__KernelAlarmDoState(p);
 	__KernelEventFlagDoState(p);
 	__KernelMbxDoState(p);
-	__KernelMemoryDoState(p);
 	__KernelModuleDoState(p);
 	__KernelMutexDoState(p);
 	__KernelSemaDoState(p);
-	// TODO: more modules
+	// TODO: non-kernel modules
+	// TODO: PPGe
 }
 
 bool __KernelIsRunning() {
@@ -328,7 +331,9 @@ void KernelObjectPool::DoState(PointerWrap &p)
 	if (_maxCount != maxCount)
 		ERROR_LOG(HLE, "Unable to load state: different kernel object storage.");
 
-	// Assumption: on load, we've already cleared.
+	if (p.mode == p.MODE_READ)
+		kernelObjects.Clear();
+
 	p.DoArray(occupied, maxCount);
 	for (int i = 0; i < maxCount; ++i)
 	{
