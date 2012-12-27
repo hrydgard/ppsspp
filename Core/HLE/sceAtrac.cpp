@@ -59,7 +59,7 @@ u32 sceAtracEndEntry()
 u32 sceAtracGetAtracID(int codecType)
 {
 	ERROR_LOG(HLE, "UNIMPL sceAtracGetAtracID(%i)", codecType);
-	return 0;
+	return 1;
 }
 
 u32 sceAtracGetBufferInfoForReseting(int atracID, int sample, u32 bufferInfoAddr)
@@ -95,6 +95,8 @@ u32 sceAtracGetInternalErrorInfo(int atracID, u32 errorAddr)
 u32 sceAtracGetMaxSample(int atracID, u32 maxSamplesAddr)
 {
 	ERROR_LOG(HLE, "UNIMPL sceAtracGetMaxSample(%i, %08x)", atracID, maxSamplesAddr);
+	if (Memory::IsValidAddress(maxSamplesAddr))
+		Memory::Write_U32(1024, maxSamplesAddr);
 	return 0;
 }
 
@@ -205,6 +207,19 @@ int sceAtracReinit()
 	return 0;
 }
 
+int sceAtracGetOutputChannel(int atracID, u32 outputChanPtr)
+{
+	ERROR_LOG(HLE, "UNIMPL sceAtracGetOutputChannel(%i, %08x)", atracID, outputChanPtr);
+	if (Memory::IsValidAddress(outputChanPtr))
+		Memory::Write_U32(2, outputChanPtr);
+	return 0;
+}
+
+int sceAtracIsSecondBufferNeeded(int atracID)
+{
+	ERROR_LOG(HLE, "UNIMPL sceAtracIsSecondBufferNeeded(%i)", atracID);
+	return 0;
+}
 
 const HLEFunction sceAtrac3plus[] =
 {
@@ -233,10 +248,16 @@ const HLEFunction sceAtrac3plus[] =
 	{0xd1f59fdb,WrapU_V<sceAtracStartEntry>,"sceAtracStartEntry"},
 	{0x868120b5,WrapU_II<sceAtracSetLoopNum>,"sceAtracSetLoopNum"},
 	{0x132f1eca,WrapI_V<sceAtracReinit>,"sceAtracReinit"},
-	{0xeca32a99,0,"sceAtracIsSecondBufferNeeded"},
+	{0xeca32a99,WrapI_I<sceAtracIsSecondBufferNeeded>,"sceAtracIsSecondBufferNeeded"},
 	{0x0fae370e,WrapI_IUUU<sceAtracSetHalfwayBufferAndGetID>,"sceAtracSetHalfwayBufferAndGetID"},
-	{0x2DD3E298,0,"sceAtrac3plus_2DD3E298"},
+	{0x2DD3E298,0,"sceAtracGetBufferInfoForResetting"},
 	{0x5CF9D852,0,"sceAtracSetMOutHalfwayBuffer"},
+	{0xB3B5D042,WrapI_IU<sceAtracGetOutputChannel>,"sceAtracGetOutputChannel"},
+	{0xF6837A1A,0,"sceAtracSetMOutData"},
+	{0x472E3825,0,"sceAtracSetMOutDataAndGetID"},
+	{0x9CD7DE03,0,"sceAtracSetMOutHalfwayBufferAndGetID"},
+	{0x5622B7C1,0,"sceAtracSetAA3DataAndGetID"},
+	{0x5DD66588,0,"sceAtracSetAA3HalfwayBufferAndGetID"},
 };
 
 
