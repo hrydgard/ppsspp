@@ -137,6 +137,16 @@ void __KernelMutexInit()
 	__KernelListenThreadEnd(&__KernelMutexThreadEnd);
 }
 
+KernelObject *__KernelMutexObject()
+{
+	return new Mutex;
+}
+
+KernelObject *__KernelLwMutexObject()
+{
+	return new LwMutex;
+}
+
 void __KernelMutexShutdown()
 {
 	mutexHeldLocks.clear();

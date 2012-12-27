@@ -104,6 +104,12 @@ void __KernelEventFlagInit()
 	eventFlagWaitTimer = CoreTiming::RegisterEvent("EventFlagTimeout", &__KernelEventFlagTimeout);
 }
 
+KernelObject *__KernelEventFlagObject()
+{
+	// Default object to load from state.
+	return new EventFlag;
+}
+
 bool __KernelEventFlagMatches(u32 *pattern, u32 bits, u8 wait, u32 outAddr)
 {
 	if ((wait & PSP_EVENT_WAITOR)

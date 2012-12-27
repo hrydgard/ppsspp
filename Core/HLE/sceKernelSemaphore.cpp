@@ -75,6 +75,11 @@ void __KernelSemaInit()
 	semaWaitTimer = CoreTiming::RegisterEvent("SemaphoreTimeout", &__KernelSemaTimeout);
 }
 
+KernelObject *__KernelSemaphoreObject()
+{
+	return new Semaphore;
+}
+
 // Returns whether the thread should be removed.
 bool __KernelUnlockSemaForThread(Semaphore *s, SceUID threadID, u32 &error, int result, bool &wokeThreads)
 {

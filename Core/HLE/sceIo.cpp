@@ -137,7 +137,18 @@ public:
 		sprintf(ptr, "Seekpos: %08x", (u32)pspFileSystem.GetSeekPos(handle));
 	}
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_BADF; }
-	int GetIDType() const { return 0; }
+	int GetIDType() const { return PPSSPP_KERNEL_TMID_File; }
+
+	virtual void DoState(PointerWrap &p) {
+		p.Do(fullpath);
+		p.Do(handle);
+		p.Do(callbackID);
+		p.Do(callbackArg);
+		p.Do(asyncResult);
+		p.Do(pendingAsyncResult);
+		p.Do(sectorBlockMode);
+		p.DoMarker("File");
+	}
 
 	std::string fullpath;
 	u32 handle;
@@ -836,7 +847,18 @@ public:
 	const char *GetName() {return name.c_str();}
 	const char *GetTypeName() {return "DirListing";}
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_BADF; }
-	int GetIDType() const { return 0; }
+	int GetIDType() const { return PPSSPP_KERNEL_TMID_DirList; }
+
+	virtual void DoState(PointerWrap &p) {
+		p.Do(name);
+
+		// TODO: Is this the right way for it to wake up?
+		size_t count = listing.size();
+		for (size_t i = 0; i < count; ++i) {
+			listing[i].DoState(p);
+		}
+		p.DoMarker("DirListing");
+	}
 
 	std::string name;
 	std::vector<PSPFileInfo> listing;
@@ -918,6 +940,14 @@ u32 sceIoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 ou
 	}
 
   return 0;
+}
+
+KernelObject *__KernelFileNodeObject() {
+	return new FileNode;
+}
+
+KernelObject *__KernelDirListingObject() {
+	return new DirListing;
 }
 
 const HLEFunction IoFileMgrForUser[] = {

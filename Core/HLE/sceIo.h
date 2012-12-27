@@ -19,9 +19,12 @@
 
 #include <string>
 #include "HLE.h"
+#include "sceKernel.h"
 
 void __IoInit();
 void __IoShutdown();
+KernelObject *__KernelFileNodeObject();
+KernelObject *__KernelDirListingObject();
 
 void Register_IoFileMgrForUser();
 void Register_StdioForUser();

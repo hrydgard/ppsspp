@@ -29,3 +29,4 @@ int sceKernelWaitSemaCB(SceUID semaid, int signal, u32 timeoutPtr);
 void __KernelSemaTimeout(u64 userdata, int cycleslate);
 
 void __KernelSemaInit();
+KernelObject *__KernelSemaphoreObject();

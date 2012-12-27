@@ -320,23 +320,74 @@ void KernelObjectPool::DoState(PointerWrap &p)
 {
 	int _maxCount = maxCount;
 	p.Do(_maxCount);
+
+	if (_maxCount != maxCount)
+		ERROR_LOG(HLE, "Unable to load state: different kernel object storage.");
+
+	// Assumption: on load, we've already cleared.
 	p.DoArray(occupied, maxCount);
 	for (int i = 0; i < maxCount; ++i)
 	{
 		if (!occupied[i])
 			continue;
 
-		KernelObject *t = pool[i];
-		if (!t)
+		int type;
+		if (p.mode == p.MODE_READ)
 		{
-			// TODO: Pass down error?
-			ERROR_LOG(HLE, "Unable to save state: inconsistent kernel object pool.");
-			return;
+			p.Do(type);
+			pool[i] = CreateByIDType(type);
 		}
-
-		t->DoState(p);
+		else
+		{
+			type = pool[i]->GetIDType();
+			p.Do(type);
+		}
+		pool[i]->DoState(p);
 	}
 	p.DoMarker("KernelObjectPool");
+}
+
+KernelObject *KernelObjectPool::CreateByIDType(int type)
+{
+	// Used for save states.  This is ugly, but what other way is there?
+	switch (type)
+	{
+	case SCE_KERNEL_TMID_Alarm:
+		return __KernelAlarmObject();
+	case SCE_KERNEL_TMID_EventFlag:
+		return __KernelEventFlagObject();
+	case SCE_KERNEL_TMID_Mbox:
+		return __KernelMbxObject();
+	case SCE_KERNEL_TMID_Fpl:
+		return __KernelMemoryFPLObject();
+	case SCE_KERNEL_TMID_Vpl:
+		return __KernelMemoryVPLObject();
+	case PPSSPP_KERNEL_TMID_PMB:
+		return __KernelMemoryPMBObject();
+	case PPSSPP_KERNEL_TMID_Module:
+		return __KernelModuleObject();
+	case SCE_KERNEL_TMID_Mpipe:
+		return __KernelMsgPipeObject();
+	case SCE_KERNEL_TMID_Mutex:
+		return __KernelMutexObject();
+	case SCE_KERNEL_TMID_LwMutex:
+		return __KernelLwMutexObject();
+	case SCE_KERNEL_TMID_Semaphore:
+		return __KernelSemaphoreObject();
+	case SCE_KERNEL_TMID_Callback:
+		return __KernelCallbackObject();
+	case SCE_KERNEL_TMID_Thread:
+		return __KernelThreadObject();
+	case SCE_KERNEL_TMID_VTimer:
+		return __KernelVTimerObject();
+	case PPSSPP_KERNEL_TMID_File:
+		return __KernelFileNodeObject();
+	case PPSSPP_KERNEL_TMID_DirList:
+		return __KernelDirListingObject();
+
+	default:
+		ERROR_LOG(COMMON, "Unable to load state: could not find object type %d.", type);
+	}
 }
 
 void sceKernelIcacheInvalidateAll()

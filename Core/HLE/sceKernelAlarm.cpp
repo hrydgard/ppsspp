@@ -111,6 +111,12 @@ void __KernelAlarmInit()
 	alarmTimer = CoreTiming::RegisterEvent("Alarm", __KernelTriggerAlarm);
 }
 
+KernelObject *__KernelAlarmObject()
+{
+	// Default object to load from state.
+	return new Alarm;
+}
+
 void __KernelScheduleAlarm(Alarm *alarm, u64 ticks)
 {
 	alarm->alm.schedule = (CoreTiming::GetTicks() + ticks) / (u64) CoreTiming::GetClockFrequencyMHz();

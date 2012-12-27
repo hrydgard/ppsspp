@@ -98,6 +98,8 @@ struct ThreadContext
 
 void __KernelThreadingInit();
 void __KernelThreadingShutdown();
+KernelObject *__KernelThreadObject();
+KernelObject *__KernelCallbackObject();
 
 void __KernelScheduleWakeup(int usFromNow, int threadnumber);
 SceUID __KernelGetCurThread();

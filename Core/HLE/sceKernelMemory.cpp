@@ -53,7 +53,7 @@ struct NativeFPL
 };
 
 //FPL - Fixed Length Dynamic Memory Pool - every item has the same length
-struct FPL : KernelObject
+struct FPL : public KernelObject
 {
 	const char *GetName() {return nf.name;}
 	const char *GetTypeName() {return "FPL";}
@@ -106,7 +106,7 @@ struct SceKernelVplInfo
 	int numWaitThreads;
 };
 
-struct VPL : KernelObject
+struct VPL : public KernelObject
 {
 	const char *GetName() {return nv.name;}
 	const char *GetTypeName() {return "VPL";}
@@ -368,13 +368,18 @@ public:
 		sprintf(ptr, "MemPart: %08x - %08x	size: %08x", address, address + sz, sz);
 	}
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_MPPID; }	/// ????
-	int GetIDType() const { return 0; }
+	int GetIDType() const { return PPSSPP_KERNEL_TMID_PMB; }
 
 	PartitionMemoryBlock(BlockAllocator *_alloc, u32 size, bool fromEnd)
 	{
 		alloc = _alloc;
-		address = alloc->Alloc(size, fromEnd, "PMB");
-		alloc->ListBlocks();
+
+		// 0 is used for save states to wake up.
+		if (size != 0)
+		{
+			address = alloc->Alloc(size, fromEnd, "PMB");
+			alloc->ListBlocks();
+		}
 	}
 	~PartitionMemoryBlock()
 	{
@@ -618,6 +623,22 @@ void sceKernelSetCompilerVersion(int version)
 {
 	compilerVersion_ = version;
 	flags_ |= SCE_KERNEL_HASCOMPILERVERSION;
+}
+
+KernelObject *__KernelMemoryFPLObject()
+{
+	return new FPL;
+}
+
+KernelObject *__KernelMemoryVPLObject()
+{
+	return new VPL;
+}
+
+KernelObject *__KernelMemoryPMBObject()
+{
+	// TODO: We could theoretically handle kernelMemory too, but we don't support that now anyway.
+	return new PartitionMemoryBlock(&userMemory, 0, true);
 }
 
 // VPL = variable length memory pool

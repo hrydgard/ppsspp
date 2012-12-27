@@ -32,6 +32,7 @@
 #include <deque>
 #include <string>
 #include <list>
+#include <set>
 
 #include "Common.h"
 #include "FileUtil.h"
@@ -147,11 +148,47 @@ public:
 	void Do(std::list<T> &x, T &default_val)
 	{
 		u32 list_size = (u32)x.size();
+		Do(list_size);
 		x.resize(list_size, default_val);
 
 		typename std::list<T>::iterator itr, end;
 		for (itr = x.begin(), end = x.end(); itr != end; ++itr)
 			Do(*itr);
+	}
+
+	// Store STL sets.
+	template <class T>
+	void Do(std::set<T> &x)
+	{
+		unsigned int number = (unsigned int)x.size();
+		Do(number);
+
+		switch (mode)
+		{
+		case MODE_READ:
+			{
+				x.clear();
+				while (number-- > 0)
+				{
+					T it;
+					Do(it);
+					x.insert(it);
+				}
+			}
+			break;
+		case MODE_WRITE:
+		case MODE_MEASURE:
+		case MODE_VERIFY:
+			{
+				typename std::set<T>::iterator itr = x.begin();
+				while (number-- > 0)
+					Do(*itr++);
+			}
+			break;
+
+		default:
+			ERROR_LOG(COMMON, "Savestate error: invalid mode %d.", mode);
+		}
 	}
 
 	// Store strings.

@@ -34,3 +34,4 @@ int sceKernelCancelReceiveMbx(SceUID id, u32 numWaitingThreadsAddr);
 int sceKernelReferMbxStatus(SceUID id, u32 infoAddr);
 
 void __KernelMbxInit();
+KernelObject *__KernelMbxObject();

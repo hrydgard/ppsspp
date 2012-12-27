@@ -38,3 +38,5 @@ void __KernelMutexThreadEnd(SceUID thread);
 
 void __KernelMutexInit();
 void __KernelMutexShutdown();
+KernelObject *__KernelMutexObject();
+KernelObject *__KernelLwMutexObject();

@@ -51,6 +51,11 @@ struct VTimer : public KernelObject
 	u32 argument;
 };
 
+KernelObject *__KernelVTimerObject()
+{
+	return new VTimer;
+}
+
 void sceKernelCreateVTimer()
 {
 	DEBUG_LOG(HLE,"sceKernelCreateVTimer");

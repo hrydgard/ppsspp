@@ -23,3 +23,5 @@ void sceKernelSetVTimerHandler();
 
 // TODO
 void _sceKernelReturnFromTimerHandler();
+
+KernelObject *__KernelVTimerObject();

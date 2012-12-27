@@ -18,6 +18,7 @@
 #pragma once
 
 #include "../Util/BlockAllocator.h"
+#include "sceKernel.h"
 
 
 //todo: "real" memory block allocator, 
@@ -30,6 +31,9 @@ extern BlockAllocator kernelMemory;
 
 void __KernelMemoryInit();
 void __KernelMemoryShutdown();
+KernelObject *__KernelMemoryFPLObject();
+KernelObject *__KernelMemoryVPLObject();
+KernelObject *__KernelMemoryPMBObject();
 
 void sceKernelCreateVpl();
 void sceKernelDeleteVpl();

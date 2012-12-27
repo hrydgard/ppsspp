@@ -170,6 +170,11 @@ void __KernelMbxInit()
 	mbxWaitTimer = CoreTiming::RegisterEvent("MbxTimeout", &__KernelMbxTimeout);
 }
 
+KernelObject *__KernelMbxObject()
+{
+	return new Mbx;
+}
+
 bool __KernelUnlockMbxForThread(Mbx *m, MbxWaitingThread &th, u32 &error, int result, bool &wokeThreads)
 {
 	SceUID waitID = __KernelGetWaitID(th.first, WAITTYPE_MBX, error);

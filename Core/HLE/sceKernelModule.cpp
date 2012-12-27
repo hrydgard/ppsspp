@@ -117,12 +117,24 @@ public:
 			nm.entry_addr);
 	}
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_MODULE; }
-	int GetIDType() const { return 0; }
+	int GetIDType() const { return PPSSPP_KERNEL_TMID_Module; }
+
+	virtual void DoState(PointerWrap &p)
+	{
+		p.Do(nm);
+		p.Do(memoryBlockAddr);
+		p.DoMarker("Module");
+	}
 
 	NativeModule nm;
 
 	u32 memoryBlockAddr;
 };
+
+KernelObject *__KernelModuleObject()
+{
+	return new Module;
+}
 
 //////////////////////////////////////////////////////////////////////////
 // MODULES
@@ -642,7 +654,7 @@ u32 sceKernelLoadModule(const char *name, u32 flags)
 class AfterModuleEntryCall : public Action {
 public:
 	AfterModuleEntryCall() {}
-	Module *module_;
+	SceUID moduleID_;
 	u32 retValAddr;
 	virtual void run();
 };

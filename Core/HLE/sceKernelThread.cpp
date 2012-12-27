@@ -113,6 +113,18 @@ public:
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_CBID; }
 	int GetIDType() const { return SCE_KERNEL_TMID_Callback; }
 
+	virtual void DoState(PointerWrap &p)
+	{
+		p.Do(nc);
+		p.Do(savedPC);
+		p.Do(savedRA);
+		p.Do(savedV0);
+		p.Do(savedV1);
+		p.Do(savedIdRegister);
+		p.Do(forceDelete);
+		p.DoMarker("Callback");
+	}
+
 	NativeCallback nc;
 
 	u32 savedPC;
@@ -297,6 +309,34 @@ public:
 	bool isWaiting() const { return (nt.status & THREADSTATUS_WAIT) != 0; }
 	bool isSuspended() const { return (nt.status & THREADSTATUS_SUSPEND) != 0; }
 
+	virtual void DoState(PointerWrap &p)
+	{
+		p.Do(nt);
+		p.Do(waitInfo);
+		p.Do(sleeping);
+		p.Do(moduleId);
+		p.Do(isProcessingCallbacks);
+		p.Do(currentCallbackId);
+		p.Do(context);
+
+		u32 numCallbacks = THREAD_CALLBACK_NUM_TYPES;
+		p.Do(numCallbacks);
+		if (numCallbacks != THREAD_CALLBACK_NUM_TYPES)
+			ERROR_LOG(HLE, "Unable to load state: different kernel object storage.");
+
+		for (size_t i = 0; i < THREAD_CALLBACK_NUM_TYPES; ++i)
+		{
+			std::set<SceUID>::iterator it, end;
+			p.Do(registeredCallbacks[i]);
+			p.Do(readyCallbacks[i]);
+		}
+
+		p.Do(pendingMipsCalls);
+		p.Do(stackBlock);
+
+		p.DoMarker("Thread");
+	}
+
 	NativeThread nt;
 
 	ThreadWaitInfo waitInfo;
@@ -407,6 +447,16 @@ void __KernelThreadingInit()
 	// These idle threads are later started in LoadExec, which calls __KernelStartIdleThreads below.
 
 	__KernelListenThreadEnd(__KernelCancelWakeup);
+}
+
+KernelObject *__KernelThreadObject()
+{
+	return new Thread;
+}
+
+KernelObject *__KernelCallbackObject()
+{
+	return new Callback;
 }
 
 void __KernelListenThreadEnd(ThreadCallback callback)

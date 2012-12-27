@@ -162,6 +162,11 @@ struct MsgPipe : public KernelObject
 	u8 *buffer;
 };
 
+KernelObject *__KernelMsgPipeObject()
+{
+	return new MsgPipe;
+}
+
 void sceKernelCreateMsgPipe()
 {
 	const char *name = Memory::GetCharPointer(PARAM(0));

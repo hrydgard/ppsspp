@@ -23,3 +23,4 @@ int sceKernelCancelAlarm(SceUID uid);
 int sceKernelReferAlarmStatus(SceUID uid, u32 infoPtr);
 
 void __KernelAlarmInit();
+KernelObject *__KernelAlarmObject();

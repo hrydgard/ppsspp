@@ -28,3 +28,4 @@ u32 sceKernelReferEventFlagStatus(SceUID id, u32 statusPtr);
 u32 sceKernelCancelEventFlag(SceUID uid, u32 pattern, u32 numWaitThreadsPtr);
 
 void __KernelEventFlagInit();
+KernelObject *__KernelEventFlagObject();
