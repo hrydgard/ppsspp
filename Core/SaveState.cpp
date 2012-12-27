@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "SaveState.h"
+#include "Core.h"
 #include "CoreTiming.h"
 #include "HLE/sceKernel.h"
 #include "MemMap.h"
@@ -64,6 +65,8 @@ namespace SaveState
 		__KernelDoState(p);
 	}
 
+	void Process(u64 userdata, int cyclesLate);
+
 	void Enqueue(SaveState::Operation op)
 	{
 		std::lock_guard<std::recursive_mutex> guard(mutex);
@@ -71,8 +74,13 @@ namespace SaveState
 
 		// Don't actually run it until next CoreTiming::Advance().
 		// It's possible there might be a duplicate but it won't hurt us.
-		// TODO: If paused, just run, don't wait?
-		CoreTiming::ScheduleEvent_Threadsafe(0, timer);
+		if (Core_IsStepping())
+		{
+			// Warning: this may run on a different thread.
+			Process(0, 0);
+		}
+		else
+			CoreTiming::ScheduleEvent_Threadsafe(0, timer);
 	}
 
 	void Load(std::string &filename, Callback callback)
