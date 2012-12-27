@@ -28,6 +28,26 @@
 typedef void * HANDLE;
 #endif
 
+#if defined(__APPLE__)
+
+#if TARGET_OS_IPHONE
+#define HOST_IS_CASE_SENSITIVE true
+#elif TARGET_IPHONE_SIMULATOR
+#define HOST_IS_CASE_SENSITIVE false
+#else
+// Mac OSX case sensitivity defaults off, but is user configurable (when
+// creating a filesytem), so assume the worst:
+#define HOST_IS_CASE_SENSITIVE true
+#endif
+
+#elif defined(_WIN32) || defined(__SYMBIAN32__)
+#define HOST_IS_CASE_SENSITIVE false
+
+#else  // Android, Linux, BSD (and the rest?)
+#define HOST_IS_CASE_SENSITIVE true
+
+#endif
+
 class DirectoryFileSystem : public IFileSystem {
 public:
 	DirectoryFileSystem(IHandleAllocator *_hAlloc, std::string _basePath);
@@ -63,4 +83,13 @@ private:
 
 	// In case of Windows: Translate slashes, etc.
 	std::string GetLocalPath(std::string localpath);
+
+#if HOST_IS_CASE_SENSITIVE
+	typedef enum {
+		FPC_FILE_MUST_EXIST,  // all path components must exist (rmdir, move from)
+		FPC_PATH_MUST_EXIST,  // all except the last one must exist - still tries to fix last one (fopen, move to)
+		FPC_PARTIAL_ALLOWED,  // don't care how many exist (mkdir recursive)
+	} FixPathCaseBehavior;
+	bool FixPathCase(std::string &path, FixPathCaseBehavior behavior);
+#endif
 };
