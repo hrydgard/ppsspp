@@ -136,6 +136,18 @@ void __KernelShutdown()
 	kernelRunning = false;
 }
 
+void __KernelDoState(PointerWrap &p)
+{
+	kernelObjects.DoState(p);
+	p.DoMarker("KernelObjects");
+	// TODO
+	// kernelObjects
+	// modules
+	// core timing
+	// memstick
+	// filesystem
+}
+
 bool __KernelIsRunning() {
 	return kernelRunning;
 }
@@ -302,6 +314,29 @@ int KernelObjectPool::GetCount()
 			count++;
 	}
 	return count;
+}
+
+void KernelObjectPool::DoState(PointerWrap &p)
+{
+	int _maxCount = maxCount;
+	p.Do(_maxCount);
+	p.DoArray(occupied, maxCount);
+	for (int i = 0; i < maxCount; ++i)
+	{
+		if (!occupied[i])
+			continue;
+
+		KernelObject *t = pool[i];
+		if (!t)
+		{
+			// TODO: Pass down error?
+			ERROR_LOG(HLE, "Unable to save state: inconsistent kernel object pool.");
+			return;
+		}
+
+		t->DoState(p);
+	}
+	p.DoMarker("KernelObjectPool");
 }
 
 void sceKernelIcacheInvalidateAll()

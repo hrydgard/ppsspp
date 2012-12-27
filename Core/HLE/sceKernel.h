@@ -18,6 +18,7 @@
 #pragma once
 
 #include "../../Globals.h"
+#include "../../Common/ChunkFile.h"
 #include <cstring>
 
 enum
@@ -263,6 +264,7 @@ struct SceKernelLoadExecParam
 
 void __KernelInit();
 void __KernelShutdown();
+void __KernelDoState(PointerWrap &p);
 bool __KernelIsRunning();
 bool __KernelLoadExec(const char *filename, SceKernelLoadExecParam *param);
 
@@ -311,9 +313,11 @@ public:
 	// Implement this in all subclasses:
 	// static u32 GetMissingErrorCode()
 
-	// Future
-	// void Serialize(ChunkFile)
-	// void DeSerialize(ChunkFile)
+	virtual void DoState(PointerWrap &p)
+	{
+		// TODO
+		//_dbg_assert_msg_(HLE, false, "Bad kernel object");
+	}
 };
 
 
@@ -325,7 +329,7 @@ public:
 	// Allocates a UID within the range and inserts the object into the map.
 	SceUID Create(KernelObject *obj, int rangeBottom = 16, int rangeTop = 0x7fffffff);
 
-	// TODO: How will we ever save/restore this pool?
+	void DoState(PointerWrap &p);
 
 	template <class T>
 	u32 Destroy(SceUID handle)
