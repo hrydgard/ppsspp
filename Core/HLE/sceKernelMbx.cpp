@@ -153,6 +153,13 @@ struct Mbx : public KernelObject
 		return 0;
 	}
 
+	virtual void DoState(PointerWrap &p)
+	{
+		p.Do(nmb);
+		p.Do(waitingThreads);
+		p.DoMarker("Mbx");
+	}
+
 	NativeMbx nmb;
 
 	std::vector<MbxWaitingThread> waitingThreads;

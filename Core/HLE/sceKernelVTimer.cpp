@@ -30,6 +30,18 @@ struct VTimer : public KernelObject
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_VTID; }
 	int GetIDType() const { return SCE_KERNEL_TMID_VTimer; }
 
+	virtual void DoState(PointerWrap &p)
+	{
+		p.Do(size);
+		p.Do(name);
+		p.Do(startTime);
+		p.Do(running);
+		p.Do(handler);
+		p.Do(handlerTime);
+		p.Do(argument);
+		p.DoMarker("VTimer");
+	}
+
 	SceSize 	size;
 	char 		name[KERNELOBJECT_MAX_NAME_LENGTH+1];
 	u64 startTime;

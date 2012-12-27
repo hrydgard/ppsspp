@@ -37,6 +37,13 @@ struct Alarm : public KernelObject
 	const char *GetTypeName() {return "Alarm";}
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_ALMID; }
 	int GetIDType() const { return SCE_KERNEL_TMID_Alarm; }
+
+	virtual void DoState(PointerWrap &p)
+	{
+		p.Do(alm);
+		p.DoMarker("Alarm");
+	}
+
 	NativeAlarm alm;
 };
 
@@ -47,7 +54,7 @@ class AlarmIntrHandler : public SubIntrHandler
 public:
 	AlarmIntrHandler(Alarm *alarm)
 	{
-		this->alarm = alarm;
+		alarmID = alarm->GetUID();
 		handlerAddress = alarm->alm.handlerPtr;
 		enabled = true;
 	}
@@ -56,26 +63,35 @@ public:
 	{
 		SubIntrHandler::copyArgsToCPU(pend);
 
-		currentMIPS->r[MIPS_REG_A0] = alarm->alm.commonPtr;
+		u32 error;
+		Alarm *alarm = kernelObjects.Get<Alarm>(alarmID, error);
+		if (alarm)
+			currentMIPS->r[MIPS_REG_A0] = alarm->alm.commonPtr;
+		else
+			ERROR_LOG(HLE, "sceKernelAlarm: Unable to send interrupt args: alarm deleted?");
 	}
 
 	virtual void handleResult(int result)
 	{
 		// A non-zero result means to reschedule.
 		if (result > 0)
+		{
+			u32 error;
+			Alarm *alarm = kernelObjects.Get<Alarm>(alarmID, error);
 			__KernelScheduleAlarm(alarm, (u64) usToCycles(result));
+		}
 		else
 		{
 			if (result < 0)
 				WARN_LOG(HLE, "Alarm requested reschedule for negative value %u, ignoring", (unsigned) result);
 
 			// Delete the alarm if it's not rescheduled.
-			__ReleaseSubInterruptHandler(PSP_SYSTIMER0_INTR, alarm->GetUID());
-			kernelObjects.Destroy<Alarm>(alarm->GetUID());
+			kernelObjects.Destroy<Alarm>(alarmID);
+			__ReleaseSubInterruptHandler(PSP_SYSTIMER0_INTR, alarmID);
 		}
 	}
 
-	Alarm *alarm;
+	SceUID alarmID;
 };
 
 static int alarmTimer = 0;

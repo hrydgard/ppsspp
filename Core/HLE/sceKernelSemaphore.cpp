@@ -57,6 +57,13 @@ struct Semaphore : public KernelObject
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_SEMID; }
 	int GetIDType() const { return SCE_KERNEL_TMID_Semaphore; }
 
+	virtual void DoState(PointerWrap &p)
+	{
+		p.Do(ns);
+		p.Do(waitingThreads);
+		p.DoMarker("Semaphore");
+	}
+
 	NativeSemaphore ns;
 	std::vector<SceUID> waitingThreads;
 };

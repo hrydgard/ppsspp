@@ -62,6 +62,14 @@ struct Mutex : public KernelObject
 	const char *GetTypeName() {return "Mutex";}
 	static u32 GetMissingErrorCode() { return PSP_MUTEX_ERROR_NO_SUCH_MUTEX; }
 	int GetIDType() const { return SCE_KERNEL_TMID_Mutex; }
+
+	virtual void DoState(PointerWrap &p)
+	{
+		p.Do(nm);
+		p.Do(waitingThreads);
+		p.DoMarker("Mutex");
+	}
+
 	NativeMutex nm;
 	std::vector<SceUID> waitingThreads;
 };
@@ -103,6 +111,14 @@ struct LwMutex : public KernelObject
 	const char *GetTypeName() {return "LwMutex";}
 	static u32 GetMissingErrorCode() { return PSP_LWMUTEX_ERROR_NO_SUCH_LWMUTEX; }
 	int GetIDType() const { return SCE_KERNEL_TMID_LwMutex; }
+
+	virtual void DoState(PointerWrap &p)
+	{
+		p.Do(nm);
+		p.Do(waitingThreads);
+		p.DoMarker("LwMutex");
+	}
+
 	NativeLwMutex nm;
 	std::vector<SceUID> waitingThreads;
 };

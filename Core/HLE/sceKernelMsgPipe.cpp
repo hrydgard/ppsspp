@@ -56,11 +56,6 @@ struct MsgPipe : public KernelObject
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_MPPID; }
 	int GetIDType() const { return SCE_KERNEL_TMID_Mpipe; }
 
-	NativeMsgPipe nmp;
-
-	std::vector<MsgPipeWaitingThread> sendWaitingThreads;
-	std::vector<MsgPipeWaitingThread> receiveWaitingThreads;
-
 	void AddWaitingThread(std::vector<MsgPipeWaitingThread> &list, SceUID id, u32 addr, u32 size, int waitMode, u32 transferredBytesAddr, bool usePrio)
 	{
 		MsgPipeWaitingThread thread = { id, addr, size, size, waitMode, transferredBytesAddr };
@@ -149,6 +144,20 @@ struct MsgPipe : public KernelObject
 			CheckSendThreads();
 		}
 	}
+
+	virtual void DoState(PointerWrap &p)
+	{
+		p.Do(nmp);
+		p.Do(sendWaitingThreads);
+		p.Do(receiveWaitingThreads);
+		p.DoArray(buffer, nmp.bufSize);
+		p.DoMarker("MsgPipe");
+	}
+
+	NativeMsgPipe nmp;
+
+	std::vector<MsgPipeWaitingThread> sendWaitingThreads;
+	std::vector<MsgPipeWaitingThread> receiveWaitingThreads;
 
 	u8 *buffer;
 };

@@ -315,8 +315,7 @@ public:
 
 	virtual void DoState(PointerWrap &p)
 	{
-		// TODO
-		//_dbg_assert_msg_(HLE, false, "Bad kernel object");
+		_dbg_assert_msg_(HLE, false, "Unable to save state: bad kernel object.");
 	}
 };
 

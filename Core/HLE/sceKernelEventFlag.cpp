@@ -63,6 +63,13 @@ public:
 	}
 	int GetIDType() const { return SCE_KERNEL_TMID_EventFlag; }
 
+	virtual void DoState(PointerWrap &p)
+	{
+		p.Do(nef);
+		p.Do(waitingThreads);
+		p.DoMarker("EventFlag");
+	}
+
 	NativeEventFlag nef;
 	std::vector<EventFlagTh> waitingThreads;
 };
