@@ -94,7 +94,3 @@ void WriteSyscall(const char *module, u32 nib, u32 address);
 void CallSyscall(u32 op);
 void ResolveSyscall(const char *moduleName, u32 nib, u32 address);
 
-// Need to be able to save entire kernel state
-int GetStateSize();
-void SaveState(u8 *ptr);
-void LoadState(const u8 *ptr);

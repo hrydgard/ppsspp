@@ -24,6 +24,7 @@
 #include "../FileSystems/MetaFileSystem.h"
 #include "../PSPLoaders.h"
 #include "../../Core/CoreTiming.h"
+#include "../../Core/SaveState.h"
 #include "../../Core/System.h"
 #include "../../GPU/GPUInterface.h"
 #include "../../GPU/GPUState.h"
@@ -77,6 +78,7 @@ void __KernelInit()
 		return;
 	}
 
+	SaveState::Init();
 	__KernelMemoryInit();
 	__KernelThreadingInit();
 	__KernelMutexInit();

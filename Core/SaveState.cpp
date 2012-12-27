@@ -15,32 +15,130 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "../Common/StdMutex.h"
+#include <vector>
+
 #include "SaveState.h"
-#include "MemMap.h"
+#include "CoreTiming.h"
 #include "HLE/sceKernel.h"
+#include "MemMap.h"
 
-// TODO: Need a way to schedule via CoreTiming and actually run then.
-
-bool SaveState::Load(std::string &filename)
+namespace SaveState
 {
-	SaveState state;
-	return CChunkFileReader::Load(filename, REVISION, state);
-}
+	struct SaveStart
+	{
+		void DoState(PointerWrap &p);
+	};
 
-bool SaveState::Save(std::string &filename)
-{
-	SaveState state;
-	return CChunkFileReader::Save(filename, REVISION, state);
-}
+	enum OperationType
+	{
+		SAVESTATE_SAVE,
+		SAVESTATE_LOAD,
+		SAVESTATE_VERIFY,
+	};
 
-bool SaveState::Verify()
-{
-	SaveState state;
-	return CChunkFileReader::Verify(state);
-}
+	struct Operation
+	{
+		Operation(OperationType t, std::string &f, Callback cb)
+			: type(t), filename(f), callback(cb)
+		{
+		}
 
-void SaveState::DoState(PointerWrap &p)
-{
-	Memory::DoState(p);
-	__KernelDoState(p);
+		OperationType type;
+		std::string filename;
+		Callback callback;
+	};
+
+	static int timer;
+	static std::vector<Operation> pending;
+	static std::recursive_mutex mutex;
+
+	// This is where the magic happens.
+	void SaveStart::DoState(PointerWrap &p)
+	{
+		// This save state even saves its own state.
+		p.Do(timer);
+		p.DoMarker("SaveState");
+
+		Memory::DoState(p);
+		__KernelDoState(p);
+	}
+
+	void Enqueue(SaveState::Operation op)
+	{
+		std::lock_guard<std::recursive_mutex> guard(mutex);
+		pending.push_back(op);
+
+		// Don't actually run it until next CoreTiming::Advance().
+		// It's possible there might be a duplicate but it won't hurt us.
+		// TODO: If paused, just run, don't wait?
+		CoreTiming::ScheduleEvent_Threadsafe(0, timer);
+	}
+
+	void Load(std::string &filename, Callback callback)
+	{
+		Enqueue(Operation(SAVESTATE_LOAD, filename, callback));
+	}
+
+	void Save(std::string &filename, Callback callback)
+	{
+		Enqueue(Operation(SAVESTATE_SAVE, filename, callback));
+	}
+
+	void Verify(Callback callback)
+	{
+		Enqueue(Operation(SAVESTATE_VERIFY, std::string(""), callback));
+	}
+
+	std::vector<Operation> Flush()
+	{
+		std::lock_guard<std::recursive_mutex> guard(mutex);
+		std::vector<Operation> copy = pending;
+		pending.clear();
+
+		return copy;
+	}
+
+	void Process(u64 userdata, int cyclesLate)
+	{
+		std::vector<Operation> operations = Flush();
+		SaveStart state;
+
+		for (size_t i = 0, n = operations.size(); i < n; ++i)
+		{
+			Operation &op = operations[i];
+			bool result;
+
+			switch (op.type)
+			{
+			case SAVESTATE_LOAD:
+				INFO_LOG(COMMON, "Loading state from %s", op.filename.c_str());
+				result = CChunkFileReader::Load(op.filename, REVISION, state);
+				break;
+
+			case SAVESTATE_SAVE:
+				INFO_LOG(COMMON, "Saving state to %s", op.filename.c_str());
+				result = CChunkFileReader::Save(op.filename, REVISION, state);
+				break;
+
+			case SAVESTATE_VERIFY:
+				INFO_LOG(COMMON, "Verifying save state system");
+				result = CChunkFileReader::Verify(state);
+				break;
+
+			default:
+				ERROR_LOG(COMMON, "Savestate failure: unknown operation type %d", op.type);
+				result = false;
+				break;
+			}
+
+			if (op.callback != NULL)
+				op.callback(result);
+		}
+	}
+
+	void Init()
+	{
+		timer = CoreTiming::RegisterEvent("SaveState", Process);
+	}
 }

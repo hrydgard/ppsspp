@@ -16,18 +16,24 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "../Common/ChunkFile.h"
+#include <string>
 
-struct SaveState
+namespace SaveState
 {
+	typedef void (*Callback)(bool status);
+
 	// TODO: Better place for this?
-	static const int REVISION = 1;
+	const int REVISION = 1;
 
-	// Load the specified file into the current state.
-	static bool Load(std::string &filename);
-	// Save the current state to the specified file.
-	static bool Save(std::string &filename);
-	// For testing / automated tests.  Runs a save state verification pass.
-	static bool Verify();
+	void Init();
 
-	void DoState(PointerWrap &p);
+	// Load the specified file into the current state (async.)
+	// Warning: callback will be called on a different thread.
+	void Load(std::string &filename, Callback callback = NULL);
+	// Save the current state to the specified file (async.)
+	// Warning: callback will be called on a different thread.
+	void Save(std::string &filename, Callback callback = NULL);
+	// For testing / automated tests.  Runs a save state verification pass (async.)
+	// Warning: callback will be called on a different thread.
+	void Verify(Callback callback = NULL);
 };
