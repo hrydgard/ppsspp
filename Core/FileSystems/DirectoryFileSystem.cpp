@@ -128,8 +128,8 @@ u32 DirectoryFileSystem::OpenFile(std::string filename, FileAccess access) {
 	entry.hFile = CreateFile(fullName.c_str(), desired, sharemode, 0, openmode, 0, 0);
 	bool success = entry.hFile != INVALID_HANDLE_VALUE;
 #else
-  entry.hFile = fopen(fullName.c_str(), access & FILEACCESS_WRITE ? "wb" : "rb");
-  bool success = entry.hFile != 0;
+	entry.hFile = fopen(fullName.c_str(), access & FILEACCESS_WRITE ? "wb" : "rb");
+	bool success = entry.hFile != 0;
 #endif
 
 	if (!success) {
@@ -209,18 +209,18 @@ size_t DirectoryFileSystem::SeekFile(u32 handle, s32 position, FileMove type) {
 #ifdef _WIN32
 		DWORD moveMethod = 0;
 		switch (type) {
-		case FILEMOVE_BEGIN: moveMethod = FILE_BEGIN; break;
-		case FILEMOVE_CURRENT: moveMethod = FILE_CURRENT; break;
-		case FILEMOVE_END: moveMethod = FILE_END; break;
+		case FILEMOVE_BEGIN:    moveMethod = FILE_BEGIN;    break;
+		case FILEMOVE_CURRENT:  moveMethod = FILE_CURRENT;  break;
+		case FILEMOVE_END:      moveMethod = FILE_END;      break;
 		}
 		DWORD newPos = SetFilePointer((*iter).second.hFile, (LONG)position, 0, moveMethod);
 		return newPos;
 #else
 		int moveMethod = 0;
 		switch (type) {
-		case FILEMOVE_BEGIN: moveMethod = SEEK_SET; break;
-		case FILEMOVE_CURRENT: moveMethod = SEEK_CUR; break;
-		case FILEMOVE_END: moveMethod = SEEK_END; break;
+		case FILEMOVE_BEGIN:    moveMethod = SEEK_SET;  break;
+		case FILEMOVE_CURRENT:  moveMethod = SEEK_CUR;  break;
+		case FILEMOVE_END:      moveMethod = SEEK_END;  break;
 		}
 		fseek(iter->second.hFile, position, moveMethod);
 		return ftell(iter->second.hFile);
