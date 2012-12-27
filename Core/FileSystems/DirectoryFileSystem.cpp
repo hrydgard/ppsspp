@@ -21,6 +21,7 @@
 #include <dirent.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <ctype.h>
 #endif
 
 #include "FileUtil.h"
@@ -55,7 +56,8 @@ static bool FixFilenameCase(const std::string &path, std::string &filename)
 
 	while (!readdir_r(dirp, (dirent*) &diren, &result) && result)
 	{
-		if (result->d_namlen != filenameSize)
+		// Hm, is this check UTF-8 compatible? (size vs strlen)
+		if (strlen(result->d_name) != filenameSize)
 			continue;
 
 		size_t i;
