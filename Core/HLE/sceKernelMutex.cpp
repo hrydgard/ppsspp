@@ -256,7 +256,7 @@ bool __KernelUnlockMutexForThread(Mutex *mutex, SceUID threadID, u32 &error, int
 int sceKernelDeleteMutex(SceUID id)
 {
 	DEBUG_LOG(HLE,"sceKernelDeleteMutex(%i)", id);
-	u32 error=0;
+	u32 error;
 	Mutex *mutex = kernelObjects.Get<Mutex>(id, error);
 	if (mutex)
 	{
@@ -409,7 +409,7 @@ void __KernelWaitMutex(Mutex *mutex, u32 timeoutPtr)
 int sceKernelLockMutex(SceUID id, int count, u32 timeoutPtr)
 {
 	DEBUG_LOG(HLE, "sceKernelLockMutex(%i, %i, %08x)", id, count, timeoutPtr);
-	u32 error=0;
+	u32 error;
 	Mutex *mutex = kernelObjects.Get<Mutex>(id, error);
 
 	if (__KernelLockMutex(mutex, count, error))
@@ -431,7 +431,7 @@ int sceKernelLockMutex(SceUID id, int count, u32 timeoutPtr)
 int sceKernelLockMutexCB(SceUID id, int count, u32 timeoutPtr)
 {
 	DEBUG_LOG(HLE, "sceKernelLockMutexCB(%i, %i, %08x)", id, count, timeoutPtr);
-	u32 error=0;
+	u32 error;
 	Mutex *mutex = kernelObjects.Get<Mutex>(id, error);
 
 	if (__KernelLockMutex(mutex, count, error))
@@ -456,7 +456,7 @@ int sceKernelLockMutexCB(SceUID id, int count, u32 timeoutPtr)
 int sceKernelTryLockMutex(SceUID id, int count)
 {
 	DEBUG_LOG(HLE, "sceKernelTryLockMutex(%i, %i)", id, count);
-	u32 error=0;
+	u32 error;
 	Mutex *mutex = kernelObjects.Get<Mutex>(id, error);
 
 	if (__KernelLockMutex(mutex, count, error))
@@ -471,7 +471,7 @@ int sceKernelTryLockMutex(SceUID id, int count)
 int sceKernelUnlockMutex(SceUID id, int count)
 {
 	DEBUG_LOG(HLE, "sceKernelUnlockMutex(%i, %i)", id, count);
-	u32 error=0;
+	u32 error;
 	Mutex *mutex = kernelObjects.Get<Mutex>(id, error);
 
 	if (error)
@@ -581,7 +581,7 @@ int sceKernelDeleteLwMutex(u32 workareaPtr)
 	NativeLwMutexWorkarea workarea;
 	Memory::ReadStruct(workareaPtr, &workarea);
 
-	u32 error=0;
+	u32 error;
 	LwMutex *mutex = kernelObjects.Get<LwMutex>(workarea.uid, error);
 	if (mutex)
 	{

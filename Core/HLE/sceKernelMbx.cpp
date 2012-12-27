@@ -295,7 +295,7 @@ SceUID sceKernelCreateMbx(const char *name, u32 attr, u32 optAddr)
 
 int sceKernelDeleteMbx(SceUID id)
 {
-	u32 error=0;
+	u32 error;
 	Mbx *m = kernelObjects.Get<Mbx>(id, error);
 	if (m)
 	{
@@ -318,7 +318,7 @@ int sceKernelDeleteMbx(SceUID id)
 
 int sceKernelSendMbx(SceUID id, u32 packetAddr)
 {
-	u32 error=0;
+	u32 error;
 	Mbx *m = kernelObjects.Get<Mbx>(id, error);
 	if (!m)
 	{
@@ -410,7 +410,7 @@ int sceKernelSendMbx(SceUID id, u32 packetAddr)
 
 int sceKernelReceiveMbx(SceUID id, u32 packetAddrPtr, u32 timeoutPtr)
 {
-	u32 error=0;
+	u32 error;
 	Mbx *m = kernelObjects.Get<Mbx>(id, error);
 
 	if (!m)
@@ -437,7 +437,7 @@ int sceKernelReceiveMbx(SceUID id, u32 packetAddrPtr, u32 timeoutPtr)
 
 int sceKernelReceiveMbxCB(SceUID id, u32 packetAddrPtr, u32 timeoutPtr)
 {
-	u32 error=0;
+	u32 error;
 	Mbx *m = kernelObjects.Get<Mbx>(id, error);
 
 	if (!m)
@@ -465,7 +465,7 @@ int sceKernelReceiveMbxCB(SceUID id, u32 packetAddrPtr, u32 timeoutPtr)
 
 int sceKernelPollMbx(SceUID id, u32 packetAddrPtr)
 {
-	u32 error=0;
+	u32 error;
 	Mbx *m = kernelObjects.Get<Mbx>(id, error);
 
 	if (!m)
@@ -488,7 +488,7 @@ int sceKernelPollMbx(SceUID id, u32 packetAddrPtr)
 
 int sceKernelCancelReceiveMbx(SceUID id, u32 numWaitingThreadsAddr)
 {
-	u32 error=0;
+	u32 error;
 	Mbx *m = kernelObjects.Get<Mbx>(id, error);
 
 	if (!m)
@@ -515,7 +515,7 @@ int sceKernelCancelReceiveMbx(SceUID id, u32 numWaitingThreadsAddr)
 
 int sceKernelReferMbxStatus(SceUID id, u32 infoAddr)
 {
-	u32 error=0;
+	u32 error;
 	Mbx *m = kernelObjects.Get<Mbx>(id, error);
 	if (!m)
 	{

@@ -186,7 +186,7 @@ void sceKernelCreateMsgPipe()
 void sceKernelDeleteMsgPipe()
 {
 	SceUID uid = PARAM(0);
-	u32 error=0;
+	u32 error;
 	MsgPipe *m = kernelObjects.Get<MsgPipe>(uid, error);
 	if (!m)
 	{
@@ -320,7 +320,7 @@ void sceKernelSendMsgPipe()
 	u32 resultAddr = PARAM(4);
 	u32 timeoutPtr = PARAM(5);
 
-	u32 error=0;
+	u32 error;
 	MsgPipe *m = kernelObjects.Get<MsgPipe>(uid, error);
 	if (!m) {
 		ERROR_LOG(HLE, "sceKernelSendMsgPipe(%i) - ERROR %08x", uid, error);
@@ -341,7 +341,7 @@ void sceKernelSendMsgPipeCB()
 	u32 resultAddr = PARAM(4);
 	u32 timeoutPtr = PARAM(5);
 
-	u32 error=0;
+	u32 error;
 	MsgPipe *m = kernelObjects.Get<MsgPipe>(uid, error);
 	if (!m) {
 		ERROR_LOG(HLE, "sceKernelSendMsgPipeCB(%i) - ERROR %08x", uid, error);
@@ -362,7 +362,7 @@ void sceKernelTrySendMsgPipe()
 	int waitMode = PARAM(3);
 	u32 resultAddr = PARAM(4);
 
-	u32 error=0;
+	u32 error;
 	MsgPipe *m = kernelObjects.Get<MsgPipe>(uid, error);
 	if (!m) {
 		ERROR_LOG(HLE, "sceKernelTrySendMsgPipe(%i) - ERROR %08x", uid, error);
@@ -496,7 +496,7 @@ void sceKernelReceiveMsgPipe()
 	u32 resultAddr = PARAM(4);
 	u32 timeoutPtr = PARAM(5);
 
-	u32 error=0;
+	u32 error;
 	MsgPipe *m = kernelObjects.Get<MsgPipe>(uid, error);
 	if (!m) {
 		ERROR_LOG(HLE, "sceKernelReceiveMsgPipe(%i) - ERROR %08x", uid, error);
@@ -517,7 +517,7 @@ void sceKernelReceiveMsgPipeCB()
 	u32 resultAddr = PARAM(4);
 	u32 timeoutPtr = PARAM(5);
 
-	u32 error=0;
+	u32 error;
 	MsgPipe *m = kernelObjects.Get<MsgPipe>(uid, error);
 	if (!m) {
 		ERROR_LOG(HLE, "sceKernelReceiveMsgPipeCB(%i) - ERROR %08x", uid, error);
@@ -537,7 +537,7 @@ void sceKernelTryReceiveMsgPipe()
 	int waitMode = PARAM(3);
 	u32 resultAddr = PARAM(4);
 
-	u32 error=0;
+	u32 error;
 	MsgPipe *m = kernelObjects.Get<MsgPipe>(uid, error);
 	if (!m) {
 		ERROR_LOG(HLE, "sceKernelTryReceiveMsgPipe(%i) - ERROR %08x", uid, error);
@@ -555,7 +555,7 @@ void sceKernelCancelMsgPipe()
 	u32 numSendThreadsAddr = PARAM(1);
 	u32 numReceiveThreadsAddr = PARAM(2);
 
-	u32 error=0;
+	u32 error;
 	MsgPipe *m = kernelObjects.Get<MsgPipe>(uid, error);
 	if (!m)
 	{
@@ -588,7 +588,7 @@ void sceKernelReferMsgPipeStatus()
 	u32 msgPipeStatusAddr = PARAM(1);
 
 	DEBUG_LOG(HLE,"sceKernelReferMsgPipeStatus(%i, %08x)", uid, msgPipeStatusAddr);
-	u32 error=0;
+	u32 error;
 	MsgPipe *m = kernelObjects.Get<MsgPipe>(uid, error);
 	if (m)
 	{

@@ -497,7 +497,7 @@ void __KernelStartModule(Module *m, int args, const char *argp, SceKernelSMOptio
 
 u32 __KernelGetModuleGP(SceUID uid)
 {
-	u32 error=0;
+	u32 error;
 	Module *module = kernelObjects.Get<Module>(uid, error);
 	if (module)
 	{
