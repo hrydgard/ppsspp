@@ -335,6 +335,8 @@ bool Copy(const std::string &srcFilename, const std::string &destFilename)
 				ERROR_LOG(COMMON, 
 						"Copy: failed reading from source, %s --> %s: %s", 
 						srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg());
+				fclose(input);
+				fclose(output);		
 				return false;
 			}
 		}
@@ -346,6 +348,8 @@ bool Copy(const std::string &srcFilename, const std::string &destFilename)
 			ERROR_LOG(COMMON, 
 					"Copy: failed writing to output, %s --> %s: %s", 
 					srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg());
+			fclose(input);
+			fclose(output);				
 			return false;
 		}
 	}
