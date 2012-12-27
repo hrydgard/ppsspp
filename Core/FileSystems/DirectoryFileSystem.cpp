@@ -107,8 +107,12 @@ bool DirectoryFileSystem::FixPathCase(std::string &path, FixPathCaseBehavior beh
 		{
 			std::string component = path.substr(start, i - start);
 
-			if (FixFilenameCase(fullPath, component) == false)
-				return (behavior == FPC_FILE_MUST_EXIST || (behavior == FPC_PATH_MUST_EXIST && i >= len));
+			// Fix case and stop on nonexistant path component
+			if (FixFilenameCase(fullPath, component) == false) {
+				// Still counts as success if partial matches allowed or if this
+				// is the last component and only the ones before it are required
+				return (behavior == FPC_PARTIAL_ALLOWED || (behavior == FPC_PATH_MUST_EXIST && i >= len));
+			}
 
 			path.replace(start, i - start, component);
 
