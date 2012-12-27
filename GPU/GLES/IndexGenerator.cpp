@@ -283,8 +283,8 @@ void IndexGenerator::TranslateLineList(int numVerts, const u8 *inds, int offset)
 	int numLines = numVerts / 2;
 	for (int i = 0; i < numLines; i++)
 	{
-		*inds_++ = index_ + offset + inds_[i*2];
-		*inds_++ = index_ + offset + inds_[i*2+1];
+		*inds_++ = index_ + offset + inds[i*2];
+		*inds_++ = index_ + offset + inds[i*2+1];
 	}
 	index_ += numVerts;
 	count_ += numLines * 2;
@@ -297,8 +297,8 @@ void IndexGenerator::TranslateLineStrip(int numVerts, const u8 *inds, int offset
 	int numLines = numVerts - 1;
 	for (int i = 0; i < numLines; i++)
 	{
-		*inds_++ = index_ + offset + inds_[i];
-		*inds_++ = index_ + offset + inds_[i + 1];
+		*inds_++ = index_ + offset + inds[i];
+		*inds_++ = index_ + offset + inds[i + 1];
 	}
 	index_ += numVerts;
 	count_ += numLines * 2;
@@ -311,8 +311,8 @@ void IndexGenerator::TranslateLineList(int numVerts, const u16 *inds, int offset
 	int numLines = numVerts / 2;
 	for (int i = 0; i < numLines; i++)
 	{
-		*inds_++ = index_ + offset + inds_[i*2];
-		*inds_++ = index_ + offset + inds_[i*2+1];
+		*inds_++ = index_ + offset + inds[i*2];
+		*inds_++ = index_ + offset + inds[i*2+1];
 	}
 	index_ += numVerts;
 	count_ += numLines * 2;
@@ -325,8 +325,8 @@ void IndexGenerator::TranslateLineStrip(int numVerts, const u16 *inds, int offse
 	int numLines = numVerts - 1;
 	for (int i = 0; i < numLines; i++)
 	{
-		*inds_++ = index_ + offset + inds_[i];
-		*inds_++ = index_ + offset + inds_[i + 1];
+		*inds_++ = index_ + offset + inds[i];
+		*inds_++ = index_ + offset + inds[i + 1];
 	}
 	index_ += numVerts;
 	count_ += numLines * 2;
@@ -339,8 +339,8 @@ void IndexGenerator::TranslateRectangles(int numVerts, const u8 *inds, int offse
 	int numRects = numVerts / 2;
 	for (int i = 0; i < numRects; i++)
 	{
-		*inds_++ = index_ + offset + inds_[i*2];
-		*inds_++ = index_ + offset + inds_[i*2+1];
+		*inds_++ = index_ + offset + inds[i*2];
+		*inds_++ = index_ + offset + inds[i*2+1];
 	}
 	index_ += numVerts;
 	count_ += numRects * 2;
@@ -353,8 +353,8 @@ void IndexGenerator::TranslateRectangles(int numVerts, const u16 *inds, int offs
 	int numRects = numVerts / 2;
 	for (int i = 0; i < numRects; i++)
 	{
-		*inds_++ = index_ + offset + inds_[i*2];
-		*inds_++ = index_ + offset + inds_[i*2+1];
+		*inds_++ = index_ + offset + inds[i*2];
+		*inds_++ = index_ + offset + inds[i*2+1];
 	}
 	index_ += numVerts;
 	count_ += numRects * 2;
