@@ -24,6 +24,7 @@
 #include "CoreTiming.h"
 #include "Core.h"
 #include "HLE/sceKernelThread.h"
+#include "../Common/ChunkFile.h"
 
 int CPU_HZ = 222000000;
 
@@ -55,12 +56,6 @@ struct BaseEvent
 //	Event *next;
 };
 
-template <class T>
-struct LinkedListItem : public T
-{
-	LinkedListItem<T> *next;
-};
-
 typedef LinkedListItem<BaseEvent> Event;
 
 Event *first;
@@ -79,6 +74,7 @@ s64 idledCycles;
 
 static std::recursive_mutex externalEventSection;
 
+// Warning: not included in save state.
 void (*advanceCallback)(int cyclesExecuted) = NULL;
 
 void SetClockFrequencyMHz(int cpuMhz)
@@ -140,9 +136,9 @@ void AntiCrashCallback(u64 userdata, int cyclesLate)
 	Core_Halt("invalid timing events");
 }
 
-void RestoreEvent(int event_type, const char *name, TimedCallback callback)
+void RestoreRegisterEvent(int event_type, const char *name, TimedCallback callback)
 {
-	if (event_type >= event_types.size())
+	if (event_type >= (int) event_types.size())
 		event_types.resize(event_type + 1, EventType(AntiCrashCallback, "INVALID EVENT"));
 
 	event_types[event_type] = EventType(callback, name);
@@ -311,6 +307,7 @@ u64 UnscheduleEvent(int event_type, u64 userdata)
 	return result;
 }
 
+// Warning: not included in save state.
 void RegisterAdvanceCallback(void (*callback)(int cyclesExecuted))
 {
 	advanceCallback = callback;
@@ -544,6 +541,29 @@ std::string GetScheduledEventsSummary()
 		ptr = ptr->next;
 	}
 	return text;
+}
+
+void Event_DoState(PointerWrap &p, BaseEvent *ev)
+{
+	p.Do(*ev);
+}
+
+void DoState(PointerWrap &p)
+{
+	size_t n = event_types.size();
+	p.Do(n);
+	// These (should) be filled in later by the modules.
+	event_types.resize(n, EventType(AntiCrashCallback, "INVALID EVENT"));
+
+	p.DoLinkedList<BaseEvent, GetNewEvent, FreeEvent, Event_DoState>(first, (Event **) NULL);
+	p.DoLinkedList<BaseEvent, GetNewTsEvent, FreeTsEvent, Event_DoState>(tsFirst, &tsLast);
+
+	p.Do(CPU_HZ);
+	p.Do(downcount);
+	p.Do(slicelength);
+	p.Do(globalTimer);
+	p.Do(idledCycles);
+	p.DoMarker("CoreTiming");
 }
 
 }	// namespace

@@ -55,23 +55,23 @@ namespace SaveState
 	static std::vector<Operation> pending;
 	static std::recursive_mutex mutex;
 
+	void Process(u64 userdata, int cyclesLate);
+
 	// This is where the magic happens.
 	void SaveStart::DoState(PointerWrap &p)
 	{
 		// Gotta do CoreTiming first since we'll restore into it.
-		// TODO CoreTiming
+		CoreTiming::DoState(p);
 
 		// This save state even saves its own state.
 		p.Do(timer);
-		CoreTiming::RestoreEvent(timer, "SaveState", Process);
+		CoreTiming::RestoreRegisterEvent(timer, "SaveState", Process);
 		p.DoMarker("SaveState");
 
 		Memory::DoState(p);
 		MemoryStick_DoState(p);
 		__KernelDoState(p);
 	}
-
-	void Process(u64 userdata, int cyclesLate);
 
 	void Enqueue(SaveState::Operation op)
 	{
