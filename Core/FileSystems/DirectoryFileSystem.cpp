@@ -318,6 +318,8 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 		if (!retval)
 			break;
 	}
+#else
+	ERROR_LOG(HLE, "GetDirListing not implemented on non-Windows");
 #endif
 	return myVector;
 }
