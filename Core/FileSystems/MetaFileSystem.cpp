@@ -42,8 +42,8 @@ static bool ApplyPathStringToComponentsVector(std::vector<std::string> &vector, 
 					}
 					else
 					{
-						//	what does the real PSP do for "/../filename"?
-						WARN_LOG(HLE, "RealPath: .. as first path component: \"%s\"", pathString.c_str());
+						// The PSP silently ignores attempts to .. to parent of root directory
+						WARN_LOG(HLE, "RealPath: ignoring .. beyond root - root directory is its own parent: \"%s\"", pathString.c_str());
 					}
 				}
 				else
