@@ -336,6 +336,10 @@ void KernelObjectPool::DoState(PointerWrap &p)
 		{
 			p.Do(type);
 			pool[i] = CreateByIDType(type);
+
+			// Already logged an error.
+			if (pool[i] == NULL)
+				return;
 		}
 		else
 		{
@@ -387,6 +391,7 @@ KernelObject *KernelObjectPool::CreateByIDType(int type)
 
 	default:
 		ERROR_LOG(COMMON, "Unable to load state: could not find object type %d.", type);
+		return NULL;
 	}
 }
 
