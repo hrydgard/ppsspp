@@ -83,4 +83,13 @@ private:
 
 	// In case of Windows: Translate slashes, etc.
 	std::string GetLocalPath(std::string localpath);
+
+#if HOST_IS_CASE_SENSITIVE
+	typedef enum {
+		FPC_FILE_MUST_EXIST,  // all path components must exist (rmdir, move from)
+		FPC_PATH_MUST_EXIST,  // all except the last one must exist - still tries to fix last one (fopen, move to)
+		FPC_PARTIAL_ALLOWED,  // don't care how many exist (mkdir recursive)
+	} FixPathCaseBehavior;
+	bool FixPathCase(std::string &path, FixPathCaseBehavior behavior);
+#endif
 };
