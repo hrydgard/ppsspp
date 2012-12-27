@@ -72,7 +72,14 @@ static int semaWaitTimer = 0;
 
 void __KernelSemaInit()
 {
-	semaWaitTimer = CoreTiming::RegisterEvent("SemaphoreTimeout", &__KernelSemaTimeout);
+	semaWaitTimer = CoreTiming::RegisterEvent("SemaphoreTimeout", __KernelSemaTimeout);
+}
+
+void __KernelSemaDoState(PointerWrap &p)
+{
+	p.Do(semaWaitTimer);
+	CoreTiming::RestoreRegisterEvent(semaWaitTimer, "SemaphoreTimeout", __KernelSemaTimeout);
+	p.DoMarker("sceKernelSema");
 }
 
 KernelObject *__KernelSemaphoreObject()

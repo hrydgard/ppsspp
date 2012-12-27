@@ -131,10 +131,20 @@ static MutexMap mutexHeldLocks;
 
 void __KernelMutexInit()
 {
-	mutexWaitTimer = CoreTiming::RegisterEvent("MutexTimeout", &__KernelMutexTimeout);
-	lwMutexWaitTimer = CoreTiming::RegisterEvent("LwMutexTimeout", &__KernelLwMutexTimeout);
+	mutexWaitTimer = CoreTiming::RegisterEvent("MutexTimeout", __KernelMutexTimeout);
+	lwMutexWaitTimer = CoreTiming::RegisterEvent("LwMutexTimeout", __KernelLwMutexTimeout);
 
 	__KernelListenThreadEnd(&__KernelMutexThreadEnd);
+}
+
+void __KernelMutexDoState(PointerWrap &p)
+{
+	p.Do(mutexWaitTimer);
+	CoreTiming::RestoreRegisterEvent(mutexWaitTimer, "MutexTimeout", __KernelMutexTimeout);
+	p.Do(lwMutexWaitTimer);
+	CoreTiming::RestoreRegisterEvent(lwMutexWaitTimer, "LwMutexTimeout", __KernelLwMutexTimeout);
+	p.Do(mutexHeldLocks);
+	p.DoMarker("sceKernelMutex");
 }
 
 KernelObject *__KernelMutexObject()

@@ -59,8 +59,6 @@
 
 #include "../Util/PPGeDraw.h"
 
-extern MetaFileSystem pspFileSystem;
-
 /*
 17: [MIPS32 R4K 00000000 ]: Loader: Type: 1 Vaddr: 00000000 Filesz: 2856816 Memsz: 2856816 
 18: [MIPS32 R4K 00000000 ]: Loader: Loadable Segment Copied to 0898dab0, size 002b9770
@@ -69,6 +67,7 @@ extern MetaFileSystem pspFileSystem;
 */
 
 static bool kernelRunning = false;
+KernelObjectPool kernelObjects;
 
 void __KernelInit()
 {
@@ -140,13 +139,19 @@ void __KernelShutdown()
 
 void __KernelDoState(PointerWrap &p)
 {
+	p.Do(kernelRunning);
 	kernelObjects.DoState(p);
 	p.DoMarker("KernelObjects");
-	// TODO
-	// modules
-	// core timing
-	// memstick
-	// filesystem
+
+	// TODO: Put these in the correct order...
+	__KernelAlarmDoState(p);
+	__KernelEventFlagDoState(p);
+	__KernelMbxDoState(p);
+	__KernelMemoryDoState(p);
+	__KernelModuleDoState(p);
+	__KernelMutexDoState(p);
+	__KernelSemaDoState(p);
+	// TODO: more modules
 }
 
 bool __KernelIsRunning() {
@@ -231,8 +236,6 @@ void sceKernelDcacheWritebackInvalidateAll()
 {
 	gpu->InvalidateCache(0, -1);
 }
-
-KernelObjectPool kernelObjects;
 
 KernelObjectPool::KernelObjectPool()
 {

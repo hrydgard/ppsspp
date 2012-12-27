@@ -30,6 +30,7 @@ extern BlockAllocator userMemory;
 extern BlockAllocator kernelMemory;
 
 void __KernelMemoryInit();
+void __KernelMemoryDoState(PointerWrap &p);
 void __KernelMemoryShutdown();
 KernelObject *__KernelMemoryFPLObject();
 KernelObject *__KernelMemoryVPLObject();

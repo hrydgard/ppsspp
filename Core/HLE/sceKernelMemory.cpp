@@ -135,6 +135,13 @@ void __KernelMemoryInit()
 	INFO_LOG(HLE, "Kernel and user memory pools initialized");
 }
 
+void __KernelMemoryDoState(PointerWrap &p)
+{
+	kernelMemory.DoState(p);
+	userMemory.DoState(p);
+	p.DoMarker("sceKernelMemory");
+}
+
 void __KernelMemoryShutdown()
 {
 	INFO_LOG(HLE,"Shutting down user memory pool: ");

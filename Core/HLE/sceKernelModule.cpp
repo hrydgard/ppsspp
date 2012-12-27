@@ -172,6 +172,12 @@ static SceUID mainModuleID;	// hack
 // STATE END
 //////////////////////////////////////////////////////////////////////////
 
+void __KernelModuleDoState(PointerWrap &p)
+{
+	p.Do(mainModuleID);
+	p.DoMarker("sceKernelModule");
+}
+
 Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *error_string)
 {
 	Module *module = new Module;

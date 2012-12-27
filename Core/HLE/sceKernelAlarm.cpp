@@ -111,6 +111,13 @@ void __KernelAlarmInit()
 	alarmTimer = CoreTiming::RegisterEvent("Alarm", __KernelTriggerAlarm);
 }
 
+void __KernelAlarmDoState(PointerWrap &p)
+{
+	p.Do(alarmTimer);
+	CoreTiming::RestoreRegisterEvent(alarmTimer, "Alarm", __KernelTriggerAlarm);
+	p.DoMarker("sceKernelAlarm");
+}
+
 KernelObject *__KernelAlarmObject()
 {
 	// Default object to load from state.

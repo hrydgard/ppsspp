@@ -114,6 +114,43 @@ public:
 		}
 	}
 
+	template<class K, class T>
+	void Do(std::multimap<K, T> &x)
+	{
+		unsigned int number = (unsigned int)x.size();
+		Do(number);
+		switch (mode) {
+		case MODE_READ:
+			{
+				x.clear();
+				while (number > 0)
+				{
+					K first;
+					Do(first);
+					T second;
+					Do(second);
+					x.insert(std::make_pair(first, second));
+					--number;
+				}
+			}
+			break;
+		case MODE_WRITE:
+		case MODE_MEASURE:
+		case MODE_VERIFY:
+			{
+				typename std::multimap<K, T>::iterator itr = x.begin();
+				while (number > 0)
+				{
+					Do(itr->first);
+					Do(itr->second);
+					--number;
+					++itr;
+				}
+			}
+			break;
+		}
+	}
+
 	// Store vectors.
 	template<class T>
 	void Do(std::vector<T> &x)

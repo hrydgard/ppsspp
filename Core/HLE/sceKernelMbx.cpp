@@ -167,7 +167,14 @@ struct Mbx : public KernelObject
 
 void __KernelMbxInit()
 {
-	mbxWaitTimer = CoreTiming::RegisterEvent("MbxTimeout", &__KernelMbxTimeout);
+	mbxWaitTimer = CoreTiming::RegisterEvent("MbxTimeout", __KernelMbxTimeout);
+}
+
+void __KernelMbxDoState(PointerWrap &p)
+{
+	p.Do(mbxWaitTimer);
+	CoreTiming::RestoreRegisterEvent(mbxWaitTimer, "MbxTimeout", __KernelMbxTimeout);
+	p.DoMarker("sceKernelMbx");
 }
 
 KernelObject *__KernelMbxObject()

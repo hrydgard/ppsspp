@@ -101,7 +101,14 @@ int eventFlagWaitTimer = 0;
 
 void __KernelEventFlagInit()
 {
-	eventFlagWaitTimer = CoreTiming::RegisterEvent("EventFlagTimeout", &__KernelEventFlagTimeout);
+	eventFlagWaitTimer = CoreTiming::RegisterEvent("EventFlagTimeout", __KernelEventFlagTimeout);
+}
+
+void __KernelEventFlagDoState(PointerWrap &p)
+{
+	p.Do(eventFlagWaitTimer);
+	CoreTiming::RestoreRegisterEvent(eventFlagWaitTimer, "EventFlagTimeout", __KernelEventFlagTimeout);
+	p.DoMarker("sceKernelEventFlag");
 }
 
 KernelObject *__KernelEventFlagObject()
