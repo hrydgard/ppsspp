@@ -106,6 +106,7 @@ u32 DirectoryFileSystem::OpenFile(std::string filename, FileAccess access) {
 
 	OpenFileEntry entry;
 
+	//TODO: tests, should append seek to end of file? seeking in a file opened for append?
 #ifdef _WIN32
 	// Convert parameters to Windows permissions and access
 	DWORD desired = 0;
@@ -127,8 +128,35 @@ u32 DirectoryFileSystem::OpenFile(std::string filename, FileAccess access) {
 	//Let's do it!
 	entry.hFile = CreateFile(fullName.c_str(), desired, sharemode, 0, openmode, 0, 0);
 	bool success = entry.hFile != INVALID_HANDLE_VALUE;
+
+	if (success && (access & FILEACCESS_APPEND)) {
+		SetFilePointer(entry.hFile, 0, NULL, FILE_END);
+	}
 #else
-	entry.hFile = fopen(fullName.c_str(), access & FILEACCESS_WRITE ? "wb" : "rb");
+	// Convert flags in access parameter to fopen access mode
+	const char *mode = NULL;
+	if (access & FILEACCESS_APPEND) {
+		if (access & FILEACCESS_READ)
+			mode = "ab+";  // append+read, create if needed
+		else
+			mode = "ab";  // append only, create if needed
+	} else if (access & FILEACCESS_WRITE) {
+		if (access & FILEACCESS_READ) {
+			// FILEACCESS_CREATE is ignored for read only, write only, and append
+			// because C++ standard fopen's nonexistant file creation can only be
+			// customized for files opened read+write
+			if (access & FILEACCESS_CREATE)
+				mode = "wb+";  // read+write, create if needed
+			else
+				mode = "rb+";  // read+write, but don't create
+		} else {
+			mode = "wb";  // write only, create if needed
+		}
+	} else {  // neither write nor append, so default to read only
+		mode = "rb";
+	}
+
+	entry.hFile = fopen(fullName.c_str(), mode);
 	bool success = entry.hFile != 0;
 #endif
 
