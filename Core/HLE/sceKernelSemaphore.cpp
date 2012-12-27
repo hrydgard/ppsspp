@@ -139,7 +139,7 @@ int sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr)
 {
 	DEBUG_LOG(HLE, "sceKernelCancelSema(%i)", id);
 
-	u32 error=0;
+	u32 error;
 	Semaphore *s = kernelObjects.Get<Semaphore>(id, error);
 	if (s)
 	{
@@ -206,7 +206,7 @@ int sceKernelDeleteSema(SceUID id)
 {
 	DEBUG_LOG(HLE, "sceKernelDeleteSema(%i)", id);
 
-	u32 error=0;
+	u32 error;
 	Semaphore *s = kernelObjects.Get<Semaphore>(id, error);
 	if (s)
 	{
@@ -225,7 +225,7 @@ int sceKernelDeleteSema(SceUID id)
 
 int sceKernelReferSemaStatus(SceUID id, u32 infoPtr)
 {
-	u32 error=0;
+	u32 error;
 	Semaphore *s = kernelObjects.Get<Semaphore>(id, error);
 	if (s)
 	{
@@ -242,7 +242,7 @@ int sceKernelReferSemaStatus(SceUID id, u32 infoPtr)
 
 int sceKernelSignalSema(SceUID id, int signal)
 {
-	u32 error=0;
+	u32 error;
 	Semaphore *s = kernelObjects.Get<Semaphore>(id, error);
 	if (s)
 	{
@@ -324,7 +324,7 @@ void __KernelSetSemaTimeout(Semaphore *s, u32 timeoutPtr)
 
 int __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, const char *badSemaMessage, bool processCallbacks)
 {
-	u32 error=0;
+	u32 error;
 	Semaphore *s = kernelObjects.Get<Semaphore>(id, error);
 	if (s)
 	{
@@ -376,7 +376,7 @@ int sceKernelPollSema(SceUID id, int wantedCount)
 	if (wantedCount <= 0)
 		return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
 
-	u32 error=0;
+	u32 error;
 	Semaphore *s = kernelObjects.Get<Semaphore>(id, error);
 	if (s)
 	{
