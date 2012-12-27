@@ -94,8 +94,6 @@ bool DirectoryFileSystem::FixPathCase(std::string &path, FixPathCaseBehavior beh
 
 	std::string fullPath;
 	fullPath.reserve(basePath.size() + len + 1);
-
-	fullPath.clear();
 	fullPath.append(basePath);
 
 	size_t start = 0;
