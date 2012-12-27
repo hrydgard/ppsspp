@@ -159,7 +159,7 @@ void LogManager::Log(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const 
 	static const char level_to_char[7] = "-NEWID";
 	char formattedTime[13];
 	Common::Timer::GetTimeFormatted(formattedTime);
-	sprintf(msg, "%s %s:%u %c[%s]: %s\n",
+	sprintf(msg, "%s %s:%d %c[%s]: %s\n",
 		formattedTime,
 		file, line, level_to_char[(int)level],
 		log->GetShortName(), temp);
