@@ -141,7 +141,6 @@ void __KernelDoState(PointerWrap &p)
 	kernelObjects.DoState(p);
 	p.DoMarker("KernelObjects");
 	// TODO
-	// kernelObjects
 	// modules
 	// core timing
 	// memstick

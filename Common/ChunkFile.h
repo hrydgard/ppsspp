@@ -428,6 +428,30 @@ public:
 		return true;
 	}
 	
+	template <class T>
+	static bool Verify(T& _class)
+	{
+		u8 *ptr = 0;
+
+		// Step 1: Measure the space required.
+		PointerWrap p(&ptr, PointerWrap::MODE_MEASURE);
+		_class.DoState(p);
+		size_t const sz = (size_t)ptr;
+		std::vector<u8> buffer(sz);
+
+		// Step 2: Dump the state.
+		ptr = &buffer[0];
+		p.SetMode(PointerWrap::MODE_WRITE);
+		_class.DoState(p);
+
+		// Step 3: Verify the state.
+		ptr = &buffer[0];
+		p.SetMode(PointerWrap::MODE_VERIFY);
+		_class.DoState(p);
+
+		return true;
+	}
+
 private:
 	struct SChunkHeader
 	{
