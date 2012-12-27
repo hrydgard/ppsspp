@@ -41,7 +41,7 @@ static bool FixFilenameCase(const std::string &path, std::string &filename)
 		filename[i] = tolower(filename[i]);
 	}
 
-	//TODO: lookup filename in cache for basePath
+	//TODO: lookup filename in cache for "path"
 
 	struct dirent_large { struct dirent entry; char padding[FILENAME_MAX+1]; } diren;
 	struct dirent_large;
@@ -331,7 +331,7 @@ u32 DirectoryFileSystem::OpenFile(std::string filename, FileAccess access) {
 			mode = "wb";  // write only, create if needed
 		}
 	} else {  // neither write nor append, so default to read only
-		mode = "rb";
+		mode = "rb";  // read only, don't create
 	}
 
 	entry.hFile = fopen(fullNameC, mode);
