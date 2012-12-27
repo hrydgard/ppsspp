@@ -267,7 +267,7 @@ u32 sceIoRead(int id, u32 data_addr, int size) {
 		return 0; //stdin
 	}
 
-	u32 error = 0;
+	u32 error;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
 	if (f) {
 		if (data_addr) {
@@ -303,7 +303,7 @@ u32 sceIoWrite(int id, void *data_ptr, int size) //(int fd, void *data, int size
 		str[size] = temp;
 		return size;
 	}
-	u32 error = 0;
+	u32 error;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
 	if (f) {
 		u8 *data = (u8*) data_ptr;
@@ -316,7 +316,7 @@ u32 sceIoWrite(int id, void *data_ptr, int size) //(int fd, void *data, int size
 }
 
 s64 sceIoLseek(int id, s64 offset, int whence) {
-	u32 error = 0;
+	u32 error;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
 	if (f) {
 		FileMove seek = FILEMOVE_BEGIN;
