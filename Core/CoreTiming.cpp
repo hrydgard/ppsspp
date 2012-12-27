@@ -36,6 +36,11 @@ namespace CoreTiming
 
 struct EventType
 {
+	EventType() {}
+
+	EventType(TimedCallback cb, const char *n)
+		: callback(cb), name(n) {}
+
 	TimedCallback callback;
 	const char *name;
 };
@@ -125,11 +130,22 @@ void FreeTsEvent(Event* ev)
 
 int RegisterEvent(const char *name, TimedCallback callback)
 {
-	EventType type;
-	type.name = name;
-	type.callback = callback;
-	event_types.push_back(type);
+	event_types.push_back(EventType(callback, name));
 	return (int)event_types.size() - 1;
+}
+
+void AntiCrashCallback(u64 userdata, int cyclesLate)
+{
+	ERROR_LOG(CPU, "Savestate broken: an unregistered event was called.");
+	Core_Halt("invalid timing events");
+}
+
+void RestoreEvent(int event_type, const char *name, TimedCallback callback)
+{
+	if (event_type >= event_types.size())
+		event_types.resize(event_type + 1, EventType(AntiCrashCallback, "INVALID EVENT"));
+
+	event_types[event_type] = EventType(callback, name);
 }
 
 void UnregisterAllEvents()

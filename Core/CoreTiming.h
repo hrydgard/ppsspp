@@ -78,6 +78,8 @@ namespace CoreTiming
 
 	// Returns the event_type identifier.
 	int RegisterEvent(const char *name, TimedCallback callback);
+	// For save states.
+	void RestoreEvent(int event_type, const char *name, TimedCallback callback);
 	void UnregisterAllEvents();
 
 	// userdata MAY NOT CONTAIN POINTERS. userdata might get written and reloaded from disk,

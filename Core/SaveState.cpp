@@ -22,6 +22,7 @@
 #include "Core.h"
 #include "CoreTiming.h"
 #include "HLE/sceKernel.h"
+#include "HW/MemoryStick.h"
 #include "MemMap.h"
 
 namespace SaveState
@@ -57,11 +58,16 @@ namespace SaveState
 	// This is where the magic happens.
 	void SaveStart::DoState(PointerWrap &p)
 	{
+		// Gotta do CoreTiming first since we'll restore into it.
+		// TODO CoreTiming
+
 		// This save state even saves its own state.
 		p.Do(timer);
+		CoreTiming::RestoreEvent(timer, "SaveState", Process);
 		p.DoMarker("SaveState");
 
 		Memory::DoState(p);
+		MemoryStick_DoState(p);
 		__KernelDoState(p);
 	}
 
