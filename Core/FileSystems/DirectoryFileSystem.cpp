@@ -78,8 +78,8 @@ bool DirectoryFileSystem::RenameFile(const std::string &from, const std::string 
 	std::string fullTo = to;
 	// TO filename may not include path. Intention is that it uses FROM's path
 	if (to.find("/") != std::string::npos) {
-		int offset = from.find_last_of("/");
-		if (offset >= 0) {
+		size_t offset = from.find_last_of("/");
+		if (offset != std::string::npos) {
 			fullTo = from.substr(0, offset + 1) + to;
 		}
 	}
