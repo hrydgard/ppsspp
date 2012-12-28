@@ -27,14 +27,14 @@ static const double f[5][2] =
 {	 98.0 / 64.0, -55.0 / 64.0 },
 {	122.0 / 64.0, -60.0 / 64.0 } };
 
-void VagDecoder::Start(u8 *data, int vagSize, bool loopEnabled) {
+void VagDecoder::Start(u32 dataPtr, int vagSize, bool loopEnabled) {
 	loopEnabled_ = loopEnabled;
 	loopAtNextBlock_ = false;
 	loopStartBlock_ = 0;
 	numBlocks_ = vagSize / 16;
 	end_ = false;
-	data_ = data;
-	read_ = data;
+	data_ = Memory::GetPointer(dataPtr);
+	read_ = Memory::GetPointer(dataPtr);
 	curSample = 28;
 	curBlock_ = -1;
 	s_1 = 0.0;	// per block?
@@ -97,6 +97,28 @@ void VagDecoder::GetSamples(s16 *outSamples, int numSamples) {
 		}
 		outSamples[i] = end_ ? 0 : samples[curSample++];
 	}
+}
+
+void VagDecoder::DoState(PointerWrap &p) {
+	p.DoArray(samples, ARRAY_SIZE(samples));
+	p.Do(curSample);
+	p.Do(dataPtr_);
+	int diff = read_ - data_;
+	p.Do(diff);
+	if (p.mode == p.MODE_READ) {
+		data_ = Memory::GetPointer(dataPtr_);
+		read_ = data_ + diff;
+	}
+	p.Do(curBlock_);
+	p.Do(loopStartBlock_);
+	p.Do(numBlocks_);
+
+	p.Do(s_1);
+	p.Do(s_2);
+	p.Do(loopEnabled_);
+	p.Do(loopAtNextBlock_);
+	p.Do(end_);
+	p.DoMarker("VagDecoder");
 }
 
 // http://code.google.com/p/jpcsp/source/browse/trunk/src/jpcsp/HLE/modules150/sceSasCore.java
@@ -190,6 +212,7 @@ SasInstance::~SasInstance() {
 void SasInstance::SetGrainSize(int newGrainSize) {
 	grainSize = newGrainSize;
 
+	// If you change the sizes here, don't forget DoState().
 	if (mixBuffer)
 		delete [] mixBuffer;
 	if (sendBuffer)
@@ -303,6 +326,40 @@ void SasInstance::Mix(u32 outAddr) {
 	}
 }
 
+void SasInstance::DoState(PointerWrap &p) {
+	p.Do(grainSize);
+	if (p.mode == p.MODE_READ) {
+		SetGrainSize(grainSize);
+	}
+
+	p.Do(maxVoices);
+	p.Do(sampleRate);
+	p.Do(outputMode);
+
+	if (mixBuffer != NULL) {
+		p.DoArray(mixBuffer, grainSize * 2);
+	}
+	if (sendBuffer != NULL) {
+		p.DoArray(sendBuffer, grainSize * 2);
+	}
+	if (resampleBuffer != NULL) {
+		p.DoArray(resampleBuffer, grainSize * 4 + 2);
+	}
+
+	int n = PSP_SAS_VOICES_MAX;
+	p.Do(n);
+	if (n != PSP_SAS_VOICES_MAX)
+	{
+		ERROR_LOG(HLE, "Savestate failure: wrong number of SAS voices");
+		return;
+	}
+	for (int i = 0; i < n; ++i)
+		voices[i].DoState(p);
+	p.Do(waveformEffect);
+
+	p.DoMarker("SasInstance");
+}
+
 void SasVoice::Reset() {
 	resampleHist[0] = 0;
 	resampleHist[1] = 0;
@@ -313,7 +370,7 @@ void SasVoice::KeyOn() {
 	switch (type) {
 	case VOICETYPE_VAG:
 		if (Memory::IsValidAddress(vagAddr)) {
-			vag.Start(Memory::GetPointer(vagAddr), vagSize, loop);
+			vag.Start(vagAddr, vagSize, loop);
 		} else {
 			ERROR_LOG(SAS, "Invalid VAG address %08x", vagAddr);
 			return;
@@ -336,9 +393,40 @@ void SasVoice::ChangedParams(bool changedVag) {
 	if (!playing && on) {
 		playing = true;
 		if (changedVag)
-			vag.Start(Memory::GetPointer(vagAddr), vagSize, loop);
+			vag.Start(vagAddr, vagSize, loop);
 	}
 	// TODO: restart VAG somehow
+}
+
+void SasVoice::DoState(PointerWrap &p) {
+	p.Do(playing);
+	p.Do(paused);
+	p.Do(on);
+	p.Do(type);
+
+	p.Do(vagAddr);
+	p.Do(vagSize);
+	p.Do(pcmAddr);
+	p.Do(pcmSize);
+	p.Do(sampleRate);
+
+	p.Do(sampleFrac);
+	p.Do(pitch);
+	p.Do(loop);
+
+	p.Do(noiseFreq);
+
+	p.Do(volumeLeft);
+	p.Do(volumeRight);
+	p.Do(volumeLeftSend);
+	p.Do(volumeRightSend);
+	p.DoArray(resampleHist, ARRAY_SIZE(resampleHist));
+
+	p.Do(envelope);
+
+	vag.DoState(p);
+
+	p.DoMarker("SasVoice");
 }
 
 // This is horribly stolen from JPCSP.

@@ -23,6 +23,7 @@
 #pragma once
 
 #include "../Globals.h"
+#include "../../Common/ChunkFile.h"
 
 enum {
 	PSP_SAS_VOICES_MAX = 32,
@@ -77,7 +78,7 @@ enum VoiceType {
 class VagDecoder {
 public:
 	VagDecoder() : data_(0), read_(0) {}
-	void Start(u8 *data, int vagSize, bool loopEnabled);
+	void Start(u32 dataPtr, int vagSize, bool loopEnabled);
 
 	void GetSamples(s16 *outSamples, int numSamples);
 
@@ -88,10 +89,14 @@ public:
 		return *read_++;
 	}
 
+	void DoState(PointerWrap &p);
+
 private:
 	double samples[28];
 	int curSample;
 
+	// Original pointer, for save states.
+	u32 dataPtr_;
 	u8 *data_;
 	u8 *read_;
 	int curBlock_;
@@ -180,6 +185,8 @@ struct SasVoice
 	void KeyOff();
 	void ChangedParams(bool changedVag);
 
+	void DoState(PointerWrap &p);
+
 	bool playing;
 	bool paused;  // a voice can be playing AND paused. In that case, it won't play.
 	bool on;   // key-on, key-off.
@@ -227,6 +234,8 @@ public:
 	s16 *resampleBuffer;
 
 	void Mix(u32 outAddr);
+
+	void DoState(PointerWrap &p);
 
 	SasVoice voices[PSP_SAS_VOICES_MAX];
 	WaveformEffect waveformEffect;

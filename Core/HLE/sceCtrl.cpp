@@ -286,6 +286,8 @@ void __CtrlInit()
 
 void __CtrlDoState(PointerWrap &p)
 {
+	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
+
 	p.Do(analogEnabled);
 	p.Do(ctrlLatchBufs);
 	p.Do(ctrlOldButtons);

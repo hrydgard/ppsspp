@@ -550,6 +550,8 @@ void Event_DoState(PointerWrap &p, BaseEvent *ev)
 
 void DoState(PointerWrap &p)
 {
+	std::lock_guard<std::recursive_mutex> lk(externalEventSection);
+
 	int n = (int) event_types.size();
 	p.Do(n);
 	// These (should) be filled in later by the modules.

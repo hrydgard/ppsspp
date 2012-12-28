@@ -150,7 +150,10 @@ struct MsgPipe : public KernelObject
 		p.Do(nmp);
 		p.Do(sendWaitingThreads);
 		p.Do(receiveWaitingThreads);
-		p.DoArray(buffer, nmp.bufSize);
+		bool hasBuffer = buffer != NULL;
+		p.Do(hasBuffer);
+		if (hasBuffer)
+			p.DoArray(buffer, nmp.bufSize);
 		p.DoMarker("MsgPipe");
 	}
 
