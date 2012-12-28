@@ -29,15 +29,16 @@ class TransformDrawEngine {
 public:
 	TransformDrawEngine();
 	~TransformDrawEngine();
-	void SubmitPrim(void *verts, void *inds, int prim, int vertexCount, float *customUV, int forceIndexType, int *bytesRead);
+	void SubmitPrim(void *verts, void *inds, int prim, int vertexCount, u32 vertexType, float *customUV, int forceIndexType, int *bytesRead);
 	void DrawBezier(int ucount, int vcount);
+	void DrawSpline(int ucount, int vcount, int utype, int vtype);
 	void Flush();
 	void SetShaderManager(ShaderManager *shaderManager) {
 		shaderManager_ = shaderManager;
 	}
 
 private:
-	void SoftwareTransformAndDraw(int prim, u8 *decoded, LinkedShader *program, int vertexCount, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex);
+	void SoftwareTransformAndDraw(int prim, u8 *decoded, LinkedShader *program, int vertexCount, u32 vertexType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex);
 
 	// Vertex collector state
 	IndexGenerator indexGen;
@@ -55,8 +56,6 @@ private:
 	// Other
 	ShaderManager *shaderManager_;
 };
-
-// void SoftwareTransformAndDraw(int prim, LinkedShader *program, int vertexCount, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex, float *customUV);
 
 // Only used by SW transform
 struct Color4 {

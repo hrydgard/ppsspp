@@ -84,7 +84,7 @@ public:
 	~VertexDecoder() {}
 
 	void SetVertexType(u32 vtype);
-
+	u32 VertexType() const { return fmt_; }
 	const DecVtxFormat &GetDecVtxFmt() { return decFmt; }
 
 	void DecodeVerts(u8 *decoded, const void *verts, const void *inds, int prim, int count, int *indexLowerBound, int *indexUpperBound) const;

@@ -44,13 +44,13 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 			u32 count = data & 0xFFFF;
 			u32 type = data >> 16;
 			static const char* types[7] = {
-				"POINTS=0,",
-				"LINES=1,",
-				"LINE_STRIP=2,",
-				"TRIANGLES=3,",
-				"TRIANGLE_STRIP=4,",
-				"TRIANGLE_FAN=5,",
-				"RECTANGLES=6,",
+				"POINTS",
+				"LINES",
+				"LINE_STRIP",
+				"TRIANGLES",
+				"TRIANGLE_STRIP",
+				"TRIANGLE_FAN",
+				"RECTANGLES",
 			};
 			sprintf(buffer, "DrawPrim type: %s count: %i vaddr= %08x, iaddr= %08x", type<7 ? types[type] : "INVALID", count, gstate_c.vertexAddr, gstate_c.indexAddr);
 		}
@@ -186,12 +186,11 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 		break;
 
 	case GE_CMD_CLIPENABLE:
-		sprintf(buffer, "Clip Enable: %i   (ignoring)", data);
-		//we always clip, this is opengl
+		sprintf(buffer, "Clip Enable: %i", data);
 		break;
 
 	case GE_CMD_CULLFACEENABLE:
-		sprintf(buffer, "CullFace Enable: %i   (ignoring)", data);
+		sprintf(buffer, "CullFace Enable: %i", data);
 		break;
 
 	case GE_CMD_TEXTUREMAPENABLE:
@@ -272,12 +271,12 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 
 	case GE_CMD_FRAMEBUFWIDTH:
 		{
-			u32 w = data & 0xFFFFFF;
-			sprintf(buffer, "FramebufWidth: %i", w);
+			sprintf(buffer, "FramebufWidth: %i", data);
 		}
 		break;
 
 	case GE_CMD_FRAMEBUFPIXFORMAT:
+		sprintf(buffer, "FramebufPixeFormat: %i", data);
 		break;
 
 	case GE_CMD_TEXADDR0:
@@ -331,6 +330,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 
 	case GE_CMD_TRANSFERSRC:
 		{
+			sprintf(buffer, "Block Transfer Src: %06x", data);
 			// Nothing to do, the next one prints
 		}
 		break;
@@ -346,6 +346,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 	case GE_CMD_TRANSFERDST:
 		{
 			// Nothing to do, the next one prints
+			sprintf(buffer, "Block Transfer Dst: %06x", data);
 		}
 		break;
 
@@ -407,8 +408,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 
 	case GE_CMD_ZBUFWIDTH:
 		{
-			u32 w = data & 0xFFFFFF;
-			sprintf(buffer, "Zbuf Width: %i", w);
+			sprintf(buffer, "Zbuf Width: %06x", data);
 		}
 		break;
 
@@ -490,7 +490,6 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 		}
 		break;
 
-
 	case GE_CMD_LAC0:case GE_CMD_LAC1:case GE_CMD_LAC2:case GE_CMD_LAC3:
 	case GE_CMD_LDC0:case GE_CMD_LDC1:case GE_CMD_LDC2:case GE_CMD_LDC3:
 	case GE_CMD_LSC0:case GE_CMD_LSC1:case GE_CMD_LSC2:case GE_CMD_LSC3:
@@ -523,12 +522,14 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 			sprintf(buffer, "Z pos: %f", zOff);
 		}
 		break;
+
 	case GE_CMD_LIGHTENABLE0:
 	case GE_CMD_LIGHTENABLE1:
 	case GE_CMD_LIGHTENABLE2:
 	case GE_CMD_LIGHTENABLE3:
 		sprintf(buffer, "Light %i enable: %d", cmd-GE_CMD_LIGHTENABLE0, data);
 		break;
+
 	case GE_CMD_CULL:
 		sprintf(buffer, "cull: %06x", data);
 		break;
@@ -543,6 +544,14 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 			int patch_div_t = (data >> 8) & 0xFF;
 			sprintf(buffer, "Patch subdivision: %i x %i", patch_div_s, patch_div_t);
 		}
+		break;
+
+	case GE_CMD_PATCHPRIMITIVE:
+		sprintf(buffer, "Patch Primitive: %d", data);
+		break;
+
+	case GE_CMD_PATCHFACING:
+		sprintf(buffer, "Patch Facing: %d", data);
 		break;
 
 	case GE_CMD_MATERIALUPDATE:

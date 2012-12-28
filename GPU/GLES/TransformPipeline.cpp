@@ -63,6 +63,8 @@ TransformDrawEngine::~TransformDrawEngine() {
 // Just to get something on the screen, we'll just not subdivide correctly.
 void TransformDrawEngine::DrawBezier(int ucount, int vcount) {
 	u16 indices[3 * 3 * 6];
+
+	u32 customVertType = gstate.vertType; //(gstate.vertType & ~GE_VTYPE_TC_MASK) | GE_VTYPE_TC_FLOAT;
 	float customUV[32];
 	int c = 0;
 	for (int y = 0; y < 3; y++) {
@@ -83,7 +85,12 @@ void TransformDrawEngine::DrawBezier(int ucount, int vcount) {
 		}
 	}
 
-	SubmitPrim(Memory::GetPointer(gstate_c.vertexAddr), &indices[0], GE_PRIM_TRIANGLES, 3 * 3 * 6, customUV, GE_VTYPE_IDX_16BIT, 0);
+	int vertexCount = 3 * 3 * 6;
+	SubmitPrim(Memory::GetPointer(gstate_c.vertexAddr), &indices[0], GE_PRIM_TRIANGLES, vertexCount, customVertType, customUV, GE_VTYPE_IDX_16BIT, 0);
+}
+
+void TransformDrawEngine::DrawSpline(int ucount, int vcount, int utype, int vtype) {
+	// TODO
 }
 
 // Convenient way to do precomputation to save the parts of the lighting calculation
@@ -322,7 +329,7 @@ static void RotateUVs(TransformedVertex v[4]) {
 // Actually again, single quads could be drawn more efficiently using GL_TRIANGLE_STRIP, no need to duplicate verts as for
 // GL_TRIANGLES. Still need to sw transform to compute the extra two corners though.
 void TransformDrawEngine::SoftwareTransformAndDraw(
-		int prim, u8 *decoded, LinkedShader *program, int vertexCount, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex) {
+		int prim, u8 *decoded, LinkedShader *program, int vertexCount, u32 vertType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex) {
 	/*
 	DEBUG_LOG(G3D, "View matrix:");
 	const float *m = &gstate.viewMatrix[0];
@@ -336,7 +343,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 	float v2[3] = {0};
 	float uv2[2] = {0};
 
-	bool throughmode = (gstate.vertType & GE_VTYPE_THROUGH_MASK) != 0;
+	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
 
 	// TODO: Split up into multiple draw calls for GLES 2.0 where you can't guarantee support for more than 0x10000 verts.
 
@@ -383,7 +390,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			if (reader.hasNormal())
 				reader.ReadNrm(nrm);
 
-			if ((gstate.vertType & GE_VTYPE_WEIGHT_MASK) == GE_VTYPE_WEIGHT_NONE) {
+			if ((vertType & GE_VTYPE_WEIGHT_MASK) == GE_VTYPE_WEIGHT_NONE) {
 				Vec3ByMatrix43(out, pos, gstate.worldMatrix);
 				if (reader.hasNormal()) {
 					Norm3ByMatrix43(norm, nrm, gstate.worldMatrix);
@@ -396,7 +403,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 				// Skinning
 				Vec3 psum(0,0,0);
 				Vec3 nsum(0,0,0);
-				int nweights = ((gstate.vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT) + 1;
+				int nweights = ((vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT) + 1;
 				for (int i = 0; i < nweights; i++)
 				{
 					if (weights[i] != 0.0f) {
@@ -608,7 +615,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 	if (program->a_color1 != -1) glDisableVertexAttribArray(program->a_color1);
 }
 
-void TransformDrawEngine::SubmitPrim(void *verts, void *inds, int prim, int vertexCount, float *customUV, int forceIndexType, int *bytesRead) {
+void TransformDrawEngine::SubmitPrim(void *verts, void *inds, int prim, int vertexCount, u32 vertType, float *customUV, int forceIndexType, int *bytesRead) {
 	// For the future
 	if (!indexGen.PrimCompatible(prim))
 		Flush();
@@ -623,17 +630,18 @@ void TransformDrawEngine::SubmitPrim(void *verts, void *inds, int prim, int vert
 	int indexLowerBound, indexUpperBound;
 	// If vtype has changed, setup the vertex decoder.
 	// TODO: Simply cache the setup decoders instead.
-	if (gstate.vertType != lastVType) {
-		dec.SetVertexType(gstate.vertType);
-		lastVType = gstate.vertType;
+	if (vertType != lastVType) {
+		dec.SetVertexType(vertType);
+		lastVType = vertType;
 	}
+
 	// Decode the verts and apply morphing
 	dec.DecodeVerts(decoded + numVerts * (int)dec.GetDecVtxFmt().stride, verts, inds, prim, vertexCount, &indexLowerBound, &indexUpperBound);
 	numVerts += indexUpperBound - indexLowerBound + 1;
 	if (bytesRead)
 		*bytesRead = vertexCount * dec.VertexSize();
 
-	int indexType = (gstate.vertType & GE_VTYPE_IDX_MASK);
+	int indexType = vertType & GE_VTYPE_IDX_MASK;
 	if (forceIndexType != -1) indexType = forceIndexType;
 	switch (indexType) {
 	case GE_VTYPE_IDX_NONE:
@@ -680,7 +688,7 @@ void TransformDrawEngine::Flush() {
 
 #if 0
 	for (int i = indexLowerBound; i <= indexUpperBound; i++) {
-		PrintDecodedVertex(decoded[i], gstate.vertType);
+		PrintDecodedVertex(decoded[i], vertType);
 	}
 #endif
 
@@ -718,7 +726,7 @@ void TransformDrawEngine::Flush() {
 		}
 		DesetupDecFmtForDraw(program, dec.GetDecVtxFmt());
 	} else {
-		SoftwareTransformAndDraw(prim, decoded, program, indexGen.VertexCount(), (void *)decIndex, GE_VTYPE_IDX_16BIT, dec.GetDecVtxFmt(),
+		SoftwareTransformAndDraw(prim, decoded, program, indexGen.VertexCount(), dec.VertexType(), (void *)decIndex, GE_VTYPE_IDX_16BIT, dec.GetDecVtxFmt(),
 			indexGen.MaxIndex());
 	}
 

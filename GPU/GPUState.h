@@ -73,10 +73,14 @@ struct GPUgstate
 				boneMatrixNumber,
 				boneMatrixData,
 				morphwgt[8], //dont use
-				pad04[0x39-0x33],
+				pad04[2],
+				patchdivision,
+				patchprimitive,
+				patchfacing,
+				pad04_a,
 
-				worldmtxnum,//0x3A
-				worldmtxdata, //0x3B
+				worldmtxnum,  //0x3A
+				worldmtxdata,  //0x3B
 				viewmtxnum,	 //0x3C
 				viewmtxdata,
 				projmtxnum,
@@ -236,10 +240,6 @@ struct GPUStateCache
 	float lightatt[4][3];
 	float lightColor[3][4][3]; //Amtient Diffuse Specular
 	float morphWeights[8];
-
-	// bezier patch subdivision
-	int patch_div_s;
-	int patch_div_t;
 
 	u32 curTextureWidth;
 	u32 curTextureHeight;

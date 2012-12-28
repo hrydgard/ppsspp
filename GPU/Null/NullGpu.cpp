@@ -636,9 +636,6 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_PATCHDIVISION:
-		gstate_c.patch_div_s = data & 0xFF;
-		gstate_c.patch_div_t = (data >> 8) & 0xFF;
-		DEBUG_LOG(G3D, "DL Patch subdivision: %i x %i", gstate_c.patch_div_s, gstate_c.patch_div_t);
 		break;
 
 	case GE_CMD_MATERIALUPDATE:
