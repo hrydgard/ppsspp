@@ -300,8 +300,7 @@ u32 BlockAllocator::GetTotalFreeBytes()
 
 void BlockAllocator::DoState(PointerWrap &p)
 {
-	Block default_value(0, 0, false);
-	p.Do(blocks, default_value);
+	p.Do(blocks, Block(0, 0, false));
 	p.Do(rangeStart_);
 	p.Do(rangeSize_);
 	p.Do(grain_);

@@ -145,6 +145,7 @@ public:
 	virtual void DoState(PointerWrap &p) {
 		p.Do(moduleID_);
 		p.Do(retValAddr);
+		p.DoMarker("AfterModuleEntryCall");
 	}
 	static Action *Create() {
 		return new AfterModuleEntryCall;

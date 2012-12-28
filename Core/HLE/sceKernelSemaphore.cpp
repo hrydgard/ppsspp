@@ -60,7 +60,8 @@ struct Semaphore : public KernelObject
 	virtual void DoState(PointerWrap &p)
 	{
 		p.Do(ns);
-		p.Do(waitingThreads);
+		SceUID dv = 0;
+		p.Do(waitingThreads, dv);
 		p.DoMarker("Semaphore");
 	}
 

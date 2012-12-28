@@ -303,7 +303,8 @@ void __CtrlDoState(PointerWrap &p)
 
 	p.Do(ctrlCycle);
 
-	p.Do(waitingThreads);
+	SceUID dv = 0;
+	p.Do(waitingThreads, dv);
 
 	p.Do(ctrlTimer);
 	CoreTiming::RestoreRegisterEvent(ctrlTimer, "CtrlSampleTimer", __CtrlTimerUpdate);

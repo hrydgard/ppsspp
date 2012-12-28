@@ -155,12 +155,16 @@ struct MsgPipe : public KernelObject
 	virtual void DoState(PointerWrap &p)
 	{
 		p.Do(nmp);
-		p.Do(sendWaitingThreads);
-		p.Do(receiveWaitingThreads);
+		p.Do(sendWaitingThreads, MsgPipeWaitingThread());
+		p.Do(receiveWaitingThreads, MsgPipeWaitingThread());
 		bool hasBuffer = buffer != NULL;
 		p.Do(hasBuffer);
 		if (hasBuffer)
+		{
+			if (buffer == NULL)
+				buffer = new u8[nmp.bufSize];
 			p.DoArray(buffer, nmp.bufSize);
+		}
 		p.DoMarker("MsgPipe");
 	}
 

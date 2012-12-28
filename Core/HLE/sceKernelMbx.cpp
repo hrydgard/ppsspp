@@ -156,7 +156,7 @@ struct Mbx : public KernelObject
 	virtual void DoState(PointerWrap &p)
 	{
 		p.Do(nmb);
-		p.Do(waitingThreads);
+		p.Do(waitingThreads, MbxWaitingThread());
 		p.DoMarker("Mbx");
 	}
 

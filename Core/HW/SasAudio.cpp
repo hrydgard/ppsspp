@@ -336,6 +336,7 @@ void SasInstance::DoState(PointerWrap &p) {
 	p.Do(sampleRate);
 	p.Do(outputMode);
 
+	// SetGrainSize() / ClearGrainSize() should've made our buffers match.
 	if (mixBuffer != NULL && grainSize > 0) {
 		p.DoArray(mixBuffer, grainSize * 2);
 	}

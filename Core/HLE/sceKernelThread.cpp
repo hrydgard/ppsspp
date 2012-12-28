@@ -431,7 +431,6 @@ public:
 
 		for (size_t i = 0; i < THREAD_CALLBACK_NUM_TYPES; ++i)
 		{
-			std::set<SceUID>::iterator it, end;
 			p.Do(registeredCallbacks[i]);
 			p.Do(readyCallbacks[i]);
 		}
@@ -615,7 +614,8 @@ void __KernelThreadingDoState(PointerWrap &p)
 	p.Do(intReturnHackAddr);
 
 	p.Do(currentThread);
-	p.Do(threadqueue);
+	SceUID dv = 0;
+	p.Do(threadqueue, dv);
 	p.DoArray(threadIdleID, ARRAY_SIZE(threadIdleID));
 	p.Do(dispatchEnabled);
 	p.Do(curModule);

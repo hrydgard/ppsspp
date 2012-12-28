@@ -66,7 +66,7 @@ public:
 	virtual void DoState(PointerWrap &p)
 	{
 		p.Do(nef);
-		p.Do(waitingThreads);
+		p.Do(waitingThreads, EventFlagTh());
 		p.DoMarker("EventFlag");
 	}
 

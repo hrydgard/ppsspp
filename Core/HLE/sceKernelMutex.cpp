@@ -66,7 +66,8 @@ struct Mutex : public KernelObject
 	virtual void DoState(PointerWrap &p)
 	{
 		p.Do(nm);
-		p.Do(waitingThreads);
+		SceUID dv = 0;
+		p.Do(waitingThreads, dv);
 		p.DoMarker("Mutex");
 	}
 
@@ -115,7 +116,8 @@ struct LwMutex : public KernelObject
 	virtual void DoState(PointerWrap &p)
 	{
 		p.Do(nm);
-		p.Do(waitingThreads);
+		SceUID dv = 0;
+		p.Do(waitingThreads, dv);
 		p.DoMarker("LwMutex");
 	}
 
