@@ -91,6 +91,7 @@ int PSPSaveDialog::Init(int paramAddr)
 		{
 			ERROR_LOG(HLE, "Load/Save function %d not coded. Title: %s Save: %s File: %s", param.GetPspParam()->mode, param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
 			param.GetPspParam()->result = 0;
+			status = SCE_UTILITY_STATUS_INITIALIZE;
 			display = DS_NONE;
 			return 0; // Return 0 should allow the game to continue, but missing function must be implemented and returning the right value or the game can block.
 		}
@@ -664,10 +665,18 @@ int PSPSaveDialog::Update()
 						param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_SIZES_NO_DATA;
 					}
 					status = SCE_UTILITY_STATUS_FINISHED;
+				// TODO: intentional missing break?
 				case SCE_UTILITY_SAVEDATA_TYPE_LIST:
 					param.GetList(param.GetPspParam());
 					param.GetPspParam()->result = 0;
 					status = SCE_UTILITY_STATUS_FINISHED;
+				break;
+				// TODO: Don't know the name?
+				case 12:
+					// Pretend we have nothing, always.
+					param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
+					status = SCE_UTILITY_STATUS_FINISHED;
+				break;
 				default:
 					status = SCE_UTILITY_STATUS_FINISHED;
 				break;
