@@ -22,6 +22,7 @@
 
 #include "../System.h"
 #include "../Config.h"
+#include "../SaveState.h"
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
 #include "../HW/MemoryStick.h"
@@ -658,7 +659,12 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 			}
 		case 3:	// EMULATOR_DEVCTL__IS_EMULATOR
 			if (Memory::IsValidAddress(outPtr))
-				Memory::Write_U32(1, outPtr);	 // TODO: Make a headless mode for running tests!
+				Memory::Write_U32(1, outPtr);
+			return 0;
+		case 4: // EMULATOR_DEVCTL__VERIFY_STATE
+			// Note that this is async, and makes sure the save state matches up.
+			SaveState::Verify();
+			// TODO: Maybe save/load to a file just to be sure?
 			return 0;
 		}
 
