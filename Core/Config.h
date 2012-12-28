@@ -52,6 +52,7 @@ public:
 	bool bHardwareTransform;
 	bool bBufferedRendering;
 	bool bDrawWireframe;
+	bool bLinearFiltering;
 	int iWindowZoom;  // for Windows
 
 	// Sound
