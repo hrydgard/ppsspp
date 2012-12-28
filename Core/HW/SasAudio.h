@@ -82,23 +82,15 @@ public:
 
 	void GetSamples(s16 *outSamples, int numSamples);
 
-	void DecodeBlock();
+	void DecodeBlock(u8 *&readp);
 	bool End() const { return end_; }
-
-	u8 GetByte() {
-		return *read_++;
-	}
-
-	void DoState(PointerWrap &p);
 
 private:
 	double samples[28];
 	int curSample;
 
-	// Original pointer, for save states.
-	u32 dataPtr_;
-	u8 *data_;
-	u8 *read_;
+	u32 data_;
+	u32 read_;
 	int curBlock_;
 	int loopStartBlock_;
 	int numBlocks_;
@@ -184,8 +176,6 @@ struct SasVoice
 	void KeyOn();
 	void KeyOff();
 	void ChangedParams(bool changedVag);
-
-	void DoState(PointerWrap &p);
 
 	bool playing;
 	bool paused;  // a voice can be playing AND paused. In that case, it won't play.

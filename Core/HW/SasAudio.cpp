@@ -27,25 +27,25 @@ static const double f[5][2] =
 {	 98.0 / 64.0, -55.0 / 64.0 },
 {	122.0 / 64.0, -60.0 / 64.0 } };
 
-void VagDecoder::Start(u32 dataPtr, int vagSize, bool loopEnabled) {
+void VagDecoder::Start(u32 data, int vagSize, bool loopEnabled) {
 	loopEnabled_ = loopEnabled;
 	loopAtNextBlock_ = false;
 	loopStartBlock_ = 0;
 	numBlocks_ = vagSize / 16;
 	end_ = false;
-	data_ = Memory::GetPointer(dataPtr);
-	read_ = Memory::GetPointer(dataPtr);
+	data_ = data;
+	read_ = data;
 	curSample = 28;
 	curBlock_ = -1;
 	s_1 = 0.0;	// per block?
 	s_2 = 0.0;
 }
 
-void VagDecoder::DecodeBlock() {
-	int predict_nr = GetByte();
+void VagDecoder::DecodeBlock(u8 *&readp) {
+	int predict_nr = *readp++;
 	int shift_factor = predict_nr & 0xf;
 	predict_nr >>= 4;
-	int flags = GetByte();
+	int flags = *readp++;
 	if (flags == 7) {
 		end_ = true;
 		return;
@@ -57,7 +57,7 @@ void VagDecoder::DecodeBlock() {
 		loopAtNextBlock_ = true;
 	}
 	for (int i = 0; i < 28; i += 2) {
-		int d = GetByte();
+		int d = *readp++;
 		int s = (short)((d & 0xf) << 12);
 		samples[i] = (double)(s >> shift_factor);
 		s = (short)((d & 0xf0) << 8);
@@ -80,15 +80,19 @@ void VagDecoder::GetSamples(s16 *outSamples, int numSamples) {
 		memset(outSamples, 0, numSamples * sizeof(s16));
 		return;
 	}
+	u8 *readp = Memory::GetPointer(read_);
+	u8 *origp = readp;
 	for (int i = 0; i < numSamples; i++) {
 		if (curSample == 28) {
 			if (loopAtNextBlock_) {
 				read_ = data_ + 16 * loopStartBlock_;
+				readp = Memory::GetPointer(read_);
+				origp = readp;
 				curBlock_ = loopStartBlock_;
 				s_1 = 0.0;
 				s_2 = 0.0;
 			}
-			DecodeBlock();
+			DecodeBlock(readp);
 			if (end_) {
 				// Clear the rest of the buffer and return.
 				memset(&outSamples[i], 0, (numSamples - i) * sizeof(s16));
@@ -97,28 +101,10 @@ void VagDecoder::GetSamples(s16 *outSamples, int numSamples) {
 		}
 		outSamples[i] = end_ ? 0 : samples[curSample++];
 	}
-}
 
-void VagDecoder::DoState(PointerWrap &p) {
-	p.DoArray(samples, ARRAY_SIZE(samples));
-	p.Do(curSample);
-	p.Do(dataPtr_);
-	int diff = read_ - data_;
-	p.Do(diff);
-	if (p.mode == p.MODE_READ) {
-		data_ = Memory::GetPointer(dataPtr_);
-		read_ = data_ + diff;
+	if (readp > origp) {
+		read_ += readp - origp;
 	}
-	p.Do(curBlock_);
-	p.Do(loopStartBlock_);
-	p.Do(numBlocks_);
-
-	p.Do(s_1);
-	p.Do(s_2);
-	p.Do(loopEnabled_);
-	p.Do(loopAtNextBlock_);
-	p.Do(end_);
-	p.DoMarker("VagDecoder");
 }
 
 // http://code.google.com/p/jpcsp/source/browse/trunk/src/jpcsp/HLE/modules150/sceSasCore.java
@@ -353,8 +339,7 @@ void SasInstance::DoState(PointerWrap &p) {
 		ERROR_LOG(HLE, "Savestate failure: wrong number of SAS voices");
 		return;
 	}
-	for (int i = 0; i < n; ++i)
-		voices[i].DoState(p);
+	p.DoArray(voices, ARRAY_SIZE(voices));
 	p.Do(waveformEffect);
 
 	p.DoMarker("SasInstance");
@@ -396,37 +381,6 @@ void SasVoice::ChangedParams(bool changedVag) {
 			vag.Start(vagAddr, vagSize, loop);
 	}
 	// TODO: restart VAG somehow
-}
-
-void SasVoice::DoState(PointerWrap &p) {
-	p.Do(playing);
-	p.Do(paused);
-	p.Do(on);
-	p.Do(type);
-
-	p.Do(vagAddr);
-	p.Do(vagSize);
-	p.Do(pcmAddr);
-	p.Do(pcmSize);
-	p.Do(sampleRate);
-
-	p.Do(sampleFrac);
-	p.Do(pitch);
-	p.Do(loop);
-
-	p.Do(noiseFreq);
-
-	p.Do(volumeLeft);
-	p.Do(volumeRight);
-	p.Do(volumeLeftSend);
-	p.Do(volumeRightSend);
-	p.DoArray(resampleHist, ARRAY_SIZE(resampleHist));
-
-	p.Do(envelope);
-
-	vag.DoState(p);
-
-	p.DoMarker("SasVoice");
 }
 
 // This is horribly stolen from JPCSP.
