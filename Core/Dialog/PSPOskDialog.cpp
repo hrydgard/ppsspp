@@ -106,8 +106,8 @@ void PSPOskDialog::RenderKeyboard()
 	if (limit <= 0)
 		limit = 16;
 
-	const float keyboardLeftSide = (480.0f - (16.0f * KEYSPERROW)) / 2.0f;
-	float previewLeftSide = (480.0f - (16.0f * limit)) / 2.0f;
+	const float keyboardLeftSide = (480.0f - (23.0f * KEYSPERROW)) / 2.0f;
+	float previewLeftSide = (480.0f - (15.0f * limit)) / 2.0f;
 
 	PPGeDrawText(oskDesc.c_str(), 480/2, 20, PPGE_ALIGN_CENTER, 0.5f, 0xFFFFFFFF);
 	for (int i = 0; i < limit; ++i)
@@ -134,10 +134,10 @@ void PSPOskDialog::RenderKeyboard()
 				color = 0xFF7f7f7f;
 
 			temp[0] = oskKeys[row][col];
-			PPGeDrawText(temp, keyboardLeftSide + (16.0f * col), 70.0f + (25.0f * row), NULL, 0.6f, color);
+			PPGeDrawText(temp, keyboardLeftSide + (25.0f * col), 70.0f + (25.0f * row), NULL, 0.6f, color);
 
 			if (selectedRow == row && col == selectedExtra)
-				PPGeDrawText("_", keyboardLeftSide + (16.0f * col), 70.0f + (25.0f * row), NULL, 0.6f, 0xFFFFFFFF);
+				PPGeDrawText("_", keyboardLeftSide + (25.0f * col), 70.0f + (25.0f * row), NULL, 0.6f, 0xFFFFFFFF);
 		}
 	}
 
