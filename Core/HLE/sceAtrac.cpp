@@ -71,12 +71,16 @@ u32 sceAtracGetBufferInfoForReseting(int atracID, int sample, u32 bufferInfoAddr
 u32 sceAtracGetBitrate(int atracID, u32 outBitrateAddr)
 {
 	ERROR_LOG(HLE, "UNIMPL sceAtracGetBitrate(%i, %08x)", atracID, outBitrateAddr);
+	if (Memory::IsValidAddress(outBitrateAddr))
+		Memory::Write_U32(64, outBitrateAddr);
 	return 0;
 }
 
 u32 sceAtracGetChannel(int atracID, u32 channelAddr)
 {
 	ERROR_LOG(HLE, "UNIMPL sceAtracGetChannel(%i, %08x)", atracID, channelAddr);
+	if (Memory::IsValidAddress(channelAddr))
+		Memory::Write_U32(2, channelAddr);
 	return 0;
 }
 
