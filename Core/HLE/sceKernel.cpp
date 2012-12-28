@@ -158,7 +158,9 @@ void __KernelDoState(PointerWrap &p)
 	// TODO: non-kernel modules
 	__AudioDoState(p);
 	__CtrlDoState(p);
+	__DisplayDoState(p);
 	__FontDoState(p);
+	__GeDoState(p);
 	__ImposeDoState(p);
 	__PowerDoState(p);
 	__SasDoState(p);

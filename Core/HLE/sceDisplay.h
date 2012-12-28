@@ -18,6 +18,7 @@
 #pragma once
 
 void __DisplayInit();
+void __DisplayDoState(PointerWrap &p);
 void __DisplayShutdown();
 
 void Register_sceDisplay();
@@ -26,4 +27,5 @@ void Register_sceDisplay();
 bool __DisplayFrameDone();
 
 typedef void (*VblankCallback)();
+// Listen for vblank events.  Only register during init.
 void __DisplayListenVblank(VblankCallback callback);
