@@ -99,6 +99,33 @@ void MIPSState::Reset()
 	rng.Init(0x1337);
 }
 
+void MIPSState::DoState(PointerWrap &p)
+{
+	// Reset the jit if we're loading.
+	if (p.mode == p.MODE_READ)
+		Reset();
+
+	p.DoArray(r, sizeof(r) / sizeof(r[0]));
+	p.DoArray(f, sizeof(f) / sizeof(f[0]));
+	p.DoArray(v, sizeof(v) / sizeof(v[0]));
+	p.DoArray(vfpuCtrl, sizeof(vfpuCtrl) / sizeof(vfpuCtrl[0]));
+	p.DoArray(vfpuWriteMask, sizeof(vfpuWriteMask) / sizeof(vfpuWriteMask[0]));
+	p.Do(pc);
+	p.Do(nextPC);
+	p.Do(hi);
+	p.Do(lo);
+	p.Do(fpcond);
+	p.Do(fcr0);
+	p.Do(fcr31);
+	rng.DoState(p);
+	p.Do(inDelaySlot);
+	p.Do(llBit);
+	p.Do(cpuType);
+	p.Do(exceptions);
+	p.Do(debugCount);
+	p.DoMarker("MIPSState");
+}
+
 void MIPSState::SetWriteMask(const bool wm[4])
 {
 	for (int i = 0; i < 4; i++)

@@ -24,6 +24,7 @@
 #include "HLE/sceKernel.h"
 #include "HW/MemoryStick.h"
 #include "MemMap.h"
+#include "MIPS/MIPS.h"
 
 namespace SaveState
 {
@@ -70,7 +71,9 @@ namespace SaveState
 
 		Memory::DoState(p);
 		MemoryStick_DoState(p);
+		currentMIPS->DoState(p);
 		__KernelDoState(p);
+		// TODO: filesystem, HLE?
 	}
 
 	void Enqueue(SaveState::Operation op)
