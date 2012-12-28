@@ -166,14 +166,16 @@ public:
 	int GetSelectedSave();
 	void SetSelectedSave(int idx);
 
+	void DoState(PointerWrap &p);
+
 private:
 	void Clear();
 	void SetFileInfo(int idx, PSPFileInfo &info, std::string saveName);
 
 	SceUtilitySavedataParam* pspParam;
 	int selectedSave;
-	char (*saveNameListData)[20];
 	SaveFileInfo* saveDataList;
+	int saveDataListCount;
 	int saveNameListDataCount;
 
 };

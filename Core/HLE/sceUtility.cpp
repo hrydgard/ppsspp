@@ -39,6 +39,15 @@ void __UtilityInit()
 	SavedataParam::Init();
 }
 
+void __UtilityDoState(PointerWrap &p)
+{
+	saveDialog.DoState(p);
+	msgDialog.DoState(p);
+	oskDialog.DoState(p);
+	netDialog.DoState(p);
+	p.DoMarker("sceUtility");
+}
+
 void __UtilityShutdown()
 {
 	saveDialog.Shutdown();

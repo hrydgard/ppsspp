@@ -80,9 +80,9 @@ namespace
 SavedataParam::SavedataParam()
 	: pspParam(0)
 	, selectedSave(0)
-	, saveNameListData(0)
 	, saveDataList(0)
 	, saveNameListDataCount(0)
+	, saveDataListCount(0)
 {
 
 }
@@ -431,23 +431,24 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 		listEmptyFile = false;
 	}
 
+	char (*saveNameListData)[20];
 	if (param->saveNameList != 0)
 	{
 		saveNameListData = (char(*)[20])Memory::GetPointer(param->saveNameList);
 
 		// Get number of fileName in array
-		int count = 0;
+		saveDataListCount = 0;
 		do
 		{
-			count++;
-		} while(saveNameListData[count][0] != 0);
+			saveDataListCount++;
+		} while(saveNameListData[saveDataListCount][0] != 0);
 
 		Clear();
-		saveDataList = new SaveFileInfo[count];
+		saveDataList = new SaveFileInfo[saveDataListCount];
 
 		// get and stock file info for each file
 		int realCount = 0;
-		for (int i = 0; i < count; i++)
+		for (int i = 0; i < saveDataListCount; i++)
 		{
 			DEBUG_LOG(HLE,"Name : %s",saveNameListData[i]);
 
@@ -599,4 +600,14 @@ int SavedataParam::GetSelectedSave()
 void SavedataParam::SetSelectedSave(int idx)
 {
 	selectedSave = idx;
+}
+
+void SavedataParam::DoState(PointerWrap &p)
+{
+	// pspParam is handled in PSPSaveDialog.
+	p.Do(selectedSave);
+	p.Do(saveDataListCount);
+	p.Do(saveNameListDataCount);
+	p.DoArray(saveDataList, saveDataListCount);
+	p.DoMarker("SavedataParam");
 }

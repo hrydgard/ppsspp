@@ -233,3 +233,16 @@ int PSPOskDialog::Update()
 
 	return 0;
 }
+
+void PSPOskDialog::DoState(PointerWrap &p)
+{
+	p.Do(oskParams);
+	p.Do(oskData);
+	p.Do(oskDesc);
+	p.Do(oskIntext);
+	p.Do(oskOuttext);
+	p.Do(oskParamsAddr);
+	p.Do(selectedChar);
+	p.Do(inputChars);
+	p.DoMarker("PSPOskDialog");
+}

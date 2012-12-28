@@ -706,3 +706,19 @@ int PSPSaveDialog::Shutdown()
 	return 0;
 }
 
+void PSPSaveDialog::DoState(PointerWrap &p)
+{
+	p.Do(display);
+	param.DoState(p);
+	p.Do(request);
+	// Just reset it.
+	param.SetPspParam(&request);
+	p.Do(requestAddr);
+	p.Do(currentSelectedSave);
+	p.Do(yesnoChoice);
+	p.Do(okButtonImg);
+	p.Do(cancelButtonImg);
+	p.Do(okButtonFlag);
+	p.Do(cancelButtonFlag);
+	p.DoMarker("PSPSaveDialog");
+}

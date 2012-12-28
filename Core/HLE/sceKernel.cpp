@@ -155,19 +155,19 @@ void __KernelDoState(PointerWrap &p)
 	__KernelMutexDoState(p);
 	__KernelSemaDoState(p);
 
-	// TODO: non-kernel modules
 	__AudioDoState(p);
 	__CtrlDoState(p);
 	__DisplayDoState(p);
 	__FontDoState(p);
 	__GeDoState(p);
 	__ImposeDoState(p);
+	__IoDoState(p);
 	__PowerDoState(p);
 	__SasDoState(p);
 	__SslDoState(p);
 	__UmdDoState(p);
+	__UtilityDoState(p);
 	__UsbDoState(p);
-	__IoDoState(p);
 
 	__PPGeDoState(p);
 
