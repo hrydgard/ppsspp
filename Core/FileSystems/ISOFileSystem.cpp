@@ -143,6 +143,11 @@ ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevic
 	}
 
 	treeroot = new TreeEntry;
+	treeroot->isDirectory = true;
+	treeroot->startingPosition = 0;
+	treeroot->size = 0;
+	treeroot->isBlockSectorMode = false;
+	treeroot->flags = 0;
 	treeroot->parent = NULL;
 
 	u32 rootSector = desc.root.firstDataSectorLE;
@@ -154,6 +159,7 @@ ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevic
 ISOFileSystem::~ISOFileSystem()
 {
 	delete blockDevice;
+	delete treeroot;
 }
 
 void ISOFileSystem::ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root)
