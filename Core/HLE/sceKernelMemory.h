@@ -49,5 +49,6 @@ void sceKernelFreeFpl();
 void sceKernelCancelFpl();
 void sceKernelReferFplStatus();
 
+int sceKernelGetCompiledSdkVersion();
 
 void Register_SysMemUserForUser();
