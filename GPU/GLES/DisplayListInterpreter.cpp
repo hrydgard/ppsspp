@@ -138,6 +138,9 @@ const int flushBeforeCommandList[] = {
 	GE_CMD_STENCILTESTENABLE,
 	GE_CMD_STENCILOP,
 	GE_CMD_ZTEST,
+	GE_CMD_FOG1,
+	GE_CMD_FOG2,
+	GE_CMD_FOGCOLOR,
 	GE_CMD_MORPHWEIGHT0,
 	GE_CMD_MORPHWEIGHT1,
 	GE_CMD_MORPHWEIGHT2,
@@ -492,6 +495,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 				ERROR_LOG(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
 				break;
 			}
+
 			// TODO: Split this so that we can collect sequences of primitives, can greatly speed things up
 			// on platforms where draw calls are expensive like mobile and D3D
 			void *verts = Memory::GetPointer(gstate_c.vertexAddr);
@@ -504,11 +508,19 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 				inds = Memory::GetPointer(gstate_c.indexAddr);
 			}
 
-			// Seems we have to advance the vertex addr, at least in some cases.
-			// Question: Should we also advance the index addr?
 			int bytesRead;
 			transformDraw_.SubmitPrim(verts, inds, type, count, gstate.vertType, 0, -1, &bytesRead);
-			gstate_c.vertexAddr += bytesRead;
+			// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
+			// Some games rely on this, they don't bother reloading VADDR and IADDR.
+			// Q: Are these changed reflected in the real registers? Needs testing.
+			if (inds) {
+				int indexSize = 1;
+				if ((gstate.vertType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT)
+					indexSize = 2;
+				gstate_c.indexAddr += count * indexSize;
+			} else {
+				gstate_c.vertexAddr += bytesRead;
+			}
 		}
 		break;
 

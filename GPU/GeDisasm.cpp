@@ -52,7 +52,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 				"TRIANGLE_FAN",
 				"RECTANGLES",
 			};
-			sprintf(buffer, "DrawPrim type: %s count: %i vaddr= %08x, iaddr= %08x", type<7 ? types[type] : "INVALID", count, gstate_c.vertexAddr, gstate_c.indexAddr);
+			sprintf(buffer, "DrawPrim type: %s count: %i vaddr= %08x, iaddr= %08x", type < 7 ? types[type] : "INVALID", count, gstate_c.vertexAddr, gstate_c.indexAddr);
 		}
 		break;
 
@@ -639,15 +639,44 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 		sprintf(buffer, "TexFlush");
 		break;
 
+	case GE_CMD_TEXSYNC:
+		sprintf(buffer, "TexSync");
+		break;
+
 	case GE_CMD_TEXWRAP:
 		sprintf(buffer, "TexWrap %08x", data);
 		break;
+
+	case GE_CMD_FOG1:
+		sprintf(buffer, "Fog1 %f", getFloat24(data));
+		break;
+
+	case GE_CMD_FOG2:
+		sprintf(buffer, "Fog2 %f", getFloat24(data));
+		break;
+
+	case GE_CMD_FOGCOLOR:
+		sprintf(buffer, "FogColor %06x", data);
+		break;
+
+	case GE_CMD_TEXLODSLOPE:
+		sprintf(buffer, "TexLodSlope %06x", data);
+		break;
+
 	//////////////////////////////////////////////////////////////////
 	//	Z/STENCIL TESTING
 	//////////////////////////////////////////////////////////////////
 
 	case GE_CMD_ZTESTENABLE:
 		sprintf(buffer, "Z test enable: %d", data & 1);
+		break;
+
+	case GE_CMD_STENCILOP:
+		sprintf(buffer, "Stencil op: %06x", data);
+		break;
+
+	case GE_CMD_STENCILTEST:
+		sprintf(buffer, "Stencil test: %06x", data);
 		break;
 
 	case GE_CMD_STENCILTESTENABLE:
@@ -737,7 +766,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 		break;
 
 	default:
-		sprintf(buffer, "Unknown: %08x @ %08x", op, pc);
+		sprintf(buffer, "Unknown: %08x", op);
 		break;
 	}
 }
