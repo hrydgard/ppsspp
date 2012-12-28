@@ -15,19 +15,25 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#pragma once
-
+#include "../Common/ChunkFile.h"
 #include <string>
-#include "HLE.h"
-#include "sceKernel.h"
 
-void __IoInit();
-void __IoDoState(PointerWrap &p);
-void __IoShutdown();
-KernelObject *__KernelFileNodeObject();
-KernelObject *__KernelDirListingObject();
+namespace SaveState
+{
+	typedef void (*Callback)(bool status);
 
-void Register_IoFileMgrForUser();
-void Register_StdioForUser();
+	// TODO: Better place for this?
+	const int REVISION = 1;
 
-const std::string &EmuDebugOutput();
+	void Init();
+
+	// Load the specified file into the current state (async.)
+	// Warning: callback will be called on a different thread.
+	void Load(std::string &filename, Callback callback = NULL);
+	// Save the current state to the specified file (async.)
+	// Warning: callback will be called on a different thread.
+	void Save(std::string &filename, Callback callback = NULL);
+	// For testing / automated tests.  Runs a save state verification pass (async.)
+	// Warning: callback will be called on a different thread.
+	void Verify(Callback callback = NULL);
+};

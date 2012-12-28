@@ -27,7 +27,7 @@ static const double f[5][2] =
 {	 98.0 / 64.0, -55.0 / 64.0 },
 {	122.0 / 64.0, -60.0 / 64.0 } };
 
-void VagDecoder::Start(u8 *data, int vagSize, bool loopEnabled) {
+void VagDecoder::Start(u32 data, int vagSize, bool loopEnabled) {
 	loopEnabled_ = loopEnabled;
 	loopAtNextBlock_ = false;
 	loopStartBlock_ = 0;
@@ -41,11 +41,11 @@ void VagDecoder::Start(u8 *data, int vagSize, bool loopEnabled) {
 	s_2 = 0.0;
 }
 
-void VagDecoder::DecodeBlock() {
-	int predict_nr = GetByte();
+void VagDecoder::DecodeBlock(u8 *&readp) {
+	int predict_nr = *readp++;
 	int shift_factor = predict_nr & 0xf;
 	predict_nr >>= 4;
-	int flags = GetByte();
+	int flags = *readp++;
 	if (flags == 7) {
 		end_ = true;
 		return;
@@ -57,7 +57,7 @@ void VagDecoder::DecodeBlock() {
 		loopAtNextBlock_ = true;
 	}
 	for (int i = 0; i < 28; i += 2) {
-		int d = GetByte();
+		int d = *readp++;
 		int s = (short)((d & 0xf) << 12);
 		samples[i] = (double)(s >> shift_factor);
 		s = (short)((d & 0xf0) << 8);
@@ -80,15 +80,19 @@ void VagDecoder::GetSamples(s16 *outSamples, int numSamples) {
 		memset(outSamples, 0, numSamples * sizeof(s16));
 		return;
 	}
+	u8 *readp = Memory::GetPointer(read_);
+	u8 *origp = readp;
 	for (int i = 0; i < numSamples; i++) {
 		if (curSample == 28) {
 			if (loopAtNextBlock_) {
 				read_ = data_ + 16 * loopStartBlock_;
+				readp = Memory::GetPointer(read_);
+				origp = readp;
 				curBlock_ = loopStartBlock_;
 				s_1 = 0.0;
 				s_2 = 0.0;
 			}
-			DecodeBlock();
+			DecodeBlock(readp);
 			if (end_) {
 				// Clear the rest of the buffer and return.
 				memset(&outSamples[i], 0, (numSamples - i) * sizeof(s16));
@@ -96,6 +100,10 @@ void VagDecoder::GetSamples(s16 *outSamples, int numSamples) {
 			}
 		}
 		outSamples[i] = end_ ? 0 : samples[curSample++];
+	}
+
+	if (readp > origp) {
+		read_ += readp - origp;
 	}
 }
 
@@ -182,14 +190,25 @@ SasInstance::SasInstance()
 }
 
 SasInstance::~SasInstance() {
-	delete [] mixBuffer;
-	delete [] sendBuffer;
-	delete [] resampleBuffer;
+	ClearGrainSize();
+}
+
+void SasInstance::ClearGrainSize() {
+	if (mixBuffer)
+		delete [] mixBuffer;
+	if (sendBuffer)
+		delete [] sendBuffer;
+	if (resampleBuffer)
+		delete [] resampleBuffer;
+	mixBuffer = NULL;
+	sendBuffer = NULL;
+	resampleBuffer = NULL;
 }
 
 void SasInstance::SetGrainSize(int newGrainSize) {
 	grainSize = newGrainSize;
 
+	// If you change the sizes here, don't forget DoState().
 	if (mixBuffer)
 		delete [] mixBuffer;
 	if (sendBuffer)
@@ -303,6 +322,44 @@ void SasInstance::Mix(u32 outAddr) {
 	}
 }
 
+void SasInstance::DoState(PointerWrap &p) {
+	p.Do(grainSize);
+	if (p.mode == p.MODE_READ) {
+		if (grainSize > 0) {
+			SetGrainSize(grainSize);
+		} else {
+			ClearGrainSize();
+		}
+	}
+
+	p.Do(maxVoices);
+	p.Do(sampleRate);
+	p.Do(outputMode);
+
+	// SetGrainSize() / ClearGrainSize() should've made our buffers match.
+	if (mixBuffer != NULL && grainSize > 0) {
+		p.DoArray(mixBuffer, grainSize * 2);
+	}
+	if (sendBuffer != NULL && grainSize > 0) {
+		p.DoArray(sendBuffer, grainSize * 2);
+	}
+	if (resampleBuffer != NULL && grainSize > 0) {
+		p.DoArray(resampleBuffer, grainSize * 4 + 2);
+	}
+
+	int n = PSP_SAS_VOICES_MAX;
+	p.Do(n);
+	if (n != PSP_SAS_VOICES_MAX)
+	{
+		ERROR_LOG(HLE, "Savestate failure: wrong number of SAS voices");
+		return;
+	}
+	p.DoArray(voices, ARRAY_SIZE(voices));
+	p.Do(waveformEffect);
+
+	p.DoMarker("SasInstance");
+}
+
 void SasVoice::Reset() {
 	resampleHist[0] = 0;
 	resampleHist[1] = 0;
@@ -313,7 +370,7 @@ void SasVoice::KeyOn() {
 	switch (type) {
 	case VOICETYPE_VAG:
 		if (Memory::IsValidAddress(vagAddr)) {
-			vag.Start(Memory::GetPointer(vagAddr), vagSize, loop);
+			vag.Start(vagAddr, vagSize, loop);
 		} else {
 			ERROR_LOG(SAS, "Invalid VAG address %08x", vagAddr);
 			return;
@@ -336,7 +393,7 @@ void SasVoice::ChangedParams(bool changedVag) {
 	if (!playing && on) {
 		playing = true;
 		if (changedVag)
-			vag.Start(Memory::GetPointer(vagAddr), vagSize, loop);
+			vag.Start(vagAddr, vagSize, loop);
 	}
 	// TODO: restart VAG somehow
 }

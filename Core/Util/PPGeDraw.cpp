@@ -39,21 +39,21 @@ struct PPGeVertex {
 	s16 x, y; u16 z;
 };
 
-u32 savedContextPtr;
-u32 savedContextSize = 512 * 4;
+static u32 savedContextPtr;
+static u32 savedContextSize = 512 * 4;
 
 // Display list writer
-u32 dlPtr;
-u32 dlWritePtr;
-u32 dlSize = 0x10000; // should be enough for a frame of gui...
+static u32 dlPtr;
+static u32 dlWritePtr;
+static u32 dlSize = 0x10000; // should be enough for a frame of gui...
 
-u32 dataPtr;
-u32 dataWritePtr;
-u32 dataSize = 0x10000; // should be enough for a frame of gui...
+static u32 dataPtr;
+static u32 dataWritePtr;
+static u32 dataSize = 0x10000; // should be enough for a frame of gui...
 
 // Vertex collector
-u32 vertexStart;
-u32 vertexCount;
+static u32 vertexStart;
+static u32 vertexCount;
 
 //only 0xFFFFFF of data is used
 static void WriteCmd(u8 cmd, u32 data) {
@@ -139,6 +139,29 @@ void __PPGeInit()
 
 	DEBUG_LOG(HLE, "PPGe drawing library initialized. DL: %08x Data: %08x Atlas: %08x (%i) Ctx: %08x",
 		dlPtr, dataPtr, atlasPtr, atlasSize, savedContextPtr);
+}
+
+void __PPGeDoState(PointerWrap &p)
+{
+	p.Do(atlasPtr);
+	p.Do(atlasWidth);
+	p.Do(atlasHeight);
+
+	p.Do(savedContextPtr);
+	p.Do(savedContextSize);
+
+	p.Do(dlPtr);
+	p.Do(dlWritePtr);
+	p.Do(dlSize);
+
+	p.Do(dataPtr);
+	p.Do(dataWritePtr);
+	p.Do(dataSize);
+
+	p.Do(vertexStart);
+	p.Do(vertexCount);
+
+	p.DoMarker("PPGeDraw");
 }
 
 void __PPGeShutdown()

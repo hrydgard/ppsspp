@@ -33,6 +33,12 @@ void __PowerInit() {
 	volatileMemLocked = false;
 }
 
+void __PowerDoState(PointerWrap &p) {
+	p.DoArray(powerCbSlots, ARRAY_SIZE(powerCbSlots));
+	p.Do(volatileMemLocked);
+	p.DoMarker("scePower");
+}
+
 int scePowerGetBatteryLifePercent() {
 	DEBUG_LOG(HLE, "100=scePowerGetBatteryLifePercent");
 	return 100;

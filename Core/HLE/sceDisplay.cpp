@@ -52,6 +52,13 @@ struct FrameBufferState {
 	int pspFramebufLinesize;
 };
 
+struct WaitVBlankInfo
+{
+	WaitVBlankInfo(u32 tid) : threadID(tid), vcountUnblock(0) {}
+	u32 threadID;
+	int vcountUnblock; // what was this for again?
+};
+
 // STATE BEGIN
 static FrameBufferState framebuf;
 static FrameBufferState latchedFramebuf;
@@ -67,8 +74,11 @@ static int isVblank;
 static bool hasSetMode;
 double lastFrameTime;
 
+std::vector<WaitVBlankInfo> vblankWaitingThreads;
+
 // STATE END
 
+// Called when vblank happens (like an internal interrupt.)  Not part of state, should be static.
 std::vector<VblankCallback> vblankListeners;
 
 // The vblank period is 731.5 us (0.7315 ms)
@@ -79,15 +89,6 @@ enum {
 	PSP_DISPLAY_SETBUF_IMMEDIATE = 0,
 	PSP_DISPLAY_SETBUF_NEXTFRAME = 1
 };
-
-struct WaitVBlankInfo
-{
-	WaitVBlankInfo(u32 tid) : threadID(tid), vcountUnblock(0) {}
-	u32 threadID;
-	int vcountUnblock; // what was this for again?
-};
-
-std::vector<WaitVBlankInfo> vblankWaitingThreads;
 
 void hleEnterVblank(u64 userdata, int cyclesLate);
 void hleLeaveVblank(u64 userdata, int cyclesLate);
@@ -112,6 +113,26 @@ void __DisplayInit() {
 	lastFrameTime = 0;
 
 	InitGfxState();
+}
+
+void __DisplayDoState(PointerWrap &p) {
+	p.Do(framebuf);
+	p.Do(latchedFramebuf);
+	p.Do(framebufIsLatched);
+	p.Do(hCount);
+	p.Do(hCountTotal);
+	p.Do(vCount);
+	p.Do(isVblank);
+	p.Do(hasSetMode);
+	p.Do(lastFrameTime);
+	p.Do(vblankWaitingThreads, WaitVBlankInfo(0));
+
+	p.Do(enterVblankEvent);
+	CoreTiming::RestoreRegisterEvent(enterVblankEvent, "EnterVBlank", &hleEnterVblank);
+	p.Do(leaveVblankEvent);
+	CoreTiming::RestoreRegisterEvent(leaveVblankEvent, "LeaveVBlank", &hleLeaveVblank);
+
+	p.DoMarker("sceDisplay");
 }
 
 void __DisplayShutdown() {

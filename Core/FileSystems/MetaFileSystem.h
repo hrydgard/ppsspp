@@ -36,6 +36,8 @@ public:
 	u32 GetNewHandle() {return current++;}
 	void FreeHandle(u32 handle) {}
 
+	virtual void DoState(PointerWrap &p);
+
 	IFileSystem *GetHandleOwner(u32 handle);
 	bool MapFilePath(const std::string &inpath, std::string &outpath, IFileSystem **system);
 

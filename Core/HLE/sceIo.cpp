@@ -22,6 +22,7 @@
 
 #include "../System.h"
 #include "../Config.h"
+#include "../SaveState.h"
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
 #include "../HW/MemoryStick.h"
@@ -137,7 +138,18 @@ public:
 		sprintf(ptr, "Seekpos: %08x", (u32)pspFileSystem.GetSeekPos(handle));
 	}
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_BADF; }
-	int GetIDType() const { return 0; }
+	int GetIDType() const { return PPSSPP_KERNEL_TMID_File; }
+
+	virtual void DoState(PointerWrap &p) {
+		p.Do(fullpath);
+		p.Do(handle);
+		p.Do(callbackID);
+		p.Do(callbackArg);
+		p.Do(asyncResult);
+		p.Do(pendingAsyncResult);
+		p.Do(sectorBlockMode);
+		p.DoMarker("File");
+	}
 
 	std::string fullpath;
 	u32 handle;
@@ -191,6 +203,14 @@ void __IoInit() {
 	pspFileSystem.Mount("fatms:", memstick);
 	pspFileSystem.Mount("flash0:", flash);
 	pspFileSystem.Mount("flash1:", flash);
+}
+
+void __IoDoState(PointerWrap &p) {
+	// TODO: defAction is hard to save, and not the right way anyway.
+	// Should probbly be an enum and on the FileNode anyway.
+	if (defAction != NULL) {
+		WARN_LOG(HLE, "FIXME: Savestate failure: deferred IO not saved yet.");
+	}
 }
 
 void __IoShutdown() {
@@ -639,7 +659,12 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 			}
 		case 3:	// EMULATOR_DEVCTL__IS_EMULATOR
 			if (Memory::IsValidAddress(outPtr))
-				Memory::Write_U32(1, outPtr);	 // TODO: Make a headless mode for running tests!
+				Memory::Write_U32(1, outPtr);
+			return 0;
+		case 4: // EMULATOR_DEVCTL__VERIFY_STATE
+			// Note that this is async, and makes sure the save state matches up.
+			SaveState::Verify();
+			// TODO: Maybe save/load to a file just to be sure?
 			return 0;
 		}
 
@@ -836,7 +861,20 @@ public:
 	const char *GetName() {return name.c_str();}
 	const char *GetTypeName() {return "DirListing";}
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_BADF; }
-	int GetIDType() const { return 0; }
+	int GetIDType() const { return PPSSPP_KERNEL_TMID_DirList; }
+
+	virtual void DoState(PointerWrap &p) {
+		p.Do(name);
+
+		// TODO: Is this the right way for it to wake up?
+		int count = listing.size();
+		p.Do(count);
+		listing.resize(count);
+		for (int i = 0; i < count; ++i) {
+			listing[i].DoState(p);
+		}
+		p.DoMarker("DirListing");
+	}
 
 	std::string name;
 	std::vector<PSPFileInfo> listing;
@@ -918,6 +956,14 @@ u32 sceIoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 ou
 	}
 
   return 0;
+}
+
+KernelObject *__KernelFileNodeObject() {
+	return new FileNode;
+}
+
+KernelObject *__KernelDirListingObject() {
+	return new DirListing;
 }
 
 const HLEFunction IoFileMgrForUser[] = {

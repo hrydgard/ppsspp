@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "../../Common/ChunkFile.h"
+
 enum PSPInterrupt {
 	PSP_GPIO_INTR      =  4,
 	PSP_ATA_INTR       =  5,
@@ -63,35 +65,37 @@ enum PSPInterruptTriggerType {
 	PSP_INTR_ONLY_IF_ENABLED = 0x2,
 };
 
-class AllegrexInterruptHandler;
-
 struct PendingInterrupt {
-	AllegrexInterruptHandler *handler;
+	PendingInterrupt(int intr_, int subintr_)
+		: intr(intr_), subintr(subintr_), hasArg(false) {}
+	PendingInterrupt(int intr_, int subintr_, int arg_)
+		: intr(intr_), subintr(subintr_), hasArg(true), arg(arg_) {}
+
 	int arg;
 	bool hasArg;
 	int intr;
 	int subintr;
 };
 
-
-class AllegrexInterruptHandler
-{
-public:
-	virtual ~AllegrexInterruptHandler() {}
-	virtual void copyArgsToCPU(const PendingInterrupt &pend) = 0;
-	virtual void queueUp() = 0;
-	virtual void queueUpWithArg(int arg) = 0;
-	virtual void handleResult(int result) = 0;
-};
-
-class SubIntrHandler : public AllegrexInterruptHandler
+class SubIntrHandler
 {
 public:
 	SubIntrHandler() {}
+	virtual ~SubIntrHandler() {}
 	virtual void queueUp();
 	virtual void queueUpWithArg(int arg);
 	virtual void copyArgsToCPU(const PendingInterrupt &pend);
 	virtual void handleResult(int result) {}
+
+	virtual void DoState(PointerWrap &p)
+	{
+		p.Do(enabled);
+		p.Do(intrNumber);
+		p.Do(number);
+		p.Do(handlerAddress);
+		p.Do(handlerArg);
+		p.DoMarker("SubIntrHandler");
+	}
 
 	bool enabled;
 	int intrNumber;
@@ -100,16 +104,21 @@ public:
 	u32 handlerArg;
 };
 
+typedef SubIntrHandler *(*SubIntrCreator)();
+
 bool __IsInInterrupt();
 void __InterruptsInit();
+void __InterruptsDoState(PointerWrap &p);
+void __InterruptsDoStateLate(PointerWrap &p);
 void __InterruptsShutdown();
 void __TriggerInterrupt(int type, PSPInterrupt intno, int subInterrupts = -1);
 void __TriggerInterruptWithArg(int type, PSPInterrupt intno, int subintr, int arg);  // For GE "callbacks"
 bool __RunOnePendingInterrupt();
 void __KernelReturnFromInterrupt();
 
-u32 __RegisterSubInterruptHandler(u32 intrNumber, u32 subIntrNumber, SubIntrHandler *subIntrHandler);
-u32 __ReleaseSubInterruptHandler(u32 intrNumber, u32 subIntrNumber);
+void __RegisterSubIntrCreator(u32 intrNumber, SubIntrCreator creator);
+SubIntrHandler *__RegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 &error);
+u32 __ReleaseSubIntrHandler(u32 intrNumber, u32 subIntrNumber);
 
 u32 sceKernelRegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 handler, u32 handlerArg);
 u32 sceKernelReleaseSubIntrHandler(u32 intrNumber, u32 subIntrNumber);

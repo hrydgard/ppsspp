@@ -23,6 +23,7 @@
 #pragma once
 
 #include "../Globals.h"
+#include "../../Common/ChunkFile.h"
 
 enum {
 	PSP_SAS_VOICES_MAX = 32,
@@ -77,23 +78,19 @@ enum VoiceType {
 class VagDecoder {
 public:
 	VagDecoder() : data_(0), read_(0) {}
-	void Start(u8 *data, int vagSize, bool loopEnabled);
+	void Start(u32 dataPtr, int vagSize, bool loopEnabled);
 
 	void GetSamples(s16 *outSamples, int numSamples);
 
-	void DecodeBlock();
+	void DecodeBlock(u8 *&readp);
 	bool End() const { return end_; }
-
-	u8 GetByte() {
-		return *read_++;
-	}
 
 private:
 	double samples[28];
 	int curSample;
 
-	u8 *data_;
-	u8 *read_;
+	u32 data_;
+	u32 read_;
 	int curBlock_;
 	int loopStartBlock_;
 	int numBlocks_;
@@ -215,6 +212,7 @@ public:
 	SasInstance();
 	~SasInstance();
 
+	void ClearGrainSize();
 	void SetGrainSize(int newGrainSize);
 	int GetGrainSize() const { return grainSize; }
 
@@ -227,6 +225,8 @@ public:
 	s16 *resampleBuffer;
 
 	void Mix(u32 outAddr);
+
+	void DoState(PointerWrap &p);
 
 	SasVoice voices[PSP_SAS_VOICES_MAX];
 	WaveformEffect waveformEffect;

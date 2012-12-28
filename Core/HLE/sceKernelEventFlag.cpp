@@ -63,6 +63,13 @@ public:
 	}
 	int GetIDType() const { return SCE_KERNEL_TMID_EventFlag; }
 
+	virtual void DoState(PointerWrap &p)
+	{
+		p.Do(nef);
+		p.Do(waitingThreads, EventFlagTh());
+		p.DoMarker("EventFlag");
+	}
+
 	NativeEventFlag nef;
 	std::vector<EventFlagTh> waitingThreads;
 };
@@ -94,7 +101,20 @@ int eventFlagWaitTimer = 0;
 
 void __KernelEventFlagInit()
 {
-	eventFlagWaitTimer = CoreTiming::RegisterEvent("EventFlagTimeout", &__KernelEventFlagTimeout);
+	eventFlagWaitTimer = CoreTiming::RegisterEvent("EventFlagTimeout", __KernelEventFlagTimeout);
+}
+
+void __KernelEventFlagDoState(PointerWrap &p)
+{
+	p.Do(eventFlagWaitTimer);
+	CoreTiming::RestoreRegisterEvent(eventFlagWaitTimer, "EventFlagTimeout", __KernelEventFlagTimeout);
+	p.DoMarker("sceKernelEventFlag");
+}
+
+KernelObject *__KernelEventFlagObject()
+{
+	// Default object to load from state.
+	return new EventFlag;
 }
 
 bool __KernelEventFlagMatches(u32 *pattern, u32 bits, u8 wait, u32 outAddr)

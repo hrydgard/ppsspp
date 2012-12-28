@@ -27,5 +27,6 @@ enum pspUmdState {
 };
 
 void __UmdInit();
+void __UmdDoState(PointerWrap &p);
 
 void Register_sceUmdUser();

@@ -57,6 +57,14 @@ struct Semaphore : public KernelObject
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_SEMID; }
 	int GetIDType() const { return SCE_KERNEL_TMID_Semaphore; }
 
+	virtual void DoState(PointerWrap &p)
+	{
+		p.Do(ns);
+		SceUID dv = 0;
+		p.Do(waitingThreads, dv);
+		p.DoMarker("Semaphore");
+	}
+
 	NativeSemaphore ns;
 	std::vector<SceUID> waitingThreads;
 };
@@ -65,7 +73,19 @@ static int semaWaitTimer = 0;
 
 void __KernelSemaInit()
 {
-	semaWaitTimer = CoreTiming::RegisterEvent("SemaphoreTimeout", &__KernelSemaTimeout);
+	semaWaitTimer = CoreTiming::RegisterEvent("SemaphoreTimeout", __KernelSemaTimeout);
+}
+
+void __KernelSemaDoState(PointerWrap &p)
+{
+	p.Do(semaWaitTimer);
+	CoreTiming::RestoreRegisterEvent(semaWaitTimer, "SemaphoreTimeout", __KernelSemaTimeout);
+	p.DoMarker("sceKernelSema");
+}
+
+KernelObject *__KernelSemaphoreObject()
+{
+	return new Semaphore;
 }
 
 // Returns whether the thread should be removed.

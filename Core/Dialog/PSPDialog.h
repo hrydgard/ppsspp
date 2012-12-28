@@ -19,6 +19,7 @@
 
 
 #include "../Config.h"
+#include "../../Common/ChunkFile.h"
 
 #define SCE_UTILITY_DIALOG_RESULT_SUCCESS				0
 #define SCE_UTILITY_DIALOG_RESULT_CANCEL				1
@@ -47,6 +48,7 @@ public:
 
 	virtual int Update();
 	virtual int Shutdown();
+	virtual void DoState(PointerWrap &p);
 
 	enum DialogStatus
 	{

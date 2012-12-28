@@ -53,6 +53,7 @@ public:
 	DirectoryFileSystem(IHandleAllocator *_hAlloc, std::string _basePath);
 	~DirectoryFileSystem();
 
+	void DoState(PointerWrap &p);
 	std::vector<PSPFileInfo> GetDirListing(std::string path);
 	u32      OpenFile(std::string filename, FileAccess access);
 	void     CloseFile(u32 handle);

@@ -24,6 +24,7 @@
 #include "../FileSystems/MetaFileSystem.h"
 #include "../PSPLoaders.h"
 #include "../../Core/CoreTiming.h"
+#include "../../Core/SaveState.h"
 #include "../../Core/System.h"
 #include "../../GPU/GPUInterface.h"
 #include "../../GPU/GPUState.h"
@@ -33,6 +34,7 @@
 #include "sceAudio.h"
 #include "sceCtrl.h"
 #include "sceDisplay.h"
+#include "sceFont.h"
 #include "sceGe.h"
 #include "sceIo.h"
 #include "sceKernel.h"
@@ -58,8 +60,6 @@
 
 #include "../Util/PPGeDraw.h"
 
-extern MetaFileSystem pspFileSystem;
-
 /*
 17: [MIPS32 R4K 00000000 ]: Loader: Type: 1 Vaddr: 00000000 Filesz: 2856816 Memsz: 2856816 
 18: [MIPS32 R4K 00000000 ]: Loader: Loadable Segment Copied to 0898dab0, size 002b9770
@@ -68,6 +68,7 @@ extern MetaFileSystem pspFileSystem;
 */
 
 static bool kernelRunning = false;
+KernelObjectPool kernelObjects;
 
 void __KernelInit()
 {
@@ -77,18 +78,19 @@ void __KernelInit()
 		return;
 	}
 
+	SaveState::Init();
+	__InterruptsInit();
 	__KernelMemoryInit();
 	__KernelThreadingInit();
-	__KernelMutexInit();
-	__KernelSemaInit();
 	__KernelAlarmInit();
 	__KernelEventFlagInit();
 	__KernelMbxInit();
+	__KernelMutexInit();
+	__KernelSemaInit();
 	__IoInit();
 	__AudioInit();
 	__SasInit();
 	__DisplayInit();
-	__InterruptsInit();
 	__GeInit();
 	__PowerInit();
 	__UtilityInit();
@@ -97,6 +99,7 @@ void __KernelInit()
 	__SslInit();
 	__ImposeInit();
 	__UsbInit();
+	__FontInit();
 
 	// "Internal" PSP libraries
 	__PPGeInit();
@@ -125,15 +128,51 @@ void __KernelShutdown()
 	__DisplayShutdown();
 	__AudioShutdown();
 	__IoShutdown();
-	__InterruptsShutdown();
 	__KernelMutexShutdown();
 	__KernelThreadingShutdown();
 	__KernelMemoryShutdown();
+	__InterruptsShutdown();
 
 	CoreTiming::ClearPendingEvents();
 	CoreTiming::UnregisterAllEvents();
 
 	kernelRunning = false;
+}
+
+void __KernelDoState(PointerWrap &p)
+{
+	p.Do(kernelRunning);
+	kernelObjects.DoState(p);
+	p.DoMarker("KernelObjects");
+
+	__InterruptsDoState(p);
+	__KernelMemoryDoState(p);
+	__KernelThreadingDoState(p);
+	__KernelAlarmDoState(p);
+	__KernelEventFlagDoState(p);
+	__KernelMbxDoState(p);
+	__KernelModuleDoState(p);
+	__KernelMutexDoState(p);
+	__KernelSemaDoState(p);
+
+	__AudioDoState(p);
+	__CtrlDoState(p);
+	__DisplayDoState(p);
+	__FontDoState(p);
+	__GeDoState(p);
+	__ImposeDoState(p);
+	__IoDoState(p);
+	__PowerDoState(p);
+	__SasDoState(p);
+	__SslDoState(p);
+	__UmdDoState(p);
+	__UtilityDoState(p);
+	__UsbDoState(p);
+
+	__PPGeDoState(p);
+
+	__InterruptsDoStateLate(p);
+	__KernelThreadingDoStateLate(p);
 }
 
 bool __KernelIsRunning() {
@@ -219,8 +258,6 @@ void sceKernelDcacheWritebackInvalidateAll()
 	gpu->InvalidateCache(0, -1);
 }
 
-KernelObjectPool kernelObjects;
-
 KernelObjectPool::KernelObjectPool()
 {
 	memset(occupied, 0, sizeof(bool)*maxCount);
@@ -302,6 +339,88 @@ int KernelObjectPool::GetCount()
 			count++;
 	}
 	return count;
+}
+
+void KernelObjectPool::DoState(PointerWrap &p)
+{
+	int _maxCount = maxCount;
+	p.Do(_maxCount);
+
+	if (_maxCount != maxCount)
+		ERROR_LOG(HLE, "Unable to load state: different kernel object storage.");
+
+	if (p.mode == p.MODE_READ)
+		kernelObjects.Clear();
+
+	p.DoArray(occupied, maxCount);
+	for (int i = 0; i < maxCount; ++i)
+	{
+		if (!occupied[i])
+			continue;
+
+		int type;
+		if (p.mode == p.MODE_READ)
+		{
+			p.Do(type);
+			pool[i] = CreateByIDType(type);
+			pool[i]->uid = i + handleOffset;
+
+			// Already logged an error.
+			if (pool[i] == NULL)
+				return;
+		}
+		else
+		{
+			type = pool[i]->GetIDType();
+			p.Do(type);
+		}
+		pool[i]->DoState(p);
+	}
+	p.DoMarker("KernelObjectPool");
+}
+
+KernelObject *KernelObjectPool::CreateByIDType(int type)
+{
+	// Used for save states.  This is ugly, but what other way is there?
+	switch (type)
+	{
+	case SCE_KERNEL_TMID_Alarm:
+		return __KernelAlarmObject();
+	case SCE_KERNEL_TMID_EventFlag:
+		return __KernelEventFlagObject();
+	case SCE_KERNEL_TMID_Mbox:
+		return __KernelMbxObject();
+	case SCE_KERNEL_TMID_Fpl:
+		return __KernelMemoryFPLObject();
+	case SCE_KERNEL_TMID_Vpl:
+		return __KernelMemoryVPLObject();
+	case PPSSPP_KERNEL_TMID_PMB:
+		return __KernelMemoryPMBObject();
+	case PPSSPP_KERNEL_TMID_Module:
+		return __KernelModuleObject();
+	case SCE_KERNEL_TMID_Mpipe:
+		return __KernelMsgPipeObject();
+	case SCE_KERNEL_TMID_Mutex:
+		return __KernelMutexObject();
+	case SCE_KERNEL_TMID_LwMutex:
+		return __KernelLwMutexObject();
+	case SCE_KERNEL_TMID_Semaphore:
+		return __KernelSemaphoreObject();
+	case SCE_KERNEL_TMID_Callback:
+		return __KernelCallbackObject();
+	case SCE_KERNEL_TMID_Thread:
+		return __KernelThreadObject();
+	case SCE_KERNEL_TMID_VTimer:
+		return __KernelVTimerObject();
+	case PPSSPP_KERNEL_TMID_File:
+		return __KernelFileNodeObject();
+	case PPSSPP_KERNEL_TMID_DirList:
+		return __KernelDirListingObject();
+
+	default:
+		ERROR_LOG(COMMON, "Unable to load state: could not find object type %d.", type);
+		return NULL;
+	}
 }
 
 void sceKernelIcacheInvalidateAll()

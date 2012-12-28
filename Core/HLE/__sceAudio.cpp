@@ -73,6 +73,33 @@ void __AudioInit()
 		chans[i].clear();
 }
 
+void __AudioDoState(PointerWrap &p)
+{
+	section.lock();
+
+	p.Do(eventAudioUpdate);
+	CoreTiming::RestoreRegisterEvent(eventAudioUpdate, "AudioUpdate", &hleAudioUpdate);
+	p.Do(eventHostAudioUpdate);
+	CoreTiming::RestoreRegisterEvent(eventHostAudioUpdate, "AudioUpdateHost", &hleAudioUpdate);
+
+	p.Do(mixFrequency);
+	outAudioQueue.DoState(p);
+
+	int chanCount = ARRAY_SIZE(chans);
+	p.Do(chanCount);
+	if (chanCount != ARRAY_SIZE(chans))
+	{
+		ERROR_LOG(HLE, "Savestate failure: different number of audio channels.");
+		section.unlock();
+		return;
+	}
+	for (int i = 0; i < chanCount; ++i)
+		chans[i].DoState(p);
+
+	section.unlock();
+	p.DoMarker("sceAudio");
+}
+
 void __AudioShutdown()
 {
 	for (int i = 0; i < 8; i++)
