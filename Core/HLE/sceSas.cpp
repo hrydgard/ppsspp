@@ -50,6 +50,13 @@ void __SasInit() {
 	sas = new SasInstance();
 }
 
+void __SasDoState(PointerWrap &p) {
+	if (sas != NULL) {
+		sas->DoState(p);
+	}
+	p.DoMarker("sceSas");
+}
+
 void __SasShutdown() {
 	delete sas;
 	sas = 0;

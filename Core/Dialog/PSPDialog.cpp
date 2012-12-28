@@ -64,6 +64,14 @@ int PSPDialog::Update()
 	return 0;
 }
 
+void PSPDialog::DoState(PointerWrap &p)
+{
+	p.Do(status);
+	p.Do(lastButtons);
+	p.Do(buttons);
+	p.DoMarker("PSPDialog");
+}
+
 bool PSPDialog::IsButtonPressed(int checkButton)
 {
 	return (!(lastButtons & checkButton)) && (buttons & checkButton);

@@ -53,15 +53,12 @@ struct NativeFPL
 };
 
 //FPL - Fixed Length Dynamic Memory Pool - every item has the same length
-struct FPL : KernelObject
+struct FPL : public KernelObject
 {
 	const char *GetName() {return nf.name;}
 	const char *GetTypeName() {return "FPL";}
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_FPLID; }
 	int GetIDType() const { return SCE_KERNEL_TMID_Fpl; }
-	NativeFPL nf;
-	bool *blocks;
-	u32 address;
 
 	int findFreeBlock() {
 		for (int i = 0; i < nf.numBlocks; i++) {
@@ -85,6 +82,18 @@ struct FPL : KernelObject
 		}
 		return false;
 	}
+
+	virtual void DoState(PointerWrap &p)
+	{
+		p.Do(nf);
+		p.DoArray(blocks, nf.numBlocks);
+		p.Do(address);
+		p.DoMarker("FPL");
+	}
+
+	NativeFPL nf;
+	bool *blocks;
+	u32 address;
 };
 
 struct SceKernelVplInfo
@@ -97,15 +106,24 @@ struct SceKernelVplInfo
 	int numWaitThreads;
 };
 
-struct VPL : KernelObject
+struct VPL : public KernelObject
 {
 	const char *GetName() {return nv.name;}
 	const char *GetTypeName() {return "VPL";}
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_VPLID; }
 	int GetIDType() const { return SCE_KERNEL_TMID_Vpl; }
+
+	virtual void DoState(PointerWrap &p)
+	{
+		p.Do(nv);
+		p.Do(size);
+		p.Do(address);
+		alloc.DoState(p);
+		p.DoMarker("VPL");
+	}
+
 	SceKernelVplInfo nv;
 	u32 size;
-	bool *freeBlocks;
 	u32 address;
 	BlockAllocator alloc;
 };
@@ -115,6 +133,13 @@ void __KernelMemoryInit()
 	kernelMemory.Init(PSP_GetKernelMemoryBase(), PSP_GetKernelMemoryEnd()-PSP_GetKernelMemoryBase());
 	userMemory.Init(PSP_GetUserMemoryBase(), PSP_GetUserMemoryEnd()-PSP_GetUserMemoryBase());
 	INFO_LOG(HLE, "Kernel and user memory pools initialized");
+}
+
+void __KernelMemoryDoState(PointerWrap &p)
+{
+	kernelMemory.DoState(p);
+	userMemory.DoState(p);
+	p.DoMarker("sceKernelMemory");
 }
 
 void __KernelMemoryShutdown()
@@ -350,13 +375,18 @@ public:
 		sprintf(ptr, "MemPart: %08x - %08x	size: %08x", address, address + sz, sz);
 	}
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_MPPID; }	/// ????
-	int GetIDType() const { return 0; }
+	int GetIDType() const { return PPSSPP_KERNEL_TMID_PMB; }
 
 	PartitionMemoryBlock(BlockAllocator *_alloc, u32 size, bool fromEnd)
 	{
 		alloc = _alloc;
-		address = alloc->Alloc(size, fromEnd, "PMB");
-		alloc->ListBlocks();
+
+		// 0 is used for save states to wake up.
+		if (size != 0)
+		{
+			address = alloc->Alloc(size, fromEnd, "PMB");
+			alloc->ListBlocks();
+		}
 	}
 	~PartitionMemoryBlock()
 	{
@@ -364,6 +394,14 @@ public:
 	}
 	bool IsValid() {return address != (u32)-1;}
 	BlockAllocator *alloc;
+
+	virtual void DoState(PointerWrap &p)
+	{
+		p.Do(address);
+		p.Do(name);
+		p.DoMarker("PMB");
+	}
+
 	u32 address;
 	char name[32];
 };
@@ -592,6 +630,22 @@ void sceKernelSetCompilerVersion(int version)
 {
 	compilerVersion_ = version;
 	flags_ |= SCE_KERNEL_HASCOMPILERVERSION;
+}
+
+KernelObject *__KernelMemoryFPLObject()
+{
+	return new FPL;
+}
+
+KernelObject *__KernelMemoryVPLObject()
+{
+	return new VPL;
+}
+
+KernelObject *__KernelMemoryPMBObject()
+{
+	// TODO: We could theoretically handle kernelMemory too, but we don't support that now anyway.
+	return new PartitionMemoryBlock(&userMemory, 0, true);
 }
 
 // VPL = variable length memory pool

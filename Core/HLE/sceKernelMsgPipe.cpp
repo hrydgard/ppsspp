@@ -56,10 +56,12 @@ struct MsgPipe : public KernelObject
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_MPPID; }
 	int GetIDType() const { return SCE_KERNEL_TMID_Mpipe; }
 
-	NativeMsgPipe nmp;
-
-	std::vector<MsgPipeWaitingThread> sendWaitingThreads;
-	std::vector<MsgPipeWaitingThread> receiveWaitingThreads;
+	MsgPipe() : buffer(NULL) {}
+	~MsgPipe()
+	{
+		if (buffer != NULL)
+			delete [] buffer;
+	}
 
 	void AddWaitingThread(std::vector<MsgPipeWaitingThread> &list, SceUID id, u32 addr, u32 size, int waitMode, u32 transferredBytesAddr, bool usePrio)
 	{
@@ -150,8 +152,34 @@ struct MsgPipe : public KernelObject
 		}
 	}
 
+	virtual void DoState(PointerWrap &p)
+	{
+		p.Do(nmp);
+		p.Do(sendWaitingThreads, MsgPipeWaitingThread());
+		p.Do(receiveWaitingThreads, MsgPipeWaitingThread());
+		bool hasBuffer = buffer != NULL;
+		p.Do(hasBuffer);
+		if (hasBuffer)
+		{
+			if (buffer == NULL)
+				buffer = new u8[nmp.bufSize];
+			p.DoArray(buffer, nmp.bufSize);
+		}
+		p.DoMarker("MsgPipe");
+	}
+
+	NativeMsgPipe nmp;
+
+	std::vector<MsgPipeWaitingThread> sendWaitingThreads;
+	std::vector<MsgPipeWaitingThread> receiveWaitingThreads;
+
 	u8 *buffer;
 };
+
+KernelObject *__KernelMsgPipeObject()
+{
+	return new MsgPipe;
+}
 
 void sceKernelCreateMsgPipe()
 {
@@ -193,10 +221,6 @@ void sceKernelDeleteMsgPipe()
 		ERROR_LOG(HLE, "sceKernelDeleteMsgPipe(%i) - ERROR %08x", uid, error);
 		RETURN(error);
 		return;
-	}
-	if (m->buffer != 0)
-	{
-		delete [] m->buffer;
 	}
 	for (u32 i = 0; i < m->sendWaitingThreads.size(); i++)
 	{

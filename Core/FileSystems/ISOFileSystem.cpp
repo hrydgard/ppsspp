@@ -131,6 +131,7 @@ ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevic
 	entireISO.size = _blockDevice->GetNumBlocks() * _blockDevice->GetBlockSize();
 	entireISO.isBlockSectorMode = true;
 	entireISO.flags = 0;
+	entireISO.parent = NULL;
 
 	if (!memcmp(desc.cd001, "CD001", 5))
 	{
@@ -142,6 +143,12 @@ ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevic
 	}
 
 	treeroot = new TreeEntry;
+	treeroot->isDirectory = true;
+	treeroot->startingPosition = 0;
+	treeroot->size = 0;
+	treeroot->isBlockSectorMode = false;
+	treeroot->flags = 0;
+	treeroot->parent = NULL;
 
 	u32 rootSector = desc.root.firstDataSectorLE;
 	u32 rootSize = desc.root.dataLengthLE;
@@ -152,6 +159,7 @@ ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevic
 ISOFileSystem::~ISOFileSystem()
 {
 	delete blockDevice;
+	delete treeroot;
 }
 
 void ISOFileSystem::ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root)
@@ -211,6 +219,7 @@ nextblock:
 		e->isDirectory = !isFile;
 		e->flags = dir.flags;
 		e->isBlockSectorMode = false;
+		e->parent = root;
 
 		// Let's not excessively spam the log - I commented this line out.
 		//DEBUG_LOG(FILESYS, "%s: %s %08x %08x %i", e->isDirectory?"D":"F", name, dir.firstDataSectorLE, e->startingPosition, e->startingPosition);
@@ -539,4 +548,71 @@ std::vector<PSPFileInfo> ISOFileSystem::GetDirListing(std::string path)
 		myVector.push_back(x);
 	}
 	return myVector;
+}
+
+std::string ISOFileSystem::EntryFullPath(TreeEntry *e)
+{
+	size_t fullLen = 0;
+	TreeEntry *cur = e;
+	while (cur != NULL && cur != treeroot)
+	{
+		// For the "/".
+		fullLen += 1 + cur->name.size();
+		cur = cur->parent;
+	}
+
+	std::string path;
+	path.resize(fullLen);
+
+	cur = e;
+	while (cur != NULL && cur != treeroot)
+	{
+		path.replace(fullLen - cur->name.size(), cur->name.size(), cur->name);
+		path.replace(fullLen - cur->name.size() - 1, 1, "/");
+		fullLen -= 1 + cur->name.size();
+		cur = cur->parent;
+	}
+
+	return path;
+}
+
+void ISOFileSystem::DoState(PointerWrap &p)
+{
+	int n = (int) entries.size();
+	p.Do(n);
+
+	if (p.mode == p.MODE_READ)
+	{
+		entries.clear();
+		for (int i = 0; i < n; ++i)
+		{
+			u32 fd;
+			p.Do(fd);
+			std::string path;
+			p.Do(path);
+			OpenFileEntry of;
+			of.file = path.empty() ? NULL : GetFromPath(path);
+			p.Do(of.seekPos);
+			p.Do(of.isRawSector);
+			p.Do(of.sectorStart);
+			p.Do(of.openSize);
+			entries[fd] = of;
+		}
+	}
+	else
+	{
+		for (EntryMap::iterator it = entries.begin(), end = entries.end(); it != end; ++it)
+		{
+			p.Do(it->first);
+			std::string path = "";
+			if (it->second.file != NULL)
+				path = EntryFullPath(it->second.file);
+			p.Do(path);
+			p.Do(it->second.seekPos);
+			p.Do(it->second.isRawSector);
+			p.Do(it->second.sectorStart);
+			p.Do(it->second.openSize);
+		}
+	}
+	p.DoMarker("ISOFileSystem");
 }

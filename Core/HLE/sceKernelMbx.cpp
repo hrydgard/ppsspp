@@ -153,6 +153,13 @@ struct Mbx : public KernelObject
 		return 0;
 	}
 
+	virtual void DoState(PointerWrap &p)
+	{
+		p.Do(nmb);
+		p.Do(waitingThreads, MbxWaitingThread());
+		p.DoMarker("Mbx");
+	}
+
 	NativeMbx nmb;
 
 	std::vector<MbxWaitingThread> waitingThreads;
@@ -160,7 +167,19 @@ struct Mbx : public KernelObject
 
 void __KernelMbxInit()
 {
-	mbxWaitTimer = CoreTiming::RegisterEvent("MbxTimeout", &__KernelMbxTimeout);
+	mbxWaitTimer = CoreTiming::RegisterEvent("MbxTimeout", __KernelMbxTimeout);
+}
+
+void __KernelMbxDoState(PointerWrap &p)
+{
+	p.Do(mbxWaitTimer);
+	CoreTiming::RestoreRegisterEvent(mbxWaitTimer, "MbxTimeout", __KernelMbxTimeout);
+	p.DoMarker("sceKernelMbx");
+}
+
+KernelObject *__KernelMbxObject()
+{
+	return new Mbx;
 }
 
 bool __KernelUnlockMbxForThread(Mbx *m, MbxWaitingThread &th, u32 &error, int result, bool &wokeThreads)

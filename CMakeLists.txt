@@ -765,6 +765,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/PSPLoaders.h
 	Core/PSPMixer.cpp
 	Core/PSPMixer.h
+	Core/SaveState.cpp
+	Core/SaveState.h
 	Core/System.cpp
 	Core/System.h
 	Core/Util/BlockAllocator.cpp

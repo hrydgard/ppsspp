@@ -121,6 +121,7 @@ SOURCES +=	../Core/CPU.cpp \ # Core
 	../Core/MemMapFunctions.cpp \
 	../Core/PSPLoaders.cpp \
 	../Core/PSPMixer.cpp \
+	../Core/SaveState.cpp \
 	../Core/System.cpp \
 	../Core/Util/BlockAllocator.cpp \
 	../Core/Util/PPGeDraw.cpp \
@@ -227,6 +228,7 @@ HEADERS +=	../Core/CPU.h \
 	../Core/MemMap.h \
 	../Core/PSPLoaders.h \
 	../Core/PSPMixer.h \
+	../Core/SaveState.h \
 	../Core/System.h \
 	../Core/Util/BlockAllocator.h \
 	../Core/Util/PPGeDraw.h \

@@ -117,12 +117,44 @@ public:
 			nm.entry_addr);
 	}
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_MODULE; }
-	int GetIDType() const { return 0; }
+	int GetIDType() const { return PPSSPP_KERNEL_TMID_Module; }
+
+	virtual void DoState(PointerWrap &p)
+	{
+		p.Do(nm);
+		p.Do(memoryBlockAddr);
+		p.DoMarker("Module");
+	}
 
 	NativeModule nm;
 
 	u32 memoryBlockAddr;
 };
+
+KernelObject *__KernelModuleObject()
+{
+	return new Module;
+}
+
+class AfterModuleEntryCall : public Action {
+public:
+	AfterModuleEntryCall() {}
+	SceUID moduleID_;
+	u32 retValAddr;
+	virtual void run();
+	virtual void DoState(PointerWrap &p) {
+		p.Do(moduleID_);
+		p.Do(retValAddr);
+		p.DoMarker("AfterModuleEntryCall");
+	}
+	static Action *Create() {
+		return new AfterModuleEntryCall;
+	}
+};
+
+void AfterModuleEntryCall::run() {
+	Memory::Write_U32(retValAddr, currentMIPS->r[2]);
+}
 
 //////////////////////////////////////////////////////////////////////////
 // MODULES
@@ -156,9 +188,23 @@ struct SceKernelSMOption {
 
 //////////////////////////////////////////////////////////////////////////
 // STATE BEGIN
+static int actionAfterModule;
 static SceUID mainModuleID;	// hack
 // STATE END
 //////////////////////////////////////////////////////////////////////////
+
+void __KernelModuleInit()
+{
+	actionAfterModule = __KernelRegisterActionType(AfterModuleEntryCall::Create);
+}
+
+void __KernelModuleDoState(PointerWrap &p)
+{
+	p.Do(mainModuleID);
+	p.Do(actionAfterModule);
+	__KernelRestoreActionType(actionAfterModule, AfterModuleEntryCall::Create);
+	p.DoMarker("sceKernelModule");
+}
 
 Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *error_string)
 {
@@ -515,6 +561,7 @@ bool __KernelLoadExec(const char *filename, SceKernelLoadExecParam *param, std::
 	if (__KernelIsRunning())
 		__KernelShutdown();
 
+	__KernelModuleInit();
 	__KernelInit();
 	
 	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
@@ -637,18 +684,6 @@ u32 sceKernelLoadModule(const char *name, u32 flags)
 	}
 
 	return module->GetUID();
-}
-
-class AfterModuleEntryCall : public Action {
-public:
-	AfterModuleEntryCall() {}
-	Module *module_;
-	u32 retValAddr;
-	virtual void run();
-};
-
-void AfterModuleEntryCall::run() {
-	Memory::Write_U32(retValAddr, currentMIPS->r[2]);
 }
 
 void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, u32 optionAddr)

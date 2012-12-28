@@ -37,6 +37,7 @@ typedef struct PspGeCallbackData
 void Register_sceGe_user();
 
 void __GeInit();
+void __GeDoState(PointerWrap &p);
 void __GeShutdown();
 
 

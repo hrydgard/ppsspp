@@ -206,3 +206,15 @@ int PSPMsgDialog::Shutdown()
 	return PSPDialog::Shutdown();
 }
 
+void PSPMsgDialog::DoState(PointerWrap &p)
+{
+	p.Do(display);
+	p.Do(messageDialog);
+	p.Do(messageDialogAddr);
+	p.Do(yesnoChoice);
+	p.Do(okButtonImg);
+	p.Do(cancelButtonImg);
+	p.Do(okButtonFlag);
+	p.Do(cancelButtonFlag);
+	p.DoMarker("PSPMsgDialog");
+}

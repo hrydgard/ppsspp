@@ -546,3 +546,8 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 	return myVector;
 }
 
+void DirectoryFileSystem::DoState(PointerWrap &p) {
+	if (!entries.empty()) {
+		ERROR_LOG(FILESYS, "FIXME: Open files during savestate, could go badly.");
+	}
+}

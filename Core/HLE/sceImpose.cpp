@@ -44,6 +44,14 @@ void __ImposeInit()
 	umdPopup = 0;
 }
 
+void __ImposeDoState(PointerWrap &p)
+{
+	p.Do(language);
+	p.Do(buttonValue);
+	p.Do(umdPopup);
+	p.DoMarker("sceImpose");
+}
+
 u32 sceImposeGetBatteryIconStatus(u32 chargingPtr, u32 iconStatusPtr)
 {
 	DEBUG_LOG(HLE, "sceImposeGetBatteryIconStatus(%08x, %08x)", chargingPtr, iconStatusPtr);

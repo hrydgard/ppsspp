@@ -28,11 +28,6 @@
 #include "sceKernelInterrupt.h"
 #include "sceKernelMutex.h"
 
-struct Interrupt
-{
-	PSPInterrupt intno;
-};
-
 void __DisableInterrupts();
 void __EnableInterrupts();
 bool __InterruptsEnabled();
@@ -92,9 +87,21 @@ void sceKernelCpuResumeIntrWithSync(u32 enable)
 
 class IntrHandler {
 public:
-	void add(int subIntrNum, SubIntrHandler *handler)
+	IntrHandler()
+		: subIntrCreator(NULL)
 	{
+	}
+
+	SubIntrHandler *add(int subIntrNum)
+	{
+		SubIntrHandler *handler;
+		if (subIntrCreator != NULL)
+			handler = subIntrCreator();
+		else
+			handler = new SubIntrHandler();
+
 		subIntrHandlers[subIntrNum] = handler;
+		return handler;
 	}
 	void remove(int subIntrNum)
 	{
@@ -113,8 +120,7 @@ public:
 		if (has(subIntrNum))
 			return subIntrHandlers[subIntrNum];
 		else
-			return 0;
-		// what to do, what to do...
+			return NULL;
 	}
 	void clear()
 	{
@@ -146,7 +152,49 @@ public:
 		}
 	}
 
+	void setCreator(SubIntrCreator creator)
+	{
+		subIntrCreator = creator;
+	}
+
+	void DoState(PointerWrap &p)
+	{
+		// We assume that the same creator has already been registered.
+		bool hasCreator = subIntrCreator != NULL;
+		p.Do(hasCreator);
+		if (hasCreator != (subIntrCreator != NULL))
+		{
+			ERROR_LOG(HLE, "Savestate failure: incompatible sub interrupt handler.");
+			return;
+		}
+
+		int n = (int) subIntrHandlers.size();
+		p.Do(n);
+
+		if (p.mode == p.MODE_READ)
+		{
+			clear();
+			for (int i = 0; i < n; ++i)
+			{
+				int subIntrNum;
+				p.Do(subIntrNum);
+				SubIntrHandler *handler = add(subIntrNum);
+				handler->DoState(p);
+			}
+		}
+		else
+		{
+			std::map<int, SubIntrHandler *>::iterator it, end;
+			for (it = subIntrHandlers.begin(), end = subIntrHandlers.end(); it != end; ++it)
+			{
+				p.Do(it->first);
+				it->second->DoState(p);
+			}
+		}
+	}
+
 private:
+	SubIntrCreator subIntrCreator;
 	std::map<int, SubIntrHandler *> subIntrHandlers;
 };
 
@@ -156,6 +204,13 @@ public:
 	void save();
 	void restore();
 	void clear();
+
+	void DoState(PointerWrap &p)
+	{
+		p.Do(insideInterrupt);
+		p.Do(savedCpu);
+		p.DoMarker("InterruptState");
+	}
 
 	bool insideInterrupt;
 	ThreadContext savedCpu;
@@ -179,6 +234,31 @@ void __InterruptsInit()
 	interruptsEnabled = 1;
 	inInterrupt = false;
 	intState.clear();
+}
+
+void __InterruptsDoState(PointerWrap &p)
+{
+	int numInterrupts = PSP_NUMBER_INTERRUPTS;
+	p.Do(numInterrupts);
+	if (numInterrupts != PSP_NUMBER_INTERRUPTS)
+	{
+		ERROR_LOG(HLE, "Savestate failure: wrong number of interrupts, can't load.");
+		return;
+	}
+
+	intState.DoState(p);
+	p.Do(pendingInterrupts, PendingInterrupt(0, 0));
+	p.Do(interruptsEnabled);
+	p.Do(inInterrupt);
+	p.DoMarker("sceKernelInterrupt");
+}
+
+void __InterruptsDoStateLate(PointerWrap &p)
+{
+	// We do these later to ensure the handlers have been registered.
+	for (int i = 0; i < PSP_NUMBER_INTERRUPTS; ++i)
+		intrHandlers[i].DoState(p);
+	p.DoMarker("sceKernelInterrupt Late");
 }
 
 void __InterruptsShutdown()
@@ -238,25 +318,16 @@ void SubIntrHandler::queueUp()
 {
 	if (!enabled)
 		return;
-	PendingInterrupt pend;
-	pend.handler = this;
-	pend.hasArg = false;
-	pend.intr = intrNumber;
-	pend.subintr = number;
-	pendingInterrupts.push_back(pend);
+
+	pendingInterrupts.push_back(PendingInterrupt(intrNumber, number));
 };
 
 void SubIntrHandler::queueUpWithArg(int arg)
 {
 	if (!enabled)
 		return;
-	PendingInterrupt pend;
-	pend.handler = this;
-	pend.arg = arg;
-	pend.hasArg = true;
-	pend.intr = intrNumber;
-	pend.subintr = number;
-	pendingInterrupts.push_back(pend);
+
+	pendingInterrupts.push_back(PendingInterrupt(intrNumber, number, arg));
 }
 
 void SubIntrHandler::copyArgsToCPU(const PendingInterrupt &pend)
@@ -278,6 +349,7 @@ bool __RunOnePendingInterrupt()
 		return false;
 	}
 	// Can easily prioritize between different kinds of interrupts if necessary.
+retry:
 	if (pendingInterrupts.size())
 	{
 		// If we came from CoreTiming::Advance(), we might've come from a waiting thread's callback.
@@ -285,8 +357,16 @@ bool __RunOnePendingInterrupt()
 		__KernelSwitchOffThread("interrupt");
 
 		PendingInterrupt pend = pendingInterrupts.front();
+		SubIntrHandler *handler = intrHandlers[pend.intr].get(pend.subintr);
+		if (handler == NULL)
+		{
+			WARN_LOG(HLE, "Ignoring interrupt, already been released.");
+			pendingInterrupts.pop_front();
+			goto retry;
+		}
+
 		intState.save();
-		pend.handler->copyArgsToCPU(pend);
+		handler->copyArgsToCPU(pend);
 
 		currentMIPS->r[MIPS_REG_RA] = __KernelInterruptReturnAddress();
 		inInterrupt = true;
@@ -340,7 +420,12 @@ void __KernelReturnFromInterrupt()
 	// This is what we just ran.
 	PendingInterrupt pend = pendingInterrupts.front();
 	pendingInterrupts.pop_front();
-	pend.handler->handleResult(currentMIPS->r[MIPS_REG_V0]);
+
+	SubIntrHandler *handler = intrHandlers[pend.intr].get(pend.subintr);
+	if (handler != NULL)
+		handler->handleResult(currentMIPS->r[MIPS_REG_V0]);
+	else
+		ERROR_LOG(HLE, "Interrupt released itself?  Should not happen.");
 
 	// Restore context after running the interrupt.
 	intState.restore();
@@ -351,15 +436,21 @@ void __KernelReturnFromInterrupt()
 		__KernelReSchedule("return from interrupt");
 }
 
-u32 __RegisterSubInterruptHandler(u32 intrNumber, u32 subIntrNumber, SubIntrHandler *subIntrHandler)
+void __RegisterSubIntrCreator(u32 intrNumber, SubIntrCreator creator)
 {
-	subIntrHandler->number = subIntrNumber;
-	subIntrHandler->intrNumber = intrNumber;
-	intrHandlers[intrNumber].add(subIntrNumber, subIntrHandler);
-	return 0;
+	intrHandlers[intrNumber].setCreator(creator);
 }
 
-u32 __ReleaseSubInterruptHandler(u32 intrNumber, u32 subIntrNumber)
+SubIntrHandler *__RegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 &error)
+{
+	SubIntrHandler *subIntrHandler = intrHandlers[intrNumber].add(subIntrNumber);
+	subIntrHandler->number = subIntrNumber;
+	subIntrHandler->intrNumber = intrNumber;
+	error = 0;
+	return subIntrHandler;
+}
+
+u32 __ReleaseSubIntrHandler(u32 intrNumber, u32 subIntrNumber)
 {
 	if (!intrHandlers[intrNumber].has(subIntrNumber))
 		return -1;
@@ -383,11 +474,15 @@ u32 sceKernelRegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 handl
 	if (intrNumber >= PSP_NUMBER_INTERRUPTS)
 		return -1;
 
-	SubIntrHandler *subIntrHandler = new SubIntrHandler();
-	subIntrHandler->enabled = false;
-	subIntrHandler->handlerAddress = handler;
-	subIntrHandler->handlerArg = handlerArg;
-	return __RegisterSubInterruptHandler(intrNumber, subIntrNumber, subIntrHandler);
+	u32 error;
+	SubIntrHandler *subIntrHandler = __RegisterSubIntrHandler(intrNumber, subIntrNumber, error);
+	if (subIntrHandler)
+	{
+		subIntrHandler->enabled = false;
+		subIntrHandler->handlerAddress = handler;
+		subIntrHandler->handlerArg = handlerArg;
+	}
+	return error;
 }
 
 u32 sceKernelReleaseSubIntrHandler(u32 intrNumber, u32 subIntrNumber)
@@ -397,7 +492,7 @@ u32 sceKernelReleaseSubIntrHandler(u32 intrNumber, u32 subIntrNumber)
 	if (intrNumber >= PSP_NUMBER_INTERRUPTS)
 		return -1;
 
-	return __ReleaseSubInterruptHandler(intrNumber, subIntrNumber);
+	return __ReleaseSubIntrHandler(intrNumber, subIntrNumber);
 }
 
 u32 sceKernelEnableSubIntr(u32 intrNumber, u32 subIntrNumber)

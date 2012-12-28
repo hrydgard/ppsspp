@@ -367,3 +367,22 @@ size_t MetaFileSystem::SeekFile(u32 handle, s32 position, FileMove type)
 		return 0;
 }
 
+void MetaFileSystem::DoState(PointerWrap &p)
+{
+	p.Do(current);
+	p.Do(currentDirectory);
+
+	int n = (int) fileSystems.size();
+	p.Do(n);
+	if (n != fileSystems.size())
+	{
+		ERROR_LOG(FILESYS, "Savestate failure: number of filesystems doesn't match.");
+		return;
+	}
+
+	for (int i = 0; i < n; ++i)
+		fileSystems[i].system->DoState(p);
+
+	p.DoMarker("MetaFileSystem");
+}
+

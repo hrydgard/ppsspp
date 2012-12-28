@@ -62,6 +62,15 @@ struct Mutex : public KernelObject
 	const char *GetTypeName() {return "Mutex";}
 	static u32 GetMissingErrorCode() { return PSP_MUTEX_ERROR_NO_SUCH_MUTEX; }
 	int GetIDType() const { return SCE_KERNEL_TMID_Mutex; }
+
+	virtual void DoState(PointerWrap &p)
+	{
+		p.Do(nm);
+		SceUID dv = 0;
+		p.Do(waitingThreads, dv);
+		p.DoMarker("Mutex");
+	}
+
 	NativeMutex nm;
 	std::vector<SceUID> waitingThreads;
 };
@@ -103,6 +112,15 @@ struct LwMutex : public KernelObject
 	const char *GetTypeName() {return "LwMutex";}
 	static u32 GetMissingErrorCode() { return PSP_LWMUTEX_ERROR_NO_SUCH_LWMUTEX; }
 	int GetIDType() const { return SCE_KERNEL_TMID_LwMutex; }
+
+	virtual void DoState(PointerWrap &p)
+	{
+		p.Do(nm);
+		SceUID dv = 0;
+		p.Do(waitingThreads, dv);
+		p.DoMarker("LwMutex");
+	}
+
 	NativeLwMutex nm;
 	std::vector<SceUID> waitingThreads;
 };
@@ -115,10 +133,30 @@ static MutexMap mutexHeldLocks;
 
 void __KernelMutexInit()
 {
-	mutexWaitTimer = CoreTiming::RegisterEvent("MutexTimeout", &__KernelMutexTimeout);
-	lwMutexWaitTimer = CoreTiming::RegisterEvent("LwMutexTimeout", &__KernelLwMutexTimeout);
+	mutexWaitTimer = CoreTiming::RegisterEvent("MutexTimeout", __KernelMutexTimeout);
+	lwMutexWaitTimer = CoreTiming::RegisterEvent("LwMutexTimeout", __KernelLwMutexTimeout);
 
 	__KernelListenThreadEnd(&__KernelMutexThreadEnd);
+}
+
+void __KernelMutexDoState(PointerWrap &p)
+{
+	p.Do(mutexWaitTimer);
+	CoreTiming::RestoreRegisterEvent(mutexWaitTimer, "MutexTimeout", __KernelMutexTimeout);
+	p.Do(lwMutexWaitTimer);
+	CoreTiming::RestoreRegisterEvent(lwMutexWaitTimer, "LwMutexTimeout", __KernelLwMutexTimeout);
+	p.Do(mutexHeldLocks);
+	p.DoMarker("sceKernelMutex");
+}
+
+KernelObject *__KernelMutexObject()
+{
+	return new Mutex;
+}
+
+KernelObject *__KernelLwMutexObject()
+{
+	return new LwMutex;
 }
 
 void __KernelMutexShutdown()

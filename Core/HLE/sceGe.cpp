@@ -33,6 +33,17 @@ void __GeInit()
 	state = 0;
 }
 
+void __GeDoState(PointerWrap &p)
+{
+	p.Do(state);
+	p.Do(gstate);
+	p.Do(gstate_c);
+
+	ReapplyGfxState();
+	gpu->InvalidateCache(0, -1);
+	p.DoMarker("sceGe");
+}
+
 void __GeShutdown()
 {
 

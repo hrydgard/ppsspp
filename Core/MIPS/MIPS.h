@@ -18,6 +18,7 @@
 #pragma once
 
 #include "../../Globals.h"
+#include "../../Common/ChunkFile.h"
 #include "../CPU.h"
 
 enum
@@ -92,6 +93,12 @@ public:
 		return (m_z << 16) + m_w;
 	}
 
+	void DoState(PointerWrap &p) {
+		p.Do(m_w);
+		p.Do(m_z);
+		p.DoMarker("GMRng");
+	}
+
 private:
 	u32 m_w;
 	u32 m_z;
@@ -104,6 +111,7 @@ public:
 	~MIPSState();
 
 	void Reset();
+	void DoState(PointerWrap &p);
 
 	u32 r[32];
 	float f[32];

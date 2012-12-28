@@ -43,7 +43,8 @@ public:
 
 	virtual int Init(unsigned int paramAddr);
 	virtual int Update();
-	int Shutdown();
+	virtual int Shutdown();
+	virtual void DoState(PointerWrap &p);
 
 private :
 	void DisplayBack();
