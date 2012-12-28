@@ -254,12 +254,7 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, int saveId)
 				memcpy(encryptInfo.key,param->key,16);
 
 			std::string encryptInfoPath = dirPath+"/"+"ENCRYPT_INFO.BIN";
-			handle = pspFileSystem.OpenFile(encryptInfoPath,(FileAccess)(FILEACCESS_WRITE | FILEACCESS_CREATE));
-			if (handle)
-			{
-				pspFileSystem.WriteFile(handle, (u8*)&encryptInfo, dataSize);
-				pspFileSystem.CloseFile(handle);
-			}
+			WritePSPFile(encryptInfoPath, (u8*)&encryptInfo, dataSize);
 		}
 	}
 	return true;

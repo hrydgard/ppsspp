@@ -544,7 +544,7 @@ void sceKernelSetCompiledSdkVersion600_602(int sdkVersion)
 	}
 	else
 	{
-		ERROR_LOG(HLE,"sceKernelSetCompiledSdkVersion395 unknown SDK : %x\n",sdkVersion);
+		ERROR_LOG(HLE,"sceKernelSetCompiledSdkVersion600_602 unknown SDK : %x\n",sdkVersion);
 	}
 	return;
 }
@@ -561,7 +561,7 @@ void sceKernelSetCompiledSdkVersion603_605(int sdkVersion)
 	}
 	else
 	{
-		ERROR_LOG(HLE,"sceKernelSetCompiledSdkVersion395 unknown SDK : %x\n",sdkVersion);
+		ERROR_LOG(HLE,"sceKernelSetCompiledSdkVersion603_605 unknown SDK : %x\n",sdkVersion);
 	}
 	return;
 }
@@ -576,7 +576,7 @@ void sceKernelSetCompiledSdkVersion606(int sdkVersion)
 	}
 	else
 	{
-		ERROR_LOG(HLE,"sceKernelSetCompiledSdkVersion395 unknown SDK : %x\n",sdkVersion);
+		ERROR_LOG(HLE,"sceKernelSetCompiledSdkVersion606 unknown SDK : %x\n",sdkVersion);
 	}
 	return;
 }
