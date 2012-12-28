@@ -34,6 +34,7 @@
 #include "sceAudio.h"
 #include "sceCtrl.h"
 #include "sceDisplay.h"
+#include "sceFont.h"
 #include "sceGe.h"
 #include "sceIo.h"
 #include "sceKernel.h"
@@ -98,6 +99,7 @@ void __KernelInit()
 	__SslInit();
 	__ImposeInit();
 	__UsbInit();
+	__FontInit();
 
 	// "Internal" PSP libraries
 	__PPGeInit();
@@ -152,8 +154,17 @@ void __KernelDoState(PointerWrap &p)
 	__KernelModuleDoState(p);
 	__KernelMutexDoState(p);
 	__KernelSemaDoState(p);
+
 	// TODO: non-kernel modules
-	// TODO: PPGe
+	__CtrlDoState(p);
+	__FontDoState(p);
+	__ImposeDoState(p);
+	__PowerDoState(p);
+	__SslDoState(p);
+	__UmdDoState(p);
+	__UsbDoState(p);
+
+	__PPGeDoState(p);
 
 	__InterruptsDoStateLate(p);
 	__KernelThreadingDoStateLate(p);

@@ -12,19 +12,19 @@ typedef u32 FontLibraryHandle;
 typedef u32 FontHandle;
 
 typedef struct {
-	u32* userDataAddr;
-	u32  numFonts;
-	u32* cacheDataAddr;
+	u32 userDataAddr;
+	u32 numFonts;
+	u32 cacheDataAddr;
 
 	// Driver callbacks.
-	void *(*allocFuncAddr)(void *, u32);
-	void  (*freeFuncAddr )(void *, void *);
-	u32* openFuncAddr;
-	u32* closeFuncAddr;
-	u32* readFuncAddr;
-	u32* seekFuncAddr;
-	u32* errorFuncAddr;
-	u32* ioFinishFuncAddr;
+	u32 allocFuncAddr;
+	u32 freeFuncAddr;
+	u32 openFuncAddr;
+	u32 closeFuncAddr;
+	u32 readFuncAddr;
+	u32 seekFuncAddr;
+	u32 errorFuncAddr;
+	u32 ioFinishFuncAddr;
 } FontNewLibParams;
 
 typedef enum {
@@ -138,10 +138,21 @@ typedef struct {
 	u16 bufHeight;
 	u16 bytesPerLine;
 	u16 pad;
-	void *buffer;
+	u32 bufferPtr;
 } GlyphImage;
 
 FontNewLibParams fontLib;
+
+void __FontInit()
+{
+	memset(&fontLib, 0, sizeof(fontLib));
+}
+
+void __FontDoState(PointerWrap &p)
+{
+	p.Do(fontLib);
+	p.DoMarker("sceFont");
+}
 
 u32 sceFontNewLib(u32 FontNewLibParamsPtr, u32 errorCodePtr)
 {

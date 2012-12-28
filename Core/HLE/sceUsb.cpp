@@ -27,6 +27,12 @@ void __UsbInit()
 	usbActivated = false;
 }
 
+void __UsbDoState(PointerWrap &p)
+{
+	p.Do(usbActivated);
+	p.DoMarker("sceUsb");
+}
+
 u32 sceUsbActivate() {
 	ERROR_LOG(HLE, "UNIMPL sceUsbActivate");
 	usbActivated = true;

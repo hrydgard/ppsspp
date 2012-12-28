@@ -284,6 +284,30 @@ void __CtrlInit()
 		memcpy(&ctrlBufs[i], &ctrlCurrent, sizeof(_ctrl_data));
 }
 
+void __CtrlDoState(PointerWrap &p)
+{
+	p.Do(analogEnabled);
+	p.Do(ctrlLatchBufs);
+	p.Do(ctrlOldButtons);
+
+	p.DoVoid(ctrlBufs, sizeof(ctrlBufs));
+	p.Do(ctrlCurrent);
+	p.Do(ctrlBuf);
+	p.Do(ctrlBufRead);
+	p.Do(latch);
+
+	p.Do(ctrlIdleReset);
+	p.Do(ctrlIdleBack);
+
+	p.Do(ctrlCycle);
+
+	p.Do(waitingThreads);
+
+	p.Do(ctrlTimer);
+	CoreTiming::RestoreRegisterEvent(ctrlTimer, "CtrlSampleTimer", __CtrlTimerUpdate);
+	p.DoMarker("sceCtrl");
+}
+
 void __CtrlShutdown()
 {
 	waitingThreads.clear();
