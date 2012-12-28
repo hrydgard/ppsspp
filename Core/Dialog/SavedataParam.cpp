@@ -68,6 +68,13 @@ namespace
 
 		return result != 0;
 	}
+
+	struct EncryptFileInfo
+	{
+		int fileVersion;
+		u8 key[16];
+		int sdkVersion;
+	};
 }
 
 SavedataParam::SavedataParam()
@@ -184,8 +191,20 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, int saveId)
 		sfoFile.SetValue("PARENTAL_LEVEL",param->sfoParam.parentalLevel,4);
 		sfoFile.SetValue("CATEGORY","MS",4);
 		sfoFile.SetValue("SAVEDATA_DIRECTORY",GetSaveDir(param,saveId),64);
-		sfoFile.SetValue("SAVEDATA_FILE_LIST","",3168); // This need to be filed with the save filename and a hash
-		sfoFile.SetValue("SAVEDATA_PARAMS","",128); // This need to be filled with a hash of the save file encrypted.
+
+		 // For each file, 32 bytes for filename, 32 bytes for file hash (0 in PPSSPP)
+		u8* tmpData = new u8[3168];
+		memset(tmpData, 0, 3168);
+		sprintf((char*)tmpData,"%s",GetFileName(param).c_str());
+		sfoFile.SetValue("SAVEDATA_FILE_LIST", tmpData, 3168, 3168);
+		delete[] tmpData;
+
+		// No crypted save, so fill with 0
+		tmpData = new u8[128];
+		memset(tmpData, 0, 128);
+		sfoFile.SetValue("SAVEDATA_PARAMS", tmpData, 128, 128);
+		delete[] tmpData;
+
 		u8 *sfoData;
 		size_t sfoSize;
 		sfoFile.WriteSFO(&sfoData,&sfoSize);
@@ -221,6 +240,21 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, int saveId)
 			data_ = (u8*)Memory::GetPointer(*((unsigned int*)&param->snd0FileData.buf));
 			std::string snd0path = dirPath+"/"+snd0Name;
 			WritePSPFile(snd0path, data_, param->snd0FileData.bufSize);
+		}
+
+		// Save Encryption Data
+		{
+			EncryptFileInfo encryptInfo;
+			int dataSize = sizeof(encryptInfo); // version + key + sdkVersion
+			memset(&encryptInfo,0,dataSize);
+
+			encryptInfo.fileVersion = 1;
+			encryptInfo.sdkVersion = sceKernelGetCompiledSdkVersion();
+			if(param->size > 1500)
+				memcpy(encryptInfo.key,param->key,16);
+
+			std::string encryptInfoPath = dirPath+"/"+"ENCRYPT_INFO.BIN";
+			WritePSPFile(encryptInfoPath, (u8*)&encryptInfo, dataSize);
 		}
 	}
 	return true;
@@ -293,6 +327,8 @@ bool SavedataParam::GetSizes(SceUtilitySavedataParam *param)
 		return false;
 	}
 
+	bool ret = true;
+
 	if (Memory::IsValidAddress(param->msFree))
 	{
 		Memory::Write_U32((u32)MemoryStick_SectorSize(),param->msFree); // cluster Size
@@ -317,12 +353,13 @@ bool SavedataParam::GetSizes(SceUtilitySavedataParam *param)
 		}
 		else
 		{
-			Memory::Write_U32(1,param->msData+36);
-			Memory::Write_U32(0x20,param->msData+40);
+			Memory::Write_U32(0,param->msData+36);
+			Memory::Write_U32(0,param->msData+40);
 			Memory::Write_U8(0,param->msData+44);
-			Memory::Write_U32(0x20,param->msData+52);
+			Memory::Write_U32(0,param->msData+52);
 			Memory::Write_U8(0,param->msData+56);
-			//return false;
+			ret = false;
+			// this should return SCE_UTILITY_SAVEDATA_ERROR_SIZES_NO_DATA
 		}
 	}
 	if (Memory::IsValidAddress(param->utilityData))
@@ -345,7 +382,7 @@ bool SavedataParam::GetSizes(SceUtilitySavedataParam *param)
 		Memory::Memset(param->utilityData+20,0,spaceTxt.size()+1);
 		Memory::Memcpy(param->utilityData+20,spaceTxt.c_str(),spaceTxt.size()); // save size in text
 	}
-	return true;
+	return ret;
 
 }
 

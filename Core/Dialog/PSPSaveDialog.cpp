@@ -47,8 +47,8 @@ int PSPSaveDialog::Init(int paramAddr)
 
 	u32 retval = param.SetPspParam(&request);
 
-	DEBUG_LOG(HLE,"sceUtilitySavedataInitStart(%08x)", paramAddr);
-	DEBUG_LOG(HLE,"Mode: %i", param.GetPspParam()->mode);
+	INFO_LOG(HLE,"sceUtilitySavedataInitStart(%08x)", paramAddr);
+	INFO_LOG(HLE,"Mode: %i", param.GetPspParam()->mode);
 
 	switch(param.GetPspParam()->mode)
 	{
@@ -665,7 +665,7 @@ int PSPSaveDialog::Update()
 						param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_SIZES_NO_DATA;
 					}
 					status = SCE_UTILITY_STATUS_FINISHED;
-				// TODO: intentional missing break?
+				break;
 				case SCE_UTILITY_SAVEDATA_TYPE_LIST:
 					param.GetList(param.GetPspParam());
 					param.GetPspParam()->result = 0;
