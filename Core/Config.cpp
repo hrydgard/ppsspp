@@ -60,6 +60,7 @@ void CConfig::Load(const char *iniFileName)
 	graphics->Get("WindowZoom", &iWindowZoom, 1);
 	graphics->Get("BufferedRendering", &bBufferedRendering, true);
 	graphics->Get("HardwareTransform", &bHardwareTransform, false);
+	graphics->Get("LinearFiltering", &bLinearFiltering, false);
 
 	IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 	sound->Get("Enable", &bEnableSound, true);
@@ -98,6 +99,7 @@ void CConfig::Save()
 		graphics->Set("WindowZoom", iWindowZoom);
 		graphics->Set("BufferedRendering", bBufferedRendering);
 		graphics->Set("HardwareTransform", bHardwareTransform);
+		graphics->Set("LinearFiltering", bLinearFiltering);
 
 		IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 		sound->Set("Enable", bEnableSound);
