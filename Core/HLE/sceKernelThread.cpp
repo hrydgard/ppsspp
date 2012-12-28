@@ -222,12 +222,12 @@ public:
 
 	void DoState(PointerWrap &p) {
 
-		size_t n = (int) calls_.size();
+		int n = (int) calls_.size();
 		p.Do(n);
 
 		if (p.mode == p.MODE_READ) {
 			clear();
-			for (size_t i = 0; i < n; ++i) {
+			for (int i = 0; i < n; ++i) {
 				int k;
 				p.Do(k);
 				MipsCall *call = new MipsCall();

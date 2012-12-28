@@ -853,8 +853,10 @@ public:
 		p.Do(name);
 
 		// TODO: Is this the right way for it to wake up?
-		size_t count = listing.size();
-		for (size_t i = 0; i < count; ++i) {
+		int count = listing.size();
+		p.Do(count);
+		listing.resize(count);
+		for (int i = 0; i < count; ++i) {
 			listing[i].DoState(p);
 		}
 		p.DoMarker("DirListing");

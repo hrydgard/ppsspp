@@ -58,6 +58,12 @@ void HLEInit()
 	RegisterAllModules();
 }
 
+void HLEDoState(PointerWrap &p)
+{
+	p.Do(unresolvedSyscalls);
+	p.DoMarker("HLE");
+}
+
 void HLEShutdown()
 {
 	hleAfterSyscall = HLE_AFTER_NOTHING;

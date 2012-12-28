@@ -168,13 +168,13 @@ public:
 			return;
 		}
 
-		size_t n = subIntrHandlers.size();
+		int n = (int) subIntrHandlers.size();
 		p.Do(n);
 
 		if (p.mode == p.MODE_READ)
 		{
 			clear();
-			for (size_t i = 0; i < n; ++i)
+			for (int i = 0; i < n; ++i)
 			{
 				int subIntrNum;
 				p.Do(subIntrNum);

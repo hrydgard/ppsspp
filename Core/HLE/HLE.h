@@ -87,6 +87,7 @@ void hleRunInterrupts();
 void hleDebugBreak();
 
 void HLEInit();
+void HLEDoState(PointerWrap &p);
 void HLEShutdown();
 u32 GetNibByName(const char *module, const char *function);
 u32 GetSyscallOp(const char *module, u32 nib);

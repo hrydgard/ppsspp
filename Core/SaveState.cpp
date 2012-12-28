@@ -21,10 +21,12 @@
 #include "SaveState.h"
 #include "Core.h"
 #include "CoreTiming.h"
+#include "HLE/HLE.h"
 #include "HLE/sceKernel.h"
 #include "HW/MemoryStick.h"
 #include "MemMap.h"
 #include "MIPS/MIPS.h"
+#include "System.h"
 
 namespace SaveState
 {
@@ -72,8 +74,9 @@ namespace SaveState
 		Memory::DoState(p);
 		MemoryStick_DoState(p);
 		currentMIPS->DoState(p);
+		pspFileSystem.DoState(p);
+		HLEDoState(p);
 		__KernelDoState(p);
-		// TODO: filesystem, HLE?
 	}
 
 	void Enqueue(SaveState::Operation op)

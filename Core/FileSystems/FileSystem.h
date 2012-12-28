@@ -90,6 +90,7 @@ class IFileSystem
 public:
 	virtual ~IFileSystem() {}
 
+	virtual void DoState(PointerWrap &p) = 0;
 	virtual std::vector<PSPFileInfo> GetDirListing(std::string path) = 0;
 	virtual u32      OpenFile(std::string filename, FileAccess access) = 0;
 	virtual void     CloseFile(u32 handle) = 0;
@@ -108,6 +109,7 @@ public:
 class EmptyFileSystem : public IFileSystem
 {
 public:
+	virtual void DoState(PointerWrap &p) {}
 	std::vector<PSPFileInfo> GetDirListing(std::string path) {std::vector<PSPFileInfo> vec; return vec;}
 	u32      OpenFile(std::string filename, FileAccess access) {return 0;}
 	void     CloseFile(u32 handle) {}

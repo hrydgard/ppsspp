@@ -550,7 +550,7 @@ void Event_DoState(PointerWrap &p, BaseEvent *ev)
 
 void DoState(PointerWrap &p)
 {
-	size_t n = event_types.size();
+	int n = (int) event_types.size();
 	p.Do(n);
 	// These (should) be filled in later by the modules.
 	event_types.resize(n, EventType(AntiCrashCallback, "INVALID EVENT"));

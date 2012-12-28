@@ -158,7 +158,8 @@ public:
 		u32 vec_size = (u32)x.size();
 		Do(vec_size);
 		x.resize(vec_size);
-		DoArray(&x[0], vec_size);
+		if (vec_size > 0)
+			DoArray(&x[0], vec_size);
 	}
 	
 	// Store deques.
