@@ -279,8 +279,8 @@ void PPGeDraw4Patch(int atlasImage, float x, float y, float w, float h, u32 colo
 	if (!dlPtr)
 		return;
 	const AtlasImage &img = ppge_images[atlasImage];
-	float borderx = img.w / 2;
-	float bordery = img.h / 2;
+	float borderx = img.w / 20;
+	float bordery = img.h / 20;
 	float u1 = img.u1, uhalf = (img.u1 + img.u2) / 2, u2 = img.u2;
 	float v1 = img.v1, vhalf = (img.v1 + img.v2) / 2, v2 = img.v2;
 	float xmid1 = x + borderx;
