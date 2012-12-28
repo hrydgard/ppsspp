@@ -29,10 +29,10 @@ namespace SaveState
 
 	// Load the specified file into the current state (async.)
 	// Warning: callback will be called on a different thread.
-	void Load(std::string &filename, Callback callback = NULL);
+	void Load(const std::string &filename, Callback callback = NULL);
 	// Save the current state to the specified file (async.)
 	// Warning: callback will be called on a different thread.
-	void Save(std::string &filename, Callback callback = NULL);
+	void Save(const std::string &filename, Callback callback = NULL);
 	// For testing / automated tests.  Runs a save state verification pass (async.)
 	// Warning: callback will be called on a different thread.
 	void Verify(Callback callback = NULL);

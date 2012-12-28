@@ -26,6 +26,7 @@
 #include "HW/MemoryStick.h"
 #include "MemMap.h"
 #include "MIPS/MIPS.h"
+#include "MIPS/JitCommon/JitCommon.h"
 #include "System.h"
 
 namespace SaveState
@@ -95,12 +96,12 @@ namespace SaveState
 			CoreTiming::ScheduleEvent_Threadsafe(0, timer);
 	}
 
-	void Load(std::string &filename, Callback callback)
+	void Load(const std::string &filename, Callback callback)
 	{
 		Enqueue(Operation(SAVESTATE_LOAD, filename, callback));
 	}
 
-	void Save(std::string &filename, Callback callback)
+	void Save(const std::string &filename, Callback callback)
 	{
 		Enqueue(Operation(SAVESTATE_SAVE, filename, callback));
 	}
@@ -132,11 +133,15 @@ namespace SaveState
 			switch (op.type)
 			{
 			case SAVESTATE_LOAD:
+				if (MIPSComp::jit)
+					MIPSComp::jit->ClearCache();
 				INFO_LOG(COMMON, "Loading state from %s", op.filename.c_str());
 				result = CChunkFileReader::Load(op.filename, REVISION, state);
 				break;
 
 			case SAVESTATE_SAVE:
+				if (MIPSComp::jit)
+					MIPSComp::jit->ClearCache();
 				INFO_LOG(COMMON, "Saving state to %s", op.filename.c_str());
 				result = CChunkFileReader::Save(op.filename, REVISION, state);
 				break;
