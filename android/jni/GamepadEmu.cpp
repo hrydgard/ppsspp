@@ -21,8 +21,8 @@
 #include "ui_atlas.h"
 
 TouchButton buttonX(&ui_atlas, I_ROUND, I_CROSS, PAD_BUTTON_A);
-TouchButton buttonO(&ui_atlas, I_ROUND, I_CIRCLE, PAD_BUTTON_X);
-TouchButton buttonSq(&ui_atlas, I_ROUND, I_SQUARE, PAD_BUTTON_B);
+TouchButton buttonO(&ui_atlas, I_ROUND, I_CIRCLE, PAD_BUTTON_B);
+TouchButton buttonSq(&ui_atlas, I_ROUND, I_SQUARE, PAD_BUTTON_X);
 TouchButton buttonTri(&ui_atlas, I_ROUND, I_TRIANGLE, PAD_BUTTON_Y);
 TouchButton buttonSelect(&ui_atlas, I_RECT, I_SELECT, PAD_BUTTON_SELECT);
 TouchButton buttonStart(&ui_atlas, I_RECT, I_START, PAD_BUTTON_START);
