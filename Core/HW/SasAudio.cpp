@@ -190,9 +190,19 @@ SasInstance::SasInstance()
 }
 
 SasInstance::~SasInstance() {
-	delete [] mixBuffer;
-	delete [] sendBuffer;
-	delete [] resampleBuffer;
+	ClearGrainSize();
+}
+
+void SasInstance::ClearGrainSize() {
+	if (mixBuffer)
+		delete [] mixBuffer;
+	if (sendBuffer)
+		delete [] sendBuffer;
+	if (resampleBuffer)
+		delete [] resampleBuffer;
+	mixBuffer = NULL;
+	sendBuffer = NULL;
+	resampleBuffer = NULL;
 }
 
 void SasInstance::SetGrainSize(int newGrainSize) {
@@ -315,20 +325,24 @@ void SasInstance::Mix(u32 outAddr) {
 void SasInstance::DoState(PointerWrap &p) {
 	p.Do(grainSize);
 	if (p.mode == p.MODE_READ) {
-		SetGrainSize(grainSize);
+		if (grainSize > 0) {
+			SetGrainSize(grainSize);
+		} else {
+			ClearGrainSize();
+		}
 	}
 
 	p.Do(maxVoices);
 	p.Do(sampleRate);
 	p.Do(outputMode);
 
-	if (mixBuffer != NULL) {
+	if (mixBuffer != NULL && grainSize > 0) {
 		p.DoArray(mixBuffer, grainSize * 2);
 	}
-	if (sendBuffer != NULL) {
+	if (sendBuffer != NULL && grainSize > 0) {
 		p.DoArray(sendBuffer, grainSize * 2);
 	}
-	if (resampleBuffer != NULL) {
+	if (resampleBuffer != NULL && grainSize > 0) {
 		p.DoArray(resampleBuffer, grainSize * 4 + 2);
 	}
 

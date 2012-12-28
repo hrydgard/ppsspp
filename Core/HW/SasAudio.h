@@ -212,6 +212,7 @@ public:
 	SasInstance();
 	~SasInstance();
 
+	void ClearGrainSize();
 	void SetGrainSize(int newGrainSize);
 	int GetGrainSize() const { return grainSize; }
 
