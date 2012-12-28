@@ -204,6 +204,14 @@ void __IoInit() {
 	pspFileSystem.Mount("flash1:", flash);
 }
 
+void __IoDoState(PointerWrap &p) {
+	// TODO: defAction is hard to save, and not the right way anyway.
+	// Should probbly be an enum and on the FileNode anyway.
+	if (defAction != NULL) {
+		WARN_LOG(HLE, "FIXME: Savestate failure: deferred IO not saved yet.");
+	}
+}
+
 void __IoShutdown() {
 	defAction = 0;
 	defParam = 0;

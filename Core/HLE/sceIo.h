@@ -22,6 +22,7 @@
 #include "sceKernel.h"
 
 void __IoInit();
+void __IoDoState(PointerWrap &p);
 void __IoShutdown();
 KernelObject *__KernelFileNodeObject();
 KernelObject *__KernelDirListingObject();

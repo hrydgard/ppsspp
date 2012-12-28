@@ -163,6 +163,7 @@ void __KernelDoState(PointerWrap &p)
 	__SslDoState(p);
 	__UmdDoState(p);
 	__UsbDoState(p);
+	__IoDoState(p);
 
 	__PPGeDoState(p);
 
