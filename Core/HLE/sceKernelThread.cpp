@@ -175,7 +175,6 @@ struct ThreadWaitInfo {
 };
 
 // Owns outstanding MIPS calls and provides a way to get them by ID.
-// TODO: MipsCall structs are kinda big, try to cut down on the copying by owning pointers instead.
 class MipsCallManager {
 public:
 	MipsCallManager() : idGen_(0) {}
@@ -193,23 +192,26 @@ public:
 		return temp;
 	}
 	void clear() {
-		// TODO: Should this delete them? (it should probably just own them.)
+		std::map<int, MipsCall *>::iterator it, end;
+		for (it = calls_.begin(), end = calls_.end(); it != end; ++it) {
+			delete it->second;
+		}
 		calls_.clear();
 		idGen_ = 0;
 	}
 
-	int registerType(ActionCreator creator) {
+	int registerActionType(ActionCreator creator) {
 		types_.push_back(creator);
 		return types_.size() - 1;
 	}
 
-	void restoreType(int actionType, ActionCreator creator) {
+	void restoreActionType(int actionType, ActionCreator creator) {
 		if (actionType >= (int) types_.size())
 			types_.resize(actionType + 1, NULL);
 		types_[actionType] = creator;
 	}
 
-	Action *createByType(int actionType) {
+	Action *createActionByType(int actionType) {
 		if (actionType < (int) types_.size() && types_[actionType] != NULL) {
 			Action *a = types_[actionType]();
 			a->actionTypeID = actionType;
@@ -219,18 +221,15 @@ public:
 	}
 
 	void DoState(PointerWrap &p) {
-		p.Do(idGen_);
 
 		size_t n = (int) calls_.size();
 		p.Do(n);
 
 		if (p.mode == p.MODE_READ) {
-			// TODO: Delete them?
-			calls_.clear();
+			clear();
 			for (size_t i = 0; i < n; ++i) {
 				int k;
 				p.Do(k);
-				// TODO: Presumably leaks?  MipsCallManager may need to own these.
 				MipsCall *call = new MipsCall();
 				call->DoState(p);
 				calls_[k] = call;
@@ -242,6 +241,8 @@ public:
 				it->second->DoState(p);
 			}
 		}
+
+		p.Do(idGen_);
 		p.DoMarker("MipsCallManager");
 	}
 
@@ -499,17 +500,17 @@ SceUID curModule;
 
 int __KernelRegisterActionType(ActionCreator creator)
 {
-	return mipsCalls.registerType(creator);
+	return mipsCalls.registerActionType(creator);
 }
 
 void __KernelRestoreActionType(int actionType, ActionCreator creator)
 {
-	mipsCalls.restoreType(actionType, creator);
+	mipsCalls.restoreActionType(actionType, creator);
 }
 
 Action *__KernelCreateAction(int actionType)
 {
-	return mipsCalls.createByType(actionType);
+	return mipsCalls.createActionByType(actionType);
 }
 
 void MipsCall::DoState(PointerWrap &p)
@@ -2172,8 +2173,10 @@ void __KernelReturnFromMipsCall()
 
 	// Should also save/restore wait state here.
 	if (call->doAfter)
+	{
 		call->doAfter->run();
-	// TODO: Do we need to delete call->doAfter?
+		delete call->doAfter;
+	}
 
 	currentMIPS->pc = call->savedPc;
 	currentMIPS->r[MIPS_REG_RA] = call->savedRa;
@@ -2194,7 +2197,7 @@ void __KernelReturnFromMipsCall()
 			__KernelReSchedule("return from callback");
 	}
 
-	// TODO: Do we need to delete call?
+	delete call;
 }
 
 bool __KernelExecutePendingMipsCalls(bool reschedAfter)
