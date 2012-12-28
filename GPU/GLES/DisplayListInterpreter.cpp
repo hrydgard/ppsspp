@@ -162,9 +162,9 @@ GLES_GPU::GLES_GPU(int renderWidth, int renderHeight)
 		displayFramebufPtr_(0),
 		renderWidth_(renderWidth),
 		renderHeight_(renderHeight),
-		dlIdGenerator(1),
 		dumpThisFrame_(false),
-		dumpNextFrame_(false) {
+		dumpNextFrame_(false)
+{
 	renderWidthFactor_ = (float)renderWidth / 480.0f;
 	renderHeightFactor_ = (float)renderHeight / 272.0f;
 	shaderManager_ = new ShaderManager();
@@ -386,16 +386,15 @@ void GLES_GPU::EndDebugDraw() {
 
 // Render queue
 
-bool GLES_GPU::ProcessDLQueue() {
-	std::vector<DisplayList>::iterator iter = dlQueue.begin();
-	while (!(iter == dlQueue.end())) {
+bool GLES_GPU::ProcessDLQueue()
+{
+	DisplayListQueue::iterator iter = dlQueue.begin();
+	while (!(iter == dlQueue.end()))
+	{
 		DisplayList &l = *iter;
-		dcontext.pc = l.listpc;
-		dcontext.stallAddr = l.stall;
-//		//DEBUG_LOG(G3D,"Okay, starting DL execution at %08 - stall = %08x", context.pc, stallAddr);
-		if (!InterpretList()) {
-			l.listpc = dcontext.pc;
-			l.stall = dcontext.stallAddr;
+//		DEBUG_LOG(G3D,"Okay, starting DL execution at %08 - stall = %08x", context.pc, stallAddr);
+		if (!InterpretList(l))
+		{
 			return false;
 		} else {
 			//At the end, we can remove it from the queue and continue
@@ -407,32 +406,8 @@ bool GLES_GPU::ProcessDLQueue() {
 	return true; //no more lists!
 }
 
-u32 GLES_GPU::EnqueueList(u32 listpc, u32 stall) {
-	DisplayList dl;
-	dl.id = dlIdGenerator++;
-	dl.listpc = listpc & 0xFFFFFFF;
-	dl.stall = stall & 0xFFFFFFF;
-	dlQueue.push_back(dl);
-	if (!ProcessDLQueue())
-		return dl.id;
-	else
-		return 0;
-}
-
-void GLES_GPU::UpdateStall(int listid, u32 newstall) {
-	// this needs improvement....
-	for (std::vector<DisplayList>::iterator iter = dlQueue.begin(); iter != dlQueue.end(); iter++)
-	{
-		DisplayList &l = *iter;
-		if (l.id == listid)
-		{
-			l.stall = newstall & 0xFFFFFFF;
-		}
-	}
-	ProcessDLQueue();
-}
-
-void GLES_GPU::DrawSync(int mode) {
+void GLES_GPU::DrawSync(int mode)
+{
 	transformDraw_.Flush();
 }
 
@@ -547,7 +522,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		{
 			u32 target = (((gstate.base & 0x00FF0000) << 8) | (op & 0xFFFFFC)) & 0x0FFFFFFF;
 			if (Memory::IsValidAddress(target)) {
-				dcontext.pc = target - 4; // pc will be increased after we return, counteract that
+				currentList->pc = target - 4; // pc will be increased after we return, counteract that
 			} else {
 				ERROR_LOG(G3D, "JUMP to illegal address %08x - ignoring??", target);
 			}
@@ -556,21 +531,21 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_CALL:
 		{
-			u32 retval = dcontext.pc + 4;
+			u32 retval = currentList->pc + 4;
 			if (stackptr == ARRAY_SIZE(stack)) {
 				ERROR_LOG(G3D, "CALL: Stack full!");
 			} else {
 				stack[stackptr++] = retval;
 				u32 target = (((gstate.base & 0x00FF0000) << 8) | (op & 0xFFFFFC)) & 0xFFFFFFF;
-				dcontext.pc = target - 4;	// pc will be increased after we return, counteract that
+				currentList->pc = target - 4;	// pc will be increased after we return, counteract that
 			}
 		}
 		break;
 
 	case GE_CMD_RET:
 		{
-			u32 target = (dcontext.pc & 0xF0000000) | (stack[--stackptr] & 0x0FFFFFFF);
-			dcontext.pc = target - 4;
+			u32 target = (currentList->pc & 0xF0000000) | (stack[--stackptr] & 0x0FFFFFFF);
+			currentList->pc = target - 4;
 		}
 		break;
 
@@ -590,6 +565,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		switch (prev >> 24) {
 		case GE_CMD_SIGNAL:
 			{
+				currentList->status = PSP_GE_LIST_END_REACHED;
 				// TODO: see http://code.google.com/p/jpcsp/source/detail?r=2935#
 				int behaviour = (prev >> 16) & 0xFF;
 				int signal = prev & 0xFFFF;
@@ -624,6 +600,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 			}
 			break;
 		case GE_CMD_FINISH:
+			currentList->status = PSP_GE_LIST_DONE;
 			finished = true;
 			break;
 		default:
@@ -641,7 +618,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_ORIGIN:
-		gstate.offsetAddr = dcontext.pc & 0xFFFFFF;
+		gstate.offsetAddr = currentList->pc & 0xFFFFFF;
 		break;
 
 	case GE_CMD_VERTEXTYPE:
@@ -1095,13 +1072,14 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	default:
-		DEBUG_LOG(G3D,"DL Unknown: %08x @ %08x", op, dcontext.pc);
+		DEBUG_LOG(G3D,"DL Unknown: %08x @ %08x", op, currentList->pc);
 		break;
 	}
 }
 
-bool GLES_GPU::InterpretList()
+bool GLES_GPU::InterpretList(DisplayList &list)
 {
+	currentList = &list;
 	// Reset stackptr for safety
 	stackptr = 0;
 	u32 op = 0;
@@ -1109,14 +1087,17 @@ bool GLES_GPU::InterpretList()
 	finished = false;
 	while (!finished)
 	{
-		if (!Memory::IsValidAddress(dcontext.pc)) {
-			ERROR_LOG(G3D, "DL PC = %08x WTF!!!!", dcontext.pc);
+		list.status = PSP_GE_LIST_DRAWING;
+		if (!Memory::IsValidAddress(list.pc)) {
+			ERROR_LOG(G3D, "DL PC = %08x WTF!!!!", list.pc);
 			return true;
 		}
-		if (dcontext.pc == dcontext.stallAddr)
+		if (list.pc == list.stall)
+		{
+			list.status = PSP_GE_LIST_STALL_REACHED;
 			return false;
-
-		op = Memory::ReadUnchecked_U32(dcontext.pc); //read from memory
+		}
+		op = Memory::ReadUnchecked_U32(list.pc); //read from memory
 		u32 cmd = op >> 24;
 		u32 diff = op ^ gstate.cmdmem[cmd];
 		if (flushBeforeCommand_[cmd] == 1 || (diff && flushBeforeCommand_[cmd] == 2))
@@ -1124,15 +1105,15 @@ bool GLES_GPU::InterpretList()
 		// TODO: Add a compiler flag to remove stuff like this at very-final build time.
 		if (dumpThisFrame_) {
 			char temp[256];
-			GeDisassembleOp(dcontext.pc, op, prev, temp);
-			NOTICE_LOG(G3D, "%08x: %s", dcontext.pc, temp);
+			GeDisassembleOp(list.pc, op, prev, temp);
+			NOTICE_LOG(G3D, "%08x: %s", list.pc, temp);
 		}
 
 		gstate.cmdmem[cmd] = op;
 
 		ExecuteOp(op, diff);
 
-		dcontext.pc += 4;
+		list.pc += 4;
 		prev = op;
 	}
 	return true;

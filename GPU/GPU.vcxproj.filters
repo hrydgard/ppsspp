@@ -60,6 +60,10 @@
     <ClInclude Include="GLES\IndexGenerator.h">
       <Filter>GLES</Filter>
     </ClInclude>
+    <ClInclude Include="GeDisasm.h" />
+    <ClInclude Include="GPUCommon.h">
+      <Filter>Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -100,6 +104,10 @@
     </ClCompile>
     <ClCompile Include="GLES\IndexGenerator.cpp">
       <Filter>GLES</Filter>
+    </ClCompile>
+    <ClCompile Include="GeDisasm.cpp" />
+    <ClCompile Include="GPUCommon.cpp">
+      <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
