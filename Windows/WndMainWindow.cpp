@@ -37,7 +37,7 @@
 #include "XPTheme.h"
 #endif
 
-BOOL g_bFullScreen = FALSE;                  
+BOOL g_bFullScreen = FALSE;
 RECT g_normalRC = {0};
 
 namespace MainWindow
@@ -313,7 +313,7 @@ namespace MainWindow
 				break;
 
 			case ID_FILE_LOADSTATE:
-				if (W32Util::BrowseForFileName(true, hWnd, "Load state",0,"Save States (*.ppssppst)\0*.ppssppst\0All files\0*.*\0\0","ppssppst",fn))
+				if (W32Util::BrowseForFileName(true, hWnd, "Load state",0,"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0","ppst",fn))
 				{
 					SetCursor(LoadCursor(0,IDC_WAIT));
 					SaveState::Load(fn, SaveStateActionFinished);
@@ -321,7 +321,7 @@ namespace MainWindow
 				break;
 
 			case ID_FILE_SAVESTATE:
-				if (W32Util::BrowseForFileName(false, hWnd, "Save state",0,"Save States (*.ppssppst)\0*.ppssppst\0All files\0*.*\0\0","ppssppst",fn))
+				if (W32Util::BrowseForFileName(false, hWnd, "Save state",0,"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0","ppst",fn))
 				{
 					SetCursor(LoadCursor(0,IDC_WAIT));
 					SaveState::Save(fn, SaveStateActionFinished);
