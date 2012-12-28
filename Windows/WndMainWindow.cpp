@@ -18,8 +18,9 @@
 #include "main.h"
 
 #include "../Core/Core.h"
-#include "../Core/System.h"
 #include "../Core/MemMap.h"
+#include "../Core/SaveState.h"
+#include "../Core/System.h"
 #include "EmuThread.h"
 
 #include "resource.h"
@@ -312,18 +313,18 @@ namespace MainWindow
 				break;
 
 			case ID_FILE_LOADSTATE:
-				if (W32Util::BrowseForFileName(true, hWnd, "Load state",0,"Save States (*.gcs)\0*.gcs\0All files\0*.*\0\0","gcs",fn))
+				if (W32Util::BrowseForFileName(true, hWnd, "Load state",0,"Save States (*.ppssppst)\0*.ppssppst\0All files\0*.*\0\0","ppssppst",fn))
 				{
 					SetCursor(LoadCursor(0,IDC_WAIT));
-					SetCursor(LoadCursor(0,IDC_ARROW));
+					SaveState::Load(fn, SaveStateActionFinished);
 				}
 				break;
 
 			case ID_FILE_SAVESTATE:
-				if (W32Util::BrowseForFileName(false, hWnd, "Save state",0,"Save States (*.gcs)\0*.gcs\0All files\0*.*\0\0","gcs",fn))
+				if (W32Util::BrowseForFileName(false, hWnd, "Save state",0,"Save States (*.ppssppst)\0*.ppssppst\0All files\0*.*\0\0","ppssppst",fn))
 				{
 					SetCursor(LoadCursor(0,IDC_WAIT));
-					SetCursor(LoadCursor(0,IDC_ARROW));
+					SaveState::Save(fn, SaveStateActionFinished);
 				}
 				break;
 
@@ -764,6 +765,14 @@ namespace MainWindow
 			sprintf(temp, "%s - %s", text, programname);
 			SetWindowText(hwndMain,temp);
 		}
+	}
+
+	void SaveStateActionFinished(bool result)
+	{
+		// TODO: Improve messaging?
+		if (!result)
+			MessageBox(0, "Savestate failure.  Please try again later.", "Sorry", MB_OK);
+		SetCursor(LoadCursor(0, IDC_ARROW));
 	}
 
 	void SetNextState(CoreState state)
