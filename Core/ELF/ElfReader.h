@@ -105,6 +105,10 @@ public:
 	{
 	    return segments[segment].p_offset;
 	}
+	u32 GetSegmentVaddr(int segment)
+	{
+		return segmentVAddr[segment];
+	}
 
 	bool DidRelocate() {
 		return bRelocate;

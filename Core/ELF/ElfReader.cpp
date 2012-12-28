@@ -318,17 +318,20 @@ bool ElfReader::LoadInto(u32 loadAddress)
 	}
 
 	// Segment relocations (a few games use them)
-	for (int i=0; i<header->e_phnum; i++)
+	if (GetNumSections() == 0)
 	{
-		Elf32_Phdr *p = &segments[i];
-		if (p->p_type == 0x700000A0)
+		for (int i=0; i<header->e_phnum; i++)
 		{
-			INFO_LOG(LOADER,"Loading segment relocations");
+			Elf32_Phdr *p = &segments[i];
+			if (p->p_type == 0x700000A0)
+			{
+				INFO_LOG(LOADER,"Loading segment relocations");
 
-			int numRelocs = p->p_filesz / sizeof(Elf32_Rel);
+				int numRelocs = p->p_filesz / sizeof(Elf32_Rel);
 
-			Elf32_Rel *rels = (Elf32_Rel *)GetSegmentPtr(i);
-			LoadRelocations(rels, numRelocs);
+				Elf32_Rel *rels = (Elf32_Rel *)GetSegmentPtr(i);
+				LoadRelocations(rels, numRelocs);
+			}
 		}
 	}
 
