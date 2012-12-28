@@ -56,6 +56,13 @@ struct MsgPipe : public KernelObject
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_MPPID; }
 	int GetIDType() const { return SCE_KERNEL_TMID_Mpipe; }
 
+	MsgPipe() : buffer(NULL) {}
+	~MsgPipe()
+	{
+		if (buffer != NULL)
+			delete [] buffer;
+	}
+
 	void AddWaitingThread(std::vector<MsgPipeWaitingThread> &list, SceUID id, u32 addr, u32 size, int waitMode, u32 transferredBytesAddr, bool usePrio)
 	{
 		MsgPipeWaitingThread thread = { id, addr, size, size, waitMode, transferredBytesAddr };
@@ -210,10 +217,6 @@ void sceKernelDeleteMsgPipe()
 		ERROR_LOG(HLE, "sceKernelDeleteMsgPipe(%i) - ERROR %08x", uid, error);
 		RETURN(error);
 		return;
-	}
-	if (m->buffer != 0)
-	{
-		delete [] m->buffer;
 	}
 	for (u32 i = 0; i < m->sendWaitingThreads.size(); i++)
 	{
