@@ -97,6 +97,8 @@ struct ThreadContext
 // Internal API, used by implementations of kernel functions
 
 void __KernelThreadingInit();
+void __KernelThreadingDoState(PointerWrap &p);
+void __KernelThreadingDoStateLate(PointerWrap &p);
 void __KernelThreadingShutdown();
 KernelObject *__KernelThreadObject();
 KernelObject *__KernelCallbackObject();
@@ -184,6 +186,10 @@ bool __KernelSwitchOffThread(const char *reason);
 // A call into game code. These can be pending on a thread.
 // Similar to Callback-s (NOT CallbackInfos) in JPCSP.
 class Action;
+typedef Action *(*ActionCreator)();
+Action *__KernelCreateAction(int actionType);
+int __KernelRegisterActionType(ActionCreator creator);
+void __KernelRestoreActionType(int actionType, ActionCreator creator);
 struct MipsCall {
 	u32 entryPoint;
 	u32 cbId;
@@ -196,9 +202,11 @@ struct MipsCall {
 	u32 savedV0;
 	u32 savedV1;
 	bool returnVoid;
-	const char *tag;
+	std::string tag;
 	u32 savedId;
 	bool reschedAfter;
+
+	void DoState(PointerWrap &p);
 };
 enum ThreadStatus
 {

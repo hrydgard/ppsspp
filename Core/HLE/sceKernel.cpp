@@ -143,10 +143,9 @@ void __KernelDoState(PointerWrap &p)
 	kernelObjects.DoState(p);
 	p.DoMarker("KernelObjects");
 
-	// TODO: Put these in the correct order...
 	__InterruptsDoState(p);
 	__KernelMemoryDoState(p);
-	// TODO: __KernelThreadingDoState(p);
+	__KernelThreadingDoState(p);
 	__KernelAlarmDoState(p);
 	__KernelEventFlagDoState(p);
 	__KernelMbxDoState(p);
@@ -155,6 +154,9 @@ void __KernelDoState(PointerWrap &p)
 	__KernelSemaDoState(p);
 	// TODO: non-kernel modules
 	// TODO: PPGe
+
+	__InterruptsDoStateLate(p);
+	__KernelThreadingDoStateLate(p);
 }
 
 bool __KernelIsRunning() {

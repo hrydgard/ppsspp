@@ -193,13 +193,62 @@ public:
 		return temp;
 	}
 	void clear() {
+		// TODO: Should this delete them? (it should probably just own them.)
 		calls_.clear();
 		idGen_ = 0;
+	}
+
+	int registerType(ActionCreator creator) {
+		types_.push_back(creator);
+		return types_.size() - 1;
+	}
+
+	void restoreType(int actionType, ActionCreator creator) {
+		if (actionType >= (int) types_.size())
+			types_.resize(actionType + 1, NULL);
+		types_[actionType] = creator;
+	}
+
+	Action *createByType(int actionType) {
+		if (actionType < (int) types_.size() && types_[actionType] != NULL) {
+			Action *a = types_[actionType]();
+			a->actionTypeID = actionType;
+			return a;
+		}
+		return NULL;
+	}
+
+	void DoState(PointerWrap &p) {
+		p.Do(idGen_);
+
+		size_t n = (int) calls_.size();
+		p.Do(n);
+
+		if (p.mode == p.MODE_READ) {
+			// TODO: Delete them?
+			calls_.clear();
+			for (size_t i = 0; i < n; ++i) {
+				int k;
+				p.Do(k);
+				// TODO: Presumably leaks?  MipsCallManager may need to own these.
+				MipsCall *call = new MipsCall();
+				call->DoState(p);
+				calls_[k] = call;
+			}
+		} else {
+			std::map<int, MipsCall *>::iterator it, end;
+			for (it = calls_.begin(), end = calls_.end(); it != end; ++it) {
+				p.Do(it->first);
+				it->second->DoState(p);
+			}
+		}
+		p.DoMarker("MipsCallManager");
 	}
 
 private:
 	int genId() { return ++idGen_; }
 	std::map<int, MipsCall *> calls_;
+	std::vector<ActionCreator> types_;
 	int idGen_;
 };
 
@@ -207,7 +256,37 @@ class ActionAfterMipsCall : public Action
 {
 public:
 	virtual void run();
-	Thread *thread;
+
+	static Action *Create()
+	{
+		return new ActionAfterMipsCall;
+	}
+
+	virtual void DoState(PointerWrap &p)
+	{
+		p.Do(threadID);
+		p.Do(status);
+		p.Do(waitType);
+		p.Do(waitID);
+		p.Do(waitInfo);
+		p.Do(isProcessingCallbacks);
+
+		p.DoMarker("ActionAfterMipsCall");
+
+		int chainedActionType = 0;
+		if (chainedAction != NULL)
+			chainedActionType = chainedAction->actionTypeID;
+		p.Do(chainedActionType);
+
+		if (chainedActionType != 0)
+		{
+			if (p.mode == p.MODE_READ)
+				chainedAction = __KernelCreateAction(chainedActionType);
+			chainedAction->DoState(p);
+		}
+	}
+
+	SceUID threadID;
 
 	// Saved thread state
 	int status;
@@ -217,6 +296,31 @@ public:
 	bool isProcessingCallbacks;
 
 	Action *chainedAction;
+};
+
+class ActionAfterCallback : public Action
+{
+public:
+	ActionAfterCallback() {}
+	virtual void run();
+
+	static Action *Create()
+	{
+		return new ActionAfterCallback;
+	}
+
+	void setCallback(SceUID cbId_)
+	{
+		cbId = cbId_;
+	}
+
+	void DoState(PointerWrap &p)
+	{
+		p.Do(cbId);
+		p.DoMarker("ActionAfterCallback");
+	}
+
+	SceUID cbId;
 };
 
 class Thread : public KernelObject
@@ -383,6 +487,8 @@ int eventScheduledWakeup;
 bool dispatchEnabled = true;
 
 MipsCallManager mipsCalls;
+int actionAfterCallback;
+int actionAfterMipsCall;
 
 // This seems nasty
 SceUID curModule;
@@ -391,6 +497,50 @@ SceUID curModule;
 //STATE END
 //////////////////////////////////////////////////////////////////////////
 
+int __KernelRegisterActionType(ActionCreator creator)
+{
+	return mipsCalls.registerType(creator);
+}
+
+void __KernelRestoreActionType(int actionType, ActionCreator creator)
+{
+	mipsCalls.restoreType(actionType, creator);
+}
+
+Action *__KernelCreateAction(int actionType)
+{
+	return mipsCalls.createByType(actionType);
+}
+
+void MipsCall::DoState(PointerWrap &p)
+{
+	p.Do(entryPoint);
+	p.Do(cbId);
+	p.DoArray(args, ARRAY_SIZE(args));
+	p.Do(numArgs);
+	p.Do(savedIdRegister);
+	p.Do(savedRa);
+	p.Do(savedPc);
+	p.Do(savedV0);
+	p.Do(savedV1);
+	p.Do(returnVoid);
+	p.Do(tag);
+	p.Do(savedId);
+	p.Do(reschedAfter);
+
+	p.DoMarker("MipsCall");
+
+	int actionTypeID = 0;
+	if (doAfter != NULL)
+		actionTypeID = doAfter->actionTypeID;
+	p.Do(actionTypeID);
+	if (actionTypeID != 0)
+	{
+		if (p.mode == p.MODE_READ)
+			doAfter = __KernelCreateAction(actionTypeID);
+		doAfter->DoState(p);
+	}
+}
 
 // TODO: Should move to this wrapper so we can keep the current thread as a SceUID instead
 // of a dangerous raw pointer.
@@ -443,6 +593,8 @@ void __KernelThreadingInit()
 	WriteSyscall("FakeSysCalls", NID_INTERRUPTRETURN, intReturnHackAddr);
 
 	eventScheduledWakeup = CoreTiming::RegisterEvent("ScheduledWakeup", &hleScheduledWakeup);
+	actionAfterMipsCall = __KernelRegisterActionType(ActionAfterMipsCall::Create);
+	actionAfterCallback = __KernelRegisterActionType(ActionAfterCallback::Create);
 
 	// Create the two idle threads, as well. With the absolute minimal possible priority.
 	// 4096 stack size - don't know what the right value is. Hm, if callbacks are ever to run on these threads...
@@ -451,6 +603,37 @@ void __KernelThreadingInit()
 	// These idle threads are later started in LoadExec, which calls __KernelStartIdleThreads below.
 
 	__KernelListenThreadEnd(__KernelCancelWakeup);
+}
+
+void __KernelThreadingDoState(PointerWrap &p)
+{
+	p.Do(g_inCbCount);
+	p.Do(idleThreadHackAddr);
+	p.Do(threadReturnHackAddr);
+	p.Do(cbReturnHackAddr);
+	p.Do(intReturnHackAddr);
+
+	p.Do(currentThread);
+	p.Do(threadqueue);
+	p.DoArray(threadIdleID, ARRAY_SIZE(threadIdleID));
+	p.Do(dispatchEnabled);
+	p.Do(curModule);
+
+	p.Do(eventScheduledWakeup);
+	CoreTiming::RestoreRegisterEvent(eventScheduledWakeup, "ScheduledWakeup", &hleScheduledWakeup);
+	p.Do(actionAfterMipsCall);
+	__KernelRestoreActionType(actionAfterMipsCall, ActionAfterMipsCall::Create);
+	p.Do(actionAfterCallback);
+	__KernelRestoreActionType(actionAfterCallback, ActionAfterCallback::Create);
+
+	p.DoMarker("sceKernelThread");
+}
+
+void __KernelThreadingDoStateLate(PointerWrap &p)
+{
+	// We do this late to give modules time to register actions.
+	mipsCalls.DoState(p);
+	p.DoMarker("sceKernelThread Late");
 }
 
 KernelObject *__KernelThreadObject()
@@ -1698,11 +1881,15 @@ void sceKernelReferCallbackStatus()
 }
 
 void ActionAfterMipsCall::run() {
-	thread->nt.status = status;
-	thread->nt.waitType = waitType;
-	thread->nt.waitID = waitID;
-	thread->waitInfo = waitInfo;
-	thread->isProcessingCallbacks = isProcessingCallbacks;
+	u32 error;
+	Thread *thread = kernelObjects.Get<Thread>(threadID, error);
+	if (thread) {
+		thread->nt.status = status;
+		thread->nt.waitType = waitType;
+		thread->nt.waitID = waitID;
+		thread->waitInfo = waitInfo;
+		thread->isProcessingCallbacks = isProcessingCallbacks;
+	}
 
 	if (chainedAction) {
 		chainedAction->run();
@@ -1877,9 +2064,9 @@ bool __CanExecuteCallbackNow(Thread *thread) {
 void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, bool returnVoid, std::vector<int> args, bool reschedAfter)
 {
 	if (thread) {
-		ActionAfterMipsCall *after = new ActionAfterMipsCall();
+		ActionAfterMipsCall *after = (ActionAfterMipsCall *) __KernelCreateAction(actionAfterMipsCall);
 		after->chainedAction = afterAction;
-		after->thread = thread;
+		after->threadID = thread->GetUID();
 		after->status = thread->nt.status;
 		after->waitType = thread->nt.waitType;
 		after->waitID = thread->nt.waitID;
@@ -1986,6 +2173,7 @@ void __KernelReturnFromMipsCall()
 	// Should also save/restore wait state here.
 	if (call->doAfter)
 		call->doAfter->run();
+	// TODO: Do we need to delete call->doAfter?
 
 	currentMIPS->pc = call->savedPc;
 	currentMIPS->r[MIPS_REG_RA] = call->savedRa;
@@ -2005,6 +2193,8 @@ void __KernelReturnFromMipsCall()
 		if (call->reschedAfter || threadReady == 0)
 			__KernelReSchedule("return from callback");
 	}
+
+	// TODO: Do we need to delete call?
 }
 
 bool __KernelExecutePendingMipsCalls(bool reschedAfter)
@@ -2026,15 +2216,6 @@ bool __KernelExecutePendingMipsCalls(bool reschedAfter)
 	}
 	return false;
 }
-
-
-class ActionAfterCallback : public Action
-{
-public:
-	ActionAfterCallback(SceUID cbId_) : cbId(cbId_) {}
-	virtual void run();
-	SceUID cbId;
-};
 
 // Executes the callback, when it next is context switched to.
 void __KernelRunCallbackOnThread(SceUID cbId, Thread *thread, bool reschedAfter)
@@ -2060,7 +2241,12 @@ void __KernelRunCallbackOnThread(SceUID cbId, Thread *thread, bool reschedAfter)
 	cb->nc.notifyCount = 0;
 	cb->nc.notifyArg = 0;
 
-	Action *action = new ActionAfterCallback(cbId);
+	ActionAfterCallback *action = (ActionAfterCallback *) __KernelCreateAction(actionAfterCallback);
+	if (action != NULL)
+		action->setCallback(cbId);
+	else
+		ERROR_LOG(HLE, "Something went wrong creating a restore action for a callback.");
+
 	__KernelCallAddress(thread, cb->nc.entrypoint, action, false, args, reschedAfter);
 }
 

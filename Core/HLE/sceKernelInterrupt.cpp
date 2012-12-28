@@ -247,12 +247,18 @@ void __InterruptsDoState(PointerWrap &p)
 	}
 
 	intState.DoState(p);
-	for (int i = 0; i < PSP_NUMBER_INTERRUPTS; ++i)
-		intrHandlers[i].DoState(p);
 	p.Do(pendingInterrupts, PendingInterrupt(0, 0));
 	p.Do(interruptsEnabled);
 	p.Do(inInterrupt);
 	p.DoMarker("sceKernelInterrupt");
+}
+
+void __InterruptsDoStateLate(PointerWrap &p)
+{
+	// We do these later to ensure the handlers have been registered.
+	for (int i = 0; i < PSP_NUMBER_INTERRUPTS; ++i)
+		intrHandlers[i].DoState(p);
+	p.DoMarker("sceKernelInterrupt Late");
 }
 
 void __InterruptsShutdown()

@@ -109,6 +109,7 @@ typedef SubIntrHandler *(*SubIntrCreator)();
 bool __IsInInterrupt();
 void __InterruptsInit();
 void __InterruptsDoState(PointerWrap &p);
+void __InterruptsDoStateLate(PointerWrap &p);
 void __InterruptsShutdown();
 void __TriggerInterrupt(int type, PSPInterrupt intno, int subInterrupts = -1);
 void __TriggerInterruptWithArg(int type, PSPInterrupt intno, int subintr, int arg);  // For GE "callbacks"
