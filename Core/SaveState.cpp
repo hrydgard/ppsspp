@@ -44,7 +44,7 @@ namespace SaveState
 
 	struct Operation
 	{
-		Operation(OperationType t, std::string &f, Callback cb)
+		Operation(OperationType t, const std::string &f, Callback cb)
 			: type(t), filename(f), callback(cb)
 		{
 		}

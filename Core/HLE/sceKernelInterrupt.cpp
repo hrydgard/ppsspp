@@ -247,7 +247,8 @@ void __InterruptsDoState(PointerWrap &p)
 	}
 
 	intState.DoState(p);
-	p.Do(pendingInterrupts, PendingInterrupt(0, 0));
+	PendingInterrupt pi(0, 0);
+	p.Do(pendingInterrupts, pi);
 	p.Do(interruptsEnabled);
 	p.Do(inInterrupt);
 	p.DoMarker("sceKernelInterrupt");

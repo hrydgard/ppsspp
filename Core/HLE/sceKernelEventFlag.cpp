@@ -57,7 +57,7 @@ public:
 			nef.currentPattern,
 			nef.numWaitThreads);
 	}
-	
+
 	static u32 GetMissingErrorCode() {
 		return SCE_KERNEL_ERROR_UNKNOWN_EVFID;
 	}
@@ -66,7 +66,8 @@ public:
 	virtual void DoState(PointerWrap &p)
 	{
 		p.Do(nef);
-		p.Do(waitingThreads, EventFlagTh());
+		EventFlagTh eft = {0};
+		p.Do(waitingThreads, eft);
 		p.DoMarker("EventFlag");
 	}
 

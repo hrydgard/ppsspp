@@ -125,7 +125,8 @@ void __DisplayDoState(PointerWrap &p) {
 	p.Do(isVblank);
 	p.Do(hasSetMode);
 	p.Do(lastFrameTime);
-	p.Do(vblankWaitingThreads, WaitVBlankInfo(0));
+	WaitVBlankInfo wvi(0);
+	p.Do(vblankWaitingThreads, wvi);
 
 	p.Do(enterVblankEvent);
 	CoreTiming::RestoreRegisterEvent(enterVblankEvent, "EnterVBlank", &hleEnterVblank);

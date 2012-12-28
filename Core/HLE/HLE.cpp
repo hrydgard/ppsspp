@@ -17,6 +17,7 @@
 
 #include "HLE.h"
 #include <map>
+#include <vector>
 #include "../MemMap.h"
 
 #include "HLETables.h"
@@ -60,7 +61,8 @@ void HLEInit()
 
 void HLEDoState(PointerWrap &p)
 {
-	p.Do(unresolvedSyscalls, Syscall());
+	Syscall sc = {0};
+	p.Do(unresolvedSyscalls, sc);
 	p.DoMarker("HLE");
 }
 
