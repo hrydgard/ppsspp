@@ -503,6 +503,10 @@ namespace MainWindow
 				g_Config.bFastMemory = !g_Config.bFastMemory;
 				UpdateMenus();
 				break;
+		case ID_OPTIONS_LINEARFILTERING:
+				g_Config.bLinearFiltering = !g_Config.bLinearFiltering;
+				UpdateMenus();
+				break;
 
 			
 			//////////////////////////////////////////////////////////////////////////
@@ -648,6 +652,7 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_WIREFRAME, g_Config.bDrawWireframe);
 		CHECKITEM(ID_OPTIONS_HARDWARETRANSFORM, g_Config.bHardwareTransform);
 		CHECKITEM(ID_OPTIONS_FASTMEMORY, g_Config.bFastMemory);
+		CHECKITEM(ID_OPTIONS_LINEARFILTERING, g_Config.bLinearFiltering);
 
 		UINT enable = !Core_IsStepping() ? MF_GRAYED : MF_ENABLED;
 		EnableMenuItem(menu,ID_EMULATION_RUN, g_State.bEmuThreadStarted ? enable : MF_GRAYED);

@@ -247,6 +247,7 @@
 #define ID_OPTIONS_HARDWARETRANSFORM    40124
 #define ID_OPTIONS_FASTMEMORY           40125
 #define IDC_STEPHLE                     40126
+#define ID_OPTIONS_LINEARFILTERING      40127
 
 // Next default values for new objects
 // 
