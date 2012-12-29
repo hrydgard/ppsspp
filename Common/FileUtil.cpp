@@ -767,17 +767,17 @@ bool ReadFileToString(bool text_file, const char *filename, std::string &str)
 }
 
 IOFile::IOFile()
-	: m_file(NULL), m_good(true)
+	: m_file(NULL), m_zFile(NULL), m_good(true)
 {}
 
 IOFile::IOFile(std::FILE* file)
-	: m_file(file), m_good(true)
+	: m_file(file), m_zFile(NULL), m_good(true)
 {}
 
-IOFile::IOFile(const std::string& filename, const char openmode[])
-	: m_file(NULL), m_good(true)
+IOFile::IOFile(const std::string& filename, const char openmode[], IOFileMethod method)
+	: m_file(NULL), m_zFile(NULL), m_good(true), m_method(method)
 {
-	Open(filename, openmode);
+	Open(filename, openmode, method);
 }
 
 IOFile::~IOFile()
@@ -785,14 +785,21 @@ IOFile::~IOFile()
 	Close();
 }
 
-bool IOFile::Open(const std::string& filename, const char openmode[])
+bool IOFile::Open(const std::string& filename, const char openmode[], IOFileMethod method)
 {
 	Close();
+
+	m_method = method;
+	if (0 != (m_method & METHOD_GZIP))
+		m_zFile = gzopen(filename.c_str(), openmode);
+	else
+	{
 #ifdef _WIN32
-	fopen_s(&m_file, filename.c_str(), openmode);
+		fopen_s(&m_file, filename.c_str(), openmode);
 #else
-	m_file = fopen(filename.c_str(), openmode);
+		m_file = fopen(filename.c_str(), openmode);
 #endif
+	}
 
 	m_good = IsOpen();
 	return m_good;
@@ -800,10 +807,19 @@ bool IOFile::Open(const std::string& filename, const char openmode[])
 
 bool IOFile::Close()
 {
-	if (!IsOpen() || 0 != std::fclose(m_file))
-		m_good = false;
+	if (0 != (m_method & METHOD_GZIP))
+	{
+		if (Z_OK != gzclose(m_zFile))
+			m_good = false;
+		m_zFile = NULL;
+	}
+	else
+	{
+		if (!IsOpen() || 0 != std::fclose(m_file))
+			m_good = false;
+		m_file = NULL;
+	}
 
-	m_file = NULL;
 	return m_good;
 }
 
@@ -819,19 +835,32 @@ void IOFile::SetHandle(std::FILE* file)
 	Close();
 	Clear();
 	m_file = file;
+	m_method = METHOD_STANDARD;
 }
 
 u64 IOFile::GetSize()
 {
 	if (IsOpen())
+	{
+		// Not supported.
+		if (0 != (m_method & METHOD_GZIP))
+			return 0;
 		return File::GetSize(m_file);
+	}
 	else
 		return 0;
 }
 
 bool IOFile::Seek(s64 off, int origin)
 {
-	if (!IsOpen() || 0 != fseeko(m_file, off, origin))
+	if (!IsOpen())
+		m_good = false;
+	else if (0 != (m_method & METHOD_GZIP))
+	{
+		if (-1 == gzseek(m_zFile, (z_off_t) off, origin))
+			m_good = false;
+	}
+	else if (0 != fseeko(m_file, off, origin))
 		m_good = false;
 
 	return m_good;
@@ -840,14 +869,26 @@ bool IOFile::Seek(s64 off, int origin)
 u64 IOFile::Tell()
 {	
 	if (IsOpen())
+	{
+		if (0 != (m_method & METHOD_GZIP))
+			return gztell(m_zFile);
+
 		return ftello(m_file);
+	}
 	else
 		return -1;
 }
 
 bool IOFile::Flush()
 {
-	if (!IsOpen() || 0 != std::fflush(m_file))
+	if (!IsOpen())
+		m_good = false;
+	else if (0 != (m_method & METHOD_GZIP))
+	{
+		if (-1 == gzflush(m_zFile, Z_PARTIAL_FLUSH))
+			m_good = false;
+	}
+	else if (0 != std::fflush(m_file))
 		m_good = false;
 
 	return m_good;
@@ -855,7 +896,15 @@ bool IOFile::Flush()
 
 bool IOFile::Resize(u64 size)
 {
-	if (!IsOpen() || 0 !=
+	if (!IsOpen())
+		m_good = false;
+	else if (0 != (m_method & METHOD_GZIP))
+	{
+		// gzseek() adds nulls to the seeked location.
+		if (-1 == gzseek(m_zFile, (z_off_t) size, SEEK_SET))
+			m_good = false;
+	}
+	else if (0 !=
 #ifdef _WIN32
 		// ector: _chsize sucks, not 64-bit safe
 		// F|RES: changed to _chsize_s. i think it is 64-bit safe
