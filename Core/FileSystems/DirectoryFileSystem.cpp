@@ -541,7 +541,23 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 			break;
 	}
 #else
-	ERROR_LOG(HLE, "GetDirListing not implemented on non-Windows");
+	DIR *dp;
+	dirent *dirp;
+	if((dp  = opendir(GetLocalPath(path).c_str())) == NULL) {
+		ERROR_LOG(HLE,"Error opening directory %s\n",path.c_str());
+		return myVector;
+	}
+
+	while ((dirp = readdir(dp)) != NULL) {
+		PSPFileInfo entry;
+		if(dirp->d_type == DT_DIR)
+			entry.type = FILETYPE_DIRECTORY;
+		else
+			entry.type = FILETYPE_NORMAL;
+		entry.name = dirp->d_name;
+		myVector.push_back(entry);
+	}
+	closedir(dp);
 #endif
 	return myVector;
 }

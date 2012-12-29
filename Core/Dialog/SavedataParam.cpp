@@ -75,6 +75,39 @@ namespace
 		u8 key[16];
 		int sdkVersion;
 	};
+
+	bool PSPMatch(std::string text, std::string regexp)
+	{
+		if(text.empty() && regexp.empty())
+			return true;
+		else if(regexp == "*")
+			return true;
+		else if(text.empty())
+			return false;
+		else if(regexp.empty())
+			return false;
+		else if(regexp == "?" && text.length() == 1)
+			return true;
+		else if(text == regexp)
+			return true;
+		else if(regexp.data()[0] == '*')
+		{
+			bool res = PSPMatch(text.substr(1),regexp.substr(1));
+			if(!res)
+				res = PSPMatch(text.substr(1),regexp);
+			return res;
+		}
+		else if(regexp.data()[0] == '?')
+		{
+			return PSPMatch(text.substr(1),regexp.substr(1));
+		}
+		else if(regexp.data()[0] == text.data()[0])
+		{
+			return PSPMatch(text.substr(1),regexp.substr(1));
+		}
+
+		return false;
+	}
 }
 
 SavedataParam::SavedataParam()
@@ -394,7 +427,39 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 
 	if (Memory::IsValidAddress(param->idListAddr))
 	{
-		Memory::Write_U32(0,param->idListAddr+4);
+		u32 outputBuffer = Memory::Read_U32(param->idListAddr + 8);
+		u32 maxFile = Memory::Read_U32(param->idListAddr + 0);
+
+		std::vector<PSPFileInfo> validDir;
+		std::vector<PSPFileInfo> allDir = pspFileSystem.GetDirListing(savePath);
+
+		if (Memory::IsValidAddress(outputBuffer))
+		{
+			std::string searchString = GetGameName(param)+GetSaveName(param);
+			for(int i = 0; i < allDir.size() && i < maxFile; i++)
+			{
+				std::string dirName = allDir[i].name;
+				if(PSPMatch(dirName, searchString))
+				{
+					validDir.push_back(allDir[i]);
+				}
+			}
+
+			for(int i = 0; i < validDir.size(); i++)
+			{
+				u32 baseAddr = outputBuffer + (i*72);
+				Memory::Write_U32(0x11FF,baseAddr + 0); // mode
+				Memory::Write_U64(0,baseAddr + 4); // TODO ctime << this seems to not work, write 0 only on 32bits
+				Memory::Write_U64(0,baseAddr + 20); // TODO atime
+				Memory::Write_U64(0,baseAddr + 36); // TODO mtime
+				// folder name without gamename (max 20 u8)
+				std::string outName = validDir[i].name.substr(GetGameName(param).size());
+				Memory::Memset(baseAddr + 52,0,20);
+				Memory::Memcpy(baseAddr + 52, outName.c_str(), outName.size());
+			}
+		}
+		// Save num of folder found
+		Memory::Write_U32(validDir.size(),param->idListAddr+4);
 	}
 	return true;
 }
