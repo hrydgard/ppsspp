@@ -369,7 +369,7 @@ public:
 		if (!File::Exists(_rFilename))
 			return false;
 				
-		// Check file size - most probably it can't compress THAT well.
+		// Check file size
 		const u64 fileSize = File::GetSize(_rFilename);
 		static const u64 headerSize = sizeof(SChunkHeader);
 		if (fileSize < headerSize)
@@ -378,7 +378,7 @@ public:
 			return false;
 		}
 
-		File::IOFile pFile(_rFilename, "rb", File::METHOD_GZIP);
+		File::IOFile pFile(_rFilename, "rb");
 		if (!pFile)
 		{
 			ERROR_LOG(COMMON,"ChunkReader: Can't open file for reading");
@@ -402,11 +402,11 @@ public:
 		}
 		
 		// get size
-		const int sz = header.ExpectedSize;
-		if (sz > 128 * 1024 * 1024)
+		const int sz = (int)(fileSize - headerSize);
+		if (header.ExpectedSize != sz)
 		{
-			ERROR_LOG(COMMON,"ChunkReader: File too large, got %d bytes",
-				header.ExpectedSize);
+			ERROR_LOG(COMMON,"ChunkReader: Bad file size, got %d expected %d",
+				sz, header.ExpectedSize);
 			return false;
 		}
 		
@@ -432,7 +432,7 @@ public:
 	static bool Save(const std::string& _rFilename, int _Revision, T& _class)
 	{
 		INFO_LOG(COMMON, "ChunkReader: Writing %s" , _rFilename.c_str());
-		File::IOFile pFile(_rFilename, "wb9", File::METHOD_GZIP);
+		File::IOFile pFile(_rFilename, "wb");
 		if (!pFile)
 		{
 			ERROR_LOG(COMMON,"ChunkReader: Error opening file for write");

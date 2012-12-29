@@ -25,7 +25,6 @@
 #include <string.h>
 
 #include "Common.h"
-#include "../ext/zlib/zlib.h"
 
 // User directory indices for GetUserPath
 enum {
@@ -125,13 +124,6 @@ std::string &GetExeDirectory();
 bool WriteStringToFile(bool text_file, const std::string &str, const char *filename);
 bool ReadFileToString(bool text_file, const char *filename, std::string &str);
 
-enum IOFileMethod
-{
-	METHOD_STANDARD = 0x00,
-	// Warning: may not be 64-bit safe.
-	METHOD_GZIP = 0x01,
-};
-
 // simple wrapper for cstdlib file functions to
 // hopefully will make error checking easier
 // and make forgetting an fclose() harder
@@ -140,24 +132,17 @@ class IOFile : NonCopyable
 public:
 	IOFile();
 	IOFile(std::FILE* file);
-	IOFile(const std::string& filename, const char openmode[], IOFileMethod method = METHOD_STANDARD);
+	IOFile(const std::string& filename, const char openmode[]);
 
 	~IOFile();
 
-	bool Open(const std::string& filename, const char openmode[], IOFileMethod method = METHOD_STANDARD);
+	bool Open(const std::string& filename, const char openmode[]);
 	bool Close();
 
 	template <typename T>
 	bool ReadArray(T* data, size_t length)
 	{
-		if (!IsOpen())
-			m_good = false;
-		else if (0 != (m_method & METHOD_GZIP))
-		{
-			if (sizeof(T) * length != gzread(m_zFile, data, sizeof(T) * length))
-				m_good = false;
-		}
-		else if (length != std::fread(data, sizeof(T), length, m_file))
+		if (!IsOpen() || length != std::fread(data, sizeof(T), length, m_file))
 			m_good = false;
 
 		return m_good;
@@ -166,14 +151,7 @@ public:
 	template <typename T>
 	bool WriteArray(const T* data, size_t length)
 	{
-		if (!IsOpen())
-			m_good = false;
-		else if (0 != (m_method & METHOD_GZIP))
-		{
-			if (sizeof(T) * length != gzwrite(m_zFile, data, sizeof(T) * length))
-				m_good = false;
-		}
-		else if (length != std::fwrite(data, sizeof(T), length, m_file))
+		if (!IsOpen() || length != std::fwrite(data, sizeof(T), length, m_file))
 			m_good = false;
 
 		return m_good;
@@ -189,11 +167,11 @@ public:
 		return WriteArray(reinterpret_cast<const char*>(data), length);
 	}
 
-	bool IsOpen() { return NULL != m_file || NULL != m_zFile; }
+	bool IsOpen() { return NULL != m_file; }
 
 	// m_good is set to false when a read, write or other function fails
 	bool IsGood() {	return m_good; }
-	operator void*() { return m_good ? (NULL != m_file ? m_file : m_zFile) : NULL; }
+	operator void*() { return m_good ? m_file : NULL; }
 
 	std::FILE* ReleaseHandle();
 
@@ -211,18 +189,13 @@ public:
 	void Clear() {
     m_good = true;
 #undef clearerr
-    if (NULL != m_file)
-		std::clearerr(m_file);
-	if (NULL != m_zFile)
-		gzclearerr(m_zFile);
+    std::clearerr(m_file);
   }
 
 private:
 	IOFile& operator=(const IOFile&) /*= delete*/;
 
 	std::FILE* m_file;
-	gzFile m_zFile;
-	IOFileMethod m_method;
 	bool m_good;
 };
 
