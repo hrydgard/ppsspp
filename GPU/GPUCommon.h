@@ -19,6 +19,7 @@ public:
 	virtual void UpdateStall(int listid, u32 newstall);
 	virtual u32  EnqueueList(u32 listpc, u32 stall, bool head);
 	virtual int  listStatus(int listid);
+	virtual void DoState(PointerWrap &p);
 
 protected:
 	typedef std::deque<DisplayList> DisplayListQueue;

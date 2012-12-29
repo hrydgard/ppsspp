@@ -1057,7 +1057,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	default:
-		DEBUG_LOG(G3D,"DL Unknown: %08x @ %08x", op, currentList->pc);
+		DEBUG_LOG(G3D,"DL Unknown: %08x @ %08x", op, currentList == NULL ? 0 : currentList->pc);
 		break;
 	}
 }
@@ -1119,4 +1119,17 @@ void GLES_GPU::InvalidateCache(u32 addr, int size) {
 
 void GLES_GPU::Flush() {
 	transformDraw_.Flush();
+}
+
+void GLES_GPU::DoState(PointerWrap &p) {
+	GPUCommon::DoState(p);
+
+	TextureCache_Clear(true);
+	gstate_c.textureChanged = true;
+	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
+		fbo_destroy((*iter)->fbo);
+		delete (*iter);
+	}
+	vfbs_.clear();
+	shaderManager_->ClearCache(true);
 }

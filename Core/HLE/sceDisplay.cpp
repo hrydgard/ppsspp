@@ -109,7 +109,6 @@ void __DisplayInit() {
 	vCount = 0;
 	hCount = 0;
 	hCountTotal = 0;
-	hasSetMode = false;
 	lastFrameTime = 0;
 
 	InitGfxState();
@@ -132,6 +131,20 @@ void __DisplayDoState(PointerWrap &p) {
 	CoreTiming::RestoreRegisterEvent(enterVblankEvent, "EnterVBlank", &hleEnterVblank);
 	p.Do(leaveVblankEvent);
 	CoreTiming::RestoreRegisterEvent(leaveVblankEvent, "LeaveVBlank", &hleLeaveVblank);
+
+	p.Do(gstate);
+	p.Do(gstate_c);
+	p.Do(gpuStats);
+	gpu->DoState(p);
+
+	ReapplyGfxState();
+
+	if (p.mode == p.MODE_READ) {
+		if (hasSetMode) {
+			gpu->InitClear();
+		}
+		gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
+	}
 
 	p.DoMarker("sceDisplay");
 }

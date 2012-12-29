@@ -53,6 +53,7 @@ public:
 
 	virtual void DumpNextFrame();
 	virtual void Flush();
+	virtual void DoState(PointerWrap &p);
 
 private:
 	void DoBlockTransfer();
