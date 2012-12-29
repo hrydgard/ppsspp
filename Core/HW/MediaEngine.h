@@ -72,6 +72,18 @@ public:
 	int readLength() { return readLength_; }
 	void setReadLength(int len) { readLength_ = len; }
 
+	void DoState(PointerWrap &p) {
+		p.Do(fakeMode_);
+		p.Do(bufferAddr_);
+		p.Do(mpegStreamSize_);
+		p.Do(mpegOffset_);
+		p.Do(readLength_);
+		p.Do(videoWidth_);
+		p.Do(videoHeight_);
+		p.Do(fakeFrameCounter_);
+		p.DoMarker("MediaEngine");
+	}
+
 private:
 	bool fakeMode_;
 	u32 bufferAddr_;
