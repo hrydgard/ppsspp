@@ -31,11 +31,7 @@ void __GeInit()
 
 void __GeDoState(PointerWrap &p)
 {
-	p.Do(gstate);
-	p.Do(gstate_c);
-
-	ReapplyGfxState();
-	gpu->InvalidateCache(0, -1);
+	// Everything is done in sceDisplay.
 	p.DoMarker("sceGe");
 }
 
