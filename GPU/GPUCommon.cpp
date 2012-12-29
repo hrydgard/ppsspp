@@ -118,3 +118,9 @@ bool GPUCommon::ProcessDLQueue()
 void GPUCommon::PreExecuteOp(u32 op, u32 diff) {
 	// Nothing to do
 }
+
+void GPUCommon::DoState(PointerWrap &p) {
+	p.Do(dlIdGenerator);
+	p.Do<DisplayList>(dlQueue);
+	p.DoMarker("GPUCommon");
+}
