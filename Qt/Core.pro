@@ -136,6 +136,8 @@ SOURCES +=	../Core/CPU.cpp \ # Core
 	../GPU/GLES/TransformPipeline.cpp \
 	../GPU/GLES/VertexDecoder.cpp \
 	../GPU/GLES/VertexShaderGenerator.cpp \
+	../GPU/GeDisasm.cpp \
+	../GPU/GPUCommon.cpp \
 	../GPU/GPUState.cpp \
 	../GPU/Math3D.cpp \
 	../GPU/Null/NullGpu.cpp \ # Kirk
@@ -245,6 +247,8 @@ HEADERS +=	../Core/CPU.h \
 	../GPU/GLES/VertexDecoder.h \
 	../GPU/GLES/VertexShaderGenerator.h \
 	../GPU/GPUInterface.h \
+	../GPU/GeDisasm.h \
+	../GPU/GPUCommon.h \
 	../GPU/GPUState.h \
 	../GPU/Math3D.h \
 	../GPU/Null/NullGpu.h \
