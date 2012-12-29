@@ -29,12 +29,18 @@ PSPMsgDialog::PSPMsgDialog()
 PSPMsgDialog::~PSPMsgDialog() {
 }
 
-void PSPMsgDialog::Init(unsigned int paramAddr)
+int PSPMsgDialog::Init(unsigned int paramAddr)
 {
+	// Ignore if already running
+	if (status != SCE_UTILITY_STATUS_NONE && status != SCE_UTILITY_STATUS_SHUTDOWN)
+	{
+		return 0;
+	}
+
 	messageDialogAddr = paramAddr;
 	if (!Memory::IsValidAddress(messageDialogAddr))
 	{
-		return;
+		return 0;
 	}
 	Memory::ReadStruct(messageDialogAddr, &messageDialog);
 
@@ -57,7 +63,7 @@ void PSPMsgDialog::Init(unsigned int paramAddr)
 	status = SCE_UTILITY_STATUS_INITIALIZE;
 
 	lastButtons = __CtrlPeekButtons();
-
+	return 0;
 }
 
 void PSPMsgDialog::DisplayBack()
@@ -89,7 +95,7 @@ void PSPMsgDialog::DisplayEnterBack()
 	PPGeDrawText("Back", 320, 220, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
 }
 
-void PSPMsgDialog::Update()
+int PSPMsgDialog::Update()
 {
 	switch (status) {
 	case SCE_UTILITY_STATUS_FINISHED:
@@ -99,7 +105,7 @@ void PSPMsgDialog::Update()
 
 	if (status != SCE_UTILITY_STATUS_RUNNING)
 	{
-		return;
+		return 0;
 	}
 
 	const char *text;
@@ -185,17 +191,30 @@ void PSPMsgDialog::Update()
 		break;
 		default:
 			status = SCE_UTILITY_STATUS_FINISHED;
-			return;
+			return 0;
 		break;
 	}
 
 	lastButtons = buttons;
 
 	Memory::WriteStruct(messageDialogAddr, &messageDialog);
+	return 0;
 }
 
-void PSPMsgDialog::Shutdown()
+int PSPMsgDialog::Shutdown()
 {
-	PSPDialog::Shutdown();
+	return PSPDialog::Shutdown();
 }
 
+void PSPMsgDialog::DoState(PointerWrap &p)
+{
+	p.Do(display);
+	p.Do(messageDialog);
+	p.Do(messageDialogAddr);
+	p.Do(yesnoChoice);
+	p.Do(okButtonImg);
+	p.Do(cancelButtonImg);
+	p.Do(okButtonFlag);
+	p.Do(cancelButtonFlag);
+	p.DoMarker("PSPMsgDialog");
+}

@@ -100,7 +100,7 @@
 #define LOGGER_CONFIG	"Logger.ini"
 
 // Files in the directory returned by GetUserPath(D_LOGS_IDX)
-#define MAIN_LOG	"dolphin.log"
+#define MAIN_LOG	"ppsspp.log"
 
 // Sys files
 #define TOTALDB		"totaldb.dsy"

@@ -33,9 +33,24 @@ const int PSP_LANGUAGE_KOREAN = 9;
 const int PSP_LANGUAGE_TRADITIONAL_CHINESE = 10;
 const int PSP_LANGUAGE_SIMPLIFIED_CHINESE = 11;
 
-static u32 iLanguage = PSP_LANGUAGE_ENGLISH;
-static u32 iButtonValue = 0;
+static u32 language = PSP_LANGUAGE_ENGLISH;
+static u32 buttonValue = 0;
+static u32 umdPopup = 0;
 
+void __ImposeInit()
+{
+	language = PSP_LANGUAGE_ENGLISH;
+	buttonValue = 0;
+	umdPopup = 0;
+}
+
+void __ImposeDoState(PointerWrap &p)
+{
+	p.Do(language);
+	p.Do(buttonValue);
+	p.Do(umdPopup);
+	p.DoMarker("sceImpose");
+}
 
 u32 sceImposeGetBatteryIconStatus(u32 chargingPtr, u32 iconStatusPtr)
 {
@@ -50,8 +65,8 @@ u32 sceImposeGetBatteryIconStatus(u32 chargingPtr, u32 iconStatusPtr)
 u32 sceImposeSetLanguageMode(u32 languageVal, u32 buttonVal)
 {
 	DEBUG_LOG(HLE, "sceImposeSetLanguageMode(%08x, %08x)", languageVal, buttonVal);
-	iLanguage = languageVal;
-	iButtonValue = buttonVal;
+	language = languageVal;
+	buttonValue = buttonVal;
 	return 0;
 }
 
@@ -59,20 +74,32 @@ u32 sceImposeGetLanguageMode(u32 languagePtr, u32 btnPtr)
 {
 	DEBUG_LOG(HLE, "sceImposeGetLanguageMode(%08x, %08x)", languagePtr, btnPtr);
 	if (Memory::IsValidAddress(languagePtr))
-		Memory::Write_U32(iLanguage, languagePtr);
+		Memory::Write_U32(language, languagePtr);
 	if (Memory::IsValidAddress(btnPtr))
-		Memory::Write_U32(iButtonValue, btnPtr);
+		Memory::Write_U32(buttonValue, btnPtr);
 	return 0;
+}
+
+u32 sceImposeSetUMDPopup(int value) {
+	DEBUG_LOG(HLE, "sceImposeSetUMDPopup(%i)", value);
+	umdPopup = value;
+	return 0;
+}
+
+u32 sceImposeGetUMDPopup() {
+	DEBUG_LOG(HLE, "sceImposeGetUMDPopup()");
+	return umdPopup;
 }
 
 //OSD stuff? home button?
 const HLEFunction sceImpose[] =
 {
-	{0x36aa6e91, &WrapU_UU<sceImposeSetLanguageMode>, "sceImposeSetLanguageMode"},  // Seen
+	{0x36aa6e91, WrapU_UU<sceImposeSetLanguageMode>, "sceImposeSetLanguageMode"},  // Seen
 	{0x381bd9e7, 0, "sceImposeHomeButton"},
-	{0x24fd7bcf, &WrapU_UU<sceImposeGetLanguageMode>, "sceImposeGetLanguageMode"},
-	{0x8c943191, &WrapU_UU<sceImposeGetBatteryIconStatus>, "sceImposeGetBatteryIconStatus"},
-	{0x72189C48, 0, "sceImposeSetUMDPopup"},
+	{0x24fd7bcf, WrapU_UU<sceImposeGetLanguageMode>, "sceImposeGetLanguageMode"},
+	{0x8c943191, WrapU_UU<sceImposeGetBatteryIconStatus>, "sceImposeGetBatteryIconStatus"},
+	{0x72189C48, WrapU_I<sceImposeSetUMDPopup>, "sceImposeSetUMDPopup"},
+	{0xE0887BC8, WrapU_V<sceImposeGetUMDPopup>, "sceImposeGetUMDPopup"},
 };
 
 void Register_sceImpose()

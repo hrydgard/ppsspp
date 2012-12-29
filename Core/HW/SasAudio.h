@@ -23,6 +23,7 @@
 #pragma once
 
 #include "../Globals.h"
+#include "../../Common/ChunkFile.h"
 
 enum {
 	PSP_SAS_VOICES_MAX = 32,
@@ -74,29 +75,25 @@ enum VoiceType {
 // It compresses 28 16-bit samples into a block of 16 bytes.
 // TODO: Get rid of the doubles, making sure it does not impact sound quality.
 // Doubles are pretty fast on Android devices these days though.
-class VagDecoder
-{
+class VagDecoder {
 public:
 	VagDecoder() : data_(0), read_(0) {}
-	void Start(u8 *data, bool loopEnabled);
+	void Start(u32 dataPtr, int vagSize, bool loopEnabled);
 
 	void GetSamples(s16 *outSamples, int numSamples);
 
-	bool DecodeBlock();
+	void DecodeBlock(u8 *&readp);
 	bool End() const { return end_; }
-
-	u8 GetByte() {
-		return *read_++;
-	}
 
 private:
 	double samples[28];
 	int curSample;
 
-	u8 *data_;
-	u8 *read_;
+	u32 data_;
+	u32 read_;
 	int curBlock_;
 	int loopStartBlock_;
+	int numBlocks_;
 
 	// rolling state. start at 0, should probably reset to 0 on loops?
 	double s_1;
@@ -111,6 +108,7 @@ private:
 class ADSREnvelope
 {
 public:
+	ADSREnvelope();
 	void SetSimpleEnvelope(u32 ADSREnv1, u32 ADSREnv2);
 
 	void WalkCurve(int rate, int type);
@@ -121,7 +119,7 @@ public:
 	void Step();
 
 	int GetHeight() const {
-		return height_ > PSP_SAS_ENVELOPE_HEIGHT_MAX ? PSP_SAS_ENVELOPE_HEIGHT_MAX : height_; 
+		return height_ > PSP_SAS_ENVELOPE_HEIGHT_MAX ? PSP_SAS_ENVELOPE_HEIGHT_MAX : height_;
 	}
 	bool HasEnded() const {
 		return state_ == STATE_OFF;
@@ -158,20 +156,26 @@ struct SasVoice
 {
 	SasVoice()
 		: playing(false), paused(false), on(false),
-		  type(VOICETYPE_OFF),
+			type(VOICETYPE_OFF),
 			vagAddr(0),
 			vagSize(0),
 			pcmAddr(0),
 			pcmSize(0),
 			sampleRate(44100),
-			samplePos(0),
+			sampleFrac(0),
 			pitch(PSP_SAS_PITCH_BASE),
 			loop(false),
 			noiseFreq(0),
 			volumeLeft(0),
 			volumeRight(0),
 			volumeLeftSend(0),
-			volumeRightSend(0) {}
+			volumeRightSend(0) {
+	}
+
+	void Reset();
+	void KeyOn();
+	void KeyOff();
+	void ChangedParams(bool changedVag);
 
 	bool playing;
 	bool paused;  // a voice can be playing AND paused. In that case, it won't play.
@@ -185,7 +189,7 @@ struct SasVoice
 	int pcmSize;
 	int sampleRate;
 
-	int samplePos;
+	int sampleFrac;
 	int pitch;
 	bool loop;
 
@@ -195,14 +199,6 @@ struct SasVoice
 	int volumeRight;
 	int volumeLeftSend;	// volume to "Send" (audio-lingo) to the effects processing engine, like reverb
 	int volumeRightSend;
-
-	void Reset();
-
-	void KeyOn();
-	void KeyOff();
-
-	void ChangedParams(bool changedVag);
-
 	s16 resampleHist[2];
 
 	ADSREnvelope envelope;
@@ -216,6 +212,7 @@ public:
 	SasInstance();
 	~SasInstance();
 
+	void ClearGrainSize();
 	void SetGrainSize(int newGrainSize);
 	int GetGrainSize() const { return grainSize; }
 
@@ -228,6 +225,8 @@ public:
 	s16 *resampleBuffer;
 
 	void Mix(u32 outAddr);
+
+	void DoState(PointerWrap &p);
 
 	SasVoice voices[PSP_SAS_VOICES_MAX];
 	WaveformEffect waveformEffect;

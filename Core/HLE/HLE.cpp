@@ -17,6 +17,7 @@
 
 #include "HLE.h"
 #include <map>
+#include <vector>
 #include "../MemMap.h"
 
 #include "HLETables.h"
@@ -26,7 +27,9 @@
 #include "sceAudio.h"
 #include "sceKernelMemory.h"
 #include "sceKernelThread.h"
+#include "sceKernelInterrupt.h"
 #include "../MIPS/MIPSCodeUtils.h"
+#include "../Host.h"
 
 enum
 {
@@ -40,6 +43,10 @@ enum
 	HLE_AFTER_ALL_CALLBACKS = 0x04,
 	// Reschedule and process current thread's callbacks after the syscall.
 	HLE_AFTER_RESCHED_CALLBACKS = 0x08,
+	// Run interrupts (and probably reschedule) after the syscall.
+	HLE_AFTER_RUN_INTERRUPTS = 0x10,
+	// Switch to CORE_STEPPING after the syscall (for debugging.)
+	HLE_AFTER_DEBUG_BREAK = 0x20,
 };
 
 static std::vector<HLEModule> moduleDB;
@@ -52,9 +59,18 @@ void HLEInit()
 	RegisterAllModules();
 }
 
+void HLEDoState(PointerWrap &p)
+{
+	Syscall sc = {0};
+	p.Do(unresolvedSyscalls, sc);
+	p.DoMarker("HLE");
+}
+
 void HLEShutdown()
 {
+	hleAfterSyscall = HLE_AFTER_NOTHING;
 	moduleDB.clear();
+	unresolvedSyscalls.clear();
 }
 
 void RegisterModule(const char *name, int numFunctions, const HLEFunction *funcTable)
@@ -208,7 +224,7 @@ void hleCheckCurrentCallbacks()
 void hleReSchedule(const char *reason)
 {
 	_dbg_assert_msg_(HLE, reason != 0, "hleReSchedule: Expecting a valid reason.");
-	_dbg_assert_msg_(HLE, strlen(reason) < 256, "hleReSchedule: Not too long reason.");
+	_dbg_assert_msg_(HLE, reason != 0 && strlen(reason) < 256, "hleReSchedule: Not too long reason.");
 
 	hleAfterSyscall |= HLE_AFTER_RESCHED;
 
@@ -231,10 +247,41 @@ void hleReSchedule(bool callbacks, const char *reason)
 		hleAfterSyscall |= HLE_AFTER_RESCHED_CALLBACKS;
 }
 
-inline void hleFinishSyscall()
+void hleRunInterrupts()
+{
+	hleAfterSyscall |= HLE_AFTER_RUN_INTERRUPTS;
+}
+
+void hleDebugBreak()
+{
+	hleAfterSyscall |= HLE_AFTER_DEBUG_BREAK;
+}
+
+// Pauses execution after an HLE call.
+bool hleExecuteDebugBreak(const HLEFunction &func)
+{
+	const u32 NID_SUSPEND_INTR = 0x092968F4, NID_RESUME_INTR = 0x5F10D406;
+
+	// Never break on these, they're noise.
+	u32 blacklistedNIDs[] = {NID_SUSPEND_INTR, NID_RESUME_INTR, NID_IDLE};
+	for (int i = 0; i < ARRAY_SIZE(blacklistedNIDs); ++i)
+	{
+		if (func.ID == blacklistedNIDs[i])
+			return false;
+	}
+
+	Core_EnableStepping(true);
+	host->SetDebugMode(true);
+	return true;
+}
+
+inline void hleFinishSyscall(int modulenum, int funcnum)
 {
 	if ((hleAfterSyscall & HLE_AFTER_CURRENT_CALLBACKS) != 0)
 		__KernelForceCallbacks();
+
+	if ((hleAfterSyscall & HLE_AFTER_RUN_INTERRUPTS) != 0)
+		__RunOnePendingInterrupt();
 
 	// Rescheduling will also do HLE_AFTER_ALL_CALLBACKS.
 	if ((hleAfterSyscall & HLE_AFTER_RESCHED_CALLBACKS) != 0)
@@ -243,6 +290,17 @@ inline void hleFinishSyscall()
 		__KernelReSchedule(hleAfterSyscallReschedReason);
 	else if ((hleAfterSyscall & HLE_AFTER_ALL_CALLBACKS) != 0)
 		__KernelCheckCallbacks();
+
+	if ((hleAfterSyscall & HLE_AFTER_DEBUG_BREAK) != 0)
+	{
+		if (!hleExecuteDebugBreak(moduleDB[modulenum].funcTable[funcnum]))
+		{
+			// We'll do it next syscall.
+			hleAfterSyscall = HLE_AFTER_DEBUG_BREAK;
+			hleAfterSyscallReschedReason[0] = 0;
+			return;
+		}
+	}
 
 	hleAfterSyscall = HLE_AFTER_NOTHING;
 	hleAfterSyscallReschedReason[0] = 0;
@@ -253,7 +311,7 @@ void CallSyscall(u32 op)
 	u32 callno = (op >> 6) & 0xFFFFF; //20 bits
 	int funcnum = callno & 0xFFF;
 	int modulenum = (callno & 0xFF000) >> 12;
-	if (funcnum == 0xfff)
+	if (funcnum == 0xfff || op == 0xffff)
 	{
 		_dbg_assert_msg_(HLE,0,"Unknown syscall");
 		ERROR_LOG(HLE,"Unknown syscall: Module: %s", moduleDB[modulenum].name); 
@@ -265,7 +323,7 @@ void CallSyscall(u32 op)
 		func();
 
 		if (hleAfterSyscall != HLE_AFTER_NOTHING)
-			hleFinishSyscall();
+			hleFinishSyscall(modulenum, funcnum);
 	}
 	else
 	{

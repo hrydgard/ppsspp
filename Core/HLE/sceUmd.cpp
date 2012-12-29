@@ -31,11 +31,11 @@ const int PSP_ERROR_UMD_INVALID_PARAM = 0x80010016;
 #define UMD_READABLE		0x20
 
 
-u8 umdActivated = 1;
-u32 umdStatus = 0;
-u32 umdErrorStat = 0;
-static int driveCBId= -1;
-int umdStatTimer = 0;
+static u8 umdActivated = 1;
+static u32 umdStatus = 0;
+static u32 umdErrorStat = 0;
+static int driveCBId = -1;
+static int umdStatTimer = 0;
 
 
 #define PSP_UMD_TYPE_GAME 0x10
@@ -47,12 +47,26 @@ struct PspUmdInfo {
 	u32 type;
 };
 
+void __UmdStatTimeout(u64 userdata, int cyclesLate);
 
-void __UmdInit() {
+void __UmdInit()
+{
+	umdStatTimer = CoreTiming::RegisterEvent("UmdTimeout", __UmdStatTimeout);
 	umdActivated = 1;
 	umdStatus = 0;
 	umdErrorStat = 0;
 	driveCBId = -1;
+}
+
+void __UmdDoState(PointerWrap &p)
+{
+	p.Do(umdActivated);
+	p.Do(umdStatus);
+	p.Do(umdErrorStat);
+	p.Do(driveCBId);
+	p.Do(umdStatTimer);
+	CoreTiming::RestoreRegisterEvent(umdStatTimer, "UmdTimeout", __UmdStatTimeout);
+	p.DoMarker("sceUmd");
 }
 
 u8 __KernelUmdGetState()
@@ -134,7 +148,7 @@ int sceUmdActivate(u32 unknown, const char *name)
 int sceUmdDeactivate(u32 unknown, const char *name)
 {
 	// Why 18?  No idea.
-	if (unknown < 0 || unknown > 18)
+	if (unknown > 18)
 		return PSP_ERROR_UMD_INVALID_PARAM;
 
 	bool changed = umdActivated != 0;
@@ -214,9 +228,6 @@ void __UmdStatTimeout(u64 userdata, int cyclesLate)
 
 void __UmdWaitStat(u32 timeout)
 {
-	if (umdStatTimer == 0)
-		umdStatTimer = CoreTiming::RegisterEvent("UmdTimeout", &__UmdStatTimeout);
-
 	// This happens to be how the hardware seems to time things.
 	if (timeout <= 4)
 		timeout = 15;

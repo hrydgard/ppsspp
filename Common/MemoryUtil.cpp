@@ -55,6 +55,7 @@ void* AllocateExecutableMemory(size_t size, bool low)
 	void* ptr = VirtualAlloc(0, size, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
 #elif defined(__SYMBIAN32__)
 	// On Symbian, we will need to create an RChunk and allocate with ->CreateLocalCode(size, size);
+	static char *map_hint = 0;
 	void* ptr = mmap(map_hint, size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE, -1, 0);
 #else
 	static char *map_hint = 0;

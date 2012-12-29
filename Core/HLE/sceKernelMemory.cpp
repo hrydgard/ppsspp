@@ -32,6 +32,12 @@ BlockAllocator kernelMemory(256);
 // STATE END
 //////////////////////////////////////////////////////////////////////////
 
+#define SCE_KERNEL_HASCOMPILEDSDKVERSION 	0x1000
+#define SCE_KERNEL_HASCOMPILERVERSION		0x2000
+
+int flags_ = 0;
+int sdkVersion_;
+int compilerVersion_;
 
 struct NativeFPL
 {
@@ -47,15 +53,12 @@ struct NativeFPL
 };
 
 //FPL - Fixed Length Dynamic Memory Pool - every item has the same length
-struct FPL : KernelObject
+struct FPL : public KernelObject
 {
 	const char *GetName() {return nf.name;}
 	const char *GetTypeName() {return "FPL";}
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_FPLID; }
 	int GetIDType() const { return SCE_KERNEL_TMID_Fpl; }
-	NativeFPL nf;
-	bool *blocks;
-	u32 address;
 
 	int findFreeBlock() {
 		for (int i = 0; i < nf.numBlocks; i++) {
@@ -79,6 +82,18 @@ struct FPL : KernelObject
 		}
 		return false;
 	}
+
+	virtual void DoState(PointerWrap &p)
+	{
+		p.Do(nf);
+		p.DoArray(blocks, nf.numBlocks);
+		p.Do(address);
+		p.DoMarker("FPL");
+	}
+
+	NativeFPL nf;
+	bool *blocks;
+	u32 address;
 };
 
 struct SceKernelVplInfo
@@ -91,15 +106,24 @@ struct SceKernelVplInfo
 	int numWaitThreads;
 };
 
-struct VPL : KernelObject
+struct VPL : public KernelObject
 {
 	const char *GetName() {return nv.name;}
 	const char *GetTypeName() {return "VPL";}
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_VPLID; }
 	int GetIDType() const { return SCE_KERNEL_TMID_Vpl; }
+
+	virtual void DoState(PointerWrap &p)
+	{
+		p.Do(nv);
+		p.Do(size);
+		p.Do(address);
+		alloc.DoState(p);
+		p.DoMarker("VPL");
+	}
+
 	SceKernelVplInfo nv;
 	u32 size;
-	bool *freeBlocks;
 	u32 address;
 	BlockAllocator alloc;
 };
@@ -109,6 +133,13 @@ void __KernelMemoryInit()
 	kernelMemory.Init(PSP_GetKernelMemoryBase(), PSP_GetKernelMemoryEnd()-PSP_GetKernelMemoryBase());
 	userMemory.Init(PSP_GetUserMemoryBase(), PSP_GetUserMemoryEnd()-PSP_GetUserMemoryBase());
 	INFO_LOG(HLE, "Kernel and user memory pools initialized");
+}
+
+void __KernelMemoryDoState(PointerWrap &p)
+{
+	kernelMemory.DoState(p);
+	userMemory.DoState(p);
+	p.DoMarker("sceKernelMemory");
 }
 
 void __KernelMemoryShutdown()
@@ -344,13 +375,18 @@ public:
 		sprintf(ptr, "MemPart: %08x - %08x	size: %08x", address, address + sz, sz);
 	}
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_MPPID; }	/// ????
-	int GetIDType() const { return 0; }
+	int GetIDType() const { return PPSSPP_KERNEL_TMID_PMB; }
 
 	PartitionMemoryBlock(BlockAllocator *_alloc, u32 size, bool fromEnd)
 	{
 		alloc = _alloc;
-		address = alloc->Alloc(size, fromEnd, "PMB");
-		alloc->ListBlocks();
+
+		// 0 is used for save states to wake up.
+		if (size != 0)
+		{
+			address = alloc->Alloc(size, fromEnd, "PMB");
+			alloc->ListBlocks();
+		}
 	}
 	~PartitionMemoryBlock()
 	{
@@ -358,6 +394,14 @@ public:
 	}
 	bool IsValid() {return address != (u32)-1;}
 	BlockAllocator *alloc;
+
+	virtual void DoState(PointerWrap &p)
+	{
+		p.Do(address);
+		p.Do(name);
+		p.DoMarker("PMB");
+	}
+
 	u32 address;
 	char name[32];
 };
@@ -439,17 +483,169 @@ void sceKernelPrintf()
 	RETURN(0);
 }
 
-void sceKernelSetCompiledSdkVersion()
+void sceKernelSetCompiledSdkVersion(int sdkVersion)
 {
-	//pretty sure this only takes one arg
-	ERROR_LOG(HLE,"UNIMPL sceKernelSetCompiledSdkVersion(%08x)", PARAM(0));
-	RETURN(0);
+	int sdkMainVersion = sdkVersion & 0xFFFF0000;
+	bool valiSDK = false;
+	switch(sdkMainVersion)
+	{
+	case 0x1000000:
+	case 0x1050000:
+	case 0x2000000:
+	case 0x2050000:
+	case 0x2060000:
+	case 0x2070000:
+	case 0x2080000:
+	case 0x3000000:
+	case 0x3010000:
+	case 0x3030000:
+	case 0x3040000:
+	case 0x3050000:
+	case 0x3060000:
+		valiSDK = true;
+		break;
+	default:
+		valiSDK = false;
+		break;
+	}
+
+	if(valiSDK)
+	{
+		sdkVersion_ = sdkVersion;
+		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
+	}
+	else
+	{
+		ERROR_LOG(HLE,"sceKernelSetCompiledSdkVersion unknown SDK : %x\n",sdkVersion);
+	}
+	return;
 }
 
-void sceKernelSetCompilerVersion()
+void sceKernelSetCompiledSdkVersion370(int sdkVersion)
 {
-	ERROR_LOG(HLE,"UNIMPL sceKernelSetCompilerVersion(%08x, %08x, %08x, %08x)", PARAM(0),PARAM(1),PARAM(2),PARAM(3));
-	RETURN(0);
+	int sdkMainVersion = sdkVersion & 0xFFFF0000;
+	if(sdkMainVersion == 0x3070000)
+	{
+		sdkVersion_ = sdkVersion;
+		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
+	}
+	else
+	{
+		ERROR_LOG(HLE,"sceKernelSetCompiledSdkVersion370 unknown SDK : %x\n",sdkVersion);
+	}
+	return;
+}
+
+void sceKernelSetCompiledSdkVersion380_390(int sdkVersion)
+{
+	int sdkMainVersion = sdkVersion & 0xFFFF0000;
+	if(sdkMainVersion == 0x3080000 || sdkMainVersion == 0x3090000)
+	{
+		sdkVersion_ = sdkVersion;
+		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
+	}
+	else
+	{
+		ERROR_LOG(HLE,"sceKernelSetCompiledSdkVersion380_390 unknown SDK : %x\n",sdkVersion);
+	}
+	return;
+}
+
+void sceKernelSetCompiledSdkVersion395(int sdkVersion)
+{
+	int sdkMainVersion = sdkVersion & 0xFFFFFF00;
+	if(sdkMainVersion == 0x4000000
+			|| sdkMainVersion == 0x4000100
+			|| sdkMainVersion == 0x4000500
+			|| sdkMainVersion == 0x3090500
+			|| sdkMainVersion == 0x3090600)
+	{
+		sdkVersion_ = sdkVersion;
+		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
+	}
+	else
+	{
+		ERROR_LOG(HLE,"sceKernelSetCompiledSdkVersion395 unknown SDK : %x\n",sdkVersion);
+	}
+	return;
+}
+
+void sceKernelSetCompiledSdkVersion600_602(int sdkVersion)
+{
+	int sdkMainVersion = sdkVersion & 0xFFFF0000;
+	if(sdkMainVersion == 0x6010000
+			|| sdkMainVersion == 0x6000000
+			|| sdkMainVersion == 0x6020000)
+	{
+		sdkVersion_ = sdkVersion;
+		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
+	}
+	else
+	{
+		ERROR_LOG(HLE,"sceKernelSetCompiledSdkVersion600_602 unknown SDK : %x\n",sdkVersion);
+	}
+	return;
+}
+
+void sceKernelSetCompiledSdkVersion603_605(int sdkVersion)
+{
+	int sdkMainVersion = sdkVersion & 0xFFFF0000;
+	if(sdkMainVersion == 0x6040000
+			|| sdkMainVersion == 0x6030000
+			|| sdkMainVersion == 0x6050000)
+	{
+		sdkVersion_ = sdkVersion;
+		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
+	}
+	else
+	{
+		ERROR_LOG(HLE,"sceKernelSetCompiledSdkVersion603_605 unknown SDK : %x\n",sdkVersion);
+	}
+	return;
+}
+
+void sceKernelSetCompiledSdkVersion606(int sdkVersion)
+{
+	int sdkMainVersion = sdkVersion & 0xFFFF0000;
+	if(sdkMainVersion == 0x6060000)
+	{
+		sdkVersion_ = sdkVersion;
+		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
+	}
+	else
+	{
+		ERROR_LOG(HLE,"sceKernelSetCompiledSdkVersion606 unknown SDK : %x\n",sdkVersion);
+	}
+	return;
+}
+
+int sceKernelGetCompiledSdkVersion()
+{
+	if(!(flags_ & SCE_KERNEL_HASCOMPILEDSDKVERSION))
+		return 0;
+	return sdkVersion_;
+}
+
+void sceKernelSetCompilerVersion(int version)
+{
+	compilerVersion_ = version;
+	flags_ |= SCE_KERNEL_HASCOMPILERVERSION;
+}
+
+KernelObject *__KernelMemoryFPLObject()
+{
+	return new FPL;
+}
+
+KernelObject *__KernelMemoryVPLObject()
+{
+	return new VPL;
+}
+
+KernelObject *__KernelMemoryPMBObject()
+{
+	// TODO: We could theoretically handle kernelMemory too, but we don't support that now anyway.
+	return new PartitionMemoryBlock(&userMemory, 0, true);
 }
 
 // VPL = variable length memory pool
@@ -642,58 +838,54 @@ void sceKernelReferVplStatus()
 	RETURN(0);
 }
 
-void AllocMemoryBlock() {
-	const char *pname = Memory::GetCharPointer(PARAM(0));
-	int type = PARAM(1);
-	u32 size = PARAM(2);
-	int paramsAddr = PARAM(3);
-	
-	DEBUG_LOG(HLE,"AllocMemoryBlock(SysMemUserForUser_FE707FDF)(%s, %i, %i, %08x)", pname, type, size, paramsAddr);
+
+// TODO: Make proper kernel objects for these instead of using the UID as a pointer.
+
+u32 AllocMemoryBlock(const char *pname, u32 type, u32 size, u32 paramsAddr) {
 
 	// Just support allocating a block in the user region.
 
-	u32 blockPtr = userMemory.Alloc(size, false, pname);
+	u32 blockPtr = userMemory.Alloc(size, type == 1, pname);
+	INFO_LOG(HLE,"%08x=AllocMemoryBlock(SysMemUserForUser_FE707FDF)(%s, %i, %08x, %08x)", blockPtr, pname, type, size, paramsAddr);
 
 	// Create a UID object??? Nah, let's just us the UID itself (hack!)
 
-	RETURN(blockPtr);
+	return blockPtr;
 }
 
-void FreeMemoryBlock() {
-	SceUID uid = PARAM(0);
-	DEBUG_LOG(HLE, "FreeMemoryBlock(%i)", uid);
+u32 FreeMemoryBlock(u32 uid) {
+	INFO_LOG(HLE, "FreeMemoryBlock(%08x)", uid);
 	userMemory.Free(uid);
-	RETURN(0);
+	return 0;
 }
 
-void GetMemoryBlockPtr() {
-	SceUID uid = PARAM(0);
-	DEBUG_LOG(HLE, "GetMemoryBlockPtr(%i)", uid);
-	RETURN(uid);
+u32 GetMemoryBlockPtr(u32 uid, u32 addr) {
+	INFO_LOG(HLE, "GetMemoryBlockPtr(%08x, %08x)", uid, addr);
+	Memory::Write_U32(uid, addr);
+	return 0;
 }
 
-const HLEFunction SysMemUserForUser[] = 
-{
+const HLEFunction SysMemUserForUser[] = {
 	{0xA291F107,sceKernelMaxFreeMemSize,	"sceKernelMaxFreeMemSize"},
 	{0xF919F628,sceKernelTotalFreeMemSize,"sceKernelTotalFreeMemSize"},
-	{0x3FC9AE6A,sceKernelDevkitVersion,	 "sceKernelDevkitVersion"},	
+	{0x3FC9AE6A,sceKernelDevkitVersion,	 "sceKernelDevkitVersion"},
 	{0x237DBD4F,sceKernelAllocPartitionMemory,"sceKernelAllocPartitionMemory"},	//(int size) ?
 	{0xB6D61D02,sceKernelFreePartitionMemory,"sceKernelFreePartitionMemory"},	 //(void *ptr) ?
 	{0x9D9A5BA1,sceKernelGetBlockHeadAddr,"sceKernelGetBlockHeadAddr"},			//(void *ptr) ?
 	{0x13a5abef,sceKernelPrintf,"sceKernelPrintf 0x13a5abef"},
-	{0x7591c7db,sceKernelSetCompiledSdkVersion,"sceKernelSetCompiledSdkVersion"},
-	{0x342061E5,0,"sceKernelSetCompiledSdkVersion370"},
-	{0x315AD3A0,0,"sceKernelSetCompiledSdkVersion380_390"},
-	{0xEBD5C3E6,0,"sceKernelSetCompiledSdkVersion395"},
-	{0xf77d77cb,sceKernelSetCompilerVersion,"sceKernelSetCompilerVersion"},
-	{0x35669d4c,0,"sceKernelSetCompiledSdkVersion600_602"},  //??
-	{0x1b4217bc,0,"sceKernelSetCompiledSdkVersion603_605"},
-	{0x358ca1bb,0,"sceKernelSetCompiledSdkVersion606"}, 
+	{0x7591c7db,&WrapV_I<sceKernelSetCompiledSdkVersion>,"sceKernelSetCompiledSdkVersion"},
+	{0x342061E5,&WrapV_I<sceKernelSetCompiledSdkVersion370>,"sceKernelSetCompiledSdkVersion370"},
+	{0x315AD3A0,&WrapV_I<sceKernelSetCompiledSdkVersion380_390>,"sceKernelSetCompiledSdkVersion380_390"},
+	{0xEBD5C3E6,&WrapV_I<sceKernelSetCompiledSdkVersion395>,"sceKernelSetCompiledSdkVersion395"},
+	{0xf77d77cb,&WrapV_I<sceKernelSetCompilerVersion>,"sceKernelSetCompilerVersion"},
+	{0x35669d4c,&WrapV_I<sceKernelSetCompiledSdkVersion600_602>,"sceKernelSetCompiledSdkVersion600_602"},  //??
+	{0x1b4217bc,&WrapV_I<sceKernelSetCompiledSdkVersion603_605>,"sceKernelSetCompiledSdkVersion603_605"},
+	{0x358ca1bb,&WrapV_I<sceKernelSetCompiledSdkVersion606>,"sceKernelSetCompiledSdkVersion606"},
+	{0xfc114573,&WrapI_V<sceKernelGetCompiledSdkVersion>,"sceKernelGetCompiledSdkVersion"},
 	// Obscure raw block API
-	{0xDB83A952,GetMemoryBlockPtr,"SysMemUserForUser_DB83A952"},  // GetMemoryBlockAddr 
-	{0x91DE343C,0,"SysMemUserForUser_91DE343C"},
-	{0x50F61D8A,FreeMemoryBlock,"SysMemUserForUser_50F61D8A"},  // FreeMemoryBlock 
-	{0xFE707FDF,AllocMemoryBlock,"SysMemUserForUser_FE707FDF"},  // AllocMemoryBlock
+	{0xDB83A952,WrapU_UU<GetMemoryBlockPtr>,"SysMemUserForUser_DB83A952"},  // GetMemoryBlockAddr
+	{0x50F61D8A,WrapU_U<FreeMemoryBlock>,"SysMemUserForUser_50F61D8A"},  // FreeMemoryBlock
+	{0xFE707FDF,WrapU_CUUU<AllocMemoryBlock>,"SysMemUserForUser_FE707FDF"},  // AllocMemoryBlock
 };
 
 

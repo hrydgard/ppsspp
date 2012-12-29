@@ -19,13 +19,13 @@
 #include "FunctionWrappers.h"
 #include "sceVaudio.h"
 
-u32 sceVaudioOutputBlocking() {
-	ERROR_LOG(HLE, "UNIMPL sceVaudioOutputBlocking(...)");
+u32 sceVaudioOutputBlocking(int vol, u32 buffer) {
+	ERROR_LOG(HLE, "UNIMPL sceVaudioOutputBlocking(%i, %08x)", vol, buffer);
 	return 0;
 }
 
-u32 sceVaudioChReserve() {
-	ERROR_LOG(HLE, "UNIMPL sceVaudioChReserve(...)");
+u32 sceVaudioChReserve(int sampleCount, int freq, int format) {
+	ERROR_LOG(HLE, "UNIMPL sceVaudioChReserve(%i, %i, %i)", sampleCount, freq, format);
 	return 0;
 }
 
@@ -34,10 +34,22 @@ u32 sceVaudioChRelease() {
 	return 0;
 }
 
+u32 sceVaudioSetEffectType(int effectType, int vol) {
+	ERROR_LOG(HLE, "UNIMPL sceVaudioSetEffectType(%i, %i)", effectType, vol);
+	return 0;
+}
+
+u32 sceVaudioSetAlcMode(int alcMode) {
+	ERROR_LOG(HLE, "UNIMPL sceVaudioSetAlcMode(%i)", alcMode);
+	return 0;
+}
+
 const HLEFunction sceVaudio[] = {
-	{0x03b6807d, WrapU_V<sceVaudioOutputBlocking>, "sceVaudioOutputBlockingFunction"},
-	{0x67585dfd, WrapU_V<sceVaudioChReserve>, "sceVaudioChReserveFunction"},
+	{0x03b6807d, WrapU_IU<sceVaudioOutputBlocking>, "sceVaudioOutputBlockingFunction"},
+	{0x67585dfd, WrapU_III<sceVaudioChReserve>, "sceVaudioChReserveFunction"},
 	{0x8986295e, WrapU_V<sceVaudioChRelease>, "sceVaudioChReleaseFunction"},
+	{0x346FBE94, WrapU_II<sceVaudioSetEffectType>, "sceVaudioSetEffectType"},
+	{0xCBD4AC51, WrapU_I<sceVaudioSetAlcMode>, "sceVaudioSetAlcMode"},
 };
 
 void Register_sceVaudio() {

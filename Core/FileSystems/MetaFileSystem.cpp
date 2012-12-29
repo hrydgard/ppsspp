@@ -18,7 +18,7 @@
 #include <set>
 #include "MetaFileSystem.h"
 
-bool applyPathStringToComponentsVector(std::vector<std::string> &vector, const std::string &pathString)
+static bool ApplyPathStringToComponentsVector(std::vector<std::string> &vector, const std::string &pathString)
 {
 	size_t len = pathString.length();
 	size_t start = 0;
@@ -42,8 +42,8 @@ bool applyPathStringToComponentsVector(std::vector<std::string> &vector, const s
 					}
 					else
 					{
-						//	what does the real PSP do for "/../filename"?
-						WARN_LOG(HLE, "RealPath: .. as first path component: \"%s\"", pathString.c_str());
+						// The PSP silently ignores attempts to .. to parent of root directory
+						WARN_LOG(HLE, "RealPath: ignoring .. beyond root - root directory is its own parent: \"%s\"", pathString.c_str());
 					}
 				}
 				else
@@ -61,9 +61,10 @@ bool applyPathStringToComponentsVector(std::vector<std::string> &vector, const s
 
 /*
  * Changes relative paths to absolute, removes ".", "..", and trailing "/"
+ * "drive:./blah" is absolute (ignore the dot) and "/blah" is relative (because it's missing "drive:")
  * babel (and possibly other games) use "/directoryThatDoesNotExist/../directoryThatExists/filename"
  */
-bool RealPath(const std::string &currentDirectory, const std::string &inPath, std::string &outPath)
+static bool RealPath(const std::string &currentDirectory, const std::string &inPath, std::string &outPath)
 {
 	size_t inLen = inPath.length();
 	if (inLen == 0)
@@ -81,64 +82,27 @@ bool RealPath(const std::string &currentDirectory, const std::string &inPath, st
 		return true;
 	}
 
-	std::string curDirPrefix;
-	size_t curDirColon = std::string::npos, curDirLen = currentDirectory.length();
-	if (curDirLen != 0)
-	{
-		curDirColon = currentDirectory.find(':');
-		
-		if (curDirColon == std::string::npos)
-		{
-			DEBUG_LOG(HLE, "RealPath: currentDirectory has no prefix: \"%s\"", currentDirectory.c_str());
-		}
-		else
-		{
-			if (curDirColon + 1 == curDirLen)
-				DEBUG_LOG(HLE, "RealPath: currentDirectory is all prefix and no path: \"%s\"", currentDirectory.c_str());
-			
-			curDirPrefix = currentDirectory.substr(0, curDirColon + 1);
-		}
-	}
-
-	std::string inPrefix, inAfter;
-
-	if (inColon == std::string::npos)
-	{
-		inPrefix = curDirPrefix;
-		inAfter = inPath;
-	}
-	else
-	{
-		inPrefix = inPath.substr(0, inColon + 1);
-		inAfter = inPath.substr(inColon + 1);
-	}
-
+	bool relative = (inColon == std::string::npos);
+	
+	std::string prefix, inAfterColon;
 	std::vector<std::string> cmpnts;  // path components
-	size_t capacityGuess = inPath.length();
+	size_t outPathCapacityGuess = inPath.length();
 
-	// Special hack for strange root paths.
-	// Don't understand why this is needed. I don't think the current
-	// directory should be the root.
-	if (inAfter.substr(0, 11) == "./PSP_GAME/")
-		inAfter = inAfter.substr(1);
-
-	if ((inAfter[0] != '/'))
+	if (relative)
 	{
+		size_t curDirLen = currentDirectory.length();
 		if (curDirLen == 0)
 		{
 			ERROR_LOG(HLE, "RealPath: inPath \"%s\" is relative, but current directory is empty", inPath.c_str());
 			return false;
 		}
 		
-		if (curDirColon == std::string::npos || curDirPrefix.length() == 0)
+		size_t curDirColon = currentDirectory.find(':');
+		if (curDirColon == std::string::npos)
 		{
 			ERROR_LOG(HLE, "RealPath: inPath \"%s\" is relative, but current directory \"%s\" has no prefix", inPath.c_str(), currentDirectory.c_str());
 			return false;
 		}
-		
-		if (inPrefix != curDirPrefix)
-			WARN_LOG(HLE, "RealPath: inPath \"%s\" is relative, but specifies a different prefix than current directory \"%s\"", inPath.c_str(), currentDirectory.c_str());
-		
 		if (curDirColon + 1 == curDirLen)
 		{
 			ERROR_LOG(HLE, "RealPath: inPath \"%s\" is relative, but current directory \"%s\" is all prefix and no path. Using \"/\" as path for current directory.", inPath.c_str(), currentDirectory.c_str());
@@ -146,26 +110,34 @@ bool RealPath(const std::string &currentDirectory, const std::string &inPath, st
 		else
 		{
 			const std::string curDirAfter = currentDirectory.substr(curDirColon + 1);
-			if (! applyPathStringToComponentsVector(cmpnts, curDirAfter) )
+			if (! ApplyPathStringToComponentsVector(cmpnts, curDirAfter) )
 			{
 				ERROR_LOG(HLE,"RealPath: currentDirectory is not a valid path: \"%s\"", currentDirectory.c_str());
 				return false;
 			}
+
+			outPathCapacityGuess += curDirLen;
 		}
 
-		capacityGuess += currentDirectory.length();
+		prefix = currentDirectory.substr(0, curDirColon + 1);
+		inAfterColon = inPath;
+	}
+	else
+	{
+		prefix = inPath.substr(0, inColon + 1);
+		inAfterColon = inPath.substr(inColon + 1);
 	}
 
-	if (! applyPathStringToComponentsVector(cmpnts, inAfter) )
+	if (! ApplyPathStringToComponentsVector(cmpnts, inAfterColon) )
 	{
-		DEBUG_LOG(HLE, "RealPath: inPath is not a valid path: \"%s\"", inPath.c_str());
+		WARN_LOG(HLE, "RealPath: inPath is not a valid path: \"%s\"", inPath.c_str());
 		return false;
 	}
 
 	outPath.clear();
-	outPath.reserve(capacityGuess);
+	outPath.reserve(outPathCapacityGuess);
 
-	outPath.append(inPrefix);
+	outPath.append(prefix);
 
 	size_t numCmpnts = cmpnts.size();
 	for (size_t i = 0; i < numCmpnts; i++)
@@ -188,31 +160,37 @@ IFileSystem *MetaFileSystem::GetHandleOwner(u32 handle)
 	return 0;
 }
 
-bool MetaFileSystem::MapFilePath(std::string inpath, std::string &outpath, IFileSystem **system)
+bool MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpath, IFileSystem **system)
 {
 	//TODO: implement current directory per thread (NOT per drive)
-	
-	//DEBUG_LOG(HLE, "MapFilePath: starting with \"%s\"", inpath.c_str());
+	std::string realpath;
 
-	if ( RealPath(currentDirectory, inpath, inpath) )
+	// Special handling: host0:command.txt (as seen in Super Monkey Ball Adventures, for example)
+	// appears to mean the current directory on the UMD. Let's just assume the current directory.
+	std::string inpath = _inpath;
+	if (inpath.substr(0, 6) == "host0:") {
+		INFO_LOG(HLE, "Host0 path detected, stripping: %s", inpath.c_str());
+		inpath = inpath.substr(6);
+	}
+
+	if ( RealPath(currentDirectory, inpath, realpath) )
 	{
 		for (size_t i = 0; i < fileSystems.size(); i++)
 		{
 			size_t prefLen = fileSystems[i].prefix.size();
-			if (fileSystems[i].prefix == inpath.substr(0, prefLen))
+			if (fileSystems[i].prefix == realpath.substr(0, prefLen))
 			{
-				outpath = inpath.substr(prefLen);
+				outpath = realpath.substr(prefLen);
 				*system = fileSystems[i].system;
 
-				DEBUG_LOG(HLE, "MapFilePath: mapped to prefix: \"%s\", path: \"%s\"", fileSystems[i].prefix.c_str(), outpath.c_str());
+				DEBUG_LOG(HLE, "MapFilePath: mapped \"%s\" to prefix: \"%s\", path: \"%s\"", inpath.c_str(), fileSystems[i].prefix.c_str(), outpath.c_str());
 
 				return true;
 			}
 		}
 	}
 
-	DEBUG_LOG(HLE, "MapFilePath: failed, returning false");
-
+	DEBUG_LOG(HLE, "MapFilePath: failed mapping \"%s\", returning false", inpath.c_str());
 	return false;
 }
 
@@ -387,5 +365,24 @@ size_t MetaFileSystem::SeekFile(u32 handle, s32 position, FileMove type)
 		return sys->SeekFile(handle,position,type);
 	else
 		return 0;
+}
+
+void MetaFileSystem::DoState(PointerWrap &p)
+{
+	p.Do(current);
+	p.Do(currentDirectory);
+
+	int n = (int) fileSystems.size();
+	p.Do(n);
+	if (n != fileSystems.size())
+	{
+		ERROR_LOG(FILESYS, "Savestate failure: number of filesystems doesn't match.");
+		return;
+	}
+
+	for (int i = 0; i < n; ++i)
+		fileSystems[i].system->DoState(p);
+
+	p.DoMarker("MetaFileSystem");
 }
 

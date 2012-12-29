@@ -24,6 +24,7 @@
 #include "CoreTiming.h"
 #include "Core.h"
 #include "HLE/sceKernelThread.h"
+#include "../Common/ChunkFile.h"
 
 int CPU_HZ = 222000000;
 
@@ -36,6 +37,11 @@ namespace CoreTiming
 
 struct EventType
 {
+	EventType() {}
+
+	EventType(TimedCallback cb, const char *n)
+		: callback(cb), name(n) {}
+
 	TimedCallback callback;
 	const char *name;
 };
@@ -48,12 +54,6 @@ struct BaseEvent
 	u64 userdata;
 	int type;
 //	Event *next;
-};
-
-template <class T>
-struct LinkedListItem : public T
-{
-	LinkedListItem<T> *next;
 };
 
 typedef LinkedListItem<BaseEvent> Event;
@@ -74,11 +74,13 @@ s64 idledCycles;
 
 static std::recursive_mutex externalEventSection;
 
+// Warning: not included in save state.
 void (*advanceCallback)(int cyclesExecuted) = NULL;
 
 void SetClockFrequencyMHz(int cpuMhz)
 {
 	CPU_HZ = cpuMhz * 1000000;
+	// TODO: Rescale times of scheduled events?
 }
 
 int GetClockFrequencyMHz()
@@ -124,11 +126,22 @@ void FreeTsEvent(Event* ev)
 
 int RegisterEvent(const char *name, TimedCallback callback)
 {
-	EventType type;
-	type.name = name;
-	type.callback = callback;
-	event_types.push_back(type);
+	event_types.push_back(EventType(callback, name));
 	return (int)event_types.size() - 1;
+}
+
+void AntiCrashCallback(u64 userdata, int cyclesLate)
+{
+	ERROR_LOG(CPU, "Savestate broken: an unregistered event was called.");
+	Core_Halt("invalid timing events");
+}
+
+void RestoreRegisterEvent(int event_type, const char *name, TimedCallback callback)
+{
+	if (event_type >= (int) event_types.size())
+		event_types.resize(event_type + 1, EventType(AntiCrashCallback, "INVALID EVENT"));
+
+	event_types[event_type] = EventType(callback, name);
 }
 
 void UnregisterAllEvents()
@@ -245,7 +258,7 @@ void ScheduleEvent(int cyclesIntoFuture, int event_type, u64 userdata)
 	Event *ne = GetNewEvent();
 	ne->userdata = userdata;
 	ne->type = event_type;
-	ne->time = globalTimer + cyclesIntoFuture;
+	ne->time = GetTicks() + cyclesIntoFuture;
 	AddEventToQueue(ne);
 }
 
@@ -294,6 +307,7 @@ u64 UnscheduleEvent(int event_type, u64 userdata)
 	return result;
 }
 
+// Warning: not included in save state.
 void RegisterAdvanceCallback(void (*callback)(int cyclesExecuted))
 {
 	advanceCallback = callback;
@@ -420,7 +434,7 @@ void ProcessFifoWaitEvents()
 		{
 			break;
 		}
-	}	
+	}
 }
 
 void MoveEvents()
@@ -437,7 +451,7 @@ void MoveEvents()
 
 	// Move free events to threadsafe pool
 	while(allocatedTsEvents > 0 && eventPool)
-	{		    
+	{
 		Event *ev = eventPool;
 		eventPool = ev->next;
 		ev->next = eventTsPool;
@@ -454,7 +468,7 @@ void Advance()
 
 	ProcessFifoWaitEvents();
 
-	if (!first) 
+	if (!first)
 	{
 		// WARN_LOG(CPU, "WARNING - no events in queue. Setting downcount to 10000");
 		downcount += 10000;
@@ -527,6 +541,31 @@ std::string GetScheduledEventsSummary()
 		ptr = ptr->next;
 	}
 	return text;
+}
+
+void Event_DoState(PointerWrap &p, BaseEvent *ev)
+{
+	p.Do(*ev);
+}
+
+void DoState(PointerWrap &p)
+{
+	std::lock_guard<std::recursive_mutex> lk(externalEventSection);
+
+	int n = (int) event_types.size();
+	p.Do(n);
+	// These (should) be filled in later by the modules.
+	event_types.resize(n, EventType(AntiCrashCallback, "INVALID EVENT"));
+
+	p.DoLinkedList<BaseEvent, GetNewEvent, FreeEvent, Event_DoState>(first, (Event **) NULL);
+	p.DoLinkedList<BaseEvent, GetNewTsEvent, FreeTsEvent, Event_DoState>(tsFirst, &tsLast);
+
+	p.Do(CPU_HZ);
+	p.Do(downcount);
+	p.Do(slicelength);
+	p.Do(globalTimer);
+	p.Do(idledCycles);
+	p.DoMarker("CoreTiming");
 }
 
 }	// namespace

@@ -506,6 +506,29 @@ namespace MIPSInt
 		PC += 4;
 		EatPrefixes();
 	}
+	
+	void Int_Vsocp(u32 op)
+	{
+		float s[4], d[4];
+		int vd = _VD;
+		int vs = _VS;
+		VectorSize sz = GetVecSize(op);
+		ReadVector(s, sz, vs);
+		ApplySwizzleS(s, sz);
+		int n=GetNumVectorElements(sz);
+		float x = s[0];
+		d[0] = std::min(std::max(0.0f, 1.0f - x), 1.0f);
+		d[1] = std::min(std::max(0.0f, x), 1.0f);
+		if (n > 1) {
+			float y = s[1];
+			d[2] = std::min(std::max(0.0f, 1.0f - y), 1.0f);
+			d[3] = std::min(std::max(0.0f, y), 1.0f);
+		} 
+		ApplyPrefixD(d, sz);
+		WriteVector(d, sz, vd);
+		PC += 4;
+		EatPrefixes();
+	}
 
 	void Int_Vsgn(u32 op)
 	{
@@ -851,6 +874,31 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
+	void Int_VHdp(u32 op)
+	{
+		float s[4], t[4];
+		float d;
+		int vd = _VD;
+		int vs = _VS;
+		int vt = _VT;
+		VectorSize sz = GetVecSize(op);
+		ReadVector(s, sz, vs);
+		ApplySwizzleS(s, sz);
+		ReadVector(t, sz, vt);
+		ApplySwizzleT(t, sz);
+		float sum = 0.0f;
+		int n = GetNumVectorElements(sz);
+		for (int i = 0; i < n; i++)
+		{
+			sum += (i == n - 1) ? t[i] : s[i]*t[i];
+		}
+		d = sum;
+		ApplyPrefixD(&d,V_Single);
+		V(vd) = d;
+		PC += 4;
+		EatPrefixes();
+	}
+
 	void Int_Vbfy(u32 op)
 	{
 		float s[4];
@@ -882,7 +930,99 @@ namespace MIPSInt
 		PC += 4;
 		EatPrefixes();
 	}
+	
+	void Int_Vsrt1(u32 op)
+	{
+		float s[4];
+		float d[4];
+		int vd = _VD;
+		int vs = _VS;
+		VectorSize sz = GetVecSize(op);
+		ReadVector(s, sz, vs);
+		ApplySwizzleS(s, sz);
+		float x = s[0];
+		float y = s[1];
+		float z = s[2];
+		float w = s[3];
+		d[0] = std::min(x, y);
+		d[1] = std::max(x, y);
+		d[2] = std::min(z, w);
+		d[3] = std::max(z, w);
+		ApplyPrefixD(d, sz);
+		WriteVector(d, sz, vd);
+		PC += 4;
+		EatPrefixes();
+	}
 
+	void Int_Vsrt2(u32 op)
+	{
+		float s[4];
+		float d[4];
+		int vd = _VD;
+		int vs = _VS;
+		VectorSize sz = GetVecSize(op);
+		ReadVector(s, sz, vs);
+		ApplySwizzleS(s, sz);
+		float x = s[0];
+		float y = s[1];
+		float z = s[2];
+		float w = s[3];
+		d[0] = std::min(x, w);
+		d[1] = std::min(y, z);
+		d[2] = std::max(y, z);
+		d[3] = std::max(x, w);
+		ApplyPrefixD(d, sz);
+		WriteVector(d, sz, vd);
+		PC += 4;
+		EatPrefixes();
+	}
+
+	void Int_Vsrt3(u32 op)
+	{
+		float s[4];
+		float d[4];
+		int vd = _VD;
+		int vs = _VS;
+		VectorSize sz = GetVecSize(op);
+		ReadVector(s, sz, vs);
+		ApplySwizzleS(s, sz);
+		float x = s[0];
+		float y = s[1];
+		float z = s[2];
+		float w = s[3];
+		d[0] = std::max(x, y);
+		d[1] = std::min(x, y);
+		d[2] = std::max(z, w);
+		d[3] = std::min(z, w);
+		ApplyPrefixD(d, sz);
+		WriteVector(d, sz, vd);
+		PC += 4;
+		EatPrefixes();
+	}
+
+	void Int_Vsrt4(u32 op)
+	{
+		float s[4];
+		float d[4];
+		int vd = _VD;
+		int vs = _VS;
+		VectorSize sz = GetVecSize(op);
+		ReadVector(s, sz, vs);
+		ApplySwizzleS(s, sz);
+		float x = s[0];
+		float y = s[1];
+		float z = s[2];
+		float w = s[3];
+		d[0] = std::max(x, w);
+		d[1] = std::max(y, z);
+		d[2] = std::min(y, z);
+		d[3] = std::min(x, w);
+		ApplyPrefixD(d, sz);
+		WriteVector(d, sz, vd);
+		PC += 4;
+		EatPrefixes();
+	}
+	
 	void Int_Vcrs(u32 op)
 	{
 		//half a cross product
@@ -906,7 +1046,26 @@ namespace MIPSInt
 		PC += 4;
 		EatPrefixes();
 	}
-
+	
+	void Int_Vdet(u32 op)
+	{
+		float s[4], t[4];
+		float d[4];
+		int vd = _VD;
+		int vs = _VS;
+		int vt = _VT;
+		VectorSize sz = GetVecSize(op);
+		if (sz != V_Pair)
+			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+		ReadVector(s, sz, vs);
+		ReadVector(t, sz, vt);
+		d[0] = s[0] * t[1] - s[1] * t[0];
+		ApplyPrefixD(d, sz);
+		WriteVector(d, sz, vd);
+		PC += 4;
+		EatPrefixes();
+	}
+	
 	void Int_Vfad(u32 op)
 	{
 		float s[4];
@@ -1293,7 +1452,7 @@ namespace MIPSInt
 		int vd = _VD;
 		int cond = op&15;
 		VectorSize sz = GetVecSize(op);
-		int n = GetNumVectorElements(sz);
+		int numElements = GetNumVectorElements(sz);
 		float s[4];
 		float t[4];
 		float d[4];
@@ -1321,14 +1480,37 @@ namespace MIPSInt
 		PC += 4;
 		EatPrefixes();
 	}
-
+	
+	void Int_Vscmp(u32 op) {
+		int vt = _VT;
+		int vs = _VS;
+		int vd = _VD;
+		VectorSize sz = GetVecSize(op);
+		float s[4];
+		float t[4];
+		float d[4];
+		ReadVector(s, sz, vs);
+		ApplySwizzleS(s, sz);
+		ReadVector(t, sz, vt);
+		ApplySwizzleT(t, sz);
+		int n = GetNumVectorElements(sz);
+		for (int i = 0; i < n ; i++) {
+			float a = s[i] - t[i];
+			d[i] = (float) ((0.0 < a) - (a < 0.0));
+		}
+		ApplyPrefixD(d, sz);
+		WriteVector(d, sz, vd);
+		PC += 4;
+		EatPrefixes();
+	}
+	
 	void Int_Vsge(u32 op) {
 		int vt = _VT;
 		int vs = _VS;
 		int vd = _VD;
 		int cond = op&15;
 		VectorSize sz = GetVecSize(op);
-		int n = GetNumVectorElements(sz);
+		int numElements = GetNumVectorElements(sz);
 		float s[4];
 		float t[4];
 		float d[4];
@@ -1353,7 +1535,7 @@ namespace MIPSInt
 		int vd = _VD;
 		int cond = op&15;
 		VectorSize sz = GetVecSize(op);
-		int n = GetNumVectorElements(sz);
+		int numElements = GetNumVectorElements(sz);
 		float s[4];
 		float t[4];
 		float d[4];

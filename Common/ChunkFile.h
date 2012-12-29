@@ -31,6 +31,8 @@
 #include <vector>
 #include <deque>
 #include <string>
+#include <list>
+#include <set>
 
 #include "Common.h"
 #include "FileUtil.h"
@@ -112,14 +114,59 @@ public:
 		}
 	}
 
+	template<class K, class T>
+	void Do(std::multimap<K, T> &x)
+	{
+		unsigned int number = (unsigned int)x.size();
+		Do(number);
+		switch (mode) {
+		case MODE_READ:
+			{
+				x.clear();
+				while (number > 0)
+				{
+					K first;
+					Do(first);
+					T second;
+					Do(second);
+					x.insert(std::make_pair(first, second));
+					--number;
+				}
+			}
+			break;
+		case MODE_WRITE:
+		case MODE_MEASURE:
+		case MODE_VERIFY:
+			{
+				typename std::multimap<K, T>::iterator itr = x.begin();
+				while (number > 0)
+				{
+					Do(itr->first);
+					Do(itr->second);
+					--number;
+					++itr;
+				}
+			}
+			break;
+		}
+	}
+
 	// Store vectors.
 	template<class T>
 	void Do(std::vector<T> &x)
 	{
+		T dv;
+		Do(x, dv);
+	}
+
+	template<class T>
+	void Do(std::vector<T> &x, T &default_val)
+	{
 		u32 vec_size = (u32)x.size();
 		Do(vec_size);
-		x.resize(vec_size);
-		DoArray(&x[0], vec_size);
+		x.resize(vec_size, default_val);
+		if (vec_size > 0)
+			DoArray(&x[0], vec_size);
 	}
 	
 	// Store deques.
@@ -133,7 +180,62 @@ public:
 		for(i = 0; i < deq_size; i++)
 			DoVoid(&x[i],sizeof(T));
 	}
-	
+
+	// Store STL lists.
+	template<class T>
+	void Do(std::list<T> &x)
+	{
+		T dv;
+		Do(x, dv);
+	}
+
+	template<class T>
+	void Do(std::list<T> &x, T &default_val)
+	{
+		u32 list_size = (u32)x.size();
+		Do(list_size);
+		x.resize(list_size, default_val);
+
+		typename std::list<T>::iterator itr, end;
+		for (itr = x.begin(), end = x.end(); itr != end; ++itr)
+			Do(*itr);
+	}
+
+	// Store STL sets.
+	template <class T>
+	void Do(std::set<T> &x)
+	{
+		unsigned int number = (unsigned int)x.size();
+		Do(number);
+
+		switch (mode)
+		{
+		case MODE_READ:
+			{
+				x.clear();
+				while (number-- > 0)
+				{
+					T it;
+					Do(it);
+					x.insert(it);
+				}
+			}
+			break;
+		case MODE_WRITE:
+		case MODE_MEASURE:
+		case MODE_VERIFY:
+			{
+				typename std::set<T>::iterator itr = x.begin();
+				while (number-- > 0)
+					Do(*itr++);
+			}
+			break;
+
+		default:
+			ERROR_LOG(COMMON, "Savestate error: invalid mode %d.", mode);
+		}
+	}
+
 	// Store strings.
 	void Do(std::string &x) 
 	{
@@ -371,6 +473,30 @@ public:
 		return true;
 	}
 	
+	template <class T>
+	static bool Verify(T& _class)
+	{
+		u8 *ptr = 0;
+
+		// Step 1: Measure the space required.
+		PointerWrap p(&ptr, PointerWrap::MODE_MEASURE);
+		_class.DoState(p);
+		size_t const sz = (size_t)ptr;
+		std::vector<u8> buffer(sz);
+
+		// Step 2: Dump the state.
+		ptr = &buffer[0];
+		p.SetMode(PointerWrap::MODE_WRITE);
+		_class.DoState(p);
+
+		// Step 3: Verify the state.
+		ptr = &buffer[0];
+		p.SetMode(PointerWrap::MODE_VERIFY);
+		_class.DoState(p);
+
+		return true;
+	}
+
 private:
 	struct SChunkHeader
 	{

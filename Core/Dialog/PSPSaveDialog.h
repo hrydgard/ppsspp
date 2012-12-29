@@ -30,6 +30,8 @@
 #define SCE_UTILITY_SAVEDATA_ERROR_LOAD_PARAM			(0x80110308)
 #define SCE_UTILITY_SAVEDATA_ERROR_LOAD_INTERNAL		(0x8011030b)
 
+#define SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA			(0x80110327)
+
 #define SCE_UTILITY_SAVEDATA_ERROR_SAVE_NO_MS			(0x80110381)
 #define SCE_UTILITY_SAVEDATA_ERROR_SAVE_EJECT_MS		(0x80110382)
 #define SCE_UTILITY_SAVEDATA_ERROR_SAVE_MS_NOSPACE		(0x80110383)
@@ -62,9 +64,10 @@ public:
 	PSPSaveDialog();
 	virtual ~PSPSaveDialog();
 
-	virtual void Init(int paramAddr);
-	virtual void Update();
-	void Shutdown();
+	virtual int Init(int paramAddr);
+	virtual int Update();
+	virtual int Shutdown();
+	virtual void DoState(PointerWrap &p);
 
 private :
 
@@ -102,6 +105,8 @@ private :
 	DisplayState display;
 
 	SavedataParam param;
+	SceUtilitySavedataParam request;
+	int requestAddr;
 	int currentSelectedSave;
 
 	int yesnoChoice;

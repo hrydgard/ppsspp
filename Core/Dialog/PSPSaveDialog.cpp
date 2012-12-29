@@ -31,12 +31,24 @@ PSPSaveDialog::PSPSaveDialog()
 PSPSaveDialog::~PSPSaveDialog() {
 }
 
-void PSPSaveDialog::Init(int paramAddr)
+int PSPSaveDialog::Init(int paramAddr)
 {
-	param.SetPspParam((SceUtilitySavedataParam*)Memory::GetPointer(paramAddr));
+	// Ignore if already running
+	if (status != SCE_UTILITY_STATUS_NONE && status != SCE_UTILITY_STATUS_SHUTDOWN)
+	{
+		return 0;
+	}
 
-	DEBUG_LOG(HLE,"sceUtilitySavedataInitStart(%08x)", paramAddr);
-	DEBUG_LOG(HLE,"Mode: %i", param.GetPspParam()->mode);
+	int size = Memory::Read_U32(paramAddr);
+	memset(&request,0,sizeof(request));
+	// Only copy the right size to support different save request format
+	Memory::Memcpy(&request,paramAddr,size);
+	requestAddr = paramAddr;
+
+	u32 retval = param.SetPspParam(&request);
+
+	INFO_LOG(HLE,"sceUtilitySavedataInitStart(%08x)", paramAddr);
+	INFO_LOG(HLE,"Mode: %i", param.GetPspParam()->mode);
 
 	switch(param.GetPspParam()->mode)
 	{
@@ -79,13 +91,14 @@ void PSPSaveDialog::Init(int paramAddr)
 		{
 			ERROR_LOG(HLE, "Load/Save function %d not coded. Title: %s Save: %s File: %s", param.GetPspParam()->mode, param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
 			param.GetPspParam()->result = 0;
+			status = SCE_UTILITY_STATUS_INITIALIZE;
 			display = DS_NONE;
-			return; // Return 0 should allow the game to continue, but missing function must be implemented and returning the right value or the game can block.
+			return 0; // Return 0 should allow the game to continue, but missing function must be implemented and returning the right value or the game can block.
 		}
 		break;
 	}
 
-	status = SCE_UTILITY_STATUS_INITIALIZE;
+	status = (int)retval < 0 ? SCE_UTILITY_STATUS_SHUTDOWN : SCE_UTILITY_STATUS_INITIALIZE;
 
 	currentSelectedSave = 0;
 	lastButtons = __CtrlPeekButtons();
@@ -121,7 +134,7 @@ void PSPSaveDialog::Init(int paramAddr)
 
 	INFO_LOG(HLE,"snd0 data : %08x",*((unsigned int*)&param.GetPspParam()->snd0FileData.buf));
 	INFO_LOG(HLE,"snd0 size : %u",param.GetPspParam()->snd0FileData.bufSize);*/
-
+	return retval;
 }
 
 void PSPSaveDialog::DisplaySaveList(bool canMove)
@@ -137,16 +150,16 @@ void PSPSaveDialog::DisplaySaveList(bool canMove)
 		}
 
 		// Calc save image position on screen
-		int w = 150;
-		int h = 80;
-		int x = 20;
+		float w = 150;
+		float h = 80;
+		float x = 20;
 		if(displayCount != currentSelectedSave)
 		{
 			w = 80;
 			h = 40;
 			x = 50;
 		}
-		int y = 80;
+		float y = 80;
 		if(displayCount < currentSelectedSave)
 			y -= 50 * (currentSelectedSave - displayCount);
 		else if(displayCount > currentSelectedSave)
@@ -194,10 +207,10 @@ void PSPSaveDialog::DisplaySaveIcon()
 	}
 
 	// Calc save image position on screen
-	int w = 150;
-	int h = 80;
-	int x = 20;
-	int y = 80;
+	float w = 150;
+	float h = 80;
+	float x = 20;
+	float y = 80;
 
 	int tw = 256;
 	int th = 256;
@@ -226,8 +239,10 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 	}
 	else
 	{
-		char txt[1024];
-		sprintf(txt,"%s\n%02d/%02d/%d %02d:%02d %d KB\n%s\n%s"
+		char txt[2048];
+		_dbg_assert_msg_(HLE, sizeof(txt) > sizeof(SaveFileInfo), "Local buffer is too small.");
+
+		sprintf(txt,"%s\n%02d/%02d/%d %02d:%02d %lld KB\n%s\n%s"
 				, param.GetFileInfo(currentSelectedSave).title
 				, param.GetFileInfo(currentSelectedSave).modif_time.tm_mday
 				, param.GetFileInfo(currentSelectedSave).modif_time.tm_mon + 1
@@ -251,7 +266,7 @@ void PSPSaveDialog::DisplaySaveDataInfo2()
 	else
 	{
 		char txt[1024];
-		sprintf(txt,"%s\n%02d/%02d/%d %02d:%02d\n%d KB"
+		sprintf(txt,"%s\n%02d/%02d/%d %02d:%02d\n%lld KB"
 						, param.GetFileInfo(currentSelectedSave).saveTitle
 						, param.GetFileInfo(currentSelectedSave).modif_time.tm_mday
 						, param.GetFileInfo(currentSelectedSave).modif_time.tm_mon + 1
@@ -303,22 +318,24 @@ void PSPSaveDialog::DisplayBack()
 	PPGeDrawText("Back", 270, 220, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
 }
 
-void PSPSaveDialog::Update()
+int PSPSaveDialog::Update()
 {
 	switch (status) {
 	case SCE_UTILITY_STATUS_FINISHED:
 		status = SCE_UTILITY_STATUS_SHUTDOWN;
 		break;
+	default:
+		break;
 	}
 
 	if (status != SCE_UTILITY_STATUS_RUNNING)
 	{
-		return;
+		return 0;
 	}
 
 	if (!param.GetPspParam()) {
 		status = SCE_UTILITY_STATUS_SHUTDOWN;
-		return;
+		return 0;
 	}
 
 	buttons = __CtrlPeekButtons();
@@ -629,7 +646,6 @@ void PSPSaveDialog::Update()
 					else
 						param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_LOAD_NO_DATA;
 					status = SCE_UTILITY_STATUS_FINISHED;
-					return;
 				break;
 				case SCE_UTILITY_SAVEDATA_TYPE_SAVE: // Only save and exit
 				case SCE_UTILITY_SAVEDATA_TYPE_AUTOSAVE:
@@ -638,39 +654,71 @@ void PSPSaveDialog::Update()
 					else
 						param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_SAVE_MS_NOSPACE;
 					status = SCE_UTILITY_STATUS_FINISHED;
-					return;
 				break;
 				case SCE_UTILITY_SAVEDATA_TYPE_SIZES:
-					param.GetSizes(param.GetPspParam());
-					param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_SIZES_NO_DATA;
+					if(param.GetSizes(param.GetPspParam()))
+					{
+						param.GetPspParam()->result = 0;
+					}
+					else
+					{
+						param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_SIZES_NO_DATA;
+					}
 					status = SCE_UTILITY_STATUS_FINISHED;
-					return;
+				break;
 				case SCE_UTILITY_SAVEDATA_TYPE_LIST:
 					param.GetList(param.GetPspParam());
 					param.GetPspParam()->result = 0;
 					status = SCE_UTILITY_STATUS_FINISHED;
-					return;
+				break;
+				// TODO: Don't know the name?
+				case 12:
+					// Pretend we have nothing, always.
+					param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
+					status = SCE_UTILITY_STATUS_FINISHED;
+				break;
 				default:
 					status = SCE_UTILITY_STATUS_FINISHED;
-					return;
 				break;
 			}
 		}
 		break;
 		default:
 			status = SCE_UTILITY_STATUS_FINISHED;
-			return;
 		break;
 	}
 
 	lastButtons = buttons;
 
-
+	if(status == SCE_UTILITY_STATUS_FINISHED)
+	{
+		Memory::Memcpy(requestAddr,&request,request.size);
+	}
+	
+	return 0;
 }
 
-void PSPSaveDialog::Shutdown()
+int PSPSaveDialog::Shutdown()
 {
 	PSPDialog::Shutdown();
 	param.SetPspParam(0);
+
+	return 0;
 }
 
+void PSPSaveDialog::DoState(PointerWrap &p)
+{
+	p.Do(display);
+	param.DoState(p);
+	p.Do(request);
+	// Just reset it.
+	param.SetPspParam(&request);
+	p.Do(requestAddr);
+	p.Do(currentSelectedSave);
+	p.Do(yesnoChoice);
+	p.Do(okButtonImg);
+	p.Do(cancelButtonImg);
+	p.Do(okButtonFlag);
+	p.Do(cancelButtonFlag);
+	p.DoMarker("PSPSaveDialog");
+}

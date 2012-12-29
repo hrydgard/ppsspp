@@ -93,8 +93,9 @@ public:
 
 	JitBlockCache *GetBlockCache() { return &blocks; }
 	AsmRoutineManager &Asm() { return asm_; }
-private:
+
 	void ClearCache();
+private:
 	void FlushAll();
 
 	void WriteExit(u32 destination, int exit_num);

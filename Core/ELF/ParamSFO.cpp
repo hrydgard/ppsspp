@@ -46,20 +46,15 @@ void ParamSFOData::SetValue(std::string key, unsigned int value, int max_size)
 }
 void ParamSFOData::SetValue(std::string key, std::string value, int max_size)
 {
-	if(key == "ACCOUNT_ID" ||
-			key == "PADDING" ||
-			key == "PARAMS" ||
-			key == "PARAMS2" ||
-			key == "SAVEDATA_FILE_LIST" ||
-			key == "SAVEDATA_PARAMS")
-	{
-		values[key].type = VT_UTF8_SPE;
-	}
-	else
-	{
-		values[key].type = VT_UTF8;
-	}
+	values[key].type = VT_UTF8;
 	values[key].s_value = value;
+	values[key].max_size = max_size;
+}
+
+void ParamSFOData::SetValue(std::string key, const u8* value, unsigned int size, int max_size)
+{
+	values[key].type = VT_UTF8_SPE;
+	values[key].SetData(value,size);
 	values[key].max_size = max_size;
 }
 
@@ -73,9 +68,20 @@ int ParamSFOData::GetValueInt(std::string key)
 std::string ParamSFOData::GetValueString(std::string key)
 {
 	std::map<std::string,ValueData>::iterator it = values.find(key);
-	if(it == values.end() || (it->second.type != VT_UTF8 && it->second.type != VT_UTF8_SPE))
+	if(it == values.end() || (it->second.type != VT_UTF8))
 		return "";
 	return it->second.s_value;
+}
+u8* ParamSFOData::GetValueData(std::string key, unsigned int *size)
+{
+	std::map<std::string,ValueData>::iterator it = values.find(key);
+	if(it == values.end() || (it->second.type != VT_UTF8_SPE))
+		return 0;
+	if(size)
+	{
+		*size = it->second.u_size;
+	}
+	return it->second.u_value;
 }
 
 // I'm so sorry Ced but this is highly endian unsafe :(
@@ -108,9 +114,9 @@ bool ParamSFOData::ReadSFO(const u8 *paramsfo, size_t size)
 		case 0x0004:
 			// Special format UTF-8
 			{
-				const char *utfdata = (const char *)(data_start + indexTables[i].data_table_offset);
+				const u8 *utfdata = (const u8 *)(data_start + indexTables[i].data_table_offset);
 				DEBUG_LOG(LOADER, "%s %s", key, utfdata);
-				SetValue(key,std::string(utfdata,indexTables[i].param_len),indexTables[i].param_max_len);
+				SetValue(key, utfdata, indexTables[i].param_len, indexTables[i].param_max_len);
 			}
 			break;
 		case 0x0204:
@@ -187,10 +193,10 @@ bool ParamSFOData::WriteSFO(u8 **paramsfo, size_t *size)
 		else if(it->second.type == VT_UTF8_SPE)
 		{
 			index_ptr->param_fmt = 0x0004;
-			index_ptr->param_len = it->second.s_value.size()+1;
+			index_ptr->param_len = it->second.u_size;
 
-			memcpy(data_ptr,it->second.s_value.c_str(),index_ptr->param_len);
-			data_ptr[index_ptr->param_len] = 0;
+			memset(data_ptr,0,index_ptr->param_max_len);
+			memcpy(data_ptr,it->second.u_value,index_ptr->param_len);
 		}
 		else if(it->second.type == VT_UTF8)
 		{

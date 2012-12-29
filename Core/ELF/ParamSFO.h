@@ -25,9 +25,11 @@ class ParamSFOData
 public:
 	void SetValue(std::string key, unsigned int value, int max_size);
 	void SetValue(std::string key, std::string value, int max_size);
+	void SetValue(std::string key, const u8* value, unsigned int size, int max_size);
 
 	int GetValueInt(std::string key);
 	std::string GetValueString(std::string key);
+	u8* GetValueData(std::string key, unsigned int *size);
 
 	bool ReadSFO(const u8 *paramsfo, size_t size);
 	bool WriteSFO(u8 **paramsfo, size_t *size);
@@ -37,14 +39,48 @@ private:
 	{
 		VT_INT,
 		VT_UTF8,
-		VT_UTF8_SPE
+		VT_UTF8_SPE	// raw data in u8
 	};
-	struct ValueData
+	class ValueData
 	{
+	public:
 		ValueType type;
 		int max_size;
 		std::string s_value;
 		int i_value;
+
+		u8* u_value;
+		unsigned int u_size;
+
+		void SetData(const u8* data, int size)
+		{
+			if(u_value)
+			{
+				delete[] u_value;
+				u_value = 0;
+			}
+			if(size > 0)
+			{
+				u_value = new u8[size];
+				memcpy(u_value,data,size);
+			}
+			u_size = size;
+		}
+
+		ValueData()
+		{
+			u_value = 0;
+			u_size = 0;
+			type = VT_INT;
+			max_size = 0;
+			i_value = 0;
+		}
+
+		~ValueData()
+		{
+			if(u_value)
+				delete[] u_value;
+		}
 	};
 
 	std::map<std::string,ValueData> values;

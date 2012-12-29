@@ -41,9 +41,10 @@ public:
 	PSPMsgDialog();
 	virtual ~PSPMsgDialog();
 
-	virtual void Init(unsigned int paramAddr);
-	virtual void Update();
-	void Shutdown();
+	virtual int Init(unsigned int paramAddr);
+	virtual int Update();
+	virtual int Shutdown();
+	virtual void DoState(PointerWrap &p);
 
 private :
 	void DisplayBack();

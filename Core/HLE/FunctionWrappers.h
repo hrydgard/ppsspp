@@ -136,7 +136,10 @@ template<u32 func(int)> void WrapU_I() {
 	RETURN(retval);
 }
 
-
+template<u32 func(int, int, u32)> void WrapU_IIU() {
+	u32 retval = func(PARAM(0), PARAM(1), PARAM(2));
+	RETURN(retval);
+}
 
 template<int func(int)> void WrapI_I() {
 	int retval = func(PARAM(0));
@@ -180,6 +183,11 @@ template<u32 func(u32, int , int , int, int, int, int)> void WrapU_UIIIIII() {
 
 template<u32 func(u32, u32)> void WrapU_UU() {
 	u32 retval = func(PARAM(0), PARAM(1));
+	RETURN(retval);
+}
+
+template<u32 func(const char *, u32, u32, u32)> void WrapU_CUUU() {
+	u32 retval = func(Memory::GetCharPointer(PARAM(0)), PARAM(1), PARAM(2), PARAM(3));
 	RETURN(retval);
 }
 
@@ -231,6 +239,11 @@ template<int func(int, int)> void WrapI_II() {
 
 template<int func(int, int, int)> void WrapI_III() {
 	int retval = func(PARAM(0), PARAM(1), PARAM(2));
+	RETURN(retval);
+}
+
+template<int func(int, int, int, int)> void WrapI_IIII() {
+	int retval = func(PARAM(0), PARAM(1), PARAM(2), PARAM(3));
 	RETURN(retval);
 }
 
@@ -301,8 +314,28 @@ template<u32 func(int, int, int)> void WrapU_III() {
 	RETURN(retval);
 }
 
+template<u32 func(int, int)> void WrapU_II() {
+	u32 retval = func(PARAM(0), PARAM(1));
+	RETURN(retval);
+}
+
+template<u32 func(int, int, int, int)> void WrapU_IIII() {
+	u32 retval = func(PARAM(0), PARAM(1), PARAM(2), PARAM(3));
+	RETURN(retval);
+}
+
 template<u32 func(int, u32, u32)> void WrapU_IUU() {
 	u32 retval = func(PARAM(0), PARAM(1), PARAM(2));
+	RETURN(retval);
+}
+
+template<u32 func(int, u32, u32, u32)> void WrapU_IUUU() {
+	u32 retval = func(PARAM(0), PARAM(1), PARAM(2), PARAM(3));
+	RETURN(retval);
+}
+
+template<u32 func(int, u32, u32, u32, u32)> void WrapU_IUUUU() {
+	u32 retval = func(PARAM(0), PARAM(1), PARAM(2), PARAM(3), PARAM(4));
 	RETURN(retval);
 }
 
@@ -412,6 +445,11 @@ template<void func(const char *, int)> void WrapV_CI() {
 
 template<u32 func(const char *, int)> void WrapU_CI() {
 	int retval = func(Memory::GetCharPointer(PARAM(0)), PARAM(1));
+	RETURN(retval);
+}
+
+template<u32 func(const char *, int, int)> void WrapU_CII() {
+	int retval = func(Memory::GetCharPointer(PARAM(0)), PARAM(1), PARAM(2));
 	RETURN(retval);
 }
 

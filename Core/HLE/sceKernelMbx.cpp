@@ -30,8 +30,7 @@ const int PSP_MBX_ERROR_DUPLICATE_MSG = 0x800201C9;
 typedef std::pair<SceUID, u32> MbxWaitingThread;
 void __KernelMbxTimeout(u64 userdata, int cyclesLate);
 
-bool mbxInitComplete = false;
-int mbxWaitTimer = 0;
+static int mbxWaitTimer = 0;
 
 struct NativeMbx
 {
@@ -154,6 +153,14 @@ struct Mbx : public KernelObject
 		return 0;
 	}
 
+	virtual void DoState(PointerWrap &p)
+	{
+		p.Do(nmb);
+		MbxWaitingThread mwt(0,0);
+		p.Do(waitingThreads, mwt);
+		p.DoMarker("Mbx");
+	}
+
 	NativeMbx nmb;
 
 	std::vector<MbxWaitingThread> waitingThreads;
@@ -161,9 +168,19 @@ struct Mbx : public KernelObject
 
 void __KernelMbxInit()
 {
-	mbxWaitTimer = CoreTiming::RegisterEvent("MbxTimeout", &__KernelMbxTimeout);
+	mbxWaitTimer = CoreTiming::RegisterEvent("MbxTimeout", __KernelMbxTimeout);
+}
 
-	mbxInitComplete = true;
+void __KernelMbxDoState(PointerWrap &p)
+{
+	p.Do(mbxWaitTimer);
+	CoreTiming::RestoreRegisterEvent(mbxWaitTimer, "MbxTimeout", __KernelMbxTimeout);
+	p.DoMarker("sceKernelMbx");
+}
+
+KernelObject *__KernelMbxObject()
+{
+	return new Mbx;
 }
 
 bool __KernelUnlockMbxForThread(Mbx *m, MbxWaitingThread &th, u32 &error, int result, bool &wokeThreads)
@@ -263,9 +280,6 @@ std::vector<MbxWaitingThread>::iterator __KernelMbxFindPriority(std::vector<MbxW
 
 SceUID sceKernelCreateMbx(const char *name, u32 attr, u32 optAddr)
 {
-	if (!mbxInitComplete)
-		__KernelMbxInit();
-
 	if (!name)
 	{
 		WARN_LOG(HLE, "%08x=%s(): invalid name", SCE_KERNEL_ERROR_ERROR, __FUNCTION__);

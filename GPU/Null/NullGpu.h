@@ -24,7 +24,8 @@ class ShaderManager;
 class NullGPU : public GPUInterface
 {
 public:
-	NullGPU() : interruptsEnabled_(true) {}
+	NullGPU();
+	~NullGPU();
 	virtual void InitClear() {}
 	virtual u32 EnqueueList(u32 listpc, u32 stall);
 	virtual void UpdateStall(int listid, u32 newstall);
@@ -40,6 +41,11 @@ public:
 	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, int format) {}
 	virtual void CopyDisplayToOutput() {}
 	virtual void UpdateStats();
+	virtual void InvalidateCache(u32 addr, int size);
+	virtual void Flush() {}
+
+	virtual void DeviceLost() {}
+	virtual void DumpNextFrame() {}
 
 private:
 	bool ProcessDLQueue();

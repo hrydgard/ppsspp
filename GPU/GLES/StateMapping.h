@@ -5,3 +5,8 @@ extern const GLint bLookup[];
 extern const GLint eqLookup[];
 extern const GLint cullingMode[];
 extern const GLuint ztests[];
+
+
+void ApplyDrawState();
+void UpdateViewportAndProjection();
+

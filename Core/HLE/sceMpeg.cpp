@@ -87,7 +87,7 @@ struct StreamInfo
 };
 
 // Internal structure
-struct MpegContext {
+struct MpegContextSimple {
 	u32 defaultFrameWidth;
 	int videoFrameCount;
 	int audioFrameCount;
@@ -108,20 +108,31 @@ struct MpegContext {
 	bool esBuffers[NUM_ES_BUFFERS];
 	AvcContext avc;
 
-	std::map<int, StreamInfo> streamMap;
-
 	bool avcRegistered;
 	bool atracRegistered;
 	bool pcmRegistered;
 
 	bool isAnalyzed;
+};
+typedef std::map<u32, StreamInfo> StreamInfoMap;
 
+struct MpegContext : public MpegContextSimple {
+	void DoState(PointerWrap &p) {
+		p.Do<MpegContextSimple>(*this);
+		p.Do<StreamInfo>(streamMap);
+		// Media engine has nothing exotic.
+		p.Do<MediaEngine>(*mediaengine);
+		p.DoMarker("MpegContext");
+	}
+
+	StreamInfoMap streamMap;
 	MediaEngine *mediaengine;
 };
 
-static int streamIdGen;
+static u32 streamIdGen;
 static bool isCurrentMpegAnalyzed;
 static bool fakeMode;
+static int actionPostPut;
 static std::map<u32, MpegContext *> mpegMap;
 // TODO: Remove.
 static u32 lastMpegHandle = 0;
@@ -225,18 +236,65 @@ void AnalyzeMpeg(u32 buffer_addr, MpegContext *ctx) {
 	INFO_LOG(ME, "First timestamp: %d, Last timestamp: %d", ctx->mpegFirstTimestamp, ctx->mpegLastTimestamp);
 }
 
+class PostPutAction : public Action {
+public:
+	PostPutAction() {}
+	void setRingAddr(u32 ringAddr) { ringAddr_ = ringAddr; }
+	static Action *Create() { return new PostPutAction; }
+	void DoState(PointerWrap &p) { p.Do(ringAddr_); p.DoMarker("PostPutAction"); }
+	void run();
+private:
+	u32 ringAddr_;
+};
 
 void __MpegInit(bool useMediaEngine_) {
+	lastMpegHandle = 0;
 	streamIdGen = 1;
 	fakeMode = !useMediaEngine_;
 	isCurrentMpegAnalyzed = false;
+	actionPostPut = __KernelRegisterActionType(PostPutAction::Create);
 }
 
+void __MpegDoState(PointerWrap &p) {
+	p.Do(lastMpegHandle);
+	p.Do(streamIdGen);
+	p.Do(fakeMode);
+	p.Do(isCurrentMpegAnalyzed);
+	p.Do(actionPostPut);
+	__KernelRestoreActionType(actionPostPut, PostPutAction::Create);
+
+	int n = (int) mpegMap.size();
+	p.Do(n);
+	if (p.mode == p.MODE_READ) {
+		std::map<u32, MpegContext *>::iterator it, end;
+		for (it = mpegMap.begin(), end = mpegMap.end(); it != end; ++it) {
+			delete it->second->mediaengine;
+			delete it->second;
+		}
+		mpegMap.clear();
+
+		for (int i = 0; i < n; ++i) {
+			u32 key;
+			p.Do(key);
+			MpegContext *ctx = new MpegContext;
+			ctx->mediaengine = new MediaEngine;
+			ctx->DoState(p);
+			mpegMap[key] = ctx;
+		}
+	} else {
+		std::map<u32, MpegContext *>::iterator it, end;
+		for (it = mpegMap.begin(), end = mpegMap.end(); it != end; ++it) {
+			p.Do(it->first);
+			it->second->DoState(p);
+		}
+	}
+
+	p.DoMarker("sceMpeg");
+}
 
 void __MpegShutdown() {
 	std::map<u32, MpegContext *>::iterator it, end;
-	for (it = mpegMap.begin(), end = mpegMap.end(); it != end; ++it)
-	{
+	for (it = mpegMap.begin(), end = mpegMap.end(); it != end; ++it) {
 		delete it->second->mediaengine;
 		delete it->second;
 	}
@@ -433,7 +491,7 @@ int sceMpegRegistStream(u32 mpeg, u32 streamType, u32 streamNum)
 		break;
 	}
 	// ...
-	int sid = streamIdGen++;
+	u32 sid = streamIdGen++;
 	StreamInfo info;
 	info.type = streamType;
 	info.num = streamNum;
@@ -703,13 +761,7 @@ int sceMpegRingbufferAvailableSize(u32 ringbufferAddr)
 }
 
 
-class PostPutAction : public Action {
-public:
-	PostPutAction(u32 ringAddr) : ringAddr_(ringAddr) {}
-	void run();
-private:
-	u32 ringAddr_;
-};
+
 
 void PostPutAction::run() {
 	SceMpegRingBuffer ringbuffer;
@@ -764,7 +816,8 @@ u32 sceMpegRingbufferPut(u32 ringbufferAddr, u32 numPackets, u32 available)
 
 	// Execute callback function as a direct MipsCall, no blocking here so no messing around with wait states etc
 	if (ringbuffer.callback_addr) {
-		PostPutAction *action = new PostPutAction(ringbufferAddr);
+		PostPutAction *action = (PostPutAction *) __KernelCreateAction(actionPostPut);
+		action->setRingAddr(ringbufferAddr);
 		u32 args[3] = {ringbuffer.data, numPackets, ringbuffer.callback_args};
 		__KernelDirectMipsCall(ringbuffer.callback_addr, action, false, args, 3, false);
 	} else {

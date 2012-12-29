@@ -1,4 +1,5 @@
 #include "../../Globals.h"
+#include "../../Common/ChunkFile.h"
 
 // mscmhc0 states
 enum MemStickState {
@@ -14,6 +15,7 @@ enum MemStickFatState {
 	PSP_FAT_MEMORYSTICK_STATE_ASSIGNED = 1,
 };
 
+void MemoryStick_DoState(PointerWrap &p);
 MemStickState MemoryStick_State();
 MemStickFatState MemoryStick_FatState();
 

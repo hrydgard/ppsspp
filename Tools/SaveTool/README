@@ -1,0 +1,77 @@
+
+PSP Tool for encoding save data from PPSSPP to read on PSP and decoding 
+PSP save to read on PPSSPP.
+
+Alpha version. Was only tested on Project Dive Extend.
+
+
+Build
+=====
+
+Require PSP Toolchain with PSP SDK
+
+
+make release
+This will build ppssppsavetool.prx and kernelcall.prx.
+
+clean : make allclean
+
+
+How to use
+==========
+
+Require PSP Toolchain with PRX Link and usb link, pspsh to work. Seems 
+there is limitation for directories listing when running directly the 
+tool from the PSP.
+
+A) PREPARING DATA
+=================
+
+1) Play the game on PPSSPP until a game save is done. This will create 
+the file "ENCRYPT_INFO.BIN" in the save directory. It contain the 
+encoding key and sdk version of the game. This file is the same for all 
+save of the game, so you can use it on different save folder without 
+the need to make them all on PPSSPP.
+
+2) Run usbhostfs_pc. Then mount .ppsspp/PSP/SAVEDATA directory :
+mount 1 <path to .ppsspp/PSP/SAVEDATA>
+If you enter "drives", you should see host1: mapped to the directory.
+
+3) Run PRX Link on the psp, and pspsh on the PC.
+
+B) ENCODING A SAVE FROM PPSSPP TO PSP
+=====================================
+
+1) From pspsh, run ppssppsavetool.prx.
+
+2) In the menu, select "Encrypt", "host1:/". This will list the 
+directories in ppsspp save directory which can be encoded.
+For a directory to appear, it must contain the ENCRYPT_INFO.BIN file, 
+and the files of a ppsspp save.
+
+3) After selecting the directory to encode, it will be copied into 
+the PSP/SAVEGAME directory and encoded. Now you can play the save on 
+the PSP.
+
+C) DECODING A SAVE FROM PSP TO PPSSPP
+=====================================
+
+1) You should have a directory in the PPSSPP save directory with the 
+same name that the PSP save you want to convert. And in it, the 
+"ENCRYPT_INFO.BIN" file.
+
+Ex : You want to decrypt the save in ms0:/PSP/SAVEDATA/XXXXYYY/
+You create .ppsspp/PSP/SAVEDATA/XXXXYYY/ if not existing, and put the 
+"ENCRYPT_INFO.BIN" generated before in it.
+
+2) From pspsh, run ppssppsavetool.prx.
+
+3) In the menu, select "decrypt", "host1:/". You should see your 
+directory in the list.
+
+4) After selecting it, the game decode the save and save it into the 
+PPSSPP save directory. You can now launch your game in PPSSPP and load 
+the save.
+
+
+

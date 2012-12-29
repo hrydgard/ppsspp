@@ -50,6 +50,13 @@ void __SasInit() {
 	sas = new SasInstance();
 }
 
+void __SasDoState(PointerWrap &p) {
+	if (sas != NULL) {
+		sas->DoState(p);
+	}
+	p.DoMarker("sceSas");
+}
+
 void __SasShutdown() {
 	delete sas;
 	sas = 0;
@@ -114,6 +121,11 @@ u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop)
 		return ERROR_SAS_INVALID_VOICE;
 	}
 
+	if (!Memory::IsValidAddress(vagAddr)) {
+		ERROR_LOG(HLE, "Ignoring invalid VAG audio address %08x", vagAddr);
+		return 0;
+	}
+
 	//Real VAG header is 0x30 bytes behind the vagAddr
 	SasVoice &v = sas->voices[voiceNum];
 	v.type = VOICETYPE_VAG;
@@ -126,7 +138,7 @@ u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop)
 
 u32 sceSasSetVoicePCM(u32 core, int voiceNum, u32 pcmAddr, int size, int loop)
 {
-	DEBUG_LOG(HLE,"0=sceSasSetVoicePCM(core=%08x, voicenum=%i, pcmAddr=%08x, size=%i, loop=%i)",core, voiceNum, pcmAddr, size, loop);
+	DEBUG_LOG(HLE,"0=sceSasSetVoicePCM(core=%08x, voicenum=%i, pcmAddr=%08x, size=%i, loop=%i)", core, voiceNum, pcmAddr, size, loop);
 	SasVoice &v = sas->voices[voiceNum];
 	v.type = VOICETYPE_PCM;
 	v.pcmAddr = pcmAddr;
@@ -310,7 +322,7 @@ u32 sceSasGetEnvelopeHeight(u32 core, u32 voiceNum)
 	{
 		DEBUG_LOG(HLE,"UNIMPL 0=sceSasGetEnvelopeHeight(core=%08x, voicenum=%i)", core, voiceNum);
 	}
-	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)
+	if (voiceNum >= PSP_SAS_VOICES_MAX)
 	{
 		WARN_LOG(HLE, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;

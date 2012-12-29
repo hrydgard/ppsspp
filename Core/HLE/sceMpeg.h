@@ -18,6 +18,7 @@
 #pragma once
 
 #include "../../Globals.h"
+#include "../../Common/ChunkFile.h"
 
 enum {
 	ERROR_MPEG_BAD_VERSION                              = 0x80610002,
@@ -77,6 +78,7 @@ struct SceMpegRingBuffer {
 };
 
 void __MpegInit(bool useMediaEngine_);
+void __MpegDoState(PointerWrap &p);
 void __MpegShutdown();
 
 void Register_sceMpeg();

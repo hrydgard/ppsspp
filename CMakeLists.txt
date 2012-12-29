@@ -109,6 +109,7 @@ endif()
 
 if(NOT MSVC)
 	# Disable some warnings
+	add_definitions(-O2)
 	add_definitions(-Wno-multichar)
 	add_definitions(-fno-strict-aliasing)
 	if(NOT APPLE)
@@ -764,6 +765,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/PSPLoaders.h
 	Core/PSPMixer.cpp
 	Core/PSPMixer.h
+	Core/SaveState.cpp
+	Core/SaveState.h
 	Core/System.cpp
 	Core/System.h
 	Core/Util/BlockAllocator.cpp
@@ -786,6 +789,8 @@ add_library(GPU OBJECT
 	GPU/GLES/FragmentShaderGenerator.h
 	GPU/GLES/Framebuffer.cpp
 	GPU/GLES/Framebuffer.h
+	GPU/GLES/IndexGenerator.cpp
+	GPU/GLES/IndexGenerator.h
 	GPU/GLES/ShaderManager.cpp
 	GPU/GLES/ShaderManager.h
 	GPU/GLES/StateMapping.cpp
@@ -799,12 +804,12 @@ add_library(GPU OBJECT
 	GPU/GLES/VertexShaderGenerator.cpp
 	GPU/GLES/VertexShaderGenerator.h
 	GPU/GPUInterface.h
+	GPU/GeDisasm.cpp
+	GPU/GeDisasm.h
 	GPU/GPUState.cpp
 	GPU/GPUState.h
 	GPU/Math3D.cpp
 	GPU/Math3D.h
-#	GPU/Null/NullDisplayListInterpreter.cpp
-#	GPU/Null/NullDisplayListInterpreter.h
 	GPU/Null/NullGpu.cpp
 	GPU/Null/NullGpu.h
 	GPU/ge_constants.h)

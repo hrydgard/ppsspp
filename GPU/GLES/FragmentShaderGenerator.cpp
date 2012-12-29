@@ -79,16 +79,16 @@ char *GenerateFragmentShader()
 
 	if (doTexture)
 		WRITE(p, "uniform sampler2D tex;\n");
-	if (gstate.alphaTestEnable & 1)
-		WRITE(p, "uniform vec4 u_alpharef;\n");
+	if ((gstate.alphaTestEnable & 1) || (gstate.colorTestEnable & 1))
+		WRITE(p, "uniform vec4 u_alphacolorref;\n");
 	if (gstate.fogEnable & 1) {
 		WRITE(p, "uniform vec3 u_fogcolor;\n");
 		WRITE(p, "uniform vec2 u_fogcoef;\n");
 	}
-	WRITE(p, "uniform vec4 u_texenv;\n");
+	WRITE(p, "uniform vec3 u_texenv;\n");
 	WRITE(p, "varying vec4 v_color0;\n");
 	if (lmode)
-		WRITE(p, "varying vec4 v_color1;\n");
+		WRITE(p, "varying vec3 v_color1;\n");
 	if (doTexture)
 		WRITE(p, "varying vec2 v_texcoord;\n");
 	if (gstate.isFogEnabled())
@@ -107,7 +107,7 @@ char *GenerateFragmentShader()
 		const char *secondary = "";
 		// Secondary color for specular on top of texture
 		if (lmode) {
-			WRITE(p, "  vec4 s = vec4(v_color1.xyz, 0.0);");
+			WRITE(p, "  vec4 s = vec4(v_color1, 0.0);");
 			secondary = " + s";
 		} else {
 			WRITE(p, "	vec4 s = vec4(0.0, 0.0, 0.0, 0.0);\n");
@@ -163,8 +163,19 @@ char *GenerateFragmentShader()
 			int alphaTestFunc = gstate.alphatest & 7;
 			const char *alphaTestFuncs[] = { "#", "#", " == ", " != ", " < ", " <= ", " > ", " >= " };	// never/always don't make sense
 			if (alphaTestFuncs[alphaTestFunc][0] != '#')
-				WRITE(p, "if (!(v.a %s u_alpharef.x)) discard;", alphaTestFuncs[alphaTestFunc]);
+				WRITE(p, "if (!(v.a %s u_alphacolorref.a)) discard;", alphaTestFuncs[alphaTestFunc]);
 		}
+
+		// Disabled for now until we actually find a need for it.
+		/*
+		if (gstate.colorTestEnable & 1) {
+			// TODO: There are some colortestmasks we could handle.
+			int colorTestFunc = gstate.colortest & 3;
+			const char *colorTestFuncs[] = { "#", "#", " == ", " != " };	// never/always don't make sense}
+			int colorTestMask = gstate.colormask;
+			if (colorTestFuncs[colorTestFunc][0] != '#')
+				WRITE(p, "if (!(v.rgb %s u_alphacolorref.rgb)) discard;", colorTestFuncs[colorTestFunc]);
+		}*/
 
 		if (gstate.isFogEnabled()) {
 			// Haven't figured out how to adjust the depth range yet.

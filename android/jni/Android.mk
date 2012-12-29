@@ -69,9 +69,11 @@ LOCAL_SRC_FILES := \
   $(SRC)/Common/MathUtil.cpp \
   $(SRC)/GPU/Math3D.cpp \
   $(SRC)/GPU/GPUState.cpp \
+  $(SRC)/GPU/GeDisasm.cpp \
   $(SRC)/GPU/GLES/Framebuffer.cpp \
   $(SRC)/GPU/GLES/DisplayListInterpreter.cpp \
   $(SRC)/GPU/GLES/TextureCache.cpp \
+  $(SRC)/GPU/GLES/IndexGenerator.cpp \
   $(SRC)/GPU/GLES/TransformPipeline.cpp \
   $(SRC)/GPU/GLES/StateMapping.cpp \
   $(SRC)/GPU/GLES/VertexDecoder.cpp \
@@ -94,6 +96,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/PSPLoaders.cpp \
   $(SRC)/Core/MemMap.cpp \
   $(SRC)/Core/MemMapFunctions.cpp \
+  $(SRC)/Core/SaveState.cpp \
   $(SRC)/Core/System.cpp \
   $(SRC)/Core/PSPMixer.cpp \
   $(SRC)/Core/Debugger/Breakpoints.cpp \

@@ -69,6 +69,8 @@ LogManager::LogManager()
 	m_fileLog = new FileLogListener(File::GetUserPath(F_MAINLOG_IDX).c_str());
 	m_consoleLog = new ConsoleListener();
 	m_debuggerLog = new DebuggerLogListener();
+#else
+	m_fileLog = NULL;
 #endif
 
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; ++i)
@@ -89,8 +91,9 @@ LogManager::~LogManager()
 {
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; ++i)
 	{
+		if (m_fileLog != NULL)
+			m_logManager->RemoveListener((LogTypes::LOG_TYPE)i, m_fileLog);
 #if !defined(ANDROID) && !defined(IOS) && !defined(BLACKBERRY)
-		m_logManager->RemoveListener((LogTypes::LOG_TYPE)i, m_fileLog);
 		m_logManager->RemoveListener((LogTypes::LOG_TYPE)i, m_consoleLog);
 		m_logManager->RemoveListener((LogTypes::LOG_TYPE)i, m_debuggerLog);
 #endif
@@ -98,10 +101,28 @@ LogManager::~LogManager()
 
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; ++i)
 		delete m_Log[i];
+	if (m_fileLog != NULL)
+		delete m_fileLog;
 #if !defined(ANDROID) && !defined(IOS) && !defined(BLACKBERRY)
-	delete m_fileLog;
 	delete m_consoleLog;
 #endif
+}
+
+void LogManager::ChangeFileLog(const char *filename)
+{
+	if (m_fileLog != NULL)
+	{
+		for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; ++i)
+			m_logManager->RemoveListener((LogTypes::LOG_TYPE)i, m_fileLog);
+		delete m_fileLog;
+	}
+
+	if (filename != NULL)
+	{
+		m_fileLog = new FileLogListener(filename);
+		for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; ++i)
+			m_Log[i]->AddListener(m_fileLog);
+	}
 }
 
 void LogManager::SaveConfig(IniFile::Section *section)
@@ -139,7 +160,7 @@ void LogManager::Log(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const 
 	static const char level_to_char[7] = "-NEWID";
 	char formattedTime[13];
 	Common::Timer::GetTimeFormatted(formattedTime);
-	sprintf(msg, "%s %s:%u %c[%s]: %s\n",
+	sprintf(msg, "%s %s:%d %c[%s]: %s\n",
 		formattedTime,
 		file, line, level_to_char[(int)level],
 		log->GetShortName(), temp);

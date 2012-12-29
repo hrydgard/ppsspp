@@ -97,7 +97,11 @@ struct ThreadContext
 // Internal API, used by implementations of kernel functions
 
 void __KernelThreadingInit();
+void __KernelThreadingDoState(PointerWrap &p);
+void __KernelThreadingDoStateLate(PointerWrap &p);
 void __KernelThreadingShutdown();
+KernelObject *__KernelThreadObject();
+KernelObject *__KernelCallbackObject();
 
 void __KernelScheduleWakeup(int usFromNow, int threadnumber);
 SceUID __KernelGetCurThread();
@@ -181,8 +185,17 @@ void __KernelSwitchContext(Thread *target, const char *reason);
 bool __KernelExecutePendingMipsCalls(bool reschedAfter);
 void __KernelNotifyCallback(RegisteredCallbackType type, SceUID cbId, int notifyArg);
 
+// Switch to an idle / non-user thread, if not already on one.
+// Returns whether a switch occurred.
+bool __KernelSwitchOffThread(const char *reason);
+
 // A call into game code. These can be pending on a thread.
 // Similar to Callback-s (NOT CallbackInfos) in JPCSP.
+typedef Action *(*ActionCreator)();
+Action *__KernelCreateAction(int actionType);
+int __KernelRegisterActionType(ActionCreator creator);
+void __KernelRestoreActionType(int actionType, ActionCreator creator);
+
 struct MipsCall {
 	u32 entryPoint;
 	u32 cbId;
@@ -195,9 +208,11 @@ struct MipsCall {
 	u32 savedV0;
 	u32 savedV1;
 	bool returnVoid;
-	const char *tag;
+	std::string tag;
 	u32 savedId;
 	bool reschedAfter;
+
+	void DoState(PointerWrap &p);
 };
 enum ThreadStatus
 {

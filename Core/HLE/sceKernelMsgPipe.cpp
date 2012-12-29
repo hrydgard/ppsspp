@@ -56,10 +56,12 @@ struct MsgPipe : public KernelObject
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_MPPID; }
 	int GetIDType() const { return SCE_KERNEL_TMID_Mpipe; }
 
-	NativeMsgPipe nmp;
-
-	std::vector<MsgPipeWaitingThread> sendWaitingThreads;
-	std::vector<MsgPipeWaitingThread> receiveWaitingThreads;
+	MsgPipe() : buffer(NULL) {}
+	~MsgPipe()
+	{
+		if (buffer != NULL)
+			delete [] buffer;
+	}
 
 	void AddWaitingThread(std::vector<MsgPipeWaitingThread> &list, SceUID id, u32 addr, u32 size, int waitMode, u32 transferredBytesAddr, bool usePrio)
 	{
@@ -98,7 +100,7 @@ struct MsgPipe : public KernelObject
 		if (sendWaitingThreads.empty())
 			return;
 		MsgPipeWaitingThread *thread = &sendWaitingThreads.front();
-		if (nmp.freeSize >= thread->bufSize)
+		if ((u32) nmp.freeSize >= thread->bufSize)
 		{
 			// Put all the data to the buffer
 			memcpy(buffer + (nmp.bufSize - nmp.freeSize), Memory::GetPointer(thread->bufAddr), thread->bufSize);
@@ -126,7 +128,7 @@ struct MsgPipe : public KernelObject
 		if (receiveWaitingThreads.empty())
 			return;
 		MsgPipeWaitingThread *thread = &receiveWaitingThreads.front();
-		if (nmp.bufSize - nmp.freeSize >= thread->bufSize)
+		if ((u32) nmp.bufSize - (u32) nmp.freeSize >= thread->bufSize)
 		{
 			// Get the needed data from the buffer
 			Memory::Memcpy(thread->bufAddr, buffer, thread->bufSize);
@@ -150,8 +152,35 @@ struct MsgPipe : public KernelObject
 		}
 	}
 
+	virtual void DoState(PointerWrap &p)
+	{
+		p.Do(nmp);
+		MsgPipeWaitingThread mpwt1 = {0}, mpwt2 = {0};
+		p.Do(sendWaitingThreads, mpwt1);
+		p.Do(receiveWaitingThreads, mpwt2);
+		bool hasBuffer = buffer != NULL;
+		p.Do(hasBuffer);
+		if (hasBuffer)
+		{
+			if (buffer == NULL)
+				buffer = new u8[nmp.bufSize];
+			p.DoArray(buffer, nmp.bufSize);
+		}
+		p.DoMarker("MsgPipe");
+	}
+
+	NativeMsgPipe nmp;
+
+	std::vector<MsgPipeWaitingThread> sendWaitingThreads;
+	std::vector<MsgPipeWaitingThread> receiveWaitingThreads;
+
 	u8 *buffer;
 };
+
+KernelObject *__KernelMsgPipeObject()
+{
+	return new MsgPipe;
+}
 
 void sceKernelCreateMsgPipe()
 {
@@ -193,10 +222,6 @@ void sceKernelDeleteMsgPipe()
 		ERROR_LOG(HLE, "sceKernelDeleteMsgPipe(%i) - ERROR %08x", uid, error);
 		RETURN(error);
 		return;
-	}
-	if (m->buffer != 0)
-	{
-		delete [] m->buffer;
 	}
 	for (u32 i = 0; i < m->sendWaitingThreads.size(); i++)
 	{
@@ -271,7 +296,7 @@ void __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode
 	}
 	else
 	{
-		if (sendSize <= m->nmp.freeSize)
+		if (sendSize <= (u32) m->nmp.freeSize)
 		{
 			memcpy(m->buffer + (m->nmp.bufSize - m->nmp.freeSize), Memory::GetPointer(sendBufAddr), sendSize);
 			m->nmp.freeSize -= sendSize;
@@ -445,7 +470,7 @@ void __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int
 	else
 	{
 		// Enough data in the buffer: copy just the needed amount of data
-		if (receiveSize <= m->nmp.bufSize - m->nmp.freeSize)
+		if (receiveSize <= (u32) m->nmp.bufSize - (u32) m->nmp.freeSize)
 		{
 			Memory::Memcpy(receiveBufAddr, m->buffer, receiveSize);
 			m->nmp.freeSize += receiveSize;

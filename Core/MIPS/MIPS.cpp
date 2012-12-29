@@ -52,7 +52,13 @@ MIPSState::~MIPSState()
 
 void MIPSState::Reset()
 {
-	if (!MIPSComp::jit && PSP_CoreParameter().cpuCore == CPU_JIT)
+	if (MIPSComp::jit)
+	{
+		delete MIPSComp::jit;
+		MIPSComp::jit = 0;
+	}
+
+	if (PSP_CoreParameter().cpuCore == CPU_JIT)
 		MIPSComp::jit = new MIPSComp::Jit(this);
 
 	memset(r, 0, sizeof(r));
@@ -91,6 +97,33 @@ void MIPSState::Reset()
 	nextPC = 0;
 	// Initialize the VFPU random number generator with .. something?
 	rng.Init(0x1337);
+}
+
+void MIPSState::DoState(PointerWrap &p)
+{
+	// Reset the jit if we're loading.
+	if (p.mode == p.MODE_READ)
+		Reset();
+
+	p.DoArray(r, sizeof(r) / sizeof(r[0]));
+	p.DoArray(f, sizeof(f) / sizeof(f[0]));
+	p.DoArray(v, sizeof(v) / sizeof(v[0]));
+	p.DoArray(vfpuCtrl, sizeof(vfpuCtrl) / sizeof(vfpuCtrl[0]));
+	p.DoArray(vfpuWriteMask, sizeof(vfpuWriteMask) / sizeof(vfpuWriteMask[0]));
+	p.Do(pc);
+	p.Do(nextPC);
+	p.Do(hi);
+	p.Do(lo);
+	p.Do(fpcond);
+	p.Do(fcr0);
+	p.Do(fcr31);
+	rng.DoState(p);
+	p.Do(inDelaySlot);
+	p.Do(llBit);
+	p.Do(cpuType);
+	p.Do(exceptions);
+	p.Do(debugCount);
+	p.DoMarker("MIPSState");
 }
 
 void MIPSState::SetWriteMask(const bool wm[4])

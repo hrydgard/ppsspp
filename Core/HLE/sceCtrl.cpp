@@ -33,6 +33,7 @@
 
 const int PSP_CTRL_ERROR_INVALID_MODE = 0x80000107;
 const int PSP_CTRL_ERROR_INVALID_NUM_BUFFERS = 0x80000104;
+const int PSP_CTRL_ERROR_INVALID_IDLE_PTR = 0x80000023;
 
 const int NUM_CTRL_BUFFERS = 64;
 
@@ -61,7 +62,6 @@ struct CtrlLatch {
 
 //////////////////////////////////////////////////////////////////////////
 // STATE BEGIN
-static bool ctrlInited = false;
 static bool analogEnabled = false;
 static int ctrlLatchBufs = 0;
 static u32 ctrlOldButtons = 0;
@@ -72,8 +72,15 @@ static int ctrlBuf = 0;
 static int ctrlBufRead = 0;
 static CtrlLatch latch;
 
+static int ctrlIdleReset = -1;
+static int ctrlIdleBack = -1;
+
+static int ctrlCycle = 0;
+
 static std::vector<SceUID> waitingThreads;
 static std::recursive_mutex ctrlMutex;
+
+static int ctrlTimer = -1;
 
 // STATE END
 //////////////////////////////////////////////////////////////////////////
@@ -123,6 +130,13 @@ u32 __CtrlPeekButtons()
 	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
 
 	return ctrlCurrent.buttons;
+}
+
+u32 __CtrlReadLatch()
+{
+	u32 ret = latch.btnMake;
+	__CtrlResetLatch();
+	return ret;
 }
 
 // Functions so that the rest of the emulator can control what the sceCtrl interface should return
@@ -202,9 +216,9 @@ int __CtrlReadBuffer(u32 ctrlDataPtr, u32 nBufs, bool negative, bool peek)
 	return done;
 }
 
-void __CtrlVblank()
+void __CtrlDoSample()
 {
-	// When in vblank sampling mode, this samples the ctrl data into the buffers and updates the latch.
+	// This samples the ctrl data into the buffers and updates the latch.
 	__CtrlUpdateLatch();
 
 	// Wake up a single thread that was waiting for the buffer.
@@ -226,15 +240,32 @@ retry:
 	}
 }
 
+void __CtrlVblank()
+{
+	// This always runs, so make sure we're in vblank mode.
+	if (ctrlCycle == 0)
+		__CtrlDoSample();
+}
+
+void __CtrlTimerUpdate(u64 userdata, int cyclesLate)
+{
+	// This only runs in timer mode (ctrlCycle > 0.)
+	_dbg_assert_msg_(HLE, ctrlCycle > 0, "Ctrl: sampling cycle should be > 0");
+
+	__CtrlDoSample();
+	CoreTiming::ScheduleEvent(usToCycles(ctrlCycle), ctrlTimer, 0);
+}
+
 void __CtrlInit()
 {
-	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
+	ctrlTimer = CoreTiming::RegisterEvent("CtrlSampleTimer", __CtrlTimerUpdate);
+	__DisplayListenVblank(__CtrlVblank);
 
-	if (!ctrlInited)
-	{
-		__DisplayListenVblank(__CtrlVblank);
-		ctrlInited = true;
-	}
+	ctrlIdleReset = -1;
+	ctrlIdleBack = -1;
+	ctrlCycle = 0;
+
+	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
 
 	ctrlBuf = 1;
 	ctrlBufRead = 0;
@@ -253,31 +284,64 @@ void __CtrlInit()
 		memcpy(&ctrlBufs[i], &ctrlCurrent, sizeof(_ctrl_data));
 }
 
-void sceCtrlInit()
+void __CtrlDoState(PointerWrap &p)
 {
-	__CtrlInit();
+	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
 
-	DEBUG_LOG(HLE,"sceCtrlInit");	
-	RETURN(0);
+	p.Do(analogEnabled);
+	p.Do(ctrlLatchBufs);
+	p.Do(ctrlOldButtons);
+
+	p.DoVoid(ctrlBufs, sizeof(ctrlBufs));
+	p.Do(ctrlCurrent);
+	p.Do(ctrlBuf);
+	p.Do(ctrlBufRead);
+	p.Do(latch);
+
+	p.Do(ctrlIdleReset);
+	p.Do(ctrlIdleBack);
+
+	p.Do(ctrlCycle);
+
+	SceUID dv = 0;
+	p.Do(waitingThreads, dv);
+
+	p.Do(ctrlTimer);
+	CoreTiming::RestoreRegisterEvent(ctrlTimer, "CtrlSampleTimer", __CtrlTimerUpdate);
+	p.DoMarker("sceCtrl");
+}
+
+void __CtrlShutdown()
+{
+	waitingThreads.clear();
 }
 
 u32 sceCtrlSetSamplingCycle(u32 cycle)
 {
-	if (cycle == 0)
+	DEBUG_LOG(HLE, "sceCtrlSetSamplingCycle(%u)", cycle);
+
+	if ((cycle > 0 && cycle < 5555) || cycle > 20000)
 	{
-		// TODO: Change to vblank when we support something else.
-		DEBUG_LOG(HLE, "sceCtrlSetSamplingCycle(%u)", cycle);
+		WARN_LOG(HLE, "SCE_KERNEL_ERROR_INVALID_VALUE=sceCtrlSetSamplingCycle(%u)", cycle);
+		return SCE_KERNEL_ERROR_INVALID_VALUE;
 	}
-	else
-	{
-		ERROR_LOG(HLE, "UNIMPL sceCtrlSetSamplingCycle(%u)", cycle);
-	}
-	return 0;
+
+	u32 prev = ctrlCycle;
+	ctrlCycle = cycle;
+
+	if (prev > 0)
+		CoreTiming::UnscheduleEvent(ctrlTimer, 0);
+	if (cycle > 0)
+		CoreTiming::ScheduleEvent(usToCycles(ctrlCycle), ctrlTimer, 0);
+
+	return prev;
 }
 
 int sceCtrlGetSamplingCycle(u32 cyclePtr)
 {
-	ERROR_LOG(HLE, "UNIMPL sceCtrlSetSamplingCycle(%08x)", cyclePtr);
+	DEBUG_LOG(HLE, "sceCtrlSetSamplingCycle(%08x)", cyclePtr);
+	if (Memory::IsValidAddress(cyclePtr))
+		Memory::Write_U32(ctrlCycle, cyclePtr);
 	return 0;
 }
 
@@ -297,6 +361,7 @@ u32 sceCtrlSetSamplingMode(u32 mode)
 int sceCtrlGetSamplingMode(u32 modePtr)
 {
 	u32 retVal = analogEnabled == true ? CTRL_MODE_ANALOG : CTRL_MODE_DIGITAL;
+	DEBUG_LOG(HLE, "%d=sceCtrlGetSamplingMode(%i)", retVal);
 
 	if (Memory::IsValidAddress(modePtr))
 		Memory::Write_U32(retVal, modePtr);
@@ -304,10 +369,33 @@ int sceCtrlGetSamplingMode(u32 modePtr)
 	return 0;
 }
 
-void sceCtrlSetIdleCancelThreshold()
+int sceCtrlSetIdleCancelThreshold(int idleReset, int idleBack)
 {
-	ERROR_LOG(HLE,"UNIMPL sceCtrlSetIdleCancelThreshold");
-	RETURN(0);
+	DEBUG_LOG(HLE, "FAKE sceCtrlSetIdleCancelThreshold(%d, %d)", idleReset, idleBack);
+
+	if (idleReset < -1 || idleBack < -1 || idleReset > 128 || idleBack > 128)
+		return SCE_KERNEL_ERROR_INVALID_VALUE;
+
+	ctrlIdleReset = idleReset;
+	ctrlIdleBack = idleBack;
+	return 0;
+}
+
+int sceCtrlGetIdleCancelThreshold(u32 idleResetPtr, u32 idleBackPtr)
+{
+	DEBUG_LOG(HLE, "sceCtrlSetIdleCancelThreshold(%08x, %08x)", idleResetPtr, idleBackPtr);
+
+	if (idleResetPtr && !Memory::IsValidAddress(idleResetPtr))
+		return PSP_CTRL_ERROR_INVALID_IDLE_PTR;
+	if (idleBackPtr && !Memory::IsValidAddress(idleBackPtr))
+		return PSP_CTRL_ERROR_INVALID_IDLE_PTR;
+
+	if (idleResetPtr)
+		Memory::Write_U32(ctrlIdleReset, idleResetPtr);
+	if (idleBackPtr)
+		Memory::Write_U32(ctrlIdleBack, idleBackPtr);
+
+	return 0;
 }
 
 void sceCtrlReadBufferPositive(u32 ctrlDataPtr, u32 nBufs)
@@ -378,7 +466,7 @@ u32 sceCtrlReadLatch(u32 latchDataPtr)
 
 static const HLEFunction sceCtrl[] = 
 {
-	{0x3E65A0EA, WrapV_V<sceCtrlInit>, "sceCtrlInit"}, //(int unknown), init with 0
+	{0x3E65A0EA, 0, "sceCtrlInit"}, //(int unknown), init with 0
 	{0x1f4011e6, WrapU_U<sceCtrlSetSamplingMode>, "sceCtrlSetSamplingMode"}, //(int on);
 	{0x6A2774F3, WrapU_U<sceCtrlSetSamplingCycle>, "sceCtrlSetSamplingCycle"},
 	{0x02BAAD91, WrapI_U<sceCtrlGetSamplingCycle>,"sceCtrlGetSamplingCycle"},
@@ -393,8 +481,8 @@ static const HLEFunction sceCtrl[] =
 	{0xAF5960F3, 0, "sceCtrl_AF5960F3"},
 	{0xA68FD260, 0, "sceCtrlClearRapidFire"},
 	{0x6841BE1A, 0, "sceCtrlSetRapidFire"},
-	{0xa7144800, WrapV_V<sceCtrlSetIdleCancelThreshold>, "sceCtrlSetIdleCancelThreshold"},
-	{0x687660fa, 0, "sceCtrlGetIdleCancelThreshold"},
+	{0xa7144800, WrapI_II<sceCtrlSetIdleCancelThreshold>, "sceCtrlSetIdleCancelThreshold"},
+	{0x687660fa, WrapI_UU<sceCtrlGetIdleCancelThreshold>, "sceCtrlGetIdleCancelThreshold"},
 };	
 
 void Register_sceCtrl()
