@@ -163,7 +163,7 @@ void __CtrlSetAnalog(float x, float y)
 	if (x < -1.0f) x = -1.0f;
 	if (y < -1.0f) y = -1.0f;
 	ctrlCurrent.analog[0] = (u8)(x * 127.f + 128.f);
-	ctrlCurrent.analog[1] = (u8)(y * 127.f + 128.f);
+	ctrlCurrent.analog[1] = (u8)(-y * 127.f + 128.f);
 }
 
 int __CtrlReadSingleBuffer(u32 ctrlDataPtr, bool negative)
