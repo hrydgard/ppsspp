@@ -1120,3 +1120,16 @@ void GLES_GPU::InvalidateCache(u32 addr, int size) {
 void GLES_GPU::Flush() {
 	transformDraw_.Flush();
 }
+
+void GLES_GPU::DoState(PointerWrap &p) {
+	GPUCommon::DoState(p);
+
+	TextureCache_Clear(true);
+	gstate_c.textureChanged = true;
+	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
+		fbo_destroy((*iter)->fbo);
+		delete (*iter);
+	}
+	vfbs_.clear();
+	shaderManager_->ClearCache(true);
+}
