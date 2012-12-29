@@ -18,9 +18,9 @@
 #pragma once
 
 #include <list>
-#include <vector>
+#include <deque>
 
-#include "../GPUInterface.h"
+#include "../GPUCommon.h"
 #include "Framebuffer.h"
 #include "VertexDecoder.h"
 #include "TransformPipeline.h"
@@ -29,16 +29,14 @@
 class ShaderManager;
 class LinkedShader;
 
-class GLES_GPU : public GPUInterface
+class GLES_GPU : public GPUCommon
 {
 public:
 	GLES_GPU(int renderWidth, int renderHeight);
 	~GLES_GPU();
 	virtual void InitClear();
-	virtual u32 EnqueueList(u32 listpc, u32 stall);
-	virtual void UpdateStall(int listid, u32 newstall);
+	virtual void PreExecuteOp(u32 op, u32 diff);
 	virtual void ExecuteOp(u32 op, u32 diff);
-	virtual bool InterpretList();
 	virtual void DrawSync(int mode);
 	virtual void Continue();
 	virtual void Break();
@@ -58,7 +56,6 @@ public:
 
 private:
 	void DoBlockTransfer();
-	bool ProcessDLQueue();
 
 	// Applies states for debugging if enabled.
 	void BeginDebugDraw();
@@ -80,30 +77,10 @@ private:
 	float renderWidthFactor_;
 	float renderHeightFactor_;
 
-	bool dumpNextFrame_;
-	bool dumpThisFrame_;
-
 	struct CmdProcessorState {
 		u32 pc;
 		u32 stallAddr;
 	};
-
-	CmdProcessorState dcontext;
-
-	int dlIdGenerator;
-
-	struct DisplayList {
-		int id;
-		u32 listpc;
-		u32 stall;
-	};
-
-	std::vector<DisplayList> dlQueue;
-
-	u32 prev;
-	u32 stack[2];
-	u32 stackptr;
-	bool finished;
 
 	struct VirtualFramebuffer {
 		u32 fb_address;

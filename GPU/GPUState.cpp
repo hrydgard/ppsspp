@@ -95,7 +95,8 @@ void ReapplyGfxState()
 
 	for (int i = GE_CMD_VERTEXTYPE; i < GE_CMD_BONEMATRIXNUMBER; i++)
 	{
-		gpu->ExecuteOp(gstate.cmdmem[i], 0xFFFFFFFF);
+		if(i != GE_CMD_ORIGIN)
+		gpu->ExecuteOp(gstate.cmdmem[i], 0xFFFFFFFF);		
 	}
 
 	// Can't write to bonematrixnumber here

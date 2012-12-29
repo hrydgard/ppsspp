@@ -25,17 +25,12 @@
 #include "../GPU/GPUState.h"
 #include "../GPU/GPUInterface.h"
 
-// TODO: This doesn't really belong here
-static int state;
-
 void __GeInit()
 {
-	state = 0;
 }
 
 void __GeDoState(PointerWrap &p)
 {
-	p.Do(state);
 	p.Do(gstate);
 	p.Do(gstate_c);
 
@@ -74,12 +69,7 @@ u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, u32 callbackId,
 			listAddress, stallAddress, callbackId, optParamAddr);
 	//if (!stallAddress)
 	//	stallAddress = listAddress;
-	u32 listID = gpu->EnqueueList(listAddress, stallAddress);
-	// HACKY
-	if (listID)
-		state = SCE_GE_LIST_STALLING;
-	else
-		state = SCE_GE_LIST_COMPLETED;
+	u32 listID = gpu->EnqueueList(listAddress, stallAddress, false);
 
 	DEBUG_LOG(HLE, "List %i enqueued.", listID);
 	//return display list ID
@@ -94,12 +84,7 @@ u32 sceGeListEnQueueHead(u32 listAddress, u32 stallAddress, u32 callbackId,
 			listAddress, stallAddress, callbackId, optParamAddr);
 	//if (!stallAddress)
 	//	stallAddress = listAddress;
-	u32 listID = gpu->EnqueueList(listAddress, stallAddress);
-	// HACKY
-	if (listID)
-		state = SCE_GE_LIST_STALLING;
-	else
-		state = SCE_GE_LIST_COMPLETED;
+	u32 listID = gpu->EnqueueList(listAddress, stallAddress, true);
 
 	DEBUG_LOG(HLE, "List %i enqueued.", listID);
 	//return display list ID
@@ -117,6 +102,9 @@ void sceGeListUpdateStallAddr(u32 displayListID, u32 stallAddress)
 int sceGeListSync(u32 displayListID, u32 mode) //0 : wait for completion		1:check and return
 {
 	DEBUG_LOG(HLE, "sceGeListSync(dlid=%08x, mode=%08x)", displayListID, mode);
+	if(mode == 1) {
+		return gpu->listStatus(displayListID);
+	}
 	return 0;
 }
 
