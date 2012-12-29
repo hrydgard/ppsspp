@@ -482,6 +482,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 
 		Clear();
 		saveDataList = new SaveFileInfo[1];
+		saveDataListCount = 1;
 
 		// get and stock file info for each file
 		DEBUG_LOG(HLE,"Name : %s",GetSaveName(param).c_str());
@@ -608,6 +609,12 @@ void SavedataParam::DoState(PointerWrap &p)
 	p.Do(selectedSave);
 	p.Do(saveDataListCount);
 	p.Do(saveNameListDataCount);
+	if (p.mode == p.MODE_READ)
+	{
+		if (saveDataList != NULL)
+			delete [] saveDataList;
+		saveDataList = new SaveFileInfo[saveDataListCount];
+	}
 	p.DoArray(saveDataList, saveDataListCount);
 	p.DoMarker("SavedataParam");
 }
