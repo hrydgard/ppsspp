@@ -128,6 +128,7 @@
     <ClInclude Include="GLES\VertexDecoder.h" />
     <ClInclude Include="GLES\VertexShaderGenerator.h" />
     <ClInclude Include="GeDisasm.h" />
+    <ClInclude Include="GPUCommon.h" />
     <ClInclude Include="GPUInterface.h" />
     <ClInclude Include="GPUState.h" />
     <ClInclude Include="Math3D.h" />
@@ -147,6 +148,7 @@
     </ClCompile>
     <ClCompile Include="GLES\VertexShaderGenerator.cpp" />
     <ClCompile Include="GeDisasm.cpp" />
+    <ClCompile Include="GPUCommon.cpp" />
     <ClCompile Include="GPUState.cpp" />
     <ClCompile Include="Math3D.cpp" />
     <ClCompile Include="Null\NullGpu.cpp" />

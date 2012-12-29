@@ -22,93 +22,13 @@
 #include "../../Core/MemMap.h"
 #include "../../Core/HLE/sceKernelInterrupt.h"
 
-struct DisplayState 
-{
-	u32 pc;
-	u32 stallAddr;
-};
-
-static DisplayState dcontext;
-
-struct DisplayList
-{
-	int id;
-	u32 listpc;
-	u32 stall;
-};
-
-static std::vector<DisplayList> dlQueue;
-
-static u32 prev;
-static u32 stack[2];
-static u32 stackptr = 0;
-static bool finished;
-
-static int dlIdGenerator = 1;
-
 NullGPU::NullGPU()
 {
 	interruptsEnabled_ = true;
-	dlIdGenerator = 1;
 }
 
 NullGPU::~NullGPU()
 {
-	dlQueue.clear();
-}
-
-bool NullGPU::ProcessDLQueue()
-{
-	std::vector<DisplayList>::iterator iter = dlQueue.begin();
-	while (!(iter == dlQueue.end()))
-	{
-		DisplayList &l = *iter;
-		dcontext.pc = l.listpc;
-		dcontext.stallAddr = l.stall;
-//		DEBUG_LOG(G3D,"Okay, starting DL execution at %08 - stall = %08x", context.pc, stallAddr);
-		if (!InterpretList())
-		{
-			l.listpc = dcontext.pc;
-			l.stall = dcontext.stallAddr;
-			return false;
-		}
-		else
-		{
-			//At the end, we can remove it from the queue and continue
-			dlQueue.erase(iter);
-			//this invalidated the iterator, let's fix it
-			iter = dlQueue.begin();
-		}
-	}
-	return true; //no more lists!
-}
-
-u32 NullGPU::EnqueueList(u32 listpc, u32 stall)
-{
-	DisplayList dl;
-	dl.id = dlIdGenerator++;
-	dl.listpc = listpc&0xFFFFFFF;
-	dl.stall = stall&0xFFFFFFF;
-	dlQueue.push_back(dl);
-	if (!ProcessDLQueue())
-		return dl.id;
-	else
-		return 0;
-}
-
-void NullGPU::UpdateStall(int listid, u32 newstall)
-{
-	// this needs improvement....
-	for (std::vector<DisplayList>::iterator iter = dlQueue.begin(); iter != dlQueue.end(); iter++)
-	{
-		DisplayList &l = *iter;
-		if (l.id == listid)
-		{
-			l.stall = newstall & 0xFFFFFFF;
-		}
-	}
-	
-	ProcessDLQueue();
 }
 
 void NullGPU::DrawSync(int mode)
@@ -123,7 +43,6 @@ void NullGPU::Continue()
 {
 
 }
-
 
 void NullGPU::ExecuteOp(u32 op, u32 diff)
 {
@@ -187,18 +106,18 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 	case GE_CMD_JUMP: 
 		{
 			u32 target = (((gstate.base & 0x00FF0000) << 8) | (op & 0xFFFFFC)) & 0x0FFFFFFF;
-			DEBUG_LOG(G3D,"DL CMD JUMP - %08x to %08x", dcontext.pc, target);
-			dcontext.pc = target - 4; // pc will be increased after we return, counteract that
+			DEBUG_LOG(G3D,"DL CMD JUMP - %08x to %08x", currentList->pc, target);
+			currentList->pc = target - 4; // pc will be increased after we return, counteract that
 		}
 		break;
 
 	case GE_CMD_CALL: 
 		{
-			u32 retval = dcontext.pc + 4;
+			u32 retval = currentList->pc + 4;
 			stack[stackptr++] = retval; 
 			u32 target = (((gstate.base & 0x00FF0000) << 8) | (op & 0xFFFFFC)) & 0xFFFFFFF;
-			DEBUG_LOG(G3D,"DL CMD CALL - %08x to %08x, ret=%08x", dcontext.pc, target, retval);
-			dcontext.pc = target - 4;	// pc will be increased after we return, counteract that
+			DEBUG_LOG(G3D,"DL CMD CALL - %08x to %08x, ret=%08x", currentList->pc, target, retval);
+			currentList->pc = target - 4;	// pc will be increased after we return, counteract that
 		}
 		break;
 
@@ -206,8 +125,8 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 		//TODO : debug!
 		{
 			u32 target = stack[--stackptr] & 0xFFFFFFF; 
-			DEBUG_LOG(G3D,"DL CMD RET - from %08x to %08x", dcontext.pc, target);
-			dcontext.pc = target - 4;
+			DEBUG_LOG(G3D,"DL CMD RET - from %08x to %08x", currentList->pc, target);
+			currentList->pc = target - 4;
 		}
 		break;
 
@@ -234,7 +153,7 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_ORIGIN:
-		gstate.offsetAddr = dcontext.pc & 0xFFFFFF;
+		gstate.offsetAddr = currentList->pc & 0xFFFFFF;
 		break;
 
 	case GE_CMD_VERTEXTYPE:
@@ -807,36 +726,11 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	default:
-		DEBUG_LOG(G3D,"DL Unknown: %08x @ %08x", op, dcontext.pc);
+		DEBUG_LOG(G3D,"DL Unknown: %08x @ %08x", op, currentList->pc);
 		break;
 
 		//ETC...
 	}
-}
-
-bool NullGPU::InterpretList()
-{
-	// Reset stackptr for safety
-	stackptr = 0;
-	u32 op = 0;
-	prev = 0;
-	finished = false;
-	while (!finished)
-	{
-		if (dcontext.pc == dcontext.stallAddr)
-			return false;
-
-		op = Memory::ReadUnchecked_U32(dcontext.pc); //read from memory
-		u32 cmd = op >> 24;
-		u32 diff = op ^ gstate.cmdmem[cmd];
-		gstate.cmdmem[cmd] = op;	 // crashes if I try to put the whole op there??
-
-		ExecuteOp(op, diff);
-
-		dcontext.pc += 4;
-		prev = op;
-	}
-	return true;
 }
 
 void NullGPU::UpdateStats()

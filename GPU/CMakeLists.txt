@@ -1,4 +1,5 @@
 set(SRCS
+	GPUCommon.cpp
 	GPUState.cpp
 	Math3D.cpp
 	GLES/DisplayListInterpreter.cpp

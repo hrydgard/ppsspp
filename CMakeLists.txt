@@ -806,6 +806,8 @@ add_library(GPU OBJECT
 	GPU/GPUInterface.h
 	GPU/GeDisasm.cpp
 	GPU/GeDisasm.h
+	GPU/GPUCommon.cpp
+	GPU/GPUCommon.h
 	GPU/GPUState.cpp
 	GPU/GPUState.h
 	GPU/Math3D.cpp
