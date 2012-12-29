@@ -412,6 +412,7 @@ void SavedataParam::Clear()
 
 		delete[] saveDataList;
 		saveDataList = 0;
+		saveDataListCount = 0;
 	}
 }
 
