@@ -18,6 +18,7 @@
 #pragma once
 
 #include "../../Globals.h"
+#include "../../Common/ChunkFile.h"
 #include <string>
 
 enum FileAccess
@@ -56,6 +57,20 @@ struct PSPFileInfo
 	PSPFileInfo() 
 		: size(0), access(0), exists(false), type(FILETYPE_NORMAL), isOnSectorSystem(false), startSector(0), numSectors(0) {}
 
+	void DoState(PointerWrap &p)
+	{
+		p.Do(name);
+		p.Do(size);
+		p.Do(access);
+		p.Do(exists);
+		p.Do(type);
+		p.Do(mtime);
+		p.Do(isOnSectorSystem);
+		p.Do(startSector);
+		p.Do(numSectors);
+		p.DoMarker("PSPFileInfo");
+	}
+
 	std::string name;
 	s64 size;
 	u32 access; //unix 777
@@ -75,6 +90,7 @@ class IFileSystem
 public:
 	virtual ~IFileSystem() {}
 
+	virtual void DoState(PointerWrap &p) = 0;
 	virtual std::vector<PSPFileInfo> GetDirListing(std::string path) = 0;
 	virtual u32      OpenFile(std::string filename, FileAccess access) = 0;
 	virtual void     CloseFile(u32 handle) = 0;
@@ -93,6 +109,7 @@ public:
 class EmptyFileSystem : public IFileSystem
 {
 public:
+	virtual void DoState(PointerWrap &p) {}
 	std::vector<PSPFileInfo> GetDirListing(std::string path) {std::vector<PSPFileInfo> vec; return vec;}
 	u32      OpenFile(std::string filename, FileAccess access) {return 0;}
 	void     CloseFile(u32 handle) {}

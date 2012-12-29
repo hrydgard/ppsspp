@@ -36,45 +36,57 @@ enum  	PspAudioFrequencies { PSP_AUDIO_FREQ_44K = 44100, PSP_AUDIO_FREQ_48K = 48
 #define SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED                    0x80260008
 #define SCE_ERROR_AUDIO_NOT_OUTPUT                              0x80260009
 
-#define MAX_CHANNEL 8
+#define PSP_AUDIO_CHANNEL_MAX 8
 
 struct AudioChannel
 {
-  AudioChannel() {
+	AudioChannel() {
 		clear();
 	}
 
-  // PSP side
+	// PSP side
 
-  bool reserved;
+	bool reserved;
 
-  // last sample address
-  u32 sampleAddress;
-  u32 sampleCount;  // Number of samples written in each OutputBlocking
+	// last sample address
+	u32 sampleAddress;
+	u32 sampleCount;  // Number of samples written in each OutputBlocking
 
-  int leftVolume;
-  int rightVolume;
+	int leftVolume;
+	int rightVolume;
 
-  int format;
+	int format;
 
 	SceUID waitingThread;
 
-  // PC side - should probably split out
+	// PC side - should probably split out
 
-  // We copy samples as they are written into this simple ring buffer.
-  // Might try something more efficient later.
-  FixedSizeQueue<s16, 32768> sampleQueue;
+	// We copy samples as they are written into this simple ring buffer.
+	// Might try something more efficient later.
+	FixedSizeQueue<s16, 32768> sampleQueue;
 
-  void clear() {
-    reserved = false;
+	void DoState(PointerWrap &p) {
+		p.Do(reserved);
+		p.Do(sampleAddress);
+		p.Do(sampleCount);
+		p.Do(leftVolume);
+		p.Do(rightVolume);
+		p.Do(format);
+		p.Do(waitingThread);
+		sampleQueue.DoState(p);
+		p.DoMarker("AudioChannel");
+	}
+
+	void clear() {
+		reserved = false;
 		waitingThread = 0;
 		leftVolume = 0;
 		rightVolume = 0;
 		format = 0;
 		sampleAddress = 0;
 		sampleCount = 0;
-    sampleQueue.clear();
-  }
+		sampleQueue.clear();
+	}
 };
 
 extern AudioChannel chans[8];

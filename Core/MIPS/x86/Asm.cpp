@@ -78,7 +78,12 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 	outerLoop = GetCodePtr();
 		ABI_CallFunction(reinterpret_cast<void *>(&CoreTiming::Advance));
 		FixupBranch skipToRealDispatch = J(); //skip the sync and compare first time
-	 
+
+		dispatcherCheckCoreState = GetCodePtr();
+
+		CMP(32, M((void*)&coreState), Imm32(0));
+		FixupBranch badCoreState = J_CC(CC_NZ, true);
+
 		dispatcher = GetCodePtr();
 			// The result of slice decrementation should be in flags if somebody jumped here
 			// IMPORTANT - We jump on negative, not carry!!!
@@ -144,10 +149,11 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 			JMP(dispatcherNoCheck); // Let's just dispatch again, we'll enter the block since we know it's there.
 
 		SetJumpTarget(bail);
-		
-		CMP(32, M((void*)&coreState), Imm8(0));
+
+		CMP(32, M((void*)&coreState), Imm32(0));
 		J_CC(CC_Z, outerLoop, true);
 
+	SetJumpTarget(badCoreState);
 	//Landing pad for drec space
 	ABI_PopAllCalleeSavedRegsAndAdjustStack();
 	RET();

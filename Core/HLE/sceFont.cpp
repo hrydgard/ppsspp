@@ -12,19 +12,19 @@ typedef u32 FontLibraryHandle;
 typedef u32 FontHandle;
 
 typedef struct {
-	u32* userDataAddr;
-	u32  numFonts;
-	u32* cacheDataAddr;
+	u32 userDataAddr;
+	u32 numFonts;
+	u32 cacheDataAddr;
 
 	// Driver callbacks.
-	void *(*allocFuncAddr)(void *, u32);
-	void  (*freeFuncAddr )(void *, void *);
-	u32* openFuncAddr;
-	u32* closeFuncAddr;
-	u32* readFuncAddr;
-	u32* seekFuncAddr;
-	u32* errorFuncAddr;
-	u32* ioFinishFuncAddr;
+	u32 allocFuncAddr;
+	u32 freeFuncAddr;
+	u32 openFuncAddr;
+	u32 closeFuncAddr;
+	u32 readFuncAddr;
+	u32 seekFuncAddr;
+	u32 errorFuncAddr;
+	u32 ioFinishFuncAddr;
 } FontNewLibParams;
 
 typedef enum {
@@ -138,10 +138,21 @@ typedef struct {
 	u16 bufHeight;
 	u16 bytesPerLine;
 	u16 pad;
-	void *buffer;
+	u32 bufferPtr;
 } GlyphImage;
 
 FontNewLibParams fontLib;
+
+void __FontInit()
+{
+	memset(&fontLib, 0, sizeof(fontLib));
+}
+
+void __FontDoState(PointerWrap &p)
+{
+	p.Do(fontLib);
+	p.DoMarker("sceFont");
+}
 
 u32 sceFontNewLib(u32 FontNewLibParamsPtr, u32 errorCodePtr)
 {
@@ -235,32 +246,31 @@ int sceFontGetFontInfo(u32 fontHandle, u32 fontInfoPtr)
 	memset (&fi, 0, sizeof(fi));
 	if (Memory::IsValidAddress(fontInfoPtr))
 	{
-		fi.BPP =4;
+		fi.BPP = 4;
 		fi.charMapLength = 255;
-		//		fi.fontStyle =1;
 		fi.maxGlyphAdvanceXF = 2.0;
-		fi.maxGlyphAdvanceXI =2;
+		fi.maxGlyphAdvanceXI = 2;
 		fi.maxGlyphAdvanceYF = 2.0;
 		fi.maxGlyphAdvanceYI = 32 << 6;
-		fi.maxGlyphAscenderF =32 << 6;
+		fi.maxGlyphAscenderF = 32 << 6;
 		fi.maxGlyphAscenderI = 32 << 6;
-		fi.maxGlyphBaseYF= 0.0;
-		fi.maxGlyphBaseYI=0.0;
-		fi.maxGlyphDescenderF =0;
-		fi.maxGlyphDescenderI =0;
+		fi.maxGlyphBaseYF = 0.0;
+		fi.maxGlyphBaseYI = 0;
+		fi.maxGlyphDescenderF = 0;
+		fi.maxGlyphDescenderI = 0;
 		fi.maxGlyphHeight = 32;
-		fi.maxGlyphHeightF= 32;
+		fi.maxGlyphHeightF = 32;
 		fi.maxGlyphHeightI = 32;
-		fi.maxGlyphLeftXF= 0;
+		fi.maxGlyphLeftXF = 0;
 		fi.maxGlyphLeftXI = 0;
-		fi.maxGlyphTopYF =0;
+		fi.maxGlyphTopYF = 0;
 		fi.maxGlyphTopYI = 0;
-		fi.maxGlyphWidth =32;
+		fi.maxGlyphWidth = 32;
 		fi.maxGlyphWidthF = 32;
-		fi.maxGlyphWidthI= 32;
+		fi.maxGlyphWidthI = 32;
 		fi.minGlyphCenterXF = 16;
-		fi.minGlyphCenterXI= 16;
-		fi.shadowMapLength=0;
+		fi.minGlyphCenterXI = 16;
+		fi.shadowMapLength = 0;
 		Memory::WriteStruct(fontInfoPtr, &fi);
 	}
 
@@ -318,6 +328,25 @@ int sceFontGetCharGlyphImage_Clip(u32 libHandler, u32 charCode, u32 glyphImagePt
 	return 0;
 }
 
+int sceFontGetFontList(u32 fontLibHandle, u32 fontStylePtr, u32 numFonts)
+{
+	ERROR_LOG(HLE, "sceFontGetFontList %x, %x, %x", fontLibHandle, fontStylePtr, numFonts);
+
+	FontStyle style;
+	memset(&style, 0, sizeof (style));
+
+	style.fontH = 20 / 64.f;
+	style.fontV = 20 / 64.f;
+	style.fontHRes = 20 / 64.f;
+	style.fontVRes = 20 / 64.f;
+	style.fontStyle = 1;
+
+	for (u32 i = 0; i < numFonts; i++)
+	{
+		Memory::WriteStruct(fontStylePtr+ (sizeof(style)), &style);
+	}
+	return 0;
+}
 
 const HLEFunction sceLibFont[] = 
 {
@@ -325,7 +354,7 @@ const HLEFunction sceLibFont[] =
 	{0x574b6fbc, WrapI_U<sceFontDoneLib>, "sceFontDoneLib"},
 	{0x48293280, 0, "sceFontSetResolution"},	
 	{0x27f6e642, WrapI_UU<sceFontGetNumFontList>, "sceFontGetNumFontList"},
-	{0xbc75d85b, 0, "sceFontGetFontList"},	
+	{0xbc75d85b, WrapI_UUU<sceFontGetFontList>, "sceFontGetFontList"},	
 	{0x099ef33c, WrapI_UUU<sceFontFindOptimumFont>, "sceFontFindOptimumFont"},	
 	{0x681e61a7, WrapI_UUU<sceFontFindFont>, "sceFontFindFont"},	
 	{0x2f67356a, 0, "sceFontCalcMemorySize"},	

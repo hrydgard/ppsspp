@@ -39,17 +39,33 @@ void __UtilityInit()
 	SavedataParam::Init();
 }
 
+void __UtilityDoState(PointerWrap &p)
+{
+	saveDialog.DoState(p);
+	msgDialog.DoState(p);
+	oskDialog.DoState(p);
+	netDialog.DoState(p);
+	p.DoMarker("sceUtility");
+}
+
+void __UtilityShutdown()
+{
+	saveDialog.Shutdown();
+	msgDialog.Shutdown();
+	oskDialog.Shutdown();
+	netDialog.Shutdown();
+}
+
 int sceUtilitySavedataInitStart(u32 paramAddr)
 {
-	saveDialog.Init(paramAddr);
-	return 0;
+	DEBUG_LOG(HLE,"sceUtilitySavedataInitStart(%08x)", paramAddr);
+	return saveDialog.Init(paramAddr);
 }
 
 int sceUtilitySavedataShutdownStart()
 {
 	DEBUG_LOG(HLE,"sceUtilitySavedataShutdownStart()");
-	saveDialog.Shutdown();
-	return 0;
+	return saveDialog.Shutdown();
 }
 
 int sceUtilitySavedataGetStatus()
@@ -57,13 +73,10 @@ int sceUtilitySavedataGetStatus()
 	return saveDialog.GetStatus();
 }
 
-void sceUtilitySavedataUpdate(u32 unknown)
+int sceUtilitySavedataUpdate(int animSpeed)
 {
-	DEBUG_LOG(HLE,"sceUtilitySavedataUpdate()");
-
-	saveDialog.Update();
-
-	return;
+	DEBUG_LOG(HLE,"sceUtilitySavedataUpdate(%d)", animSpeed);
+	return saveDialog.Update();
 }
 
 #define PSP_AV_MODULE_AVCODEC					 0
@@ -91,26 +104,27 @@ void sceUtilityLoadModule(u32 module)
 	__KernelReSchedule("utilityloadmodule");
 }
 
-void sceUtilityMsgDialogInitStart(u32 structAddr)
+int sceUtilityMsgDialogInitStart(u32 structAddr)
 {
 	DEBUG_LOG(HLE,"sceUtilityMsgDialogInitStart(%i)", structAddr);
-	msgDialog.Init(structAddr);
+	return msgDialog.Init(structAddr);
 }
 
-void sceUtilityMsgDialogShutdownStart(u32 unknown)
+int sceUtilityMsgDialogShutdownStart(u32 unknown)
 {
-	DEBUG_LOG(HLE,"FAKE sceUtilityMsgDialogShutdownStart(%i)", unknown);
-	msgDialog.Shutdown();
+	DEBUG_LOG(HLE,"sceUtilityMsgDialogShutdownStart(%i)", unknown);
+	return msgDialog.Shutdown();
 }
 
-void sceUtilityMsgDialogUpdate(int animSpeed)
+int sceUtilityMsgDialogUpdate(int animSpeed)
 {
 	DEBUG_LOG(HLE,"sceUtilityMsgDialogUpdate(%i)", animSpeed);
-	msgDialog.Update();
+	return msgDialog.Update();
 }
 
-u32 sceUtilityMsgDialogGetStatus()
+int sceUtilityMsgDialogGetStatus()
 {
+	DEBUG_LOG(HLE,"sceUtilityMsgDialogGetStatus()");
 	return msgDialog.GetStatus();
 }
 
@@ -119,26 +133,25 @@ u32 sceUtilityMsgDialogGetStatus()
 
 int sceUtilityOskInitStart(u32 oskPtr)
 {
-	ERROR_LOG(HLE,"FAKE sceUtilityOskInitStart(%i)", PARAM(0));
+	DEBUG_LOG(HLE,"sceUtilityOskInitStart(%i)", PARAM(0));
 	return oskDialog.Init(oskPtr);
 }
 
 int sceUtilityOskShutdownStart()
 {
-	ERROR_LOG(HLE,"FAKE sceUtilityOskShutdownStart(%i)", PARAM(0));
-	oskDialog.Shutdown();
-	return 0;
+	DEBUG_LOG(HLE,"sceUtilityOskShutdownStart(%i)", PARAM(0));
+	return oskDialog.Shutdown();
 }
 
-void sceUtilityOskUpdate(unsigned int unknown)
+int sceUtilityOskUpdate(unsigned int unknown)
 {
-	ERROR_LOG(HLE,"FAKE sceUtilityOskUpdate(%i)", unknown);
-	oskDialog.Update();
+	DEBUG_LOG(HLE,"FAKE sceUtilityOskUpdate(%i)", unknown);
+	return oskDialog.Update();
 }
 
 int sceUtilityOskGetStatus()
 {
-	int status =  oskDialog.GetStatus();
+	int status = oskDialog.GetStatus();
 	// Seems that 4 is the cancelled status for OSK?
 	if (status == 4)
 	{
@@ -148,25 +161,25 @@ int sceUtilityOskGetStatus()
 }
 
 
-void sceUtilityNetconfInitStart(unsigned int unknown)
+int sceUtilityNetconfInitStart(u32 structAddr)
 {
-	DEBUG_LOG(HLE,"FAKE sceUtilityNetconfInitStart(%i)", unknown);
-	netDialog.Init();
+	DEBUG_LOG(HLE,"FAKE sceUtilityNetconfInitStart(%08x)", structAddr);
+	return netDialog.Init();
 }
 
-void sceUtilityNetconfShutdownStart(unsigned int unknown)
+int sceUtilityNetconfShutdownStart(unsigned int unknown)
 {
 	DEBUG_LOG(HLE,"FAKE sceUtilityNetconfShutdownStart(%i)", unknown);
-	netDialog.Shutdown();
+	return netDialog.Shutdown();
 }
 
-void sceUtilityNetconfUpdate(int unknown)
+int sceUtilityNetconfUpdate(int animSpeed)
 {
-	DEBUG_LOG(HLE,"FAKE sceUtilityNetconfUpdate(%i)", unknown);
-	netDialog.Update();
+	DEBUG_LOG(HLE,"FAKE sceUtilityNetconfUpdate(%i)", animSpeed);
+	return netDialog.Update();
 }
 
-unsigned int sceUtilityNetconfGetStatus()
+int sceUtilityNetconfGetStatus()
 {
 	DEBUG_LOG(HLE,"sceUtilityNetconfGetStatus()");
 	return netDialog.GetStatus();
@@ -179,10 +192,15 @@ int sceUtilityScreenshotGetStatus()
 	return retval;
 }
 
+void sceUtilityGamedataInstallInitStart(u32 unkown)
+{
+	DEBUG_LOG(HLE,"UNIMPL sceUtilityGamedataInstallInitStart(%i)", unkown);
+}
+
 int sceUtilityGamedataInstallGetStatus()
 {
 	u32 retval = 0;//__UtilityGetStatus();
-	DEBUG_LOG(HLE,"%i=sceUtilityGamedataInstallGetStatus()", retval);
+	DEBUG_LOG(HLE,"UNIMPL %i=sceUtilityGamedataInstallGetStatus()", retval);
 	return retval;
 }
 
@@ -332,34 +350,39 @@ u32 sceUtilityUnloadNetModule(u32 module)
 	return 0;
 }
 
+void sceUtilityInstallInitStart(u32 unknown)
+{
+	DEBUG_LOG(HLE,"FAKE sceUtilityInstallInitStart()");
+}
+
 const HLEFunction sceUtility[] = 
 {
 	{0x1579a159, &WrapU_U<sceUtilityLoadNetModule>, "sceUtilityLoadNetModule"},
 	{0x64d50c56, &WrapU_U<sceUtilityUnloadNetModule>, "sceUtilityUnloadNetModule"}, 
 
 
-	{0xf88155f6, &WrapV_U<sceUtilityNetconfShutdownStart>, "sceUtilityNetconfShutdownStart"},
-	{0x4db1e739, &WrapV_U<sceUtilityNetconfInitStart>, "sceUtilityNetconfInitStart"},
-	{0x91e70e35, &WrapV_I<sceUtilityNetconfUpdate>, "sceUtilityNetconfUpdate"},
-	{0x6332aa39, &WrapU_V<sceUtilityNetconfGetStatus>, "sceUtilityNetconfGetStatus"},
+	{0xf88155f6, &WrapI_U<sceUtilityNetconfShutdownStart>, "sceUtilityNetconfShutdownStart"},
+	{0x4db1e739, &WrapI_U<sceUtilityNetconfInitStart>, "sceUtilityNetconfInitStart"},
+	{0x91e70e35, &WrapI_I<sceUtilityNetconfUpdate>, "sceUtilityNetconfUpdate"},
+	{0x6332aa39, &WrapI_V<sceUtilityNetconfGetStatus>, "sceUtilityNetconfGetStatus"},
 	{0x5eee6548, 0, "sceUtilityCheckNetParam"}, 
 	{0x434d4b3a, 0, "sceUtilityGetNetParam"}, 
 	{0x4FED24D8, 0, "sceUtilityGetNetParamLatestID"},
 
-	{0x67af3428, &WrapV_U<sceUtilityMsgDialogShutdownStart>, "sceUtilityMsgDialogShutdownStart"},	
-	{0x2ad8e239, &WrapV_U<sceUtilityMsgDialogInitStart>, "sceUtilityMsgDialogInitStart"},			
-	{0x95fc253b, &WrapV_I<sceUtilityMsgDialogUpdate>, "sceUtilityMsgDialogUpdate"},				 
-	{0x9a1c91d7, &WrapU_V<sceUtilityMsgDialogGetStatus>, "sceUtilityMsgDialogGetStatus"},		
+	{0x67af3428, &WrapI_U<sceUtilityMsgDialogShutdownStart>, "sceUtilityMsgDialogShutdownStart"},	
+	{0x2ad8e239, &WrapI_U<sceUtilityMsgDialogInitStart>, "sceUtilityMsgDialogInitStart"},			
+	{0x95fc253b, &WrapI_I<sceUtilityMsgDialogUpdate>, "sceUtilityMsgDialogUpdate"},				 
+	{0x9a1c91d7, &WrapI_V<sceUtilityMsgDialogGetStatus>, "sceUtilityMsgDialogGetStatus"},		
 	{0x4928bd96, 0, "sceUtilityMsgDialogAbort"}, 
 
 	{0x9790b33c, &WrapI_V<sceUtilitySavedataShutdownStart>, "sceUtilitySavedataShutdownStart"},	 
 	{0x50c4cd57, &WrapI_U<sceUtilitySavedataInitStart>, "sceUtilitySavedataInitStart"},			 
-	{0xd4b95ffb, &WrapV_U<sceUtilitySavedataUpdate>, "sceUtilitySavedataUpdate"},					
+	{0xd4b95ffb, &WrapI_I<sceUtilitySavedataUpdate>, "sceUtilitySavedataUpdate"},					
 	{0x8874dbe0, &WrapI_V<sceUtilitySavedataGetStatus>, "sceUtilitySavedataGetStatus"},
 
 	{0x3dfaeba9, &WrapI_V<sceUtilityOskShutdownStart>, "sceUtilityOskShutdownStart"},
 	{0xf6269b82, &WrapI_U<sceUtilityOskInitStart>, "sceUtilityOskInitStart"},
-	{0x4b85c861, &WrapV_U<sceUtilityOskUpdate>, "sceUtilityOskUpdate"},
+	{0x4b85c861, &WrapI_U<sceUtilityOskUpdate>, "sceUtilityOskUpdate"},
 	{0xf3f76017, &WrapI_V<sceUtilityOskGetStatus>, "sceUtilityOskGetStatus"},
 
 	{0x41e30674, &WrapU_UU<sceUtilitySetSystemParamString>, "sceUtilitySetSystemParamString"},
@@ -398,7 +421,7 @@ const HLEFunction sceUtility[] =
 	{0x0D5BC6D2, 0, "sceUtilityLoadUsbModule"},
 	{0xF64910F0, 0, "sceUtilityUnloadUsbModule"},
 
-	{0x24AC31EB, 0, "sceUtilityGamedataInstallInitStart"},
+	{0x24AC31EB, &WrapV_U<sceUtilityGamedataInstallInitStart>, "sceUtilityGamedataInstallInitStart"},
 	{0x32E32DCB, 0, "sceUtilityGamedataInstallShutdownStart"},
 	{0x4AECD179, 0, "sceUtilityGamedataInstallUpdate"},
 	{0xB57E95D9, &WrapI_V<sceUtilityGamedataInstallGetStatus>, "sceUtilityGamedataInstallGetStatus"},
@@ -409,7 +432,7 @@ const HLEFunction sceUtility[] =
 	{0xF3FBC572, 0, "sceUtilityNpSigninUpdate"},
 	{0x86ABDB1B, 0, "sceUtilityNpSigninGetStatus"},
 
-	{0x1281DA8E, 0, "sceUtilityInstallInitStart"},
+	{0x1281DA8E, &WrapV_U<sceUtilityInstallInitStart>, "sceUtilityInstallInitStart"},
 	{0x5EF1C24A, 0, "sceUtilityInstallShutdownStart"},
 	{0xA03D29BA, 0, "sceUtilityInstallUpdate"},
 	{0xC4700FA3, 0, "sceUtilityInstallGetStatus"}, 

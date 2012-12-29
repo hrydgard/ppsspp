@@ -122,11 +122,11 @@ bool CISOFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr)
 {
 	u32 idx = index[blockNumber];
 	u32 idx2 = index[blockNumber+1];
-  u8 inbuffer[4096]; //too big
-  z_stream z;
-	
+	u8 inbuffer[4096]; //too big
+	z_stream z;
+
 	int plain = idx & 0x80000000;
-	
+
 	idx = (idx & 0x7FFFFFFF) << indexShift;
 	idx2 = (idx2 & 0x7FFFFFFF) << indexShift;
 

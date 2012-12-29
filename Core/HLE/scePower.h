@@ -17,7 +17,10 @@
 
 #pragma once
 
+#include "../../Common/ChunkFile.h"
+
 void __PowerInit();
+void __PowerDoState(PointerWrap &p);
 
 void Register_scePower();
 void Register_sceSuspendForUser();

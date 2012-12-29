@@ -22,6 +22,7 @@
 
 #include "../System.h"
 #include "../Config.h"
+#include "../SaveState.h"
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
 #include "../HW/MemoryStick.h"
@@ -84,7 +85,7 @@ const std::string &EmuDebugOutput() {
 
 typedef u32 (*DeferredAction)(SceUID id, int param);
 DeferredAction defAction = 0;
-u32 defParam;
+u32 defParam = 0;
 
 #define SCE_STM_FDIR 0x1000
 #define SCE_STM_FREG 0x2000
@@ -137,7 +138,18 @@ public:
 		sprintf(ptr, "Seekpos: %08x", (u32)pspFileSystem.GetSeekPos(handle));
 	}
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_BADF; }
-	int GetIDType() const { return 0; }
+	int GetIDType() const { return PPSSPP_KERNEL_TMID_File; }
+
+	virtual void DoState(PointerWrap &p) {
+		p.Do(fullpath);
+		p.Do(handle);
+		p.Do(callbackID);
+		p.Do(callbackArg);
+		p.Do(asyncResult);
+		p.Do(pendingAsyncResult);
+		p.Do(sectorBlockMode);
+		p.DoMarker("File");
+	}
 
 	std::string fullpath;
 	u32 handle;
@@ -153,6 +165,8 @@ public:
 
 void __IoInit() {
 	INFO_LOG(HLE, "Starting up I/O...");
+
+	MemoryStick_SetFatState(PSP_FAT_MEMORYSTICK_STATE_ASSIGNED);
 
 #ifdef _WIN32
 
@@ -191,8 +205,17 @@ void __IoInit() {
 	pspFileSystem.Mount("flash1:", flash);
 }
 
-void __IoShutdown() {
+void __IoDoState(PointerWrap &p) {
+	// TODO: defAction is hard to save, and not the right way anyway.
+	// Should probbly be an enum and on the FileNode anyway.
+	if (defAction != NULL) {
+		WARN_LOG(HLE, "FIXME: Savestate failure: deferred IO not saved yet.");
+	}
+}
 
+void __IoShutdown() {
+	defAction = 0;
+	defParam = 0;
 }
 
 u32 sceIoAssign(const char *aliasname, const char *physname, const char *devname, u32 flag) {
@@ -221,7 +244,7 @@ void __IoCompleteAsyncIO(SceUID id) {
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
 	if (f) {
 		if (f->callbackID) {
-			// __KernelNotifyCallbackType(THREAD_CALLBACK_IO, __KernelGetCurThread(), f->callbackID, f->callbackArg);
+			__KernelNotifyCallback(THREAD_CALLBACK_IO, f->callbackID, f->callbackArg);
 		}
 	}
 }
@@ -245,13 +268,16 @@ void __IoGetStat(SceIoStat *stat, PSPFileInfo &info) {
 u32 sceIoGetstat(const char *filename, u32 addr) {
 	SceIoStat stat;
 	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
-	__IoGetStat(&stat, info);
-	Memory::WriteStruct(addr, &stat);
-
-	DEBUG_LOG(HLE, "sceIoGetstat(%s, %08x) : sector = %08x", filename, addr,
+	if (info.exists) {
+		__IoGetStat(&stat, info);
+		Memory::WriteStruct(addr, &stat);
+		DEBUG_LOG(HLE, "sceIoGetstat(%s, %08x) : sector = %08x", filename, addr,
 			info.startSector);
-
-	return 0;
+		return 0;
+	} else {
+		DEBUG_LOG(HLE, "sceIoGetstat(%s, %08x) : FILE NOT FOUND", filename, addr);
+		return SCE_KERNEL_ERROR_NOFILE;
+	}
 }
 
 //Not sure about wrapping it or not, since the log seems to take the address of the data var
@@ -364,24 +390,24 @@ u32 sceIoLseek32(int id, int offset, int whence) {
 	}
 }
 
-u32 sceIoOpen(const char* filename, int mode) {
+u32 sceIoOpen(const char* filename, int flags, int mode) {
 	//memory stick filename
 	int access = FILEACCESS_NONE;
-	if (mode & O_RDONLY)
+	if (flags & O_RDONLY)
 		access |= FILEACCESS_READ;
-	if (mode & O_WRONLY)
+	if (flags & O_WRONLY)
 		access |= FILEACCESS_WRITE;
-	if (mode & O_APPEND)
+	if (flags & O_APPEND)
 		access |= FILEACCESS_APPEND;
-	if (mode & O_CREAT)
+	if (flags & O_CREAT)
 		access |= FILEACCESS_CREATE;
 
 	u32 h = pspFileSystem.OpenFile(filename, (FileAccess) access);
 	if (h == 0)
 	{
 		ERROR_LOG(HLE,
-				"ERROR_ERRNO_FILE_NOT_FOUND=sceIoOpen(%s, %08x) - file not found",
-				filename, mode);
+				"ERROR_ERRNO_FILE_NOT_FOUND=sceIoOpen(%s, %08x, %08x) - file not found",
+				filename, flags, mode);
 		return ERROR_ERRNO_FILE_NOT_FOUND;
 	}
 
@@ -390,7 +416,7 @@ u32 sceIoOpen(const char* filename, int mode) {
 	f->handle = h;
 	f->fullpath = filename;
 	f->asyncResult = id;
-	DEBUG_LOG(HLE, "%i=sceIoOpen(%s, %08x)", id, filename, mode);
+	DEBUG_LOG(HLE, "%i=sceIoOpen(%s, %08x, %08x)", id, filename, flags, mode);
 	return id;
 }
 
@@ -428,11 +454,11 @@ void sceIoSync() {
 }
 
 struct DeviceSize {
+	u32 maxClusters;
+	u32 freeClusters;
 	u32 maxSectors;
 	u32 sectorSize;
-	u32 sectorsPerCluster;
-	u32 totalClusters;
-	u32 freeClusters;
+	u32 sectorCount;
 };
 
 u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, int outLen) {
@@ -494,9 +520,16 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 			}
 			break;
 
-		case 0x02025806:	// Memory stick inserted?
 		case 0x02025801:	// Memstick Driver status?
-			if (Memory::IsValidAddress(outPtr)) {
+			if (Memory::IsValidAddress(outPtr) && outLen >= 4) {
+				Memory::Write_U32(4, outPtr);  // JPSCP: The right return value is 4 for some reason
+				return 0;
+			} else {
+				return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
+			}
+
+		case 0x02025806:	// Memory stick inserted?
+			if (Memory::IsValidAddress(outPtr) && outLen >= 4) {
 				Memory::Write_U32(1, outPtr);
 				return 0;
 			} else {
@@ -505,20 +538,23 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 
 		case 0x02425818:  // Get memstick size etc
 			// Pretend we have a 2GB memory stick.
-			if (Memory::IsValidAddress(argAddr)) {  // "Should" be outPtr but isn't
+			if (Memory::IsValidAddress(argAddr) && argLen >= 4) {  // "Should" be outPtr but isn't
 				u32 pointer = Memory::Read_U32(argAddr);
-
-				u64 totalSize = (u32)2 * 1024 * 1024 * 1024;
-				u64 freeSize	= 1 * 1024 * 1024 * 1024;
+				u32 sectorSize = 0x200;
+				u32 memStickSectorSize = 32 * 1024;
+				u32 sectorCount = memStickSectorSize / sectorSize;
+				u64 freeSize = 1 * 1024 * 1024 * 1024;
 				DeviceSize deviceSize;
-				deviceSize.maxSectors				= 512;
-				deviceSize.sectorSize				= 0x200;
-				deviceSize.sectorsPerCluster = 0x08;
-				deviceSize.totalClusters		 = (u32)((totalSize * 95 / 100) / (deviceSize.sectorSize * deviceSize.sectorsPerCluster));
-				deviceSize.freeClusters			= (u32)((freeSize	* 95 / 100) / (deviceSize.sectorSize * deviceSize.sectorsPerCluster));
+				deviceSize.maxClusters = (u32)((freeSize  * 95 / 100) / (sectorSize * sectorCount));
+				deviceSize.freeClusters = deviceSize.maxClusters;
+				deviceSize.maxSectors = deviceSize.maxClusters;
+				deviceSize.sectorSize = sectorSize;
+				deviceSize.sectorCount = sectorCount;
 				Memory::WriteStruct(pointer, &deviceSize);
+				DEBUG_LOG(HLE, "Returned memstick size: maxSectors=%i", deviceSize.maxSectors);
 				return 0;
 			} else {
+				ERROR_LOG(HLE, "memstick size query: bad params");
 				return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
 			}
 		}
@@ -573,17 +609,18 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 		case 0x02425818:  // Get memstick size etc
 			// Pretend we have a 2GB memory stick.
 			{
-				if (Memory::IsValidAddress(argAddr)) {  // "Should" be outPtr but isn't
+				if (Memory::IsValidAddress(argAddr) && argLen >= 4) {  // NOTE: not outPtr
 					u32 pointer = Memory::Read_U32(argAddr);
-
-					u64 totalSize = (u32)2 * 1024 * 1024 * 1024;
-					u64 freeSize	= 1 * 1024 * 1024 * 1024;
+					u32 sectorSize = 0x200;
+					u32 memStickSectorSize = 32 * 1024;
+					u32 sectorCount = memStickSectorSize / sectorSize;
+					u64 freeSize = 1 * 1024 * 1024 * 1024;
 					DeviceSize deviceSize;
-					deviceSize.maxSectors				= 512;
-					deviceSize.sectorSize				= 0x200;
-					deviceSize.sectorsPerCluster = 0x08;
-					deviceSize.totalClusters		 = (u32)((totalSize * 95 / 100) / (deviceSize.sectorSize * deviceSize.sectorsPerCluster));
-					deviceSize.freeClusters			= (u32)((freeSize	* 95 / 100) / (deviceSize.sectorSize * deviceSize.sectorsPerCluster));
+					deviceSize.maxClusters = (u32)((freeSize  * 95 / 100) / (sectorSize * sectorCount));
+					deviceSize.freeClusters = deviceSize.maxClusters;
+					deviceSize.maxSectors = deviceSize.maxClusters;
+					deviceSize.sectorSize = sectorSize;
+					deviceSize.sectorCount = sectorCount;
 					Memory::WriteStruct(pointer, &deviceSize);
 					return 0;
 				} else {
@@ -622,7 +659,12 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 			}
 		case 3:	// EMULATOR_DEVCTL__IS_EMULATOR
 			if (Memory::IsValidAddress(outPtr))
-				Memory::Write_U32(1, outPtr);	 // TODO: Make a headless mode for running tests!
+				Memory::Write_U32(1, outPtr);
+			return 0;
+		case 4: // EMULATOR_DEVCTL__VERIFY_STATE
+			// Note that this is async, and makes sure the save state matches up.
+			SaveState::Verify();
+			// TODO: Maybe save/load to a file just to be sure?
 			return 0;
 		}
 
@@ -656,26 +698,27 @@ u32 sceIoChdir(const char *dirname) {
 	return 1;
 }
 
-void sceIoChangeAsyncPriority()
+int sceIoChangeAsyncPriority(int id, int priority)
 {
-	ERROR_LOG(HLE, "UNIMPL sceIoChangeAsyncPriority(%d)", PARAM(0));
-	RETURN(0);
+	ERROR_LOG(HLE, "UNIMPL sceIoChangeAsyncPriority(%d, %d)", id, priority);
+	return 0;
 }
 
-u32 __IoClose(SceUID id, int param)
+u32 __IoClose(SceUID actedFd, int closedFd)
 {
-	DEBUG_LOG(HLE, "Deferred IoClose(%d)", id);
-	__IoCompleteAsyncIO(id);
-	return kernelObjects.Destroy < FileNode > (id);
+	DEBUG_LOG(HLE, "Deferred IoClose(%d, %d)", actedFd, closedFd);
+	__IoCompleteAsyncIO(closedFd);
+	return kernelObjects.Destroy < FileNode > (closedFd);
 }
 
-//TODO Not really sure if this should be wrapped nor how
-void sceIoCloseAsync()
+int sceIoCloseAsync(SceUID id)
 {
-	DEBUG_LOG(HLE, "sceIoCloseAsync(%d)", PARAM(0));
+	DEBUG_LOG(HLE, "sceIoCloseAsync(%d)", id);
 	//sceIoClose();
+	// TODO: Not sure this is a good solution.  Seems like you can defer one per fd.
 	defAction = &__IoClose;
-	RETURN(0);
+	defParam = id;
+	return 0;
 }
 
 u32 sceIoLseekAsync(int id, s64 offset, int whence)
@@ -694,6 +737,7 @@ u32 sceIoSetAsyncCallback(int id, u32 clbckId, u32 clbckArg)
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
 	if (f)
 	{
+		// TODO: Check replacing / updating?
 		f->callbackID = clbckId;
 		f->callbackArg = clbckArg;
 		return 0;
@@ -712,13 +756,14 @@ u32 sceIoLseek32Async(int id, int offset, int whence)
 	return 0;
 }
 
-void sceIoOpenAsync(const char *filename, int mode)
+u32 sceIoOpenAsync(const char *filename, int flags, int mode)
 {
 	DEBUG_LOG(HLE, "sceIoOpenAsync() sorta implemented");
-    RETURN(sceIoOpen(filename, mode));
-//	__IoCompleteAsyncIO(currentMIPS->r[2]);	// The return value
-	// We have to return a UID here, which may have been destroyed when we reach Wait if it failed.
-	// Now that we're just faking it, we just don't RETURN(0) here.
+	u32 fd = sceIoOpen(filename, flags, mode);
+	// TODO: This can't actually have a callback yet, but if it's set before waiting, it should be called.
+	__IoCompleteAsyncIO(fd);
+	// We have to return an fd here, which may have been destroyed when we reach Wait if it failed.
+	return fd;
 }
 
 u32 sceIoReadAsync(int id, u32 data_addr, int size)
@@ -729,7 +774,7 @@ u32 sceIoReadAsync(int id, u32 data_addr, int size)
 	return 0;
 }
 
-u32 sceIoGetAsyncStat(int id, u32 address, u32 uknwn)
+u32 sceIoGetAsyncStat(int id, u32 poll, u32 address)
 {
 	u32 error;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
@@ -737,7 +782,9 @@ u32 sceIoGetAsyncStat(int id, u32 address, u32 uknwn)
 	{
 		Memory::Write_U64(f->asyncResult, address);
 		DEBUG_LOG(HLE, "%i = sceIoGetAsyncStat(%i, %i, %08x) (HACK)",
-				(u32) f->asyncResult, id, address, uknwn);
+				(u32) f->asyncResult, id, poll, address);
+		if (!poll)
+			hleReSchedule("io waited");
 		return 0; //completed
 	}
 	else
@@ -747,7 +794,7 @@ u32 sceIoGetAsyncStat(int id, u32 address, u32 uknwn)
 	}
 }
 
-void sceIoWaitAsync(int id, u32 address, u32 uknwn) {
+int sceIoWaitAsync(int id, u32 address) {
 	u32 error;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
 	if (f) {
@@ -758,15 +805,16 @@ void sceIoWaitAsync(int id, u32 address, u32 uknwn) {
 		}
 		Memory::Write_U64(res, address);
 		DEBUG_LOG(HLE, "%i = sceIoWaitAsync(%i, %08x) (HACK)", (u32) res, id,
-				uknwn);
-		RETURN(0); //completed
+				address);
+		hleReSchedule("io waited");
+		return 0; //completed
 	} else {
 		ERROR_LOG(HLE, "ERROR - sceIoWaitAsync waiting for invalid id %i", id);
-		RETURN(-1);
+		return -1;
 	}
 }
 
-void sceIoWaitAsyncCB(int id, u32 address) {
+int sceIoWaitAsyncCB(int id, u32 address) {
 	// Should process callbacks here
 	u32 error;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
@@ -779,10 +827,13 @@ void sceIoWaitAsyncCB(int id, u32 address) {
 		Memory::Write_U64(res, address);
 		DEBUG_LOG(HLE, "%i = sceIoWaitAsyncCB(%i, %08x) (HACK)", (u32) res, id,
 				address);
-		RETURN(0); //completed
+		hleCheckCurrentCallbacks();
+		hleReSchedule(true, "io waited");
+		return 0; //completed
 	} else {
 		ERROR_LOG(HLE, "ERROR - sceIoWaitAsyncCB waiting for invalid id %i",
 				id);
+		return -1;
 	}
 }
 
@@ -810,7 +861,20 @@ public:
 	const char *GetName() {return name.c_str();}
 	const char *GetTypeName() {return "DirListing";}
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_BADF; }
-	int GetIDType() const { return 0; }
+	int GetIDType() const { return PPSSPP_KERNEL_TMID_DirList; }
+
+	virtual void DoState(PointerWrap &p) {
+		p.Do(name);
+
+		// TODO: Is this the right way for it to wake up?
+		int count = listing.size();
+		p.Do(count);
+		listing.resize(count);
+		for (int i = 0; i < count; ++i) {
+			listing[i].DoState(p);
+		}
+		p.DoMarker("DirListing");
+	}
 
 	std::string name;
 	std::vector<PSPFileInfo> listing;
@@ -869,8 +933,37 @@ u32 sceIoDclose(int id) {
 
 u32 sceIoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen) 
 {
-	ERROR_LOG(HLE, "UNIMPL 0=sceIoIoctrl id: %08x, cmd %08x, indataPtr %08x, inlen %08x, outdataPtr %08x, outLen %08x", id,cmd,indataPtr,inlen,outdataPtr,outlen);
-    return 0;
+	ERROR_LOG(HLE, "UNIMPL PARTIAL 0=sceIoIoctl id: %08x, cmd %08x, indataPtr %08x, inlen %08x, outdataPtr %08x, outLen %08x", id,cmd,indataPtr,inlen,outdataPtr,outlen);
+
+	u32 error;
+	FileNode *f = kernelObjects.Get<FileNode>(id, error);
+	if (error) {
+		return error;
+	}
+
+	//KD Hearts:
+	//56:46:434 HLE\sceIo.cpp:886 E[HLE]: UNIMPL 0=sceIoIoctrl id: 0000011f, cmd 04100001, indataPtr 08b313d8, inlen 00000010, outdataPtr 00000000, outLen 0
+	//	0000000
+	switch (cmd) {
+	case 0x04100001:  // Define decryption key (amctrl.prx DRM)
+		if (Memory::IsValidAddress(indataPtr) && inlen == 16) {
+			u8 keybuf[16];
+			memcpy(keybuf, Memory::GetPointer(indataPtr), 16);
+			ERROR_LOG(HLE, "PGD DRM not yet supported, sorry.");
+		}
+		break;
+
+	}
+
+  return 0;
+}
+
+KernelObject *__KernelFileNodeObject() {
+	return new FileNode;
+}
+
+KernelObject *__KernelDirListingObject() {
+	return new DirListing;
 }
 
 const HLEFunction IoFileMgrForUser[] = {
@@ -885,17 +978,17 @@ const HLEFunction IoFileMgrForUser[] = {
 	{ 0x08bd7374, 0, "sceIoGetDevType" },
 	{ 0xB2A628C1, &WrapU_CCCU<sceIoAssign>, "sceIoAssign" },
 	{ 0xe8bc6571, 0, "sceIoCancel" },
-	{ 0xb293727f, sceIoChangeAsyncPriority, "sceIoChangeAsyncPriority" },
+	{ 0xb293727f, &WrapI_II<sceIoChangeAsyncPriority>, "sceIoChangeAsyncPriority" },
 	{ 0x810C4BC3, &WrapU_I<sceIoClose>, "sceIoClose" }, //(int fd);
-	{ 0xff5940b6, sceIoCloseAsync, "sceIoCloseAsync" },
+	{ 0xff5940b6, &WrapI_I<sceIoCloseAsync>, "sceIoCloseAsync" },
 	{ 0x54F5FB11, &WrapU_CIUIUI<sceIoDevctl>, "sceIoDevctl" }, //(const char *name int cmd, void *arg, size_t arglen, void *buf, size_t *buflen);
 	{ 0xcb05f8d6, &WrapU_IUU<sceIoGetAsyncStat>, "sceIoGetAsyncStat" },
 	{ 0x27EB27B8, &WrapI64_II64I<sceIoLseek>, "sceIoLseek" }, //(int fd, int offset, int whence);
 	{ 0x68963324, &WrapU_III<sceIoLseek32>, "sceIoLseek32" },
 	{ 0x1b385d8f, &WrapU_III<sceIoLseek32Async>, "sceIoLseek32Async" },
 	{ 0x71b19e77, &WrapU_II64I<sceIoLseekAsync>, "sceIoLseekAsync" },
-	{ 0x109F50BC, &WrapU_CI<sceIoOpen>, "sceIoOpen" }, //(const char* file, int mode);
-	{ 0x89AA9906, &WrapV_CI<sceIoOpenAsync>, "sceIoOpenAsync" },
+	{ 0x109F50BC, &WrapU_CII<sceIoOpen>, "sceIoOpen" }, //(const char* file, int mode);
+	{ 0x89AA9906, &WrapU_CII<sceIoOpenAsync>, "sceIoOpenAsync" },
 	{ 0x06A70004, &WrapU_CI<sceIoMkdir>, "sceIoMkdir" }, //(const char *dir, int mode);
 	{ 0x3251ea56, &WrapU_IU<sceIoPollAsync>, "sceIoPollAsync" },
 	{ 0x6A638D83, &WrapU_IUI<sceIoRead>, "sceIoRead" }, //(int fd, void *data, int size);
@@ -908,8 +1001,8 @@ const HLEFunction IoFileMgrForUser[] = {
 	{ 0x6d08a871, 0, "sceIoUnassign" },
 	{ 0x42EC03AC, &WrapU_IVI<sceIoWrite>, "sceIoWrite" }, //(int fd, void *data, int size);
 	{ 0x0facab19, 0, "sceIoWriteAsync" },
-	{ 0x35dbd746, &WrapV_IU<sceIoWaitAsyncCB>, "sceIoWaitAsyncCB" },
-	{ 0xe23eec33, &WrapV_IUU<sceIoWaitAsync>, "sceIoWaitAsync" }, 
+	{ 0x35dbd746, &WrapI_IU<sceIoWaitAsyncCB>, "sceIoWaitAsyncCB" },
+	{ 0xe23eec33, &WrapI_IU<sceIoWaitAsync>, "sceIoWaitAsync" },
 };
 
 void Register_IoFileMgrForUser() {

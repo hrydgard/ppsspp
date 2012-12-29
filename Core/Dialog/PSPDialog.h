@@ -19,6 +19,7 @@
 
 
 #include "../Config.h"
+#include "../../Common/ChunkFile.h"
 
 #define SCE_UTILITY_DIALOG_RESULT_SUCCESS				0
 #define SCE_UTILITY_DIALOG_RESULT_CANCEL				1
@@ -45,8 +46,9 @@ public:
 	PSPDialog();
 	virtual ~PSPDialog();
 
-	virtual void Update();
-	virtual void Shutdown();
+	virtual int Update();
+	virtual int Shutdown();
+	virtual void DoState(PointerWrap &p);
 
 	enum DialogStatus
 	{

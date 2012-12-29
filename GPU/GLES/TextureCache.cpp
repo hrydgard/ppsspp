@@ -21,7 +21,7 @@
 #include "../ge_constants.h"
 #include "../GPUState.h"
 #include "TextureCache.h"
-
+#include "../Core/Config.h"
 
 // If a texture hasn't been seen for 200 frames, get rid of it.
 #define TEXTURE_KILL_AGE 200
@@ -97,6 +97,26 @@ void TextureCache_Decimate()
 	for (TexCache::iterator iter = cache.begin(); iter != cache.end(); )
 	{
 		if (iter->second.frameCounter + TEXTURE_KILL_AGE < gpuStats.numFrames)
+		{
+			glDeleteTextures(1, &iter->second.texture);
+			cache.erase(iter++);
+		}
+		else
+			++iter;
+	}
+}
+
+void TextureCache_Invalidate(u32 addr, int size)
+{
+	u32 addr_end = addr + size;
+
+	for (TexCache::iterator iter = cache.begin(); iter != cache.end(); )
+	{
+		// Clear if either the addr or clutaddr is in the range.
+		bool invalidate = iter->second.addr >= addr && iter->second.addr < addr_end;
+		invalidate |= iter->second.clutaddr >= addr && iter->second.clutaddr < addr_end;
+
+		if (invalidate)
 		{
 			glDeleteTextures(1, &iter->second.texture);
 			cache.erase(iter++);
@@ -408,8 +428,17 @@ void UpdateSamplingParams()
 	int tClamp = (gstate.texwrap>>8) & 1;
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, sClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, tClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilt ? GL_LINEAR : GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilt ? GL_LINEAR : GL_NEAREST);
+	// Tested mag/minFilt only work in either one case that can allow GL_LINEAR to be enable 
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilt ? GL_LINEAR : GL_NEAREST);
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilt ? GL_LINEAR : GL_NEAREST);
+	// User define linear filtering 
+	if ( g_Config.bLinearFiltering ) {
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	} else {
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	}
 }
 
 
@@ -597,17 +626,16 @@ void convertColors(u8 *finalBuf, GLuint dstFmt, int numPixels)
 
 void PSPSetTexture()
 {
+	static int lastBoundTexture = -1;
+
 	u32 texaddr = (gstate.texaddr[0] & 0xFFFFF0) | ((gstate.texbufwidth[0]<<8) & 0xFF000000);
 	texaddr &= 0xFFFFFFF;
-
-	if (!texaddr) return;
 
 	u8 level = 0;
 	u32 format = gstate.texformat & 0xF;
 	u32 clutformat = gstate.clutformat & 3;
 	u32 clutaddr = GetClutAddr(clutformat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2);
 
-	DEBUG_LOG(G3D,"Texture at %08x",texaddr);
 	u8 *texptr = Memory::GetPointer(texaddr);
 	u32 texhash = texptr ? *(u32*)texptr : 0;
 
@@ -636,8 +664,11 @@ void PSPSetTexture()
 		if (match) {
 			//got one!
 			entry.frameCounter = gpuStats.numFrames;
-			glBindTexture(GL_TEXTURE_2D, entry.texture);
-			UpdateSamplingParams();
+			if (true || entry.texture != lastBoundTexture) {
+				glBindTexture(GL_TEXTURE_2D, entry.texture);
+				UpdateSamplingParams();
+				lastBoundTexture = entry.texture;
+			}
 			DEBUG_LOG(G3D, "Texture at %08x Found in Cache, applying", texaddr);
 			return; //Done!
 		} else {
@@ -653,7 +684,7 @@ void PSPSetTexture()
 
 	//we have to decode it
 
-	TexCacheEntry entry;
+	TexCacheEntry entry = {0};
 
 	entry.addr = texaddr;
 	entry.hash = texhash;
@@ -671,17 +702,12 @@ void PSPSetTexture()
 		entry.clutaddr = 0;
 	}
 
-	glGenTextures(1, &entry.texture);
-	glBindTexture(GL_TEXTURE_2D, entry.texture);
-			
 	int bufw = gstate.texbufwidth[0] & 0x3ff;
 	
 	entry.dim = gstate.texsize[0] & 0xF0F;
 
 	int w = 1 << (gstate.texsize[0] & 0xf);
 	int h = 1 << ((gstate.texsize[0]>>8) & 0xf);
-
-	INFO_LOG(G3D, "Creating texture %i from %08x: %i x %i (stride: %i). fmt: %i", entry.texture, entry.addr, w, h, bufw, entry.format);
 
 	gstate_c.curTextureWidth=w;
 	gstate_c.curTextureHeight=h;
@@ -932,19 +958,20 @@ void PSPSetTexture()
 		}
 	}
 
+	gpuStats.numTexturesDecoded++;
 	// Can restore these and remove the above fixup on some platforms.
 	//glPixelStorei(GL_UNPACK_ROW_LENGTH, bufw);
 	glPixelStorei(GL_UNPACK_ALIGNMENT, texByteAlign);
 	//glPixelStorei(GL_PACK_ROW_LENGTH, bufw);
 	glPixelStorei(GL_PACK_ALIGNMENT, texByteAlign);
 
+	INFO_LOG(G3D, "Creating texture %i from %08x: %i x %i (stride: %i). fmt: %i", entry.texture, entry.addr, w, h, bufw, entry.format);
+
+	glGenTextures(1, &entry.texture);
+	glBindTexture(GL_TEXTURE_2D, entry.texture);
+	lastBoundTexture = entry.texture;
 	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
 	glTexImage2D(GL_TEXTURE_2D, 0, components, w, h, 0, components, dstFmt, finalBuf);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-
 	// glGenerateMipmap(GL_TEXTURE_2D);
 	UpdateSamplingParams();
 

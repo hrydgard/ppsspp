@@ -40,7 +40,7 @@ void MemCheck::Action(u32 iValue, u32 addr, bool write, int size, u32 pc)
 		if (bLog)
 		{
 			char temp[256];
-			printf(temp,"CHK %08x %s%i at %08x (%s), PC=%08x (%s)",iValue,write?"Write":"Read",size*8,addr,symbolMap.GetDescription(addr),pc,symbolMap.GetDescription(pc));
+			sprintf(temp,"CHK %08x %s%i at %08x (%s), PC=%08x (%s)",iValue,write?"Write":"Read",size*8,addr,symbolMap.GetDescription(addr),pc,symbolMap.GetDescription(pc));
 			ERROR_LOG(MEMMAP,"%s",temp);
 		}
 		if (bBreak)

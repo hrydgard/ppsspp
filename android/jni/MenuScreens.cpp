@@ -31,6 +31,9 @@
 #include "util/random/rng.h"
 #include "UIShader.h"
 
+#include "../../GPU/ge_constants.h"
+#include "../../GPU/GPUState.h"
+#include "../../GPU/GPUInterface.h"
 #include "../../Core/Config.h"
 #include "../../Core/CoreParameter.h"
 
@@ -62,7 +65,6 @@ static void DrawBackground(float alpha) {
 	static float ybase[100] = {0};
 	if (xbase[0] == 0.0f) {
 		GMRng rng;
-		printf("%i %i AAAH\n", dp_xres, dp_yres);
 		for (int i = 0; i < 100; i++) {
 			xbase[i] = rng.F() * dp_xres;
 			ybase[i] = rng.F() * dp_yres;
@@ -109,9 +111,9 @@ void LogoScreen::render() {
 	UIBegin();
 	DrawBackground(alpha);
 
-	ui_draw2d.SetFontScale(1.5f,1.5f);
+	ui_draw2d.SetFontScale(1.5f, 1.5f);
 	ui_draw2d.DrawText(UBUNTU48, "PPSSPP", dp_xres / 2, dp_yres / 2 - 30, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
-	ui_draw2d.SetFontScale(1.0f,1.0f); 
+	ui_draw2d.SetFontScale(1.0f, 1.0f);
 	ui_draw2d.DrawText(UBUNTU24, "Created by Henrik Rydgard", dp_xres / 2, dp_yres / 2 + 40, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	ui_draw2d.DrawText(UBUNTU24, "Free Software under GPL 2.0", dp_xres / 2, dp_yres / 2 + 70, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	ui_draw2d.DrawText(UBUNTU24, "www.ppsspp.org", dp_xres / 2, dp_yres / 2 + 130, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
@@ -207,6 +209,11 @@ void InGameMenuScreen::render() {
 
 	ui_draw2d.DrawText(UBUNTU48, "Emulation Paused", dp_xres / 2, 30, 0xFFFFFFFF, ALIGN_HCENTER);
 
+	int x = 30;
+	int y = 50;
+	UICheckBox(GEN_ID, x, y += 50, "Show Debug Statistics (experimental)", ALIGN_TOPLEFT, &g_Config.bShowDebugStats);
+	UICheckBox(GEN_ID, x, y += 50, "Hardware Transform (experimental)", ALIGN_TOPLEFT, &g_Config.bHardwareTransform);
+
 	VLinear vlinear(dp_xres - 10, 160, 20);
 	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH, "Continue", ALIGN_RIGHT)) {
 		screenManager()->finishDialog(this, DR_CANCEL);
@@ -215,6 +222,11 @@ void InGameMenuScreen::render() {
 	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH, "Return to Menu", ALIGN_RIGHT)) {
 		screenManager()->finishDialog(this, DR_OK);
 	}
+
+	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH, "Dump Next Frame", ALIGN_RIGHT)) {
+		gpu->DumpNextFrame();
+	}
+
 	DrawWatermark();
 	UIEnd();
 
@@ -239,9 +251,9 @@ void SettingsScreen::render() {
 	// VLinear vlinear(10, 80, 10);
 	int x = 30;
 	int y = 50;
-	UICheckBox(GEN_ID, x, y += 50, "Enable Sound Emulation", ALIGN_TOPLEFT, &g_Config.bEnableSound);
+	UICheckBox(GEN_ID, x, y += 50, "Sound Emulation", ALIGN_TOPLEFT, &g_Config.bEnableSound);
 	UICheckBox(GEN_ID, x, y += 50, "Buffered Rendering (may fix flicker)", ALIGN_TOPLEFT, &g_Config.bBufferedRendering);
-
+	UICheckBox(GEN_ID, x, y += 50, "Hardware Transform (experimental)", ALIGN_TOPLEFT, &g_Config.bHardwareTransform);
 
 	bool useFastInt = g_Config.iCpuCore == CPU_FASTINTERPRETER;
 	UICheckBox(GEN_ID, x, y += 50, "Slightly faster interpreter (may crash)", ALIGN_TOPLEFT, &useFastInt);

@@ -76,6 +76,7 @@ void Jit::RunLoopUntil(u64 globalticks)
 {
 	// TODO: copy globalticks somewhere
 	((void (*)())asm_.enterCode)();
+	// NOTICE_LOG(HLE, "Exited jitted code at %i, corestate=%i, dc=%i", CoreTiming::GetTicks() / 1000, (int)coreState, CoreTiming::downcount);
 }
 
 const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
@@ -168,7 +169,7 @@ void Jit::WriteExitDestInEAX()
 void Jit::WriteSyscallExit()
 {
 	SUB(32, M(&CoreTiming::downcount), js.downcountAmount > 127 ? Imm32(js.downcountAmount) : Imm8(js.downcountAmount));
-	JMP(asm_.dispatcher, true);
+	JMP(asm_.dispatcherCheckCoreState, true);
 }
 
 } // namespace

@@ -17,7 +17,11 @@
 
 #pragma once
 
-void sceKernelSetAlarm();
-void sceKernelSetSysClockAlarm();
-void sceKernelCancelAlarm();
-void sceKernelReferAlarmStatus();
+SceUID sceKernelSetAlarm(SceUInt clock, u32 handlerPtr, u32 commonPtr);
+SceUID sceKernelSetSysClockAlarm(u32 sysClockPtr, u32 handlerPtr, u32 commonPtr);
+int sceKernelCancelAlarm(SceUID uid);
+int sceKernelReferAlarmStatus(SceUID uid, u32 infoPtr);
+
+void __KernelAlarmInit();
+void __KernelAlarmDoState(PointerWrap &p);
+KernelObject *__KernelAlarmObject();

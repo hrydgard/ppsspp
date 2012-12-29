@@ -18,7 +18,7 @@
 #pragma once
 
 #include "../HLE/sceKernel.h"
-
+#include "../System.h"
 
 enum SceUtilitySavedataType
 {
@@ -118,9 +118,10 @@ struct SceUtilitySavedataParam
 
 };
 
+// Non native, this one we can reorganize as we like
 struct SaveFileInfo
 {
-	int size;
+	s64 size;
 	std::string saveName;
 	int idx;
 
@@ -151,9 +152,11 @@ public:
 	std::string GetSaveName(SceUtilitySavedataParam* param);
 	std::string GetFileName(SceUtilitySavedataParam* param);
 
+	static std::string GetSpaceText(int size);
+
 	SavedataParam();
 
-	void SetPspParam(SceUtilitySavedataParam* param);
+	int SetPspParam(SceUtilitySavedataParam* param);
 	SceUtilitySavedataParam* GetPspParam();
 
 	int GetFilenameCount();
@@ -163,13 +166,16 @@ public:
 	int GetSelectedSave();
 	void SetSelectedSave(int idx);
 
+	void DoState(PointerWrap &p);
+
 private:
 	void Clear();
+	void SetFileInfo(int idx, PSPFileInfo &info, std::string saveName);
 
 	SceUtilitySavedataParam* pspParam;
 	int selectedSave;
-	char (*saveNameListData)[20];
 	SaveFileInfo* saveDataList;
+	int saveDataListCount;
 	int saveNameListDataCount;
 
 };

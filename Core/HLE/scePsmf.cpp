@@ -56,11 +56,7 @@ class PsmfStream;
 // we read it manually.
 // TODO: Change to work directly with the data in RAM instead of this
 // JPSCP-esque class.
-class Psmf {
-public:
-	Psmf(u32 data);
-	u32 getNumStreams() { return 2; }
-
+struct PsmfSimple {
 	u32 magic;
 	u32 version;
 	u32 streamOffset;
@@ -86,8 +82,16 @@ public:
 	int videoHeight;
 	int audioChannels;
 	int audioFrequency;
+};
+typedef std::map<int, PsmfStream *> PsmfStreamMap;
+class Psmf : public PsmfSimple {
+public:
+	Psmf(u32 data);
+	~Psmf();
+	u32 getNumStreams() { return 2; }
+	void DoState(PointerWrap &p);
 
-	std::map<int, PsmfStream *> streamMap;
+	PsmfStreamMap streamMap;
 };
 
 class PsmfStream {
@@ -118,6 +122,10 @@ public:
 		// two unknowns here
 		INFO_LOG(HLE, "PSMF private audio found: id=%02x, privid=%02x, channels=%i, freq=%i",
 			streamId, privateStreamId, psmf->audioChannels, psmf->audioFrequency);
+	}
+
+	void DoState(PointerWrap &p) {
+		p.Do<PsmfStream>(*this);
 	}
 
 	int type;
@@ -162,6 +170,37 @@ Psmf::Psmf(u32 data) {
 	}
 }
 
+Psmf::~Psmf() {
+	for (auto it = streamMap.begin(), end = streamMap.end(); it != end; ++it) {
+		delete it->second;
+	}
+	streamMap.clear();
+}
+
+void Psmf::DoState(PointerWrap &p) {
+	p.Do<PsmfSimple>(*this);
+
+	int n = (int) streamMap.size();
+	p.Do(n);
+	if (p.mode == p.MODE_READ) {
+		// Already empty, if we're reading this is brand new.
+		for (int i = 0; i < n; ++i) {
+			int key;
+			p.Do(key);
+			PsmfStream *stream = new PsmfStream(0, 0);
+			stream->DoState(p);
+			streamMap[key] = stream;
+		}
+	} else {
+		for (auto it = streamMap.begin(), end = streamMap.end(); it != end; ++it) {
+			p.Do(it->first);
+			it->second->DoState(p);
+		}
+	}
+
+	p.DoMarker("Psmf");
+}
+
 std::map<u32, Psmf *> psmfMap;
 
 Psmf *getPsmf(u32 psmf)
@@ -175,6 +214,35 @@ Psmf *getPsmf(u32 psmf)
 
 void __PsmfInit()
 {
+}
+
+void __PsmfDoState(PointerWrap &p)
+{
+	int n = (int) psmfMap.size();
+	p.Do(n);
+	if (p.mode == p.MODE_READ) {
+		std::map<u32, Psmf *>::iterator it, end;
+		for (it = psmfMap.begin(), end = psmfMap.end(); it != end; ++it) {
+			delete it->second;
+		}
+		psmfMap.clear();
+
+		for (int i = 0; i < n; ++i) {
+			u32 key;
+			p.Do(key);
+			Psmf *psmf = new Psmf(0);
+			psmf->DoState(p);
+			psmfMap[key] = psmf;
+		}
+	} else {
+		std::map<u32, Psmf *>::iterator it, end;
+		for (it = psmfMap.begin(), end = psmfMap.end(); it != end; ++it) {
+			p.Do(it->first);
+			it->second->DoState(p);
+		}
+	}
+
+	p.DoMarker("scePsmf");
 }
 
 void __PsmfShutdown()

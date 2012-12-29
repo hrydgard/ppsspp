@@ -318,9 +318,7 @@ void ConsoleListener::Log(LogTypes::LOG_LEVELS Level, const char *Text)
 		Text += 10;
 	}
 	SetConsoleTextAttribute(hConsole, Color);
-  size_t len = strlen(Text);
-  if (Text[len-1] == '\n' && Text[len-1] == '\r')
-    len--;
+	size_t len = strlen(Text);
 	WriteConsole(hConsole, Text, (DWORD)len, &cCharsWritten, NULL);
 #else
 	char ColorAttr[16] = "";

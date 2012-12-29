@@ -42,7 +42,6 @@
 MetaFileSystem pspFileSystem;
 
 static CoreParameter coreParameter;
-extern ShaderManager shaderManager;
 
 bool PSP_Init(const CoreParameter &coreParam, std::string *error_string)
 {
@@ -76,9 +75,6 @@ bool PSP_Init(const CoreParameter &coreParam, std::string *error_string)
 		return false;
 	}
 
-	shaderManager.DirtyShader();
-	shaderManager.DirtyUniform(DIRTY_ALL);
-
 	// Setup JIT here.
 	if (coreParameter.startPaused)
 		coreState = CORE_STEPPING;
@@ -97,7 +93,6 @@ void PSP_Shutdown()
 	pspFileSystem.UnmountAll();
 
 	TextureCache_Clear(true);
-	shaderManager.ClearCache(true);
 
 	CoreTiming::ClearPendingEvents();
 	CoreTiming::UnregisterAllEvents();

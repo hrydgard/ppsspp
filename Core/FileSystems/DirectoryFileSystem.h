@@ -28,29 +28,32 @@
 typedef void * HANDLE;
 #endif
 
+#if defined(__APPLE__)
 
-class DirectoryFileSystem : public IFileSystem
-{
-	struct OpenFileEntry
-	{
-#ifdef _WIN32
-		HANDLE hFile;
+#if TARGET_OS_IPHONE
+#define HOST_IS_CASE_SENSITIVE 1
+#elif TARGET_IPHONE_SIMULATOR
+#define HOST_IS_CASE_SENSITIVE 0
 #else
-		FILE *hFile;
+// Mac OSX case sensitivity defaults off, but is user configurable (when
+// creating a filesytem), so assume the worst:
+#define HOST_IS_CASE_SENSITIVE 1
 #endif
-	};
 
-	typedef std::map<u32,OpenFileEntry> EntryMap;
-	EntryMap entries;
-	std::string basePath;
-	IHandleAllocator *hAlloc;
+#elif defined(_WIN32) || defined(__SYMBIAN32__)
+#define HOST_IS_CASE_SENSITIVE 0
 
+#else  // Android, Linux, BSD (and the rest?)
+#define HOST_IS_CASE_SENSITIVE 1
 
-  // In case of Windows: Translate slashes, etc.
-	std::string GetLocalPath(std::string localpath);
+#endif
 
+class DirectoryFileSystem : public IFileSystem {
 public:
 	DirectoryFileSystem(IHandleAllocator *_hAlloc, std::string _basePath);
+	~DirectoryFileSystem();
+
+	void DoState(PointerWrap &p);
 	std::vector<PSPFileInfo> GetDirListing(std::string path);
 	u32      OpenFile(std::string filename, FileAccess access);
 	void     CloseFile(u32 handle);
@@ -59,9 +62,35 @@ public:
 	size_t   SeekFile(u32 handle, s32 position, FileMove type);
 	PSPFileInfo GetFileInfo(std::string filename);
 	bool     OwnsHandle(u32 handle);
+
 	bool MkDir(const std::string &dirname);
 	bool RmDir(const std::string &dirname);
 	bool RenameFile(const std::string &from, const std::string &to);
 	bool DeleteFile(const std::string &filename);
+
+private:
+	struct OpenFileEntry {
+#ifdef _WIN32
+		HANDLE hFile;
+#else
+		FILE *hFile;
+#endif
+	};
+
+	typedef std::map<u32, OpenFileEntry> EntryMap;
+	EntryMap entries;
+	std::string basePath;
+	IHandleAllocator *hAlloc;
+
+	// In case of Windows: Translate slashes, etc.
+	std::string GetLocalPath(std::string localpath);
+
+#if HOST_IS_CASE_SENSITIVE
+	typedef enum {
+		FPC_FILE_MUST_EXIST,  // all path components must exist (rmdir, move from)
+		FPC_PATH_MUST_EXIST,  // all except the last one must exist - still tries to fix last one (fopen, move to)
+		FPC_PARTIAL_ALLOWED,  // don't care how many exist (mkdir recursive)
+	} FixPathCaseBehavior;
+	bool FixPathCase(std::string &path, FixPathCaseBehavior behavior);
+#endif
 };
- 

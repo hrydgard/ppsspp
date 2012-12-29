@@ -32,6 +32,7 @@
 //   ScheduleEvent(periodInCycles - cyclesLate, callback, "whatever")
 
 #include "../Globals.h"
+#include "../Common/ChunkFile.h"
 
 #include <string>
 
@@ -58,6 +59,10 @@ inline int usToCycles(int us) {
 	return (int)(CPU_HZ / 1000000 * us);
 }
 
+inline u64 usToCycles(u64 us) {
+	return (u64)(CPU_HZ / 1000000ULL * us);
+}
+
 inline u64 cyclesToUs(u64 cycles) {
 	return cycles / (CPU_HZ / 1000000);
 }
@@ -74,6 +79,8 @@ namespace CoreTiming
 
 	// Returns the event_type identifier.
 	int RegisterEvent(const char *name, TimedCallback callback);
+	// For save states.
+	void RestoreRegisterEvent(int event_type, const char *name, TimedCallback callback);
 	void UnregisterAllEvents();
 
 	// userdata MAY NOT CONTAIN POINTERS. userdata might get written and reloaded from disk,
@@ -99,9 +106,12 @@ namespace CoreTiming
 
 	void LogPendingEvents();
 
+	// Warning: not included in save states.
 	void RegisterAdvanceCallback(void (*callback)(int cyclesExecuted));
 
 	std::string GetScheduledEventsSummary();
+
+	void DoState(PointerWrap &p);
 
 	void SetClockFrequencyMHz(int cpuMhz);
 	int GetClockFrequencyMHz();
