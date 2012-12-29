@@ -168,7 +168,9 @@ void __KernelDoState(PointerWrap &p)
 	__GeDoState(p);
 	__ImposeDoState(p);
 	__IoDoState(p);
+	__MpegDoState(p);
 	__PowerDoState(p);
+	__PsmfDoState(p);
 	__SasDoState(p);
 	__SslDoState(p);
 	__UmdDoState(p);

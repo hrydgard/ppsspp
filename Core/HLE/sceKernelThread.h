@@ -191,7 +191,6 @@ bool __KernelSwitchOffThread(const char *reason);
 
 // A call into game code. These can be pending on a thread.
 // Similar to Callback-s (NOT CallbackInfos) in JPCSP.
-class Action;
 typedef Action *(*ActionCreator)();
 Action *__KernelCreateAction(int actionType);
 int __KernelRegisterActionType(ActionCreator creator);
