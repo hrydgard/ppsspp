@@ -86,6 +86,8 @@ struct FPL : public KernelObject
 	virtual void DoState(PointerWrap &p)
 	{
 		p.Do(nf);
+		if (p.mode == p.MODE_READ)
+			blocks = new bool[nf.numBlocks];
 		p.DoArray(blocks, nf.numBlocks);
 		p.Do(address);
 		p.DoMarker("FPL");
