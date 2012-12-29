@@ -236,6 +236,7 @@ int PSPOskDialog::Update()
 
 void PSPOskDialog::DoState(PointerWrap &p)
 {
+	PSPDialog::DoState(p);
 	p.Do(oskParams);
 	p.Do(oskData);
 	p.Do(oskDesc);

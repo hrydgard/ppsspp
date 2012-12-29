@@ -55,6 +55,12 @@ struct NativeFPL
 //FPL - Fixed Length Dynamic Memory Pool - every item has the same length
 struct FPL : public KernelObject
 {
+	FPL() : blocks(NULL) {}
+	~FPL() {
+		if (blocks != NULL) {
+			delete [] blocks;
+		}
+	}
 	const char *GetName() {return nf.name;}
 	const char *GetTypeName() {return "FPL";}
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_FPLID; }
@@ -400,7 +406,7 @@ public:
 	virtual void DoState(PointerWrap &p)
 	{
 		p.Do(address);
-		p.Do(name);
+		p.DoArray(name, sizeof(name));
 		p.DoMarker("PMB");
 	}
 

@@ -708,11 +708,15 @@ int PSPSaveDialog::Shutdown()
 
 void PSPSaveDialog::DoState(PointerWrap &p)
 {
+	PSPDialog::DoState(p);
 	p.Do(display);
 	param.DoState(p);
 	p.Do(request);
 	// Just reset it.
-	param.SetPspParam(&request);
+	bool hasParam = param.GetPspParam() != NULL;
+	p.Do(hasParam);
+	if (hasParam)
+		param.SetPspParam(&request);
 	p.Do(requestAddr);
 	p.Do(currentSelectedSave);
 	p.Do(yesnoChoice);

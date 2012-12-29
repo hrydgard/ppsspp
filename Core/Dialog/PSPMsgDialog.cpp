@@ -208,6 +208,7 @@ int PSPMsgDialog::Shutdown()
 
 void PSPMsgDialog::DoState(PointerWrap &p)
 {
+	PSPDialog::DoState(p);
 	p.Do(display);
 	p.Do(messageDialog);
 	p.Do(messageDialogAddr);
