@@ -56,7 +56,14 @@ class PsmfStream;
 // we read it manually.
 // TODO: Change to work directly with the data in RAM instead of this
 // JPSCP-esque class.
-struct PsmfSimple {
+typedef std::map<int, PsmfStream *> PsmfStreamMap;
+class Psmf {
+public:
+	Psmf(u32 data);
+	~Psmf();
+	u32 getNumStreams() { return 2; }
+	void DoState(PointerWrap &p);
+
 	u32 magic;
 	u32 version;
 	u32 streamOffset;
@@ -82,14 +89,6 @@ struct PsmfSimple {
 	int videoHeight;
 	int audioChannels;
 	int audioFrequency;
-};
-typedef std::map<int, PsmfStream *> PsmfStreamMap;
-class Psmf : public PsmfSimple {
-public:
-	Psmf(u32 data);
-	~Psmf();
-	u32 getNumStreams() { return 2; }
-	void DoState(PointerWrap &p);
 
 	PsmfStreamMap streamMap;
 };
@@ -125,7 +124,8 @@ public:
 	}
 
 	void DoState(PointerWrap &p) {
-		p.Do<PsmfStream>(*this);
+		p.Do(type);
+		p.Do(channel);
 	}
 
 	int type;
@@ -178,7 +178,28 @@ Psmf::~Psmf() {
 }
 
 void Psmf::DoState(PointerWrap &p) {
-	p.Do<PsmfSimple>(*this);
+	p.Do(magic);
+	p.Do(version);
+	p.Do(streamOffset);
+	p.Do(streamSize);
+	p.Do(headerOffset);
+	p.Do(streamDataTotalSize);
+	p.Do(presentationStartTime);
+	p.Do(presentationEndTime);
+	p.Do(streamDataNextBlockSize);
+	p.Do(streamDataNextInnerBlockSize);
+	p.Do(numStreams);
+
+	p.Do(currentStreamNum);
+	p.Do(currentAudioStreamNum);
+	p.Do(currentVideoStreamNum);
+
+	p.Do(EPMapOffset);
+	p.Do(EPMapEntriesNum);
+	p.Do(videoWidth);
+	p.Do(videoHeight);
+	p.Do(audioChannels);
+	p.Do(audioFrequency);
 
 	int n = (int) streamMap.size();
 	p.Do(n);
