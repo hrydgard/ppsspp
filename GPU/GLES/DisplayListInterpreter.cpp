@@ -161,9 +161,7 @@ GLES_GPU::GLES_GPU(int renderWidth, int renderHeight)
 :		interruptsEnabled_(true),
 		displayFramebufPtr_(0),
 		renderWidth_(renderWidth),
-		renderHeight_(renderHeight),
-		dumpThisFrame_(false),
-		dumpNextFrame_(false)
+		renderHeight_(renderHeight)
 {
 	renderWidthFactor_ = (float)renderWidth / 480.0f;
 	renderHeightFactor_ = (float)renderHeight / 272.0f;
@@ -386,26 +384,6 @@ void GLES_GPU::EndDebugDraw() {
 
 // Render queue
 
-bool GLES_GPU::ProcessDLQueue()
-{
-	DisplayListQueue::iterator iter = dlQueue.begin();
-	while (!(iter == dlQueue.end()))
-	{
-		DisplayList &l = *iter;
-//		DEBUG_LOG(G3D,"Okay, starting DL execution at %08 - stall = %08x", context.pc, stallAddr);
-		if (!InterpretList(l))
-		{
-			return false;
-		} else {
-			//At the end, we can remove it from the queue and continue
-			dlQueue.erase(iter);
-			//this invalidated the iterator, let's fix it
-			iter = dlQueue.begin();
-		}
-	}
-	return true; //no more lists!
-}
-
 void GLES_GPU::DrawSync(int mode)
 {
 	transformDraw_.Flush();
@@ -437,6 +415,13 @@ static void LeaveClearMode() {
 	glstate.colorMask.set(1,1,1,1);
 	glstate.depthWrite.set(!(gstate.zmsk & 1) ? GL_TRUE : GL_FALSE);
 	// dirtyshader?
+}
+
+void GLES_GPU::PreExecuteOp(u32 op, u32 diff) {
+	u32 cmd = op >> 24;
+
+	if (flushBeforeCommand_[cmd] == 1 || (diff && flushBeforeCommand_[cmd] == 2))
+		transformDraw_.Flush();
 }
 
 void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
@@ -1075,48 +1060,6 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		DEBUG_LOG(G3D,"DL Unknown: %08x @ %08x", op, currentList->pc);
 		break;
 	}
-}
-
-bool GLES_GPU::InterpretList(DisplayList &list)
-{
-	currentList = &list;
-	// Reset stackptr for safety
-	stackptr = 0;
-	u32 op = 0;
-	prev = 0;
-	finished = false;
-	while (!finished)
-	{
-		list.status = PSP_GE_LIST_DRAWING;
-		if (!Memory::IsValidAddress(list.pc)) {
-			ERROR_LOG(G3D, "DL PC = %08x WTF!!!!", list.pc);
-			return true;
-		}
-		if (list.pc == list.stall)
-		{
-			list.status = PSP_GE_LIST_STALL_REACHED;
-			return false;
-		}
-		op = Memory::ReadUnchecked_U32(list.pc); //read from memory
-		u32 cmd = op >> 24;
-		u32 diff = op ^ gstate.cmdmem[cmd];
-		if (flushBeforeCommand_[cmd] == 1 || (diff && flushBeforeCommand_[cmd] == 2))
-			transformDraw_.Flush();
-		// TODO: Add a compiler flag to remove stuff like this at very-final build time.
-		if (dumpThisFrame_) {
-			char temp[256];
-			GeDisassembleOp(list.pc, op, prev, temp);
-			NOTICE_LOG(G3D, "%08x: %s", list.pc, temp);
-		}
-
-		gstate.cmdmem[cmd] = op;
-
-		ExecuteOp(op, diff);
-
-		list.pc += 4;
-		prev = op;
-	}
-	return true;
 }
 
 void GLES_GPU::UpdateStats() {

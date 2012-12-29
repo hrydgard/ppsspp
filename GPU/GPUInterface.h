@@ -53,6 +53,7 @@ public:
 	virtual void DrawSync(int mode) = 0;
 	virtual void Continue() = 0;
 
+	virtual void PreExecuteOp(u32 op, u32 diff) = 0;
 	virtual void ExecuteOp(u32 op, u32 diff) = 0;
 	virtual bool InterpretList(DisplayList& list) = 0;
 	virtual int  listStatus(int listid) = 0;

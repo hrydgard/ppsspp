@@ -35,8 +35,8 @@ public:
 	GLES_GPU(int renderWidth, int renderHeight);
 	~GLES_GPU();
 	virtual void InitClear();
+	virtual void PreExecuteOp(u32 op, u32 diff);
 	virtual void ExecuteOp(u32 op, u32 diff);
-	virtual bool InterpretList(DisplayList &list);
 	virtual void DrawSync(int mode);
 	virtual void Continue();
 	virtual void Break();
@@ -56,7 +56,6 @@ public:
 
 private:
 	void DoBlockTransfer();
-	bool ProcessDLQueue();
 
 	// Applies states for debugging if enabled.
 	void BeginDebugDraw();
@@ -78,18 +77,10 @@ private:
 	float renderWidthFactor_;
 	float renderHeightFactor_;
 
-	bool dumpNextFrame_;
-	bool dumpThisFrame_;
-
 	struct CmdProcessorState {
 		u32 pc;
 		u32 stallAddr;
 	};
-
-	u32 prev;
-	u32 stack[2];
-	u32 stackptr;
-	bool finished;
 
 	struct VirtualFramebuffer {
 		u32 fb_address;

@@ -22,43 +22,13 @@
 #include "../../Core/MemMap.h"
 #include "../../Core/HLE/sceKernelInterrupt.h"
 
-static u32 prev;
-static u32 stack[2];
-static u32 stackptr = 0;
-static bool finished;
-
-
 NullGPU::NullGPU()
 {
 	interruptsEnabled_ = true;
-	dlIdGenerator = 1;
 }
 
 NullGPU::~NullGPU()
 {
-	dlQueue.clear();
-}
-
-bool NullGPU::ProcessDLQueue()
-{
-	DisplayListQueue::iterator iter = dlQueue.begin();
-	while (!(iter == dlQueue.end()))
-	{
-		DisplayList &l = *iter;
-//		DEBUG_LOG(G3D,"Okay, starting DL execution at %08 - stall = %08x", context.pc, stallAddr);
-		if (!InterpretList(l))
-		{
-			return false;
-		}
-		else
-		{
-			//At the end, we can remove it from the queue and continue
-			dlQueue.erase(iter);
-			//this invalidated the iterator, let's fix it
-			iter = dlQueue.begin();
-		}
-	}
-	return true; //no more lists!
 }
 
 void NullGPU::DrawSync(int mode)
@@ -73,7 +43,6 @@ void NullGPU::Continue()
 {
 
 }
-
 
 void NullGPU::ExecuteOp(u32 op, u32 diff)
 {
@@ -762,34 +731,6 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 
 		//ETC...
 	}
-}
-
-bool NullGPU::InterpretList(DisplayList &list)
-{
-	currentList = &list;
-	// Reset stackptr for safety
-	stackptr = 0;
-	u32 op = 0;
-	prev = 0;
-	finished = false;
-	while (!finished)
-	{
-		if (currentList->pc == currentList->stall)
-		{
-			currentList->status = PSP_GE_LIST_STALL_REACHED;
-			return false;
-		}
-		op = Memory::ReadUnchecked_U32(currentList->pc); //read from memory
-		u32 cmd = op >> 24;
-		u32 diff = op ^ gstate.cmdmem[cmd];
-		gstate.cmdmem[cmd] = op;	 // crashes if I try to put the whole op there??
-
-		ExecuteOp(op, diff);
-
-		currentList->pc += 4;
-		prev = op;
-	}
-	return true;
 }
 
 void NullGPU::UpdateStats()

@@ -28,7 +28,6 @@ public:
 	~NullGPU();
 	virtual void InitClear() {}
 	virtual void ExecuteOp(u32 op, u32 diff);
-	virtual bool InterpretList(DisplayList &list);
 	virtual void Continue();
 	virtual void DrawSync(int mode);
 	virtual void EnableInterrupts(bool enable) {
@@ -46,6 +45,5 @@ public:
 	virtual void DumpNextFrame() {}
 
 private:
-	bool ProcessDLQueue();
 	bool interruptsEnabled_;
 };
