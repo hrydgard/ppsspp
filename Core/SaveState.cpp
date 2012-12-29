@@ -87,7 +87,7 @@ namespace SaveState
 
 		// Don't actually run it until next CoreTiming::Advance().
 		// It's possible there might be a duplicate but it won't hurt us.
-		if (Core_IsStepping())
+		if (Core_IsStepping() && __KernelIsRunning())
 		{
 			// Warning: this may run on a different thread.
 			Process(0, 0);
@@ -122,6 +122,12 @@ namespace SaveState
 
 	void Process(u64 userdata, int cyclesLate)
 	{
+		if (!__KernelIsRunning())
+		{
+			ERROR_LOG(COMMON, "Savestate failure: Unable to load without kernel, this should never happen.");
+			return;
+		}
+
 		std::vector<Operation> operations = Flush();
 		SaveStart state;
 
