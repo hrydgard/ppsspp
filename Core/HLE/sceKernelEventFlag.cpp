@@ -57,11 +57,19 @@ public:
 			nef.currentPattern,
 			nef.numWaitThreads);
 	}
-	
+
 	static u32 GetMissingErrorCode() {
 		return SCE_KERNEL_ERROR_UNKNOWN_EVFID;
 	}
 	int GetIDType() const { return SCE_KERNEL_TMID_EventFlag; }
+
+	virtual void DoState(PointerWrap &p)
+	{
+		p.Do(nef);
+		EventFlagTh eft = {0};
+		p.Do(waitingThreads, eft);
+		p.DoMarker("EventFlag");
+	}
 
 	NativeEventFlag nef;
 	std::vector<EventFlagTh> waitingThreads;
@@ -90,13 +98,24 @@ enum PspEventFlagWaitTypes
 	PSP_EVENT_WAITKNOWN = PSP_EVENT_WAITCLEAR | PSP_EVENT_WAITCLEARALL | PSP_EVENT_WAITOR,
 };
 
-bool eventFlagInitComplete = false;
 int eventFlagWaitTimer = 0;
 
 void __KernelEventFlagInit()
 {
-	eventFlagWaitTimer = CoreTiming::RegisterEvent("EventFlagTimeout", &__KernelEventFlagTimeout);
-	eventFlagInitComplete = true;
+	eventFlagWaitTimer = CoreTiming::RegisterEvent("EventFlagTimeout", __KernelEventFlagTimeout);
+}
+
+void __KernelEventFlagDoState(PointerWrap &p)
+{
+	p.Do(eventFlagWaitTimer);
+	CoreTiming::RestoreRegisterEvent(eventFlagWaitTimer, "EventFlagTimeout", __KernelEventFlagTimeout);
+	p.DoMarker("sceKernelEventFlag");
+}
+
+KernelObject *__KernelEventFlagObject()
+{
+	// Default object to load from state.
+	return new EventFlag;
 }
 
 bool __KernelEventFlagMatches(u32 *pattern, u32 bits, u8 wait, u32 outAddr)
@@ -168,9 +187,6 @@ bool __KernelClearEventFlagThreads(EventFlag *e, int reason)
 //SceUID sceKernelCreateEventFlag(const char *name, int attr, int bits, SceKernelEventFlagOptParam *opt);
 int sceKernelCreateEventFlag(const char *name, u32 flag_attr, u32 flag_initPattern, u32 optPtr)
 {
-	if (!eventFlagInitComplete)
-		__KernelEventFlagInit();
-
 	if (!name)
 	{
 		WARN_LOG(HLE, "%08x=sceKernelCreateEventFlag(): invalid name", SCE_KERNEL_ERROR_ERROR);
@@ -397,7 +413,7 @@ int sceKernelWaitEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 ti
 			th.bits = bits;
 			th.wait = wait;
 			// If < 5ms, sometimes hardware doesn't write this, but it's unpredictable.
-			th.outAddr = timeout == 0 ? NULL : outBitsPtr;
+			th.outAddr = timeout == 0 ? 0 : outBitsPtr;
 			e->waitingThreads.push_back(th);
 
 			__KernelSetEventFlagTimeout(e, timeoutPtr);
@@ -450,7 +466,7 @@ int sceKernelWaitEventFlagCB(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 
 			th.bits = bits;
 			th.wait = wait;
 			// If < 5ms, sometimes hardware doesn't write this, but it's unpredictable.
-			th.outAddr = timeout == 0 ? NULL : outBitsPtr;
+			th.outAddr = timeout == 0 ? 0 : outBitsPtr;
 			e->waitingThreads.push_back(th);
 
 			__KernelSetEventFlagTimeout(e, timeoutPtr);

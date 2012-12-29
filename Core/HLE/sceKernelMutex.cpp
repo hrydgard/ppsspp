@@ -62,6 +62,15 @@ struct Mutex : public KernelObject
 	const char *GetTypeName() {return "Mutex";}
 	static u32 GetMissingErrorCode() { return PSP_MUTEX_ERROR_NO_SUCH_MUTEX; }
 	int GetIDType() const { return SCE_KERNEL_TMID_Mutex; }
+
+	virtual void DoState(PointerWrap &p)
+	{
+		p.Do(nm);
+		SceUID dv = 0;
+		p.Do(waitingThreads, dv);
+		p.DoMarker("Mutex");
+	}
+
 	NativeMutex nm;
 	std::vector<SceUID> waitingThreads;
 };
@@ -103,31 +112,61 @@ struct LwMutex : public KernelObject
 	const char *GetTypeName() {return "LwMutex";}
 	static u32 GetMissingErrorCode() { return PSP_LWMUTEX_ERROR_NO_SUCH_LWMUTEX; }
 	int GetIDType() const { return SCE_KERNEL_TMID_LwMutex; }
+
+	virtual void DoState(PointerWrap &p)
+	{
+		p.Do(nm);
+		SceUID dv = 0;
+		p.Do(waitingThreads, dv);
+		p.DoMarker("LwMutex");
+	}
+
 	NativeLwMutex nm;
 	std::vector<SceUID> waitingThreads;
 };
 
-bool mutexInitComplete = false;
-int mutexWaitTimer = 0;
-int lwMutexWaitTimer = 0;
+static int mutexWaitTimer = 0;
+static int lwMutexWaitTimer = 0;
 // Thread -> Mutex locks for thread end.
 typedef std::multimap<SceUID, SceUID> MutexMap;
-MutexMap mutexHeldLocks;
+static MutexMap mutexHeldLocks;
 
 void __KernelMutexInit()
 {
-	mutexWaitTimer = CoreTiming::RegisterEvent("MutexTimeout", &__KernelMutexTimeout);
-	lwMutexWaitTimer = CoreTiming::RegisterEvent("LwMutexTimeout", &__KernelLwMutexTimeout);
+	mutexWaitTimer = CoreTiming::RegisterEvent("MutexTimeout", __KernelMutexTimeout);
+	lwMutexWaitTimer = CoreTiming::RegisterEvent("LwMutexTimeout", __KernelLwMutexTimeout);
 
-	// TODO: Install on first mutex (if it's slow?)
 	__KernelListenThreadEnd(&__KernelMutexThreadEnd);
+}
 
-	mutexInitComplete = true;
+void __KernelMutexDoState(PointerWrap &p)
+{
+	p.Do(mutexWaitTimer);
+	CoreTiming::RestoreRegisterEvent(mutexWaitTimer, "MutexTimeout", __KernelMutexTimeout);
+	p.Do(lwMutexWaitTimer);
+	CoreTiming::RestoreRegisterEvent(lwMutexWaitTimer, "LwMutexTimeout", __KernelLwMutexTimeout);
+	p.Do(mutexHeldLocks);
+	p.DoMarker("sceKernelMutex");
+}
+
+KernelObject *__KernelMutexObject()
+{
+	return new Mutex;
+}
+
+KernelObject *__KernelLwMutexObject()
+{
+	return new LwMutex;
+}
+
+void __KernelMutexShutdown()
+{
+	mutexHeldLocks.clear();
 }
 
 void __KernelMutexAcquireLock(Mutex *mutex, int count, SceUID thread)
 {
-#if _DEBUG
+#if defined(_DEBUG)
 	std::pair<MutexMap::iterator, MutexMap::iterator> locked = mutexHeldLocks.equal_range(thread);
 	for (MutexMap::iterator iter = locked.first; iter != locked.second; ++iter)
 		_dbg_assert_msg_(HLE, (*iter).second != mutex->GetUID(), "Thread %d / mutex %d wasn't removed from mutexHeldLocks properly.", thread, mutex->GetUID());
@@ -184,9 +223,6 @@ std::vector<SceUID>::iterator __KernelMutexFindPriority(std::vector<SceUID> &wai
 
 int sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optionsPtr)
 {
-	if (!mutexInitComplete)
-		__KernelMutexInit();
-
 	if (!name)
 	{
 		WARN_LOG(HLE, "%08x=sceKernelCreateMutex(): invalid name", SCE_KERNEL_ERROR_ERROR);
@@ -500,9 +536,6 @@ int sceKernelUnlockMutex(SceUID id, int count)
 
 int sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int initialCount, u32 optionsPtr)
 {
-	if (!mutexInitComplete)
-		__KernelMutexInit();
-
 	if (!name)
 	{
 		WARN_LOG(HLE, "%08x=sceKernelCreateLwMutex(): invalid name", SCE_KERNEL_ERROR_ERROR);

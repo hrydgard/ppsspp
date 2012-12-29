@@ -37,7 +37,7 @@ void InitGfxState()
 
 	gstate.lightingEnable = 0x17000001;
 
-	static const float identity4x3[12] = 
+	static const float identity4x3[12] =
 	{1,0,0,
  	 0,1,0,
  	 0,0,1,
@@ -95,21 +95,21 @@ void ReapplyGfxState()
 
 	for (int i = GE_CMD_VERTEXTYPE; i < GE_CMD_BONEMATRIXNUMBER; i++)
 	{
-		gpu->ExecuteOp(gstate.cmdmem[i], 0xFFFFFFFF);		
+		gpu->ExecuteOp(gstate.cmdmem[i], 0xFFFFFFFF);
 	}
-	
+
 	// Can't write to bonematrixnumber here
 
 	for (int i = GE_CMD_MORPHWEIGHT0; i < GE_CMD_PATCHFACING; i++)
 	{
-		gpu->ExecuteOp(gstate.cmdmem[i], 0xFFFFFFFF);		
+		gpu->ExecuteOp(gstate.cmdmem[i], 0xFFFFFFFF);
 	}
 
 	// There are a few here in the middle that we shouldn't execute...
 
 	for (int i = GE_CMD_VIEWPORTX1; i < GE_CMD_TRANSFERSTART; i++)
 	{
-		gpu->ExecuteOp(gstate.cmdmem[i], 0xFFFFFFFF);		
+		gpu->ExecuteOp(gstate.cmdmem[i], 0xFFFFFFFF);
 	}
 
 	// TODO: there's more...

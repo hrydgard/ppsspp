@@ -33,7 +33,7 @@ public:
 	virtual void UpdateStall(int listid, u32 newstall) = 0;
 	virtual void DrawSync(int mode) = 0;
 	virtual void Continue() = 0;
-	
+
 	virtual void ExecuteOp(u32 op, u32 diff) = 0;
 	virtual bool InterpretList() = 0;
 
@@ -45,6 +45,16 @@ public:
 	// Tells the GPU to update the gpuStats structure.
 	virtual void UpdateStats() = 0;
 
+	// Invalidate any cached content sourced from the specified range.
+	// If size = -1, invalidate everything.
+	virtual void InvalidateCache(u32 addr, int size) = 0;
+
 	// Internal hack to avoid interrupts from "PPGe" drawing (utility UI, etc)
 	virtual void EnableInterrupts(bool enable) = 0;
+
+	virtual void DeviceLost() = 0;
+	virtual void Flush() = 0;
+
+	// Debugging
+	virtual void DumpNextFrame() = 0;
 };

@@ -4,6 +4,7 @@ set(SRCS
 	GLES/DisplayListInterpreter.cpp
 	GLES/FragmentShaderGenerator.cpp
 	GLES/Framebuffer.cpp
+	GLES/IndexGenerator.cpp
 	GLES/ShaderManager.cpp
 	GLES/StateMapping.cpp
 	GLES/TextureCache.cpp

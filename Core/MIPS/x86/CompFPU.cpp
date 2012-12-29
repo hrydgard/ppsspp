@@ -17,6 +17,7 @@
 
 #include "../MIPS.h"
 
+#include "../../Config.h"
 #include "Common/Common.h"
 #include "Jit.h"
 #include "RegCache.h"
@@ -86,6 +87,10 @@ void Jit::Comp_FPU3op(u32 op)
 void Jit::Comp_FPULS(u32 op)
 {
 	CONDITIONAL_DISABLE;
+	if (!g_Config.bFastMemory) {
+		DISABLE;
+	}
+
 
 	s32 offset = (s16)(op&0xFFFF);
 	int ft = ((op>>16)&0x1f);

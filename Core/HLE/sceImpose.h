@@ -17,4 +17,8 @@
 
 #pragma once
 
+#include "../../Common/ChunkFile.h"
+
 void Register_sceImpose();
+void __ImposeInit();
+void __ImposeDoState(PointerWrap &p);

@@ -26,3 +26,7 @@ int sceKernelWaitEventFlagCB(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 
 int sceKernelPollEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 timeoutPtr);
 u32 sceKernelReferEventFlagStatus(SceUID id, u32 statusPtr);
 u32 sceKernelCancelEventFlag(SceUID uid, u32 pattern, u32 numWaitThreadsPtr);
+
+void __KernelEventFlagInit();
+void __KernelEventFlagDoState(PointerWrap &p);
+KernelObject *__KernelEventFlagObject();

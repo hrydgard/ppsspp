@@ -53,14 +53,23 @@ void PSPDialog::DisplayMessage(std::string text)
 	PPGeDrawText(text.c_str(), 480/2, 100, PPGE_ALIGN_CENTER, 0.5f, 0xFFFFFFFF);
 }
 
-void PSPDialog::Shutdown()
+int PSPDialog::Shutdown()
 {
 	status = SCE_UTILITY_STATUS_SHUTDOWN;
+	return 0;
 }
 
-void PSPDialog::Update()
+int PSPDialog::Update()
 {
+	return 0;
+}
 
+void PSPDialog::DoState(PointerWrap &p)
+{
+	p.Do(status);
+	p.Do(lastButtons);
+	p.Do(buttons);
+	p.DoMarker("PSPDialog");
 }
 
 bool PSPDialog::IsButtonPressed(int checkButton)

@@ -27,3 +27,5 @@ void sceKernelReceiveMsgPipeCB();
 void sceKernelTryReceiveMsgPipe();
 void sceKernelCancelMsgPipe();
 void sceKernelReferMsgPipeStatus();
+
+KernelObject *__KernelMsgPipeObject();

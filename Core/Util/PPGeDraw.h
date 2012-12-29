@@ -18,6 +18,7 @@
 #pragma once
 
 #include "../../Globals.h"
+#include "../../Common/ChunkFile.h"
 #include "ppge_atlas.h"
 
 /////////////////////////////////////////////////////////////////////////////////////////////
@@ -28,6 +29,9 @@
 // Uploads the necessary texture atlas and other data to kernel RAM, and reserves
 // space for the display list. The PSP must be inited.
 void __PPGeInit();
+
+// Saves to and restores from savestates (kernel RAM pointers, etc.)
+void __PPGeDoState(PointerWrap &p);
 
 // Just frees up the allocated kernel memory.
 void __PPGeShutdown();

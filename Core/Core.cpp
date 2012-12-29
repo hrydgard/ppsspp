@@ -81,7 +81,7 @@ void Core_SingleStep()
 // Some platforms, like Android, do not call this function but handle things on their own.
 void Core_Run()
 {
-#if _DEBUG
+#if defined(_DEBUG)
 	host->UpdateDisassembly();
 #endif
 
@@ -129,14 +129,14 @@ void Core_EnableStepping(bool step)
 		//PowerPC::Pause();
 		// Sleep(1);
 		sleep_ms(1);
-#if _DEBUG
+#if defined(_DEBUG)
 		host->SetDebugMode(true);
 #endif
 		coreState=CORE_STEPPING;
 	}
 	else
 	{
-#if _DEBUG
+#if defined(_DEBUG)
 		host->SetDebugMode(false);
 #endif
 		coreState = CORE_RUNNING;

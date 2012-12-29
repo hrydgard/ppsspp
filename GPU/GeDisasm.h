@@ -15,17 +15,4 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#pragma once
-
-#include "../../Globals.h"
-
-class ShaderManager;
-
-class GPU
-{
-public:
-	static u32 EnqueueList(u32 listpc, u32 stall);
-	static void UpdateStall(int listid, u32 newstall);
-	static void ExecuteOp(u32 op, u32 diff);
-	static bool InterpretList();
-};
+void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer);

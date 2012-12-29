@@ -255,6 +255,7 @@ inline const char* GetCharPointer(const u32 address) {
 
 void Memset(const u32 _Address, const u8 _Data, const u32 _iLength);
 void Memcpy(const u32 _Address, const void *_Data, const u32 _iLength);
+void Memcpy(void *data, const u32 address, const u32 len);
 
 template<class T>
 void ReadStruct(u32 address, T *ptr)

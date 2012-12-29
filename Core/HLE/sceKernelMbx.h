@@ -32,3 +32,7 @@ int sceKernelReceiveMbxCB(SceUID id, u32 packetAddrPtr, u32 timeoutPtr);
 int sceKernelPollMbx(SceUID id, u32 packetAddrPtr);
 int sceKernelCancelReceiveMbx(SceUID id, u32 numWaitingThreadsAddr);
 int sceKernelReferMbxStatus(SceUID id, u32 infoAddr);
+
+void __KernelMbxInit();
+void __KernelMbxDoState(PointerWrap &p);
+KernelObject *__KernelMbxObject();

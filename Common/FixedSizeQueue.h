@@ -87,13 +87,32 @@ public:
 		return count_;
 	}
 
+	size_t capacity() const {
+		return N;
+	}
+
 	int room() const {
 		return N - count_;
 	}
 
-  bool empty() {
-    return count_;
-  }
+	bool empty() {
+		return count_ == 0;
+	}
+
+	void DoState(PointerWrap &p) {
+		int size = N;
+		p.Do(size);
+		if (size != N)
+		{
+			ERROR_LOG(HLE, "Savestate failure: Incompatible queue size.");
+			return;
+		}
+		p.DoArray<T>(storage_, N);
+		p.Do(head_);
+		p.Do(tail_);
+		p.Do(count_);
+		p.DoMarker("FixedSizeQueue");
+	}
 
 private:
 	T *storage_;

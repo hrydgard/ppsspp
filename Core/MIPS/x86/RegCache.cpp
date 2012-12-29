@@ -287,6 +287,7 @@ void GPRRegCache::BindToRegister(int i, bool doLoad, bool makeDirty)
 		{
 			if (i != j && regs[j].location.IsSimpleReg() && regs[j].location.GetSimpleReg() == xr)
 			{
+				ERROR_LOG(JIT, "BindToRegister: Strange condition");
 				Crash();
 			}
 		}

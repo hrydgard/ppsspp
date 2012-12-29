@@ -104,7 +104,6 @@ JitBlockCache::~JitBlockCache()
 	Shutdown();
 }
 
-	
 // This clears the JIT cache. It's called from JitCache.cpp when the JIT cache
 // is full and when saving and loading states.
 void JitBlockCache::Clear()

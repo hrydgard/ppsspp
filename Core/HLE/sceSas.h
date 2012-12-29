@@ -18,6 +18,7 @@
 #pragma once
 
 void __SasInit();
+void __SasDoState(PointerWrap &p);
 void __SasShutdown();
 
 void Register_sceSasCore();

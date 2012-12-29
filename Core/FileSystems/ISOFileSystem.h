@@ -42,8 +42,9 @@ class ISOFileSystem : public IFileSystem
 		u32 startingPosition;
 		s64 size;
 		bool isDirectory;
-    bool isBlockSectorMode;  // "umd:" mode: all sizes and offsets are in 2048 byte chunks
+		bool isBlockSectorMode;  // "umd:" mode: all sizes and offsets are in 2048 byte chunks
 
+		TreeEntry *parent;
 		std::vector<TreeEntry*> children;
 	};
 
@@ -67,10 +68,12 @@ class ISOFileSystem : public IFileSystem
 
 	void ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root);
 	TreeEntry *GetFromPath(std::string path);
+	std::string EntryFullPath(TreeEntry *e);
 
 public:
 	ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevice);
 	~ISOFileSystem();
+	void DoState(PointerWrap &p);
 	std::vector<PSPFileInfo> GetDirListing(std::string path);
 	u32      OpenFile(std::string filename, FileAccess access);
 	void     CloseFile(u32 handle);

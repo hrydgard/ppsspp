@@ -128,12 +128,19 @@ CtrlRegisterList::CtrlRegisterList(HWND _wnd)
 	category=0;
 	showHex=false;
 	cpu=0;
+	lastPC = 0;
+	lastCat0Values = NULL;
+	changedCat0Regs = NULL;
 }
 
 
 CtrlRegisterList::~CtrlRegisterList()
 {
 	DeleteObject(font);
+	if (lastCat0Values != NULL)
+		delete [] lastCat0Values;
+	if (changedCat0Regs != NULL)
+		delete [] changedCat0Regs;
 }
 
 void fillRect(HDC hdc, RECT *rect, COLORREF colour);
@@ -214,6 +221,18 @@ void CtrlRegisterList::onPaint(WPARAM wParam, LPARAM lParam)
 
 		Rectangle(hdc,16,rowY1,width,rowY2);
 
+		// Check for any changes in the registers.
+		if (lastPC != cpu->GetPC())
+		{
+			for (int i = 0, n = cpu->GetNumRegsInCategory(0); i < n; ++i)
+			{
+				u32 v = cpu->GetRegValue(0, i);
+				changedCat0Regs[i] = v != lastCat0Values[i];
+				lastCat0Values[i] = v;
+			}
+			lastPC = cpu->GetPC();
+		}
+
 		SelectObject(hdc,currentBrush);
 		DeleteObject(mojsBrush);
 		if (i<cpu->GetNumRegsInCategory(category))
@@ -225,10 +244,13 @@ void CtrlRegisterList::onPaint(WPARAM wParam, LPARAM lParam)
 			SetTextColor(hdc,0x000000);
 
 			cpu->PrintRegValue(category,i,temp);
-			SetTextColor(hdc,0x004000);
+			if (category == 0 && changedCat0Regs[i])
+				SetTextColor(hdc, 0x0000FF);
+			else
+				SetTextColor(hdc,0x004000);
 			TextOut(hdc,77,rowY1,temp,strlen(temp));
 		}
-		
+
 
 		/*
 			}
