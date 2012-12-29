@@ -86,8 +86,39 @@ struct StreamInfo
 	int num;
 };
 
+typedef std::map<u32, StreamInfo> StreamInfoMap;
+
 // Internal structure
-struct MpegContextSimple {
+struct MpegContext {
+	void DoState(PointerWrap &p) {
+		p.Do(defaultFrameWidth);
+		p.Do(videoFrameCount);
+		p.Do(audioFrameCount);
+		p.Do(endOfAudioReached);
+		p.Do(endOfVideoReached);
+		p.Do(videoPixelMode);
+		p.Do(mpegMagic);
+		p.Do(mpegVersion);
+		p.Do(mpegRawVersion);
+		p.Do(mpegOffset);
+		p.Do(mpegStreamSize);
+		p.Do(mpegFirstTimestamp);
+		p.Do(mpegLastTimestamp);
+		p.Do(mpegFirstDate);
+		p.Do(mpegLastDate);
+		p.Do(mpegRingbufferAddr);
+		p.Do(mpegStreamAddr);
+		p.DoArray(esBuffers, NUM_ES_BUFFERS);
+		p.Do(avc);
+		p.Do(avcRegistered);
+		p.Do(atracRegistered);
+		p.Do(pcmRegistered);
+		p.Do(isAnalyzed);
+		p.Do<StreamInfo>(streamMap);
+		mediaengine->DoState(p);
+		p.DoMarker("MpegContext");
+	}
+
 	u32 defaultFrameWidth;
 	int videoFrameCount;
 	int audioFrameCount;
@@ -113,17 +144,6 @@ struct MpegContextSimple {
 	bool pcmRegistered;
 
 	bool isAnalyzed;
-};
-typedef std::map<u32, StreamInfo> StreamInfoMap;
-
-struct MpegContext : public MpegContextSimple {
-	void DoState(PointerWrap &p) {
-		p.Do<MpegContextSimple>(*this);
-		p.Do<StreamInfo>(streamMap);
-		// Media engine has nothing exotic.
-		p.Do<MediaEngine>(*mediaengine);
-		p.DoMarker("MpegContext");
-	}
 
 	StreamInfoMap streamMap;
 	MediaEngine *mediaengine;
