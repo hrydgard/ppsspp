@@ -656,6 +656,8 @@ namespace MainWindow
 
 		enable = g_State.bEmuThreadStarted ? MF_GRAYED : MF_ENABLED;
 		EnableMenuItem(menu,ID_FILE_LOAD,enable);
+		EnableMenuItem(menu,ID_FILE_SAVESTATE,!enable);
+		EnableMenuItem(menu,ID_FILE_LOADSTATE,!enable);
 		EnableMenuItem(menu,ID_CPU_DYNAREC,enable);
 		EnableMenuItem(menu,ID_CPU_INTERPRETER,enable);
 		EnableMenuItem(menu,ID_CPU_FASTINTERPRETER,enable);
