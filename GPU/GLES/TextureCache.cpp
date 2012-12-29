@@ -22,6 +22,7 @@
 #include "../GPUState.h"
 #include "TextureCache.h"
 #include "../Core/Config.h"
+#include "../../native/gfx/gl_common.h"
 
 // If a texture hasn't been seen for 200 frames, get rid of it.
 #define TEXTURE_KILL_AGE 200
@@ -53,6 +54,8 @@ u32 *tmpTexBufRearrange;
 u32 *clutBuf32;
 u16 *clutBuf16;
 
+float maxaniso ;
+
 void TextureCache_Init()
 {
 	// TODO: Switch to aligned allocations for alignment. AllocateMemoryPages would do the trick.
@@ -61,6 +64,7 @@ void TextureCache_Init()
 	tmpTexBufRearrange = new u32[1024 * 512];
 	clutBuf32 = new u32[4096];
 	clutBuf16 = new u16[4096];
+	glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxaniso);
 }
 
 void TextureCache_Shutdown()
@@ -430,7 +434,8 @@ void UpdateSamplingParams()
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, tClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
 	if ( g_Config.bLinearFiltering ) {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, maxaniso);
 	} else {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilt ? GL_LINEAR : GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilt ? GL_LINEAR : GL_NEAREST);
@@ -962,15 +967,18 @@ void PSPSetTexture()
 	glPixelStorei(GL_PACK_ALIGNMENT, texByteAlign);
 
 	INFO_LOG(G3D, "Creating texture %i from %08x: %i x %i (stride: %i). fmt: %i", entry.texture, entry.addr, w, h, bufw, entry.format);
-
+	
 	glGenTextures(1, &entry.texture);
 	glBindTexture(GL_TEXTURE_2D, entry.texture);
 	lastBoundTexture = entry.texture;
 	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
 	glTexImage2D(GL_TEXTURE_2D, 0, components, w, h, 0, components, dstFmt, finalBuf);
-	// glGenerateMipmap(GL_TEXTURE_2D);
+	#ifndef USING_GLES2
+	glGenerateMipmap(GL_TEXTURE_2D);
+	#else
+	glTexParameteri(entry.texture, GL_GENERATE_MIPMAP, GL_TRUE);
+	#endif
 	UpdateSamplingParams();
-
 	//glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 	//glPixelStorei(GL_PACK_ROW_LENGTH, 0);
