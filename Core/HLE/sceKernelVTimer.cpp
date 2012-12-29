@@ -23,25 +23,8 @@
 // VTIMER
 //////////////////////////////////////////////////////////////////////////
 
-struct VTimer : public KernelObject
+struct NativeVTimer
 {
-	const char *GetName() {return name;}
-	const char *GetTypeName() {return "VTimer";}
-	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_VTID; }
-	int GetIDType() const { return SCE_KERNEL_TMID_VTimer; }
-
-	virtual void DoState(PointerWrap &p)
-	{
-		p.Do(size);
-		p.Do(name);
-		p.Do(startTime);
-		p.Do(running);
-		p.Do(handler);
-		p.Do(handlerTime);
-		p.Do(argument);
-		p.DoMarker("VTimer");
-	}
-
 	SceSize 	size;
 	char 		name[KERNELOBJECT_MAX_NAME_LENGTH+1];
 	u64 startTime;
@@ -49,6 +32,22 @@ struct VTimer : public KernelObject
 	u32 handler;
 	u64 handlerTime;
 	u32 argument;
+};
+
+struct VTimer : public KernelObject
+{
+	const char *GetName() {return nvt.name;}
+	const char *GetTypeName() {return "VTimer";}
+	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_VTID; }
+	int GetIDType() const { return SCE_KERNEL_TMID_VTimer; }
+
+	virtual void DoState(PointerWrap &p)
+	{
+		p.Do(nvt);
+		p.DoMarker("VTimer");
+	}
+
+	NativeVTimer nvt;
 };
 
 KernelObject *__KernelVTimerObject()
@@ -64,9 +63,9 @@ void sceKernelCreateVTimer()
 	VTimer *vt = new VTimer();
 
 	SceUID uid = kernelObjects.Create(vt);
-	strncpy(vt->name, name, 32);
-	vt->running = true;
-	vt->startTime = 0; //TODO fix
+	strncpy(vt->nvt.name, name, 32);
+	vt->nvt.running = true;
+	vt->nvt.startTime = 0; //TODO fix
 	RETURN(uid); //TODO: return timer ID
 }
 

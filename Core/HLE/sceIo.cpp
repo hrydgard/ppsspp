@@ -865,6 +865,7 @@ public:
 
 	virtual void DoState(PointerWrap &p) {
 		p.Do(name);
+		p.Do(index);
 
 		// TODO: Is this the right way for it to wake up?
 		int count = listing.size();
