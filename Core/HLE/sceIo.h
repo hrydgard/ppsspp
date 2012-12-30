@@ -29,5 +29,3 @@ KernelObject *__KernelDirListingObject();
 
 void Register_IoFileMgrForUser();
 void Register_StdioForUser();
-
-const std::string &EmuDebugOutput();

@@ -78,12 +78,6 @@ typedef s32 SceMode;
 typedef s64 SceOff;
 typedef u64 SceIores;
 
-std::string emuDebugOutput;
-
-const std::string &EmuDebugOutput() {
-	return emuDebugOutput;
-}
-
 typedef u32 (*DeferredAction)(SceUID id, int param);
 DeferredAction defAction = 0;
 u32 defParam = 0;
@@ -646,9 +640,6 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 				if (PSP_CoreParameter().printfEmuLog)
 				{
 					host->SendDebugOutput(data.c_str());
-
-					// Also collect the debug output
-					emuDebugOutput += data;
 				}
 				else
 				{
