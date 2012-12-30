@@ -60,6 +60,7 @@ tests_good = [
   "misc/testgp",
   "string/string",
   "gpu/callbacks/ge_callbacks",
+  "gpu/displaylist/state",
   "threads/alarm/alarm",
   "threads/alarm/cancel/cancel",
   "threads/alarm/refer/refer",
