@@ -17,9 +17,20 @@
 
 #pragma once
 
-void sceKernelCreateVTimer();
-void sceKernelStartVTimer();
-void sceKernelSetVTimerHandler();
+u32 sceKernelCreateVTimer(const char *name, u32 optParamAddr);
+u32 sceKernelDeleteVTimer(u32 uid);
+u32 sceKernelStartVTimer(u32 uid);
+u32 sceKernelStopVTimer(u32 uid);
+u32 sceKernelSetVTimerHandler(u32 uid, u32 scheduleAddr, u32 handlerFuncAddr, u32 commonAddr);
+u32 sceKernelSetVTimerHandlerWide(u32 uid, u64 schedule, u32 handlerFuncAddr, u32 commonAddr);
+u32 sceKernelCancelVTimerHandler(u32 uid);
+u32 sceKernelReferVTimerStatus(u32 uid, u32 statusAddr);
+u32 sceKernelGetVTimerBase(u32 uid, u32 baseClockAddr); //SceKernelSysClock
+u64 sceKernelGetVTimerBaseWide(u32 uid);
+u32 sceKernelGetVTimerTime(u32 uid, u32 timeClockAddr);
+u64 sceKernelGetVTimerTimeWide(u32 uid);
+u32 sceKernelSetVTimerTime(u32 uid, u32 timeClockAddr);
+u32 sceKernelSetVTimerTimeWide(u32 uid, u64 timeClock);
 
 // TODO
 void _sceKernelReturnFromTimerHandler();

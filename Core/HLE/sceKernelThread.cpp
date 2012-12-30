@@ -75,11 +75,6 @@ const char *waitTypeStrings[] = {
 	"Ctrl",
 };
 
-struct SceKernelSysClock {
-	u32 low;
-	u32 hi;
-};
-
 struct NativeCallback
 {
 	SceUInt size;
@@ -1225,7 +1220,7 @@ Thread *__KernelCreateThread(SceUID &id, SceUID moduleId, const char *name, u32 
 	t->nt.numInterruptPreempts = 0;
 	t->nt.numReleases = 0;
 	t->nt.numThreadPreempts = 0;
-	t->nt.runForClocks.low = 0;
+	t->nt.runForClocks.lo = 0;
 	t->nt.runForClocks.hi = 0;
 	t->nt.wakeupCount = 0;
 	if (moduleId)

@@ -29,10 +29,23 @@ template<u64 func()> void WrapU64_V() {
 	currentMIPS->r[3] = (retval >> 32) & 0xFFFFFFFF;
 }
 
+template<u64 func(u32)> void WrapU64_U() {
+	u64 retval = func(PARAM(0));
+	currentMIPS->r[2] = retval & 0xFFFFFFFF;
+	currentMIPS->r[3] = (retval >> 32) & 0xFFFFFFFF;
+}
+
 template<int func(u32, u64)> void WrapI_UU64() {
 	u64 param_one = currentMIPS->r[6];
 	param_one |= (u64)(currentMIPS->r[7]) << 32;
 	int retval = func(PARAM(0), param_one);
+	RETURN(retval);
+}
+
+template<u32 func(u32, u64)> void WrapU_UU64() {
+	u64 param_one = currentMIPS->r[6];
+	param_one |= (u64)(currentMIPS->r[7]) << 32;
+	u32 retval = func(PARAM(0), param_one);
 	RETURN(retval);
 }
 
@@ -47,6 +60,13 @@ template<u32 func(int, s64, int)> void WrapU_II64I() {
 	s64 param_one = currentMIPS->r[6];
 	param_one |= (s64)(currentMIPS->r[7]) << 32;
 	u32 retval = func(PARAM(0), param_one, PARAM(4));
+	RETURN(retval);
+}
+
+template<u32 func(u32, u64, u32, u32)> void WrapU_UU64UU() {
+	u64 param_one = currentMIPS->r[6];
+	param_one |= (u64)(currentMIPS->r[7]) << 32;
+	u32 retval = func(PARAM(0), param_one, PARAM(4), PARAM(5));
 	RETURN(retval);
 }
 
