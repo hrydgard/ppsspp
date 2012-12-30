@@ -17,15 +17,32 @@
 
 #pragma once
 
-#include <string>
-#include "HLE.h"
-#include "sceKernel.h"
+#include "StubHost.h"
 
-void __IoInit();
-void __IoDoState(PointerWrap &p);
-void __IoShutdown();
-KernelObject *__KernelFileNodeObject();
-KernelObject *__KernelDirListingObject();
+#undef HEADLESSHOST_CLASS
+#define HEADLESSHOST_CLASS WindowsHeadlessHost
 
-void Register_IoFileMgrForUser();
-void Register_StdioForUser();
+#include <windows.h>
+
+// TODO: Get rid of this junk
+class WindowsHeadlessHost : public HeadlessHost
+{
+public:
+	virtual void InitGL();
+	virtual void BeginFrame();
+	virtual void EndFrame();
+	virtual void ShutdownGL();
+	virtual bool isGLWorking() { return glOkay; }
+
+	virtual void SendDebugOutput(const std::string &output);
+
+private:
+	bool ResizeGL();
+	void LoadNativeAssets();
+
+	bool glOkay;
+	HWND hWnd;
+	HDC hDC;
+	HGLRC hRC;
+	FILE *out;
+};

@@ -17,26 +17,15 @@
 
 #pragma once
 
-#include <cstring>
-#include <string>
-#include "../Globals.h"
+#include "../Core/Host.h"
 
+#define HEADLESSHOST_CLASS HeadlessHost
 
-class PMixer
+// TODO: Get rid of this junk
+class HeadlessHost : public Host
 {
 public:
-	PMixer() {}
-	virtual ~PMixer() {}
-	virtual int Mix(short *stereoout, int numSamples) {memset(stereoout,0,numSamples*2*sizeof(short)); return numSamples;}
-};
-
-
-
-class Host
-{
-public:
-	virtual ~Host() {}
-	//virtual void StartThread()
+	// virtual void StartThread()
 	virtual void UpdateUI() {}
 
 	virtual void UpdateMemView() {}
@@ -44,25 +33,23 @@ public:
 
 	virtual void SetDebugMode(bool mode) { }
 
-	virtual void InitGL() = 0;
+	virtual void InitGL() {}
 	virtual void BeginFrame() {}
 	virtual void EndFrame() {}
-	virtual void ShutdownGL() = 0;
+	virtual void ShutdownGL() {}
 
-	virtual void InitSound(PMixer *mixer) = 0;
-	virtual void UpdateSound() {};
-	virtual void ShutdownSound() = 0;
+	virtual void InitSound(PMixer *mixer) {}
+	virtual void UpdateSound() {}
+	virtual void ShutdownSound() {}
 
-	//this is sent from EMU thread! Make sure that Host handles it properly!
+	// this is sent from EMU thread! Make sure that Host handles it properly
 	virtual void BootDone() {}
 	virtual void PrepareShutdown() {}
 
-	virtual bool IsDebuggingEnabled() {return true;}
+	virtual bool IsDebuggingEnabled() {return false;}
 	virtual bool AttemptLoadSymbolMap() {return false;}
-	virtual void SetWindowTitle(const char *message) {}
 
-	// Used for headless.
-	virtual void SendDebugOutput(const std::string &output) {}
+	virtual void SendDebugOutput(const std::string &output) { printf("%s", output.c_str()); }
+
+	virtual bool isGLWorking() { return false; }
 };
-
-extern Host *host;
