@@ -12,8 +12,6 @@
 #include "../Core/Host.h"
 #include "Log.h"
 #include "LogManager.h"
-#include "file/vfs.h"
-#include "file/zip_read.h"
 
 #include "StubHost.h"
 #ifdef _WIN32
@@ -28,20 +26,20 @@ public:
 		switch (level)
 		{
 		case LogTypes::LDEBUG:
-			printf("D %s", msg);
+			fprintf(stderr, "D %s", msg);
 			break;
 		case LogTypes::LINFO:
-			printf("I %s", msg);
+			fprintf(stderr, "I %s", msg);
 			break;
 		case LogTypes::LERROR:
-			printf("E %s", msg);
+			fprintf(stderr, "E %s", msg);
 			break;
 		case LogTypes::LWARNING:
-			printf("W %s", msg);
+			fprintf(stderr, "W %s", msg);
 			break;
 		case LogTypes::LNOTICE:
 		default:
-			printf("N %s", msg);
+			fprintf(stderr, "N %s", msg);
 			break;
 		}
 	}
@@ -118,9 +116,6 @@ int main(int argc, const char* argv[])
 		return 1;
 	}
 
-	VFSRegister("", new DirectoryAssetReader("assets/"));
-	VFSRegister("", new DirectoryAssetReader(""));
-
 	HeadlessHost *headlessHost = new HEADLESSHOST_CLASS();
 	host = headlessHost;
 	host->InitGL();
@@ -160,8 +155,9 @@ int main(int argc, const char* argv[])
 		return 1;
 	}
 
-	coreState = CORE_RUNNING;
+	host->BootDone();
 
+	coreState = CORE_RUNNING;
 	while (coreState == CORE_RUNNING)
 	{
 		// Run for a frame at a time, just because.

@@ -34,11 +34,15 @@ public:
 	virtual void ShutdownGL();
 	virtual bool isGLWorking() { return glOkay; }
 
+	virtual void SendDebugOutput(const std::string &output);
+
 private:
 	bool ResizeGL();
+	void LoadNativeAssets();
 
 	bool glOkay;
 	HWND hWnd;
 	HDC hDC;
 	HGLRC hRC;
+	FILE *out;
 };

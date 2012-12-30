@@ -49,5 +49,7 @@ public:
 	virtual bool IsDebuggingEnabled() {return false;}
 	virtual bool AttemptLoadSymbolMap() {return false;}
 
+	virtual void SendDebugOutput(const std::string &output) { printf("%s", output.c_str()); }
+
 	virtual bool isGLWorking() { return false; }
 };

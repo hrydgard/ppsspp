@@ -19,9 +19,13 @@
 
 #include <stdio.h>
 #include <windows.h>
+#include <io.h>
 
-#include "../native/gfx_es2/gl_state.h"
-#include "../native/gfx/gl_common.h"
+#include "gfx_es2/gl_state.h"
+#include "gfx/gl_common.h"
+#include "gfx/gl_lost_manager.h"
+#include "file/vfs.h"
+#include "file/zip_read.h"
 
 const bool WINDOW_VISIBLE = false;
 const int WINDOW_WIDTH = 480;
@@ -64,6 +68,27 @@ void SetVSync(int value)
 		wglSwapIntervalEXT(value);
 }
 
+void WindowsHeadlessHost::LoadNativeAssets()
+{
+	// Native is kinda talkative, but that's annoying in our case.
+	out = _fdopen(_dup(_fileno(stdout)), "wt");
+	freopen("NUL", "wt", stdout);
+
+	VFSRegister("", new DirectoryAssetReader("assets/"));
+	VFSRegister("", new DirectoryAssetReader(""));
+	VFSRegister("", new DirectoryAssetReader("../"));
+
+	gl_lost_manager_init();
+
+	// See SendDebugOutput() for how things get back on track.
+}
+
+void WindowsHeadlessHost::SendDebugOutput(const std::string &output)
+{
+	fprintf_s(out, "%s", output.c_str());
+	OutputDebugString(output.c_str());
+}
+
 void WindowsHeadlessHost::InitGL()
 {
 	glOkay = false;
@@ -98,6 +123,8 @@ void WindowsHeadlessHost::InitGL()
 
 	glewInit();
 	glstate.Initialize();
+
+	LoadNativeAssets();
 
 	if (ResizeGL())
 		glOkay = true;
