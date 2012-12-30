@@ -182,20 +182,18 @@ bool __KernelIsRunning() {
 void sceKernelExitGame()
 {
 	INFO_LOG(HLE,"sceKernelExitGame");
-	if (PSP_CoreParameter().headLess)
-		exit(0);
-	else
+	if (!PSP_CoreParameter().headLess)
 		PanicAlert("Game exited");
+	__KernelSwitchOffThread("game exited");
 	Core_Stop();
 }
 
 void sceKernelExitGameWithStatus()
 {
 	INFO_LOG(HLE,"sceKernelExitGameWithStatus");
-	if (PSP_CoreParameter().headLess)
-		exit(0);
-	else
+	if (!PSP_CoreParameter().headLess)
 		PanicAlert("Game exited (with status)");
+	__KernelSwitchOffThread("game exited");
 	Core_Stop();
 }
 

@@ -22,6 +22,7 @@
 
 #include "../System.h"
 #include "../Config.h"
+#include "../Host.h"
 #include "../SaveState.h"
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
@@ -76,12 +77,6 @@ umd01: block access - umd
 typedef s32 SceMode;
 typedef s64 SceOff;
 typedef u64 SceIores;
-
-std::string emuDebugOutput;
-
-const std::string &EmuDebugOutput() {
-	return emuDebugOutput;
-}
 
 typedef u32 (*DeferredAction)(SceUID id, int param);
 DeferredAction defAction = 0;
@@ -644,12 +639,7 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 				std::string data(Memory::GetCharPointer(argAddr), argLen);
 				if (PSP_CoreParameter().printfEmuLog)
 				{
-					printf("%s", data.c_str());
-#ifdef _WIN32
-					OutputDebugString(data.c_str());
-#endif
-					// Also collect the debug output
-					emuDebugOutput += data;
+					host->SendDebugOutput(data.c_str());
 				}
 				else
 				{
