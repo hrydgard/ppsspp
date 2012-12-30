@@ -12,35 +12,13 @@
 #include "../Core/Host.h"
 #include "Log.h"
 #include "LogManager.h"
+#include "file/vfs.h"
+#include "file/zip_read.h"
 
-// TODO: Get rid of this junk
-class HeadlessHost : public Host
-{
-public:
-	// virtual void StartThread()
-	virtual void UpdateUI() {}
-
-	virtual void UpdateMemView() {}
-	virtual void UpdateDisassembly() {}
-
-	virtual void SetDebugMode(bool mode) { }
-
-	virtual void InitGL() {}
-	virtual void BeginFrame() {}
-	virtual void EndFrame() {}
-	virtual void ShutdownGL() {}
-
-	virtual void InitSound(PMixer *mixer) {}
-	virtual void UpdateSound() {}
-	virtual void ShutdownSound() {}
-
-	// this is sent from EMU thread! Make sure that Host handles it properly!
-	virtual void BootDone() {} 
-	virtual void PrepareShutdown() {}
-
-	virtual bool IsDebuggingEnabled() {return false;}
-	virtual bool AttemptLoadSymbolMap() {return false;}
-};
+#include "StubHost.h"
+#ifdef _WIN32
+#include "WindowsHeadlessHost.h"
+#endif
 
 class PrintfLogger : public LogListener
 {
@@ -140,7 +118,12 @@ int main(int argc, const char* argv[])
 		return 1;
 	}
 
-	host = new HeadlessHost();
+	VFSRegister("", new DirectoryAssetReader("assets/"));
+	VFSRegister("", new DirectoryAssetReader(""));
+
+	HeadlessHost *headlessHost = new HEADLESSHOST_CLASS();
+	host = headlessHost;
+	host->InitGL();
 
 	LogManager::Init();
 	LogManager *logman = LogManager::GetInstance();
@@ -160,7 +143,7 @@ int main(int argc, const char* argv[])
 	coreParameter.mountIso = mountIso ? mountIso : "";
 	coreParameter.startPaused = false;
 	coreParameter.cpuCore = useJit ? CPU_JIT : (fastInterpreter ? CPU_FASTINTERPRETER : CPU_INTERPRETER);
-	coreParameter.gpuCore = GPU_NULL;
+	coreParameter.gpuCore = headlessHost->isGLWorking() ? GPU_GLES : GPU_NULL;
 	coreParameter.enableSound = false;
 	coreParameter.headLess = true;
 	coreParameter.printfEmuLog = true;
@@ -191,9 +174,12 @@ int main(int argc, const char* argv[])
 			coreState = CORE_RUNNING;
 	}
 
-	// NOTE: we won't get here until I've gotten rid of the exit(0) in sceExitProcess or whatever it's called
-
+	host->ShutdownGL();
 	PSP_Shutdown();
+
+	delete host;
+	host = NULL;
+	headlessHost = NULL;
 
 	if (autoCompare)
 	{
