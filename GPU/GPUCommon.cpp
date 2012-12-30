@@ -23,13 +23,14 @@ int GPUCommon::listStatus(int listid)
 	return 0x80000100; // INVALID_ID
 }
 
-u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, bool head)
+u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head)
 {
 	DisplayList dl;
 	dl.id = dlIdGenerator++;
 	dl.pc = listpc & 0xFFFFFFF;
 	dl.stall = stall & 0xFFFFFFF;
 	dl.status = PSP_GE_LIST_QUEUED;
+	dl.subIntrBase = subIntrBase;
 	if(head)
 		dlQueue.push_front(dl);
     else
