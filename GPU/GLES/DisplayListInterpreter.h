@@ -81,6 +81,7 @@ private:
 	struct CmdProcessorState {
 		u32 pc;
 		u32 stallAddr;
+		int subIntrBase;
 	};
 
 	struct VirtualFramebuffer {

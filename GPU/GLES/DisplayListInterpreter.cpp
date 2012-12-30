@@ -543,7 +543,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_FINISH:
 		// TODO: Should this run while interrupts are suspended?
 		if (interruptsEnabled_)
-			__TriggerInterruptWithArg(PSP_INTR_HLE, PSP_GE_INTR, PSP_GE_SUBINTR_FINISH, 0);
+			__TriggerInterruptWithArg(PSP_INTR_HLE, PSP_GE_INTR, currentList->subIntrBase | PSP_GE_SUBINTR_FINISH, 0);
 		break;
 
 	case GE_CMD_END:
@@ -581,7 +581,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 				}
 				// TODO: Should this run while interrupts are suspended?
 				if (interruptsEnabled_)
-					__TriggerInterruptWithArg(PSP_INTR_HLE, PSP_GE_INTR, PSP_GE_SUBINTR_SIGNAL, signal);
+					__TriggerInterruptWithArg(PSP_INTR_HLE, PSP_GE_INTR, currentList->subIntrBase | PSP_GE_SUBINTR_SIGNAL, signal);
 			}
 			break;
 		case GE_CMD_FINISH:
