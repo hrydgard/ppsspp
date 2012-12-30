@@ -55,6 +55,12 @@ void printUsage(const char *progname, const char *reason)
 	fprintf(stderr, "Options:\n");
 	fprintf(stderr, "  -m, --mount umd.cso   mount iso on umd:\n");
 	fprintf(stderr, "  -l, --log             full log output, not just emulated printfs\n");
+
+	HEADLESSHOST_CLASS h1;
+	HeadlessHost h2;
+	if (typeid(h1) != typeid(h2))
+		fprintf(stderr, "  --graphics            use the full gpu backend (slower)\n");
+
 	fprintf(stderr, "  -f                    use the fast interpreter\n");
 	fprintf(stderr, "  -j                    use jit (overrides -f)\n");
 	fprintf(stderr, "  -c, --compare         compare with output in file.expected\n");
@@ -67,6 +73,7 @@ int main(int argc, const char* argv[])
 	bool useJit = false;
 	bool fastInterpreter = false;
 	bool autoCompare = false;
+	bool useGraphics = false;
 	
 	const char *bootFilename = 0;
 	const char *mountIso = 0;
@@ -90,6 +97,8 @@ int main(int argc, const char* argv[])
 			fastInterpreter = true;
 		else if (!strcmp(argv[i], "-c") || !strcmp(argv[i], "--compare"))
 			autoCompare = true;
+		else if (!strcmp(argv[i], "--graphics"))
+			useGraphics = true;
 		else if (bootFilename == 0)
 			bootFilename = argv[i];
 		else
@@ -116,7 +125,7 @@ int main(int argc, const char* argv[])
 		return 1;
 	}
 
-	HeadlessHost *headlessHost = new HEADLESSHOST_CLASS();
+	HeadlessHost *headlessHost = useGraphics ? new HEADLESSHOST_CLASS() : new HeadlessHost();
 	host = headlessHost;
 	host->InitGL();
 
