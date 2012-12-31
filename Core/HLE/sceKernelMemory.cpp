@@ -124,14 +124,12 @@ struct VPL : public KernelObject
 	virtual void DoState(PointerWrap &p)
 	{
 		p.Do(nv);
-		p.Do(size);
 		p.Do(address);
 		alloc.DoState(p);
 		p.DoMarker("VPL");
 	}
 
 	SceKernelVplInfo nv;
-	u32 size;
 	u32 address;
 	BlockAllocator alloc;
 };
@@ -705,38 +703,83 @@ KernelObject *__KernelMemoryPMBObject()
 
 // VPL = variable length memory pool
 
-
-void sceKernelCreateVpl()
+enum SceKernelVplAttr
 {
-	const char *name = Memory::GetCharPointer(PARAM(0));
+	PSP_VPL_ATTR_FIFO = 0x0000,
+	PSP_VPL_ATTR_PRIORITY = 0x0100,
+	PSP_VPL_ATTR_SMALLEST = 0x0200,
+	PSP_VPL_ATTR_HIGHMEM = 0x4000,
+	PSP_VPL_ATTR_KNOWN = PSP_VPL_ATTR_FIFO | PSP_VPL_ATTR_PRIORITY | PSP_VPL_ATTR_SMALLEST | PSP_VPL_ATTR_HIGHMEM,
+};
 
-	u32 vplSize = PARAM(3);
-	u32 memBlockPtr = userMemory.Alloc(vplSize, false, "VPL");
-	if (memBlockPtr == -1) {
+SceUID sceKernelCreateVpl(const char *name, int partition, u32 attr, u32 vplSize, u32 optPtr)
+{
+	if (!name)
+	{
+		WARN_LOG(HLE, "%08x=sceKernelCreateVpl(): invalid name", SCE_KERNEL_ERROR_ERROR);
+		return SCE_KERNEL_ERROR_ERROR;
+	}
+	if (partition < 1 || partition > 9 || partition == 7)
+	{
+		WARN_LOG(HLE, "%08x=sceKernelCreateVpl(): invalid partition %d", SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, partition);
+		return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
+	}
+	// We only support user right now.
+	if (partition != 2 && partition != 6)
+	{
+		WARN_LOG(HLE, "%08x=sceKernelCreateVpl(): invalid partition %d", SCE_KERNEL_ERROR_ILLEGAL_PERM, partition);
+		return SCE_KERNEL_ERROR_ILLEGAL_PERM;
+	}
+	if (((attr & ~PSP_VPL_ATTR_KNOWN) & ~0xFF) != 0)
+	{
+		WARN_LOG(HLE, "%08x=sceKernelCreateVpl(): invalid attr parameter: %08x", SCE_KERNEL_ERROR_ILLEGAL_ATTR, attr);
+		return SCE_KERNEL_ERROR_ILLEGAL_ATTR;
+	}
+	if (vplSize == 0)
+	{
+		WARN_LOG(HLE, "%08x=sceKernelCreateVpl(): invalid size", SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE);
+		return SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE;
+	}
+	// Block Allocator seems to A-OK this, let's stop it here.
+	if (vplSize >= 0x80000000)
+	{
+		WARN_LOG(HLE, "%08x=sceKernelCreateVpl(): way too big size", SCE_KERNEL_ERROR_NO_MEMORY);
+		return SCE_KERNEL_ERROR_NO_MEMORY;
+	}
+
+	// Can't have that little space in a Vpl, sorry.
+	if (vplSize <= 0x30)
+		vplSize = 0x1000;
+	vplSize = (vplSize + 7) & ~7;
+
+	// We ignore the upalign to 256 and do it ourselves by 8.
+	u32 allocSize = vplSize;
+	u32 memBlockPtr = userMemory.Alloc(allocSize, (attr & PSP_VPL_ATTR_HIGHMEM) != 0, "VPL");
+	if (memBlockPtr == -1)
+	{
 		ERROR_LOG(HLE, "sceKernelCreateVpl: Failed to allocate %i bytes of pool data", vplSize);
-		RETURN(-1);
-		return;
+		return SCE_KERNEL_ERROR_NO_MEMORY;
 	}
 
 	VPL *vpl = new VPL;
 	SceUID id = kernelObjects.Create(vpl);
 
-	strncpy(vpl->nv.name, name, 32);
-	//vpl->nv.mpid = PARAM(1); //seems to be the standard memory partition (user, kernel etc)
-	vpl->nv.attr = PARAM(2);
-	vpl->size = vplSize;
-	vpl->nv.poolSize = vpl->size;
+	strncpy(vpl->nv.name, name, KERNELOBJECT_MAX_NAME_LENGTH);
+	vpl->nv.name[KERNELOBJECT_MAX_NAME_LENGTH] = 0;
+	vpl->nv.attr = attr;
 	vpl->nv.size = sizeof(vpl->nv);
+	vpl->nv.poolSize = vplSize - 0x20;
 	vpl->nv.numWaitThreads = 0;
 	vpl->nv.freeSize = vpl->nv.poolSize;
-		
-	vpl->address = memBlockPtr;
-	vpl->alloc.Init(vpl->address, vpl->size);
 
-	DEBUG_LOG(HLE,"sceKernelCreateVpl(\"%s\", block=%i, attr=%i, size=%i)", 
-		name, PARAM(1), vpl->nv.attr, vpl->size);
+	// A vpl normally has accounting stuff in the first 32 bytes.
+	vpl->address = memBlockPtr + 0x20;
+	vpl->alloc.Init(vpl->address, vpl->nv.poolSize);
 
-	RETURN(id);
+	DEBUG_LOG(HLE, "%x=sceKernelCreateVpl(\"%s\", block=%i, attr=%i, size=%i)", 
+		id, name, partition, vpl->nv.attr, vpl->nv.poolSize);
+
+	return id;
 }
 
 void sceKernelDeleteVpl()
