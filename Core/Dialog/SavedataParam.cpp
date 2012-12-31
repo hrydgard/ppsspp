@@ -500,6 +500,8 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 	char (*saveNameListData)[20];
 	if (param->saveNameList != 0)
 	{
+		Clear();
+
 		saveNameListData = (char(*)[20])Memory::GetPointer(param->saveNameList);
 
 		// Get number of fileName in array
@@ -509,7 +511,6 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 			saveDataListCount++;
 		} while(saveNameListData[saveDataListCount][0] != 0);
 
-		Clear();
 		saveDataList = new SaveFileInfo[saveDataListCount];
 
 		// get and stock file info for each file
