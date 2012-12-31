@@ -20,7 +20,7 @@
 #include "sceKernelVTimer.h"
 #include "HLE.h"
 
-// Using INFO_LOG liberally when this is in development. When done,
+// Using ERROR_LOG liberally when this is in development. When done,
 // should be changed to DEBUG_LOG wherever applicable.
 
 struct NativeVTimer {
@@ -53,19 +53,20 @@ KernelObject *__KernelVTimerObject() {
 }
 
 u32 sceKernelCreateVTimer(const char *name, u32 optParamAddr) {
-	INFO_LOG(HLE,"sceKernelCreateVTimer(%s, %08x)", name, optParamAddr);
+	ERROR_LOG(HLE,"FAKE sceKernelCreateVTimer(%s, %08x)", name, optParamAddr);
 
 	VTimer *vt = new VTimer();
 
 	SceUID uid = kernelObjects.Create(vt);
 	memset(&vt->nvt, 0, sizeof(vt->nvt));
-	strncpy(vt->nvt.name, name, 32);
+	if (name)
+		strncpy(vt->nvt.name, name, 32);
 	vt->nvt.running = 1;
 	return uid; //TODO: return timer ID
 }
 
 u32 sceKernelDeleteVTimer(u32 uid) {
-	INFO_LOG(HLE,"sceKernelDeleteVTimer(%i)", uid);
+	ERROR_LOG(HLE,"FAKE sceKernelDeleteVTimer(%i)", uid);
 
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
@@ -78,7 +79,7 @@ u32 sceKernelDeleteVTimer(u32 uid) {
 }
 
 u32 sceKernelStartVTimer(u32 uid) {
-	WARN_LOG(HLE,"FAKE sceKernelStartVTimer(%i)", uid);
+	ERROR_LOG(HLE,"FAKE sceKernelStartVTimer(%i)", uid);
 
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
@@ -96,7 +97,7 @@ u32 sceKernelStartVTimer(u32 uid) {
 }
 
 u32 sceKernelStopVTimer(u32 uid) {
-	WARN_LOG(HLE,"FAKE sceKernelStartVTimer(%i)", uid);
+	ERROR_LOG(HLE,"FAKE sceKernelStartVTimer(%i)", uid);
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
 	if (!vt) {
@@ -148,7 +149,7 @@ u32 sceKernelCancelVTimerHandler(u32 uid) {
 }
 
 u32 sceKernelReferVTimerStatus(u32 uid, u32 statusAddr) {
-	INFO_LOG(HLE,"sceKernelReferVTimerStatus(%i, %08x)", uid, statusAddr);
+	ERROR_LOG(HLE,"sceKernelReferVTimerStatus(%i, %08x)", uid, statusAddr);
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
 	if (!vt) {
@@ -160,7 +161,7 @@ u32 sceKernelReferVTimerStatus(u32 uid, u32 statusAddr) {
 }
 
 u32 sceKernelGetVTimerBase(u32 uid, u32 baseClockAddr) {
-	INFO_LOG(HLE,"sceKernelGetVTimerBase(%i, %08x)", uid, baseClockAddr);
+	ERROR_LOG(HLE,"sceKernelGetVTimerBase(%i, %08x)", uid, baseClockAddr);
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
 	if (!vt) {
@@ -171,7 +172,7 @@ u32 sceKernelGetVTimerBase(u32 uid, u32 baseClockAddr) {
 }
 
 u64 sceKernelGetVTimerBaseWide(u32 uid) {
-	INFO_LOG(HLE,"sceKernelGetVTimerWide(%i)", uid);
+	ERROR_LOG(HLE,"sceKernelGetVTimerWide(%i)", uid);
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
 	if (!vt) {
@@ -184,7 +185,7 @@ u64 sceKernelGetVTimerBaseWide(u32 uid) {
 }
 
 u32 sceKernelGetVTimerTime(u32 uid, u32 timeClockAddr) {
-	INFO_LOG(HLE,"sceKernelGetVTimerTime(%i, %08x)", uid, timeClockAddr);
+	ERROR_LOG(HLE,"sceKernelGetVTimerTime(%i, %08x)", uid, timeClockAddr);
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
 	if (!vt) {
@@ -196,7 +197,7 @@ u32 sceKernelGetVTimerTime(u32 uid, u32 timeClockAddr) {
 }
 
 u64 sceKernelGetVTimerTimeWide(u32 uid) {
-	INFO_LOG(HLE,"sceKernelGetVTimerTimeWide(%i)", uid);
+	ERROR_LOG(HLE,"sceKernelGetVTimerTimeWide(%i)", uid);
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
 	if (!vt) {
@@ -209,7 +210,7 @@ u64 sceKernelGetVTimerTimeWide(u32 uid) {
 }
 
 u32 sceKernelSetVTimerTime(u32 uid, u32 timeClockAddr) {
-	INFO_LOG(HLE,"sceKernelSetVTimerTime(%i, %08x)", uid, timeClockAddr);
+	ERROR_LOG(HLE,"sceKernelSetVTimerTime(%i, %08x)", uid, timeClockAddr);
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
 	if (!vt) {
@@ -220,7 +221,7 @@ u32 sceKernelSetVTimerTime(u32 uid, u32 timeClockAddr) {
 }
 
 u32 sceKernelSetVTimerTimeWide(u32 uid, u64 timeClock) {
-	INFO_LOG(HLE,"sceKernelSetVTimerTime(%i, %llu)", uid, timeClock);
+	ERROR_LOG(HLE,"sceKernelSetVTimerTime(%i, %llu)", uid, timeClock);
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
 	if (!vt) {
