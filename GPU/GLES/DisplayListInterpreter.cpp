@@ -158,8 +158,7 @@ const int flushBeforeCommandList[] = {
 };
 
 GLES_GPU::GLES_GPU(int renderWidth, int renderHeight)
-:		interruptsEnabled_(true),
-		displayFramebufPtr_(0),
+:		displayFramebufPtr_(0),
 		renderWidth_(renderWidth),
 		renderHeight_(renderHeight)
 {
@@ -384,17 +383,12 @@ void GLES_GPU::EndDebugDraw() {
 
 // Render queue
 
-void GLES_GPU::DrawSync(int mode)
+u32 GLES_GPU::DrawSync(int mode)
 {
-	transformDraw_.Flush();
-}
-
-void GLES_GPU::Continue() {
-
-}
-
-void GLES_GPU::Break() {
-
+	if(mode == 0) {
+		transformDraw_.Flush();
+	}
+	return GPUCommon::DrawSync(mode);
 }
 
 static void EnterClearMode(u32 data) {
@@ -503,97 +497,6 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		}
 		break;
 
-	case GE_CMD_JUMP:
-		{
-			u32 target = (((gstate.base & 0x00FF0000) << 8) | (op & 0xFFFFFC)) & 0x0FFFFFFF;
-			if (Memory::IsValidAddress(target)) {
-				currentList->pc = target - 4; // pc will be increased after we return, counteract that
-			} else {
-				ERROR_LOG(G3D, "JUMP to illegal address %08x - ignoring??", target);
-			}
-		}
-		break;
-
-	case GE_CMD_CALL:
-		{
-			u32 retval = currentList->pc + 4;
-			if (stackptr == ARRAY_SIZE(stack)) {
-				ERROR_LOG(G3D, "CALL: Stack full!");
-			} else {
-				stack[stackptr++] = retval;
-				u32 target = (((gstate.base & 0x00FF0000) << 8) | (op & 0xFFFFFC)) & 0xFFFFFFF;
-				currentList->pc = target - 4;	// pc will be increased after we return, counteract that
-			}
-		}
-		break;
-
-	case GE_CMD_RET:
-		{
-			u32 target = (currentList->pc & 0xF0000000) | (stack[--stackptr] & 0x0FFFFFFF);
-			currentList->pc = target - 4;
-		}
-		break;
-
-	case GE_CMD_SIGNAL:
-		{
-			// Processed in GE_END. Has data.
-		}
-		break;
-
-	case GE_CMD_FINISH:
-		// TODO: Should this run while interrupts are suspended?
-		if (interruptsEnabled_)
-			__TriggerInterruptWithArg(PSP_INTR_HLE, PSP_GE_INTR, currentList->subIntrBase | PSP_GE_SUBINTR_FINISH, 0);
-		break;
-
-	case GE_CMD_END:
-		switch (prev >> 24) {
-		case GE_CMD_SIGNAL:
-			{
-				currentList->status = PSP_GE_LIST_END_REACHED;
-				// TODO: see http://code.google.com/p/jpcsp/source/detail?r=2935#
-				int behaviour = (prev >> 16) & 0xFF;
-				int signal = prev & 0xFFFF;
-				int enddata = data & 0xFFFF;
-				// We should probably defer to sceGe here, no sense in implementing this stuff in every GPU
-				switch (behaviour) {
-				case 1:  // Signal with Wait
-					ERROR_LOG(G3D, "Signal with Wait UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
-					break;
-				case 2:
-					ERROR_LOG(G3D, "Signal without wait. signal/end: %04x %04x", signal, enddata);
-					break;
-				case 3:
-					ERROR_LOG(G3D, "Signal with Pause UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
-					break;
-				case 0x10:
-					ERROR_LOG(G3D, "Signal with Jump UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
-					break;
-				case 0x11:
-					ERROR_LOG(G3D, "Signal with Call UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
-					break;
-				case 0x12:
-					ERROR_LOG(G3D, "Signal with Return UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
-					break;
-				default:
-					ERROR_LOG(G3D, "UNKNOWN Signal UNIMPLEMENTED %i ! signal/end: %04x %04x", behaviour, signal, enddata);
-					break;
-				}
-				// TODO: Should this run while interrupts are suspended?
-				if (interruptsEnabled_)
-					__TriggerInterruptWithArg(PSP_INTR_HLE, PSP_GE_INTR, currentList->subIntrBase | PSP_GE_SUBINTR_SIGNAL, signal);
-			}
-			break;
-		case GE_CMD_FINISH:
-			currentList->status = PSP_GE_LIST_DONE;
-			finished = true;
-			break;
-		default:
-			DEBUG_LOG(G3D,"Ah, not finished: %06x", prev & 0xFFFFFF);
-			break;
-		}
-		break;
-
 	case GE_CMD_BJUMP:
 		// bounding box jump. Let's just not jump, for now.
 		break;
@@ -603,7 +506,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_ORIGIN:
-		gstate.offsetAddr = currentList->pc & 0xFFFFFF;
+		gstate.offsetAddr = currentList()->pc & 0xFFFFFF;
 		break;
 
 	case GE_CMD_VERTEXTYPE:
@@ -1057,8 +960,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	default:
-		DEBUG_LOG(G3D,"DL Unknown: %08x @ %08x", op, currentList == NULL ? 0 : currentList->pc);
-		break;
+		GPUCommon::ExecuteOp(op, diff);
 	}
 }
 
