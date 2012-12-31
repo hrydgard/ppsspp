@@ -355,7 +355,7 @@ public:
 		{
 			stackBlock = userMemory.Alloc(stackSize, true, (std::string("stack/") + nt.name).c_str());
 		}
-		if (stackBlock == (u32)-1 || stackBlock == 0)
+		if (stackBlock == (u32)-1)
 		{
 			stackBlock = 0;
 			ERROR_LOG(HLE, "Failed to allocate stack for thread");

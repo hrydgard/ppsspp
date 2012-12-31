@@ -32,7 +32,7 @@ u32 BlockAllocator::Alloc(u32 &size, bool fromTop, const char *tag)
 	// Sanity check
 	if (size == 0 || size > rangeSize_) {
 		ERROR_LOG(HLE, "Clearly bogus size: %08x - failing allocation", size);
-		return 0;
+		return -1;
 	}
 
 	// upalign size to grain
@@ -104,7 +104,7 @@ u32 BlockAllocator::AllocAt(u32 position, u32 size, const char *tag)
 	CheckBlocks();
 	if (size > rangeSize_) {
 		ERROR_LOG(HLE, "Clearly bogus size: %08x - failing allocation", size);
-		return 0;
+		return -1;
 	}
 
 	// upalign size to grain
