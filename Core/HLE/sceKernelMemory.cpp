@@ -595,6 +595,41 @@ void sceKernelSetCompiledSdkVersion600_602(int sdkVersion)
 	return;
 }
 
+void sceKernelSetCompiledSdkVersion500_505(int sdkVersion)
+{
+	int sdkMainVersion = sdkVersion & 0xFFFF0000;
+	if(sdkMainVersion == 0x5000000
+			|| sdkMainVersion == 0x5010000
+			|| sdkMainVersion == 0x5020000
+			|| sdkMainVersion == 0x5030000
+			|| sdkMainVersion == 0x5040000
+			|| sdkMainVersion == 0x5050000)
+	{
+		sdkVersion_ = sdkVersion;
+		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
+	}
+	else
+	{
+		ERROR_LOG(HLE,"sceKernelSetCompiledSdkVersion500_505 unknown SDK : %x\n",sdkVersion);
+	}
+	return;
+}
+
+void sceKernelSetCompiledSdkVersion507(int sdkVersion)
+{
+	int sdkMainVersion = sdkVersion & 0xFFFF0000;
+	if(sdkMainVersion == 0x5070000)
+	{
+		sdkVersion_ = sdkVersion;
+		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
+	}
+	else
+	{
+		ERROR_LOG(HLE,"sceKernelSetCompiledSdkVersion507 unknown SDK : %x\n",sdkVersion);
+	}
+	return;
+}
+
 void sceKernelSetCompiledSdkVersion603_605(int sdkVersion)
 {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
@@ -886,6 +921,8 @@ const HLEFunction SysMemUserForUser[] = {
 	{0x315AD3A0,&WrapV_I<sceKernelSetCompiledSdkVersion380_390>,"sceKernelSetCompiledSdkVersion380_390"},
 	{0xEBD5C3E6,&WrapV_I<sceKernelSetCompiledSdkVersion395>,"sceKernelSetCompiledSdkVersion395"},
 	{0xf77d77cb,&WrapV_I<sceKernelSetCompilerVersion>,"sceKernelSetCompilerVersion"},
+	{0x91de343c,&WrapV_I<sceKernelSetCompiledSdkVersion500_505>,"sceKernelSetCompiledSdkVersion500_505"},
+	{0x7893f79a,&WrapV_I<sceKernelSetCompiledSdkVersion507>,"sceKernelSetCompiledSdkVersion507"},
 	{0x35669d4c,&WrapV_I<sceKernelSetCompiledSdkVersion600_602>,"sceKernelSetCompiledSdkVersion600_602"},  //??
 	{0x1b4217bc,&WrapV_I<sceKernelSetCompiledSdkVersion603_605>,"sceKernelSetCompiledSdkVersion603_605"},
 	{0x358ca1bb,&WrapV_I<sceKernelSetCompiledSdkVersion606>,"sceKernelSetCompiledSdkVersion606"},
