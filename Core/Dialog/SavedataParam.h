@@ -31,7 +31,12 @@ enum SceUtilitySavedataType
 	SCE_UTILITY_SAVEDATA_TYPE_LISTDELETE	= 6,
 	SCE_UTILITY_SAVEDATA_TYPE_DELETE		= 7,
 	SCE_UTILITY_SAVEDATA_TYPE_SIZES			= 8,
-	SCE_UTILITY_SAVEDATA_TYPE_LIST			= 11
+	SCE_UTILITY_SAVEDATA_TYPE_LIST			= 11,
+	SCE_UTILITY_SAVEDATA_TYPE_FILES			= 12,
+	SCE_UTILITY_SAVEDATA_TYPE_MAKEDATASECURE	= 13,
+	SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE	= 15,
+	SCE_UTILITY_SAVEDATA_TYPE_WRITEDATASECURE	= 17,
+	SCE_UTILITY_SAVEDATA_TYPE_SIZES22			= 22
 } ;
 
 // title, savedataTitle, detail: parts of the unencrypted SFO
@@ -81,7 +86,7 @@ struct SceUtilitySavedataParam
 	char unused2[3];
 
 	/** pointer to a buffer that will contain data file unencrypted data */
-	int dataBuf; // Initially void*, but void* in 64bit system take 8 bytes.
+	u32 dataBuf; // Initially void*, but void* in 64bit system take 8 bytes.
 	/** size of allocated space to dataBuf */
 	SceSize dataBufSize;
 	SceSize dataSize;  // Size of the actual save data
@@ -98,9 +103,9 @@ struct SceUtilitySavedataParam
 	int abortStatus;
 
 	// Function SCE_UTILITY_SAVEDATA_TYPE_SIZES
-	int msFree;
-	int msData;
-	int utilityData;
+	u32 msFree;
+	u32 msData;
+	u32 utilityData;
 
 	char key[16];
 
@@ -108,13 +113,13 @@ struct SceUtilitySavedataParam
 	int multiStatus;
 
 	// Function 11 LIST
-	int idListAddr;
+	u32 idListAddr;
 
 	// Function 12 FILES
-	int fileListAddr;
+	u32 fileListAddr;
 
 	// Function 22 GETSIZES
-	int sizeAddr;
+	u32 sizeAddr;
 
 };
 
@@ -147,6 +152,8 @@ public:
 	bool Load(SceUtilitySavedataParam* param, int saveId = -1);
 	bool GetSizes(SceUtilitySavedataParam* param);
 	bool GetList(SceUtilitySavedataParam* param);
+	bool GetFilesList(SceUtilitySavedataParam* param);
+	bool GetSizes22(SceUtilitySavedataParam* param);
 
 	std::string GetGameName(SceUtilitySavedataParam* param);
 	std::string GetSaveName(SceUtilitySavedataParam* param);

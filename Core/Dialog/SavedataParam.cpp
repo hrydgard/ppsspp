@@ -163,6 +163,8 @@ std::string SavedataParam::GetSaveName(SceUtilitySavedataParam* param)
 	char saveName[21];
 	memcpy(saveName,param->saveName,20);
 	saveName[20] = 0;
+	if(strcmp(saveName,"<>") == 0)
+		return "";
 	return saveName;
 }
 
@@ -200,95 +202,129 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, int saveId)
 		return false;
 	}
 
-	u8 *data_ = (u8*)Memory::GetPointer(*((unsigned int*)&param->dataBuf));
-
 	std::string dirPath = GetSaveFilePath(param, saveId);
 
 	if (!pspFileSystem.GetFileInfo(dirPath).exists)
 		pspFileSystem.MkDir(dirPath);
 
-	std::string filePath = dirPath+"/"+GetFileName(param);
-	INFO_LOG(HLE,"Saving file with size %u in %s",param->dataBufSize,filePath.c_str());
-	if (!WritePSPFile(filePath, data_, param->dataBufSize))
+	if(param->dataBuf != 0)	// Can launch save without save data in mode 13
 	{
-		ERROR_LOG(HLE,"Error writing file %s",filePath.c_str());
-		return false;
+		std::string filePath = dirPath+"/"+GetFileName(param);
+		INFO_LOG(HLE,"Saving file with size %u in %s",param->dataBufSize,filePath.c_str());
+		u8 *data_ = (u8*)Memory::GetPointer(param->dataBuf);
+
+		if (!WritePSPFile(filePath, data_, param->dataBufSize))
+		{
+			ERROR_LOG(HLE,"Error writing file %s",filePath.c_str());
+			return false;
+		}
 	}
-	else
+
+	// SAVE PARAM.SFO
+	ParamSFOData sfoFile;
+	std::string sfopath = dirPath+"/"+sfoName;
+	PSPFileInfo sfoInfo = pspFileSystem.GetFileInfo(sfopath);
+	if(sfoInfo.exists) // Read old sfo if exist
 	{
-		// SAVE PARAM.SFO
-		ParamSFOData sfoFile;
-		sfoFile.SetValue("TITLE",param->sfoParam.title,128);
-		sfoFile.SetValue("SAVEDATA_TITLE",param->sfoParam.savedataTitle,128);
-		sfoFile.SetValue("SAVEDATA_DETAIL",param->sfoParam.detail,1024);
-		sfoFile.SetValue("PARENTAL_LEVEL",param->sfoParam.parentalLevel,4);
-		sfoFile.SetValue("CATEGORY","MS",4);
-		sfoFile.SetValue("SAVEDATA_DIRECTORY",GetSaveDir(param,saveId),64);
+		u8 *sfoData = new u8[sfoInfo.size];
+		size_t sfoSize = sfoInfo.size;
+		if(ReadPSPFile(sfopath,sfoData,sfoSize))
+		{
+			sfoFile.ReadSFO(sfoData,sfoSize);
+			delete[] sfoData;
+		}
+	}
 
-		 // For each file, 32 bytes for filename, 32 bytes for file hash (0 in PPSSPP)
-		u8* tmpData = new u8[3168];
+	// Update values
+	sfoFile.SetValue("TITLE",param->sfoParam.title,128);
+	sfoFile.SetValue("SAVEDATA_TITLE",param->sfoParam.savedataTitle,128);
+	sfoFile.SetValue("SAVEDATA_DETAIL",param->sfoParam.detail,1024);
+	sfoFile.SetValue("PARENTAL_LEVEL",param->sfoParam.parentalLevel,4);
+	sfoFile.SetValue("CATEGORY","MS",4);
+	sfoFile.SetValue("SAVEDATA_DIRECTORY",GetSaveDir(param,saveId),64);
+
+	// For each file, 13 bytes for filename, 16 bytes for file hash (0 in PPSSPP), 3 byte for padding
+	u8* tmpData = sfoFile.GetValueData("SAVEDATA_FILE_LIST", 0);
+	u8* tmpData2 = 0;
+	if(tmpData == 0)
+	{
+		tmpData2 = new u8[3168]; // 99 filename max
+		tmpData = tmpData2;
 		memset(tmpData, 0, 3168);
-		sprintf((char*)tmpData,"%s",GetFileName(param).c_str());
-		sfoFile.SetValue("SAVEDATA_FILE_LIST", tmpData, 3168, 3168);
-		delete[] tmpData;
-
-		// No crypted save, so fill with 0
-		tmpData = new u8[128];
-		memset(tmpData, 0, 128);
-		sfoFile.SetValue("SAVEDATA_PARAMS", tmpData, 128, 128);
-		delete[] tmpData;
-
-		u8 *sfoData;
-		size_t sfoSize;
-		sfoFile.WriteSFO(&sfoData,&sfoSize);
-		std::string sfopath = dirPath+"/"+sfoName;
-		WritePSPFile(sfopath, sfoData, sfoSize);
-		delete[] sfoData;
-
-		// SAVE ICON0
-		if (param->icon0FileData.buf)
+	}
+	if(param->dataBuf != 0)
+	{
+		char* fName = (char*)tmpData;
+		for(int i = 0; i < 99; i++)
 		{
-			data_ = (u8*)Memory::GetPointer(*((unsigned int*)&param->icon0FileData.buf));
-			std::string icon0path = dirPath+"/"+icon0Name;
-			WritePSPFile(icon0path, data_, param->icon0FileData.bufSize);
-		}
-		// SAVE ICON1
-		if (param->icon1FileData.buf)
-		{
-			data_ = (u8*)Memory::GetPointer(*((unsigned int*)&param->icon1FileData.buf));
-			std::string icon1path = dirPath+"/"+icon1Name;
-			WritePSPFile(icon1path, data_, param->icon1FileData.bufSize);
-		}
-		// SAVE PIC1
-		if (param->pic1FileData.buf)
-		{
-			data_ = (u8*)Memory::GetPointer(*((unsigned int*)&param->pic1FileData.buf));
-			std::string pic1path = dirPath+"/"+pic1Name;
-			WritePSPFile(pic1path, data_, param->pic1FileData.bufSize);
-		}
+			if(fName[0] == 0)
+				break; // End of list
+			if(strncmp(fName,GetFileName(param).c_str(),20) == 0)
+				break; // File already in SFO
 
-		// Save SND
-		if (param->snd0FileData.buf)
-		{
-			data_ = (u8*)Memory::GetPointer(*((unsigned int*)&param->snd0FileData.buf));
-			std::string snd0path = dirPath+"/"+snd0Name;
-			WritePSPFile(snd0path, data_, param->snd0FileData.bufSize);
+			fName += 32;
 		}
+		snprintf(fName, 20,"%s",GetFileName(param).c_str());
+	}
+	sfoFile.SetValue("SAVEDATA_FILE_LIST", tmpData, 3168, 3168);
+	if(tmpData2)
+		delete[] tmpData2;
 
-		// Save Encryption Data
-		{
-			EncryptFileInfo encryptInfo;
-			int dataSize = sizeof(encryptInfo); // version + key + sdkVersion
-			memset(&encryptInfo,0,dataSize);
+	// No crypted save, so fill with 0
+	tmpData = new u8[128];
+	memset(tmpData, 0, 128);
+	sfoFile.SetValue("SAVEDATA_PARAMS", tmpData, 128, 128);
+	delete[] tmpData;
 
-			encryptInfo.fileVersion = 1;
-			encryptInfo.sdkVersion = sceKernelGetCompiledSdkVersion();
-			if(param->size > 1500)
-				memcpy(encryptInfo.key,param->key,16);
+	u8 *sfoData;
+	size_t sfoSize;
+	sfoFile.WriteSFO(&sfoData,&sfoSize);
+	WritePSPFile(sfopath, sfoData, sfoSize);
+	delete[] sfoData;
 
-			std::string encryptInfoPath = dirPath+"/"+"ENCRYPT_INFO.BIN";
-			WritePSPFile(encryptInfoPath, (u8*)&encryptInfo, dataSize);
-		}
+	// SAVE ICON0
+	if (param->icon0FileData.buf)
+	{
+		u8* data_ = (u8*)Memory::GetPointer(param->icon0FileData.buf);
+		std::string icon0path = dirPath+"/"+icon0Name;
+		WritePSPFile(icon0path, data_, param->icon0FileData.bufSize);
+	}
+	// SAVE ICON1
+	if (param->icon1FileData.buf)
+	{
+		u8* data_ = (u8*)Memory::GetPointer(param->icon1FileData.buf);
+		std::string icon1path = dirPath+"/"+icon1Name;
+		WritePSPFile(icon1path, data_, param->icon1FileData.bufSize);
+	}
+	// SAVE PIC1
+	if (param->pic1FileData.buf)
+	{
+		u8* data_ = (u8*)Memory::GetPointer(param->pic1FileData.buf);
+		std::string pic1path = dirPath+"/"+pic1Name;
+		WritePSPFile(pic1path, data_, param->pic1FileData.bufSize);
+	}
+
+	// Save SND
+	if (param->snd0FileData.buf)
+	{
+		u8* data_ = (u8*)Memory::GetPointer(param->snd0FileData.buf);
+		std::string snd0path = dirPath+"/"+snd0Name;
+		WritePSPFile(snd0path, data_, param->snd0FileData.bufSize);
+	}
+
+	// Save Encryption Data
+	{
+		EncryptFileInfo encryptInfo;
+		int dataSize = sizeof(encryptInfo); // version + key + sdkVersion
+		memset(&encryptInfo,0,dataSize);
+
+		encryptInfo.fileVersion = 1;
+		encryptInfo.sdkVersion = sceKernelGetCompiledSdkVersion();
+		if(param->size > 1500)
+			memcpy(encryptInfo.key,param->key,16);
+
+		std::string encryptInfoPath = dirPath+"/"+"ENCRYPT_INFO.BIN";
+		WritePSPFile(encryptInfoPath, (u8*)&encryptInfo, dataSize);
 	}
 	return true;
 }
@@ -299,7 +335,7 @@ bool SavedataParam::Load(SceUtilitySavedataParam *param, int saveId)
 		return false;
 	}
 
-	u8 *data_ = (u8*)Memory::GetPointer(*((unsigned int*)&param->dataBuf));
+	u8 *data_ = (u8*)Memory::GetPointer(param->dataBuf);
 
 	std::string dirPath = GetSaveFilePath(param, saveId);
 	if (saveId >= 0 && saveNameListDataCount > 0) // if user selection, use it
@@ -317,6 +353,7 @@ bool SavedataParam::Load(SceUtilitySavedataParam *param, int saveId)
 		ERROR_LOG(HLE,"Error reading file %s",filePath.c_str());
 		return false;
 	}
+	param->dataSize = param->dataBufSize;
 	return true;
 }
 
@@ -351,9 +388,6 @@ std::string SavedataParam::GetSpaceText(int size)
 	return std::string(text);
 }
 
-// From my test, PSP only answer with data for save of size 1500 (sdk < 2)
-// Perhaps changed to use mode 22 id SDK >= 2
-// For now we always return results
 bool SavedataParam::GetSizes(SceUtilitySavedataParam *param)
 {
 	if (!param) {
@@ -449,9 +483,12 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 			{
 				u32 baseAddr = outputBuffer + (i*72);
 				Memory::Write_U32(0x11FF,baseAddr + 0); // mode
-				Memory::Write_U64(0,baseAddr + 4); // TODO ctime << this seems to not work, write 0 only on 32bits
+				Memory::Write_U64(0,baseAddr + 4); // TODO ctime
+				Memory::Write_U64(0,baseAddr + 12); // TODO unknow
 				Memory::Write_U64(0,baseAddr + 20); // TODO atime
+				Memory::Write_U64(0,baseAddr + 28); // TODO unknow
 				Memory::Write_U64(0,baseAddr + 36); // TODO mtime
+				Memory::Write_U64(0,baseAddr + 44); // TODO unknow
 				// folder name without gamename (max 20 u8)
 				std::string outName = validDir[i].name.substr(GetGameName(param).size());
 				Memory::Memset(baseAddr + 52,0,20);
@@ -462,6 +499,65 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 		Memory::Write_U32(validDir.size(),param->idListAddr+4);
 	}
 	return true;
+}
+
+bool SavedataParam::GetFilesList(SceUtilitySavedataParam *param)
+{
+	if (!param)
+	{
+		return false;
+	}
+
+	u32 dataAddr = param->fileListAddr;
+	if(!Memory::IsValidAddress(dataAddr))
+		return false;
+
+	// TODO : Need to be checked against more game
+
+	u32 fileInfosAddr = Memory::Read_U32(dataAddr + 24);
+
+	//for Valkyria2, dataAddr+0 and dataAddr+12 has "5" for 5 files
+	int numFiles = Memory::Read_U32(dataAddr+12);
+	int foundFiles = 0;
+	for(int i = 0; i < numFiles; i++)
+	{
+		// for each file (80 bytes):
+		// u32 mode, u32 ??, u64 size, u64 ctime, u64 ??, u64 atime, u64 ???, u64 mtime, u64 ???
+		// u8[16] filename (or 13 + padding?)
+		u32 curFileInfoAddr = fileInfosAddr + i*80;
+
+		char fileName[16];
+		strncpy(fileName, Memory::GetCharPointer(curFileInfoAddr + 64),16);
+		std::string filePath = savePath + GetGameName(param) + GetSaveName(param) + "/" + fileName;
+		PSPFileInfo info = pspFileSystem.GetFileInfo(filePath);
+		if(info.exists)
+		{
+			Memory::Write_U32(0x21FF, curFileInfoAddr+0);
+			Memory::Write_U64(info.size, curFileInfoAddr+8);
+			Memory::Write_U64(0,curFileInfoAddr + 16); // TODO ctime
+			Memory::Write_U64(0,curFileInfoAddr + 24); // TODO unknow
+			Memory::Write_U64(0,curFileInfoAddr + 32); // TODO atime
+			Memory::Write_U64(0,curFileInfoAddr + 40); // TODO unknow
+			Memory::Write_U64(0,curFileInfoAddr + 48); // TODO mtime
+			Memory::Write_U64(0,curFileInfoAddr + 56); // TODO unknow
+			foundFiles++;
+		}
+	}
+
+	// TODO : verify if return true if at least 1 file found or only if all found
+	return foundFiles > 0;
+}
+
+bool SavedataParam::GetSizes22(SceUtilitySavedataParam *param)
+{
+	if (!param)
+	{
+		return false;
+	}
+
+	// TODO code this
+
+	return false;
 }
 
 void SavedataParam::Clear()
