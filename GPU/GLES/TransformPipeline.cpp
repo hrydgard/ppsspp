@@ -227,7 +227,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		dots[l] = dot;
 		if (gstate.lightEnable[l] & 1)
 		{
-			Color4 lightAmbient(gstate_c.lightColor[2][l], 1.0f);
+			Color4 lightAmbient(gstate_c.lightColor[0][l], 1.0f);
 			lightSum0 += lightAmbient * *ambient + diff;
 		}
 	}
