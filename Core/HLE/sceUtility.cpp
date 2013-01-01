@@ -88,20 +88,32 @@ int sceUtilitySavedataUpdate(int animSpeed)
 #define PSP_AV_MODULE_AAC							 6
 #define PSP_AV_MODULE_G729							7
 
-//TODO: Shouldn't be void
-void sceUtilityLoadAvModule(u32 module)
+u32 sceUtilityLoadAvModule(u32 module)
 {
 	DEBUG_LOG(HLE,"sceUtilityLoadAvModule(%i)", module);
-	RETURN(0);
-	__KernelReSchedule("utilityloadavmodule");
+	hleReSchedule("utilityloadavmodule");
+	return 0;
 }
 
-//TODO: Shouldn't be void
-void sceUtilityLoadModule(u32 module)
+u32 sceUtilityUnloadAvModule(u32 module)
+{
+	DEBUG_LOG(HLE,"sceUtilityUnloadAvModule(%i)", module);
+	hleReSchedule("utilityunloadavmodule");
+	return 0;
+}
+
+u32 sceUtilityLoadModule(u32 module)
 {
 	DEBUG_LOG(HLE,"sceUtilityLoadModule(%i)", module);
-	RETURN(0);
-	__KernelReSchedule("utilityloadmodule");
+	hleReSchedule("utilityloadmodule");
+	return 0;
+}
+
+u32 sceUtilityUnloadModule(u32 module)
+{
+	DEBUG_LOG(HLE,"sceUtilityUnloadModule(%i)", module);
+	hleReSchedule("utilityunloadmodule");
+	return 0;
 }
 
 int sceUtilityMsgDialogInitStart(u32 structAddr)
@@ -406,11 +418,11 @@ const HLEFunction sceUtility[] =
 	{0xf5ce1134, 0, "sceUtilityHtmlViewerShutdownStart"}, 
 	{0x05afb9e4, 0, "sceUtilityHtmlViewerUpdate"}, 
 
-	{0xc629af26, &WrapV_U<sceUtilityLoadAvModule>, "sceUtilityLoadAvModule"}, 
-	{0xf7d8d092, 0, "sceUtilityUnloadAvModule"},
+	{0xc629af26, &WrapU_U<sceUtilityLoadAvModule>, "sceUtilityLoadAvModule"}, 
+	{0xf7d8d092, &WrapU_U<sceUtilityUnloadAvModule>, "sceUtilityUnloadAvModule"},
 
-	{0x2a2b3de0, &WrapV_U<sceUtilityLoadModule>, "sceUtilityLoadModule"},
-	{0xe49bfe92, 0, "sceUtilityUnloadModule"},
+	{0x2a2b3de0, &WrapU_U<sceUtilityLoadModule>, "sceUtilityLoadModule"},
+	{0xe49bfe92, &WrapU_U<sceUtilityUnloadModule>, "sceUtilityUnloadModule"},
 
 	{0x0251B134, 0, "sceUtilityScreenshotInitStart"},
 	{0xF9E0008C, 0, "sceUtilityScreenshotShutdownStart"},
