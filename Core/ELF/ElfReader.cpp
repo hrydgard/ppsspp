@@ -271,6 +271,7 @@ bool ElfReader::LoadInto(u32 loadAddress)
 	}
 
 	DEBUG_LOG(LOADER,"Relocations:");
+	bool oldRelocs = false;
 
 	// Second pass: Do necessary relocations
 	for (int i=0; i<GetNumSections(); i++)
@@ -305,16 +306,13 @@ bool ElfReader::LoadInto(u32 loadAddress)
 			}
 			else
 			{
-				//We have a relocation table!
-				int sectionToModify = s->sh_info;
-				if (!(sections[sectionToModify].sh_flags & SHF_ALLOC))
-				{
-					ERROR_LOG(LOADER,"Trying to relocate non-loaded section %s, ignoring",GetSectionName(sectionToModify));
-					continue;
-				}
-				ERROR_LOG(LOADER,"Traditional relocations unsupported.");
+				oldRelocs = true;
 			}
 		}
+	}
+	if (oldRelocs)
+	{
+		INFO_LOG(LOADER, "Game uses old relocations (often for debugging, should be harmless)");
 	}
 
 	// Segment relocations (a few games use them)

@@ -39,6 +39,7 @@
 #include "sceKernelModule.h"
 #include "sceKernelThread.h"
 #include "sceKernelMemory.h"
+#include "sceIo.h"
 
 enum {
 	PSP_THREAD_ATTR_USER = 0x80000000
@@ -100,7 +101,7 @@ struct NativeModule {
 class Module : public KernelObject
 {
 public:
-	Module() : memoryBlockAddr(0) {}
+	Module() : memoryBlockAddr(0), isFake(false) {}
 	~Module() {
 		if (memoryBlockAddr) {
 			userMemory.Free(memoryBlockAddr);
@@ -129,6 +130,7 @@ public:
 	NativeModule nm;
 
 	u32 memoryBlockAddr;
+	bool isFake;
 };
 
 KernelObject *__KernelModuleObject()
@@ -212,6 +214,10 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	kernelObjects.Create(module);
 
 	u8 *newptr = 0;
+	if (*(u32*)ptr == 0x4543537e) { // "~SCE"
+		INFO_LOG(HLE, "~SCE module, skipping header");
+		ptr += *(u32*)(ptr + 4);
+	}
 
 	if (*(u32*)ptr == 0x5053507e) { // "~PSP"
 		// Decrypt module! YAY!
@@ -225,20 +231,20 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		}
 		newptr = new u8[head->elf_size + head->psp_size];
 		ptr = newptr;
-		pspDecryptPRX(in, (u8*)ptr, head->psp_size);
+		int ret = pspDecryptPRX(in, (u8*)ptr, head->psp_size);
+		if (ret == MISSING_KEY)
+		{
+			*error_string = "Missing key";
+			delete [] newptr;
+			module->isFake = true;
+			return module;
+		}
+		else if (ret <= 0)
+		{
+			ERROR_LOG(HLE, "Failed decrypting PRX! That's not normal!\n");
+		}
 	}
 
-	if (*(u32*)ptr == 0x4543537e) { // "~SCE"
-		ERROR_LOG(HLE, "Wrong magic number %08x (~SCE, kernel module?)",*(u32*)ptr);
-		*error_string = "Kernel module?";
-		if (newptr)
-		{
-			delete [] newptr;
-		}
-		kernelObjects.Destroy<Module>(module->GetUID());
-		return 0;
-	}
-	
 	if (*(u32*)ptr != 0x464c457f)
 	{
 		ERROR_LOG(HLE, "Wrong magic number %08x",*(u32*)ptr);
@@ -688,9 +694,6 @@ u32 sceKernelLoadModule(const char *name, u32 flags)
 
 void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, u32 optionAddr)
 {
-	ERROR_LOG(HLE,"UNIMPL sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x)",
-	moduleId,argsize,argAddr,returnValueAddr,optionAddr);
-
 	// Dunno what these three defaults should be...
 	u32 priority = 0x20;
 	u32 stacksize = 0x40000; 
@@ -707,12 +710,15 @@ void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValu
 	u32 error;
 	Module *module = kernelObjects.Get<Module>(moduleId, error);
 	if (!module) {
-		// TODO: Try not to lie so much.
-		/*
 		RETURN(error);
 		return;
-		*/
+	} else if (module->isFake) {
+		INFO_LOG(HLE,"sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x): faked (undecryptable module)",
+		moduleId,argsize,argAddr,returnValueAddr,optionAddr);
 	} else {
+		ERROR_LOG(HLE,"UNIMPL sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x)",
+		moduleId,argsize,argAddr,returnValueAddr,optionAddr);
+
 		u32 entryAddr = module->nm.entry_addr;
 		if (entryAddr == -1) {
 			entryAddr = module->nm.module_start_func;
@@ -785,10 +791,44 @@ void sceKernelFindModuleByName()
 	RETURN(1);
 }
 
-u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr) {
-	ERROR_LOG(HLE,"UNIMPL %008x=sceKernelLoadModuleById(%08x, %08x)",id,id,lmoptionPtr);
-	// Apparenty, ID is a sceIo File UID. So this shouldn't be too hard when needed.
-	return id;
+u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr)
+{
+	u32 error;
+	FileNode *f = kernelObjects.Get < FileNode > (id, error);
+	if (!f) {
+		ERROR_LOG(HLE,"sceKernelLoadModuleByID(%08x, %08x, %08x): could not open file id",id,flags,lmoptionPtr);
+		return error;
+	}
+	SceKernelLMOption *lmoption = 0;
+	if (lmoptionPtr) {
+		lmoption = (SceKernelLMOption *)Memory::GetPointer(lmoptionPtr);
+	}
+	u32 pos = pspFileSystem.SeekFile(f->handle, 0, FILEMOVE_CURRENT);
+	u32 size = pspFileSystem.SeekFile(f->handle, 0, FILEMOVE_END);
+	std::string error_string;
+	pspFileSystem.SeekFile(f->handle, pos, FILEMOVE_BEGIN);
+	Module *module = 0;
+	u8 *temp = new u8[size];
+	pspFileSystem.ReadFile(f->handle, temp, size);
+	module = __KernelLoadELFFromPtr(temp, 0, &error_string);
+	delete [] temp;
+
+	if (!module) {
+		// Module was blacklisted or couldn't be decrypted, which means it's a kernel module we don't want to run.
+		// Let's just act as if it worked.
+		NOTICE_LOG(LOADER, "Module %d is blacklisted or undecryptable - we lie about success", id);
+		return 1;
+	}
+
+	if (lmoption) {
+		INFO_LOG(HLE,"%i=sceKernelLoadModuleByID(%d,flag=%08x,%08x,%08x,%08x,position = %08x)",
+			module->GetUID(),id,flags,
+			lmoption->size,lmoption->mpidtext,lmoption->mpiddata,lmoption->position);
+	} else {
+		INFO_LOG(HLE,"%i=sceKernelLoadModuleByID(%d,flag=%08x,(...))", module->GetUID(), id, flags);
+	}
+
+	return module->GetUID();
 }
 
 u32 sceKernelLoadModuleDNAS(const char *name, u32 flags)
