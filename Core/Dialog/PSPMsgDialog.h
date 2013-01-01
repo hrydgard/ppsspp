@@ -22,7 +22,10 @@
 #define SCE_UTILITY_MSGDIALOG_OPTION_ERROR				0 // Do nothing
 #define SCE_UTILITY_MSGDIALOG_OPTION_TEXT				0x00000001
 #define SCE_UTILITY_MSGDIALOG_OPTION_YESNO				0x00000010
+#define SCE_UTILITY_MSGDIALOG_OPTION_OK					0x00000020
 #define SCE_UTILITY_MSGDIALOG_OPTION_DEFAULT_NO			0x00000100
+
+#define SCE_UTILITY_MSGDIALOG_DEBUG_OPTION_CODED		0x00000131 // OR of all options coded to display warning
 
 struct pspMessageDialog
 {
@@ -32,7 +35,7 @@ struct pspMessageDialog
 	unsigned int errorNum;
 	char string[512];
 	unsigned int options;
-	unsigned int buttonPressed;	// 0=?, 1=Yes, 2=No, 3=Back
+	unsigned int buttonPressed;	// 0=?, 1=Yes/OK, 2=No, 3=Back
 };
 
 
@@ -58,6 +61,7 @@ private :
 		DS_MESSAGE,
 		DS_ERROR,
 		DS_YESNO,
+		DS_OK
 	};
 
 	DisplayState display;
