@@ -316,7 +316,7 @@ int sceFontGetCharGlyphImage(u32 libHandler, u32 charCode, u32 glyphImagePtr)
 	int bytesPerLine = Memory::Read_U16(glyphImagePtr+16);
 	int buffer =Memory::Read_U32(glyphImagePtr+20);
 
-	Memory::Memset(buffer, 0x7F, bytesPerLine*bufHeight*pixelFormat);
+	Memory::Memset(buffer, 0x7F, bytesPerLine * bufHeight);
 
 	return 0;
 }
