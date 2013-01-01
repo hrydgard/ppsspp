@@ -44,6 +44,13 @@ int PSPMsgDialog::Init(unsigned int paramAddr)
 	}
 	Memory::ReadStruct(messageDialogAddr, &messageDialog);
 
+	// debug info
+	int optionsNotCoded = ((messageDialog.options | SCE_UTILITY_MSGDIALOG_DEBUG_OPTION_CODED) ^ SCE_UTILITY_MSGDIALOG_DEBUG_OPTION_CODED);
+	if(optionsNotCoded)
+	{
+		ERROR_LOG(HLE,"PSPMsgDialog options not coded : 0x%08x",optionsNotCoded);
+	}
+
 	yesnoChoice = 1;
 	if (messageDialog.type == 0) // number
 	{
@@ -56,6 +63,8 @@ int PSPMsgDialog::Init(unsigned int paramAddr)
 		display = DS_MESSAGE;
 		if(messageDialog.options & SCE_UTILITY_MSGDIALOG_OPTION_YESNO)
 			display = DS_YESNO;
+		if(messageDialog.options & SCE_UTILITY_MSGDIALOG_OPTION_OK)
+			display = DS_OK;
 		if(messageDialog.options & SCE_UTILITY_MSGDIALOG_OPTION_DEFAULT_NO)
 			yesnoChoice = 0;
 	}
@@ -186,6 +195,25 @@ int PSPMsgDialog::Update()
 					status = SCE_UTILITY_STATUS_FINISHED;
 					messageDialog.buttonPressed = 1;
 				}
+			}
+			EndDraw();
+		break;
+		case DS_OK:
+			StartDraw();
+
+			DisplayMessage(text);
+
+			// TODO : Dialogs should take control over input and not send them to the game while displaying
+			DisplayEnterBack();
+			if (IsButtonPressed(cancelButtonFlag))
+			{
+				status = SCE_UTILITY_STATUS_FINISHED;
+				messageDialog.buttonPressed = 3;
+			}
+			else if (IsButtonPressed(okButtonFlag))
+			{
+				status = SCE_UTILITY_STATUS_FINISHED;
+				messageDialog.buttonPressed = 1;
 			}
 			EndDraw();
 		break;
