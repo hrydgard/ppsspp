@@ -23,21 +23,27 @@
 
 enum DisplayListStatus
 {
-	PSP_GE_LIST_DONE          = 0, // reached finish+end
-	PSP_GE_LIST_QUEUED        = 1, // in queue, not stalled
-	PSP_GE_LIST_DRAWING       = 2, // drawing
-	PSP_GE_LIST_STALL_REACHED = 3, // stalled
-	PSP_GE_LIST_END_REACHED   = 4, // reached signal+end, in jpcsp but not in pspsdk?
-	PSP_GE_LIST_CANCEL_DONE   = 5, // canceled?
+	PSP_GE_LIST_DONE     = 0, // reached finish+end
+	PSP_GE_LIST_QUEUED   = 1, // in queue, not stalled
+	PSP_GE_LIST_DRAWING  = 2, // drawing or stalled
+	PSP_GE_LIST_STALLING = 3, // stalled, never set, only returned by ListSync
+	PSP_GE_LIST_PAUSED   = 4, // after break
 };
 
 struct DisplayList
 {
-	int id;
 	u32 pc;
 	u32 stall;
-	DisplayListStatus status;
+	int status;
 	int subIntrBase;
+	u32 stack[32];
+	int stackptr;
+	bool interrupted;
+	bool queued;
+
+	bool stalled() {
+		return pc == stall;
+	}
 };
 
 class GPUInterface
@@ -45,20 +51,23 @@ class GPUInterface
 public:
 	virtual ~GPUInterface() {}
 
+	static const int DisplayListMaxCount = 64;
+
 	// Initialization
 	virtual void InitClear() = 0;
 
 	// Draw queue management
 	// TODO: Much of this should probably be shared between the different GPU implementations.
-	virtual u32 EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head) = 0;
-	virtual void UpdateStall(int listid, u32 newstall) = 0;
-	virtual void DrawSync(int mode) = 0;
-	virtual void Continue() = 0;
+	virtual u32  EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head) = 0;
+	virtual u32  DequeueList(int listid) = 0;
+	virtual u32  UpdateStall(int listid, u32 newstall) = 0;
+	virtual u32  DrawSync(int mode) = 0;
+	virtual u32  Continue() = 0;
+	virtual u32  Break(int mode) = 0;
 
 	virtual void PreExecuteOp(u32 op, u32 diff) = 0;
 	virtual void ExecuteOp(u32 op, u32 diff) = 0;
-	virtual bool InterpretList(DisplayList& list) = 0;
-	virtual int  listStatus(int listid) = 0;
+	virtual int  ListStatus(int listid) = 0;
 
 	// Framebuffer management
 	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, int format) = 0;
