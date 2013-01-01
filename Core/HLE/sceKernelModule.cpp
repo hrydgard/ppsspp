@@ -313,8 +313,8 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			{
 				delete [] newptr;
 			}
-			kernelObjects.Destroy<Module>(module->GetUID());
-			return 0;
+			module->isFake = true;
+			return module;
 		}
 	}
 
