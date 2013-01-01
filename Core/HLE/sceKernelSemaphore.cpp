@@ -360,7 +360,11 @@ int __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, const char *bad
 		else
 		{
 			s->ns.numWaitThreads++;
-			s->waitingThreads.push_back(__KernelGetCurThread());
+
+			SceUID threadID = __KernelGetCurThread();
+			// May be in a tight loop timing out (where we don't remove from waitingThreads yet), don't want to add duplicates.
+			if (std::find(s->waitingThreads.begin(), s->waitingThreads.end(), threadID) == s->waitingThreads.end())
+				s->waitingThreads.push_back(threadID);
 			__KernelSetSemaTimeout(s, timeoutPtr);
 			__KernelWaitCurThread(WAITTYPE_SEMA, id, wantedCount, timeoutPtr, processCallbacks);
 		}

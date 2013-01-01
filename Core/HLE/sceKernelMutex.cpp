@@ -456,7 +456,10 @@ int sceKernelLockMutex(SceUID id, int count, u32 timeoutPtr)
 		return error;
 	else
 	{
-		mutex->waitingThreads.push_back(__KernelGetCurThread());
+		SceUID threadID = __KernelGetCurThread();
+		// May be in a tight loop timing out (where we don't remove from waitingThreads yet), don't want to add duplicates.
+		if (std::find(mutex->waitingThreads.begin(), mutex->waitingThreads.end(), threadID) == mutex->waitingThreads.end())
+			mutex->waitingThreads.push_back(threadID);
 		__KernelWaitMutex(mutex, timeoutPtr);
 		__KernelWaitCurThread(WAITTYPE_MUTEX, id, count, timeoutPtr, false);
 
@@ -481,7 +484,10 @@ int sceKernelLockMutexCB(SceUID id, int count, u32 timeoutPtr)
 		return error;
 	else
 	{
-		mutex->waitingThreads.push_back(__KernelGetCurThread());
+		SceUID threadID = __KernelGetCurThread();
+		// May be in a tight loop timing out (where we don't remove from waitingThreads yet), don't want to add duplicates.
+		if (std::find(mutex->waitingThreads.begin(), mutex->waitingThreads.end(), threadID) == mutex->waitingThreads.end())
+			mutex->waitingThreads.push_back(threadID);
 		__KernelWaitMutex(mutex, timeoutPtr);
 		__KernelWaitCurThread(WAITTYPE_MUTEX, id, count, timeoutPtr, true);
 
@@ -813,7 +819,10 @@ int sceKernelLockLwMutex(u32 workareaPtr, int count, u32 timeoutPtr)
 		LwMutex *mutex = kernelObjects.Get<LwMutex>(workarea.uid, error);
 		if (mutex)
 		{
-			mutex->waitingThreads.push_back(__KernelGetCurThread());
+			SceUID threadID = __KernelGetCurThread();
+			// May be in a tight loop timing out (where we don't remove from waitingThreads yet), don't want to add duplicates.
+			if (std::find(mutex->waitingThreads.begin(), mutex->waitingThreads.end(), threadID) == mutex->waitingThreads.end())
+				mutex->waitingThreads.push_back(threadID);
 			__KernelWaitLwMutex(mutex, timeoutPtr);
 			__KernelWaitCurThread(WAITTYPE_LWMUTEX, workarea.uid, count, timeoutPtr, false);
 
@@ -846,7 +855,10 @@ int sceKernelLockLwMutexCB(u32 workareaPtr, int count, u32 timeoutPtr)
 		LwMutex *mutex = kernelObjects.Get<LwMutex>(workarea.uid, error);
 		if (mutex)
 		{
-			mutex->waitingThreads.push_back(__KernelGetCurThread());
+			SceUID threadID = __KernelGetCurThread();
+			// May be in a tight loop timing out (where we don't remove from waitingThreads yet), don't want to add duplicates.
+			if (std::find(mutex->waitingThreads.begin(), mutex->waitingThreads.end(), threadID) == mutex->waitingThreads.end())
+				mutex->waitingThreads.push_back(threadID);
 			__KernelWaitLwMutex(mutex, timeoutPtr);
 			__KernelWaitCurThread(WAITTYPE_LWMUTEX, workarea.uid, count, timeoutPtr, true);
 
