@@ -79,6 +79,7 @@ void __KernelInit()
 	}
 
 	SaveState::Init();
+	__KernelTimeInit();
 	__InterruptsInit();
 	__KernelMemoryInit();
 	__KernelThreadingInit();
@@ -154,6 +155,7 @@ void __KernelDoState(PointerWrap &p)
 	__KernelModuleDoState(p);
 	__KernelMutexDoState(p);
 	__KernelSemaDoState(p);
+	__KernelTimeDoState(p);
 
 	__AudioDoState(p);
 	__CtrlDoState(p);
