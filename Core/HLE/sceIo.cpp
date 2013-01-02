@@ -120,6 +120,43 @@ struct dirent {
 };
 #endif
 
+class FileNode : public KernelObject {
+public:
+	FileNode() : callbackID(0), callbackArg(0), asyncResult(0), pendingAsyncResult(false), sectorBlockMode(false) {}
+	~FileNode() {
+		pspFileSystem.CloseFile(handle);
+	}
+	const char *GetName() {return fullpath.c_str();}
+	const char *GetTypeName() {return "OpenFile";}
+	void GetQuickInfo(char *ptr, int size) {
+		sprintf(ptr, "Seekpos: %08x", (u32)pspFileSystem.GetSeekPos(handle));
+	}
+	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_BADF; }
+	int GetIDType() const { return PPSSPP_KERNEL_TMID_File; }
+
+	virtual void DoState(PointerWrap &p) {
+		p.Do(fullpath);
+		p.Do(handle);
+		p.Do(callbackID);
+		p.Do(callbackArg);
+		p.Do(asyncResult);
+		p.Do(pendingAsyncResult);
+		p.Do(sectorBlockMode);
+		p.DoMarker("File");
+	}
+
+	std::string fullpath;
+	u32 handle;
+
+	u32 callbackID;
+	u32 callbackArg;
+
+	u32 asyncResult;
+
+	bool pendingAsyncResult;
+	bool sectorBlockMode;
+};
+
 void __IoInit() {
 	INFO_LOG(HLE, "Starting up I/O...");
 
@@ -173,6 +210,15 @@ void __IoDoState(PointerWrap &p) {
 void __IoShutdown() {
 	defAction = 0;
 	defParam = 0;
+}
+
+u32 __IoGetFileHandleFromId(u32 id, u32 &outError)
+{
+	FileNode *f = kernelObjects.Get < FileNode > (id, outError);
+	if (!f) {
+		return -1;
+	}
+	return f->handle;
 }
 
 u32 sceIoAssign(const char *aliasname, const char *physname, const char *devname, u32 flag) {

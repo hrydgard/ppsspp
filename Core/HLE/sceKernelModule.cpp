@@ -794,8 +794,8 @@ void sceKernelFindModuleByName()
 u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr)
 {
 	u32 error;
-	FileNode *f = kernelObjects.Get < FileNode > (id, error);
-	if (!f) {
+	u32 handle = __IoGetFileHandleFromId(id, error);
+	if (handle < 0) {
 		ERROR_LOG(HLE,"sceKernelLoadModuleByID(%08x, %08x, %08x): could not open file id",id,flags,lmoptionPtr);
 		return error;
 	}
@@ -803,13 +803,13 @@ u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr)
 	if (lmoptionPtr) {
 		lmoption = (SceKernelLMOption *)Memory::GetPointer(lmoptionPtr);
 	}
-	u32 pos = pspFileSystem.SeekFile(f->handle, 0, FILEMOVE_CURRENT);
-	u32 size = pspFileSystem.SeekFile(f->handle, 0, FILEMOVE_END);
+	u32 pos = pspFileSystem.SeekFile(handle, 0, FILEMOVE_CURRENT);
+	u32 size = pspFileSystem.SeekFile(handle, 0, FILEMOVE_END);
 	std::string error_string;
-	pspFileSystem.SeekFile(f->handle, pos, FILEMOVE_BEGIN);
+	pspFileSystem.SeekFile(handle, pos, FILEMOVE_BEGIN);
 	Module *module = 0;
 	u8 *temp = new u8[size];
-	pspFileSystem.ReadFile(f->handle, temp, size);
+	pspFileSystem.ReadFile(handle, temp, size);
 	module = __KernelLoadELFFromPtr(temp, 0, &error_string);
 	delete [] temp;
 

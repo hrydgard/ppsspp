@@ -23,46 +23,10 @@
 #include "HLE.h"
 #include "sceKernel.h"
 
-class FileNode : public KernelObject {
-public:
-	FileNode() : callbackID(0), callbackArg(0), asyncResult(0), pendingAsyncResult(false), sectorBlockMode(false) {}
-	~FileNode() {
-		pspFileSystem.CloseFile(handle);
-	}
-	const char *GetName() {return fullpath.c_str();}
-	const char *GetTypeName() {return "OpenFile";}
-	void GetQuickInfo(char *ptr, int size) {
-		sprintf(ptr, "Seekpos: %08x", (u32)pspFileSystem.GetSeekPos(handle));
-	}
-	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_BADF; }
-	int GetIDType() const { return PPSSPP_KERNEL_TMID_File; }
-
-	virtual void DoState(PointerWrap &p) {
-		p.Do(fullpath);
-		p.Do(handle);
-		p.Do(callbackID);
-		p.Do(callbackArg);
-		p.Do(asyncResult);
-		p.Do(pendingAsyncResult);
-		p.Do(sectorBlockMode);
-		p.DoMarker("File");
-	}
-
-	std::string fullpath;
-	u32 handle;
-
-	u32 callbackID;
-	u32 callbackArg;
-
-	u32 asyncResult;
-
-	bool pendingAsyncResult;
-	bool sectorBlockMode;
-};
-
 void __IoInit();
 void __IoDoState(PointerWrap &p);
 void __IoShutdown();
+u32 __IoGetFileHandleFromId(u32 id, u32 &outError);
 KernelObject *__KernelFileNodeObject();
 KernelObject *__KernelDirListingObject();
 
