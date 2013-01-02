@@ -62,7 +62,7 @@ private:
 			if(size > 0)
 			{
 				u_value = new u8[size];
-				memcpy(u_value,data,size);
+				memcpy(u_value, data, size);
 			}
 			u_size = size;
 		}
