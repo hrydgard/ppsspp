@@ -78,7 +78,6 @@ void __KernelInit()
 		return;
 	}
 
-	SaveState::Init();
 	__KernelTimeInit();
 	__InterruptsInit();
 	__KernelMemoryInit();
@@ -101,6 +100,7 @@ void __KernelInit()
 	__ImposeInit();
 	__UsbInit();
 	__FontInit();
+	SaveState::Init();  // Must be after IO, as it may create a directory
 
 	// "Internal" PSP libraries
 	__PPGeInit();

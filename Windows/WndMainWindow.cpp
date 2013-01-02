@@ -312,7 +312,7 @@ namespace MainWindow
 				UpdateMenus();
 				break;
 
-			case ID_FILE_LOADSTATE:
+			case ID_FILE_LOADSTATEFILE:
 				if (g_State.bEmuThreadStarted)
 				{
 					nextState = Core_IsStepping() ? CORE_STEPPING : CORE_RUNNING;
@@ -327,7 +327,7 @@ namespace MainWindow
 				}
 				break;
 
-			case ID_FILE_SAVESTATE:
+			case ID_FILE_SAVESTATEFILE:
 				if (g_State.bEmuThreadStarted)
 				{
 					nextState = Core_IsStepping() ? CORE_STEPPING : CORE_RUNNING;
@@ -340,6 +340,32 @@ namespace MainWindow
 					SetCursor(LoadCursor(0,IDC_WAIT));
 					SaveState::Save(fn, SaveStateActionFinished);
 				}
+				break;
+
+			// TODO: Add UI for multiple slots
+
+			case ID_FILE_QUICKLOADSTATE:
+				if (g_State.bEmuThreadStarted)
+				{
+					nextState = Core_IsStepping() ? CORE_STEPPING : CORE_RUNNING;
+					for (int i=0; i<numCPUs; i++)
+						if (disasmWindow[i])
+							SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
+				}
+				SetCursor(LoadCursor(0,IDC_WAIT));
+				SaveState::LoadSlot(0, SaveStateActionFinished);
+				break;
+
+			case ID_FILE_QUICKSAVESTATE:
+				if (g_State.bEmuThreadStarted)
+				{
+					nextState = Core_IsStepping() ? CORE_STEPPING : CORE_RUNNING;
+					for (int i=0; i<numCPUs; i++)
+						if (disasmWindow[i])
+							SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
+				}
+				SetCursor(LoadCursor(0,IDC_WAIT));
+				SaveState::SaveSlot(0, SaveStateActionFinished);
 				break;
 
 			case ID_OPTIONS_SCREEN1X:
@@ -675,8 +701,10 @@ namespace MainWindow
 
 		enable = g_State.bEmuThreadStarted ? MF_GRAYED : MF_ENABLED;
 		EnableMenuItem(menu,ID_FILE_LOAD,enable);
-		EnableMenuItem(menu,ID_FILE_SAVESTATE,!enable);
-		EnableMenuItem(menu,ID_FILE_LOADSTATE,!enable);
+		EnableMenuItem(menu,ID_FILE_SAVESTATEFILE,!enable);
+		EnableMenuItem(menu,ID_FILE_LOADSTATEFILE,!enable);
+		EnableMenuItem(menu,ID_FILE_QUICKSAVESTATE,!enable);
+		EnableMenuItem(menu,ID_FILE_QUICKLOADSTATE,!enable);
 		EnableMenuItem(menu,ID_CPU_DYNAREC,enable);
 		EnableMenuItem(menu,ID_CPU_INTERPRETER,enable);
 		EnableMenuItem(menu,ID_CPU_FASTINTERPRETER,enable);
@@ -788,7 +816,7 @@ namespace MainWindow
 		}
 	}
 
-	void SaveStateActionFinished(bool result)
+	void SaveStateActionFinished(bool result, void *userdata)
 	{
 		// TODO: Improve messaging?
 		if (!result)

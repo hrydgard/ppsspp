@@ -41,6 +41,9 @@ public:
 	IFileSystem *GetHandleOwner(u32 handle);
 	bool MapFilePath(const std::string &inpath, std::string &outpath, IFileSystem **system);
 
+	// Only possible if a file system is a DirectoryFileSystem or similar.
+	bool GetHostPath(const std::string &inpath, std::string &outpath);
+	
 	std::vector<PSPFileInfo> GetDirListing(std::string path);
 	u32      OpenFile(std::string filename, FileAccess access);
 	void     CloseFile(u32 handle);

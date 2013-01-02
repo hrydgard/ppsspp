@@ -53,8 +53,8 @@
 #define ID_DEBUG_BREAKPOINTS            122
 #define ID_FILE_LOAD_BIN                123
 #define ID_FILE_LOAD_ISO                125
-#define ID_FILE_LOADSTATE               126
-#define ID_FILE_SAVESTATE               127
+#define ID_FILE_LOADSTATEFILE           126
+#define ID_FILE_SAVESTATEFILE           127
 #define ID_EMULATION_RESET              130
 #define IDD_ABOUTBOX                    133
 #define ID_DEBUG_LOADMAPFILE            134
@@ -248,13 +248,15 @@
 #define ID_OPTIONS_FASTMEMORY           40125
 #define IDC_STEPHLE                     40126
 #define ID_OPTIONS_LINEARFILTERING      40127
+#define ID_FILE_QUICKSAVESTATE          40128
+#define ID_FILE_QUICKLOADSTATE          40129
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        232
-#define _APS_NEXT_COMMAND_VALUE         40127
+#define _APS_NEXT_COMMAND_VALUE         40130
 #define _APS_NEXT_CONTROL_VALUE         1162
 #define _APS_NEXT_SYMED_VALUE           101
 #endif

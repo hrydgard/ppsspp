@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "../Common/StdMutex.h"
+#include "../Common/FileUtil.h"
 #include <vector>
 
 #include "SaveState.h"
@@ -45,14 +46,15 @@ namespace SaveState
 
 	struct Operation
 	{
-		Operation(OperationType t, const std::string &f, Callback cb)
-			: type(t), filename(f), callback(cb)
+		Operation(OperationType t, const std::string &f, Callback cb, void *cbUserData_)
+			: type(t), filename(f), callback(cb), cbUserData(cbUserData_)
 		{
 		}
 
 		OperationType type;
 		std::string filename;
 		Callback callback;
+		void *cbUserData;
 	};
 
 	static int timer;
@@ -61,7 +63,6 @@ namespace SaveState
 
 	void Process(u64 userdata, int cyclesLate);
 
-	// This is where the magic happens.
 	void SaveStart::DoState(PointerWrap &p)
 	{
 		// Gotta do CoreTiming first since we'll restore into it.
@@ -96,19 +97,94 @@ namespace SaveState
 			CoreTiming::ScheduleEvent_Threadsafe(0, timer);
 	}
 
-	void Load(const std::string &filename, Callback callback)
+	void Load(const std::string &filename, Callback callback, void *cbUserData)
 	{
-		Enqueue(Operation(SAVESTATE_LOAD, filename, callback));
+		Enqueue(Operation(SAVESTATE_LOAD, filename, callback, cbUserData));
 	}
 
-	void Save(const std::string &filename, Callback callback)
+	void Save(const std::string &filename, Callback callback, void *cbUserData)
 	{
-		Enqueue(Operation(SAVESTATE_SAVE, filename, callback));
+		Enqueue(Operation(SAVESTATE_SAVE, filename, callback, cbUserData));
 	}
 
-	void Verify(Callback callback)
+
+	// Slot utilities
+
+	std::string GenerateSaveSlotFilename(int slot)
 	{
-		Enqueue(Operation(SAVESTATE_VERIFY, std::string(""), callback));
+		char discID[256];
+		char temp[256];
+		sprintf(discID, "%s_%s",
+			g_paramSFO.GetValueString("DISC_ID").c_str(),
+			g_paramSFO.GetValueString("DISC_VERSION").c_str());
+		sprintf(temp, "ms0:/PSP/PPSSPP_STATE/%s_%i.ppst", discID, slot);
+		std::string hostPath;
+		if (pspFileSystem.GetHostPath(std::string(temp), hostPath)) {
+			return hostPath;
+		} else {
+			return "";
+		}
+	}
+
+	void LoadSlot(int slot, Callback callback, void *cbUserData)
+	{
+		std::string fn = GenerateSaveSlotFilename(slot);
+		if (!fn.empty())
+			Load(fn, callback, cbUserData);
+		else
+			(*callback)(false, cbUserData);
+	}
+
+	void SaveSlot(int slot, Callback callback, void *cbUserData)
+	{
+		std::string fn = GenerateSaveSlotFilename(slot);
+		if (!fn.empty())
+			Save(fn, callback, cbUserData);
+		else
+			(*callback)(false, cbUserData);
+	}
+
+	void HasSaveInSlot(int slot)
+	{
+		std::string fn = GenerateSaveSlotFilename(slot);
+	}
+
+	bool operator < (const tm &t1, const tm &t2) {
+		if (t1.tm_year < t2.tm_year) return true;
+		if (t1.tm_year > t2.tm_year) return false;
+		if (t1.tm_mon < t2.tm_mon) return true;
+		if (t1.tm_mon > t2.tm_mon) return false;
+		if (t1.tm_mday < t2.tm_mday) return true;
+		if (t1.tm_mday > t2.tm_mday) return false;
+		if (t1.tm_hour < t2.tm_hour) return true;
+		if (t1.tm_hour > t2.tm_hour) return false;
+		if (t1.tm_min < t2.tm_min) return true;
+		if (t1.tm_min > t2.tm_min) return false;
+		if (t1.tm_sec < t2.tm_sec) return true;
+		if (t1.tm_sec > t2.tm_sec) return false;
+		return false;
+	}
+
+	int GetMostRecentSaveSlot() {
+		int newestSlot = -1;
+		tm newestDate = {0};
+		for (int i = 0; i < SAVESTATESLOTS; i++) {
+			std::string fn = GenerateSaveSlotFilename(i);
+			if (File::Exists(fn)) {
+				tm time = File::GetModifTime(fn);
+				if (newestDate < time) {
+					newestDate = time;
+					newestSlot = i;
+				}
+			}
+		}
+		return newestSlot;
+	}
+
+
+	void Verify(Callback callback, void *cbUserData)
+	{
+		Enqueue(Operation(SAVESTATE_VERIFY, std::string(""), callback, cbUserData));
 	}
 
 	std::vector<Operation> Flush()
@@ -164,12 +240,14 @@ namespace SaveState
 			}
 
 			if (op.callback != NULL)
-				op.callback(result);
+				op.callback(result, op.cbUserData);
 		}
 	}
 
 	void Init()
 	{
 		timer = CoreTiming::RegisterEvent("SaveState", Process);
+		// Make sure there's a directory for save slots
+		pspFileSystem.MkDir("ms0:/PSP/PPSSPP_STATE");
 	}
 }

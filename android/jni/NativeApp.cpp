@@ -53,6 +53,7 @@ Texture *uiTexture;
 
 ScreenManager *screenManager;
 std::string config_filename;
+std::string game_title;
 
 class AndroidLogger : public LogListener
 {
@@ -112,6 +113,9 @@ public:
 	virtual bool AttemptLoadSymbolMap() {return false;}
 	virtual void ResetSymbolMap() {}
 	virtual void AddSymbol(std::string name, u32 addr, u32 size, int type=0) {}
+	virtual void SetWindowTitle(const char *message) {
+		game_title = message;
+	}
 };
 
 // globals

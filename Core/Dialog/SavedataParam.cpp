@@ -226,8 +226,8 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, int saveId)
 	PSPFileInfo sfoInfo = pspFileSystem.GetFileInfo(sfopath);
 	if(sfoInfo.exists) // Read old sfo if exist
 	{
-		u8 *sfoData = new u8[sfoInfo.size];
-		size_t sfoSize = sfoInfo.size;
+		u8 *sfoData = new u8[(size_t)sfoInfo.size];
+		size_t sfoSize = (size_t)sfoInfo.size;
 		if(ReadPSPFile(sfopath,sfoData,sfoSize))
 		{
 			sfoFile.ReadSFO(sfoData,sfoSize);
@@ -475,7 +475,7 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 		if (Memory::IsValidAddress(outputBuffer))
 		{
 			std::string searchString = GetGameName(param)+GetSaveName(param);
-			for(int i = 0; i < allDir.size() && i < maxFile; i++)
+			for (size_t i = 0; i < allDir.size() && i < maxFile; i++)
 			{
 				std::string dirName = allDir[i].name;
 				if(PSPMatch(dirName, searchString))
@@ -484,7 +484,7 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 				}
 			}
 
-			for(int i = 0; i < validDir.size(); i++)
+			for (size_t i = 0; i < validDir.size(); i++)
 			{
 				u32 baseAddr = outputBuffer + (i*72);
 				Memory::Write_U32(0x11FF,baseAddr + 0); // mode
@@ -514,7 +514,7 @@ bool SavedataParam::GetFilesList(SceUtilitySavedataParam *param)
 	}
 
 	u32 dataAddr = param->fileListAddr;
-	if(!Memory::IsValidAddress(dataAddr))
+	if (!Memory::IsValidAddress(dataAddr))
 		return false;
 
 	// TODO : Need to be checked against more game
@@ -524,7 +524,7 @@ bool SavedataParam::GetFilesList(SceUtilitySavedataParam *param)
 	//for Valkyria2, dataAddr+0 and dataAddr+12 has "5" for 5 files
 	int numFiles = Memory::Read_U32(dataAddr+12);
 	int foundFiles = 0;
-	for(int i = 0; i < numFiles; i++)
+	for (int i = 0; i < numFiles; i++)
 	{
 		// for each file (80 bytes):
 		// u32 mode, u32 ??, u64 size, u64 ctime, u64 ??, u64 atime, u64 ???, u64 mtime, u64 ???
@@ -535,7 +535,7 @@ bool SavedataParam::GetFilesList(SceUtilitySavedataParam *param)
 		strncpy(fileName, Memory::GetCharPointer(curFileInfoAddr + 64),16);
 		std::string filePath = savePath + GetGameName(param) + GetSaveName(param) + "/" + fileName;
 		PSPFileInfo info = pspFileSystem.GetFileInfo(filePath);
-		if(info.exists)
+		if (info.exists)
 		{
 			Memory::Write_U32(0x21FF, curFileInfoAddr+0);
 			Memory::Write_U64(info.size, curFileInfoAddr+8);

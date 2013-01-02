@@ -33,14 +33,15 @@ public:
 
 	bool ReadSFO(const u8 *paramsfo, size_t size);
 	bool WriteSFO(u8 **paramsfo, size_t *size);
-private:
 
+private:
 	enum ValueType
 	{
 		VT_INT,
 		VT_UTF8,
 		VT_UTF8_SPE	// raw data in u8
 	};
+
 	class ValueData
 	{
 	public:

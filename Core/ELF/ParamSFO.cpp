@@ -147,7 +147,7 @@ bool ParamSFOData::WriteSFO(u8 **paramsfo, size_t *size)
 	total_size += sizeof(Header);
 
 	// Get size info
-	for(std::map<std::string,ValueData>::iterator it = values.begin(); it != values.end(); it++)
+	for (std::map<std::string,ValueData>::iterator it = values.begin(); it != values.end(); it++)
 	{
 		key_size += it->first.size()+1;
 		data_size += it->second.max_size;
@@ -168,29 +168,29 @@ bool ParamSFOData::WriteSFO(u8 **paramsfo, size_t *size)
 
 	u8* data = new u8[total_size];
 	*paramsfo = data;
-	memset(data,0,total_size);
-	memcpy(data,&header,sizeof(Header));
+	memset(data, 0, total_size);
+	memcpy(data, &header, sizeof(Header));
 
 	// Now fill
 	IndexTable *index_ptr = (IndexTable*)(data + sizeof(Header));
 	u8* key_ptr = data + header.key_table_start;
 	u8* data_ptr = data + header.data_table_start;
 
-	for(std::map<std::string,ValueData>::iterator it = values.begin(); it != values.end(); it++)
+	for (std::map<std::string,ValueData>::iterator it = values.begin(); it != values.end(); it++)
 	{
 		u16 offset = (u16)(key_ptr - (data+header.key_table_start));
 		index_ptr->key_table_offset = offset;
 		offset = (u16)(data_ptr - (data+header.data_table_start));
 		index_ptr->data_table_offset = offset;
 		index_ptr->param_max_len = it->second.max_size;
-		if(it->second.type == VT_INT)
+		if (it->second.type == VT_INT)
 		{
 			index_ptr->param_fmt = 0x0404;
 			index_ptr->param_len = 4;
 
 			*(int*)data_ptr = it->second.i_value;
 		}
-		else if(it->second.type == VT_UTF8_SPE)
+		else if (it->second.type == VT_UTF8_SPE)
 		{
 			index_ptr->param_fmt = 0x0004;
 			index_ptr->param_len = it->second.u_size;
@@ -198,7 +198,7 @@ bool ParamSFOData::WriteSFO(u8 **paramsfo, size_t *size)
 			memset(data_ptr,0,index_ptr->param_max_len);
 			memcpy(data_ptr,it->second.u_value,index_ptr->param_len);
 		}
-		else if(it->second.type == VT_UTF8)
+		else if (it->second.type == VT_UTF8)
 		{
 			index_ptr->param_fmt = 0x0204;
 			index_ptr->param_len = it->second.s_value.size()+1;

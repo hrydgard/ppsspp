@@ -37,10 +37,10 @@
 #include "CoreParameter.h"
 #include "FileSystems/MetaFileSystem.h"
 #include "Loaders.h"
-
+#include "ELF/ParamSFO.h"
 
 MetaFileSystem pspFileSystem;
-
+ParamSFOData g_paramSFO;
 static CoreParameter coreParameter;
 
 bool PSP_Init(const CoreParameter &coreParam, std::string *error_string)

@@ -59,7 +59,7 @@ void CConfig::Load(const char *iniFileName)
 	graphics->Get("DisplayFramebuffer", &bDisplayFramebuffer, false);
 	graphics->Get("WindowZoom", &iWindowZoom, 1);
 	graphics->Get("BufferedRendering", &bBufferedRendering, true);
-	graphics->Get("HardwareTransform", &bHardwareTransform, false);
+	graphics->Get("HardwareTransform", &bHardwareTransform, true);
 	graphics->Get("LinearFiltering", &bLinearFiltering, false);
 
 	IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
@@ -68,7 +68,6 @@ void CConfig::Load(const char *iniFileName)
 	IniFile::Section *control = iniFile.GetOrCreateSection("Control");
 	control->Get("ShowStick", &bShowAnalogStick, false);
 	control->Get("ShowTouchControls", &bShowTouchControls, true);
-
 
 	// Ephemeral settings
 	bDrawWireframe = false;

@@ -29,6 +29,7 @@
 #include "ui/ui.h"
 #include "ui_atlas.h"
 #include "util/random/rng.h"
+#include "util/text/utf8.h"
 #include "UIShader.h"
 
 #include "../../GPU/ge_constants.h"
@@ -36,9 +37,15 @@
 #include "../../GPU/GPUInterface.h"
 #include "../../Core/Config.h"
 #include "../../Core/CoreParameter.h"
+#include "../../Core/SaveState.h"
 
 #include "MenuScreens.h"
 #include "EmuScreen.h"
+
+
+// Ugly communication with NativeApp
+extern std::string game_title;
+
 
 static const int symbols[4] = {
 	I_CROSS,
@@ -207,22 +214,39 @@ void InGameMenuScreen::render() {
 	UIBegin();
 	DrawBackground(1.0f);
 
-	ui_draw2d.DrawText(UBUNTU48, "Emulation Paused", dp_xres / 2, 30, 0xFFFFFFFF, ALIGN_HCENTER);
+	const char *title;
+	if (UTF8StringHasNonASCII(game_title.c_str())) {
+		title = "(can't display japanese title)";
+	} else {
+		title = game_title.c_str();
+	}
+
+	ui_draw2d.DrawText(UBUNTU48, title, dp_xres / 2, 30, 0xFFFFFFFF, ALIGN_HCENTER);
 
 	int x = 30;
 	int y = 50;
-	UICheckBox(GEN_ID, x, y += 50, "Show Debug Statistics (experimental)", ALIGN_TOPLEFT, &g_Config.bShowDebugStats);
-	UICheckBox(GEN_ID, x, y += 50, "Hardware Transform (experimental)", ALIGN_TOPLEFT, &g_Config.bHardwareTransform);
+	UICheckBox(GEN_ID, x, y += 50, "Show Debug Statistics", ALIGN_TOPLEFT, &g_Config.bShowDebugStats);
+	UICheckBox(GEN_ID, x, y += 50, "Hardware Transform", ALIGN_TOPLEFT, &g_Config.bHardwareTransform);
+
+	// TODO: Add UI for more than one slot.
+	VLinear vlinear1(x, y + 80, 20);
+	UIText(UBUNTU24, vlinear1, "Save states are experimental (and large)", 0xFFFFFFFF);
+	if (UIButton(GEN_ID, vlinear1, LARGE_BUTTON_WIDTH, "Save State", ALIGN_LEFT)) {
+		SaveState::SaveSlot(0, 0, 0);
+		screenManager()->finishDialog(this, DR_CANCEL);
+	}
+	if (UIButton(GEN_ID, vlinear1, LARGE_BUTTON_WIDTH, "Load State", ALIGN_LEFT)) {
+		SaveState::LoadSlot(0, 0, 0);
+		screenManager()->finishDialog(this, DR_CANCEL);
+	}
 
 	VLinear vlinear(dp_xres - 10, 160, 20);
 	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH, "Continue", ALIGN_RIGHT)) {
 		screenManager()->finishDialog(this, DR_CANCEL);
 	}
-
 	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH, "Return to Menu", ALIGN_RIGHT)) {
 		screenManager()->finishDialog(this, DR_OK);
 	}
-
 	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH, "Dump Next Frame", ALIGN_RIGHT)) {
 		gpu->DumpNextFrame();
 	}
@@ -253,7 +277,7 @@ void SettingsScreen::render() {
 	int y = 50;
 	UICheckBox(GEN_ID, x, y += 50, "Sound Emulation", ALIGN_TOPLEFT, &g_Config.bEnableSound);
 	UICheckBox(GEN_ID, x, y += 50, "Buffered Rendering (may fix flicker)", ALIGN_TOPLEFT, &g_Config.bBufferedRendering);
-	UICheckBox(GEN_ID, x, y += 50, "Hardware Transform (experimental)", ALIGN_TOPLEFT, &g_Config.bHardwareTransform);
+	UICheckBox(GEN_ID, x, y += 50, "Hardware Transform", ALIGN_TOPLEFT, &g_Config.bHardwareTransform);
 
 	bool useFastInt = g_Config.iCpuCore == CPU_FASTINTERPRETER;
 	UICheckBox(GEN_ID, x, y += 50, "Slightly faster interpreter (may crash)", ALIGN_TOPLEFT, &useFastInt);

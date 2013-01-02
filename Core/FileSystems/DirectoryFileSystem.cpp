@@ -510,6 +510,11 @@ PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename) {
 	return x;
 }
 
+bool DirectoryFileSystem::GetHostPath(const std::string &inpath, std::string &outpath) {
+	outpath = GetLocalPath(inpath);
+	return true;
+}
+
 std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 	std::vector<PSPFileInfo> myVector;
 #ifdef _WIN32
