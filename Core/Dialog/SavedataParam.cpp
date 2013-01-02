@@ -244,18 +244,20 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, int saveId)
 	sfoFile.SetValue("SAVEDATA_DIRECTORY",GetSaveDir(param,saveId),64);
 
 	// For each file, 13 bytes for filename, 16 bytes for file hash (0 in PPSSPP), 3 byte for padding
-	u8* tmpData = sfoFile.GetValueData("SAVEDATA_FILE_LIST", 0);
+	u32 tmpDataSize = 0;
+	u8* tmpData = sfoFile.GetValueData("SAVEDATA_FILE_LIST", &tmpDataSize);
 	u8* tmpData2 = 0;
 	if(tmpData == 0)
 	{
 		tmpData2 = new u8[3168]; // 99 filename max
 		tmpData = tmpData2;
+		tmpDataSize = 3168;
 		memset(tmpData, 0, 3168);
 	}
 	if(param->dataBuf != 0)
 	{
-		char* fName = (char*)tmpData;
-		for(int i = 0; i < 99; i++)
+		char *fName = (char*)tmpData;
+		for(int i = 0; i < 99 && fName < (char*)tmpData + tmpDataSize; i++)
 		{
 			if(fName[0] == 0)
 				break; // End of list
@@ -264,7 +266,9 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, int saveId)
 
 			fName += 32;
 		}
-		snprintf(fName, 20,"%s",GetFileName(param).c_str());
+
+		if (fName + 20 <= (char*)tmpData + tmpDataSize)
+			snprintf(fName, 20, "%s",GetFileName(param).c_str());
 	}
 	sfoFile.SetValue("SAVEDATA_FILE_LIST", tmpData, 3168, 3168);
 	if(tmpData2)

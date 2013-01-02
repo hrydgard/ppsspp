@@ -54,15 +54,18 @@ private:
 
 		void SetData(const u8* data, int size)
 		{
-			if(u_value)
+			if (data != u_value)
 			{
-				delete[] u_value;
-				u_value = 0;
-			}
-			if(size > 0)
-			{
-				u_value = new u8[size];
-				memcpy(u_value,data,size);
+				if(u_value)
+				{
+					delete[] u_value;
+					u_value = 0;
+				}
+				if(size > 0)
+				{
+					u_value = new u8[size];
+					memcpy(u_value, data, size);
+				}
 			}
 			u_size = size;
 		}
