@@ -271,6 +271,19 @@ int sceFontGetFontInfo(u32 fontHandle, u32 fontInfoPtr)
 		fi.minGlyphCenterXF = 16;
 		fi.minGlyphCenterXI = 16;
 		fi.shadowMapLength = 0;
+		fi.fontStyle.fontAttributes=1;
+		fi.fontStyle.fontCountry= 1;
+		fi.fontStyle.fontExpire= 1;
+		fi.fontStyle.fontFamily= 1;
+		//fi.fontStyle.fontFileName="asd";
+		fi.fontStyle.fontH=32;
+		fi.fontStyle.fontHRes=32;
+		fi.fontStyle.fontLanguage=1;
+		//	fi.fontStyle.fontName="ppsspp";
+		fi.fontStyle.fontRegion=9;
+		fi.fontStyle.fontV=32;
+		fi.fontStyle.fontVRes=32;
+		fi.fontStyle.fontWeight= 32;
 		Memory::WriteStruct(fontInfoPtr, &fi);
 	}
 
@@ -316,7 +329,13 @@ int sceFontGetCharGlyphImage(u32 libHandler, u32 charCode, u32 glyphImagePtr)
 	int bytesPerLine = Memory::Read_U16(glyphImagePtr+16);
 	int buffer =Memory::Read_U32(glyphImagePtr+20);
 
-	Memory::Memset(buffer, 0x7F, bytesPerLine * bufHeight);
+	for (int y= 0; y < bufHeight; y++)
+	{
+		for (int x=0; x<bytesPerLine; x++)
+		{
+			Memory::Write_U8(0xff, buffer + (x * y));
+		}
+	}
 
 	return 0;
 }

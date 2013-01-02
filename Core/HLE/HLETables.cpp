@@ -51,7 +51,6 @@
 #include "sceParseUri.h"
 #include "sceSsl.h"
 #include "sceParseHttp.h"
-#include "scesupPreAcc.h"
 #include "sceVaudio.h"
 #include "sceUsb.h"
 
@@ -243,7 +242,6 @@ void RegisterAllModules() {
 	Register_sceParseUri();
 	Register_sceSsl();
 	Register_sceParseHttp();
-	Register_scesupPreAcc();
 	Register_sceVaudio();
 	Register_sceUsb();
 

@@ -171,7 +171,6 @@
     <ClCompile Include="HLE\sceRtc.cpp" />
     <ClCompile Include="HLE\sceSas.cpp" />
     <ClCompile Include="HLE\sceSsl.cpp" />
-    <ClCompile Include="HLE\scesupPreAcc.cpp" />
     <ClCompile Include="HLE\sceUmd.cpp" />
     <ClCompile Include="HLE\sceUsb.cpp" />
     <ClCompile Include="HLE\sceUtility.cpp" />
@@ -319,7 +318,6 @@
     <ClInclude Include="HLE\sceRtc.h" />
     <ClInclude Include="HLE\sceSas.h" />
     <ClInclude Include="HLE\sceSsl.h" />
-    <ClInclude Include="HLE\scesupPreAcc.h" />
     <ClInclude Include="HLE\sceUmd.h" />
     <ClInclude Include="HLE\sceUsb.h" />
     <ClInclude Include="HLE\sceUtility.h" />
