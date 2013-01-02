@@ -288,21 +288,21 @@ void sceKernelSleepThreadCB();
 
 void sceKernelDevkitVersion();
 
-void sceKernelRegisterKprintfHandler();
+u32 sceKernelRegisterKprintfHandler();
 void sceKernelRegisterDefaultExceptionHandler();
 
-void sceKernelFindModuleByName();
+u32 sceKernelFindModuleByName();
 
-void sceKernelSetGPO();
-void sceKernelGetGPI();
+void sceKernelSetGPO(u32 ledAddr);
+u32 sceKernelGetGPI();
 int sceKernelDcacheInvalidateRange(u32 addr, int size);
 int sceKernelDcacheWritebackAll();
 int sceKernelDcacheWritebackRange(u32 addr, int size);
 int sceKernelDcacheWritebackInvalidateRange(u32 addr, int size);
 int sceKernelDcacheWritebackInvalidateAll();
 void sceKernelGetThreadStackFreeSize();
-void sceKernelIcacheInvalidateAll();
-void sceKernelIcacheClearAll();
+u32 sceKernelIcacheInvalidateAll();
+u32 sceKernelIcacheClearAll();
 
 #define KERNELOBJECT_MAX_NAME_LENGTH 31
 

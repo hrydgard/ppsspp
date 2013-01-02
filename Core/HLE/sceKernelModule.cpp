@@ -893,10 +893,10 @@ u32 sceKernelGetModuleId()
 	return __KernelGetCurThreadModuleId();
 }
 
-void sceKernelFindModuleByName()
+u32 sceKernelFindModuleByName()
 {
 	ERROR_LOG(HLE,"UNIMPL sceKernelFindModuleByName()");
-	RETURN(1);
+	return 1;
 }
 
 u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr)
