@@ -318,9 +318,6 @@
     <ClCompile Include="HLE\sceParseHttp.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
-    <ClCompile Include="HLE\scesupPreAcc.cpp">
-      <Filter>HLE\Libraries</Filter>
-    </ClCompile>
     <ClCompile Include="HLE\sceVaudio.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
@@ -612,9 +609,6 @@
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="HLE\sceParseHttp.h">
-      <Filter>HLE\Libraries</Filter>
-    </ClInclude>
-    <ClInclude Include="HLE\scesupPreAcc.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="HLE\sceVaudio.h">

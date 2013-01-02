@@ -243,7 +243,6 @@ void RegisterAllModules() {
 	Register_sceParseUri();
 	Register_sceSsl();
 	Register_sceParseHttp();
-	Register_scesupPreAcc();
 	Register_sceVaudio();
 	Register_sceUsb();
 
