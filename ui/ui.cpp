@@ -108,6 +108,17 @@ void UIText(int font, int x, int y, const char *text, uint32_t color, float scal
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 }
 
+void UIText(int font, const LayoutManager &layout, const char *text, uint32_t color, float scale, int align)
+{
+	ui_draw2d.SetFontScale(scale, scale);
+	float w, h;
+	ui_draw2d.MeasureText(font, text, &w, &h);
+	float x, y;
+	layout.GetPos(&w, &h, &x, &y);
+	UIText(font, x, y, text, color, scale, 0);
+	ui_draw2d.SetFontScale(1.0f, 1.0f);
+}
+
 int UIButton(int id, const LayoutManager &layout, float w, const char *text, int button_align) {
 	float h = themeAtlas->images[theme.buttonImage].h;
 

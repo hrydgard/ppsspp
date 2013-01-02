@@ -203,6 +203,7 @@ int UIHSlider(int id, int x, int y, int w, int max, int *value);
 // Draws static text, that does not participate in any focusing scheme etc, it just is.
 void UIText(int font, int x, int y, const char *text, uint32_t color, float scale = 1.0f, int align = ALIGN_TOPLEFT);
 void UIText(int x, int y, const char *text, uint32_t color, float scale = 1.0f, int align = ALIGN_TOPLEFT);
+void UIText(int font, const LayoutManager &layout, const char *text, uint32_t color, float scale = 1.0f, int align = ALIGN_TOPLEFT);
 
 // Slide choice, like the Angry Birds level selector. Not yet working.
 void UISlideChoice(int id, int y, const SlideItem *items, int numItems, UISlideState *state);

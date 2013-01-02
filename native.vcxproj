@@ -248,6 +248,7 @@
     <ClInclude Include="util\bits\bits.h" />
     <ClInclude Include="util\random\perlin.h" />
     <ClInclude Include="util\random\rng.h" />
+    <ClInclude Include="util\text\utf8.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="android\app-android.cpp">
@@ -338,6 +339,7 @@
       <AssemblerOutput Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AssemblyAndSourceCode</AssemblerOutput>
       <AssemblerOutput Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AssemblyAndSourceCode</AssemblerOutput>
     </ClCompile>
+    <ClCompile Include="util\text\utf8.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

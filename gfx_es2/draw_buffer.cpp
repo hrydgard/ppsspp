@@ -10,6 +10,7 @@
 #include "gfx/texture_atlas.h"
 #include "gfx/gl_debug_log.h"
 #include "gfx/gl_common.h"
+#include "util/text/utf8.h"
 
 enum {
   // Enough?
@@ -295,6 +296,12 @@ void DrawBuffer::DoAlign(int flags, float *x, float *y, float *w, float *h) {
   }
 }
 
+// TODO: Unicode support.
+// U+4E00–U+9FBF Kanji
+// U+3040–U+309F Hiragana
+// U+30A0–U+30FF Katakana
+
+
 // ROTATE_* doesn't yet work right.
 void DrawBuffer::DrawText(int font, const char *text, float x, float y, Color color, int flags) {
   const AtlasFont &atlasfont = *atlas->fonts[font];
@@ -312,7 +319,11 @@ void DrawBuffer::DrawText(int font, const char *text, float x, float y, Color co
   else
     y += atlasfont.ascend*fontscaley;
   float sx = x;
-  while ((cval = *text++) != '\0') {
+	UTF8 utf(text);
+  while (true) {
+		if (utf.end())
+			break;
+		cval = utf.next();
     if (cval == '\n') {
       y += atlasfont.height * fontscaley;
       x = sx;

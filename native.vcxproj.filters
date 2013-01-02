@@ -233,6 +233,9 @@
     <ClInclude Include="gfx_es2\gl_state.h">
       <Filter>gfx</Filter>
     </ClInclude>
+    <ClInclude Include="util\text\utf8.h">
+      <Filter>util</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -413,6 +416,9 @@
     </ClCompile>
     <ClCompile Include="gfx_es2\gl_state.cpp">
       <Filter>gfx</Filter>
+    </ClCompile>
+    <ClCompile Include="util\text\utf8.cpp">
+      <Filter>util</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -54,7 +54,8 @@ LOCAL_SRC_FILES :=\
 	ui/ui_context.cpp \
 	ui/screen.cpp \
 	ui/virtual_input.cpp \
-    util/random/perlin.cpp
+    util/random/perlin.cpp \
+    util/text/utf8.cpp
 
 LOCAL_CFLAGS := -O2 -DGL_GLEXT_PROTOTYPES -DARM -DUSING_GLES2 -fsigned-char -fno-strict-aliasing
 LOCAL_CPPFLAGS := -fno-exceptions -fno-rtti -std=gnu++0x
