@@ -112,14 +112,17 @@ u32 sceKernelLibcClock()
 	return retVal;
 }
 
-void sceKernelLibcTime()
+u32 sceKernelLibcTime(u32 outPtr)
 {
-	time_t *t = 0;
-	if (PARAM(0))
-		t = (time_t*)Memory::GetPointer(PARAM(0));
-	u32 retVal = (u32)time(t);
-	DEBUG_LOG(HLE,"%i = sceKernelLibcTime()",retVal);
-	RETURN(retVal);
+	time_t t;
+	time(&t);
+
+	DEBUG_LOG(HLE, "%i = sceKernelLibcTime(%08X)", (u32) t, outPtr);
+
+	if (Memory::IsValidAddress(outPtr))
+		Memory::Write_U32((u32) t, outPtr);
+
+	return (u32) t;
 }
 
 void sceKernelLibcGettimeofday()

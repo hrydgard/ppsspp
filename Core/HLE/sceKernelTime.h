@@ -18,7 +18,7 @@
 #pragma once
 
 void sceKernelLibcGettimeofday();
-void sceKernelLibcTime();
+u32 sceKernelLibcTime(u32 outPtr);
 void sceKernelUSec2SysClock();
 void sceKernelGetSystemTime();
 void sceKernelGetSystemTimeLow();
