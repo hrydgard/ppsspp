@@ -51,6 +51,7 @@ enum
 
 static std::vector<HLEModule> moduleDB;
 static std::vector<Syscall> unresolvedSyscalls;
+static std::vector<Syscall> exportedCalls;
 static int hleAfterSyscall = HLE_AFTER_NOTHING;
 static char hleAfterSyscallReschedReason[512];
 
@@ -63,6 +64,7 @@ void HLEDoState(PointerWrap &p)
 {
 	Syscall sc = {0};
 	p.Do(unresolvedSyscalls, sc);
+	p.Do(exportedCalls, sc);
 	p.DoMarker("HLE");
 }
 
@@ -71,6 +73,7 @@ void HLEShutdown()
 	hleAfterSyscall = HLE_AFTER_NOTHING;
 	moduleDB.clear();
 	unresolvedSyscalls.clear();
+	exportedCalls.clear();
 }
 
 void RegisterModule(const char *name, int numFunctions, const HLEFunction *funcTable)
@@ -124,15 +127,26 @@ const HLEFunction *GetFunc(const char *moduleName, u32 nib)
 
 const char *GetFuncName(const char *moduleName, u32 nib)
 {
+	_dbg_assert_msg_(HLE, moduleName != NULL, "Invalid module name.");
+
 	const HLEFunction *func = GetFunc(moduleName,nib);
 	if (func)
 		return func->name;
-	else
+
+	// Was this function exported previously?
+	static char temp[256];
+	for (auto it = exportedCalls.begin(), end = exportedCalls.end(); it != end; ++it)
 	{
-		static char temp[256];
-		sprintf(temp,"[UNK: 0x%08x ]",nib);
-		return temp;
+		if (!strcmp(it->moduleName, moduleName) && it->nid == nib)
+		{
+			sprintf(temp, "[EXP: 0x%08x]", nib);
+			return temp;
+		}
 	}
+
+	// No good, we can't find it.
+	sprintf(temp,"[UNK: 0x%08x]", nib);
+	return temp;
 }
 
 u32 GetSyscallOp(const char *moduleName, u32 nib)
@@ -173,17 +187,30 @@ void WriteSyscall(const char *moduleName, u32 nib, u32 address)
 	}
 	else
 	{
+		// Did another module export this already?
+		for (auto it = exportedCalls.begin(), end = exportedCalls.end(); it != end; ++it)
+		{
+			if (!strcmp(it->moduleName, moduleName) && it->nid == nib)
+			{
+				Memory::Write_U32(MIPS_MAKE_J(it->symAddr), address); // j symAddr
+				Memory::Write_U32(MIPS_MAKE_NOP(), address + 4); // nop (delay slot)
+				return;
+			}
+		}
+
 		// Module inexistent.. for now; let's store the syscall for it to be resolved later
 		INFO_LOG(HLE,"Syscall (%s,%08x) unresolved, storing for later resolving", moduleName, nib);
 		Syscall sysc = {"", address, nib};
-		strncpy(sysc.moduleName, moduleName, 32);
-		sysc.moduleName[31] = '\0';
+		strncpy(sysc.moduleName, moduleName, KERNELOBJECT_MAX_NAME_LENGTH);
+		sysc.moduleName[KERNELOBJECT_MAX_NAME_LENGTH] = '\0';
 		unresolvedSyscalls.push_back(sysc);
 	}
 }
 
 void ResolveSyscall(const char *moduleName, u32 nib, u32 address)
 {
+	_dbg_assert_msg_(HLE, moduleName != NULL, "Invalid module name.");
+
 	for (size_t i = 0; i < unresolvedSyscalls.size(); i++)
 	{
 		Syscall *sysc = &unresolvedSyscalls[i];
@@ -196,6 +223,11 @@ void ResolveSyscall(const char *moduleName, u32 nib, u32 address)
 			Memory::Write_U32(MIPS_MAKE_NOP(), sysc->symAddr + 4);
 		}
 	}
+
+	Syscall ex = {"", address, nib};
+	strncpy(ex.moduleName, moduleName, KERNELOBJECT_MAX_NAME_LENGTH);
+	ex.moduleName[KERNELOBJECT_MAX_NAME_LENGTH] = '\0';
+	exportedCalls.push_back(ex);
 }
 
 const char *GetFuncName(int moduleIndex, int func)
