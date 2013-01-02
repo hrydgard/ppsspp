@@ -237,23 +237,30 @@ void sceKernelGetGPI()
 // Don't even log these, they're spammy and we probably won't
 // need to emulate them. Might be useful for invalidating cached
 // textures, and in the future display lists, in some cases though.
-void sceKernelDcacheInvalidateRange(u32 addr, int size)
+int sceKernelDcacheInvalidateRange(u32 addr, int size)
 {
 	gpu->InvalidateCache(addr, size);
+	return 0;
 }
-void sceKernelDcacheWritebackAll()
-{
-}
-void sceKernelDcacheWritebackRange(u32 addr, int size)
-{
-}
-void sceKernelDcacheWritebackInvalidateRange(u32 addr, int size)
-{
-	gpu->InvalidateCache(addr, size);
-}
-void sceKernelDcacheWritebackInvalidateAll()
+int sceKernelDcacheWritebackAll()
 {
 	gpu->InvalidateCache(0, -1);
+	return 0;
+}
+int sceKernelDcacheWritebackRange(u32 addr, int size)
+{
+	gpu->InvalidateCache(addr, size);
+	return 0;
+}
+int sceKernelDcacheWritebackInvalidateRange(u32 addr, int size)
+{
+	gpu->InvalidateCache(addr, size);
+	return 0;
+}
+int sceKernelDcacheWritebackInvalidateAll()
+{
+	gpu->InvalidateCache(0, -1);
+	return 0;
 }
 
 KernelObjectPool::KernelObjectPool()
