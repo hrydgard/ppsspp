@@ -718,8 +718,6 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceSas.h
 	Core/HLE/sceSsl.cpp
 	Core/HLE/sceSsl.h
-	Core/HLE/scesupPreAcc.cpp
-	Core/HLE/scesupPreAcc.h
 	Core/HLE/sceUmd.cpp
 	Core/HLE/sceUmd.h
 	Core/HLE/sceUsb.cpp
