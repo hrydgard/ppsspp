@@ -246,7 +246,9 @@ int sceKernelDcacheInvalidateRange(u32 addr, int size)
 }
 int sceKernelDcacheWritebackAll()
 {
-	gpu->InvalidateCache(0, -1);
+  // Some games seem to use this a lot, it doesn't make sense
+  // to zap the whole texture cache.
+	// gpu->InvalidateCache(0, -1);
 	return 0;
 }
 int sceKernelDcacheWritebackRange(u32 addr, int size)
