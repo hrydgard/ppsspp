@@ -107,8 +107,8 @@ u32 sceKernelUSec2SysClockWide(u32 usec)
 
 u32 sceKernelLibcClock()
 {
-	u32 retVal = clock()*1000;  // TODO: This can't be right
-	DEBUG_LOG(HLE,"%i = sceKernelLibcClock",retVal);
+	u32 retVal = (u32) (CoreTiming::GetTicks() / CoreTiming::GetClockFrequencyMHz());
+	DEBUG_LOG(HLE, "%i = sceKernelLibcClock", retVal);
 	return retVal;
 }
 
@@ -121,6 +121,8 @@ u32 sceKernelLibcTime(u32 outPtr)
 
 	if (Memory::IsValidAddress(outPtr))
 		Memory::Write_U32((u32) t, outPtr);
+	else if (outPtr != 0)
+		return 0;
 
 	return (u32) t;
 }
