@@ -18,12 +18,15 @@
 #pragma once
 
 #include <string>
+
+#include "../System.h"
 #include "HLE.h"
 #include "sceKernel.h"
 
 void __IoInit();
 void __IoDoState(PointerWrap &p);
 void __IoShutdown();
+u32 __IoGetFileHandleFromId(u32 id, u32 &outError);
 KernelObject *__KernelFileNodeObject();
 KernelObject *__KernelDirListingObject();
 

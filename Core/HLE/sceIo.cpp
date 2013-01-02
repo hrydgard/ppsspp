@@ -20,7 +20,6 @@
 #undef DeleteFile
 #endif
 
-#include "../System.h"
 #include "../Config.h"
 #include "../Host.h"
 #include "../SaveState.h"
@@ -211,6 +210,15 @@ void __IoDoState(PointerWrap &p) {
 void __IoShutdown() {
 	defAction = 0;
 	defParam = 0;
+}
+
+u32 __IoGetFileHandleFromId(u32 id, u32 &outError)
+{
+	FileNode *f = kernelObjects.Get < FileNode > (id, outError);
+	if (!f) {
+		return -1;
+	}
+	return f->handle;
 }
 
 u32 sceIoAssign(const char *aliasname, const char *physname, const char *devname, u32 flag) {

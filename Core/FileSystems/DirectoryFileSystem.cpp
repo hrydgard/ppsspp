@@ -490,19 +490,22 @@ PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename) {
 		return x;
 #endif
 	}
-	x.type = File::IsDirectory(fullName) ? FILETYPE_NORMAL : FILETYPE_DIRECTORY;
+	x.type = File::IsDirectory(fullName) ? FILETYPE_DIRECTORY : FILETYPE_NORMAL;
 	x.exists = true;
 
+	if (x.type != FILETYPE_DIRECTORY)
+	{
 #ifdef _WIN32
-	WIN32_FILE_ATTRIBUTE_DATA data;
-	GetFileAttributesEx(fullName.c_str(), GetFileExInfoStandard, &data);
+		WIN32_FILE_ATTRIBUTE_DATA data;
+		GetFileAttributesEx(fullName.c_str(), GetFileExInfoStandard, &data);
 
-	x.size = data.nFileSizeLow | ((u64)data.nFileSizeHigh<<32);
+		x.size = data.nFileSizeLow | ((u64)data.nFileSizeHigh<<32);
 #else
-	x.size = File::GetSize(fullName);
-	//TODO
+		x.size = File::GetSize(fullName);
+		//TODO
 #endif
-	x.mtime = File::GetModifTime(fullName);
+		x.mtime = File::GetModifTime(fullName);
+	}
 
 	return x;
 }
