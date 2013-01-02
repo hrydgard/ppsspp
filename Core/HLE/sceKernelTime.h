@@ -27,3 +27,6 @@ void sceKernelSysClock2USec();
 void sceKernelSysClock2USecWide();
 u32 sceKernelUSec2SysClockWide(u32 usec);
 u32 sceKernelLibcClock();
+
+void __KernelTimeInit();
+void __KernelTimeDoState(PointerWrap &p);
