@@ -547,24 +547,37 @@ void QueryIntrHandlerInfo()
 	RETURN(0);
 }
 
-// TODO: speedup
 u32 sceKernelMemset(u32 addr, u32 fillc, u32 n)
 {
 	u8 c = fillc & 0xff;
 	DEBUG_LOG(HLE, "sceKernelMemset(ptr = %08x, c = %02x, n = %08x)", addr, c, n);
-	for (size_t i = 0; i < n; i++)
-		Memory::Write_U8((u8)c, addr + i);
-	return 0; // TODO: verify it should return this
+	Memory::Memset(addr, c, n);
+	return addr;
 }
 
 u32 sceKernelMemcpy(u32 dst, u32 src, u32 size)
 {
 	DEBUG_LOG(HLE, "sceKernelMemcpy(dest=%08x, src=%08x, size=%i)", dst, src, size);
-	if (Memory::IsValidAddress(dst) && Memory::IsValidAddress(src+size)) // a bit of bound checking. Wrong??
+	// Technically should crash if these are invalid and size > 0...
+	if (Memory::IsValidAddress(dst) && Memory::IsValidAddress(src + size - 1))
 	{
-		Memory::Memcpy(dst, Memory::GetPointer(src), size);
+		u8 *dstp = Memory::GetPointer(dst);
+		u8 *srcp = Memory::GetPointer(src);
+		u32 size64 = size / 8;
+		u32 size8 = size % 8;
+
+		// Try to handle overlapped copies with similar properties to hardware, just in case.
+		// Not that anyone ought to rely on it.
+		while (size64-- > 0)
+		{
+			*(u64 *) dstp = *(u64 *) srcp;
+			srcp += 8;
+			dstp += 8;
+		}
+		while (size8-- > 0)
+			*dstp++ = *srcp++;
 	}
-	return 0;
+	return dst;
 }
 
 const HLEFunction Kernel_Library[] =
