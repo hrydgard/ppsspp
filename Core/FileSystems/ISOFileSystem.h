@@ -67,7 +67,7 @@ class ISOFileSystem : public IFileSystem
 	TreeEntry entireISO;
 
 	void ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root);
-	TreeEntry *GetFromPath(std::string path);
+	TreeEntry *GetFromPath(std::string path, bool catchError=true);
 	std::string EntryFullPath(TreeEntry *e);
 
 public:

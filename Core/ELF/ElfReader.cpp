@@ -299,7 +299,7 @@ bool ElfReader::LoadInto(u32 loadAddress)
 		else if (s->sh_type == SHT_REL)
 		{
 			DEBUG_LOG(LOADER, "Traditional relocation section found.");
-			if (bRelocate)
+			if (!bRelocate)
 			{
 				DEBUG_LOG(LOADER, "Binary is prerelocated. Skipping relocations.");
 			}

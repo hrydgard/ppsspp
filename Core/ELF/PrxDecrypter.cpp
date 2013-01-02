@@ -6,6 +6,7 @@ extern "C"
 }
 
 #include "../../Globals.h"
+#include "PrxDecrypter.h"
 
 // Thank you PSARDUMPER & JPCSP keys
 
@@ -287,6 +288,22 @@ static const TAG_INFO g_tagInfo[] =
 	{ 0xBB67C59F, g_key_GAMESHARE2xx, 0x5E, 0x5E }
 };
 
+bool HasKey(int key)
+{
+	switch (key)
+	{
+		case 0x02: case 0x03: case 0x04: case 0x05: case 0x07: case 0x0C: case 0x0D: case 0x0E: case 0x0F:
+		case 0x10: case 0x11: case 0x12:
+		case 0x38: case 0x39: case 0x3A: case 0x44: case 0x4B:
+		case 0x53: case 0x57: case 0x5D:
+		case 0x63: case 0x64:
+			return true;
+		default:
+			INFO_LOG(HLE, "Missing key %02X, cannot decrypt module", key);
+			return false;
+	}
+}
+
 static const TAG_INFO *GetTagInfo(u32 tagFind)
 {
 	for (u32 iTag = 0; iTag < sizeof(g_tagInfo)/sizeof(TAG_INFO); iTag++)
@@ -340,6 +357,11 @@ static int DecryptPRX1(const u8* pbIn, u8* pbOut, int cbTotal, u32 tag)
 	if (pti == NULL)
 	{
 		return -1;
+	}
+	if (!HasKey(pti->code) || 
+		(pti->codeExtra != 0 && !HasKey(pti->codeExtra)))
+	{
+		return MISSING_KEY;
 	}
 
 	retsize = *(u32*)&pbIn[0xB0];
@@ -589,6 +611,10 @@ static int DecryptPRX2(const u8 *inbuf, u8 *outbuf, u32 size, u32 tag)
 	{
 		return -1;
 	}
+	if (!HasKey(pti->code))
+	{
+		return MISSING_KEY;
+	}
 
 	int retsize = *(int *)&inbuf[0xB0];
 	u8 tmp1[0x150], tmp2[0x90+0x14], tmp3[0x90+0x14], tmp4[0x20];
@@ -724,6 +750,10 @@ int pspDecryptPRX(const u8 *inbuf, u8 *outbuf, u32 size)
 {
 	kirk_init();
 	int retsize = DecryptPRX1(inbuf, outbuf, size, *(u32 *)&inbuf[0xD0]);
+	if (retsize == MISSING_KEY)
+	{
+		return MISSING_KEY;
+	}
 
 	if (retsize <= 0)
 	{
