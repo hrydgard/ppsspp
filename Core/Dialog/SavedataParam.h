@@ -144,6 +144,8 @@ struct SaveFileInfo
 class SavedataParam
 {
 public:
+	SavedataParam();
+
 	static void Init();
 	std::string GetSaveFilePath(SceUtilitySavedataParam* param, int saveId = -1);
 	std::string GetSaveDir(SceUtilitySavedataParam* param, int saveId = -1);
@@ -160,8 +162,6 @@ public:
 	std::string GetFileName(SceUtilitySavedataParam* param);
 
 	static std::string GetSpaceText(int size);
-
-	SavedataParam();
 
 	int SetPspParam(SceUtilitySavedataParam* param);
 	SceUtilitySavedataParam* GetPspParam();
@@ -184,5 +184,4 @@ private:
 	SaveFileInfo* saveDataList;
 	int saveDataListCount;
 	int saveNameListDataCount;
-
 };

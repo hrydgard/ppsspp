@@ -22,8 +22,8 @@
 
 PSPSaveDialog::PSPSaveDialog()
 	: PSPDialog()
-	, currentSelectedSave(0)
 	, display(DS_NONE)
+	, currentSelectedSave(0)
 {
 	param.SetPspParam(0);
 }

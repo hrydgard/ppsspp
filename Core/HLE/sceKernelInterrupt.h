@@ -71,8 +71,8 @@ struct PendingInterrupt {
 	PendingInterrupt(int intr_, int subintr_, int arg_)
 		: intr(intr_), subintr(subintr_), hasArg(true), arg(arg_) {}
 
-	int intr;
-	int subintr;
+	u32 intr;
+	u32 subintr;
 	bool hasArg;
 	int arg;
 };

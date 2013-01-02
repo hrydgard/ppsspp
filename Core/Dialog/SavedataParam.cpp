@@ -114,8 +114,8 @@ SavedataParam::SavedataParam()
 	: pspParam(0)
 	, selectedSave(0)
 	, saveDataList(0)
-	, saveNameListDataCount(0)
 	, saveDataListCount(0)
+	, saveNameListDataCount(0)
 {
 
 }

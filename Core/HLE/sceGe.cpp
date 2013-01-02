@@ -70,7 +70,7 @@ int __GeSubIntrBase(int callbackId)
 	if (callbackId < 0)
 		return 0;
 
-	if (callbackId >= ARRAY_SIZE(ge_used_callbacks))
+	if (callbackId >= (int)(ARRAY_SIZE(ge_used_callbacks)))
 	{
 		WARN_LOG(HLE, "Unexpected (too high) GE callback id %d, ignoring", callbackId);
 		return 0;

@@ -175,10 +175,10 @@ GLES_GPU::GLES_GPU(int renderWidth, int renderHeight)
 
 	flushBeforeCommand_ = new u8[256];
 	memset(flushBeforeCommand_, 0, 256 * sizeof(bool));
-	for (int i = 0; i < ARRAY_SIZE(flushOnChangedBeforeCommandList); i++) {
+	for (size_t i = 0; i < ARRAY_SIZE(flushOnChangedBeforeCommandList); i++) {
 		flushBeforeCommand_[flushOnChangedBeforeCommandList[i]] = 2;
 	}
-	for (int i = 0; i < ARRAY_SIZE(flushBeforeCommandList); i++) {
+	for (size_t i = 0; i < ARRAY_SIZE(flushBeforeCommandList); i++) {
 		flushBeforeCommand_[flushBeforeCommandList[i]] = 1;
 	}
 	flushBeforeCommand_[1] = 0;
