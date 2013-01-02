@@ -116,6 +116,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\ext\snappy\snappy-c.cpp" />
+    <ClCompile Include="..\ext\snappy\snappy.cpp" />
     <ClCompile Include="Config.cpp" />
     <ClCompile Include="Core.cpp" />
     <ClCompile Include="CoreTiming.cpp" />
@@ -259,6 +261,11 @@
     <ClCompile Include="Util\ppge_atlas.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\ext\snappy\snappy-internal.h" />
+    <ClInclude Include="..\ext\snappy\snappy-sinksource.h" />
+    <ClInclude Include="..\ext\snappy\snappy-stubs-internal.h" />
+    <ClInclude Include="..\ext\snappy\snappy-stubs-public.h" />
+    <ClInclude Include="..\ext\snappy\snappy.h" />
     <ClInclude Include="Config.h" />
     <ClInclude Include="Core.h" />
     <ClInclude Include="CoreParameter.h" />

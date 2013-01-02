@@ -273,6 +273,17 @@ add_library(zlib STATIC
 )
 include_directories(ext/zlib)
 
+add_library(snappy STATIC
+	ext/snappy/snappy-c.cpp
+	ext/snappy/snappy-internal.h
+	ext/snappy/snappy-sinksource.h
+	ext/snappy/snappy-stubs-internal.h
+	ext/snappy/snappy-stubs-public.h
+	ext/snappy/snappy.cpp
+	ext/snappy/snappy.h
+)
+include_directories(ext/snappy)
+
 add_library(etcpack STATIC
 	native/ext/etcpack/etcdec.cpp
 	native/ext/etcpack/etcdec.h
@@ -543,7 +554,7 @@ include_directories(native)
 # rapidxml is headers only so we can't make a lib specific for it
 include_directories(native/ext/rapidxml)
 target_link_libraries(native ${LIBZIP} etcpack sha1 stb_image stb_vorbis #vjson
-	zlib ${GLEW_LIBRARIES})
+	zlib snappy ${GLEW_LIBRARIES})
 if(ANDROID)
 	target_link_libraries(native log)
 endif()

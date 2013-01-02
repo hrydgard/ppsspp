@@ -53,6 +53,8 @@ LOCAL_SRC_FILES := \
   $(SRC)/ext/libkirk/bn.c \
   $(SRC)/ext/libkirk/ec.c \
   $(SRC)/ext/libkirk/kirk_engine.c \
+  $(SRC)/ext/snappy/snappy-c.cpp \
+  $(SRC)/ext/snappy/snappy.cpp \
   $(SRC)/Common/ArmABI.cpp \
   $(SRC)/Common/ArmEmitter.cpp \
   $(SRC)/Common/LogManager.cpp \

@@ -36,6 +36,7 @@
 
 #include "Common.h"
 #include "FileUtil.h"
+#include "../ext/snappy/snappy-c.h"
 
 template <class T>
 struct LinkedListItem : public T
@@ -419,9 +420,22 @@ public:
 		}
 
 		u8 *ptr = buffer;
+		u8 *buf = buffer;
+		if (header.Compress) {
+			u8 *uncomp_buffer = new u8[header.UncompressedSize];
+			size_t uncomp_size = header.UncompressedSize;
+			snappy_uncompress((const char *)buffer, sz, (char *)uncomp_buffer, &uncomp_size);
+			if (uncomp_size != header.UncompressedSize) {
+				ERROR_LOG(COMMON,"Size mismatch: file: %i  calc: %i", (int)header.UncompressedSize, (int)uncomp_size);
+			}
+			ptr = uncomp_buffer;
+			buf = uncomp_buffer;
+			delete [] buffer;
+		}
+
 		PointerWrap p(&ptr, PointerWrap::MODE_READ);
 		_class.DoState(p);
-		delete[] buffer;
+		delete[] buf;
 		
 		INFO_LOG(COMMON, "ChunkReader: Done loading %s" , _rFilename.c_str());
 		return true;
@@ -439,33 +453,57 @@ public:
 			return false;
 		}
 
+		bool compress = true;
+
 		// Get data
 		u8 *ptr = 0;
 		PointerWrap p(&ptr, PointerWrap::MODE_MEASURE);
 		_class.DoState(p);
 		size_t const sz = (size_t)ptr;
-		std::vector<u8> buffer(sz);
+		
+		u8 * buffer = new u8[sz];
 		ptr = &buffer[0];
 		p.SetMode(PointerWrap::MODE_WRITE);
 		_class.DoState(p);
-		
+
 		// Create header
 		SChunkHeader header;
-		header.Compress = 0;
+		header.Compress = compress ? 1 : 0;
 		header.Revision = _Revision;
 		header.ExpectedSize = (int)sz;
+		header.UncompressedSize = (int)sz;
 		
 		// Write to file
-		if (!pFile.WriteArray(&header, 1))
-		{
-			ERROR_LOG(COMMON,"ChunkReader: Failed writing header");
-			return false;
-		}
-
-		if (!pFile.WriteBytes(&buffer[0], sz))
-		{
-			ERROR_LOG(COMMON,"ChunkReader: Failed writing data");
-			return false;
+		if (compress) {
+			size_t comp_len = snappy_max_compressed_length(sz);
+			u8 *compressed_buffer = new u8[comp_len];
+			snappy_compress((const char *)buffer, sz, (char *)compressed_buffer, &comp_len);
+			delete [] buffer;
+			header.ExpectedSize = comp_len;
+			if (!pFile.WriteArray(&header, 1))
+			{
+				ERROR_LOG(COMMON,"ChunkReader: Failed writing header");
+				return false;
+			}
+			if (!pFile.WriteBytes(&compressed_buffer[0], comp_len)) {
+				ERROR_LOG(COMMON,"ChunkReader: Failed writing compressed data");
+				return false;
+			}	else {
+				INFO_LOG(COMMON, "Savestate: Compressed %i bytes into %i", (int)sz, (int)comp_len);
+			}
+			delete [] compressed_buffer;
+		} else {
+			if (!pFile.WriteArray(&header, 1))
+			{
+				ERROR_LOG(COMMON,"ChunkReader: Failed writing header");
+				return false;
+			}
+			if (!pFile.WriteBytes(&buffer[0], sz))
+			{
+				ERROR_LOG(COMMON,"ChunkReader: Failed writing data");
+				return false;
+			}
+			delete [] buffer;
 		}
 		
 		INFO_LOG(COMMON,"ChunkReader: Done writing %s", 
@@ -503,6 +541,7 @@ private:
 		int Revision;
 		int Compress;
 		int ExpectedSize;
+		int UncompressedSize;
 	};
 };
 

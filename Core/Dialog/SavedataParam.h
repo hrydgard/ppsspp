@@ -140,7 +140,7 @@ struct SaveFileInfo
 	int textureWidth;
 	int textureHeight;
 };
-
+	
 class SavedataParam
 {
 public:
