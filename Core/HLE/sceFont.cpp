@@ -279,7 +279,7 @@ int sceFontGetFontInfo(u32 fontHandle, u32 fontInfoPtr)
 		fi.fontStyle.fontH=32;
 		fi.fontStyle.fontHRes=32;
 		fi.fontStyle.fontLanguage=1;
-	//	fi.fontStyle.fontName="ppsspp";
+		//	fi.fontStyle.fontName="ppsspp";
 		fi.fontStyle.fontRegion=9;
 		fi.fontStyle.fontV=32;
 		fi.fontStyle.fontVRes=32;
