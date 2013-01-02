@@ -546,6 +546,8 @@ add_library(native STATIC
 	native/util/random/perlin.cpp
 	native/util/random/perlin.h
 	native/util/random/rng.h
+	native/util/text/utf8.h
+	native/util/text/utf8.cpp
 	native/ext/rapidxml/rapidxml.hpp
 	native/ext/rapidxml/rapidxml_iterators.hpp
 	native/ext/rapidxml/rapidxml_print.hpp
