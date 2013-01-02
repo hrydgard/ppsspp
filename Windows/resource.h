@@ -107,6 +107,7 @@
 #define IDI_STOP                        223
 #define IDD_INPUTBOX                    226
 #define IDD_VFPU                        231
+#define IDD_CONTROLS                    232
 #define IDC_GO                          1001
 #define IDC_ADDRESS                     1002
 #define IDC_DEBUG_COUNT                 1003
@@ -154,6 +155,7 @@
 #define IDC_FILELIST                    1150
 #define IDC_BROWSE                      1159
 #define IDC_SHOWVFPU                    1161
+#define IDC_LISTCONTROLS                1162
 #define ID_FILE_BOOTISO                 40001
 #define ID_FILE_EXIT                    40002
 #define ID_CONFIG_SELECT_PLUGINS        40003
@@ -250,14 +252,16 @@
 #define ID_OPTIONS_LINEARFILTERING      40127
 #define ID_FILE_QUICKSAVESTATE          40128
 #define ID_FILE_QUICKLOADSTATE          40129
+#define ID_OPTIONS_CONTROLS             40130
+#define IDC_STATIC                      -1
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        232
-#define _APS_NEXT_COMMAND_VALUE         40130
-#define _APS_NEXT_CONTROL_VALUE         1162
+#define _APS_NEXT_RESOURCE_VALUE        233
+#define _APS_NEXT_COMMAND_VALUE         40131
+#define _APS_NEXT_CONTROL_VALUE         1163
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

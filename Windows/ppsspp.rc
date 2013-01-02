@@ -1,15 +1,7 @@
 // Microsoft Visual C++ generated resource script.
 //
 #include "resource.h"
-
-#define APSTUDIO_READONLY_SYMBOLS
-
 #include "windows.h"
-
-#undef APSTUDIO_READONLY_SYMBOLS
-
-#define IDC_STATIC -1
-
 /////////////////////////////////////////////////////////////////////////////
 // Neutral resources
 
@@ -28,24 +20,24 @@ EXSTYLE WS_EX_ACCEPTFILES | WS_EX_TOOLWINDOW
 CAPTION "CPU"
 FONT 8, "MS Shell Dlg", 0, 0, 0x1
 BEGIN
-    LTEXT "Ctr:",IDC_STATIC,6,2,12,8
-    EDITTEXT IDC_DEBUG_COUNT,30,2,39,12,ES_UPPERCASE | ES_AUTOHSCROLL | ES_READONLY | NOT WS_BORDER
-    PUSHBUTTON "&Go",IDC_GO,111,0,24,14
-    PUSHBUTTON "Stop",IDC_STOP,139,0,23,14
-    DEFPUSHBUTTON "Step &Into",IDC_STEP,179,0,39,14
-    PUSHBUTTON "Step &Over",IDC_STEPOVER,219,0,40,14
-    PUSHBUTTON "S&kip",IDC_SKIP,265,0,23,14
-    PUSHBUTTON "Next &HLE",IDC_STEPHLE,294,0,40,14
-    EDITTEXT IDC_ADDRESS,11,24,91,13,ES_UPPERCASE | ES_AUTOHSCROLL
-    PUSHBUTTON "&PC",IDC_GOTOPC,11,40,15,13
-    PUSHBUTTON "&LR",IDC_GOTOLR,28,40,14,13
-    COMBOBOX IDC_GOTOINT,43,40,60,76,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-    CONTROL "Custom1",IDC_DISASMVIEW,"CtrlDisAsmView",WS_BORDER | WS_TABSTOP,111,16,297,314
-    GROUPBOX "&Go to",IDC_STATIC,5,12,102,47
-    CONTROL "Custom1",IDC_REGLIST,"CtrlRegisterList",WS_BORDER | WS_TABSTOP,1,81,102,249
-    CONTROL "",IDC_LEFTTABS,"SysTabControl32",TCS_BUTTONS,1,63,78,15
-    LISTBOX IDC_FUNCTIONLIST,1,83,103,247,LBS_SORT | LBS_NOINTEGRALHEIGHT | NOT WS_VISIBLE | WS_VSCROLL | WS_TABSTOP
-    PUSHBUTTON "&VFPU",IDC_SHOWVFPU,83,63,24,12
+    LTEXT           "Ctr:",IDC_STATIC,6,2,12,8
+    EDITTEXT        IDC_DEBUG_COUNT,30,2,39,12,ES_UPPERCASE | ES_AUTOHSCROLL | ES_READONLY | NOT WS_BORDER
+    PUSHBUTTON      "&Go",IDC_GO,111,0,24,14
+    PUSHBUTTON      "Stop",IDC_STOP,139,0,23,14
+    DEFPUSHBUTTON   "Step &Into",IDC_STEP,179,0,39,14
+    PUSHBUTTON      "Step &Over",IDC_STEPOVER,219,0,40,14
+    PUSHBUTTON      "S&kip",IDC_SKIP,265,0,23,14
+    PUSHBUTTON      "Next &HLE",IDC_STEPHLE,294,0,40,14
+    EDITTEXT        IDC_ADDRESS,11,24,91,13,ES_UPPERCASE | ES_AUTOHSCROLL
+    PUSHBUTTON      "&PC",IDC_GOTOPC,11,40,15,13
+    PUSHBUTTON      "&LR",IDC_GOTOLR,28,40,14,13
+    COMBOBOX        IDC_GOTOINT,43,40,60,76,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    CONTROL         "Custom1",IDC_DISASMVIEW,"CtrlDisAsmView",WS_BORDER | WS_TABSTOP,111,16,297,314
+    GROUPBOX        "&Go to",IDC_STATIC,5,12,102,47
+    CONTROL         "Custom1",IDC_REGLIST,"CtrlRegisterList",WS_BORDER | WS_TABSTOP,1,81,102,249
+    CONTROL         "",IDC_LEFTTABS,"SysTabControl32",TCS_BUTTONS,1,63,78,15
+    LISTBOX         IDC_FUNCTIONLIST,1,83,103,247,LBS_SORT | LBS_NOINTEGRALHEIGHT | NOT WS_VISIBLE | WS_VSCROLL | WS_TABSTOP
+    PUSHBUTTON      "&VFPU",IDC_SHOWVFPU,83,63,24,12
 END
 
 IDD_ABOUTBOX DIALOGEX 0, 0, 301, 163
@@ -53,16 +45,16 @@ STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_VISIBLE | WS_CAPT
 CAPTION "About"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
-    DEFPUSHBUTTON "OK",IDOK,243,141,50,14
-    ICON IDI_PPSSPP,IDC_STATIC,10,9,20,20
-    LTEXT "PPSSPP",IDC_STATIC,40,8,127,9
-    LTEXT "Copyright (c) by Henrik Rydgård 2012",IDC_STATIC,40,33,253,8
-    LTEXT "All trademarks are property of their respective owners.\nThe emulator is for educational and development purposes only and it may not be used to play games you do not legally own.",IDC_STATIC,40,102,253,24
-    LTEXT "PSP emulator and debugger",IDC_STATIC,40,19,253,8
-    LTEXT "CISO decompression code by BOOSTER",IDC_STATIC,48,73,240,8
-    LTEXT "PSPSDK by #pspdev (freenode)",IDC_STATIC,48,62,240,8
-    LTEXT "zlib by Jean-loup Gailly (compression) and Mark Adler (decompression)",IDC_STATIC,48,85,240,8
-    LTEXT "Additional credits:",IDC_STATIC,40,49,253,8
+    DEFPUSHBUTTON   "OK",IDOK,243,141,50,14
+    ICON            IDI_PPSSPP,IDC_STATIC,10,9,20,20
+    LTEXT           "PPSSPP",IDC_STATIC,40,8,127,9
+    LTEXT           "Copyright (c) by Henrik Rydgård 2012",IDC_STATIC,40,33,253,8
+    LTEXT           "All trademarks are property of their respective owners.\nThe emulator is for educational and development purposes only and it may not be used to play games you do not legally own.",IDC_STATIC,40,102,253,24
+    LTEXT           "PSP emulator and debugger",IDC_STATIC,40,19,253,8
+    LTEXT           "CISO decompression code by BOOSTER",IDC_STATIC,48,73,240,8
+    LTEXT           "PSPSDK by #pspdev (freenode)",IDC_STATIC,48,62,240,8
+    LTEXT           "zlib by Jean-loup Gailly (compression) and Mark Adler (decompression)",IDC_STATIC,48,85,240,8
+    LTEXT           "Additional credits:",IDC_STATIC,40,49,253,8
 END
 
 IDD_MEMORY DIALOGEX 0, 0, 444, 287
@@ -71,14 +63,14 @@ EXSTYLE WS_EX_TOOLWINDOW
 CAPTION "Memory View"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
-    LTEXT "Goto:",IDC_STATIC,4,7,17,8
-    EDITTEXT IDC_ADDRESS,23,5,61,13,ES_AUTOHSCROLL
-    CONTROL "Custom2",IDC_MEMVIEW,"CtrlMemView",WS_BORDER | WS_TABSTOP,126,23,316,263
-    LISTBOX IDC_SYMBOLS,1,23,120,263,LBS_SORT | LBS_NOINTEGRALHEIGHT | WS_VSCROLL | WS_TABSTOP
-    CONTROL "&Normal",IDC_MODENORMAL,"Button",BS_AUTORADIOBUTTON | WS_GROUP,248,9,40,9
-    CONTROL "&Symbols",IDC_MODESYMBOLS,"Button",BS_AUTORADIOBUTTON,291,9,43,8
-    GROUPBOX "Mode",IDC_STATIC,241,0,104,22
-    COMBOBOX IDC_REGIONS,87,5,88,139,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Goto:",IDC_STATIC,4,7,17,8
+    EDITTEXT        IDC_ADDRESS,23,5,61,13,ES_AUTOHSCROLL
+    CONTROL         "Custom2",IDC_MEMVIEW,"CtrlMemView",WS_BORDER | WS_TABSTOP,126,23,316,263
+    LISTBOX         IDC_SYMBOLS,1,23,120,263,LBS_SORT | LBS_NOINTEGRALHEIGHT | WS_VSCROLL | WS_TABSTOP
+    CONTROL         "&Normal",IDC_MODENORMAL,"Button",BS_AUTORADIOBUTTON | WS_GROUP,248,9,40,9
+    CONTROL         "&Symbols",IDC_MODESYMBOLS,"Button",BS_AUTORADIOBUTTON,291,9,43,8
+    GROUPBOX        "Mode",IDC_STATIC,241,0,104,22
+    COMBOBOX        IDC_REGIONS,87,5,88,139,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
 END
 
 IDD_INPUTBOX DIALOGEX 0, 0, 163, 55
@@ -86,10 +78,10 @@ STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSM
 CAPTION "Change value"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
-    LTEXT "&New value",IDC_VALUENAME,7,7,89,8
-    EDITTEXT IDC_INPUTBOX,7,16,149,13,ES_AUTOHSCROLL
-    DEFPUSHBUTTON "OK",IDOK,51,34,50,14
-    PUSHBUTTON "Cancel",IDCANCEL,106,34,50,14
+    LTEXT           "&New value",IDC_VALUENAME,7,7,89,8
+    EDITTEXT        IDC_INPUTBOX,7,16,149,13,ES_AUTOHSCROLL
+    DEFPUSHBUTTON   "OK",IDOK,51,34,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,106,34,50,14
 END
 
 IDD_VFPU DIALOGEX 0, 0, 250, 420
@@ -98,7 +90,7 @@ EXSTYLE WS_EX_PALETTEWINDOW
 CAPTION "VFPU"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
-    CONTROL "",IDC_TABDATATYPE,"SysTabControl32",TCS_BUTTONS,0,1,205,15
+    CONTROL         "",IDC_TABDATATYPE,"SysTabControl32",TCS_BUTTONS,0,1,205,15
 END
 
 
@@ -151,7 +143,7 @@ BEGIN
         BOTTOMMARGIN, 413
     END
 END
-#endif // APSTUDIO_INVOKED
+#endif    // APSTUDIO_INVOKED
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -161,10 +153,10 @@ END
 
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
-IDI_PPSSPP ICON "ppsspp.ico"
-IDI_STOP ICON "icon1.ico"
-IDI_STOPDISABLE ICON "stop1.ico"
-#endif // Neutral resources
+IDI_PPSSPP              ICON                    "ppsspp.ico"
+IDI_STOP                ICON                    "icon1.ico"
+IDI_STOPDISABLE         ICON                    "stop1.ico"
+#endif    // Neutral resources
 /////////////////////////////////////////////////////////////////////////////
 
 
@@ -184,75 +176,145 @@ IDR_MENU1 MENU
 BEGIN
     POPUP "&File"
     BEGIN
-        MENUITEM "&Open...", ID_FILE_LOAD
-        MENUITEM "&Close", ID_EMULATION_STOP
+        MENUITEM "&Open...",                    ID_FILE_LOAD
+        MENUITEM "&Close",                      ID_EMULATION_STOP
         MENUITEM SEPARATOR
-				MENUITEM "Quickload state\tF4" ID_FILE_QUICKLOADSTATE
-				MENUITEM "Quicksave state\tF2" ID_FILE_QUICKSAVESTATE
-        MENUITEM "&Load State File..." ID_FILE_LOADSTATEFILE
-        MENUITEM "&Save State File..." ID_FILE_SAVESTATEFILE
+        MENUITEM "Quickload state\tF4",         ID_FILE_QUICKLOADSTATE
+        MENUITEM "Quicksave state\tF2",         ID_FILE_QUICKSAVESTATE
+        MENUITEM "&Load State File...",         ID_FILE_LOADSTATEFILE
+        MENUITEM "&Save State File...",         ID_FILE_SAVESTATEFILE
         MENUITEM SEPARATOR
-        MENUITEM "E&xit", ID_FILE_EXIT
+        MENUITEM "E&xit",                       ID_FILE_EXIT
     END
     POPUP "&Emulation"
     BEGIN
-        MENUITEM "&Run\tF7", ID_EMULATION_RUN
-        MENUITEM "&Pause\tF8", ID_EMULATION_PAUSE
+        MENUITEM "&Run\tF7",                    ID_EMULATION_RUN
+        MENUITEM "&Pause\tF8",                  ID_EMULATION_PAUSE
         MENUITEM SEPARATOR
-        MENUITEM "R&eset", ID_EMULATION_RESET
+        MENUITEM "R&eset",                      ID_EMULATION_RESET
         MENUITEM SEPARATOR
-        MENUITEM "&Interpreter", ID_CPU_INTERPRETER
+        MENUITEM "&Interpreter",                ID_CPU_INTERPRETER
         MENUITEM "&Slightly Faster Interpreter", ID_CPU_FASTINTERPRETER
-        MENUITEM "&Dynarec", ID_CPU_DYNAREC, CHECKED
+        MENUITEM "&Dynarec",                    ID_CPU_DYNAREC, CHECKED
     END
     POPUP "Debu&g"
     BEGIN
-        MENUITEM "Load &Map File...", ID_DEBUG_LOADMAPFILE
-        MENUITEM "&Save Map File...", ID_DEBUG_SAVEMAPFILE
-        MENUITEM "&Reset Symbol Table", ID_DEBUG_RESETSYMBOLTABLE
+        MENUITEM "Load &Map File...",           ID_DEBUG_LOADMAPFILE
+        MENUITEM "&Save Map File...",           ID_DEBUG_SAVEMAPFILE
+        MENUITEM "&Reset Symbol Table",         ID_DEBUG_RESETSYMBOLTABLE
         MENUITEM SEPARATOR
-        MENUITEM "&Disassembly\tCtrl+D", ID_DEBUG_DISASSEMBLY
-        MENUITEM "&Log Console\tCtrl+L", ID_DEBUG_LOG
-        MENUITEM "Memory &View...\tCtrl+M", ID_DEBUG_MEMORYVIEW
+        MENUITEM "&Disassembly\tCtrl+D",        ID_DEBUG_DISASSEMBLY
+        MENUITEM "&Log Console\tCtrl+L",        ID_DEBUG_LOG
+        MENUITEM "Memory &View...\tCtrl+M",     ID_DEBUG_MEMORYVIEW
     END
     POPUP "&Options"
     BEGIN
-        MENUITEM "&Toggle Full Screen\tF12", ID_OPTIONS_FULLSCREEN
-        MENUITEM "&Display Raw Framebuffer", ID_OPTIONS_DISPLAYRAWFRAMEBUFFER
-        MENUITEM "&Buffered Rendering\tF5", ID_OPTIONS_BUFFEREDRENDERING
-        MENUITEM "&Hardware Transform\tF6", ID_OPTIONS_HARDWARETRANSFORM
-        MENUITEM "&Linear Filtering", ID_OPTIONS_LINEARFILTERING
+        MENUITEM "&Controls",                   ID_OPTIONS_CONTROLS
+        MENUITEM SEPARATOR
+        MENUITEM "&Toggle Full Screen\tF12",    ID_OPTIONS_FULLSCREEN
+        MENUITEM "&Buffered Rendering\tF5",     ID_OPTIONS_BUFFEREDRENDERING
+        MENUITEM "&Hardware Transform\tF6",     ID_OPTIONS_HARDWARETRANSFORM
+        MENUITEM "&Linear Filtering",           ID_OPTIONS_LINEARFILTERING
+        MENUITEM SEPARATOR
+        MENUITEM "&Wireframe (experimental)",   ID_OPTIONS_WIREFRAME
+        MENUITEM "&Display Raw Framebuffer",    ID_OPTIONS_DISPLAYRAWFRAMEBUFFER
+        MENUITEM "&Show Debug Statistics",      ID_OPTIONS_SHOWDEBUGSTATISTICS
+        MENUITEM SEPARATOR
+        MENUITEM "Screen &1x\tCtrl+1",          ID_OPTIONS_SCREEN1X
+        MENUITEM "Screen &2x\tCtrl+2",          ID_OPTIONS_SCREEN2X
+        MENUITEM "Screen &3x\tCtrl+3",          ID_OPTIONS_SCREEN3X
+        MENUITEM "Screen &4x\tCtrl+4",          ID_OPTIONS_SCREEN4X
+        MENUITEM SEPARATOR
         MENUITEM "&Fast Memory (dynarec, unstable)", ID_OPTIONS_FASTMEMORY
-        MENUITEM "&Wireframe (experimental)", ID_OPTIONS_WIREFRAME
-        MENUITEM "&Show Debug Statistics", ID_OPTIONS_SHOWDEBUGSTATISTICS
-        MENUITEM SEPARATOR
-        MENUITEM "Screen &1x\tCtrl+1", ID_OPTIONS_SCREEN1X
-        MENUITEM "Screen &2x\tCtrl+2", ID_OPTIONS_SCREEN2X
-        MENUITEM "Screen &3x\tCtrl+3", ID_OPTIONS_SCREEN3X
-        MENUITEM "Screen &4x\tCtrl+4", ID_OPTIONS_SCREEN4X
-        MENUITEM SEPARATOR
         MENUITEM "&Ignore illegal reads/writes", ID_OPTIONS_IGNOREILLEGALREADS
     END
     POPUP "&Help"
     BEGIN
         MENUITEM "&Go to http://www.ppsspp.org/", ID_HELP_OPENWEBSITE
         MENUITEM SEPARATOR
-        MENUITEM "&About PPSSPP...", ID_HELP_ABOUT
+        MENUITEM "&About PPSSPP...",            ID_HELP_ABOUT
     END
 END
 
-#endif // Neutral (Default) resources
+#endif    // Neutral (Default) resources
 /////////////////////////////////////////////////////////////////////////////
 
 
 /////////////////////////////////////////////////////////////////////////////
+// English (United States) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_NEUD)
+LANGUAGE LANG_NEUTRAL, SUBLANG_DEFAULT
+#pragma code_page(1252)
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_CONTROLS DIALOGEX 0, 0, 287, 238
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Controls"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,176,217,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,230,217,50,14
+    LTEXT           "NOTE: Currently controls are NOT configurable.",IDC_STATIC,7,7,188,10
+    LISTBOX         IDC_LISTCONTROLS,7,19,273,184,LBS_SORT | LBS_NOINTEGRALHEIGHT | LBS_USETABSTOPS | WS_VSCROLL | WS_TABSTOP
+END
 
 
 /////////////////////////////////////////////////////////////////////////////
-// Swedish (Sweden) resources
+//
+// DESIGNINFO
+//
 
-#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_SVE)
-LANGUAGE LANG_SWEDISH, SUBLANG_SWEDISH
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO
+BEGIN
+    IDD_CONTROLS, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 280
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 231
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE 
+BEGIN
+    "\0"
+END
+
+3 TEXTINCLUDE 
+BEGIN
+    "\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+#endif    // English (United States) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+/////////////////////////////////////////////////////////////////////////////
+// Neutral resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_NEUD)
+LANGUAGE LANG_NEUTRAL, SUBLANG_DEFAULT
 #pragma code_page(1252)
 
 /////////////////////////////////////////////////////////////////////////////
@@ -264,39 +326,39 @@ IDR_POPUPMENUS MENU
 BEGIN
     POPUP "memview"
     BEGIN
-        MENUITEM "Go to in &Disasm", ID_MEMVIEW_GOTOINDISASM
+        MENUITEM "Go to in &Disasm",            ID_MEMVIEW_GOTOINDISASM
         MENUITEM SEPARATOR
-        MENUITEM "&Copy value", ID_MEMVIEW_COPYVALUE
-        MENUITEM "&Dump...", ID_MEMVIEW_DUMP
+        MENUITEM "&Copy value",                 ID_MEMVIEW_COPYVALUE
+        MENUITEM "&Dump...",                    ID_MEMVIEW_DUMP
     END
     POPUP "disasm"
     BEGIN
-        MENUITEM "Copy &address", ID_DISASM_COPYADDRESS
-        MENUITEM "Copy instruction (&hex)", ID_DISASM_COPYINSTRUCTIONHEX
-        MENUITEM "Copy instruction (&disasm)", ID_DISASM_COPYINSTRUCTIONDISASM
+        MENUITEM "Copy &address",               ID_DISASM_COPYADDRESS
+        MENUITEM "Copy instruction (&hex)",     ID_DISASM_COPYINSTRUCTIONHEX
+        MENUITEM "Copy instruction (&disasm)",  ID_DISASM_COPYINSTRUCTIONDISASM
         MENUITEM SEPARATOR
-        MENUITEM "&Run to here", ID_DISASM_RUNTOHERE
-        MENUITEM "&Set Next Statement", ID_DISASM_SETPCTOHERE
-        MENUITEM "&Toggle breakpoint", ID_DISASM_TOGGLEBREAKPOINT
-        MENUITEM "&Follow branch", ID_DISASM_FOLLOWBRANCH
+        MENUITEM "&Run to here",                ID_DISASM_RUNTOHERE
+        MENUITEM "&Set Next Statement",         ID_DISASM_SETPCTOHERE
+        MENUITEM "&Toggle breakpoint",          ID_DISASM_TOGGLEBREAKPOINT
+        MENUITEM "&Follow branch",              ID_DISASM_FOLLOWBRANCH
         MENUITEM SEPARATOR
-        MENUITEM "&Show Dynarec Results", ID_DISASM_DYNARECRESULTS
-        MENUITEM "Go to in &Memory View", ID_DISASM_GOTOINMEMORYVIEW
+        MENUITEM "&Show Dynarec Results",       ID_DISASM_DYNARECRESULTS
+        MENUITEM "Go to in &Memory View",       ID_DISASM_GOTOINMEMORYVIEW
         MENUITEM SEPARATOR
-        MENUITEM "&Kill function", ID_DISASM_ADDHLE
-        MENUITEM "&Rename function...", ID_DISASM_RENAMEFUNCTION
+        MENUITEM "&Kill function",              ID_DISASM_ADDHLE
+        MENUITEM "&Rename function...",         ID_DISASM_RENAMEFUNCTION
     END
     POPUP "funclist"
     BEGIN
-        MENUITEM "&Kill function", ID_FUNCLIST_KILLFUNCTION
+        MENUITEM "&Kill function",              ID_FUNCLIST_KILLFUNCTION
     END
     POPUP "reglist"
     BEGIN
-        MENUITEM "Go to in &memory view", ID_REGLIST_GOTOINMEMORYVIEW
-        MENUITEM "Go to in &disasm", ID_REGLIST_GOTOINDISASM
+        MENUITEM "Go to in &memory view",       ID_REGLIST_GOTOINMEMORYVIEW
+        MENUITEM "Go to in &disasm",            ID_REGLIST_GOTOINDISASM
         MENUITEM SEPARATOR
-        MENUITEM "&Copy value", ID_REGLIST_COPYVALUE
-        MENUITEM "C&hange...", ID_REGLIST_CHANGE
+        MENUITEM "&Copy value",                 ID_REGLIST_COPYVALUE
+        MENUITEM "C&hange...",                  ID_REGLIST_CHANGE
     END
 END
 
@@ -306,7 +368,7 @@ END
 // RT_MANIFEST
 //
 
-1 RT_MANIFEST "rt_manif.bin"
+1                       RT_MANIFEST             "rt_manif.bin"
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -315,24 +377,24 @@ END
 
 IDR_ACCELS ACCELERATORS
 BEGIN
-    "D", ID_DEBUG_DISASSEMBLY, VIRTKEY, CONTROL, NOINVERT
-    "L", ID_DEBUG_LOG, VIRTKEY, CONTROL, NOINVERT
-    "E", ID_DEBUG_MEMORYCHECKS, VIRTKEY, CONTROL, NOINVERT
-    "F", ID_DEBUG_MEMORYSEARCH, VIRTKEY, CONTROL, NOINVERT
-    "M", ID_DEBUG_MEMORYVIEW, VIRTKEY, CONTROL, NOINVERT
-    "R", ID_DEBUG_REGISTERS, VIRTKEY, CONTROL, NOINVERT
-    VK_F7, ID_EMULATION_RUN, VIRTKEY, NOINVERT
-    VK_F8, ID_EMULATION_PAUSE, VIRTKEY, NOINVERT
-    VK_F2, ID_FILE_QUICKSAVESTATE, VIRTKEY, NOINVERT
-    VK_F4, ID_FILE_QUICKLOADSTATE, VIRTKEY, NOINVERT
-    "1", ID_OPTIONS_SCREEN1X, VIRTKEY, CONTROL, NOINVERT
-    "2", ID_OPTIONS_SCREEN2X, VIRTKEY, CONTROL, NOINVERT
-    "3", ID_OPTIONS_SCREEN3X, VIRTKEY, CONTROL, NOINVERT
-    "4", ID_OPTIONS_SCREEN4X, VIRTKEY, CONTROL, NOINVERT
-    VK_F5, ID_OPTIONS_BUFFEREDRENDERING, VIRTKEY, NOINVERT
-    VK_F6, ID_OPTIONS_HARDWARETRANSFORM, VIRTKEY, NOINVERT
-    "W", ID_FILE_UNLOAD, VIRTKEY, CONTROL, NOINVERT
-    VK_F12, ID_OPTIONS_FULLSCREEN, VIRTKEY, NOINVERT
+    "D",            ID_DEBUG_DISASSEMBLY,   VIRTKEY, CONTROL, NOINVERT
+    "L",            ID_DEBUG_LOG,           VIRTKEY, CONTROL, NOINVERT
+    "E",            ID_DEBUG_MEMORYCHECKS,  VIRTKEY, CONTROL, NOINVERT
+    "F",            ID_DEBUG_MEMORYSEARCH,  VIRTKEY, CONTROL, NOINVERT
+    "M",            ID_DEBUG_MEMORYVIEW,    VIRTKEY, CONTROL, NOINVERT
+    "R",            ID_DEBUG_REGISTERS,     VIRTKEY, CONTROL, NOINVERT
+    VK_F7,          ID_EMULATION_RUN,       VIRTKEY, NOINVERT
+    VK_F8,          ID_EMULATION_PAUSE,     VIRTKEY, NOINVERT
+    VK_F2,          ID_FILE_QUICKSAVESTATE, VIRTKEY, NOINVERT
+    VK_F4,          ID_FILE_QUICKLOADSTATE, VIRTKEY, NOINVERT
+    "1",            ID_OPTIONS_SCREEN1X,    VIRTKEY, CONTROL, NOINVERT
+    "2",            ID_OPTIONS_SCREEN2X,    VIRTKEY, CONTROL, NOINVERT
+    "3",            ID_OPTIONS_SCREEN3X,    VIRTKEY, CONTROL, NOINVERT
+    "4",            ID_OPTIONS_SCREEN4X,    VIRTKEY, CONTROL, NOINVERT
+    VK_F5,          ID_OPTIONS_BUFFEREDRENDERING, VIRTKEY, NOINVERT
+    VK_F6,          ID_OPTIONS_HARDWARETRANSFORM, VIRTKEY, NOINVERT
+    "W",            ID_FILE_UNLOAD,         VIRTKEY, CONTROL, NOINVERT
+    VK_F12,         ID_OPTIONS_FULLSCREEN,  VIRTKEY, NOINVERT
 END
 
 
@@ -384,18 +446,18 @@ END
 
 STRINGTABLE
 BEGIN
-    IDS_GAMELISTPATH "Path"
-    IDS_UNIMPLEMENTED "Unimplemented"
+    IDS_GAMELISTPATH        "Path"
+    IDS_UNIMPLEMENTED       "Unimplemented"
 END
 
 STRINGTABLE
 BEGIN
-    IDS_GAMELISTGENRE "Genre"
-    IDS_APPNAME "Potemkin"
-    IDS_GAMELISTTYPE "Type"
+    IDS_GAMELISTGENRE       "Genre"
+    IDS_APPNAME             "Potemkin"
+    IDS_GAMELISTTYPE        "Type"
 END
 
-#endif // Swedish (Sweden) resources
+#endif    // Neutral resources
 /////////////////////////////////////////////////////////////////////////////
 
 
@@ -405,6 +467,8 @@ END
 //
 // Generated from the TEXTINCLUDE 3 resource.
 //
+
+
 /////////////////////////////////////////////////////////////////////////////
-#endif // not APSTUDIO_INVOKED
+#endif    // not APSTUDIO_INVOKED
 

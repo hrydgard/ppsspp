@@ -61,6 +61,7 @@ namespace MainWindow
 	LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 	LRESULT CALLBACK DisplayProc(HWND, UINT, WPARAM, LPARAM);
 	LRESULT CALLBACK About(HWND, UINT, WPARAM, LPARAM);
+	LRESULT CALLBACK Controls(HWND, UINT, WPARAM, LPARAM);
 
 	HWND GetHWND()
 	{
@@ -543,10 +544,16 @@ namespace MainWindow
 				g_Config.bFastMemory = !g_Config.bFastMemory;
 				UpdateMenus();
 				break;
-		case ID_OPTIONS_LINEARFILTERING:
+			case ID_OPTIONS_LINEARFILTERING:
 				g_Config.bLinearFiltering = !g_Config.bLinearFiltering;
 				UpdateMenus();
 				break;
+			case ID_OPTIONS_CONTROLS:
+				DialogManager::EnableAll(FALSE);
+				DialogBox(hInst, (LPCTSTR)IDD_CONTROLS, hWnd, (DLGPROC)Controls);
+				DialogManager::EnableAll(TRUE);
+				break;
+
 
 			
 			//////////////////////////////////////////////////////////////////////////
@@ -637,7 +644,7 @@ namespace MainWindow
 			}
 			else
 			*/
-				return DefWindowProc(hWnd,message,wParam,lParam);
+			return DefWindowProc(hWnd,message,wParam,lParam);
 //		case WM_LBUTTONDOWN:
 //			TrackPopupMenu(menu,0,0,0,0,hWnd,0);
 //			break;
@@ -733,6 +740,53 @@ namespace MainWindow
 		{
 		case WM_INITDIALOG:
 			W32Util::CenterWindow(hDlg);
+			return TRUE;
+
+		case WM_COMMAND:
+			if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL) 
+			{
+				EndDialog(hDlg, LOWORD(wParam));
+				return TRUE;
+			}
+			break;
+		}
+		return FALSE;
+	}
+
+	const char *controllist[] = {
+		"Start\tSpace",
+		"Select\tV",
+		"Square\tA",
+		"Triangle\tS",
+		"Circle\tX",
+		"Cross\tZ",
+		"Left Trigger\tQ",
+		"Right Trigger\tW",
+		"Up\tArrow Up",
+		"Down\tArrow Down",
+		"Left\tArrow Left",
+		"Right\tArrow Right",
+		"Analog Up\tI",
+		"Analog Down\tK",
+		"Analog Left\tJ",
+		"Analog Right\tL",
+	};
+	// Message handler for about box.
+	LRESULT CALLBACK Controls(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+	{
+		switch (message)
+		{
+		case WM_INITDIALOG:
+			W32Util::CenterWindow(hDlg);
+			{
+				// TODO: connect to keyboard device instead
+				HWND list = GetDlgItem(hDlg, IDC_LISTCONTROLS);
+				int stops[1] = {80};
+				SendMessage(list, LB_SETTABSTOPS, 1, (LPARAM)stops);
+				for (int i = 0; i < sizeof(controllist)/sizeof(controllist[0]); i++) {
+					SendMessage(list, LB_INSERTSTRING, -1, (LPARAM)controllist[i]);
+				}
+			}
 			return TRUE;
 
 		case WM_COMMAND:
