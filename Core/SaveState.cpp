@@ -58,6 +58,7 @@ namespace SaveState
 	};
 
 	static int timer;
+	static bool needsProcess = false;
 	static std::vector<Operation> pending;
 	static std::recursive_mutex mutex;
 
@@ -93,8 +94,10 @@ namespace SaveState
 			// Warning: this may run on a different thread.
 			Process(0, 0);
 		}
-		else
+		else if (__KernelIsRunning())
 			CoreTiming::ScheduleEvent_Threadsafe(0, timer);
+		else
+			needsProcess = true;
 	}
 
 	void Load(const std::string &filename, Callback callback, void *cbUserData)
@@ -249,5 +252,12 @@ namespace SaveState
 		timer = CoreTiming::RegisterEvent("SaveState", Process);
 		// Make sure there's a directory for save slots
 		pspFileSystem.MkDir("ms0:/PSP/PPSSPP_STATE");
+
+		std::lock_guard<std::recursive_mutex> guard(mutex);
+		if (needsProcess)
+		{
+			CoreTiming::ScheduleEvent(0, timer);
+			needsProcess = false;
+		}
 	}
 }
