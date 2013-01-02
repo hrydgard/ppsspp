@@ -1357,8 +1357,7 @@ void __KernelSetupRootThread(SceUID moduleID, int args, const char *argp, int pr
 		Memory::Write_U8(argp[i], location + i);
 }
 
-
-int sceKernelCreateThread(const char *threadName, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr)
+int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr)
 {
 	if (threadName == NULL)
 	{
@@ -1382,11 +1381,19 @@ int sceKernelCreateThread(const char *threadName, u32 entry, u32 prio, int stack
 		attr |= PSP_THREAD_ATTR_USER;
 
 	SceUID id;
-	__KernelCreateThread(id, curModule, threadName, entry, prio, stacksize, attr);
+	__KernelCreateThread(id, moduleID, threadName, entry, prio, stacksize, attr);
 	INFO_LOG(HLE, "%i = sceKernelCreateThread(name=\"%s\", entry=%08x, prio=%x, stacksize=%i)", id, threadName, entry, prio, stacksize);
 	if (optionAddr != 0)
 		WARN_LOG(HLE, "sceKernelCreateThread(name=\"%s\"): unsupported options parameter %08x", threadName, optionAddr);
 	return id;
+}
+
+int sceKernelCreateThread(const char *threadName, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr)
+{
+	SceUID moduleId = curModule;
+	if (__GetCurrentThread())
+		moduleId = __GetCurrentThread()->moduleId;
+	return __KernelCreateThread(threadName, moduleId, entry, prio, stacksize, attr, optionAddr);
 }
 
 

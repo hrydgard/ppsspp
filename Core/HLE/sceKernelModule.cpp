@@ -837,6 +837,10 @@ void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValu
 			entryAddr = module->nm.module_start_func;
 			// attr = module->nm
 		}
+
+		SceUID threadID = __KernelCreateThread(module->nm.name, moduleId, entryAddr, priority, stacksize, attr, 0);
+		sceKernelStartThread(threadID, argsize, argAddr);
+		sceKernelWaitThreadEnd(threadID, 0);
 	}
 
 	//SceUID threadId;
