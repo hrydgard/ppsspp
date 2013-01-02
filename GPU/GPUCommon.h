@@ -9,8 +9,8 @@ public:
 		dlIdGenerator(1),
 		currentList(NULL),
 		stackptr(0),
-		dumpThisFrame_(false),
-		dumpNextFrame_(false)
+		dumpNextFrame_(false),
+		dumpThisFrame_(false)
 	{}
 
 	virtual void PreExecuteOp(u32 op, u32 diff);

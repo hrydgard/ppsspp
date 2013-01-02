@@ -1140,9 +1140,15 @@ void sceKernelCheckThreadStack()
 {
 	u32 error;
 	Thread *t = kernelObjects.Get<Thread>(__KernelGetCurThread(), error);
-	u32 diff = abs((long)((s64)t->stackBlock - (s64)currentMIPS->r[MIPS_REG_SP]));
-	ERROR_LOG(HLE, "%i=sceKernelCheckThreadStack()", diff);
-	RETURN(diff); //Blatant lie
+	if (t) {
+		u32 diff = abs((long)((s64)t->stackBlock - (s64)currentMIPS->r[MIPS_REG_SP]));
+		WARN_LOG(HLE, "%i=sceKernelCheckThreadStack()", diff);
+		RETURN(diff);
+	} else {
+		// WTF?
+		ERROR_LOG(HLE, "sceKernelCheckThreadStack() - not on thread");
+		RETURN(-1);
+	}
 }
 
 void ThreadContext::reset()

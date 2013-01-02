@@ -361,7 +361,7 @@ u32 sceCtrlSetSamplingMode(u32 mode)
 int sceCtrlGetSamplingMode(u32 modePtr)
 {
 	u32 retVal = analogEnabled == true ? CTRL_MODE_ANALOG : CTRL_MODE_DIGITAL;
-	DEBUG_LOG(HLE, "%d=sceCtrlGetSamplingMode(%i)", retVal);
+	DEBUG_LOG(HLE, "%d=sceCtrlGetSamplingMode(%08x)", retVal, modePtr);
 
 	if (Memory::IsValidAddress(modePtr))
 		Memory::Write_U32(retVal, modePtr);

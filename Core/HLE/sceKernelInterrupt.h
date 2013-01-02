@@ -71,10 +71,10 @@ struct PendingInterrupt {
 	PendingInterrupt(int intr_, int subintr_, int arg_)
 		: intr(intr_), subintr(subintr_), hasArg(true), arg(arg_) {}
 
-	int arg;
-	bool hasArg;
 	int intr;
 	int subintr;
+	bool hasArg;
+	int arg;
 };
 
 class SubIntrHandler
