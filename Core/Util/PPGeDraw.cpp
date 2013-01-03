@@ -238,18 +238,20 @@ static void PPGeMeasureText(const char *text, float scale, float *w, float *h) {
 	const AtlasFont &atlasfont = *ppge_atlas.fonts[0];
 	unsigned char cval;
 	float wacc = 0;
+	float maxw = 0;
 	int lines = 1;
 	while ((cval = *text++) != '\0') {
 		if (cval < 32) continue;
 		if (cval > 127) continue;
 		if (cval == '\n') {
+			if (wacc > maxw) maxw = wacc;
 			wacc = 0;
 			lines++;
 		}
 		AtlasChar c = atlasfont.chars[cval - 32];
 		wacc += c.wx * scale;
 	}
-	if (w) *w = wacc;
+	if (w) *w = maxw;
 	if (h) *h = atlasfont.height * scale * lines;
 }
 
@@ -278,6 +280,7 @@ void PPGeDrawText(const char *text, float x, float y, int align, float scale, u3
 	float sx = x;
 	while ((cval = *text++) != '\0') {
 		if (cval == '\n') {
+			// This is not correct when centering or right-justifying, need to set x depending on line width (tricky)
 			y += atlasfont.height * scale;
 			x = sx;
 			continue;
