@@ -454,7 +454,7 @@ struct TAG_INFO2
 	u8 type;
 };
 
-static TAG_INFO2 g_tagInfo2[] =
+static const TAG_INFO2 g_tagInfo2[] =
 {
 	{ 0x4C9494F0, keys660_k1, 0x43 },
 	{ 0x4C9495F0, keys660_k2, 0x43 },
@@ -590,7 +590,7 @@ static TAG_INFO2 g_tagInfo2[] =
 };
 
 
-static TAG_INFO2 *GetTagInfo2(u32 tagFind)
+static const TAG_INFO2 *GetTagInfo2(u32 tagFind)
 {
 	for (u32 iTag = 0; iTag < sizeof(g_tagInfo2) / sizeof(TAG_INFO2); iTag++)
 	{
@@ -605,7 +605,7 @@ static TAG_INFO2 *GetTagInfo2(u32 tagFind)
 
 static int DecryptPRX2(const u8 *inbuf, u8 *outbuf, u32 size, u32 tag)
 {
-	TAG_INFO2 * pti = GetTagInfo2(tag);
+	const TAG_INFO2 *pti = GetTagInfo2(tag);
 
 	if (!pti)
 	{
@@ -632,7 +632,7 @@ static int DecryptPRX2(const u8 *inbuf, u8 *outbuf, u32 size, u32 tag)
 		return -2;
 	}
 
-	if ((size - 0x150) < retsize)
+	if (((int)size - 0x150) < retsize)
 	{
 		return -4;
 	}

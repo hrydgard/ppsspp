@@ -37,11 +37,11 @@
 
 //CMAC GLOBS
 #define AES_128 0
-unsigned char const_Rb[16] = {
+const unsigned char const_Rb[16] = {
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x87
 };
-unsigned char const_Zero[16] = {
+const unsigned char const_Zero[16] = {
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
@@ -1294,7 +1294,7 @@ void AES_encrypt(AES_ctx *ctx, const u8 *src, u8 *dst)
 	rijndaelEncrypt(ctx->ek, ctx->Nr, src, dst);
 }
 
-void xor_128(unsigned char *a, unsigned char *b, unsigned char *out)
+void xor_128(const unsigned char *a, const unsigned char *b, unsigned char *out)
 {
 	int i;
 	for (i=0;i<16; i++)
