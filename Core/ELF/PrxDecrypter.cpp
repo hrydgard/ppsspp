@@ -8,6 +8,8 @@ extern "C"
 #include "../../Globals.h"
 #include "PrxDecrypter.h"
 
+#define ROUNDUP16(x)  (((x)+15)&~15)
+
 // Thank you PSARDUMPER & JPCSP keys
 
 // PRXDecrypter 16-byte tag keys.
@@ -314,21 +316,17 @@ static const TAG_INFO *GetTagInfo(u32 tagFind)
 
 static void ExtraV2Mangle(u8* buffer1, u8 codeExtra)
 {
-#ifdef _MSC_VER
-	static u8 __declspec(align(64)) g_dataTmp[20+0xA0];
-#else
-	static u8 g_dataTmp[20+0xA0] __attribute__((aligned(0x40)));
-#endif
-	u8* buffer2 = g_dataTmp; // aligned
+	u8 buffer2[ROUNDUP16(0x14+0xA0)];
 
-	memcpy(buffer2+20, buffer1, 0xA0);
+	memcpy(buffer2+0x14, buffer1, 0xA0);
+
 	u32* pl2 = (u32*)buffer2;
 	pl2[0] = 5;
 	pl2[1] = pl2[2] = 0;
 	pl2[3] = codeExtra;
 	pl2[4] = 0xA0;
 
-	sceUtilsBufferCopyWithRange(buffer2, 20+0xA0, buffer2, 20+0xA0, 7);
+	sceUtilsBufferCopyWithRange(buffer2, 20+0xA0, buffer2, 20+0xA0, KIRK_CMD_DECRYPT_IV_0);
 	// copy result back
 	memcpy(buffer1, buffer2, 0xA0);
 }
@@ -340,7 +338,7 @@ static int Scramble(u32 *buf, u32 size, u32 code)
 	buf[3] = code;
 	buf[4] = size;
 
-	if (sceUtilsBufferCopyWithRange((u8*)buf, size+0x14, (u8*)buf, size+0x14, 7) < 0)
+	if (sceUtilsBufferCopyWithRange((u8*)buf, size+0x14, (u8*)buf, size+0x14, KIRK_CMD_DECRYPT_IV_0) < 0)
 	{
 		return -1;
 	}
@@ -603,6 +601,7 @@ static const TAG_INFO2 *GetTagInfo2(u32 tagFind)
 	return NULL; // not found
 }
 
+
 static int DecryptPRX2(const u8 *inbuf, u8 *outbuf, u32 size, u32 tag)
 {
 	const TAG_INFO2 *pti = GetTagInfo2(tag);
@@ -616,13 +615,11 @@ static int DecryptPRX2(const u8 *inbuf, u8 *outbuf, u32 size, u32 tag)
 		return MISSING_KEY;
 	}
 
-	int retsize = *(int *)&inbuf[0xB0];
-	u8 tmp1[0x150], tmp2[0x90+0x14], tmp3[0x90+0x14], tmp4[0x20];
-
-	memset(tmp1, 0, 0x150);
-	memset(tmp2, 0, 0x90+0x14);
-	memset(tmp3, 0, 0x90+0x14);
-	memset(tmp4, 0, 0x20);
+	int retsize = *(const int *)&inbuf[0xB0];
+	u8 tmp1[0x150] = {0};
+	u8 tmp2[ROUNDUP16(0x90+0x14)] = {0};
+	u8 tmp3[ROUNDUP16(0x90+0x14)] = {0};
+	u8 tmp4[ROUNDUP16(0x20)] = {0};
 
 	if (inbuf != outbuf)
 		memcpy(outbuf, inbuf, size);
@@ -640,15 +637,16 @@ static int DecryptPRX2(const u8 *inbuf, u8 *outbuf, u32 size, u32 tag)
 	memcpy(tmp1, outbuf, 0x150);
 
 	int i, j;
-	u8 *p = tmp2+0x14;
+	u8 *p = tmp2 + 0x14;
 
+	// Writes 0x90 bytes to tmp2 + 0x14.
 	for (i = 0; i < 9; i++)
 	{
 		for (j = 0; j < 0x10; j++)
 		{
 			p[(i << 4) + j] = pti->key[j];
 		}
-		p[(i << 4)] = i;   // really?
+		p[(i << 4)] = i;   // really? this is very odd
 	}
 
 	if (Scramble((u32 *)tmp2, 0x90, pti->code) < 0)
