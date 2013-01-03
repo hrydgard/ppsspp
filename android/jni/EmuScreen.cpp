@@ -59,8 +59,10 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true)
 	coreParam.enableDebugging = false;
 	coreParam.printfEmuLog = false;
 	coreParam.headLess = false;
-	coreParam.renderWidth = 480;
-	coreParam.renderHeight = 272;
+	if (g_Config.iWindowZoom < 1 || g_Config.iWindowZoom > 2)
+		g_Config.iWindowZoom = 1;
+	coreParam.renderWidth = 480 * g_Config.iWindowZoom;
+	coreParam.renderHeight = 272 * g_Config.iWindowZoom;
 	coreParam.outputWidth = dp_xres;
 	coreParam.outputHeight = dp_yres;
 	coreParam.pixelWidth = pixel_xres;

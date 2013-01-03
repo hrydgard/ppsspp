@@ -275,14 +275,19 @@ void SettingsScreen::render() {
 	// VLinear vlinear(10, 80, 10);
 	int x = 30;
 	int y = 50;
-	UICheckBox(GEN_ID, x, y += 50, "Sound Emulation", ALIGN_TOPLEFT, &g_Config.bEnableSound);
-	UICheckBox(GEN_ID, x, y += 50, "Buffered Rendering (may fix flicker)", ALIGN_TOPLEFT, &g_Config.bBufferedRendering);
-	UICheckBox(GEN_ID, x, y += 50, "Hardware Transform", ALIGN_TOPLEFT, &g_Config.bHardwareTransform);
+	UICheckBox(GEN_ID, x, y += 45, "Sound Emulation", ALIGN_TOPLEFT, &g_Config.bEnableSound);
+	UICheckBox(GEN_ID, x, y += 45, "Buffered Rendering", ALIGN_TOPLEFT, &g_Config.bBufferedRendering);
+	if (g_Config.bBufferedRendering) {
+		bool doubleRes = g_Config.iWindowZoom == 2;
+		UICheckBox(GEN_ID, x + 50, y += 50, "2x Render Resolution", ALIGN_TOPLEFT, &doubleRes);
+		g_Config.iWindowZoom = doubleRes ? 2 : 1;
+	}
+	UICheckBox(GEN_ID, x, y += 45, "Hardware Transform", ALIGN_TOPLEFT, &g_Config.bHardwareTransform);
 
 	bool useFastInt = g_Config.iCpuCore == CPU_FASTINTERPRETER;
-	UICheckBox(GEN_ID, x, y += 50, "Slightly faster interpreter (may crash)", ALIGN_TOPLEFT, &useFastInt);
+	UICheckBox(GEN_ID, x, y += 45, "Slightly faster interpreter (may crash)", ALIGN_TOPLEFT, &useFastInt);
 	// ui_draw2d.DrawText(UBUNTU48, "much faster JIT coming later", x, y+=50, 0xcFFFFFFF, ALIGN_LEFT);
-	UICheckBox(GEN_ID, x, y += 50, "On-screen Touch Controls", ALIGN_TOPLEFT, &g_Config.bShowTouchControls);
+	UICheckBox(GEN_ID, x, y += 45, "On-screen Touch Controls", ALIGN_TOPLEFT, &g_Config.bShowTouchControls);
 	if (g_Config.bShowTouchControls)
 		UICheckBox(GEN_ID, x + 50, y += 50, "Show Analog Stick", ALIGN_TOPLEFT, &g_Config.bShowAnalogStick);
 	g_Config.iCpuCore = useFastInt ? CPU_FASTINTERPRETER : CPU_INTERPRETER;
