@@ -398,6 +398,11 @@ namespace MIPSInt
 		int rs = _RS;
 		u32 addr = R(rs) + imm;
 
+		if (((op >> 29) & 1) == 0 && rt == 0) {
+			// Don't load anything into $zr
+			return;
+		}
+
 		switch (op >> 26) 
 		{
 		case 32: R(rt) = (u32)(s32)(s8) Memory::Read_U8(addr); break; //lb
