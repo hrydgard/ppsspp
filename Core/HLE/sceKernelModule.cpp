@@ -112,7 +112,8 @@ public:
 	void GetQuickInfo(char *ptr, int size)
 	{
 		// ignore size
-		sprintf(ptr, "name=%s gp=%08x entry=%08x",
+		sprintf(ptr, "%sname=%s gp=%08x entry=%08x",
+			isFake ? "faked " : "",
 			nm.name,
 			nm.gp_value,
 			nm.entry_addr);
@@ -237,6 +238,9 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			*error_string = "Missing key";
 			delete [] newptr;
 			module->isFake = true;
+			strncpy(module->nm.name, head->modname, 28);
+			module->nm.entry_addr = -1;
+			module->nm.gp_value = -1;
 			return module;
 		}
 		else if (ret <= 0)
@@ -303,6 +307,9 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	else
 		modinfo = (PspModuleInfo *)Memory::GetPointer(reader.GetSegmentVaddr(0) + (reader.GetSegmentPaddr(0) & 0x7FFFFFFF) - reader.GetSegmentOffset(0));
 
+	module->nm.gp_value = modinfo->gp;
+	strncpy(module->nm.name, modinfo->name, 28);
+
 	// Check for module blacklist - we don't allow games to load these modules from disc
 	// as we have HLE implementations and the originals won't run in the emu because they
 	// directly access hardware or for other reasons.
@@ -314,6 +321,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 				delete [] newptr;
 			}
 			module->isFake = true;
+			module->nm.entry_addr = -1;
 			return module;
 		}
 	}
@@ -342,9 +350,6 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			dontadd = true;
 		}
 	}
-
-	module->nm.gp_value = modinfo->gp;
-	strncpy(module->nm.name, modinfo->name, 28);
 
 	INFO_LOG(LOADER,"Module %s: %08x %08x %08x", modinfo->name, modinfo->gp, modinfo->libent,modinfo->libstub);
 
