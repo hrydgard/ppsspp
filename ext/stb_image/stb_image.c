@@ -1992,7 +1992,7 @@ static void init_defaults(void)
    for (i=0; i <=  31; ++i)     default_distance[i] = 5;
 }
 
-int stbi_png_partial; // a quick hack to only allow decoding some of a PNG... I should implement real streaming support instead
+static int stbi_png_partial; // a quick hack to only allow decoding some of a PNG... I should implement real streaming support instead
 static int parse_zlib(zbuf *a, int parse_header)
 {
    int final, type;
