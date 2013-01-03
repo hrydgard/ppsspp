@@ -1104,14 +1104,21 @@ void GLES_GPU::DoBlockTransfer() {
 
 	// TODO: Notify all overlapping FBOs that they need to reload.
 
-	TextureCache_Invalidate(dstBasePtr + dstY * dstStride + dstX, height * dstStride + width * bpp);
+	TextureCache_Invalidate(dstBasePtr + dstY * dstStride + dstX, height * dstStride + width * bpp, true);
 }
 
 void GLES_GPU::InvalidateCache(u32 addr, int size) {
 	if (size > 0)
-		TextureCache_Invalidate(addr, size);
+		TextureCache_Invalidate(addr, size, true);
 	else
-		TextureCache_Clear(true);
+		TextureCache_InvalidateAll(true);
+}
+
+void GLES_GPU::InvalidateCacheHint(u32 addr, int size) {
+	if (size > 0)
+		TextureCache_Invalidate(addr, size, false);
+	else
+		TextureCache_InvalidateAll(false);
 }
 
 void GLES_GPU::Flush() {

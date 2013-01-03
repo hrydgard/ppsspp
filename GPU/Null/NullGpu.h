@@ -39,6 +39,7 @@ public:
 	virtual void CopyDisplayToOutput() {}
 	virtual void UpdateStats();
 	virtual void InvalidateCache(u32 addr, int size);
+	virtual void InvalidateCacheHint(u32 addr, int size);
 	virtual void Flush() {}
 
 	virtual void DeviceLost() {}
