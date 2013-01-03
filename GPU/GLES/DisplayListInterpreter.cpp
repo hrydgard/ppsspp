@@ -302,7 +302,16 @@ GLES_GPU::VirtualFramebuffer *GLES_GPU::GetDisplayFBO() {
 			return *iter;
 		}
 	}
-
+	DEBUG_LOG(HLE, "Finding no FBO matching address %08x", displayFramebufPtr_);
+#ifdef _DEBUG
+	std::string debug = "FBOs: ";
+	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
+		char temp[256];
+		sprintf(temp, "%08x %i %i", (*iter)->fb_address, (*iter)->width, (*iter)->height);
+		debug += std::string(temp);
+	}
+	ERROR_LOG(HLE, "FBOs: %s", debug.c_str());
+#endif
 	return 0;
 }
 
@@ -320,13 +329,19 @@ void GLES_GPU::SetRenderFrameBuffer() {
 	int drawing_width = ((gstate.region2) & 0x3FF) + 1;
 	int drawing_height = ((gstate.region2 >> 10) & 0x3FF) + 1;
 
+	// HACK for first frame where some games don't init things right
+	if (drawing_width == 1 && drawing_height == 1) {
+		drawing_width = 480;
+		drawing_height = 272;
+	}
+
 	int fmt = gstate.framebufpixformat & 3;
 
 	// Find a matching framebuffer
 	VirtualFramebuffer *vfb = 0;
 	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
 		VirtualFramebuffer *v = *iter;
-		if (v->fb_address == fb_address) {
+		if (v->fb_address == fb_address && v->width == drawing_width && v->height == drawing_height) {
 			// Let's not be so picky for now. Let's say this is the one.
 			vfb = v;
 			// Update fb stride in case it changed
@@ -353,7 +368,7 @@ void GLES_GPU::SetRenderFrameBuffer() {
 		glViewport(0, 0, renderWidth_, renderHeight_);
 		currentRenderVfb_ = vfb;
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-		DEBUG_LOG(HLE, "Creating FBO for %08x", vfb->fb_address);
+		INFO_LOG(HLE, "Creating FBO for %08x : %i x %i", vfb->fb_address, vfb->width, vfb->height);
 		return;
 	}
 
