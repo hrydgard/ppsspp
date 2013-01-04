@@ -371,6 +371,14 @@ public:
 		// What's this 512?
 		context.r[MIPS_REG_K0] = context.r[MIPS_REG_SP] - 256;
 		context.r[MIPS_REG_SP] -= 512;
+		u32 k0 = context.r[MIPS_REG_K0];
+		Memory::Memset(k0, 0, 0x100);
+		Memory::Write_U32(nt.initialStack, k0 + 0xc0);
+		Memory::Write_U32(GetUID(),        k0 + 0xca);
+		Memory::Write_U32(0xffffffff,      k0 + 0xf8);
+		Memory::Write_U32(0xffffffff,      k0 + 0xfc);
+
+		Memory::Write_U32(GetUID(), nt.initialStack);
 		return true;
 	}
 
