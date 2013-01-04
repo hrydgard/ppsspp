@@ -181,7 +181,7 @@ u32 scePowerSetBusClockFrequency(u32 busfreq) {
 
 u32 scePowerGetCpuClockFrequencyInt() {
 	int freq = CoreTiming::GetClockFrequencyMHz();
-	INFO_LOG(HLE,"%i=scePowerGetCpuClockFrequencyInt()", freq);
+	DEBUG_LOG(HLE,"%i=scePowerGetCpuClockFrequencyInt()", freq);
 	return freq;
 }
 
