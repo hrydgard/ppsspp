@@ -8,7 +8,7 @@ import subprocess
 import threading
 
 
-PPSSPP_EXECUTABLES = [ "Windows\\Release\\PPSSPPHeadless.exe", "SDL/build/PPSSPPHeadless" ]
+PPSSPP_EXECUTABLES = [ "Windows\\Release\\PPSSPPHeadless.exe", "build/PPSSPPHeadless" ]
 PPSSPP_EXE = None
 TEST_ROOT = "pspautotests/tests/"
 teamcity_mode = False
@@ -74,6 +74,7 @@ tests_good = [
   "threads/events/refer/refer",
   "threads/events/set/set",
   "threads/events/wait/wait",
+  "threads/k0/k0",
   "threads/lwmutex/create/create",
   "threads/lwmutex/delete/delete",
   "threads/lwmutex/lock/lock",
