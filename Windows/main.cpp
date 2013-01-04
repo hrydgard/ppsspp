@@ -56,7 +56,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	const char *fileToLog = NULL;
 	const char *stateToLoad = NULL;
 	bool hideLog = true;
-	bool autoRun = true;
 
 #ifdef _DEBUG
 	hideLog = false;
@@ -77,18 +76,22 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 			{
 			case 'j':
 				g_Config.iCpuCore = CPU_JIT;
+				g_Config.bSaveSettings = false;
 				break;
 			case 'i':
 				g_Config.iCpuCore = CPU_INTERPRETER;
+				g_Config.bSaveSettings = false;
 				break;
 			case 'f':
 				g_Config.iCpuCore = CPU_FASTINTERPRETER;
+				g_Config.bSaveSettings = false;
 				break;
 			case 'l':
 				hideLog = false;
 				break;
 			case 's':
-				autoRun = false;
+				g_Config.bAutoRun = false;
+				g_Config.bSaveSettings = false;
 				break;
 			case '-':
 				if (!strcmp(__argv[i], "--log") && i < __argc - 1)
@@ -162,8 +165,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	else
 		MainWindow::BrowseAndBoot();
 
-	if (autoRun)
-		MainWindow::SetNextState(CORE_RUNNING);
 	if (fileToStart != NULL && stateToLoad != NULL)
 		SaveState::Load(stateToLoad);
 

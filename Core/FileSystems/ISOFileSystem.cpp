@@ -209,7 +209,7 @@ nextblock:
 		if (strlen(name) == 1 && name[0] == '\x01')	 // ".." record
 		{
 			strcpy(name,"..");
-			relative=true;
+			relative = true;
 		}
 
 		TreeEntry *e = new TreeEntry;

@@ -169,6 +169,42 @@ LANGUAGE LANG_NEUTRAL, SUBLANG_DEFAULT
 
 /////////////////////////////////////////////////////////////////////////////
 //
+// Dialog
+//
+
+IDD_CONTROLS DIALOGEX 0, 0, 287, 238
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Controls"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,176,217,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,230,217,50,14
+    LTEXT           "NOTE: Currently controls are NOT configurable.",IDC_STATIC,7,7,188,10
+    LISTBOX         IDC_LISTCONTROLS,7,19,273,184,LBS_SORT | LBS_USETABSTOPS | LBS_NOINTEGRALHEIGHT | WS_VSCROLL | WS_TABSTOP
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO
+BEGIN
+    IDD_CONTROLS, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 280
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 231
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
 // Menu
 //
 
@@ -192,6 +228,8 @@ BEGIN
         MENUITEM "&Pause\tF8",                  ID_EMULATION_PAUSE
         MENUITEM SEPARATOR
         MENUITEM "R&eset",                      ID_EMULATION_RESET
+        MENUITEM SEPARATOR
+        MENUITEM "&Run on load",                ID_EMULATION_RUNONLOAD
         MENUITEM SEPARATOR
         MENUITEM "&Interpreter",                ID_CPU_INTERPRETER
         MENUITEM "&Slightly Faster Interpreter", ID_CPU_FASTINTERPRETER
@@ -236,92 +274,6 @@ BEGIN
     END
 END
 
-#endif    // Neutral (Default) resources
-/////////////////////////////////////////////////////////////////////////////
-
-
-/////////////////////////////////////////////////////////////////////////////
-// English (United States) resources
-
-#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_NEUD)
-LANGUAGE LANG_NEUTRAL, SUBLANG_DEFAULT
-#pragma code_page(1252)
-/////////////////////////////////////////////////////////////////////////////
-//
-// Dialog
-//
-
-IDD_CONTROLS DIALOGEX 0, 0, 287, 238
-STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "Controls"
-FONT 8, "MS Shell Dlg", 400, 0, 0x1
-BEGIN
-    DEFPUSHBUTTON   "OK",IDOK,176,217,50,14
-    PUSHBUTTON      "Cancel",IDCANCEL,230,217,50,14
-    LTEXT           "NOTE: Currently controls are NOT configurable.",IDC_STATIC,7,7,188,10
-    LISTBOX         IDC_LISTCONTROLS,7,19,273,184,LBS_SORT | LBS_NOINTEGRALHEIGHT | LBS_USETABSTOPS | WS_VSCROLL | WS_TABSTOP
-END
-
-
-/////////////////////////////////////////////////////////////////////////////
-//
-// DESIGNINFO
-//
-
-#ifdef APSTUDIO_INVOKED
-GUIDELINES DESIGNINFO
-BEGIN
-    IDD_CONTROLS, DIALOG
-    BEGIN
-        LEFTMARGIN, 7
-        RIGHTMARGIN, 280
-        TOPMARGIN, 7
-        BOTTOMMARGIN, 231
-    END
-END
-#endif    // APSTUDIO_INVOKED
-
-
-#ifdef APSTUDIO_INVOKED
-/////////////////////////////////////////////////////////////////////////////
-//
-// TEXTINCLUDE
-//
-
-1 TEXTINCLUDE 
-BEGIN
-    "resource.h\0"
-END
-
-2 TEXTINCLUDE 
-BEGIN
-    "\0"
-END
-
-3 TEXTINCLUDE 
-BEGIN
-    "\r\n"
-    "\0"
-END
-
-#endif    // APSTUDIO_INVOKED
-
-#endif    // English (United States) resources
-/////////////////////////////////////////////////////////////////////////////
-
-
-/////////////////////////////////////////////////////////////////////////////
-// Neutral resources
-
-#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_NEUD)
-LANGUAGE LANG_NEUTRAL, SUBLANG_DEFAULT
-#pragma code_page(1252)
-
-/////////////////////////////////////////////////////////////////////////////
-//
-// Menu
-//
-
 IDR_POPUPMENUS MENU
 BEGIN
     POPUP "memview"
@@ -361,6 +313,31 @@ BEGIN
         MENUITEM "C&hange...",                  ID_REGLIST_CHANGE
     END
 END
+
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE 
+BEGIN
+    "\0"
+END
+
+3 TEXTINCLUDE 
+BEGIN
+    "\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -421,15 +398,15 @@ BEGIN
         BLOCK "040904b0"
         BEGIN
             VALUE "Comments", "PPSSPP PSP emulator"
-            VALUE "CompanyName", "Henrik RydgÃ¥rd Inc."
+            VALUE "CompanyName", "Henrik Rydgård Inc."
             VALUE "FileDescription", "PPSSPP"
-            VALUE "FileVersion", "1, 0, 0, 0"
+            VALUE "FileVersion", "1, 0, 5, 0"
             VALUE "InternalName", "s"
-            VALUE "LegalCopyright", "Copyright (C) 2006-2012 by Henrik RydgÃ¥rd"
+            VALUE "LegalCopyright", "Copyright (C) 2006-2012 by Henrik Rydgård"
             VALUE "LegalTrademarks", "All product names are trademarks of their respective owners."
             VALUE "OriginalFilename", "PPSSPP.exe"
             VALUE "ProductName", "PPSSPP"
-            VALUE "ProductVersion", "1, 0, 0, 0"
+            VALUE "ProductVersion", "1, 0, 5, 0"
         END
     END
     BLOCK "VarFileInfo"
@@ -457,7 +434,7 @@ BEGIN
     IDS_GAMELISTTYPE        "Type"
 END
 
-#endif    // Neutral resources
+#endif    // Neutral (Default) resources
 /////////////////////////////////////////////////////////////////////////////
 
 

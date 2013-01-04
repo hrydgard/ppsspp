@@ -67,7 +67,6 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true)
 	coreParam.outputHeight = dp_yres;
 	coreParam.pixelWidth = pixel_xres;
 	coreParam.pixelHeight = pixel_yres;
-
 	std::string error_string;
 	if (PSP_Init(coreParam, &error_string)) {
 		invalid_ = false;
@@ -81,7 +80,6 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true)
 	LayoutGamepad(dp_xres, dp_yres);
 
 	NOTICE_LOG(BOOT, "Loading %s...", fileToStart.c_str());
-	coreState = CORE_RUNNING;
 }
 
 EmuScreen::~EmuScreen()

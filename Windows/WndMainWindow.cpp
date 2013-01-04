@@ -421,6 +421,10 @@ namespace MainWindow
 				UpdateMenus();
 				break;
 
+			case ID_EMULATION_RUNONLOAD:
+				g_Config.bAutoRun = !g_Config.bAutoRun;
+				UpdateMenus();
+				break;
 			//case ID_CPU_RESET: 
 			//	MessageBox(hwndMain,"Use the controls in the disasm window for now..","Sorry",0);
 			//	Update();
@@ -700,6 +704,7 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_HARDWARETRANSFORM, g_Config.bHardwareTransform);
 		CHECKITEM(ID_OPTIONS_FASTMEMORY, g_Config.bFastMemory);
 		CHECKITEM(ID_OPTIONS_LINEARFILTERING, g_Config.bLinearFiltering);
+		CHECKITEM(ID_EMULATION_RUNONLOAD, g_Config.bAutoRun);
 
 		UINT enable = !Core_IsStepping() ? MF_GRAYED : MF_ENABLED;
 		EnableMenuItem(menu,ID_EMULATION_RUN, g_State.bEmuThreadStarted ? enable : MF_GRAYED);
