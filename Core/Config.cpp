@@ -82,7 +82,6 @@ void CConfig::Save()
 		IniFile iniFile;
 		if (!iniFile.Load(iniFilename_.c_str())) {
 			ERROR_LOG(LOADER, "Error saving config - can't read ini %s", iniFilename_.c_str());
-			return;
 		}
 
 		IniFile::Section *general = iniFile.GetOrCreateSection("General");
