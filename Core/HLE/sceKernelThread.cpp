@@ -366,10 +366,10 @@ public:
 		// Fill the stack.
 		Memory::Memset(stackBlock, 0xFF, stackSize);
 		context.r[MIPS_REG_SP] = stackBlock + stackSize;
-		nt.initialStack = context.r[MIPS_REG_SP];
+		nt.initialStack = stackBlock;
 		nt.stackSize = stackSize;
 		// What's this 512?
-		context.r[MIPS_REG_K0] = context.r[MIPS_REG_SP] - 512;
+		context.r[MIPS_REG_K0] = context.r[MIPS_REG_SP] - 256;
 		context.r[MIPS_REG_SP] -= 512;
 		return true;
 	}
