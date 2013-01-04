@@ -44,6 +44,22 @@ enum {
 	PSP_THREAD_ATTR_USER = 0x80000000
 };
 
+enum {
+	// Function exports.
+	NID_MODULE_START = 0xD632ACDB,
+	NID_MODULE_STOP = 0xCEE8593C,
+	NID_MODULE_REBOOT_BEFORE = 0x2F064FA6,
+	NID_MODULE_REBOOT_PHASE = 0xADF12745,
+	NID_MODULE_BOOTSTART = 0xD3744BE0,
+
+	// Variable exports.
+	NID_MODULE_INFO = 0xF01D73A7,
+	NID_MODULE_START_THREAD_PARAMETER = 0x0F7C276C,
+	NID_MODULE_STOP_THREAD_PARAMETER = 0xCF0CC697,
+	NID_MODULE_REBOOT_BEFORE_THREAD_PARAMETER = 0xF4F4299D,
+	NID_MODULE_SDK_VERSION = 0x11B97506,
+};
+
 static const char *blacklistedModules[] = {
 	"sceATRAC3plus_Library",
 	"sceFont_Library",
@@ -229,6 +245,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 {
 	Module *module = new Module;
 	kernelObjects.Create(module);
+	memset(&module->nm, 0, sizeof(module->nm));
 
 	u8 *newptr = 0;
 	if (*(u32*)ptr == 0x4543537e) { // "~SCE"
@@ -464,8 +481,66 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		{
 			u32 nid = residentPtr[j];
 			u32 exportAddr = residentPtr[ent->fcount + ent->vcount + j];
-			ResolveSyscall(name, nid, exportAddr);
+
+			switch (nid)
+			{
+			case NID_MODULE_START:
+				module->nm.module_start_func = exportAddr;
+				break;
+			case NID_MODULE_STOP:
+				module->nm.module_stop_func = exportAddr;
+				break;
+			case NID_MODULE_REBOOT_BEFORE:
+				module->nm.module_reboot_before_func = exportAddr;
+				break;
+			case NID_MODULE_REBOOT_PHASE:
+				module->nm.module_reboot_phase_func = exportAddr;
+				break;
+			case NID_MODULE_BOOTSTART:
+				module->nm.module_bootstart_func = exportAddr;
+				break;
+			default:
+				ResolveSyscall(name, nid, exportAddr);
+			}
 		}
+
+		for (u32 j = 0; j < ent->vcount; j++)
+		{
+			u32 nid = residentPtr[ent->fcount + j];
+			u32 exportAddr = residentPtr[ent->fcount + ent->vcount + ent->fcount + j];
+
+			switch (nid)
+			{
+			case NID_MODULE_INFO:
+				// TODO
+				break;
+			case NID_MODULE_START_THREAD_PARAMETER:
+				// TODO: What's at 0?
+				module->nm.module_start_thread_priority = Memory::Read_U32(exportAddr + 4);
+				module->nm.module_start_thread_stacksize = Memory::Read_U32(exportAddr + 8);
+				module->nm.module_start_thread_attr = Memory::Read_U32(exportAddr + 12);
+				break;
+			case NID_MODULE_STOP_THREAD_PARAMETER:
+				// TODO: What's at 0?
+				module->nm.module_stop_thread_priority = Memory::Read_U32(exportAddr + 4);
+				module->nm.module_stop_thread_stacksize = Memory::Read_U32(exportAddr + 8);
+				module->nm.module_stop_thread_attr = Memory::Read_U32(exportAddr + 12);
+				break;
+			case NID_MODULE_REBOOT_BEFORE_THREAD_PARAMETER:
+				// TODO: What's at 0?
+				module->nm.module_reboot_before_thread_priority = Memory::Read_U32(exportAddr + 4);
+				module->nm.module_reboot_before_thread_stacksize = Memory::Read_U32(exportAddr + 8);
+				module->nm.module_reboot_before_thread_attr = Memory::Read_U32(exportAddr + 12);
+				break;
+			case NID_MODULE_SDK_VERSION:
+				// TODO
+				break;
+			default:
+				// TODO
+				break;
+			}
+		}
+
 		if (ent->size > 4)
 		{
 			ent = (PspLibEntEntry*)((u8*)ent + ent->size * 4);
@@ -562,6 +637,18 @@ Module *__KernelLoadModule(u8 *fileptr, SceKernelLMOption *options, std::string 
 
 void __KernelStartModule(Module *m, int args, const char *argp, SceKernelSMOption *options)
 {
+	if (m->nm.module_start_func != 0 || m->nm.module_start_func != -1)
+	{
+		if (m->nm.module_start_func != m->nm.entry_addr)
+			WARN_LOG(LOADER, "Main module has start func (%08x) different from entry (%08x)?", m->nm.module_start_func, m->nm.entry_addr);
+		if (m->nm.module_start_thread_priority != 0 && m->nm.module_start_thread_priority != options->priority)
+			WARN_LOG(LOADER, "Main module has different priority (%02x vs. %02x)", m->nm.module_start_thread_priority, options->priority);
+		if (m->nm.module_start_thread_stacksize != 0 && m->nm.module_start_thread_stacksize != options->stacksize)
+			WARN_LOG(LOADER, "Main module has different stack size (%08x vs. %08x)", m->nm.module_start_thread_stacksize, options->stacksize);
+		if (m->nm.module_start_thread_attr != 0 && m->nm.module_start_thread_attr != options->attribute)
+			WARN_LOG(LOADER, "Main module has different attr (%08x vs. %08x)", m->nm.module_start_thread_attr, options->attribute);
+	}
+
 	__KernelSetupRootThread(m->GetUID(), args, argp, options->priority, options->stacksize, options->attribute);
 	mainModuleID = m->GetUID();
 	//TODO: if current thread, put it in wait state, waiting for the new thread
