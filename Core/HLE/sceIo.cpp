@@ -273,10 +273,15 @@ u32 sceIoGetstat(const char *filename, u32 addr) {
 	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
 	if (info.exists) {
 		__IoGetStat(&stat, info);
-		Memory::WriteStruct(addr, &stat);
-		DEBUG_LOG(HLE, "sceIoGetstat(%s, %08x) : sector = %08x", filename, addr,
-			info.startSector);
-		return 0;
+		if (Memory::IsValidAddress(addr)) {
+			Memory::WriteStruct(addr, &stat);
+			DEBUG_LOG(HLE, "sceIoGetstat(%s, %08x) : sector = %08x", filename, addr,
+				info.startSector);
+			return 0;
+		} else {
+			ERROR_LOG(HLE, "sceIoGetstat(%s, %08x) : bad address", filename, addr);
+			return -1;
+		}
 	} else {
 		DEBUG_LOG(HLE, "sceIoGetstat(%s, %08x) : FILE NOT FOUND", filename, addr);
 		return SCE_KERNEL_ERROR_NOFILE;
@@ -293,7 +298,7 @@ u32 sceIoRead(int id, u32 data_addr, int size) {
 	u32 error;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
 	if (f) {
-		if (data_addr) {
+		if (Memory::IsValidAddress(data_addr)) {
 			u8 *data = (u8*) Memory::GetPointer(data_addr);
 			f->asyncResult = (u32) pspFileSystem.ReadFile(f->handle, data,
 					size);
@@ -301,7 +306,7 @@ u32 sceIoRead(int id, u32 data_addr, int size) {
 					data_addr, size);
 			return f->asyncResult;
 		} else {
-			ERROR_LOG(HLE, "sceIoRead Reading into zero pointer");
+			ERROR_LOG(HLE, "sceIoRead Reading into bad pointer %08x", data_addr);
 			return -1;
 		}
 	} else {
