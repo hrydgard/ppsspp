@@ -39,31 +39,35 @@
 //const int CPU_HZ = 222000000;
 extern int CPU_HZ;
 
-inline int msToCycles(int ms) {
+inline s64 msToCycles(int ms) {
 	return CPU_HZ / 1000 * ms;
 }
 
-inline int msToCycles(float ms) {
-	return (int)(CPU_HZ * ms * (0.001f));
+inline s64 msToCycles(float ms) {
+	return (s64)(CPU_HZ * ms * (0.001f));
 }
 
-inline int msToCycles(double ms) {
-	return (int)(CPU_HZ * ms * (0.001));
+inline s64 msToCycles(double ms) {
+	return (s64)(CPU_HZ * ms * (0.001));
 }
 
-inline int usToCycles(float us) {
-	return (int)(CPU_HZ * us * (0.000001f));
+inline s64 usToCycles(float us) {
+	return (s64)(CPU_HZ * us * (0.000001f));
 }
 
-inline int usToCycles(int us) {
-	return (int)(CPU_HZ / 1000000 * us);
+inline s64 usToCycles(int us) {
+	return (CPU_HZ / 1000000 * (s64)us);
 }
 
-inline u64 usToCycles(u64 us) {
-	return (u64)(CPU_HZ / 1000000ULL * us);
+inline s64 usToCycles(s64 us) {
+	return (CPU_HZ / 1000000 * us);
 }
 
-inline u64 cyclesToUs(u64 cycles) {
+inline s64 usToCycles(u64 us) {
+	return (s64)(CPU_HZ / 1000000 * us);
+}
+
+inline s64 cyclesToUs(s64 cycles) {
 	return cycles / (CPU_HZ / 1000000);
 }
 
@@ -85,8 +89,8 @@ namespace CoreTiming
 
 	// userdata MAY NOT CONTAIN POINTERS. userdata might get written and reloaded from disk,
 	// when we implement state saves.
-	void ScheduleEvent(int cyclesIntoFuture, int event_type, u64 userdata=0);
-	void ScheduleEvent_Threadsafe(int cyclesIntoFuture, int event_type, u64 userdata=0);
+	void ScheduleEvent(s64 cyclesIntoFuture, int event_type, u64 userdata=0);
+	void ScheduleEvent_Threadsafe(s64 cyclesIntoFuture, int event_type, u64 userdata=0);
 	void ScheduleEvent_Threadsafe_Immediate(int event_type, u64 userdata=0);
 	u64 UnscheduleEvent(int event_type, u64 userdata);
 

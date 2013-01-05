@@ -1024,7 +1024,8 @@ void hleScheduledWakeup(u64 userdata, int cyclesLate)
 
 void __KernelScheduleWakeup(SceUID threadID, int usFromNow)
 {
-	CoreTiming::ScheduleEvent(usToCycles(usFromNow), eventScheduledWakeup, threadID);
+	s64 cycles = usToCycles(usFromNow);
+	CoreTiming::ScheduleEvent(cycles, eventScheduledWakeup, threadID);
 }
 
 void __KernelCancelWakeup(SceUID threadID)

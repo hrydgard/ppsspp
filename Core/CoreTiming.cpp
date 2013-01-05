@@ -194,7 +194,7 @@ u64 GetIdleTicks()
 
 // This is to be called when outside threads, such as the graphics thread, wants to
 // schedule things to be executed on the main thread.
-void ScheduleEvent_Threadsafe(int cyclesIntoFuture, int event_type, u64 userdata)
+void ScheduleEvent_Threadsafe(s64 cyclesIntoFuture, int event_type, u64 userdata)
 {
 	std::lock_guard<std::recursive_mutex> lk(externalEventSection);
 	Event *ne = GetNewTsEvent();
@@ -253,7 +253,7 @@ void AddEventToQueue(Event* ne)
 // This must be run ONLY from within the cpu thread
 // cyclesIntoFuture may be VERY inaccurate if called from anything else
 // than Advance 
-void ScheduleEvent(int cyclesIntoFuture, int event_type, u64 userdata)
+void ScheduleEvent(s64 cyclesIntoFuture, int event_type, u64 userdata)
 {
 	Event *ne = GetNewEvent();
 	ne->userdata = userdata;
