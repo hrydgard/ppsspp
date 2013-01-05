@@ -279,7 +279,7 @@ void PSPSaveDialog::DisplaySaveDataInfo2()
 						, param.GetFileInfo(currentSelectedSave).size / 1024
 						);
 		std::string saveinfoTxt = txt;
-		PPGeDrawText(saveinfoTxt.c_str(), 10, 180, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
+		PPGeDrawText(saveinfoTxt.c_str(), 20, 180, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
 	}
 }
 
