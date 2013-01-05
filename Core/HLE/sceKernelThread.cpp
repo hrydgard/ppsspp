@@ -1267,6 +1267,11 @@ Thread *__KernelCreateThread(SceUID &id, SceUID moduleId, const char *name, u32 
 	t->nt.runForClocks.lo = 0;
 	t->nt.runForClocks.hi = 0;
 	t->nt.wakeupCount = 0;
+	t->nt.initialStack = 0;
+	t->nt.waitID = 0;
+	t->nt.exitStatus = 0;
+	t->nt.waitType = WAITTYPE_NONE;
+
 	if (moduleId)
 		t->nt.gpreg = __KernelGetModuleGP(moduleId);
 	else

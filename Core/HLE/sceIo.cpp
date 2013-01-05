@@ -155,6 +155,8 @@ public:
 
 	bool pendingAsyncResult;
 	bool sectorBlockMode;
+
+	PSPFileInfo info;
 };
 
 void __IoInit() {
@@ -410,6 +412,7 @@ u32 sceIoOpen(const char* filename, int flags, int mode) {
 	if (flags & O_CREAT)
 		access |= FILEACCESS_CREATE;
 
+	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
 	u32 h = pspFileSystem.OpenFile(filename, (FileAccess) access);
 	if (h == 0)
 	{
@@ -424,6 +427,7 @@ u32 sceIoOpen(const char* filename, int flags, int mode) {
 	f->handle = h;
 	f->fullpath = filename;
 	f->asyncResult = id;
+	f->info = info;
 	DEBUG_LOG(HLE, "%i=sceIoOpen(%s, %08x, %08x)", id, filename, flags, mode);
 	return id;
 }
@@ -937,8 +941,6 @@ u32 sceIoDclose(int id) {
 
 u32 sceIoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen) 
 {
-	ERROR_LOG(HLE, "UNIMPL PARTIAL 0=sceIoIoctl id: %08x, cmd %08x, indataPtr %08x, inlen %08x, outdataPtr %08x, outLen %08x", id,cmd,indataPtr,inlen,outdataPtr,outlen);
-
 	u32 error;
 	FileNode *f = kernelObjects.Get<FileNode>(id, error);
 	if (error) {
@@ -948,6 +950,10 @@ u32 sceIoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 ou
 	//KD Hearts:
 	//56:46:434 HLE\sceIo.cpp:886 E[HLE]: UNIMPL 0=sceIoIoctrl id: 0000011f, cmd 04100001, indataPtr 08b313d8, inlen 00000010, outdataPtr 00000000, outLen 0
 	//	0000000
+
+	// TODO: This kind of stuff should be moved to the devices (wherever that would be)
+	// and does not belong in this file. Same thing with Devctl.
+
 	switch (cmd) {
 	case 0x04100001:  // Define decryption key (amctrl.prx DRM)
 		if (Memory::IsValidAddress(indataPtr) && inlen == 16) {
@@ -957,6 +963,26 @@ u32 sceIoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 ou
 		}
 		break;
 
+	// Get start sector of file.
+	case 0x01020006:
+		INFO_LOG(HLE, "sceIoIoCtl: Asked for start sector of file %i", id);
+		if (Memory::IsValidAddress(outdataPtr) && outlen >= 4) {
+			Memory::Write_U32(f->info.startSector, outdataPtr);
+		}
+		break;
+
+	// Get size in bytes of file.
+	case 0x01020007:
+		INFO_LOG(HLE, "sceIoIoCtl: Asked for size of file %i", id);
+		if (Memory::IsValidAddress(outdataPtr) && outlen >= 8) {
+			s64 size = f->info.size;
+			Memory::Write_U64(size, outdataPtr);
+		}
+		break;
+
+	default:
+		ERROR_LOG(HLE, "UNIMPL 0=sceIoIoctl id: %08x, cmd %08x, indataPtr %08x, inlen %08x, outdataPtr %08x, outLen %08x", id,cmd,indataPtr,inlen,outdataPtr,outlen);
+		break;
 	}
 
   return 0;
