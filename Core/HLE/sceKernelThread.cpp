@@ -1686,7 +1686,8 @@ void sceKernelDelaySysClockThreadCB()
 
 	// TODO: Which unit?
 	u64 usec = sysclock.lo | ((u64)sysclock.hi << 32);
-	INFO_LOG(HLE, "sceKernelDelaySysClockThread(%08x (%llu))", sysclockAddr, usec);
+	if (usec < 200) usec = 200;
+	DEBUG_LOG(HLE, "sceKernelDelaySysClockThread(%08x (%llu))", sysclockAddr, usec);
 
 	SceUID curThread = __KernelGetCurThread();
 	__KernelScheduleWakeup(curThread, usec);
@@ -1706,7 +1707,8 @@ void sceKernelDelaySysClockThread()
 
 	// TODO: Which unit?
 	u64 usec = sysclock.lo | ((u64)sysclock.hi << 32);
-	INFO_LOG(HLE, "sceKernelDelaySysClockThread(%08x (%llu))", sysclockAddr, usec);
+	if (usec < 200) usec = 200;
+	DEBUG_LOG(HLE, "sceKernelDelaySysClockThread(%08x (%llu))", sysclockAddr, usec);
 
 	SceUID curThread = __KernelGetCurThread();
 	__KernelScheduleWakeup(curThread, usec);
