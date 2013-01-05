@@ -155,14 +155,14 @@ void Memset(const u32 _Address, const u8 _iValue, const u32 _iLength)
 	}
 }
 
-void Memcpy(const u32 address, const void *data, const u32 len)
+void Memcpy(const u32 to_address, const void *from_data, const u32 len)
 {
-	memcpy(GetPointer(address), data, len);
+	memcpy(GetPointer(to_address), from_data, len);
 }
 
-void Memcpy(void *data, const u32 address, const u32 len)
+void Memcpy(void *to_data, const u32 from_address, const u32 len)
 {
-	memcpy(data,GetPointer(address),len);
+	memcpy(to_data,GetPointer(from_address),len);
 }
 
 void GetString(std::string& _string, const u32 em_address)

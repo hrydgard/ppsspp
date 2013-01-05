@@ -271,14 +271,46 @@ u32 sceGeRestoreContext(u32 ctxAddr)
 
 int sceGeGetMtx(int type, u32 matrixPtr)
 {
-	ERROR_LOG(HLE, "UNIMPL sceGeGetMtx(%d, %08x)", type, matrixPtr);
+	if (!Memory::IsValidAddress(matrixPtr)) {
+		ERROR_LOG(HLE, "sceGeGetMtx(%d, %08x) - bad matrix ptr", type, matrixPtr);
+		return -1;
+	}
+
+	INFO_LOG(HLE, "sceGeGetMtx(%d, %08x)", type, matrixPtr);
+	switch (type) {
+	case GE_MTX_BONE0:
+	case GE_MTX_BONE1:
+	case GE_MTX_BONE2:
+	case GE_MTX_BONE3:
+	case GE_MTX_BONE4:
+	case GE_MTX_BONE5:
+	case GE_MTX_BONE6:
+	case GE_MTX_BONE7:
+		{
+			int n = type - GE_MTX_BONE0;
+			Memory::Memcpy(matrixPtr, gstate.boneMatrix + n * 12, 12 * sizeof(float));
+		}
+		break;
+	case GE_MTX_TEXGEN:
+		Memory::Memcpy(matrixPtr, gstate.tgenMatrix, 12 * sizeof(float));
+		break;
+	case GE_MTX_WORLD:
+		Memory::Memcpy(matrixPtr, gstate.worldMatrix, 12 * sizeof(float));
+		break;
+	case GE_MTX_VIEW:
+		Memory::Memcpy(matrixPtr, gstate.viewMatrix, 12 * sizeof(float));
+		break;
+	case GE_MTX_PROJECTION:
+		Memory::Memcpy(matrixPtr, gstate.projMatrix, 16 * sizeof(float));
+		break;
+	}
 	return 0;
 }
 
 u32 sceGeGetCmd(int cmd)
 {
-	ERROR_LOG(HLE, "UNIMPL sceGeGetCmd()");
-	return 0;
+	INFO_LOG(HLE, "sceGeGetCmd(%i)", cmd);
+	return gstate.cmdmem[cmd] & 0xFFFFFF;  // Not sure about this mask.
 }
 
 u32 sceGeEdramSetAddrTranslation(int new_size)
