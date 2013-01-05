@@ -126,8 +126,6 @@ void Core_EnableStepping(bool step)
 {
 	if (step)
 	{
-		//PowerPC::Pause();
-		// Sleep(1);
 		sleep_ms(1);
 #if defined(_DEBUG)
 		host->SetDebugMode(true);
@@ -140,9 +138,6 @@ void Core_EnableStepping(bool step)
 		host->SetDebugMode(false);
 #endif
 		coreState = CORE_RUNNING;
-		//PowerPC::Start();
-		///SetEvent(m_hStepEvent); //TODO: pulseevent is flawed and can be lost
 		m_hStepEvent.notify_one();
-
 	}
 }

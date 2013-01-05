@@ -81,7 +81,7 @@ void RegCache::Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats)
 	//But only preload IF written OR reads >= 3
 }
 
-// these are powerpc reg indices
+// these are MIPS reg indices
 void RegCache::Lock(int p1, int p2, int p3, int p4)
 {
 	locks[p1] = true;
