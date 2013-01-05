@@ -310,7 +310,7 @@ int sceGeGetMtx(int type, u32 matrixPtr)
 u32 sceGeGetCmd(int cmd)
 {
 	INFO_LOG(HLE, "sceGeGetCmd(%i)", cmd);
-	return gstate.cmdmem[cmd] & 0xFFFFFF;  // Not sure about this mask.
+	return gstate.cmdmem[cmd];  // Does not mask away the high bits.
 }
 
 u32 sceGeEdramSetAddrTranslation(int new_size)
