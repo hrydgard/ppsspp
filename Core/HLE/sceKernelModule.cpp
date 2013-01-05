@@ -98,6 +98,23 @@ struct NativeModule {
 	u32 module_reboot_before_thread_attr;
 };
 
+// by QueryModuleInfo
+struct ModuleInfo {
+	u32 nsegment;
+	u32 segmentaddr[4];
+	u32 segmentsize[4];
+	u32 entry_addr;
+	u32 gp_value;
+	u32 text_addr;
+	u32 text_size;
+	u32 data_size;
+	u32 bss_size;
+	u16 attribute;
+	u8 version[2];
+	char name[28];
+};
+
+
 class Module : public KernelObject
 {
 public:
@@ -748,20 +765,16 @@ void sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 returnValue
 	RETURN(0);
 }
 
-void sceKernelUnloadModule()
+u32 sceKernelUnloadModule(u32 moduleId)
 {
-	u32 moduleId = PARAM(0);
-	ERROR_LOG(HLE,"UNIMPL sceKernelUnloadModule(%i)", moduleId);
+	INFO_LOG(HLE,"sceKernelUnloadModule(%i)", moduleId);
 	u32 error;
 	Module *module = kernelObjects.Get<Module>(moduleId, error);
 	if (!module)
-	{
-		RETURN(error);
-		return;
-	}
+		return error;
 
 	kernelObjects.Destroy<Module>(moduleId);
-	RETURN(0);
+	return 0;
 }
 
 u32 sceKernelGetModuleIdByAddress(u32 moduleAddr)
@@ -784,10 +797,10 @@ u32 sceKernelGetModuleIdByAddress(u32 moduleAddr)
 	return 0;
 }
 
-void sceKernelGetModuleId()
+u32 sceKernelGetModuleId()
 {
-	ERROR_LOG(HLE,"sceKernelGetModuleId()");
-	RETURN(__KernelGetCurThreadModuleId());
+	INFO_LOG(HLE,"sceKernelGetModuleId()");
+	return __KernelGetCurThreadModuleId();
 }
 
 void sceKernelFindModuleByName()
@@ -842,6 +855,35 @@ u32 sceKernelLoadModuleDNAS(const char *name, u32 flags)
 	return 0;
 }
 
+u32 sceKernelQueryModuleInfo(u32 uid, u32 infoAddr)
+{
+	INFO_LOG(HLE, "sceKernelQueryModuleInfo(%i, %08x)", uid, infoAddr);
+	u32 error;
+	Module *module = kernelObjects.Get<Module>(uid, error);
+	if (!module)
+		return error;
+	if (!Memory::IsValidAddress(infoAddr)) {
+		ERROR_LOG(HLE, "sceKernelQueryModuleInfo(%i, %08x) - bad infoAddr", uid, infoAddr);
+		return -1;
+	}
+	ModuleInfo info;
+	memcpy(info.segmentaddr, module->nm.segmentaddr, sizeof(info.segmentaddr));
+	memcpy(info.segmentsize, module->nm.segmentsize, sizeof(info.segmentsize));
+	info.nsegment = module->nm.nsegment;
+	info.entry_addr = module->nm.entry_addr;
+	info.gp_value = module->nm.gp_value;
+	info.text_addr = module->nm.text_addr;
+	info.text_size = module->nm.text_size;
+	info.data_size = module->nm.data_size;
+	info.bss_size = module->nm.bss_size;
+	info.attribute = module->nm.attribute;
+	info.version[0] = module->nm.version[0];
+	info.version[1] = module->nm.version[1];
+	memcpy(info.name, module->nm.name, 28);
+	Memory::WriteStruct(infoAddr, &info);
+	return 0;
+}
+
 const HLEFunction ModuleMgrForUser[] = 
 {
 	{0x977DE386,&WrapU_CU<sceKernelLoadModule>,"sceKernelLoadModule"},
@@ -849,13 +891,13 @@ const HLEFunction ModuleMgrForUser[] =
 	{0x50F0C1EC,&WrapV_UUUUU<sceKernelStartModule>,"sceKernelStartModule"},
 	{0xD675EBB8,&sceKernelExitGame,"sceKernelSelfStopUnloadModule"}, //HACK
 	{0xd1ff982a,&WrapV_UUUUU<sceKernelStopModule>,"sceKernelStopModule"},
-	{0x2e0911aa,&sceKernelUnloadModule,"sceKernelUnloadModule"},
+	{0x2e0911aa,WrapU_U<sceKernelUnloadModule>,"sceKernelUnloadModule"},
 	{0x710F61B5,0,"sceKernelLoadModuleMs"},
 	{0xF9275D98,0,"sceKernelLoadModuleBufferUsbWlan"}, ///???
 	{0xCC1D3699,0,"sceKernelStopUnloadSelfModule"},
-	{0x748CBED9,0,"sceKernelQueryModuleInfo"},
+	{0x748CBED9,WrapU_UU<sceKernelQueryModuleInfo>,"sceKernelQueryModuleInfo"},
 	{0xd8b73127,&WrapU_U<sceKernelGetModuleIdByAddress>, "sceKernelGetModuleIdByAddress"},
-	{0xf0a26395,&sceKernelGetModuleId, "sceKernelGetModuleId"},
+	{0xf0a26395,WrapU_V<sceKernelGetModuleId>, "sceKernelGetModuleId"},
 	{0x8f2df740,0,"sceKernelStopUnloadSelfModuleWithStatus"},
 	{0xfef27dc1,&WrapU_CU<sceKernelLoadModuleDNAS> , "sceKernelLoadModuleDNAS"},
 };
