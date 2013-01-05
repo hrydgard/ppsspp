@@ -32,6 +32,8 @@
 #include "W32Util/ShellUtil.h"
 #include "W32Util/Misc.h"
 #include "../Core/Config.h"
+#include "../GPU/GPUInterface.h"
+#include "../GPU/GPUState.h"
 
 #ifdef THEMES
 #include "XPTheme.h"
@@ -258,16 +260,12 @@ namespace MainWindow
 			// Parse the menu selections:
 			switch (wmId)
 			{
-			//File menu
-
 			case ID_FILE_LOAD:
 				BrowseAndBoot();
 				break;
 
 			case ID_FILE_REFRESHGAMELIST:
 				break;
-
-			//Emulation menu
 
 			case ID_EMULATION_RUN:
 				if (g_State.bEmuThreadStarted)
@@ -405,9 +403,6 @@ namespace MainWindow
 				DestroyWindow(hWnd);
 				break;
 
-			//////////////////////////////////////////////////////////////////////////
-			//CPU menu
-			//////////////////////////////////////////////////////////////////////////
 			case ID_CPU_DYNAREC:
 				g_Config.iCpuCore = CPU_JIT;
 				UpdateMenus();
@@ -425,42 +420,10 @@ namespace MainWindow
 				g_Config.bAutoRun = !g_Config.bAutoRun;
 				UpdateMenus();
 				break;
-			//case ID_CPU_RESET: 
-			//	MessageBox(hwndMain,"Use the controls in the disasm window for now..","Sorry",0);
-			//	Update();
-			//	break;
 
-			case ID_DEBUG_RUNPOWERPCTEST:
-				//doppctest();
+			case ID_DEBUG_DUMPNEXTFRAME:
+				gpu->DumpNextFrame();
 				break;
-			//////////////////////////////////////////////////////////////////////////
-			//Debug menu
-			//////////////////////////////////////////////////////////////////////////
-				/*
-			case ID_DEBUG_LOCATESYMBOLS:
-				{
-					std::vector<std::string> files=  W32Util::BrowseForFileNameMultiSelect(true,hWnd,"MOJS",0,"BLAH\0*.*",0);
-					std::vector<std::string>::iterator iter;
-					if (files.size())
-					{
-						for (iter=files.begin(); iter!=files.end(); iter++)
-						{
-							LOG(MASTER_LOG,"Loading symbols from %s", iter->c_str());
-							LoadSymbolsFromO((*iter).c_str(),0x02000000,1*1024*1024);
-						}
-						symbolMap.SortSymbols();
-//						HLE_PatchFunctions();
-					}
-					
-					for (int i=0; i<numCPUs; i++)
-						if (disasmWindow[i])
-							disasmWindow[i]->NotifyMapLoaded();
-					for (int i=0; i<numCPUs; i++)
-						if (memoryWindow[i])
-							memoryWindow[i]->Update();
-				}
-				break;
-*/
 
 			case ID_DEBUG_LOADMAPFILE:
 				if (W32Util::BrowseForFileName(true, hWnd, "Load .MAP",0,"Maps\0*.map\0All files\0*.*\0\0","map",fn))
@@ -479,22 +442,7 @@ namespace MainWindow
 				if (W32Util::BrowseForFileName(false, hWnd, "Save .MAP",0,"Maps\0*.map\0All files\0*.*\0\0","map",fn))
 					symbolMap.SaveSymbolMap(fn.c_str());
 				break;
-				/*
-			case ID_DEBUG_COMPILESIGNATUREFILE:
-				if (W32Util::BrowseForFileName(false, hWnd, "Save signature file",0,"Sigs\0*.sig\0All files\0*.*\0\0","sig",fn))
-					symbolMap.CompileFuncSignaturesFile(fn.c_str());
-				break;
-			case ID_DEBUG_USESIGNATUREFILE:
-				if (W32Util::BrowseForFileName(true, hWnd, "Use signature file",0,"Sigs\0*.sig\0All files\0*.*\0\0","sig",fn))
-				{
-					symbolMap.UseFuncSignaturesFile(fn.c_str(),0x80400000);
-//					HLE_PatchFunctions();
-					for (int i=0; i<numCPUs; i++)
-						if (disasmWindow[i])
-							disasmWindow[i]->NotifyMapLoaded();
-				}
-				break;*/
-
+		
 			case ID_DEBUG_RESETSYMBOLTABLE:
 				symbolMap.ResetSymbolMap();
 				for (int i=0; i<numCPUs; i++)
@@ -516,13 +464,11 @@ namespace MainWindow
 				LogManager::GetInstance()->GetConsoleListener()->Show(LogManager::GetInstance()->GetConsoleListener()->Hidden());
 				break;
 
-			//////////////////////////////////////////////////////////////////////////
-			//Options menu
-			//////////////////////////////////////////////////////////////////////////
 			case ID_OPTIONS_IGNOREILLEGALREADS:
 				g_Config.bIgnoreBadMemAccess = !g_Config.bIgnoreBadMemAccess;
 				UpdateMenus();
 				break;
+
 			case ID_OPTIONS_FULLSCREEN:
 				if(g_bFullScreen) {
 					_ViewNormal(hWnd); 
@@ -535,6 +481,7 @@ namespace MainWindow
 					_ViewFullScreen(hWnd);
 				}
 				break;
+
 			case ID_OPTIONS_WIREFRAME:
 				g_Config.bDrawWireframe = !g_Config.bDrawWireframe;
 				UpdateMenus();
@@ -558,12 +505,6 @@ namespace MainWindow
 				DialogManager::EnableAll(TRUE);
 				break;
 
-
-			
-			//////////////////////////////////////////////////////////////////////////
-			//Help menu
-			//////////////////////////////////////////////////////////////////////////
-	
       case ID_HELP_OPENWEBSITE:
 				ShellExecute(NULL, "open", "http://www.ppsspp.org/", NULL, NULL, SW_SHOWNORMAL);
         break;
@@ -631,8 +572,6 @@ namespace MainWindow
 			}
 			break;
 
-			//case WM_ERASEBKGND:
-			//	return 0;
 		case WM_CLOSE:
 			Sleep(100);//UGLY wait for event instead
 			EmuThread_Stop();
@@ -649,9 +588,7 @@ namespace MainWindow
 			else
 			*/
 			return DefWindowProc(hWnd,message,wParam,lParam);
-//		case WM_LBUTTONDOWN:
-//			TrackPopupMenu(menu,0,0,0,0,hWnd,0);
-//			break;
+
 		case WM_DESTROY:
 			PostQuitMessage(0);
 			break;
@@ -676,7 +613,7 @@ namespace MainWindow
 
 			if (nextState == CORE_RUNNING)
 				PostMessage(hwndMain, WM_COMMAND, ID_EMULATION_RUN, 0);
-				UpdateMenus();
+			UpdateMenus();
 			break;
 
 		default:

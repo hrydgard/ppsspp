@@ -241,6 +241,8 @@ BEGIN
         MENUITEM "&Save Map File...",           ID_DEBUG_SAVEMAPFILE
         MENUITEM "&Reset Symbol Table",         ID_DEBUG_RESETSYMBOLTABLE
         MENUITEM SEPARATOR
+        MENUITEM "D&ump next frame to log",     ID_DEBUG_DUMPNEXTFRAME
+        MENUITEM SEPARATOR
         MENUITEM "&Disassembly\tCtrl+D",        ID_DEBUG_DISASSEMBLY
         MENUITEM "&Log Console\tCtrl+L",        ID_DEBUG_LOG
         MENUITEM "Memory &View...\tCtrl+M",     ID_DEBUG_MEMORYVIEW
