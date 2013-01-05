@@ -409,7 +409,7 @@ int sceMpegDelete(u32 mpeg)
 
 	delete ctx->mediaengine;
 	delete ctx;
-	mpegMap.erase(mpeg);
+	mpegMap.erase(Memory::Read_U32(mpeg));
 
 	return 0;
 }
