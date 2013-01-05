@@ -29,6 +29,8 @@ void sceKernelChangeThreadPriority();
 int sceKernelCreateThread(const char *threadName, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr);
 void sceKernelDelayThread();
 void sceKernelDelayThreadCB();
+void sceKernelDelaySysClockThread();
+void sceKernelDelaySysClockThreadCB();
 int sceKernelDeleteThread(int threadHandle);
 void sceKernelExitDeleteThread();
 void sceKernelExitThread();
@@ -109,7 +111,7 @@ void __KernelThreadingShutdown();
 KernelObject *__KernelThreadObject();
 KernelObject *__KernelCallbackObject();
 
-void __KernelScheduleWakeup(int usFromNow, int threadnumber);
+void __KernelScheduleWakeup(int threadnumber, s64 usFromNow);
 SceUID __KernelGetCurThread();
 
 void __KernelSaveContext(ThreadContext *ctx);

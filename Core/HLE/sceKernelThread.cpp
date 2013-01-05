@@ -1051,7 +1051,7 @@ void hleScheduledWakeup(u64 userdata, int cyclesLate)
 	__KernelTriggerWait(WAITTYPE_DELAY, threadID, true);
 }
 
-void __KernelScheduleWakeup(SceUID threadID, int usFromNow)
+void __KernelScheduleWakeup(SceUID threadID, s64 usFromNow)
 {
 	s64 cycles = usToCycles(usFromNow);
 	CoreTiming::ScheduleEvent(cycles, eventScheduledWakeup, threadID);
@@ -1667,6 +1667,47 @@ void sceKernelDelayThread()
 	u32 usec = PARAM(0);
 	if (usec < 200) usec = 200;
 	DEBUG_LOG(HLE,"sceKernelDelayThread(%i usec)",usec);
+
+	SceUID curThread = __KernelGetCurThread();
+	__KernelScheduleWakeup(curThread, usec);
+	__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, false);
+}
+
+void sceKernelDelaySysClockThreadCB()
+{
+	u32 sysclockAddr = PARAM(0);
+	if (!Memory::IsValidAddress(sysclockAddr)) {
+		ERROR_LOG(HLE, "sceKernelDelaySysClockThread(%08x) - bad pointer", sysclockAddr);
+		RETURN(-1);
+		return;
+	}
+	SceKernelSysClock sysclock;
+	Memory::ReadStruct(sysclockAddr, &sysclock);
+
+	// TODO: Which unit?
+	u64 usec = sysclock.lo | ((u64)sysclock.hi << 32);
+	INFO_LOG(HLE, "sceKernelDelaySysClockThread(%08x (%llu))", sysclockAddr, usec);
+
+	SceUID curThread = __KernelGetCurThread();
+	__KernelScheduleWakeup(curThread, usec);
+	__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, true);
+}
+
+void sceKernelDelaySysClockThread()
+{
+	u32 sysclockAddr = PARAM(0);
+	if (!Memory::IsValidAddress(sysclockAddr)) {
+		ERROR_LOG(HLE, "sceKernelDelaySysClockThread(%08x) - bad pointer", sysclockAddr);
+		RETURN(-1);
+		return;
+	}
+	SceKernelSysClock sysclock;
+	Memory::ReadStruct(sysclockAddr, &sysclock);
+
+	// TODO: Which unit?
+	u64 usec = sysclock.lo | ((u64)sysclock.hi << 32);
+	INFO_LOG(HLE, "sceKernelDelaySysClockThread(%08x (%llu))", sysclockAddr, usec);
+
 	SceUID curThread = __KernelGetCurThread();
 	__KernelScheduleWakeup(curThread, usec);
 	__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, false);
