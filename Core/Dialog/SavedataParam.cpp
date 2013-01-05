@@ -45,7 +45,7 @@ namespace
 		str[strLength - 1] = 0;
 	}
 
-	bool ReadPSPFile(std::string filename, u8 *data, s64 dataSize)
+	bool ReadPSPFile(std::string filename, u8 *data, s64 dataSize, s64 *readSize)
 	{
 		u32 handle = pspFileSystem.OpenFile(filename, FILEACCESS_READ);
 		if (handle == 0)
@@ -53,6 +53,8 @@ namespace
 
 		int result = pspFileSystem.ReadFile(handle, data, dataSize);
 		pspFileSystem.CloseFile(handle);
+		if(readSize)
+			*readSize = result;
 
 		return result != 0;
 	}
@@ -210,10 +212,13 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, int saveId)
 	if(param->dataBuf != 0)	// Can launch save without save data in mode 13
 	{
 		std::string filePath = dirPath+"/"+GetFileName(param);
-		INFO_LOG(HLE,"Saving file with size %u in %s",param->dataBufSize,filePath.c_str());
+		int saveSize = param->dataSize;
+		if(saveSize == 0 || saveSize > param->dataBufSize)
+			saveSize = param->dataBufSize; // fallback, should never use this
+		INFO_LOG(HLE,"Saving file with size %u in %s",saveSize,filePath.c_str());
 		u8 *data_ = (u8*)Memory::GetPointer(param->dataBuf);
 
-		if (!WritePSPFile(filePath, data_, param->dataBufSize))
+		if (!WritePSPFile(filePath, data_, saveSize))
 		{
 			ERROR_LOG(HLE,"Error writing file %s",filePath.c_str());
 			return false;
@@ -228,7 +233,7 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, int saveId)
 	{
 		u8 *sfoData = new u8[(size_t)sfoInfo.size];
 		size_t sfoSize = (size_t)sfoInfo.size;
-		if(ReadPSPFile(sfopath,sfoData,sfoSize))
+		if(ReadPSPFile(sfopath,sfoData,sfoSize, NULL))
 		{
 			sfoFile.ReadSFO(sfoData,sfoSize);
 			delete[] sfoData;
@@ -352,13 +357,14 @@ bool SavedataParam::Load(SceUtilitySavedataParam *param, int saveId)
 	}
 
 	std::string filePath = dirPath+"/"+GetFileName(param);
+	s64 readSize;
 	INFO_LOG(HLE,"Loading file with size %u in %s",param->dataBufSize,filePath.c_str());
-	if (!ReadPSPFile(filePath, data_, param->dataBufSize))
+	if (!ReadPSPFile(filePath, data_, param->dataBufSize, &readSize))
 	{
 		ERROR_LOG(HLE,"Error reading file %s",filePath.c_str());
 		return false;
 	}
-	param->dataSize = param->dataBufSize;
+	param->dataSize = readSize;
 	return true;
 }
 
@@ -701,7 +707,7 @@ void SavedataParam::SetFileInfo(int idx, PSPFileInfo &info, std::string saveName
 	if (info2.exists)
 	{
 		u8 *textureDataPNG = new u8[(size_t)info2.size];
-		ReadPSPFile(fileDataPath2, textureDataPNG, info2.size);
+		ReadPSPFile(fileDataPath2, textureDataPNG, info2.size, NULL);
 		unsigned char *textureData;
 		int w,h;
 
@@ -730,7 +736,7 @@ void SavedataParam::SetFileInfo(int idx, PSPFileInfo &info, std::string saveName
 	if (info2.exists)
 	{
 		u8 *sfoParam = new u8[(size_t)info2.size];
-		ReadPSPFile(fileDataPath2, sfoParam, info2.size);
+		ReadPSPFile(fileDataPath2, sfoParam, info2.size, NULL);
 		ParamSFOData sfoFile;
 		if (sfoFile.ReadSFO(sfoParam,(size_t)info2.size))
 		{
