@@ -779,30 +779,59 @@ SceUID __KernelGetWaitID(SceUID threadID, WaitType type, u32 &error)
 	}
 }
 
-void sceKernelReferThreadStatus()
+u32 sceKernelReferThreadStatus(u32 threadID, u32 statusPtr)
 {
-	SceUID threadID = PARAM(0);
 	if (threadID == 0)
 		threadID = __KernelGetCurThread();
 
 	u32 error;
 	Thread *t = kernelObjects.Get<Thread>(threadID, error);
-	if (t)
-	{
-		DEBUG_LOG(HLE,"sceKernelReferThreadStatus(%i, %08x)", threadID, PARAM(1));
-		u32 wantedSize = Memory::Read_U32(PARAM(1));
-		u32 sz = sizeof(NativeThread);
-		if (wantedSize) {
-			t->nt.nativeSize = sz = std::min(sz, wantedSize);
-		}
-		Memory::Memcpy(PARAM(1), &(t->nt), sz);
-		RETURN(0);
-	}
-	else
+	if (!t)
 	{
 		ERROR_LOG(HLE,"sceKernelReferThreadStatus Error %08x", error);
-		RETURN(error);
+		return error;
 	}
+
+	DEBUG_LOG(HLE,"sceKernelReferThreadStatus(%i, %08x)", threadID, statusPtr);
+	u32 wantedSize = Memory::Read_U32(PARAM(1));
+	u32 sz = sizeof(NativeThread);
+	if (wantedSize) {
+		t->nt.nativeSize = sz = std::min(sz, wantedSize);
+	}
+	Memory::Memcpy(statusPtr, &(t->nt), sz);
+	return 0;
+}
+
+// Thanks JPCSP
+u32 sceKernelReferThreadRunStatus(u32 threadID, u32 statusPtr)
+{
+	if (threadID == 0)
+		threadID = __KernelGetCurThread();
+
+	u32 error;
+	Thread *t = kernelObjects.Get<Thread>(threadID, error);
+	if (!t)
+	{
+		ERROR_LOG(HLE,"sceKernelReferThreadRunStatus Error %08x", error);
+		return error;
+	}
+
+	DEBUG_LOG(HLE,"sceKernelReferThreadRunStatus(%i, %08x)", threadID, statusPtr);
+	if (!Memory::IsValidAddress(statusPtr))
+		return -1;
+
+	Memory::Write_U32(t->nt.status, statusPtr);
+	Memory::Write_U32(t->nt.currentPriority, statusPtr + 4);
+	Memory::Write_U32(t->nt.waitType, statusPtr + 8);
+	Memory::Write_U32(t->nt.waitID, statusPtr + 12);
+	Memory::Write_U32(t->nt.wakeupCount, statusPtr + 16);
+	Memory::Write_U32(t->nt.runForClocks.lo, statusPtr + 20);
+	Memory::Write_U32(t->nt.runForClocks.hi, statusPtr + 24);
+	Memory::Write_U32(t->nt.numInterruptPreempts, statusPtr + 28);
+	Memory::Write_U32(t->nt.numThreadPreempts, statusPtr + 32);
+	Memory::Write_U32(t->nt.numReleases, statusPtr + 36);
+
+	return 0;
 }
 
 void sceKernelGetThreadExitStatus()
