@@ -63,6 +63,7 @@ set(SRCS
   HLE/sceParseHttp.cpp
   HLE/sceVaudio.cpp
   HW/MemoryStick.cpp
+  HW/MediaEngine.cpp
   HW/SasAudio.cpp
   FileSystems/BlockDevices.cpp
   FileSystems/ISOFileSystem.cpp

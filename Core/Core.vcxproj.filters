@@ -300,6 +300,9 @@
     <ClCompile Include="HLE\sceImpose.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
+    <ClCompile Include="HW\MediaEngine.cpp">
+      <Filter>HW</Filter>
+    </ClCompile>
     <ClCompile Include="Util\PPGeDraw.cpp">
       <Filter>Util</Filter>
     </ClCompile>
@@ -598,6 +601,9 @@
     </ClInclude>
     <ClInclude Include="HLE\sceImpose.h">
       <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="HW\MediaEngine.h">
+      <Filter>HW</Filter>
     </ClInclude>
     <ClInclude Include="Util\PPGeDraw.h">
       <Filter>Util</Filter>

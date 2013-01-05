@@ -15,11 +15,27 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#pragma once
+#include "MediaEngine.h"
+#include "../MemMap.h"
 
-void Register_scePsmf();
-void Register_scePsmfPlayer();
+static const int modeBpp[4] = { 2, 2, 2, 4 };
 
-void __PsmfInit();
-void __PsmfDoState(PointerWrap &p);
-void __PsmfShutdown();
+
+void MediaEngine::writeVideoImage(u32 bufferPtr, int frameWidth, int videoPixelMode)
+{
+	if (videoPixelMode > (sizeof(modeBpp) / sizeof(modeBpp[0])) || videoPixelMode < 0)
+	{
+		ERROR_LOG(ME, "Unexpected videoPixelMode %d, using 0 instead.", videoPixelMode);
+		videoPixelMode = 0;
+	}
+
+	int bpp = modeBpp[videoPixelMode];
+
+	// fake image. To be improved.
+	memset(Memory::GetPointer(bufferPtr), 0xDD, frameWidth * videoHeight_ * bpp);
+}
+
+void MediaEngine::feedPacketData(u32 addr, int size)
+{
+	// This media engine is totally incompetent and will just ignore all data sent to it.
+}

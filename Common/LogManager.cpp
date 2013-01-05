@@ -62,6 +62,7 @@ LogManager::LogManager()
 	m_Log[LogTypes::VIDEO]      = new LogContainer("VID",			"Video");
 	m_Log[LogTypes::DYNA_REC]   = new LogContainer("Jit",			"JIT compiler");
 	m_Log[LogTypes::NETPLAY]    = new LogContainer("NET",			"Net play");
+  m_Log[LogTypes::ME]    = new LogContainer("ME",			"Media Engine");
 
 	// Remove file logging on small devices
 #if !defined(ANDROID) && !defined(IOS) && !defined(BLACKBERRY)

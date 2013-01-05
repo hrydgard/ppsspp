@@ -50,11 +50,13 @@
 #include "sceKernelEventFlag.h"
 #include "sceKernelVTimer.h"
 #include "sceKernelTime.h"
+#include "sceMpeg.h"
 #include "scePower.h"
 #include "sceUtility.h"
 #include "sceUmd.h"
 #include "sceSsl.h"
 #include "sceSas.h"
+#include "scePsmf.h"
 #include "sceImpose.h"
 #include "sceUsb.h"
 
@@ -95,6 +97,8 @@ void __KernelInit()
 	__PowerInit();
 	__UtilityInit();
 	__UmdInit();
+	__MpegInit(PSP_CoreParameter().useMediaEngine);
+	__PsmfInit();
 	__CtrlInit();
 	__SslInit();
 	__ImposeInit();
@@ -120,6 +124,8 @@ void __KernelShutdown()
 	INFO_LOG(HLE, "Shutting down kernel - %i kernel objects alive", kernelObjects.GetCount());
 	kernelObjects.Clear();
 
+	__MpegShutdown();
+	__PsmfShutdown();
 	__PPGeShutdown();
 
 	__CtrlShutdown();
@@ -164,7 +170,9 @@ void __KernelDoState(PointerWrap &p)
 	__GeDoState(p);
 	__ImposeDoState(p);
 	__IoDoState(p);
+	__MpegDoState(p);
 	__PowerDoState(p);
+	__PsmfDoState(p);
 	__SasDoState(p);
 	__SslDoState(p);
 	__UmdDoState(p);

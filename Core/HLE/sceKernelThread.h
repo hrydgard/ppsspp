@@ -173,6 +173,12 @@ void sceKernelGetCallbackCount();
 void sceKernelCheckCallback();
 void sceKernelGetCallbackCount();
 void sceKernelReferCallbackStatus();
+
+class Action;
+
+// Not an official Callback object, just calls a mips function on the current thread.
+void __KernelDirectMipsCall(u32 entryPoint, Action *afterAction, bool returnVoid, u32 args[], int numargs, bool reschedAfter);
+
 void __KernelReturnFromMipsCall();  // Called as HLE function
 bool __KernelInCallback();
 
@@ -190,11 +196,11 @@ bool __KernelSwitchOffThread(const char *reason);
 
 // A call into game code. These can be pending on a thread.
 // Similar to Callback-s (NOT CallbackInfos) in JPCSP.
-class Action;
 typedef Action *(*ActionCreator)();
 Action *__KernelCreateAction(int actionType);
 int __KernelRegisterActionType(ActionCreator creator);
 void __KernelRestoreActionType(int actionType, ActionCreator creator);
+
 struct MipsCall {
 	u32 entryPoint;
 	u32 cbId;

@@ -1577,7 +1577,7 @@ SceUID __KernelGetCurThreadModuleId()
 void sceKernelGetThreadId()
 {
 	u32 retVal = currentThread;
-	DEBUG_LOG(HLE,"%i = sceKernelGetThreadId()", retVal);
+	// DEBUG_LOG(HLE,"%i = sceKernelGetThreadId()", retVal);
 	RETURN(retVal);
 }
 
@@ -2120,6 +2120,16 @@ void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, bo
 			WARN_LOG(HLE, "Ignoring mispcall on NULL/deleted thread");
 		}
 	}
+}
+
+void __KernelDirectMipsCall(u32 entryPoint, Action *afterAction, bool returnVoid, u32 args[], int numargs, bool reschedAfter)
+{
+	// TODO: get rid of the vector
+	std::vector<int> argsv;
+	for (int i = 0; i < numargs; i++)
+		argsv.push_back(args[i]);
+
+	__KernelCallAddress(__GetCurrentThread(), entryPoint, afterAction, returnVoid, argsv, reschedAfter);
 }
 
 void __KernelExecuteMipsCallOnCurrentThread(int callId, bool reschedAfter)
