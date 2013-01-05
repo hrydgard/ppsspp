@@ -29,10 +29,36 @@
 #define ATRAC_ERROR_ALL_DATA_DECODED 0x80630024
 
 
+struct Atrac {
+
+};
+
+Atrac globalAtrac;
+
+// TODO: Properly.
+Atrac *getAtrac(int atracID) {
+	if (atracID == 1) {
+		return &globalAtrac;
+	} else {
+		return 0;
+	}
+}
+
+
+u32 sceAtracGetAtracID(int codecType)
+{
+	ERROR_LOG(HLE, "FAKE sceAtracGetAtracID(%i)", codecType);
+	return 1;
+}
 
 u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd)
 {
 	ERROR_LOG(HLE, "UNIMPL sceAtracAddStreamData(%i, %08x)", atracID, bytesToAdd);
+	Atrac *atrac = getAtrac(atracID);
+	if (!atrac) {
+		return -1;
+	}
+	// TODO
 	return 0;
 }
 
@@ -56,15 +82,11 @@ u32 sceAtracEndEntry()
 	return 0;
 }
 
-u32 sceAtracGetAtracID(int codecType)
-{
-	ERROR_LOG(HLE, "UNIMPL sceAtracGetAtracID(%i)", codecType);
-	return 1;
-}
-
 u32 sceAtracGetBufferInfoForReseting(int atracID, int sample, u32 bufferInfoAddr)
 {
 	ERROR_LOG(HLE, "UNIMPL sceAtracGetBufferInfoForReseting(%i, %i, %08x)",atracID, sample, bufferInfoAddr);
+	// TODO: Write the right stuff instead.
+	Memory::Memset(bufferInfoAddr, 0, 32);
 	return 0;
 }
 
@@ -254,7 +276,7 @@ const HLEFunction sceAtrac3plus[] =
 	{0x132f1eca,WrapI_V<sceAtracReinit>,"sceAtracReinit"},
 	{0xeca32a99,WrapI_I<sceAtracIsSecondBufferNeeded>,"sceAtracIsSecondBufferNeeded"},
 	{0x0fae370e,WrapI_IUUU<sceAtracSetHalfwayBufferAndGetID>,"sceAtracSetHalfwayBufferAndGetID"},
-	{0x2DD3E298,0,"sceAtracGetBufferInfoForResetting"},
+	{0x2DD3E298,WrapU_IIU<sceAtracGetBufferInfoForReseting>,"sceAtracGetBufferInfoForResetting"},
 	{0x5CF9D852,0,"sceAtracSetMOutHalfwayBuffer"},
 	{0xB3B5D042,WrapI_IU<sceAtracGetOutputChannel>,"sceAtracGetOutputChannel"},
 	{0xF6837A1A,0,"sceAtracSetMOutData"},

@@ -57,6 +57,7 @@ class PsmfStream;
 // TODO: Change to work directly with the data in RAM instead of this
 // JPSCP-esque class.
 typedef std::map<int, PsmfStream *> PsmfStreamMap;
+
 class Psmf {
 public:
 	Psmf(u32 data);
@@ -324,8 +325,7 @@ u32 scePsmfSpecifyStreamWithStreamTypeNumber(u32 psmfStruct, u32 streamType, u32
 	return 0;
 }
 
-u32 scePsmfGetVideoInfo(u32 psmfStruct, u32 videoInfoAddr)
-{
+u32 scePsmfGetVideoInfo(u32 psmfStruct, u32 videoInfoAddr) {
 	INFO_LOG(HLE, "scePsmfGetVideoInfo(%08x, %08x)", psmfStruct, videoInfoAddr);
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
@@ -339,8 +339,7 @@ u32 scePsmfGetVideoInfo(u32 psmfStruct, u32 videoInfoAddr)
 	return 0;
 }
 
-u32 scePsmfGetAudioInfo(u32 psmfStruct, u32 audioInfoAddr)
-{
+u32 scePsmfGetAudioInfo(u32 psmfStruct, u32 audioInfoAddr) {
 	INFO_LOG(HLE, "scePsmfGetAudioInfo(%08x, %08x)", psmfStruct, audioInfoAddr);
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
@@ -354,11 +353,28 @@ u32 scePsmfGetAudioInfo(u32 psmfStruct, u32 audioInfoAddr)
 	return 0;
 }
 
+u32 scePsmfGetCurrentStreamType(u32 psmfStruct, u32 typeAddr, u32 channelAddr) {
+	INFO_LOG(HLE, "scePsmfGetCurrentStreamType(%08x, %08x, %08x)", psmfStruct, typeAddr, channelAddr);
+	Psmf *psmf = getPsmf(psmfStruct);
+	if (!psmf) {
+		ERROR_LOG(HLE, "scePsmfGetCurrentStreamType - invalid psmf");
+		return ERROR_PSMF_NOT_FOUND;
+	}
+	if (Memory::IsValidAddress(typeAddr)) {
+		u32 type = 0, channel = 0;
+		if (psmf->streamMap.find(psmf->currentStreamNum) != psmf->streamMap.end())
+			type = psmf->streamMap[psmf->currentStreamNum]->type;
+		if (psmf->streamMap.find(psmf->currentStreamNum) != psmf->streamMap.end())
+			channel = psmf->streamMap[psmf->currentStreamNum]->channel;
+		Memory::Write_U32(type, typeAddr);
+		Memory::Write_U32(channel, channelAddr);
+	}
+	return 0;
+}
 
-const HLEFunction scePsmf[] =
-{
-	{0xc22c8327,&WrapU_UU<scePsmfSetPsmf>,"scePsmfSetPsmfFunction"},
-	{0xC7DB3A5B,0,"scePsmfGetCurrentStreamTypeFunction"},
+const HLEFunction scePsmf[] = {
+	{0xc22c8327,WrapU_UU<scePsmfSetPsmf>,"scePsmfSetPsmfFunction"},
+	{0xC7DB3A5B,WrapU_UUU<scePsmfGetCurrentStreamType>,"scePsmfGetCurrentStreamTypeFunction"},
 	{0x28240568,0,"scePsmfGetCurrentStreamNumberFunction"},
 	{0x1E6D9013,&WrapU_UUU<scePsmfSpecifyStreamWithStreamType>,"scePsmfSpecifyStreamWithStreamTypeFunction"},
 	{0x0C120E1D,&WrapU_UUU<scePsmfSpecifyStreamWithStreamTypeNumber>,"scePsmfSpecifyStreamWithStreamTypeNumberFunction"},
