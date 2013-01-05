@@ -53,6 +53,8 @@ LOCAL_SRC_FILES := \
   $(SRC)/ext/libkirk/bn.c \
   $(SRC)/ext/libkirk/ec.c \
   $(SRC)/ext/libkirk/kirk_engine.c \
+  $(SRC)/ext/snappy/snappy-c.cpp \
+  $(SRC)/ext/snappy/snappy.cpp \
   $(SRC)/Common/ArmABI.cpp \
   $(SRC)/Common/ArmEmitter.cpp \
   $(SRC)/Common/LogManager.cpp \
@@ -68,6 +70,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Common/Misc.cpp \
   $(SRC)/Common/MathUtil.cpp \
   $(SRC)/GPU/Math3D.cpp \
+  $(SRC)/GPU/GPUCommon.cpp \
   $(SRC)/GPU/GPUState.cpp \
   $(SRC)/GPU/GeDisasm.cpp \
   $(SRC)/GPU/GLES/Framebuffer.cpp \
@@ -148,7 +151,6 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/HLE/sceUsb.cpp \
   $(SRC)/Core/HLE/sceUtility.cpp \
   $(SRC)/Core/HLE/sceVaudio.cpp \
-  $(SRC)/Core/HLE/scesupPreAcc.cpp \
   $(SRC)/Core/FileSystems/BlockDevices.cpp \
   $(SRC)/Core/FileSystems/ISOFileSystem.cpp \
   $(SRC)/Core/FileSystems/MetaFileSystem.cpp \

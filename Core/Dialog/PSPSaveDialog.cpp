@@ -22,8 +22,8 @@
 
 PSPSaveDialog::PSPSaveDialog()
 	: PSPDialog()
-	, currentSelectedSave(0)
 	, display(DS_NONE)
+	, currentSelectedSave(0)
 {
 	param.SetPspParam(0);
 }
@@ -81,9 +81,12 @@ int PSPSaveDialog::Init(int paramAddr)
 				display = DS_DELETE_LIST_CHOICE;
 			break;
 		case SCE_UTILITY_SAVEDATA_TYPE_SIZES:
-			display = DS_NONE;
-			break;
 		case SCE_UTILITY_SAVEDATA_TYPE_LIST:
+		case SCE_UTILITY_SAVEDATA_TYPE_FILES:
+		case SCE_UTILITY_SAVEDATA_TYPE_SIZES22:
+		case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATASECURE:
+		case SCE_UTILITY_SAVEDATA_TYPE_WRITEDATASECURE:
+		case SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE:
 			display = DS_NONE;
 			break;
 		case SCE_UTILITY_SAVEDATA_TYPE_DELETE: // This run on PSP display a list of all save on the PSP. Weird. (Not really, it's to let you free up space)
@@ -242,7 +245,7 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 		char txt[2048];
 		_dbg_assert_msg_(HLE, sizeof(txt) > sizeof(SaveFileInfo), "Local buffer is too small.");
 
-		sprintf(txt,"%s\n%02d/%02d/%d %02d:%02d %lld KB\n%s\n%s"
+		snprintf(txt,2048,"%s\n%02d/%02d/%d %02d:%02d %lld KB\n%s\n%s"
 				, param.GetFileInfo(currentSelectedSave).title
 				, param.GetFileInfo(currentSelectedSave).modif_time.tm_mday
 				, param.GetFileInfo(currentSelectedSave).modif_time.tm_mon + 1
@@ -266,7 +269,7 @@ void PSPSaveDialog::DisplaySaveDataInfo2()
 	else
 	{
 		char txt[1024];
-		sprintf(txt,"%s\n%02d/%02d/%d %02d:%02d\n%lld KB"
+		snprintf(txt,1024,"%s\n%02d/%02d/%d %02d:%02d\n%lld KB"
 						, param.GetFileInfo(currentSelectedSave).saveTitle
 						, param.GetFileInfo(currentSelectedSave).modif_time.tm_mday
 						, param.GetFileInfo(currentSelectedSave).modif_time.tm_mon + 1
@@ -671,10 +674,41 @@ int PSPSaveDialog::Update()
 					param.GetPspParam()->result = 0;
 					status = SCE_UTILITY_STATUS_FINISHED;
 				break;
-				// TODO: Don't know the name?
-				case 12:
-					// Pretend we have nothing, always.
-					param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
+				case SCE_UTILITY_SAVEDATA_TYPE_FILES:
+					if(param.GetFilesList(param.GetPspParam()))
+					{
+						param.GetPspParam()->result = 0;
+					}
+					else
+					{
+						param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
+					}
+					status = SCE_UTILITY_STATUS_FINISHED;
+				break;
+				case SCE_UTILITY_SAVEDATA_TYPE_SIZES22:
+					if(param.GetSizes22(param.GetPspParam()))
+					{
+						param.GetPspParam()->result = 0;
+					}
+					else
+					{
+						param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
+					}
+					status = SCE_UTILITY_STATUS_FINISHED;
+				break;
+				case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATASECURE:
+				case SCE_UTILITY_SAVEDATA_TYPE_WRITEDATASECURE:
+					if(param.Save(param.GetPspParam(),param.GetSelectedSave()))
+						param.GetPspParam()->result = 0;
+					else
+						param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
+					status = SCE_UTILITY_STATUS_FINISHED;
+				break;
+				case SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE:
+					if(param.Load(param.GetPspParam(),param.GetSelectedSave()))
+						param.GetPspParam()->result = 0;
+					else
+						param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA; // not sure if correct code
 					status = SCE_UTILITY_STATUS_FINISHED;
 				break;
 				default:
@@ -708,11 +742,15 @@ int PSPSaveDialog::Shutdown()
 
 void PSPSaveDialog::DoState(PointerWrap &p)
 {
+	PSPDialog::DoState(p);
 	p.Do(display);
 	param.DoState(p);
 	p.Do(request);
 	// Just reset it.
-	param.SetPspParam(&request);
+	bool hasParam = param.GetPspParam() != NULL;
+	p.Do(hasParam);
+	if (hasParam)
+		param.SetPspParam(&request);
 	p.Do(requestAddr);
 	p.Do(currentSelectedSave);
 	p.Do(yesnoChoice);

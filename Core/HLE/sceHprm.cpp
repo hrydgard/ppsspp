@@ -20,10 +20,26 @@
 
 #include "sceCtrl.h"
 
-u32 sceHprmPeekCurrentKey(u32 keyAddress)
-{
+u32 sceHprmPeekCurrentKey(u32 keyAddress) {
 	INFO_LOG(HLE,"0=sceHprmPeekCurrentKey(ptr)");
 	Memory::Write_U32(0, keyAddress);
+	return 0;
+}
+
+// TODO: Might make sense to reflect the headphone status of the host here,
+// if the games adjust their sound.
+u32 sceHprmIsHeadphoneExist() {
+	DEBUG_LOG(HLE, "sceHprmIsHeadphoneExist()");
+	return 0;
+}
+
+u32 sceHprmIsMicrophoneExist() {
+	DEBUG_LOG(HLE, "sceHprmIsMicrophoneExist()");
+	return 0;
+}
+
+u32 sceHprmIsRemoteExist() {
+	DEBUG_LOG(HLE, "sceHprmIsRemoteExist()");
 	return 0;
 }
 
@@ -31,18 +47,17 @@ const HLEFunction sceHprm[] =
 {
 	{0x089fdfa4, 0, "sceHprm_0x089fdfa4"},
 	{0x1910B327, &WrapU_U<sceHprmPeekCurrentKey>, "sceHprmPeekCurrentKey"},
-	{0x208DB1BD, 0, "sceHprmIsRemoteExist"},
-	{0x7E69EDA4, 0, "sceHprmIsHeadphoneExist"},
-	{0x219C58F1, 0, "sceHprmIsMicrophoneExist"},
+	{0x208DB1BD, WrapU_V<sceHprmIsRemoteExist>, "sceHprmIsRemoteExist"},
+	{0x7E69EDA4, WrapU_V<sceHprmIsHeadphoneExist>, "sceHprmIsHeadphoneExist"},
+	{0x219C58F1, WrapU_V<sceHprmIsMicrophoneExist>, "sceHprmIsMicrophoneExist"},
 	{0xC7154136, 0, "sceHprmRegisterCallback"},
 	{0x444ED0B7, 0, "sceHprmUnregisterCallback"},
 	{0x1910B327, 0, "sceHprmPeekCurrentKey"},
 	{0x2BCEC83E, 0, "sceHprmPeekLatch"},
 	{0x40D2F9F0, 0, "sceHprmReadLatch"},
 };
-const int sceHprmCount = ARRAY_SIZE(sceHprm);
 
 void Register_sceHprm()
 {
-	RegisterModule("sceHprm", sceHprmCount, sceHprm);
+	RegisterModule("sceHprm", ARRAY_SIZE(sceHprm), sceHprm);
 }

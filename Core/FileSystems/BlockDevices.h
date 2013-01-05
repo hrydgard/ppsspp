@@ -38,28 +38,32 @@ public:
 
 class CISOFileBlockDevice : public BlockDevice
 {
+public:
+	CISOFileBlockDevice(std::string _filename);
+	~CISOFileBlockDevice();
+	bool ReadBlock(int blockNumber, u8 *outPtr);
+	int GetNumBlocks() { return numBlocks;}
+
+private:
 	std::string filename;
 	FILE *f;
 	u32 *index;
 	int indexShift;
 	u32 blockSize;
 	int numBlocks;
-public:
-	CISOFileBlockDevice(std::string _filename);
-	~CISOFileBlockDevice();
-	bool ReadBlock(int blockNumber, u8 *outPtr);
-	int GetNumBlocks() { return numBlocks;}
 };
 
 
 class FileBlockDevice : public BlockDevice
 {
-	std::string filename;
-	FILE *f;
-	size_t filesize;
 public:
 	FileBlockDevice(std::string _filename);
 	~FileBlockDevice();
 	bool ReadBlock(int blockNumber, u8 *outPtr);
-	int GetNumBlocks() {return (int)(filesize/GetBlockSize());}
+	int GetNumBlocks() {return (int)(filesize / GetBlockSize());}
+
+private:
+	std::string filename;
+	FILE *f;
+	size_t filesize;
 };

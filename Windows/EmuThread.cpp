@@ -78,6 +78,7 @@ DWORD TheThread(LPVOID x)
 	coreParameter.outputHeight = 272 * g_Config.iWindowZoom;
 	coreParameter.pixelWidth = 480 * g_Config.iWindowZoom;
 	coreParameter.pixelHeight = 272 * g_Config.iWindowZoom;
+	coreParameter.startPaused = !g_Config.bAutoRun;
 
 	std::string error_string;
 	if (!PSP_Init(coreParameter, &error_string))
@@ -89,20 +90,8 @@ DWORD TheThread(LPVOID x)
 	INFO_LOG(BOOT, "Done.");
 	_dbg_update_();
 
-	if (g_Config.bAutoRun)
-	{
-#ifdef _DEBUG
-		host->UpdateDisassembly();
-#endif
-		Core_EnableStepping(FALSE);
-	}
-	else
-	{
-#ifdef _DEBUG
-		host->UpdateDisassembly();
-#endif
-		Core_EnableStepping(TRUE);
-	}
+	host->UpdateDisassembly();
+	Core_EnableStepping(coreParameter.startPaused ? TRUE : FALSE);
 
 	g_State.bBooted = true;
 #ifdef _DEBUG

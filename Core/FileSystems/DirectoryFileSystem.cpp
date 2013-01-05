@@ -490,21 +490,29 @@ PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename) {
 		return x;
 #endif
 	}
-	x.type = File::IsDirectory(fullName) ? FILETYPE_NORMAL : FILETYPE_DIRECTORY;
+	x.type = File::IsDirectory(fullName) ? FILETYPE_DIRECTORY : FILETYPE_NORMAL;
 	x.exists = true;
 
+	if (x.type != FILETYPE_DIRECTORY)
+	{
 #ifdef _WIN32
-	WIN32_FILE_ATTRIBUTE_DATA data;
-	GetFileAttributesEx(fullName.c_str(), GetFileExInfoStandard, &data);
+		WIN32_FILE_ATTRIBUTE_DATA data;
+		GetFileAttributesEx(fullName.c_str(), GetFileExInfoStandard, &data);
 
-	x.size = data.nFileSizeLow | ((u64)data.nFileSizeHigh<<32);
+		x.size = data.nFileSizeLow | ((u64)data.nFileSizeHigh<<32);
 #else
-	x.size = File::GetSize(fullName);
-	//TODO
+		x.size = File::GetSize(fullName);
+		//TODO
 #endif
-	x.mtime = File::GetModifTime(fullName);
+		x.mtime = File::GetModifTime(fullName);
+	}
 
 	return x;
+}
+
+bool DirectoryFileSystem::GetHostPath(const std::string &inpath, std::string &outpath) {
+	outpath = GetLocalPath(inpath);
+	return true;
 }
 
 std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
@@ -541,7 +549,23 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 			break;
 	}
 #else
-	ERROR_LOG(HLE, "GetDirListing not implemented on non-Windows");
+	DIR *dp;
+	dirent *dirp;
+	if((dp  = opendir(GetLocalPath(path).c_str())) == NULL) {
+		ERROR_LOG(HLE,"Error opening directory %s\n",path.c_str());
+		return myVector;
+	}
+
+	while ((dirp = readdir(dp)) != NULL) {
+		PSPFileInfo entry;
+		if(dirp->d_type == DT_DIR)
+			entry.type = FILETYPE_DIRECTORY;
+		else
+			entry.type = FILETYPE_NORMAL;
+		entry.name = dirp->d_name;
+		myVector.push_back(entry);
+	}
+	closedir(dp);
 #endif
 	return myVector;
 }

@@ -50,7 +50,7 @@ void PSPDialog::EndDraw()
 
 void PSPDialog::DisplayMessage(std::string text)
 {
-	PPGeDrawText(text.c_str(), 480/2, 100, PPGE_ALIGN_CENTER, 0.5f, 0xFFFFFFFF);
+	PPGeDrawText(text.c_str(), 40, 30, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
 }
 
 int PSPDialog::Shutdown()

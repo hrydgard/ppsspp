@@ -31,8 +31,26 @@
 #include "../CoreTiming.h"
 
 //////////////////////////////////////////////////////////////////////////
+// State
+//////////////////////////////////////////////////////////////////////////
+
+// The time when the game started.
+time_t start_time;
+
+//////////////////////////////////////////////////////////////////////////
 // Other clock stuff
 //////////////////////////////////////////////////////////////////////////
+
+void __KernelTimeInit()
+{
+	time(&start_time);
+}
+
+void __KernelTimeDoState(PointerWrap &p)
+{
+	p.Do(start_time);
+	p.DoMarker("sceKernelTime");
+}
 
 struct SceKernelSysClock
 {
@@ -107,19 +125,23 @@ u32 sceKernelUSec2SysClockWide(u32 usec)
 
 u32 sceKernelLibcClock()
 {
-	u32 retVal = clock()*1000;  // TODO: This can't be right
-	DEBUG_LOG(HLE,"%i = sceKernelLibcClock",retVal);
+	u32 retVal = (u32) (CoreTiming::GetTicks() / CoreTiming::GetClockFrequencyMHz());
+	DEBUG_LOG(HLE, "%i = sceKernelLibcClock", retVal);
 	return retVal;
 }
 
-void sceKernelLibcTime()
+u32 sceKernelLibcTime(u32 outPtr)
 {
-	time_t *t = 0;
-	if (PARAM(0))
-		t = (time_t*)Memory::GetPointer(PARAM(0));
-	u32 retVal = (u32)time(t);
-	DEBUG_LOG(HLE,"%i = sceKernelLibcTime()",retVal);
-	RETURN(retVal);
+	u32 t = (u32) start_time + (u32) (CoreTiming::GetTicks() / CPU_HZ);
+
+	DEBUG_LOG(HLE, "%i = sceKernelLibcTime(%08X)", t, outPtr);
+
+	if (Memory::IsValidAddress(outPtr))
+		Memory::Write_U32(t, outPtr);
+	else if (outPtr != 0)
+		return 0;
+
+	return t;
 }
 
 void sceKernelLibcGettimeofday()

@@ -27,6 +27,26 @@
 
 class ISOFileSystem : public IFileSystem
 {
+public:
+	ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevice);
+	~ISOFileSystem();
+	void DoState(PointerWrap &p);
+	std::vector<PSPFileInfo> GetDirListing(std::string path);
+	u32      OpenFile(std::string filename, FileAccess access);
+	void     CloseFile(u32 handle);
+	size_t   ReadFile(u32 handle, u8 *pointer, s64 size);
+	size_t   SeekFile(u32 handle, s32 position, FileMove type);
+	PSPFileInfo GetFileInfo(std::string filename);
+	bool     OwnsHandle(u32 handle);
+
+	size_t WriteFile(u32 handle, const u8 *pointer, s64 size);
+	bool GetHostPath(const std::string &inpath, std::string &outpath) {return false;}
+	virtual bool MkDir(const std::string &dirname) {return false;}
+	virtual bool RmDir(const std::string &dirname) {return false;}
+	virtual bool RenameFile(const std::string &from, const std::string &to) {return false;}
+	virtual bool DeleteFile(const std::string &filename) {return false;}
+
+private:
 	struct TreeEntry
 	{
 		TreeEntry(){}
@@ -67,24 +87,6 @@ class ISOFileSystem : public IFileSystem
 	TreeEntry entireISO;
 
 	void ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root);
-	TreeEntry *GetFromPath(std::string path);
+	TreeEntry *GetFromPath(std::string path, bool catchError=true);
 	std::string EntryFullPath(TreeEntry *e);
-
-public:
-	ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevice);
-	~ISOFileSystem();
-	void DoState(PointerWrap &p);
-	std::vector<PSPFileInfo> GetDirListing(std::string path);
-	u32      OpenFile(std::string filename, FileAccess access);
-	void     CloseFile(u32 handle);
-	size_t   ReadFile(u32 handle, u8 *pointer, s64 size);
-	size_t   WriteFile(u32 handle, const u8 *pointer, s64 size);
-	size_t   SeekFile(u32 handle, s32 position, FileMove type);
-	PSPFileInfo GetFileInfo(std::string filename);
-	bool     OwnsHandle(u32 handle);
-
-	virtual bool MkDir(const std::string &dirname) {return false;}
-	virtual bool RmDir(const std::string &dirname) {return false;}
-	virtual bool RenameFile(const std::string &from, const std::string &to) {return false;}
-	virtual bool DeleteFile(const std::string &filename) {return false;}
 };

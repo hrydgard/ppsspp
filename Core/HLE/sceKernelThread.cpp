@@ -75,11 +75,6 @@ const char *waitTypeStrings[] = {
 	"Ctrl",
 };
 
-struct SceKernelSysClock {
-	u32 low;
-	u32 hi;
-};
-
 struct NativeCallback
 {
 	SceUInt size;
@@ -371,11 +366,19 @@ public:
 		// Fill the stack.
 		Memory::Memset(stackBlock, 0xFF, stackSize);
 		context.r[MIPS_REG_SP] = stackBlock + stackSize;
-		nt.initialStack = context.r[MIPS_REG_SP];
+		nt.initialStack = stackBlock;
 		nt.stackSize = stackSize;
 		// What's this 512?
-		context.r[MIPS_REG_K0] = context.r[MIPS_REG_SP] - 512;
+		context.r[MIPS_REG_K0] = context.r[MIPS_REG_SP] - 256;
 		context.r[MIPS_REG_SP] -= 512;
+		u32 k0 = context.r[MIPS_REG_K0];
+		Memory::Memset(k0, 0, 0x100);
+		Memory::Write_U32(nt.initialStack, k0 + 0xc0);
+		Memory::Write_U32(GetUID(),        k0 + 0xca);
+		Memory::Write_U32(0xffffffff,      k0 + 0xf8);
+		Memory::Write_U32(0xffffffff,      k0 + 0xfc);
+
+		Memory::Write_U32(GetUID(), nt.initialStack);
 		return true;
 	}
 
@@ -1145,9 +1148,15 @@ void sceKernelCheckThreadStack()
 {
 	u32 error;
 	Thread *t = kernelObjects.Get<Thread>(__KernelGetCurThread(), error);
-	u32 diff = abs((long)((s64)t->stackBlock - (s64)currentMIPS->r[MIPS_REG_SP]));
-	ERROR_LOG(HLE, "%i=sceKernelCheckThreadStack()", diff);
-	RETURN(diff); //Blatant lie
+	if (t) {
+		u32 diff = abs((long)((s64)t->stackBlock - (s64)currentMIPS->r[MIPS_REG_SP]));
+		WARN_LOG(HLE, "%i=sceKernelCheckThreadStack()", diff);
+		RETURN(diff);
+	} else {
+		// WTF?
+		ERROR_LOG(HLE, "sceKernelCheckThreadStack() - not on thread");
+		RETURN(-1);
+	}
 }
 
 void ThreadContext::reset()
@@ -1225,7 +1234,7 @@ Thread *__KernelCreateThread(SceUID &id, SceUID moduleId, const char *name, u32 
 	t->nt.numInterruptPreempts = 0;
 	t->nt.numReleases = 0;
 	t->nt.numThreadPreempts = 0;
-	t->nt.runForClocks.low = 0;
+	t->nt.runForClocks.lo = 0;
 	t->nt.runForClocks.hi = 0;
 	t->nt.wakeupCount = 0;
 	if (moduleId)

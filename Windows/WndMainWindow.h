@@ -17,7 +17,7 @@ namespace MainWindow
 	void SetPlaying(const char*text);
 	void BrowseAndBoot();
 	void SetNextState(CoreState state);
-	void SaveStateActionFinished(bool result);
+	void SaveStateActionFinished(bool result, void *userdata);
 	void _ViewFullScreen(HWND hWnd);
 	void _ViewNormal(HWND hWnd);
 }

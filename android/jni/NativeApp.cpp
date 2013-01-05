@@ -53,6 +53,7 @@ Texture *uiTexture;
 
 ScreenManager *screenManager;
 std::string config_filename;
+std::string game_title;
 
 class AndroidLogger : public LogListener
 {
@@ -112,6 +113,9 @@ public:
 	virtual bool AttemptLoadSymbolMap() {return false;}
 	virtual void ResetSymbolMap() {}
 	virtual void AddSymbol(std::string name, u32 addr, u32 size, int type=0) {}
+	virtual void SetWindowTitle(const char *message) {
+		game_title = message;
+	}
 };
 
 // globals
@@ -232,7 +236,13 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 #endif
 	}
 
-#if defined(ANDROID) || defined(BLACKBERRY) || defined(__SYMBIAN32__)
+#if defined(ANDROID)
+	// Maybe there should be an option to use internal memory instead, but I think
+	// that for most people, using external memory (SDCard/USB Storage) makes the
+	// most sense.
+	g_Config.memCardDirectory = std::string(external_directory) + "/";
+	g_Config.flashDirectory = std::string(external_directory)+"/flash/";
+#elif defined(BLACKBERRY) || defined(__SYMBIAN32__)
 	g_Config.memCardDirectory = user_data_path;
 	g_Config.flashDirectory = user_data_path+"/flash/";
 #else

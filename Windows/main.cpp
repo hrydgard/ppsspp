@@ -21,6 +21,7 @@
 #include "file/zip_read.h"
 
 #include "../Core/Config.h"
+#include "../Core/SaveState.h"
 #include "EmuThread.h"
 
 #include "LogManager.h"
@@ -53,8 +54,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	const char *fileToStart = NULL;
 	const char *fileToLog = NULL;
+	const char *stateToLoad = NULL;
 	bool hideLog = true;
-	bool autoRun = true;
 
 #ifdef _DEBUG
 	hideLog = false;
@@ -75,24 +76,32 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 			{
 			case 'j':
 				g_Config.iCpuCore = CPU_JIT;
+				g_Config.bSaveSettings = false;
 				break;
 			case 'i':
 				g_Config.iCpuCore = CPU_INTERPRETER;
+				g_Config.bSaveSettings = false;
 				break;
 			case 'f':
 				g_Config.iCpuCore = CPU_FASTINTERPRETER;
+				g_Config.bSaveSettings = false;
 				break;
 			case 'l':
 				hideLog = false;
 				break;
 			case 's':
-				autoRun = false;
+				g_Config.bAutoRun = false;
+				g_Config.bSaveSettings = false;
 				break;
 			case '-':
 				if (!strcmp(__argv[i], "--log") && i < __argc - 1)
 					fileToLog = __argv[++i];
 				if (!strncmp(__argv[i], "--log=", strlen("--log=")) && strlen(__argv[i]) > strlen("--log="))
 					fileToLog = __argv[i] + strlen("--log=");
+				if (!strcmp(__argv[i], "--state") && i < __argc - 1)
+					stateToLoad = __argv[++i];
+				if (!strncmp(__argv[i], "--state=", strlen("--state=")) && strlen(__argv[i]) > strlen("--state="))
+					stateToLoad = __argv[i] + strlen("--state=");
 				break;
 			}
 		}
@@ -156,8 +165,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	else
 		MainWindow::BrowseAndBoot();
 
-	if (autoRun)
-		MainWindow::SetNextState(CORE_RUNNING);
+	if (fileToStart != NULL && stateToLoad != NULL)
+		SaveState::Load(stateToLoad);
 
 	//so.. we're at the message pump of the GUI thread
 	MSG msg;

@@ -45,4 +45,4 @@ void __GeShutdown();
 u32 sceGeRestoreContext(u32 ctxAddr);
 u32 sceGeSaveContext(u32 ctxAddr);
 
-u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, u32 callbackId, u32 optParamAddr);
+u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, int callbackId, u32 optParamAddr);

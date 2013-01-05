@@ -1,7 +1,7 @@
 // NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
 
 
-#define programname "PPSSPP v0.4"
+#define programname "PPSSPP v0.5"
 
 
 #include <windows.h>
@@ -61,6 +61,7 @@ namespace MainWindow
 	LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 	LRESULT CALLBACK DisplayProc(HWND, UINT, WPARAM, LPARAM);
 	LRESULT CALLBACK About(HWND, UINT, WPARAM, LPARAM);
+	LRESULT CALLBACK Controls(HWND, UINT, WPARAM, LPARAM);
 
 	HWND GetHWND()
 	{
@@ -312,7 +313,14 @@ namespace MainWindow
 				UpdateMenus();
 				break;
 
-			case ID_FILE_LOADSTATE:
+			case ID_FILE_LOADSTATEFILE:
+				if (g_State.bEmuThreadStarted)
+				{
+					nextState = Core_IsStepping() ? CORE_STEPPING : CORE_RUNNING;
+					for (int i=0; i<numCPUs; i++)
+						if (disasmWindow[i])
+							SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
+				}
 				if (W32Util::BrowseForFileName(true, hWnd, "Load state",0,"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0","ppst",fn))
 				{
 					SetCursor(LoadCursor(0,IDC_WAIT));
@@ -320,12 +328,45 @@ namespace MainWindow
 				}
 				break;
 
-			case ID_FILE_SAVESTATE:
+			case ID_FILE_SAVESTATEFILE:
+				if (g_State.bEmuThreadStarted)
+				{
+					nextState = Core_IsStepping() ? CORE_STEPPING : CORE_RUNNING;
+					for (int i=0; i<numCPUs; i++)
+						if (disasmWindow[i])
+							SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
+				}
 				if (W32Util::BrowseForFileName(false, hWnd, "Save state",0,"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0","ppst",fn))
 				{
 					SetCursor(LoadCursor(0,IDC_WAIT));
 					SaveState::Save(fn, SaveStateActionFinished);
 				}
+				break;
+
+			// TODO: Add UI for multiple slots
+
+			case ID_FILE_QUICKLOADSTATE:
+				if (g_State.bEmuThreadStarted)
+				{
+					nextState = Core_IsStepping() ? CORE_STEPPING : CORE_RUNNING;
+					for (int i=0; i<numCPUs; i++)
+						if (disasmWindow[i])
+							SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
+				}
+				SetCursor(LoadCursor(0,IDC_WAIT));
+				SaveState::LoadSlot(0, SaveStateActionFinished);
+				break;
+
+			case ID_FILE_QUICKSAVESTATE:
+				if (g_State.bEmuThreadStarted)
+				{
+					nextState = Core_IsStepping() ? CORE_STEPPING : CORE_RUNNING;
+					for (int i=0; i<numCPUs; i++)
+						if (disasmWindow[i])
+							SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
+				}
+				SetCursor(LoadCursor(0,IDC_WAIT));
+				SaveState::SaveSlot(0, SaveStateActionFinished);
 				break;
 
 			case ID_OPTIONS_SCREEN1X:
@@ -380,6 +421,10 @@ namespace MainWindow
 				UpdateMenus();
 				break;
 
+			case ID_EMULATION_RUNONLOAD:
+				g_Config.bAutoRun = !g_Config.bAutoRun;
+				UpdateMenus();
+				break;
 			//case ID_CPU_RESET: 
 			//	MessageBox(hwndMain,"Use the controls in the disasm window for now..","Sorry",0);
 			//	Update();
@@ -503,6 +548,16 @@ namespace MainWindow
 				g_Config.bFastMemory = !g_Config.bFastMemory;
 				UpdateMenus();
 				break;
+			case ID_OPTIONS_LINEARFILTERING:
+				g_Config.bLinearFiltering = !g_Config.bLinearFiltering;
+				UpdateMenus();
+				break;
+			case ID_OPTIONS_CONTROLS:
+				DialogManager::EnableAll(FALSE);
+				DialogBox(hInst, (LPCTSTR)IDD_CONTROLS, hWnd, (DLGPROC)Controls);
+				DialogManager::EnableAll(TRUE);
+				break;
+
 
 			
 			//////////////////////////////////////////////////////////////////////////
@@ -593,7 +648,7 @@ namespace MainWindow
 			}
 			else
 			*/
-				return DefWindowProc(hWnd,message,wParam,lParam);
+			return DefWindowProc(hWnd,message,wParam,lParam);
 //		case WM_LBUTTONDOWN:
 //			TrackPopupMenu(menu,0,0,0,0,hWnd,0);
 //			break;
@@ -648,6 +703,8 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_WIREFRAME, g_Config.bDrawWireframe);
 		CHECKITEM(ID_OPTIONS_HARDWARETRANSFORM, g_Config.bHardwareTransform);
 		CHECKITEM(ID_OPTIONS_FASTMEMORY, g_Config.bFastMemory);
+		CHECKITEM(ID_OPTIONS_LINEARFILTERING, g_Config.bLinearFiltering);
+		CHECKITEM(ID_EMULATION_RUNONLOAD, g_Config.bAutoRun);
 
 		UINT enable = !Core_IsStepping() ? MF_GRAYED : MF_ENABLED;
 		EnableMenuItem(menu,ID_EMULATION_RUN, g_State.bEmuThreadStarted ? enable : MF_GRAYED);
@@ -656,6 +713,10 @@ namespace MainWindow
 
 		enable = g_State.bEmuThreadStarted ? MF_GRAYED : MF_ENABLED;
 		EnableMenuItem(menu,ID_FILE_LOAD,enable);
+		EnableMenuItem(menu,ID_FILE_SAVESTATEFILE,!enable);
+		EnableMenuItem(menu,ID_FILE_LOADSTATEFILE,!enable);
+		EnableMenuItem(menu,ID_FILE_QUICKSAVESTATE,!enable);
+		EnableMenuItem(menu,ID_FILE_QUICKLOADSTATE,!enable);
 		EnableMenuItem(menu,ID_CPU_DYNAREC,enable);
 		EnableMenuItem(menu,ID_CPU_INTERPRETER,enable);
 		EnableMenuItem(menu,ID_CPU_FASTINTERPRETER,enable);
@@ -684,6 +745,53 @@ namespace MainWindow
 		{
 		case WM_INITDIALOG:
 			W32Util::CenterWindow(hDlg);
+			return TRUE;
+
+		case WM_COMMAND:
+			if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL) 
+			{
+				EndDialog(hDlg, LOWORD(wParam));
+				return TRUE;
+			}
+			break;
+		}
+		return FALSE;
+	}
+
+	const char *controllist[] = {
+		"Start\tSpace",
+		"Select\tV",
+		"Square\tA",
+		"Triangle\tS",
+		"Circle\tX",
+		"Cross\tZ",
+		"Left Trigger\tQ",
+		"Right Trigger\tW",
+		"Up\tArrow Up",
+		"Down\tArrow Down",
+		"Left\tArrow Left",
+		"Right\tArrow Right",
+		"Analog Up\tI",
+		"Analog Down\tK",
+		"Analog Left\tJ",
+		"Analog Right\tL",
+	};
+	// Message handler for about box.
+	LRESULT CALLBACK Controls(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+	{
+		switch (message)
+		{
+		case WM_INITDIALOG:
+			W32Util::CenterWindow(hDlg);
+			{
+				// TODO: connect to keyboard device instead
+				HWND list = GetDlgItem(hDlg, IDC_LISTCONTROLS);
+				int stops[1] = {80};
+				SendMessage(list, LB_SETTABSTOPS, 1, (LPARAM)stops);
+				for (int i = 0; i < sizeof(controllist)/sizeof(controllist[0]); i++) {
+					SendMessage(list, LB_INSERTSTRING, -1, (LPARAM)controllist[i]);
+				}
+			}
 			return TRUE;
 
 		case WM_COMMAND:
@@ -767,12 +875,19 @@ namespace MainWindow
 		}
 	}
 
-	void SaveStateActionFinished(bool result)
+	void SaveStateActionFinished(bool result, void *userdata)
 	{
 		// TODO: Improve messaging?
 		if (!result)
 			MessageBox(0, "Savestate failure.  Please try again later.", "Sorry", MB_OK);
 		SetCursor(LoadCursor(0, IDC_ARROW));
+
+		if (g_State.bEmuThreadStarted && nextState == CORE_RUNNING)
+		{
+			for (int i=0; i<numCPUs; i++)
+				if (disasmWindow[i])
+					SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_GO, 0);
+		}
 	}
 
 	void SetNextState(CoreState state)

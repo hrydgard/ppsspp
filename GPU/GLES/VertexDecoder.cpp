@@ -645,8 +645,7 @@ void VertexDecoder::SetVertexType(u32 fmt) {
 	DEBUG_LOG(G3D,"SVT : size = %i, aligned to biggest %i", size, biggest);
 }
 
-void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, const void *inds, int prim, int count, int *indexLowerBound, int *indexUpperBound) const
-{
+void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, const void *inds, int prim, int count, int *indexLowerBound, int *indexUpperBound) const {
 	// Find index bounds. Could cache this in display lists.
 	// Also, this could be greatly sped up with SSE2, although rarely a bottleneck.
 	int lowerBound = 0x7FFFFFFF;
@@ -677,12 +676,32 @@ void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, const void *i
 	// Decode the vertices within the found bounds, once each
 	decoded_ = decodedptr;  // + lowerBound * decFmt.stride;
 	ptr_ = (const u8*)verts + lowerBound * size;
-	for (int index = lowerBound; index <= upperBound; index++)
-	{
+	for (int index = lowerBound; index <= upperBound; index++) {
 		for (int i = 0; i < numSteps_; i++) {
 			((*this).*steps_[i])();
 		}
 		ptr_ += size;
 		decoded_ += decFmt.stride;
 	}
+}
+
+// TODO: Does not support morphs, skinning etc.
+u32 VertexDecoder::InjectUVs(u8 *decoded, const void *verts, float *customuv, int count) const {
+	u32 customVertType = (gstate.vertType & ~GE_VTYPE_TC_MASK) | GE_VTYPE_TC_FLOAT;
+	VertexDecoder decOut;
+	decOut.SetVertexType(customVertType);
+	
+	const u8 *inp = (const u8 *)verts;
+	u8 *out = decoded;
+	for (int i = 0; i < count; i++) {
+		if (pos) memcpy(out + decOut.posoff, inp + posoff, possize[pos]);
+		if (nrm) memcpy(out + decOut.nrmoff, inp + nrmoff, nrmsize[pos]);
+		if (col) memcpy(out + decOut.coloff, inp + coloff, colsize[pos]);
+		// Ignore others for now, this is all we need for puzbob.
+		// Inject!
+		memcpy(out + decOut.tcoff, &customuv[i * 2], tcsize[decOut.tc]);
+		inp += this->onesize_;
+		out += decOut.onesize_;
+	}
+	return customVertType;
 }

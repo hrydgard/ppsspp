@@ -54,6 +54,11 @@ void sceKernelGetThreadExitStatus();
 u32 sceKernelGetThreadmanIdType(u32);
 u32 sceKernelGetThreadmanIdList(u32 type, u32 readBufPtr, u32 readBufSize, u32 idCountPtr);
 
+struct SceKernelSysClock {
+	u32 lo;
+	u32 hi;
+};
+
 
 enum WaitType //probably not the real values
 {
@@ -79,19 +84,19 @@ enum WaitType //probably not the real values
 
 struct ThreadContext
 {
-  void reset();
-  u32 r[32];
-  float f[32];
-  float v[128];
-  u32 vfpuCtrl[16];
+	void reset();
+	u32 r[32];
+	float f[32];
+	float v[128];
+	u32 vfpuCtrl[16];
 
-  u32 hi;
-  u32 lo;
-  u32 pc;
-  u32 fpcond;
+	u32 hi;
+	u32 lo;
+	u32 pc;
+	u32 fpcond;
 
-  u32 fcr0;
-  u32 fcr31;
+	u32 fcr0;
+	u32 fcr31;
 };
 
 // Internal API, used by implementations of kernel functions
@@ -126,15 +131,15 @@ void __KernelReSchedule(bool doCallbacks, const char *reason);
 
 // Registered callback types
 enum RegisteredCallbackType {
-  THREAD_CALLBACK_UMD = 0,
-  THREAD_CALLBACK_IO = 1,
-  THREAD_CALLBACK_MEMORYSTICK = 2,
-  THREAD_CALLBACK_MEMORYSTICK_FAT = 3,
-  THREAD_CALLBACK_POWER = 4,
-  THREAD_CALLBACK_EXIT = 5,
-  THREAD_CALLBACK_USER_DEFINED = 6,
-  THREAD_CALLBACK_SIZE = 7,
-  THREAD_CALLBACK_NUM_TYPES = 8,
+	THREAD_CALLBACK_UMD = 0,
+	THREAD_CALLBACK_IO = 1,
+	THREAD_CALLBACK_MEMORYSTICK = 2,
+	THREAD_CALLBACK_MEMORYSTICK_FAT = 3,
+	THREAD_CALLBACK_POWER = 4,
+	THREAD_CALLBACK_EXIT = 5,
+	THREAD_CALLBACK_USER_DEFINED = 6,
+	THREAD_CALLBACK_SIZE = 7,
+	THREAD_CALLBACK_NUM_TYPES = 8,
 };
 
 // These operate on the current thread
@@ -214,6 +219,7 @@ struct MipsCall {
 
 	void DoState(PointerWrap &p);
 };
+
 enum ThreadStatus
 {
 	THREADSTATUS_RUNNING = 1,

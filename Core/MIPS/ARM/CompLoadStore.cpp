@@ -42,6 +42,10 @@ namespace MIPSComp
 		int rt = _RT;
 		int rs = _RS;
 		int o = op>>26;
+		if (((op >> 29) & 1) == 0 && rt == 0) {
+			// Don't load anything into $zr
+			return;
+		}
 		switch (o) 
 		{
 		case 37: //R(rt) = ReadMem16(addr); break; //lhu

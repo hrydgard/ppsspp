@@ -33,18 +33,21 @@ CConfig::~CConfig()
 void CConfig::Load(const char *iniFileName)
 {
 	iniFilename_ = iniFileName;
-	NOTICE_LOG(LOADER, "Loading config: %s", iniFileName);
+	INFO_LOG(LOADER, "Loading config: %s", iniFileName);
 	bSaveSettings = true;
 
 	IniFile iniFile;
-	iniFile.Load(iniFileName);
+	if (!iniFile.Load(iniFileName)) {
+		ERROR_LOG(LOADER, "Failed to read %s. Setting config to default.", iniFileName);
+		// Continue anyway to initialize the config.
+	}
 
 	IniFile::Section *general = iniFile.GetOrCreateSection("General");
 
 	bSpeedLimit = false;
 	general->Get("FirstRun", &bFirstRun, true);
 	general->Get("AutoLoadLast", &bAutoLoadLast, false);
-	general->Get("AutoRun", &bAutoRun, false);
+	general->Get("AutoRun", &bAutoRun, true);
 	general->Get("ConfirmOnQuit", &bConfirmOnQuit, false);
 	general->Get("IgnoreBadMemAccess", &bIgnoreBadMemAccess, true);
 	general->Get("CurrentDirectory", &currentDirectory, "");
@@ -59,7 +62,7 @@ void CConfig::Load(const char *iniFileName)
 	graphics->Get("DisplayFramebuffer", &bDisplayFramebuffer, false);
 	graphics->Get("WindowZoom", &iWindowZoom, 1);
 	graphics->Get("BufferedRendering", &bBufferedRendering, true);
-	graphics->Get("HardwareTransform", &bHardwareTransform, false);
+	graphics->Get("HardwareTransform", &bHardwareTransform, true);
 	graphics->Get("LinearFiltering", &bLinearFiltering, false);
 
 	IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
@@ -69,17 +72,17 @@ void CConfig::Load(const char *iniFileName)
 	control->Get("ShowStick", &bShowAnalogStick, false);
 	control->Get("ShowTouchControls", &bShowTouchControls, true);
 
-
 	// Ephemeral settings
 	bDrawWireframe = false;
 }
 
 void CConfig::Save()
 {
-	if (g_Config.bSaveSettings && iniFilename_.size())
-	{
+	if (iniFilename_.size() && g_Config.bSaveSettings) {
 		IniFile iniFile;
-		iniFile.Load(iniFilename_.c_str());
+		if (!iniFile.Load(iniFilename_.c_str())) {
+			ERROR_LOG(LOADER, "Error saving config - can't read ini %s", iniFilename_.c_str());
+		}
 
 		IniFile::Section *general = iniFile.GetOrCreateSection("General");
 		general->Set("FirstRun", bFirstRun);
@@ -108,9 +111,12 @@ void CConfig::Save()
 		control->Set("ShowStick", bShowAnalogStick);
 		control->Set("ShowTouchControls", bShowTouchControls);
 
-		iniFile.Save(iniFilename_.c_str());
-		NOTICE_LOG(LOADER, "Config saved: %s", iniFilename_.c_str());
+		if (!iniFile.Save(iniFilename_.c_str())) {
+			ERROR_LOG(LOADER, "Error saving config - can't write ini %s", iniFilename_.c_str());
+			return;
+		}
+		INFO_LOG(LOADER, "Config saved: %s", iniFilename_.c_str());
 	} else {
-		NOTICE_LOG(LOADER, "Error saving config: %s", iniFilename_.c_str());
+		INFO_LOG(LOADER, "Not saving config");
 	}
 }

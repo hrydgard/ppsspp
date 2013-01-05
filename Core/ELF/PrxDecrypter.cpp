@@ -6,6 +6,9 @@ extern "C"
 }
 
 #include "../../Globals.h"
+#include "PrxDecrypter.h"
+
+#define ROUNDUP16(x)  (((x)+15)&~15)
 
 // Thank you PSARDUMPER & JPCSP keys
 
@@ -287,6 +290,22 @@ static const TAG_INFO g_tagInfo[] =
 	{ 0xBB67C59F, g_key_GAMESHARE2xx, 0x5E, 0x5E }
 };
 
+bool HasKey(int key)
+{
+	switch (key)
+	{
+		case 0x02: case 0x03: case 0x04: case 0x05: case 0x07: case 0x0C: case 0x0D: case 0x0E: case 0x0F:
+		case 0x10: case 0x11: case 0x12:
+		case 0x38: case 0x39: case 0x3A: case 0x44: case 0x4B:
+		case 0x53: case 0x57: case 0x5D:
+		case 0x63: case 0x64:
+			return true;
+		default:
+			INFO_LOG(HLE, "Missing key %02X, cannot decrypt module", key);
+			return false;
+	}
+}
+
 static const TAG_INFO *GetTagInfo(u32 tagFind)
 {
 	for (u32 iTag = 0; iTag < sizeof(g_tagInfo)/sizeof(TAG_INFO); iTag++)
@@ -297,21 +316,17 @@ static const TAG_INFO *GetTagInfo(u32 tagFind)
 
 static void ExtraV2Mangle(u8* buffer1, u8 codeExtra)
 {
-#ifdef _MSC_VER
-	static u8 __declspec(align(64)) g_dataTmp[20+0xA0];
-#else
-	static u8 g_dataTmp[20+0xA0] __attribute__((aligned(0x40)));
-#endif
-	u8* buffer2 = g_dataTmp; // aligned
+	u8 buffer2[ROUNDUP16(0x14+0xA0)];
 
-	memcpy(buffer2+20, buffer1, 0xA0);
+	memcpy(buffer2+0x14, buffer1, 0xA0);
+
 	u32* pl2 = (u32*)buffer2;
 	pl2[0] = 5;
 	pl2[1] = pl2[2] = 0;
 	pl2[3] = codeExtra;
 	pl2[4] = 0xA0;
 
-	sceUtilsBufferCopyWithRange(buffer2, 20+0xA0, buffer2, 20+0xA0, 7);
+	sceUtilsBufferCopyWithRange(buffer2, 20+0xA0, buffer2, 20+0xA0, KIRK_CMD_DECRYPT_IV_0);
 	// copy result back
 	memcpy(buffer1, buffer2, 0xA0);
 }
@@ -323,7 +338,7 @@ static int Scramble(u32 *buf, u32 size, u32 code)
 	buf[3] = code;
 	buf[4] = size;
 
-	if (sceUtilsBufferCopyWithRange((u8*)buf, size+0x14, (u8*)buf, size+0x14, 7) < 0)
+	if (sceUtilsBufferCopyWithRange((u8*)buf, size+0x14, (u8*)buf, size+0x14, KIRK_CMD_DECRYPT_IV_0) < 0)
 	{
 		return -1;
 	}
@@ -340,6 +355,11 @@ static int DecryptPRX1(const u8* pbIn, u8* pbOut, int cbTotal, u32 tag)
 	if (pti == NULL)
 	{
 		return -1;
+	}
+	if (!HasKey(pti->code) || 
+		(pti->codeExtra != 0 && !HasKey(pti->codeExtra)))
+	{
+		return MISSING_KEY;
 	}
 
 	retsize = *(u32*)&pbIn[0xB0];
@@ -432,7 +452,7 @@ struct TAG_INFO2
 	u8 type;
 };
 
-static TAG_INFO2 g_tagInfo2[] =
+static const TAG_INFO2 g_tagInfo2[] =
 {
 	{ 0x4C9494F0, keys660_k1, 0x43 },
 	{ 0x4C9495F0, keys660_k2, 0x43 },
@@ -568,7 +588,7 @@ static TAG_INFO2 g_tagInfo2[] =
 };
 
 
-static TAG_INFO2 *GetTagInfo2(u32 tagFind)
+static const TAG_INFO2 *GetTagInfo2(u32 tagFind)
 {
 	for (u32 iTag = 0; iTag < sizeof(g_tagInfo2) / sizeof(TAG_INFO2); iTag++)
 	{
@@ -581,22 +601,25 @@ static TAG_INFO2 *GetTagInfo2(u32 tagFind)
 	return NULL; // not found
 }
 
+
 static int DecryptPRX2(const u8 *inbuf, u8 *outbuf, u32 size, u32 tag)
 {
-	TAG_INFO2 * pti = GetTagInfo2(tag);
+	const TAG_INFO2 *pti = GetTagInfo2(tag);
 
 	if (!pti)
 	{
 		return -1;
 	}
+	if (!HasKey(pti->code))
+	{
+		return MISSING_KEY;
+	}
 
-	int retsize = *(int *)&inbuf[0xB0];
-	u8 tmp1[0x150], tmp2[0x90+0x14], tmp3[0x90+0x14], tmp4[0x20];
-
-	memset(tmp1, 0, 0x150);
-	memset(tmp2, 0, 0x90+0x14);
-	memset(tmp3, 0, 0x90+0x14);
-	memset(tmp4, 0, 0x20);
+	int retsize = *(const int *)&inbuf[0xB0];
+	u8 tmp1[0x150] = {0};
+	u8 tmp2[ROUNDUP16(0x90+0x14)] = {0};
+	u8 tmp3[ROUNDUP16(0x90+0x14)] = {0};
+	u8 tmp4[ROUNDUP16(0x20)] = {0};
 
 	if (inbuf != outbuf)
 		memcpy(outbuf, inbuf, size);
@@ -606,7 +629,7 @@ static int DecryptPRX2(const u8 *inbuf, u8 *outbuf, u32 size, u32 tag)
 		return -2;
 	}
 
-	if ((size - 0x150) < retsize)
+	if (((int)size - 0x150) < retsize)
 	{
 		return -4;
 	}
@@ -614,15 +637,16 @@ static int DecryptPRX2(const u8 *inbuf, u8 *outbuf, u32 size, u32 tag)
 	memcpy(tmp1, outbuf, 0x150);
 
 	int i, j;
-	u8 *p = tmp2+0x14;
+	u8 *p = tmp2 + 0x14;
 
+	// Writes 0x90 bytes to tmp2 + 0x14.
 	for (i = 0; i < 9; i++)
 	{
 		for (j = 0; j < 0x10; j++)
 		{
 			p[(i << 4) + j] = pti->key[j];
 		}
-		p[(i << 4)] = i;   // really?
+		p[(i << 4)] = i;   // really? this is very odd
 	}
 
 	if (Scramble((u32 *)tmp2, 0x90, pti->code) < 0)
@@ -724,6 +748,10 @@ int pspDecryptPRX(const u8 *inbuf, u8 *outbuf, u32 size)
 {
 	kirk_init();
 	int retsize = DecryptPRX1(inbuf, outbuf, size, *(u32 *)&inbuf[0xD0]);
+	if (retsize == MISSING_KEY)
+	{
+		return MISSING_KEY;
+	}
 
 	if (retsize <= 0)
 	{

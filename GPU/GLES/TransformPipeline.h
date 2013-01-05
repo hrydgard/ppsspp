@@ -29,7 +29,7 @@ class TransformDrawEngine {
 public:
 	TransformDrawEngine();
 	~TransformDrawEngine();
-	void SubmitPrim(void *verts, void *inds, int prim, int vertexCount, u32 vertexType, float *customUV, int forceIndexType, int *bytesRead);
+	void SubmitPrim(void *verts, void *inds, int prim, int vertexCount, u32 vertexType, int forceIndexType, int *bytesRead);
 	void DrawBezier(int ucount, int vcount);
 	void DrawSpline(int ucount, int vcount, int utype, int vtype);
 	void Flush();

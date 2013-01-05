@@ -64,8 +64,7 @@ TransformDrawEngine::~TransformDrawEngine() {
 void TransformDrawEngine::DrawBezier(int ucount, int vcount) {
 	u16 indices[3 * 3 * 6];
 
-	u32 customVertType = gstate.vertType; //(gstate.vertType & ~GE_VTYPE_TC_MASK) | GE_VTYPE_TC_FLOAT;
-	float customUV[32];
+	// Generate indices for a rectangular mesh.
 	int c = 0;
 	for (int y = 0; y < 3; y++) {
 		for (int x = 0; x < 3; x++) {
@@ -78,6 +77,14 @@ void TransformDrawEngine::DrawBezier(int ucount, int vcount) {
 		}
 	}
 
+	// We are free to use the "decoded" buffer here.
+	// Let's split it into two to get a second buffer, there's enough space.
+	u8 *decoded2 = decoded + 65536 * 24;
+
+	// Alright, now for the vertex data.
+	// For now, we will simply inject UVs.
+
+	float customUV[4 * 4 * 2];
 	for (int y = 0; y < 4; y++) {
 		for (int x = 0; x < 4; x++) {
 			customUV[(y * 4 + x) * 2 + 0] = (float)x/3.0f;
@@ -85,8 +92,13 @@ void TransformDrawEngine::DrawBezier(int ucount, int vcount) {
 		}
 	}
 
-	int vertexCount = 3 * 3 * 6;
-	SubmitPrim(Memory::GetPointer(gstate_c.vertexAddr), &indices[0], GE_PRIM_TRIANGLES, vertexCount, customVertType, customUV, GE_VTYPE_IDX_16BIT, 0);
+	if (!(gstate.vertType & GE_VTYPE_TC_MASK)) {
+		dec.SetVertexType(gstate.vertType);
+		u32 newVertType = dec.InjectUVs(decoded2, Memory::GetPointer(gstate_c.vertexAddr), customUV, 16);
+		SubmitPrim(decoded2, &indices[0], GE_PRIM_TRIANGLES, c, newVertType, GE_VTYPE_IDX_16BIT, 0);
+	} else {
+		SubmitPrim(Memory::GetPointer(gstate_c.vertexAddr), &indices[0], GE_PRIM_TRIANGLES, c, gstate.vertType, GE_VTYPE_IDX_16BIT, 0);
+	}
 }
 
 void TransformDrawEngine::DrawSpline(int ucount, int vcount, int utype, int vtype) {
@@ -227,7 +239,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		dots[l] = dot;
 		if (gstate.lightEnable[l] & 1)
 		{
-			Color4 lightAmbient(gstate_c.lightColor[2][l], 1.0f);
+			Color4 lightAmbient(gstate_c.lightColor[0][l], 1.0f);
 			lightSum0 += lightAmbient * *ambient + diff;
 		}
 	}
@@ -330,18 +342,6 @@ static void RotateUVs(TransformedVertex v[4]) {
 // GL_TRIANGLES. Still need to sw transform to compute the extra two corners though.
 void TransformDrawEngine::SoftwareTransformAndDraw(
 		int prim, u8 *decoded, LinkedShader *program, int vertexCount, u32 vertType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex) {
-	/*
-	DEBUG_LOG(G3D, "View matrix:");
-	const float *m = &gstate.viewMatrix[0];
-	DEBUG_LOG(G3D, "%f %f %f", m[0], m[1], m[2]);
-	DEBUG_LOG(G3D, "%f %f %f", m[3], m[4], m[5]);
-	DEBUG_LOG(G3D, "%f %f %f", m[6], m[7], m[8]);
-	DEBUG_LOG(G3D, "%f %f %f", m[9], m[10], m[11]);
-	*/
-
-	// Temporary storage for RECTANGLES emulation
-	float v2[3] = {0};
-	float uv2[2] = {0};
 
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
 
@@ -372,9 +372,9 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 					c1[j] = 0.0f;
 				}
 			} else {
-				c0[0] = (gstate.materialambient & 0xFF) / 255.f;
-				c0[1] = ((gstate.materialambient >> 8) & 0xFF) / 255.f;
-				c0[2] = ((gstate.materialambient >> 16) & 0xFF) / 255.f;
+				c0[0] = ((gstate.materialambient >> 16) & 0xFF) / 255.f;
+				c0[1] = ((gstate.materialambient >> 8)  & 0xFF) / 255.f;
+				c0[2] = (gstate.materialambient  & 0xFF) / 255.f;
 				c0[3] = (gstate.materialalpha & 0xFF) / 255.f;
 			}
 
@@ -431,9 +431,9 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			if (reader.hasColor0()) {
 				reader.ReadColor0(unlitColor);
 			} else {
-				unlitColor[0] = (gstate.materialambient & 0xFF) / 255.f;
-				unlitColor[1] = ((gstate.materialambient >> 8) & 0xFF) / 255.f;
-				unlitColor[2] = ((gstate.materialambient >> 16) & 0xFF) / 255.f;
+				unlitColor[0] = ((gstate.materialambient  >> 16) & 0xFF) / 255.f;
+				unlitColor[1] = ((gstate.materialambient >> 8)  & 0xFF) / 255.f;
+				unlitColor[2] = (gstate.materialambient & 0xFF) / 255.f;
 				unlitColor[3] = (gstate.materialalpha & 0xFF) / 255.f;
 			}
 			float litColor0[4];
@@ -462,9 +462,9 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 						c1[j] = 0.0f;
 					}
 				} else {
-					c0[0] = (gstate.materialambient & 0xFF) / 255.f;
-					c0[1] = ((gstate.materialambient >> 8) & 0xFF) / 255.f;
-					c0[2] = ((gstate.materialambient >> 16) & 0xFF) / 255.f;
+					c0[0] = ((gstate.materialambient >> 16) & 0xFF) / 255.f;
+					c0[1] = ((gstate.materialambient >> 8)  & 0xFF) / 255.f;
+					c0[2] = (gstate.materialambient & 0xFF) / 255.f;
 					c0[3] = (gstate.materialalpha & 0xFF) / 255.f;
 				}
 			}
@@ -541,6 +541,10 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		numTrans = vertexCount;
 		drawIndexed = true;
 	} else {
+		// Temporary storage for RECTANGLES emulation
+		float v2[3] = {0};
+		float uv2[2] = {0};
+
 		numTrans = 0;
 		drawBuffer = transformedExpanded;
 		TransformedVertex *trans = &transformedExpanded[0];
@@ -615,7 +619,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 	if (program->a_color1 != -1) glDisableVertexAttribArray(program->a_color1);
 }
 
-void TransformDrawEngine::SubmitPrim(void *verts, void *inds, int prim, int vertexCount, u32 vertType, float *customUV, int forceIndexType, int *bytesRead) {
+void TransformDrawEngine::SubmitPrim(void *verts, void *inds, int prim, int vertexCount, u32 vertType, int forceIndexType, int *bytesRead) {
 	// For the future
 	if (!indexGen.PrimCompatible(prim))
 		Flush();

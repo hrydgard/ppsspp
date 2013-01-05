@@ -61,7 +61,6 @@ set(SRCS
   HLE/sceSsl.cpp
   HLE/sceParseUri.cpp
   HLE/sceParseHttp.cpp
-  HLE/scesupPreAcc.cpp
   HLE/sceVaudio.cpp
   HW/MemoryStick.cpp
   HW/MediaEngine.cpp

@@ -156,7 +156,7 @@ char *GenerateFragmentShader()
 		}
 		// Color doubling
 		if (gstate.texfunc & 0x10000) {
-			WRITE(p, "  v = v * vec4(2.0, 2.0, 2.0, 1.0);");
+			WRITE(p, "  v = v * vec4(2.0, 2.0, 2.0, 2.0);");
 		}
 
 		if (gstate.alphaTestEnable & 1) {

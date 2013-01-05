@@ -88,6 +88,10 @@ public:
 	const DecVtxFormat &GetDecVtxFmt() { return decFmt; }
 
 	void DecodeVerts(u8 *decoded, const void *verts, const void *inds, int prim, int count, int *indexLowerBound, int *indexUpperBound) const;
+
+	// This could be easily generalized to inject any one component. Don't know another use for it though.
+	u32 InjectUVs(u8 *decoded, const void *verts, float *customuv, int count) const;
+
 	bool hasColor() const { return col != 0; }
 	int VertexSize() const { return size; }
 

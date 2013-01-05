@@ -20,20 +20,28 @@
 
 namespace SaveState
 {
-	typedef void (*Callback)(bool status);
+	typedef void (*Callback)(bool status, void *cbUserData);
 
 	// TODO: Better place for this?
 	const int REVISION = 1;
+	const int SAVESTATESLOTS = 4;
 
 	void Init();
 
+	void SaveSlot(int slot, Callback callback, void *cbUserData = 0);
+	void LoadSlot(int slot, Callback callback, void *cbUserData = 0);
+	void HasSaveInSlot(int slot);
+	int GetNewestSlot();
+
 	// Load the specified file into the current state (async.)
 	// Warning: callback will be called on a different thread.
-	void Load(const std::string &filename, Callback callback = NULL);
+	void Load(const std::string &filename, Callback callback = 0, void *cbUserData = 0);
+
 	// Save the current state to the specified file (async.)
 	// Warning: callback will be called on a different thread.
-	void Save(const std::string &filename, Callback callback = NULL);
+	void Save(const std::string &filename, Callback callback = 0, void *cbUserData = 0);
+
 	// For testing / automated tests.  Runs a save state verification pass (async.)
 	// Warning: callback will be called on a different thread.
-	void Verify(Callback callback = NULL);
+	void Verify(Callback callback = 0, void *cbUserData = 0);
 };

@@ -201,10 +201,21 @@ bool ElfReader::LoadInto(u32 loadAddress)
 		}
 	}
 	u32 totalSize = totalEnd - totalStart;
-	if (loadAddress)
-		vaddr = userMemory.AllocAt(loadAddress, totalSize, "ELF");
+	if (!bRelocate)
+	{
+		// Binary is prerelocated, load it where the first segment starts
+		vaddr = userMemory.AllocAt(totalStart, totalSize, "ELF");
+	}
+	else if (loadAddress)
+	{
+		// Binary needs to be relocated: add loadAddress to the binary start address
+		vaddr = userMemory.AllocAt(loadAddress + totalStart, totalSize, "ELF");
+	}
 	else
+	{
+		// Just put it where there is room
 		vaddr = userMemory.Alloc(totalSize, false, "ELF");
+	}
 
 	if (vaddr == -1) {
 		ERROR_LOG(LOADER, "Failed to allocate memory for ELF!");
@@ -299,7 +310,7 @@ bool ElfReader::LoadInto(u32 loadAddress)
 		else if (s->sh_type == SHT_REL)
 		{
 			DEBUG_LOG(LOADER, "Traditional relocation section found.");
-			if (bRelocate)
+			if (!bRelocate)
 			{
 				DEBUG_LOG(LOADER, "Binary is prerelocated. Skipping relocations.");
 			}

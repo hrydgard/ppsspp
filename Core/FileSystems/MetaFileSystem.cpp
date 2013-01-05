@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <set>
+#include "Common/StringUtil.h"
 #include "MetaFileSystem.h"
 
 static bool ApplyPathStringToComponentsVector(std::vector<std::string> &vector, const std::string &pathString)
@@ -251,14 +252,15 @@ PSPFileInfo MetaFileSystem::GetFileInfo(std::string filename)
 	}
 }
 
-//TODO: Not sure where this should live. Seems a bit wrong putting it in common
-bool stringEndsWith (std::string const &fullString, std::string const &ending)
+bool MetaFileSystem::GetHostPath(const std::string &inpath, std::string &outpath)
 {
-    if (fullString.length() >= ending.length()) {
-        return (0 == fullString.compare (fullString.length() - ending.length(), ending.length(), ending));
-    } else {
-        return false;
-    }
+	std::string of;
+	IFileSystem *system;
+	if (MapFilePath(inpath, of, &system)) {
+		return system->GetHostPath(of, outpath);
+	} else {
+		return false;
+	}
 }
 
 std::vector<PSPFileInfo> MetaFileSystem::GetDirListing(std::string path)

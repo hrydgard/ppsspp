@@ -38,9 +38,9 @@ public:
 	// These are broken
 	bool bAutoLoadLast;
 	bool bFirstRun;
-	bool bAutoRun;
 	bool bSpeedLimit;
 	bool bConfirmOnQuit;
+	bool bAutoRun;  // start immediately
 
 	// Core
 	bool bIgnoreBadMemAccess;

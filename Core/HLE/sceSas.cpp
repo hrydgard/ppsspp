@@ -226,17 +226,19 @@ u32 sceSasSetKeyOn(u32 core, int voiceNum)
 // sceSasSetKeyOff can be used to start sounds, that just sound during the Release phase!
 u32 sceSasSetKeyOff(u32 core, int voiceNum)
 {
-	DEBUG_LOG(HLE,"0=sceSasSetKeyOff(core=%08x, voiceNum=%i)", core, voiceNum);
-
-	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)
-	{
+	if (voiceNum == -1) {
+		// TODO: Some games (like Every Extend Extra) deliberately pass voiceNum = -1. Does that mean all voices? for now let's ignore.
+		DEBUG_LOG(HLE,"sceSasSetKeyOff(core=%08x, voiceNum=%i) - voiceNum = -1???", core, voiceNum);
+		return 0;
+	} else if (voiceNum < 0 || voiceNum >= PSP_SAS_VOICES_MAX) {
 		WARN_LOG(HLE, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;
+	} else {
+		DEBUG_LOG(HLE,"0=sceSasSetKeyOff(core=%08x, voiceNum=%i)", core, voiceNum);
+		SasVoice &v = sas->voices[voiceNum];
+		v.KeyOff();
+		return 0;
 	}
-
-	SasVoice &v = sas->voices[voiceNum];
-	v.KeyOff();
-	return 0;
 }
 
 u32 sceSasSetNoise(u32 core, int voiceNum, int freq)

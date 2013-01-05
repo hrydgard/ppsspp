@@ -20,8 +20,8 @@
 #undef DeleteFile
 #endif
 
-#include "../System.h"
 #include "../Config.h"
+#include "../Host.h"
 #include "../SaveState.h"
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
@@ -76,12 +76,6 @@ umd01: block access - umd
 typedef s32 SceMode;
 typedef s64 SceOff;
 typedef u64 SceIores;
-
-std::string emuDebugOutput;
-
-const std::string &EmuDebugOutput() {
-	return emuDebugOutput;
-}
 
 typedef u32 (*DeferredAction)(SceUID id, int param);
 DeferredAction defAction = 0;
@@ -216,6 +210,15 @@ void __IoDoState(PointerWrap &p) {
 void __IoShutdown() {
 	defAction = 0;
 	defParam = 0;
+}
+
+u32 __IoGetFileHandleFromId(u32 id, u32 &outError)
+{
+	FileNode *f = kernelObjects.Get < FileNode > (id, outError);
+	if (!f) {
+		return -1;
+	}
+	return f->handle;
 }
 
 u32 sceIoAssign(const char *aliasname, const char *physname, const char *devname, u32 flag) {
@@ -644,12 +647,7 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 				std::string data(Memory::GetCharPointer(argAddr), argLen);
 				if (PSP_CoreParameter().printfEmuLog)
 				{
-					printf("%s", data.c_str());
-#ifdef _WIN32
-					OutputDebugString(data.c_str());
-#endif
-					// Also collect the debug output
-					emuDebugOutput += data;
+					host->SendDebugOutput(data.c_str());
 				}
 				else
 				{
@@ -865,6 +863,7 @@ public:
 
 	virtual void DoState(PointerWrap &p) {
 		p.Do(name);
+		p.Do(index);
 
 		// TODO: Is this the right way for it to wake up?
 		int count = listing.size();

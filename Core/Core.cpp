@@ -88,7 +88,7 @@ void Core_Run()
 	while (true)
 	{
 reswitch:
-		switch(coreState)
+		switch (coreState)
 		{
 		case CORE_RUNNING:
 			//1: enter a fast runloop
@@ -132,7 +132,7 @@ void Core_EnableStepping(bool step)
 #if defined(_DEBUG)
 		host->SetDebugMode(true);
 #endif
-		coreState=CORE_STEPPING;
+		coreState = CORE_STEPPING;
 	}
 	else
 	{
@@ -145,5 +145,4 @@ void Core_EnableStepping(bool step)
 		m_hStepEvent.notify_one();
 
 	}
-
 }

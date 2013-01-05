@@ -273,6 +273,17 @@ add_library(zlib STATIC
 )
 include_directories(ext/zlib)
 
+add_library(snappy STATIC
+	ext/snappy/snappy-c.cpp
+	ext/snappy/snappy-internal.h
+	ext/snappy/snappy-sinksource.h
+	ext/snappy/snappy-stubs-internal.h
+	ext/snappy/snappy-stubs-public.h
+	ext/snappy/snappy.cpp
+	ext/snappy/snappy.h
+)
+include_directories(ext/snappy)
+
 add_library(etcpack STATIC
 	native/ext/etcpack/etcdec.cpp
 	native/ext/etcpack/etcdec.h
@@ -535,6 +546,8 @@ add_library(native STATIC
 	native/util/random/perlin.cpp
 	native/util/random/perlin.h
 	native/util/random/rng.h
+	native/util/text/utf8.h
+	native/util/text/utf8.cpp
 	native/ext/rapidxml/rapidxml.hpp
 	native/ext/rapidxml/rapidxml_iterators.hpp
 	native/ext/rapidxml/rapidxml_print.hpp
@@ -543,7 +556,7 @@ include_directories(native)
 # rapidxml is headers only so we can't make a lib specific for it
 include_directories(native/ext/rapidxml)
 target_link_libraries(native ${LIBZIP} etcpack sha1 stb_image stb_vorbis #vjson
-	zlib ${GLEW_LIBRARIES})
+	zlib snappy ${GLEW_LIBRARIES})
 if(ANDROID)
 	target_link_libraries(native log)
 endif()
@@ -718,8 +731,6 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceSas.h
 	Core/HLE/sceSsl.cpp
 	Core/HLE/sceSsl.h
-	Core/HLE/scesupPreAcc.cpp
-	Core/HLE/scesupPreAcc.h
 	Core/HLE/sceUmd.cpp
 	Core/HLE/sceUmd.h
 	Core/HLE/sceUsb.cpp
@@ -806,6 +817,8 @@ add_library(GPU OBJECT
 	GPU/GPUInterface.h
 	GPU/GeDisasm.cpp
 	GPU/GeDisasm.h
+	GPU/GPUCommon.cpp
+	GPU/GPUCommon.h
 	GPU/GPUState.cpp
 	GPU/GPUState.h
 	GPU/Math3D.cpp
@@ -884,7 +897,7 @@ if(WIN32)
 endif()
 
 if(HEADLESS)
-	add_executable(PPSSPPHeadless headless/Headless.cpp)
+	add_executable(PPSSPPHeadless headless/Headless.cpp headless/StubHost.h)
 	target_link_libraries(PPSSPPHeadless ${CoreLibName}
 		${COCOA_LIBRARY} ${CMAKE_THREAD_LIBS_INIT})
 	setup_target_project(PPSSPPHeadless headless)

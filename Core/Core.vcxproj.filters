@@ -43,6 +43,12 @@
     <Filter Include="Dialog">
       <UniqueIdentifier>{41034c99-9b76-477f-8a77-bffaaffd5e82}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Ext">
+      <UniqueIdentifier>{1966d4a4-9a34-4a6c-946a-ebaf33633276}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Ext\Snappy">
+      <UniqueIdentifier>{0b77054f-7fc7-4c33-ada3-762aecde69e5}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ELF\ElfReader.cpp">
@@ -321,9 +327,6 @@
     <ClCompile Include="HLE\sceParseHttp.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
-    <ClCompile Include="HLE\scesupPreAcc.cpp">
-      <Filter>HLE\Libraries</Filter>
-    </ClCompile>
     <ClCompile Include="HLE\sceVaudio.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
@@ -353,6 +356,12 @@
     </ClCompile>
     <ClCompile Include="SaveState.cpp">
       <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\snappy\snappy-c.cpp">
+      <Filter>Ext\Snappy</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\snappy\snappy.cpp">
+      <Filter>Ext\Snappy</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -620,9 +629,6 @@
     <ClInclude Include="HLE\sceParseHttp.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
-    <ClInclude Include="HLE\scesupPreAcc.h">
-      <Filter>HLE\Libraries</Filter>
-    </ClInclude>
     <ClInclude Include="HLE\sceVaudio.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
@@ -652,6 +658,21 @@
     </ClInclude>
     <ClInclude Include="SaveState.h">
       <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\snappy\snappy.h">
+      <Filter>Ext\Snappy</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\snappy\snappy-stubs-public.h">
+      <Filter>Ext\Snappy</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\snappy\snappy-sinksource.h">
+      <Filter>Ext\Snappy</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\snappy\snappy-stubs-internal.h">
+      <Filter>Ext\Snappy</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\snappy\snappy-internal.h">
+      <Filter>Ext\Snappy</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

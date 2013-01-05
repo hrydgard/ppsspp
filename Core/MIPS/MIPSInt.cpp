@@ -301,8 +301,10 @@ namespace MIPSInt
 		int rt = _RT;
 		int rs = _RS;
 
-		if (rt == 0) //destination register is zero register
+		if (rt == 0) { //destination register is zero register
+			PC += 4;
 			return; //nop
+		}
 
 		switch (op>>26) 
 		{
@@ -397,6 +399,12 @@ namespace MIPSInt
 		int rt = _RT;
 		int rs = _RS;
 		u32 addr = R(rs) + imm;
+
+		if (((op >> 29) & 1) == 0 && rt == 0) {
+			// Don't load anything into $zr
+			PC += 4;
+			return;
+		}
 
 		switch (op >> 26) 
 		{

@@ -209,7 +209,7 @@ nextblock:
 		if (strlen(name) == 1 && name[0] == '\x01')	 // ".." record
 		{
 			strcpy(name,"..");
-			relative=true;
+			relative = true;
 		}
 
 		TreeEntry *e = new TreeEntry;
@@ -240,7 +240,7 @@ nextblock:
 
 }
 
-ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(std::string path)
+ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(std::string path, bool catchError)
 {
 	if (path.length() == 0)
 	{
@@ -297,7 +297,10 @@ ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(std::string path)
 		}
 		else
 		{
-			ERROR_LOG(FILESYS,"File %s not found", path.c_str());
+			if (catchError)
+			{
+				ERROR_LOG(FILESYS,"File %s not found", path.c_str());
+			}
 			return 0;
 		}
 	}
@@ -502,7 +505,7 @@ PSPFileInfo ISOFileSystem::GetFileInfo(std::string filename)
 		return fileInfo;
 	}
 
-	TreeEntry *entry = GetFromPath(filename);
+	TreeEntry *entry = GetFromPath(filename, false);
 	PSPFileInfo x; 
 	if (!entry)
 	{

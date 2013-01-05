@@ -55,6 +55,12 @@ struct NativeFPL
 //FPL - Fixed Length Dynamic Memory Pool - every item has the same length
 struct FPL : public KernelObject
 {
+	FPL() : blocks(NULL) {}
+	~FPL() {
+		if (blocks != NULL) {
+			delete [] blocks;
+		}
+	}
 	const char *GetName() {return nf.name;}
 	const char *GetTypeName() {return "FPL";}
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_FPLID; }
@@ -86,6 +92,8 @@ struct FPL : public KernelObject
 	virtual void DoState(PointerWrap &p)
 	{
 		p.Do(nf);
+		if (p.mode == p.MODE_READ)
+			blocks = new bool[nf.numBlocks];
 		p.DoArray(blocks, nf.numBlocks);
 		p.Do(address);
 		p.DoMarker("FPL");
@@ -398,7 +406,7 @@ public:
 	virtual void DoState(PointerWrap &p)
 	{
 		p.Do(address);
-		p.Do(name);
+		p.DoArray(name, sizeof(name));
 		p.DoMarker("PMB");
 	}
 
@@ -583,6 +591,53 @@ void sceKernelSetCompiledSdkVersion600_602(int sdkVersion)
 	else
 	{
 		ERROR_LOG(HLE,"sceKernelSetCompiledSdkVersion600_602 unknown SDK : %x\n",sdkVersion);
+	}
+	return;
+}
+
+void sceKernelSetCompiledSdkVersion500_505(int sdkVersion)
+{
+	int sdkMainVersion = sdkVersion & 0xFFFF0000;
+	if(sdkMainVersion == 0x5000000
+			|| sdkMainVersion == 0x5050000)
+	{
+		sdkVersion_ = sdkVersion;
+		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
+	}
+	else
+	{
+		ERROR_LOG(HLE,"sceKernelSetCompiledSdkVersion500_505 unknown SDK : %x\n",sdkVersion);
+	}
+	return;
+}
+
+void sceKernelSetCompiledSdkVersion401_402(int sdkVersion)
+{
+	int sdkMainVersion = sdkVersion & 0xFFFF0000;
+	if(sdkMainVersion == 0x4010000
+			|| sdkMainVersion == 0x4020000)
+	{
+		sdkVersion_ = sdkVersion;
+		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
+	}
+	else
+	{
+		ERROR_LOG(HLE,"sceKernelSetCompiledSdkVersion401_402 unknown SDK : %x\n",sdkVersion);
+	}
+	return;
+}
+
+void sceKernelSetCompiledSdkVersion507(int sdkVersion)
+{
+	int sdkMainVersion = sdkVersion & 0xFFFF0000;
+	if(sdkMainVersion == 0x5070000)
+	{
+		sdkVersion_ = sdkVersion;
+		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
+	}
+	else
+	{
+		ERROR_LOG(HLE,"sceKernelSetCompiledSdkVersion507 unknown SDK : %x\n",sdkVersion);
 	}
 	return;
 }
@@ -877,7 +932,10 @@ const HLEFunction SysMemUserForUser[] = {
 	{0x342061E5,&WrapV_I<sceKernelSetCompiledSdkVersion370>,"sceKernelSetCompiledSdkVersion370"},
 	{0x315AD3A0,&WrapV_I<sceKernelSetCompiledSdkVersion380_390>,"sceKernelSetCompiledSdkVersion380_390"},
 	{0xEBD5C3E6,&WrapV_I<sceKernelSetCompiledSdkVersion395>,"sceKernelSetCompiledSdkVersion395"},
+	{0x057E7380,&WrapV_I<sceKernelSetCompiledSdkVersion401_402>,"sceKernelSetCompiledSdkVersion401_402"},
 	{0xf77d77cb,&WrapV_I<sceKernelSetCompilerVersion>,"sceKernelSetCompilerVersion"},
+	{0x91de343c,&WrapV_I<sceKernelSetCompiledSdkVersion500_505>,"sceKernelSetCompiledSdkVersion500_505"},
+	{0x7893f79a,&WrapV_I<sceKernelSetCompiledSdkVersion507>,"sceKernelSetCompiledSdkVersion507"},
 	{0x35669d4c,&WrapV_I<sceKernelSetCompiledSdkVersion600_602>,"sceKernelSetCompiledSdkVersion600_602"},  //??
 	{0x1b4217bc,&WrapV_I<sceKernelSetCompiledSdkVersion603_605>,"sceKernelSetCompiledSdkVersion603_605"},
 	{0x358ca1bb,&WrapV_I<sceKernelSetCompiledSdkVersion606>,"sceKernelSetCompiledSdkVersion606"},

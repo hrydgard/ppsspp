@@ -60,6 +60,9 @@ public:
 	virtual bool IsDebuggingEnabled() {return true;}
 	virtual bool AttemptLoadSymbolMap() {return false;}
 	virtual void SetWindowTitle(const char *message) {}
+
+	// Used for headless.
+	virtual void SendDebugOutput(const std::string &output) {}
 };
 
 extern Host *host;

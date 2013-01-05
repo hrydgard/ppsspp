@@ -62,7 +62,7 @@ void Jit()
 
 void ImHere()
 {
-	DEBUG_LOG(CPU, "I'm Here: %08x", currentMIPS->pc);
+	DEBUG_LOG(CPU, "JIT Here: %08x", currentMIPS->pc);
 }
 
 void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
@@ -107,7 +107,7 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 			dispatcherNoCheck = GetCodePtr();
 
 			// Debug
-			//CALL(&ImHere);
+			// CALL(&ImHere);
 
 			MOV(32, R(EAX), M(&mips->pc));
 #ifdef _M_IX86

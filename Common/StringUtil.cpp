@@ -376,3 +376,11 @@ std::string UriEncode(const std::string & sSrc)
 	delete [] pStart;
 	return sResult;
 }
+
+bool StringEndsWith(std::string const &fullString, std::string const &ending) {
+	if (fullString.length() >= ending.length()) {
+		return (0 == fullString.compare (fullString.length() - ending.length(), ending.length(), ending));
+	} else {
+		return false;
+	}
+}
