@@ -111,7 +111,7 @@ u32 sceAtracGetBitrate(int atracID, u32 outBitrateAddr)
 	ERROR_LOG(HLE, "UNIMPL sceAtracGetBitrate(%i, %08x)", atracID, outBitrateAddr);
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		return -1;
+		//return -1;
 	}
 	if (Memory::IsValidAddress(outBitrateAddr))
 		Memory::Write_U32(64, outBitrateAddr);
@@ -123,7 +123,7 @@ u32 sceAtracGetChannel(int atracID, u32 channelAddr)
 	ERROR_LOG(HLE, "UNIMPL sceAtracGetChannel(%i, %08x)", atracID, channelAddr);
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		return -1;
+		//return -1;
 	}
 	if (Memory::IsValidAddress(channelAddr))
 		Memory::Write_U32(2, channelAddr);
@@ -135,7 +135,7 @@ u32 sceAtracGetLoopStatus(int atracID, u32 loopNbr, u32 statusAddr)
 	ERROR_LOG(HLE, "UNIMPL sceAtracGetLoopStatus(%i, %08x, %08x)", atracID, loopNbr, statusAddr );
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		return -1;
+		//return -1;
 	}
 	return 0;
 }
@@ -145,7 +145,7 @@ u32 sceAtracGetInternalErrorInfo(int atracID, u32 errorAddr)
 	ERROR_LOG(HLE, "UNIMPL sceAtracGetInternalErrorInfo(%i, %08x)", atracID, errorAddr);
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		return -1;
+		//return -1;
 	}
 	if (Memory::IsValidAddress(errorAddr))
 		Memory::Write_U32(0, errorAddr);
@@ -157,7 +157,7 @@ u32 sceAtracGetMaxSample(int atracID, u32 maxSamplesAddr)
 	ERROR_LOG(HLE, "UNIMPL sceAtracGetMaxSample(%i, %08x)", atracID, maxSamplesAddr);
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		return -1;
+		//return -1;
 	}
 	if (Memory::IsValidAddress(maxSamplesAddr))
 		Memory::Write_U32(1024, maxSamplesAddr);
@@ -169,7 +169,7 @@ u32  sceAtracGetNextDecodePosition(int atracID, u32 outposAddr)
 	ERROR_LOG(HLE, "UNIMPL sceAtracGetNextDecodePosition(%i, %08x)", atracID, outposAddr);
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		return -1;
+		//return -1;
 	}
 	Memory::Write_U32(1, outposAddr); // outpos
 	return 0;
@@ -180,7 +180,7 @@ u32 sceAtracGetNextSample(int atracID, u32 outNAddr)
 	ERROR_LOG(HLE, "FAKE sceAtracGetNextSample(%i, %08x)", atracID, outNAddr);
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		return -1;
+		//return -1;
 	}
 	Memory::Write_U32(0, outNAddr);
 	return 0;
@@ -191,7 +191,7 @@ u32 sceAtracGetRemainFrame(int atracID, u32 outposAddr)
 	ERROR_LOG(HLE, "sceAtracGetRemainFrame(%i, %08x)", atracID, outposAddr);
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		return -1;
+		//return -1;
 	}
 	Memory::Write_U32(12, outposAddr); // outpos
 	return 0;
@@ -202,7 +202,7 @@ u32 sceAtracGetSecondBufferInfo(int atracID, u32 outposAddr, u32 outBytesAddr)
 	ERROR_LOG(HLE, "sceAtracGetSecondBufferInfo(%i, %08x, %08x)", atracID, outposAddr, outBytesAddr);
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		return -1;
+		//return -1;
 	}
 	Memory::Write_U32(0, outposAddr); // outpos
 	Memory::Write_U32(0x10000, outBytesAddr); // outBytes
@@ -214,7 +214,7 @@ u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoopStartSa
 	ERROR_LOG(HLE, "UNIMPL sceAtracGetSoundSample(%i, %08x, %08x, %08x)", atracID, outEndSampleAddr, outLoopStartSampleAddr, outLoopEndSampleAddr);
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		return -1;
+		//return -1;
 	}
 	Memory::Write_U32(0x10000, outEndSampleAddr); // outEndSample
 	Memory::Write_U32(-1, outLoopStartSampleAddr); // outLoopStartSample
@@ -227,7 +227,7 @@ u32 sceAtracGetStreamDataInfo(int atracID, u32 writePointerAddr, u32 availableBy
 	ERROR_LOG(HLE, "FAKE sceAtracGetStreamDataInfo(%i, %08x, %08x, %08x)", atracID, writePointerAddr, availableBytesAddr, readOffsetAddr);
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		return -1;
+		//return -1;
 	}
 	Memory::Write_U32(0, readOffsetAddr);
 	Memory::Write_U32(0, availableBytesAddr);
@@ -246,7 +246,7 @@ u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFirstBuf,
 	ERROR_LOG(HLE, "UNIMPL sceAtracResetPlayPosition(%i, %i, %i, %i)", atracID, sample, bytesWrittenFirstBuf, bytesWrittenSecondBuf);
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		return -1;
+		//return -1;
 	}
 	return 0;
 }
@@ -262,7 +262,7 @@ u32 sceAtracSetSecondBuffer(int atracID, u32 secondBuffer, u32 secondBufferSize)
 	ERROR_LOG(HLE, "UNIMPL sceAtracSetSecondBuffer(%i, %08x, %8x)", atracID, secondBuffer, secondBufferSize);
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		return -1;
+		//return -1;
 	}
 	return 0;
 }
@@ -318,7 +318,7 @@ int sceAtracIsSecondBufferNeeded(int atracID)
 	ERROR_LOG(HLE, "UNIMPL sceAtracIsSecondBufferNeeded(%i)", atracID);
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		return -1;
+		//return -1;
 	}
 	return 0;
 }
@@ -328,7 +328,7 @@ int sceAtracSetMOutHalfwayBuffer(int atracID, u32 MOutHalfBuffer, int readSize, 
 	ERROR_LOG(HLE, "UNIMPL sceAtracSetMOutHalfwayBuffer(%i, %08x, %i, %i)", atracID, MOutHalfBuffer, readSize, MOutHalfBufferSize);
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		return -1;
+		//return -1;
 	}
 	return 0;
 }
