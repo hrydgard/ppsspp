@@ -396,7 +396,6 @@ const GLuint MagFiltGL[2] = {
 // This should not have to be done per texture! OpenGL is silly yo
 // TODO: Dirty-check this against the current texture.
 void UpdateSamplingParams(TexCacheEntry &entry, bool force) {
-	force = true;
 	int minFilt = gstate.texfilter & 0x7;
 	int magFilt = (gstate.texfilter>>8) & 1;
 	bool sClamp = gstate.texwrap & 1;
