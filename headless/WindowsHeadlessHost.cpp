@@ -154,7 +154,8 @@ bool WindowsHeadlessHost::ResizeGL()
 	RECT rc;
 	GetWindowRect(hWnd, &rc);
 
-	glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+	glstate.viewport.set(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+	glstate.viewport.restore();
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 	glOrtho(0.0f, WINDOW_WIDTH, WINDOW_HEIGHT, 0.0f, -1.0f, 1.0f);

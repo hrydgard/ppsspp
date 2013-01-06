@@ -181,7 +181,7 @@ void UpdateViewportAndProjection() {
 
 	if (throughmode) {
 		// No viewport transform here. Let's experiment with using region.
-		glViewport((0 + regionX1) * renderWidthFactor, (0 - regionY1) * renderHeightFactor, (regionX2 - regionX1) * renderWidthFactor, (regionY2 - regionY1) * renderHeightFactor);
+		glstate.viewport.set((0 + regionX1) * renderWidthFactor, (0 - regionY1) * renderHeightFactor, (regionX2 - regionX1) * renderWidthFactor, (regionY2 - regionY1) * renderHeightFactor);
 	} else {
 		// These we can turn into a glViewport call, offset by offsetX and offsetY. Math after.
 		float vpXa = getFloat24(gstate.viewportx1);
@@ -216,7 +216,7 @@ void UpdateViewportAndProjection() {
 
 		// Flip vpY0 to match the OpenGL coordinate system.
 		vpY0 = renderHeight - (vpY0 + vpHeight);
-		glViewport(vpX0, vpY0, vpWidth, vpHeight);
+		glstate.viewport.set(vpX0, vpY0, vpWidth, vpHeight);
 		// Sadly, as glViewport takes integers, we will not be able to support sub pixel offsets this way. But meh.
 		// shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
 	}

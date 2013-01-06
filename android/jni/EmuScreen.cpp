@@ -176,7 +176,8 @@ void EmuScreen::render()
 
 	uiTexture->Bind(0);
 
-	glViewport(0, 0, pixel_xres, pixel_yres);
+	glstate.viewport.set(0, 0, pixel_xres, pixel_yres);
+	glstate.viewport.restore();
 
 	ui_draw2d.Begin(DBMODE_NORMAL);
 

@@ -36,7 +36,7 @@ static int atlasHeight;
 struct PPGeVertex {
 	u16 u, v;
 	u32 color;
-	s16 x, y; u16 z;
+	float x, y, z;
 };
 
 static u32 savedContextPtr;
@@ -209,7 +209,7 @@ void PPGeBegin()
 	WriteCmd(GE_CMD_MAXZ, 0xFFFF);
 
 	// Through mode, so we don't have to bother with matrices
-	WriteCmd(GE_CMD_VERTEXTYPE, GE_VTYPE_TC_16BIT | GE_VTYPE_COL_8888 | GE_VTYPE_POS_16BIT | GE_VTYPE_THROUGH);
+	WriteCmd(GE_CMD_VERTEXTYPE, GE_VTYPE_TC_16BIT | GE_VTYPE_COL_8888 | GE_VTYPE_POS_FLOAT | GE_VTYPE_THROUGH);
 }
 
 void PPGeEnd()
@@ -338,6 +338,21 @@ void PPGeDraw4Patch(int atlasImage, float x, float y, float w, float h, u32 colo
 	Vertex(xmid2, ymid2, uhalf, vhalf, atlasWidth, atlasHeight, color);
 	Vertex(x2, y2, u2, v2, atlasWidth, atlasHeight, color);
 	EndVertexDataAndDraw(GE_PRIM_RECTANGLES);
+}
+
+void PPGeDrawRect(float x1, float y1, float x2, float y2, u32 color)
+{
+	if (!dlPtr)
+		return;
+
+	WriteCmd(GE_CMD_TEXTUREMAPENABLE, 0);
+
+	BeginVertexData();
+	Vertex(x1, y1, 0, 0, 0, 0, color);
+	Vertex(x2, y2, 0, 0, 0, 0, color);
+	EndVertexDataAndDraw(GE_PRIM_RECTANGLES);
+
+	WriteCmd(GE_CMD_TEXTUREMAPENABLE, 1);
 }
 
 // Just blits an image to the screen, multiplied with the color.

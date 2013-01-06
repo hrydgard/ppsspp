@@ -475,8 +475,8 @@ namespace MIPSInt
 			case 21: d[i] = logf(s[i])/log(2.0f); break;
 			case 22: d[i] = sqrtf(s[i]); break; //vsqrt
 			case 23: d[i] = asinf(s[i] * (float)M_2_PI); break; //vasin
-			// case 24: vnrcp
-			// case 26: vnsin
+			case 24: d[i] = -1.0f / s[i]; break; // vnrcp
+			case 26: d[i] = -sinf((float)M_PI_2 * s[i]); break; // vnsin
 			case 28: d[i] = 1.0f / expf(s[i] * (float)M_LOG2E); break; // vrexp2
 			default:
 				_dbg_assert_msg_(CPU,0,"Trying to interpret VV2Op instruction that can't be interpreted");

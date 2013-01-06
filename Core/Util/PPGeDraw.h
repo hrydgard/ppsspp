@@ -74,6 +74,8 @@ void PPGeDrawImage(int atlasImage, float x, float y, int align, u32 color = 0xFF
 void PPGeDrawImage(int atlasImage, float x, float y, float w, float h, int align, u32 color = 0xFFFFFFFF);
 void PPGeDrawImage(float x, float y, float w, float h, float u1, float v1, float u2, float v2, int tw, int th, u32 color);
 
+void PPGeDrawRect(float x1, float y1, float x2, float y2, u32 color);
+
 void PPGeSetDefaultTexture();
 void PPGeSetTexture(u32 dataAddr, int width, int height);
 void PPGeDisableTexture();

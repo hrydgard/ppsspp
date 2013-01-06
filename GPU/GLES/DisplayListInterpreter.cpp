@@ -191,7 +191,7 @@ void GLES_GPU::InitClear() {
 		//	glClearColor(1,0,1,1);
 		glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 	}
-	glViewport(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+	glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 }
 
 void GLES_GPU::DumpNextFrame() {
@@ -247,7 +247,7 @@ void GLES_GPU::CopyDisplayToOutput() {
 	VirtualFramebuffer *vfb = GetDisplayFBO();
 	fbo_unbind();
 
-	glViewport(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+	glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 
 	currentRenderVfb_ = 0;
 
@@ -347,7 +347,7 @@ void GLES_GPU::SetRenderFrameBuffer() {
 		vfb->fbo = fbo_create(vfb->width * renderWidthFactor_, vfb->height * renderHeightFactor_, 1, true);
 		vfbs_.push_back(vfb);
 		fbo_bind_as_render_target(vfb->fbo);
-		glViewport(0, 0, renderWidth_, renderHeight_);
+		glstate.viewport.set(0, 0, renderWidth_, renderHeight_);
 		currentRenderVfb_ = vfb;
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 		INFO_LOG(HLE, "Creating FBO for %08x : %i x %i", vfb->fb_address, vfb->width, vfb->height);
@@ -360,7 +360,7 @@ void GLES_GPU::SetRenderFrameBuffer() {
 		DEBUG_LOG(HLE, "Switching render target to FBO for %08x", vfb->fb_address);
 		gstate_c.textureChanged = true;
 		fbo_bind_as_render_target(vfb->fbo);
-		glViewport(0, 0, renderWidth_, renderHeight_);
+		glstate.viewport.set(0, 0, renderWidth_, renderHeight_);
 		currentRenderVfb_ = vfb;
 	}
 }
