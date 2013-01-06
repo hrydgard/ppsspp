@@ -145,6 +145,8 @@ public:
 
 	STATE4(glColorMask, bool, bool, bool, bool, true, true, true, true) colorMask;
 
+	STATE4(glViewport, GLint, GLint, GLsizei, GLsizei, 0, 0, 128, 128) viewport;
+
 #if defined(USING_GLES2)
 	STATE2(glDepthRangef, float, float, 0.f, 1.f) depthRange;
 #else
