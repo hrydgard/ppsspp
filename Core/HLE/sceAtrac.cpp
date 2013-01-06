@@ -78,10 +78,6 @@ u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd)
 u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishFlagAddr, u32 remainAddr)
 {
 	ERROR_LOG(HLE, "FAKE sceAtracDecodeData(%i, %08x, %08x, %08x, %08x)", atracID, outAddr, numSamplesAddr, finishFlagAddr, remainAddr);
-	Atrac *atrac = getAtrac(atracID);
-	if (!atrac) {
-		return -1;
-	}
 	Memory::Write_U16(0, outAddr);	// Write a single 16-bit stereo
 	Memory::Write_U16(0, outAddr + 2);
 
@@ -300,10 +296,6 @@ u32 sceAtracStartEntry()
 u32 sceAtracSetLoopNum(int atracID, int loopNum)
 {
 	ERROR_LOG(HLE, "UNIMPL sceAtracSetLoopNum(%i, %i)", atracID, loopNum);
-	Atrac *atrac = getAtrac(atracID);
-	if (!atrac) {
-		return -1;
-	}
 	return 0;
 }
 
