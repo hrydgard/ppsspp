@@ -558,7 +558,9 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 
 	while ((dirp = readdir(dp)) != NULL) {
 		PSPFileInfo entry;
-		if(dirp->d_type == DT_DIR)
+		struct stat s;
+		stat(dirp->d_name, &s);
+		if (S_ISDIR(s.st_mode))
 			entry.type = FILETYPE_DIRECTORY;
 		else
 			entry.type = FILETYPE_NORMAL;

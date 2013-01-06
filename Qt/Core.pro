@@ -97,11 +97,11 @@ SOURCES +=	../Core/CPU.cpp \ # Core
 	../Core/HLE/sceRtc.cpp \
 	../Core/HLE/sceSas.cpp \
 	../Core/HLE/sceSsl.cpp \
-	../Core/HLE/scesupPreAcc.cpp \
 	../Core/HLE/sceUmd.cpp \
 	../Core/HLE/sceUsb.cpp \
 	../Core/HLE/sceUtility.cpp \
 	../Core/HLE/sceVaudio.cpp \
+	../Core/HW/MediaEngine.cpp \
 	../Core/HW/MemoryStick.cpp \
 	../Core/HW/SasAudio.cpp \
 	../Core/Host.cpp \
@@ -205,11 +205,11 @@ HEADERS +=	../Core/CPU.h \
 	../Core/HLE/sceRtc.h \
 	../Core/HLE/sceSas.h \
 	../Core/HLE/sceSsl.h \
-	../Core/HLE/scesupPreAcc.h \
 	../Core/HLE/sceUmd.h \
 	../Core/HLE/sceUsb.h \
 	../Core/HLE/sceUtility.h \
 	../Core/HLE/sceVaudio.h \
+	../Core/HW/MediaEngine.h \
 	../Core/HW/MemoryStick.h \
 	../Core/HW/SasAudio.h \
 	../Core/Host.h \
