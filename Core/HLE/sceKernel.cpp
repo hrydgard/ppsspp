@@ -249,20 +249,31 @@ void sceKernelGetGPI()
 // textures, and in the future display lists, in some cases though.
 int sceKernelDcacheInvalidateRange(u32 addr, int size)
 {
-	if (size > 0 && addr != 0) {
-		gpu->InvalidateCache(addr, size);
+	if (size < 0 || (int) addr + size < 0)
+		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+
+	if (size > 0)
+	{
+		if ((addr % 64) != 0 || (size % 64) != 0)
+			return SCE_KERNEL_ERROR_CACHE_ALIGNMENT;
+
+		if (addr != 0)
+			gpu->InvalidateCache(addr, size);
 	}
 	return 0;
 }
 int sceKernelDcacheWritebackAll()
 {
 	// Some games seem to use this a lot, it doesn't make sense
-  // to zap the whole texture cache.
-	// gpu->InvalidateCache(0, -1);
+	// to zap the whole texture cache.
+	gpu->InvalidateCacheHint(0, -1);
 	return 0;
 }
 int sceKernelDcacheWritebackRange(u32 addr, int size)
 {
+	if (size < 0)
+		return SCE_KERNEL_ERROR_INVALID_SIZE;
+
 	if (size > 0 && addr != 0) {
 		gpu->InvalidateCache(addr, size);
 	}
@@ -270,6 +281,9 @@ int sceKernelDcacheWritebackRange(u32 addr, int size)
 }
 int sceKernelDcacheWritebackInvalidateRange(u32 addr, int size)
 {
+	if (size < 0)
+		return SCE_KERNEL_ERROR_INVALID_SIZE;
+
 	if (size > 0 && addr != 0) {
 		gpu->InvalidateCache(addr, size);
 	}

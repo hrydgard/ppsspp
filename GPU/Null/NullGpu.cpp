@@ -745,3 +745,8 @@ void NullGPU::InvalidateCache(u32 addr, int size)
 {
 	// Nothing to invalidate.
 }
+
+void NullGPU::InvalidateCacheHint(u32 addr, int size)
+{
+	// Nothing to invalidate.
+}

@@ -33,13 +33,14 @@ struct TexCacheEntry
 	u32 addr;
 	u32 hash;
 	int frameCounter;
-	u32 numMips;
 	u32 format;
 	u32 clutaddr;
 	u32 clutformat;
 	u32 cluthash;
 	int dim;
 	GLuint texture;
+	int invalidHint;
+	u32 fullhash;
 };
 
 typedef std::map<u64, TexCacheEntry> TexCache;
@@ -106,7 +107,7 @@ void TextureCache_Decimate()
 	}
 }
 
-void TextureCache_Invalidate(u32 addr, int size)
+void TextureCache_Invalidate(u32 addr, int size, bool force)
 {
 	u32 addr_end = addr + size;
 
@@ -118,12 +119,28 @@ void TextureCache_Invalidate(u32 addr, int size)
 
 		if (invalidate)
 		{
-			glDeleteTextures(1, &iter->second.texture);
-			cache.erase(iter++);
+			if (force)
+			{
+				glDeleteTextures(1, &iter->second.texture);
+				cache.erase(iter++);
+			}
+			else
+			{
+				iter->second.invalidHint++;
+				++iter;
+			}
 		}
 		else
 			++iter;
 	}
+}
+
+void TextureCache_InvalidateAll(bool force)
+{
+	if (force)
+		TextureCache_Clear(true);
+	else
+		TextureCache_Invalidate(0, 0xFFFFFFFF, force);
 }
 
 int TextureCache_NumLoadedTextures() 
@@ -635,8 +652,8 @@ void PSPSetTexture()
 	u8 *texptr = Memory::GetPointer(texaddr);
 	u32 texhash = texptr ? *(u32*)texptr : 0;
 
-	u64 cachekey = texaddr ^ clutaddr;
-	cachekey |= (u64) texhash << 32;
+	u64 cachekey = texaddr ^ texhash;
+	cachekey |= (u64) clutaddr << 32;
 	TexCache::iterator iter = cache.find(cachekey);
 	if (iter != cache.end())
 	{
@@ -656,6 +673,22 @@ void PSPSetTexture()
 				entry.clutaddr != clutaddr ||
 				entry.cluthash != Memory::Read_U32(entry.clutaddr))) 
 			match = false;
+
+		// If it's not huge or has been invalidated many times, recheck the whole texture.
+		if (entry.invalidHint > 180 || (entry.invalidHint > 15 && dim <= 0x909)) {
+			entry.invalidHint = 0;
+			int bufw = gstate.texbufwidth[0] & 0x3ff;
+			int h = 1 << ((gstate.texsize[0]>>8) & 0xf);
+
+			u32 check = 0;
+			for (int i = 0; i < bufw * h; i += 4) {
+				check += Memory::Read_U32(texaddr + i);
+			}
+
+			if (check != entry.fullhash) {
+				match = false;
+			}
+		}
 
 		if (match) {
 			//got one!
@@ -704,6 +737,9 @@ void PSPSetTexture()
 
 	int w = 1 << (gstate.texsize[0] & 0xf);
 	int h = 1 << ((gstate.texsize[0]>>8) & 0xf);
+
+	for (int i = 0; i < bufw * h; i += 4)
+		entry.fullhash += Memory::Read_U32(texaddr + i);
 
 	gstate_c.curTextureWidth=w;
 	gstate_c.curTextureHeight=h;
