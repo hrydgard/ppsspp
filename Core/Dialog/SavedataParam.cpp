@@ -130,6 +130,19 @@ void SavedataParam::Init()
 	}
 }
 
+std::string SavedataParam::GetSaveDirName(SceUtilitySavedataParam* param, int saveId)
+{
+	if (!param) {
+		return "";
+	}
+
+	std::string dirName = GetSaveName(param);
+	if (saveId >= 0 && saveNameListDataCount > 0) // if user selection, use it
+		dirName = GetFilename(saveId);
+
+	return dirName;
+}
+
 std::string SavedataParam::GetSaveDir(SceUtilitySavedataParam* param, int saveId)
 {
 	if (!param) {
@@ -217,6 +230,9 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, int saveId)
 			saveSize = param->dataBufSize; // fallback, should never use this
 		INFO_LOG(HLE,"Saving file with size %u in %s",saveSize,filePath.c_str());
 		u8 *data_ = (u8*)Memory::GetPointer(param->dataBuf);
+
+		// copy back save name in request
+		strncpy(param->saveName,GetSaveDirName(param, saveId).c_str(),20);
 
 		if (!WritePSPFile(filePath, data_, saveSize))
 		{
@@ -365,6 +381,32 @@ bool SavedataParam::Load(SceUtilitySavedataParam *param, int saveId)
 		return false;
 	}
 	param->dataSize = readSize;
+
+	// copy back save name in request
+	strncpy(param->saveName,GetSaveDirName(param, saveId).c_str(),20);
+
+	ParamSFOData sfoFile;
+	std::string sfopath = dirPath+"/"+sfoName;
+	PSPFileInfo sfoInfo = pspFileSystem.GetFileInfo(sfopath);
+	if(sfoInfo.exists) // Read sfo
+	{
+		u8 *sfoData = new u8[(size_t)sfoInfo.size];
+		size_t sfoSize = (size_t)sfoInfo.size;
+		if(ReadPSPFile(sfopath,sfoData,sfoSize, NULL))
+		{
+			sfoFile.ReadSFO(sfoData,sfoSize);
+
+			// copy back info in request
+			strncpy(param->sfoParam.title,sfoFile.GetValueString("TITLE").c_str(),128);
+			strncpy(param->sfoParam.savedataTitle,sfoFile.GetValueString("SAVEDATA_TITLE").c_str(),128);
+			strncpy(param->sfoParam.detail,sfoFile.GetValueString("SAVEDATA_DETAIL").c_str(),1024);
+			param->sfoParam.parentalLevel = sfoFile.GetValueInt("PARENTAL_LEVEL");
+		}
+		delete[] sfoData;
+	}
+	// Don't know what it is, but PSP always respond this and this unlock some game
+	param->bind = 1021;
+
 	return true;
 }
 
@@ -605,6 +647,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 	}
 
 	char (*saveNameListData)[20];
+	bool hasMultipleFileName = false;
 	if (param->saveNameList != 0)
 	{
 		Clear();
@@ -613,44 +656,48 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 
 		// Get number of fileName in array
 		saveDataListCount = 0;
-		do
+		while(saveNameListData[saveDataListCount][0] != 0)
 		{
 			saveDataListCount++;
-		} while(saveNameListData[saveDataListCount][0] != 0);
+		}
 
-		saveDataList = new SaveFileInfo[saveDataListCount];
-
-		// get and stock file info for each file
-		int realCount = 0;
-		for (int i = 0; i < saveDataListCount; i++)
+		if(saveDataListCount > 0)
 		{
-			DEBUG_LOG(HLE,"Name : %s",saveNameListData[i]);
+			hasMultipleFileName = true;
+			saveDataList = new SaveFileInfo[saveDataListCount];
 
-			std::string fileDataPath = savePath+GetGameName(param)+saveNameListData[i]+"/"+param->fileName;
-			PSPFileInfo info = pspFileSystem.GetFileInfo(fileDataPath);
-			if (info.exists)
+			// get and stock file info for each file
+			int realCount = 0;
+			for (int i = 0; i < saveDataListCount; i++)
 			{
-				SetFileInfo(realCount, info, saveNameListData[i]);
+				DEBUG_LOG(HLE,"Name : %s",saveNameListData[i]);
 
-				DEBUG_LOG(HLE,"%s Exist",fileDataPath.c_str());
-				realCount++;
-			}
-			else
-			{
-				if (listEmptyFile)
+				std::string fileDataPath = savePath+GetGameName(param)+saveNameListData[i]+"/"+param->fileName;
+				PSPFileInfo info = pspFileSystem.GetFileInfo(fileDataPath);
+				if (info.exists)
 				{
-					saveDataList[realCount].size = 0;
-					saveDataList[realCount].saveName = saveNameListData[i];
-					saveDataList[realCount].idx = i;
-					saveDataList[realCount].textureData = 0;
-					DEBUG_LOG(HLE,"Don't Exist");
+					SetFileInfo(realCount, info, saveNameListData[i]);
+
+					DEBUG_LOG(HLE,"%s Exist",fileDataPath.c_str());
 					realCount++;
 				}
+				else
+				{
+					if (listEmptyFile)
+					{
+						saveDataList[realCount].size = 0;
+						saveDataList[realCount].saveName = saveNameListData[i];
+						saveDataList[realCount].idx = i;
+						saveDataList[realCount].textureData = 0;
+						DEBUG_LOG(HLE,"Don't Exist");
+						realCount++;
+					}
+				}
 			}
+			saveNameListDataCount = realCount;
 		}
-		saveNameListDataCount = realCount;
 	}
-	else // Load info on only save
+	if(!hasMultipleFileName) // Load info on only save
 	{
 		saveNameListData = 0;
 
