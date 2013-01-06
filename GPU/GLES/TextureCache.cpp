@@ -40,6 +40,12 @@ struct TexCacheEntry {
 	GLuint texture;
 	int invalidHint;
 	u32 fullhash;
+
+	// Cache the current filter settings so we can avoid setting it again.
+	u8 magFilt;
+	u8 minFilt;
+	bool sClamp;
+	bool tClamp;
 };
 
 typedef std::map<u64, TexCacheEntry> TexCache;
@@ -371,23 +377,54 @@ GLenum getClutDestFormat(GEPaletteFormat format) {
 
 const u8 texByteAlignMap[] = {2, 2, 2, 4};
 
+const GLuint MinFiltGL[8] = {
+	GL_NEAREST,
+	GL_LINEAR,
+	GL_NEAREST,
+	GL_LINEAR,
+	GL_NEAREST_MIPMAP_NEAREST,
+	GL_LINEAR_MIPMAP_NEAREST,
+	GL_NEAREST_MIPMAP_LINEAR,
+	GL_LINEAR_MIPMAP_LINEAR,
+};
+
+const GLuint MagFiltGL[2] = {
+	GL_NEAREST,
+	GL_LINEAR
+};
+
 // This should not have to be done per texture! OpenGL is silly yo
 // TODO: Dirty-check this against the current texture.
-void UpdateSamplingParams() {
+void UpdateSamplingParams(TexCacheEntry &entry, bool force) {
+	force = true;
 	int minFilt = gstate.texfilter & 0x7;
 	int magFilt = (gstate.texfilter>>8) & 1;
-	minFilt &= 1; //no mipmaps yet
+	bool sClamp = gstate.texwrap & 1;
+	bool tClamp = (gstate.texwrap>>8) & 1;
 
-	int sClamp = gstate.texwrap & 1;
-	int tClamp = (gstate.texwrap>>8) & 1;
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, sClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, tClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
+	// TODO: remove this line when we support mipmaps
+	minFilt &= 1; // no mipmaps yet
+
 	if (g_Config.bLinearFiltering) {
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	} else {
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilt ? GL_LINEAR : GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilt ? GL_LINEAR : GL_NEAREST);
+		magFilt |= 1;
+		minFilt |= 1;
+	}
+
+	if (force || entry.minFilt != minFilt) {
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, MinFiltGL[minFilt]);
+		entry.minFilt = minFilt;
+	}
+	if (force || entry.magFilt != magFilt) {
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, MagFiltGL[magFilt]);
+		entry.magFilt = magFilt;
+	}
+	if (force || entry.sClamp != sClamp) {
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, sClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
+		entry.sClamp = sClamp;
+	}
+	if (force || entry.tClamp != tClamp) {
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, tClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
+		entry.tClamp = tClamp;
 	}
 }
 
@@ -621,7 +658,7 @@ void PSPSetTexture() {
 			//got one!
 			entry.frameCounter = gpuStats.numFrames;
 			glBindTexture(GL_TEXTURE_2D, entry.texture);
-			UpdateSamplingParams();
+			UpdateSamplingParams(entry, false);
 			DEBUG_LOG(G3D, "Texture at %08x Found in Cache, applying", texaddr);
 			return; //Done!
 		} else {
@@ -906,7 +943,7 @@ void PSPSetTexture() {
 	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
 	glTexImage2D(GL_TEXTURE_2D, 0, components, w, h, 0, components, dstFmt, finalBuf);
 	// glGenerateMipmap(GL_TEXTURE_2D);
-	UpdateSamplingParams();
+	UpdateSamplingParams(entry, true);
 
 	//glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
