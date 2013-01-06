@@ -10,14 +10,14 @@
 // Unlike CoreTiming events, these are not timed in any way and do not care about the time.
 // This code also doesn't depend on anything in PPSSPP so it can live in Common.
 
-
+struct MipsCall;
 
 // Pretty much a Runnable. Similar to Action from JPCSP.
 class Action
 {
 public:
   virtual ~Action() {}
-  virtual void run() = 0;
+  virtual void run(MipsCall &call) = 0;
   virtual void DoState(PointerWrap &p) = 0;
   int actionTypeID;
 };

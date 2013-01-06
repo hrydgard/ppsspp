@@ -251,7 +251,7 @@ private:
 class ActionAfterMipsCall : public Action
 {
 public:
-	virtual void run();
+	virtual void run(MipsCall &call);
 
 	static Action *Create()
 	{
@@ -298,7 +298,7 @@ class ActionAfterCallback : public Action
 {
 public:
 	ActionAfterCallback() {}
-	virtual void run();
+	virtual void run(MipsCall &call);
 
 	static Action *Create()
 	{
@@ -1968,7 +1968,7 @@ void sceKernelReferCallbackStatus()
 	}
 }
 
-void ActionAfterMipsCall::run() {
+void ActionAfterMipsCall::run(MipsCall &call) {
 	u32 error;
 	Thread *thread = kernelObjects.Get<Thread>(threadID, error);
 	if (thread) {
@@ -1980,7 +1980,7 @@ void ActionAfterMipsCall::run() {
 	}
 
 	if (chainedAction) {
-		chainedAction->run();
+		chainedAction->run(call);
 		delete chainedAction;
 	}
 }
@@ -2271,7 +2271,7 @@ void __KernelReturnFromMipsCall()
 	// Should also save/restore wait state here.
 	if (call->doAfter)
 	{
-		call->doAfter->run();
+		call->doAfter->run(*call);
 		delete call->doAfter;
 	}
 
@@ -2350,7 +2350,7 @@ void __KernelRunCallbackOnThread(SceUID cbId, Thread *thread, bool reschedAfter)
 	__KernelCallAddress(thread, cb->nc.entrypoint, action, false, args, reschedAfter);
 }
 
-void ActionAfterCallback::run() {
+void ActionAfterCallback::run(MipsCall &call) {
 	if (cbId != -1) {
 		u32 error;
 		Callback *cb = kernelObjects.Get<Callback>(cbId, error);

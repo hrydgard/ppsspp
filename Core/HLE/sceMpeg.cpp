@@ -262,7 +262,7 @@ public:
 	void setRingAddr(u32 ringAddr) { ringAddr_ = ringAddr; }
 	static Action *Create() { return new PostPutAction; }
 	void DoState(PointerWrap &p) { p.Do(ringAddr_); p.DoMarker("PostPutAction"); }
-	void run();
+	void run(MipsCall &call);
 private:
 	u32 ringAddr_;
 };
@@ -783,7 +783,7 @@ int sceMpegRingbufferAvailableSize(u32 ringbufferAddr)
 
 
 
-void PostPutAction::run() {
+void PostPutAction::run(MipsCall &call) {
 	SceMpegRingBuffer ringbuffer;
 	Memory::ReadStruct(ringAddr_, &ringbuffer);
 
@@ -803,6 +803,7 @@ void PostPutAction::run() {
 	}
 
 	Memory::WriteStruct(ringAddr_, &ringbuffer);
+	call.savedV0 = packetsAdded;
 }
 
 
