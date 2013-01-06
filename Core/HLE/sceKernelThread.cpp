@@ -26,7 +26,6 @@
 #include "../MIPS/MIPS.h"
 #include "../../Core/CoreTiming.h"
 #include "../../Core/MemMap.h"
-#include "../../Common/Action.h"
 
 #include "sceAudio.h"
 #include "sceKernel.h"
@@ -543,6 +542,11 @@ void MipsCall::DoState(PointerWrap &p)
 			doAfter = __KernelCreateAction(actionTypeID);
 		doAfter->DoState(p);
 	}
+}
+
+void MipsCall::setReturnValue(u32 value)
+{
+	savedV0 = value;
 }
 
 // TODO: Should move to this wrapper so we can keep the current thread as a SceUID instead
@@ -2013,7 +2017,7 @@ void Thread::setReturnValue(u32 retval)
 			int callId = this->currentCallbackId;
 			MipsCall *call = mipsCalls.get(callId);
 			if (call) {
-				call->savedV0 = retval;
+				call->setReturnValue(retval);
 			} else {
 				ERROR_LOG(HLE, "Failed to inject return value %08x in thread", retval);
 			}

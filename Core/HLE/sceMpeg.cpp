@@ -23,7 +23,6 @@
 #include "sceKernelThread.h"
 #include "HLE.h"
 #include "../HW/MediaEngine.h"
-#include "../../Common/Action.h"
 
 static bool useMediaEngine;
 
@@ -803,7 +802,7 @@ void PostPutAction::run(MipsCall &call) {
 	}
 
 	Memory::WriteStruct(ringAddr_, &ringbuffer);
-	call.savedV0 = packetsAdded;
+	call.setReturnValue(packetsAdded);
 }
 
 

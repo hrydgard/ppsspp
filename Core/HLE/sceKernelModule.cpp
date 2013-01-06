@@ -19,7 +19,6 @@
 #include <algorithm>
 
 #include "HLE.h"
-#include "Common/Action.h"
 #include "Common/FileUtil.h"
 #include "../Host.h"
 #include "../MIPS/MIPS.h"
