@@ -23,7 +23,7 @@
 #define	INFO_LEVEL    4  // General information.
 #define	DEBUG_LEVEL   5  // Detailed debugging - might make things slow.
 
-#ifdef __SYMBIAN32__
+#ifndef _WIN32
 #include <signal.h>
 #endif
 
