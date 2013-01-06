@@ -50,7 +50,7 @@ Building for Linux/BSD/etc
 --------------------------
 
 Install the libsdl1.2 (SDL 1.2) development headers. This is called
-`libsdl1.2-devel` on Debian/Ubuntu, `SDL-devel` on Fedora/RHEL,
+`libsdl1.2-dev` on Debian/Ubuntu, `SDL-devel` on Fedora/RHEL,
 `sdl12` on BSD ports.
 
 Currently the user interface is identical to Android's, operated
