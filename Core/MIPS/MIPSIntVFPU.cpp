@@ -496,7 +496,6 @@ namespace MIPSInt
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
 		ReadVector(s, sz, vs);
-		ApplySwizzleS(s, sz);
 		for (int i = 0; i < GetNumVectorElements(sz); i++)
 		{
 			d[i] = 1.0f - s[i];
@@ -514,18 +513,18 @@ namespace MIPSInt
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
 		ReadVector(s, sz, vs);
-		ApplySwizzleS(s, sz);
-		int n=GetNumVectorElements(sz);
+		int n = GetNumVectorElements(sz);
 		float x = s[0];
 		d[0] = std::min(std::max(0.0f, 1.0f - x), 1.0f);
 		d[1] = std::min(std::max(0.0f, x), 1.0f);
+		VectorSize outSize = V_Pair;
 		if (n > 1) {
 			float y = s[1];
 			d[2] = std::min(std::max(0.0f, 1.0f - y), 1.0f);
 			d[3] = std::min(std::max(0.0f, y), 1.0f);
+			outSize = V_Quad;
 		} 
-		ApplyPrefixD(d, sz);
-		WriteVector(d, sz, vd);
+		WriteVector(d, outSize, vd);
 		PC += 4;
 		EatPrefixes();
 	}
