@@ -216,6 +216,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 			"Vertices Transformed: %i\n"
 			"Textures active: %i\n"
 			"Textures decoded: %i\n"
+			"Texture invalidations: %i\n"
 			"Vertex shaders loaded: %i\n"
 			"Fragment shaders loaded: %i\n"
 			"Combined shaders loaded: %i\n",
@@ -225,12 +226,13 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 			gpuStats.numVertsTransformed,
 			gpuStats.numTextures,
 			gpuStats.numTexturesDecoded,
+			gpuStats.numTextureInvalidations,
 			gpuStats.numVertexShaders,
 			gpuStats.numFragmentShaders,
 			gpuStats.numShaders
 			);
 
-		float zoom = 0.7f; /// g_Config.iWindowZoom;
+		float zoom = 0.5f; /// g_Config.iWindowZoom;
 		PPGeBegin();
 		PPGeDrawText(stats, 0, 0, 0, zoom, 0xFFc0c0c0);
 		PPGeEnd();

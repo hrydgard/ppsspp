@@ -108,6 +108,7 @@ void TextureCache_Invalidate(u32 addr, int size, bool force) {
 
 		if (invalidate) {
 			if (force) {
+				gpuStats.numTextureInvalidations++;
 				glDeleteTextures(1, &iter->second.texture);
 				cache.erase(iter++);
 			} else {
@@ -121,8 +122,10 @@ void TextureCache_Invalidate(u32 addr, int size, bool force) {
 }
 
 void TextureCache_InvalidateAll(bool force) {
-	if (force)
+	if (force) {
+		gpuStats.numTextureInvalidations += 1000;
 		TextureCache_Clear(true);
+	}
 	else
 		TextureCache_Invalidate(0, 0xFFFFFFFF, force);
 }

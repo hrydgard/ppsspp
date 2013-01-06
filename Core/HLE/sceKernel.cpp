@@ -291,7 +291,7 @@ int sceKernelDcacheWritebackInvalidateRange(u32 addr, int size)
 }
 int sceKernelDcacheWritebackInvalidateAll()
 {
-	gpu->InvalidateCache(0, -1);
+	gpu->InvalidateCacheHint(0, -1);
 	return 0;
 }
 

@@ -258,6 +258,7 @@ struct GPUStatistics
 		numJoins = 0;
 		numDrawCalls = 0;
 		numVertsTransformed = 0;
+		numTextureInvalidations = 0;
 		numTextureSwitches = 0;
 		numShaderSwitches = 0;
 		numFlushes = 0;
@@ -269,6 +270,7 @@ struct GPUStatistics
 	int numDrawCalls;
 	int numFlushes;
 	int numVertsTransformed;
+	int numTextureInvalidations;
 	int numTextureSwitches;
 	int numShaderSwitches;
 	int numTexturesDecoded;
