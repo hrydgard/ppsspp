@@ -58,6 +58,8 @@ tests_good = [
   "intr/intr",
   "intr/vblank/vblank",
   "misc/testgp",
+  "misc/libc",
+  "misc/dcache",
   "string/string",
   "gpu/callbacks/ge_callbacks",
   "gpu/displaylist/state",
