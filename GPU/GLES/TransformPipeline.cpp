@@ -271,13 +271,7 @@ const GlTypeInfo GLComp[8] = {
 static inline void VertexAttribSetup(int attrib, int fmt, int stride, u8 *ptr) {
 	if (attrib != -1 && fmt) {
 		const GlTypeInfo &type = GLComp[fmt];
-		glEnableVertexAttribArray(attrib);
 		glVertexAttribPointer(attrib, type.count, type.type, type.normalized, stride, ptr);
-	}
-}
-static inline void VertexAttribDisable(int attrib, int fmt) {
-	if (attrib != -1 && fmt) {
-		glDisableVertexAttribArray(attrib);
 	}
 }
 
@@ -290,16 +284,6 @@ static void SetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decFmt
 	VertexAttribSetup(program->a_color1, decFmt.c1fmt, decFmt.stride, vertexData + decFmt.c1off);
 	VertexAttribSetup(program->a_normal, decFmt.nrmfmt, decFmt.stride, vertexData + decFmt.nrmoff);
 	VertexAttribSetup(program->a_position, decFmt.posfmt, decFmt.stride, vertexData + decFmt.posoff);
-}
-
-static void DesetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decFmt) {
-	VertexAttribDisable(program->a_weight0123, decFmt.w0fmt);
-	VertexAttribDisable(program->a_weight4567, decFmt.w1fmt);
-	VertexAttribDisable(program->a_texcoord, decFmt.uvfmt);
-	VertexAttribDisable(program->a_color0, decFmt.c0fmt);
-	VertexAttribDisable(program->a_color1, decFmt.c1fmt);
-	VertexAttribDisable(program->a_normal, decFmt.nrmfmt);
-	VertexAttribDisable(program->a_position, decFmt.posfmt);
 }
 
 // The verts are in the order:  BR BL TL TR
@@ -599,10 +583,6 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 
 	// TODO: Make a cache for glEnableVertexAttribArray and glVertexAttribPtr states,
 	// these spam the gDebugger log.
-	glEnableVertexAttribArray(program->a_position);
-	if (program->a_texcoord != -1) glEnableVertexAttribArray(program->a_texcoord);
-	if (program->a_color0 != -1) glEnableVertexAttribArray(program->a_color0);
-	if (program->a_color1 != -1) glEnableVertexAttribArray(program->a_color1);
 	const int vertexSize = sizeof(transformed[0]);
 	glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, vertexSize, drawBuffer);
 	if (program->a_texcoord != -1) glVertexAttribPointer(program->a_texcoord, 2, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 3 * 4);
@@ -613,10 +593,6 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 	} else {
 		glDrawArrays(glprim[prim], 0, numTrans);
 	}
-	glDisableVertexAttribArray(program->a_position);
-	if (program->a_texcoord != -1) glDisableVertexAttribArray(program->a_texcoord);
-	if (program->a_color0 != -1) glDisableVertexAttribArray(program->a_color0);
-	if (program->a_color1 != -1) glDisableVertexAttribArray(program->a_color1);
 }
 
 void TransformDrawEngine::SubmitPrim(void *verts, void *inds, int prim, int vertexCount, u32 vertType, int forceIndexType, int *bytesRead) {
@@ -728,7 +704,6 @@ void TransformDrawEngine::Flush() {
 		} else {
 			glDrawElements(glprim[prim], indexGen.VertexCount(), GL_UNSIGNED_SHORT, (GLvoid *)decIndex);
 		}
-		DesetupDecFmtForDraw(program, dec.GetDecVtxFmt());
 	} else {
 		SoftwareTransformAndDraw(prim, decoded, program, indexGen.VertexCount(), dec.VertexType(), (void *)decIndex, GE_VTYPE_IDX_16BIT, dec.GetDecVtxFmt(),
 			indexGen.MaxIndex());

@@ -124,6 +124,7 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs)
 	a_weight4567 = glGetAttribLocation(program, "a_weight4567");
 
 	glUseProgram(program);
+
 	// Default uniform values
 	glUniform1i(u_tex, 0);
 	// The rest, use the "dirty" mechanism.
@@ -177,6 +178,23 @@ static void SetMatrix4x3(int uniform, const float *m4x3) {
 void LinkedShader::use() {
 	glUseProgram(program);
 	updateUniforms();
+	glEnableVertexAttribArray(a_position);
+	if (a_texcoord != -1) glEnableVertexAttribArray(a_texcoord);
+	if (a_color0 != -1) glEnableVertexAttribArray(a_color0);
+	if (a_color1 != -1) glEnableVertexAttribArray(a_color1);
+	if (a_normal != -1) glEnableVertexAttribArray(a_normal);
+	if (a_weight0123 != -1) glEnableVertexAttribArray(a_weight0123);
+	if (a_weight4567 != -1) glEnableVertexAttribArray(a_weight4567);
+}
+
+void LinkedShader::stop() {
+	glDisableVertexAttribArray(a_position);
+	if (a_texcoord != -1) glDisableVertexAttribArray(a_texcoord);
+	if (a_color0 != -1) glDisableVertexAttribArray(a_color0);
+	if (a_color1 != -1) glDisableVertexAttribArray(a_color1);
+	if (a_normal != -1) glDisableVertexAttribArray(a_normal);
+	if (a_weight0123 != -1) glDisableVertexAttribArray(a_weight0123);
+	if (a_weight4567 != -1) glDisableVertexAttribArray(a_weight4567);
 }
 
 void LinkedShader::updateUniforms() {
@@ -325,6 +343,11 @@ LinkedShader *ShaderManager::ApplyShader(int prim)
 	if (lastShader != 0 && VSID == lastVSID && FSID == lastFSID) {
 		lastShader->updateUniforms();
 		return lastShader;	// Already all set.
+	}
+
+	if (lastShader != 0) {
+		// There was a previous shader and we're switching.
+		lastShader->stop();
 	}
 
 	lastVSID = VSID;
