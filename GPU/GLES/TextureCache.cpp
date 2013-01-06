@@ -39,8 +39,8 @@ struct TexCacheEntry
 	u32 cluthash;
 	int dim;
 	GLuint texture;
-	bool invalidHint;
-	u32 hash2;
+	int invalidHint;
+	u32 fullhash;
 };
 
 typedef std::map<u64, TexCacheEntry> TexCache;
@@ -126,7 +126,7 @@ void TextureCache_Invalidate(u32 addr, int size, bool force)
 			}
 			else
 			{
-				iter->second.invalidHint = true;
+				iter->second.invalidHint++;
 				++iter;
 			}
 		}
@@ -674,18 +674,18 @@ void PSPSetTexture()
 				entry.cluthash != Memory::Read_U32(entry.clutaddr))) 
 			match = false;
 
-		// This has been invalidated, check it more thoroughly.
-		if (entry.invalidHint) {
+		// If it's not huge or has been invalidated many times, recheck the whole texture.
+		if (entry.invalidHint > 180 || (entry.invalidHint > 15 && dim <= 0x909)) {
+			entry.invalidHint = 0;
 			int bufw = gstate.texbufwidth[0] & 0x3ff;
+			int h = 1 << ((gstate.texsize[0]>>8) & 0xf);
 
 			u32 check = 0;
-			for (int i = 0; i < bufw; i += 4) {
+			for (int i = 0; i < bufw * h; i += 4) {
 				check += Memory::Read_U32(texaddr + i);
 			}
 
-			if (check == entry.hash2) {
-				entry.invalidHint = false;
-			} else {
+			if (check != entry.fullhash) {
 				match = false;
 			}
 		}
@@ -738,8 +738,8 @@ void PSPSetTexture()
 	int w = 1 << (gstate.texsize[0] & 0xf);
 	int h = 1 << ((gstate.texsize[0]>>8) & 0xf);
 
-	for (int i = 0; i < bufw; i += 4)
-		entry.hash2 += Memory::Read_U32(texaddr + i);
+	for (int i = 0; i < bufw * h; i += 4)
+		entry.fullhash += Memory::Read_U32(texaddr + i);
 
 	gstate_c.curTextureWidth=w;
 	gstate_c.curTextureHeight=h;
