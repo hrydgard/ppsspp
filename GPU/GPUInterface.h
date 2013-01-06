@@ -71,6 +71,7 @@ public:
 	// Invalidate any cached content sourced from the specified range.
 	// If size = -1, invalidate everything.
 	virtual void InvalidateCache(u32 addr, int size) = 0;
+	virtual void InvalidateCacheHint(u32 addr, int size) = 0;
 
 	// Internal hack to avoid interrupts from "PPGe" drawing (utility UI, etc)
 	virtual void EnableInterrupts(bool enable) = 0;

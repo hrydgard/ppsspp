@@ -32,7 +32,6 @@
 #define CTRL_MODE_ANALOG    1
 
 const int PSP_CTRL_ERROR_INVALID_MODE = 0x80000107;
-const int PSP_CTRL_ERROR_INVALID_NUM_BUFFERS = 0x80000104;
 const int PSP_CTRL_ERROR_INVALID_IDLE_PTR = 0x80000023;
 
 const int NUM_CTRL_BUFFERS = 64;
@@ -187,7 +186,7 @@ int __CtrlReadSingleBuffer(u32 ctrlDataPtr, bool negative)
 int __CtrlReadBuffer(u32 ctrlDataPtr, u32 nBufs, bool negative, bool peek)
 {
 	if (nBufs > NUM_CTRL_BUFFERS)
-		return PSP_CTRL_ERROR_INVALID_NUM_BUFFERS;
+		return SCE_KERNEL_ERROR_INVALID_SIZE;
 
 	int resetRead = ctrlBufRead;
 

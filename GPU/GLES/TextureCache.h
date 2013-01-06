@@ -25,5 +25,6 @@ void TextureCache_Init();
 void TextureCache_Shutdown();
 void TextureCache_Clear(bool delete_them);
 void TextureCache_Decimate();  // Run this once per frame to get rid of old textures.
-void TextureCache_Invalidate(u32 addr, int size);
+void TextureCache_Invalidate(u32 addr, int size, bool force);
+void TextureCache_InvalidateAll(bool force);
 int TextureCache_NumLoadedTextures();
