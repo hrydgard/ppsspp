@@ -42,6 +42,16 @@ SOURCES += ../native/ext/stb_vorbis/stb_vorbis.c
 HEADERS += ../native/ext/stb_vorbis/stb_vorbis.h
 INCLUDEPATH += ../native/ext/stb_vorbis
 
+# Snappy
+
+SOURCES += ../ext/snappy/snappy-c.cpp ../ext/snappy/snappy.cpp
+HEADERS += ../ext/snappy/snappy-internal.h \
+		../ext/snappy/snappy-sinksource.h \
+		../ext/snappy/snappy-stubs-internal.h \
+		../ext/snappy/snappy-stubs-public.h \
+		../ext/snappy/snappy.h
+INCLUDEPATH += ../ext/snappy
+
 # Zlib
 !symbian: {
 	SOURCES +=  ../ext/zlib/adler32.c \
@@ -124,7 +134,8 @@ SOURCES +=  ../native/audio/mixer.cpp \
 	../native/util/bits/bits.cpp \
 	../native/util/bits/varint.cpp \
 	../native/util/hash/hash.cpp \
-	../native/util/random/perlin.cpp
+	../native/util/random/perlin.cpp \
+	../native/util/text/utf8.cpp
 
 HEADERS +=  ../native/audio/mixer.h \
 	../native/audio/wav_read.h \
@@ -188,6 +199,7 @@ HEADERS +=  ../native/audio/mixer.h \
 	../native/util/hash/hash.h \
 	../native/util/random/perlin.h \
 	../native/util/random/rng.h \
+	../native/util/text/utf8.h \
 	../native/ext/rapidxml/rapidxml.hpp \
 	../native/ext/rapidxml/rapidxml_iterators.hpp \
 	../native/ext/rapidxml/rapidxml_print.hpp \

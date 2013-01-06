@@ -36,7 +36,7 @@ INCLUDEPATH += .. ../Common ../native
 # Packaging
 symbian {
 	vendorinfo = "%{\"Qtness\"}" ":\"Qtness\""
-	packageheader = "$${LITERAL_HASH}{\"PPSSPP\"}, (0xE0095B1D), 0, 0, 4, TYPE=SA"
+	packageheader = "$${LITERAL_HASH}{\"PPSSPP\"}, (0xE0095B1D), 0, 0, 5, TYPE=SA"
 	my_deployment.pkg_prerules = packageheader vendorinfo
 	assets.sources = ../android/assets/ui_atlas.zim ../android/assets/ppge_atlas.zim
 	assets.path = E:/PPSSPP
