@@ -1,5 +1,4 @@
 set(SRCS
-	Action.cpp
 	ColorUtil.cpp
 	ConsoleListener.cpp
 	ExtendedTrace.cpp

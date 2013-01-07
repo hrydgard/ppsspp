@@ -23,7 +23,6 @@
 #include "sceKernelThread.h"
 #include "HLE.h"
 #include "../HW/MediaEngine.h"
-#include "../../Common/Action.h"
 
 static bool useMediaEngine;
 
@@ -67,6 +66,8 @@ static const s64 UNKNOWN_TIMESTAMP = -1;
 static const int MPEG_HEADER_BUFFER_MINIMUM_SIZE = 2048;
 
 static const int NUM_ES_BUFFERS = 2;
+
+static const int PSP_ERROR_MPEG_NO_DATA = 0x80618001;
 
 int getMaxAheadTimestamp(const SceMpegRingBuffer &ringbuf) {
 	return std::max(40000, ringbuf.packets * 700);  // empiric value from JPCSP, thanks!
@@ -262,7 +263,7 @@ public:
 	void setRingAddr(u32 ringAddr) { ringAddr_ = ringAddr; }
 	static Action *Create() { return new PostPutAction; }
 	void DoState(PointerWrap &p) { p.Do(ringAddr_); p.DoMarker("PostPutAction"); }
-	void run();
+	void run(MipsCall &call);
 private:
 	u32 ringAddr_;
 };
@@ -582,7 +583,7 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 	}
 
 	SceMpegAu avcAu;
-	Memory::ReadStruct(auAddr, &avcAu);
+	avcAu.read(auAddr);
 
 	SceMpegRingBuffer ringbuffer;
 	Memory::ReadStruct(ctx->mpegRingbufferAddr, &ringbuffer);
@@ -651,7 +652,7 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 	ctx->avc.avcDecodeResult = MPEG_AVC_DECODE_SUCCESS;
 
 	// Flush structs back to memory
-	Memory::WriteStruct(auAddr, &avcAu);
+	avcAu.write(auAddr);
 	Memory::WriteStruct(ctx->mpegRingbufferAddr, &ringbuffer);
 
 	Memory::Write_U32(ctx->avc.avcFrameStatus, initAddr);  // 1 = showing, 0 = not showing
@@ -732,7 +733,7 @@ int sceMpegInitAu(u32 mpeg, u32 bufferAddr, u32 auPointer)
 	DEBUG_LOG(HLE, "sceMpegInitAu(%08x, %i, %08x)", mpeg, bufferAddr, auPointer);
 
 	SceMpegAu sceAu;
-	Memory::ReadStruct(auPointer, &sceAu);
+	sceAu.read(auPointer);
 
 	if (bufferAddr >= 1 && bufferAddr <= NUM_ES_BUFFERS && ctx->esBuffers[bufferAddr - 1]) {
 		// This esbuffer has been allocated for Avc.
@@ -741,7 +742,7 @@ int sceMpegInitAu(u32 mpeg, u32 bufferAddr, u32 auPointer)
 		sceAu.dts = 0;
 		sceAu.pts = 0;
 
-		Memory::WriteStruct(auPointer, &sceAu);
+		sceAu.write(auPointer);
 	} else {
 		// This esbuffer has been left as Atrac.
 		sceAu.esBuffer = bufferAddr;
@@ -749,7 +750,7 @@ int sceMpegInitAu(u32 mpeg, u32 bufferAddr, u32 auPointer)
 		sceAu.pts = 0;
 		sceAu.dts = UNKNOWN_TIMESTAMP;
 
-		Memory::WriteStruct(auPointer, &sceAu);
+		sceAu.write(auPointer);
 	}
 	return 0;
 }
@@ -783,7 +784,7 @@ int sceMpegRingbufferAvailableSize(u32 ringbufferAddr)
 
 
 
-void PostPutAction::run() {
+void PostPutAction::run(MipsCall &call) {
 	SceMpegRingBuffer ringbuffer;
 	Memory::ReadStruct(ringAddr_, &ringbuffer);
 
@@ -803,6 +804,7 @@ void PostPutAction::run() {
 	}
 
 	Memory::WriteStruct(ringAddr_, &ringbuffer);
+	call.setReturnValue(packetsAdded);
 }
 
 
@@ -859,11 +861,11 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	Memory::ReadStruct(ctx->mpegRingbufferAddr, &mpegRingbuffer);
 
 	SceMpegAu sceAu;
-	Memory::ReadStruct(auAddr, &sceAu);
+	sceAu.read(auAddr);
 
 	if (mpegRingbuffer.packetsRead == 0) {
 		// delayThread(mpegErrorDecodeDelay)
-		return -1;   // ERROR_MPEG_NO_DATA
+		return PSP_ERROR_MPEG_NO_DATA;
 	}
 
 	if (ctx->streamMap.find(streamId) == ctx->streamMap.end())
@@ -876,22 +878,28 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	if (ctx->atracRegistered && (sceAu.pts > sceAu.pts + getMaxAheadTimestamp(mpegRingbuffer)))
 	{
 		ERROR_LOG(HLE, "sceMpegGetAvcAu - video too much ahead");
-		return -1;  // MPEG_NO_DATA
+		return PSP_ERROR_MPEG_NO_DATA;
 	}
 
 	int result = 0;
+
 	// read the au struct from ram
-	if (!ctx->mediaengine->readVideoAu(&sceAu)) {
+	// TODO: For now, always checking, since readVideoAu() is stubbed.
+	if (!ctx->mediaengine->readVideoAu(&sceAu) || true) {
+		// Only return this after the video already ended.
+		if (ctx->endOfVideoReached) {
+			result = PSP_ERROR_MPEG_NO_DATA;
+		}
 		if (ctx->mpegLastTimestamp < 0 || sceAu.pts >= ctx->mpegLastTimestamp) {
-			DEBUG_LOG(HLE, "End of video reached");
+			NOTICE_LOG(HLE, "End of video reached");
 			ctx->endOfVideoReached = true;
 		} else {
 			ctx->endOfAudioReached = false;
 		}
-
-		// The avcau struct may have been modified by mediaengine, write it back.
-		Memory::WriteStruct(auAddr, &sceAu);
 	}
+
+	// The avcau struct may have been modified by mediaengine, write it back.
+	sceAu.write(auAddr);
 
 	if (Memory::IsValidAddress(attrAddr)) {
 		Memory::Write_U32(1, attrAddr);
@@ -926,16 +934,29 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	Memory::ReadStruct(ctx->mpegRingbufferAddr, &mpegRingbuffer);
 
 	SceMpegAu sceAu;
-	Memory::ReadStruct(auAddr, &sceAu);
+	sceAu.read(auAddr);
 
+	int result = 0;
 
 	//...
+	// TODO: Just faking it.
+	sceAu.pts += videoTimestampStep;
+	sceAu.write(auAddr);
+
+	// TODO: And also audio end?
+	if (ctx->endOfVideoReached) {
+		if (mpegRingbuffer.packetsFree < mpegRingbuffer.packets) {
+			mpegRingbuffer.packetsFree = mpegRingbuffer.packets;
+			Memory::WriteStruct(ctx->mpegRingbufferAddr, &mpegRingbuffer);
+		}
+		result = PSP_ERROR_MPEG_NO_DATA;
+	}
 
 	if (Memory::IsValidAddress(attrAddr)) {
 		Memory::Write_U32(0, attrAddr);
 	}
 
-	return 0;
+	return result;
 }
 
 int sceMpegQueryPcmEsSize(u32 mpeg, u32 esSizeAddr, u32 outSizeAddr)

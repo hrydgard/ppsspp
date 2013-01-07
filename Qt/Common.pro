@@ -32,8 +32,7 @@ win32 {
 	HEADERS += ../Common/stdafx.h
 }
 
-SOURCES +=		../Common/Action.cpp \
-	../Common/ColorUtil.cpp \
+SOURCES +=		../Common/ColorUtil.cpp \
 	../Common/ConsoleListener.cpp \
 	../Common/Crypto/aes_cbc.cpp \
 	../Common/Crypto/aes_core.cpp \
@@ -57,8 +56,7 @@ SOURCES +=		../Common/Action.cpp \
 	../Common/Thread.cpp \
 	../Common/Timer.cpp \
 	../Common/Version.cpp
-HEADERS +=		../Common/Action.h \
-	../Common/ColorUtil.h \
+HEADERS +=		../Common/ColorUtil.h \
 	../Common/ConsoleListener.h \
 	../Common/Crypto/md5.h \
 	../Common/Crypto/sha1.h \

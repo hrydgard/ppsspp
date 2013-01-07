@@ -193,8 +193,6 @@ endif()
 
 add_library(Common STATIC
 	${CommonExtra}
-	Common/Action.cpp
-	Common/Action.h
 	Common/ColorUtil.cpp
 	Common/ColorUtil.h
 	Common/ConsoleListener.cpp
