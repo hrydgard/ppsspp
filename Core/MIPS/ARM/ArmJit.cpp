@@ -22,11 +22,8 @@
 #include "../MIPSInt.h"
 #include "../MIPSTables.h"
 
-#include "RegCache.h"
-#include "Jit.h"
-
-
-extern u32 *pspmainram;
+#include "ArmRegCache.h"
+#include "ArmJit.h"
 
 namespace MIPSComp
 {
@@ -74,7 +71,7 @@ Jit::Jit(MIPSState *mips) : blocks(mips), gpr(mips), mips_(mips)
 
 void Jit::FlushAll()
 {
-	gpr.Flush();
+	gpr.FlushAll();
 	//fpr.Flush(FLUSH_ALL);
 }
 
@@ -100,7 +97,7 @@ void Jit::Compile(u32 em_address)
 	}
 
 	int block_num = blocks.AllocateBlock(em_address);
-	JitBlock *b = blocks.GetBlock(block_num);
+	ArmJitBlock *b = blocks.GetBlock(block_num);
 	blocks.FinalizeBlock(block_num, jo.enableBlocklink, DoJit(em_address, b));
 }
 
@@ -110,7 +107,7 @@ void Jit::RunLoopUntil(u64 globalticks)
 	((void (*)())asm_.enterCode)();
 }
 
-const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
+const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 {
 	js.cancel = false;
 	js.blockStart = js.compilerPC = mips_->pc;
@@ -166,42 +163,35 @@ void Jit::Comp_Generic(u32 op)
 
 void Jit::DoDownCount()
 {
-	ARMReg A = gpr.GetReg();
-	ARMReg B = gpr.GetReg();
-	ARMABI_MOVI2R(A, Mem(&CoreTiming::downcount));
-	LDR(B, A);
+	ARMABI_MOVI2R(R0, Mem(&CoreTiming::downcount));
+	LDR(R1, R0);
 	if(js.downcountAmount < 255) // We can enlarge this if we used rotations
 	{
-		SUBS(B, B, js.downcountAmount);
-		STR(A, B);
+		SUBS(R1, R1, js.downcountAmount);
+		STR(R0, R1);
+	} else {
+		// Should be fine to use R2 here, flushed the regcache anyway.
+		// If js.downcountAmount can be expressed as an Imm8, we don't need this anyway.
+		ARMABI_MOVI2R(R2, js.downcountAmount);
+		SUBS(R1, R1, R2);
+		STR(R0, R1);
 	}
-	else
-	{
-		ARMReg C = gpr.GetReg(false);
-		ARMABI_MOVI2R(C, js.downcountAmount);
-		SUBS(B, B, C);
-		STR(A, B);
-	}
-	gpr.Unlock(A, B);
 }
 
 void Jit::WriteExitDestInR(ARMReg Reg) 
 {
-	ARMReg A = gpr.GetReg();
-	ARMABI_MOVI2R(A, (u32)&mips_->pc);
-	STR(A, Reg);
-	gpr.Unlock(Reg); // This was locked in the instruction beforehand.
+	ARMABI_MOVI2R(R0, (u32)&mips_->pc);
+	STR(R0, Reg);
 	DoDownCount();
-	ARMABI_MOVI2R(A, (u32)asm_.dispatcher);
-	B(A);
-	gpr.Unlock(A);
+	ARMABI_MOVI2R(R0, (u32)asm_.dispatcher);
+	B(R0);
 }
 
 void Jit::WriteExit(u32 destination, int exit_num)
 {
 	DoDownCount(); 
 	//If nobody has taken care of this yet (this can be removed when all branches are done)
-	JitBlock *b = js.curBlock;
+	ArmJitBlock *b = js.curBlock;
 	b->exitAddress[exit_num] = destination;
 	b->exitPtrs[exit_num] = GetWritableCodePtr();
 
@@ -218,9 +208,8 @@ void Jit::WriteExit(u32 destination, int exit_num)
 		ARMABI_MOVI2R(R0, (u32)&mips_->pc); // Watch out! This uses R14 and R12!
 		ARMABI_MOVI2R(R1, destination); // Watch out! This uses R14 and R12!
 		STR(R0, R1); // Watch out! This uses R14 and R12!
-		ARMReg A = gpr.GetReg(false);
-		ARMABI_MOVI2R(A, (u32)asm_.dispatcher);
-		B(A);	
+		ARMABI_MOVI2R(R0, (u32)asm_.dispatcher);
+		B(R0);	
 	}
 }
 

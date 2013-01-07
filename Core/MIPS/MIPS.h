@@ -124,21 +124,14 @@ public:
 	u32 hi;
 	u32 lo;
 
-	u32 fpcond; //separate for speed - TODO: not worth it
-
 	u32 fcr0;
 	u32 fcr31; //fpu control register
+	u32 fpcond;  // cache the cond flag of fcr31  (& 1 << 23)
 
 	GMRng rng;	// VFPU hardware random number generator. Probably not the right type.
 
 	bool inDelaySlot;
 	int llBit;  // ll/sc
-
-	CPUType cpuType;
-
-	// TODO: How do we handle exceptions?
-	u32 exceptions;
-	enum { BREAKING_EXCEPTIONS = 1 };
 
 	// Debug stuff
 	u32 debugCount;	// can be used to count basic blocks before crashes, etc.

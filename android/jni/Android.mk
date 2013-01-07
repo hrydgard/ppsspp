@@ -168,14 +168,15 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/MIPS/MIPSCodeUtils.cpp \
   $(SRC)/Core/MIPS/MIPSDebugInterface.cpp \
   $(SRC)/Core/MIPS/JitCommon/JitCommon.cpp \
-  $(SRC)/Core/MIPS/ARM/JitCache.cpp \
-  $(SRC)/Core/MIPS/ARM/CompALU.cpp \
-  $(SRC)/Core/MIPS/ARM/CompBranch.cpp \
-  $(SRC)/Core/MIPS/ARM/CompFPU.cpp \
-  $(SRC)/Core/MIPS/ARM/Asm.cpp \
-  $(SRC)/Core/MIPS/ARM/Jit.cpp \
-  $(SRC)/Core/MIPS/ARM/CompLoadStore.cpp \
-  $(SRC)/Core/MIPS/ARM/RegCache.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmJitCache.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmCompALU.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmCompBranch.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmCompFPU.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmCompLoadStore.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmCompVFPU.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmAsm.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmJit.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmRegCache.cpp \
   $(SRC)/Core/Util/BlockAllocator.cpp \
   $(SRC)/Core/Util/ppge_atlas.cpp \
   $(SRC)/Core/Util/PPGeDraw.cpp

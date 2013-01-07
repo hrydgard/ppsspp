@@ -25,9 +25,6 @@
 #include "RegCache.h"
 #include "Jit.h"
 
-
-extern u32 *pspmainram;
-
 namespace MIPSComp
 {
 
@@ -52,8 +49,6 @@ void Jit::ClearCache()
 	ClearCodeSpace();
 }
 
-u8 *codeCache;
-#define CACHESIZE 16384*1024
 void Jit::CompileAt(u32 addr)
 {
 	u32 op = Memory::Read_Instruction(addr);

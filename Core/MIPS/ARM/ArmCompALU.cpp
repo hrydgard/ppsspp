@@ -15,9 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "Jit.h"
-#include "RegCache.h"
-#include <ArmEmitter.h>
+#include "ArmJit.h"
+#include "ArmRegCache.h"
+#include "ArmEmitter.h"
 
 using namespace MIPSAnalyst;
 #define _RS ((op>>21) & 0x1F)

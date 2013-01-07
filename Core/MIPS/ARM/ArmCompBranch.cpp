@@ -21,9 +21,9 @@
 #include "../MIPSAnalyst.h"
 #include "../MIPSTables.h"
 
-#include "Jit.h"
-#include "RegCache.h"
-#include "JitCache.h"
+#include "ArmJit.h"
+#include "ArmRegCache.h"
+#include "ArmJitCache.h"
 #include <ArmEmitter.h>
 
 #define _RS ((op>>21) & 0x1F)
@@ -209,9 +209,9 @@ void Jit::BranchFPFlag(u32 op, ArmGen::CCFlags cc, bool likely)
   }
   FlushAll();
 
-	ARMABI_MOVI2R(R0, (u32)&(mips_->fpcond));
+	ARMABI_MOVI2R(R0, (u32)&(mips_->fcr31));
 	LDR(R0, R0, Operand2(0, TYPE_IMM));
-  TST(R0, Operand2(1, TYPE_IMM));
+  TST(R0, Operand2(1 << 23, TYPE_IMM));
   ArmGen::FixupBranch ptr;
   js.inDelaySlot = true;
   if (!likely)

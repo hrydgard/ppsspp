@@ -16,8 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 #include "../MIPS.h"
 
-#include "Jit.h"
-#include "RegCache.h"
+#include "ArmJit.h"
+#include "ArmRegCache.h"
 
 #define _RS ((op>>21) & 0x1F)
 #define _RT ((op>>16) & 0x1F)

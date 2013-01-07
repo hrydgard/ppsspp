@@ -17,8 +17,8 @@
 #include "../../MemMap.h"
 #include "../MIPSAnalyst.h"
 
-#include "Jit.h"
-#include "RegCache.h"
+#include "ArmJit.h"
+#include "ArmRegCache.h"
 
 
 #define _RS ((op>>21) & 0x1F)

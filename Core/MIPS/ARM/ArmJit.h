@@ -18,23 +18,18 @@
 #pragma once
 
 #include "../../../Globals.h"
-#include "Asm.h"
-
-#if !defined(ARM)
-#error DO NOT BUILD ARM JIT ON NON-ARM
-#endif
-
+#include "ArmAsm.h"
 
 #include <ArmEmitter.h>
-#include "JitCache.h"
-#include "RegCache.h"
+#include "ArmJitCache.h"
+#include "ArmRegCache.h"
 
 namespace MIPSComp
 {
 
-struct JitOptions
+struct ArmJitOptions
 {
-	JitOptions()
+	ArmJitOptions()
 	{
 		enableBlocklink = false;
 	}
@@ -42,7 +37,7 @@ struct JitOptions
 	bool enableBlocklink;
 };
 
-struct JitState
+struct ArmJitState
 {
 	u32 compilerPC;
 	u32 blockStart;
@@ -50,7 +45,7 @@ struct JitState
 	bool inDelaySlot;
 	int downcountAmount;
 	bool compiling;	// TODO: get rid of this in favor of using analysis results to determine end of block
-	JitBlock *curBlock;
+	ArmJitBlock *curBlock;
 };
 
 class Jit : public ArmGen::ARMXCodeBlock
@@ -66,7 +61,7 @@ public:
 	void RunLoopUntil(u64 globalticks);
 
 	void Compile(u32 em_address);	// Compiles a block at current MIPS PC
-	const u8 *DoJit(u32 em_address, JitBlock *b);
+	const u8 *DoJit(u32 em_address, ArmJitBlock *b);
 
 	void CompileAt(u32 addr);
 	void Comp_RunBlock(u32 op);
@@ -92,7 +87,7 @@ public:
 	void Comp_FPU2op(u32 op);
 	void Comp_mxc1(u32 op);
 
-	JitBlockCache *GetBlockCache() { return &blocks; }
+	ArmJitBlockCache *GetBlockCache() { return &blocks; }
 	AsmRoutineManager &Asm() { return asm_; }
 
 	void ClearCache();
@@ -121,9 +116,9 @@ private:
 	void CompFPTriArith(u32 op, void (XEmitter::*arith)(X64Reg reg, OpArg), bool orderMatters);
 	*/
 
-	JitBlockCache blocks;
-	JitOptions jo;
-	JitState js;
+	ArmJitBlockCache blocks;
+	ArmJitOptions jo;
+	ArmJitState js;
 
 	ArmRegCache gpr;
 	// FPURegCache fpr;
