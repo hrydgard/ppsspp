@@ -1,4 +1,4 @@
-blackberry|symbian: CONFIG += mobile_platform
+blackberry|symbian|contains(MEEGO_EDITION,harmattan): CONFIG += mobile_platform
 unix:!blackberry:!symbian:!macx: CONFIG += linux
 
 # Global specific
@@ -17,6 +17,7 @@ mobile_platform: DEFINES += USING_GLES2
 
 
 # Platform specific
+contains(MEEGO_EDITION,harmattan): DEFINES += MEEGO_EDITION_HARMATTAN "_SYS_UCONTEXT_H=1"
 blackberry: {
 # They try to force QCC with all mkspecs
 # QCC is 4.4.1, we need 4.6.3
