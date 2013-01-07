@@ -67,6 +67,8 @@ static const int MPEG_HEADER_BUFFER_MINIMUM_SIZE = 2048;
 
 static const int NUM_ES_BUFFERS = 2;
 
+static const int PSP_ERROR_MPEG_NO_DATA = 0x80618001;
+
 int getMaxAheadTimestamp(const SceMpegRingBuffer &ringbuf) {
 	return std::max(40000, ringbuf.packets * 700);  // empiric value from JPCSP, thanks!
 }
@@ -863,7 +865,7 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 
 	if (mpegRingbuffer.packetsRead == 0) {
 		// delayThread(mpegErrorDecodeDelay)
-		return -1;   // ERROR_MPEG_NO_DATA
+		return PSP_ERROR_MPEG_NO_DATA;
 	}
 
 	if (ctx->streamMap.find(streamId) == ctx->streamMap.end())
@@ -876,14 +878,20 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	if (ctx->atracRegistered && (sceAu.pts > sceAu.pts + getMaxAheadTimestamp(mpegRingbuffer)))
 	{
 		ERROR_LOG(HLE, "sceMpegGetAvcAu - video too much ahead");
-		return -1;  // MPEG_NO_DATA
+		return PSP_ERROR_MPEG_NO_DATA;
 	}
 
 	int result = 0;
+
 	// read the au struct from ram
-	if (!ctx->mediaengine->readVideoAu(&sceAu)) {
+	// TODO: For now, always checking, since readVideoAu() is stubbed.
+	if (!ctx->mediaengine->readVideoAu(&sceAu) || true) {
+		// Only return this after the video already ended.
+		if (ctx->endOfVideoReached) {
+			result = PSP_ERROR_MPEG_NO_DATA;
+		}
 		if (ctx->mpegLastTimestamp < 0 || sceAu.pts >= ctx->mpegLastTimestamp) {
-			DEBUG_LOG(HLE, "End of video reached");
+			NOTICE_LOG(HLE, "End of video reached");
 			ctx->endOfVideoReached = true;
 		} else {
 			ctx->endOfAudioReached = false;
@@ -928,14 +936,24 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	SceMpegAu sceAu;
 	sceAu.read(auAddr);
 
+	int result = 0;
 
 	//...
+
+	// TODO: And also audio end?
+	if (ctx->endOfVideoReached) {
+		if (mpegRingbuffer.packetsFree < mpegRingbuffer.packets) {
+			mpegRingbuffer.packetsFree = mpegRingbuffer.packets;
+			Memory::WriteStruct(ctx->mpegRingbufferAddr, &mpegRingbuffer);
+		}
+		result = PSP_ERROR_MPEG_NO_DATA;
+	}
 
 	if (Memory::IsValidAddress(attrAddr)) {
 		Memory::Write_U32(0, attrAddr);
 	}
 
-	return 0;
+	return result;
 }
 
 int sceMpegQueryPcmEsSize(u32 mpeg, u32 esSizeAddr, u32 outSizeAddr)
