@@ -34,8 +34,6 @@
 
 #undef WRITE
 
-static char buffer[16384];
-
 #define WRITE p+=sprintf
 
 bool CanUseHardwareTransform(int prim)
@@ -123,8 +121,7 @@ enum DoLightComputation {
 	LIGHT_FULL,
 };
 
-char *GenerateVertexShader(int prim)
-{
+void GenerateVertexShader(int prim, char *buffer) {
 	char *p = buffer;
 #if defined(USING_GLES2)
 	WRITE(p, "precision highp float;\n");
@@ -363,10 +360,10 @@ char *GenerateVertexShader(int prim)
 					WRITE(p, "  vec3 temp_tc = vec3(a_texcoord.xy, 0.0);\n");
 					break;
 				case 2:  // Use normalized transformed normal as source
-					WRITE(p, "  vec3 temp_tc = normalize(worldnormal);\n");
+					WRITE(p, "  vec3 temp_tc = normalize(a_normal);\n");
 					break;
 				case 3:  // Use non-normalized transformed normal as source
-					WRITE(p, "  vec3 temp_tc = worldnormal;\n");
+					WRITE(p, "  vec3 temp_tc = a_normal;\n");
 					break;
 				}
 				// Transform by texture matrix
@@ -388,7 +385,5 @@ char *GenerateVertexShader(int prim)
 	if (gstate.isFogEnabled())
 		WRITE(p, "  v_depth = gl_Position.z;\n");
 	WRITE(p, "}\n");
-
-	return buffer;
 }
 

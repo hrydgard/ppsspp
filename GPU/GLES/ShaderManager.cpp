@@ -357,8 +357,8 @@ LinkedShader *ShaderManager::ApplyShader(int prim)
 	Shader *vs;
 	if (vsIter == vsCache.end())	{
 		// Vertex shader not in cache. Let's compile it.
-		char *shaderCode = GenerateVertexShader(prim);
-		vs = new Shader(shaderCode, GL_VERTEX_SHADER);
+		GenerateVertexShader(prim, codeBuffer_);
+		vs = new Shader(codeBuffer_, GL_VERTEX_SHADER);
 		vsCache[VSID] = vs;
 	} else {
 		vs = vsIter->second;
@@ -368,8 +368,8 @@ LinkedShader *ShaderManager::ApplyShader(int prim)
 	Shader *fs;
 	if (fsIter == fsCache.end())	{
 		// Fragment shader not in cache. Let's compile it.
-		char *shaderCode = GenerateFragmentShader();
-		fs = new Shader(shaderCode, GL_FRAGMENT_SHADER);
+		GenerateFragmentShader(codeBuffer_);
+		fs = new Shader(codeBuffer_, GL_FRAGMENT_SHADER);
 		fsCache[FSID] = fs;
 	} else {
 		fs = fsIter->second;

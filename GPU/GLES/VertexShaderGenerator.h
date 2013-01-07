@@ -50,5 +50,4 @@ bool CanUseHardwareTransform(int prim);
 
 void ComputeVertexShaderID(VertexShaderID *id, int prim);
 
-// The return value is only valid until the function is called again.
-char *GenerateVertexShader(int prim);
+void GenerateVertexShader(int prim, char *buffer);
