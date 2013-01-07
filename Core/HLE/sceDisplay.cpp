@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <vector>
+#include <cmath>
 
 // TODO: Move the relevant parts into common. Don't want the core
 // to be dependent on "native", I think. Or maybe should get rid of common
@@ -71,6 +72,8 @@ double lastFrameTime = 0;
 
 // STATE END
 
+std::vector<VblankCallback> vblankListeners;
+
 // The vblank period is 731.5 us (0.7315 ms)
 const double vblankMs = 0.7315;
 const double frameMs = 1000.0 / 60.0;
@@ -115,6 +118,20 @@ void __DisplayShutdown()
 	ShutdownGfxState();
 }
 
+void __DisplayListenVblank(VblankCallback callback)
+{
+	vblankListeners.push_back(callback);
+}
+
+void __DisplayFireVblank()
+{
+	for (std::vector<VblankCallback>::iterator iter = vblankListeners.begin(), end = vblankListeners.end(); iter != end; ++iter)
+	{
+		VblankCallback cb = *iter;
+		cb();
+	}
+}
+
 void hleEnterVblank(u64 userdata, int cyclesLate)
 {
 	int vbCount = userdata;
@@ -122,6 +139,9 @@ void hleEnterVblank(u64 userdata, int cyclesLate)
 	DEBUG_LOG(HLE, "Enter VBlank %i", vbCount);
 
 	isVblank = 1;
+
+	// Fire the vblank listeners before we wake threads.
+	__DisplayFireVblank();
 
 	// Wake up threads waiting for VBlank
 	__KernelTriggerWait(WAITTYPE_VBLANK, 0, true);
@@ -144,31 +164,43 @@ void hleEnterVblank(u64 userdata, int cyclesLate)
 
 	gpuStats.numFrames++;
 
-	// This doesn't work very well yet. PPGe is probably not a great choice to do custom overlays
-	// as we're not really sure which framebuffer it will end up in at this point.
-	if (false && g_Config.bShowDebugStats)
-	{
-		char stats[512];
-		sprintf(stats,
-			"Frames: %i\n"
-			"Draw calls: %i\n"
-			"Textures loaded: %i\n",
-			gpuStats.numFrames,
-			gpuStats.numDrawCalls,
-			TextureCache_NumLoadedTextures());
-		/*
-		PPGeBegin();
-		PPGeDrawText(stats, 2, 2, 0, 0.3f, 0x90000000);
-		PPGeDrawText(stats, 0, 0, 0, 0.3f);
-		PPGeEnd();
-		*/
-		gpuStats.resetFrame();
-	}
-
 	// Yeah, this has to be the right moment to end the frame. Give the graphics backend opportunity
 	// to blit the framebuffer, in order to support half-framerate games that otherwise wouldn't have
 	// anything to draw here.
 	gpu->CopyDisplayToOutput();
+
+	// Now we can subvert the Ge engine in order to draw custom overlays like stat counters etc.
+	// Here we will be drawing to the non buffered front surface.
+	if (g_Config.bShowDebugStats)
+	{
+		gpu->UpdateStats();
+		char stats[512];
+		sprintf(stats,
+			"Frames: %i\n"
+			"Draw calls: %i\n"
+			"Vertices Transformed: %i\n"
+			"Textures active: %i\n"
+			"Vertex shaders loaded: %i\n"
+			"Fragment shaders loaded: %i\n"
+			"Combined shaders loaded: %i\n",
+			gpuStats.numFrames,
+			gpuStats.numDrawCalls,
+			gpuStats.numVertsTransformed,
+			gpuStats.numTextures,
+			gpuStats.numVertexShaders,
+			gpuStats.numFragmentShaders,
+			gpuStats.numShaders
+			);
+		
+		float zoom = 0.7f * sqrtf(g_Config.iWindowZoom);
+		PPGeBegin();
+		PPGeDrawText(stats, 2, 2, 0, zoom, 0x90000000);
+		PPGeDrawText(stats, 0, 0, 0, zoom);
+		PPGeEnd();
+		
+		gpuStats.resetFrame();
+	}
+
 
 	host->EndFrame();
 
@@ -186,7 +218,6 @@ void hleEnterVblank(u64 userdata, int cyclesLate)
 		lastFrameTime = time_now_d();
 	}
 #endif
-
 
 	host->BeginFrame();
 	gpu->BeginFrame();
@@ -296,6 +327,12 @@ void sceDisplayWaitVblank()
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, false);
 }
 
+void sceDisplayWaitVblankStartMulti()
+{
+	DEBUG_LOG(HLE,"sceDisplayWaitVblankStartMulti()");
+	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, false);
+}
+
 void sceDisplayWaitVblankCB()
 {
 	DEBUG_LOG(HLE,"sceDisplayWaitVblankCB()");	
@@ -354,10 +391,10 @@ const HLEFunction sceDisplay[] =
 	{0xEEDA2E54,&WrapU_UUUI<sceDisplayGetFramebuf>,"sceDisplayGetFrameBuf"},
 	{0x36CDFADE,sceDisplayWaitVblank, "sceDisplayWaitVblank"},
 	{0x984C27E7,sceDisplayWaitVblankStart, "sceDisplayWaitVblankStart"},
+	{0x40f1469c,sceDisplayWaitVblankStartMulti, "sceDisplayWaitVblankStartMulti"},
 	{0x8EB9EC49,sceDisplayWaitVblankCB, "sceDisplayWaitVblankCB"},
 	{0x46F186C3,sceDisplayWaitVblankStartCB, "sceDisplayWaitVblankStartCB"},
 	{0x77ed8b3a,sceDisplayWaitVblankStartMultiCB,"sceDisplayWaitVblankStartMultiCB"},
-
 	{0xdba6c4c4,&WrapF_V<sceDisplayGetFramePerSec>,"sceDisplayGetFramePerSec"},
 	{0x773dd3a3,sceDisplayGetCurrentHcount,"sceDisplayGetCurrentHcount"},
 	{0x210eab3a,sceDisplayGetAccumulatedHcount,"sceDisplayGetAccumulatedHcount"},
@@ -368,6 +405,7 @@ const HLEFunction sceDisplay[] =
 	{0xB4F378FA,0,"sceDisplayIsForeground"},
 	{0x31C4BAA8,0,"sceDisplayGetBrightness"},
 	{0x4D4E10EC,sceDisplayIsVblank,"sceDisplayIsVblank"},
+	
 };
 
 void Register_sceDisplay()

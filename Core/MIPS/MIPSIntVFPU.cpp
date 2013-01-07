@@ -62,6 +62,10 @@
 #define M_SQRT1_2  0.707106781186547524401f
 #endif
 
+#ifdef __APPLE__
+using std::isnan;
+#endif
+
 void ApplyPrefixST(float *v, u32 data, VectorSize size)
 {
   // Possible optimization shortcut:
@@ -974,6 +978,7 @@ namespace MIPSInt
 		int vd = _VD;
 		int seed = VI(vd);
 		currentMIPS->rng.Init(seed);
+		PC += 4;
 	}
 
 	void Int_VrndX(u32 op)

@@ -25,6 +25,10 @@
 #define SLEEP(x) usleep(x*1000)
 #endif
 
+#ifdef IOS
+#include <signal.h>
+#endif
+
 template <bool> struct CompileTimeAssert;
 template<> struct CompileTimeAssert<true> {};
 
@@ -36,7 +40,8 @@ template<> struct CompileTimeAssert<true> {};
 #define ROUND_UP_POW2(x)	(b32(x - 1) + 1)
 
 #if defined __GNUC__ && !defined __SSSE3__
-#if !defined(ANDROID) && !defined(BLACKBERRY)
+// Assume !ARM = x86
+#if !defined(ARM)
 #include <emmintrin.h>
 static __inline __m128i __attribute__((__always_inline__))
 _mm_shuffle_epi8(__m128i a, __m128i mask)
@@ -63,7 +68,8 @@ _mm_shuffle_epi8(__m128i a, __m128i mask)
 #ifdef GEKKO
 	#define Crash()
 #else
-#if !defined(ANDROID) && !defined(BLACKBERRY)
+// Assume !ARM = x86
+#if !defined(ARM)
 	#define Crash() {asm ("int $3");}
 #else
   #define Crash() {kill( getpid(), SIGINT ) ; }

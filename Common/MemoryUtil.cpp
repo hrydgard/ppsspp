@@ -26,14 +26,25 @@
 #include <errno.h>
 #include <stdio.h>
 #endif
+
+#ifdef __APPLE__
+#include <sys/types.h>
+#include <sys/mman.h>
+#endif
+
 #include <stdlib.h>
 
 
 #if !defined(_WIN32) && defined(__x86_64__) && !defined(MAP_32BIT)
 #include <unistd.h>
+#ifdef __APPLE__
+#define PAGE_MASK (4096-1)
+#else
 #define PAGE_MASK     (getpagesize() - 1)
+#endif
 #define round_page(x) ((((unsigned long)(x)) + PAGE_MASK) & ~(PAGE_MASK))
 #endif
+
 
 // This is purposely not a full wrapper for virtualalloc/mmap, but it
 // provides exactly the primitive operations that Dolphin needs.
@@ -64,7 +75,7 @@ void* AllocateExecutableMemory(size_t size, bool low)
 
 	// printf("Mapped executable memory at %p (size %ld)\n", ptr,
 	//	(unsigned long)size);
-	
+
 #if defined(__FreeBSD__)
 	if (ptr == MAP_FAILED)
 	{
@@ -72,7 +83,7 @@ void* AllocateExecutableMemory(size_t size, bool low)
 #else
 	if (ptr == NULL)
 	{
-#endif	
+#endif
 		PanicAlert("Failed to allocate executable memory");
 	}
 #if !defined(_WIN32) && defined(__x86_64__) && !defined(MAP_32BIT)

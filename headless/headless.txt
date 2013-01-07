@@ -11,4 +11,4 @@ ppsspp-headless test.elf [-m testdata.cso] [-j] [-l]
   -l : Print full log output, instead of just the "emulator printfs"
 
 This is primarily intended to run non-graphical unit tests of the emulation engine, such as
-those in http://code.google.com/p/pspautotests/ .
+those in https://github.com/hrydgard/pspautotests/ .

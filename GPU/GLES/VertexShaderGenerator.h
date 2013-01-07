@@ -46,7 +46,7 @@ struct VertexShaderID
 	}
 };
 
-void ComputeVertexShaderID(VertexShaderID *id);
+void ComputeVertexShaderID(VertexShaderID *id, int prim);
 
 // The return value is only valid until the function is called again.
 char *GenerateVertexShader();

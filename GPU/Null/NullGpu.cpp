@@ -108,6 +108,12 @@ void NullGPU::DrawSync(int mode)
 	}
 }
 
+void NullGPU::Continue()
+{
+
+}
+
+
 void NullGPU::ExecuteOp(u32 op, u32 diff)
 {
 	u32 cmd = op >> 24;
@@ -713,7 +719,6 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_ZTEST:
 		{
-			//glDepthFunc(ztests[data&7]);
 			DEBUG_LOG(G3D,"DL Z test mode: %i", data);
 		}
 		break;
@@ -824,3 +829,10 @@ bool NullGPU::InterpretList()
 	return true;
 }
 
+void NullGPU::UpdateStats()
+{
+	gpuStats.numVertexShaders = 0;
+	gpuStats.numFragmentShaders = 0;
+	gpuStats.numShaders = 0;
+	gpuStats.numTextures = 0;
+}

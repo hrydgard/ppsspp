@@ -26,11 +26,6 @@
 #include "../../Core/CoreTiming.h"
 #include "../Debugger/Breakpoints.h"
 
-#if defined(ANDROID) || defined(BLACKBERRY)
-#include "ARM/Jit.h"
-#else
-#include "x86/Jit.h"
-#endif
 #include "JitCommon/JitCommon.h"
 
 enum MipsEncoding
@@ -955,7 +950,7 @@ int MIPSInterpret_RunUntil(u64 globalTicks)
 			// int cycles = 0;
 			{
 				again:
-				u32 op = Memory::ReadUnchecked_U32(curMips->pc);
+				u32 op = Memory::Read_U32(curMips->pc);
 				//u32 op = Memory::Read_Opcode_JIT(mipsr4k.pc);
 				/*
 				// Choke on VFPU

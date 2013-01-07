@@ -38,12 +38,24 @@ static char buffer[16384];
 
 #define WRITE(x, ...) p+=sprintf(p, x "\n" __VA_ARGS__)
 
-void ComputeVertexShaderID(VertexShaderID *id)
+// prim so we can special case for RECTANGLES :(
+void ComputeVertexShaderID(VertexShaderID *id, int prim)
 {
-	// There's currently only one vertex shader
-	// as we do the transform in software.
+	int doTexture = (gstate.textureMapEnable & 1) && !(gstate.clearmode & 1);
+
 	memset(id->d, 0, sizeof(id->d));
 	id->d[0] = gstate.lmode & 1;
+	id->d[0] |= ((int)gstate.isModeThrough()) << 1;
+	id->d[0] |= ((int)gstate.isFogEnabled()) << 2;
+	id->d[0] |= doTexture << 3;
+
+	// Bits that we will need:
+	// lightenable * 4
+	// lighttype * 4
+	// lightcomp * 4
+	// uv gen:
+	// mapping type
+	// texshade light choices (ONLY IF uv mapping type is shade)
 }
 
 void WriteLight(char *p, int l) {
@@ -53,7 +65,7 @@ void WriteLight(char *p, int l) {
 char *GenerateVertexShader()
 {
 	char *p = buffer;
-#if defined(ANDROID) || defined(BLACKBERRY)
+#if defined(USING_GLES2)
 	WRITE("precision highp float;");
 #elif !defined(FORCE_OPENGL_2_0)
 	WRITE("#version 130");
@@ -61,25 +73,43 @@ char *GenerateVertexShader()
 
 	int lmode = gstate.lmode & 1;
 
-	WRITE("attribute vec4 a_position;");
-	WRITE("attribute vec2 a_texcoord;");
+	int doTexture = (gstate.textureMapEnable & 1) && !(gstate.clearmode & 1);
+
+	WRITE("attribute vec3 a_position;");
+	if (doTexture)
+		WRITE("attribute vec2 a_texcoord;");
 	WRITE("attribute vec4 a_color0;");
 	if (lmode)
 		WRITE("attribute vec4 a_color1;");
 
-	WRITE("uniform mat4 u_proj;");
+	if (gstate.isModeThrough())	{
+		WRITE("uniform mat4 u_proj_through;");
+	} else {
+		WRITE("uniform mat4 u_proj;");
+		// Add all the uniforms we'll need to transform properly.
+	}
 
 	WRITE("varying vec4 v_color0;");
 	if (lmode)
 		WRITE("varying vec4 v_color1;");
-	WRITE("varying vec2 v_texcoord;");
-
+	if (doTexture)
+		WRITE("varying vec2 v_texcoord;");
+	if (gstate.isFogEnabled())
+		WRITE("varying float v_depth;");
 	WRITE("void main() {");
-	WRITE("v_color0 = a_color0;");
+	WRITE("  v_color0 = a_color0;");
 	if (lmode)
-		WRITE("v_color1 = a_color1;");
-	WRITE("v_texcoord = a_texcoord;");
-	WRITE("gl_Position = u_proj * a_position;");
+		WRITE("  v_color1 = a_color1;");
+	if (doTexture)
+		WRITE("  v_texcoord = a_texcoord;");
+	if (gstate.isModeThrough())	{
+		WRITE("  gl_Position = u_proj_through * vec4(a_position, 1.0);");
+	} else {
+		WRITE("  gl_Position = u_proj * vec4(a_position, 1.0);");
+	}
+	if (gstate.isFogEnabled()) {
+		WRITE("  v_depth = gl_Position.z;");
+	}
 	WRITE("}");
 
 	return buffer;

@@ -33,6 +33,8 @@ run:
     cmake path/to/ppsspp
     make
 
+Alternatively, run b.sh which will create the directory for you.
+
 You can specify the -G parameter to cmake to choose a generator.
 The `NMake Makefiles`, `Visual Studio 11` (projects + sln),
 `GNU Makefiles` and `Unix Makefiles` generators have been tested.

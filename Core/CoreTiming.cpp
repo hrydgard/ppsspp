@@ -409,6 +409,8 @@ void ProcessFifoWaitEvents()
 	{
 		if (first->time <= globalTimer)
 		{
+//			LOG(CPU, "[Scheduler] %s		 (%lld, %lld) ", 
+//				first->name ? first->name : "?", (u64)globalTimer, (u64)first->time);
 			Event* evt = first;
 			first = first->next;
 			event_types[evt->type].callback(evt->userdata, (int)(globalTimer - evt->time));
@@ -446,28 +448,12 @@ void MoveEvents()
 
 void Advance()
 {
-	MoveEvents();		
-
 	int cyclesExecuted = slicelength - downcount;
 	globalTimer += cyclesExecuted;
 	downcount = slicelength;
 
-	while (first)
-	{
-		if (first->time <= globalTimer)
-		{
-//			LOG(CPU, "[Scheduler] %s		 (%lld, %lld) ", 
-//				first->name ? first->name : "?", (u64)globalTimer, (u64)first->time);
-			Event* evt = first;
-			first = first->next;
-			event_types[evt->type].callback(evt->userdata, (int)(globalTimer - evt->time));
-			FreeEvent(evt);
-		}
-		else
-		{
-			break;
-		}
-	}
+	ProcessFifoWaitEvents();
+
 	if (!first) 
 	{
 		// WARN_LOG(CPU, "WARNING - no events in queue. Setting downcount to 10000");
@@ -500,6 +486,20 @@ void Idle(int maxIdle)
 	if (maxIdle != 0 && cyclesDown > maxIdle)
 		cyclesDown = maxIdle;
 
+    if (first && cyclesDown > 0)
+    {
+        int cyclesExecuted = slicelength - downcount;
+        int cyclesNextEvent = (int) (first->time - globalTimer);
+
+        if (cyclesNextEvent < cyclesExecuted + cyclesDown)
+        {
+            cyclesDown = cyclesNextEvent - cyclesExecuted;
+            // Now, now... no time machines, please.
+            if (cyclesDown < 0)
+                cyclesDown = 0;
+        }
+    }
+
 	DEBUG_LOG(CPU, "Idle for %i cycles! (%f ms)", cyclesDown, cyclesDown / (float)(CPU_HZ * 0.001f));
 
 	idledCycles += cyclesDown;
@@ -520,7 +520,7 @@ std::string GetScheduledEventsSummary()
 		if (!name)
 			name = "[unknown]";
 		char temp[512];
-		sprintf(temp, "%s : %i %08x%08x\n", event_types[ptr->type].name, (int)ptr->time, (u32)(ptr->userdata >> 32), (u32)(ptr->userdata));
+		sprintf(temp, "%s : %i %08x%08x\n", name, (int)ptr->time, (u32)(ptr->userdata >> 32), (u32)(ptr->userdata));
 		text += temp;
 		ptr = ptr->next;
 	}

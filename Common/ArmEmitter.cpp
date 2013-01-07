@@ -61,7 +61,7 @@ const u8 *ARMXEmitter::AlignCodePage()
 
 void ARMXEmitter::Flush()
 {
-	__clear_cache (startcode, code);
+	__builtin___clear_cache (startcode, code);
 	SLEEP(0);
 }
 void ARMXEmitter::SetCC(CCFlags cond)

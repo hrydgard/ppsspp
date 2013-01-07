@@ -33,7 +33,8 @@
 #define INFINITE 0xffffffff
 #endif
 
-#if !defined(ANDROID) && !defined(BLACKBERRY)
+// Assume !ARM = x86
+#if !defined(ARM)
 #include <xmmintrin.h>
 #endif
 

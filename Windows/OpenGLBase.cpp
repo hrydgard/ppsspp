@@ -1,19 +1,8 @@
 // NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
 
-#if defined(ANDROID) || defined(BLACKBERRY)
-#include <GLES2/gl2.h>
-#include <GLES2/gl2ext.h>
-#else
-#include <GL/glew.h>
-#if defined(__APPLE__)
-#include <OpenGL/gl.h>
-#else
-#include <GL/gl.h>
-#endif
-#endif
-
 #include <windows.h>
-#include <GL/gl.h>								// Header File For The OpenGL32 Library
+#include "../native/gfx_es2/gl_state.h"
+#include "../native/gfx/gl_common.h"
 
 #include "OpenGLBase.h"
 
@@ -138,6 +127,7 @@ bool GL_Init(HWND window)
 	setVSync(0);
 
 	glewInit();
+	glstate.Initialize();
 
 	GL_Resized();								// Set Up Our Perspective GL Screen
 

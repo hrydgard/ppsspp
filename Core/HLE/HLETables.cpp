@@ -37,6 +37,7 @@
 #include "sceUmd.h"
 #include "sceDmac.h"
 #include "sceRtc.h"
+#include "sceOpenPSID.h"
 #include "sceKernel.h"
 #include "sceKernelEventFlag.h"
 #include "sceKernelMemory.h"
@@ -47,6 +48,11 @@
 #include "sceKernelTime.h"
 #include "sceAudio.h"
 #include "sceUtility.h"
+#include "sceParseUri.h"
+#include "sceSsl.h"
+#include "sceParseHttp.h"
+#include "scesupPreAcc.h"
+#include "sceVaudio.h"
 
 #define N(s) s
 
@@ -59,10 +65,10 @@
 //zlibdec
 const HLEFunction FakeSysCalls[] =
 {
-  {NID_THREADRETURN, __KernelReturnFromThread, "__KernelReturnFromThread"},
-  {NID_CALLBACKRETURN, __KernelReturnFromMipsCall, "__KernelReturnFromMipsCall"},
+	{NID_THREADRETURN, __KernelReturnFromThread, "__KernelReturnFromThread"},
+	{NID_CALLBACKRETURN, __KernelReturnFromMipsCall, "__KernelReturnFromMipsCall"},
 	{NID_INTERRUPTRETURN, __KernelReturnFromInterrupt, "__KernelReturnFromInterrupt"},
-  {NID_IDLE, __KernelIdle, "_sceKernelIdle"},
+	{NID_IDLE, __KernelIdle, "_sceKernelIdle"},
 };
 
 const HLEFunction UtilsForUser[] = 
@@ -98,51 +104,51 @@ const HLEFunction UtilsForUser[] =
 
 const HLEFunction IoFileMgrForKernel[] =
 {
-  {0xa905b705, 0, "sceIoCloseAll"},
-  {0x411106BA, 0, "sceIoGetThreadCwd"},
-  {0xCB0A151F, 0, "sceIoChangeThreadCwd"},
-  {0x8E982A74, 0, "sceIoAddDrv"},
-  {0xC7F35804, 0, "sceIoDelDrv"},
-  {0x3C54E908, 0, "sceIoReopen"},
+	{0xa905b705, 0, "sceIoCloseAll"},
+	{0x411106BA, 0, "sceIoGetThreadCwd"},
+	{0xCB0A151F, 0, "sceIoChangeThreadCwd"},
+	{0x8E982A74, 0, "sceIoAddDrv"},
+	{0xC7F35804, 0, "sceIoDelDrv"},
+	{0x3C54E908, 0, "sceIoReopen"},
 };
 const HLEFunction StdioForKernel[] = 
 {
-  {0x98220F3E, 0, "sceKernelStdoutReopen"},
-  {0xFB5380C5, 0, "sceKernelStderrReopen"},
-  {0x2CCF071A, 0, "fdprintf"},
+	{0x98220F3E, 0, "sceKernelStdoutReopen"},
+	{0xFB5380C5, 0, "sceKernelStderrReopen"},
+	{0x2CCF071A, 0, "fdprintf"},
 };
 const HLEFunction LoadCoreForKernel[] = 
 {
-  {0xACE23476, 0, "sceKernelCheckPspConfig"},
-  {0x7BE1421C, 0, "sceKernelCheckExecFile"},
-  {0xBF983EF2, 0, "sceKernelProbeExecutableObject"},
-  {0x7068E6BA, 0, "sceKernelLoadExecutableObject"},
-  {0xB4D6FECC, 0, "sceKernelApplyElfRelSection"},
-  {0x54AB2675, 0, "LoadCoreForKernel_54AB2675"},
-  {0x2952F5AC, 0, "sceKernelDcacheWBinvAll"},
-  {0xD8779AC6, sceKernelIcacheClearAll, "sceKernelIcacheClearAll"},
-  {0x99A695F0, 0, "sceKernelRegisterLibrary"},
-  {0x5873A31F, 0, "sceKernelRegisterLibraryForUser"},
-  {0x0B464512, 0, "sceKernelReleaseLibrary"},
-  {0x9BAF90F6, 0, "sceKernelCanReleaseLibrary"},
-  {0x0E760DBA, 0, "sceKernelLinkLibraryEntries"},
-  {0x0DE1F600, 0, "sceKernelLinkLibraryEntriesForUser"},
-  {0xDA1B09AA, 0, "sceKernelUnLinkLibraryEntries"},
-  {0xC99DD47A, 0, "sceKernelQueryLoadCoreCB"},
-  {0x616FCCCD, 0, "sceKernelSetBootCallbackLevel"},
-  {0xF32A2940, 0, "sceKernelModuleFromUID"},
-  {0xCD0F3BAC, 0, "sceKernelCreateModule"},
-  {0x6B2371C2, 0, "sceKernelDeleteModule"},
-  {0x7320D964, 0, "sceKernelModuleAssign"},
-  {0x44B292AB, 0, "sceKernelAllocModule"},
-  {0xBD61D4D5, 0, "sceKernelFreeModule"},
-  {0xAE7C6E76, 0, "sceKernelRegisterModule"},
-  {0x74CF001A, 0, "sceKernelReleaseModule"},
-  {0xFB8AE27D, 0, "sceKernelFindModuleByAddress"},
-  {0xCCE4A157, 0, "sceKernelFindModuleByUID"},
-  {0x82CE54ED, 0, "sceKernelModuleCount"},
-  {0xC0584F0C, 0, "sceKernelGetModuleList"},
-  {0xCF8A41B1, sceKernelFindModuleByName,"sceKernelFindModuleByName"},
+	{0xACE23476, 0, "sceKernelCheckPspConfig"},
+	{0x7BE1421C, 0, "sceKernelCheckExecFile"},
+	{0xBF983EF2, 0, "sceKernelProbeExecutableObject"},
+	{0x7068E6BA, 0, "sceKernelLoadExecutableObject"},
+	{0xB4D6FECC, 0, "sceKernelApplyElfRelSection"},
+	{0x54AB2675, 0, "LoadCoreForKernel_54AB2675"},
+	{0x2952F5AC, 0, "sceKernelDcacheWBinvAll"},
+	{0xD8779AC6, sceKernelIcacheClearAll, "sceKernelIcacheClearAll"},
+	{0x99A695F0, 0, "sceKernelRegisterLibrary"},
+	{0x5873A31F, 0, "sceKernelRegisterLibraryForUser"},
+	{0x0B464512, 0, "sceKernelReleaseLibrary"},
+	{0x9BAF90F6, 0, "sceKernelCanReleaseLibrary"},
+	{0x0E760DBA, 0, "sceKernelLinkLibraryEntries"},
+	{0x0DE1F600, 0, "sceKernelLinkLibraryEntriesForUser"},
+	{0xDA1B09AA, 0, "sceKernelUnLinkLibraryEntries"},
+	{0xC99DD47A, 0, "sceKernelQueryLoadCoreCB"},
+	{0x616FCCCD, 0, "sceKernelSetBootCallbackLevel"},
+	{0xF32A2940, 0, "sceKernelModuleFromUID"},
+	{0xCD0F3BAC, 0, "sceKernelCreateModule"},
+	{0x6B2371C2, 0, "sceKernelDeleteModule"},
+	{0x7320D964, 0, "sceKernelModuleAssign"},
+	{0x44B292AB, 0, "sceKernelAllocModule"},
+	{0xBD61D4D5, 0, "sceKernelFreeModule"},
+	{0xAE7C6E76, 0, "sceKernelRegisterModule"},
+	{0x74CF001A, 0, "sceKernelReleaseModule"},
+	{0xFB8AE27D, 0, "sceKernelFindModuleByAddress"},
+	{0xCCE4A157, 0, "sceKernelFindModuleByUID"},
+	{0x82CE54ED, 0, "sceKernelModuleCount"},
+	{0xC0584F0C, 0, "sceKernelGetModuleList"},
+	{0xCF8A41B1, sceKernelFindModuleByName,"sceKernelFindModuleByName"},
 };
 
 
@@ -191,7 +197,6 @@ const HLEFunction sceUsb[] =
 	{0x5be0e002, 0, "sceUsbWaitState"},
 	{0x1c360735, 0, "sceUsbWaitCancel"},
 };
-	
 
 const HLEFunction sceUsbstor[] =
 {
@@ -208,20 +213,11 @@ const HLEFunction sceUsbstorBoot[] =
 	{0xA55C9E16, 0, "sceUsbstorBootUnregisterNotify"},
 };
 
-
-const HLEFunction sceOpenPSID[] = 
-{
-  {0xc69bebce, 0, "sceOpenPSID_c69bebce"},
-};
-
-
 const HLEModule moduleList[] = 
 {
 	{"FakeSysCalls", SZ(FakeSysCalls), FakeSysCalls},
-  {"sceOpenPSID", SZ(sceOpenPSID), sceOpenPSID},
 	{"UtilsForUser",SZ(UtilsForUser),UtilsForUser},
 	{"KDebugForKernel",SZ(KDebugForKernel),KDebugForKernel},
-	{"sceParseUri"},
 	{"sceSAScore"},
 	{"sceUsbstor",SZ(sceUsbstor),sceUsbstor},
 	{"sceUsbstorBoot",SZ(sceUsbstorBoot),sceUsbstorBoot},
@@ -230,9 +226,6 @@ const HLEModule moduleList[] =
 	{"sceCert_Loader"},
 	{"SceFont_Library"},
 	{"sceNetApctl"},
-	{"sceOpenPSID"},
-	{"sceParseHttp"},
-	{"sceSsl"},
 	{"sceSIRCS_IrDA_Driver"},
 	{"Pspnet_Scan"},
 	{"Pspnet_Show_MacAddr"},
@@ -245,41 +238,47 @@ const HLEModule moduleList[] =
 static const int numModules = sizeof(moduleList)/sizeof(HLEModule);
 
 void RegisterAllModules() {
-  Register_Kernel_Library();
-  Register_ThreadManForUser();
-  Register_LoadExecForUser();
-  Register_SysMemUserForUser();
-  Register_InterruptManager();
-  Register_IoFileMgrForUser();
-  Register_ModuleMgrForUser();
-  Register_StdioForUser();
+	Register_Kernel_Library();
+	Register_ThreadManForUser();
+	Register_LoadExecForUser();
+	Register_SysMemUserForUser();
+	Register_InterruptManager();
+	Register_IoFileMgrForUser();
+	Register_ModuleMgrForUser();
+	Register_StdioForUser();
 
-  Register_sceHprm();
-  Register_sceCtrl();
-  Register_sceDisplay();
-  Register_sceAudio();
-  Register_sceSasCore();
+	Register_sceHprm();
+	Register_sceCtrl();
+	Register_sceDisplay();
+	Register_sceAudio();
+	Register_sceSasCore();
 	Register_sceFont();
 	Register_sceNet();
-  Register_sceRtc();
-  Register_sceWlanDrv();
-  Register_sceMpeg();
-  Register_sceMp3();
-  Register_sceHttp();
-  Register_scePower();
+	Register_sceRtc();
+	Register_sceWlanDrv();
+	Register_sceMpeg();
+	Register_sceMp3();
+	Register_sceHttp();
+	Register_scePower();
 	Register_sceImpose();
-  Register_sceSuspendForUser();
-  Register_sceGe_user();
-  Register_sceUmdUser();
-  Register_sceDmac();
-  Register_sceUtility();
-  Register_sceAtrac3plus();
-  Register_scePsmf();
-  Register_scePsmfPlayer();
+	Register_sceSuspendForUser();
+	Register_sceGe_user();
+	Register_sceUmdUser();
+	Register_sceDmac();
+	Register_sceUtility();
+	Register_sceAtrac3plus();
+	Register_scePsmf();
+	Register_scePsmfPlayer();
+	Register_sceOpenPSID();
+	Register_sceParseUri();
+	Register_sceSsl();
+	Register_sceParseHttp();
+	Register_scesupPreAcc();
+	Register_sceVaudio();
 
-  for (int i = 0; i < numModules; i++)
-  {
-    RegisterModule(moduleList[i].name, moduleList[i].numFunctions, moduleList[i].funcTable);
-  }
+	for (int i = 0; i < numModules; i++)
+	{
+		RegisterModule(moduleList[i].name, moduleList[i].numFunctions, moduleList[i].funcTable);
+	}
 }
 

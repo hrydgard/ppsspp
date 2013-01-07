@@ -1,5 +1,5 @@
 #include "base/logging.h"
-#include "ARMEmitterTest.h"
+#include "ArmEmitterTest.h"
 
 #include "Common/ArmABI.h"
 #include "Common/ArmEmitter.h"

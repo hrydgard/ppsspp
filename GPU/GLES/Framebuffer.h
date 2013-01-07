@@ -22,6 +22,8 @@
 
 #include "../Globals.h"
 
+struct GLSLProgram;
+
 enum PspDisplayPixelFormat {
 	PSP_DISPLAY_PIXEL_FORMAT_565 = 0,
 	PSP_DISPLAY_PIXEL_FORMAT_5551 = 1,
@@ -29,7 +31,25 @@ enum PspDisplayPixelFormat {
 	PSP_DISPLAY_PIXEL_FORMAT_8888 = 3,
 };
 
-void DisplayDrawer_Init();
-void DisplayDrawer_DrawFramebuffer(u8 *framebuf, int pixelFormat, int linesize);
-void DisplayDrawer_Shutdown();
-void DrawActiveTexture(float w, float h, bool flip = false);
+class FramebufferManager {
+public:
+	FramebufferManager();
+	~FramebufferManager();
+
+	/* Better do this first:
+	glstate.cullFace.disable();
+	glstate.depthTest.disable();
+	glstate.blend.disable();
+	*/
+
+	void DrawPixels(const u8 *framebuf, int pixelFormat, int linesize);
+	void DrawActiveTexture(float w, float h, bool flip = false);
+
+private:
+
+	// Used by DrawPixels
+	unsigned int backbufTex;
+
+	u8 *convBuf;
+	GLSLProgram *draw2dprogram;
+};
