@@ -59,6 +59,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Common/ArmABI.cpp \
   $(SRC)/Common/ArmEmitter.cpp \
   $(SRC)/Common/ArmCPUDetect.cpp \
+  $(SRC)/Common/ArmThunk.cpp \
   $(SRC)/Common/LogManager.cpp \
   $(SRC)/Common/MemArena.cpp \
   $(SRC)/Common/MemoryUtil.cpp \
@@ -68,7 +69,6 @@ LOCAL_SRC_FILES := \
   $(SRC)/Common/StringUtil.cpp \
   $(SRC)/Common/Thread.cpp \
   $(SRC)/Common/Timer.cpp \
-  $(SRC)/Common/ThunkARM.cpp \
   $(SRC)/Common/Misc.cpp \
   $(SRC)/Common/MathUtil.cpp \
   $(SRC)/GPU/Math3D.cpp \

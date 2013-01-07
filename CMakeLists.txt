@@ -170,7 +170,7 @@ if(ARM)
 		Common/ArmCPUDetect.cpp
 		Common/ArmEmitter.h
 		Common/ArmEmitter.cpp
-		Common/ThunkARM.cpp)
+		Common/ArmThunk.cpp)
 elseif(X86)
 	set(CommonExtra ${CommonExtra}
 		Common/ABI.cpp
