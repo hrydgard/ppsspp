@@ -55,25 +55,30 @@ std::string StringFromFormat(const char* format, ...)
 {
 	va_list args;
 	char *buf = NULL;
+	std::string temp = "";
 #ifdef _WIN32
 	int required = 0;
 
 	va_start(args, format);
 	required = _vscprintf(format, args);
 	buf = new char[required + 1];
-	vsnprintf(buf, required, format, args);
+	if(vsnprintf(buf, required, format, args) < 0)
+		buf[0] = '\0';
 	va_end(args);
 
 	buf[required] = '\0';
-	std::string temp = buf;
+	temp = buf;
 	delete[] buf;
 #else
 	va_start(args, format);
-	vasprintf(&buf, format, args);
+	if(vasprintf(&buf, format, args) < 0)
+		buf = NULL;
 	va_end(args);
 
-	std::string temp = buf;
-	free(buf);
+	if(buf != NULL) {
+		temp = buf;
+		free(buf);
+	}
 #endif
 	return temp;
 }

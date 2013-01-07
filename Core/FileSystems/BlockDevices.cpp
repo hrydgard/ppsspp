@@ -41,7 +41,9 @@ FileBlockDevice::~FileBlockDevice()
 bool FileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr) 
 {
 	fseek(f, blockNumber * GetBlockSize(), SEEK_SET);
-	fread(outPtr, 2048, 1, f);
+	if(fread(outPtr, 1, 2048, f) != 2048)
+		DEBUG_LOG(LOADER, "Could not read 2048 bytes from block");
+
 	return true;
 }
 
@@ -80,10 +82,10 @@ CISOFileBlockDevice::CISOFileBlockDevice(std::string _filename)
 
 	f = fopen(_filename.c_str(), "rb");
 	CISO_H hdr;
-	fread(&hdr, 1, sizeof(CISO_H), f);
-	if (memcmp(hdr.magic, "CISO", 4) != 0)
+	size_t readSize = fread(&hdr, sizeof(CISO_H), 1, f);
+	if (readSize != 1 || memcmp(hdr.magic, "CISO", 4) != 0)
 	{
-		//ARGH!
+		WARN_LOG(LOADER, "Invalid CSO!");
 	}
 	else
 	{
@@ -109,7 +111,8 @@ CISOFileBlockDevice::CISOFileBlockDevice(std::string _filename)
 	int indexSize = numBlocks + 1;
 
 	index = new u32[indexSize];
-	fread(index, 4, indexSize, f);
+	if(fread(index, sizeof(u32), indexSize, f) != indexSize)
+		memset(index, 0, indexSize * sizeof(u32));
 }
 
 CISOFileBlockDevice::~CISOFileBlockDevice()
@@ -134,12 +137,12 @@ bool CISOFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr)
 	u32 compressedReadSize = idx2 - idx;
 
 	fseek(f, compressedReadPos, SEEK_SET);
-	fread(inbuffer, compressedReadSize, 1, f);
+	size_t readSize = fread(inbuffer, 1, compressedReadSize, f);
 
 	if (plain)
 	{
 		memset(outPtr, 0, 2048);
-		memcpy(outPtr, inbuffer, compressedReadSize);
+		memcpy(outPtr, inbuffer, readSize);
 	}
 	else
 	{
@@ -152,7 +155,7 @@ bool CISOFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr)
 			ERROR_LOG(LOADER, "deflateInit ERROR : %s\n", (z.msg) ? z.msg : "???");
 			return 1;
 		}
-		z.avail_in = compressedReadSize;
+		z.avail_in = readSize;
 		z.next_out = outPtr;
 		z.avail_out = blockSize;
 		z.next_in = inbuffer;

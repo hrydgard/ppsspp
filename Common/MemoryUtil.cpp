@@ -143,7 +143,8 @@ void* AllocateAlignedMemory(size_t size,size_t alignment)
 	// On Symbian, we will want to create an RChunk.
 	ptr = malloc(size);
 #else
-	posix_memalign(&ptr, alignment, size);
+	if(posix_memalign(&ptr, alignment, size) != 0)
+		ptr = NULL;
 #endif
 #endif
 
