@@ -922,9 +922,9 @@ void __KernelSaveContext(ThreadContext *ctx)
 	ctx->hi = currentMIPS->hi;
 	ctx->lo = currentMIPS->lo;
 	ctx->pc = currentMIPS->pc;
+	ctx->fcr0 = currentMIPS->fcr0;
+	ctx->fcr31 = currentMIPS->fcr31;
 	ctx->fpcond = currentMIPS->fpcond;
-	// ctx->fcr0 = currentMIPS->fcr0;
-	// ctx->fcr31 = currentMIPS->fcr31;
 
 	// TODO: Make VFPU saving optional/delayed, only necessary between VFPU-attr-marked threads
 }
@@ -948,9 +948,9 @@ void __KernelLoadContext(ThreadContext *ctx)
 	currentMIPS->hi = ctx->hi;
 	currentMIPS->lo = ctx->lo;
 	currentMIPS->pc = ctx->pc;
+	currentMIPS->fcr0 = ctx->fcr0;
+	currentMIPS->fcr31 = ctx->fcr31;
 	currentMIPS->fpcond = ctx->fpcond;
-	// currentMIPS->fcr0 = ctx->fcr0;
-	// currentMIPS->fcr31 = ctx->fcr31;
 }
 
 u32 __KernelResumeThreadFromWait(SceUID threadID)
