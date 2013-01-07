@@ -1240,7 +1240,7 @@ void __KernelResetThread(Thread *t)
 	t->nt.waitID = 0;
 	memset(&t->waitInfo, 0, sizeof(t->waitInfo));
 
-	t->nt.exitStatus = 0;
+	t->nt.exitStatus = SCE_KERNEL_ERROR_NOT_DORMANT;
 	t->isProcessingCallbacks = false;
 	// TODO: Is this correct?
 	t->pendingMipsCalls.clear();
@@ -1273,7 +1273,7 @@ Thread *__KernelCreateThread(SceUID &id, SceUID moduleId, const char *name, u32 
 	t->nt.wakeupCount = 0;
 	t->nt.initialStack = 0;
 	t->nt.waitID = 0;
-	t->nt.exitStatus = 0;
+	t->nt.exitStatus = SCE_KERNEL_ERROR_DORMANT;
 	t->nt.waitType = WAITTYPE_NONE;
 
 	if (moduleId)
@@ -1579,10 +1579,11 @@ int sceKernelTerminateThread(u32 threadID)
 		Thread *t = kernelObjects.Get<Thread>(threadID, error);
 		if (t)
 		{
+			t->nt.exitStatus = SCE_KERNEL_ERROR_THREAD_TERMINATED;
 			t->nt.status = THREADSTATUS_DORMANT;
 			__KernelFireThreadEnd(t);
 			// TODO: Should this really reschedule?
-			__KernelTriggerWait(WAITTYPE_THREADEND, threadID, SCE_KERNEL_ERROR_THREAD_TERMINATED, true);
+			__KernelTriggerWait(WAITTYPE_THREADEND, threadID, t->nt.exitStatus, true);
 		}
 		// TODO: Return an error if it doesn't exist?
 		return 0;
