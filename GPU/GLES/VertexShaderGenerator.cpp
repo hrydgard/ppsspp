@@ -129,7 +129,7 @@ char *GenerateVertexShader(int prim)
 #if defined(USING_GLES2)
 	WRITE(p, "precision highp float;\n");
 #elif !defined(FORCE_OPENGL_2_0)
-	WRITE(p, "#version 130\n");
+	WRITE(p, "#version 110\n");
 #endif
 
 	int lmode = gstate.lmode & 1;
