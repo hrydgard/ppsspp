@@ -412,7 +412,7 @@ public:
 	// Utils
 	bool isRunning() const { return (nt.status & THREADSTATUS_RUNNING) != 0; }
 	bool isStopped() const { return (nt.status & THREADSTATUS_DORMANT) != 0; }
-	bool isReady() const { return (nt.status & THREADSTATUS_DORMANT) != 0; }
+	bool isReady() const { return (nt.status & THREADSTATUS_READY) != 0; }
 	bool isWaiting() const { return (nt.status & THREADSTATUS_WAIT) != 0; }
 	bool isSuspended() const { return (nt.status & THREADSTATUS_SUSPEND) != 0; }
 
@@ -1841,6 +1841,9 @@ void sceKernelSleepThreadCB()
 int sceKernelWaitThreadEnd(SceUID threadID, u32 timeoutPtr)
 {
 	DEBUG_LOG(HLE, "sceKernelWaitThreadEnd(%i, %08x)", threadID);
+	if (threadID == 0 || threadID == currentThread)
+		return SCE_KERNEL_ERROR_ILLEGAL_THID;
+
 	u32 error;
 	Thread *t = kernelObjects.Get<Thread>(threadID, error);
 	if (t)
@@ -1857,13 +1860,16 @@ int sceKernelWaitThreadEnd(SceUID threadID, u32 timeoutPtr)
 	else
 	{
 		ERROR_LOG(HLE, "sceKernelWaitThreadEnd - bad thread %i", threadID);
-		return 0;
+		return error;
 	}
 }
 
 int sceKernelWaitThreadEndCB(SceUID threadID, u32 timeoutPtr)
 {
 	DEBUG_LOG(HLE, "sceKernelWaitThreadEnd(%i)", threadID);
+	if (threadID == 0 || threadID == currentThread)
+		return SCE_KERNEL_ERROR_ILLEGAL_THID;
+
 	u32 error;
 	Thread *t = kernelObjects.Get<Thread>(threadID, error);
 	if (t)
@@ -1881,7 +1887,7 @@ int sceKernelWaitThreadEndCB(SceUID threadID, u32 timeoutPtr)
 	else
 	{
 		ERROR_LOG(HLE,"sceKernelWaitThreadEnd - bad thread %i", threadID);
-		return 0;
+		return error;
 	}
 }
 
