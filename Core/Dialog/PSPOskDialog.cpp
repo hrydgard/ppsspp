@@ -123,7 +123,7 @@ void PSPOskDialog::RenderKeyboard()
 		else
 			temp[0] = '_';
 
-		PPGeDrawText(temp, previewLeftSide + (i * 16.0f), 40.0f, NULL, 0.5f, color);
+		PPGeDrawText(temp, previewLeftSide + (i * 16.0f), 40.0f, 0, 0.5f, color);
 	}
 	for (int row = 0; row < NUMKEYROWS; ++row)
 	{
@@ -134,10 +134,10 @@ void PSPOskDialog::RenderKeyboard()
 				color = 0xFF7f7f7f;
 
 			temp[0] = oskKeys[row][col];
-			PPGeDrawText(temp, keyboardLeftSide + (25.0f * col), 70.0f + (25.0f * row), NULL, 0.6f, color);
+			PPGeDrawText(temp, keyboardLeftSide + (25.0f * col), 70.0f + (25.0f * row), 0, 0.6f, color);
 
 			if (selectedRow == row && col == selectedExtra)
-				PPGeDrawText("_", keyboardLeftSide + (25.0f * col), 70.0f + (25.0f * row), NULL, 0.6f, 0xFFFFFFFF);
+				PPGeDrawText("_", keyboardLeftSide + (25.0f * col), 70.0f + (25.0f * row), 0, 0.6f, 0xFFFFFFFF);
 		}
 	}
 
