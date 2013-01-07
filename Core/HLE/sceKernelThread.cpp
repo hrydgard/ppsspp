@@ -468,6 +468,7 @@ void __KernelExecuteMipsCallOnCurrentThread(int callId, bool reschedAfter);
 Thread *__KernelCreateThread(SceUID &id, SceUID moduleID, const char *name, u32 entryPoint, u32 priority, int stacksize, u32 attr);
 void __KernelResetThread(Thread *t);
 void __KernelCancelWakeup(SceUID threadID);
+void __KernelCancelThreadEndTimeout(SceUID threadID);
 bool __KernelCheckThreadCallbacks(Thread *thread, bool force);
 
 //////////////////////////////////////////////////////////////////////////
@@ -485,6 +486,7 @@ std::vector<ThreadCallback> threadEndListeners;
 SceUID threadIdleID[2];
 
 int eventScheduledWakeup;
+int eventThreadEndTimeout;
 
 bool dispatchEnabled = true;
 
@@ -570,6 +572,7 @@ u32 __KernelInterruptReturnAddress()
 }
 
 void hleScheduledWakeup(u64 userdata, int cyclesLate);
+void hleThreadEndTimeout(u64 userdata, int cyclesLate);
 
 void __KernelThreadingInit()
 {
@@ -600,6 +603,7 @@ void __KernelThreadingInit()
 	WriteSyscall("FakeSysCalls", NID_INTERRUPTRETURN, intReturnHackAddr);
 
 	eventScheduledWakeup = CoreTiming::RegisterEvent("ScheduledWakeup", &hleScheduledWakeup);
+	eventThreadEndTimeout = CoreTiming::RegisterEvent("ThreadEndTimeout", &hleThreadEndTimeout);
 	actionAfterMipsCall = __KernelRegisterActionType(ActionAfterMipsCall::Create);
 	actionAfterCallback = __KernelRegisterActionType(ActionAfterCallback::Create);
 
@@ -610,6 +614,7 @@ void __KernelThreadingInit()
 	// These idle threads are later started in LoadExec, which calls __KernelStartIdleThreads below.
 
 	__KernelListenThreadEnd(__KernelCancelWakeup);
+	__KernelListenThreadEnd(__KernelCancelThreadEndTimeout);
 }
 
 void __KernelThreadingDoState(PointerWrap &p)
@@ -629,6 +634,8 @@ void __KernelThreadingDoState(PointerWrap &p)
 
 	p.Do(eventScheduledWakeup);
 	CoreTiming::RestoreRegisterEvent(eventScheduledWakeup, "ScheduledWakeup", &hleScheduledWakeup);
+	p.Do(eventThreadEndTimeout);
+	CoreTiming::RestoreRegisterEvent(eventThreadEndTimeout, "ThreadEndTimeout", &hleThreadEndTimeout);
 	p.Do(actionAfterMipsCall);
 	__KernelRestoreActionType(actionAfterMipsCall, ActionAfterMipsCall::Create);
 	p.Do(actionAfterCallback);
@@ -1064,6 +1071,34 @@ void __KernelScheduleWakeup(SceUID threadID, s64 usFromNow)
 void __KernelCancelWakeup(SceUID threadID)
 {
 	CoreTiming::UnscheduleEvent(eventScheduledWakeup, threadID);
+}
+
+void hleThreadEndTimeout(u64 userdata, int cyclesLate)
+{
+	SceUID threadID = (SceUID) userdata;
+	SceUID waitID = (SceUID) (userdata >> 32);
+
+	u32 error;
+	// Just in case it was woken on its own.
+	if (__KernelGetWaitID(threadID, WAITTYPE_THREADEND, error) == waitID)
+	{
+		u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
+		if (Memory::IsValidAddress(timeoutPtr))
+			Memory::Write_U32(0, timeoutPtr);
+
+		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
+	}
+}
+
+void __KernelScheduleThreadEndTimeout(SceUID threadID, SceUID waitID, s64 usFromNow)
+{
+	s64 cycles = usToCycles(usFromNow);
+	CoreTiming::ScheduleEvent(cycles, eventThreadEndTimeout, (u64) threadID | ((u64) waitID << 32));
+}
+
+void __KernelCancelThreadEndTimeout(SceUID threadID)
+{
+	CoreTiming::UnscheduleEvent(eventThreadEndTimeout, threadID);
 }
 
 void __KernelRemoveFromThreadQueue(Thread *t)
@@ -1811,7 +1846,11 @@ int sceKernelWaitThreadEnd(SceUID threadID, u32 timeoutPtr)
 	if (t)
 	{
 		if (t->nt.status != THREADSTATUS_DORMANT)
-			__KernelWaitCurThread(WAITTYPE_THREADEND, threadID, 0, 0, false);
+		{
+			if (Memory::IsValidAddress(timeoutPtr))
+				__KernelScheduleThreadEndTimeout(currentThread, threadID, Memory::Read_U32(timeoutPtr));
+			__KernelWaitCurThread(WAITTYPE_THREADEND, threadID, 0, timeoutPtr, false);
+		}
 
 		return t->nt.exitStatus;
 	}
@@ -1831,7 +1870,11 @@ int sceKernelWaitThreadEndCB(SceUID threadID, u32 timeoutPtr)
 	{
 		hleCheckCurrentCallbacks();
 		if (t->nt.status != THREADSTATUS_DORMANT)
-			__KernelWaitCurThread(WAITTYPE_THREADEND, threadID, 0, 0, true);
+		{
+			if (Memory::IsValidAddress(timeoutPtr))
+				__KernelScheduleThreadEndTimeout(currentThread, threadID, Memory::Read_U32(timeoutPtr));
+			__KernelWaitCurThread(WAITTYPE_THREADEND, threadID, 0, timeoutPtr, true);
+		}
 
 		return t->nt.exitStatus;
 	}
