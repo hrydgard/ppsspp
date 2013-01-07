@@ -56,7 +56,8 @@ static bool enableDebug = false;
 
 // STATIC ALLOCATION ARM:
 // R11 : Memory base pointer.
-
+// R10 : MIPS state
+// R9 : 
 extern volatile CoreState coreState;
 
 void Jit()
@@ -64,54 +65,73 @@ void Jit()
 	MIPSComp::jit->Compile(currentMIPS->pc);
 }
 
+void ImHere() {
+	static int i = 0;
+	i++;
+	INFO_LOG(HLE, "I'm too here %i", i);
+}
+void ImHere2(u32 hej) {
+	static int i = 0;
+	i++;
+	INFO_LOG(HLE, "I'm here2 %i %08x", i, hej);
+}
 // PLAN: no more block numbers - crazy opcodes just contain offset within
 // dynarec buffer
 // At this offset - 4, there is an int specifying the block number.
 
-void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
+void ArmAsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 {
 	enterCode = AlignCode16();
 
-	PUSH(8, R5, R6, R7, R8, R9, R10, R11, _LR);
 	SetCC(CC_AL);
+
+	PUSH(8, R5, R6, R7, R8, R9, R10, R11, _LR);
 
 	// Fixed registers, these are always kept when in Jit context.
 	// R13 cannot be used as it's the stack pointer.
 	ARMABI_MOVI2R(R11, (u32)Memory::base);
-	ARMABI_MOVI2R(R12, (u32)currentMIPS);
-	ARMABI_MOVI2R(R14, (u32)jit->GetBlockCache()->GetCodePointers());
+	ARMABI_MOVI2R(R10, (u32)mips);
+	ARMABI_MOVI2R(R9, (u32)jit->GetBlockCache()->GetCodePointers());
+
+	// PROVEN: We Get Here
+	ARMABI_CallFunction((void *)&ImHere);
 
 	outerLoop = GetCodePtr();
-		//ARMABI_CallFunction(reinterpret_cast<void *>(&CoreTiming::Advance));
+		ARMABI_CallFunction((void *)&CoreTiming::Advance);
 		FixupBranch skipToRealDispatch = B(); //skip the sync and compare first time
 
 		dispatcherCheckCoreState = GetCodePtr();
 
-		//TODO: critical
-		//CMP(32, M((void*)&coreState), Imm32(0));
-		FixupBranch badCoreState; // = J_CC(CC_NZ, true);
+		// TODO: critical
+		ARMABI_MOVI2R(R0, (u32)&coreState);
+		LDR(R0, R0);
+		CMP(R0, 0);
+		FixupBranch badCoreState = B_CC(CC_NEQ);
+	
+		// At this point : flags = EQ. Fine for the next check, no need to jump over it.
 
 		dispatcher = GetCodePtr();
 			// The result of slice decrementation should be in flags if somebody jumped here
 			// IMPORTANT - We jump on negative, not carry!!!
-			SetCC(CC_LT);
-			FixupBranch bail = B();
-			
-			SetCC(CC_AL);
+			FixupBranch bail = B_CC(CC_LT);
+
 			SetJumpTarget(skipToRealDispatch);
-			//INT3();
 
 			dispatcherNoCheck = GetCodePtr();
-			// LDR(R0, R11, R0, M(&mips->pc));
-			dispatcherPcInR0 = GetCodePtr();
 
-			_assert_msg_(CPU, Memory::base != 0, "Memory base bogus");
-			//ARMABI_MOVIMM32(R1, Memory::MEMVIEW32_MASK + 1);
+			// Debug
+
+			ARMABI_MOVI2R(R0, (u32)&mips->pc);
+			LDR(R0, R0);
+
+			ARMABI_MOVI2R(R1, Memory::MEMVIEW32_MASK);  // can be done with single MOVN instruction
 			AND(R0, R0, R1);
-			LDR(R0, R11, R0);
-			AND(R1, R0, Operand2(0xFC, 24));
-			BIC(R0, R0, Operand2(0xFC, 24));
-			CMP(R1, Operand2(MIPS_EMUHACK_OPCODE >> 24, 24));
+			ARMABI_CallFunction((void *)&ImHere2);
+
+			LDR(R0, R11, R(R0));
+			AND(R1, R0, Operand2(0xFC, 4));   // rotation is to the right, in 2-bit increments.
+			BIC(R0, R0, Operand2(0xFC, 4));
+			CMP(R1, Operand2(MIPS_EMUHACK_OPCODE >> 24, 4));
 			FixupBranch notfound = B_CC(CC_NEQ);
 				// IDEA - we have 24 bits, why not just use offsets from base of code?
 				if (enableDebug)
@@ -119,24 +139,32 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 					//ADD(32, M(&mips->debugCount), Imm8(1));
 				}
 				// grab from list and jump to it
-				ADD(R0, R10, Operand2(2, ST_LSL, R0));
+				ADD(R0, R14, Operand2(2, ST_LSL, R0));
 				LDR(R0, R0);
 				B(R0);
+
 			SetJumpTarget(notfound);
 
+			ARMABI_CallFunction((void *)&ImHere);
+
+			//Ok, no block, let's jit
 			ARMABI_CallFunction((void *)&Jit);
+
 			B(dispatcherNoCheck); // no point in special casing this
 
 		SetJumpTarget(bail);
 
-		SetJumpTarget(badCoreState);
+		// TODO: critical
+		ARMABI_MOVI2R(R0, (u32)&coreState);
+		LDR(R0, R0);
+		CMP(R0, 0);
+		B_CC(CC_EQ, outerLoop);
 
-		//CMP(M((void*)&coreState), Imm8(0));
-		SetCC(CC_EQ);
-		//B(outerLoop);
-		SetCC(CC_AL);
+	SetJumpTarget(badCoreState);
 
-		//Landing pad for drec space
+	ARMABI_CallFunction((void *)&ImHere);
 
-	PUSH(8, R5, R6, R7, R8, R9, R10, R11, _PC);  // Returns
+	//Landing pad for drec space
+
+	POP(8, R5, R6, R7, R8, R9, R10, R11, _PC);  // Returns
 }

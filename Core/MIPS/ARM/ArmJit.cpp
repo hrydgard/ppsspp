@@ -105,6 +105,7 @@ void Jit::RunLoopUntil(u64 globalticks)
 {
 	// TODO: copy globalticks somewhere
 	((void (*)())asm_.enterCode)();
+	INFO_LOG(DYNA_REC, "Left asm code");
 }
 
 const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)

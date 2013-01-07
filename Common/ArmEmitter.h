@@ -112,6 +112,8 @@ enum OpType
 	TYPE_MEM
 };
 
+
+// This is no longer a proper operand2 class. Need to split up.
 class Operand2
 {
 	friend class ARMXEmitter;

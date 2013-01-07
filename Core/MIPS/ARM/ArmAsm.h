@@ -28,15 +28,19 @@ namespace MIPSComp
 	class Jit;
 }
 
-class AsmRoutineManager : public ArmGen::ARMXCodeBlock
+class ArmAsmRoutineManager : public ArmGen::ARMXCodeBlock
 {
 private:
 	void Generate(MIPSState *mips, MIPSComp::Jit *jit);
 	void GenerateCommon();
 
 public:
-	AsmRoutineManager()
+	ArmAsmRoutineManager()
 	{
+	}
+	~ArmAsmRoutineManager()
+	{
+		FreeCodeSpace();
 	}
 
 	void Init(MIPSState *mips, MIPSComp::Jit *jit)
@@ -45,10 +49,6 @@ public:
 		Generate(mips, jit);
 		WriteProtect();
 	}
-	~AsmRoutineManager()
-	{
-		FreeCodeSpace();
-	}
 
 	const u8 *enterCode;
 
@@ -56,7 +56,8 @@ public:
 	const u8 *dispatcherCheckCoreState;
 	const u8 *dispatcher;
 	const u8 *dispatcherNoCheck;
-	const u8 *dispatcherPcInR0;
+
+	const u8 *breakpointBailout;
 };
 
 #endif	// _JIT64ASM_H

@@ -193,7 +193,6 @@ void Jit::Comp_RelBranchRI(u32 op)
   js.compiling = false;
 }
 
-
 // If likely is set, discard the branch slot if NOT taken.
 void Jit::BranchFPFlag(u32 op, ArmGen::CCFlags cc, bool likely)
 {
@@ -209,9 +208,9 @@ void Jit::BranchFPFlag(u32 op, ArmGen::CCFlags cc, bool likely)
   }
   FlushAll();
 
-	ARMABI_MOVI2R(R0, (u32)&(mips_->fcr31));
+	ARMABI_MOVI2R(R0, (u32)&(mips_->fpcond));
 	LDR(R0, R0, Operand2(0, TYPE_IMM));
-  TST(R0, Operand2(1 << 23, TYPE_IMM));
+  TST(R0, Operand2(1, TYPE_IMM));
   ArmGen::FixupBranch ptr;
   js.inDelaySlot = true;
   if (!likely)
@@ -259,29 +258,68 @@ void Jit::Comp_FPUBranch(u32 op)
   js.compiling = false;
 }
 
+// If likely is set, discard the branch slot if NOT taken.
+void Jit::BranchVFPUFlag(u32 op, ArmGen::CCFlags cc, bool likely)
+{
+	int offset = (signed short)(op & 0xFFFF) << 2;
+	u32 targetAddr = js.compilerPC + offset + 4;
+
+	u32 delaySlotOp = Memory::ReadUnchecked_U32(js.compilerPC + 4);
+
+	bool delaySlotIsNice = IsDelaySlotNice(op, delaySlotOp);
+	if (!delaySlotIsNice)
+	{
+		ERROR_LOG(CPU, "Not nice delay slot in BranchFPFlag :(");
+	}
+	FlushAll();
+
+	ARMABI_MOVI2R(R0, (u32)&(mips_->vfpuCtrl[VFPU_CTRL_CC]));
+	LDR(R0, R0, Operand2(0, TYPE_IMM));
+
+	int imm3 = (op >> 18) & 7;
+	TST(R0, Operand2(1 << imm3, TYPE_IMM));
+
+	ArmGen::FixupBranch ptr;
+	js.inDelaySlot = true;
+	if (!likely)
+	{
+		MRS(R0);  // Save flags register
+		PUSH(1, R0);
+
+		CompileAt(js.compilerPC + 4);
+		FlushAll();
+
+		// POPF(); // restore flag!
+		POP(1, R0);
+		_MSR(true, false, R0);  // Restore flags register
+		ptr = B_CC(cc);
+	}
+	else
+	{
+		ptr = B_CC(cc);
+		CompileAt(js.compilerPC + 4);
+		FlushAll();
+	}
+	js.inDelaySlot = false;
+
+	// Take the branch
+	WriteExit(targetAddr, 0);
+
+	SetJumpTarget(ptr);
+	// Not taken
+	WriteExit(js.compilerPC + 8, 1);
+	js.compiling = false;
+}
+
 void Jit::Comp_VBranch(u32 op)
 {
-  /*
-  Comp_Generic(op + 4);
-  Comp_Generic(op);
-  js.compiling = false;
-  return;
-
-  int imm = (signed short)(op&0xFFFF)<<2;
-  u32 targetAddr = js.compilerPC + imm + 4;
-
-  int imm3 = (op >> 18) & 7;
-  int val = (mips_->vfpuCtrl[VFPU_CTRL_CC] >> imm3) & 1;
-
   switch ((op >> 16) & 3)
   {
-  //case 0: if (!val) DelayBranchTo(addr); else PC += 4; break; //bvf
-  //case 1: if ( val) DelayBranchTo(addr); else PC += 4; break; //bvt
-  //case 2: if (!val) DelayBranchTo(addr); else PC += 8; break; //bvfl
-  //case 3: if ( val) DelayBranchTo(addr); else PC += 8; break; //bvtl
-    //TODO
-  }
-	*/
+	case 0:	BranchVFPUFlag(op, CC_NEQ, false); break;  // bvf
+	case 1: BranchVFPUFlag(op, CC_EQ,  false); break;  // bvt
+	case 2: BranchVFPUFlag(op, CC_NEQ, true);  break;  // bvfl
+	case 3: BranchVFPUFlag(op, CC_EQ,  true);  break;  // bvtl
+	}
 	js.compiling = false;
 }
 

@@ -285,19 +285,14 @@ void SettingsScreen::render() {
 	}
 	UICheckBox(GEN_ID, x, y += 45, "Hardware Transform", ALIGN_TOPLEFT, &g_Config.bHardwareTransform);
 
-	bool useFastInt = g_Config.iCpuCore == CPU_FASTINTERPRETER;
-	UICheckBox(GEN_ID, x, y += 45, "Slightly faster interpreter (may crash)", ALIGN_TOPLEFT, &useFastInt);
+	bool useJit = g_Config.iCpuCore == CPU_JIT;
+	UICheckBox(GEN_ID, x, y += 45, "Use Dynarec (JIT)", ALIGN_TOPLEFT, &useJit);
+	g_Config.iCpuCore = useJit ? CPU_JIT : CPU_INTERPRETER;
 	// ui_draw2d.DrawText(UBUNTU48, "much faster JIT coming later", x, y+=50, 0xcFFFFFFF, ALIGN_LEFT);
 	UICheckBox(GEN_ID, x, y += 45, "On-screen Touch Controls", ALIGN_TOPLEFT, &g_Config.bShowTouchControls);
 	if (g_Config.bShowTouchControls)
 		UICheckBox(GEN_ID, x + 50, y += 50, "Show Analog Stick", ALIGN_TOPLEFT, &g_Config.bShowAnalogStick);
-	g_Config.iCpuCore = useFastInt ? CPU_FASTINTERPRETER : CPU_INTERPRETER;
 
-	bool useJit = g_Config.iCpuCore == CPU_JIT;
-	UICheckBox(GEN_ID, x, y += 50, "Use JIT (very crashy)", ALIGN_TOPLEFT, &useJit);
-	if (useJit) {
-		g_Config.iCpuCore = CPU_JIT;
-	}
 	// UICheckBox(GEN_ID, x, y += 50, "Draw raw framebuffer (for some homebrew)", ALIGN_TOPLEFT, &g_Config.bDisplayFramebuffer);
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres-10), LARGE_BUTTON_WIDTH, "Back", ALIGN_RIGHT | ALIGN_BOTTOM)) {

@@ -45,7 +45,7 @@ void ArmRegCache::Start(MIPSAnalyst::AnalysisResults &stats) {
 static const ARMReg *GetMIPSAllocationOrder(int &count) {
 	// Note that R0 and R1 are reserved as scratch for now. We can probably free up R1 eventually.
 	static const ARMReg allocationOrder[] = {
-		R2, R3, R4, R5, R6, R7, R8, R9
+		R2, R3, R4, R5, R6, R7, R8
 	};
 	count = sizeof(allocationOrder) / sizeof(const int);
 	return allocationOrder;

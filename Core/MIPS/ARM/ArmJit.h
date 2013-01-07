@@ -88,7 +88,7 @@ public:
 	void Comp_mxc1(u32 op);
 
 	ArmJitBlockCache *GetBlockCache() { return &blocks; }
-	AsmRoutineManager &Asm() { return asm_; }
+	ArmAsmRoutineManager &Asm() { return asm_; }
 
 	void ClearCache();
 
@@ -103,6 +103,7 @@ private:
 
 	// Utility compilation functions
 	void BranchFPFlag(u32 op, ArmGen::CCFlags cc, bool likely);
+	void BranchVFPUFlag(u32 op, ArmGen::CCFlags cc, bool likely);
 	void BranchRSZeroComp(u32 op, ArmGen::CCFlags cc, bool likely);
 	void BranchRSRTComp(u32 op, ArmGen::CCFlags cc, bool likely);
 
@@ -123,7 +124,7 @@ private:
 	ArmRegCache gpr;
 	// FPURegCache fpr;
 
-	AsmRoutineManager asm_;
+	ArmAsmRoutineManager asm_;
 
 	MIPSState *mips_;
 };

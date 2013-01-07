@@ -38,16 +38,16 @@ public:
 	AsmRoutineManager()
 	{
 	}
+	~AsmRoutineManager()
+	{
+		FreeCodeSpace();
+	}
 
 	void Init(MIPSState *mips, MIPSComp::Jit *jit)
 	{
 		AllocCodeSpace(8192);
 		Generate(mips, jit);
 		WriteProtect();
-	}
-	~AsmRoutineManager()
-	{
-		FreeCodeSpace();
 	}
 
 	const u8 *enterCode;
