@@ -581,7 +581,7 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 	}
 
 	SceMpegAu avcAu;
-	Memory::ReadStruct(auAddr, &avcAu);
+	avcAu.read(auAddr);
 
 	SceMpegRingBuffer ringbuffer;
 	Memory::ReadStruct(ctx->mpegRingbufferAddr, &ringbuffer);
@@ -650,7 +650,7 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 	ctx->avc.avcDecodeResult = MPEG_AVC_DECODE_SUCCESS;
 
 	// Flush structs back to memory
-	Memory::WriteStruct(auAddr, &avcAu);
+	avcAu.write(auAddr);
 	Memory::WriteStruct(ctx->mpegRingbufferAddr, &ringbuffer);
 
 	Memory::Write_U32(ctx->avc.avcFrameStatus, initAddr);  // 1 = showing, 0 = not showing
@@ -731,7 +731,7 @@ int sceMpegInitAu(u32 mpeg, u32 bufferAddr, u32 auPointer)
 	DEBUG_LOG(HLE, "sceMpegInitAu(%08x, %i, %08x)", mpeg, bufferAddr, auPointer);
 
 	SceMpegAu sceAu;
-	Memory::ReadStruct(auPointer, &sceAu);
+	sceAu.read(auPointer);
 
 	if (bufferAddr >= 1 && bufferAddr <= NUM_ES_BUFFERS && ctx->esBuffers[bufferAddr - 1]) {
 		// This esbuffer has been allocated for Avc.
@@ -740,7 +740,7 @@ int sceMpegInitAu(u32 mpeg, u32 bufferAddr, u32 auPointer)
 		sceAu.dts = 0;
 		sceAu.pts = 0;
 
-		Memory::WriteStruct(auPointer, &sceAu);
+		sceAu.write(auPointer);
 	} else {
 		// This esbuffer has been left as Atrac.
 		sceAu.esBuffer = bufferAddr;
@@ -748,7 +748,7 @@ int sceMpegInitAu(u32 mpeg, u32 bufferAddr, u32 auPointer)
 		sceAu.pts = 0;
 		sceAu.dts = UNKNOWN_TIMESTAMP;
 
-		Memory::WriteStruct(auPointer, &sceAu);
+		sceAu.write(auPointer);
 	}
 	return 0;
 }
@@ -859,7 +859,7 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	Memory::ReadStruct(ctx->mpegRingbufferAddr, &mpegRingbuffer);
 
 	SceMpegAu sceAu;
-	Memory::ReadStruct(auAddr, &sceAu);
+	sceAu.read(auAddr);
 
 	if (mpegRingbuffer.packetsRead == 0) {
 		// delayThread(mpegErrorDecodeDelay)
@@ -888,10 +888,10 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		} else {
 			ctx->endOfAudioReached = false;
 		}
-
-		// The avcau struct may have been modified by mediaengine, write it back.
-		Memory::WriteStruct(auAddr, &sceAu);
 	}
+
+	// The avcau struct may have been modified by mediaengine, write it back.
+	sceAu.write(auAddr);
 
 	if (Memory::IsValidAddress(attrAddr)) {
 		Memory::Write_U32(1, attrAddr);
@@ -926,7 +926,7 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	Memory::ReadStruct(ctx->mpegRingbufferAddr, &mpegRingbuffer);
 
 	SceMpegAu sceAu;
-	Memory::ReadStruct(auAddr, &sceAu);
+	sceAu.read(auAddr);
 
 
 	//...
