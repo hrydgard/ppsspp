@@ -19,7 +19,6 @@
 #include <algorithm>
 
 #include "HLE.h"
-#include "Common/Action.h"
 #include "Common/FileUtil.h"
 #include "../Host.h"
 #include "../MIPS/MIPS.h"
@@ -161,7 +160,7 @@ public:
 	AfterModuleEntryCall() {}
 	SceUID moduleID_;
 	u32 retValAddr;
-	virtual void run();
+	virtual void run(MipsCall &call);
 	virtual void DoState(PointerWrap &p) {
 		p.Do(moduleID_);
 		p.Do(retValAddr);
@@ -172,7 +171,7 @@ public:
 	}
 };
 
-void AfterModuleEntryCall::run() {
+void AfterModuleEntryCall::run(MipsCall &call) {
 	Memory::Write_U32(retValAddr, currentMIPS->r[2]);
 }
 

@@ -140,7 +140,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="ABI.h" />
-    <ClInclude Include="Action.h" />
     <ClInclude Include="ArmABI.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -196,7 +195,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
-    <ClCompile Include="Action.cpp" />
     <ClCompile Include="ArmABI.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>

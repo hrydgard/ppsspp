@@ -22,7 +22,6 @@
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
 
-#include "Action.h"
 #include "sceKernel.h"
 #include "sceKernelThread.h"
 #include "sceKernelInterrupt.h"

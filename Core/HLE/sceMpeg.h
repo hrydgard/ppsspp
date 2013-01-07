@@ -19,6 +19,7 @@
 
 #include "../../Globals.h"
 #include "../../Common/ChunkFile.h"
+#include "../MIPS/MIPS.h"
 
 enum {
 	ERROR_MPEG_BAD_VERSION                              = 0x80610002,
@@ -57,6 +58,18 @@ struct SceMpegAu {
 	s64 dts;  // decode time stamp
 	u32 esBuffer;
 	u32 esSize;
+
+	void read(u32 addr) {
+		Memory::ReadStruct(addr, this);
+		pts = (pts & 0xFFFFFFFFULL) << 32 | (pts >> 32);
+		dts = (dts & 0xFFFFFFFFULL) << 32 | (dts >> 32);
+	}
+
+	void write(u32 addr) {
+		pts = (pts & 0xFFFFFFFFULL) << 32 | (pts >> 32);
+		dts = (dts & 0xFFFFFFFFULL) << 32 | (dts >> 32);
+		Memory::WriteStruct(addr, this);
+	}
 };
 
 const int videoTimestampStep = 3003;

@@ -221,6 +221,16 @@ struct MipsCall {
 	bool reschedAfter;
 
 	void DoState(PointerWrap &p);
+	void setReturnValue(u32 value);
+};
+
+class Action
+{
+public:
+	virtual ~Action() {}
+	virtual void run(MipsCall &call) = 0;
+	virtual void DoState(PointerWrap &p) = 0;
+	int actionTypeID;
 };
 
 enum ThreadStatus

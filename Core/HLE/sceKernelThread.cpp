@@ -26,7 +26,6 @@
 #include "../MIPS/MIPS.h"
 #include "../../Core/CoreTiming.h"
 #include "../../Core/MemMap.h"
-#include "../../Common/Action.h"
 
 #include "sceAudio.h"
 #include "sceKernel.h"
@@ -251,7 +250,7 @@ private:
 class ActionAfterMipsCall : public Action
 {
 public:
-	virtual void run();
+	virtual void run(MipsCall &call);
 
 	static Action *Create()
 	{
@@ -298,7 +297,7 @@ class ActionAfterCallback : public Action
 {
 public:
 	ActionAfterCallback() {}
-	virtual void run();
+	virtual void run(MipsCall &call);
 
 	static Action *Create()
 	{
@@ -543,6 +542,11 @@ void MipsCall::DoState(PointerWrap &p)
 			doAfter = __KernelCreateAction(actionTypeID);
 		doAfter->DoState(p);
 	}
+}
+
+void MipsCall::setReturnValue(u32 value)
+{
+	savedV0 = value;
 }
 
 // TODO: Should move to this wrapper so we can keep the current thread as a SceUID instead
@@ -1968,7 +1972,7 @@ void sceKernelReferCallbackStatus()
 	}
 }
 
-void ActionAfterMipsCall::run() {
+void ActionAfterMipsCall::run(MipsCall &call) {
 	u32 error;
 	Thread *thread = kernelObjects.Get<Thread>(threadID, error);
 	if (thread) {
@@ -1980,7 +1984,7 @@ void ActionAfterMipsCall::run() {
 	}
 
 	if (chainedAction) {
-		chainedAction->run();
+		chainedAction->run(call);
 		delete chainedAction;
 	}
 }
@@ -2013,7 +2017,7 @@ void Thread::setReturnValue(u32 retval)
 			int callId = this->currentCallbackId;
 			MipsCall *call = mipsCalls.get(callId);
 			if (call) {
-				call->savedV0 = retval;
+				call->setReturnValue(retval);
 			} else {
 				ERROR_LOG(HLE, "Failed to inject return value %08x in thread", retval);
 			}
@@ -2271,7 +2275,7 @@ void __KernelReturnFromMipsCall()
 	// Should also save/restore wait state here.
 	if (call->doAfter)
 	{
-		call->doAfter->run();
+		call->doAfter->run(*call);
 		delete call->doAfter;
 	}
 
@@ -2350,7 +2354,7 @@ void __KernelRunCallbackOnThread(SceUID cbId, Thread *thread, bool reschedAfter)
 	__KernelCallAddress(thread, cb->nc.entrypoint, action, false, args, reschedAfter);
 }
 
-void ActionAfterCallback::run() {
+void ActionAfterCallback::run(MipsCall &call) {
 	if (cbId != -1) {
 		u32 error;
 		Callback *cb = kernelObjects.Get<Callback>(cbId, error);
