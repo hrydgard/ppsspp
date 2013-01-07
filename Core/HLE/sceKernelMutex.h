@@ -17,21 +17,27 @@
 
 #pragma once
 
-void sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optionsPtr);
-void sceKernelDeleteMutex(SceUID id);
-void sceKernelLockMutex(SceUID id, int count, u32 timeoutPtr);
-void sceKernelLockMutexCB(SceUID id, int count, u32 timeoutPtr);
-void sceKernelTryLockMutex(SceUID id, int count);
-void sceKernelUnlockMutex(SceUID id, int count);
+int sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optionsPtr);
+int sceKernelDeleteMutex(SceUID id);
+int sceKernelLockMutex(SceUID id, int count, u32 timeoutPtr);
+int sceKernelLockMutexCB(SceUID id, int count, u32 timeoutPtr);
+int sceKernelTryLockMutex(SceUID id, int count);
+int sceKernelUnlockMutex(SceUID id, int count);
 
-void sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int initialCount, u32 optionsPtr);
-void sceKernelDeleteLwMutex(u32 workareaPtr);
-void sceKernelTryLockLwMutex(u32 workareaPtr, int count);
-void sceKernelTryLockLwMutex_600(u32 workareaPtr, int count);
-void sceKernelLockLwMutex(u32 workareaPtr, int count, u32 timeoutPtr);
-void sceKernelLockLwMutexCB(u32 workareaPtr, int count, u32 timeoutPtr);
-void sceKernelUnlockLwMutex(u32 workareaPtr, int count);
+int sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int initialCount, u32 optionsPtr);
+int sceKernelDeleteLwMutex(u32 workareaPtr);
+int sceKernelTryLockLwMutex(u32 workareaPtr, int count);
+int sceKernelTryLockLwMutex_600(u32 workareaPtr, int count);
+int sceKernelLockLwMutex(u32 workareaPtr, int count, u32 timeoutPtr);
+int sceKernelLockLwMutexCB(u32 workareaPtr, int count, u32 timeoutPtr);
+int sceKernelUnlockLwMutex(u32 workareaPtr, int count);
 
 void __KernelMutexTimeout(u64 userdata, int cyclesLate);
 void __KernelLwMutexTimeout(u64 userdata, int cyclesLate);
 void __KernelMutexThreadEnd(SceUID thread);
+
+void __KernelMutexInit();
+void __KernelMutexDoState(PointerWrap &p);
+void __KernelMutexShutdown();
+KernelObject *__KernelMutexObject();
+KernelObject *__KernelLwMutexObject();

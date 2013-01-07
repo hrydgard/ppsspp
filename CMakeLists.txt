@@ -18,7 +18,7 @@ if(BLACKBERRY)
 	set(ARM ON)
 endif()
 
-if (ARM)
+if(ARM)
 	set(USING_GLES2 ON)
 else() # Assume x86
 	set(X86 ON)
@@ -37,6 +37,7 @@ option(ANDROID "Set to ON if targeting an Android device" ${ANDROID})
 option(BLACKBERRY "Set to ON if targeting a Blackberry device" ${BLACKBERRY})
 option(IOS "Set to ON if targeting an iOS device" ${IOS})
 option(USING_GLES2 "Set to ON if target device uses OpenGL ES 2.0" ${USING_GLES2})
+option(USING_QT_UI "Set to ON if you wish to use the Qt frontend wrapper" ${USING_QT_UI})
 option(HEADLESS "Set to OFF to not generate the PPSSPPHeadless target" ${HEADLESS})
 option(DEBUG "Set to ON to enable full debug logging" ${DEBUG})
 
@@ -98,7 +99,7 @@ endif()
 if(ARM)
 	add_definitions(-DARM)
 endif()
-if (USING_GLES2)
+if(USING_GLES2)
 	add_definitions(-DUSING_GLES2)
 endif()
 
@@ -108,6 +109,7 @@ endif()
 
 if(NOT MSVC)
 	# Disable some warnings
+	add_definitions(-O2)
 	add_definitions(-Wno-multichar)
 	add_definitions(-fno-strict-aliasing)
 	if(NOT APPLE)
@@ -192,8 +194,6 @@ endif()
 
 add_library(Common STATIC
 	${CommonExtra}
-	Common/Action.cpp
-	Common/Action.h
 	Common/ColorUtil.cpp
 	Common/ColorUtil.h
 	Common/ConsoleListener.cpp
@@ -271,6 +271,17 @@ add_library(zlib STATIC
 	ext/zlib/zutil.h
 )
 include_directories(ext/zlib)
+
+add_library(snappy STATIC
+	ext/snappy/snappy-c.cpp
+	ext/snappy/snappy-internal.h
+	ext/snappy/snappy-sinksource.h
+	ext/snappy/snappy-stubs-internal.h
+	ext/snappy/snappy-stubs-public.h
+	ext/snappy/snappy.cpp
+	ext/snappy/snappy.h
+)
+include_directories(ext/snappy)
 
 add_library(etcpack STATIC
 	native/ext/etcpack/etcdec.cpp
@@ -386,12 +397,20 @@ if(ANDROID)
 		native/android/native-audio-so.h)
 	target_link_libraries(native_audio OpenSLES)
 	# No target
+elseif(USING_QT_UI)
+	# Currently unused
+	find_package(Qt4 COMPONENTS QtMultimedia QtOpenGL QtGui QtCore)
+	include(${QT_USE_FILE})
+	qt4_wrap_cpp(nativeQtHeader native/base/QtMain.h)
+	set(nativeExtra ${nativeExtra} native/base/QtMain.cpp ${nativeQtHeader})
+	set(nativeExtraLibs ${nativeExtraLibs} ${QT_LIBRARIES})
+	set(TargetBin PPSSPPQt)
 elseif(BLACKBERRY)
 	set(nativeExtra ${nativeExtra} native/base/BlackberryMain.cpp)
 	set(nativeExtraLibs ${nativeExtraLibs} asound bps screen socket EGL)
 	set(TargetBin PPSSPPBlackberry)
 elseif(SDL_FOUND)
-# Require SDL
+	# Require SDL
 	include_directories(${SDL_INCLUDE_DIR})
 	set(nativeExtra ${nativeExtra} native/base/PCMain.cpp)
 	set(nativeExtraLibs ${nativeExtraLibs} ${SDL_LIBRARY})
@@ -526,6 +545,8 @@ add_library(native STATIC
 	native/util/random/perlin.cpp
 	native/util/random/perlin.h
 	native/util/random/rng.h
+	native/util/text/utf8.h
+	native/util/text/utf8.cpp
 	native/ext/rapidxml/rapidxml.hpp
 	native/ext/rapidxml/rapidxml_iterators.hpp
 	native/ext/rapidxml/rapidxml_print.hpp
@@ -534,7 +555,7 @@ include_directories(native)
 # rapidxml is headers only so we can't make a lib specific for it
 include_directories(native/ext/rapidxml)
 target_link_libraries(native ${LIBZIP} etcpack sha1 stb_image stb_vorbis #vjson
-	zlib ${GLEW_LIBRARIES})
+	zlib snappy ${GLEW_LIBRARIES})
 if(ANDROID)
 	target_link_libraries(native log)
 endif()
@@ -606,6 +627,18 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Debugger/DebugInterface.h
 	Core/Debugger/SymbolMap.cpp
 	Core/Debugger/SymbolMap.h
+	Core/Dialog/PSPDialog.cpp
+	Core/Dialog/PSPDialog.h
+	Core/Dialog/PSPMsgDialog.cpp
+	Core/Dialog/PSPMsgDialog.h
+	Core/Dialog/PSPOskDialog.cpp
+	Core/Dialog/PSPOskDialog.h
+	Core/Dialog/PSPPlaceholderDialog.cpp
+	Core/Dialog/PSPPlaceholderDialog.h
+	Core/Dialog/PSPSaveDialog.cpp
+	Core/Dialog/PSPSaveDialog.h
+	Core/Dialog/SavedataParam.cpp
+	Core/Dialog/SavedataParam.h
 	Core/ELF/ElfReader.cpp
 	Core/ELF/ElfReader.h
 	Core/ELF/ElfTypes.h
@@ -697,16 +730,20 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceSas.h
 	Core/HLE/sceSsl.cpp
 	Core/HLE/sceSsl.h
-	Core/HLE/scesupPreAcc.cpp
-	Core/HLE/scesupPreAcc.h
 	Core/HLE/sceUmd.cpp
 	Core/HLE/sceUmd.h
+	Core/HLE/sceUsb.cpp
+	Core/HLE/sceUsb.h
 	Core/HLE/sceUtility.cpp
 	Core/HLE/sceUtility.h
 	Core/HLE/sceVaudio.cpp
 	Core/HLE/sceVaudio.h
+	Core/HW/MediaEngine.cpp
+	Core/HW/MediaEngine.h
 	Core/HW/MemoryStick.cpp
 	Core/HW/MemoryStick.h
+	Core/HW/SasAudio.cpp
+	Core/HW/SasAudio.h
 	Core/Host.cpp
 	Core/Host.h
 	Core/Loaders.cpp
@@ -740,6 +777,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/PSPLoaders.h
 	Core/PSPMixer.cpp
 	Core/PSPMixer.h
+	Core/SaveState.cpp
+	Core/SaveState.h
 	Core/System.cpp
 	Core/System.h
 	Core/Util/BlockAllocator.cpp
@@ -762,6 +801,8 @@ add_library(GPU OBJECT
 	GPU/GLES/FragmentShaderGenerator.h
 	GPU/GLES/Framebuffer.cpp
 	GPU/GLES/Framebuffer.h
+	GPU/GLES/IndexGenerator.cpp
+	GPU/GLES/IndexGenerator.h
 	GPU/GLES/ShaderManager.cpp
 	GPU/GLES/ShaderManager.h
 	GPU/GLES/StateMapping.cpp
@@ -775,12 +816,14 @@ add_library(GPU OBJECT
 	GPU/GLES/VertexShaderGenerator.cpp
 	GPU/GLES/VertexShaderGenerator.h
 	GPU/GPUInterface.h
+	GPU/GeDisasm.cpp
+	GPU/GeDisasm.h
+	GPU/GPUCommon.cpp
+	GPU/GPUCommon.h
 	GPU/GPUState.cpp
 	GPU/GPUState.h
 	GPU/Math3D.cpp
 	GPU/Math3D.h
-#	GPU/Null/NullDisplayListInterpreter.cpp
-#	GPU/Null/NullDisplayListInterpreter.h
 	GPU/Null/NullGpu.cpp
 	GPU/Null/NullGpu.h
 	GPU/ge_constants.h)
@@ -855,7 +898,7 @@ if(WIN32)
 endif()
 
 if(HEADLESS)
-	add_executable(PPSSPPHeadless headless/Headless.cpp)
+	add_executable(PPSSPPHeadless headless/Headless.cpp headless/StubHost.h)
 	target_link_libraries(PPSSPPHeadless ${CoreLibName}
 		${COCOA_LIBRARY} ${CMAKE_THREAD_LIBS_INIT})
 	setup_target_project(PPSSPPHeadless headless)
@@ -867,11 +910,11 @@ set(NativeAppSource
 	android/jni/MenuScreens.cpp
 	android/jni/GamepadEmu.cpp
 	android/jni/UIShader.cpp
-	android/jni/ui_atlas.cpp
-	android/jni/ArmEmitterTest.cpp)
-set(AndroidAssets
+	android/jni/ArmEmitterTest.cpp
+	android/jni/ui_atlas.cpp)
+set(NativeAssets
 	android/assets/ui_atlas.zim
-	android/assets/ppge_atlas.zim)
+	assets/ppge_atlas.zim)
 set(LinkCommon ${CoreLibName} ${CMAKE_THREAD_LIBS_INIT} ${nativeExtraLibs})
 
 if (TargetBin)
@@ -879,6 +922,6 @@ if (TargetBin)
 	target_link_libraries(${TargetBin} ${LinkCommon})
 endif()
 
-file(INSTALL ${AndroidAssets} DESTINATION assets)
+file(INSTALL ${NativeAssets} DESTINATION assets)
 
 #include(CPack)

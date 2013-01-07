@@ -94,8 +94,10 @@ public:
 
 	JitBlockCache *GetBlockCache() { return &blocks; }
 	AsmRoutineManager &Asm() { return asm_; }
-private:
+
 	void ClearCache();
+
+private:
 	void FlushAll();
 
 	void DoDownCount();

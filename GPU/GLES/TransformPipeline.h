@@ -17,4 +17,80 @@
 
 #pragma once
 
-struct LinkedShader;
+#include "IndexGenerator.h"
+#include "VertexDecoder.h"
+
+class LinkedShader;
+class ShaderManager;
+struct DecVtxFormat;
+
+// Handles transform, lighting and drawing.
+class TransformDrawEngine {
+public:
+	TransformDrawEngine();
+	~TransformDrawEngine();
+	void SubmitPrim(void *verts, void *inds, int prim, int vertexCount, u32 vertexType, int forceIndexType, int *bytesRead);
+	void DrawBezier(int ucount, int vcount);
+	void DrawSpline(int ucount, int vcount, int utype, int vtype);
+	void Flush();
+	void SetShaderManager(ShaderManager *shaderManager) {
+		shaderManager_ = shaderManager;
+	}
+
+private:
+	void SoftwareTransformAndDraw(int prim, u8 *decoded, LinkedShader *program, int vertexCount, u32 vertexType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex);
+
+	// Vertex collector state
+	IndexGenerator indexGen;
+	int numVerts;
+
+	// Vertex collector buffers
+	VertexDecoder dec;
+	u32 lastVType;
+	u8 *decoded;
+	u16 *decIndex;
+
+	TransformedVertex *transformed;
+	TransformedVertex *transformedExpanded;
+
+	// Other
+	ShaderManager *shaderManager_;
+};
+
+// Only used by SW transform
+struct Color4 {
+	float r, g, b, a;
+
+	Color4() : r(0), g(0), b(0), a(0) { }
+	Color4(float _r, float _g, float _b, float _a=1.0f)
+		: r(_r), g(_g), b(_b), a(_a) {
+	}
+	Color4(const float in[4]) {r=in[0];g=in[1];b=in[2];a=in[3];}
+	Color4(const float in[3], float alpha) {r=in[0];g=in[1];b=in[2];a=alpha;}
+
+	const float &operator [](int i) const {return *(&r + i);}
+
+	Color4 operator *(float f) const {
+		return Color4(f*r,f*g,f*b,f*a);
+	}
+	Color4 operator *(const Color4 &c) const {
+		return Color4(r*c.r,g*c.g,b*c.b,a*c.a);
+	}
+	Color4 operator +(const Color4 &c) const {
+		return Color4(r+c.r,g+c.g,b+c.b,a+c.a);
+	}
+	void operator +=(const Color4 &c) {
+		r+=c.r;
+		g+=c.g;
+		b+=c.b;
+		a+=c.a;
+	}
+	void GetFromRGB(u32 col) {
+		r = ((col>>16) & 0xff)/255.0f;
+		g = ((col>>8) & 0xff)/255.0f;
+		b = ((col>>0) & 0xff)/255.0f;
+	}
+	void GetFromA(u32 col) {
+		a = (col&0xff)/255.0f;
+	}
+};

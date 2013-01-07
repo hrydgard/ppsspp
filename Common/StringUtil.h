@@ -129,4 +129,6 @@ std::string ReplaceAll(std::string result, const std::string& src, const std::st
 std::string UriDecode(const std::string & sSrc);
 std::string UriEncode(const std::string & sSrc);
 
+bool StringEndsWith(std::string const &fullString, std::string const &ending);
+
 #endif // _STRINGUTIL_H_

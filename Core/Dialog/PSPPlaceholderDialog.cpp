@@ -15,17 +15,36 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#pragma once
+#include "PSPPlaceholderDialog.h"
 
-#include "../../Globals.h"
+PSPPlaceholderDialog::PSPPlaceholderDialog() : PSPDialog() {
 
-class ShaderManager;
+}
 
-class GPU
+PSPPlaceholderDialog::~PSPPlaceholderDialog() {
+}
+
+
+int PSPPlaceholderDialog::Init()
 {
-public:
-	static u32 EnqueueList(u32 listpc, u32 stall);
-	static void UpdateStall(int listid, u32 newstall);
-	static void ExecuteOp(u32 op, u32 diff);
-	static bool InterpretList();
-};
+	status = SCE_UTILITY_STATUS_INITIALIZE;
+	return 0;
+}
+
+int PSPPlaceholderDialog::Update()
+{
+	//__UtilityUpdate();
+	if (status == SCE_UTILITY_STATUS_INITIALIZE)
+	{
+		status = SCE_UTILITY_STATUS_RUNNING;
+	}
+	else if (status == SCE_UTILITY_STATUS_RUNNING)
+	{
+		status = SCE_UTILITY_STATUS_FINISHED;
+	}
+	else if (status == SCE_UTILITY_STATUS_FINISHED)
+	{
+		status = SCE_UTILITY_STATUS_SHUTDOWN;
+	}
+	return 0;
+}

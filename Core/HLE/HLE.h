@@ -73,8 +73,21 @@ int GetModuleIndex(const char *modulename);
 
 void RegisterModule(const char *name, int numFunctions, const HLEFunction *funcTable);
 
+// Run the current thread's callbacks after the syscall finishes.
+void hleCheckCurrentCallbacks();
+// Check and potentially run all thread's callbacks after the syscall finishes.
+void hleCheckAllCallbacks();
+// Reschedule after the syscall finishes.
+void hleReSchedule(const char *reason);
+// Reschedule and go into a callback processing state after the syscall finishes.
+void hleReSchedule(bool callbacks, const char *reason);
+// Run interrupts after the syscall finishes.
+void hleRunInterrupts();
+// Pause emulation after the syscall finishes.
+void hleDebugBreak();
 
 void HLEInit();
+void HLEDoState(PointerWrap &p);
 void HLEShutdown();
 u32 GetNibByName(const char *module, const char *function);
 u32 GetSyscallOp(const char *module, u32 nib);
@@ -82,7 +95,3 @@ void WriteSyscall(const char *module, u32 nib, u32 address);
 void CallSyscall(u32 op);
 void ResolveSyscall(const char *moduleName, u32 nib, u32 address);
 
-// Need to be able to save entire kernel state
-int GetStateSize();
-void SaveState(u8 *ptr);
-void LoadState(const u8 *ptr);

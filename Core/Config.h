@@ -32,27 +32,42 @@ public:
 	CConfig();
 	~CConfig();
 
-	// Many of these are currently broken.
-	bool bEnableSound;
-	bool bAutoLoadLast;
+	// Whether to save the config on close.
 	bool bSaveSettings;
+
+	// These are broken
+	bool bAutoLoadLast;
 	bool bFirstRun;
-	bool bAutoRun;
 	bool bSpeedLimit;
 	bool bConfirmOnQuit;
-	bool bIgnoreBadMemAccess;
-	bool bDisplayFramebuffer;
-	bool bBufferedRendering;
+	bool bAutoRun;  // start immediately
 
+	// Core
+	bool bIgnoreBadMemAccess;
+	bool bFastMemory;
+	int iCpuCore;
+
+	// GFX
+	bool bDisplayFramebuffer;
+	bool bHardwareTransform;
+	bool bBufferedRendering;
+	bool bDrawWireframe;
+	bool bLinearFiltering;
+	int iWindowZoom;  // for Windows
+
+	// Sound
+	bool bEnableSound;
+
+	// UI
 	bool bShowTouchControls;
 	bool bShowDebuggerOnLoad;
 	bool bShowAnalogStick;
 	bool bShowFPSCounter;
 	bool bShowDebugStats;
-	int iWindowZoom;  // for Windows
-	int iCpuCore;
 
 	std::string currentDirectory;
+	std::string memCardDirectory;
+	std::string flashDirectory;
 
 	void Load(const char *iniFileName = "ppsspp.ini");
 	void Save();

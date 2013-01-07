@@ -22,6 +22,7 @@
 // Easy interface for sceAudio to write to, to keep the complexity in check.
 
 void __AudioInit();
+void __AudioDoState(PointerWrap &p);
 void __AudioUpdate();
 void __AudioShutdown();
 void __AudioSetOutputFrequency(int freq);

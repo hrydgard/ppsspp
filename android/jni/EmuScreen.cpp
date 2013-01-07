@@ -29,9 +29,8 @@
 #include "../../Core/Host.h"
 #include "../../Core/System.h"
 #include "../../Core/MIPS/MIPS.h"
-#include "../../GPU/GLES/TextureCache.h"
-#include "../../GPU/GLES/ShaderManager.h"
 #include "../../GPU/GPUState.h"
+#include "../../GPU/GPUInterface.h"
 #include "../../Core/HLE/sceCtrl.h"
 
 #include "GamepadEmu.h"
@@ -39,8 +38,6 @@
 
 #include "MenuScreens.h"
 #include "EmuScreen.h"
-
-extern ShaderManager shaderManager;
 
 EmuScreen::EmuScreen(const std::string &filename) : invalid_(true)
 {
@@ -62,13 +59,15 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true)
 	coreParam.enableDebugging = false;
 	coreParam.printfEmuLog = false;
 	coreParam.headLess = false;
-	coreParam.renderWidth = 480;
-	coreParam.renderHeight = 272;
+	if (g_Config.iWindowZoom < 1 || g_Config.iWindowZoom > 2)
+		g_Config.iWindowZoom = 1;
+	coreParam.renderWidth = 480 * g_Config.iWindowZoom;
+	coreParam.renderHeight = 272 * g_Config.iWindowZoom;
 	coreParam.outputWidth = dp_xres;
 	coreParam.outputHeight = dp_yres;
 	coreParam.pixelWidth = pixel_xres;
 	coreParam.pixelHeight = pixel_yres;
-
+	coreParam.useMediaEngine = false;
 	std::string error_string;
 	if (PSP_Init(coreParam, &error_string)) {
 		invalid_ = false;
@@ -82,7 +81,6 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true)
 	LayoutGamepad(dp_xres, dp_yres);
 
 	NOTICE_LOG(BOOT, "Loading %s...", fileToStart.c_str());
-	coreState = CORE_RUNNING;
 }
 
 EmuScreen::~EmuScreen()
@@ -112,6 +110,7 @@ void EmuScreen::update(InputState &input)
 
 	if (invalid_)
 		return;
+
 	// First translate touches into pad input.
 	UpdateGamepad(input);
 	UpdateInputState(&input);
@@ -120,8 +119,8 @@ void EmuScreen::update(InputState &input)
 
 	static const int mapping[12][2] = {
 		{PAD_BUTTON_A, CTRL_CROSS},
-		{PAD_BUTTON_B, CTRL_SQUARE},
-		{PAD_BUTTON_X, CTRL_CIRCLE},
+		{PAD_BUTTON_B, CTRL_CIRCLE},
+		{PAD_BUTTON_X, CTRL_SQUARE},
 		{PAD_BUTTON_Y, CTRL_TRIANGLE},
 		{PAD_BUTTON_UP, CTRL_UP},
 		{PAD_BUTTON_DOWN, CTRL_DOWN},
@@ -130,15 +129,18 @@ void EmuScreen::update(InputState &input)
 		{PAD_BUTTON_LBUMPER, CTRL_LTRIGGER},
 		{PAD_BUTTON_RBUMPER, CTRL_RTRIGGER},
 		{PAD_BUTTON_START, CTRL_START},
-		{PAD_BUTTON_BACK, CTRL_SELECT},
+		{PAD_BUTTON_SELECT, CTRL_SELECT},
 	};
 
 	for (int i = 0; i < 12; i++) {
-		if (input.pad_buttons_down & mapping[i][0])
+		if (input.pad_buttons_down & mapping[i][0]) {
 			__CtrlButtonDown(mapping[i][1]);
-		if (input.pad_buttons_up & mapping[i][0])
+		}
+		if (input.pad_buttons_up & mapping[i][0]) {
 			__CtrlButtonUp(mapping[i][1]);
+		}
 	}
+	__CtrlSetAnalog(input.pad_lstick_x, input.pad_lstick_y);
 
 	if (input.pad_buttons_down & (PAD_BUTTON_MENU | PAD_BUTTON_BACK)) {
 		fbo_unbind();
@@ -175,11 +177,11 @@ void EmuScreen::render()
 
 	uiTexture->Bind(0);
 
-	glViewport(0, 0, pixel_xres, pixel_yres);
+	glstate.viewport.set(0, 0, pixel_xres, pixel_yres);
+	glstate.viewport.restore();
 
 	ui_draw2d.Begin(DBMODE_NORMAL);
 
-	// Make this configurable.
 	if (g_Config.bShowTouchControls)
 		DrawGamepad(ui_draw2d);
 
@@ -201,6 +203,5 @@ void EmuScreen::render()
 
 void EmuScreen::deviceLost()
 {
-	TextureCache_Clear(false);  // This doesn't seem to help?
-	shaderManager.ClearCache(false);
+	gpu->DeviceLost();
 }

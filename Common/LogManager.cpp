@@ -22,6 +22,9 @@
 #include "Timer.h"
 #include "Thread.h"
 #include "FileUtil.h"
+#ifdef __SYMBIAN32__
+#include <e32debug.h>
+#endif
 
 void GenericLog(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, 
 		const char *file, int line, const char* fmt, ...)
@@ -53,17 +56,21 @@ LogManager::LogManager()
 	m_Log[LogTypes::INTC]       = new LogContainer("INTC",			"Interrupts");
 	m_Log[LogTypes::MEMMAP]     = new LogContainer("MM",		"Memory Map");
 	m_Log[LogTypes::SOUND]      = new LogContainer("SND",			"Sound");
+	m_Log[LogTypes::SAS]        = new LogContainer("SAS",			"Sound Mixer (Sas)");
 	m_Log[LogTypes::HLE]        = new LogContainer("HLE",			"HLE");
 	m_Log[LogTypes::TIMER]      = new LogContainer("TMR",			"Timer");
 	m_Log[LogTypes::VIDEO]      = new LogContainer("VID",			"Video");
 	m_Log[LogTypes::DYNA_REC]   = new LogContainer("Jit",			"JIT compiler");
 	m_Log[LogTypes::NETPLAY]    = new LogContainer("NET",			"Net play");
+  m_Log[LogTypes::ME]    = new LogContainer("ME",			"Media Engine");
 
 	// Remove file logging on small devices
 #if !defined(ANDROID) && !defined(IOS) && !defined(BLACKBERRY)
 	m_fileLog = new FileLogListener(File::GetUserPath(F_MAINLOG_IDX).c_str());
 	m_consoleLog = new ConsoleListener();
 	m_debuggerLog = new DebuggerLogListener();
+#else
+	m_fileLog = NULL;
 #endif
 
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; ++i)
@@ -84,8 +91,9 @@ LogManager::~LogManager()
 {
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; ++i)
 	{
+		if (m_fileLog != NULL)
+			m_logManager->RemoveListener((LogTypes::LOG_TYPE)i, m_fileLog);
 #if !defined(ANDROID) && !defined(IOS) && !defined(BLACKBERRY)
-		m_logManager->RemoveListener((LogTypes::LOG_TYPE)i, m_fileLog);
 		m_logManager->RemoveListener((LogTypes::LOG_TYPE)i, m_consoleLog);
 		m_logManager->RemoveListener((LogTypes::LOG_TYPE)i, m_debuggerLog);
 #endif
@@ -93,10 +101,28 @@ LogManager::~LogManager()
 
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; ++i)
 		delete m_Log[i];
+	if (m_fileLog != NULL)
+		delete m_fileLog;
 #if !defined(ANDROID) && !defined(IOS) && !defined(BLACKBERRY)
-	delete m_fileLog;
 	delete m_consoleLog;
 #endif
+}
+
+void LogManager::ChangeFileLog(const char *filename)
+{
+	if (m_fileLog != NULL)
+	{
+		for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; ++i)
+			m_logManager->RemoveListener((LogTypes::LOG_TYPE)i, m_fileLog);
+		delete m_fileLog;
+	}
+
+	if (filename != NULL)
+	{
+		m_fileLog = new FileLogListener(filename);
+		for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; ++i)
+			m_Log[i]->AddListener(m_fileLog);
+	}
 }
 
 void LogManager::SaveConfig(IniFile::Section *section)
@@ -134,7 +160,7 @@ void LogManager::Log(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const 
 	static const char level_to_char[7] = "-NEWID";
 	char formattedTime[13];
 	Common::Timer::GetTimeFormatted(formattedTime);
-	sprintf(msg, "%s %s:%u %c[%s]: %s\n",
+	sprintf(msg, "%s %s:%d %c[%s]: %s\n",
 		formattedTime,
 		file, line, level_to_char[(int)level],
 		log->GetShortName(), temp);
@@ -197,7 +223,11 @@ void FileLogListener::Log(LogTypes::LOG_LEVELS, const char *msg)
 		return;
 
 	std::lock_guard<std::mutex> lk(m_log_lock);
+#ifdef __SYMBIAN32__
+	RDebug::Printf("%s",msg);
+#else
 	m_logfile << msg << std::flush;
+#endif
 }
 
 void DebuggerLogListener::Log(LogTypes::LOG_LEVELS, const char *msg)

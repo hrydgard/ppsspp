@@ -40,6 +40,7 @@
 #include "../../Core/PSPMixer.h"
 #include "../../Core/CPU.h"
 #include "../../Core/Config.h"
+#include "../../Core/HLE/sceCtrl.h"
 #include "../../Core/Host.h"
 #include "../../Common/MemArena.h"
 
@@ -54,6 +55,7 @@ Texture *uiTexture;
 
 ScreenManager *screenManager;
 std::string config_filename;
+std::string game_title;
 
 class AndroidLogger : public LogListener
 {
@@ -113,6 +115,9 @@ public:
 	virtual bool AttemptLoadSymbolMap() {return false;}
 	virtual void ResetSymbolMap() {}
 	virtual void AddSymbol(std::string name, u32 addr, u32 size, int type=0) {}
+	virtual void SetWindowTitle(const char *message) {
+		game_title = message;
+	}
 };
 
 // globals
@@ -135,7 +140,7 @@ void NativeMix(short *audio, int num_samples)
 {
 	if (g_mixer)
 	{
-		g_mixer->Mix(audio, num_samples/2);
+		g_mixer->Mix(audio, num_samples);
 	}
 	else
 	{
@@ -173,6 +178,12 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	LogManager *logman = LogManager::GetInstance();
 	ILOG("Logman: %p", logman);
 
+	config_filename = user_data_path + "ppsspp.ini";
+
+	g_Config.Load(config_filename.c_str());
+
+	const char *fileToLog = 0;
+
 	bool gfxLog = false;
 	// Parse command line
 	LogTypes::LOG_LEVELS logLevel = LogTypes::LINFO;
@@ -188,9 +199,19 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 				break;
 			case 'j':
 				g_Config.iCpuCore = CPU_JIT;
+				g_Config.bSaveSettings = false;
+				break;
+			case 'f':
+				g_Config.iCpuCore = CPU_FASTINTERPRETER;
+				g_Config.bSaveSettings = false;
 				break;
 			case 'i':
 				g_Config.iCpuCore = CPU_INTERPRETER;
+				g_Config.bSaveSettings = false;
+				break;
+			case '-':
+				if (!strncmp(argv[i], "--log=", strlen("--log=")) && strlen(argv[i]) > strlen("--log="))
+					fileToLog = argv[i] + strlen("--log=");
 				break;
 			}
 		} else {
@@ -208,17 +229,30 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 		}
 	}
 
-	config_filename = user_data_path + "ppsspp.ini";
-
-	g_Config.Load(config_filename.c_str());
+	if (fileToLog != NULL)
+		LogManager::GetInstance()->ChangeFileLog(fileToLog);
 
 	if (g_Config.currentDirectory == "") {
-#if defined(ANDROID) || defined(BLACKBERRY)
+#if defined(ANDROID) || defined(BLACKBERRY) || defined(__SYMBIAN32__)
 		g_Config.currentDirectory = external_directory;
 #else
 		g_Config.currentDirectory = getenv("HOME");
 #endif
 	}
+
+#if defined(ANDROID)
+	// Maybe there should be an option to use internal memory instead, but I think
+	// that for most people, using external memory (SDCard/USB Storage) makes the
+	// most sense.
+	g_Config.memCardDirectory = std::string(external_directory) + "/";
+	g_Config.flashDirectory = std::string(external_directory)+"/flash/";
+#elif defined(BLACKBERRY) || defined(__SYMBIAN32__)
+	g_Config.memCardDirectory = user_data_path;
+	g_Config.flashDirectory = user_data_path+"/flash/";
+#else
+	g_Config.memCardDirectory = std::string(getenv("HOME"))+"/.ppsspp/";
+	g_Config.flashDirectory = g_Config.memCardDirectory+"/flash/";
+#endif
 
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++)
 	{

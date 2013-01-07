@@ -362,12 +362,8 @@ void JitBlockCache::DestroyBlock(int block_num, bool invalidate)
 		return;
 	}
 	b.invalid = true;
-#ifdef JIT_UNLIMITED_ICACHE
-	Memory::Write_Opcode_JIT(b.originalAddress, b.originalFirstOpcode?b.originalFirstOpcode:JIT_ICACHE_INVALID_WORD);
-#else
-	if ((int)Memory::ReadUnchecked_U32(b.originalAddress) == block_num)
+	if ((int)Memory::ReadUnchecked_U32(b.originalAddress) == (MIPS_EMUHACK_OPCODE | block_num))
 		Memory::WriteUnchecked_U32(b.originalFirstOpcode, b.originalAddress);
-#endif
 
 	UnlinkBlock(block_num);
 

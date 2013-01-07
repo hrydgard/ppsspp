@@ -62,7 +62,7 @@ void Jit()
 
 void ImHere()
 {
-	DEBUG_LOG(CPU, "I'm Here: %08x", currentMIPS->pc);
+	DEBUG_LOG(CPU, "JIT Here: %08x", currentMIPS->pc);
 }
 
 void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
@@ -78,31 +78,23 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 	outerLoop = GetCodePtr();
 		ABI_CallFunction(reinterpret_cast<void *>(&CoreTiming::Advance));
 		FixupBranch skipToRealDispatch = J(); //skip the sync and compare first time
-	 
+
+		dispatcherCheckCoreState = GetCodePtr();
+
+		CMP(32, M((void*)&coreState), Imm32(0));
+		FixupBranch badCoreState = J_CC(CC_NZ, true);
+
 		dispatcher = GetCodePtr();
 			// The result of slice decrementation should be in flags if somebody jumped here
 			// IMPORTANT - We jump on negative, not carry!!!
 			FixupBranch bail = J_CC(CC_BE, true);
-			/*
-			if (Core::g_CoreStartupParameter.bEnableDebugging)
-			{
-				TEST(32, M((void*)PowerPC::GetStatePtr()), Imm32(PowerPC::CPU_STEPPING));
-				FixupBranch notStepping = J_CC(CC_Z);
-				ABI_CallFunction(reinterpret_cast<void *>(&PowerPC::CheckBreakPoints));
-				TEST(32, M((void*)PowerPC::GetStatePtr()), Imm32(0xFFFFFFFF));
-				FixupBranch noBreakpoint = J_CC(CC_Z);
-				ABI_PopAllCalleeSavedRegsAndAdjustStack();
-				RET();
-				SetJumpTarget(noBreakpoint);
-				SetJumpTarget(notStepping);
-			}*/
 
 			SetJumpTarget(skipToRealDispatch);
 
 			dispatcherNoCheck = GetCodePtr();
 
 			// Debug
-			//CALL(&ImHere);
+			// CALL(&ImHere);
 
 			MOV(32, R(EAX), M(&mips->pc));
 #ifdef _M_IX86
@@ -144,10 +136,11 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 			JMP(dispatcherNoCheck); // Let's just dispatch again, we'll enter the block since we know it's there.
 
 		SetJumpTarget(bail);
-		
-		CMP(32, M((void*)&coreState), Imm8(0));
+
+		CMP(32, M((void*)&coreState), Imm32(0));
 		J_CC(CC_Z, outerLoop, true);
 
+	SetJumpTarget(badCoreState);
 	//Landing pad for drec space
 	ABI_PopAllCalleeSavedRegsAndAdjustStack();
 	RET();

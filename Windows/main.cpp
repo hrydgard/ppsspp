@@ -21,6 +21,8 @@
 #include "file/zip_read.h"
 
 #include "../Core/Config.h"
+#include "../Core/SaveState.h"
+#include "EmuThread.h"
 
 #include "LogManager.h"
 #include "ConsoleListener.h"
@@ -50,22 +52,73 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 {
 	Common::EnableCrashingOnCrashes();
 
-	char *token = szCmdLine;
-	char fileToLoad[256] = "";
+	const char *fileToStart = NULL;
+	const char *fileToLog = NULL;
+	const char *stateToLoad = NULL;
+	bool hideLog = true;
 
-	token = strtok(szCmdLine," ");
+#ifdef _DEBUG
+	hideLog = false;
+#endif
 
 	g_Config.Load();
+	VFSRegister("", new DirectoryAssetReader("assets/"));
 	VFSRegister("", new DirectoryAssetReader(""));
 
-	while (token)
+	for (int i = 1; i < __argc; ++i)
 	{
-		if (strcmp(token,"-run"))
-		{
-			//run immediately
-		}
+		if (__argv[i][0] == '\0')
+			continue;
 
-		token = strtok(NULL," ");
+		if (__argv[i][0] == '-')
+		{
+			switch (__argv[i][1])
+			{
+			case 'j':
+				g_Config.iCpuCore = CPU_JIT;
+				g_Config.bSaveSettings = false;
+				break;
+			case 'i':
+				g_Config.iCpuCore = CPU_INTERPRETER;
+				g_Config.bSaveSettings = false;
+				break;
+			case 'f':
+				g_Config.iCpuCore = CPU_FASTINTERPRETER;
+				g_Config.bSaveSettings = false;
+				break;
+			case 'l':
+				hideLog = false;
+				break;
+			case 's':
+				g_Config.bAutoRun = false;
+				g_Config.bSaveSettings = false;
+				break;
+			case '-':
+				if (!strcmp(__argv[i], "--log") && i < __argc - 1)
+					fileToLog = __argv[++i];
+				if (!strncmp(__argv[i], "--log=", strlen("--log=")) && strlen(__argv[i]) > strlen("--log="))
+					fileToLog = __argv[i] + strlen("--log=");
+				if (!strcmp(__argv[i], "--state") && i < __argc - 1)
+					stateToLoad = __argv[++i];
+				if (!strncmp(__argv[i], "--state=", strlen("--state=")) && strlen(__argv[i]) > strlen("--state="))
+					stateToLoad = __argv[i] + strlen("--state=");
+				break;
+			}
+		}
+		else if (fileToStart == NULL)
+		{
+			fileToStart = __argv[i];
+			if (!File::Exists(fileToStart))
+			{
+				fprintf(stderr, "File not found: %s\n", fileToStart);
+				exit(1);
+			}
+		}
+		else
+		{
+			fprintf(stderr, "Can only boot one file");
+			exit(1);
+		}
 	}
 
 	//Windows, API init stuff
@@ -97,16 +150,23 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	MainWindow::UpdateMenus();
 
 	LogManager::Init();
-	bool hidden = false;
-#ifndef _DEBUG
-	hidden = true;
-#endif
-	LogManager::GetInstance()->GetConsoleListener()->Open(hidden, 150, 120, "PPSSPP Debug Console");
+	if (fileToLog != NULL)
+		LogManager::GetInstance()->ChangeFileLog(fileToLog);
+	LogManager::GetInstance()->GetConsoleListener()->Open(hideLog, 150, 120, "PPSSPP Debug Console");
 	LogManager::GetInstance()->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
-	if (strlen(fileToLoad))
+	if (fileToStart != NULL)
 	{
-		// TODO: load the thing
+		MainWindow::SetPlaying(fileToStart);
+		MainWindow::Update();
+		MainWindow::UpdateMenus();
+
+		EmuThread_Start(fileToStart);
 	}
+	else
+		MainWindow::BrowseAndBoot();
+
+	if (fileToStart != NULL && stateToLoad != NULL)
+		SaveState::Load(stateToLoad);
 
 	//so.. we're at the message pump of the GUI thread
 	MSG msg;

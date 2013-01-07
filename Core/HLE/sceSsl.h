@@ -17,6 +17,9 @@
 
 #pragma once
 
+#include "../../Common/ChunkFile.h"
+
 void Register_sceSsl();
 
 void __SslInit();
+void __SslDoState(PointerWrap &p);

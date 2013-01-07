@@ -36,6 +36,10 @@
 #if defined(_DEBUG)
 //#define SAFE_MEMORY
 #endif
+// Required for UNUSABLE_MMAP. Can define this in cmake instead later
+#ifdef __SYMBIAN32__
+#define SAFE_MEMORY
+#endif
 
 
 // Global declarations
@@ -242,7 +246,6 @@ inline void Write_Float(float f, u32 address)
 
 // Reads a zero-terminated string from memory at the address.
 void GetString(std::string& _string, const u32 _Address);
-
 u8* GetPointer(const u32 address);
 bool IsValidAddress(const u32 address);
 
@@ -251,7 +254,8 @@ inline const char* GetCharPointer(const u32 address) {
 }
 
 void Memset(const u32 _Address, const u8 _Data, const u32 _iLength);
-void Memcpy(const u32 _Address, const void *_Data, const u32 _iLength);
+void Memcpy(const u32 to_address, const void *from_data, const u32 len);
+void Memcpy(void *to_data, const u32 from_address, const u32 len);
 
 template<class T>
 void ReadStruct(u32 address, T *ptr)

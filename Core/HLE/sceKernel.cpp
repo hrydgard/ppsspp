@@ -24,13 +24,17 @@
 #include "../FileSystems/MetaFileSystem.h"
 #include "../PSPLoaders.h"
 #include "../../Core/CoreTiming.h"
+#include "../../Core/SaveState.h"
 #include "../../Core/System.h"
+#include "../../GPU/GPUInterface.h"
+#include "../../GPU/GPUState.h"
 
 
 #include "__sceAudio.h"
 #include "sceAudio.h"
 #include "sceCtrl.h"
 #include "sceDisplay.h"
+#include "sceFont.h"
 #include "sceGe.h"
 #include "sceIo.h"
 #include "sceKernel.h"
@@ -46,14 +50,17 @@
 #include "sceKernelEventFlag.h"
 #include "sceKernelVTimer.h"
 #include "sceKernelTime.h"
+#include "sceMpeg.h"
 #include "scePower.h"
 #include "sceUtility.h"
 #include "sceUmd.h"
 #include "sceSsl.h"
+#include "sceSas.h"
+#include "scePsmf.h"
+#include "sceImpose.h"
+#include "sceUsb.h"
 
 #include "../Util/PPGeDraw.h"
-
-extern MetaFileSystem pspFileSystem;
 
 /*
 17: [MIPS32 R4K 00000000 ]: Loader: Type: 1 Vaddr: 00000000 Filesz: 2856816 Memsz: 2856816 
@@ -63,6 +70,7 @@ extern MetaFileSystem pspFileSystem;
 */
 
 static bool kernelRunning = false;
+KernelObjectPool kernelObjects;
 
 void __KernelInit()
 {
@@ -72,19 +80,32 @@ void __KernelInit()
 		return;
 	}
 
+	__KernelTimeInit();
+	__InterruptsInit();
 	__KernelMemoryInit();
 	__KernelThreadingInit();
+	__KernelAlarmInit();
+	__KernelEventFlagInit();
+	__KernelMbxInit();
+	__KernelMutexInit();
+	__KernelSemaInit();
 	__IoInit();
 	__AudioInit();
+	__SasInit();
 	__DisplayInit();
-	__InterruptsInit();
 	__GeInit();
 	__PowerInit();
 	__UtilityInit();
 	__UmdInit();
+	__MpegInit(PSP_CoreParameter().useMediaEngine);
+	__PsmfInit();
 	__CtrlInit();
 	__SslInit();
-	
+	__ImposeInit();
+	__UsbInit();
+	__FontInit();
+	SaveState::Init();  // Must be after IO, as it may create a directory
+
 	// "Internal" PSP libraries
 	__PPGeInit();
 
@@ -103,19 +124,65 @@ void __KernelShutdown()
 	INFO_LOG(HLE, "Shutting down kernel - %i kernel objects alive", kernelObjects.GetCount());
 	kernelObjects.Clear();
 
+	__MpegShutdown();
+	__PsmfShutdown();
 	__PPGeShutdown();
-	
+
+	__CtrlShutdown();
+	__UtilityShutdown();
 	__GeShutdown();
+	__SasShutdown();
+	__DisplayShutdown();
 	__AudioShutdown();
 	__IoShutdown();
-	__InterruptsShutdown();
+	__KernelMutexShutdown();
 	__KernelThreadingShutdown();
 	__KernelMemoryShutdown();
+	__InterruptsShutdown();
 
 	CoreTiming::ClearPendingEvents();
 	CoreTiming::UnregisterAllEvents();
 
 	kernelRunning = false;
+}
+
+void __KernelDoState(PointerWrap &p)
+{
+	p.Do(kernelRunning);
+	kernelObjects.DoState(p);
+	p.DoMarker("KernelObjects");
+
+	__InterruptsDoState(p);
+	__KernelMemoryDoState(p);
+	__KernelThreadingDoState(p);
+	__KernelAlarmDoState(p);
+	__KernelEventFlagDoState(p);
+	__KernelMbxDoState(p);
+	__KernelModuleDoState(p);
+	__KernelMutexDoState(p);
+	__KernelSemaDoState(p);
+	__KernelTimeDoState(p);
+
+	__AudioDoState(p);
+	__CtrlDoState(p);
+	__DisplayDoState(p);
+	__FontDoState(p);
+	__GeDoState(p);
+	__ImposeDoState(p);
+	__IoDoState(p);
+	__MpegDoState(p);
+	__PowerDoState(p);
+	__PsmfDoState(p);
+	__SasDoState(p);
+	__SslDoState(p);
+	__UmdDoState(p);
+	__UtilityDoState(p);
+	__UsbDoState(p);
+
+	__PPGeDoState(p);
+
+	__InterruptsDoStateLate(p);
+	__KernelThreadingDoStateLate(p);
 }
 
 bool __KernelIsRunning() {
@@ -125,20 +192,18 @@ bool __KernelIsRunning() {
 void sceKernelExitGame()
 {
 	INFO_LOG(HLE,"sceKernelExitGame");
-	if (PSP_CoreParameter().headLess)
-		exit(0);
-	else
+	if (!PSP_CoreParameter().headLess)
 		PanicAlert("Game exited");
+	__KernelSwitchOffThread("game exited");
 	Core_Stop();
 }
 
 void sceKernelExitGameWithStatus()
 {
 	INFO_LOG(HLE,"sceKernelExitGameWithStatus");
-	if (PSP_CoreParameter().headLess)
-		exit(0);
-	else
+	if (!PSP_CoreParameter().headLess)
 		PanicAlert("Game exited (with status)");
+	__KernelSwitchOffThread("game exited");
 	Core_Stop();
 }
 
@@ -180,21 +245,55 @@ void sceKernelGetGPI()
 }
 
 // Don't even log these, they're spammy and we probably won't
-// need to emulate them.
-void sceKernelDcacheWritebackAll()
+// need to emulate them. Might be useful for invalidating cached
+// textures, and in the future display lists, in some cases though.
+int sceKernelDcacheInvalidateRange(u32 addr, int size)
 {
-}
-void sceKernelDcacheWritebackRange()
-{
-}
-void sceKernelDcacheWritebackInvalidateRange()
-{
-}
-void sceKernelDcacheWritebackInvalidateAll()
-{
-}
+	if (size < 0 || (int) addr + size < 0)
+		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
 
-KernelObjectPool kernelObjects;
+	if (size > 0)
+	{
+		if ((addr % 64) != 0 || (size % 64) != 0)
+			return SCE_KERNEL_ERROR_CACHE_ALIGNMENT;
+
+		if (addr != 0)
+			gpu->InvalidateCache(addr, size);
+	}
+	return 0;
+}
+int sceKernelDcacheWritebackAll()
+{
+	// Some games seem to use this a lot, it doesn't make sense
+	// to zap the whole texture cache.
+	gpu->InvalidateCacheHint(0, -1);
+	return 0;
+}
+int sceKernelDcacheWritebackRange(u32 addr, int size)
+{
+	if (size < 0)
+		return SCE_KERNEL_ERROR_INVALID_SIZE;
+
+	if (size > 0 && addr != 0) {
+		gpu->InvalidateCache(addr, size);
+	}
+	return 0;
+}
+int sceKernelDcacheWritebackInvalidateRange(u32 addr, int size)
+{
+	if (size < 0)
+		return SCE_KERNEL_ERROR_INVALID_SIZE;
+
+	if (size > 0 && addr != 0) {
+		gpu->InvalidateCache(addr, size);
+	}
+	return 0;
+}
+int sceKernelDcacheWritebackInvalidateAll()
+{
+	gpu->InvalidateCacheHint(0, -1);
+	return 0;
+}
 
 KernelObjectPool::KernelObjectPool()
 {
@@ -258,12 +357,12 @@ void KernelObjectPool::List()
 			if (pool[i])
 			{
 				pool[i]->GetQuickInfo(buffer,256);
+				INFO_LOG(HLE, "KO %i: %s \"%s\": %s", i + handleOffset, pool[i]->GetTypeName(), pool[i]->GetName(), buffer);
 			}
 			else
 			{
 				strcpy(buffer,"WTF? Zero Pointer");
 			}
-			INFO_LOG(HLE, "KO %i: %s \"%s\": %s", i + handleOffset, pool[i]->GetTypeName(), pool[i]->GetName(), buffer);
 		}
 	}
 }
@@ -277,6 +376,88 @@ int KernelObjectPool::GetCount()
 			count++;
 	}
 	return count;
+}
+
+void KernelObjectPool::DoState(PointerWrap &p)
+{
+	int _maxCount = maxCount;
+	p.Do(_maxCount);
+
+	if (_maxCount != maxCount)
+		ERROR_LOG(HLE, "Unable to load state: different kernel object storage.");
+
+	if (p.mode == p.MODE_READ)
+		kernelObjects.Clear();
+
+	p.DoArray(occupied, maxCount);
+	for (int i = 0; i < maxCount; ++i)
+	{
+		if (!occupied[i])
+			continue;
+
+		int type;
+		if (p.mode == p.MODE_READ)
+		{
+			p.Do(type);
+			pool[i] = CreateByIDType(type);
+			pool[i]->uid = i + handleOffset;
+
+			// Already logged an error.
+			if (pool[i] == NULL)
+				return;
+		}
+		else
+		{
+			type = pool[i]->GetIDType();
+			p.Do(type);
+		}
+		pool[i]->DoState(p);
+	}
+	p.DoMarker("KernelObjectPool");
+}
+
+KernelObject *KernelObjectPool::CreateByIDType(int type)
+{
+	// Used for save states.  This is ugly, but what other way is there?
+	switch (type)
+	{
+	case SCE_KERNEL_TMID_Alarm:
+		return __KernelAlarmObject();
+	case SCE_KERNEL_TMID_EventFlag:
+		return __KernelEventFlagObject();
+	case SCE_KERNEL_TMID_Mbox:
+		return __KernelMbxObject();
+	case SCE_KERNEL_TMID_Fpl:
+		return __KernelMemoryFPLObject();
+	case SCE_KERNEL_TMID_Vpl:
+		return __KernelMemoryVPLObject();
+	case PPSSPP_KERNEL_TMID_PMB:
+		return __KernelMemoryPMBObject();
+	case PPSSPP_KERNEL_TMID_Module:
+		return __KernelModuleObject();
+	case SCE_KERNEL_TMID_Mpipe:
+		return __KernelMsgPipeObject();
+	case SCE_KERNEL_TMID_Mutex:
+		return __KernelMutexObject();
+	case SCE_KERNEL_TMID_LwMutex:
+		return __KernelLwMutexObject();
+	case SCE_KERNEL_TMID_Semaphore:
+		return __KernelSemaphoreObject();
+	case SCE_KERNEL_TMID_Callback:
+		return __KernelCallbackObject();
+	case SCE_KERNEL_TMID_Thread:
+		return __KernelThreadObject();
+	case SCE_KERNEL_TMID_VTimer:
+		return __KernelVTimerObject();
+	case PPSSPP_KERNEL_TMID_File:
+		return __KernelFileNodeObject();
+	case PPSSPP_KERNEL_TMID_DirList:
+		return __KernelDirListingObject();
+
+	default:
+		ERROR_LOG(COMMON, "Unable to load state: could not find object type %d.", type);
+		return NULL;
+	}
 }
 
 void sceKernelIcacheInvalidateAll()
@@ -326,38 +507,38 @@ const HLEFunction ThreadManForUser[] =
 	{0x812346E4,&WrapU_IU<sceKernelClearEventFlag>,       "sceKernelClearEventFlag"},
 	{0xEF9E4C70,&WrapU_I<sceKernelDeleteEventFlag>,       "sceKernelDeleteEventFlag"},
 	{0x1fb15a32,&WrapU_IU<sceKernelSetEventFlag>,         "sceKernelSetEventFlag"},
-	{0x402FCF22,&WrapV_IUUUU<sceKernelWaitEventFlag>,     "sceKernelWaitEventFlag"},
-	{0x328C546A,&WrapV_IUUUU<sceKernelWaitEventFlagCB>,   "sceKernelWaitEventFlagCB"},
+	{0x402FCF22,&WrapI_IUUUU<sceKernelWaitEventFlag>,     "sceKernelWaitEventFlag"},
+	{0x328C546A,&WrapI_IUUUU<sceKernelWaitEventFlagCB>,   "sceKernelWaitEventFlagCB"},
 	{0x30FD48F0,&WrapI_IUUUU<sceKernelPollEventFlag>,     "sceKernelPollEventFlag"},
-	{0xCD203292,&WrapU_V<sceKernelCancelEventFlag>,       "sceKernelCancelEventFlag"},
+	{0xCD203292,&WrapU_IUU<sceKernelCancelEventFlag>,       "sceKernelCancelEventFlag"},
 	{0xA66B0120,&WrapU_IU<sceKernelReferEventFlagStatus>, "sceKernelReferEventFlagStatus"},
 
-	{0x8FFDF9A2,&WrapV_IIU<sceKernelCancelSema>,          "sceKernelCancelSema"},
-	{0xD6DA4BA1,&WrapV_CUIIU<sceKernelCreateSema>,        "sceKernelCreateSema"},
-	{0x28b6489c,&WrapV_I<sceKernelDeleteSema>,            "sceKernelDeleteSema"},
-	{0x58b1f937,&WrapV_II<sceKernelPollSema>,             "sceKernelPollSema"},
-	{0xBC6FEBC5,&WrapV_IU<sceKernelReferSemaStatus>,      "sceKernelReferSemaStatus"},
-	{0x3F53E640,&WrapV_II<sceKernelSignalSema>,           "sceKernelSignalSema"},
-	{0x4E3A1105,&WrapV_IIU<sceKernelWaitSema>,            "sceKernelWaitSema"},
-	{0x6d212bac,&WrapV_IIU<sceKernelWaitSemaCB>,          "sceKernelWaitSemaCB"},
+	{0x8FFDF9A2,&WrapI_IIU<sceKernelCancelSema>,          "sceKernelCancelSema"},
+	{0xD6DA4BA1,&WrapI_CUIIU<sceKernelCreateSema>,        "sceKernelCreateSema"},
+	{0x28b6489c,&WrapI_I<sceKernelDeleteSema>,            "sceKernelDeleteSema"},
+	{0x58b1f937,&WrapI_II<sceKernelPollSema>,             "sceKernelPollSema"},
+	{0xBC6FEBC5,&WrapI_IU<sceKernelReferSemaStatus>,      "sceKernelReferSemaStatus"},
+	{0x3F53E640,&WrapI_II<sceKernelSignalSema>,           "sceKernelSignalSema"},
+	{0x4E3A1105,&WrapI_IIU<sceKernelWaitSema>,            "sceKernelWaitSema"},
+	{0x6d212bac,&WrapI_IIU<sceKernelWaitSemaCB>,          "sceKernelWaitSemaCB"},
 
-	{0x60107536,&WrapV_U<sceKernelDeleteLwMutex>,         "sceKernelDeleteLwMutex"},
-	{0x19CFF145,&WrapV_UCUIU<sceKernelCreateLwMutex>,     "sceKernelCreateLwMutex"},
-	{0xf8170fbe,&WrapV_I<sceKernelDeleteMutex>,           "sceKernelDeleteMutex"},
-	{0xB011B11F,&WrapV_IIU<sceKernelLockMutex>,           "sceKernelLockMutex"},
-	{0x5bf4dd27,&WrapV_IIU<sceKernelLockMutexCB>,         "sceKernelLockMutexCB"},
-	{0x6b30100f,&WrapV_II<sceKernelUnlockMutex>,          "sceKernelUnlockMutex"},
-	{0xb7d098c6,&WrapV_CUIU<sceKernelCreateMutex>,        "sceKernelCreateMutex"},
-	{0x0DDCD2C9,&WrapV_II<sceKernelTryLockMutex>,         "sceKernelTryLockMutex"},
+	{0x60107536,&WrapI_U<sceKernelDeleteLwMutex>,         "sceKernelDeleteLwMutex"},
+	{0x19CFF145,&WrapI_UCUIU<sceKernelCreateLwMutex>,     "sceKernelCreateLwMutex"},
+	{0xf8170fbe,&WrapI_I<sceKernelDeleteMutex>,           "sceKernelDeleteMutex"},
+	{0xB011B11F,&WrapI_IIU<sceKernelLockMutex>,           "sceKernelLockMutex"},
+	{0x5bf4dd27,&WrapI_IIU<sceKernelLockMutexCB>,         "sceKernelLockMutexCB"},
+	{0x6b30100f,&WrapI_II<sceKernelUnlockMutex>,          "sceKernelUnlockMutex"},
+	{0xb7d098c6,&WrapI_CUIU<sceKernelCreateMutex>,        "sceKernelCreateMutex"},
+	{0x0DDCD2C9,&WrapI_II<sceKernelTryLockMutex>,         "sceKernelTryLockMutex"},
 	// NOTE: LockLwMutex and UnlockLwMutex are in Kernel_Library, see sceKernelInterrupt.cpp.
 
 	{0xFCCFAD26,sceKernelCancelWakeupThread,"sceKernelCancelWakeupThread"},
 	{0xea748e31,sceKernelChangeCurrentThreadAttr,"sceKernelChangeCurrentThreadAttr"},
 	{0x71bc9871,sceKernelChangeThreadPriority,"sceKernelChangeThreadPriority"},
-	{0x446D8DE6,sceKernelCreateThread,"sceKernelCreateThread"},
-	{0x9fa03cd3,sceKernelDeleteThread,"sceKernelDeleteThread"},
-	{0xBD123D9E,0,"sceKernelDelaySysClockThread"},
-	{0x1181E963,0,"sceKernelDelaySysClockThreadCB"},
+	{0x446D8DE6,WrapI_CUUIUU<sceKernelCreateThread>,"sceKernelCreateThread"},
+	{0x9fa03cd3,WrapI_I<sceKernelDeleteThread>,"sceKernelDeleteThread"},
+	{0xBD123D9E,sceKernelDelaySysClockThread,"sceKernelDelaySysClockThread"},
+	{0x1181E963,sceKernelDelaySysClockThreadCB,"sceKernelDelaySysClockThreadCB"},
 	{0xceadeb47,sceKernelDelayThread,"sceKernelDelayThread"},
 	{0x68da9e36,sceKernelDelayThreadCB,"sceKernelDelayThreadCB"},
 	{0xaa73c935,sceKernelExitThread,"sceKernelExitThread"},
@@ -366,8 +547,8 @@ const HLEFunction ThreadManForUser[] =
 	{0x293b45b8,sceKernelGetThreadId,"sceKernelGetThreadId"},
 	{0x3B183E26,sceKernelGetThreadExitStatus,"sceKernelGetThreadExitStatus"},
 	{0x52089CA1,sceKernelGetThreadStackFreeSize,"sceKernelGetThreadStackFreeSize"},
-	{0xFFC36A14,0,"sceKernelReferThreadRunStatus"},
-	{0x17c1684e,sceKernelReferThreadStatus,"sceKernelReferThreadStatus"},
+	{0xFFC36A14,WrapU_UU<sceKernelReferThreadRunStatus>,"sceKernelReferThreadRunStatus"},
+	{0x17c1684e,WrapU_UU<sceKernelReferThreadStatus>,"sceKernelReferThreadStatus"},
 	{0x2C34E053,0,"sceKernelReleaseWaitThread"},
 	{0x75156e8f,sceKernelResumeThread,"sceKernelResumeThread"},
 	{0x3ad58b8c,&WrapU_V<sceKernelSuspendDispatchThread>,"sceKernelSuspendDispatchThread"},
@@ -375,30 +556,15 @@ const HLEFunction ThreadManForUser[] =
 	{0x912354a7,sceKernelRotateThreadReadyQueue,"sceKernelRotateThreadReadyQueue"},
 	{0x9ACE131E,sceKernelSleepThread,"sceKernelSleepThread"},
 	{0x82826f70,sceKernelSleepThreadCB,"sceKernelSleepThreadCB"},
-	{0xF475845D,&WrapV_IUU<sceKernelStartThread>,"sceKernelStartThread"},
+	{0xF475845D,&WrapI_IUU<sceKernelStartThread>,"sceKernelStartThread"},
 	{0x9944f31f,sceKernelSuspendThread,"sceKernelSuspendThread"},
-	{0x616403ba,WrapV_U<sceKernelTerminateThread>,"sceKernelTerminateThread"},
-	{0x383f7bcc,sceKernelTerminateDeleteThread,"sceKernelTerminateDeleteThread"},
+	{0x616403ba,WrapI_U<sceKernelTerminateThread>,"sceKernelTerminateThread"},
+	{0x383f7bcc,WrapI_I<sceKernelTerminateDeleteThread>,"sceKernelTerminateDeleteThread"},
 	{0x840E8133,sceKernelWaitThreadEndCB,"sceKernelWaitThreadEndCB"},
 	{0xd13bde95,sceKernelCheckThreadStack,"sceKernelCheckThreadStack"},
 
-	{0x94416130,0,"sceKernelGetThreadmanIdList"},
-	{0x57CF62DD,sceKernelGetThreadmanIdType,"sceKernelGetThreadmanIdType"},
-
-	{0x20fff560,sceKernelCreateVTimer,"sceKernelCreateVTimer"},
-	{0x328F9E52,0,"sceKernelDeleteVTimer"},
-	{0xc68d9437,sceKernelStartVTimer,"sceKernelStartVTimer"},
-	{0xD0AEEE87,0,"sceKernelStopVTimer"},
-	{0xD2D615EF,0,"sceKernelCancelVTimerHandler"},
-	{0xB3A59970,0,"sceKernelGetVTimerBase"},
-	{0xB7C18B77,0,"sceKernelGetVTimerBaseWide"},
-	{0x034A921F,0,"sceKernelGetVTimerTime"},
-	{0xC0B3FFD2,0,"sceKernelGetVTimerTimeWide"},
-	{0x5F32BEAA,0,"sceKernelReferVTimerStatus"},
-	{0x542AD630,0,"sceKernelSetVTimerTime"},
-	{0xFB6425C3,0,"sceKernelSetVTimerTimeWide"},
-	{0xd8b299ae,sceKernelSetVTimerHandler,"sceKernelSetVTimerHandler"},
-	{0x53B00E9A,0,"sceKernelSetVTimerHandlerWide"},
+	{0x94416130,WrapU_UUUU<sceKernelGetThreadmanIdList>,"sceKernelGetThreadmanIdList"},
+	{0x57CF62DD,WrapU_U<sceKernelGetThreadmanIdType>,"sceKernelGetThreadmanIdType"},
 
 	{0x82BC5777,sceKernelGetSystemTimeWide,"sceKernelGetSystemTimeWide"},
 	{0xdb738f35,sceKernelGetSystemTime,"sceKernelGetSystemTime"},
@@ -409,10 +575,10 @@ const HLEFunction ThreadManForUser[] =
 	{0x64D4540E,0,"sceKernelReferThreadProfiler"},
 
 	//Fifa Street 2 uses alarms
-	{0x6652b8ca,sceKernelSetAlarm,"sceKernelSetAlarm"},
-	{0xB2C25152,sceKernelSetSysClockAlarm,"sceKernelSetSysClockAlarm"},
-	{0x7e65b999,sceKernelCancelAlarm,"sceKernelCancelAlarm"},
-	{0xDAA3F564,sceKernelReferAlarmStatus,"sceKernelReferAlarmStatus"},
+	{0x6652b8ca,WrapI_UUU<sceKernelSetAlarm>,"sceKernelSetAlarm"},
+	{0xB2C25152,WrapI_UUU<sceKernelSetSysClockAlarm>,"sceKernelSetSysClockAlarm"},
+	{0x7e65b999,WrapI_I<sceKernelCancelAlarm>,"sceKernelCancelAlarm"},
+	{0xDAA3F564,WrapI_IU<sceKernelReferAlarmStatus>,"sceKernelReferAlarmStatus"},
 
 	{0xba6b92e2,sceKernelSysClock2USec,"sceKernelSysClock2USec"},
 	{0x110DEC9A,0,"sceKernelUSec2SysClock"},
@@ -435,11 +601,11 @@ const HLEFunction ThreadManForUser[] =
 	{0x2A3D44FF,sceKernelGetCallbackCount,"sceKernelGetCallbackCount"},
 	{0x730ED8BC,sceKernelReferCallbackStatus,"sceKernelReferCallbackStatus"},
 
-	{0x8125221D,&WrapU_CIUIU<sceKernelCreateMbx>,"sceKernelCreateMbx"},
+	{0x8125221D,&WrapI_CUU<sceKernelCreateMbx>,"sceKernelCreateMbx"},
 	{0x86255ADA,&WrapI_I<sceKernelDeleteMbx>,"sceKernelDeleteMbx"},
-	{0xE9B3061E,&WrapV_IU<sceKernelSendMbx>,"sceKernelSendMbx"},
-	{0x18260574,&WrapV_IUU<sceKernelReceiveMbx>,"sceKernelReceiveMbx"},
-	{0xF3986382,&WrapV_IUU<sceKernelReceiveMbxCB>,"sceKernelReceiveMbxCB"},
+	{0xE9B3061E,&WrapI_IU<sceKernelSendMbx>,"sceKernelSendMbx"},
+	{0x18260574,&WrapI_IUU<sceKernelReceiveMbx>,"sceKernelReceiveMbx"},
+	{0xF3986382,&WrapI_IUU<sceKernelReceiveMbxCB>,"sceKernelReceiveMbxCB"},
 	{0x0D81716A,&WrapI_IU<sceKernelPollMbx>,"sceKernelPollMbx"},
 	{0x87D4DD36,&WrapI_IU<sceKernelCancelReceiveMbx>,"sceKernelCancelReceiveMbx"},
 	{0xA8E8C846,&WrapI_IU<sceKernelReferMbxStatus>,"sceKernelReferMbxStatus"},
@@ -472,6 +638,21 @@ const HLEFunction ThreadManForUser[] =
 	{0xF6414A71,sceKernelFreeFpl,"sceKernelFreeFpl"},
 	{0xA8AA591F,sceKernelCancelFpl,"sceKernelCancelFpl"},
 	{0xD8199E4C,sceKernelReferFplStatus,"sceKernelReferFplStatus"},
+
+	{0x20fff560,WrapU_CU<sceKernelCreateVTimer>,"sceKernelCreateVTimer"},
+	{0x328F9E52,WrapU_U<sceKernelDeleteVTimer>,"sceKernelDeleteVTimer"},
+	{0xc68d9437,WrapU_U<sceKernelStartVTimer>,"sceKernelStartVTimer"},
+	{0xD0AEEE87,WrapU_U<sceKernelStopVTimer>,"sceKernelStopVTimer"},
+	{0xD2D615EF,WrapU_U<sceKernelCancelVTimerHandler>,"sceKernelCancelVTimerHandler"},
+	{0xB3A59970,WrapU_UU<sceKernelGetVTimerBase>,"sceKernelGetVTimerBase"},
+	{0xB7C18B77,WrapU64_U<sceKernelGetVTimerBaseWide>,"sceKernelGetVTimerBaseWide"},
+	{0x034A921F,WrapU_UU<sceKernelGetVTimerTime>,"sceKernelGetVTimerTime"},
+	{0xC0B3FFD2,WrapU64_U<sceKernelGetVTimerTimeWide>,"sceKernelGetVTimerTimeWide"},
+	{0x5F32BEAA,WrapU_UU<sceKernelReferVTimerStatus>,"sceKernelReferVTimerStatus"},
+	{0x542AD630,WrapU_UU<sceKernelSetVTimerTime>,"sceKernelSetVTimerTime"},
+	{0xFB6425C3,WrapU_UU64<sceKernelSetVTimerTimeWide>,"sceKernelSetVTimerTimeWide"},
+	{0xd8b299ae,WrapU_UUUU<sceKernelSetVTimerHandler>,"sceKernelSetVTimerHandler"},
+	{0x53B00E9A,WrapU_UU64UU<sceKernelSetVTimerHandlerWide>,"sceKernelSetVTimerHandlerWide"},
 
 	// Not sure if these should be hooked up. See below.
 	{0x0E927AED, _sceKernelReturnFromTimerHandler, "_sceKernelReturnFromTimerHandler"},

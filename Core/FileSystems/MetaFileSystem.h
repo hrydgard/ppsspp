@@ -36,9 +36,14 @@ public:
 	u32 GetNewHandle() {return current++;}
 	void FreeHandle(u32 handle) {}
 
-	IFileSystem *GetHandleOwner(u32 handle);
-	bool MapFilePath(std::string inpath, std::string &outpath, IFileSystem **system);
+	virtual void DoState(PointerWrap &p);
 
+	IFileSystem *GetHandleOwner(u32 handle);
+	bool MapFilePath(const std::string &inpath, std::string &outpath, IFileSystem **system);
+
+	// Only possible if a file system is a DirectoryFileSystem or similar.
+	bool GetHostPath(const std::string &inpath, std::string &outpath);
+	
 	std::vector<PSPFileInfo> GetDirListing(std::string path);
 	u32      OpenFile(std::string filename, FileAccess access);
 	void     CloseFile(u32 handle);

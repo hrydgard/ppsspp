@@ -18,11 +18,15 @@
 #pragma once
 
 #include "../../Globals.h"
+#include "../../Common/ChunkFile.h"
 #include <cstring>
 
 enum
 {
-	SCE_KERNEL_ERROR_OK      = 0,
+	SCE_KERNEL_ERROR_OK                     = 0,
+	SCE_KERNEL_ERROR_OUT_OF_MEMORY          = 0x80000022,
+	SCE_KERNEL_ERROR_INVALID_ID             = 0x80000100,
+	SCE_KERNEL_ERROR_INVALID_SIZE           = 0x80000104,
 	SCE_KERNEL_ERROR_INVALID_VALUE          = 0x800001fe,
 	SCE_KERNEL_ERROR_INVALID_ARGUMENT       = 0x800001ff,
 	SCE_KERNEL_ERROR_ERROR   = 0x80020001,
@@ -223,6 +227,7 @@ enum
 	SCE_KERNEL_ERROR_ERRORMAX       = 0x8002044d,
 };
 
+// If you add to this, make sure to check KernelObjectPool::CreateByIDType().
 enum TMIDPurpose
 {
 	SCE_KERNEL_TMID_Thread = 1,
@@ -242,6 +247,12 @@ enum TMIDPurpose
 	SCE_KERNEL_TMID_DelayThread = 65,
 	SCE_KERNEL_TMID_SuspendThread = 66,
 	SCE_KERNEL_TMID_DormantThread = 67,
+
+	// Not official, but need ids for save states.
+	PPSSPP_KERNEL_TMID_Module =  0x100001,
+	PPSSPP_KERNEL_TMID_PMB =     0x100002,
+	PPSSPP_KERNEL_TMID_File =    0x100003,
+	PPSSPP_KERNEL_TMID_DirList = 0x100004,
 };
 
 typedef int SceUID;
@@ -263,6 +274,7 @@ struct SceKernelLoadExecParam
 
 void __KernelInit();
 void __KernelShutdown();
+void __KernelDoState(PointerWrap &p);
 bool __KernelIsRunning();
 bool __KernelLoadExec(const char *filename, SceKernelLoadExecParam *param);
 
@@ -283,10 +295,11 @@ void sceKernelFindModuleByName();
 
 void sceKernelSetGPO();
 void sceKernelGetGPI();
-void sceKernelDcacheWritebackAll();
-void sceKernelDcacheWritebackRange();
-void sceKernelDcacheWritebackInvalidateRange();
-void sceKernelDcacheWritebackInvalidateAll();
+int sceKernelDcacheInvalidateRange(u32 addr, int size);
+int sceKernelDcacheWritebackAll();
+int sceKernelDcacheWritebackRange(u32 addr, int size);
+int sceKernelDcacheWritebackInvalidateRange(u32 addr, int size);
+int sceKernelDcacheWritebackInvalidateAll();
 void sceKernelGetThreadStackFreeSize();
 void sceKernelIcacheInvalidateAll();
 void sceKernelIcacheClearAll();
@@ -310,9 +323,10 @@ public:
 	// Implement this in all subclasses:
 	// static u32 GetMissingErrorCode()
 
-	// Future
-	// void Serialize(ChunkFile)
-	// void DeSerialize(ChunkFile)
+	virtual void DoState(PointerWrap &p)
+	{
+		_dbg_assert_msg_(HLE, false, "Unable to save state: bad kernel object.");
+	}
 };
 
 
@@ -324,7 +338,8 @@ public:
 	// Allocates a UID within the range and inserts the object into the map.
 	SceUID Create(KernelObject *obj, int rangeBottom = 16, int rangeTop = 0x7fffffff);
 
-	// TODO: How will we ever save/restore this pool?
+	void DoState(PointerWrap &p);
+	static KernelObject *CreateByIDType(int type);
 
 	template <class T>
 	u32 Destroy(SceUID handle)
@@ -362,6 +377,24 @@ public:
 			return t;
 		}
 	}
+	template <class T>
+	T* GetByModuleByEntryAddr(u32 entryAddr)
+	{
+		for (int i=0; i <4096; i++)
+		{
+			T* t = dynamic_cast<T*>(pool[i]);
+
+			if (t)
+			{
+				if (t->nm.entry_addr == entryAddr)
+				{
+					return t;
+				}
+			}
+		}
+		return 0;
+	}
+
 	static u32 GetMissingErrorCode() { return -1; }	// TODO
 
 	bool GetIDType(SceUID handle, int *type) const

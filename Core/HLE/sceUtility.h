@@ -18,5 +18,7 @@
 #pragma once
 
 void __UtilityInit();
+void __UtilityDoState(PointerWrap &p);
+void __UtilityShutdown();
 
 void Register_sceUtility();

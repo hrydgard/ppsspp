@@ -179,6 +179,8 @@ public:
 	static void Init();
 	static void Shutdown();
 
+	void ChangeFileLog(const char *filename);
+
   void SaveConfig(IniFile::Section *section);
   void LoadConfig(IniFile::Section *section);
 };

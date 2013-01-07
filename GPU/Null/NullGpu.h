@@ -17,19 +17,17 @@
 
 #pragma once
 
-#include "../GPUInterface.h"
+#include "../GPUCommon.h"
 
 class ShaderManager;
 
-class NullGPU : public GPUInterface
+class NullGPU : public GPUCommon
 {
 public:
-	NullGPU() : interruptsEnabled_(true) {}
+	NullGPU();
+	~NullGPU();
 	virtual void InitClear() {}
-	virtual u32 EnqueueList(u32 listpc, u32 stall);
-	virtual void UpdateStall(int listid, u32 newstall);
 	virtual void ExecuteOp(u32 op, u32 diff);
-	virtual bool InterpretList();
 	virtual void Continue();
 	virtual void DrawSync(int mode);
 	virtual void EnableInterrupts(bool enable) {
@@ -40,8 +38,13 @@ public:
 	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, int format) {}
 	virtual void CopyDisplayToOutput() {}
 	virtual void UpdateStats();
+	virtual void InvalidateCache(u32 addr, int size);
+	virtual void InvalidateCacheHint(u32 addr, int size);
+	virtual void Flush() {}
+
+	virtual void DeviceLost() {}
+	virtual void DumpNextFrame() {}
 
 private:
-	bool ProcessDLQueue();
 	bool interruptsEnabled_;
 };

@@ -77,13 +77,13 @@ EmuFileType Identify_File(const char *filename)
 
 bool LoadFile(const char *filename, std::string *error_string)
 {
-	INFO_LOG(LOADER,"Identifying %s...",filename);
+	INFO_LOG(LOADER,"Identifying file...");
 	switch (Identify_File(filename))
 	{
 	case FILETYPE_PSP_PBP:
 	case FILETYPE_PSP_ELF:
 		{
-			INFO_LOG(LOADER,"%s is an ELF!",filename);
+			INFO_LOG(LOADER,"File is an ELF!");
 			std::string path = getDir(filename);
 			// If loading from memstick...
 			size_t pos = path.find("/PSP/GAME/");
@@ -95,14 +95,14 @@ bool LoadFile(const char *filename, std::string *error_string)
 		pspFileSystem.SetCurrentDirectory("disc0:/PSP_GAME/USRDIR");
 		return Load_PSP_ISO(filename, error_string);
 	case FILETYPE_ERROR:
-		ERROR_LOG(LOADER, "Could not read %s", filename);
+		ERROR_LOG(LOADER, "Could not file");
 		*error_string = "Error reading file";
 		break;
 	case FILETYPE_UNKNOWN_BIN:
 	case FILETYPE_UNKNOWN_ELF:
 	case FILETYPE_UNKNOWN:
 	default:
-		ERROR_LOG(LOADER, "Failed to identify %s", filename);
+		ERROR_LOG(LOADER, "Failed to identify file");
 		break;
 	}
 	return false;

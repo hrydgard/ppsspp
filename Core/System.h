@@ -21,12 +21,14 @@
 #include "MemMap.h"
 #include "FileSystems/MetaFileSystem.h"
 #include "CoreParameter.h"
+#include "ELF/ParamSFO.h"
 
 extern MetaFileSystem pspFileSystem;
+extern ParamSFOData g_paramSFO;
 
 bool PSP_Init(const CoreParameter &coreParam, std::string *error_string);
 bool PSP_IsInited();
 void PSP_Shutdown();
 void PSP_HWAdvance(int cycles);
 void PSP_SWI();
-const CoreParameter &PSP_CoreParameter();
+CoreParameter &PSP_CoreParameter();

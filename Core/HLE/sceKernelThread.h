@@ -26,20 +26,23 @@
 
 
 void sceKernelChangeThreadPriority();
-void sceKernelCreateThread();
+int sceKernelCreateThread(const char *threadName, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr);
 void sceKernelDelayThread();
 void sceKernelDelayThreadCB();
-void sceKernelDeleteThread();
+void sceKernelDelaySysClockThread();
+void sceKernelDelaySysClockThreadCB();
+int sceKernelDeleteThread(int threadHandle);
 void sceKernelExitDeleteThread();
 void sceKernelExitThread();
 void _sceKernelExitThread();
 void sceKernelGetThreadId();
 void sceKernelGetThreadCurrentPriority();
-void sceKernelStartThread(SceUID threadToStartID, u32 argSize, u32 argBlockPtr);
+int sceKernelStartThread(SceUID threadToStartID, u32 argSize, u32 argBlockPtr);
 u32 sceKernelSuspendDispatchThread();
 u32 sceKernelResumeDispatchThread(u32 suspended);
 void sceKernelWaitThreadEnd();
-void sceKernelReferThreadStatus();
+u32 sceKernelReferThreadStatus(u32 uid, u32 statusPtr);
+u32 sceKernelReferThreadRunStatus(u32 uid, u32 statusPtr);
 void sceKernelChangeCurrentThreadAttr();
 void sceKernelRotateThreadReadyQueue();
 void sceKernelCheckThreadStack();
@@ -47,11 +50,17 @@ void sceKernelSuspendThread();
 void sceKernelResumeThread();
 void sceKernelWakeupThread();
 void sceKernelCancelWakeupThread();
-void sceKernelTerminateDeleteThread();
-void sceKernelTerminateThread(u32 threadID);
+int sceKernelTerminateDeleteThread(int threadno);
+int sceKernelTerminateThread(u32 threadID);
 void sceKernelWaitThreadEndCB();
 void sceKernelGetThreadExitStatus();
-void sceKernelGetThreadmanIdType();
+u32 sceKernelGetThreadmanIdType(u32);
+u32 sceKernelGetThreadmanIdList(u32 type, u32 readBufPtr, u32 readBufSize, u32 idCountPtr);
+
+struct SceKernelSysClock {
+	u32 lo;
+	u32 hi;
+};
 
 
 enum WaitType //probably not the real values
@@ -78,33 +87,39 @@ enum WaitType //probably not the real values
 
 struct ThreadContext
 {
-  void reset();
-  u32 r[32];
-  float f[32];
-  float v[128];
-  u32 vfpuCtrl[16];
+	void reset();
+	u32 r[32];
+	float f[32];
+	float v[128];
+	u32 vfpuCtrl[16];
 
-  u32 hi;
-  u32 lo;
-  u32 pc;
-  u32 fpcond;
+	u32 hi;
+	u32 lo;
+	u32 pc;
+	u32 fpcond;
 
-  u32 fcr0;
-  u32 fcr31;
+	u32 fcr0;
+	u32 fcr31;
 };
 
 // Internal API, used by implementations of kernel functions
 
 void __KernelThreadingInit();
+void __KernelThreadingDoState(PointerWrap &p);
+void __KernelThreadingDoStateLate(PointerWrap &p);
 void __KernelThreadingShutdown();
+KernelObject *__KernelThreadObject();
+KernelObject *__KernelCallbackObject();
 
-void __KernelScheduleWakeup(int usFromNow, int threadnumber);
+void __KernelScheduleWakeup(int threadnumber, s64 usFromNow);
 SceUID __KernelGetCurThread();
 
 void __KernelSaveContext(ThreadContext *ctx);
 void __KernelLoadContext(ThreadContext *ctx);
 
-// TODO: Replace this with __KernelResumeThread over time as it's misguided.
+// TODO: Replace this with __KernelResumeThreadFromWait over time as it's misguided.
+// It's better that each subsystem keeps track of the list of waiting threads
+// and resumes them manually one by one using __KernelResumeThreadFromWait.
 bool __KernelTriggerWait(WaitType type, int id, bool dontSwitch = false);
 bool __KernelTriggerWait(WaitType type, int id, int retVal, bool dontSwitch);
 u32 __KernelResumeThreadFromWait(SceUID threadID); // can return an error value
@@ -119,15 +134,15 @@ void __KernelReSchedule(bool doCallbacks, const char *reason);
 
 // Registered callback types
 enum RegisteredCallbackType {
-  THREAD_CALLBACK_UMD = 0,
-  THREAD_CALLBACK_IO = 1,
-  THREAD_CALLBACK_MEMORYSTICK = 2,
-  THREAD_CALLBACK_MEMORYSTICK_FAT = 3,
-  THREAD_CALLBACK_POWER = 4,
-  THREAD_CALLBACK_EXIT = 5,
-  THREAD_CALLBACK_USER_DEFINED = 6,
-  THREAD_CALLBACK_SIZE = 7,
-  THREAD_CALLBACK_NUM_TYPES = 8,
+	THREAD_CALLBACK_UMD = 0,
+	THREAD_CALLBACK_IO = 1,
+	THREAD_CALLBACK_MEMORYSTICK = 2,
+	THREAD_CALLBACK_MEMORYSTICK_FAT = 3,
+	THREAD_CALLBACK_POWER = 4,
+	THREAD_CALLBACK_EXIT = 5,
+	THREAD_CALLBACK_USER_DEFINED = 6,
+	THREAD_CALLBACK_SIZE = 7,
+	THREAD_CALLBACK_NUM_TYPES = 8,
 };
 
 // These operate on the current thread
@@ -161,6 +176,12 @@ void sceKernelGetCallbackCount();
 void sceKernelCheckCallback();
 void sceKernelGetCallbackCount();
 void sceKernelReferCallbackStatus();
+
+class Action;
+
+// Not an official Callback object, just calls a mips function on the current thread.
+void __KernelDirectMipsCall(u32 entryPoint, Action *afterAction, bool returnVoid, u32 args[], int numargs, bool reschedAfter);
+
 void __KernelReturnFromMipsCall();  // Called as HLE function
 bool __KernelInCallback();
 
@@ -169,12 +190,20 @@ bool __KernelCheckCallbacks();
 bool __KernelForceCallbacks();
 class Thread;
 void __KernelSwitchContext(Thread *target, const char *reason);
-bool __KernelExecutePendingMipsCalls();
-void __KernelNotifyCallback(RegisteredCallbackType type, SceUID threadId, SceUID cbId, int notifyArg);
+bool __KernelExecutePendingMipsCalls(bool reschedAfter);
+void __KernelNotifyCallback(RegisteredCallbackType type, SceUID cbId, int notifyArg);
+
+// Switch to an idle / non-user thread, if not already on one.
+// Returns whether a switch occurred.
+bool __KernelSwitchOffThread(const char *reason);
 
 // A call into game code. These can be pending on a thread.
 // Similar to Callback-s (NOT CallbackInfos) in JPCSP.
-class Action;
+typedef Action *(*ActionCreator)();
+Action *__KernelCreateAction(int actionType);
+int __KernelRegisterActionType(ActionCreator creator);
+void __KernelRestoreActionType(int actionType, ActionCreator creator);
+
 struct MipsCall {
 	u32 entryPoint;
 	u32 cbId;
@@ -187,8 +216,23 @@ struct MipsCall {
 	u32 savedV0;
 	u32 savedV1;
 	bool returnVoid;
-	const char *tag;
+	std::string tag;
+	u32 savedId;
+	bool reschedAfter;
+
+	void DoState(PointerWrap &p);
+	void setReturnValue(u32 value);
 };
+
+class Action
+{
+public:
+	virtual ~Action() {}
+	virtual void run(MipsCall &call) = 0;
+	virtual void DoState(PointerWrap &p) = 0;
+	int actionTypeID;
+};
+
 enum ThreadStatus
 {
 	THREADSTATUS_RUNNING = 1,

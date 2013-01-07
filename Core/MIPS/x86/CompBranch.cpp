@@ -61,6 +61,10 @@ static u64 saved_flags;
 
 void Jit::BranchRSRTComp(u32 op, Gen::CCFlags cc, bool likely)
 {
+	if (js.inDelaySlot) {
+		ERROR_LOG(JIT, "Branch in delay slot at %08x", js.compilerPC);
+		return;
+	}
 	int offset = (signed short)(op&0xFFFF)<<2;
 	int rt = _RT;
 	int rs = _RS;
@@ -119,6 +123,10 @@ void Jit::BranchRSRTComp(u32 op, Gen::CCFlags cc, bool likely)
 
 void Jit::BranchRSZeroComp(u32 op, Gen::CCFlags cc, bool likely)
 {
+	if (js.inDelaySlot) {
+		ERROR_LOG(JIT, "Branch in delay slot at %08x", js.compilerPC);
+		return;
+	}
 	int offset = (signed short)(op&0xFFFF)<<2;
 	int rs = _RS;
 	u32 targetAddr = js.compilerPC + offset + 4;
@@ -208,6 +216,10 @@ void Jit::Comp_RelBranchRI(u32 op)
 // If likely is set, discard the branch slot if NOT taken.
 void Jit::BranchFPFlag(u32 op, Gen::CCFlags cc, bool likely)
 {
+	if (js.inDelaySlot) {
+		ERROR_LOG(JIT, "Branch in delay slot at %08x", js.compilerPC);
+		return;
+	}
 	int offset = (signed short)(op & 0xFFFF) << 2;
 	u32 targetAddr = js.compilerPC + offset + 4;
 
@@ -273,6 +285,10 @@ void Jit::Comp_FPUBranch(u32 op)
 // If likely is set, discard the branch slot if NOT taken.
 void Jit::BranchVFPUFlag(u32 op, Gen::CCFlags cc, bool likely)
 {
+	if (js.inDelaySlot) {
+		ERROR_LOG(JIT, "Branch in delay slot at %08x", js.compilerPC);
+		return;
+	}
 	int offset = (signed short)(op & 0xFFFF) << 2;
 	u32 targetAddr = js.compilerPC + offset + 4;
 
@@ -346,10 +362,14 @@ void Jit::Comp_VBranch(u32 op)
 
 void Jit::Comp_Jump(u32 op)
 {
+	if (js.inDelaySlot) {
+		ERROR_LOG(JIT, "Branch in delay slot at %08x", js.compilerPC);
+		return;
+	}
 	u32 off = ((op & 0x3FFFFFF) << 2);
 	u32 targetAddr = (js.compilerPC & 0xF0000000) | off;
 	//Delay slot
- 	CompileAt(js.compilerPC + 4);
+	CompileAt(js.compilerPC + 4);
 	FlushAll();
 
 	switch (op >> 26) 
@@ -374,6 +394,10 @@ static u32 savedPC;
 
 void Jit::Comp_JumpReg(u32 op)
 {
+	if (js.inDelaySlot) {
+		ERROR_LOG(JIT, "Branch in delay slot at %08x", js.compilerPC);
+		return;
+	}
 	int rs = _RS;
 
 	u32 delaySlotOp = Memory::ReadUnchecked_U32(js.compilerPC + 4);

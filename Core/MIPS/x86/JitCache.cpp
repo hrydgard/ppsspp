@@ -104,7 +104,6 @@ JitBlockCache::~JitBlockCache()
 	Shutdown();
 }
 
-	
 // This clears the JIT cache. It's called from JitCache.cpp when the JIT cache
 // is full and when saving and loading states.
 void JitBlockCache::Clear()
@@ -348,12 +347,8 @@ void JitBlockCache::DestroyBlock(int block_num, bool invalidate)
 		return;
 	}
 	b.invalid = true;
-#ifdef JIT_UNLIMITED_ICACHE
-	Memory::Write_Opcode_JIT(b.originalAddress, b.originalFirstOpcode?b.originalFirstOpcode:JIT_ICACHE_INVALID_WORD);
-#else
-	if (Memory::ReadUnchecked_U32(b.originalAddress) == (u32)block_num)
+	if ((int)Memory::ReadUnchecked_U32(b.originalAddress) == (MIPS_EMUHACK_OPCODE | block_num))
 		Memory::WriteUnchecked_U32(b.originalFirstOpcode, b.originalAddress);
-#endif
 
 	UnlinkBlock(block_num);
 

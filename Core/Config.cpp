@@ -33,30 +33,37 @@ CConfig::~CConfig()
 void CConfig::Load(const char *iniFileName)
 {
 	iniFilename_ = iniFileName;
-	NOTICE_LOG(LOADER, "Loading config: %s", iniFileName);
+	INFO_LOG(LOADER, "Loading config: %s", iniFileName);
 	bSaveSettings = true;
 
 	IniFile iniFile;
-	iniFile.Load(iniFileName);
+	if (!iniFile.Load(iniFileName)) {
+		ERROR_LOG(LOADER, "Failed to read %s. Setting config to default.", iniFileName);
+		// Continue anyway to initialize the config.
+	}
 
 	IniFile::Section *general = iniFile.GetOrCreateSection("General");
 
 	bSpeedLimit = false;
 	general->Get("FirstRun", &bFirstRun, true);
 	general->Get("AutoLoadLast", &bAutoLoadLast, false);
-	general->Get("AutoRun", &bAutoRun, false);
+	general->Get("AutoRun", &bAutoRun, true);
 	general->Get("ConfirmOnQuit", &bConfirmOnQuit, false);
 	general->Get("IgnoreBadMemAccess", &bIgnoreBadMemAccess, true);
 	general->Get("CurrentDirectory", &currentDirectory, "");
 	general->Get("ShowDebuggerOnLoad", &bShowDebuggerOnLoad, false);
+
 	IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 	cpu->Get("Core", &iCpuCore, 0);
+	cpu->Get("FastMemory", &bFastMemory, false);
 
 	IniFile::Section *graphics = iniFile.GetOrCreateSection("Graphics");
 	graphics->Get("ShowFPSCounter", &bShowFPSCounter, false);
 	graphics->Get("DisplayFramebuffer", &bDisplayFramebuffer, false);
 	graphics->Get("WindowZoom", &iWindowZoom, 1);
 	graphics->Get("BufferedRendering", &bBufferedRendering, true);
+	graphics->Get("HardwareTransform", &bHardwareTransform, true);
+	graphics->Get("LinearFiltering", &bLinearFiltering, false);
 
 	IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 	sound->Get("Enable", &bEnableSound, true);
@@ -64,14 +71,18 @@ void CConfig::Load(const char *iniFileName)
 	IniFile::Section *control = iniFile.GetOrCreateSection("Control");
 	control->Get("ShowStick", &bShowAnalogStick, false);
 	control->Get("ShowTouchControls", &bShowTouchControls, true);
+
+	// Ephemeral settings
+	bDrawWireframe = false;
 }
 
 void CConfig::Save()
 {
-	if (g_Config.bSaveSettings && iniFilename_.size())
-	{
+	if (iniFilename_.size() && g_Config.bSaveSettings) {
 		IniFile iniFile;
-		iniFile.Load(iniFilename_.c_str());
+		if (!iniFile.Load(iniFilename_.c_str())) {
+			ERROR_LOG(LOADER, "Error saving config - can't read ini %s", iniFilename_.c_str());
+		}
 
 		IniFile::Section *general = iniFile.GetOrCreateSection("General");
 		general->Set("FirstRun", bFirstRun);
@@ -83,12 +94,15 @@ void CConfig::Save()
 		general->Set("ShowDebuggerOnLoad", bShowDebuggerOnLoad);
 		IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 		cpu->Set("Core", iCpuCore);
+		cpu->Set("FastMemory", bFastMemory);
 
 		IniFile::Section *graphics = iniFile.GetOrCreateSection("Graphics");
 		graphics->Set("ShowFPSCounter", bShowFPSCounter);
 		graphics->Set("DisplayFramebuffer", bDisplayFramebuffer);
 		graphics->Set("WindowZoom", iWindowZoom);
 		graphics->Set("BufferedRendering", bBufferedRendering);
+		graphics->Set("HardwareTransform", bHardwareTransform);
+		graphics->Set("LinearFiltering", bLinearFiltering);
 
 		IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 		sound->Set("Enable", bEnableSound);
@@ -97,9 +111,12 @@ void CConfig::Save()
 		control->Set("ShowStick", bShowAnalogStick);
 		control->Set("ShowTouchControls", bShowTouchControls);
 
-		iniFile.Save(iniFilename_.c_str());
-		NOTICE_LOG(LOADER, "Config saved: %s", iniFilename_.c_str());
+		if (!iniFile.Save(iniFilename_.c_str())) {
+			ERROR_LOG(LOADER, "Error saving config - can't write ini %s", iniFilename_.c_str());
+			return;
+		}
+		INFO_LOG(LOADER, "Config saved: %s", iniFilename_.c_str());
 	} else {
-		NOTICE_LOG(LOADER, "Error saving config: %s", iniFilename_.c_str());
+		INFO_LOG(LOADER, "Not saving config");
 	}
 }

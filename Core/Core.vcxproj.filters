@@ -40,6 +40,15 @@
     <Filter Include="HW">
       <UniqueIdentifier>{9696662f-7398-489a-a358-5ebbf4ad4d97}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Dialog">
+      <UniqueIdentifier>{41034c99-9b76-477f-8a77-bffaaffd5e82}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Ext">
+      <UniqueIdentifier>{1966d4a4-9a34-4a6c-946a-ebaf33633276}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Ext\Snappy">
+      <UniqueIdentifier>{0b77054f-7fc7-4c33-ada3-762aecde69e5}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ELF\ElfReader.cpp">
@@ -291,6 +300,9 @@
     <ClCompile Include="HLE\sceImpose.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
+    <ClCompile Include="HW\MediaEngine.cpp">
+      <Filter>HW</Filter>
+    </ClCompile>
     <ClCompile Include="Util\PPGeDraw.cpp">
       <Filter>Util</Filter>
     </ClCompile>
@@ -315,11 +327,41 @@
     <ClCompile Include="HLE\sceParseHttp.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
-    <ClCompile Include="HLE\scesupPreAcc.cpp">
-      <Filter>HLE\Libraries</Filter>
-    </ClCompile>
     <ClCompile Include="HLE\sceVaudio.cpp">
       <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="Dialog\PSPDialog.cpp">
+      <Filter>Dialog</Filter>
+    </ClCompile>
+    <ClCompile Include="Dialog\PSPMsgDialog.cpp">
+      <Filter>Dialog</Filter>
+    </ClCompile>
+    <ClCompile Include="Dialog\PSPPlaceholderDialog.cpp">
+      <Filter>Dialog</Filter>
+    </ClCompile>
+    <ClCompile Include="Dialog\PSPSaveDialog.cpp">
+      <Filter>Dialog</Filter>
+    </ClCompile>
+    <ClCompile Include="Dialog\SavedataParam.cpp">
+      <Filter>Dialog</Filter>
+    </ClCompile>
+    <ClCompile Include="Dialog\PSPOskDialog.cpp">
+      <Filter>Dialog</Filter>
+    </ClCompile>
+    <ClCompile Include="HW\SasAudio.cpp">
+      <Filter>HW</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\sceUsb.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="SaveState.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\snappy\snappy-c.cpp">
+      <Filter>Ext\Snappy</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\snappy\snappy.cpp">
+      <Filter>Ext\Snappy</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -560,6 +602,9 @@
     <ClInclude Include="HLE\sceImpose.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
+    <ClInclude Include="HW\MediaEngine.h">
+      <Filter>HW</Filter>
+    </ClInclude>
     <ClInclude Include="Util\PPGeDraw.h">
       <Filter>Util</Filter>
     </ClInclude>
@@ -584,11 +629,50 @@
     <ClInclude Include="HLE\sceParseHttp.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
-    <ClInclude Include="HLE\scesupPreAcc.h">
-      <Filter>HLE\Libraries</Filter>
-    </ClInclude>
     <ClInclude Include="HLE\sceVaudio.h">
       <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="Dialog\PSPDialog.h">
+      <Filter>Dialog</Filter>
+    </ClInclude>
+    <ClInclude Include="Dialog\PSPMsgDialog.h">
+      <Filter>Dialog</Filter>
+    </ClInclude>
+    <ClInclude Include="Dialog\PSPPlaceholderDialog.h">
+      <Filter>Dialog</Filter>
+    </ClInclude>
+    <ClInclude Include="Dialog\PSPSaveDialog.h">
+      <Filter>Dialog</Filter>
+    </ClInclude>
+    <ClInclude Include="Dialog\SavedataParam.h">
+      <Filter>Dialog</Filter>
+    </ClInclude>
+    <ClInclude Include="Dialog\PSPOskDialog.h">
+      <Filter>Dialog</Filter>
+    </ClInclude>
+    <ClInclude Include="HW\SasAudio.h">
+      <Filter>HW</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceUsb.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="SaveState.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\snappy\snappy.h">
+      <Filter>Ext\Snappy</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\snappy\snappy-stubs-public.h">
+      <Filter>Ext\Snappy</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\snappy\snappy-sinksource.h">
+      <Filter>Ext\Snappy</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\snappy\snappy-stubs-internal.h">
+      <Filter>Ext\Snappy</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\snappy\snappy-internal.h">
+      <Filter>Ext\Snappy</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

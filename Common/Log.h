@@ -23,6 +23,10 @@
 #define	INFO_LEVEL    4  // General information.
 #define	DEBUG_LEVEL   5  // Detailed debugging - might make things slow.
 
+#ifndef _WIN32
+#include <signal.h>
+#endif
+
 namespace LogTypes
 {
 
@@ -41,11 +45,13 @@ enum LOG_TYPE {
 	INTC,
 	MEMMAP,
 	SOUND,
+	SAS,
 	HLE,
 	TIMER,
 	VIDEO,
 	DYNA_REC,
 	NETPLAY,
+	ME,
 
 	NUMBER_OF_LOGS,  // Must be last
 	JIT = DYNA_REC,

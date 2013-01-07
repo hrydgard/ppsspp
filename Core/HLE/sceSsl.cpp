@@ -35,6 +35,14 @@ void __SslInit()
 	currentMemSize = 0;
 }
 
+void __SslDoState(PointerWrap &p)
+{
+	p.Do(isSslInit);
+	p.Do(maxMemSize);
+	p.Do(currentMemSize);
+	p.DoMarker("sceSsl");
+}
+
 int sceSslInit(int heapSize)
 {
 	DEBUG_LOG(HLE, "sceSslInit %d", heapSize);

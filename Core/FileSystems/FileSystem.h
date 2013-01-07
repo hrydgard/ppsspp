@@ -18,6 +18,7 @@
 #pragma once
 
 #include "../../Globals.h"
+#include "../../Common/ChunkFile.h"
 #include <string>
 
 enum FileAccess
@@ -56,11 +57,27 @@ struct PSPFileInfo
 	PSPFileInfo() 
 		: size(0), access(0), exists(false), type(FILETYPE_NORMAL), isOnSectorSystem(false), startSector(0), numSectors(0) {}
 
+	void DoState(PointerWrap &p)
+	{
+		p.Do(name);
+		p.Do(size);
+		p.Do(access);
+		p.Do(exists);
+		p.Do(type);
+		p.Do(mtime);
+		p.Do(isOnSectorSystem);
+		p.Do(startSector);
+		p.Do(numSectors);
+		p.DoMarker("PSPFileInfo");
+	}
+
 	std::string name;
 	s64 size;
 	u32 access; //unix 777
 	bool exists;
 	FileType type;
+
+	tm mtime;
 
 	bool isOnSectorSystem;
 	u32 startSector;
@@ -73,6 +90,7 @@ class IFileSystem
 public:
 	virtual ~IFileSystem() {}
 
+	virtual void DoState(PointerWrap &p) = 0;
 	virtual std::vector<PSPFileInfo> GetDirListing(std::string path) = 0;
 	virtual u32      OpenFile(std::string filename, FileAccess access) = 0;
 	virtual void     CloseFile(u32 handle) = 0;
@@ -85,12 +103,14 @@ public:
 	virtual bool     RmDir(const std::string &dirname) = 0;
 	virtual bool     RenameFile(const std::string &from, const std::string &to) = 0;
 	virtual bool     DeleteFile(const std::string &filename) = 0;
+	virtual bool     GetHostPath(const std::string &inpath, std::string &outpath) = 0;
 };
 
 
 class EmptyFileSystem : public IFileSystem
 {
 public:
+	virtual void DoState(PointerWrap &p) {}
 	std::vector<PSPFileInfo> GetDirListing(std::string path) {std::vector<PSPFileInfo> vec; return vec;}
 	u32      OpenFile(std::string filename, FileAccess access) {return 0;}
 	void     CloseFile(u32 handle) {}
@@ -103,6 +123,7 @@ public:
 	virtual bool RmDir(const std::string &dirname) {return false;}
 	virtual bool RenameFile(const std::string &from, const std::string &to) {return false;}
 	virtual bool DeleteFile(const std::string &filename) {return false;}
+	virtual bool     GetHostPath(const std::string &inpath, std::string &outpath) {return false;}
 };
 
 

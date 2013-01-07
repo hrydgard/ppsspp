@@ -2,6 +2,7 @@
 #pragma once
 
 #include "../../Globals.h"
+#include "../../Common/ChunkFile.h"
 
 #include <vector>
 #include <list>
@@ -22,7 +23,7 @@ public:
 
 	void ListBlocks();
 
-  // WARNING: size can be modified upwards!
+	// WARNING: size can be modified upwards!
 	u32 Alloc(u32 &size, bool fromTop = false, const char *tag = 0);
 	u32 AllocAt(u32 position, u32 size, const char *tag = 0);
 
@@ -41,6 +42,8 @@ public:
 	u32 GetBlockSizeFromAddress(u32 addr);
 	u32 GetLargestFreeBlockSize();
 	u32 GetTotalFreeBytes();
+
+	void DoState(PointerWrap &p);
 
 private:
 	void CheckBlocks();

@@ -54,6 +54,8 @@ LOCAL_SRC_FILES := \
   $(SRC)/ext/libkirk/bn.c \
   $(SRC)/ext/libkirk/ec.c \
   $(SRC)/ext/libkirk/kirk_engine.c \
+  $(SRC)/ext/snappy/snappy-c.cpp \
+  $(SRC)/ext/snappy/snappy.cpp \
   $(SRC)/Common/ArmABI.cpp \
   $(SRC)/Common/ArmEmitter.cpp \
   $(SRC)/Common/ArmCPUDetect.cpp \
@@ -68,11 +70,15 @@ LOCAL_SRC_FILES := \
   $(SRC)/Common/Timer.cpp \
   $(SRC)/Common/ThunkARM.cpp \
   $(SRC)/Common/Misc.cpp \
+  $(SRC)/Common/MathUtil.cpp \
   $(SRC)/GPU/Math3D.cpp \
+  $(SRC)/GPU/GPUCommon.cpp \
   $(SRC)/GPU/GPUState.cpp \
+  $(SRC)/GPU/GeDisasm.cpp \
   $(SRC)/GPU/GLES/Framebuffer.cpp \
   $(SRC)/GPU/GLES/DisplayListInterpreter.cpp \
   $(SRC)/GPU/GLES/TextureCache.cpp \
+  $(SRC)/GPU/GLES/IndexGenerator.cpp \
   $(SRC)/GPU/GLES/TransformPipeline.cpp \
   $(SRC)/GPU/GLES/StateMapping.cpp \
   $(SRC)/GPU/GLES/VertexDecoder.cpp \
@@ -84,6 +90,8 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/ELF/PrxDecrypter.cpp \
   $(SRC)/Core/ELF/ParamSFO.cpp \
   $(SRC)/Core/HW/MemoryStick.cpp \
+  $(SRC)/Core/HW/MediaEngine.cpp \
+  $(SRC)/Core/HW/SasAudio.cpp \
   $(SRC)/Core/Core.cpp \
   $(SRC)/Core/Config.cpp \
   $(SRC)/Core/CoreTiming.cpp \
@@ -93,10 +101,17 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/PSPLoaders.cpp \
   $(SRC)/Core/MemMap.cpp \
   $(SRC)/Core/MemMapFunctions.cpp \
+  $(SRC)/Core/SaveState.cpp \
   $(SRC)/Core/System.cpp \
   $(SRC)/Core/PSPMixer.cpp \
   $(SRC)/Core/Debugger/Breakpoints.cpp \
   $(SRC)/Core/Debugger/SymbolMap.cpp \
+  $(SRC)/Core/Dialog/PSPDialog.cpp \
+  $(SRC)/Core/Dialog/PSPMsgDialog.cpp \
+  $(SRC)/Core/Dialog/PSPOskDialog.cpp \
+  $(SRC)/Core/Dialog/PSPPlaceholderDialog.cpp \
+  $(SRC)/Core/Dialog/PSPSaveDialog.cpp \
+  $(SRC)/Core/Dialog/SavedataParam.cpp \
   $(SRC)/Core/HLE/HLETables.cpp \
   $(SRC)/Core/HLE/HLE.cpp \
   $(SRC)/Core/HLE/sceAtrac.cpp \
@@ -135,9 +150,9 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/HLE/sceSas.cpp \
   $(SRC)/Core/HLE/sceSsl.cpp \
   $(SRC)/Core/HLE/sceUmd.cpp \
+  $(SRC)/Core/HLE/sceUsb.cpp \
   $(SRC)/Core/HLE/sceUtility.cpp \
   $(SRC)/Core/HLE/sceVaudio.cpp \
-  $(SRC)/Core/HLE/scesupPreAcc.cpp \
   $(SRC)/Core/FileSystems/BlockDevices.cpp \
   $(SRC)/Core/FileSystems/ISOFileSystem.cpp \
   $(SRC)/Core/FileSystems/MetaFileSystem.cpp \

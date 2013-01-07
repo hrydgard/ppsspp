@@ -297,3 +297,13 @@ u32 BlockAllocator::GetTotalFreeBytes()
 	}
 	return sum;
 }
+
+void BlockAllocator::DoState(PointerWrap &p)
+{
+	Block b(0, 0, false);
+	p.Do(blocks, b);
+	p.Do(rangeStart_);
+	p.Do(rangeSize_);
+	p.Do(grain_);
+	p.DoMarker("BlockAllocator");
+}

@@ -31,9 +31,12 @@
 #include <vector>
 #include <deque>
 #include <string>
+#include <list>
+#include <set>
 
 #include "Common.h"
 #include "FileUtil.h"
+#include "../ext/snappy/snappy-c.h"
 
 template <class T>
 struct LinkedListItem : public T
@@ -112,14 +115,59 @@ public:
 		}
 	}
 
+	template<class K, class T>
+	void Do(std::multimap<K, T> &x)
+	{
+		unsigned int number = (unsigned int)x.size();
+		Do(number);
+		switch (mode) {
+		case MODE_READ:
+			{
+				x.clear();
+				while (number > 0)
+				{
+					K first;
+					Do(first);
+					T second;
+					Do(second);
+					x.insert(std::make_pair(first, second));
+					--number;
+				}
+			}
+			break;
+		case MODE_WRITE:
+		case MODE_MEASURE:
+		case MODE_VERIFY:
+			{
+				typename std::multimap<K, T>::iterator itr = x.begin();
+				while (number > 0)
+				{
+					Do(itr->first);
+					Do(itr->second);
+					--number;
+					++itr;
+				}
+			}
+			break;
+		}
+	}
+
 	// Store vectors.
 	template<class T>
 	void Do(std::vector<T> &x)
 	{
+		T dv;
+		Do(x, dv);
+	}
+
+	template<class T>
+	void Do(std::vector<T> &x, T &default_val)
+	{
 		u32 vec_size = (u32)x.size();
 		Do(vec_size);
-		x.resize(vec_size);
-		DoArray(&x[0], vec_size);
+		x.resize(vec_size, default_val);
+		if (vec_size > 0)
+			DoArray(&x[0], vec_size);
 	}
 	
 	// Store deques.
@@ -133,7 +181,62 @@ public:
 		for(i = 0; i < deq_size; i++)
 			DoVoid(&x[i],sizeof(T));
 	}
-	
+
+	// Store STL lists.
+	template<class T>
+	void Do(std::list<T> &x)
+	{
+		T dv;
+		Do(x, dv);
+	}
+
+	template<class T>
+	void Do(std::list<T> &x, T &default_val)
+	{
+		u32 list_size = (u32)x.size();
+		Do(list_size);
+		x.resize(list_size, default_val);
+
+		typename std::list<T>::iterator itr, end;
+		for (itr = x.begin(), end = x.end(); itr != end; ++itr)
+			Do(*itr);
+	}
+
+	// Store STL sets.
+	template <class T>
+	void Do(std::set<T> &x)
+	{
+		unsigned int number = (unsigned int)x.size();
+		Do(number);
+
+		switch (mode)
+		{
+		case MODE_READ:
+			{
+				x.clear();
+				while (number-- > 0)
+				{
+					T it;
+					Do(it);
+					x.insert(it);
+				}
+			}
+			break;
+		case MODE_WRITE:
+		case MODE_MEASURE:
+		case MODE_VERIFY:
+			{
+				typename std::set<T>::iterator itr = x.begin();
+				while (number-- > 0)
+					Do(*itr++);
+			}
+			break;
+
+		default:
+			ERROR_LOG(COMMON, "Savestate error: invalid mode %d.", mode);
+		}
+	}
+
 	// Store strings.
 	void Do(std::string &x) 
 	{
@@ -317,9 +420,22 @@ public:
 		}
 
 		u8 *ptr = buffer;
+		u8 *buf = buffer;
+		if (header.Compress) {
+			u8 *uncomp_buffer = new u8[header.UncompressedSize];
+			size_t uncomp_size = header.UncompressedSize;
+			snappy_uncompress((const char *)buffer, sz, (char *)uncomp_buffer, &uncomp_size);
+			if (uncomp_size != header.UncompressedSize) {
+				ERROR_LOG(COMMON,"Size mismatch: file: %i  calc: %i", (int)header.UncompressedSize, (int)uncomp_size);
+			}
+			ptr = uncomp_buffer;
+			buf = uncomp_buffer;
+			delete [] buffer;
+		}
+
 		PointerWrap p(&ptr, PointerWrap::MODE_READ);
 		_class.DoState(p);
-		delete[] buffer;
+		delete[] buf;
 		
 		INFO_LOG(COMMON, "ChunkReader: Done loading %s" , _rFilename.c_str());
 		return true;
@@ -337,33 +453,57 @@ public:
 			return false;
 		}
 
+		bool compress = true;
+
 		// Get data
 		u8 *ptr = 0;
 		PointerWrap p(&ptr, PointerWrap::MODE_MEASURE);
 		_class.DoState(p);
 		size_t const sz = (size_t)ptr;
-		std::vector<u8> buffer(sz);
+		
+		u8 * buffer = new u8[sz];
 		ptr = &buffer[0];
 		p.SetMode(PointerWrap::MODE_WRITE);
 		_class.DoState(p);
-		
+
 		// Create header
 		SChunkHeader header;
-		header.Compress = 0;
+		header.Compress = compress ? 1 : 0;
 		header.Revision = _Revision;
 		header.ExpectedSize = (int)sz;
+		header.UncompressedSize = (int)sz;
 		
 		// Write to file
-		if (!pFile.WriteArray(&header, 1))
-		{
-			ERROR_LOG(COMMON,"ChunkReader: Failed writing header");
-			return false;
-		}
-
-		if (!pFile.WriteBytes(&buffer[0], sz))
-		{
-			ERROR_LOG(COMMON,"ChunkReader: Failed writing data");
-			return false;
+		if (compress) {
+			size_t comp_len = snappy_max_compressed_length(sz);
+			u8 *compressed_buffer = new u8[comp_len];
+			snappy_compress((const char *)buffer, sz, (char *)compressed_buffer, &comp_len);
+			delete [] buffer;
+			header.ExpectedSize = comp_len;
+			if (!pFile.WriteArray(&header, 1))
+			{
+				ERROR_LOG(COMMON,"ChunkReader: Failed writing header");
+				return false;
+			}
+			if (!pFile.WriteBytes(&compressed_buffer[0], comp_len)) {
+				ERROR_LOG(COMMON,"ChunkReader: Failed writing compressed data");
+				return false;
+			}	else {
+				INFO_LOG(COMMON, "Savestate: Compressed %i bytes into %i", (int)sz, (int)comp_len);
+			}
+			delete [] compressed_buffer;
+		} else {
+			if (!pFile.WriteArray(&header, 1))
+			{
+				ERROR_LOG(COMMON,"ChunkReader: Failed writing header");
+				return false;
+			}
+			if (!pFile.WriteBytes(&buffer[0], sz))
+			{
+				ERROR_LOG(COMMON,"ChunkReader: Failed writing data");
+				return false;
+			}
+			delete [] buffer;
 		}
 		
 		INFO_LOG(COMMON,"ChunkReader: Done writing %s", 
@@ -371,12 +511,37 @@ public:
 		return true;
 	}
 	
+	template <class T>
+	static bool Verify(T& _class)
+	{
+		u8 *ptr = 0;
+
+		// Step 1: Measure the space required.
+		PointerWrap p(&ptr, PointerWrap::MODE_MEASURE);
+		_class.DoState(p);
+		size_t const sz = (size_t)ptr;
+		std::vector<u8> buffer(sz);
+
+		// Step 2: Dump the state.
+		ptr = &buffer[0];
+		p.SetMode(PointerWrap::MODE_WRITE);
+		_class.DoState(p);
+
+		// Step 3: Verify the state.
+		ptr = &buffer[0];
+		p.SetMode(PointerWrap::MODE_VERIFY);
+		_class.DoState(p);
+
+		return true;
+	}
+
 private:
 	struct SChunkHeader
 	{
 		int Revision;
 		int Compress;
 		int ExpectedSize;
+		int UncompressedSize;
 	};
 };
 

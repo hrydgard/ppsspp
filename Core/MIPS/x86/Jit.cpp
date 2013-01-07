@@ -76,6 +76,7 @@ void Jit::RunLoopUntil(u64 globalticks)
 {
 	// TODO: copy globalticks somewhere
 	((void (*)())asm_.enterCode)();
+	// NOTICE_LOG(HLE, "Exited jitted code at %i, corestate=%i, dc=%i", CoreTiming::GetTicks() / 1000, (int)coreState, CoreTiming::downcount);
 }
 
 const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
@@ -86,6 +87,14 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	js.curBlock = b;
 	js.compiling = true;
 	js.inDelaySlot = false;
+
+	// We add a check before the block, used when entering from a linked block.
+	b->checkedEntry = GetCodePtr();
+	// Downcount flag check. The last block decremented downcounter, and the flag should still be available.
+	FixupBranch skip = J_CC(CC_NBE);
+	MOV(32, M(&mips_->pc), Imm32(js.blockStart));
+	JMP(asm_.outerLoop, true);  // downcount hit zero - go advance.
+	SetJumpTarget(skip);
 
 	b->normalEntry = GetCodePtr();
 
@@ -168,7 +177,7 @@ void Jit::WriteExitDestInEAX()
 void Jit::WriteSyscallExit()
 {
 	SUB(32, M(&CoreTiming::downcount), js.downcountAmount > 127 ? Imm32(js.downcountAmount) : Imm8(js.downcountAmount));
-	JMP(asm_.dispatcher, true);
+	JMP(asm_.dispatcherCheckCoreState, true);
 }
 
 } // namespace

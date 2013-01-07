@@ -31,11 +31,11 @@ const int PSP_ERROR_UMD_INVALID_PARAM = 0x80010016;
 #define UMD_READABLE		0x20
 
 
-u8 umdActivated = 1;
-u32 umdStatus = 0;
-u32 umdErrorStat = 0;
-static int driveCBId= -1;
-int umdStatTimer = 0;
+static u8 umdActivated = 1;
+static u32 umdStatus = 0;
+static u32 umdErrorStat = 0;
+static int driveCBId = -1;
+static int umdStatTimer = 0;
 
 
 #define PSP_UMD_TYPE_GAME 0x10
@@ -47,12 +47,26 @@ struct PspUmdInfo {
 	u32 type;
 };
 
+void __UmdStatTimeout(u64 userdata, int cyclesLate);
 
-void __UmdInit() {
+void __UmdInit()
+{
+	umdStatTimer = CoreTiming::RegisterEvent("UmdTimeout", __UmdStatTimeout);
 	umdActivated = 1;
 	umdStatus = 0;
 	umdErrorStat = 0;
 	driveCBId = -1;
+}
+
+void __UmdDoState(PointerWrap &p)
+{
+	p.Do(umdActivated);
+	p.Do(umdStatus);
+	p.Do(umdErrorStat);
+	p.Do(driveCBId);
+	p.Do(umdStatTimer);
+	CoreTiming::RestoreRegisterEvent(umdStatTimer, "UmdTimeout", __UmdStatTimeout);
+	p.DoMarker("sceUmd");
 }
 
 u8 __KernelUmdGetState()
@@ -62,6 +76,7 @@ u8 __KernelUmdGetState()
 		state |= UMD_READY;
 		state |= UMD_READABLE;
 	}
+	// TODO: My tests give UMD_READY but I suppose that's when it's been sitting in the drive?
 	else
 		state |= UMD_NOT_READY;
 	return state;
@@ -107,13 +122,10 @@ u32 sceUmdGetDiscInfo(u32 infoAddr)
 		return PSP_ERROR_UMD_INVALID_PARAM;
 }
 
-void sceUmdActivate(u32 unknown, const char *name)
+int sceUmdActivate(u32 unknown, const char *name)
 {
 	if (unknown < 1 || unknown > 2)
-	{
-		RETURN(PSP_ERROR_UMD_INVALID_PARAM);
-		return;
-	}
+		return PSP_ERROR_UMD_INVALID_PARAM;
 
 	bool changed = umdActivated == 0;
 	__KernelUmdActivate();
@@ -129,20 +141,15 @@ void sceUmdActivate(u32 unknown, const char *name)
 
 	u32 notifyArg = UMD_PRESENT | UMD_READABLE;
 	__KernelNotifyCallbackType(THREAD_CALLBACK_UMD, -1, notifyArg);
-	RETURN(0);
 
-	if (changed)
-		__KernelReSchedule("umd activated");
+	return 0;
 }
 
-void sceUmdDeactivate(u32 unknown, const char *name)
+int sceUmdDeactivate(u32 unknown, const char *name)
 {
 	// Why 18?  No idea.
-	if (unknown < 0 || unknown > 18)
-	{
-		RETURN(PSP_ERROR_UMD_INVALID_PARAM);
-		return;
-	}
+	if (unknown > 18)
+		return PSP_ERROR_UMD_INVALID_PARAM;
 
 	bool changed = umdActivated != 0;
 	__KernelUmdDeactivate();
@@ -158,10 +165,8 @@ void sceUmdDeactivate(u32 unknown, const char *name)
 
 	u32 notifyArg = UMD_PRESENT | UMD_READY;
 	__KernelNotifyCallbackType(THREAD_CALLBACK_UMD, -1, notifyArg);
-	RETURN(0);
 
-	if (changed)
-		__KernelReSchedule("umd deactivated");
+	return 0;
 }
 
 u32 sceUmdRegisterUMDCallBack(u32 cbId)
@@ -173,6 +178,10 @@ u32 sceUmdRegisterUMDCallBack(u32 cbId)
 		retVal = PSP_ERROR_UMD_INVALID_PARAM;
 	else
 	{
+		// Remove the old one, we're replacing.
+		if (driveCBId != -1)
+			__KernelUnregisterCallback(THREAD_CALLBACK_UMD, driveCBId);
+
 		retVal = __KernelRegisterCallback(THREAD_CALLBACK_UMD, cbId);
 		driveCBId = cbId;
 	}
@@ -219,9 +228,6 @@ void __UmdStatTimeout(u64 userdata, int cyclesLate)
 
 void __UmdWaitStat(u32 timeout)
 {
-	if (umdStatTimer == 0)
-		umdStatTimer = CoreTiming::RegisterEvent("MutexTimeout", &__UmdStatTimeout);
-
 	// This happens to be how the hardware seems to time things.
 	if (timeout <= 4)
 		timeout = 15;
@@ -238,45 +244,43 @@ void __UmdWaitStat(u32 timeout)
 * @return < 0 on error
 *
 */
-void sceUmdWaitDriveStat(u32 stat)
+int sceUmdWaitDriveStat(u32 stat)
 {
 	DEBUG_LOG(HLE,"0=sceUmdWaitDriveStat(stat = %08x)", stat);
-	RETURN(0);
 
 	if ((stat & __KernelUmdGetState()) == 0)
 		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, 0);
+
+	return 0;
 }
 
-void sceUmdWaitDriveStatWithTimer(u32 stat, u32 timeout)
+int sceUmdWaitDriveStatWithTimer(u32 stat, u32 timeout)
 {
 	DEBUG_LOG(HLE,"0=sceUmdWaitDriveStatWithTimer(stat = %08x, timeout = %d)", stat, timeout);
-	RETURN(0);
 
 	if ((stat & __KernelUmdGetState()) == 0)
 	{
 		__UmdWaitStat(timeout);
 		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, 0);
 	}
+	else
+		hleReSchedule("umd stat waited with timer");
+
+	return 0;
 }
 
-
-void sceUmdWaitDriveStatCB(u32 stat, u32 timeout)
+int sceUmdWaitDriveStatCB(u32 stat, u32 timeout)
 {
-	RETURN(0);
-
 	if (driveCBId != -1)
 	{
 		DEBUG_LOG(HLE,"0=sceUmdWaitDriveStatCB(stat = %08x, timeout = %d)", stat, timeout);
-
-		bool callbacksProcessed = __KernelForceCallbacks();
-		if (callbacksProcessed)
-			__KernelExecutePendingMipsCalls();
 	}
 	else
 	{
 		WARN_LOG(HLE, "0=sceUmdWaitDriveStatCB(stat = %08x, timeout = %d) without callback", stat, timeout);
 	}
 
+	hleCheckCurrentCallbacks();
 	if ((stat & __KernelUmdGetState()) == 0)
 	{
 		if (timeout == 0)
@@ -284,18 +288,21 @@ void sceUmdWaitDriveStatCB(u32 stat, u32 timeout)
 
 		__UmdWaitStat(timeout);
 		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, true);
-		__KernelCheckCallbacks();
 	}
+	else
+		hleReSchedule("umd stat waited");
+
+	return 0;
 }
 
-void sceUmdCancelWaitDriveStat()
+u32 sceUmdCancelWaitDriveStat()
 {
 	DEBUG_LOG(HLE,"0=sceUmdCancelWaitDriveStat()");
-	RETURN(0);
 
-	__KernelTriggerWait(WAITTYPE_UMD, 1, SCE_KERNEL_ERROR_WAIT_CANCEL, false);
+	__KernelTriggerWait(WAITTYPE_UMD, 1, SCE_KERNEL_ERROR_WAIT_CANCEL, true);
 	// TODO: We should call UnscheduleEvent() event here?
 	// But it's not often used anyway, and worst-case it will just do nothing unless it waits again.
+	return 0;
 }
 
 u32 sceUmdGetErrorStat()
@@ -304,23 +311,37 @@ u32 sceUmdGetErrorStat()
 	return umdErrorStat;
 }
 
+u32 sceUmdReplaceProhibit()
+{
+	DEBUG_LOG(HLE,"sceUmdReplaceProhibit()");
+	return 0;
+}
+
+u32 sceUmdReplacePermit()
+{
+	DEBUG_LOG(HLE,"sceUmdReplacePermit()");
+	return 0;
+}
+
+
 
 const HLEFunction sceUmdUser[] = 
 {
-	{0xC6183D47,WrapV_UC<sceUmdActivate>,"sceUmdActivate"},
+	{0xC6183D47,WrapI_UC<sceUmdActivate>,"sceUmdActivate"},
 	{0x6B4A146C,&WrapU_V<sceUmdGetDriveStat>,"sceUmdGetDriveStat"},
 	{0x46EBB729,WrapI_V<sceUmdCheckMedium>,"sceUmdCheckMedium"},
-	{0xE83742BA,WrapV_UC<sceUmdDeactivate>,"sceUmdDeactivate"},
-	{0x8EF08FCE,WrapV_U<sceUmdWaitDriveStat>,"sceUmdWaitDriveStat"},
-	{0x56202973,WrapV_UU<sceUmdWaitDriveStatWithTimer>,"sceUmdWaitDriveStatWithTimer"},
-	{0x4A9E5E29,WrapV_UU<sceUmdWaitDriveStatCB>,"sceUmdWaitDriveStatCB"},
-	{0x6af9b50a,sceUmdCancelWaitDriveStat,"sceUmdCancelWaitDriveStat"},
+	{0xE83742BA,WrapI_UC<sceUmdDeactivate>,"sceUmdDeactivate"},
+	{0x8EF08FCE,WrapI_U<sceUmdWaitDriveStat>,"sceUmdWaitDriveStat"},
+	{0x56202973,WrapI_UU<sceUmdWaitDriveStatWithTimer>,"sceUmdWaitDriveStatWithTimer"},
+	{0x4A9E5E29,WrapI_UU<sceUmdWaitDriveStatCB>,"sceUmdWaitDriveStatCB"},
+	{0x6af9b50a,WrapU_V<sceUmdCancelWaitDriveStat>,"sceUmdCancelWaitDriveStat"},
 	{0x6B4A146C,&WrapU_V<sceUmdGetDriveStat>,"sceUmdGetDriveStat"},
 	{0x20628E6F,&WrapU_V<sceUmdGetErrorStat>,"sceUmdGetErrorStat"},
 	{0x340B7686,WrapU_U<sceUmdGetDiscInfo>,"sceUmdGetDiscInfo"},
 	{0xAEE7404D,&WrapU_U<sceUmdRegisterUMDCallBack>,"sceUmdRegisterUMDCallBack"},
 	{0xBD2BDE07,&WrapU_U<sceUmdUnRegisterUMDCallBack>,"sceUmdUnRegisterUMDCallBack"},
-	{0x87533940,0,"sceUmdReplaceProhibit"},	// ??? sounds bogus
+	{0x87533940,WrapU_V<sceUmdReplaceProhibit>,"sceUmdReplaceProhibit"},
+	{0x87533940,WrapU_V<sceUmdReplacePermit>,"sceUmdReplacePermit"},
 };
 
 void Register_sceUmdUser()

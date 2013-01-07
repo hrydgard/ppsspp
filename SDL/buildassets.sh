@@ -1,2 +1,2 @@
 cp -r ../android/assets .
-cp ../ppge_atlas.zim assets
+cp ../assets/ppge_atlas.zim assets

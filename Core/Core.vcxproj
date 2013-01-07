@@ -91,6 +91,9 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <AdditionalIncludeDirectories>../common;..;../native;../native/ext/glew;../ext/zlib</AdditionalIncludeDirectories>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+      <FloatingPointModel>Fast</FloatingPointModel>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -113,12 +116,20 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\ext\snappy\snappy-c.cpp" />
+    <ClCompile Include="..\ext\snappy\snappy.cpp" />
     <ClCompile Include="Config.cpp" />
     <ClCompile Include="Core.cpp" />
     <ClCompile Include="CoreTiming.cpp" />
     <ClCompile Include="CPU.cpp" />
     <ClCompile Include="Debugger\Breakpoints.cpp" />
     <ClCompile Include="Debugger\SymbolMap.cpp" />
+    <ClCompile Include="Dialog\PSPDialog.cpp" />
+    <ClCompile Include="Dialog\PSPMsgDialog.cpp" />
+    <ClCompile Include="Dialog\PSPOskDialog.cpp" />
+    <ClCompile Include="Dialog\PSPPlaceholderDialog.cpp" />
+    <ClCompile Include="Dialog\PSPSaveDialog.cpp" />
+    <ClCompile Include="Dialog\SavedataParam.cpp" />
     <ClCompile Include="ELF\ElfReader.cpp" />
     <ClCompile Include="ELF\ParamSFO.cpp" />
     <ClCompile Include="ELF\PrxDecrypter.cpp" />
@@ -162,13 +173,15 @@
     <ClCompile Include="HLE\sceRtc.cpp" />
     <ClCompile Include="HLE\sceSas.cpp" />
     <ClCompile Include="HLE\sceSsl.cpp" />
-    <ClCompile Include="HLE\scesupPreAcc.cpp" />
     <ClCompile Include="HLE\sceUmd.cpp" />
+    <ClCompile Include="HLE\sceUsb.cpp" />
     <ClCompile Include="HLE\sceUtility.cpp" />
     <ClCompile Include="HLE\sceVaudio.cpp" />
     <ClCompile Include="HLE\__sceAudio.cpp" />
     <ClCompile Include="Host.cpp" />
+    <ClCompile Include="HW\MediaEngine.cpp" />
     <ClCompile Include="HW\MemoryStick.cpp" />
+    <ClCompile Include="HW\SasAudio.cpp" />
     <ClCompile Include="Loaders.cpp" />
     <ClCompile Include="MemMap.cpp" />
     <ClCompile Include="MemmapFunctions.cpp" />
@@ -242,12 +255,18 @@
     <ClCompile Include="MIPS\x86\RegCache.cpp" />
     <ClCompile Include="PSPLoaders.cpp" />
     <ClCompile Include="PSPMixer.cpp" />
+    <ClCompile Include="SaveState.cpp" />
     <ClCompile Include="System.cpp" />
     <ClCompile Include="Util\BlockAllocator.cpp" />
     <ClCompile Include="Util\PPGeDraw.cpp" />
     <ClCompile Include="Util\ppge_atlas.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\ext\snappy\snappy-internal.h" />
+    <ClInclude Include="..\ext\snappy\snappy-sinksource.h" />
+    <ClInclude Include="..\ext\snappy\snappy-stubs-internal.h" />
+    <ClInclude Include="..\ext\snappy\snappy-stubs-public.h" />
+    <ClInclude Include="..\ext\snappy\snappy.h" />
     <ClInclude Include="Config.h" />
     <ClInclude Include="Core.h" />
     <ClInclude Include="CoreParameter.h" />
@@ -256,6 +275,12 @@
     <ClInclude Include="Debugger\Breakpoints.h" />
     <ClInclude Include="Debugger\DebugInterface.h" />
     <ClInclude Include="Debugger\SymbolMap.h" />
+    <ClInclude Include="Dialog\PSPDialog.h" />
+    <ClInclude Include="Dialog\PSPMsgDialog.h" />
+    <ClInclude Include="Dialog\PSPOskDialog.h" />
+    <ClInclude Include="Dialog\PSPPlaceholderDialog.h" />
+    <ClInclude Include="Dialog\PSPSaveDialog.h" />
+    <ClInclude Include="Dialog\SavedataParam.h" />
     <ClInclude Include="ELF\ElfReader.h" />
     <ClInclude Include="ELF\ElfTypes.h" />
     <ClInclude Include="ELF\ParamSFO.h" />
@@ -301,13 +326,15 @@
     <ClInclude Include="HLE\sceRtc.h" />
     <ClInclude Include="HLE\sceSas.h" />
     <ClInclude Include="HLE\sceSsl.h" />
-    <ClInclude Include="HLE\scesupPreAcc.h" />
     <ClInclude Include="HLE\sceUmd.h" />
+    <ClInclude Include="HLE\sceUsb.h" />
     <ClInclude Include="HLE\sceUtility.h" />
     <ClInclude Include="HLE\sceKernelVTimer.h" />
     <ClInclude Include="HLE\sceVaudio.h" />
     <ClInclude Include="HLE\__sceAudio.h" />
     <ClInclude Include="Host.h" />
+    <ClInclude Include="HW\MediaEngine.h" />
+    <ClInclude Include="HW\SasAudio.h" />
     <ClInclude Include="HW\MemoryStick.h" />
     <ClInclude Include="Loaders.h" />
     <ClInclude Include="MemMap.h" />
@@ -352,6 +379,7 @@
     <ClInclude Include="MIPS\x86\RegCache.h" />
     <ClInclude Include="PSPLoaders.h" />
     <ClInclude Include="PSPMixer.h" />
+    <ClInclude Include="SaveState.h" />
     <ClInclude Include="System.h" />
     <ClInclude Include="Util\BlockAllocator.h" />
     <ClInclude Include="Util\Pool.h" />

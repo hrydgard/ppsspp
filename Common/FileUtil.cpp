@@ -53,6 +53,33 @@
 #define fstat64 fstat
 #endif
 
+// Hack
+#if defined(__SYMBIAN32__)
+static inline int readdir_r(DIR *dirp, struct dirent *entry, struct dirent **result) {
+	struct dirent *readdir_entry;
+
+	readdir_entry = readdir(dirp);
+	if (readdir_entry == NULL) {
+		*result = NULL;
+		return errno;
+	}
+
+	*entry = *readdir_entry;
+	*result = entry;
+	return 0;
+}
+#endif
+
+// No thread safe
+#ifdef _WIN32
+inline struct tm* localtime_r (const time_t *clock, struct tm *result) {
+	if (!clock || !result) return NULL;
+	memcpy(result,localtime(clock),sizeof(*result));
+	return result;
+}
+#endif
+
+
 // This namespace has various generic functions related to files and paths.
 // The code still needs a ton of cleanup.
 // REMEMBER: strdup considered harmful!
@@ -66,7 +93,7 @@ static void StripTailDirSlashes(std::string &fname)
 	if (fname.length() > 1)
 	{
 		size_t i = fname.length() - 1;
-		while (fname[i] == DIR_SEP_CHR)
+		while (strchr(DIR_SEP_CHRS, fname[i]))
 			fname[i--] = '\0';
 	}
 	return;
@@ -188,17 +215,26 @@ bool CreateFullPath(const std::string &fullPath)
 	}
 
 	size_t position = 0;
+
+#ifdef _WIN32
+	// Skip the drive letter, no need to create C:\.
+	position = 3;
+#endif
+
 	while (true)
 	{
 		// Find next sub path
-		position = fullPath.find(DIR_SEP_CHR, position);
+		position = fullPath.find_first_of(DIR_SEP_CHRS, position);
 
 		// we're done, yay!
 		if (position == fullPath.npos)
+		{
+			if (!File::Exists(fullPath))
+				File::CreateDir(fullPath);
 			return true;
-			
+		}
 		std::string subPath = fullPath.substr(0, position);
-		if (!File::IsDirectory(subPath))
+		if (!File::Exists(subPath))
 			File::CreateDir(subPath);
 
 		// A safety check
@@ -299,6 +335,8 @@ bool Copy(const std::string &srcFilename, const std::string &destFilename)
 				ERROR_LOG(COMMON, 
 						"Copy: failed reading from source, %s --> %s: %s", 
 						srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg());
+				fclose(input);
+				fclose(output);		
 				return false;
 			}
 		}
@@ -310,6 +348,8 @@ bool Copy(const std::string &srcFilename, const std::string &destFilename)
 			ERROR_LOG(COMMON, 
 					"Copy: failed writing to output, %s --> %s: %s", 
 					srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg());
+			fclose(input);
+			fclose(output);				
 			return false;
 		}
 	}
@@ -318,6 +358,34 @@ bool Copy(const std::string &srcFilename, const std::string &destFilename)
 	fclose(output);
 	return true;
 #endif
+}
+
+tm GetModifTime(const std::string &filename)
+{
+	tm return_time = {0};
+	if (!Exists(filename))
+	{
+		WARN_LOG(COMMON, "GetCreateTime: failed %s: No such file", filename.c_str());
+		return return_time;
+	}
+
+	if (IsDirectory(filename))
+	{
+		WARN_LOG(COMMON, "GetCreateTime: failed %s: is a directory", filename.c_str());
+		return return_time;
+	}
+	struct stat64 buf;
+	if (stat64(filename.c_str(), &buf) == 0)
+	{
+		DEBUG_LOG(COMMON, "GetCreateTime: %s: %lld",
+				filename.c_str(), (long long)buf.st_mtime);
+		localtime_r((time_t*)&buf.st_mtime,&return_time);
+		return return_time;
+	}
+
+	ERROR_LOG(COMMON, "GetCreateTime: Stat failed %s: %s",
+			filename.c_str(), GetLastErrorMsg());
+	return return_time;
 }
 
 // Returns the size of filename (64bit)
@@ -504,7 +572,7 @@ bool DeleteDirRecursively(const std::string &directory)
 			 (virtualName[2] == '\0')))
 			continue;
 
-		std::string newPath = directory + DIR_SEP_CHR + virtualName;
+		std::string newPath = directory + DIR_SEP + virtualName;
 		if (IsDirectory(newPath))
 		{
 			if (!DeleteDirRecursively(newPath))
@@ -649,6 +717,8 @@ std::string &GetUserPath(const unsigned int DirIDX, const std::string &newPath)
 #ifdef _WIN32
 		// TODO: use GetExeDirectory() here instead of ROOT_DIR so that if the cwd is changed we still have the correct paths?
 		paths[D_USER_IDX] = ROOT_DIR DIR_SEP USERDATA_DIR DIR_SEP;
+#elif defined(__SYMBIAN32__)
+        paths[D_USER_IDX] = "E:" DIR_SEP "PPSSPP" DIR_SEP;
 #else
 		if (File::Exists(ROOT_DIR DIR_SEP USERDATA_DIR))
 			paths[D_USER_IDX] = ROOT_DIR DIR_SEP USERDATA_DIR DIR_SEP;

@@ -20,6 +20,40 @@
 
 using namespace ArmGen;
 
+/*
+// these are MIPS reg indices
+void RegCache::Lock(int p1, int p2, int p3, int p4)
+{
+	locks[p1] = true;
+	if (p2 != 0xFF) locks[p2] = true;
+	if (p3 != 0xFF) locks[p3] = true;
+	if (p4 != 0xFF) locks[p4] = true;
+}
+
+// these are x64 reg indices
+void RegCache::LockX(int x1, int x2, int x3, int x4)
+{
+	if (xlocks[x1]) {
+		PanicAlert("RegCache: x %i already locked!", x1);
+	}
+	xlocks[x1] = true;
+	if (x2 != 0xFF) xlocks[x2] = true;
+	if (x3 != 0xFF) xlocks[x3] = true;
+	if (x4 != 0xFF) xlocks[x4] = true;
+}
+
+bool RegCache::IsFreeX(int xreg) const
+{
+	return xregs[xreg].free && !xlocks[xreg];
+}
+
+void RegCache::UnlockAll()
+{
+	for (int i = 0; i < 32; i++)
+		locks[i] = false;
+}
+*/
+
 ArmRegCache::ArmRegCache(MIPSState *mips)
 	: mips_(mips)
 {

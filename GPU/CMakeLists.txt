@@ -1,9 +1,11 @@
 set(SRCS
+	GPUCommon.cpp
 	GPUState.cpp
 	Math3D.cpp
 	GLES/DisplayListInterpreter.cpp
 	GLES/FragmentShaderGenerator.cpp
 	GLES/Framebuffer.cpp
+	GLES/IndexGenerator.cpp
 	GLES/ShaderManager.cpp
 	GLES/StateMapping.cpp
 	GLES/TextureCache.cpp

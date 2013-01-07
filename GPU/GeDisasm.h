@@ -15,24 +15,4 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "HLE.h"
-
-#include "scesupPreAcc.h"
-
-const HLEFunction scesupPreAcc[] = 
-{
-	{0x110e318b, 0, "scesupPreAcc_0x110e318b"},
-	{0x13ae25b3, 0, "scesupPreAcc_0x13ae25b3"},
-	{0x28c5f696, 0, "scesupPreAcc_0x28c5f696"},
-	{0x348ba3e2, 0, "scesupPreAcc_0x348ba3e2"},
-	{0x86debd66, 0, "scesupPreAcc_0x86debd66"},
-	{0xa0eaf444, 0, "scesupPreAcc_0xa0eaf444"},
-	{0xb03ff882, 0, "scesupPreAcc_0xb03ff882"},
-	{0x2ec3f4d9, 0, "scesupPreAcc_0x2ec3f4d9"},
-	
-};
-
-void Register_scesupPreAcc()
-{
-	RegisterModule("scesupPreAcc",ARRAY_SIZE(scesupPreAcc), scesupPreAcc );
-}
+void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer);

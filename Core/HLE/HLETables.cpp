@@ -51,8 +51,8 @@
 #include "sceParseUri.h"
 #include "sceSsl.h"
 #include "sceParseHttp.h"
-#include "scesupPreAcc.h"
 #include "sceVaudio.h"
+#include "sceUsb.h"
 
 #define N(s) s
 
@@ -74,9 +74,9 @@ const HLEFunction FakeSysCalls[] =
 const HLEFunction UtilsForUser[] = 
 {
 	{0x91E4F6A7, WrapU_V<sceKernelLibcClock>, "sceKernelLibcClock"},
-	{0x27CC57F0, sceKernelLibcTime, "sceKernelLibcTime"},
+	{0x27CC57F0, WrapU_U<sceKernelLibcTime>, "sceKernelLibcTime"},
 	{0x71EC4271, sceKernelLibcGettimeofday, "sceKernelLibcGettimeofday"},
-	{0xBFA98062, 0, "sceKernelDcacheInvalidateRange"},
+	{0xBFA98062, WrapI_UI<sceKernelDcacheInvalidateRange>, "sceKernelDcacheInvalidateRange"},
 	{0xC8186A58, 0, "sceKernelUtilsMd5Digest"},
 	{0x9E5C5086, 0, "sceKernelUtilsMd5BlockInit"},
 	{0x61E1E525, 0, "sceKernelUtilsMd5BlockUpdate"},
@@ -89,10 +89,10 @@ const HLEFunction UtilsForUser[] =
 	{0x06FB8A63, 0, "sceKernelUtilsMt19937UInt"},
 	{0x37FB5C42, sceKernelGetGPI, "sceKernelGetGPI"},
 	{0x6AD345D7, sceKernelSetGPO, "sceKernelSetGPO"},
-	{0x79D1C3FA, sceKernelDcacheWritebackAll, "sceKernelDcacheWritebackAll"},
-	{0xB435DEC5, sceKernelDcacheWritebackInvalidateAll, "sceKernelDcacheWritebackInvalidateAll"},
-	{0x3EE30821, sceKernelDcacheWritebackRange, "sceKernelDcacheWritebackRange"},
-	{0x34B9FA9E, sceKernelDcacheWritebackInvalidateRange, "sceKernelDcacheWritebackInvalidateRange"},
+	{0x79D1C3FA, WrapI_V<sceKernelDcacheWritebackAll>, "sceKernelDcacheWritebackAll"},
+	{0xB435DEC5, WrapI_V<sceKernelDcacheWritebackInvalidateAll>, "sceKernelDcacheWritebackInvalidateAll"},
+	{0x3EE30821, WrapI_UI<sceKernelDcacheWritebackRange>, "sceKernelDcacheWritebackRange"},
+	{0x34B9FA9E, WrapI_UI<sceKernelDcacheWritebackInvalidateRange>, "sceKernelDcacheWritebackInvalidateRange"},
 	{0xC2DF770E, 0, "sceKernelIcacheInvalidateRange"},
 	{0x80001C4C, 0, "sceKernelDcacheProbe"},
 	{0x16641D70, 0, "sceKernelDcacheReadTag"},
@@ -185,43 +185,12 @@ const HLEFunction pspeDebug[] =
 };
 
 
-const HLEFunction sceUsb[] = 
-{
-	{0xae5de6af, 0, "sceUsbStart"},
-	{0xc2464fa0, 0, "sceUsbStop"},
-	{0xc21645a4, 0, "sceUsbGetState"},
-	{0x4e537366, 0, "sceUsbGetDrvList"},
-	{0x112cc951, 0, "sceUsbGetDrvState"},
-	{0x586db82c, 0, "sceUsbActivate"},
-	{0xc572a9c8, 0, "sceUsbDeactivate"},
-	{0x5be0e002, 0, "sceUsbWaitState"},
-	{0x1c360735, 0, "sceUsbWaitCancel"},
-};
-
-const HLEFunction sceUsbstor[] =
-{
-	{0x60066CFE, 0, "sceUsbstorGetStatus"},
-};
-
-const HLEFunction sceUsbstorBoot[] =
-{
-	{0xE58818A8, 0, "sceUsbstorBootSetCapacity"},
-	{0x594BBF95, 0, "sceUsbstorBootSetLoadAddr"},
-	{0x6D865ECD, 0, "sceUsbstorBootGetDataSize"},
-	{0xA1119F0D, 0, "sceUsbstorBootSetStatus"},
-	{0x1F080078, 0, "sceUsbstorBootRegisterNotify"},
-	{0xA55C9E16, 0, "sceUsbstorBootUnregisterNotify"},
-};
-
 const HLEModule moduleList[] = 
 {
 	{"FakeSysCalls", SZ(FakeSysCalls), FakeSysCalls},
 	{"UtilsForUser",SZ(UtilsForUser),UtilsForUser},
 	{"KDebugForKernel",SZ(KDebugForKernel),KDebugForKernel},
 	{"sceSAScore"},
-	{"sceUsbstor",SZ(sceUsbstor),sceUsbstor},
-	{"sceUsbstorBoot",SZ(sceUsbstorBoot),sceUsbstorBoot},
-	{"sceUsb", SZ(sceUsb), sceUsb},
 	{"SceBase64_Library"},
 	{"sceCert_Loader"},
 	{"SceFont_Library"},
@@ -273,8 +242,8 @@ void RegisterAllModules() {
 	Register_sceParseUri();
 	Register_sceSsl();
 	Register_sceParseHttp();
-	Register_scesupPreAcc();
 	Register_sceVaudio();
+	Register_sceUsb();
 
 	for (int i = 0; i < numModules; i++)
 	{

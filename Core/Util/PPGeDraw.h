@@ -18,6 +18,7 @@
 #pragma once
 
 #include "../../Globals.h"
+#include "../../Common/ChunkFile.h"
 #include "ppge_atlas.h"
 
 /////////////////////////////////////////////////////////////////////////////////////////////
@@ -28,6 +29,9 @@
 // Uploads the necessary texture atlas and other data to kernel RAM, and reserves
 // space for the display list. The PSP must be inited.
 void __PPGeInit();
+
+// Saves to and restores from savestates (kernel RAM pointers, etc.)
+void __PPGeDoState(PointerWrap &p);
 
 // Just frees up the allocated kernel memory.
 void __PPGeShutdown();
@@ -67,4 +71,12 @@ void PPGeDraw4Patch(int atlasImage, float x, float y, float w, float h, u32 colo
 
 // Just blits an image to the screen, multiplied with the color.
 void PPGeDrawImage(int atlasImage, float x, float y, int align, u32 color = 0xFFFFFFFF);
+void PPGeDrawImage(int atlasImage, float x, float y, float w, float h, int align, u32 color = 0xFFFFFFFF);
+void PPGeDrawImage(float x, float y, float w, float h, float u1, float v1, float u2, float v2, int tw, int th, u32 color);
+
+void PPGeDrawRect(float x1, float y1, float x2, float y2, u32 color);
+
+void PPGeSetDefaultTexture();
+void PPGeSetTexture(u32 dataAddr, int width, int height);
+void PPGeDisableTexture();
 

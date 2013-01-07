@@ -53,6 +53,10 @@ void* AllocateExecutableMemory(size_t size, bool low)
 {
 #if defined(_WIN32)
 	void* ptr = VirtualAlloc(0, size, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+#elif defined(__SYMBIAN32__)
+	// On Symbian, we will need to create an RChunk and allocate with ->CreateLocalCode(size, size);
+	static char *map_hint = 0;
+	void* ptr = mmap(map_hint, size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE, -1, 0);
 #else
 	static char *map_hint = 0;
 #if defined(__x86_64__) && !defined(MAP_32BIT)
@@ -111,7 +115,11 @@ void* AllocateMemoryPages(size_t size)
 #ifdef _WIN32
 	void* ptr = VirtualAlloc(0, size, MEM_COMMIT, PAGE_READWRITE);
 #else
-	void* ptr = mmap(0, size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
+	void* ptr = mmap(0, size, PROT_READ | PROT_WRITE,
+#ifndef __SYMBIAN32__
+		MAP_ANON |
+#endif
+		MAP_PRIVATE, -1, 0);
 #endif
 
 	// printf("Mapped memory at %p (size %ld)\n", ptr,
@@ -130,9 +138,12 @@ void* AllocateAlignedMemory(size_t size,size_t alignment)
 #else
 	void* ptr = NULL;
 #ifdef ANDROID
-  ptr = memalign(alignment, size);
+	ptr = memalign(alignment, size);
+#elif defined(__SYMBIAN32__)
+	// On Symbian, we will want to create an RChunk.
+	ptr = malloc(size);
 #else
-  posix_memalign(&ptr, alignment, size);
+	posix_memalign(&ptr, alignment, size);
 #endif
 #endif
 

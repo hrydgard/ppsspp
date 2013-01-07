@@ -22,6 +22,9 @@
 
 #include "Common.h"
 #include "MemoryUtil.h"
+#ifdef __SYMBIAN32__
+#include <signal.h>
+#endif
 
 namespace ArmGen
 {

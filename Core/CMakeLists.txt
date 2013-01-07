@@ -1,6 +1,12 @@
 set(SRCS
   Debugger/Breakpoints.cpp
   Debugger/SymbolMap.cpp
+  Dialog/PSPDialog.cpp
+  Dialog/PSPMsgDialog.cpp
+  Dialog/PSPPlaceholderDialog.cpp
+  Dialog/PSPSaveDialog.cpp
+  Dialog/SavedataParam.cpp
+  Dialog/PSPOskDialog.cpp
   MIPS/MIPS.cpp
   MIPS/MIPSAnalyst.cpp
   MIPS/MIPSCodeUtils.cpp
@@ -49,14 +55,16 @@ set(SRCS
   HLE/sceRtc.cpp
   HLE/sceSas.cpp
   HLE/sceUmd.cpp
+  HLE/sceUsb.cpp
   HLE/sceUtility.cpp
   HLE/sceParseUri.cpp
   HLE/sceSsl.cpp
   HLE/sceParseUri.cpp
   HLE/sceParseHttp.cpp
-  HLE/scesupPreAcc.cpp
   HLE/sceVaudio.cpp
   HW/MemoryStick.cpp
+  HW/MediaEngine.cpp
+  HW/SasAudio.cpp
   FileSystems/BlockDevices.cpp
   FileSystems/ISOFileSystem.cpp
   FileSystems/DirectoryFileSystem.cpp

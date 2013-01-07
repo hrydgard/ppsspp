@@ -21,25 +21,31 @@
 #include "../ge_constants.h"
 #include "../GPUState.h"
 #include "TextureCache.h"
-
+#include "../Core/Config.h"
 
 // If a texture hasn't been seen for 200 frames, get rid of it.
 #define TEXTURE_KILL_AGE 200
 
 // TODO: Speed up by switching to ReadUnchecked*.
 
-struct TexCacheEntry
-{
+struct TexCacheEntry {
 	u32 addr;
 	u32 hash;
 	int frameCounter;
-	u32 numMips;
 	u32 format;
 	u32 clutaddr;
 	u32 clutformat;
 	u32 cluthash;
 	int dim;
 	GLuint texture;
+	int invalidHint;
+	u32 fullhash;
+
+	// Cache the current filter settings so we can avoid setting it again.
+	u8 magFilt;
+	u8 minFilt;
+	bool sClamp;
+	bool tClamp;
 };
 
 typedef std::map<u64, TexCacheEntry> TexCache;
@@ -53,8 +59,7 @@ u32 *tmpTexBufRearrange;
 u32 *clutBuf32;
 u16 *clutBuf16;
 
-void TextureCache_Init()
-{
+void TextureCache_Init() {
 	// TODO: Switch to aligned allocations for alignment. AllocateMemoryPages would do the trick.
 	tmpTexBuf32 = new u32[1024 * 512];
 	tmpTexBuf16 = new u16[1024 * 512];
@@ -63,8 +68,7 @@ void TextureCache_Init()
 	clutBuf16 = new u16[4096];
 }
 
-void TextureCache_Shutdown()
-{
+void TextureCache_Shutdown() {
 	delete [] tmpTexBuf32;
 	tmpTexBuf32 = 0;
 	delete [] tmpTexBuf16;
@@ -75,12 +79,9 @@ void TextureCache_Shutdown()
 	delete [] clutBuf16;
 }
 
-void TextureCache_Clear(bool delete_them)
-{
-	if (delete_them)
-	{
-		for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ++iter)
-		{
+void TextureCache_Clear(bool delete_them) {
+	if (delete_them) {
+		for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ++iter) {
 			DEBUG_LOG(G3D, "Deleting texture %i", iter->second.texture);
 			glDeleteTextures(1, &iter->second.texture);
 		}
@@ -92,12 +93,9 @@ void TextureCache_Clear(bool delete_them)
 }
 
 // Removes old textures.
-void TextureCache_Decimate()
-{
-	for (TexCache::iterator iter = cache.begin(); iter != cache.end(); )
-	{
-		if (iter->second.frameCounter + TEXTURE_KILL_AGE < gpuStats.numFrames)
-		{
+void TextureCache_Decimate() {
+	for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ) {
+		if (iter->second.frameCounter + TEXTURE_KILL_AGE < gpuStats.numFrames) {
 			glDeleteTextures(1, &iter->second.texture);
 			cache.erase(iter++);
 		}
@@ -106,68 +104,89 @@ void TextureCache_Decimate()
 	}
 }
 
-int TextureCache_NumLoadedTextures() 
-{
+void TextureCache_Invalidate(u32 addr, int size, bool force) {
+	u32 addr_end = addr + size;
+
+	for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ) {
+		// Clear if either the addr or clutaddr is in the range.
+		bool invalidate = iter->second.addr >= addr && iter->second.addr < addr_end;
+		invalidate |= iter->second.clutaddr >= addr && iter->second.clutaddr < addr_end;
+
+		if (invalidate) {
+			if (force) {
+				gpuStats.numTextureInvalidations++;
+				glDeleteTextures(1, &iter->second.texture);
+				cache.erase(iter++);
+			} else {
+				iter->second.invalidHint++;
+				++iter;
+			}
+		}
+		else
+			++iter;
+	}
+}
+
+void TextureCache_InvalidateAll(bool force) {
+	if (force) {
+		gpuStats.numTextureInvalidations += 1000;
+		TextureCache_Clear(true);
+	}
+	else
+		TextureCache_Invalidate(0, 0xFFFFFFFF, force);
+}
+
+int TextureCache_NumLoadedTextures() {
 	return cache.size();
 }
 
 
-u32 GetClutAddr(u32 clutEntrySize)
-{
+u32 GetClutAddr(u32 clutEntrySize) {
 	return ((gstate.clutaddr & 0xFFFFFF) | ((gstate.clutaddrupper << 8) & 0x0F000000)) + ((gstate.clutformat >> 16) & 0x1f) * clutEntrySize;
 }
 
-u32 GetClutIndex(u32 index)
-{
+u32 GetClutIndex(u32 index) {
 	return ((((gstate.clutformat >> 16) & 0x1f) + index) >> ((gstate.clutformat >> 2) & 0x1f)) & ((gstate.clutformat >> 8) & 0xff);
 }
 
-u16 *ReadClut16()
-{
+u16 *ReadClut16() {
 	u32 clutNumEntries = (gstate.loadclut & 0x3f) * 16;
 	u32 clutAddr = GetClutAddr(2);
-	for (u32 i = ((gstate.clutformat >> 16) & 0x1f); i < clutNumEntries; i++)
-		clutBuf16[i] = Memory::Read_U16(clutAddr + i * 2);
+	if (Memory::IsValidAddress(clutAddr)) {
+		for (u32 i = ((gstate.clutformat >> 16) & 0x1f); i < clutNumEntries; i++)
+			clutBuf16[i] = Memory::ReadUnchecked_U16(clutAddr + i * 2);
+	}
 	return clutBuf16;
 }
 
-u32 *ReadClut32()
-{
+u32 *ReadClut32() {
 	u32 clutNumEntries = (gstate.loadclut & 0x3f) * 8;
 	u32 clutAddr = GetClutAddr(4);
-	for (u32 i = ((gstate.clutformat >> 16) & 0x1f); i < clutNumEntries; i++)
-		clutBuf32[i] = Memory::Read_U32(clutAddr + i * 4);
+	if (Memory::IsValidAddress(clutAddr)) {
+		for (u32 i = ((gstate.clutformat >> 16) & 0x1f); i < clutNumEntries; i++)
+			clutBuf32[i] = Memory::ReadUnchecked_U32(clutAddr + i * 4);
+	}
 	return clutBuf32;
 }
 
-void *UnswizzleFromMem(u32 texaddr, u32 bytesPerPixel, u32 level)
-{
+void *UnswizzleFromMem(u32 texaddr, u32 bytesPerPixel, u32 level) {
 	u32 addr = texaddr;
 	u32 rowWidth = (bytesPerPixel > 0) ? ((gstate.texbufwidth[level] & 0x3FF) * bytesPerPixel) : ((gstate.texbufwidth[level] & 0x3FF) / 2);
 	u32 pitch = rowWidth / 4;
-	u32 bxc = rowWidth / 16;
-	u32 byc = ((1 << ((gstate.texsize[level] >> 8) & 0xf)) + 7) / 8;
+	int bxc = rowWidth / 16;
+	int byc = ((1 << ((gstate.texsize[level] >> 8) & 0xf)) + 7) / 8;
 	if (byc == 0)
 		byc = 1;
 
 	u32 ydest = 0;
-
-	u32 by;
-	for (by = 0; by < byc; by++)
-	{
-		if (rowWidth >= 16)
-		{
+	for (int by = 0; by < byc; by++) {
+		if (rowWidth >= 16) {
 			u32 xdest = ydest;
-			u32 bx;
-			for (bx = 0; bx < bxc; bx++)
-			{
+			for (int bx = 0; bx < bxc; bx++) {
 				u32 dest = xdest;
-				u8 n;
-				for (n = 0; n < 8; n++)
-				{
-					u32 k;
-					for (k = 0; k < 4; k++) {
-						tmpTexBuf32[dest + k] = Memory::Read_U32(addr);
+				for (int n = 0; n < 8; n++) {
+					for (int k = 0; k < 4; k++) {
+						tmpTexBuf32[dest + k] = Memory::ReadUnchecked_U32(addr);
 						addr += 4;
 					}
 					dest += pitch;
@@ -175,46 +194,32 @@ void *UnswizzleFromMem(u32 texaddr, u32 bytesPerPixel, u32 level)
 				xdest += 4;
 			}
 			ydest += (rowWidth * 8) / 4;
-		}
-		else if (rowWidth == 8)
-		{
-			u32 n;
-			for (n = 0; n < 8; n++, ydest += 2)
-			{
-				tmpTexBuf32[ydest + 0] = Memory::Read_U32(addr + 0);
-				tmpTexBuf32[ydest + 1] = Memory::Read_U32(addr + 4);
+		} else if (rowWidth == 8) {
+			for (int n = 0; n < 8; n++, ydest += 2) {
+				tmpTexBuf32[ydest + 0] = Memory::ReadUnchecked_U32(addr + 0);
+				tmpTexBuf32[ydest + 1] = Memory::ReadUnchecked_U32(addr + 4);
 				addr += 16; // skip two u32
 			}
-		}
-		else if (rowWidth == 4)
-		{
-			u32 n;
-			for (n = 0; n < 8; n++, ydest++) {
-				tmpTexBuf32[ydest] = Memory::Read_U32(addr);
+		} else if (rowWidth == 4) {
+			for (int n = 0; n < 8; n++, ydest++) {
+				tmpTexBuf32[ydest] = Memory::ReadUnchecked_U32(addr);
 				addr += 16;
 			}
-		}
-		else if (rowWidth == 2)
-		{
-			u32 n;
-			for (n = 0; n < 4; n++, ydest++)
-			{
-				u16 n1 = Memory::Read_U32(addr +  0) & 0xffff;
-				u16 n2 = Memory::Read_U32(addr + 16) & 0xffff;
+		} else if (rowWidth == 2) {
+			for (int n = 0; n < 4; n++, ydest++) {
+				u16 n1 = Memory::ReadUnchecked_U16(addr +  0);
+				u16 n2 = Memory::ReadUnchecked_U16(addr + 16);
 				tmpTexBuf32[ydest] = (u32)n1 | ((u32)n2 << 16);
 				addr += 32;
 			}
 		}
-		else if (rowWidth == 1)
-		{
-			u32 n;
-			for (n = 0; n < 2; n++, ydest++)
-			{
-				u8 n1 = Memory::Read_U32(addr +  0) & 0xf;
-				u8 n2 = Memory::Read_U32(addr + 16) & 0xf;
-				u8 n3 = Memory::Read_U32(addr + 32) & 0xf;
-				u8 n4 = Memory::Read_U32(addr + 48) & 0xf;
-
+		else if (rowWidth == 1) {
+			for (int n = 0; n < 2; n++, ydest++) {
+				// This looks wrong, shouldn't it be & 0xFF (that is no mask at all?)
+				u8 n1 = Memory::ReadUnchecked_U8(addr +  0) & 0xf;
+				u8 n2 = Memory::ReadUnchecked_U8(addr + 16) & 0xf;
+				u8 n3 = Memory::ReadUnchecked_U8(addr + 32) & 0xf;
+				u8 n4 = Memory::ReadUnchecked_U8(addr + 48) & 0xf;
 				tmpTexBuf32[ydest] = (u32)n1 | ((u32)n2 << 8) | ((u32)n3 << 16) | ((u32)n4 << 24);
 			}
 		}
@@ -222,54 +227,43 @@ void *UnswizzleFromMem(u32 texaddr, u32 bytesPerPixel, u32 level)
 	return tmpTexBuf32;
 }
 
-void *readIndexedTex(u32 level, u32 texaddr, u32 bytesPerIndex)
-{
-	u32 length = (gstate.texbufwidth[level] & 0x3FF) * (1 << ((gstate.texsize[level] >> 8) & 0xf));
+void *readIndexedTex(int level, u32 texaddr, int bytesPerIndex) {
+	int length = (gstate.texbufwidth[level] & 0x3FF) * (1 << ((gstate.texsize[level] >> 8) & 0xf));
 	void *buf = NULL;
-
-	switch ((gstate.clutformat & 3))
-	{
+	switch ((gstate.clutformat & 3)) {
 	case GE_CMODE_16BIT_BGR5650:
 	case GE_CMODE_16BIT_ABGR5551:
 	case GE_CMODE_16BIT_ABGR4444:
 		{
 		u16 *clut = ReadClut16();
-		if (!(gstate.texmode & 1))
-		{
-			u32 i;
-			switch (bytesPerIndex)
-			{
+		if (!(gstate.texmode & 1)) {
+			switch (bytesPerIndex) {
 			case 1:
-				for (i = 0; i < length; i++) {
-					u8 index = Memory::Read_U8(texaddr + i);
+				for (int i = 0; i < length; i++) {
+					u8 index = Memory::ReadUnchecked_U8(texaddr + i);
 					tmpTexBuf16[i] = clut[GetClutIndex(index)];
 				}
 				break;
 
 			case 2:
-				for (i = 0; i < length; i++) {
-					u16 index = Memory::Read_U16(texaddr + i * 2);
+				for (int i = 0; i < length; i++) {
+					u16 index = Memory::ReadUnchecked_U16(texaddr + i * 2);
 					tmpTexBuf16[i] = clut[GetClutIndex(index)];
 				}
 				break;
 
 			case 4:
-				for (i = 0; i < length; i++) {
-					u32 index = Memory::Read_U32(texaddr + i * 4);
+				for (int i = 0; i < length; i++) {
+					u32 index = Memory::ReadUnchecked_U32(texaddr + i * 4);
 					tmpTexBuf16[i] = clut[GetClutIndex(index)];
 				}
 				break;
 			}
-		}
-		else
-		{
-			u32 i, j;
+		} else {
 			UnswizzleFromMem(texaddr, bytesPerIndex, level);
-			switch (bytesPerIndex)
-			{
+			switch (bytesPerIndex) {
 			case 1:
-				for (i = 0, j = 0; i < length; i += 4, j++)
-				{
+				for (int i = 0, j = 0; i < length; i += 4, j++) 	{
 					u32 n = tmpTexBuf32[j];
 					u32 k;
 					for (k = 0; k < 4; k++) {
@@ -280,8 +274,7 @@ void *readIndexedTex(u32 level, u32 texaddr, u32 bytesPerIndex)
 				break;
 
 			case 2:
-				for (i = 0, j = 0; i < length; i += 2, j++)
-				{
+				for (int i = 0, j = 0; i < length; i += 2, j++) {
 					u32 n = tmpTexBuf32[j];
 					tmpTexBuf16[i + 0] = clut[GetClutIndex(n & 0xffff)];
 					tmpTexBuf16[i + 1] = clut[GetClutIndex(n >> 16)];
@@ -289,7 +282,7 @@ void *readIndexedTex(u32 level, u32 texaddr, u32 bytesPerIndex)
 				break;
 
 			case 4:
-				for (i = 0; i < length; i++) {
+				for (int i = 0; i < length; i++) {
 					u32 n = tmpTexBuf32[i];
 					tmpTexBuf16[i] = clut[GetClutIndex(n)];
 				}
@@ -303,43 +296,34 @@ void *readIndexedTex(u32 level, u32 texaddr, u32 bytesPerIndex)
 	case GE_CMODE_32BIT_ABGR8888:
 		{
 		u32 *clut = ReadClut32();
-		if (!(gstate.texmode & 1))
-		{
-			u32 i;
-			switch (bytesPerIndex)
-			{
+		if (!(gstate.texmode & 1)) {
+			switch (bytesPerIndex) {
 			case 1:
-				for (i = 0; i < length; i++) {
-					u8 index = Memory::Read_U8(texaddr + i);
+				for (int i = 0; i < length; i++) {
+					u8 index = Memory::ReadUnchecked_U8(texaddr + i);
 					tmpTexBuf32[i] = clut[GetClutIndex(index)];
 				}
 				break;
 
 			case 2:
-				for (i = 0; i < length; i++) {
-					u16 index = Memory::Read_U16(texaddr + i * 2);
+				for (int i = 0; i < length; i++) {
+					u16 index = Memory::ReadUnchecked_U16(texaddr + i * 2);
 					tmpTexBuf32[i] = clut[GetClutIndex(index)];
 				}
 				break;
 
 			case 4:
-				for (i = 0; i < length; i++) {
-					u32 index = Memory::Read_U32(texaddr + i * 4);
+				for (int i = 0; i < length; i++) {
+					u32 index = Memory::ReadUnchecked_U32(texaddr + i * 4);
 					tmpTexBuf32[i] = clut[GetClutIndex(index)];
 				}
 				break;
 			}
-		}
-		else
-		{
-			u32 j;
-			s32 i;
+		} else {
 			UnswizzleFromMem(texaddr, bytesPerIndex, level);
-			switch (bytesPerIndex)
-			{
+			switch (bytesPerIndex) {
 			case 1:
-				for (i = length - 4, j = (length / 4) - 1; i >= 0; i -= 4, j--)
-				{
+				for (int i = length - 4, j = (length / 4) - 1; i >= 0; i -= 4, j--) {
 					u32 n = tmpTexBuf32[j];
 					u32 k;
 					for (k = 0; k < 4; k++) {
@@ -350,8 +334,7 @@ void *readIndexedTex(u32 level, u32 texaddr, u32 bytesPerIndex)
 				break;
 
 			case 2:
-				for (i = length - 2, j = (length / 2) - 1; i >= 0; i -= 2, j--)
-				{
+				for (int i = length - 2, j = (length / 2) - 1; i >= 0; i -= 2, j--) {
 					u32 n = tmpTexBuf32[j];
 					tmpTexBuf32[i + 0] = clut[GetClutIndex(n & 0xffff)];
 					tmpTexBuf32[i + 1] = clut[GetClutIndex(n >> 16)];
@@ -359,7 +342,7 @@ void *readIndexedTex(u32 level, u32 texaddr, u32 bytesPerIndex)
 				break;
 
 			case 4:
-				for (i = 0; (u32)i < length; i++) {
+				for (int i = 0; i < length; i++) {
 					u32 n = tmpTexBuf32[i];
 					tmpTexBuf32[i] = clut[GetClutIndex(n)];
 				}
@@ -378,10 +361,8 @@ void *readIndexedTex(u32 level, u32 texaddr, u32 bytesPerIndex)
 	return buf;
 }
 
-GLenum getClutDestFormat(GEPaletteFormat format)
-{
-	switch (format)
-	{
+GLenum getClutDestFormat(GEPaletteFormat format) {
+	switch (format) {
 	case GE_CMODE_16BIT_ABGR4444:
 		return GL_UNSIGNED_SHORT_4_4_4_4;
 	case GE_CMODE_16BIT_ABGR5551:
@@ -394,24 +375,59 @@ GLenum getClutDestFormat(GEPaletteFormat format)
 	return 0;
 }
 
-u32 texByteAlignMap[] = {2, 2, 2, 4};
+const u8 texByteAlignMap[] = {2, 2, 2, 4};
+
+const GLuint MinFiltGL[8] = {
+	GL_NEAREST,
+	GL_LINEAR,
+	GL_NEAREST,
+	GL_LINEAR,
+	GL_NEAREST_MIPMAP_NEAREST,
+	GL_LINEAR_MIPMAP_NEAREST,
+	GL_NEAREST_MIPMAP_LINEAR,
+	GL_LINEAR_MIPMAP_LINEAR,
+};
+
+const GLuint MagFiltGL[2] = {
+	GL_NEAREST,
+	GL_LINEAR
+};
 
 // This should not have to be done per texture! OpenGL is silly yo
 // TODO: Dirty-check this against the current texture.
-void UpdateSamplingParams()
-{
+void UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	int minFilt = gstate.texfilter & 0x7;
-	int magFilt = (gstate.texfilter>>8)&1;
-	minFilt &= 1; //no mipmaps yet
+	int magFilt = (gstate.texfilter>>8) & 1;
+	bool sClamp = gstate.texwrap & 1;
+	bool tClamp = (gstate.texwrap>>8) & 1;
 
-	int sClamp = gstate.texwrap & 1;
-	int tClamp = (gstate.texwrap>>8) & 1;
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, sClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, tClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilt ? GL_LINEAR : GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilt ? GL_LINEAR : GL_NEAREST);
+	// TODO: remove this line when we support mipmaps
+	minFilt &= 1; // no mipmaps yet
+
+	if (g_Config.bLinearFiltering) {
+		magFilt |= 1;
+		minFilt |= 1;
+	}
+
+	if (force || entry.minFilt != minFilt) {
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, MinFiltGL[minFilt]);
+		entry.minFilt = minFilt;
+	}
+	if (force || entry.magFilt != magFilt) {
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, MagFiltGL[magFilt]);
+		entry.magFilt = magFilt;
+	}
+	if (force || entry.sClamp != sClamp) {
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, sClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
+		entry.sClamp = sClamp;
+	}
+	if (force || entry.tClamp != tClamp) {
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, tClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
+		entry.tClamp = tClamp;
+	}
 }
 
+// Todo: Make versions of these that do two pixels at a time within a 32-bit register.
 
 // Convert from PSP bit order to GLES bit order
 u16 convert565(u16 c) {
@@ -432,35 +448,30 @@ u16 convert5551(u16 c) {
 // All these DXT structs are in the reverse order, as compared to PC.
 // On PC, alpha comes before color, and interpolants are before the tile data.
 
-struct DXT1Block
-{
+struct DXT1Block {
 	u8 lines[4];
 	u16 color1;
 	u16 color2;
 };
 
-struct DXT3Block
-{
+struct DXT3Block {
 	DXT1Block color;
 	u16 alphaLines[4];
 };
 
-struct DXT5Block 
-{
+struct DXT5Block {
 	DXT1Block color;
 	u32 alphadata2;
 	u16 alphadata1;
 	u8 alpha1; u8 alpha2;
 };
 
-inline u32 makecol(int r, int g, int b, int a)
-{
+inline u32 makecol(int r, int g, int b, int a) {
 	return (a << 24)|(r << 16)|(g << 8)|b;
 }
 
 // This could probably be done faster by decoding two or four blocks at a time with SSE/NEON.
-void decodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch, bool ignore1bitAlpha = false)
-{
+void decodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch, bool ignore1bitAlpha = false) {
 	// S3TC Decoder
 	// Needs more speed and debugging.
 	u16 c1 = (src->color1);
@@ -471,30 +482,26 @@ void decodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch, bool ignore1bitA
 	int green2 = Convert6To8((c2 >> 5) & 0x3F);
 	int blue1 = Convert5To8((c1 >> 11) & 0x1F);
 	int blue2 = Convert5To8((c2 >> 11) & 0x1F);
+
 	u32 colors[4];
 	colors[0] = makecol(red1, green1, blue1, 255);
 	colors[1] = makecol(red2, green2, blue2, 255);
-	if (c1 > c2 || ignore1bitAlpha)
-	{
+	if (c1 > c2 || ignore1bitAlpha) {
 		int blue3 = ((blue2 - blue1) >> 1) - ((blue2 - blue1) >> 3);
 		int green3 = ((green2 - green1) >> 1) - ((green2 - green1) >> 3);
 		int red3 = ((red2 - red1) >> 1) - ((red2 - red1) >> 3);				
 		colors[2] = makecol(red1 + red3, green1 + green3, blue1 + blue3, 255);
 		colors[3] = makecol(red2 - red3, green2 - green3, blue2 - blue3, 255);
-	}
-	else
-	{
+	} else {
 		colors[2] = makecol((red1 + red2 + 1) / 2, // Average
 			(green1 + green2 + 1) / 2,
 			(blue1 + blue2 + 1) / 2, 255);
 		colors[3] = makecol(red2, green2, blue2, 0);	// Color2 but transparent
 	}
 
-	for (int y = 0; y < 4; y++)
-	{
+	for (int y = 0; y < 4; y++) {
 		int val = src->lines[y];
-		for (int x = 0; x < 4; x++)
-		{
+		for (int x = 0; x < 4; x++) {
 			dst[x] = colors[val & 3];
 			val >>= 2;
 		}
@@ -519,8 +526,7 @@ inline u8 lerp6(const DXT5Block *src, int n) {
 }
 
 // The alpha channel is not 100% correct 
-void decodeDXT5Block(u32 *dst, const DXT5Block *src, int pitch)
-{
+void decodeDXT5Block(u32 *dst, const DXT5Block *src, int pitch) {
 	decodeDXT1Block(dst, &src->color, pitch, true);
 	u8 alpha[8];
 
@@ -544,10 +550,8 @@ void decodeDXT5Block(u32 *dst, const DXT5Block *src, int pitch)
 
 	u64 data = ((u64)src->alphadata1 << 32) | src->alphadata2;
 
-	for (int y = 0; y < 4; y++)
-	{
-		for (int x = 0; x < 4; x++)
-		{
+	for (int y = 0; y < 4; y++) {
+		for (int x = 0; x < 4; x++) {
 			dst[x] = (dst[x] & 0xFFFFFF) | (alpha[data & 7] << 24);
 			data >>= 3;
 		}
@@ -555,8 +559,7 @@ void decodeDXT5Block(u32 *dst, const DXT5Block *src, int pitch)
 	}
 }
 
-void convertColors(u8 *finalBuf, GLuint dstFmt, int numPixels)
-{
+void convertColors(u8 *finalBuf, GLuint dstFmt, int numPixels) {
 	// TODO: All these can be massively sped up with SSE, or even
 	// somewhat sped up using "manual simd" in 32 or 64-bit gprs.
 	switch (dstFmt) {
@@ -595,27 +598,28 @@ void convertColors(u8 *finalBuf, GLuint dstFmt, int numPixels)
 	}
 }
 
-void PSPSetTexture()
-{
+void PSPSetTexture() {
 	u32 texaddr = (gstate.texaddr[0] & 0xFFFFF0) | ((gstate.texbufwidth[0]<<8) & 0xFF000000);
 	texaddr &= 0xFFFFFFF;
 
-	if (!texaddr) return;
+	if (!Memory::IsValidAddress(texaddr)) {
+		// Bind a null texture and return.
+		glBindTexture(GL_TEXTURE_2D, 0);
+		return;
+	}
 
 	u8 level = 0;
 	u32 format = gstate.texformat & 0xF;
 	u32 clutformat = gstate.clutformat & 3;
 	u32 clutaddr = GetClutAddr(clutformat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2);
 
-	DEBUG_LOG(G3D,"Texture at %08x",texaddr);
 	u8 *texptr = Memory::GetPointer(texaddr);
 	u32 texhash = texptr ? *(u32*)texptr : 0;
 
-	u64 cachekey = texaddr ^ clutaddr;
-	cachekey |= (u64) texhash << 32;
+	u64 cachekey = texaddr ^ texhash;
+	cachekey |= (u64) clutaddr << 32;
 	TexCache::iterator iter = cache.find(cachekey);
-	if (iter != cache.end())
-	{
+	if (iter != cache.end()) {
 		//Validate the texture here (width, height etc)
 		TexCacheEntry &entry = iter->second;
 
@@ -633,11 +637,27 @@ void PSPSetTexture()
 				entry.cluthash != Memory::Read_U32(entry.clutaddr))) 
 			match = false;
 
+		// If it's not huge or has been invalidated many times, recheck the whole texture.
+		if (entry.invalidHint > 180 || (entry.invalidHint > 15 && dim <= 0x909)) {
+			entry.invalidHint = 0;
+			int bufw = gstate.texbufwidth[0] & 0x3ff;
+			int h = 1 << ((gstate.texsize[0]>>8) & 0xf);
+
+			u32 check = 0;
+			for (int i = 0; i < bufw * h; i += 4) {
+				check += Memory::ReadUnchecked_U32(texaddr + i);
+			}
+
+			if (check != entry.fullhash) {
+				match = false;
+			}
+		}
+
 		if (match) {
 			//got one!
 			entry.frameCounter = gpuStats.numFrames;
 			glBindTexture(GL_TEXTURE_2D, entry.texture);
-			UpdateSamplingParams();
+			UpdateSamplingParams(entry, false);
 			DEBUG_LOG(G3D, "Texture at %08x Found in Cache, applying", texaddr);
 			return; //Done!
 		} else {
@@ -645,35 +665,26 @@ void PSPSetTexture()
 			glDeleteTextures(1, &entry.texture);
 			cache.erase(iter);
 		}
-	}
-	else
-	{
+	} else {
 		INFO_LOG(G3D,"No texture in cache, decoding...");
 	}
 
 	//we have to decode it
 
-	TexCacheEntry entry;
-
+	TexCacheEntry entry = {0};
 	entry.addr = texaddr;
 	entry.hash = texhash;
 	entry.format = format;
 	entry.frameCounter = gpuStats.numFrames;
 
-	if(format >= GE_TFMT_CLUT4 && format <= GE_TFMT_CLUT32)
-	{
+	if (format >= GE_TFMT_CLUT4 && format <= GE_TFMT_CLUT32) {
 		entry.clutformat = clutformat;
 		entry.clutaddr = GetClutAddr(clutformat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2);
 		entry.cluthash = Memory::Read_U32(entry.clutaddr);
-	}
-	else
-	{
+	} else {
 		entry.clutaddr = 0;
 	}
 
-	glGenTextures(1, &entry.texture);
-	glBindTexture(GL_TEXTURE_2D, entry.texture);
-			
 	int bufw = gstate.texbufwidth[0] & 0x3ff;
 	
 	entry.dim = gstate.texsize[0] & 0xF0F;
@@ -681,7 +692,8 @@ void PSPSetTexture()
 	int w = 1 << (gstate.texsize[0] & 0xf);
 	int h = 1 << ((gstate.texsize[0]>>8) & 0xf);
 
-	INFO_LOG(G3D, "Creating texture %i from %08x: %i x %i (stride: %i). fmt: %i", entry.texture, entry.addr, w, h, bufw, entry.format);
+	for (int i = 0; i < bufw * h; i += 4)
+		entry.fullhash += Memory::ReadUnchecked_U32(texaddr + i);
 
 	gstate_c.curTextureWidth=w;
 	gstate_c.curTextureHeight=h;
@@ -699,8 +711,7 @@ void PSPSetTexture()
 	case GE_TFMT_CLUT4:
 		dstFmt = getClutDestFormat((GEPaletteFormat)(gstate.clutformat & 3));
 
-		switch (clutformat)
-		{
+		switch (clutformat) {
 		case GE_CMODE_16BIT_BGR5650:
 		case GE_CMODE_16BIT_ABGR5551:
 		case GE_CMODE_16BIT_ABGR4444:
@@ -708,19 +719,16 @@ void PSPSetTexture()
 			u16 *clut = ReadClut16();
 			u32 clutSharingOff = 0;//gstate.mipmapShareClut ? 0 : level * 16;
 			texByteAlign = 2;
-			if (!(gstate.texmode & 1))
-			{
+			if (!(gstate.texmode & 1)) {
 				u32 addr = texaddr;
 				for (int i = 0; i < bufw * h; i += 2)
 				{
-					u8 index = Memory::Read_U8(addr);
+					u8 index = Memory::ReadUnchecked_U8(addr);
 					tmpTexBuf16[i + 0] = clut[GetClutIndex((index >> 0) & 0xf) + clutSharingOff];
 					tmpTexBuf16[i + 1] = clut[GetClutIndex((index >> 4) & 0xf) + clutSharingOff];
 					addr++;
 				}
-			}
-			else
-			{
+			} else {
 				UnswizzleFromMem(texaddr, 0, level);
 				for (int i = 0, j = 0; i < bufw * h; i += 8, j++)
 				{
@@ -740,23 +748,19 @@ void PSPSetTexture()
 			{
 			u32 *clut = ReadClut32();
 			u32 clutSharingOff = 0;//gstate.mipmapShareClut ? 0 : level * 16;
-			if (!(gstate.texmode & 1))
-			{
+			if (!(gstate.texmode & 1)) {
 				u32 addr = texaddr;
 				for (int i = 0; i < bufw * h; i += 2)
 				{
-					u8 index = Memory::Read_U8(addr);
+					u8 index = Memory::ReadUnchecked_U8(addr);
 					tmpTexBuf32[i + 0] = clut[GetClutIndex((index >> 0) & 0xf) + clutSharingOff];
 					tmpTexBuf32[i + 1] = clut[GetClutIndex((index >> 4) & 0xf) + clutSharingOff];
 					addr++;
 				}
-			}
-			else
-			{
+			} else {
 				u32 pixels = bufw * h;
 				UnswizzleFromMem(texaddr, 0, level);
-				for (int i = pixels - 8, j = (pixels / 8) - 1; i >= 0; i -= 8, j--)
-				{
+				for (int i = pixels - 8, j = (pixels / 8) - 1; i >= 0; i -= 8, j--) {
 					u32 n = tmpTexBuf32[j];
 					for (int k = 0; k < 8; k++) {
 						u32 index = (n >> (k * 4)) & 0xf;
@@ -803,11 +807,10 @@ void PSPSetTexture()
 			dstFmt = GL_UNSIGNED_SHORT_5_6_5;
 		texByteAlign = 2;
 
-		if (!(gstate.texmode & 1))
-		{
+		if (!(gstate.texmode & 1)) {
 			int len = std::max(bufw, w) * h;
 			for (int i = 0; i < len; i++)
-				tmpTexBuf16[i] = Memory::Read_U16(texaddr + i * 2);
+				tmpTexBuf16[i] = Memory::ReadUnchecked_U16(texaddr + i * 2);
 			finalBuf = tmpTexBuf16;
 		}
 		else
@@ -816,11 +819,10 @@ void PSPSetTexture()
 
 	case GE_TFMT_8888:
 		dstFmt = GL_UNSIGNED_BYTE;
-		if (!(gstate.texmode & 1))
-		{
+		if (!(gstate.texmode & 1)) {
 			int len = bufw * h;
 			for (int i = 0; i < len; i++)
-				tmpTexBuf32[i] = Memory::Read_U32(texaddr + i * 4);
+				tmpTexBuf32[i] = Memory::ReadUnchecked_U32(texaddr + i * 4);
 			finalBuf = tmpTexBuf32;
 		}
 		else
@@ -833,11 +835,9 @@ void PSPSetTexture()
 			u32 *dst = tmpTexBuf32;
 			DXT1Block *src = (DXT1Block*)texptr;
 
-			for (int y = 0; y < h; y += 4)
-			{
+			for (int y = 0; y < h; y += 4) {
 				u32 blockIndex = (y / 4) * (bufw / 4);
-				for (int x = 0; x < std::min(bufw, w); x += 4)
-				{
+				for (int x = 0; x < std::min(bufw, w); x += 4) {
 					decodeDXT1Block(dst + bufw * y + x, src + blockIndex, bufw);
 					blockIndex++;
 				}
@@ -854,11 +854,9 @@ void PSPSetTexture()
 			DXT3Block *src = (DXT3Block*)texptr;
 
 			// Alpha is off
-			for (int y = 0; y < h; y += 4)
-			{
+			for (int y = 0; y < h; y += 4) {
 				u32 blockIndex = (y / 4) * (bufw / 4);
-				for (int x = 0; x < std::min(bufw, w); x += 4)
-				{
+				for (int x = 0; x < std::min(bufw, w); x += 4) {
 					decodeDXT3Block(dst + bufw * y + x, src + blockIndex, bufw);
 					blockIndex++;
 				}
@@ -876,11 +874,9 @@ void PSPSetTexture()
 			DXT5Block *src = (DXT5Block*)texptr;
 
 			// Alpha is almost right
-			for (int y = 0; y < h; y += 4)
-			{
+			for (int y = 0; y < h; y += 4) {
 				u32 blockIndex = (y / 4) * (bufw / 4);
-				for (int x = 0; x < std::min(bufw, w); x += 4)
-				{
+				for (int x = 0; x < std::min(bufw, w); x += 4) {
 					decodeDXT5Block(dst + bufw * y + x, src + blockIndex, bufw);
 					blockIndex++;
 				}
@@ -932,21 +928,21 @@ void PSPSetTexture()
 		}
 	}
 
+	gpuStats.numTexturesDecoded++;
 	// Can restore these and remove the above fixup on some platforms.
 	//glPixelStorei(GL_UNPACK_ROW_LENGTH, bufw);
 	glPixelStorei(GL_UNPACK_ALIGNMENT, texByteAlign);
 	//glPixelStorei(GL_PACK_ROW_LENGTH, bufw);
 	glPixelStorei(GL_PACK_ALIGNMENT, texByteAlign);
 
+	INFO_LOG(G3D, "Creating texture %i from %08x: %i x %i (stride: %i). fmt: %i", entry.texture, entry.addr, w, h, bufw, entry.format);
+
+	glGenTextures(1, &entry.texture);
+	glBindTexture(GL_TEXTURE_2D, entry.texture);
 	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
 	glTexImage2D(GL_TEXTURE_2D, 0, components, w, h, 0, components, dstFmt, finalBuf);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-
 	// glGenerateMipmap(GL_TEXTURE_2D);
-	UpdateSamplingParams();
+	UpdateSamplingParams(entry, true);
 
 	//glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);

@@ -102,7 +102,7 @@ void CFileSearch::FindFiles(const std::string& _searchString, const std::string&
 				((s.size() > ext.size()) && (!strcasecmp(s.substr(s.size() - ext.size()).c_str(), ext.c_str())) ))
 		{
 			std::string full_name;
-			if (_strPath.c_str()[_strPath.size()-1] == DIR_SEP_CHR)
+			if (strchr(DIR_SEP_CHRS, _strPath.c_str()[_strPath.size()-1]))
 				full_name = _strPath + s;
 			else
 				full_name = _strPath + DIR_SEP + s;

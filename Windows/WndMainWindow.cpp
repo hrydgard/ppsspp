@@ -1,7 +1,7 @@
 // NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
 
 
-#define programname "PPSSPP v0.4"
+#define programname "PPSSPP v0.5"
 
 
 #include <windows.h>
@@ -19,6 +19,8 @@
 
 #include "../Core/Core.h"
 #include "../Core/MemMap.h"
+#include "../Core/SaveState.h"
+#include "../Core/System.h"
 #include "EmuThread.h"
 
 #include "resource.h"
@@ -30,13 +32,15 @@
 #include "W32Util/ShellUtil.h"
 #include "W32Util/Misc.h"
 #include "../Core/Config.h"
+#include "../GPU/GPUInterface.h"
+#include "../GPU/GPUState.h"
 
 #ifdef THEMES
 #include "XPTheme.h"
 #endif
 
-BOOL g_bFullScreen = FALSE;                  
-RECT rc = {0};
+BOOL g_bFullScreen = FALSE;
+RECT g_normalRC = {0};
 
 namespace MainWindow
 {
@@ -45,6 +49,7 @@ namespace MainWindow
 	HWND hwndGameList;
 	HMENU menu;
 	BOOL skinMode = FALSE;
+	CoreState nextState = CORE_POWERDOWN;
 
 	HINSTANCE hInst;
 
@@ -58,6 +63,7 @@ namespace MainWindow
 	LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 	LRESULT CALLBACK DisplayProc(HWND, UINT, WPARAM, LPARAM);
 	LRESULT CALLBACK About(HWND, UINT, WPARAM, LPARAM);
+	LRESULT CALLBACK Controls(HWND, UINT, WPARAM, LPARAM);
 
 	HWND GetHWND()
 	{
@@ -111,12 +117,15 @@ namespace MainWindow
 		AdjustWindowRect(&rcOuter, WS_OVERLAPPEDWINDOW, TRUE);
 	}
 
-	void SetZoom(int zoom) {
-		g_Config.iWindowZoom = zoom;
+	void SetZoom(float zoom) {
+		if (zoom < 5)
+			g_Config.iWindowZoom = (int) zoom;
 		RECT rc, rcOuter;
-		GetWindowRectAtZoom(zoom, rc, rcOuter);
+		GetWindowRectAtZoom((int) zoom, rc, rcOuter);
 		MoveWindow(hwndMain, rcOuter.left, rcOuter.top, rcOuter.right - rcOuter.left, rcOuter.bottom - rcOuter.top, TRUE);
 		MoveWindow(hwndDisplay, 0, 0, rc.right - rc.left, rc.bottom - rc.top, TRUE);
+		PSP_CoreParameter().pixelWidth = (int) (480 * zoom);
+		PSP_CoreParameter().pixelHeight = (int) (272 * zoom);
 		GL_Resized();
 	}
 
@@ -240,7 +249,6 @@ namespace MainWindow
 		switch (message) 
 		{
 		case WM_CREATE:
-			PostMessage(hWnd, WM_COMMAND, ID_FILE_LOAD, 0);
 			break;
 
 		case WM_MOVE:
@@ -252,16 +260,12 @@ namespace MainWindow
 			// Parse the menu selections:
 			switch (wmId)
 			{
-			//File menu
-
 			case ID_FILE_LOAD:
 				BrowseAndBoot();
 				break;
 
 			case ID_FILE_REFRESHGAMELIST:
 				break;
-
-			//Emulation menu
 
 			case ID_EMULATION_RUN:
 				if (g_State.bEmuThreadStarted)
@@ -307,20 +311,60 @@ namespace MainWindow
 				UpdateMenus();
 				break;
 
-			case ID_FILE_LOADSTATE:
-				if (W32Util::BrowseForFileName(true, hWnd, "Load state",0,"Save States (*.gcs)\0*.gcs\0All files\0*.*\0\0","gcs",fn))
+			case ID_FILE_LOADSTATEFILE:
+				if (g_State.bEmuThreadStarted)
+				{
+					nextState = Core_IsStepping() ? CORE_STEPPING : CORE_RUNNING;
+					for (int i=0; i<numCPUs; i++)
+						if (disasmWindow[i])
+							SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
+				}
+				if (W32Util::BrowseForFileName(true, hWnd, "Load state",0,"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0","ppst",fn))
 				{
 					SetCursor(LoadCursor(0,IDC_WAIT));
-					SetCursor(LoadCursor(0,IDC_ARROW));
+					SaveState::Load(fn, SaveStateActionFinished);
 				}
 				break;
 
-			case ID_FILE_SAVESTATE:
-				if (W32Util::BrowseForFileName(false, hWnd, "Save state",0,"Save States (*.gcs)\0*.gcs\0All files\0*.*\0\0","gcs",fn))
+			case ID_FILE_SAVESTATEFILE:
+				if (g_State.bEmuThreadStarted)
+				{
+					nextState = Core_IsStepping() ? CORE_STEPPING : CORE_RUNNING;
+					for (int i=0; i<numCPUs; i++)
+						if (disasmWindow[i])
+							SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
+				}
+				if (W32Util::BrowseForFileName(false, hWnd, "Save state",0,"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0","ppst",fn))
 				{
 					SetCursor(LoadCursor(0,IDC_WAIT));
-					SetCursor(LoadCursor(0,IDC_ARROW));
+					SaveState::Save(fn, SaveStateActionFinished);
 				}
+				break;
+
+			// TODO: Add UI for multiple slots
+
+			case ID_FILE_QUICKLOADSTATE:
+				if (g_State.bEmuThreadStarted)
+				{
+					nextState = Core_IsStepping() ? CORE_STEPPING : CORE_RUNNING;
+					for (int i=0; i<numCPUs; i++)
+						if (disasmWindow[i])
+							SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
+				}
+				SetCursor(LoadCursor(0,IDC_WAIT));
+				SaveState::LoadSlot(0, SaveStateActionFinished);
+				break;
+
+			case ID_FILE_QUICKSAVESTATE:
+				if (g_State.bEmuThreadStarted)
+				{
+					nextState = Core_IsStepping() ? CORE_STEPPING : CORE_RUNNING;
+					for (int i=0; i<numCPUs; i++)
+						if (disasmWindow[i])
+							SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
+				}
+				SetCursor(LoadCursor(0,IDC_WAIT));
+				SaveState::SaveSlot(0, SaveStateActionFinished);
 				break;
 
 			case ID_OPTIONS_SCREEN1X:
@@ -350,13 +394,15 @@ namespace MainWindow
 				UpdateMenus();
 				break;
 
+			case ID_OPTIONS_HARDWARETRANSFORM:
+				g_Config.bHardwareTransform = !g_Config.bHardwareTransform;
+				UpdateMenus();
+				break;
+
 			case ID_FILE_EXIT:
 				DestroyWindow(hWnd);
 				break;
 
-			//////////////////////////////////////////////////////////////////////////
-			//CPU menu
-			//////////////////////////////////////////////////////////////////////////
 			case ID_CPU_DYNAREC:
 				g_Config.iCpuCore = CPU_JIT;
 				UpdateMenus();
@@ -370,42 +416,14 @@ namespace MainWindow
 				UpdateMenus();
 				break;
 
-			//case ID_CPU_RESET: 
-			//	MessageBox(hwndMain,"Use the controls in the disasm window for now..","Sorry",0);
-			//	Update();
-			//	break;
+			case ID_EMULATION_RUNONLOAD:
+				g_Config.bAutoRun = !g_Config.bAutoRun;
+				UpdateMenus();
+				break;
 
-			case ID_DEBUG_RUNPOWERPCTEST:
-				//doppctest();
+			case ID_DEBUG_DUMPNEXTFRAME:
+				gpu->DumpNextFrame();
 				break;
-			//////////////////////////////////////////////////////////////////////////
-			//Debug menu
-			//////////////////////////////////////////////////////////////////////////
-				/*
-			case ID_DEBUG_LOCATESYMBOLS:
-				{
-					std::vector<std::string> files=  W32Util::BrowseForFileNameMultiSelect(true,hWnd,"MOJS",0,"BLAH\0*.*",0);
-					std::vector<std::string>::iterator iter;
-					if (files.size())
-					{
-						for (iter=files.begin(); iter!=files.end(); iter++)
-						{
-							LOG(MASTER_LOG,"Loading symbols from %s", iter->c_str());
-							LoadSymbolsFromO((*iter).c_str(),0x02000000,1*1024*1024);
-						}
-						symbolMap.SortSymbols();
-//						HLE_PatchFunctions();
-					}
-					
-					for (int i=0; i<numCPUs; i++)
-						if (disasmWindow[i])
-							disasmWindow[i]->NotifyMapLoaded();
-					for (int i=0; i<numCPUs; i++)
-						if (memoryWindow[i])
-							memoryWindow[i]->Update();
-				}
-				break;
-*/
 
 			case ID_DEBUG_LOADMAPFILE:
 				if (W32Util::BrowseForFileName(true, hWnd, "Load .MAP",0,"Maps\0*.map\0All files\0*.*\0\0","map",fn))
@@ -424,22 +442,7 @@ namespace MainWindow
 				if (W32Util::BrowseForFileName(false, hWnd, "Save .MAP",0,"Maps\0*.map\0All files\0*.*\0\0","map",fn))
 					symbolMap.SaveSymbolMap(fn.c_str());
 				break;
-				/*
-			case ID_DEBUG_COMPILESIGNATUREFILE:
-				if (W32Util::BrowseForFileName(false, hWnd, "Save signature file",0,"Sigs\0*.sig\0All files\0*.*\0\0","sig",fn))
-					symbolMap.CompileFuncSignaturesFile(fn.c_str());
-				break;
-			case ID_DEBUG_USESIGNATUREFILE:
-				if (W32Util::BrowseForFileName(true, hWnd, "Use signature file",0,"Sigs\0*.sig\0All files\0*.*\0\0","sig",fn))
-				{
-					symbolMap.UseFuncSignaturesFile(fn.c_str(),0x80400000);
-//					HLE_PatchFunctions();
-					for (int i=0; i<numCPUs; i++)
-						if (disasmWindow[i])
-							disasmWindow[i]->NotifyMapLoaded();
-				}
-				break;*/
-
+		
 			case ID_DEBUG_RESETSYMBOLTABLE:
 				symbolMap.ResetSymbolMap();
 				for (int i=0; i<numCPUs; i++)
@@ -458,33 +461,50 @@ namespace MainWindow
 					memoryWindow[0]->Show(true);
 				break;
 			case ID_DEBUG_LOG:
-        LogManager::GetInstance()->GetConsoleListener()->Show(LogManager::GetInstance()->GetConsoleListener()->Hidden());
+				LogManager::GetInstance()->GetConsoleListener()->Show(LogManager::GetInstance()->GetConsoleListener()->Hidden());
 				break;
 
-			//////////////////////////////////////////////////////////////////////////
-			//Options menu
-			//////////////////////////////////////////////////////////////////////////
 			case ID_OPTIONS_IGNOREILLEGALREADS:
 				g_Config.bIgnoreBadMemAccess = !g_Config.bIgnoreBadMemAccess;
 				UpdateMenus();
 				break;
+
 			case ID_OPTIONS_FULLSCREEN:
-				if(g_bFullScreen)
+				if(g_bFullScreen) {
 					_ViewNormal(hWnd); 
-				else
+					SetZoom(1); //restore window to original size
+				}
+				else {
+					int cx = ::GetSystemMetrics(SM_CXSCREEN);
+					float screenfactor = cx / 480.0f;
+					SetZoom(screenfactor);
 					_ViewFullScreen(hWnd);
+				}
+				break;
+
+			case ID_OPTIONS_WIREFRAME:
+				g_Config.bDrawWireframe = !g_Config.bDrawWireframe;
+				UpdateMenus();
 				break;
 
 			case ID_OPTIONS_DISPLAYRAWFRAMEBUFFER:
 				g_Config.bDisplayFramebuffer = !g_Config.bDisplayFramebuffer;
 				UpdateMenus();
 				break;
+			case ID_OPTIONS_FASTMEMORY:
+				g_Config.bFastMemory = !g_Config.bFastMemory;
+				UpdateMenus();
+				break;
+			case ID_OPTIONS_LINEARFILTERING:
+				g_Config.bLinearFiltering = !g_Config.bLinearFiltering;
+				UpdateMenus();
+				break;
+			case ID_OPTIONS_CONTROLS:
+				DialogManager::EnableAll(FALSE);
+				DialogBox(hInst, (LPCTSTR)IDD_CONTROLS, hWnd, (DLGPROC)Controls);
+				DialogManager::EnableAll(TRUE);
+				break;
 
-			
-			//////////////////////////////////////////////////////////////////////////
-			//Help menu
-			//////////////////////////////////////////////////////////////////////////
-	
       case ID_HELP_OPENWEBSITE:
 				ShellExecute(NULL, "open", "http://www.ppsspp.org/", NULL, NULL, SW_SHOWNORMAL);
         break;
@@ -552,8 +572,6 @@ namespace MainWindow
 			}
 			break;
 
-			//case WM_ERASEBKGND:
-			//	return 0;
 		case WM_CLOSE:
 			Sleep(100);//UGLY wait for event instead
 			EmuThread_Stop();
@@ -569,10 +587,8 @@ namespace MainWindow
 			}
 			else
 			*/
-				return DefWindowProc(hWnd,message,wParam,lParam);
-//		case WM_LBUTTONDOWN:
-//			TrackPopupMenu(menu,0,0,0,0,hWnd,0);
-//			break;
+			return DefWindowProc(hWnd,message,wParam,lParam);
+
 		case WM_DESTROY:
 			PostQuitMessage(0);
 			break;
@@ -594,6 +610,10 @@ namespace MainWindow
 				disasmWindow[0]->NotifyMapLoaded();
 			if (memoryWindow[0])
 				memoryWindow[0]->NotifyMapLoaded();
+
+			if (nextState == CORE_RUNNING)
+				PostMessage(hwndMain, WM_COMMAND, ID_EMULATION_RUN, 0);
+			UpdateMenus();
 			break;
 
 		default:
@@ -618,13 +638,23 @@ namespace MainWindow
 		CHECKITEM(ID_CPU_DYNAREC,g_Config.iCpuCore == CPU_JIT);
 		CHECKITEM(ID_OPTIONS_BUFFEREDRENDERING, g_Config.bBufferedRendering);
 		CHECKITEM(ID_OPTIONS_SHOWDEBUGSTATISTICS, g_Config.bShowDebugStats);
+		CHECKITEM(ID_OPTIONS_WIREFRAME, g_Config.bDrawWireframe);
+		CHECKITEM(ID_OPTIONS_HARDWARETRANSFORM, g_Config.bHardwareTransform);
+		CHECKITEM(ID_OPTIONS_FASTMEMORY, g_Config.bFastMemory);
+		CHECKITEM(ID_OPTIONS_LINEARFILTERING, g_Config.bLinearFiltering);
+		CHECKITEM(ID_EMULATION_RUNONLOAD, g_Config.bAutoRun);
 
-		BOOL enable = !Core_IsStepping();
-		EnableMenuItem(menu,ID_EMULATION_RUN,enable);
-		EnableMenuItem(menu,ID_EMULATION_PAUSE,!enable);
+		UINT enable = !Core_IsStepping() ? MF_GRAYED : MF_ENABLED;
+		EnableMenuItem(menu,ID_EMULATION_RUN, g_State.bEmuThreadStarted ? enable : MF_GRAYED);
+		EnableMenuItem(menu,ID_EMULATION_PAUSE, g_State.bEmuThreadStarted ? !enable : MF_GRAYED);
+		EnableMenuItem(menu,ID_EMULATION_RESET, g_State.bEmuThreadStarted ? MF_ENABLED : MF_GRAYED);
 
-		enable = g_State.bEmuThreadStarted;
+		enable = g_State.bEmuThreadStarted ? MF_GRAYED : MF_ENABLED;
 		EnableMenuItem(menu,ID_FILE_LOAD,enable);
+		EnableMenuItem(menu,ID_FILE_SAVESTATEFILE,!enable);
+		EnableMenuItem(menu,ID_FILE_LOADSTATEFILE,!enable);
+		EnableMenuItem(menu,ID_FILE_QUICKSAVESTATE,!enable);
+		EnableMenuItem(menu,ID_FILE_QUICKLOADSTATE,!enable);
 		EnableMenuItem(menu,ID_CPU_DYNAREC,enable);
 		EnableMenuItem(menu,ID_CPU_INTERPRETER,enable);
 		EnableMenuItem(menu,ID_CPU_FASTINTERPRETER,enable);
@@ -666,6 +696,53 @@ namespace MainWindow
 		return FALSE;
 	}
 
+	const char *controllist[] = {
+		"Start\tSpace",
+		"Select\tV",
+		"Square\tA",
+		"Triangle\tS",
+		"Circle\tX",
+		"Cross\tZ",
+		"Left Trigger\tQ",
+		"Right Trigger\tW",
+		"Up\tArrow Up",
+		"Down\tArrow Down",
+		"Left\tArrow Left",
+		"Right\tArrow Right",
+		"Analog Up\tI",
+		"Analog Down\tK",
+		"Analog Left\tJ",
+		"Analog Right\tL",
+	};
+	// Message handler for about box.
+	LRESULT CALLBACK Controls(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+	{
+		switch (message)
+		{
+		case WM_INITDIALOG:
+			W32Util::CenterWindow(hDlg);
+			{
+				// TODO: connect to keyboard device instead
+				HWND list = GetDlgItem(hDlg, IDC_LISTCONTROLS);
+				int stops[1] = {80};
+				SendMessage(list, LB_SETTABSTOPS, 1, (LPARAM)stops);
+				for (int i = 0; i < sizeof(controllist)/sizeof(controllist[0]); i++) {
+					SendMessage(list, LB_INSERTSTRING, -1, (LPARAM)controllist[i]);
+				}
+			}
+			return TRUE;
+
+		case WM_COMMAND:
+			if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL) 
+			{
+				EndDialog(hDlg, LOWORD(wParam));
+				return TRUE;
+			}
+			break;
+		}
+		return FALSE;
+	}
+
 	void Update()
 	{
 		InvalidateRect(hwndDisplay,0,0);
@@ -679,51 +756,50 @@ namespace MainWindow
 	}
 	void _ViewNormal(HWND hWnd)
 	{
-   // put caption and border styles back
-   DWORD dwOldStyle = ::GetWindowLong(hWnd, GWL_STYLE);
-   DWORD dwNewStyle = dwOldStyle | WS_CAPTION | WS_THICKFRAME;
-   ::SetWindowLong(hWnd, GWL_STYLE, dwNewStyle);
+		// put caption and border styles back
+		DWORD dwOldStyle = ::GetWindowLong(hWnd, GWL_STYLE);
+		DWORD dwNewStyle = dwOldStyle | WS_CAPTION | WS_THICKFRAME;
+		::SetWindowLong(hWnd, GWL_STYLE, dwNewStyle);
 
-   // put back the menu bar
-   ::SetMenu(hWnd, menu);
+		// put back the menu bar
+		::SetMenu(hWnd, menu);
 
-   // resize to normal view
-   // NOTE: use SWP_FRAMECHANGED to force redraw non-client
-   const int x = rc.left;
-   const int y = rc.top;
-   const int cx = rc.right - rc.left;
-   const int cy = rc.bottom - rc.top; 
-   ::SetWindowPos(hWnd, HWND_NOTOPMOST, x, y, cx, cy, SWP_FRAMECHANGED);
+		// resize to normal view
+		// NOTE: use SWP_FRAMECHANGED to force redraw non-client
+		const int x = g_normalRC.left;
+		const int y = g_normalRC.top;
+		const int cx = g_normalRC.right - g_normalRC.left;
+		const int cy = g_normalRC.bottom - g_normalRC.top;
+		::SetWindowPos(hWnd, HWND_NOTOPMOST, x, y, cx, cy, SWP_FRAMECHANGED);
 
-   // reset full screen indicator
-   g_bFullScreen = FALSE;
+		// reset full screen indicator
+		g_bFullScreen = FALSE;
 	}
 
-void _ViewFullScreen(HWND hWnd)
-{
-   // keep in mind normal window rectangle
-   ::GetWindowRect(hWnd, &rc);
+	void _ViewFullScreen(HWND hWnd)
+	{
+		// keep in mind normal window rectangle
+		::GetWindowRect(hWnd, &g_normalRC);
 
-   // remove caption and border styles
-   DWORD dwOldStyle = ::GetWindowLong(hWnd, GWL_STYLE);
-   DWORD dwNewStyle = dwOldStyle & ~(WS_CAPTION | WS_THICKFRAME);
-   ::SetWindowLong(hWnd, GWL_STYLE, dwNewStyle);
+		// remove caption and border styles
+		DWORD dwOldStyle = ::GetWindowLong(hWnd, GWL_STYLE);
+		DWORD dwNewStyle = dwOldStyle & ~(WS_CAPTION | WS_THICKFRAME);
+		::SetWindowLong(hWnd, GWL_STYLE, dwNewStyle);
 
-   // remove the menu bar
-   ::SetMenu(hWnd, NULL);
+		// remove the menu bar
+		::SetMenu(hWnd, NULL);
 
-   // resize to full screen view
-   // NOTE: use SWP_FRAMECHANGED to force redraw non-client
-   const int x = 0;
-   const int y = 0;
-   const int cx = ::GetSystemMetrics(SM_CXSCREEN);
-   const int cy = ::GetSystemMetrics(SM_CYSCREEN); 
-   ::SetWindowPos(hWnd, HWND_TOPMOST, x, y, cx, cy, SWP_FRAMECHANGED);
+		// resize to full screen view
+		// NOTE: use SWP_FRAMECHANGED to force redraw non-client
+		const int x = 0;
+		const int y = 0;
+		const int cx = ::GetSystemMetrics(SM_CXSCREEN);
+		const int cy = ::GetSystemMetrics(SM_CYSCREEN);
+		::SetWindowPos(hWnd, HWND_TOPMOST, x, y, cx, cy, SWP_FRAMECHANGED);
 
-   // set full screen indicator
-   g_bFullScreen = TRUE;
-}
-
+		// set full screen indicator
+		g_bFullScreen = TRUE;
+	}
 
 	void SetPlaying(const char *text)
 	{
@@ -735,6 +811,26 @@ void _ViewFullScreen(HWND hWnd)
 			sprintf(temp, "%s - %s", text, programname);
 			SetWindowText(hwndMain,temp);
 		}
+	}
+
+	void SaveStateActionFinished(bool result, void *userdata)
+	{
+		// TODO: Improve messaging?
+		if (!result)
+			MessageBox(0, "Savestate failure.  Please try again later.", "Sorry", MB_OK);
+		SetCursor(LoadCursor(0, IDC_ARROW));
+
+		if (g_State.bEmuThreadStarted && nextState == CORE_RUNNING)
+		{
+			for (int i=0; i<numCPUs; i++)
+				if (disasmWindow[i])
+					SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_GO, 0);
+		}
+	}
+
+	void SetNextState(CoreState state)
+	{
+		nextState = state;
 	}
 
 	HINSTANCE GetHInstance()

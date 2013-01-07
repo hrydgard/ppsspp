@@ -13,34 +13,10 @@
 #include "Log.h"
 #include "LogManager.h"
 
-// TODO: Get rid of this junk
-class HeadlessHost : public Host
-{
-public:
-	// virtual void StartThread()
-	virtual void UpdateUI() {}
-
-	virtual void UpdateMemView() {}
-	virtual void UpdateDisassembly() {}
-
-	virtual void SetDebugMode(bool mode) { }
-
-	virtual void InitGL() {}
-	virtual void BeginFrame() {}
-	virtual void EndFrame() {}
-	virtual void ShutdownGL() {}
-
-	virtual void InitSound(PMixer *mixer) {}
-	virtual void UpdateSound() {}
-	virtual void ShutdownSound() {}
-
-	// this is sent from EMU thread! Make sure that Host handles it properly!
-	virtual void BootDone() {} 
-	virtual void PrepareShutdown() {}
-
-	virtual bool IsDebuggingEnabled() {return false;}
-	virtual bool AttemptLoadSymbolMap() {return false;}
-};
+#include "StubHost.h"
+#ifdef _WIN32
+#include "WindowsHeadlessHost.h"
+#endif
 
 class PrintfLogger : public LogListener
 {
@@ -50,20 +26,20 @@ public:
 		switch (level)
 		{
 		case LogTypes::LDEBUG:
-			printf("D %s", msg);
+			fprintf(stderr, "D %s", msg);
 			break;
 		case LogTypes::LINFO:
-			printf("I %s", msg);
+			fprintf(stderr, "I %s", msg);
 			break;
 		case LogTypes::LERROR:
-			printf("E %s", msg);
+			fprintf(stderr, "E %s", msg);
 			break;
 		case LogTypes::LWARNING:
-			printf("W %s", msg);
+			fprintf(stderr, "W %s", msg);
 			break;
 		case LogTypes::LNOTICE:
 		default:
-			printf("N %s", msg);
+			fprintf(stderr, "N %s", msg);
 			break;
 		}
 	}
@@ -74,11 +50,17 @@ void printUsage(const char *progname, const char *reason)
 	if (reason != NULL)
 		fprintf(stderr, "Error: %s\n\n", reason);
 	fprintf(stderr, "PPSSPP Headless\n");
-	fprintf(stderr, "This is primarily meant for non-inactive test tool.\n\n");
-	fprintf(stderr, "Usage: %s [options] file.elf\n\n", progname);
+	fprintf(stderr, "This is primarily meant as a non-interactive test tool.\n\n");
+	fprintf(stderr, "Usage: %s file.elf [options]\n\n", progname);
 	fprintf(stderr, "Options:\n");
 	fprintf(stderr, "  -m, --mount umd.cso   mount iso on umd:\n");
 	fprintf(stderr, "  -l, --log             full log output, not just emulated printfs\n");
+
+	HEADLESSHOST_CLASS h1;
+	HeadlessHost h2;
+	if (typeid(h1) != typeid(h2))
+		fprintf(stderr, "  --graphics            use the full gpu backend (slower)\n");
+
 	fprintf(stderr, "  -f                    use the fast interpreter\n");
 	fprintf(stderr, "  -j                    use jit (overrides -f)\n");
 	fprintf(stderr, "  -c, --compare         compare with output in file.expected\n");
@@ -91,6 +73,7 @@ int main(int argc, const char* argv[])
 	bool useJit = false;
 	bool fastInterpreter = false;
 	bool autoCompare = false;
+	bool useGraphics = false;
 	
 	const char *bootFilename = 0;
 	const char *mountIso = 0;
@@ -114,6 +97,8 @@ int main(int argc, const char* argv[])
 			fastInterpreter = true;
 		else if (!strcmp(argv[i], "-c") || !strcmp(argv[i], "--compare"))
 			autoCompare = true;
+		else if (!strcmp(argv[i], "--graphics"))
+			useGraphics = true;
 		else if (bootFilename == 0)
 			bootFilename = argv[i];
 		else
@@ -140,7 +125,9 @@ int main(int argc, const char* argv[])
 		return 1;
 	}
 
-	host = new HeadlessHost();
+	HeadlessHost *headlessHost = useGraphics ? new HEADLESSHOST_CLASS() : new HeadlessHost();
+	host = headlessHost;
+	host->InitGL();
 
 	LogManager::Init();
 	LogManager *logman = LogManager::GetInstance();
@@ -160,10 +147,11 @@ int main(int argc, const char* argv[])
 	coreParameter.mountIso = mountIso ? mountIso : "";
 	coreParameter.startPaused = false;
 	coreParameter.cpuCore = useJit ? CPU_JIT : (fastInterpreter ? CPU_FASTINTERPRETER : CPU_INTERPRETER);
-	coreParameter.gpuCore = GPU_NULL;
+	coreParameter.gpuCore = headlessHost->isGLWorking() ? GPU_GLES : GPU_NULL;
 	coreParameter.enableSound = false;
 	coreParameter.headLess = true;
 	coreParameter.printfEmuLog = true;
+	coreParameter.useMediaEngine = false;
 
 	g_Config.bEnableSound = false;
 	g_Config.bFirstRun = false;
@@ -177,8 +165,9 @@ int main(int argc, const char* argv[])
 		return 1;
 	}
 
-	coreState = CORE_RUNNING;
+	host->BootDone();
 
+	coreState = CORE_RUNNING;
 	while (coreState == CORE_RUNNING)
 	{
 		// Run for a frame at a time, just because.
@@ -191,9 +180,12 @@ int main(int argc, const char* argv[])
 			coreState = CORE_RUNNING;
 	}
 
-	// NOTE: we won't get here until I've gotten rid of the exit(0) in sceExitProcess or whatever it's called
-
+	host->ShutdownGL();
 	PSP_Shutdown();
+
+	delete host;
+	host = NULL;
+	headlessHost = NULL;
 
 	if (autoCompare)
 	{

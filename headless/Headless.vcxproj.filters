@@ -3,8 +3,13 @@
   <ItemGroup>
     <ClCompile Include="Headless.cpp" />
     <ClCompile Include="..\native\ext\glew\glew.c" />
+    <ClCompile Include="WindowsHeadlessHost.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="headless.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="StubHost.h" />
+    <ClInclude Include="WindowsHeadlessHost.h" />
   </ItemGroup>
 </Project>

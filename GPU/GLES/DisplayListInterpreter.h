@@ -18,24 +18,25 @@
 #pragma once
 
 #include <list>
-#include <vector>
+#include <deque>
 
-#include "../GPUInterface.h"
+#include "../GPUCommon.h"
 #include "Framebuffer.h"
+#include "VertexDecoder.h"
+#include "TransformPipeline.h"
 #include "gfx_es2/fbo.h"
 
 class ShaderManager;
+class LinkedShader;
 
-class GLES_GPU : public GPUInterface
+class GLES_GPU : public GPUCommon
 {
 public:
 	GLES_GPU(int renderWidth, int renderHeight);
 	~GLES_GPU();
 	virtual void InitClear();
-	virtual u32 EnqueueList(u32 listpc, u32 stall);
-	virtual void UpdateStall(int listid, u32 newstall);
+	virtual void PreExecuteOp(u32 op, u32 diff);
 	virtual void ExecuteOp(u32 op, u32 diff);
-	virtual bool InterpretList();
 	virtual void DrawSync(int mode);
 	virtual void Continue();
 	virtual void Break();
@@ -47,18 +48,25 @@ public:
 	virtual void CopyDisplayToOutput();
 	virtual void BeginFrame();
 	virtual void UpdateStats();
+	virtual void InvalidateCache(u32 addr, int size);
+	virtual void InvalidateCacheHint(u32 addr, int size);
+	virtual void DeviceLost();  // Only happens on Android. Drop all textures and shaders.
+
+	virtual void DumpNextFrame();
+	virtual void Flush();
+	virtual void DoState(PointerWrap &p);
 
 private:
-	// TransformPipeline.cpp
-	void TransformAndDrawPrim(void *verts, void *inds, int prim, int vertexCount, float *customUV, int forceIndexType, int *bytesRead = 0);
-	void UpdateViewportAndProjection();
-	void DrawBezier(int ucount, int vcount);
 	void DoBlockTransfer();
-	bool ProcessDLQueue();
+
+	// Applies states for debugging if enabled.
+	void BeginDebugDraw();
+	void EndDebugDraw();
 
 	FramebufferManager framebufferManager;
-
+	TransformDrawEngine transformDraw_;
 	ShaderManager *shaderManager_;
+	u8 *flushBeforeCommand_;
 	bool interruptsEnabled_;
 
 	u32 displayFramebufPtr_;
@@ -71,29 +79,11 @@ private:
 	float renderWidthFactor_;
 	float renderHeightFactor_;
 
-	struct CmdProcessorState
-	{
+	struct CmdProcessorState {
 		u32 pc;
 		u32 stallAddr;
+		int subIntrBase;
 	};
-
-	CmdProcessorState dcontext;
-
-	int dlIdGenerator;
-
-	struct DisplayList
-	{
-		int id;
-		u32 listpc;
-		u32 stall;
-	};
-
-	std::vector<DisplayList> dlQueue;
-
-	u32 prev;
-	u32 stack[2];
-	u32 stackptr;
-	bool finished;
 
 	struct VirtualFramebuffer {
 		u32 fb_address;

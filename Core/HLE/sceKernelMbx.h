@@ -24,22 +24,15 @@ struct NativeMbxPacket
 	u8 padding[3];
 };
 
-struct SceKernelMbxInfo
-{
-	SceSize size;
-	char name[KERNELOBJECT_MAX_NAME_LENGTH+1];
-	SceUInt attr;
-	int numWaitThreads;
-	int numMessage;
-	u32 topPacketAddr;
-};
-
-SceUID sceKernelCreateMbx(const char *name, int memoryPartition, SceUInt attr, int size, u32 optAddr);
+SceUID sceKernelCreateMbx(const char *name, u32 attr, u32 optAddr);
 int sceKernelDeleteMbx(SceUID id);
-void sceKernelSendMbx(SceUID id, u32 addPacketAddr);
-void sceKernelReceiveMbx(SceUID id, u32 packetAddrPtr, u32 timeoutPtr);
-void sceKernelReceiveMbxCB(SceUID id, u32 packetAddrPtr, u32 timeoutPtr);
+int sceKernelSendMbx(SceUID id, u32 addPacketAddr);
+int sceKernelReceiveMbx(SceUID id, u32 packetAddrPtr, u32 timeoutPtr);
+int sceKernelReceiveMbxCB(SceUID id, u32 packetAddrPtr, u32 timeoutPtr);
 int sceKernelPollMbx(SceUID id, u32 packetAddrPtr);
 int sceKernelCancelReceiveMbx(SceUID id, u32 numWaitingThreadsAddr);
 int sceKernelReferMbxStatus(SceUID id, u32 infoAddr);
 
+void __KernelMbxInit();
+void __KernelMbxDoState(PointerWrap &p);
+KernelObject *__KernelMbxObject();
