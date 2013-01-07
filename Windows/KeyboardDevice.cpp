@@ -43,16 +43,16 @@ int KeyboardDevice::UpdateState() {
 
 		switch (analog_ctrl_map[i + 1]) {
 		case CTRL_UP:
-			analogY += .8f;
+			analogY += 1.0f;
 			break;
 		case CTRL_DOWN:
-			analogY -= .8f;
+			analogY -= 1.0f;
 			break;
 		case CTRL_LEFT:
-			analogX -= .8f;
+			analogX -= 1.0f;
 			break;
 		case CTRL_RIGHT:
-			analogX += .8f;
+			analogX += 1.0f;
 			break;
 		}
 	}
