@@ -1807,47 +1807,45 @@ void sceKernelSleepThreadCB()
 	__KernelCheckCallbacks();
 }
 
-void sceKernelWaitThreadEnd()
+int sceKernelWaitThreadEnd(SceUID threadID, u32 timeoutPtr)
 {
-	SceUID id = PARAM(0);
-	DEBUG_LOG(HLE,"sceKernelWaitThreadEnd(%i)",id);
+	DEBUG_LOG(HLE, "sceKernelWaitThreadEnd(%i, %08x)", threadID);
 	u32 error;
-	Thread *t = kernelObjects.Get<Thread>(id, error);
+	Thread *t = kernelObjects.Get<Thread>(threadID, error);
 	if (t)
 	{
 		if (t->nt.status != THREADSTATUS_DORMANT) {
-			__KernelWaitCurThread(WAITTYPE_THREADEND, id, 0, 0, false);
+			__KernelWaitCurThread(WAITTYPE_THREADEND, threadID, 0, 0, false);
 		} else {
-			DEBUG_LOG(HLE,"sceKernelWaitThreadEnd - thread %i already ended. Doing nothing.", id);
+			DEBUG_LOG(HLE, "sceKernelWaitThreadEnd - thread %i already ended. Doing nothing.", threadID);
 		}
 	}
 	else
 	{
-		ERROR_LOG(HLE,"sceKernelWaitThreadEnd - bad thread %i", id);
+		ERROR_LOG(HLE, "sceKernelWaitThreadEnd - bad thread %i", threadID);
 	}
-	RETURN(0);
+	return 0;
 }
 
-void sceKernelWaitThreadEndCB()
+int sceKernelWaitThreadEndCB(SceUID threadID, u32 timeoutPtr)
 {
-	SceUID id = PARAM(0);
-	DEBUG_LOG(HLE,"sceKernelWaitThreadEnd(%i)",id);
+	DEBUG_LOG(HLE, "sceKernelWaitThreadEnd(%i)", threadID);
 	u32 error;
-	Thread *t = kernelObjects.Get<Thread>(id, error);
+	Thread *t = kernelObjects.Get<Thread>(threadID, error);
 	if (t)
 	{
 		if (t->nt.status != THREADSTATUS_DORMANT) {
-			__KernelWaitCurThread(WAITTYPE_THREADEND, id, 0, 0, true);
+			__KernelWaitCurThread(WAITTYPE_THREADEND, threadID, 0, 0, true);
 		} else {
-			DEBUG_LOG(HLE,"sceKernelWaitThreadEnd - thread %i already ended. Doing nothing.", id);
+			DEBUG_LOG(HLE,"sceKernelWaitThreadEnd - thread %i already ended. Doing nothing.", threadID);
 		}
 		__KernelCheckCallbacks();
 	}
 	else
 	{
-		ERROR_LOG(HLE,"sceKernelWaitThreadEnd - bad thread %i", id);
+		ERROR_LOG(HLE,"sceKernelWaitThreadEnd - bad thread %i", threadID);
 	}
-	RETURN(0);
+	return 0;
 }
 
 void sceKernelSuspendThread()

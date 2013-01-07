@@ -560,7 +560,7 @@ const HLEFunction ThreadManForUser[] =
 	{0x9944f31f,sceKernelSuspendThread,"sceKernelSuspendThread"},
 	{0x616403ba,WrapI_U<sceKernelTerminateThread>,"sceKernelTerminateThread"},
 	{0x383f7bcc,WrapI_I<sceKernelTerminateDeleteThread>,"sceKernelTerminateDeleteThread"},
-	{0x840E8133,sceKernelWaitThreadEndCB,"sceKernelWaitThreadEndCB"},
+	{0x840E8133,WrapI_IU<sceKernelWaitThreadEndCB>,"sceKernelWaitThreadEndCB"},
 	{0xd13bde95,sceKernelCheckThreadStack,"sceKernelCheckThreadStack"},
 
 	{0x94416130,WrapU_UUUU<sceKernelGetThreadmanIdList>,"sceKernelGetThreadmanIdList"},
@@ -586,7 +586,7 @@ const HLEFunction ThreadManForUser[] =
 	{0xE1619D7C,sceKernelSysClock2USecWide,"sceKernelSysClock2USecWide"},
 
 	{0x110dec9a,sceKernelUSec2SysClock,"sceKernelUSec2SysClock"},
-	{0x278C0DF5,sceKernelWaitThreadEnd,"sceKernelWaitThreadEnd"},
+	{0x278C0DF5,WrapI_IU<sceKernelWaitThreadEnd>,"sceKernelWaitThreadEnd"},
 	{0xd59ead2f,sceKernelWakeupThread,"sceKernelWakeupThread"}, //AI Go, audio?
 
 	{0x0C106E53,0,"sceKernelRegisterThreadEventHandler"},
