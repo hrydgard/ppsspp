@@ -32,9 +32,6 @@
 #include "../GPUState.h"
 #include <cstdio>
 
-// TODO: remove
-static char buffer[16384];
-
 #define WRITE p+=sprintf
 
 // GL_NV_shader_framebuffer_fetch looks interesting....
@@ -64,7 +61,7 @@ void ComputeFragmentShaderID(FragmentShaderID *id)
 // Also, logic ops etc, of course. Urgh.
 // We could do all this with booleans, but I don't trust the shader compilers on
 // Android devices to be anything but stupid.
-char *GenerateFragmentShader()
+void GenerateFragmentShader(char *buffer)
 {
 	char *p = buffer;
 #if defined(GLSL_ES_1_0)
@@ -186,7 +183,5 @@ char *GenerateFragmentShader()
 
 	WRITE(p, "  gl_FragColor = v;\n");
 	WRITE(p, "}\n");
-
-	return buffer;
 }
 

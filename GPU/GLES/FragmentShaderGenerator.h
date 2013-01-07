@@ -49,5 +49,4 @@ struct FragmentShaderID
 
 void ComputeFragmentShaderID(FragmentShaderID *id);
 
-// The return value is only valid until another one of these two functions has been called.
-char *GenerateFragmentShader();
+void GenerateFragmentShader(char *buffer);

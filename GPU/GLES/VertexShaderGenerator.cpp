@@ -34,8 +34,6 @@
 
 #undef WRITE
 
-static char buffer[16384];
-
 #define WRITE p+=sprintf
 
 bool CanUseHardwareTransform(int prim)
@@ -123,8 +121,7 @@ enum DoLightComputation {
 	LIGHT_FULL,
 };
 
-char *GenerateVertexShader(int prim)
-{
+void GenerateVertexShader(int prim, char *buffer) {
 	char *p = buffer;
 #if defined(USING_GLES2)
 	WRITE(p, "precision highp float;\n");
@@ -388,7 +385,5 @@ char *GenerateVertexShader(int prim)
 	if (gstate.isFogEnabled())
 		WRITE(p, "  v_depth = gl_Position.z;\n");
 	WRITE(p, "}\n");
-
-	return buffer;
 }
 
