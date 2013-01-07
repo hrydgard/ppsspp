@@ -151,6 +151,7 @@ int main(int argc, const char* argv[])
 	coreParameter.enableSound = false;
 	coreParameter.headLess = true;
 	coreParameter.printfEmuLog = true;
+	coreParameter.useMediaEngine = false;
 
 	g_Config.bEnableSound = false;
 	g_Config.bFirstRun = false;

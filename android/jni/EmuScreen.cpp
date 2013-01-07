@@ -67,6 +67,7 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true)
 	coreParam.outputHeight = dp_yres;
 	coreParam.pixelWidth = pixel_xres;
 	coreParam.pixelHeight = pixel_yres;
+	coreParam.useMediaEngine = false;
 	std::string error_string;
 	if (PSP_Init(coreParam, &error_string)) {
 		invalid_ = false;
