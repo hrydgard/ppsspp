@@ -19,7 +19,7 @@ typedef char GLchar;
 #endif
 #endif
 
-#ifdef __SYMBIAN32__
+#if defined(__SYMBIAN32__) || defined(MEEGO_EDITION_HARMATTAN)
 typedef char GLchar;
 #endif
 
