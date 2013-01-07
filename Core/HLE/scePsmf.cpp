@@ -313,7 +313,7 @@ u32 scePsmfGetNumberOfStreams(u32 psmfStruct)
 		ERROR_LOG(HLE, "scePsmfGetNumberOfStreams - invalid psmf");
 		return ERROR_PSMF_NOT_FOUND;
 	}
-	INFO_LOG(HLE, "%i=scePsmfGetNumberOfStreams(%08x)", psmf->getNumStreams(), psmf);
+	INFO_LOG(HLE, "%i=scePsmfGetNumberOfStreams(%p)", psmf->getNumStreams(), psmf);
 	return psmf->getNumStreams();
 }
 

@@ -351,7 +351,8 @@ namespace MIPSAnalyst
 	{
 		FILE *file = fopen(filename,"wb");
 		u32 num = 0;
-		fwrite(&num,4,1,file); //fill in later
+		if(fwrite(&num,4,1,file) != 1) //fill in later
+			WARN_LOG(CPU, "Could not store hash map %s", filename);
 
 		for (vector<Function>::iterator iter = functions.begin(); iter!=functions.end(); iter++)
 		{
@@ -363,12 +364,16 @@ namespace MIPSAnalyst
 				strcpy(temp.name, f.name);
 				temp.hash=f.hash;
 				temp.size=f.size;
-				fwrite((char*)&temp,sizeof(temp),1,file);
+				if(fwrite((char*)&temp,sizeof(temp),1,file) != 1) {
+					WARN_LOG(CPU, "Could not store hash map %s", filename);
+					break;
+				}
 				num++;
 			}
 		}
 		fseek(file,0,SEEK_SET);
-		fwrite(&num,4,1,file); //fill in later
+		if(fwrite(&num,4,1,file) != 1) //fill in later
+			WARN_LOG(CPU, "Could not store hash map %s", filename);
 		fclose(file);
 	}
 
@@ -380,25 +385,26 @@ namespace MIPSAnalyst
 
 		FILE *file = fopen(filename, "rb");
 		int num;
-		fread(&num,4,1,file);
-		for (int i=0; i<num; i++)
-		{
-			HashMapFunc temp;
-			fread(&temp,sizeof(temp),1,file);
-			map<u32,Function*>::iterator iter = hashToFunction.find(temp.hash);
-			if (iter != hashToFunction.end())
+		if(fread(&num,4,1,file) == 1) {
+			for (int i=0; i<num; i++)
 			{
-				//yay, found a function!
-				Function &f = *(iter->second);
-				if (f.size==temp.size)
-				{
-					strcpy(f.name, temp.name);
-					f.hash=temp.hash;
-					f.size=temp.size;
+				HashMapFunc temp;
+				if(fread(&temp,sizeof(temp),1,file) == 1) {
+					map<u32,Function*>::iterator iter = hashToFunction.find(temp.hash);
+					if (iter != hashToFunction.end())
+					{
+						//yay, found a function!
+						Function &f = *(iter->second);
+						if (f.size==temp.size)
+						{
+							strcpy(f.name, temp.name);
+							f.hash=temp.hash;
+							f.size=temp.size;
+						}
+					}
 				}
 			}
 		}
-
 		fclose(file);
 	}
 	void CompileLeafs()

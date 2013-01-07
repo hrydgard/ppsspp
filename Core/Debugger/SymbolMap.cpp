@@ -143,7 +143,10 @@ bool SymbolMap::LoadSymbolMap(const char *filename)
 	while (!feof(f))
 	{
 		char line[512],temp[256];
-		fgets(line,511,f);
+		char *p = fgets(line,512,f);
+		if(p == NULL)
+			break;
+		
 		if (strlen(line) < 4 || sscanf(line, "%s", temp) != 1)
 			continue;
 
