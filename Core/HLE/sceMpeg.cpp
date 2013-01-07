@@ -939,6 +939,9 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	int result = 0;
 
 	//...
+	// TODO: Just faking it.
+	sceAu.pts += videoTimestampStep;
+	sceAu.write(auAddr);
 
 	// TODO: And also audio end?
 	if (ctx->endOfVideoReached) {
