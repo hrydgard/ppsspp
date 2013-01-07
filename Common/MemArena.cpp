@@ -234,7 +234,7 @@ u8* MemArena::Find4GBBase()
 	// 32 bit
 #ifdef _WIN32
 	// The highest thing in any 1GB section of memory space is the locked cache. We only need to fit it.
-	u8* base = (u8*)VirtualAlloc(0, 0x31000000, MEM_RESERVE, PAGE_READWRITE);
+	u8* base = (u8*)VirtualAlloc(0, 0x10000000, MEM_RESERVE, PAGE_READWRITE);
 	if (base) {
 		VirtualFree(base, 0, MEM_RELEASE);
 	}
