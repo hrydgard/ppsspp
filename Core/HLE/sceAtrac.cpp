@@ -69,7 +69,7 @@ u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd)
 	ERROR_LOG(HLE, "UNIMPL sceAtracAddStreamData(%i, %08x)", atracID, bytesToAdd);
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		return -1;
+		//return -1;
 	}
 	// TODO
 	return 0;
@@ -99,7 +99,7 @@ u32 sceAtracGetBufferInfoForReseting(int atracID, int sample, u32 bufferInfoAddr
 	ERROR_LOG(HLE, "UNIMPL sceAtracGetBufferInfoForReseting(%i, %i, %08x)",atracID, sample, bufferInfoAddr);
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		return -1;
+		//return -1;
 	}
 	// TODO: Write the right stuff instead.
 	Memory::Memset(bufferInfoAddr, 0, 32);
