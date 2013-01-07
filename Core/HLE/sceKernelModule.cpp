@@ -641,12 +641,6 @@ void __KernelStartModule(Module *m, int args, const char *argp, SceKernelSMOptio
 	{
 		if (m->nm.module_start_func != m->nm.entry_addr)
 			WARN_LOG(LOADER, "Main module has start func (%08x) different from entry (%08x)?", m->nm.module_start_func, m->nm.entry_addr);
-		if (m->nm.module_start_thread_priority != 0 && m->nm.module_start_thread_priority != options->priority)
-			WARN_LOG(LOADER, "Main module has different priority (%02x vs. %02x)", m->nm.module_start_thread_priority, options->priority);
-		if (m->nm.module_start_thread_stacksize != 0 && m->nm.module_start_thread_stacksize != options->stacksize)
-			WARN_LOG(LOADER, "Main module has different stack size (%08x vs. %08x)", m->nm.module_start_thread_stacksize, options->stacksize);
-		if (m->nm.module_start_thread_attr != 0 && m->nm.module_start_thread_attr != options->attribute)
-			WARN_LOG(LOADER, "Main module has different attr (%08x vs. %08x)", m->nm.module_start_thread_attr, options->attribute);
 	}
 
 	__KernelSetupRootThread(m->GetUID(), args, argp, options->priority, options->stacksize, options->attribute);
@@ -707,6 +701,14 @@ bool __KernelLoadExec(const char *filename, SceKernelLoadExecParam *param, std::
 	option.mpidstack = 2;
 	option.priority = 0x20;
 	option.stacksize = 0x40000;	// crazy? but seems to be the truth
+
+	// Replace start options with module-specified values if they exist.
+	if (module->nm.module_start_thread_attr != 0)
+		option.attribute = module->nm.module_start_thread_attr;
+	if (module->nm.module_start_thread_priority != 0)
+		option.priority = module->nm.module_start_thread_priority;
+	if (module->nm.module_start_thread_stacksize != 0)
+		option.stacksize = module->nm.module_start_thread_stacksize;
 
 	__KernelStartModule(module, (u32)strlen(filename) + 1, filename, &option);
 
