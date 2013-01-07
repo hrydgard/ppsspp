@@ -133,7 +133,7 @@ private:
 class ShaderManager
 {
 public:
-	ShaderManager() : globalDirty(0xFFFFFFFF) {}
+	ShaderManager() : lastShader(NULL), globalDirty(0xFFFFFFFF) {}
 
 	void ClearCache(bool deleteThem);  // TODO: deleteThem currently not respected
 	LinkedShader *ApplyShader(int prim);
