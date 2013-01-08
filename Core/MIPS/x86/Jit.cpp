@@ -57,7 +57,6 @@ void Jit::CompileAt(u32 addr)
 
 void Jit::Compile(u32 em_address)
 {
-	ERROR_LOG(CPU, "Compile %08x", em_address);
 	if (GetSpaceLeft() < 0x10000 || blocks.IsFull())
 	{
 		ClearCache();
