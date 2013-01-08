@@ -377,6 +377,7 @@ const HLEFunction sceAtrac3plus[] =
 	{0x9CD7DE03,0,"sceAtracSetMOutHalfwayBufferAndGetID"},
 	{0x5622B7C1,WrapI_UIIU<sceAtracSetAA3DataAndGetID>,"sceAtracSetAA3DataAndGetID"},
 	{0x5DD66588,0,"sceAtracSetAA3HalfwayBufferAndGetID"},
+	{0x231FC6B7,0,"_sceAtracGetContextAddress"},
 };
 
 
