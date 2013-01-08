@@ -343,6 +343,15 @@ instr_disassemble(word instr, address addr, pDisOptions opts) {
       if (instr&Sbit) *flagp++='S';
       break;
     case 1:
+			if ((instr & 0x0FFFFFF0) == ((18 << 20) | (0xFFF << 8) | (1 << 4))) {
+				mnemonic = "B";
+				format = "0";
+				break;
+			} else if ((instr & 0x0FFFFFF0) == 0x12FFF30) {
+				mnemonic = "BL";
+				format = "0";
+				break;
+			}
     case 3:
       /* SWP or MRS/MSR or data processing */
 			// hrydgard addition: MOVW/MOVT
@@ -671,7 +680,7 @@ lUndefined:
             result.is_SWI = 1;
             result.swinum = instr&0x00FFFFFF;
             result.addrstart = op;
-            op += sprintf(op, "&%lX", result.swinum);
+            op += sprintf(op, "&%X", result.swinum);
             break;
           case '%':
             *op++='{';
@@ -933,13 +942,17 @@ static sDisOptions options = {
   reg_names
 };
 
+const char *ArmRegName(int r) {
+	return reg_names[r];
+}
 void ArmDis(unsigned int addr, unsigned int w, char *output) {
 	pInstruction instr = instr_disassemble(w, addr, &options);
-	sprintf(output, "%.6lX %.8lX\t%s", addr, w, instr->text);
+	sprintf(output, "%08x\t%s", w, instr->text);
 	if (instr->undefined || instr->badbits || instr->oddbits) {
 		if (instr->undefined) sprintf(output, " [undefined instr %08x]", w);
 		if (instr->badbits) sprintf(output, " [illegal bits %08x]", w);
-		if (instr->oddbits) sprintf(output, " [unexpected bits %08x]", w);
+		strcat(output, " ? (extra bits)");
+		//if (instr->oddbits) sprintf(output, " [unexpected bits %08x]", w);
 	}
 	// zap tabs
 	while (*output) {

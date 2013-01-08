@@ -30,4 +30,5 @@
 // The only changes I've done is C++ compat and replaced the main
 // program with this function.
 
+const char *ArmRegName(int r);
 void ArmDis(unsigned int addr, unsigned int w, char *output);
