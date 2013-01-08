@@ -55,7 +55,7 @@ void Jit::BranchRSRTComp(u32 op, ArmGen::CCFlags cc, bool likely)
 	bool delaySlotIsNice = GetOutReg(delaySlotOp) != rt && GetOutReg(delaySlotOp) != rs;// IsDelaySlotNice(op, delaySlotOp);
   if (!delaySlotIsNice)
   {
-    ERROR_LOG(CPU, "Not nice delay slot in BranchRSRTComp :( %08x", js.compilerPC);
+    //ERROR_LOG(CPU, "Not nice delay slot in BranchRSRTComp :( %08x", js.compilerPC);
   }
   // The delay slot being nice doesn't really matter though...
   if (rt == 0)
@@ -63,11 +63,12 @@ void Jit::BranchRSRTComp(u32 op, ArmGen::CCFlags cc, bool likely)
 		gpr.MapReg(rs, MAP_INITVAL);
 		CMP(gpr.R(rs), Operand2(0));
   }
+	/*
 	else if (rs == 0 && (cc == CC_EQ || cc == CC_NEQ))  // only these are easily 'flippable'
 	{
 		gpr.MapReg(rt, MAP_INITVAL);
 		CMP(gpr.R(rt), Operand2(0));
-	}
+	}*/
 	else
 	{
 		gpr.SpillLock(rs, rt);
@@ -208,7 +209,7 @@ void Jit::BranchFPFlag(u32 op, ArmGen::CCFlags cc, bool likely)
   bool delaySlotIsNice = IsDelaySlotNice(op, delaySlotOp);
   if (!delaySlotIsNice)
   {
-    ERROR_LOG(CPU, "Not nice delay slot in BranchFPFlag :(");
+    //ERROR_LOG(CPU, "Not nice delay slot in BranchFPFlag :(");
   }
   FlushAll();
 
@@ -270,7 +271,7 @@ void Jit::BranchVFPUFlag(u32 op, ArmGen::CCFlags cc, bool likely)
 	bool delaySlotIsNice = IsDelaySlotNice(op, delaySlotOp);
 	if (!delaySlotIsNice)
 	{
-		ERROR_LOG(CPU, "Not nice delay slot in BranchFPFlag :(");
+		//ERROR_LOG(CPU, "Not nice delay slot in BranchFPFlag :(");
 	}
 	FlushAll();
 
@@ -337,7 +338,7 @@ void Jit::Comp_Jump(u32 op)
 
 	case 3: //jal
 		ARMABI_MOVI2R(R0, Operand2(js.compilerPC + 8, TYPE_IMM));
-		ARMABI_MOVI2R(R1, Operand2((u32)&mips_->r[MIPS_REG_RA], TYPE_IMM));
+		ADD(R1, R10, MIPS_REG_RA * 4);  // compute address of RA in ram
 		STR(R1, R0);
     WriteExit(targetAddr, 0);
 		break;

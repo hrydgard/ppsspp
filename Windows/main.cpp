@@ -23,6 +23,7 @@
 #include "../Core/Config.h"
 #include "../Core/SaveState.h"
 #include "EmuThread.h"
+#include "ext/disarm.h"
 
 #include "LogManager.h"
 #include "ConsoleListener.h"
@@ -50,6 +51,9 @@ CMemoryDlg *memoryWindow[MAX_CPUCOUNT];
 
 int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLine, int iCmdShow)
 {
+	char temp[256];
+	ArmDis(0, 0xE12fff10, temp);
+
 	Common::EnableCrashingOnCrashes();
 
 	const char *fileToStart = NULL;

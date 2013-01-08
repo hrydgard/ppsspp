@@ -59,6 +59,7 @@ namespace MIPSComp
 
 		switch (op >> 26) 
 		{
+			/*
 		case 8:	// same as addiu?
 		case 9:	//R(rt) = R(rs) + simm; break;	//addiu
 			{
@@ -77,7 +78,7 @@ namespace MIPSComp
 					gpr.ReleaseSpillLocks();
 				}
 				break;
-			}
+			}*/
 /*
 		case 13:  // OR
 			{
@@ -123,11 +124,11 @@ namespace MIPSComp
 			gpr.UnlockAll();
 			break;
 
-		*/
 
 		case 15: //R(rt) = uimm << 16;	 break; //lui
 			gpr.SetImm(rt, uimm << 16);
 			break;
+			*/
 
 		default:
 			Comp_Generic(op);

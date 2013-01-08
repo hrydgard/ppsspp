@@ -951,8 +951,10 @@ void ArmDis(unsigned int addr, unsigned int w, char *output) {
 	if (instr->undefined || instr->badbits || instr->oddbits) {
 		if (instr->undefined) sprintf(output, " [undefined instr %08x]", w);
 		if (instr->badbits) sprintf(output, " [illegal bits %08x]", w);
-		strcat(output, " ? (extra bits)");
-		//if (instr->oddbits) sprintf(output, " [unexpected bits %08x]", w);
+
+		// HUH? LDR and STR gets this a lot
+		// strcat(output, " ? (extra bits)");  
+		// if (instr->oddbits) sprintf(output, " [unexpected bits %08x]", w);
 	}
 	// zap tabs
 	while (*output) {

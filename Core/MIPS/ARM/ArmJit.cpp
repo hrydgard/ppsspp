@@ -83,6 +83,30 @@ void Hullo(int a, int b, int c, int d) {
 	INFO_LOG(DYNA_REC, "Hullo %08x %08x %08x %08x", a, b, c, d);
 }
 
+static void DisassembleArm(const u8 *data, int size) {
+	char temp[256];
+	for (int i = 0; i < size; i += 4) {
+		const u32 *codePtr = (const u32 *)(data + i);
+		u32 inst = codePtr[0];
+		u32 next = (i < size - 4) ? codePtr[1] : 0;
+		// MAGIC SPECIAL CASE for MOVW/MOVT readability!
+		if ((inst & 0x0FF00000) == 0x03000000 && (next & 0x0FF00000) == 0x03400000) {
+			u32 low = ((inst & 0x000F0000) >> 4) | (inst & 0x0FFF);
+			u32 hi = ((next & 0x000F0000) >> 4) | (next & 0x0FFF);
+			int reg0 = (inst & 0x0000F000) >> 12;
+			int reg1 = (next & 0x0000F000) >> 12;
+			if (reg0 == reg1) {
+				sprintf(temp, "%08x MOV32? %s, %04x%04x", (u32)inst, ArmRegName(reg0), hi, low);
+				INFO_LOG(DYNA_REC, "A:   %s", temp);
+				i += 4;
+				continue;
+			}
+		} 
+		ArmDis((u32)codePtr, inst, temp);
+		INFO_LOG(DYNA_REC, "A:   %s", temp);
+	}
+}
+
 const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 {
 	js.cancel = false;
@@ -130,17 +154,13 @@ const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 	}
 #ifdef LOGASM
 	MIPSDisAsm(Memory::Read_Instruction(js.compilerPC), js.compilerPC, temp, true);
-	INFO_LOG(DYNA_REC, "M:   %s", temp);
+	INFO_LOG(DYNA_REC, "M: %08x   %s", js.compilerPC, temp);
 #endif
 
 	b->codeSize = GetCodePtr() - b->normalEntry;
+
 #ifdef LOGASM
-	for (int i = 0; i < GetCodePtr() - b->checkedEntry; i += 4) {
-		const u32 *codePtr = (const u32 *)(b->checkedEntry + i);
-		u32 inst = *codePtr;
-		ArmDis((u32)codePtr, inst, temp);
-		INFO_LOG(DYNA_REC, "A:   %s", temp);
-	}
+	DisassembleArm(b->checkedEntry, GetCodePtr() - b->checkedEntry);
 #endif
 	
 	AlignCode16();
@@ -228,7 +248,8 @@ void Jit::WriteExit(u32 destination, int exit_num)
 void Jit::WriteSyscallExit()
 {
 	DoDownCount();
-	B((const void *)asm_.dispatcherCheckCoreState);
+	ARMABI_MOVI2R(R0, (u32)asm_.dispatcherCheckCoreState);
+	B(R0);
 }
 
 

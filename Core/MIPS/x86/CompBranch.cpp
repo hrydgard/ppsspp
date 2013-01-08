@@ -447,8 +447,6 @@ void Jit::Comp_JumpReg(u32 op)
 
 void Jit::Comp_Syscall(u32 op)
 {
-	// This will most often be called from Comp_JumpReg (jr ra) so we take over the exit sequence...
-
 	FlushAll();
 	ABI_CallFunctionC((void *)(&CallSyscall), op);
 

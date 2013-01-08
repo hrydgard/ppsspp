@@ -467,6 +467,7 @@ public:
 	// where appropriate.
 	void ARMABI_CallFunction(void *func);
 	void ARMABI_CallFunctionC(void *func, u32 Arg0);
+	void ARMABI_CallFunctionCNoSave(void *func, u32 Arg0);
 	void ARMABI_CallFunctionCC(void *func, u32 Arg1, u32 Arg2);
 	void ARMABI_CallFunctionCCC(void *func, u32 Arg1, u32 Arg2, u32 Arg3);
 	void ARMABI_PushAllCalleeSavedRegsAndAdjustStack(); 

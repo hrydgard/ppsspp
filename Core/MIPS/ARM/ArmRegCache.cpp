@@ -37,8 +37,10 @@ void ArmRegCache::Start(MIPSAnalyst::AnalysisResults &stats) {
 		ar[i].allocLock = false;
 		ar[i].isDirty = false;
 	}
-	for (int i = 0; i < 32; i++) {
+	for (int i = 0; i < NUM_MIPSREG; i++) {
 		mr[i].loc = ML_MEM;
+		mr[i].reg = INVALID_REG;
+		mr[i].imm = -1;
 	}
 }
 
@@ -109,12 +111,15 @@ void ArmRegCache::FlushArmReg(ARMReg r) {
 		// Nothing to do
 		return;
 	}
-	if (ar[r].isDirty) {
-		if (mr[ar[r].mipsReg].loc == ML_MEM)
+	if (ar[r].mipsReg != -1) {
+		if (ar[r].isDirty && mr[ar[r].mipsReg].loc == ML_ARMREG)
 			emit->STR(CTXREG, r, 4 * ar[r].mipsReg);
-		ar[r].isDirty = false;
-		ar[r].mipsReg = -1;
+		mr[ar[r].mipsReg].loc = ML_MEM;
+	} else {
+		ERROR_LOG(HLE, "Dirty but no mipsreg?");
 	}
+	ar[r].isDirty = false;
+	ar[r].mipsReg = -1;
 }
 
 void ArmRegCache::FlushMipsReg(MIPSReg r) {

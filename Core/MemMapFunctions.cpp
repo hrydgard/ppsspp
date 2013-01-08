@@ -55,7 +55,7 @@ u8 *GetPointer(const u32 address)
 	}
 	else
 	{
-		ERROR_LOG(MEMMAP, "Unknown GetPointer %08x	PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
+		ERROR_LOG(MEMMAP, "Unknown GetPointer %08x PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
 		return 0;
 	}
 }

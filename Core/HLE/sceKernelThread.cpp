@@ -1282,7 +1282,11 @@ Thread *__KernelCreateThread(SceUID &id, SceUID moduleId, const char *name, u32 
 		t->nt.gpreg = 0;  // sceKernelStartThread will take care of this.
 	t->moduleId = moduleId;
 
-	strncpy(t->nt.name, name, 32);
+	if (name) {
+		strncpy(t->nt.name, name, 32);
+	} else {
+		ERROR_LOG(HLE, "Threads must have names!");
+	}
 	return t;
 }
 
@@ -1994,7 +1998,7 @@ ActionAfterMipsCall *Thread::getRunningCallbackAction()
 	if (this->GetUID() == currentThread && g_inCbCount > 0)
 	{
 		MipsCall *call = mipsCalls.get(this->currentCallbackId);
-		ActionAfterMipsCall *action;
+		ActionAfterMipsCall *action = 0;
 		if (call)
 			action = dynamic_cast<ActionAfterMipsCall *>(call->doAfter);
 

@@ -24,10 +24,10 @@
 
 using namespace ArmGen;
 
-// R2 to R9: mapped MIPS regs
+// R2 to R8: mapped MIPS regs
+// R9 = code pointers
+// R10 = MIPS context
 // R11 = base pointer
-// R12 = MIPS context
-// R14 = code pointers
 
 // Special MIPS registers: 
 enum {
