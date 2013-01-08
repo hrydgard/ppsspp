@@ -1908,7 +1908,34 @@ int sceKernelWaitThreadEndCB(SceUID threadID, u32 timeoutPtr)
 	}
 	else
 	{
-		ERROR_LOG(HLE,"sceKernelWaitThreadEnd - bad thread %i", threadID);
+		ERROR_LOG(HLE, "sceKernelWaitThreadEnd - bad thread %i", threadID);
+		return error;
+	}
+}
+
+int sceKernelReleaseWaitThread(SceUID threadID)
+{
+	DEBUG_LOG(HLE, "sceKernelReleaseWaitThread(%i)", threadID);
+	if (__KernelInCallback())
+		WARN_LOG(HLE, "UNTESTED sceKernelReleaseWaitThread() might not do the right thing in a callback");
+
+	if (threadID == 0 || threadID == currentThread)
+		return SCE_KERNEL_ERROR_ILLEGAL_THID;
+
+	u32 error;
+	Thread *t = kernelObjects.Get<Thread>(threadID, error);
+	if (t)
+	{
+		if (!t->isWaiting())
+			return SCE_KERNEL_ERROR_NOT_WAIT;
+
+		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_RELEASE_WAIT);
+		hleReSchedule("thread released from wait");
+		return 0;
+	}
+	else
+	{
+		ERROR_LOG(HLE, "sceKernelReleaseWaitThread - bad thread %i", threadID);
 		return error;
 	}
 }

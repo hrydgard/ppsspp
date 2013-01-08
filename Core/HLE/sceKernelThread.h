@@ -43,6 +43,7 @@ u32 sceKernelResumeDispatchThread(u32 suspended);
 int sceKernelWaitThreadEnd(SceUID threadID, u32 timeoutPtr);
 u32 sceKernelReferThreadStatus(u32 uid, u32 statusPtr);
 u32 sceKernelReferThreadRunStatus(u32 uid, u32 statusPtr);
+int sceKernelReleaseWaitThread(SceUID threadID);
 void sceKernelChangeCurrentThreadAttr();
 void sceKernelRotateThreadReadyQueue();
 void sceKernelCheckThreadStack();

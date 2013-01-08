@@ -549,7 +549,7 @@ const HLEFunction ThreadManForUser[] =
 	{0x52089CA1,sceKernelGetThreadStackFreeSize,"sceKernelGetThreadStackFreeSize"},
 	{0xFFC36A14,WrapU_UU<sceKernelReferThreadRunStatus>,"sceKernelReferThreadRunStatus"},
 	{0x17c1684e,WrapU_UU<sceKernelReferThreadStatus>,"sceKernelReferThreadStatus"},
-	{0x2C34E053,0,"sceKernelReleaseWaitThread"},
+	{0x2C34E053,WrapI_I<sceKernelReleaseWaitThread>,"sceKernelReleaseWaitThread"},
 	{0x75156e8f,sceKernelResumeThread,"sceKernelResumeThread"},
 	{0x3ad58b8c,&WrapU_V<sceKernelSuspendDispatchThread>,"sceKernelSuspendDispatchThread"},
 	{0x27e22ec2,&WrapU_U<sceKernelResumeDispatchThread>,"sceKernelResumeDispatchThread"},
