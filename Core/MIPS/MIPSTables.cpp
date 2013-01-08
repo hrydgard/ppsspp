@@ -931,7 +931,7 @@ void MIPSInterpret(u32 op) //only for those rare ones
     // Try to disassemble it
     char disasm[256];
     MIPSDisAsm(op, currentMIPS->pc, disasm);
-		_dbg_assert_msg_(CPU, 0, disasm);
+		_dbg_assert_msg_(CPU, 0, "%s", disasm);
     currentMIPS->pc += 4;
   }
 }

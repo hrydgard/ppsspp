@@ -22,6 +22,10 @@
 #include <assert.h>
 #include <stdarg.h>
 
+#ifdef __SYMBIAN32__
+#include <e32std.h>
+#endif
+
 namespace ArmGen
 {
 
@@ -61,7 +65,11 @@ const u8 *ARMXEmitter::AlignCodePage()
 
 void ARMXEmitter::FlushIcache()
 {
+#ifdef __SYMBIAN32__
+    User::IMB_Range( startcode, code );
+#else
 	__builtin___clear_cache (startcode, code);
+#endif
 	SLEEP(0);
 }
 void ARMXEmitter::SetCC(CCFlags cond)

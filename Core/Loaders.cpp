@@ -38,8 +38,12 @@ EmuFileType Identify_File(const char *filename)
 		return FILETYPE_ERROR;
 	}
 	u32 id;
-	fread(&id,4,1,f);
+	size_t readSize = fread(&id,4,1,f);
 	fclose(f);
+
+	if(readSize != 1)
+		return FILETYPE_ERROR;
+
 	if (id == 'FLE\x7F')
 	{
 		if (strstr(filename,".plf") || strstr(filename,"BOOT.BIN") || strstr(filename,".elf") || strstr(filename,".prx") )

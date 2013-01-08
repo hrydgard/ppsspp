@@ -177,8 +177,6 @@ elseif(X86)
 		Common/ABI.h
 		Common/CPUDetect.cpp
 		Common/CPUDetect.h
-		Common/MathUtil.cpp
-		Common/MathUtil.h
 		Common/Thunk.cpp
 		Common/Thunk.h
 		Common/x64Analyzer.cpp
@@ -220,6 +218,8 @@ add_library(Common STATIC
 	Common/IniFile.h
 	Common/LogManager.cpp
 	Common/LogManager.h
+	Common/MathUtil.cpp
+	Common/MathUtil.h
 	Common/MemArena.cpp
 	Common/MemArena.h
 	Common/MemoryUtil.cpp

@@ -16,13 +16,11 @@ arm {
 x86 {
 	SOURCES +=	../Common/ABI.cpp \
 		../Common/CPUDetect.cpp \
-		../Common/MathUtil.cpp \
 		../Common/Thunk.cpp \
 		../Common/x64Analyzer.cpp \
 		../Common/x64Emitter.cpp
 	HEADERS += 	../Common/ABI.h \
 		../Common/CPUDetect.h \
-		../Common/MathUtil.h \
 		../Common/Thunk.h \
 		../Common/x64Analyzer.h \
 		../Common/x64Emitter.h
@@ -47,10 +45,10 @@ SOURCES +=		../Common/ColorUtil.cpp \
 	../Common/Hash.cpp \
 	../Common/IniFile.cpp \
 	../Common/LogManager.cpp \
+	../Common/MathUtil.cpp \
 	../Common/MemArena.cpp \
 	../Common/MemoryUtil.cpp \
 	../Common/Misc.cpp \
-	../Common/MathUtil.cpp \
 	../Common/MsgHandler.cpp \
 	../Common/StringUtil.cpp \
 	../Common/Thread.cpp \
@@ -66,9 +64,9 @@ HEADERS +=		../Common/ColorUtil.h \
 	../Common/Hash.h \
 	../Common/IniFile.h \
 	../Common/LogManager.h \
+	../Common/MathUtil.h \
 	../Common/MemArena.h \
 	../Common/MemoryUtil.h \
-	../Common/MathUtil.h \
 	../Common/MsgHandler.h \
 	../Common/StringUtil.h \
 	../Common/Thread.h \

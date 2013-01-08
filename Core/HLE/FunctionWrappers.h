@@ -201,6 +201,11 @@ template<u32 func(u32, int , int , int, int, int)> void WrapU_UIIIII() {
 	RETURN(retval);
 }
 
+template<u32 func(u32, int , int , int, u32)> void WrapU_UIIIU() {
+	u32 retval = func(PARAM(0), PARAM(1), PARAM(2), PARAM(3), PARAM(4));
+	RETURN(retval);
+}
+
 template<u32 func(u32, int , int , int, int, int, int)> void WrapU_UIIIIII() {
 	u32 retval = func(PARAM(0), PARAM(1), PARAM(2), PARAM(3), PARAM(4), PARAM(5), PARAM(6));
 	RETURN(retval);
@@ -208,6 +213,11 @@ template<u32 func(u32, int , int , int, int, int, int)> void WrapU_UIIIIII() {
 
 template<u32 func(u32, u32)> void WrapU_UU() {
 	u32 retval = func(PARAM(0), PARAM(1));
+	RETURN(retval);
+}
+
+template<u32 func(u32, u32, int)> void WrapU_UUI() {
+	u32 retval = func(PARAM(0), PARAM(1), PARAM(2));
 	RETURN(retval);
 }
 
@@ -222,6 +232,11 @@ template<void func(u32, int, u32, int, int)> void WrapV_UIUII() {
 
 template<u32 func(u32, int, u32, int, int)> void WrapU_UIUII() {
 	u32 retval = func(PARAM(0), PARAM(1), PARAM(2), PARAM(3), PARAM(4));
+	RETURN(retval);
+}
+
+template<u32 func(u32, int, u32, u32)> void WrapU_UIUU() {
+	u32 retval = func(PARAM(0), PARAM(1), PARAM(2), PARAM(3));
 	RETURN(retval);
 }
 
@@ -436,6 +451,11 @@ template<u32 func(u32, u32, u32, u32)> void WrapU_UUUU() {
 
 template<u32 func(u32, u32, u32, int)> void WrapU_UUUI() {
 	u32 retval = func(PARAM(0), PARAM(1), PARAM(2), PARAM(3));
+	RETURN(retval);
+}
+
+template<u32 func(u32, u32, u32, int, u32)> void WrapU_UUUIU() {
+	u32 retval = func(PARAM(0), PARAM(1), PARAM(2), PARAM(3), PARAM(4));
 	RETURN(retval);
 }
 
