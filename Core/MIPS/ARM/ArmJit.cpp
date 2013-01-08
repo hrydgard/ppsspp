@@ -135,8 +135,8 @@ const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 
 	b->codeSize = GetCodePtr() - b->normalEntry;
 #ifdef LOGASM
-	for (int i = 0; i < b->codeSize; i += 4) {
-		const u32 *codePtr = (const u32 *)(b->normalEntry + i);
+	for (int i = 0; i < GetCodePtr() - b->checkedEntry; i += 4) {
+		const u32 *codePtr = (const u32 *)(b->checkedEntry + i);
 		u32 inst = *codePtr;
 		ArmDis((u32)codePtr, inst, temp);
 		INFO_LOG(DYNA_REC, "A:   %s", temp);

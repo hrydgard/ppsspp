@@ -104,7 +104,7 @@ private:
 	u32 m_z;
 };
 
-class MIPSState : public CPU
+class MIPSState
 {
 public:
 	MIPSState();

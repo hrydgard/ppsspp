@@ -20,6 +20,6 @@
 
 // See the MIPS folder, the real stuff is there.
 
-CPU *currentCPU = 0;
+MIPSState *currentCPU = 0;
 
 int numCPUs;

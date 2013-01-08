@@ -28,7 +28,7 @@
 
 const char *MIPSDebugInterface::disasm(unsigned int address, unsigned int align) 
 {
-	CPU *x = currentCPU;
+	MIPSState *x = currentCPU;
 	currentCPU = cpu;
 	
 	static char mojs[256]; 
