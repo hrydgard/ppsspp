@@ -176,9 +176,10 @@ void ArmAsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 
 	POP(9, R4, R5, R6, R7, R8, R9, R10, R11, _PC);  // Returns
 
-	INFO_LOG(HLE, "THE DISASM ========================");
-	DisassembleArm(enterCode, GetCodePtr() - enterCode);
-	INFO_LOG(HLE, "END OF THE DISASM ========================");
+	// Uncomment if you want to see the output...
+	// INFO_LOG(HLE, "THE DISASM ========================");
+	// DisassembleArm(enterCode, GetCodePtr() - enterCode);
+	// INFO_LOG(HLE, "END OF THE DISASM ========================");
 
 	// Don't forget to zap the instruction cache!
 	FlushIcache();

@@ -192,6 +192,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 			switch (argv[i][1]) {
 			case 'd':
 				// Enable debug logging
+				// Note that you must also change the max log level in Log.h.
 				logLevel = LogTypes::LDEBUG;
 				break;
 			case 'g':

@@ -343,11 +343,6 @@ void Jit::BranchVFPUFlag(u32 op, Gen::CCFlags cc, bool likely)
 
 void Jit::Comp_VBranch(u32 op)
 {
-	// _dbg_assert_msg_(CPU,0,"comp_vbranch not supported");
-
-	//int imm = (signed short)(op&0xFFFF)<<2;
-	//u32 targetAddr = js.compilerPC + imm + 4;
-
 	switch ((op >> 16) & 3)
 	{
 	case 0:	BranchVFPUFlag(op, CC_NZ, false); break; //bvf
@@ -369,7 +364,6 @@ void Jit::Comp_Jump(u32 op)
 	}
 	u32 off = ((op & 0x3FFFFFF) << 2);
 	u32 targetAddr = (js.compilerPC & 0xF0000000) | off;
-	//Delay slot
 	CompileAt(js.compilerPC + 4);
 	FlushAll();
 

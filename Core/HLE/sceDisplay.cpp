@@ -269,7 +269,6 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	// Tell the emu core that it's time to stop emulating
 	// Win32 doesn't need this.
 #ifndef _WIN32
-	ERROR_LOG(HLE, "End oph phrame");
 	coreState = CORE_NEXTFRAME;
 #endif
 }
