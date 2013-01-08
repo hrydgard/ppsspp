@@ -512,31 +512,33 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			switch (nid)
 			{
 			case NID_MODULE_INFO:
-				// TODO
 				break;
 			case NID_MODULE_START_THREAD_PARAMETER:
-				// TODO: What's at 0?
+				if (Memory::Read_U32(exportAddr) != 3)
+					WARN_LOG(LOADER, "Strange value at module_start_thread_parameter export: %08x", Memory::Read_U32(exportAddr));
 				module->nm.module_start_thread_priority = Memory::Read_U32(exportAddr + 4);
 				module->nm.module_start_thread_stacksize = Memory::Read_U32(exportAddr + 8);
 				module->nm.module_start_thread_attr = Memory::Read_U32(exportAddr + 12);
 				break;
 			case NID_MODULE_STOP_THREAD_PARAMETER:
-				// TODO: What's at 0?
+				if (Memory::Read_U32(exportAddr) != 3)
+					WARN_LOG(LOADER, "Strange value at module_stop_thread_parameter export: %08x", Memory::Read_U32(exportAddr));
 				module->nm.module_stop_thread_priority = Memory::Read_U32(exportAddr + 4);
 				module->nm.module_stop_thread_stacksize = Memory::Read_U32(exportAddr + 8);
 				module->nm.module_stop_thread_attr = Memory::Read_U32(exportAddr + 12);
 				break;
 			case NID_MODULE_REBOOT_BEFORE_THREAD_PARAMETER:
-				// TODO: What's at 0?
+				if (Memory::Read_U32(exportAddr) != 3)
+					WARN_LOG(LOADER, "Strange value at module_reboot_before_thread_parameter export: %08x", Memory::Read_U32(exportAddr));
 				module->nm.module_reboot_before_thread_priority = Memory::Read_U32(exportAddr + 4);
 				module->nm.module_reboot_before_thread_stacksize = Memory::Read_U32(exportAddr + 8);
 				module->nm.module_reboot_before_thread_attr = Memory::Read_U32(exportAddr + 12);
 				break;
 			case NID_MODULE_SDK_VERSION:
-				// TODO
+				DEBUG_LOG(LOADER, "Module SDK: %08x", Memory::Read_U32(exportAddr));
 				break;
 			default:
-				// TODO
+				DEBUG_LOG(LOADER, "Unexpected variable with nid: %08x", nid);
 				break;
 			}
 		}
