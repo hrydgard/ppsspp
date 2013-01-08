@@ -1144,6 +1144,8 @@ const HLEFunction sceMp3[] =
 	{0xD0A56296,WrapI_U<sceMp3CheckStreamDataNeeded>,"sceMp3CheckStreamDataNeeded"},
 	{0xD8F54A51,0,"sceMp3GetLoopNum"},
 	{0xF5478233,0,"sceMp3ReleaseMp3Handle"},
+	{0xAE6D2027,0,"sceMp3GetVersion"},
+	{0x3548AEC8,0,"sceMp3GetFrameNum"},
 };
 
 void Register_sceMpeg()
