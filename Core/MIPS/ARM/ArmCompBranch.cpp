@@ -44,6 +44,10 @@ namespace MIPSComp
 
 void Jit::BranchRSRTComp(u32 op, ArmGen::CCFlags cc, bool likely)
 {
+	if (js.inDelaySlot) {
+		ERROR_LOG(JIT, "Branch in delay slot at %08x", js.compilerPC);
+		return;
+	}
 	int offset = (signed short)(op&0xFFFF)<<2;
 	int rt = _RT;
 	int rs = _RS;
@@ -52,24 +56,25 @@ void Jit::BranchRSRTComp(u32 op, ArmGen::CCFlags cc, bool likely)
 	u32 delaySlotOp = Memory::ReadUnchecked_U32(js.compilerPC+4);
 
 	//Compile the delay slot
-	bool delaySlotIsNice = GetOutReg(delaySlotOp) != rt && GetOutReg(delaySlotOp) != rs;// IsDelaySlotNice(op, delaySlotOp);
+	bool delaySlotIsNice = GetOutReg(delaySlotOp) != rt && GetOutReg(delaySlotOp) != rs;
   if (!delaySlotIsNice)
   {
     //ERROR_LOG(CPU, "Not nice delay slot in BranchRSRTComp :( %08x", js.compilerPC);
   }
   // The delay slot being nice doesn't really matter though...
+	/*
   if (rt == 0)
   {
 		gpr.MapReg(rs, MAP_INITVAL);
 		CMP(gpr.R(rs), Operand2(0));
-  }
+  }*/
 	/*
 	else if (rs == 0 && (cc == CC_EQ || cc == CC_NEQ))  // only these are easily 'flippable'
 	{
 		gpr.MapReg(rt, MAP_INITVAL);
 		CMP(gpr.R(rt), Operand2(0));
-	}*/
-	else
+	}
+	else*/
 	{
 		gpr.SpillLock(rs, rt);
 		gpr.MapReg(rs, MAP_INITVAL);
@@ -86,10 +91,11 @@ void Jit::BranchRSRTComp(u32 op, ArmGen::CCFlags cc, bool likely)
 		// preserve flag around the delay slot! Maybe this is not always necessary on ARM where 
 		// we can (mostly) control whether we set the flag or not. Of course, if someone puts an slt in to the
 		// delay slot, we're screwed.
-		MRS(R8);  // Save flags register. R4 is preserved through function calls and is not allocated.
+		MRS(R8);  // Save flags register. R8 is preserved through function calls and is not allocated.
     CompileAt(js.compilerPC + 4);
     FlushAll();
 		_MSR(true, false, R8);  // Restore flags register
+
     ptr = B_CC(cc);
   }
   else
@@ -113,6 +119,10 @@ void Jit::BranchRSRTComp(u32 op, ArmGen::CCFlags cc, bool likely)
 
 void Jit::BranchRSZeroComp(u32 op, ArmGen::CCFlags cc, bool likely)
 {
+	if (js.inDelaySlot) {
+		ERROR_LOG(JIT, "Branch in delay slot at %08x", js.compilerPC);
+		return;
+	}
 	int offset = (signed short)(op&0xFFFF)<<2;
 	int rs = _RS;
 	u32 targetAddr = js.compilerPC + offset + 4;
@@ -128,8 +138,8 @@ void Jit::BranchRSZeroComp(u32 op, ArmGen::CCFlags cc, bool likely)
   CMP(gpr.R(rs), Operand2(0));
   FlushAll();
 
-  js.inDelaySlot = true;
 	ArmGen::FixupBranch ptr;
+	js.inDelaySlot = true;
 	if (!likely)
   {
 		// preserve flag around the delay slot! Maybe this is not always necessary on ARM where 
@@ -201,6 +211,10 @@ void Jit::Comp_RelBranchRI(u32 op)
 // If likely is set, discard the branch slot if NOT taken.
 void Jit::BranchFPFlag(u32 op, ArmGen::CCFlags cc, bool likely)
 {
+	if (js.inDelaySlot) {
+		ERROR_LOG(JIT, "Branch in delay slot at %08x", js.compilerPC);
+		return;
+	}
   int offset = (signed short)(op & 0xFFFF) << 2;
   u32 targetAddr = js.compilerPC + offset + 4;
 
@@ -322,11 +336,19 @@ void Jit::Comp_VBranch(u32 op)
 	js.compiling = false;
 }
 
+void PrintAtExit() {
+	INFO_LOG(HLE, "at jump");
+}
+
 void Jit::Comp_Jump(u32 op)
 {
-	u32 off = ((op & 0x3FFFFFF) << 2);
+	if (js.inDelaySlot) {
+		ERROR_LOG(JIT, "Branch in delay slot at %08x", js.compilerPC);
+		return;
+	}
+	u32 off = ((op & 0x03FFFFFF) << 2);
 	u32 targetAddr = (js.compilerPC & 0xF0000000) | off;
-	//Delay slot
+	// Delay slot
 	CompileAt(js.compilerPC + 4);
 	FlushAll();
 
@@ -337,8 +359,8 @@ void Jit::Comp_Jump(u32 op)
     break; 
 
 	case 3: //jal
-		ARMABI_MOVI2R(R0, Operand2(js.compilerPC + 8, TYPE_IMM));
 		ADD(R1, R10, MIPS_REG_RA * 4);  // compute address of RA in ram
+		ARMABI_MOVI2R(R0, js.compilerPC + 8);
 		STR(R1, R0);
     WriteExit(targetAddr, 0);
 		break;
@@ -352,34 +374,51 @@ void Jit::Comp_Jump(u32 op)
 
 void Jit::Comp_JumpReg(u32 op)
 {
-	u32 delaySlotOp = Memory::ReadUnchecked_U32(js.compilerPC + 4);
-	bool delaySlotIsNice = GetOutReg(delaySlotOp) != _RS;
-  // Do what with that information?
+	if (js.inDelaySlot) {
+		ERROR_LOG(JIT, "Branch in delay slot at %08x", js.compilerPC);
+		return;
+	}
 	int rs = _RS;
+
+	u32 delaySlotOp = Memory::ReadUnchecked_U32(js.compilerPC + 4);
+	bool delaySlotIsNice = GetOutReg(delaySlotOp) != rs;
+  // Do what with that information?
+	delaySlotIsNice = false;
 
 	gpr.MapReg(rs, MAP_INITVAL);
 
-	// Delay slot
-	MOV(R8, gpr.R(rs));  // Save the destination address through the delay slot. Could use isNice to avoid
-  CompileAt(js.compilerPC + 4);
-  FlushAll();
-  MOV(R0, R8);  // TODO: Remove.
- 
+	if (delaySlotIsNice) {
+		CompileAt(js.compilerPC + 4);
+		MOV(R8, gpr.R(rs));  // Save the destination address through the delay slot. Could use isNice to avoid when the jit is fully implemented
+		FlushAll();
+		MovToPC(R8);  // For syscall to be able to return. Could be avoided with some checking.
+	} else {
+		// Delay slot
+		MOV(R8, gpr.R(rs));  // Save the destination address through the delay slot. Could use isNice to avoid when the jit is fully implemented
+		MovToPC(R8);  // For syscall to be able to return. Could be avoided with some checking.
+		CompileAt(js.compilerPC + 4);
+		FlushAll();
+		if (!js.compiling) {
+			// INFO_LOG(HLE, "Syscall in delay slot!");
+			return;
+		}
+	}
+
 	switch (op & 0x3f) 
 	{
 	case 8: //jr
 		break;
 	case 9: //jalr
 		ADD(R1, R10, MIPS_REG_RA * 4);  // compute address of RA in ram
-		ARMABI_MOVI2R(R2, js.compilerPC + 8);
-		STR(R1, R2);
+		ARMABI_MOVI2R(R0, js.compilerPC + 8);
+		STR(R1, R0);
 		break;
 	default:
 		_dbg_assert_msg_(CPU,0,"Trying to compile instruction that can't be compiled");
 		break;
 	}
 
-  WriteExitDestInR(R0);
+  WriteExitDestInR(R8);
 	js.compiling = false;
 }
 
@@ -388,15 +427,10 @@ void Jit::Comp_Syscall(u32 op)
 {
 	FlushAll();
 
-	// By putting mips_ in a register and using offsets, we could get rid of one of the constant-sets.
-	ARMABI_MOVI2R(R0, (u32)&mips_->r[MIPS_REG_RA]);
-	LDR(R0, R0);
-	ARMABI_MOVI2R(R1, (u32)&mips_->pc);
-	STR(R1, R0);
-
 	ARMABI_CallFunctionC((void *)&CallSyscall, op);
 
 	WriteSyscallExit();
+	js.compiling = false;
 }
 
 }   // namespace Mipscomp

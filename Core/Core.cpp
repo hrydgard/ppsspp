@@ -65,6 +65,7 @@ bool Core_IsStepping()
 void Core_RunLoop()
 {
 	currentMIPS->RunLoopUntil(0xFFFFFFFFFFFFFFFULL);
+	INFO_LOG(DYNA_REC, "Wooo");
 }
 
 void Core_DoSingleStep()
@@ -93,6 +94,7 @@ reswitch:
 		case CORE_RUNNING:
 			//1: enter a fast runloop
 			Core_RunLoop();
+			INFO_LOG(DYNA_REC, "Yay");
 			break;
 
 		// We should never get here on Android.

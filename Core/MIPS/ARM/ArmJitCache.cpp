@@ -107,7 +107,7 @@ void ArmJitBlockCache::Clear()
 	links_to.clear();
 	block_map.clear();
 	num_blocks = 0;
-	memset(blockCodePointers, 0, sizeof(u8*)*MAX_NUM_BLOCKS);
+	memset(blockCodePointers, 0xCC, sizeof(u8*)*MAX_NUM_BLOCKS);
 }
 
 void ArmJitBlockCache::ClearSafe()

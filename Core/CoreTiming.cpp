@@ -462,6 +462,7 @@ void MoveEvents()
 
 void Advance()
 {
+	WARN_LOG(HLE, "ADVANCE!");
 	int cyclesExecuted = slicelength - downcount;
 	globalTimer += cyclesExecuted;
 	downcount = slicelength;

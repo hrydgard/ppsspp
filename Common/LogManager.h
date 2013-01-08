@@ -106,6 +106,7 @@ private:
 	ConsoleListener *m_consoleLog;
 	DebuggerLogListener *m_debuggerLog;
 	static LogManager *m_logManager;  // Singleton. Ugh.
+	std::mutex m_log_lock;
 
 	LogManager();
 	~LogManager();

@@ -27,6 +27,30 @@
 
 #include "../../ext/disarm.h"
 
+void DisassembleArm(const u8 *data, int size) {
+	char temp[256];
+	for (int i = 0; i < size; i += 4) {
+		const u32 *codePtr = (const u32 *)(data + i);
+		u32 inst = codePtr[0];
+		u32 next = (i < size - 4) ? codePtr[1] : 0;
+		// MAGIC SPECIAL CASE for MOVW/MOVT readability!
+		if ((inst & 0x0FF00000) == 0x03000000 && (next & 0x0FF00000) == 0x03400000) {
+			u32 low = ((inst & 0x000F0000) >> 4) | (inst & 0x0FFF);
+			u32 hi = ((next & 0x000F0000) >> 4) | (next & 0x0FFF);
+			int reg0 = (inst & 0x0000F000) >> 12;
+			int reg1 = (next & 0x0000F000) >> 12;
+			if (reg0 == reg1) {
+				sprintf(temp, "%08x MOV32? %s, %04x%04x", (u32)inst, ArmRegName(reg0), hi, low);
+				INFO_LOG(DYNA_REC, "A:   %s", temp);
+				i += 4;
+				continue;
+			}
+		}
+		ArmDis((u32)codePtr, inst, temp);
+		INFO_LOG(DYNA_REC, "A:   %s", temp);
+	}
+}
+
 namespace MIPSComp
 {
 
@@ -62,6 +86,7 @@ void Jit::CompileAt(u32 addr)
 
 void Jit::Compile(u32 em_address)
 {
+	//ERROR_LOG(CPU, "Compile %08x", em_address);
 	if (GetSpaceLeft() < 0x10000 || blocks.IsFull())
 	{
 		ClearCache();
@@ -76,35 +101,12 @@ void Jit::RunLoopUntil(u64 globalticks)
 {
 	// TODO: copy globalticks somewhere
 	((void (*)())asm_.enterCode)();
-	INFO_LOG(DYNA_REC, "Left asm code");
+	INFO_LOG(DYNA_REC, "Left asm code like a boss!");
+	INFO_LOG(DYNA_REC, "or Two!");
 }
 
 void Hullo(int a, int b, int c, int d) {
 	INFO_LOG(DYNA_REC, "Hullo %08x %08x %08x %08x", a, b, c, d);
-}
-
-static void DisassembleArm(const u8 *data, int size) {
-	char temp[256];
-	for (int i = 0; i < size; i += 4) {
-		const u32 *codePtr = (const u32 *)(data + i);
-		u32 inst = codePtr[0];
-		u32 next = (i < size - 4) ? codePtr[1] : 0;
-		// MAGIC SPECIAL CASE for MOVW/MOVT readability!
-		if ((inst & 0x0FF00000) == 0x03000000 && (next & 0x0FF00000) == 0x03400000) {
-			u32 low = ((inst & 0x000F0000) >> 4) | (inst & 0x0FFF);
-			u32 hi = ((next & 0x000F0000) >> 4) | (next & 0x0FFF);
-			int reg0 = (inst & 0x0000F000) >> 12;
-			int reg1 = (next & 0x0000F000) >> 12;
-			if (reg0 == reg1) {
-				sprintf(temp, "%08x MOV32? %s, %04x%04x", (u32)inst, ArmRegName(reg0), hi, low);
-				INFO_LOG(DYNA_REC, "A:   %s", temp);
-				i += 4;
-				continue;
-			}
-		} 
-		ArmDis((u32)codePtr, inst, temp);
-		INFO_LOG(DYNA_REC, "A:   %s", temp);
-	}
 }
 
 const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
@@ -122,7 +124,7 @@ const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 	SetCC(CC_LT);
 	ARMABI_MOVI2R(R0, js.blockStart);
 	MovToPC(R0);
-	ARMABI_MOVI2R(R0, (u32)asm_.outerLoop);
+	ARMABI_MOVI2R(R0, (u32)asm_.outerLoop);   // downcount hit zero - go advance.
 	B(R0);
 	SetCC(CC_AL);
 
@@ -134,7 +136,7 @@ const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 
 	int numInstructions = 0;
 	int cycles = 0;
-#define LOGASM
+// #define LOGASM
 #ifdef LOGASM
 	char temp[256];
 #endif
@@ -162,7 +164,6 @@ const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 #ifdef LOGASM
 	DisassembleArm(b->checkedEntry, GetCodePtr() - b->checkedEntry);
 #endif
-	
 	AlignCode16();
 	b->originalSize = numInstructions;
 	return b->normalEntry;
@@ -196,7 +197,7 @@ void Jit::MovToPC(ARMReg r) {
 
 void Jit::DoDownCount()
 {
-	ARMABI_MOVI2R(R0, Mem(&CoreTiming::downcount));
+	ARMABI_MOVI2R(R0, (u32)&CoreTiming::downcount);
 	LDR(R1, R0);
 	if(js.downcountAmount < 255) // We can enlarge this if we used rotations
 	{
@@ -211,14 +212,6 @@ void Jit::DoDownCount()
 	}
 }
 
-void Jit::WriteExitDestInR(ARMReg Reg) 
-{
-	MovToPC(Reg);
-	DoDownCount();
-	// TODO: shouldn't need an indirect branch here...
-	ARMABI_MOVI2R(R0, (u32)asm_.dispatcher);
-	B(R0);
-}
 
 void Jit::WriteExit(u32 destination, int exit_num)
 {
@@ -230,19 +223,25 @@ void Jit::WriteExit(u32 destination, int exit_num)
 
 	// Link opportunity!
 	int block = blocks.GetBlockNumberFromStartAddress(destination);
-	if (block >= 0 && jo.enableBlocklink) 
-	{
+	if (block >= 0 && jo.enableBlocklink) {
 		// It exists! Joy of joy!
 		B(blocks.GetBlock(block)->checkedEntry);
 		b->linkStatus[exit_num] = true;
-	}
-	else 
-	{
+	} else {
 		ARMABI_MOVI2R(R0, destination);
 		MovToPC(R0);
 		ARMABI_MOVI2R(R0, (u32)asm_.dispatcher);
 		B(R0);	
 	}
+}
+
+void Jit::WriteExitDestInR(ARMReg Reg) 
+{
+	MovToPC(Reg);
+	DoDownCount();
+	// TODO: shouldn't need an indirect branch here...
+	ARMABI_MOVI2R(R0, (u32)asm_.dispatcher);
+	B(R0);
 }
 
 void Jit::WriteSyscallExit()

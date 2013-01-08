@@ -57,6 +57,7 @@ void Jit::CompileAt(u32 addr)
 
 void Jit::Compile(u32 em_address)
 {
+	ERROR_LOG(CPU, "Compile %08x", em_address);
 	if (GetSpaceLeft() < 0x10000 || blocks.IsFull())
 	{
 		ClearCache();
@@ -146,19 +147,15 @@ void Jit::WriteExit(u32 destination, int exit_num)
 
 	// Link opportunity!
 	int block = blocks.GetBlockNumberFromStartAddress(destination);
-	if (jo.enableBlocklink)
-	{
-		if (block >= 0 && jo.enableBlocklink)
-		{
-			// It exists! Joy of joy!
-			JMP(blocks.GetBlock(block)->checkedEntry, true);
-			b->linkStatus[exit_num] = true;
-			return;
-		}
+	if (block >= 0 && jo.enableBlocklink) {
+		// It exists! Joy of joy!
+		JMP(blocks.GetBlock(block)->checkedEntry, true);
+		b->linkStatus[exit_num] = true;
+	} else {
+		// No blocklinking.
+		MOV(32, M(&mips_->pc), Imm32(destination));
+		JMP(asm_.dispatcher, true);
 	}
-	// No blocklinking.
-	MOV(32, M(&mips_->pc), Imm32(destination));
-	JMP(asm_.dispatcher, true);
 }
 
 void Jit::WriteExitDestInEAX()

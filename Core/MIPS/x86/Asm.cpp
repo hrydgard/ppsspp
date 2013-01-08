@@ -87,7 +87,7 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 		dispatcher = GetCodePtr();
 			// The result of slice decrementation should be in flags if somebody jumped here
 			// IMPORTANT - We jump on negative, not carry!!!
-			FixupBranch bail = J_CC(CC_BE, true);
+			FixupBranch bail = J_CC(CC_S, true);
 
 			SetJumpTarget(skipToRealDispatch);
 
@@ -138,12 +138,10 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 		J_CC(CC_Z, outerLoop, true);
 
 	SetJumpTarget(badCoreState);
-	//Landing pad for drec space
 	ABI_PopAllCalleeSavedRegsAndAdjustStack();
 	RET();
 
 	breakpointBailout = GetCodePtr();
-	//Landing pad for drec space
 	ABI_PopAllCalleeSavedRegsAndAdjustStack();
 	RET();
 }

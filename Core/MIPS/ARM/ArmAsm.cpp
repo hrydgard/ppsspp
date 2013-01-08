@@ -62,20 +62,19 @@ extern volatile CoreState coreState;
 
 void Jit()
 {
-	INFO_LOG(HLE, "Compiling at %08x", currentMIPS->pc);
 	MIPSComp::jit->Compile(currentMIPS->pc);
 }
 
-void ImHere() {
-	static int i = 0;
-	i++;
-	INFO_LOG(HLE, "I'm too here %i", i);
+void ShowPC() {
+	if (currentMIPS) {
+		WARN_LOG(HLE, "PC : %08x", currentMIPS->pc);
+	} else {
+		ERROR_LOG(HLE, "Universe corrupt?");
+	}
 }
-void ImHere2(u32 hej, u32 hej2) {
-	static int i = 0;
-	i++;
-	INFO_LOG(HLE, "I'm here2 %i %08x %08x", i, hej, hej2);
-}
+
+void DisassembleArm(const u8 *data, int size);
+
 // PLAN: no more block numbers - crazy opcodes just contain offset within
 // dynarec buffer
 // At this offset - 4, there is an int specifying the block number.
@@ -88,16 +87,13 @@ void ArmAsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 
 	SetCC(CC_AL);
 
-	PUSH(8, R5, R6, R7, R8, R9, R10, R11, _LR);
+	PUSH(9, R4, R5, R6, R7, R8, R9, R10, R11, _LR);
 
 	// Fixed registers, these are always kept when in Jit context.
 	// R13 cannot be used as it's the stack pointer.
 	ARMABI_MOVI2R(R11, (u32)Memory::base);
 	ARMABI_MOVI2R(R10, (u32)mips);
 	ARMABI_MOVI2R(R9, (u32)jit->GetBlockCache()->GetCodePointers());
-
-	// PROVEN: We Get Here
-	ARMABI_CallFunction((void *)&ImHere);
 
 	outerLoop = GetCodePtr();
 		ARMABI_CallFunction((void *)&CoreTiming::Advance);
@@ -114,18 +110,19 @@ void ArmAsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 		// At this point : flags = EQ. Fine for the next check, no need to jump over it.
 
 		dispatcher = GetCodePtr();
+
 			// The result of slice decrementation should be in flags if somebody jumped here
 			// IMPORTANT - We jump on negative, not carry!!!
-			FixupBranch bail = B_CC(CC_LT);
+			FixupBranch bail = B_CC(CC_MI);
 
 			SetJumpTarget(skipToRealDispatch);
 
 			dispatcherNoCheck = GetCodePtr();
 
 			// Debug
+			// ARMABI_CallFunction((void *)&ShowPC);
 
-			ARMABI_MOVI2R(R0, (u32)&mips->pc);
-			LDR(R0, R0);
+			LDR(R0, R10, offsetof(MIPSState, pc));
 
 			ARMABI_MOVI2R(R1, Memory::MEMVIEW32_MASK);  // can be done with single MOVN instruction
 			AND(R0, R0, R1);
@@ -134,7 +131,7 @@ void ArmAsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 			AND(R1, R0, Operand2(0xFC, 4));   // rotation is to the right, in 2-bit increments.
 			BIC(R0, R0, Operand2(0xFC, 4));
 			CMP(R1, Operand2(MIPS_EMUHACK_OPCODE >> 24, 4));
-			FixupBranch notfound = B_CC(CC_NEQ);
+			FixupBranch notfound = B_CC(CC_NEQ);  // TODO : No need for a branch really, can use CCs.
 				// IDEA - we have 24 bits, why not just use offsets from base of code?
 				if (enableDebug)
 				{
@@ -162,9 +159,11 @@ void ArmAsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 
 	SetJumpTarget(badCoreState);
 
-	ARMABI_CallFunction((void *)&ImHere);
+	breakpointBailout = GetCodePtr();
 
-	//Landing pad for drec space
+	POP(9, R4, R5, R6, R7, R8, R9, R10, R11, _PC);  // Returns
 
-	POP(8, R5, R6, R7, R8, R9, R10, R11, _PC);  // Returns
+	INFO_LOG(HLE, "THE DISASM ========================");
+	DisassembleArm(enterCode, GetCodePtr() - enterCode);
+	INFO_LOG(HLE, "END OF THE DISASM ========================");
 }
