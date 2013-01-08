@@ -80,9 +80,10 @@ void Jit::BranchRSRTComp(u32 op, Gen::CCFlags cc, bool likely)
 	}
 	delaySlotIsNice = false;	// Until we have time to fully fix this
 
-	if (rs == 0)
+	if (rt == 0)
 	{
-		CMP(32, gpr.R(rt), Imm32(0));
+		gpr.KillImmediate(rs, true, true);
+		CMP(32, gpr.R(rs), Imm32(0));
 	}
 	else
 	{
@@ -448,7 +449,8 @@ void Jit::Comp_JumpReg(u32 op)
 void Jit::Comp_Syscall(u32 op)
 {
 	FlushAll();
-	ABI_CallFunctionC((void *)(&CallSyscall), op);
+
+	ABI_CallFunctionC((void *)&CallSyscall, op);
 
 	WriteSyscallExit();
 	js.compiling = false;
