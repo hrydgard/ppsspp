@@ -204,6 +204,10 @@ void WriteSyscall(const char *moduleName, u32 nib, u32 address)
 		strncpy(sysc.moduleName, moduleName, KERNELOBJECT_MAX_NAME_LENGTH);
 		sysc.moduleName[KERNELOBJECT_MAX_NAME_LENGTH] = '\0';
 		unresolvedSyscalls.push_back(sysc);
+
+		// Write a trap so we notice this func if it's called before resolving.
+		Memory::Write_U32(MIPS_MAKE_JR_RA(), address); // jr ra
+		Memory::Write_U32(GetSyscallOp("(invalid syscall)", nib), address + 4);
 	}
 }
 
