@@ -143,7 +143,6 @@ const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 	}
 #endif
 	
-	NOP();
 	AlignCode16();
 	b->originalSize = numInstructions;
 	return b->normalEntry;
@@ -168,11 +167,11 @@ void Jit::Comp_Generic(u32 op)
 }
 
 void Jit::MovFromPC(ARMReg r) {
-	LDR(r, R9, offsetof(MIPSState, pc));
+	LDR(r, R10, offsetof(MIPSState, pc));
 }
 
 void Jit::MovToPC(ARMReg r) {
-	STR(R9, r, offsetof(MIPSState, pc));
+	STR(R10, r, offsetof(MIPSState, pc));
 }
 
 void Jit::DoDownCount()

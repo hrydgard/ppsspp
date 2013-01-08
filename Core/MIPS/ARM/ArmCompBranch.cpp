@@ -369,7 +369,7 @@ void Jit::Comp_JumpReg(u32 op)
 	case 8: //jr
 		break;
 	case 9: //jalr
-		ADD(R1, R9, MIPS_REG_RA * 4);  // compute address of RA in ram
+		ADD(R1, R10, MIPS_REG_RA * 4);  // compute address of RA in ram
 		ARMABI_MOVI2R(R2, js.compilerPC + 8);
 		STR(R1, R2);
 		break;

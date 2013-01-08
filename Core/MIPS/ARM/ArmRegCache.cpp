@@ -21,7 +21,7 @@
 
 using namespace ArmGen;
 
-#define CTXREG ((ARMReg)9)
+#define CTXREG (R10)
 
 ArmRegCache::ArmRegCache(MIPSState *mips) : mips_(mips) {
 }
