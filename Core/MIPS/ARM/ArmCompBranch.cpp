@@ -58,13 +58,22 @@ void Jit::BranchRSRTComp(u32 op, ArmGen::CCFlags cc, bool likely)
     ERROR_LOG(CPU, "Not nice delay slot in BranchRSRTComp :( %08x", js.compilerPC);
   }
   // The delay slot being nice doesn't really matter though...
-
-  if (rs == 0)
+  if (rt == 0)
   {
+		gpr.MapReg(rs, MAP_INITVAL);
 		CMP(gpr.R(rs), Operand2(0));
   }
-  else
-  {
+	else if (rs == 0 && (cc == CC_EQ || cc == CC_NEQ))  // only these are easily 'flippable'
+	{
+		gpr.MapReg(rt, MAP_INITVAL);
+		CMP(gpr.R(rt), Operand2(0));
+	}
+	else
+	{
+		gpr.SpillLock(rs, rt);
+		gpr.MapReg(rs, MAP_INITVAL);
+		gpr.MapReg(rt, MAP_INITVAL);
+		gpr.ReleaseSpillLocks();
 		CMP(gpr.R(rs), gpr.R(rt));
   }
   FlushAll();
@@ -76,12 +85,10 @@ void Jit::BranchRSRTComp(u32 op, ArmGen::CCFlags cc, bool likely)
 		// preserve flag around the delay slot! Maybe this is not always necessary on ARM where 
 		// we can (mostly) control whether we set the flag or not. Of course, if someone puts an slt in to the
 		// delay slot, we're screwed.
-		MRS(R0);  // Save flags register
-		PUSH(1, R0);
+		MRS(R8);  // Save flags register. R4 is preserved through function calls and is not allocated.
     CompileAt(js.compilerPC + 4);
     FlushAll();
-		POP(1, R0);
-		_MSR(true, false, R0);  // Restore flags register
+		_MSR(true, false, R8);  // Restore flags register
     ptr = B_CC(cc);
   }
   else
@@ -116,7 +123,7 @@ void Jit::BranchRSZeroComp(u32 op, ArmGen::CCFlags cc, bool likely)
   {
     // ERROR_LOG(CPU, "Not nice delay slot in BranchRSZeroComp :( %08x", js.compilerPC);
   }
-
+	gpr.MapReg(rs, MAP_INITVAL);
   CMP(gpr.R(rs), Operand2(0));
   FlushAll();
 
@@ -127,13 +134,10 @@ void Jit::BranchRSZeroComp(u32 op, ArmGen::CCFlags cc, bool likely)
 		// preserve flag around the delay slot! Maybe this is not always necessary on ARM where 
 		// we can (mostly) control whether we set the flag or not. Of course, if someone puts an slt in to the
 		// delay slot, we're screwed.
-		MRS(R0);  // Save flags register
-		PUSH(1, R0);
+		MRS(R8);  // Save flags register
     CompileAt(js.compilerPC + 4);
     FlushAll();
-
-		POP(1, R0);
-		_MSR(true, false, R0);  // Restore flags register
+		_MSR(true, false, R8);  // Restore flags register
     ptr = B_CC(cc);
   }
   else
@@ -215,15 +219,12 @@ void Jit::BranchFPFlag(u32 op, ArmGen::CCFlags cc, bool likely)
   js.inDelaySlot = true;
   if (!likely)
   {
-		MRS(R0);  // Save flags register
-		PUSH(1, R0);
+		MRS(R8);  // Save flags register
 
     CompileAt(js.compilerPC + 4);
     FlushAll();
 
-    // POPF(); // restore flag!
-		POP(1, R0);
-		_MSR(true, false, R0);  // Restore flags register
+		_MSR(true, false, R8);  // Restore flags register
     ptr = B_CC(cc);
   }
   else
@@ -283,15 +284,12 @@ void Jit::BranchVFPUFlag(u32 op, ArmGen::CCFlags cc, bool likely)
 	js.inDelaySlot = true;
 	if (!likely)
 	{
-		MRS(R0);  // Save flags register
-		PUSH(1, R0);
+		MRS(R8);  // Save flags register
 
 		CompileAt(js.compilerPC + 4);
 		FlushAll();
 
-		// POPF(); // restore flag!
-		POP(1, R0);
-		_MSR(true, false, R0);  // Restore flags register
+		_MSR(true, false, R8);  // Restore flags register
 		ptr = B_CC(cc);
 	}
 	else
@@ -356,24 +354,24 @@ void Jit::Comp_JumpReg(u32 op)
 	u32 delaySlotOp = Memory::ReadUnchecked_U32(js.compilerPC + 4);
 	bool delaySlotIsNice = GetOutReg(delaySlotOp) != _RS;
   // Do what with that information?
+	int rs = _RS;
 
-  ARMReg rs = gpr.R(_RS);
+	gpr.MapReg(rs, MAP_INITVAL);
 
 	// Delay slot
-	PUSH(1, rs);  // Save the destination address through the delay slot. Could use isNice to avoid
+	MOV(R8, gpr.R(rs));  // Save the destination address through the delay slot. Could use isNice to avoid
   CompileAt(js.compilerPC + 4);
   FlushAll();
-  POP(1, R0);
+  MOV(R0, R8);  // TODO: Remove.
  
 	switch (op & 0x3f) 
 	{
 	case 8: //jr
 		break;
 	case 9: //jalr
-		ARMABI_MOVI2R(R1, (u32)&mips_->r[MIPS_REG_RA]);
+		ADD(R1, R9, MIPS_REG_RA * 4);  // compute address of RA in ram
 		ARMABI_MOVI2R(R2, js.compilerPC + 8);
 		STR(R1, R2);
-		// MOV(32, M(&mips_->r[MIPS_REG_RA]), Imm32(js.compilerPC + 8));
 		break;
 	default:
 		_dbg_assert_msg_(CPU,0,"Trying to compile instruction that can't be compiled");

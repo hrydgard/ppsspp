@@ -49,6 +49,7 @@ LOCAL_SRC_FILES := \
   ArmEmitterTest.cpp \
   ui_atlas.cpp \
   $(SRC)/native/android/app-android.cpp \
+  $(SRC)/ext/disarm.cpp \
   $(SRC)/ext/libkirk/AES.c \
   $(SRC)/ext/libkirk/SHA1.c \
   $(SRC)/ext/libkirk/bn.c \

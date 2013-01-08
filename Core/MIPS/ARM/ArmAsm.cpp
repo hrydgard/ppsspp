@@ -62,6 +62,7 @@ extern volatile CoreState coreState;
 
 void Jit()
 {
+	INFO_LOG(HLE, "Compiling at %08x", currentMIPS->pc);
 	MIPSComp::jit->Compile(currentMIPS->pc);
 }
 
@@ -70,10 +71,10 @@ void ImHere() {
 	i++;
 	INFO_LOG(HLE, "I'm too here %i", i);
 }
-void ImHere2(u32 hej) {
+void ImHere2(u32 hej, u32 hej2) {
 	static int i = 0;
 	i++;
-	INFO_LOG(HLE, "I'm here2 %i %08x", i, hej);
+	INFO_LOG(HLE, "I'm here2 %i %08x %08x", i, hej, hej2);
 }
 // PLAN: no more block numbers - crazy opcodes just contain offset within
 // dynarec buffer
@@ -82,6 +83,8 @@ void ImHere2(u32 hej) {
 void ArmAsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 {
 	enterCode = AlignCode16();
+
+	INFO_LOG(HLE, "Base: %08x", (u32)Memory::base);
 
 	SetCC(CC_AL);
 
@@ -126,9 +129,8 @@ void ArmAsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 
 			ARMABI_MOVI2R(R1, Memory::MEMVIEW32_MASK);  // can be done with single MOVN instruction
 			AND(R0, R0, R1);
-			ARMABI_CallFunction((void *)&ImHere2);
-
-			LDR(R0, R11, R(R0));
+			ADD(R0, R0, R11);  // TODO: Optimize (can merge with next instr)
+			LDR(R0, R0);
 			AND(R1, R0, Operand2(0xFC, 4));   // rotation is to the right, in 2-bit increments.
 			BIC(R0, R0, Operand2(0xFC, 4));
 			CMP(R1, Operand2(MIPS_EMUHACK_OPCODE >> 24, 4));
@@ -139,13 +141,11 @@ void ArmAsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 					//ADD(32, M(&mips->debugCount), Imm8(1));
 				}
 				// grab from list and jump to it
-				ADD(R0, R14, Operand2(2, ST_LSL, R0));
+				ADD(R0, R9, Operand2(2, ST_LSL, R0));
 				LDR(R0, R0);
 				B(R0);
 
 			SetJumpTarget(notfound);
-
-			ARMABI_CallFunction((void *)&ImHere);
 
 			//Ok, no block, let's jit
 			ARMABI_CallFunction((void *)&Jit);

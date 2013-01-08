@@ -35,7 +35,6 @@ void ARMXEmitter::ARMABI_CallFunctionC(void *func, u32 Arg)
 	ARMABI_MOVI2R(R0, Arg);
 	BL(R14);
 	POP(5, R0, R1, R2, R3, _LR);
-
 }
 void ARMXEmitter::ARMABI_CallFunctionCC(void *func, u32 Arg1, u32 Arg2)
 {

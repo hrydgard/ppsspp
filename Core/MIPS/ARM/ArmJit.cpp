@@ -25,39 +25,10 @@
 #include "ArmRegCache.h"
 #include "ArmJit.h"
 
+#include "../../ext/disarm.h"
+
 namespace MIPSComp
 {
-/*
-void Comp_MemRead32KnownRAM(int srcreg, int offset, int reg)
-{
-	MOV_MemoryToReg(1, reg, ModRM_disp32_EAX+srcreg, (u32)pspmainram - 0x08000000 + offset);
-}
-void Comp_MemWrite32KnownRAM(int srcreg, int offset, int reg)
-{
-	MOV_RegToMemory(1, reg, ModRM_disp32_EAX+srcreg, (u32)pspmainram - 0x08000000 + offset);
-}
-
-#define RM(reg) (&(currentMIPS->r[reg]))
-struct RegInfo
-{
-	bool cached;
-	int x86reg;
-};
-
-RegInfo regs[32];
-
-void MovToReg(int reg, u32 value)
-{
-	if (regs[reg].cached)
-	{
-		::MOV_ImmToReg(1,regs[reg].x86reg,value,0);
-	}
-	else
-	{
-		::MOV_ImmToMemory(1,ModRM_disp32,(u32)(RM(reg)),value);
-	}
-}
-*/
 
 Jit::Jit(MIPSState *mips) : blocks(mips), gpr(mips), mips_(mips)
 { 
@@ -108,6 +79,10 @@ void Jit::RunLoopUntil(u64 globalticks)
 	INFO_LOG(DYNA_REC, "Left asm code");
 }
 
+void Hullo(int a, int b, int c, int d) {
+	INFO_LOG(DYNA_REC, "Hullo %08x %08x %08x %08x", a, b, c, d);
+}
+
 const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 {
 	js.cancel = false;
@@ -116,20 +91,36 @@ const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 	js.curBlock = b;
 	js.compiling = true;
 	js.inDelaySlot = false;
-	
-	b->normalEntry = GetCodePtr();
 
+	// We add a check before the block, used when entering from a linked block.
+	b->checkedEntry = GetCodePtr();
+	// Downcount flag check. The last block decremented downcounter, and the flag should still be available.
+	SetCC(CC_LT);
+	ARMABI_MOVI2R(R0, js.blockStart);
+	MovToPC(R0);
+	ARMABI_MOVI2R(R0, (u32)asm_.outerLoop);
+	B(R0);
+	SetCC(CC_AL);
+
+	b->normalEntry = GetCodePtr();
 	// TODO: this needs work
 	MIPSAnalyst::AnalysisResults analysis; // = MIPSAnalyst::Analyze(em_address);
 
 	gpr.Start(analysis);
-	//fpr.Start(mips_, analysis);
 
 	int numInstructions = 0;
 	int cycles = 0;
+#define LOGASM
+#ifdef LOGASM
+	char temp[256];
+#endif
 	while (js.compiling)
 	{
 		u32 inst = Memory::Read_Instruction(js.compilerPC);
+#ifdef LOGASM
+		MIPSDisAsm(inst, js.compilerPC, temp, true);
+		INFO_LOG(DYNA_REC, "M: %08x   %s", js.compilerPC, temp);
+#endif
 		js.downcountAmount += MIPSGetInstructionCycleEstimate(inst);
 
 		MIPSCompileOp(inst);
@@ -137,8 +128,21 @@ const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 		js.compilerPC += 4;
 		numInstructions++;
 	}
-	
+#ifdef LOGASM
+	MIPSDisAsm(Memory::Read_Instruction(js.compilerPC), js.compilerPC, temp, true);
+	INFO_LOG(DYNA_REC, "M:   %s", temp);
+#endif
+
 	b->codeSize = GetCodePtr() - b->normalEntry;
+#ifdef LOGASM
+	for (int i = 0; i < b->codeSize; i += 4) {
+		const u32 *codePtr = (const u32 *)(b->normalEntry + i);
+		u32 inst = *codePtr;
+		ArmDis((u32)codePtr, inst, temp);
+		INFO_LOG(DYNA_REC, "A:   %s", temp);
+	}
+#endif
+	
 	NOP();
 	AlignCode16();
 	b->originalSize = numInstructions;
@@ -157,9 +161,18 @@ void Jit::Comp_Generic(u32 op)
 	MIPSInterpretFunc func = MIPSGetInterpretFunc(op);
 	if (func)
 	{
-		//MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
-		//ABI_CallFunctionC(func, op);
+		ARMABI_MOVI2R(R0, js.compilerPC);
+		MovToPC(R0);
+		ARMABI_CallFunctionC((void *)func, op);
 	}
+}
+
+void Jit::MovFromPC(ARMReg r) {
+	LDR(r, R9, offsetof(MIPSState, pc));
+}
+
+void Jit::MovToPC(ARMReg r) {
+	STR(R9, r, offsetof(MIPSState, pc));
 }
 
 void Jit::DoDownCount()
@@ -181,9 +194,9 @@ void Jit::DoDownCount()
 
 void Jit::WriteExitDestInR(ARMReg Reg) 
 {
-	ARMABI_MOVI2R(R0, (u32)&mips_->pc);
-	STR(R0, Reg);
+	MovToPC(Reg);
 	DoDownCount();
+	// TODO: shouldn't need an indirect branch here...
 	ARMABI_MOVI2R(R0, (u32)asm_.dispatcher);
 	B(R0);
 }
@@ -206,9 +219,8 @@ void Jit::WriteExit(u32 destination, int exit_num)
 	}
 	else 
 	{
-		ARMABI_MOVI2R(R0, (u32)&mips_->pc); // Watch out! This uses R14 and R12!
-		ARMABI_MOVI2R(R1, destination); // Watch out! This uses R14 and R12!
-		STR(R0, R1); // Watch out! This uses R14 and R12!
+		ARMABI_MOVI2R(R0, destination);
+		MovToPC(R0);
 		ARMABI_MOVI2R(R0, (u32)asm_.dispatcher);
 		B(R0);	
 	}
@@ -216,9 +228,8 @@ void Jit::WriteExit(u32 destination, int exit_num)
 
 void Jit::WriteSyscallExit()
 {
-	// Super basic
 	DoDownCount();
-	B((const void *)asm_.dispatcher);
+	B((const void *)asm_.dispatcherCheckCoreState);
 }
 
 

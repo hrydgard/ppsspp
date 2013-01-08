@@ -96,6 +96,8 @@ private:
 	void FlushAll();
 
 	void DoDownCount();
+	void MovFromPC(ARMReg r);
+	void MovToPC(ARMReg r);
 
 	void WriteExit(u32 destination, int exit_num);
 	void WriteExitDestInR(ARMReg Reg);
@@ -109,6 +111,7 @@ private:
 
 	// Utilities to reduce duplicated code
 	/*
+	void CompImmLogic(u32 op, void (ARMXEmitter::*arith)(ARMReg dst, ARMReg src, Operand2 op2));
 	void CompImmLogic(u32 op, void (ARMXEmitter::*arith)(int, const OpArg &, const OpArg &));
 	void CompTriArith(u32 op, void (ARMXEmitter::*arith)(int, const OpArg &, const OpArg &));
 	void CompShiftImm(u32 op, void (ARMXEmitter::*shift)(int, OpArg, OpArg));

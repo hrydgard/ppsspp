@@ -21,7 +21,7 @@
 
 using namespace ArmGen;
 
-#define CTXREG ((ARMReg)14)
+#define CTXREG ((ARMReg)9)
 
 ArmRegCache::ArmRegCache(MIPSState *mips) : mips_(mips) {
 }
@@ -44,8 +44,11 @@ void ArmRegCache::Start(MIPSAnalyst::AnalysisResults &stats) {
 
 static const ARMReg *GetMIPSAllocationOrder(int &count) {
 	// Note that R0 and R1 are reserved as scratch for now. We can probably free up R1 eventually.
+	// R8 is used to preserve flags in nasty branches.
+	// R9 and upwards are reserved for jit basics.
+	// Six allocated registers should be enough...
 	static const ARMReg allocationOrder[] = {
-		R2, R3, R4, R5, R6, R7, R8
+		R2, R3, R4, R5, R6, R7
 	};
 	count = sizeof(allocationOrder) / sizeof(const int);
 	return allocationOrder;
@@ -55,6 +58,8 @@ ARMReg ArmRegCache::MapReg(MIPSReg mipsReg, int mapFlags) {
 	// Let's see if it's already mapped.
 	for (int i = 0; i < NUM_ARMREG; i++) {
 		if (ar[i].mipsReg == mipsReg) {
+			if (mapFlags & MAP_DIRTY)
+				ar[i].isDirty = true;
 			// Already mapped, no need to do anything more.
 			return (ARMReg)i;
 		}
@@ -79,6 +84,8 @@ allocate:
 				else if (mr[mipsReg].loc == ML_IMM)
 					emit->ARMABI_MOVI2R((ARMReg)reg, mr[mipsReg].imm);
 			}
+			mr[mipsReg].loc = ML_ARMREG;
+			mr[mipsReg].reg = (ARMReg)reg;
 			return (ARMReg)reg;
 		}
 	}
@@ -104,7 +111,9 @@ void ArmRegCache::FlushArmReg(ARMReg r) {
 	}
 	if (ar[r].isDirty) {
 		if (mr[ar[r].mipsReg].loc == ML_MEM)
-			emit->STR(r, CTXREG, 4 * ar[r].mipsReg);
+			emit->STR(CTXREG, r, 4 * ar[r].mipsReg);
+		ar[r].isDirty = false;
+		ar[r].mipsReg = -1;
 	}
 }
 
@@ -113,12 +122,12 @@ void ArmRegCache::FlushMipsReg(MIPSReg r) {
 	case ML_IMM:
 		// IMM is always "dirty".
 		emit->ARMABI_MOVI2R(R0, mr[r].imm);
-		emit->STR(R0, CTXREG, GetMipsRegOffset(r));
+		emit->STR(CTXREG, R0, GetMipsRegOffset(r));
 		break;
 
 	case ML_ARMREG:
 		if (ar[mr[r].reg].isDirty)
-			emit->STR(mr[r].reg, CTXREG, GetMipsRegOffset(r));
+			emit->STR(CTXREG, mr[r].reg, GetMipsRegOffset(r));
 		ar[mr[r].reg].mipsReg = -1;
 		ar[mr[r].reg].isDirty = false;
 		break;
@@ -183,6 +192,7 @@ ARMReg ArmRegCache::R(int mipsReg) {
 		return mr[mipsReg].reg;
 	} else {
 		_dbg_assert_msg_(JIT, false, "R: not mapped");
+		ERROR_LOG(JIT, "Reg %i not in arm reg", mipsReg);
 		return INVALID_REG;  // BAAAD
 	}
 }

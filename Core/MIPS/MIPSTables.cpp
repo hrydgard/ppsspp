@@ -885,7 +885,7 @@ void MIPSCompileOp(u32 op)
 }
 
 
-void MIPSDisAsm(u32 op, u32 pc, char *out)
+void MIPSDisAsm(u32 op, u32 pc, char *out, bool tabsToSpaces)
 {
 	if (op == 0)
 	{
@@ -896,10 +896,16 @@ void MIPSDisAsm(u32 op, u32 pc, char *out)
 	{
 		disPC = pc;
 		const MIPSInstruction *instr = MIPSGetInstruction(op);
-		if (instr && instr->disasm)
+		if (instr && instr->disasm) {
 			instr->disasm(op, out);
-		else
-		{
+			if (tabsToSpaces) {
+				while (*out) {
+					if (*out == '\t')
+						*out = ' ';
+					out++;
+				}
+			}
+		} else {
 			strcpy(out, "no instruction :(");
 			//__asm int 3
 			MIPSGetInstruction(op);

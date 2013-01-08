@@ -366,6 +366,9 @@
     <ClCompile Include="MIPS\ARM\ArmCompVFPU.cpp">
       <Filter>MIPS\ARM</Filter>
     </ClCompile>
+    <ClCompile Include="..\ext\disarm.cpp">
+      <Filter>Ext</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -676,6 +679,9 @@
     </ClInclude>
     <ClInclude Include="MIPS\ARM\ArmRegCache.h">
       <Filter>MIPS\ARM</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Ext\disarm.h">
+      <Filter>Ext</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
