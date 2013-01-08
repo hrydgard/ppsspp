@@ -127,6 +127,9 @@ struct MpegContext {
 		p.Do(atracRegistered);
 		p.Do(pcmRegistered);
 		p.Do(dataRegistered);
+		p.Do(ignoreAtrac);
+		p.Do(ignorePcm);
+		p.Do(ignoreAvc);
 		p.Do(isAnalyzed);
 		p.Do<StreamInfo>(streamMap);
 		mediaengine->DoState(p);
@@ -157,6 +160,10 @@ struct MpegContext {
 	bool atracRegistered;
 	bool pcmRegistered;
 	bool dataRegistered;
+
+	bool ignoreAtrac;
+	bool ignorePcm;
+	bool ignoreAvc;
 
 	bool isAnalyzed;
 
@@ -398,6 +405,9 @@ u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr, u32 f
 	ctx->atracRegistered = false;
 	ctx->pcmRegistered = false;
 	ctx->dataRegistered = false;
+	ctx->ignoreAtrac = false;
+	ctx->ignorePcm = false;
+	ctx->ignoreAvc = false;
 	ctx->defaultFrameWidth = frameWidth;
 	for (int i = 0; i < NUM_ES_BUFFERS; i++) {
 		ctx->esBuffers[i] = false;
@@ -1035,7 +1045,45 @@ int sceMpegQueryPcmEsSize(u32 mpeg, u32 esSizeAddr, u32 outSizeAddr)
 
 u32 sceMpegChangeGetAuMode(u32 mpeg, int streamUid, int mode)
 {
-	ERROR_LOG(HLE, "UNIMPL sceMpegChangeGetAuMode(%08x, %i, %i)", mpeg, streamUid, mode);
+	MpegContext *ctx = getMpegCtx(mpeg);
+	if (!ctx) {
+		WARN_LOG(HLE, "sceMpegChangeGetAuMode(%08x, %i, %i): bad mpeg handle", mpeg, streamUid, mode);
+		return -1;
+	}
+
+	StreamInfo info;
+	info.sid = streamUid;
+    if (info.sid) {
+		switch (info.type) {
+		case MPEG_AVC_STREAM:
+			if(mode == MPEG_AU_MODE_DECODE) {
+				ctx->ignoreAvc = false;
+			} else if (mode == MPEG_AU_MODE_SKIP) {
+				ctx->ignoreAvc = true;
+			}
+			break;
+		case MPEG_AUDIO_STREAM:
+		case MPEG_ATRAC_STREAM:
+			if(mode == MPEG_AU_MODE_DECODE) {
+				ctx->ignoreAtrac = false;
+			} else if (mode == MPEG_AU_MODE_SKIP) {
+				ctx->ignoreAtrac = true;
+			}
+			break;
+		case MPEG_PCM_STREAM:
+			if(mode == MPEG_AU_MODE_DECODE) {
+				ctx->ignorePcm = false;
+			} else if (mode == MPEG_AU_MODE_SKIP) {
+				ctx->ignorePcm = true;
+			}
+			break;
+		default:
+			ERROR_LOG(HLE, "UNIMPL sceMpegChangeGetAuMode(%08x, %i): unkown streamID", mpeg, streamUid);
+			break;
+		}
+	} else {
+			ERROR_LOG(HLE, "UNIMPL sceMpegChangeGetAuMode(%08x, %i): unkown streamID", mpeg, streamUid);
+	}
 	return 0;
 }
 
@@ -1060,7 +1108,11 @@ u32 sceMpegRingbufferQueryPackNum(int memorySize)
 
 u32 sceMpegFlushAllStream(u32 mpeg)
 {
+	MpegContext *ctx = getMpegCtx(mpeg);
 	ERROR_LOG(HLE, "UNIMPL sceMpegFlushAllStream(%08x)", mpeg);
+	if ( ctx->videoFrameCount > 0 || ctx->audioFrameCount > 0) {
+		//__MpegFinish();
+	}
 	return 0;
 }
 
@@ -1108,7 +1160,7 @@ int sceMpegAvcQueryYCbCrSize(u32 mpeg, u32 mode, u32 width, u32 height, u32 resu
 	if ((width & 15) != 0 || (height & 15) != 0 || height > 272 || width > 480)
 	{
 		ERROR_LOG(HLE, "sceMpegAvcQueryYCbCrSize: bad w/h %i x %i", width, height);
-		return -1;
+		return ERROR_MPEG_INVALID_VALUE;
 	}
 	DEBUG_LOG(HLE, "sceMpegAvcQueryYCbCrSize(%08x, %i, %i, %i, %08x)", mpeg, mode, width, height, resultAddr);
 
