@@ -124,11 +124,11 @@ namespace MIPSComp
 			gpr.UnlockAll();
 			break;
 
+			*/
 
 		case 15: //R(rt) = uimm << 16;	 break; //lui
 			gpr.SetImm(rt, uimm << 16);
 			break;
-			*/
 
 		default:
 			Comp_Generic(op);

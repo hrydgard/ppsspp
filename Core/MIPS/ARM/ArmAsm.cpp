@@ -100,7 +100,7 @@ void ArmAsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 	// R13 cannot be used as it's the stack pointer.
 	ARMABI_MOVI2R(R11, (u32)Memory::base);
 	ARMABI_MOVI2R(R10, (u32)mips);
-	ARMABI_MOVI2R(R7, (u32)jit->GetBlockCache()->GetCodePointers());
+	ARMABI_MOVI2R(R9, (u32)jit->GetBlockCache()->GetCodePointers());
 
 	outerLoop = GetCodePtr();
 		QuickCallFunction(R0, (void *)&CoreTiming::Advance);
@@ -131,31 +131,19 @@ void ArmAsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 			// MOV(R0, R13);
 			// QuickCallFunction(R1, (void *)&ShowPC);
 
-			ARMABI_MOVI2R(R7, (u32)jit->GetBlockCache()->GetCodePointers());
-			ARMABI_MOVI2R(R11, (u32)Memory::base);
-			ARMABI_MOVI2R(R10, (u32)mips);
-
 			LDR(R0, R10, offsetof(MIPSState, pc));
-
-			ARMABI_MOVI2R(R1, Memory::MEMVIEW32_MASK);  // can be done with single MOVN instruction
-			AND(R0, R0, R1);
+			BIC(R0, R0, Operand2(0xC0, 4));   // &= 0x3FFFFFFF
 			ADD(R0, R0, R11);  // TODO: Optimize (can merge with next instr)
 			LDR(R0, R0);
 			AND(R1, R0, Operand2(0xFC, 4));   // rotation is to the right, in 2-bit increments.
 			BIC(R0, R0, Operand2(0xFC, 4));
 			CMP(R1, Operand2(MIPS_EMUHACK_OPCODE >> 24, 4));
-			FixupBranch notfound = B_CC(CC_NEQ);  // TODO : No need for a branch really, can use CCs.
+			SetCC(CC_EQ);
 				// IDEA - we have 24 bits, why not just use offsets from base of code?
-				if (enableDebug)
-				{
-					//ADD(32, M(&mips->debugCount), Imm8(1));
-				}
-				// grab from list and jump to it
-				ADD(R0, R7, Operand2(2, ST_LSL, R0));
+				ADD(R0, R9, Operand2(2, ST_LSL, R0));
 				LDR(R0, R0);
 				B(R0);
-
-			SetJumpTarget(notfound);
+			SetCC(CC_AL);
 
 			//Ok, no block, let's jit
 			ARMABI_CallFunction((void *)&Jit);
