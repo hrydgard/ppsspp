@@ -274,6 +274,9 @@ static char * num(char * op, word w) {
  *   :        copro opcode in bits 21..23 (for MRC/MCR)
  *   ;        copro number in bits 8..11
  *
+ *  ADDED BY HRYDGARD:
+ *   ^        16-bit immediate
+ *
  * NB that / takes note of bit 22, too, and does its own ! when
  * appropriate.
  *
@@ -342,7 +345,18 @@ instr_disassemble(word instr, address addr, pDisOptions opts) {
     case 1:
     case 3:
       /* SWP or MRS/MSR or data processing */
-      if ((instr&0x02B00FF0)==0x00000090) {
+			// hrydgard addition: MOVW/MOVT
+			if ((instr & 0x0FF00000) == 0x03000000) {
+				mnemonic = "MOVW";
+				format = "3,^";
+				break;
+			}
+			else if ((instr & 0x0FF00000) == 0x03400000) {
+				mnemonic = "MOVT";
+				format = "3,^";
+				break;
+			}
+			else if ((instr&0x02B00FF0)==0x00000090) {
         /* SWP */
         mnemonic = "SWP";
         format   = "3,0,[4]";
@@ -647,6 +661,12 @@ lUndefined:
 
       while ((c=*ip++) != 0) {
         switch(c) {
+					case '^':  // hrydgard addition
+						{
+							unsigned short imm16 = ((instr & 0x000F0000) >> 4) | (instr & 0x0FFF);
+							op += sprintf(op, "%04x", imm16);
+						}
+						break;
           case '$':
             result.is_SWI = 1;
             result.swinum = instr&0x00FFFFFF;
@@ -917,9 +937,9 @@ void ArmDis(unsigned int addr, unsigned int w, char *output) {
 	pInstruction instr = instr_disassemble(w, addr, &options);
 	sprintf(output, "%.6lX %.8lX\t%s", addr, w, instr->text);
 	if (instr->undefined || instr->badbits || instr->oddbits) {
-		if (instr->undefined) sprintf(output, " [undefined instr]");
-		if (instr->badbits) sprintf(output, " [illegal bits]");
-		if (instr->oddbits) sprintf(output, " [unexpected bits]");
+		if (instr->undefined) sprintf(output, " [undefined instr %08x]", w);
+		if (instr->badbits) sprintf(output, " [illegal bits %08x]", w);
+		if (instr->oddbits) sprintf(output, " [unexpected bits %08x]", w);
 	}
 	// zap tabs
 	while (*output) {
