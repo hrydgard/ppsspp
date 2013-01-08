@@ -50,7 +50,7 @@ static const ARMReg *GetMIPSAllocationOrder(int &count) {
 	// R9 and upwards are reserved for jit basics.
 	// Six allocated registers should be enough...
 	static const ARMReg allocationOrder[] = {
-		R2, R3, R4, R5, R6, R7
+		R2, R3, R4, R5, R6 //, R7
 	};
 	count = sizeof(allocationOrder) / sizeof(const int);
 	return allocationOrder;

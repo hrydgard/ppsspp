@@ -204,17 +204,17 @@ public:
 	{
 		switch(Type)
 		{
-			case TYPE_IMM:
+		case TYPE_IMM:
 			return Imm12Mod(); // This'll need to be changed later
-			case TYPE_REG:
+		case TYPE_REG:
 			return Rm();
-			case TYPE_IMMSREG:
+		case TYPE_IMMSREG:
 			return IMMSR();
-			case TYPE_RSR:
+		case TYPE_RSR:
 			return RSR();
-			default:
-				_assert_msg_(DYNA_REC, false, "GetData with Invalid Type");
-			break;
+		default:
+			_assert_msg_(DYNA_REC, false, "GetData with Invalid Type");
+			return 0;
 		}
 	}
 	const u32 IMMSR() // IMM shifted register
@@ -344,7 +344,7 @@ public:
 	const u8 *AlignCode16();
 	const u8 *AlignCodePage();
 	const u8 *GetCodePtr() const;
-	void Flush();
+	void FlushIcache();
 	u8 *GetWritableCodePtr();
 
 	void SetCC(CCFlags cond = CC_AL);
@@ -463,8 +463,6 @@ public:
 	void VMOV(ARMReg Dest, ARMReg Src);
 
 	// Utility functions
-	// The difference between this and CALL is that this aligns the stack
-	// where appropriate.
 	void ARMABI_CallFunction(void *func);
 	void ARMABI_CallFunctionC(void *func, u32 Arg0);
 	void ARMABI_CallFunctionCNoSave(void *func, u32 Arg0);
@@ -479,19 +477,6 @@ public:
 	void ARMABI_Return();
 
 	void UpdateAPSR(bool NZCVQ, u8 Flags, bool GE, u8 GEval);
-
-
-	// Strange call wrappers.
-	void CallCdeclFunction3(void* fnptr, u32 arg0, u32 arg1, u32 arg2);
-	void CallCdeclFunction4(void* fnptr, u32 arg0, u32 arg1, u32 arg2, u32 arg3);
-	void CallCdeclFunction5(void* fnptr, u32 arg0, u32 arg1, u32 arg2, u32 arg3, u32 arg4);
-	void CallCdeclFunction6(void* fnptr, u32 arg0, u32 arg1, u32 arg2, u32 arg3, u32 arg4, u32 arg5);
-	#define CallCdeclFunction3_I(a,b,c,d) CallCdeclFunction3((void *)(a), (b), (c), (d))
-	#define CallCdeclFunction4_I(a,b,c,d,e) CallCdeclFunction4((void *)(a), (b), (c), (d), (e)) 
-	#define CallCdeclFunction5_I(a,b,c,d,e,f) CallCdeclFunction5((void *)(a), (b), (c), (d), (e), (f)) 
-	#define CallCdeclFunction6_I(a,b,c,d,e,f,g) CallCdeclFunction6((void *)(a), (b), (c), (d), (e), (f), (g)) 
-
-	#define DECLARE_IMPORT(x)
 
 };  // class ARMXEmitter
 

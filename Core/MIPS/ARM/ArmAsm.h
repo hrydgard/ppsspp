@@ -30,10 +30,6 @@ namespace MIPSComp
 
 class ArmAsmRoutineManager : public ArmGen::ARMXCodeBlock
 {
-private:
-	void Generate(MIPSState *mips, MIPSComp::Jit *jit);
-	void GenerateCommon();
-
 public:
 	ArmAsmRoutineManager()
 	{
@@ -58,6 +54,10 @@ public:
 	const u8 *dispatcherNoCheck;
 
 	const u8 *breakpointBailout;
+
+private:
+	void Generate(MIPSState *mips, MIPSComp::Jit *jit);
+	void QuickCallFunction(ArmGen::ARMReg reg, void *func);
 };
 
 #endif	// _JIT64ASM_H

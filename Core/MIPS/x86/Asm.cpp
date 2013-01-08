@@ -83,6 +83,7 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 
 		CMP(32, M((void*)&coreState), Imm32(0));
 		FixupBranch badCoreState = J_CC(CC_NZ, true);
+		FixupBranch skipToRealDispatch2 = J(); //skip the sync and compare first time
 
 		dispatcher = GetCodePtr();
 			// The result of slice decrementation should be in flags if somebody jumped here
@@ -90,6 +91,7 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 			FixupBranch bail = J_CC(CC_S, true);
 
 			SetJumpTarget(skipToRealDispatch);
+			SetJumpTarget(skipToRealDispatch2);
 
 			dispatcherNoCheck = GetCodePtr();
 

@@ -65,9 +65,9 @@ void Jit()
 	MIPSComp::jit->Compile(currentMIPS->pc);
 }
 
-void ShowPC() {
+void ShowPC(u32 sp) {
 	if (currentMIPS) {
-		WARN_LOG(HLE, "PC : %08x", currentMIPS->pc);
+		WARN_LOG(HLE, "PC : %08x  ArmSP : %08x", currentMIPS->pc, sp);
 	} else {
 		ERROR_LOG(HLE, "Universe corrupt?");
 	}
@@ -78,6 +78,13 @@ void DisassembleArm(const u8 *data, int size);
 // PLAN: no more block numbers - crazy opcodes just contain offset within
 // dynarec buffer
 // At this offset - 4, there is an int specifying the block number.
+
+void ArmAsmRoutineManager::QuickCallFunction(ARMReg reg, void *func) {
+	PUSH(1, _LR);
+	ARMABI_MOVI2R(reg, (u32)(func));
+	BL(reg);
+	POP(1, _LR);
+}
 
 void ArmAsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 {
@@ -93,10 +100,10 @@ void ArmAsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 	// R13 cannot be used as it's the stack pointer.
 	ARMABI_MOVI2R(R11, (u32)Memory::base);
 	ARMABI_MOVI2R(R10, (u32)mips);
-	ARMABI_MOVI2R(R9, (u32)jit->GetBlockCache()->GetCodePointers());
+	ARMABI_MOVI2R(R7, (u32)jit->GetBlockCache()->GetCodePointers());
 
 	outerLoop = GetCodePtr();
-		ARMABI_CallFunction((void *)&CoreTiming::Advance);
+		QuickCallFunction(R0, (void *)&CoreTiming::Advance);
 		FixupBranch skipToRealDispatch = B(); //skip the sync and compare first time
 
 		dispatcherCheckCoreState = GetCodePtr();
@@ -106,9 +113,9 @@ void ArmAsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 		LDR(R0, R0);
 		CMP(R0, 0);
 		FixupBranch badCoreState = B_CC(CC_NEQ);
-	
-		// At this point : flags = EQ. Fine for the next check, no need to jump over it.
+		FixupBranch skipToRealDispatch2 = B(); //skip the sync and compare first time
 
+		// At this point : flags = EQ. Fine for the next check, no need to jump over it.
 		dispatcher = GetCodePtr();
 
 			// The result of slice decrementation should be in flags if somebody jumped here
@@ -116,11 +123,17 @@ void ArmAsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 			FixupBranch bail = B_CC(CC_MI);
 
 			SetJumpTarget(skipToRealDispatch);
+			SetJumpTarget(skipToRealDispatch2);
 
 			dispatcherNoCheck = GetCodePtr();
 
 			// Debug
-			// ARMABI_CallFunction((void *)&ShowPC);
+			// MOV(R0, R13);
+			// QuickCallFunction(R1, (void *)&ShowPC);
+
+			ARMABI_MOVI2R(R7, (u32)jit->GetBlockCache()->GetCodePointers());
+			ARMABI_MOVI2R(R11, (u32)Memory::base);
+			ARMABI_MOVI2R(R10, (u32)mips);
 
 			LDR(R0, R10, offsetof(MIPSState, pc));
 
@@ -138,7 +151,7 @@ void ArmAsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 					//ADD(32, M(&mips->debugCount), Imm8(1));
 				}
 				// grab from list and jump to it
-				ADD(R0, R9, Operand2(2, ST_LSL, R0));
+				ADD(R0, R7, Operand2(2, ST_LSL, R0));
 				LDR(R0, R0);
 				B(R0);
 
@@ -166,4 +179,7 @@ void ArmAsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 	INFO_LOG(HLE, "THE DISASM ========================");
 	DisassembleArm(enterCode, GetCodePtr() - enterCode);
 	INFO_LOG(HLE, "END OF THE DISASM ========================");
+
+	// Don't forget to zap the instruction cache!
+	FlushIcache();
 }

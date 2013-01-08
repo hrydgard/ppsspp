@@ -36,7 +36,7 @@ void DisassembleArm(const u8 *data, int size) {
 		// MAGIC SPECIAL CASE for MOVW/MOVT readability!
 		if ((inst & 0x0FF00000) == 0x03000000 && (next & 0x0FF00000) == 0x03400000) {
 			u32 low = ((inst & 0x000F0000) >> 4) | (inst & 0x0FFF);
-			u32 hi = ((next & 0x000F0000) >> 4) | (next & 0x0FFF);
+			u32 hi = ((next & 0x000F0000) >> 4) | (next	 & 0x0FFF);
 			int reg0 = (inst & 0x0000F000) >> 12;
 			int reg1 = (next & 0x0000F000) >> 12;
 			if (reg0 == reg1) {
@@ -76,8 +76,6 @@ void Jit::ClearCache()
 	ClearCodeSpace();
 }
 
-u8 *codeCache;
-#define CACHESIZE 16384*1024
 void Jit::CompileAt(u32 addr)
 {
 	u32 op = Memory::Read_Instruction(addr);
@@ -86,7 +84,7 @@ void Jit::CompileAt(u32 addr)
 
 void Jit::Compile(u32 em_address)
 {
-	//ERROR_LOG(CPU, "Compile %08x", em_address);
+	ERROR_LOG(CPU, "Compile %08x", em_address);
 	if (GetSpaceLeft() < 0x10000 || blocks.IsFull())
 	{
 		ClearCache();
@@ -103,10 +101,6 @@ void Jit::RunLoopUntil(u64 globalticks)
 	((void (*)())asm_.enterCode)();
 	INFO_LOG(DYNA_REC, "Left asm code like a boss!");
 	INFO_LOG(DYNA_REC, "or Two!");
-}
-
-void Hullo(int a, int b, int c, int d) {
-	INFO_LOG(DYNA_REC, "Hullo %08x %08x %08x %08x", a, b, c, d);
 }
 
 const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
@@ -165,6 +159,10 @@ const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 	DisassembleArm(b->checkedEntry, GetCodePtr() - b->checkedEntry);
 #endif
 	AlignCode16();
+
+	// Don't forget to zap the instruction cache!
+	FlushIcache();
+
 	b->originalSize = numInstructions;
 	return b->normalEntry;
 }

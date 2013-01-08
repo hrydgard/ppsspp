@@ -59,7 +59,7 @@ const u8 *ARMXEmitter::AlignCodePage()
 	return code;
 }
 
-void ARMXEmitter::Flush()
+void ARMXEmitter::FlushIcache()
 {
 	__builtin___clear_cache (startcode, code);
 	SLEEP(0);
@@ -166,7 +166,7 @@ void ARMXEmitter::B (const void *fnptr)
 
 void ARMXEmitter::B(ARMReg src)
 {
-	Write32(condition | (18 << 20) | (0xFFF << 8) | (1 << 4) | src);
+	Write32(condition | 0x12FFF10 | src);
 }
 
 void ARMXEmitter::BL(const void *fnptr)
@@ -536,20 +536,4 @@ void ARMXEmitter::VMOV(ARMReg Dest, ARMReg Src)
 	}
 }
 
-// helper routines for setting pointers
-void ARMXEmitter::CallCdeclFunction3(void* fnptr, u32 arg0, u32 arg1, u32 arg2)
-{
-}
-
-void ARMXEmitter::CallCdeclFunction4(void* fnptr, u32 arg0, u32 arg1, u32 arg2, u32 arg3)
-{
-}
-
-void ARMXEmitter::CallCdeclFunction5(void* fnptr, u32 arg0, u32 arg1, u32 arg2, u32 arg3, u32 arg4)
-{
-}
-
-void ARMXEmitter::CallCdeclFunction6(void* fnptr, u32 arg0, u32 arg1, u32 arg2, u32 arg3, u32 arg4, u32 arg5)
-{
-}
 }

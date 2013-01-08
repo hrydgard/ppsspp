@@ -62,20 +62,20 @@ void Jit::BranchRSRTComp(u32 op, ArmGen::CCFlags cc, bool likely)
     //ERROR_LOG(CPU, "Not nice delay slot in BranchRSRTComp :( %08x", js.compilerPC);
   }
   // The delay slot being nice doesn't really matter though...
-	/*
+	
   if (rt == 0)
   {
 		gpr.MapReg(rs, MAP_INITVAL);
 		CMP(gpr.R(rs), Operand2(0));
-  }*/
+  }
 	/*
 	else if (rs == 0 && (cc == CC_EQ || cc == CC_NEQ))  // only these are easily 'flippable'
 	{
 		gpr.MapReg(rt, MAP_INITVAL);
 		CMP(gpr.R(rt), Operand2(0));
 	}
-	else*/
-	{
+	*/
+	else {
 		gpr.SpillLock(rs, rt);
 		gpr.MapReg(rs, MAP_INITVAL);
 		gpr.MapReg(rt, MAP_INITVAL);
@@ -227,9 +227,8 @@ void Jit::BranchFPFlag(u32 op, ArmGen::CCFlags cc, bool likely)
   }
   FlushAll();
 
-	ARMABI_MOVI2R(R0, (u32)&(mips_->fpcond));
-	LDR(R0, R0, Operand2(0, TYPE_IMM));
-  TST(R0, Operand2(1, TYPE_IMM));
+	LDR(R0, R10, offsetof(MIPSState, fpcond));
+  CMP(R0, Operand2(1, TYPE_IMM));
   ArmGen::FixupBranch ptr;
   js.inDelaySlot = true;
   if (!likely)
@@ -263,10 +262,10 @@ void Jit::Comp_FPUBranch(u32 op)
 {
 	switch((op >> 16) & 0x1f)
 	{
-	case 0:	BranchFPFlag(op, CC_NEQ, false); break;  // bc1f
-	case 1: BranchFPFlag(op, CC_EQ,  false); break;  // bc1t
-	case 2: BranchFPFlag(op, CC_NEQ, true);  break;  // bc1fl
-	case 3: BranchFPFlag(op, CC_EQ,  true);  break;  // bc1tl
+	case 0:	BranchFPFlag(op, CC_EQ, false); break;  // bc1f
+	case 1: BranchFPFlag(op, CC_NEQ,  false); break;  // bc1t
+	case 2: BranchFPFlag(op, CC_EQ, true);  break;  // bc1fl
+	case 3: BranchFPFlag(op, CC_NEQ,  true);  break;  // bc1tl
 	default:
 		_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
 		break;
