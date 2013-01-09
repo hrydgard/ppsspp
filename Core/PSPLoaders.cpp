@@ -64,6 +64,11 @@ bool Load_PSP_ISO(const char *filename, std::string *error_string)
 	pspFileSystem.Mount("umd1:", umd2);
 	pspFileSystem.Mount("disc0:", umd2);
 	pspFileSystem.Mount("umd:", umd2);
+	pspFileSystem.Mount("UMD1:", umd2);
+	pspFileSystem.Mount("UMD0:", umd2);
+	pspFileSystem.Mount("DISC0:", umd2);
+	pspFileSystem.Mount("UMD:", umd2);
+
 
 	std::string sfoPath("disc0:/PSP_GAME/PARAM.SFO");
 	PSPFileInfo fileInfo = pspFileSystem.GetFileInfo(sfoPath.c_str());
@@ -89,6 +94,9 @@ bool Load_PSP_ISO(const char *filename, std::string *error_string)
 	if (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/SYSDIR/EBOOT.OLD").exists) {
 		bootpath = "disc0:/PSP_GAME/SYSDIR/EBOOT.OLD";
 	}
+	if (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/SYSDIR/EBOOT_LRC_CH.BIN").exists) {
+		bootpath = "disc0:/PSP_GAME/SYSDIR/EBOOT_LRC_CH.BIN";
+	}
 	bool hasEncrypted = false;
 	u32 fd;
 	if ((fd = pspFileSystem.OpenFile(bootpath, FILEACCESS_READ)) != 0)
@@ -113,14 +121,14 @@ bool Load_PSP_ISO(const char *filename, std::string *error_string)
 bool Load_PSP_ELF_PBP(const char *filename, std::string *error_string)
 {
 	// This is really just for headless, might need tweaking later.
-	if (!PSP_CoreParameter().mountIso.empty())
-	{
-		ISOFileSystem *umd2 = new ISOFileSystem(&pspFileSystem, constructBlockDevice(PSP_CoreParameter().mountIso.c_str()));
-
-		pspFileSystem.Mount("umd1:", umd2);
-		pspFileSystem.Mount("disc0:", umd2);
-		pspFileSystem.Mount("umd:", umd2);
-	}
+	//if (!PSP_CoreParameter().mountIso.empty())
+	//{
+	//	ISOFileSystem *umd2 = new ISOFileSystem(&pspFileSystem, constructBlockDevice(PSP_CoreParameter().mountIso.c_str()));
+	//
+	//	pspFileSystem.Mount("umd1:", umd2);
+	//	pspFileSystem.Mount("disc0:", umd2);
+	//	pspFileSystem.Mount("umd:", umd2);
+	//}
 
 	std::string full_path = filename;
 	std::string path, file, extension;
