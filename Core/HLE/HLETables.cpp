@@ -98,7 +98,7 @@ const HLEFunction UtilsForUser[] =
 	{0x16641D70, 0, "sceKernelDcacheReadTag"},
 	{0x4FD31C9D, 0, "sceKernelIcacheProbe"},
 	{0xFB05FAD0, 0, "sceKernelIcacheReadTag"},
-    {0x920f104a, WrapU_V<sceKernelIcacheInvalidateAll>, "sceKernelIcacheInvalidateAll"}
+	{0x920f104a, WrapU_V<sceKernelIcacheInvalidateAll>, "sceKernelIcacheInvalidateAll"}
 };				   
 
 

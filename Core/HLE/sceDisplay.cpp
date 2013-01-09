@@ -95,11 +95,11 @@ void hleLeaveVblank(u64 userdata, int cyclesLate);
 
 void __DisplayInit() {
 	gpuStats.reset();
-	hasSetMode = false;
-	framebufIsLatched = false;
+    hasSetMode = false;
+    framebufIsLatched = false;
 	framebuf.topaddr = 0x04000000;
 	framebuf.pspFramebufFormat = PSP_DISPLAY_PIXEL_FORMAT_8888;
-	framebuf.pspFramebufLinesize = 480; // ??
+    framebuf.pspFramebufLinesize = 480; // ??
 
 	enterVblankEvent = CoreTiming::RegisterEvent("EnterVBlank", &hleEnterVblank);
 	leaveVblankEvent = CoreTiming::RegisterEvent("LeaveVBlank", &hleLeaveVblank);
@@ -111,7 +111,7 @@ void __DisplayInit() {
 	hCountTotal = 0;
 	lastFrameTime = 0;
 
-	InitGfxState();
+    InitGfxState();
 }
 
 void __DisplayDoState(PointerWrap &p) {
@@ -146,7 +146,7 @@ void __DisplayDoState(PointerWrap &p) {
 		gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
 	}
 
-	p.DoMarker("sceDisplay");
+    p.DoMarker("sceDisplay");
 }
 
 void __DisplayShutdown() {
@@ -256,33 +256,33 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	host->EndFrame();
 
 #ifdef _WIN32
-	static double lastFrameTime = 0.0;
-	// Best place to throttle the frame rate on non vsynced platforms is probably here. Let's try it.
-	time_update();
-	if (lastFrameTime == 0.0)
-		lastFrameTime = time_now_d();
-	if (!GetAsyncKeyState(VK_TAB)) {
-		while (time_now_d() < lastFrameTime + 1.0 / 60.0) {
-			Common::SleepCurrentThread(1);
-			time_update();
-		}
-		// Advance lastFrameTime by a constant amount each frame,
-		// but don't let it get too far behind.
-		lastFrameTime = std::max(lastFrameTime + 1.0 / 60.0, time_now_d() - 1.5 / 60.0);
-	}
+    static double lastFrameTime = 0.0;
+    // Best place to throttle the frame rate on non vsynced platforms is probably here. Let's try it.
+    time_update();
+    if (lastFrameTime == 0.0)
+        lastFrameTime = time_now_d();
+    if (!GetAsyncKeyState(VK_TAB)) {
+        while (time_now_d() < lastFrameTime + 1.0 / 60.0) {
+            Common::SleepCurrentThread(1);
+            time_update();
+        }
+        // Advance lastFrameTime by a constant amount each frame,
+        // but don't let it get too far behind.
+        lastFrameTime = std::max(lastFrameTime + 1.0 / 60.0, time_now_d() - 1.5 / 60.0);
+    }
 
-	// We are going to have to do something about audio timing for platforms that
-	// are vsynced to something that's not exactly 60fps..
+    // We are going to have to do something about audio timing for platforms that
+    // are vsynced to something that's not exactly 60fps..
 
 #endif
 
-	host->BeginFrame();
-	gpu->BeginFrame();
+    host->BeginFrame();
+    gpu->BeginFrame();
 
-	// Tell the emu core that it's time to stop emulating
-	// Win32 doesn't need this.
+    // Tell the emu core that it's time to stop emulating
+    // Win32 doesn't need this.
 #ifndef _WIN32
-	coreState = CORE_NEXTFRAME;
+    coreState = CORE_NEXTFRAME;
 #endif
 }
 
@@ -312,36 +312,36 @@ u32 sceDisplaySetMode(u32 unknown, u32 xres, u32 yres) {
 }
 
 u32 sceDisplaySetFramebuf() {
-	u32 topaddr = PARAM(0);
-	int linesize = PARAM(1);
-	int pixelformat = PARAM(2);
-	int sync = PARAM(3);
+    u32 topaddr = PARAM(0);
+    int linesize = PARAM(1);
+    int pixelformat = PARAM(2);
+    int sync = PARAM(3);
 
-	FrameBufferState fbstate;
-	DEBUG_LOG(HLE,"sceDisplaySetFramebuf(topaddr=%08x,linesize=%d,pixelsize=%d,sync=%d)",topaddr,linesize,pixelformat,sync);
-	if (topaddr == 0) {
-		DEBUG_LOG(HLE,"- screen off");
-	} else {
-		fbstate.topaddr = topaddr;
-		fbstate.pspFramebufFormat = (PspDisplayPixelFormat)pixelformat;
-		fbstate.pspFramebufLinesize = linesize;
-	}
+    FrameBufferState fbstate;
+    DEBUG_LOG(HLE,"sceDisplaySetFramebuf(topaddr=%08x,linesize=%d,pixelsize=%d,sync=%d)",topaddr,linesize,pixelformat,sync);
+    if (topaddr == 0) {
+        DEBUG_LOG(HLE,"- screen off");
+    } else {
+        fbstate.topaddr = topaddr;
+        fbstate.pspFramebufFormat = (PspDisplayPixelFormat)3;
+        fbstate.pspFramebufLinesize = linesize;
+    }
 
-	if (sync == PSP_DISPLAY_SETBUF_IMMEDIATE) {
-		// Write immediately to the current framebuffer parameters
-		if (topaddr != 0)
-		{
-			framebuf = fbstate;
-			gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
-		}
-		else
-			WARN_LOG(HLE, "%s: PSP_DISPLAY_SETBUF_IMMEDIATE without topaddr?", __FUNCTION__);
-	} else if (topaddr != 0) {
-		// Delay the write until vblank
-		latchedFramebuf = fbstate;
-		framebufIsLatched = true;
-	}
-	return 0;
+    if (sync == PSP_DISPLAY_SETBUF_IMMEDIATE) {
+        // Write immediately to the current framebuffer parameters
+        if (topaddr != 0)
+        {
+            framebuf = fbstate;
+            gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
+        }
+        else
+            WARN_LOG(HLE, "%s: PSP_DISPLAY_SETBUF_IMMEDIATE without topaddr?", __FUNCTION__);
+    } else if (topaddr != 0) {
+        // Delay the write until vblank
+        latchedFramebuf = fbstate;
+        framebufIsLatched = true;
+    }
+    return 0;
 }
 
 u32 sceDisplayGetFramebuf(u32 topaddrPtr, u32 linesizePtr, u32 pixelFormatPtr, int mode) {
