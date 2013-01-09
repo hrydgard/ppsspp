@@ -255,6 +255,7 @@ BEGIN
         MENUITEM "&Buffered Rendering\tF5",     ID_OPTIONS_BUFFEREDRENDERING
         MENUITEM "&Hardware Transform\tF6",     ID_OPTIONS_HARDWARETRANSFORM
         MENUITEM "&Linear Filtering",           ID_OPTIONS_LINEARFILTERING
+		MENUITEM "Si&mple 2X SSAA",             ID_OPTIONS_SIMPLE2XSSAA
         MENUITEM SEPARATOR
         MENUITEM "&Wireframe (experimental)",   ID_OPTIONS_WIREFRAME
         MENUITEM "&Display Raw Framebuffer",    ID_OPTIONS_DISPLAYRAWFRAMEBUFFER

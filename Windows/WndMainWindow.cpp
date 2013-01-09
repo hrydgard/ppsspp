@@ -399,6 +399,11 @@ namespace MainWindow
 				UpdateMenus();
 				break;
 
+			case ID_OPTIONS_SIMPLE2XSSAA:
+				g_Config.SSAntiAliasing = !g_Config.SSAntiAliasing;
+				UpdateMenus();
+				break;
+
 			case ID_FILE_EXIT:
 				DestroyWindow(hWnd);
 				break;
@@ -643,6 +648,7 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_FASTMEMORY, g_Config.bFastMemory);
 		CHECKITEM(ID_OPTIONS_LINEARFILTERING, g_Config.bLinearFiltering);
 		CHECKITEM(ID_EMULATION_RUNONLOAD, g_Config.bAutoRun);
+		CHECKITEM(ID_OPTIONS_SIMPLE2XSSAA, g_Config.SSAntiAliasing);
 
 		UINT enable = !Core_IsStepping() ? MF_GRAYED : MF_ENABLED;
 		EnableMenuItem(menu,ID_EMULATION_RUN, g_State.bEmuThreadStarted ? enable : MF_GRAYED);
@@ -663,6 +669,7 @@ namespace MainWindow
 		EnableMenuItem(menu,ID_EMULATION_STOP,!enable);
 		EnableMenuItem(menu,ID_OPTIONS_SETTINGS,enable);
 		EnableMenuItem(menu,ID_PLUGINS_CHOOSEPLUGINS,enable);
+		EnableMenuItem(menu,ID_OPTIONS_SIMPLE2XSSAA,enable);
 
 		const int zoomitems[4] = {
 			ID_OPTIONS_SCREEN1X,
