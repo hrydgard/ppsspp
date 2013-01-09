@@ -54,6 +54,7 @@ public:
 	bool bDrawWireframe;
 	bool bLinearFiltering;
 	int iWindowZoom;  // for Windows
+	bool SSAntiAliasing; //for Windows too
 
 	// Sound
 	bool bEnableSound;

@@ -64,6 +64,7 @@ void CConfig::Load(const char *iniFileName)
 	graphics->Get("BufferedRendering", &bBufferedRendering, true);
 	graphics->Get("HardwareTransform", &bHardwareTransform, true);
 	graphics->Get("LinearFiltering", &bLinearFiltering, false);
+	graphics->Get("SSAA", &SSAntiAliasing, 0);
 
 	IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 	sound->Get("Enable", &bEnableSound, true);
