@@ -93,6 +93,28 @@ struct AvcContext {
 };
 
 struct Mp3Context {	
+	void DoState(PointerWrap &p) {
+		p.Do(mp3StreamStart);
+		p.Do(mp3StreamEnd);
+		p.Do(mp3Buf);
+		p.Do(mp3BufSize);
+		p.Do(mp3PcmBuf);
+		p.Do(mp3PcmBufSize);
+		p.Do(mp3InputFileReadPos);
+		p.Do(mp3InputBufWritePos);
+		p.Do(mp3InputBufSize);
+		p.Do(mp3InputFileSize);
+		p.Do(mp3DecodedBytes);
+		p.Do(mp3LoopNum);
+		p.Do(mp3MaxSamples);
+		p.Do(mp3BitRate);
+		p.Do(mp3Channels);
+		p.Do(mp3SampleRate);
+		p.Do(mp3Version);
+		mediaengine->DoState(p);
+		p.DoMarker("Mp3Context");
+	}
+
 	int mp3StreamStart;
 	int mp3StreamEnd;
 	int mp3Buf;
@@ -107,6 +129,12 @@ struct Mp3Context {
 	int mp3DecodedBytes;
 	int mp3LoopNum;
 	int mp3MaxSamples;
+	int mp3BitRate;
+	int mp3Channels;
+	int mp3SampleRate;
+	int mp3Version;
+
+	MediaEngine *mediaengine;
 };
 
 struct StreamInfo {	
@@ -1228,7 +1256,7 @@ u32 sceMp3ResetPlayPosition(u32 mp3)
 		return -1;
 	}
 
-	DEBUG_LOG(HLE, "SceMp3ResetPlayPosition(%08x, %i)", mp3);
+	DEBUG_LOG(HLE, "SceMp3ResetPlayPosition(%08x)", mp3);
 	ctx->mp3InputFileReadPos = 0;
 	ctx->mp3InputBufWritePos = 0;
 	ctx->mp3InputBufSize = 0;
@@ -1305,6 +1333,199 @@ u32 sceMp3GetMaxOutputSample(u32 mp3)
 	return ctx->mp3MaxSamples;
 }
 
+u32 sceMp3GetSamplingRate(u32 mp3)
+{
+	DEBUG_LOG(HLE, "sceMp3GetSamplingRate(%08x)", mp3);
+	Mp3Context *ctx = getMp3Ctx(mp3);
+	if (!ctx)
+	{
+		ERROR_LOG(HLE, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
+		return -1;
+	}
+
+	int header = Memory::Read_U32(ctx->mp3Buf + (int) ctx->mp3StreamStart);
+	int bitval = (header >> 10) & 0x3 ;
+	if (bitval == 0) {
+		ctx->mp3SampleRate = 44100;
+	} else if (bitval == 1) {
+		ctx->mp3SampleRate = 48000;
+	} else if (bitval == 2) {
+		ctx->mp3SampleRate = 32000;
+	} else {
+		ctx->mp3SampleRate = 0;
+	}
+	return ctx->mp3SampleRate;
+}
+
+u32 sceMp3GetMp3ChannelNum(u32 mp3)
+{
+	DEBUG_LOG(HLE, "sceMp3GetMp3ChannelNum(%08x)", mp3);
+	Mp3Context *ctx = getMp3Ctx(mp3);
+	if (!ctx)
+	{
+		ERROR_LOG(HLE, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
+		return -1;
+	}
+
+	int header = Memory::Read_U32(ctx->mp3Buf + (int) ctx->mp3StreamStart);
+	int bitval = (header >> 6) & 0x3 ;
+	if (bitval == 0 || bitval == 1 || bitval == 2) {
+		ctx->mp3Channels = 2;  
+	} else if (bitval == 3) {
+		ctx->mp3Channels = 1;  
+	} else {
+		ctx->mp3Channels = 0;
+	}
+	return ctx->mp3Channels;
+}
+
+u32 sceMp3GetVersion(u32 mp3)
+{
+	DEBUG_LOG(HLE, "sceMp3GetVersion(%08x)", mp3);
+	Mp3Context *ctx = getMp3Ctx(mp3);
+	if (!ctx)
+	{
+		ERROR_LOG(HLE, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
+		return -1;
+	}
+
+	int header = Memory::Read_U32(ctx->mp3Buf + (int) ctx->mp3StreamStart);
+	int mp3Version = (header >> 19) & 0x3;
+	return ctx->mp3Version;
+}
+
+u32 sceMp3GetBitRate(u32 mp3)
+{
+	DEBUG_LOG(HLE, "sceMp3GetBitRate(%08x)", mp3);
+	Mp3Context *ctx = getMp3Ctx(mp3);
+	if (!ctx)
+	{
+		ERROR_LOG(HLE, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
+		return -1;
+	}
+
+	int header = Memory::Read_U32(ctx->mp3Buf + (int) ctx->mp3StreamStart);
+	int bitval = (header >> 12) & 0xF ;
+	switch (bitval) {
+		case 0: ctx->mp3BitRate = 0;
+		case 1: ctx->mp3BitRate = 32;
+		case 2: ctx->mp3BitRate = 40;
+		case 3: ctx->mp3BitRate = 48;
+		case 4: ctx->mp3BitRate = 56;
+		case 5: ctx->mp3BitRate = 64;
+		case 6: ctx->mp3BitRate = 80;
+		case 7: ctx->mp3BitRate = 96;
+		case 8: ctx->mp3BitRate = 112;
+		case 9: ctx->mp3BitRate = 128;
+		case 10: ctx->mp3BitRate = 160;
+		case 11: ctx->mp3BitRate = 192;
+		case 12: ctx->mp3BitRate = 224;
+		case 13: ctx->mp3BitRate = 256;
+		case 14: ctx->mp3BitRate = 320;
+		default: ctx->mp3BitRate = -1;
+	}
+	return ctx->mp3BitRate;
+}
+
+u32 sceMp3SetLoopNum(u32 mp3, int loopNum)
+{
+	DEBUG_LOG(HLE, "sceMp3SetLoopNum(%08x, %i)", mp3, loopNum);
+	Mp3Context *ctx = getMp3Ctx(mp3);
+	if (!ctx)
+	{
+		ERROR_LOG(HLE, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
+		return -1;
+	}
+
+	ctx->mp3LoopNum = loopNum ;
+	return ctx->mp3LoopNum;
+}
+
+u32 sceMp3EndEntry()
+{
+	DEBUG_LOG(HLE, "UNIMPL sceMp3StartEntry(.)");
+	return 0;
+}
+
+u32 sceMp3StartEntry()
+{
+	DEBUG_LOG(HLE, "UNIMPL sceMp3StartEntry(.)");
+	return 0;
+}
+
+u32 sceMp3GetFrameNum(u32 mp3)
+{
+	DEBUG_LOG(HLE, "UNIMPL sceMp3GetFrameNum(%08x)", mp3);
+	return 0;
+}
+
+u32 sceMp3GetSumDecodedSample(u32 mp3)
+{
+	DEBUG_LOG(HLE, "sceMp3GetSumDecodedSample(%08x)", mp3);
+	Mp3Context *ctx = getMp3Ctx(mp3);
+	if (!ctx)
+	{
+		ERROR_LOG(HLE, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
+		return -1;
+	}
+
+	int sample = ctx->mp3DecodedBytes / (ctx->mp3Channels * 2 ) ;
+	return sample;
+}
+
+u32 sceMp3GetInfoToAddStreamData(u32 mp3, u32 mp3BufPtr, u32 mp3BufToWritePtr, u32 mp3PosPtr)
+{
+	DEBUG_LOG(HLE, "sceMp3GetInfoToAddStreamData(%08x, %08x, %08x, %08x)", mp3, mp3BufPtr, mp3BufToWritePtr, mp3PosPtr);
+	Mp3Context *ctx = getMp3Ctx(mp3);
+	if (!ctx)
+	{
+		ERROR_LOG(HLE, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
+		return -1;
+	}
+
+	Memory::Write_U32((ctx->mp3InputFileSize >= ctx->mp3StreamEnd) ? 0 : (ctx->mp3Buf + ctx->mp3InputBufWritePos),mp3BufPtr);
+	Memory::Write_U32((ctx->mp3InputFileSize >= ctx->mp3StreamEnd) ? 0 : (ctx->mp3BufSize - ctx->mp3InputBufWritePos),mp3BufToWritePtr);
+	Memory::Write_U32(ctx->mp3InputFileSize,mp3PosPtr);
+	return 0;
+}
+
+u32 sceMp3NotifyAddStreamData(u32 mp3, int size)
+{
+	DEBUG_LOG(HLE, "sceMp3NotifyAddStreamData(%08x, %i)", mp3, size);
+	Mp3Context *ctx = getMp3Ctx(mp3);
+	if (!ctx)
+	{
+		ERROR_LOG(HLE, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
+		return -1;
+	}
+	ctx->mp3InputFileSize += size;
+	//mp3Channel.write(getMp3BufWriteAddr(), size); ????
+	size = min(size, ctx->mp3InputBufSize);
+	ctx->mp3InputBufSize += size;
+	ctx->mp3InputBufWritePos += size;
+	if (ctx->mp3InputBufWritePos >= ctx->mp3BufSize) {
+		ctx->mp3InputBufWritePos -= ctx->mp3BufSize;
+	}
+	return 0;
+}
+
+u32 sceMp3ReleaseMp3Handle(u32 mp3)
+{
+	DEBUG_LOG(HLE, "sceMp3ReleaseMp3Handle(%08x)", mp3);
+	Mp3Context *ctx = getMp3Ctx(mp3);
+	if (!ctx)
+	{
+		ERROR_LOG(HLE, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
+		return -1;
+	}
+
+	delete ctx->mediaengine;
+	delete ctx;
+	mp3Map.erase(Memory::Read_U32(mp3));
+
+	return 0;
+}
+
 const HLEFunction sceMpeg[] =
 {
 	{0xe1ce83a7,WrapI_UUUU<sceMpegGetAtracAu>,"sceMpegGetAtracAu"},
@@ -1352,26 +1573,26 @@ const HLEFunction sceMpeg[] =
 const HLEFunction sceMp3[] =
 {
 	{0x07EC321A,WrapU_U<sceMp3ReserveMp3Handle>,"sceMp3ReserveMp3Handle"},
-	{0x0DB149F4,0,"sceMp3NotifyAddStreamData"},
+	{0x0DB149F4,WrapU_UI<sceMp3NotifyAddStreamData>,"sceMp3NotifyAddStreamData"},
 	{0x2A368661,WrapU_U<sceMp3ResetPlayPosition>,"sceMp3ResetPlayPosition"},
-	{0x354D27EA,0,"sceMp3GetSumDecodedSample"},
+	{0x354D27EA,WrapU_U<sceMp3GetSumDecodedSample>,"sceMp3GetSumDecodedSample"},
 	{0x35750070,WrapU_V<sceMp3InitResource>,"sceMp3InitResource"},
 	{0x3C2FA058,WrapU_V<sceMp3TermResource>,"sceMp3TermResource"},
-	{0x3CEF484F,0,"sceMp3SetLoopNum"},
+	{0x3CEF484F,WrapU_UI<sceMp3SetLoopNum>,"sceMp3SetLoopNum"},
 	{0x44E07129,WrapU_U<sceMp3Init>,"sceMp3Init"},
-	{0x732B042A,0,"sceMp3EndEntry"},
-	{0x7F696782,0,"sceMp3GetMp3ChannelNum"},
-	{0x87677E40,0,"sceMp3GetBitRate"},
+	{0x732B042A,WrapU_V<sceMp3EndEntry>,"sceMp3EndEntry"},
+	{0x7F696782,WrapU_U<sceMp3GetMp3ChannelNum>,"sceMp3GetMp3ChannelNum"},
+	{0x87677E40,WrapU_U<sceMp3GetBitRate>,"sceMp3GetBitRate"},
 	{0x87C263D1,WrapU_U<sceMp3GetMaxOutputSample>,"sceMp3GetMaxOutputSample"},
-	{0x8AB81558,0,"sceMp3StartEntry"},
-	{0x8F450998,0,"sceMp3GetSamplingRate"},
-	{0xA703FE0F,0,"sceMp3GetInfoToAddStreamData"},
+	{0x8AB81558,WrapU_V<sceMp3StartEntry>,"sceMp3StartEntry"},
+	{0x8F450998,WrapU_U<sceMp3GetSamplingRate>,"sceMp3GetSamplingRate"},
+	{0xA703FE0F,WrapU_UUUU<sceMp3GetInfoToAddStreamData>,"sceMp3GetInfoToAddStreamData"},
 	{0xD021C0FB,WrapU_UU<sceMp3Decode>,"sceMp3Decode"},
 	{0xD0A56296,WrapU_U<sceMp3CheckStreamDataNeeded>,"sceMp3CheckStreamDataNeeded"},
 	{0xD8F54A51,WrapU_U<sceMp3GetLoopNum>,"sceMp3GetLoopNum"},
-	{0xF5478233,0,"sceMp3ReleaseMp3Handle"},
-	{0xAE6D2027,0,"sceMp3GetVersion"},
-	{0x3548AEC8,0,"sceMp3GetFrameNum"},
+	{0xF5478233,WrapU_U<sceMp3ReleaseMp3Handle>,"sceMp3ReleaseMp3Handle"},
+	{0xAE6D2027,WrapU_U<sceMp3GetVersion>,"sceMp3GetVersion"},
+	{0x3548AEC8,WrapU_U<sceMp3GetFrameNum>,"sceMp3GetFrameNum"},
 };
 
 void Register_sceMpeg()
