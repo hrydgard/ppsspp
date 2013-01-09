@@ -1717,6 +1717,7 @@ void sceKernelDelayThreadCB()
 {
 	u32 usec = PARAM(0);
 	if (usec < 200) usec = 200;
+	DEBUG_LOG(HLE,"sceKernelDelayThreadCB(%i usec)",usec);
 
 	SceUID curThread = __KernelGetCurThread();
 	__KernelScheduleWakeup(curThread, usec);
@@ -2205,6 +2206,11 @@ void __KernelSwitchContext(Thread *target, const char *reason)
 	}
 	currentThread = target->GetUID();
 	__KernelLoadContext(&target->context);
+	DEBUG_LOG(HLE,"Context switched: %s -> %s (%s) (%i - pc: %08x -> %i - pc: %08x)",
+		oldName, target->GetName(),
+		reason,
+		oldUID, oldPC, target->GetUID(), currentMIPS->pc);
+
 	// No longer waiting.
 	target->nt.waitType = WAITTYPE_NONE;
 	target->nt.waitID = 0;
