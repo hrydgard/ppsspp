@@ -411,8 +411,7 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)
 		u32 positionOnIso;
 		if (e.isRawSector)
 		{
-			// TODO: this seems bogus
-			positionOnIso = e.sectorStart * 2048;
+			positionOnIso = e.sectorStart * 2048 + e.seekPos;
 			
 			if (e.seekPos + size > e.openSize)
 			{
@@ -487,7 +486,7 @@ size_t ISOFileSystem::SeekFile(u32 handle, s32 position, FileMove type)
 			break;
 		case FILEMOVE_END:
 			if (e.isRawSector)
-				e.seekPos = e.openSize;
+				e.seekPos = e.openSize + position;
 			else
 				e.seekPos = (unsigned int)(e.file->size + position);
 			break;
