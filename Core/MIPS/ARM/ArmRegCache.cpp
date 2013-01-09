@@ -34,7 +34,6 @@ void ArmRegCache::Start(MIPSAnalyst::AnalysisResults &stats) {
 	for (int i = 0; i < 16; i++) {
 		ar[i].mipsReg = -1;
 		ar[i].spillLock = false;
-		ar[i].allocLock = false;
 		ar[i].isDirty = false;
 	}
 	for (int i = 0; i < NUM_MIPSREG; i++) {
@@ -79,7 +78,7 @@ allocate:
 	for (int i = 0; i < allocCount; i++) {
 		int reg = allocOrder[i];
 
-		if (ar[reg].mipsReg == -1 && !ar[reg].allocLock) {
+		if (ar[reg].mipsReg == -1) {
 			// That means it's free. Grab it, and load the value into it (if requested).
 			ar[reg].mipsReg = mipsReg;
 			ar[reg].isDirty = (mapFlags & MAP_DIRTY) ? true : false;
@@ -100,7 +99,7 @@ allocate:
 	int bestToSpill = -1;
 	for (int i = 0; i < allocCount; i++) {
 		int reg = allocOrder[i];
-		if (ar[reg].spillLock || ar[reg].allocLock)
+		if (ar[reg].spillLock)
 			continue;
 		bestToSpill = reg;
 		break;
@@ -112,7 +111,7 @@ allocate:
 		goto allocate;
 	}
 
-	// Uh oh, we have all them alloclocked and spilllocked....
+	// Uh oh, we have all them spilllocked....
 	ERROR_LOG(JIT, "Out of spillable registers at PC %08x!!!", mips_->pc);
 	return INVALID_REG;
 }

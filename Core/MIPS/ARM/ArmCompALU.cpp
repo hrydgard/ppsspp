@@ -63,6 +63,7 @@ namespace MIPSComp
 
 		switch (op >> 26) 
 		{
+#if 0
 		case 8:	// same as addiu?
 		case 9:	//R(rt) = R(rs) + simm; break;	//addiu
 			{
@@ -87,7 +88,7 @@ namespace MIPSComp
 				} */
 				break;
 			}
-
+#endif
 		//case 12: CompImmLogic(op, &XEmitter::AND, EvalAnd); break;
 		//case 13: CompImmLogic(op, &XEmitter::OR, EvalOr); break;
 		//case 14: CompImmLogic(op, &XEmitter::XOR, EvalXor); break;

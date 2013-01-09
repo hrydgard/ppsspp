@@ -41,7 +41,6 @@ typedef int MIPSReg;
 struct RegARM {
 	int mipsReg;  // if -1, no mipsreg attached.
 	bool isDirty;  // Should the register be written back?
-	bool allocLock;  // if true, this ARM register cannot be used for allocation.
 	bool spillLock;  // if true, this register cannot be spilled.
 };
 
@@ -74,9 +73,6 @@ public:
 
 	void Init(ARMXEmitter *emitter);
 	void Start(MIPSAnalyst::AnalysisResults &stats);
-
-	// void AllocLock(ARMReg reg, ARMReg reg2 = INVALID_REG, ARMReg reg3 = INVALID_REG);
-	// void ReleaseAllocLock(ARMReg reg);
 
 	// Protect the arm register containing a MIPS register from spilling, to ensure that
 	// it's being kept allocated.
