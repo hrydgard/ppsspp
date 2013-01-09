@@ -62,7 +62,7 @@ bool Load_PSP_ISO(const char *filename, std::string *error_string)
 	//pspFileSystem.Mount("host0:",umd2);
 	pspFileSystem.Mount("umd0:", umd2);
 	pspFileSystem.Mount("umd1:", umd2);
-	pspFileSystem.Mount("disc0:", umd2);	
+	pspFileSystem.Mount("disc0:", umd2);
 	pspFileSystem.Mount("umd:", umd2);
 	pspFileSystem.Mount("UMD0:", umd2);
 	pspFileSystem.Mount("UMD1:", umd2);
@@ -116,6 +116,19 @@ bool Load_PSP_ISO(const char *filename, std::string *error_string)
 
 bool Load_PSP_ELF_PBP(const char *filename, std::string *error_string)
 {
+	// This is really just for headless, might need tweaking later.
+	if (!PSP_CoreParameter().mountIso.empty())
+	{
+		ISOFileSystem *umd2 = new ISOFileSystem(&pspFileSystem, constructBlockDevice(PSP_CoreParameter().mountIso.c_str()));
+
+		pspFileSystem.Mount("umd1:", umd2);
+		pspFileSystem.Mount("disc0:", umd2);
+		pspFileSystem.Mount("umd:", umd2);
+		pspFileSystem.Mount("UMD1:", umd2);
+		pspFileSystem.Mount("DISC0:", umd2);
+		pspFileSystem.Mount("UMD:", umd2);
+	}
+
 	std::string full_path = filename;
 	std::string path, file, extension;
 	SplitPath(ReplaceAll(full_path, "\\", "/"), &path, &file, &extension);
