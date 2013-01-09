@@ -555,25 +555,25 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 				// We should probably defer to sceGe here, no sense in implementing this stuff in every GPU
 				switch (behaviour) {
 				case 1:  // Signal with Wait
-					ERROR_LOG(G3D, "Signal with Wait UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
+					DEBUG_LOG(G3D, "Signal with Wait UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
 					break;
 				case 2:
-					ERROR_LOG(G3D, "Signal without wait. signal/end: %04x %04x", signal, enddata);
+					DEBUG_LOG(G3D, "Signal without wait. signal/end: %04x %04x", signal, enddata);
 					break;
 				case 3:
-					ERROR_LOG(G3D, "Signal with Pause UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
+					DEBUG_LOG(G3D, "Signal with Pause UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
 					break;
 				case 0x10:
-					ERROR_LOG(G3D, "Signal with Jump UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
+					DEBUG_LOG(G3D, "Signal with Jump UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
 					break;
 				case 0x11:
-					ERROR_LOG(G3D, "Signal with Call UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
+					DEBUG_LOG(G3D, "Signal with Call UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
 					break;
 				case 0x12:
-					ERROR_LOG(G3D, "Signal with Return UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
+					DEBUG_LOG(G3D, "Signal with Return UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
 					break;
 				default:
-					ERROR_LOG(G3D, "UNKNOWN Signal UNIMPLEMENTED %i ! signal/end: %04x %04x", behaviour, signal, enddata);
+					DEBUG_LOG(G3D, "UNKNOWN Signal UNIMPLEMENTED %i ! signal/end: %04x %04x", behaviour, signal, enddata);
 					break;
 				}
 				// TODO: Should this run while interrupts are suspended?

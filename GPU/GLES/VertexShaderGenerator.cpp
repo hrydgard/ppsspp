@@ -338,7 +338,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 			if (hasColor) {
 				WRITE(p, "  v_color0 = a_color0;\n");
 			} else {
-				WRITE(p, "  v_color0 = u_matambientalpha;\n");
+				WRITE(p, "  v_color0 += vec4(u_matambientalpha.rgb, 0.0);\n");
 			}
 			if (lmode)
 				WRITE(p, "  v_color1 = vec3(0.0, 0.0, 0.0);\n");
