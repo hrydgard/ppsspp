@@ -137,6 +137,7 @@ const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 #endif
 	while (js.compiling)
 	{
+		gpr.SetCompilerPC(js.compilerPC);  // Let it know for log messages
 		u32 inst = Memory::Read_Instruction(js.compilerPC);
 #ifdef LOGASM
 		if (logBlocks > 0) {

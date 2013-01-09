@@ -298,9 +298,13 @@ public:
 
 };
 
-
+// Use these when you don't know if an imm can be represented as an operand2.
+// This lets you generate both an optimal and a fallback solution by checking
+// the return value, which will be false if these fail to find a Operand2 that
+// represents your 32-bit imm value.
 bool TryMakeOperand2(u32 imm, Operand2 &op2);
 bool TryMakeOperand2_AllowInverse(u32 imm, Operand2 &op2, bool *inverse);
+bool TryMakeOperand2_AllowNegation(s32 imm, Operand2 &op2, bool *negated);
 
 
 inline Operand2 R(ARMReg Reg)	{ return Operand2(Reg, TYPE_REG); }

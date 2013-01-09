@@ -80,10 +80,8 @@ void DisassembleArm(const u8 *data, int size);
 // At this offset - 4, there is an int specifying the block number.
 
 void ArmAsmRoutineManager::QuickCallFunction(ARMReg reg, void *func) {
-	PUSH(1, _LR);
 	ARMABI_MOVI2R(reg, (u32)(func));
 	BL(reg);
-	POP(1, _LR);
 }
 
 void ArmAsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)

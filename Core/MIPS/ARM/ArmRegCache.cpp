@@ -58,11 +58,11 @@ static const ARMReg *GetMIPSAllocationOrder(int &count) {
 
 ARMReg ArmRegCache::MapReg(MIPSReg mipsReg, int mapFlags) {
 	// Let's see if it's already mapped. If so we just need to update the dirty flag.
-	// We don't need to check for ML_INITVAL because we assume that anyone who maps
+	// We don't need to check for ML_NOINIT because we assume that anyone who maps
 	// with that flag immediately writes a "known" value to the register.
 	if (mr[mipsReg].loc == ML_ARMREG) {
 		if (ar[mr[mipsReg].reg].mipsReg != mipsReg) {
-			ERROR_LOG(HLE, "Mapping out of sync! %i", mipsReg);
+			ERROR_LOG(HLE, "Register mapping out of sync! %i", mipsReg);
 		}
 		if (mapFlags & MAP_DIRTY) {
 			ar[mr[mipsReg].reg].isDirty = true;
@@ -83,7 +83,7 @@ allocate:
 			// That means it's free. Grab it, and load the value into it (if requested).
 			ar[reg].mipsReg = mipsReg;
 			ar[reg].isDirty = (mapFlags & MAP_DIRTY) ? true : false;
-			if (mapFlags & MAP_INITVAL) {
+			if (!(mapFlags & MAP_NOINIT)) {
 				if (mr[mipsReg].loc == ML_MEM)
 					emit->LDR((ARMReg)reg, CTXREG, 4 * mipsReg);
 				else if (mr[mipsReg].loc == ML_IMM)
@@ -95,17 +95,25 @@ allocate:
 		}
 	}
 
-	// Still nothing. Let's spill a reg and goto 10
-
+	// Still nothing. Let's spill a reg and goto 10.
+	// TODO: Use age or something to choose which register to spill?
+	int bestToSpill = -1;
 	for (int i = 0; i < allocCount; i++) {
-		if (ar[i].spillLock || ar[i].allocLock)
+		int reg = allocOrder[i];
+		if (ar[reg].spillLock || ar[reg].allocLock)
 			continue;
-		FlushArmReg((ARMReg)i);
+		bestToSpill = reg;
+		break;
+	}
+
+	if (bestToSpill != -1) {
+		WARN_LOG(JIT, "Out of registers at PC %08x - spills register %i.", mips_->pc, bestToSpill);
+		FlushArmReg((ARMReg)bestToSpill);
 		goto allocate;
 	}
 
 	// Uh oh, we have all them alloclocked and spilllocked....
-	_assert_msg_(JIT, false, "All available registers are locked dumb dumb");
+	ERROR_LOG(JIT, "Out of spillable registers at PC %08x!!!", mips_->pc);
 	return INVALID_REG;
 }
 
@@ -146,11 +154,19 @@ void ArmRegCache::FlushMipsReg(MIPSReg r) {
 		break;
 	}
 	mr[r].loc = ML_MEM;
+	mr[r].reg = INVALID_REG;
+	mr[r].imm = 0;
 }
 
 void ArmRegCache::FlushAll() {
 	for (int i = 0; i < NUM_MIPSREG; i++) {
 		FlushMipsReg(i);
+	}
+	// Sanity check
+	for (int i = 0; i < NUM_ARMREG; i++) {
+		if (ar[i].mipsReg != -1) {
+			ERROR_LOG(JIT, "Flush fail: ar[%i].mipsReg=%i", i, ar[i].mipsReg);
+		}
 	}
 }
 
@@ -204,8 +220,7 @@ ARMReg ArmRegCache::R(int mipsReg) {
 		return mr[mipsReg].reg;
 	} else {
 		_dbg_assert_msg_(JIT, false, "R: not mapped");
-		ERROR_LOG(JIT, "Reg %i not in arm reg", mipsReg);
+		ERROR_LOG(JIT, "Reg %i not in arm reg. compilerPC = %08x", mipsReg, compilerPC_);
 		return INVALID_REG;  // BAAAD
 	}
 }
-

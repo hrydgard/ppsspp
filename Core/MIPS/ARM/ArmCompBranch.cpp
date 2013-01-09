@@ -65,19 +65,19 @@ void Jit::BranchRSRTComp(u32 op, ArmGen::CCFlags cc, bool likely)
 	
 	if (rt == 0)
   {
-		gpr.MapReg(rs, MAP_INITVAL);
+		gpr.MapReg(rs);
 		CMP(gpr.R(rs), Operand2(0, TYPE_IMM));
   }
 	else if (rs == 0 && (cc == CC_EQ || cc == CC_NEQ))  // only these are easily 'flippable'
 	{
-		gpr.MapReg(rt, MAP_INITVAL);
-		CMP(gpr.R(rt), Operand2(0));
+		gpr.MapReg(rt);
+		CMP(gpr.R(rt), Operand2(0, TYPE_IMM));
 	}
 	else 
 	{
 		gpr.SpillLock(rs, rt);
-		gpr.MapReg(rs, MAP_INITVAL);
-		gpr.MapReg(rt, MAP_INITVAL);
+		gpr.MapReg(rs);
+		gpr.MapReg(rt);
 		gpr.ReleaseSpillLocks();
 		CMP(gpr.R(rs), gpr.R(rt));
   }
@@ -133,7 +133,7 @@ void Jit::BranchRSZeroComp(u32 op, ArmGen::CCFlags cc, bool likely)
   {
     // ERROR_LOG(CPU, "Not nice delay slot in BranchRSZeroComp :( %08x", js.compilerPC);
   }
-	gpr.MapReg(rs, MAP_INITVAL);
+	gpr.MapReg(rs);
   CMP(gpr.R(rs), Operand2(0, TYPE_IMM));
   FlushAll();
 
@@ -383,15 +383,15 @@ void Jit::Comp_JumpReg(u32 op)
   // Do what with that information?
 	delaySlotIsNice = false;
 
-	gpr.MapReg(rs, MAP_INITVAL);
-
 	if (delaySlotIsNice) {
 		CompileAt(js.compilerPC + 4);
+		gpr.MapReg(rs);
 		MOV(R8, gpr.R(rs));  // Save the destination address through the delay slot. Could use isNice to avoid when the jit is fully implemented
 		FlushAll();
 		MovToPC(R8);  // For syscall to be able to return. Could be avoided with some checking.
 	} else {
 		// Delay slot
+		gpr.MapReg(rs);
 		MOV(R8, gpr.R(rs));  // Save the destination address through the delay slot. Could use isNice to avoid when the jit is fully implemented
 		MovToPC(R8);  // For syscall to be able to return. Could be avoided with some checking.
 		CompileAt(js.compilerPC + 4);

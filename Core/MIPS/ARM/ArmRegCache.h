@@ -60,9 +60,10 @@ struct RegMIPS {
 	// If loc == ML_MEM, it's back in its location in the CPU context struct.
 };
 
+// Initing is the default so the flag is reversed.
 enum {
 	MAP_DIRTY = 1,
-	MAP_INITVAL = 2,
+	MAP_NOINIT = 2,
 };
 
 class ArmRegCache
@@ -97,10 +98,14 @@ public:
 
 	void SetEmitter(ARMXEmitter *emitter) { emit = emitter; }
 
+	// For better log output only.
+	void SetCompilerPC(u32 compilerPC) { compilerPC_ = compilerPC; }
+
 private:
 	int GetMipsRegOffset(MIPSReg r);
 	MIPSState *mips_;
 	ARMXEmitter *emit;
+	u32 compilerPC_;
 
 	enum {
 		NUM_ARMREG = 16,

@@ -34,10 +34,9 @@ using namespace MIPSAnalyst;
 
 namespace MIPSComp
 {
-	u32 EvalOR(u32 a, u32 b) { return a | b; }
-	u32 EvalXOR(u32 a, u32 b) { return a ^ b; }
-	u32 EvalAND(u32 a, u32 b) { return a & b; }
-
+	static u32 EvalOR(u32 a, u32 b) { return a | b; }
+	static u32 EvalXOR(u32 a, u32 b) { return a ^ b; }
+	static u32 EvalAND(u32 a, u32 b) { return a & b; }
 
 	void Jit::CompImmLogic(int rs, int rt, u32 uimm, void (ARMXEmitter::*arith)(ARMReg dst, ARMReg src, Operand2 op2), u32 (*eval)(u32 a, u32 b))
 	{
@@ -45,8 +44,8 @@ namespace MIPSComp
 			gpr.SetImm(rt, (*eval)(gpr.GetImm(rs), uimm));
 		} else {
 			gpr.SpillLock(rs, rt);
-			gpr.MapReg(rt, MAP_INITVAL | MAP_DIRTY);
-			gpr.MapReg(rs, MAP_INITVAL);
+			gpr.MapReg(rt, MAP_DIRTY);
+			gpr.MapReg(rs);
 			gpr.ReleaseSpillLocks();
 			// TODO: Special case when uimm can be represented as an Operand2
 			ARMABI_MOVI2R(R0, (u32)uimm);
@@ -56,7 +55,7 @@ namespace MIPSComp
 
 	void Jit::Comp_IType(u32 op)
 	{
-		s32 simm = (s16)(op & 0xFFFF);
+		s32 simm = (s16)(op & 0xFFFF);  // sign extension
 		u32 uimm = (u16)(op & 0xFFFF);
 
 		int rt = _RT;
@@ -64,18 +63,18 @@ namespace MIPSComp
 
 		switch (op >> 26) 
 		{
-			/*
 		case 8:	// same as addiu?
 		case 9:	//R(rt) = R(rs) + simm; break;	//addiu
 			{
 				if (gpr.IsImm(rs)) {
 					gpr.SetImm(rt, gpr.GetImm(rs) + simm);
-				} else if (rs == 0) {
-					gpr.SetImm(rt, simm);
+				} else if (rs == 0) {  // add to zero register = immediate
+					gpr.SetImm(rt, (u32)simm);
 				} else {
 					gpr.SpillLock(rs, rt);
-					gpr.MapReg(rs, MAP_INITVAL);
-					gpr.MapReg(rt, MAP_INITVAL | MAP_DIRTY);
+					gpr.MapReg(rs);
+					gpr.MapReg(rt, MAP_DIRTY);
+					gpr.ReleaseSpillLocks();
 					Operand2 op2;
 					if (false && TryMakeOperand2(simm, op2)) {
 						ADD(gpr.R(rt), gpr.R(rs), op2);
@@ -83,36 +82,15 @@ namespace MIPSComp
 						ARMABI_MOVI2R(R0, (u32)simm);
 						ADD(gpr.R(rt), gpr.R(rs), R0);
 					}
-					gpr.ReleaseSpillLocks();
-				}
-				else {
+				} /* else {
 					Comp_Generic(op);
-				}
-				break;
-			} */
-/*
-		case 13:  // OR
-			{
-				if (gpr.IsImm(rs))
-				{
-					gpr.SetImm(rt, gpr.GetImm(rs) | uimm);
-					break;
-				} else if (rs == 0) {
-					gpr.SetImm(rt, uimm);
-				} else {
-					gpr.SpillLock(rs, rt);
-					gpr.MapReg(rs, MAP_INITVAL);
-					gpr.MapReg(rt, MAP_INITVAL | MAP_DIRTY);
-					ARMABI_MOVI2R(R0, (u32)uimm);
-					ORR(gpr.R(rt), gpr.R(rs), R0);
-					gpr.ReleaseSpillLocks();
-				}
+				} */
 				break;
 			}
-			break;
-			*/
-		//case 12: CompImmLogic(op, &XEmitter::AND); break;
-		//case 14: CompImmLogic(op, &XEmitter::XOR); break;
+
+		//case 12: CompImmLogic(op, &XEmitter::AND, EvalAnd); break;
+		//case 13: CompImmLogic(op, &XEmitter::OR, EvalOr); break;
+		//case 14: CompImmLogic(op, &XEmitter::XOR, EvalXor); break;
 
 			/*
 		case 10: // R(rt) = (s32)R(rs) < simm; break; //slti
@@ -137,7 +115,7 @@ namespace MIPSComp
 
 			*/
 
-		case 15: //R(rt) = uimm << 16;	 break; //lui
+		case 15: // R(rt) = uimm << 16;	 //lui
 			gpr.SetImm(rt, uimm << 16);
 			break;
 
@@ -174,9 +152,9 @@ namespace MIPSComp
 		int rd = _RD;
 		
 		gpr.SpillLock(rt, rs, rd);
-		gpr.MapReg(rt, MAP_INITVAL);
-		gpr.MapReg(rs, MAP_INITVAL);
-		gpr.MapReg(rd, MAP_INITVAL | MAP_DIRTY);  // can get rid of INITVAL in some cases
+		gpr.MapReg(rt);
+		gpr.MapReg(rs);
+		gpr.MapReg(rd, MAP_DIRTY);  // can get rid of INITVAL in some cases
 		gpr.ReleaseSpillLocks();
 		
 		switch (op & 63) 
