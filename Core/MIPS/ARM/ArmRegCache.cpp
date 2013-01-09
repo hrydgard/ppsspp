@@ -33,13 +33,13 @@ void ArmRegCache::Init(ARMXEmitter *emitter) {
 void ArmRegCache::Start(MIPSAnalyst::AnalysisResults &stats) {
 	for (int i = 0; i < 16; i++) {
 		ar[i].mipsReg = -1;
-		ar[i].spillLock = false;
 		ar[i].isDirty = false;
 	}
 	for (int i = 0; i < NUM_MIPSREG; i++) {
 		mr[i].loc = ML_MEM;
 		mr[i].reg = INVALID_REG;
 		mr[i].imm = -1;
+		mr[i].spillLock = false;
 	}
 }
 
@@ -101,7 +101,7 @@ allocate:
 	int bestToSpill = -1;
 	for (int i = 0; i < allocCount; i++) {
 		int reg = allocOrder[i];
-		if (ar[reg].spillLock)
+		if (ar[reg].mipsReg != -1 && mr[ar[reg].mipsReg].spillLock)
 			continue;
 		bestToSpill = reg;
 		break;
@@ -213,14 +213,14 @@ int ArmRegCache::GetMipsRegOffset(MIPSReg r) {
 }
 
 void ArmRegCache::SpillLock(MIPSReg r1, MIPSReg r2, MIPSReg r3) {
-	if (mr[r1].loc == ML_ARMREG) ar[mr[r1].reg].spillLock = true;
-	if (r2 != -1 && mr[r2].loc == ML_ARMREG) ar[mr[r2].reg].spillLock = true;
-	if (r3 != -1 && mr[r3].loc == ML_ARMREG) ar[mr[r3].reg].spillLock = true;
+	mr[r1].spillLock = true;
+	if (r2 != -1) mr[r2].spillLock = true;
+	if (r3 != -1) mr[r3].spillLock = true;
 }
 
 void ArmRegCache::ReleaseSpillLocks() {
-	for (int i = 0; i < NUM_ARMREG; i++) {
-		ar[i].spillLock = false;
+	for (int i = 0; i < NUM_MIPSREG; i++) {
+		mr[i].spillLock = false;
 	}
 }
 

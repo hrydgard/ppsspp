@@ -41,7 +41,6 @@ typedef int MIPSReg;
 struct RegARM {
 	int mipsReg;  // if -1, no mipsreg attached.
 	bool isDirty;  // Should the register be written back?
-	bool spillLock;  // if true, this register cannot be spilled.
 };
 
 enum RegMIPSLoc {
@@ -56,6 +55,7 @@ struct RegMIPS {
 	// Data (only one of these is used, depending on loc. Could make a union).
 	u32 imm;
 	ARMReg reg;
+	bool spillLock;  // if true, this register cannot be spilled.
 	// If loc == ML_MEM, it's back in its location in the CPU context struct.
 };
 
@@ -108,6 +108,6 @@ private:
 		NUM_MIPSREG = TOTAL_MAPPABLE_MIPSREGS,
 	};
 
-	RegARM ar[16];
-	RegMIPS mr[32];
+	RegARM ar[NUM_ARMREG];
+	RegMIPS mr[NUM_MIPSREG];
 };
