@@ -92,8 +92,24 @@ struct AvcContext {
 	int avcFrameStatus;
 };
 
-struct StreamInfo
-{	
+struct Mp3Context {	
+	int mp3StreamStart;
+	int mp3StreamEnd;
+	int mp3Buf;
+	int mp3BufSize;
+	int mp3PcmBuf;
+	int mp3PcmBufSize;
+
+	int mp3InputFileReadPos;
+	int mp3InputBufWritePos;
+	int mp3InputBufSize;
+	int mp3InputFileSize;
+	int mp3DecodedBytes;
+	int mp3LoopNum;
+	int mp3MaxSamples;
+};
+
+struct StreamInfo {	
 	int type;
 	int num;
 	int sid;
@@ -176,8 +192,10 @@ static bool isCurrentMpegAnalyzed;
 static bool fakeMode;
 static int actionPostPut;
 static std::map<u32, MpegContext *> mpegMap;
+static std::map<u32, Mp3Context *> mp3Map;
 // TODO: Remove.
 static u32 lastMpegHandle = 0;
+static u32 lastMp3Handle = 0;
 
 MpegContext *getMpegCtx(u32 mpegAddr) {
 	u32 mpeg = Memory::Read_U32(mpegAddr);
@@ -192,6 +210,20 @@ MpegContext *getMpegCtx(u32 mpegAddr) {
 	if (mpegMap.find(mpeg) == mpegMap.end())
 		return NULL;
 	return mpegMap[mpeg];
+}
+
+Mp3Context *getMp3Ctx(u32 mp3Addr) {
+	u32 mp3 = Memory::Read_U32(mp3Addr);
+
+	if (mp3Map.find(mp3) == mp3Map.end())
+	{
+		ERROR_LOG(HLE, "Bad mp3 handle %08x - using last one (%08x) instead", mp3, lastMp3Handle);
+		mp3 = lastMp3Handle;
+	}
+
+	if (mp3Map.find(mp3) == mp3Map.end())
+		return NULL;
+	return mp3Map[mp3];
 }
 
 u32 getMpegHandle(u32 mpeg) {
@@ -1169,24 +1201,6 @@ int sceMpegAvcQueryYCbCrSize(u32 mpeg, u32 mode, u32 width, u32 height, u32 resu
 	return 0;
 }
 
-int sceMp3Decode(u32 mp3, u32 outPcmPtr)
-{
-	ERROR_LOG(HLE, "UNIMPL sceMp3Decoder(%08x,%08x)", mp3, outPcmPtr);
-	return 0;
-}
-
-int sceMp3ResetPlayPosition(u32 mp3)
-{
-	ERROR_LOG(HLE, "UNIMPL sceMp3ResetPlayPosition(%08x)", mp3);
-	return 0;
-}
-
-int sceMp3CheckStreamDataNeeded(u32 mp3)
-{
-	ERROR_LOG(HLE, "UNIMPL sceMp3CheckStreamDataNeeded(%08x)", mp3);
-	return 0;
-}
-
 u32 sceMpegQueryUserdataEsSize(u32 mpeg, u32 esSizeAddr, u32 outSizeAddr)
 {
 	if (Memory::IsValidAddress(esSizeAddr) && Memory::IsValidAddress(outSizeAddr)) {
@@ -1198,6 +1212,80 @@ u32 sceMpegQueryUserdataEsSize(u32 mpeg, u32 esSizeAddr, u32 outSizeAddr)
 
 	ERROR_LOG(HLE, "sceMpegQueryUserdataEsSize - bad pointers(%08x, %08x, %08x)", mpeg, esSizeAddr, outSizeAddr);
 	return -1;
+}
+
+u32 sceMp3Decode(u32 mp3, u32 outPcmPtr)
+{
+	DEBUG_LOG(HLE, "UNIMPL sceMp3Decoder(%08x,%08x)", mp3, outPcmPtr);
+	Memory::Write_U32(0,outPcmPtr);	
+	return 0;
+}
+
+u32 sceMp3ResetPlayPosition(u32 mp3)
+{
+	Mp3Context *ctx = getMp3Ctx(mp3);
+	DEBUG_LOG(HLE, "SceMp3ResetPlayPosition(%08x, %i)", mp3);
+	ctx->mp3InputFileReadPos = 0;
+	ctx->mp3InputBufWritePos = 0;
+	ctx->mp3InputBufSize = 0;
+	ctx->mp3InputFileSize = 0;
+	ctx->mp3DecodedBytes = 0;
+	return 0;
+}
+
+u32 sceMp3CheckStreamDataNeeded(u32 mp3)
+{
+	DEBUG_LOG(HLE, "UNIMPL sceMp3CheckStreamDataNeeded(%08x)", mp3);
+	return 0;
+}
+
+u32 sceMp3ReserveMp3Handle(u32 mp3Addr)
+{
+	DEBUG_LOG(HLE, "sceMp3ReserveMp3Handle(%08x)", mp3Addr);
+	Mp3Context *ctx = new Mp3Context;
+	ctx->mp3StreamStart = Memory::Read_U64(mp3Addr);
+	ctx->mp3StreamEnd = Memory::Read_U64(mp3Addr+8);
+	ctx->mp3Buf = Memory::Read_U32(mp3Addr+16);
+	ctx->mp3BufSize = Memory::Read_U32(mp3Addr+20);
+	ctx->mp3PcmBuf = Memory::Read_U32(mp3Addr+24);
+	ctx->mp3PcmBufSize = Memory::Read_U32(mp3Addr+28);
+	return 0;
+}
+
+u32 sceMp3InitResource()
+{
+	DEBUG_LOG(HLE, "sceMp3InitResource");
+	// Do nothing here 
+	return 0;
+}
+
+u32 sceMp3TermResource()
+{
+	DEBUG_LOG(HLE, "sceMp3TermResource");
+	// Do nothing here 
+	return 0;
+}
+
+u32 sceMp3Init(u32 mp3)
+{
+	DEBUG_LOG(HLE, "UNIMPL sceMp3Init(%08x)", mp3);
+	return 0;
+}
+
+u32 sceMp3GetLoopNum(u32 mp3)
+{
+	DEBUG_LOG(HLE, "sceMp3GetLoopNum(%08x)", mp3);
+	Mp3Context *ctx = getMp3Ctx(mp3);
+	ctx->mp3LoopNum = -1 ;
+	return ctx->mp3LoopNum;
+}
+
+u32 sceMp3GetMaxOutputSample(u32 mp3)
+{
+	DEBUG_LOG(HLE, "sceMp3GetMaxOutputSample(%08x)", mp3);
+	Mp3Context *ctx = getMp3Ctx(mp3);
+	ctx->mp3MaxSamples = ctx->mp3PcmBufSize / 4 ;
+	return ctx->mp3MaxSamples;
 }
 
 const HLEFunction sceMpeg[] =
@@ -1246,24 +1334,24 @@ const HLEFunction sceMpeg[] =
 
 const HLEFunction sceMp3[] =
 {
-	{0x07EC321A,0,"sceMp3ReserveMp3Handle"},
+	{0x07EC321A,WrapU_U<sceMp3ReserveMp3Handle>,"sceMp3ReserveMp3Handle"},
 	{0x0DB149F4,0,"sceMp3NotifyAddStreamData"},
-	{0x2A368661,WrapI_U<sceMp3ResetPlayPosition>,"sceMp3ResetPlayPosition"},
+	{0x2A368661,WrapU_U<sceMp3ResetPlayPosition>,"sceMp3ResetPlayPosition"},
 	{0x354D27EA,0,"sceMp3GetSumDecodedSample"},
-	{0x35750070,0,"sceMp3InitResource"},
-	{0x3C2FA058,0,"sceMp3TermResource"},
+	{0x35750070,WrapU_V<sceMp3InitResource>,"sceMp3InitResource"},
+	{0x3C2FA058,WrapU_V<sceMp3TermResource>,"sceMp3TermResource"},
 	{0x3CEF484F,0,"sceMp3SetLoopNum"},
-	{0x44E07129,0,"sceMp3Init"},
+	{0x44E07129,WrapU_U<sceMp3Init>,"sceMp3Init"},
 	{0x732B042A,0,"sceMp3EndEntry"},
 	{0x7F696782,0,"sceMp3GetMp3ChannelNum"},
 	{0x87677E40,0,"sceMp3GetBitRate"},
-	{0x87C263D1,0,"sceMp3GetMaxOutputSample"},
+	{0x87C263D1,WrapU_U<sceMp3GetMaxOutputSample>,"sceMp3GetMaxOutputSample"},
 	{0x8AB81558,0,"sceMp3StartEntry"},
 	{0x8F450998,0,"sceMp3GetSamplingRate"},
 	{0xA703FE0F,0,"sceMp3GetInfoToAddStreamData"},
-	{0xD021C0FB,WrapI_UU<sceMp3Decode>,"sceMp3Decode"},
-	{0xD0A56296,WrapI_U<sceMp3CheckStreamDataNeeded>,"sceMp3CheckStreamDataNeeded"},
-	{0xD8F54A51,0,"sceMp3GetLoopNum"},
+	{0xD021C0FB,WrapU_UU<sceMp3Decode>,"sceMp3Decode"},
+	{0xD0A56296,WrapU_U<sceMp3CheckStreamDataNeeded>,"sceMp3CheckStreamDataNeeded"},
+	{0xD8F54A51,WrapU_U<sceMp3GetLoopNum>,"sceMp3GetLoopNum"},
 	{0xF5478233,0,"sceMp3ReleaseMp3Handle"},
 	{0xAE6D2027,0,"sceMp3GetVersion"},
 	{0x3548AEC8,0,"sceMp3GetFrameNum"},
