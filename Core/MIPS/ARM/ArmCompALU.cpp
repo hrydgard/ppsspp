@@ -64,12 +64,13 @@ namespace MIPSComp
 
 		switch (op >> 26) 
 		{
+			/*
 		case 8:	// same as addiu?
 		case 9:	//R(rt) = R(rs) + simm; break;	//addiu
 			{
 				if (gpr.IsImm(rs)) {
 					gpr.SetImm(rt, gpr.GetImm(rs) + simm);
-				}/* else if (rs == 0) {
+				} else if (rs == 0) {
 					gpr.SetImm(rt, simm);
 				} else {
 					gpr.SpillLock(rs, rt);
@@ -83,12 +84,12 @@ namespace MIPSComp
 						ADD(gpr.R(rt), gpr.R(rs), R0);
 					}
 					gpr.ReleaseSpillLocks();
-				}*/
+				}
 				else {
 					Comp_Generic(op);
 				}
 				break;
-			}
+			} */
 /*
 		case 13:  // OR
 			{

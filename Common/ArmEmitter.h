@@ -475,7 +475,7 @@ public:
 	void ARMABI_CallFunctionCCC(void *func, u32 Arg1, u32 Arg2, u32 Arg3);
 	void ARMABI_PushAllCalleeSavedRegsAndAdjustStack(); 
 	void ARMABI_PopAllCalleeSavedRegsAndAdjustStack(); 
-	void ARMABI_MOVI2R(ARMReg reg, Operand2 val);
+	void ARMABI_MOVI2R(ARMReg reg, u32 val);
 	void ARMABI_MOVI2M(Operand2 op, Operand2 val);
 	void ARMABI_MOVI2M(u32 addr, Operand2 val);
 	void ARMABI_ShowConditions();

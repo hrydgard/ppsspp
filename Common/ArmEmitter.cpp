@@ -30,17 +30,23 @@ namespace ArmGen
 {
 
 inline u32 RotR(u32 a, int amount) {
-	return (a >> amount) | (a << (31 - amount));
+	if (!amount) return a;
+	return (a >> amount) | (a << (32 - amount));
+}
+
+inline u32 RotL(u32 a, int amount) {
+	if (!amount) return a;
+	return (a << amount) | (a >> (32 - amount));
 }
 
 bool TryMakeOperand2(u32 imm, Operand2 &op2) {
 	// Just brute force it.
 	for (int i = 0; i < 16; i++) {
-		if ((imm & 0xFF) == imm) {
-			op2 = Operand2((u8)imm, (u8)i);
+		int mask = RotR(0xFF, i * 2);
+		if ((imm & mask) == imm) {
+			op2 = Operand2((u8)(RotL(imm, i * 2)), (u8)i);
 			return true;
 		}
-		imm = RotR(imm, 2);
 	}
 	return false;
 }
@@ -48,6 +54,8 @@ bool TryMakeOperand2(u32 imm, Operand2 &op2) {
 bool TryMakeOperand2_AllowInverse(u32 imm, Operand2 &op2, bool *inverse)
 {
 	if (!TryMakeOperand2(imm, op2)) {
+		return false;
+		// TODO: Test properly.
 		*inverse = true;
 		return TryMakeOperand2(~imm, op2);
 	} else {
@@ -344,7 +352,7 @@ void ARMXEmitter::WriteInstruction (u32 Op, ARMReg Rd, ARMReg Rn, Operand2 Rm, b
 			break;
 		}
 	}
-	if (op == -1)
+	if (op == (u32)-1)
 		_assert_msg_(DYNA_REC, false, "%s not yet support %d", InstNames[Op], Rm.GetType()); 
 	Write32(condition | (op << 21) | (SetFlags ? (1 << 20) : 0) | Rn << 16 | Rd << 12 | Data);
 }
