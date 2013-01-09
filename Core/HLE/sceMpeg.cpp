@@ -212,9 +212,7 @@ MpegContext *getMpegCtx(u32 mpegAddr) {
 	return mpegMap[mpeg];
 }
 
-Mp3Context *getMp3Ctx(u32 mp3Addr) {
-	u32 mp3 = Memory::Read_U32(mp3Addr);
-
+Mp3Context *getMp3Ctx(u32 mp3) {
 	if (mp3Map.find(mp3) == mp3Map.end())
 	{
 		ERROR_LOG(HLE, "Bad mp3 handle %08x - using last one (%08x) instead", mp3, lastMp3Handle);
@@ -1224,6 +1222,12 @@ u32 sceMp3Decode(u32 mp3, u32 outPcmPtr)
 u32 sceMp3ResetPlayPosition(u32 mp3)
 {
 	Mp3Context *ctx = getMp3Ctx(mp3);
+	if (!ctx)
+	{
+		ERROR_LOG(HLE, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
+		return -1;
+	}
+
 	DEBUG_LOG(HLE, "SceMp3ResetPlayPosition(%08x, %i)", mp3);
 	ctx->mp3InputFileReadPos = 0;
 	ctx->mp3InputBufWritePos = 0;
@@ -1249,7 +1253,8 @@ u32 sceMp3ReserveMp3Handle(u32 mp3Addr)
 	ctx->mp3BufSize = Memory::Read_U32(mp3Addr+20);
 	ctx->mp3PcmBuf = Memory::Read_U32(mp3Addr+24);
 	ctx->mp3PcmBufSize = Memory::Read_U32(mp3Addr+28);
-	return 0;
+	mp3Map[mp3Addr] = ctx;
+	return mp3Addr;
 }
 
 u32 sceMp3InitResource()
@@ -1276,6 +1281,12 @@ u32 sceMp3GetLoopNum(u32 mp3)
 {
 	DEBUG_LOG(HLE, "sceMp3GetLoopNum(%08x)", mp3);
 	Mp3Context *ctx = getMp3Ctx(mp3);
+	if (!ctx)
+	{
+		ERROR_LOG(HLE, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
+		return -1;
+	}
+
 	ctx->mp3LoopNum = -1 ;
 	return ctx->mp3LoopNum;
 }
@@ -1284,6 +1295,12 @@ u32 sceMp3GetMaxOutputSample(u32 mp3)
 {
 	DEBUG_LOG(HLE, "sceMp3GetMaxOutputSample(%08x)", mp3);
 	Mp3Context *ctx = getMp3Ctx(mp3);
+	if (!ctx)
+	{
+		ERROR_LOG(HLE, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
+		return -1;
+	}
+
 	ctx->mp3MaxSamples = ctx->mp3PcmBufSize / 4 ;
 	return ctx->mp3MaxSamples;
 }
