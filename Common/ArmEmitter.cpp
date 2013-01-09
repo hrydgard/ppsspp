@@ -73,6 +73,11 @@ bool TryMakeOperand2_AllowNegation(s32 imm, Operand2 &op2, bool *negated)
 	}
 }
 
+void ARMXEmitter::QuickCallFunction(ARMReg reg, void *func) {
+	ARMABI_MOVI2R(reg, (u32)(func));
+	BL(reg);
+}
+
 void ARMXEmitter::SetCodePtr(u8 *ptr)
 {
 	code = ptr;

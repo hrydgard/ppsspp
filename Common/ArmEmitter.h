@@ -471,6 +471,7 @@ public:
 	void VLDR(ARMReg dest, ARMReg Base, Operand2 op);
 	void VMOV(ARMReg Dest, ARMReg Src);
 
+	void QuickCallFunction(ARMReg scratchreg, void *func);
 	// Utility functions
 	void ARMABI_CallFunction(void *func);
 	void ARMABI_CallFunctionC(void *func, u32 Arg0);

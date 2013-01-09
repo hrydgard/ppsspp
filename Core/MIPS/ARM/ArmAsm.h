@@ -57,7 +57,6 @@ public:
 
 private:
 	void Generate(MIPSState *mips, MIPSComp::Jit *jit);
-	void QuickCallFunction(ArmGen::ARMReg reg, void *func);
 };
 
 #endif	// _JIT64ASM_H

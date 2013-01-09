@@ -55,7 +55,7 @@ namespace MIPSComp
 
 	void Jit::Comp_IType(u32 op)
 	{
-		s32 simm = (s16)(op & 0xFFFF);  // sign extension
+		s32 simm = (s32)(s16)(op & 0xFFFF);  // sign extension
 		u32 uimm = (u16)(op & 0xFFFF);
 
 		int rt = _RT;
@@ -63,7 +63,6 @@ namespace MIPSComp
 
 		switch (op >> 26) 
 		{
-#if 0
 		case 8:	// same as addiu?
 		case 9:	//R(rt) = R(rs) + simm; break;	//addiu
 			{
@@ -73,22 +72,19 @@ namespace MIPSComp
 					gpr.SetImm(rt, (u32)simm);
 				} else {
 					gpr.SpillLock(rs, rt);
-					gpr.MapReg(rs);
 					gpr.MapReg(rt, MAP_DIRTY);
+					gpr.MapReg(rs);
 					gpr.ReleaseSpillLocks();
 					Operand2 op2;
-					if (false && TryMakeOperand2(simm, op2)) {
+					if (TryMakeOperand2(simm, op2)) {
 						ADD(gpr.R(rt), gpr.R(rs), op2);
 					} else {
 						ARMABI_MOVI2R(R0, (u32)simm);
 						ADD(gpr.R(rt), gpr.R(rs), R0);
 					}
-				} /* else {
-					Comp_Generic(op);
-				} */
+				}
 				break;
 			}
-#endif
 		//case 12: CompImmLogic(op, &XEmitter::AND, EvalAnd); break;
 		//case 13: CompImmLogic(op, &XEmitter::OR, EvalOr); break;
 		//case 14: CompImmLogic(op, &XEmitter::XOR, EvalXor); break;

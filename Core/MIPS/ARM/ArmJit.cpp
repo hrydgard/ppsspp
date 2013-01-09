@@ -127,9 +127,10 @@ const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 
 	int numInstructions = 0;
 	int cycles = 0;
-
-	static int logBlocks = 1;
+	static int dontLogBlocks = 20;
+	static int logBlocks = 40;
 	if (logBlocks > 0) logBlocks--;
+	if (dontLogBlocks > 0) dontLogBlocks--;
 
 #define LOGASM
 #ifdef LOGASM
@@ -140,7 +141,7 @@ const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 		gpr.SetCompilerPC(js.compilerPC);  // Let it know for log messages
 		u32 inst = Memory::Read_Instruction(js.compilerPC);
 #ifdef LOGASM
-		if (logBlocks > 0) {
+		if (logBlocks > 0 && dontLogBlocks == 0) {
 			MIPSDisAsm(inst, js.compilerPC, temp, true);
 			INFO_LOG(DYNA_REC, "M: %08x   %s", js.compilerPC, temp);
 		}
@@ -148,12 +149,12 @@ const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 		js.downcountAmount += MIPSGetInstructionCycleEstimate(inst);
 
 		MIPSCompileOp(inst);
-
+		// FlushAll(); ///HACKK
 		js.compilerPC += 4;
 		numInstructions++;
 	}
 #ifdef LOGASM
-	if (logBlocks > 0) {
+	if (logBlocks > 0 && dontLogBlocks == 0) {
 		MIPSDisAsm(Memory::Read_Instruction(js.compilerPC), js.compilerPC, temp, true);
 		INFO_LOG(DYNA_REC, "M: %08x   %s", js.compilerPC, temp);
 	}
@@ -162,7 +163,7 @@ const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 	b->codeSize = GetCodePtr() - b->normalEntry;
 
 #ifdef LOGASM
-	if (logBlocks > 0) {
+	if (logBlocks > 0 && dontLogBlocks == 0) {
 		INFO_LOG(DYNA_REC, "=============== ARM ===============");
 		DisassembleArm(b->normalEntry, GetCodePtr() - b->normalEntry);
 	}
@@ -190,7 +191,8 @@ void Jit::Comp_Generic(u32 op)
 	{
 		ARMABI_MOVI2R(R0, js.compilerPC);
 		MovToPC(R0);
-		ARMABI_CallFunctionC((void *)func, op);
+		ARMABI_MOVI2R(R0, op);
+		QuickCallFunction(R1, (void *)func);
 	}
 }
 

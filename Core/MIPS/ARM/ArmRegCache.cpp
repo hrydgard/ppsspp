@@ -80,21 +80,21 @@ allocate:
 
 		if (ar[reg].mipsReg == -1) {
 			// That means it's free. Grab it, and load the value into it (if requested).
-			ar[reg].mipsReg = mipsReg;
 			ar[reg].isDirty = (mapFlags & MAP_DIRTY) ? true : false;
 			if (!(mapFlags & MAP_NOINIT)) {
-				if (mr[mipsReg].loc == ML_MEM)
+				if (mr[mipsReg].loc == ML_MEM) {
 					emit->LDR((ARMReg)reg, CTXREG, 4 * mipsReg);
-				else if (mr[mipsReg].loc == ML_IMM)
+				} else if (mr[mipsReg].loc == ML_IMM) {
 					emit->ARMABI_MOVI2R((ARMReg)reg, mr[mipsReg].imm);
+					ar[reg].isDirty = true;
+				}
 			}
+			ar[reg].mipsReg = mipsReg;
 			mr[mipsReg].loc = ML_ARMREG;
 			mr[mipsReg].reg = (ARMReg)reg;
 			return (ARMReg)reg;
 		}
 	}
-
-	ERROR_LOG(JIT, "Spill!");
 
 	// Still nothing. Let's spill a reg and goto 10.
 	// TODO: Use age or something to choose which register to spill?
