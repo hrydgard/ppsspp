@@ -718,7 +718,7 @@ u32 sceMpegUnRegistStream(u32 mpeg, int streamUid)
 		return -1;
 	}
 
-	StreamInfo info;
+	StreamInfo info = {0};
 
 	switch (info.type) {
 	case MPEG_AVC_STREAM:
@@ -1051,9 +1051,10 @@ u32 sceMpegChangeGetAuMode(u32 mpeg, int streamUid, int mode)
 		return -1;
 	}
 
-	StreamInfo info;
+	// NOTE: Where is the info supposed to come from?
+	StreamInfo info = {0};
 	info.sid = streamUid;
-    if (info.sid) {
+  if (info.sid) {
 		switch (info.type) {
 		case MPEG_AVC_STREAM:
 			if(mode == MPEG_AU_MODE_DECODE) {

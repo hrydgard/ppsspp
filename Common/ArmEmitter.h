@@ -112,7 +112,6 @@ enum OpType
 	TYPE_MEM
 };
 
-
 // This is no longer a proper operand2 class. Need to split up.
 class Operand2
 {
@@ -298,6 +297,12 @@ public:
 	
 
 };
+
+
+bool TryMakeOperand2(u32 imm, Operand2 &op2);
+bool TryMakeOperand2_AllowInverse(u32 imm, Operand2 &op2, bool *inverse);
+
+
 inline Operand2 R(ARMReg Reg)	{ return Operand2(Reg, TYPE_REG); }
 inline Operand2 IMM(u32 Imm)	{ return Operand2(Imm, TYPE_IMM); }
 inline Operand2 Mem(void *ptr)	{ return Operand2((u32)ptr, TYPE_IMM); }
@@ -401,7 +406,7 @@ public:
 	void LSLS(ARMReg dest, ARMReg src, ARMReg op2);
 	void SBC (ARMReg dest, ARMReg src, Operand2 op2);
 	void SBCS(ARMReg dest, ARMReg src, Operand2 op2);
-	void REV (ARMReg dest, ARMReg src			   );
+	void REV (ARMReg dest, ARMReg src);
 	void RSC (ARMReg dest, ARMReg src, Operand2 op2);
 	void RSCS(ARMReg dest, ARMReg src, Operand2 op2);
 	void TST (             ARMReg src, Operand2 op2);
@@ -429,9 +434,9 @@ public:
 	void SXTB(ARMReg dest, ARMReg op2);
 	void SXTH(ARMReg dest, ARMReg op2, u8 rotation = 0);
 	void SXTAH(ARMReg dest, ARMReg src, ARMReg op2, u8 rotation = 0);
-	// Using just MSR here messes with our defines on the PPC side of stuff
+	// Using just MSR here messes with our defines on the PPC side of stuff (when this code was in dolphin...)
 	// Just need to put an underscore here, bit annoying.
-	void _MSR (bool nzcvq, bool g,	   Operand2 op2);
+	void _MSR (bool nzcvq, bool g, Operand2 op2);
 	void _MSR (bool nzcvq, bool g, ARMReg src	   );
 	void MRS  (ARMReg dest);
 

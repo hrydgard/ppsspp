@@ -127,7 +127,11 @@ const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 
 	int numInstructions = 0;
 	int cycles = 0;
-// #define LOGASM
+
+	static int logBlocks = 20;
+	if (logBlocks > 0) logBlocks--;
+
+#define LOGASM
 #ifdef LOGASM
 	char temp[256];
 #endif
@@ -135,8 +139,10 @@ const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 	{
 		u32 inst = Memory::Read_Instruction(js.compilerPC);
 #ifdef LOGASM
-		MIPSDisAsm(inst, js.compilerPC, temp, true);
-		INFO_LOG(DYNA_REC, "M: %08x   %s", js.compilerPC, temp);
+		if (logBlocks > 0) {
+			MIPSDisAsm(inst, js.compilerPC, temp, true);
+			INFO_LOG(DYNA_REC, "M: %08x   %s", js.compilerPC, temp);
+		}
 #endif
 		js.downcountAmount += MIPSGetInstructionCycleEstimate(inst);
 
@@ -146,14 +152,19 @@ const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 		numInstructions++;
 	}
 #ifdef LOGASM
-	MIPSDisAsm(Memory::Read_Instruction(js.compilerPC), js.compilerPC, temp, true);
-	INFO_LOG(DYNA_REC, "M: %08x   %s", js.compilerPC, temp);
+	if (logBlocks > 0) {
+		MIPSDisAsm(Memory::Read_Instruction(js.compilerPC), js.compilerPC, temp, true);
+		INFO_LOG(DYNA_REC, "M: %08x   %s", js.compilerPC, temp);
+	}
 #endif
 
 	b->codeSize = GetCodePtr() - b->normalEntry;
 
 #ifdef LOGASM
-	DisassembleArm(b->checkedEntry, GetCodePtr() - b->checkedEntry);
+	if (logBlocks > 0) {
+		INFO_LOG(DYNA_REC, "=============== ARM ===============");
+		DisassembleArm(b->normalEntry, GetCodePtr() - b->normalEntry);
+	}
 #endif
 	AlignCode16();
 

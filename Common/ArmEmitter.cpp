@@ -29,6 +29,33 @@
 namespace ArmGen
 {
 
+inline u32 RotR(u32 a, int amount) {
+	return (a >> amount) | (a << (31 - amount));
+}
+
+bool TryMakeOperand2(u32 imm, Operand2 &op2) {
+	// Just brute force it.
+	for (int i = 0; i < 16; i++) {
+		if ((imm & 0xFF) == imm) {
+			op2 = Operand2((u8)imm, (u8)i);
+			return true;
+		}
+		imm = RotR(imm, 2);
+	}
+	return false;
+}
+
+bool TryMakeOperand2_AllowInverse(u32 imm, Operand2 &op2, bool *inverse)
+{
+	if (!TryMakeOperand2(imm, op2)) {
+		*inverse = true;
+		return TryMakeOperand2(~imm, op2);
+	} else {
+		*inverse = false;
+		return true;
+	}
+}
+
 void ARMXEmitter::SetCodePtr(u8 *ptr)
 {
 	code = ptr;

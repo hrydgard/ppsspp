@@ -63,7 +63,6 @@ void Jit::BranchRSRTComp(u32 op, ArmGen::CCFlags cc, bool likely)
   }
   // The delay slot being nice doesn't really matter though...
 	
-	/*
 	if (rt == 0)
   {
 		gpr.MapReg(rs, MAP_INITVAL);
@@ -74,9 +73,7 @@ void Jit::BranchRSRTComp(u32 op, ArmGen::CCFlags cc, bool likely)
 		gpr.MapReg(rt, MAP_INITVAL);
 		CMP(gpr.R(rt), Operand2(0));
 	}
-	
 	else 
-	*/
 	{
 		gpr.SpillLock(rs, rt);
 		gpr.MapReg(rs, MAP_INITVAL);

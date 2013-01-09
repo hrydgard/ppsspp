@@ -57,17 +57,20 @@ static const ARMReg *GetMIPSAllocationOrder(int &count) {
 }
 
 ARMReg ArmRegCache::MapReg(MIPSReg mipsReg, int mapFlags) {
-	// Let's see if it's already mapped.
-	for (int i = 0; i < NUM_ARMREG; i++) {
-		if (ar[i].mipsReg == mipsReg) {
-			if (mapFlags & MAP_DIRTY)
-				ar[i].isDirty = true;
-			// Already mapped, no need to do anything more.
-			return (ARMReg)i;
+	// Let's see if it's already mapped. If so we just need to update the dirty flag.
+	// We don't need to check for ML_INITVAL because we assume that anyone who maps
+	// with that flag immediately writes a "known" value to the register.
+	if (mr[mipsReg].loc == ML_ARMREG) {
+		if (ar[mr[mipsReg].reg].mipsReg != mipsReg) {
+			ERROR_LOG(HLE, "Mapping out of sync! %i", mipsReg);
 		}
+		if (mapFlags & MAP_DIRTY) {
+			ar[mr[mipsReg].reg].isDirty = true;
+		}
+		return mr[mipsReg].reg;
 	}
 
-	// Okay, so we need to allocate one.
+	// Okay, not mapped, so we need to allocate an ARM register.
 
 	int allocCount;
 	const ARMReg *allocOrder = GetMIPSAllocationOrder(allocCount);
@@ -114,6 +117,7 @@ void ArmRegCache::FlushArmReg(ARMReg r) {
 	if (ar[r].mipsReg != -1) {
 		if (ar[r].isDirty && mr[ar[r].mipsReg].loc == ML_ARMREG)
 			emit->STR(CTXREG, r, 4 * ar[r].mipsReg);
+		// IMMs won't be in an ARM reg.
 		mr[ar[r].mipsReg].loc = ML_MEM;
 	} else {
 		ERROR_LOG(HLE, "Dirty but no mipsreg?");
@@ -151,11 +155,12 @@ void ArmRegCache::FlushAll() {
 }
 
 void ArmRegCache::SetImm(MIPSReg r, u32 immVal) {
-	// Zap existing value
+	// Zap existing value if cached in a reg
 	if (mr[r].loc == ML_ARMREG)
 		ar[mr[r].reg].mipsReg = -1;
 	mr[r].loc = ML_IMM;
 	mr[r].imm = immVal;
+	mr[r].reg = INVALID_REG;
 }
 
 bool ArmRegCache::IsImm(MIPSReg r) const {
@@ -163,7 +168,9 @@ bool ArmRegCache::IsImm(MIPSReg r) const {
 }
 
 u32 ArmRegCache::GetImm(MIPSReg r) const {
-	// TODO: Check.
+	if (mr[r].loc != ML_IMM) {
+		ERROR_LOG(JIT, "Trying to get imm from non-imm register %i", r);
+	}
 	return mr[r].imm;
 }
 
@@ -176,8 +183,8 @@ int ArmRegCache::GetMipsRegOffset(MIPSReg r) {
 	case MIPSREG_LO:
 		return offsetof(MIPSState, lo);
 	}
-	_dbg_assert_msg_(JIT, false, "bad mips register %i", (int)r);
-	return -999;  // boom!
+	ERROR_LOG(JIT, "bad mips register %i", r);
+	return 0;  // or what?
 }
 
 void ArmRegCache::SpillLock(MIPSReg r1, MIPSReg r2, MIPSReg r3) {
@@ -187,7 +194,7 @@ void ArmRegCache::SpillLock(MIPSReg r1, MIPSReg r2, MIPSReg r3) {
 }
 
 void ArmRegCache::ReleaseSpillLocks() {
-	for (int i = 0; i < 16; i++) {
+	for (int i = 0; i < NUM_ARMREG; i++) {
 		ar[i].spillLock = false;
 	}
 }

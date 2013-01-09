@@ -110,8 +110,8 @@ private:
 	void BranchRSRTComp(u32 op, ArmGen::CCFlags cc, bool likely);
 
 	// Utilities to reduce duplicated code
+	void CompImmLogic(int rs, int rt, u32 uimm, void (ARMXEmitter::*arith)(ARMReg dst, ARMReg src, Operand2 op2), u32 (*eval)(u32 a, u32 b));
 	/*
-	void CompImmLogic(u32 op, void (ARMXEmitter::*arith)(ARMReg dst, ARMReg src, Operand2 op2));
 	void CompImmLogic(u32 op, void (ARMXEmitter::*arith)(int, const OpArg &, const OpArg &));
 	void CompTriArith(u32 op, void (ARMXEmitter::*arith)(int, const OpArg &, const OpArg &));
 	void CompShiftImm(u32 op, void (ARMXEmitter::*shift)(int, OpArg, OpArg));

@@ -115,6 +115,7 @@ void Jit::Comp_FPULS(u32 op)
 
 void Jit::Comp_FPU2op(u32 op)
 {
+	OLDD
 	int fs = _FS;
 	int fd = _FD;
 
@@ -173,6 +174,7 @@ void Jit::Comp_FPU2op(u32 op)
 
 void Jit::Comp_mxc1(u32 op)
 {
+	OLDD
 	int fs = _FS;
 	int rt = _RT;
 

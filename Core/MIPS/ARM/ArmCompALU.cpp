@@ -34,20 +34,25 @@ using namespace MIPSAnalyst;
 
 namespace MIPSComp
 {
-	/*
-	void Jit::CompImmLogic(u32 op, void (ARMXEmitter::*arith)(ARMReg dst, ARMReg src, Operand2 op2))
+	u32 EvalOR(u32 a, u32 b) { return a | b; }
+	u32 EvalXOR(u32 a, u32 b) { return a ^ b; }
+	u32 EvalAND(u32 a, u32 b) { return a & b; }
+
+
+	void Jit::CompImmLogic(int rs, int rt, u32 uimm, void (ARMXEmitter::*arith)(ARMReg dst, ARMReg src, Operand2 op2), u32 (*eval)(u32 a, u32 b))
 	{
-		u32 uimm = (u16)(op & 0xFFFF);
-		gpr.SpillLock()
-		int rt = _RT;
-		int rs = _RS;
-		gpr.Lock(rt, rs);
-		gpr.BindToRegister(rt, rt == rs, true);
-		if (rt != rs)
-			MOV(32, gpr.R(rt), gpr.R(rs));
-		(this->*arith)(32, gpr.R(rt), Imm32(uimm));
-		gpr.UnlockAll();
-	}*/
+		if (gpr.IsImm(rs)) {
+			gpr.SetImm(rt, (*eval)(gpr.GetImm(rs), uimm));
+		} else {
+			gpr.SpillLock(rs, rt);
+			gpr.MapReg(rt, MAP_INITVAL | MAP_DIRTY);
+			gpr.MapReg(rs, MAP_INITVAL);
+			gpr.ReleaseSpillLocks();
+			// TODO: Special case when uimm can be represented as an Operand2
+			ARMABI_MOVI2R(R0, (u32)uimm);
+			(this->*arith)(gpr.R(rt), gpr.R(rs), R0);
+		}
+	}
 
 	void Jit::Comp_IType(u32 op)
 	{
@@ -59,26 +64,31 @@ namespace MIPSComp
 
 		switch (op >> 26) 
 		{
-			/*
 		case 8:	// same as addiu?
 		case 9:	//R(rt) = R(rs) + simm; break;	//addiu
 			{
-				if (gpr.IsImm(rs))
-				{
+				if (gpr.IsImm(rs)) {
 					gpr.SetImm(rt, gpr.GetImm(rs) + simm);
-					break;
-				} else if (rs == 0) {
+				}/* else if (rs == 0) {
 					gpr.SetImm(rt, simm);
 				} else {
 					gpr.SpillLock(rs, rt);
 					gpr.MapReg(rs, MAP_INITVAL);
 					gpr.MapReg(rt, MAP_INITVAL | MAP_DIRTY);
-					ARMABI_MOVI2R(R0, (u32)simm);
-					ADD(gpr.R(rt), gpr.R(rs), R0);
+					Operand2 op2;
+					if (false && TryMakeOperand2(simm, op2)) {
+						ADD(gpr.R(rt), gpr.R(rs), op2);
+					} else {
+						ARMABI_MOVI2R(R0, (u32)simm);
+						ADD(gpr.R(rt), gpr.R(rs), R0);
+					}
 					gpr.ReleaseSpillLocks();
+				}*/
+				else {
+					Comp_Generic(op);
 				}
 				break;
-			}*/
+			}
 /*
 		case 13:  // OR
 			{

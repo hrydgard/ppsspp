@@ -113,6 +113,7 @@ public:
 	void Reset();
 	void DoState(PointerWrap &p);
 
+	// MUST start with r!
 	u32 r[32];
 	float f[32];
 	float v[128];
