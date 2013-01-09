@@ -128,7 +128,7 @@ const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 	int numInstructions = 0;
 	int cycles = 0;
 
-	static int logBlocks = 20;
+	static int logBlocks = 1;
 	if (logBlocks > 0) logBlocks--;
 
 #define LOGASM
@@ -179,7 +179,7 @@ const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 void Jit::Comp_RunBlock(u32 op)
 {
 	// This shouldn't be necessary, the dispatcher should catch us before we get here.
-	ERROR_LOG(DYNA_REC, "Comp_RunBlock");
+	ERROR_LOG(DYNA_REC, "Comp_RunBlock should never be reached!");
 }
 
 void Jit::Comp_Generic(u32 op)

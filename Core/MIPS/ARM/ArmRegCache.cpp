@@ -94,6 +94,8 @@ allocate:
 		}
 	}
 
+	ERROR_LOG(JIT, "Spill!");
+
 	// Still nothing. Let's spill a reg and goto 10.
 	// TODO: Use age or something to choose which register to spill?
 	int bestToSpill = -1;
@@ -106,7 +108,7 @@ allocate:
 	}
 
 	if (bestToSpill != -1) {
-		WARN_LOG(JIT, "Out of registers at PC %08x - spills register %i.", mips_->pc, bestToSpill);
+		ERROR_LOG(JIT, "Out of registers at PC %08x - spills register %i.", mips_->pc, bestToSpill);
 		FlushArmReg((ARMReg)bestToSpill);
 		goto allocate;
 	}
@@ -118,7 +120,7 @@ allocate:
 
 void ArmRegCache::FlushArmReg(ARMReg r) {
 	if (ar[r].mipsReg == -1) {
-		// Nothing to do
+		// Nothing to do, reg not mapped.
 		return;
 	}
 	if (ar[r].mipsReg != -1) {
@@ -126,6 +128,8 @@ void ArmRegCache::FlushArmReg(ARMReg r) {
 			emit->STR(CTXREG, r, 4 * ar[r].mipsReg);
 		// IMMs won't be in an ARM reg.
 		mr[ar[r].mipsReg].loc = ML_MEM;
+		mr[ar[r].mipsReg].reg = INVALID_REG;
+		mr[ar[r].mipsReg].imm = 0;
 	} else {
 		ERROR_LOG(HLE, "Dirty but no mipsreg?");
 	}
@@ -142,10 +146,14 @@ void ArmRegCache::FlushMipsReg(MIPSReg r) {
 		break;
 
 	case ML_ARMREG:
-		if (ar[mr[r].reg].isDirty)
+		if (mr[r].reg == INVALID_REG) {
+			ERROR_LOG(HLE, "FlushMipsReg: MipsReg had bad ArmReg");
+		}
+		if (ar[mr[r].reg].isDirty) {
 			emit->STR(CTXREG, mr[r].reg, GetMipsRegOffset(r));
+			ar[mr[r].reg].isDirty = false;
+		}
 		ar[mr[r].reg].mipsReg = -1;
-		ar[mr[r].reg].isDirty = false;
 		break;
 
 	default:
@@ -171,8 +179,10 @@ void ArmRegCache::FlushAll() {
 
 void ArmRegCache::SetImm(MIPSReg r, u32 immVal) {
 	// Zap existing value if cached in a reg
-	if (mr[r].loc == ML_ARMREG)
+	if (mr[r].loc == ML_ARMREG) {
 		ar[mr[r].reg].mipsReg = -1;
+		ar[mr[r].reg].isDirty = false;
+	}
 	mr[r].loc = ML_IMM;
 	mr[r].imm = immVal;
 	mr[r].reg = INVALID_REG;
@@ -218,7 +228,6 @@ ARMReg ArmRegCache::R(int mipsReg) {
 	if (mr[mipsReg].loc == ML_ARMREG) {
 		return mr[mipsReg].reg;
 	} else {
-		_dbg_assert_msg_(JIT, false, "R: not mapped");
 		ERROR_LOG(JIT, "Reg %i not in arm reg. compilerPC = %08x", mipsReg, compilerPC_);
 		return INVALID_REG;  // BAAAD
 	}
