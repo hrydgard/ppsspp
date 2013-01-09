@@ -104,6 +104,7 @@ void CConfig::Save()
 		graphics->Set("BufferedRendering", bBufferedRendering);
 		graphics->Set("HardwareTransform", bHardwareTransform);
 		graphics->Set("LinearFiltering", bLinearFiltering);
+		graphics->Set("SSAA", SSAntiAliasing);
 
 		IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 		sound->Set("Enable", bEnableSound);
