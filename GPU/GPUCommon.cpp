@@ -41,13 +41,12 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head)
 
 void GPUCommon::UpdateStall(int listid, u32 newstall)
 {
-	// this needs improvement....
-	for (DisplayListQueue::iterator iter = dlQueue.begin(); iter != dlQueue.end(); iter++)
-	{
-		DisplayList &l = *iter;
-		if (l.id == listid)
+	
+	for (auto iter = dlQueue.begin(); iter !=dlQueue.end(); ++iter) // equal to DisplayListQueue::iterator 
+	{	
+		if (iter->id == listid)
 		{
-			l.stall = newstall & 0xFFFFFFF;
+			iter->stall = newstall & 0xFFFFFFF;
 		}
 	}
 	
