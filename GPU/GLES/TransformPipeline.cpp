@@ -613,22 +613,32 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 	// these spam the gDebugger log.
 	const int vertexSize = sizeof(transformed[0]);
 
-	glBindBuffer(GL_ARRAY_BUFFER, vbo_);
-	glBufferData(GL_ARRAY_BUFFER, vertexSize * numTrans, drawBuffer, GL_STREAM_DRAW);
-	drawBuffer = 0;  // so that the calls use offsets instead.
+	bool useVBO = g_Config.bUseVBO;
+	if (useVBO) {
+		glBindBuffer(GL_ARRAY_BUFFER, vbo_);
+		glBufferData(GL_ARRAY_BUFFER, vertexSize * numTrans, drawBuffer, GL_STREAM_DRAW);
+		drawBuffer = 0;  // so that the calls use offsets instead.
+	}
 	glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, vertexSize, drawBuffer);
 	if (program->a_texcoord != -1) glVertexAttribPointer(program->a_texcoord, 2, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 3 * 4);
 	if (program->a_color0 != -1) glVertexAttribPointer(program->a_color0, 4, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 5 * 4);
 	if (program->a_color1 != -1) glVertexAttribPointer(program->a_color1, 3, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 9 * 4);
 	if (drawIndexed) {
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(short) * numTrans, inds, GL_STREAM_DRAW);
-		glDrawElements(glprim[prim], numTrans, GL_UNSIGNED_SHORT, 0);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+		if (useVBO) {
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_);
+			glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(short) * numTrans, inds, GL_STREAM_DRAW);
+			inds = 0;
+		}
+		glDrawElements(glprim[prim], numTrans, GL_UNSIGNED_SHORT, inds);
+		if (useVBO) {
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+		}
 	} else {
 		glDrawArrays(glprim[prim], 0, numTrans);
 	}
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	if (useVBO) {
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+	}
 }
 
 void TransformDrawEngine::SubmitPrim(void *verts, void *inds, int prim, int vertexCount, u32 vertType, int forceIndexType, int *bytesRead) {
