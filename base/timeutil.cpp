@@ -95,7 +95,7 @@ bool LoggingDeadline::End() {
 	if (time_now_d() > endTime_) {
 		double late = (time_now_d() - endTime_);
 		double totalTime = late + totalTime_;
-		ELOG("===== %0.2fms DEADLINE PASSED FOR %s at %0.2fms - %0.2fms late =====", totalTime_ * 1000.0f, name_, 1000.0 * late);
+		ELOG("===== %0.2fms DEADLINE PASSED FOR %s at %0.2fms - %0.2fms late =====", totalTime_ * 1000.0, name_, 1000.0 * totalTime, 1000.0 * late);
 		return false;
 	}
 	return true;
