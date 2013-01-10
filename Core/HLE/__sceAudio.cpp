@@ -198,9 +198,8 @@ void __AudioUpdate()
 		}
 	}
 
-	section.lock();
-
 	if (g_Config.bEnableSound) {
+		section.lock();
 		if (outAudioQueue.room() >= hwBlockSize * 2) {
 			// Push the mixed samples onto the output audio queue.
 			for (int i = 0; i < hwBlockSize; i++) {
@@ -210,14 +209,14 @@ void __AudioUpdate()
 				outAudioQueue.push((s16)sampleL);
 				outAudioQueue.push((s16)sampleR);
 			}
-		} else {
-			// This happens quite a lot. There's still something slightly off
-			// about the amount of audio we produce.
-			DEBUG_LOG(HLE, "Audio outbuffer overrun! room = %i / %i", outAudioQueue.room(), (u32)outAudioQueue.capacity());
 		}
+		section.unlock();
+	} else {
+		// This happens quite a lot. There's still something slightly off
+		// about the amount of audio we produce.
+		DEBUG_LOG(HLE, "Audio outbuffer overrun! room = %i / %i", outAudioQueue.room(), (u32)outAudioQueue.capacity());
 	}
 	
-	section.unlock();
 }
 
 void __AudioSetOutputFrequency(int freq)
