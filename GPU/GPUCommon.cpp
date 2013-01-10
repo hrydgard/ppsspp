@@ -13,7 +13,7 @@ void init() {
 
 int GPUCommon::listStatus(int listid)
 {
-	for(DisplayListQueue::const_iterator it(dlQueue.cbegin()); it != dlQueue.cend(); ++it)
+	for(DisplayListQueue::iterator it(dlQueue.begin()); it != dlQueue.end(); ++it)
 	{
 		if(it->id == listid)
 		{
