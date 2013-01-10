@@ -43,8 +43,10 @@ Of course in-tree builds are supported, but that makes cleanup
 harder to do; with out-of-tree builds you can just remove the
 `build` directory.
 
-Note: There is also a Qt frontend available. Simply compile
-PPSSPPQt.pro from [QtCreator][qt-creator].
+Note: There is also a Qt frontend available. Simply open
+PPSSPPQt.pro in [Qt Creator 2.6+][qt-creator] and press run. The
+Qt frontend currently supports Windows, Linux, Blackberry 10,
+Symbian and Meego.
 
 Building for Linux/BSD/etc
 --------------------------
@@ -118,6 +120,8 @@ To build for Symbian, you require:
 1) [GCC 4.6.3][symbian-gcc] from Mentor Graphics.
 
 2) Symbian Qt libraries. You can find these in the final Nokia Qt SDK or online.
+
+3) Set up your SDK to use Symbian GCCE 4.6.3. See a tutorial here: http://www.summeli.fi/?p=4220
 
 Then simply compile the PPSSPPQt.pro with `qmake` from the SDK or [QtCreator 2.6+][qt-creator].
 
