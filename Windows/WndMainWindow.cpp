@@ -499,6 +499,10 @@ namespace MainWindow
 				g_Config.bLinearFiltering = !g_Config.bLinearFiltering;
 				UpdateMenus();
 				break;
+			case ID_OPTIONS_SIMPLE2XSSAA:
+				g_Config.SSAntiAlaising = !g_Config.SSAntiAlaising;
+				UpdateMenus();
+				break;
 			case ID_OPTIONS_CONTROLS:
 				DialogManager::EnableAll(FALSE);
 				DialogBox(hInst, (LPCTSTR)IDD_CONTROLS, hWnd, (DLGPROC)Controls);
@@ -642,6 +646,7 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_HARDWARETRANSFORM, g_Config.bHardwareTransform);
 		CHECKITEM(ID_OPTIONS_FASTMEMORY, g_Config.bFastMemory);
 		CHECKITEM(ID_OPTIONS_LINEARFILTERING, g_Config.bLinearFiltering);
+		CHECKITEM(ID_OPTIONS_SIMPLE2XSSAA, g_Config.SSAntiAlaising);
 		CHECKITEM(ID_EMULATION_RUNONLOAD, g_Config.bAutoRun);
 
 		UINT enable = !Core_IsStepping() ? MF_GRAYED : MF_ENABLED;
@@ -663,6 +668,7 @@ namespace MainWindow
 		EnableMenuItem(menu,ID_EMULATION_STOP,!enable);
 		EnableMenuItem(menu,ID_OPTIONS_SETTINGS,enable);
 		EnableMenuItem(menu,ID_PLUGINS_CHOOSEPLUGINS,enable);
+		EnableMenuItem(menu,ID_OPTIONS_SIMPLE2XSSAA,enable);
 
 		const int zoomitems[4] = {
 			ID_OPTIONS_SCREEN1X,
