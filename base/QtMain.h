@@ -18,6 +18,30 @@
 #include "net/resolve.h"
 #include "display.h"
 
+// Input
+const int buttonMappings[18] = {
+	Qt::Key_X,          //A
+	Qt::Key_S,          //B
+	Qt::Key_Z,          //X
+	Qt::Key_A,          //Y
+	Qt::Key_W,          //LBUMPER
+	Qt::Key_Q,          //RBUMPER
+	Qt::Key_1,          //START
+	Qt::Key_2,          //SELECT
+	Qt::Key_Up,         //UP
+	Qt::Key_Down,       //DOWN
+	Qt::Key_Left,       //LEFT
+	Qt::Key_Right,      //RIGHT
+	0,                  //MENU (event)
+	Qt::Key_Backspace,  //BACK
+	Qt::Key_I,          //JOY UP
+	Qt::Key_K,          //JOY DOWN
+	Qt::Key_J,          //JOY LEFT
+	Qt::Key_L,          //JOY RIGHT
+};
+void SimulateGamepad(InputState *input);
+
+//GUI
 class MainUI : public QGLWidget
 {
 	Q_OBJECT
@@ -32,6 +56,14 @@ public:
 	}
 
 protected:
+	void resizeEvent(QResizeEvent * e)
+	{
+		pixel_xres = e->size().width();
+		pixel_yres = e->size().height();
+		dp_xres = pixel_xres * dpi_scale;
+		dp_yres = pixel_yres * dpi_scale;
+	}
+
 	bool event(QEvent *e)
 	{
 		QList<QTouchEvent::TouchPoint> touchPoints;
@@ -64,6 +96,18 @@ protected:
 			input_state.pointer_x[0] = ((QMouseEvent*)e)->pos().x() * dpi_scale;
 			input_state.pointer_y[0] = ((QMouseEvent*)e)->pos().y() * dpi_scale;
 		break;
+		case QEvent::KeyPress:
+			for (int b = 0; b < 14; b++) {
+				if (((QKeyEvent*)e)->key() == buttonMappings[b])
+					input_state.pad_buttons |= (1<<b);
+			}
+		break;
+		case QEvent::KeyRelease:
+			for (int b = 0; b < 14; b++) {
+				if (((QKeyEvent*)e)->key() == buttonMappings[b])
+					input_state.pad_buttons &= ~(1<<b);
+			}
+		break;
 		default:
 			return QWidget::event(e);
 		}
@@ -81,6 +125,7 @@ protected:
 
 	void paintGL()
 	{
+		SimulateGamepad(&input_state);
 		UpdateInputState(&input_state);
 		NativeUpdate(input_state);
 		EndInputState(&input_state);
@@ -94,6 +139,7 @@ private:
 	float dpi_scale;
 };
 
+// Audio
 #define AUDIO_FREQ 44100
 #define AUDIO_CHANNELS 2
 #define AUDIO_SAMPLES 1024
