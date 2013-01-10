@@ -31,6 +31,7 @@
 #include "gfx/gl_lost_manager.h"
 #include "gfx/texture.h"
 #include "input/input_state.h"
+#include "math/math_util.h"
 #include "math/lin/matrix4x4.h"
 #include "ui/screen.h"
 #include "ui/ui.h"
@@ -155,6 +156,7 @@ void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, boo
 
 void NativeInit(int argc, const char *argv[], const char *savegame_directory, const char *external_directory, const char *installID)
 {
+	EnableFZ();
 	std::string user_data_path = savegame_directory;
 
 	// We want this to be FIRST.
@@ -308,6 +310,11 @@ void NativeInitGraphics()
 
 void NativeRender()
 {
+	EnableFZ();
+	// Clearing the screen at the start of the frame is an optimization for tiled mobile GPUs, as it then doesn't need to keep it around between frames.
+	glClearColor(0,0,0,1);
+	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
 	glstate.Restore();
 	glViewport(0, 0, pixel_xres, pixel_yres);
 	Matrix4x4 ortho;

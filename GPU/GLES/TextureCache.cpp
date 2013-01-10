@@ -598,6 +598,13 @@ void convertColors(u8 *finalBuf, GLuint dstFmt, int numPixels) {
 	}
 }
 
+int lastBoundTexture = -1;
+
+void TextureCache_StartFrame() {
+	lastBoundTexture = -1;
+	TextureCache_Decimate();
+}
+
 void PSPSetTexture() {
 	u32 texaddr = (gstate.texaddr[0] & 0xFFFFF0) | ((gstate.texbufwidth[0]<<8) & 0xFF000000);
 	texaddr &= 0xFFFFFFF;
@@ -656,7 +663,10 @@ void PSPSetTexture() {
 		if (match) {
 			//got one!
 			entry.frameCounter = gpuStats.numFrames;
-			glBindTexture(GL_TEXTURE_2D, entry.texture);
+			if (entry.texture != lastBoundTexture) {
+				glBindTexture(GL_TEXTURE_2D, entry.texture);
+				lastBoundTexture = entry.texture;
+			}
 			UpdateSamplingParams(entry, false);
 			DEBUG_LOG(G3D, "Texture at %08x Found in Cache, applying", texaddr);
 			return; //Done!
