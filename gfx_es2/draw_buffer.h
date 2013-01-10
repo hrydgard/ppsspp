@@ -5,6 +5,7 @@
 #include "base/basictypes.h"
 #include "base/color.h"
 #include "base/display.h"
+#include "gfx/gl_lost_manager.h"
 
 struct Atlas;
 
@@ -36,13 +37,12 @@ enum DrawBufferMode {
 	DBMODE_LINES = 1
 };
 
-struct GradientStop 
-{
+struct GradientStop {
 	float t;
 	uint32_t color;
 };
 
-class DrawBuffer {
+class DrawBuffer : public GfxResourceHolder {
 public:
 	DrawBuffer();
 	~DrawBuffer();
@@ -50,10 +50,15 @@ public:
 	void Begin(DrawBufferMode mode = DBMODE_NORMAL);
 	void End();
 
+	// TODO: Enforce these. Now Init is autocalled and shutdown not called.
+	void Init();
+	void Shutdown();
+	virtual void GLLost();
+
 	int Count() const { return count_; }
 
 	void Flush(const GLSLProgram *program, bool set_blend_state=true);
-	
+
 	void Rect(float x, float y, float w, float h, uint32 color, int align = ALIGN_TOPLEFT);
 	void hLine(float x1, float y, float x2, uint32 color) { Rect(x1, y, x2 - x1, pixel_in_dps, color); }
 	void vLine(float x, float y1, float y2, uint32 color) { Rect(x, y1, pixel_in_dps, y2 - y1, color); }
@@ -121,7 +126,6 @@ public:
 	void SetClipRect(float x1, float y1, float x2, float y2);
 	void NoClip();
 
-
 private:
 	void DoAlign(int flags, float *x, float *y, float *w, float *h);
 	struct Vertex {
@@ -130,11 +134,13 @@ private:
 		float u, v;
 	};
 
+	int vbo_;
 	Vertex *verts_;
 	int count_;
 	DrawBufferMode mode_;
 	const Atlas *atlas;
 
+	bool inited_;
 	float fontscalex;
 	float fontscaley;
 };

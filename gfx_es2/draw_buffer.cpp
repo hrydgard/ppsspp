@@ -21,12 +21,34 @@ DrawBuffer::DrawBuffer() : count_(0), atlas(0) {
 	verts_ = new Vertex[MAX_VERTS];
 	fontscalex = 1.0f;
 	fontscaley = 1.0f;
+	inited_ = false;
+	register_gl_resource_holder(this);
 }
 DrawBuffer::~DrawBuffer() {
+	unregister_gl_resource_holder(this);
 	delete [] verts_;
 }
 
+void DrawBuffer::Init() {
+	if (inited_)
+		return;
+	inited_ = true;
+	glGenBuffers(1, (GLuint *)&vbo_);
+}
+
+void DrawBuffer::Shutdown() {
+	glDeleteBuffers(1, (GLuint *)&vbo_);
+	vbo_ = 0;
+	inited_ = false;
+}
+
+void DrawBuffer::GLLost() {
+	inited_ = false;
+	Init();
+}
+
 void DrawBuffer::Begin(DrawBufferMode dbmode) {
+	Init();
 	count_ = 0;
 	mode_ = dbmode;
 }
@@ -38,11 +60,12 @@ void DrawBuffer::End() {
 void DrawBuffer::Flush(const GLSLProgram *program, bool set_blend_state) {
 	if (count_ == 0)
 		return;
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo_);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * count_, verts_, GL_STREAM_DRAW);
 	if (set_blend_state) {
-	glstate.blend.enable();
-	glstate.blendFunc.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glstate.blend.enable();
+		glstate.blendFunc.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	}
 	glUniform1i(program->sampler0, 0);
 	glEnableVertexAttribArray(program->a_position);
@@ -50,10 +73,10 @@ void DrawBuffer::Flush(const GLSLProgram *program, bool set_blend_state) {
 	if (program->a_texcoord0 != -1)
 		glEnableVertexAttribArray(program->a_texcoord0);
 	GL_CHECK();
-	glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), &verts_[0].x);
-	glVertexAttribPointer(program->a_color, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(Vertex), &verts_[0].rgba);
+	glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, x));
+	glVertexAttribPointer(program->a_color, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(Vertex), (void *)offsetof(Vertex, rgba));
 	if (program->a_texcoord0 != -1)
-		glVertexAttribPointer(program->a_texcoord0, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), &verts_[0].u);
+		glVertexAttribPointer(program->a_texcoord0, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, u));
 	glDrawArrays(mode_ == DBMODE_LINES ? GL_LINES : GL_TRIANGLES, 0, count_);
 	GL_CHECK();
 	glDisableVertexAttribArray(program->a_position);
@@ -61,6 +84,7 @@ void DrawBuffer::Flush(const GLSLProgram *program, bool set_blend_state) {
 	if (program->a_texcoord0 != -1)
 		glDisableVertexAttribArray(program->a_texcoord0);
 	GL_CHECK();
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	count_ = 0;
 }
