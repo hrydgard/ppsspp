@@ -153,6 +153,7 @@ public:
 	bool Delete(SceUtilitySavedataParam* param, int saveId = -1);
 	bool Save(SceUtilitySavedataParam* param, int saveId = -1);
 	bool Load(SceUtilitySavedataParam* param, int saveId = -1);
+	bool GetSize(SceUtilitySavedataParam* param);	// TODO: Implement this
 	bool GetSizes(SceUtilitySavedataParam* param);
 	bool GetList(SceUtilitySavedataParam* param);
 	bool GetFilesList(SceUtilitySavedataParam* param);
