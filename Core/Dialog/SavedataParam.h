@@ -156,7 +156,7 @@ public:
 	bool GetSizes(SceUtilitySavedataParam* param);
 	bool GetList(SceUtilitySavedataParam* param);
 	bool GetFilesList(SceUtilitySavedataParam* param);
-	bool GetSizes22(SceUtilitySavedataParam* param);
+	bool GetSize(SceUtilitySavedataParam* param);
 
 	std::string GetGameName(SceUtilitySavedataParam* param);
 	std::string GetSaveName(SceUtilitySavedataParam* param);
