@@ -377,6 +377,7 @@ public:
 			return t;
 		}
 	}
+
 	template <class T>
 	T* GetByModuleByEntryAddr(u32 entryAddr)
 	{
@@ -410,13 +411,32 @@ public:
 	int GetCount();
 
 private:
-	enum {maxCount=4096, handleOffset=0x100};
+	enum {
+		maxCount=4096,
+		handleOffset=0x100
+	};
 	KernelObject *pool[maxCount];
 	bool occupied[maxCount];
 };
 
 extern KernelObjectPool kernelObjects;
 
+struct KernelStats {
+	void Reset() {
+		memset(this, 0, sizeof(this));
+	}
+	void ResetFrame() {
+		msInSyscalls = 0;
+		slowestSyscallTime = 0;
+		slowestSyscallName = 0;
+	}
+
+	double msInSyscalls;
+	double slowestSyscallTime;
+	const char *slowestSyscallName;
+};
+
+extern KernelStats kernelStats;
 
 void Register_ThreadManForUser();
 void Register_LoadExecForUser();

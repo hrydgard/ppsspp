@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "base/timeutil.h"
 #include "HLE.h"
 #include <map>
 #include <vector>
@@ -344,6 +345,8 @@ inline void hleFinishSyscall(int modulenum, int funcnum)
 
 void CallSyscall(u32 op)
 {
+	time_update();
+	double start = time_now_d();
 	u32 callno = (op >> 6) & 0xFFFFF; //20 bits
 	int funcnum = callno & 0xFFF;
 	int modulenum = (callno & 0xFF000) >> 12;
@@ -365,4 +368,14 @@ void CallSyscall(u32 op)
 	{
 		ERROR_LOG(HLE,"Unimplemented HLE function %s", moduleDB[modulenum].funcTable[funcnum].name);
 	}
+	time_update();
+	double total = time_now_d() - start;
+	if (total > kernelStats.slowestSyscallTime) {
+		const char *name = moduleDB[modulenum].funcTable[funcnum].name;
+		if (0 != strcmp(name, "_sceKernelIdle")) {
+			kernelStats.slowestSyscallTime = total;
+			kernelStats.slowestSyscallName = name;
+		}
+	}
+	kernelStats.msInSyscalls += total;
 }
