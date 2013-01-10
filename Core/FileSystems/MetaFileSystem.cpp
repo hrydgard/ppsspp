@@ -17,6 +17,7 @@
 
 #include <set>
 #include "Common/StringUtil.h"
+#include "../HLE/sceKernelThread.h"
 #include "MetaFileSystem.h"
 
 static bool ApplyPathStringToComponentsVector(std::vector<std::string> &vector, const std::string &pathString)
@@ -163,7 +164,6 @@ IFileSystem *MetaFileSystem::GetHandleOwner(u32 handle)
 
 bool MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpath, IFileSystem **system)
 {
-	//TODO: implement current directory per thread (NOT per drive)
 	std::string realpath;
 
 	// Special handling: host0:command.txt (as seen in Super Monkey Ball Adventures, for example)
@@ -174,7 +174,22 @@ bool MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpat
 		inpath = inpath.substr(6);
 	}
 
-	if ( RealPath(currentDirectory, inpath, realpath) )
+	const std::string *currentDirectory = &startingDirectory;
+
+	int currentThread = __KernelGetCurThread();
+	currentDir_t::iterator i = currentDir.find(currentThread);
+	if (i == currentDir.end())
+	{
+		//TODO: emulate PSP's error 8002032C: "no current working directory" if relative... may break things requiring fixes elsewhere
+		if (inpath.find(':') == std::string::npos  /* means path is relative */)
+			WARN_LOG(HLE, "Path is relative, but current directory not set for thread %i. Should give error, instead falling back to %s", currentThread, startingDirectory.c_str());
+	}
+	else
+	{
+		currentDirectory = &(i->second);
+	}
+
+	if ( RealPath(*currentDirectory, inpath, realpath) )
 	{
 		for (size_t i = 0; i < fileSystems.size(); i++)
 		{
@@ -203,7 +218,7 @@ void MetaFileSystem::Mount(std::string prefix, IFileSystem *system)
 	fileSystems.push_back(x);
 }
 
-void MetaFileSystem::UnmountAll()
+void MetaFileSystem::Shutdown()
 {
 	current = 6;
 
@@ -220,7 +235,8 @@ void MetaFileSystem::UnmountAll()
 	}
 
 	fileSystems.clear();
-	currentDirectory = "";
+	currentDir.clear();
+	startingDirectory = "";
 }
 
 u32 MetaFileSystem::OpenFile(std::string filename, FileAccess access)
@@ -276,6 +292,19 @@ std::vector<PSPFileInfo> MetaFileSystem::GetDirListing(std::string path)
 		std::vector<PSPFileInfo> empty;
 		return empty;
 	}
+}
+
+void MetaFileSystem::ThreadEnded(int threadID)
+{
+	currentDir.erase(threadID);
+}
+
+void MetaFileSystem::ChDir(const std::string &dir)
+{
+	//TODO: test sceIoChdir("..") on PSP - maybe we should map it before saving it?
+
+	int curThread = __KernelGetCurThread();
+	currentDir[curThread] = dir;
 }
 
 bool MetaFileSystem::MkDir(const std::string &dirname)
@@ -372,9 +401,34 @@ size_t MetaFileSystem::SeekFile(u32 handle, s32 position, FileMove type)
 void MetaFileSystem::DoState(PointerWrap &p)
 {
 	p.Do(current);
-	p.Do(currentDirectory);
 
-	int n = (int) fileSystems.size();
+	// Save/load per-thread current directory map
+	u32 n = (u32) currentDir.size();
+	p.Do(n);
+	if (p.mode == p.MODE_READ)
+	{
+		std::string dir;
+		currentDir.clear();
+		for (u32 i = 0; i < n; ++i)
+		{
+			int threadID;
+			p.Do(threadID);
+			p.Do(dir);
+
+			currentDir[threadID] = dir;
+		}
+	}
+	else
+	{
+		currentDir_t::iterator i = currentDir.begin(), end = currentDir.end();
+		for (; i != end; ++i)
+		{
+			p.Do(i->first);
+			p.Do(i->second);
+		}
+	}
+
+	n = (u32) fileSystems.size();
 	p.Do(n);
 	if (n != fileSystems.size())
 	{
@@ -382,7 +436,7 @@ void MetaFileSystem::DoState(PointerWrap &p)
 		return;
 	}
 
-	for (int i = 0; i < n; ++i)
+	for (u32 i = 0; i < n; ++i)
 		fileSystems[i].system->DoState(p);
 
 	p.DoMarker("MetaFileSystem");
