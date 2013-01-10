@@ -507,6 +507,14 @@ namespace MainWindow
 				g_Config.SSAntiAlaising = !g_Config.SSAntiAlaising;
 				UpdateMenus();
 				break;
+			case ID_OPTIONS_DISABLEG3DLOG:
+				g_Config.bDisableG3DLog = !g_Config.bDisableG3DLog;
+				if (!g_Config.bDisableG3DLog )
+					LogManager::GetInstance()->SetEnable(LogTypes::G3D, true);
+				else 
+					LogManager::GetInstance()->SetEnable(LogTypes::G3D, false);
+				UpdateMenus();
+				break;
 			case ID_OPTIONS_CONTROLS:
 				DialogManager::EnableAll(FALSE);
 				DialogBox(hInst, (LPCTSTR)IDD_CONTROLS, hWnd, (DLGPROC)Controls);
@@ -651,6 +659,7 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_FASTMEMORY, g_Config.bFastMemory);
 		CHECKITEM(ID_OPTIONS_LINEARFILTERING, g_Config.bLinearFiltering);
 		CHECKITEM(ID_OPTIONS_SIMPLE2XSSAA, g_Config.SSAntiAlaising);
+		CHECKITEM(ID_OPTIONS_DISABLEG3DLOG, g_Config.bDisableG3DLog);
 		CHECKITEM(ID_EMULATION_RUNONLOAD, g_Config.bAutoRun);
 		CHECKITEM(ID_OPTIONS_USEVBO, g_Config.bUseVBO);
 
