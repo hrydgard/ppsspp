@@ -86,7 +86,7 @@ allocate:
 					emit->LDR((ARMReg)reg, CTXREG, 4 * mipsReg);
 				} else if (mr[mipsReg].loc == ML_IMM) {
 					emit->ARMABI_MOVI2R((ARMReg)reg, mr[mipsReg].imm);
-					ar[reg].isDirty = true;
+					ar[reg].isDirty = true;  // IMM is always dirty.
 				}
 			}
 			ar[reg].mipsReg = mipsReg;
@@ -154,6 +154,10 @@ void ArmRegCache::FlushMipsReg(MIPSReg r) {
 			ar[mr[r].reg].isDirty = false;
 		}
 		ar[mr[r].reg].mipsReg = -1;
+		break;
+
+	case ML_MEM:
+		// Already there, nothing to do.
 		break;
 
 	default:

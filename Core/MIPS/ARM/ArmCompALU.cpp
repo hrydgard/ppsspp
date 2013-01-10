@@ -34,9 +34,9 @@ using namespace MIPSAnalyst;
 
 namespace MIPSComp
 {
-	static u32 EvalOR(u32 a, u32 b) { return a | b; }
-	static u32 EvalXOR(u32 a, u32 b) { return a ^ b; }
-	static u32 EvalAND(u32 a, u32 b) { return a & b; }
+	static u32 EvalOr(u32 a, u32 b) { return a | b; }
+	static u32 EvalXor(u32 a, u32 b) { return a ^ b; }
+	static u32 EvalAnd(u32 a, u32 b) { return a & b; }
 
 	void Jit::CompImmLogic(int rs, int rt, u32 uimm, void (ARMXEmitter::*arith)(ARMReg dst, ARMReg src, Operand2 op2), u32 (*eval)(u32 a, u32 b))
 	{
@@ -48,8 +48,13 @@ namespace MIPSComp
 			gpr.MapReg(rs);
 			gpr.ReleaseSpillLocks();
 			// TODO: Special case when uimm can be represented as an Operand2
-			ARMABI_MOVI2R(R0, (u32)uimm);
-			(this->*arith)(gpr.R(rt), gpr.R(rs), R0);
+			Operand2 op2;
+			if (TryMakeOperand2(uimm, op2)) {
+				(this->*arith)(gpr.R(rt), gpr.R(rs), op2);
+			} else {
+				ARMABI_MOVI2R(R0, (u32)uimm);
+				(this->*arith)(gpr.R(rt), gpr.R(rs), R0);
+			}
 		}
 	}
 
@@ -64,7 +69,7 @@ namespace MIPSComp
 		switch (op >> 26) 
 		{
 		case 8:	// same as addiu?
-		case 9:	//R(rt) = R(rs) + simm; break;	//addiu
+		case 9:	// R(rt) = R(rs) + simm; break;	//addiu
 			{
 				if (gpr.IsImm(rs)) {
 					gpr.SetImm(rt, gpr.GetImm(rs) + simm);
@@ -85,32 +90,56 @@ namespace MIPSComp
 				}
 				break;
 			}
-		//case 12: CompImmLogic(op, &XEmitter::AND, EvalAnd); break;
-		//case 13: CompImmLogic(op, &XEmitter::OR, EvalOr); break;
-		//case 14: CompImmLogic(op, &XEmitter::XOR, EvalXor); break;
 
-			/*
+		case 12: CompImmLogic(rs, rt, uimm, &ARMXEmitter::AND, &EvalAnd); break;
+		case 13: CompImmLogic(rs, rt, uimm, &ARMXEmitter::ORR, &EvalOr); break;
+		case 14: CompImmLogic(rs, rt, uimm, &ARMXEmitter::EOR, &EvalXor); break;
+
 		case 10: // R(rt) = (s32)R(rs) < simm; break; //slti
-			gpr.Lock(rt, rs);
-			gpr.BindToRegister(rt, rt == rs, true);
-			XOR(32, R(EAX), R(EAX));
-			CMP(32, gpr.R(rs), Imm32(simm));
-			SETcc(CC_L, R(EAX));
-			MOV(32, gpr.R(rt), R(EAX));
-			gpr.UnlockAll();
-			break;
+			gpr.SpillLock(rt, rs);
+			gpr.MapReg(rs);
+			gpr.MapReg(rt, MAP_DIRTY);
+			gpr.ReleaseSpillLocks();
 
+			{
+				Operand2 op2;
+				if (TryMakeOperand2(simm, op2)) {
+					CMP(gpr.R(rs), op2);
+				} else {
+					ARMABI_MOVI2R(R0, simm);
+					CMP(gpr.R(rs), R0);
+				}
+			}
+
+			SetCC(CC_LT);
+			ARMABI_MOVI2R(gpr.R(rt), 1);
+			SetCC(CC_GE);
+			ARMABI_MOVI2R(gpr.R(rt), 0);
+			SetCC(CC_AL);
+			break;
+			
 		case 11: // R(rt) = R(rs) < uimm; break; //sltiu
-			gpr.Lock(rt, rs);
-			gpr.BindToRegister(rt, rt == rs, true);
-			XOR(32, R(EAX), R(EAX));
-			CMP(32, gpr.R(rs), Imm32((u32)simm));
-			SETcc(CC_B, R(EAX));
-			MOV(32, gpr.R(rt), R(EAX));
-			gpr.UnlockAll();
-			break;
+			gpr.SpillLock(rt, rs);
+			gpr.MapReg(rs);
+			gpr.MapReg(rt, MAP_DIRTY);
+			gpr.ReleaseSpillLocks();
 
-			*/
+			{
+				Operand2 op2;
+				if (TryMakeOperand2(uimm, op2)) {
+					CMP(gpr.R(rs), op2);
+				} else {
+					ARMABI_MOVI2R(R0, uimm);
+					CMP(gpr.R(rs), R0);
+				}
+			}
+
+			SetCC(CC_LO);
+			ARMABI_MOVI2R(gpr.R(rt), 1);
+			SetCC(CC_HS);
+			ARMABI_MOVI2R(gpr.R(rt), 0);
+			SetCC(CC_AL);
+			break;
 
 		case 15: // R(rt) = uimm << 16;	 //lui
 			gpr.SetImm(rt, uimm << 16);
@@ -142,8 +171,6 @@ namespace MIPSComp
 
 	void Jit::Comp_RType3(u32 op)
 	{
-		OLDD
-
 		int rt = _RT;
 		int rs = _RS;
 		int rd = _RD;
@@ -213,21 +240,20 @@ namespace MIPSComp
 		}
 	}
 
-	/*
-
-	void Jit::CompShiftImm(u32 op, void (XEmitter::*shift)(int, OpArg, OpArg))
+	void Jit::CompShiftImm(u32 op, ArmGen::ShiftType shiftType)
 	{
 		int rd = _RD;
 		int rt = _RT;
-		gpr.Lock(rd, rt);
 		int sa = _SA;
-		gpr.BindToRegister(rd, rd == rt, true);
-		if (rd != rt)
-			MOV(32, gpr.R(rd), gpr.R(rt));
-		(this->*shift)(32, gpr.R(rd), Imm8(sa));
-		gpr.UnlockAll();
+		
+		gpr.SpillLock(rd, rt);
+		gpr.MapReg(rt);
+		gpr.MapReg(rd, MAP_DIRTY);
+		gpr.ReleaseSpillLocks();
+
+		MOV(gpr.R(rd), Operand2(sa, shiftType, gpr.R(rt)));
 	}
-	*/
+
 	// "over-shifts" work the same as on x86 - only bottom 5 bits are used to get the shift value
 	/*
 	void Jit::CompShiftVar(u32 op, void (XEmitter::*shift)(int, OpArg, OpArg))
@@ -250,12 +276,11 @@ namespace MIPSComp
 	void Jit::Comp_ShiftType(u32 op)
 	{
 		// WARNIGN : ROTR
-		OLDD
 		switch (op & 0x3f)
 		{
-		//case 0: CompShiftImm(op, &ARMXEmitter::SHL); break;
-		//case 2: CompShiftImm(op, &XEmitter::SHR); break;	// srl
-		//case 3: CompShiftImm(op, &XEmitter::SAR); break;	// sra
+		case 0: CompShiftImm(op, ST_LSL); break;
+		case 2: CompShiftImm(op, ST_LSR); break;	// srl
+		case 3: CompShiftImm(op, ST_ASR); break;	// sra
 		
 	 // case 4: CompShiftVar(op, &XEmitter::SHL); break;	// R(rd) = R(rt) << R(rs);				break; //sllv
 	//	case 6: CompShiftVar(op, &XEmitter::SHR); break;	// R(rd) = R(rt) >> R(rs);				break; //srlv
