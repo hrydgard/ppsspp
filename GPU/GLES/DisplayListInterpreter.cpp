@@ -199,7 +199,7 @@ void GLES_GPU::DumpNextFrame() {
 }
 
 void GLES_GPU::BeginFrame() {
-	TextureCache_Decimate();
+	TextureCache_StartFrame();
 
 	if (dumpNextFrame_) {
 		NOTICE_LOG(G3D, "DUMPING THIS FRAME");

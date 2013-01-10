@@ -41,6 +41,7 @@
 
 EmuScreen::EmuScreen(const std::string &filename) : invalid_(true)
 {
+	CheckGLExtensions();
 	std::string fileToStart = filename;
 	// This is probably where we should start up the emulated PSP.
 	INFO_LOG(BOOT, "Starting up hardware.");

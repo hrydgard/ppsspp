@@ -1,3 +1,4 @@
+#include "base/timeutil.h"
 #include "../Core/MemMap.h"
 #include "GeDisasm.h"
 #include "GPUCommon.h"
@@ -41,7 +42,6 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head)
 
 void GPUCommon::UpdateStall(int listid, u32 newstall)
 {
-	
 	for (auto iter = dlQueue.begin(); iter != dlQueue.end(); ++iter)
 	{
 		DisplayList &cur = *iter;
@@ -56,6 +56,8 @@ void GPUCommon::UpdateStall(int listid, u32 newstall)
 
 bool GPUCommon::InterpretList(DisplayList &list)
 {
+	time_update();
+	double start = time_now_d();
 	currentList = &list;
 	// Reset stackptr for safety
 	stackptr = 0;
@@ -91,13 +93,15 @@ bool GPUCommon::InterpretList(DisplayList &list)
 		list.pc += 4;
 		prev = op;
 	}
+	time_update();
+	gpuStats.msProcessingDisplayLists += time_now_d() - start;
 	return true;
 }
 
 bool GPUCommon::ProcessDLQueue()
 {
 	DisplayListQueue::iterator iter = dlQueue.begin();
-	while (!(iter == dlQueue.end()))
+	while (iter != dlQueue.end())
 	{
 		DisplayList &l = *iter;
 		DEBUG_LOG(G3D,"Okay, starting DL execution at %08x - stall = %08x", l.pc, l.stall);

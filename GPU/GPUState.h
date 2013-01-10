@@ -263,6 +263,7 @@ struct GPUStatistics
 		numShaderSwitches = 0;
 		numFlushes = 0;
 		numTexturesDecoded = 0;
+		msProcessingDisplayLists = 0;
 	}
 
 	// Per frame statistics
@@ -274,6 +275,7 @@ struct GPUStatistics
 	int numTextureSwitches;
 	int numShaderSwitches;
 	int numTexturesDecoded;
+	double msProcessingDisplayLists;
 
 	// Total statistics, updated by the GPU core in UpdateStats
 	int numFrames;

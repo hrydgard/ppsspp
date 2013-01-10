@@ -71,6 +71,7 @@
 
 static bool kernelRunning = false;
 KernelObjectPool kernelObjects;
+KernelStats kernelStats;
 
 void __KernelInit()
 {
