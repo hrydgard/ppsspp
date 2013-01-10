@@ -384,10 +384,10 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 					c1[j] = 0.0f;
 				}
 			} else {
-				c0[0] = ((gstate.materialambient >> 16) & 0xFF) / 255.f;
+				c0[0] = (gstate.materialambient & 0xFF) / 255.f;
 				c0[1] = ((gstate.materialambient >> 8)  & 0xFF) / 255.f;
-				c0[2] = (gstate.materialambient  & 0xFF) / 255.f;
-				c0[3] = (gstate.materialalpha & 0xFF) / 255.f;
+				c0[2] = ((gstate.materialambient >> 16) & 0xFF) / 255.f;
+				c0[3] = ((gstate.materialalpha >> 4) & 0xFF) / 255.f;
 			}
 
 			if (reader.hasUV()) {
@@ -443,9 +443,9 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			if (reader.hasColor0()) {
 				reader.ReadColor0(unlitColor);
 			} else {
-				unlitColor[0] = ((gstate.materialambient  >> 16) & 0xFF) / 255.f;
-				unlitColor[1] = ((gstate.materialambient >> 8)  & 0xFF) / 255.f;
-				unlitColor[2] = (gstate.materialambient & 0xFF) / 255.f;
+				unlitColor[0] = (gstate.materialambient & 0xFF) / 255.f;
+				unlitColor[1] = ((gstate.materialambient >> 8) & 0xFF) / 255.f;
+				unlitColor[2] = ((gstate.materialambient >> 16) & 0xFF) / 255.f;
 				unlitColor[3] = (gstate.materialalpha & 0xFF) / 255.f;
 			}
 			float litColor0[4];
@@ -474,10 +474,10 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 						c1[j] = 0.0f;
 					}
 				} else {
-					c0[0] = ((gstate.materialambient >> 16) & 0xFF) / 255.f;
-					c0[1] = ((gstate.materialambient >> 8)  & 0xFF) / 255.f;
+					c0[0] = ((gstate.materialambient >> 8) & 0xFF) / 255.f;
+					c0[1] = (gstate.materialambient & 0xFF) / 255.f;
 					c0[2] = (gstate.materialambient & 0xFF) / 255.f;
-					c0[3] = (gstate.materialalpha & 0xFF) / 255.f;
+					c0[3] = ((gstate.materialalpha >> 4) & 0xFF) / 255.f;
 				}
 			}
 
