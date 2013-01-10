@@ -13,158 +13,158 @@
 #include "util/text/utf8.h"
 
 enum {
-  // Enough?
-  MAX_VERTS = 15000,
+	// Enough?
+	MAX_VERTS = 15000,
 };
 
 DrawBuffer::DrawBuffer() : count_(0), atlas(0) {
-  verts_ = new Vertex[MAX_VERTS];
-  fontscalex = 1.0f;
-  fontscaley = 1.0f;
+	verts_ = new Vertex[MAX_VERTS];
+	fontscalex = 1.0f;
+	fontscaley = 1.0f;
 }
 DrawBuffer::~DrawBuffer() {
-  delete [] verts_;
+	delete [] verts_;
 }
 
 void DrawBuffer::Begin(DrawBufferMode dbmode) {
-  count_ = 0;
-  mode_ = dbmode;
+	count_ = 0;
+	mode_ = dbmode;
 }
 
 void DrawBuffer::End() {
-  // Currently does nothing, but call it!
+	// Currently does nothing, but call it!
 }
 
 void DrawBuffer::Flush(const GLSLProgram *program, bool set_blend_state) {
-  if (count_ == 0)
-    return;
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-  if (set_blend_state) {
+	if (count_ == 0)
+		return;
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	if (set_blend_state) {
 	glstate.blend.enable();
 	glstate.blendFunc.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  }
-  glUniform1i(program->sampler0, 0);
-  glEnableVertexAttribArray(program->a_position);
-  glEnableVertexAttribArray(program->a_color);
-  if (program->a_texcoord0 != -1)
-    glEnableVertexAttribArray(program->a_texcoord0);
-  GL_CHECK();
-  glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), &verts_[0].x);
-  glVertexAttribPointer(program->a_color, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(Vertex), &verts_[0].rgba);
-  if (program->a_texcoord0 != -1)
-    glVertexAttribPointer(program->a_texcoord0, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), &verts_[0].u);
-  glDrawArrays(mode_ == DBMODE_LINES ? GL_LINES : GL_TRIANGLES, 0, count_);
-  GL_CHECK();
-  glDisableVertexAttribArray(program->a_position);
-  glDisableVertexAttribArray(program->a_color);
-  if (program->a_texcoord0 != -1)
-    glDisableVertexAttribArray(program->a_texcoord0);
-  GL_CHECK();
+	}
+	glUniform1i(program->sampler0, 0);
+	glEnableVertexAttribArray(program->a_position);
+	glEnableVertexAttribArray(program->a_color);
+	if (program->a_texcoord0 != -1)
+		glEnableVertexAttribArray(program->a_texcoord0);
+	GL_CHECK();
+	glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), &verts_[0].x);
+	glVertexAttribPointer(program->a_color, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(Vertex), &verts_[0].rgba);
+	if (program->a_texcoord0 != -1)
+		glVertexAttribPointer(program->a_texcoord0, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), &verts_[0].u);
+	glDrawArrays(mode_ == DBMODE_LINES ? GL_LINES : GL_TRIANGLES, 0, count_);
+	GL_CHECK();
+	glDisableVertexAttribArray(program->a_position);
+	glDisableVertexAttribArray(program->a_color);
+	if (program->a_texcoord0 != -1)
+		glDisableVertexAttribArray(program->a_texcoord0);
+	GL_CHECK();
 
-  count_ = 0;
+	count_ = 0;
 }
 
 void DrawBuffer::V(float x, float y, float z, uint32 color, float u, float v) {
-  Vertex *vert = &verts_[count_++];
-  vert->x = x;
-  vert->y = y;
-  vert->z = z;
-  vert->rgba = color;
-  vert->u = u;
-  vert->v = v;
+	Vertex *vert = &verts_[count_++];
+	vert->x = x;
+	vert->y = y;
+	vert->z = z;
+	vert->rgba = color;
+	vert->u = u;
+	vert->v = v;
 }
 
 void DrawBuffer::Rect(float x, float y, float w, float h, uint32 color, int align) {
-  DoAlign(align, &x, &y, &w, &h);
-  RectVGradient(x, y, w, h, color, color);
+	DoAlign(align, &x, &y, &w, &h);
+	RectVGradient(x, y, w, h, color, color);
 }
 
 void DrawBuffer::RectVGradient(float x, float y, float w, float h, uint32 colorTop, uint32 colorBottom) {
-  V(x,     y,     0, colorTop,    0, 0);
-  V(x + w, y,     0, colorTop,    1, 0);
-  V(x + w, y + h, 0, colorBottom, 1, 1);
-  V(x,     y,     0, colorTop,    0, 0);
-  V(x + w, y + h, 0, colorBottom, 1, 1);
-  V(x,     y + h, 0, colorBottom, 0, 1);
+	V(x,		 y,     0, colorTop,    0, 0);
+	V(x + w, y,		 0, colorTop,    1, 0);
+	V(x + w, y + h, 0, colorBottom, 1, 1);
+	V(x,		 y,     0, colorTop,    0, 0);
+	V(x + w, y + h, 0, colorBottom, 1, 1);
+	V(x,		 y + h, 0, colorBottom, 0, 1);
 }
 
 void DrawBuffer::MultiVGradient(float x, float y, float w, float h, GradientStop *stops, int numStops) {
-  for (int i = 0; i < numStops - 1; i++) {
-    float t0 = stops[i].t, t1 = stops[i+1].t;
-    uint32_t c0 = stops[i].t, c1 = stops[i+1].t;
-    RectVGradient(x, y + h * t0, w, h * (t1 - t0), c0, c1);
-  }
+	for (int i = 0; i < numStops - 1; i++) {
+		float t0 = stops[i].t, t1 = stops[i+1].t;
+		uint32_t c0 = stops[i].t, c1 = stops[i+1].t;
+		RectVGradient(x, y + h * t0, w, h * (t1 - t0), c0, c1);
+	}
 }
 
 void DrawBuffer::Rect(float x, float y, float w, float h,
-  float u, float v, float uw, float uh,
-  uint32 color) {
-    V(x,     y,     0, color, u, v);
-    V(x + w, y,     0, color, u + uw, v);
-    V(x + w, y + h, 0, color, u + uw, v + uh);
-    V(x,     y,     0, color, u, v);
-    V(x + w, y + h, 0, color, u + uw, v + uh);
-    V(x,     y + h, 0, color, u, v + uh);
+	float u, float v, float uw, float uh,
+	uint32 color) {
+		V(x,	   y,     0, color, u, v);
+		V(x + w, y,	   0, color, u + uw, v);
+		V(x + w, y + h, 0, color, u + uw, v + uh);
+		V(x,	   y,     0, color, u, v);
+		V(x + w, y + h, 0, color, u + uw, v + uh);
+		V(x,	   y + h, 0, color, u, v + uh);
 }
 
 void DrawBuffer::MeasureImage(int atlas_image, float *w, float *h) {
-  const AtlasImage &image = atlas->images[atlas_image];
-  *w = (float)image.w;
-  *h = (float)image.h;
+	const AtlasImage &image = atlas->images[atlas_image];
+	*w = (float)image.w;
+	*h = (float)image.h;
 }
 
 void DrawBuffer::DrawImage(int atlas_image, float x, float y, float scale, Color color, int align) {
-  const AtlasImage &image = atlas->images[atlas_image];
-  float w = (float)image.w * scale;
-  float h = (float)image.h * scale;
-  if (align & ALIGN_HCENTER) x -= w / 2;
-  if (align & ALIGN_RIGHT) x -= w;
-  if (align & ALIGN_VCENTER) y -= h / 2;
-  if (align & ALIGN_BOTTOM) y -= h;
-  DrawImageStretch(atlas_image, x, y, x + w, y + h, color);
+	const AtlasImage &image = atlas->images[atlas_image];
+	float w = (float)image.w * scale;
+	float h = (float)image.h * scale;
+	if (align & ALIGN_HCENTER) x -= w / 2;
+	if (align & ALIGN_RIGHT) x -= w;
+	if (align & ALIGN_VCENTER) y -= h / 2;
+	if (align & ALIGN_BOTTOM) y -= h;
+	DrawImageStretch(atlas_image, x, y, x + w, y + h, color);
 }
 
 void DrawBuffer::DrawImageStretch(int atlas_image, float x1, float y1, float x2, float y2, Color color) {
-  const AtlasImage &image = atlas->images[atlas_image];
-  V(x1,  y1, color, image.u1, image.v1);
-  V(x2,  y1, color, image.u2, image.v1);
-  V(x2,  y2, color, image.u2, image.v2);
-  V(x1,  y1, color, image.u1, image.v1);
-  V(x2,  y2, color, image.u2, image.v2);
-  V(x1,  y2, color, image.u1, image.v2);
+	const AtlasImage &image = atlas->images[atlas_image];
+	V(x1,	y1, color, image.u1, image.v1);
+	V(x2,	y1, color, image.u2, image.v1);
+	V(x2,	y2, color, image.u2, image.v2);
+	V(x1,	y1, color, image.u1, image.v1);
+	V(x2,	y2, color, image.u2, image.v2);
+	V(x1,	y2, color, image.u1, image.v2);
 }
 
 inline void rot(float *v, float angle, float xc, float yc) {
-  v[0]-=xc;
-  v[1]-=yc;
+	v[0]-=xc;
+	v[1]-=yc;
 
-  float ca=cosf(angle),sa=sinf(angle);
+	float ca=cosf(angle),sa=sinf(angle);
 
-  float t0 = v[0] * ca + v[1] * -sa;
-  float t1 = v[0] * sa + v[1] *  ca;
+	float t0 = v[0] * ca + v[1] * -sa;
+	float t1 = v[0] * sa + v[1] *	ca;
 
-  v[0] = t0 + xc;
-  v[1] = t1 + yc;
+	v[0] = t0 + xc;
+	v[1] = t1 + yc;
 }
 
 
 void DrawBuffer::DrawImageRotated(int atlas_image, float x, float y, float scale, float angle, Color color, bool mirror_h) {
-  const AtlasImage &image = atlas->images[atlas_image];
-  float w = (float)image.w * scale;
-  float h = (float)image.h * scale;
-  float x1 = x - w / 2;
-  float x2 = x + w / 2;
-  float y1 = y - h / 2;
-  float y2 = y + h / 2;
-  float v[6][2] = {
-    {x1, y1},
-    {x2, y1},
-    {x2, y2},
-    {x1, y1},
-    {x2, y2},
-    {x1, y2},
-  };
+	const AtlasImage &image = atlas->images[atlas_image];
+	float w = (float)image.w * scale;
+	float h = (float)image.h * scale;
+	float x1 = x - w / 2;
+	float x2 = x + w / 2;
+	float y1 = y - h / 2;
+	float y2 = y + h / 2;
+	float v[6][2] = {
+		{x1, y1},
+		{x2, y1},
+		{x2, y2},
+		{x1, y1},
+		{x2, y2},
+		{x1, y2},
+	};
 	float u1 = image.u1;
 	float u2 = image.u2;
 	if (mirror_h) {
@@ -172,128 +172,128 @@ void DrawBuffer::DrawImageRotated(int atlas_image, float x, float y, float scale
 		u1 = u2;
 		u2 = temp;
 	}
-  const float uv[6][2] = {
+	const float uv[6][2] = {
 		{u1, image.v1},
 		{u2, image.v1},
 		{u2, image.v2},
 		{u1, image.v1},
 		{u2, image.v2},
 		{u1, image.v2},
-  };
-  for (int i = 0; i < 6; i++) {
-    rot(v[i], angle, x, y);
-    V(v[i][0], v[i][1], 0, color, uv[i][0], uv[i][1]);
-  }
+	};
+	for (int i = 0; i < 6; i++) {
+		rot(v[i], angle, x, y);
+		V(v[i][0], v[i][1], 0, color, uv[i][0], uv[i][1]);
+	}
 }
 
 
 // TODO: add arc support
 void DrawBuffer::Circle(float xc, float yc, float radius, float thickness, int segments, float startAngle, uint32 color, float u_mul) {
-  float angleDelta = PI * 2 / segments;
-  float uDelta = 1.0f / segments;
-  float t2 = thickness / 2.0f;
-  float r1 = radius + t2;
-  float r2 = radius - t2;
-  for (int i = 0; i < segments + 1; i++) {
-    float angle1 = i * angleDelta;
-    float angle2 = (i + 1) * angleDelta;
-    float u1 = u_mul * i * uDelta;
-    float u2 = u_mul * (i + 1) * uDelta;
-    // TODO: get rid of one pair of cos/sin per loop, can reuse from last iteration
-    float c1 = cosf(angle1), s1 = sinf(angle1), c2 = cosf(angle2), s2 = sinf(angle2);
-    const float x[4] = {c1 * r1 + xc, c2 * r1 + xc, c1 * r2 + xc, c2 * r2 + xc};
-    const float y[4] = {s1 * r1 + yc, s2 * r1 + yc, s1 * r2 + yc, s2 * r2 + yc};
-    V(x[0],  y[0], color, u1, 0);
-    V(x[1],  y[1], color, u2, 0);
-    V(x[2],  y[2], color, u1, 1);
-    V(x[1],  y[1], color, u2, 0);
-    V(x[3],  y[3], color, u2, 1);
-    V(x[2],  y[2], color, u1, 1);
-  }
+	float angleDelta = PI * 2 / segments;
+	float uDelta = 1.0f / segments;
+	float t2 = thickness / 2.0f;
+	float r1 = radius + t2;
+	float r2 = radius - t2;
+	for (int i = 0; i < segments + 1; i++) {
+		float angle1 = i * angleDelta;
+		float angle2 = (i + 1) * angleDelta;
+		float u1 = u_mul * i * uDelta;
+		float u2 = u_mul * (i + 1) * uDelta;
+		// TODO: get rid of one pair of cos/sin per loop, can reuse from last iteration
+		float c1 = cosf(angle1), s1 = sinf(angle1), c2 = cosf(angle2), s2 = sinf(angle2);
+		const float x[4] = {c1 * r1 + xc, c2 * r1 + xc, c1 * r2 + xc, c2 * r2 + xc};
+		const float y[4] = {s1 * r1 + yc, s2 * r1 + yc, s1 * r2 + yc, s2 * r2 + yc};
+		V(x[0],	y[0], color, u1, 0);
+		V(x[1],	y[1], color, u2, 0);
+		V(x[2],	y[2], color, u1, 1);
+		V(x[1],	y[1], color, u2, 0);
+		V(x[3],	y[3], color, u2, 1);
+		V(x[2],	y[2], color, u1, 1);
+	}
 }
 
 void DrawBuffer::DrawTexRect(float x1, float y1, float x2, float y2, float u1, float v1, float u2, float v2, Color color) {
-  V(x1,  y1, color, u1, v1);
-  V(x2,  y1, color, u2, v1);
-  V(x2,  y2, color, u2, v2);
-  V(x1,  y1, color, u1, v1);
-  V(x2,  y2, color, u2, v2);
-  V(x1,  y2, color, u1, v2);
+	V(x1,	y1, color, u1, v1);
+	V(x2,	y1, color, u2, v1);
+	V(x2,	y2, color, u2, v2);
+	V(x1,	y1, color, u1, v1);
+	V(x2,	y2, color, u2, v2);
+	V(x1,	y2, color, u1, v2);
 }
 
 void DrawBuffer::DrawImage4Grid(int atlas_image, float x1, float y1, float x2, float y2, Color color, float corner_scale) {
-  const AtlasImage &image = atlas->images[atlas_image];
+	const AtlasImage &image = atlas->images[atlas_image];
 
 	float u1 = image.u1, v1 = image.v1, u2 = image.u2, v2 = image.v2;
 	float um = (u2 + u1) * 0.5f;
-  float vm = (v2 + v1) * 0.5f;
-  float iw2 = (image.w * 0.5f) * corner_scale;
-  float ih2 = (image.h * 0.5f) * corner_scale;
-  float xa = x1 + iw2;
-  float xb = x2 - iw2;
-  float ya = y1 + ih2;
-  float yb = y2 - ih2;
-  // Top row
-  DrawTexRect(x1, y1, xa, ya, u1, v1, um, vm, color);
-  DrawTexRect(xa, y1, xb, ya, um, v1, um, vm, color);
-  DrawTexRect(xb, y1, x2, ya, um, v1, u2, vm, color);
-  // Middle row
-  DrawTexRect(x1, ya, xa, yb, u1, vm, um, vm, color);
-  DrawTexRect(xa, ya, xb, yb, um, vm, um, vm, color);
-  DrawTexRect(xb, ya, x2, yb, um, vm, u2, vm, color);
-  // Bottom row
-  DrawTexRect(x1, yb, xa, y2, u1, vm, um, v2, color);
-  DrawTexRect(xa, yb, xb, y2, um, vm, um, v2, color);
-  DrawTexRect(xb, yb, x2, y2, um, vm, u2, v2, color);
+	float vm = (v2 + v1) * 0.5f;
+	float iw2 = (image.w * 0.5f) * corner_scale;
+	float ih2 = (image.h * 0.5f) * corner_scale;
+	float xa = x1 + iw2;
+	float xb = x2 - iw2;
+	float ya = y1 + ih2;
+	float yb = y2 - ih2;
+	// Top row
+	DrawTexRect(x1, y1, xa, ya, u1, v1, um, vm, color);
+	DrawTexRect(xa, y1, xb, ya, um, v1, um, vm, color);
+	DrawTexRect(xb, y1, x2, ya, um, v1, u2, vm, color);
+	// Middle row
+	DrawTexRect(x1, ya, xa, yb, u1, vm, um, vm, color);
+	DrawTexRect(xa, ya, xb, yb, um, vm, um, vm, color);
+	DrawTexRect(xb, ya, x2, yb, um, vm, u2, vm, color);
+	// Bottom row
+	DrawTexRect(x1, yb, xa, y2, u1, vm, um, v2, color);
+	DrawTexRect(xa, yb, xb, y2, um, vm, um, v2, color);
+	DrawTexRect(xb, yb, x2, y2, um, vm, u2, v2, color);
 }
 
 void DrawBuffer::DrawImage2GridH(int atlas_image, float x1, float y1, float x2, Color color, float corner_scale) {
-  const AtlasImage &image = atlas->images[atlas_image];
-  float um = (image.u1 + image.u2) * 0.5f;
-  float iw2 = (image.w * 0.5f) * corner_scale;
-  float xa = x1 + iw2;
-  float xb = x2 - iw2;
-  float u1 = image.u1, v1 = image.v1, u2 = image.u2, v2 = image.v2;
-  float y2 = y1 + image.h;
-  DrawTexRect(x1, y1, xa, y2, u1, v1, um, v2, color);
-  DrawTexRect(xa, y1, xb, y2, um, v1, um, v2, color);
-  DrawTexRect(xb, y1, x2, y2, um, v1, u2, v2, color);
+	const AtlasImage &image = atlas->images[atlas_image];
+	float um = (image.u1 + image.u2) * 0.5f;
+	float iw2 = (image.w * 0.5f) * corner_scale;
+	float xa = x1 + iw2;
+	float xb = x2 - iw2;
+	float u1 = image.u1, v1 = image.v1, u2 = image.u2, v2 = image.v2;
+	float y2 = y1 + image.h;
+	DrawTexRect(x1, y1, xa, y2, u1, v1, um, v2, color);
+	DrawTexRect(xa, y1, xb, y2, um, v1, um, v2, color);
+	DrawTexRect(xb, y1, x2, y2, um, v1, u2, v2, color);
 }
 
 void DrawBuffer::MeasureText(int font, const char *text, float *w, float *h) {
-  const AtlasFont &atlasfont = *atlas->fonts[font];
-  unsigned char cval;
-  float wacc = 0;
-  int lines = 1;
-  while ((cval = *text++) != '\0') {
-    if (cval < 32) continue;
-    if (cval > 127) continue;
-    if (cval == '\n') {
-      wacc = 0;
-      lines++;
-    }
-    AtlasChar c = atlasfont.chars[cval - 32];
-    wacc += c.wx * fontscalex;
-  }
-  if (w) *w = wacc;
-  if (h) *h = atlasfont.height * fontscaley * lines;
+	const AtlasFont &atlasfont = *atlas->fonts[font];
+	unsigned char cval;
+	float wacc = 0;
+	int lines = 1;
+	while ((cval = *text++) != '\0') {
+		if (cval < 32) continue;
+		if (cval > 127) continue;
+		if (cval == '\n') {
+			wacc = 0;
+			lines++;
+		}
+		AtlasChar c = atlasfont.chars[cval - 32];
+		wacc += c.wx * fontscalex;
+	}
+	if (w) *w = wacc;
+	if (h) *h = atlasfont.height * fontscaley * lines;
 }
 
 void DrawBuffer::DrawTextShadow(int font, const char *text, float x, float y, Color color, int flags) {
-  uint32_t alpha = (color >> 1) & 0xFF000000;
-  DrawText(font, text, x + 2, y + 2, alpha, flags);
-  DrawText(font, text, x, y, color, flags);
+	uint32_t alpha = (color >> 1) & 0xFF000000;
+	DrawText(font, text, x + 2, y + 2, alpha, flags);
+	DrawText(font, text, x, y, color, flags);
 }
 
 void DrawBuffer::DoAlign(int flags, float *x, float *y, float *w, float *h) {
-  if (flags & ALIGN_HCENTER) *x -= *w / 2;
-  if (flags & ALIGN_RIGHT) *x -= *w;
-  if (flags & ALIGN_VCENTER) *y -= *h / 2;
-  if (flags & ALIGN_BOTTOM) *y -= *h;
-  if (flags & (ROTATE_90DEG_LEFT | ROTATE_90DEG_RIGHT)) {
-    std::swap(*w, *h);
-    std::swap(*x, *y);
-  }
+	if (flags & ALIGN_HCENTER) *x -= *w / 2;
+	if (flags & ALIGN_RIGHT) *x -= *w;
+	if (flags & ALIGN_VCENTER) *y -= *h / 2;
+	if (flags & ALIGN_BOTTOM) *y -= *h;
+	if (flags & (ROTATE_90DEG_LEFT | ROTATE_90DEG_RIGHT)) {
+		std::swap(*w, *h);
+		std::swap(*x, *y);
+	}
 }
 
 // TODO: Unicode support.
@@ -304,69 +304,69 @@ void DrawBuffer::DoAlign(int flags, float *x, float *y, float *w, float *h) {
 
 // ROTATE_* doesn't yet work right.
 void DrawBuffer::DrawText(int font, const char *text, float x, float y, Color color, int flags) {
-  const AtlasFont &atlasfont = *atlas->fonts[font];
-  unsigned char cval;
-  float w, h;
-  MeasureText(font, text, &w, &h);
-  if (flags) {
-    DoAlign(flags, &x, &y, &w, &h);
-  }
+	const AtlasFont &atlasfont = *atlas->fonts[font];
+	unsigned char cval;
+	float w, h;
+	MeasureText(font, text, &w, &h);
+	if (flags) {
+		DoAlign(flags, &x, &y, &w, &h);
+	}
 
-  if (flags & ROTATE_90DEG_LEFT) {
-    x -= atlasfont.ascend*fontscaley;
-    // y += h;
-  }
-  else
-    y += atlasfont.ascend*fontscaley;
-  float sx = x;
+	if (flags & ROTATE_90DEG_LEFT) {
+		x -= atlasfont.ascend*fontscaley;
+		// y += h;
+	}
+	else
+		y += atlasfont.ascend*fontscaley;
+	float sx = x;
 	UTF8 utf(text);
-  while (true) {
+	while (true) {
 		if (utf.end())
 			break;
 		cval = utf.next();
-    if (cval == '\n') {
-      y += atlasfont.height * fontscaley;
-      x = sx;
-      continue;
-    }
-    if (cval < 32) continue;
-    if (cval > 127) continue;
-    AtlasChar c = atlasfont.chars[cval - 32];
-    float cx1, cy1, cx2, cy2;
-    if (flags & ROTATE_90DEG_LEFT) {
-      cy1 = y - c.ox * fontscalex;
-      cx1 = x + c.oy * fontscaley;
-      cy2 = y - (c.ox + c.pw) * fontscalex;
-      cx2 = x + (c.oy + c.ph) * fontscaley;
-    } else {
-      cx1 = x + c.ox * fontscalex;
-      cy1 = y + c.oy * fontscaley;
-      cx2 = x + (c.ox + c.pw) * fontscalex;
-      cy2 = y + (c.oy + c.ph) * fontscaley;
-    }
-    V(cx1,  cy1, color, c.sx, c.sy);
-    V(cx2,  cy1, color, c.ex, c.sy);
-    V(cx2,  cy2, color, c.ex, c.ey);
-    V(cx1,  cy1, color, c.sx, c.sy);
-    V(cx2,  cy2, color, c.ex, c.ey);
-    V(cx1,  cy2, color, c.sx, c.ey);
-    if (flags & ROTATE_90DEG_LEFT)
-      y -= c.wx * fontscalex;
-    else
-      x += c.wx * fontscalex;
-  }
+		if (cval == '\n') {
+			y += atlasfont.height * fontscaley;
+			x = sx;
+			continue;
+		}
+		if (cval < 32) continue;
+		if (cval > 127) continue;
+		AtlasChar c = atlasfont.chars[cval - 32];
+		float cx1, cy1, cx2, cy2;
+		if (flags & ROTATE_90DEG_LEFT) {
+			cy1 = y - c.ox * fontscalex;
+			cx1 = x + c.oy * fontscaley;
+			cy2 = y - (c.ox + c.pw) * fontscalex;
+			cx2 = x + (c.oy + c.ph) * fontscaley;
+		} else {
+			cx1 = x + c.ox * fontscalex;
+			cy1 = y + c.oy * fontscaley;
+			cx2 = x + (c.ox + c.pw) * fontscalex;
+			cy2 = y + (c.oy + c.ph) * fontscaley;
+		}
+		V(cx1,	cy1, color, c.sx, c.sy);
+		V(cx2,	cy1, color, c.ex, c.sy);
+		V(cx2,	cy2, color, c.ex, c.ey);
+		V(cx1,	cy1, color, c.sx, c.sy);
+		V(cx2,	cy2, color, c.ex, c.ey);
+		V(cx1,	cy2, color, c.sx, c.ey);
+		if (flags & ROTATE_90DEG_LEFT)
+			y -= c.wx * fontscalex;
+		else
+			x += c.wx * fontscalex;
+	}
 }
 
 void DrawBuffer::EnableBlend(bool enable) {
-  glstate.blend.set(enable);
-  glstate.blendFunc.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glstate.blend.set(enable);
+	glstate.blendFunc.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
 void DrawBuffer::SetClipRect(float x, float y, float w, float h)
 {
-  // Sigh, OpenGL is upside down.
-  glScissor(x, dp_yres - y, w, h);
-  glstate.scissorTest.enable();
+	// Sigh, OpenGL is upside down.
+	glScissor(x, dp_yres - y, w, h);
+	glstate.scissorTest.enable();
 }
 
 void DrawBuffer::NoClip()
