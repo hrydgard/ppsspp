@@ -3,6 +3,7 @@
 #include "base/logging.h"
 #include "gfx_es2/fbo.h"
 #include "gfx/gl_common.h"
+#include "gfx_es2/gl_state.h"
 
 #if defined(USING_GLES2)
 #define GL_READ_FRAMEBUFFER GL_FRAMEBUFFER
@@ -15,33 +16,6 @@
 #define GL_DEPTH24_STENCIL8_OES 0x88F0
 #endif
 #endif
-
-// TODO: Breakout this GL extension checker in its own file.
-
-struct GLExtensions {
-	bool OES_depth24;
-	bool OES_packed_depth_stencil;
-	bool OES_depth_texture;
-};
-
-GLExtensions gl_extensions;
-
-void CheckExtensions() {
-	static bool done = false;
-	if (done)
-		return;
-	done = true;
-
-	memset(&gl_extensions, 0, sizeof(gl_extensions));
-
-	const char *extString = (const char *)glGetString(GL_EXTENSIONS);
-
-	gl_extensions.OES_packed_depth_stencil = strstr(extString, "GL_OES_packed_depth_stencil");
-	gl_extensions.OES_depth24 = strstr(extString, "GL_OES_depth24");
-	gl_extensions.OES_depth_texture = strstr(extString, "GL_OES_depth_texture");
-}
-
-
 
 struct FBO {
 	GLuint handle;
@@ -59,7 +33,7 @@ struct FBO {
 // On Android, we try to use what's available.
 
 FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil) {
-	CheckExtensions();
+	CheckGLExtensions();
 
 	FBO *fbo = new FBO();
 	fbo->width = width;

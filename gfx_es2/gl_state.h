@@ -158,3 +158,14 @@ public:
 #undef STATE2
 
 extern OpenGLState glstate;
+
+struct GLExtensions {
+	bool OES_depth24;
+	bool OES_packed_depth_stencil;
+	bool OES_depth_texture;
+	bool EXT_discard_framebuffer;
+};
+
+extern GLExtensions gl_extensions;
+
+void CheckGLExtensions();
