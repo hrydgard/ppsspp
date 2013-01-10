@@ -601,7 +601,7 @@ bool SavedataParam::GetFilesList(SceUtilitySavedataParam *param)
 	return foundFiles > 0;
 }
 
-bool SavedataParam::GetSizes22(SceUtilitySavedataParam *param)
+bool SavedataParam::GetSize(SceUtilitySavedataParam *param)
 {
 	if (!param)
 	{

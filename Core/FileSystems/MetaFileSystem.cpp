@@ -169,7 +169,7 @@ bool MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpat
 	// Special handling: host0:command.txt (as seen in Super Monkey Ball Adventures, for example)
 	// appears to mean the current directory on the UMD. Let's just assume the current directory.
 	std::string inpath = _inpath;
-	if (inpath.substr(0, 6) == "host0:") {
+	if (strncasecmp(inpath.c_str(), "host0:", 5) == 0) {
 		INFO_LOG(HLE, "Host0 path detected, stripping: %s", inpath.c_str());
 		inpath = inpath.substr(6);
 	}
@@ -179,7 +179,7 @@ bool MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpat
 		for (size_t i = 0; i < fileSystems.size(); i++)
 		{
 			size_t prefLen = fileSystems[i].prefix.size();
-			if (fileSystems[i].prefix == realpath.substr(0, prefLen))
+			if (strncasecmp(fileSystems[i].prefix.c_str(), realpath.c_str(), prefLen) == 0)
 			{
 				outpath = realpath.substr(prefLen);
 				*system = fileSystems[i].system;

@@ -19,13 +19,14 @@
 
 #include "IndexGenerator.h"
 #include "VertexDecoder.h"
+#include "gfx/gl_lost_manager.h"
 
 class LinkedShader;
 class ShaderManager;
 struct DecVtxFormat;
 
 // Handles transform, lighting and drawing.
-class TransformDrawEngine {
+class TransformDrawEngine : public GfxResourceHolder {
 public:
 	TransformDrawEngine();
 	~TransformDrawEngine();
@@ -36,6 +37,10 @@ public:
 	void SetShaderManager(ShaderManager *shaderManager) {
 		shaderManager_ = shaderManager;
 	}
+
+	void InitDeviceObjects();
+	void DestroyDeviceObjects();
+	void GLLost();
 
 private:
 	void SoftwareTransformAndDraw(int prim, u8 *decoded, LinkedShader *program, int vertexCount, u32 vertexType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex);
@@ -52,6 +57,11 @@ private:
 
 	TransformedVertex *transformed;
 	TransformedVertex *transformedExpanded;
+
+	// Vertex buffer objects
+	// Element buffer objects
+	GLuint vbo_;  // Single one for now, might want to rotate later.
+	GLuint ebo_;  // Same here.
 
 	// Other
 	ShaderManager *shaderManager_;

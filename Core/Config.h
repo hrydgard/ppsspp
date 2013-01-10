@@ -53,7 +53,9 @@ public:
 	bool bBufferedRendering;
 	bool bDrawWireframe;
 	bool bLinearFiltering;
+	bool bUseVBO;
 	int iWindowZoom;  // for Windows
+	bool SSAntiAlaising; //for Windows, too
 
 	// Sound
 	bool bEnableSound;

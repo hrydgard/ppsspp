@@ -27,15 +27,29 @@ const int sectorSize = 2048;
 
 static bool parseLBN(std::string filename, u32 *sectorStart, u32 *readSize)
 {
-	if (filename.substr(0, 8) != "/sce_lbn")
+	// Looks like: /sce_lbn0x10_size0x100 or /sce_lbn10_size100 (always hex.)
+	if (filename.compare(0, sizeof("/sce_lbn") - 1, "/sce_lbn") != 0)
 		return false;
-	std::string prev = filename;
-	filename.erase(0, 10);
-	if (sscanf(filename.c_str(), "%08x", sectorStart) != 1)
-		WARN_LOG(FILESYS, "Invalid LBN reference: %s", prev.c_str());
-	filename.erase(0, filename.find("_size") + 7);
-	if (sscanf(filename.c_str(), "%08x", readSize) != 1)
-		WARN_LOG(FILESYS, "Incomplete LBN reference: %s", prev.c_str());
+
+	size_t pos = sizeof("/sce_lbn") - 1;
+	const char *filename_c = filename.c_str();
+
+	int offset = 0;
+	if (sscanf(filename_c + pos, "%x%n", sectorStart, &offset) != 1)
+		WARN_LOG(FILESYS, "Invalid LBN reference: %s", filename_c);
+	pos += offset;
+
+	if (filename.compare(pos, sizeof("_size") - 1, "_size") != 0)
+		WARN_LOG(FILESYS, "Invalid LBN reference: %s", filename_c);
+	pos += sizeof("_size") - 1;
+
+	offset = 0;
+	if (sscanf(filename_c + pos, "%x%n", readSize, &offset) != 1)
+		WARN_LOG(FILESYS, "Invalid LBN reference: %s", filename_c);
+	pos += offset;
+
+	if (filename.size() > pos)
+		WARN_LOG(FILESYS, "Incomplete LBN reference: %s", filename_c);
 	return true;
 }
 
@@ -323,6 +337,12 @@ u32 ISOFileSystem::OpenFile(std::string filename, FileAccess access)
 	{
 		u32 sectorStart = 0xFFFFFFFF, readSize = 0xFFFFFFFF;
 		parseLBN(filename, &sectorStart, &readSize);
+		if (sectorStart >= blockDevice->GetNumBlocks())
+		{
+			WARN_LOG(FILESYS, "Unable to open raw sector: %s, sector %08x, max %08x", filename.c_str(), sectorStart, blockDevice->GetNumBlocks());
+			return 0;
+		}
+
 		INFO_LOG(FILESYS, "Got a raw sector open: %s, sector %08x, size %08x", filename.c_str(), sectorStart, readSize);
 		u32 newHandle = hAlloc->GetNewHandle();
 		entry.seekPos = 0;
@@ -397,8 +417,7 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)
 		u32 positionOnIso;
 		if (e.isRawSector)
 		{
-			// TODO: this seems bogus
-			positionOnIso = e.sectorStart * 2048;
+			positionOnIso = e.sectorStart * 2048 + e.seekPos;
 			
 			if (e.seekPos + size > e.openSize)
 			{
@@ -473,7 +492,7 @@ size_t ISOFileSystem::SeekFile(u32 handle, s32 position, FileMove type)
 			break;
 		case FILEMOVE_END:
 			if (e.isRawSector)
-				e.seekPos = e.openSize;
+				e.seekPos = e.openSize + position;
 			else
 				e.seekPos = (unsigned int)(e.file->size + position);
 			break;

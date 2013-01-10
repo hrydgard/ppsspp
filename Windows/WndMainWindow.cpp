@@ -495,8 +495,16 @@ namespace MainWindow
 				g_Config.bFastMemory = !g_Config.bFastMemory;
 				UpdateMenus();
 				break;
+			case ID_OPTIONS_USEVBO:
+				g_Config.bUseVBO = !g_Config.bUseVBO;
+				UpdateMenus();
+				break;
 			case ID_OPTIONS_LINEARFILTERING:
 				g_Config.bLinearFiltering = !g_Config.bLinearFiltering;
+				UpdateMenus();
+				break;
+			case ID_OPTIONS_SIMPLE2XSSAA:
+				g_Config.SSAntiAlaising = !g_Config.SSAntiAlaising;
 				UpdateMenus();
 				break;
 			case ID_OPTIONS_CONTROLS:
@@ -642,7 +650,9 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_HARDWARETRANSFORM, g_Config.bHardwareTransform);
 		CHECKITEM(ID_OPTIONS_FASTMEMORY, g_Config.bFastMemory);
 		CHECKITEM(ID_OPTIONS_LINEARFILTERING, g_Config.bLinearFiltering);
+		CHECKITEM(ID_OPTIONS_SIMPLE2XSSAA, g_Config.SSAntiAlaising);
 		CHECKITEM(ID_EMULATION_RUNONLOAD, g_Config.bAutoRun);
+		CHECKITEM(ID_OPTIONS_USEVBO, g_Config.bUseVBO);
 
 		UINT enable = !Core_IsStepping() ? MF_GRAYED : MF_ENABLED;
 		EnableMenuItem(menu,ID_EMULATION_RUN, g_State.bEmuThreadStarted ? enable : MF_GRAYED);
@@ -663,6 +673,7 @@ namespace MainWindow
 		EnableMenuItem(menu,ID_EMULATION_STOP,!enable);
 		EnableMenuItem(menu,ID_OPTIONS_SETTINGS,enable);
 		EnableMenuItem(menu,ID_PLUGINS_CHOOSEPLUGINS,enable);
+		EnableMenuItem(menu,ID_OPTIONS_SIMPLE2XSSAA,enable);
 
 		const int zoomitems[4] = {
 			ID_OPTIONS_SCREEN1X,

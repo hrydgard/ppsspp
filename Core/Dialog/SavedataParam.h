@@ -28,7 +28,7 @@ enum SceUtilitySavedataType
 	SCE_UTILITY_SAVEDATA_TYPE_SAVE			= 3,
 	SCE_UTILITY_SAVEDATA_TYPE_LISTLOAD		= 4,
 	SCE_UTILITY_SAVEDATA_TYPE_LISTSAVE		= 5,
-	SCE_UTILITY_SAVEDATA_TYPE_LISTDELETE	= 6,
+	SCE_UTILITY_SAVEDATA_TYPE_LISTDELETE		= 6,
 	SCE_UTILITY_SAVEDATA_TYPE_DELETE		= 7,
 	SCE_UTILITY_SAVEDATA_TYPE_SIZES			= 8,
 	SCE_UTILITY_SAVEDATA_TYPE_LIST			= 11,
@@ -36,7 +36,7 @@ enum SceUtilitySavedataType
 	SCE_UTILITY_SAVEDATA_TYPE_MAKEDATASECURE	= 13,
 	SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE	= 15,
 	SCE_UTILITY_SAVEDATA_TYPE_WRITEDATASECURE	= 17,
-	SCE_UTILITY_SAVEDATA_TYPE_SIZES22			= 22
+	SCE_UTILITY_SAVEDATA_TYPE_GETSIZE		= 22
 } ;
 
 // title, savedataTitle, detail: parts of the unencrypted SFO
@@ -156,7 +156,7 @@ public:
 	bool GetSizes(SceUtilitySavedataParam* param);
 	bool GetList(SceUtilitySavedataParam* param);
 	bool GetFilesList(SceUtilitySavedataParam* param);
-	bool GetSizes22(SceUtilitySavedataParam* param);
+	bool GetSize(SceUtilitySavedataParam* param);
 
 	std::string GetGameName(SceUtilitySavedataParam* param);
 	std::string GetSaveName(SceUtilitySavedataParam* param);
