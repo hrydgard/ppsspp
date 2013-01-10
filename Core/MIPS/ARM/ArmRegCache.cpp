@@ -98,6 +98,7 @@ allocate:
 
 	// Still nothing. Let's spill a reg and goto 10.
 	// TODO: Use age or something to choose which register to spill?
+	// TODO: Spill dirty regs first? or opposite?
 	int bestToSpill = -1;
 	for (int i = 0; i < allocCount; i++) {
 		int reg = allocOrder[i];
@@ -108,7 +109,7 @@ allocate:
 	}
 
 	if (bestToSpill != -1) {
-		ERROR_LOG(JIT, "Out of registers at PC %08x - spills register %i.", mips_->pc, bestToSpill);
+		// ERROR_LOG(JIT, "Out of registers at PC %08x - spills register %i.", mips_->pc, bestToSpill);
 		FlushArmReg((ARMReg)bestToSpill);
 		goto allocate;
 	}

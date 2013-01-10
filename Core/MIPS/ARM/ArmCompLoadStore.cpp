@@ -16,7 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 #include "../../MemMap.h"
 #include "../MIPSAnalyst.h"
-
+#include "../../Config.h"
 #include "ArmJit.h"
 #include "ArmRegCache.h"
 
@@ -36,8 +36,6 @@ namespace MIPSComp
 {
 	void Jit::Comp_ITypeMem(u32 op)
 	{
-		OLDD
-
 		int offset = (signed short)(op&0xFFFF);
 		int rt = _RT;
 		int rs = _RS;
@@ -54,13 +52,26 @@ namespace MIPSComp
 			return;
 
 		case 35: //R(rt) = ReadMem32(addr); break; //lw
-			/*
-			gpr.Lock(rt, rs);
-			gpr.BindToRegister(rt, rt == rs, true);
-			MOV(32, R(EAX), gpr.R(rs));
-			AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
-			MOV(32, gpr.R(rt), MDisp(EAX, (u32)Memory::base + offset));
-			gpr.UnlockAll();*/
+			if (true || g_Config.bFastMemory) {
+				gpr.SpillLock(rt, rs);
+				gpr.MapReg(rt, MAP_DIRTY);
+				gpr.MapReg(rs);
+				gpr.ReleaseSpillLocks();
+			
+				Operand2 op2;
+				if (TryMakeOperand2(offset, op2)) {
+					ADD(R0, gpr.R(rs), op2);
+				} else {
+					ARMABI_MOVI2R(R0, (u32)offset);
+					ADD(R0, gpr.R(rs), R0);
+				}
+				BIC(R0, R0, Operand2(0xC0, 4));   // &= 0x3FFFFFFF
+				ADD(R0, R0, R11);
+				LDR(gpr.R(rt), R0);
+			} else {
+				Comp_Generic(op);
+				return;
+			}
 			break;
 
 		case 132: //R(rt) = (u32)(s32)(s8) ReadMem8 (addr); break; //lb
@@ -74,18 +85,29 @@ namespace MIPSComp
 			return;
 
 		case 43: //WriteMem32(addr, R(rt)); break; //sw
-			/*
-			{
-				gpr.Lock(rt, rs);
-				gpr.BindToRegister(rt, true, false);
-				MOV(32, R(EAX), gpr.R(rs));
-				AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
-				MOV(32, MDisp(EAX, (u32)Memory::base + offset), gpr.R(rt));
-				gpr.UnlockAll();
-			}*/
+			if (true || g_Config.bFastMemory) {
+				gpr.SpillLock(rt, rs);
+				gpr.MapReg(rt);
+				gpr.MapReg(rs);
+				gpr.ReleaseSpillLocks();
 
+				Operand2 op2;
+				if (TryMakeOperand2(offset, op2)) {
+					ADD(R0, gpr.R(rs), op2);
+				} else {
+					ARMABI_MOVI2R(R0, (u32)offset);
+					ADD(R0, gpr.R(rs), R0);
+				}
+				BIC(R0, R0, Operand2(0xC0, 4));   // &= 0x3FFFFFFF
+				ADD(R0, R0, R11);
+				STR(R0, gpr.R(rt));
+			} else {
+				Comp_Generic(op);
+				return;
+			}
 			break;
-
+			// break;
+			/*
 		case 134: //lwl
 			{
 				Crash();
@@ -123,7 +145,7 @@ namespace MIPSComp
 //				WriteMem32((addr & 0xfffffffc), ( ( u32(R(rt)) << shift ) |
 //					(mem	& (0x00ffffff >> (24 - shift)) ) ) );
 			}
-			break;
+			break;*/
 		default:
 			Comp_Generic(op);
 			return ;
