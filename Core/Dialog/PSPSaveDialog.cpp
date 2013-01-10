@@ -84,7 +84,7 @@ int PSPSaveDialog::Init(int paramAddr)
 		case SCE_UTILITY_SAVEDATA_TYPE_SIZES:
 		case SCE_UTILITY_SAVEDATA_TYPE_LIST:
 		case SCE_UTILITY_SAVEDATA_TYPE_FILES:
-		case SCE_UTILITY_SAVEDATA_TYPE_SIZES22:
+		case SCE_UTILITY_SAVEDATA_TYPE_GETSIZE:
 		case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATASECURE:
 		case SCE_UTILITY_SAVEDATA_TYPE_WRITEDATASECURE:
 		case SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE:
@@ -688,8 +688,8 @@ int PSPSaveDialog::Update()
 					}
 					status = SCE_UTILITY_STATUS_FINISHED;
 				break;
-				case SCE_UTILITY_SAVEDATA_TYPE_SIZES22:
-					if(param.GetSizes22(param.GetPspParam()))
+				case SCE_UTILITY_SAVEDATA_TYPE_GETSIZE:
+					if(param.GetSize(param.GetPspParam()))
 					{
 						param.GetPspParam()->result = 0;
 					}
