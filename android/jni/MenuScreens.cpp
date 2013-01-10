@@ -273,24 +273,28 @@ void SettingsScreen::render() {
 
 	ui_draw2d.DrawText(UBUNTU48, "Settings", dp_xres / 2, 30, 0xFFFFFFFF, ALIGN_HCENTER);
 
+	// TODO: Need to add tabs soon...
 	// VLinear vlinear(10, 80, 10);
+	
 	int x = 30;
 	int y = 50;
-	UICheckBox(GEN_ID, x, y += 45, "Sound Emulation", ALIGN_TOPLEFT, &g_Config.bEnableSound);
-	UICheckBox(GEN_ID, x, y += 45, "Buffered Rendering", ALIGN_TOPLEFT, &g_Config.bBufferedRendering);
+	int stride = 40;
+	UICheckBox(GEN_ID, x, y += stride, "Sound Emulation", ALIGN_TOPLEFT, &g_Config.bEnableSound);
+	UICheckBox(GEN_ID, x, y += stride, "Buffered Rendering", ALIGN_TOPLEFT, &g_Config.bBufferedRendering);
 	if (g_Config.bBufferedRendering) {
 		bool doubleRes = g_Config.iWindowZoom == 2;
-		UICheckBox(GEN_ID, x + 50, y += 50, "2x Render Resolution", ALIGN_TOPLEFT, &doubleRes);
+		UICheckBox(GEN_ID, x + 50, y += stride, "2x Render Resolution", ALIGN_TOPLEFT, &doubleRes);
 		g_Config.iWindowZoom = doubleRes ? 2 : 1;
 	}
-	UICheckBox(GEN_ID, x, y += 45, "Hardware Transform", ALIGN_TOPLEFT, &g_Config.bHardwareTransform);
+	UICheckBox(GEN_ID, x, y += stride, "Hardware Transform", ALIGN_TOPLEFT, &g_Config.bHardwareTransform);
+	UICheckBox(GEN_ID, x, y += stride, "Use VBO for drawing", ALIGN_TOPLEFT, &g_Config.bUseVBO);
 
 	bool useFastInt = g_Config.iCpuCore == CPU_FASTINTERPRETER;
-	UICheckBox(GEN_ID, x, y += 45, "Slightly faster interpreter (may crash)", ALIGN_TOPLEFT, &useFastInt);
+	UICheckBox(GEN_ID, x, y += stride, "Slightly faster interpreter (may crash)", ALIGN_TOPLEFT, &useFastInt);
 	// ui_draw2d.DrawText(UBUNTU48, "much faster JIT coming later", x, y+=50, 0xcFFFFFFF, ALIGN_LEFT);
-	UICheckBox(GEN_ID, x, y += 45, "On-screen Touch Controls", ALIGN_TOPLEFT, &g_Config.bShowTouchControls);
+	UICheckBox(GEN_ID, x, y += stride, "On-screen Touch Controls", ALIGN_TOPLEFT, &g_Config.bShowTouchControls);
 	if (g_Config.bShowTouchControls)
-		UICheckBox(GEN_ID, x + 50, y += 50, "Show Analog Stick", ALIGN_TOPLEFT, &g_Config.bShowAnalogStick);
+		UICheckBox(GEN_ID, x + 50, y += stride, "Show Analog Stick", ALIGN_TOPLEFT, &g_Config.bShowAnalogStick);
 	g_Config.iCpuCore = useFastInt ? CPU_FASTINTERPRETER : CPU_INTERPRETER;
 	// UICheckBox(GEN_ID, x, y += 50, "Draw raw framebuffer (for some homebrew)", ALIGN_TOPLEFT, &g_Config.bDisplayFramebuffer);
 

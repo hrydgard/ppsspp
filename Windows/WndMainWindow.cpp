@@ -495,6 +495,10 @@ namespace MainWindow
 				g_Config.bFastMemory = !g_Config.bFastMemory;
 				UpdateMenus();
 				break;
+			case ID_OPTIONS_USEVBO:
+				g_Config.bUseVBO = !g_Config.bUseVBO;
+				UpdateMenus();
+				break;
 			case ID_OPTIONS_LINEARFILTERING:
 				g_Config.bLinearFiltering = !g_Config.bLinearFiltering;
 				UpdateMenus();
@@ -648,6 +652,7 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_LINEARFILTERING, g_Config.bLinearFiltering);
 		CHECKITEM(ID_OPTIONS_SIMPLE2XSSAA, g_Config.SSAntiAlaising);
 		CHECKITEM(ID_EMULATION_RUNONLOAD, g_Config.bAutoRun);
+		CHECKITEM(ID_OPTIONS_USEVBO, g_Config.bUseVBO);
 
 		UINT enable = !Core_IsStepping() ? MF_GRAYED : MF_ENABLED;
 		EnableMenuItem(menu,ID_EMULATION_RUN, g_State.bEmuThreadStarted ? enable : MF_GRAYED);

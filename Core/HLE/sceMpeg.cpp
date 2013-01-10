@@ -1117,7 +1117,7 @@ u32 sceMpegChangeGetAuMode(u32 mpeg, int streamUid, int mode)
 
 	StreamInfo info;
 	info.sid = streamUid;
-    if (info.sid) {
+  if (info.sid) {
 		switch (info.type) {
 		case MPEG_AVC_STREAM:
 			if(mode == MPEG_AU_MODE_DECODE) {

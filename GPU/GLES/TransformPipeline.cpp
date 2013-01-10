@@ -23,6 +23,7 @@
 #include "../Math3D.h"
 #include "../GPUState.h"
 #include "../ge_constants.h"
+#include "../../Core/Config.h"
 
 #include "StateMapping.h"
 #include "TextureCache.h"
@@ -44,6 +45,8 @@ const GLuint glprim[8] = {
 TransformDrawEngine::TransformDrawEngine()
 	: numVerts(0),
 		lastVType(-1),
+		vbo_(0),
+		ebo_(0),
 		shaderManager_(0) {
 	decoded = new u8[65536 * 48];
 	decIndex = new u16[65536];
@@ -51,13 +54,40 @@ TransformDrawEngine::TransformDrawEngine()
 	transformedExpanded = new TransformedVertex[65536 * 3];
 
 	indexGen.Setup(decIndex);
+	InitDeviceObjects();
+	register_gl_resource_holder(this);
 }
 
 TransformDrawEngine::~TransformDrawEngine() {
+	DestroyDeviceObjects();
 	delete [] decoded;
 	delete [] decIndex;
 	delete [] transformed;
 	delete [] transformedExpanded;
+	unregister_gl_resource_holder(this);
+}
+
+void TransformDrawEngine::InitDeviceObjects() {
+	if (!vbo_) {
+		glGenBuffers(1, &vbo_);
+		glGenBuffers(1, &ebo_);
+	} else {
+		ERROR_LOG(G3D, "Device objects already initialized!");
+	}
+}
+
+void TransformDrawEngine::DestroyDeviceObjects() {
+	glDeleteBuffers(1, &vbo_);
+	glDeleteBuffers(1, &ebo_);
+	vbo_ = 0;
+	ebo_ = 0;
+}
+
+void TransformDrawEngine::GLLost() {
+	// The objects have already been deleted.
+	vbo_ = 0;
+	ebo_ = 0;
+	InitDeviceObjects();
 }
 
 // Just to get something on the screen, we'll just not subdivide correctly.
@@ -582,15 +612,23 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 	// TODO: Make a cache for glEnableVertexAttribArray and glVertexAttribPtr states,
 	// these spam the gDebugger log.
 	const int vertexSize = sizeof(transformed[0]);
+
+	glBindBuffer(GL_ARRAY_BUFFER, vbo_);
+	glBufferData(GL_ARRAY_BUFFER, vertexSize * numTrans, drawBuffer, GL_STREAM_DRAW);
+	drawBuffer = 0;  // so that the calls use offsets instead.
 	glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, vertexSize, drawBuffer);
 	if (program->a_texcoord != -1) glVertexAttribPointer(program->a_texcoord, 2, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 3 * 4);
 	if (program->a_color0 != -1) glVertexAttribPointer(program->a_color0, 4, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 5 * 4);
 	if (program->a_color1 != -1) glVertexAttribPointer(program->a_color1, 3, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 9 * 4);
 	if (drawIndexed) {
-		glDrawElements(glprim[prim], numTrans, GL_UNSIGNED_SHORT, (GLvoid *)inds);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(short) * numTrans, inds, GL_STREAM_DRAW);
+		glDrawElements(glprim[prim], numTrans, GL_UNSIGNED_SHORT, 0);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	} else {
 		glDrawArrays(glprim[prim], 0, numTrans);
 	}
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 void TransformDrawEngine::SubmitPrim(void *verts, void *inds, int prim, int vertexCount, u32 vertType, int forceIndexType, int *bytesRead) {
@@ -691,8 +729,14 @@ void TransformDrawEngine::Flush() {
 
 	DEBUG_LOG(G3D, "Flush prim %i! %i verts in one go", prim, numVerts);
 
+	bool useVBO = g_Config.bUseVBO;
+	
 	if (CanUseHardwareTransform(prim)) {
-		SetupDecFmtForDraw(program, dec.GetDecVtxFmt(), decoded);
+		if (useVBO) {
+			glBindBuffer(GL_ARRAY_BUFFER, vbo_);
+			glBufferData(GL_ARRAY_BUFFER, dec.GetDecVtxFmt().stride * indexGen.MaxIndex(), decoded, GL_STREAM_DRAW);
+		}
+		SetupDecFmtForDraw(program, dec.GetDecVtxFmt(), useVBO ? 0 : decoded);
 		// If there's only been one primitive type, and it's either TRIANGLES, LINES or POINTS,
 		// there is no need for the index buffer we built. We can then use glDrawArrays instead
 		// for a very minor speed boost.
@@ -700,7 +744,17 @@ void TransformDrawEngine::Flush() {
 		if (seen == (1 << GE_PRIM_TRIANGLES) || seen == (1 << GE_PRIM_LINES) || seen == (1 << GE_PRIM_POINTS)) {
 			glDrawArrays(glprim[prim], 0, indexGen.VertexCount());
 		} else {
-			glDrawElements(glprim[prim], indexGen.VertexCount(), GL_UNSIGNED_SHORT, (GLvoid *)decIndex);
+			if (useVBO) {
+				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_);
+				glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(short) * indexGen.VertexCount(), (GLvoid *)decIndex, GL_STREAM_DRAW);
+			}
+			glDrawElements(glprim[prim], indexGen.VertexCount(), GL_UNSIGNED_SHORT, useVBO ? 0 : (GLvoid*)decIndex);
+			if (useVBO) {
+				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+			}
+		}
+		if (useVBO) {
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
 		}
 	} else {
 		SoftwareTransformAndDraw(prim, decoded, program, indexGen.VertexCount(), dec.VertexType(), (void *)decIndex, GE_VTYPE_IDX_16BIT, dec.GetDecVtxFmt(),
