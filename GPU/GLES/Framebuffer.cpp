@@ -166,7 +166,8 @@ void FramebufferManager::DrawActiveTexture(float w, float h, bool flip) {
 	Matrix4x4 ortho;
 	ortho.setOrtho(0, 480, 272, 0, -1, 1);
 	glUniformMatrix4fv(draw2dprogram->u_viewproj, 1, GL_FALSE, ortho.getReadPtr());
-
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	glEnableVertexAttribArray(draw2dprogram->a_position);
 	glEnableVertexAttribArray(draw2dprogram->a_texcoord0);
 	glVertexAttribPointer(draw2dprogram->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);

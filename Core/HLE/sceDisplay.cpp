@@ -211,6 +211,9 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 		char stats[512];
 		sprintf(stats,
 			"Frames: %i\n"
+			"DL processing time: %0.2f ms\n"
+			"Kernel processing time: %0.2f ms\n"
+			"Slowest syscall: %s : %0.2f ms\n"
 			"Draw calls: %i\n"
 			"Draw flushes: %i\n"
 			"Vertices Transformed: %i\n"
@@ -221,6 +224,10 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 			"Fragment shaders loaded: %i\n"
 			"Combined shaders loaded: %i\n",
 			gpuStats.numFrames,
+			gpuStats.msProcessingDisplayLists * 1000.0f,
+			kernelStats.msInSyscalls * 1000.0f,
+			kernelStats.slowestSyscallName ? kernelStats.slowestSyscallName : "(none)",
+			kernelStats.slowestSyscallTime * 1000.0f,
 			gpuStats.numDrawCalls,
 			gpuStats.numFlushes,
 			gpuStats.numVertsTransformed,
@@ -238,6 +245,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 		PPGeEnd();
 
 		gpuStats.resetFrame();
+		kernelStats.ResetFrame();
 	}
 
 	host->EndFrame();
