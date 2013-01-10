@@ -121,13 +121,13 @@ void SimulateGamepad(InputState *input) {
 	input->pad_rstick_x = 0;
 	input->pad_rstick_y = 0;
 
-	if (input->pad_buttons | (1<<14))
+	if (input->pad_buttons & (1<<14))
 		input->pad_lstick_y=1;
-	else if (input->pad_buttons | (1<<15))
+	else if (input->pad_buttons & (1<<15))
 		input->pad_lstick_y=-1;
-	if (input->pad_buttons | (1<<16))
+	if (input->pad_buttons & (1<<16))
 		input->pad_lstick_x=-1;
-	else if (input->pad_buttons | (1<<17))
+	else if (input->pad_buttons & (1<<17))
 		input->pad_lstick_x=1;
 }
 
