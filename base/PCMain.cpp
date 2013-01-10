@@ -356,10 +356,10 @@ int main(int argc, char *argv[]) {
 		SDL_GL_SwapBuffers();
 
 		// Simple frame rate limiting
-		while (time_now() < t + 1.0f/60.0f) {
-			sleep_ms(0);
-			time_update();
-		}
+//		while (time_now() < t + 1.0f/60.0f) {
+//			sleep_ms(0);
+//			time_update();
+//		}
 		time_update();
 		t = time_now();
 		framecount++;
