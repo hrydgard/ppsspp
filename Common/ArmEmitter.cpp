@@ -22,8 +22,13 @@
 #include <assert.h>
 #include <stdarg.h>
 
+// For cache flushing on Symbian/Blackberry
 #ifdef __SYMBIAN32__
 #include <e32std.h>
+#endif
+
+#ifdef BLACKBERRY
+#include <sys/mman.h>
 #endif
 
 namespace ArmGen
@@ -67,6 +72,8 @@ void ARMXEmitter::Flush()
 {
 #ifdef __SYMBIAN32__
     User::IMB_Range( startcode, code );
+#elif defined(BLACKBERRY)
+	msync(startcode, code-startcode, MS_SYNC | MS_INVALIDATE_ICACHE);
 #else
 	__builtin___clear_cache (startcode, code);
 #endif
