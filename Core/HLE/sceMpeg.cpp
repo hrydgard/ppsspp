@@ -95,6 +95,29 @@ struct AvcContext {
 };
 
 struct Mp3Context {	
+	void DoState(PointerWrap &p) {
+		p.Do(mp3StreamStart);
+		p.Do(mp3StreamEnd);
+		p.Do(mp3Buf);
+		p.Do(mp3BufSize);
+		p.Do(mp3PcmBuf);
+		p.Do(mp3BufPendingSize);
+		p.Do(mp3PcmBufSize);
+		p.Do(mp3InputFileReadPos);
+		p.Do(mp3InputBufWritePos);
+		p.Do(mp3InputBufSize);
+		p.Do(mp3InputFileSize);
+		p.Do(mp3DecodedBytes);
+		p.Do(mp3LoopNum);
+		p.Do(mp3MaxSamples);
+		p.Do(mp3Bitrate);
+		p.Do(mp3Channels);
+		p.Do(mp3SamplingRate);
+		p.Do(mp3Version);
+		mediaengine->DoState(p);
+		p.DoMarker("Mp3Context");
+	}
+
 	int mp3StreamStart;
 	int mp3StreamEnd;
 	int mp3StreamPosition;
@@ -115,6 +138,9 @@ struct Mp3Context {
 	int mp3Channels;
 	int mp3Bitrate;
 	int mp3SamplingRate;
+	int mp3Version;
+
+	MediaEngine *mediaengine;
 };
 
 struct StreamInfo {	
@@ -1383,6 +1409,8 @@ int sceMp3Init(u32 mp3)
 		ctx->mp3SamplingRate = 0;
 	}
 
+	ctx->mp3Version = ((header >> 19) & 0x3);
+
 	return 0;
 }
 
@@ -1516,6 +1544,37 @@ int sceMp3ReleaseMp3Handle(u32 mp3) {
 	return 0;
 }
 
+u32 sceMp3EndEntry()
+{
+	DEBUG_LOG(HLE, "UNIMPL sceMp3StartEntry(.)");
+	return 0;
+}
+
+u32 sceMp3StartEntry()
+{
+	DEBUG_LOG(HLE, "UNIMPL sceMp3StartEntry(.)");
+	return 0;
+}
+
+u32 sceMp3GetFrameNum(u32 mp3)
+{
+	DEBUG_LOG(HLE, "UNIMPL sceMp3GetFrameNum(%08x)", mp3);
+	return 0;
+}
+
+u32 sceMp3GetVersion(u32 mp3)
+{
+	DEBUG_LOG(HLE, "sceMp3GetVersion(%08x)", mp3);
+	Mp3Context *ctx = getMp3Ctx(mp3);
+	if (!ctx)
+	{
+		ERROR_LOG(HLE, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
+		return -1;
+	}
+
+	return ctx->mp3Version;
+}
+
 const HLEFunction sceMpeg[] =
 {
 	{0xe1ce83a7,WrapI_UUUU<sceMpegGetAtracAu>,"sceMpegGetAtracAu"},
@@ -1570,19 +1629,19 @@ const HLEFunction sceMp3[] =
 	{0x3C2FA058,WrapI_V<sceMp3TermResource>,"sceMp3TermResource"},
 	{0x3CEF484F,WrapI_UI<sceMp3SetLoopNum>,"sceMp3SetLoopNum"},
 	{0x44E07129,WrapI_U<sceMp3Init>,"sceMp3Init"},
-	{0x732B042A,0,"sceMp3EndEntry"},
+	{0x732B042A,WrapU_V<sceMp3EndEntry>,"sceMp3EndEntry"},
 	{0x7F696782,WrapI_U<sceMp3GetMp3ChannelNum>,"sceMp3GetMp3ChannelNum"},
 	{0x87677E40,WrapI_U<sceMp3GetBitRate>,"sceMp3GetBitRate"},
 	{0x87C263D1,WrapI_U<sceMp3GetMaxOutputSample>,"sceMp3GetMaxOutputSample"},
-	{0x8AB81558,0,"sceMp3StartEntry"},
+	{0x8AB81558,WrapU_V<sceMp3StartEntry>,"sceMp3StartEntry"},
 	{0x8F450998,WrapI_U<sceMp3GetSamplingRate>,"sceMp3GetSamplingRate"},
 	{0xA703FE0F,WrapI_UUUU<sceMp3GetInfoToAddStreamData>,"sceMp3GetInfoToAddStreamData"},
 	{0xD021C0FB,WrapI_UU<sceMp3Decode>,"sceMp3Decode"},
 	{0xD0A56296,WrapI_U<sceMp3CheckStreamDataNeeded>,"sceMp3CheckStreamDataNeeded"},
 	{0xD8F54A51,WrapI_U<sceMp3GetLoopNum>,"sceMp3GetLoopNum"},
 	{0xF5478233,WrapI_U<sceMp3ReleaseMp3Handle>,"sceMp3ReleaseMp3Handle"},
-	{0xAE6D2027,0,"sceMp3GetVersion"},
-	{0x3548AEC8,0,"sceMp3GetFrameNum"},
+	{0xAE6D2027,WrapU_U<sceMp3GetVersion>,"sceMp3GetVersion"},
+	{0x3548AEC8,WrapU_U<sceMp3GetFrameNum>,"sceMp3GetFrameNum"},
 };
 
 void Register_sceMpeg()
