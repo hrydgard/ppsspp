@@ -254,6 +254,7 @@
 #define ID_OPTIONS_CONTROLS             40130
 #define ID_EMULATION_RUNONLOAD          40131
 #define ID_DEBUG_DUMPNEXTFRAME          40132
+#define ID_OPTIONS_SIMPLE2XSSAA         40133
 #define IDC_STATIC                      -1
 
 // Next default values for new objects
