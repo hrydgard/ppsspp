@@ -60,8 +60,10 @@ private:
 
 	// Vertex buffer objects
 	// Element buffer objects
-	GLuint vbo_;  // Single one for now, might want to rotate later.
-	GLuint ebo_;  // Same here.
+	enum { NUM_VBOS = 128 };
+	GLuint vbo_[NUM_VBOS];
+	GLuint ebo_[NUM_VBOS];
+	int curVbo_;
 
 	// Other
 	ShaderManager *shaderManager_;
