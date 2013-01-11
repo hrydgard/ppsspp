@@ -205,18 +205,18 @@ void Jit::MovToPC(ARMReg r) {
 
 void Jit::DoDownCount()
 {
-	ARMABI_MOVI2R(R0, (u32)&CoreTiming::downcount);
-	LDR(R1, R0);
-	if(js.downcountAmount < 255) // We can enlarge this if we used rotations
+	LDR(R1, R10, offsetof(MIPSState, downcount));
+	Operand2 op2;
+	if (TryMakeOperand2(js.downcountAmount, op2)) // We can enlarge this if we used rotations
 	{
-		SUBS(R1, R1, js.downcountAmount);
-		STR(R0, R1);
+		SUBS(R1, R1, op2);
+		STR(R10, R1, offsetof(MIPSState, downcount));
 	} else {
 		// Should be fine to use R2 here, flushed the regcache anyway.
 		// If js.downcountAmount can be expressed as an Imm8, we don't need this anyway.
 		ARMABI_MOVI2R(R2, js.downcountAmount);
 		SUBS(R1, R1, R2);
-		STR(R0, R1);
+		STR(R10, R1, offsetof(MIPSState, downcount));
 	}
 }
 

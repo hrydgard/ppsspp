@@ -95,8 +95,7 @@ ArmJitBlockCache::~ArmJitBlockCache()
 	Shutdown();
 }
 
-	
-// This clears the JIT cache. It's called from JitCache.cpp when the JIT cache
+// This clears the JIT block cache. It's called from JitCache.cpp when the JIT cache
 // is full and when saving and loading states.
 void ArmJitBlockCache::Clear()
 {
@@ -116,17 +115,6 @@ void ArmJitBlockCache::ClearSafe()
 	memset(iCache, JIT_ICACHE_INVALID_BYTE, JIT_ICACHE_SIZE);
 #endif
 }
-
-/*void JitBlockCache::DestroyBlocksWithFlag(BlockFlag death_flag)
-{
-	for (int i = 0; i < num_blocks; i++)
-	{
-		if (blocks[i].flags & death_flag)
-		{
-			DestroyBlock(i, false);
-		}
-	}
-}*/
 
 void ArmJitBlockCache::Reset()
 {
@@ -279,13 +267,8 @@ std::string ArmJitBlockCache::GetCompiledDisassembly(int block_num)
 }
 
 
-
-//Block linker
 //Make sure to have as many blocks as possible compiled before calling this
-//It's O(N), so it's fast :)
-//Can be faster by doing a queue for blocks to link up, and only process those
-//Should probably be done
-
+//It's O(1), so it's fast :)
 void ArmJitBlockCache::LinkBlockExits(int i)
 {
 	ArmJitBlock &b = blocks[i];
@@ -302,7 +285,7 @@ void ArmJitBlockCache::LinkBlockExits(int i)
 			if (destinationBlock != -1)
 			{
 				ARMXEmitter emit(b.exitPtrs[e]);
-				//	emit.JMP(blocks[destinationBlock].checkedEntry, true);
+				emit.B(blocks[destinationBlock].checkedEntry);
 				b.linkStatus[e] = true;
 			}
 		}
@@ -366,25 +349,20 @@ void ArmJitBlockCache::DestroyBlock(int block_num, bool invalidate)
 
 	UnlinkBlock(block_num);
 
+	blockCodePointers[block_num] = 0;
 	// Send anyone who tries to run this block back to the dispatcher.
 	// Not entirely ideal, but .. pretty good.
-	// Spurious entrances from previously linked blocks can only come through checkedEntry
+	// I hope there's enough space...
+	// checkedEntry is the only "linked" entrance so it's enough to overwrite that.
 	ARMXEmitter emit((u8 *)b.checkedEntry);
-	//emit.MOV(32, M(&mips->pc), Imm32(b.originalAddress));
-	//emit.JMP(MIPSComp::jit->Asm().dispatcher, true);
-	
-	// this is not needed really
-	/*
-	emit.SetCodePtr((u8 *)blockCodePointers[blocknum]);
-	emit.MOV(32, M(&PC), Imm32(b.originalAddress));
-	emit.JMP(asm_routines.dispatcher, true);
-	*/
+	emit.ARMABI_MOVI2R(R0, b.originalAddress);
+	emit.STR(R10, R0, offsetof(MIPSState, pc));
+	emit.B(MIPSComp::jit->dispatcher);
 }
 
 void ArmJitBlockCache::InvalidateICache(u32 address, const u32 length)
 {
-	// Convert the logical address to a physical address for the block map
-	u32 pAddr = address & 0x1FFFFFFF;
+	u32 pAddr = address & 0x3FFFFFFF;
 
 	// destroy JIT blocks
 	// !! this works correctly under assumption that any two overlapping blocks end at the same address

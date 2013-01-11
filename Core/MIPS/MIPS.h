@@ -122,6 +122,8 @@ public:
 
 	u32 pc;
 	u32 nextPC;
+	u32 downcount;  // This really doesn't belong here, it belongs in CoreTiming. But you gotta do what you gotta do, this needs to be reachable in the ARM JIT.
+
 	u32 hi;
 	u32 lo;
 
@@ -129,10 +131,11 @@ public:
 	u32 fcr31; //fpu control register
 	u32 fpcond;  // cache the cond flag of fcr31  (& 1 << 23)
 
-	GMRng rng;	// VFPU hardware random number generator. Probably not the right type.
-
 	bool inDelaySlot;
 	int llBit;  // ll/sc
+
+
+	GMRng rng;	// VFPU hardware random number generator. Probably not the right type.
 
 	// Debug stuff
 	u32 debugCount;	// can be used to count basic blocks before crashes, etc.

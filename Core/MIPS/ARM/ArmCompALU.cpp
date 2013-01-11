@@ -138,25 +138,7 @@ namespace MIPSComp
 			break;
 		}
 	}
-
-	//rd = rs X rt
-	/*
-	void Jit::CompTriArith(u32 op, void (XEmitter::*arith)(int, const OpArg &, const OpArg &))
-	{
-		int rt = _RT;
-		int rs = _RS;
-		int rd = _RD;
-
-		gpr.Lock(rt, rs, rd);
-		MOV(32, R(EAX), gpr.R(rs));
-		MOV(32, R(EBX), gpr.R(rt));
-		gpr.BindToRegister(rd, true, true);
-		(this->*arith)(32, R(EAX), R(EBX));
-		MOV(32, gpr.R(rd), R(EAX));
-		gpr.UnlockAll();
-	}
-	*/
-
+	
 	void Jit::Comp_RType3(u32 op)
 	{
 		int rt = _RT;

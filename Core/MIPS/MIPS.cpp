@@ -110,6 +110,7 @@ void MIPSState::DoState(PointerWrap &p)
 	p.DoArray(vfpuWriteMask, sizeof(vfpuWriteMask) / sizeof(vfpuWriteMask[0]));
 	p.Do(pc);
 	p.Do(nextPC);
+	p.Do(downcount);
 	p.Do(hi);
 	p.Do(lo);
 	p.Do(fpcond);
@@ -131,7 +132,7 @@ void MIPSState::SetWriteMask(const bool wm[4])
 void MIPSState::SingleStep()
 {
 	int cycles = MIPS_SingleStep();
-	CoreTiming::downcount -= cycles;
+	currentMIPS->downcount -= cycles;
 	CoreTiming::Advance();
 }
 

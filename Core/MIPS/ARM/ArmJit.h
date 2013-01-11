@@ -31,7 +31,7 @@ struct ArmJitOptions
 {
 	ArmJitOptions()
 	{
-		enableBlocklink = false;
+		enableBlocklink = true;
 	}
 
 	bool enableBlocklink;
@@ -131,6 +131,7 @@ private:
 
 	MIPSState *mips_;
 
+public:
 	// Code pointers
 	const u8 *enterCode;
 

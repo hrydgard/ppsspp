@@ -67,7 +67,9 @@ Event *eventPool = 0;
 Event *eventTsPool = 0;
 int allocatedTsEvents = 0;
 
-int downcount, slicelength;
+// Downcount has been moved to currentMIPS, to save a couple of clocks in every ARM JIT block
+// as we can already reach that structure through a register.
+int slicelength;
 
 s64 globalTimer;
 s64 idledCycles;
@@ -153,7 +155,7 @@ void UnregisterAllEvents()
 
 void Init()
 {
-	downcount = INITIAL_SLICE_LENGTH;
+	currentMIPS->downcount = INITIAL_SLICE_LENGTH;
 	slicelength = INITIAL_SLICE_LENGTH;
 	globalTimer = 0;
 	idledCycles = 0;
@@ -183,7 +185,7 @@ void Shutdown()
 
 u64 GetTicks()
 {
-	return (u64)globalTimer + slicelength - downcount;
+	return (u64)globalTimer + slicelength - currentMIPS->downcount;
 }
 
 u64 GetIdleTicks()
@@ -462,23 +464,23 @@ void MoveEvents()
 
 void Advance()
 {
-	int cyclesExecuted = slicelength - downcount;
+	int cyclesExecuted = slicelength - currentMIPS->downcount;
 	globalTimer += cyclesExecuted;
-	downcount = slicelength;
+	currentMIPS->downcount = slicelength;
 
 	ProcessFifoWaitEvents();
 
 	if (!first)
 	{
-		// WARN_LOG(CPU, "WARNING - no events in queue. Setting downcount to 10000");
-		downcount += 10000;
+		// WARN_LOG(CPU, "WARNING - no events in queue. Setting currentMIPS->downcount to 10000");
+		currentMIPS->downcount += 10000;
 	}
 	else
 	{
 		slicelength = (int)(first->time - globalTimer);
 		if (slicelength > MAX_SLICE_LENGTH)
 			slicelength = MAX_SLICE_LENGTH;
-		downcount = slicelength;
+		currentMIPS->downcount = slicelength;
 	}
 	if (advanceCallback)
 		advanceCallback(cyclesExecuted);
@@ -496,13 +498,13 @@ void LogPendingEvents()
 
 void Idle(int maxIdle)
 {
-	int cyclesDown = downcount;
+	int cyclesDown = currentMIPS->downcount;
 	if (maxIdle != 0 && cyclesDown > maxIdle)
 		cyclesDown = maxIdle;
 
 	if (first && cyclesDown > 0)
 	{
-		int cyclesExecuted = slicelength - downcount;
+		int cyclesExecuted = slicelength - currentMIPS->downcount;
 		int cyclesNextEvent = (int) (first->time - globalTimer);
 
 		if (cyclesNextEvent < cyclesExecuted + cyclesDown)
@@ -517,9 +519,9 @@ void Idle(int maxIdle)
 	DEBUG_LOG(CPU, "Idle for %i cycles! (%f ms)", cyclesDown, cyclesDown / (float)(CPU_HZ * 0.001f));
 
 	idledCycles += cyclesDown;
-	downcount -= cyclesDown;
-	if (downcount == 0)
-		downcount = -1;
+	currentMIPS->downcount -= cyclesDown;
+	if (currentMIPS->downcount == 0)
+		currentMIPS->downcount = -1;
 }
 
 std::string GetScheduledEventsSummary()
@@ -561,7 +563,6 @@ void DoState(PointerWrap &p)
 	p.DoLinkedList<BaseEvent, GetNewTsEvent, FreeTsEvent, Event_DoState>(tsFirst, &tsLast);
 
 	p.Do(CPU_HZ);
-	p.Do(downcount);
 	p.Do(slicelength);
 	p.Do(globalTimer);
 	p.Do(idledCycles);

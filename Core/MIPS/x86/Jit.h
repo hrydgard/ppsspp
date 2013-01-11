@@ -35,7 +35,7 @@ struct JitOptions
 {
 	JitOptions()
 	{
-		enableBlocklink = false;
+		enableBlocklink = true;
 	}
 
 	bool enableBlocklink;
