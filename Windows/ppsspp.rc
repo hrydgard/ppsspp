@@ -261,6 +261,7 @@ BEGIN
         MENUITEM "&Wireframe (experimental)",   ID_OPTIONS_WIREFRAME
         MENUITEM "&Display Raw Framebuffer",    ID_OPTIONS_DISPLAYRAWFRAMEBUFFER
         MENUITEM "&Show Debug Statistics",      ID_OPTIONS_SHOWDEBUGSTATISTICS
+				MENUITEM "&Disable G3D Log",            ID_OPTIONS_DISABLEG3DLOG
         MENUITEM SEPARATOR
         MENUITEM "Screen &1x\tCtrl+1",          ID_OPTIONS_SCREEN1X
         MENUITEM "Screen &2x\tCtrl+2",          ID_OPTIONS_SCREEN2X

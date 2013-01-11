@@ -256,6 +256,7 @@
 #define ID_DEBUG_DUMPNEXTFRAME          40132
 #define ID_OPTIONS_SIMPLE2XSSAA         40133
 #define ID_OPTIONS_USEVBO               40134
+#define ID_OPTIONS_DISABLEG3DLOG        40135
 #define IDC_STATIC                      -1
 
 // Next default values for new objects
