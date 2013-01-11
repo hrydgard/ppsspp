@@ -507,6 +507,14 @@ namespace MainWindow
 				g_Config.SSAntiAlaising = !g_Config.SSAntiAlaising;
 				UpdateMenus();
 				break;
+			case ID_OPTIONS_DISABLEG3DLOG:
+				g_Config.bDisableG3DLog = !g_Config.bDisableG3DLog;
+				if (!g_Config.bDisableG3DLog )
+					LogManager::GetInstance()->SetEnable(LogTypes::G3D, true);
+				else 
+					LogManager::GetInstance()->SetEnable(LogTypes::G3D, false);
+				UpdateMenus();
+				break;
 			case ID_OPTIONS_CONTROLS:
 				DialogManager::EnableAll(FALSE);
 				DialogBox(hInst, (LPCTSTR)IDD_CONTROLS, hWnd, (DLGPROC)Controls);
@@ -653,6 +661,7 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_SIMPLE2XSSAA, g_Config.SSAntiAlaising);
 		CHECKITEM(ID_EMULATION_RUNONLOAD, g_Config.bAutoRun);
 		CHECKITEM(ID_OPTIONS_USEVBO, g_Config.bUseVBO);
+		CHECKITEM(ID_OPTIONS_DISABLEG3DLOG, g_Config.bDisableG3DLog);
 
 		UINT enable = !Core_IsStepping() ? MF_GRAYED : MF_ENABLED;
 		EnableMenuItem(menu,ID_EMULATION_RUN, g_State.bEmuThreadStarted ? enable : MF_GRAYED);
