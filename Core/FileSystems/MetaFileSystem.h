@@ -30,8 +30,9 @@ public:
 	void Mount(std::string prefix, IFileSystem *system);
 	void Unmount(IFileSystem *system);
 
-	// Effectively "Shutdown".
-	void UnmountAll();
+	void ThreadEnded(int threadID);
+
+	void Shutdown();
 
 	u32 GetNewHandle() {return current++;}
 	void FreeHandle(u32 handle) {}
@@ -57,7 +58,7 @@ public:
 		return SeekFile(handle, 0, FILEMOVE_CURRENT);
 	}
 
-	virtual void ChDir(std::string dir) {currentDirectory = dir;}
+	virtual void ChDir(const std::string &dir);
 
 	virtual bool MkDir(const std::string &dirname);
 	virtual bool RmDir(const std::string &dirname);
@@ -66,8 +67,8 @@ public:
 
 	// TODO: void IoCtl(...)
 
-	void SetCurrentDirectory(const std::string &dir) {
-		currentDirectory = dir;
+	void SetStartingDirectory(const std::string &dir) {
+		startingDirectory = dir;
 	}
 private:
 	u32 current;
@@ -78,5 +79,8 @@ private:
 	};
 	std::vector<System> fileSystems;
 
-	std::string currentDirectory;
+	typedef std::map<int, std::string> currentDir_t;
+	currentDir_t currentDir;
+
+	std::string startingDirectory;
 };

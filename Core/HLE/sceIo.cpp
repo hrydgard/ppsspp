@@ -159,6 +159,10 @@ public:
 	PSPFileInfo info;
 };
 
+static void TellFsThreadEnded (SceUID threadID) {
+	pspFileSystem.ThreadEnded(threadID);
+}
+
 void __IoInit() {
 	INFO_LOG(HLE, "Starting up I/O...");
 
@@ -199,6 +203,8 @@ void __IoInit() {
 	pspFileSystem.Mount("fatms:", memstick);
 	pspFileSystem.Mount("flash0:", flash);
 	pspFileSystem.Mount("flash1:", flash);
+
+	__KernelListenThreadEnd(&TellFsThreadEnded);
 }
 
 void __IoDoState(PointerWrap &p) {

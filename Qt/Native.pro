@@ -54,7 +54,7 @@ INCLUDEPATH += ../ext/snappy
 
 # Zlib
 !symbian: {
-	SOURCES +=  ../ext/zlib/adler32.c \
+	SOURCES += ../ext/zlib/adler32.c \
 		../ext/zlib/compress.c \
 		../ext/zlib/crc32.c \
 		../ext/zlib/deflate.c \

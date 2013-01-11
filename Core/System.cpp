@@ -64,7 +64,7 @@ bool PSP_Init(const CoreParameter &coreParam, std::string *error_string)
 
 	if (!LoadFile(coreParameter.fileToStart.c_str(), error_string))
 	{
-		pspFileSystem.UnmountAll();
+		pspFileSystem.Shutdown();
 		CoreTiming::ClearPendingEvents();
 		CoreTiming::UnregisterAllEvents();
 		__KernelShutdown();
@@ -90,7 +90,7 @@ bool PSP_IsInited()
 
 void PSP_Shutdown()
 {
-	pspFileSystem.UnmountAll();
+	pspFileSystem.Shutdown();
 
 	TextureCache_Clear(true);
 

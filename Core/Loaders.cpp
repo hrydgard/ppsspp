@@ -92,11 +92,11 @@ bool LoadFile(const char *filename, std::string *error_string)
 			// If loading from memstick...
 			size_t pos = path.find("/PSP/GAME/");
 			if (pos != std::string::npos)
-				pspFileSystem.SetCurrentDirectory("ms0:" + path.substr(pos));
+				pspFileSystem.SetStartingDirectory("ms0:" + path.substr(pos));
 			return Load_PSP_ELF_PBP(filename, error_string);
 		}
 	case FILETYPE_PSP_ISO:
-		pspFileSystem.SetCurrentDirectory("disc0:/PSP_GAME/USRDIR");
+		pspFileSystem.SetStartingDirectory("disc0:/PSP_GAME/USRDIR");
 		return Load_PSP_ISO(filename, error_string);
 	case FILETYPE_ERROR:
 		ERROR_LOG(LOADER, "Could not file");
