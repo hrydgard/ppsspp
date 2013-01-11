@@ -301,10 +301,22 @@ void MetaFileSystem::ThreadEnded(int threadID)
 
 void MetaFileSystem::ChDir(const std::string &dir)
 {
-	//TODO: test sceIoChdir("..") on PSP - maybe we should map it before saving it?
-
 	int curThread = __KernelGetCurThread();
-	currentDir[curThread] = dir;
+	
+	std::string of;
+	IFileSystem *system;
+	if (MapFilePath(dir, of, &system))
+	{
+		currentDir[curThread] = of;
+		//return true;
+	}
+	else
+	{
+		//TODO: PSP's sceIoChdir seems very forgiving, but does it always accept bad paths and what happens when it does?
+		WARN_LOG(HLE, "ChDir failed to map path \"%s\", saving as current directory anyway", dir.c_str());
+		currentDir[curThread] = dir;
+		//return false;
+	}
 }
 
 bool MetaFileSystem::MkDir(const std::string &dirname)
