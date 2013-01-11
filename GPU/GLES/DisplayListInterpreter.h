@@ -73,6 +73,8 @@ private:
 	bool interruptsEnabled_;
 
 	u32 displayFramebufPtr_;
+	u32 prevDisplayFramebufPtr_;
+	u32 prevPrevDisplayFramebufPtr_;
 	u32 displayStride_;
 	int displayFormat_;
 

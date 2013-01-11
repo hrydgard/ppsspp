@@ -147,6 +147,8 @@ const int flushBeforeCommandList[] = {
 GLES_GPU::GLES_GPU(int renderWidth, int renderHeight)
 :		interruptsEnabled_(true),
 		displayFramebufPtr_(0),
+		prevDisplayFramebufPtr_(0),
+		prevPrevDisplayFramebufPtr_(0),
 		renderWidth_(renderWidth),
 		renderHeight_(renderHeight)
 {
@@ -235,6 +237,8 @@ void GLES_GPU::BeginFrame() {
 void GLES_GPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, int format) {
 	if (framebuf & 0x04000000) {
 		//DEBUG_LOG(G3D, "Switch display framebuffer %08x", framebuf);
+		prevPrevDisplayFramebufPtr_ = prevDisplayFramebufPtr_;
+		prevDisplayFramebufPtr_ = displayFramebufPtr_;
 		displayFramebufPtr_ = framebuf;
 		displayStride_ = stride;
 		displayFormat_ = format;
@@ -283,8 +287,20 @@ void GLES_GPU::CopyDisplayToOutput() {
 	BeginDebugDraw();
 }
 
+static bool MaskedEqual(u32 addr1, u32 addr2) {
+	return (addr1 & 0x3FFFFFF) == (addr2 & 0x3FFFFFF);
+}
+
+
 void GLES_GPU::DecimateFBOs() {
 	for (auto iter = vfbs_.begin(); iter != vfbs_.end();) {
+		VirtualFramebuffer *v = *iter;
+		if (MaskedEqual(v->fb_address, displayFramebufPtr_) ||
+				MaskedEqual(v->fb_address, prevDisplayFramebufPtr_) ||
+				MaskedEqual(v->fb_address, prevPrevDisplayFramebufPtr_)) {
+			++iter;
+			continue;
+		}
 		if ((*iter)->last_frame_used + FBO_OLD_AGE < gpuStats.numFrames) {
 			fbo_destroy((*iter)->fbo);
 			vfbs_.erase(iter++);
@@ -296,7 +312,7 @@ void GLES_GPU::DecimateFBOs() {
 
 GLES_GPU::VirtualFramebuffer *GLES_GPU::GetDisplayFBO() {
 	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
-		if (((*iter)->fb_address & 0x3FFFFFF) == (displayFramebufPtr_ & 0x3FFFFFF)) {
+		if (MaskedEqual((*iter)->fb_address, displayFramebufPtr_)) {
 			// Could check w to but whatever
 			return *iter;
 		}
