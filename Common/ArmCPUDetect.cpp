@@ -20,7 +20,7 @@
 #include "StringUtil.h"
 
 // Only Linux platforms have /proc/cpuinfo
-#if !defined(BLACKBERRY) && !defined(IOS)
+#if !defined(BLACKBERRY) && !defined(IOS) && !defined(__SYMBIAN32__)
 const char procfile[] = "/proc/cpuinfo";
 
 char *GetCPUString()
@@ -73,7 +73,9 @@ bool CheckCPUFeature(const char *feature)
 #endif
 int GetCoreCount()
 {
-#if defined(BLACKBERRY) || defined(IOS)
+#ifdef __SYMBIAN32__
+	return 1;
+#elif defined(BLACKBERRY) || defined(IOS)
 	return 2;
 #else
 	const char marker[] = "processor\t: ";
@@ -114,8 +116,7 @@ void CPUInfo::Detect()
 	
 	// Get the information about the CPU 
 	num_cores = GetCoreCount();
-// Hardcode this for now
-#if !defined(BLACKBERRY) && !defined(IOS)
+#if !defined(BLACKBERRY) && !defined(IOS) && !defined(__SYMBIAN32__)
 	strncpy(cpu_string, GetCPUString(), sizeof(cpu_string));
 	bSwp = CheckCPUFeature("swp");
 	bHalf = CheckCPUFeature("half");
@@ -130,18 +131,24 @@ void CPUInfo::Detect()
 	bVFPv4 = CheckCPUFeature("vfpv4");
 	bIDIVa = CheckCPUFeature("idiva");
 	bIDIVt = CheckCPUFeature("idivt");
-	// These two are ARMv8 specific.
+	// These two require ARMv8 or higher
 	bFP = CheckCPUFeature("fp");
 	bASIMD = CheckCPUFeature("asimd");
 #else
+	// Hardcode this for now
 	bSwp = true;
 	bHalf = true;
 	bThumb = false;
 	bFastMult = true;
 	bVFP = true;
 	bEDSP = true;
+#ifdef __SYMBIAN32__
+	bThumbEE = false;
+	bNEON = false;
+#else
 	bThumbEE = true;
 	bNEON = true;
+#endif
 	bVFPv3 = true;
 	bTLS = true;
 	bVFPv4 = false;
@@ -156,7 +163,7 @@ void CPUInfo::Detect()
 std::string CPUInfo::Summarize()
 {
 	std::string sum;
-#if defined(BLACKBERRY) || defined(IOS)
+#if defined(BLACKBERRY) || defined(IOS) || defined(__SYMBIAN32__)
 	sum = StringFromFormat("%i cores", num_cores);
 #else
 	if (num_cores == 1)
