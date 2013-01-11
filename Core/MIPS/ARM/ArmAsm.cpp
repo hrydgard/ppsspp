@@ -103,7 +103,6 @@ void Jit::GenerateFixedCode()
 
 		dispatcherCheckCoreState = GetCodePtr();
 
-		// TODO: critical
 		ARMABI_MOVI2R(R0, (u32)&coreState);
 		LDR(R0, R0);
 		CMP(R0, 0);
@@ -130,6 +129,8 @@ void Jit::GenerateFixedCode()
 			BIC(R0, R0, Operand2(0xC0, 4));   // &= 0x3FFFFFFF
 			ADD(R0, R0, R11);  // TODO: Optimize (can merge with next instr)
 			LDR(R0, R0);
+			// This could replace the above two instructions if the emitter wasn't bugged:
+			// LDR(R0, R11, Operand2(R0));
 			AND(R1, R0, Operand2(0xFC, 4));   // rotation is to the right, in 2-bit increments.
 			BIC(R0, R0, Operand2(0xFC, 4));
 			CMP(R1, Operand2(MIPS_EMUHACK_OPCODE >> 24, 4));
@@ -147,7 +148,6 @@ void Jit::GenerateFixedCode()
 
 		SetJumpTarget(bail);
 
-		// TODO: critical
 		ARMABI_MOVI2R(R0, (u32)&coreState);
 		LDR(R0, R0);
 		CMP(R0, 0);
