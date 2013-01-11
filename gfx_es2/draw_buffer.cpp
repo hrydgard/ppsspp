@@ -22,10 +22,8 @@ DrawBuffer::DrawBuffer() : count_(0), atlas(0) {
 	fontscalex = 1.0f;
 	fontscaley = 1.0f;
 	inited_ = false;
-	register_gl_resource_holder(this);
 }
 DrawBuffer::~DrawBuffer() {
-	unregister_gl_resource_holder(this);
 	delete [] verts_;
 }
 
@@ -34,12 +32,14 @@ void DrawBuffer::Init() {
 		return;
 	inited_ = true;
 	glGenBuffers(1, (GLuint *)&vbo_);
+	register_gl_resource_holder(this);
 }
 
 void DrawBuffer::Shutdown() {
 	glDeleteBuffers(1, (GLuint *)&vbo_);
 	vbo_ = 0;
 	inited_ = false;
+	unregister_gl_resource_holder(this);
 }
 
 void DrawBuffer::GLLost() {
