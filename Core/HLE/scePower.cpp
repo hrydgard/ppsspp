@@ -58,6 +58,12 @@ int scePowerGetBatteryLifePercent() {
 	return 100;
 }
 
+int scePowerGetBatteryLifeTime() {
+	DEBUG_LOG(HLE, "0=scePowerGetBatteryLifeTime()");
+	// 0 means we're on AC power.
+	return 0;
+}
+
 int scePowerIsPowerOnline() {
 	DEBUG_LOG(HLE, "1=scePowerIsPowerOnline");
 	return 1;
@@ -260,7 +266,7 @@ static const HLEFunction scePower[] = {
 	{0x94F5A53F,0,"scePowerGetBatteryRemainCapacity"},
 	{0xFD18A0FF,0,"scePowerGetBatteryFullCapacity"},
 	{0x2085D15D,&WrapI_V<scePowerGetBatteryLifePercent>,"scePowerGetBatteryLifePercent"},
-	{0x8EFB3FA2,0,"scePowerGetBatteryLifeTime"},
+	{0x8EFB3FA2,&WrapI_V<scePowerGetBatteryLifeTime>,"scePowerGetBatteryLifeTime"},
 	{0x28E12023,0,"scePowerGetBatteryTemp"},
 	{0x862AE1A6,0,"scePowerGetBatteryElec"},
 	{0x483CE86B,0,"scePowerGetBatteryVolt"},
