@@ -91,6 +91,7 @@ LoggingDeadline::~LoggingDeadline() {
 }
 
 bool LoggingDeadline::End() {
+	endCalled_ = true;
 	time_update();
 	if (time_now_d() > endTime_) {
 		double late = (time_now_d() - endTime_);
