@@ -59,17 +59,23 @@ namespace MIPSComp
 					if (TryMakeOperand2(offset, op2)) {
 						ADD(R0, gpr.R(rs), op2);
 					} else {
-						ARMABI_MOVI2R(R0, (u32)offset);
-						ADD(R0, gpr.R(rs), R0);
+						// Try to avoid using MOVT
+						if (offset < 0) {
+							ARMABI_MOVI2R(R0, (u32)(-offset));
+							SUB(R0, gpr.R(rs), R0);
+						} else {
+							ARMABI_MOVI2R(R0, (u32)offset);
+							ADD(R0, gpr.R(rs), R0);
+						}
 					}
 					BIC(R0, R0, Operand2(0xC0, 4));   // &= 0x3FFFFFFF
 				} else {
 					BIC(R0, gpr.R(rs), Operand2(0xC0, 4));   // &= 0x3FFFFFFF
 				}
-				ADD(R0, R0, R11);   // TODO: Merge with next instruction
 				if (o == 35) {
-					LDR(gpr.R(rt), R0);
+					LDR(gpr.R(rt), R11, R0, true, true);
 				} else if (o == 36) {
+					ADD(R0, R0, R11);   // TODO: Merge with next instruction
 					LDRB(gpr.R(rt), R0);
 				}
 			} else {
@@ -91,17 +97,23 @@ namespace MIPSComp
 					if (TryMakeOperand2(offset, op2)) {
 						ADD(R0, gpr.R(rs), op2);
 					} else {
-						ARMABI_MOVI2R(R0, (u32)offset);
-						ADD(R0, gpr.R(rs), R0);
+						// Try to avoid using MOVT
+						if (offset < 0) {
+							ARMABI_MOVI2R(R0, (u32)(-offset));
+							SUB(R0, gpr.R(rs), R0);
+						} else {
+							ARMABI_MOVI2R(R0, (u32)offset);
+							ADD(R0, gpr.R(rs), R0);
+						}
 					}
 					BIC(R0, R0, Operand2(0xC0, 4));   // &= 0x3FFFFFFF
 				} else {
 					BIC(R0, gpr.R(rs), Operand2(0xC0, 4));   // &= 0x3FFFFFFF
 				}
-				ADD(R0, R0, R11);
 				if (o == 43) {
-					STR(R0, gpr.R(rt));
+					STR(R0, gpr.R(rt), R11, true, true);
 				} else if (o == 40) {
+					ADD(R0, R0, R11);
 					STRB(R0, gpr.R(rt));
 				}
 			} else {

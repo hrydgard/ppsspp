@@ -127,10 +127,7 @@ void Jit::GenerateFixedCode()
 
 			LDR(R0, R10, offsetof(MIPSState, pc));
 			BIC(R0, R0, Operand2(0xC0, 4));   // &= 0x3FFFFFFF
-			ADD(R0, R0, R11);  // TODO: Optimize (can merge with next instr)
-			LDR(R0, R0);
-			// This could replace the above two instructions if the emitter wasn't bugged:
-			// LDR(R0, R11, Operand2(R0));
+			LDR(R0, R11, R0, true, true);
 			AND(R1, R0, Operand2(0xFC, 4));   // rotation is to the right, in 2-bit increments.
 			BIC(R0, R0, Operand2(0xFC, 4));
 			CMP(R1, Operand2(MIPS_EMUHACK_OPCODE >> 24, 4));
