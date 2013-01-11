@@ -343,6 +343,42 @@ inline void hleFinishSyscall(int modulenum, int funcnum)
 	hleAfterSyscallReschedReason[0] = 0;
 }
 
+inline void updateSyscallStats(int modulenum, int funcnum, double total)
+{
+	const char *name = moduleDB[modulenum].funcTable[funcnum].name;
+	// Ignore this one, especially for msInSyscalls (although that ignores CoreTiming events.)
+	if (0 == strcmp(name, "_sceKernelIdle"))
+		return;
+
+	if (total > kernelStats.slowestSyscallTime)
+	{
+		kernelStats.slowestSyscallTime = total;
+		kernelStats.slowestSyscallName = name;
+	}
+	kernelStats.msInSyscalls += total;
+
+	KernelStatsSyscall statCall(modulenum, funcnum);
+	auto summedStat = kernelStats.summedMsInSyscalls.find(statCall);
+	if (summedStat == kernelStats.summedMsInSyscalls.end())
+	{
+		kernelStats.summedMsInSyscalls[statCall] = total;
+		if (total > kernelStats.summedSlowestSyscallTime)
+		{
+			kernelStats.summedSlowestSyscallTime = total;
+			kernelStats.summedSlowestSyscallName = name;
+		}
+	}
+	else
+	{
+		double newTotal = kernelStats.summedMsInSyscalls[statCall] += total;
+		if (newTotal > kernelStats.summedSlowestSyscallTime)
+		{
+			kernelStats.summedSlowestSyscallTime = newTotal;
+			kernelStats.summedSlowestSyscallName = name;
+		}
+	}
+}
+
 void CallSyscall(u32 op)
 {
 	time_update();
@@ -369,13 +405,5 @@ void CallSyscall(u32 op)
 		ERROR_LOG(HLE,"Unimplemented HLE function %s", moduleDB[modulenum].funcTable[funcnum].name);
 	}
 	time_update();
-	double total = time_now_d() - start;
-	if (total > kernelStats.slowestSyscallTime) {
-		const char *name = moduleDB[modulenum].funcTable[funcnum].name;
-		if (0 != strcmp(name, "_sceKernelIdle")) {
-			kernelStats.slowestSyscallTime = total;
-			kernelStats.slowestSyscallName = name;
-		}
-	}
-	kernelStats.msInSyscalls += total;
+	updateSyscallStats(modulenum, funcnum, time_now_d() - start);
 }
