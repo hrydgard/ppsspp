@@ -50,27 +50,38 @@ namespace MIPSComp
 			Comp_Generic(op);
 			return;
 
-		case 35:   //R(rt) = ReadMem32(addr); //lw
+		case 35: //R(rt) = ReadMem32(addr); //lw
 		case 36: //R(rt) = ReadMem8 (addr); break; //lbu
 			if (g_Config.bFastMemory) {
-				gpr.MapDirtyIn(rt, rs);
-				Operand2 op2;
-				if (offset) {
-					if (TryMakeOperand2(offset, op2)) {
-						ADD(R0, gpr.R(rs), op2);
-					} else {
-						// Try to avoid using MOVT
-						if (offset < 0) {
-							ARMABI_MOVI2R(R0, (u32)(-offset));
-							SUB(R0, gpr.R(rs), R0);
-						} else {
-							ARMABI_MOVI2R(R0, (u32)offset);
-							ADD(R0, gpr.R(rs), R0);
-						}
-					}
-					BIC(R0, R0, Operand2(0xC0, 4));   // &= 0x3FFFFFFF
+				if (gpr.IsImm(rs)) {
+					// We can compute the full address at compile time. Kickass.
+					u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
+					gpr.MapReg(rt, MAP_NOINIT | MAP_DIRTY);  // must be OK even if rs == rt since we have the value from imm already.
+					ARMABI_MOVI2R(R0, addr);
 				} else {
-					BIC(R0, gpr.R(rs), Operand2(0xC0, 4));   // &= 0x3FFFFFFF
+					gpr.MapDirtyIn(rt, rs);
+					Operand2 op2;
+					if (offset) {
+						bool negated;
+						if (TryMakeOperand2_AllowNegation(offset, op2, &negated)) {
+							if (!negated)
+								ADD(R0, gpr.R(rs), op2);
+							else
+								SUB(R0, gpr.R(rs), op2);
+						} else {
+							// Try to avoid using MOVT
+							if (offset < 0) {
+								ARMABI_MOVI2R(R0, (u32)(-offset));
+								SUB(R0, gpr.R(rs), R0);
+							} else {
+								ARMABI_MOVI2R(R0, (u32)offset);
+								ADD(R0, gpr.R(rs), R0);
+							}
+						}
+						BIC(R0, R0, Operand2(0xC0, 4));   // &= 0x3FFFFFFF
+					} else {
+						BIC(R0, gpr.R(rs), Operand2(0xC0, 4));   // &= 0x3FFFFFFF
+					}
 				}
 				if (o == 35) {
 					LDR(gpr.R(rt), R11, R0, true, true);
@@ -91,24 +102,35 @@ namespace MIPSComp
 		case 40: //sb
 		case 43: //WriteMem32(addr, R(rt)); break; //sw
 			if (g_Config.bFastMemory) {
-				gpr.MapInIn(rt, rs);
-				Operand2 op2;
-				if (offset) {
-					if (TryMakeOperand2(offset, op2)) {
-						ADD(R0, gpr.R(rs), op2);
-					} else {
-						// Try to avoid using MOVT
-						if (offset < 0) {
-							ARMABI_MOVI2R(R0, (u32)(-offset));
-							SUB(R0, gpr.R(rs), R0);
-						} else {
-							ARMABI_MOVI2R(R0, (u32)offset);
-							ADD(R0, gpr.R(rs), R0);
-						}
-					}
-					BIC(R0, R0, Operand2(0xC0, 4));   // &= 0x3FFFFFFF
+				if (gpr.IsImm(rs)) {
+					// We can compute the full address at compile time. Kickass.
+					u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
+					gpr.MapReg(rt);
+					ARMABI_MOVI2R(R0, addr);
 				} else {
-					BIC(R0, gpr.R(rs), Operand2(0xC0, 4));   // &= 0x3FFFFFFF
+					gpr.MapInIn(rt, rs);
+					Operand2 op2;
+					if (offset) {
+						bool negated;
+						if (TryMakeOperand2_AllowNegation(offset, op2, &negated)) {
+							if (!negated)
+								ADD(R0, gpr.R(rs), op2);
+							else
+								SUB(R0, gpr.R(rs), op2);
+						} else {
+							// Try to avoid using MOVT
+							if (offset < 0) {
+								ARMABI_MOVI2R(R0, (u32)(-offset));
+								SUB(R0, gpr.R(rs), R0);
+							} else {
+								ARMABI_MOVI2R(R0, (u32)offset);
+								ADD(R0, gpr.R(rs), R0);
+							}
+						}
+						BIC(R0, R0, Operand2(0xC0, 4));   // &= 0x3FFFFFFF
+					} else {
+						BIC(R0, gpr.R(rs), Operand2(0xC0, 4));   // &= 0x3FFFFFFF
+					}
 				}
 				if (o == 43) {
 					STR(R0, gpr.R(rt), R11, true, true);

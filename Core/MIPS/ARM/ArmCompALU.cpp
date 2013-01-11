@@ -58,7 +58,7 @@ namespace MIPSComp
 	void Jit::Comp_IType(u32 op)
 	{
 		s32 simm = (s32)(s16)(op & 0xFFFF);  // sign extension
-		u32 uimm = (u16)(op & 0xFFFF);
+		u32 uimm = op & 0xFFFF;
 
 		int rt = _RT;
 		int rs = _RS;
@@ -94,8 +94,8 @@ namespace MIPSComp
 		case 14: CompImmLogic(rs, rt, uimm, &ARMXEmitter::EOR, &EvalXor); break;
 
 		case 10: // R(rt) = (s32)R(rs) < simm; break; //slti
-			gpr.MapDirtyIn(rt, rs);
 			{
+				gpr.MapDirtyIn(rt, rs);
 				Operand2 op2;
 				if (TryMakeOperand2(simm, op2)) {
 					CMP(gpr.R(rs), op2);
@@ -103,18 +103,17 @@ namespace MIPSComp
 					ARMABI_MOVI2R(R0, simm);
 					CMP(gpr.R(rs), R0);
 				}
+				SetCC(CC_LT);
+				ARMABI_MOVI2R(gpr.R(rt), 1);
+				SetCC(CC_GE);
+				ARMABI_MOVI2R(gpr.R(rt), 0);
+				SetCC(CC_AL);
 			}
-
-			SetCC(CC_LT);
-			ARMABI_MOVI2R(gpr.R(rt), 1);
-			SetCC(CC_GE);
-			ARMABI_MOVI2R(gpr.R(rt), 0);
-			SetCC(CC_AL);
 			break;
-			
+		/*
 		case 11: // R(rt) = R(rs) < uimm; break; //sltiu
-			gpr.MapDirtyIn(rt, rs);
 			{
+				gpr.MapDirtyIn(rt, rs);
 				Operand2 op2;
 				if (TryMakeOperand2(uimm, op2)) {
 					CMP(gpr.R(rs), op2);
@@ -122,15 +121,14 @@ namespace MIPSComp
 					ARMABI_MOVI2R(R0, uimm);
 					CMP(gpr.R(rs), R0);
 				}
+				SetCC(CC_LO);
+				ARMABI_MOVI2R(gpr.R(rt), 1);
+				SetCC(CC_HS);
+				ARMABI_MOVI2R(gpr.R(rt), 0);
+				SetCC(CC_AL);
 			}
-
-			SetCC(CC_LO);
-			ARMABI_MOVI2R(gpr.R(rt), 1);
-			SetCC(CC_HS);
-			ARMABI_MOVI2R(gpr.R(rt), 0);
-			SetCC(CC_AL);
 			break;
-
+			*/
 		case 15: // R(rt) = uimm << 16;	 //lui
 			gpr.SetImm(rt, uimm << 16);
 			break;

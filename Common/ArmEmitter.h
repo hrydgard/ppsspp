@@ -81,8 +81,8 @@ enum CCFlags
 	CC_GT, // Signed greater than
 	CC_LE, // Signed less than or equal
 	CC_AL, // Always (unconditional) 14
-	CC_HS = 2, // Alias of CC_CS
-	CC_LO = 3, // Alias of CC_CC
+	CC_HS = CC_CS, // Alias of CC_CS  Unsigned higher or same
+	CC_LO = CC_CC, // Alias of CC_CC  Unsigned lower
 };
 const u32 NO_COND = 0xE0000000;
 
