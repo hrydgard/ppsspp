@@ -210,6 +210,9 @@
       <Filter>Android</Filter>
     </None>
     <None Include="..\CMakeLists.txt" />
+    <None Include="..\android\jni\Application.mk">
+      <Filter>Android</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="ppsspp.rc">
