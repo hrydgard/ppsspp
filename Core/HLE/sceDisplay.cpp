@@ -244,7 +244,9 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 
 		float zoom = 0.5f; /// g_Config.iWindowZoom;
 		PPGeBegin();
-		PPGeDrawText(stats, 0, 0, 0, zoom, 0xFFc0c0c0);
+		PPGeDrawText(stats, 1, 1, 0, zoom, 0xFF000000);
+		PPGeDrawText(stats, -1, -1, 0, zoom, 0xFF000000);
+		PPGeDrawText(stats, 0, 0, 0, zoom, 0xFFFFFFFF);
 		PPGeEnd();
 
 		gpuStats.resetFrame();
