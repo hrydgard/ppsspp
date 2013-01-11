@@ -159,7 +159,7 @@ public:
 	PSPFileInfo info;
 };
 
-void TellFsThreadEnded (SceUID threadID) {
+static void TellFsThreadEnded (SceUID threadID) {
 	pspFileSystem.ThreadEnded(threadID);
 }
 
