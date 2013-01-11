@@ -298,6 +298,9 @@ void NativeInitGraphics()
 	theme.checkOn = I_CHECKEDBOX;
 	theme.checkOff = I_SQUARE;
 
+	ui_draw2d.Init();
+	ui_draw2d_front.Init();
+
 	UIInit(&ui_atlas, theme);
 
 	uiTexture = new Texture();
@@ -374,6 +377,9 @@ void NativeShutdownGraphics()
 	screenManager->shutdown();
 	delete screenManager;
 	screenManager = 0;
+
+	ui_draw2d.Shutdown();
+	ui_draw2d_front.Shutdown();
 
 	UIShader_Shutdown();
 
