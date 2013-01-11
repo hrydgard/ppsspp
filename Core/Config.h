@@ -56,6 +56,7 @@ public:
 	bool bUseVBO;
 	int iWindowZoom;  // for Windows
 	bool SSAntiAlaising; //for Windows, too
+	bool bDisableG3DLog;
 
 	// Sound
 	bool bEnableSound;
