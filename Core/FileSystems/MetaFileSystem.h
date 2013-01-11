@@ -21,6 +21,20 @@
 
 class MetaFileSystem : public IHandleAllocator, public IFileSystem
 {
+private:
+	u32 current;
+	struct MountPoint
+	{
+		std::string prefix;
+		IFileSystem *system;
+	};
+	std::vector<MountPoint> fileSystems;
+
+	typedef std::map<int, std::string> currentDir_t;
+	currentDir_t currentDir;
+
+	std::string startingDirectory;
+
 public:
 	MetaFileSystem()
 	{
@@ -40,7 +54,19 @@ public:
 	virtual void DoState(PointerWrap &p);
 
 	IFileSystem *GetHandleOwner(u32 handle);
-	bool MapFilePath(const std::string &inpath, std::string &outpath, IFileSystem **system);
+	bool MapFilePath(const std::string &inpath, std::string &outpath, MountPoint **system);
+
+	inline bool MapFilePath(const std::string &_inpath, std::string &outpath, IFileSystem **system)
+	{
+		MountPoint *mountPoint;
+		if (MapFilePath(_inpath, outpath, &mountPoint))
+		{
+			*system = mountPoint->system;
+			return true;
+		}
+
+		return false;
+	}
 
 	// Only possible if a file system is a DirectoryFileSystem or similar.
 	bool GetHostPath(const std::string &inpath, std::string &outpath);
@@ -70,17 +96,4 @@ public:
 	void SetStartingDirectory(const std::string &dir) {
 		startingDirectory = dir;
 	}
-private:
-	u32 current;
-	struct System
-	{
-		std::string prefix;
-		IFileSystem *system;
-	};
-	std::vector<System> fileSystems;
-
-	typedef std::map<int, std::string> currentDir_t;
-	currentDir_t currentDir;
-
-	std::string startingDirectory;
 };
