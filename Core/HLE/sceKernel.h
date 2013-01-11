@@ -421,19 +421,27 @@ private:
 
 extern KernelObjectPool kernelObjects;
 
+typedef std::pair<int, int> KernelStatsSyscall;
+
 struct KernelStats {
 	void Reset() {
-		memset(this, 0, sizeof(*this));
+		ResetFrame();
 	}
 	void ResetFrame() {
 		msInSyscalls = 0;
 		slowestSyscallTime = 0;
 		slowestSyscallName = 0;
+		summedMsInSyscalls.clear();
+		summedSlowestSyscallTime = 0;
+		summedSlowestSyscallName = 0;
 	}
 
 	double msInSyscalls;
 	double slowestSyscallTime;
 	const char *slowestSyscallName;
+	std::map<KernelStatsSyscall, double> summedMsInSyscalls;
+	double summedSlowestSyscallTime;
+	const char *summedSlowestSyscallName;
 };
 
 extern KernelStats kernelStats;

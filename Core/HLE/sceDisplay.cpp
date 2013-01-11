@@ -214,12 +214,11 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 			"DL processing time: %0.2f ms\n"
 			"Kernel processing time: %0.2f ms\n"
 			"Slowest syscall: %s : %0.2f ms\n"
-			"Draw calls: %i\n"
-			"Draw flushes: %i\n"
+			"Most active syscall: %s : %0.2f ms\n"
+			"Draw calls: %i, flushes %i\n"
 			"Vertices Transformed: %i\n"
 			"FBOs active: %i\n"
-			"Textures active: %i\n"
-			"Textures decoded: %i\n"
+			"Textures active: %i, decoded: %i\n"
 			"Texture invalidations: %i\n"
 			"Vertex shaders loaded: %i\n"
 			"Fragment shaders loaded: %i\n"
@@ -229,6 +228,8 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 			kernelStats.msInSyscalls * 1000.0f,
 			kernelStats.slowestSyscallName ? kernelStats.slowestSyscallName : "(none)",
 			kernelStats.slowestSyscallTime * 1000.0f,
+			kernelStats.summedSlowestSyscallName ? kernelStats.summedSlowestSyscallName : "(none)",
+			kernelStats.summedSlowestSyscallTime * 1000.0f,
 			gpuStats.numDrawCalls,
 			gpuStats.numFlushes,
 			gpuStats.numVertsTransformed,
@@ -243,7 +244,9 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 
 		float zoom = 0.5f; /// g_Config.iWindowZoom;
 		PPGeBegin();
-		PPGeDrawText(stats, 0, 0, 0, zoom, 0xFFc0c0c0);
+		PPGeDrawText(stats, 1, 1, 0, zoom, 0xFF000000);
+		PPGeDrawText(stats, -1, -1, 0, zoom, 0xFF000000);
+		PPGeDrawText(stats, 0, 0, 0, zoom, 0xFFFFFFFF);
 		PPGeEnd();
 
 		gpuStats.resetFrame();
