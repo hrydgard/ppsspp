@@ -1,7 +1,10 @@
+#include <assert.h>
 #include "gl_state.h"
 
 OpenGLState glstate;
 GLExtensions gl_extensions;
+
+int OpenGLState::state_count = 0;
 
 void OpenGLState::Initialize() {
 	if(initialized) return;
@@ -12,20 +15,27 @@ void OpenGLState::Initialize() {
 }
 
 void OpenGLState::Restore() {
-	blend.restore();
-	blendEquation.restore();
-	blendFunc.restore();
-	blendColor.restore();
+	int count = 0;
+	blend.restore(); count++;
+	blendEquation.restore(); count++;
+	blendFunc.restore(); count++;
+	blendColor.restore(); count++;
 
-	scissorTest.restore();
+	scissorTest.restore(); count++;
 
-	cullFace.restore();
-	cullFaceMode.restore();
-	frontFace.restore();
+	cullFace.restore(); count++;
+	cullFaceMode.restore(); count++;
+	frontFace.restore(); count++;
 
-	depthTest.restore();
-	depthRange.restore();
-	depthFunc.restore();
+	depthTest.restore(); count++;
+	depthRange.restore(); count++;
+	depthFunc.restore(); count++;
+	depthWrite.restore(); count++;
+
+	colorMask.restore(); count++;
+	viewport.restore(); count++;
+
+	assert(count == state_count && "OpenGLState::Restore is missing some states");
 }
 
 void CheckGLExtensions() {
