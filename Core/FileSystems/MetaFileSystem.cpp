@@ -162,7 +162,7 @@ IFileSystem *MetaFileSystem::GetHandleOwner(u32 handle)
 	return 0;
 }
 
-bool MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpath, IFileSystem **system)
+bool MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpath, System **system)
 {
 	std::string realpath;
 
@@ -197,7 +197,7 @@ bool MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpat
 			if (strncasecmp(fileSystems[i].prefix.c_str(), realpath.c_str(), prefLen) == 0)
 			{
 				outpath = realpath.substr(prefLen);
-				*system = fileSystems[i].system;
+				*system = &(fileSystems[i]);
 
 				DEBUG_LOG(HLE, "MapFilePath: mapped \"%s\" to prefix: \"%s\", path: \"%s\"", inpath.c_str(), fileSystems[i].prefix.c_str(), outpath.c_str());
 
@@ -242,10 +242,10 @@ void MetaFileSystem::Shutdown()
 u32 MetaFileSystem::OpenFile(std::string filename, FileAccess access)
 {
 	std::string of;
-	IFileSystem *system;
+	System *system;
 	if (MapFilePath(filename, of, &system))
 	{
-		return system->OpenFile(of, access);
+		return system->system->OpenFile(of, access);
 	}
 	else
 	{
@@ -256,10 +256,10 @@ u32 MetaFileSystem::OpenFile(std::string filename, FileAccess access)
 PSPFileInfo MetaFileSystem::GetFileInfo(std::string filename)
 {
 	std::string of;
-	IFileSystem *system;
+	System *system;
 	if (MapFilePath(filename, of, &system))
 	{
-		return system->GetFileInfo(of);
+		return system->system->GetFileInfo(of);
 	}
 	else
 	{
@@ -271,9 +271,9 @@ PSPFileInfo MetaFileSystem::GetFileInfo(std::string filename)
 bool MetaFileSystem::GetHostPath(const std::string &inpath, std::string &outpath)
 {
 	std::string of;
-	IFileSystem *system;
+	System *system;
 	if (MapFilePath(inpath, of, &system)) {
-		return system->GetHostPath(of, outpath);
+		return system->system->GetHostPath(of, outpath);
 	} else {
 		return false;
 	}
@@ -282,10 +282,10 @@ bool MetaFileSystem::GetHostPath(const std::string &inpath, std::string &outpath
 std::vector<PSPFileInfo> MetaFileSystem::GetDirListing(std::string path)
 {
 	std::string of;
-	IFileSystem *system;
+	System *system;
 	if (MapFilePath(path, of, &system))
 	{
-		return system->GetDirListing(of);
+		return system->system->GetDirListing(of);
 	}
 	else
 	{
@@ -304,10 +304,10 @@ void MetaFileSystem::ChDir(const std::string &dir)
 	int curThread = __KernelGetCurThread();
 	
 	std::string of;
-	IFileSystem *system;
+	System *system;
 	if (MapFilePath(dir, of, &system))
 	{
-		currentDir[curThread] = of;
+		currentDir[curThread] = system->prefix + of;
 		//return true;
 	}
 	else
@@ -322,10 +322,10 @@ void MetaFileSystem::ChDir(const std::string &dir)
 bool MetaFileSystem::MkDir(const std::string &dirname)
 {
 	std::string of;
-	IFileSystem *system;
+	System *system;
 	if (MapFilePath(dirname, of, &system))
 	{
-		return system->MkDir(of);
+		return system->system->MkDir(of);
 	}
 	else
 	{
@@ -336,10 +336,10 @@ bool MetaFileSystem::MkDir(const std::string &dirname)
 bool MetaFileSystem::RmDir(const std::string &dirname)
 {
 	std::string of;
-	IFileSystem *system;
+	System *system;
 	if (MapFilePath(dirname, of, &system))
 	{
-		return system->RmDir(of);
+		return system->system->RmDir(of);
 	}
 	else
 	{
@@ -351,10 +351,10 @@ bool MetaFileSystem::RenameFile(const std::string &from, const std::string &to)
 {
 	std::string of;
 	std::string rf;
-	IFileSystem *system;
+	System *system;
 	if (MapFilePath(from, of, &system) && MapFilePath(to, rf, &system))
 	{
-		return system->RenameFile(of, rf);
+		return system->system->RenameFile(of, rf);
 	}
 	else
 	{
@@ -365,10 +365,10 @@ bool MetaFileSystem::RenameFile(const std::string &from, const std::string &to)
 bool MetaFileSystem::DeleteFile(const std::string &filename)
 {
 	std::string of;
-	IFileSystem *system;
+	System *system;
 	if (MapFilePath(filename, of, &system))
 	{
-		return system->DeleteFile(of);
+		return system->system->DeleteFile(of);
 	}
 	else
 	{
