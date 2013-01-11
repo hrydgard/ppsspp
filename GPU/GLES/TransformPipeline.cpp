@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "base/timeutil.h"
+
 #include "../../Core/MemMap.h"
 #include "../../Core/Host.h"
 #include "../../Core/System.h"
@@ -45,14 +47,14 @@ const GLuint glprim[8] = {
 TransformDrawEngine::TransformDrawEngine()
 	: numVerts(0),
 		lastVType(-1),
-		vbo_(0),
-		ebo_(0),
+		curVbo_(0),
 		shaderManager_(0) {
 	decoded = new u8[65536 * 48];
 	decIndex = new u16[65536];
 	transformed = new TransformedVertex[65536];
 	transformedExpanded = new TransformedVertex[65536 * 3];
-
+	memset(vbo_, 0, sizeof(vbo_));
+	memset(ebo_, 0, sizeof(ebo_));
 	indexGen.Setup(decIndex);
 	InitDeviceObjects();
 	register_gl_resource_holder(this);
@@ -68,25 +70,25 @@ TransformDrawEngine::~TransformDrawEngine() {
 }
 
 void TransformDrawEngine::InitDeviceObjects() {
-	if (!vbo_) {
-		glGenBuffers(1, &vbo_);
-		glGenBuffers(1, &ebo_);
+	if (!vbo_[0]) {
+		glGenBuffers(NUM_VBOS, &vbo_[0]);
+		glGenBuffers(NUM_VBOS, &ebo_[0]);
 	} else {
 		ERROR_LOG(G3D, "Device objects already initialized!");
 	}
 }
 
 void TransformDrawEngine::DestroyDeviceObjects() {
-	glDeleteBuffers(1, &vbo_);
-	glDeleteBuffers(1, &ebo_);
-	vbo_ = 0;
-	ebo_ = 0;
+	glDeleteBuffers(NUM_VBOS, &vbo_[0]);
+	glDeleteBuffers(NUM_VBOS, &ebo_[0]);
+	memset(vbo_, 0, sizeof(vbo_));
+	memset(ebo_, 0, sizeof(ebo_));
 }
 
 void TransformDrawEngine::GLLost() {
 	// The objects have already been deleted.
-	vbo_ = 0;
-	ebo_ = 0;
+	memset(vbo_, 0, sizeof(vbo_));
+	memset(ebo_, 0, sizeof(ebo_));
 	InitDeviceObjects();
 }
 
@@ -208,8 +210,6 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 
 	Color4 lightSum0 = globalAmbient * *ambient + materialEmissive;
 	Color4 lightSum1(0, 0, 0, 0);
-
-	// Try lights.elf - there's something wrong with the lighting
 
 	for (int l = 0; l < 4; l++)
 	{
@@ -615,8 +615,11 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 
 	bool useVBO = g_Config.bUseVBO;
 	if (useVBO) {
-		glBindBuffer(GL_ARRAY_BUFFER, vbo_);
-		glBufferData(GL_ARRAY_BUFFER, vertexSize * numTrans, drawBuffer, GL_STREAM_DRAW);
+		char title[64];
+		sprintf(title, "upload %i verts for sw", indexGen.VertexCount());
+		LoggingDeadline deadline(title, 5);
+		glBindBuffer(GL_ARRAY_BUFFER, vbo_[curVbo_]);
+		glBufferData(GL_ARRAY_BUFFER, vertexSize * numTrans, drawBuffer, GL_DYNAMIC_DRAW);
 		drawBuffer = 0;  // so that the calls use offsets instead.
 	}
 	glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, vertexSize, drawBuffer);
@@ -625,19 +628,26 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 	if (program->a_color1 != -1) glVertexAttribPointer(program->a_color1, 3, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 9 * 4);
 	if (drawIndexed) {
 		if (useVBO) {
-			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_);
-			glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(short) * numTrans, inds, GL_STREAM_DRAW);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_[curVbo_]);
+			glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(short) * numTrans, inds, GL_DYNAMIC_DRAW);
 			inds = 0;
 		}
 		glDrawElements(glprim[prim], numTrans, GL_UNSIGNED_SHORT, inds);
 		if (useVBO) {
-			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+			// Attempt to orphan the buffer we used so the GPU can alloc a new one.
+			// glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(short) * numTrans, 0, GL_DYNAMIC_DRAW);
+			// glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 		}
 	} else {
 		glDrawArrays(glprim[prim], 0, numTrans);
 	}
 	if (useVBO) {
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		// Attempt to orphan the buffer we used so the GPU can alloc a new one.
+		// glBufferData(GL_ARRAY_BUFFER, vertexSize * numTrans, 0, GL_DYNAMIC_DRAW);
+		// glBindBuffer(GL_ARRAY_BUFFER, 0);
+		curVbo_++;
+		if (curVbo_ == NUM_VBOS)
+			curVbo_ = 0;
 	}
 }
 
@@ -742,10 +752,14 @@ void TransformDrawEngine::Flush() {
 	bool useVBO = g_Config.bUseVBO;
 	
 	if (CanUseHardwareTransform(prim)) {
+		char title[64];
+		sprintf(title, "upload %i verts for hw", indexGen.VertexCount());
+		LoggingDeadline deadline(title, 5);
 		if (useVBO) {
-			glBindBuffer(GL_ARRAY_BUFFER, vbo_);
-			glBufferData(GL_ARRAY_BUFFER, dec.GetDecVtxFmt().stride * indexGen.MaxIndex(), decoded, GL_STREAM_DRAW);
+			glBindBuffer(GL_ARRAY_BUFFER, vbo_[curVbo_]);
+			glBufferData(GL_ARRAY_BUFFER, dec.GetDecVtxFmt().stride * indexGen.MaxIndex(), decoded, GL_DYNAMIC_DRAW);
 		}
+		deadline.End();
 		SetupDecFmtForDraw(program, dec.GetDecVtxFmt(), useVBO ? 0 : decoded);
 		// If there's only been one primitive type, and it's either TRIANGLES, LINES or POINTS,
 		// there is no need for the index buffer we built. We can then use glDrawArrays instead
@@ -755,16 +769,21 @@ void TransformDrawEngine::Flush() {
 			glDrawArrays(glprim[prim], 0, indexGen.VertexCount());
 		} else {
 			if (useVBO) {
-				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_);
-				glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(short) * indexGen.VertexCount(), (GLvoid *)decIndex, GL_STREAM_DRAW);
+				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_[curVbo_]);
+				glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(short) * indexGen.VertexCount(), (GLvoid *)decIndex, GL_DYNAMIC_DRAW);
 			}
 			glDrawElements(glprim[prim], indexGen.VertexCount(), GL_UNSIGNED_SHORT, useVBO ? 0 : (GLvoid*)decIndex);
 			if (useVBO) {
-				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+				//glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(short) * indexGen.VertexCount(), 0, GL_DYNAMIC_DRAW);
+				//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 			}
 		}
 		if (useVBO) {
-			glBindBuffer(GL_ARRAY_BUFFER, 0);
+			// glBufferData(GL_ARRAY_BUFFER, dec.GetDecVtxFmt().stride * indexGen.MaxIndex(), 0, GL_DYNAMIC_DRAW);
+			// glBindBuffer(GL_ARRAY_BUFFER, 0);
+			curVbo_++;
+			if (curVbo_ == NUM_VBOS)
+				curVbo_ = 0;
 		}
 	} else {
 		SoftwareTransformAndDraw(prim, decoded, program, indexGen.VertexCount(), dec.VertexType(), (void *)decIndex, GE_VTYPE_IDX_16BIT, dec.GetDecVtxFmt(),
