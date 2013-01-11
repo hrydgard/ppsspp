@@ -285,9 +285,11 @@ void GLES_GPU::CopyDisplayToOutput() {
 
 void GLES_GPU::DecimateFBOs() {
 	for (auto iter = vfbs_.begin(); iter != vfbs_.end();) {
-		if ((*iter)->last_frame_used + FBO_OLD_AGE < gpuStats.numFrames) {
-			fbo_destroy((*iter)->fbo);
+		VirtualFramebuffer *v = *iter;
+		if (v->last_frame_used + FBO_OLD_AGE < lastVfbSwitchFrame_) {
+			fbo_destroy(v->fbo);
 			vfbs_.erase(iter++);
+			delete v;
 		}
 		else
 			++iter;
@@ -363,6 +365,7 @@ void GLES_GPU::SetRenderFrameBuffer() {
 		vfb->format = fmt;
 		vfb->fbo = fbo_create(vfb->width * renderWidthFactor_, vfb->height * renderHeightFactor_, 1, true);
 		vfb->last_frame_used = gpuStats.numFrames;
+		lastVfbSwitchFrame_ = gpuStats.numFrames;
 		vfbs_.push_back(vfb);
 		fbo_bind_as_render_target(vfb->fbo);
 		glstate.viewport.set(0, 0, renderWidth_, renderHeight_);
@@ -381,6 +384,7 @@ void GLES_GPU::SetRenderFrameBuffer() {
 		glstate.viewport.set(0, 0, renderWidth_, renderHeight_);
 		currentRenderVfb_ = vfb;
 		vfb->last_frame_used = gpuStats.numFrames;
+		lastVfbSwitchFrame_ = gpuStats.numFrames;
 	}
 }
 

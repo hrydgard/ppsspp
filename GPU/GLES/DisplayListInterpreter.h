@@ -111,6 +111,7 @@ private:
 	std::list<VirtualFramebuffer *> vfbs_;
 
 	VirtualFramebuffer *currentRenderVfb_;
+	int lastVfbSwitchFrame_;
 
 	u8 bezierBuf[16000];
 };
