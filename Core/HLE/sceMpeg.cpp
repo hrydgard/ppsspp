@@ -1022,6 +1022,10 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	if (!ctx->mediaengine->readVideoAu(&sceAu) || true) {
 		// Only return this after the video already ended.
 		if (ctx->endOfVideoReached) {
+			if (mpegRingbuffer.packetsFree < mpegRingbuffer.packets) {
+				mpegRingbuffer.packetsFree = mpegRingbuffer.packets;
+				Memory::WriteStruct(ctx->mpegRingbufferAddr, &mpegRingbuffer);
+			}
 			result = PSP_ERROR_MPEG_NO_DATA;
 		}
 		if (ctx->mpegLastTimestamp < 0 || sceAu.pts >= ctx->mpegLastTimestamp) {
