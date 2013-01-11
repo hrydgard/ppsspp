@@ -26,6 +26,7 @@
 #include "base/display.h"
 #include "base/logging.h"
 #include "base/timeutil.h"
+#include "gfx_es2/gl_state.h"
 #include "gfx_es2/glsl_program.h"
 #include "file/zip_read.h"
 #include "input/input_state.h"
@@ -271,6 +272,7 @@ int main(int argc, char *argv[]) {
 	pixel_in_dps = (float)pixel_xres / dp_xres;
 
 	NativeInitGraphics();
+	glstate.viewport.set(0, 0, pixel_xres, pixel_yres);
 
 	float dp_xscale = (float)dp_xres / pixel_xres;
 	float dp_yscale = (float)dp_yres / pixel_yres;

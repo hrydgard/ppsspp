@@ -14,7 +14,9 @@ private:
 	class BoolState {
 		bool _value;
 	public:
-		BoolState() : _value(init) {}
+		BoolState() : _value(init) {
+			OpenGLState::state_count++;
+        }
 
 		inline void set(bool value) {
 			if(value && value != _value) {
@@ -50,7 +52,9 @@ private:
 	class SavedState1_##func { \
 		p1type p1; \
 	public: \
-		SavedState1_##func() : p1(p1def) {}; \
+		SavedState1_##func() : p1(p1def) { \
+			OpenGLState::state_count++; \
+        }; \
 		void set(p1type newp1) { \
 			if(newp1 != p1) { \
 				p1 = newp1; \
@@ -67,7 +71,9 @@ private:
 		p1type p1; \
 		p2type p2; \
 	public: \
-		SavedState2_##func() : p1(p1def), p2(p2def) {}; \
+		SavedState2_##func() : p1(p1def), p2(p2def) { \
+			OpenGLState::state_count++; \
+        }; \
 		inline void set(p1type newp1, p2type newp2) { \
 			if(newp1 != p1 || newp2 != p2) { \
 				p1 = newp1; \
@@ -87,7 +93,9 @@ private:
 		p3type p3; \
 		p4type p4; \
 	public: \
-		SavedState4_##func() : p1(p1def), p2(p2def), p3(p3def), p4(p4def) {}; \
+		SavedState4_##func() : p1(p1def), p2(p2def), p3(p3def), p4(p4def) { \
+			OpenGLState::state_count++; \
+        }; \
 		inline void set(p1type newp1, p2type newp2, p3type newp3, p4type newp4) { \
 			if(newp1 != p1 || newp2 != p2 || newp3 != p3 || newp4 != p4) { \
 				p1 = newp1; \
@@ -108,6 +116,7 @@ private:
 	public: \
 		SavedState4_##func() { \
 			for (int i = 0; i < 4; i++) {p[i] = def;} \
+			OpenGLState::state_count++; \
 		}; \
 		inline void set(const float v[4]) { \
 			if(memcmp(p,v,sizeof(float)*4)) { \
@@ -123,10 +132,12 @@ private:
 	bool initialized;
 
 public:
+	static int state_count;
 	OpenGLState() : initialized(false) {}
 	void Initialize();
 	void Restore();
 
+	// When adding a state here, don't forget to add it to OpenGLState::Restore() too
 	BoolState<GL_BLEND, false> blend;
 	STATE2(glBlendFunc, GLenum, GLenum, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA) blendFunc;
 	STATE1(glBlendEquation, GLenum, GL_FUNC_ADD) blendEquation;
@@ -139,19 +150,17 @@ public:
 	STATE1(glFrontFace, GLenum, GL_CCW) frontFace;
 
 	BoolState<GL_DEPTH_TEST, false> depthTest;
-	STATE1(glDepthFunc, GLenum, GL_LESS) depthFunc;
-
-	STATE1(glDepthMask, GLboolean, GL_TRUE) depthWrite;
-
-	STATE4(glColorMask, bool, bool, bool, bool, true, true, true, true) colorMask;
-
-	STATE4(glViewport, GLint, GLint, GLsizei, GLsizei, 0, 0, 128, 128) viewport;
-
 #if defined(USING_GLES2)
 	STATE2(glDepthRangef, float, float, 0.f, 1.f) depthRange;
 #else
 	STATE2(glDepthRange, double, double, 0.0, 1.0) depthRange;
 #endif
+	STATE1(glDepthFunc, GLenum, GL_LESS) depthFunc;
+	STATE1(glDepthMask, GLboolean, GL_TRUE) depthWrite;
+
+	STATE4(glColorMask, bool, bool, bool, bool, true, true, true, true) colorMask;
+
+	STATE4(glViewport, GLint, GLint, GLsizei, GLsizei, 0, 0, 128, 128) viewport;
 };
 
 #undef STATE1
