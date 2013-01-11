@@ -39,7 +39,6 @@ option(IOS "Set to ON if targeting an iOS device" ${IOS})
 option(USING_GLES2 "Set to ON if target device uses OpenGL ES 2.0" ${USING_GLES2})
 option(USING_QT_UI "Set to ON if you wish to use the Qt frontend wrapper" ${USING_QT_UI})
 option(HEADLESS "Set to OFF to not generate the PPSSPPHeadless target" ${HEADLESS})
-option(DEBUG "Set to ON to enable full debug logging" ${DEBUG})
 
 if(ANDROID)
 	if(NOT ANDROID_ABI)
@@ -103,9 +102,8 @@ if(USING_GLES2)
 	add_definitions(-DUSING_GLES2)
 endif()
 
-if(DEBUG)
-	add_definitions(-D_DEBUG)
-endif()
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -D_DEBUG")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -D_NDEBUG")
 
 if(NOT MSVC)
 	# Disable some warnings
