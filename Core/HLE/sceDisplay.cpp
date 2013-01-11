@@ -208,7 +208,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	// Here we will be drawing to the non buffered front surface.
 	if (g_Config.bShowDebugStats && gpuStats.numDrawCalls) {
 		gpu->UpdateStats();
-		char stats[512];
+		char stats[2048];
 		sprintf(stats,
 			"Frames: %i\n"
 			"DL processing time: %0.2f ms\n"
@@ -217,6 +217,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 			"Draw calls: %i\n"
 			"Draw flushes: %i\n"
 			"Vertices Transformed: %i\n"
+			"FBOs active: %i\n"
 			"Textures active: %i\n"
 			"Textures decoded: %i\n"
 			"Texture invalidations: %i\n"
@@ -231,6 +232,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 			gpuStats.numDrawCalls,
 			gpuStats.numFlushes,
 			gpuStats.numVertsTransformed,
+			gpuStats.numFBOs,
 			gpuStats.numTextures,
 			gpuStats.numTexturesDecoded,
 			gpuStats.numTextureInvalidations,

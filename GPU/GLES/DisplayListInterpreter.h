@@ -63,6 +63,9 @@ private:
 	void BeginDebugDraw();
 	void EndDebugDraw();
 
+	// Deletes old FBOs.
+	void DecimateFBOs();
+
 	FramebufferManager framebufferManager;
 	TransformDrawEngine transformDraw_;
 	ShaderManager *shaderManager_;
@@ -86,6 +89,8 @@ private:
 	};
 
 	struct VirtualFramebuffer {
+		int last_frame_used;
+
 		u32 fb_address;
 		u32 z_address;
 		int fb_stride;

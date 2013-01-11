@@ -209,12 +209,12 @@ void __AudioUpdate()
 				outAudioQueue.push((s16)sampleL);
 				outAudioQueue.push((s16)sampleR);
 			}
+		} else {
+			// This happens quite a lot. There's still something slightly off
+			// about the amount of audio we produce.
+			DEBUG_LOG(HLE, "Audio outbuffer overrun! room = %i / %i", outAudioQueue.room(), (u32)outAudioQueue.capacity());
 		}
 		section.unlock();
-	} else {
-		// This happens quite a lot. There's still something slightly off
-		// about the amount of audio we produce.
-		DEBUG_LOG(HLE, "Audio outbuffer overrun! room = %i / %i", outAudioQueue.room(), (u32)outAudioQueue.capacity());
 	}
 	
 }

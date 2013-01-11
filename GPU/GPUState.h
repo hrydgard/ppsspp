@@ -283,6 +283,7 @@ struct GPUStatistics
 	int numVertexShaders;
 	int numFragmentShaders;
 	int numShaders;
+	int numFBOs;
 };
 
 void InitGfxState();
