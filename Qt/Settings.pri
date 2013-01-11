@@ -1,3 +1,4 @@
+DEFINES += USING_QT_UI
 blackberry|symbian|contains(MEEGO_EDITION,harmattan): CONFIG += mobile_platform
 unix:!blackberry:!symbian:!macx: CONFIG += linux
 

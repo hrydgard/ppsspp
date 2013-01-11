@@ -42,6 +42,12 @@
 #include "MenuScreens.h"
 #include "EmuScreen.h"
 
+#ifdef USING_QT_UI
+#include <QFileDialog>
+#include <QFile>
+#include <QDir>
+#endif
+
 
 // Ugly communication with NativeApp
 extern std::string game_title;
@@ -163,6 +169,15 @@ void MenuScreen::render() {
 
 
 	if (UIButton(GEN_ID, vlinear, w, "Load...", ALIGN_RIGHT)) {
+#if defined(USING_QT_UI) && defined(__SYMBIAN32__)
+		QString fileName = QFileDialog::getOpenFileName(NULL, "Load ROM", g_Config.currentDirectory.c_str(), "PSP ROMs (*.iso *.cso *.pbp *.elf)");
+		if (QFile::exists(fileName)) {
+			QDir newPath;
+			g_Config.currentDirectory = newPath.filePath(fileName).toStdString();
+			g_Config.Save();
+			screenManager()->switchScreen(new EmuScreen(fileName.toStdString()));
+		}
+#else
 		FileSelectScreenOptions options;
 		options.allowChooseDirectory = true;
 		options.filter = "iso:cso:pbp:elf:prx:";
@@ -172,6 +187,7 @@ void MenuScreen::render() {
 		options.iconMapping["pbp"] = I_ICON_EXE;
 		options.iconMapping["elf"] = I_ICON_EXE;
 		screenManager()->switchScreen(new FileSelectScreen(options));
+#endif
 		UIReset();
 	}
 
@@ -435,7 +451,7 @@ static const char *credits[] =
 	"Android SDK + NDK",
 #elif defined(BLACKBERRY)
 	"Blackberry NDK",
-#elif defined(__SYMBIAN32__)
+#elif defined(USING_QT_UI)
 	"Qt",
 #else
 	"SDL",
