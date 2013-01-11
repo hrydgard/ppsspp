@@ -22,8 +22,22 @@
 #include "scePower.h"
 #include "sceKernelThread.h"
 
+const int PSP_POWER_ERROR_TAKEN_SLOT = 0x80000020;
+const int PSP_POWER_ERROR_SLOTS_FULL = 0x80000022;
+const int PSP_POWER_ERROR_PRIVATE_SLOT = 0x80000023;
+const int PSP_POWER_ERROR_EMPTY_SLOT = 0x80000025;
+const int PSP_POWER_ERROR_INVALID_CB = 0x80000100;
+const int PSP_POWER_ERROR_INVALID_SLOT = 0x80000102;
+const int PSP_POWER_ERROR_INVALID_TYPE = 0x80000107;
+
+const int PSP_POWER_CB_AC_POWER = 0x00001000;
+const int PSP_POWER_CB_BATTERY_EXIST = 0x00000080;
+const int PSP_POWER_CB_BATTERY_FULL = 0x00000064;
+
 const int POWER_CB_AUTO = -1;
+
 const int numberOfCBPowerSlots = 16;
+const int numberOfCBPowerSlotsPrivate = 32;
 
 static bool volatileMemLocked;
 static int powerCbSlots[numberOfCBPowerSlots];
@@ -42,6 +56,12 @@ void __PowerDoState(PointerWrap &p) {
 int scePowerGetBatteryLifePercent() {
 	DEBUG_LOG(HLE, "100=scePowerGetBatteryLifePercent");
 	return 100;
+}
+
+int scePowerGetBatteryLifeTime() {
+	DEBUG_LOG(HLE, "0=scePowerGetBatteryLifeTime()");
+	// 0 means we're on AC power.
+	return 0;
 }
 
 int scePowerIsPowerOnline() {
@@ -70,61 +90,90 @@ int scePowerIsLowBattery() {
 }
 
 int scePowerRegisterCallback(int slot, int cbId) {
-	DEBUG_LOG(HLE,"0=scePowerRegisterCallback(%i, %i)", slot, cbId);
-	int foundSlot = -1;
+	DEBUG_LOG(HLE, "0=scePowerRegisterCallback(%i, %i)", slot, cbId);
+
+	if (slot < -1 || slot >= numberOfCBPowerSlotsPrivate) {
+		return PSP_POWER_ERROR_INVALID_SLOT;
+	}
+	if (slot >= numberOfCBPowerSlots) {
+		return PSP_POWER_ERROR_PRIVATE_SLOT;
+	}
+	// TODO: If cbId is invalid return PSP_POWER_ERROR_INVALID_CB.
+	if (cbId == 0) {
+		return PSP_POWER_ERROR_INVALID_CB;
+	}
+
+	int retval = -1;
 
 	if (slot == POWER_CB_AUTO) { // -1 signifies auto select of bank
 		for (int i=0; i < numberOfCBPowerSlots; i++) {
-			if ((powerCbSlots[i]==0) && (foundSlot == POWER_CB_AUTO)) { // found an empty slot
+			if (powerCbSlots[i] == 0 && retval == -1) { // found an empty slot
 				powerCbSlots[i] = cbId;
-				foundSlot = i;
+				retval = i;
 			}
+		}
+		if (retval == -1) {
+			return PSP_POWER_ERROR_SLOTS_FULL;
 		}
 	} else {
 		if (powerCbSlots[slot] == 0) {
 			powerCbSlots[slot] = cbId;
-			foundSlot = 0;
+			retval = 0;
 		} else {
-			// slot already in use!
-			foundSlot = POWER_CB_AUTO;
+			return PSP_POWER_ERROR_TAKEN_SLOT;
 		}
 	}
-	if (foundSlot>=0) {
+	if (retval >= 0) {
 		__KernelRegisterCallback(THREAD_CALLBACK_POWER, cbId);
-		__KernelNotifyCallbackType(THREAD_CALLBACK_POWER, cbId, 0x185); // TODO: I have no idea what the 0x185 is from the flags, but its needed for the test to pass. Need another example of it being called
+
+		int arg = PSP_POWER_CB_AC_POWER | PSP_POWER_CB_BATTERY_EXIST | PSP_POWER_CB_BATTERY_FULL;
+		__KernelNotifyCallbackType(THREAD_CALLBACK_POWER, cbId, arg);
 	}
-	return foundSlot;
+	return retval;
 }
 
 int scePowerUnregisterCallback(int slotId) {
-	if (slotId < 0 || slotId >= numberOfCBPowerSlots) {
-		return -1;
+	DEBUG_LOG(HLE, "0=scePowerUnregisterCallback(%i)", slotId);
+
+	if (slotId < 0 || slotId >= numberOfCBPowerSlotsPrivate) {
+		return PSP_POWER_ERROR_INVALID_SLOT;
+	}
+	if (slotId >= numberOfCBPowerSlots) {
+		return PSP_POWER_ERROR_PRIVATE_SLOT;
 	}
 
 	if (powerCbSlots[slotId] != 0) {
 		int cbId = powerCbSlots[slotId];
-		DEBUG_LOG(HLE,"0=scePowerUnregisterCallback(%i) (cbid = %i)", slotId, cbId);
+		DEBUG_LOG(HLE, "0=scePowerUnregisterCallback(%i) (cbid = %i)", slotId, cbId);
 		__KernelUnregisterCallback(THREAD_CALLBACK_POWER, cbId);
 		powerCbSlots[slotId] = 0;
 	} else {
-		return 0x80000025; // TODO: docs say a value less than 0, test checks for this specifically. why??
+		return PSP_POWER_ERROR_EMPTY_SLOT;
 	}
 
 	return 0;
 }
 
 int sceKernelPowerLock(int lockType) {
-	DEBUG_LOG(HLE,"0=sceKernelPowerLock(%i)", lockType);
-	return 0;
+	DEBUG_LOG(HLE, "0=sceKernelPowerLock(%i)", lockType);
+	if (lockType == 0) {
+		return 0;
+	} else {
+		return PSP_POWER_ERROR_INVALID_TYPE;
+	}
 }
 
 int sceKernelPowerUnlock(int lockType) {
-	DEBUG_LOG(HLE,"0=sceKernelPowerUnlock(%i)", lockType);
-	return 0;
+	DEBUG_LOG(HLE, "0=sceKernelPowerUnlock(%i)", lockType);
+	if (lockType == 0) {
+		return 0;
+	} else {
+		return PSP_POWER_ERROR_INVALID_TYPE;
+	}
 }
 
 int sceKernelPowerTick(int flag) {
-	DEBUG_LOG(HLE,"UNIMPL 0=sceKernelPowerTick(%i)", flag);
+	DEBUG_LOG(HLE, "UNIMPL 0=sceKernelPowerTick(%i)", flag);
 	return 0;
 }
 
@@ -217,7 +266,7 @@ static const HLEFunction scePower[] = {
 	{0x94F5A53F,0,"scePowerGetBatteryRemainCapacity"},
 	{0xFD18A0FF,0,"scePowerGetBatteryFullCapacity"},
 	{0x2085D15D,&WrapI_V<scePowerGetBatteryLifePercent>,"scePowerGetBatteryLifePercent"},
-	{0x8EFB3FA2,0,"scePowerGetBatteryLifeTime"},
+	{0x8EFB3FA2,&WrapI_V<scePowerGetBatteryLifeTime>,"scePowerGetBatteryLifeTime"},
 	{0x28E12023,0,"scePowerGetBatteryTemp"},
 	{0x862AE1A6,0,"scePowerGetBatteryElec"},
 	{0x483CE86B,0,"scePowerGetBatteryVolt"},
