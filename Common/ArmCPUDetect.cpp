@@ -41,6 +41,7 @@ char *GetCPUString()
 			continue;
 		cpu_string = buf + sizeof(marker) - 1;
 		cpu_string = strndup(cpu_string, strlen(cpu_string) - 1); // Strip the newline
+		// INFO_LOG(BOOT, "CPU: %s", cpu_string);
 		break;
 	}
 	return cpu_string;
@@ -149,6 +150,13 @@ void CPUInfo::Detect()
 	bIDIVt = false;
 	bFP = false;
 	bASIMD = false;
+#endif
+// On android, we build a separate library for ARMv7 so this is fine.
+// TODO: Check for ARMv7 on other platforms.
+#if defined(__ARM_ARCH_7A__)
+	bArmV7 = true;
+#else
+	bArmV7 = false;
 #endif
 }
 

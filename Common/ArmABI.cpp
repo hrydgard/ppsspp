@@ -76,30 +76,6 @@ void ARMXEmitter::ARMABI_PopAllCalleeSavedRegsAndAdjustStack() {
 	POP(4, R0, R1, R2, R3);
 }
 
-void ARMXEmitter::ARMABI_MOVI2R(ARMReg reg, u32 val)
-{
-	Operand2 op2;
-	bool inverse;
-	if (TryMakeOperand2_AllowInverse(val, op2, &inverse)) {
-		if (!inverse)
-			MOV(reg, op2);
-		else
-			MVN(reg, op2);
-	} else {
-		MOVW(reg, val);
-		if(val & 0xFFFF0000) 
-			MOVT(reg, val, true);
-	}
-}
-// Moves IMM to memory location
-void ARMXEmitter::ARMABI_MOVI2M(Operand2 op, Operand2 val)
-{
-	// This moves imm to a memory location
-	MOVW(R14, val); MOVT(R14, val, true);
-	MOVW(R12, op); MOVT(R12, op, true);
-	STR(R12, R14); // R10 is what we want to store
-}
-
 const char *conditions[] = {"EQ", "NEQ", "CS", "CC", "MI", "PL", "VS", "VC", "HI", "LS", "GE", "LT", "GT", "LE", "AL" };      
 static void ShowCondition(u32 cond)
 {

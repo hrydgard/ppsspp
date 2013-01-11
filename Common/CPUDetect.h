@@ -71,6 +71,8 @@ struct CPUInfo
 	bool bVFPv4;
 	bool bIDIVa;
 	bool bIDIVt;
+	bool bArmV7;  // enable MOVT, MOVW etc
+
 	// ARMv8 specific
 	bool bFP;
 	bool bASIMD;

@@ -78,6 +78,44 @@ bool TryMakeOperand2_AllowNegation(s32 imm, Operand2 &op2, bool *negated)
 	}
 }
 
+void ARMXEmitter::ARMABI_MOVI2R(ARMReg reg, u32 val)
+{
+	Operand2 op2;
+	bool inverse;
+	if (TryMakeOperand2_AllowInverse(val, op2, &inverse)) {
+		if (!inverse)
+			MOV(reg, op2);
+		else
+			MVN(reg, op2);
+	} else {
+		if (cpu_info.bArmV7) {
+			// ARMv7 - can use MOVT/MOVW, best choice
+			MOVW(reg, val & 0xFFFF);
+			if(val & 0xFFFF0000)
+				MOVT(reg, val, true);
+		} else {
+			// ARMv6 - fallback sequence.
+			// TODO: Optimize further. Can for example choose negation etc.
+			// Literal pools is another way to do this but much more complicated
+			// so I can't really be bothered for an outdated CPU architecture like ARMv6.
+			bool first = true;
+			int shift = 16;
+			for (int i = 0; i < 4; i++) {
+				if (val & 0xFF) {
+					if (first) {
+						MOV(reg, Operand2((u8)val, (u8)(shift & 0xF)));
+						first = false;
+					} else {
+						ORR(reg, reg, Operand2((u8)val, (u8)(shift & 0xF)));
+					}
+				}
+				shift -= 4;
+				val >>= 8;
+			}
+		}
+	}
+}
+
 void ARMXEmitter::QuickCallFunction(ARMReg reg, void *func) {
 	ARMABI_MOVI2R(reg, (u32)(func));
 	BL(reg);

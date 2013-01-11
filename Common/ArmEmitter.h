@@ -481,8 +481,6 @@ public:
 	void ARMABI_PushAllCalleeSavedRegsAndAdjustStack(); 
 	void ARMABI_PopAllCalleeSavedRegsAndAdjustStack(); 
 	void ARMABI_MOVI2R(ARMReg reg, u32 val);
-	void ARMABI_MOVI2M(Operand2 op, Operand2 val);
-	void ARMABI_MOVI2M(u32 addr, Operand2 val);
 	void ARMABI_ShowConditions();
 	void ARMABI_Return();
 
