@@ -61,11 +61,12 @@ u16 *clutBuf16;
 
 void TextureCache_Init() {
 	// TODO: Switch to aligned allocations for alignment. AllocateMemoryPages would do the trick.
-	tmpTexBuf32 = new u32[1024 * 512];
-	tmpTexBuf16 = new u16[1024 * 512];
-	tmpTexBufRearrange = new u32[1024 * 512];
-	clutBuf32 = new u32[4096];
-	clutBuf16 = new u16[4096];
+	// This is 5MB of temporary storage. Might be possible to shrink it.
+	tmpTexBuf32 = new u32[1024 * 512];  // 2MB
+	tmpTexBuf16 = new u16[1024 * 512];  // 1MB
+	tmpTexBufRearrange = new u32[1024 * 512];   // 2MB
+	clutBuf32 = new u32[4096];  // 4K
+	clutBuf16 = new u16[4096];  // 4K
 }
 
 void TextureCache_Shutdown() {

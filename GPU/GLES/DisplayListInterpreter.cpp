@@ -37,6 +37,11 @@
 extern u32 curTextureWidth;
 extern u32 curTextureHeight;
 
+// Aggressively delete unused FBO:s to save gpu memory.
+enum {
+	FBO_OLD_AGE = 4
+};
+
 const int flushOnChangedBeforeCommandList[] = {
 	GE_CMD_VERTEXTYPE,
 	GE_CMD_BLENDMODE,
@@ -200,6 +205,7 @@ void GLES_GPU::DumpNextFrame() {
 
 void GLES_GPU::BeginFrame() {
 	TextureCache_StartFrame();
+	DecimateFBOs();
 
 	if (dumpNextFrame_) {
 		NOTICE_LOG(G3D, "DUMPING THIS FRAME");
@@ -277,6 +283,17 @@ void GLES_GPU::CopyDisplayToOutput() {
 	BeginDebugDraw();
 }
 
+void GLES_GPU::DecimateFBOs() {
+	for (auto iter = vfbs_.begin(); iter != vfbs_.end();) {
+		if ((*iter)->last_frame_used + FBO_OLD_AGE < gpuStats.numFrames) {
+			fbo_destroy((*iter)->fbo);
+			vfbs_.erase(iter++);
+		}
+		else
+			++iter;
+	}
+}
+
 GLES_GPU::VirtualFramebuffer *GLES_GPU::GetDisplayFBO() {
 	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
 		if (((*iter)->fb_address & 0x3FFFFFF) == (displayFramebufPtr_ & 0x3FFFFFF)) {
@@ -345,6 +362,7 @@ void GLES_GPU::SetRenderFrameBuffer() {
 		vfb->height = drawing_height;
 		vfb->format = fmt;
 		vfb->fbo = fbo_create(vfb->width * renderWidthFactor_, vfb->height * renderHeightFactor_, 1, true);
+		vfb->last_frame_used = gpuStats.numFrames;
 		vfbs_.push_back(vfb);
 		fbo_bind_as_render_target(vfb->fbo);
 		glstate.viewport.set(0, 0, renderWidth_, renderHeight_);
@@ -362,6 +380,7 @@ void GLES_GPU::SetRenderFrameBuffer() {
 		fbo_bind_as_render_target(vfb->fbo);
 		glstate.viewport.set(0, 0, renderWidth_, renderHeight_);
 		currentRenderVfb_ = vfb;
+		vfb->last_frame_used = gpuStats.numFrames;
 	}
 }
 
@@ -1064,6 +1083,7 @@ void GLES_GPU::UpdateStats() {
 	gpuStats.numFragmentShaders = shaderManager_->NumFragmentShaders();
 	gpuStats.numShaders = shaderManager_->NumPrograms();
 	gpuStats.numTextures = TextureCache_NumLoadedTextures();
+	gpuStats.numFBOs = vfbs_.size();
 }
 
 void GLES_GPU::DoBlockTransfer() {
