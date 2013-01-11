@@ -162,7 +162,7 @@ IFileSystem *MetaFileSystem::GetHandleOwner(u32 handle)
 	return 0;
 }
 
-bool MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpath, IFileSystem **system)
+bool MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpath, MountPoint **system)
 {
 	std::string realpath;
 
@@ -197,7 +197,7 @@ bool MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpat
 			if (strncasecmp(fileSystems[i].prefix.c_str(), realpath.c_str(), prefLen) == 0)
 			{
 				outpath = realpath.substr(prefLen);
-				*system = fileSystems[i].system;
+				*system = &(fileSystems[i]);
 
 				DEBUG_LOG(HLE, "MapFilePath: mapped \"%s\" to prefix: \"%s\", path: \"%s\"", inpath.c_str(), fileSystems[i].prefix.c_str(), outpath.c_str());
 
@@ -212,7 +212,7 @@ bool MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpat
 
 void MetaFileSystem::Mount(std::string prefix, IFileSystem *system)
 {
-	System x;
+	MountPoint x;
 	x.prefix=prefix;
 	x.system=system;
 	fileSystems.push_back(x);
@@ -304,10 +304,10 @@ void MetaFileSystem::ChDir(const std::string &dir)
 	int curThread = __KernelGetCurThread();
 	
 	std::string of;
-	IFileSystem *system;
-	if (MapFilePath(dir, of, &system))
+	MountPoint *mountPoint;
+	if (MapFilePath(dir, of, &mountPoint))
 	{
-		currentDir[curThread] = of;
+		currentDir[curThread] = mountPoint->prefix + of;
 		//return true;
 	}
 	else
