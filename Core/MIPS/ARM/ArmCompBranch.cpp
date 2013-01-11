@@ -425,7 +425,8 @@ void Jit::Comp_Syscall(u32 op)
 {
 	FlushAll();
 
-	ARMABI_CallFunctionC((void *)&CallSyscall, op);
+	ARMABI_MOVI2R(R0, op);
+	QuickCallFunction(R1, (void *)&CallSyscall);
 
 	WriteSyscallExit();
 	js.compiling = false;

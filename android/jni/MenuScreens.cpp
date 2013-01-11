@@ -287,10 +287,12 @@ void SettingsScreen::render() {
 		g_Config.iWindowZoom = doubleRes ? 2 : 1;
 	}
 	UICheckBox(GEN_ID, x, y += stride, "Hardware Transform", ALIGN_TOPLEFT, &g_Config.bHardwareTransform);
-	UICheckBox(GEN_ID, x, y += stride, "Use VBO for drawing", ALIGN_TOPLEFT, &g_Config.bUseVBO);
+	UICheckBox(GEN_ID, x, y += stride, "Draw using VBO", ALIGN_TOPLEFT, &g_Config.bUseVBO);
 
 	bool useJit = g_Config.iCpuCore == CPU_JIT;
-	UICheckBox(GEN_ID, x, y += stride, "Use Dynarec (JIT)", ALIGN_TOPLEFT, &useJit);
+	UICheckBox(GEN_ID, x, y += stride, "JIT (Dynarec)", ALIGN_TOPLEFT, &useJit);
+	if (g_Config.iCpuCore == CPU_JIT)
+		UICheckBox(GEN_ID, x + 350, y, "Fastmem (unstable)", ALIGN_TOPLEFT, &g_Config.bFastMemory);
 	g_Config.iCpuCore = useJit ? CPU_JIT : CPU_INTERPRETER;
 	// ui_draw2d.DrawText(UBUNTU48, "much faster JIT coming later", x, y+=50, 0xcFFFFFFF, ALIGN_LEFT);
 	UICheckBox(GEN_ID, x, y += stride, "On-screen Touch Controls", ALIGN_TOPLEFT, &g_Config.bShowTouchControls);

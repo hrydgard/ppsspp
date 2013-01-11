@@ -43,10 +43,7 @@ namespace MIPSComp
 		if (gpr.IsImm(rs)) {
 			gpr.SetImm(rt, (*eval)(gpr.GetImm(rs), uimm));
 		} else {
-			gpr.SpillLock(rs, rt);
-			gpr.MapReg(rt, MAP_DIRTY);
-			gpr.MapReg(rs);
-			gpr.ReleaseSpillLocks();
+			gpr.MapDirtyIn(rt, rs);
 			// TODO: Special case when uimm can be represented as an Operand2
 			Operand2 op2;
 			if (TryMakeOperand2(uimm, op2)) {
@@ -76,13 +73,14 @@ namespace MIPSComp
 				} else if (rs == 0) {  // add to zero register = immediate
 					gpr.SetImm(rt, (u32)simm);
 				} else {
-					gpr.SpillLock(rs, rt);
-					gpr.MapReg(rt, MAP_DIRTY);
-					gpr.MapReg(rs);
-					gpr.ReleaseSpillLocks();
+					gpr.MapDirtyIn(rt, rs);
 					Operand2 op2;
-					if (TryMakeOperand2(simm, op2)) {
-						ADD(gpr.R(rt), gpr.R(rs), op2);
+					bool negated;
+					if (TryMakeOperand2_AllowNegation(simm, op2, &negated)) {
+						if (!negated)
+							ADD(gpr.R(rt), gpr.R(rs), op2);
+						else
+							SUB(gpr.R(rt), gpr.R(rs), op2);
 					} else {
 						ARMABI_MOVI2R(R0, (u32)simm);
 						ADD(gpr.R(rt), gpr.R(rs), R0);
@@ -96,11 +94,7 @@ namespace MIPSComp
 		case 14: CompImmLogic(rs, rt, uimm, &ARMXEmitter::EOR, &EvalXor); break;
 
 		case 10: // R(rt) = (s32)R(rs) < simm; break; //slti
-			gpr.SpillLock(rt, rs);
-			gpr.MapReg(rs);
-			gpr.MapReg(rt, MAP_DIRTY);
-			gpr.ReleaseSpillLocks();
-
+			gpr.MapDirtyIn(rt, rs);
 			{
 				Operand2 op2;
 				if (TryMakeOperand2(simm, op2)) {
@@ -253,11 +247,7 @@ namespace MIPSComp
 		int rt = _RT;
 		int sa = _SA;
 		
-		gpr.SpillLock(rd, rt);
-		gpr.MapReg(rt);
-		gpr.MapReg(rd, MAP_DIRTY);
-		gpr.ReleaseSpillLocks();
-
+		gpr.MapDirtyIn(rd, rt);
 		MOV(gpr.R(rd), Operand2(sa, shiftType, gpr.R(rt)));
 	}
 

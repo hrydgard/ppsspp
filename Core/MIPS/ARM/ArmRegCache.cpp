@@ -125,18 +125,25 @@ allocate:
 	return INVALID_REG;
 }
 
-void ArmRegCache::MapDirtyIn(MIPSReg rd, MIPSReg rs) {
+void ArmRegCache::MapInIn(MIPSReg rd, MIPSReg rs) {
 	SpillLock(rd, rs);
-	// bool overlap == rd == rs
-	MapReg(rd, MAP_DIRTY);  // can get rid of INITVAL in some cases
+	MapReg(rd);
 	MapReg(rs);
 	ReleaseSpillLocks();
 }
 
-void ArmRegCache::MapDirtyInIn(MIPSReg rd, MIPSReg rs, MIPSReg rt) {
+void ArmRegCache::MapDirtyIn(MIPSReg rd, MIPSReg rs, bool avoidLoad) {
+	SpillLock(rd, rs);
+	bool overlap = avoidLoad && rd == rs;
+	MapReg(rd, MAP_DIRTY | (overlap ? 0 : MAP_NOINIT));
+	MapReg(rs);
+	ReleaseSpillLocks();
+}
+
+void ArmRegCache::MapDirtyInIn(MIPSReg rd, MIPSReg rs, MIPSReg rt, bool avoidLoad) {
 	SpillLock(rd, rs, rt);
-	// bool overlap == rd == rs || rt == rd || rs == rt;
-	MapReg(rd, MAP_DIRTY);  // can get rid of INITVAL in some cases
+	bool overlap = avoidLoad && (rd == rs || rd == rt);
+	MapReg(rd, MAP_DIRTY | (overlap ? 0 : MAP_NOINIT));
 	MapReg(rt);
 	MapReg(rs);
 	ReleaseSpillLocks();

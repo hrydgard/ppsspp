@@ -52,20 +52,20 @@ namespace MIPSComp
 
 		case 35:   //R(rt) = ReadMem32(addr); //lw
 		case 36: //R(rt) = ReadMem8 (addr); break; //lbu
-			if (true || g_Config.bFastMemory) {
-				gpr.SpillLock(rt, rs);
-				gpr.MapReg(rt, MAP_DIRTY);
-				gpr.MapReg(rs);
-				gpr.ReleaseSpillLocks();
-			
+			if (g_Config.bFastMemory) {
+				gpr.MapDirtyIn(rt, rs);
 				Operand2 op2;
-				if (TryMakeOperand2(offset, op2)) {
-					ADD(R0, gpr.R(rs), op2);
+				if (offset) {
+					if (TryMakeOperand2(offset, op2)) {
+						ADD(R0, gpr.R(rs), op2);
+					} else {
+						ARMABI_MOVI2R(R0, (u32)offset);
+						ADD(R0, gpr.R(rs), R0);
+					}
+					BIC(R0, R0, Operand2(0xC0, 4));   // &= 0x3FFFFFFF
 				} else {
-					ARMABI_MOVI2R(R0, (u32)offset);
-					ADD(R0, gpr.R(rs), R0);
+					BIC(R0, gpr.R(rs), Operand2(0xC0, 4));   // &= 0x3FFFFFFF
 				}
-				BIC(R0, R0, Operand2(0xC0, 4));   // &= 0x3FFFFFFF
 				ADD(R0, R0, R11);   // TODO: Merge with next instruction
 				if (o == 35) {
 					LDR(gpr.R(rt), R0);
@@ -84,20 +84,20 @@ namespace MIPSComp
 
 		case 40: //sb
 		case 43: //WriteMem32(addr, R(rt)); break; //sw
-			if (true || g_Config.bFastMemory) {
-				gpr.SpillLock(rt, rs);
-				gpr.MapReg(rt);
-				gpr.MapReg(rs);
-				gpr.ReleaseSpillLocks();
-
+			if (g_Config.bFastMemory) {
+				gpr.MapInIn(rt, rs);
 				Operand2 op2;
-				if (TryMakeOperand2(offset, op2)) {
-					ADD(R0, gpr.R(rs), op2);
+				if (offset) {
+					if (TryMakeOperand2(offset, op2)) {
+						ADD(R0, gpr.R(rs), op2);
+					} else {
+						ARMABI_MOVI2R(R0, (u32)offset);
+						ADD(R0, gpr.R(rs), R0);
+					}
+					BIC(R0, R0, Operand2(0xC0, 4));   // &= 0x3FFFFFFF
 				} else {
-					ARMABI_MOVI2R(R0, (u32)offset);
-					ADD(R0, gpr.R(rs), R0);
+					BIC(R0, gpr.R(rs), Operand2(0xC0, 4));   // &= 0x3FFFFFFF
 				}
-				BIC(R0, R0, Operand2(0xC0, 4));   // &= 0x3FFFFFFF
 				ADD(R0, R0, R11);
 				if (o == 43) {
 					STR(R0, gpr.R(rt));

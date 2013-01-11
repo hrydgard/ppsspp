@@ -85,8 +85,9 @@ public:
 
 	// Returns an ARM register containing the requested MIPS register.
 	ARMReg MapReg(MIPSReg reg, int mapFlags = 0);
-	void MapDirtyIn(MIPSReg rd, MIPSReg rs);
-	void MapDirtyInIn(MIPSReg rd, MIPSReg rs, MIPSReg rt);
+	void MapInIn(MIPSReg rd, MIPSReg rs);
+	void MapDirtyIn(MIPSReg rd, MIPSReg rs, bool avoidLoad = true);
+	void MapDirtyInIn(MIPSReg rd, MIPSReg rs, MIPSReg rt, bool avoidLoad = true);
 	void FlushArmReg(ARMReg r);
 	void FlushMipsReg(MIPSReg r);
 
