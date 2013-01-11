@@ -60,7 +60,7 @@ static bool enableDebug = false;
 // R9 : 
 extern volatile CoreState coreState;
 
-void Jit()
+void JitAt()
 {
 	MIPSComp::jit->Compile(currentMIPS->pc);
 }
@@ -79,8 +79,9 @@ void DisassembleArm(const u8 *data, int size);
 // dynarec buffer
 // At this offset - 4, there is an int specifying the block number.
 
+namespace MIPSComp {
 
-void ArmAsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
+void Jit::GenerateFixedCode()
 {
 	enterCode = AlignCode16();
 
@@ -93,8 +94,8 @@ void ArmAsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 	// Fixed registers, these are always kept when in Jit context.
 	// R13 cannot be used as it's the stack pointer.
 	ARMABI_MOVI2R(R11, (u32)Memory::base);
-	ARMABI_MOVI2R(R10, (u32)mips);
-	ARMABI_MOVI2R(R9, (u32)jit->GetBlockCache()->GetCodePointers());
+	ARMABI_MOVI2R(R10, (u32)mips_);
+	ARMABI_MOVI2R(R9, (u32)GetBlockCache()->GetCodePointers());
 
 	outerLoop = GetCodePtr();
 		QuickCallFunction(R0, (void *)&CoreTiming::Advance);
@@ -140,7 +141,7 @@ void ArmAsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 			SetCC(CC_AL);
 
 			//Ok, no block, let's jit
-			ARMABI_CallFunction((void *)&Jit);
+			ARMABI_CallFunction((void *)&JitAt);
 
 			B(dispatcherNoCheck); // no point in special casing this
 
@@ -166,3 +167,5 @@ void ArmAsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 	// Don't forget to zap the instruction cache!
 	FlushIcache();
 }
+
+}  // namespace

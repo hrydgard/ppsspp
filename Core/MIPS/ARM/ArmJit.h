@@ -88,13 +88,14 @@ public:
 	void Comp_mxc1(u32 op);
 
 	ArmJitBlockCache *GetBlockCache() { return &blocks; }
-	ArmAsmRoutineManager &Asm() { return asm_; }
 
 	void ClearCache();
 
 private:
+	void GenerateFixedCode();
 	void FlushAll();
 
+	// TODO: Split into two parts, the first part can be shared in branches.
 	void DoDownCount();
 	void MovFromPC(ARMReg r);
 	void MovToPC(ARMReg r);
@@ -128,9 +129,17 @@ private:
 	ArmRegCache gpr;
 	// FPURegCache fpr;
 
-	ArmAsmRoutineManager asm_;
-
 	MIPSState *mips_;
+
+	// Code pointers
+	const u8 *enterCode;
+
+	const u8 *outerLoop;
+	const u8 *dispatcherCheckCoreState;
+	const u8 *dispatcher;
+	const u8 *dispatcherNoCheck;
+
+	const u8 *breakpointBailout;
 };
 
 typedef void (Jit::*MIPSCompileFunc)(u32 opcode);

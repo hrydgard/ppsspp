@@ -23,40 +23,5 @@
 
 // Runtime generated assembly routines, like the Dispatcher.
 
-namespace MIPSComp
-{
-	class Jit;
-}
-
-class ArmAsmRoutineManager : public ArmGen::ARMXCodeBlock
-{
-public:
-	ArmAsmRoutineManager()
-	{
-	}
-	~ArmAsmRoutineManager()
-	{
-		FreeCodeSpace();
-	}
-
-	void Init(MIPSState *mips, MIPSComp::Jit *jit)
-	{
-		AllocCodeSpace(8192);
-		Generate(mips, jit);
-		WriteProtect();
-	}
-
-	const u8 *enterCode;
-
-	const u8 *outerLoop;
-	const u8 *dispatcherCheckCoreState;
-	const u8 *dispatcher;
-	const u8 *dispatcherNoCheck;
-
-	const u8 *breakpointBailout;
-
-private:
-	void Generate(MIPSState *mips, MIPSComp::Jit *jit);
-};
 
 #endif	// _JIT64ASM_H

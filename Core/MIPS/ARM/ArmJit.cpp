@@ -57,12 +57,11 @@ namespace MIPSComp
 Jit::Jit(MIPSState *mips) : blocks(mips), gpr(mips), mips_(mips)
 { 
 	blocks.Init();
-	asm_.Init(mips, this);
 	gpr.SetEmitter(this);
 	//fpr.SetEmitter(this);
-	AllocCodeSpace(1024 * 1024 * 16);
+	AllocCodeSpace(1024 * 1024 * 16);  // 32MB is the absolute max because that's what an ARM branch instruction can reach, backwards and forwards.
+	GenerateFixedCode();
 }
-
 
 void Jit::FlushAll()
 {
@@ -74,6 +73,7 @@ void Jit::ClearCache()
 {
 	blocks.Clear();
 	ClearCodeSpace();
+	GenerateFixedCode();
 }
 
 void Jit::CompileAt(u32 addr)
@@ -97,7 +97,7 @@ void Jit::Compile(u32 em_address)
 void Jit::RunLoopUntil(u64 globalticks)
 {
 	// TODO: copy globalticks somewhere
-	((void (*)())asm_.enterCode)();
+	((void (*)())enterCode)();
 }
 
 const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
@@ -115,8 +115,7 @@ const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 	SetCC(CC_LT);
 	ARMABI_MOVI2R(R0, js.blockStart);
 	MovToPC(R0);
-	ARMABI_MOVI2R(R0, (u32)asm_.outerLoop);   // downcount hit zero - go advance.
-	B(R0);
+	B((const void *)outerLoop);
 	SetCC(CC_AL);
 
 	b->normalEntry = GetCodePtr();
@@ -239,8 +238,7 @@ void Jit::WriteExit(u32 destination, int exit_num)
 	} else {
 		ARMABI_MOVI2R(R0, destination);
 		MovToPC(R0);
-		ARMABI_MOVI2R(R0, (u32)asm_.dispatcher);
-		B(R0);	
+		B((const void *)dispatcher);	
 	}
 }
 
@@ -249,15 +247,13 @@ void Jit::WriteExitDestInR(ARMReg Reg)
 	MovToPC(Reg);
 	DoDownCount();
 	// TODO: shouldn't need an indirect branch here...
-	ARMABI_MOVI2R(R0, (u32)asm_.dispatcher);
-	B(R0);
+	B((const void *)dispatcher);
 }
 
 void Jit::WriteSyscallExit()
 {
 	DoDownCount();
-	ARMABI_MOVI2R(R0, (u32)asm_.dispatcherCheckCoreState);
-	B(R0);
+	B((const void *)dispatcherCheckCoreState);
 }
 
 
