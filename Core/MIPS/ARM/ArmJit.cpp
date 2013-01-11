@@ -220,7 +220,10 @@ void Jit::DoDownCount()
 	}
 }
 
-
+// IDEA - could have a WriteDualExit that takes two destinations and two condition flags,
+// and just have conditional that set PC "twice". This only works when we fall back to dispatcher
+// though, as we need to have the SUBS flag set in the end. So with block linking in the mix,
+// I don't think this gives us that much benefit.
 void Jit::WriteExit(u32 destination, int exit_num)
 {
 	DoDownCount(); 

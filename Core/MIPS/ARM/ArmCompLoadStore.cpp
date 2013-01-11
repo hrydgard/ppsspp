@@ -47,11 +47,11 @@ namespace MIPSComp
 		switch (o) 
 		{
 		case 37: //R(rt) = ReadMem16(addr); break; //lhu
-		case 36: //R(rt) = ReadMem8 (addr); break; //lbu
 			Comp_Generic(op);
 			return;
 
-		case 35: //R(rt) = ReadMem32(addr); break; //lw
+		case 35:   //R(rt) = ReadMem32(addr); //lw
+		case 36: //R(rt) = ReadMem8 (addr); break; //lbu
 			if (true || g_Config.bFastMemory) {
 				gpr.SpillLock(rt, rs);
 				gpr.MapReg(rt, MAP_DIRTY);
@@ -66,24 +66,23 @@ namespace MIPSComp
 					ADD(R0, gpr.R(rs), R0);
 				}
 				BIC(R0, R0, Operand2(0xC0, 4));   // &= 0x3FFFFFFF
-				ADD(R0, R0, R11);
-				LDR(gpr.R(rt), R0);
+				ADD(R0, R0, R11);   // TODO: Merge with next instruction
+				if (o == 35) {
+					LDR(gpr.R(rt), R0);
+				} else if (o == 36) {
+					LDRB(gpr.R(rt), R0);
+				}
 			} else {
 				Comp_Generic(op);
 				return;
 			}
 			break;
 
-		case 132: //R(rt) = (u32)(s32)(s8) ReadMem8 (addr); break; //lb
-		case 133: //R(rt) = (u32)(s32)(s16)ReadMem16(addr); break; //lh
-		case 136: //R(rt) = ReadMem8 (addr); break; //lbu
-		case 140: //WriteMem8 (addr, R(rt)); break; //sb
-			
-		case 40:
 		case 41: //WriteMem16(addr, R(rt)); break; //sh
 			Comp_Generic(op);
 			return;
 
+		case 40: //sb
 		case 43: //WriteMem32(addr, R(rt)); break; //sw
 			if (true || g_Config.bFastMemory) {
 				gpr.SpillLock(rt, rs);
@@ -100,7 +99,11 @@ namespace MIPSComp
 				}
 				BIC(R0, R0, Operand2(0xC0, 4));   // &= 0x3FFFFFFF
 				ADD(R0, R0, R11);
-				STR(R0, gpr.R(rt));
+				if (o == 43) {
+					STR(R0, gpr.R(rt));
+				} else if (o == 40) {
+					STRB(R0, gpr.R(rt));
+				}
 			} else {
 				Comp_Generic(op);
 				return;
@@ -108,7 +111,7 @@ namespace MIPSComp
 			break;
 			// break;
 			/*
-		case 134: //lwl
+		case 34: //lwl
 			{
 				Crash();
 				//u32 shift = (addr & 3) << 3;
@@ -117,7 +120,7 @@ namespace MIPSComp
 			}
 			break;
 
-		case 138: //lwr
+		case 38: //lwr
 			{
 				Crash();
 				//u32 shift = (addr & 3) << 3;
@@ -127,7 +130,7 @@ namespace MIPSComp
 			}
 			break;
  
-		case 142: //swl
+		case 42: //swl
 			{
 				Crash();
 				//u32 shift = (addr & 3) << 3;
@@ -136,7 +139,7 @@ namespace MIPSComp
 				//	(	mem & (0xffffff00 << shift) ));
 			}
 			break;
-		case 146: //swr
+		case 46: //swr
 			{
 				Crash();
 				//	u32 shift = (addr & 3) << 3;

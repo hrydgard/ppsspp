@@ -83,7 +83,13 @@ allocate:
 			ar[reg].isDirty = (mapFlags & MAP_DIRTY) ? true : false;
 			if (!(mapFlags & MAP_NOINIT)) {
 				if (mr[mipsReg].loc == ML_MEM) {
-					emit->LDR((ARMReg)reg, CTXREG, 4 * mipsReg);
+					if (mipsReg != 0) {
+						emit->LDR((ARMReg)reg, CTXREG, 4 * mipsReg);
+					} else {
+						// If we get a request to load the zero register, at least we won't spend
+						// time on a memory access...
+						emit->MOV((ARMReg)reg, 0);
+					}
 				} else if (mr[mipsReg].loc == ML_IMM) {
 					emit->ARMABI_MOVI2R((ARMReg)reg, mr[mipsReg].imm);
 					ar[reg].isDirty = true;  // IMM is always dirty.
@@ -117,6 +123,23 @@ allocate:
 	// Uh oh, we have all them spilllocked....
 	ERROR_LOG(JIT, "Out of spillable registers at PC %08x!!!", mips_->pc);
 	return INVALID_REG;
+}
+
+void ArmRegCache::MapDirtyIn(MIPSReg rd, MIPSReg rs) {
+	SpillLock(rd, rs);
+	// bool overlap == rd == rs
+	MapReg(rd, MAP_DIRTY);  // can get rid of INITVAL in some cases
+	MapReg(rs);
+	ReleaseSpillLocks();
+}
+
+void ArmRegCache::MapDirtyInIn(MIPSReg rd, MIPSReg rs, MIPSReg rt) {
+	SpillLock(rd, rs, rt);
+	// bool overlap == rd == rs || rt == rd || rs == rt;
+	MapReg(rd, MAP_DIRTY);  // can get rid of INITVAL in some cases
+	MapReg(rt);
+	MapReg(rs);
+	ReleaseSpillLocks();
 }
 
 void ArmRegCache::FlushArmReg(ARMReg r) {

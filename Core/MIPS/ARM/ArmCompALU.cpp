@@ -119,11 +119,7 @@ namespace MIPSComp
 			break;
 			
 		case 11: // R(rt) = R(rs) < uimm; break; //sltiu
-			gpr.SpillLock(rt, rs);
-			gpr.MapReg(rs);
-			gpr.MapReg(rt, MAP_DIRTY);
-			gpr.ReleaseSpillLocks();
-
+			gpr.MapDirtyIn(rt, rs);
 			{
 				Operand2 op2;
 				if (TryMakeOperand2(uimm, op2)) {
@@ -174,13 +170,7 @@ namespace MIPSComp
 		int rt = _RT;
 		int rs = _RS;
 		int rd = _RD;
-		
-		gpr.SpillLock(rt, rs, rd);
-		gpr.MapReg(rt);
-		gpr.MapReg(rs);
-		gpr.MapReg(rd, MAP_DIRTY);  // can get rid of INITVAL in some cases
-		gpr.ReleaseSpillLocks();
-		
+
 		switch (op & 63) 
 		{
 		//case 10: if (!R(rt)) R(rd) = R(rs); break; //movz
@@ -188,28 +178,44 @@ namespace MIPSComp
 			
 		// case 32: //R(rd) = R(rs) + R(rt);		break; //add
 		case 33: //R(rd) = R(rs) + R(rt);		break; //addu
-			ADD(gpr.R(rd), gpr.R(rs), gpr.R(rt));
+			// Some optimized special cases
+			if (rs == 0) {
+				gpr.MapDirtyIn(rd, rt);
+				MOV(gpr.R(rd), gpr.R(rt));
+			} else if (rt == 0) {
+				gpr.MapDirtyIn(rd, rs);
+				MOV(gpr.R(rd), gpr.R(rs));
+			} else {
+				gpr.MapDirtyInIn(rd, rs, rt);
+				ADD(gpr.R(rd), gpr.R(rs), gpr.R(rt));
+			}
 			break;
-		case 134: //R(rd) = R(rs) - R(rt);		break; //sub
-		case 135:
+		case 34: //R(rd) = R(rs) - R(rt);		break; //sub
+		case 35:
+			gpr.MapDirtyInIn(rd, rs, rt);
 			SUB(gpr.R(rd), gpr.R(rs), gpr.R(rt));
 			break;
-		case 136: //R(rd) = R(rs) & R(rt);		break; //and
+		case 36: //R(rd) = R(rs) & R(rt);		break; //and
+			gpr.MapDirtyInIn(rd, rs, rt);
 			AND(gpr.R(rd), gpr.R(rs), gpr.R(rt));
 			break;
-		case 137: //R(rd) = R(rs) | R(rt);		break; //or
+		case 37: //R(rd) = R(rs) | R(rt);		break; //or
+			gpr.MapDirtyInIn(rd, rs, rt);
 			ORR(gpr.R(rd), gpr.R(rs), gpr.R(rt));
 			break;
-		case 138: //R(rd) = R(rs) ^ R(rt);		break; //xor/eor	
+		case 38: //R(rd) = R(rs) ^ R(rt);		break; //xor/eor	
+			gpr.MapDirtyInIn(rd, rs, rt);
 			EOR(gpr.R(rd), gpr.R(rs), gpr.R(rt));
 			break;
 
 		case 39: // R(rd) = ~(R(rs) | R(rt)); //nor
+			gpr.MapDirtyInIn(rd, rs, rt);
 			ORR(gpr.R(rd), gpr.R(rs), gpr.R(rt));
 			MVN(gpr.R(rd), gpr.R(rd));
 			break;
 
 		case 42: //R(rd) = (int)R(rs) < (int)R(rt); break; //slt
+			gpr.MapDirtyInIn(rd, rs, rt);
 			CMP(gpr.R(rs), gpr.R(rt));
 			SetCC(CC_LT);
 			ARMABI_MOVI2R(gpr.R(rd), 1);
@@ -219,6 +225,7 @@ namespace MIPSComp
 			break; 
 
 		case 43: //R(rd) = R(rs) < R(rt);		break; //sltu
+			gpr.MapDirtyInIn(rd, rs, rt);
 			CMP(gpr.R(rs), gpr.R(rt));
 			SetCC(CC_LO);
 			ARMABI_MOVI2R(gpr.R(rd), 1);
