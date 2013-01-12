@@ -155,6 +155,14 @@ void ApplyDrawState()
 		glstate.depthFunc.set(ztests[depthTestFunc]);
 	}
 
+	// PSP color/alpha mask is per bit but we can only support per byte.
+	// But let's do that, at least. And let's try a threshold.
+	bool rmask = (gstate.pmskc & 0xFF) < 128;
+	bool gmask = ((gstate.pmskc >> 8) & 0xFF) < 128;
+	bool bmask = ((gstate.pmskc >> 16) & 0xFF) < 128;
+	bool amask = (gstate.pmska & 0xFF) < 128;
+	glstate.colorMask.set(rmask, gmask, bmask, amask);
+
 	bool wantDepthWrite = gstate.isModeClear() || gstate.isDepthWriteEnabled();
 	glstate.depthWrite.set(wantDepthWrite ? GL_TRUE : GL_FALSE);
 
