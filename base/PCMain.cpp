@@ -32,8 +32,125 @@
 #include "base/NativeApp.h"
 #include "net/resolve.h"
 
-// Simple implementations of System functions
+#ifdef PANDORA
+// EGL2SDL for Pandora
+#include "EGL/egl.h"
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+#include "SDL_syswm.h"
 
+EGLDisplay          g_eglDisplay    = NULL;
+EGLContext          g_eglContext    = NULL;
+EGLSurface          g_eglSurface    = NULL;
+Display*            g_Display       = NULL;
+NativeWindowType    g_Window        = NULL;
+
+int8_t CheckEGLErrors(const string& file, uint16_t line) {
+	EGLenum error;
+	string errortext;
+
+	error = eglGetError();
+	switch (error)
+	{
+		case EGL_SUCCESS: case 0:           return 0;
+		case EGL_NOT_INITIALIZED:           errortext = "EGL_NOT_INITIALIZED"; break;
+		case EGL_BAD_ACCESS:                errortext = "EGL_BAD_ACCESS"; break;
+		case EGL_BAD_ALLOC:                 errortext = "EGL_BAD_ALLOC"; break;
+		case EGL_BAD_ATTRIBUTE:             errortext = "EGL_BAD_ATTRIBUTE"; break;
+		case EGL_BAD_CONTEXT:               errortext = "EGL_BAD_CONTEXT"; break;
+		case EGL_BAD_CONFIG:                errortext = "EGL_BAD_CONFIG"; break;
+		case EGL_BAD_CURRENT_SURFACE:       errortext = "EGL_BAD_CURRENT_SURFACE"; break;
+		case EGL_BAD_DISPLAY:               errortext = "EGL_BAD_DISPLAY"; break;
+		case EGL_BAD_SURFACE:               errortext = "EGL_BAD_SURFACE"; break;
+		case EGL_BAD_MATCH:                 errortext = "EGL_BAD_MATCH"; break;
+		case EGL_BAD_PARAMETER:             errortext = "EGL_BAD_PARAMETER"; break;
+		case EGL_BAD_NATIVE_PIXMAP:         errortext = "EGL_BAD_NATIVE_PIXMAP"; break;
+		case EGL_BAD_NATIVE_WINDOW:         errortext = "EGL_BAD_NATIVE_WINDOW"; break;
+		default:                            errortext = "unknown"; break;
+	}
+	printf( "ERROR: EGL Error detected in file %s at line %d: %s (0x%X)\n", file.c_str(), line, errortext.c_str(), error );
+	return 1;
+}
+#define EGL_ERROR(str, check) { \
+		if (check) CheckEGLErrors( __FILE__, __LINE__ ); \
+		printf("EGL ERROR: " str "\n"); \
+		return 1; \
+	}
+
+void EGL_Open() {
+	if ((g_Display = XOpenDisplay(NULL)) == NULL)
+		EGL_ERROR("Unable to get display!", false);
+
+	if ((g_eglDisplay = eglGetDisplay((NativeDisplayType)g_Display)) == EGL_NO_DISPLAY)
+		EGL_ERROR("Unable to create EGL display.", true);
+
+	if (eglInitialize(g_eglDisplay, NULL, NULL) != EGL_TRUE)
+		EGL_ERROR("Unable to initialize EGL display.", true);
+}
+
+int8_t EGL_Init() {
+	EGLConfig g_eglConfig = NULL;
+	EGLint g_numConfigs = 0;
+	EGLint attrib_list[]= {
+		EGL_RED_SIZE,        5,
+		EGL_GREEN_SIZE,      6,
+		EGL_BLUE_SIZE,       5,
+		EGL_DEPTH_SIZE,      16,
+		EGL_SURFACE_TYPE,    EGL_WINDOW_BIT,
+		EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+		EGL_SAMPLE_BUFFERS,  0,
+		EGL_SAMPLES,         0,
+		EGL_NONE};
+
+	const EGLint attributes[] = { EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE };
+
+	EGLBoolean result = eglChooseConfig(g_eglDisplay, attrib_list, g_eglConfig, 1, &g_numConfigs);
+	if (result != EGL_TRUE || g_numConfigs == 0) EGL_ERROR("Unable to query for available configs.");
+
+	g_eglContext = eglCreateContext(g_eglDisplay, g_eglConfig, NULL, attributes);
+	if (g_eglContext == EGL_NO_CONTEXT) EGL_ERROR("Unable to create GLES context!", true);
+
+	// Get the SDL window handle
+	SDL_SysWMinfo sysInfo; //Will hold our Window information
+	SDL_VERSION(&sysInfo.version); //Set SDL version
+	if(SDL_GetWMInfo(&sysInfo) <= 0)
+	{
+		printf("EGL ERROR: Unable to get SDL window handle: %s\n", SDL_GetError());
+		return 1;
+	}
+
+	g_Window = (NativeWindowType)sysInfo.info.x11.window;
+	g_eglSurface = eglCreateWindowSurface(g_eglDisplay, g_eglConfig, g_Window, 0);
+	if (g_eglSurface == EGL_NO_SURFACE) EGL_ERROR("Unable to create EGL surface!", true);
+
+	if (eglMakeCurrent(g_eglDisplay, g_eglSurface, g_eglSurface, g_eglContext) != EGL_TRUE)
+		EGL_ERROR("Unable to make GLES context current.", true);
+	return 0;
+}
+
+void EGL_Close() {
+	if (g_eglDisplay != NULL)
+	{
+		eglMakeCurrent(g_eglDisplay, NULL, NULL, EGL_NO_CONTEXT);
+		if (g_eglContext != NULL) {
+			eglDestroyContext(g_eglDisplay, g_eglContext);
+		}
+		if (g_eglSurface != NULL) {
+			eglDestroySurface(g_eglDisplay, g_eglSurface);
+		}
+		eglTerminate(g_eglDisplay);
+		g_eglDisplay = NULL;
+	}
+	if (g_Display != NULL) {
+		XCloseDisplay(g_Display);
+		g_Display = NULL;
+	}
+	g_eglSurface = NULL;
+	g_eglContext = NULL;
+}
+#endif
+
+// Simple implementations of System functions
 
 
 void SystemToast(const char *text) {
@@ -91,20 +208,31 @@ void LaunchEmail(const char *email_address)
 
 
 const int buttonMappings[14] = {
-	SDLK_z,										//A
-	SDLK_x,										//B
-	SDLK_a,										//X
-	SDLK_s,										//Y
-	SDLK_w,										//LBUMPER
-	SDLK_q,										//RBUMPER
-	SDLK_SPACE,								//START
-	SDLK_v,										//SELECT
-	SDLK_UP,									//UP
-	SDLK_DOWN,								//DOWN
-	SDLK_LEFT,								//LEFT
-	SDLK_RIGHT,								//RIGHT
-	SDLK_m,									 //MENU
-	SDLK_BACKSPACE,					 //BACK
+#ifdef PANDORA
+	SDLK_PAGEDOWN,  //X => cross
+	SDLK_END,       //B => circle
+	SDLK_HOME,      //A => box
+	SDLK_PAGEUP,    //Y => triangle
+	SDLK_RSHIFT,    //LBUMPER
+	SDLK_RCTRL,	    //RBUMPER
+	SDLK_LALT,      //START
+	SDLK_LCTRL,     //SELECT
+#else
+	SDLK_z,         //A
+	SDLK_x,         //B
+	SDLK_a,         //X
+	SDLK_s,	        //Y
+	SDLK_w,         //LBUMPER
+	SDLK_q,         //RBUMPER
+	SDLK_SPACE,     //START
+	SDLK_v,	        //SELECT
+#endif
+	SDLK_UP,        //UP
+	SDLK_DOWN,      //DOWN
+	SDLK_LEFT,      //LEFT
+	SDLK_RIGHT,     //RIGHT
+	SDLK_m,         //MENU
+	SDLK_BACKSPACE,	//BACK
 };
 
 void SimulateGamepad(const uint8 *keys, InputState *input) {
@@ -118,6 +246,9 @@ void SimulateGamepad(const uint8 *keys, InputState *input) {
 			input->pad_buttons |= (1<<b);
 	}
 
+#ifdef PANDORA
+	// TODO: Use console joystick instead
+#else
 	if (keys[SDLK_i])
 		input->pad_lstick_y=1;
 	else if (keys[SDLK_k])
@@ -134,6 +265,7 @@ void SimulateGamepad(const uint8 *keys, InputState *input) {
 		input->pad_rstick_x=-1;
 	else if (keys[SDLK_KP6])
 		input->pad_rstick_x=1;
+#endif
 }
 
 extern void mixaudio(void *userdata, Uint8 *stream, int len) {
@@ -211,6 +343,9 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr, "Unable to initialize SDL: %s\n", SDL_GetError());
 		return 1;
 	}
+#ifdef PANDORA
+	EGL_Open();
+#endif
 
 	SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
 	SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
@@ -221,14 +356,24 @@ int main(int argc, char *argv[]) {
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 	SDL_GL_SetAttribute(SDL_GL_SWAP_CONTROL, 1);
 
-	if (SDL_SetVideoMode(pixel_xres, pixel_yres, 0, SDL_OPENGL) == NULL) {
+	if (SDL_SetVideoMode(pixel_xres, pixel_yres, 0, 
+#ifdef USING_GLES2
+		SDL_SWSURFACE | SDL_FULLSCREEN
+#else
+		SDL_OPENGL
+#endif
+		) == NULL) {
 		fprintf(stderr, "SDL SetVideoMode failed: Unable to create OpenGL screen: %s\n", SDL_GetError());
 		SDL_Quit();
 		return(2);
 	}
+#ifdef PANDORA
+	EGL_Init();
+#endif
 
 	SDL_WM_SetCaption(app_name_nice.c_str(), NULL);
 
+#ifndef USING_GLES2
 	if (GLEW_OK != glewInit()) {
 		printf("Failed to initialize glew!\n");
 		return 1;
@@ -240,6 +385,7 @@ int main(int argc, char *argv[]) {
 		printf("Sorry, this program requires OpenGL 2.0.\n");
 		return 1;
 	}
+#endif
 
 #ifdef _MSC_VER
 	// VFSRegister("temp/", new DirectoryAssetReader("E:\\Temp\\"));
@@ -353,7 +499,11 @@ int main(int argc, char *argv[]) {
 			// glsl_refresh(); // auto-reloads modified GLSL shaders once per second.
 		}
 
+#ifdef PANDORA
+		eglSwapBuffers(g_eglDisplay, g_eglSurface);
+#else
 		SDL_GL_SwapBuffers();
+#endif
 
 		// Simple frame rate limiting
 //		while (time_now() < t + 1.0f/60.0f) {
@@ -373,6 +523,9 @@ int main(int argc, char *argv[]) {
 	SDL_PauseAudio(1);
 	SDL_CloseAudio();
 	NativeShutdown();
+#ifdef PANDORA
+	EGL_Close();
+#endif
 	SDL_Quit();
 	net::Shutdown();
 	exit(0);
