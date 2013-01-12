@@ -86,6 +86,28 @@ private:
 		} \
 	}
 
+	#define STATE3(func, p1type, p2type, p3type, p1def, p2def, p3def) \
+	class SavedState3_##func { \
+		p1type p1; \
+		p2type p2; \
+		p3type p3; \
+	public: \
+		SavedState3_##func() : p1(p1def), p2(p2def), p3(p3def) { \
+			OpenGLState::state_count++; \
+        }; \
+		inline void set(p1type newp1, p2type newp2, p3type newp3) { \
+			if(newp1 != p1 || newp2 != p2 || newp3 != p3) { \
+				p1 = newp1; \
+				p2 = newp2; \
+				p3 = newp3; \
+				func(p1, p2, p3); \
+			} \
+		} \
+		inline void restore() { \
+			func(p1, p2, p3); \
+		} \
+	}
+
 	#define STATE4(func, p1type, p2type, p3type, p4type, p1def, p2def, p3def, p4def) \
 	class SavedState4_##func { \
 		p1type p1; \
@@ -161,6 +183,10 @@ public:
 	STATE4(glColorMask, bool, bool, bool, bool, true, true, true, true) colorMask;
 
 	STATE4(glViewport, GLint, GLint, GLsizei, GLsizei, 0, 0, 128, 128) viewport;
+
+	BoolState<GL_STENCIL_TEST, false> stencilTest;
+	STATE3(glStencilOp, GLenum, GLenum, GLenum, GL_KEEP, GL_KEEP, GL_KEEP) stencilOp;
+	STATE3(glStencilFunc, GLenum, GLint, GLuint, GL_ALWAYS, 0, 0xFF) stencilFunc;
 };
 
 #undef STATE1

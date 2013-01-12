@@ -35,6 +35,10 @@ void OpenGLState::Restore() {
 	colorMask.restore(); count++;
 	viewport.restore(); count++;
 
+	stencilTest.restore(); count++;
+	stencilOp.restore(); count++;
+	stencilFunc.restore(); count++;
+
 	assert(count == state_count && "OpenGLState::Restore is missing some states");
 }
 
@@ -53,4 +57,3 @@ void CheckGLExtensions() {
 	gl_extensions.OES_depth_texture = strstr(extString, "GL_OES_depth_texture") != 0;
 	gl_extensions.EXT_discard_framebuffer = strstr(extString, "GL_EXT_discard_framebuffer") != 0;
 }
-
