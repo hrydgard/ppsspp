@@ -65,13 +65,22 @@ void JitAt()
 	MIPSComp::jit->Compile(currentMIPS->pc);
 }
 
+/*
+double testD;
+
+u32 DoubleTest(u32 sp) {
+	volatile double local = 1.0;
+	testD += local;
+	return (u32)(&local);
+}
+
 void ShowPC(u32 sp) {
 	if (currentMIPS) {
-		WARN_LOG(HLE, "PC : %08x  ArmSP : %08x", currentMIPS->pc, sp);
+		ERROR_LOG(HLE, "ShowPC : %08x  ArmSP : %08x", currentMIPS->pc, sp);
 	} else {
 		ERROR_LOG(HLE, "Universe corrupt?");
 	}
-}
+}*/
 
 void DisassembleArm(const u8 *data, int size);
 
@@ -90,6 +99,13 @@ void Jit::GenerateFixedCode()
 	SetCC(CC_AL);
 
 	PUSH(9, R4, R5, R6, R7, R8, R9, R10, R11, _LR);
+	// Take care to 8-byte align stack for function calls.
+	// This actually misaligns the stack within the JIT itself but that doesn't really matter
+	// as the JIT does not use the stack at all.
+	SUB(_SP, _SP, 4);
+
+	// QuickCallFunction(R3, (void *)&DoubleTest);
+	// QuickCallFunction(R3, (void *)&ShowPC);
 
 	// Fixed registers, these are always kept when in Jit context.
 	// R13 cannot be used as it's the stack pointer.
@@ -132,7 +148,9 @@ void Jit::GenerateFixedCode()
 			BIC(R0, R0, Operand2(0xFC, 4));
 			CMP(R1, Operand2(MIPS_EMUHACK_OPCODE >> 24, 4));
 			SetCC(CC_EQ);
-				// IDEA - we have 24 bits, why not just use offsets from base of code?
+				// IDEA - we have 26 bits, why not just use offsets from base of code?
+				// Another idea: Shift the bloc number left by two in the op, this would let us do
+				// LDR(R0, R9, R0, true, true); here, replacing the two next instructions.
 				ADD(R0, R9, Operand2(2, ST_LSL, R0));
 				LDR(R0, R0);
 				B(R0);
@@ -153,6 +171,8 @@ void Jit::GenerateFixedCode()
 	SetJumpTarget(badCoreState);
 
 	breakpointBailout = GetCodePtr();
+
+	ADD(_SP, _SP, 4);
 
 	POP(9, R4, R5, R6, R7, R8, R9, R10, R11, _PC);  // Returns
 

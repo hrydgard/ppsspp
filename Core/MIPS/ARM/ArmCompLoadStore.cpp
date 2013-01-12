@@ -14,12 +14,34 @@
 
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
+
+
+// Optimization ideas:
+//
+// It's common to see sequences of stores writing or reading to a contiguous set of
+// addresses in function prologues/epilogues:
+//  sw s5, 104(sp)
+//  sw s4, 100(sp)
+//  sw s3, 96(sp)
+//  sw s2, 92(sp)
+//  sw s1, 88(sp)
+//  sw s0, 84(sp)
+//  sw ra, 108(sp)
+//  mov s4, a0
+//  mov s3, a1
+//  ...
+// Such sequences could easily be detected and turned into nice contiguous
+// sequences of ARM stores instead of the current 3 instructions per sw/lw.
+//
+// Also, if we kept track of the likely register content of a cached register,
+// (pointer or data), we could avoid many BIC instructions.
+
+
 #include "../../MemMap.h"
 #include "../MIPSAnalyst.h"
 #include "../../Config.h"
 #include "ArmJit.h"
 #include "ArmRegCache.h"
-
 
 #define _RS ((op>>21) & 0x1F)
 #define _RT ((op>>16) & 0x1F)
@@ -44,7 +66,7 @@ namespace MIPSComp
 			// Don't load anything into $zr
 			return;
 		}
-		switch (o) 
+		switch (o)
 		{
 		case 37: //R(rt) = ReadMem16(addr); break; //lhu
 			Comp_Generic(op);
