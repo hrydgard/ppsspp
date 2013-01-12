@@ -5,7 +5,6 @@
 #if defined(IOS)
 #include <OpenGLES/ES2/gl.h>
 #include <OpenGLES/ES2/glext.h>
-typedef char GLchar;
 #else
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
@@ -19,7 +18,7 @@ typedef char GLchar;
 #endif
 #endif
 
-#if defined(__SYMBIAN32__) || defined(MEEGO_EDITION_HARMATTAN) || defined(PANDORA)
+#ifndef GLchar
 typedef char GLchar;
 #endif
 
