@@ -88,10 +88,12 @@ void UIShader_Prepare()
 	glstate.cullFace.disable();
 	glstate.depthTest.disable();
 	glstate.scissorTest.disable();
+	glstate.stencilTest.disable();
 
 	glstate.blend.enable();
 	glstate.blendFunc.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+	glstate.colorMask.set(true, true, true, true);
 	glstate.Restore();
 
 	uiTexture->Bind(0);

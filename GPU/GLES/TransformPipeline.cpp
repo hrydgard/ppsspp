@@ -742,7 +742,7 @@ void TransformDrawEngine::Flush() {
 
 	int prim = indexGen.Prim();
 
-	ApplyDrawState();
+	ApplyDrawState(prim);
 	UpdateViewportAndProjection();
 
 	LinkedShader *program = shaderManager_->ApplyShader(prim);
