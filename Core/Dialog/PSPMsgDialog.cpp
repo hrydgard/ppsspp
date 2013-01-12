@@ -166,7 +166,7 @@ int PSPMsgDialog::Update()
 			if (IsButtonPressed(cancelButtonFlag))
 			{
 				status = SCE_UTILITY_STATUS_FINISHED;
-				messageDialog.buttonPressed = 0;
+				messageDialog.buttonPressed = 3;
 			}
 			EndDraw();
 		break;
