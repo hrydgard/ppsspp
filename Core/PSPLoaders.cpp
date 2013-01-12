@@ -44,9 +44,9 @@ BlockDevice *constructBlockDevice(const char *filename)
 	// Check for CISO
 	FILE *f = fopen(filename, "rb");
 	char buffer[4];
-	fread(buffer, 1, 4, f);
+	auto size = fread(buffer, 1, 4, f); //size_t
 	fclose(f);
-	if (!memcmp(buffer, "CISO", 4))
+	if (!memcmp(buffer, "CISO", 4) && size == 4)
 		return new CISOFileBlockDevice(filename);
 	else
 		return new FileBlockDevice(filename);
