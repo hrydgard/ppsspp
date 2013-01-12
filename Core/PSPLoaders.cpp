@@ -41,15 +41,15 @@
 
 BlockDevice *constructBlockDevice(const char *filename)
 {
-	char firstInExtension = filename[strlen(filename)-3];
-	if (firstInExtension == 'c')
-	{
+	// Check for CISO
+	FILE *f = fopen(filename, "rb");
+	char buffer[4];
+	fread(buffer, 1, 4, f);
+	fclose(f);
+	if (!memcmp(buffer, "CISO", 4))
 		return new CISOFileBlockDevice(filename);
-	}
 	else
-	{
 		return new FileBlockDevice(filename);
-	}
 }
 
 

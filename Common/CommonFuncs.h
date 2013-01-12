@@ -15,8 +15,7 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-#ifndef _COMMONFUNCS_H_
-#define _COMMONFUNCS_H_
+#pragma once
 
 #ifdef _WIN32
 #define SLEEP(x) Sleep(x)
@@ -38,22 +37,6 @@ template<> struct CompileTimeAssert<true> {};
 #define b16(x)  ( b8(x) | ( b8(x) >> 8) )  
 #define b32(x)  (b16(x) | (b16(x) >>16) )
 #define ROUND_UP_POW2(x)	(b32(x - 1) + 1)
-
-#if defined __GNUC__ && !defined __SSSE3__
-// Assume !ARM = x86
-#if !defined(ARM)
-#include <emmintrin.h>
-static __inline __m128i __attribute__((__always_inline__))
-_mm_shuffle_epi8(__m128i a, __m128i mask)
-{
-	__m128i result;
-	__asm__("pshufb %1, %0"
-		: "=x" (result)
-		: "xm" (mask), "0" (a));
-	return result;
-}
-#endif
-#endif
 
 #ifndef _WIN32
 
@@ -178,5 +161,3 @@ inline u64 swap64(u64 _data) {return bswap64(_data);}
 //inline u64 swap64(const u8* _pData) {return swap64(*(const u64*)_pData);}
 
 }  // Namespace Common
-
-#endif // _COMMONFUNCS_H_
