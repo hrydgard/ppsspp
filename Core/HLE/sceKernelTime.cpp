@@ -144,7 +144,7 @@ u32 sceKernelLibcTime(u32 outPtr)
 	return t;
 }
 
-void sceKernelLibcGettimeofday()
+u32 sceKernelLibcGettimeofday(u32 timeAddr)
 {
 #ifdef _WIN32
 	union {
@@ -158,12 +158,12 @@ void sceKernelLibcGettimeofday()
 		u32 tv_usec;
 	};
 
-	timeval *tv = (timeval*)Memory::GetPointer(PARAM(0));
+	timeval *tv = (timeval*)Memory::GetPointer(timeAddr);
 	DEBUG_LOG(HLE,"sceKernelLibcGettimeofday()");
 
 	GetSystemTimeAsFileTime (&now.ft);
 	tv->tv_usec = (long) ((now.ns100 / 10LL) % 1000000LL);
 	tv->tv_sec = (long) ((now.ns100 - 116444736000000000LL) / 10000000LL);
 #endif
-	RETURN(0);
+    return 0;
 }
