@@ -142,6 +142,8 @@ const int flushBeforeCommandList[] = {
 	GE_CMD_PROJMATRIXDATA,
 	GE_CMD_TGENMATRIXNUMBER,
 	GE_CMD_BONEMATRIXNUMBER,
+	GE_CMD_MASKRGB,
+	GE_CMD_MASKALPHA,
 };
 
 GLES_GPU::GLES_GPU(int renderWidth, int renderHeight)
