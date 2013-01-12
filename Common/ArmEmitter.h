@@ -26,6 +26,14 @@
 #include <signal.h>
 #endif
 
+#ifdef PANDORA
+#ifdef __USE_POSIX
+extern "C"
+int kill (__pid_t __pid, int __sig) __THROW;
+#endif
+#define SIGINT	2
+#endif
+
 #undef _SP
 
 namespace ArmGen
