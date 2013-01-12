@@ -221,10 +221,10 @@ void sceKernelDevkitVersion()
 	RETURN(1);
 }
 
-void sceKernelRegisterKprintfHandler()
+u32 sceKernelRegisterKprintfHandler()
 {
 	ERROR_LOG(HLE,"UNIMPL sceKernelRegisterKprintfHandler()");
-	RETURN(0);
+	return 0;
 }
 void sceKernelRegisterDefaultExceptionHandler()
 {
@@ -232,17 +232,17 @@ void sceKernelRegisterDefaultExceptionHandler()
 	RETURN(0);
 }
 
-void sceKernelSetGPO()
+void sceKernelSetGPO(u32 ledAddr)
 {
 	// Sets debug LEDs.
-	DEBUG_LOG(HLE,"sceKernelSetGPO(%02x)", PARAM(0));
+	DEBUG_LOG(HLE,"sceKernelSetGPO(%02x)", ledAddr);
 }
 
-void sceKernelGetGPI()
+u32 sceKernelGetGPI()
 {
 	// Always returns 0 on production systems.
 	DEBUG_LOG(HLE,"0=sceKernelGetGPI()");
-	RETURN(0);
+	return 0;
 }
 
 // Don't even log these, they're spammy and we probably won't
@@ -461,17 +461,17 @@ KernelObject *KernelObjectPool::CreateByIDType(int type)
 	}
 }
 
-void sceKernelIcacheInvalidateAll()
+u32 sceKernelIcacheInvalidateAll()
 {
 	DEBUG_LOG(CPU, "Icache invalidated - should clear JIT someday");
-	RETURN(0);
+	return 0;
 }
 
 
-void sceKernelIcacheClearAll()
+u32 sceKernelIcacheClearAll()
 {
 	DEBUG_LOG(CPU, "Icache cleared - should clear JIT someday");
-	RETURN(0);
+	return 0;
 }
 
 struct SystemStatus {

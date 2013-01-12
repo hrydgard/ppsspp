@@ -75,7 +75,7 @@ const HLEFunction UtilsForUser[] =
 {
 	{0x91E4F6A7, WrapU_V<sceKernelLibcClock>, "sceKernelLibcClock"},
 	{0x27CC57F0, WrapU_U<sceKernelLibcTime>, "sceKernelLibcTime"},
-	{0x71EC4271, sceKernelLibcGettimeofday, "sceKernelLibcGettimeofday"},
+	{0x71EC4271, WrapU_U<sceKernelLibcGettimeofday>, "sceKernelLibcGettimeofday"},
 	{0xBFA98062, WrapI_UI<sceKernelDcacheInvalidateRange>, "sceKernelDcacheInvalidateRange"},
 	{0xC8186A58, 0, "sceKernelUtilsMd5Digest"},
 	{0x9E5C5086, 0, "sceKernelUtilsMd5BlockInit"},
@@ -87,8 +87,8 @@ const HLEFunction UtilsForUser[] =
 	{0x585F1C09, 0, "sceKernelUtilsSha1BlockResult"},
 	{0xE860E75E, 0, "sceKernelUtilsMt19937Init"},
 	{0x06FB8A63, 0, "sceKernelUtilsMt19937UInt"},
-	{0x37FB5C42, sceKernelGetGPI, "sceKernelGetGPI"},
-	{0x6AD345D7, sceKernelSetGPO, "sceKernelSetGPO"},
+	{0x37FB5C42, WrapU_V<sceKernelGetGPI>, "sceKernelGetGPI"},
+	{0x6AD345D7, WrapV_U<sceKernelSetGPO>, "sceKernelSetGPO"},
 	{0x79D1C3FA, WrapI_V<sceKernelDcacheWritebackAll>, "sceKernelDcacheWritebackAll"},
 	{0xB435DEC5, WrapI_V<sceKernelDcacheWritebackInvalidateAll>, "sceKernelDcacheWritebackInvalidateAll"},
 	{0x3EE30821, WrapI_UI<sceKernelDcacheWritebackRange>, "sceKernelDcacheWritebackRange"},
@@ -98,7 +98,7 @@ const HLEFunction UtilsForUser[] =
 	{0x16641D70, 0, "sceKernelDcacheReadTag"},
 	{0x4FD31C9D, 0, "sceKernelIcacheProbe"},
 	{0xFB05FAD0, 0, "sceKernelIcacheReadTag"},
-	{0x920f104a, sceKernelIcacheInvalidateAll, "sceKernelIcacheInvalidateAll"}
+	{0x920f104a, WrapU_V<sceKernelIcacheInvalidateAll>, "sceKernelIcacheInvalidateAll"}
 };				   
 
 
@@ -126,7 +126,7 @@ const HLEFunction LoadCoreForKernel[] =
 	{0xB4D6FECC, 0, "sceKernelApplyElfRelSection"},
 	{0x54AB2675, 0, "LoadCoreForKernel_54AB2675"},
 	{0x2952F5AC, 0, "sceKernelDcacheWBinvAll"},
-	{0xD8779AC6, sceKernelIcacheClearAll, "sceKernelIcacheClearAll"},
+	{0xD8779AC6, WrapU_V<sceKernelIcacheClearAll>, "sceKernelIcacheClearAll"},
 	{0x99A695F0, 0, "sceKernelRegisterLibrary"},
 	{0x5873A31F, 0, "sceKernelRegisterLibraryForUser"},
 	{0x0B464512, 0, "sceKernelReleaseLibrary"},
@@ -148,7 +148,7 @@ const HLEFunction LoadCoreForKernel[] =
 	{0xCCE4A157, 0, "sceKernelFindModuleByUID"},
 	{0x82CE54ED, 0, "sceKernelModuleCount"},
 	{0xC0584F0C, 0, "sceKernelGetModuleList"},
-	{0xCF8A41B1, sceKernelFindModuleByName,"sceKernelFindModuleByName"},
+        {0xCF8A41B1, WrapU_V<sceKernelFindModuleByName>,"sceKernelFindModuleByName"},
 };
 
 
@@ -158,7 +158,7 @@ const HLEFunction KDebugForKernel[] =
 	{0x2FF4E9F9, 0, "sceKernelAssert"},
 	{0x9B868276, 0, "sceKernelGetDebugPutchar"},
 	{0xE146606D, 0, "sceKernelRegisterDebugPutchar"},
-	{0x7CEB2C09, sceKernelRegisterKprintfHandler, "sceKernelRegisterKprintfHandler"},
+	{0x7CEB2C09, WrapU_V<sceKernelRegisterKprintfHandler>, "sceKernelRegisterKprintfHandler"},
 	{0x84F370BC, 0, "Kprintf"},
 	{0x5CE9838B, 0, "sceKernelDebugWrite"},
 	{0x66253C4E, 0, "sceKernelRegisterDebugWrite"},
