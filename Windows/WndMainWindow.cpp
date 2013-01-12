@@ -492,6 +492,7 @@ namespace MainWindow
 					SetZoom(cx / 480.0f, cy / 272.0f);
 					_ViewFullScreen(hWnd);
 				}
+				UpdateMenus();
 				break;
 
 			case ID_OPTIONS_WIREFRAME:
