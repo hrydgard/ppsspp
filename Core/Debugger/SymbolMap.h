@@ -34,6 +34,7 @@ typedef struct HWND__ *HWND;
 class SymbolMap
 {
 public:
+	SymbolMap() {}
 	bool LoadSymbolMap(const char *filename);
 	void SaveSymbolMap(const char *filename);
 	void AddSymbol(const char *symbolname, unsigned int vaddress, size_t size, SymbolType symbol);
@@ -89,12 +90,7 @@ private:
 		}
 	};
 
-	int numEntries;
-	MapEntry entries[65536*2];
-
-
-
+	std::vector<MapEntry> entries;
 };
-
 
 extern SymbolMap symbolMap;
