@@ -9,20 +9,21 @@ include(Settings.pri)
 INCLUDEPATH += ../native ../Common ../
 
 arm {
-	SOURCES += ../Core/MIPS/ARM/Asm.cpp \ #CoreARM
-		../Core/MIPS/ARM/CompALU.cpp \
-		../Core/MIPS/ARM/CompBranch.cpp \
-		../Core/MIPS/ARM/CompFPU.cpp \
-		../Core/MIPS/ARM/CompLoadStore.cpp \
-		../Core/MIPS/ARM/CompVFPU.cpp \
-		../Core/MIPS/ARM/Jit.cpp \
-		../Core/MIPS/ARM/JitCache.cpp \
-		../Core/MIPS/ARM/RegCache.cpp
+	SOURCES += ../Core/MIPS/ARM/ArmAsm.cpp \ #CoreARM
+		../Core/MIPS/ARM/ArmCompALU.cpp \
+		../Core/MIPS/ARM/ArmCompBranch.cpp \
+		../Core/MIPS/ARM/ArmCompFPU.cpp \
+		../Core/MIPS/ARM/ArmCompLoadStore.cpp \
+		../Core/MIPS/ARM/ArmCompVFPU.cpp \
+		../Core/MIPS/ARM/ArmJit.cpp \
+		../Core/MIPS/ARM/ArmJitCache.cpp \
+		../Core/MIPS/ARM/ArmRegCache.cpp \
+		../ext/disarm.cpp
 
-	HEADERS += ../Core/MIPS/ARM/Asm.h \
-		../Core/MIPS/ARM/Jit.h \
-		../Core/MIPS/ARM/JitCache.h \
-		../Core/MIPS/ARM/RegCache.h
+	HEADERS += ../Core/MIPS/ARM/ArmAsm.h \
+		../Core/MIPS/ARM/ArmJit.h \
+		../Core/MIPS/ARM/ArmJitCache.h \
+		../Core/MIPS/ARM/ArmRegCache.h
 }
 x86 {
 	SOURCES += ../Core/MIPS/x86/Asm.cpp \
