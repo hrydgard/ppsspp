@@ -102,8 +102,7 @@ void PSP_Shutdown()
 	if (coreParameter.enableSound)
 	{
 		host->ShutdownSound();
-		delete mixer;
-		mixer = 0;
+		mixer = 0;  // deleted in ShutdownSound
 	}
 	__KernelShutdown();
 	HLEShutdown();
