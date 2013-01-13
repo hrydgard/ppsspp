@@ -422,7 +422,7 @@ struct Sig
 	{
 		strncpy(name,_name,63);
 	}
-	bool operator <(const Sig &other) {
+	bool operator <(const Sig &other) const {
 		return inst < other.inst;
 	}
 };
