@@ -135,6 +135,11 @@ void NativeHost::ShutdownSound()
 	g_mixer = 0;
 }
 
+void NativeSetMixer(void* mix)
+{
+	g_mixer = (PMixer*)mix;
+}
+
 void NativeMix(short *audio, int num_samples)
 {
 	if (g_mixer)

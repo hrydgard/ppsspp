@@ -21,7 +21,29 @@ linux: LIBS += -L. -lCore -lCommon -lNative
 
 # Main
 SOURCES += ../native/base/QtMain.cpp
+linux {
+	SOURCES += mainwindow.cpp \
+			debugger_disasm.cpp \
+			EmuThread.cpp\
+			qtapp.cpp \
+			qtemugl.cpp \
+			ctrldisasmview.cpp \
+			ctrlregisterlist.cpp \
+			controls.cpp
+}
 HEADERS += ../native/base/QtMain.h
+linux {
+	HEADERS += mainwindow.h \
+		debugger_disasm.h \
+		EmuThread.h \
+		qtapp.h \
+		qtemugl.h \
+		ctrldisasmview.h \
+		ctrlregisterlist.h \
+		ctrldisasmview.h \
+		ctrlregisterlist.h \
+		controls.h
+}
 
 # Native
 SOURCES += ../android/jni/NativeApp.cpp \
@@ -46,3 +68,10 @@ symbian {
 	TARGET.EPOCHEAPSIZE = 0x40000 0x10000000
 	TARGET.EPOCSTACKSIZE = 0x10000
 }
+
+linux {
+	FORMS += mainwindow.ui \
+		debugger_disasm.ui \
+		controls.ui
+}
+

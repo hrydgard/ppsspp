@@ -84,8 +84,9 @@ void Core_Run()
 #if defined(_DEBUG)
 	host->UpdateDisassembly();
 #endif
-
+#ifndef LINUX
 	while (true)
+#endif
 	{
 reswitch:
 		switch (coreState)
@@ -102,7 +103,11 @@ reswitch:
 			if (coreState == CORE_POWERDOWN)
 				return;
 			if (coreState != CORE_STEPPING)
+#ifdef LINUX
+				return;
+#else
 				goto reswitch;
+#endif
 
 			currentCPU = &mipsr4k;
 			Core_SingleStep();

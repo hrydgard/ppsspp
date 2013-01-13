@@ -121,6 +121,11 @@ public:
 		m_Log[type]->SetLevel(level);
 	}
 
+	LogTypes::LOG_LEVELS GetLogLevel(LogTypes::LOG_TYPE type)
+	{
+		return m_Log[type]->GetLevel();
+	}
+
 	void SetEnable(LogTypes::LOG_TYPE type, bool enable)
 	{
 		m_Log[type]->SetEnable(enable);
