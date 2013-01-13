@@ -17,6 +17,7 @@
 
 #pragma once
 #include <cstdio>
+#include "Common/CommonTypes.h"
 
 struct MemMap;
 
