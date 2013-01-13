@@ -7,6 +7,6 @@ extern const GLint cullingMode[];
 extern const GLuint ztests[];
 
 
-void ApplyDrawState();
+void ApplyDrawState(int prim);
 void UpdateViewportAndProjection();
 

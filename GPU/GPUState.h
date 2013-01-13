@@ -177,8 +177,8 @@ struct GPUgstate
 				dith4,
 				lop,
 				zmsk,
-				pmsk1,
-				pmsk2,
+				pmskc,
+				pmska,
 				transferstart,
 				transfersrcpos,
 				transferdstpos,
@@ -208,6 +208,7 @@ struct GPUgstate
 	bool isDepthWriteEnabled() const { return !(zmsk & 1); }
 	int getDepthTestFunc() const { return ztestfunc & 0x7; }
 	bool isFogEnabled() const { return fogEnable & 1; }
+	bool isStencilTestEnabled() const { return stencilTestEnable & 1; }
 
 	// UV gen
 	int getUVGenMode() const { return texmapmode & 3;}   // 2 bits

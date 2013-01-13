@@ -45,7 +45,7 @@ const GLuint glprim[8] = {
 };
 
 TransformDrawEngine::TransformDrawEngine()
-	: numVerts(0),
+	: collectedVerts(0),
 		lastVType(-1),
 		curVbo_(0),
 		shaderManager_(0) {
@@ -615,9 +615,9 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 
 	bool useVBO = g_Config.bUseVBO;
 	if (useVBO) {
-		char title[64];
-		sprintf(title, "upload %i verts for sw", indexGen.VertexCount());
-		LoggingDeadline deadline(title, 5);
+		//char title[64];
+		//sprintf(title, "upload %i verts for sw", indexGen.VertexCount());
+		//LoggingDeadline deadline(title, 5);
 		glBindBuffer(GL_ARRAY_BUFFER, vbo_[curVbo_]);
 		glBufferData(GL_ARRAY_BUFFER, vertexSize * numTrans, drawBuffer, GL_DYNAMIC_DRAW);
 		drawBuffer = 0;  // so that the calls use offsets instead.
@@ -662,7 +662,7 @@ void TransformDrawEngine::SubmitPrim(void *verts, void *inds, int prim, int vert
 	gpuStats.numDrawCalls++;
 	gpuStats.numVertsTransformed += vertexCount;
 
-	indexGen.SetIndex(numVerts);
+	indexGen.SetIndex(collectedVerts);
 	int indexLowerBound, indexUpperBound;
 	// If vtype has changed, setup the vertex decoder.
 	// TODO: Simply cache the setup decoders instead.
@@ -672,8 +672,8 @@ void TransformDrawEngine::SubmitPrim(void *verts, void *inds, int prim, int vert
 	}
 
 	// Decode the verts and apply morphing
-	dec.DecodeVerts(decoded + numVerts * (int)dec.GetDecVtxFmt().stride, verts, inds, prim, vertexCount, &indexLowerBound, &indexUpperBound);
-	numVerts += indexUpperBound - indexLowerBound + 1;
+	dec.DecodeVerts(decoded + collectedVerts * (int)dec.GetDecVtxFmt().stride, verts, inds, prim, vertexCount, &indexLowerBound, &indexUpperBound);
+	collectedVerts += indexUpperBound - indexLowerBound + 1;
 	if (bytesRead)
 		*bytesRead = vertexCount * dec.VertexSize();
 
@@ -742,24 +742,23 @@ void TransformDrawEngine::Flush() {
 
 	int prim = indexGen.Prim();
 
-	ApplyDrawState();
+	ApplyDrawState(prim);
 	UpdateViewportAndProjection();
 
 	LinkedShader *program = shaderManager_->ApplyShader(prim);
 
-	DEBUG_LOG(G3D, "Flush prim %i! %i verts in one go", prim, numVerts);
+	DEBUG_LOG(G3D, "Flush prim %i! %i verts in one go", prim, collectedVerts);
 
 	bool useVBO = g_Config.bUseVBO;
 	
 	if (CanUseHardwareTransform(prim)) {
-		char title[64];
-		sprintf(title, "upload %i verts for hw", indexGen.VertexCount());
-		LoggingDeadline deadline(title, 5);
 		if (useVBO) {
+			//char title[64];
+			//sprintf(title, "upload %i verts for hw", indexGen.VertexCount());
+			//LoggingDeadline deadline(title, 5);
 			glBindBuffer(GL_ARRAY_BUFFER, vbo_[curVbo_]);
 			glBufferData(GL_ARRAY_BUFFER, dec.GetDecVtxFmt().stride * indexGen.MaxIndex(), decoded, GL_DYNAMIC_DRAW);
 		}
-		deadline.End();
 		SetupDecFmtForDraw(program, dec.GetDecVtxFmt(), useVBO ? 0 : decoded);
 		// If there's only been one primitive type, and it's either TRIANGLES, LINES or POINTS,
 		// there is no need for the index buffer we built. We can then use glDrawArrays instead
@@ -791,5 +790,5 @@ void TransformDrawEngine::Flush() {
 	}
 
 	indexGen.Reset();
-	numVerts = 0;
+	collectedVerts = 0;
 }

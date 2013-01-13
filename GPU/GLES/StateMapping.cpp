@@ -60,16 +60,25 @@ const GLuint ztests[] =
 	GL_LESS, GL_LEQUAL, GL_GREATER, GL_GEQUAL,
 };
 
-void ApplyDrawState()
-{
+const GLuint stencilOps[] = {
+	GL_KEEP,
+	GL_ZERO,
+	GL_REPLACE,
+	GL_INVERT,
+	GL_INCR_WRAP,
+	GL_DECR_WRAP,  // don't know if these should be wrap or not
+	GL_KEEP, // reserved
+	GL_KEEP, // reserved
+};
 
+void ApplyDrawState(int prim) {
 	// TODO: All this setup is soon so expensive that we'll need dirty flags, or simply do it in the command writes where we detect dirty by xoring. Silly to do all this work on every drawcall.
 
 	// TODO: The top bit of the alpha channel should be written to the stencil bit somehow. This appears to require very expensive multipass rendering :( Alternatively, one could do a
 	// single fullscreen pass that converts alpha to stencil (or 2 passes, to set both the 0 and 1 values) very easily.
 
 	// Set cull
-	bool wantCull = !gstate.isModeClear() && !gstate.isModeThrough() && gstate.isCullEnabled();
+	bool wantCull = !gstate.isModeClear() && !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
 	glstate.cullFace.set(wantCull);
 
 	if (wantCull) {
@@ -153,6 +162,29 @@ void ApplyDrawState()
 		// Force GL_ALWAYS if mode clear
 		int depthTestFunc = gstate.isModeClear() ? 1 : gstate.getDepthTestFunc();
 		glstate.depthFunc.set(ztests[depthTestFunc]);
+	}
+
+	// PSP color/alpha mask is per bit but we can only support per byte.
+	// But let's do that, at least. And let's try a threshold.
+	if (!gstate.isModeClear()) {
+		bool rmask = (gstate.pmskc & 0xFF) < 128;
+		bool gmask = ((gstate.pmskc >> 8) & 0xFF) < 128;
+		bool bmask = ((gstate.pmskc >> 16) & 0xFF) < 128;
+		bool amask = (gstate.pmska & 0xFF) < 128;
+		glstate.colorMask.set(rmask, gmask, bmask, amask);
+	}
+
+	// Stencil test
+	if (!gstate.isModeClear() && gstate.isStencilTestEnabled()) {
+		glstate.stencilTest.enable();
+		glstate.stencilFunc.set(ztests[gstate.stenciltest & 0x7],  // func
+			                      (gstate.stenciltest >> 8) & 0xFF,  // ref
+														(gstate.stenciltest >> 16) & 0xFF);  // mask
+		glstate.stencilOp.set(stencilOps[gstate.stencilop & 0x7],  // stencil fail
+													stencilOps[(gstate.stencilop >> 8) & 0x7],  // depth fail
+													stencilOps[(gstate.stencilop >> 16) & 0x7]);
+	} else {
+		glstate.stencilTest.disable();
 	}
 
 	bool wantDepthWrite = gstate.isModeClear() || gstate.isDepthWriteEnabled();

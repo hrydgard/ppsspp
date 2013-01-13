@@ -47,7 +47,7 @@ private:
 
 	// Vertex collector state
 	IndexGenerator indexGen;
-	int numVerts;
+	int collectedVerts;
 
 	// Vertex collector buffers
 	VertexDecoder dec;

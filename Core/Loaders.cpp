@@ -16,7 +16,6 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "file/file_util.h"
-
 #include "MIPS/MIPS.h"
 #include "MIPS/MIPSCodeUtils.h"
 
@@ -44,9 +43,15 @@ EmuFileType Identify_File(const char *filename)
 	if(readSize != 1)
 		return FILETYPE_ERROR;
 
+	if (strlen(filename) < 5) {
+		ERROR_LOG(LOADER, "invalid filename %s", filename);
+	}
+	const char *extension = filename + strlen(filename) - 4;
+
 	if (id == 'FLE\x7F')
 	{
-		if (strstr(filename,".plf") || strstr(filename,"BOOT.BIN") || strstr(filename,".elf") || strstr(filename,".prx") )
+		if (!strcasecmp(extension, ".plf") || strstr(filename,"BOOT.BIN") ||
+			  !strcasecmp(extension, ".elf") || !strcasecmp(extension,".prx") )
 		{
 			return FILETYPE_PSP_ELF;
 		}
@@ -59,19 +64,19 @@ EmuFileType Identify_File(const char *filename)
 	}
 	else
 	{
-		if (strstr(filename,".pbp") || strstr(filename,".PBP"))
+		if (!strcasecmp(extension,".pbp"))
 		{
 			return FILETYPE_PSP_PBP;
 		}
-		else if (strstr(filename,".iso") || strstr(filename,".ISO"))
+		else if (!strcasecmp(extension,".iso"))
 		{
 			return FILETYPE_PSP_ISO;
 		}
-		else if (strstr(filename,".cso") || strstr(filename,".CSO"))
+		else if (!strcasecmp(extension,".cso"))
 		{
 			return FILETYPE_PSP_ISO;
 		}
-		else if (strstr(filename,".bin") || strstr(filename,".BIN"))
+		else if (!strcasecmp(extension,".bin"))
 		{
 			return FILETYPE_UNKNOWN_BIN;
 		}

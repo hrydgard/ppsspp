@@ -26,12 +26,21 @@
 #include <signal.h>
 #endif
 
-namespace ArmGen
-{
+#ifdef PANDORA
+#ifdef __USE_POSIX
+extern "C"
+int kill (__pid_t __pid, int __sig) __THROW;
+#endif
+#define SIGINT	2
+#endif
+
 #undef _IP
 #undef _SP
 #undef _LR
 #undef _PC
+
+namespace ArmGen
+{
 enum ARMReg
 {
 	// GPRs
