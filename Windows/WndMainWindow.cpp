@@ -480,6 +480,7 @@ namespace MainWindow
 					SetZoom(screenfactor);
 					_ViewFullScreen(hWnd);
 				}
+				UpdateMenus();
 				break;
 
 			case ID_OPTIONS_WIREFRAME:
