@@ -50,7 +50,15 @@ public:
 		gpu->InterruptStart();
 
 		u32 cmd = Memory::ReadUnchecked_U32(intrdata.pc - 4) >> 24;
-		int subintr = dl->subIntrBase | (cmd == GE_CMD_FINISH ? PSP_GE_SUBINTR_FINISH : PSP_GE_SUBINTR_SIGNAL);
+		int subintr = -1;
+		if(dl->subIntrBase >= 0)
+		{
+			if(cmd == GE_CMD_SIGNAL || dl->signal == PSP_GE_SIGNAL_HANDLER_PAUSE)
+				subintr = dl->subIntrBase | PSP_GE_SUBINTR_SIGNAL;
+			else
+				subintr = dl->subIntrBase | PSP_GE_SUBINTR_FINISH;;
+		}
+
 		SubIntrHandler* handler = get(subintr);
 
 		if(handler != NULL)
