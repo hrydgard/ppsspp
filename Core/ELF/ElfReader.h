@@ -32,20 +32,13 @@ typedef int SectionID;
 
 class ElfReader
 {
-	char *base;
-	u32 *base32;
-	Elf32_Ehdr *header;
-	Elf32_Phdr *segments;
-	Elf32_Shdr *sections;
-	u32 *sectionOffsets;
-	u32 *sectionAddrs;
-	bool bRelocate;
-	u32 entryPoint;
-	u32 vaddr;
-	u32 segmentVAddr[32];
 public:
-	ElfReader(void *ptr)
-	{
+	ElfReader(void *ptr) :
+		sectionOffsets(0),
+		sectionAddrs(0),
+		bRelocate(false),
+		entryPoint(0),
+		vaddr(0) {
 		INFO_LOG(LOADER, "ElfReader: %p", ptr);
 		base = (char*)ptr;
 		base32 = (u32 *)ptr;
@@ -54,13 +47,12 @@ public:
 		sections = (Elf32_Shdr *)(base + header->e_shoff);
 	}
 
-	~ElfReader()
-	{
-
+	~ElfReader() {
+		delete [] sectionOffsets;
+		delete [] sectionAddrs;
 	}
 
-	u32 Read32(int off)
-	{
+	u32 Read32(int off) {
 		return base32[off>>2];
 	}
 
@@ -123,4 +115,18 @@ public:
 	bool LoadInto(u32 vaddr);
 	bool LoadSymbols();
 	void LoadRelocations(Elf32_Rel *rels, int numRelocs);
+
+
+private:
+	char *base;
+	u32 *base32;
+	Elf32_Ehdr *header;
+	Elf32_Phdr *segments;
+	Elf32_Shdr *sections;
+	u32 *sectionOffsets;
+	u32 *sectionAddrs;
+	bool bRelocate;
+	u32 entryPoint;
+	u32 vaddr;
+	u32 segmentVAddr[32];
 };
