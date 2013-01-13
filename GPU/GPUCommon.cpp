@@ -558,7 +558,10 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 		{
 			UpdateCycles(pc);
 			u32 prev = Memory::ReadUnchecked_U32(pc - 4);
-			currentList()->subIntrToken = prev & 0xFFFF;
+
+			// Pause is SIGNAL/END/FINISH/END but the token is from the first SIGNAL
+			if(currentDisplayList->signal != PSP_GE_SIGNAL_HANDLER_PAUSE || prev >> 24 == GE_CMD_SIGNAL)
+				currentList()->subIntrToken = prev & 0xFFFF;
 			switch (prev >> 24) {
 			case GE_CMD_SIGNAL:
 				{
@@ -584,7 +587,8 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 						}
 						break;
 					case PSP_GE_SIGNAL_HANDLER_PAUSE:
-						ERROR_LOG(G3D, "Signal with Pause UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
+						currentDisplayList->state = PSP_GE_DL_STATE_PAUSED;
+						currentList()->signal = behaviour;
 						break;
 					case PSP_GE_SIGNAL_SYNC:
 						ERROR_LOG(G3D, "Signal with Sync UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
@@ -608,10 +612,16 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 			case GE_CMD_FINISH:
 				{
 					DEBUG_LOG(G3D, "Finish %i ! signal/end: %04x %04x", dlQueue.front(), prev & 0xFFFF, data & 0xFFFF);
-					currentList()->state = PSP_GE_DL_STATE_COMPLETED;
-					if(currentList()->threadWaiting) {
-						currentList()->threadWaiting = false;
-						__KernelTriggerWait(WAITTYPE_GELISTSYNC, dlQueue.front(), "GeListSync");
+					if(currentDisplayList->signal == PSP_GE_SIGNAL_HANDLER_PAUSE) {
+						// TODO Save BASE?
+						running = false;
+					}
+					else {
+						currentList()->state = PSP_GE_DL_STATE_COMPLETED;
+						if(currentList()->threadWaiting) {
+							currentList()->threadWaiting = false;
+							__KernelTriggerWait(WAITTYPE_GELISTSYNC, dlQueue.front(), "GeListSync");
+						}
 					}
 
 					__GeTriggerInterrupt(dlQueue.front(), pc);
