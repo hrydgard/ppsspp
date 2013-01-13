@@ -125,6 +125,7 @@ void ScreenManager::shutdown() {
 	}
 	stack_.clear();
 	delete nextScreen_;
+	nextScreen_ = 0;
 }
 
 void ScreenManager::push(Screen *screen, int layerFlags) {
