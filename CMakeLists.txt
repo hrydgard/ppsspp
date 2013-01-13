@@ -177,8 +177,6 @@ elseif(X86)
 		Common/ABI.h
 		Common/CPUDetect.cpp
 		Common/CPUDetect.h
-		Common/MathUtil.cpp
-		Common/MathUtil.h
 		Common/Thunk.cpp
 		Common/Thunk.h
 		Common/x64Analyzer.cpp
@@ -220,6 +218,8 @@ add_library(Common STATIC
 	Common/IniFile.h
 	Common/LogManager.cpp
 	Common/LogManager.h
+	Common/MathUtil.cpp
+	Common/MathUtil.h
 	Common/MemArena.cpp
 	Common/MemArena.h
 	Common/MemoryUtil.cpp
@@ -579,19 +579,20 @@ include_directories(ext/libkirk)
 set(CoreExtra)
 if(ARM)
 	set(CoreExtra ${CoreExtra}
-		Core/MIPS/ARM/Asm.cpp
-		Core/MIPS/ARM/Asm.h
-		Core/MIPS/ARM/CompALU.cpp
-		Core/MIPS/ARM/CompBranch.cpp
-		Core/MIPS/ARM/CompFPU.cpp
-		Core/MIPS/ARM/CompLoadStore.cpp
-		Core/MIPS/ARM/CompVFPU.cpp
-		Core/MIPS/ARM/Jit.cpp
-		Core/MIPS/ARM/Jit.h
-		Core/MIPS/ARM/JitCache.cpp
-		Core/MIPS/ARM/JitCache.h
-		Core/MIPS/ARM/RegCache.cpp
-		Core/MIPS/ARM/RegCache.h)
+		Core/MIPS/ARM/ArmAsm.cpp
+		Core/MIPS/ARM/ArmAsm.h
+		Core/MIPS/ARM/ArmCompALU.cpp
+		Core/MIPS/ARM/ArmCompBranch.cpp
+		Core/MIPS/ARM/ArmCompFPU.cpp
+		Core/MIPS/ARM/ArmCompLoadStore.cpp
+		Core/MIPS/ARM/ArmCompVFPU.cpp
+		Core/MIPS/ARM/ArmJit.cpp
+		Core/MIPS/ARM/ArmJit.h
+		Core/MIPS/ARM/ArmJitCache.cpp
+		Core/MIPS/ARM/ArmJitCache.h
+		Core/MIPS/ARM/ArmRegCache.cpp
+		Core/MIPS/ARM/ArmRegCache.h
+		ext/disarm.cpp)
 elseif(X86)
 	set(CoreExtra ${CoreExtra}
 		Core/MIPS/x86/Asm.cpp
