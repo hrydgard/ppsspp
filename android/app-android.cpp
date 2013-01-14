@@ -252,7 +252,7 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayRender(JN
 		ELOG("Ended up in nativeRender even though app has quit.%s", "");
 		// Shouldn't really get here.
 		glClearColor(1.0, 0.0, 1.0f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 	}
 	
 	if (!frameCommand.empty()) {
