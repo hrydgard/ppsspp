@@ -241,20 +241,18 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 {
 	if(param.GetFileInfo(currentSelectedSave).size == 0)
 	{
-		PPGeDrawText("New Save", 180, 90, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
+		PPGeDrawText("New Save", 180, 100, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
 	}
 	else
 	{
-		char underline[512];
 		char title[512];
 		char time[512];
-		char save[512];
+		char saveTitle[512];
 		char saveDetail[512];
 		_dbg_assert_msg_(HLE, sizeof(txt) > sizeof(SaveFileInfo), "Local buffer is too small.");
 
-		snprintf(underline,2048,"__________________________________________________________________");
-		snprintf(title,2048,"%s", param.GetFileInfo(currentSelectedSave).title);
-		snprintf(time,2048,"%02d/%02d/%d  %02d:%02d  %lld KB"
+		snprintf(title,512,"%s", param.GetFileInfo(currentSelectedSave).title);
+		snprintf(time,512,"%02d/%02d/%d  %02d:%02d  %lld KB"
 				, param.GetFileInfo(currentSelectedSave).modif_time.tm_mday
 				, param.GetFileInfo(currentSelectedSave).modif_time.tm_mon + 1
 				, param.GetFileInfo(currentSelectedSave).modif_time.tm_year + 1900
@@ -262,17 +260,16 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 				, param.GetFileInfo(currentSelectedSave).modif_time.tm_min
 				, param.GetFileInfo(currentSelectedSave).size / 1024
 				);
-		snprintf(save,2048,"%s"	, param.GetFileInfo(currentSelectedSave).saveTitle);
-		snprintf(saveDetail,2048,"%s", param.GetFileInfo(currentSelectedSave).saveDetail);
+		snprintf(saveTitle,512,"%s", param.GetFileInfo(currentSelectedSave).saveTitle);
+		snprintf(saveDetail,512,"%s", param.GetFileInfo(currentSelectedSave).saveDetail);
 
-		std::string underlineTxt = underline;
-		PPGeDrawText(underlineTxt.c_str(), 180, 100, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
+		PPGeDrawRect(180, 118, 980, 119, 0xFFFFFFFF);
 		std::string titleTxt = title;
 		PPGeDrawText(titleTxt.c_str(), 180, 100, PPGE_ALIGN_LEFT, 0.5f, 0xFFC0C0C0);
 		std::string timeTxt = time;
 		PPGeDrawText(timeTxt.c_str(), 180, 120, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
-		std::string saveTxt = save;
-		PPGeDrawText(saveTxt.c_str(), 180, 145, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
+		std::string saveTitleTxt = saveTitle;
+		PPGeDrawText(saveTitleTxt.c_str(), 180, 145, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
 		std::string saveDetailTxt = saveDetail;
 		PPGeDrawText(saveDetailTxt.c_str(), 180, 170, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
 	}
@@ -319,12 +316,9 @@ void PSPSaveDialog::DisplayConfirmationYesNo(std::string text)
 
 void PSPSaveDialog::DisplayInfo(std::string text)
 {
-	char underline[2048];
-	snprintf(underline,2048,"_____________________________________________________");
-	std::string underlineTxt = underline;
-	PPGeDrawText(underlineTxt.c_str(), 180, 90, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
-	PPGeDrawText(text.c_str(), 280, 110, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
-	PPGeDrawText(underlineTxt.c_str(), 180, 120, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
+	PPGeDrawRect(180, 105, 460, 106, 0xFFFFFFFF);
+	PPGeDrawText(text.c_str(), 270, 110, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
+	PPGeDrawRect(180, 130, 460, 131, 0xFFFFFFFF);
 }
 void PSPSaveDialog::DisplayTitle(std::string name)
 {
