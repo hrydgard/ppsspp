@@ -144,7 +144,8 @@ void EmuScreen::update(InputState &input)
 	__CtrlSetAnalog(input.pad_lstick_x, input.pad_lstick_y);
 
 	if (input.pad_buttons_down & (PAD_BUTTON_MENU | PAD_BUTTON_BACK)) {
-		fbo_unbind();
+		if (g_Config.bBufferedRendering)
+			fbo_unbind();
 		screenManager()->push(new InGameMenuScreen());
 	}
 }
@@ -172,7 +173,8 @@ void EmuScreen::render()
 		coreState = CORE_RUNNING;
 	}
 
-	fbo_unbind();
+	if (g_Config.bBufferedRendering)
+		fbo_unbind();
 
 	UIShader_Prepare();
 
