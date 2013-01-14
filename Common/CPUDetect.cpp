@@ -29,7 +29,6 @@
 #undef _interlockedbittestandreset64
 #else
 
-//#include <config/i386/cpuid.h>
 #include <xmmintrin.h>
 
 #if defined __FreeBSD__
