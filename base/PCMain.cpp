@@ -39,16 +39,18 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include "SDL_syswm.h"
+SDL_Joystick    *ljoy = NULL;
+SDL_Joystick    *rjoy = NULL;
 
 EGLDisplay          g_eglDisplay    = NULL;
 EGLContext          g_eglContext    = NULL;
 EGLSurface          g_eglSurface    = NULL;
 Display*            g_Display       = NULL;
-NativeWindowType    g_Window        = NULL;
+NativeWindowType    g_Window        = (NativeWindowType)NULL;
 
-int8_t CheckEGLErrors(const string& file, uint16_t line) {
+int8_t CheckEGLErrors(const std::string& file, uint16_t line) {
 	EGLenum error;
-	string errortext;
+	std::string errortext;
 
 	error = eglGetError();
 	switch (error)
@@ -78,19 +80,18 @@ int8_t CheckEGLErrors(const string& file, uint16_t line) {
 		return 1; \
 	}
 
-void EGL_Open() {
+int8_t EGL_Open() {
 	if ((g_Display = XOpenDisplay(NULL)) == NULL)
 		EGL_ERROR("Unable to get display!", false);
-
 	if ((g_eglDisplay = eglGetDisplay((NativeDisplayType)g_Display)) == EGL_NO_DISPLAY)
 		EGL_ERROR("Unable to create EGL display.", true);
-
 	if (eglInitialize(g_eglDisplay, NULL, NULL) != EGL_TRUE)
 		EGL_ERROR("Unable to initialize EGL display.", true);
+	return 0;
 }
 
 int8_t EGL_Init() {
-	EGLConfig g_eglConfig = NULL;
+	EGLConfig g_eglConfig[1] = {NULL};
 	EGLint g_numConfigs = 0;
 	EGLint attrib_list[]= {
 		EGL_RED_SIZE,        5,
@@ -105,10 +106,10 @@ int8_t EGL_Init() {
 
 	const EGLint attributes[] = { EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE };
 
-	EGLBoolean result = eglChooseConfig(g_eglDisplay, attrib_list, g_eglConfig, 1, &g_numConfigs);
-	if (result != EGL_TRUE || g_numConfigs == 0) EGL_ERROR("Unable to query for available configs.");
+	EGLBoolean result = eglChooseConfig(g_eglDisplay, attrib_list, g_eglConfig[0], 1, &g_numConfigs);
+	if (result != EGL_TRUE || g_numConfigs == 0) EGL_ERROR("Unable to query for available configs.", true);
 
-	g_eglContext = eglCreateContext(g_eglDisplay, g_eglConfig, NULL, attributes);
+	g_eglContext = eglCreateContext(g_eglDisplay, g_eglConfig[0], NULL, attributes);
 	if (g_eglContext == EGL_NO_CONTEXT) EGL_ERROR("Unable to create GLES context!", true);
 
 	// Get the SDL window handle
@@ -248,7 +249,17 @@ void SimulateGamepad(const uint8 *keys, InputState *input) {
 	}
 
 #ifdef PANDORA
-	// TODO: Use console joystick instead
+	if ((ljoy)||(rjoy)) {
+		SDL_JoystickUpdate();
+		if (ljoy) {
+			input->pad_lstick_x = SDL_JoystickGetAxis(ljoy, 0) / 32768.0f;
+			input->pad_lstick_y = SDL_JoystickGetAxis(ljoy, 1) / 32768.0f;
+		}
+		if (rjoy) {
+			input->pad_rstick_x = SDL_JoystickGetAxis(rjoy, 0) / 32768.0f;
+			input->pad_rstick_y = SDL_JoystickGetAxis(rjoy, 1) / 32768.0f;
+		}
+	}
 #else
 	if (keys[SDLK_i])
 		input->pad_lstick_y=1;
@@ -345,7 +356,8 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 #ifdef PANDORA
-	EGL_Open();
+	if (EGL_Open())
+		return 1;
 #endif
 
 	SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
@@ -442,6 +454,18 @@ int main(int argc, char *argv[]) {
 
 	// Audio must be unpaused _after_ NativeInit()
 	SDL_PauseAudio(0);
+#ifdef PANDORA
+	// Joysticks init, we the nubs if setup as Joystick
+	int numjoys = SDL_NumJoysticks();
+	if (numjoys>0)
+		for (int i=0; i<numjoys; i++)
+		{
+			if (strncmp(SDL_JoystickName(i), "nub0", 4) == 0)
+				ljoy=SDL_JoystickOpen(i);
+			if (strncmp(SDL_JoystickName(i), "nub1", 4) == 0)
+				rjoy=SDL_JoystickOpen(i);
+		}
+#endif
 
 	InputState input_state;
 	int framecount = 0;
