@@ -5,7 +5,6 @@
 #include <QMouseEvent>
 #include "gfx_es2/glsl_program.h"
 #include <QGLWidget>
-#include <QTimer>
 
 #include <QAudioOutput>
 #include <QAudioFormat>
@@ -162,12 +161,8 @@ public:
 		output = new QAudioOutput(fmt);
 		output->setNotifyInterval(1000*AUDIO_SAMPLES / AUDIO_FREQ);
 		output->setBufferSize(mixlen);
+		connect(output, SIGNAL(notify()), this, SLOT(writeData()));
 		feed = output->start();
-
-		QTimer *timer = new QTimer(this);
-		connect(timer, SIGNAL(timeout()), this, SLOT(writeData()));
-		timer->start(1000*AUDIO_SAMPLES / AUDIO_FREQ);
-
 	}
 	~MainAudio() {
 		feed->close();
@@ -178,7 +173,6 @@ public:
 	}
 
 private slots:
-
 	void writeData() {
 		memset(mixbuf, 0, mixlen);
 		NativeMix((short *)mixbuf, mixlen / 4);

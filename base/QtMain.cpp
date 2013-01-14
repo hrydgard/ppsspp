@@ -13,17 +13,10 @@
 #ifdef __SYMBIAN32__
 #include <AknAppUi.h>
 #endif
-#include "QtMain.h"
-
-#ifdef LINUX
-#include "mainwindow.h"
-#include "ui_mainwindow.h"
-#include "qtapp.h"
 #ifdef Q_WS_X11
-#include <X11/Xlib.h>
+#include "mainwindow.h"
 #endif
-MainWindow* qMW;
-#endif
+#include "QtMain.h"
 
 void LaunchBrowser(const char *url)
 {
@@ -62,23 +55,14 @@ float CalculateDPIScale()
 
 int main(int argc, char *argv[])
 {
-#ifdef LINUX
 #ifdef Q_WS_X11
-	XInitThreads();
-#endif
+	QApplication::setAttribute(Qt::AA_X11InitThreads, true);
 #endif
 	QApplication a(argc, argv);
 	// Lock orientation to landscape on Symbian
 #ifdef __SYMBIAN32__
 	QT_TRAP_THROWING(dynamic_cast<CAknAppUi*>(CEikonEnv::Static()->AppUi())->SetOrientationL(CAknAppUi::EAppUiOrientationLandscape));
 #endif
-#ifdef LINUX
-	pixel_xres = 480;
-	pixel_yres = 272;
-
-	float dpi_scale = 1;
-	dp_xres = (int)(pixel_xres * dpi_scale); dp_yres = (int)(pixel_yres * dpi_scale);
-#else
 	QSize res = QApplication::desktop()->screenGeometry().size();
 #ifdef USING_GLES2
 	if (res.width() < res.height())
@@ -92,24 +76,21 @@ int main(int argc, char *argv[])
 #endif
 	float dpi_scale = CalculateDPIScale();
 	dp_xres = (int)(pixel_xres * dpi_scale); dp_yres = (int)(pixel_yres * dpi_scale);
-#endif
-
 	net::Init();
-
 #ifdef __SYMBIAN32__
 	NativeInit(argc, (const char **)argv, "E:/PPSSPP/", "E:", "BADCOFFEE");
 #elif defined(BLACKBERRY)
 	NativeInit(argc, (const char **)argv, "data/", "/tmp", "BADCOFFEE");
-#elif !defined(LINUX)
-	NativeInit(argc, (const char **)argv, "./", "/tmp", "BADCOFFEE");
+#elif defined(Q_WS_X11)
+	// Temporary until ppsspp is fixed
 #else
-	MainWindow mainWindow;
-	qMW = &mainWindow;
-	mainWindow.show();
-	mainWindow.Create(argc, (const char **)argv, "./", "/tmp", "BADCOFFEE");
+	NativeInit(argc, (const char **)argv, "./", "/tmp", "BADCOFFEE");
 #endif
 
-#ifdef LINUX
+#ifdef Q_WS_X11
+	MainWindow mainWindow;
+	mainWindow.show();
+	mainWindow.Create(argc, (const char **)argv, "./", "/tmp", "BADCOFFEE");
 #else
 	MainUI w(dpi_scale);
 	w.resize(pixel_xres, pixel_yres);
@@ -118,7 +99,6 @@ int main(int argc, char *argv[])
 #else
 	w.show();
 #endif
-
 #endif
 
 	MainAudio *audio = new MainAudio();
