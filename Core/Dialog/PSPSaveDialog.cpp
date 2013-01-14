@@ -249,7 +249,6 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 		char time[512];
 		char saveTitle[512];
 		char saveDetail[512];
-		_dbg_assert_msg_(HLE, sizeof(txt) > sizeof(SaveFileInfo), "Local buffer is too small.");
 
 		snprintf(title,512,"%s", param.GetFileInfo(currentSelectedSave).title);
 		snprintf(time,512,"%02d/%02d/%d  %02d:%02d  %lld KB"

@@ -332,7 +332,7 @@ static void SwapUVs(TransformedVertex &a, TransformedVertex &b) {
 
 // Used by Star Soldier and Ys vs Sora.
 static void RotateUVs(TransformedVertex v[4]) {
-	if ((v[0].x > v[2].x && v[0].y < v[2].y) || (v[0].x < v[2].x && v[0].y > v[2].y)) {
+	if ((v[0].x > v[2].x && v[0].y < v[2].y) /*|| (v[0].x < v[2].x && v[0].y > v[2].y)*/) {
 		SwapUVs(v[1], v[3]);
 	}
 }
@@ -365,6 +365,8 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 #endif
 
 	Lighter lighter;
+	float fog_end = getFloat24(gstate.fog1);
+	float fog_slope = getFloat24(gstate.fog2);
 
 	VertexReader reader(decoded, decVtxFormat);
 	for (int index = 0; index < maxIndex; index++) {
@@ -374,6 +376,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		float c0[4] = {1, 1, 1, 1};
 		float c1[4] = {0, 0, 0, 0};
 		float uv[2] = {0, 0};
+		float fogCoef = 1.0f;
 
 		if (throughmode) {
 			// Do not touch the coordinates or the colors. No lighting.
@@ -393,6 +396,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			if (reader.hasUV()) {
 				reader.ReadUV(uv);
 			}
+			fogCoef = 1.0f;
 			// Scale UV?
 		} else {
 			// We do software T&L for now
@@ -533,10 +537,12 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 
 			// Transform the coord by the view matrix.
 			Vec3ByMatrix43(v, out, gstate.viewMatrix);
+			fogCoef = (v[2] + fog_end) * fog_slope;
 		}
 
 		// TODO: Write to a flexible buffer, we don't always need all four components.
 		memcpy(&transformed[index].x, v, 3 * sizeof(float));
+		transformed[index].fog = fogCoef;
 		memcpy(&transformed[index].u, uv, 2 * sizeof(float));
 		memcpy(&transformed[index].color0, c0, 4 * sizeof(float));
 		memcpy(&transformed[index].color1, c1, 3 * sizeof(float));
@@ -622,10 +628,10 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		glBufferData(GL_ARRAY_BUFFER, vertexSize * numTrans, drawBuffer, GL_DYNAMIC_DRAW);
 		drawBuffer = 0;  // so that the calls use offsets instead.
 	}
-	glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, vertexSize, drawBuffer);
-	if (program->a_texcoord != -1) glVertexAttribPointer(program->a_texcoord, 2, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 3 * 4);
-	if (program->a_color0 != -1) glVertexAttribPointer(program->a_color0, 4, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 5 * 4);
-	if (program->a_color1 != -1) glVertexAttribPointer(program->a_color1, 3, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 9 * 4);
+	glVertexAttribPointer(program->a_position, 4, GL_FLOAT, GL_FALSE, vertexSize, drawBuffer);
+	if (program->a_texcoord != -1) glVertexAttribPointer(program->a_texcoord, 2, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 4 * 4);
+	if (program->a_color0 != -1) glVertexAttribPointer(program->a_color0, 4, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 6 * 4);
+	if (program->a_color1 != -1) glVertexAttribPointer(program->a_color1, 3, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 10 * 4);
 	if (drawIndexed) {
 		if (useVBO) {
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_[curVbo_]);

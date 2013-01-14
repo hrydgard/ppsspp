@@ -98,9 +98,9 @@ struct Color4 {
 		a+=c.a;
 	}
 	void GetFromRGB(u32 col) {
-		r = ((col>>16) & 0xff)/255.0f;
+		b = ((col>>16) & 0xff)/255.0f;
 		g = ((col>>8) & 0xff)/255.0f;
-		b = ((col>>0) & 0xff)/255.0f;
+		r = ((col>>0) & 0xff)/255.0f;
 	}
 	void GetFromA(u32 col) {
 		a = (col&0xff)/255.0f;

@@ -53,7 +53,7 @@ struct DecVtxFormat {
 // This struct too.
 struct TransformedVertex
 {
-	float x, y, z;     // in case of morph, preblend during decode
+	float x, y, z, fog;     // in case of morph, preblend during decode
 	float u; float v;      // scaled by uscale, vscale, if there
 	float color0[4];   // prelit
 	float color1[3];   // prelit

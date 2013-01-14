@@ -135,6 +135,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 	bool hwXForm = CanUseHardwareTransform(prim);
 	bool hasColor = (gstate.vertType & GE_VTYPE_COL_MASK) != 0 || !hwXForm;
 	bool hasNormal = (gstate.vertType & GE_VTYPE_NRM_MASK) != 0 && hwXForm;
+	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
 
 	DoLightComputation doLight[4] = {LIGHT_OFF, LIGHT_OFF, LIGHT_OFF, LIGHT_OFF};
 	if (hwXForm) {
@@ -154,7 +155,11 @@ void GenerateVertexShader(int prim, char *buffer) {
 		WRITE(p, "%s", boneWeightAttrDecl[gstate.getNumBoneWeights() - 1]);
 	}
 
-	WRITE(p, "attribute vec3 a_position;\n");
+	if (hwXForm)
+		WRITE(p, "attribute vec3 a_position;\n");
+	else
+		WRITE(p, "attribute vec4 a_position;\n");  // need to pass the fog coord in w
+
 	if (doTexture) WRITE(p, "attribute vec2 a_texcoord;\n");
 	if (hasColor) {
 		WRITE(p, "attribute vec4 a_color0;\n");
@@ -174,6 +179,10 @@ void GenerateVertexShader(int prim, char *buffer) {
 
 	if (hwXForm || !hasColor)
 		WRITE(p, "uniform vec4 u_matambientalpha;\n");  // matambient + matalpha
+
+	if (enableFog) {
+		WRITE(p, "uniform vec2 u_fogcoef;\n");
+	}
 
 	if (hwXForm) {
 		// When transforming by hardware, we need a great deal more uniforms...
@@ -216,7 +225,8 @@ void GenerateVertexShader(int prim, char *buffer) {
 	WRITE(p, "varying vec4 v_color0;\n");
 	if (lmode) WRITE(p, "varying vec3 v_color1;\n");
 	if (doTexture) WRITE(p, "varying vec2 v_texcoord;\n");
-	if (gstate.isFogEnabled()) WRITE(p, "varying float v_depth;\n");
+	if (enableFog) WRITE(p, "varying float v_fogdepth;\n");
+
 	WRITE(p, "void main() {\n");
 
 	if (!hwXForm) {
@@ -232,16 +242,19 @@ void GenerateVertexShader(int prim, char *buffer) {
 			if (lmode)
 				WRITE(p, "  v_color1 = vec3(0.0, 0.0, 0.0);\n");
 		}
+		if (enableFog) {
+			WRITE(p, "  v_fogdepth = a_position.w;\n");
+		}
 		if (gstate.isModeThrough())	{
-			WRITE(p, "  gl_Position = u_proj_through * vec4(a_position, 1.0);\n");
+			WRITE(p, "  gl_Position = u_proj_through * vec4(a_position.xyz, 1.0);\n");
 		} else {
-			WRITE(p, "  gl_Position = u_proj * vec4(a_position, 1.0);\n");
+			WRITE(p, "  gl_Position = u_proj * vec4(a_position.xyz, 1.0);\n");
 		}
 	} else {
 		// Step 1: World Transform / Skinning
 		if ((gstate.vertType & GE_VTYPE_WEIGHT_MASK) == GE_VTYPE_WEIGHT_NONE) {
 			// No skinning, just standard T&L.
-			WRITE(p, "  vec3 worldpos = (u_world * vec4(a_position, 1.0)).xyz;\n");
+			WRITE(p, "  vec3 worldpos = (u_world * vec4(a_position.xyz, 1.0)).xyz;\n");
 			if (hasNormal)
 				WRITE(p, "  vec3 worldnormal = (u_world * vec4(a_normal, 0.0)).xyz;\n");
 		} else {
@@ -254,7 +267,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 				// workaround for "cant do .x of scalar" issue
 				if (numWeights == 1 && i == 0) weightAttr = "a_weight0123";
 				if (numWeights == 5 && i == 4) weightAttr = "a_weight4567";
-				WRITE(p, "  worldpos += %s * (u_bone%i * vec4(a_position, 1.0)).xyz;\n", weightAttr, i);
+				WRITE(p, "  worldpos += %s * (u_bone%i * vec4(a_position.xyz, 1.0)).xyz;\n", weightAttr, i);
 				if (hasNormal)
 					WRITE(p, "  worldnormal += %s * (u_bone%i * vec4(a_normal, 0.0)).xyz;\n", weightAttr, i);
 			}
@@ -265,6 +278,8 @@ void GenerateVertexShader(int prim, char *buffer) {
 		}
 		if (hasNormal)
 			WRITE(p, "  worldnormal = normalize(worldnormal);\n");
+
+		WRITE(p, "  vec4 viewPos = u_view * vec4(worldpos, 1.0);\n");
 
 		// Step 2: Color/Lighting
 		if (hasColor) {
@@ -331,7 +346,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 			if (lmode) {
 				WRITE(p, "  v_color1 = clamp(lightSum1, 0.0, 1.0);\n");
 			} else {
-				WRITE(p, "  v_color0 += vec4(lightSum1, 0.0);\n");
+				WRITE(p, "  v_color0 = clamp(v_color0 + vec4(lightSum1, 0.0), 0.0, 1.0);\n");
 			}
 		} else {
 			// Lighting doesn't affect color.
@@ -354,7 +369,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 			case 1:  // Projection mapping.
 				switch (gstate.getUVProjMode()) {
 				case 0:  // Use model space XYZ as source
-					WRITE(p, "  vec3 temp_tc = a_position;\n");
+					WRITE(p, "  vec3 temp_tc = a_position.xyz;\n");
 					break;
 				case 1:  // Use unscaled UV as source
 					WRITE(p, "  vec3 temp_tc = vec3(a_texcoord.xy, 0.0);\n");
@@ -379,11 +394,14 @@ void GenerateVertexShader(int prim, char *buffer) {
 				break;
 			}
 		}
+
+		// Compute fogdepth
+		if (enableFog)
+			WRITE(p, "  v_fogdepth = (viewPos.z + u_fogcoef.x) * u_fogcoef.y;\n");
+
 		// Step 4: Final view and projection transforms.
-		WRITE(p, "  gl_Position = u_proj * (u_view * vec4(worldpos, 1.0));\n");
+		WRITE(p, "  gl_Position = u_proj * viewPos;\n");
 	}
-	if (gstate.isFogEnabled())
-		WRITE(p, "  v_depth = gl_Position.z;\n");
 	WRITE(p, "}\n");
 }
 
