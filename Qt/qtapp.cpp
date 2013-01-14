@@ -1,3 +1,5 @@
+#include <QFileInfo>
+
 #include "qtapp.h"
 #include "EmuThread.h"
 #include "Core/Debugger/SymbolMap.h"
@@ -31,7 +33,7 @@ void QtApp::SetWindowTitle(const char *message)
 
 void QtApp::InitSound(PMixer *mixer)
 {
-	NativeSetMixer(mixer);
+//	NativeSetMixer(mixer);
 }
 
 void QtApp::UpdateSound()
@@ -40,7 +42,7 @@ void QtApp::UpdateSound()
 
 void QtApp::ShutdownSound()
 {
-	NativeSetMixer(0);
+//	NativeSetMixer(0);
 }
 
 void QtApp::UpdateUI()
@@ -94,30 +96,16 @@ void QtApp::BootDone()
 
 bool QtApp::AttemptLoadSymbolMap()
 {
-	char filename[256];
-	strcpy(filename, GetCurrentFilename());
-	int len = strlen(filename);
-	int ptpos = len-1;
-	while (filename[ptpos]!='.' && ptpos>len-8)
-		ptpos--;
-	filename[ptpos+1] = 'm';
-	filename[ptpos+2] = 'a';
-	filename[ptpos+3] = 'p';
-	return symbolMap.LoadSymbolMap(filename);
+	QFileInfo currentFile(GetCurrentFilename());
+	QString ret = currentFile.baseName() + ".map";
+	return symbolMap.LoadSymbolMap(ret.toAscii().constData());
 }
 
 void QtApp::PrepareShutdown()
 {
-	char filename[256];
-	strcpy(filename, GetCurrentFilename());
-	int len = strlen(filename);
-	int ptpos = len-1;
-	while (filename[ptpos]!='.' && ptpos>len-8)
-		ptpos--;
-	filename[ptpos+1] = 'm';
-	filename[ptpos+2] = 'a';
-	filename[ptpos+3] = 'p';
-	symbolMap.SaveSymbolMap(filename);
+	QFileInfo currentFile(GetCurrentFilename());
+	QString ret = currentFile.baseName() + ".map";
+	symbolMap.SaveSymbolMap(ret.toAscii().constData());
 }
 
 void QtApp::AddSymbol(std::string name, u32 addr, u32 size, int type=0)

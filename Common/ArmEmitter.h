@@ -22,18 +22,11 @@
 
 #include "Common.h"
 #include "MemoryUtil.h"
-#ifdef __SYMBIAN32__
+#if defined(__SYMBIAN32__) || defined(PANDORA)
 #include <signal.h>
 #endif
 
-#ifdef PANDORA
-#ifdef __USE_POSIX
-extern "C"
-int kill (__pid_t __pid, int __sig) __THROW;
-#endif
-#define SIGINT	2
-#endif
-
+#undef R0
 #undef _SP
 
 namespace ArmGen
