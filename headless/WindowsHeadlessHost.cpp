@@ -89,6 +89,16 @@ void WindowsHeadlessHost::SendDebugOutput(const std::string &output)
 	OutputDebugString(output.c_str());
 }
 
+void WindowsHeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h)
+{
+	fprintf_s(out, "Got a screenshot: %d/%d\n", w, h);
+}
+
+void WindowsHeadlessHost::SetComparisonScreenshot(const std::string &filename)
+{
+	comparisonScreenshot = filename;
+}
+
 void WindowsHeadlessHost::InitGL()
 {
 	glOkay = false;

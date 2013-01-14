@@ -63,6 +63,7 @@ public:
 
 	// Used for headless.
 	virtual void SendDebugOutput(const std::string &output) {}
+	virtual void SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h) {}
 };
 
 extern Host *host;

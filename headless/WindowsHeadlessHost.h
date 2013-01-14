@@ -35,6 +35,8 @@ public:
 	virtual bool isGLWorking() { return glOkay; }
 
 	virtual void SendDebugOutput(const std::string &output);
+	virtual void SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h);
+	virtual void SetComparisonScreenshot(const std::string &filename);
 
 private:
 	bool ResizeGL();
@@ -45,4 +47,5 @@ private:
 	HDC hDC;
 	HGLRC hRC;
 	FILE *out;
+	std::string comparisonScreenshot;
 };

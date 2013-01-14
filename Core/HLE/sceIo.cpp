@@ -38,6 +38,9 @@
 #include "sceKernelMemory.h"
 #include "sceKernelThread.h"
 
+// For headless screenshots.
+#include "sceDisplay.h"
+
 #define ERROR_ERRNO_FILE_NOT_FOUND               0x80010002
 
 #define ERROR_MEMSTICK_DEVCTL_BAD_PARAMS         0x80220081
@@ -781,6 +784,15 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 			// Note that this is async, and makes sure the save state matches up.
 			SaveState::Verify();
 			// TODO: Maybe save/load to a file just to be sure?
+			return 0;
+
+		case 0x20: // EMULATOR_DEVCTL__EMIT_SCREENSHOT
+			u8 *topaddr;
+			u32 linesize, pixelFormat;
+
+			__DisplayGetFramebuf(&topaddr, &linesize, &pixelFormat, 0);
+			// TODO: Convert based on pixel format / mode / something?
+			host->SendDebugScreenshot(topaddr, linesize, 272);
 			return 0;
 		}
 

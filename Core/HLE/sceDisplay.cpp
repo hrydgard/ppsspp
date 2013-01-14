@@ -357,6 +357,18 @@ u32 sceDisplaySetFramebuf() {
 	return 0;
 }
 
+bool __DisplayGetFramebuf(u8 **topaddr, u32 *linesize, u32 *pixelFormat, int mode) {
+	const FrameBufferState &fbState = mode == 1 ? latchedFramebuf : framebuf;
+	if (topaddr != NULL)
+		*topaddr = Memory::GetPointer(fbState.topaddr);
+	if (linesize != NULL)
+		*linesize = fbState.pspFramebufLinesize;
+	if (pixelFormat != NULL)
+		*pixelFormat = fbState.pspFramebufFormat;
+
+	return true;
+}
+
 u32 sceDisplayGetFramebuf(u32 topaddrPtr, u32 linesizePtr, u32 pixelFormatPtr, int mode) {
 	const FrameBufferState &fbState = mode == 1 ? latchedFramebuf : framebuf;
 	DEBUG_LOG(HLE,"sceDisplayGetFramebuf(*%08x = %08x, *%08x = %08x, *%08x = %08x, %i)",
