@@ -26,6 +26,7 @@
 #include <signal.h>
 #endif
 
+#undef R0
 #undef _SP
 
 namespace ArmGen

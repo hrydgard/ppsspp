@@ -21,7 +21,7 @@ private:
 	bool running;
 };
 
-void EmuThread_Start(const char *filename, QtEmuGL* glWindow);
+void EmuThread_Start(QString filename, QtEmuGL* glWindow);
 void EmuThread_Stop();
 
-char *GetCurrentFilename();
+QString GetCurrentFilename();

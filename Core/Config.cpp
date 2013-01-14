@@ -73,7 +73,12 @@ void CConfig::Load(const char *iniFileName)
 
 	IniFile::Section *control = iniFile.GetOrCreateSection("Control");
 	control->Get("ShowStick", &bShowAnalogStick, false);
-	control->Get("ShowTouchControls", &bShowTouchControls, true);
+	control->Get("ShowTouchControls", &bShowTouchControls,
+#ifdef USING_GLES2
+		true);
+#else
+		false);
+#endif
 
 	// Ephemeral settings
 	bDrawWireframe = false;

@@ -213,15 +213,9 @@ void MainWindow::SetNextState(CoreState state)
 
 void MainWindow::BrowseAndBoot(void)
 {
-	QFileDialog dialog(0,"Load File");
-	dialog.setFileMode(QFileDialog::ExistingFile);
-	dialog.setNameFilter("PSP (*.pbp *.elf *.iso *.cso *.prx)");
-	QStringList fileNames;
-	if (dialog.exec())
-	{
-		fileNames = dialog.selectedFiles();
-		EmuThread_Start(fileNames.at(0).toAscii(), w);
-	}
+	QString filename = QFileDialog::getOpenFileName(NULL, "Load File", g_Config.currentDirectory.c_str(), "PSP ROMs (*.pbp *.elf *.iso *.cso *.prx)");
+	if (QFile::exists(filename))
+		EmuThread_Start(filename, w);
 }
 
 void MainWindow::Boot()
