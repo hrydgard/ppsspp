@@ -1,7 +1,6 @@
 #include "base/logging.h"
 #include "ArmEmitterTest.h"
 
-#include "Common/ArmABI.h"
 #include "Common/ArmEmitter.h"
 
 static bool functionWasCalled;
@@ -48,7 +47,7 @@ void TestCode::Generate()
 	SetCC(CC_NEQ);
 	MOV(R2, Operand2(0xFF, 0));
 	SetCC();
-	ARMABI_CallFunction((void*)&TestLeaf);
+	QuickCallFunction(R3, (void*)&TestLeaf);
 
 	//ARMABI_CallFunctionCCC((void*)&TestLeaf, 0x1, 0x100, 0x1337);
 	//ARMABI_CallFunctionCCC((void*)&TestLeaf, 0x2, 0x100, 0x31337);
@@ -57,9 +56,7 @@ void TestCode::Generate()
 
 	testCodePtr2 = this->GetCodePtr();
 	PUSH(2, R11, _LR);
-	ARMABI_PushAllCalleeSavedRegsAndAdjustStack();
-	ARMABI_CallFunction((void*)&TestLeaf2);
-	ARMABI_PopAllCalleeSavedRegsAndAdjustStack();
+	QuickCallFunction(R3, (void*)&TestLeaf2);
 	POP(2, R11, _PC);
 }
 
@@ -73,6 +70,7 @@ void CallPtr(const void *ptr)
 
 void ArmEmitterTest()
 {
+	ILOG("Running ARM emitter test!");
 	TestCode gen;
 	gen.ReserveCodeSpace(0x4000);
 	gen.Generate();

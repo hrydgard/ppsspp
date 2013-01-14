@@ -475,13 +475,6 @@ public:
 
 	void QuickCallFunction(ARMReg scratchreg, void *func);
 	// Utility functions
-	void ARMABI_CallFunction(void *func);
-	void ARMABI_CallFunctionC(void *func, u32 Arg0);
-	void ARMABI_CallFunctionCNoSave(void *func, u32 Arg0);
-	void ARMABI_CallFunctionCC(void *func, u32 Arg1, u32 Arg2);
-	void ARMABI_CallFunctionCCC(void *func, u32 Arg1, u32 Arg2, u32 Arg3);
-	void ARMABI_PushAllCalleeSavedRegsAndAdjustStack(); 
-	void ARMABI_PopAllCalleeSavedRegsAndAdjustStack(); 
 	void ARMABI_MOVI2R(ARMReg reg, u32 val);
 	void ARMABI_ShowConditions();
 	void ARMABI_Return();

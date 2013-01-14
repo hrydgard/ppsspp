@@ -57,7 +57,6 @@ LOCAL_SRC_FILES := \
   $(SRC)/ext/libkirk/kirk_engine.c \
   $(SRC)/ext/snappy/snappy-c.cpp \
   $(SRC)/ext/snappy/snappy.cpp \
-  $(SRC)/Common/ArmABI.cpp \
   $(SRC)/Common/ArmEmitter.cpp \
   $(SRC)/Common/ArmCPUDetect.cpp \
   $(SRC)/Common/ArmThunk.cpp \

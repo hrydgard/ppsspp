@@ -16,7 +16,6 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ArmEmitter.h"
-#include "ArmABI.h"
 
 #include "../../MemMap.h"
 
@@ -104,9 +103,6 @@ void Jit::GenerateFixedCode()
 	// as the JIT does not use the stack at all.
 	SUB(_SP, _SP, 4);
 
-	// QuickCallFunction(R3, (void *)&DoubleTest);
-	// QuickCallFunction(R3, (void *)&ShowPC);
-
 	// Fixed registers, these are always kept when in Jit context.
 	// R13 cannot be used as it's the stack pointer.
 	ARMABI_MOVI2R(R11, (u32)Memory::base);
@@ -157,7 +153,7 @@ void Jit::GenerateFixedCode()
 			SetCC(CC_AL);
 
 			//Ok, no block, let's jit
-			ARMABI_CallFunction((void *)&JitAt);
+			QuickCallFunction(R2, (void *)&JitAt);
 
 			B(dispatcherNoCheck); // no point in special casing this
 

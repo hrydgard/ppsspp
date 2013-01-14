@@ -20,7 +20,6 @@
 #include "ArmEmitter.h"
 #include "../MIPS.h"
 #include "../MIPSAnalyst.h"
-#include "ArmABI.h"
 
 using namespace ArmGen;
 
