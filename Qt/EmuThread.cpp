@@ -19,14 +19,13 @@
 
 #include "qtemugl.h"
 
-char fileToStart[MAX_PATH];
+QString fileToStart;
 QtEmuGL* glWindow;
 
-void EmuThread_Start(const char *filename, QtEmuGL* w)
+void EmuThread_Start(QString filename, QtEmuGL* w)
 {
 	//_dbg_clear_();
-	strncpy(fileToStart, filename, sizeof(fileToStart) - 1);
-	fileToStart[sizeof(fileToStart) - 1] = 0;
+	fileToStart = filename;
 
 	glWindow = w;
 	w->start_rendering();
@@ -40,8 +39,7 @@ void EmuThread_Stop()
 	host->UpdateUI();
 }
 
-
-char *GetCurrentFilename()
+QString GetCurrentFilename()
 {
 	return fileToStart;
 }
@@ -72,7 +70,7 @@ void EmuThread::run()
 	INFO_LOG(BOOT, "Starting up hardware.");
 
 	CoreParameter coreParameter;
-	coreParameter.fileToStart = fileToStart;
+	coreParameter.fileToStart = fileToStart.toStdString();
 	coreParameter.enableSound = true;
 	coreParameter.gpuCore = GPU_GLES;
 	coreParameter.cpuCore = (CPUCore)g_Config.iCpuCore;

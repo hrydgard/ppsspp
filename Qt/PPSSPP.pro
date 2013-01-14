@@ -21,29 +21,7 @@ linux: LIBS += -L. -lCore -lCommon -lNative
 
 # Main
 SOURCES += ../native/base/QtMain.cpp
-linux {
-	SOURCES += mainwindow.cpp \
-			debugger_disasm.cpp \
-			EmuThread.cpp\
-			qtapp.cpp \
-			qtemugl.cpp \
-			ctrldisasmview.cpp \
-			ctrlregisterlist.cpp \
-			controls.cpp
-}
 HEADERS += ../native/base/QtMain.h
-linux {
-	HEADERS += mainwindow.h \
-		debugger_disasm.h \
-		EmuThread.h \
-		qtapp.h \
-		qtemugl.h \
-		ctrldisasmview.h \
-		ctrlregisterlist.h \
-		ctrldisasmview.h \
-		ctrlregisterlist.h \
-		controls.h
-}
 
 # Native
 SOURCES += ../android/jni/NativeApp.cpp \
@@ -54,6 +32,25 @@ SOURCES += ../android/jni/NativeApp.cpp \
 	../android/jni/ui_atlas.cpp
 
 INCLUDEPATH += .. ../Common ../native
+
+linux:!mobile_platform {
+	SOURCES += mainwindow.cpp \
+		debugger_disasm.cpp \
+		EmuThread.cpp\
+		qtapp.cpp \
+		qtemugl.cpp \
+		ctrldisasmview.cpp \
+		ctrlregisterlist.cpp \
+		controls.cpp
+	HEADERS += mainwindow.h \
+		debugger_disasm.h \
+		EmuThread.h \
+		qtapp.h \
+		qtemugl.h \
+		ctrldisasmview.h \
+		ctrlregisterlist.h \
+		controls.h
+}
 
 # Packaging
 symbian {
@@ -69,9 +66,8 @@ symbian {
 	TARGET.EPOCSTACKSIZE = 0x10000
 }
 
-linux {
+linux:!mobile_platform {
 	FORMS += mainwindow.ui \
-		debugger_disasm.ui \
-		controls.ui
+	debugger_disasm.ui \
+	controls.ui
 }
-

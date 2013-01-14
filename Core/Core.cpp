@@ -84,7 +84,7 @@ void Core_Run()
 #if defined(_DEBUG)
 	host->UpdateDisassembly();
 #endif
-#ifndef LINUX
+#if !defined(USING_QT_UI) || defined(USING_GLES2)
 	while (true)
 #endif
 	{
@@ -103,7 +103,7 @@ reswitch:
 			if (coreState == CORE_POWERDOWN)
 				return;
 			if (coreState != CORE_STEPPING)
-#ifdef LINUX
+#if defined(USING_QT_UI) && !defined(USING_GLES2)
 				return;
 #else
 				goto reswitch;
