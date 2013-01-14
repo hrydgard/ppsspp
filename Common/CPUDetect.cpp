@@ -29,7 +29,6 @@
 #undef _interlockedbittestandreset64
 #else
 
-//#include <config/i386/cpuid.h>
 #ifndef _M_GENERIC
 #include <xmmintrin.h>
 #endif

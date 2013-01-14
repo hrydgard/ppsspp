@@ -71,6 +71,8 @@ LogManager::LogManager()
 	m_debuggerLog = new DebuggerLogListener();
 #else
 	m_fileLog = NULL;
+	m_consoleLog = NULL;
+	m_debuggerLog = NULL;
 #endif
 
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; ++i)
@@ -105,6 +107,7 @@ LogManager::~LogManager()
 		delete m_fileLog;
 #if !defined(ANDROID) && !defined(IOS) && !defined(BLACKBERRY)
 	delete m_consoleLog;
+	delete m_debuggerLog;
 #endif
 }
 

@@ -23,7 +23,7 @@
 #define	INFO_LEVEL    4  // General information.
 #define	DEBUG_LEVEL   5  // Detailed debugging - might make things slow.
 
-#ifndef _WIN32
+#if !defined(_WIN32) && !defined(PANDORA)
 #include <signal.h>
 #endif
 

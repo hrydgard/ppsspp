@@ -31,3 +31,4 @@ symbian: {
 	DEFINES += SYMBIAN
 	CONFIG += 4.6.3
 }
+

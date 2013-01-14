@@ -603,28 +603,62 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	// TODO: CHECK
+	union FP32 {
+		u32 u;
+		float f;
+	};
+	
+	struct FP16 {
+		u16 u;
+	};
+
+	// magic code from ryg: http://fgiesen.wordpress.com/2012/03/28/half-to-float-done-quic/
+	static FP32 half_to_float_fast5(FP16 h)
+	{
+		static const FP32 magic = { (127 + (127 - 15)) << 23 };
+		static const FP32 was_infnan = { (127 + 16) << 23 };
+		FP32 o;
+		o.u = (h.u & 0x7fff) << 13;     // exponent/mantissa bits
+		o.f *= magic.f;                 // exponent adjust
+		if (o.f >= was_infnan.f)        // make sure Inf/NaN survive
+			o.u |= 255 << 23;
+		o.u |= (h.u & 0x8000) << 16;    // sign bit
+		return o;
+	}
+
+	static float ExpandHalf(u16 half) {
+		FP16 fp16;
+		fp16.u = half;
+		FP32 fp = half_to_float_fast5(fp16);
+		return fp.f;
+	}
+
 	void Int_Vh2f(u32 op)
 	{
-		_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
-		/*
-		int s[4];
+		u32 s[4];
 		float d[4];
 		int vd = _VD;
 		int vs = _VS;
-		int imm = (op >> 16) & 0x1f;
-		float mult = 1.0f/(float)(1 << imm);
 		VectorSize sz = GetVecSize(op);
 		ReadVector((float*)&s, sz, vs);
-		ApplySwizzleS((float*)&s, sz); //TODO: and the mask to kill everything but swizzle
 		
-		for (int i = 0; i < GetNumVectorElements(sz); i++)
-		{
-			d[i] = (float)s[i] * mult;
+		VectorSize outsize = V_Pair;
+		switch (sz) {
+		case V_Single:
+			outsize = V_Pair;
+			d[0] = ExpandHalf(s[0] & 0xFFFF);
+			d[1] = ExpandHalf(s[0] >> 16);
+			break;
+		case V_Pair:
+			outsize = V_Quad;
+			d[0] = ExpandHalf(s[0] & 0xFFFF);
+			d[1] = ExpandHalf(s[0] >> 16);
+			d[2] = ExpandHalf(s[1] & 0xFFFF);
+			d[3] = ExpandHalf(s[1] >> 16);
+			break;
 		}
 		ApplyPrefixD(d, sz); //TODO: and the mask to kill everything but mask
 		WriteVector(d, sz, vd);
-		*/
 		PC += 4;
 		EatPrefixes();
 	}

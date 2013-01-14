@@ -138,19 +138,33 @@ LinkedShader::~LinkedShader() {
 // Utility
 static void SetColorUniform3(int uniform, u32 color)
 {
-	const float col[3] = { ((color & 0xFF0000) >> 16) / 255.0f, ((color & 0xFF00) >> 8) / 255.0f, ((color & 0xFF)) / 255.0f};
+	const float col[3] = {
+		((color & 0xFF)) / 255.0f,
+		((color & 0xFF00) >> 8) / 255.0f,
+		((color & 0xFF0000) >> 16) / 255.0f
+	};
 	glUniform3fv(uniform, 1, col);
 }
 
 static void SetColorUniform3Alpha(int uniform, u32 color, u8 alpha)
 {
-	const float col[4] = { ((color & 0xFF0000) >> 16) / 255.0f, ((color & 0xFF00) >> 8) / 255.0f, ((color & 0xFF)) / 255.0f, alpha/255.0f};
+	const float col[4] = {
+		((color & 0xFF)) / 255.0f,
+		((color & 0xFF00) >> 8) / 255.0f,
+		((color & 0xFF0000) >> 16) / 255.0f,
+		alpha/255.0f
+	};
 	glUniform4fv(uniform, 1, col);
 }
 
 static void SetColorUniform3ExtraFloat(int uniform, u32 color, float extra)
 {
-	const float col[4] = { ((color & 0xFF0000) >> 16) / 255.0f, ((color & 0xFF00) >> 8) / 255.0f, ((color & 0xFF)) / 255.0f, extra};
+	const float col[4] = {
+		((color & 0xFF)) / 255.0f,
+		((color & 0xFF00) >> 8) / 255.0f,
+		((color & 0xFF0000) >> 16) / 255.0f,
+		extra
+	};
 	glUniform4fv(uniform, 1, col);
 }
 
@@ -226,13 +240,16 @@ void LinkedShader::updateUniforms() {
 		SetColorUniform3(u_texenv, gstate.texenvcolor);
 	}
 	if (u_alphacolorref != -1 && (dirtyUniforms & DIRTY_ALPHACOLORREF)) {
-		glUniform4f(u_alphacolorref, 0.0f, 0.0f, 0.0f, ((float)((gstate.alphatest >> 8) & 0xFF)) / 255.0f);
+		SetColorUniform3Alpha(u_alphacolorref, gstate.colortest, (gstate.alphatest >> 8) & 0xFF);
 	}
 	if (u_fogcolor != -1 && (dirtyUniforms & DIRTY_FOGCOLOR)) {
 		SetColorUniform3(u_fogcolor, gstate.fogcolor);
 	}
 	if (u_fogcoef != -1 && (dirtyUniforms & DIRTY_FOGCOEF)) {
-		const float fogcoef[2] = { getFloat24(gstate.fog1), getFloat24(gstate.fog2) };
+		const float fogcoef[2] = {
+			getFloat24(gstate.fog1),
+			getFloat24(gstate.fog2),
+		};
 		glUniform2fv(u_fogcoef, 1, fogcoef);
 	}
 

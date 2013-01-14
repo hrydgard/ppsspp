@@ -284,12 +284,12 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 #ifndef _WIN32
 	coreState = CORE_NEXTFRAME;
 #endif
-	vCount++;
 }
 
 void hleLeaveVblank(u64 userdata, int cyclesLate) {
 	isVblank = 0;
 	DEBUG_LOG(HLE,"Leave VBlank %i", (int)userdata - 1);
+	vCount++;
 	hCount = 0;
 	CoreTiming::ScheduleEvent(msToCycles(frameMs - vblankMs) - cyclesLate, enterVblankEvent, userdata);
 }

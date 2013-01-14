@@ -241,26 +241,36 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 {
 	if(param.GetFileInfo(currentSelectedSave).size == 0)
 	{
-		PPGeDrawText("New Save", 200, 110, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
+		PPGeDrawText("New Save", 180, 100, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
 	}
 	else
 	{
-		char txt[2048];
-		_dbg_assert_msg_(HLE, sizeof(txt) > sizeof(SaveFileInfo), "Local buffer is too small.");
+		char title[512];
+		char time[512];
+		char saveTitle[512];
+		char saveDetail[512];
 
-		snprintf(txt,2048,"%s\n%02d/%02d/%d %02d:%02d %lld KB\n%s\n%s"
-				, param.GetFileInfo(currentSelectedSave).title
+		snprintf(title,512,"%s", param.GetFileInfo(currentSelectedSave).title);
+		snprintf(time,512,"%02d/%02d/%d  %02d:%02d  %lld KB"
 				, param.GetFileInfo(currentSelectedSave).modif_time.tm_mday
 				, param.GetFileInfo(currentSelectedSave).modif_time.tm_mon + 1
 				, param.GetFileInfo(currentSelectedSave).modif_time.tm_year + 1900
 				, param.GetFileInfo(currentSelectedSave).modif_time.tm_hour
 				, param.GetFileInfo(currentSelectedSave).modif_time.tm_min
 				, param.GetFileInfo(currentSelectedSave).size / 1024
-				, param.GetFileInfo(currentSelectedSave).saveTitle
-				, param.GetFileInfo(currentSelectedSave).saveDetail
 				);
-		std::string saveinfoTxt = txt;
-		PPGeDrawText(saveinfoTxt.c_str(), 200, 80, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
+		snprintf(saveTitle,512,"%s", param.GetFileInfo(currentSelectedSave).saveTitle);
+		snprintf(saveDetail,512,"%s", param.GetFileInfo(currentSelectedSave).saveDetail);
+
+		PPGeDrawRect(180, 118, 980, 119, 0xFFFFFFFF);
+		std::string titleTxt = title;
+		PPGeDrawText(titleTxt.c_str(), 180, 100, PPGE_ALIGN_LEFT, 0.5f, 0xFFC0C0C0);
+		std::string timeTxt = time;
+		PPGeDrawText(timeTxt.c_str(), 180, 120, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
+		std::string saveTitleTxt = saveTitle;
+		PPGeDrawText(saveTitleTxt.c_str(), 180, 145, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
+		std::string saveDetailTxt = saveDetail;
+		PPGeDrawText(saveDetailTxt.c_str(), 180, 170, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
 	}
 }
 
@@ -272,7 +282,7 @@ void PSPSaveDialog::DisplaySaveDataInfo2()
 	else
 	{
 		char txt[1024];
-		snprintf(txt,1024,"%s\n%02d/%02d/%d %02d:%02d\n%lld KB"
+		snprintf(txt,1024,"%s\n%02d/%02d/%d  %02d:%02d\n%lld KB"
 						, param.GetFileInfo(currentSelectedSave).saveTitle
 						, param.GetFileInfo(currentSelectedSave).modif_time.tm_mday
 						, param.GetFileInfo(currentSelectedSave).modif_time.tm_mon + 1
@@ -282,16 +292,16 @@ void PSPSaveDialog::DisplaySaveDataInfo2()
 						, param.GetFileInfo(currentSelectedSave).size / 1024
 						);
 		std::string saveinfoTxt = txt;
-		PPGeDrawText(saveinfoTxt.c_str(), 20, 180, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
+		PPGeDrawText(saveinfoTxt.c_str(), 20, 180, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
 	}
 }
 
 void PSPSaveDialog::DisplayConfirmationYesNo(std::string text)
 {
-	PPGeDrawText(text.c_str(), 200, 90, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
+	PPGeDrawText(text.c_str(), 180, 100, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
 
-	PPGeDrawText("Yes", 250, 150, PPGE_ALIGN_LEFT, 0.5f, (yesnoChoice == 1?0xFF0000FF:0xFFFFFFFF));
-	PPGeDrawText("No", 350, 150, PPGE_ALIGN_LEFT, 0.5f, (yesnoChoice == 0?0xFF0000FF:0xFFFFFFFF));
+	PPGeDrawText("Yes", 230, 140, PPGE_ALIGN_LEFT, 0.45f, (yesnoChoice == 1?0xFF0000FF:0xFFFFFFFF));
+	PPGeDrawText("No", 330, 140, PPGE_ALIGN_LEFT, 0.45f, (yesnoChoice == 0?0xFF0000FF:0xFFFFFFFF));
 
 	if (IsButtonPressed(CTRL_LEFT) && yesnoChoice == 0)
 	{
@@ -305,23 +315,25 @@ void PSPSaveDialog::DisplayConfirmationYesNo(std::string text)
 
 void PSPSaveDialog::DisplayInfo(std::string text)
 {
-	PPGeDrawText(text.c_str(), 200, 90, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
+	PPGeDrawRect(180, 105, 460, 106, 0xFFFFFFFF);
+	PPGeDrawText(text.c_str(), 270, 110, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
+	PPGeDrawRect(180, 130, 460, 131, 0xFFFFFFFF);
 }
 void PSPSaveDialog::DisplayTitle(std::string name)
 {
-	PPGeDrawText(name.c_str(), 10, 10, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
+	PPGeDrawText(name.c_str(), 10, 10, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
 }
 void PSPSaveDialog::DisplayEnterBack()
 {
-	PPGeDrawImage(okButtonImg, 200, 220, 20, 20, 0, 0xFFFFFFFF);
-	PPGeDrawText("Enter", 230, 220, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
-	PPGeDrawImage(cancelButtonImg, 290, 220, 20, 20, 0, 0xFFFFFFFF);
-	PPGeDrawText("Back", 320, 220, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
+	PPGeDrawImage(cancelButtonImg, 180, 240, 20, 20, 0, 0xFFFFFFFF);
+	PPGeDrawText("Back", 210, 240, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
+	PPGeDrawImage(okButtonImg, 270, 240, 20, 20, 0, 0xFFFFFFFF);
+	PPGeDrawText("Enter", 300, 240, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
 }
 void PSPSaveDialog::DisplayBack()
 {
-	PPGeDrawImage(cancelButtonImg, 250, 220, 20, 20, 0, 0xFFFFFFFF);
-	PPGeDrawText("Back", 270, 220, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
+	PPGeDrawImage(cancelButtonImg, 180, 240, 20, 20, 0, 0xFFFFFFFF);
+	PPGeDrawText("Back", 210, 240, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
 }
 
 int PSPSaveDialog::Update()

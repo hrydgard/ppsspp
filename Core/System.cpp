@@ -42,6 +42,7 @@
 MetaFileSystem pspFileSystem;
 ParamSFOData g_paramSFO;
 static CoreParameter coreParameter;
+static PSPMixer *mixer;
 
 bool PSP_Init(const CoreParameter &coreParam, std::string *error_string)
 {
@@ -54,7 +55,8 @@ bool PSP_Init(const CoreParameter &coreParam, std::string *error_string)
 
 	if (coreParameter.enableSound)
 	{
-		host->InitSound(new PSPMixer());
+		mixer = new PSPMixer();
+		host->InitSound(mixer);
 	}
 
 	// Init all the HLE modules
@@ -100,10 +102,11 @@ void PSP_Shutdown()
 	if (coreParameter.enableSound)
 	{
 		host->ShutdownSound();
+		mixer = 0;  // deleted in ShutdownSound
 	}
 	__KernelShutdown();
 	HLEShutdown();
-	Memory::Shutdown() ;
+	Memory::Shutdown();
 	currentCPU = 0;
 }
 

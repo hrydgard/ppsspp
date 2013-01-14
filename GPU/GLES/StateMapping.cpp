@@ -183,6 +183,10 @@ void ApplyDrawState(int prim) {
 		glstate.stencilOp.set(stencilOps[gstate.stencilop & 0x7],  // stencil fail
 													stencilOps[(gstate.stencilop >> 8) & 0x7],  // depth fail
 													stencilOps[(gstate.stencilop >> 16) & 0x7]);
+	} else if (gstate.isModeClear()) {
+		glstate.stencilTest.enable();
+		glstate.stencilOp.set(GL_REPLACE, GL_REPLACE, GL_REPLACE);
+		glstate.stencilFunc.set(GL_ALWAYS, 0, 0xFF);
 	} else {
 		glstate.stencilTest.disable();
 	}

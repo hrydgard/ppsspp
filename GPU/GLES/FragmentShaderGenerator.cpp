@@ -73,23 +73,23 @@ void GenerateFragmentShader(char *buffer)
 	int lmode = gstate.lmode & 1;
 
 	int doTexture = (gstate.textureMapEnable & 1) && !(gstate.clearmode & 1);
+	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
 
 	if (doTexture)
 		WRITE(p, "uniform sampler2D tex;\n");
-	if ((gstate.alphaTestEnable & 1) || (gstate.colorTestEnable & 1))
+	if ((gstate.alphaTestEnable & 1) || (gstate.colorTestEnable & 1)) {
 		WRITE(p, "uniform vec4 u_alphacolorref;\n");
-	if (gstate.fogEnable & 1) {
-		WRITE(p, "uniform vec3 u_fogcolor;\n");
-		WRITE(p, "uniform vec2 u_fogcoef;\n");
 	}
 	WRITE(p, "uniform vec3 u_texenv;\n");
 	WRITE(p, "varying vec4 v_color0;\n");
 	if (lmode)
 		WRITE(p, "varying vec3 v_color1;\n");
+	if (enableFog) {
+		WRITE(p, "uniform vec3 u_fogcolor;\n");
+		WRITE(p, "varying float v_fogdepth;\n");
+	}
 	if (doTexture)
 		WRITE(p, "varying vec2 v_texcoord;\n");
-	if (gstate.isFogEnabled())
-		WRITE(p, "varying float v_depth;\n");
 
 	WRITE(p, "void main() {\n");
 	WRITE(p, "  vec4 v;\n");
@@ -107,17 +107,17 @@ void GenerateFragmentShader(char *buffer)
 			WRITE(p, "  vec4 s = vec4(v_color1, 0.0);");
 			secondary = " + s";
 		} else {
-			WRITE(p, "	vec4 s = vec4(0.0, 0.0, 0.0, 0.0);\n");
+			WRITE(p, "  vec4 s = vec4(0.0, 0.0, 0.0, 0.0);\n");
 			secondary = "";
 		}
 
 		if (gstate.textureMapEnable & 1) {
-			WRITE(p, "	vec4 t = texture2D(tex, v_texcoord);\n");
-			WRITE(p, "	vec4 p = clamp(v_color0, 0.0, 1.0);\n");
+			WRITE(p, "  vec4 t = texture2D(tex, v_texcoord);\n");
+			WRITE(p, "  vec4 p = clamp(v_color0, 0.0, 1.0);\n");
 		} else {
 			// No texture mapping
-			WRITE(p, "	vec4 t = vec4(1.0, 1.0, 1.0, 1.0);\n");
-			WRITE(p, "	vec4 p = clamp(v_color0, 0.0, 1.0);\n");
+			WRITE(p, "  vec4 t = vec4(1.0, 1.0, 1.0, 1.0);\n");
+			WRITE(p, "  vec4 p = clamp(v_color0, 0.0, 1.0);\n");
 		}
 
 		if (gstate.texfunc & 0x100) { // texfmt == RGBA
@@ -174,9 +174,9 @@ void GenerateFragmentShader(char *buffer)
 				WRITE(p, "if (!(v.rgb %s u_alphacolorref.rgb)) discard;", colorTestFuncs[colorTestFunc]);
 		}*/
 
-		if (gstate.isFogEnabled()) {
-			// Haven't figured out how to adjust the depth range yet.
-			// WRITE(p, "  v = mix(v, u_fogcolor, u_fogcoef.x + u_fogcoef.y * v_depth;\n");
+		if (enableFog) {
+			WRITE(p, "  float fogCoef = clamp(v_fogdepth, 0.0, 1.0);\n");
+			WRITE(p, "  v = mix(vec4(u_fogcolor, v.a), v, fogCoef);\n");
 			// WRITE(p, "  v.x = v_depth;\n");
 		}
 	}

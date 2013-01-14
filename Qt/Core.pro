@@ -257,4 +257,3 @@ HEADERS +=	../Core/CPU.h \
 	../ext/libkirk/AES.h \
 	../ext/libkirk/SHA1.h \
 	../ext/libkirk/kirk_engine.h
-

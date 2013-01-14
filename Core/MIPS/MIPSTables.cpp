@@ -417,7 +417,7 @@ const MIPSInstruction tableCop0[32] =
 
 
 //we won't encounter these since we only do user mode emulation
-MIPSInstruction tableCop0CO[64] = 
+const MIPSInstruction tableCop0CO[64] = 
 {
 	{-2}, 
 	INSTR("tlbr", &Jit::Comp_Generic, Dis_Generic, 0, 0),
@@ -446,7 +446,7 @@ MIPSInstruction tableCop0CO[64] =
 };
 
 
-MIPSInstruction tableCop1[32] = 
+const MIPSInstruction tableCop1[32] = 
 {
 	INSTR("mfc1",&Jit::Comp_mxc1, Dis_mxc1,Int_mxc1, OUT_RT),
 	{-2},
@@ -465,7 +465,7 @@ MIPSInstruction tableCop1[32] =
 	{-2},{-2},{-2},{-2},{-2},{-2},{-2},{-2},
 };
 
-MIPSInstruction tableCop1BC[32] = 
+const MIPSInstruction tableCop1BC[32] = 
 {
 	{-1,"bc1f",  &Jit::Comp_FPUBranch, Dis_FPUBranch, Int_FPUBranch,IS_CONDBRANCH|IN_FPUFLAG},
 	{-1,"bc1t",  &Jit::Comp_FPUBranch, Dis_FPUBranch, Int_FPUBranch,IS_CONDBRANCH|IN_FPUFLAG},
@@ -477,7 +477,7 @@ MIPSInstruction tableCop1BC[32] =
 	{-2},{-2},{-2},{-2},{-2},{-2},{-2},{-2},
 };
 
-MIPSInstruction tableVFPU0[8] = 
+const MIPSInstruction tableVFPU0[8] = 
 {
 	INSTR("vadd",&Jit::Comp_Generic, Dis_VectorSet3, Int_VecDo3, IS_VFPU),
 	INSTR("vsub",&Jit::Comp_Generic, Dis_VectorSet3, Int_VecDo3, IS_VFPU), 
@@ -487,7 +487,7 @@ MIPSInstruction tableVFPU0[8] =
 	INSTR("vdiv",&Jit::Comp_Generic, Dis_VectorSet3, Int_VecDo3, IS_VFPU),
 };
 
-MIPSInstruction tableVFPU1[8] = 
+const MIPSInstruction tableVFPU1[8] = 
 {
 	INSTR("vmul",&Jit::Comp_Generic, Dis_VectorSet3, Int_VecDo3, IS_VFPU),
 	INSTR("vdot",&Jit::Comp_Generic, Dis_VectorDot, Int_VDot, IS_VFPU), 
@@ -499,7 +499,7 @@ MIPSInstruction tableVFPU1[8] =
 	{-2},
 };
 
-MIPSInstruction tableVFPU3[8] = //011011 xxx
+const MIPSInstruction tableVFPU3[8] = //011011 xxx
 {
 	INSTR("vcmp",&Jit::Comp_Generic, Dis_Vcmp, Int_Vcmp, IS_VFPU),
 	{-2},
@@ -512,7 +512,7 @@ MIPSInstruction tableVFPU3[8] = //011011 xxx
 };
 
 
-MIPSInstruction tableVFPU4Jump[32] = //110100 xxxxx
+const MIPSInstruction tableVFPU4Jump[32] = //110100 xxxxx
 {
 	{VFPU4},
 	{VFPU7},
@@ -545,7 +545,7 @@ MIPSInstruction tableVFPU4Jump[32] = //110100 xxxxx
 	INSTR("vwbn.s", &Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU),
 };
 
-MIPSInstruction tableVFPU7[32] = 
+const MIPSInstruction tableVFPU7[32] = 
 {
 	INSTR("vrnds", &Jit::Comp_Generic, Dis_Generic, Int_Vrnds, IS_VFPU),
 	INSTR("vrndi", &Jit::Comp_Generic, Dis_Generic, Int_VrndX, IS_VFPU),
@@ -580,7 +580,7 @@ MIPSInstruction tableVFPU7[32] =
 
 // 110100 00000 10100 0000000000000000
 // 110100 00000 10111 0000000000000000
-MIPSInstruction tableVFPU4[32] =  //110100 00000 xxxxx
+const MIPSInstruction tableVFPU4[32] =  //110100 00000 xxxxx
 {
 	INSTR("vmov", &Jit::Comp_Generic, Dis_VectorSet2, Int_VV2Op,IS_VFPU), 
 	INSTR("vabs", &Jit::Comp_Generic, Dis_VectorSet2, Int_VV2Op,IS_VFPU), 
@@ -623,7 +623,7 @@ MIPSInstruction tableVFPU5[8] =  //110111 xxx
 	INSTR("vfim.s",&Jit::Comp_Generic, Dis_Viim,Int_Viim, IS_VFPU),
 };
 
-MIPSInstruction tableVFPU6[32] =  //111100 xxx
+const MIPSInstruction tableVFPU6[32] =  //111100 xxx
 {
 //0
 	INSTR("vmmul",&Jit::Comp_Generic, Dis_MatrixMult, Int_Vmmul, IS_VFPU),
@@ -667,7 +667,7 @@ MIPSInstruction tableVFPU6[32] =  //111100 xxx
 	{-2},
 };
 
-MIPSInstruction tableVFPUMatrixSet1[16] = //111100 11100 0xxxx   (rm x is 16)
+const MIPSInstruction tableVFPUMatrixSet1[16] = //111100 11100 0xxxx   (rm x is 16)
 {
 	INSTR("vmmov",&Jit::Comp_Generic, Dis_MatrixSet2, Int_Vmmov, IS_VFPU),
 	{-2},
@@ -683,7 +683,7 @@ MIPSInstruction tableVFPUMatrixSet1[16] = //111100 11100 0xxxx   (rm x is 16)
   {-2},{-2},{-2},{-2},
 };
 
-MIPSInstruction tableVFPU9[32] = //110100 00010 xxxxx
+const MIPSInstruction tableVFPU9[32] = //110100 00010 xxxxx
 {
 	INSTR("vsrt1", &Jit::Comp_Generic, Dis_Vbfy, Int_Vsrt1, IS_VFPU),
 	INSTR("vsrt2", &Jit::Comp_Generic, Dis_Vbfy, Int_Vsrt2, IS_VFPU),
@@ -723,7 +723,7 @@ MIPSInstruction tableVFPU9[32] = //110100 00010 xxxxx
 	{-2},{-2},{-2},{-2},
 };
 
-MIPSInstruction tableALLEGREX0[32] =  //111111
+const MIPSInstruction tableALLEGREX0[32] =  //111111
 {
 	{-2},
 	{-2},
@@ -755,7 +755,7 @@ MIPSInstruction tableALLEGREX0[32] =  //111111
 };
 
 
-MIPSInstruction tableEMU[4] = 
+const MIPSInstruction tableEMU[4] = 
 {
 	INSTR("RUNBLOCK",&Jit::Comp_RunBlock,Dis_Emuhack,Int_Emuhack, 0xFFFFFFFF),
 	INSTR("RetKrnl", 0,Dis_Emuhack,Int_Emuhack, 0),
