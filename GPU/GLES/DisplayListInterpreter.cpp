@@ -198,7 +198,7 @@ void GLES_GPU::InitClear() {
 	if (!g_Config.bBufferedRendering) {
 		glClearColor(0,0,0,1);
 		//	glClearColor(1,0,1,1);
-		glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 	}
 	glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 }
@@ -267,7 +267,7 @@ void GLES_GPU::CopyDisplayToOutput() {
 		DEBUG_LOG(HLE, "Found no FBO! displayFBPtr = %08x", displayFramebufPtr_);
 		// No framebuffer to display! Clear to black.
 		glClearColor(0,0,0,1);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);  // Let's not add STENCIL_BUFFER_BIT until we have a stencil buffer (GL ES)
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 		return;
 	}
 
@@ -407,7 +407,6 @@ void GLES_GPU::BeginDebugDraw() {
 #ifndef USING_GLES2
 		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 #endif
-		// glClear(GL_COLOR_BUFFER_BIT);
 	}
 }
 void GLES_GPU::EndDebugDraw() {
