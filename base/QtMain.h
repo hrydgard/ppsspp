@@ -88,7 +88,7 @@ protected:
 					break;
 				}
 			}
-			break;
+		break;
 		case QEvent::MouseButtonPress:
 		case QEvent::MouseButtonRelease:
 			input_state.pointer_down[0] = (e->type() == QEvent::MouseButtonPress);
@@ -161,11 +161,13 @@ public:
 		output = new QAudioOutput(fmt);
 		output->setNotifyInterval(1000*AUDIO_SAMPLES / AUDIO_FREQ);
 		output->setBufferSize(mixlen);
-		this->connect(output, SIGNAL(notify()), this, SLOT(writeData()));
+		connect(output, SIGNAL(notify()), this, SLOT(writeData()));
 		feed = output->start();
 	}
 	~MainAudio() {
+		feed->close();
 		delete feed;
+		output->stop();
 		delete output;
 		free(mixbuf);
 	}

@@ -13,6 +13,9 @@
 #ifdef __SYMBIAN32__
 #include <AknAppUi.h>
 #endif
+#ifdef Q_WS_X11
+#include "mainwindow.h"
+#endif
 #include "QtMain.h"
 
 void LaunchBrowser(const char *url)
@@ -52,6 +55,9 @@ float CalculateDPIScale()
 
 int main(int argc, char *argv[])
 {
+#ifdef Q_WS_X11
+	QApplication::setAttribute(Qt::AA_X11InitThreads, true);
+#endif
 	QApplication a(argc, argv);
 	// Lock orientation to landscape on Symbian
 #ifdef __SYMBIAN32__
@@ -75,16 +81,24 @@ int main(int argc, char *argv[])
 	NativeInit(argc, (const char **)argv, "E:/PPSSPP/", "E:", "BADCOFFEE");
 #elif defined(BLACKBERRY)
 	NativeInit(argc, (const char **)argv, "data/", "/tmp", "BADCOFFEE");
+#elif defined(Q_WS_X11)
+	// Temporary until ppsspp is fixed
 #else
 	NativeInit(argc, (const char **)argv, "./", "/tmp", "BADCOFFEE");
 #endif
 
+#ifdef Q_WS_X11
+	MainWindow mainWindow;
+	mainWindow.show();
+	mainWindow.Create(argc, (const char **)argv, "./", "/tmp", "BADCOFFEE");
+#else
 	MainUI w(dpi_scale);
 	w.resize(pixel_xres, pixel_yres);
 #ifdef USING_GLES2
 	w.showFullScreen();
 #else
 	w.show();
+#endif
 #endif
 
 	MainAudio *audio = new MainAudio();
