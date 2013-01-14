@@ -1,5 +1,8 @@
 #include <algorithm>
 #include <cmath>
+#ifdef PANDORA
+#include <stddef.h>
+#endif
 
 #include "base/display.h"
 #include "base/logging.h"
