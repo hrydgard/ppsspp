@@ -93,6 +93,7 @@ void MIPSState::Reset()
 	inDelaySlot = false;
 	llBit = 0;
 	nextPC = 0;
+	downcount = 0;
 	// Initialize the VFPU random number generator with .. something?
 	rng.Init(0x1337);
 }
