@@ -127,9 +127,9 @@ void __PPGeInit()
 	for (int i = 0; i < width * height; i++) {
 		u16 c = imagePtr[i];
 		int a = c & 0xF;
-		int r = (c >> 4) & 0xF;
-		int g = (c >> 8) & 0xF;
-		int b = (c >> 12) & 0xF;
+		int r = (c >> 13) & 0xF;
+		int g = (c >> 13) & 0xF;
+		int b = (c >> 13) & 0xF;
 		c = (a << 12) | (r << 8) | (g << 4) | b;
 		imagePtr[i] = c;
 	}
