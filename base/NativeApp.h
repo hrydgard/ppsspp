@@ -62,6 +62,7 @@ void NativeRender();
 // This function may be called from a totally separate thread from
 // the rest of the game, so be careful with synchronization.
 void NativeMix(short *audio, int num_samples);
+void NativeSetMixer(void* mixer);
 
 // Called when it's time to shutdown. After this has been called,
 // no more calls to any other function will be made from the framework

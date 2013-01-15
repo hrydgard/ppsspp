@@ -81,8 +81,6 @@ int main(int argc, char *argv[])
 	NativeInit(argc, (const char **)argv, "E:/PPSSPP/", "E:", "BADCOFFEE");
 #elif defined(BLACKBERRY)
 	NativeInit(argc, (const char **)argv, "data/", "/tmp", "BADCOFFEE");
-#elif defined(Q_WS_X11)
-	// Temporary until ppsspp is fixed
 #else
 	NativeInit(argc, (const char **)argv, "./", "/tmp", "BADCOFFEE");
 #endif
@@ -90,7 +88,6 @@ int main(int argc, char *argv[])
 #ifdef Q_WS_X11
 	MainWindow mainWindow;
 	mainWindow.show();
-	mainWindow.Create(argc, (const char **)argv, "./", "/tmp", "BADCOFFEE");
 #else
 	MainUI w(dpi_scale);
 	w.resize(pixel_xres, pixel_yres);
@@ -109,4 +106,3 @@ int main(int argc, char *argv[])
 	net::Shutdown();
 	return ret;
 }
-
