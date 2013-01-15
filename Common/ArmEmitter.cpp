@@ -157,15 +157,21 @@ const u8 *ARMXEmitter::AlignCodePage()
 
 void ARMXEmitter::FlushIcache()
 {
-#ifdef __SYMBIAN32__
-    User::IMB_Range( startcode, code );
-#elif defined(BLACKBERRY)
-	msync(startcode, code-startcode, MS_SYNC | MS_INVALIDATE_ICACHE);
-#else
-	__builtin___clear_cache (startcode, code);
-#endif
-	SLEEP(0);
+	FlushIcacheSection(lastCacheFlushEnd, code);
+	lastCacheFlushEnd = code;
 }
+
+void ARMXEmitter::FlushIcacheSection(u8 *start, u8 *end)
+{
+#ifdef __SYMBIAN32__
+	User::IMB_Range( start, end);
+#elif defined(BLACKBERRY)
+	msync(start, end - start, MS_SYNC | MS_INVALIDATE_ICACHE);
+#else
+	__builtin___clear_cache (start, end);
+#endif
+}
+
 void ARMXEmitter::SetCC(CCFlags cond)
 {
 	condition = cond << 28;

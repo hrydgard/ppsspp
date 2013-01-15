@@ -286,6 +286,7 @@ void ArmJitBlockCache::LinkBlockExits(int i)
 			{
 				ARMXEmitter emit(b.exitPtrs[e]);
 				emit.B(blocks[destinationBlock].checkedEntry);
+				emit.FlushIcache();
 				b.linkStatus[e] = true;
 			}
 		}
@@ -358,6 +359,7 @@ void ArmJitBlockCache::DestroyBlock(int block_num, bool invalidate)
 	emit.ARMABI_MOVI2R(R0, b.originalAddress);
 	emit.STR(R10, R0, offsetof(MIPSState, pc));
 	emit.B(MIPSComp::jit->dispatcher);
+	emit.FlushIcache();
 }
 
 void ArmJitBlockCache::InvalidateICache(u32 address, const u32 length)

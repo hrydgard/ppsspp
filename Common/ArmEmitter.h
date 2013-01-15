@@ -331,6 +331,7 @@ class ARMXEmitter
 	friend struct OpArg;  // for Write8 etc
 private:
 	u8 *code, *startcode;
+	u8 *lastCacheFlushEnd;
 	u32 condition;
 
 	void WriteStoreOp(u32 op, ARMReg dest, ARMReg src, Operand2 op2);
@@ -346,8 +347,15 @@ protected:
 	inline void Write32(u32 value) {*(u32*)code = value; code+=4;}
 
 public:
-	ARMXEmitter() { code = NULL; startcode = NULL; condition = CC_AL << 28;}
-	ARMXEmitter(u8 *code_ptr) { code = code_ptr; startcode = code_ptr; condition = CC_AL << 28;}
+	ARMXEmitter() : code(0), startcode(0), lastCacheFlushEnd(0) {
+		condition = CC_AL << 28;
+	}
+	ARMXEmitter(u8 *code_ptr) {
+		code = code_ptr;
+		lastCacheFlushEnd = code_ptr;
+		startcode = code_ptr;
+		condition = CC_AL << 28;
+	}
 	virtual ~ARMXEmitter() {}
 
 	void SetCodePtr(u8 *ptr);
@@ -356,6 +364,7 @@ public:
 	const u8 *AlignCodePage();
 	const u8 *GetCodePtr() const;
 	void FlushIcache();
+	void FlushIcacheSection(u8 *start, u8 *end);
 	u8 *GetWritableCodePtr();
 
 	void SetCC(CCFlags cond = CC_AL);
