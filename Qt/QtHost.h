@@ -1,15 +1,30 @@
-#ifndef QTAPP_H
-#define QTAPP_H
+#ifndef QTHOST_H
+#define QTHOST_H
 
 #include <QObject>
 #include "../Core/Host.h"
 #include "mainwindow.h"
 
-class QtApp : public QObject, public Host
+#include "base/NativeApp.h"
+#include "file/vfs.h"
+#include "file/zip_read.h"
+#include "gfx_es2/gl_state.h"
+#include "gfx/texture.h"
+#include "input/input_state.h"
+#include "math/math_util.h"
+#include "math/lin/matrix4x4.h"
+#include <QGLWidget>
+
+// Globals
+static PMixer *g_mixer;
+static QString fileToStart;
+static QtEmuGL* glWindow;
+
+class QtHost : public QObject, public Host
 {
 	Q_OBJECT
 public:
-	QtApp(MainWindow* mainWindow);
+	QtHost(MainWindow* mainWindow);
 
 	void UpdateMemView();
 	void UpdateDisassembly();
@@ -24,7 +39,7 @@ public:
 	void ShutdownGL();
 
 	void InitSound(PMixer *mixer);
-	void UpdateSound();
+	void UpdateSound() { }
 	void ShutdownSound();
 
 	bool IsDebuggingEnabled();

@@ -11,12 +11,11 @@
 #include "Core/SaveState.h"
 #include "Core/System.h"
 #include "Core/Config.h"
-#include "file/zip_read.h"
 #include "ConsoleListener.h"
 #include "base/display.h"
 
-#include "qtapp.h"
-#include "qtemugl.h"
+#include "QtHost.h"
+#include "EmuThread.h"
 
 // Input
 const int buttonMappings[18] = {
@@ -40,27 +39,59 @@ const int buttonMappings[18] = {
 	Qt::Key_L,          //JOY RIGHT
 };
 
+const char *stateToLoad = NULL;
+
 MainWindow::MainWindow(QWidget *parent) :
-    QMainWindow(parent),
+	QMainWindow(parent),
 	ui(new Ui::MainWindow),
 	nextState(CORE_POWERDOWN),
 	dialogDisasm(0),
 	g_bFullScreen(false)
 {
-    ui->setupUi(this);
-	qApp->installEventFilter( this );
+	ui->setupUi(this);
+	qApp->installEventFilter(this);
 
 	controls = new Controls(this);
+	host = new QtHost(this);
+	w = ui->widget;
+	w->init(&input_state);
+	w->resize(pixel_xres, pixel_yres);
+	w->setMinimumSize(pixel_xres, pixel_yres);
+	w->setMaximumSize(pixel_xres, pixel_yres);
+
+	/*
+	DialogManager::AddDlg(memoryWindow[0] = new CMemoryDlg(_hInstance, hwndMain, currentDebugMIPS));
+	DialogManager::AddDlg(vfpudlg = new CVFPUDlg(_hInstance, hwndMain, currentDebugMIPS));
+	*/
+	// Update();
+	UpdateMenus();
+
+	int zoom = g_Config.iWindowZoom;
+	if (zoom < 1) zoom = 1;
+	if (zoom > 4) zoom = 4;
+	SetZoom(zoom);
+
+	if (!fileToStart.isNull())
+	{
+		SetPlaying(fileToStart);
+		//Update();
+		UpdateMenus();
+
+		EmuThread_Start(fileToStart, w);
+	}
+	else
+		BrowseAndBoot();
+
+	if (!fileToStart.isNull() && stateToLoad != NULL)
+		SaveState::Load(stateToLoad);
 }
 
 MainWindow::~MainWindow()
 {
-    delete ui;
+	delete ui;
 }
-
-void MainWindow::Create(int argc, const char *argv[], const char *savegame_directory, const char *external_directory, const char *installID)
+void NativeInit(int argc, const char *argv[], const char *savegame_directory, const char *external_directory, const char *installID)
 {
-
 	std::string config_filename;
 	Common::EnableCrashingOnCrashes();
 
@@ -74,8 +105,6 @@ void MainWindow::Create(int argc, const char *argv[], const char *savegame_direc
 	g_Config.Load(config_filename.c_str());
 
 	const char *fileToLog = 0;
-	const char *stateToLoad = NULL;
-	const char *fileToStart = NULL;
 
 	bool hideLog = true;
 #ifdef _DEBUG
@@ -126,19 +155,18 @@ void MainWindow::Create(int argc, const char *argv[], const char *savegame_direc
 				break;
 			}
 		}
-		else if (fileToStart == NULL)
+		else if (fileToStart.isNull())
 		{
-			fileToStart = argv[i];
-			if (!File::Exists(fileToStart))
+			fileToStart = QString(argv[i]);
+			if (!QFile::exists(fileToStart))
 			{
-				fprintf(stderr, "File not found: %s\n", fileToStart);
+				qCritical("File '%s' does not exist!", qPrintable(fileToStart));
 				exit(1);
 			}
 		}
 		else
 		{
-			fprintf(stderr, "Can only boot one file");
-			exit(1);
+			qCritical("Can only boot one file. Ignoring file '%s'", qPrintable(fileToStart));
 		}
 	}
 
@@ -156,44 +184,9 @@ void MainWindow::Create(int argc, const char *argv[], const char *savegame_direc
 			LogManager::GetInstance()->ChangeFileLog(fileToLog);
 	//LogManager::GetInstance()->GetConsoleListener()->Open(hideLog, 150, 120, "PPSSPP Debug Console");
 	LogManager::GetInstance()->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
-
-
-	w = ui->widget;
-	w->init(&input_state);
-	w->resize(pixel_xres, pixel_yres);
-	w->setMinimumSize(pixel_xres, pixel_yres);
-	w->setMaximumSize(pixel_xres, pixel_yres);
-
-	host = new QtApp(this);
-	/*
-	DialogManager::AddDlg(memoryWindow[0] = new CMemoryDlg(_hInstance, hwndMain, currentDebugMIPS));
-	DialogManager::AddDlg(vfpudlg = new CVFPUDlg(_hInstance, hwndMain, currentDebugMIPS));
-	*/
-
-	// Update();
-	UpdateMenus();
-
-	if (fileToStart != NULL)
-	{
-		SetPlaying(fileToStart);
-		//Update();
-		UpdateMenus();
-
-		EmuThread_Start(fileToStart, w);
-	}
-	else
-		BrowseAndBoot();
-
-	if (fileToStart != NULL && stateToLoad != NULL)
-		SaveState::Load(stateToLoad);
-
-	int zoom = g_Config.iWindowZoom;
-	if (zoom < 1) zoom = 1;
-	if (zoom > 4) zoom = 4;
-	SetZoom(zoom);
 }
 
-void MainWindow::SetPlaying(const char *text)
+void MainWindow::SetPlaying(QString text)
 {
 	// TODO
 	/*if (text == 0)
@@ -366,7 +359,7 @@ void SaveStateActionFinished(bool result, void *userdata)
 	{
 		QMessageBox msgBox;
 		msgBox.setWindowTitle("Load Save State");
-		msgBox.setText("Savestate failure.  Please try again later");
+		msgBox.setText("Savestate failure. Please try again later");
 		msgBox.exec();
 		return;
 	}
