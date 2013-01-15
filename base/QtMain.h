@@ -159,10 +159,9 @@ public:
 		mixlen = 2*AUDIO_CHANNELS*AUDIO_SAMPLES;
 		mixbuf = (char*)malloc(mixlen);
 		output = new QAudioOutput(fmt);
-		output->setNotifyInterval(1000*AUDIO_SAMPLES / AUDIO_FREQ);
 		output->setBufferSize(mixlen);
-		connect(output, SIGNAL(notify()), this, SLOT(writeData()));
 		feed = output->start();
+		startTimer(1000*AUDIO_SAMPLES / AUDIO_FREQ);
 	}
 	~MainAudio() {
 		feed->close();
@@ -172,8 +171,8 @@ public:
 		free(mixbuf);
 	}
 
-private slots:
-	void writeData() {
+protected:
+	void timerEvent(QTimerEvent *) {
 		memset(mixbuf, 0, mixlen);
 		NativeMix((short *)mixbuf, mixlen / 4);
 		feed->write(mixbuf, mixlen);
