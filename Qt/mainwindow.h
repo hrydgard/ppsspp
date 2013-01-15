@@ -26,7 +26,7 @@ public:
 	void Create(int argc, const char *argv[], const char *savegame_directory, const char *external_directory, const char *installID);
 	void BrowseAndBoot();
 	void SetNextState(CoreState state);
-	void SetPlaying(const char *text);
+	void SetPlaying(QString text);
 
 	Debugger_Disasm* GetDialogDisasm() { return dialogDisasm; }
 	CoreState GetNextState() { return nextState; }

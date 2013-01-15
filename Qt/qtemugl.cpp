@@ -10,7 +10,7 @@ QtEmuGL::QtEmuGL(QWidget *parent) :
 
 void QtEmuGL::init(InputState *inputState)
 {
-	thread.init(this, inputState);
+	thread.init(inputState);
 }
 
 void QtEmuGL::SetRunning(bool value)

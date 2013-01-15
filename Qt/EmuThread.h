@@ -7,21 +7,17 @@ class QtEmuGL;
 class EmuThread : public QThread
 {
 public:
-
 	EmuThread() : running(false) {}
-	void init(QtEmuGL* _glw, InputState* inputState);
+	void init(InputState* inputState);
 	void run();
 	void FinalShutdown();
 	void setRunning(bool value);
 public slots:
 	void Shutdown();
 private:
-	QtEmuGL* glw;
 	InputState* input_state;
 	bool running;
 };
 
-void EmuThread_Start(QString filename, QtEmuGL* glWindow);
+void EmuThread_Start(QString filename, QtEmuGL* w);
 void EmuThread_Stop();
-
-QString GetCurrentFilename();
