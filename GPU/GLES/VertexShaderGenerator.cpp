@@ -342,7 +342,11 @@ void GenerateVertexShader(int prim, char *buffer) {
 
 		if (gstate.lightingEnable & 1) {
 			// Sum up ambient, emissive here.
-			WRITE(p, "  v_color0 = clamp(lightSum0 + u_ambient * vec4(%s, 1.0) + vec4(u_matemissive, 0.0), 0.0, 1.0);\n", ambient);
+			if (hasColor) {
+				WRITE(p, "  v_color0 = clamp(lightSum0 + u_ambient * vec4(%s, a_color0.a) + vec4(u_matemissive, 0.0), 0.0, 1.0);\n", ambient);
+			} else {
+				WRITE(p, "  v_color0 = clamp(lightSum0 + u_ambient * vec4(%s, u_matambientalpha.a) + vec4(u_matemissive, 0.0), 0.0, 1.0);\n", ambient);
+			}
 			if (lmode) {
 				WRITE(p, "  v_color1 = clamp(lightSum1, 0.0, 1.0);\n");
 			} else {
