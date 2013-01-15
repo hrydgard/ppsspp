@@ -28,24 +28,9 @@ enum
 	GPR_SIZE_64=1
 };
 
-enum CPUType
-{
-	CPUTYPE_INVALID=0,
-	CPUTYPE_ALLEGREX=1,
-	CPUTYPE_ME=2,
-};
-
-class CPU
-{
-private:
-	u32 id;
-public:
-	virtual void SingleStep() = 0;
-	virtual int RunLoopUntil(u64 globalTicks) = 0;
-};
-
 #define MAX_NUM_CPU 2
 
+class MIPSState;
 
-extern CPU *currentCPU;
+extern MIPSState *currentCPU;
 extern int numCPUs;

@@ -83,18 +83,17 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 
 		CMP(32, M((void*)&coreState), Imm32(0));
 		FixupBranch badCoreState = J_CC(CC_NZ, true);
+		FixupBranch skipToRealDispatch2 = J(); //skip the sync and compare first time
 
 		dispatcher = GetCodePtr();
 			// The result of slice decrementation should be in flags if somebody jumped here
 			// IMPORTANT - We jump on negative, not carry!!!
-			FixupBranch bail = J_CC(CC_BE, true);
+			FixupBranch bail = J_CC(CC_S, true);
 
 			SetJumpTarget(skipToRealDispatch);
+			SetJumpTarget(skipToRealDispatch2);
 
 			dispatcherNoCheck = GetCodePtr();
-
-			// Debug
-			// CALL(&ImHere);
 
 			MOV(32, R(EAX), M(&mips->pc));
 #ifdef _M_IX86
@@ -141,51 +140,10 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 		J_CC(CC_Z, outerLoop, true);
 
 	SetJumpTarget(badCoreState);
-	//Landing pad for drec space
 	ABI_PopAllCalleeSavedRegsAndAdjustStack();
 	RET();
 
 	breakpointBailout = GetCodePtr();
-	//Landing pad for drec space
 	ABI_PopAllCalleeSavedRegsAndAdjustStack();
 	RET();
-
-	GenerateCommon();
-}
-
-void AsmRoutineManager::GenerateCommon()
-{
-	/*
-	fifoDirectWrite8 = AlignCode4();
-	GenFifoWrite(8);
-	fifoDirectWrite16 = AlignCode4();
-	GenFifoWrite(16);
-	fifoDirectWrite32 = AlignCode4();
-	GenFifoWrite(32);
-	fifoDirectWriteFloat = AlignCode4();
-	GenFifoFloatWrite();
-	fifoDirectWriteXmm64 = AlignCode4(); 
-	GenFifoXmm64Write();
-
-	GenQuantizedLoads();
-	GenQuantizedStores();
-	GenQuantizedSingleStores();
-	*/
-
-	//CMPSD(R(XMM0), M(&zero), 
-	// TODO
-
-	// Fast write routines - special case the most common hardware write
-	// TODO: use this.
-	// Even in x86, the param values will be in the right registers.
-	/*
-	const u8 *fastMemWrite8 = AlignCode16();
-	CMP(32, R(ABI_PARAM2), Imm32(0xCC008000));
-	FixupBranch skip_fast_write = J_CC(CC_NE, false);
-	MOV(32, EAX, M(&m_gatherPipeCount));
-	MOV(8, MDisp(EAX, (u32)&m_gatherPipe), ABI_PARAM1);
-	ADD(32, 1, M(&m_gatherPipeCount));
-	RET();
-	SetJumpTarget(skip_fast_write);
-	CALL((void *)&Memory::Write_U8);*/
 }

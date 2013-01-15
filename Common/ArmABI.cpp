@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0 or later versions.
+// the Free Software Foundation, version 2.0.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -23,30 +23,50 @@ using namespace ArmGen;
 // If passing arguments, don't use this.
 void ARMXEmitter::ARMABI_CallFunction(void *func) 
 {
-	ARMABI_MOVI2R(R14, Mem(func));	
 	PUSH(5, R0, R1, R2, R3, _LR);
+	ARMABI_MOVI2R(R14, (u32)func);	
 	BL(R14);
 	POP(5, R0, R1, R2, R3, _LR);
 }
 void ARMXEmitter::ARMABI_CallFunctionC(void *func, u32 Arg)
 {
-	ARMABI_MOVI2R(R14, Mem(func));	
 	PUSH(5, R0, R1, R2, R3, _LR);
+	ARMABI_MOVI2R(R14, (u32)func);	
 	ARMABI_MOVI2R(R0, Arg);
 	BL(R14);
 	POP(5, R0, R1, R2, R3, _LR);
-
 }
+
+void ARMXEmitter::ARMABI_CallFunctionCNoSave(void *func, u32 Arg)
+{
+	PUSH(1, _LR);
+	ARMABI_MOVI2R(R14, (u32)func);	
+	ARMABI_MOVI2R(R0, Arg);
+	BL(R14);
+	POP(1, _LR);
+}
+
 void ARMXEmitter::ARMABI_CallFunctionCC(void *func, u32 Arg1, u32 Arg2)
 {
-	ARMABI_MOVI2R(R14, Mem(func));	
 	PUSH(5, R0, R1, R2, R3, _LR);
+	ARMABI_MOVI2R(R14, (u32)func);	
 	ARMABI_MOVI2R(R0, Arg1);
 	ARMABI_MOVI2R(R1, Arg2);
 	BL(R14);
 	POP(5, R0, R1, R2, R3, _LR);
 
 }
+void ARMXEmitter::ARMABI_CallFunctionCCC(void *func, u32 Arg1, u32 Arg2, u32 Arg3)
+{
+	PUSH(5, R0, R1, R2, R3, _LR);
+	ARMABI_MOVI2R(R14, (u32)func);	
+	ARMABI_MOVI2R(R0, Arg1);
+	ARMABI_MOVI2R(R1, Arg2);
+	ARMABI_MOVI2R(R2, Arg3);
+	BL(R14);
+	POP(5, R0, R1, R2, R3, _LR);
+}
+
 void ARMXEmitter::ARMABI_PushAllCalleeSavedRegsAndAdjustStack() {
 	// Note: 4 * 4 = 16 bytes, so alignment is preserved.
 	PUSH(4, R0, R1, R2, R3);
@@ -55,23 +75,7 @@ void ARMXEmitter::ARMABI_PushAllCalleeSavedRegsAndAdjustStack() {
 void ARMXEmitter::ARMABI_PopAllCalleeSavedRegsAndAdjustStack() {
 	POP(4, R0, R1, R2, R3);
 }
-void ARMXEmitter::ARMABI_MOVI2R(ARMReg reg, Operand2 val)
-{
-	// TODO: There are more fancy ways to save calls if we check if 
-	// The imm can be rotated or shifted a certain way.
-	// Masks tend to be able to be moved in to a reg with one call
-	MOVW(reg, val); 
-	if(val.Value & 0xFFFF0000) 
-		MOVT(reg, val, true);
-}
-// Moves IMM to memory location
-void ARMXEmitter::ARMABI_MOVI2M(Operand2 op, Operand2 val)
-{
-	// This moves imm to a memory location
-	MOVW(R14, val); MOVT(R14, val, true);
-	MOVW(R12, op); MOVT(R12, op, true);
-	STR(R12, R14); // R10 is what we want to store
-}
+
 const char *conditions[] = {"EQ", "NEQ", "CS", "CC", "MI", "PL", "VS", "VC", "HI", "LS", "GE", "LT", "GT", "LE", "AL" };      
 static void ShowCondition(u32 cond)
 {
@@ -102,7 +106,7 @@ void ARMXEmitter::UpdateAPSR(bool NZCVQ, u8 Flags, bool GE, u8 GEval)
 		// Can't update GE with the other ones with a immediate
 		// Got to use a scratch register
 		u32 Imm = (Flags << 27) | ((GEval & 0xF) << 16);
-		ARMABI_MOVI2R(R14, IMM(Imm));
+		ARMABI_MOVI2R(R14, Imm);
 		_MSR(true, true, R14);
 	}
 	else

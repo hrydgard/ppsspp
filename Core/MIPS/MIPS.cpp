@@ -24,8 +24,8 @@
 #include "../HLE/sceDisplay.h"
 
 #if defined(ARM)
-#include "ARM/JitCache.h"
-#include "ARM/Jit.h"
+#include "ARM/ArmJitCache.h"
+#include "ARM/ArmJit.h"
 #else
 #include "x86/JitCache.h"
 #include "x86/Jit.h"
@@ -40,7 +40,6 @@ MIPSDebugInterface *currentDebugMIPS = &debugr4k;
 
 MIPSState::MIPSState()
 {
-	cpuType = CPUTYPE_ALLEGREX;
 	MIPSComp::jit = 0;
 }
 
@@ -57,7 +56,7 @@ void MIPSState::Reset()
 		delete MIPSComp::jit;
 		MIPSComp::jit = 0;
 	}
-
+		
 	if (PSP_CoreParameter().cpuCore == CPU_JIT)
 		MIPSComp::jit = new MIPSComp::Jit(this);
 
@@ -90,11 +89,11 @@ void MIPSState::Reset()
 	fcr0 = 0;
 	fcr31 = 0;
 	debugCount = 0;
-	exceptions = 0;
 	currentMIPS = this;
 	inDelaySlot = false;
 	llBit = 0;
 	nextPC = 0;
+	downcount = 0;
 	// Initialize the VFPU random number generator with .. something?
 	rng.Init(0x1337);
 }
@@ -112,6 +111,7 @@ void MIPSState::DoState(PointerWrap &p)
 	p.DoArray(vfpuWriteMask, sizeof(vfpuWriteMask) / sizeof(vfpuWriteMask[0]));
 	p.Do(pc);
 	p.Do(nextPC);
+	p.Do(downcount);
 	p.Do(hi);
 	p.Do(lo);
 	p.Do(fpcond);
@@ -120,8 +120,6 @@ void MIPSState::DoState(PointerWrap &p)
 	rng.DoState(p);
 	p.Do(inDelaySlot);
 	p.Do(llBit);
-	p.Do(cpuType);
-	p.Do(exceptions);
 	p.Do(debugCount);
 	p.DoMarker("MIPSState");
 }
@@ -135,7 +133,7 @@ void MIPSState::SetWriteMask(const bool wm[4])
 void MIPSState::SingleStep()
 {
 	int cycles = MIPS_SingleStep();
-	CoreTiming::downcount -= cycles;
+	currentMIPS->downcount -= cycles;
 	CoreTiming::Advance();
 }
 

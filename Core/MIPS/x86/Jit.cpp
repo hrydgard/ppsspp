@@ -25,9 +25,6 @@
 #include "RegCache.h"
 #include "Jit.h"
 
-
-extern u32 *pspmainram;
-
 namespace MIPSComp
 {
 
@@ -52,8 +49,6 @@ void Jit::ClearCache()
 	ClearCodeSpace();
 }
 
-u8 *codeCache;
-#define CACHESIZE 16384*1024
 void Jit::CompileAt(u32 addr)
 {
 	u32 op = Memory::Read_Instruction(addr);
@@ -142,7 +137,7 @@ void Jit::Comp_Generic(u32 op)
 
 void Jit::WriteExit(u32 destination, int exit_num)
 {
-	SUB(32, M(&CoreTiming::downcount), js.downcountAmount > 127 ? Imm32(js.downcountAmount) : Imm8(js.downcountAmount));
+	SUB(32, M(&currentMIPS->downcount), js.downcountAmount > 127 ? Imm32(js.downcountAmount) : Imm8(js.downcountAmount));
 
 	//If nobody has taken care of this yet (this can be removed when all branches are done)
 	JitBlock *b = js.curBlock;
@@ -151,32 +146,28 @@ void Jit::WriteExit(u32 destination, int exit_num)
 
 	// Link opportunity!
 	int block = blocks.GetBlockNumberFromStartAddress(destination);
-	if (jo.enableBlocklink)
-	{
-		if (block >= 0 && jo.enableBlocklink)
-		{
-			// It exists! Joy of joy!
-			JMP(blocks.GetBlock(block)->checkedEntry, true);
-			b->linkStatus[exit_num] = true;
-			return;
-		}
+	if (block >= 0 && jo.enableBlocklink) {
+		// It exists! Joy of joy!
+		JMP(blocks.GetBlock(block)->checkedEntry, true);
+		b->linkStatus[exit_num] = true;
+	} else {
+		// No blocklinking.
+		MOV(32, M(&mips_->pc), Imm32(destination));
+		JMP(asm_.dispatcher, true);
 	}
-	// No blocklinking.
-	MOV(32, M(&mips_->pc), Imm32(destination));
-	JMP(asm_.dispatcher, true);
 }
 
 void Jit::WriteExitDestInEAX()
 {
 	// TODO: Some wasted potential, dispatcher will alwa
 	MOV(32, M(&mips_->pc), R(EAX));
-	SUB(32, M(&CoreTiming::downcount), js.downcountAmount > 127 ? Imm32(js.downcountAmount) : Imm8(js.downcountAmount));
+	SUB(32, M(&currentMIPS->downcount), js.downcountAmount > 127 ? Imm32(js.downcountAmount) : Imm8(js.downcountAmount));
 	JMP(asm_.dispatcher, true);
 }
 
 void Jit::WriteSyscallExit()
 {
-	SUB(32, M(&CoreTiming::downcount), js.downcountAmount > 127 ? Imm32(js.downcountAmount) : Imm8(js.downcountAmount));
+	SUB(32, M(&currentMIPS->downcount), js.downcountAmount > 127 ? Imm32(js.downcountAmount) : Imm8(js.downcountAmount));
 	JMP(asm_.dispatcherCheckCoreState, true);
 }
 

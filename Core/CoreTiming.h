@@ -119,7 +119,6 @@ namespace CoreTiming
 
 	void SetClockFrequencyMHz(int cpuMhz);
 	int GetClockFrequencyMHz();
-	extern int downcount;
 	extern int slicelength;
 
 }; // end of namespace

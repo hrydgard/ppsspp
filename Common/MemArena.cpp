@@ -243,13 +243,13 @@ u8* MemArena::Find4GBBase()
 	// We are unable to use relative addresses due to lack of mmap()
 	return NULL;
 #else
-	void* base = mmap(0, 0x5000000, PROT_READ | PROT_WRITE,
+	void* base = mmap(0, 0x10000000, PROT_READ | PROT_WRITE,
 		MAP_ANON | MAP_SHARED, -1, 0);
 	if (base == MAP_FAILED) {
-		PanicAlert("Failed to map 100 MB of memory space: %s", strerror(errno));
+		PanicAlert("Failed to map 256 MB of memory space: %s", strerror(errno));
 		return 0;
 	}
-	munmap(base, 0x5000000);
+	munmap(base, 0x10000000);
 	return static_cast<u8*>(base);
 #endif
 #endif

@@ -104,7 +104,7 @@ private:
 	u32 m_z;
 };
 
-class MIPSState : public CPU
+class MIPSState
 {
 public:
 	MIPSState();
@@ -113,6 +113,7 @@ public:
 	void Reset();
 	void DoState(PointerWrap &p);
 
+	// MUST start with r!
 	u32 r[32];
 	float f[32];
 	float v[128];
@@ -121,24 +122,20 @@ public:
 
 	u32 pc;
 	u32 nextPC;
+	u32 downcount;  // This really doesn't belong here, it belongs in CoreTiming. But you gotta do what you gotta do, this needs to be reachable in the ARM JIT.
+
 	u32 hi;
 	u32 lo;
 
-	u32 fpcond; //separate for speed - TODO: not worth it
-
 	u32 fcr0;
 	u32 fcr31; //fpu control register
-
-	GMRng rng;	// VFPU hardware random number generator. Probably not the right type.
+	u32 fpcond;  // cache the cond flag of fcr31  (& 1 << 23)
 
 	bool inDelaySlot;
 	int llBit;  // ll/sc
 
-	CPUType cpuType;
 
-	// TODO: How do we handle exceptions?
-	u32 exceptions;
-	enum { BREAKING_EXCEPTIONS = 1 };
+	GMRng rng;	// VFPU hardware random number generator. Probably not the right type.
 
 	// Debug stuff
 	u32 debugCount;	// can be used to count basic blocks before crashes, etc.

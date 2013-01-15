@@ -15,11 +15,13 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#ifndef _JIT64ASM_H
+#define _JIT64ASM_H
 
-#include "CPU.h"
+#include <ArmEmitter.h>
+#include "../MIPS.h"
 
-// See the MIPS folder, the real stuff is there.
+// Runtime generated assembly routines, like the Dispatcher.
 
-MIPSState *currentCPU = 0;
 
-int numCPUs;
+#endif	// _JIT64ASM_H

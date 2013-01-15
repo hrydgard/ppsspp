@@ -53,7 +53,7 @@ typedef void (CDECL *MIPSInterpretFunc)(u32 opcode);
 
 
 void MIPSCompileOp(u32 op);
-void MIPSDisAsm(u32 op, u32 pc, char *out);
+void MIPSDisAsm(u32 op, u32 pc, char *out, bool tabsToSpaces = false);
 u32  MIPSGetInfo(u32 op);
 void MIPSInterpret(u32 op); //only for those rare ones
 int MIPSInterpret_RunFastUntil(u64 globalTicks);

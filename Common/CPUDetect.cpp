@@ -2,7 +2,7 @@
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0 or later versions.
+// the Free Software Foundation, version 2.0.
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -29,7 +29,9 @@
 #undef _interlockedbittestandreset64
 #else
 
+#ifndef _M_GENERIC
 #include <xmmintrin.h>
+#endif
 
 #if defined __FreeBSD__
 #include <sys/types.h>
@@ -38,7 +40,9 @@
 static inline void do_cpuid(unsigned int *eax, unsigned int *ebx,
 						    unsigned int *ecx, unsigned int *edx)
 {
-#ifdef _LP64
+#if defined _M_GENERIC
+	(*eax) = (*ebx) = (*ecx) = (*edx) = 0;
+#elif defined _LP64
 	// Note: EBX is reserved on Mac OS X and in PIC on Linux, so it has to
 	// restored at the end of the asm block.
 	__asm__ (
@@ -91,10 +95,6 @@ CPUInfo cpu_info;
 CPUInfo::CPUInfo() {
 	Detect();
 }
-
-#ifdef _WIN32
-#include <windows.h>
-#endif
 
 // Detects the various cpu features
 void CPUInfo::Detect()

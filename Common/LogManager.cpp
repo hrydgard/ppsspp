@@ -152,6 +152,8 @@ void LogManager::LoadConfig(IniFile::Section *section)
 
 void LogManager::Log(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const char *file, int line, const char *format, va_list args)
 {
+	std::lock_guard<std::mutex> lk(m_log_lock);
+
 	char temp[MAX_MSGLEN];
 	char msg[MAX_MSGLEN * 2];
 	LogContainer *log = m_Log[type];

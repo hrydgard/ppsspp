@@ -219,6 +219,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\android\jni\ArmEmitterTest.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="..\android\jni\EmuScreen.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -297,6 +303,7 @@
     <ClCompile Include="XinputDevice.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\android\jni\ARMEmitterTest.h" />
     <ClInclude Include="..\android\jni\EmuScreen.h" />
     <ClInclude Include="..\android\jni\GamepadEmu.h" />
     <ClInclude Include="..\android\jni\MenuScreens.h" />
@@ -329,6 +336,7 @@
   <ItemGroup>
     <None Include="..\android\atlasscript.txt" />
     <None Include="..\android\jni\Android.mk" />
+    <None Include="..\android\jni\Application.mk" />
     <None Include="..\CMakeLists.txt" />
     <None Include="..\README.md" />
     <None Include="ppsspp.ico" />

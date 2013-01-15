@@ -25,7 +25,7 @@ NATIVE := ../../native
 SRC := ../..
 
 LOCAL_CFLAGS := -DUSE_PROFILER -DARM -DGL_GLEXT_PROTOTYPES -DUSING_GLES2 -O2 -fsigned-char -Wall -Wno-multichar -Wno-psabi -Wno-unused-variable -fno-strict-aliasing -ffast-math
-LOCAL_CPPFLAGS := -std=gnu++0x 
+LOCAL_CXXFLAGS := -std=gnu++0x 
 LOCAL_C_INCLUDES := \
   $(LOCAL_PATH)/../../Common \
   $(LOCAL_PATH)/../.. \
@@ -46,8 +46,10 @@ LOCAL_SRC_FILES := \
   MenuScreens.cpp \
   UIShader.cpp \
   GamepadEmu.cpp \
+  ArmEmitterTest.cpp \
   ui_atlas.cpp \
   $(SRC)/native/android/app-android.cpp \
+  $(SRC)/ext/disarm.cpp \
   $(SRC)/ext/libkirk/AES.c \
   $(SRC)/ext/libkirk/SHA1.c \
   $(SRC)/ext/libkirk/bn.c \
@@ -55,8 +57,9 @@ LOCAL_SRC_FILES := \
   $(SRC)/ext/libkirk/kirk_engine.c \
   $(SRC)/ext/snappy/snappy-c.cpp \
   $(SRC)/ext/snappy/snappy.cpp \
-  $(SRC)/Common/ArmABI.cpp \
   $(SRC)/Common/ArmEmitter.cpp \
+  $(SRC)/Common/ArmCPUDetect.cpp \
+  $(SRC)/Common/ArmThunk.cpp \
   $(SRC)/Common/LogManager.cpp \
   $(SRC)/Common/MemArena.cpp \
   $(SRC)/Common/MemoryUtil.cpp \
@@ -66,7 +69,6 @@ LOCAL_SRC_FILES := \
   $(SRC)/Common/StringUtil.cpp \
   $(SRC)/Common/Thread.cpp \
   $(SRC)/Common/Timer.cpp \
-  $(SRC)/Common/ThunkARM.cpp \
   $(SRC)/Common/Misc.cpp \
   $(SRC)/Common/MathUtil.cpp \
   $(SRC)/GPU/Math3D.cpp \
@@ -166,14 +168,15 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/MIPS/MIPSCodeUtils.cpp \
   $(SRC)/Core/MIPS/MIPSDebugInterface.cpp \
   $(SRC)/Core/MIPS/JitCommon/JitCommon.cpp \
-  $(SRC)/Core/MIPS/ARM/JitCache.cpp \
-  $(SRC)/Core/MIPS/ARM/CompALU.cpp \
-  $(SRC)/Core/MIPS/ARM/CompBranch.cpp \
-  $(SRC)/Core/MIPS/ARM/CompFPU.cpp \
-  $(SRC)/Core/MIPS/ARM/Asm.cpp \
-  $(SRC)/Core/MIPS/ARM/Jit.cpp \
-  $(SRC)/Core/MIPS/ARM/CompLoadStore.cpp \
-  $(SRC)/Core/MIPS/ARM/RegCache.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmJitCache.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmCompALU.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmCompBranch.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmCompFPU.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmCompLoadStore.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmCompVFPU.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmAsm.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmJit.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmRegCache.cpp \
   $(SRC)/Core/Util/BlockAllocator.cpp \
   $(SRC)/Core/Util/ppge_atlas.cpp \
   $(SRC)/Core/Util/PPGeDraw.cpp

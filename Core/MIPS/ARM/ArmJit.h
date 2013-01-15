@@ -18,31 +18,26 @@
 #pragma once
 
 #include "../../../Globals.h"
-#include "Asm.h"
-
-#if !defined(ARM)
-#error DO NOT BUILD ARM JIT ON NON-ARM
-#endif
-
+#include "ArmAsm.h"
 
 #include <ArmEmitter.h>
-#include "JitCache.h"
-#include "RegCache.h"
+#include "ArmJitCache.h"
+#include "ArmRegCache.h"
 
 namespace MIPSComp
 {
 
-struct JitOptions
+struct ArmJitOptions
 {
-	JitOptions()
+	ArmJitOptions()
 	{
-		enableBlocklink = false;
+		enableBlocklink = true;
 	}
 
 	bool enableBlocklink;
 };
 
-struct JitState
+struct ArmJitState
 {
 	u32 compilerPC;
 	u32 blockStart;
@@ -50,7 +45,7 @@ struct JitState
 	bool inDelaySlot;
 	int downcountAmount;
 	bool compiling;	// TODO: get rid of this in favor of using analysis results to determine end of block
-	JitBlock *curBlock;
+	ArmJitBlock *curBlock;
 };
 
 class Jit : public ArmGen::ARMXCodeBlock
@@ -66,7 +61,7 @@ public:
 	void RunLoopUntil(u64 globalticks);
 
 	void Compile(u32 em_address);	// Compiles a block at current MIPS PC
-	const u8 *DoJit(u32 em_address, JitBlock *b);
+	const u8 *DoJit(u32 em_address, ArmJitBlock *b);
 
 	void CompileAt(u32 addr);
 	void Comp_RunBlock(u32 op);
@@ -92,26 +87,33 @@ public:
 	void Comp_FPU2op(u32 op);
 	void Comp_mxc1(u32 op);
 
-	JitBlockCache *GetBlockCache() { return &blocks; }
-	AsmRoutineManager &Asm() { return asm_; }
+	ArmJitBlockCache *GetBlockCache() { return &blocks; }
 
 	void ClearCache();
 
 private:
+	void GenerateFixedCode();
 	void FlushAll();
 
+	// TODO: Split into two parts, the first part can be shared in branches.
+	void DoDownCount();
+	void MovFromPC(ARMReg r);
+	void MovToPC(ARMReg r);
+
 	void WriteExit(u32 destination, int exit_num);
-	void WriteExitDestInEAX();
-//	void WriteRfiExitDestInEAX();
+	void WriteExitDestInR(ARMReg Reg);
 	void WriteSyscallExit();
 
 	// Utility compilation functions
-	//void BranchFPFlag(u32 op, ArmGen::CCFlags cc, bool likely);
-	//void BranchRSZeroComp(u32 op, ArmGen::CCFlags cc, bool likely);
-	//void BranchRSRTComp(u32 op, ArmGen::CCFlags cc, bool likely);
+	void BranchFPFlag(u32 op, ArmGen::CCFlags cc, bool likely);
+	void BranchVFPUFlag(u32 op, ArmGen::CCFlags cc, bool likely);
+	void BranchRSZeroComp(u32 op, ArmGen::CCFlags cc, bool likely);
+	void BranchRSRTComp(u32 op, ArmGen::CCFlags cc, bool likely);
 
 	// Utilities to reduce duplicated code
-	/*
+	void CompImmLogic(int rs, int rt, u32 uimm, void (ARMXEmitter::*arith)(ARMReg dst, ARMReg src, Operand2 op2), u32 (*eval)(u32 a, u32 b));
+	void CompShiftImm(u32 op, ArmGen::ShiftType shiftType);
+		/*
 	void CompImmLogic(u32 op, void (ARMXEmitter::*arith)(int, const OpArg &, const OpArg &));
 	void CompTriArith(u32 op, void (ARMXEmitter::*arith)(int, const OpArg &, const OpArg &));
 	void CompShiftImm(u32 op, void (ARMXEmitter::*shift)(int, OpArg, OpArg));
@@ -120,16 +122,25 @@ private:
 	void CompFPTriArith(u32 op, void (XEmitter::*arith)(X64Reg reg, OpArg), bool orderMatters);
 	*/
 
-	JitBlockCache blocks;
-	JitOptions jo;
-	JitState js;
+	ArmJitBlockCache blocks;
+	ArmJitOptions jo;
+	ArmJitState js;
 
-	GPRRegCache gpr;
-	FPURegCache fpr;
-
-	AsmRoutineManager asm_;
+	ArmRegCache gpr;
+	// FPURegCache fpr;
 
 	MIPSState *mips_;
+
+public:
+	// Code pointers
+	const u8 *enterCode;
+
+	const u8 *outerLoop;
+	const u8 *dispatcherCheckCoreState;
+	const u8 *dispatcher;
+	const u8 *dispatcherNoCheck;
+
+	const u8 *breakpointBailout;
 };
 
 typedef void (Jit::*MIPSCompileFunc)(u32 opcode);

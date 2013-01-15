@@ -48,10 +48,6 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true)
 
 	CoreParameter coreParam;
 	coreParam.cpuCore = (CPUCore)g_Config.iCpuCore;
-#if defined(ARM)
-	if (coreParam.cpuCore == CPU_JIT)
-		coreParam.cpuCore = CPU_FASTINTERPRETER;
-#endif
 	coreParam.gpuCore = GPU_GLES;
 	coreParam.enableSound = g_Config.bEnableSound;
 	coreParam.fileToStart = fileToStart;

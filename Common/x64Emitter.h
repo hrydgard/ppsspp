@@ -687,43 +687,6 @@ public:
 	#else
 	inline int ABI_GetNumXMMRegs() { return 16; }
 	#endif
-
-	// Strange call wrappers.
-	void CallCdeclFunction3(void* fnptr, u32 arg0, u32 arg1, u32 arg2);
-	void CallCdeclFunction4(void* fnptr, u32 arg0, u32 arg1, u32 arg2, u32 arg3);
-	void CallCdeclFunction5(void* fnptr, u32 arg0, u32 arg1, u32 arg2, u32 arg3, u32 arg4);
-	void CallCdeclFunction6(void* fnptr, u32 arg0, u32 arg1, u32 arg2, u32 arg3, u32 arg4, u32 arg5);
-
-#if defined(_M_IX86) 
-
-	#define CallCdeclFunction3_I(a,b,c,d) CallCdeclFunction3((void *)(a), (b), (c), (d))
-	#define CallCdeclFunction4_I(a,b,c,d,e) CallCdeclFunction4((void *)(a), (b), (c), (d), (e)) 
-	#define CallCdeclFunction5_I(a,b,c,d,e,f) CallCdeclFunction5((void *)(a), (b), (c), (d), (e), (f)) 
-	#define CallCdeclFunction6_I(a,b,c,d,e,f,g) CallCdeclFunction6((void *)(a), (b), (c), (d), (e), (f), (g)) 
-
-	#define DECLARE_IMPORT(x)
-
-#else
-
-	// Comments from VertexLoader.cpp about these horrors:
-
-	// This is a horrible hack that is necessary in 64-bit mode because Opengl32.dll is based way, way above the 32-bit
-	// address space that is within reach of a CALL, and just doing &fn gives us these high uncallable addresses. So we
-	// want to grab the function pointers from the import table instead.
-
-	void ___CallCdeclImport3(void* impptr, u32 arg0, u32 arg1, u32 arg2);
-	void ___CallCdeclImport4(void* impptr, u32 arg0, u32 arg1, u32 arg2, u32 arg3);
-	void ___CallCdeclImport5(void* impptr, u32 arg0, u32 arg1, u32 arg2, u32 arg3, u32 arg4);
-	void ___CallCdeclImport6(void* impptr, u32 arg0, u32 arg1, u32 arg2, u32 arg3, u32 arg4, u32 arg5);
-
-	#define CallCdeclFunction3_I(a,b,c,d) ___CallCdeclImport3(&__imp_##a,b,c,d)
-	#define CallCdeclFunction4_I(a,b,c,d,e) ___CallCdeclImport4(&__imp_##a,b,c,d,e)
-	#define CallCdeclFunction5_I(a,b,c,d,e,f) ___CallCdeclImport5(&__imp_##a,b,c,d,e,f)
-	#define CallCdeclFunction6_I(a,b,c,d,e,f,g) ___CallCdeclImport6(&__imp_##a,b,c,d,e,f,g)
-
-	#define DECLARE_IMPORT(x) extern "C" void *__imp_##x
-
-#endif
 };  // class XEmitter
 
 

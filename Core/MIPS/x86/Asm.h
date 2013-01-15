@@ -20,19 +20,8 @@
 
 #include "x64Emitter.h"
 #include "../MIPS.h"
-// In Dolphin, we don't use inline assembly. Instead, we generate all machine-near
-// code at runtime. In the case of fixed code like this, after writing it, we write
-// protect the memory, essentially making it work just like precompiled code.
 
-// There are some advantages to this approach:
-//	 1) No need to setup an external assembler in the build.
-//	 2) Cross platform, as long as it's x86/x64.
-//	 3) Can optimize code at runtime for the specific CPU model.
-// There aren't really any disadvantages other than having to maintain a x86 emitter,
-// which we have to do anyway :)
-// 
-// To add a new asm routine, just add another const here, and add the code to Generate.
-// Also, possibly increase the size of the code buffer.
+// Runtime generated assembly routines, like the Dispatcher.
 
 namespace MIPSComp
 {
@@ -49,16 +38,16 @@ public:
 	AsmRoutineManager()
 	{
 	}
+	~AsmRoutineManager()
+	{
+		FreeCodeSpace();
+	}
 
 	void Init(MIPSState *mips, MIPSComp::Jit *jit)
 	{
 		AllocCodeSpace(8192);
 		Generate(mips, jit);
 		WriteProtect();
-	}
-	~AsmRoutineManager()
-	{
-		FreeCodeSpace();
 	}
 
 	const u8 *enterCode;
@@ -67,8 +56,6 @@ public:
 	const u8 *dispatcher;
 	const u8 *dispatcherCheckCoreState;
 	const u8 *dispatcherNoCheck;
-
-	const u8 *fpException;
 
 	const u8 *breakpointBailout;
 };
