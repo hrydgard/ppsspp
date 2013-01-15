@@ -163,14 +163,14 @@ void PSPSaveDialog::DisplaySaveList(bool canMove)
 		{
 			w = 80;
 			h = 40;
-			x = 50;
+			x = 55;
 		}
-		float y = 80;
+		float y = 95;
 		if(displayCount < currentSelectedSave)
-			y -= 50 * (currentSelectedSave - displayCount);
+			y -= 10 + 40 * (currentSelectedSave - displayCount );
 		else if(displayCount > currentSelectedSave)
 		{
-			y += 90 + 50 * (displayCount - currentSelectedSave - 1);
+			y += 90 + 40 * (displayCount - currentSelectedSave - 1);
 		}
 
 		int tw = 256;
@@ -262,15 +262,15 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 		snprintf(saveTitle,512,"%s", param.GetFileInfo(currentSelectedSave).saveTitle);
 		snprintf(saveDetail,512,"%s", param.GetFileInfo(currentSelectedSave).saveDetail);
 
-		PPGeDrawRect(180, 118, 980, 119, 0xFFFFFFFF);
+		PPGeDrawRect(180, 128, 980, 129, 0xFFFFFFFF);
 		std::string titleTxt = title;
-		PPGeDrawText(titleTxt.c_str(), 180, 100, PPGE_ALIGN_LEFT, 0.5f, 0xFFC0C0C0);
+		PPGeDrawText(titleTxt.c_str(), 180, 110, PPGE_ALIGN_LEFT, 0.5f, 0xFFC0C0C0);
 		std::string timeTxt = time;
-		PPGeDrawText(timeTxt.c_str(), 180, 120, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
+		PPGeDrawText(timeTxt.c_str(), 180, 130, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
 		std::string saveTitleTxt = saveTitle;
-		PPGeDrawText(saveTitleTxt.c_str(), 180, 145, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
+		PPGeDrawText(saveTitleTxt.c_str(), 180, 160, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
 		std::string saveDetailTxt = saveDetail;
-		PPGeDrawText(saveDetailTxt.c_str(), 180, 170, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
+		PPGeDrawText(saveDetailTxt.c_str(), 180, 180, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
 	}
 }
 
@@ -325,10 +325,10 @@ void PSPSaveDialog::DisplayTitle(std::string name)
 }
 void PSPSaveDialog::DisplayEnterBack()
 {
-	PPGeDrawImage(cancelButtonImg, 180, 240, 20, 20, 0, 0xFFFFFFFF);
-	PPGeDrawText("Back", 210, 240, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
-	PPGeDrawImage(okButtonImg, 270, 240, 20, 20, 0, 0xFFFFFFFF);
-	PPGeDrawText("Enter", 300, 240, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
+	PPGeDrawImage(cancelButtonImg, 180, 250, 20, 20, 0, 0xFFFFFFFF);
+	PPGeDrawText("Back", 210, 250, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
+	PPGeDrawImage(okButtonImg, 270, 250, 20, 20, 0, 0xFFFFFFFF);
+	PPGeDrawText("Enter", 300, 250, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
 }
 void PSPSaveDialog::DisplayBack()
 {
