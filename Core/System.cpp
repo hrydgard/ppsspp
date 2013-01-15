@@ -38,6 +38,7 @@
 #include "FileSystems/MetaFileSystem.h"
 #include "Loaders.h"
 #include "ELF/ParamSFO.h"
+#include "../Common/LogManager.h"
 
 MetaFileSystem pspFileSystem;
 ParamSFOData g_paramSFO;
@@ -57,6 +58,11 @@ bool PSP_Init(const CoreParameter &coreParam, std::string *error_string)
 	{
 		mixer = new PSPMixer();
 		host->InitSound(mixer);
+	}
+
+	if (coreParameter.disableG3Dlog)
+	{
+		LogManager::GetInstance()->SetEnable(LogTypes::G3D, false);
 	}
 
 	// Init all the HLE modules
