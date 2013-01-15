@@ -915,8 +915,10 @@ set(NativeAppSource
 	android/jni/MenuScreens.cpp
 	android/jni/GamepadEmu.cpp
 	android/jni/UIShader.cpp
-	android/jni/ArmEmitterTest.cpp
 	android/jni/ui_atlas.cpp)
+if(ANDROID)
+	set(NativeAppSource ${NativeAppSource} android/jni/ArmEmitterTest.cpp)
+endif()
 set(NativeAssets
 	android/assets/ui_atlas.zim
 	assets/ppge_atlas.zim)

@@ -296,8 +296,6 @@ public:
 		_assert_msg_(DYNA_REC, (Type == TYPE_IMM), "Imm8VFP not IMM");
 		return ((Value & 0xF0) << 12) | (Value & 0xF);
 	}
-	
-
 };
 
 // Use these when you don't know if an imm can be represented as an operand2.
@@ -308,14 +306,9 @@ bool TryMakeOperand2(u32 imm, Operand2 &op2);
 bool TryMakeOperand2_AllowInverse(u32 imm, Operand2 &op2, bool *inverse);
 bool TryMakeOperand2_AllowNegation(s32 imm, Operand2 &op2, bool *negated);
 
-
 inline Operand2 R(ARMReg Reg)	{ return Operand2(Reg, TYPE_REG); }
 inline Operand2 IMM(u32 Imm)	{ return Operand2(Imm, TYPE_IMM); }
 inline Operand2 Mem(void *ptr)	{ return Operand2((u32)ptr, TYPE_IMM); }
-//usage: int a[]; ARRAY_OFFSET(a,10)
-#define ARRAY_OFFSET(array,index) ((u32)((u64)&(array)[index]-(u64)&(array)[0]))
-//usage: struct {int e;} s; STRUCT_OFFSET(s,e)
-#define STRUCT_OFFSET(str,elem) ((u32)((u64)&(str).elem-(u64)&(str)))
 
 struct FixupBranch
 {
