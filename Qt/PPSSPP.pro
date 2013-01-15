@@ -24,8 +24,7 @@ SOURCES += ../native/base/QtMain.cpp
 HEADERS += ../native/base/QtMain.h
 
 # Native
-SOURCES += ../android/jni/NativeApp.cpp \
-	../android/jni/EmuScreen.cpp \
+SOURCES += ../android/jni/EmuScreen.cpp \
 	../android/jni/MenuScreens.cpp \
 	../android/jni/GamepadEmu.cpp \
 	../android/jni/UIShader.cpp \
@@ -37,7 +36,7 @@ linux:!mobile_platform {
 	SOURCES += mainwindow.cpp \
 		debugger_disasm.cpp \
 		EmuThread.cpp\
-		qtapp.cpp \
+		QtHost.cpp \
 		qtemugl.cpp \
 		ctrldisasmview.cpp \
 		ctrlregisterlist.cpp \
@@ -45,7 +44,7 @@ linux:!mobile_platform {
 	HEADERS += mainwindow.h \
 		debugger_disasm.h \
 		EmuThread.h \
-		qtapp.h \
+		QtHost.h \
 		qtemugl.h \
 		ctrldisasmview.h \
 		ctrlregisterlist.h \

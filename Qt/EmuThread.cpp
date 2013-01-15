@@ -18,17 +18,14 @@
 #include "GPU/GPUState.h"
 
 #include "qtemugl.h"
-
-QString fileToStart;
-QtEmuGL* glWindow;
+#include "QtHost.h"
 
 void EmuThread_Start(QString filename, QtEmuGL* w)
 {
 	//_dbg_clear_();
 	fileToStart = filename;
-
 	glWindow = w;
-	w->start_rendering();
+	glWindow->start_rendering();
 }
 
 void EmuThread_Stop()
@@ -39,14 +36,8 @@ void EmuThread_Stop()
 	host->UpdateUI();
 }
 
-QString GetCurrentFilename()
+void EmuThread::init(InputState *inputState)
 {
-	return fileToStart;
-}
-
-void EmuThread::init(QtEmuGL *_glw, InputState *inputState)
-{
-	glw = _glw;
 	input_state = inputState;
 }
 
@@ -60,7 +51,7 @@ void EmuThread::run()
 	host->UpdateUI();
 	host->InitGL();
 
-	glw->makeCurrent();
+	glWindow->makeCurrent();
 
 #ifndef USING_GLES2
 	glewInit();
@@ -181,9 +172,9 @@ void EmuThread::run()
 		}
 #endif
 
-		glw->swapBuffers();
+		glWindow->swapBuffers();
 	}
-	glw->doneCurrent();
+	glWindow->doneCurrent();
 }
 
 void EmuThread::Shutdown()
