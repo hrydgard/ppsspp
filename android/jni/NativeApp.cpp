@@ -50,6 +50,8 @@
 #include "MenuScreens.h"
 #include "UIShader.h"
 
+#include "ArmEmitterTest.h"
+
 Texture *uiTexture;
 
 ScreenManager *screenManager;
@@ -152,6 +154,8 @@ void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, boo
 	*app_nice_name = "PPSSPP";
 	*app_dir_name = "ppsspp";
 	*landscape = true;
+
+	// ArmEmitterTest();
 }
 
 void NativeInit(int argc, const char *argv[], const char *savegame_directory, const char *external_directory, const char *installID)
@@ -190,6 +194,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 			switch (argv[i][1]) {
 			case 'd':
 				// Enable debug logging
+				// Note that you must also change the max log level in Log.h.
 				logLevel = LogTypes::LDEBUG;
 				break;
 			case 'g':
@@ -293,6 +298,9 @@ void NativeInitGraphics()
 	theme.checkOn = I_CHECKEDBOX;
 	theme.checkOff = I_SQUARE;
 
+	ui_draw2d.Init();
+	ui_draw2d_front.Init();
+
 	UIInit(&ui_atlas, theme);
 
 	uiTexture = new Texture();
@@ -371,6 +379,9 @@ void NativeShutdownGraphics()
 	screenManager->shutdown();
 	delete screenManager;
 	screenManager = 0;
+
+	ui_draw2d.Shutdown();
+	ui_draw2d_front.Shutdown();
 
 	UIShader_Shutdown();
 

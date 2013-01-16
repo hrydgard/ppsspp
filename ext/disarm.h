@@ -15,11 +15,20 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#pragma once
 
-#include "CPU.h"
 
-// See the MIPS folder, the real stuff is there.
+// This stuff only disassembles very old ARM but should be sufficient
+// for the basics except for MOVW/MOVT.
 
-MIPSState *currentCPU = 0;
 
-int numCPUs;
+
+// Disarm itself has the license you can see in the cpp file.
+// I'm not entirely sure it's 100% gpl compatible but it's nearly
+// public domain so meh.
+
+// The only changes I've done is C++ compat and replaced the main
+// program with this function.
+
+const char *ArmRegName(int r);
+void ArmDis(unsigned int addr, unsigned int w, char *output);

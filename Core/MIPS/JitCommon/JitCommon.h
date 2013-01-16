@@ -18,7 +18,7 @@
 #pragma once
 
 #if defined(ARM)
-#include "../ARM/Jit.h"
+#include "../ARM/ArmJit.h"
 #else
 #include "../x86/Jit.h"
 #endif

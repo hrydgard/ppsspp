@@ -169,11 +169,10 @@ endmacro()
 set(CommonExtra)
 if(ARM)
 	set(CommonExtra ${CommonExtra}
-		Common/ArmABI.h
-		Common/ArmABI.cpp
+		Common/ArmCPUDetect.cpp
 		Common/ArmEmitter.h
 		Common/ArmEmitter.cpp
-		Common/ThunkARM.cpp)
+		Common/ArmThunk.cpp)
 elseif(X86)
 	set(CommonExtra ${CommonExtra}
 		Common/ABI.cpp
@@ -584,19 +583,20 @@ include_directories(ext/libkirk)
 set(CoreExtra)
 if(ARM)
 	set(CoreExtra ${CoreExtra}
-		Core/MIPS/ARM/Asm.cpp
-		Core/MIPS/ARM/Asm.h
-		Core/MIPS/ARM/CompALU.cpp
-		Core/MIPS/ARM/CompBranch.cpp
-		Core/MIPS/ARM/CompFPU.cpp
-		Core/MIPS/ARM/CompLoadStore.cpp
-		Core/MIPS/ARM/CompVFPU.cpp
-		Core/MIPS/ARM/Jit.cpp
-		Core/MIPS/ARM/Jit.h
-		Core/MIPS/ARM/JitCache.cpp
-		Core/MIPS/ARM/JitCache.h
-		Core/MIPS/ARM/RegCache.cpp
-		Core/MIPS/ARM/RegCache.h)
+		Core/MIPS/ARM/ArmAsm.cpp
+		Core/MIPS/ARM/ArmAsm.h
+		Core/MIPS/ARM/ArmCompALU.cpp
+		Core/MIPS/ARM/ArmCompBranch.cpp
+		Core/MIPS/ARM/ArmCompFPU.cpp
+		Core/MIPS/ARM/ArmCompLoadStore.cpp
+		Core/MIPS/ARM/ArmCompVFPU.cpp
+		Core/MIPS/ARM/ArmJit.cpp
+		Core/MIPS/ARM/ArmJit.h
+		Core/MIPS/ARM/ArmJitCache.cpp
+		Core/MIPS/ARM/ArmJitCache.h
+		Core/MIPS/ARM/ArmRegCache.cpp
+		Core/MIPS/ARM/ArmRegCache.h
+		ext/disarm.cpp)
 elseif(X86)
 	set(CoreExtra ${CoreExtra}
 		Core/MIPS/x86/Asm.cpp
@@ -916,6 +916,9 @@ set(NativeAppSource
 	android/jni/GamepadEmu.cpp
 	android/jni/UIShader.cpp
 	android/jni/ui_atlas.cpp)
+if(ANDROID)
+	set(NativeAppSource ${NativeAppSource} android/jni/ArmEmitterTest.cpp)
+endif()
 set(NativeAssets
 	android/assets/ui_atlas.zim
 	assets/ppge_atlas.zim)

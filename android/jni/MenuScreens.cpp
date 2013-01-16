@@ -305,16 +305,18 @@ void SettingsScreen::render() {
 		g_Config.iWindowZoom = doubleRes ? 2 : 1;
 	}
 	UICheckBox(GEN_ID, x, y += stride, "Hardware Transform", ALIGN_TOPLEFT, &g_Config.bHardwareTransform);
-	UICheckBox(GEN_ID, x, y += stride, "Use VBO for drawing", ALIGN_TOPLEFT, &g_Config.bUseVBO);
+	UICheckBox(GEN_ID, x, y += stride, "Draw using VBO", ALIGN_TOPLEFT, &g_Config.bUseVBO);
 
-	bool useFastInt = g_Config.iCpuCore == CPU_FASTINTERPRETER;
-	UICheckBox(GEN_ID, x, y += stride, "Slightly faster interpreter (may crash)", ALIGN_TOPLEFT, &useFastInt);
+	bool useJit = g_Config.iCpuCore == CPU_JIT;
+	UICheckBox(GEN_ID, x, y += stride, "JIT (Dynarec)", ALIGN_TOPLEFT, &useJit);
+	if (g_Config.iCpuCore == CPU_JIT)
+		UICheckBox(GEN_ID, x + 350, y, "Fastmem (unstable)", ALIGN_TOPLEFT, &g_Config.bFastMemory);
+	g_Config.iCpuCore = useJit ? CPU_JIT : CPU_INTERPRETER;
 	// ui_draw2d.DrawText(UBUNTU48, "much faster JIT coming later", x, y+=50, 0xcFFFFFFF, ALIGN_LEFT);
 	UICheckBox(GEN_ID, x, y += stride, "On-screen Touch Controls", ALIGN_TOPLEFT, &g_Config.bShowTouchControls);
 	if (g_Config.bShowTouchControls)
 		UICheckBox(GEN_ID, x + 50, y += stride, "Show Analog Stick", ALIGN_TOPLEFT, &g_Config.bShowAnalogStick);
-	g_Config.iCpuCore = useFastInt ? CPU_FASTINTERPRETER : CPU_INTERPRETER;
-	// UICheckBox(GEN_ID, x, y += 50, "Draw raw framebuffer (for some homebrew)", ALIGN_TOPLEFT, &g_Config.bDisplayFramebuffer);
+	// UICheckBox(GEN_ID, x, y += stride, "Draw raw framebuffer (for some homebrew)", ALIGN_TOPLEFT, &g_Config.bDisplayFramebuffer);
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres-10), LARGE_BUTTON_WIDTH, "Back", ALIGN_RIGHT | ALIGN_BOTTOM)) {
 		screenManager()->switchScreen(new MenuScreen());

@@ -2084,7 +2084,7 @@ ActionAfterMipsCall *Thread::getRunningCallbackAction()
 	if (this->GetUID() == currentThread && g_inCbCount > 0)
 	{
 		MipsCall *call = mipsCalls.get(this->currentCallbackId);
-		ActionAfterMipsCall *action;
+		ActionAfterMipsCall *action = 0;
 		if (call)
 			action = dynamic_cast<ActionAfterMipsCall *>(call->doAfter);
 

@@ -15,9 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "Jit.h"
-#include "RegCache.h"
-#include <ArmEmitter.h>
+#include "ArmJit.h"
+#include "ArmRegCache.h"
+#include "ArmEmitter.h"
 
 using namespace MIPSAnalyst;
 #define _RS ((op>>21) & 0x1F)
@@ -34,28 +34,31 @@ using namespace MIPSAnalyst;
 
 namespace MIPSComp
 {
-	/*
-	void Jit::CompImmLogic(u32 op, void (XEmitter::*arith)(int, const OpArg &, const OpArg &))
-	{
-		u32 uimm = (u16)(op & 0xFFFF);
-		int rt = _RT;
-		int rs = _RS;
-		gpr.Lock(rt, rs);
-		gpr.BindToRegister(rt, rt == rs, true);
-		if (rt != rs)
-			MOV(32, gpr.R(rt), gpr.R(rs));
-		(this->*arith)(32, gpr.R(rt), Imm32(uimm));
-		gpr.UnlockAll();
+	static u32 EvalOr(u32 a, u32 b) { return a | b; }
+	static u32 EvalXor(u32 a, u32 b) { return a ^ b; }
+	static u32 EvalAnd(u32 a, u32 b) { return a & b; }
 
+	void Jit::CompImmLogic(int rs, int rt, u32 uimm, void (ARMXEmitter::*arith)(ARMReg dst, ARMReg src, Operand2 op2), u32 (*eval)(u32 a, u32 b))
+	{
+		if (gpr.IsImm(rs)) {
+			gpr.SetImm(rt, (*eval)(gpr.GetImm(rs), uimm));
+		} else {
+			gpr.MapDirtyIn(rt, rs);
+			// TODO: Special case when uimm can be represented as an Operand2
+			Operand2 op2;
+			if (TryMakeOperand2(uimm, op2)) {
+				(this->*arith)(gpr.R(rt), gpr.R(rs), op2);
+			} else {
+				ARMABI_MOVI2R(R0, (u32)uimm);
+				(this->*arith)(gpr.R(rt), gpr.R(rs), R0);
+			}
+		}
 	}
-	*/
 
 	void Jit::Comp_IType(u32 op)
 	{
-		OLDD
-			/*
-		s32 simm = (s16)(op & 0xFFFF);
-		u32 uimm = (u16)(op & 0xFFFF);
+		s32 simm = (s32)(s16)(op & 0xFFFF);  // sign extension
+		u32 uimm = op & 0xFFFF;
 
 		int rt = _RT;
 		int rs = _RS;
@@ -63,99 +66,85 @@ namespace MIPSComp
 		switch (op >> 26) 
 		{
 		case 8:	// same as addiu?
-		case 9:	//R(rt) = R(rs) + simm; break;	//addiu
+		case 9:	// R(rt) = R(rs) + simm; break;	//addiu
 			{
-				if (gpr.R(rs).IsImm())
-				{
-					gpr.SetImmediate32(rt, gpr.R(rs).GetImmValue() + simm);
-					break;
+				if (gpr.IsImm(rs)) {
+					gpr.SetImm(rt, gpr.GetImm(rs) + simm);
+				} else if (rs == 0) {  // add to zero register = immediate
+					gpr.SetImm(rt, (u32)simm);
+				} else {
+					gpr.MapDirtyIn(rt, rs);
+					Operand2 op2;
+					bool negated;
+					if (TryMakeOperand2_AllowNegation(simm, op2, &negated)) {
+						if (!negated)
+							ADD(gpr.R(rt), gpr.R(rs), op2);
+						else
+							SUB(gpr.R(rt), gpr.R(rs), op2);
+					} else {
+						ARMABI_MOVI2R(R0, (u32)simm);
+						ADD(gpr.R(rt), gpr.R(rs), R0);
+					}
 				}
-
-				gpr.Lock(rt, rs);
-				if (rs != 0)
-				{
-					gpr.BindToRegister(rt, rt == rs, true);
-					if (rt != rs)
-						MOV(32, gpr.R(rt), gpr.R(rs));
-					if (simm != 0)
-						ADD(32, gpr.R(rt), Imm32((u32)(s32)simm));
-					// TODO: Can also do LEA if both operands happen to be in registers.
-				}
-				else
-				{
-					gpr.SetImmediate32(rt, simm);
-				}
-				gpr.UnlockAll();
+				break;
 			}
-			break;
+
+		case 12: CompImmLogic(rs, rt, uimm, &ARMXEmitter::AND, &EvalAnd); break;
+		case 13: CompImmLogic(rs, rt, uimm, &ARMXEmitter::ORR, &EvalOr); break;
+		case 14: CompImmLogic(rs, rt, uimm, &ARMXEmitter::EOR, &EvalXor); break;
 
 		case 10: // R(rt) = (s32)R(rs) < simm; break; //slti
-			gpr.Lock(rt, rs);
-			gpr.BindToRegister(rt, rt == rs, true);
-			XOR(32, R(EAX), R(EAX));
-			CMP(32, gpr.R(rs), Imm32(simm));
-			SETcc(CC_L, R(EAX));
-			MOV(32, gpr.R(rt), R(EAX));
-			gpr.UnlockAll();
+			{
+				gpr.MapDirtyIn(rt, rs);
+				Operand2 op2;
+				if (TryMakeOperand2(simm, op2)) {
+					CMP(gpr.R(rs), op2);
+				} else {
+					ARMABI_MOVI2R(R0, simm);
+					CMP(gpr.R(rs), R0);
+				}
+				SetCC(CC_LT);
+				ARMABI_MOVI2R(gpr.R(rt), 1);
+				SetCC(CC_GE);
+				ARMABI_MOVI2R(gpr.R(rt), 0);
+				SetCC(CC_AL);
+			}
 			break;
-
+		/*
 		case 11: // R(rt) = R(rs) < uimm; break; //sltiu
-			gpr.Lock(rt, rs);
-			gpr.BindToRegister(rt, rt == rs, true);
-			XOR(32, R(EAX), R(EAX));
-			CMP(32, gpr.R(rs), Imm32((u32)simm));
-			SETcc(CC_B, R(EAX));
-			MOV(32, gpr.R(rt), R(EAX));
-			gpr.UnlockAll();
+			{
+				gpr.MapDirtyIn(rt, rs);
+				Operand2 op2;
+				if (TryMakeOperand2(uimm, op2)) {
+					CMP(gpr.R(rs), op2);
+				} else {
+					ARMABI_MOVI2R(R0, uimm);
+					CMP(gpr.R(rs), R0);
+				}
+				SetCC(CC_LO);
+				ARMABI_MOVI2R(gpr.R(rt), 1);
+				SetCC(CC_HS);
+				ARMABI_MOVI2R(gpr.R(rt), 0);
+				SetCC(CC_AL);
+			}
 			break;
-
-		case 12: CompImmLogic(op, &XEmitter::AND); break;
-		case 13: CompImmLogic(op, &XEmitter::OR); break;
-		case 14: CompImmLogic(op, &XEmitter::XOR); break;
-
-		case 15: //R(rt) = uimm << 16;	 break; //lui
-			gpr.SetImmediate32(rt, uimm << 16);
+			*/
+		case 15: // R(rt) = uimm << 16;	 //lui
+			gpr.SetImm(rt, uimm << 16);
 			break;
 
 		default:
 			Comp_Generic(op);
 			break;
-		}*/
-
+		}
 	}
-
-	//rd = rs X rt
-	/*
-	void Jit::CompTriArith(u32 op, void (XEmitter::*arith)(int, const OpArg &, const OpArg &))
-	{
-		int rt = _RT;
-		int rs = _RS;
-		int rd = _RD;
-
-		gpr.Lock(rt, rs, rd);
-		MOV(32, R(EAX), gpr.R(rs));
-		MOV(32, R(EBX), gpr.R(rt));
-		gpr.BindToRegister(rd, true, true);
-		(this->*arith)(32, R(EAX), R(EBX));
-		MOV(32, gpr.R(rd), R(EAX));
-		gpr.UnlockAll();
-	}
-	*/
-
+	
 	void Jit::Comp_RType3(u32 op)
 	{
-		OLDD
-
-		
 		int rt = _RT;
 		int rs = _RS;
 		int rd = _RD;
-		
-		gpr.Lock(rd, rs, rt);
-		gpr.BindToRegister(rs, true, false);
-		gpr.BindToRegister(rt, true, false);
-		gpr.BindToRegister(rd, true, true);
-		
+
 		switch (op & 63) 
 		{
 		//case 10: if (!R(rt)) R(rd) = R(rs); break; //movz
@@ -163,42 +152,59 @@ namespace MIPSComp
 			
 		// case 32: //R(rd) = R(rs) + R(rt);		break; //add
 		case 33: //R(rd) = R(rs) + R(rt);		break; //addu
-			ADD(gpr.RX(rd), gpr.RX(rs), gpr.RX(rt));
+			// Some optimized special cases
+			if (rs == 0) {
+				gpr.MapDirtyIn(rd, rt);
+				MOV(gpr.R(rd), gpr.R(rt));
+			} else if (rt == 0) {
+				gpr.MapDirtyIn(rd, rs);
+				MOV(gpr.R(rd), gpr.R(rs));
+			} else {
+				gpr.MapDirtyInIn(rd, rs, rt);
+				ADD(gpr.R(rd), gpr.R(rs), gpr.R(rt));
+			}
 			break;
-		case 134: //R(rd) = R(rs) - R(rt);		break; //sub
-		case 135:
-			SUB(gpr.RX(rd), gpr.RX(rs), gpr.RX(rt));
+		case 34: //R(rd) = R(rs) - R(rt);		break; //sub
+		case 35:
+			gpr.MapDirtyInIn(rd, rs, rt);
+			SUB(gpr.R(rd), gpr.R(rs), gpr.R(rt));
 			break;
-		case 136: //R(rd) = R(rs) & R(rt);		break; //and
-			AND(gpr.RX(rd), gpr.RX(rs), gpr.RX(rt));
+		case 36: //R(rd) = R(rs) & R(rt);		break; //and
+			gpr.MapDirtyInIn(rd, rs, rt);
+			AND(gpr.R(rd), gpr.R(rs), gpr.R(rt));
 			break;
-		case 137: //R(rd) = R(rs) | R(rt);		break; //or
-			ORR(gpr.RX(rd), gpr.RX(rs), gpr.RX(rt));
+		case 37: //R(rd) = R(rs) | R(rt);		break; //or
+			gpr.MapDirtyInIn(rd, rs, rt);
+			ORR(gpr.R(rd), gpr.R(rs), gpr.R(rt));
 			break;
-		case 138: //R(rd) = R(rs) ^ R(rt);		break; //xor/eor	
-			EOR(gpr.RX(rd), gpr.RX(rs), gpr.RX(rt));
+		case 38: //R(rd) = R(rs) ^ R(rt);		break; //xor/eor	
+			gpr.MapDirtyInIn(rd, rs, rt);
+			EOR(gpr.R(rd), gpr.R(rs), gpr.R(rt));
 			break;
 
 		case 39: // R(rd) = ~(R(rs) | R(rt)); //nor
-			ORR(gpr.RX(rd), gpr.RX(rs), gpr.RX(rt));
-			MVN(gpr.RX(rd), gpr.RX(rd));
+			gpr.MapDirtyInIn(rd, rs, rt);
+			ORR(gpr.R(rd), gpr.R(rs), gpr.R(rt));
+			MVN(gpr.R(rd), gpr.R(rd));
 			break;
 
 		case 42: //R(rd) = (int)R(rs) < (int)R(rt); break; //slt
-			CMP(gpr.RX(rs), gpr.RX(rt));
+			gpr.MapDirtyInIn(rd, rs, rt);
+			CMP(gpr.R(rs), gpr.R(rt));
 			SetCC(CC_LT);
-			ARMABI_MOVI2R(gpr.RX(rd), 1);
+			ARMABI_MOVI2R(gpr.R(rd), 1);
 			SetCC(CC_GE);
-			ARMABI_MOVI2R(gpr.RX(rd), 0);
+			ARMABI_MOVI2R(gpr.R(rd), 0);
 			SetCC(CC_AL);
 			break; 
 
 		case 43: //R(rd) = R(rs) < R(rt);		break; //sltu
-			CMP(gpr.RX(rs), gpr.RX(rt));
+			gpr.MapDirtyInIn(rd, rs, rt);
+			CMP(gpr.R(rs), gpr.R(rt));
 			SetCC(CC_LO);
-			ARMABI_MOVI2R(gpr.RX(rd), 1);
+			ARMABI_MOVI2R(gpr.R(rd), 1);
 			SetCC(CC_HS);
-			ARMABI_MOVI2R(gpr.RX(rd), 0);
+			ARMABI_MOVI2R(gpr.R(rd), 0);
 			SetCC(CC_AL);
 			break;
 
@@ -209,29 +215,22 @@ namespace MIPSComp
 		// CMP(a,b); CMOVGT(a,b)
 
 		default:
-			gpr.UnlockAll();
+			// gpr.UnlockAll();
 			Comp_Generic(op);
 			break;
 		}
-		gpr.UnlockAll();
-		
 	}
 
-	/*
-
-	void Jit::CompShiftImm(u32 op, void (XEmitter::*shift)(int, OpArg, OpArg))
+	void Jit::CompShiftImm(u32 op, ArmGen::ShiftType shiftType)
 	{
 		int rd = _RD;
 		int rt = _RT;
-		gpr.Lock(rd, rt);
 		int sa = _SA;
-		gpr.BindToRegister(rd, rd == rt, true);
-		if (rd != rt)
-			MOV(32, gpr.R(rd), gpr.R(rt));
-		(this->*shift)(32, gpr.R(rd), Imm8(sa));
-		gpr.UnlockAll();
+		
+		gpr.MapDirtyIn(rd, rt);
+		MOV(gpr.R(rd), Operand2(sa, shiftType, gpr.R(rt)));
 	}
-	*/
+
 	// "over-shifts" work the same as on x86 - only bottom 5 bits are used to get the shift value
 	/*
 	void Jit::CompShiftVar(u32 op, void (XEmitter::*shift)(int, OpArg, OpArg))
@@ -254,12 +253,11 @@ namespace MIPSComp
 	void Jit::Comp_ShiftType(u32 op)
 	{
 		// WARNIGN : ROTR
-		OLDD
 		switch (op & 0x3f)
 		{
-		//case 0: CompShiftImm(op, &ARMXEmitter::SHL); break;
-		//case 2: CompShiftImm(op, &XEmitter::SHR); break;	// srl
-		//case 3: CompShiftImm(op, &XEmitter::SAR); break;	// sra
+		case 0: CompShiftImm(op, ST_LSL); break;
+		case 2: CompShiftImm(op, ST_LSR); break;	// srl
+		case 3: CompShiftImm(op, ST_ASR); break;	// sra
 		
 	 // case 4: CompShiftVar(op, &XEmitter::SHL); break;	// R(rd) = R(rt) << R(rs);				break; //sllv
 	//	case 6: CompShiftVar(op, &XEmitter::SHR); break;	// R(rd) = R(rt) >> R(rs);				break; //srlv

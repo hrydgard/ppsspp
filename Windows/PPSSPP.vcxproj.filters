@@ -104,6 +104,9 @@
     <ClCompile Include="Globals.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="stdafx.cpp" />
+    <ClCompile Include="..\android\jni\ArmEmitterTest.cpp">
+      <Filter>Android</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Debugger\CtrlDisAsmView.h">
@@ -182,6 +185,9 @@
       <Filter>Windows\Input</Filter>
     </ClInclude>
     <ClInclude Include="stdafx.h" />
+    <ClInclude Include="..\android\jni\ARMEmitterTest.h">
+      <Filter>Android</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="icon1.ico">
@@ -204,6 +210,9 @@
       <Filter>Android</Filter>
     </None>
     <None Include="..\CMakeLists.txt" />
+    <None Include="..\android\jni\Application.mk">
+      <Filter>Android</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="ppsspp.rc">

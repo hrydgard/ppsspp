@@ -885,7 +885,7 @@ void MIPSCompileOp(u32 op)
 }
 
 
-void MIPSDisAsm(u32 op, u32 pc, char *out)
+void MIPSDisAsm(u32 op, u32 pc, char *out, bool tabsToSpaces)
 {
 	if (op == 0)
 	{
@@ -896,10 +896,16 @@ void MIPSDisAsm(u32 op, u32 pc, char *out)
 	{
 		disPC = pc;
 		const MIPSInstruction *instr = MIPSGetInstruction(op);
-		if (instr && instr->disasm)
+		if (instr && instr->disasm) {
 			instr->disasm(op, out);
-		else
-		{
+			if (tabsToSpaces) {
+				while (*out) {
+					if (*out == '\t')
+						*out = ' ';
+					out++;
+				}
+			}
+		} else {
 			strcpy(out, "no instruction :(");
 			//__asm int 3
 			MIPSGetInstruction(op);
@@ -942,7 +948,7 @@ int MIPSInterpret_RunUntil(u64 globalTicks)
 	while (coreState == CORE_RUNNING)
 	{
 		// NEVER stop in a delay slot!
-		while (CoreTiming::downcount >= 0 && coreState == CORE_RUNNING)
+		while (curMips->downcount >= 0 && coreState == CORE_RUNNING)
 		{
 			// int cycles = 0;
 			{
@@ -984,7 +990,7 @@ int MIPSInterpret_RunUntil(u64 globalTicks)
 						curMips->pc = curMips->nextPC;
 						curMips->inDelaySlot = false;
 					}
-					CoreTiming::downcount -= 1;
+					curMips->downcount -= 1;
 					goto again;
 				}
 			}
@@ -1019,7 +1025,7 @@ int MIPSInterpret_RunFastUntil(u64 globalTicks)
 	MIPSState *curMips = currentMIPS;
 	while (coreState == CORE_RUNNING) 
 	{
-		while (CoreTiming::downcount >= 0 && coreState == CORE_RUNNING)   // TODO: Try to get rid of the latter check
+		while (curMips->downcount >= 0 && coreState == CORE_RUNNING)   // TODO: Try to get rid of the latter check
 		{
 			again:
 			bool wasInDelaySlot = curMips->inDelaySlot;
@@ -1116,7 +1122,7 @@ int MIPSInterpret_RunFastUntil(u64 globalTicks)
 					curMips->pc = curMips->nextPC;
 					curMips->inDelaySlot = false;
 				}
-				CoreTiming::downcount -= 1;
+				curMips->downcount -= 1;
 				goto again;
 			}
 		}

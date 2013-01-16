@@ -22,7 +22,7 @@
 #include <string>
 
 #include "../MIPSAnalyst.h"
-
+#include "../MIPS.h"
 // Define this in order to get VTune profile support for the Jit generated code.
 // Add the VTune include/lib directories to the project directories to get this to build.
 // #define USE_VTUNE
@@ -42,7 +42,7 @@
 
 #define JIT_OPCODE 0xFFCCCCCC	// yeah this ain't gonna work
 
-struct JitBlock
+struct ArmJitBlock
 {
 	const u8 *checkedEntry;
 	const u8 *normalEntry;
@@ -77,11 +77,11 @@ struct JitBlock
 
 typedef void (*CompiledCode)();
 
-class JitBlockCache
+class ArmJitBlockCache
 {
 	MIPSState *mips;
 	const u8 **blockCodePointers;
-	JitBlock *blocks;
+	ArmJitBlock *blocks;
 	int num_blocks;
 	std::multimap<u32, int> links_to;
 	std::map<std::pair<u32,u32>, u32> block_map; // (end_addr, start_addr) -> number
@@ -94,10 +94,10 @@ class JitBlockCache
 	void UnlinkBlock(int i);
 
 public:
-	JitBlockCache(MIPSState *mips_) :
+	ArmJitBlockCache(MIPSState *mips_) :
 		mips(mips_), blockCodePointers(0), blocks(0), num_blocks(0),
 		MAX_NUM_BLOCKS(0) { }
-	~JitBlockCache();
+	~ArmJitBlockCache();
 	int AllocateBlock(u32 em_address);
 	void FinalizeBlock(int block_num, bool block_link, const u8 *code_ptr);
 
@@ -110,7 +110,7 @@ public:
 	bool IsFull() const;
 
 	// Code Cache
-	JitBlock *GetBlock(int block_num);
+	ArmJitBlock *GetBlock(int block_num);
 	int GetNumBlocks() const;
 	const u8 **GetCodePointers();
 

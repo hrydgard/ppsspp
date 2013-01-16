@@ -23,6 +23,7 @@
 #include "../Core/Config.h"
 #include "../Core/SaveState.h"
 #include "EmuThread.h"
+#include "ext/disarm.h"
 
 #include "LogManager.h"
 #include "ConsoleListener.h"

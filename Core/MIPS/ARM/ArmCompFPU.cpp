@@ -16,8 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 #include "../MIPS.h"
 
-#include "Jit.h"
-#include "RegCache.h"
+#include "ArmJit.h"
+#include "ArmRegCache.h"
 
 #define _RS ((op>>21) & 0x1F)
 #define _RT ((op>>16) & 0x1F)
@@ -115,6 +115,7 @@ void Jit::Comp_FPULS(u32 op)
 
 void Jit::Comp_FPU2op(u32 op)
 {
+	OLDD
 	int fs = _FS;
 	int fd = _FD;
 
@@ -173,6 +174,7 @@ void Jit::Comp_FPU2op(u32 op)
 
 void Jit::Comp_mxc1(u32 op)
 {
+	OLDD
 	int fs = _FS;
 	int rt = _RT;
 

@@ -272,6 +272,7 @@ namespace MIPSInt
 			// There's one of these in Star Soldier at 0881808c, which seems benign - it should probably be ignored.
 			if (op == 0x03e00008)
 				return;
+			ERROR_LOG(HLE, "Jump in delay slot :(");
 			_dbg_assert_msg_(CPU,0,"Jump in delay slot :(");
 		}
 

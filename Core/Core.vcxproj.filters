@@ -111,30 +111,6 @@
     <ClCompile Include="MIPS\x86\CompVFPU.cpp">
       <Filter>MIPS\x86</Filter>
     </ClCompile>
-    <ClCompile Include="MIPS\ARM\Asm.cpp">
-      <Filter>MIPS\ARM</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\ARM\CompALU.cpp">
-      <Filter>MIPS\ARM</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\ARM\CompBranch.cpp">
-      <Filter>MIPS\ARM</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\ARM\CompFPU.cpp">
-      <Filter>MIPS\ARM</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\ARM\Jit.cpp">
-      <Filter>MIPS\ARM</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\ARM\CompLoadStore.cpp">
-      <Filter>MIPS\ARM</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\ARM\JitCache.cpp">
-      <Filter>MIPS\ARM</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\ARM\RegCache.cpp">
-      <Filter>MIPS\ARM</Filter>
-    </ClCompile>
     <ClCompile Include="MIPS\JitCommon\JitCommon.cpp">
       <Filter>MIPS\JitCommon</Filter>
     </ClCompile>
@@ -363,6 +339,36 @@
     <ClCompile Include="..\ext\snappy\snappy.cpp">
       <Filter>Ext\Snappy</Filter>
     </ClCompile>
+    <ClCompile Include="MIPS\ARM\ArmAsm.cpp">
+      <Filter>MIPS\ARM</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM\ArmCompALU.cpp">
+      <Filter>MIPS\ARM</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM\ArmCompBranch.cpp">
+      <Filter>MIPS\ARM</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM\ArmCompFPU.cpp">
+      <Filter>MIPS\ARM</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM\ArmCompLoadStore.cpp">
+      <Filter>MIPS\ARM</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM\ArmJit.cpp">
+      <Filter>MIPS\ARM</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM\ArmJitCache.cpp">
+      <Filter>MIPS\ARM</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM\ArmRegCache.cpp">
+      <Filter>MIPS\ARM</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM\ArmCompVFPU.cpp">
+      <Filter>MIPS\ARM</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\disarm.cpp">
+      <Filter>Ext</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -412,18 +418,6 @@
     </ClInclude>
     <ClInclude Include="MIPS\x86\RegCache.h">
       <Filter>MIPS\x86</Filter>
-    </ClInclude>
-    <ClInclude Include="MIPS\ARM\Asm.h">
-      <Filter>MIPS\ARM</Filter>
-    </ClInclude>
-    <ClInclude Include="MIPS\ARM\Jit.h">
-      <Filter>MIPS\ARM</Filter>
-    </ClInclude>
-    <ClInclude Include="MIPS\ARM\JitCache.h">
-      <Filter>MIPS\ARM</Filter>
-    </ClInclude>
-    <ClInclude Include="MIPS\ARM\RegCache.h">
-      <Filter>MIPS\ARM</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\JitCommon\JitCommon.h">
       <Filter>MIPS\JitCommon</Filter>
@@ -673,6 +667,21 @@
     </ClInclude>
     <ClInclude Include="..\ext\snappy\snappy-internal.h">
       <Filter>Ext\Snappy</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\ARM\ArmAsm.h">
+      <Filter>MIPS\ARM</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\ARM\ArmJit.h">
+      <Filter>MIPS\ARM</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\ARM\ArmJitCache.h">
+      <Filter>MIPS\ARM</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\ARM\ArmRegCache.h">
+      <Filter>MIPS\ARM</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Ext\disarm.h">
+      <Filter>Ext</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
