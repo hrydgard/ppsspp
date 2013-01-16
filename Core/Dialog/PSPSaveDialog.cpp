@@ -333,8 +333,8 @@ void PSPSaveDialog::DisplayEnterBack()
 }
 void PSPSaveDialog::DisplayBack()
 {
-	PPGeDrawImage(cancelButtonImg, 180, 240, 20, 20, 0, 0xFFFFFFFF);
-	PPGeDrawText("Back", 210, 240, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
+	PPGeDrawImage(cancelButtonImg, 180, 257, 11, 11, 0, 0xFFFFFFFF);
+	PPGeDrawText("Back", 195, 255, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
 }
 
 int PSPSaveDialog::Update()
