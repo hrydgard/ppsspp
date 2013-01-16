@@ -41,7 +41,7 @@ void sceKernelDeleteVpl();
 int sceKernelAllocateVpl(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr);
 int sceKernelAllocateVplCB(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr);
 int sceKernelTryAllocateVpl(SceUID uid, u32 size, u32 addrPtr);
-void sceKernelFreeVpl();
+int sceKernelFreeVpl(SceUID uid, u32 addr);
 void sceKernelCancelVpl();
 void sceKernelReferVplStatus();
 

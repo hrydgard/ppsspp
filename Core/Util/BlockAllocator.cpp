@@ -219,6 +219,18 @@ bool BlockAllocator::Free(u32 position)
 	}
 }
 
+bool BlockAllocator::FreeExact(u32 position)
+{
+	BlockAllocator::Block *b = GetBlockFromAddress(position);
+	if (b && b->taken && b->start == position)
+		return Free(position);
+	else
+	{
+		ERROR_LOG(HLE, "BlockAllocator : invalid free %08x", position);
+		return false;
+	}
+}
+
 void BlockAllocator::CheckBlocks()
 {
 	for (std::list<Block>::iterator iter = blocks.begin(); iter != blocks.end(); iter++)

@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include "HLE.h"
 #include "../System.h"
 #include "../MIPS/MIPS.h"
@@ -130,12 +131,15 @@ struct VPL : public KernelObject
 	{
 		p.Do(nv);
 		p.Do(address);
+		SceUID dv = 0;
+		p.Do(waitingThreads, dv);
 		alloc.DoState(p);
 		p.DoMarker("VPL");
 	}
 
 	SceKernelVplInfo nv;
 	u32 address;
+	std::vector<SceUID> waitingThreads;
 	BlockAllocator alloc;
 };
 
@@ -894,7 +898,13 @@ int sceKernelAllocateVpl(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr)
 		{
 			VPL *vpl = kernelObjects.Get<VPL>(uid, error);
 			if (vpl)
+			{
 				vpl->nv.numWaitThreads++;
+
+				SceUID threadID = __KernelGetCurThread();
+				if (std::find(vpl->waitingThreads.begin(), vpl->waitingThreads.end(), threadID) == vpl->waitingThreads.end())
+					vpl->waitingThreads.push_back(threadID);
+			}
 
 			__KernelSetVplTimeout(timeoutPtr);
 			__KernelWaitCurThread(WAITTYPE_VPL, uid, size, timeoutPtr, false);
@@ -914,7 +924,13 @@ int sceKernelAllocateVplCB(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr)
 		{
 			VPL *vpl = kernelObjects.Get<VPL>(uid, error);
 			if (vpl)
+			{
 				vpl->nv.numWaitThreads++;
+
+				SceUID threadID = __KernelGetCurThread();
+				if (std::find(vpl->waitingThreads.begin(), vpl->waitingThreads.end(), threadID) == vpl->waitingThreads.end())
+					vpl->waitingThreads.push_back(threadID);
+			}
 
 			__KernelSetVplTimeout(timeoutPtr);
 			__KernelWaitCurThread(WAITTYPE_VPL, uid, size, timeoutPtr, true);
@@ -930,26 +946,32 @@ int sceKernelTryAllocateVpl(SceUID uid, u32 size, u32 addrPtr)
 	return error;
 }
 
-void sceKernelFreeVpl()
+int sceKernelFreeVpl(SceUID uid, u32 addr)
 {
-	SceUID id = PARAM(0);
-	u32 blockPtr = PARAM(1);
-	DEBUG_LOG(HLE,"sceKernelFreeVpl(%i, %08x)", id, blockPtr);
+	if (addr && !Memory::IsValidAddress(addr))
+	{
+		WARN_LOG(HLE, "%08x=sceKernelFreeVpl(%i, %08x): Invalid address", SCE_KERNEL_ERROR_ILLEGAL_ADDR, uid, addr);
+		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+	}
+
+	DEBUG_LOG(HLE, "sceKernelFreeVpl(%i, %08x)", uid, addr);
 	u32 error;
-	VPL *vpl = kernelObjects.Get<VPL>(id, error);
+	VPL *vpl = kernelObjects.Get<VPL>(uid, error);
 	if (vpl)
 	{
-		if (vpl->alloc.Free(blockPtr)) {
-			RETURN(0);
+		if (vpl->alloc.FreeExact(addr))
+		{
 			// Should trigger waiting threads
-		} else {
-			ERROR_LOG(HLE, "sceKernelFreeVpl: Error freeing %08x", blockPtr);
-			RETURN(-1);
+			return 0;
+		}
+		else
+		{
+			WARN_LOG(HLE, "%08x=sceKernelFreeVpl(%i, %08x): Unable to free", SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCK, uid, addr);
+			return SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCK;
 		}
 	}
-	else {
-		RETURN(error);
-	}
+	else
+		return error;
 }
 
 void sceKernelCancelVpl()

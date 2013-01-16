@@ -29,6 +29,7 @@ public:
 	u32 AllocAt(u32 position, u32 size, const char *tag = 0);
 
 	bool Free(u32 position);
+	bool FreeExact(u32 position);
 	bool IsBlockFree(u32 position) {
 		Block *b = GetBlockFromAddress(position);
 		if (b)
