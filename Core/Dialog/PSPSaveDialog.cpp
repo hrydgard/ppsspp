@@ -165,12 +165,12 @@ void PSPSaveDialog::DisplaySaveList(bool canMove)
 			h = 40;
 			x = 55;
 		}
-		float y = 95;
+		float y = 96;
 		if(displayCount < currentSelectedSave)
 			y -= 10 + 40 * (currentSelectedSave - displayCount );
 		else if(displayCount > currentSelectedSave)
 		{
-			y += 90 + 40 * (displayCount - currentSelectedSave - 1);
+			y += 91 + 40 * (displayCount - currentSelectedSave - 1);
 		}
 
 		int tw = 256;
@@ -262,15 +262,16 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 		snprintf(saveTitle,512,"%s", param.GetFileInfo(currentSelectedSave).saveTitle);
 		snprintf(saveDetail,512,"%s", param.GetFileInfo(currentSelectedSave).saveDetail);
 
-		PPGeDrawRect(180, 128, 980, 129, 0xFFFFFFFF);
+		
+		PPGeDrawRect(180, 139, 980, 140, 0xFFFFFFFF);
 		std::string titleTxt = title;
-		PPGeDrawText(titleTxt.c_str(), 180, 110, PPGE_ALIGN_LEFT, 0.5f, 0xFFC0C0C0);
+		PPGeDrawText(titleTxt.c_str(), 180, 120, PPGE_ALIGN_LEFT, 0.5f, 0xFFC0C0C0);
 		std::string timeTxt = time;
-		PPGeDrawText(timeTxt.c_str(), 180, 130, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
+		PPGeDrawText(timeTxt.c_str(), 180, 141, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
 		std::string saveTitleTxt = saveTitle;
-		PPGeDrawText(saveTitleTxt.c_str(), 180, 160, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
+		PPGeDrawText(saveTitleTxt.c_str(), 175, 163, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
 		std::string saveDetailTxt = saveDetail;
-		PPGeDrawText(saveDetailTxt.c_str(), 180, 180, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
+		PPGeDrawText(saveDetailTxt.c_str(), 175, 185, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
 	}
 }
 
@@ -292,7 +293,7 @@ void PSPSaveDialog::DisplaySaveDataInfo2()
 						, param.GetFileInfo(currentSelectedSave).size / 1024
 						);
 		std::string saveinfoTxt = txt;
-		PPGeDrawText(saveinfoTxt.c_str(), 20, 180, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
+		PPGeDrawText(saveinfoTxt.c_str(), 10, 180, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
 	}
 }
 
@@ -325,15 +326,15 @@ void PSPSaveDialog::DisplayTitle(std::string name)
 }
 void PSPSaveDialog::DisplayEnterBack()
 {
-	PPGeDrawImage(cancelButtonImg, 180, 250, 20, 20, 0, 0xFFFFFFFF);
-	PPGeDrawText("Back", 210, 250, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
-	PPGeDrawImage(okButtonImg, 270, 250, 20, 20, 0, 0xFFFFFFFF);
-	PPGeDrawText("Enter", 300, 250, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
+	PPGeDrawImage(okButtonImg, 180, 257, 11, 11, 0, 0xFFFFFFFF);
+	PPGeDrawText("Enter", 195, 255, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
+	PPGeDrawImage(cancelButtonImg, 270, 257, 11, 11, 0, 0xFFFFFFFF);
+	PPGeDrawText("Back", 285, 255, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
 }
 void PSPSaveDialog::DisplayBack()
 {
-	PPGeDrawImage(cancelButtonImg, 180, 240, 20, 20, 0, 0xFFFFFFFF);
-	PPGeDrawText("Back", 210, 240, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
+	PPGeDrawImage(cancelButtonImg, 180, 257, 11, 11, 0, 0xFFFFFFFF);
+	PPGeDrawText("Back", 195, 255, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
 }
 
 int PSPSaveDialog::Update()
@@ -374,8 +375,7 @@ int PSPSaveDialog::Update()
 	{
 		case DS_SAVE_LIST_CHOICE:
 			StartDraw();
-			DisplayTitle("Save");
-
+			
 			// TODO : use focus for selected save by default, and don't modify global selected save,use local var
 			DisplaySaveList();
 			DisplaySaveDataInfo1();
@@ -413,7 +413,7 @@ int PSPSaveDialog::Update()
 		break;
 		case DS_SAVE_CONFIRM_OVERWRITE:
 			StartDraw();
-			DisplayTitle("Save");
+			
 
 			DisplaySaveIcon();
 			DisplaySaveDataInfo2();
@@ -450,7 +450,7 @@ int PSPSaveDialog::Update()
 		break;
 		case DS_SAVE_SAVING:
 			StartDraw();
-			DisplayTitle("Save");
+			
 
 			DisplaySaveIcon();
 			DisplaySaveDataInfo2();
@@ -461,7 +461,7 @@ int PSPSaveDialog::Update()
 		break;
 		case DS_SAVE_DONE:
 			StartDraw();
-			DisplayTitle("Save");
+			
 
 			DisplaySaveIcon();
 			DisplaySaveDataInfo2();
@@ -482,7 +482,7 @@ int PSPSaveDialog::Update()
 
 		case DS_LOAD_LIST_CHOICE:
 			StartDraw();
-			DisplayTitle("Load");
+			
 			DisplaySaveList();
 			DisplaySaveDataInfo1();
 
@@ -506,7 +506,7 @@ int PSPSaveDialog::Update()
 		break;
 		case DS_LOAD_LOADING:
 			StartDraw();
-			DisplayTitle("Load");
+			
 
 			DisplaySaveIcon();
 			DisplaySaveDataInfo2();
@@ -517,7 +517,7 @@ int PSPSaveDialog::Update()
 		break;
 		case DS_LOAD_DONE:
 			StartDraw();
-			DisplayTitle("Load");
+			
 
 			DisplaySaveIcon();
 			DisplaySaveDataInfo2();
@@ -537,7 +537,7 @@ int PSPSaveDialog::Update()
 		break;
 		case DS_LOAD_NODATA:
 			StartDraw();
-			DisplayTitle("Load");
+			
 
 			DisplayBack();
 
@@ -554,7 +554,7 @@ int PSPSaveDialog::Update()
 
 		case DS_DELETE_LIST_CHOICE:
 			StartDraw();
-			DisplayTitle("Delete");
+			
 			DisplaySaveList();
 			DisplaySaveDataInfo1();
 
@@ -575,7 +575,7 @@ int PSPSaveDialog::Update()
 		break;
 		case DS_DELETE_CONFIRM:
 			StartDraw();
-			DisplayTitle("Delete");
+			
 
 			DisplaySaveIcon();
 			DisplaySaveDataInfo2();
@@ -612,7 +612,7 @@ int PSPSaveDialog::Update()
 		break;
 		case DS_DELETE_DELETING:
 			StartDraw();
-			DisplayTitle("Delete");
+			
 
 			DisplayInfo("Deleting\nPlease Wait...");
 
@@ -620,7 +620,7 @@ int PSPSaveDialog::Update()
 		break;
 		case DS_DELETE_DONE:
 			StartDraw();
-			DisplayTitle("Delete");
+			
 
 			DisplayBack();
 
@@ -638,7 +638,7 @@ int PSPSaveDialog::Update()
 		break;
 		case DS_DELETE_NODATA:
 			StartDraw();
-			DisplayTitle("Delete");
+			
 
 			DisplayBack();
 

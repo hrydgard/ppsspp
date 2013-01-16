@@ -45,6 +45,7 @@ struct CoreParameter
 	std::string mountIso;  // If non-empty, and fileToStart is an ELF or PBP, will mount this ISO in the background.
 
 	bool startPaused;
+	bool disableG3Dlog;
 	bool enableDebugging;  // enables breakpoints and other time-consuming debugger features
 	bool printfEmuLog;  // writes "emulator:" logging to stdout
 	bool headLess;   // Try to avoid messageboxes etc
