@@ -1534,9 +1534,6 @@ void sceKernelExitDeleteThread()
 		t->nt.status = THREADSTATUS_DORMANT;
 		t->nt.exitStatus = PARAM(0);
 		__KernelFireThreadEnd(t);
-		// TODO: Why not?
-		//userMemory.Free(currentThread->stackBlock);
-		t->stackBlock = 0;
 
 		__KernelRemoveFromThreadQueue(t);
 		currentThread = 0;
@@ -1612,12 +1609,22 @@ int sceKernelTerminateDeleteThread(int threadno)
 		//TODO: remove from threadqueue!
 		INFO_LOG(HLE, "sceKernelTerminateDeleteThread(%i)", threadno);
 
-		//TODO: should we really reschedule here?
-		__KernelTriggerWait(WAITTYPE_THREADEND, threadno, SCE_KERNEL_ERROR_THREAD_TERMINATED, false);
-		hleReSchedule("termdeletethread");
+		u32 error;
+		Thread *t = kernelObjects.Get<Thread>(threadno, error);
+		if (t)
+		{
+			__KernelRemoveFromThreadQueue(t);
+			__KernelFireThreadEnd(t);
 
-		// TODO: Why not delete?
-		return 0; //kernelObjects.Destroy<Thread>(threadno));
+			//TODO: should we really reschedule here?
+			__KernelTriggerWait(WAITTYPE_THREADEND, threadno, SCE_KERNEL_ERROR_THREAD_TERMINATED, false);
+			hleReSchedule("termdeletethread");
+
+			return kernelObjects.Destroy<Thread>(threadno);
+		}
+
+		// TODO: Error when doesn't exist?
+		return 0;
 	}
 	else
 	{
