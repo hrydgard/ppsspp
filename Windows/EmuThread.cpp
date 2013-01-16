@@ -79,6 +79,7 @@ DWORD TheThread(LPVOID x)
 	coreParameter.pixelWidth = 480 * g_Config.iWindowZoom;
 	coreParameter.pixelHeight = 272 * g_Config.iWindowZoom;
 	coreParameter.startPaused = !g_Config.bAutoRun;
+	coreParameter.disableG3Dlog = g_Config.bDisableG3DLog;
 	coreParameter.useMediaEngine = false;
 
 	std::string error_string;
