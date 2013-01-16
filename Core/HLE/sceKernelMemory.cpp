@@ -19,6 +19,7 @@
 #include "../System.h"
 #include "../MIPS/MIPS.h"
 #include "../MemMap.h"
+#include "../../Core/CoreTiming.h"
 
 #include "sceKernel.h"
 #include "sceKernelThread.h"
@@ -29,6 +30,8 @@
 // STATE BEGIN
 BlockAllocator userMemory(256);
 BlockAllocator kernelMemory(256);
+
+static int vplWaitTimer = 0;
 // STATE END
 //////////////////////////////////////////////////////////////////////////
 
@@ -121,6 +124,8 @@ struct VPL : public KernelObject
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_VPLID; }
 	int GetIDType() const { return SCE_KERNEL_TMID_Vpl; }
 
+	VPL() : alloc(8) {}
+
 	virtual void DoState(PointerWrap &p)
 	{
 		p.Do(nv);
@@ -134,17 +139,23 @@ struct VPL : public KernelObject
 	BlockAllocator alloc;
 };
 
+void __KernelVplTimeout(u64 userdata, int cyclesLate);
+
 void __KernelMemoryInit()
 {
 	kernelMemory.Init(PSP_GetKernelMemoryBase(), PSP_GetKernelMemoryEnd()-PSP_GetKernelMemoryBase());
 	userMemory.Init(PSP_GetUserMemoryBase(), PSP_GetUserMemoryEnd()-PSP_GetUserMemoryBase());
 	INFO_LOG(HLE, "Kernel and user memory pools initialized");
+
+	vplWaitTimer = CoreTiming::RegisterEvent("VplTimeout", __KernelVplTimeout);
 }
 
 void __KernelMemoryDoState(PointerWrap &p)
 {
 	kernelMemory.DoState(p);
 	userMemory.DoState(p);
+	p.Do(vplWaitTimer);
+	CoreTiming::RestoreRegisterEvent(vplWaitTimer, "VplTimeout", __KernelVplTimeout);
 	p.DoMarker("sceKernelMemory");
 }
 
@@ -800,93 +811,123 @@ void sceKernelDeleteVpl()
 	}
 }
 
-void sceKernelAllocateVpl()
+// Returns false for invalid parameters (e.g. don't check callbacks, etc.)
+// Successful allocation is indicated by error == 0.
+bool __KernelAllocateVpl(SceUID uid, u32 size, u32 addrPtr, u32 &error, const char *funcname)
 {
-	SceUID id = PARAM(0);
-	DEBUG_LOG(HLE,"sceKernelAllocateVpl()");
-	u32 error;
-	VPL *vpl = kernelObjects.Get<VPL>(id, error);
+	VPL *vpl = kernelObjects.Get<VPL>(uid, error);
 	if (vpl)
 	{
-		u32 size = PARAM(1);
-		int timeOut = PARAM(3);
-		DEBUG_LOG(HLE,"sceKernelAllocateVpl(vpl=%i, size=%i, ptrout= %08x , timeout=%i)", id, size, PARAM(2), timeOut);
-		u32 addr = vpl->alloc.Alloc(size);
-		if (addr != (u32)-1)
+		if (size == 0 || size > (u32) vpl->nv.poolSize)
 		{
-			Memory::Write_U32(addr, PARAM(2));
-			RETURN(0);
+			WARN_LOG(HLE, "%s(vpl=%i, size=%i, ptrout=%08x): invalid size", funcname, uid, size, addrPtr);
+			error = SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE;
+			return false;
+		}
+
+		DEBUG_LOG(HLE, "%s(vpl=%i, size=%i, ptrout=%08x)", funcname, uid, size, addrPtr);
+		// Padding (normally used to track the allocation.)
+		u32 allocSize = size + 8;
+		u32 addr = vpl->alloc.Alloc(allocSize, true);
+		if (addr != (u32) -1)
+		{
+			Memory::Write_U32(addr, addrPtr);
+			error =  0;
 		}
 		else
-		{
-			ERROR_LOG(HLE, "FAILURE");
-			RETURN(-1);
-		}
+			error = SCE_KERNEL_ERROR_NO_MEMORY;
+
+		return true;
 	}
-	else
-	{
-		RETURN(error);
-	}
-	RETURN(0);
+
+	return false;
 }
 
-void sceKernelAllocateVplCB()
+void __KernelVplTimeout(u64 userdata, int cyclesLate)
 {
-	SceUID id = PARAM(0);
+	SceUID threadID = (SceUID) userdata;
+
 	u32 error;
-	VPL *vpl = kernelObjects.Get<VPL>(id, error);
+	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
+	if (timeoutPtr != 0)
+		Memory::Write_U32(0, timeoutPtr);
+
+	SceUID uid = __KernelGetWaitID(threadID, WAITTYPE_VPL, error);
+	VPL *vpl = kernelObjects.Get<VPL>(uid, error);
 	if (vpl)
 	{
-		u32 size = PARAM(1);
-		int timeOut = PARAM(3);
-		DEBUG_LOG(HLE,"sceKernelAllocateVplCB(vpl=%i, size=%i, ptrout= %08x , timeout=%i)", id, size, PARAM(2), timeOut);
-		u32 addr = vpl->alloc.Alloc(size);
-		if (addr != (u32)-1)
-		{
-			Memory::Write_U32(addr, PARAM(2));
-			RETURN(0);
-		}
-		else
-		{
-			ERROR_LOG(HLE, "sceKernelAllocateVplCB FAILURE");
-			__KernelCheckCallbacks();
-			RETURN(-1);
-		}
+		// This thread isn't waiting anymore, but we'll remove it from waitingThreads later.
+		// The reason is, if it times out, but what it was waiting on is DELETED prior to it
+		// actually running, it will get a DELETE result instead of a TIMEOUT.
+		// So, we need to remember it or we won't be able to mark it DELETE instead later.
+		vpl->nv.numWaitThreads--;
 	}
-	else
-	{
-		RETURN(error);
-	}
-	RETURN(0);
+
+	__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
 }
 
-void sceKernelTryAllocateVpl()
+void __KernelSetVplTimeout(u32 timeoutPtr)
 {
-	SceUID id = PARAM(0);
+	if (timeoutPtr == 0 || vplWaitTimer == 0)
+		return;
+
+	int micro = (int) Memory::Read_U32(timeoutPtr);
+
+	// This happens to be how the hardware seems to time things.
+	if (micro <= 5)
+		micro = 10;
+	// Yes, this 7 is reproducible.  6 is (a lot) longer than 7.
+	else if (micro == 7)
+		micro = 15;
+	else if (micro <= 215)
+		micro = 250;
+
+	CoreTiming::ScheduleEvent(usToCycles(micro), vplWaitTimer, __KernelGetCurThread());
+}
+
+int sceKernelAllocateVpl(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr)
+{
 	u32 error;
-	VPL *vpl = kernelObjects.Get<VPL>(id, error);
-	if (vpl)
+	if (__KernelAllocateVpl(uid, size, addrPtr, error, __FUNCTION__))
 	{
-		u32 size = PARAM(1);
-		int timeOut = PARAM(3);
-		DEBUG_LOG(HLE,"sceKernelAllocateVplCB(vpl=%i, size=%i, ptrout= %08x , timeout=%i)", id, size, PARAM(2), timeOut);
-		u32 addr = vpl->alloc.Alloc(size);
-		if (addr != (u32)-1)
+		if (error == SCE_KERNEL_ERROR_NO_MEMORY)
 		{
-			Memory::Write_U32(addr, PARAM(2));
-			RETURN(0);
-		}
-		else
-		{
-			ERROR_LOG(HLE, "sceKernelTryAllocateVpl FAILURE");
-			RETURN(-1);
+			VPL *vpl = kernelObjects.Get<VPL>(uid, error);
+			if (vpl)
+				vpl->nv.numWaitThreads++;
+
+			__KernelSetVplTimeout(timeoutPtr);
+			__KernelWaitCurThread(WAITTYPE_VPL, uid, size, timeoutPtr, false);
 		}
 	}
-	else
+	return error;
+}
+
+int sceKernelAllocateVplCB(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr)
+{
+	u32 error;
+	if (__KernelAllocateVpl(uid, size, addrPtr, error, __FUNCTION__))
 	{
-		RETURN(error);
+		hleCheckCurrentCallbacks();
+
+		if (error == SCE_KERNEL_ERROR_NO_MEMORY)
+		{
+			VPL *vpl = kernelObjects.Get<VPL>(uid, error);
+			if (vpl)
+				vpl->nv.numWaitThreads++;
+
+			__KernelSetVplTimeout(timeoutPtr);
+			__KernelWaitCurThread(WAITTYPE_VPL, uid, size, timeoutPtr, true);
+		}
 	}
-	RETURN(0);
+	return error;
+}
+
+int sceKernelTryAllocateVpl(SceUID uid, u32 size, u32 addrPtr)
+{
+	u32 error;
+	__KernelAllocateVpl(uid, size, addrPtr, error, __FUNCTION__);
+	return error;
 }
 
 void sceKernelFreeVpl()
@@ -927,13 +968,13 @@ void sceKernelReferVplStatus()
 		DEBUG_LOG(HLE,"sceKernelReferVplStatus(%i, %08x)", id, PARAM(1));
 		v->nv.freeSize = v->alloc.GetTotalFreeBytes();
 		Memory::WriteStruct(PARAM(1), &v->nv);
+		RETURN(0);
 	}
 	else
 	{
 		ERROR_LOG(HLE,"Error %08x", error);
 		RETURN(error);
 	}
-	RETURN(0);
 }
 
 
