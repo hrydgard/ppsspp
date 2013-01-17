@@ -1793,6 +1793,11 @@ u32 __KernelGetThreadPrio(SceUID id)
 	return 0;
 }
 
+bool __KernelThreadSortPriority(SceUID thread1, SceUID thread2)
+{
+	return __KernelGetThreadPrio(thread1) < __KernelGetThreadPrio(thread2);
+}
+
 //////////////////////////////////////////////////////////////////////////
 // WAIT/SLEEP ETC
 //////////////////////////////////////////////////////////////////////////
