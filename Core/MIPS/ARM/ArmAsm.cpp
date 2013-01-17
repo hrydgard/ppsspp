@@ -15,11 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "ArmEmitter.h"
 
 #include "../../MemMap.h"
 
 #include "../MIPS.h"
+#include "ArmEmitter.h"
 #include "../../CoreTiming.h"
 #include "MemoryUtil.h"
 

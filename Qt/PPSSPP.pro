@@ -32,6 +32,7 @@ SOURCES += ../android/jni/EmuScreen.cpp \
 
 INCLUDEPATH += .. ../Common ../native
 
+# Temporarily only use new UI for Linux desktop
 linux:!mobile_platform {
 	SOURCES += mainwindow.cpp \
 		debugger_disasm.cpp \
@@ -49,6 +50,8 @@ linux:!mobile_platform {
 		ctrldisasmview.h \
 		ctrlregisterlist.h \
 		controls.h
+} else {
+	SOURCES += ../android/jni/NativeApp.cpp
 }
 
 # Packaging
