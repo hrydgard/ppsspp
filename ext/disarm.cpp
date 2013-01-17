@@ -310,7 +310,7 @@ instr_disassemble(word instr, address addr, pDisOptions opts) {
 
   result.undefined =
   result.badbits =
-  result.oddbits =
+  result.oddbits = 0;
   result.is_SWI = 0;
   result.target_type = target_None;
   result.offset = 0x80000000;
@@ -947,6 +947,7 @@ const char *ArmRegName(int r) {
 }
 void ArmDis(unsigned int addr, unsigned int w, char *output) {
 	pInstruction instr = instr_disassemble(w, addr, &options);
+	char temp[256];
 	sprintf(output, "%08x\t%s", w, instr->text);
 	if (instr->undefined || instr->badbits || instr->oddbits) {
 		if (instr->undefined) sprintf(output, " [undefined instr %08x]", w);
@@ -954,7 +955,7 @@ void ArmDis(unsigned int addr, unsigned int w, char *output) {
 
 		// HUH? LDR and STR gets this a lot
 		// strcat(output, " ? (extra bits)");  
-		// if (instr->oddbits) sprintf(output, " [unexpected bits %08x]", w);
+		if (instr->oddbits) sprintf(temp, " [unexpected bits %08x]", w), strcat(output, temp);
 	}
 	// zap tabs
 	while (*output) {
