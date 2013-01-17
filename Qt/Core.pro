@@ -6,7 +6,7 @@ CONFIG += staticlib
 
 include(Settings.pri)
 
-INCLUDEPATH += ../native ../Common ../
+INCLUDEPATH += ../native ../Core/MIPS ../Common ../
 
 arm {
 	SOURCES += ../Core/MIPS/ARM/ArmAsm.cpp \ #CoreARM
