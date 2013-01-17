@@ -122,7 +122,7 @@ public:
 
 	u32 pc;
 	u32 nextPC;
-	u32 downcount;  // This really doesn't belong here, it belongs in CoreTiming. But you gotta do what you gotta do, this needs to be reachable in the ARM JIT.
+	int downcount;  // This really doesn't belong here, it belongs in CoreTiming. But you gotta do what you gotta do, this needs to be reachable in the ARM JIT.
 
 	u32 hi;
 	u32 lo;
