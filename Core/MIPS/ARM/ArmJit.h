@@ -18,11 +18,10 @@
 #pragma once
 
 #include "../../../Globals.h"
-#include "ArmAsm.h"
 
-#include <ArmEmitter.h>
 #include "ArmJitCache.h"
 #include "ArmRegCache.h"
+#include "ArmAsm.h"
 
 namespace MIPSComp
 {

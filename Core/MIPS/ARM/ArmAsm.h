@@ -18,8 +18,8 @@
 #ifndef _JIT64ASM_H
 #define _JIT64ASM_H
 
-#include <ArmEmitter.h>
 #include "../MIPS.h"
+#include <ArmEmitter.h>
 
 // Runtime generated assembly routines, like the Dispatcher.
 

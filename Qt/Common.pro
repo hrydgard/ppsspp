@@ -7,19 +7,18 @@ CONFIG += staticlib
 include(Settings.pri)
 
 arm {
-	SOURCES +=	../Common/ArmABI.cpp \
+	SOURCES += ../Common/ArmCPUDetect.cpp \
 		../Common/ArmEmitter.cpp \
-		../Common/ThunkARM.cpp
-	HEADERS +=	../Common/ArmABI.h \
-		../Common/ArmEmitter.h
+		../Common/ArmThunk.cpp
+	HEADERS += ../Common/ArmEmitter.h
 }
 x86 {
-	SOURCES +=	../Common/ABI.cpp \
+	SOURCES += ../Common/ABI.cpp \
 		../Common/CPUDetect.cpp \
 		../Common/Thunk.cpp \
 		../Common/x64Analyzer.cpp \
 		../Common/x64Emitter.cpp
-	HEADERS += 	../Common/ABI.h \
+	HEADERS +=  ../Common/ABI.h \
 		../Common/CPUDetect.h \
 		../Common/Thunk.h \
 		../Common/x64Analyzer.h \
@@ -30,7 +29,7 @@ win32 {
 	HEADERS += ../Common/stdafx.h
 }
 
-SOURCES +=		../Common/ColorUtil.cpp \
+SOURCES += ../Common/ColorUtil.cpp \
 	../Common/ConsoleListener.cpp \
 	../Common/Crypto/aes_cbc.cpp \
 	../Common/Crypto/aes_core.cpp \
@@ -54,7 +53,7 @@ SOURCES +=		../Common/ColorUtil.cpp \
 	../Common/Thread.cpp \
 	../Common/Timer.cpp \
 	../Common/Version.cpp
-HEADERS +=		../Common/ColorUtil.h \
+HEADERS += ../Common/ColorUtil.h \
 	../Common/ConsoleListener.h \
 	../Common/Crypto/md5.h \
 	../Common/Crypto/sha1.h \

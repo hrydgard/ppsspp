@@ -16,8 +16,6 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ArmJit.h"
-#include "ArmRegCache.h"
-#include "ArmEmitter.h"
 
 using namespace MIPSAnalyst;
 #define _RS ((op>>21) & 0x1F)

@@ -17,9 +17,9 @@
 
 #pragma once
 
-#include "ArmEmitter.h"
 #include "../MIPS.h"
 #include "../MIPSAnalyst.h"
+#include "ArmEmitter.h"
 
 using namespace ArmGen;
 
@@ -58,6 +58,8 @@ struct RegMIPS {
 	// If loc == ML_MEM, it's back in its location in the CPU context struct.
 };
 
+#undef MAP_DIRTY
+#undef MAP_NOINIT
 // Initing is the default so the flag is reversed.
 enum {
 	MAP_DIRTY = 1,
