@@ -42,6 +42,9 @@
 
 #define ERROR_MEMSTICK_DEVCTL_BAD_PARAMS         0x80220081
 #define ERROR_MEMSTICK_DEVCTL_TOO_MANY_CALLBACKS 0x80220082
+#define ERROR_KERNEL_BAD_FILE_DESCRIPTOR		 0x80020323
+
+#define PSP_DEV_TYPE_ALIAS 0x20
 
 /*
 
@@ -68,8 +71,8 @@ umd01: block access - umd
 #define O_RDWR			0x0003
 #define O_NBLOCK		0x0010
 #define O_APPEND		0x0100
-#define O_CREAT		 0x0200
-#define O_TRUNC		 0x0400
+#define O_CREAT			0x0200
+#define O_TRUNC			0x0400
 #define O_NOWAIT		0x8000
 
 
@@ -84,6 +87,7 @@ u32 defParam = 0;
 #define SCE_STM_FDIR 0x1000
 #define SCE_STM_FREG 0x2000
 #define SCE_STM_FLNK 0x4000
+
 enum {
 	TYPE_DIR=0x10,
 	TYPE_FILE=0x20
@@ -122,7 +126,7 @@ struct dirent {
 
 class FileNode : public KernelObject {
 public:
-	FileNode() : callbackID(0), callbackArg(0), asyncResult(0), pendingAsyncResult(false), sectorBlockMode(false) {}
+	FileNode() : callbackID(0), callbackArg(0), asyncResult(0), closePending(false), pendingAsyncResult(false), sectorBlockMode(false) {}
 	~FileNode() {
 		pspFileSystem.CloseFile(handle);
 	}
@@ -140,6 +144,7 @@ public:
 		p.Do(callbackID);
 		p.Do(callbackArg);
 		p.Do(asyncResult);
+		p.Do(closePending);
 		p.Do(pendingAsyncResult);
 		p.Do(sectorBlockMode);
 		p.DoMarker("File");
@@ -155,6 +160,7 @@ public:
 
 	bool pendingAsyncResult;
 	bool sectorBlockMode;
+	bool closePending;
 
 	PSPFileInfo info;
 };
@@ -203,7 +209,7 @@ void __IoInit() {
 	pspFileSystem.Mount("fatms:", memstick);
 	pspFileSystem.Mount("flash0:", flash);
 	pspFileSystem.Mount("flash1:", flash);
-
+	
 	__KernelListenThreadEnd(&TellFsThreadEnded);
 }
 
@@ -229,9 +235,31 @@ u32 __IoGetFileHandleFromId(u32 id, u32 &outError)
 	return f->handle;
 }
 
-u32 sceIoAssign(const char *aliasname, const char *physname, const char *devname, u32 flag) {
-	ERROR_LOG(HLE, "UNIMPL sceIoAssign(%s, %s, %s, %08x, ...)", aliasname,
-			physname, devname, flag);
+u32 sceIoAssign(u32 alias_addr, u32 physical_addr, u32 filesystem_addr, int mode, u32 arg_addr, int argSize) 
+{
+	std::string alias = Memory::GetCharPointer(alias_addr);
+	std::string physical_dev = Memory::GetCharPointer(physical_addr);
+	std::string filesystem_dev = Memory::GetCharPointer(filesystem_addr);
+	std::string perm;
+
+	switch (mode) {
+		case 0:
+			perm = "IOASSIGN_RDWR";
+			break;
+		case 1:
+			perm = "IOASSIGN_RDONLY";
+			break;
+		default:
+			perm = "unhandled " + mode;
+			break;
+	}
+	DEBUG_LOG(HLE, "sceIoAssign(%s, %s, %s, %s, %08x, %i)", alias.c_str(), physical_dev.c_str(), filesystem_dev.c_str(), perm.c_str(), arg_addr, argSize);
+	return 0;
+}
+
+u32 sceIoUnassign(const char *alias)  
+{
+	DEBUG_LOG(HLE, "sceIoUnassign(%s)", alias);
 	return 0;
 }
 
@@ -283,8 +311,7 @@ u32 sceIoGetstat(const char *filename, u32 addr) {
 		__IoGetStat(&stat, info);
 		if (Memory::IsValidAddress(addr)) {
 			Memory::WriteStruct(addr, &stat);
-			DEBUG_LOG(HLE, "sceIoGetstat(%s, %08x) : sector = %08x", filename, addr,
-				info.startSector);
+			DEBUG_LOG(HLE, "sceIoGetstat(%s, %08x) : sector = %08x", filename, addr, info.startSector);
 			return 0;
 		} else {
 			ERROR_LOG(HLE, "sceIoGetstat(%s, %08x) : bad address", filename, addr);
@@ -308,10 +335,8 @@ u32 sceIoRead(int id, u32 data_addr, int size) {
 	if (f) {
 		if (Memory::IsValidAddress(data_addr)) {
 			u8 *data = (u8*) Memory::GetPointer(data_addr);
-			f->asyncResult = (u32) pspFileSystem.ReadFile(f->handle, data,
-					size);
-			DEBUG_LOG(HLE, "%i=sceIoRead(%d, %08x , %i)", f->asyncResult, id,
-					data_addr, size);
+			f->asyncResult = (u32) pspFileSystem.ReadFile(f->handle, data, size);
+			DEBUG_LOG(HLE, "%i=sceIoRead(%d, %08x , %i)", f->asyncResult, id, data_addr, size);
 			return f->asyncResult;
 		} else {
 			ERROR_LOG(HLE, "sceIoRead Reading into bad pointer %08x", data_addr);
@@ -323,7 +348,7 @@ u32 sceIoRead(int id, u32 data_addr, int size) {
 	}
 }
 
-u32 sceIoWrite(int id, void *data_ptr, int size) //(int fd, void *data, int size);
+u32 sceIoWrite(int id, void *data_ptr, int size) 
 {
 	if (id == 2) {
 		//stderr!
@@ -351,6 +376,44 @@ u32 sceIoWrite(int id, void *data_ptr, int size) //(int fd, void *data, int size
 	}
 }
 
+u32 sceIoWriteAsync(int id, void *data_ptr, int size) 
+{
+	DEBUG_LOG(HLE, "sceIoWriteAsync(%d)", id);
+	sceIoWrite(id, data_ptr, size);
+	__IoCompleteAsyncIO(id);
+	return 0;
+}
+
+u32 sceIoGetDevType(int id) 
+{
+	u32 error;
+	FileNode *f = kernelObjects.Get < FileNode > (id, error);
+	int result;
+	if (f) 
+		result = PSP_DEV_TYPE_ALIAS;
+	else {
+		ERROR_LOG(HLE, "sceIoGetDevTyp: unknown id %s", id);
+		result = ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
+	}
+
+	return result;
+}
+
+u32 sceIoCancel(int id) 
+{
+	u32 error;
+	FileNode *f = kernelObjects.Get < FileNode > (id, error);
+	int result;
+	if (f) 
+		f->closePending = true;
+	else {
+		ERROR_LOG(HLE, "sceIoCancel: unknown id %s", id);
+		result = ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
+	}
+
+	return result;
+}
+
 s64 sceIoLseek(int id, s64 offset, int whence) {
 	u32 error;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
@@ -367,14 +430,11 @@ s64 sceIoLseek(int id, s64 offset, int whence) {
 			break;
 		}
 
-		f->asyncResult = (u32) pspFileSystem.SeekFile(f->handle, (s32) offset,
-				seek);
-		DEBUG_LOG(HLE, "%i = sceIoLseek(%d,%i,%i)", f->asyncResult, id,
-				(int) offset, whence);
+		f->asyncResult = (u32) pspFileSystem.SeekFile(f->handle, (s32) offset, seek);
+		DEBUG_LOG(HLE, "%i = sceIoLseek(%d,%i,%i)", f->asyncResult, id, (int) offset, whence);
 		return f->asyncResult;
 	} else {
-		ERROR_LOG(HLE, "sceIoLseek(%d, %i, %i) - ERROR: invalid file", id,
-				(int) offset, whence);
+		ERROR_LOG(HLE, "sceIoLseek(%d, %i, %i) - ERROR: invalid file", id, (int) offset, whence);
 		return error;
 	}
 }
@@ -397,8 +457,7 @@ u32 sceIoLseek32(int id, int offset, int whence) {
 			break;
 		}
 
-		f->asyncResult = (u32) pspFileSystem.SeekFile(f->handle, (s32) offset,
-				seek);
+		f->asyncResult = (u32) pspFileSystem.SeekFile(f->handle, (s32) offset, seek);
 		return f->asyncResult;
 	} else {
 		ERROR_LOG(HLE, "sceIoLseek32 ERROR: no file open");
@@ -423,8 +482,7 @@ u32 sceIoOpen(const char* filename, int flags, int mode) {
 	if (h == 0)
 	{
 		ERROR_LOG(HLE,
-				"ERROR_ERRNO_FILE_NOT_FOUND=sceIoOpen(%s, %08x, %08x) - file not found",
-				filename, flags, mode);
+				"ERROR_ERRNO_FILE_NOT_FOUND=sceIoOpen(%s, %08x, %08x) - file not found", filename, flags, mode);
 		return ERROR_ERRNO_FILE_NOT_FOUND;
 	}
 
@@ -467,8 +525,9 @@ u32 sceIoRmdir(const char *dirname) {
 		return -1;
 }
 
-void sceIoSync() {
-	DEBUG_LOG(HLE, "UNIMPL sceIoSync not implemented");
+u32 sceIoSync(const char *devicename, int flag) {
+	DEBUG_LOG(HLE, "UNIMPL sceIoSync(%s, %i)", devicename, flag);
+	return 0;
 }
 
 struct DeviceSize {
@@ -481,7 +540,7 @@ struct DeviceSize {
 
 u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, int outLen) {
 	if (strcmp(name, "emulator:")) {
-		DEBUG_LOG(HLE,"sceIoDevctl(\"%s\", %08x, %08x, %i, %08x, %i)", name, cmd,argAddr,argLen,outPtr,outLen);
+		DEBUG_LOG(HLE,"sceIoDevctl(\"%s\", %08x, %08x, %i, %08x, %i)", name, cmd, argAddr, argLen, outPtr, outLen);
 	}
 
 	// UMD checks
@@ -717,20 +776,15 @@ int sceIoChangeAsyncPriority(int id, int priority)
 	return 0;
 }
 
-u32 __IoClose(SceUID actedFd, int closedFd)
-{
-	DEBUG_LOG(HLE, "Deferred IoClose(%d, %d)", actedFd, closedFd);
-	__IoCompleteAsyncIO(closedFd);
-	return kernelObjects.Destroy < FileNode > (closedFd);
-}
-
-int sceIoCloseAsync(SceUID id)
+int sceIoCloseAsync(int id)
 {
 	DEBUG_LOG(HLE, "sceIoCloseAsync(%d)", id);
 	//sceIoClose();
 	// TODO: Not sure this is a good solution.  Seems like you can defer one per fd.
-	defAction = &__IoClose;
-	defParam = id;
+	//defAction = &__IoClose;
+	//defParam = id;
+	sceIoClose(id);
+	__IoCompleteAsyncIO(id);
 	return 0;
 }
 
@@ -743,8 +797,7 @@ u32 sceIoLseekAsync(int id, s64 offset, int whence)
 
 u32 sceIoSetAsyncCallback(int id, u32 clbckId, u32 clbckArg)
 {
-	DEBUG_LOG(HLE, "sceIoSetAsyncCallback(%d, %i, %08x)", id, clbckId,
-			clbckArg);
+	DEBUG_LOG(HLE, "sceIoSetAsyncCallback(%d, %i, %08x)", id, clbckId, clbckArg);
 
 	u32 error;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
@@ -794,8 +847,7 @@ u32 sceIoGetAsyncStat(int id, u32 poll, u32 address)
 	if (f)
 	{
 		Memory::Write_U64(f->asyncResult, address);
-		DEBUG_LOG(HLE, "%i = sceIoGetAsyncStat(%i, %i, %08x) (HACK)",
-				(u32) f->asyncResult, id, poll, address);
+		DEBUG_LOG(HLE, "%i = sceIoGetAsyncStat(%i, %i, %08x) (HACK)", (u32) f->asyncResult, id, poll, address);
 		if (!poll)
 			hleReSchedule("io waited");
 		return 0; //completed
@@ -817,8 +869,7 @@ int sceIoWaitAsync(int id, u32 address) {
 			defAction = 0;
 		}
 		Memory::Write_U64(res, address);
-		DEBUG_LOG(HLE, "%i = sceIoWaitAsync(%i, %08x) (HACK)", (u32) res, id,
-				address);
+		DEBUG_LOG(HLE, "%i = sceIoWaitAsync(%i, %08x) (HACK)", (u32) res, id, address);
 		hleReSchedule("io waited");
 		return 0; //completed
 	} else {
@@ -838,14 +889,12 @@ int sceIoWaitAsyncCB(int id, u32 address) {
 			defAction = 0;
 		}
 		Memory::Write_U64(res, address);
-		DEBUG_LOG(HLE, "%i = sceIoWaitAsyncCB(%i, %08x) (HACK)", (u32) res, id,
-				address);
+		DEBUG_LOG(HLE, "%i = sceIoWaitAsyncCB(%i, %08x) (HACK)", (u32) res, id,	address);
 		hleCheckCurrentCallbacks();
 		hleReSchedule(true, "io waited");
 		return 0; //completed
 	} else {
-		ERROR_LOG(HLE, "ERROR - sceIoWaitAsyncCB waiting for invalid id %i",
-				id);
+		ERROR_LOG(HLE, "ERROR - sceIoWaitAsyncCB waiting for invalid id %i", id);
 		return -1;
 	}
 }
@@ -860,8 +909,7 @@ u32 sceIoPollAsync(int id, u32 address) {
 			defAction = 0;
 		}
 		Memory::Write_U64(res, address);
-		DEBUG_LOG(HLE, "%i = sceIoPollAsync(%i, %08x) (HACK)", (u32) res, id,
-				address);
+		DEBUG_LOG(HLE, "%i = sceIoPollAsync(%i, %08x) (HACK)", (u32) res, id, address);
 		return 0; //completed
 	} else {
 		ERROR_LOG(HLE, "ERROR - sceIoPollAsync waiting for invalid id %i", id);
@@ -915,8 +963,7 @@ u32 sceIoDread(int id, u32 dirent_addr) {
 	DirListing *dir = kernelObjects.Get<DirListing>(id, error);
 	if (dir) {
 		if (dir->index == (int) dir->listing.size()) {
-			DEBUG_LOG(HLE, "sceIoDread( %d %08x ) - end of the line", id,
-					dirent_addr);
+			DEBUG_LOG(HLE, "sceIoDread( %d %08x ) - end of the line", id, dirent_addr);
 			return 0;
 		}
 
@@ -928,14 +975,12 @@ u32 sceIoDread(int id, u32 dirent_addr) {
 
 		strncpy(entry->d_name, info.name.c_str(), 256);
 		entry->d_private = 0xC0DEBABE;
-		DEBUG_LOG(HLE, "sceIoDread( %d %08x ) = %s", id, dirent_addr,
-				entry->d_name);
+		DEBUG_LOG(HLE, "sceIoDread( %d %08x ) = %s", id, dirent_addr, entry->d_name);
 
 		dir->index++;
 		return (u32)(dir->listing.size() - dir->index + 1);
 	} else {
-		DEBUG_LOG(HLE, "sceIoDread - invalid listing %i, error %08x", id,
-				error);
+		DEBUG_LOG(HLE, "sceIoDread - invalid listing %i, error %08x", id, error);
 		return -1;  // TODO
 	}
 }
@@ -961,7 +1006,8 @@ u32 sceIoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 ou
 	// and does not belong in this file. Same thing with Devctl.
 
 	switch (cmd) {
-	case 0x04100001:  // Define decryption key (amctrl.prx DRM)
+	// Define decryption key (amctrl.prx DRM)
+	case 0x04100001:  
 		if (Memory::IsValidAddress(indataPtr) && inlen == 16) {
 			u8 keybuf[16];
 			memcpy(keybuf, Memory::GetPointer(indataPtr), 16);
@@ -969,7 +1015,23 @@ u32 sceIoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 ou
 		}
 		break;
 
-	// Get start sector of file.
+	// Get UMD sector size
+	case 0x01020003:
+		INFO_LOG(HLE, "sceIoIoCtl: Asked for sector size of file %i", id);
+		if (Memory::IsValidAddress(outdataPtr) && outlen == 4) {
+			Memory::Write_U32(f->info.sectorSize, outdataPtr);
+		}
+		break;
+
+	// Get UMD file pointer
+	case 0x01020004:
+		INFO_LOG(HLE, "sceIoIoCtl: Asked for fpointer of file %i", id);
+		if (Memory::IsValidAddress(outdataPtr) && outlen >= 4) {
+			Memory::Write_U32(f->info.fpointer, outdataPtr);
+		}
+		break;
+
+	// Get UMD file start sector .
 	case 0x01020006:
 		INFO_LOG(HLE, "sceIoIoCtl: Asked for start sector of file %i", id);
 		if (Memory::IsValidAddress(outdataPtr) && outlen >= 4) {
@@ -977,12 +1039,11 @@ u32 sceIoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 ou
 		}
 		break;
 
-	// Get size in bytes of file.
+	// Get UMD file size in bytes.
 	case 0x01020007:
 		INFO_LOG(HLE, "sceIoIoCtl: Asked for size of file %i", id);
 		if (Memory::IsValidAddress(outdataPtr) && outlen >= 8) {
-			s64 size = f->info.size;
-			Memory::Write_U64(size, outdataPtr);
+			Memory::Write_U64(f->info.size, outdataPtr);
 		}
 		break;
 
@@ -992,6 +1053,14 @@ u32 sceIoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 ou
 	}
 
   return 0;
+}
+
+u32 sceIoIoctlAsync(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen)
+{
+	DEBUG_LOG(HLE, "sceIoIoctlAsync(%08x, %08x, %08x, %08x, %08x, %08x)", id, cmd, indataPtr, inlen, outdataPtr, outlen);
+	sceIoIoctl(id, cmd, indataPtr, inlen, outdataPtr, outlen);
+	__IoCompleteAsyncIO(id);
+	return 0;
 }
 
 KernelObject *__KernelFileNodeObject() {
@@ -1006,14 +1075,14 @@ const HLEFunction IoFileMgrForUser[] = {
 	{ 0xb29ddf9c, &WrapU_C<sceIoDopen>, "sceIoDopen" },
 	{ 0xe3eb004c, &WrapU_IU<sceIoDread>, "sceIoDread" },
 	{ 0xeb092469, &WrapU_I<sceIoDclose>, "sceIoDclose" },
-	{ 0xe95a012b, 0, "sceIoIoctlAsync" },
+	{ 0xe95a012b, &WrapU_UUUUUU<sceIoIoctlAsync>, "sceIoIoctlAsync" },
 	{ 0x63632449, &WrapU_UUUUUU<sceIoIoctl>, "sceIoIoctl" },
 	{ 0xace946e8, &WrapU_CU<sceIoGetstat>, "sceIoGetstat" },
 	{ 0xb8a740f4, 0, "sceIoChstat" },
 	{ 0x55f4717d, &WrapU_C<sceIoChdir>, "sceIoChdir" },
-	{ 0x08bd7374, 0, "sceIoGetDevType" },
-	{ 0xB2A628C1, &WrapU_CCCU<sceIoAssign>, "sceIoAssign" },
-	{ 0xe8bc6571, 0, "sceIoCancel" },
+	{ 0x08bd7374, &WrapU_I<sceIoGetDevType>, "sceIoGetDevType" },
+	{ 0xB2A628C1, &WrapU_UUUIUI<sceIoAssign>, "sceIoAssign" },
+	{ 0xe8bc6571, &WrapU_I<sceIoCancel>, "sceIoCancel" },
 	{ 0xb293727f, &WrapI_II<sceIoChangeAsyncPriority>, "sceIoChangeAsyncPriority" },
 	{ 0x810C4BC3, &WrapU_I<sceIoClose>, "sceIoClose" }, //(int fd);
 	{ 0xff5940b6, &WrapI_I<sceIoCloseAsync>, "sceIoCloseAsync" },
@@ -1033,10 +1102,10 @@ const HLEFunction IoFileMgrForUser[] = {
 	{ 0x779103A0, &WrapU_CC<sceIoRename>, "sceIoRename" }, //(const char *oldname, const char *newname);
 	{ 0x1117C65F, &WrapU_C<sceIoRmdir>, "sceIoRmdir" }, //(const char *dir);
 	{ 0xA12A0514, &WrapU_IUU<sceIoSetAsyncCallback>, "sceIoSetAsyncCallback" },
-	{ 0xab96437f, sceIoSync, "sceIoSync" },
-	{ 0x6d08a871, 0, "sceIoUnassign" },
+	{ 0xab96437f, &WrapU_CI<sceIoSync>, "sceIoSync" },
+	{ 0x6d08a871, &WrapU_C<sceIoUnassign>, "sceIoUnassign" },
 	{ 0x42EC03AC, &WrapU_IVI<sceIoWrite>, "sceIoWrite" }, //(int fd, void *data, int size);
-	{ 0x0facab19, 0, "sceIoWriteAsync" },
+	{ 0x0facab19, &WrapU_IVI<sceIoWriteAsync>, "sceIoWriteAsync" },
 	{ 0x35dbd746, &WrapI_IU<sceIoWaitAsyncCB>, "sceIoWaitAsyncCB" },
 	{ 0xe23eec33, &WrapI_IU<sceIoWaitAsync>, "sceIoWaitAsync" },
 };

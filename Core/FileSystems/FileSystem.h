@@ -68,6 +68,8 @@ struct PSPFileInfo
 		p.Do(isOnSectorSystem);
 		p.Do(startSector);
 		p.Do(numSectors);
+		p.Do(fpointer);
+		p.Do(sectorSize);
 		p.DoMarker("PSPFileInfo");
 	}
 
@@ -82,6 +84,8 @@ struct PSPFileInfo
 	bool isOnSectorSystem;
 	u32 startSector;
 	u32 numSectors;
+	u32 fpointer;
+	u32 sectorSize;
 };
 
 
