@@ -41,14 +41,24 @@
 
 namespace MIPSComp
 {
-	void ReadMemSafe(u32 addr, int preg, u32 offset)
+	static void ReadMemSafe32(u32 addr, int preg, u32 offset)
 	{
 		currentMIPS->r[preg] = Memory::Read_U32(addr + offset);
 	}
 
-	void WriteMemSafe(u32 addr, int preg, u32 offset)
+	static void ReadMemSafe16(u32 addr, int preg, u32 offset)
+	{
+		currentMIPS->r[preg] = Memory::Read_U16(addr + offset);
+	}
+
+	static void WriteMemSafe32(u32 addr, int preg, u32 offset)
 	{
 		Memory::Write_U32(currentMIPS->r[preg], addr + offset);
+	}
+
+	static void WriteMemSafe16(u32 addr, int preg, u32 offset)
+	{
+		Memory::Write_U16(currentMIPS->r[preg], addr + offset);
 	}
 
 	void Jit::Comp_ITypeMem(u32 op)
@@ -65,6 +75,29 @@ namespace MIPSComp
 		switch (o)
 		{
 		case 37: //R(rt) = ReadMem16(addr); break; //lhu
+			if (!g_Config.bFastMemory)
+			{
+				FlushAll();
+				ABI_CallFunctionACC((void *) &ReadMemSafe16, gpr.R(rs), rt, offset);
+			}
+			else
+			{
+				gpr.Lock(rt, rs);
+				gpr.BindToRegister(rt, rt == rs, true);
+#ifdef _M_IX86
+				MOV(32, R(EAX), gpr.R(rs));
+				AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
+				MOV(32, gpr.R(rt), Imm32(0));
+				MOV(16, gpr.R(rt), MDisp(EAX, (u32)Memory::base + offset));
+#else
+				MOV(32, R(EAX), gpr.R(rs));
+				MOV(32, gpr.R(rt), Imm32(0));
+				MOV(16, gpr.R(rt), MComplex(RBX, EAX, SCALE_1, offset));
+#endif
+				gpr.UnlockAll();
+			}
+			break;
+
 		case 36: //R(rt) = ReadMem8 (addr); break; //lbu
 			Comp_Generic(op);
 			return;
@@ -73,7 +106,7 @@ namespace MIPSComp
 			if (!g_Config.bFastMemory)
 			{
 				FlushAll();
-				ABI_CallFunctionACC((void *) &ReadMemSafe, gpr.R(rs), rt, offset);
+				ABI_CallFunctionACC((void *) &ReadMemSafe32, gpr.R(rs), rt, offset);
 			}
 			else
 			{
@@ -95,17 +128,36 @@ namespace MIPSComp
 		case 133: //R(rt) = (u32)(s32)(s16)ReadMem16(addr); break; //lh
 		case 136: //R(rt) = ReadMem8 (addr); break; //lbu
 		case 140: //WriteMem8 (addr, R(rt)); break; //sb
-			
-		case 40:
-		case 41: //WriteMem16(addr, R(rt)); break; //sh
 			Comp_Generic(op);
 			return;
+
+		case 41: //WriteMem16(addr, R(rt)); break; //sh
+			if (!g_Config.bFastMemory)
+			{
+				FlushAll();
+				ABI_CallFunctionACC((void *) &WriteMemSafe16, gpr.R(rs), rt, offset);
+			}
+			else
+			{
+				gpr.Lock(rt, rs);
+				gpr.BindToRegister(rt, true, false);
+#ifdef _M_IX86
+				MOV(32, R(EAX), gpr.R(rs));
+				AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
+				MOV(16, MDisp(EAX, (u32)Memory::base + offset), gpr.R(rt));
+#else
+				MOV(32, R(EAX), gpr.R(rs));
+				MOV(16, MComplex(RBX, EAX, SCALE_1, offset), gpr.R(rt));
+#endif
+				gpr.UnlockAll();
+			}
+			break;
 
 		case 43: //WriteMem32(addr, R(rt)); break; //sw
 			if (!g_Config.bFastMemory)
 			{
 				FlushAll();
-				ABI_CallFunctionACC((void *) &WriteMemSafe, gpr.R(rs), rt, offset);
+				ABI_CallFunctionACC((void *) &WriteMemSafe32, gpr.R(rs), rt, offset);
 			}
 			else
 			{
