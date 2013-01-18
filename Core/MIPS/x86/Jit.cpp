@@ -25,8 +25,20 @@
 #include "RegCache.h"
 #include "Jit.h"
 
+#include "../../Host.h"
+#include "../../Debugger/Breakpoints.h"
+
 namespace MIPSComp
 {
+
+static void JitBreakpoint()
+{
+	Core_EnableStepping(true);
+	host->SetDebugMode(true);
+
+	if (CBreakPoints::IsTempBreakPoint(currentMIPS->pc))
+		CBreakPoints::RemoveBreakPoint(currentMIPS->pc);
+}
 
 Jit::Jit(MIPSState *mips) : blocks(mips), mips_(mips)
 {
@@ -106,6 +118,15 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 		js.downcountAmount += MIPSGetInstructionCycleEstimate(inst);
 
 		MIPSCompileOp(inst);
+
+		// Jit breakpoints are quite fast, so let's do them in release too.
+		if (CBreakPoints::IsAddressBreakPoint(js.compilerPC))
+		{
+			FlushAll();
+			MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
+			CALL(&JitBreakpoint);
+			WriteSyscallExit();
+		}
 
 		js.compilerPC += 4;
 		numInstructions++;
