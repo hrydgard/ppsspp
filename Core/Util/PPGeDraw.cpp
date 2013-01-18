@@ -97,6 +97,14 @@ static void EndVertexDataAndDraw(int prim) {
 	WriteCmd(GE_CMD_PRIM, (prim << 16) | vertexCount);
 }
 
+static u32 __PPGeDoAlloc(u32 &size, bool fromTop, const char *name) {
+	u32 ptr = kernelMemory.Alloc(size, fromTop, name);
+	// Didn't get it.
+	if (ptr == -1)
+		return 0;
+	return ptr;
+}
+
 void __PPGeInit()
 {
 	if (PSP_CoreParameter().gpuCore == GPU_NULL) {
@@ -117,10 +125,10 @@ void __PPGeInit()
 	u32 atlasSize = height * width * 2;  // it's a 4444 texture
 	atlasWidth = width;
 	atlasHeight = height;
-	dlPtr = kernelMemory.Alloc(dlSize, false, "PPGe Display List");
-	dataPtr = kernelMemory.Alloc(dataSize, false, "PPGe Vertex Data");
-	atlasPtr = kernelMemory.Alloc(atlasSize, false, "PPGe Atlas Texture");
-	savedContextPtr = kernelMemory.Alloc(savedContextSize, false, "PPGe Saved Context");
+	dlPtr = __PPGeDoAlloc(dlSize, false, "PPGe Display List");
+	dataPtr = __PPGeDoAlloc(dataSize, false, "PPGe Vertex Data");
+	atlasPtr = __PPGeDoAlloc(atlasSize, false, "PPGe Atlas Texture");
+	savedContextPtr = __PPGeDoAlloc(savedContextSize, false, "PPGe Saved Context");
 
 	u16 *imagePtr = (u16 *)imageData;
 	// component order change

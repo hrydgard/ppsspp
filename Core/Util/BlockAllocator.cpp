@@ -27,16 +27,20 @@ void BlockAllocator::Shutdown()
 	blocks.clear();
 }
 
-u32 BlockAllocator::Alloc(u32 &size, bool fromTop, const char *tag)
+u32 BlockAllocator::AllocAligned(u32 &size, u32 grain, bool fromTop, const char *tag)
 {
 	// Sanity check
 	if (size == 0 || size > rangeSize_) {
 		ERROR_LOG(HLE, "Clearly bogus size: %08x - failing allocation", size);
-		return 0;
+		return -1;
 	}
 
+	// It could be off step, but the grain should generally be a power of 2.
+	if (grain < grain_)
+		grain = grain_;
+
 	// upalign size to grain
-	size = (size + grain_ - 1) & ~(grain_ - 1);
+	size = (size + grain - 1) & ~(grain - 1);
 
 	if (!fromTop)
 	{
@@ -44,23 +48,24 @@ u32 BlockAllocator::Alloc(u32 &size, bool fromTop, const char *tag)
 		for (std::list<Block>::iterator iter = blocks.begin(); iter != blocks.end(); iter++)
 		{
 			BlockAllocator::Block &b = *iter;
-			if (b.taken == false && b.size >= size)
+			u32 offset = b.start % grain;
+			u32 needed = offset + size;
+			if (b.taken == false && b.size >= needed)
 			{
-				if (b.size == size)
+				if (b.size == needed)
 				{
 					b.taken = true;
 					b.SetTag(tag);
-					return b.start;
+					return b.start + offset;
 				}
 				else
 				{
-					blocks.insert(++iter, Block(b.start+size, b.size-size, false));
+					blocks.insert(++iter, Block(b.start + needed, b.size - needed, false));
 					b.taken = true;
-					b.size = size;
+					b.size = needed;
 					b.SetTag(tag);
-					return b.start;
+					return b.start + offset;
 				}
-				//Got one!
 			}
 		}
 	}
@@ -71,24 +76,25 @@ u32 BlockAllocator::Alloc(u32 &size, bool fromTop, const char *tag)
 		{
 			std::list<Block>::reverse_iterator hey = iter;
 			BlockAllocator::Block &b = *((++hey).base()); //yes, confusing syntax. reverse_iterators are confusing
-			if (b.taken == false && b.size >= size)
+			u32 offset = b.start % grain;
+			u32 needed = offset + size;
+			if (b.taken == false && b.size >= needed)
 			{
-				if (b.size == size)
+				if (b.size == needed)
 				{
 					b.taken = true;
 					b.SetTag(tag);
-					return b.start;
+					return b.start + offset;
 				}
 				else
 				{
-					blocks.insert(hey.base(), Block(b.start, b.size-size, false));
+					blocks.insert(hey.base(), Block(b.start, b.size - needed, false));
 					b.taken = true;
-					b.start += b.size-size;
-					b.size = size;
+					b.start += b.size - needed;
+					b.size = needed;
 					b.SetTag(tag);
-					return b.start;
+					return b.start + offset;
 				}
-				//Got one!
 			}
 		}
 	}
@@ -99,12 +105,18 @@ u32 BlockAllocator::Alloc(u32 &size, bool fromTop, const char *tag)
 	return -1;
 }
 
+u32 BlockAllocator::Alloc(u32 &size, bool fromTop, const char *tag)
+{
+	// We want to make sure it's aligned in case AllocAt() was used.
+	return AllocAligned(size, grain_, fromTop, tag);
+}
+
 u32 BlockAllocator::AllocAt(u32 position, u32 size, const char *tag)
 {
 	CheckBlocks();
 	if (size > rangeSize_) {
 		ERROR_LOG(HLE, "Clearly bogus size: %08x - failing allocation", size);
-		return 0;
+		return -1;
 	}
 
 	// upalign size to grain
@@ -200,6 +212,18 @@ bool BlockAllocator::Free(u32 position)
 		MergeFreeBlocks();
 		return true;
 	}
+	else
+	{
+		ERROR_LOG(HLE, "BlockAllocator : invalid free %08x", position);
+		return false;
+	}
+}
+
+bool BlockAllocator::FreeExact(u32 position)
+{
+	BlockAllocator::Block *b = GetBlockFromAddress(position);
+	if (b && b->taken && b->start == position)
+		return Free(position);
 	else
 	{
 		ERROR_LOG(HLE, "BlockAllocator : invalid free %08x", position);
