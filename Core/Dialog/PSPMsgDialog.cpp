@@ -121,20 +121,21 @@ int PSPMsgDialog::Init(unsigned int paramAddr)
 	status = SCE_UTILITY_STATUS_INITIALIZE;
 
 	lastButtons = __CtrlPeekButtons();
+	StartFade(true);
 	return 0;
 }
 
 void PSPMsgDialog::DisplayBack()
 {
-	PPGeDrawImage(cancelButtonImg, 290, 220, 20, 20, 0, 0xFFFFFFFF);
-	PPGeDrawText("Back", 320, 220, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
+	PPGeDrawImage(cancelButtonImg, 290, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText("Back", 320, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 }
 
 void PSPMsgDialog::DisplayYesNo()
 {
 
-	PPGeDrawText("Yes", 200, 150, PPGE_ALIGN_LEFT, 0.5f, (yesnoChoice == 1?0xFF0000FF:0xFFFFFFFF));
-	PPGeDrawText("No", 320, 150, PPGE_ALIGN_LEFT, 0.5f, (yesnoChoice == 0?0xFF0000FF:0xFFFFFFFF));
+	PPGeDrawText("Yes", 200, 150, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(yesnoChoice == 1?0xFF0000FF:0xFFFFFFFF));
+	PPGeDrawText("No", 320, 150, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(yesnoChoice == 0?0xFF0000FF:0xFFFFFFFF));
 
 	if (IsButtonPressed(CTRL_LEFT) && yesnoChoice == 0)
 	{
@@ -148,22 +149,17 @@ void PSPMsgDialog::DisplayYesNo()
 
 void PSPMsgDialog::DisplayOk()
 {
-	PPGeDrawText("OK", 250, 150, PPGE_ALIGN_LEFT, 0.5f, 0xFF0000FF);
+	PPGeDrawText("OK", 250, 150, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFF0000FF));
 }
 
 void PSPMsgDialog::DisplayEnter()
 {
-	PPGeDrawImage(okButtonImg, 200, 220, 20, 20, 0, 0xFFFFFFFF);
-	PPGeDrawText("Enter", 230, 220, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
+	PPGeDrawImage(okButtonImg, 200, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText("Enter", 230, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 }
 
 int PSPMsgDialog::Update()
 {
-	switch (status) {
-	case SCE_UTILITY_STATUS_FINISHED:
-		status = SCE_UTILITY_STATUS_SHUTDOWN;
-		break;
-	}
 
 	if (status != SCE_UTILITY_STATUS_RUNNING)
 	{
@@ -176,6 +172,8 @@ int PSPMsgDialog::Update()
 	}
 	else
 	{
+		UpdateFade();
+
 		buttons = __CtrlPeekButtons();
 
 		okButtonImg = I_CIRCLE;
@@ -205,30 +203,26 @@ int PSPMsgDialog::Update()
 		if(flag & DS_CANCELBUTTON)
 			DisplayBack();
 
-
-		// TODO : Dialogs should take control over input and not send them to the game while displaying
 		if (IsButtonPressed(cancelButtonFlag) && (flag & DS_CANCELBUTTON))
 		{
-			status = SCE_UTILITY_STATUS_FINISHED;
 			if(messageDialog.common.size == SCE_UTILITY_MSGDIALOG_SIZE_V3 ||
 					((messageDialog.common.size == SCE_UTILITY_MSGDIALOG_SIZE_V2) && (flag & DS_YESNO)))
 				messageDialog.buttonPressed = 3;
 			else
 				messageDialog.buttonPressed = 0;
+			StartFade(false);
 		}
 		else if(IsButtonPressed(okButtonFlag) && (flag & DS_VALIDBUTTON))
 		{
-			status = SCE_UTILITY_STATUS_FINISHED;
 			if(yesnoChoice == 0)
 			{
-				status = SCE_UTILITY_STATUS_FINISHED;
 				messageDialog.buttonPressed = 2;
 			}
 			else
 			{
-				status = SCE_UTILITY_STATUS_FINISHED;
 				messageDialog.buttonPressed = 1;
 			}
+			StartFade(false);
 		}
 
 
