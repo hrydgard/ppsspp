@@ -178,6 +178,7 @@ public:
 
 private:
 	void Clear();
+	bool CreatePNGIcon(u8* pngData, int pngSize, SaveFileInfo& info);
 	void SetFileInfo(int idx, PSPFileInfo &info, std::string saveName);
 
 	SceUtilitySavedataParam* pspParam;
