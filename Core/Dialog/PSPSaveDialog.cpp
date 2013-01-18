@@ -108,6 +108,7 @@ int PSPSaveDialog::Init(int paramAddr)
 
 	currentSelectedSave = 0;
 	lastButtons = __CtrlPeekButtons();
+	StartFade(true);
 
 	/*INFO_LOG(HLE,"Dump Param :");
 	INFO_LOG(HLE,"size : %d",param.GetPspParam()->size);
@@ -148,11 +149,11 @@ void PSPSaveDialog::DisplaySaveList(bool canMove)
 	int displayCount = 0;
 	for(int i = 0; i < param.GetFilenameCount(); i++)
 	{
-		int textureColor = 0xFFFFFFFF;
+		int textureColor = CalcFadedColor(0xFFFFFFFF);
 
 		if(param.GetFileInfo(i).size == 0 && param.GetFileInfo(i).textureData == 0)
 		{
-			textureColor = 0xFF777777;
+			textureColor = CalcFadedColor(0xFF777777);
 		}
 
 		// Calc save image position on screen
@@ -205,11 +206,11 @@ void PSPSaveDialog::DisplaySaveList(bool canMove)
 
 void PSPSaveDialog::DisplaySaveIcon()
 {
-	int textureColor = 0xFFFFFFFF;
+	int textureColor = CalcFadedColor(0xFFFFFFFF);
 
 	if(param.GetFileInfo(currentSelectedSave).size == 0)
 	{
-		textureColor = 0xFF777777;
+		textureColor = CalcFadedColor(0xFF777777);
 	}
 
 	// Calc save image position on screen
@@ -241,7 +242,7 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 {
 	if(param.GetFileInfo(currentSelectedSave).size == 0)
 	{
-		PPGeDrawText("New Save", 180, 100, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
+		PPGeDrawText("New Save", 180, 100, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 	}
 	else
 	{
@@ -263,15 +264,15 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 		snprintf(saveDetail,512,"%s", param.GetFileInfo(currentSelectedSave).saveDetail);
 
 		
-		PPGeDrawRect(180, 139, 980, 140, 0xFFFFFFFF);
+		PPGeDrawRect(180, 139, 980, 140, CalcFadedColor(0xFFFFFFFF));
 		std::string titleTxt = title;
-		PPGeDrawText(titleTxt.c_str(), 180, 120, PPGE_ALIGN_LEFT, 0.5f, 0xFFC0C0C0);
+		PPGeDrawText(titleTxt.c_str(), 180, 120, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFC0C0C0));
 		std::string timeTxt = time;
-		PPGeDrawText(timeTxt.c_str(), 180, 141, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
+		PPGeDrawText(timeTxt.c_str(), 180, 141, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(0xFFFFFFFF));
 		std::string saveTitleTxt = saveTitle;
-		PPGeDrawText(saveTitleTxt.c_str(), 175, 163, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
+		PPGeDrawText(saveTitleTxt.c_str(), 175, 163, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(0xFFFFFFFF));
 		std::string saveDetailTxt = saveDetail;
-		PPGeDrawText(saveDetailTxt.c_str(), 175, 185, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
+		PPGeDrawText(saveDetailTxt.c_str(), 175, 185, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(0xFFFFFFFF));
 	}
 }
 
@@ -293,7 +294,7 @@ void PSPSaveDialog::DisplaySaveDataInfo2()
 						, param.GetFileInfo(currentSelectedSave).size / 1024
 						);
 		std::string saveinfoTxt = txt;
-		PPGeDrawText(saveinfoTxt.c_str(), 10, 180, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
+		PPGeDrawText(saveinfoTxt.c_str(), 10, 180, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(0xFFFFFFFF));
 	}
 }
 
@@ -301,8 +302,8 @@ void PSPSaveDialog::DisplayConfirmationYesNo(std::string text)
 {
 	PPGeDrawText(text.c_str(), 180, 100, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
 
-	PPGeDrawText("Yes", 230, 140, PPGE_ALIGN_LEFT, 0.45f, (yesnoChoice == 1?0xFF0000FF:0xFFFFFFFF));
-	PPGeDrawText("No", 330, 140, PPGE_ALIGN_LEFT, 0.45f, (yesnoChoice == 0?0xFF0000FF:0xFFFFFFFF));
+	PPGeDrawText("Yes", 230, 140, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(yesnoChoice == 1?0xFF0000FF:0xFFFFFFFF));
+	PPGeDrawText("No", 330, 140, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(yesnoChoice == 0?0xFF0000FF:0xFFFFFFFF));
 
 	if (IsButtonPressed(CTRL_LEFT) && yesnoChoice == 0)
 	{
@@ -316,25 +317,25 @@ void PSPSaveDialog::DisplayConfirmationYesNo(std::string text)
 
 void PSPSaveDialog::DisplayInfo(std::string text)
 {
-	PPGeDrawRect(180, 105, 460, 106, 0xFFFFFFFF);
-	PPGeDrawText(text.c_str(), 270, 110, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
-	PPGeDrawRect(180, 130, 460, 131, 0xFFFFFFFF);
+	PPGeDrawRect(180, 105, 460, 106, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(text.c_str(), 270, 110, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawRect(180, 130, 460, 131, CalcFadedColor(0xFFFFFFFF));
 }
 void PSPSaveDialog::DisplayTitle(std::string name)
 {
-	PPGeDrawText(name.c_str(), 10, 10, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
+	PPGeDrawText(name.c_str(), 10, 10, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(0xFFFFFFFF));
 }
 void PSPSaveDialog::DisplayEnterBack()
 {
-	PPGeDrawImage(okButtonImg, 180, 257, 11, 11, 0, 0xFFFFFFFF);
-	PPGeDrawText("Enter", 195, 255, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
-	PPGeDrawImage(cancelButtonImg, 270, 257, 11, 11, 0, 0xFFFFFFFF);
-	PPGeDrawText("Back", 285, 255, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
+	PPGeDrawImage(okButtonImg, 180, 257, 11, 11, 0, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText("Enter", 195, 255, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawImage(cancelButtonImg, 270, 257, 11, 11, 0, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText("Back", 285, 255, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(0xFFFFFFFF));
 }
 void PSPSaveDialog::DisplayBack()
 {
-	PPGeDrawImage(cancelButtonImg, 180, 257, 11, 11, 0, 0xFFFFFFFF);
-	PPGeDrawText("Back", 195, 255, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
+	PPGeDrawImage(cancelButtonImg, 180, 257, 11, 11, 0, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText("Back", 195, 255, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(0xFFFFFFFF));
 }
 
 int PSPSaveDialog::Update()
@@ -358,6 +359,7 @@ int PSPSaveDialog::Update()
 	}
 
 	buttons = __CtrlPeekButtons();
+	UpdateFade();
 
 	okButtonImg = I_CIRCLE;
 	cancelButtonImg = I_CROSS;
@@ -376,16 +378,15 @@ int PSPSaveDialog::Update()
 		case DS_SAVE_LIST_CHOICE:
 			StartDraw();
 			
-			// TODO : use focus for selected save by default, and don't modify global selected save,use local var
+			// TODO : use focus param for selected save by default
 			DisplaySaveList();
 			DisplaySaveDataInfo1();
 
-			// TODO : Dialogs should take control over input and not send them to the game while displaying
 			DisplayEnterBack();
 			if (IsButtonPressed(cancelButtonFlag))
 			{
-				status = SCE_UTILITY_STATUS_FINISHED;
 				param.GetPspParam()->result = SCE_UTILITY_DIALOG_RESULT_CANCEL;
+				StartFade(false);
 			}
 			else if (IsButtonPressed(okButtonFlag))
 			{
@@ -471,10 +472,10 @@ int PSPSaveDialog::Update()
 
 			if (IsButtonPressed(cancelButtonFlag))
 			{
-				status = SCE_UTILITY_STATUS_FINISHED;
 				param.GetPspParam()->result = SCE_UTILITY_DIALOG_RESULT_SUCCESS;
 				// Set the save to use for autosave and autoload
 				param.SetSelectedSave(param.GetFileInfo(currentSelectedSave).idx);
+				StartFade(false);
 			}
 
 			EndDraw();
@@ -486,12 +487,11 @@ int PSPSaveDialog::Update()
 			DisplaySaveList();
 			DisplaySaveDataInfo1();
 
-			// TODO : Dialogs should take control over input and not send them to the game while displaying
 			DisplayEnterBack();
 			if (IsButtonPressed(cancelButtonFlag))
 			{
-				status = SCE_UTILITY_STATUS_FINISHED;
 				param.GetPspParam()->result = SCE_UTILITY_DIALOG_RESULT_CANCEL;
+				StartFade(false);
 			}
 			else if (IsButtonPressed(okButtonFlag))
 			{
@@ -527,10 +527,10 @@ int PSPSaveDialog::Update()
 
 			if (IsButtonPressed(cancelButtonFlag))
 			{
-				status = SCE_UTILITY_STATUS_FINISHED;
 				param.GetPspParam()->result = SCE_UTILITY_DIALOG_RESULT_SUCCESS;
 				// Set the save to use for autosave and autoload
 				param.SetSelectedSave(param.GetFileInfo(currentSelectedSave).idx);
+				StartFade(false);
 			}
 
 			EndDraw();
@@ -545,8 +545,8 @@ int PSPSaveDialog::Update()
 
 			if (IsButtonPressed(cancelButtonFlag))
 			{
-				status = SCE_UTILITY_STATUS_FINISHED;
 				param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_LOAD_NO_DATA;
+				StartFade(false);
 			}
 
 			EndDraw();
@@ -558,12 +558,11 @@ int PSPSaveDialog::Update()
 			DisplaySaveList();
 			DisplaySaveDataInfo1();
 
-			// TODO : Dialogs should take control over input and not send them to the game while displaying
 			DisplayEnterBack();
 			if (IsButtonPressed(cancelButtonFlag))
 			{
-				status = SCE_UTILITY_STATUS_FINISHED;
 				param.GetPspParam()->result = SCE_UTILITY_DIALOG_RESULT_CANCEL;
+				StartFade(false);
 			}
 			else if (IsButtonPressed(okButtonFlag))
 			{
@@ -646,8 +645,8 @@ int PSPSaveDialog::Update()
 
 			if (IsButtonPressed(cancelButtonFlag))
 			{
-				status = SCE_UTILITY_STATUS_FINISHED;
 				param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_DELETE_NO_DATA;
+				StartFade(false);
 			}
 
 			EndDraw();

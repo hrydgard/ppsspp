@@ -89,6 +89,7 @@ int PSPOskDialog::Init(u32 oskPtr)
 	// Eat any keys pressed before the dialog inited.
 	__CtrlReadLatch();
 
+	StartFade(true);
 	return 0;
 }
 
@@ -109,16 +110,16 @@ void PSPOskDialog::RenderKeyboard()
 	const float keyboardLeftSide = (480.0f - (23.0f * KEYSPERROW)) / 2.0f;
 	float previewLeftSide = (480.0f - (15.0f * limit)) / 2.0f;
 
-	PPGeDrawText(oskDesc.c_str(), 480/2, 20, PPGE_ALIGN_CENTER, 0.5f, 0xFFFFFFFF);
+	PPGeDrawText(oskDesc.c_str(), 480/2, 20, PPGE_ALIGN_CENTER, 0.5f, CalcFadedColor(0xFFFFFFFF));
 	for (int i = 0; i < limit; ++i)
 	{
-		u32 color = 0xFFFFFFFF;
+		u32 color = CalcFadedColor(0xFFFFFFFF);
 		if (i < (int) inputChars.size())
 			temp[0] = inputChars[i];
 		else if (i == inputChars.size())
 		{
 			temp[0] = oskKeys[selectedRow][selectedExtra];
-			color = 0xFF3060FF;
+			color = CalcFadedColor(0xFF3060FF);
 		}
 		else
 			temp[0] = '_';
@@ -129,15 +130,15 @@ void PSPOskDialog::RenderKeyboard()
 	{
 		for (int col = 0; col < KEYSPERROW; ++col)
 		{
-			u32 color = 0xFFFFFFFF;
+			u32 color = CalcFadedColor(0xFFFFFFFF);
 			if (selectedRow == row && col == selectedExtra)
-				color = 0xFF7f7f7f;
+				color = CalcFadedColor(0xFF7f7f7f);
 
 			temp[0] = oskKeys[row][col];
 			PPGeDrawText(temp, keyboardLeftSide + (25.0f * col), 70.0f + (25.0f * row), 0, 0.6f, color);
 
 			if (selectedRow == row && col == selectedExtra)
-				PPGeDrawText("_", keyboardLeftSide + (25.0f * col), 70.0f + (25.0f * row), 0, 0.6f, 0xFFFFFFFF);
+				PPGeDrawText("_", keyboardLeftSide + (25.0f * col), 70.0f + (25.0f * row), 0, 0.6f, CalcFadedColor(0xFFFFFFFF));
 		}
 	}
 
@@ -160,17 +161,19 @@ int PSPOskDialog::Update()
 	}
 	else if (status == SCE_UTILITY_STATUS_RUNNING)
 	{		
+		UpdateFade();
+
 		StartDraw();
 		RenderKeyboard();
-		PPGeDrawImage(I_CROSS, 100, 220, 20, 20, 0, 0xFFFFFFFF);
-		PPGeDrawText("Select", 130, 220, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
+		PPGeDrawImage(I_CROSS, 100, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText("Select", 130, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 
-		PPGeDrawImage(I_CIRCLE, 200, 220, 20, 20, 0, 0xFFFFFFFF);
-		PPGeDrawText("Delete", 230, 220, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
+		PPGeDrawImage(I_CIRCLE, 200, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText("Delete", 230, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 
-		PPGeDrawImage(I_BUTTON, 290, 220, 50, 20, 0, 0xFFFFFFFF);
-		PPGeDrawText("Start", 305, 220, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
-		PPGeDrawText("Finish", 350, 220, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
+		PPGeDrawImage(I_BUTTON, 290, 220, 50, 20, 0, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText("Start", 305, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText("Finish", 350, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 
 		if (IsButtonPressed(CTRL_UP))
 		{
@@ -195,7 +198,6 @@ int PSPOskDialog::Update()
 
 		selectedChar = (selectedChar + NUMBEROFVALIDCHARS) % NUMBEROFVALIDCHARS;
 
-		// TODO : Dialogs should take control over input and not send them to the game while displaying
 		if (IsButtonPressed(CTRL_CROSS))
 		{
 			if ((int) inputChars.size() < limit)
@@ -208,7 +210,7 @@ int PSPOskDialog::Update()
 		}
 		else if (IsButtonPressed(CTRL_START))
 		{
-			status = SCE_UTILITY_STATUS_FINISHED;
+			StartFade(false);
 		}
 		EndDraw();
 	}

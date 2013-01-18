@@ -770,7 +770,11 @@ bool SavedataParam::CreatePNGIcon(u8* pngData, int pngSize, SaveFileInfo& info)
 		info.textureHeight = h;
 	}
 	else
+	{
 		WARN_LOG(HLE, "Unable to load PNG data for savedata.");
+		return false;
+	}
+	return true;
 }
 
 void SavedataParam::SetFileInfo(int idx, PSPFileInfo &info, std::string saveName)
