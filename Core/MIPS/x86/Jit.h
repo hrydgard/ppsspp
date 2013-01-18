@@ -95,6 +95,7 @@ public:
 	AsmRoutineManager &Asm() { return asm_; }
 
 	void ClearCache();
+	void ClearCacheAt(u32 em_address);
 private:
 	void FlushAll();
 

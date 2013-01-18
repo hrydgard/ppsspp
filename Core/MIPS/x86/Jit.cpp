@@ -61,6 +61,12 @@ void Jit::ClearCache()
 	ClearCodeSpace();
 }
 
+void Jit::ClearCacheAt(u32 em_address)
+{
+	// TODO: Properly.
+	ClearCache();
+}
+
 void Jit::CompileAt(u32 addr)
 {
 	u32 op = Memory::Read_Instruction(addr);
