@@ -776,15 +776,20 @@ int sceIoChangeAsyncPriority(int id, int priority)
 	return 0;
 }
 
+u32 __IoClose(SceUID actedFd, int closedFd)
+{
+	DEBUG_LOG(HLE, "Deferred IoClose(%d, %d)", actedFd, closedFd);
+	__IoCompleteAsyncIO(closedFd);
+	return kernelObjects.Destroy < FileNode > (closedFd);
+}
+
 int sceIoCloseAsync(int id)
 {
 	DEBUG_LOG(HLE, "sceIoCloseAsync(%d)", id);
 	//sceIoClose();
 	// TODO: Not sure this is a good solution.  Seems like you can defer one per fd.
-	//defAction = &__IoClose;
-	//defParam = id;
-	sceIoClose(id);
-	__IoCompleteAsyncIO(id);
+	defAction = &__IoClose;
+	defParam = id;
 	return 0;
 }
 
