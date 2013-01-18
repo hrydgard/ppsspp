@@ -765,7 +765,7 @@ void SavedataParam::SetFileInfo(int idx, PSPFileInfo &info, std::string saveName
 		u32 atlasPtr;
 		if (success)
 			atlasPtr = kernelMemory.Alloc(texSize, true, "SaveData Icon");
-		if (success && atlasPtr > 0)
+		if (success && atlasPtr != -1)
 		{
 			saveDataList[idx].textureData = atlasPtr;
 			Memory::Memcpy(atlasPtr, textureData, texSize);

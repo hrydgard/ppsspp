@@ -125,8 +125,8 @@ struct LwMutex : public KernelObject
 	std::vector<SceUID> waitingThreads;
 };
 
-static int mutexWaitTimer = 0;
-static int lwMutexWaitTimer = 0;
+static int mutexWaitTimer = -1;
+static int lwMutexWaitTimer = -1;
 // Thread -> Mutex locks for thread end.
 typedef std::multimap<SceUID, SceUID> MutexMap;
 static MutexMap mutexHeldLocks;
@@ -280,7 +280,7 @@ bool __KernelUnlockMutexForThread(Mutex *mutex, SceUID threadID, u32 &error, int
 		__KernelMutexAcquireLock(mutex, wVal, threadID);
 	}
 
-	if (timeoutPtr != 0 && mutexWaitTimer != 0)
+	if (timeoutPtr != 0 && mutexWaitTimer != -1)
 	{
 		// Remove any event for this thread.
 		u64 cyclesLeft = CoreTiming::UnscheduleEvent(mutexWaitTimer, threadID);
@@ -428,7 +428,7 @@ void __KernelMutexThreadEnd(SceUID threadID)
 
 void __KernelWaitMutex(Mutex *mutex, u32 timeoutPtr)
 {
-	if (timeoutPtr == 0 || mutexWaitTimer == 0)
+	if (timeoutPtr == 0 || mutexWaitTimer == -1)
 		return;
 
 	int micro = (int) Memory::Read_U32(timeoutPtr);
@@ -604,7 +604,7 @@ bool __KernelUnlockLwMutexForThread(LwMutex *mutex, NativeLwMutexWorkarea &worka
 		workarea.lockThread = threadID;
 	}
 
-	if (timeoutPtr != 0 && lwMutexWaitTimer != 0)
+	if (timeoutPtr != 0 && lwMutexWaitTimer != -1)
 	{
 		// Remove any event for this thread.
 		u64 cyclesLeft = CoreTiming::UnscheduleEvent(lwMutexWaitTimer, threadID);
@@ -745,7 +745,7 @@ void __KernelLwMutexTimeout(u64 userdata, int cyclesLate)
 
 void __KernelWaitLwMutex(LwMutex *mutex, u32 timeoutPtr)
 {
-	if (timeoutPtr == 0 || lwMutexWaitTimer == 0)
+	if (timeoutPtr == 0 || lwMutexWaitTimer == -1)
 		return;
 
 	int micro = (int) Memory::Read_U32(timeoutPtr);

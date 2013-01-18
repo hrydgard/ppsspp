@@ -106,7 +106,7 @@ public:
 	SceUID alarmID;
 };
 
-static int alarmTimer = 0;
+static int alarmTimer = -1;
 
 void __KernelTriggerAlarm(u64 userdata, int cyclesLate)
 {

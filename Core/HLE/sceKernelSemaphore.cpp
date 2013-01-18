@@ -69,7 +69,7 @@ struct Semaphore : public KernelObject
 	std::vector<SceUID> waitingThreads;
 };
 
-static int semaWaitTimer = 0;
+static int semaWaitTimer = -1;
 
 void __KernelSemaInit()
 {
@@ -109,7 +109,7 @@ bool __KernelUnlockSemaForThread(Semaphore *s, SceUID threadID, u32 &error, int 
 		s->ns.numWaitThreads--;
 	}
 
-	if (timeoutPtr != 0 && semaWaitTimer != 0)
+	if (timeoutPtr != 0 && semaWaitTimer != -1)
 	{
 		// Remove any event for this thread.
 		u64 cyclesLeft = CoreTiming::UnscheduleEvent(semaWaitTimer, threadID);
@@ -135,29 +135,9 @@ bool __KernelClearSemaThreads(Semaphore *s, int reason)
 	return wokeThreads;
 }
 
-std::vector<SceUID>::iterator __KernelSemaFindPriority(std::vector<SceUID> &waiting, std::vector<SceUID>::iterator begin)
-{
-	_dbg_assert_msg_(HLE, !waiting.empty(), "__KernelSemaFindPriority: Trying to find best of no threads.");
-
-	std::vector<SceUID>::iterator iter, end, best = waiting.end();
-	u32 best_prio = 0xFFFFFFFF;
-	for (iter = begin, end = waiting.end(); iter != end; ++iter)
-	{
-		u32 iter_prio = __KernelGetThreadPrio(*iter);
-		if (iter_prio < best_prio)
-		{
-			best = iter;
-			best_prio = iter_prio;
-		}
-	}
-
-	_dbg_assert_msg_(HLE, best != waiting.end(), "__KernelSemaFindPriority: Returning invalid best thread.");
-	return best;
-}
-
 int sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr)
 {
-	DEBUG_LOG(HLE, "sceKernelCancelSema(%i)", id);
+	DEBUG_LOG(HLE, "sceKernelCancelSema(%i, %i, %08x)", id, newCount, numWaitThreadsPtr);
 
 	u32 error;
 	Semaphore *s = kernelObjects.Get<Semaphore>(id, error);
@@ -273,19 +253,16 @@ int sceKernelSignalSema(SceUID id, int signal)
 		s->ns.currentCount += signal;
 		DEBUG_LOG(HLE, "sceKernelSignalSema(%i, %i) (old: %i, new: %i)", id, signal, oldval, s->ns.currentCount);
 
-		bool wokeThreads = false;
-		std::vector<SceUID>::iterator iter, end, best;
-retry:
-		for (iter = s->waitingThreads.begin(), end = s->waitingThreads.end(); iter != end; ++iter)
-		{
-			if ((s->ns.attr & PSP_SEMA_ATTR_PRIORITY) != 0)
-				best = __KernelSemaFindPriority(s->waitingThreads, iter);
-			else
-				best = iter;
+		if ((s->ns.attr & PSP_SEMA_ATTR_PRIORITY) != 0)
+			std::stable_sort(s->waitingThreads.begin(), s->waitingThreads.end(), __KernelThreadSortPriority);
 
-			if (__KernelUnlockSemaForThread(s, *best, error, 0, wokeThreads))
+		bool wokeThreads = false;
+retry:
+		for (auto iter = s->waitingThreads.begin(), end = s->waitingThreads.end(); iter != end; ++iter)
+		{
+			if (__KernelUnlockSemaForThread(s, *iter, error, 0, wokeThreads))
 			{
-				s->waitingThreads.erase(best);
+				s->waitingThreads.erase(iter);
 				goto retry;
 			}
 		}
@@ -327,7 +304,7 @@ void __KernelSemaTimeout(u64 userdata, int cycleslate)
 
 void __KernelSetSemaTimeout(Semaphore *s, u32 timeoutPtr)
 {
-	if (timeoutPtr == 0 || semaWaitTimer == 0)
+	if (timeoutPtr == 0 || semaWaitTimer == -1)
 		return;
 
 	int micro = (int) Memory::Read_U32(timeoutPtr);

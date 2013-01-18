@@ -355,7 +355,7 @@ public:
 		{
 			stackBlock = userMemory.Alloc(stackSize, true, (std::string("stack/") + nt.name).c_str());
 		}
-		if (stackBlock == (u32)-1 || stackBlock == 0)
+		if (stackBlock == (u32)-1)
 		{
 			stackBlock = 0;
 			ERROR_LOG(HLE, "Failed to allocate stack for thread");
@@ -1791,6 +1791,11 @@ u32 __KernelGetThreadPrio(SceUID id)
 	if (thread)
 		return thread->nt.currentPriority;
 	return 0;
+}
+
+bool __KernelThreadSortPriority(SceUID thread1, SceUID thread2)
+{
+	return __KernelGetThreadPrio(thread1) < __KernelGetThreadPrio(thread2);
 }
 
 //////////////////////////////////////////////////////////////////////////

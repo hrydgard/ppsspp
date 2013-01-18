@@ -30,7 +30,7 @@ const int PSP_MBX_ERROR_DUPLICATE_MSG = 0x800201C9;
 typedef std::pair<SceUID, u32> MbxWaitingThread;
 void __KernelMbxTimeout(u64 userdata, int cyclesLate);
 
-static int mbxWaitTimer = 0;
+static int mbxWaitTimer = -1;
 
 struct NativeMbx
 {
@@ -192,7 +192,7 @@ bool __KernelUnlockMbxForThread(Mbx *m, MbxWaitingThread &th, u32 &error, int re
 	if (waitID != m->GetUID())
 		return true;
 
-	if (timeoutPtr != 0 && mbxWaitTimer != 0)
+	if (timeoutPtr != 0 && mbxWaitTimer != -1)
 	{
 		// Remove any event for this thread.
 		u64 cyclesLeft = CoreTiming::UnscheduleEvent(mbxWaitTimer, th.first);
@@ -230,7 +230,7 @@ void __KernelMbxTimeout(u64 userdata, int cyclesLate)
 
 void __KernelWaitMbx(Mbx *m, u32 timeoutPtr)
 {
-	if (timeoutPtr == 0 || mbxWaitTimer == 0)
+	if (timeoutPtr == 0 || mbxWaitTimer == -1)
 		return;
 
 	int micro = (int) Memory::Read_U32(timeoutPtr);

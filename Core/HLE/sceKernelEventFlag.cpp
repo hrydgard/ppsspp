@@ -98,7 +98,7 @@ enum PspEventFlagWaitTypes
 	PSP_EVENT_WAITKNOWN = PSP_EVENT_WAITCLEAR | PSP_EVENT_WAITCLEARALL | PSP_EVENT_WAITOR,
 };
 
-int eventFlagWaitTimer = 0;
+int eventFlagWaitTimer = -1;
 
 void __KernelEventFlagInit()
 {
@@ -160,7 +160,7 @@ bool __KernelUnlockEventFlagForThread(EventFlag *e, EventFlagTh &th, u32 &error,
 			Memory::Write_U32(e->nef.currentPattern, th.outAddr);
 	}
 
-	if (timeoutPtr != 0 && eventFlagWaitTimer != 0)
+	if (timeoutPtr != 0 && eventFlagWaitTimer != -1)
 	{
 		// Remove any event for this thread.
 		u64 cyclesLeft = CoreTiming::UnscheduleEvent(eventFlagWaitTimer, th.tid);
@@ -347,7 +347,7 @@ void __KernelEventFlagTimeout(u64 userdata, int cycleslate)
 
 void __KernelSetEventFlagTimeout(EventFlag *e, u32 timeoutPtr)
 {
-	if (timeoutPtr == 0 || eventFlagWaitTimer == 0)
+	if (timeoutPtr == 0 || eventFlagWaitTimer == -1)
 		return;
 
 	int micro = (int) Memory::Read_U32(timeoutPtr);
