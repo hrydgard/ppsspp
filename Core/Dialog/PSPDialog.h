@@ -66,8 +66,18 @@ public:
 protected:
 	bool IsButtonPressed(int checkButton);
 	void DisplayMessage(std::string text);
+
+	void StartFade(bool fadeIn_);
+	void UpdateFade();
+	u32 CalcFadedColor(u32 inColor);
+
 	DialogStatus status;
 
 	unsigned int lastButtons;
 	unsigned int buttons;
+
+	float fadeTimer;
+	bool isFading;
+	bool fadeIn;
+	u32 fadeValue;
 };

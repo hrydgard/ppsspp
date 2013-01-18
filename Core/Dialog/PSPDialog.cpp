@@ -18,6 +18,8 @@
 #include "../Util/PPGeDraw.h"
 #include "PSPDialog.h"
 
+#define FADE_TIME 0.5
+
 PSPDialog::PSPDialog() : status(SCE_UTILITY_STATUS_SHUTDOWN)
 , lastButtons(0)
 , buttons(0)
@@ -41,7 +43,7 @@ PSPDialog::DialogStatus PSPDialog::GetStatus()
 void PSPDialog::StartDraw()
 {
 	PPGeBegin();
-	PPGeDraw4Patch(I_BUTTON, 0, 0, 480, 272, 0xcFFFFFFF);
+	PPGeDraw4Patch(I_BUTTON, 0, 0, 480, 272, CalcFadedColor(0xcFFFFFFF));
 }
 void PSPDialog::EndDraw()
 {
@@ -50,13 +52,51 @@ void PSPDialog::EndDraw()
 
 void PSPDialog::DisplayMessage(std::string text)
 {
-	PPGeDrawText(text.c_str(), 40, 30, PPGE_ALIGN_LEFT, 0.5f, 0xFFFFFFFF);
+	PPGeDrawText(text.c_str(), 40, 30, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 }
 
 int PSPDialog::Shutdown()
 {
 	status = SCE_UTILITY_STATUS_SHUTDOWN;
 	return 0;
+}
+
+void PSPDialog::StartFade(bool fadeIn_)
+{
+	isFading = true;
+	fadeTimer = 0;
+	fadeIn = fadeIn_;
+}
+
+void PSPDialog::UpdateFade()
+{
+	if(isFading)
+	{
+		fadeTimer += 1.0f/30; // Probably need a more real value of delta time
+		if(fadeTimer < FADE_TIME)
+		{
+			if(fadeIn)
+				fadeValue = fadeTimer / FADE_TIME * 255;
+			else
+				fadeValue = 255 - fadeTimer / FADE_TIME * 255;
+		}
+		else
+		{
+			fadeValue = (fadeIn?255:0);
+			isFading = false;
+			if(!fadeIn)
+			{
+				status = SCE_UTILITY_STATUS_FINISHED;
+			}
+		}
+	}
+}
+
+u32 PSPDialog::CalcFadedColor(u32 inColor)
+{
+	u32 alpha = inColor >> 24;
+	alpha = alpha * fadeValue / 255;
+	return (inColor & 0x00FFFFFF) | (alpha << 24);
 }
 
 int PSPDialog::Update()
@@ -74,6 +114,7 @@ void PSPDialog::DoState(PointerWrap &p)
 
 bool PSPDialog::IsButtonPressed(int checkButton)
 {
+	if(isFading) return false;
 	return (!(lastButtons & checkButton)) && (buttons & checkButton);
 }
 
