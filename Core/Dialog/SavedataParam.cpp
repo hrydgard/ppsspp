@@ -689,6 +689,14 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 						saveDataList[realCount].saveName = saveNameListData[i];
 						saveDataList[realCount].idx = i;
 						saveDataList[realCount].textureData = 0;
+
+						if(Memory::IsValidAddress(param->newData))
+						{
+							// We have a png to show
+							PspUtilitySavedataFileData newData;
+							Memory::ReadStruct(param->newData, &newData);
+							CreatePNGIcon(Memory::GetPointer(newData.buf),newData.size,saveDataList[realCount]);
+						}
 						DEBUG_LOG(HLE,"Don't Exist");
 						realCount++;
 					}
@@ -725,6 +733,14 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 				saveDataList[0].saveName = GetSaveName(param);
 				saveDataList[0].idx = 0;
 				saveDataList[0].textureData = 0;
+
+				if(Memory::IsValidAddress(param->newData))
+				{
+					// We have a png to show
+					PspUtilitySavedataFileData newData;
+					Memory::ReadStruct(param->newData, &newData);
+					CreatePNGIcon(Memory::GetPointer(newData.buf),newData.size,saveDataList[0]);
+				}
 				DEBUG_LOG(HLE,"Don't Exist");
 			}
 			saveNameListDataCount = 0;
@@ -732,6 +748,29 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 		}
 	}
 	return 0;
+}
+
+bool SavedataParam::CreatePNGIcon(u8* pngData, int pngSize, SaveFileInfo& info)
+{
+	unsigned char *textureData;
+	int w,h;
+
+	int success = pngLoadPtr(pngData, (int)pngSize, &w, &h, &textureData, false);
+
+	u32 texSize = w*h*4;
+	u32 atlasPtr;
+	if (success)
+		atlasPtr = kernelMemory.Alloc(texSize, true, "SaveData Icon");
+	if (success && atlasPtr != -1)
+	{
+		info.textureData = atlasPtr;
+		Memory::Memcpy(atlasPtr, textureData, texSize);
+		free(textureData);
+		info.textureWidth = w;
+		info.textureHeight = h;
+	}
+	else
+		WARN_LOG(HLE, "Unable to load PNG data for savedata.");
 }
 
 void SavedataParam::SetFileInfo(int idx, PSPFileInfo &info, std::string saveName)
@@ -755,26 +794,8 @@ void SavedataParam::SetFileInfo(int idx, PSPFileInfo &info, std::string saveName
 	{
 		u8 *textureDataPNG = new u8[(size_t)info2.size];
 		ReadPSPFile(fileDataPath2, textureDataPNG, info2.size, NULL);
-		unsigned char *textureData;
-		int w,h;
-
-		int success = pngLoadPtr(textureDataPNG, (int)info2.size, &w, &h, &textureData, false);
+		CreatePNGIcon(textureDataPNG, info2.size, saveDataList[idx]);
 		delete[] textureDataPNG;
-
-		u32 texSize = w*h*4;
-		u32 atlasPtr;
-		if (success)
-			atlasPtr = kernelMemory.Alloc(texSize, true, "SaveData Icon");
-		if (success && atlasPtr != -1)
-		{
-			saveDataList[idx].textureData = atlasPtr;
-			Memory::Memcpy(atlasPtr, textureData, texSize);
-			free(textureData);
-			saveDataList[idx].textureWidth = w;
-			saveDataList[idx].textureHeight = h;
-		}
-		else
-			WARN_LOG(HLE, "Unable to load PNG data for savedata.");
 	}
 
 	// Load info in PARAM.SFO

@@ -150,7 +150,7 @@ void PSPSaveDialog::DisplaySaveList(bool canMove)
 	{
 		int textureColor = 0xFFFFFFFF;
 
-		if(param.GetFileInfo(i).size == 0)
+		if(param.GetFileInfo(i).size == 0 && param.GetFileInfo(i).textureData == 0)
 		{
 			textureColor = 0xFF777777;
 		}
