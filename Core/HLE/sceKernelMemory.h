@@ -37,13 +37,13 @@ KernelObject *__KernelMemoryVPLObject();
 KernelObject *__KernelMemoryPMBObject();
 
 SceUID sceKernelCreateVpl(const char *name, int partition, u32 attr, u32 vplSize, u32 optPtr);
-void sceKernelDeleteVpl();
+int sceKernelDeleteVpl(SceUID uid);
 int sceKernelAllocateVpl(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr);
 int sceKernelAllocateVplCB(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr);
 int sceKernelTryAllocateVpl(SceUID uid, u32 size, u32 addrPtr);
 int sceKernelFreeVpl(SceUID uid, u32 addr);
-void sceKernelCancelVpl();
-void sceKernelReferVplStatus();
+int sceKernelCancelVpl(SceUID uid, u32 numWaitThreadsPtr);
+int sceKernelReferVplStatus(SceUID uid, u32 infoPtr);
 
 void sceKernelCreateFpl();
 void sceKernelDeleteFpl();

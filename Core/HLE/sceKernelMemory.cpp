@@ -784,6 +784,17 @@ bool __VplThreadSortPriority(VplWaitingThread thread1, VplWaitingThread thread2)
 	return __KernelThreadSortPriority(thread1.first, thread2.first);
 }
 
+bool __KernelClearVplThreads(VPL *vpl, int reason)
+{
+	u32 error;
+	bool wokeThreads = false;
+	for (auto iter = vpl->waitingThreads.begin(), end = vpl->waitingThreads.end(); iter != end; ++iter)
+		__KernelUnlockVplForThread(vpl, *iter, error, reason, wokeThreads);
+	vpl->waitingThreads.clear();
+
+	return wokeThreads;
+}
+
 SceUID sceKernelCreateVpl(const char *name, int partition, u32 attr, u32 vplSize, u32 optPtr)
 {
 	if (!name)
@@ -854,22 +865,23 @@ SceUID sceKernelCreateVpl(const char *name, int partition, u32 attr, u32 vplSize
 	return id;
 }
 
-void sceKernelDeleteVpl()
+int sceKernelDeleteVpl(SceUID uid)
 {
-	SceUID id = PARAM(0);
-	DEBUG_LOG(HLE,"sceKernelDeleteVpl(%i)", id);
+	DEBUG_LOG(HLE, "sceKernelDeleteVpl(%i)", uid);
 	u32 error;
-	VPL *vpl = kernelObjects.Get<VPL>(id, error);
+	VPL *vpl = kernelObjects.Get<VPL>(uid, error);
 	if (vpl)
 	{
+		bool wokeThreads = __KernelClearVplThreads(vpl, SCE_KERNEL_ERROR_WAIT_DELETE);
+		if (wokeThreads)
+			hleReSchedule("vpl deleted");
+
 		userMemory.Free(vpl->address);
-		kernelObjects.Destroy<VPL>(id);
-		RETURN(0);
+		kernelObjects.Destroy<VPL>(uid);
+		return 0;
 	}
 	else
-	{
-		RETURN(error);
-	}
+		return error;
 }
 
 // Returns false for invalid parameters (e.g. don't check callbacks, etc.)
@@ -948,12 +960,12 @@ void __KernelSetVplTimeout(u32 timeoutPtr)
 
 int sceKernelAllocateVpl(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr)
 {
-	u32 error;
+	u32 error, ignore;
 	if (__KernelAllocateVpl(uid, size, addrPtr, error, __FUNCTION__))
 	{
+		VPL *vpl = kernelObjects.Get<VPL>(uid, ignore);
 		if (error == SCE_KERNEL_ERROR_NO_MEMORY)
 		{
-			VPL *vpl = kernelObjects.Get<VPL>(uid, error);
 			if (vpl)
 			{
 				vpl->nv.numWaitThreads++;
@@ -972,14 +984,14 @@ int sceKernelAllocateVpl(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr)
 
 int sceKernelAllocateVplCB(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr)
 {
-	u32 error;
+	u32 error, ignore;
 	if (__KernelAllocateVpl(uid, size, addrPtr, error, __FUNCTION__))
 	{
 		hleCheckCurrentCallbacks();
 
+		VPL *vpl = kernelObjects.Get<VPL>(uid, ignore);
 		if (error == SCE_KERNEL_ERROR_NO_MEMORY)
 		{
-			VPL *vpl = kernelObjects.Get<VPL>(uid, error);
 			if (vpl)
 			{
 				vpl->nv.numWaitThreads++;
@@ -1048,29 +1060,41 @@ retry:
 		return error;
 }
 
-void sceKernelCancelVpl()
+int sceKernelCancelVpl(SceUID uid, u32 numWaitThreadsPtr)
 {
-	ERROR_LOG(HLE,"UNIMPL: sceKernelCancelVpl()");
-	RETURN(0);
-}
-
-void sceKernelReferVplStatus()
-{
-	SceUID id = PARAM(0);
+	DEBUG_LOG(HLE, "sceKernelCancelVpl(%i, %08x)", uid, numWaitThreadsPtr);
 	u32 error;
-	VPL *v = kernelObjects.Get<VPL>(id, error);
-	if (v)
+	VPL *vpl = kernelObjects.Get<VPL>(uid, error);
+	if (vpl)
 	{
-		DEBUG_LOG(HLE,"sceKernelReferVplStatus(%i, %08x)", id, PARAM(1));
-		v->nv.freeSize = v->alloc.GetTotalFreeBytes();
-		Memory::WriteStruct(PARAM(1), &v->nv);
-		RETURN(0);
+		if (Memory::IsValidAddress(numWaitThreadsPtr))
+			Memory::Write_U32(vpl->nv.numWaitThreads, numWaitThreadsPtr);
+		vpl->nv.numWaitThreads = 0;
+
+		bool wokeThreads = __KernelClearVplThreads(vpl, SCE_KERNEL_ERROR_WAIT_CANCEL);
+		if (wokeThreads)
+			hleReSchedule("vpl canceled");
+
+		return 0;
 	}
 	else
+		return error;
+}
+
+int sceKernelReferVplStatus(SceUID uid, u32 infoPtr)
+{
+	u32 error;
+	VPL *vpl = kernelObjects.Get<VPL>(uid, error);
+	if (vpl)
 	{
-		ERROR_LOG(HLE,"Error %08x", error);
-		RETURN(error);
+		DEBUG_LOG(HLE, "sceKernelReferVplStatus(%i, %08x)", uid, infoPtr);
+		vpl->nv.freeSize = vpl->alloc.GetTotalFreeBytes();
+		if (Memory::IsValidAddress(infoPtr) && Memory::Read_U32(infoPtr))
+			Memory::WriteStruct(infoPtr, &vpl->nv);
+		return 0;
 	}
+	else
+		return error;
 }
 
 
