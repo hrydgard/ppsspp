@@ -108,6 +108,7 @@ struct FPL : public KernelObject
 	u32 address;
 };
 
+typedef std::pair<SceUID, u32> VplWaitingThread;
 struct SceKernelVplInfo
 {
 	SceSize size;
@@ -131,7 +132,7 @@ struct VPL : public KernelObject
 	{
 		p.Do(nv);
 		p.Do(address);
-		SceUID dv = 0;
+		VplWaitingThread dv(0, 0);
 		p.Do(waitingThreads, dv);
 		alloc.DoState(p);
 		p.DoMarker("VPL");
@@ -139,7 +140,7 @@ struct VPL : public KernelObject
 
 	SceKernelVplInfo nv;
 	u32 address;
-	std::vector<SceUID> waitingThreads;
+	std::vector<VplWaitingThread> waitingThreads;
 	BlockAllocator alloc;
 };
 
@@ -727,6 +728,62 @@ enum SceKernelVplAttr
 	PSP_VPL_ATTR_KNOWN = PSP_VPL_ATTR_FIFO | PSP_VPL_ATTR_PRIORITY | PSP_VPL_ATTR_SMALLEST | PSP_VPL_ATTR_HIGHMEM,
 };
 
+bool __KernelUnlockVplForThread(VPL *vpl, VplWaitingThread &threadInfo, u32 &error, int result, bool &wokeThreads)
+{
+	const SceUID threadID = threadInfo.first;
+	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_VPL, error);
+	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
+
+	// The waitID may be different after a timeout.
+	if (waitID != vpl->GetUID())
+		return true;
+
+	// If result is an error code, we're just letting it go.
+	if (result == 0)
+	{
+		int size = (int) __KernelGetWaitValue(threadID, error);
+
+		// Padding (normally used to track the allocation.)
+		u32 allocSize = size + 8;
+		u32 addr = vpl->alloc.Alloc(allocSize, true);
+		if (addr != (u32) -1)
+			Memory::Write_U32(addr, threadInfo.second);
+		else
+			return false;
+
+		vpl->nv.numWaitThreads--;
+	}
+
+	if (timeoutPtr != 0 && vplWaitTimer != 0)
+	{
+		// Remove any event for this thread.
+		u64 cyclesLeft = CoreTiming::UnscheduleEvent(vplWaitTimer, threadID);
+		Memory::Write_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
+	}
+
+	__KernelResumeThreadFromWait(threadID, result);
+	wokeThreads = true;
+	return true;
+}
+
+void __KernelVplRemoveThread(VPL *vpl, SceUID threadID)
+{
+	for (size_t i = 0; i < vpl->waitingThreads.size(); i++)
+	{
+		VplWaitingThread *t = &vpl->waitingThreads[i];
+		if (t->first == threadID)
+		{
+			vpl->waitingThreads.erase(vpl->waitingThreads.begin() + i);
+			break;
+		}
+	}
+}
+
+bool __VplThreadSortPriority(VplWaitingThread thread1, VplWaitingThread thread2)
+{
+	return __KernelThreadSortPriority(thread1.first, thread2.first);
+}
+
 SceUID sceKernelCreateVpl(const char *name, int partition, u32 attr, u32 vplSize, u32 optPtr)
 {
 	if (!name)
@@ -902,8 +959,8 @@ int sceKernelAllocateVpl(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr)
 				vpl->nv.numWaitThreads++;
 
 				SceUID threadID = __KernelGetCurThread();
-				if (std::find(vpl->waitingThreads.begin(), vpl->waitingThreads.end(), threadID) == vpl->waitingThreads.end())
-					vpl->waitingThreads.push_back(threadID);
+				__KernelVplRemoveThread(vpl, threadID);
+				vpl->waitingThreads.push_back(std::make_pair(threadID, addrPtr));
 			}
 
 			__KernelSetVplTimeout(timeoutPtr);
@@ -928,8 +985,8 @@ int sceKernelAllocateVplCB(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr)
 				vpl->nv.numWaitThreads++;
 
 				SceUID threadID = __KernelGetCurThread();
-				if (std::find(vpl->waitingThreads.begin(), vpl->waitingThreads.end(), threadID) == vpl->waitingThreads.end())
-					vpl->waitingThreads.push_back(threadID);
+				__KernelVplRemoveThread(vpl, threadID);
+				vpl->waitingThreads.push_back(std::make_pair(threadID, addrPtr));
 			}
 
 			__KernelSetVplTimeout(timeoutPtr);
@@ -961,7 +1018,24 @@ int sceKernelFreeVpl(SceUID uid, u32 addr)
 	{
 		if (vpl->alloc.FreeExact(addr))
 		{
-			// Should trigger waiting threads
+			// TODO: smallest priority
+			if ((vpl->nv.attr & PSP_VPL_ATTR_PRIORITY) != 0)
+				std::stable_sort(vpl->waitingThreads.begin(), vpl->waitingThreads.end(), __VplThreadSortPriority);
+
+			bool wokeThreads = false;
+retry:
+			for (auto iter = vpl->waitingThreads.begin(), end = vpl->waitingThreads.end(); iter != end; ++iter)
+			{
+				if (__KernelUnlockVplForThread(vpl, *iter, error, 0, wokeThreads))
+				{
+					vpl->waitingThreads.erase(iter);
+					goto retry;
+				}
+			}
+
+			if (wokeThreads)
+				hleReSchedule("vpl freed");
+
 			return 0;
 		}
 		else
