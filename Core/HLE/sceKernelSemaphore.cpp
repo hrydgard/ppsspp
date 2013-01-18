@@ -69,7 +69,7 @@ struct Semaphore : public KernelObject
 	std::vector<SceUID> waitingThreads;
 };
 
-static int semaWaitTimer = 0;
+static int semaWaitTimer = -1;
 
 void __KernelSemaInit()
 {
@@ -109,7 +109,7 @@ bool __KernelUnlockSemaForThread(Semaphore *s, SceUID threadID, u32 &error, int 
 		s->ns.numWaitThreads--;
 	}
 
-	if (timeoutPtr != 0 && semaWaitTimer != 0)
+	if (timeoutPtr != 0 && semaWaitTimer != -1)
 	{
 		// Remove any event for this thread.
 		u64 cyclesLeft = CoreTiming::UnscheduleEvent(semaWaitTimer, threadID);
@@ -137,7 +137,7 @@ bool __KernelClearSemaThreads(Semaphore *s, int reason)
 
 int sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr)
 {
-	DEBUG_LOG(HLE, "sceKernelCancelSema(%i)", id);
+	DEBUG_LOG(HLE, "sceKernelCancelSema(%i, %i, %08x)", id, newCount, numWaitThreadsPtr);
 
 	u32 error;
 	Semaphore *s = kernelObjects.Get<Semaphore>(id, error);
@@ -304,7 +304,7 @@ void __KernelSemaTimeout(u64 userdata, int cycleslate)
 
 void __KernelSetSemaTimeout(Semaphore *s, u32 timeoutPtr)
 {
-	if (timeoutPtr == 0 || semaWaitTimer == 0)
+	if (timeoutPtr == 0 || semaWaitTimer == -1)
 		return;
 
 	int micro = (int) Memory::Read_U32(timeoutPtr);

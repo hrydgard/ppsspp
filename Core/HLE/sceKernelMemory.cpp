@@ -32,7 +32,7 @@
 BlockAllocator userMemory(256);
 BlockAllocator kernelMemory(256);
 
-static int vplWaitTimer = 0;
+static int vplWaitTimer = -1;
 // STATE END
 //////////////////////////////////////////////////////////////////////////
 
@@ -754,7 +754,7 @@ bool __KernelUnlockVplForThread(VPL *vpl, VplWaitingThread &threadInfo, u32 &err
 		vpl->nv.numWaitThreads--;
 	}
 
-	if (timeoutPtr != 0 && vplWaitTimer != 0)
+	if (timeoutPtr != 0 && vplWaitTimer != -1)
 	{
 		// Remove any event for this thread.
 		u64 cyclesLeft = CoreTiming::UnscheduleEvent(vplWaitTimer, threadID);
@@ -929,7 +929,7 @@ void __KernelVplTimeout(u64 userdata, int cyclesLate)
 
 void __KernelSetVplTimeout(u32 timeoutPtr)
 {
-	if (timeoutPtr == 0 || vplWaitTimer == 0)
+	if (timeoutPtr == 0 || vplWaitTimer == -1)
 		return;
 
 	int micro = (int) Memory::Read_U32(timeoutPtr);

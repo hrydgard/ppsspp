@@ -35,7 +35,7 @@ static u8 umdActivated = 1;
 static u32 umdStatus = 0;
 static u32 umdErrorStat = 0;
 static int driveCBId = -1;
-static int umdStatTimer = 0;
+static int umdStatTimer = -1;
 
 
 #define PSP_UMD_TYPE_GAME 0x10
