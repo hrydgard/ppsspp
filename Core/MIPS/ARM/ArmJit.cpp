@@ -25,7 +25,7 @@
 #include "ArmRegCache.h"
 #include "ArmJit.h"
 
-#include "../../ext/disarm.h"
+#include "../../../ext/disarm.h"
 
 void DisassembleArm(const u8 *data, int size) {
 	char temp[256];
