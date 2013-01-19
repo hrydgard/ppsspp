@@ -43,6 +43,7 @@ namespace MIPSComp
 {
 	void Jit::CompITypeMemRead(u32 op, u32 bits, void *func)
 	{
+		CONDITIONAL_DISABLE;
 		int offset = (signed short)(op&0xFFFF);
 		int rt = _RT;
 		int rs = _RS;
@@ -102,6 +103,7 @@ namespace MIPSComp
 
 	void Jit::CompITypeMemWrite(u32 op, u32 bits, void *func)
 	{
+		CONDITIONAL_DISABLE;
 		int offset = (signed short)(op&0xFFFF);
 		int rt = _RT;
 		int rs = _RS;
@@ -160,6 +162,7 @@ namespace MIPSComp
 
 	void Jit::Comp_ITypeMem(u32 op)
 	{
+		CONDITIONAL_DISABLE;
 		int offset = (signed short)(op&0xFFFF);
 		int rt = _RT;
 		int rs = _RS;
