@@ -251,13 +251,21 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 		char saveTitle[512];
 		char saveDetail[512];
 
+		char am_pm[] = "AM";
+		int hour = param.GetFileInfo(currentSelectedSave).modif_time.tm_hour ;
+		if( hour > 12 )  {
+			strcpy(am_pm, "PM");
+			hour -= 12;
+		}
+
 		snprintf(title,512,"%s", param.GetFileInfo(currentSelectedSave).title);
-		snprintf(time,512,"%02d/%02d/%d  %02d:%02d  %lld KB"
+		snprintf(time,512,"%02d/%02d/%d  %02d:%02d %s  %lld KB"
 				, param.GetFileInfo(currentSelectedSave).modif_time.tm_mday
 				, param.GetFileInfo(currentSelectedSave).modif_time.tm_mon + 1
 				, param.GetFileInfo(currentSelectedSave).modif_time.tm_year + 1900
-				, param.GetFileInfo(currentSelectedSave).modif_time.tm_hour
+				, hour 
 				, param.GetFileInfo(currentSelectedSave).modif_time.tm_min
+				, am_pm
 				, param.GetFileInfo(currentSelectedSave).size / 1024
 				);
 		snprintf(saveTitle,512,"%s", param.GetFileInfo(currentSelectedSave).saveTitle);
@@ -284,13 +292,21 @@ void PSPSaveDialog::DisplaySaveDataInfo2()
 	else
 	{
 		char txt[1024];
-		snprintf(txt,1024,"%s\n%02d/%02d/%d  %02d:%02d\n%lld KB"
+		char am_pm[] = "AM";
+		int hour = param.GetFileInfo(currentSelectedSave).modif_time.tm_hour ;
+		if( hour > 12 )  {
+			strcpy(am_pm, "PM");
+			hour -= 12;
+		}
+
+		snprintf(txt,1024,"%s\n%02d/%02d/%d  %02d:%02d %s\n%lld KB"
 						, param.GetFileInfo(currentSelectedSave).saveTitle
 						, param.GetFileInfo(currentSelectedSave).modif_time.tm_mday
 						, param.GetFileInfo(currentSelectedSave).modif_time.tm_mon + 1
 						, param.GetFileInfo(currentSelectedSave).modif_time.tm_year + 1900
-						, param.GetFileInfo(currentSelectedSave).modif_time.tm_hour
+						, hour
 						, param.GetFileInfo(currentSelectedSave).modif_time.tm_min
+						, am_pm
 						, param.GetFileInfo(currentSelectedSave).size / 1024
 						);
 		std::string saveinfoTxt = txt;
