@@ -41,13 +41,28 @@
 
 namespace MIPSComp
 {
+	static void ReadMemSafe32(u32 addr, int preg, u32 offset)
+	{
+		currentMIPS->r[preg] = Memory::Read_U32(addr + offset);
+	}
+
+	static void ReadMemSafe16(u32 addr, int preg, u32 offset)
+	{
+		currentMIPS->r[preg] = Memory::Read_U16(addr + offset);
+	}
+
+	static void WriteMemSafe32(u32 addr, int preg, u32 offset)
+	{
+		Memory::Write_U32(currentMIPS->r[preg], addr + offset);
+	}
+
+	static void WriteMemSafe16(u32 addr, int preg, u32 offset)
+	{
+		Memory::Write_U16(currentMIPS->r[preg], addr + offset);
+	}
+
 	void Jit::Comp_ITypeMem(u32 op)
 	{
-		if (!g_Config.bFastMemory)
-		{
-			DISABLE;
-		}
-
 		int offset = (signed short)(op&0xFFFF);
 		int rt = _RT;
 		int rs = _RS;
@@ -60,35 +75,173 @@ namespace MIPSComp
 		switch (o)
 		{
 		case 37: //R(rt) = ReadMem16(addr); break; //lhu
+			if (!g_Config.bFastMemory)
+			{
+				FlushAll();
+
+				gpr.Lock(rt, rs);
+				gpr.BindToRegister(rt, rt == rs, true);
+
+				MOV(32, R(EAX), gpr.R(rs));
+				CMP(32, R(EAX), Imm32(0x08000000));
+				FixupBranch tooLow = J_CC(CC_L);
+				CMP(32, R(EAX), Imm32(0x0A000000));
+				FixupBranch tooHigh = J_CC(CC_GE);
+#ifdef _M_IX86
+				MOVZX(32, 16, gpr.RX(rt), MDisp(EAX, (u32)Memory::base + offset));
+#else
+				MOVZX(32, 16, gpr.RX(rt), MComplex(RBX, EAX, SCALE_1, offset));
+#endif
+				gpr.UnlockAll();
+				FlushAll();
+
+				FixupBranch skip = J();
+				SetJumpTarget(tooLow);
+				SetJumpTarget(tooHigh);
+				ABI_CallFunctionACC((void *) &ReadMemSafe16, gpr.R(rs), rt, offset);
+				SetJumpTarget(skip);
+			}
+			else
+			{
+				gpr.Lock(rt, rs);
+				gpr.BindToRegister(rt, rt == rs, true);
+#ifdef _M_IX86
+				MOV(32, R(EAX), gpr.R(rs));
+				AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
+				MOVZX(32, 16, gpr.RX(rt), MDisp(EAX, (u32)Memory::base + offset));
+#else
+				MOV(32, R(EAX), gpr.R(rs));
+				MOVZX(32, 16, gpr.RX(rt), MComplex(RBX, EAX, SCALE_1, offset));
+#endif
+				gpr.UnlockAll();
+			}
+			break;
+
 		case 36: //R(rt) = ReadMem8 (addr); break; //lbu
 			Comp_Generic(op);
 			return;
 
 		case 35: //R(rt) = ReadMem32(addr); break; //lw
-			gpr.Lock(rt, rs);
-			gpr.BindToRegister(rt, rt == rs, true);
+			if (!g_Config.bFastMemory)
+			{
+				FlushAll();
+
+				gpr.Lock(rt, rs);
+				gpr.BindToRegister(rt, rt == rs, true);
+
+				MOV(32, R(EAX), gpr.R(rs));
+				CMP(32, R(EAX), Imm32(0x08000000));
+				FixupBranch tooLow = J_CC(CC_L);
+				CMP(32, R(EAX), Imm32(0x0A000000));
+				FixupBranch tooHigh = J_CC(CC_GE);
 #ifdef _M_IX86
-			MOV(32, R(EAX), gpr.R(rs));
-			AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
-			MOV(32, gpr.R(rt), MDisp(EAX, (u32)Memory::base + offset));
+				MOV(32, gpr.R(rt), MDisp(EAX, (u32)Memory::base + offset));
 #else
-			MOV(32, R(EAX), gpr.R(rs));
-			MOV(32, gpr.R(rt), MComplex(RBX, EAX, SCALE_1, offset));
+				MOV(32, gpr.R(rt), MComplex(RBX, EAX, SCALE_1, offset));
 #endif
-			gpr.UnlockAll();
+				gpr.UnlockAll();
+				FlushAll();
+
+				FixupBranch skip = J();
+				SetJumpTarget(tooLow);
+				SetJumpTarget(tooHigh);
+				ABI_CallFunctionACC((void *) &ReadMemSafe32, gpr.R(rs), rt, offset);
+				SetJumpTarget(skip);
+			}
+			else
+			{
+				gpr.Lock(rt, rs);
+				gpr.BindToRegister(rt, rt == rs, true);
+#ifdef _M_IX86
+				MOV(32, R(EAX), gpr.R(rs));
+				AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
+				MOV(32, gpr.R(rt), MDisp(EAX, (u32)Memory::base + offset));
+#else
+				MOV(32, R(EAX), gpr.R(rs));
+				MOV(32, gpr.R(rt), MComplex(RBX, EAX, SCALE_1, offset));
+#endif
+				gpr.UnlockAll();
+			}
 			break;
 
 		case 132: //R(rt) = (u32)(s32)(s8) ReadMem8 (addr); break; //lb
 		case 133: //R(rt) = (u32)(s32)(s16)ReadMem16(addr); break; //lh
 		case 136: //R(rt) = ReadMem8 (addr); break; //lbu
 		case 140: //WriteMem8 (addr, R(rt)); break; //sb
-			
-		case 40:
-		case 41: //WriteMem16(addr, R(rt)); break; //sh
 			Comp_Generic(op);
 			return;
 
+		case 41: //WriteMem16(addr, R(rt)); break; //sh
+			if (!g_Config.bFastMemory)
+			{
+				FlushAll();
+
+				gpr.Lock(rt, rs);
+				gpr.BindToRegister(rt, true, true);
+
+				MOV(32, R(EAX), gpr.R(rs));
+				CMP(32, R(EAX), Imm32(0x08000000));
+				FixupBranch tooLow = J_CC(CC_L);
+				CMP(32, R(EAX), Imm32(0x0A000000));
+				FixupBranch tooHigh = J_CC(CC_GE);
+#ifdef _M_IX86
+				MOV(16, MDisp(EAX, (u32)Memory::base + offset), gpr.R(rt));
+#else
+				MOV(16, MComplex(RBX, EAX, SCALE_1, offset), gpr.R(rt));
+#endif
+				gpr.UnlockAll();
+				FlushAll();
+
+				FixupBranch skip = J();
+				SetJumpTarget(tooLow);
+				SetJumpTarget(tooHigh);
+				ABI_CallFunctionACC((void *) &WriteMemSafe16, gpr.R(rs), rt, offset);
+				SetJumpTarget(skip);
+			}
+			else
+			{
+				gpr.Lock(rt, rs);
+				gpr.BindToRegister(rt, true, false);
+#ifdef _M_IX86
+				MOV(32, R(EAX), gpr.R(rs));
+				AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
+				MOV(16, MDisp(EAX, (u32)Memory::base + offset), gpr.R(rt));
+#else
+				MOV(32, R(EAX), gpr.R(rs));
+				MOV(16, MComplex(RBX, EAX, SCALE_1, offset), gpr.R(rt));
+#endif
+				gpr.UnlockAll();
+			}
+			break;
+
 		case 43: //WriteMem32(addr, R(rt)); break; //sw
+			if (!g_Config.bFastMemory)
+			{
+				FlushAll();
+
+				gpr.Lock(rt, rs);
+				gpr.BindToRegister(rt, true, true);
+
+				MOV(32, R(EAX), gpr.R(rs));
+				CMP(32, R(EAX), Imm32(0x08000000));
+				FixupBranch tooLow = J_CC(CC_L);
+				CMP(32, R(EAX), Imm32(0x0A000000));
+				FixupBranch tooHigh = J_CC(CC_GE);
+#ifdef _M_IX86
+				MOV(32, MDisp(EAX, (u32)Memory::base + offset), gpr.R(rt));
+#else
+				MOV(32, MComplex(RBX, EAX, SCALE_1, offset), gpr.R(rt));
+#endif
+				gpr.UnlockAll();
+				FlushAll();
+
+				FixupBranch skip = J();
+				SetJumpTarget(tooLow);
+				SetJumpTarget(tooHigh);
+				ABI_CallFunctionACC((void *) &WriteMemSafe32, gpr.R(rs), rt, offset);
+				SetJumpTarget(skip);
+			}
+			else
 			{
 				gpr.Lock(rt, rs);
 				gpr.BindToRegister(rt, true, false);
