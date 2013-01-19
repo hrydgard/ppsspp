@@ -43,7 +43,7 @@ PSPDialog::DialogStatus PSPDialog::GetStatus()
 void PSPDialog::StartDraw()
 {
 	PPGeBegin();
-	PPGeDraw4Patch(I_BUTTON, 0, 0, 480, 272, CalcFadedColor(0xcFFFFFFF));
+	PPGeDrawRect(0, 0, 480, 272, CalcFadedColor(0x90606060));
 }
 void PSPDialog::EndDraw()
 {
