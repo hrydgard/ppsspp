@@ -251,13 +251,21 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 		char saveTitle[512];
 		char saveDetail[512];
 
+		char am_pm[] = "AM";
+		int hour = param.GetFileInfo(currentSelectedSave).modif_time.tm_hour ;
+		if( hour > 12 )  {
+			strcpy(am_pm, "PM");
+			hour -= 12;
+		}
+
 		snprintf(title,512,"%s", param.GetFileInfo(currentSelectedSave).title);
-		snprintf(time,512,"%02d/%02d/%d  %02d:%02d  %lld KB"
+		snprintf(time,512,"%02d/%02d/%d  %02d:%02d %s  %lld KB"
 				, param.GetFileInfo(currentSelectedSave).modif_time.tm_mday
 				, param.GetFileInfo(currentSelectedSave).modif_time.tm_mon + 1
 				, param.GetFileInfo(currentSelectedSave).modif_time.tm_year + 1900
-				, param.GetFileInfo(currentSelectedSave).modif_time.tm_hour
+				, hour 
 				, param.GetFileInfo(currentSelectedSave).modif_time.tm_min
+				, am_pm
 				, param.GetFileInfo(currentSelectedSave).size / 1024
 				);
 		snprintf(saveTitle,512,"%s", param.GetFileInfo(currentSelectedSave).saveTitle);
@@ -284,13 +292,21 @@ void PSPSaveDialog::DisplaySaveDataInfo2()
 	else
 	{
 		char txt[1024];
-		snprintf(txt,1024,"%s\n%02d/%02d/%d  %02d:%02d\n%lld KB"
+		char am_pm[] = "AM";
+		int hour = param.GetFileInfo(currentSelectedSave).modif_time.tm_hour ;
+		if( hour > 12 )  {
+			strcpy(am_pm, "PM");
+			hour -= 12;
+		}
+
+		snprintf(txt,1024,"%s\n%02d/%02d/%d  %02d:%02d %s\n%lld KB"
 						, param.GetFileInfo(currentSelectedSave).saveTitle
 						, param.GetFileInfo(currentSelectedSave).modif_time.tm_mday
 						, param.GetFileInfo(currentSelectedSave).modif_time.tm_mon + 1
 						, param.GetFileInfo(currentSelectedSave).modif_time.tm_year + 1900
-						, param.GetFileInfo(currentSelectedSave).modif_time.tm_hour
+						, hour
 						, param.GetFileInfo(currentSelectedSave).modif_time.tm_min
+						, am_pm
 						, param.GetFileInfo(currentSelectedSave).size / 1024
 						);
 		std::string saveinfoTxt = txt;
@@ -300,11 +316,11 @@ void PSPSaveDialog::DisplaySaveDataInfo2()
 
 void PSPSaveDialog::DisplayConfirmationYesNo(std::string text)
 {
-	PPGeDrawText(text.c_str(), 180, 100, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
-
-	PPGeDrawText("Yes", 230, 140, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(yesnoChoice == 1?0xFF0000FF:0xFFFFFFFF));
-	PPGeDrawText("No", 330, 140, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(yesnoChoice == 0?0xFF0000FF:0xFFFFFFFF));
-
+	PPGeDrawRect(180, 105, 460, 106, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(text.c_str(), 220, 110, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
+	PPGeDrawText("Yes", 250, 140, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(yesnoChoice == 1?0xFF0000FF:0xFFFFFFFF));
+	PPGeDrawText("No", 350, 140, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(yesnoChoice == 0?0xFF0000FF:0xFFFFFFFF));
+	PPGeDrawRect(180, 160, 460, 161, CalcFadedColor(0xFFFFFFFF));
 	if (IsButtonPressed(CTRL_LEFT) && yesnoChoice == 0)
 	{
 		yesnoChoice = 1;
@@ -579,7 +595,8 @@ int PSPSaveDialog::Update()
 			DisplaySaveIcon();
 			DisplaySaveDataInfo2();
 
-			DisplayConfirmationYesNo("The data will be deleted.\nAre you sure you want to continue?");
+			DisplayConfirmationYesNo("    This save data will be deleted.\nAre you sure you want to continue?");
+
 
 			DisplayEnterBack();
 			if (IsButtonPressed(cancelButtonFlag))
