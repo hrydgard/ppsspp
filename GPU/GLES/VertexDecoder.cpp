@@ -645,12 +645,13 @@ void VertexDecoder::SetVertexType(u32 fmt) {
 	DEBUG_LOG(G3D,"SVT : size = %i, aligned to biggest %i", size, biggest);
 }
 
-void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, const void *inds, int prim, int count, int *indexLowerBound, int *indexUpperBound) const {
+void GetIndexBounds(void *inds, int count, u32 vertType, u16 *indexLowerBound, u16 *indexUpperBound) {
 	// Find index bounds. Could cache this in display lists.
-	// Also, this could be greatly sped up with SSE2, although rarely a bottleneck.
+	// Also, this could be greatly sped up with SSE2/NEON, although rarely a bottleneck.
 	int lowerBound = 0x7FFFFFFF;
 	int upperBound = 0;
-	if (idx == (GE_VTYPE_IDX_8BIT >> GE_VTYPE_IDX_SHIFT)) {
+	u32 idx = vertType & GE_VTYPE_IDX_MASK;
+	if (idx == GE_VTYPE_IDX_8BIT) {
 		const u8 *ind8 = (const u8 *)inds;
 		for (int i = 0; i < count; i++) {
 			if (ind8[i] < lowerBound)
@@ -658,7 +659,7 @@ void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, const void *i
 			if (ind8[i] > upperBound)
 				upperBound = ind8[i];
 		}
-	} else if (idx == (GE_VTYPE_IDX_16BIT >> GE_VTYPE_IDX_SHIFT)) {
+	} else if (idx == GE_VTYPE_IDX_16BIT) {
 		const u16 *ind16 = (const u16*)inds;
 		for (int i = 0; i < count; i++) {
 			if (ind16[i] < lowerBound)
@@ -670,13 +671,15 @@ void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, const void *i
 		lowerBound = 0;
 		upperBound = count - 1;
 	}
-	*indexLowerBound = lowerBound;
-	*indexUpperBound = upperBound;
+	*indexLowerBound = (u16)lowerBound;
+	*indexUpperBound = (u16)upperBound;
+}
 
+void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, const void *inds, int prim, int count, int indexLowerBound, int indexUpperBound) const {
 	// Decode the vertices within the found bounds, once each
 	decoded_ = decodedptr;  // + lowerBound * decFmt.stride;
-	ptr_ = (const u8*)verts + lowerBound * size;
-	for (int index = lowerBound; index <= upperBound; index++) {
+	ptr_ = (const u8*)verts + indexLowerBound * size;
+	for (int index = indexLowerBound; index <= indexUpperBound; index++) {
 		for (int i = 0; i < numSteps_; i++) {
 			((*this).*steps_[i])();
 		}

@@ -25,14 +25,66 @@ class LinkedShader;
 class ShaderManager;
 struct DecVtxFormat;
 
+// States transitions:
+// On creation: DRAWN_NEW
+// DRAWN_NEW -> DRAWN_HASHING
+// DRAWN_HASHING -> DRAWN_RELIABLE
+// DRAWN_HASHING -> DRAWN_UNRELIABLE
+// DRAWN_ONCE -> UNRELIABLE
+// DRAWN_RELIABLE -> DRAWN_SAFE
+// UNRELIABLE -> death
+// DRAWN_ONCE -> death
+// DRAWN_RELIABLE -> death
+
+
+// Don't bother storing information about draws smaller than this.
+enum {
+	VERTEX_CACHE_THRESHOLD = 20,
+};
+
+// Try to keep this POD.
+class VertexArrayInfo {
+public:
+	VertexArrayInfo() {
+		status = VAI_NEW;
+		vbo = 0;
+		ebo = 0;
+		numDCs = 0;
+		numDraws = 0;
+		lastFrame = 0;  // TODO
+	}
+	enum Status {
+		VAI_NEW,
+		VAI_HASHING,
+		VAI_RELIABLE,  // cache, don't hash
+		VAI_UNRELIABLE,  // never cache
+	};
+
+	u64 hash;
+
+	Status status;
+
+	DecVtxFormat decFmt;
+	
+	u32 vbo;
+	u32 ebo;
+
+	// ID information
+	u8 numDCs;
+	int numDraws;
+	int lastFrame;  // So that we can forget.
+};
+
+
 // Handles transform, lighting and drawing.
 class TransformDrawEngine : public GfxResourceHolder {
 public:
 	TransformDrawEngine();
-	~TransformDrawEngine();
+	virtual ~TransformDrawEngine();
 	void SubmitPrim(void *verts, void *inds, int prim, int vertexCount, u32 vertexType, int forceIndexType, int *bytesRead);
 	void DrawBezier(int ucount, int vcount);
 	void DrawSpline(int ucount, int vcount, int utype, int vtype);
+	void DecodeVerts();
 	void Flush();
 	void SetShaderManager(ShaderManager *shaderManager) {
 		shaderManager_ = shaderManager;
@@ -42,8 +94,32 @@ public:
 	void DestroyDeviceObjects();
 	void GLLost();
 
+	void DecimateTrackedVertexArrays();
+	void ClearTrackedVertexArrays();
+
 private:
 	void SoftwareTransformAndDraw(int prim, u8 *decoded, LinkedShader *program, int vertexCount, u32 vertexType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex);
+
+	// drawcall ID
+	u32 ComputeFastDCID();
+	u32 ComputeHash();  // Reads deferred vertex data.
+
+	// Defer all vertex decoding to a Flush, so that we can hash and cache the
+	// generated buffers without having to redecode them every time.
+	struct DeferredDrawCall {
+		void *verts;
+		void *inds;
+		u32 vertType;
+		u8 indexType;
+		u8 prim;
+		u16 vertexCount;
+		u16 indexLowerBound;
+		u16 indexUpperBound;
+	};
+
+	enum { MAX_DEFERRED_DRAW_CALLS = 128 };
+	DeferredDrawCall drawCalls[MAX_DEFERRED_DRAW_CALLS];
+	int numDrawCalls;
 
 	// Vertex collector state
 	IndexGenerator indexGen;
@@ -64,6 +140,8 @@ private:
 	GLuint vbo_[NUM_VBOS];
 	GLuint ebo_[NUM_VBOS];
 	int curVbo_;
+
+	std::map<u32, VertexArrayInfo *> vai_;
 
 	// Other
 	ShaderManager *shaderManager_;

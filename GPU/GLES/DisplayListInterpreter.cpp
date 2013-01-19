@@ -223,6 +223,7 @@ void GLES_GPU::DumpNextFrame() {
 void GLES_GPU::BeginFrame() {
 	TextureCache_StartFrame();
 	DecimateFBOs();
+	transformDraw_.DecimateTrackedVertexArrays();
 
 	if (dumpNextFrame_) {
 		NOTICE_LOG(G3D, "DUMPING THIS FRAME");

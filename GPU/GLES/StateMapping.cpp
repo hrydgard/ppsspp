@@ -7,6 +7,7 @@
 #include "../ge_constants.h"
 #include "DisplayListInterpreter.h"
 #include "ShaderManager.h"
+#include "TextureCache.h"
 
 const GLint aLookup[] = {
 	GL_DST_COLOR,
@@ -73,6 +74,13 @@ const GLuint stencilOps[] = {
 
 void ApplyDrawState(int prim) {
 	// TODO: All this setup is soon so expensive that we'll need dirty flags, or simply do it in the command writes where we detect dirty by xoring. Silly to do all this work on every drawcall.
+
+	if (gstate_c.textureChanged) {
+		if ((gstate.textureMapEnable & 1) && !gstate.isModeClear()) {
+			PSPSetTexture();
+		}
+		gstate_c.textureChanged = false;
+	}
 
 	// TODO: The top bit of the alpha channel should be written to the stencil bit somehow. This appears to require very expensive multipass rendering :( Alternatively, one could do a
 	// single fullscreen pass that converts alpha to stencil (or 2 passes, to set both the 0 and 1 values) very easily.

@@ -21,6 +21,7 @@
 #include "../../Core/Host.h"
 #include "../../Core/System.h"
 #include "../../native/gfx_es2/gl_state.h"
+#include "../../native/ext/cityhash/city.h"
 
 #include "../Math3D.h"
 #include "../GPUState.h"
@@ -45,7 +46,8 @@ const GLuint glprim[8] = {
 };
 
 TransformDrawEngine::TransformDrawEngine()
-	: collectedVerts(0),
+	: numDrawCalls(0),
+	  collectedVerts(0),
 		lastVType(-1),
 		curVbo_(0),
 		shaderManager_(0) {
@@ -131,6 +133,7 @@ void TransformDrawEngine::DrawBezier(int ucount, int vcount) {
 	} else {
 		SubmitPrim(Memory::GetPointer(gstate_c.vertexAddr), &indices[0], GE_PRIM_TRIANGLES, c, gstate.vertType, GE_VTYPE_IDX_16BIT, 0);
 	}
+	Flush();  // as our vertex storage here is temporary, it will only survive one draw.
 }
 
 void TransformDrawEngine::DrawSpline(int ucount, int vcount, int utype, int vtype) {
@@ -659,18 +662,14 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 }
 
 void TransformDrawEngine::SubmitPrim(void *verts, void *inds, int prim, int vertexCount, u32 vertType, int forceIndexType, int *bytesRead) {
+	if (vertexCount == 0)
+	{
+		return;  // we ignore zero-sized draw calls.
+	}
 	// For the future
-	if (!indexGen.PrimCompatible(prim))
+	if (!indexGen.PrimCompatible(prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS)
 		Flush();
 
-	if (!indexGen.Empty()) {
-		gpuStats.numJoins++;
-	}
-	gpuStats.numDrawCalls++;
-	gpuStats.numVertsTransformed += vertexCount;
-
-	indexGen.SetIndex(collectedVerts);
-	int indexLowerBound, indexUpperBound;
 	// If vtype has changed, setup the vertex decoder.
 	// TODO: Simply cache the setup decoders instead.
 	if (vertType != lastVType) {
@@ -678,71 +677,222 @@ void TransformDrawEngine::SubmitPrim(void *verts, void *inds, int prim, int vert
 		lastVType = vertType;
 	}
 
-	// Decode the verts and apply morphing
-	dec.DecodeVerts(decoded + collectedVerts * (int)dec.GetDecVtxFmt().stride, verts, inds, prim, vertexCount, &indexLowerBound, &indexUpperBound);
-	collectedVerts += indexUpperBound - indexLowerBound + 1;
 	if (bytesRead)
 		*bytesRead = vertexCount * dec.VertexSize();
 
-	int indexType = vertType & GE_VTYPE_IDX_MASK;
-	if (forceIndexType != -1) indexType = forceIndexType;
-	switch (indexType) {
-	case GE_VTYPE_IDX_NONE:
-		switch (prim) {
-		case GE_PRIM_POINTS: indexGen.AddPoints(vertexCount); break;
-		case GE_PRIM_LINES: indexGen.AddLineList(vertexCount); break;
-		case GE_PRIM_LINE_STRIP: indexGen.AddLineStrip(vertexCount); break;
-		case GE_PRIM_TRIANGLES: indexGen.AddList(vertexCount); break;
-		case GE_PRIM_TRIANGLE_STRIP: indexGen.AddStrip(vertexCount); break;
-		case GE_PRIM_TRIANGLE_FAN: indexGen.AddFan(vertexCount); break;
-		case GE_PRIM_RECTANGLES: indexGen.AddRectangles(vertexCount); break;  // Same
-		}
-		break;
+	if (!indexGen.Empty()) {
+		gpuStats.numJoins++;
+	}
+	gpuStats.numDrawCalls++;
+	gpuStats.numVertsTransformed += vertexCount;
 
-	case GE_VTYPE_IDX_8BIT:
-		switch (prim) {
-		case GE_PRIM_POINTS: indexGen.TranslatePoints(vertexCount, (const u8 *)inds, -indexLowerBound); break;
-		case GE_PRIM_LINES: indexGen.TranslateLineList(vertexCount, (const u8 *)inds, -indexLowerBound); break;
-		case GE_PRIM_LINE_STRIP: indexGen.TranslateLineStrip(vertexCount, (const u8 *)inds, -indexLowerBound); break;
-		case GE_PRIM_TRIANGLES: indexGen.TranslateList(vertexCount, (const u8 *)inds, -indexLowerBound); break;
-		case GE_PRIM_TRIANGLE_STRIP: indexGen.TranslateStrip(vertexCount, (const u8 *)inds, -indexLowerBound); break;
-		case GE_PRIM_TRIANGLE_FAN: indexGen.TranslateFan(vertexCount, (const u8 *)inds, -indexLowerBound); break;
-		case GE_PRIM_RECTANGLES: indexGen.TranslateRectangles(vertexCount, (const u8 *)inds, -indexLowerBound); break;  // Same
-		}
-		break;
+	DeferredDrawCall &dc = drawCalls[numDrawCalls++];
+	dc.verts = verts;
+	dc.inds = inds;
+	dc.vertType = vertType;
+	dc.indexType = forceIndexType == (-1 ? (vertType & GE_VTYPE_IDX_MASK) : forceIndexType) >> GE_VTYPE_IDX_SHIFT;
+	dc.prim = prim;
+	dc.vertexCount = vertexCount;
+	if (inds) {
+		GetIndexBounds(inds, vertexCount, vertType, &dc.indexLowerBound, &dc.indexUpperBound);
+	} else {
+		dc.indexLowerBound = 0;
+		dc.indexUpperBound = vertexCount - 1;
+	}
+}
 
-	case GE_VTYPE_IDX_16BIT:
-		switch (prim) {
-		case GE_PRIM_POINTS: indexGen.TranslatePoints(vertexCount, (const u16 *)inds, -indexLowerBound); break;
-		case GE_PRIM_LINES: indexGen.TranslateLineList(vertexCount, (const u16 *)inds, -indexLowerBound); break;
-		case GE_PRIM_LINE_STRIP: indexGen.TranslateLineStrip(vertexCount, (const u16 *)inds, -indexLowerBound); break;
-		case GE_PRIM_TRIANGLES: indexGen.TranslateList(vertexCount, (const u16 *)inds, -indexLowerBound); break;
-		case GE_PRIM_TRIANGLE_STRIP: indexGen.TranslateStrip(vertexCount, (const u16 *)inds, -indexLowerBound); break;
-		case GE_PRIM_TRIANGLE_FAN: indexGen.TranslateFan(vertexCount, (const u16 *)inds, -indexLowerBound); break;
-		case GE_PRIM_RECTANGLES: indexGen.TranslateRectangles(vertexCount, (const u16 *)inds, -indexLowerBound); break;  // Same
+void TransformDrawEngine::DecodeVerts() {
+	for (int i = 0; i < numDrawCalls; i++) {
+		const DeferredDrawCall &dc = drawCalls[i];
+
+		indexGen.SetIndex(collectedVerts);
+		int indexLowerBound = dc.indexLowerBound, indexUpperBound = dc.indexUpperBound;
+
+		// Decode the verts and apply morphing
+		dec.DecodeVerts(decoded + collectedVerts * (int)dec.GetDecVtxFmt().stride,
+			dc.verts, dc.inds, dc.prim, dc.vertexCount, indexLowerBound, indexUpperBound);
+		collectedVerts += indexUpperBound - indexLowerBound + 1;
+
+		u32 indexType = dc.indexType;
+		int vertexCount = dc.vertexCount;
+		void *inds = dc.inds;
+		switch (indexType) {
+		case GE_VTYPE_IDX_NONE >> GE_VTYPE_IDX_SHIFT:
+			switch (dc.prim) {
+			case GE_PRIM_POINTS: indexGen.AddPoints(vertexCount); break;
+			case GE_PRIM_LINES: indexGen.AddLineList(vertexCount); break;
+			case GE_PRIM_LINE_STRIP: indexGen.AddLineStrip(vertexCount); break;
+			case GE_PRIM_TRIANGLES: indexGen.AddList(vertexCount); break;
+			case GE_PRIM_TRIANGLE_STRIP: indexGen.AddStrip(vertexCount); break;
+			case GE_PRIM_TRIANGLE_FAN: indexGen.AddFan(vertexCount); break;
+			case GE_PRIM_RECTANGLES: indexGen.AddRectangles(vertexCount); break;  // Same
+			}
+			break;
+
+		case GE_VTYPE_IDX_8BIT >> GE_VTYPE_IDX_SHIFT:
+			switch (dc.prim) {
+			case GE_PRIM_POINTS: indexGen.TranslatePoints(vertexCount, (const u8 *)inds, -indexLowerBound); break;
+			case GE_PRIM_LINES: indexGen.TranslateLineList(vertexCount, (const u8 *)inds, -indexLowerBound); break;
+			case GE_PRIM_LINE_STRIP: indexGen.TranslateLineStrip(vertexCount, (const u8 *)inds, -indexLowerBound); break;
+			case GE_PRIM_TRIANGLES: indexGen.TranslateList(vertexCount, (const u8 *)inds, -indexLowerBound); break;
+			case GE_PRIM_TRIANGLE_STRIP: indexGen.TranslateStrip(vertexCount, (const u8 *)inds, -indexLowerBound); break;
+			case GE_PRIM_TRIANGLE_FAN: indexGen.TranslateFan(vertexCount, (const u8 *)inds, -indexLowerBound); break;
+			case GE_PRIM_RECTANGLES: indexGen.TranslateRectangles(vertexCount, (const u8 *)inds, -indexLowerBound); break;  // Same
+			}
+			break;
+
+		case GE_VTYPE_IDX_16BIT >> GE_VTYPE_IDX_SHIFT:
+			switch (dc.prim) {
+			case GE_PRIM_POINTS: indexGen.TranslatePoints(vertexCount, (const u16 *)inds, -indexLowerBound); break;
+			case GE_PRIM_LINES: indexGen.TranslateLineList(vertexCount, (const u16 *)inds, -indexLowerBound); break;
+			case GE_PRIM_LINE_STRIP: indexGen.TranslateLineStrip(vertexCount, (const u16 *)inds, -indexLowerBound); break;
+			case GE_PRIM_TRIANGLES: indexGen.TranslateList(vertexCount, (const u16 *)inds, -indexLowerBound); break;
+			case GE_PRIM_TRIANGLE_STRIP: indexGen.TranslateStrip(vertexCount, (const u16 *)inds, -indexLowerBound); break;
+			case GE_PRIM_TRIANGLE_FAN: indexGen.TranslateFan(vertexCount, (const u16 *)inds, -indexLowerBound); break;
+			case GE_PRIM_RECTANGLES: indexGen.TranslateRectangles(vertexCount, (const u16 *)inds, -indexLowerBound); break;  // Same
+			}
+			break;
 		}
-		break;
+	}
+}
+
+u32 TransformDrawEngine::ComputeHash() {
+	u32 fullhash = 0;
+	int vertexSize = dec.GetDecVtxFmt().stride;
+
+	for (int i = 0; i < numDrawCalls; i++) {
+		if (!drawCalls[i].inds) {
+			fullhash += CityHash32((const char *)drawCalls[i].verts, vertexSize * drawCalls[i].vertexCount);
+		} else {
+			fullhash += CityHash32((const char *)drawCalls[i].verts + vertexSize * drawCalls[i].indexLowerBound,
+				vertexSize * (drawCalls[i].indexUpperBound - drawCalls[i].indexLowerBound));
+			int indexSize = (dec.VertexType() & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT ? 2 : 1;
+			fullhash += CityHash32((const char *)drawCalls[i].inds, indexSize * drawCalls[i].vertexCount);
+		}
+	}
+
+	return fullhash;
+}
+
+u32 TransformDrawEngine::ComputeFastDCID() {
+	u32 hash = 0;
+	for (int i = 0; i < numDrawCalls; i++) {
+		hash ^= (u32)drawCalls[i].verts;
+		hash = _rotl(hash, 13);
+		hash ^= (u32)drawCalls[i].inds;
+		hash = _rotl(hash, 13);
+		hash ^= (u32)drawCalls[i].vertType;
+		hash = _rotl(hash, 13);
+		hash ^= (u32)drawCalls[i].vertexCount;
+		hash = _rotl(hash, 13);
+		hash ^= (u32)drawCalls[i].prim;
+	}
+	return hash;
+}
+
+enum { VAI_KILL_AGE = 50 };
+
+void TransformDrawEngine::ClearTrackedVertexArrays() {
+	for (auto vai = vai_.begin(); vai != vai_.end(); vai++) {
+		delete vai->second;
+	}
+	vai_.clear();
+}
+
+void TransformDrawEngine::DecimateTrackedVertexArrays() {
+	for (auto iter = vai_.begin(); iter != vai_.end(); ) {
+		if (iter->second->lastFrame + VAI_KILL_AGE < gpuStats.numFrames) {
+			delete iter->second;
+			vai_.erase(iter++);
+		}
+		else
+			++iter;
 	}
 }
 
 void TransformDrawEngine::Flush() {
-	if (indexGen.Empty())
+	if (!numDrawCalls)
 		return;
 
-#if 0
-	for (int i = indexLowerBound; i <= indexUpperBound; i++) {
-		PrintDecodedVertex(decoded[i], vertType);
-	}
-#endif
-
-	// Check if anything needs updating
-	if (gstate_c.textureChanged) {
-		if ((gstate.textureMapEnable & 1) && !gstate.isModeClear()) {
-			PSPSetTexture();
-		}
-		gstate_c.textureChanged = false;
-	}
 	gpuStats.numFlushes++;
+
+	// TODO: Try to recognize the currently collected sequence of drawcalls.
+	// Collect stats, hash, and buffer them.
+
+	bool useVBO = g_Config.bUseVBO;
+	GLuint vbo, ebo;
+	if (useVBO) {
+		if (g_Config.bVertexCache) {
+			u32 id = ComputeFastDCID();
+			auto iter = vai_.find(id);
+			VertexArrayInfo *vai;
+			if (vai_.find(id) != vai_.end()) {
+				// We've seen this before. Could have been a cached draw.
+				vai = iter->second;
+			} else {
+				vai = new VertexArrayInfo();
+				vai->decFmt = dec.GetDecVtxFmt();
+				vai_[id] = vai;
+			}
+			vai->lastFrame = gpuStats.numFrames;
+			// A pretty little state machine.
+			switch (vai->status) {
+			case VertexArrayInfo::VAI_NEW:
+				{
+					// Haven't seen this one before.
+					u32 dataHash = ComputeHash();
+					vai->hash = dataHash;
+					vai->status = VertexArrayInfo::VAI_HASHING;
+					DecodeVerts();
+					goto rotateVBO;
+				}
+
+			// Hashing - still gaining confidence about the buffer.
+			case VertexArrayInfo::VAI_HASHING:
+				{
+					u32 newHash = ComputeHash();
+					vai->numDraws++;
+					if (vai->numDraws > 100000) {
+						vai->status = VertexArrayInfo::VAI_RELIABLE;
+					}
+					if (newHash == vai->hash) {
+						gpuStats.numCachedDrawCalls++;
+					} else {
+						vai->status = VertexArrayInfo::VAI_UNRELIABLE;
+					}
+					DecodeVerts(); // TODO : Remove
+					goto rotateVBO;
+				}
+
+			// Reliable - we don't even bother hashing anymore. Right now we don't go here until after a very long time.
+			case VertexArrayInfo::VAI_RELIABLE:
+				{
+					vai->numDraws++;
+					gpuStats.numCachedDrawCalls++;
+					DecodeVerts(); // TODO : Remove
+					break;
+				}
+			
+			case VertexArrayInfo::VAI_UNRELIABLE:
+				{
+					vai->numDraws++;
+					DecodeVerts();
+					goto rotateVBO;
+				}
+			}
+		} else {
+			DecodeVerts();
+			rotateVBO:
+			// Just rotate VBO.
+			vbo = vbo_[curVbo_];
+			ebo = ebo_[curVbo_];
+			curVbo_++;
+			if (curVbo_ == NUM_VBOS)
+				curVbo_ = 0;
+		}
+	}
+
+	gpuStats.numTrackedVertexArrays = vai_.size();
 
 	// TODO: This should not be done on every drawcall, we should collect vertex data
 	// until critical state changes. That's when we draw (flush).
@@ -756,15 +906,13 @@ void TransformDrawEngine::Flush() {
 
 	DEBUG_LOG(G3D, "Flush prim %i! %i verts in one go", prim, collectedVerts);
 
-	bool useVBO = g_Config.bUseVBO;
-	
 	if (CanUseHardwareTransform(prim)) {
 		if (useVBO) {
 			//char title[64];
 			//sprintf(title, "upload %i verts for hw", indexGen.VertexCount());
 			//LoggingDeadline deadline(title, 5);
-			glBindBuffer(GL_ARRAY_BUFFER, vbo_[curVbo_]);
-			glBufferData(GL_ARRAY_BUFFER, dec.GetDecVtxFmt().stride * indexGen.MaxIndex(), decoded, GL_DYNAMIC_DRAW);
+			glBindBuffer(GL_ARRAY_BUFFER, vbo);
+			glBufferData(GL_ARRAY_BUFFER, dec.GetDecVtxFmt().stride * indexGen.MaxIndex(), decoded, GL_STREAM_DRAW);
 		}
 		SetupDecFmtForDraw(program, dec.GetDecVtxFmt(), useVBO ? 0 : decoded);
 		// If there's only been one primitive type, and it's either TRIANGLES, LINES or POINTS,
@@ -775,8 +923,8 @@ void TransformDrawEngine::Flush() {
 			glDrawArrays(glprim[prim], 0, indexGen.VertexCount());
 		} else {
 			if (useVBO) {
-				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_[curVbo_]);
-				glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(short) * indexGen.VertexCount(), (GLvoid *)decIndex, GL_DYNAMIC_DRAW);
+				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+				glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(short) * indexGen.VertexCount(), (GLvoid *)decIndex, GL_STREAM_DRAW);
 			}
 			glDrawElements(glprim[prim], indexGen.VertexCount(), GL_UNSIGNED_SHORT, useVBO ? 0 : (GLvoid*)decIndex);
 			if (useVBO) {
@@ -787,9 +935,6 @@ void TransformDrawEngine::Flush() {
 		if (useVBO) {
 			// glBufferData(GL_ARRAY_BUFFER, dec.GetDecVtxFmt().stride * indexGen.MaxIndex(), 0, GL_DYNAMIC_DRAW);
 			// glBindBuffer(GL_ARRAY_BUFFER, 0);
-			curVbo_++;
-			if (curVbo_ == NUM_VBOS)
-				curVbo_ = 0;
 		}
 	} else {
 		SoftwareTransformAndDraw(prim, decoded, program, indexGen.VertexCount(), dec.VertexType(), (void *)decIndex, GE_VTYPE_IDX_16BIT, dec.GetDecVtxFmt(),
@@ -798,4 +943,5 @@ void TransformDrawEngine::Flush() {
 
 	indexGen.Reset();
 	collectedVerts = 0;
+	numDrawCalls = 0;
 }
