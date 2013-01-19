@@ -306,6 +306,9 @@ void SettingsScreen::render() {
 	}
 	UICheckBox(GEN_ID, x, y += stride, "Hardware Transform", ALIGN_TOPLEFT, &g_Config.bHardwareTransform);
 	UICheckBox(GEN_ID, x, y += stride, "Draw using VBO", ALIGN_TOPLEFT, &g_Config.bUseVBO);
+	if (g_Config.bHardwareTransform && g_Config.bUseVBO) {
+		UICheckBox(GEN_ID, x, y += 50, "Vertex Cache", ALIGN_TOPLEFT, &g_Config.bVertexCache);
+	}
 
 	bool useJit = g_Config.iCpuCore == CPU_JIT;
 	UICheckBox(GEN_ID, x, y += stride, "JIT (Dynarec)", ALIGN_TOPLEFT, &useJit);

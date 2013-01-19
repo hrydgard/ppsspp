@@ -26,6 +26,7 @@ class IndexGenerator
 public:
 	void Setup(u16 *indexptr);
 	void Reset();
+	static bool PrimCompatible(int prim1, int prim2);
 	bool PrimCompatible(int prim);
 	int Prim() const { return prim_; }
 

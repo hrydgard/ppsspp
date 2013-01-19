@@ -50,24 +50,32 @@ public:
 		vbo = 0;
 		ebo = 0;
 		numDCs = 0;
+		prim = -1;
 		numDraws = 0;
-		lastFrame = 0;  // TODO
+		lastFrame = gpuStats.numFrames;
+		numVerts = 0;
 	}
+	~VertexArrayInfo();
 	enum Status {
 		VAI_NEW,
 		VAI_HASHING,
 		VAI_RELIABLE,  // cache, don't hash
 		VAI_UNRELIABLE,  // never cache
+		VAI_INBUFFERABLE,   // lol
 	};
 
-	u64 hash;
+	u32 hash;
 
 	Status status;
 
-	DecVtxFormat decFmt;
-	
 	u32 vbo;
 	u32 ebo;
+
+	DecVtxFormat decFmt;
+	
+	// Precalculated parameter for drawdrawElements
+	u16 numVerts;
+	u8 prim;
 
 	// ID information
 	u8 numDCs;
@@ -117,22 +125,21 @@ private:
 		u16 indexUpperBound;
 	};
 
-	enum { MAX_DEFERRED_DRAW_CALLS = 128 };
-	DeferredDrawCall drawCalls[MAX_DEFERRED_DRAW_CALLS];
-	int numDrawCalls;
-
 	// Vertex collector state
 	IndexGenerator indexGen;
 	int collectedVerts;
+	int prevPrim_;
 
 	// Vertex collector buffers
 	VertexDecoder dec;
-	u32 lastVType;
+	u32 lastVType_;
 	u8 *decoded;
 	u16 *decIndex;
 
 	TransformedVertex *transformed;
 	TransformedVertex *transformedExpanded;
+
+	std::map<u32, VertexArrayInfo *> vai_;
 
 	// Vertex buffer objects
 	// Element buffer objects
@@ -141,10 +148,12 @@ private:
 	GLuint ebo_[NUM_VBOS];
 	int curVbo_;
 
-	std::map<u32, VertexArrayInfo *> vai_;
-
 	// Other
 	ShaderManager *shaderManager_;
+
+	enum { MAX_DEFERRED_DRAW_CALLS = 128 };
+	DeferredDrawCall drawCalls[MAX_DEFERRED_DRAW_CALLS];
+	int numDrawCalls;
 };
 
 // Only used by SW transform

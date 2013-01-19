@@ -48,7 +48,8 @@ const GLuint glprim[8] = {
 TransformDrawEngine::TransformDrawEngine()
 	: numDrawCalls(0),
 	  collectedVerts(0),
-		lastVType(-1),
+		prevPrim_(-1),
+		lastVType_(-1),
 		curVbo_(0),
 		shaderManager_(0) {
 	decoded = new u8[65536 * 48];
@@ -666,15 +667,16 @@ void TransformDrawEngine::SubmitPrim(void *verts, void *inds, int prim, int vert
 	{
 		return;  // we ignore zero-sized draw calls.
 	}
-	// For the future
-	if (!indexGen.PrimCompatible(prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS)
+
+	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS)
 		Flush();
 
+	prevPrim_ = prim;
 	// If vtype has changed, setup the vertex decoder.
 	// TODO: Simply cache the setup decoders instead.
-	if (vertType != lastVType) {
+	if (vertType != lastVType_) {
 		dec.SetVertexType(vertType);
-		lastVType = vertType;
+		lastVType_ = vertType;
 	}
 
 	if (bytesRead)
@@ -790,7 +792,7 @@ u32 TransformDrawEngine::ComputeFastDCID() {
 	return hash;
 }
 
-enum { VAI_KILL_AGE = 50 };
+enum { VAI_KILL_AGE = 120 };
 
 void TransformDrawEngine::ClearTrackedVertexArrays() {
 	for (auto vai = vai_.begin(); vai != vai_.end(); vai++) {
@@ -810,123 +812,165 @@ void TransformDrawEngine::DecimateTrackedVertexArrays() {
 	}
 }
 
+VertexArrayInfo::~VertexArrayInfo() {
+	if (vbo)
+		glDeleteBuffers(1, &vbo);
+	if (ebo)
+		glDeleteBuffers(1, &ebo);
+}
+
 void TransformDrawEngine::Flush() {
 	if (!numDrawCalls)
 		return;
 
 	gpuStats.numFlushes++;
-
-	// TODO: Try to recognize the currently collected sequence of drawcalls.
-	// Collect stats, hash, and buffer them.
-
-	bool useVBO = g_Config.bUseVBO;
-	GLuint vbo, ebo;
-	if (useVBO) {
-		if (g_Config.bVertexCache) {
-			u32 id = ComputeFastDCID();
-			auto iter = vai_.find(id);
-			VertexArrayInfo *vai;
-			if (vai_.find(id) != vai_.end()) {
-				// We've seen this before. Could have been a cached draw.
-				vai = iter->second;
-			} else {
-				vai = new VertexArrayInfo();
-				vai->decFmt = dec.GetDecVtxFmt();
-				vai_[id] = vai;
-			}
-			vai->lastFrame = gpuStats.numFrames;
-			// A pretty little state machine.
-			switch (vai->status) {
-			case VertexArrayInfo::VAI_NEW:
-				{
-					// Haven't seen this one before.
-					u32 dataHash = ComputeHash();
-					vai->hash = dataHash;
-					vai->status = VertexArrayInfo::VAI_HASHING;
-					DecodeVerts();
-					goto rotateVBO;
-				}
-
-			// Hashing - still gaining confidence about the buffer.
-			case VertexArrayInfo::VAI_HASHING:
-				{
-					u32 newHash = ComputeHash();
-					vai->numDraws++;
-					if (vai->numDraws > 100000) {
-						vai->status = VertexArrayInfo::VAI_RELIABLE;
-					}
-					if (newHash == vai->hash) {
-						gpuStats.numCachedDrawCalls++;
-					} else {
-						vai->status = VertexArrayInfo::VAI_UNRELIABLE;
-					}
-					DecodeVerts(); // TODO : Remove
-					goto rotateVBO;
-				}
-
-			// Reliable - we don't even bother hashing anymore. Right now we don't go here until after a very long time.
-			case VertexArrayInfo::VAI_RELIABLE:
-				{
-					vai->numDraws++;
-					gpuStats.numCachedDrawCalls++;
-					DecodeVerts(); // TODO : Remove
-					break;
-				}
-			
-			case VertexArrayInfo::VAI_UNRELIABLE:
-				{
-					vai->numDraws++;
-					DecodeVerts();
-					goto rotateVBO;
-				}
-			}
-		} else {
-			DecodeVerts();
-			rotateVBO:
-			// Just rotate VBO.
-			vbo = vbo_[curVbo_];
-			ebo = ebo_[curVbo_];
-			curVbo_++;
-			if (curVbo_ == NUM_VBOS)
-				curVbo_ = 0;
-		}
-	}
-
+	
 	gpuStats.numTrackedVertexArrays = vai_.size();
 
 	// TODO: This should not be done on every drawcall, we should collect vertex data
 	// until critical state changes. That's when we draw (flush).
 
-	int prim = indexGen.Prim();
-
+	int prim = prevPrim_;
 	ApplyDrawState(prim);
 	UpdateViewportAndProjection();
 
 	LinkedShader *program = shaderManager_->ApplyShader(prim);
 
-	DEBUG_LOG(G3D, "Flush prim %i! %i verts in one go", prim, collectedVerts);
-
-	if (CanUseHardwareTransform(prim)) {
+	if (CanUseHardwareTransform(prevPrim_)) {
+		bool useVBO = g_Config.bUseVBO;
+		GLuint vbo = 0, ebo = 0;
+		int vertexCount = 0;
 		if (useVBO) {
-			//char title[64];
-			//sprintf(title, "upload %i verts for hw", indexGen.VertexCount());
-			//LoggingDeadline deadline(title, 5);
-			glBindBuffer(GL_ARRAY_BUFFER, vbo);
-			glBufferData(GL_ARRAY_BUFFER, dec.GetDecVtxFmt().stride * indexGen.MaxIndex(), decoded, GL_STREAM_DRAW);
-		}
-		SetupDecFmtForDraw(program, dec.GetDecVtxFmt(), useVBO ? 0 : decoded);
-		// If there's only been one primitive type, and it's either TRIANGLES, LINES or POINTS,
-		// there is no need for the index buffer we built. We can then use glDrawArrays instead
-		// for a very minor speed boost.
-		int seen = indexGen.SeenPrims() | 0x83204820;
-		if (seen == (1 << GE_PRIM_TRIANGLES) || seen == (1 << GE_PRIM_LINES) || seen == (1 << GE_PRIM_POINTS)) {
-			glDrawArrays(glprim[prim], 0, indexGen.VertexCount());
-		} else {
-			if (useVBO) {
+			if (g_Config.bVertexCache) {
+				u32 id = ComputeFastDCID();
+				auto iter = vai_.find(id);
+				VertexArrayInfo *vai;
+				if (vai_.find(id) != vai_.end()) {
+					// We've seen this before. Could have been a cached draw.
+					vai = iter->second;
+				} else {
+					vai = new VertexArrayInfo();
+					vai->decFmt = dec.GetDecVtxFmt();
+					vai_[id] = vai;
+				}
+				vai->lastFrame = gpuStats.numFrames;
+				// A pretty little state machine.
+				switch (vai->status) {
+				case VertexArrayInfo::VAI_INBUFFERABLE:
+					goto useSoftware;
+
+				case VertexArrayInfo::VAI_NEW:
+					{
+						// Haven't seen this one before.
+						u32 dataHash = ComputeHash();
+						vai->hash = dataHash;
+						vai->status = VertexArrayInfo::VAI_HASHING;
+						DecodeVerts(); // writes to indexGen
+						vertexCount = indexGen.VertexCount();
+						prim = indexGen.Prim();
+						if (!CanUseHardwareTransform(indexGen.Prim()))
+						{
+							vai->status = VertexArrayInfo::VAI_INBUFFERABLE;
+							goto useSoftware;
+						}
+						goto rotateVBO;
+					}
+
+					// Hashing - still gaining confidence about the buffer.
+					// But if we get this far it's likely to be worth creating a vertex buffer.
+				case VertexArrayInfo::VAI_HASHING:
+					{
+						u32 newHash = ComputeHash();
+						vai->numDraws++;
+						if (vai->numDraws > 100000) {
+							vai->status = VertexArrayInfo::VAI_RELIABLE;
+						}
+						if (newHash == vai->hash) {
+							gpuStats.numCachedDrawCalls++;
+						} else {
+							vai->status = VertexArrayInfo::VAI_UNRELIABLE;
+						}
+						if (vai->vbo == 0) {
+							DecodeVerts(); // TODO : Remove
+							vai->numVerts = indexGen.VertexCount();
+							vai->prim = indexGen.Prim();
+							glGenBuffers(1, &vai->vbo);
+
+							// TODO: in some cases we can avoid creating an element buffer.
+							// If there's only been one primitive type, and it's either TRIANGLES, LINES or POINTS,
+							// there is no need for the index buffer we built. We can then use glDrawArrays instead
+							// for a very minor speed boost.
+							//int seen = indexGen.SeenPrims() | 0x83204820;
+							//seen == (1 << GE_PRIM_TRIANGLES) || seen == (1 << GE_PRIM_LINES) || seen == (1 << GE_PRIM_POINTS)
+							bool useElements = true;
+							glBindBuffer(GL_ARRAY_BUFFER, vai->vbo);
+							glBufferData(GL_ARRAY_BUFFER, dec.GetDecVtxFmt().stride * indexGen.MaxIndex(), decoded, GL_STATIC_DRAW);
+							if (useElements) {
+								glGenBuffers(1, &vai->ebo);
+								glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vai->ebo);
+								glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(short) * indexGen.VertexCount(), (GLvoid *)decIndex, GL_STATIC_DRAW);
+							}
+						} else {
+							glBindBuffer(GL_ARRAY_BUFFER, vai->vbo);
+							if (vai->ebo)
+								glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vai->ebo);
+						}
+						vbo = vai->vbo;
+						ebo = vai->ebo;
+						vertexCount = vai->numVerts;
+						prim = vai->prim;
+						break;
+					}
+
+					// Reliable - we don't even bother hashing anymore. Right now we don't go here until after a very long time.
+				case VertexArrayInfo::VAI_RELIABLE:
+					{
+						vai->numDraws++;
+						gpuStats.numCachedDrawCalls++;
+						// DecodeVerts(); // TODO : Remove
+						vbo = vai->vbo;
+						ebo = vai->ebo;
+						glBindBuffer(GL_ARRAY_BUFFER, vbo);
+						if (ebo)
+							glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+						vertexCount = vai->numVerts;
+						prim = vai->prim;
+						break;
+					}
+
+				case VertexArrayInfo::VAI_UNRELIABLE:
+					{
+						vai->numDraws++;
+						DecodeVerts();
+						vertexCount = indexGen.VertexCount();
+						prim = indexGen.Prim();
+						goto rotateVBO;
+					}
+				}
+			} else {
+				DecodeVerts();
+rotateVBO:
+				// Just rotate VBO.
+				vbo = vbo_[curVbo_];
+				ebo = ebo_[curVbo_];
+				vertexCount = indexGen.VertexCount();
+				curVbo_++;
+				if (curVbo_ == NUM_VBOS)
+					curVbo_ = 0;
+				glBindBuffer(GL_ARRAY_BUFFER, vbo);
+				glBufferData(GL_ARRAY_BUFFER, dec.GetDecVtxFmt().stride * indexGen.MaxIndex(), decoded, GL_STREAM_DRAW);
 				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
 				glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(short) * indexGen.VertexCount(), (GLvoid *)decIndex, GL_STREAM_DRAW);
 			}
-			glDrawElements(glprim[prim], indexGen.VertexCount(), GL_UNSIGNED_SHORT, useVBO ? 0 : (GLvoid*)decIndex);
+		}
+		
+		DEBUG_LOG(G3D, "Flush prim %i! %i verts in one go", prim, vertexCount);
+
+		SetupDecFmtForDraw(program, dec.GetDecVtxFmt(), vbo ? 0 : decoded);
+		if (!ebo) {
+			glDrawArrays(glprim[prim], 0, vertexCount);
+		} else {
+			glDrawElements(glprim[prim], vertexCount, GL_UNSIGNED_SHORT, vbo ? 0 : (GLvoid*)decIndex);
 			if (useVBO) {
 				//glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(short) * indexGen.VertexCount(), 0, GL_DYNAMIC_DRAW);
 				//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
@@ -937,6 +981,11 @@ void TransformDrawEngine::Flush() {
 			// glBindBuffer(GL_ARRAY_BUFFER, 0);
 		}
 	} else {
+useSoftware:
+		DecodeVerts();
+		prim = indexGen.Prim();
+		DEBUG_LOG(G3D, "Flush prim %i SW! %i verts in one go", prim, indexGen.VertexCount());
+
 		SoftwareTransformAndDraw(prim, decoded, program, indexGen.VertexCount(), dec.VertexType(), (void *)decIndex, GE_VTYPE_IDX_16BIT, dec.GetDecVtxFmt(),
 			indexGen.MaxIndex());
 	}
@@ -944,4 +993,5 @@ void TransformDrawEngine::Flush() {
 	indexGen.Reset();
 	collectedVerts = 0;
 	numDrawCalls = 0;
+	prevPrim_ = -1;
 }

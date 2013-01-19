@@ -41,6 +41,12 @@ void IndexGenerator::Reset() {
 	this->inds_ = indsBase_;
 }
 
+bool IndexGenerator::PrimCompatible(int prim1, int prim2) {
+	if (prim1 == -1)
+		return true;
+	return indexedPrimitiveType[prim1] == indexedPrimitiveType[prim2];
+}
+
 bool IndexGenerator::PrimCompatible(int prim) {
 	if (prim_ == -1)
 		return true;
