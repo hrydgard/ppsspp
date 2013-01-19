@@ -41,24 +41,24 @@
 
 namespace MIPSComp
 {
-	static void ReadMemSafe32(u32 addr, int preg, u32 offset)
+	static u32 ReadMemSafe32(u32 addr, u32 offset)
 	{
-		currentMIPS->r[preg] = Memory::Read_U32(addr + offset);
+		return Memory::Read_U32(addr + offset);
 	}
 
-	static void ReadMemSafe16(u32 addr, int preg, u32 offset)
+	static u32 ReadMemSafe16(u32 addr, u32 offset)
 	{
-		currentMIPS->r[preg] = Memory::Read_U16(addr + offset);
+		return Memory::Read_U16(addr + offset);
 	}
 
-	static void WriteMemSafe32(u32 addr, int preg, u32 offset)
+	static void WriteMemSafe32(u32 addr, u32 value, u32 offset)
 	{
-		Memory::Write_U32(currentMIPS->r[preg], addr + offset);
+		Memory::Write_U32(value, addr + offset);
 	}
 
-	static void WriteMemSafe16(u32 addr, int preg, u32 offset)
+	static void WriteMemSafe16(u32 addr, u32 value, u32 offset)
 	{
-		Memory::Write_U16(currentMIPS->r[preg], addr + offset);
+		Memory::Write_U16(value, addr + offset);
 	}
 
 	void Jit::Comp_ITypeMem(u32 op)
@@ -92,14 +92,16 @@ namespace MIPSComp
 #else
 				MOVZX(32, 16, gpr.RX(rt), MComplex(RBX, EAX, SCALE_1, offset));
 #endif
-				gpr.UnlockAll();
-				FlushAll();
 
 				FixupBranch skip = J();
 				SetJumpTarget(tooLow);
 				SetJumpTarget(tooHigh);
-				ABI_CallFunctionACC((void *) &ReadMemSafe16, gpr.R(rs), rt, offset);
+
+				ABI_CallFunctionAC((void *) &ReadMemSafe16, R(EAX), offset);
+				MOVZX(32, 16, gpr.RX(rt), R(EAX));
+
 				SetJumpTarget(skip);
+				gpr.UnlockAll();
 			}
 			else
 			{
@@ -139,14 +141,16 @@ namespace MIPSComp
 #else
 				MOV(32, gpr.R(rt), MComplex(RBX, EAX, SCALE_1, offset));
 #endif
-				gpr.UnlockAll();
-				FlushAll();
 
 				FixupBranch skip = J();
 				SetJumpTarget(tooLow);
 				SetJumpTarget(tooHigh);
-				ABI_CallFunctionACC((void *) &ReadMemSafe32, gpr.R(rs), rt, offset);
+
+				ABI_CallFunctionAC((void *) &ReadMemSafe32, R(EAX), offset);
+				MOV(32, gpr.R(rt), R(EAX));
+
 				SetJumpTarget(skip);
+				gpr.UnlockAll();
 			}
 			else
 			{
@@ -177,7 +181,7 @@ namespace MIPSComp
 				FlushAll();
 
 				gpr.Lock(rt, rs);
-				gpr.BindToRegister(rt, true, true);
+				gpr.BindToRegister(rt, true, false);
 
 				MOV(32, R(EAX), gpr.R(rs));
 				CMP(32, R(EAX), Imm32(0x08000000));
@@ -189,14 +193,15 @@ namespace MIPSComp
 #else
 				MOV(16, MComplex(RBX, EAX, SCALE_1, offset), gpr.R(rt));
 #endif
-				gpr.UnlockAll();
-				FlushAll();
 
 				FixupBranch skip = J();
 				SetJumpTarget(tooLow);
 				SetJumpTarget(tooHigh);
-				ABI_CallFunctionACC((void *) &WriteMemSafe16, gpr.R(rs), rt, offset);
+
+				ABI_CallFunctionAAC((void *) &WriteMemSafe16, R(EAX), gpr.R(rt), offset);
+
 				SetJumpTarget(skip);
+				gpr.UnlockAll();
 			}
 			else
 			{
@@ -220,7 +225,7 @@ namespace MIPSComp
 				FlushAll();
 
 				gpr.Lock(rt, rs);
-				gpr.BindToRegister(rt, true, true);
+				gpr.BindToRegister(rt, true, false);
 
 				MOV(32, R(EAX), gpr.R(rs));
 				CMP(32, R(EAX), Imm32(0x08000000));
@@ -232,14 +237,15 @@ namespace MIPSComp
 #else
 				MOV(32, MComplex(RBX, EAX, SCALE_1, offset), gpr.R(rt));
 #endif
-				gpr.UnlockAll();
-				FlushAll();
 
 				FixupBranch skip = J();
 				SetJumpTarget(tooLow);
 				SetJumpTarget(tooHigh);
-				ABI_CallFunctionACC((void *) &WriteMemSafe32, gpr.R(rs), rt, offset);
+
+				ABI_CallFunctionAAC((void *) &WriteMemSafe32, R(EAX), gpr.R(rt), offset);
+
 				SetJumpTarget(skip);
+				gpr.UnlockAll();
 			}
 			else
 			{
