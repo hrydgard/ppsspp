@@ -656,6 +656,7 @@ public:
 	void ABI_CallFunctionCCCP(void *func, u32 param1, u32 param2,u32 param3, void *param4);
 	void ABI_CallFunctionPPC(void *func, void *param1, void *param2,u32 param3);
 	void ABI_CallFunctionAC(void *func, const Gen::OpArg &arg1, u32 param2);
+	void ABI_CallFunctionACC(void *func, const Gen::OpArg &arg1, u32 param2, u32 param3);
 	void ABI_CallFunctionA(void *func, const Gen::OpArg &arg1);
 
 	// Pass a register as a paremeter.
