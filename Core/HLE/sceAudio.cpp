@@ -309,7 +309,7 @@ u32 sceAudioOutput2ChangeLength(u32 sampleCount)
 u32 sceAudioOutput2GetRestSample()
 {
 	DEBUG_LOG(HLE,"UNTESTED sceAudioOutput2GetRestSample()");
-	return chans[0].sampleQueue.size() * 2;
+	return (u32) chans[0].sampleQueue.size() * 2;
 }
 
 u32 sceAudioOutput2Release()

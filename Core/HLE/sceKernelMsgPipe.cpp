@@ -617,8 +617,8 @@ void sceKernelReferMsgPipeStatus()
 	MsgPipe *m = kernelObjects.Get<MsgPipe>(uid, error);
 	if (m)
 	{
-		m->nmp.numSendWaitThreads = m->sendWaitingThreads.size();
-		m->nmp.numReceiveWaitThreads = m->receiveWaitingThreads.size();
+		m->nmp.numSendWaitThreads = (int) m->sendWaitingThreads.size();
+		m->nmp.numReceiveWaitThreads = (int) m->receiveWaitingThreads.size();
 		Memory::WriteStruct(msgPipeStatusAddr, &m->nmp);
 		RETURN(0);
 	}
