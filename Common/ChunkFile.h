@@ -118,7 +118,7 @@ public:
 	template<class K, class T>
 	void Do(std::multimap<K, T> &x)
 	{
-		unsigned int number = (unsigned int)x.size();
+		unsigned int number = x.size();
 		Do(number);
 		switch (mode) {
 		case MODE_READ:
