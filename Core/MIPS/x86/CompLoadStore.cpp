@@ -41,6 +41,103 @@
 
 namespace MIPSComp
 {
+	void Jit::CompITypeMemRead(u32 op, u32 bits, void *func)
+	{
+		int offset = (signed short)(op&0xFFFF);
+		int rt = _RT;
+		int rs = _RS;
+
+		if (!g_Config.bFastMemory)
+		{
+			gpr.Lock(rt, rs);
+			gpr.BindToRegister(rt, rt == rs, true);
+
+			MOV(32, R(EAX), gpr.R(rs));
+			CMP(32, R(EAX), Imm32(0x08000000));
+			FixupBranch tooLow = J_CC(CC_L);
+			CMP(32, R(EAX), Imm32(0x0A000000));
+			FixupBranch tooHigh = J_CC(CC_GE);
+#ifdef _M_IX86
+			MOVZX(32, bits, gpr.RX(rt), MDisp(EAX, (u32)Memory::base + offset));
+#else
+			MOVZX(32, bits, gpr.RX(rt), MComplex(RBX, EAX, SCALE_1, offset));
+#endif
+
+			FixupBranch skip = J();
+			SetJumpTarget(tooLow);
+			SetJumpTarget(tooHigh);
+
+			ADD(32, R(EAX), Imm32(offset));
+			ABI_CallFunctionA(thunks.ProtectFunction(func, 1), R(EAX));
+			MOVZX(32, bits, gpr.RX(rt), R(EAX));
+
+			SetJumpTarget(skip);
+			gpr.UnlockAll();
+		}
+		else
+		{
+			gpr.Lock(rt, rs);
+			gpr.BindToRegister(rt, rt == rs, true);
+#ifdef _M_IX86
+			MOV(32, R(EAX), gpr.R(rs));
+			AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
+			MOVZX(32, bits, gpr.RX(rt), MDisp(EAX, (u32)Memory::base + offset));
+#else
+			MOV(32, R(EAX), gpr.R(rs));
+			MOVZX(32, bits, gpr.RX(rt), MComplex(RBX, EAX, SCALE_1, offset));
+#endif
+			gpr.UnlockAll();
+		}
+	}
+
+	void Jit::CompITypeMemWrite(u32 op, u32 bits, void *func)
+	{
+		int offset = (signed short)(op&0xFFFF);
+		int rt = _RT;
+		int rs = _RS;
+
+		if (!g_Config.bFastMemory)
+		{
+			gpr.Lock(rt, rs);
+			gpr.BindToRegister(rt, true, false);
+
+			MOV(32, R(EAX), gpr.R(rs));
+			CMP(32, R(EAX), Imm32(0x08000000));
+			FixupBranch tooLow = J_CC(CC_L);
+			CMP(32, R(EAX), Imm32(0x0A000000));
+			FixupBranch tooHigh = J_CC(CC_GE);
+#ifdef _M_IX86
+			MOV(bits, MDisp(EAX, (u32)Memory::base + offset), gpr.R(rt));
+#else
+			MOV(bits, MComplex(RBX, EAX, SCALE_1, offset), gpr.R(rt));
+#endif
+
+			FixupBranch skip = J();
+			SetJumpTarget(tooLow);
+			SetJumpTarget(tooHigh);
+
+			ADD(32, R(EAX), Imm32(offset));
+			ABI_CallFunctionAA(thunks.ProtectFunction(func, 2), gpr.R(rt), R(EAX));
+
+			SetJumpTarget(skip);
+			gpr.UnlockAll();
+		}
+		else
+		{
+			gpr.Lock(rt, rs);
+			gpr.BindToRegister(rt, true, false);
+#ifdef _M_IX86
+			MOV(32, R(EAX), gpr.R(rs));
+			AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
+			MOV(bits, MDisp(EAX, (u32)Memory::base + offset), gpr.R(rt));
+#else
+			MOV(32, R(EAX), gpr.R(rs));
+			MOV(bits, MComplex(RBX, EAX, SCALE_1, offset), gpr.R(rt));
+#endif
+			gpr.UnlockAll();
+		}
+	}
+
 	void Jit::Comp_ITypeMem(u32 op)
 	{
 		int offset = (signed short)(op&0xFFFF);
@@ -55,188 +152,29 @@ namespace MIPSComp
 		switch (o)
 		{
 		case 37: //R(rt) = ReadMem16(addr); break; //lhu
-			if (!g_Config.bFastMemory)
-			{
-				gpr.Lock(rt, rs);
-				gpr.BindToRegister(rt, rt == rs, true);
-
-				MOV(32, R(EAX), gpr.R(rs));
-				CMP(32, R(EAX), Imm32(0x08000000));
-				FixupBranch tooLow = J_CC(CC_L);
-				CMP(32, R(EAX), Imm32(0x0A000000));
-				FixupBranch tooHigh = J_CC(CC_GE);
-#ifdef _M_IX86
-				MOVZX(32, 16, gpr.RX(rt), MDisp(EAX, (u32)Memory::base + offset));
-#else
-				MOVZX(32, 16, gpr.RX(rt), MComplex(RBX, EAX, SCALE_1, offset));
-#endif
-
-				FixupBranch skip = J();
-				SetJumpTarget(tooLow);
-				SetJumpTarget(tooHigh);
-
-				ADD(32, R(EAX), Imm32(offset));
-				ABI_CallFunctionA(thunks.ProtectFunction((void *) &Memory::Read_U16, 1), R(EAX));
-				MOVZX(32, 16, gpr.RX(rt), R(EAX));
-
-				SetJumpTarget(skip);
-				gpr.UnlockAll();
-			}
-			else
-			{
-				gpr.Lock(rt, rs);
-				gpr.BindToRegister(rt, rt == rs, true);
-#ifdef _M_IX86
-				MOV(32, R(EAX), gpr.R(rs));
-				AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
-				MOVZX(32, 16, gpr.RX(rt), MDisp(EAX, (u32)Memory::base + offset));
-#else
-				MOV(32, R(EAX), gpr.R(rs));
-				MOVZX(32, 16, gpr.RX(rt), MComplex(RBX, EAX, SCALE_1, offset));
-#endif
-				gpr.UnlockAll();
-			}
+			CompITypeMemRead(op, 16, (void *) &Memory::Read_U16);
 			break;
 
 		case 36: //R(rt) = ReadMem8 (addr); break; //lbu
-			Comp_Generic(op);
-			return;
+			CompITypeMemRead(op, 8, (void *) &Memory::Read_U8);
+			break;
 
 		case 35: //R(rt) = ReadMem32(addr); break; //lw
-			if (!g_Config.bFastMemory)
-			{
-				gpr.Lock(rt, rs);
-				gpr.BindToRegister(rt, rt == rs, true);
-
-				MOV(32, R(EAX), gpr.R(rs));
-				CMP(32, R(EAX), Imm32(0x08000000));
-				FixupBranch tooLow = J_CC(CC_L);
-				CMP(32, R(EAX), Imm32(0x0A000000));
-				FixupBranch tooHigh = J_CC(CC_GE);
-#ifdef _M_IX86
-				MOV(32, gpr.R(rt), MDisp(EAX, (u32)Memory::base + offset));
-#else
-				MOV(32, gpr.R(rt), MComplex(RBX, EAX, SCALE_1, offset));
-#endif
-
-				FixupBranch skip = J();
-				SetJumpTarget(tooLow);
-				SetJumpTarget(tooHigh);
-
-				ADD(32, R(EAX), Imm32(offset));
-				ABI_CallFunctionA(thunks.ProtectFunction((void *) &Memory::Read_U32, 1), R(EAX));
-				MOV(32, gpr.R(rt), R(EAX));
-
-				SetJumpTarget(skip);
-				gpr.UnlockAll();
-			}
-			else
-			{
-				gpr.Lock(rt, rs);
-				gpr.BindToRegister(rt, rt == rs, true);
-#ifdef _M_IX86
-				MOV(32, R(EAX), gpr.R(rs));
-				AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
-				MOV(32, gpr.R(rt), MDisp(EAX, (u32)Memory::base + offset));
-#else
-				MOV(32, R(EAX), gpr.R(rs));
-				MOV(32, gpr.R(rt), MComplex(RBX, EAX, SCALE_1, offset));
-#endif
-				gpr.UnlockAll();
-			}
+			CompITypeMemRead(op, 32, (void *) &Memory::Read_U16);
 			break;
 
 		case 132: //R(rt) = (u32)(s32)(s8) ReadMem8 (addr); break; //lb
 		case 133: //R(rt) = (u32)(s32)(s16)ReadMem16(addr); break; //lh
-		case 136: //R(rt) = ReadMem8 (addr); break; //lbu
 		case 140: //WriteMem8 (addr, R(rt)); break; //sb
 			Comp_Generic(op);
 			return;
 
 		case 41: //WriteMem16(addr, R(rt)); break; //sh
-			if (!g_Config.bFastMemory)
-			{
-				gpr.Lock(rt, rs);
-				gpr.BindToRegister(rt, true, false);
-
-				MOV(32, R(EAX), gpr.R(rs));
-				CMP(32, R(EAX), Imm32(0x08000000));
-				FixupBranch tooLow = J_CC(CC_L);
-				CMP(32, R(EAX), Imm32(0x0A000000));
-				FixupBranch tooHigh = J_CC(CC_GE);
-#ifdef _M_IX86
-				MOV(16, MDisp(EAX, (u32)Memory::base + offset), gpr.R(rt));
-#else
-				MOV(16, MComplex(RBX, EAX, SCALE_1, offset), gpr.R(rt));
-#endif
-
-				FixupBranch skip = J();
-				SetJumpTarget(tooLow);
-				SetJumpTarget(tooHigh);
-
-				ADD(32, R(EAX), Imm32(offset));
-				ABI_CallFunctionAA(thunks.ProtectFunction((void *) &Memory::Write_U16, 2), gpr.R(rt), R(EAX));
-
-				SetJumpTarget(skip);
-				gpr.UnlockAll();
-			}
-			else
-			{
-				gpr.Lock(rt, rs);
-				gpr.BindToRegister(rt, true, false);
-#ifdef _M_IX86
-				MOV(32, R(EAX), gpr.R(rs));
-				AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
-				MOV(16, MDisp(EAX, (u32)Memory::base + offset), gpr.R(rt));
-#else
-				MOV(32, R(EAX), gpr.R(rs));
-				MOV(16, MComplex(RBX, EAX, SCALE_1, offset), gpr.R(rt));
-#endif
-				gpr.UnlockAll();
-			}
+			CompITypeMemWrite(op, 16, (void *) &Memory::Write_U16);
 			break;
 
 		case 43: //WriteMem32(addr, R(rt)); break; //sw
-			if (!g_Config.bFastMemory)
-			{
-				gpr.Lock(rt, rs);
-				gpr.BindToRegister(rt, true, false);
-
-				MOV(32, R(EAX), gpr.R(rs));
-				CMP(32, R(EAX), Imm32(0x08000000));
-				FixupBranch tooLow = J_CC(CC_L);
-				CMP(32, R(EAX), Imm32(0x0A000000));
-				FixupBranch tooHigh = J_CC(CC_GE);
-#ifdef _M_IX86
-				MOV(32, MDisp(EAX, (u32)Memory::base + offset), gpr.R(rt));
-#else
-				MOV(32, MComplex(RBX, EAX, SCALE_1, offset), gpr.R(rt));
-#endif
-
-				FixupBranch skip = J();
-				SetJumpTarget(tooLow);
-				SetJumpTarget(tooHigh);
-
-				ADD(32, R(EAX), Imm32(offset));
-				ABI_CallFunctionAA(thunks.ProtectFunction((void *) &Memory::Write_U32, 2), gpr.R(rt), R(EAX));
-
-				SetJumpTarget(skip);
-				gpr.UnlockAll();
-			}
-			else
-			{
-				gpr.Lock(rt, rs);
-				gpr.BindToRegister(rt, true, false);
-#ifdef _M_IX86
-				MOV(32, R(EAX), gpr.R(rs));
-				AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
-				MOV(32, MDisp(EAX, (u32)Memory::base + offset), gpr.R(rt));
-#else
-				MOV(32, R(EAX), gpr.R(rs));
-				MOV(32, MComplex(RBX, EAX, SCALE_1, offset), gpr.R(rt));
-#endif
-				gpr.UnlockAll();
-			}
+			CompITypeMemWrite(op, 32, (void *) &Memory::Write_U32);
 			break;
 
 		case 134: //lwl
