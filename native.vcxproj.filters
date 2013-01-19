@@ -236,6 +236,12 @@
     <ClInclude Include="util\text\utf8.h">
       <Filter>util</Filter>
     </ClInclude>
+    <ClInclude Include="ext\cityhash\city.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="ext\cityhash\citycrc.h">
+      <Filter>ext</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -419,6 +425,9 @@
     </ClCompile>
     <ClCompile Include="util\text\utf8.cpp">
       <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="ext\cityhash\city.cpp">
+      <Filter>ext</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

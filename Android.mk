@@ -16,6 +16,7 @@ LOCAL_SRC_FILES :=\
     base/colorutil.cpp \
     base/error_context.cpp \
     base/stringutil.cpp \
+    ext/cityhash/city.cpp \
     ext/sha1/sha1.cpp \
     ext/stb_image/stb_image.c \
     ext/stb_vorbis/stb_vorbis.c.arm \
@@ -50,10 +51,10 @@ LOCAL_SRC_FILES :=\
     gfx/texture_gen.cpp \
     image/zim_load.cpp \
     image/png_load.cpp \
-	ui/ui.cpp \
-	ui/ui_context.cpp \
-	ui/screen.cpp \
-	ui/virtual_input.cpp \
+    ui/ui.cpp \
+    ui/ui_context.cpp \
+    ui/screen.cpp \
+    ui/virtual_input.cpp \
     util/random/perlin.cpp \
     util/text/utf8.cpp
 
