@@ -118,7 +118,7 @@ public:
 	int GetBlockNumberFromStartAddress(u32 em_address);
 
 	// slower, but can get numbers from within blocks, not just the first instruction.
-	// WARNING! WILL NOT WORK WITH INLINING ENABLED (not yet a feature but will be soon)
+	// WARNING! WILL NOT WORK WITH JIT INLINING ENABLED (not yet a feature but will be soon)
 	// Returns a list of block numbers - only one block can start at a particular address, but they CAN overlap.
 	// This one is slow so should only be used for one-shots from the debugger UI, not for anything during runtime.
 	void GetBlockNumbersFromAddress(u32 em_address, std::vector<int> *block_numbers);
@@ -126,7 +126,7 @@ public:
 	u32 GetOriginalFirstOp(int block_num);
 	CompiledCode GetCompiledCodeFromBlock(int block_num);
 
-	// DOES NOT WORK CORRECTLY WITH INLINING
+	// DOES NOT WORK CORRECTLY WITH JIT INLINING
 	void InvalidateICache(u32 address, const u32 length);
 	void DestroyBlock(int block_num, bool invalidate);
 

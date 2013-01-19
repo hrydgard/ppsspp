@@ -80,6 +80,9 @@ public:
 	static void RemoveBreakPoint(u32 _iAddress);
 
 	static void ClearAllBreakPoints();
+
+	static void InvalidateJit(u32 _iAddress);
+	static void InvalidateJit();
 };
 
 

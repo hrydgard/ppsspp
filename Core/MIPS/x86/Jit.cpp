@@ -25,8 +25,34 @@
 #include "RegCache.h"
 #include "Jit.h"
 
+#include "../../Host.h"
+#include "../../Debugger/Breakpoints.h"
+
 namespace MIPSComp
 {
+
+#ifdef _M_IX86
+
+#define SAVE_FLAGS PUSHF();
+#define LOAD_FLAGS POPF();
+
+#else
+
+static u64 saved_flags;
+
+#define SAVE_FLAGS {PUSHF(); POP(64, R(EAX)); MOV(64, M(&saved_flags), R(EAX));}
+#define LOAD_FLAGS {MOV(64, R(EAX), M(&saved_flags)); PUSH(64, R(EAX)); POPF();}
+
+#endif
+
+void JitBreakpoint()
+{
+	Core_EnableStepping(true);
+	host->SetDebugMode(true);
+
+	if (CBreakPoints::IsTempBreakPoint(currentMIPS->pc))
+		CBreakPoints::RemoveBreakPoint(currentMIPS->pc);
+}
 
 Jit::Jit(MIPSState *mips) : blocks(mips), mips_(mips)
 {
@@ -49,8 +75,31 @@ void Jit::ClearCache()
 	ClearCodeSpace();
 }
 
+void Jit::ClearCacheAt(u32 em_address)
+{
+	// TODO: Properly.
+	ClearCache();
+}
+
+void Jit::CompileDelaySlot(u32 addr, bool saveFlags)
+{
+	// TODO: If we ever support conditional breakpoints, we need to handle the flags more carefully.
+	CheckJitBreakpoint(addr);
+
+	if (saveFlags)
+		SAVE_FLAGS; // preserve flag around the delay slot!
+
+	u32 op = Memory::Read_Instruction(addr);
+	MIPSCompileOp(op);
+
+	FlushAll();
+	if (saveFlags)
+		LOAD_FLAGS; // restore flag!
+}
+
 void Jit::CompileAt(u32 addr)
 {
+	CheckJitBreakpoint(addr);
 	u32 op = Memory::Read_Instruction(addr);
 	MIPSCompileOp(op);
 }
@@ -104,6 +153,9 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	{
 		u32 inst = Memory::Read_Instruction(js.compilerPC);
 		js.downcountAmount += MIPSGetInstructionCycleEstimate(inst);
+
+		// Jit breakpoints are quite fast, so let's do them in release too.
+		CheckJitBreakpoint(js.compilerPC);
 
 		MIPSCompileOp(inst);
 
@@ -169,6 +221,21 @@ void Jit::WriteSyscallExit()
 {
 	SUB(32, M(&currentMIPS->downcount), js.downcountAmount > 127 ? Imm32(js.downcountAmount) : Imm8(js.downcountAmount));
 	JMP(asm_.dispatcherCheckCoreState, true);
+}
+
+bool Jit::CheckJitBreakpoint(u32 addr)
+{
+	if (CBreakPoints::IsAddressBreakPoint(addr))
+	{
+		FlushAll();
+		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
+		CALL(&JitBreakpoint);
+		WriteSyscallExit();
+
+		return true;
+	}
+
+	return false;
 }
 
 } // namespace

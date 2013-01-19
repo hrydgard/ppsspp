@@ -62,7 +62,7 @@ using namespace Gen;
 
 bool JitBlock::ContainsAddress(u32 em_address)
 {
-	// WARNING - THIS DOES NOT WORK WITH INLINING ENABLED.
+	// WARNING - THIS DOES NOT WORK WITH JIT INLINING ENABLED.
 	return (em_address >= originalAddress && em_address < originalAddress + 4 * originalSize);
 }
 

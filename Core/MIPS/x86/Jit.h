@@ -31,6 +31,9 @@
 namespace MIPSComp
 {
 
+// This is called when Jit hits a breakpoint.
+void JitBreakpoint();
+
 struct JitOptions
 {
 	JitOptions()
@@ -67,6 +70,7 @@ public:
 	void Compile(u32 em_address);	// Compiles a block at current MIPS PC
 	const u8 *DoJit(u32 em_address, JitBlock *b);
 
+	void CompileDelaySlot(u32 addr, bool saveFlags = false);
 	void CompileAt(u32 addr);
 	void Comp_RunBlock(u32 op);
 
@@ -95,6 +99,7 @@ public:
 	AsmRoutineManager &Asm() { return asm_; }
 
 	void ClearCache();
+	void ClearCacheAt(u32 em_address);
 private:
 	void FlushAll();
 
@@ -102,6 +107,7 @@ private:
 	void WriteExitDestInEAX();
 //	void WriteRfiExitDestInEAX();
 	void WriteSyscallExit();
+	bool CheckJitBreakpoint(u32 addr);
 
 	// Utility compilation functions
 	void BranchFPFlag(u32 op, Gen::CCFlags cc, bool likely);
