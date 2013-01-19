@@ -141,6 +141,7 @@ public:
 class PsmfPlayer {
 public:
 	PsmfPlayer(u32 data);
+	void DoState(PointerWrap &p);
 
 	int videoCodec;
     int videoStreamNum;
@@ -293,6 +294,23 @@ void Psmf::DoState(PointerWrap &p) {
 	}
 
 	p.DoMarker("Psmf");
+}
+
+void PsmfPlayer::DoState(PointerWrap &p) {
+	p.Do(videoCodec);
+    p.Do(videoStreamNum);
+    p.Do(audioCodec);
+    p.Do(audioStreamNum);
+    p.Do(playMode);
+    p.Do(playSpeed);
+
+	p.Do(displayBuffer);
+	p.Do(displayBufferSize);
+	p.Do(playbackThreadPriority);
+	p.Do(psmfMaxAheadTimestamp);
+	p.Do(psmfPlayerLastTimestamp);
+
+	p.DoMarker("PsmfPlayer");
 }
 
 static std::map<u32, Psmf *> psmfMap;
