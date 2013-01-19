@@ -170,22 +170,21 @@ void XEmitter::ABI_CallFunctionACC(void *func, const Gen::OpArg &arg1, u32 param
 	ABI_RestoreStack(3 * 4);
 }
 
-void XEmitter::ABI_CallFunctionAAC(void *func, const Gen::OpArg &arg1, const Gen::OpArg &arg2, u32 param3)
-{
-	ABI_AlignStack(3 * 4);
-	PUSH(32, Imm32(param3));
-	PUSH(32, arg2);
-	PUSH(32, arg1);
-	CALL(func);
-	ABI_RestoreStack(3 * 4);
-}
-
 void XEmitter::ABI_CallFunctionA(void *func, const Gen::OpArg &arg1)
 {
 	ABI_AlignStack(1 * 4);
 	PUSH(32, arg1);
 	CALL(func);
 	ABI_RestoreStack(1 * 4);
+}
+
+void XEmitter::ABI_CallFunctionAA(void *func, const Gen::OpArg &arg1, const Gen::OpArg &arg2)
+{
+	ABI_AlignStack(2 * 4);
+	PUSH(32, arg2);
+	PUSH(32, arg1);
+	CALL(func);
+	ABI_RestoreStack(2 * 4);
 }
 
 void XEmitter::ABI_PushAllCalleeSavedRegsAndAdjustStack() {
@@ -440,11 +439,10 @@ void XEmitter::ABI_CallFunctionACC(void *func, const Gen::OpArg &arg1, u32 param
 	}
 }
 
-void XEmitter::ABI_CallFunctionAAC(void *func, const Gen::OpArg &arg1, const Gen::OpArg &arg2, u32 param3)
+void XEmitter::ABI_CallFunctionA(void *func, const Gen::OpArg &arg1)
 {
-	MOV(32, R(ABI_PARAM1), arg1);
-	MOV(32, R(ABI_PARAM2), arg2);
-	MOV(64, R(ABI_PARAM3), Imm64(param3));
+	if (!arg1.IsSimpleReg(ABI_PARAM1))
+		MOV(32, R(ABI_PARAM1), arg1);
 	u64 distance = u64(func) - (u64(code) + 5);
 	if (distance >= 0x0000000080000000ULL
 	 && distance <  0xFFFFFFFF80000000ULL) {
@@ -456,10 +454,12 @@ void XEmitter::ABI_CallFunctionAAC(void *func, const Gen::OpArg &arg1, const Gen
 	}
 }
 
-void XEmitter::ABI_CallFunctionA(void *func, const Gen::OpArg &arg1)
+void XEmitter::ABI_CallFunctionAA(void *func, const Gen::OpArg &arg1, const Gen::OpArg &arg2)
 {
 	if (!arg1.IsSimpleReg(ABI_PARAM1))
 		MOV(32, R(ABI_PARAM1), arg1);
+	if (!arg2.IsSimpleReg(ABI_PARAM2))
+		MOV(32, R(ABI_PARAM2), arg2);
 	u64 distance = u64(func) - (u64(code) + 5);
 	if (distance >= 0x0000000080000000ULL
 	 && distance <  0xFFFFFFFF80000000ULL) {

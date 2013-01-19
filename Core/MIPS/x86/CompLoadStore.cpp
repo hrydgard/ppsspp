@@ -41,26 +41,6 @@
 
 namespace MIPSComp
 {
-	static u32 ReadMemSafe32(u32 addr, u32 offset)
-	{
-		return Memory::Read_U32(addr + offset);
-	}
-
-	static u32 ReadMemSafe16(u32 addr, u32 offset)
-	{
-		return Memory::Read_U16(addr + offset);
-	}
-
-	static void WriteMemSafe32(u32 addr, u32 value, u32 offset)
-	{
-		Memory::Write_U32(value, addr + offset);
-	}
-
-	static void WriteMemSafe16(u32 addr, u32 value, u32 offset)
-	{
-		Memory::Write_U16(value, addr + offset);
-	}
-
 	void Jit::Comp_ITypeMem(u32 op)
 	{
 		int offset = (signed short)(op&0xFFFF);
@@ -77,8 +57,6 @@ namespace MIPSComp
 		case 37: //R(rt) = ReadMem16(addr); break; //lhu
 			if (!g_Config.bFastMemory)
 			{
-				FlushAll();
-
 				gpr.Lock(rt, rs);
 				gpr.BindToRegister(rt, rt == rs, true);
 
@@ -97,7 +75,8 @@ namespace MIPSComp
 				SetJumpTarget(tooLow);
 				SetJumpTarget(tooHigh);
 
-				ABI_CallFunctionAC((void *) &ReadMemSafe16, R(EAX), offset);
+				ADD(32, R(EAX), Imm32(offset));
+				ABI_CallFunctionA(thunks.ProtectFunction((void *) &Memory::Read_U16, 1), R(EAX));
 				MOVZX(32, 16, gpr.RX(rt), R(EAX));
 
 				SetJumpTarget(skip);
@@ -126,8 +105,6 @@ namespace MIPSComp
 		case 35: //R(rt) = ReadMem32(addr); break; //lw
 			if (!g_Config.bFastMemory)
 			{
-				FlushAll();
-
 				gpr.Lock(rt, rs);
 				gpr.BindToRegister(rt, rt == rs, true);
 
@@ -146,7 +123,8 @@ namespace MIPSComp
 				SetJumpTarget(tooLow);
 				SetJumpTarget(tooHigh);
 
-				ABI_CallFunctionAC((void *) &ReadMemSafe32, R(EAX), offset);
+				ADD(32, R(EAX), Imm32(offset));
+				ABI_CallFunctionA(thunks.ProtectFunction((void *) &Memory::Read_U32, 1), R(EAX));
 				MOV(32, gpr.R(rt), R(EAX));
 
 				SetJumpTarget(skip);
@@ -178,8 +156,6 @@ namespace MIPSComp
 		case 41: //WriteMem16(addr, R(rt)); break; //sh
 			if (!g_Config.bFastMemory)
 			{
-				FlushAll();
-
 				gpr.Lock(rt, rs);
 				gpr.BindToRegister(rt, true, false);
 
@@ -198,7 +174,8 @@ namespace MIPSComp
 				SetJumpTarget(tooLow);
 				SetJumpTarget(tooHigh);
 
-				ABI_CallFunctionAAC((void *) &WriteMemSafe16, R(EAX), gpr.R(rt), offset);
+				ADD(32, R(EAX), Imm32(offset));
+				ABI_CallFunctionAA(thunks.ProtectFunction((void *) &Memory::Write_U16, 2), gpr.R(rt), R(EAX));
 
 				SetJumpTarget(skip);
 				gpr.UnlockAll();
@@ -222,8 +199,6 @@ namespace MIPSComp
 		case 43: //WriteMem32(addr, R(rt)); break; //sw
 			if (!g_Config.bFastMemory)
 			{
-				FlushAll();
-
 				gpr.Lock(rt, rs);
 				gpr.BindToRegister(rt, true, false);
 
@@ -242,7 +217,8 @@ namespace MIPSComp
 				SetJumpTarget(tooLow);
 				SetJumpTarget(tooHigh);
 
-				ABI_CallFunctionAAC((void *) &WriteMemSafe32, R(EAX), gpr.R(rt), offset);
+				ADD(32, R(EAX), Imm32(offset));
+				ABI_CallFunctionAA(thunks.ProtectFunction((void *) &Memory::Write_U32, 2), gpr.R(rt), R(EAX));
 
 				SetJumpTarget(skip);
 				gpr.UnlockAll();

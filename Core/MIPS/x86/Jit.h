@@ -18,6 +18,7 @@
 #pragma once
 
 #include "../../../Globals.h"
+#include "../../../Common/Thunk.h"
 #include "Asm.h"
 
 #if defined(ARM)
@@ -131,6 +132,7 @@ private:
 	FPURegCache fpr;
 
 	AsmRoutineManager asm_;
+	ThunkManager thunks;
 
 	MIPSState *mips_;
 };
