@@ -229,7 +229,7 @@ bool Jit::CheckJitBreakpoint(u32 addr)
 	{
 		FlushAll();
 		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
-		CALL(&JitBreakpoint);
+		CALL((void *)&JitBreakpoint);
 		WriteSyscallExit();
 
 		return true;
