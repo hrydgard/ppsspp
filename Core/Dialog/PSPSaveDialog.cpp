@@ -300,11 +300,11 @@ void PSPSaveDialog::DisplaySaveDataInfo2()
 
 void PSPSaveDialog::DisplayConfirmationYesNo(std::string text)
 {
-	PPGeDrawText(text.c_str(), 180, 100, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
-
-	PPGeDrawText("Yes", 230, 140, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(yesnoChoice == 1?0xFF0000FF:0xFFFFFFFF));
-	PPGeDrawText("No", 330, 140, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(yesnoChoice == 0?0xFF0000FF:0xFFFFFFFF));
-
+	PPGeDrawRect(180, 105, 460, 106, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(text.c_str(), 220, 110, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
+	PPGeDrawText("Yes", 250, 140, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(yesnoChoice == 1?0xFF0000FF:0xFFFFFFFF));
+	PPGeDrawText("No", 350, 140, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(yesnoChoice == 0?0xFF0000FF:0xFFFFFFFF));
+	PPGeDrawRect(180, 160, 460, 161, CalcFadedColor(0xFFFFFFFF));
 	if (IsButtonPressed(CTRL_LEFT) && yesnoChoice == 0)
 	{
 		yesnoChoice = 1;
@@ -579,7 +579,8 @@ int PSPSaveDialog::Update()
 			DisplaySaveIcon();
 			DisplaySaveDataInfo2();
 
-			DisplayConfirmationYesNo("The data will be deleted.\nAre you sure you want to continue?");
+			DisplayConfirmationYesNo("    This save data will be deleted.\nAre you sure you want to continue?");
+
 
 			DisplayEnterBack();
 			if (IsButtonPressed(cancelButtonFlag))
