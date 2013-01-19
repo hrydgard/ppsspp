@@ -31,6 +31,20 @@
 namespace MIPSComp
 {
 
+#ifdef _M_IX86
+
+#define SAVE_FLAGS PUSHF();
+#define LOAD_FLAGS POPF();
+
+#else
+
+static u64 saved_flags;
+
+#define SAVE_FLAGS {PUSHF(); POP(64, R(EAX)); MOV(64, M(&saved_flags), R(EAX));}
+#define LOAD_FLAGS {MOV(64, R(EAX), M(&saved_flags)); PUSH(64, R(EAX)); POPF();}
+
+#endif
+
 void JitBreakpoint()
 {
 	Core_EnableStepping(true);
@@ -67,8 +81,25 @@ void Jit::ClearCacheAt(u32 em_address)
 	ClearCache();
 }
 
+void Jit::CompileDelaySlot(u32 addr, bool saveFlags)
+{
+	// TODO: If we ever support conditional breakpoints, we need to handle the flags more carefully.
+	CheckJitBreakpoint(addr);
+
+	if (saveFlags)
+		SAVE_FLAGS; // preserve flag around the delay slot!
+
+	u32 op = Memory::Read_Instruction(addr);
+	MIPSCompileOp(op);
+
+	FlushAll();
+	if (saveFlags)
+		LOAD_FLAGS; // restore flag!
+}
+
 void Jit::CompileAt(u32 addr)
 {
+	CheckJitBreakpoint(addr);
 	u32 op = Memory::Read_Instruction(addr);
 	MIPSCompileOp(op);
 }

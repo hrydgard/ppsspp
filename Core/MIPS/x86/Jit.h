@@ -70,6 +70,7 @@ public:
 	void Compile(u32 em_address);	// Compiles a block at current MIPS PC
 	const u8 *DoJit(u32 em_address, JitBlock *b);
 
+	void CompileDelaySlot(u32 addr, bool saveFlags = false);
 	void CompileAt(u32 addr);
 	void Comp_RunBlock(u32 op);
 

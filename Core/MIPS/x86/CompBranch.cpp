@@ -45,20 +45,6 @@ using namespace MIPSAnalyst;
 namespace MIPSComp
 {
 
-#ifdef _M_IX86
-
-#define SAVE_FLAGS PUSHF();
-#define LOAD_FLAGS POPF();
-
-#else
-
-static u64 saved_flags;
-
-#define SAVE_FLAGS {PUSHF(); POP(64, R(EAX)); MOV(64, M(&saved_flags), R(EAX));}
-#define LOAD_FLAGS {MOV(64, R(EAX), M(&saved_flags)); PUSH(64, R(EAX)); POPF();}
-
-#endif
-
 void Jit::BranchRSRTComp(u32 op, Gen::CCFlags cc, bool likely)
 {
 	if (js.inDelaySlot) {
@@ -96,19 +82,12 @@ void Jit::BranchRSRTComp(u32 op, Gen::CCFlags cc, bool likely)
 	Gen::FixupBranch ptr;
 	if (!likely)
 	{
-		CheckJitBreakpoint(js.compilerPC + 4);
-		if (!delaySlotIsNice)
-			SAVE_FLAGS; // preserve flag around the delay slot!
-		CompileAt(js.compilerPC + 4);
-		FlushAll();
-		if (!delaySlotIsNice)
-			LOAD_FLAGS; // restore flag!
+		CompileDelaySlot(js.compilerPC + 4, !delaySlotIsNice);
 		ptr = J_CC(cc, true);
 	}
 	else
 	{
 		ptr = J_CC(cc, true);
-		CheckJitBreakpoint(js.compilerPC + 4);
 		CompileAt(js.compilerPC + 4);
 		FlushAll();
 	}
@@ -151,19 +130,12 @@ void Jit::BranchRSZeroComp(u32 op, Gen::CCFlags cc, bool likely)
 	js.inDelaySlot = true;
 	if (!likely)
 	{
-		CheckJitBreakpoint(js.compilerPC + 4);
-		if (!delaySlotIsNice)
-			SAVE_FLAGS; // preserve flag around the delay slot! Better hope the delay slot instruction doesn't need to fall back to interpreter...
-		CompileAt(js.compilerPC + 4);
-		FlushAll();
-		if (!delaySlotIsNice)
-			LOAD_FLAGS; // restore flag!
+		CompileDelaySlot(js.compilerPC + 4, !delaySlotIsNice);
 		ptr = J_CC(cc, true);
 	}
 	else
 	{
 		ptr = J_CC(cc, true);
-		CheckJitBreakpoint(js.compilerPC + 4);
 		CompileAt(js.compilerPC + 4);
 		FlushAll();
 	}
@@ -245,19 +217,12 @@ void Jit::BranchFPFlag(u32 op, Gen::CCFlags cc, bool likely)
 	js.inDelaySlot = true;
 	if (!likely)
 	{
-		CheckJitBreakpoint(js.compilerPC + 4);
-		if (!delaySlotIsNice)
-			SAVE_FLAGS; // preserve flag around the delay slot!
-		CompileAt(js.compilerPC + 4);
-		FlushAll();
-		if (!delaySlotIsNice)
-			LOAD_FLAGS; // restore flag!
+		CompileDelaySlot(js.compilerPC + 4, !delaySlotIsNice);
 		ptr = J_CC(cc, true);
 	}
 	else
 	{
 		ptr = J_CC(cc, true);
-		CheckJitBreakpoint(js.compilerPC + 4);
 		CompileAt(js.compilerPC + 4);
 		FlushAll();
 	}
@@ -320,19 +285,12 @@ void Jit::BranchVFPUFlag(u32 op, Gen::CCFlags cc, bool likely)
 	js.inDelaySlot = true;
 	if (!likely)
 	{
-		CheckJitBreakpoint(js.compilerPC + 4);
-		if (!delaySlotIsNice)
-			SAVE_FLAGS; // preserve flag around the delay slot!
-		CompileAt(js.compilerPC + 4);
-		FlushAll();
-		if (!delaySlotIsNice)
-			LOAD_FLAGS; // restore flag!
+		CompileDelaySlot(js.compilerPC + 4, !delaySlotIsNice);
 		ptr = J_CC(cc, true);
 	}
 	else
 	{
 		ptr = J_CC(cc, true);
-		CheckJitBreakpoint(js.compilerPC + 4);
 		CompileAt(js.compilerPC + 4);
 		FlushAll();
 	}
@@ -372,7 +330,6 @@ void Jit::Comp_Jump(u32 op)
 	}
 	u32 off = ((op & 0x3FFFFFF) << 2);
 	u32 targetAddr = (js.compilerPC & 0xF0000000) | off;
-	CheckJitBreakpoint(js.compilerPC + 4);
 	CompileAt(js.compilerPC + 4);
 	FlushAll();
 
@@ -411,7 +368,6 @@ void Jit::Comp_JumpReg(u32 op)
 
 	if (delaySlotIsNice)
 	{
-		CheckJitBreakpoint(js.compilerPC + 4);
 		CompileAt(js.compilerPC + 4);
 		MOV(32, R(EAX), gpr.R(rs));
 		FlushAll();
@@ -422,7 +378,6 @@ void Jit::Comp_JumpReg(u32 op)
 		gpr.BindToRegister(rs, true, false);
 		MOV(32, M(&currentMIPS->pc), gpr.R(rs));	// for syscalls in delay slot - could be avoided
 		MOV(32, M(&savedPC), gpr.R(rs));
-		CheckJitBreakpoint(js.compilerPC + 4);
 		CompileAt(js.compilerPC + 4);
 		FlushAll();
 
