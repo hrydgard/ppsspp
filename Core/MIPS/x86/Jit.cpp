@@ -31,7 +31,7 @@
 namespace MIPSComp
 {
 
-static void JitBreakpoint()
+void JitBreakpoint()
 {
 	Core_EnableStepping(true);
 	host->SetDebugMode(true);
@@ -123,16 +123,10 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 		u32 inst = Memory::Read_Instruction(js.compilerPC);
 		js.downcountAmount += MIPSGetInstructionCycleEstimate(inst);
 
-		MIPSCompileOp(inst);
-
 		// Jit breakpoints are quite fast, so let's do them in release too.
-		if (CBreakPoints::IsAddressBreakPoint(js.compilerPC))
-		{
-			FlushAll();
-			MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
-			CALL(&JitBreakpoint);
-			WriteSyscallExit();
-		}
+		CheckJitBreakpoint(js.compilerPC);
+
+		MIPSCompileOp(inst);
 
 		js.compilerPC += 4;
 		numInstructions++;
@@ -196,6 +190,21 @@ void Jit::WriteSyscallExit()
 {
 	SUB(32, M(&currentMIPS->downcount), js.downcountAmount > 127 ? Imm32(js.downcountAmount) : Imm8(js.downcountAmount));
 	JMP(asm_.dispatcherCheckCoreState, true);
+}
+
+bool Jit::CheckJitBreakpoint(u32 addr)
+{
+	if (CBreakPoints::IsAddressBreakPoint(addr))
+	{
+		FlushAll();
+		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
+		CALL(&JitBreakpoint);
+		WriteSyscallExit();
+
+		return true;
+	}
+
+	return false;
 }
 
 } // namespace

@@ -31,6 +31,9 @@
 namespace MIPSComp
 {
 
+// This is called when Jit hits a breakpoint.
+void JitBreakpoint();
+
 struct JitOptions
 {
 	JitOptions()
@@ -103,6 +106,7 @@ private:
 	void WriteExitDestInEAX();
 //	void WriteRfiExitDestInEAX();
 	void WriteSyscallExit();
+	bool CheckJitBreakpoint(u32 addr);
 
 	// Utility compilation functions
 	void BranchFPFlag(u32 op, Gen::CCFlags cc, bool likely);
