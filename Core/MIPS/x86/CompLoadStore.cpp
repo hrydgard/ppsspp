@@ -92,12 +92,14 @@ namespace MIPSComp
 #else
 				MOVZX(32, 16, gpr.RX(rt), MComplex(RBX, EAX, SCALE_1, offset));
 #endif
+				gpr.UnlockAll();
+				FlushAll();
+
 				FixupBranch skip = J();
 				SetJumpTarget(tooLow);
 				SetJumpTarget(tooHigh);
 				ABI_CallFunctionACC((void *) &ReadMemSafe16, gpr.R(rs), rt, offset);
 				SetJumpTarget(skip);
-				gpr.UnlockAll();
 			}
 			else
 			{
@@ -137,12 +139,14 @@ namespace MIPSComp
 #else
 				MOV(32, gpr.R(rt), MComplex(RBX, EAX, SCALE_1, offset));
 #endif
+				gpr.UnlockAll();
+				FlushAll();
+
 				FixupBranch skip = J();
 				SetJumpTarget(tooLow);
 				SetJumpTarget(tooHigh);
 				ABI_CallFunctionACC((void *) &ReadMemSafe32, gpr.R(rs), rt, offset);
 				SetJumpTarget(skip);
-				gpr.UnlockAll();
 			}
 			else
 			{
@@ -185,12 +189,14 @@ namespace MIPSComp
 #else
 				MOV(16, MComplex(RBX, EAX, SCALE_1, offset), gpr.R(rt));
 #endif
+				gpr.UnlockAll();
+				FlushAll();
+
 				FixupBranch skip = J();
 				SetJumpTarget(tooLow);
 				SetJumpTarget(tooHigh);
 				ABI_CallFunctionACC((void *) &WriteMemSafe16, gpr.R(rs), rt, offset);
 				SetJumpTarget(skip);
-				gpr.UnlockAll();
 			}
 			else
 			{
@@ -226,12 +232,14 @@ namespace MIPSComp
 #else
 				MOV(32, MComplex(RBX, EAX, SCALE_1, offset), gpr.R(rt));
 #endif
+				gpr.UnlockAll();
+				FlushAll();
+
 				FixupBranch skip = J();
 				SetJumpTarget(tooLow);
 				SetJumpTarget(tooHigh);
 				ABI_CallFunctionACC((void *) &WriteMemSafe32, gpr.R(rs), rt, offset);
 				SetJumpTarget(skip);
-				gpr.UnlockAll();
 			}
 			else
 			{
