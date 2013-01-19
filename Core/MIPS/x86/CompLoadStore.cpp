@@ -55,7 +55,13 @@ namespace MIPSComp
 		{
 			void *data = Memory::GetPointer(gpr.R(rs).GetImmValue() + offset);
 			if (data)
+			{
+#ifdef _M_IX86
 				MOVZX(32, bits, gpr.RX(rt), M(data));
+#else
+				MOVZX(32, bits, gpr.RX(rt), MDisp(RBX, gpr.R(rs).GetImmValue() + offset));
+#endif
+			}
 			else
 				MOV(32, gpr.R(rt), Imm32(0));
 		}
@@ -120,7 +126,13 @@ namespace MIPSComp
 		{
 			void *data = Memory::GetPointer(gpr.R(rs).GetImmValue() + offset);
 			if (data)
+			{
+#ifdef _M_IX86
 				MOV(bits, M(data), gpr.R(rt));
+#else
+				MOV(bits, MDisp(RBX, gpr.R(rs).GetImmValue() + offset), gpr.R(rt));
+#endif
+			}
 			else if (bits == 8)
 				MOV(bits, M(data), Imm8(0));
 			else if (bits == 16)
