@@ -69,7 +69,6 @@
     <ClCompile Include="x64Analyzer.cpp" />
     <ClCompile Include="x64Emitter.cpp" />
     <ClCompile Include="ArmEmitter.cpp" />
-    <ClCompile Include="ThunkArm.cpp" />
     <ClCompile Include="ArmCPUDetect.cpp" />
   </ItemGroup>
   <ItemGroup>
