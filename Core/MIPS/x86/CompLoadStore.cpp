@@ -48,11 +48,19 @@ namespace MIPSComp
 		int rt = _RT;
 		int rs = _RS;
 
-		if (!g_Config.bFastMemory)
-		{
-			gpr.Lock(rt, rs);
-			gpr.BindToRegister(rt, rt == rs, true);
+		gpr.Lock(rt, rs);
+		gpr.BindToRegister(rt, rt == rs, true);
 
+		if (gpr.R(rs).IsImm())
+		{
+			void *data = Memory::GetPointer(gpr.R(rs).GetImmValue() + offset);
+			if (data)
+				MOVZX(32, bits, gpr.RX(rt), M(data));
+			else
+				MOV(32, gpr.R(rt), Imm32(0));
+		}
+		else if (!g_Config.bFastMemory)
+		{
 			MOV(32, R(EAX), gpr.R(rs));
 			// Is it in physical ram?
 			CMP(32, R(EAX), Imm32(0x08000000));
@@ -83,22 +91,19 @@ namespace MIPSComp
 			MOVZX(32, bits, gpr.RX(rt), R(EAX));
 
 			SetJumpTarget(skip);
-			gpr.UnlockAll();
 		}
 		else
 		{
-			gpr.Lock(rt, rs);
-			gpr.BindToRegister(rt, rt == rs, true);
-#ifdef _M_IX86
 			MOV(32, R(EAX), gpr.R(rs));
+#ifdef _M_IX86
 			AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
 			MOVZX(32, bits, gpr.RX(rt), MDisp(EAX, (u32)Memory::base + offset));
 #else
-			MOV(32, R(EAX), gpr.R(rs));
 			MOVZX(32, bits, gpr.RX(rt), MComplex(RBX, EAX, SCALE_1, offset));
 #endif
-			gpr.UnlockAll();
 		}
+
+		gpr.UnlockAll();
 	}
 
 	void Jit::CompITypeMemWrite(u32 op, u32 bits, void *func)
@@ -108,11 +113,23 @@ namespace MIPSComp
 		int rt = _RT;
 		int rs = _RS;
 
-		if (!g_Config.bFastMemory)
-		{
-			gpr.Lock(rt, rs);
-			gpr.BindToRegister(rt, true, false);
+		gpr.Lock(rt, rs);
+		gpr.BindToRegister(rt, true, false);
 
+		if (gpr.R(rs).IsImm())
+		{
+			void *data = Memory::GetPointer(gpr.R(rs).GetImmValue() + offset);
+			if (data)
+				MOV(bits, M(data), gpr.R(rt));
+			else if (bits == 8)
+				MOV(bits, M(data), Imm8(0));
+			else if (bits == 16)
+				MOV(bits, M(data), Imm16(0));
+			else
+				MOV(bits, M(data), Imm32(0));
+		}
+		else if (!g_Config.bFastMemory)
+		{
 			MOV(32, R(EAX), gpr.R(rs));
 			// Is it in physical ram?
 			CMP(32, R(EAX), Imm32(0x08000000));
@@ -142,22 +159,19 @@ namespace MIPSComp
 			ABI_CallFunctionAA(thunks.ProtectFunction(func, 2), gpr.R(rt), R(EAX));
 
 			SetJumpTarget(skip);
-			gpr.UnlockAll();
 		}
 		else
 		{
-			gpr.Lock(rt, rs);
-			gpr.BindToRegister(rt, true, false);
-#ifdef _M_IX86
 			MOV(32, R(EAX), gpr.R(rs));
+#ifdef _M_IX86
 			AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
 			MOV(bits, MDisp(EAX, (u32)Memory::base + offset), gpr.R(rt));
 #else
-			MOV(32, R(EAX), gpr.R(rs));
 			MOV(bits, MComplex(RBX, EAX, SCALE_1, offset), gpr.R(rt));
 #endif
-			gpr.UnlockAll();
 		}
+
+		gpr.UnlockAll();
 	}
 
 	void Jit::Comp_ITypeMem(u32 op)
