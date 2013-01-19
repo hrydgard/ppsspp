@@ -934,7 +934,7 @@ public:
 		p.Do(index);
 
 		// TODO: Is this the right way for it to wake up?
-		int count = listing.size();
+		int count = (int) listing.size();
 		p.Do(count);
 		listing.resize(count);
 		for (int i = 0; i < count; ++i) {

@@ -196,7 +196,7 @@ public:
 
 	int registerActionType(ActionCreator creator) {
 		types_.push_back(creator);
-		return types_.size() - 1;
+		return (int) types_.size() - 1;
 	}
 
 	void restoreActionType(int actionType, ActionCreator creator) {
@@ -897,9 +897,9 @@ u32 sceKernelGetThreadmanIdList(u32 type, u32 readBufPtr, u32 readBufSize, u32 i
 
 	for (size_t i = 0; i < std::min((size_t)readBufSize, threadqueue.size()); i++)
 	{
-		Memory::Write_U32(threadqueue[i], readBufPtr + i * 4);
+		Memory::Write_U32(threadqueue[i], readBufPtr + (u32)i * 4);
 	}
-	Memory::Write_U32(threadqueue.size(), idCountPtr);
+	Memory::Write_U32((u32)threadqueue.size(), idCountPtr);
 	return 0;
 }
 
@@ -2283,7 +2283,7 @@ void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, bo
 	for (size_t i = 0; i < args.size(); i++) {
 		call->args[i] = args[i];
 	}
-	call->numArgs = args.size();
+	call->numArgs = (int) args.size();
 	call->doAfter = afterAction;
 	call->tag = "callAddress";
 

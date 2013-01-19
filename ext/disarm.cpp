@@ -757,7 +757,7 @@ lPling:
                   }
                   else {
                     if (((int)imm8)<0 && ((int)imm8)>-100) {
-                      *op++='-'; imm8=-imm8;
+                      *op++='-'; imm8=-(int)imm8;
                     }
                     op = num(op, imm8);
                   }
@@ -880,7 +880,7 @@ lPling:
               if (!(instr&Ubit)) {
                 if (offset) *op++='-';
                 else result.oddbits=1;
-                result.offset = -offset;
+                result.offset = -(int)offset;
               }
               else result.offset = offset;
               op = num(op, offset);

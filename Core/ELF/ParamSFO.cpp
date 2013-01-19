@@ -159,7 +159,7 @@ bool ParamSFOData::WriteSFO(u8 **paramsfo, size_t *size)
 	while((key_size%4)) key_size++;
 
 	header.key_table_start = sizeof(Header) + header.index_table_entries * sizeof(IndexTable);
-	header.data_table_start = header.key_table_start + key_size;
+	header.data_table_start = header.key_table_start + (u32)key_size;
 
 	total_size += sizeof(IndexTable) * header.index_table_entries;
 	total_size += key_size;
@@ -201,7 +201,7 @@ bool ParamSFOData::WriteSFO(u8 **paramsfo, size_t *size)
 		else if (it->second.type == VT_UTF8)
 		{
 			index_ptr->param_fmt = 0x0204;
-			index_ptr->param_len = it->second.s_value.size()+1;
+			index_ptr->param_len = (u32)it->second.s_value.size()+1;
 
 			memcpy(data_ptr,it->second.s_value.c_str(),index_ptr->param_len);
 			data_ptr[index_ptr->param_len] = 0;

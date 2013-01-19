@@ -207,7 +207,7 @@ void SymbolMap::SaveSymbolMap(const char *filename)
 
 int SymbolMap::GetSymbolNum(unsigned int address, SymbolType symmask)
 {
-	int start=0;
+	size_t start=0;
 
 	for (size_t i = 0; i < entries.size(); i++)
 	{
@@ -216,8 +216,6 @@ int SymbolMap::GetSymbolNum(unsigned int address, SymbolType symmask)
 		else
 			break;
 	}
-	
-	if (start<0) start=0;
 
 	for (size_t i = 0; i < entries.size(); i++)
 	{
@@ -227,7 +225,7 @@ int SymbolMap::GetSymbolNum(unsigned int address, SymbolType symmask)
 			if (address < addr+entries[i].size)
 			{
 				if (entries[i].type & symmask)
-					return i;
+					return (int) i;
 				else
 					return -1;
 			}
@@ -358,7 +356,7 @@ int SymbolMap::FindSymbol(const char *name)
 {
 	for (size_t i = 0; i < entries.size(); i++)
 		if (strcmp(entries[i].name,name)==0)
-			return i;
+			return (int) i;
 	return -1;
 }
 
@@ -450,27 +448,27 @@ void SymbolMap::UseFuncSignaturesFile(const char *filename, u32 maxAddress)
 		else
 			break;
 	}
-	int numSigs = sigs.size();
+	size_t numSigs = sigs.size();
 	fclose(f);
 	std::sort(sigs.begin(), sigs.end());
 
 	f = fopen("C:\\mojs.txt", "w");
 	fprintf(f,"00000000\n");
-	for (int j=0; j<numSigs; j++)
+	for (size_t j=0; j<numSigs; j++)
 		fprintf(f, "%08x\t%08x\t%08x\t%s\n", sigs[j].inst, sigs[j].size, sigs[j].hash, sigs[j].name);    
 	fseek(f,0,SEEK_SET);
 	fprintf(f,"%08x",numSigs);
 	fclose(f);
 
 	u32 last = 0xc0d3babe;
-	for (int i=0; i<numSigs; i++)
-  {
+	for (size_t i=0; i<numSigs; i++)
+	{
 		if (sigs[i].inst != last)
 		{
 			sigmap.insert(Sigmap::value_type(sigs[i].inst, &sigs[i]));
 			last = sigs[i].inst;
 		}
-  }
+	}
 
 	//#2: Scan/hash the memory and locate functions
 	char temp[256];
