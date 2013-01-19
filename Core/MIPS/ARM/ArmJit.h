@@ -89,6 +89,7 @@ public:
 	ArmJitBlockCache *GetBlockCache() { return &blocks; }
 
 	void ClearCache();
+	void ClearCacheAt(u32 em_address);
 
 private:
 	void GenerateFixedCode();

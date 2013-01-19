@@ -45,20 +45,6 @@ using namespace MIPSAnalyst;
 namespace MIPSComp
 {
 
-#ifdef _M_IX86
-
-#define SAVE_FLAGS PUSHF();
-#define LOAD_FLAGS POPF();
-
-#else
-
-static u64 saved_flags;
-
-#define SAVE_FLAGS {PUSHF(); POP(64, R(EAX)); MOV(64, M(&saved_flags), R(EAX));}
-#define LOAD_FLAGS {MOV(64, R(EAX), M(&saved_flags)); PUSH(64, R(EAX)); POPF();}
-
-#endif
-
 void Jit::BranchRSRTComp(u32 op, Gen::CCFlags cc, bool likely)
 {
 	if (js.inDelaySlot) {
@@ -96,12 +82,7 @@ void Jit::BranchRSRTComp(u32 op, Gen::CCFlags cc, bool likely)
 	Gen::FixupBranch ptr;
 	if (!likely)
 	{
-		if (!delaySlotIsNice)
-			SAVE_FLAGS; // preserve flag around the delay slot!
-		CompileAt(js.compilerPC + 4);
-		FlushAll();
-		if (!delaySlotIsNice)
-			LOAD_FLAGS; // restore flag!
+		CompileDelaySlot(js.compilerPC + 4, !delaySlotIsNice);
 		ptr = J_CC(cc, true);
 	}
 	else
@@ -149,12 +130,7 @@ void Jit::BranchRSZeroComp(u32 op, Gen::CCFlags cc, bool likely)
 	js.inDelaySlot = true;
 	if (!likely)
 	{
-		if (!delaySlotIsNice)
-			SAVE_FLAGS; // preserve flag around the delay slot! Better hope the delay slot instruction doesn't need to fall back to interpreter...
-		CompileAt(js.compilerPC + 4);
-		FlushAll();
-		if (!delaySlotIsNice)
-			LOAD_FLAGS; // restore flag!
+		CompileDelaySlot(js.compilerPC + 4, !delaySlotIsNice);
 		ptr = J_CC(cc, true);
 	}
 	else
@@ -241,12 +217,7 @@ void Jit::BranchFPFlag(u32 op, Gen::CCFlags cc, bool likely)
 	js.inDelaySlot = true;
 	if (!likely)
 	{
-		if (!delaySlotIsNice)
-			SAVE_FLAGS; // preserve flag around the delay slot!
-		CompileAt(js.compilerPC + 4);
-		FlushAll();
-		if (!delaySlotIsNice)
-			LOAD_FLAGS; // restore flag!
+		CompileDelaySlot(js.compilerPC + 4, !delaySlotIsNice);
 		ptr = J_CC(cc, true);
 	}
 	else
@@ -314,12 +285,7 @@ void Jit::BranchVFPUFlag(u32 op, Gen::CCFlags cc, bool likely)
 	js.inDelaySlot = true;
 	if (!likely)
 	{
-		if (!delaySlotIsNice)
-			SAVE_FLAGS; // preserve flag around the delay slot!
-		CompileAt(js.compilerPC + 4);
-		FlushAll();
-		if (!delaySlotIsNice)
-			LOAD_FLAGS; // restore flag!
+		CompileDelaySlot(js.compilerPC + 4, !delaySlotIsNice);
 		ptr = J_CC(cc, true);
 	}
 	else

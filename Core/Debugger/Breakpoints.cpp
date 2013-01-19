@@ -19,6 +19,7 @@
 #include "Breakpoints.h"
 #include "SymbolMap.h"
 #include "FixedSizeUnorderedSet.h"
+#include "../MIPS/JitCommon/JitCommon.h"
 #include <cstdio>
 
 #define MAX_BREAKPOINTS 16
@@ -73,6 +74,7 @@ void CBreakPoints::RemoveBreakPoint(u32 _iAddress)
 		if (m_iBreakPoints[i].iAddress == _iAddress)
 		{
 			m_iBreakPoints.remove(m_iBreakPoints[i]);
+			InvalidateJit(_iAddress);
 			break;
 		}
 	}
@@ -81,6 +83,7 @@ void CBreakPoints::RemoveBreakPoint(u32 _iAddress)
 void CBreakPoints::ClearAllBreakPoints()
 {
 	m_iBreakPoints.clear();
+	InvalidateJit();
 }
 
 MemCheck *CBreakPoints::GetMemCheck(u32 address)
@@ -123,5 +126,20 @@ void CBreakPoints::AddBreakPoint(u32 _iAddress, bool temp)
 		pt.iAddress = _iAddress;
 
 		m_iBreakPoints.insert(pt);
+		InvalidateJit(_iAddress);
 	}
+}
+
+void CBreakPoints::InvalidateJit(u32 _iAddress)
+{
+	// Don't want to clear cache while running, I think?
+	if (MIPSComp::jit && coreState == CORE_STEPPING)
+		MIPSComp::jit->ClearCacheAt(_iAddress);
+}
+
+void CBreakPoints::InvalidateJit()
+{
+	// Don't want to clear cache while running, I think?
+	if (MIPSComp::jit && coreState == CORE_STEPPING)
+		MIPSComp::jit->ClearCache();
 }
