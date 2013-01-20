@@ -63,50 +63,68 @@ namespace MIPSComp
 #endif
 			}
 			else
-				MOV(32, gpr.R(rt), Imm32(0));
-		}
-		else if (!g_Config.bFastMemory)
-		{
-			MOV(32, R(EAX), gpr.R(rs));
-			// Is it in physical ram?
-			CMP(32, R(EAX), Imm32(0x08000000));
-			FixupBranch tooLow = J_CC(CC_L);
-			CMP(32, R(EAX), Imm32(0x0A000000));
-			FixupBranch tooHigh = J_CC(CC_GE);
-
-			const u8* safe = GetCodePtr();
-#ifdef _M_IX86
-			(this->*mov)(32, bits, gpr.RX(rt), MDisp(EAX, (u32)Memory::base + offset));
-#else
-			(this->*mov)(32, bits, gpr.RX(rt), MComplex(RBX, EAX, SCALE_1, offset));
-#endif
-
-			FixupBranch skip = J();
-			SetJumpTarget(tooLow);
-			SetJumpTarget(tooHigh);
-
-			// Might also be the scratchpad.
-			CMP(32, R(EAX), Imm32(0x00010000));
-			FixupBranch tooLow2 = J_CC(CC_L);
-			CMP(32, R(EAX), Imm32(0x00014000));
-			J_CC(CC_L, safe);
-			SetJumpTarget(tooLow2);
-
-			ADD(32, R(EAX), Imm32(offset));
-			ABI_CallFunctionA(thunks.ProtectFunction(safeFunc, 1), R(EAX));
-			(this->*mov)(32, bits, gpr.RX(rt), R(EAX));
-
-			SetJumpTarget(skip);
+				gpr.SetImmediate32(rt, 0);
 		}
 		else
 		{
-			MOV(32, R(EAX), gpr.R(rs));
+			// We may not even need to move into EAX as a temporary.
+			X64Reg addr;
+			if (gpr.R(rs).IsSimpleReg())
+			{
+				if (rs != rt)
+					gpr.BindToRegister(rs, true, false);
+				addr = gpr.RX(rs);
+			}
+			else
+			{
+				MOV(32, R(EAX), gpr.R(rs));
+				addr = EAX;
+			}
+
+			if (!g_Config.bFastMemory)
+			{
+				// Is it in physical ram?
+				CMP(32, R(addr), Imm32(0x08000000));
+				FixupBranch tooLow = J_CC(CC_L);
+				CMP(32, R(addr), Imm32(0x0A000000));
+				FixupBranch tooHigh = J_CC(CC_GE);
+
+				const u8* safe = GetCodePtr();
 #ifdef _M_IX86
-			AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
-			(this->*mov)(32, bits, gpr.RX(rt), MDisp(EAX, (u32)Memory::base + offset));
+				(this->*mov)(32, bits, gpr.RX(rt), MDisp(addr, (u32)Memory::base + offset));
 #else
-			(this->*mov)(32, bits, gpr.RX(rt), MComplex(RBX, EAX, SCALE_1, offset));
+				(this->*mov)(32, bits, gpr.RX(rt), MComplex(RBX, addr, SCALE_1, offset));
 #endif
+
+				FixupBranch skip = J();
+				SetJumpTarget(tooLow);
+				SetJumpTarget(tooHigh);
+
+				// Might also be the scratchpad.
+				CMP(32, R(addr), Imm32(0x00010000));
+				FixupBranch tooLow2 = J_CC(CC_L);
+				CMP(32, R(addr), Imm32(0x00014000));
+				J_CC(CC_L, safe);
+				SetJumpTarget(tooLow2);
+
+				LEA(32, EAX, MDisp(addr, offset));
+				ABI_CallFunctionA(thunks.ProtectFunction(safeFunc, 1), R(EAX));
+				(this->*mov)(32, bits, gpr.RX(rt), R(EAX));
+
+				SetJumpTarget(skip);
+			}
+			else
+			{
+#ifdef _M_IX86
+				// Need to modify it, too bad.
+				if (addr != EAX)
+					MOV(32, R(EAX), gpr.R(rs));
+				AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
+				(this->*mov)(32, bits, gpr.RX(rt), MDisp(EAX, (u32)Memory::base + offset));
+#else
+				(this->*mov)(32, bits, gpr.RX(rt), MComplex(RBX, addr, SCALE_1, offset));
+#endif
+			}
 		}
 
 		gpr.UnlockAll();
