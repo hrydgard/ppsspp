@@ -133,12 +133,6 @@ namespace MIPSComp
 				MOV(bits, MDisp(RBX, gpr.R(rs).GetImmValue() + offset), gpr.R(rt));
 #endif
 			}
-			else if (bits == 8)
-				MOV(bits, M(data), Imm8(0));
-			else if (bits == 16)
-				MOV(bits, M(data), Imm16(0));
-			else
-				MOV(bits, M(data), Imm32(0));
 		}
 		else if (!g_Config.bFastMemory)
 		{
