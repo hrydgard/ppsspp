@@ -479,7 +479,7 @@ public:
 			u8 *compressed_buffer = new u8[comp_len];
 			snappy_compress((const char *)buffer, sz, (char *)compressed_buffer, &comp_len);
 			delete [] buffer;
-			header.ExpectedSize = comp_len;
+			header.ExpectedSize = (int)comp_len;
 			if (!pFile.WriteArray(&header, 1))
 			{
 				ERROR_LOG(COMMON,"ChunkReader: Failed writing header");

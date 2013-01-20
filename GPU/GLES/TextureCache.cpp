@@ -138,7 +138,7 @@ void TextureCache_InvalidateAll(bool force) {
 }
 
 int TextureCache_NumLoadedTextures() {
-	return cache.size();
+	return (int)cache.size();
 }
 
 

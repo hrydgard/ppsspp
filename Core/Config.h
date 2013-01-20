@@ -69,6 +69,9 @@ public:
 	bool bShowFPSCounter;
 	bool bShowDebugStats;
 
+	// SystemParam
+	int ilanguage;
+
 	std::string currentDirectory;
 	std::string memCardDirectory;
 	std::string flashDirectory;

@@ -43,7 +43,7 @@ PSPDialog::DialogStatus PSPDialog::GetStatus()
 void PSPDialog::StartDraw()
 {
 	PPGeBegin();
-	PPGeDrawRect(0, 0, 480, 272, CalcFadedColor(0x90606060));
+	PPGeDrawRect(0, 0, 480, 272, CalcFadedColor(0x70606060));
 }
 void PSPDialog::EndDraw()
 {
@@ -76,9 +76,9 @@ void PSPDialog::UpdateFade()
 		if(fadeTimer < FADE_TIME)
 		{
 			if(fadeIn)
-				fadeValue = fadeTimer / FADE_TIME * 255;
+				fadeValue = (u32) (fadeTimer / FADE_TIME * 255);
 			else
-				fadeValue = 255 - fadeTimer / FADE_TIME * 255;
+				fadeValue = 255 - (u32) (fadeTimer / FADE_TIME * 255);
 		}
 		else
 		{

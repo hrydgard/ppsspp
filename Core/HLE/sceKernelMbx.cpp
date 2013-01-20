@@ -517,7 +517,7 @@ int sceKernelCancelReceiveMbx(SceUID id, u32 numWaitingThreadsAddr)
 		return error;
 	}
 
-	u32 count = m->waitingThreads.size();
+	u32 count = (u32) m->waitingThreads.size();
 	DEBUG_LOG(HLE, "sceKernelCancelReceiveMbx(%i, %08x): cancelling %d threads", id, numWaitingThreadsAddr, count);
 
 	bool wokeThreads = false;
@@ -553,7 +553,7 @@ int sceKernelReferMbxStatus(SceUID id, u32 infoAddr)
 	// For whatever reason, it won't write if the size (first member) is 0.
 	if (Memory::Read_U32(infoAddr) != 0)
 	{
-		m->nmb.numWaitThreads = m->waitingThreads.size();
+		m->nmb.numWaitThreads = (int) m->waitingThreads.size();
 		Memory::WriteStruct<NativeMbx>(infoAddr, &m->nmb);
 	}
 

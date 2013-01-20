@@ -32,7 +32,7 @@ public:
 	virtual ~BlockDevice() {}
 	virtual bool ReadBlock(int blockNumber, u8 *outPtr) = 0;
 	int GetBlockSize() const { return 2048;}  // forced, it cannot be changed by subclasses
-	virtual int GetNumBlocks() = 0;
+	virtual u32 GetNumBlocks() = 0;
 };
 
 
@@ -42,7 +42,7 @@ public:
 	CISOFileBlockDevice(std::string _filename);
 	~CISOFileBlockDevice();
 	bool ReadBlock(int blockNumber, u8 *outPtr);
-	int GetNumBlocks() { return numBlocks;}
+	u32 GetNumBlocks() { return numBlocks;}
 
 private:
 	std::string filename;
@@ -50,7 +50,7 @@ private:
 	u32 *index;
 	int indexShift;
 	u32 blockSize;
-	int numBlocks;
+	u32 numBlocks;
 };
 
 
@@ -60,7 +60,7 @@ public:
 	FileBlockDevice(std::string _filename);
 	~FileBlockDevice();
 	bool ReadBlock(int blockNumber, u8 *outPtr);
-	int GetNumBlocks() {return (int)(filesize / GetBlockSize());}
+	u32 GetNumBlocks() {return (u32)(filesize / GetBlockSize());}
 
 private:
 	std::string filename;

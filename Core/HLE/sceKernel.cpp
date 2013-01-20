@@ -174,6 +174,7 @@ void __KernelDoState(PointerWrap &p)
 	__MpegDoState(p);
 	__PowerDoState(p);
 	__PsmfDoState(p);
+	__PsmfPlayerDoState(p);
 	__SasDoState(p);
 	__SslDoState(p);
 	__UmdDoState(p);
