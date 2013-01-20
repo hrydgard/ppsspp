@@ -68,6 +68,12 @@ public:
 	void SetIndex(int ind) { index_ = ind; }
 	int SeenPrims() const { return seenPrims_; }
 
+	bool SeenOnlyPurePrims() const {
+		return seenPrims_ == (1 << GE_PRIM_TRIANGLES) ||
+			     seenPrims_ == (1 << GE_PRIM_LINES) ||
+					 seenPrims_ == (1 << GE_PRIM_POINTS);
+	}
+
 private:
 	u16 *indsBase_;
 	u16 *inds_;

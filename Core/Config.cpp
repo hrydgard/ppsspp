@@ -66,7 +66,7 @@ void CConfig::Load(const char *iniFileName)
 	graphics->Get("HardwareTransform", &bHardwareTransform, true);
 	graphics->Get("LinearFiltering", &bLinearFiltering, false);
 	graphics->Get("SSAA", &SSAntiAlaising, 0);
-	graphics->Get("VBO", &bUseVBO, true);
+	graphics->Get("VBO", &bUseVBO, false);
 	graphics->Get("DisableG3DLog", &bDisableG3DLog, false);
 	graphics->Get("VertexCache", &bVertexCache, false);
 

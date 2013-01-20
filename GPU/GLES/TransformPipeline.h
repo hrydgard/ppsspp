@@ -61,7 +61,6 @@ public:
 		VAI_HASHING,
 		VAI_RELIABLE,  // cache, don't hash
 		VAI_UNRELIABLE,  // never cache
-		VAI_INBUFFERABLE,   // lol
 	};
 
 	u32 hash;
