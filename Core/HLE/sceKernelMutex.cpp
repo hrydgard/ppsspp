@@ -51,9 +51,9 @@ struct NativeMutex
 	SceSize size;
 	char name[KERNELOBJECT_MAX_NAME_LENGTH + 1];
 	SceUInt attr;
-
+	int initialCount;
 	int lockLevel;
-	int lockThread;	// The thread holding the lock
+	int numWaitThreads;
 };
 
 struct Mutex : public KernelObject
@@ -68,11 +68,13 @@ struct Mutex : public KernelObject
 		p.Do(nm);
 		SceUID dv = 0;
 		p.Do(waitingThreads, dv);
+		p.Do(lockThread);
 		p.DoMarker("Mutex");
 	}
 
 	NativeMutex nm;
 	std::vector<SceUID> waitingThreads;
+	int lockThread;	// The thread holding the lock
 };
 
 // Guesswork - not exposed anyway
@@ -175,7 +177,7 @@ void __KernelMutexAcquireLock(Mutex *mutex, int count, SceUID thread)
 	mutexHeldLocks.insert(std::make_pair(thread, mutex->GetUID()));
 
 	mutex->nm.lockLevel = count;
-	mutex->nm.lockThread = thread;
+	mutex->lockThread = thread;
 }
 
 void __KernelMutexAcquireLock(Mutex *mutex, int count)
@@ -185,10 +187,10 @@ void __KernelMutexAcquireLock(Mutex *mutex, int count)
 
 void __KernelMutexEraseLock(Mutex *mutex)
 {
-	if (mutex->nm.lockThread != -1)
+	if (mutex->lockThread != -1)
 	{
 		SceUID id = mutex->GetUID();
-		std::pair<MutexMap::iterator, MutexMap::iterator> locked = mutexHeldLocks.equal_range(mutex->nm.lockThread);
+		std::pair<MutexMap::iterator, MutexMap::iterator> locked = mutexHeldLocks.equal_range(mutex->lockThread);
 		for (MutexMap::iterator iter = locked.first; iter != locked.second; ++iter)
 		{
 			if ((*iter).second == id)
@@ -198,7 +200,7 @@ void __KernelMutexEraseLock(Mutex *mutex)
 			}
 		}
 	}
-	mutex->nm.lockThread = -1;
+	mutex->lockThread = -1;
 }
 
 std::vector<SceUID>::iterator __KernelMutexFindPriority(std::vector<SceUID> &waiting)
@@ -246,10 +248,11 @@ int sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optio
 	strncpy(mutex->nm.name, name, KERNELOBJECT_MAX_NAME_LENGTH);
 	mutex->nm.name[KERNELOBJECT_MAX_NAME_LENGTH] = 0;
 	mutex->nm.attr = attr;
+	mutex->nm.initialCount = initialCount;
 	if (initialCount == 0)
 	{
 		mutex->nm.lockLevel = 0;
-		mutex->nm.lockThread = -1;
+		mutex->lockThread = -1;
 	}
 	else
 		__KernelMutexAcquireLock(mutex, initialCount);
@@ -303,7 +306,7 @@ int sceKernelDeleteMutex(SceUID id)
 		for (iter = mutex->waitingThreads.begin(), end = mutex->waitingThreads.end(); iter != end; ++iter)
 			wokeThreads |= __KernelUnlockMutexForThread(mutex, *iter, error, SCE_KERNEL_ERROR_WAIT_DELETE);
 
-		if (mutex->nm.lockThread != -1)
+		if (mutex->lockThread != -1)
 			__KernelMutexEraseLock(mutex);
 		mutex->waitingThreads.clear();
 
@@ -339,7 +342,7 @@ bool __KernelLockMutex(Mutex *mutex, int count, u32 &error)
 		return true;
 	}
 
-	if (mutex->nm.lockThread == __KernelGetCurThread())
+	if (mutex->lockThread == __KernelGetCurThread())
 	{
 		// Recursive mutex, let's just increase the lock count and keep going
 		if (mutex->nm.attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE)
@@ -375,7 +378,7 @@ bool __KernelUnlockMutex(Mutex *mutex, u32 &error)
 	}
 
 	if (!wokeThreads)
-		mutex->nm.lockThread = -1;
+		mutex->lockThread = -1;
 
 	return wokeThreads;
 }
@@ -524,7 +527,7 @@ int sceKernelUnlockMutex(SceUID id, int count)
 		return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
 	if ((mutex->nm.attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE) == 0 && count > 1)
 		return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
-	if (mutex->nm.lockLevel == 0 || mutex->nm.lockThread != __KernelGetCurThread())
+	if (mutex->nm.lockLevel == 0 || mutex->lockThread != __KernelGetCurThread())
 		return PSP_MUTEX_ERROR_NOT_LOCKED;
 	if (mutex->nm.lockLevel < count)
 		return PSP_MUTEX_ERROR_UNLOCK_UNDERFLOW;
@@ -565,7 +568,6 @@ int sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int init
 	mutex->nm.name[KERNELOBJECT_MAX_NAME_LENGTH] = 0;
 	mutex->nm.attr = attr;
 	mutex->nm.workareaPtr = workareaPtr;
-
 	NativeLwMutexWorkarea workarea;
 	workarea.init();
 	workarea.lockLevel = initialCount;
@@ -585,6 +587,26 @@ int sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int init
 	if ((attr & ~PSP_MUTEX_ATTR_KNOWN) != 0)
 		WARN_LOG(HLE, "sceKernelCreateLwMutex(%s) unsupported attr parameter: %08x", name, attr);
 
+	return 0;
+}
+
+int sceKernelReferMutexStatus(SceUID id, u32 infoAddr)
+{
+	u32 error;
+	Mutex *m = kernelObjects.Get<Mutex>(id, error);
+	if (!m)
+	{
+		ERROR_LOG(HLE, "sceKernelReferMutexStatus(%i, %08x): invalid mbx id", id, infoAddr);
+		return error;
+	}
+
+	// Should we crash the thread somehow?
+	if (!Memory::IsValidAddress(infoAddr))
+		return -1;
+
+	// Refresh and write
+	m->nm.numWaitThreads = m->waitingThreads.size();
+	Memory::WriteStruct(infoAddr, &m->nm);
 	return 0;
 }
 

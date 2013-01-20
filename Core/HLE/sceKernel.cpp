@@ -532,6 +532,7 @@ const HLEFunction ThreadManForUser[] =
 	{0x6b30100f,&WrapI_II<sceKernelUnlockMutex>,          "sceKernelUnlockMutex"},
 	{0xb7d098c6,&WrapI_CUIU<sceKernelCreateMutex>,        "sceKernelCreateMutex"},
 	{0x0DDCD2C9,&WrapI_II<sceKernelTryLockMutex>,         "sceKernelTryLockMutex"},
+	{0xA9C2CB9A,&WrapI_IU<sceKernelReferMutexStatus>,     "sceKernelReferMutexStatus"},
 	// NOTE: LockLwMutex and UnlockLwMutex are in Kernel_Library, see sceKernelInterrupt.cpp.
 
 	{0xFCCFAD26,sceKernelCancelWakeupThread,"sceKernelCancelWakeupThread"},

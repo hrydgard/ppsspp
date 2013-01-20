@@ -23,6 +23,7 @@ int sceKernelLockMutex(SceUID id, int count, u32 timeoutPtr);
 int sceKernelLockMutexCB(SceUID id, int count, u32 timeoutPtr);
 int sceKernelTryLockMutex(SceUID id, int count);
 int sceKernelUnlockMutex(SceUID id, int count);
+int sceKernelReferMutexStatus(SceUID id, u32 infoAddr);
 
 int sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int initialCount, u32 optionsPtr);
 int sceKernelDeleteLwMutex(u32 workareaPtr);
