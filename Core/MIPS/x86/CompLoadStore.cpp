@@ -41,7 +41,7 @@
 
 namespace MIPSComp
 {
-	void Jit::CompITypeMemRead(u32 op, u32 bits, void *func)
+	void Jit::CompITypeMemRead(u32 op, u32 bits, void (XEmitter::*mov)(int, int, X64Reg, OpArg), void *safeFunc)
 	{
 		CONDITIONAL_DISABLE;
 		int offset = (signed short)(op&0xFFFF);
@@ -57,9 +57,9 @@ namespace MIPSComp
 			if (data)
 			{
 #ifdef _M_IX86
-				MOVZX(32, bits, gpr.RX(rt), M(data));
+				(this->*mov)(32, bits, gpr.RX(rt), M(data));
 #else
-				MOVZX(32, bits, gpr.RX(rt), MDisp(RBX, gpr.R(rs).GetImmValue() + offset));
+				(this->*mov)(32, bits, gpr.RX(rt), MDisp(RBX, gpr.R(rs).GetImmValue() + offset));
 #endif
 			}
 			else
@@ -76,9 +76,9 @@ namespace MIPSComp
 
 			const u8* safe = GetCodePtr();
 #ifdef _M_IX86
-			MOVZX(32, bits, gpr.RX(rt), MDisp(EAX, (u32)Memory::base + offset));
+			(this->*mov)(32, bits, gpr.RX(rt), MDisp(EAX, (u32)Memory::base + offset));
 #else
-			MOVZX(32, bits, gpr.RX(rt), MComplex(RBX, EAX, SCALE_1, offset));
+			(this->*mov)(32, bits, gpr.RX(rt), MComplex(RBX, EAX, SCALE_1, offset));
 #endif
 
 			FixupBranch skip = J();
@@ -93,8 +93,8 @@ namespace MIPSComp
 			SetJumpTarget(tooLow2);
 
 			ADD(32, R(EAX), Imm32(offset));
-			ABI_CallFunctionA(thunks.ProtectFunction(func, 1), R(EAX));
-			MOVZX(32, bits, gpr.RX(rt), R(EAX));
+			ABI_CallFunctionA(thunks.ProtectFunction(safeFunc, 1), R(EAX));
+			(this->*mov)(32, bits, gpr.RX(rt), R(EAX));
 
 			SetJumpTarget(skip);
 		}
@@ -103,16 +103,16 @@ namespace MIPSComp
 			MOV(32, R(EAX), gpr.R(rs));
 #ifdef _M_IX86
 			AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
-			MOVZX(32, bits, gpr.RX(rt), MDisp(EAX, (u32)Memory::base + offset));
+			(this->*mov)(32, bits, gpr.RX(rt), MDisp(EAX, (u32)Memory::base + offset));
 #else
-			MOVZX(32, bits, gpr.RX(rt), MComplex(RBX, EAX, SCALE_1, offset));
+			(this->*mov)(32, bits, gpr.RX(rt), MComplex(RBX, EAX, SCALE_1, offset));
 #endif
 		}
 
 		gpr.UnlockAll();
 	}
 
-	void Jit::CompITypeMemWrite(u32 op, u32 bits, void *func)
+	void Jit::CompITypeMemWrite(u32 op, u32 bits, void *safeFunc)
 	{
 		CONDITIONAL_DISABLE;
 		int offset = (signed short)(op&0xFFFF);
@@ -168,7 +168,7 @@ namespace MIPSComp
 			SetJumpTarget(tooLow2);
 
 			ADD(32, R(EAX), Imm32(offset));
-			ABI_CallFunctionAA(thunks.ProtectFunction(func, 2), gpr.R(rt), R(EAX));
+			ABI_CallFunctionAA(thunks.ProtectFunction(safeFunc, 2), gpr.R(rt), R(EAX));
 
 			SetJumpTarget(skip);
 		}
@@ -201,19 +201,25 @@ namespace MIPSComp
 		switch (o)
 		{
 		case 37: //R(rt) = ReadMem16(addr); break; //lhu
-			CompITypeMemRead(op, 16, (void *) &Memory::Read_U16);
+			CompITypeMemRead(op, 16, &XEmitter::MOVZX, (void *) &Memory::Read_U16);
 			break;
 
 		case 36: //R(rt) = ReadMem8 (addr); break; //lbu
-			CompITypeMemRead(op, 8, (void *) &Memory::Read_U8);
+			CompITypeMemRead(op, 8, &XEmitter::MOVZX, (void *) &Memory::Read_U8);
 			break;
 
 		case 35: //R(rt) = ReadMem32(addr); break; //lw
-			CompITypeMemRead(op, 32, (void *) &Memory::Read_U16);
+			CompITypeMemRead(op, 32, &XEmitter::MOVZX, (void *) &Memory::Read_U16);
 			break;
 
-		case 132: //R(rt) = (u32)(s32)(s8) ReadMem8 (addr); break; //lb
-		case 133: //R(rt) = (u32)(s32)(s16)ReadMem16(addr); break; //lh
+		case 32: //R(rt) = (u32)(s32)(s8) ReadMem8 (addr); break; //lb
+			CompITypeMemRead(op, 8, &XEmitter::MOVSX, (void *) &Memory::Read_U8);
+			break;
+
+		case 33: //R(rt) = (u32)(s32)(s16)ReadMem16(addr); break; //lh
+			CompITypeMemRead(op, 16, &XEmitter::MOVSX, (void *) &Memory::Read_U16);
+			break;
+
 		case 140: //WriteMem8 (addr, R(rt)); break; //sb
 			Comp_Generic(op);
 			return;
