@@ -51,7 +51,7 @@ namespace
 		if (handle == 0)
 			return false;
 
-		int result = pspFileSystem.ReadFile(handle, data, dataSize);
+		size_t result = pspFileSystem.ReadFile(handle, data, dataSize);
 		pspFileSystem.CloseFile(handle);
 		if(readSize)
 			*readSize = result;
@@ -59,13 +59,13 @@ namespace
 		return result != 0;
 	}
 
-	bool WritePSPFile(std::string filename, u8 *data, int dataSize)
+	bool WritePSPFile(std::string filename, u8 *data, SceSize dataSize)
 	{
 		u32 handle = pspFileSystem.OpenFile(filename, (FileAccess)(FILEACCESS_WRITE | FILEACCESS_CREATE));
 		if (handle == 0)
 			return false;
 
-		int result = pspFileSystem.WriteFile(handle, data, dataSize);
+		size_t result = pspFileSystem.WriteFile(handle, data, dataSize);
 		pspFileSystem.CloseFile(handle);
 
 		return result != 0;
@@ -225,7 +225,7 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, int saveId)
 	if(param->dataBuf != 0)	// Can launch save without save data in mode 13
 	{
 		std::string filePath = dirPath+"/"+GetFileName(param);
-		int saveSize = param->dataSize;
+		SceSize saveSize = param->dataSize;
 		if(saveSize == 0 || saveSize > param->dataBufSize)
 			saveSize = param->dataBufSize; // fallback, should never use this
 		INFO_LOG(HLE,"Saving file with size %u in %s",saveSize,filePath.c_str());
@@ -305,7 +305,7 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, int saveId)
 	u8 *sfoData;
 	size_t sfoSize;
 	sfoFile.WriteSFO(&sfoData,&sfoSize);
-	WritePSPFile(sfopath, sfoData, sfoSize);
+	WritePSPFile(sfopath, sfoData, (SceSize)sfoSize);
 	delete[] sfoData;
 
 	// SAVE ICON0
@@ -341,7 +341,7 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, int saveId)
 	// Save Encryption Data
 	{
 		EncryptFileInfo encryptInfo;
-		int dataSize = sizeof(encryptInfo); // version + key + sdkVersion
+		SceSize dataSize = sizeof(encryptInfo); // version + key + sdkVersion
 		memset(&encryptInfo,0,dataSize);
 
 		encryptInfo.fileVersion = 1;
@@ -380,7 +380,7 @@ bool SavedataParam::Load(SceUtilitySavedataParam *param, int saveId)
 		ERROR_LOG(HLE,"Error reading file %s",filePath.c_str());
 		return false;
 	}
-	param->dataSize = readSize;
+	param->dataSize = (SceSize)readSize;
 
 	// copy back save name in request
 	strncpy(param->saveName,GetSaveDirName(param, saveId).c_str(),20);
@@ -455,8 +455,8 @@ bool SavedataParam::GetSizes(SceUtilitySavedataParam *param)
 		Memory::Write_U32((u32)(MemoryStick_FreeSpace() / MemoryStick_SectorSize()),param->msFree+4);	// Free cluster
 		Memory::Write_U32((u32)(MemoryStick_FreeSpace() / 0x400),param->msFree+8); // Free space (in KB)
 		std::string spaceTxt = SavedataParam::GetSpaceText((int)MemoryStick_FreeSpace());
-		Memory::Memset(param->msFree+12,0,spaceTxt.size()+1);
-		Memory::Memcpy(param->msFree+12,spaceTxt.c_str(),spaceTxt.size()); // Text representing free space
+		Memory::Memset(param->msFree+12,0,(u32)spaceTxt.size()+1);
+		Memory::Memcpy(param->msFree+12,spaceTxt.c_str(),(u32)spaceTxt.size()); // Text representing free space
 	}
 	if (Memory::IsValidAddress(param->msData))
 	{
@@ -495,12 +495,12 @@ bool SavedataParam::GetSizes(SceUtilitySavedataParam *param)
 		Memory::Write_U32(total_size / (u32)MemoryStick_SectorSize(),param->utilityData);	// num cluster
 		Memory::Write_U32(total_size / 0x400,param->utilityData+4);	// save size in KB
 		std::string spaceTxt = SavedataParam::GetSpaceText(total_size);
-		Memory::Memset(param->utilityData+8,0,spaceTxt.size()+1);
-		Memory::Memcpy(param->utilityData+8,spaceTxt.c_str(),spaceTxt.size()); // save size in text
+		Memory::Memset(param->utilityData+8,0,(u32)spaceTxt.size()+1);
+		Memory::Memcpy(param->utilityData+8,spaceTxt.c_str(),(u32)spaceTxt.size()); // save size in text
 		Memory::Write_U32(total_size / 0x400,param->utilityData+16);	// save size in KB
 		spaceTxt = SavedataParam::GetSpaceText(total_size);
-		Memory::Memset(param->utilityData+20,0,spaceTxt.size()+1);
-		Memory::Memcpy(param->utilityData+20,spaceTxt.c_str(),spaceTxt.size()); // save size in text
+		Memory::Memset(param->utilityData+20,0,(u32)spaceTxt.size()+1);
+		Memory::Memcpy(param->utilityData+20,spaceTxt.c_str(),(u32)spaceTxt.size()); // save size in text
 	}
 	return ret;
 
@@ -532,7 +532,7 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 				}
 			}
 
-			for (size_t i = 0; i < validDir.size(); i++)
+			for (u32 i = 0; i < (u32)validDir.size(); i++)
 			{
 				u32 baseAddr = outputBuffer + (i*72);
 				Memory::Write_U32(0x11FF,baseAddr + 0); // mode
@@ -545,11 +545,11 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 				// folder name without gamename (max 20 u8)
 				std::string outName = validDir[i].name.substr(GetGameName(param).size());
 				Memory::Memset(baseAddr + 52,0,20);
-				Memory::Memcpy(baseAddr + 52, outName.c_str(), outName.size());
+				Memory::Memcpy(baseAddr + 52, outName.c_str(), (u32)outName.size());
 			}
 		}
 		// Save num of folder found
-		Memory::Write_U32(validDir.size(),param->idListAddr+4);
+		Memory::Write_U32((u32)validDir.size(), param->idListAddr + 4);
 	}
 	return true;
 }
@@ -695,7 +695,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 							// We have a png to show
 							PspUtilitySavedataFileData newData;
 							Memory::ReadStruct(param->newData, &newData);
-							CreatePNGIcon(Memory::GetPointer(newData.buf),newData.size,saveDataList[realCount]);
+							CreatePNGIcon(Memory::GetPointer(newData.buf), (int)newData.size, saveDataList[realCount]);
 						}
 						DEBUG_LOG(HLE,"Don't Exist");
 						realCount++;
@@ -739,7 +739,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 					// We have a png to show
 					PspUtilitySavedataFileData newData;
 					Memory::ReadStruct(param->newData, &newData);
-					CreatePNGIcon(Memory::GetPointer(newData.buf),newData.size,saveDataList[0]);
+					CreatePNGIcon(Memory::GetPointer(newData.buf), (int)newData.size, saveDataList[0]);
 				}
 				DEBUG_LOG(HLE,"Don't Exist");
 			}
@@ -798,7 +798,7 @@ void SavedataParam::SetFileInfo(int idx, PSPFileInfo &info, std::string saveName
 	{
 		u8 *textureDataPNG = new u8[(size_t)info2.size];
 		ReadPSPFile(fileDataPath2, textureDataPNG, info2.size, NULL);
-		CreatePNGIcon(textureDataPNG, info2.size, saveDataList[idx]);
+		CreatePNGIcon(textureDataPNG, (int)info2.size, saveDataList[idx]);
 		delete[] textureDataPNG;
 	}
 

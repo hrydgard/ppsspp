@@ -105,10 +105,10 @@ CISOFileBlockDevice::CISOFileBlockDevice(std::string _filename)
 	}
 	indexShift = hdr.align;
 	u64 totalSize = hdr.total_bytes;
-	numBlocks = (int)(totalSize / blockSize);
+	numBlocks = (u32)(totalSize / blockSize);
 	DEBUG_LOG(LOADER, "hdrSize=%i numBlocks=%i align=%i", hdrSize, numBlocks, indexShift);
 
-	int indexSize = numBlocks + 1;
+	u32 indexSize = numBlocks + 1;
 
 	index = new u32[indexSize];
 	if(fread(index, sizeof(u32), indexSize, f) != indexSize)
@@ -137,7 +137,7 @@ bool CISOFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr)
 	u32 compressedReadSize = idx2 - idx;
 
 	fseek(f, compressedReadPos, SEEK_SET);
-	size_t readSize = fread(inbuffer, 1, compressedReadSize, f);
+	u32 readSize = (u32)fread(inbuffer, 1, compressedReadSize, f);
 
 	if (plain)
 	{

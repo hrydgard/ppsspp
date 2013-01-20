@@ -41,12 +41,12 @@ void WindowsHost::SetWindowTitle(const char *message)
 	std::string title = "PPSSPP v0.5 - ";
 	title += message;
 
-	int size = MultiByteToWideChar(CP_UTF8, 0, message, title.size(), NULL, 0);
+	int size = MultiByteToWideChar(CP_UTF8, 0, message, (int) title.size(), NULL, 0);
 	if (size > 0)
 	{
 		wchar_t *utf16_title = new wchar_t[size + 1];
 		if (utf16_title)
-			size = MultiByteToWideChar(CP_UTF8, 0, message, title.size(), utf16_title, size);
+			size = MultiByteToWideChar(CP_UTF8, 0, message, (int) title.size(), utf16_title, size);
 		else
 			size = 0;
 
@@ -129,32 +129,25 @@ void WindowsHost::BootDone()
 	SendMessage(MainWindow::GetHWND(), WM_USER+1, 0,0);
 }
 
+static std::string SymbolMapFilename(const char *currentFilename)
+{
+	std::string result = currentFilename;
+	size_t dot = result.rfind('.');
+	if (dot == result.npos)
+		return result + ".map";
+
+	result.replace(dot, result.npos, ".map");
+	return result;
+}
+
 bool WindowsHost::AttemptLoadSymbolMap()
 {
-	char filename[256];
-	strcpy(filename, GetCurrentFilename());
-	int len = strlen(filename);
-	int ptpos = len-1;
-	while (filename[ptpos]!='.' && ptpos>len-8)
-		ptpos--;
-	filename[ptpos+1] = 'm';
-	filename[ptpos+2] = 'a';
-	filename[ptpos+3] = 'p';
-	return symbolMap.LoadSymbolMap(filename);
+	return symbolMap.LoadSymbolMap(SymbolMapFilename(GetCurrentFilename()).c_str());
 }
 
 void WindowsHost::PrepareShutdown()
 {
-	char filename[256];
-	strcpy(filename, GetCurrentFilename());
-    int len = strlen(filename);
-	int ptpos = len-1;
-	while (filename[ptpos]!='.' && ptpos>len-8)
-		ptpos--;
-	filename[ptpos+1] = 'm';
-	filename[ptpos+2] = 'a';
-	filename[ptpos+3] = 'p';
-	symbolMap.SaveSymbolMap(filename);
+	symbolMap.SaveSymbolMap(SymbolMapFilename(GetCurrentFilename()).c_str());
 }
 
 void WindowsHost::AddSymbol(std::string name, u32 addr, u32 size, int type=0) 
