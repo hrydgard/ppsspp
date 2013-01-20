@@ -86,6 +86,15 @@ void JitBreakpoint()
 	}
 }
 
+static void JitLogMiss(u32 op)
+{
+	if (USE_JIT_MISSMAP)
+		notJitOps[MIPSGetName(op)]++;
+
+	MIPSInterpretFunc func = MIPSGetInterpretFunc(op);
+	func(op);
+}
+
 Jit::Jit(MIPSState *mips) : blocks(mips), mips_(mips)
 {
 	blocks.Init();
@@ -210,16 +219,18 @@ void Jit::Comp_RunBlock(u32 op)
 
 void Jit::Comp_Generic(u32 op)
 {
-	if (USE_JIT_MISSMAP)
-		notJitOps[MIPSGetName(op)]++;
-
 	FlushAll();
 	MIPSInterpretFunc func = MIPSGetInterpretFunc(op);
 	if (func)
 	{
 		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
-		ABI_CallFunctionC((void *)func, op);
+		if (USE_JIT_MISSMAP)
+			ABI_CallFunctionC((void *)&JitLogMiss, op);
+		else
+			ABI_CallFunctionC((void *)func, op);
 	}
+	else
+		_dbg_assert_msg_(JIT, 0, "Trying to compile instruction that can't be interpreted");
 }
 
 void Jit::WriteExit(u32 destination, int exit_num)
