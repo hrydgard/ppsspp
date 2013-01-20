@@ -651,7 +651,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		if (useVBO) {
 			// Attempt to orphan the buffer we used so the GPU can alloc a new one.
 			// glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(short) * numTrans, 0, GL_DYNAMIC_DRAW);
-			// glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 		}
 	} else {
 		glDrawArrays(glprim[prim], 0, numTrans);
@@ -659,7 +659,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 	if (useVBO) {
 		// Attempt to orphan the buffer we used so the GPU can alloc a new one.
 		// glBufferData(GL_ARRAY_BUFFER, vertexSize * numTrans, 0, GL_DYNAMIC_DRAW);
-		// glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
 		curVbo_++;
 		if (curVbo_ == NUM_VBOS)
 			curVbo_ = 0;
@@ -696,7 +696,7 @@ void TransformDrawEngine::SubmitPrim(void *verts, void *inds, int prim, int vert
 	dc.verts = verts;
 	dc.inds = inds;
 	dc.vertType = vertType;
-	dc.indexType = forceIndexType == (-1 ? (vertType & GE_VTYPE_IDX_MASK) : forceIndexType) >> GE_VTYPE_IDX_SHIFT;
+	dc.indexType = ((forceIndexType == -1) ? (vertType & GE_VTYPE_IDX_MASK) : forceIndexType) >> GE_VTYPE_IDX_SHIFT;
 	dc.prim = prim;
 	dc.vertexCount = vertexCount;
 	if (inds) {
@@ -875,6 +875,7 @@ void TransformDrawEngine::Flush() {
 				{
 					u32 newHash = ComputeHash();
 					vai->numDraws++;
+					// TODO: tweak
 					if (vai->numDraws > 100000) {
 						vai->status = VertexArrayInfo::VAI_RELIABLE;
 					}
@@ -897,21 +898,19 @@ void TransformDrawEngine::Flush() {
 						DecodeVerts();
 						vai->numVerts = indexGen.VertexCount();
 						vai->prim = indexGen.Prim();
+						useElements = !indexGen.SeenOnlyPurePrims();
+						
 						glGenBuffers(1, &vai->vbo);
-
-						// TODO: in some cases we can avoid creating an element buffer.
+						glBindBuffer(GL_ARRAY_BUFFER, vai->vbo);
+						glBufferData(GL_ARRAY_BUFFER, dec.GetDecVtxFmt().stride * indexGen.MaxIndex(), decoded, GL_STATIC_DRAW);
 						// If there's only been one primitive type, and it's either TRIANGLES, LINES or POINTS,
 						// there is no need for the index buffer we built. We can then use glDrawArrays instead
 						// for a very minor speed boost.
-						glBindBuffer(GL_ARRAY_BUFFER, vai->vbo);
-						glBufferData(GL_ARRAY_BUFFER, dec.GetDecVtxFmt().stride * indexGen.MaxIndex(), decoded, GL_STATIC_DRAW);
-						// GAH removing the "true" causes crashes and I don't understand why.
-						if (true || !indexGen.SeenOnlyPurePrims()) {
+						if (useElements) {
 							glGenBuffers(1, &vai->ebo);
 							glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vai->ebo);
 							glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(short) * indexGen.VertexCount(), (GLvoid *)decIndex, GL_STATIC_DRAW);
 						} else {
-							useElements = false;
 							vai->ebo = 0;
 							glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 						}
@@ -919,6 +918,7 @@ void TransformDrawEngine::Flush() {
 						glBindBuffer(GL_ARRAY_BUFFER, vai->vbo);
 						if (vai->ebo)
 							glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vai->ebo);
+						useElements = vai->ebo ? true : false;
 					}
 					vbo = vai->vbo;
 					ebo = vai->ebo;
@@ -963,7 +963,7 @@ rotateVBO:
 					curVbo_ = 0;
 				glBindBuffer(GL_ARRAY_BUFFER, vbo);
 				glBufferData(GL_ARRAY_BUFFER, dec.GetDecVtxFmt().stride * indexGen.MaxIndex(), decoded, GL_STREAM_DRAW);
-				if (!indexGen.SeenOnlyPurePrims()) {
+				if (useElements) {
 					glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
 					glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(short) * indexGen.VertexCount(), (GLvoid *)decIndex, GL_STREAM_DRAW);
 				}

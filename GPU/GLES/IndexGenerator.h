@@ -74,7 +74,16 @@ public:
 					 seenPrims_ == (1 << GE_PRIM_POINTS);
 	}
 
+	bool SeenIndices() const {
+		return (seenPrims_ & (SEEN_INDEX8 | SEEN_INDEX16)) != 0;
+	}
+
 private:
+	enum {
+		SEEN_INDEX8 = 1 << 16,
+		SEEN_INDEX16 = 1 << 17
+	};
+
 	u16 *indsBase_;
 	u16 *inds_;
 	int index_;

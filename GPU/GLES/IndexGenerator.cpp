@@ -28,11 +28,6 @@ const u8 indexedPrimitiveType[7] = {
 	GE_PRIM_RECTANGLES,
 };
 
-enum {
-	SEEN_INDEX8 = 1 << 29,
-	SEEN_INDEX16 = 1 << 30
-};
-
 void IndexGenerator::Reset() {
 	prim_ = -1;
 	count_ = 0;
@@ -190,7 +185,7 @@ void IndexGenerator::TranslateFan(int numVerts, const u8 *inds, int offset)
 	index_ += numVerts;
 	count_ += numTris * 3;
 	prim_ = GE_PRIM_TRIANGLES;
-	seenPrims_ |= (1 << GE_PRIM_TRIANGLE_STRIP) | SEEN_INDEX8;;
+	seenPrims_ |= (1 << GE_PRIM_TRIANGLE_FAN) | SEEN_INDEX8;
 }
 
 void IndexGenerator::TranslateList(int numVerts, const u16 *inds, int offset)
@@ -323,7 +318,7 @@ void IndexGenerator::TranslateLineList(int numVerts, const u16 *inds, int offset
 	index_ += numVerts;
 	count_ += numLines * 2;
 	prim_ = GE_PRIM_LINES;
-	seenPrims_ |= 1 << GE_PRIM_LINES;
+	seenPrims_ |= (1 << GE_PRIM_LINES) | SEEN_INDEX16;
 }
 
 void IndexGenerator::TranslateLineStrip(int numVerts, const u16 *inds, int offset)
@@ -337,7 +332,7 @@ void IndexGenerator::TranslateLineStrip(int numVerts, const u16 *inds, int offse
 	index_ += numVerts;
 	count_ += numLines * 2;
 	prim_ = GE_PRIM_LINES;
-	seenPrims_ |= 1 << GE_PRIM_LINE_STRIP;
+	seenPrims_ |= (1 << GE_PRIM_LINE_STRIP) | SEEN_INDEX16;
 }
 
 void IndexGenerator::TranslateRectangles(int numVerts, const u8 *inds, int offset)
@@ -351,7 +346,7 @@ void IndexGenerator::TranslateRectangles(int numVerts, const u8 *inds, int offse
 	index_ += numVerts;
 	count_ += numRects * 2;
 	prim_ = GE_PRIM_RECTANGLES;
-	seenPrims_ |= 1 << GE_PRIM_RECTANGLES;
+	seenPrims_ |= (1 << GE_PRIM_RECTANGLES) | SEEN_INDEX8;
 }
 
 void IndexGenerator::TranslateRectangles(int numVerts, const u16 *inds, int offset)
@@ -365,5 +360,5 @@ void IndexGenerator::TranslateRectangles(int numVerts, const u16 *inds, int offs
 	index_ += numVerts;
 	count_ += numRects * 2;
 	prim_ = GE_PRIM_RECTANGLES;
-	seenPrims_ |= 1 << GE_PRIM_RECTANGLES;
+	seenPrims_ |= (1 << GE_PRIM_RECTANGLES) | SEEN_INDEX16;
 }
