@@ -457,7 +457,7 @@ void SymbolMap::UseFuncSignaturesFile(const char *filename, u32 maxAddress)
 	for (size_t j=0; j<numSigs; j++)
 		fprintf(f, "%08x\t%08x\t%08x\t%s\n", sigs[j].inst, sigs[j].size, sigs[j].hash, sigs[j].name);    
 	fseek(f,0,SEEK_SET);
-	fprintf(f,"%08x",numSigs);
+	fprintf(f,"%08x", (unsigned int)numSigs);
 	fclose(f);
 
 	u32 last = 0xc0d3babe;

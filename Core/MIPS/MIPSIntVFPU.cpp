@@ -656,6 +656,10 @@ namespace MIPSInt
 			d[2] = ExpandHalf(s[1] & 0xFFFF);
 			d[3] = ExpandHalf(s[1] >> 16);
 			break;
+		case V_Triple:
+		case V_Quad:
+			_dbg_assert_msg_(CPU, 0, "Trying to interpret Int_Vh2f instruction that can't be interpreted");
+			break;
 		}
 		ApplyPrefixD(d, sz); //TODO: and the mask to kill everything but mask
 		WriteVector(d, sz, vd);
