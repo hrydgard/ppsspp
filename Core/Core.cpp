@@ -120,6 +120,7 @@ reswitch:
 
 		case CORE_POWERDOWN:
 		case CORE_ERROR:
+		case CORE_NEXTFRAME:
 			//1: Exit loop!!
 			return;
 		}

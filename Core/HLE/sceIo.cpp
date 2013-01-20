@@ -386,13 +386,14 @@ u32 sceIoWriteAsync(int id, void *data_ptr, int size)
 
 u32 sceIoGetDevType(int id) 
 {
+	ERROR_LOG(HLE, "UNIMPL sceIoGetDevType(%d)", id);
 	u32 error;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
 	int result;
 	if (f) 
 		result = PSP_DEV_TYPE_ALIAS;
 	else {
-		ERROR_LOG(HLE, "sceIoGetDevTyp: unknown id %s", id);
+		ERROR_LOG(HLE, "sceIoGetDevType: unknown id %d", id);
 		result = ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
 	}
 
@@ -401,13 +402,14 @@ u32 sceIoGetDevType(int id)
 
 u32 sceIoCancel(int id) 
 {
+	ERROR_LOG(HLE, "UNIMPL sceIoCancel(%d)", id);
 	u32 error;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
 	int result;
 	if (f) 
 		f->closePending = true;
 	else {
-		ERROR_LOG(HLE, "sceIoCancel: unknown id %s", id);
+		ERROR_LOG(HLE, "sceIoCancel: unknown id %d", id);
 		result = ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
 	}
 
@@ -795,6 +797,7 @@ int sceIoCloseAsync(int id)
 
 u32 sceIoLseekAsync(int id, s64 offset, int whence)
 {
+	DEBUG_LOG(HLE, "sceIoLseekAsync(%d) sorta implemented", id);
 	sceIoLseek(id, offset, whence);
 	__IoCompleteAsyncIO(id);
 	return 0;

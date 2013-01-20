@@ -193,7 +193,7 @@ struct MpegContext {
 	bool endOfVideoReached;
 	int videoPixelMode;
 	u32 mpegMagic;
-	u32 mpegVersion;
+	int mpegVersion;
 	u32 mpegRawVersion;
 	u32 mpegOffset;
 	u32 mpegStreamSize;
@@ -1028,7 +1028,7 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 			}
 			result = PSP_ERROR_MPEG_NO_DATA;
 		}
-		if (ctx->mpegLastTimestamp < 0 || sceAu.pts >= ctx->mpegLastTimestamp) {
+		if (ctx->mpegLastTimestamp <= 0 || sceAu.pts >= ctx->mpegLastTimestamp) {
 			NOTICE_LOG(HLE, "End of video reached");
 			ctx->endOfVideoReached = true;
 		} else {
