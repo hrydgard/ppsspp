@@ -293,13 +293,13 @@ void LinkedShader::updateUniforms() {
 	}
 
 	for (int i = 0; i < 4; i++) {
-		if (u_lightdiffuse[i] != -1 && (dirtyUniforms & (DIRTY_LIGHT0 << i))) {
-			glUniform3fv(u_lightpos[i], 1, gstate_c.lightpos[i]);
-			glUniform3fv(u_lightdir[i], 1, gstate_c.lightdir[i]);
-			glUniform3fv(u_lightatt[i], 1, gstate_c.lightatt[i]);
-			glUniform3fv(u_lightambient[i], 1, gstate_c.lightColor[0][i]);
-			glUniform3fv(u_lightdiffuse[i], 1, gstate_c.lightColor[1][i]);
-			glUniform3fv(u_lightspecular[i], 1, gstate_c.lightColor[2][i]);
+		if (dirtyUniforms & (DIRTY_LIGHT0 << i)) {
+			if (u_lightpos[i] != -1) glUniform3fv(u_lightpos[i], 1, gstate_c.lightpos[i]);
+			if (u_lightdir[i] != -1) glUniform3fv(u_lightdir[i], 1, gstate_c.lightdir[i]);
+			if (u_lightatt[i] != -1) glUniform3fv(u_lightatt[i], 1, gstate_c.lightatt[i]);
+			if (u_lightambient[i] != -1) glUniform3fv(u_lightambient[i], 1, gstate_c.lightColor[0][i]);
+			if (u_lightdiffuse[i] != -1) glUniform3fv(u_lightdiffuse[i], 1, gstate_c.lightColor[1][i]);
+			if (u_lightspecular[i] != -1) glUniform3fv(u_lightspecular[i], 1, gstate_c.lightColor[2][i]);
 		}
 	}
 
