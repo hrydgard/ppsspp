@@ -53,7 +53,7 @@ void ComputeFragmentShaderID(FragmentShaderID *id)
 		id->d[0] |= (gstate.textureMapEnable & 1) << 7;
 		id->d[0] |= (gstate.alphaTestEnable & 1) << 8;
 		id->d[0] |= (gstate.alphatest & 0x7) << 9;	 // alpha test func
-		id->d[0] |= (gstate.fogEnable & 1) << 9;
+		id->d[0] |= (gstate.fogEnable & 1) << 12;
 	}
 }
 
