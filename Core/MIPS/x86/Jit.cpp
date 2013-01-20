@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
+#include <iterator>
 #include "../../Core.h"
 #include "../../CoreTiming.h"
 #include "../MIPS.h"
@@ -45,6 +47,15 @@ static u64 saved_flags;
 
 #endif
 
+const bool USE_JIT_MISSMAP = false;
+static std::map<std::string, u32> notJitOps;
+
+template<typename A, typename B>
+std::pair<B,A> flip_pair(const std::pair<A,B> &p)
+{
+    return std::pair<B, A>(p.second, p.first);
+}
+
 void JitBreakpoint()
 {
 	Core_EnableStepping(true);
@@ -52,6 +63,27 @@ void JitBreakpoint()
 
 	if (CBreakPoints::IsTempBreakPoint(currentMIPS->pc))
 		CBreakPoints::RemoveBreakPoint(currentMIPS->pc);
+
+	// There's probably a better place for this.
+	if (USE_JIT_MISSMAP)
+	{
+		std::map<u32, std::string> notJitSorted;
+		std::transform(notJitOps.begin(), notJitOps.end(), std::inserter(notJitSorted, notJitSorted.begin()), flip_pair<std::string, u32>);
+
+		std::string message;
+		char temp[256];
+		int remaining = 15;
+		for (auto it = notJitSorted.rbegin(), end = notJitSorted.rend(); it != end && --remaining >= 0; ++it)
+		{
+			snprintf(temp, 256, " (%d), ", it->first);
+			message += it->second + temp;
+		}
+
+		if (message.size() > 2)
+			message.resize(message.size() - 2);
+
+		NOTICE_LOG(JIT, "Top ops compiled to interpreter: %s", message.c_str());
+	}
 }
 
 Jit::Jit(MIPSState *mips) : blocks(mips), mips_(mips)
@@ -178,6 +210,9 @@ void Jit::Comp_RunBlock(u32 op)
 
 void Jit::Comp_Generic(u32 op)
 {
+	if (USE_JIT_MISSMAP)
+		notJitOps[MIPSGetName(op)]++;
+
 	FlushAll();
 	MIPSInterpretFunc func = MIPSGetInterpretFunc(op);
 	if (func)
