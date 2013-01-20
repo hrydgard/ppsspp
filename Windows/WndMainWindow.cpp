@@ -117,15 +117,27 @@ namespace MainWindow
 		AdjustWindowRect(&rcOuter, WS_OVERLAPPEDWINDOW, TRUE);
 	}
 
-	void SetZoom(float zoom) {
-		if (zoom < 5)
-			g_Config.iWindowZoom = (int) zoom;
+	void SetZoom(float zoomx, float zoomy=0) {
+		if (zoomx < 5)
+			g_Config.iWindowZoom = (int) zoomx;
 		RECT rc, rcOuter;
-		GetWindowRectAtZoom((int) zoom, rc, rcOuter);
+		if (zoomy==0)    
+		{
+			zoomy=zoomx;
+			GetWindowRectAtZoom((int) zoomx, rc, rcOuter);
+		}
+		else             //  Change to FullScreen
+		{
+			rcOuter.left = 0;
+			rcOuter.top = 0;
+			rcOuter.right = 480*zoomx;
+			rcOuter.bottom = 272*zoomy;
+			rc = rcOuter;
+		}
 		MoveWindow(hwndMain, rcOuter.left, rcOuter.top, rcOuter.right - rcOuter.left, rcOuter.bottom - rcOuter.top, TRUE);
 		MoveWindow(hwndDisplay, 0, 0, rc.right - rc.left, rc.bottom - rc.top, TRUE);
-		PSP_CoreParameter().pixelWidth = (int) (480 * zoom);
-		PSP_CoreParameter().pixelHeight = (int) (272 * zoom);
+		PSP_CoreParameter().pixelWidth = (int) (480 * zoomx);
+		PSP_CoreParameter().pixelHeight = (int) (272 * zoomy);
 		GL_Resized();
 	}
 
@@ -476,8 +488,8 @@ namespace MainWindow
 				}
 				else {
 					int cx = ::GetSystemMetrics(SM_CXSCREEN);
-					float screenfactor = cx / 480.0f;
-					SetZoom(screenfactor);
+					int cy = ::GetSystemMetrics(SM_CYSCREEN);
+					SetZoom(cx / 480.0f, cy / 272.0f);
 					_ViewFullScreen(hWnd);
 				}
 				UpdateMenus();
