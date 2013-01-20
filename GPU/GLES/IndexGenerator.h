@@ -26,6 +26,7 @@ class IndexGenerator
 public:
 	void Setup(u16 *indexptr);
 	void Reset();
+	static bool PrimCompatible(int prim1, int prim2);
 	bool PrimCompatible(int prim);
 	int Prim() const { return prim_; }
 
@@ -67,7 +68,22 @@ public:
 	void SetIndex(int ind) { index_ = ind; }
 	int SeenPrims() const { return seenPrims_; }
 
+	bool SeenOnlyPurePrims() const {
+		return seenPrims_ == (1 << GE_PRIM_TRIANGLES) ||
+			     seenPrims_ == (1 << GE_PRIM_LINES) ||
+					 seenPrims_ == (1 << GE_PRIM_POINTS);
+	}
+
+	bool SeenIndices() const {
+		return (seenPrims_ & (SEEN_INDEX8 | SEEN_INDEX16)) != 0;
+	}
+
 private:
+	enum {
+		SEEN_INDEX8 = 1 << 16,
+		SEEN_INDEX16 = 1 << 17
+	};
+
 	u16 *indsBase_;
 	u16 *inds_;
 	int index_;

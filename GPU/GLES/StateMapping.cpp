@@ -7,8 +7,9 @@
 #include "../ge_constants.h"
 #include "DisplayListInterpreter.h"
 #include "ShaderManager.h"
+#include "TextureCache.h"
 
-const GLint aLookup[] = {
+const GLint aLookup[11] = {
 	GL_DST_COLOR,
 	GL_ONE_MINUS_DST_COLOR,
 	GL_SRC_ALPHA,
@@ -22,7 +23,7 @@ const GLint aLookup[] = {
 	GL_CONSTANT_COLOR,	// FIXA
 };
 
-const GLint bLookup[] = {
+const GLint bLookup[11] = {
 	GL_SRC_COLOR,
 	GL_ONE_MINUS_SRC_COLOR,
 	GL_SRC_ALPHA,
@@ -35,6 +36,7 @@ const GLint bLookup[] = {
 	GL_ONE_MINUS_DST_ALPHA,	 // should be 2x
 	GL_CONSTANT_COLOR,	// FIXB
 };
+
 const GLint eqLookup[] = {
 	GL_FUNC_ADD,
 	GL_FUNC_SUBTRACT,
@@ -74,6 +76,13 @@ const GLuint stencilOps[] = {
 void ApplyDrawState(int prim) {
 	// TODO: All this setup is soon so expensive that we'll need dirty flags, or simply do it in the command writes where we detect dirty by xoring. Silly to do all this work on every drawcall.
 
+	if (gstate_c.textureChanged) {
+		if ((gstate.textureMapEnable & 1) && !gstate.isModeClear()) {
+			PSPSetTexture();
+		}
+		gstate_c.textureChanged = false;
+	}
+
 	// TODO: The top bit of the alpha channel should be written to the stencil bit somehow. This appears to require very expensive multipass rendering :( Alternatively, one could do a
 	// single fullscreen pass that converts alpha to stencil (or 2 passes, to set both the 0 and 1 values) very easily.
 
@@ -99,6 +108,8 @@ void ApplyDrawState(int prim) {
 		int blendFuncA  = gstate.getBlendFuncA();
 		int blendFuncB  = gstate.getBlendFuncB();
 		int blendFuncEq = gstate.getBlendEq();
+		if (blendFuncA > GE_SRCBLEND_FIXA) blendFuncA = GE_SRCBLEND_FIXA;
+		if (blendFuncB > GE_DSTBLEND_FIXB) blendFuncB = GE_DSTBLEND_FIXB;
 
 		glstate.blendEquation.set(eqLookup[blendFuncEq]);
 

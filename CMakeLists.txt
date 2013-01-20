@@ -294,6 +294,13 @@ add_library(etcpack STATIC
 	native/ext/etcpack/image.h)
 include_directories(native/ext/etcpack)
 
+add_library(cityhash STATIC
+  native/ext/cityhash/city.cpp
+	native/ext/cityhash/city.h
+	native/ext/cityhash/citycrc.h
+)
+include_directories(ext/cityhash)
+
 if(NOT USING_GLES2)
 	include_directories(${OPENGL_INCLUDE_DIR})
 
@@ -795,7 +802,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Util/ppge_atlas.h
 	$<TARGET_OBJECTS:GPU>
 	Globals.h)
-target_link_libraries(${CoreLibName} Common native kirk
+target_link_libraries(${CoreLibName} Common native kirk cityhash
 	${GLEW_LIBRARIES} ${OPENGL_LIBRARIES})
 setup_target_project(${CoreLibName} Core)
 

@@ -487,7 +487,10 @@ namespace MainWindow
 				g_Config.bDrawWireframe = !g_Config.bDrawWireframe;
 				UpdateMenus();
 				break;
-
+			case ID_OPTIONS_VERTEXCACHE:
+				g_Config.bVertexCache = !g_Config.bVertexCache;
+				UpdateMenus();
+				break;
 			case ID_OPTIONS_DISPLAYRAWFRAMEBUFFER:
 				g_Config.bDisplayFramebuffer = !g_Config.bDisplayFramebuffer;
 				UpdateMenus();
@@ -663,6 +666,7 @@ namespace MainWindow
 		CHECKITEM(ID_EMULATION_RUNONLOAD, g_Config.bAutoRun);
 		CHECKITEM(ID_OPTIONS_USEVBO, g_Config.bUseVBO);
 		CHECKITEM(ID_OPTIONS_DISABLEG3DLOG, g_Config.bDisableG3DLog);
+		CHECKITEM(ID_OPTIONS_VERTEXCACHE, g_Config.bVertexCache);
 
 		UINT enable = !Core_IsStepping() ? MF_GRAYED : MF_ENABLED;
 		EnableMenuItem(menu,ID_EMULATION_RUN, g_State.bEmuThreadStarted ? enable : MF_GRAYED);

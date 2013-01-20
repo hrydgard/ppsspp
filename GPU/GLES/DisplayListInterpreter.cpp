@@ -47,16 +47,10 @@ const int flushOnChangedBeforeCommandList[] = {
 	GE_CMD_BLENDMODE,
 	GE_CMD_BLENDFIXEDA,
 	GE_CMD_BLENDFIXEDB,
-};
-
-const int flushBeforeCommandList[] = {
-	GE_CMD_BEZIER,
-	GE_CMD_SPLINE,
-	GE_CMD_SIGNAL,
-	GE_CMD_FINISH,
-	GE_CMD_BJUMP,
-	GE_CMD_OFFSETADDR,
-	GE_CMD_REGION1,GE_CMD_REGION2,
+	GE_CMD_TEXOFFSETU,
+	GE_CMD_TEXOFFSETV,
+	GE_CMD_TEXSCALEU,
+	GE_CMD_TEXSCALEV,
 	GE_CMD_CULLFACEENABLE,
 	GE_CMD_TEXTUREMAPENABLE,
 	GE_CMD_LIGHTINGENABLE,
@@ -67,31 +61,10 @@ const int flushBeforeCommandList[] = {
 	GE_CMD_COLORTESTENABLE,
 	GE_CMD_COLORTESTMASK,
 	GE_CMD_COLORREF,
-	GE_CMD_TEXSCALEU,GE_CMD_TEXSCALEV,
-	GE_CMD_TEXOFFSETU,GE_CMD_TEXOFFSETV,
 	GE_CMD_MINZ,GE_CMD_MAXZ,
-	GE_CMD_FRAMEBUFPTR,
-	GE_CMD_FRAMEBUFWIDTH,
-	GE_CMD_FRAMEBUFPIXFORMAT,
-	GE_CMD_TEXADDR0,
-	GE_CMD_CLUTADDR,
-	GE_CMD_LOADCLUT,
-	GE_CMD_TEXMAPMODE,
-	GE_CMD_TEXSHADELS,
-	GE_CMD_CLUTFORMAT,
-	GE_CMD_TRANSFERSTART,
-	GE_CMD_TEXBUFWIDTH0,
-	GE_CMD_TEXSIZE0,GE_CMD_TEXSIZE1,GE_CMD_TEXSIZE2,GE_CMD_TEXSIZE3,
-	GE_CMD_TEXSIZE4,GE_CMD_TEXSIZE5,GE_CMD_TEXSIZE6,GE_CMD_TEXSIZE7,
-	GE_CMD_ZBUFPTR,
-	GE_CMD_ZBUFWIDTH,
-	GE_CMD_TEXOFFSETU,
-	GE_CMD_TEXOFFSETV,
-	GE_CMD_TEXSCALEU,
-	GE_CMD_TEXSCALEV,
-	GE_CMD_OFFSETY,
-	GE_CMD_OFFSETX,
-	GE_CMD_OFFSETY,
+	GE_CMD_FOG1,
+	GE_CMD_FOG2,
+	GE_CMD_FOGCOLOR,
 	GE_CMD_LMODE,
 	GE_CMD_REVERSENORMAL,
 	GE_CMD_MATERIALUPDATE,
@@ -128,35 +101,66 @@ const int flushBeforeCommandList[] = {
 	GE_CMD_VIEWPORTZ1,GE_CMD_VIEWPORTZ2,
 	GE_CMD_LIGHTENABLE0,GE_CMD_LIGHTENABLE1,GE_CMD_LIGHTENABLE2,GE_CMD_LIGHTENABLE3,
 	GE_CMD_CULL,
-	GE_CMD_REVERSENORMAL,
 	GE_CMD_PATCHDIVISION,
 	GE_CMD_MATERIALUPDATE,
 	GE_CMD_CLEARMODE,
+	GE_CMD_TEXMAPMODE,
+	GE_CMD_TEXSHADELS,
 	GE_CMD_TEXFUNC,
 	GE_CMD_TEXFILTER,
 	GE_CMD_TEXENVCOLOR,
 	GE_CMD_TEXMODE,
 	GE_CMD_TEXFORMAT,
-	GE_CMD_TEXFLUSH,
 	GE_CMD_TEXWRAP,
 	GE_CMD_ZTESTENABLE,
 	GE_CMD_STENCILTESTENABLE,
 	GE_CMD_STENCILOP,
 	GE_CMD_STENCILTEST,
 	GE_CMD_ZTEST,
-	GE_CMD_FOG1,
-	GE_CMD_FOG2,
-	GE_CMD_FOGCOLOR,
+	GE_CMD_MASKRGB,
+	GE_CMD_MASKALPHA,
+};
+
+const int flushBeforeCommandList[] = {
+	GE_CMD_BEZIER,
+	GE_CMD_SPLINE,
+	GE_CMD_SIGNAL,
+	GE_CMD_FINISH,
+	GE_CMD_BJUMP,
+	GE_CMD_OFFSETADDR,
+	GE_CMD_REGION1,GE_CMD_REGION2,
+	GE_CMD_FRAMEBUFPTR,
+	GE_CMD_FRAMEBUFWIDTH,
+	GE_CMD_FRAMEBUFPIXFORMAT,
+	GE_CMD_TEXADDR0,
+	GE_CMD_CLUTADDR,
+	GE_CMD_LOADCLUT,
+	GE_CMD_CLUTFORMAT,
+	GE_CMD_TRANSFERSTART,
+	GE_CMD_TEXBUFWIDTH0,
+	GE_CMD_TEXSIZE0,GE_CMD_TEXSIZE1,GE_CMD_TEXSIZE2,GE_CMD_TEXSIZE3,
+	GE_CMD_TEXSIZE4,GE_CMD_TEXSIZE5,GE_CMD_TEXSIZE6,GE_CMD_TEXSIZE7,
+	GE_CMD_ZBUFPTR,
+	GE_CMD_ZBUFWIDTH,
+	GE_CMD_OFFSETY,
+	GE_CMD_OFFSETX,
+	GE_CMD_OFFSETY,
+	GE_CMD_TEXFLUSH,
 	GE_CMD_MORPHWEIGHT0,GE_CMD_MORPHWEIGHT1,GE_CMD_MORPHWEIGHT2,GE_CMD_MORPHWEIGHT3,
 	GE_CMD_MORPHWEIGHT4,GE_CMD_MORPHWEIGHT5,GE_CMD_MORPHWEIGHT6,GE_CMD_MORPHWEIGHT7,
+	// These handle their own flushing.
+	/*
 	GE_CMD_WORLDMATRIXNUMBER,
+	GE_CMD_WORLDMATRIXDATA,
 	GE_CMD_VIEWMATRIXNUMBER,
+	GE_CMD_VIEWMATRIXDATA,
 	GE_CMD_PROJMATRIXNUMBER,
 	GE_CMD_PROJMATRIXDATA,
 	GE_CMD_TGENMATRIXNUMBER,
+	GE_CMD_TGENMATRIXDATA,
 	GE_CMD_BONEMATRIXNUMBER,
-	GE_CMD_MASKRGB,
-	GE_CMD_MASKALPHA,
+	GE_CMD_BONEMATRIXDATA,
+	*/
 };
 
 GLES_GPU::GLES_GPU(int renderWidth, int renderHeight)
@@ -223,6 +227,7 @@ void GLES_GPU::DumpNextFrame() {
 void GLES_GPU::BeginFrame() {
 	TextureCache_StartFrame();
 	DecimateFBOs();
+	transformDraw_.DecimateTrackedVertexArrays();
 
 	if (dumpNextFrame_) {
 		NOTICE_LOG(G3D, "DUMPING THIS FRAME");
@@ -409,6 +414,12 @@ void GLES_GPU::SetRenderFrameBuffer() {
 		DEBUG_LOG(HLE, "Switching render target to FBO for %08x", vfb->fb_address);
 		gstate_c.textureChanged = true;
 		fbo_bind_as_render_target(vfb->fbo);
+
+// Tiled renderers benefit IMMENSELY from clearing an FBO before rendering
+// to it. Let's hope this doesn't break too many things...
+#ifdef USING_GLES2
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+#endif
 		glstate.viewport.set(0, 0, renderWidth_, renderHeight_);
 		currentRenderVfb_ = vfb;
 		vfb->last_frame_used = gpuStats.numFrames;
@@ -465,9 +476,13 @@ static void LeaveClearMode() {
 
 void GLES_GPU::PreExecuteOp(u32 op, u32 diff) {
 	u32 cmd = op >> 24;
-
 	if (flushBeforeCommand_[cmd] == 1 || (diff && flushBeforeCommand_[cmd] == 2))
+	{
+		if (dumpThisFrame_) {
+			NOTICE_LOG(G3D, "================ FLUSH ================");
+		}
 		transformDraw_.Flush();
+	}
 }
 
 void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
@@ -1053,10 +1068,14 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_WORLDMATRIXDATA:
 		{
 			int num = gstate.worldmtxnum & 0xF;
-			if (num < 12)
-				gstate.worldMatrix[num++] = getFloat24(data);
+			float newVal = getFloat24(data);
+			if (num < 12 && newVal != gstate.worldMatrix[num]) {
+				Flush();
+				gstate.worldMatrix[num] = getFloat24(data);
+				shaderManager_->DirtyUniform(DIRTY_WORLDMATRIX);
+			}
+			num++;
 			gstate.worldmtxnum = (gstate.worldmtxnum & 0xFF000000) | (num & 0xF);
-			shaderManager_->DirtyUniform(DIRTY_WORLDMATRIX);
 		}
 		break;
 
@@ -1067,10 +1086,14 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_VIEWMATRIXDATA:
 		{
 			int num = gstate.viewmtxnum & 0xF;
-			if (num < 12)
-				gstate.viewMatrix[num++] = getFloat24(data);
+			float newVal = getFloat24(data);
+			if (num < 12 && newVal != gstate.viewMatrix[num]) {
+				Flush();
+				gstate.viewMatrix[num] = newVal;
+				shaderManager_->DirtyUniform(DIRTY_VIEWMATRIX);
+			}
+			num++;
 			gstate.viewmtxnum = (gstate.viewmtxnum & 0xFF000000) | (num & 0xF);
-			shaderManager_->DirtyUniform(DIRTY_VIEWMATRIX);
 		}
 		break;
 
@@ -1081,10 +1104,15 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_PROJMATRIXDATA:
 		{
 			int num = gstate.projmtxnum & 0xF;
-			gstate.projMatrix[num++] = getFloat24(data);
+			float newVal = getFloat24(data);
+			if (newVal != gstate.projMatrix[num]) {
+				Flush();
+				gstate.projMatrix[num] = newVal;
+				shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
+			}
+			num++;
 			gstate.projmtxnum = (gstate.projmtxnum & 0xFF000000) | (num & 0xF);
 		}
-		shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
 		break;
 
 	case GE_CMD_TGENMATRIXNUMBER:
@@ -1094,11 +1122,15 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_TGENMATRIXDATA:
 		{
 			int num = gstate.texmtxnum & 0xF;
-			if (num < 12)
-				gstate.tgenMatrix[num++] = getFloat24(data);
+			float newVal = getFloat24(data);
+			if (newVal != gstate.tgenMatrix[num] && num < 12) {
+				Flush();
+				gstate.tgenMatrix[num] = newVal;
+				shaderManager_->DirtyUniform(DIRTY_TEXMATRIX);
+			}
+			num++;
 			gstate.texmtxnum = (gstate.texmtxnum & 0xFF000000) | (num & 0xF);
 		}
-		shaderManager_->DirtyUniform(DIRTY_TEXMATRIX);
 		break;
 
 	case GE_CMD_BONEMATRIXNUMBER:
@@ -1108,10 +1140,13 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_BONEMATRIXDATA:
 		{
 			int num = gstate.boneMatrixNumber & 0x7F;
-			shaderManager_->DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
-			if (num < 96) {
-				gstate.boneMatrix[num++] = getFloat24(data);
+			float newVal = getFloat24(data);
+			if (newVal != gstate.boneMatrix[num] && num < 96) {
+				Flush();
+				gstate.boneMatrix[num] = newVal;
+				shaderManager_->DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
 			}
+			num++;
 			gstate.boneMatrixNumber = (gstate.boneMatrixNumber & 0xFF000000) | (num & 0x7F);
 		}
 		break;

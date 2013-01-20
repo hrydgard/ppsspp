@@ -57,6 +57,7 @@ public:
 	int iWindowZoom;  // for Windows
 	bool SSAntiAlaising; //for Windows, too
 	bool bDisableG3DLog;
+	bool bVertexCache;
 
 	// Sound
 	bool bEnableSound;
