@@ -479,9 +479,9 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 						c1[j] = 0.0f;
 					}
 				} else {
-					c0[0] = ((gstate.materialambient >> 8) & 0xFF) / 255.f;
-					c0[1] = (gstate.materialambient & 0xFF) / 255.f;
-					c0[2] = (gstate.materialambient & 0xFF) / 255.f;
+					c0[0] = (gstate.materialambient & 0xFF) / 255.f;
+					c0[1] = ((gstate.materialambient >> 8) & 0xFF) / 255.f;
+					c0[2] = ((gstate.materialambient >> 16)& 0xFF) / 255.f;
 					c0[3] = (gstate.materialalpha & 0xFF) / 255.f;
 				}
 			}

@@ -373,6 +373,38 @@ void __PsmfDoState(PointerWrap &p)
 	p.DoMarker("scePsmf");
 }
 
+void __PsmfPlayerDoState(PointerWrap &p)
+{
+	int n = (int) psmfPlayerMap.size();
+	p.Do(n);
+	if (p.mode == p.MODE_READ) {
+		std::map<u32, PsmfPlayer *>::iterator it, end;
+		for (it = psmfPlayerMap.begin(), end = psmfPlayerMap.end(); it != end; ++it) {
+			delete it->second;
+		}
+		psmfMap.clear();
+
+		for (int i = 0; i < n; ++i) {
+			u32 key;
+			p.Do(key);
+			PsmfPlayer *psmfplayer = new PsmfPlayer(0);
+			psmfplayer->DoState(p);
+			psmfPlayerMap[key] = psmfplayer;
+		}
+	} else {
+		std::map<u32, PsmfPlayer *>::iterator it, end;
+		for (it = psmfPlayerMap.begin(), end = psmfPlayerMap.end(); it != end; ++it) {
+			p.Do(it->first);
+			it->second->DoState(p);
+		}
+	}
+
+	// TODO: Actually load this from a map.
+	psmfPlayerStatus = PSMF_PLAYER_STATUS_NONE;
+
+	p.DoMarker("scePsmfPlayer");
+}
+
 void __PsmfShutdown()
 {
 	for (auto it = psmfMap.begin(), end = psmfMap.end(); it != end; ++it)
