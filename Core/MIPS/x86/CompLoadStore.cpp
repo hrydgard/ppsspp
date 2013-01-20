@@ -203,7 +203,7 @@ namespace MIPSComp
 			break;
 
 		case 35: //R(rt) = ReadMem32(addr); break; //lw
-			CompITypeMemRead(op, 32, &XEmitter::MOVZX, (void *) &Memory::Read_U16);
+			CompITypeMemRead(op, 32, &XEmitter::MOVZX, (void *) &Memory::Read_U32);
 			break;
 
 		case 32: //R(rt) = (u32)(s32)(s8) ReadMem8 (addr); break; //lb
