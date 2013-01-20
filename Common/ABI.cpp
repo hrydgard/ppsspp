@@ -178,6 +178,15 @@ void XEmitter::ABI_CallFunctionA(void *func, const Gen::OpArg &arg1)
 	ABI_RestoreStack(1 * 4);
 }
 
+void XEmitter::ABI_CallFunctionAA(void *func, const Gen::OpArg &arg1, const Gen::OpArg &arg2)
+{
+	ABI_AlignStack(2 * 4);
+	PUSH(32, arg2);
+	PUSH(32, arg1);
+	CALL(func);
+	ABI_RestoreStack(2 * 4);
+}
+
 void XEmitter::ABI_PushAllCalleeSavedRegsAndAdjustStack() {
 	// Note: 4 * 4 = 16 bytes, so alignment is preserved.
 	PUSH(EBP);
@@ -434,6 +443,23 @@ void XEmitter::ABI_CallFunctionA(void *func, const Gen::OpArg &arg1)
 {
 	if (!arg1.IsSimpleReg(ABI_PARAM1))
 		MOV(32, R(ABI_PARAM1), arg1);
+	u64 distance = u64(func) - (u64(code) + 5);
+	if (distance >= 0x0000000080000000ULL
+	 && distance <  0xFFFFFFFF80000000ULL) {
+	    // Far call
+	    MOV(64, R(RAX), Imm64((u64)func));
+	    CALLptr(R(RAX));
+	} else {
+	    CALL(func);
+	}
+}
+
+void XEmitter::ABI_CallFunctionAA(void *func, const Gen::OpArg &arg1, const Gen::OpArg &arg2)
+{
+	if (!arg1.IsSimpleReg(ABI_PARAM1))
+		MOV(32, R(ABI_PARAM1), arg1);
+	if (!arg2.IsSimpleReg(ABI_PARAM2))
+		MOV(32, R(ABI_PARAM2), arg2);
 	u64 distance = u64(func) - (u64(code) + 5);
 	if (distance >= 0x0000000080000000ULL
 	 && distance <  0xFFFFFFFF80000000ULL) {
