@@ -1874,7 +1874,7 @@ void sceKernelSleepThreadCB()
 
 int sceKernelWaitThreadEnd(SceUID threadID, u32 timeoutPtr)
 {
-	DEBUG_LOG(HLE, "sceKernelWaitThreadEnd(%i, %08x)", threadID);
+	DEBUG_LOG(HLE, "sceKernelWaitThreadEnd(%i, %08x)", threadID, timeoutPtr);
 	if (threadID == 0 || threadID == currentThread)
 		return SCE_KERNEL_ERROR_ILLEGAL_THID;
 
@@ -1900,7 +1900,7 @@ int sceKernelWaitThreadEnd(SceUID threadID, u32 timeoutPtr)
 
 int sceKernelWaitThreadEndCB(SceUID threadID, u32 timeoutPtr)
 {
-	DEBUG_LOG(HLE, "sceKernelWaitThreadEnd(%i)", threadID);
+	DEBUG_LOG(HLE, "sceKernelWaitThreadEndCB(%i)", threadID, timeoutPtr);
 	if (threadID == 0 || threadID == currentThread)
 		return SCE_KERNEL_ERROR_ILLEGAL_THID;
 
@@ -1920,7 +1920,7 @@ int sceKernelWaitThreadEndCB(SceUID threadID, u32 timeoutPtr)
 	}
 	else
 	{
-		ERROR_LOG(HLE, "sceKernelWaitThreadEnd - bad thread %i", threadID);
+		ERROR_LOG(HLE, "sceKernelWaitThreadEndCB - bad thread %i", threadID);
 		return error;
 	}
 }
