@@ -18,6 +18,7 @@
 #pragma once
 
 #include "../../../Globals.h"
+#include "../../../Common/Thunk.h"
 #include "Asm.h"
 
 #if defined(ARM)
@@ -120,6 +121,8 @@ private:
 	void CompTriArith(u32 op, void (XEmitter::*arith)(int, const OpArg &, const OpArg &));
 	void CompShiftImm(u32 op, void (XEmitter::*shift)(int, OpArg, OpArg));
 	void CompShiftVar(u32 op, void (XEmitter::*shift)(int, OpArg, OpArg));
+	void CompITypeMemRead(u32 op, u32 bits, void (XEmitter::*mov)(int, int, X64Reg, OpArg), void *safeFunc);
+	void CompITypeMemWrite(u32 op, u32 bits, void *safeFunc);
 
 	void CompFPTriArith(u32 op, void (XEmitter::*arith)(X64Reg reg, OpArg), bool orderMatters);
 
@@ -131,6 +134,7 @@ private:
 	FPURegCache fpr;
 
 	AsmRoutineManager asm_;
+	ThunkManager thunks;
 
 	MIPSState *mips_;
 };
