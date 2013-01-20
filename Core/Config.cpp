@@ -18,6 +18,7 @@
 
 #include "Config.h"
 #include "IniFile.h"
+#include "HLE/sceUtility.h"
 
 SState g_State;
 CConfig g_Config;
@@ -80,6 +81,9 @@ void CConfig::Load(const char *iniFileName)
 		false);
 #endif
 
+	IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
+	pspConfig->Get("Language", &ilanguage, PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
+
 	// Ephemeral settings
 	bDrawWireframe = false;
 }
@@ -121,6 +125,9 @@ void CConfig::Save()
 		IniFile::Section *control = iniFile.GetOrCreateSection("Control");
 		control->Set("ShowStick", bShowAnalogStick);
 		control->Set("ShowTouchControls", bShowTouchControls);
+
+		IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
+		pspConfig->Set("Language", ilanguage);
 
 		if (!iniFile.Save(iniFilename_.c_str())) {
 			ERROR_LOG(LOADER, "Error saving config - can't write ini %s", iniFilename_.c_str());
