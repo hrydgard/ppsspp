@@ -203,13 +203,9 @@ bool DirectoryFileSystem::RmDir(const std::string &dirname) {
 
 bool DirectoryFileSystem::RenameFile(const std::string &from, const std::string &to) {
 	std::string fullTo = to;
-	// TO filename may not include path. Intention is that it uses FROM's path
-	if (to.find("/") != std::string::npos) {
-		size_t offset = from.find_last_of("/");
-		if (offset != std::string::npos) {
-			fullTo = from.substr(0, offset + 1) + to;
-		}
-	}
+
+	// Rename only work for filename in current directory
+
 	std::string fullFrom = GetLocalPath(from);
 
 #if HOST_IS_CASE_SENSITIVE
@@ -495,16 +491,20 @@ PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename) {
 
 	if (x.type != FILETYPE_DIRECTORY)
 	{
+		struct stat64 s;
+		stat64(fullName.c_str(), &s);
 #ifdef _WIN32
 		WIN32_FILE_ATTRIBUTE_DATA data;
 		GetFileAttributesEx(fullName.c_str(), GetFileExInfoStandard, &data);
 
 		x.size = data.nFileSizeLow | ((u64)data.nFileSizeHigh<<32);
 #else
-		x.size = File::GetSize(fullName);
-		//TODO
+		x.size = s.st_size;
 #endif
-		x.mtime = File::GetModifTime(fullName);
+		x.access = s.st_mode & 0x1FF;
+		localtime_r((time_t*)&s.st_atime,&x.atime);
+		localtime_r((time_t*)&s.st_ctime,&x.ctime);
+		localtime_r((time_t*)&s.st_mtime,&x.mtime);
 	}
 
 	return x;
@@ -559,12 +559,18 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 	while ((dirp = readdir(dp)) != NULL) {
 		PSPFileInfo entry;
 		struct stat s;
-		stat(dirp->d_name, &s);
+		std::string fullName = GetLocalPath(path) + "/"+dirp->d_name;
+		stat(fullName.c_str(), &s);
 		if (S_ISDIR(s.st_mode))
 			entry.type = FILETYPE_DIRECTORY;
 		else
 			entry.type = FILETYPE_NORMAL;
+		entry.access = s.st_mode & 0x1FF;
 		entry.name = dirp->d_name;
+		entry.size = s.st_size;
+		localtime_r((time_t*)&s.st_atime,&entry.atime);
+		localtime_r((time_t*)&s.st_ctime,&entry.ctime);
+		localtime_r((time_t*)&s.st_mtime,&entry.mtime);
 		myVector.push_back(entry);
 	}
 	closedir(dp);
