@@ -196,16 +196,9 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	}
 
 	// Draw screen overlays before blitting. Saves and restores the Ge context.
-
 	gpuStats.numFrames++;
 
-	// Yeah, this has to be the right moment to end the frame. Give the graphics backend opportunity
-	// to blit the framebuffer, in order to support half-framerate games that otherwise wouldn't have
-	// anything to draw here.
-	gpu->CopyDisplayToOutput();
-
 	// Now we can subvert the Ge engine in order to draw custom overlays like stat counters etc.
-	// Here we will be drawing to the non buffered front surface.
 	if (g_Config.bShowDebugStats && gpuStats.numDrawCalls) {
 		gpu->UpdateStats();
 		char stats[2048];
@@ -216,7 +209,10 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 			"Slowest syscall: %s : %0.2f ms\n"
 			"Most active syscall: %s : %0.2f ms\n"
 			"Draw calls: %i, flushes %i\n"
+			"Cached Draw calls: %i\n"
+			"Num Tracked Vertex Arrays: %i\n"
 			"Vertices Transformed: %i\n"
+			"Cached Vertices Drawn: %i\n"
 			"FBOs active: %i\n"
 			"Textures active: %i, decoded: %i\n"
 			"Texture invalidations: %i\n"
@@ -232,7 +228,10 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 			kernelStats.summedSlowestSyscallTime * 1000.0f,
 			gpuStats.numDrawCalls,
 			gpuStats.numFlushes,
+			gpuStats.numCachedDrawCalls,
+			gpuStats.numTrackedVertexArrays,
 			gpuStats.numVertsTransformed,
+			gpuStats.numCachedVertsDrawn,
 			gpuStats.numFBOs,
 			gpuStats.numTextures,
 			gpuStats.numTexturesDecoded,
@@ -252,6 +251,11 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 		gpuStats.resetFrame();
 		kernelStats.ResetFrame();
 	}
+
+	// Yeah, this has to be the right moment to end the frame. Give the graphics backend opportunity
+	// to blit the framebuffer, in order to support half-framerate games that otherwise wouldn't have
+	// anything to draw here.
+	gpu->CopyDisplayToOutput();
 
 	host->EndFrame();
 

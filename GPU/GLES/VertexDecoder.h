@@ -65,6 +65,7 @@ class VertexDecoder;
 
 typedef void (VertexDecoder::*StepFunction)() const;
 
+void GetIndexBounds(void *inds, int count, u32 vertType, u16 *indexLowerBound, u16 *indexUpperBound);
 
 // Right now
 //   - only contains computed information
@@ -87,7 +88,7 @@ public:
 	u32 VertexType() const { return fmt_; }
 	const DecVtxFormat &GetDecVtxFmt() { return decFmt; }
 
-	void DecodeVerts(u8 *decoded, const void *verts, const void *inds, int prim, int count, int *indexLowerBound, int *indexUpperBound) const;
+	void DecodeVerts(u8 *decoded, const void *verts, const void *inds, int prim, int count, int indexLowerBound, int indexUpperBound) const;
 
 	// This could be easily generalized to inject any one component. Don't know another use for it though.
 	u32 InjectUVs(u8 *decoded, const void *verts, float *customuv, int count) const;

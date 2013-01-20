@@ -258,7 +258,10 @@ struct GPUStatistics
 	void resetFrame() {
 		numJoins = 0;
 		numDrawCalls = 0;
+		numCachedDrawCalls = 0;
 		numVertsTransformed = 0;
+		numCachedVertsDrawn = 0;
+		numTrackedVertexArrays = 0;
 		numTextureInvalidations = 0;
 		numTextureSwitches = 0;
 		numShaderSwitches = 0;
@@ -270,8 +273,11 @@ struct GPUStatistics
 	// Per frame statistics
 	int numJoins;
 	int numDrawCalls;
+	int numCachedDrawCalls;
 	int numFlushes;
 	int numVertsTransformed;
+	int numCachedVertsDrawn;
+	int numTrackedVertexArrays;
 	int numTextureInvalidations;
 	int numTextureSwitches;
 	int numShaderSwitches;

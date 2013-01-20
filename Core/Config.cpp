@@ -66,8 +66,9 @@ void CConfig::Load(const char *iniFileName)
 	graphics->Get("HardwareTransform", &bHardwareTransform, true);
 	graphics->Get("LinearFiltering", &bLinearFiltering, false);
 	graphics->Get("SSAA", &SSAntiAlaising, 0);
-	graphics->Get("VBO", &bUseVBO, true);
+	graphics->Get("VBO", &bUseVBO, false);
 	graphics->Get("DisableG3DLog", &bDisableG3DLog, false);
+	graphics->Get("VertexCache", &bVertexCache, false);
 
 	IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 	sound->Get("Enable", &bEnableSound, true);
@@ -118,6 +119,7 @@ void CConfig::Save()
 		graphics->Set("SSAA", SSAntiAlaising);
 		graphics->Set("VBO", bUseVBO);
 		graphics->Set("DisableG3DLog", bDisableG3DLog);
+		graphics->Set("VertexCache", bVertexCache);
 
 		IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 		sound->Set("Enable", bEnableSound);

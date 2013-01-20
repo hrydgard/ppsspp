@@ -111,6 +111,7 @@ const HLEFunction sceNetAdhocMatching[] =
 	{0xc58bcd9e, 0, "sceNetAdhocMatchingGetMembers"},
 	{0xec19337d, 0, "sceNetAdhocMatchingAbortSendData"},
 	{0xf79472d7, 0, "sceNetAdhocMatchingSendData"},
+	{0x40F8F435, 0, "sceNetAdhocMatchingGetPoolMaxAlloc"},
 };
 
 const HLEFunction sceNetAdhocctl[] =
