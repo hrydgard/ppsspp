@@ -122,13 +122,26 @@ namespace MIPSComp
 		gpr.Lock(rt, rs);
 		gpr.BindToRegister(rt, true, false);
 
+#ifdef _M_IX86
+		// We use EDX so we can have DL for 8-bit ops.
+		const bool needSwap = bits == 8 && !gpr.R(rt).IsSimpleReg(EDX) && !gpr.R(rt).IsSimpleReg(ECX);
+		if (needSwap)
+			gpr.FlushLockX(EDX);
+#endif
+
 		if (gpr.R(rs).IsImm())
 		{
 			void *data = Memory::GetPointer(gpr.R(rs).GetImmValue() + offset);
 			if (data)
 			{
 #ifdef _M_IX86
-				MOV(bits, M(data), gpr.R(rt));
+				if (needSwap)
+				{
+					MOV(32, R(EDX), gpr.R(rt));
+					MOV(bits, M(data), R(EDX));
+				}
+				else
+					MOV(bits, M(data), gpr.R(rt));
 #else
 				MOV(bits, MDisp(RBX, gpr.R(rs).GetImmValue() + offset), gpr.R(rt));
 #endif
@@ -145,7 +158,13 @@ namespace MIPSComp
 
 			const u8* safe = GetCodePtr();
 #ifdef _M_IX86
-			MOV(bits, MDisp(EAX, (u32)Memory::base + offset), gpr.R(rt));
+			if (needSwap)
+			{
+				MOV(32, R(EDX), gpr.R(rt));
+				MOV(bits, MDisp(EAX, (u32)Memory::base + offset), R(EDX));
+			}
+			else
+				MOV(bits, MDisp(EAX, (u32)Memory::base + offset), gpr.R(rt));
 #else
 			MOV(bits, MComplex(RBX, EAX, SCALE_1, offset), gpr.R(rt));
 #endif
@@ -169,14 +188,25 @@ namespace MIPSComp
 		else
 		{
 			MOV(32, R(EAX), gpr.R(rs));
+
 #ifdef _M_IX86
 			AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
-			MOV(bits, MDisp(EAX, (u32)Memory::base + offset), gpr.R(rt));
+			if (needSwap)
+			{
+				MOV(32, R(EDX), gpr.R(rt));
+				MOV(bits, MDisp(EAX, (u32)Memory::base + offset), R(EDX));
+			}
+			else
+				MOV(bits, MDisp(EAX, (u32)Memory::base + offset), gpr.R(rt));
 #else
 			MOV(bits, MComplex(RBX, EAX, SCALE_1, offset), gpr.R(rt));
 #endif
 		}
 
+#ifdef _M_IX86
+		if (needSwap)
+			gpr.UnlockAllX();
+#endif
 		gpr.UnlockAll();
 	}
 
@@ -214,9 +244,9 @@ namespace MIPSComp
 			CompITypeMemRead(op, 16, &XEmitter::MOVSX, (void *) &Memory::Read_U16);
 			break;
 
-		case 140: //WriteMem8 (addr, R(rt)); break; //sb
-			Comp_Generic(op);
-			return;
+		case 40: //WriteMem8 (addr, R(rt)); break; //sb
+			CompITypeMemWrite(op, 8, (void *) &Memory::Write_U8);
+			break;
 
 		case 41: //WriteMem16(addr, R(rt)); break; //sh
 			CompITypeMemWrite(op, 16, (void *) &Memory::Write_U16);
