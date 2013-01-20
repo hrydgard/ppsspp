@@ -414,6 +414,12 @@ void GLES_GPU::SetRenderFrameBuffer() {
 		DEBUG_LOG(HLE, "Switching render target to FBO for %08x", vfb->fb_address);
 		gstate_c.textureChanged = true;
 		fbo_bind_as_render_target(vfb->fbo);
+
+// Tiled renderers benefit IMMENSELY from clearing an FBO before rendering
+// to it. Let's hope this doesn't break too many things...
+#ifdef USING_GLES2
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+#endif
 		glstate.viewport.set(0, 0, renderWidth_, renderHeight_);
 		currentRenderVfb_ = vfb;
 		vfb->last_frame_used = gpuStats.numFrames;

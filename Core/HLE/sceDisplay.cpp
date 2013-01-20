@@ -196,16 +196,9 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	}
 
 	// Draw screen overlays before blitting. Saves and restores the Ge context.
-
 	gpuStats.numFrames++;
 
-	// Yeah, this has to be the right moment to end the frame. Give the graphics backend opportunity
-	// to blit the framebuffer, in order to support half-framerate games that otherwise wouldn't have
-	// anything to draw here.
-	gpu->CopyDisplayToOutput();
-
 	// Now we can subvert the Ge engine in order to draw custom overlays like stat counters etc.
-	// Here we will be drawing to the non buffered front surface.
 	if (g_Config.bShowDebugStats && gpuStats.numDrawCalls) {
 		gpu->UpdateStats();
 		char stats[2048];
@@ -258,6 +251,11 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 		gpuStats.resetFrame();
 		kernelStats.ResetFrame();
 	}
+
+	// Yeah, this has to be the right moment to end the frame. Give the graphics backend opportunity
+	// to blit the framebuffer, in order to support half-framerate games that otherwise wouldn't have
+	// anything to draw here.
+	gpu->CopyDisplayToOutput();
 
 	host->EndFrame();
 
