@@ -844,7 +844,8 @@ void TransformDrawEngine::Flush() {
 		GLuint vbo = 0, ebo = 0;
 		int vertexCount = 0;
 		bool useElements = true;
-		if (g_Config.bVertexCache) {
+		// Cannot cache vertex data with morph enabled.
+		if (g_Config.bVertexCache && !(lastVType_ & GE_VTYPE_MORPHCOUNT_MASK)) {
 			u32 id = ComputeFastDCID();
 			auto iter = vai_.find(id);
 			VertexArrayInfo *vai;
