@@ -346,15 +346,16 @@ u32 sceAudioSRCChRelease() {
 	return 0;
 }
 
-u32 sceAudioSRCOutputBlocking(u32 vol, u32 buf) {
-	if (vol > 0xFFFF) {
-		ERROR_LOG(HLE,"sceAudioSRCOutputBlocking(%08x, %08x) - invalid volume", vol, buf);
+u32 sceAudioSRCOutputBlocking(u32 volume, u32 buf) {
+	if (volume > 0xFFFF) {
+		ERROR_LOG(HLE,"sceAudioSRCOutputBlocking(%08x, %08x) - invalid volume", volume, buf);
 		return SCE_ERROR_AUDIO_INVALID_VOLUME;
 	}
-	DEBUG_LOG(HLE, "sceAudioSRCOutputBlocking(%08x, %08x)", vol, buf);
-	chans[src].leftVolume = vol;
-	chans[src].rightVolume = vol;
+	chans[src].leftVolume = volume;
+	chans[src].rightVolume = volume;
 	chans[src].sampleAddress = buf;
+	// __AudioEnqueue(chans[chanSRC], chanSRC, true);
+	// return chans[chanSRC].sampleCount;
 	return __AudioEnqueue(chans[src], src, true);
 }
 
