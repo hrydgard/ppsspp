@@ -122,8 +122,10 @@ void Jit::ClearCacheAt(u32 em_address)
 	ClearCache();
 }
 
-void Jit::CompileDelaySlot(u32 addr, bool saveFlags)
+void Jit::CompileDelaySlot(bool saveFlags)
 {
+	const u32 addr = js.compilerPC + 4;
+
 	// TODO: If we ever support conditional breakpoints, we need to handle the flags more carefully.
 	CheckJitBreakpoint(addr);
 

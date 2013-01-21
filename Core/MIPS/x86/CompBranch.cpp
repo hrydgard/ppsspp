@@ -82,14 +82,13 @@ void Jit::BranchRSRTComp(u32 op, Gen::CCFlags cc, bool likely)
 	Gen::FixupBranch ptr;
 	if (!likely)
 	{
-		CompileDelaySlot(js.compilerPC + 4, !delaySlotIsNice);
+		CompileDelaySlot(!delaySlotIsNice);
 		ptr = J_CC(cc, true);
 	}
 	else
 	{
 		ptr = J_CC(cc, true);
-		CompileAt(js.compilerPC + 4);
-		FlushAll();
+		CompileDelaySlot(false);
 	}
 	js.inDelaySlot = false;
 
@@ -130,14 +129,13 @@ void Jit::BranchRSZeroComp(u32 op, Gen::CCFlags cc, bool likely)
 	js.inDelaySlot = true;
 	if (!likely)
 	{
-		CompileDelaySlot(js.compilerPC + 4, !delaySlotIsNice);
+		CompileDelaySlot(!delaySlotIsNice);
 		ptr = J_CC(cc, true);
 	}
 	else
 	{
 		ptr = J_CC(cc, true);
-		CompileAt(js.compilerPC + 4);
-		FlushAll();
+		CompileDelaySlot(false);
 	}
 	js.inDelaySlot = false;
 
@@ -217,14 +215,13 @@ void Jit::BranchFPFlag(u32 op, Gen::CCFlags cc, bool likely)
 	js.inDelaySlot = true;
 	if (!likely)
 	{
-		CompileDelaySlot(js.compilerPC + 4, !delaySlotIsNice);
+		CompileDelaySlot(!delaySlotIsNice);
 		ptr = J_CC(cc, true);
 	}
 	else
 	{
 		ptr = J_CC(cc, true);
-		CompileAt(js.compilerPC + 4);
-		FlushAll();
+		CompileDelaySlot(false);
 	}
 	js.inDelaySlot = false;
 
@@ -285,14 +282,13 @@ void Jit::BranchVFPUFlag(u32 op, Gen::CCFlags cc, bool likely)
 	js.inDelaySlot = true;
 	if (!likely)
 	{
-		CompileDelaySlot(js.compilerPC + 4, !delaySlotIsNice);
+		CompileDelaySlot(!delaySlotIsNice);
 		ptr = J_CC(cc, true);
 	}
 	else
 	{
 		ptr = J_CC(cc, true);
-		CompileAt(js.compilerPC + 4);
-		FlushAll();
+		CompileDelaySlot(false);
 	}
 	js.inDelaySlot = false;
 
@@ -330,8 +326,7 @@ void Jit::Comp_Jump(u32 op)
 	}
 	u32 off = ((op & 0x3FFFFFF) << 2);
 	u32 targetAddr = (js.compilerPC & 0xF0000000) | off;
-	CompileAt(js.compilerPC + 4);
-	FlushAll();
+	CompileDelaySlot(false);
 
 	switch (op >> 26) 
 	{
@@ -378,8 +373,7 @@ void Jit::Comp_JumpReg(u32 op)
 		gpr.BindToRegister(rs, true, false);
 		MOV(32, M(&currentMIPS->pc), gpr.R(rs));	// for syscalls in delay slot - could be avoided
 		MOV(32, M(&savedPC), gpr.R(rs));
-		CompileAt(js.compilerPC + 4);
-		FlushAll();
+		CompileDelaySlot(false);
 
 		if (!js.compiling)
 		{
