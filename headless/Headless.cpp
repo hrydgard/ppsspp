@@ -157,6 +157,13 @@ int main(int argc, const char* argv[])
 	g_Config.bFirstRun = false;
 	g_Config.bIgnoreBadMemAccess = true;
 
+#if defined(ANDROID)
+#elif defined(BLACKBERRY) || defined(__SYMBIAN32__)
+#else
+	g_Config.memCardDirectory = std::string(getenv("HOME"))+"/.ppsspp/";
+	g_Config.flashDirectory = g_Config.memCardDirectory+"/flash/";
+#endif
+
 	std::string error_string;
 
 	if (!PSP_Init(coreParameter, &error_string)) {
