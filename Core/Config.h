@@ -71,6 +71,7 @@ public:
 
 	// SystemParam
 	int ilanguage;
+	int itimeformat;
 
 	std::string currentDirectory;
 	std::string memCardDirectory;

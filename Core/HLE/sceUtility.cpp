@@ -256,12 +256,6 @@ int sceUtilityGamedataInstallGetStatus()
 #define PSP_SYSTEMPARAM_DATE_FORMAT_DDMMYYYY	2
 
 /**
-* Valid values for PSP_SYSTEMPARAM_ID_INT_TIME_FORMAT
-*/
-#define PSP_SYSTEMPARAM_TIME_FORMAT_24HR	0
-#define PSP_SYSTEMPARAM_TIME_FORMAT_12HR	1
-
-/**
 * Valid values for PSP_SYSTEMPARAM_ID_INT_DAYLIGHTSAVINGS
 */
 #define PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_STD	0
@@ -313,7 +307,7 @@ u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr)
 		param = PSP_SYSTEMPARAM_DATE_FORMAT_DDMMYYYY;
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_TIME_FORMAT:
-		param = PSP_SYSTEMPARAM_TIME_FORMAT_24HR;
+		param = g_Config.itimeformat;
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_TIMEZONE:
 		param = 60;
