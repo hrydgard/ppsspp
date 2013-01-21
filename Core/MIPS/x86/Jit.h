@@ -115,6 +115,8 @@ private:
 	void BranchVFPUFlag(u32 op, Gen::CCFlags cc, bool likely);
 	void BranchRSZeroComp(u32 op, Gen::CCFlags cc, bool likely);
 	void BranchRSRTComp(u32 op, Gen::CCFlags cc, bool likely);
+	void BranchLog(u32 op);
+	void BranchLogExit(u32 op, u32 dest, bool useEAX);
 
 	// Utilities to reduce duplicated code
 	void CompImmLogic(u32 op, void (XEmitter::*arith)(int, const OpArg &, const OpArg &));

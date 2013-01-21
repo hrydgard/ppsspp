@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "../../HLE/HLE.h"
+#include "../../Host.h"
 
 #include "../MIPS.h"
 #include "../MIPSCodeUtils.h"
@@ -42,11 +43,86 @@ using namespace MIPSAnalyst;
 // NOTE: Can't use CONDITIONAL_DISABLE in this file, branches are so special
 // that they cannot be interpreted in the context of the Jit.
 
+// But we can at least log and compare.
+// #define DO_CONDITIONAL_LOG 1
+#define DO_CONDITIONAL_LOG 0
+
+#if DO_CONDITIONAL_LOG
+#define CONDITIONAL_LOG BranchLog(op);
+#define CONDITIONAL_LOG_EXIT(addr) BranchLogExit(op, addr, false);
+#define CONDITIONAL_LOG_EXIT_EAX() BranchLogExit(op, 0, true);
+#else
+#define CONDITIONAL_LOG ;
+#define CONDITIONAL_LOG_EXIT(addr) ;
+#define CONDITIONAL_LOG_EXIT_EAX() ;
+#endif
+
 namespace MIPSComp
 {
 
+static u32 intBranchExit;
+static u32 jitBranchExit;
+
+static void JitBranchLog(u32 op, u32 pc)
+{
+	currentMIPS->pc = pc;
+	currentMIPS->inDelaySlot = false;
+
+	MIPSInterpretFunc func = MIPSGetInterpretFunc(op);
+	u32 info = MIPSGetInfo(op);
+	func(op);
+
+	// Branch taken, use nextPC.
+	if (currentMIPS->inDelaySlot)
+		intBranchExit = currentMIPS->nextPC;
+	else
+	{
+		// Branch not taken, likely delay slot skipped.
+		if (info & LIKELY)
+			intBranchExit = currentMIPS->pc;
+		// Branch not taken, so increment over delay slot.
+		else
+			intBranchExit = currentMIPS->pc + 4;
+	}
+
+	currentMIPS->pc = pc;
+	currentMIPS->inDelaySlot = false;
+}
+
+static void JitBranchLogExit(u32 op, u32 pc)
+{
+	if (intBranchExit == jitBranchExit)
+		return;
+
+	char temp[256];
+	MIPSDisAsm(op, pc, temp, true);
+	ERROR_LOG(JIT, "Bad jump: %s - int:%08x jit:%08x", temp, intBranchExit, jitBranchExit);
+	Core_EnableStepping(true);
+	host->SetDebugMode(true);
+}
+
+void Jit::BranchLog(u32 op)
+{
+	FlushAll();
+	ABI_CallFunctionCC(thunks.ProtectFunction((void *) &JitBranchLog, 2), op, js.compilerPC);
+}
+
+void Jit::BranchLogExit(u32 op, u32 dest, bool useEAX)
+{
+	if (useEAX)
+		MOV(32, M((void *) &jitBranchExit), R(EAX));
+	else
+		MOV(32, M((void *) &jitBranchExit), Imm32(dest));
+
+	ABI_CallFunctionCC(thunks.ProtectFunction((void *) &JitBranchLogExit, 2), op, js.compilerPC);
+
+	if (useEAX)
+		MOV(32, R(EAX), M((void *) &jitBranchExit));
+}
+
 void Jit::BranchRSRTComp(u32 op, Gen::CCFlags cc, bool likely)
 {
+	CONDITIONAL_LOG;
 	if (js.inDelaySlot) {
 		ERROR_LOG(JIT, "Branch in delay slot at %08x", js.compilerPC);
 		return;
@@ -93,17 +169,20 @@ void Jit::BranchRSRTComp(u32 op, Gen::CCFlags cc, bool likely)
 	js.inDelaySlot = false;
 
 	// Take the branch
+	CONDITIONAL_LOG_EXIT(targetAddr);
 	WriteExit(targetAddr, 0);
 
 	SetJumpTarget(ptr);
 	// Not taken
-	WriteExit(js.compilerPC+8, 1);
+	CONDITIONAL_LOG_EXIT(js.compilerPC + 8);
+	WriteExit(js.compilerPC + 8, 1);
 
 	js.compiling = false;
 }
 
 void Jit::BranchRSZeroComp(u32 op, Gen::CCFlags cc, bool likely)
 {
+	CONDITIONAL_LOG;
 	if (js.inDelaySlot) {
 		ERROR_LOG(JIT, "Branch in delay slot at %08x", js.compilerPC);
 		return;
@@ -140,11 +219,14 @@ void Jit::BranchRSZeroComp(u32 op, Gen::CCFlags cc, bool likely)
 	js.inDelaySlot = false;
 
 	// Take the branch
+	CONDITIONAL_LOG_EXIT(targetAddr);
 	WriteExit(targetAddr, 0);
 
 	SetJumpTarget(ptr);
 	// Not taken
+	CONDITIONAL_LOG_EXIT(js.compilerPC + 8);
 	WriteExit(js.compilerPC + 8, 1);
+
 	js.compiling = false;
 }
 
@@ -191,6 +273,7 @@ void Jit::Comp_RelBranchRI(u32 op)
 // If likely is set, discard the branch slot if NOT taken.
 void Jit::BranchFPFlag(u32 op, Gen::CCFlags cc, bool likely)
 {
+	CONDITIONAL_LOG;
 	if (js.inDelaySlot) {
 		ERROR_LOG(JIT, "Branch in delay slot at %08x", js.compilerPC);
 		return;
@@ -226,10 +309,12 @@ void Jit::BranchFPFlag(u32 op, Gen::CCFlags cc, bool likely)
 	js.inDelaySlot = false;
 
 	// Take the branch
+	CONDITIONAL_LOG_EXIT(targetAddr);
 	WriteExit(targetAddr, 0);
 
 	SetJumpTarget(ptr);
 	// Not taken
+	CONDITIONAL_LOG_EXIT(js.compilerPC + 8);
 	WriteExit(js.compilerPC + 8, 1);
 
 	js.compiling = false;
@@ -254,6 +339,7 @@ void Jit::Comp_FPUBranch(u32 op)
 // If likely is set, discard the branch slot if NOT taken.
 void Jit::BranchVFPUFlag(u32 op, Gen::CCFlags cc, bool likely)
 {
+	CONDITIONAL_LOG;
 	if (js.inDelaySlot) {
 		ERROR_LOG(JIT, "Branch in delay slot at %08x", js.compilerPC);
 		return;
@@ -293,10 +379,12 @@ void Jit::BranchVFPUFlag(u32 op, Gen::CCFlags cc, bool likely)
 	js.inDelaySlot = false;
 
 	// Take the branch
+	CONDITIONAL_LOG_EXIT(targetAddr);
 	WriteExit(targetAddr, 0);
 
 	SetJumpTarget(ptr);
 	// Not taken
+	CONDITIONAL_LOG_EXIT(js.compilerPC + 8);
 	WriteExit(js.compilerPC + 8, 1);
 
 	js.compiling = false;
@@ -320,6 +408,7 @@ void Jit::Comp_VBranch(u32 op)
 
 void Jit::Comp_Jump(u32 op)
 {
+	CONDITIONAL_LOG;
 	if (js.inDelaySlot) {
 		ERROR_LOG(JIT, "Branch in delay slot at %08x", js.compilerPC);
 		return;
@@ -331,11 +420,13 @@ void Jit::Comp_Jump(u32 op)
 	switch (op >> 26) 
 	{
 	case 2: //j
+		CONDITIONAL_LOG_EXIT(targetAddr);
 		WriteExit(targetAddr, 0);
 		break; 
 
 	case 3: //jal
 		MOV(32, M(&mips_->r[MIPS_REG_RA]), Imm32(js.compilerPC + 8));	// Save return address
+		CONDITIONAL_LOG_EXIT(targetAddr);
 		WriteExit(targetAddr, 0);
 		break;
 
@@ -350,6 +441,7 @@ static u32 savedPC;
 
 void Jit::Comp_JumpReg(u32 op)
 {
+	CONDITIONAL_LOG;
 	if (js.inDelaySlot) {
 		ERROR_LOG(JIT, "Branch in delay slot at %08x", js.compilerPC);
 		return;
@@ -396,6 +488,7 @@ void Jit::Comp_JumpReg(u32 op)
 		break;
 	}
 
+	CONDITIONAL_LOG_EXIT_EAX();
 	WriteExitDestInEAX();
 	js.compiling = false;
 }
