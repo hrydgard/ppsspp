@@ -19,6 +19,7 @@
 #include "../Util/PPGeDraw.h"
 #include "../HLE/sceCtrl.h"
 #include "../Core/MemMap.h"
+#include "../Config.h"
 
 PSPSaveDialog::PSPSaveDialog()
 	: PSPDialog()
@@ -252,20 +253,24 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 		char saveDetail[512];
 
 		char am_pm[] = "AM";
+		char hour_time[10] ;
 		int hour = param.GetFileInfo(currentSelectedSave).modif_time.tm_hour ;
-		if( hour > 12 )  {
-			strcpy(am_pm, "PM");
-			hour -= 12;
-		}
+		int min  = param.GetFileInfo(currentSelectedSave).modif_time.tm_min ;
+		if (g_Config.itimeformat) {
+			if( hour > 12 )  {
+				strcpy(am_pm, "PM");
+				hour -= 12;
+			}
+			snprintf(hour_time,10,"%02d:%02d %s", hour, min, am_pm);
+		} else 
+			snprintf(hour_time,10,"%02d:%02d", hour, min);
 
 		snprintf(title,512,"%s", param.GetFileInfo(currentSelectedSave).title);
-		snprintf(time,512,"%02d/%02d/%d  %02d:%02d %s  %lld KB"
+		snprintf(time,512,"%02d/%02d/%d   %s  %lld KB"
 				, param.GetFileInfo(currentSelectedSave).modif_time.tm_mday
 				, param.GetFileInfo(currentSelectedSave).modif_time.tm_mon + 1
 				, param.GetFileInfo(currentSelectedSave).modif_time.tm_year + 1900
-				, hour 
-				, param.GetFileInfo(currentSelectedSave).modif_time.tm_min
-				, am_pm
+				, hour_time
 				, param.GetFileInfo(currentSelectedSave).size / 1024
 				);
 		snprintf(saveTitle,512,"%s", param.GetFileInfo(currentSelectedSave).saveTitle);
@@ -293,20 +298,24 @@ void PSPSaveDialog::DisplaySaveDataInfo2()
 	{
 		char txt[1024];
 		char am_pm[] = "AM";
+		char hour_time[10] ;
 		int hour = param.GetFileInfo(currentSelectedSave).modif_time.tm_hour ;
-		if( hour > 12 )  {
-			strcpy(am_pm, "PM");
-			hour -= 12;
-		}
+		int min  = param.GetFileInfo(currentSelectedSave).modif_time.tm_min ;
+		if (g_Config.itimeformat) {
+			if( hour > 12 )  {
+				strcpy(am_pm, "PM");
+				hour -= 12;
+			}
+			snprintf(hour_time,10,"%02d:%02d %s", hour, min, am_pm);
+		} else 
+			snprintf(hour_time,10,"%02d:%02d", hour, min);
 
-		snprintf(txt,1024,"%s\n%02d/%02d/%d  %02d:%02d %s\n%lld KB"
+		snprintf(txt,1024,"%s\n%02d/%02d/%d  %s\n%lld KB"
 						, param.GetFileInfo(currentSelectedSave).saveTitle
 						, param.GetFileInfo(currentSelectedSave).modif_time.tm_mday
 						, param.GetFileInfo(currentSelectedSave).modif_time.tm_mon + 1
 						, param.GetFileInfo(currentSelectedSave).modif_time.tm_year + 1900
-						, hour
-						, param.GetFileInfo(currentSelectedSave).modif_time.tm_min
-						, am_pm
+						, hour_time
 						, param.GetFileInfo(currentSelectedSave).size / 1024
 						);
 		std::string saveinfoTxt = txt;
