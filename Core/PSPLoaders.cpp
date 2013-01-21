@@ -129,7 +129,7 @@ bool Load_PSP_ELF_PBP(const char *filename, std::string *error_string)
 	path = ReplaceAll(path, "/", "\\");
 #endif
 	DirectoryFileSystem *fs = new DirectoryFileSystem(&pspFileSystem, path);
-	pspFileSystem.Mount("umd0:/", fs);
+	pspFileSystem.Mount("umd0:", fs);
 
 	std::string finalName = "umd0:/" + file + extension;
 	return __KernelLoadExec(finalName.c_str(), 0, error_string);

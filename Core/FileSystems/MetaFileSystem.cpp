@@ -71,8 +71,9 @@ static bool RealPath(const std::string &currentDirectory, const std::string &inP
 	size_t inLen = inPath.length();
 	if (inLen == 0)
 	{
-		ERROR_LOG(HLE, "RealPath: inPath is empty");
-		return false;
+		WARN_LOG(HLE, "RealPath: inPath is empty");
+		outPath = currentDirectory;
+		return true;
 	}
 
 	size_t inColon = inPath.find(':');
