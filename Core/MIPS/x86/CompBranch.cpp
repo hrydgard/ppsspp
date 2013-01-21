@@ -89,11 +89,8 @@ static void JitBranchLog(u32 op, u32 pc)
 	currentMIPS->inDelaySlot = false;
 }
 
-static void JitBranchLogExit(u32 op, u32 pc)
+static void JitBranchLogMismatch(u32 op, u32 pc)
 {
-	if (intBranchExit == jitBranchExit)
-		return;
-
 	char temp[256];
 	MIPSDisAsm(op, pc, temp, true);
 	ERROR_LOG(JIT, "Bad jump: %s - int:%08x jit:%08x", temp, intBranchExit, jitBranchExit);
@@ -109,15 +106,18 @@ void Jit::BranchLog(u32 op)
 
 void Jit::BranchLogExit(u32 op, u32 dest, bool useEAX)
 {
-	if (useEAX)
-		MOV(32, M((void *) &jitBranchExit), R(EAX));
-	else
-		MOV(32, M((void *) &jitBranchExit), Imm32(dest));
+	OpArg destArg = useEAX ? R(EAX) : Imm32(dest);
 
-	ABI_CallFunctionCC(thunks.ProtectFunction((void *) &JitBranchLogExit, 2), op, js.compilerPC);
+	CMP(32, M((void *) &intBranchExit), destArg);
+	FixupBranch skip = J_CC(CC_E);
 
+	MOV(32, M((void *) &jitBranchExit), destArg);
+	ABI_CallFunctionCC(thunks.ProtectFunction((void *) &JitBranchLogMismatch, 2), op, js.compilerPC);
+	// Restore EAX, we probably ruined it.
 	if (useEAX)
 		MOV(32, R(EAX), M((void *) &jitBranchExit));
+
+	SetJumpTarget(skip);
 }
 
 void Jit::BranchRSRTComp(u32 op, Gen::CCFlags cc, bool likely)
