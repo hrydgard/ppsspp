@@ -64,6 +64,8 @@ struct PSPFileInfo
 		p.Do(access);
 		p.Do(exists);
 		p.Do(type);
+		p.Do(atime);
+		p.Do(ctime);
 		p.Do(mtime);
 		p.Do(isOnSectorSystem);
 		p.Do(startSector);
@@ -79,6 +81,8 @@ struct PSPFileInfo
 	bool exists;
 	FileType type;
 
+	tm atime;
+	tm ctime;
 	tm mtime;
 
 	bool isOnSectorSystem;

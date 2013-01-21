@@ -147,6 +147,7 @@ public:
 		p.Do(closePending);
 		p.Do(pendingAsyncResult);
 		p.Do(sectorBlockMode);
+		p.Do(openMode);
 		p.DoMarker("File");
 	}
 
@@ -163,6 +164,7 @@ public:
 	bool closePending;
 
 	PSPFileInfo info;
+	u32 openMode;
 };
 
 static void TellFsThreadEnded (SceUID threadID) {
@@ -288,6 +290,17 @@ void __IoCompleteAsyncIO(SceUID id) {
 	}
 }
 
+void __IoCopyDate(ScePspDateTime& date_out, const tm& date_in)
+{
+	date_out.year = date_in.tm_year+1900;
+	date_out.month = date_in.tm_mon+1;
+	date_out.day = date_in.tm_mday;
+	date_out.hour = date_in.tm_hour;
+	date_out.minute = date_in.tm_min;
+	date_out.second = date_in.tm_sec;
+	date_out.microsecond = 0;
+}
+
 void __IoGetStat(SceIoStat *stat, PSPFileInfo &info) {
 	memset(stat, 0xfe, sizeof(SceIoStat));
 	stat->st_size = (s64) info.size;
@@ -298,9 +311,12 @@ void __IoGetStat(SceIoStat *stat, PSPFileInfo &info) {
 	else
 		type = SCE_STM_FREG, attr = TYPE_FILE;
 
-	stat->st_mode = type; //0777 | type;
+	stat->st_mode = type | info.access;
 	stat->st_attr = attr;
 	stat->st_size = info.size;
+	__IoCopyDate(stat->st_atime, info.atime);
+	__IoCopyDate(stat->st_ctime, info.ctime);
+	__IoCopyDate(stat->st_mtime, info.mtime);
 	stat->st_private[0] = info.startSector;
 }
 
@@ -319,7 +335,7 @@ u32 sceIoGetstat(const char *filename, u32 addr) {
 		}
 	} else {
 		DEBUG_LOG(HLE, "sceIoGetstat(%s, %08x) : FILE NOT FOUND", filename, addr);
-		return SCE_KERNEL_ERROR_NOFILE;
+		return ERROR_ERRNO_FILE_NOT_FOUND;
 	}
 }
 
@@ -333,7 +349,11 @@ u32 sceIoRead(int id, u32 data_addr, int size) {
 	u32 error;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
 	if (f) {
-		if (Memory::IsValidAddress(data_addr)) {
+		if(!(f->openMode & FILEACCESS_READ))
+		{
+			return ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
+		}
+		else if (Memory::IsValidAddress(data_addr)) {
 			u8 *data = (u8*) Memory::GetPointer(data_addr);
 			f->asyncResult = (u32) pspFileSystem.ReadFile(f->handle, data, size);
 			DEBUG_LOG(HLE, "%i=sceIoRead(%d, %08x , %i)", f->asyncResult, id, data_addr, size);
@@ -367,9 +387,16 @@ u32 sceIoWrite(int id, void *data_ptr, int size)
 	u32 error;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
 	if (f) {
-		u8 *data = (u8*) data_ptr;
-		f->asyncResult = (u32) pspFileSystem.WriteFile(f->handle, data, size);
-		return f->asyncResult;
+		if(!(f->openMode & FILEACCESS_WRITE))
+		{
+			return ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
+		}
+		else
+		{
+			u8 *data = (u8*) data_ptr;
+			f->asyncResult = (u32) pspFileSystem.WriteFile(f->handle, data, size);
+			return f->asyncResult;
+		}
 	} else {
 		ERROR_LOG(HLE, "sceIoWrite ERROR: no file open");
 		return error;
@@ -421,16 +448,23 @@ s64 sceIoLseek(int id, s64 offset, int whence) {
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
 	if (f) {
 		FileMove seek = FILEMOVE_BEGIN;
+		bool outOfBound = false;
+		int newPos = 0;
 		switch (whence) {
 		case 0:
+			newPos = offset;
 			break;
 		case 1:
+			newPos = pspFileSystem.GetSeekPos(f->handle) + offset;
 			seek = FILEMOVE_CURRENT;
 			break;
 		case 2:
+			newPos = f->info.size + offset;
 			seek = FILEMOVE_END;
 			break;
 		}
+		if(newPos < 0 || newPos > f->info.size)
+			return -1;
 
 		f->asyncResult = (u32) pspFileSystem.SeekFile(f->handle, (s32) offset, seek);
 		DEBUG_LOG(HLE, "%i = sceIoLseek(%d,%i,%i)", f->asyncResult, id, (int) offset, whence);
@@ -448,16 +482,23 @@ u32 sceIoLseek32(int id, int offset, int whence) {
 		DEBUG_LOG(HLE, "sceIoLseek32(%d,%08x,%i)", id, (int) offset, whence);
 
 		FileMove seek = FILEMOVE_BEGIN;
+		bool outOfBound = false;
+		int newPos = 0;
 		switch (whence) {
 		case 0:
+			newPos = offset;
 			break;
 		case 1:
+			newPos = pspFileSystem.GetSeekPos(f->handle) + offset;
 			seek = FILEMOVE_CURRENT;
 			break;
 		case 2:
+			newPos = f->info.size + offset;
 			seek = FILEMOVE_END;
 			break;
 		}
+		if(newPos < 0 || newPos > f->info.size)
+			return -1;
 
 		f->asyncResult = (u32) pspFileSystem.SeekFile(f->handle, (s32) offset, seek);
 		return f->asyncResult;
@@ -494,6 +535,7 @@ u32 sceIoOpen(const char* filename, int flags, int mode) {
 	f->fullpath = filename;
 	f->asyncResult = id;
 	f->info = info;
+	f->openMode = access;
 	DEBUG_LOG(HLE, "%i=sceIoOpen(%s, %08x, %08x)", id, filename, flags, mode);
 	return id;
 }
@@ -505,10 +547,12 @@ u32 sceIoClose(int id) {
 
 u32 sceIoRemove(const char *filename) {
 	DEBUG_LOG(HLE, "sceIoRemove(%s)", filename);
-	if (pspFileSystem.DeleteFile(filename))
-		return 0;
-	else
-		return -1;
+
+	if(!pspFileSystem.GetFileInfo(filename).exists)
+		return ERROR_ERRNO_FILE_NOT_FOUND;
+
+	pspFileSystem.DeleteFile(filename);
+	return 0;
 }
 
 u32 sceIoMkdir(const char *dirname, int mode) {
@@ -760,16 +804,19 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 
 u32 sceIoRename(const char *from, const char *to) {
 	DEBUG_LOG(HLE, "sceIoRename(%s, %s)", from, to);
-	if (pspFileSystem.RenameFile(from, to))
-		return 0;
-	else
-		return -1;
+
+	if(!pspFileSystem.GetFileInfo(from).exists)
+		return ERROR_ERRNO_FILE_NOT_FOUND;
+
+	if(!pspFileSystem.RenameFile(from, to))
+		WARN_LOG(HLE, "Could not move %s to %s\n",from, to);
+	return 0;
 }
 
 u32 sceIoChdir(const char *dirname) {
-	pspFileSystem.ChDir(dirname);
 	DEBUG_LOG(HLE, "sceIoChdir(%s)", dirname);
-	return 1;
+	pspFileSystem.ChDir(dirname);
+	return 0;
 }
 
 int sceIoChangeAsyncPriority(int id, int priority)
@@ -954,10 +1001,14 @@ public:
 u32 sceIoDopen(const char *path) {
 	DEBUG_LOG(HLE, "sceIoDopen(\"%s\")", path);
 
+
+	if(!pspFileSystem.GetFileInfo(path).exists)
+	{
+		return ERROR_ERRNO_FILE_NOT_FOUND;
+	}
+
 	DirListing *dir = new DirListing();
 	SceUID id = kernelObjects.Create(dir);
-
-	// TODO: ERROR_ERRNO_FILE_NOT_FOUND
 
 	dir->listing = pspFileSystem.GetDirListing(path);
 	dir->index = 0;

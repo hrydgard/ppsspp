@@ -37,6 +37,15 @@ enum {
 	NUM_PATH_INDICES
 };
 
+// No thread safe
+#ifdef _WIN32
+inline struct tm* localtime_r (const time_t *clock, struct tm *result) {
+	if (!clock || !result) return NULL;
+	memcpy(result,localtime(clock),sizeof(*result));
+	return result;
+}
+#endif
+
 namespace File
 {
 
