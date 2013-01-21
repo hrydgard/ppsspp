@@ -277,23 +277,23 @@ void VertexDecoder::Step_Color8888Morph() const
 void VertexDecoder::Step_NormalS8() const
 {
 	s8 *normal = (s8 *)(decoded_ + decFmt.nrmoff);
-	u8 xor = 0;
+	u8 xorval = 0;
 	if (gstate.reversenormals & 1)
-		xor = 0xFF;  // Using xor instead of - to handle -128
+		xorval = 0xFF;  // Using xor instead of - to handle -128
 	const s8 *sv = (const s8*)(ptr_ + nrmoff);
 	for (int j = 0; j < 3; j++)
-		normal[j] = sv[j] ^ xor;
+		normal[j] = sv[j] ^ xorval;
 }
 
 void VertexDecoder::Step_NormalS16() const
 {
 	s16 *normal = (s16 *)(decoded_ + decFmt.nrmoff);
-	u16 xor = 0;
+	u16 xorval = 0;
 	if (gstate.reversenormals & 1)
-		xor = 0xFFFF;
+		xorval = 0xFFFF;
 	const s16 *sv = (const s16*)(ptr_ + nrmoff);
 	for (int j = 0; j < 3; j++)
-		normal[j] = sv[j] ^ xor;
+		normal[j] = sv[j] ^ xorval;
 }
 
 void VertexDecoder::Step_NormalFloat() const
