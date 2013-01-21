@@ -32,9 +32,6 @@
 #include <algorithm>
 #include <string.h>  // for memcpy and memset
 
-typedef unsigned long long uint64;
-typedef unsigned int uint32;
-
 using namespace std;
 
 static uint64 UNALIGNED_LOAD64(const char *p) {
