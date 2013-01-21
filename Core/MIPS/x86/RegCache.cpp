@@ -51,7 +51,7 @@ RegCache::RegCache() : emit(0), mips(0) {
 
 void RegCache::Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats)
 {
-  this->mips = mips;
+	this->mips = mips;
 	for (int i = 0; i < NUMXREGS; i++)
 	{
 		xregs[i].free = true;
@@ -211,6 +211,10 @@ void RegCache::DiscardRegContentsIfCached(int preg)
 
 void GPRRegCache::SetImmediate32(int preg, u32 immValue)
 {
+	// ZERO is always zero.  Let's just make sure.
+	if (preg == 0)
+		immValue = 0;
+
 	DiscardRegContentsIfCached(preg);
 	regs[preg].away = true;
 	regs[preg].location = Imm32(immValue);
@@ -282,7 +286,13 @@ void GPRRegCache::BindToRegister(int i, bool doLoad, bool makeDirty)
 		xregs[xr].dirty = makeDirty || regs[i].location.IsImm();
 		OpArg newloc = ::Gen::R(xr);
 		if (doLoad)
-			emit->MOV(32, newloc, regs[i].location);
+		{
+			// Force ZERO to be 0.
+			if (i == 0)
+				emit->MOV(32, newloc, Imm32(0));
+			else
+				emit->MOV(32, newloc, regs[i].location);
+		}
 		for (int j = 0; j < 32; j++)
 		{
 			if (i != j && regs[j].location.IsSimpleReg() && regs[j].location.GetSimpleReg() == xr)
@@ -324,7 +334,8 @@ void GPRRegCache::StoreFromRegister(int i)
 			doStore = true;
 		}
 		OpArg newLoc = GetDefaultLocation(i);
-		if (doStore)
+		// But never store to ZERO.
+		if (doStore && i != 0)
 			emit->MOV(32, newLoc, regs[i].location);
 		regs[i].location = newLoc;
 		regs[i].away = false;
