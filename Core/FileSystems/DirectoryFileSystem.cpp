@@ -17,6 +17,7 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#include <sys/stat.h>
 #else
 #include <dirent.h>
 #include <unistd.h>

@@ -23,6 +23,7 @@
 #include <string>
 #include <vector>
 #include <string.h>
+#include <time.h>
 
 #include "Common.h"
 
