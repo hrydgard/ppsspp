@@ -46,7 +46,7 @@ bool CanUseHardwareTransform(int prim)
 // prim so we can special case for RECTANGLES :(
 void ComputeVertexShaderID(VertexShaderID *id, int prim)
 {
-	int doTexture = (gstate.textureMapEnable & 1) && !(gstate.clearmode & 1);
+	int doTexture = (gstate.textureMapEnable & 1) && !(gstate.isModeClear());
 
 	bool hasColor = (gstate.vertType & GE_VTYPE_COL_MASK) != 0;
 	bool hasNormal = (gstate.vertType & GE_VTYPE_NRM_MASK) != 0;
@@ -56,10 +56,9 @@ void ComputeVertexShaderID(VertexShaderID *id, int prim)
 	memset(id->d, 0, sizeof(id->d));
 	id->d[0] = gstate.lmode & 1;
 	id->d[0] |= ((int)gstate.isModeThrough()) << 1;
-	id->d[0] |= ((int)gstate.isFogEnabled()) << 2;
+	id->d[0] |= ((int)enableFog) << 2;
 	id->d[0] |= doTexture << 3;
 	id->d[0] |= (hasColor & 1) << 4;
-	id->d[0] |= ((int)enableFog) << 5;
 	if (CanUseHardwareTransform(prim)) {
 		id->d[0] |= 1 << 8;
 		id->d[0] |= (hasNormal & 1) << 9;

@@ -276,31 +276,31 @@ void VertexDecoder::Step_Color8888Morph() const
 
 void VertexDecoder::Step_NormalS8() const
 {
-	float *normal = (float *)(decoded_ + decFmt.nrmoff);
-	float multiplier = 1.0f;
-	if (gstate.reversenormals & 0xFFFFFF)
-		multiplier = -multiplier;
+	s8 *normal = (s8 *)(decoded_ + decFmt.nrmoff);
+	u8 xor = 0;
+	if (gstate.reversenormals & 1)
+		xor = 0xFF;  // Using xor instead of - to handle -128
 	const s8 *sv = (const s8*)(ptr_ + nrmoff);
 	for (int j = 0; j < 3; j++)
-		normal[j] = (sv[j] / 127.0f) * multiplier;
+		normal[j] = sv[j] ^ xor;
 }
 
 void VertexDecoder::Step_NormalS16() const
 {
-	float *normal = (float *)(decoded_ + decFmt.nrmoff);
-	float multiplier = 1.0f;
-	if (gstate.reversenormals & 0xFFFFFF)
-		multiplier = -multiplier;
-	const short *sv = (const short*)(ptr_ + nrmoff);
+	s16 *normal = (s16 *)(decoded_ + decFmt.nrmoff);
+	u16 xor = 0;
+	if (gstate.reversenormals & 1)
+		xor = 0xFFFF;
+	const s16 *sv = (const s16*)(ptr_ + nrmoff);
 	for (int j = 0; j < 3; j++)
-		normal[j] = (sv[j] / 32767.0f) * multiplier;
+		normal[j] = sv[j] ^ xor;
 }
 
 void VertexDecoder::Step_NormalFloat() const
 {
 	float *normal = (float *)(decoded_ + decFmt.nrmoff);
 	float multiplier = 1.0f;
-	if (gstate.reversenormals & 0xFFFFFF)
+	if (gstate.reversenormals & 1)
 		multiplier = -multiplier;
 	const float *fv = (const float*)(ptr_ + nrmoff);
 	for (int j = 0; j < 3; j++)
@@ -314,7 +314,7 @@ void VertexDecoder::Step_NormalS8Morph() const
 	for (int n = 0; n < morphcount; n++)
 	{
 		float multiplier = gstate_c.morphWeights[n];
-		if (gstate.reversenormals & 0xFFFFFF) {
+		if (gstate.reversenormals & 1) {
 			multiplier = -multiplier;
 		}
 		const s8 *sv = (const s8*)(ptr_ + onesize_*n + nrmoff);
@@ -330,7 +330,7 @@ void VertexDecoder::Step_NormalS16Morph() const
 	for (int n = 0; n < morphcount; n++)
 	{
 		float multiplier = gstate_c.morphWeights[n];
-		if (gstate.reversenormals & 0xFFFFFF) {
+		if (gstate.reversenormals & 1) {
 			multiplier = -multiplier;
 		}
 		const float *fv = (const float*)(ptr_ + onesize_*n + nrmoff);
@@ -346,7 +346,7 @@ void VertexDecoder::Step_NormalFloatMorph() const
 	for (int n = 0; n < morphcount; n++)
 	{
 		float multiplier = gstate_c.morphWeights[n];
-		if (gstate.reversenormals & 0xFFFFFF) {
+		if (gstate.reversenormals & 1) {
 			multiplier = -multiplier;
 		}
 		const float *fv = (const float*)(ptr_ + onesize_*n + nrmoff);
@@ -357,20 +357,18 @@ void VertexDecoder::Step_NormalFloatMorph() const
 
 void VertexDecoder::Step_PosS8() const
 {
-	float *v = (float *)(decoded_ + decFmt.posoff);
-	float multiplier = 1.0f / 127.0f;
+	s8 *v = (s8 *)(decoded_ + decFmt.posoff);
 	const s8 *sv = (const s8*)(ptr_ + posoff);
 	for (int j = 0; j < 3; j++)
-		v[j] = sv[j] * multiplier;
+		v[j] = sv[j];
 }
 
 void VertexDecoder::Step_PosS16() const
 {
-	float *v = (float *)(decoded_ + decFmt.posoff);
-	float multiplier = 1.0f / 32767.0f;
-	const short *sv = (const short*)(ptr_ + posoff);
+	s16 *v = (s16 *)(decoded_ + decFmt.posoff);
+	const s16 *sv = (const s16*)(ptr_ + posoff);
 	for (int j = 0; j < 3; j++)
-		v[j] = sv[j] * multiplier;
+		v[j] = sv[j];
 }
 
 void VertexDecoder::Step_PosFloat() const
@@ -385,16 +383,20 @@ void VertexDecoder::Step_PosS8Through() const
 {
 	float *v = (float *)(decoded_ + decFmt.posoff);
 	const s8 *sv = (const s8*)(ptr_ + posoff);
-	for (int j = 0; j < 3; j++)
-		v[j] = sv[j];
+	const u8 *uv = (const u8*)(ptr_ + posoff);
+	v[0] = sv[0];
+	v[1] = sv[1];
+	v[2] = uv[2];
 }
 
 void VertexDecoder::Step_PosS16Through() const
 {
 	float *v = (float *)(decoded_ + decFmt.posoff);
-	const short *sv = (const short*)(ptr_ + posoff);
-	for (int j = 0; j < 3; j++)
-		v[j] = sv[j];
+	const s16 *sv = (const s16*)(ptr_ + posoff);
+	const u16 *uv = (const u16*)(ptr_ + posoff);
+	v[0] = sv[0];
+	v[1] = sv[1];
+	v[2] = uv[2];
 }
 
 void VertexDecoder::Step_PosFloatThrough() const
@@ -598,15 +600,18 @@ void VertexDecoder::SetVertexType(u32 fmt) {
 
 		steps_[numSteps_++] = morphcount == 1 ? nrmstep[nrm] : nrmstep_morph[nrm];
 
-		// The normal formats match the gl formats perfectly, let's use 'em.
-		switch (nrm) {
-		case GE_VTYPE_NRM_8BIT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_S8_3; break;
-		case GE_VTYPE_NRM_16BIT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_S16_3; break;
-		case GE_VTYPE_NRM_FLOAT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_FLOAT_3; break;
+		if (morphcount == 1) {
+			// The normal formats match the gl formats perfectly, let's use 'em.
+			switch (nrm) {
+			case GE_VTYPE_NRM_8BIT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_S8_3; break;
+			case GE_VTYPE_NRM_16BIT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_S16_3; break;
+			case GE_VTYPE_NRM_FLOAT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_FLOAT_3; break;
+			}
+		} else {
+			decFmt.nrmfmt = DEC_FLOAT_3;
 		}
 
 		// Actually, temporarily let's not.
-		decFmt.nrmfmt = DEC_FLOAT_3;
 		decFmt.nrmoff = decOff;
 		decOff += DecFmtSize(decFmt.nrmfmt);
 	}
@@ -625,14 +630,17 @@ void VertexDecoder::SetVertexType(u32 fmt) {
 		} else {
 			steps_[numSteps_++] = morphcount == 1 ? posstep[pos] : posstep_morph[pos];
 
-			// The non-through-mode position formats match the gl formats perfectly, let's use 'em.
-			switch (pos) {
-			case GE_VTYPE_POS_8BIT >> GE_VTYPE_POS_SHIFT: decFmt.posfmt = DEC_S8_3; break;
-			case GE_VTYPE_POS_16BIT >> GE_VTYPE_POS_SHIFT: decFmt.posfmt = DEC_S16_3; break;
-			case GE_VTYPE_POS_FLOAT >> GE_VTYPE_POS_SHIFT: decFmt.posfmt = DEC_FLOAT_3; break;
+			if (morphcount == 1) {
+				// The non-through-mode position formats match the gl formats perfectly, let's use 'em.
+				switch (pos) {
+				case GE_VTYPE_POS_8BIT >> GE_VTYPE_POS_SHIFT: decFmt.posfmt = DEC_S8_3; break;
+				case GE_VTYPE_POS_16BIT >> GE_VTYPE_POS_SHIFT: decFmt.posfmt = DEC_S16_3; break;
+				case GE_VTYPE_POS_FLOAT >> GE_VTYPE_POS_SHIFT: decFmt.posfmt = DEC_FLOAT_3; break;
+				}
+			} else {
+				// Actually, temporarily let's not.
+				decFmt.posfmt = DEC_FLOAT_3;
 			}
-			// Actually, temporarily let's not.
-			decFmt.posfmt = DEC_FLOAT_3;
 		}
 		decFmt.posoff = decOff;
 		decOff += DecFmtSize(decFmt.posfmt);
