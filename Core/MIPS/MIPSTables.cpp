@@ -995,6 +995,7 @@ int MIPSInterpret_RunUntil(u64 globalTicks)
 				}
 			}
 
+			curMips->downcount -= 1;
 			if (CoreTiming::GetTicks() > globalTicks)
 			{
 				// DEBUG_LOG(CPU, "Hit the max ticks, bailing 1 : %llu, %llu", globalTicks, CoreTiming::GetTicks());
