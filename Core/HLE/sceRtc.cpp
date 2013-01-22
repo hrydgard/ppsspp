@@ -292,14 +292,36 @@ u32 sceRtcGetTick(u32 pspTimePtr, u32 tickPtr)
 u32 sceRtcGetDayOfWeek(u32 year, u32 month, u32 day)
 {
 	DEBUG_LOG(HLE, "sceRtcGetDayOfWeek(%d, %d, %d)", year, month, day);
-	static u32 t[] = { 0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4 };
-	if (month > 12 || month < 1) {
-		// Preventive crashfix
-		ERROR_LOG(HLE,"Bad month"); // this might not be right as a game is checking for sceRtcGetDayOfWeek:166970016, 1024, 0 and expecting 3 returned..
-		return 0;
+
+	if(month == 0)	// Mark month 0 as august, don't know why, but works
+	{
+		month = 8;
 	}
-	year -= month < 3;
-	return (year + year/4 - year/100 + year/400 + t[month-1] + day) % 7;
+
+	if(month > 12) // After month 12, psp months does 31/31/30/31/30 and repeat
+	{
+		int restMonth = month-12;
+		int grp5 = restMonth / 5;
+		restMonth = restMonth % 5;
+		day += grp5 * (31*3+30*2);
+		static u32 t[] = { 31, 31*2, 31*2+30, 31*3+30, 31*3+30*2 };
+		day += t[restMonth-1];
+		month = 12;
+	}
+
+	tm local;
+	local.tm_year = year - 1900;
+	local.tm_mon = month - 1;
+	local.tm_mday = day;
+	local.tm_wday = -1;
+	local.tm_yday = -1;
+	local.tm_hour = 0;
+	local.tm_min = 0;
+	local.tm_sec = 0;
+	local.tm_isdst = -1;
+
+	mktime(&local);
+	return local.tm_wday;
 }
 
 u32 sceRtcGetDaysInMonth(u32 year, u32 month)
