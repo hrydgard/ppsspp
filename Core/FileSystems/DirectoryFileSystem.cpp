@@ -492,8 +492,8 @@ PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename) {
 
 	if (x.type != FILETYPE_DIRECTORY)
 	{
-		struct stat64 s;
-		stat64(fullName.c_str(), &s);
+		struct stat s;
+		stat(fullName.c_str(), &s);
 #ifdef _WIN32
 		WIN32_FILE_ATTRIBUTE_DATA data;
 		GetFileAttributesEx(fullName.c_str(), GetFileExInfoStandard, &data);

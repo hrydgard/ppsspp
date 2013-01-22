@@ -30,6 +30,12 @@ HEADERS += ../native/ext/etcpack/etcdec.h \
 	../native/ext/etcpack/image.h
 INCLUDEPATH += ../native/ext/etcpack
 
+# Cityhash
+SOURCES += ../native/ext/cityhash/city.cpp
+HEADERS += ../native/ext/cityhash/city.h \
+	../native/ext/cityhash/citycrc.h
+INCLUDEPATH += ../native/ext/cityhash
+
 # Stb_image
 
 SOURCES += ../native/ext/stb_image/stb_image.c
