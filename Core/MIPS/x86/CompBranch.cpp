@@ -490,6 +490,11 @@ void Jit::Comp_Syscall(u32 op)
 {
 	FlushAll();
 
+	// If we're in a delay slot, this is off by one.
+	const int offset = js.inDelaySlot ? -1 : 0;
+	WriteDowncount(offset);
+	js.downcountAmount = -offset;
+
 	ABI_CallFunctionC((void *)&CallSyscall, op);
 
 	WriteSyscallExit();

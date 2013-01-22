@@ -110,6 +110,12 @@ void Jit::FlushAll()
 	fpr.Flush(FLUSH_ALL);
 }
 
+void Jit::WriteDowncount(int offset)
+{
+	const int downcount = js.downcountAmount + offset;
+	SUB(32, M(&currentMIPS->downcount), downcount > 127 ? Imm32(downcount) : Imm8(downcount));
+}
+
 void Jit::ClearCache()
 {
 	blocks.Clear();
@@ -240,7 +246,7 @@ void Jit::Comp_Generic(u32 op)
 
 void Jit::WriteExit(u32 destination, int exit_num)
 {
-	SUB(32, M(&currentMIPS->downcount), js.downcountAmount > 127 ? Imm32(js.downcountAmount) : Imm8(js.downcountAmount));
+	WriteDowncount();
 
 	//If nobody has taken care of this yet (this can be removed when all branches are done)
 	JitBlock *b = js.curBlock;
@@ -262,15 +268,15 @@ void Jit::WriteExit(u32 destination, int exit_num)
 
 void Jit::WriteExitDestInEAX()
 {
-	// TODO: Some wasted potential, dispatcher will alwa
+	// TODO: Some wasted potential, dispatcher will always read this back into EAX.
 	MOV(32, M(&mips_->pc), R(EAX));
-	SUB(32, M(&currentMIPS->downcount), js.downcountAmount > 127 ? Imm32(js.downcountAmount) : Imm8(js.downcountAmount));
+	WriteDowncount();
 	JMP(asm_.dispatcher, true);
 }
 
 void Jit::WriteSyscallExit()
 {
-	SUB(32, M(&currentMIPS->downcount), js.downcountAmount > 127 ? Imm32(js.downcountAmount) : Imm8(js.downcountAmount));
+	WriteDowncount();
 	JMP(asm_.dispatcherCheckCoreState, true);
 }
 
@@ -282,8 +288,7 @@ bool Jit::CheckJitBreakpoint(u32 addr, int downcountOffset)
 		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
 		CALL((void *)&JitBreakpoint);
 
-		const int downcountEstimate = js.downcountAmount + downcountOffset;
-		SUB(32, M(&currentMIPS->downcount), downcountEstimate > 127 ? Imm32(downcountEstimate) : Imm8(downcountEstimate));
+		WriteDowncount(downcountOffset);
 		JMP(asm_.dispatcherCheckCoreState, true);
 
 		return true;

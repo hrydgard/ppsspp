@@ -103,6 +103,7 @@ public:
 	void ClearCacheAt(u32 em_address);
 private:
 	void FlushAll();
+	void WriteDowncount(int offset = 0);
 
 	void WriteExit(u32 destination, int exit_num);
 	void WriteExitDestInEAX();
