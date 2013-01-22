@@ -99,8 +99,7 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 #ifdef _M_IX86
 			AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
 			_assert_msg_(CPU, Memory::base != 0, "Memory base bogus");
-			MOV(32, R(EDX), Imm32((u32)Memory::base));
-			MOV(32, R(EAX), MComplex(EDX, EAX, SCALE_1, 0));
+			MOV(32, R(EAX), MDisp(EAX, (u32)Memory::base));
 #elif _M_X64
 			MOV(32, R(EAX), MComplex(RBX, RAX, SCALE_1, 0));
 #endif
