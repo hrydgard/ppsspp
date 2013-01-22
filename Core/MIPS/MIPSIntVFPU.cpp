@@ -15,6 +15,26 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+
+// BUGS!
+// It seems likely that there are VFPU bugs, as the intro videos to the Lego Harry Potter
+// games showcase serious macroblock corruption and the IDCT is done with VFPU instructions.
+
+// Here's a list of all the instructions used, and thus those which should be exhaustively tested:
+// lv.q
+// vs2i.p
+// vi2f.q
+// vmul.q
+// vs2i.p
+// vsub.q
+// vadd.q
+// vscl.q
+// vpfxd 0-1 x 4  (before vscl.q)
+// vscl.q
+// vf2iz.q
+// vi2uc.q
+// sv.s
+
 #include "../Core.h"
 
 #include <cmath>
@@ -568,12 +588,16 @@ namespace MIPSInt
 		ApplySwizzleS(s, sz); //TODO: and the mask to kill everything but swizzle
 		for (int i = 0; i < GetNumVectorElements(sz); i++)
 		{
+			float sv = s[i] * mult;
+			// Cap/floor it to 0x7fffffff / 0x80000000
+			if (sv > 0x7fffffff) sv = 0x7fffffff;
+			if (sv < (int)0x80000000) sv = (int)0x80000000;
 			switch ((op >> 21) & 0x1f)
 			{
-			case 16: d[i] = (int)round_ieee_754(s[i] * mult); break; //n
-			case 17: d[i] = s[i]>=0 ? (int)floor(s[i] * mult) : (int)ceil(s[i] * mult); break; //z
-			case 18: d[i] = (int)ceil(s[i] * mult); break; //u
-			case 19: d[i] = (int)floor(s[i] * mult); break; //d
+			case 16: d[i] = (int)round_ieee_754(sv); break; //n
+			case 17: d[i] = s[i]>=0 ? (int)floor(sv) : (int)ceil(sv); break; //z
+			case 18: d[i] = (int)ceil(sv); break; //u
+			case 19: d[i] = (int)floor(sv); break; //d
 			}
 		}
 		ApplyPrefixD((float*)d, sz, true);
@@ -1161,7 +1185,7 @@ namespace MIPSInt
 		int n = GetNumVectorElements(sz);
 		for (int i = 0; i < n; i++)
 		{
-			d[i] = s[i]*scale;
+			d[i] = s[i] * scale;
 		}
 		ApplyPrefixD(d, sz);
 		WriteVector(d, sz, vd);
