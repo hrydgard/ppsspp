@@ -27,7 +27,6 @@
 // There's a second Audio api called Audio2 that only has one channel, I guess the 8 channel api was overkill.
 // We simply map it to the first of the 8 channels.
 
-
 AudioChannel chans[8];
 
 // Enqueues the buffer pointer on the channel. If channel buffer queue is full (2 items?) will block until it isn't.

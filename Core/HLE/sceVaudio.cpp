@@ -18,20 +18,33 @@
 #include "HLE.h"
 #include "FunctionWrappers.h"
 #include "sceVaudio.h"
+#include "sceAudio.h"
+#include "__sceAudio.h"
 
-u32 sceVaudioOutputBlocking(int vol, u32 buffer) {
-	ERROR_LOG(HLE, "UNIMPL sceVaudioOutputBlocking(%i, %08x)", vol, buffer);
-	return 0;
-}
+// Ultra hacky Vaudio implementation. Not sure what the point of this API is.
 
 u32 sceVaudioChReserve(int sampleCount, int freq, int format) {
-	ERROR_LOG(HLE, "UNIMPL sceVaudioChReserve(%i, %i, %i)", sampleCount, freq, format);
+	WARN_LOG(HLE, "HACK sceVaudioChReserve(%i, %i, %i)", sampleCount, freq, format);
+	chans[0].reserved = true;
+	chans[0].sampleCount = sampleCount;
+	chans[0].format = format;
+	__AudioSetOutputFrequency(freq);
 	return 0;
 }
 
 u32 sceVaudioChRelease() {
-	ERROR_LOG(HLE, "UNIMPL sceVaudioChRelease(...)");
-	return 0;
+	WARN_LOG(HLE, "HACK sceVaudioChRelease(...)");
+	if (!chans[0].reserved) {
+		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
+	} else {
+		chans[0].reserved = false;
+		return 0;
+	}
+}
+
+u32 sceVaudioOutputBlocking(int vol, u32 buffer) {
+	WARN_LOG(HLE, "HACK sceVaudioOutputBlocking(%i, %08x)", vol, buffer);
+	return __AudioEnqueue(chans[0], 0, true);
 }
 
 u32 sceVaudioSetEffectType(int effectType, int vol) {
