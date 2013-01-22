@@ -73,6 +73,12 @@ static inline void DelayBranchTo(u32 where)
 	mipsr4k.inDelaySlot = true;
 }
 
+static inline void SkipLikely()
+{
+	PC += 8;
+	--mipsr4k.downcount;
+}
+
 int MIPS_SingleStep()
 {
 #if defined(ARM)
@@ -172,15 +178,15 @@ namespace MIPSInt
 
 		switch (op >> 26) 
 		{
-		case 4:	if (R(rt) == R(rs))	DelayBranchTo(addr); else PC += 4; break; //beq
-		case 5:	if (R(rt) != R(rs))	DelayBranchTo(addr); else PC += 4; break; //bne
-		case 6:	if ((s32)R(rs) <= 0) DelayBranchTo(addr); else PC += 4; break; //blez
-		case 7:	 if ((s32)R(rs) >	0) DelayBranchTo(addr); else PC += 4; break; //bgtz
+		case 4:  if (R(rt) == R(rs))  DelayBranchTo(addr); else PC += 4; break; //beq
+		case 5:  if (R(rt) != R(rs))  DelayBranchTo(addr); else PC += 4; break; //bne
+		case 6:  if ((s32)R(rs) <= 0) DelayBranchTo(addr); else PC += 4; break; //blez
+		case 7:  if ((s32)R(rs) > 0) DelayBranchTo(addr); else PC += 4; break; //bgtz
 
-		case 20: if (R(rt) == R(rs))	DelayBranchTo(addr); else PC += 8; break; //beql
-		case 21: if (R(rt) != R(rs))	DelayBranchTo(addr); else PC += 8; break; //bnel
-		case 22: if ((s32)R(rs) <= 0) DelayBranchTo(addr); else PC += 8; break; //blezl
-		case 23: if ((s32)R(rs) >	0) DelayBranchTo(addr); else PC += 8; break; //bgtzl
+		case 20: if (R(rt) == R(rs))  DelayBranchTo(addr); else SkipLikely(); break; //beql
+		case 21: if (R(rt) != R(rs))  DelayBranchTo(addr); else SkipLikely(); break; //bnel
+		case 22: if ((s32)R(rs) <= 0) DelayBranchTo(addr); else SkipLikely(); break; //blezl
+		case 23: if ((s32)R(rs) >  0) DelayBranchTo(addr); else SkipLikely(); break; //bgtzl
 
 		default:
 			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
@@ -198,12 +204,12 @@ namespace MIPSInt
 		{
 		case 0: if ((s32)R(rs) <  0) DelayBranchTo(addr); else PC += 4; break;//bltz
 		case 1: if ((s32)R(rs) >= 0) DelayBranchTo(addr); else PC += 4; break;//bgez
-		case 2: if ((s32)R(rs) <	0) DelayBranchTo(addr); else PC += 8; break;//bltzl
-		case 3: if ((s32)R(rs) >= 0) DelayBranchTo(addr); else PC += 8; break;//bgezl
+		case 2: if ((s32)R(rs) <  0) DelayBranchTo(addr); else SkipLikely(); break;//bltzl
+		case 3: if ((s32)R(rs) >= 0) DelayBranchTo(addr); else SkipLikely(); break;//bgezl
 		case 16: R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) <  0) DelayBranchTo(addr); else PC += 4; break;//bltz
 		case 17: R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) >= 0) DelayBranchTo(addr); else PC += 4; break;//bgez
-		case 18: R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) <	0) DelayBranchTo(addr); else PC += 8; break;//bltzl
-		case 19: R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) >= 0) DelayBranchTo(addr); else PC += 8; break;//bgezl
+		case 18: R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) <	0) DelayBranchTo(addr); else SkipLikely(); break;//bltzl
+		case 19: R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) >= 0) DelayBranchTo(addr); else SkipLikely(); break;//bgezl
 		default:
 			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
 			break;
@@ -223,8 +229,8 @@ namespace MIPSInt
 		{
 		case 0: if (!val) DelayBranchTo(addr); else PC += 4; break; //bvf
 		case 1: if ( val) DelayBranchTo(addr); else PC += 4; break; //bvt
-		case 2: if (!val) DelayBranchTo(addr); else PC += 8; break; //bvfl
-		case 3: if ( val) DelayBranchTo(addr); else PC += 8; break; //bvtl
+		case 2: if (!val) DelayBranchTo(addr); else SkipLikely(); break; //bvfl
+		case 3: if ( val) DelayBranchTo(addr); else SkipLikely(); break; //bvtl
 		}
 	}
 
@@ -234,10 +240,10 @@ namespace MIPSInt
 		u32 addr = PC + imm + 4;
 		switch((op>>16)&0x1f)
 		{
-		case 0:	if (!currentMIPS->fpcond) DelayBranchTo(addr); else PC += 4; break;//bc1f
+		case 0: if (!currentMIPS->fpcond) DelayBranchTo(addr); else PC += 4; break;//bc1f
 		case 1: if ( currentMIPS->fpcond) DelayBranchTo(addr); else PC += 4; break;//bc1t
-		case 2: if (!currentMIPS->fpcond) DelayBranchTo(addr); else PC += 8; break;//bc1fl
-		case 3: if ( currentMIPS->fpcond) DelayBranchTo(addr); else PC += 8; break;//bc1tl
+		case 2: if (!currentMIPS->fpcond) DelayBranchTo(addr); else SkipLikely(); break;//bc1fl
+		case 3: if ( currentMIPS->fpcond) DelayBranchTo(addr); else SkipLikely(); break;//bc1tl
 		default:
 			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
 			break;
