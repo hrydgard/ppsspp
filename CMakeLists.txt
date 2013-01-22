@@ -112,7 +112,7 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -D_NDEBUG")
 
 if(NOT MSVC)
 	# Disable some warnings
-	add_definitions(-O2)
+	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2")
 	add_definitions(-Wno-multichar)
 	add_definitions(-fno-strict-aliasing)
 	add_definitions(-ffast-math)
