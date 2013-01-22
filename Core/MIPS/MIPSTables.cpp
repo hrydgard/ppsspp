@@ -947,6 +947,8 @@ int MIPSInterpret_RunUntil(u64 globalTicks)
 	MIPSState *curMips = currentMIPS;
 	while (coreState == CORE_RUNNING)
 	{
+		CoreTiming::Advance();
+
 		// NEVER stop in a delay slot!
 		while (curMips->downcount >= 0 && coreState == CORE_RUNNING)
 		{
@@ -1002,8 +1004,6 @@ int MIPSInterpret_RunUntil(u64 globalTicks)
 				return 1;
 			}
 		}
-
-		CoreTiming::Advance();
 	}
 
 	return 1;
@@ -1026,6 +1026,8 @@ int MIPSInterpret_RunFastUntil(u64 globalTicks)
 	MIPSState *curMips = currentMIPS;
 	while (coreState == CORE_RUNNING) 
 	{
+		CoreTiming::Advance();
+
 		while (curMips->downcount >= 0 && coreState == CORE_RUNNING)   // TODO: Try to get rid of the latter check
 		{
 			again:
@@ -1127,8 +1129,6 @@ int MIPSInterpret_RunFastUntil(u64 globalTicks)
 				goto again;
 			}
 		}
-
-		CoreTiming::Advance();
 	}
 	return 1;
 }
