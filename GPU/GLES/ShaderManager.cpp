@@ -15,6 +15,15 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#ifdef _WIN32
+#define SHADERLOG
+#endif
+
+#ifdef SHADERLOG
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
+
 #include <map>
 
 #include "math/lin/matrix4x4.h"
@@ -26,8 +35,8 @@
 
 Shader::Shader(const char *code, uint32_t shaderType) {
 	source_ = code;
-#ifdef _WIN32
-	// OutputDebugString(code);
+#ifdef SHADERLOG
+	OutputDebugString(code);
 #endif
 	shader = glCreateShader(shaderType);
 	glShaderSource(shader, 1, &code, 0);

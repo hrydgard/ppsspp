@@ -299,8 +299,8 @@ const GlTypeInfo GLComp[8] = {
 	{GL_FLOAT, 2, GL_FALSE}, // 	DEC_FLOAT_2,
 	{GL_FLOAT, 3, GL_FALSE}, // 	DEC_FLOAT_3,
 	{GL_FLOAT, 4, GL_FALSE}, // 	DEC_FLOAT_4,
-	{GL_BYTE, 3, GL_TRUE}, // 	DEC_S8_3,
-	{GL_SHORT, 3, GL_TRUE},// 	DEC_S16_3,
+	{GL_BYTE, 4, GL_TRUE}, // 	DEC_S8_3,
+	{GL_SHORT, 4, GL_TRUE},// 	DEC_S16_3,
 	{GL_UNSIGNED_BYTE, 4, GL_TRUE},// 	DEC_U8_4,
 };
 
@@ -489,6 +489,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 					c0[1] = ((gstate.materialambient >> 8) & 0xFF) / 255.f;
 					c0[2] = ((gstate.materialambient >> 16)& 0xFF) / 255.f;
 					c0[3] = (gstate.materialalpha & 0xFF) / 255.f;
+					memset(c1, 0, sizeof(c1));
 				}
 			}
 

@@ -52,9 +52,10 @@ void ComputeVertexShaderID(VertexShaderID *id, int prim)
 	bool hasNormal = (gstate.vertType & GE_VTYPE_NRM_MASK) != 0;
 	bool hasBones = (gstate.vertType & GE_VTYPE_WEIGHT_MASK) != 0;
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
+	bool lmode = (gstate.lmode & 1) && (gstate.lightingEnable & 1);
 
 	memset(id->d, 0, sizeof(id->d));
-	id->d[0] = gstate.lmode & 1;
+	id->d[0] = lmode & 1;
 	id->d[0] |= ((int)gstate.isModeThrough()) << 1;
 	id->d[0] |= ((int)enableFog) << 2;
 	id->d[0] |= doTexture << 3;
@@ -78,15 +79,19 @@ void ComputeVertexShaderID(VertexShaderID *id, int prim)
 		// Bones
 		id->d[0] |= (gstate.getNumBoneWeights() - 1) << 22;
 
-		// Light bits
-		for (int i = 0; i < 4; i++) {
-			id->d[1] |= (gstate.ltype[i] & 3) << (i * 4);
-			id->d[1] |= ((gstate.ltype[i] >> 8) & 3) << (i * 4 + 2);
-		}
-		id->d[1] |= (gstate.materialupdate & 7) << 16;
+		// Okay, d[1] coming up. ==============
+
 		id->d[1] |= (gstate.lightingEnable & 1) << 19;
-		for (int i = 0; i < 4; i++) {
-			id->d[1] |= (gstate.lightEnable[i] & 1) << (20 + i);
+		if (gstate.lightingEnable & 1) {
+			// Light bits
+			for (int i = 0; i < 4; i++) {
+				id->d[1] |= (gstate.ltype[i] & 3) << (i * 4);
+				id->d[1] |= ((gstate.ltype[i] >> 8) & 3) << (i * 4 + 2);
+			}
+			id->d[1] |= (gstate.materialupdate & 7) << 16;
+			for (int i = 0; i < 4; i++) {
+				id->d[1] |= (gstate.lightEnable[i] & 1) << (20 + i);
+			}
 		}
 	}
 }
@@ -127,7 +132,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 	WRITE(p, "#version 110\n");
 #endif
 
-	int lmode = gstate.lmode & 1;
+	int lmode = (gstate.lmode & 1) && (gstate.lightingEnable & 1);
 	int doTexture = (gstate.textureMapEnable & 1) && !(gstate.clearmode & 1);
 
 	bool hwXForm = CanUseHardwareTransform(prim);
