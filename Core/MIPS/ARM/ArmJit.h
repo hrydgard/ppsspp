@@ -107,7 +107,7 @@ private:
 	// Utility compilation functions
 	void BranchFPFlag(u32 op, ArmGen::CCFlags cc, bool likely);
 	void BranchVFPUFlag(u32 op, ArmGen::CCFlags cc, bool likely);
-	void BranchRSZeroComp(u32 op, ArmGen::CCFlags cc, bool likely);
+	void BranchRSZeroComp(u32 op, ArmGen::CCFlags cc, bool andLink, bool likely);
 	void BranchRSRTComp(u32 op, ArmGen::CCFlags cc, bool likely);
 
 	// Utilities to reduce duplicated code

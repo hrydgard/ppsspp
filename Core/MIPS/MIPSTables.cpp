@@ -345,10 +345,10 @@ const MIPSInstruction tableRegImm[32] =
 	INSTR("tnei",  &Jit::Comp_Generic, Dis_Generic, 0, 0),
 	{-2},
 
-	INSTR("bltzal",  &Jit::Comp_Generic, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_RS|OUT_RA|DELAYSLOT),  
-	INSTR("bgezal",  &Jit::Comp_Generic, Dis_RelBranch,	Int_RelBranchRI, IS_CONDBRANCH|IN_RS|OUT_RA|DELAYSLOT),
-	INSTR("bltzall", &Jit::Comp_Generic, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_RS|OUT_RA|DELAYSLOT|LIKELY), //L = likely
-	INSTR("bgezall", &Jit::Comp_Generic, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_RS|OUT_RA|DELAYSLOT|LIKELY),
+	INSTR("bltzal",  &Jit::Comp_RelBranchRI, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_RS|OUT_RA|DELAYSLOT),  
+	INSTR("bgezal",  &Jit::Comp_RelBranchRI, Dis_RelBranch,	Int_RelBranchRI, IS_CONDBRANCH|IN_RS|OUT_RA|DELAYSLOT),
+	INSTR("bltzall", &Jit::Comp_RelBranchRI, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_RS|OUT_RA|DELAYSLOT|LIKELY), //L = likely
+	INSTR("bgezall", &Jit::Comp_RelBranchRI, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_RS|OUT_RA|DELAYSLOT|LIKELY),
 	{-2},
 	{-2},
 	{-2},
