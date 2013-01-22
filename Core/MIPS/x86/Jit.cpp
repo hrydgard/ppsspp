@@ -110,6 +110,12 @@ void Jit::FlushAll()
 	fpr.Flush(FLUSH_ALL);
 }
 
+void Jit::WriteDowncount(int offset)
+{
+	const int downcount = js.downcountAmount + offset;
+	SUB(32, M(&currentMIPS->downcount), downcount > 127 ? Imm32(downcount) : Imm8(downcount));
+}
+
 void Jit::ClearCache()
 {
 	blocks.Clear();
@@ -127,13 +133,16 @@ void Jit::CompileDelaySlot(bool saveFlags)
 	const u32 addr = js.compilerPC + 4;
 
 	// TODO: If we ever support conditional breakpoints, we need to handle the flags more carefully.
-	CheckJitBreakpoint(addr);
+	// Need to offset the downcount which was already incremented for the branch + delay slot.
+	CheckJitBreakpoint(addr, -2);
 
 	if (saveFlags)
 		SAVE_FLAGS; // preserve flag around the delay slot!
 
+	js.inDelaySlot = true;
 	u32 op = Memory::Read_Instruction(addr);
 	MIPSCompileOp(op);
+	js.inDelaySlot = false;
 
 	FlushAll();
 	if (saveFlags)
@@ -142,7 +151,7 @@ void Jit::CompileDelaySlot(bool saveFlags)
 
 void Jit::CompileAt(u32 addr)
 {
-	CheckJitBreakpoint(addr);
+	CheckJitBreakpoint(addr, 0);
 	u32 op = Memory::Read_Instruction(addr);
 	MIPSCompileOp(op);
 }
@@ -194,11 +203,11 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	int numInstructions = 0;
 	while (js.compiling)
 	{
+		// Jit breakpoints are quite fast, so let's do them in release too.
+		CheckJitBreakpoint(js.compilerPC, 0);
+
 		u32 inst = Memory::Read_Instruction(js.compilerPC);
 		js.downcountAmount += MIPSGetInstructionCycleEstimate(inst);
-
-		// Jit breakpoints are quite fast, so let's do them in release too.
-		CheckJitBreakpoint(js.compilerPC);
 
 		MIPSCompileOp(inst);
 
@@ -237,7 +246,7 @@ void Jit::Comp_Generic(u32 op)
 
 void Jit::WriteExit(u32 destination, int exit_num)
 {
-	SUB(32, M(&currentMIPS->downcount), js.downcountAmount > 127 ? Imm32(js.downcountAmount) : Imm8(js.downcountAmount));
+	WriteDowncount();
 
 	//If nobody has taken care of this yet (this can be removed when all branches are done)
 	JitBlock *b = js.curBlock;
@@ -259,26 +268,28 @@ void Jit::WriteExit(u32 destination, int exit_num)
 
 void Jit::WriteExitDestInEAX()
 {
-	// TODO: Some wasted potential, dispatcher will alwa
+	// TODO: Some wasted potential, dispatcher will always read this back into EAX.
 	MOV(32, M(&mips_->pc), R(EAX));
-	SUB(32, M(&currentMIPS->downcount), js.downcountAmount > 127 ? Imm32(js.downcountAmount) : Imm8(js.downcountAmount));
+	WriteDowncount();
 	JMP(asm_.dispatcher, true);
 }
 
 void Jit::WriteSyscallExit()
 {
-	SUB(32, M(&currentMIPS->downcount), js.downcountAmount > 127 ? Imm32(js.downcountAmount) : Imm8(js.downcountAmount));
+	WriteDowncount();
 	JMP(asm_.dispatcherCheckCoreState, true);
 }
 
-bool Jit::CheckJitBreakpoint(u32 addr)
+bool Jit::CheckJitBreakpoint(u32 addr, int downcountOffset)
 {
 	if (CBreakPoints::IsAddressBreakPoint(addr))
 	{
 		FlushAll();
 		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
 		CALL((void *)&JitBreakpoint);
-		WriteSyscallExit();
+
+		WriteDowncount(downcountOffset);
+		JMP(asm_.dispatcherCheckCoreState, true);
 
 		return true;
 	}

@@ -154,7 +154,6 @@ void Jit::BranchRSRTComp(u32 op, Gen::CCFlags cc, bool likely)
 	}
 	FlushAll();
 
-	js.inDelaySlot = true;
 	Gen::FixupBranch ptr;
 	if (!likely)
 	{
@@ -166,7 +165,6 @@ void Jit::BranchRSRTComp(u32 op, Gen::CCFlags cc, bool likely)
 		ptr = J_CC(cc, true);
 		CompileDelaySlot(false);
 	}
-	js.inDelaySlot = false;
 
 	// Take the branch
 	CONDITIONAL_LOG_EXIT(targetAddr);
@@ -205,7 +203,6 @@ void Jit::BranchRSZeroComp(u32 op, Gen::CCFlags cc, bool likely)
 	FlushAll();
 
 	Gen::FixupBranch ptr;
-	js.inDelaySlot = true;
 	if (!likely)
 	{
 		CompileDelaySlot(!delaySlotIsNice);
@@ -216,7 +213,6 @@ void Jit::BranchRSZeroComp(u32 op, Gen::CCFlags cc, bool likely)
 		ptr = J_CC(cc, true);
 		CompileDelaySlot(false);
 	}
-	js.inDelaySlot = false;
 
 	// Take the branch
 	CONDITIONAL_LOG_EXIT(targetAddr);
@@ -295,7 +291,6 @@ void Jit::BranchFPFlag(u32 op, Gen::CCFlags cc, bool likely)
 
 	TEST(32, M((void *)&(mips_->fpcond)), Imm32(1));
 	Gen::FixupBranch ptr;
-	js.inDelaySlot = true;
 	if (!likely)
 	{
 		CompileDelaySlot(!delaySlotIsNice);
@@ -306,7 +301,6 @@ void Jit::BranchFPFlag(u32 op, Gen::CCFlags cc, bool likely)
 		ptr = J_CC(cc, true);
 		CompileDelaySlot(false);
 	}
-	js.inDelaySlot = false;
 
 	// Take the branch
 	CONDITIONAL_LOG_EXIT(targetAddr);
@@ -365,7 +359,6 @@ void Jit::BranchVFPUFlag(u32 op, Gen::CCFlags cc, bool likely)
 	//int val = (mips_->vfpuCtrl[VFPU_CTRL_CC] >> imm3) & 1;
 	TEST(32, M((void *)&(mips_->vfpuCtrl[VFPU_CTRL_CC])), Imm32(1 << imm3));
 	Gen::FixupBranch ptr;
-	js.inDelaySlot = true;
 	if (!likely)
 	{
 		CompileDelaySlot(!delaySlotIsNice);
@@ -376,7 +369,6 @@ void Jit::BranchVFPUFlag(u32 op, Gen::CCFlags cc, bool likely)
 		ptr = J_CC(cc, true);
 		CompileDelaySlot(false);
 	}
-	js.inDelaySlot = false;
 
 	// Take the branch
 	CONDITIONAL_LOG_EXIT(targetAddr);
@@ -455,7 +447,8 @@ void Jit::Comp_JumpReg(u32 op)
 
 	if (delaySlotIsNice)
 	{
-		CompileAt(js.compilerPC + 4);
+		// TODO: This flushes which is a waste, could add an extra param to skip.
+		CompileDelaySlot(false);
 		MOV(32, R(EAX), gpr.R(rs));
 		FlushAll();
 	}
@@ -496,6 +489,11 @@ void Jit::Comp_JumpReg(u32 op)
 void Jit::Comp_Syscall(u32 op)
 {
 	FlushAll();
+
+	// If we're in a delay slot, this is off by one.
+	const int offset = js.inDelaySlot ? -1 : 0;
+	WriteDowncount(offset);
+	js.downcountAmount = -offset;
 
 	ABI_CallFunctionC((void *)&CallSyscall, op);
 
