@@ -1900,7 +1900,7 @@ int sceKernelWaitThreadEnd(SceUID threadID, u32 timeoutPtr)
 
 int sceKernelWaitThreadEndCB(SceUID threadID, u32 timeoutPtr)
 {
-	DEBUG_LOG(HLE, "sceKernelWaitThreadEndCB(%i)", threadID, timeoutPtr);
+	DEBUG_LOG(HLE, "sceKernelWaitThreadEndCB(%i, 0x%X)", threadID, timeoutPtr);
 	if (threadID == 0 || threadID == currentThread)
 		return SCE_KERNEL_ERROR_ILLEGAL_THID;
 
