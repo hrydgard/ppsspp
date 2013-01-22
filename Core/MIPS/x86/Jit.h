@@ -114,7 +114,7 @@ private:
 	// Utility compilation functions
 	void BranchFPFlag(u32 op, Gen::CCFlags cc, bool likely);
 	void BranchVFPUFlag(u32 op, Gen::CCFlags cc, bool likely);
-	void BranchRSZeroComp(u32 op, Gen::CCFlags cc, bool likely);
+	void BranchRSZeroComp(u32 op, Gen::CCFlags cc, bool andLink, bool likely);
 	void BranchRSRTComp(u32 op, Gen::CCFlags cc, bool likely);
 	void BranchLog(u32 op);
 	void BranchLogExit(u32 op, u32 dest, bool useEAX);
