@@ -550,9 +550,19 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 			break;
 	}
 #else
-	DIR *dp;
 	dirent *dirp;
-	if((dp  = opendir(GetLocalPath(path).c_str())) == NULL) {
+	std::string localPath = GetLocalPath(path);
+	DIR *dp = opendir(localPath.c_str());
+
+#if HOST_IS_CASE_SENSITIVE
+	if(dp == NULL && FixPathCase(path, FPC_FILE_MUST_EXIST)) {
+		// May have failed due to case sensitivity, try again
+		localPath = GetLocalPath(path);
+		dp = opendir(localPath.c_str());
+	}
+#endif
+
+	if (dp == NULL) {
 		ERROR_LOG(HLE,"Error opening directory %s\n",path.c_str());
 		return myVector;
 	}
