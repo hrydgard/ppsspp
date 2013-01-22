@@ -59,6 +59,11 @@ static uint32 UNALIGNED_LOAD32(const char *p) {
 #define bswap_32(x) OSSwapInt32(x)
 #define bswap_64(x) OSSwapInt64(x)
 
+#elif defined(__SYMBIAN32__) || defined(BLACKBERRY)
+//TODO: I'm not really sure if this is the fasters or the safest way to do this. However both platforms should have qendian which should map swap-functions
+#include <qendian.h>
+#define bswap_32(x) qbswap((qint32)x)
+#define bswap_64(x) qbswap((qint64)x)
 #else
 
 #include <byteswap.h>
