@@ -37,7 +37,7 @@ static bool FixFilenameCase(const std::string &path, std::string &filename)
 	if (File::Exists(path + filename))
 		return true;
 
-	size_t filenameSize = filename.size();
+	size_t filenameSize = filename.size();  // size in bytes, not characters
 	for (size_t i = 0; i < filenameSize; i++)
 	{
 		filename[i] = tolower(filename[i]);
@@ -57,7 +57,6 @@ static bool FixFilenameCase(const std::string &path, std::string &filename)
 
 	while (!readdir_r(dirp, (dirent*) &diren, &result) && result)
 	{
-		// Hm, is this check UTF-8 compatible? (size vs strlen)
 		if (strlen(result->d_name) != filenameSize)
 			continue;
 
