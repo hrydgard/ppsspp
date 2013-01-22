@@ -15,6 +15,7 @@
 #include "../../Core/Core.h"
 #include "../../Core/CPU.h"
 #include "../../Core/HLE/HLE.h"
+#include "../../Core/CoreTiming.h"
 
 #include "base/stringutil.h"
 
@@ -183,7 +184,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					Sleep(1);
 					_dbg_update_();
 					ptr->gotoPC();
-					reglist->redraw();
+					UpdateDialog();
 					vfpudlg->Update();
 				}
 				break;
@@ -197,7 +198,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					MainWindow::UpdateMenus();
 					Sleep(1);
 					ptr->gotoPC();
-					reglist->redraw();
+					UpdateDialog();
 				}
 				break;
 				
@@ -217,10 +218,9 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					Core_EnableStepping(true);
 					_dbg_update_();
 					MainWindow::UpdateMenus();
-					UpdateDialog();
 					Sleep(1); //let cpu catch up
 					ptr->gotoPC();
-					reglist->redraw();
+					UpdateDialog();
 					vfpudlg->Update();
 				}
 				break;
@@ -359,6 +359,7 @@ void CDisasm::SetDebugMode(bool _bDebug)
 		ptr->gotoPC();
 		// update the callstack
 		//CDisam::blah blah
+		UpdateDialog();
 	}
 	else
 	{
@@ -368,9 +369,9 @@ void CDisasm::SetDebugMode(bool _bDebug)
 		EnableWindow( GetDlgItem(hDlg, IDC_STEPHLE), FALSE);
 		EnableWindow( GetDlgItem(hDlg, IDC_STOP), TRUE);
 		EnableWindow( GetDlgItem(hDlg, IDC_SKIP), FALSE);		
+		CtrlRegisterList *reglist = CtrlRegisterList::getFrom(GetDlgItem(m_hDlg,IDC_REGLIST));
+		reglist->redraw();
 	}
-	CtrlRegisterList *reglist = CtrlRegisterList::getFrom(GetDlgItem(m_hDlg,IDC_REGLIST));
-	reglist->redraw();
 }
 
 void CDisasm::NotifyMapLoaded()
@@ -408,11 +409,10 @@ void CDisasm::UpdateDialog(bool _bComplete)
 	CtrlRegisterList *rl = CtrlRegisterList::getFrom(GetDlgItem(m_hDlg,IDC_REGLIST));
 	rl->redraw();						
 	// Update Debug Counter
-	/*
-	char szBuffer[32];
-	sprintf(szBuffer, "%04X%08X", PowerPC::ppcState.TU,PowerPC::ppcState.TL);
-	SetDlgItemText(m_hDlg, IDC_DEBUG_COUNT, szBuffer);
-*/
+	char tempTicks[24];
+	sprintf(tempTicks, "%lld", CoreTiming::GetTicks());
+	SetDlgItemText(m_hDlg, IDC_DEBUG_COUNT, tempTicks);
+
 	// Update Register Dialog
 	for (int i=0; i<numCPUs; i++)
 		if (memoryWindow[i])
