@@ -133,8 +133,10 @@ void Jit::CompileDelaySlot(bool saveFlags)
 	if (saveFlags)
 		SAVE_FLAGS; // preserve flag around the delay slot!
 
+	js.inDelaySlot = true;
 	u32 op = Memory::Read_Instruction(addr);
 	MIPSCompileOp(op);
+	js.inDelaySlot = false;
 
 	FlushAll();
 	if (saveFlags)
