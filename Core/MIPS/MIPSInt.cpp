@@ -135,7 +135,22 @@ namespace MIPSInt
 {
 	void Int_Cache(u32 op)
 	{
-		// DEBUG_LOG(CPU,"cache instruction %08x",op);
+		int imm = (s16)(op & 0xFFFF);
+		int rs = _RS;
+		int addr = R(rs) + imm;
+		int func = (op >> 16) & 0x1F;
+
+		// It appears that a cache line is 0x40 (64) bytes.
+		switch (func) {
+		case 25:  // Hit Invalidate - zaps the line if present in cache. Should not writeback???? scary.
+			// No need to do anything.
+			break;
+		case 27:  // D-cube. Hit Writeback Invalidate.
+			break;
+		default:
+			DEBUG_LOG(CPU,"cache instruction affecting %08x : function %i", addr, func);
+		}
+
 		PC += 4;
 	}
 
