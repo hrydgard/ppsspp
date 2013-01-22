@@ -232,6 +232,8 @@ void Jit::Comp_Generic(u32 op)
 {
 	FlushAll();
 	MIPSInterpretFunc func = MIPSGetInterpretFunc(op);
+	_dbg_assert_msg_(JIT, (MIPSGetInfo(op) & DELAYSLOT) == 0, "Cannot use interpreter for branch ops.");
+
 	if (func)
 	{
 		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
