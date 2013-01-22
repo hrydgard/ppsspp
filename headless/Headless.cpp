@@ -159,7 +159,7 @@ int main(int argc, const char* argv[])
 
 #if defined(ANDROID)
 #elif defined(BLACKBERRY) || defined(__SYMBIAN32__)
-#else
+#elif !defined(_WIN32)
 	g_Config.memCardDirectory = std::string(getenv("HOME"))+"/.ppsspp/";
 	g_Config.flashDirectory = g_Config.memCardDirectory+"/flash/";
 #endif
