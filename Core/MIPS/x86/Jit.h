@@ -108,7 +108,7 @@ private:
 	void WriteExitDestInEAX();
 //	void WriteRfiExitDestInEAX();
 	void WriteSyscallExit();
-	bool CheckJitBreakpoint(u32 addr);
+	bool CheckJitBreakpoint(u32 addr, int downcountOffset);
 
 	// Utility compilation functions
 	void BranchFPFlag(u32 op, Gen::CCFlags cc, bool likely);

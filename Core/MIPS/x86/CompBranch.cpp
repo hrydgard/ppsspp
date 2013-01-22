@@ -455,7 +455,8 @@ void Jit::Comp_JumpReg(u32 op)
 
 	if (delaySlotIsNice)
 	{
-		CompileAt(js.compilerPC + 4);
+		// TODO: This flushes which is a waste, could add an extra param to skip.
+		CompileDelaySlot(false);
 		MOV(32, R(EAX), gpr.R(rs));
 		FlushAll();
 	}

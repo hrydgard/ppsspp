@@ -127,7 +127,8 @@ void Jit::CompileDelaySlot(bool saveFlags)
 	const u32 addr = js.compilerPC + 4;
 
 	// TODO: If we ever support conditional breakpoints, we need to handle the flags more carefully.
-	CheckJitBreakpoint(addr);
+	// Need to offset the downcount which was already incremented for the branch + delay slot.
+	CheckJitBreakpoint(addr, -2);
 
 	if (saveFlags)
 		SAVE_FLAGS; // preserve flag around the delay slot!
@@ -142,7 +143,7 @@ void Jit::CompileDelaySlot(bool saveFlags)
 
 void Jit::CompileAt(u32 addr)
 {
-	CheckJitBreakpoint(addr);
+	CheckJitBreakpoint(addr, 0);
 	u32 op = Memory::Read_Instruction(addr);
 	MIPSCompileOp(op);
 }
@@ -194,11 +195,11 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	int numInstructions = 0;
 	while (js.compiling)
 	{
+		// Jit breakpoints are quite fast, so let's do them in release too.
+		CheckJitBreakpoint(js.compilerPC, 0);
+
 		u32 inst = Memory::Read_Instruction(js.compilerPC);
 		js.downcountAmount += MIPSGetInstructionCycleEstimate(inst);
-
-		// Jit breakpoints are quite fast, so let's do them in release too.
-		CheckJitBreakpoint(js.compilerPC);
 
 		MIPSCompileOp(inst);
 
@@ -271,14 +272,17 @@ void Jit::WriteSyscallExit()
 	JMP(asm_.dispatcherCheckCoreState, true);
 }
 
-bool Jit::CheckJitBreakpoint(u32 addr)
+bool Jit::CheckJitBreakpoint(u32 addr, int downcountOffset)
 {
 	if (CBreakPoints::IsAddressBreakPoint(addr))
 	{
 		FlushAll();
 		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
 		CALL((void *)&JitBreakpoint);
-		WriteSyscallExit();
+
+		const int downcountEstimate = js.downcountAmount + downcountOffset;
+		SUB(32, M(&currentMIPS->downcount), downcountEstimate > 127 ? Imm32(downcountEstimate) : Imm8(downcountEstimate));
+		JMP(asm_.dispatcherCheckCoreState, true);
 
 		return true;
 	}
