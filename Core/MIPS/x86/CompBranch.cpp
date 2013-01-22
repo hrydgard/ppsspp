@@ -178,7 +178,7 @@ void Jit::BranchRSRTComp(u32 op, Gen::CCFlags cc, bool likely)
 	js.compiling = false;
 }
 
-void Jit::BranchRSZeroComp(u32 op, Gen::CCFlags cc, bool likely)
+void Jit::BranchRSZeroComp(u32 op, Gen::CCFlags cc, bool andLink, bool likely)
 {
 	CONDITIONAL_LOG;
 	if (js.inDelaySlot) {
@@ -215,6 +215,8 @@ void Jit::BranchRSZeroComp(u32 op, Gen::CCFlags cc, bool likely)
 	}
 
 	// Take the branch
+	if (andLink)
+		MOV(32, M(&mips_->r[MIPS_REG_RA]), Imm32(js.compilerPC + 8));
 	CONDITIONAL_LOG_EXIT(targetAddr);
 	WriteExit(targetAddr, 0);
 
@@ -232,16 +234,16 @@ void Jit::Comp_RelBranch(u32 op)
 	switch (op>>26) 
 	{
 	case 4: BranchRSRTComp(op, CC_NZ, false); break;//beq
-	case 5: BranchRSRTComp(op, CC_Z,	false); break;//bne
+	case 5: BranchRSRTComp(op, CC_Z,  false); break;//bne
 
-	case 6: BranchRSZeroComp(op, CC_G, false); break;//blez
-	case 7: BranchRSZeroComp(op, CC_LE, false); break;//bgtz
+	case 6: BranchRSZeroComp(op, CC_G, false, false); break;//blez
+	case 7: BranchRSZeroComp(op, CC_LE, false, false); break;//bgtz
 
 	case 20: BranchRSRTComp(op, CC_NZ, true); break;//beql
-	case 21: BranchRSRTComp(op, CC_Z,	true); break;//bnel
+	case 21: BranchRSRTComp(op, CC_Z,  true); break;//bnel
 
-	case 22: BranchRSZeroComp(op, CC_G, true); break;//blezl
-	case 23: BranchRSZeroComp(op, CC_LE, true); break;//bgtzl
+	case 22: BranchRSZeroComp(op, CC_G, false, true); break;//blezl
+	case 23: BranchRSZeroComp(op, CC_LE, false, true); break;//bgtzl
 
 	default:
 		_dbg_assert_msg_(CPU,0,"Trying to compile instruction that can't be compiled");
@@ -254,10 +256,14 @@ void Jit::Comp_RelBranchRI(u32 op)
 {
 	switch ((op >> 16) & 0x1F)
 	{
-	case 0: BranchRSZeroComp(op, CC_GE, false); break; //if ((s32)R(rs) <	0) DelayBranchTo(addr); else PC += 4; break;//bltz
-	case 1: BranchRSZeroComp(op, CC_L, false);	break; //if ((s32)R(rs) >= 0) DelayBranchTo(addr); else PC += 4; break;//bgez
-	case 2: BranchRSZeroComp(op, CC_GE, true);	break; //if ((s32)R(rs) <	0) DelayBranchTo(addr); else PC += 8; break;//bltzl
-	case 3: BranchRSZeroComp(op, CC_L, true);	 break; //if ((s32)R(rs) >= 0) DelayBranchTo(addr); else PC += 8; break;//bgezl
+	case 0: BranchRSZeroComp(op, CC_GE, false, false); break; //if ((s32)R(rs) <  0) DelayBranchTo(addr); else PC += 4; break;//bltz
+	case 1: BranchRSZeroComp(op, CC_L, false, false);  break; //if ((s32)R(rs) >= 0) DelayBranchTo(addr); else PC += 4; break;//bgez
+	case 2: BranchRSZeroComp(op, CC_GE, false, true);  break; //if ((s32)R(rs) <  0) DelayBranchTo(addr); else PC += 8; break;//bltzl
+	case 3: BranchRSZeroComp(op, CC_L, false, true);   break; //if ((s32)R(rs) >= 0) DelayBranchTo(addr); else PC += 8; break;//bgezl
+	case 16: BranchRSZeroComp(op, CC_GE, true, false); break; //R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) <  0) DelayBranchTo(addr); else PC += 4; break;//bltzal
+	case 17: BranchRSZeroComp(op, CC_L, true, false);  break; //R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) >= 0) DelayBranchTo(addr); else PC += 4; break;//bgezal
+	case 18: BranchRSZeroComp(op, CC_GE, true, true);  break; //R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) <  0) DelayBranchTo(addr); else SkipLikely(); break;//bltzall
+	case 19: BranchRSZeroComp(op, CC_L, true, true);   break; //R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) >= 0) DelayBranchTo(addr); else SkipLikely(); break;//bgezall
 	default:
 		_dbg_assert_msg_(CPU,0,"Trying to compile instruction that can't be compiled");
 		break;

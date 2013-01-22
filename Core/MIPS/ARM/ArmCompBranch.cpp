@@ -116,7 +116,7 @@ void Jit::BranchRSRTComp(u32 op, ArmGen::CCFlags cc, bool likely)
 }
 
 
-void Jit::BranchRSZeroComp(u32 op, ArmGen::CCFlags cc, bool likely)
+void Jit::BranchRSZeroComp(u32 op, ArmGen::CCFlags cc, bool andLink, bool likely)
 {
 	if (js.inDelaySlot) {
 		ERROR_LOG(JIT, "Branch in delay slot at %08x", js.compilerPC);
@@ -158,13 +158,19 @@ void Jit::BranchRSZeroComp(u32 op, ArmGen::CCFlags cc, bool likely)
   }
   js.inDelaySlot = false;
 
-  // Take the branch
-  WriteExit(targetAddr, 0);
+	// Take the branch
+	if (andLink)
+	{
+		ADD(R1, R10, MIPS_REG_RA * 4);  // compute address of RA in ram
+		ARMABI_MOVI2R(R0, js.compilerPC + 8);
+		STR(R1, R0);
+	}
+	WriteExit(targetAddr, 0);
 
-  SetJumpTarget(ptr);
-  // Not taken
-  WriteExit(js.compilerPC + 8, 1);
-  js.compiling = false;
+	SetJumpTarget(ptr);
+	// Not taken
+	WriteExit(js.compilerPC + 8, 1);
+	js.compiling = false;
 }
 
 
@@ -176,14 +182,14 @@ void Jit::Comp_RelBranch(u32 op)
 	case 4: BranchRSRTComp(op, CC_NEQ, false); break;//beq
 	case 5: BranchRSRTComp(op, CC_EQ,  false); break;//bne
 
-	case 6: BranchRSZeroComp(op, CC_GT, false); break;//blez
-	case 7: BranchRSZeroComp(op, CC_LE, false); break;//bgtz
+	case 6: BranchRSZeroComp(op, CC_GT, false, false); break;//blez
+	case 7: BranchRSZeroComp(op, CC_LE, false, false); break;//bgtz
 
 	case 20: BranchRSRTComp(op, CC_NEQ, true); break;//beql
 	case 21: BranchRSRTComp(op, CC_EQ,  true); break;//bnel
 
-	case 22: BranchRSZeroComp(op, CC_GT, true); break;//blezl
-	case 23: BranchRSZeroComp(op, CC_LE, true); break;//bgtzl
+	case 22: BranchRSZeroComp(op, CC_GT, false, true); break;//blezl
+	case 23: BranchRSZeroComp(op, CC_LE, false, true); break;//bgtzl
 
 	default:
 		_dbg_assert_msg_(CPU,0,"Trying to compile instruction that can't be compiled");
@@ -196,10 +202,14 @@ void Jit::Comp_RelBranchRI(u32 op)
 {
 	switch ((op >> 16) & 0x1F)
 	{
-	case 0: BranchRSZeroComp(op, CC_GE, false); break; //if ((s32)R(rs) <  0) DelayBranchTo(addr); else PC += 4; break;//bltz
-	case 1: BranchRSZeroComp(op, CC_LT, false); break; //if ((s32)R(rs) >= 0) DelayBranchTo(addr); else PC += 4; break;//bgez
-	case 2: BranchRSZeroComp(op, CC_GE, true);  break; //if ((s32)R(rs) <  0) DelayBranchTo(addr); else PC += 8; break;//bltzl
-	case 3: BranchRSZeroComp(op, CC_LT, true);  break; //if ((s32)R(rs) >= 0) DelayBranchTo(addr); else PC += 8; break;//bgezl
+	case 0: BranchRSZeroComp(op, CC_GE, false, false); break; //if ((s32)R(rs) <  0) DelayBranchTo(addr); else PC += 4; break;//bltz
+	case 1: BranchRSZeroComp(op, CC_LT, false, false); break; //if ((s32)R(rs) >= 0) DelayBranchTo(addr); else PC += 4; break;//bgez
+	case 2: BranchRSZeroComp(op, CC_GE, false, true);  break; //if ((s32)R(rs) <  0) DelayBranchTo(addr); else PC += 8; break;//bltzl
+	case 3: BranchRSZeroComp(op, CC_LT, false, true);  break; //if ((s32)R(rs) >= 0) DelayBranchTo(addr); else PC += 8; break;//bgezl
+	case 16: BranchRSZeroComp(op, CC_GE, true, false); break; //R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) <  0) DelayBranchTo(addr); else PC += 4; break;//bltzal
+	case 17: BranchRSZeroComp(op, CC_L, true, false);  break; //R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) >= 0) DelayBranchTo(addr); else PC += 4; break;//bgezal
+	case 18: BranchRSZeroComp(op, CC_GE, true, true);  break; //R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) <	0) DelayBranchTo(addr); else SkipLikely(); break;//bltzall
+	case 19: BranchRSZeroComp(op, CC_L, true, true);   break; //R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) >= 0) DelayBranchTo(addr); else SkipLikely(); break;//bgezall
 	default:
 		_dbg_assert_msg_(CPU,0,"Trying to compile instruction that can't be compiled");
 		break;
@@ -360,7 +370,7 @@ void Jit::Comp_Jump(u32 op)
 		ADD(R1, R10, MIPS_REG_RA * 4);  // compute address of RA in ram
 		ARMABI_MOVI2R(R0, js.compilerPC + 8);
 		STR(R1, R0);
-    WriteExit(targetAddr, 0);
+		WriteExit(targetAddr, 0);
 		break;
 
 	default:
