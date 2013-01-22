@@ -82,7 +82,7 @@ void ComputeVertexShaderID(VertexShaderID *id, int prim)
 		// Okay, d[1] coming up. ==============
 
 		id->d[1] |= (gstate.lightingEnable & 1) << 19;
-		if (gstate.lightingEnable & 1) {
+		if ((gstate.lightingEnable & 1) || gstate.getUVGenMode() == 2) {
 			// Light bits
 			for (int i = 0; i < 4; i++) {
 				id->d[1] |= (gstate.ltype[i] & 3) << (i * 4);

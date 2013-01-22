@@ -50,11 +50,11 @@ void PrintDecodedVertex(VertexReader &vtx) {
 	printf("P: %f %f %f\n", pos[0], pos[1], pos[2]);
 }
 
-const int tcsize[4] = {0,2,4,8}, tcalign[4] = {0,1,2,4};
-const int colsize[8] = {0,0,0,0,2,2,2,4}, colalign[8] = {0,0,0,0,2,2,2,4};
-const int nrmsize[4] = {0,3,6,12}, nrmalign[4] = {0,1,2,4};
-const int possize[4] = {0,3,6,12}, posalign[4] = {0,1,2,4};
-const int wtsize[4] = {0,1,2,4}, wtalign[4] = {0,1,2,4};
+const u8 tcsize[4] = {0,2,4,8}, tcalign[4] = {0,1,2,4};
+const u8 colsize[8] = {0,0,0,0,2,2,2,4}, colalign[8] = {0,0,0,0,2,2,2,4};
+const u8 nrmsize[4] = {0,3,6,12}, nrmalign[4] = {0,1,2,4};
+const u8 possize[4] = {0,3,6,12}, posalign[4] = {0,1,2,4};
+const u8 wtsize[4] = {0,1,2,4}, wtalign[4] = {0,1,2,4};
 
 inline int align(int n, int align) {
 	return (n + (align - 1)) & ~(align - 1);
@@ -283,6 +283,7 @@ void VertexDecoder::Step_NormalS8() const
 	const s8 *sv = (const s8*)(ptr_ + nrmoff);
 	for (int j = 0; j < 3; j++)
 		normal[j] = sv[j] ^ xorval;
+	normal[3] = 0;
 }
 
 void VertexDecoder::Step_NormalS16() const
@@ -294,6 +295,7 @@ void VertexDecoder::Step_NormalS16() const
 	const s16 *sv = (const s16*)(ptr_ + nrmoff);
 	for (int j = 0; j < 3; j++)
 		normal[j] = sv[j] ^ xorval	;
+	normal[3] = 0;
 }
 
 void VertexDecoder::Step_NormalFloat() const
@@ -361,6 +363,7 @@ void VertexDecoder::Step_PosS8() const
 	const s8 *sv = (const s8*)(ptr_ + posoff);
 	for (int j = 0; j < 3; j++)
 		v[j] = sv[j];
+	v[3] = 0;
 }
 
 void VertexDecoder::Step_PosS16() const
@@ -369,6 +372,7 @@ void VertexDecoder::Step_PosS16() const
 	const s16 *sv = (const s16*)(ptr_ + posoff);
 	for (int j = 0; j < 3; j++)
 		v[j] = sv[j];
+	v[3] = 0;
 }
 
 void VertexDecoder::Step_PosFloat() const
@@ -386,6 +390,7 @@ void VertexDecoder::Step_PosS8Through() const
 	v[0] = sv[0];
 	v[1] = sv[1];
 	v[2] = sv[2];
+	v[3] = 0;
 }
 
 void VertexDecoder::Step_PosS16Through() const
@@ -395,6 +400,7 @@ void VertexDecoder::Step_PosS16Through() const
 	v[0] = sv[0];
 	v[1] = sv[1];
 	v[2] = sv[2];
+	v[3] = 0;
 }
 
 void VertexDecoder::Step_PosFloatThrough() const

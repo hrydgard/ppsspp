@@ -34,6 +34,8 @@
 
 #define WRITE p+=sprintf
 
+// #define DEBUG_SHADER
+
 // GL_NV_shader_framebuffer_fetch looks interesting....
 
 // Here we must take all the bits of the gstate that determine what the fragment shader will
@@ -72,6 +74,8 @@ void ComputeFragmentShaderID(FragmentShaderID *id)
 void GenerateFragmentShader(char *buffer)
 {
 	char *p = buffer;
+
+
 #if defined(GLSL_ES_1_0)
 	WRITE(p, "precision mediump float;\n");
 #elif !defined(FORCE_OPENGL_2_0)
@@ -186,8 +190,16 @@ void GenerateFragmentShader(char *buffer)
 			WRITE(p, "  v = mix(vec4(u_fogcolor, v.a), v, fogCoef);\n");
 			// WRITE(p, "  v.x = v_depth;\n");
 		}
+
 	}
 
+#ifdef DEBUG_SHADER
+	if (doTexture) {
+		WRITE(p, "  v = texture2D(tex, v_texcoord);\n");
+	} else {
+		WRITE(p, "  v = vec4(1,0,1,1);\n");
+	}
+#endif
 	WRITE(p, "  gl_FragColor = v;\n");
 	WRITE(p, "}\n");
 }
