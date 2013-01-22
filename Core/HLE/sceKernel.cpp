@@ -246,11 +246,17 @@ u32 sceKernelGetGPI()
 	return 0;
 }
 
-// Don't even log these, they're spammy and we probably won't
-// need to emulate them. Might be useful for invalidating cached
-// textures, and in the future display lists, in some cases though.
+// #define LOG_CACHE
+
+// Don't even log these by default, they're spammy and we probably won't
+// need to emulate them. Useful for invalidating cached textures though,
+// and in the future display lists (although hashing takes care of those
+// for now).
 int sceKernelDcacheInvalidateRange(u32 addr, int size)
 {
+#ifdef LOG_CACHE
+	NOTICE_LOG(HLE,"sceKernelDcacheInvalidateRange(%08x, %i)", addr, size);
+#endif
 	if (size < 0 || (int) addr + size < 0)
 		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
 
@@ -266,6 +272,9 @@ int sceKernelDcacheInvalidateRange(u32 addr, int size)
 }
 int sceKernelDcacheWritebackAll()
 {
+#ifdef LOG_CACHE
+	NOTICE_LOG(HLE,"sceKernelDcacheWritebackAll()");
+#endif
 	// Some games seem to use this a lot, it doesn't make sense
 	// to zap the whole texture cache.
 	gpu->InvalidateCacheHint(0, -1);
@@ -273,6 +282,9 @@ int sceKernelDcacheWritebackAll()
 }
 int sceKernelDcacheWritebackRange(u32 addr, int size)
 {
+#ifdef LOG_CACHE
+	NOTICE_LOG(HLE,"sceKernelDcacheWritebackRange(%08x, %i)", addr, size);
+#endif
 	if (size < 0)
 		return SCE_KERNEL_ERROR_INVALID_SIZE;
 
@@ -283,6 +295,9 @@ int sceKernelDcacheWritebackRange(u32 addr, int size)
 }
 int sceKernelDcacheWritebackInvalidateRange(u32 addr, int size)
 {
+#ifdef LOG_CACHE
+	NOTICE_LOG(HLE,"sceKernelDcacheInvalidateRange(%08x, %i)", addr, size);
+#endif
 	if (size < 0)
 		return SCE_KERNEL_ERROR_INVALID_SIZE;
 
@@ -293,7 +308,29 @@ int sceKernelDcacheWritebackInvalidateRange(u32 addr, int size)
 }
 int sceKernelDcacheWritebackInvalidateAll()
 {
+#ifdef LOG_CACHE
+	NOTICE_LOG(HLE,"sceKernelDcacheInvalidateAll()");
+#endif
 	gpu->InvalidateCacheHint(0, -1);
+	return 0;
+}
+
+
+u32 sceKernelIcacheInvalidateAll()
+{
+#ifdef LOG_CACHE
+	NOTICE_LOG(CPU, "Icache invalidated - should clear JIT someday");
+#endif
+	return 0;
+}
+
+
+u32 sceKernelIcacheClearAll()
+{
+#ifdef LOG_CACHE
+	NOTICE_LOG(CPU, "Icache cleared - should clear JIT someday");
+#endif
+	DEBUG_LOG(CPU, "Icache cleared - should clear JIT someday");
 	return 0;
 }
 
@@ -460,19 +497,6 @@ KernelObject *KernelObjectPool::CreateByIDType(int type)
 		ERROR_LOG(COMMON, "Unable to load state: could not find object type %d.", type);
 		return NULL;
 	}
-}
-
-u32 sceKernelIcacheInvalidateAll()
-{
-	DEBUG_LOG(CPU, "Icache invalidated - should clear JIT someday");
-	return 0;
-}
-
-
-u32 sceKernelIcacheClearAll()
-{
-	DEBUG_LOG(CPU, "Icache cleared - should clear JIT someday");
-	return 0;
 }
 
 struct SystemStatus {
