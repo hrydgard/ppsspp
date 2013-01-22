@@ -647,6 +647,10 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 		sprintf(buffer, "TexWrap %08x", data);
 		break;
 
+	case GE_CMD_TEXLEVEL:
+		sprintf(buffer, "TexWrap Mode: %i Offset: %i", data&3, data >> 16);
+		break;
+
 	case GE_CMD_FOG1:
 		sprintf(buffer, "Fog1 %f", getFloat24(data));
 		break;

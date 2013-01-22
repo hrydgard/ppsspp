@@ -293,7 +293,7 @@ void VertexDecoder::Step_NormalS16() const
 		xorval = 0xFFFF;
 	const s16 *sv = (const s16*)(ptr_ + nrmoff);
 	for (int j = 0; j < 3; j++)
-		normal[j] = sv[j] ^ xorval;
+		normal[j] = sv[j] ^ xorval	;
 }
 
 void VertexDecoder::Step_NormalFloat() const

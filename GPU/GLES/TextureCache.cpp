@@ -31,6 +31,7 @@
 struct TexCacheEntry {
 	u32 addr;
 	u32 hash;
+	u32 sizeInRAM;
 	int frameCounter;
 	u32 format;
 	u32 clutaddr;
@@ -106,12 +107,17 @@ void TextureCache_Decimate() {
 }
 
 void TextureCache_Invalidate(u32 addr, int size, bool force) {
+	addr &= 0xFFFFFFF;
 	u32 addr_end = addr + size;
 
 	for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ) {
+		u32 texAddr = iter->second.addr;
+		u32 texEnd = iter->second.addr + iter->second.sizeInRAM;
 		// Clear if either the addr or clutaddr is in the range.
-		bool invalidate = iter->second.addr >= addr && iter->second.addr < addr_end;
-		invalidate |= iter->second.clutaddr >= addr && iter->second.clutaddr < addr_end;
+		bool invalidate = (texAddr >= addr && texAddr < addr_end) || (texEnd >= addr && texEnd < addr_end);
+		invalidate = invalidate || (addr >= texAddr && addr < texEnd) || (addr_end >= texAddr && addr_end < texEnd);
+
+		invalidate = invalidate || (iter->second.clutaddr >= addr && iter->second.clutaddr < addr_end);
 
 		if (invalidate) {
 			if (force) {
@@ -606,9 +612,27 @@ void TextureCache_StartFrame() {
 	TextureCache_Decimate();
 }
 
+static u32 MiniHash(const u32 *ptr) {
+	return ptr[0];
+}
+
+const int bitsPerPixel[11] = {
+	16,  //GE_TFMT_5650=16,
+	16,  //GE_TFMT_5551=16,
+	16,  //GE_TFMT_4444=16,
+	32,  //GE_TFMT_8888=3,
+	4,   //GE_TFMT_CLUT4=4,
+	8,   //GE_TFMT_CLUT8=5,
+	16,  //GE_TFMT_CLUT16=6,
+	32,  //GE_TFMT_CLUT32=7,
+	4,   //GE_TFMT_DXT1=4,
+	8,   //GE_TFMT_DXT3=8,
+	8,   //GE_TFMT_DXT5=8,
+};
+
+
 void PSPSetTexture() {
-	u32 texaddr = (gstate.texaddr[0] & 0xFFFFF0) | ((gstate.texbufwidth[0]<<8) & 0xFF000000);
-	texaddr &= 0xFFFFFFF;
+	u32 texaddr = (gstate.texaddr[0] & 0xFFFFF0) | ((gstate.texbufwidth[0]<<8) & 0x0F000000);
 
 	if (!Memory::IsValidAddress(texaddr)) {
 		// Bind a null texture and return.
@@ -622,7 +646,7 @@ void PSPSetTexture() {
 	u32 clutaddr = GetClutAddr(clutformat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2);
 
 	u8 *texptr = Memory::GetPointer(texaddr);
-	u32 texhash = texptr ? *(u32*)texptr : 0;
+	u32 texhash = texptr ? MiniHash((u32*)texptr) : 0;
 
 	u64 cachekey = texaddr ^ texhash;
 	cachekey |= (u64) clutaddr << 32;
@@ -702,6 +726,10 @@ void PSPSetTexture() {
 
 	int w = 1 << (gstate.texsize[0] & 0xf);
 	int h = 1 << ((gstate.texsize[0]>>8) & 0xf);
+
+	// This would overestimate the size in many case so we underestimate instead
+	// to avoid excessive clearing caused by cache invalidations.
+	entry.sizeInRAM = (bitsPerPixel[format < 11 ? format : 0] * bufw * h / 2) / 8;
 
 	for (int i = 0; i < bufw * h; i += 4)
 		entry.fullhash += Memory::ReadUnchecked_U32(texaddr + i);
