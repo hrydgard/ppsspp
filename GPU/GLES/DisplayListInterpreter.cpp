@@ -376,7 +376,7 @@ void GLES_GPU::SetRenderFrameBuffer() {
 	VirtualFramebuffer *vfb = 0;
 	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
 		VirtualFramebuffer *v = *iter;
-		if (v->fb_address == fb_address && v->width == drawing_width && v->height == drawing_height) {
+		if (v->fb_address == fb_address && v->width == drawing_width && v->height == drawing_height && v->format == fmt) {
 			// Let's not be so picky for now. Let's say this is the one.
 			vfb = v;
 			// Update fb stride in case it changed
@@ -397,10 +397,24 @@ void GLES_GPU::SetRenderFrameBuffer() {
 		vfb->width = drawing_width;
 		vfb->height = drawing_height;
 		vfb->format = fmt;
-		vfb->fbo = fbo_create(vfb->width * renderWidthFactor_, vfb->height * renderHeightFactor_, 1, true);
+
+		//vfb->colorDepth = FBO_8888;
+		switch (gstate.framebufpixformat & 0x3) {
+		case GE_FORMAT_4444: vfb->colorDepth = FBO_4444;
+		case GE_FORMAT_5551: vfb->colorDepth = FBO_5551;
+		case GE_FORMAT_565: vfb->colorDepth = FBO_565;
+		case GE_FORMAT_8888: vfb->colorDepth = FBO_8888;
+		}
+//#ifdef ANDROID
+//		vfb->colorDepth = FBO_5551;
+//#endif
+
+		vfb->fbo = fbo_create(vfb->width * renderWidthFactor_, vfb->height * renderHeightFactor_, 1, true, vfb->colorDepth);
+
 		vfb->last_frame_used = gpuStats.numFrames;
 		vfbs_.push_back(vfb);
 		fbo_bind_as_render_target(vfb->fbo);
+		glEnable(GL_DITHER);
 		glstate.viewport.set(0, 0, renderWidth_, renderHeight_);
 		currentRenderVfb_ = vfb;
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);

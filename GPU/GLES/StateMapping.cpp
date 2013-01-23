@@ -202,6 +202,9 @@ void ApplyDrawState(int prim) {
 		glstate.stencilTest.disable();
 	}
 
+	// Dither
+	glstate.dither.set(gstate.ditherEnable & 1);
+
 	bool wantDepthWrite = gstate.isModeClear() || gstate.isDepthWriteEnabled();
 	glstate.depthWrite.set(wantDepthWrite ? GL_TRUE : GL_FALSE);
 

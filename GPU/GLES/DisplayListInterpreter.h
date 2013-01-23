@@ -103,6 +103,7 @@ private:
 		int height;
 
 		int format;  // virtual, right now they are all RGBA8888
+		FBOColorDepth colorDepth;
 		FBO *fbo;
 	};
 
