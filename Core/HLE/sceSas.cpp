@@ -65,7 +65,7 @@ void __SasShutdown() {
 
 u32 sceSasInit(u32 core, u32 grainSize, u32 maxVoices, u32 outputMode, u32 sampleRate)
 {
-	INFO_LOG(HLE,"0=sceSasInit(%08x, grainSize=%i, maxVoices=%i, %i, %i)", core, grainSize, maxVoices, outputMode, sampleRate);
+	INFO_LOG(HLE,"sceSasInit(%08x, %i, %i, %i, %i)", core, grainSize, maxVoices, outputMode, sampleRate);
 	sas->SetGrainSize(grainSize);
 	sas->maxVoices = maxVoices;
 	sas->sampleRate = sampleRate;
@@ -81,16 +81,16 @@ u32 sceSasGetEndFlag(u32 core)
 	u32 endFlag = 0;
 	for (int i = 0; i < sas->maxVoices; i++) {
 		if (!sas->voices[i].playing)
-			endFlag |= 1 << i;
+			endFlag |= (1 << i);
 	}
-	DEBUG_LOG(HLE,"%08x=sceSasGetEndFlag()", endFlag);
+	DEBUG_LOG(HLE,"sceSasGetEndFlag(%08x)", endFlag);
 	return endFlag;
 }
 
 // Runs the mixer
 u32 _sceSasCore(u32 core, u32 outAddr)
 {
-	DEBUG_LOG(HLE,"0=sceSasCore(, %08x)	(grain: %i samples)", outAddr, sas->GetGrainSize());
+	DEBUG_LOG(HLE,"sceSasCore(%08x, %08x)", core, outAddr);
 	if (!Memory::IsValidAddress(outAddr)) {
 		return ERROR_SAS_INVALID_PARAMETER;
 	}
@@ -100,9 +100,9 @@ u32 _sceSasCore(u32 core, u32 outAddr)
 }
 
 // Another way of running the mixer, what was the difference again?
-u32 _sceSasCoreWithMix(u32 core, u32 outAddr)
+u32 _sceSasCoreWithMix(u32 core, u32 outAddr, int leftVolume, int rightVolume)
 {
-	DEBUG_LOG(HLE,"0=sceSasCoreWithMix(, %08x) (grain: %i samples)", outAddr, sas->GetGrainSize());
+	DEBUG_LOG(HLE,"sceSasCoreWithMix(%08x, %08x, %i, %i)", core , outAddr, leftVolume, rightVolume);
 	if (!Memory::IsValidAddress(outAddr)) {
 		return ERROR_SAS_INVALID_PARAMETER;
 	}
@@ -112,11 +112,9 @@ u32 _sceSasCoreWithMix(u32 core, u32 outAddr)
 
 u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop)
 {
-	DEBUG_LOG(HLE,"0=sceSasSetVoice(core=%08x, voicenum=%i, vag=%08x, size=%i, loop=%i)", 
-		core, voiceNum, vagAddr, size, loop);
+	DEBUG_LOG(HLE,"sceSasSetVoice(%08x, %i, %08x, %i, %i)", core, voiceNum, vagAddr, size, loop);
 
-	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)
-	{
+	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
 		WARN_LOG(HLE, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;
 	}
@@ -124,6 +122,11 @@ u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop)
 	if (!Memory::IsValidAddress(vagAddr)) {
 		ERROR_LOG(HLE, "Ignoring invalid VAG audio address %08x", vagAddr);
 		return 0;
+	}
+
+	if (size <= 0 || (size & 0xF) != 0) {
+		WARN_LOG(HLE, "%s: invalid size %d", __FUNCTION__, size);
+		return ERROR_SAS_INVALID_SIZE;
 	}
 
 	//Real VAG header is 0x30 bytes behind the vagAddr
@@ -138,13 +141,30 @@ u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop)
 
 u32 sceSasSetVoicePCM(u32 core, int voiceNum, u32 pcmAddr, int size, int loop)
 {
-	DEBUG_LOG(HLE,"0=sceSasSetVoicePCM(core=%08x, voicenum=%i, pcmAddr=%08x, size=%i, loop=%i)", core, voiceNum, pcmAddr, size, loop);
+	DEBUG_LOG(HLE,"sceSasSetVoicePCM(%08x, %i, %08x, %i, %i)", core, voiceNum, pcmAddr, size, loop);
+
+	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
+		WARN_LOG(HLE, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
+		return ERROR_SAS_INVALID_VOICE;
+	}
+
+	if (!Memory::IsValidAddress(pcmAddr)) {
+		ERROR_LOG(HLE, "Ignoring invalid PCM audio address %08x", pcmAddr);
+		return 0;
+	}
+
+	if (size <= 0 || size > 0x10000) {
+		WARN_LOG(HLE, "%s: invalid size %d", __FUNCTION__, size);
+		return ERROR_SAS_INVALID_SIZE;
+	}
+
 	SasVoice &v = sas->voices[voiceNum];
 	v.type = VOICETYPE_PCM;
 	v.pcmAddr = pcmAddr;
 	v.pcmSize = size;
 	v.loop = loop ? true : false;
 	v.playing = true;
+	v.ChangedParams(true);
 	return 0;
 }
 
@@ -153,19 +173,18 @@ u32 sceSasGetPauseFlag(u32 core)
 	u32 pauseFlag = 0;
 	for (int i = 0; i < sas->maxVoices; i++) {
 		if (sas->voices[i].paused)
-			pauseFlag |= 1 << i;
+			pauseFlag |= (1 << i);
 	}
-	DEBUG_LOG(HLE,"%08x=sceSasGetPauseFlag()", pauseFlag);
+
+	DEBUG_LOG(HLE,"sceSasGetPauseFlag(%08x)", pauseFlag)
 	return pauseFlag;
 }
 
 u32 sceSasSetPause(u32 core, int voicebit, int pause)
 {
-	DEBUG_LOG(HLE,"0=sceSasSetPause(core=%08x, voicebit=%08x, pause=%i)", core, voicebit, pause);
-	for (int i = 0; voicebit != 0; i++, voicebit >>= 1)
-	{
-		if (i < PSP_SAS_VOICES_MAX && i >= 0)
-		{
+	DEBUG_LOG(HLE,"sceSasSetPause(%08x, %08x, %i)", core, voicebit, pause);
+	for (int i = 0; voicebit != 0; i++, voicebit >>= 1)	{
+		if (i < PSP_SAS_VOICES_MAX && i >= 0) {
 			if ((voicebit & 1) != 0)
 				sas->voices[i].paused = pause ? true : false;
 		}
@@ -179,10 +198,9 @@ u32 sceSasSetPause(u32 core, int voicebit, int pause)
 
 u32 sceSasSetVolume(u32 core, int voiceNum, int l, int r, int el, int er)
 {
-	DEBUG_LOG(HLE,"0=sceSasSetVolume(core=%08x, voiceNum=%i, l=%i, r=%i, el=%i, er=%i", core, voiceNum, l, r, el, er);
+	DEBUG_LOG(HLE,"sceSasSetVolume(%08x, %i, %i, %i, %i, %i)", core, voiceNum, l, r, el, er);
 
-	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)
-	{
+	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
 		WARN_LOG(HLE, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;
 	}
@@ -195,30 +213,33 @@ u32 sceSasSetVolume(u32 core, int voiceNum, int l, int r, int el, int er)
 
 u32 sceSasSetPitch(u32 core, int voiceNum, int pitch)
 {
-	DEBUG_LOG(HLE,"0=sceSasSetPitch(core=%08x, voiceNum=%i, pitch=%i)", core, voiceNum, pitch);
+	DEBUG_LOG(HLE,"sceSasSetPitch(%08x, %i, %i)", core, voiceNum, pitch);
 
-	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)
-	{
+	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
 		WARN_LOG(HLE, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;
 	}
 
 	SasVoice &v = sas->voices[voiceNum];
 	v.pitch = pitch;
+	v.ChangedParams(true);
 	return 0;
 }
 
 u32 sceSasSetKeyOn(u32 core, int voiceNum)
 {
-	DEBUG_LOG(HLE,"0=sceSasSetKeyOn(core=%08x, voiceNum=%i)", core, voiceNum);
+	DEBUG_LOG(HLE,"sceSasSetKeyOn(%08x, %i)", core, voiceNum);
 
-	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)
-	{
+	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
 		WARN_LOG(HLE, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;
 	}
 
 	SasVoice &v = sas->voices[voiceNum];
+	if (sas->voices[voiceNum].paused) {
+		return ERROR_SAS_VOICE_PAUSED;
+	}
+
 	v.KeyOn();
 	return 0;
 }
@@ -228,14 +249,18 @@ u32 sceSasSetKeyOff(u32 core, int voiceNum)
 {
 	if (voiceNum == -1) {
 		// TODO: Some games (like Every Extend Extra) deliberately pass voiceNum = -1. Does that mean all voices? for now let's ignore.
-		DEBUG_LOG(HLE,"sceSasSetKeyOff(core=%08x, voiceNum=%i) - voiceNum = -1???", core, voiceNum);
+		DEBUG_LOG(HLE,"sceSasSetKeyOff(%08x, %i) - voiceNum = -1???", core, voiceNum);
 		return 0;
 	} else if (voiceNum < 0 || voiceNum >= PSP_SAS_VOICES_MAX) {
 		WARN_LOG(HLE, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;
 	} else {
-		DEBUG_LOG(HLE,"0=sceSasSetKeyOff(core=%08x, voiceNum=%i)", core, voiceNum);
+		DEBUG_LOG(HLE,"sceSasSetKeyOff(%08x, %i)", core, voiceNum);
 		SasVoice &v = sas->voices[voiceNum];
+		if (sas->voices[voiceNum].paused) {
+			return ERROR_SAS_VOICE_PAUSED;
+		}
+
 		v.KeyOff();
 		return 0;
 	}
@@ -243,10 +268,9 @@ u32 sceSasSetKeyOff(u32 core, int voiceNum)
 
 u32 sceSasSetNoise(u32 core, int voiceNum, int freq)
 {
-	DEBUG_LOG(HLE,"0=sceSasSetNoise(core=%08x, voiceNum=%i, freq=%i)", core, voiceNum, freq);
+	DEBUG_LOG(HLE,"sceSasSetNoise(%08x, %i, %i)", core, voiceNum, freq);
 
-	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)
-	{
+	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
 		WARN_LOG(HLE, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;
 	}
@@ -254,15 +278,15 @@ u32 sceSasSetNoise(u32 core, int voiceNum, int freq)
 	SasVoice &v = sas->voices[voiceNum];
 	v.type = VOICETYPE_NOISE;
 	v.noiseFreq = freq;
+	v.ChangedParams(true);
 	return 0;
 }
 
 u32 sceSasSetSL(u32 core, int voiceNum, int level)
 {
-	DEBUG_LOG(HLE,"0=sceSasSetSL(core=%08x, voiceNum=%i, level=%i)", core, voiceNum, level);
+	DEBUG_LOG(HLE,"sceSasSetSL(%08x, %i, %i)", core, voiceNum, level);
 
-	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)
-	{
+	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
 		WARN_LOG(HLE, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;
 	}
@@ -272,12 +296,11 @@ u32 sceSasSetSL(u32 core, int voiceNum, int level)
 	return 0;
 }
 
-u32 sceSasSetADSR(u32 core, int voiceNum,int flag ,int a, int d, int s, int r)
+u32 sceSasSetADSR(u32 core, int voiceNum, int flag , int a, int d, int s, int r)
 {
-	DEBUG_LOG(HLE,"0=sceSasSetADSR(core=%08x, voicenum=%i, flag=%i, a=%08x, d=%08x, s=%08x, r=%08x)",core, voiceNum, flag, a,d,s,r)
+	DEBUG_LOG(HLE,"0=sceSasSetADSR(%08x, %i, %i, %08x, %08x, %08x, %08x)",core, voiceNum, flag, a, d, s, r)
 
-	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)
-	{
+	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
 		WARN_LOG(HLE, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;
 	}
@@ -292,10 +315,9 @@ u32 sceSasSetADSR(u32 core, int voiceNum,int flag ,int a, int d, int s, int r)
 
 u32 sceSasSetADSRMode(u32 core, int voiceNum,int flag ,int a, int d, int s, int r)
 {
-	DEBUG_LOG(HLE,"0=sceSasSetADSRMode(core=%08x, voicenum=%i, flag=%i, a=%08x, d=%08x, s=%08x, r=%08x)",core, voiceNum, flag, a,d,s,r)
+	DEBUG_LOG(HLE,"sceSasSetADSRMode(%08x, %i, %i, %08x, %08x, %08x, %08x)",core, voiceNum, flag, a,d,s,r)
 
-	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)
-	{
+	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
 		WARN_LOG(HLE, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;
 	}
@@ -311,7 +333,7 @@ u32 sceSasSetADSRMode(u32 core, int voiceNum,int flag ,int a, int d, int s, int 
 
 u32 sceSasSetSimpleADSR(u32 core, u32 voiceNum, u32 ADSREnv1, u32 ADSREnv2)
 {
-	DEBUG_LOG(HLE,"0=sasSetSimpleADSR(%08x, %i, %08x, %08x)", core, voiceNum, ADSREnv1, ADSREnv2);
+	DEBUG_LOG(HLE,"sasSetSimpleADSR(%08x, %i, %08x, %08x)", core, voiceNum, ADSREnv1, ADSREnv2);
 	SasVoice &v = sas->voices[voiceNum];
 	v.envelope.SetSimpleEnvelope(ADSREnv1 & 0xFFFF, ADSREnv2 & 0xFFFF);
 	return 0;
@@ -320,12 +342,10 @@ u32 sceSasSetSimpleADSR(u32 core, u32 voiceNum, u32 ADSREnv1, u32 ADSREnv2)
 u32 sceSasGetEnvelopeHeight(u32 core, u32 voiceNum)
 {
 	// Spam reduction
-	if (voiceNum == 17)
-	{
-		DEBUG_LOG(HLE,"UNIMPL 0=sceSasGetEnvelopeHeight(core=%08x, voicenum=%i)", core, voiceNum);
+	if (voiceNum == 17) {
+		DEBUG_LOG(HLE,"sceSasGetEnvelopeHeight(%08x, %i)", core, voiceNum);
 	}
-	if (voiceNum >= PSP_SAS_VOICES_MAX)
-	{
+	if (voiceNum >= PSP_SAS_VOICES_MAX)	{
 		WARN_LOG(HLE, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;
 	}
@@ -336,14 +356,14 @@ u32 sceSasGetEnvelopeHeight(u32 core, u32 voiceNum)
 
 u32 sceSasRevType(u32 core, int type)
 {
-	DEBUG_LOG(HLE,"0=sceSasRevType(core=%08x, type=%i)", core, type);
+	DEBUG_LOG(HLE,"sceSasRevType(%08x, %i)", core, type);
 	sas->waveformEffect.type = type;
 	return 0;
 }
 
 u32 sceSasRevParam(u32 core, int delay, int feedback)
 {
-	DEBUG_LOG(HLE,"0=sceSasRevParam(core=%08x, delay=%i, feedback=%i)", core, delay, feedback);
+	DEBUG_LOG(HLE,"sceSasRevParam(%08x, %i, %i)", core, delay, feedback);
 	sas->waveformEffect.delay = delay;
 	sas->waveformEffect.feedback = feedback;
 	return 0;
@@ -351,7 +371,7 @@ u32 sceSasRevParam(u32 core, int delay, int feedback)
 
 u32 sceSasRevEVOL(u32 core, int lv, int rv)
 {
-	DEBUG_LOG(HLE,"0=sceSasRevEVOL(core=%08x, leftVolume=%i, rightVolume=%i)", core, lv, rv);
+	DEBUG_LOG(HLE,"sceSasRevEVOL(%08x, %i, %i)", core, lv, rv);
 	sas->waveformEffect.leftVol = lv;
 	sas->waveformEffect.rightVol = rv;
 	return 0;
@@ -359,7 +379,7 @@ u32 sceSasRevEVOL(u32 core, int lv, int rv)
 
 u32 sceSasRevVON(u32 core, int dry, int wet)
 {
-	DEBUG_LOG(HLE,"0=sceSasRevVON(core=%08x, dry=%i, wet=%i)", core, dry, wet);
+	DEBUG_LOG(HLE,"sceSasRevVON(%08x, %i, %i)", core, dry, wet);
 	sas->waveformEffect.isDryOn = (dry > 0);
 	sas->waveformEffect.isWetOn = (wet > 0);
 	return 0;
@@ -367,26 +387,26 @@ u32 sceSasRevVON(u32 core, int dry, int wet)
 
 u32 sceSasGetGrain(u32 core)
 {
-	DEBUG_LOG(HLE,"0=sceSasGetGrain(core=%08x)", core);
+	DEBUG_LOG(HLE,"sceSasGetGrain(%08x)", core);
 	return sas->GetGrainSize();
 }
 
 u32 sceSasSetGrain(u32 core, int grain)
 {
-	INFO_LOG(HLE,"0=sceSasSetGrain(core=%08x, grain=%i)", core, grain);
+	INFO_LOG(HLE,"sceSasSetGrain(%08x, %i)", core, grain);
 	sas->SetGrainSize(grain);
 	return 0;
 }
 
 u32 sceSasGetOutputMode(u32 core)
 {
-	DEBUG_LOG(HLE,"0=sceSasGetOutputMode(core=%08x)", core);
+	DEBUG_LOG(HLE,"sceSasGetOutputMode(%08x)", core);
 	return sas->outputMode;
 }
 
 u32 sceSasSetOutputMode(u32 core, u32 outputMode)
 {
-	DEBUG_LOG(HLE,"0=sceSasSetOutputMode(core=%08x, outputMode=%i)", core, outputMode);
+	DEBUG_LOG(HLE,"sceSasSetOutputMode(%08x, %i)", core, outputMode);
 	sas->outputMode = outputMode;
 	return 0;
 }
@@ -394,7 +414,7 @@ u32 sceSasSetOutputMode(u32 core, u32 outputMode)
 
 u32 sceSasGetAllEnvelopeHeights(u32 core, u32 heightsAddr)
 {
-	DEBUG_LOG(HLE,"0=sceSasGetAllEnvelopeHeights(core=%08x, heightsAddr=%i)", core, heightsAddr);
+	DEBUG_LOG(HLE,"sceSasGetAllEnvelopeHeights(%08x, %i)", core, heightsAddr);
 	if (Memory::IsValidAddress(heightsAddr)) {
 		for (int i = 0; i < PSP_SAS_VOICES_MAX; i++) {
 			int voiceHeight = sas->voices[i].envelope.GetHeight();
@@ -406,21 +426,21 @@ u32 sceSasGetAllEnvelopeHeights(u32 core, u32 heightsAddr)
 
 u32 sceSasSetTriangularWave(u32 sasCore, int voice, int unknown)
 {
-	ERROR_LOG(HLE,"UNIMPL 0=sceSasSetTriangularWave(core=%08x, voice=%i, unknown=%i)", sasCore, voice, unknown);
+	ERROR_LOG(HLE,"UNIMPL sceSasSetTriangularWave(%08x, %i, %i)", sasCore, voice, unknown);
 	return 0;
 }
 
 u32 sceSasSetSteepWave(u32 sasCore, int voice, int unknown)
 {
-	ERROR_LOG(HLE,"UNIMPL 0=sceSasSetSteepWave(core=%08x, voice=%i, unknown=%i)", sasCore, voice, unknown);
+	ERROR_LOG(HLE,"UNIMPL sceSasSetSteepWave(%08x, %i, %i)", sasCore, voice, unknown);
 	return 0;
 }
 
 const HLEFunction sceSasCore[] =
 {
-	{0x42778a9f, WrapU_UUUUU<sceSasInit>, "__sceSasInit"}, // (SceUID * sasCore, int grain, int maxVoices, int outputMode, int sampleRate)
+	{0x42778a9f, WrapU_UUUUU<sceSasInit>, "__sceSasInit"}, 
 	{0xa3589d81, WrapU_UU<_sceSasCore>, "__sceSasCore"},
-	{0x50a14dfc, WrapU_UU<_sceSasCoreWithMix>, "__sceSasCoreWithMix"},	// Process and mix into buffer (int sasCore, int sasInOut, int leftVolume, int rightVolume)
+	{0x50a14dfc, WrapU_UUII<_sceSasCoreWithMix>, "__sceSasCoreWithMix"},	
 	{0x68a46b95, WrapU_U<sceSasGetEndFlag>, "__sceSasGetEndFlag"},
 	{0x440ca7d8, WrapU_UIIIII<sceSasSetVolume>, "__sceSasSetVolume"},
 	{0xad84d37f, WrapU_UII<sceSasSetPitch>, "__sceSasSetPitch"},
@@ -434,7 +454,7 @@ const HLEFunction sceSasCore[] =
 	{0xa0cf2fa4, WrapU_UI<sceSasSetKeyOff>, "__sceSasSetKeyOff"},
 	{0x76f01aca, WrapU_UI<sceSasSetKeyOn>, "__sceSasSetKeyOn"},
 	{0xf983b186, WrapU_UII<sceSasRevVON>, "__sceSasRevVON"},
-	{0xd5a229c9, WrapU_UII<sceSasRevEVOL>, "__sceSasRevEVOL"},  // effect volume
+	{0xd5a229c9, WrapU_UII<sceSasRevEVOL>, "__sceSasRevEVOL"},  
 	{0x33d4ab37, WrapU_UI<sceSasRevType>, "__sceSasRevType"},
 	{0x267a6dd2, WrapU_UII<sceSasRevParam>, "__sceSasRevParam"},
 	{0x2c8e6ab3, WrapU_U<sceSasGetPauseFlag>, "__sceSasGetPauseFlag"},
