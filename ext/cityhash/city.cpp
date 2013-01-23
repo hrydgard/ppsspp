@@ -30,6 +30,7 @@
 #include "city.h"
 
 #include <algorithm>
+#include <stdlib.h>  // To check for glibc
 #include <string.h>  // for memcpy and memset
 
 using namespace std;
@@ -47,27 +48,30 @@ static uint32 UNALIGNED_LOAD32(const char *p) {
 }
 
 #ifdef _MSC_VER
-
-#include <stdlib.h>
 #define bswap_32(x) _byteswap_ulong(x)
 #define bswap_64(x) _byteswap_uint64(x)
-
+#elif defined(__GLIBC__)
+#include <byteswap.h>
 #elif defined(__APPLE__)
-
 // Mac OS X / Darwin features
 #include <libkern/OSByteOrder.h>
 #define bswap_32(x) OSSwapInt32(x)
 #define bswap_64(x) OSSwapInt64(x)
-
-#elif defined(__SYMBIAN32__) || defined(BLACKBERRY)
-//TODO: I'm not really sure if this is the fasters or the safest way to do this. However both platforms should have qendian which should map swap-functions
-#include <qendian.h>
-#define bswap_32(x) qbswap((qint32)x)
-#define bswap_64(x) qbswap((qint64)x)
 #else
-
-#include <byteswap.h>
-
+// Otherwise it doesn't exist (Symbian, Blackberry10)
+#define UINT64_C(c) static_cast<unsigned long long>(c ## ULL)
+#define bswap_32(x) (0 | ((x & 0x000000ff) << 24) \
+                       | ((x & 0x0000ff00) << 8)  \
+                       | ((x & 0x00ff0000) >> 8)  \
+                       | ((x & 0xff000000) >> 24))
+#define bswap_64(x) (0 | ((x & UINT64_C(0x00000000000000ff)) << 56) \
+                       | ((x & UINT64_C(0x000000000000ff00)) << 40) \
+                       | ((x & UINT64_C(0x0000000000ff0000)) << 24) \
+                       | ((x & UINT64_C(0x00000000ff000000)) << 8)  \
+                       | ((x & UINT64_C(0x000000ff00000000)) >> 8)  \
+                       | ((x & UINT64_C(0x0000ff0000000000)) >> 24) \
+                       | ((x & UINT64_C(0x00ff000000000000)) >> 40) \
+                       | ((x & UINT64_C(0xff00000000000000)) >> 56))
 #endif
 
 #ifdef WORDS_BIGENDIAN
