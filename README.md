@@ -104,8 +104,8 @@ To build for Blackberry, you must first have the [latest Native SDK][blackberry-
 To set up your environment for cross-compiling you must then use:
     source ~/bbndk/bbndk-env.sh
 
-Finally, you are ready to compile. Change directory to ppsspp/SDL and run:
-    ./blackberry_build.sh
+Finally, you are ready to compile. Go to ppsspp/Blackberry/ and run:
+    ./build.sh
 
 If you are on Windows, you will need GNU and CMake to run the bash script.
 
