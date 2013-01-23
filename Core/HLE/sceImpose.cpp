@@ -33,15 +33,23 @@ const int PSP_LANGUAGE_KOREAN = 9;
 const int PSP_LANGUAGE_TRADITIONAL_CHINESE = 10;
 const int PSP_LANGUAGE_SIMPLIFIED_CHINESE = 11;
 
+const int PSP_CONFIRM_BUTTON_CIRCLE = 0;
+const int PSP_CONFIRM_BUTTON_CROSS = 1;
+
+const int PSP_UMD_POPUP_DISABLE = 0;
+const int PSP_UMD_POPUP_ENABLE = 1;
+
 static u32 language = PSP_LANGUAGE_ENGLISH;
-static u32 buttonValue = 0;
-static u32 umdPopup = 0;
+static u32 buttonValue = PSP_CONFIRM_BUTTON_CIRCLE;
+static u32 umdPopup = PSP_UMD_POPUP_DISABLE;
+static u32 backlightOffTime;
 
 void __ImposeInit()
 {
 	language = PSP_LANGUAGE_ENGLISH;
-	buttonValue = 0;
-	umdPopup = 0;
+	buttonValue = PSP_CONFIRM_BUTTON_CIRCLE;
+	umdPopup = PSP_UMD_POPUP_DISABLE;
+	backlightOffTime = 0;
 }
 
 void __ImposeDoState(PointerWrap &p)
@@ -49,6 +57,7 @@ void __ImposeDoState(PointerWrap &p)
 	p.Do(language);
 	p.Do(buttonValue);
 	p.Do(umdPopup);
+	p.Do(backlightOffTime);
 	p.DoMarker("sceImpose");
 }
 
@@ -80,9 +89,9 @@ u32 sceImposeGetLanguageMode(u32 languagePtr, u32 btnPtr)
 	return 0;
 }
 
-u32 sceImposeSetUMDPopup(int value) {
-	DEBUG_LOG(HLE, "sceImposeSetUMDPopup(%i)", value);
-	umdPopup = value;
+u32 sceImposeSetUMDPopup(int mode) {
+	DEBUG_LOG(HLE, "sceImposeSetUMDPopup(%i)", mode);
+	umdPopup = mode;
 	return 0;
 }
 
@@ -91,15 +100,30 @@ u32 sceImposeGetUMDPopup() {
 	return umdPopup;
 }
 
+u32 sceImposeSetBacklightOffTime(int time) {
+	DEBUG_LOG(HLE, "sceImposeSetBacklightOffTime(%i)", time);
+	backlightOffTime = time;
+	return 0;
+}
+
+u32 sceImposeGetBacklightOffTime() {
+	DEBUG_LOG(HLE, "sceImposeGetBacklightOffTime()");
+	return backlightOffTime;
+}
+
 //OSD stuff? home button?
 const HLEFunction sceImpose[] =
 {
 	{0x36aa6e91, WrapU_UU<sceImposeSetLanguageMode>, "sceImposeSetLanguageMode"},  // Seen
 	{0x381bd9e7, 0, "sceImposeHomeButton"},
+	{0x0F341BE4, 0, "sceImposeGetHomePopup"},
+	{0x5595A71A, 0, "sceImposeSetHomePopup"},
 	{0x24fd7bcf, WrapU_UU<sceImposeGetLanguageMode>, "sceImposeGetLanguageMode"},
 	{0x8c943191, WrapU_UU<sceImposeGetBatteryIconStatus>, "sceImposeGetBatteryIconStatus"},
 	{0x72189C48, WrapU_I<sceImposeSetUMDPopup>, "sceImposeSetUMDPopup"},
 	{0xE0887BC8, WrapU_V<sceImposeGetUMDPopup>, "sceImposeGetUMDPopup"},
+	{0x8F6E3518, WrapU_V<sceImposeGetBacklightOffTime>, "sceImposeGetBacklightOffTime"},
+	{0x967F6D4A, WrapU_I<sceImposeSetBacklightOffTime>, "sceImposeSetBacklightOffTime"},
 };
 
 void Register_sceImpose()
