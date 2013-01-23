@@ -277,14 +277,14 @@ int sceAtracSetDataAndGetID(u32 buffer, u32 bufferSize)
 {	
 	ERROR_LOG(HLE, "UNIMPL sceAtracSetDataAndGetID(%08x, %08x)", buffer, bufferSize);
 	int codecType = getCodecType(buffer);
-	return 0;
+	return 1;
 }
 
 int sceAtracSetHalfwayBufferAndGetID(int atracID, u32 halfBuffer, u32 readSize, u32 halfBufferSize)
 {
 	ERROR_LOG(HLE, "UNIMPL sceAtracSetHalfwayBufferAndGetID(%i, %08x, %08x, %08x)", atracID, halfBuffer, readSize, halfBufferSize);
 	int codecType = getCodecType(halfBuffer);
-	return 0;
+	return 1;
 }
 
 u32 sceAtracStartEntry()
@@ -337,7 +337,7 @@ int sceAtracSetAA3DataAndGetID(u32 buffer, int bufferSize, int fileSize, u32 met
 {
 	ERROR_LOG(HLE, "UNIMPL sceAtracSetAA3DataAndGetID(%08x, %i, %i, %08x)", buffer, bufferSize, fileSize, metadataSizeAddr);
 	int codecType = getCodecType(buffer);
-	return 0;
+	return 1;
 }
 
 const HLEFunction sceAtrac3plus[] =
