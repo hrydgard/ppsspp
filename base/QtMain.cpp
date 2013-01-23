@@ -13,7 +13,7 @@
 #ifdef __SYMBIAN32__
 #include <AknAppUi.h>
 #endif
-#ifdef Q_WS_X11
+#if defined(Q_WS_X11) && !defined(USING_GLES2)
 #include "mainwindow.h"
 #endif
 #include "QtMain.h"
@@ -85,7 +85,7 @@ int main(int argc, char *argv[])
 	NativeInit(argc, (const char **)argv, "./", "/tmp", "BADCOFFEE");
 #endif
 
-#ifdef Q_WS_X11
+#if defined(Q_WS_X11) && !defined(USING_GLES2)
 	MainWindow mainWindow;
 	mainWindow.show();
 #else
