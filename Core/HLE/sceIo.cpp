@@ -373,14 +373,14 @@ u32 sceIoWrite(int id, void *data_ptr, int size)
 	if (id == 2) {
 		//stderr!
 		const char *str = (const char*) data_ptr;
-		DEBUG_LOG(HLE, "stderr: %s", str);
+		INFO_LOG(HLE, "stderr: %s", str);
 		return size;
 	} else if (id == 1) {
 		//stdout!
 		char *str = (char *) data_ptr;
 		char temp = str[size];
 		str[size] = 0;
-		DEBUG_LOG(HLE, "stdout: %s", str);
+		INFO_LOG(HLE, "stdout: %s", str);
 		str[size] = temp;
 		return size;
 	}

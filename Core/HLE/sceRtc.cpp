@@ -74,6 +74,7 @@ void __RtcTmToPspTime(ScePspDateTime &t, tm *val)
 	t.hour = val->tm_hour;
 	t.minute = val->tm_min;
 	t.second = val->tm_sec;
+	t.microsecond = 0;
 }
 
 //based on  http://stackoverflow.com/a/11197532
@@ -515,12 +516,22 @@ int sceRtcGetTime64_t(u32 datePtr, u32 timePtr)
 
 int sceRtcSetDosTime(u32 datePtr, u32 dosTime)
 {
-	ERROR_LOG(HLE, "HACK sceRtcSetDosTime(%d,%d)", datePtr, dosTime);
+	DEBUG_LOG(HLE, "sceRtcSetDosTime(%d,%d)", datePtr, dosTime);
 	if (Memory::IsValidAddress(datePtr))
 	{
 		ScePspDateTime pt;
 
-		__RtcTicksToPspTime(pt, dosTime);
+		int hms = dosTime & 0xFFFF;
+		int ymd = dosTime >> 16;
+
+		pt.year = 1980 + (ymd >> 9);
+		pt.month = (ymd >> 5) & 0xF;
+		pt.day = ymd & 0x1F;
+		pt.hour = hms >> 11;
+		pt.minute = (hms >> 5) & 0x3F;
+		pt.second = (hms << 1) & 0x3E;
+		pt.microsecond = 0;
+
 		Memory::WriteStruct(datePtr, &pt);
 	}
 	else
@@ -532,19 +543,45 @@ int sceRtcSetDosTime(u32 datePtr, u32 dosTime)
 
 int sceRtcGetDosTime(u32 datePtr, u32 dosTime)
 {
-	ERROR_LOG(HLE, "HACK sceRtcGetDosTime(%d,%d)", datePtr, dosTime);
+	int retValue = 0;
+	DEBUG_LOG(HLE, "sceRtcGetDosTime(%d,%d)", datePtr, dosTime);
 	if (Memory::IsValidAddress(datePtr)&&Memory::IsValidAddress(dosTime))
 	{
 		ScePspDateTime pt;
 		Memory::ReadStruct(datePtr, &pt);
-		u64 result = __RtcPspTimeToTicks(pt);
-		Memory::Write_U64(result, dosTime);
+
+		u32 result = 0;
+		if(pt.year < 1980)
+		{
+			result = 0;
+			retValue = -1;
+		}
+		else if(pt.year >= 2108)
+		{
+			result = 0xFF9FBF7D;
+			retValue = -1;
+		}
+		else
+		{
+			int year = ((pt.year - 1980) & 0x7F) << 9;
+			int month = ((pt.month) & 0xF ) << 5;
+			int hour = ((pt.hour) & 0x1F ) << 11;
+			int minute = ((pt.minute) & 0x3F ) << 5;
+			int day = (pt.day) & 0x1F;
+			int second = ((pt.second) >> 1) & 0x1F;
+			int ymd = year | month | day;
+			int hms = hour | minute | second;
+			result = (ymd << 16) | hms;
+			retValue = 0;
+		}
+
+		Memory::Write_U32(result, dosTime);
 	}
 	else
 	{
-		return 1;
+		retValue = -1;
 	}
-	return 0;
+	return retValue;
 
 }
 
