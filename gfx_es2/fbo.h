@@ -4,6 +4,15 @@
 
 struct FBO;
 
+
+enum FBOColorDepth {
+	FBO_8888,
+	FBO_565,
+	FBO_4444,
+	FBO_5551,
+};
+
+
 // Creates a simple FBO with a RGBA32 color buffer stored in a texture, and
 // optionally an accompanying Z/stencil buffer.
 // No mipmap support.
@@ -11,7 +20,7 @@ struct FBO;
 // you lose bound texture state.
 
 // On some hardware, you might get a 24-bit depth buffer even though you only wanted a 16-bit one.
-FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil);
+FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, FBOColorDepth colorDepth = FBO_8888);
 
 // These functions should be self explanatory.
 void fbo_bind_as_render_target(FBO *fbo);

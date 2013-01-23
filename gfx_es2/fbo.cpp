@@ -26,18 +26,20 @@ struct FBO {
 
 	int width;
 	int height;
+	FBOColorDepth colorDepth;
 };
 
 
 // On PC, we always use GL_DEPTH24_STENCIL8. 
 // On Android, we try to use what's available.
 
-FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil) {
+FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, FBOColorDepth colorDepth) {
 	CheckGLExtensions();
 
 	FBO *fbo = new FBO();
 	fbo->width = width;
 	fbo->height = height;
+	fbo->colorDepth = colorDepth;
 
 	// Color texture is same everywhere
 	glGenFramebuffers(1, &fbo->handle);
@@ -51,7 +53,20 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil) {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 	// TODO: We could opt to only create 16-bit render targets on slow devices. For later.
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+	switch (colorDepth) {
+	case FBO_8888:
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+		break;
+	case FBO_4444:
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, NULL);
+		break;
+	case FBO_5551:
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_SHORT_5_5_5_1, NULL);
+		break;
+	case FBO_565:
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, NULL);
+		break;
+	}
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);

@@ -168,6 +168,7 @@ public:
 	BoolState<GL_SCISSOR_TEST, false> scissorTest;
 
 	BoolState<GL_CULL_FACE, false> cullFace;
+	BoolState<GL_DITHER, false> dither;
 	STATE1(glCullFace, GLenum, GL_FRONT) cullFaceMode;
 	STATE1(glFrontFace, GLenum, GL_CCW) frontFace;
 

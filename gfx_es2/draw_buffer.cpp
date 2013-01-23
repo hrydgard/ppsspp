@@ -20,6 +20,8 @@ enum {
 	MAX_VERTS = 15000,
 };
 
+// #define USE_VBO
+
 DrawBuffer::DrawBuffer() : count_(0), atlas(0) {
 	verts_ = new Vertex[MAX_VERTS];
 	fontscalex = 1.0f;
@@ -63,6 +65,7 @@ void DrawBuffer::End() {
 void DrawBuffer::Flush(const GLSLProgram *program, bool set_blend_state) {
 	if (count_ == 0)
 		return;
+#ifdef USE_VBO
 	glBindBuffer(GL_ARRAY_BUFFER, vbo_);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * count_, verts_, GL_STREAM_DRAW);
@@ -88,7 +91,30 @@ void DrawBuffer::Flush(const GLSLProgram *program, bool set_blend_state) {
 		glDisableVertexAttribArray(program->a_texcoord0);
 	GL_CHECK();
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
-
+#else
+	if (set_blend_state) {
+		glstate.blend.enable();
+		glstate.blendFunc.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	}
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glUniform1i(program->sampler0, 0);
+	glEnableVertexAttribArray(program->a_position);
+	glEnableVertexAttribArray(program->a_color);
+	if (program->a_texcoord0 != -1)
+		glEnableVertexAttribArray(program->a_texcoord0);
+	GL_CHECK();
+	glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)&verts_[0].x);
+	glVertexAttribPointer(program->a_color, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(Vertex), (void *)&verts_[0].rgba);
+	if (program->a_texcoord0 != -1)
+		glVertexAttribPointer(program->a_texcoord0, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)&verts_[0].u);
+	glDrawArrays(mode_ == DBMODE_LINES ? GL_LINES : GL_TRIANGLES, 0, count_);
+	GL_CHECK();
+	glDisableVertexAttribArray(program->a_position);
+	glDisableVertexAttribArray(program->a_color);
+	if (program->a_texcoord0 != -1)
+		glDisableVertexAttribArray(program->a_texcoord0);
+	GL_CHECK();
+#endif
 	count_ = 0;
 }
 

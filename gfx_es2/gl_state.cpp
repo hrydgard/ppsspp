@@ -39,6 +39,8 @@ void OpenGLState::Restore() {
 	stencilOp.restore(); count++;
 	stencilFunc.restore(); count++;
 
+	dither.restore(); count++;
+
 	assert(count == state_count && "OpenGLState::Restore is missing some states");
 }
 
