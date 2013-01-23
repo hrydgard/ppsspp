@@ -90,7 +90,7 @@ u32 sceSasGetEndFlag(u32 core)
 // Runs the mixer
 u32 _sceSasCore(u32 core, u32 outAddr)
 {
-	DEBUG_LOG(HLE,"sceSasCore(%08x, %i)", outAddr, sas->GetGrainSize());
+	DEBUG_LOG(HLE,"sceSasCore(%08x, %08x)", core, outAddr);
 	if (!Memory::IsValidAddress(outAddr)) {
 		return ERROR_SAS_INVALID_PARAMETER;
 	}
@@ -102,7 +102,7 @@ u32 _sceSasCore(u32 core, u32 outAddr)
 // Another way of running the mixer, what was the difference again?
 u32 _sceSasCoreWithMix(u32 core, u32 outAddr, int leftVolume, int rightVolume)
 {
-	DEBUG_LOG(HLE,"sceSasCoreWithMix(%08x, %i, %i, %i)", outAddr, sas->GetGrainSize(), leftVolume, rightVolume);
+	DEBUG_LOG(HLE,"sceSasCoreWithMix(%08x, %08x, %i, %i)", core , outAddr, leftVolume, rightVolume);
 	if (!Memory::IsValidAddress(outAddr)) {
 		return ERROR_SAS_INVALID_PARAMETER;
 	}
