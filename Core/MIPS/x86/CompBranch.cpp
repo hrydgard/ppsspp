@@ -451,7 +451,18 @@ void Jit::Comp_JumpReg(u32 op)
 	// Do what with that information?
 	delaySlotIsNice = false;	// Until we have time to fully fix this
 
-	if (delaySlotIsNice)
+	if (IsSyscall(delaySlotOp))
+	{
+		// If this is a syscall, write the pc (for thread switching and other good reasons.)
+		gpr.BindToRegister(rs, true, false);
+		MOV(32, M(&currentMIPS->pc), gpr.R(rs));
+		CompileDelaySlot(false);
+
+		// Syscalls write the exit code for us.
+		_dbg_assert_msg_(JIT, !js.compiling, "Expected syscall to write an exit code.");
+		return;
+	}
+	else if (delaySlotIsNice)
 	{
 		// TODO: This flushes which is a waste, could add an extra param to skip.
 		CompileDelaySlot(false);
@@ -460,18 +471,10 @@ void Jit::Comp_JumpReg(u32 op)
 	}
 	else
 	{
-		// Latch destination now - save it on the stack.
+		// Latch destination now - save it in memory.
 		gpr.BindToRegister(rs, true, false);
-		MOV(32, M(&currentMIPS->pc), gpr.R(rs));	// for syscalls in delay slot - could be avoided
 		MOV(32, M(&savedPC), gpr.R(rs));
 		CompileDelaySlot(false);
-
-		if (!js.compiling)
-		{
-			// Oh, there was a syscall in the delay slot
-			// It took care of writing the exit code for us.
-			return;
-		}
 		MOV(32, R(EAX), M(&savedPC));
 	}
 

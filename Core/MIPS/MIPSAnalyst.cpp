@@ -85,6 +85,12 @@ namespace MIPSAnalyst
 		}
 	}
 
+	bool IsSyscall(u32 op)
+	{
+		// Syscalls look like this: 0000 00-- ---- ---- ---- --00 1100
+		return (op >> 26) == 0 && (op & 0x3f) == 12;
+	}
+
 	void Analyze(u32 address)
 	{
 		//set everything to -1 (FF)
