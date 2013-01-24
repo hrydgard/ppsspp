@@ -92,7 +92,7 @@ enum GECommand
 	GE_CMD_OFFSETX=0x4C,
 	GE_CMD_OFFSETY=0x4D,
 	GE_CMD_LMODE=0x50,
-	GE_CMD_REVERSENORMAL,
+	GE_CMD_REVERSENORMAL=0x51,
 	GE_CMD_MATERIALUPDATE=0x53,
 	GE_CMD_MATERIALEMISSIVE, //not sure about these but this makes sense
 	GE_CMD_MATERIALAMBIENT,  //gotta try enabling lighting and check :)

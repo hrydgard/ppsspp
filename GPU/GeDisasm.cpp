@@ -554,6 +554,10 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 		sprintf(buffer, "Patch Facing: %d", data);
 		break;
 
+	case GE_CMD_REVERSENORMAL:
+		sprintf(buffer, "Reverse normal: %d", data);
+		break;
+
 	case GE_CMD_MATERIALUPDATE:
 		sprintf(buffer, "Material Update: %d", data);
 		break;
