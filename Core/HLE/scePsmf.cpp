@@ -74,11 +74,11 @@ struct PsmfData {
 
 struct PsmfPlayerData {
 	int videoCodec;
-    int videoStreamNum;
-    int audioCodec;
-    int audioStreamNum;
-    int playMode;
-    int playSpeed;
+	int videoStreamNum;
+	int audioCodec;
+	int audioStreamNum;
+	int playMode;
+	int playSpeed;
 };
 
 struct PsmfEntry {
@@ -144,11 +144,11 @@ public:
 	void DoState(PointerWrap &p);
 
 	int videoCodec;
-    int videoStreamNum;
-    int audioCodec;
-    int audioStreamNum;
-    int playMode;
-    int playSpeed;
+	int videoStreamNum;
+	int audioCodec;
+	int audioStreamNum;
+	int playMode;
+	int playSpeed;
 
 	int displayBuffer;
 	int displayBufferSize;
@@ -683,16 +683,17 @@ int scePsmfPlayerCreate(u32 psmfPlayer, u32 psmfPlayerDataAddr)
 	ERROR_LOG(HLE, "UNIMPL scePsmfPlayerCreate(%08x, %08x)", psmfPlayer, psmfPlayerDataAddr);
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
-		psmfplayer = new PsmfPlayer(psmfPlayerDataAddr);
-		psmfPlayerMap[psmfPlayer] = psmfplayer;
+		ERROR_LOG(HLE, "scePsmfPlayerCreate - invalid psmf");
+		return ERROR_PSMF_NOT_FOUND;
 	}
+	
 	if (Memory::IsValidAddress(psmfPlayerDataAddr)) {
 		psmfplayer->displayBuffer = Memory::Read_U32(psmfPlayerDataAddr);          
 		psmfplayer->displayBufferSize = Memory::Read_U32(psmfPlayerDataAddr + 4);     
 		psmfplayer->playbackThreadPriority = Memory::Read_U32(psmfPlayerDataAddr + 8);
 	}
 
-    psmfplayer->psmfMaxAheadTimestamp = getMaxAheadTimestamp(581);
+    	psmfplayer->psmfMaxAheadTimestamp = getMaxAheadTimestamp(581);
 	psmfPlayerStatus = PSMF_PLAYER_STATUS_INIT;
 	return 0;
 }
@@ -751,9 +752,9 @@ int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 	Memory::WriteStruct(psmfPlayer, &data);
 
 	psmfplayer->psmfPlayerAtracAu.dts = initPts;
-    psmfplayer->psmfPlayerAtracAu.pts = initPts;
-    psmfplayer->psmfPlayerAvcAu.dts = initPts;
-    psmfplayer->psmfPlayerAvcAu.pts = initPts;
+	psmfplayer->psmfPlayerAtracAu.pts = initPts;
+	psmfplayer->psmfPlayerAvcAu.dts = initPts;
+	psmfplayer->psmfPlayerAvcAu.pts = initPts;
 
 	//TODO : analyzePSMFLastTimestamp
 	psmfPlayerStatus = PSMF_PLAYER_STATUS_PLAYING;
