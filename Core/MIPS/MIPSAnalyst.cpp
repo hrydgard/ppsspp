@@ -61,6 +61,7 @@ namespace MIPSAnalyst
 		return false; //TODO: there are more cases!
 	}
 
+	// TODO: Remove me?
 	bool IsDelaySlotNice(u32 branch, u32 delayslot)
 	{
 		int outReg = GetOutReg(delayslot);
@@ -83,6 +84,37 @@ namespace MIPSAnalyst
 
 			return true; //nice :)
 		}
+	}
+
+	bool IsDelaySlotNiceReg(u32 branchOp, u32 op, u32 reg1, u32 reg2)
+	{
+		// NOOPs are always nice.
+		if (op == 0)
+			return true;
+
+		// TODO: Something like this?
+		//if (GetOutReg(op) != reg1 && GetOutReg(op) != reg2)
+		//	return true;
+
+		return false;
+	}
+
+	bool IsDelaySlotNiceVFPU(u32 branchOp, u32 op)
+	{
+		// NOOPs are always nice.
+		if (op == 0)
+			return true;
+
+		return false;
+	}
+
+	bool IsDelaySlotNiceFPU(u32 branchOp, u32 op)
+	{
+		// NOOPs are always nice.
+		if (op == 0)
+			return true;
+
+		return false;
 	}
 
 	bool IsSyscall(u32 op)

@@ -133,16 +133,7 @@ void Jit::BranchRSRTComp(u32 op, Gen::CCFlags cc, bool likely)
 	u32 targetAddr = js.compilerPC + offset + 4;
 
 	u32 delaySlotOp = Memory::ReadUnchecked_U32(js.compilerPC+4);
-
-	//Compile the delay slot
-	bool delaySlotIsNice = GetOutReg(delaySlotOp) != rt && GetOutReg(delaySlotOp) != rs;// IsDelaySlotNice(op, delaySlotOp);
-	if (!delaySlotIsNice)
-	{
-		//ERROR_LOG(CPU, "Not nice delay slot in BranchRSRTComp :( %08x", js.compilerPC);
-	}
-	delaySlotIsNice = false;	// Until we have time to fully fix this
-
-	// Cool, we can do the compare afterward.
+	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rt, rs);
 	if (!likely && delaySlotIsNice)
 		CompileDelaySlot(DELAYSLOT_NICE);
 
@@ -195,15 +186,7 @@ void Jit::BranchRSZeroComp(u32 op, Gen::CCFlags cc, bool andLink, bool likely)
 	u32 targetAddr = js.compilerPC + offset + 4;
 
 	u32 delaySlotOp = Memory::ReadUnchecked_U32(js.compilerPC + 4);
-
-	bool delaySlotIsNice = GetOutReg(delaySlotOp) != rs; //IsDelaySlotNice(op, delaySlotOp);
-	if (!delaySlotIsNice)
-	{
-		//ERROR_LOG(CPU, "Not nice delay slot in BranchRSZeroComp :( %08x", js.compilerPC);
-	}
-	delaySlotIsNice = false;	// Until we have time to fully fix this
-	
-	// Cool, we can do the compare afterward.
+	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rs);
 	if (!likely && delaySlotIsNice)
 		CompileDelaySlot(DELAYSLOT_NICE);
 
@@ -294,15 +277,7 @@ void Jit::BranchFPFlag(u32 op, Gen::CCFlags cc, bool likely)
 	u32 targetAddr = js.compilerPC + offset + 4;
 
 	u32 delaySlotOp = Memory::ReadUnchecked_U32(js.compilerPC + 4);
-
-	bool delaySlotIsNice = IsDelaySlotNice(op, delaySlotOp);
-	if (!delaySlotIsNice)
-	{
-		//ERROR_LOG(CPU, "Not nice delay slot in BranchFPFlag :(");
-	}
-
-	delaySlotIsNice = false;	// Until we have time to fully fix this
-
+	bool delaySlotIsNice = IsDelaySlotNiceFPU(op, delaySlotOp);
 	if (!likely && delaySlotIsNice)
 		CompileDelaySlot(DELAYSLOT_NICE);
 
@@ -362,15 +337,7 @@ void Jit::BranchVFPUFlag(u32 op, Gen::CCFlags cc, bool likely)
 	u32 targetAddr = js.compilerPC + offset + 4;
 
 	u32 delaySlotOp = Memory::ReadUnchecked_U32(js.compilerPC + 4);
-
-	bool delaySlotIsNice = IsDelaySlotNice(op, delaySlotOp);
-	if (!delaySlotIsNice)
-	{
-		//ERROR_LOG(CPU, "Not nice delay slot in BranchVFPUFlag :(");
-	}
-
-	delaySlotIsNice = false;	// Until we have time to fully fix this
-
+	bool delaySlotIsNice = IsDelaySlotNiceVFPU(op, delaySlotOp);
 	if (!likely && delaySlotIsNice)
 		CompileDelaySlot(DELAYSLOT_NICE);
 
@@ -466,9 +433,7 @@ void Jit::Comp_JumpReg(u32 op)
 	int rs = _RS;
 
 	u32 delaySlotOp = Memory::ReadUnchecked_U32(js.compilerPC + 4);
-	bool delaySlotIsNice = GetOutReg(delaySlotOp) != rs;
-	// Do what with that information?
-	delaySlotIsNice = false;	// Until we have time to fully fix this
+	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rs);
 
 	if (IsSyscall(delaySlotOp))
 	{
