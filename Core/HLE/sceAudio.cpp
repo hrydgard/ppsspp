@@ -28,7 +28,7 @@
 // We simply map it to the first of the 8 channels.
 
 AudioChannel chans[8];
-int src;
+int src; //not initialized and default 0 
 
 // Enqueues the buffer pointer on the channel. If channel buffer queue is full (2 items?) will block until it isn't.
 // For solid audio output we'll need a queue length of 2 buffers at least, we'll try that first.
