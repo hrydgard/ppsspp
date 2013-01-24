@@ -66,6 +66,7 @@ void* AllocateExecutableMemory(size_t size, bool low)
     {
         TInt minsize = SYMBIAN_CODECHUNCK_SIZE;
         TInt maxsize = SYMBIAN_CODECHUNCK_SIZE + 3*4096; //some offsets
+        g_code_chunk = new RChunk();
         g_code_chunk->CreateLocalCode(minsize, maxsize);
         g_code_heap = UserHeap::ChunkHeap(*g_code_chunk, minsize, 1, maxsize);
     }
@@ -137,7 +138,6 @@ void* AllocateMemoryPages(size_t size)
 
 	// printf("Mapped memory at %p (size %ld)\n", ptr,
 	//	(unsigned long)size);
-
 	if (ptr == NULL)
 		PanicAlert("Failed to allocate raw memory");
 
