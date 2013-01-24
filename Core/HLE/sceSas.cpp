@@ -134,7 +134,7 @@ u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop)
 	v.type = VOICETYPE_VAG;
 	v.vagAddr = vagAddr;
 	v.vagSize = size;
-	v.loop = loop ? true : false;
+	v.loop = loop ? false : true;
 	v.ChangedParams(true);
 	return 0;
 }
@@ -162,7 +162,7 @@ u32 sceSasSetVoicePCM(u32 core, int voiceNum, u32 pcmAddr, int size, int loop)
 	v.type = VOICETYPE_PCM;
 	v.pcmAddr = pcmAddr;
 	v.pcmSize = size;
-	v.loop = loop ? true : false;
+	v.loop = loop ? false : true;
 	v.playing = true;
 	v.ChangedParams(true);
 	return 0;
