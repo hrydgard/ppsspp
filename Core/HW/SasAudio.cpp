@@ -20,12 +20,12 @@
 #include "../MemMap.h"
 #include "SasAudio.h"
 
-static const double f[5][2] =
-{ { 0.0, 0.0 },
-{	 60.0 / 64.0,	0.0 },
-{	115.0 / 64.0, -52.0 / 64.0 },
-{	 98.0 / 64.0, -55.0 / 64.0 },
-{	122.0 / 64.0, -60.0 / 64.0 } };
+static const s8 f[5][2] =
+{ { 0, 0 },
+{	 60,	0 },
+{	115, -52 },
+{	 98, -55 },
+{	122, -60 } };
 
 void VagDecoder::Start(u32 data, int vagSize, bool loopEnabled) {
 	loopEnabled_ = loopEnabled;
@@ -59,12 +59,12 @@ void VagDecoder::DecodeBlock(u8 *&readp) {
 	for (int i = 0; i < 28; i += 2) {
 		int d = *readp++;
 		int s = (short)((d & 0xf) << 12);
-		samples[i] = (double)(s >> shift_factor);
+		samples[i] = s >> shift_factor;
 		s = (short)((d & 0xf0) << 8);
-		samples[i + 1] = (double)(s >> shift_factor);
+		samples[i + 1] = s >> shift_factor;
 	}
 	for (int i = 0; i < 28; i++) {
-		samples[i] = samples[i] + s_1 * f[predict_nr][0] + s_2 * f[predict_nr][1];
+		samples[i] = samples[i] + ((s_1 * f[predict_nr][0] + s_2 * f[predict_nr][1]) >> 6);
 		s_2 = s_1;
 		s_1 = samples[i];
 	}

@@ -86,7 +86,7 @@ public:
 	bool End() const { return end_; }
 
 private:
-	double samples[28];
+	int samples[28];
 	int curSample;
 
 	u32 data_;
@@ -96,8 +96,8 @@ private:
 	int numBlocks_;
 
 	// rolling state. start at 0, should probably reset to 0 on loops?
-	double s_1;
-	double s_2;
+	int s_1;
+	int s_2;
 
 	bool loopEnabled_;
 	bool loopAtNextBlock_;
