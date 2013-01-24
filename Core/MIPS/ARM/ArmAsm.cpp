@@ -115,6 +115,10 @@ void Jit::GenerateFixedCode()
 
 		dispatcherCheckCoreState = GetCodePtr();
 
+		// The result of slice decrementation should be in flags if somebody jumped here
+		// IMPORTANT - We jump on negative, not carry!!!
+		FixupBranch bailCoreState = B_CC(CC_MI);
+
 		ARMABI_MOVI2R(R0, (u32)&coreState);
 		LDR(R0, R0);
 		CMP(R0, 0);
@@ -158,6 +162,7 @@ void Jit::GenerateFixedCode()
 			B(dispatcherNoCheck); // no point in special casing this
 
 		SetJumpTarget(bail);
+		SetJumpTarget(bailCoreState);
 
 		ARMABI_MOVI2R(R0, (u32)&coreState);
 		LDR(R0, R0);
