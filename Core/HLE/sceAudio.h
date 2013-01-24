@@ -51,11 +51,9 @@ struct AudioChannel
 	// last sample address
 	u32 sampleAddress;
 	u32 sampleCount;  // Number of samples written in each OutputBlocking
-
-	int leftVolume;
-	int rightVolume;
-
-	int format;
+	u32 leftVolume;
+	u32 rightVolume;
+	u32 format;
 
 	SceUID waitingThread;
 
