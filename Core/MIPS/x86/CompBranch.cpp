@@ -142,6 +142,10 @@ void Jit::BranchRSRTComp(u32 op, Gen::CCFlags cc, bool likely)
 	}
 	delaySlotIsNice = false;	// Until we have time to fully fix this
 
+	// Cool, we can do the compare afterward.
+	if (!likely && delaySlotIsNice)
+		CompileDelaySlot(DELAYSLOT_NICE);
+
 	if (rt == 0)
 	{
 		gpr.KillImmediate(rs, true, true);
@@ -157,13 +161,14 @@ void Jit::BranchRSRTComp(u32 op, Gen::CCFlags cc, bool likely)
 	Gen::FixupBranch ptr;
 	if (!likely)
 	{
-		CompileDelaySlot(!delaySlotIsNice);
+		if (!delaySlotIsNice)
+			CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
 		ptr = J_CC(cc, true);
 	}
 	else
 	{
 		ptr = J_CC(cc, true);
-		CompileDelaySlot(false);
+		CompileDelaySlot(DELAYSLOT_FLUSH);
 	}
 
 	// Take the branch
@@ -198,6 +203,10 @@ void Jit::BranchRSZeroComp(u32 op, Gen::CCFlags cc, bool andLink, bool likely)
 	}
 	delaySlotIsNice = false;	// Until we have time to fully fix this
 	
+	// Cool, we can do the compare afterward.
+	if (!likely && delaySlotIsNice)
+		CompileDelaySlot(DELAYSLOT_NICE);
+
 	gpr.BindToRegister(rs, true, false);
 	CMP(32, gpr.R(rs), Imm32(0));
 	FlushAll();
@@ -205,13 +214,14 @@ void Jit::BranchRSZeroComp(u32 op, Gen::CCFlags cc, bool andLink, bool likely)
 	Gen::FixupBranch ptr;
 	if (!likely)
 	{
-		CompileDelaySlot(!delaySlotIsNice);
+		if (!delaySlotIsNice)
+			CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
 		ptr = J_CC(cc, true);
 	}
 	else
 	{
 		ptr = J_CC(cc, true);
-		CompileDelaySlot(false);
+		CompileDelaySlot(DELAYSLOT_FLUSH);
 	}
 
 	// Take the branch
@@ -293,19 +303,23 @@ void Jit::BranchFPFlag(u32 op, Gen::CCFlags cc, bool likely)
 
 	delaySlotIsNice = false;	// Until we have time to fully fix this
 
+	if (!likely && delaySlotIsNice)
+		CompileDelaySlot(DELAYSLOT_NICE);
+
 	FlushAll();
 
 	TEST(32, M((void *)&(mips_->fpcond)), Imm32(1));
 	Gen::FixupBranch ptr;
 	if (!likely)
 	{
-		CompileDelaySlot(!delaySlotIsNice);
+		if (!delaySlotIsNice)
+			CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
 		ptr = J_CC(cc, true);
 	}
 	else
 	{
 		ptr = J_CC(cc, true);
-		CompileDelaySlot(false);
+		CompileDelaySlot(DELAYSLOT_FLUSH);
 	}
 
 	// Take the branch
@@ -357,6 +371,9 @@ void Jit::BranchVFPUFlag(u32 op, Gen::CCFlags cc, bool likely)
 
 	delaySlotIsNice = false;	// Until we have time to fully fix this
 
+	if (!likely && delaySlotIsNice)
+		CompileDelaySlot(DELAYSLOT_NICE);
+
 	FlushAll();
 
 	// THE CONDITION
@@ -367,13 +384,14 @@ void Jit::BranchVFPUFlag(u32 op, Gen::CCFlags cc, bool likely)
 	Gen::FixupBranch ptr;
 	if (!likely)
 	{
-		CompileDelaySlot(!delaySlotIsNice);
+		if (!delaySlotIsNice)
+			CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
 		ptr = J_CC(cc, true);
 	}
 	else
 	{
 		ptr = J_CC(cc, true);
-		CompileDelaySlot(false);
+		CompileDelaySlot(DELAYSLOT_FLUSH);
 	}
 
 	// Take the branch
@@ -413,7 +431,8 @@ void Jit::Comp_Jump(u32 op)
 	}
 	u32 off = ((op & 0x3FFFFFF) << 2);
 	u32 targetAddr = (js.compilerPC & 0xF0000000) | off;
-	CompileDelaySlot(false);
+	CompileDelaySlot(DELAYSLOT_NICE);
+	FlushAll();
 
 	switch (op >> 26) 
 	{
@@ -456,7 +475,7 @@ void Jit::Comp_JumpReg(u32 op)
 		// If this is a syscall, write the pc (for thread switching and other good reasons.)
 		gpr.BindToRegister(rs, true, false);
 		MOV(32, M(&currentMIPS->pc), gpr.R(rs));
-		CompileDelaySlot(false);
+		CompileDelaySlot(DELAYSLOT_FLUSH);
 
 		// Syscalls write the exit code for us.
 		_dbg_assert_msg_(JIT, !js.compiling, "Expected syscall to write an exit code.");
@@ -464,8 +483,7 @@ void Jit::Comp_JumpReg(u32 op)
 	}
 	else if (delaySlotIsNice)
 	{
-		// TODO: This flushes which is a waste, could add an extra param to skip.
-		CompileDelaySlot(false);
+		CompileDelaySlot(DELAYSLOT_NICE);
 		MOV(32, R(EAX), gpr.R(rs));
 		FlushAll();
 	}
@@ -474,8 +492,9 @@ void Jit::Comp_JumpReg(u32 op)
 		// Latch destination now - save it in memory.
 		gpr.BindToRegister(rs, true, false);
 		MOV(32, M(&savedPC), gpr.R(rs));
-		CompileDelaySlot(false);
+		CompileDelaySlot(DELAYSLOT_NICE);
 		MOV(32, R(EAX), M(&savedPC));
+		FlushAll();
 	}
 
 	switch (op & 0x3f)
