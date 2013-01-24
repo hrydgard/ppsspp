@@ -166,8 +166,8 @@ const int flushBeforeCommandList[] = {
 GLES_GPU::GLES_GPU(int renderWidth, int renderHeight)
 :		interruptsEnabled_(true),
 		displayFramebufPtr_(0),
-		prevDisplayFramebufPtr_(0),
-		prevPrevDisplayFramebufPtr_(0),
+		prevDisplayFramebuf_(0),
+		prevPrevDisplayFramebuf_(0),
 		renderWidth_(renderWidth),
 		renderHeight_(renderHeight)
 {
@@ -257,8 +257,6 @@ void GLES_GPU::BeginFrame() {
 void GLES_GPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, int format) {
 	if (framebuf & 0x04000000) {
 		//DEBUG_LOG(G3D, "Switch display framebuffer %08x", framebuf);
-		prevPrevDisplayFramebufPtr_ = prevDisplayFramebufPtr_;
-		prevDisplayFramebufPtr_ = displayFramebufPtr_;
 		displayFramebufPtr_ = framebuf;
 		displayStride_ = stride;
 		displayFormat_ = format;
@@ -275,6 +273,9 @@ void GLES_GPU::CopyDisplayToOutput() {
 	EndDebugDraw();
 
 	VirtualFramebuffer *vfb = GetDisplayFBO();
+	prevPrevDisplayFramebuf_ = prevDisplayFramebuf_;
+	prevDisplayFramebuf_ = displayFramebuf_;
+	displayFramebuf_ = vfb;
 	fbo_unbind();
 
 	glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
@@ -307,17 +308,12 @@ void GLES_GPU::CopyDisplayToOutput() {
 	BeginDebugDraw();
 }
 
-static bool MaskedEqual(u32 addr1, u32 addr2) {
-	return (addr1 & 0x3FFFFFF) == (addr2 & 0x3FFFFFF);
-}
-
-
 void GLES_GPU::DecimateFBOs() {
 	for (auto iter = vfbs_.begin(); iter != vfbs_.end();) {
 		VirtualFramebuffer *v = *iter;
-		if (MaskedEqual(v->fb_address, displayFramebufPtr_) ||
-				MaskedEqual(v->fb_address, prevDisplayFramebufPtr_) ||
-				MaskedEqual(v->fb_address, prevPrevDisplayFramebufPtr_)) {
+		if (v == displayFramebuf_ ||
+				v == prevDisplayFramebuf_ ||
+				v == prevPrevDisplayFramebuf_) {
 			++iter;
 			continue;
 		}
@@ -330,6 +326,10 @@ void GLES_GPU::DecimateFBOs() {
 	}
 }
 
+static bool MaskedEqual(u32 addr1, u32 addr2) {
+	return (addr1 & 0x3FFFFFF) == (addr2 & 0x3FFFFFF);
+}
+
 GLES_GPU::VirtualFramebuffer *GLES_GPU::GetDisplayFBO() {
 	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
 		if (MaskedEqual((*iter)->fb_address, displayFramebufPtr_) && (*iter)->format == displayFormat_) {
@@ -338,7 +338,7 @@ GLES_GPU::VirtualFramebuffer *GLES_GPU::GetDisplayFBO() {
 		}
 	}
 	DEBUG_LOG(HLE, "Finding no FBO matching address %08x", displayFramebufPtr_);
-#ifdef _DEBUG
+#if 0  // defined(_DEBUG)
 	std::string debug = "FBOs: ";
 	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
 		char temp[256];
@@ -376,7 +376,7 @@ void GLES_GPU::SetRenderFrameBuffer() {
 	VirtualFramebuffer *vfb = 0;
 	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
 		VirtualFramebuffer *v = *iter;
-		if (v->fb_address == fb_address && v->width == drawing_width && v->height == drawing_height && v->format == fmt) {
+		if (v->fb_address == fb_address && v->width == drawing_width && v->height == drawing_height /* && v->format == fmt */) {
 			// Let's not be so picky for now. Let's say this is the one.
 			vfb = v;
 			// Update fb stride in case it changed
@@ -406,7 +406,7 @@ void GLES_GPU::SetRenderFrameBuffer() {
 		case GE_FORMAT_8888: vfb->colorDepth = FBO_8888;
 		}
 //#ifdef ANDROID
-//		vfb->colorDepth = FBO_5551;
+//	vfb->colorDepth = FBO_8888;
 //#endif
 
 		vfb->fbo = fbo_create(vfb->width * renderWidthFactor_, vfb->height * renderHeightFactor_, 1, true, vfb->colorDepth);

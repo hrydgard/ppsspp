@@ -211,8 +211,9 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 			"Draw calls: %i, flushes %i\n"
 			"Cached Draw calls: %i\n"
 			"Num Tracked Vertex Arrays: %i\n"
-			"Vertices Transformed: %i\n"
+			"Vertices Submitted: %i\n"
 			"Cached Vertices Drawn: %i\n"
+			"Uncached Vertices Drawn: %i\n"
 			"FBOs active: %i\n"
 			"Textures active: %i, decoded: %i\n"
 			"Texture invalidations: %i\n"
@@ -230,8 +231,9 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 			gpuStats.numFlushes,
 			gpuStats.numCachedDrawCalls,
 			gpuStats.numTrackedVertexArrays,
-			gpuStats.numVertsTransformed,
+			gpuStats.numVertsSubmitted,
 			gpuStats.numCachedVertsDrawn,
+			gpuStats.numUncachedVertsDrawn,
 			gpuStats.numFBOs,
 			gpuStats.numTextures,
 			gpuStats.numTexturesDecoded,
@@ -241,10 +243,11 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 			gpuStats.numShaders
 			);
 
-		float zoom = 0.5f; /// g_Config.iWindowZoom;
+		float zoom = 0.3f; /// g_Config.iWindowZoom;
+		float soff = 0.3f;
 		PPGeBegin();
-		PPGeDrawText(stats, 1, 1, 0, zoom, 0xFF000000);
-		PPGeDrawText(stats, -1, -1, 0, zoom, 0xFF000000);
+		PPGeDrawText(stats, soff, soff, 0, zoom, 0xCC000000);
+		PPGeDrawText(stats, -soff, -soff, 0, zoom, 0xCC000000);
 		PPGeDrawText(stats, 0, 0, 0, zoom, 0xFFFFFFFF);
 		PPGeEnd();
 

@@ -73,8 +73,6 @@ private:
 	bool interruptsEnabled_;
 
 	u32 displayFramebufPtr_;
-	u32 prevDisplayFramebufPtr_;
-	u32 prevPrevDisplayFramebufPtr_;
 	u32 displayStride_;
 	int displayFormat_;
 
@@ -106,6 +104,10 @@ private:
 		FBOColorDepth colorDepth;
 		FBO *fbo;
 	};
+
+	VirtualFramebuffer *displayFramebuf_;
+	VirtualFramebuffer *prevDisplayFramebuf_;
+	VirtualFramebuffer *prevPrevDisplayFramebuf_;
 
 	void SetRenderFrameBuffer();  // Uses parameters computed from gstate
 	// TODO: Break out into some form of FBO manager

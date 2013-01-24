@@ -691,7 +691,7 @@ void TransformDrawEngine::SubmitPrim(void *verts, void *inds, int prim, int vert
 		gpuStats.numJoins++;
 	}
 	gpuStats.numDrawCalls++;
-	gpuStats.numVertsTransformed += vertexCount;
+	gpuStats.numVertsSubmitted += vertexCount;
 
 	DeferredDrawCall &dc = drawCalls[numDrawCalls++];
 	dc.verts = verts;
@@ -921,6 +921,7 @@ void TransformDrawEngine::Flush() {
 						if (vai->ebo)
 							glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vai->ebo);
 						useElements = vai->ebo ? true : false;
+						gpuStats.numCachedVertsDrawn += vai->numVerts;
 					}
 					vbo = vai->vbo;
 					ebo = vai->ebo;
@@ -934,6 +935,7 @@ void TransformDrawEngine::Flush() {
 				{
 					vai->numDraws++;
 					gpuStats.numCachedDrawCalls++;
+					gpuStats.numCachedVertsDrawn += vai->numVerts;
 					// DecodeVerts(); // TODO : Remove
 					vbo = vai->vbo;
 					ebo = vai->ebo;
@@ -955,6 +957,7 @@ void TransformDrawEngine::Flush() {
 		} else {
 			DecodeVerts();
 rotateVBO:
+			gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
 			useElements = !indexGen.SeenOnlyPurePrims();
 			if (g_Config.bUseVBO) {
 				// Just rotate VBO.
@@ -991,6 +994,7 @@ rotateVBO:
 			glBindBuffer(GL_ARRAY_BUFFER, 0);
 	} else {
 		DecodeVerts();
+		gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
 		prim = indexGen.Prim();
 		DEBUG_LOG(G3D, "Flush prim %i SW! %i verts in one go", prim, indexGen.VertexCount());
 
