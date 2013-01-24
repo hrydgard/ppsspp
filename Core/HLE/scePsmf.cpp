@@ -781,6 +781,8 @@ int scePsmfPlayerUpdate(u32 psmfPlayer)
 			psmfPlayerStatus = PSMF_PLAYER_STATUS_PLAYING_FINISHED;
 		}
 	}
+	// TODO: Once we start increasing pts somewhere, and actually know the last timestamp, do this better.
+	psmfPlayerStatus = PSMF_PLAYER_STATUS_PLAYING_FINISHED;
 	return 0;
 }
 
