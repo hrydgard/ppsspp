@@ -318,9 +318,12 @@ public:
 
 	mutex_type* release()
 	{
-		return mutex();
+		mutex_type* const ret = mutex();
+		
 		pm = NULL;
 		owns = false;
+		
+		return ret;
 	}
 
 	bool owns_lock() const

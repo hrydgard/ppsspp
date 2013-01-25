@@ -299,29 +299,27 @@ void ArmJitBlockCache::LinkBlock(int i)
 {
 	LinkBlockExits(i);
 	ArmJitBlock &b = blocks[i];
-	std::map<u32, int>::iterator iter;
 	pair<multimap<u32, int>::iterator, multimap<u32, int>::iterator> ppp;
 	// equal_range(b) returns pair<iterator,iterator> representing the range
 	// of element with key b
 	ppp = links_to.equal_range(b.originalAddress);
 	if (ppp.first == ppp.second)
 		return;
-	for (multimap<u32, int>::iterator iter2 = ppp.first; iter2 != ppp.second; ++iter2) {
+	for (multimap<u32, int>::iterator iter = ppp.first; iter != ppp.second; ++iter) {
 		// PanicAlert("Linking block %i to block %i", iter2->second, i);
-		LinkBlockExits(iter2->second);
+		LinkBlockExits(iter->second);
 	}
 }
 
 void ArmJitBlockCache::UnlinkBlock(int i)
 {
 	ArmJitBlock &b = blocks[i];
-	std::map<u32, int>::iterator iter;
 	pair<multimap<u32, int>::iterator, multimap<u32, int>::iterator> ppp;
 	ppp = links_to.equal_range(b.originalAddress);
 	if (ppp.first == ppp.second)
 		return;
-	for (multimap<u32, int>::iterator iter2 = ppp.first; iter2 != ppp.second; ++iter2) {
-		ArmJitBlock &sourceBlock = blocks[iter2->second];
+	for (multimap<u32, int>::iterator iter = ppp.first; iter != ppp.second; ++iter) {
+		ArmJitBlock &sourceBlock = blocks[iter->second];
 		for (int e = 0; e < 2; e++)
 		{
 			if (sourceBlock.exitAddress[e] == b.originalAddress)
@@ -368,7 +366,7 @@ void ArmJitBlockCache::InvalidateICache(u32 address, const u32 length)
 
 	// destroy JIT blocks
 	// !! this works correctly under assumption that any two overlapping blocks end at the same address
-	std::map<pair<u32,u32>, u32>::iterator it1 = block_map.lower_bound(std::make_pair(pAddr, 0)), it2 = it1, it;
+	std::map<pair<u32,u32>, u32>::iterator it1 = block_map.lower_bound(std::make_pair(pAddr, 0)), it2 = it1;
 	while (it2 != block_map.end() && it2->first.second < pAddr + length)
 	{
 		DestroyBlock(it2->second, true);
