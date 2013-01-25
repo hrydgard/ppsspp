@@ -140,7 +140,12 @@ void __RtcTicksToPspTime(ScePspDateTime &t, u64 ticks)
 	time_t time = (ticks - rtcMagicOffset) / 1000000ULL;
 	t.microsecond = ticks % 1000000ULL;
 
-	tm *local  = gmtime(&time);
+	tm *local = gmtime(&time);
+	if (!local)
+	{
+		ERROR_LOG(HLE, "Date is too high/low to handle, pretending to work.");
+		return;
+	}
 
 	t.year = local->tm_year + 1900 - numYearAdd * 400;
 	t.month = local->tm_mon + 1;
