@@ -60,31 +60,28 @@ namespace MIPSComp
 		int rt = _RT;
 		int rs = _RS;
 
+		// noop, won't write to ZERO.
+		if (rt == 0)
+			return;
+
 		switch (op >> 26) 
 		{
 		case 8:	// same as addiu?
 		case 9:	//R(rt) = R(rs) + simm; break;	//addiu
 			{
-				if (gpr.R(rs).IsImm())
+				if (gpr.IsImmediate(rs))
 				{
-					gpr.SetImmediate32(rt, gpr.R(rs).GetImmValue() + simm);
+					gpr.SetImmediate32(rt, gpr.GetImmediate32(rs) + simm);
 					break;
 				}
 
 				gpr.Lock(rt, rs);
-				if (rs != 0)
-				{
-					gpr.BindToRegister(rt, rt == rs, true);
-					if (rt != rs)
-						MOV(32, gpr.R(rt), gpr.R(rs));
-					if (simm != 0)
-						ADD(32, gpr.R(rt), Imm32((u32)(s32)simm));
-					// TODO: Can also do LEA if both operands happen to be in registers.
-				}
-				else
-				{
-					gpr.SetImmediate32(rt, simm);
-				}
+				gpr.BindToRegister(rt, rt == rs, true);
+				if (rt != rs)
+					MOV(32, gpr.R(rt), gpr.R(rs));
+				if (simm != 0)
+					ADD(32, gpr.R(rt), Imm32((u32)(s32)simm));
+				// TODO: Can also do LEA if both operands happen to be in registers.
 				gpr.UnlockAll();
 			}
 			break;
@@ -111,9 +108,28 @@ namespace MIPSComp
 			gpr.UnlockAll();
 			break;
 
-		case 12: CompImmLogic(op, &XEmitter::AND); break;
-		case 13: CompImmLogic(op, &XEmitter::OR); break;
-		case 14: CompImmLogic(op, &XEmitter::XOR); break;
+		case 12: // R(rt) = R(rs) & uimm; break; //andi
+			if (uimm == 0)
+				gpr.SetImmediate32(rt, 0);
+			else if (gpr.IsImmediate(rs))
+				gpr.SetImmediate32(rt, gpr.GetImmediate32(rs) & uimm);
+			else
+				CompImmLogic(op, &XEmitter::AND);
+			break;
+
+		case 13: // R(rt) = R(rs) | uimm; break; //ori
+			if (gpr.IsImmediate(rs))
+				gpr.SetImmediate32(rt, gpr.GetImmediate32(rs) | uimm);
+			else
+				CompImmLogic(op, &XEmitter::OR);
+			break;
+
+		case 14: // R(rt) = R(rs) ^ uimm; break; //xori
+			if (gpr.IsImmediate(rs))
+				gpr.SetImmediate32(rt, gpr.GetImmediate32(rs) ^ uimm);
+			else
+				CompImmLogic(op, &XEmitter::XOR);
+			break;
 
 		case 15: //R(rt) = uimm << 16;	 break; //lui
 			gpr.SetImmediate32(rt, uimm << 16);

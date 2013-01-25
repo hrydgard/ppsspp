@@ -136,6 +136,8 @@ public:
 	OpArg GetDefaultLocation(int reg) const;
 	const int *GetAllocationOrder(int &count);
 	void SetImmediate32(int preg, u32 immValue);
+	bool IsImmediate(int preg) const;
+	u32 GetImmediate32(int preg) const;
 };
 
 
