@@ -463,7 +463,7 @@ s64 sceIoLseek(int id, s64 offset, int whence) {
 			seek = FILEMOVE_END;
 			break;
 		}
-		if(newPos < 0 || newPos > f->info.size)
+		if(newPos < 0)
 			return -1;
 
 		f->asyncResult = (u32) pspFileSystem.SeekFile(f->handle, (s32) offset, seek);
@@ -497,7 +497,7 @@ u32 sceIoLseek32(int id, int offset, int whence) {
 			seek = FILEMOVE_END;
 			break;
 		}
-		if(newPos < 0 || newPos > f->info.size)
+		if(newPos < 0)
 			return -1;
 
 		f->asyncResult = (u32) pspFileSystem.SeekFile(f->handle, (s32) offset, seek);
