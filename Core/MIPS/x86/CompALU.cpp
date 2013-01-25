@@ -141,31 +141,6 @@ namespace MIPSComp
 		}
 	}
 
-	//rd = rs X rt
-	void Jit::CompTriArith(u32 op, void (XEmitter::*arith)(int, const OpArg &, const OpArg &), u32 (*doImm)(const u32, const u32))
-	{
-		int rt = _RT;
-		int rs = _RS;
-		int rd = _RD;
-
-		// Yes, this happens.  Let's make it fast.
-		if (doImm && gpr.IsImmediate(rs) && gpr.IsImmediate(rt))
-		{
-			gpr.SetImmediate32(rd, doImm(gpr.GetImmediate32(rs), gpr.GetImmediate32(rt)));
-			return;
-		}
-
-		gpr.Lock(rt, rs, rd);
-		// Use EAX as a temporary if we'd overwrite it.
-		if (rd == rt)
-			MOV(32, R(EAX), gpr.R(rt));
-		gpr.BindToRegister(rd, rs == rd, true);
-		if (rs != rd)
-			MOV(32, gpr.R(rd), gpr.R(rs));
-		(this->*arith)(32, gpr.R(rd), rd == rt ? R(EAX) : gpr.R(rt));
-		gpr.UnlockAll();
-	}
-
 	static u32 RType3_ImmAdd(const u32 a, const u32 b)
 	{
 		return a + b;
@@ -189,6 +164,40 @@ namespace MIPSComp
 	static u32 RType3_ImmXor(const u32 a, const u32 b)
 	{
 		return a ^ b;
+	}
+
+	//rd = rs X rt
+	void Jit::CompTriArith(u32 op, void (XEmitter::*arith)(int, const OpArg &, const OpArg &), u32 (*doImm)(const u32, const u32))
+	{
+		int rt = _RT;
+		int rs = _RS;
+		int rd = _RD;
+
+		// Yes, this happens.  Let's make it fast.
+		if (doImm && gpr.IsImmediate(rs) && gpr.IsImmediate(rt))
+		{
+			gpr.SetImmediate32(rd, doImm(gpr.GetImmediate32(rs), gpr.GetImmediate32(rt)));
+			return;
+		}
+
+		gpr.Lock(rt, rs, rd);
+		// Optimize out + 0 and | 0.
+		if ((doImm == &RType3_ImmAdd || doImm == &RType3_ImmOr) && (rs == 0 || rt == 0))
+		{
+			gpr.BindToRegister(rd, rd == rs || rd == rt, true);
+			MOV(32, gpr.R(rd), gpr.R(rt == 0 ? rs : rt));
+		}
+		else
+		{
+			// Use EAX as a temporary if we'd overwrite it.
+			if (rd == rt)
+				MOV(32, R(EAX), gpr.R(rt));
+			gpr.BindToRegister(rd, rs == rd, true);
+			if (rs != rd)
+				MOV(32, gpr.R(rd), gpr.R(rs));
+			(this->*arith)(32, gpr.R(rd), rd == rt ? R(EAX) : gpr.R(rt));
+		}
+		gpr.UnlockAll();
 	}
 
 	void Jit::Comp_RType3(u32 op)
