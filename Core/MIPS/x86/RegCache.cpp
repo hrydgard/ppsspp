@@ -38,30 +38,22 @@ static const int allocationOrder[] =
 #endif
 };
 
-RegCache::RegCache() : emit(0), mips(0) {
-	memset(locks, 0, sizeof(locks));
-	memset(xlocks, 0, sizeof(xlocks));
-	memset(saved_locks, 0, sizeof(saved_locks));
-	memset(saved_xlocks, 0, sizeof(saved_xlocks));
+GPRRegCache::GPRRegCache() : emit(0), mips(0) {
 	memset(regs, 0, sizeof(regs));
 	memset(xregs, 0, sizeof(xregs));
-	memset(saved_regs, 0, sizeof(saved_regs));
-	memset(saved_xregs, 0, sizeof(saved_xregs));
 }
 
-void RegCache::Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats)
-{
+void GPRRegCache::Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats) {
 	this->mips = mips;
-	for (int i = 0; i < NUMXREGS; i++)
-	{
+	for (int i = 0; i < NUM_X_REGS; i++) {
 		xregs[i].free = true;
 		xregs[i].dirty = false;
-		xlocks[i] = false;
+		xregs[i].allocLocked = false;
 	}
-	for (int i = 0; i < 32; i++)
-	{
+	for (int i = 0; i < NUM_MIPS_GPRS; i++) {
 		regs[i].location = GetDefaultLocation(i);
 		regs[i].away = false;
+		regs[i].locked = false;
 	}
 	
 	// todo: sort to find the most popular regs
@@ -81,66 +73,58 @@ void RegCache::Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats)
 	//But only preload IF written OR reads >= 3
 }
 
+
 // these are MIPS reg indices
-void RegCache::Lock(int p1, int p2, int p3, int p4)
-{
-	locks[p1] = true;
-	if (p2 != 0xFF) locks[p2] = true;
-	if (p3 != 0xFF) locks[p3] = true;
-	if (p4 != 0xFF) locks[p4] = true;
+void GPRRegCache::Lock(int p1, int p2, int p3, int p4) {
+	regs[p1].locked = true;
+	if (p2 != 0xFF) regs[p2].locked = true;
+	if (p3 != 0xFF) regs[p3].locked = true;
+	if (p4 != 0xFF) regs[p4].locked = true;
 }
 
 // these are x64 reg indices
-void RegCache::LockX(int x1, int x2, int x3, int x4)
-{
-	if (xlocks[x1]) {
+void GPRRegCache::LockX(int x1, int x2, int x3, int x4) {
+	if (xregs[x1].allocLocked) {
 		PanicAlert("RegCache: x %i already locked!", x1);
 	}
-	xlocks[x1] = true;
-	if (x2 != 0xFF) xlocks[x2] = true;
-	if (x3 != 0xFF) xlocks[x3] = true;
-	if (x4 != 0xFF) xlocks[x4] = true;
+	xregs[x1].allocLocked = true;
+	if (x2 != 0xFF) xregs[x2].allocLocked = true;
+	if (x3 != 0xFF) xregs[x3].allocLocked = true;
+	if (x4 != 0xFF) xregs[x4].allocLocked = true;
 }
 
-bool RegCache::IsFreeX(int xreg) const
-{
-	return xregs[xreg].free && !xlocks[xreg];
-}
-
-void RegCache::UnlockAll()
-{
+void GPRRegCache::UnlockAll() {
 	for (int i = 0; i < 32; i++)
-		locks[i] = false;
+		regs[i].locked = false;
 }
 
-void RegCache::UnlockAllX()
-{
-	for (int i = 0; i < NUMXREGS; i++)
-		xlocks[i] = false;
+void GPRRegCache::UnlockAllX() {
+	for (int i = 0; i < NUM_X_REGS; i++)
+		xregs[i].allocLocked = false;
 }
 
-X64Reg RegCache::GetFreeXReg()
+X64Reg GPRRegCache::GetFreeXReg()
 {
 	int aCount;
 	const int *aOrder = GetAllocationOrder(aCount);
 	for (int i = 0; i < aCount; i++)
 	{
 		X64Reg xr = (X64Reg)aOrder[i];
-		if (!xlocks[xr] && xregs[xr].free)
+		if (!xregs[xr].allocLocked && xregs[xr].free)
 		{
 			return (X64Reg)xr;
 		}
 	}
 	//Okay, not found :( Force grab one
 
-	//TODO - add a pass to grab xregs whose ppcreg is not used in the next 3 instructions
+	//TODO - add a pass to grab xregs whose mipsreg is not used in the next 3 instructions
 	for (int i = 0; i < aCount; i++)
 	{
 		X64Reg xr = (X64Reg)aOrder[i];
-		if (xlocks[xr]) 
+		if (xregs[xr].allocLocked) 
 			continue;
 		int preg = xregs[xr].mipsReg;
-		if (!locks[preg])
+		if (!regs[preg].locked)
 		{
 			StoreFromRegister(preg);
 			return xr;
@@ -151,39 +135,20 @@ X64Reg RegCache::GetFreeXReg()
 	return (X64Reg) -1;
 }
 
-void RegCache::SaveState()
+void GPRRegCache::FlushR(X64Reg reg)
 {
-	memcpy(saved_locks, locks, sizeof(locks));
-	memcpy(saved_xlocks, xlocks, sizeof(xlocks));
-	memcpy(saved_regs, regs, sizeof(regs));
-	memcpy(saved_xregs, xregs, sizeof(xregs));
-}
-
-void RegCache::LoadState()
-{
-	memcpy(xlocks, saved_xlocks, sizeof(xlocks));
-	memcpy(locks, saved_locks, sizeof(locks));
-	memcpy(regs, saved_regs, sizeof(regs));
-	memcpy(xregs, saved_xregs, sizeof(xregs));
-}
-
-void RegCache::FlushR(X64Reg reg)
-{
-	if (reg >= NUMXREGS)
+	if (reg >= NUM_X_REGS)
 		PanicAlert("Flushing non existent reg");
 	if (!xregs[reg].free)
-	{
 		StoreFromRegister(xregs[reg].mipsReg);
-	}
 }
 
-int RegCache::SanityCheck() const
-{
+int GPRRegCache::SanityCheck() const {
 	for (int i = 0; i < 32; i++) {
 		if (regs[i].away) {
 			if (regs[i].location.IsSimpleReg()) {
 				Gen::X64Reg simple = regs[i].location.GetSimpleReg();
-				if (xlocks[simple])
+				if (xregs[simple].allocLocked)
 					return 1;
 				if (xregs[simple].mipsReg != i)
 					return 2;
@@ -195,10 +160,8 @@ int RegCache::SanityCheck() const
 	return 0;
 }
 
-void RegCache::DiscardRegContentsIfCached(int preg)
-{
-	if (regs[preg].away && regs[preg].location.IsSimpleReg())
-	{
+void GPRRegCache::DiscardRegContentsIfCached(int preg) {
+	if (regs[preg].away && regs[preg].location.IsSimpleReg()) {
 		X64Reg xr = regs[preg].location.GetSimpleReg();
 		xregs[xr].free = true;
 		xregs[xr].dirty = false;
@@ -209,8 +172,7 @@ void RegCache::DiscardRegContentsIfCached(int preg)
 }
 
 
-void GPRRegCache::SetImmediate32(int preg, u32 immValue)
-{
+void GPRRegCache::SetImmediate32(int preg, u32 immValue) {
 	// ZERO is always zero.  Let's just make sure.
 	if (preg == 0)
 		immValue = 0;
@@ -220,16 +182,14 @@ void GPRRegCache::SetImmediate32(int preg, u32 immValue)
 	regs[preg].location = Imm32(immValue);
 }
 
-bool GPRRegCache::IsImmediate(int preg) const
-{
+bool GPRRegCache::IsImmediate(int preg) const {
 	// Always say yes for ZERO, even if it's in a temp reg.
 	if (preg == 0)
 		return true;
 	return regs[preg].location.IsImm();
 }
 
-u32 GPRRegCache::GetImmediate32(int preg) const
-{
+u32 GPRRegCache::GetImmediate32(int preg) const {
 	_dbg_assert_msg_(JIT, IsImmediate(preg), "Reg %d must be an immediate.", preg);
 	// Always 0 for ZERO.
 	if (preg == 0)
@@ -237,50 +197,19 @@ u32 GPRRegCache::GetImmediate32(int preg) const
 	return regs[preg].location.GetImmValue();
 }
 
-void GPRRegCache::Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats)
-{
-	RegCache::Start(mips, stats);
-}
-
-void FPURegCache::Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats)
-{
-	RegCache::Start(mips, stats);
-}
-
-const int *GPRRegCache::GetAllocationOrder(int &count)
-{
+const int *GPRRegCache::GetAllocationOrder(int &count) {
 	count = sizeof(allocationOrder) / sizeof(const int);
 	return allocationOrder;
 }
 
-const int *FPURegCache::GetAllocationOrder(int &count)
-{
-	static const int allocationOrder[] = 
-	{
-#ifdef _M_X64
-		XMM6, XMM7, XMM8, XMM9, XMM10, XMM11, XMM12, XMM13, XMM14, XMM15, XMM2, XMM3, XMM4, XMM5
-#elif _M_IX86
-		XMM2, XMM3, XMM4, XMM5, XMM6, XMM7,
-#endif
-	};
-	count = sizeof(allocationOrder) / sizeof(int);
-	return allocationOrder;
-}
 
-OpArg GPRRegCache::GetDefaultLocation(int reg) const
-{
+OpArg GPRRegCache::GetDefaultLocation(int reg) const {
 	return M(&mips->r[reg]);
 }
 
-OpArg FPURegCache::GetDefaultLocation(int reg) const
-{
-	return M(&mips->f[reg]);
-}
 
-void RegCache::KillImmediate(int preg, bool doLoad, bool makeDirty)
-{
-	if (regs[preg].away)
-	{
+void GPRRegCache::KillImmediate(int preg, bool doLoad, bool makeDirty) {
+	if (regs[preg].away) {
 		if (regs[preg].location.IsImm())
 			BindToRegister(preg, doLoad, makeDirty);
 		else if (regs[preg].location.IsSimpleReg())
@@ -288,65 +217,53 @@ void RegCache::KillImmediate(int preg, bool doLoad, bool makeDirty)
 	}
 }
 
-void GPRRegCache::BindToRegister(int i, bool doLoad, bool makeDirty)
-{
+void GPRRegCache::BindToRegister(int i, bool doLoad, bool makeDirty) {
 	if (!regs[i].away && regs[i].location.IsImm())
 		PanicAlert("Bad immediate");
 
-	if (!regs[i].away || (regs[i].away && regs[i].location.IsImm()))
-	{
+	if (!regs[i].away || (regs[i].away && regs[i].location.IsImm())) {
 		X64Reg xr = GetFreeXReg();
 		if (xregs[xr].dirty) PanicAlert("Xreg already dirty");
-		if (xlocks[xr]) PanicAlert("GetFreeXReg returned locked register");
+		if (xregs[xr].allocLocked) PanicAlert("GetFreeXReg returned locked register");
 		xregs[xr].free = false;
 		xregs[xr].mipsReg = i;
 		xregs[xr].dirty = makeDirty || regs[i].location.IsImm();
 		OpArg newloc = ::Gen::R(xr);
-		if (doLoad)
-		{
+		if (doLoad) {
 			// Force ZERO to be 0.
 			if (i == 0)
 				emit->MOV(32, newloc, Imm32(0));
 			else
 				emit->MOV(32, newloc, regs[i].location);
 		}
-		for (int j = 0; j < 32; j++)
-		{
-			if (i != j && regs[j].location.IsSimpleReg() && regs[j].location.GetSimpleReg() == xr)
-			{
+		for (int j = 0; j < 32; j++) {
+			if (i != j && regs[j].location.IsSimpleReg() && regs[j].location.GetSimpleReg() == xr) {
 				ERROR_LOG(JIT, "BindToRegister: Strange condition");
 				Crash();
 			}
 		}
 		regs[i].away = true;
 		regs[i].location = newloc;
-	}
-	else
-	{
+	} else {
 		// reg location must be simplereg; memory locations
 		// and immediates are taken care of above.
 		xregs[RX(i)].dirty |= makeDirty;
 	}
-	if (xlocks[RX(i)]) {
+	if (xregs[RX(i)].allocLocked) {
 		PanicAlert("Seriously WTF, this reg should have been flushed");
 	}
 }
 
-void GPRRegCache::StoreFromRegister(int i)
-{
-	if (regs[i].away)
-	{
+void GPRRegCache::StoreFromRegister(int i) {
+	if (regs[i].away) {
 		bool doStore;
-		if (regs[i].location.IsSimpleReg())
-		{
+		if (regs[i].location.IsSimpleReg()) {
 			X64Reg xr = RX(i);
 			xregs[xr].free = true;
 			xregs[xr].mipsReg = -1;
 			doStore = xregs[xr].dirty;
 			xregs[xr].dirty = false;
-		}
-		else
-		{
+		} else {
 			//must be immediate - do nothing
 			doStore = true;
 		}
@@ -359,14 +276,73 @@ void GPRRegCache::StoreFromRegister(int i)
 	}
 }
 
-void FPURegCache::BindToRegister(int i, bool doLoad, bool makeDirty)
+void GPRRegCache::Flush(FlushMode mode)
 {
+	for (int i = 0; i < NUM_X_REGS; i++) {
+		if (xregs[i].allocLocked)
+			PanicAlert("Someone forgot to unlock X64 reg %i.", i);
+	}
+	for (int i = 0; i < 32; i++) {
+		if (regs[i].locked) {
+			PanicAlert("Somebody forgot to unlock MIPS reg %i.", i);
+		}
+		if (regs[i].away) {
+			if (regs[i].location.IsSimpleReg()) {
+				X64Reg xr = RX(i);
+				StoreFromRegister(i);
+				xregs[xr].dirty = false;
+			}
+			else if (regs[i].location.IsImm()) {
+				StoreFromRegister(i);
+			} else {
+				_assert_msg_(DYNA_REC,0,"Jit64 - Flush unhandled case, reg %i PC: %08x", i, mips->pc);
+			}
+		}
+	}
+}
+
+FPURegCache::FPURegCache() : emit(0), mips(0) {
+	memset(regs, 0, sizeof(regs));
+	memset(xregs, 0, sizeof(xregs));
+}
+
+void FPURegCache::Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats) {
+	this->mips = mips;
+	for (int i = 0; i < NUM_X_REGS; i++) {
+		xregs[i].free = true;
+		xregs[i].dirty = false;
+		xregs[i].allocLocked = false;
+	}
+	for (int i = 0; i < 32; i++) {
+		regs[i].location = GetDefaultLocation(i);
+		regs[i].away = false;
+		regs[i].locked = false;
+	}
+}
+
+void FPURegCache::Lock(int p1, int p2, int p3, int p4) {
+	regs[p1].locked = true;
+	if (p2 != 0xFF) regs[p2].locked = true;
+	if (p3 != 0xFF) regs[p3].locked = true;
+	if (p4 != 0xFF) regs[p4].locked = true;
+}
+
+void FPURegCache::UnlockAll() {
+	for (int i = 0; i < 32; i++)
+		regs[i].locked = false;
+}
+
+void FPURegCache::UnlockAllX() {
+	for (int i = 0; i < NUM_X_REGS; i++)
+		xregs[i].allocLocked = false;
+}
+
+void FPURegCache::BindToRegister(int i, bool doLoad, bool makeDirty) {
 	_assert_msg_(DYNA_REC, !regs[i].location.IsImm(), "WTF - load - imm");
-	if (!regs[i].away)
-	{
+	if (!regs[i].away) {
 		// Reg is at home in the memory register file. Let's pull it out.
 		X64Reg xr = GetFreeXReg();
-		_assert_msg_(DYNA_REC, xr < NUMXREGS, "WTF - load - invalid reg");
+		_assert_msg_(DYNA_REC, xr < NUM_X_REGS, "WTF - load - invalid reg");
 		xregs[xr].mipsReg = i;
 		xregs[xr].free = false;
 		xregs[xr].dirty = makeDirty;
@@ -387,13 +363,11 @@ void FPURegCache::BindToRegister(int i, bool doLoad, bool makeDirty)
 	}
 }
 
-void FPURegCache::StoreFromRegister(int i)
-{
+void FPURegCache::StoreFromRegister(int i) {
 	_assert_msg_(DYNA_REC, !regs[i].location.IsImm(), "WTF - store - imm");
-	if (regs[i].away)
-	{
+	if (regs[i].away) {
 		X64Reg xr = regs[i].location.GetSimpleReg();
-		_assert_msg_(DYNA_REC, xr < NUMXREGS, "WTF - store - invalid reg");
+		_assert_msg_(DYNA_REC, xr < NUM_X_REGS, "WTF - store - invalid reg");
 		xregs[xr].free = true;
 		xregs[xr].dirty = false;
 		xregs[xr].mipsReg = -1;
@@ -401,41 +375,98 @@ void FPURegCache::StoreFromRegister(int i)
 		emit->MOVSS(newLoc, xr);
 		regs[i].location = newLoc;
 		regs[i].away = false;
-	}
-	else
-	{
+	} else {
 	//	_assert_msg_(DYNA_REC,0,"already stored");
 	}
 }
 
-void RegCache::Flush(FlushMode mode)
-{
-	for (int i = 0; i < NUMXREGS; i++) {
-		if (xlocks[i])
+void FPURegCache::Flush(FlushMode mode) {
+	for (int i = 0; i < NUM_X_REGS; i++) {
+		if (xregs[i].allocLocked)
 			PanicAlert("Someone forgot to unlock X64 reg %i.", i);
 	}
-	for (int i = 0; i < 32; i++)
-	{
-		if (locks[i])
-		{
-			PanicAlert("Somebody forgot to unlock PPC reg %i.", i);
+	for (int i = 0; i < 32; i++) {
+		if (regs[i].locked) {
+			PanicAlert("Somebody forgot to unlock MIPS reg %i.", i);
 		}
-		if (regs[i].away)
-		{
-			if (regs[i].location.IsSimpleReg())
-			{
+		if (regs[i].away) {
+			if (regs[i].location.IsSimpleReg()) {
 				X64Reg xr = RX(i);
 				StoreFromRegister(i);
 				xregs[xr].dirty = false;
-			}
-			else if (regs[i].location.IsImm())
-			{
+			} else if (regs[i].location.IsImm()) {
 				StoreFromRegister(i);
-			}
-			else
-			{
+			} else {
 				_assert_msg_(DYNA_REC,0,"Jit64 - Flush unhandled case, reg %i PC: %08x", i, mips->pc);
 			}
 		}
+	}
+}
+
+OpArg FPURegCache::GetDefaultLocation(int reg) const {
+	return M(&mips->f[reg]);
+}
+
+int FPURegCache::SanityCheck() const {
+	for (int i = 0; i < 32; i++) {
+		if (regs[i].away) {
+			if (regs[i].location.IsSimpleReg()) {
+				Gen::X64Reg simple = regs[i].location.GetSimpleReg();
+				if (xregs[simple].allocLocked)
+					return 1;
+				if (xregs[simple].mipsReg != i)
+					return 2;
+			}
+			else if (regs[i].location.IsImm())
+				return 3;
+		}
+	}
+	return 0;
+}
+
+const int *FPURegCache::GetAllocationOrder(int &count) {
+	static const int allocationOrder[] = {
+#ifdef _M_X64
+		XMM6, XMM7, XMM8, XMM9, XMM10, XMM11, XMM12, XMM13, XMM14, XMM15, XMM2, XMM3, XMM4, XMM5
+#elif _M_IX86
+		XMM2, XMM3, XMM4, XMM5, XMM6, XMM7,
+#endif
+	};
+	count = sizeof(allocationOrder) / sizeof(int);
+	return allocationOrder;
+}
+
+X64Reg FPURegCache::GetFreeXReg() {
+	int aCount;
+	const int *aOrder = GetAllocationOrder(aCount);
+	for (int i = 0; i < aCount; i++) {
+		X64Reg xr = (X64Reg)aOrder[i];
+		if (!xregs[xr].allocLocked && xregs[xr].free) {
+			return (X64Reg)xr;
+		}
+	}
+	//Okay, not found :( Force grab one
+
+	//TODO - add a pass to grab xregs whose mipsreg is not used in the next 3 instructions
+	for (int i = 0; i < aCount; i++) {
+		X64Reg xr = (X64Reg)aOrder[i];
+		if (xregs[xr].allocLocked) 
+			continue;
+		int preg = xregs[xr].mipsReg;
+		if (!regs[preg].locked) {
+			StoreFromRegister(preg);
+			return xr;
+		}
+	}
+	//Still no dice? Die!
+	_assert_msg_(DYNA_REC, 0, "Regcache ran out of regs");
+	return (X64Reg) -1;
+}
+
+void FPURegCache::FlushR(X64Reg reg) {
+	if (reg >= NUM_X_REGS)
+		PanicAlert("Flushing non existent reg");
+	if (!xregs[reg].free) {
+		StoreFromRegister(xregs[reg].mipsReg);
 	}
 }
