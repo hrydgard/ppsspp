@@ -86,15 +86,43 @@ namespace MIPSAnalyst
 		}
 	}
 
-	bool IsDelaySlotNiceReg(u32 branchOp, u32 op, u32 reg1, u32 reg2)
+	// Temporary, returns true for common ops which have proper flags in the table.
+	bool IsDelaySlotInfoSafe(u32 op)
+	{
+		const char *safeOps[] = {
+			"addi", "addiu", "slti", "sltiu", "andi", "ori", "xori", "lui",
+			"lb", "lh", "lwl", "lw", "lbu", "lhu", "lwr",
+			"sb", "sh", "swl", "sw", "swr",
+			"add", "addu", "sub", "subu", "and", "or", "xor", "nor",
+			"slt", "sltu",
+		};
+		const char *opName = MIPSGetName(op);
+		for (int i = 0; i < ARRAY_SIZE(safeOps); ++i)
+		{
+			if (!strcmp(safeOps[i], opName))
+				return true;
+		}
+
+		return false;
+	}
+
+	bool IsDelaySlotNiceReg(u32 branchOp, u32 op, int reg1, int reg2)
 	{
 		// NOOPs are always nice.
 		if (op == 0)
 			return true;
 
-		// TODO: Something like this?
-		//if (GetOutReg(op) != reg1 && GetOutReg(op) != reg2)
-		//	return true;
+		// TODO: Once the flags are all correct on the tables, remove this safety.
+		if (IsDelaySlotInfoSafe(op))
+		{
+			// $0 is never an out reg, it's always 0.
+			if (reg1 != 0 && GetOutReg(op) == reg1)
+				return false;
+			if (reg2 != 0 && GetOutReg(op) == reg2)
+				return false;
+
+			return true;
+		}
 
 		return false;
 	}

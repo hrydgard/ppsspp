@@ -57,7 +57,7 @@ namespace MIPSAnalyst
 	int GetOutReg(u32 op);
 	bool ReadsFromReg(u32 op, u32 reg);
 	bool IsDelaySlotNice(u32 branch, u32 delayslot);
-	bool IsDelaySlotNiceReg(u32 branchOp, u32 op, u32 reg1, u32 reg2 = 0xFF);
+	bool IsDelaySlotNiceReg(u32 branchOp, u32 op, int reg1, int reg2 = 0);
 	bool IsDelaySlotNiceVFPU(u32 branchOp, u32 op);
 	bool IsDelaySlotNiceFPU(u32 branchOp, u32 op);
 	bool IsSyscall(u32 op);
