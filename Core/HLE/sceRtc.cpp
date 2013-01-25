@@ -49,7 +49,7 @@ u64 __RtcGetCurrentTick()
 	return cyclesToUs(CoreTiming::GetTicks()) + rtcMagicOffset;
 }
 
-#ifdef _WIN32
+#if defined(_WIN32)
 #define FILETIME_FROM_UNIX_EPOCH_US 11644473600000000ULL
 
 void gettimeofday(timeval *tv, void *ignore)
@@ -64,6 +64,40 @@ void gettimeofday(timeval *tv, void *ignore)
 	tv->tv_sec = long(from_1970_us / 1000000UL);
 	tv->tv_usec = from_1970_us % 1000000UL;
 }
+
+time_t rtc_timegm(struct tm *tm)
+{
+	struct tm modified;
+	memcpy(&modified, tm, sizeof(modified));
+	return _mkgmtime(&modified);
+}
+
+// TODO: Who has timegm?
+#elif defined(__GLIBC__) && !defined(ANDROID)
+#define rtc_timegm timegm
+#else
+
+time_t rtc_timegm(struct tm *tm)
+{
+	time_t ret;
+	char *tz;
+	std::string tzcopy;
+
+	tz = getenv("TZ");
+	if (tz)
+		tzcopy = tz;
+
+	setenv("TZ", "", 1);
+	tzset();
+	ret = mktime(tm);
+	if (tz)
+		setenv("TZ", tzcopy.c_str(), 1);
+	else
+		unsetenv("TZ");
+	tzset();
+	return ret;
+}
+
 #endif
 
 void __RtcTmToPspTime(ScePspDateTime &t, tm *val)
@@ -98,7 +132,7 @@ void __RtcTicksToPspTime(ScePspDateTime &t, u64 ticks)
 		// Each 400 year are equal
 		// 400 year is 20871 weeks
 		u64 ticks400Y = (u64)20871 * 7 * 24 * 3600 * 1000000ULL;
-		numYearAdd = (rtcMagicOffset - ticks) / ticks400Y + 1;
+		numYearAdd = (int) ((rtcMagicOffset - ticks) / ticks400Y + 1);
 		ticks += ticks400Y * numYearAdd;
 
 	}
@@ -106,7 +140,12 @@ void __RtcTicksToPspTime(ScePspDateTime &t, u64 ticks)
 	time_t time = (ticks - rtcMagicOffset) / 1000000ULL;
 	t.microsecond = ticks % 1000000ULL;
 
-	tm *local  = gmtime(&time);
+	tm *local = gmtime(&time);
+	if (!local)
+	{
+		ERROR_LOG(HLE, "Date is too high/low to handle, pretending to work.");
+		return;
+	}
 
 	t.year = local->tm_year + 1900 - numYearAdd * 400;
 	t.month = local->tm_mon + 1;
@@ -129,7 +168,7 @@ u64 __RtcPspTimeToTicks(ScePspDateTime &pt)
 	local.tm_sec = pt.second;
 	local.tm_isdst = 0;
 
-	time_t seconds = timegm(&local);
+	time_t seconds = rtc_timegm(&local);
 	u64 result = rtcMagicOffset + (u64) seconds * 1000000ULL;
 	result += pt.microsecond;
 	return result;
@@ -172,10 +211,15 @@ u32 sceRtcGetCurrentClock(u32 pspTimePtr, int tz)
 
 	time_t sec = (time_t) tv.tv_sec;
 	tm *utc = gmtime(&sec);
+	if (!utc)
+	{
+		ERROR_LOG(HLE, "Date is too high/low to handle, pretending to work.");
+		return 0;
+	}
 
 	utc->tm_isdst = -1;
 	utc->tm_min += tz;
-	timegm(utc); // Return gmt time with timezone offset.
+	rtc_timegm(utc); // Return gmt time with timezone offset.
 
 	ScePspDateTime ret;
 	__RtcTmToPspTime(ret, utc);
@@ -195,6 +239,11 @@ u32 sceRtcGetCurrentClockLocalTime(u32 pspTimePtr)
 
 	time_t sec = (time_t) tv.tv_sec;
 	tm *local = localtime(&sec);
+	if (!local)
+	{
+		ERROR_LOG(HLE, "Date is too high/low to handle, pretending to work.");
+		return 0;
+	}
 
 	ScePspDateTime ret;
 	__RtcTmToPspTime(ret, local);
@@ -319,9 +368,13 @@ int sceRtcConvertLocalTimeToUTC(u32 tickLocalPtr,u32 tickUTCPtr)
 	{
 		u64 srcTick = Memory::Read_U64(tickLocalPtr);
 		// TODO : Let the user select his timezone / daylight saving instead of taking system param ?
+#ifdef __GLIBC__
 		time_t timezone = 0;
 		tm *time = localtime(&timezone);
 		srcTick -= time->tm_gmtoff*1000000ULL;
+#else
+		srcTick -= -timezone * 1000000ULL;
+#endif
 		Memory::Write_U64(srcTick, tickUTCPtr);
 	}
 	else
@@ -338,9 +391,13 @@ int sceRtcConvertUtcToLocalTime(u32 tickUTCPtr,u32 tickLocalPtr)
 	{
 		u64 srcTick = Memory::Read_U64(tickUTCPtr);
 		// TODO : Let the user select his timezone / daylight saving instead of taking system param ?
+#ifdef __GLIBC__
 		time_t timezone = 0;
 		tm *time = localtime(&timezone);
 		srcTick += time->tm_gmtoff*1000000ULL;
+#else
+		srcTick += -timezone * 1000000ULL;
+#endif
 		Memory::Write_U64(srcTick, tickLocalPtr);
 	}
 	else
