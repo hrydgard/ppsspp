@@ -93,6 +93,7 @@ namespace MIPSAnalyst
 			"addi", "addiu", "slti", "sltiu", "andi", "ori", "xori", "lui",
 			"lb", "lh", "lwl", "lw", "lbu", "lhu", "lwr",
 			"sb", "sh", "swl", "sw", "swr",
+			"sll", "srl", "sra", "sllv", "srlv", "srav",
 			"add", "addu", "sub", "subu", "and", "or", "xor", "nor",
 			"slt", "sltu",
 		};
@@ -133,6 +134,13 @@ namespace MIPSAnalyst
 		if (op == 0)
 			return true;
 
+		// TODO: Once the flags are all correct on the tables, remove this safety.
+		if (IsDelaySlotInfoSafe(op))
+		{
+			// TODO: There may be IS_VFPU cases which are safe...
+			return (MIPSGetInfo(op) & IS_VFPU) == 0;
+		}
+
 		return false;
 	}
 
@@ -141,6 +149,10 @@ namespace MIPSAnalyst
 		// NOOPs are always nice.
 		if (op == 0)
 			return true;
+
+		// TODO: Once the flags are all correct on the tables, remove this safety.
+		if (IsDelaySlotInfoSafe(op))
+			return (MIPSGetInfo(op) & OUT_FPUFLAG) == 0;
 
 		return false;
 	}
