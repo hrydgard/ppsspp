@@ -60,31 +60,28 @@ namespace MIPSComp
 		int rt = _RT;
 		int rs = _RS;
 
+		// noop, won't write to ZERO.
+		if (rt == 0)
+			return;
+
 		switch (op >> 26) 
 		{
 		case 8:	// same as addiu?
 		case 9:	//R(rt) = R(rs) + simm; break;	//addiu
 			{
-				if (gpr.R(rs).IsImm())
+				if (gpr.IsImmediate(rs))
 				{
-					gpr.SetImmediate32(rt, gpr.R(rs).GetImmValue() + simm);
+					gpr.SetImmediate32(rt, gpr.GetImmediate32(rs) + simm);
 					break;
 				}
 
 				gpr.Lock(rt, rs);
-				if (rs != 0)
-				{
-					gpr.BindToRegister(rt, rt == rs, true);
-					if (rt != rs)
-						MOV(32, gpr.R(rt), gpr.R(rs));
-					if (simm != 0)
-						ADD(32, gpr.R(rt), Imm32((u32)(s32)simm));
-					// TODO: Can also do LEA if both operands happen to be in registers.
-				}
-				else
-				{
-					gpr.SetImmediate32(rt, simm);
-				}
+				gpr.BindToRegister(rt, rt == rs, true);
+				if (rt != rs)
+					MOV(32, gpr.R(rt), gpr.R(rs));
+				if (simm != 0)
+					ADD(32, gpr.R(rt), Imm32((u32)(s32)simm));
+				// TODO: Can also do LEA if both operands happen to be in registers.
 				gpr.UnlockAll();
 			}
 			break;
@@ -111,9 +108,28 @@ namespace MIPSComp
 			gpr.UnlockAll();
 			break;
 
-		case 12: CompImmLogic(op, &XEmitter::AND); break;
-		case 13: CompImmLogic(op, &XEmitter::OR); break;
-		case 14: CompImmLogic(op, &XEmitter::XOR); break;
+		case 12: // R(rt) = R(rs) & uimm; break; //andi
+			if (uimm == 0)
+				gpr.SetImmediate32(rt, 0);
+			else if (gpr.IsImmediate(rs))
+				gpr.SetImmediate32(rt, gpr.GetImmediate32(rs) & uimm);
+			else
+				CompImmLogic(op, &XEmitter::AND);
+			break;
+
+		case 13: // R(rt) = R(rs) | uimm; break; //ori
+			if (gpr.IsImmediate(rs))
+				gpr.SetImmediate32(rt, gpr.GetImmediate32(rs) | uimm);
+			else
+				CompImmLogic(op, &XEmitter::OR);
+			break;
+
+		case 14: // R(rt) = R(rs) ^ uimm; break; //xori
+			if (gpr.IsImmediate(rs))
+				gpr.SetImmediate32(rt, gpr.GetImmediate32(rs) ^ uimm);
+			else
+				CompImmLogic(op, &XEmitter::XOR);
+			break;
 
 		case 15: //R(rt) = uimm << 16;	 break; //lui
 			gpr.SetImmediate32(rt, uimm << 16);
@@ -125,24 +141,64 @@ namespace MIPSComp
 		}
 	}
 
+	static u32 RType3_ImmAdd(const u32 a, const u32 b)
+	{
+		return a + b;
+	}
+
+	static u32 RType3_ImmSub(const u32 a, const u32 b)
+	{
+		return a - b;
+	}
+
+	static u32 RType3_ImmAnd(const u32 a, const u32 b)
+	{
+		return a & b;
+	}
+
+	static u32 RType3_ImmOr(const u32 a, const u32 b)
+	{
+		return a | b;
+	}
+
+	static u32 RType3_ImmXor(const u32 a, const u32 b)
+	{
+		return a ^ b;
+	}
+
 	//rd = rs X rt
-	void Jit::CompTriArith(u32 op, void (XEmitter::*arith)(int, const OpArg &, const OpArg &))
+	void Jit::CompTriArith(u32 op, void (XEmitter::*arith)(int, const OpArg &, const OpArg &), u32 (*doImm)(const u32, const u32))
 	{
 		int rt = _RT;
 		int rs = _RS;
 		int rd = _RD;
 
-		gpr.FlushLockX(EDX);
-		gpr.Lock(rt, rs, rd);
-		MOV(32, R(EAX), gpr.R(rs));
-		MOV(32, R(EDX), gpr.R(rt));
-		gpr.BindToRegister(rd, true, true);
-		(this->*arith)(32, R(EAX), R(EDX));
-		MOV(32, gpr.R(rd), R(EAX));
-		gpr.UnlockAll();
-		gpr.UnlockAllX();
-	}
+		// Yes, this happens.  Let's make it fast.
+		if (doImm && gpr.IsImmediate(rs) && gpr.IsImmediate(rt))
+		{
+			gpr.SetImmediate32(rd, doImm(gpr.GetImmediate32(rs), gpr.GetImmediate32(rt)));
+			return;
+		}
 
+		gpr.Lock(rt, rs, rd);
+		// Optimize out + 0 and | 0.
+		if ((doImm == &RType3_ImmAdd || doImm == &RType3_ImmOr) && (rs == 0 || rt == 0))
+		{
+			gpr.BindToRegister(rd, rd == rs || rd == rt, true);
+			MOV(32, gpr.R(rd), gpr.R(rt == 0 ? rs : rt));
+		}
+		else
+		{
+			// Use EAX as a temporary if we'd overwrite it.
+			if (rd == rt)
+				MOV(32, R(EAX), gpr.R(rt));
+			gpr.BindToRegister(rd, rs == rd, true);
+			if (rs != rd)
+				MOV(32, gpr.R(rd), gpr.R(rs));
+			(this->*arith)(32, gpr.R(rd), rd == rt ? R(EAX) : gpr.R(rt));
+		}
+		gpr.UnlockAll();
+	}
 
 	void Jit::Comp_RType3(u32 op)
 	{
@@ -152,6 +208,10 @@ namespace MIPSComp
 		int rs = _RS;
 		int rd = _RD;
 
+		// noop, won't write to ZERO.
+		if (rd == 0)
+			return;
+
 		switch (op & 63)
 		{
 		//case 10: if (!R(rt)) R(rd) = R(rs); break; //movz
@@ -159,25 +219,28 @@ namespace MIPSComp
 
 		// case 32: //R(rd) = R(rs) + R(rt);		break; //add
 		case 33: //R(rd) = R(rs) + R(rt);		break; //addu
-			CompTriArith(op, &XEmitter::ADD);
+			CompTriArith(op, &XEmitter::ADD, &RType3_ImmAdd);
 			break;
 		case 34: //R(rd) = R(rs) - R(rt);		break; //sub
 		case 35:
-			CompTriArith(op, &XEmitter::SUB);
+			CompTriArith(op, &XEmitter::SUB, &RType3_ImmSub);
 			break;
 		case 36: //R(rd) = R(rs) & R(rt);		break; //and
-			CompTriArith(op, &XEmitter::AND);
+			CompTriArith(op, &XEmitter::AND, &RType3_ImmAnd);
 			break;
 		case 37: //R(rd) = R(rs) | R(rt);		break; //or
-			CompTriArith(op, &XEmitter::OR);
+			CompTriArith(op, &XEmitter::OR, &RType3_ImmOr);
 			break;
 		case 38: //R(rd) = R(rs) ^ R(rt);		break; //xor
-			CompTriArith(op, &XEmitter::XOR);
+			CompTriArith(op, &XEmitter::XOR, &RType3_ImmXor);
 			break;
 
 		case 39: // R(rd) = ~(R(rs) | R(rt)); //nor
-			CompTriArith(op, &XEmitter::OR);
-			NOT(32, gpr.R(rd));
+			CompTriArith(op, &XEmitter::OR, &RType3_ImmOr);
+			if (gpr.IsImmediate(rd))
+				gpr.SetImmediate32(rd, ~gpr.GetImmediate32(rd));
+			else
+				NOT(32, gpr.R(rd));
 			break;
 
 		case 42: //R(rd) = (int)R(rs) < (int)R(rt); break; //slt
