@@ -44,6 +44,8 @@ char *GetCPUString()
 		// INFO_LOG(BOOT, "CPU: %s", cpu_string);
 		break;
 	}
+	
+	fclose(fp);
 	return cpu_string;
 }
 bool CheckCPUFeature(const char *feature)
@@ -69,6 +71,8 @@ bool CheckCPUFeature(const char *feature)
 			token = strtok(NULL, " ");
 		}
 	}
+	
+	fclose(fp);
 	return false;
 }
 #endif
@@ -94,6 +98,8 @@ int GetCoreCount()
 			continue;
 		++cores;
 	}
+	
+	fclose(fp);
 	return cores;
 #endif
 }

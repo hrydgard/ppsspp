@@ -42,16 +42,20 @@ static inline int vasprintf(char **rResult, const char *aFormat, va_list aAp)
 	rVal = vsnprintf(result, 16, aFormat, ap);
 	va_end(ap);
 
-	if (rVal == -1) return rVal;
+	if (rVal == -1) 
+	{
+		free(result);
+		return rVal;
+	}
 	else if (rVal >= 16)
 	{
-	free(result);
-	result = (char *) malloc(rVal + 1);
-	if (result == NULL) return -1;
+		free(result);
+		result = (char *) malloc(rVal + 1);
+		if (result == NULL) return -1;
 
-	va_copy(ap, aAp);
-	rVal = vsnprintf(result, rVal + 1, aFormat, aAp);
-	va_end(ap);
+		va_copy(ap, aAp);
+		rVal = vsnprintf(result, rVal + 1, aFormat, aAp);
+		va_end(ap);
 	}
 
 	*rResult = result;
