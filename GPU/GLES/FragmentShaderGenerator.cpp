@@ -56,7 +56,7 @@ void ComputeFragmentShaderID(FragmentShaderID *id)
 			id->d[0] |= ((gstate.texfunc & 0x100) >> 8) << 5; // rgb or rgba
 			id->d[0] |= ((gstate.texfunc & 0x10000) >> 16) << 6;	// color double
 		}
-		id->d[0] |= (lmode & 1) << 6;
+		id->d[0] |= (lmode & 1) << 7;
 		id->d[0] |= (gstate.alphaTestEnable & 1) << 8;
 		if (gstate.alphaTestEnable & 1)
 			id->d[0] |= (gstate.alphatest & 0x7) << 9;	 // alpha test func
