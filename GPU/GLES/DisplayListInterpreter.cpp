@@ -332,8 +332,8 @@ void GLES_GPU::DecimateFBOs() {
 
 GLES_GPU::VirtualFramebuffer *GLES_GPU::GetDisplayFBO() {
 	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
-		if (MaskedEqual((*iter)->fb_address, displayFramebufPtr_)) {
-			// Could check w to but whatever
+		if (MaskedEqual((*iter)->fb_address, displayFramebufPtr_) && (*iter)->format == displayFormat_) {
+			// Could check w too but whatever
 			return *iter;
 		}
 	}
