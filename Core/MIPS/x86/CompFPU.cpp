@@ -46,7 +46,7 @@ void Jit::CompFPTriArith(u32 op, void (XEmitter::*arith)(X64Reg reg, OpArg), boo
 	int ft = _FT;
 	int fs = _FS;
 	int fd = _FD;
-	fpr.Lock(ft, fs, fd);
+	fpr.SpillLock(ft, fs, fd);
 
 	if (false && fs == fd) 
 	{
@@ -66,7 +66,7 @@ void Jit::CompFPTriArith(u32 op, void (XEmitter::*arith)(X64Reg reg, OpArg), boo
 		(this->*arith)(XMM0, R(XMM1));
 		MOVSS(fpr.RX(fd), R(XMM0));
 	}
-	fpr.UnlockAll();
+	fpr.ReleaseSpillLocks();
 }
 
 void Jit::Comp_FPU3op(u32 op)
@@ -97,7 +97,7 @@ void Jit::Comp_FPULS(u32 op)
 	{
 	case 49: //FI(ft) = Memory::Read_U32(addr); break; //lwc1
 		gpr.Lock(rs);
-		fpr.Lock(ft);
+		fpr.SpillLock(ft);
 		fpr.BindToRegister(ft, false, true);
 
 		if (gpr.R(rs).IsImm())
@@ -181,11 +181,11 @@ void Jit::Comp_FPULS(u32 op)
 		}
 
 		gpr.UnlockAll();
-		fpr.UnlockAll();
+		fpr.ReleaseSpillLocks();
 		break;
 	case 57: //Memory::Write_U32(FI(ft), addr); break; //swc1
 		gpr.Lock(rs);
-		fpr.Lock(ft);
+		fpr.SpillLock(ft);
 		fpr.BindToRegister(ft, true, false);
 
 		if (gpr.R(rs).IsImm())
@@ -263,7 +263,7 @@ void Jit::Comp_FPULS(u32 op)
 		}
 
 		gpr.UnlockAll();
-		fpr.UnlockAll();
+		fpr.ReleaseSpillLocks();
 		break;
 
 	default:
@@ -285,28 +285,28 @@ void Jit::Comp_FPU2op(u32 op)
 	switch (op & 0x3f) 
 	{
 	case 5:	//F(fd)	= fabsf(F(fs)); break; //abs
-		fpr.Lock(fd, fs);
+		fpr.SpillLock(fd, fs);
 		fpr.BindToRegister(fd, fd == fs, true);
 		MOVSS(fpr.RX(fd), fpr.R(fs));
 		PAND(fpr.RX(fd), M((void *)ssNoSignMask));
-		fpr.UnlockAll();
+		fpr.ReleaseSpillLocks();
 		break;
 
 	case 6:	//F(fd)	= F(fs);				break; //mov
 		if (fd != fs) {
-			fpr.Lock(fd, fs);
+			fpr.SpillLock(fd, fs);
 			fpr.BindToRegister(fd, fd == fs, true);
 			MOVSS(fpr.RX(fd), fpr.R(fs));
-			fpr.UnlockAll();
+			fpr.ReleaseSpillLocks();
 		}
 		break;
 
 	case 7:	//F(fd)	= -F(fs);			 break; //neg
-		fpr.Lock(fd, fs);
+		fpr.SpillLock(fd, fs);
 		fpr.BindToRegister(fd, fd == fs, true);
 		MOVSS(fpr.RX(fd), fpr.R(fs));
 		PXOR(fpr.RX(fd), M((void *)ssSignBits2));
-		fpr.UnlockAll();
+		fpr.ReleaseSpillLocks();
 		break;
 
 	case 12: //FsI(fd) = (int)floorf(F(fs)+0.5f); break; //round.w.s
@@ -321,11 +321,11 @@ void Jit::Comp_FPU2op(u32 op)
 		return;
 
 	case 13: //FsI(fd) = F(fs)>=0 ? (int)floorf(F(fs)) : (int)ceilf(F(fs)); break;//trunc.w.s
-		fpr.Lock(fs, fd);
+		fpr.SpillLock(fs, fd);
 		fpr.StoreFromRegister(fd);
 		CVTTSS2SI(EAX, fpr.R(fs));
 		MOV(32, fpr.R(fd), R(EAX));
-		fpr.UnlockAll();
+		fpr.ReleaseSpillLocks();
 		break;
 
 	case 14: //FsI(fd) = (int)ceilf (F(fs)); break; //ceil.w.s
@@ -363,10 +363,10 @@ void Jit::Comp_mxc1(u32 op)
 	case 4: //FI(fs) = R(rt);	break; //mtc1
 		// Cross move! slightly tricky
 		gpr.StoreFromRegister(rt);
-		fpr.Lock(fs);
+		fpr.SpillLock(fs);
 		fpr.BindToRegister(fs, false, true);
 		MOVSS(fpr.RX(fs), gpr.R(rt));
-		fpr.UnlockAll();
+		fpr.ReleaseSpillLocks();
 		return;
 
 	case 6: //currentMIPS->WriteFCR(fs, R(rt)); break; //ctc1

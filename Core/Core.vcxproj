@@ -222,6 +222,12 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="MIPS\ARM\ArmRegCacheFPU.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="MIPS\ARM\ArmJit.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -257,6 +263,7 @@
     <ClCompile Include="MIPS\x86\CompFPU.cpp" />
     <ClCompile Include="MIPS\x86\CompLoadStore.cpp" />
     <ClCompile Include="MIPS\x86\CompVFPU.cpp" />
+    <ClCompile Include="MIPS\x86\RegCacheFPU.cpp" />
     <ClCompile Include="MIPS\x86\Jit.cpp" />
     <ClCompile Include="MIPS\x86\JitCache.cpp" />
     <ClCompile Include="MIPS\x86\RegCache.cpp" />
@@ -370,6 +377,12 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClInclude>
+    <ClInclude Include="MIPS\ARM\ArmRegCacheFPU.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClInclude>
     <ClInclude Include="MIPS\JitCommon\JitCommon.h" />
     <ClInclude Include="Mips\MIPS.h" />
     <ClInclude Include="Mips\MIPSAnalyst.h" />
@@ -382,6 +395,7 @@
     <ClInclude Include="Mips\MIPSTables.h" />
     <ClInclude Include="MIPS\MIPSVFPUUtils.h" />
     <ClInclude Include="MIPS\x86\Asm.h" />
+    <ClInclude Include="MIPS\x86\RegCacheFPU.h" />
     <ClInclude Include="MIPS\x86\Jit.h" />
     <ClInclude Include="MIPS\x86\JitCache.h" />
     <ClInclude Include="MIPS\x86\RegCache.h" />

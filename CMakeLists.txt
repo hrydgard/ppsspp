@@ -618,7 +618,9 @@ elseif(X86)
 		Core/MIPS/x86/JitCache.cpp
 		Core/MIPS/x86/JitCache.h
 		Core/MIPS/x86/RegCache.cpp
-		Core/MIPS/x86/RegCache.h)
+		Core/MIPS/x86/RegCache.h
+		Core/MIPS/x86/RegCacheFPU.cpp
+		Core/MIPS/x86/RegCacheFPU.h)
 endif()
 
 # 'ppsspp_jni' on ANDROID, 'Core' everywhere else

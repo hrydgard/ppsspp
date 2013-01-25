@@ -106,8 +106,8 @@ Jit::Jit(MIPSState *mips) : blocks(mips), mips_(mips)
 
 void Jit::FlushAll()
 {
-	gpr.Flush(FLUSH_ALL);
-	fpr.Flush(FLUSH_ALL);
+	gpr.Flush();
+	fpr.Flush();
 }
 
 void Jit::WriteDowncount(int offset)

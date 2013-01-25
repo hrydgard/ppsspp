@@ -21,35 +21,19 @@
 #include "../MIPSAnalyst.h"
 
 using namespace Gen;
-enum FlushMode
-{
-	FLUSH_ALL
-};
 
-enum GrabMode
-{
-	M_READ = 1,
-	M_WRITE = 2,
-	M_READWRITE = 3,
-};
-
-struct MIPSCachedReg
-{
+struct MIPSCachedReg {
 	OpArg location;
 	bool away;  // value not in source register
 	bool locked;
 };
 
-struct X64CachedReg
-{
+struct X64CachedReg {
 	int mipsReg;
 	bool dirty;
 	bool free;
 	bool allocLocked;
 };
-
-typedef int XReg;
-typedef int PReg;
 
 #ifdef _M_X64
 #define NUM_X_REGS 16
@@ -59,12 +43,10 @@ typedef int PReg;
 
 // TODO: Add more cachable regs, like HI, LO
 #define NUM_MIPS_GPRS 32
-#define NUM_MIPS_FPRS 32
 
 class GPRRegCache
 {
 public:
-  MIPSState *mips;
 	GPRRegCache();
 	~GPRRegCache() {}
 	void Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats);
@@ -81,7 +63,7 @@ public:
 		FlushR(reg1); FlushR(reg2);
 		LockX(reg1); LockX(reg2);
 	}
-	void Flush(FlushMode mode);
+	void Flush();
 	int SanityCheck() const;
 	void KillImmediate(int preg, bool doLoad, bool makeDirty);
 
@@ -104,69 +86,17 @@ public:
 	void UnlockAll();
 	void UnlockAllX();
 
-	X64Reg GetFreeXReg();
-
 	void SetImmediate32(int preg, u32 immValue);
 	bool IsImmediate(int preg) const;
 	u32 GetImmediate32(int preg) const;
 
-private:
-	MIPSCachedReg regs[NUM_MIPS_GPRS];
-	X64CachedReg xregs[NUM_X_REGS];
-
-	const int *GetAllocationOrder(int &count);
-
-	XEmitter *emit;
-};
-
-
-// Now also with VFPU support!
-class FPURegCache
-{
-public:
 	MIPSState *mips;
-	FPURegCache();
-	~FPURegCache() {}
-
-	void Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats);
-	void BindToRegister(int preg, bool doLoad = true, bool makeDirty = true);
-	void StoreFromRegister(int preg);
-	OpArg GetDefaultLocation(int reg) const;
-
-	void SetEmitter(XEmitter *emitter) {emit = emitter;}
-
-	void FlushLockX(X64Reg reg) {
-		FlushR(reg);
-		LockX(reg);
-	}
-	void FlushLockX(X64Reg reg1, X64Reg reg2) {
-		FlushR(reg1); FlushR(reg2);
-		LockX(reg1); LockX(reg2);
-	}
-	void Flush(FlushMode mode);
-	int SanityCheck() const;
-
-	const OpArg &R(int preg) const {return regs[preg].location;}
-	X64Reg RX(int preg) const
-	{
-		if (regs[preg].away && regs[preg].location.IsSimpleReg()) 
-			return regs[preg].location.GetSimpleReg(); 
-		PanicAlert("Not so simple - %i", preg); 
-		return (X64Reg)-1;
-	}
-
-	// Register locking. Prevents them from being spilled.
-	void Lock(int p1, int p2=0xff, int p3=0xff, int p4=0xff);
-	void LockX(int x1, int x2=0xff, int x3=0xff, int x4=0xff);
-	void UnlockAll();
-	void UnlockAllX();
 
 private:
 	X64Reg GetFreeXReg();
-	void FlushR(X64Reg reg); 
 	const int *GetAllocationOrder(int &count);
 
-	MIPSCachedReg regs[NUM_MIPS_FPRS];
+	MIPSCachedReg regs[NUM_MIPS_GPRS];
 	X64CachedReg xregs[NUM_X_REGS];
 
 	XEmitter *emit;

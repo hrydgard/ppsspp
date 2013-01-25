@@ -17,17 +17,18 @@
 
 #pragma once
 
-#include "../../../Globals.h"
-#include "../../../Common/Thunk.h"
+#include "Globals.h"
+#include "Common/Thunk.h"
 #include "Asm.h"
 
 #if defined(ARM)
 #error DO NOT BUILD X86 JIT ON ARM
 #endif
 
-#include "x64Emitter.h"
+#include "Common/x64Emitter.h"
 #include "JitCache.h"
 #include "RegCache.h"
+#include "RegCacheFPU.h"
 
 namespace MIPSComp
 {

@@ -177,6 +177,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/MIPS/ARM/ArmAsm.cpp \
   $(SRC)/Core/MIPS/ARM/ArmJit.cpp \
   $(SRC)/Core/MIPS/ARM/ArmRegCache.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmRegCacheFPU.cpp \
   $(SRC)/Core/Util/BlockAllocator.cpp \
   $(SRC)/Core/Util/ppge_atlas.cpp \
   $(SRC)/Core/Util/PPGeDraw.cpp

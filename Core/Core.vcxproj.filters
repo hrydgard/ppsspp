@@ -369,6 +369,12 @@
     <ClCompile Include="..\ext\disarm.cpp">
       <Filter>Ext</Filter>
     </ClCompile>
+    <ClCompile Include="MIPS\x86\RegCacheFPU.cpp">
+      <Filter>MIPS\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM\ArmRegCacheFPU.cpp">
+      <Filter>MIPS\ARM</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -682,6 +688,12 @@
     </ClInclude>
     <ClInclude Include="..\Ext\disarm.h">
       <Filter>Ext</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\x86\RegCacheFPU.h">
+      <Filter>MIPS\x86</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\ARM\ArmRegCacheFPU.h">
+      <Filter>MIPS\ARM</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -18,12 +18,13 @@ arm {
 		../Core/MIPS/ARM/ArmJit.cpp \
 		../Core/MIPS/ARM/ArmJitCache.cpp \
 		../Core/MIPS/ARM/ArmRegCache.cpp \
+		../Core/MIPS/ARM/ArmRegCacheFPU.cpp \
 		../ext/disarm.cpp
-
 	HEADERS += ../Core/MIPS/ARM/ArmAsm.h \
 		../Core/MIPS/ARM/ArmJit.h \
 		../Core/MIPS/ARM/ArmJitCache.h \
 		../Core/MIPS/ARM/ArmRegCache.h
+		../Core/MIPS/ARM/ArmRegCacheFPU.h
 }
 x86 {
 	SOURCES += ../Core/MIPS/x86/Asm.cpp \
@@ -34,11 +35,13 @@ x86 {
 		../Core/MIPS/x86/CompVFPU.cpp \
 		../Core/MIPS/x86/Jit.cpp \
 		../Core/MIPS/x86/JitCache.cpp \
-		../Core/MIPS/x86/RegCache.cpp
+		../Core/MIPS/x86/RegCache.cpp \
+		../Core/MIPS/x86/RegCacheFPU.cpp
 	HEADERS += ../Core/MIPS/x86/Asm.h \
 		../Core/MIPS/x86/Jit.h \
 		../Core/MIPS/x86/JitCache.h \
-		../Core/MIPS/x86/RegCache.h
+		../Core/MIPS/x86/RegCache.h \
+		../Core/MIPS/x86/RegCacheFPU.h
 }
 
 SOURCES +=	../Core/CPU.cpp \ # Core
