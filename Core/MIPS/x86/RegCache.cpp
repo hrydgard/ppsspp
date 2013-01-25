@@ -220,6 +220,23 @@ void GPRRegCache::SetImmediate32(int preg, u32 immValue)
 	regs[preg].location = Imm32(immValue);
 }
 
+bool GPRRegCache::IsImmediate(int preg) const
+{
+	// Always say yes for ZERO, even if it's in a temp reg.
+	if (preg == 0)
+		return true;
+	return regs[preg].location.IsImm();
+}
+
+u32 GPRRegCache::GetImmediate32(int preg) const
+{
+	_dbg_assert_msg_(JIT, IsImmediate(preg), "Reg %d must be an immediate.", preg);
+	// Always 0 for ZERO.
+	if (preg == 0)
+		return 0;
+	return regs[preg].location.GetImmValue();
+}
+
 void GPRRegCache::Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats)
 {
 	RegCache::Start(mips, stats);
