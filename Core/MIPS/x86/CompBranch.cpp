@@ -47,6 +47,10 @@ using namespace MIPSAnalyst;
 // #define DO_CONDITIONAL_LOG 1
 #define DO_CONDITIONAL_LOG 0
 
+// We can also disable nice delay slots.
+// #define CONDITIONAL_NICE_DELAYSLOT delaySlotIsNice = false;
+#define CONDITIONAL_NICE_DELAYSLOT ;
+
 #if DO_CONDITIONAL_LOG
 #define CONDITIONAL_LOG BranchLog(op);
 #define CONDITIONAL_LOG_EXIT(addr) BranchLogExit(op, addr, false);
@@ -134,6 +138,7 @@ void Jit::BranchRSRTComp(u32 op, Gen::CCFlags cc, bool likely)
 
 	u32 delaySlotOp = Memory::ReadUnchecked_U32(js.compilerPC+4);
 	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rt, rs);
+	CONDITIONAL_NICE_DELAYSLOT;
 	if (!likely && delaySlotIsNice)
 		CompileDelaySlot(DELAYSLOT_NICE);
 
@@ -187,6 +192,7 @@ void Jit::BranchRSZeroComp(u32 op, Gen::CCFlags cc, bool andLink, bool likely)
 
 	u32 delaySlotOp = Memory::ReadUnchecked_U32(js.compilerPC + 4);
 	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rs);
+	CONDITIONAL_NICE_DELAYSLOT;
 	if (!likely && delaySlotIsNice)
 		CompileDelaySlot(DELAYSLOT_NICE);
 
@@ -278,6 +284,7 @@ void Jit::BranchFPFlag(u32 op, Gen::CCFlags cc, bool likely)
 
 	u32 delaySlotOp = Memory::ReadUnchecked_U32(js.compilerPC + 4);
 	bool delaySlotIsNice = IsDelaySlotNiceFPU(op, delaySlotOp);
+	CONDITIONAL_NICE_DELAYSLOT;
 	if (!likely && delaySlotIsNice)
 		CompileDelaySlot(DELAYSLOT_NICE);
 
@@ -338,6 +345,7 @@ void Jit::BranchVFPUFlag(u32 op, Gen::CCFlags cc, bool likely)
 
 	u32 delaySlotOp = Memory::ReadUnchecked_U32(js.compilerPC + 4);
 	bool delaySlotIsNice = IsDelaySlotNiceVFPU(op, delaySlotOp);
+	CONDITIONAL_NICE_DELAYSLOT;
 	if (!likely && delaySlotIsNice)
 		CompileDelaySlot(DELAYSLOT_NICE);
 
@@ -434,6 +442,7 @@ void Jit::Comp_JumpReg(u32 op)
 
 	u32 delaySlotOp = Memory::ReadUnchecked_U32(js.compilerPC + 4);
 	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rs);
+	CONDITIONAL_NICE_DELAYSLOT;
 
 	if (IsSyscall(delaySlotOp))
 	{
