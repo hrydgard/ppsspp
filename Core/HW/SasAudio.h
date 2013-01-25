@@ -224,6 +224,8 @@ public:
 	int *sendBuffer;
 	s16 *resampleBuffer;
 
+	FILE *audioDump;
+
 	void Mix(u32 outAddr);
 
 	void DoState(PointerWrap &p);

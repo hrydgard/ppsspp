@@ -20,6 +20,8 @@
 #include "../MemMap.h"
 #include "SasAudio.h"
 
+// #define AUDIO_TO_FILE
+
 static const s8 f[5][2] =
 { { 0, 0 },
 {	 60,	0 },
@@ -89,8 +91,6 @@ void VagDecoder::GetSamples(s16 *outSamples, int numSamples) {
 				readp = Memory::GetPointer(read_);
 				origp = readp;
 				curBlock_ = loopStartBlock_;
-				s_1 = 0.0;
-				s_2 = 0.0;
 			}
 			DecodeBlock(readp);
 			if (end_) {
@@ -187,6 +187,9 @@ SasInstance::SasInstance()
 		sendBuffer(0),
 		resampleBuffer(0),
 		grainSize(0) {
+#ifdef AUDIO_TO_FILE
+	audioDump = fopen("D:\\audio.raw", "wb");
+#endif
 }
 
 SasInstance::~SasInstance() {
@@ -241,6 +244,9 @@ void SasInstance::Mix(u32 outAddr) {
 			resampleBuffer[1] = voice.resampleHist[1];
 
 			// Figure out number of samples to read.
+			// Actually this is not entirely correct - we need to get one extra sample, and store it
+			// for the next time around. A little complicated...
+			// But for now, see Smoothness HACKERY below :P
 			u32 numSamples = (voice.sampleFrac + grainSize * voice.pitch) / PSP_SAS_PITCH_BASE;
 			if (numSamples > grainSize * 4) {
 				ERROR_LOG(SAS, "numSamples too large, clamping: %i vs %i", numSamples, grainSize * 4);
@@ -249,6 +255,8 @@ void SasInstance::Mix(u32 outAddr) {
 
 			// Read N samples into the resample buffer. Could do either PCM or VAG here.
 			voice.vag.GetSamples(resampleBuffer + 2, numSamples);
+			// Smoothness HACKERY
+			resampleBuffer[2 + numSamples] = resampleBuffer[2 + numSamples - 1];
 			if (voice.vag.End()) {
 				// NOTICE_LOG(SAS, "Hit end of VAG audio");
 				voice.playing = false;
@@ -260,11 +268,11 @@ void SasInstance::Mix(u32 outAddr) {
 			voice.resampleHist[1] = resampleBuffer[2 + numSamples - 1];
 
 			// Resample to the correct pitch, writing exactly "grainSize" samples.
-			u32 bufferPos = voice.sampleFrac + 2 * PSP_SAS_PITCH_BASE;
+			u32 sampleFrac = voice.sampleFrac;
 			for (int i = 0; i < grainSize; i++) {
 				// For now: nearest neighbour, not even using the resample history at all.
-				int sample = resampleBuffer[bufferPos / PSP_SAS_PITCH_BASE];
-				bufferPos += voice.pitch;
+				int sample = resampleBuffer[sampleFrac / PSP_SAS_PITCH_BASE + 2];
+				sampleFrac += voice.pitch;
 
 				// Reduce envelope to 15 bits, rounding down.
 				int envelopeValue = voice.envelope.GetHeight();
@@ -282,8 +290,10 @@ void SasInstance::Mix(u32 outAddr) {
 				sendBuffer[i * 2 + 1] += sample * voice.volumeRightSend >> 12;
 				voice.envelope.Step();
 			}
-			voice.sampleFrac += voice.pitch * grainSize;
-			voice.sampleFrac &= (PSP_SAS_PITCH_BASE - 1);
+			voice.sampleFrac = sampleFrac;
+			// Let's hope grainSize is a power of 2.
+			//voice.sampleFrac &= grainSize * PSP_SAS_PITCH_BASE - 1;
+			voice.sampleFrac -= numSamples * PSP_SAS_PITCH_BASE;
 			if (voice.envelope.HasEnded())
 			{
 				// NOTICE_LOG(SAS, "Hit end of envelope");
@@ -310,6 +320,8 @@ void SasInstance::Mix(u32 outAddr) {
 		int sampleR = mixBuffer[i * 2 + 1] + sendBuffer[i * 2 + 1];
 		mixBuffer[i * 2] = 0;
 		mixBuffer[i * 2 + 1] = 0;
+		sendBuffer[i * 2] = 0;
+		sendBuffer[i * 2 + 1] = 0;
 		s16 outL, outR;
 		if (sampleL > 32767) outL = 32767;
 		else if (sampleL < -32768) outL = -32768;
@@ -320,6 +332,9 @@ void SasInstance::Mix(u32 outAddr) {
 		Memory::WriteUnchecked_U16(outL, outAddr + i * 2 * 2);
 		Memory::WriteUnchecked_U16(outR, outAddr + i * 2 * 2 + 2);
 	}
+#ifdef AUDIO_TO_FILE
+	fwrite(Memory::GetPointer(outAddr), 1, grainSize * 2 * 2, audioDump);
+#endif
 }
 
 void SasInstance::DoState(PointerWrap &p) {
