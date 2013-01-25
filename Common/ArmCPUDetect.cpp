@@ -67,7 +67,10 @@ bool CheckCPUFeature(const char *feature)
 		while (token != NULL)
 		{
 			if (strstr(token, feature))
+			{
+				fclose(fp);
 				return true; 
+			}
 			token = strtok(NULL, " ");
 		}
 	}

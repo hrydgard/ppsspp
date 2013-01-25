@@ -254,6 +254,7 @@ int FileCopy(char* srcPath, char* destPath, char* fileName)
 	if(fileId < 0) 
 	{
 		printf("Fail opening %s\n",path);
+		free(data);
 		return -1;
 	}
 	sceIoRead(fileId, data, fileStat.st_size);
