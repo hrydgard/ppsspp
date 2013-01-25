@@ -56,7 +56,7 @@ EmuFileType Identify_File(const char *filename)
 			return FILETYPE_PSP_ELF;
 		}
 		else
-			return FILETYPE_PSP_ELF;
+			return FILETYPE_UNKNOWN_ELF;
 	}
 	else if (id == 'PBP\x00')
 	{
