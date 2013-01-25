@@ -38,7 +38,7 @@ inline void Crash() {
 
 #endif
 
-#ifdef ANDROID
+#if defined(ANDROID)
 
 #include <android/log.h>
 
@@ -53,6 +53,13 @@ inline void Crash() {
 #define FLOG(...)   { __android_log_print(ANDROID_LOG_ERROR, APP_NAME, __VA_ARGS__); Crash(); }
 
 #define MessageBox(a, b, c, d) __android_log_print(ANDROID_LOG_INFO, APP_NAME, "%s %s", (b), (c));
+
+#elif defined(__SYMBIAN32__)
+#include <QDebug>
+#define ILOG(...) { qDebug(__VA_ARGS__);}
+#define WLOG(...) { qDebug(__VA_ARGS__);}
+#define ELOG(...) { qDebug(__VA_ARGS__);}
+#define FLOG(...) { qDebug(__VA_ARGS__); Crash();}
 
 #else
 
