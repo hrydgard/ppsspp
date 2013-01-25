@@ -56,6 +56,18 @@ struct JitState
 	JitBlock *curBlock;
 };
 
+enum CompileDelaySlotFlags
+{
+	// Easy, nothing extra.
+	DELAYSLOT_NICE = 0,
+	// Flush registers after delay slot.
+	DELAYSLOT_FLUSH = 1,
+	// Preserve flags.
+	DELAYSLOT_SAFE = 2,
+	// Flush registers after and preserve flags.
+	DELAYSLOT_SAFE_FLUSH = DELAYSLOT_FLUSH | DELAYSLOT_SAFE,
+};
+
 class Jit : public Gen::XCodeBlock
 {
 public:
@@ -71,7 +83,8 @@ public:
 	void Compile(u32 em_address);	// Compiles a block at current MIPS PC
 	const u8 *DoJit(u32 em_address, JitBlock *b);
 
-	void CompileDelaySlot(bool saveFlags = false);
+	// See CompileDelaySlotFlags for flags.
+	void CompileDelaySlot(int flags);
 	void CompileAt(u32 addr);
 	void Comp_RunBlock(u32 op);
 

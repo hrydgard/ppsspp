@@ -128,7 +128,7 @@ void Jit::ClearCacheAt(u32 em_address)
 	ClearCache();
 }
 
-void Jit::CompileDelaySlot(bool saveFlags)
+void Jit::CompileDelaySlot(int flags)
 {
 	const u32 addr = js.compilerPC + 4;
 
@@ -136,7 +136,7 @@ void Jit::CompileDelaySlot(bool saveFlags)
 	// Need to offset the downcount which was already incremented for the branch + delay slot.
 	CheckJitBreakpoint(addr, -2);
 
-	if (saveFlags)
+	if (flags & DELAYSLOT_SAFE)
 		SAVE_FLAGS; // preserve flag around the delay slot!
 
 	js.inDelaySlot = true;
@@ -144,8 +144,9 @@ void Jit::CompileDelaySlot(bool saveFlags)
 	MIPSCompileOp(op);
 	js.inDelaySlot = false;
 
-	FlushAll();
-	if (saveFlags)
+	if (flags & DELAYSLOT_FLUSH)
+		FlushAll();
+	if (flags & DELAYSLOT_SAFE)
 		LOAD_FLAGS; // restore flag!
 }
 

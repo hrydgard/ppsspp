@@ -47,6 +47,10 @@ using namespace MIPSAnalyst;
 // #define DO_CONDITIONAL_LOG 1
 #define DO_CONDITIONAL_LOG 0
 
+// We can also disable nice delay slots.
+// #define CONDITIONAL_NICE_DELAYSLOT delaySlotIsNice = false;
+#define CONDITIONAL_NICE_DELAYSLOT ;
+
 #if DO_CONDITIONAL_LOG
 #define CONDITIONAL_LOG BranchLog(op);
 #define CONDITIONAL_LOG_EXIT(addr) BranchLogExit(op, addr, false);
@@ -133,14 +137,10 @@ void Jit::BranchRSRTComp(u32 op, Gen::CCFlags cc, bool likely)
 	u32 targetAddr = js.compilerPC + offset + 4;
 
 	u32 delaySlotOp = Memory::ReadUnchecked_U32(js.compilerPC+4);
-
-	//Compile the delay slot
-	bool delaySlotIsNice = GetOutReg(delaySlotOp) != rt && GetOutReg(delaySlotOp) != rs;// IsDelaySlotNice(op, delaySlotOp);
-	if (!delaySlotIsNice)
-	{
-		//ERROR_LOG(CPU, "Not nice delay slot in BranchRSRTComp :( %08x", js.compilerPC);
-	}
-	delaySlotIsNice = false;	// Until we have time to fully fix this
+	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rt, rs);
+	CONDITIONAL_NICE_DELAYSLOT;
+	if (!likely && delaySlotIsNice)
+		CompileDelaySlot(DELAYSLOT_NICE);
 
 	if (rt == 0)
 	{
@@ -157,13 +157,14 @@ void Jit::BranchRSRTComp(u32 op, Gen::CCFlags cc, bool likely)
 	Gen::FixupBranch ptr;
 	if (!likely)
 	{
-		CompileDelaySlot(!delaySlotIsNice);
+		if (!delaySlotIsNice)
+			CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
 		ptr = J_CC(cc, true);
 	}
 	else
 	{
 		ptr = J_CC(cc, true);
-		CompileDelaySlot(false);
+		CompileDelaySlot(DELAYSLOT_FLUSH);
 	}
 
 	// Take the branch
@@ -190,14 +191,11 @@ void Jit::BranchRSZeroComp(u32 op, Gen::CCFlags cc, bool andLink, bool likely)
 	u32 targetAddr = js.compilerPC + offset + 4;
 
 	u32 delaySlotOp = Memory::ReadUnchecked_U32(js.compilerPC + 4);
+	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rs);
+	CONDITIONAL_NICE_DELAYSLOT;
+	if (!likely && delaySlotIsNice)
+		CompileDelaySlot(DELAYSLOT_NICE);
 
-	bool delaySlotIsNice = GetOutReg(delaySlotOp) != rs; //IsDelaySlotNice(op, delaySlotOp);
-	if (!delaySlotIsNice)
-	{
-		//ERROR_LOG(CPU, "Not nice delay slot in BranchRSZeroComp :( %08x", js.compilerPC);
-	}
-	delaySlotIsNice = false;	// Until we have time to fully fix this
-	
 	gpr.BindToRegister(rs, true, false);
 	CMP(32, gpr.R(rs), Imm32(0));
 	FlushAll();
@@ -205,13 +203,14 @@ void Jit::BranchRSZeroComp(u32 op, Gen::CCFlags cc, bool andLink, bool likely)
 	Gen::FixupBranch ptr;
 	if (!likely)
 	{
-		CompileDelaySlot(!delaySlotIsNice);
+		if (!delaySlotIsNice)
+			CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
 		ptr = J_CC(cc, true);
 	}
 	else
 	{
 		ptr = J_CC(cc, true);
-		CompileDelaySlot(false);
+		CompileDelaySlot(DELAYSLOT_FLUSH);
 	}
 
 	// Take the branch
@@ -284,14 +283,10 @@ void Jit::BranchFPFlag(u32 op, Gen::CCFlags cc, bool likely)
 	u32 targetAddr = js.compilerPC + offset + 4;
 
 	u32 delaySlotOp = Memory::ReadUnchecked_U32(js.compilerPC + 4);
-
-	bool delaySlotIsNice = IsDelaySlotNice(op, delaySlotOp);
-	if (!delaySlotIsNice)
-	{
-		//ERROR_LOG(CPU, "Not nice delay slot in BranchFPFlag :(");
-	}
-
-	delaySlotIsNice = false;	// Until we have time to fully fix this
+	bool delaySlotIsNice = IsDelaySlotNiceFPU(op, delaySlotOp);
+	CONDITIONAL_NICE_DELAYSLOT;
+	if (!likely && delaySlotIsNice)
+		CompileDelaySlot(DELAYSLOT_NICE);
 
 	FlushAll();
 
@@ -299,13 +294,14 @@ void Jit::BranchFPFlag(u32 op, Gen::CCFlags cc, bool likely)
 	Gen::FixupBranch ptr;
 	if (!likely)
 	{
-		CompileDelaySlot(!delaySlotIsNice);
+		if (!delaySlotIsNice)
+			CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
 		ptr = J_CC(cc, true);
 	}
 	else
 	{
 		ptr = J_CC(cc, true);
-		CompileDelaySlot(false);
+		CompileDelaySlot(DELAYSLOT_FLUSH);
 	}
 
 	// Take the branch
@@ -348,14 +344,10 @@ void Jit::BranchVFPUFlag(u32 op, Gen::CCFlags cc, bool likely)
 	u32 targetAddr = js.compilerPC + offset + 4;
 
 	u32 delaySlotOp = Memory::ReadUnchecked_U32(js.compilerPC + 4);
-
-	bool delaySlotIsNice = IsDelaySlotNice(op, delaySlotOp);
-	if (!delaySlotIsNice)
-	{
-		//ERROR_LOG(CPU, "Not nice delay slot in BranchVFPUFlag :(");
-	}
-
-	delaySlotIsNice = false;	// Until we have time to fully fix this
+	bool delaySlotIsNice = IsDelaySlotNiceVFPU(op, delaySlotOp);
+	CONDITIONAL_NICE_DELAYSLOT;
+	if (!likely && delaySlotIsNice)
+		CompileDelaySlot(DELAYSLOT_NICE);
 
 	FlushAll();
 
@@ -367,13 +359,14 @@ void Jit::BranchVFPUFlag(u32 op, Gen::CCFlags cc, bool likely)
 	Gen::FixupBranch ptr;
 	if (!likely)
 	{
-		CompileDelaySlot(!delaySlotIsNice);
+		if (!delaySlotIsNice)
+			CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
 		ptr = J_CC(cc, true);
 	}
 	else
 	{
 		ptr = J_CC(cc, true);
-		CompileDelaySlot(false);
+		CompileDelaySlot(DELAYSLOT_FLUSH);
 	}
 
 	// Take the branch
@@ -413,7 +406,8 @@ void Jit::Comp_Jump(u32 op)
 	}
 	u32 off = ((op & 0x3FFFFFF) << 2);
 	u32 targetAddr = (js.compilerPC & 0xF0000000) | off;
-	CompileDelaySlot(false);
+	CompileDelaySlot(DELAYSLOT_NICE);
+	FlushAll();
 
 	switch (op >> 26) 
 	{
@@ -447,16 +441,15 @@ void Jit::Comp_JumpReg(u32 op)
 	int rs = _RS;
 
 	u32 delaySlotOp = Memory::ReadUnchecked_U32(js.compilerPC + 4);
-	bool delaySlotIsNice = GetOutReg(delaySlotOp) != rs;
-	// Do what with that information?
-	delaySlotIsNice = false;	// Until we have time to fully fix this
+	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rs);
+	CONDITIONAL_NICE_DELAYSLOT;
 
 	if (IsSyscall(delaySlotOp))
 	{
 		// If this is a syscall, write the pc (for thread switching and other good reasons.)
 		gpr.BindToRegister(rs, true, false);
 		MOV(32, M(&currentMIPS->pc), gpr.R(rs));
-		CompileDelaySlot(false);
+		CompileDelaySlot(DELAYSLOT_FLUSH);
 
 		// Syscalls write the exit code for us.
 		_dbg_assert_msg_(JIT, !js.compiling, "Expected syscall to write an exit code.");
@@ -464,8 +457,7 @@ void Jit::Comp_JumpReg(u32 op)
 	}
 	else if (delaySlotIsNice)
 	{
-		// TODO: This flushes which is a waste, could add an extra param to skip.
-		CompileDelaySlot(false);
+		CompileDelaySlot(DELAYSLOT_NICE);
 		MOV(32, R(EAX), gpr.R(rs));
 		FlushAll();
 	}
@@ -474,8 +466,9 @@ void Jit::Comp_JumpReg(u32 op)
 		// Latch destination now - save it in memory.
 		gpr.BindToRegister(rs, true, false);
 		MOV(32, M(&savedPC), gpr.R(rs));
-		CompileDelaySlot(false);
+		CompileDelaySlot(DELAYSLOT_NICE);
 		MOV(32, R(EAX), M(&savedPC));
+		FlushAll();
 	}
 
 	switch (op & 0x3f)
