@@ -86,6 +86,8 @@ public:
 	void Comp_FPU2op(u32 op);
 	void Comp_mxc1(u32 op);
 
+	void Comp_SVQ(u32 op);
+
 	ArmJitBlockCache *GetBlockCache() { return &blocks; }
 
 	void ClearCache();
@@ -121,6 +123,9 @@ private:
 
 	void CompFPTriArith(u32 op, void (XEmitter::*arith)(X64Reg reg, OpArg), bool orderMatters);
 	*/
+
+	// Utils
+	void SetR0ToEffectiveAddress(int rs, s16 offset);
 
 	ArmJitBlockCache blocks;
 	ArmJitOptions jo;

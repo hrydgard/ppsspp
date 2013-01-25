@@ -109,6 +109,8 @@ public:
 	void Comp_FPU2op(u32 op);
 	void Comp_mxc1(u32 op);
 
+	void Comp_SVQ(u32 op);
+
 	JitBlockCache *GetBlockCache() { return &blocks; }
 	AsmRoutineManager &Asm() { return asm_; }
 

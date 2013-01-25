@@ -150,8 +150,8 @@ const MIPSInstruction tableImmediate[64] =  //xxxxxx .....
 	INSTR("lv.s", &Jit::Comp_Generic, Dis_SV, Int_SV, IS_VFPU),
 	{-2}, // HIT THIS IN WIPEOUT
 	{VFPU4Jump},
-	INSTR("lv", &Jit::Comp_Generic, Dis_SVLRQ, Int_SVQ, IS_VFPU),
-	INSTR("lv.q", &Jit::Comp_Generic, Dis_SVQ, Int_SVQ, IS_VFPU), //copU
+	INSTR("lv", &Jit::Comp_SVQ, Dis_SVLRQ, Int_SVQ, IS_VFPU),
+	INSTR("lv.q", &Jit::Comp_SVQ, Dis_SVQ, Int_SVQ, IS_VFPU), //copU
 	{VFPU5},
 	//56
 	INSTR("sc", &Jit::Comp_Generic, Dis_Generic, Int_StoreSync, 0),
@@ -160,8 +160,8 @@ const MIPSInstruction tableImmediate[64] =  //xxxxxx .....
 	{-2}, 
 	//60
 	{VFPU6},
-	INSTR("sv", &Jit::Comp_Generic, Dis_SVLRQ, Int_SVQ, IS_VFPU), //copU
-	INSTR("sv.q", &Jit::Comp_Generic, Dis_SVQ, Int_SVQ, IS_VFPU),
+	INSTR("sv", &Jit::Comp_SVQ, Dis_SVLRQ, Int_SVQ, IS_VFPU), //copU
+	INSTR("sv.q", &Jit::Comp_SVQ, Dis_SVQ, Int_SVQ, IS_VFPU),
 	INSTR("vflush", &Jit::Comp_Generic, Dis_Vflush, Int_Vflush, IS_VFPU),
 };
 

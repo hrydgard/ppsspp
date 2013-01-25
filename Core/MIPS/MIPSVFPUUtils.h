@@ -57,6 +57,9 @@ void WriteMatrix(const float *rs, MatrixSize size, int reg);
 void WriteVector(const float *rs, VectorSize N, int reg);
 void ReadVector(float *rd, VectorSize N, int reg);
 
+void GetVectorRegs(u8 regs[4], VectorSize N, int vectorReg);
+void GetMatrixRegs(u8 regs[16], MatrixSize N, int matrixReg);
+
 VectorSize GetVecSize(u32 op);
 MatrixSize GetMtxSize(u32 op);
 VectorSize GetHalfVectorSize(VectorSize sz);
