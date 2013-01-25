@@ -58,6 +58,7 @@ void Jit::Comp_SVQ(u32 op)
 			if (!g_Config.bFastMemory) {
 				DISABLE;
 			}
+			fpr.Flush(FLUSH_ALL);
 			gpr.BindToRegister(rs, true, true);
 	
 			u8 vregs[4];
@@ -91,6 +92,7 @@ void Jit::Comp_SVQ(u32 op)
 			if (!g_Config.bFastMemory) {
 				DISABLE;
 			}
+			fpr.Flush(FLUSH_ALL);
 			gpr.BindToRegister(rs, true, true);
 
 			u8 vregs[4];
