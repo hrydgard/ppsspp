@@ -234,10 +234,8 @@ u32 sceAudioEnd(){
 
 u32 sceAudioOutput2Reserve(u32 sampleCount){
 	DEBUG_LOG(HLE,"sceAudioOutput2Reserve(%08x)", sampleCount);
-	if (!chans[src].reserved) {
-		chans[0].sampleCount = sampleCount;
-		chans[0].reserved = true;
-	}
+	chans[0].sampleCount = sampleCount;
+	chans[0].reserved = true;
 	return 0;
 }
 
@@ -262,9 +260,7 @@ u32 sceAudioOutput2GetRestSample(){
 
 u32 sceAudioOutput2Release(){
 	DEBUG_LOG(HLE,"sceAudioOutput2Release()");
-	if (!chans[0].reserved) {
-		chans[0].reserved = false;
-	}
+	chans[0].reserved = false;
 	return 0;
 }
 
@@ -286,20 +282,16 @@ u32 sceAudioSetVolumeOffset() {
 
 u32 sceAudioSRCChReserve(u32 sampleCount, u32 freq, u32 format) {
 	DEBUG_LOG(HLE, "sceAudioSRCChReserve(%08x, %08x, %08x)", sampleCount, freq, format);
-	if (!chans[src].reserved) {
-		chans[src].reserved = true;
-		chans[src].sampleCount = sampleCount;
-		chans[src].format = format;
-		__AudioSetOutputFrequency(freq);
-	}
+	chans[src].reserved = true;
+	chans[src].sampleCount = sampleCount;
+	chans[src].format = format;
+	__AudioSetOutputFrequency(freq);
 	return 0;
 }
 
 u32 sceAudioSRCChRelease() {
 	DEBUG_LOG(HLE, "sceAudioSRCChRelease()");
-	if (!chans[src].reserved) {
-		chans[src].reserved = false;
-	}
+	chans[src].reserved = false;
 	return 0;
 }
 
