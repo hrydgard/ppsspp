@@ -248,7 +248,7 @@ void SasInstance::Mix(u32 outAddr) {
 			// for the next time around. A little complicated...
 			// But for now, see Smoothness HACKERY below :P
 			u32 numSamples = (voice.sampleFrac + grainSize * voice.pitch) / PSP_SAS_PITCH_BASE;
-			if (numSamples > grainSize * 4) {
+			if ((int)numSamples > grainSize * 4) {
 				ERROR_LOG(SAS, "numSamples too large, clamping: %i vs %i", numSamples, grainSize * 4);
 				numSamples = grainSize * 4;
 			}

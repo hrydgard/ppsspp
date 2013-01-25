@@ -129,9 +129,9 @@ u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop)
 		return ERROR_SAS_INVALID_SIZE;
 	}
 
-	u32 prevVagAddr = vagAddr;
 	//Real VAG header is 0x30 bytes behind the vagAddr
 	SasVoice &v = sas->voices[voiceNum];
+	u32 prevVagAddr = v.vagAddr;
 	v.type = VOICETYPE_VAG;
 	v.vagAddr = vagAddr;
 	v.vagSize = size;

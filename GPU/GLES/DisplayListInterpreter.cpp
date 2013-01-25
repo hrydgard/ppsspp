@@ -376,7 +376,7 @@ void GLES_GPU::SetRenderFrameBuffer() {
 	VirtualFramebuffer *vfb = 0;
 	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
 		VirtualFramebuffer *v = *iter;
-		if (v->fb_address == fb_address && v->width == drawing_width && v->height == drawing_height /* && v->format == fmt */) {
+		if (v->fb_address == fb_address && v->width == drawing_width && v->height == drawing_height && v->format == fmt) {
 			// Let's not be so picky for now. Let's say this is the one.
 			vfb = v;
 			// Update fb stride in case it changed
