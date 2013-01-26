@@ -55,7 +55,7 @@ public:
 	bool bLinearFiltering;
 	bool bUseVBO;
 	int iWindowZoom;  // for Windows
-	bool SSAntiAlaising; //for Windows, too
+	bool SSAntiAliasing; //for Windows, too
 	bool bDisableG3DLog;
 	bool bVertexCache;
 

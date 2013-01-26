@@ -169,10 +169,9 @@ GLES_GPU::GLES_GPU(int renderWidth, int renderHeight)
 		prevDisplayFramebuf_(0),
 		prevPrevDisplayFramebuf_(0),
 		renderWidth_(renderWidth),
-		renderHeight_(renderHeight)
+		renderHeight_(renderHeight),
+		resized_(false)
 {
-	renderWidthFactor_ = (float)renderWidth / 480.0f;
-	renderHeightFactor_ = (float)renderHeight / 272.0f;
 	shaderManager_ = new ShaderManager();
 	transformDraw_.SetShaderManager(shaderManager_);
 	TextureCache_Init();
@@ -306,6 +305,12 @@ void GLES_GPU::CopyDisplayToOutput() {
 	shaderManager_->DirtyUniform(DIRTY_ALL);
 	gstate_c.textureChanged = true;
 
+	if (resized_) {
+		DestroyAllFBOs();
+		glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+		resized_ = false;
+	}
+
 	BeginDebugDraw();
 }
 
@@ -412,13 +417,15 @@ void GLES_GPU::SetRenderFrameBuffer() {
 //#ifdef ANDROID
 //	vfb->colorDepth = FBO_8888;
 //#endif
-		vfb->fbo = fbo_create(vfb->width * renderWidthFactor_, vfb->height * renderHeightFactor_, 1, true, vfb->colorDepth);
+		float renderWidthFactor = (float)PSP_CoreParameter().renderWidth / 480.0f;
+		float renderHeightFactor = (float)PSP_CoreParameter().renderHeight / 272.0f;
+		vfb->fbo = fbo_create(vfb->width * renderWidthFactor, vfb->height * renderHeightFactor, 1, true, vfb->colorDepth);
 
 		vfb->last_frame_used = gpuStats.numFrames;
 		vfbs_.push_back(vfb);
 		fbo_bind_as_render_target(vfb->fbo);
 		glEnable(GL_DITHER);
-		glstate.viewport.set(0, 0, renderWidth_, renderHeight_);
+		glstate.viewport.set(0, 0, PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
 		currentRenderVfb_ = vfb;
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 		INFO_LOG(HLE, "Creating FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
@@ -439,7 +446,7 @@ void GLES_GPU::SetRenderFrameBuffer() {
 		// the first time the buffer is bound on this frame.
 		// glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 #endif
-		glstate.viewport.set(0, 0, renderWidth_, renderHeight_);
+		glstate.viewport.set(0, 0, PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
 		currentRenderVfb_ = vfb;
 		vfb->last_frame_used = gpuStats.numFrames;
 	}
@@ -1243,17 +1250,25 @@ void GLES_GPU::Flush() {
 	transformDraw_.Flush();
 }
 
-void GLES_GPU::DoState(PointerWrap &p) {
-	GPUCommon::DoState(p);
-
-	TextureCache_Clear(true);
-
-	gstate_c.textureChanged = true;
+void GLES_GPU::DestroyAllFBOs() {
 	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
 		VirtualFramebuffer *v = *iter;
 		fbo_destroy(v->fbo);
 		delete v;
 	}
 	vfbs_.clear();
+}
+
+void GLES_GPU::Resized() {
+	resized_ = true;
+}
+
+void GLES_GPU::DoState(PointerWrap &p) {
+	GPUCommon::DoState(p);
+
+	TextureCache_Clear(true);
+
+	gstate_c.textureChanged = true;
+	DestroyAllFBOs();
 	shaderManager_->ClearCache(true);
 }

@@ -72,8 +72,8 @@ DWORD TheThread(LPVOID x)
 	coreParameter.enableDebugging = true;
 	coreParameter.printfEmuLog = false;
 	coreParameter.headLess = false;
-	coreParameter.renderWidth = (480 * g_Config.iWindowZoom) * (g_Config.SSAntiAlaising + 1);
-	coreParameter.renderHeight = (272 * g_Config.iWindowZoom) * (g_Config.SSAntiAlaising + 1);
+	coreParameter.renderWidth = (480 * g_Config.iWindowZoom) * (g_Config.SSAntiAliasing + 1);
+	coreParameter.renderHeight = (272 * g_Config.iWindowZoom) * (g_Config.SSAntiAliasing + 1);
 	coreParameter.outputWidth = 480 * g_Config.iWindowZoom;
 	coreParameter.outputHeight = 272 * g_Config.iWindowZoom;
 	coreParameter.pixelWidth = 480 * g_Config.iWindowZoom;

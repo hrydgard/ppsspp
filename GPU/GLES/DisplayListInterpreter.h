@@ -56,6 +56,9 @@ public:
 	virtual void Flush();
 	virtual void DoState(PointerWrap &p);
 
+	// Called by the window system if the window size changed. This will be reflected in PSPCoreParam.pixel*.
+	virtual void Resized();
+
 private:
 	void DoBlockTransfer();
 
@@ -65,12 +68,14 @@ private:
 
 	// Deletes old FBOs.
 	void DecimateFBOs();
+	void DestroyAllFBOs();
 
 	FramebufferManager framebufferManager;
 	TransformDrawEngine transformDraw_;
 	ShaderManager *shaderManager_;
 	u8 *flushBeforeCommand_;
 	bool interruptsEnabled_;
+	bool resized_;
 
 	u32 displayFramebufPtr_;
 	u32 displayStride_;
@@ -78,9 +83,6 @@ private:
 
 	int renderWidth_;
 	int renderHeight_;
-
-	float renderWidthFactor_;
-	float renderHeightFactor_;
 
 	struct CmdProcessorState {
 		u32 pc;

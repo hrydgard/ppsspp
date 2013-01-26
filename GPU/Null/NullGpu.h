@@ -45,6 +45,8 @@ public:
 	virtual void DeviceLost() {}
 	virtual void DumpNextFrame() {}
 
+	virtual void Resized() {}
+
 private:
 	bool interruptsEnabled_;
 };

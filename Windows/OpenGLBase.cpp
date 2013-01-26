@@ -47,11 +47,6 @@ void GL_Resized()					// Resize And Initialize The GL Window
 	}
 	glstate.viewport.set(0, 0, xres, yres);
 	glstate.viewport.restore();
-	glMatrixMode(GL_PROJECTION);					// Select The Projection Matrix
-	glLoadIdentity();								// Reset The Projection Matrix
-	glOrtho(0.0f,xres,yres,0.0f,-1.0f,1.0f);		// Create Ortho 640x480 View (0,0 At Top Left)
-	glMatrixMode(GL_MODELVIEW);						// Select The Modelview Matrix
-	glLoadIdentity();								// Reset The Modelview Matrix
 }
 
 

@@ -61,7 +61,7 @@ struct AudioChannel
 
 	// We copy samples as they are written into this simple ring buffer.
 	// Might try something more efficient later.
-	FixedSizeQueue<s16, 32768> sampleQueue;
+	FixedSizeQueue<s16, 32768 * 8> sampleQueue;
 
 	void DoState(PointerWrap &p) {
 		p.Do(reserved);

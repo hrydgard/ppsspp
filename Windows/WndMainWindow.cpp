@@ -124,7 +124,17 @@ namespace MainWindow
 		MoveWindow(hwndDisplay, 0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, TRUE);
 		PSP_CoreParameter().pixelWidth = rc.right - rc.left;
 		PSP_CoreParameter().pixelHeight = rc.bottom - rc.top;
-		GL_Resized();
+
+		// round up to a zoom factor for the render size.
+		int zoom = (rc.right - rc.left + 479) / 480;
+		if (g_Config.SSAntiAliasing) zoom *= 2;
+		PSP_CoreParameter().renderWidth = 480 * zoom;
+		PSP_CoreParameter().renderHeight = 272 * zoom;
+		PSP_CoreParameter().outputWidth = 480 * zoom;
+		PSP_CoreParameter().outputHeight = 272 * zoom;
+
+		if (gpu)
+			gpu->Resized();
 	}
 
 	void SetZoom(float zoom) {
@@ -259,6 +269,11 @@ namespace MainWindow
 			break;
 
 		case WM_MOVE:
+			ResizeDisplay();
+			break;
+
+		case WM_SIZE:
+			ResizeDisplay();
 			break;
 
 		case WM_COMMAND:
@@ -511,7 +526,7 @@ namespace MainWindow
 				UpdateMenus();
 				break;
 			case ID_OPTIONS_SIMPLE2XSSAA:
-				g_Config.SSAntiAlaising = !g_Config.SSAntiAlaising;
+				g_Config.SSAntiAliasing = !g_Config.SSAntiAliasing;
 				UpdateMenus();
 				break;
 			case ID_OPTIONS_DISABLEG3DLOG:
@@ -615,11 +630,6 @@ namespace MainWindow
 		case WM_DESTROY:
 			PostQuitMessage(0);
 			break;
-		case WM_SIZE:
-			{
-				ResizeDisplay();
-			}
-			break;
 		case WM_NCHITTEST:
 			if (skinMode)
 				return HTCAPTION;
@@ -668,7 +678,7 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_HARDWARETRANSFORM, g_Config.bHardwareTransform);
 		CHECKITEM(ID_OPTIONS_FASTMEMORY, g_Config.bFastMemory);
 		CHECKITEM(ID_OPTIONS_LINEARFILTERING, g_Config.bLinearFiltering);
-		CHECKITEM(ID_OPTIONS_SIMPLE2XSSAA, g_Config.SSAntiAlaising);
+		CHECKITEM(ID_OPTIONS_SIMPLE2XSSAA, g_Config.SSAntiAliasing);
 		CHECKITEM(ID_EMULATION_RUNONLOAD, g_Config.bAutoRun);
 		CHECKITEM(ID_OPTIONS_USEVBO, g_Config.bUseVBO);
 		CHECKITEM(ID_OPTIONS_DISABLEG3DLOG, g_Config.bDisableG3DLog);

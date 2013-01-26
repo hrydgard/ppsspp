@@ -80,6 +80,9 @@ public:
 	virtual void Flush() = 0;
 	virtual void DoState(PointerWrap &p) = 0;
 
+	// Called by the window system if the window size changed. This will be reflected in PSPCoreParam.pixel*.
+	virtual void Resized() = 0;
+
 	// Debugging
 	virtual void DumpNextFrame() = 0;
 };
