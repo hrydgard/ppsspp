@@ -4,7 +4,6 @@
 #include "../native/gfx_es2/gl_state.h"
 #include "../native/gfx/gl_common.h"
 #include "GL/gl.h"
-#include "GL/glext.h"
 #include "GL/wglew.h"
 
 #include "OpenGLBase.h"
