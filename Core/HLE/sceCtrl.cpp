@@ -408,7 +408,7 @@ void sceCtrlReadBufferPositive(u32 ctrlDataPtr, u32 nBufs)
 	else
 	{
 		waitingThreads.push_back(__KernelGetCurThread());
-		__KernelWaitCurThread(WAITTYPE_CTRL, CTRL_WAIT_POSITIVE, ctrlDataPtr, 0, false);
+		__KernelWaitCurThread(WAITTYPE_CTRL, CTRL_WAIT_POSITIVE, ctrlDataPtr, 0, false, "ctrl buffer waited");
 		DEBUG_LOG(HLE, "sceCtrlReadBufferPositive(%08x, %i) - waiting", ctrlDataPtr, nBufs);
 	}
 }
@@ -424,7 +424,7 @@ void sceCtrlReadBufferNegative(u32 ctrlDataPtr, u32 nBufs)
 	else
 	{
 		waitingThreads.push_back(__KernelGetCurThread());
-		__KernelWaitCurThread(WAITTYPE_CTRL, CTRL_WAIT_NEGATIVE, ctrlDataPtr, 0, false);
+		__KernelWaitCurThread(WAITTYPE_CTRL, CTRL_WAIT_NEGATIVE, ctrlDataPtr, 0, false, "ctrl buffer waited");
 		DEBUG_LOG(HLE, "sceCtrlReadBufferNegative(%08x, %i) - waiting", ctrlDataPtr, nBufs);
 	}
 }

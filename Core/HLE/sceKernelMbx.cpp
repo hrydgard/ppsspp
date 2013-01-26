@@ -450,7 +450,7 @@ int sceKernelReceiveMbx(SceUID id, u32 packetAddrPtr, u32 timeoutPtr)
 		__KernelMbxRemoveThread(m, __KernelGetCurThread());
 		m->AddWaitingThread(__KernelGetCurThread(), packetAddrPtr);
 		__KernelWaitMbx(m, timeoutPtr);
-		__KernelWaitCurThread(WAITTYPE_MBX, id, 0, timeoutPtr, false);
+		__KernelWaitCurThread(WAITTYPE_MBX, id, 0, timeoutPtr, false, "mbx waited");
 		return 0;
 	}
 }
@@ -478,7 +478,7 @@ int sceKernelReceiveMbxCB(SceUID id, u32 packetAddrPtr, u32 timeoutPtr)
 		__KernelMbxRemoveThread(m, __KernelGetCurThread());
 		m->AddWaitingThread(__KernelGetCurThread(), packetAddrPtr);
 		__KernelWaitMbx(m, timeoutPtr);
-		__KernelWaitCurThread(WAITTYPE_MBX, id, 0, timeoutPtr, true);
+		__KernelWaitCurThread(WAITTYPE_MBX, id, 0, timeoutPtr, true, "mbx waited");
 		return 0;
 	}
 }

@@ -1031,7 +1031,7 @@ bool __KernelTriggerWait(WaitType type, int id, int retVal, bool dontSwitch)
 }
 
 // makes the current thread wait for an event
-void __KernelWaitCurThread(WaitType type, SceUID waitID, u32 waitValue, u32 timeoutPtr, bool processCallbacks)
+void __KernelWaitCurThread(WaitType type, SceUID waitID, u32 waitValue, u32 timeoutPtr, bool processCallbacks, const char *reason)
 {
 	// TODO: Need to defer if in callback?
 	if (g_inCbCount > 0)
@@ -1049,10 +1049,10 @@ void __KernelWaitCurThread(WaitType type, SceUID waitID, u32 waitValue, u32 time
 	RETURN(0); //pretend all went OK
 
 	// TODO: time waster
-	char temp[256];
-	sprintf(temp, "started wait %s", waitTypeStrings[(int)type]);
+	if (!reason)
+		reason = "started wait";
 
-	hleReSchedule(processCallbacks, temp);
+	hleReSchedule(processCallbacks, reason);
 	// TODO: Remove thread from Ready queue?
 }
 
@@ -1728,7 +1728,7 @@ void sceKernelDelayThreadCB()
 
 	SceUID curThread = __KernelGetCurThread();
 	__KernelScheduleWakeup(curThread, usec);
-	__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, true);
+	__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, true, "thread delayed");
 }
 
 void sceKernelDelayThread()
@@ -1739,7 +1739,7 @@ void sceKernelDelayThread()
 
 	SceUID curThread = __KernelGetCurThread();
 	__KernelScheduleWakeup(curThread, usec);
-	__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, false);
+	__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, false, "thread delayed");
 }
 
 void sceKernelDelaySysClockThreadCB()
@@ -1760,7 +1760,7 @@ void sceKernelDelaySysClockThreadCB()
 
 	SceUID curThread = __KernelGetCurThread();
 	__KernelScheduleWakeup(curThread, usec);
-	__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, true);
+	__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, true, "thread delayed");
 }
 
 void sceKernelDelaySysClockThread()
@@ -1781,7 +1781,7 @@ void sceKernelDelaySysClockThread()
 
 	SceUID curThread = __KernelGetCurThread();
 	__KernelScheduleWakeup(curThread, usec);
-	__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, false);
+	__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, false, "thread delayed");
 }
 
 u32 __KernelGetThreadPrio(SceUID id)
@@ -1855,7 +1855,7 @@ static void __KernelSleepThread(bool doCallbacks) {
 		RETURN(0);
 	} else {
 		RETURN(0);
-		__KernelWaitCurThread(WAITTYPE_SLEEP, 0, 0, 0, doCallbacks);
+		__KernelWaitCurThread(WAITTYPE_SLEEP, 0, 0, 0, doCallbacks, "thread slept");
 	}
 }
 
@@ -1886,7 +1886,7 @@ int sceKernelWaitThreadEnd(SceUID threadID, u32 timeoutPtr)
 		{
 			if (Memory::IsValidAddress(timeoutPtr))
 				__KernelScheduleThreadEndTimeout(currentThread, threadID, Memory::Read_U32(timeoutPtr));
-			__KernelWaitCurThread(WAITTYPE_THREADEND, threadID, 0, timeoutPtr, false);
+			__KernelWaitCurThread(WAITTYPE_THREADEND, threadID, 0, timeoutPtr, false, "thread wait end");
 		}
 
 		return t->nt.exitStatus;
@@ -1913,7 +1913,7 @@ int sceKernelWaitThreadEndCB(SceUID threadID, u32 timeoutPtr)
 		{
 			if (Memory::IsValidAddress(timeoutPtr))
 				__KernelScheduleThreadEndTimeout(currentThread, threadID, Memory::Read_U32(timeoutPtr));
-			__KernelWaitCurThread(WAITTYPE_THREADEND, threadID, 0, timeoutPtr, true);
+			__KernelWaitCurThread(WAITTYPE_THREADEND, threadID, 0, timeoutPtr, true, "thread wait end");
 		}
 
 		return t->nt.exitStatus;

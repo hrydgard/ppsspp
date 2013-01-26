@@ -976,7 +976,7 @@ int sceKernelAllocateVpl(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr)
 			}
 
 			__KernelSetVplTimeout(timeoutPtr);
-			__KernelWaitCurThread(WAITTYPE_VPL, uid, size, timeoutPtr, false);
+			__KernelWaitCurThread(WAITTYPE_VPL, uid, size, timeoutPtr, false, "vpl waited");
 		}
 	}
 	return error;
@@ -1002,7 +1002,7 @@ int sceKernelAllocateVplCB(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr)
 			}
 
 			__KernelSetVplTimeout(timeoutPtr);
-			__KernelWaitCurThread(WAITTYPE_VPL, uid, size, timeoutPtr, true);
+			__KernelWaitCurThread(WAITTYPE_VPL, uid, size, timeoutPtr, true, "vpl waited");
 		}
 	}
 	return error;
