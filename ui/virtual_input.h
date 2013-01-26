@@ -15,16 +15,17 @@ public:
 	void update(InputState &input_state);
 	void draw(DrawBuffer &db, uint32_t color, uint32_t colorOverlay);
 
-	void setPos(float x, float y) {
-		x_ = x - w_ / 2;
-		y_ = y - h_ / 2;
+	void setPos(float x, float y, float scale) {
+		scale_ = scale;
+		x_ = x - w_ * scale / 2;
+		y_ = y - h_ * scale / 2;
 	}
 
 private:
 	virtual bool isInside(float px, float py) const
 	{
 		float margin = 5.0f;
-		return px >= x_ - margin && py >= y_ - margin && px <= x_ + w_ + margin && py <= y_ + h_ + margin;
+		return px >= x_ - margin * scale_ && py >= y_ - margin * scale_ && px <= x_ + (w_ + margin) * scale_ && py <= y_ + (h_ + margin) * scale_;
 	}
 
 	const Atlas *atlas_;
@@ -38,6 +39,7 @@ private:
 	float x_, y_;
 	float w_;
 	float h_;
+	float scale_;
 
 	bool isDown_;
 
@@ -57,9 +59,10 @@ public:
 	void update(InputState &input_state);
 	void draw(DrawBuffer &db, uint32_t color);
 
-	void setPos(float x, float y) {
+	void setPos(float x, float y, float scale) {
 		stick_x_ = x;
 		stick_y_ = y;
+		scale_ = scale;
 	}
 
 private:
@@ -70,6 +73,7 @@ private:
 	int stick_size_;
 	float stick_x_;
 	float stick_y_;
+	float scale_;
 	bool dragging_[MAX_POINTERS];
 	bool lastPointerDown_[MAX_POINTERS];
 

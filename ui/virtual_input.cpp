@@ -38,10 +38,11 @@ void TouchButton::draw(DrawBuffer &db, uint32_t color, uint32_t colorOverlay)
 		colorOverlay |= 0xFF000000;
 		scale = 2.0f;
 	}
+	scale *= scale_;
 	// We only mirror background
-	db.DrawImageRotated(imageIndex_, x_ + w_/2, y_ + h_/2, scale, rotationAngle_, color, mirror_h_);
+	db.DrawImageRotated(imageIndex_, x_ + w_*scale_/2, y_ + h_*scale_/2, scale, rotationAngle_, color, mirror_h_);
 	if (overlayImageIndex_ != -1)
-		db.DrawImageRotated(overlayImageIndex_, x_ + w_/2, y_ + h_/2, scale, rotationAngle_, colorOverlay);
+		db.DrawImageRotated(overlayImageIndex_, x_ + w_*scale_/2, y_ + h_*scale_/2, scale, rotationAngle_, colorOverlay);
 }
 
 TouchStick::TouchStick(const Atlas *atlas, int bgImageIndex, int stickImageIndex, int stick)
@@ -54,7 +55,7 @@ TouchStick::TouchStick(const Atlas *atlas, int bgImageIndex, int stickImageIndex
 
 void TouchStick::update(InputState &input_state)
 {
-	float inv_stick_size = 1.0f / stick_size_;
+	float inv_stick_size = 1.0f / (stick_size_ * scale_);
 	bool all_up = true;
 	for (int i = 0; i < MAX_POINTERS; i++) {
 		if (input_state.pointer_down[i]) {
@@ -108,6 +109,6 @@ skip:
 void TouchStick::draw(DrawBuffer &db, uint32_t color)
 {
 	if (bgImageIndex_ != -1)
-		db.DrawImage(bgImageIndex_, stick_x_, stick_y_, 1.0f, color, ALIGN_CENTER);
-	db.DrawImage(stickImageIndex_, stick_x_ + stick_delta_x_ * stick_size_, stick_y_ + stick_delta_y_ * stick_size_, 1.0f, color, ALIGN_CENTER);
+		db.DrawImage(bgImageIndex_, stick_x_, stick_y_, 1.0f * scale_, color, ALIGN_CENTER);
+	db.DrawImage(stickImageIndex_, stick_x_ + stick_delta_x_ * stick_size_ * scale_, stick_y_ + stick_delta_y_ * stick_size_ * scale_, 1.0f * scale_, color, ALIGN_CENTER);
 }
