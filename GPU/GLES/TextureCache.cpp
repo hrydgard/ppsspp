@@ -82,6 +82,7 @@ void TextureCache_Shutdown() {
 }
 
 void TextureCache_Clear(bool delete_them) {
+	glBindTexture(GL_TEXTURE_2D, 0);
 	if (delete_them) {
 		for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ++iter) {
 			DEBUG_LOG(G3D, "Deleting texture %i", iter->second.texture);
@@ -96,6 +97,7 @@ void TextureCache_Clear(bool delete_them) {
 
 // Removes old textures.
 void TextureCache_Decimate() {
+	glBindTexture(GL_TEXTURE_2D, 0);
 	for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ) {
 		if (iter->second.frameCounter + TEXTURE_KILL_AGE < gpuStats.numFrames) {
 			glDeleteTextures(1, &iter->second.texture);

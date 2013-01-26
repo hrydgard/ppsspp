@@ -635,7 +635,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		//sprintf(title, "upload %i verts for sw", indexGen.VertexCount());
 		//LoggingDeadline deadline(title, 5);
 		glBindBuffer(GL_ARRAY_BUFFER, vbo_[curVbo_]);
-		glBufferData(GL_ARRAY_BUFFER, vertexSize * numTrans, drawBuffer, GL_DYNAMIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, vertexSize * numTrans, drawBuffer, GL_STREAM_DRAW);
 		drawBuffer = 0;  // so that the calls use offsets instead.
 	}
 	glVertexAttribPointer(program->a_position, 4, GL_FLOAT, GL_FALSE, vertexSize, drawBuffer);
@@ -645,7 +645,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 	if (drawIndexed) {
 		if (useVBO) {
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_[curVbo_]);
-			glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(short) * numTrans, inds, GL_DYNAMIC_DRAW);
+			glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(short) * numTrans, inds, GL_STREAM_DRAW);
 			inds = 0;
 		}
 		glDrawElements(glprim[prim], numTrans, GL_UNSIGNED_SHORT, inds);
@@ -936,7 +936,6 @@ void TransformDrawEngine::Flush() {
 					vai->numDraws++;
 					gpuStats.numCachedDrawCalls++;
 					gpuStats.numCachedVertsDrawn += vai->numVerts;
-					// DecodeVerts(); // TODO : Remove
 					vbo = vai->vbo;
 					ebo = vai->ebo;
 					glBindBuffer(GL_ARRAY_BUFFER, vbo);
