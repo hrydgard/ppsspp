@@ -15,7 +15,7 @@ public:
 	void update(InputState &input_state);
 	void draw(DrawBuffer &db, uint32_t color, uint32_t colorOverlay);
 
-	void setPos(float x, float y, float scale) {
+	void setPos(float x, float y, float scale = 1.0f) {
 		scale_ = scale;
 		x_ = x - w_ * scale / 2;
 		y_ = y - h_ * scale / 2;
@@ -59,7 +59,7 @@ public:
 	void update(InputState &input_state);
 	void draw(DrawBuffer &db, uint32_t color);
 
-	void setPos(float x, float y, float scale) {
+	void setPos(float x, float y, float scale = 1.0f) {
 		stick_x_ = x;
 		stick_y_ = y;
 		scale_ = scale;
