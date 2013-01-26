@@ -93,13 +93,14 @@ struct ThreadContext
 	float v[128];
 	u32 vfpuCtrl[16];
 
+	u32 pc;
+
 	u32 hi;
 	u32 lo;
-	u32 pc;
-	u32 fpcond;
 
 	u32 fcr0;
 	u32 fcr31;
+	u32 fpcond;
 };
 
 // Internal API, used by implementations of kernel functions

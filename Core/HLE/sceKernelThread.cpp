@@ -887,48 +887,34 @@ u32 sceKernelGetThreadmanIdList(u32 type, u32 readBufPtr, u32 readBufSize, u32 i
 // Saves the current CPU context
 void __KernelSaveContext(ThreadContext *ctx)
 {
-	for (int i = 0; i < 32; i++)
-	{
-		ctx->r[i] = currentMIPS->r[i];
-		ctx->f[i] = currentMIPS->f[i];
-	}
-	for (int i=0; i<128; i++)
-	{
-		ctx->v[i] = currentMIPS->v[i];
-	}
-	for (int i=0; i<16; i++)
-	{
-		ctx->vfpuCtrl[i] = currentMIPS->vfpuCtrl[i];
-	}
+	memcpy(ctx->r, currentMIPS->r, sizeof(ctx->r));
+	memcpy(ctx->f, currentMIPS->f, sizeof(ctx->f));
+
+	// TODO: Make VFPU saving optional/delayed, only necessary between VFPU-attr-marked threads
+	memcpy(ctx->v, currentMIPS->v, sizeof(ctx->v));
+	memcpy(ctx->vfpuCtrl, currentMIPS->vfpuCtrl, sizeof(ctx->vfpuCtrl));
+
+	ctx->pc = currentMIPS->pc;
 	ctx->hi = currentMIPS->hi;
 	ctx->lo = currentMIPS->lo;
-	ctx->pc = currentMIPS->pc;
 	ctx->fcr0 = currentMIPS->fcr0;
 	ctx->fcr31 = currentMIPS->fcr31;
 	ctx->fpcond = currentMIPS->fpcond;
-
-	// TODO: Make VFPU saving optional/delayed, only necessary between VFPU-attr-marked threads
 }
 
 // Loads a CPU context
 void __KernelLoadContext(ThreadContext *ctx)
 {
-	for (int i=0; i<32; i++)
-	{
-		currentMIPS->r[i] = ctx->r[i];
-		currentMIPS->f[i] = ctx->f[i];
-	}
-	for (int i=0; i<128; i++)
-	{
-		currentMIPS->v[i] = ctx->v[i];
-	}
-	for (int i=0; i<15; i++)
-	{
-		currentMIPS->vfpuCtrl[i] = ctx->vfpuCtrl[i];
-	}
+	memcpy(currentMIPS->r, ctx->r, sizeof(ctx->r));
+	memcpy(currentMIPS->f, ctx->f, sizeof(ctx->f));
+
+	// TODO: Make VFPU saving optional/delayed, only necessary between VFPU-attr-marked threads
+	memcpy(currentMIPS->v, ctx->v, sizeof(ctx->v));
+	memcpy(currentMIPS->vfpuCtrl, ctx->vfpuCtrl, sizeof(ctx->vfpuCtrl));
+
+	currentMIPS->pc = ctx->pc;
 	currentMIPS->hi = ctx->hi;
 	currentMIPS->lo = ctx->lo;
-	currentMIPS->pc = ctx->pc;
 	currentMIPS->fcr0 = ctx->fcr0;
 	currentMIPS->fcr31 = ctx->fcr31;
 	currentMIPS->fpcond = ctx->fpcond;
