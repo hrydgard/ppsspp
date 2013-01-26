@@ -25,4 +25,8 @@ namespace MIPSComp
 		DISABLE;
 	}
 
+	void Jit::Comp_VDot(u32 op)
+	{
+		DISABLE;
+	}
 }
