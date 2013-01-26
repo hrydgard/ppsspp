@@ -139,7 +139,7 @@ namespace MIPSDis
 		int o = op>>26;
 		if (o==4 && rs == rt)//beq
 			sprintf(out,"b\t->$%08x",off);
-		else if (o==4 && rs == rt)//beq
+		else if (o==20 && rs == rt)//beql
 			sprintf(out,"bl\t->$%08x",off);
 		else
 			sprintf(out, "%s\t%s, %s, ->$%08x",name,RN(rt),RN(rs),off);
