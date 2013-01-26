@@ -63,7 +63,21 @@ namespace MIPSComp
 #endif
 			}
 			else
-				gpr.SetImmediate32(rt, 0);
+			{
+				MOV(32, R(EAX), Imm32(gpr.R(rs).GetImmValue() + offset));
+				ABI_CallFunctionA(thunks.ProtectFunction(safeFunc, 1), R(EAX));
+				(this->*mov)(32, bits, gpr.RX(rt), R(EAX));
+
+				// Should we check the core state?
+				if (!g_Config.bIgnoreBadMemAccess)
+				{
+					CMP(32, M((void*)&coreState), Imm32(0));
+					FixupBranch skip2 = J_CC(CC_E);
+					MOV(32, M(&currentMIPS->pc), Imm32(js.compilerPC + 4));
+					WriteSyscallExit();
+					SetJumpTarget(skip2);
+				}
+			}
 		}
 		else
 		{
@@ -174,6 +188,21 @@ namespace MIPSComp
 #else
 				MOV(bits, MDisp(RBX, gpr.R(rs).GetImmValue() + offset), gpr.R(rt));
 #endif
+			}
+			else
+			{
+				MOV(32, R(EAX), Imm32(gpr.R(rs).GetImmValue() + offset));
+				ABI_CallFunctionAA(thunks.ProtectFunction(safeFunc, 2), gpr.R(rt), R(EAX));
+
+				// Should we check the core state?
+				if (!g_Config.bIgnoreBadMemAccess)
+				{
+					CMP(32, M((void*)&coreState), Imm32(0));
+					FixupBranch skip2 = J_CC(CC_E);
+					MOV(32, M(&currentMIPS->pc), Imm32(js.compilerPC + 4));
+					WriteSyscallExit();
+					SetJumpTarget(skip2);
+				}
 			}
 		}
 		else
