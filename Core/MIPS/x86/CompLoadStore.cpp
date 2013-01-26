@@ -112,6 +112,16 @@ namespace MIPSComp
 				ABI_CallFunctionA(thunks.ProtectFunction(safeFunc, 1), R(EAX));
 				(this->*mov)(32, bits, gpr.RX(rt), R(EAX));
 
+				// Should we check the core state?
+				if (!g_Config.bIgnoreBadMemAccess)
+				{
+					CMP(32, M((void*)&coreState), Imm32(0));
+					FixupBranch skip2 = J_CC(CC_E);
+					MOV(32, M(&currentMIPS->pc), Imm32(js.compilerPC + 4));
+					WriteSyscallExit();
+					SetJumpTarget(skip2);
+				}
+
 				SetJumpTarget(skip);
 			}
 			else
@@ -217,6 +227,16 @@ namespace MIPSComp
 
 				LEA(32, EAX, MDisp(addr, offset));
 				ABI_CallFunctionAA(thunks.ProtectFunction(safeFunc, 2), gpr.R(rt), R(EAX));
+
+				// Should we check the core state?
+				if (!g_Config.bIgnoreBadMemAccess)
+				{
+					CMP(32, M((void*)&coreState), Imm32(0));
+					FixupBranch skip2 = J_CC(CC_E);
+					MOV(32, M(&currentMIPS->pc), Imm32(js.compilerPC + 4));
+					WriteSyscallExit();
+					SetJumpTarget(skip2);
+				}
 
 				SetJumpTarget(skip);
 			}

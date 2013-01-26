@@ -164,6 +164,16 @@ void Jit::Comp_FPULS(u32 op)
 				MOV(32, M((void *)&ssLoadStoreTemp), R(EAX));
 				MOVSS(fpr.RX(ft), M((void *)&ssLoadStoreTemp));
 
+				// Should we check the core state?
+				if (!g_Config.bIgnoreBadMemAccess)
+				{
+					CMP(32, M((void*)&coreState), Imm32(0));
+					FixupBranch skip2 = J_CC(CC_E);
+					MOV(32, M(&currentMIPS->pc), Imm32(js.compilerPC + 4));
+					WriteSyscallExit();
+					SetJumpTarget(skip2);
+				}
+
 				SetJumpTarget(skip);
 			}
 			else
@@ -245,6 +255,16 @@ void Jit::Comp_FPULS(u32 op)
 				LEA(32, EAX, MDisp(addr, offset));
 				MOVSS(M((void *)&ssLoadStoreTemp), fpr.RX(ft));
 				ABI_CallFunctionAA(thunks.ProtectFunction((void *) &Memory::Write_U32, 2), M((void *)&ssLoadStoreTemp), R(EAX));
+
+				// Should we check the core state?
+				if (!g_Config.bIgnoreBadMemAccess)
+				{
+					CMP(32, M((void*)&coreState), Imm32(0));
+					FixupBranch skip2 = J_CC(CC_E);
+					MOV(32, M(&currentMIPS->pc), Imm32(js.compilerPC + 4));
+					WriteSyscallExit();
+					SetJumpTarget(skip2);
+				}
 
 				SetJumpTarget(skip);
 			}
