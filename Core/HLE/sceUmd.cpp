@@ -299,7 +299,7 @@ u32 sceUmdCancelWaitDriveStat()
 {
 	DEBUG_LOG(HLE,"0=sceUmdCancelWaitDriveStat()");
 
-	__KernelTriggerWait(WAITTYPE_UMD, 1, SCE_KERNEL_ERROR_WAIT_CANCEL, true);
+	__KernelTriggerWait(WAITTYPE_UMD, 1, SCE_KERNEL_ERROR_WAIT_CANCEL, "umd stat ready", true);
 	// TODO: We should call UnscheduleEvent() event here?
 	// But it's not often used anyway, and worst-case it will just do nothing unless it waits again.
 	return 0;

@@ -55,25 +55,6 @@ enum
 	PSP_THREAD_ATTR_CLEAR_STACK = 0x00200000,		// TODO: Clear thread stack when deleted
 };
 
-const char *waitTypeStrings[] = {
-	"NONE",
-	"Sleep",
-	"Delay",
-	"Sema",
-	"EventFlag",
-	"Mbx",
-	"Vpl",
-	"Fpl",
-	"",
-	"ThreadEnd",	 // These are nonstandard wait types
-	"AudioChannel",
-	"Umd",
-	"Vblank",
-	"Mutex",
-	"LwMutex",
-	"Ctrl",
-};
-
 struct NativeCallback
 {
 	SceUInt size;
@@ -989,7 +970,7 @@ u32 __KernelResumeThreadFromWait(SceUID threadID, int retval)
 // Only run when you can safely accept a context switch
 // Triggers a waitable event, that is, it wakes up all threads that waits for it
 // If any changes were made, it will context switch after the syscall
-bool __KernelTriggerWait(WaitType type, int id, bool useRetVal, int retVal, bool dontSwitch)
+bool __KernelTriggerWait(WaitType type, int id, bool useRetVal, int retVal, const char *reason, bool dontSwitch)
 {
 	bool doneAnything = false;
 
@@ -1012,22 +993,20 @@ bool __KernelTriggerWait(WaitType type, int id, bool useRetVal, int retVal, bool
 		if (!dontSwitch)
 		{
 			// TODO: time waster
-			char temp[256];
-			sprintf(temp, "resumed from wait %s", waitTypeStrings[(int)type]);
-			hleReSchedule(temp);
+			hleReSchedule(reason);
 		}
 	}
 	return true;
 }
 
-bool __KernelTriggerWait(WaitType type, int id, bool dontSwitch)
+bool __KernelTriggerWait(WaitType type, int id, const char *reason, bool dontSwitch)
 {
-	return __KernelTriggerWait(type, id, false, 0, dontSwitch);
+	return __KernelTriggerWait(type, id, false, 0, reason, dontSwitch);
 }
 
-bool __KernelTriggerWait(WaitType type, int id, int retVal, bool dontSwitch)
+bool __KernelTriggerWait(WaitType type, int id, int retVal, const char *reason, bool dontSwitch)
 {
-	return __KernelTriggerWait(type, id, true, retVal, dontSwitch);
+	return __KernelTriggerWait(type, id, true, retVal, reason, dontSwitch);
 }
 
 // makes the current thread wait for an event
@@ -1059,7 +1038,7 @@ void __KernelWaitCurThread(WaitType type, SceUID waitID, u32 waitValue, u32 time
 void hleScheduledWakeup(u64 userdata, int cyclesLate)
 {
 	SceUID threadID = (SceUID)userdata;
-	__KernelTriggerWait(WAITTYPE_DELAY, threadID, true);
+	__KernelTriggerWait(WAITTYPE_DELAY, threadID, "thread delay finished", true);
 }
 
 void __KernelScheduleWakeup(SceUID threadID, s64 usFromNow)
@@ -1485,7 +1464,7 @@ void __KernelReturnFromThread()
 
 	// TODO: Need to remove the thread from any ready queues.
 
-	__KernelTriggerWait(WAITTYPE_THREADEND, __KernelGetCurThread(), thread->nt.exitStatus, true);
+	__KernelTriggerWait(WAITTYPE_THREADEND, __KernelGetCurThread(), thread->nt.exitStatus, "thread returned", true);
 	hleReSchedule("thread returned");
 
 	// The stack will be deallocated when the thread is deleted.
@@ -1501,7 +1480,7 @@ void sceKernelExitThread()
 	thread->nt.exitStatus = PARAM(0);
 	__KernelFireThreadEnd(thread);
 
-	__KernelTriggerWait(WAITTYPE_THREADEND, __KernelGetCurThread(), thread->nt.exitStatus, true);
+	__KernelTriggerWait(WAITTYPE_THREADEND, __KernelGetCurThread(), thread->nt.exitStatus, "thread exited", true);
 	hleReSchedule("thread exited");
 
 	// The stack will be deallocated when the thread is deleted.
@@ -1517,7 +1496,7 @@ void _sceKernelExitThread()
 	thread->nt.exitStatus = PARAM(0);
 	__KernelFireThreadEnd(thread);
 
-	__KernelTriggerWait(WAITTYPE_THREADEND, __KernelGetCurThread(), thread->nt.exitStatus, true);
+	__KernelTriggerWait(WAITTYPE_THREADEND, __KernelGetCurThread(), thread->nt.exitStatus, "thread _exited", true);
 	hleReSchedule("thread _exited");
 
 	// The stack will be deallocated when the thread is deleted.
@@ -1538,7 +1517,7 @@ void sceKernelExitDeleteThread()
 		__KernelRemoveFromThreadQueue(t);
 		currentThread = 0;
 
-		__KernelTriggerWait(WAITTYPE_THREADEND, threadHandle, t->nt.exitStatus, true);
+		__KernelTriggerWait(WAITTYPE_THREADEND, threadHandle, t->nt.exitStatus, "thead exited with delete", true);
 		hleReSchedule("thead exited with delete");
 
 		RETURN(kernelObjects.Destroy<Thread>(threadHandle));
@@ -1587,7 +1566,7 @@ int sceKernelDeleteThread(int threadHandle)
 			__KernelFireThreadEnd(t);
 
 			// TODO: Should this reschedule ever?  Probably no?
-			__KernelTriggerWait(WAITTYPE_THREADEND, threadHandle, SCE_KERNEL_ERROR_THREAD_TERMINATED, true);
+			__KernelTriggerWait(WAITTYPE_THREADEND, threadHandle, SCE_KERNEL_ERROR_THREAD_TERMINATED, "thread deleted", true);
 
 			return kernelObjects.Destroy<Thread>(threadHandle);
 		}
@@ -1617,8 +1596,8 @@ int sceKernelTerminateDeleteThread(int threadno)
 			__KernelFireThreadEnd(t);
 
 			//TODO: should we really reschedule here?
-			__KernelTriggerWait(WAITTYPE_THREADEND, threadno, SCE_KERNEL_ERROR_THREAD_TERMINATED, false);
-			hleReSchedule("termdeletethread");
+			__KernelTriggerWait(WAITTYPE_THREADEND, threadno, SCE_KERNEL_ERROR_THREAD_TERMINATED, "thread terminated with delete", false);
+			hleReSchedule("thread terminated with delete");
 
 			return kernelObjects.Destroy<Thread>(threadno);
 		}
@@ -1647,7 +1626,7 @@ int sceKernelTerminateThread(u32 threadID)
 			t->nt.status = THREADSTATUS_DORMANT;
 			__KernelFireThreadEnd(t);
 			// TODO: Should this really reschedule?
-			__KernelTriggerWait(WAITTYPE_THREADEND, threadID, t->nt.exitStatus, true);
+			__KernelTriggerWait(WAITTYPE_THREADEND, threadID, t->nt.exitStatus, "thread terminated", true);
 		}
 		// TODO: Return an error if it doesn't exist?
 		return 0;

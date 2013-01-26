@@ -82,7 +82,6 @@ enum WaitType //probably not the real values
 	WAITTYPE_MUTEX = 13,
 	WAITTYPE_LWMUTEX = 14,
 	WAITTYPE_CTRL = 15,
-	// Remember to update sceKernelThread.cpp's waitTypeStrings to match.
 };
 
 
@@ -121,8 +120,8 @@ void __KernelLoadContext(ThreadContext *ctx);
 // TODO: Replace this with __KernelResumeThreadFromWait over time as it's misguided.
 // It's better that each subsystem keeps track of the list of waiting threads
 // and resumes them manually one by one using __KernelResumeThreadFromWait.
-bool __KernelTriggerWait(WaitType type, int id, bool dontSwitch = false);
-bool __KernelTriggerWait(WaitType type, int id, int retVal, bool dontSwitch);
+bool __KernelTriggerWait(WaitType type, int id, const char *reason, bool dontSwitch = false);
+bool __KernelTriggerWait(WaitType type, int id, int retVal, const char *reason, bool dontSwitch);
 u32 __KernelResumeThreadFromWait(SceUID threadID); // can return an error value
 u32 __KernelResumeThreadFromWait(SceUID threadID, int retval);
 
