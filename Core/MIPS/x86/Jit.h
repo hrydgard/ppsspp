@@ -183,6 +183,46 @@ private:
 	ThunkManager thunks;
 
 	MIPSState *mips_;
+
+	class JitSafeMem
+	{
+	public:
+		JitSafeMem(Jit *jit, int raddr, s32 offset);
+
+		// Emit code necessary for a memory write, returns true if MOV to dest is needed.
+		bool PrepareWrite(OpArg &dest);
+		// Emit code proceeding a slow write call, returns true if slow write is needed.
+		bool PrepareSlowWrite();
+		// Emit a slow write from src.
+		void DoSlowWrite(void *safeFunc, const OpArg src, int suboffset = 0);
+
+		// Emit code necessary for a memory read, returns true if MOV from src is needed.
+		bool PrepareRead(OpArg &src);
+		// Emit code for a slow read call, and returns true if result is in EAX.
+		bool PrepareSlowRead(void *safeFunc);
+		
+		// WARNING: Only works for non-GPR.  Do not use for reads into GPR.
+		OpArg NextFastAddress(int suboffset);
+		// WARNING: Only works for non-GPR.  Do not use for reads into GPR.
+		void NextSlowRead(void *safeFunc, int suboffset);
+
+		// Cleans up final code for the memory access.
+		void Finish();
+
+	private:
+		OpArg PrepareMemoryOpArg();
+		void PrepareSlowAccess();
+
+		Jit *jit_;
+		int raddr_;
+		s32 offset_;
+		bool needsCheck_;
+		bool needsSkip_;
+		X64Reg xaddr_;
+		FixupBranch tooLow_, tooHigh_, skip_;
+		const u8 *safe_;
+	};
+	friend class JitSafeMem;
 };
 
 typedef void (Jit::*MIPSCompileFunc)(u32 opcode);

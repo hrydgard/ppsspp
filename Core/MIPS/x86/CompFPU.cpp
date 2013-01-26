@@ -96,174 +96,46 @@ void Jit::Comp_FPULS(u32 op)
 	switch(op >> 26)
 	{
 	case 49: //FI(ft) = Memory::Read_U32(addr); break; //lwc1
-		gpr.Lock(rs);
-		fpr.SpillLock(ft);
-		fpr.BindToRegister(ft, false, true);
-
-		if (gpr.R(rs).IsImm())
 		{
-			void *data = Memory::GetPointer(gpr.R(rs).GetImmValue() + offset);
-			if (data)
-			{
-#ifdef _M_IX86
-				MOVSS(fpr.RX(ft), M(data));
-#else
-				MOVSS(fpr.RX(ft), MDisp(RBX, gpr.R(rs).GetImmValue() + offset));
-#endif
-			}
-			else
-			{
-				MOV(32, M((void *)ssLoadStoreTemp), Imm32(0));
-				MOVSS(fpr.RX(ft), M((void *)ssLoadStoreTemp));
-			}
-		}
-		else
-		{
-			// We may not even need to move into EAX as a temporary.
-			X64Reg addr;
-			if (gpr.R(rs).IsSimpleReg())
-			{
-				// TODO: Maybe just add a check if it's away, don't mind copying to EAX instead...
-				gpr.BindToRegister(rs, true, false);
-				addr = gpr.RX(rs);
-			}
-			else
-			{
-				MOV(32, R(EAX), gpr.R(rs));
-				addr = EAX;
-			}
+			gpr.Lock(rs);
+			fpr.SpillLock(ft);
+			fpr.BindToRegister(ft, false, true);
 
-			if (!g_Config.bFastMemory)
+			JitSafeMem safe(this, rs, offset);
+			OpArg src;
+			if (safe.PrepareRead(src))
+				MOVSS(fpr.RX(ft), src);
+			if (safe.PrepareSlowRead((void *) &Memory::Read_U32))
 			{
-				// Is it in physical ram?
-				CMP(32, R(addr), Imm32(0x08000000));
-				FixupBranch tooLow = J_CC(CC_L);
-				CMP(32, R(addr), Imm32(0x0A000000));
-				FixupBranch tooHigh = J_CC(CC_GE);
-
-				const u8* safe = GetCodePtr();
-#ifdef _M_IX86
-				MOVSS(fpr.RX(ft), MDisp(addr, (u32)Memory::base + offset));
-#else
-				MOVSS(fpr.RX(ft), MComplex(RBX, addr, SCALE_1, offset));
-#endif
-
-				FixupBranch skip = J();
-				SetJumpTarget(tooLow);
-				SetJumpTarget(tooHigh);
-
-				// Might also be the scratchpad.
-				CMP(32, R(addr), Imm32(0x00010000));
-				FixupBranch tooLow2 = J_CC(CC_L);
-				CMP(32, R(addr), Imm32(0x00014000));
-				J_CC(CC_L, safe);
-				SetJumpTarget(tooLow2);
-
-				LEA(32, EAX, MDisp(addr, offset));
-				ABI_CallFunctionA(thunks.ProtectFunction((void *) &Memory::Read_U32, 1), R(EAX));
 				MOV(32, M((void *)&ssLoadStoreTemp), R(EAX));
 				MOVSS(fpr.RX(ft), M((void *)&ssLoadStoreTemp));
+			}
+			safe.Finish();
 
-				SetJumpTarget(skip);
-			}
-			else
-			{
-#ifdef _M_IX86
-				// Need to modify it, too bad.
-				if (addr != EAX)
-					MOV(32, R(EAX), gpr.R(rs));
-				AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
-				MOVSS(fpr.RX(ft), MDisp(EAX, (u32)Memory::base + offset));
-#else
-				MOVSS(fpr.RX(ft), MComplex(RBX, addr, SCALE_1, offset));
-#endif
-			}
+			gpr.UnlockAll();
+			fpr.ReleaseSpillLocks();
 		}
-
-		gpr.UnlockAll();
-		fpr.ReleaseSpillLocks();
 		break;
 	case 57: //Memory::Write_U32(FI(ft), addr); break; //swc1
-		gpr.Lock(rs);
-		fpr.SpillLock(ft);
-		fpr.BindToRegister(ft, true, false);
-
-		if (gpr.R(rs).IsImm())
 		{
-			void *data = Memory::GetPointer(gpr.R(rs).GetImmValue() + offset);
-			if (data)
+			gpr.Lock(rs);
+			fpr.SpillLock(ft);
+			fpr.BindToRegister(ft, true, false);
+
+			JitSafeMem safe(this, rs, offset);
+			OpArg dest;
+			if (safe.PrepareWrite(dest))
+				MOVSS(dest, fpr.RX(ft));
+			if (safe.PrepareSlowWrite())
 			{
-#ifdef _M_IX86
-				MOVSS(M(data), fpr.RX(ft));
-#else
-				MOVSS(MDisp(RBX, gpr.R(rs).GetImmValue() + offset), fpr.RX(ft));
-#endif
-			}
-		}
-		else
-		{
-			// We may not even need to move into EAX as a temporary.
-			X64Reg addr;
-			if (gpr.R(rs).IsSimpleReg())
-			{
-				// TODO: Maybe just add a check if it's away, don't mind copying to EAX instead...
-				gpr.BindToRegister(rs, true, false);
-				addr = gpr.RX(rs);
-			}
-			else
-			{
-				MOV(32, R(EAX), gpr.R(rs));
-				addr = EAX;
-			}
-
-			if (!g_Config.bFastMemory)
-			{
-				// Is it in physical ram?
-				CMP(32, R(addr), Imm32(0x08000000));
-				FixupBranch tooLow = J_CC(CC_L);
-				CMP(32, R(addr), Imm32(0x0A000000));
-				FixupBranch tooHigh = J_CC(CC_GE);
-
-				const u8* safe = GetCodePtr();
-#ifdef _M_IX86
-				MOVSS(MDisp(addr, (u32)Memory::base + offset), fpr.RX(ft));
-#else
-				MOVSS(MComplex(RBX, addr, SCALE_1, offset), fpr.RX(ft));
-#endif
-
-				FixupBranch skip = J();
-				SetJumpTarget(tooLow);
-				SetJumpTarget(tooHigh);
-
-				// Might also be the scratchpad.
-				CMP(32, R(addr), Imm32(0x00010000));
-				FixupBranch tooLow2 = J_CC(CC_L);
-				CMP(32, R(addr), Imm32(0x00014000));
-				J_CC(CC_L, safe);
-				SetJumpTarget(tooLow2);
-
-				LEA(32, EAX, MDisp(addr, offset));
 				MOVSS(M((void *)&ssLoadStoreTemp), fpr.RX(ft));
-				ABI_CallFunctionAA(thunks.ProtectFunction((void *) &Memory::Write_U32, 2), M((void *)&ssLoadStoreTemp), R(EAX));
+				safe.DoSlowWrite((void *) &Memory::Write_U32, M((void *)&ssLoadStoreTemp));
+			}
+			safe.Finish();
 
-				SetJumpTarget(skip);
-			}
-			else
-			{
-#ifdef _M_IX86
-				// Need to modify it, too bad.
-				if (addr != EAX)
-					MOV(32, R(EAX), gpr.R(rs));
-				AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
-				MOVSS(MDisp(EAX, (u32)Memory::base + offset), fpr.RX(ft));
-#else
-				MOVSS(MComplex(RBX, addr, SCALE_1, offset), fpr.RX(ft));
-#endif
-			}
+			gpr.UnlockAll();
+			fpr.ReleaseSpillLocks();
 		}
-
-		gpr.UnlockAll();
-		fpr.ReleaseSpillLocks();
 		break;
 
 	default:

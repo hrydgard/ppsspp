@@ -55,6 +55,8 @@ typedef void (*readFn16)(u16&, const u32);
 typedef void (*readFn32)(u32&, const u32);
 typedef void (*readFn64)(u64&, const u32);
 
+inline u32 PSP_GetScratchpadMemoryBase() { return 0x00010000;}
+inline u32 PSP_GetScratchpadMemoryEnd() { return 0x00014000;}
 
 inline u32 PSP_GetKernelMemoryBase() { return 0x08000000;}
 inline u32 PSP_GetKernelMemoryEnd()  { return 0x08400000;} 
