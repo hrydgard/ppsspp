@@ -82,7 +82,6 @@ enum WaitType //probably not the real values
 	WAITTYPE_MUTEX = 13,
 	WAITTYPE_LWMUTEX = 14,
 	WAITTYPE_CTRL = 15,
-	// Remember to update sceKernelThread.cpp's waitTypeStrings to match.
 };
 
 
@@ -94,13 +93,14 @@ struct ThreadContext
 	float v[128];
 	u32 vfpuCtrl[16];
 
+	u32 pc;
+
 	u32 hi;
 	u32 lo;
-	u32 pc;
-	u32 fpcond;
 
 	u32 fcr0;
 	u32 fcr31;
+	u32 fpcond;
 };
 
 // Internal API, used by implementations of kernel functions
@@ -121,15 +121,15 @@ void __KernelLoadContext(ThreadContext *ctx);
 // TODO: Replace this with __KernelResumeThreadFromWait over time as it's misguided.
 // It's better that each subsystem keeps track of the list of waiting threads
 // and resumes them manually one by one using __KernelResumeThreadFromWait.
-bool __KernelTriggerWait(WaitType type, int id, bool dontSwitch = false);
-bool __KernelTriggerWait(WaitType type, int id, int retVal, bool dontSwitch);
+bool __KernelTriggerWait(WaitType type, int id, const char *reason, bool dontSwitch = false);
+bool __KernelTriggerWait(WaitType type, int id, int retVal, const char *reason, bool dontSwitch);
 u32 __KernelResumeThreadFromWait(SceUID threadID); // can return an error value
 u32 __KernelResumeThreadFromWait(SceUID threadID, int retval);
 
 u32 __KernelGetWaitValue(SceUID threadID, u32 &error);
 u32 __KernelGetWaitTimeoutPtr(SceUID threadID, u32 &error);
 SceUID __KernelGetWaitID(SceUID threadID, WaitType type, u32 &error);
-void __KernelWaitCurThread(WaitType type, SceUID waitId, u32 waitValue, u32 timeoutPtr, bool processCallbacks);
+void __KernelWaitCurThread(WaitType type, SceUID waitId, u32 waitValue, u32 timeoutPtr, bool processCallbacks, const char *reason);
 void __KernelReSchedule(const char *reason = "no reason");
 void __KernelReSchedule(bool doCallbacks, const char *reason);
 

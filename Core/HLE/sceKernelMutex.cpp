@@ -464,7 +464,7 @@ int sceKernelLockMutex(SceUID id, int count, u32 timeoutPtr)
 		if (std::find(mutex->waitingThreads.begin(), mutex->waitingThreads.end(), threadID) == mutex->waitingThreads.end())
 			mutex->waitingThreads.push_back(threadID);
 		__KernelWaitMutex(mutex, timeoutPtr);
-		__KernelWaitCurThread(WAITTYPE_MUTEX, id, count, timeoutPtr, false);
+		__KernelWaitCurThread(WAITTYPE_MUTEX, id, count, timeoutPtr, false, "mutex waited");
 
 		// Return value will be overwritten by wait.
 		return 0;
@@ -492,7 +492,7 @@ int sceKernelLockMutexCB(SceUID id, int count, u32 timeoutPtr)
 		if (std::find(mutex->waitingThreads.begin(), mutex->waitingThreads.end(), threadID) == mutex->waitingThreads.end())
 			mutex->waitingThreads.push_back(threadID);
 		__KernelWaitMutex(mutex, timeoutPtr);
-		__KernelWaitCurThread(WAITTYPE_MUTEX, id, count, timeoutPtr, true);
+		__KernelWaitCurThread(WAITTYPE_MUTEX, id, count, timeoutPtr, true, "mutex waited");
 
 		// Return value will be overwritten by wait.
 		return 0;
@@ -846,7 +846,7 @@ int sceKernelLockLwMutex(u32 workareaPtr, int count, u32 timeoutPtr)
 			if (std::find(mutex->waitingThreads.begin(), mutex->waitingThreads.end(), threadID) == mutex->waitingThreads.end())
 				mutex->waitingThreads.push_back(threadID);
 			__KernelWaitLwMutex(mutex, timeoutPtr);
-			__KernelWaitCurThread(WAITTYPE_LWMUTEX, workarea.uid, count, timeoutPtr, false);
+			__KernelWaitCurThread(WAITTYPE_LWMUTEX, workarea.uid, count, timeoutPtr, false, "lwmutex waited");
 
 			// Return value will be overwritten by wait.
 			return 0;
@@ -882,7 +882,7 @@ int sceKernelLockLwMutexCB(u32 workareaPtr, int count, u32 timeoutPtr)
 			if (std::find(mutex->waitingThreads.begin(), mutex->waitingThreads.end(), threadID) == mutex->waitingThreads.end())
 				mutex->waitingThreads.push_back(threadID);
 			__KernelWaitLwMutex(mutex, timeoutPtr);
-			__KernelWaitCurThread(WAITTYPE_LWMUTEX, workarea.uid, count, timeoutPtr, true);
+			__KernelWaitCurThread(WAITTYPE_LWMUTEX, workarea.uid, count, timeoutPtr, true, "lwmutex waited");
 
 			// Return value will be overwritten by wait.
 			return 0;

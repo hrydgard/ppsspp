@@ -369,7 +369,7 @@ u32 sceDisplayGetFramebuf(u32 topaddrPtr, u32 linesizePtr, u32 pixelFormatPtr, i
 u32 sceDisplayWaitVblankStart() {
 	DEBUG_LOG(HLE,"sceDisplayWaitVblankStart()");
 	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread()));
-	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, false);
+	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, false, "vblank start waited");
 	return 0;
 }
 
@@ -377,7 +377,7 @@ u32 sceDisplayWaitVblank() {
 	if (!isVblank) {
 		DEBUG_LOG(HLE,"sceDisplayWaitVblank()");
 		vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread()));
-		__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, false);
+		__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, false, "vblank waited");
 		return 0;
 	} else {
 		DEBUG_LOG(HLE,"sceDisplayWaitVblank() - not waiting since in vBlank");
@@ -388,7 +388,7 @@ u32 sceDisplayWaitVblank() {
 u32 sceDisplayWaitVblankStartMulti() {
 	DEBUG_LOG(HLE,"sceDisplayWaitVblankStartMulti()");
 	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread()));
-	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, false);
+	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, false, "vblank start multi waited");
 	return 0;
 }
 
@@ -396,7 +396,7 @@ u32 sceDisplayWaitVblankCB() {
 	if (!isVblank) {
 		DEBUG_LOG(HLE,"sceDisplayWaitVblankCB()");
 		vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread()));
-		__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, true);
+		__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, true, "vblank waited");
 		return 0;
 	} else {
 		DEBUG_LOG(HLE,"sceDisplayWaitVblank() - not waiting since in vBlank");
@@ -407,14 +407,14 @@ u32 sceDisplayWaitVblankCB() {
 u32 sceDisplayWaitVblankStartCB() {
 	DEBUG_LOG(HLE,"sceDisplayWaitVblankStartCB()");
 	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread()));
-	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, true);
+	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, true, "vblank start waited");
 	return 0;
 }
 
 u32 sceDisplayWaitVblankStartMultiCB() {
 	DEBUG_LOG(HLE,"sceDisplayWaitVblankStartMultiCB()");
 	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread()));
-	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, true);
+	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, true, "vblank start multi waited");
 	return 0;
 }
 
