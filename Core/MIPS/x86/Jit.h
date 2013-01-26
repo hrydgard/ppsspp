@@ -197,7 +197,7 @@ private:
 		void DoSlowWrite(void *safeFunc, const OpArg src);
 
 		// Emit code necessary for a memory read, returns true if MOV from src is needed.
-		bool PrepareRead(OpArg &src, void *safeFunc);
+		bool PrepareRead(OpArg &src);
 		// Emit code for a slow read call, and returns true if result is in EAX.
 		bool PrepareSlowRead(void *safeFunc);
 

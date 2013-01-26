@@ -53,7 +53,7 @@ namespace MIPSComp
 
 		JitSafeMem safe(this, rs, offset);
 		OpArg src;
-		if (safe.PrepareRead(src, safeFunc))
+		if (safe.PrepareRead(src))
 			(this->*mov)(32, bits, gpr.RX(rt), src);
 		if (safe.PrepareSlowRead(safeFunc))
 			(this->*mov)(32, bits, gpr.RX(rt), R(EAX));

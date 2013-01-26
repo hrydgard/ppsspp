@@ -103,7 +103,7 @@ void Jit::Comp_FPULS(u32 op)
 
 			JitSafeMem safe(this, rs, offset);
 			OpArg src;
-			if (safe.PrepareRead(src, (void *) &Memory::Read_U32))
+			if (safe.PrepareRead(src))
 				MOVSS(fpr.RX(ft), src);
 			if (safe.PrepareSlowRead((void *) &Memory::Read_U32))
 			{

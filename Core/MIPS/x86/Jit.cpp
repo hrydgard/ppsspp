@@ -331,7 +331,7 @@ bool Jit::JitSafeMem::PrepareWrite(OpArg &dest)
 	return true;
 }
 
-bool Jit::JitSafeMem::PrepareRead(OpArg &src, void *safeFunc)
+bool Jit::JitSafeMem::PrepareRead(OpArg &src)
 {
 	if (jit_->gpr.IsImmediate(raddr_))
 	{
@@ -448,29 +448,25 @@ void Jit::JitSafeMem::DoSlowWrite(void *safeFunc, const OpArg src)
 
 bool Jit::JitSafeMem::PrepareSlowRead(void *safeFunc)
 {
-	if (jit_->gpr.IsImmediate(raddr_))
-	{
-		u32 addr = jit_->gpr.GetImmediate32(raddr_) + offset_;
-		if (!g_Config.bFastMemory)
-		{
-			jit_->MOV(32, R(EAX), Imm32(addr));
-			jit_->ABI_CallFunctionA(jit_->thunks.ProtectFunction(safeFunc, 1), R(EAX));
-			needsCheck_ = true;
-			return true;
-		}
-		// Can't read a bad immediate in fast memory mode.
-		else
-			return false;
-	}
-
 	if (!g_Config.bFastMemory)
 	{
-		PrepareSlowAccess();
+		if (jit_->gpr.IsImmediate(raddr_))
+		{
+			u32 addr = jit_->gpr.GetImmediate32(raddr_) + offset_;
 
-		jit_->LEA(32, EAX, MDisp(xaddr_, offset_));
+			// No slow read necessary.
+			if (Memory::IsValidAddress(addr))
+				return false;
+			jit_->MOV(32, R(EAX), Imm32(addr));
+		}
+		else
+		{
+			PrepareSlowAccess();
+			jit_->LEA(32, EAX, MDisp(xaddr_, offset_));
+		}
+
 		jit_->ABI_CallFunctionA(jit_->thunks.ProtectFunction(safeFunc, 1), R(EAX));
 		needsCheck_ = true;
-
 		return true;
 	}
 	else
