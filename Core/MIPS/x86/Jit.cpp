@@ -353,6 +353,26 @@ bool Jit::JitSafeMem::PrepareRead(OpArg &src)
 	return true;
 }
 
+OpArg Jit::JitSafeMem::NextFastAddress(int suboffset)
+{
+	if (jit_->gpr.IsImmediate(raddr_))
+	{
+		u32 addr = jit_->gpr.GetImmediate32(raddr_) + offset_ + suboffset;
+
+#ifdef _M_IX86
+		return M(Memory::base + addr);
+#else
+		return MDisp(RBX, addr);
+#endif
+	}
+
+#ifdef _M_IX86
+	return MDisp(xaddr_, (u32) Memory::base + offset_ + suboffset);
+#else
+	return MComplex(RBX, xaddr_, SCALE_1, offset_ + suboffset);
+#endif
+}
+
 OpArg Jit::JitSafeMem::PrepareMemoryOpArg()
 {
 	// We may not even need to move into EAX as a temporary.
@@ -368,7 +388,6 @@ OpArg Jit::JitSafeMem::PrepareMemoryOpArg()
 		xaddr_ = EAX;
 	}
 
-	X64Reg xaddrResult = xaddr_;
 	if (!g_Config.bFastMemory)
 	{
 		// Is it in physical ram?
@@ -387,14 +406,14 @@ OpArg Jit::JitSafeMem::PrepareMemoryOpArg()
 		if (xaddr_ != EAX)
 			jit_->MOV(32, R(EAX), R(xaddr_));
 		jit_->AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
-		xaddrResult = EAX;
+		xaddr_ = EAX;
 #endif
 	}
 
 #ifdef _M_IX86
-		return MDisp(xaddrResult, (u32) Memory::base + offset_);
+		return MDisp(xaddr_, (u32) Memory::base + offset_);
 #else
-		return MComplex(RBX, xaddrResult, SCALE_1, offset_);
+		return MComplex(RBX, xaddr_, SCALE_1, offset_);
 #endif
 }
 
@@ -432,15 +451,15 @@ bool Jit::JitSafeMem::PrepareSlowWrite()
 		return false;
 }
 
-void Jit::JitSafeMem::DoSlowWrite(void *safeFunc, const OpArg src)
+void Jit::JitSafeMem::DoSlowWrite(void *safeFunc, const OpArg src, int suboffset)
 {
 	if (jit_->gpr.IsImmediate(raddr_))
 	{
 		u32 addr = jit_->gpr.GetImmediate32(raddr_) + offset_;
-		jit_->MOV(32, R(EAX), Imm32(addr));
+		jit_->MOV(32, R(EAX), Imm32(addr + suboffset));
 	}
 	else
-		jit_->LEA(32, EAX, MDisp(xaddr_, offset_));
+		jit_->LEA(32, EAX, MDisp(xaddr_, offset_ + suboffset));
 
 	jit_->ABI_CallFunctionAA(jit_->thunks.ProtectFunction(safeFunc, 2), src, R(EAX));
 	needsCheck_ = true;
@@ -471,6 +490,28 @@ bool Jit::JitSafeMem::PrepareSlowRead(void *safeFunc)
 	}
 	else
 		return false;
+}
+
+void Jit::JitSafeMem::NextSlowRead(void *safeFunc, int suboffset)
+{
+	_dbg_assert_msg_(JIT, !g_Config.bFastMemory, "NextSlowRead() called in fast memory mode?");
+
+	// For simplicity, do nothing for 0.  We already read in PrepareSlowRead().
+	if (suboffset == 0)
+		return;
+
+	if (jit_->gpr.IsImmediate(raddr_))
+	{
+		u32 addr = jit_->gpr.GetImmediate32(raddr_) + offset_;
+		_dbg_assert_msg_(JIT, !Memory::IsValidAddress(addr), "NextSlowRead() for a valid immediate address?");
+
+		jit_->MOV(32, R(EAX), Imm32(addr + suboffset));
+	}
+	// For GPR, if xaddr_ was the dest register, this will be wrong.  Don't use in GPR.
+	else
+		jit_->LEA(32, EAX, MDisp(xaddr_, offset_ + suboffset));
+
+	jit_->ABI_CallFunctionA(jit_->thunks.ProtectFunction(safeFunc, 1), R(EAX));
 }
 
 void Jit::JitSafeMem::Finish()

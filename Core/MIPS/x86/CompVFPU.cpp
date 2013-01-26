@@ -139,6 +139,7 @@ void Jit::ApplyPrefixD(const u8 *vregs, u32 prefix, VectorSize sz, bool onlyWrit
 	}
 }
 
+static u32 GC_ALIGNED16(ssLoadStoreTemp[1]);
 
 void Jit::Comp_SVQ(u32 op)
 {
@@ -150,28 +151,30 @@ void Jit::Comp_SVQ(u32 op)
 	{
 	case 54: //lv.q
 		{
-			if (!g_Config.bFastMemory) {
-				DISABLE;
-			}
 			gpr.BindToRegister(rs, true, true);
 	
 			u8 vregs[4];
 			GetVectorRegs(vregs, V_Quad, vt);
-			MOV(32, R(EAX), gpr.R(rs));
-			// Just copy 4 words the easiest way while not wasting registers.
-#ifndef _M_X64
-			AND(32, R(EAX), Imm32(0x3FFFFFFF));
-#endif
 			fpr.MapRegsV(vregs, V_Quad, MAP_DIRTY | MAP_NOINIT);
 
-			// MOVSS to prime any crazy cache mechanism that might assume that there's a float somewhere...
-			for (int i = 0; i < 4; i++) {
-#ifdef _M_X64
-				MOVSS(fpr.VX(vregs[i]), MComplex(RBX, EAX, 1, i * 4 + imm));
-#else
-				MOVSS(fpr.VX(vregs[i]), MDisp(EAX, (u32)(Memory::base + i * 4 + imm)));
-#endif
+			JitSafeMem safe(this, rs, imm);
+			OpArg src;
+			if (safe.PrepareRead(src))
+			{
+				// Just copy 4 words the easiest way while not wasting registers.
+				for (int i = 0; i < 4; i++)
+					MOVSS(fpr.VX(vregs[i]), safe.NextFastAddress(i * 4));
 			}
+			if (safe.PrepareSlowRead((void *) &Memory::Read_U32))
+			{
+				for (int i = 0; i < 4; i++)
+				{
+					safe.NextSlowRead((void *) &Memory::Read_U32, i * 4);
+					MOV(32, M((void *)&ssLoadStoreTemp), R(EAX));
+					MOVSS(fpr.VX(vregs[i]), M((void *)&ssLoadStoreTemp));
+				}
+			}
+			safe.Finish();
 
 			gpr.UnlockAll();
 			fpr.ReleaseSpillLocks();
@@ -180,34 +183,29 @@ void Jit::Comp_SVQ(u32 op)
 
 	case 62: //sv.q
 		{
-			if (!g_Config.bFastMemory) {
-				DISABLE;
-			}
-			fpr.Flush();
 			gpr.BindToRegister(rs, true, true);
 
 			u8 vregs[4];
 			GetVectorRegs(vregs, V_Quad, vt);
-
-			MOV(32, R(EAX), gpr.R(rs));
-			// Just copy 4 words the easiest way while not wasting registers.
-#ifndef _M_X64
-			AND(32, R(EAX), Imm32(0x3FFFFFFF));
-#endif
-			// MOVSS to prime any crazy cache mechanism that might assume that there's a float somewhere...
-
-			// It would be pretty nice to have these in registers for the next instruction...
 			// Even if we don't use real SIMD there's still 8 or 16 scalar float registers.
-			
 			fpr.MapRegsV(vregs, V_Quad, 0);
 
-			for (int i = 0; i < 4; i++) {
-#ifdef _M_X64
-				MOVSS(MComplex(RBX, EAX, 1, i * 4 + imm), fpr.VX(vregs[i]));
-#else
-				MOVSS(MDisp(EAX, (u32)(Memory::base + i * 4 + imm)), fpr.VX(vregs[i]));
-#endif
+			JitSafeMem safe(this, rs, imm);
+			OpArg dest;
+			if (safe.PrepareWrite(dest))
+			{
+				for (int i = 0; i < 4; i++)
+					MOVSS(safe.NextFastAddress(i * 4), fpr.VX(vregs[i]));
 			}
+			if (safe.PrepareSlowWrite())
+			{
+				for (int i = 0; i < 4; i++)
+				{
+					MOVSS(M((void *)&ssLoadStoreTemp), fpr.VX(vregs[i]));
+					safe.DoSlowWrite((void *) &Memory::Write_U32, M((void *)&ssLoadStoreTemp), i * 4);
+				}
+			}
+			safe.Finish();
 
 			fpr.ReleaseSpillLocks();
 			gpr.UnlockAll();
