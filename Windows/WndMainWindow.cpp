@@ -107,8 +107,9 @@ namespace MainWindow
 	}
 
 	void GetWindowRectAtZoom(int zoom, RECT &rcInner, RECT &rcOuter) {
-		rcInner.left=20;
-		rcInner.top=100;
+		// GetWindowRect(hwndMain, &rcInner);
+		rcInner.left = 20;
+		rcInner.top = 120;
 
 		rcInner.right=480*zoom + rcInner.left;//+client edge
 		rcInner.bottom=272*zoom + rcInner.top; //+client edge
@@ -117,16 +118,22 @@ namespace MainWindow
 		AdjustWindowRect(&rcOuter, WS_OVERLAPPEDWINDOW, TRUE);
 	}
 
+	void ResizeDisplay() {
+		RECT rc;
+		GetClientRect(hwndMain, &rc);
+		MoveWindow(hwndDisplay, 0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, TRUE);
+		PSP_CoreParameter().pixelWidth = rc.right - rc.left;
+		PSP_CoreParameter().pixelHeight = rc.bottom - rc.top;
+		GL_Resized();
+	}
+
 	void SetZoom(float zoom) {
 		if (zoom < 5)
 			g_Config.iWindowZoom = (int) zoom;
 		RECT rc, rcOuter;
 		GetWindowRectAtZoom((int) zoom, rc, rcOuter);
 		MoveWindow(hwndMain, rcOuter.left, rcOuter.top, rcOuter.right - rcOuter.left, rcOuter.bottom - rcOuter.top, TRUE);
-		MoveWindow(hwndDisplay, 0, 0, rc.right - rc.left, rc.bottom - rc.top, TRUE);
-		PSP_CoreParameter().pixelWidth = (int) (480 * zoom);
-		PSP_CoreParameter().pixelHeight = (int) (272 * zoom);
-		GL_Resized();
+		ResizeDisplay();
 	}
 
 	BOOL Show(HINSTANCE hInstance, int nCmdShow)
@@ -472,12 +479,8 @@ namespace MainWindow
 			case ID_OPTIONS_FULLSCREEN:
 				if(g_bFullScreen) {
 					_ViewNormal(hWnd); 
-					SetZoom(1); //restore window to original size
 				}
 				else {
-					int cx = ::GetSystemMetrics(SM_CXSCREEN);
-					float screenfactor = cx / 480.0f;
-					SetZoom(screenfactor);
 					_ViewFullScreen(hWnd);
 				}
 				UpdateMenus();
@@ -613,6 +616,9 @@ namespace MainWindow
 			PostQuitMessage(0);
 			break;
 		case WM_SIZE:
+			{
+				ResizeDisplay();
+			}
 			break;
 		case WM_NCHITTEST:
 			if (skinMode)
@@ -799,6 +805,7 @@ namespace MainWindow
 
 		// reset full screen indicator
 		g_bFullScreen = FALSE;
+		ResizeDisplay();
 	}
 
 	void _ViewFullScreen(HWND hWnd)
@@ -824,6 +831,7 @@ namespace MainWindow
 
 		// set full screen indicator
 		g_bFullScreen = TRUE;
+		ResizeDisplay();
 	}
 
 	void SetPlaying(const char *text)

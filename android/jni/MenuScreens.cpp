@@ -158,6 +158,8 @@ void MenuScreen::render() {
 	double xoff = 150 - frames_ * frames_ * 0.4f;
 	if (xoff < -20)
 		xoff = -20;
+	if (frames_ > 200)  // seems the above goes nuts after a while...
+		xoff = -20;
 
 	int w = LARGE_BUTTON_WIDTH + 40;
 
