@@ -37,44 +37,48 @@ TouchStick leftStick(&ui_atlas, I_STICKBG, I_STICK, 0);
 
 void LayoutGamepad(int w, int h)
 {
-	const int button_spacing = 50;
-	const int arrow_spacing = 40;
+	float controlScale = g_Config.bLargeControls ? 1.7 : 1.0;
 
-	const int circleX = w - 40;
-	const int circleY = h - 120;
+	const int button_spacing = 50 * controlScale;
+	const int arrow_spacing = 40 * controlScale;
 
-	const int leftX = 40;
-	int leftY = h - 120;
+	const int circleX = w - 40 * controlScale;
+	const int circleY = h - 120 * controlScale;
+
+	const int leftX = 40 * controlScale;
+	int leftY = h - 120 * controlScale;
 
 	if (g_Config.bShowAnalogStick) {
-		leftY = h - 220;
+		leftY = h - 250 * controlScale;
 	}
 
 	const int stickX = leftX + arrow_spacing;
-	const int stickY = h - 80;
+	const int stickY = h - 80 * controlScale;
 
 	const int halfW = w / 2;
 
-	buttonO.setPos(circleX, circleY);
-	buttonX.setPos(circleX - button_spacing, circleY + button_spacing);
-	buttonTri.setPos(circleX - button_spacing, circleY - button_spacing);
-	buttonSq.setPos(circleX - button_spacing * 2, circleY);
+	buttonO.setPos(circleX, circleY, controlScale);
+	buttonX.setPos(circleX - button_spacing, circleY + button_spacing, controlScale);
+	buttonTri.setPos(circleX - button_spacing, circleY - button_spacing, controlScale);
+	buttonSq.setPos(circleX - button_spacing * 2, circleY, controlScale);
 
-	buttonLeft.setPos(leftX, leftY);
-	buttonUp.setPos(leftX + arrow_spacing, leftY - arrow_spacing);
-	buttonDown.setPos(leftX + arrow_spacing, leftY + arrow_spacing);
-	buttonRight.setPos(leftX + arrow_spacing * 2, leftY);
+	buttonLeft.setPos(leftX, leftY, controlScale);
+	buttonUp.setPos(leftX + arrow_spacing, leftY - arrow_spacing, controlScale);
+	buttonDown.setPos(leftX + arrow_spacing, leftY + arrow_spacing, controlScale);
+	buttonRight.setPos(leftX + arrow_spacing * 2, leftY, controlScale);
 
-	buttonSelect.setPos(halfW - button_spacing, h - 20);
-	buttonStart.setPos(halfW + button_spacing, h - 20);
-	buttonLShoulder.setPos(button_spacing + 10, 15);
-	buttonRShoulder.setPos(w - button_spacing - 10, 15);
+	buttonSelect.setPos(halfW - button_spacing, h - 20 * controlScale, controlScale);
+	buttonStart.setPos(halfW + button_spacing, h - 20 * controlScale, controlScale);
+	buttonLShoulder.setPos(button_spacing + 10 * controlScale, 15 * controlScale, controlScale);
+	buttonRShoulder.setPos(w - button_spacing - 10 * controlScale, 15 * controlScale, controlScale);
 
-	leftStick.setPos(stickX, stickY);
+	leftStick.setPos(stickX, stickY, controlScale);
 }
 
 void UpdateGamepad(InputState &input_state)
 {
+	LayoutGamepad(dp_xres, dp_yres);
+
 	buttonO.update(input_state);
 	buttonX.update(input_state);
 	buttonTri.update(input_state);

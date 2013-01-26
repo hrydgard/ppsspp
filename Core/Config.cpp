@@ -68,7 +68,7 @@ void CConfig::Load(const char *iniFileName)
 	graphics->Get("SSAA", &SSAntiAlaising, 0);
 	graphics->Get("VBO", &bUseVBO, false);
 	graphics->Get("DisableG3DLog", &bDisableG3DLog, false);
-	graphics->Get("VertexCache", &bVertexCache, false);
+	graphics->Get("VertexCache", &bVertexCache, true);
 
 	IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 	sound->Get("Enable", &bEnableSound, true);
@@ -81,6 +81,7 @@ void CConfig::Load(const char *iniFileName)
 #else
 		false);
 #endif
+	control->Get("LargeControls", &bLargeControls, false);
 
 	IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
 	pspConfig->Get("Language", &ilanguage, PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
@@ -128,6 +129,7 @@ void CConfig::Save()
 		IniFile::Section *control = iniFile.GetOrCreateSection("Control");
 		control->Set("ShowStick", bShowAnalogStick);
 		control->Set("ShowTouchControls", bShowTouchControls);
+		control->Set("LargeControls", bLargeControls);
 
 		IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
 		pspConfig->Set("Language", ilanguage);

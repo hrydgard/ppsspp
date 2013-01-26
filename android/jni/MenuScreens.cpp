@@ -163,10 +163,18 @@ void MenuScreen::render() {
 
 	ui_draw2d.DrawTextShadow(UBUNTU48, "PPSSPP", dp_xres + xoff - w/2, 80, 0xFFFFFFFF, ALIGN_HCENTER | ALIGN_BOTTOM);
 	ui_draw2d.SetFontScale(0.7f, 0.7f);
-	ui_draw2d.DrawTextShadow(UBUNTU24, "v0.5", dp_xres + xoff, 80, 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_BOTTOM);
+	ui_draw2d.DrawTextShadow(UBUNTU24, "v0.6", dp_xres + xoff, 80, 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_BOTTOM);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 	VLinear vlinear(dp_xres + xoff, 95, 20);
 
+#ifdef ANDROID
+	int xc = (dp_xres - LARGE_BUTTON_WIDTH - 40) / 2;
+	ui_draw2d.SetFontScale(0.8f, 0.8f);
+	ui_draw2d.DrawText(UBUNTU48, "NOTE!", xc, dp_yres / 2 + 30, 0xFFFFFFFF, ALIGN_CENTER);
+	ui_draw2d.DrawText(UBUNTU24, "Enabling JIT will crash on Snapdragon CPUs.", xc, dp_yres / 2 + 80, 0xFFFFFFFF, ALIGN_CENTER);
+	ui_draw2d.DrawText(UBUNTU24, "This will be fixed in PPSSPP 0.61, coming soon.", xc, dp_yres / 2 + 120, 0xFFFFFFFF, ALIGN_CENTER);
+	ui_draw2d.SetFontScale(1.0f, 1.0f);
+#endif
 
 	if (UIButton(GEN_ID, vlinear, w, "Load...", ALIGN_RIGHT)) {
 #if defined(USING_QT_UI) && defined(__SYMBIAN32__)
@@ -289,13 +297,13 @@ void SettingsScreen::render() {
 	UIBegin();
 	DrawBackground(1.0f);
 
-	ui_draw2d.DrawText(UBUNTU48, "Settings", dp_xres / 2, 30, 0xFFFFFFFF, ALIGN_HCENTER);
+	ui_draw2d.DrawText(UBUNTU48, "Settings", dp_xres / 2, 20, 0xFFFFFFFF, ALIGN_HCENTER);
 
 	// TODO: Need to add tabs soon...
 	// VLinear vlinear(10, 80, 10);
 	
 	int x = 30;
-	int y = 50;
+	int y = 30;
 	int stride = 40;
 	UICheckBox(GEN_ID, x, y += stride, "Sound Emulation", ALIGN_TOPLEFT, &g_Config.bEnableSound);
 	UICheckBox(GEN_ID, x, y += stride, "Buffered Rendering", ALIGN_TOPLEFT, &g_Config.bBufferedRendering);
@@ -306,17 +314,19 @@ void SettingsScreen::render() {
 	}
 	UICheckBox(GEN_ID, x, y += stride, "Hardware Transform", ALIGN_TOPLEFT, &g_Config.bHardwareTransform);
 	UICheckBox(GEN_ID, x, y += stride, "Draw using Stream VBO", ALIGN_TOPLEFT, &g_Config.bUseVBO);
-	UICheckBox(GEN_ID, x, y += 50, "Vertex Cache", ALIGN_TOPLEFT, &g_Config.bVertexCache);
+	UICheckBox(GEN_ID, x, y += stride, "Vertex Cache", ALIGN_TOPLEFT, &g_Config.bVertexCache);
 
 	bool useJit = g_Config.iCpuCore == CPU_JIT;
 	UICheckBox(GEN_ID, x, y += stride, "JIT (Dynarec)", ALIGN_TOPLEFT, &useJit);
 	if (g_Config.iCpuCore == CPU_JIT)
-		UICheckBox(GEN_ID, x + 350, y, "Fastmem (unstable)", ALIGN_TOPLEFT, &g_Config.bFastMemory);
+		UICheckBox(GEN_ID, x + 450, y, "Fastmem (may crash)", ALIGN_TOPLEFT, &g_Config.bFastMemory);
 	g_Config.iCpuCore = useJit ? CPU_JIT : CPU_INTERPRETER;
 	// ui_draw2d.DrawText(UBUNTU48, "much faster JIT coming later", x, y+=50, 0xcFFFFFFF, ALIGN_LEFT);
 	UICheckBox(GEN_ID, x, y += stride, "On-screen Touch Controls", ALIGN_TOPLEFT, &g_Config.bShowTouchControls);
-	if (g_Config.bShowTouchControls)
+	if (g_Config.bShowTouchControls) {
+		UICheckBox(GEN_ID, x + 450, y, "Large Controls", ALIGN_TOPLEFT, &g_Config.bLargeControls);
 		UICheckBox(GEN_ID, x + 50, y += stride, "Show Analog Stick", ALIGN_TOPLEFT, &g_Config.bShowAnalogStick);
+	}
 	// UICheckBox(GEN_ID, x, y += stride, "Draw raw framebuffer (for some homebrew)", ALIGN_TOPLEFT, &g_Config.bDisplayFramebuffer);
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres-10), LARGE_BUTTON_WIDTH, "Back", ALIGN_RIGHT | ALIGN_BOTTOM)) {
@@ -430,7 +440,7 @@ void CreditsScreen::update(InputState &input_state) {
 
 static const char *credits[] =
 {
-	"PPSSPP v0.5",
+	"PPSSPP v0.6",
 	"",
 	"",
 	"A fast and portable PSP emulator",
@@ -440,13 +450,14 @@ static const char *credits[] =
 	"",
 	"Contributors:",
 	"unknownbrackets",
-	"tmaul",
 	"orphis",
+	"xsacha",
 	"artart78",
+	"tmaul",
 	"ced2911",
 	"soywiz",
 	"kovensky",
-	"xsacha",
+	"raven02",
 	"",
 	"Written in C++ for speed and portability",
 	"",

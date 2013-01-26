@@ -68,6 +68,7 @@ public:
 	bool bShowAnalogStick;
 	bool bShowFPSCounter;
 	bool bShowDebugStats;
+	bool bLargeControls;
 
 	// SystemParam
 	int ilanguage;

@@ -47,7 +47,7 @@ FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
     DEFPUSHBUTTON   "OK",IDOK,243,140,50,14
     ICON            IDI_PPSSPP,IDC_STATIC,10,9,21,20
-    LTEXT           "PPSSPP v0.5",IDC_STATIC,40,8,127,9
+    LTEXT           "PPSSPP v0.6",IDC_STATIC,40,8,127,9
     LTEXT           "Copyright (c) by Henrik Rydgård && the PPSSPP project 2012-",IDC_STATIC,40,33,253,8
     LTEXT           "All trademarks are property of their respective owners.\nThe emulator is for educational and development purposes only and it may not be used to play games you do not legally own.",IDC_STATIC,40,102,253,24
     LTEXT           "PSP emulator and debugger",IDC_STATIC,40,19,253,8
