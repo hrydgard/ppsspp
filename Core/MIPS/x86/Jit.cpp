@@ -19,6 +19,7 @@
 #include <iterator>
 #include "../../Core.h"
 #include "../../CoreTiming.h"
+#include "../../Config.h"
 #include "../MIPS.h"
 #include "../MIPSCodeUtils.h"
 #include "../MIPSInt.h"
@@ -299,6 +300,199 @@ bool Jit::CheckJitBreakpoint(u32 addr, int downcountOffset)
 	}
 
 	return false;
+}
+
+Jit::JitSafeMem::JitSafeMem(Jit *jit, int raddr, s32 offset)
+	: jit_(jit), raddr_(raddr), offset_(offset), needsCheck_(false), needsSkip_(false)
+{
+}
+
+bool Jit::JitSafeMem::PrepareWrite(OpArg &dest)
+{
+	// If it's an immediate, we can do the write if valid.
+	if (jit_->gpr.IsImmediate(raddr_))
+	{
+		u32 addr = jit_->gpr.GetImmediate32(raddr_) + offset_;
+		if (Memory::IsValidAddress(addr))
+		{
+#ifdef _M_IX86
+			dest = M(Memory::base + addr);
+#else
+			dest = MDisp(RBX, addr);
+#endif
+			return true;
+		}
+		else
+			return false;
+	}
+	// Otherwise, we always can do the write (conditionally.)
+	else
+		dest = PrepareMemoryOpArg();
+	return true;
+}
+
+bool Jit::JitSafeMem::PrepareRead(OpArg &src, void *safeFunc)
+{
+	if (jit_->gpr.IsImmediate(raddr_))
+	{
+		u32 addr = jit_->gpr.GetImmediate32(raddr_) + offset_;
+		if (Memory::IsValidAddress(addr))
+		{
+#ifdef _M_IX86
+			src = M(Memory::base + addr);
+#else
+			src = MDisp(RBX, addr);
+#endif
+			return true;
+		}
+		else
+			return false;
+	}
+	else
+		src = PrepareMemoryOpArg();
+	return true;
+}
+
+OpArg Jit::JitSafeMem::PrepareMemoryOpArg()
+{
+	// We may not even need to move into EAX as a temporary.
+	// TODO: Except on x86 in fastmem mode.
+	if (jit_->gpr.R(raddr_).IsSimpleReg())
+	{
+		jit_->gpr.BindToRegister(raddr_, true, false);
+		xaddr_ = jit_->gpr.RX(raddr_);
+	}
+	else
+	{
+		jit_->MOV(32, R(EAX), jit_->gpr.R(raddr_));
+		xaddr_ = EAX;
+	}
+
+	X64Reg xaddrResult = xaddr_;
+	if (!g_Config.bFastMemory)
+	{
+		// Is it in physical ram?
+		jit_->CMP(32, R(xaddr_), Imm32(PSP_GetKernelMemoryBase()));
+		tooLow_ = jit_->J_CC(CC_L);
+		jit_->CMP(32, R(xaddr_), Imm32(PSP_GetUserMemoryEnd()));
+		tooHigh_ = jit_->J_CC(CC_GE);
+
+		// We may need to jump back up here.
+		safe_ = jit_->GetCodePtr();
+	}
+	else
+	{
+#ifdef _M_IX86
+		// Need to modify it, too bad.
+		if (xaddr_ != EAX)
+			jit_->MOV(32, R(EAX), R(xaddr_));
+		jit_->AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
+		xaddrResult = EAX;
+#endif
+	}
+
+#ifdef _M_IX86
+		return MDisp(xaddrResult, (u32) Memory::base + offset_);
+#else
+		return MComplex(RBX, xaddrResult, SCALE_1, offset_);
+#endif
+}
+
+void Jit::JitSafeMem::PrepareSlowAccess()
+{
+	// Skip the fast path (which the caller wrote just now.)
+	skip_ = jit_->J();
+	needsSkip_ = true;
+	jit_->SetJumpTarget(tooLow_);
+	jit_->SetJumpTarget(tooHigh_);
+
+	// Might also be the scratchpad.
+	jit_->CMP(32, R(xaddr_), Imm32(PSP_GetScratchpadMemoryBase()));
+	FixupBranch tooLow = jit_->J_CC(CC_L);
+	jit_->CMP(32, R(xaddr_), Imm32(PSP_GetScratchpadMemoryEnd()));
+	jit_->J_CC(CC_L, safe_);
+	jit_->SetJumpTarget(tooLow);
+}
+
+bool Jit::JitSafeMem::PrepareSlowWrite()
+{
+	// If it's immediate, we only need a slow write on invalid.
+	if (jit_->gpr.IsImmediate(raddr_))
+	{
+		u32 addr = jit_->gpr.GetImmediate32(raddr_) + offset_;
+		return !g_Config.bFastMemory && !Memory::IsValidAddress(addr);
+	}
+
+	if (!g_Config.bFastMemory)
+	{
+		PrepareSlowAccess();
+		return true;
+	}
+	else
+		return false;
+}
+
+void Jit::JitSafeMem::DoSlowWrite(void *safeFunc, const OpArg src)
+{
+	if (jit_->gpr.IsImmediate(raddr_))
+	{
+		u32 addr = jit_->gpr.GetImmediate32(raddr_) + offset_;
+		jit_->MOV(32, R(EAX), Imm32(addr));
+	}
+	else
+		jit_->LEA(32, EAX, MDisp(xaddr_, offset_));
+
+	jit_->ABI_CallFunctionAA(jit_->thunks.ProtectFunction(safeFunc, 2), src, R(EAX));
+	needsCheck_ = true;
+}
+
+bool Jit::JitSafeMem::PrepareSlowRead(void *safeFunc)
+{
+	if (jit_->gpr.IsImmediate(raddr_))
+	{
+		u32 addr = jit_->gpr.GetImmediate32(raddr_) + offset_;
+		if (!g_Config.bFastMemory)
+		{
+			jit_->MOV(32, R(EAX), Imm32(addr));
+			jit_->ABI_CallFunctionA(jit_->thunks.ProtectFunction(safeFunc, 1), R(EAX));
+			needsCheck_ = true;
+			return true;
+		}
+		// Can't read a bad immediate in fast memory mode.
+		else
+			return false;
+	}
+
+	if (!g_Config.bFastMemory)
+	{
+		PrepareSlowAccess();
+
+		jit_->LEA(32, EAX, MDisp(xaddr_, offset_));
+		jit_->ABI_CallFunctionA(jit_->thunks.ProtectFunction(safeFunc, 1), R(EAX));
+		needsCheck_ = true;
+
+		return true;
+	}
+	else
+		return false;
+}
+
+void Jit::JitSafeMem::WriteFinish()
+{
+	if (needsCheck_)
+	{
+		// Memory::Read_U32/etc. may have tripped coreState.
+		if (!g_Config.bIgnoreBadMemAccess)
+		{
+			jit_->CMP(32, M((void*)&coreState), Imm32(0));
+			FixupBranch skipCheck = jit_->J_CC(CC_E);
+			jit_->MOV(32, M(&currentMIPS->pc), Imm32(jit_->js.compilerPC + 4));
+			jit_->WriteSyscallExit();
+			jit_->SetJumpTarget(skipCheck);
+		}
+	}
+	if (needsSkip_)
+		jit_->SetJumpTarget(skip_);
 }
 
 } // namespace
