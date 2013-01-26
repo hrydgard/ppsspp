@@ -470,7 +470,7 @@ int main(int argc, char *argv[]) {
 	InputState input_state;
 	int framecount = 0;
 	bool nextFrameMD = 0;
-	float t = 0;
+	float t = 0, lastT = 0;
 	while (true) {
 		input_state.accelerometer_valid = false;
 		input_state.mouse_valid = true;
@@ -528,7 +528,11 @@ int main(int argc, char *argv[]) {
 #ifdef PANDORA
 		eglSwapBuffers(g_eglDisplay, g_eglSurface);
 #else
-		SDL_GL_SwapBuffers();
+		if (!keys[SDLK_TAB] || t - lastT >= 1.0/60.0)
+		{
+			SDL_GL_SwapBuffers();
+			lastT = t;
+		}
 #endif
 
 		// Simple frame rate limiting
