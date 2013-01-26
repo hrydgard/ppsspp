@@ -55,6 +55,29 @@ struct JitState
 	int downcountAmount;
 	bool compiling;	// TODO: get rid of this in favor of using analysis results to determine end of block
 	JitBlock *curBlock;
+
+	// VFPU prefix magic
+	u32 prefixS;
+	u32 prefixT;
+	u32 prefixD;
+	bool writeMask[4];
+	bool prefixSKnown;
+	bool prefixTKnown;
+	bool prefixDKnown;
+	void PrefixStart() {
+		prefixSKnown = false;
+		prefixTKnown = false;
+		prefixDKnown = false;
+	}
+	void EatPrefix() {
+		prefixSKnown = true;
+		prefixTKnown = true;
+		prefixDKnown = true;
+		prefixS = 0xE4;
+		prefixT = 0xE4;
+		prefixD = 0x0;
+		writeMask[0] = writeMask[1] = writeMask[2] = writeMask[3] = false;
+	}
 };
 
 enum CompileDelaySlotFlags
@@ -111,6 +134,10 @@ public:
 	void Comp_mxc1(u32 op);
 
 	void Comp_SVQ(u32 op);
+	void Comp_VPFX(u32 op);
+	void Comp_VDot(u32 op);
+	void ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz);
+	void ApplyPrefixD(const u8 *vregs, u32 prefix, VectorSize sz, bool onlyWriteMask = false);
 
 	JitBlockCache *GetBlockCache() { return &blocks; }
 	AsmRoutineManager &Asm() { return asm_; }

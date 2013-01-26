@@ -185,7 +185,9 @@ namespace MIPSComp
 		if ((doImm == &RType3_ImmAdd || doImm == &RType3_ImmOr) && (rs == 0 || rt == 0))
 		{
 			gpr.BindToRegister(rd, rd == rs || rd == rt, true);
-			MOV(32, gpr.R(rd), gpr.R(rt == 0 ? rs : rt));
+			int rsource = rt == 0 ? rs : rt;
+			if (rsource != rd)
+				MOV(32, gpr.R(rd), gpr.R(rsource));
 		}
 		else
 		{

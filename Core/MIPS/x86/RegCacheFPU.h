@@ -47,6 +47,11 @@ struct MIPSCachedFPReg {
 	bool locked;
 };
 
+enum {
+	MAP_DIRTY = 1,
+	MAP_NOINIT = 2,
+};
+
 // The PSP has 160 FP registers: 32 FPRs + 128 VFPU registers.
 // Soon we will support them all.
 
@@ -89,6 +94,8 @@ public:
 	void SpillLock(int p1, int p2=0xff, int p3=0xff, int p4=0xff);
 	void ReleaseSpillLocks();
 
+	void MapRegsV(int vec, VectorSize vsz, int flags);
+	void MapRegsV(const u8 *v, VectorSize vsz, int flags);
 	void SpillLockV(const u8 *v, VectorSize vsz);
 	void SpillLockV(int vec, VectorSize vsz);
 

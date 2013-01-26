@@ -490,7 +490,7 @@ const MIPSInstruction tableVFPU0[8] =
 const MIPSInstruction tableVFPU1[8] = 
 {
 	INSTR("vmul",&Jit::Comp_Generic, Dis_VectorSet3, Int_VecDo3, IS_VFPU),
-	INSTR("vdot",&Jit::Comp_Generic, Dis_VectorDot, Int_VDot, IS_VFPU), 
+	INSTR("vdot",&Jit::Comp_VDot, Dis_VectorDot, Int_VDot, IS_VFPU), 
 	INSTR("vscl",&Jit::Comp_Generic, Dis_VScl, Int_VScl, IS_VFPU),
 	{-2},
 	INSTR("vhdp",&Jit::Comp_Generic, Dis_Generic, Int_VHdp, IS_VFPU), 

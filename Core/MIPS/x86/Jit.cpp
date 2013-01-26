@@ -184,6 +184,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	js.curBlock = b;
 	js.compiling = true;
 	js.inDelaySlot = false;
+	js.PrefixStart();
 
 	// We add a check before the block, used when entering from a linked block.
 	b->checkedEntry = GetCodePtr();

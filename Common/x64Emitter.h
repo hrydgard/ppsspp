@@ -462,7 +462,9 @@ public:
 	// SSE/SSE2: Floating point bitwise (yes)
 	void CMPSS(X64Reg regOp, OpArg arg, u8 compare);  
 	void CMPSD(X64Reg regOp, OpArg arg, u8 compare);  
-	void ANDSS(X64Reg regOp, OpArg arg);  
+
+	// I don't think these exist
+	/*
 	void ANDSD(X64Reg regOp, OpArg arg);  
 	void ANDNSS(X64Reg regOp, OpArg arg); 
 	void ANDNSD(X64Reg regOp, OpArg arg); 
@@ -470,6 +472,7 @@ public:
 	void ORSD(X64Reg regOp, OpArg arg);   
 	void XORSS(X64Reg regOp, OpArg arg);   
 	void XORSD(X64Reg regOp, OpArg arg);   
+	*/
 
 	// SSE/SSE2: Floating point packed arithmetic (x4 for float, x2 for double)
 	void ADDPS(X64Reg regOp, OpArg arg); 

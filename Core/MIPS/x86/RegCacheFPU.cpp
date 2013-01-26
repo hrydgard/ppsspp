@@ -48,16 +48,32 @@ void FPURegCache::SpillLock(int p1, int p2, int p3, int p4) {
 	if (p4 != 0xFF) regs[p4].locked = true;
 }
 
-void FPURegCache::SpillLockV(const u8 *v, VectorSize vsz) {
-	for (int i = 0; i < GetNumVectorElements(vsz); i++) {
-		vregs[i].locked = true;
+void FPURegCache::SpillLockV(const u8 *v, VectorSize sz) {
+	for (int i = 0; i < GetNumVectorElements(sz); i++) {
+		vregs[v[i]].locked = true;
 	}
 }
 
-void FPURegCache::SpillLockV(int vec, VectorSize vsz) {
+void FPURegCache::SpillLockV(int vec, VectorSize sz) {
 	u8 v[4];
-	GetVectorRegs(v, vsz, vec);
-	SpillLockV(v, vsz);
+	GetVectorRegs(v, sz, vec);
+	SpillLockV(v, sz);
+}
+
+void FPURegCache::MapRegsV(int vec, VectorSize sz, int flags) {
+	u8 v[4];
+	GetVectorRegs(v, sz, vec);
+	SpillLockV(v, sz);
+	for (int i = 0; i < GetNumVectorElements(sz); i++) {
+		BindToRegister(v[i] + 32, (flags & MAP_NOINIT) == 0, (flags & MAP_DIRTY) != 0);
+	}
+}
+
+void FPURegCache::MapRegsV(const u8 *v, VectorSize sz, int flags) {
+	SpillLockV(v, sz);
+	for (int i = 0; i < GetNumVectorElements(sz); i++) {
+		BindToRegister(v[i] + 32, (flags & MAP_NOINIT) == 0, (flags & MAP_DIRTY) != 0);
+	}
 }
 
 void FPURegCache::ReleaseSpillLocks() {
@@ -85,6 +101,7 @@ void FPURegCache::BindToRegister(int i, bool doLoad, bool makeDirty) {
 	} else {
 		// There are no immediates in the FPR reg file, so we already had this in a register. Make dirty as necessary.
 		xregs[RX(i)].dirty |= makeDirty;
+		_assert_msg_(DYNA_REC, regs[i].location.IsSimpleReg(), "not loaded and not simple.");
 	}
 }
 
