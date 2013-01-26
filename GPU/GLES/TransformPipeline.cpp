@@ -850,7 +850,7 @@ void TransformDrawEngine::Flush() {
 			u32 id = ComputeFastDCID();
 			auto iter = vai_.find(id);
 			VertexArrayInfo *vai;
-			if (vai_.find(id) != vai_.end()) {
+			if (iter != vai_.end()) {
 				// We've seen this before. Could have been a cached draw.
 				vai = iter->second;
 			} else {

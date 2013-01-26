@@ -54,7 +54,7 @@ static std::vector<HLEModule> moduleDB;
 static std::vector<Syscall> unresolvedSyscalls;
 static std::vector<Syscall> exportedCalls;
 static int hleAfterSyscall = HLE_AFTER_NOTHING;
-static char hleAfterSyscallReschedReason[512];
+static const char *hleAfterSyscallReschedReason;
 
 void HLEInit()
 {
@@ -266,15 +266,9 @@ void hleReSchedule(const char *reason)
 	hleAfterSyscall |= HLE_AFTER_RESCHED;
 
 	if (!reason)
-		strcpy(hleAfterSyscallReschedReason, "Invalid reason");
-	// You can't seriously need a reason that long, can you?
-	else if (strlen(reason) >= sizeof(hleAfterSyscallReschedReason))
-	{
-		memcpy(hleAfterSyscallReschedReason, reason, sizeof(hleAfterSyscallReschedReason) - 1);
-		hleAfterSyscallReschedReason[sizeof(hleAfterSyscallReschedReason) - 1] = 0;
-	}
+		hleAfterSyscallReschedReason = "Invalid reason";
 	else
-		strcpy(hleAfterSyscallReschedReason, reason);
+		hleAfterSyscallReschedReason = reason;
 }
 
 void hleReSchedule(bool callbacks, const char *reason)
@@ -334,13 +328,13 @@ inline void hleFinishSyscall(int modulenum, int funcnum)
 		{
 			// We'll do it next syscall.
 			hleAfterSyscall = HLE_AFTER_DEBUG_BREAK;
-			hleAfterSyscallReschedReason[0] = 0;
+			hleAfterSyscallReschedReason = 0;
 			return;
 		}
 	}
 
 	hleAfterSyscall = HLE_AFTER_NOTHING;
-	hleAfterSyscallReschedReason[0] = 0;
+	hleAfterSyscallReschedReason = 0;
 }
 
 inline void updateSyscallStats(int modulenum, int funcnum, double total)

@@ -249,7 +249,7 @@ int sceUmdWaitDriveStat(u32 stat)
 	DEBUG_LOG(HLE,"0=sceUmdWaitDriveStat(stat = %08x)", stat);
 
 	if ((stat & __KernelUmdGetState()) == 0)
-		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, 0);
+		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, 0, "umd stat waited");
 
 	return 0;
 }
@@ -261,7 +261,7 @@ int sceUmdWaitDriveStatWithTimer(u32 stat, u32 timeout)
 	if ((stat & __KernelUmdGetState()) == 0)
 	{
 		__UmdWaitStat(timeout);
-		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, 0);
+		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, 0, "umd stat waited");
 	}
 	else
 		hleReSchedule("umd stat waited with timer");
@@ -287,7 +287,7 @@ int sceUmdWaitDriveStatCB(u32 stat, u32 timeout)
 			timeout = 8000;
 
 		__UmdWaitStat(timeout);
-		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, true);
+		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, true, "umd stat waited");
 	}
 	else
 		hleReSchedule("umd stat waited");
@@ -299,7 +299,7 @@ u32 sceUmdCancelWaitDriveStat()
 {
 	DEBUG_LOG(HLE,"0=sceUmdCancelWaitDriveStat()");
 
-	__KernelTriggerWait(WAITTYPE_UMD, 1, SCE_KERNEL_ERROR_WAIT_CANCEL, true);
+	__KernelTriggerWait(WAITTYPE_UMD, 1, SCE_KERNEL_ERROR_WAIT_CANCEL, "umd stat ready", true);
 	// TODO: We should call UnscheduleEvent() event here?
 	// But it's not often used anyway, and worst-case it will just do nothing unless it waits again.
 	return 0;

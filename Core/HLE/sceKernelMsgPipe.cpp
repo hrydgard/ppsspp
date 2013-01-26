@@ -289,7 +289,7 @@ void __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode
 			{
 				m->AddSendWaitingThread(__KernelGetCurThread(), curSendAddr, sendSize, waitMode, resultAddr);
 				RETURN(0);
-				__KernelWaitCurThread(WAITTYPE_MSGPIPE, 0, 0, 0, cbEnabled);
+				__KernelWaitCurThread(WAITTYPE_MSGPIPE, 0, 0, 0, cbEnabled, "msgpipe waited");
 				return;
 			}
 		}
@@ -321,7 +321,7 @@ void __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode
 			{
 				m->AddSendWaitingThread(__KernelGetCurThread(), curSendAddr, sendSize, waitMode, resultAddr);
 				RETURN(0);
-				__KernelWaitCurThread(WAITTYPE_MSGPIPE, 0, 0, 0, cbEnabled);
+				__KernelWaitCurThread(WAITTYPE_MSGPIPE, 0, 0, 0, cbEnabled, "msgpipe waited");
 				return;
 			}
 		}
@@ -461,7 +461,7 @@ void __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int
 			{
 				m->AddReceiveWaitingThread(__KernelGetCurThread(), curReceiveAddr, receiveSize, waitMode, resultAddr);
 				RETURN(0);
-				__KernelWaitCurThread(WAITTYPE_MSGPIPE, 0, 0, 0, cbEnabled);
+				__KernelWaitCurThread(WAITTYPE_MSGPIPE, 0, 0, 0, cbEnabled, "msgpipe waited");
 				return;
 			}
 		}
@@ -497,7 +497,7 @@ void __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int
 			{
 				m->AddReceiveWaitingThread(__KernelGetCurThread(), curReceiveAddr, receiveSize, waitMode, resultAddr);
 				RETURN(0);
-				__KernelWaitCurThread(WAITTYPE_MSGPIPE, 0, 0, 0, cbEnabled);
+				__KernelWaitCurThread(WAITTYPE_MSGPIPE, 0, 0, 0, cbEnabled, "msgpipe waited");
 				return;
 			}
 		}
