@@ -477,7 +477,7 @@ bool Jit::JitSafeMem::PrepareSlowRead(void *safeFunc)
 		return false;
 }
 
-void Jit::JitSafeMem::WriteFinish()
+void Jit::JitSafeMem::Finish()
 {
 	if (needsCheck_)
 	{

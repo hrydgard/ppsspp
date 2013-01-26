@@ -202,7 +202,7 @@ private:
 		bool PrepareSlowRead(void *safeFunc);
 
 		// Cleans up final code for the memory access.
-		void WriteFinish();
+		void Finish();
 
 	private:
 		OpArg PrepareMemoryOpArg();

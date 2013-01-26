@@ -110,7 +110,7 @@ void Jit::Comp_FPULS(u32 op)
 				MOV(32, M((void *)&ssLoadStoreTemp), R(EAX));
 				MOVSS(fpr.RX(ft), M((void *)&ssLoadStoreTemp));
 			}
-			safe.WriteFinish();
+			safe.Finish();
 
 			gpr.UnlockAll();
 			fpr.ReleaseSpillLocks();
@@ -131,7 +131,7 @@ void Jit::Comp_FPULS(u32 op)
 				MOVSS(M((void *)&ssLoadStoreTemp), fpr.RX(ft));
 				safe.DoSlowWrite((void *) &Memory::Write_U32, M((void *)&ssLoadStoreTemp));
 			}
-			safe.WriteFinish();
+			safe.Finish();
 
 			gpr.UnlockAll();
 			fpr.ReleaseSpillLocks();

@@ -57,7 +57,7 @@ namespace MIPSComp
 			(this->*mov)(32, bits, gpr.RX(rt), src);
 		if (safe.PrepareSlowRead(safeFunc))
 			(this->*mov)(32, bits, gpr.RX(rt), R(EAX));
-		safe.WriteFinish();
+		safe.Finish();
 
 		gpr.UnlockAll();
 	}
@@ -95,7 +95,7 @@ namespace MIPSComp
 		}
 		if (safe.PrepareSlowWrite())
 			safe.DoSlowWrite(safeFunc, gpr.R(rt));
-		safe.WriteFinish();
+		safe.Finish();
 
 		if (needSwap)
 			gpr.UnlockAllX();
