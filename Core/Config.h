@@ -58,6 +58,7 @@ public:
 	bool SSAntiAliasing; //for Windows, too
 	bool bDisableG3DLog;
 	bool bVertexCache;
+	bool bFullScreen;
 
 	// Sound
 	bool bEnableSound;
