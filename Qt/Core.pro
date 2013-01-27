@@ -23,7 +23,7 @@ arm {
 	HEADERS += ../Core/MIPS/ARM/ArmAsm.h \
 		../Core/MIPS/ARM/ArmJit.h \
 		../Core/MIPS/ARM/ArmJitCache.h \
-		../Core/MIPS/ARM/ArmRegCache.h
+		../Core/MIPS/ARM/ArmRegCache.h \
 		../Core/MIPS/ARM/ArmRegCacheFPU.h
 }
 x86 {
