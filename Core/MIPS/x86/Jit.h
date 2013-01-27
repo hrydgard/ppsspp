@@ -221,6 +221,7 @@ private:
 		bool needsCheck_;
 		bool needsSkip_;
 		bool far_;
+		u32 iaddr_;
 		X64Reg xaddr_;
 		FixupBranch tooLow_, tooHigh_, skip_;
 		const u8 *safe_;
