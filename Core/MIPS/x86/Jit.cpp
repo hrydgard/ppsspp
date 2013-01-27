@@ -305,6 +305,14 @@ bool Jit::CheckJitBreakpoint(u32 addr, int downcountOffset)
 Jit::JitSafeMem::JitSafeMem(Jit *jit, int raddr, s32 offset)
 	: jit_(jit), raddr_(raddr), offset_(offset), needsCheck_(false), needsSkip_(false)
 {
+	// This makes it more instructions, so let's play it safe and say we need a far jump.
+	far_ = !g_Config.bIgnoreBadMemAccess;
+}
+
+void Jit::JitSafeMem::SetFar()
+{
+	_dbg_assert_msg_(JIT, !needsSkip_, "Sorry, you need to call SetFar() earlier.");
+	far_ = true;
 }
 
 bool Jit::JitSafeMem::PrepareWrite(OpArg &dest)
@@ -420,7 +428,7 @@ OpArg Jit::JitSafeMem::PrepareMemoryOpArg()
 void Jit::JitSafeMem::PrepareSlowAccess()
 {
 	// Skip the fast path (which the caller wrote just now.)
-	skip_ = jit_->J();
+	skip_ = jit_->J(far_);
 	needsSkip_ = true;
 	jit_->SetJumpTarget(tooLow_);
 	jit_->SetJumpTarget(tooHigh_);
