@@ -199,7 +199,7 @@ u32 sceSasSetPause(u32 core, int voicebit, int pause)
 
 u32 sceSasSetVolume(u32 core, int voiceNum, int leftVol, int rightVol, int effectLeftVol, int effectRightVol)
 {
-	DEBUG_LOG(HLE,"sceSasSetVolume(%08x, %i, %i, %i, %i, %i)", core, leftVol, rightVol, effectLeftVol, effectRightVol);
+	DEBUG_LOG(HLE,"sceSasSetVolume(%08x, %i, %i, %i, %i, %i)", core, voiceNum, leftVol, rightVol, effectLeftVol, effectRightVol);
 
 	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
 		WARN_LOG(HLE, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
