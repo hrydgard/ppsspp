@@ -201,13 +201,15 @@ private:
 		// Emit code for a slow read call, and returns true if result is in EAX.
 		bool PrepareSlowRead(void *safeFunc);
 		
+		// Cleans up final code for the memory access.
+		void Finish();
+
+		// Use this before anything else if you're gonna use the below.
+		void SetFar();
 		// WARNING: Only works for non-GPR.  Do not use for reads into GPR.
 		OpArg NextFastAddress(int suboffset);
 		// WARNING: Only works for non-GPR.  Do not use for reads into GPR.
 		void NextSlowRead(void *safeFunc, int suboffset);
-
-		// Cleans up final code for the memory access.
-		void Finish();
 
 	private:
 		OpArg PrepareMemoryOpArg();
@@ -218,6 +220,8 @@ private:
 		s32 offset_;
 		bool needsCheck_;
 		bool needsSkip_;
+		bool far_;
+		u32 iaddr_;
 		X64Reg xaddr_;
 		FixupBranch tooLow_, tooHigh_, skip_;
 		const u8 *safe_;

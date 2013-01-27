@@ -305,20 +305,31 @@ bool Jit::CheckJitBreakpoint(u32 addr, int downcountOffset)
 Jit::JitSafeMem::JitSafeMem(Jit *jit, int raddr, s32 offset)
 	: jit_(jit), raddr_(raddr), offset_(offset), needsCheck_(false), needsSkip_(false)
 {
+	// This makes it more instructions, so let's play it safe and say we need a far jump.
+	far_ = !g_Config.bIgnoreBadMemAccess;
+	if (jit_->gpr.IsImmediate(raddr_))
+		iaddr_ = jit_->gpr.GetImmediate32(raddr_) + offset_;
+	else
+		iaddr_ = (u32) -1;
+}
+
+void Jit::JitSafeMem::SetFar()
+{
+	_dbg_assert_msg_(JIT, !needsSkip_, "Sorry, you need to call SetFar() earlier.");
+	far_ = true;
 }
 
 bool Jit::JitSafeMem::PrepareWrite(OpArg &dest)
 {
 	// If it's an immediate, we can do the write if valid.
-	if (jit_->gpr.IsImmediate(raddr_))
+	if (iaddr_ != (u32) -1)
 	{
-		u32 addr = jit_->gpr.GetImmediate32(raddr_) + offset_;
-		if (Memory::IsValidAddress(addr))
+		if (Memory::IsValidAddress(iaddr_))
 		{
 #ifdef _M_IX86
-			dest = M(Memory::base + addr);
+			dest = M(Memory::base + (iaddr_ & Memory::MEMVIEW32_MASK));
 #else
-			dest = MDisp(RBX, addr);
+			dest = MDisp(RBX, iaddr_);
 #endif
 			return true;
 		}
@@ -333,15 +344,14 @@ bool Jit::JitSafeMem::PrepareWrite(OpArg &dest)
 
 bool Jit::JitSafeMem::PrepareRead(OpArg &src)
 {
-	if (jit_->gpr.IsImmediate(raddr_))
+	if (iaddr_ != (u32) -1)
 	{
-		u32 addr = jit_->gpr.GetImmediate32(raddr_) + offset_;
-		if (Memory::IsValidAddress(addr))
+		if (Memory::IsValidAddress(iaddr_))
 		{
 #ifdef _M_IX86
-			src = M(Memory::base + addr);
+			src = M(Memory::base + (iaddr_ & Memory::MEMVIEW32_MASK));
 #else
-			src = MDisp(RBX, addr);
+			src = MDisp(RBX, iaddr_);
 #endif
 			return true;
 		}
@@ -360,7 +370,7 @@ OpArg Jit::JitSafeMem::NextFastAddress(int suboffset)
 		u32 addr = jit_->gpr.GetImmediate32(raddr_) + offset_ + suboffset;
 
 #ifdef _M_IX86
-		return M(Memory::base + addr);
+		return M(Memory::base + (addr & Memory::MEMVIEW32_MASK));
 #else
 		return MDisp(RBX, addr);
 #endif
@@ -420,7 +430,7 @@ OpArg Jit::JitSafeMem::PrepareMemoryOpArg()
 void Jit::JitSafeMem::PrepareSlowAccess()
 {
 	// Skip the fast path (which the caller wrote just now.)
-	skip_ = jit_->J();
+	skip_ = jit_->J(far_);
 	needsSkip_ = true;
 	jit_->SetJumpTarget(tooLow_);
 	jit_->SetJumpTarget(tooHigh_);
@@ -436,11 +446,8 @@ void Jit::JitSafeMem::PrepareSlowAccess()
 bool Jit::JitSafeMem::PrepareSlowWrite()
 {
 	// If it's immediate, we only need a slow write on invalid.
-	if (jit_->gpr.IsImmediate(raddr_))
-	{
-		u32 addr = jit_->gpr.GetImmediate32(raddr_) + offset_;
-		return !g_Config.bFastMemory && !Memory::IsValidAddress(addr);
-	}
+	if (iaddr_ != (u32) -1)
+		return !g_Config.bFastMemory && !Memory::IsValidAddress(iaddr_);
 
 	if (!g_Config.bFastMemory)
 	{
@@ -453,11 +460,8 @@ bool Jit::JitSafeMem::PrepareSlowWrite()
 
 void Jit::JitSafeMem::DoSlowWrite(void *safeFunc, const OpArg src, int suboffset)
 {
-	if (jit_->gpr.IsImmediate(raddr_))
-	{
-		u32 addr = jit_->gpr.GetImmediate32(raddr_) + offset_;
-		jit_->MOV(32, R(EAX), Imm32(addr + suboffset));
-	}
+	if (iaddr_ != (u32) -1)
+		jit_->MOV(32, R(EAX), Imm32(iaddr_ + suboffset));
 	else
 		jit_->LEA(32, EAX, MDisp(xaddr_, offset_ + suboffset));
 
@@ -469,14 +473,12 @@ bool Jit::JitSafeMem::PrepareSlowRead(void *safeFunc)
 {
 	if (!g_Config.bFastMemory)
 	{
-		if (jit_->gpr.IsImmediate(raddr_))
+		if (iaddr_ != (u32) -1)
 		{
-			u32 addr = jit_->gpr.GetImmediate32(raddr_) + offset_;
-
 			// No slow read necessary.
-			if (Memory::IsValidAddress(addr))
+			if (Memory::IsValidAddress(iaddr_))
 				return false;
-			jit_->MOV(32, R(EAX), Imm32(addr));
+			jit_->MOV(32, R(EAX), Imm32(iaddr_));
 		}
 		else
 		{
@@ -502,10 +504,9 @@ void Jit::JitSafeMem::NextSlowRead(void *safeFunc, int suboffset)
 
 	if (jit_->gpr.IsImmediate(raddr_))
 	{
-		u32 addr = jit_->gpr.GetImmediate32(raddr_) + offset_;
-		_dbg_assert_msg_(JIT, !Memory::IsValidAddress(addr), "NextSlowRead() for a valid immediate address?");
+		_dbg_assert_msg_(JIT, !Memory::IsValidAddress(iaddr_), "NextSlowRead() for a valid immediate address?");
 
-		jit_->MOV(32, R(EAX), Imm32(addr + suboffset));
+		jit_->MOV(32, R(EAX), Imm32(iaddr_ + suboffset));
 	}
 	// For GPR, if xaddr_ was the dest register, this will be wrong.  Don't use in GPR.
 	else

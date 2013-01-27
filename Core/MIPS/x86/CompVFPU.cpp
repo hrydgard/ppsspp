@@ -158,6 +158,7 @@ void Jit::Comp_SVQ(u32 op)
 			fpr.MapRegsV(vregs, V_Quad, MAP_DIRTY | MAP_NOINIT);
 
 			JitSafeMem safe(this, rs, imm);
+			safe.SetFar();
 			OpArg src;
 			if (safe.PrepareRead(src))
 			{
@@ -191,6 +192,7 @@ void Jit::Comp_SVQ(u32 op)
 			fpr.MapRegsV(vregs, V_Quad, 0);
 
 			JitSafeMem safe(this, rs, imm);
+			safe.SetFar();
 			OpArg dest;
 			if (safe.PrepareWrite(dest))
 			{
