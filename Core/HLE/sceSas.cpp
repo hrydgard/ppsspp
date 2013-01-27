@@ -197,9 +197,9 @@ u32 sceSasSetPause(u32 core, int voicebit, int pause)
 	return 0;
 }
 
-u32 sceSasSetVolume(u32 core, int voiceNum, int l, int r, int el, int er)
+u32 sceSasSetVolume(u32 core, int voiceNum, int leftVol, int rightVol, int effectLeftVol, int effectRightVol)
 {
-	DEBUG_LOG(HLE,"sceSasSetVolume(%08x, %i, %i, %i, %i, %i)", core, voiceNum, l, r, el, er);
+	DEBUG_LOG(HLE,"sceSasSetVolume(%08x, %i, %i, %i, %i, %i)", core, voiceNum, leftVol, rightVol, effectLeftVol, effectRightVol);
 
 	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
 		WARN_LOG(HLE, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
@@ -207,8 +207,10 @@ u32 sceSasSetVolume(u32 core, int voiceNum, int l, int r, int el, int er)
 	}
 
 	SasVoice &v = sas->voices[voiceNum];
-	v.volumeLeft = l;
-	v.volumeRight = r;
+	v.volumeLeft = (leftVol << 3);
+	v.volumeRight = (rightVol << 3);
+	v.effectLeft = effectLeftVol;
+	v.effectRight = effectRightVol;
 	return 0;
 }
 

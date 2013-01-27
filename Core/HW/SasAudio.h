@@ -199,6 +199,8 @@ struct SasVoice
 	int volumeRight;
 	int volumeLeftSend;	// volume to "Send" (audio-lingo) to the effects processing engine, like reverb
 	int volumeRightSend;
+	int effectLeft;
+	int effectRight;
 	s16 resampleHist[2];
 
 	ADSREnvelope envelope;
