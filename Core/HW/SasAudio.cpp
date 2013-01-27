@@ -284,10 +284,10 @@ void SasInstance::Mix(u32 outAddr) {
 				// We mix into this 32-bit temp buffer and clip in a second loop
 				// Ideally, the shift right should be there too but for now I'm concerned about
 				// not overflowing.
-				mixBuffer[i * 2] += sample * voice.volumeLeft >> 12;
-				mixBuffer[i * 2 + 1] += sample * voice.volumeRight >> 12;
-				sendBuffer[i * 2] += sample * voice.volumeLeftSend >> 12;
-				sendBuffer[i * 2 + 1] += sample * voice.volumeRightSend >> 12;
+				mixBuffer[i * 2] += sample * voice.volumeLeft >> 15;
+				mixBuffer[i * 2 + 1] += sample * voice.volumeRight >> 15;
+				sendBuffer[i * 2] += sample * voice.volumeLeftSend >> 15;
+				sendBuffer[i * 2 + 1] += sample * voice.volumeRightSend >> 15;
 				voice.envelope.Step();
 			}
 			voice.sampleFrac = sampleFrac;
