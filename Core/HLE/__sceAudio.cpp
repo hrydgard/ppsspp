@@ -128,9 +128,23 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking)
 	}
 	if (chan.format == PSP_AUDIO_FORMAT_STEREO)
 	{
-		for (u32 i = 0; i < chan.sampleCount * 2; i++)
+		const u32 totalSamples = chan.sampleCount * 2;
+
+		if (IS_LITTLE_ENDIAN)
 		{
-			chan.sampleQueue.push((s16)Memory::Read_U16(chan.sampleAddress + 2 * i));
+			s16 *sampleData = (s16 *) Memory::GetPointer(chan.sampleAddress);
+
+			// Walking a pointer for speed.  But let's make sure we wouldn't trip on an invalid ptr.
+			if (Memory::IsValidAddress(chan.sampleAddress + (totalSamples - 1) * sizeof(s16)))
+			{
+				for (u32 i = 0; i < totalSamples; i++)
+					chan.sampleQueue.push(*sampleData++);
+			}
+		}
+		else
+		{
+			for (u32 i = 0; i < totalSamples; i++)
+				chan.sampleQueue.push((s16)Memory::Read_U16(chan.sampleAddress + sizeof(s16) * i));
 		}
 	}
 	else if (chan.format == PSP_AUDIO_FORMAT_MONO)
