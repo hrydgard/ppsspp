@@ -327,7 +327,7 @@ bool Jit::JitSafeMem::PrepareWrite(OpArg &dest)
 		if (Memory::IsValidAddress(iaddr_))
 		{
 #ifdef _M_IX86
-			dest = M(Memory::base + iaddr_);
+			dest = M(Memory::base + (iaddr_ & Memory::MEMVIEW32_MASK));
 #else
 			dest = MDisp(RBX, iaddr_);
 #endif
@@ -349,7 +349,7 @@ bool Jit::JitSafeMem::PrepareRead(OpArg &src)
 		if (Memory::IsValidAddress(iaddr_))
 		{
 #ifdef _M_IX86
-			src = M(Memory::base + iaddr_);
+			src = M(Memory::base + (iaddr_ & Memory::MEMVIEW32_MASK));
 #else
 			src = MDisp(RBX, iaddr_);
 #endif
@@ -370,7 +370,7 @@ OpArg Jit::JitSafeMem::NextFastAddress(int suboffset)
 		u32 addr = jit_->gpr.GetImmediate32(raddr_) + offset_ + suboffset;
 
 #ifdef _M_IX86
-		return M(Memory::base + addr);
+		return M(Memory::base + (addr & Memory::MEMVIEW32_MASK));
 #else
 		return MDisp(RBX, addr);
 #endif
