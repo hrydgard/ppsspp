@@ -121,9 +121,13 @@ namespace MainWindow
 	void ResizeDisplay() {
 		RECT rc;
 		GetClientRect(hwndMain, &rc);
-		MoveWindow(hwndDisplay, 0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, TRUE);
+
+		if ((rc.right - rc.left) == PSP_CoreParameter().pixelWidth &&
+			(rc.bottom - rc.top) == PSP_CoreParameter().pixelHeight)
+			return;
 		PSP_CoreParameter().pixelWidth = rc.right - rc.left;
 		PSP_CoreParameter().pixelHeight = rc.bottom - rc.top;
+		MoveWindow(hwndDisplay, 0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, TRUE);
 
 		// round up to a zoom factor for the render size.
 		int zoom = (rc.right - rc.left + 479) / 480;
