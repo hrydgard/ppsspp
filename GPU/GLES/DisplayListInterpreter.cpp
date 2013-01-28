@@ -163,13 +163,11 @@ const int flushBeforeCommandList[] = {
 	*/
 };
 
-GLES_GPU::GLES_GPU(int renderWidth, int renderHeight)
+GLES_GPU::GLES_GPU()
 :		interruptsEnabled_(true),
 		displayFramebufPtr_(0),
 		prevDisplayFramebuf_(0),
 		prevPrevDisplayFramebuf_(0),
-		renderWidth_(renderWidth),
-		renderHeight_(renderHeight),
 		resized_(false)
 {
 	shaderManager_ = new ShaderManager();

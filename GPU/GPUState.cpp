@@ -61,7 +61,7 @@ void InitGfxState()
 		gpu = new NullGPU();
 		break;
 	case GPU_GLES:
-		gpu = new GLES_GPU(PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
+		gpu = new GLES_GPU();
 		break;
 	}
 }

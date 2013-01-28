@@ -32,7 +32,7 @@ class LinkedShader;
 class GLES_GPU : public GPUCommon
 {
 public:
-	GLES_GPU(int renderWidth, int renderHeight);
+	GLES_GPU();
 	~GLES_GPU();
 	virtual void InitClear();
 	virtual void PreExecuteOp(u32 op, u32 diff);
@@ -80,9 +80,6 @@ private:
 	u32 displayFramebufPtr_;
 	u32 displayStride_;
 	int displayFormat_;
-
-	int renderWidth_;
-	int renderHeight_;
 
 	struct CmdProcessorState {
 		u32 pc;

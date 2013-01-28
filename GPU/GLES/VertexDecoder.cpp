@@ -125,8 +125,7 @@ void VertexDecoder::Step_WeightsFloat() const
 {
 	float *wt = (float *)(decoded_ + decFmt.w0off);
 	const float *wdata = (const float*)(ptr_);
-	for (int j = 0; j < nweights; j++)
-		wt[j] = wdata[j];
+	memcpy(wt, wdata, nweights * sizeof(float));
 }
 
 void VertexDecoder::Step_TcU8() const
@@ -157,8 +156,7 @@ void VertexDecoder::Step_TcFloat() const
 {
 	float *uv = (float *)(decoded_ + decFmt.uvoff);
 	const float *uvdata = (const float*)(ptr_ + tcoff);
-	uv[0] = uvdata[0];
-	uv[1] = uvdata[1];
+	memcpy(uv, uvdata, sizeof(float) * 2);
 }
 
 void VertexDecoder::Step_TcFloatThrough() const
@@ -377,10 +375,9 @@ void VertexDecoder::Step_PosS16() const
 
 void VertexDecoder::Step_PosFloat() const
 {
-	float *v = (float *)(decoded_ + decFmt.posoff);
-	const float *fv = (const float*)(ptr_ + posoff);
-	for (int j = 0; j < 3; j++)
-		v[j] = fv[j];
+	u8 *v = (u8 *)(decoded_ + decFmt.posoff);
+	const u8 *fv = (const u8*)(ptr_ + posoff);
+	memcpy(v, fv, 12);
 }
 
 void VertexDecoder::Step_PosS8Through() const
@@ -405,10 +402,9 @@ void VertexDecoder::Step_PosS16Through() const
 
 void VertexDecoder::Step_PosFloatThrough() const
 {
-	float *v = (float *)(decoded_ + decFmt.posoff);
-	const float *fv = (const float*)(ptr_ + posoff);
-	for (int j = 0; j < 3; j++)
-		v[j] = fv[j];
+	u8 *v = (u8 *)(decoded_ + decFmt.posoff);
+	const u8 *fv = (const u8*)(ptr_ + posoff);
+	memcpy(v, fv, 12);
 }
 
 void VertexDecoder::Step_PosS8Morph() const
@@ -445,21 +441,21 @@ void VertexDecoder::Step_PosFloatMorph() const
 	}
 }
 
-const StepFunction wtstep[4] = {
+static const StepFunction wtstep[4] = {
 	0,
 	&VertexDecoder::Step_WeightsU8,
 	&VertexDecoder::Step_WeightsU16,
 	&VertexDecoder::Step_WeightsFloat,
 };
 
-const StepFunction tcstep[4] = {
+static const StepFunction tcstep[4] = {
 	0,
 	&VertexDecoder::Step_TcU8,
 	&VertexDecoder::Step_TcU16,
 	&VertexDecoder::Step_TcFloat,
 };
 
-const StepFunction tcstep_through[4] = {
+static const StepFunction tcstep_through[4] = {
 	0,
 	&VertexDecoder::Step_TcU8,
 	&VertexDecoder::Step_TcU16Through,
@@ -468,7 +464,7 @@ const StepFunction tcstep_through[4] = {
 
 // TODO: Tc Morph
 
-const StepFunction colstep[8] = {
+static const StepFunction colstep[8] = {
 	0, 0, 0, 0,
 	&VertexDecoder::Step_Color565,
 	&VertexDecoder::Step_Color5551,
@@ -476,7 +472,7 @@ const StepFunction colstep[8] = {
 	&VertexDecoder::Step_Color8888,
 };
 
-const StepFunction colstep_morph[8] = {
+static const StepFunction colstep_morph[8] = {
 	0, 0, 0, 0,
 	&VertexDecoder::Step_Color565Morph,
 	&VertexDecoder::Step_Color5551Morph,
@@ -484,35 +480,35 @@ const StepFunction colstep_morph[8] = {
 	&VertexDecoder::Step_Color8888Morph,
 };
 
-const StepFunction nrmstep[4] = {
+static const StepFunction nrmstep[4] = {
 	0,
 	&VertexDecoder::Step_NormalS8,
 	&VertexDecoder::Step_NormalS16,
 	&VertexDecoder::Step_NormalFloat,
 };
 
-const StepFunction nrmstep_morph[4] = {
+static const StepFunction nrmstep_morph[4] = {
 	0,
 	&VertexDecoder::Step_NormalS8Morph,
 	&VertexDecoder::Step_NormalS16Morph,
 	&VertexDecoder::Step_NormalFloatMorph,
 };
 
-const StepFunction posstep[4] = {
+static const StepFunction posstep[4] = {
 	0,
 	&VertexDecoder::Step_PosS8,
 	&VertexDecoder::Step_PosS16,
 	&VertexDecoder::Step_PosFloat,
 };
 
-const StepFunction posstep_morph[4] = {
+static const StepFunction posstep_morph[4] = {
 	0,
 	&VertexDecoder::Step_PosS8Morph,
 	&VertexDecoder::Step_PosS16Morph,
 	&VertexDecoder::Step_PosFloatMorph,
 };
 
-const StepFunction posstep_through[4] = {
+static const StepFunction posstep_through[4] = {
 	0,
 	&VertexDecoder::Step_PosS8Through,
 	&VertexDecoder::Step_PosS16Through,
