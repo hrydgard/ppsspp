@@ -908,12 +908,6 @@ void TransformDrawEngine::Flush() {
 						// there is no need for the index buffer we built. We can then use glDrawArrays instead
 						// for a very minor speed boost.
 						if (useElements) {
-							// Sanity Check
-							for (int i = 0; i < indexGen.VertexCount(); i++) {
-								if (decIndex[i] >= indexGen.MaxIndex()) {
- 									ERROR_LOG(G3D, "WTF? %i %i", indexGen.VertexCount(), indexGen.MaxIndex());
-								}
-							}
 							glGenBuffers(1, &vai->ebo);
 							glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vai->ebo);
 							glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(short) * indexGen.VertexCount(), (GLvoid *)decIndex, GL_STATIC_DRAW);
