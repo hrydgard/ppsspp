@@ -456,6 +456,9 @@ bool __KernelCheckThreadCallbacks(Thread *thread, bool force);
 //STATE BEGIN
 //////////////////////////////////////////////////////////////////////////
 int g_inCbCount = 0;
+// Normally, the same as currentThread.  In an interrupt, remembers the callback's thread id.
+SceUID currentCallbackThreadID = 0;
+int readyCallbacksCount = 0;
 SceUID currentThread;
 u32 idleThreadHackAddr;
 u32 threadReturnHackAddr;
@@ -562,6 +565,8 @@ void __KernelThreadingInit()
 	dispatchEnabled = true;
 
 	g_inCbCount = 0;
+	currentCallbackThreadID = 0;
+	readyCallbacksCount = 0;
 	idleThreadHackAddr = kernelMemory.Alloc(blockSize, false, "threadrethack");
 	// Make sure it got allocated where we expect it... at the very start of kernel RAM
 	//CHECK_EQ(idleThreadHackAddr & 0x3FFFFFFF, 0x08000000);
@@ -601,6 +606,8 @@ void __KernelThreadingInit()
 void __KernelThreadingDoState(PointerWrap &p)
 {
 	p.Do(g_inCbCount);
+	p.Do(currentCallbackThreadID);
+	p.Do(readyCallbacksCount);
 	p.Do(idleThreadHackAddr);
 	p.Do(threadReturnHackAddr);
 	p.Do(cbReturnHackAddr);
@@ -647,10 +654,9 @@ void __KernelListenThreadEnd(ThreadCallback callback)
 	threadEndListeners.push_back(callback);
 }
 
-void __KernelFireThreadEnd(Thread *thread)
+void __KernelFireThreadEnd(SceUID threadID)
 {
-	SceUID threadID = thread->GetUID();
-	for (std::vector<ThreadCallback>::iterator iter = threadEndListeners.begin(), end = threadEndListeners.end(); iter != end; ++iter)
+	for (auto iter = threadEndListeners.begin(), end = threadEndListeners.end(); iter != end; ++iter)
 	{
 		ThreadCallback cb = *iter;
 		cb(threadID);
@@ -700,6 +706,21 @@ void __KernelIdle()
 	// Advance must happen between Idle and Reschedule, so that threads that were waiting for something
 	// that was triggered at the end of the Idle period must get a chance to be scheduled.
 	CoreTiming::Advance();
+
+	// We must've exited a callback?
+	if (__KernelInCallback())
+	{
+		u32 error;
+		Thread *t = kernelObjects.Get<Thread>(currentCallbackThreadID, error);
+		if (t)
+			__KernelSwitchContext(t, "idle");
+		else
+		{
+			WARN_LOG(HLE, "UNTESTED - Callback thread deleted during interrupt?");
+			g_inCbCount = 0;
+			currentCallbackThreadID = 0;
+		}
+	}
 
 	// In Advance, we might trigger an interrupt such as vblank.
 	// If we end up in an interrupt, we don't want to reschedule.
@@ -1066,17 +1087,43 @@ void __KernelCancelThreadEndTimeout(SceUID threadID)
 	CoreTiming::UnscheduleEvent(eventThreadEndTimeout, threadID);
 }
 
-void __KernelRemoveFromThreadQueue(Thread *t)
+void __KernelRemoveFromThreadQueue(SceUID threadID)
 {
 	for (size_t i = 0; i < threadqueue.size(); i++)
 	{
-		if (threadqueue[i] == t->GetUID())
+		if (threadqueue[i] == threadID)
 		{
-			DEBUG_LOG(HLE, "Deleted thread %p (%i) from thread queue", t, t->GetUID());
+			DEBUG_LOG(HLE, "Deleted thread %08x (%i) from thread queue", threadID, threadID);
 			threadqueue.erase(threadqueue.begin() + i);
 			return;
 		}
 	}
+}
+
+u32 __KernelDeleteThread(SceUID threadID, int exitStatus, const char *reason, bool dontSwitch)
+{
+	__KernelFireThreadEnd(threadID);
+	__KernelRemoveFromThreadQueue(threadID);
+	__KernelTriggerWait(WAITTYPE_THREADEND, threadID, exitStatus, reason, dontSwitch);
+
+	if (currentThread == threadID)
+		currentThread = 0;
+	if (currentCallbackThreadID == threadID)
+	{
+		currentCallbackThreadID = 0;
+		g_inCbCount = 0;
+	}
+
+	u32 error;
+	Thread *t = kernelObjects.Get<Thread>(threadID, error);
+	if (t)
+	{
+		// TODO: Unless they should be run before deletion?
+		for (int i = 0; i < THREAD_CALLBACK_NUM_TYPES; i++)
+			readyCallbacksCount -= t->readyCallbacks[i].size();
+	}
+
+	return kernelObjects.Destroy<Thread>(threadID);
 }
 
 Thread *__KernelNextThread() {
@@ -1446,7 +1493,7 @@ void __KernelReturnFromThread()
 
 	thread->nt.exitStatus = currentMIPS->r[2];
 	thread->nt.status = THREADSTATUS_DORMANT;
-	__KernelFireThreadEnd(thread);
+	__KernelFireThreadEnd(thread->GetUID());
 
 	// TODO: Need to remove the thread from any ready queues.
 
@@ -1464,7 +1511,7 @@ void sceKernelExitThread()
 	ERROR_LOG(HLE,"sceKernelExitThread FAKED");
 	thread->nt.status = THREADSTATUS_DORMANT;
 	thread->nt.exitStatus = PARAM(0);
-	__KernelFireThreadEnd(thread);
+	__KernelFireThreadEnd(thread->GetUID());
 
 	__KernelTriggerWait(WAITTYPE_THREADEND, __KernelGetCurThread(), thread->nt.exitStatus, "thread exited", true);
 	hleReSchedule("thread exited");
@@ -1480,7 +1527,7 @@ void _sceKernelExitThread()
 	ERROR_LOG(HLE,"_sceKernelExitThread FAKED");
 	thread->nt.status = THREADSTATUS_DORMANT;
 	thread->nt.exitStatus = PARAM(0);
-	__KernelFireThreadEnd(thread);
+	__KernelFireThreadEnd(thread->GetUID());
 
 	__KernelTriggerWait(WAITTYPE_THREADEND, __KernelGetCurThread(), thread->nt.exitStatus, "thread _exited", true);
 	hleReSchedule("thread _exited");
@@ -1498,15 +1545,10 @@ void sceKernelExitDeleteThread()
 		INFO_LOG(HLE,"sceKernelExitDeleteThread()");
 		t->nt.status = THREADSTATUS_DORMANT;
 		t->nt.exitStatus = PARAM(0);
-		__KernelFireThreadEnd(t);
+		error = __KernelDeleteThread(threadHandle, PARAM(0), "thread exited with delete", true);
 
-		__KernelRemoveFromThreadQueue(t);
-		currentThread = 0;
-
-		__KernelTriggerWait(WAITTYPE_THREADEND, threadHandle, t->nt.exitStatus, "thead exited with delete", true);
-		hleReSchedule("thead exited with delete");
-
-		RETURN(kernelObjects.Destroy<Thread>(threadHandle));
+		hleReSchedule("thread exited with delete");
+		RETURN(error);
 	}
 	else
 	{
@@ -1548,13 +1590,8 @@ int sceKernelDeleteThread(int threadHandle)
 		Thread *t = kernelObjects.Get<Thread>(threadHandle, error);
 		if (t)
 		{
-			__KernelRemoveFromThreadQueue(t);
-			__KernelFireThreadEnd(t);
-
 			// TODO: Should this reschedule ever?  Probably no?
-			__KernelTriggerWait(WAITTYPE_THREADEND, threadHandle, SCE_KERNEL_ERROR_THREAD_TERMINATED, "thread deleted", true);
-
-			return kernelObjects.Destroy<Thread>(threadHandle);
+			return __KernelDeleteThread(threadHandle, SCE_KERNEL_ERROR_THREAD_TERMINATED, "thread deleted", true);
 		}
 
 		// TODO: Error when doesn't exist?
@@ -1578,14 +1615,11 @@ int sceKernelTerminateDeleteThread(int threadno)
 		Thread *t = kernelObjects.Get<Thread>(threadno, error);
 		if (t)
 		{
-			__KernelRemoveFromThreadQueue(t);
-			__KernelFireThreadEnd(t);
-
 			//TODO: should we really reschedule here?
-			__KernelTriggerWait(WAITTYPE_THREADEND, threadno, SCE_KERNEL_ERROR_THREAD_TERMINATED, "thread terminated with delete", false);
+			error = __KernelDeleteThread(threadno, SCE_KERNEL_ERROR_THREAD_TERMINATED, "thread terminated with delete", false);
 			hleReSchedule("thread terminated with delete");
 
-			return kernelObjects.Destroy<Thread>(threadno);
+			return error;
 		}
 
 		// TODO: Error when doesn't exist?
@@ -1610,7 +1644,7 @@ int sceKernelTerminateThread(u32 threadID)
 		{
 			t->nt.exitStatus = SCE_KERNEL_ERROR_THREAD_TERMINATED;
 			t->nt.status = THREADSTATUS_DORMANT;
-			__KernelFireThreadEnd(t);
+			__KernelFireThreadEnd(threadID);
 			// TODO: Should this really reschedule?
 			__KernelTriggerWait(WAITTYPE_THREADEND, threadID, t->nt.exitStatus, "thread terminated", true);
 		}
@@ -2321,6 +2355,7 @@ void __KernelExecuteMipsCallOnCurrentThread(int callId, bool reschedAfter)
 	}
 
 	g_inCbCount++;
+	currentCallbackThreadID = currentThread;
 }
 
 void __KernelReturnFromMipsCall()
@@ -2357,9 +2392,9 @@ void __KernelReturnFromMipsCall()
 	cur->currentCallbackId = call->savedId;
 
 	g_inCbCount--;
+	currentCallbackThreadID = 0;
 
 	// yeah! back in the real world, let's keep going. Should we process more callbacks?
-	__KernelCheckThreadCallbacks(cur, !call->reschedAfter);
 	if (!__KernelExecutePendingMipsCalls(call->reschedAfter))
 	{
 		// Sometimes, we want to stay on the thread.
@@ -2430,6 +2465,13 @@ void ActionAfterCallback::run(MipsCall &call) {
 		Callback *cb = kernelObjects.Get<Callback>(cbId, error);
 		if (cb)
 		{
+			Thread *t = kernelObjects.Get<Thread>(cb->nc.threadId, error);
+			if (t)
+			{
+				// Check for other callbacks to run (including ones this callback scheduled.)
+				__KernelCheckThreadCallbacks(t, true);
+			}
+
 			DEBUG_LOG(HLE, "Left callback %i - %s", cbId, cb->nc.name);
 			// Callbacks that don't return 0 are deleted. But should this be done here?
 			if (currentMIPS->r[MIPS_REG_V0] != 0 || cb->forceDelete)
@@ -2452,6 +2494,7 @@ bool __KernelCheckThreadCallbacks(Thread *thread, bool force)
 		if (thread->readyCallbacks[i].size()) {
 			SceUID readyCallback = thread->readyCallbacks[i].front();
 			thread->readyCallbacks[i].pop_front();
+			readyCallbacksCount--;
 
 			// If the callback was deleted, we're good.  Just skip it.
 			if (kernelObjects.IsValid(readyCallback))
@@ -2470,6 +2513,14 @@ bool __KernelCheckThreadCallbacks(Thread *thread, bool force)
 
 // Checks for callbacks on all threads
 bool __KernelCheckCallbacks() {
+	// Let's not check every thread all the time, callbacks are fairly uncommon.
+	if (readyCallbacksCount == 0) {
+		return false;
+	}
+	if (readyCallbacksCount < 0) {
+		ERROR_LOG(HLE, "readyCallbacksCount became negative: %i", readyCallbacksCount);
+	}
+
 	// SceUID currentThread = __KernelGetCurThread();
 	// __GetCurrentThread()->isProcessingCallbacks = true;
 	// do {
@@ -2556,8 +2607,13 @@ void __KernelNotifyCallback(RegisteredCallbackType type, SceUID cbId, int notify
 	cb->nc.notifyArg = notifyArg;
 
 	Thread *t = kernelObjects.Get<Thread>(cb->nc.threadId, error);
-	t->readyCallbacks[type].remove(cbId);
-	t->readyCallbacks[type].push_back(cbId);
+	std::list<SceUID> &readyCallbacks = t->readyCallbacks[type];
+	auto iter = std::find(readyCallbacks.begin(), readyCallbacks.end(), cbId);
+	if (iter == readyCallbacks.end())
+	{
+		t->readyCallbacks[type].push_back(cbId);
+		readyCallbacksCount++;
+	}
 }
 
 // TODO: If cbId == -1, notify the callback ID on all threads that have it.
