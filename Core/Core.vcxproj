@@ -142,6 +142,7 @@
     <ClCompile Include="HLE\HLETables.cpp" />
     <ClCompile Include="HLE\sceAtrac.cpp" />
     <ClCompile Include="HLE\sceAudio.cpp" />
+    <ClCompile Include="HLE\sceChnnlsv.cpp" />
     <ClCompile Include="HLE\sceCtrl.cpp" />
     <ClCompile Include="HLE\sceDisplay.cpp" />
     <ClCompile Include="HLE\sceDmac.cpp" />
@@ -311,6 +312,7 @@
     <ClInclude Include="HLE\sceAtrac.h" />
     <ClInclude Include="HLE\sceAudio.h" />
     <ClInclude Include="HLE\sceCtrl.h" />
+    <ClInclude Include="HLE\sceChnnlsv.h" />
     <ClInclude Include="HLE\sceDisplay.h" />
     <ClInclude Include="HLE\sceDmac.h" />
     <ClInclude Include="HLE\sceFont.h" />

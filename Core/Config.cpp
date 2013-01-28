@@ -87,6 +87,7 @@ void CConfig::Load(const char *iniFileName)
 	IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
 	pspConfig->Get("Language", &ilanguage, PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 	pspConfig->Get("TimeFormat", &itimeformat, PSP_SYSTEMPARAM_TIME_FORMAT_24HR);
+	pspConfig->Get("EncryptSave", &bEncryptSave, true);
 
 	// Ephemeral settings
 	bDrawWireframe = false;
@@ -136,6 +137,7 @@ void CConfig::Save()
 		IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
 		pspConfig->Set("Language", ilanguage);
 		pspConfig->Set("TimeFormat", itimeformat);
+		pspConfig->Set("EncryptSave", bEncryptSave);
 
 		if (!iniFile.Save(iniFilename_.c_str())) {
 			ERROR_LOG(LOADER, "Error saving config - can't write ini %s", iniFilename_.c_str());
