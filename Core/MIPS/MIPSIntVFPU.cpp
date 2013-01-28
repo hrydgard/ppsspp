@@ -87,8 +87,8 @@
 using std::isnan;
 #endif
 
-#ifndef isnan 
-#define isnan(x) ((x)!=(x)) 
+#ifdef _MSC_VER
+#define isnan _isnan
 #endif
 
 float rint(float x){
@@ -1452,10 +1452,6 @@ namespace MIPSInt
 		VC_NI,
 		VC_NS
 	};
-
-#ifdef _MSC_VER
-#define isnan _isnan
-#endif
 
 	void Int_Vcmp(u32 op)
 	{
