@@ -2369,7 +2369,6 @@ void __KernelReturnFromMipsCall()
 	g_inCbCount--;
 
 	// yeah! back in the real world, let's keep going. Should we process more callbacks?
-	__KernelCheckThreadCallbacks(cur, !call->reschedAfter);
 	if (!__KernelExecutePendingMipsCalls(call->reschedAfter))
 	{
 		// Sometimes, we want to stay on the thread.
@@ -2440,6 +2439,13 @@ void ActionAfterCallback::run(MipsCall &call) {
 		Callback *cb = kernelObjects.Get<Callback>(cbId, error);
 		if (cb)
 		{
+			Thread *t = kernelObjects.Get<Thread>(cb->nc.threadId, error);
+			if (t)
+			{
+				// Check for other callbacks to run (including ones this callback scheduled.)
+				__KernelCheckThreadCallbacks(t, true);
+			}
+
 			DEBUG_LOG(HLE, "Left callback %i - %s", cbId, cb->nc.name);
 			// Callbacks that don't return 0 are deleted. But should this be done here?
 			if (currentMIPS->r[MIPS_REG_V0] != 0 || cb->forceDelete)
