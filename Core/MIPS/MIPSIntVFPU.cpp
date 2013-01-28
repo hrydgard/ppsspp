@@ -1591,9 +1591,12 @@ namespace MIPSInt
 		ApplySwizzleT(t, sz);
 		// positive NAN always loses, unlike SSE
 		// negative NAN seems different? TODO
-		for (int i = 0; i < GetNumVectorElements(sz); i++)
-			d[i] = s[i] >= t[i] ? 1.0f : 0.0f;
-
+		for (int i = 0; i < GetNumVectorElements(sz); i++) {
+			if ( isnan(s[i]) || isnan(t[i]) )
+				d[i] = 0.0f;
+			else
+				d[i] = s[i] >= t[i] ? 1.0f : 0.0f;
+		}
 		ApplyPrefixD(d, sz);
 		WriteVector(d, sz, vd);
 		PC += 4;
@@ -1616,9 +1619,12 @@ namespace MIPSInt
 		ApplySwizzleT(t, sz);
 		// positive NAN always loses, unlike SSE
 		// negative NAN seems different? TODO
-		for (int i = 0; i < GetNumVectorElements(sz); i++)
-			d[i] = s[i] < t[i] ? 1.0f : 0.0f;
-
+		for (int i = 0; i < GetNumVectorElements(sz); i++) {
+			if ( isnan(s[i]) || isnan(t[i]) )
+				d[i] = 0.0f;
+			else
+				d[i] = s[i] < t[i] ? 1.0f : 0.0f;
+		}
 		ApplyPrefixD(d, sz);
 		WriteVector(d, sz, vd);
 		PC += 4;
