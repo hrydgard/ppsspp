@@ -18,8 +18,10 @@
 
 #pragma once
 
+#include <algorithm>
 #include "CommonTypes.h"
 #include "../ge_constants.h"
+#undef max
 
 class IndexGenerator
 {
@@ -42,28 +44,28 @@ public:
 	// Rectangles
 	void AddRectangles(int numVerts);
 
-	void TranslatePoints(int numVerts, const u8 *inds, int offset);	
-	void TranslatePoints(int numVerts, const u16 *inds, int offset);
+	void TranslatePoints(int numVerts, const u8 *inds, int indexLowerBound, int indexUpperBound);	
+	void TranslatePoints(int numVerts, const u16 *inds, int indexLowerBound, int indexUpperBound);
 	// Translates already indexed lists
-	void TranslateLineList(int numVerts, const u8 *inds, int offset);
-	void TranslateLineList(int numVerts, const u16 *inds, int offset);
-	void TranslateLineStrip(int numVerts, const u8 *inds, int offset);
-	void TranslateLineStrip(int numVerts, const u16 *inds, int offset);
+	void TranslateLineList(int numVerts, const u8 *inds, int indexLowerBound, int indexUpperBound);
+	void TranslateLineList(int numVerts, const u16 *inds, int indexLowerBound, int indexUpperBound);
+	void TranslateLineStrip(int numVerts, const u8 *inds, int indexLowerBound, int indexUpperBound);
+	void TranslateLineStrip(int numVerts, const u16 *inds, int indexLowerBound, int indexUpperBound);
 
-	void TranslateRectangles(int numVerts, const u8 *inds, int offset);
-	void TranslateRectangles(int numVerts, const u16 *inds, int offset);
+	void TranslateRectangles(int numVerts, const u8 *inds, int indexLowerBound, int indexUpperBound);
+	void TranslateRectangles(int numVerts, const u16 *inds, int indexLowerBound, int indexUpperBound);
 
-	void TranslateList(int numVerts, const u8 *inds, int offset);
-	void TranslateStrip(int numVerts, const u8 *inds, int offset);
-	void TranslateFan(int numVerts, const u8 *inds, int offset);
-	void TranslateList(int numVerts, const u16 *inds, int offset);
-	void TranslateStrip(int numVerts, const u16 *inds, int offset);
-	void TranslateFan(int numVerts, const u16 *inds, int offset);
+	void TranslateList(int numVerts, const u8 *inds, int indexLowerBound, int indexUpperBound);
+	void TranslateList(int numVerts, const u16 *inds, int indexLowerBound, int indexUpperBound);
+	void TranslateStrip(int numVerts, const u8 *inds, int indexLowerBound, int indexUpperBound);
+	void TranslateStrip(int numVerts, const u16 *inds, int indexLowerBound, int indexUpperBound);
+	void TranslateFan(int numVerts, const u8 *inds, int indexLowerBound, int indexUpperBound);
+	void TranslateFan(int numVerts, const u16 *inds, int indexLowerBound, int indexUpperBound);
 
-	int MaxIndex() { return index_; }
-	int VertexCount() { return count_; }
+	int MaxIndex() const { return index_; }
+	int VertexCount() const { return count_; }
 
-	bool Empty() { return index_ == 0; }
+	bool Empty() const { return index_ == 0; }
 
 	void SetIndex(int ind) { index_ = ind; }
 	int SeenPrims() const { return seenPrims_; }

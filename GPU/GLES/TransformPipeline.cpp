@@ -675,7 +675,6 @@ void TransformDrawEngine::SubmitPrim(void *verts, void *inds, int prim, int vert
 
 	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS)
 		Flush();
-
 	prevPrim_ = prim;
 	// If vtype has changed, setup the vertex decoder.
 	// TODO: Simply cache the setup decoders instead.
@@ -738,25 +737,25 @@ void TransformDrawEngine::DecodeVerts() {
 
 		case GE_VTYPE_IDX_8BIT >> GE_VTYPE_IDX_SHIFT:
 			switch (dc.prim) {
-			case GE_PRIM_POINTS: indexGen.TranslatePoints(vertexCount, (const u8 *)inds, -indexLowerBound); break;
-			case GE_PRIM_LINES: indexGen.TranslateLineList(vertexCount, (const u8 *)inds, -indexLowerBound); break;
-			case GE_PRIM_LINE_STRIP: indexGen.TranslateLineStrip(vertexCount, (const u8 *)inds, -indexLowerBound); break;
-			case GE_PRIM_TRIANGLES: indexGen.TranslateList(vertexCount, (const u8 *)inds, -indexLowerBound); break;
-			case GE_PRIM_TRIANGLE_STRIP: indexGen.TranslateStrip(vertexCount, (const u8 *)inds, -indexLowerBound); break;
-			case GE_PRIM_TRIANGLE_FAN: indexGen.TranslateFan(vertexCount, (const u8 *)inds, -indexLowerBound); break;
-			case GE_PRIM_RECTANGLES: indexGen.TranslateRectangles(vertexCount, (const u8 *)inds, -indexLowerBound); break;  // Same
+			case GE_PRIM_POINTS: indexGen.TranslatePoints(vertexCount, (const u8 *)inds, indexLowerBound, indexUpperBound); break;
+			case GE_PRIM_LINES: indexGen.TranslateLineList(vertexCount, (const u8 *)inds, indexLowerBound, indexUpperBound); break;
+			case GE_PRIM_LINE_STRIP: indexGen.TranslateLineStrip(vertexCount, (const u8 *)inds, indexLowerBound, indexUpperBound); break;
+			case GE_PRIM_TRIANGLES: indexGen.TranslateList(vertexCount, (const u8 *)inds, indexLowerBound, indexUpperBound); break;
+			case GE_PRIM_TRIANGLE_STRIP: indexGen.TranslateStrip(vertexCount, (const u8 *)inds, indexLowerBound, indexUpperBound); break;
+			case GE_PRIM_TRIANGLE_FAN: indexGen.TranslateFan(vertexCount, (const u8 *)inds, indexLowerBound, indexUpperBound); break;
+			case GE_PRIM_RECTANGLES: indexGen.TranslateRectangles(vertexCount, (const u8 *)inds, indexLowerBound, indexUpperBound); break;  // Same
 			}
 			break;
 
 		case GE_VTYPE_IDX_16BIT >> GE_VTYPE_IDX_SHIFT:
 			switch (dc.prim) {
-			case GE_PRIM_POINTS: indexGen.TranslatePoints(vertexCount, (const u16 *)inds, -indexLowerBound); break;
-			case GE_PRIM_LINES: indexGen.TranslateLineList(vertexCount, (const u16 *)inds, -indexLowerBound); break;
-			case GE_PRIM_LINE_STRIP: indexGen.TranslateLineStrip(vertexCount, (const u16 *)inds, -indexLowerBound); break;
-			case GE_PRIM_TRIANGLES: indexGen.TranslateList(vertexCount, (const u16 *)inds, -indexLowerBound); break;
-			case GE_PRIM_TRIANGLE_STRIP: indexGen.TranslateStrip(vertexCount, (const u16 *)inds, -indexLowerBound); break;
-			case GE_PRIM_TRIANGLE_FAN: indexGen.TranslateFan(vertexCount, (const u16 *)inds, -indexLowerBound); break;
-			case GE_PRIM_RECTANGLES: indexGen.TranslateRectangles(vertexCount, (const u16 *)inds, -indexLowerBound); break;  // Same
+			case GE_PRIM_POINTS: indexGen.TranslatePoints(vertexCount, (const u16 *)inds, indexLowerBound, indexUpperBound); break;
+			case GE_PRIM_LINES: indexGen.TranslateLineList(vertexCount, (const u16 *)inds, indexLowerBound, indexUpperBound); break;
+			case GE_PRIM_LINE_STRIP: indexGen.TranslateLineStrip(vertexCount, (const u16 *)inds, indexLowerBound, indexUpperBound); break;
+			case GE_PRIM_TRIANGLES: indexGen.TranslateList(vertexCount, (const u16 *)inds, indexLowerBound, indexUpperBound); break;
+			case GE_PRIM_TRIANGLE_STRIP: indexGen.TranslateStrip(vertexCount, (const u16 *)inds, indexLowerBound, indexUpperBound); break;
+			case GE_PRIM_TRIANGLE_FAN: indexGen.TranslateFan(vertexCount, (const u16 *)inds, indexLowerBound, indexUpperBound); break;
+			case GE_PRIM_RECTANGLES: indexGen.TranslateRectangles(vertexCount, (const u16 *)inds, indexLowerBound, indexUpperBound); break;  // Same
 			}
 			break;
 		}
@@ -909,6 +908,12 @@ void TransformDrawEngine::Flush() {
 						// there is no need for the index buffer we built. We can then use glDrawArrays instead
 						// for a very minor speed boost.
 						if (useElements) {
+							// Sanity Check
+							for (int i = 0; i < indexGen.VertexCount(); i++) {
+								if (decIndex[i] >= indexGen.MaxIndex()) {
+ 									ERROR_LOG(G3D, "WTF? %i %i", indexGen.VertexCount(), indexGen.MaxIndex());
+								}
+							}
 							glGenBuffers(1, &vai->ebo);
 							glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vai->ebo);
 							glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(short) * indexGen.VertexCount(), (GLvoid *)decIndex, GL_STATIC_DRAW);
@@ -958,6 +963,7 @@ void TransformDrawEngine::Flush() {
 rotateVBO:
 			gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
 			useElements = !indexGen.SeenOnlyPurePrims();
+			vertexCount = indexGen.VertexCount();
 			if (g_Config.bUseVBO) {
 				// Just rotate VBO.
 				vbo = vbo_[curVbo_];
@@ -969,13 +975,12 @@ rotateVBO:
 				glBufferData(GL_ARRAY_BUFFER, dec.GetDecVtxFmt().stride * indexGen.MaxIndex(), decoded, GL_STREAM_DRAW);
 				if (useElements) {
 					glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-					glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(short) * indexGen.VertexCount(), (GLvoid *)decIndex, GL_STREAM_DRAW);
+					glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(short) * vertexCount, (GLvoid *)decIndex, GL_STREAM_DRAW);
 				}
 			} else {
 				glBindBuffer(GL_ARRAY_BUFFER, 0);
 				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 			}
-			vertexCount = indexGen.VertexCount();
 			prim = indexGen.Prim();
 		}
 		
