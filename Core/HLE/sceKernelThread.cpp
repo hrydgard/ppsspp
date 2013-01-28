@@ -456,6 +456,8 @@ bool __KernelCheckThreadCallbacks(Thread *thread, bool force);
 //STATE BEGIN
 //////////////////////////////////////////////////////////////////////////
 int g_inCbCount = 0;
+// Normally, the same as currentThread.  In an interrupt, remembers the callback's thread id.
+SceUID currentCallbackThreadID = 0;
 int readyCallbacksCount = 0;
 SceUID currentThread;
 u32 idleThreadHackAddr;
@@ -563,6 +565,7 @@ void __KernelThreadingInit()
 	dispatchEnabled = true;
 
 	g_inCbCount = 0;
+	currentCallbackThreadID = 0;
 	readyCallbacksCount = 0;
 	idleThreadHackAddr = kernelMemory.Alloc(blockSize, false, "threadrethack");
 	// Make sure it got allocated where we expect it... at the very start of kernel RAM
@@ -603,6 +606,7 @@ void __KernelThreadingInit()
 void __KernelThreadingDoState(PointerWrap &p)
 {
 	p.Do(g_inCbCount);
+	p.Do(currentCallbackThreadID);
 	p.Do(readyCallbacksCount);
 	p.Do(idleThreadHackAddr);
 	p.Do(threadReturnHackAddr);
@@ -702,6 +706,21 @@ void __KernelIdle()
 	// Advance must happen between Idle and Reschedule, so that threads that were waiting for something
 	// that was triggered at the end of the Idle period must get a chance to be scheduled.
 	CoreTiming::Advance();
+
+	// We must've exited a callback?
+	if (__KernelInCallback())
+	{
+		u32 error;
+		Thread *t = kernelObjects.Get<Thread>(currentCallbackThreadID, error);
+		if (t)
+			__KernelSwitchContext(t, "idle");
+		else
+		{
+			WARN_LOG(HLE, "UNTESTED - Callback thread deleted during interrupt?");
+			g_inCbCount = 0;
+			currentCallbackThreadID = 0;
+		}
+	}
 
 	// In Advance, we might trigger an interrupt such as vblank.
 	// If we end up in an interrupt, we don't want to reschedule.
@@ -1089,6 +1108,11 @@ u32 __KernelDeleteThread(SceUID threadID, int exitStatus, const char *reason, bo
 
 	if (currentThread == threadID)
 		currentThread = 0;
+	if (currentCallbackThreadID == threadID)
+	{
+		currentCallbackThreadID = 0;
+		g_inCbCount = 0;
+	}
 
 	u32 error;
 	Thread *t = kernelObjects.Get<Thread>(threadID, error);
@@ -2331,6 +2355,7 @@ void __KernelExecuteMipsCallOnCurrentThread(int callId, bool reschedAfter)
 	}
 
 	g_inCbCount++;
+	currentCallbackThreadID = currentThread;
 }
 
 void __KernelReturnFromMipsCall()
@@ -2367,6 +2392,7 @@ void __KernelReturnFromMipsCall()
 	cur->currentCallbackId = call->savedId;
 
 	g_inCbCount--;
+	currentCallbackThreadID = 0;
 
 	// yeah! back in the real world, let's keep going. Should we process more callbacks?
 	if (!__KernelExecutePendingMipsCalls(call->reschedAfter))
