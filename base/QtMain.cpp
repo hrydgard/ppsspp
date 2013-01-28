@@ -46,7 +46,7 @@ float CalculateDPIScale()
 	TSize sTwips = CEikonEnv::Static()->ScreenDevice()->SizeInTwips();
 	float dpi = sqrt((float)(pixel_xres*pixel_xres + pixel_yres*pixel_yres))
 		/ (sqrt((float)(sTwips.iHeight*sTwips.iHeight + sTwips.iWidth*sTwips.iWidth)) / KTwipsPerInch);
-	return dpi / 170.0f;
+	return dpi / 160.0f;
 #else
 	// Sane default for Blackberry and Meego
 	return 1.2f;
