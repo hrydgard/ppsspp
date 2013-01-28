@@ -28,7 +28,7 @@ using namespace MIPSAnalyst;
 #define _POS	((op>>6 ) & 0x1F)
 #define _SIZE ((op>>11 ) & 0x1F)
 
-#define OLDD Comp_Generic(op); return;
+#define DISABLE Comp_Generic(op); return;
 
 namespace MIPSComp
 {
@@ -270,7 +270,7 @@ namespace MIPSComp
 
 	void Jit::Comp_Allegrex(u32 op)
 	{
-		OLDD
+		DISABLE
 		int rt = _RT;
 		int rd = _RD;
 		switch ((op >> 6) & 31)
@@ -297,6 +297,11 @@ namespace MIPSComp
 			Comp_Generic(op);
 			return;
 		}
+	}
+
+	void Jit::Comp_MulDivType(u32 op)
+	{
+		DISABLE;
 	}
 
 }

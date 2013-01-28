@@ -367,4 +367,131 @@ namespace MIPSComp
 		}
 	}
 
+
+	void Jit::Comp_MulDivType(u32 op)
+	{
+		int rt = _RT;
+		int rs = _RS;
+		int rd = _RD;
+
+		switch (op & 63) 
+		{
+		case 16: // R(rd) = HI; //mfhi
+			gpr.BindToRegister(rd, false, true);
+			MOV(32, gpr.R(rd), M((void *)&mips_->hi));
+			break; 
+
+		case 17: // HI = R(rs); //mthi
+			gpr.BindToRegister(rs, true, false);
+			MOV(32, M((void *)&mips_->hi), gpr.R(rs));
+			break; 
+
+		case 18: // R(rd) = LO; break; //mflo
+			gpr.BindToRegister(rd, false, true);
+			MOV(32, gpr.R(rd), M((void *)&mips_->lo));
+			break;
+
+		case 19: // LO = R(rs); break; //mtlo
+			gpr.BindToRegister(rs, true, false);
+			MOV(32, M((void *)&mips_->lo), gpr.R(rs));
+			break; 
+
+		case 24: //mult (the most popular one). lo,hi  = signed mul (rs * rt)
+			gpr.FlushLockX(EDX);
+			gpr.KillImmediate(rt, true, false);
+			MOV(32, R(EAX), gpr.R(rs));
+			IMUL(32, gpr.R(rt));
+			MOV(32, M((void *)&mips_->hi), R(EDX));
+			MOV(32, M((void *)&mips_->lo), R(EAX));
+			gpr.UnlockAllX();
+			break;
+
+
+		case 25: //multu (2nd) lo,hi  = unsigned mul (rs * rt)
+			gpr.FlushLockX(EDX);
+			gpr.KillImmediate(rt, true, false);
+			MOV(32, R(EAX), gpr.R(rs));
+			MUL(32, gpr.R(rt));
+			MOV(32, M((void *)&mips_->hi), R(EDX));
+			MOV(32, M((void *)&mips_->lo), R(EAX));
+			gpr.UnlockAllX();
+			break;
+
+
+		default:
+			DISABLE;	
+			/*
+			case 28: //madd
+			{
+				u32 a=R(rs),b=R(rt),hi=HI,lo=LO;
+				u64 origValBits = (u64)lo | ((u64)(hi)<<32);
+				s64 origVal = (s64)origValBits;
+				s64 result = origVal + (s64)(s32)a * (s64)(s32)b;
+				u64 resultBits = (u64)(result);
+				LO = (u32)(resultBits);
+				HI = (u32)(resultBits>>32);
+			}
+			break;
+		case 29: //maddu
+			{
+				u32 a=R(rs),b=R(rt),hi=HI,lo=LO;
+				u64 origVal = (u64)lo | ((u64)(hi)<<32);
+				u64 result = origVal + (u64)a * (u64)b;
+				LO = (u32)(result);
+				HI = (u32)(result>>32);
+			}
+			break;
+		case 46: //msub
+			{
+				u32 a=R(rs),b=R(rt),hi=HI,lo=LO;
+				u64 origValBits = (u64)lo | ((u64)(hi)<<32);
+				s64 origVal = (s64)origValBits;
+				s64 result = origVal - (s64)(s32)a * (s64)(s32)b;
+				u64 resultBits = (u64)(result);
+				LO = (u32)(resultBits);
+				HI = (u32)(resultBits>>32);
+			}
+			break;
+		case 47: //msubu
+			{
+				u32 a=R(rs),b=R(rt),hi=HI,lo=LO;
+				u64 origVal = (u64)lo | ((u64)(hi)<<32);
+				u64 result = origVal - (u64)a * (u64)b;
+				LO = (u32)(result);
+				HI = (u32)(result>>32);
+			}
+			break;
+		case 26: //div
+			{
+				s32 a = (s32)R(rs);
+				s32 b = (s32)R(rt);
+				if (a == (s32)0x80000000 && b == -1) {
+					LO = 0x80000000;
+				} else if (b != 0) {
+					LO = (u32)(a / b);
+					HI = (u32)(a % b);
+				} else {
+					LO = HI = 0;	// Not sure what the right thing to do is?
+				}
+			}
+			break;
+		case 27: //divu
+			{
+				u32 a = R(rs);
+				u32 b = R(rt);
+				if (b != 0) 
+				{
+					LO = (a/b);
+					HI = (a%b);
+				} else {
+					LO = HI = 0;
+				}
+			}
+			break;
+
+		default:
+			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			break;*/
+		}
+	}
 }

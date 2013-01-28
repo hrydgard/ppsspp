@@ -188,22 +188,22 @@ const MIPSInstruction tableSpecial[64] = /// 000000 ...... ...... .......... xxx
 	INSTR("sync",  &Jit::Comp_Generic, Dis_Generic, Int_Sync, 0),
 
 	//16
-	INSTR("mfhi",  &Jit::Comp_Generic, Dis_FromHiloTransfer, Int_MulDivType, OUT_RD|IN_OTHER),
-	INSTR("mthi",  &Jit::Comp_Generic, Dis_ToHiloTransfer,   Int_MulDivType, IN_RS|OUT_OTHER),
-	INSTR("mflo",  &Jit::Comp_Generic, Dis_FromHiloTransfer, Int_MulDivType, OUT_RD|IN_OTHER),
-	INSTR("mtlo",  &Jit::Comp_Generic, Dis_ToHiloTransfer,   Int_MulDivType, IN_RS|OUT_OTHER),
+	INSTR("mfhi",  &Jit::Comp_MulDivType, Dis_FromHiloTransfer, Int_MulDivType, OUT_RD|IN_OTHER),
+	INSTR("mthi",  &Jit::Comp_MulDivType, Dis_ToHiloTransfer,   Int_MulDivType, IN_RS|OUT_OTHER),
+	INSTR("mflo",  &Jit::Comp_MulDivType, Dis_FromHiloTransfer, Int_MulDivType, OUT_RD|IN_OTHER),
+	INSTR("mtlo",  &Jit::Comp_MulDivType, Dis_ToHiloTransfer,   Int_MulDivType, IN_RS|OUT_OTHER),
 	{-2},
 	{-2},
 	INSTR("clz",   &Jit::Comp_Generic, Dis_RType2, Int_RType2, OUT_RD|IN_RS|IN_RT),
 	INSTR("clo",   &Jit::Comp_Generic, Dis_RType2, Int_RType2, OUT_RD|IN_RS|IN_RT),
 
 	//24
-	INSTR("mult",  &Jit::Comp_Generic, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|OUT_OTHER),
-	INSTR("multu", &Jit::Comp_Generic, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|OUT_OTHER),
-	INSTR("div",   &Jit::Comp_Generic, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|OUT_OTHER),
-	INSTR("divu",  &Jit::Comp_Generic, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|OUT_OTHER),
-	INSTR("madd",  &Jit::Comp_Generic, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|OUT_OTHER),
-	INSTR("maddu", &Jit::Comp_Generic, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|OUT_OTHER),
+	INSTR("mult",  &Jit::Comp_MulDivType, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|OUT_OTHER),
+	INSTR("multu", &Jit::Comp_MulDivType, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|OUT_OTHER),
+	INSTR("div",   &Jit::Comp_MulDivType, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|OUT_OTHER),
+	INSTR("divu",  &Jit::Comp_MulDivType, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|OUT_OTHER),
+	INSTR("madd",  &Jit::Comp_MulDivType, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|OUT_OTHER),
+	INSTR("maddu", &Jit::Comp_MulDivType, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|OUT_OTHER),
 	{-2},
 	{-2},
 

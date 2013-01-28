@@ -128,6 +128,7 @@ public:
 	void Comp_ShiftType(u32 op);
 	void Comp_Allegrex(u32 op);
 	void Comp_VBranch(u32 op);
+	void Comp_MulDivType(u32 op);
 
 	void Comp_FPU3op(u32 op);
 	void Comp_FPU2op(u32 op);
@@ -136,6 +137,7 @@ public:
 	void Comp_SVQ(u32 op);
 	void Comp_VPFX(u32 op);
 	void Comp_VDot(u32 op);
+	
 	void ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz);
 	void ApplyPrefixD(const u8 *vregs, u32 prefix, VectorSize sz, bool onlyWriteMask = false);
 

@@ -82,6 +82,7 @@ public:
 	void Comp_Allegrex(u32 op);
 	void Comp_VBranch(u32 op);
 	void Comp_VDot(u32 op);
+	void Comp_MulDivType(u32 op);
 
 	void Comp_FPU3op(u32 op);
 	void Comp_FPU2op(u32 op);
