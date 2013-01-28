@@ -656,8 +656,9 @@ int scePsmfPlayerCreate(u32 psmfPlayer, u32 psmfPlayerDataAddr)
 	ERROR_LOG(HLE, "UNIMPL scePsmfPlayerCreate(%08x, %08x)", psmfPlayer, psmfPlayerDataAddr);
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
-		ERROR_LOG(HLE, "scePsmfPlayerCreate - invalid psmf");
-		return ERROR_PSMF_NOT_FOUND;
+		// TODO: This is the wrong data.  PsmfPlayer needs a new interface.
+		psmfplayer = new PsmfPlayer(psmfPlayerDataAddr);
+		psmfPlayerMap[psmfPlayer] = psmfplayer;
 	}
 
 	if (Memory::IsValidAddress(psmfPlayerDataAddr)) {
@@ -711,7 +712,7 @@ int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
-		PsmfPlayer *psmfplayer = new PsmfPlayer(psmfPlayerData);
+		psmfplayer = new PsmfPlayer(psmfPlayerData);
 		psmfPlayerMap[psmfPlayer] = psmfplayer;
 	}
 
@@ -723,7 +724,7 @@ int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 	data.playMode = psmfplayer->playMode;
 	data.playSpeed = psmfplayer->playSpeed;
 	data.psmfPlayerLastTimestamp = psmfplayer->psmfPlayerLastTimestamp;
-	Memory::WriteStruct(psmfPlayer, &data);
+	Memory::WriteStruct(psmfPlayerData, &data);
 
 	psmfplayer->psmfPlayerAtracAu.dts = initPts;
 	psmfplayer->psmfPlayerAtracAu.pts = initPts;
