@@ -456,6 +456,7 @@ bool __KernelCheckThreadCallbacks(Thread *thread, bool force);
 //STATE BEGIN
 //////////////////////////////////////////////////////////////////////////
 int g_inCbCount = 0;
+int readyCallbacksCount = 0;
 SceUID currentThread;
 u32 idleThreadHackAddr;
 u32 threadReturnHackAddr;
@@ -562,6 +563,7 @@ void __KernelThreadingInit()
 	dispatchEnabled = true;
 
 	g_inCbCount = 0;
+	readyCallbacksCount = 0;
 	idleThreadHackAddr = kernelMemory.Alloc(blockSize, false, "threadrethack");
 	// Make sure it got allocated where we expect it... at the very start of kernel RAM
 	//CHECK_EQ(idleThreadHackAddr & 0x3FFFFFFF, 0x08000000);
@@ -601,6 +603,7 @@ void __KernelThreadingInit()
 void __KernelThreadingDoState(PointerWrap &p)
 {
 	p.Do(g_inCbCount);
+	p.Do(readyCallbacksCount);
 	p.Do(idleThreadHackAddr);
 	p.Do(threadReturnHackAddr);
 	p.Do(cbReturnHackAddr);
@@ -1086,6 +1089,15 @@ u32 __KernelDeleteThread(SceUID threadID, int exitStatus, const char *reason, bo
 
 	if (currentThread == threadID)
 		currentThread = 0;
+
+	u32 error;
+	Thread *t = kernelObjects.Get<Thread>(threadID, error);
+	if (t)
+	{
+		// TODO: Unless they should be run before deletion?
+		for (int i = 0; i < THREAD_CALLBACK_NUM_TYPES; i++)
+			readyCallbacksCount -= t->readyCallbacks[i].size();
+	}
 
 	return kernelObjects.Destroy<Thread>(threadID);
 }
@@ -2450,6 +2462,7 @@ bool __KernelCheckThreadCallbacks(Thread *thread, bool force)
 		if (thread->readyCallbacks[i].size()) {
 			SceUID readyCallback = thread->readyCallbacks[i].front();
 			thread->readyCallbacks[i].pop_front();
+			readyCallbacksCount--;
 
 			// If the callback was deleted, we're good.  Just skip it.
 			if (kernelObjects.IsValid(readyCallback))
@@ -2468,6 +2481,14 @@ bool __KernelCheckThreadCallbacks(Thread *thread, bool force)
 
 // Checks for callbacks on all threads
 bool __KernelCheckCallbacks() {
+	// Let's not check every thread all the time, callbacks are fairly uncommon.
+	if (readyCallbacksCount == 0) {
+		return false;
+	}
+	if (readyCallbacksCount < 0) {
+		ERROR_LOG(HLE, "readyCallbacksCount became negative: %i", readyCallbacksCount);
+	}
+
 	// SceUID currentThread = __KernelGetCurThread();
 	// __GetCurrentThread()->isProcessingCallbacks = true;
 	// do {
@@ -2554,8 +2575,13 @@ void __KernelNotifyCallback(RegisteredCallbackType type, SceUID cbId, int notify
 	cb->nc.notifyArg = notifyArg;
 
 	Thread *t = kernelObjects.Get<Thread>(cb->nc.threadId, error);
-	t->readyCallbacks[type].remove(cbId);
-	t->readyCallbacks[type].push_back(cbId);
+	std::list<SceUID> &readyCallbacks = t->readyCallbacks[type];
+	auto iter = std::find(readyCallbacks.begin(), readyCallbacks.end(), cbId);
+	if (iter == readyCallbacks.end())
+	{
+		t->readyCallbacks[type].push_back(cbId);
+		readyCallbacksCount++;
+	}
 }
 
 // TODO: If cbId == -1, notify the callback ID on all threads that have it.
