@@ -647,10 +647,9 @@ void __KernelListenThreadEnd(ThreadCallback callback)
 	threadEndListeners.push_back(callback);
 }
 
-void __KernelFireThreadEnd(Thread *thread)
+void __KernelFireThreadEnd(SceUID threadID)
 {
-	SceUID threadID = thread->GetUID();
-	for (std::vector<ThreadCallback>::iterator iter = threadEndListeners.begin(), end = threadEndListeners.end(); iter != end; ++iter)
+	for (auto iter = threadEndListeners.begin(), end = threadEndListeners.end(); iter != end; ++iter)
 	{
 		ThreadCallback cb = *iter;
 		cb(threadID);
@@ -1066,17 +1065,29 @@ void __KernelCancelThreadEndTimeout(SceUID threadID)
 	CoreTiming::UnscheduleEvent(eventThreadEndTimeout, threadID);
 }
 
-void __KernelRemoveFromThreadQueue(Thread *t)
+void __KernelRemoveFromThreadQueue(SceUID threadID)
 {
 	for (size_t i = 0; i < threadqueue.size(); i++)
 	{
-		if (threadqueue[i] == t->GetUID())
+		if (threadqueue[i] == threadID)
 		{
-			DEBUG_LOG(HLE, "Deleted thread %p (%i) from thread queue", t, t->GetUID());
+			DEBUG_LOG(HLE, "Deleted thread %08x (%i) from thread queue", threadID, threadID);
 			threadqueue.erase(threadqueue.begin() + i);
 			return;
 		}
 	}
+}
+
+u32 __KernelDeleteThread(SceUID threadID, int exitStatus, const char *reason, bool dontSwitch)
+{
+	__KernelFireThreadEnd(threadID);
+	__KernelRemoveFromThreadQueue(threadID);
+	__KernelTriggerWait(WAITTYPE_THREADEND, threadID, exitStatus, reason, dontSwitch);
+
+	if (currentThread == threadID)
+		currentThread = 0;
+
+	return kernelObjects.Destroy<Thread>(threadID);
 }
 
 Thread *__KernelNextThread() {
@@ -1446,7 +1457,7 @@ void __KernelReturnFromThread()
 
 	thread->nt.exitStatus = currentMIPS->r[2];
 	thread->nt.status = THREADSTATUS_DORMANT;
-	__KernelFireThreadEnd(thread);
+	__KernelFireThreadEnd(thread->GetUID());
 
 	// TODO: Need to remove the thread from any ready queues.
 
@@ -1464,7 +1475,7 @@ void sceKernelExitThread()
 	ERROR_LOG(HLE,"sceKernelExitThread FAKED");
 	thread->nt.status = THREADSTATUS_DORMANT;
 	thread->nt.exitStatus = PARAM(0);
-	__KernelFireThreadEnd(thread);
+	__KernelFireThreadEnd(thread->GetUID());
 
 	__KernelTriggerWait(WAITTYPE_THREADEND, __KernelGetCurThread(), thread->nt.exitStatus, "thread exited", true);
 	hleReSchedule("thread exited");
@@ -1480,7 +1491,7 @@ void _sceKernelExitThread()
 	ERROR_LOG(HLE,"_sceKernelExitThread FAKED");
 	thread->nt.status = THREADSTATUS_DORMANT;
 	thread->nt.exitStatus = PARAM(0);
-	__KernelFireThreadEnd(thread);
+	__KernelFireThreadEnd(thread->GetUID());
 
 	__KernelTriggerWait(WAITTYPE_THREADEND, __KernelGetCurThread(), thread->nt.exitStatus, "thread _exited", true);
 	hleReSchedule("thread _exited");
@@ -1498,15 +1509,10 @@ void sceKernelExitDeleteThread()
 		INFO_LOG(HLE,"sceKernelExitDeleteThread()");
 		t->nt.status = THREADSTATUS_DORMANT;
 		t->nt.exitStatus = PARAM(0);
-		__KernelFireThreadEnd(t);
+		error = __KernelDeleteThread(threadHandle, PARAM(0), "thread exited with delete", true);
 
-		__KernelRemoveFromThreadQueue(t);
-		currentThread = 0;
-
-		__KernelTriggerWait(WAITTYPE_THREADEND, threadHandle, t->nt.exitStatus, "thead exited with delete", true);
-		hleReSchedule("thead exited with delete");
-
-		RETURN(kernelObjects.Destroy<Thread>(threadHandle));
+		hleReSchedule("thread exited with delete");
+		RETURN(error);
 	}
 	else
 	{
@@ -1548,13 +1554,8 @@ int sceKernelDeleteThread(int threadHandle)
 		Thread *t = kernelObjects.Get<Thread>(threadHandle, error);
 		if (t)
 		{
-			__KernelRemoveFromThreadQueue(t);
-			__KernelFireThreadEnd(t);
-
 			// TODO: Should this reschedule ever?  Probably no?
-			__KernelTriggerWait(WAITTYPE_THREADEND, threadHandle, SCE_KERNEL_ERROR_THREAD_TERMINATED, "thread deleted", true);
-
-			return kernelObjects.Destroy<Thread>(threadHandle);
+			return __KernelDeleteThread(threadHandle, SCE_KERNEL_ERROR_THREAD_TERMINATED, "thread deleted", true);
 		}
 
 		// TODO: Error when doesn't exist?
@@ -1578,14 +1579,11 @@ int sceKernelTerminateDeleteThread(int threadno)
 		Thread *t = kernelObjects.Get<Thread>(threadno, error);
 		if (t)
 		{
-			__KernelRemoveFromThreadQueue(t);
-			__KernelFireThreadEnd(t);
-
 			//TODO: should we really reschedule here?
-			__KernelTriggerWait(WAITTYPE_THREADEND, threadno, SCE_KERNEL_ERROR_THREAD_TERMINATED, "thread terminated with delete", false);
+			error = __KernelDeleteThread(threadno, SCE_KERNEL_ERROR_THREAD_TERMINATED, "thread terminated with delete", false);
 			hleReSchedule("thread terminated with delete");
 
-			return kernelObjects.Destroy<Thread>(threadno);
+			return error;
 		}
 
 		// TODO: Error when doesn't exist?
@@ -1610,7 +1608,7 @@ int sceKernelTerminateThread(u32 threadID)
 		{
 			t->nt.exitStatus = SCE_KERNEL_ERROR_THREAD_TERMINATED;
 			t->nt.status = THREADSTATUS_DORMANT;
-			__KernelFireThreadEnd(t);
+			__KernelFireThreadEnd(threadID);
 			// TODO: Should this really reschedule?
 			__KernelTriggerWait(WAITTYPE_THREADEND, threadID, t->nt.exitStatus, "thread terminated", true);
 		}
