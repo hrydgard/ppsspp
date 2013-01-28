@@ -31,6 +31,7 @@ enum SceUtilitySavedataType
 	SCE_UTILITY_SAVEDATA_TYPE_DELETE		= 6,
 	SCE_UTILITY_SAVEDATA_TYPE_LISTDELETE		= 7,
 	SCE_UTILITY_SAVEDATA_TYPE_SIZES			= 8,
+	SCE_UTILITY_SAVEDATA_TYPE_SINGLEDELETE	= 10,
 	SCE_UTILITY_SAVEDATA_TYPE_LIST			= 11,
 	SCE_UTILITY_SAVEDATA_TYPE_FILES			= 12,
 	SCE_UTILITY_SAVEDATA_TYPE_MAKEDATASECURE	= 13,
@@ -107,7 +108,7 @@ struct SceUtilitySavedataParam
 	u32 msData;
 	u32 utilityData;
 
-	char key[16];
+	u8 key[16];
 
 	int secureVersion;
 	int multiStatus;
@@ -157,6 +158,7 @@ public:
 	bool GetList(SceUtilitySavedataParam* param);
 	bool GetFilesList(SceUtilitySavedataParam* param);
 	bool GetSize(SceUtilitySavedataParam* param);
+	bool IsSaveEncrypted(SceUtilitySavedataParam* param, int saveId);
 
 	std::string GetGameName(SceUtilitySavedataParam* param);
 	std::string GetSaveName(SceUtilitySavedataParam* param);
@@ -180,6 +182,11 @@ private:
 	void Clear();
 	bool CreatePNGIcon(u8* pngData, int pngSize, SaveFileInfo& info);
 	void SetFileInfo(int idx, PSPFileInfo &info, std::string saveName);
+
+	int DecryptSave(unsigned int mode, unsigned char *data, int *dataLen, int *alignedLen, unsigned char *cryptkey);
+	int EncryptData(unsigned int mode, unsigned char *data, int *dataLen, int *alignedLen, unsigned char *hash, unsigned char *cryptkey);
+	int UpdateHash(u8* sfoData, int sfoSize, int sfoDataParamsOffset, int encryptmode);
+	int BuildHash(unsigned char *output, unsigned char *data, unsigned int len,  unsigned int alignedLen, int mode, unsigned char *cryptkey);
 
 	SceUtilitySavedataParam* pspParam;
 	int selectedSave;

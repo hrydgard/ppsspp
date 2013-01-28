@@ -74,6 +74,7 @@ public:
 	// SystemParam
 	int ilanguage;
 	int itimeformat;
+	bool bEncryptSave;
 
 	std::string currentDirectory;
 	std::string memCardDirectory;

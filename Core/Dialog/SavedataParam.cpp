@@ -19,6 +19,7 @@
 #include "image/png_load.h"
 #include "../HLE/sceKernelMemory.h"
 #include "../ELF/ParamSFO.h"
+#include "../HLE/sceChnnlsv.h"
 #include "Core/HW/MemoryStick.h"
 #include "PSPSaveDialog.h"
 
@@ -45,13 +46,19 @@ namespace
 		str[strLength - 1] = 0;
 	}
 
-	bool ReadPSPFile(std::string filename, u8 *data, s64 dataSize, s64 *readSize)
+	bool ReadPSPFile(std::string filename, u8 **data, s64 dataSize, s64 *readSize)
 	{
 		u32 handle = pspFileSystem.OpenFile(filename, FILEACCESS_READ);
 		if (handle == 0)
 			return false;
 
-		size_t result = pspFileSystem.ReadFile(handle, data, dataSize);
+		if(dataSize == -1)
+		{
+			dataSize = pspFileSystem.GetFileInfo(filename).size;
+			*data = new u8[dataSize];
+		}
+
+		size_t result = pspFileSystem.ReadFile(handle, *data, dataSize);
 		pspFileSystem.CloseFile(handle);
 		if(readSize)
 			*readSize = result;
@@ -110,6 +117,28 @@ namespace
 
 		return false;
 	}
+
+	int align16(int address)
+	{
+		return ((address + 0xF) >> 4) << 4;
+	}
+
+	int GetSDKMainVersion(int sdkVersion)
+	{
+		if(sdkVersion > 0x307FFFF)
+			return 6;
+		if(sdkVersion > 0x300FFFF)
+			return 5;
+		if(sdkVersion > 0x206FFFF)
+			return 4;
+		if(sdkVersion > 0x205FFFF)
+			return 3;
+		if(sdkVersion >= 0x2000000)
+			return 2;
+		if(sdkVersion >= 0x1000000)
+			return 1;
+		return 0;
+	};
 }
 
 SavedataParam::SavedataParam()
@@ -222,22 +251,36 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, int saveId)
 	if (!pspFileSystem.GetFileInfo(dirPath).exists)
 		pspFileSystem.MkDir(dirPath);
 
-	if(param->dataBuf != 0)	// Can launch save without save data in mode 13
+	u8* cryptedData = 0;
+	int cryptedSize = 0;
+	u8 cryptedHash[16];
+	memset(cryptedHash,0,0x16);
+	// Encrypt save.
+	if(param->dataBuf != 0 && g_Config.bEncryptSave)
 	{
-		std::string filePath = dirPath+"/"+GetFileName(param);
-		SceSize saveSize = param->dataSize;
-		if(saveSize == 0 || saveSize > param->dataBufSize)
-			saveSize = param->dataBufSize; // fallback, should never use this
-		INFO_LOG(HLE,"Saving file with size %u in %s",saveSize,filePath.c_str());
-		u8 *data_ = (u8*)Memory::GetPointer(param->dataBuf);
+		cryptedSize = param->dataSize;
+		if(cryptedSize == 0 || cryptedSize > param->dataBufSize)
+			cryptedSize = param->dataBufSize; // fallback, should never use this
+		u8* data_ = (u8*)Memory::GetPointer(param->dataBuf);
 
-		// copy back save name in request
-		strncpy(param->saveName,GetSaveDirName(param, saveId).c_str(),20);
+		int aligned_len = align16(cryptedSize);
+		cryptedData = new u8[aligned_len + 0x10];
+		memcpy(cryptedData, data_, cryptedSize);
 
-		if (!WritePSPFile(filePath, data_, saveSize))
+		int decryptMode = 1;
+		if(param->key[0] != 0)
 		{
-			ERROR_LOG(HLE,"Error writing file %s",filePath.c_str());
-			return false;
+			decryptMode = (GetSDKMainVersion(sceKernelGetCompiledSdkVersion()) >= 4 ? 5 : 3);
+		}
+
+		if(EncryptData(decryptMode, cryptedData, &cryptedSize, &aligned_len, cryptedHash, ((param->key[0] != 0)?param->key:0)) == 0)
+		{
+		}
+		else
+		{
+			ERROR_LOG(HLE,"Save encryption failed. This save won't work on real PSP");
+			delete[] cryptedData;
+			cryptedData = 0;
 		}
 	}
 
@@ -249,7 +292,7 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, int saveId)
 	{
 		u8 *sfoData = new u8[(size_t)sfoInfo.size];
 		size_t sfoSize = (size_t)sfoInfo.size;
-		if(ReadPSPFile(sfopath,sfoData,sfoSize, NULL))
+		if(ReadPSPFile(sfopath,&sfoData,sfoSize, NULL))
 		{
 			sfoFile.ReadSFO(sfoData,sfoSize);
 			delete[] sfoData;
@@ -285,18 +328,19 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, int saveId)
 			if(fName[0] == 0)
 				break; // End of list
 			if(strncmp(fName,GetFileName(param).c_str(),20) == 0)
-				break; // File already in SFO
-
+				break;
 			fName += FILE_LIST_ITEM_SIZE;
 		}
 
-		if (fName + 20 <= (char*)tmpData + FILE_LIST_TOTAL_SIZE)
-			snprintf(fName, 20, "%s",GetFileName(param).c_str());
+		if (fName + 13 <= (char*)tmpData + FILE_LIST_TOTAL_SIZE)
+			snprintf(fName, 13, "%s",GetFileName(param).c_str());
+		if (fName + 13 + 16 <= (char*)tmpData + FILE_LIST_TOTAL_SIZE)
+			memcpy(fName+13, cryptedHash, 16);
 	}
 	sfoFile.SetValue("SAVEDATA_FILE_LIST", tmpData, FILE_LIST_TOTAL_SIZE, FILE_LIST_TOTAL_SIZE);
 	delete[] tmpData;
 
-	// No crypted save, so fill with 0
+	// Init param with 0. This will be used to detect crypted save or not on loading
 	tmpData = new u8[128];
 	memset(tmpData, 0, 128);
 	sfoFile.SetValue("SAVEDATA_PARAMS", tmpData, 128, 128);
@@ -305,8 +349,53 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, int saveId)
 	u8 *sfoData;
 	size_t sfoSize;
 	sfoFile.WriteSFO(&sfoData,&sfoSize);
+
+	// Calc SFO hash for PSP.
+	if(cryptedData != 0)
+	{
+		int offset = sfoFile.GetDataOffset(sfoData,"SAVEDATA_PARAMS");
+		if(offset >= 0)
+			UpdateHash(sfoData, sfoSize, offset, (param->key[0]?3:1));
+	}
 	WritePSPFile(sfopath, sfoData, (SceSize)sfoSize);
 	delete[] sfoData;
+
+	if(param->dataBuf != 0)	// Can launch save without save data in mode 13
+	{
+		std::string filePath = dirPath+"/"+GetFileName(param);
+		u8* data_ = 0;
+		SceSize saveSize = 0;
+		if(cryptedData == 0) // Save decrypted data
+		{
+			saveSize = param->dataSize;
+			if(saveSize == 0 || saveSize > param->dataBufSize)
+				saveSize = param->dataBufSize; // fallback, should never use this
+
+			data_ = (u8*)Memory::GetPointer(param->dataBuf);
+		}
+		else
+		{
+			data_ = cryptedData;
+			saveSize = cryptedSize;
+		}
+
+		INFO_LOG(HLE,"Saving file with size %u in %s",saveSize,filePath.c_str());
+
+		// copy back save name in request
+		strncpy(param->saveName,GetSaveDirName(param, saveId).c_str(),20);
+
+		if (!WritePSPFile(filePath, data_, saveSize))
+		{
+			ERROR_LOG(HLE,"Error writing file %s",filePath.c_str());
+			if(cryptedData != 0)
+			{
+				delete[] cryptedData;
+			}
+			return false;
+		}
+		delete[] cryptedData;
+	}
+
 
 	// SAVE ICON0
 	if (param->icon0FileData.buf)
@@ -375,12 +464,14 @@ bool SavedataParam::Load(SceUtilitySavedataParam *param, int saveId)
 	std::string filePath = dirPath+"/"+GetFileName(param);
 	s64 readSize;
 	INFO_LOG(HLE,"Loading file with size %u in %s",param->dataBufSize,filePath.c_str());
-	if (!ReadPSPFile(filePath, data_, param->dataBufSize, &readSize))
+	u8* saveData = 0;
+	int saveSize = -1;
+	if (!ReadPSPFile(filePath, &saveData, saveSize, &readSize))
 	{
 		ERROR_LOG(HLE,"Error reading file %s",filePath.c_str());
 		return false;
 	}
-	param->dataSize = (SceSize)readSize;
+	saveSize = readSize;
 
 	// copy back save name in request
 	strncpy(param->saveName,GetSaveDirName(param, saveId).c_str(),20);
@@ -392,7 +483,7 @@ bool SavedataParam::Load(SceUtilitySavedataParam *param, int saveId)
 	{
 		u8 *sfoData = new u8[(size_t)sfoInfo.size];
 		size_t sfoSize = (size_t)sfoInfo.size;
-		if(ReadPSPFile(sfopath,sfoData,sfoSize, NULL))
+		if(ReadPSPFile(sfopath,&sfoData,sfoSize, NULL))
 		{
 			sfoFile.ReadSFO(sfoData,sfoSize);
 
@@ -407,7 +498,208 @@ bool SavedataParam::Load(SceUtilitySavedataParam *param, int saveId)
 	// Don't know what it is, but PSP always respond this and this unlock some game
 	param->bind = 1021;
 
+	bool isCrypted = IsSaveEncrypted(param,saveId);
+	bool saveDone = false;
+	if(isCrypted)// Try to decrypt
+	{
+		int align_len = align16(saveSize);
+		u8* data_base = new u8[align_len];
+		u8* cryptKey = new u8[0x10];
+		memset(cryptKey,0,0x10);
+
+		if(param->key[0] != 0)
+		{
+			memcpy(cryptKey, param->key, 0x10);
+		}
+		memset(data_base + saveSize, 0, align_len - saveSize);
+		memcpy(data_base, saveData, saveSize);
+
+		int decryptMode = 1;
+		if(param->key[0] != 0)
+		{
+			decryptMode = (GetSDKMainVersion(sceKernelGetCompiledSdkVersion()) >= 4 ? 5 : 3);
+		}
+
+		if(DecryptSave(decryptMode, data_base, &saveSize, &align_len, ((param->key[0] != 0)?cryptKey:0)) == 0)
+		{
+			memcpy(data_, data_base, saveSize);
+			saveDone = true;
+		}
+		delete[] data_base;
+		delete[] cryptKey;
+	}
+	if(!saveDone) // not crypted or decrypt fail
+	{
+		memcpy(data_, saveData, saveSize);
+	}
+	param->dataSize = (SceSize)saveSize;
+	delete[] saveData;
+
 	return true;
+}
+
+int SavedataParam::EncryptData(unsigned int mode,
+		 unsigned char *data,
+		 int *dataLen,
+		 int *alignedLen,
+		 unsigned char *hash,
+		 unsigned char *cryptkey)
+{
+	pspChnnlsvContext1 ctx1;
+	pspChnnlsvContext2 ctx2;
+
+	/* Make room for the IV in front of the data. */
+	memmove(data + 0x10, data, *alignedLen);
+
+	/* Set up buffers */
+	memset(&ctx1, 0, sizeof(pspChnnlsvContext1));
+	memset(&ctx2, 0, sizeof(pspChnnlsvContext2));
+	memset(hash, 0, 0x10);
+	memset(data, 0, 0x10);
+
+	/* Build the 0x10-byte IV and setup encryption */
+	if (sceSdCreateList_(ctx2, mode, 1, data, cryptkey) < 0)
+		return -1;
+	if (sceSdSetIndex_(ctx1, mode) < 0)
+		return -2;
+	if (sceSdRemoveValue_(ctx1, data, 0x10) < 0)
+		return -3;
+	if (sceSdSetMember_(ctx2, data + 0x10, *alignedLen) < 0)
+		return -4;
+
+	/* Clear any extra bytes left from the previous steps */
+	memset(data + 0x10 + *dataLen, 0, *alignedLen - *dataLen);
+
+	/* Encrypt the data */
+	if (sceSdRemoveValue_(ctx1, data + 0x10, *alignedLen) < 0)
+		return -5;
+
+	/* Verify encryption */
+	if (sceChnnlsv_21BE78B4_(ctx2) < 0)
+		return -6;
+
+	/* Build the file hash from this PSP */
+	if (sceSdGetLastIndex_(ctx1, hash, cryptkey) < 0)
+		return -7;
+
+	/* Adjust sizes to account for IV */
+	*alignedLen += 0x10;
+	*dataLen += 0x10;
+
+	/* All done */
+	return 0;
+}
+
+int SavedataParam::DecryptSave(unsigned int mode,
+		 unsigned char *data,
+		 int *dataLen,
+		 int *alignedLen,
+		 unsigned char *cryptkey)
+{
+
+	pspChnnlsvContext1 ctx1;
+	pspChnnlsvContext2 ctx2;
+
+	/* Need a 16-byte IV plus some data */
+	if (*alignedLen <= 0x10)
+		return -1;
+	*dataLen -= 0x10;
+	*alignedLen -= 0x10;
+
+	/* Set up buffers */
+	memset(&ctx1, 0, sizeof(pspChnnlsvContext1));
+	memset(&ctx2, 0, sizeof(pspChnnlsvContext2));
+
+	/* Perform the magic */
+	if (sceSdSetIndex_(ctx1, mode) < 0)
+		return -2;
+	if (sceSdCreateList_(ctx2, mode, 2, data, cryptkey) < 0)
+		return -3;
+	if (sceSdRemoveValue_(ctx1, data, 0x10) < 0)
+		return -4;
+	if (sceSdRemoveValue_(ctx1, data + 0x10, *alignedLen) < 0)
+		return -5;
+	if (sceSdSetMember_(ctx2, data + 0x10, *alignedLen) < 0)
+		return -6;
+
+	/* Verify that it decrypted correctly */
+	if (sceChnnlsv_21BE78B4_(ctx2) < 0)
+		return -7;
+
+	/* The decrypted data starts at data + 0x10, so shift it back. */
+	memmove(data, data + 0x10, *dataLen);
+	return 0;
+}
+
+int SavedataParam::UpdateHash(u8* sfoData, int sfoSize, int sfoDataParamsOffset, int encryptmode)
+{
+	int alignedLen = align16(sfoSize);
+	memset(sfoData+sfoDataParamsOffset, 0, 128);
+	u8 filehash[16];
+	int ret = 0;
+
+	/* Compute 11D0 hash over entire file */
+	if ((ret = BuildHash(filehash, sfoData, sfoSize, alignedLen, (encryptmode & 2) ? 4 : 2, NULL)) < 0)
+	{	// Not sure about "2"
+		return ret - 400;
+	}
+
+	/* Copy 11D0 hash to param.sfo and set flag indicating it's there */
+	memcpy(sfoData+sfoDataParamsOffset + 0x20, filehash, 0x10);
+	*(sfoData+sfoDataParamsOffset) |= 0x01;
+
+	/* If new encryption mode, compute and insert the 1220 hash. */
+	if (encryptmode & 2)
+	{
+
+		/* Enable the hash bit first */
+		*(sfoData+sfoDataParamsOffset) |= 0x20;
+
+		if ((ret = BuildHash(filehash, sfoData, sfoSize, alignedLen, 3, 0)) < 0)
+		{
+			return ret - 500;
+		}
+		memcpy(sfoData+sfoDataParamsOffset + 0x70, filehash, 0x10);
+	}
+
+	/* Compute and insert the 11C0 hash. */
+	if ((ret = BuildHash(filehash, sfoData, sfoSize, alignedLen, 1, 0)) < 0)
+	{
+		return ret - 600;
+	}
+	memcpy(sfoData+sfoDataParamsOffset + 0x10, filehash, 0x10);
+
+	/* All done. */
+	return 0;
+}
+
+int SavedataParam::BuildHash(unsigned char *output,
+		unsigned char *data,
+		unsigned int len,
+		unsigned int alignedLen,
+		int mode,
+		unsigned char *cryptkey)
+{
+	pspChnnlsvContext1 ctx1;
+
+	/* Set up buffers */
+	memset(&ctx1, 0, sizeof(pspChnnlsvContext1));
+	memset(output, 0, 0x10);
+	memset(data + len, 0, alignedLen - len);
+
+	/* Perform the magic */
+	if (sceSdSetIndex_(ctx1, mode & 0xFF) < 0)
+		return -1;
+	if (sceSdRemoveValue_(ctx1, data, alignedLen) < 0)
+		return -2;
+	if (sceSdGetLastIndex_(ctx1, output, cryptkey) < 0)
+	{
+		// Got here since Kirk CMD5 missing, return random value;
+		memset(output,0x1,0x10);
+		return 0;
+	}
+	/* All done. */
+	return 0;
 }
 
 std::string SavedataParam::GetSpaceText(int size)
@@ -464,7 +756,7 @@ bool SavedataParam::GetSizes(SceUtilitySavedataParam *param)
 		PSPFileInfo finfo = pspFileSystem.GetFileInfo(path);
 		if(finfo.exists)
 		{
-			// TODO : fill correctly with the total save size
+			// TODO : fill correctly with the total save size, be aware of crypted file size
 			Memory::Write_U32(1,param->msData+36);	//1
 			Memory::Write_U32(0x20,param->msData+40);	// 0x20
 			Memory::Write_U8(0,param->msData+44);	// "32 KB" // 8 u8
@@ -585,8 +877,12 @@ bool SavedataParam::GetFilesList(SceUtilitySavedataParam *param)
 		PSPFileInfo info = pspFileSystem.GetFileInfo(filePath);
 		if (info.exists)
 		{
+			bool isCrypted = IsSaveEncrypted(param,0);
 			Memory::Write_U32(0x21FF, curFileInfoAddr+0);
-			Memory::Write_U64(info.size, curFileInfoAddr+8);
+			if(isCrypted)	// Crypted save are 16 bytes bigger
+				Memory::Write_U64(info.size - 0x10, curFileInfoAddr+8);
+			else
+				Memory::Write_U64(info.size, curFileInfoAddr+8);
 			Memory::Write_U64(0,curFileInfoAddr + 16); // TODO ctime
 			Memory::Write_U64(0,curFileInfoAddr + 24); // TODO unknow
 			Memory::Write_U64(0,curFileInfoAddr + 32); // TODO atime
@@ -797,7 +1093,7 @@ void SavedataParam::SetFileInfo(int idx, PSPFileInfo &info, std::string saveName
 	if (info2.exists)
 	{
 		u8 *textureDataPNG = new u8[(size_t)info2.size];
-		ReadPSPFile(fileDataPath2, textureDataPNG, info2.size, NULL);
+		ReadPSPFile(fileDataPath2, &textureDataPNG, info2.size, NULL);
 		CreatePNGIcon(textureDataPNG, (int)info2.size, saveDataList[idx]);
 		delete[] textureDataPNG;
 	}
@@ -808,7 +1104,7 @@ void SavedataParam::SetFileInfo(int idx, PSPFileInfo &info, std::string saveName
 	if (info2.exists)
 	{
 		u8 *sfoParam = new u8[(size_t)info2.size];
-		ReadPSPFile(fileDataPath2, sfoParam, info2.size, NULL);
+		ReadPSPFile(fileDataPath2, &sfoParam, info2.size, NULL);
 		ParamSFOData sfoFile;
 		if (sfoFile.ReadSFO(sfoParam,(size_t)info2.size))
 		{
@@ -864,3 +1160,38 @@ void SavedataParam::DoState(PointerWrap &p)
 	p.DoArray(saveDataList, saveDataListCount);
 	p.DoMarker("SavedataParam");
 }
+
+bool SavedataParam::IsSaveEncrypted(SceUtilitySavedataParam* param, int saveId)
+{
+
+	bool isCrypted = false;
+
+	ParamSFOData sfoFile;
+	std::string dirPath = GetSaveFilePath(param, saveId);
+	std::string sfopath = dirPath+"/"+sfoName;
+	PSPFileInfo sfoInfo = pspFileSystem.GetFileInfo(sfopath);
+	if(sfoInfo.exists) // Read sfo
+	{
+		u8 *sfoData = new u8[(size_t)sfoInfo.size];
+		size_t sfoSize = (size_t)sfoInfo.size;
+		if(ReadPSPFile(sfopath,&sfoData,sfoSize, NULL))
+		{
+			sfoFile.ReadSFO(sfoData,sfoSize);
+
+			// save created in PPSSPP and not encrypted has '0' in SAVEDATA_PARAMS
+			u32 tmpDataSize = 0;
+			u8* tmpDataOrig = sfoFile.GetValueData("SAVEDATA_PARAMS", &tmpDataSize);
+			for(int i = 0; i < tmpDataSize; i++)
+			{
+				if(tmpDataOrig[i] != 0)
+				{
+					isCrypted = true;
+					break;
+				}
+			}
+		}
+		delete[] sfoData;
+	}
+	return isCrypted;
+}
+

@@ -53,6 +53,7 @@
 #include "sceParseHttp.h"
 #include "sceVaudio.h"
 #include "sceUsb.h"
+#include "sceChnnlsv.h"
 
 #define N(s) s
 
@@ -244,6 +245,7 @@ void RegisterAllModules() {
 	Register_sceParseHttp();
 	Register_sceVaudio();
 	Register_sceUsb();
+	Register_sceChnnlsv();
 
 	for (int i = 0; i < numModules; i++)
 	{

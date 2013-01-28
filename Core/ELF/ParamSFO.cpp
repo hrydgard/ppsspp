@@ -133,6 +133,31 @@ bool ParamSFOData::ReadSFO(const u8 *paramsfo, size_t size)
 	return true;
 }
 
+int ParamSFOData::GetDataOffset(const u8 *paramsfo, std::string dataName)
+{
+	const Header *header = (const Header *)paramsfo;
+	if (header->magic != 0x46535000)
+		return -1;
+	if (header->version != 0x00000101)
+		WARN_LOG(LOADER, "Unexpected SFO header version: %08x", header->version);
+
+	const IndexTable *indexTables = (const IndexTable *)(paramsfo + sizeof(Header));
+
+	const u8 *key_start = paramsfo + header->key_table_start;
+	int data_start = header->data_table_start;
+
+	for (u32 i = 0; i < header->index_table_entries; i++)
+	{
+		const char *key = (const char *)(key_start + indexTables[i].key_table_offset);
+		if(std::string(key) == dataName)
+		{
+			return data_start + indexTables[i].data_table_offset;
+		}
+	}
+
+	return -1;
+}
+
 bool ParamSFOData::WriteSFO(u8 **paramsfo, size_t *size)
 {
 	size_t total_size = 0;

@@ -69,6 +69,7 @@ SOURCES +=	../Core/CPU.cpp \ # Core
 	../Core/HLE/sceAtrac.cpp \
 	../Core/HLE/sceAudio.cpp \
 	../Core/HLE/sceCtrl.cpp \
+	../Core/HLE/sceChnnlsv.cpp \
 	../Core/HLE/sceDisplay.cpp \
 	../Core/HLE/sceDmac.cpp \
 	../Core/HLE/sceGe.cpp \
@@ -181,6 +182,7 @@ HEADERS +=	../Core/CPU.h \
 	../Core/HLE/sceAtrac.h \
 	../Core/HLE/sceAudio.h \
 	../Core/HLE/sceCtrl.h \
+	../Core/HLE/sceChnnlsv.h \
 	../Core/HLE/sceDisplay.h \
 	../Core/HLE/sceDmac.h \
 	../Core/HLE/sceGe.h \
