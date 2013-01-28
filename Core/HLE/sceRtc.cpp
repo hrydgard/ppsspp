@@ -368,7 +368,7 @@ int sceRtcConvertLocalTimeToUTC(u32 tickLocalPtr,u32 tickUTCPtr)
 	{
 		u64 srcTick = Memory::Read_U64(tickLocalPtr);
 		// TODO : Let the user select his timezone / daylight saving instead of taking system param ?
-#ifdef __GLIBC__
+#if defined(__GLIBC__) || defined(__SYMBIAN32__)
 		time_t timezone = 0;
 		tm *time = localtime(&timezone);
 		srcTick -= time->tm_gmtoff*1000000ULL;
@@ -391,7 +391,7 @@ int sceRtcConvertUtcToLocalTime(u32 tickUTCPtr,u32 tickLocalPtr)
 	{
 		u64 srcTick = Memory::Read_U64(tickUTCPtr);
 		// TODO : Let the user select his timezone / daylight saving instead of taking system param ?
-#ifdef __GLIBC__
+#if defined(__GLIBC__) || defined(__SYMBIAN32__)
 		time_t timezone = 0;
 		tm *time = localtime(&timezone);
 		srcTick += time->tm_gmtoff*1000000ULL;
