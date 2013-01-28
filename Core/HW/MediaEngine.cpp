@@ -32,7 +32,8 @@ void MediaEngine::writeVideoImage(u32 bufferPtr, int frameWidth, int videoPixelM
 	int bpp = modeBpp[videoPixelMode];
 
 	// fake image. To be improved.
-	memset(Memory::GetPointer(bufferPtr), 0xDD, frameWidth * videoHeight_ * bpp);
+	if (Memory::IsValidAddress(bufferPtr))
+		Memory::Memset(bufferPtr, 0xDD, frameWidth * videoHeight_ * bpp);
 }
 
 void MediaEngine::feedPacketData(u32 addr, int size)
