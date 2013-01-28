@@ -169,15 +169,6 @@ void MenuScreen::render() {
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 	VLinear vlinear(dp_xres + xoff, 95, 20);
 
-#ifdef ANDROID
-	int xc = (dp_xres - LARGE_BUTTON_WIDTH - 40) / 2;
-	ui_draw2d.SetFontScale(0.8f, 0.8f);
-	ui_draw2d.DrawText(UBUNTU48, "NOTE!", xc, dp_yres / 2 + 30, 0xFFFFFFFF, ALIGN_CENTER);
-	ui_draw2d.DrawText(UBUNTU24, "Enabling JIT will crash on Snapdragon CPUs.", xc, dp_yres / 2 + 80, 0xFFFFFFFF, ALIGN_CENTER);
-	ui_draw2d.DrawText(UBUNTU24, "This will be fixed in PPSSPP 0.61, coming soon.", xc, dp_yres / 2 + 120, 0xFFFFFFFF, ALIGN_CENTER);
-	ui_draw2d.SetFontScale(1.0f, 1.0f);
-#endif
-
 	if (UIButton(GEN_ID, vlinear, w, "Load...", ALIGN_RIGHT)) {
 #if defined(USING_QT_UI) && defined(__SYMBIAN32__)
 		QString fileName = QFileDialog::getOpenFileName(NULL, "Load ROM", g_Config.currentDirectory.c_str(), "PSP ROMs (*.iso *.cso *.pbp *.elf)");
