@@ -26,6 +26,9 @@
 
 #include "CommonTypes.h"
 
+#define IS_LITTLE_ENDIAN (*(const u16 *)"\0\xff" >= 0x100)
+#define IS_BIG_ENDIAN (*(const u16 *)"\0\xff" < 0x100)
+
 #ifndef _WIN32
 
 inline u32 _byteswap_ulong(u32 data)
