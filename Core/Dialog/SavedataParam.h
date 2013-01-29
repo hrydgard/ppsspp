@@ -191,6 +191,7 @@ private:
 	SceUtilitySavedataParam* pspParam;
 	int selectedSave;
 	SaveFileInfo* saveDataList;
+	SaveFileInfo* noSaveIcon;
 	int saveDataListCount;
 	int saveNameListDataCount;
 };
