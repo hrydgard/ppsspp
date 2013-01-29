@@ -145,6 +145,7 @@ SavedataParam::SavedataParam()
 	: pspParam(0)
 	, selectedSave(0)
 	, saveDataList(0)
+	, noSaveIcon(0)
 	, saveDataListCount(0)
 	, saveNameListDataCount(0)
 {
@@ -915,7 +916,7 @@ void SavedataParam::Clear()
 	{
 		for (int i = 0; i < saveNameListDataCount; i++)
 		{
-			if (saveDataList[i].textureData != 0)
+			if (saveDataList[i].textureData != 0 && saveDataList[i].size != 0)
 				kernelMemory.Free(saveDataList[i].textureData);
 			saveDataList[i].textureData = 0;
 		}
@@ -923,6 +924,14 @@ void SavedataParam::Clear()
 		delete[] saveDataList;
 		saveDataList = 0;
 		saveDataListCount = 0;
+	}
+	if(noSaveIcon)
+	{
+		if(noSaveIcon->textureData != 0)
+			kernelMemory.Free(noSaveIcon->textureData);
+		noSaveIcon->textureData = 0;
+		delete noSaveIcon;
+		noSaveIcon = 0;
 	}
 }
 
@@ -989,9 +998,16 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 						if(Memory::IsValidAddress(param->newData))
 						{
 							// We have a png to show
-							PspUtilitySavedataFileData newData;
-							Memory::ReadStruct(param->newData, &newData);
-							CreatePNGIcon(Memory::GetPointer(newData.buf), (int)newData.size, saveDataList[realCount]);
+							if(!noSaveIcon)
+							{
+								noSaveIcon = new SaveFileInfo();
+								PspUtilitySavedataFileData newData;
+								Memory::ReadStruct(param->newData, &newData);
+								CreatePNGIcon(Memory::GetPointer(newData.buf), (int)newData.size, *noSaveIcon);
+							}
+							saveDataList[realCount].textureData = noSaveIcon->textureData;
+							saveDataList[realCount].textureWidth = noSaveIcon->textureWidth;
+							saveDataList[realCount].textureHeight = noSaveIcon->textureHeight;
 						}
 						DEBUG_LOG(HLE,"Don't Exist");
 						realCount++;
@@ -1033,9 +1049,16 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 				if(Memory::IsValidAddress(param->newData))
 				{
 					// We have a png to show
-					PspUtilitySavedataFileData newData;
-					Memory::ReadStruct(param->newData, &newData);
-					CreatePNGIcon(Memory::GetPointer(newData.buf), (int)newData.size, saveDataList[0]);
+					if(!noSaveIcon)
+					{
+						noSaveIcon = new SaveFileInfo();
+						PspUtilitySavedataFileData newData;
+						Memory::ReadStruct(param->newData, &newData);
+						CreatePNGIcon(Memory::GetPointer(newData.buf), (int)newData.size, *noSaveIcon);
+					}
+					saveDataList[0].textureData = noSaveIcon->textureData;
+					saveDataList[0].textureWidth = noSaveIcon->textureWidth;
+					saveDataList[0].textureHeight = noSaveIcon->textureHeight;
 				}
 				DEBUG_LOG(HLE,"Don't Exist");
 			}
