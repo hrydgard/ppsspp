@@ -198,10 +198,8 @@ void VertexDecoder::Step_Color4444() const
 void VertexDecoder::Step_Color8888() const
 {
 	u8 *c = decoded_ + decFmt.c0off;
-	// TODO: speedup
 	const u8 *cdata = (const u8*)(ptr_ + coloff);
-	for (int j = 0; j < 4; j++)
-		c[j] = cdata[j];
+	memcpy(c, cdata, sizeof(u8) * 4);
 }
 
 void VertexDecoder::Step_Color565Morph() const

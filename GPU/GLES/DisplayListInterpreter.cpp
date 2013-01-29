@@ -602,11 +602,13 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_CALL:
 		{
 			u32 retval = currentList->pc + 4;
+			u32 target = (((gstate.base & 0x00FF0000) << 8) | (op & 0xFFFFFC)) & 0xFFFFFFF;
 			if (stackptr == ARRAY_SIZE(stack)) {
 				ERROR_LOG(G3D, "CALL: Stack full!");
+			} else if (!Memory::IsValidAddress(target)) {
+				ERROR_LOG(G3D, "CALL to illegal address %08x - ignoring??", target);
 			} else {
 				stack[stackptr++] = retval;
-				u32 target = (((gstate.base & 0x00FF0000) << 8) | (op & 0xFFFFFC)) & 0xFFFFFFF;
 				currentList->pc = target - 4;	// pc will be increased after we return, counteract that
 			}
 		}
@@ -616,6 +618,11 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		{
 			u32 target = (currentList->pc & 0xF0000000) | (stack[--stackptr] & 0x0FFFFFFF);
 			currentList->pc = target - 4;
+			if (!Memory::IsValidAddress(currentList->pc))
+			{
+				ERROR_LOG(G3D, "Invalid DL PC %08x on return", currentList->pc);
+				finished = true;
+			}
 		}
 		break;
 
