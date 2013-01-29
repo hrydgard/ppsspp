@@ -65,18 +65,16 @@ namespace MainWindow
 	LRESULT CALLBACK About(HWND, UINT, WPARAM, LPARAM);
 	LRESULT CALLBACK Controls(HWND, UINT, WPARAM, LPARAM);
 
-	HWND GetHWND()
-	{
+	HWND GetHWND()	{
 		return hwndMain;
 	}
 
-	HWND GetDisplayHWND()
-	{
+	HWND GetDisplayHWND()	{
 		return hwndDisplay;
 	}
 
-	void Init(HINSTANCE hInstance)
-	{
+	void Init(HINSTANCE hInstance)	{
+		
 #ifdef THEMES
 		WTL::CTheme::IsThemingSupported();
 #endif
@@ -122,8 +120,7 @@ namespace MainWindow
 		RECT rc;
 		GetClientRect(hwndMain, &rc);
 
-		if ((rc.right - rc.left) == PSP_CoreParameter().pixelWidth &&
-			(rc.bottom - rc.top) == PSP_CoreParameter().pixelHeight)
+		if ((rc.right - rc.left) == PSP_CoreParameter().pixelWidth && (rc.bottom - rc.top) == PSP_CoreParameter().pixelHeight)
 			return;
 		PSP_CoreParameter().pixelWidth = rc.right - rc.left;
 		PSP_CoreParameter().pixelHeight = rc.bottom - rc.top;
@@ -180,8 +177,7 @@ namespace MainWindow
 		info.cyMax = 0;
 		info.dwStyle = MNS_CHECKORBMP;
 		info.fMask = MIM_STYLE;
-		for (int i = 0; i < GetMenuItemCount(menu); i++)
-		{
+		for (int i = 0; i < GetMenuItemCount(menu); i++)		{
 			SetMenuInfo(GetSubMenu(menu,i),&info);
 		}
 
@@ -199,8 +195,7 @@ namespace MainWindow
 		return TRUE;
 	}
 
-	void BrowseAndBoot(void)
-	{
+	void BrowseAndBoot(void){
 		std::string fn;
 		std::string filter = "";
 
@@ -209,14 +204,12 @@ namespace MainWindow
 		filter += "*.pbp;*.elf;*.iso;*.cso;*.prx";
 		filter += "|";
 		filter += "|";
-		for (int i=0; i<(int)filter.length(); i++)
-		{
+		for (int i=0; i<(int)filter.length(); i++){
 			if (filter[i] == '|')
 				filter[i] = '\0';
 		}
 
-		if (W32Util::BrowseForFileName(true, GetHWND(), "Load File",0,filter.c_str(),"*.pbp;*.elf;*.iso;*.cso;",fn))
-		{
+		if (W32Util::BrowseForFileName(true, GetHWND(), "Load File",0,filter.c_str(),"*.pbp;*.elf;*.iso;*.cso;",fn)){
 			// decode the filename with fullpath
 			std::string fullpath = fn;
 			char drive[MAX_PATH];
@@ -233,10 +226,8 @@ namespace MainWindow
 		}
 	}
 
-	LRESULT CALLBACK DisplayProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
-	{
-		switch (message) 
-		{
+	LRESULT CALLBACK DisplayProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam){
+		switch (message) {
 		case WM_ACTIVATE:
 			break;
 		case WM_SETFOCUS:
@@ -245,10 +236,10 @@ namespace MainWindow
 			break;
 			
 		case WM_ERASEBKGND:
-	  	return DefWindowProc(hWnd, message, wParam, lParam);
+	  		return DefWindowProc(hWnd, message, wParam, lParam);
   
 		case WM_LBUTTONDOWN:
-//			Update();
+			//Update();
 			break;
 
 		case WM_LBUTTONDBLCLK:
@@ -262,13 +253,11 @@ namespace MainWindow
 		return 0;
 	}
 
-	LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
-	{
+	LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam){
 		int wmId, wmEvent;
 		std::string fn;
 
-		switch (message) 
-		{
+		switch (message) {
 		case WM_CREATE:
 			break;
 
@@ -284,8 +273,7 @@ namespace MainWindow
 			wmId    = LOWORD(wParam); 
 			wmEvent = HIWORD(wParam); 
 			// Parse the menu selections:
-			switch (wmId)
-			{
+			switch (wmId){
 			case ID_FILE_LOAD:
 				BrowseAndBoot();
 				break;
@@ -294,8 +282,7 @@ namespace MainWindow
 				break;
 
 			case ID_EMULATION_RUN:
-				if (g_State.bEmuThreadStarted)
-				{
+				if (g_State.bEmuThreadStarted){
 					for (int i=0; i<numCPUs; i++)
 						if (disasmWindow[i])
 							SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
@@ -338,30 +325,28 @@ namespace MainWindow
 				break;
 
 			case ID_FILE_LOADSTATEFILE:
-				if (g_State.bEmuThreadStarted)
-				{
+				if (g_State.bEmuThreadStarted){
 					nextState = Core_IsStepping() ? CORE_STEPPING : CORE_RUNNING;
 					for (int i=0; i<numCPUs; i++)
 						if (disasmWindow[i])
 							SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
 				}
-				if (W32Util::BrowseForFileName(true, hWnd, "Load state",0,"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0","ppst",fn))
-				{
+				
+				if (W32Util::BrowseForFileName(true, hWnd, "Load state",0,"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0","ppst",fn)){
 					SetCursor(LoadCursor(0,IDC_WAIT));
 					SaveState::Load(fn, SaveStateActionFinished);
 				}
 				break;
 
 			case ID_FILE_SAVESTATEFILE:
-				if (g_State.bEmuThreadStarted)
-				{
+				if (g_State.bEmuThreadStarted){
 					nextState = Core_IsStepping() ? CORE_STEPPING : CORE_RUNNING;
 					for (int i=0; i<numCPUs; i++)
 						if (disasmWindow[i])
 							SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
 				}
-				if (W32Util::BrowseForFileName(false, hWnd, "Save state",0,"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0","ppst",fn))
-				{
+				
+				if (W32Util::BrowseForFileName(false, hWnd, "Save state",0,"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0","ppst",fn)){
 					SetCursor(LoadCursor(0,IDC_WAIT));
 					SaveState::Save(fn, SaveStateActionFinished);
 				}
@@ -370,8 +355,7 @@ namespace MainWindow
 			// TODO: Add UI for multiple slots
 
 			case ID_FILE_QUICKLOADSTATE:
-				if (g_State.bEmuThreadStarted)
-				{
+				if (g_State.bEmuThreadStarted){
 					nextState = Core_IsStepping() ? CORE_STEPPING : CORE_RUNNING;
 					for (int i=0; i<numCPUs; i++)
 						if (disasmWindow[i])
@@ -382,8 +366,7 @@ namespace MainWindow
 				break;
 
 			case ID_FILE_QUICKSAVESTATE:
-				if (g_State.bEmuThreadStarted)
-				{
+				if (g_State.bEmuThreadStarted){
 					nextState = Core_IsStepping() ? CORE_STEPPING : CORE_RUNNING;
 					for (int i=0; i<numCPUs; i++)
 						if (disasmWindow[i])
@@ -452,10 +435,9 @@ namespace MainWindow
 				break;
 
 			case ID_DEBUG_LOADMAPFILE:
-				if (W32Util::BrowseForFileName(true, hWnd, "Load .MAP",0,"Maps\0*.map\0All files\0*.*\0\0","map",fn))
-				{
+				if (W32Util::BrowseForFileName(true, hWnd, "Load .MAP",0,"Maps\0*.map\0All files\0*.*\0\0","map",fn)){
 					symbolMap.LoadSymbolMap(fn.c_str());
-//					HLE_PatchFunctions();
+					//HLE_PatchFunctions();
 					for (int i=0; i<numCPUs; i++)
 						if (disasmWindow[i])
 							disasmWindow[i]->NotifyMapLoaded();
@@ -496,6 +478,7 @@ namespace MainWindow
 				break;
 
 			case ID_OPTIONS_FULLSCREEN:
+				g_Config.bFullScreen = !g_Config.bFullScreen ;
 				if(g_bFullScreen) {
 					_ViewNormal(hWnd); 
 				} else {
@@ -546,11 +529,11 @@ namespace MainWindow
 				DialogManager::EnableAll(TRUE);
 				break;
 
-      case ID_HELP_OPENWEBSITE:
+      			case ID_HELP_OPENWEBSITE:
 				ShellExecute(NULL, "open", "http://www.ppsspp.org/", NULL, NULL, SW_SHOWNORMAL);
-        break;
+        			break;
 
-      case ID_HELP_ABOUT:
+      			case ID_HELP_ABOUT:
 				DialogManager::EnableAll(FALSE);
 				DialogBox(hInst, (LPCTSTR)IDD_ABOUTBOX, hWnd, (DLGPROC)About);
 				DialogManager::EnableAll(TRUE);
@@ -574,12 +557,9 @@ namespace MainWindow
 			{
 				HDROP hdrop = (HDROP)wParam;
 				int count = DragQueryFile(hdrop,0xFFFFFFFF,0,0);
-				if (count != 1)
-				{
+				if (count != 1){
 					MessageBox(hwndMain,"You can only load one file at a time","Error",MB_ICONINFORMATION);
-				}
-				else
-				{
+				}else{
 					TCHAR filename[512];
 					DragQueryFile(hdrop,0,filename,512);
 					TCHAR *type = filename+_tcslen(filename)-3;
@@ -599,8 +579,7 @@ namespace MainWindow
 					CCore::Start(0,filename,t);
 					*/
 
-					if (g_State.bEmuThreadStarted)
-					{
+					if (g_State.bEmuThreadStarted){
 						SendMessage(hWnd, WM_COMMAND, ID_EMULATION_STOP, 0);
 					}
 					
@@ -666,11 +645,11 @@ namespace MainWindow
 	void UpdateMenus()
 	{
 		HMENU menu = GetMenu(GetHWND());
-#define CHECKITEM(item,value) 	CheckMenuItem(menu,item,MF_BYCOMMAND | ((value) ? MF_CHECKED : MF_UNCHECKED));
+		#define CHECKITEM(item,value) 	CheckMenuItem(menu,item,MF_BYCOMMAND | ((value) ? MF_CHECKED : MF_UNCHECKED));
 
 		CHECKITEM(ID_EMULATION_SPEEDLIMIT,g_Config.bSpeedLimit);
-//		CHECK(ID_OPTIONS_ENABLEFRAMEBUFFER,g_Config.bEnableFrameBuffer);
-//		CHECK(ID_OPTIONS_EMULATESYSCALL,g_bEmulateSyscall);
+		//CHECK(ID_OPTIONS_ENABLEFRAMEBUFFER,g_Config.bEnableFrameBuffer);
+		//CHECK(ID_OPTIONS_EMULATESYSCALL,g_bEmulateSyscall);
 		CHECKITEM(ID_OPTIONS_DISPLAYRAWFRAMEBUFFER, g_Config.bDisplayFramebuffer);
 		CHECKITEM(ID_OPTIONS_IGNOREILLEGALREADS,g_Config.bIgnoreBadMemAccess);
 		CHECKITEM(ID_CPU_INTERPRETER,g_Config.iCpuCore == CPU_INTERPRETER);
@@ -722,17 +701,14 @@ namespace MainWindow
 
 
 	// Message handler for about box.
-	LRESULT CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
-	{
-		switch (message)
-		{
+	LRESULT CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam){
+		switch (message){
 		case WM_INITDIALOG:
 			W32Util::CenterWindow(hDlg);
 			return TRUE;
 
 		case WM_COMMAND:
-			if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL) 
-			{
+			if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL){
 				EndDialog(hDlg, LOWORD(wParam));
 				return TRUE;
 			}
@@ -760,10 +736,8 @@ namespace MainWindow
 		"Analog Right\tL",
 	};
 	// Message handler for about box.
-	LRESULT CALLBACK Controls(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
-	{
-		switch (message)
-		{
+	LRESULT CALLBACK Controls(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam){
+		switch (message){
 		case WM_INITDIALOG:
 			W32Util::CenterWindow(hDlg);
 			{
@@ -778,8 +752,7 @@ namespace MainWindow
 			return TRUE;
 
 		case WM_COMMAND:
-			if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL) 
-			{
+			if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL){
 				EndDialog(hDlg, LOWORD(wParam));
 				return TRUE;
 			}
@@ -788,19 +761,16 @@ namespace MainWindow
 		return FALSE;
 	}
 
-	void Update()
-	{
+	void Update(){
 		InvalidateRect(hwndDisplay,0,0);
 		UpdateWindow(hwndDisplay);
 		SendMessage(hwndMain,WM_SIZE,0,0);
 	}
 
-	void Redraw()
-	{
+	void Redraw(){
 		InvalidateRect(hwndDisplay,0,0);
 	}
-	void _ViewNormal(HWND hWnd)
-	{
+	void _ViewNormal(HWND hWnd){
 		// put caption and border styles back
 		DWORD dwOldStyle = ::GetWindowLong(hWnd, GWL_STYLE);
 		DWORD dwNewStyle = dwOldStyle | WS_CAPTION | WS_THICKFRAME;
@@ -822,8 +792,7 @@ namespace MainWindow
 		ResizeDisplay();
 	}
 
-	void _ViewFullScreen(HWND hWnd)
-	{
+	void _ViewFullScreen(HWND hWnd){
 		// keep in mind normal window rectangle
 		::GetWindowRect(hWnd, &g_normalRC);
 
@@ -848,8 +817,7 @@ namespace MainWindow
 		ResizeDisplay();
 	}
 
-	void SetPlaying(const char *text)
-	{
+	void SetPlaying(const char *text){
 		if (text == 0)
 			SetWindowText(hwndMain,programname);
 		else
@@ -860,28 +828,24 @@ namespace MainWindow
 		}
 	}
 
-	void SaveStateActionFinished(bool result, void *userdata)
-	{
+	void SaveStateActionFinished(bool result, void *userdata){
 		// TODO: Improve messaging?
 		if (!result)
 			MessageBox(0, "Savestate failure.  Please try again later.", "Sorry", MB_OK);
 		SetCursor(LoadCursor(0, IDC_ARROW));
 
-		if (g_State.bEmuThreadStarted && nextState == CORE_RUNNING)
-		{
+		if (g_State.bEmuThreadStarted && nextState == CORE_RUNNING){
 			for (int i=0; i<numCPUs; i++)
 				if (disasmWindow[i])
 					SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_GO, 0);
 		}
 	}
 
-	void SetNextState(CoreState state)
-	{
+	void SetNextState(CoreState state){
 		nextState = state;
 	}
 
-	HINSTANCE GetHInstance()
-	{
+	HINSTANCE GetHInstance(){
 		return hInst;
 	}
 }
