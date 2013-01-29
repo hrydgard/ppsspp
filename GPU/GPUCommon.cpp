@@ -64,13 +64,15 @@ bool GPUCommon::InterpretList(DisplayList &list)
 	u32 op = 0;
 	prev = 0;
 	finished = false;
+
+	if (!Memory::IsValidAddress(list.pc)) {
+		ERROR_LOG(G3D, "DL PC = %08x WTF!!!!", list.pc);
+		return true;
+	}
+
 	while (!finished)
 	{
 		list.status = PSP_GE_LIST_DRAWING;
-		if (!Memory::IsValidAddress(list.pc)) {
-			ERROR_LOG(G3D, "DL PC = %08x WTF!!!!", list.pc);
-			return true;
-		}
 		if (list.pc == list.stall)
 		{
 			list.status = PSP_GE_LIST_STALL_REACHED;

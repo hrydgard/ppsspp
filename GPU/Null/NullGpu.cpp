@@ -108,6 +108,11 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 			u32 target = (((gstate.base & 0x00FF0000) << 8) | (op & 0xFFFFFC)) & 0x0FFFFFFF;
 			DEBUG_LOG(G3D,"DL CMD JUMP - %08x to %08x", currentList->pc, target);
 			currentList->pc = target - 4; // pc will be increased after we return, counteract that
+			if (!Memory::IsValidAddress(currentList->pc))
+			{
+				ERROR_LOG(G3D, "Invalid DL PC %08x on jump", currentList->pc);
+				finished = true;
+			}
 		}
 		break;
 
@@ -118,6 +123,11 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 			u32 target = (((gstate.base & 0x00FF0000) << 8) | (op & 0xFFFFFC)) & 0xFFFFFFF;
 			DEBUG_LOG(G3D,"DL CMD CALL - %08x to %08x, ret=%08x", currentList->pc, target, retval);
 			currentList->pc = target - 4;	// pc will be increased after we return, counteract that
+			if (!Memory::IsValidAddress(currentList->pc))
+			{
+				ERROR_LOG(G3D, "Invalid DL PC %08x on call", currentList->pc);
+				finished = true;
+			}
 		}
 		break;
 
@@ -127,6 +137,11 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 			u32 target = stack[--stackptr] & 0xFFFFFFF; 
 			DEBUG_LOG(G3D,"DL CMD RET - from %08x to %08x", currentList->pc, target);
 			currentList->pc = target - 4;
+			if (!Memory::IsValidAddress(currentList->pc))
+			{
+				ERROR_LOG(G3D, "Invalid DL PC %08x on return", currentList->pc);
+				finished = true;
+			}
 		}
 		break;
 
