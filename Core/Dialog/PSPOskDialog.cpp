@@ -102,7 +102,7 @@ void PSPOskDialog::RenderKeyboard()
 	char temp[2];
 	temp[1] = '\0';
 
-	int limit = oskData.outtextlimit;
+	u32 limit = oskData.outtextlimit;
 	// TODO: Test more thoroughly.  Encountered a game where this was 0.
 	if (limit <= 0)
 		limit = 16;
@@ -112,10 +112,10 @@ void PSPOskDialog::RenderKeyboard()
 	float title = (480.0f - (7.0f * limit)) / 2.0f;
 
 	PPGeDrawText(oskDesc.c_str(), title , 20, PPGE_ALIGN_CENTER, 0.5f, CalcFadedColor(0xFFFFFFFF));
-	for (int i = 0; i < limit; ++i)
+	for (u32 i = 0; i < limit; ++i)
 	{
 		u32 color = CalcFadedColor(0xFFFFFFFF);
-		if (i < (int) inputChars.size())
+		if (i < inputChars.size())
 			temp[0] = inputChars[i];
 		else if (i == inputChars.size())
 		{
@@ -151,7 +151,7 @@ int PSPOskDialog::Update()
 	int selectedRow = selectedChar / KEYSPERROW;
 	int selectedExtra = selectedChar % KEYSPERROW;
 
-	int limit = oskData.outtextlimit;
+	u32 limit = oskData.outtextlimit;
 	// TODO: Test more thoroughly.  Encountered a game where this was 0.
 	if (limit <= 0)
 		limit = 16;
@@ -201,7 +201,7 @@ int PSPOskDialog::Update()
 
 		if (IsButtonPressed(CTRL_CROSS))
 		{
-			if ((int) inputChars.size() < limit)
+			if (inputChars.size() < limit)
 				inputChars += oskKeys[selectedRow][selectedExtra];
 		}
 		else if (IsButtonPressed(CTRL_CIRCLE))
@@ -220,15 +220,15 @@ int PSPOskDialog::Update()
 		status = SCE_UTILITY_STATUS_SHUTDOWN;
 	}
 
-	for (int i = 0; i < limit; ++i)
+	for (u32 i = 0; i < limit; ++i)
 	{
 		u16 value = 0;
-		if (i < (int) inputChars.size())
+		if (i < inputChars.size())
 			value = 0x0000 ^ inputChars[i];
 		Memory::Write_U16(value, oskData.outtextPtr + (2 * i));
 	}
 
-	oskData.outtextlength = (int) inputChars.size();
+	oskData.outtextlength = inputChars.size();
 	oskParams.base.result= 0;
 	oskData.result = PSP_UTILITY_OSK_RESULT_CHANGED;
 	Memory::WriteStruct(oskParams.SceUtilityOskDataPtr, &oskData);
