@@ -34,6 +34,8 @@ public:
 	bool ReadSFO(const u8 *paramsfo, size_t size);
 	bool WriteSFO(u8 **paramsfo, size_t *size);
 
+	int GetDataOffset(const u8 *paramsfo, std::string dataName);
+
 private:
 	enum ValueType
 	{

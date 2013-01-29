@@ -89,6 +89,7 @@ int PSPSaveDialog::Init(int paramAddr)
 		case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATASECURE:
 		case SCE_UTILITY_SAVEDATA_TYPE_WRITEDATASECURE:
 		case SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE:
+		case SCE_UTILITY_SAVEDATA_TYPE_SINGLEDELETE:
 			display = DS_NONE;
 			break;
 		case SCE_UTILITY_SAVEDATA_TYPE_DELETE: // This run on PSP display a list of all save on the PSP. Weird. (Not really, it's to let you free up space)
@@ -733,6 +734,17 @@ int PSPSaveDialog::Update()
 					else
 					{
 						param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
+					}
+					status = SCE_UTILITY_STATUS_FINISHED;
+				break;
+				case SCE_UTILITY_SAVEDATA_TYPE_SINGLEDELETE:
+					if(param.Delete(param.GetPspParam()), param.GetSelectedSave())
+					{
+						param.GetPspParam()->result = 0;
+					}
+					else
+					{
+						param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_DELETE_NO_DATA;
 					}
 					status = SCE_UTILITY_STATUS_FINISHED;
 				break;

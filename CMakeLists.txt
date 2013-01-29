@@ -680,6 +680,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceAtrac.h
 	Core/HLE/sceAudio.cpp
 	Core/HLE/sceAudio.h
+	Core/HLE/sceChnnlsv.cpp
+	Core/HLE/sceChnnlsv.h
 	Core/HLE/sceCtrl.cpp
 	Core/HLE/sceCtrl.h
 	Core/HLE/sceDisplay.cpp
