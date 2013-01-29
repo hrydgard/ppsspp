@@ -47,6 +47,19 @@ struct ArmJitState
 	ArmJitBlock *curBlock;
 };
 
+
+enum CompileDelaySlotFlags
+{
+	// Easy, nothing extra.
+	DELAYSLOT_NICE = 0,
+	// Flush registers after delay slot.
+	DELAYSLOT_FLUSH = 1,
+	// Preserve flags.
+	DELAYSLOT_SAFE = 2,
+	// Flush registers after and preserve flags.
+	DELAYSLOT_SAFE_FLUSH = DELAYSLOT_FLUSH | DELAYSLOT_SAFE,
+};
+
 class Jit : public ArmGen::ARMXCodeBlock
 {
 public:
@@ -62,6 +75,7 @@ public:
 	void Compile(u32 em_address);	// Compiles a block at current MIPS PC
 	const u8 *DoJit(u32 em_address, ArmJitBlock *b);
 
+	void CompileDelaySlot(int flags);
 	void CompileAt(u32 addr);
 	void Comp_RunBlock(u32 op);
 
@@ -99,8 +113,7 @@ private:
 	void GenerateFixedCode();
 	void FlushAll();
 
-	// TODO: Split into two parts, the first part can be shared in branches.
-	void DoDownCount();
+	void WriteDownCount(int offset = 0);
 	void MovFromPC(ARMReg r);
 	void MovToPC(ARMReg r);
 
@@ -117,6 +130,8 @@ private:
 	// Utilities to reduce duplicated code
 	void CompImmLogic(int rs, int rt, u32 uimm, void (ARMXEmitter::*arith)(ARMReg dst, ARMReg src, Operand2 op2), u32 (*eval)(u32 a, u32 b));
 	void CompShiftImm(u32 op, ArmGen::ShiftType shiftType);
+
+	void LogBlockNumber();
 		/*
 	void CompImmLogic(u32 op, void (ARMXEmitter::*arith)(int, const OpArg &, const OpArg &));
 	void CompTriArith(u32 op, void (ARMXEmitter::*arith)(int, const OpArg &, const OpArg &));

@@ -88,6 +88,25 @@ void Jit::CompileAt(u32 addr)
 	MIPSCompileOp(op);
 }
 
+void Jit::CompileDelaySlot(int flags)
+{
+	// preserve flag around the delay slot! Maybe this is not always necessary on ARM where 
+	// we can (mostly) control whether we set the flag or not. Of course, if someone puts an slt in to the
+	// delay slot, we're screwed.
+	if (flags & DELAYSLOT_SAFE)
+		MRS(R8);  // Save flags register. R8 is preserved through function calls and is not allocated.
+	
+	js.inDelaySlot = true;
+	u32 op = Memory::Read_Instruction(js.compilerPC + 4);
+	MIPSCompileOp(op);
+	js.inDelaySlot = false;
+
+	if (flags & DELAYSLOT_FLUSH)
+		FlushAll();
+	if (flags & DELAYSLOT_SAFE)
+		_MSR(true, false, R8);  // Restore flags register
+}
+
 void Jit::Compile(u32 em_address)
 {
 	if (GetSpaceLeft() < 0x10000 || blocks.IsFull())
@@ -209,18 +228,19 @@ void Jit::MovToPC(ARMReg r) {
 	STR(R10, r, offsetof(MIPSState, pc));
 }
 
-void Jit::DoDownCount()
+void Jit::WriteDownCount(int offset)
 {
+	int theDowncount = js.downcountAmount + offset;
 	LDR(R1, R10, offsetof(MIPSState, downcount));
 	Operand2 op2;
-	if (TryMakeOperand2(js.downcountAmount, op2)) // We can enlarge this if we used rotations
+	if (TryMakeOperand2(theDowncount, op2)) // We can enlarge this if we used rotations
 	{
 		SUBS(R1, R1, op2);
 		STR(R10, R1, offsetof(MIPSState, downcount));
 	} else {
 		// Should be fine to use R2 here, flushed the regcache anyway.
 		// If js.downcountAmount can be expressed as an Imm8, we don't need this anyway.
-		ARMABI_MOVI2R(R2, js.downcountAmount);
+		ARMABI_MOVI2R(R2, theDowncount);
 		SUBS(R1, R1, R2);
 		STR(R10, R1, offsetof(MIPSState, downcount));
 	}
@@ -232,7 +252,7 @@ void Jit::DoDownCount()
 // I don't think this gives us that much benefit.
 void Jit::WriteExit(u32 destination, int exit_num)
 {
-	DoDownCount(); 
+	WriteDownCount(); 
 	//If nobody has taken care of this yet (this can be removed when all branches are done)
 	ArmJitBlock *b = js.curBlock;
 	b->exitAddress[exit_num] = destination;
@@ -254,15 +274,20 @@ void Jit::WriteExit(u32 destination, int exit_num)
 void Jit::WriteExitDestInR(ARMReg Reg) 
 {
 	MovToPC(Reg);
-	DoDownCount();
+	WriteDownCount();
 	// TODO: shouldn't need an indirect branch here...
 	B((const void *)dispatcher);
 }
 
 void Jit::WriteSyscallExit()
 {
-	DoDownCount();
+	WriteDownCount();
 	B((const void *)dispatcherCheckCoreState);
+}
+
+void Jit::LogBlockNumber()
+{
+	INFO_LOG(CPU, "Block number: %i", blocks.GetNumBlocks() - 1);
 }
 
 

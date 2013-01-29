@@ -99,12 +99,20 @@ void Jit::GenerateFixedCode()
 
 	PUSH(9, R4, R5, R6, R7, R8, R9, R10, R11, _LR);
 	// Take care to 8-byte align stack for function calls.
-	// This actually misaligns the stack within the JIT itself but that doesn't really matter
-	// as the JIT does not use the stack at all.
+	// We are misaligned here because of an odd number of args for PUSH.
+	// It's not like x86 where you need to account for an extra 4 bytes
+	// consumed by CALL.
 	SUB(_SP, _SP, 4);
+	// Now we are correctly aligned and plan to stay that way.
+
+	// TODO: R12 should be usable for regalloc but will get thrashed by C code.
 
 	// Fixed registers, these are always kept when in Jit context.
 	// R13 cannot be used as it's the stack pointer.
+	// TODO: Consider statically allocating:
+	//   * downcount
+	//   * R2-R4
+	// Really starting to run low on registers already though...
 	ARMABI_MOVI2R(R11, (u32)Memory::base);
 	ARMABI_MOVI2R(R10, (u32)mips_);
 	ARMABI_MOVI2R(R9, (u32)GetBlockCache()->GetCodePointers());

@@ -95,8 +95,12 @@ namespace MIPSComp
 			{
 				gpr.MapDirtyIn(rt, rs);
 				Operand2 op2;
-				if (TryMakeOperand2(simm, op2)) {
-					CMP(gpr.R(rs), op2);
+				bool negated;
+				if (TryMakeOperand2_AllowNegation(simm, op2, &negated)) {
+					if (!negated)
+						CMP(gpr.R(rs), op2);
+					else
+						CMN(gpr.R(rs), op2);
 				} else {
 					ARMABI_MOVI2R(R0, simm);
 					CMP(gpr.R(rs), R0);
@@ -108,13 +112,18 @@ namespace MIPSComp
 				SetCC(CC_AL);
 			}
 			break;
-		/*
+
 		case 11: // R(rt) = R(rs) < uimm; break; //sltiu
 			{
+				LogBlockNumber();
 				gpr.MapDirtyIn(rt, rs);
 				Operand2 op2;
-				if (TryMakeOperand2(uimm, op2)) {
-					CMP(gpr.R(rs), op2);
+				bool negated;
+				if (TryMakeOperand2_AllowNegation(uimm, op2, &negated)) {
+					if (!negated)
+						CMP(gpr.R(rs), op2);
+					else
+						CMN(gpr.R(rs), op2);
 				} else {
 					ARMABI_MOVI2R(R0, uimm);
 					CMP(gpr.R(rs), R0);
@@ -126,7 +135,7 @@ namespace MIPSComp
 				SetCC(CC_AL);
 			}
 			break;
-			*/
+
 		case 15: // R(rt) = uimm << 16;	 //lui
 			gpr.SetImm(rt, uimm << 16);
 			break;

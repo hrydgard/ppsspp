@@ -79,20 +79,6 @@ typedef void (*CompiledCode)();
 
 class ArmJitBlockCache
 {
-	MIPSState *mips;
-	const u8 **blockCodePointers;
-	ArmJitBlock *blocks;
-	int num_blocks;
-	std::multimap<u32, int> links_to;
-	std::map<std::pair<u32,u32>, u32> block_map; // (end_addr, start_addr) -> number
-
-	int MAX_NUM_BLOCKS;
-
-	bool RangeIntersect(int s1, int e1, int s2, int e2) const;
-	void LinkBlockExits(int i);
-	void LinkBlock(int i);
-	void UnlinkBlock(int i);
-
 public:
 	ArmJitBlockCache(MIPSState *mips_) :
 		mips(mips_), blockCodePointers(0), blocks(0), num_blocks(0),
@@ -134,4 +120,19 @@ public:
 
 	// Not currently used
 	//void DestroyBlocksWithFlag(BlockFlag death_flag);
+
+private:
+	MIPSState *mips;
+	const u8 **blockCodePointers;
+	ArmJitBlock *blocks;
+	int num_blocks;
+	std::multimap<u32, int> links_to;
+	std::map<std::pair<u32,u32>, u32> block_map; // (end_addr, start_addr) -> number
+
+	int MAX_NUM_BLOCKS;
+
+	bool RangeIntersect(int s1, int e1, int s2, int e2) const;
+	void LinkBlockExits(int i);
+	void LinkBlock(int i);
+	void UnlinkBlock(int i);
 };
