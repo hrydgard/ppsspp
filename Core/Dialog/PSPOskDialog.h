@@ -115,13 +115,13 @@ typedef struct _SceUtilityOskData
 	/** Initial text */
 	u32 intextPtr;
 	/** Length of output text */
-	int outtextlength;
+	u32 outtextlength;
 	/** Pointer to the output text */
 	u32 outtextPtr;
 	/** Result. One of ::SceUtilityOskResult */
 	int result;
 	/** The max text that can be input */
-	int outtextlimit;
+	u32 outtextlimit;
 
 } SceUtilityOskData;
 
