@@ -19,6 +19,8 @@
 
 #include <string>
 
+#define PPSSPP_VERSION_STR "0.6.1"
+
 
 struct SState
 {

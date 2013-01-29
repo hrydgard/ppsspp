@@ -1,9 +1,5 @@
 // NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
 
-
-#define programname "PPSSPP v0.6"
-
-
 #include <windows.h>
 #include <tchar.h>
 #include "../globals.h"
@@ -851,11 +847,11 @@ namespace MainWindow
 	void SetPlaying(const char *text)
 	{
 		if (text == 0)
-			SetWindowText(hwndMain,programname);
+			SetWindowText(hwndMain, "PPSSPP " PPSSPP_VERSION_STR);
 		else
 		{
 			char temp[256];
-			sprintf(temp, "%s - %s", text, programname);
+			sprintf(temp, "%s - %s", text, "PPSSPP " PPSSPP_VERSION_STR);
 			SetWindowText(hwndMain,temp);
 		}
 	}

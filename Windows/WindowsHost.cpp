@@ -1,4 +1,5 @@
-#include "../Core/Core.h"
+#include "Core/Core.h"
+#include "Core/Config.h"
 #include "EmuThread.h"
 #include "DSoundStream.h"
 #include "WindowsHost.h"
@@ -38,7 +39,7 @@ void WindowsHost::ShutdownGL()
 void WindowsHost::SetWindowTitle(const char *message)
 {
 	// Really need a better way to deal with versions.
-	std::string title = "PPSSPP v0.6 - ";
+	std::string title = PPSSPP_VERSION_STR " - ";
 	title += message;
 
 	int size = MultiByteToWideChar(CP_UTF8, 0, message, (int) title.size(), NULL, 0);
