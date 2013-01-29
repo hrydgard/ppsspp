@@ -635,12 +635,11 @@ void TextureCache::SetTexture() {
 		// If it's not huge or has been invalidated many times, recheck the whole texture.
 		if (entry.invalidHint > 180 || (entry.invalidHint > 15 && dim <= 0x909)) {
 			entry.invalidHint = 0;
-			int bufw = gstate.texbufwidth[0] & 0x3ff;
-			int h = 1 << ((gstate.texsize[0]>>8) & 0xf);
 
 			u32 check = 0;
-			for (int i = 0; i < bufw * h; i += 4) {
-				check += Memory::ReadUnchecked_U32(texaddr + i);
+			u32 *checkp = (u32 *) Memory::GetPointer(texaddr);
+			for (u32 i = 0; i < (entry.sizeInRAM * 2) / 4; ++i) {
+				check += *checkp++;
 			}
 
 			if (check != entry.fullhash) {
@@ -694,8 +693,9 @@ void TextureCache::SetTexture() {
 	// to avoid excessive clearing caused by cache invalidations.
 	entry.sizeInRAM = (bitsPerPixel[format < 11 ? format : 0] * bufw * h / 2) / 8;
 
-	for (int i = 0; i < bufw * h; i += 4)
-		entry.fullhash += Memory::ReadUnchecked_U32(texaddr + i);
+	u32 *checkp = (u32 *) Memory::GetPointer(texaddr);
+	for (u32 i = 0; i < (entry.sizeInRAM * 2) / 4; ++i)
+		entry.fullhash += *checkp++;
 
 	gstate_c.curTextureWidth=w;
 	gstate_c.curTextureHeight=h;
