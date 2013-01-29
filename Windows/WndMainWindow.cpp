@@ -496,6 +496,7 @@ namespace MainWindow
 				break;
 
 			case ID_OPTIONS_FULLSCREEN:
+				g_Config.bFullScreen = !g_Config.bFullScreen ;
 				if(g_bFullScreen) {
 					_ViewNormal(hWnd); 
 				} else {
