@@ -548,6 +548,12 @@ u32 scePsmfGetPsmfVersion(u32 psmfStruct)
 	return psmf->version;
 }
 
+u32 scePsmfVerifyPsmf(u32 psmfAddr)
+{
+	ERROR_LOG(HLE, "UNIMPLEMENTED scePsmfVerifyPsmf(%08x)", psmfAddr);
+	return 0;
+}
+
 u32 scePsmfGetNumberOfEPentries(u32 psmfStruct)
 {
 	DEBUG_LOG(HLE, "scePsmfGetNumberOfEPentries(%08x)", psmfStruct);
@@ -976,7 +982,7 @@ const HLEFunction scePsmf[] = {
 	{0xB78EB9E9, WrapU_UU<scePsmfGetHeaderSize>, "scePsmfGetHeaderSize"},
 	{0xA5EBFE81, WrapU_UU<scePsmfGetStreamSize>, "scePsmfGetStreamSize"},
 	{0xE1283895, WrapU_U<scePsmfGetPsmfVersion>, "scePsmfGetPsmfVersion"},
-	{0x2673646B, 0, "scePsmfVerifyPsmf"},
+	{0x2673646B, WrapU_U<scePsmfVerifyPsmf>, "scePsmfVerifyPsmf"},
 	{0x4E624A34, WrapU_UIU<scePsmfGetEPWithId>, "scePsmfGetEPWithId"},
 	{0x7C0E7AC3, WrapU_UUU<scePsmfGetEPWithTimestamp>, "scePsmfGetEPWithTimestamp"},
 	{0x5F457515, WrapU_UU<scePsmfGetEPidWithTimestamp>, "scePsmfGetEPidWithTimestamp"},
