@@ -66,7 +66,8 @@ private:
 	CRITICAL_SECTION criticalSection;
 
 	ConsolePendingEvent *logPending;
-	volatile u32 logPendingSize;
+	volatile u32 logPendingReadPos;
+	volatile u32 logPendingWritePos;
 #endif
 	bool bHidden;
 	bool bUseColor;

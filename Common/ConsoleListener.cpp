@@ -35,7 +35,6 @@
 #ifdef _WIN32
 const int LOG_PENDING_MAX = 10000;
 const int LOG_LATENCY_DELAY_MS = 20;
-const int LOG_WORST_DELAY_MS = 5;
 const int LOG_SHUTDOWN_DELAY_MS = 250;
 const int LOG_MAX_DISPLAY_LINES = 4000;
 #endif
@@ -50,7 +49,8 @@ ConsoleListener::ConsoleListener()
 	hTriggerEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
 	InitializeCriticalSection(&criticalSection);
 	logPending = NULL;
-	logPendingSize = 0;
+	logPendingReadPos = 0;
+	logPendingWritePos = 0;
 #else
 	bUseColor = isatty(fileno(stdout));
 #endif
@@ -136,7 +136,7 @@ void ConsoleListener::Close()
 
 	if (hThread != NULL)
 	{
-		Common::AtomicStoreRelease(logPendingSize, (u32) -1);
+		Common::AtomicStoreRelease(logPendingWritePos, (u32) -1);
 
 		SetEvent(hTriggerEvent);
 		WaitForSingleObject(hThread, LOG_SHUTDOWN_DELAY_MS);
@@ -247,19 +247,40 @@ void ConsoleListener::LogWriterThread()
 		WaitForSingleObject(hTriggerEvent, INFINITE);
 		Sleep(LOG_LATENCY_DELAY_MS);
 
-		u32 logRemoteSize = Common::AtomicLoadAcquire(logPendingSize);
-		if (logRemoteSize == (u32) -1)
+		u32 logRemotePos = Common::AtomicLoadAcquire(logPendingWritePos);
+		if (logRemotePos == (u32) -1)
 			break;
-		else if (logRemoteSize == 0)
+		// TODO: if we're really unlucky, this could mean we're LOG_PENDING_MAX behind...
+		else if (logRemotePos == logPendingReadPos)
 			continue;
-		else if (logRemoteSize > 0)
+		else
 		{
 			EnterCriticalSection(&criticalSection);
-			// Copy down the events from the main thread so it can flush them.
-			memcpy(logLocal, logPending, logPendingSize * sizeof(ConsolePendingEvent));
-			logLocalSize = logPendingSize;
-			logPendingSize = 0;
+			logRemotePos = Common::AtomicLoadAcquire(logPendingWritePos);
+
+			int start = 0;
+			if (logRemotePos < logPendingReadPos)
+			{
+				const int count = LOG_PENDING_MAX - logPendingReadPos;
+				memcpy(logLocal + start, logPending + logPendingReadPos, count * sizeof(ConsolePendingEvent));
+				memset(logPending + logPendingReadPos, 0, count * sizeof(ConsolePendingEvent));
+
+				start = count;
+				logPendingReadPos = 0;
+			}
+
+			const int count = logRemotePos - logPendingReadPos;
+			memcpy(logLocal + start, logPending + logPendingReadPos, count * sizeof(ConsolePendingEvent));
+			memset(logPending + logPendingReadPos, 0, count * sizeof(ConsolePendingEvent));
+
 			LeaveCriticalSection(&criticalSection);
+
+			// Double check.
+			if (logPendingWritePos == (u32) -1)
+				break;
+
+			logLocalSize = start + count;
+			logPendingReadPos = count;
 		}
 
 		int start = 0;
@@ -269,12 +290,16 @@ void ConsoleListener::LogWriterThread()
 
 		for (int i = 0; i < start; ++i)
 		{
+			if (logLocal[i].Text == NULL)
+				continue;
 			// Allocated by main thread, but deallocated here.
 			delete [] logLocal[i].Text;
 		}
 
 		for (int i = start; i < logLocalSize; ++i)
 		{
+			if (logLocal[i].Text == NULL)
+				continue;
 			WriteToConsole(logLocal[i].Level, logLocal[i].Text);
 			// Allocated by main thread, but deallocated here.
 			delete [] logLocal[i].Text;
@@ -287,7 +312,7 @@ void ConsoleListener::LogWriterThread()
 void ConsoleListener::SendToThread(LogTypes::LOG_LEVELS Level, const char *Text)
 {
 	// Oops, we're already quitting.  Just do nothing.
-	if (logPendingSize == (u32) -1)
+	if (logPendingWritePos == (u32) -1)
 		return;
 
 	// Make a copy of Text (probably on stack or has its own lifecycle.)
@@ -295,22 +320,15 @@ void ConsoleListener::SendToThread(LogTypes::LOG_LEVELS Level, const char *Text)
 	char *TextCopy = new char[strlen(Text) + 1];
 	strcpy(TextCopy, Text);
 
-	if (logPendingSize >= LOG_PENDING_MAX)
-	{
-		// Hope that it's able to process some.
-		Sleep(LOG_WORST_DELAY_MS);
-
-		if (logPendingSize >= LOG_PENDING_MAX)
-		{
-			// TODO: Overwrite the last one with a message?
-			return;
-		}
-	}
+	if (logPendingWritePos >= LOG_PENDING_MAX)
+		logPendingWritePos = 0;
 
 	EnterCriticalSection(&criticalSection);
-	logPending[logPendingSize].Level = Level;
-	logPending[logPendingSize].Text = TextCopy;
-	++logPendingSize;
+	if (logPending[logPendingWritePos].Text != NULL)
+		delete [] logPending[logPendingWritePos].Text;
+	logPending[logPendingWritePos].Level = Level;
+	logPending[logPendingWritePos].Text = TextCopy;
+	Common::AtomicIncrement(logPendingWritePos);
 	LeaveCriticalSection(&criticalSection);
 
 	SetEvent(hTriggerEvent);
