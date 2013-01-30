@@ -68,11 +68,7 @@ private:
 	void BeginDebugDraw();
 	void EndDebugDraw();
 
-	// Deletes old FBOs.
-	void DecimateFBOs();
-	void DestroyAllFBOs();
-
-	FramebufferManager framebufferManager;
+	FramebufferManager framebufferManager_;
 	TextureCache textureCache_;
 	TransformDrawEngine transformDraw_;
 	ShaderManager *shaderManager_;
@@ -80,45 +76,4 @@ private:
 	u8 *flushBeforeCommand_;
 	bool interruptsEnabled_;
 	bool resized_;
-
-	u32 displayFramebufPtr_;
-	u32 displayStride_;
-	int displayFormat_;
-
-	struct CmdProcessorState {
-		u32 pc;
-		u32 stallAddr;
-		int subIntrBase;
-	};
-
-	struct VirtualFramebuffer {
-		int last_frame_used;
-
-		u32 fb_address;
-		u32 z_address;
-		int fb_stride;
-		int z_stride;
-
-		// There's also a top left of the drawing region, but meh...
-		int width;
-		int height;
-
-		int format;  // virtual, right now they are all RGBA8888
-		FBOColorDepth colorDepth;
-		FBO *fbo;
-	};
-
-	VirtualFramebuffer *displayFramebuf_;
-	VirtualFramebuffer *prevDisplayFramebuf_;
-	VirtualFramebuffer *prevPrevDisplayFramebuf_;
-
-	void SetRenderFrameBuffer();  // Uses parameters computed from gstate
-	// TODO: Break out into some form of FBO manager
-	VirtualFramebuffer *GetDisplayFBO();
-
-	std::list<VirtualFramebuffer *> vfbs_;
-
-	VirtualFramebuffer *currentRenderVfb_;
-
-	u8 bezierBuf[16000];
 };

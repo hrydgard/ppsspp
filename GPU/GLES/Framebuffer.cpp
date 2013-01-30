@@ -17,16 +17,20 @@
 
 #include "gfx_es2/glsl_program.h"
 #include "gfx_es2/gl_state.h"
+#include "gfx_es2/fbo.h"
+
 #include "math/lin/matrix4x4.h"
 
-#include "../../Core/Host.h"
-#include "../../Core/MemMap.h"
-#include "../ge_constants.h"
-#include "../GPUState.h"
+#include "Core/Host.h"
+#include "Core/MemMap.h"
+#include "Core/Config.h"
+#include "Core/System.h"
+#include "GPU/ge_constants.h"
+#include "GPU/GPUState.h"
 
-#include "Framebuffer.h"
+#include "GPU/GLES/Framebuffer.h"
 
-const char tex_fs[] =
+static const char tex_fs[] =
 	"#ifdef GL_ES\n"
 	"precision mediump float;\n"
 	"#endif\n"
@@ -36,7 +40,7 @@ const char tex_fs[] =
 	"	gl_FragColor = texture2D(sampler0, v_texcoord0);\n"
 	"}\n";
 
-const char basic_vs[] =
+static const char basic_vs[] =
 #ifndef USING_GLES2
 	"#version 120\n"
 #endif
@@ -50,7 +54,20 @@ const char basic_vs[] =
 	"  gl_Position = u_viewproj * a_position;\n"
 	"}\n";
 
-FramebufferManager::FramebufferManager() {
+// Aggressively delete unused FBO:s to save gpu memory.
+enum {
+	FBO_OLD_AGE = 5
+};
+
+static bool MaskedEqual(u32 addr1, u32 addr2) {
+	return (addr1 & 0x3FFFFFF) == (addr2 & 0x3FFFFFF);
+}
+
+FramebufferManager::FramebufferManager() :
+	displayFramebufPtr_(0),
+	prevDisplayFramebuf_(0),
+	prevPrevDisplayFramebuf_(0)
+{
 	glGenTextures(1, &backbufTex);
 
 	//initialize backbuffer texture
@@ -176,4 +193,208 @@ void FramebufferManager::DrawActiveTexture(float w, float h, bool flip) {
 	glDisableVertexAttribArray(draw2dprogram->a_position);
 	glDisableVertexAttribArray(draw2dprogram->a_texcoord0);
 	glsl_unbind();
+}
+
+FramebufferManager::VirtualFramebuffer *FramebufferManager::GetDisplayFBO() {
+	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
+		VirtualFramebuffer *v = *iter;
+		if (MaskedEqual(v->fb_address, displayFramebufPtr_) && v->format == displayFormat_) {
+			// Could check w too but whatever
+			return *iter;
+		}
+	}
+	DEBUG_LOG(HLE, "Finding no FBO matching address %08x", displayFramebufPtr_);
+#if 0  // defined(_DEBUG)
+	std::string debug = "FBOs: ";
+	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
+		char temp[256];
+		sprintf(temp, "%08x %i %i", (*iter)->fb_address, (*iter)->width, (*iter)->height);
+		debug += std::string(temp);
+	}
+	ERROR_LOG(HLE, "FBOs: %s", debug.c_str());
+#endif
+	return 0;
+}
+
+void FramebufferManager::SetRenderFrameBuffer() {
+	if (!g_Config.bBufferedRendering)
+		return;
+	// Get parameters
+	u32 fb_address = (gstate.fbptr & 0xFFE000) | ((gstate.fbwidth & 0xFF0000) << 8);
+	int fb_stride = gstate.fbwidth & 0x3C0;
+
+	u32 z_address = (gstate.zbptr & 0xFFE000) | ((gstate.zbwidth & 0xFF0000) << 8);
+	int z_stride = gstate.zbwidth & 0x3C0;
+
+	// Yeah this is not completely right. but it'll do for now.
+	int drawing_width = ((gstate.region2) & 0x3FF) + 1;
+	int drawing_height = ((gstate.region2 >> 10) & 0x3FF) + 1;
+
+	// HACK for first frame where some games don't init things right
+	if (drawing_width == 1 && drawing_height == 1) {
+		drawing_width = 480;
+		drawing_height = 272;
+	}
+
+	int fmt = gstate.framebufpixformat & 3;
+
+	// Find a matching framebuffer
+	VirtualFramebuffer *vfb = 0;
+	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
+		VirtualFramebuffer *v = *iter;
+		if (MaskedEqual(v->fb_address, fb_address) && v->width == drawing_width && v->height == drawing_height && v->format == fmt) {
+			// Let's not be so picky for now. Let's say this is the one.
+			vfb = v;
+			// Update fb stride in case it changed
+			vfb->fb_stride = fb_stride;
+			break;
+		}
+	}
+
+	// None found? Create one.
+	if (!vfb) {
+		gstate_c.textureChanged = true;
+		vfb = new VirtualFramebuffer();
+		vfb->fb_address = fb_address;
+		vfb->fb_stride = fb_stride;
+		vfb->z_address = z_address;
+		vfb->z_stride = z_stride;
+		vfb->width = drawing_width;
+		vfb->height = drawing_height;
+		vfb->format = fmt;
+
+		vfb->colorDepth = FBO_8888;
+		switch (fmt) {
+		case GE_FORMAT_4444: vfb->colorDepth = FBO_4444;
+		case GE_FORMAT_5551: vfb->colorDepth = FBO_5551;
+		case GE_FORMAT_565: vfb->colorDepth = FBO_565;
+		case GE_FORMAT_8888: vfb->colorDepth = FBO_8888;
+		}
+		//#ifdef ANDROID
+		//	vfb->colorDepth = FBO_8888;
+		//#endif
+		float renderWidthFactor = (float)PSP_CoreParameter().renderWidth / 480.0f;
+		float renderHeightFactor = (float)PSP_CoreParameter().renderHeight / 272.0f;
+		vfb->fbo = fbo_create((int)(vfb->width * renderWidthFactor), (int)(vfb->height * renderHeightFactor), 1, true, vfb->colorDepth);
+
+		vfb->last_frame_used = gpuStats.numFrames;
+		vfbs_.push_back(vfb);
+		fbo_bind_as_render_target(vfb->fbo);
+		glEnable(GL_DITHER);
+		glstate.viewport.set(0, 0, PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
+		currentRenderVfb_ = vfb;
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+		INFO_LOG(HLE, "Creating FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
+		return;
+	}
+
+	if (vfb != currentRenderVfb_) {
+		// Use it as a render target.
+		DEBUG_LOG(HLE, "Switching render target to FBO for %08x", vfb->fb_address);
+		gstate_c.textureChanged = true;
+		fbo_bind_as_render_target(vfb->fbo);
+
+#ifdef USING_GLES2
+		// Tiled renderers benefit IMMENSELY from clearing an FBO before rendering
+		// to it. Let's hope this doesn't break too many things...
+		// It did, will have to find a better solution like clearing only if this is
+		// the first time the buffer is bound on this frame.
+		// glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+#endif
+		glstate.viewport.set(0, 0, PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
+		currentRenderVfb_ = vfb;
+		vfb->last_frame_used = gpuStats.numFrames;
+	}
+}
+
+
+void FramebufferManager::CopyDisplayToOutput() {
+	fbo_unbind();
+
+	VirtualFramebuffer *vfb = GetDisplayFBO();
+	if (!vfb) {
+		DEBUG_LOG(HLE, "Found no FBO! displayFBPtr = %08x", displayFramebufPtr_);
+		// No framebuffer to display! Clear to black.
+		glClearColor(0,0,0,1);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+		return;
+	}
+
+	prevPrevDisplayFramebuf_ = prevDisplayFramebuf_;
+	prevDisplayFramebuf_ = displayFramebuf_;
+	displayFramebuf_ = vfb;
+
+	glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+
+	currentRenderVfb_ = 0;
+
+	DEBUG_LOG(HLE, "Displaying FBO %08x", vfb->fb_address);
+	glstate.blend.disable();
+	glstate.cullFace.disable();
+	glstate.depthTest.disable();
+	glstate.scissorTest.disable();
+
+	fbo_bind_color_as_texture(vfb->fbo, 0);
+
+	// These are in the output display coordinates
+	DrawActiveTexture(480, 272, true);
+
+	if (resized_) {
+		DestroyAllFBOs();
+		glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+		resized_ = false;
+	}
+}
+
+void FramebufferManager::BeginFrame() {
+	DecimateFBOs();
+	// NOTE - this is all wrong. At the beginning of the frame is a TERRIBLE time to draw the fb.
+	if (g_Config.bDisplayFramebuffer && displayFramebufPtr_) {
+		INFO_LOG(HLE, "Drawing the framebuffer");
+		const u8 *pspframebuf = Memory::GetPointer((0x44000000) | (displayFramebufPtr_ & 0x1FFFFF));	// TODO - check
+		glstate.cullFace.disable();
+		glstate.depthTest.disable();
+		glstate.blend.disable();
+		DrawPixels(pspframebuf, displayFormat_, displayStride_);
+		// TODO: restore state?
+	}
+	currentRenderVfb_ = 0;
+}
+
+void FramebufferManager::SetDisplayFramebuffer(u32 framebuf, u32 stride, int format) {
+	if (framebuf & 0x04000000) {
+		//DEBUG_LOG(G3D, "Switch display framebuffer %08x", framebuf);
+		displayFramebufPtr_ = framebuf;
+		displayStride_ = stride;
+		displayFormat_ = format;
+	} else {
+		ERROR_LOG(HLE, "Bogus framebuffer address: %08x", framebuf);
+	}
+}
+
+void FramebufferManager::DecimateFBOs() {
+	for (auto iter = vfbs_.begin(); iter != vfbs_.end();) {
+		VirtualFramebuffer *v = *iter;
+		if (v == displayFramebuf_ || v == prevDisplayFramebuf_ || v == prevPrevDisplayFramebuf_) {
+			++iter;
+			continue;
+		}
+		if ((*iter)->last_frame_used + FBO_OLD_AGE < gpuStats.numFrames) {
+			INFO_LOG(HLE, "Destroying FBO %i (%i x %i x %i)", v->fb_address, v->width, v->height, v->format)
+				fbo_destroy(v->fbo);
+			delete v;
+			vfbs_.erase(iter++);
+		}
+		else
+			++iter;
+	}
+}
+
+void FramebufferManager::DestroyAllFBOs() {
+	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
+		VirtualFramebuffer *v = *iter;
+		fbo_destroy(v->fbo);
+		delete v;
+	}
+	vfbs_.clear();
 }
