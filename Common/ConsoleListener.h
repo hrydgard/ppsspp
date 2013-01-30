@@ -59,13 +59,13 @@ private:
 	static DWORD WINAPI RunThread(LPVOID lpParam);
 	void LogWriterThread();
 	void SendToThread(LogTypes::LOG_LEVELS Level, const char *Text);
-	void WriteToConsole(LogTypes::LOG_LEVELS Level, const char *Text);
+	void WriteToConsole(LogTypes::LOG_LEVELS Level, const char *Text, size_t Len);
 
 	HANDLE hThread;
 	HANDLE hTriggerEvent;
 	CRITICAL_SECTION criticalSection;
 
-	ConsolePendingEvent *logPending;
+	char *logPending;
 	volatile u32 logPendingReadPos;
 	volatile u32 logPendingWritePos;
 #endif

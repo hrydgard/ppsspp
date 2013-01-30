@@ -33,10 +33,11 @@
 #include "Atomic.h"
 
 #ifdef _WIN32
-const int LOG_PENDING_MAX = 10000;
+const int LOG_PENDING_MAX = 120 * 10000;
 const int LOG_LATENCY_DELAY_MS = 20;
 const int LOG_SHUTDOWN_DELAY_MS = 250;
 const int LOG_MAX_DISPLAY_LINES = 4000;
+const int LOG_MAX_LINE_LENGTH = 480;
 #endif
 
 ConsoleListener::ConsoleListener()
@@ -96,8 +97,7 @@ void ConsoleListener::Open(bool Hidden, int Width, int Height, const char *Title
 
 	if (hTriggerEvent != NULL)
 	{
-		logPending = new ConsolePendingEvent[LOG_PENDING_MAX];
-		memset(logPending, 0, sizeof(ConsolePendingEvent) * LOG_PENDING_MAX);
+		logPending = new char[LOG_PENDING_MAX];
 		hThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) &ConsoleListener::RunThread, this, 0, NULL);
 	}
 #endif
@@ -239,7 +239,7 @@ DWORD WINAPI ConsoleListener::RunThread(LPVOID lpParam)
 
 void ConsoleListener::LogWriterThread()
 {
-	ConsolePendingEvent *logLocal = new ConsolePendingEvent[LOG_PENDING_MAX];
+	char *logLocal = new char[LOG_PENDING_MAX];
 	int logLocalSize = 0;
 
 	while (true)
@@ -262,16 +262,14 @@ void ConsoleListener::LogWriterThread()
 			if (logRemotePos < logPendingReadPos)
 			{
 				const int count = LOG_PENDING_MAX - logPendingReadPos;
-				memcpy(logLocal + start, logPending + logPendingReadPos, count * sizeof(ConsolePendingEvent));
-				memset(logPending + logPendingReadPos, 0, count * sizeof(ConsolePendingEvent));
+				memcpy(logLocal + start, logPending + logPendingReadPos, count);
 
 				start = count;
 				logPendingReadPos = 0;
 			}
 
 			const int count = logRemotePos - logPendingReadPos;
-			memcpy(logLocal + start, logPending + logPendingReadPos, count * sizeof(ConsolePendingEvent));
-			memset(logPending + logPendingReadPos, 0, count * sizeof(ConsolePendingEvent));
+			memcpy(logLocal + start, logPending + logPendingReadPos, count);
 
 			LeaveCriticalSection(&criticalSection);
 
@@ -283,26 +281,28 @@ void ConsoleListener::LogWriterThread()
 			logPendingReadPos = count;
 		}
 
-		int start = 0;
-		// Running behind, let's just show the last ones.
-		if (logLocalSize > LOG_MAX_DISPLAY_LINES)
-			start = logLocalSize - LOG_MAX_DISPLAY_LINES;
-
-		for (int i = 0; i < start; ++i)
+		for (char *Text = logLocal, *End = logLocal + logLocalSize; Text < End; )
 		{
-			if (logLocal[i].Text == NULL)
-				continue;
-			// Allocated by main thread, but deallocated here.
-			delete [] logLocal[i].Text;
-		}
+			LogTypes::LOG_LEVELS Level = LogTypes::LINFO;
 
-		for (int i = start; i < logLocalSize; ++i)
-		{
-			if (logLocal[i].Text == NULL)
-				continue;
-			WriteToConsole(logLocal[i].Level, logLocal[i].Text);
-			// Allocated by main thread, but deallocated here.
-			delete [] logLocal[i].Text;
+			char *next = (char *) memchr(Text + 1, '\033', End - Text);
+			size_t Len = next - Text;
+			if (next == NULL)
+				Len = End - Text;
+
+			if (Text[0] == '\033' && Text + 1 < End)
+			{
+				Level = (LogTypes::LOG_LEVELS) (Text[1] - '0');
+				Len -= 2;
+				Text += 2;
+			}
+
+			// Make sure we didn't start quitting.  This is kinda slow.
+			if (logPendingWritePos == (u32) -1)
+				break;
+
+			WriteToConsole(Level, Text, Len);
+			Text += Len;
 		}
 	}
 
@@ -315,26 +315,59 @@ void ConsoleListener::SendToThread(LogTypes::LOG_LEVELS Level, const char *Text)
 	if (logPendingWritePos == (u32) -1)
 		return;
 
-	// Make a copy of Text (probably on stack or has its own lifecycle.)
-	// Note that the thread deletes it.
-	char *TextCopy = new char[strlen(Text) + 1];
-	strcpy(TextCopy, Text);
+	size_t Len = strlen(Text);
 
-	if (logPendingWritePos >= LOG_PENDING_MAX)
-		logPendingWritePos = 0;
+	char ColorAttr[16] = "";
+	if (bUseColor)
+	{
+		// Not ANSI, since the console doesn't support it, but ANSI-like.
+		snprintf(ColorAttr, 16, "\033%d", Level);
+		// For now, rather than properly support it.
+		_dbg_assert_msg_(COMMON, strlen(ColorAttr) == 2, "Console logging doesn't support > 9 levels.");
+		Len += strlen(ColorAttr);
+	}
 
 	EnterCriticalSection(&criticalSection);
-	if (logPending[logPendingWritePos].Text != NULL)
-		delete [] logPending[logPendingWritePos].Text;
-	logPending[logPendingWritePos].Level = Level;
-	logPending[logPendingWritePos].Text = TextCopy;
-	Common::AtomicIncrement(logPendingWritePos);
+	u32 logWritePos = Common::AtomicLoad(logPendingWritePos);
+	if (logWritePos + Len >= LOG_PENDING_MAX)
+	{
+		// One line shouldn't be this long...
+		char temp[LOG_MAX_LINE_LENGTH];
+		snprintf(temp, LOG_MAX_LINE_LENGTH, "%s%s", ColorAttr, Text);
+
+		int start = 0;
+		if (logWritePos < LOG_PENDING_MAX)
+		{
+			const int count = LOG_PENDING_MAX - logWritePos;
+			memcpy(logPending + logWritePos, temp, count);
+			start = count;
+			logWritePos = 0;
+		}
+		const int count = Len - start;
+		memcpy(logPending + logWritePos, temp + start, count);
+
+		// Double check we didn't start quitting.
+		if (logPendingWritePos == (u32) -1)
+			return;
+
+		Common::AtomicStoreRelease(logPendingWritePos, logWritePos + count);
+	}
+	else
+	{
+		snprintf(logPending + logWritePos, LOG_PENDING_MAX - logWritePos, "%s%s", ColorAttr, Text);
+
+		// Double check we didn't start quitting.
+		if (logPendingWritePos == (u32) -1)
+			return;
+
+		Common::AtomicStoreRelease(logPendingWritePos, logWritePos + Len);
+	}
 	LeaveCriticalSection(&criticalSection);
 
 	SetEvent(hTriggerEvent);
 }
 
-void ConsoleListener::WriteToConsole(LogTypes::LOG_LEVELS Level, const char *Text)
+void ConsoleListener::WriteToConsole(LogTypes::LOG_LEVELS Level, const char *Text, size_t Len)
 {
 	/*
 	const int MAX_BYTES = 1024*10;
@@ -369,16 +402,16 @@ void ConsoleListener::WriteToConsole(LogTypes::LOG_LEVELS Level, const char *Tex
 		Color = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE;
 		break;
 	}
-	if (strlen(Text) > 10)
+	if (Len > 10)
 	{
 		// First 10 chars white
 		SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY);
 		WriteConsole(hConsole, Text, 10, &cCharsWritten, NULL);
 		Text += 10;
+		Len -= 10;
 	}
 	SetConsoleTextAttribute(hConsole, Color);
-	size_t len = strlen(Text);
-	WriteConsole(hConsole, Text, (DWORD)len, &cCharsWritten, NULL);
+	WriteConsole(hConsole, Text, (DWORD)Len, &cCharsWritten, NULL);
 }
 #endif
 
@@ -473,7 +506,7 @@ void ConsoleListener::Log(LogTypes::LOG_LEVELS Level, const char *Text)
 {
 #if defined(_WIN32)
 	if (hThread == NULL)
-		WriteToConsole(Level, Text);
+		WriteToConsole(Level, Text, strlen(Text));
 	else
 		SendToThread(Level, Text);
 #else
