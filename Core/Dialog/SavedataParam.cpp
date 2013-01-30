@@ -254,7 +254,8 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, int saveId)
 
 	u8* cryptedData = 0;
 	int cryptedSize = 0;
-	u8 cryptedHash[16];
+	// So, is this 0x16 or 0x10?
+	u8 cryptedHash[0x16];
 	memset(cryptedHash,0,0x16);
 	// Encrypt save.
 	if(param->dataBuf != 0 && g_Config.bEncryptSave)
