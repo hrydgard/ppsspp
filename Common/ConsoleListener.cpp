@@ -33,10 +33,11 @@
 #include "Atomic.h"
 
 #ifdef _WIN32
-const int LOG_PENDING_MAX = 1000;
+const int LOG_PENDING_MAX = 10000;
 const int LOG_LATENCY_DELAY_MS = 20;
 const int LOG_WORST_DELAY_MS = 5;
 const int LOG_SHUTDOWN_DELAY_MS = 250;
+const int LOG_MAX_DISPLAY_LINES = 4000;
 #endif
 
 ConsoleListener::ConsoleListener()
@@ -85,7 +86,7 @@ void ConsoleListener::Open(bool Hidden, int Width, int Height, const char *Title
 		// Set the console window title
 		SetConsoleTitle(Title);
 		// Set letter space
-		LetterSpace(Width, 4000);
+		LetterSpace(Width, LOG_MAX_DISPLAY_LINES);
 		//MoveWindow(GetConsoleWindow(), 200,200, 800,800, true);
 	}
 	else
@@ -261,7 +262,18 @@ void ConsoleListener::LogWriterThread()
 			LeaveCriticalSection(&criticalSection);
 		}
 
-		for (int i = 0; i < logLocalSize; ++i)
+		int start = 0;
+		// Running behind, let's just show the last ones.
+		if (logLocalSize > LOG_MAX_DISPLAY_LINES)
+			start = logLocalSize - LOG_MAX_DISPLAY_LINES;
+
+		for (int i = 0; i < start; ++i)
+		{
+			// Allocated by main thread, but deallocated here.
+			delete [] logLocal[i].Text;
+		}
+
+		for (int i = start; i < logLocalSize; ++i)
 		{
 			WriteToConsole(logLocal[i].Level, logLocal[i].Text);
 			// Allocated by main thread, but deallocated here.
@@ -274,14 +286,15 @@ void ConsoleListener::LogWriterThread()
 
 void ConsoleListener::SendToThread(LogTypes::LOG_LEVELS Level, const char *Text)
 {
+	// Oops, we're already quitting.  Just do nothing.
+	if (logPendingSize == (u32) -1)
+		return;
+
 	// Make a copy of Text (probably on stack or has its own lifecycle.)
 	// Note that the thread deletes it.
 	char *TextCopy = new char[strlen(Text) + 1];
 	strcpy(TextCopy, Text);
 
-	// Oops, quitting.
-	if (logPendingSize == (u32) -1)
-		return;
 	if (logPendingSize >= LOG_PENDING_MAX)
 	{
 		// Hope that it's able to process some.
