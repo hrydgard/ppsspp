@@ -9,7 +9,7 @@
 #include "ShaderManager.h"
 #include "TextureCache.h"
 
-const GLint aLookup[11] = {
+const GLint aLookup[14] = {
 	GL_DST_COLOR,
 	GL_ONE_MINUS_DST_COLOR,
 	GL_SRC_ALPHA,
@@ -21,9 +21,12 @@ const GLint aLookup[11] = {
 	GL_DST_ALPHA,	 // should be 2x
 	GL_ONE_MINUS_DST_ALPHA,	 // should be 2x	-	and COLOR?
 	GL_CONSTANT_COLOR,	// FIXA
+	GL_ONE_MINUS_CONSTANT_COLOR,
+	GL_ZERO,
+	GL_ONE,
 };
 
-const GLint bLookup[11] = {
+const GLint bLookup[14] = {
 	GL_SRC_COLOR,
 	GL_ONE_MINUS_SRC_COLOR,
 	GL_SRC_ALPHA,
@@ -35,6 +38,9 @@ const GLint bLookup[11] = {
 	GL_DST_ALPHA,	 // should be 2x
 	GL_ONE_MINUS_DST_ALPHA,	 // should be 2x
 	GL_CONSTANT_COLOR,	// FIXB
+	GL_ONE_MINUS_CONSTANT_COLOR,
+	GL_ZERO,
+	GL_ONE,
 };
 
 const GLint eqLookup[] = {
