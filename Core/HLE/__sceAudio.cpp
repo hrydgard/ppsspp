@@ -186,16 +186,14 @@ void __AudioUpdate()
 		{
 			if (chans[i].sampleQueue.size() >= 2)
 			{
-				s16 sampleL = chans[i].sampleQueue.front();
-				chans[i].sampleQueue.pop();
-				s16 sampleR = chans[i].sampleQueue.front();
-				chans[i].sampleQueue.pop();
-				mixBuffer[s * 2] += sampleL;
+				s16 sampleL = chans[i].sampleQueue.pop_front();
+				s16 sampleR = chans[i].sampleQueue.pop_front();
+				mixBuffer[s * 2 + 0] += sampleL;
 				mixBuffer[s * 2 + 1] += sampleR;
 			} 
 			else
 			{
-				ERROR_LOG(HLE, "channel %i buffer underrun at %i of %i", i, s, hwBlockSize);
+				ERROR_LOG(HLE, "Channel %i buffer underrun at %i of %i", i, s, hwBlockSize);
 				break;
 			}
 		}
@@ -217,7 +215,7 @@ void __AudioUpdate()
 		if (outAudioQueue.room() >= hwBlockSize * 2) {
 			// Push the mixed samples onto the output audio queue.
 			for (int i = 0; i < hwBlockSize; i++) {
-				s32 sampleL = mixBuffer[i * 2] >> 2;  // TODO - what factor?
+				s32 sampleL = mixBuffer[i * 2 + 0] >> 2;  // TODO - what factor?
 				s32 sampleR = mixBuffer[i * 2 + 1] >> 2;
 
 				outAudioQueue.push((s16)sampleL);
@@ -252,21 +250,19 @@ int __AudioMix(short *outstereo, int numFrames)
 	for (int i = 0; i < numFrames; i++) {
 		if (outAudioQueue.size() >= 2)
 		{
-			sampleL = outAudioQueue.front();
-			outAudioQueue.pop();
-			sampleR = outAudioQueue.front();
-			outAudioQueue.pop();
-			outstereo[i * 2] = sampleL;
+			sampleL = outAudioQueue.pop_front();
+			sampleR = outAudioQueue.pop_front();
+			outstereo[i * 2 + 0] = sampleL;
 			outstereo[i * 2 + 1] = sampleR;
 			anythingToPlay = true;
 		} else {
 			if (underrun == -1) underrun = i;
-			outstereo[i * 2] = sampleL;  // repeat last sample, can reduce clicking
+			outstereo[i * 2 + 0] = sampleL;  // repeat last sample, can reduce clicking
 			outstereo[i * 2 + 1] = sampleR;  // repeat last sample, can reduce clicking
 		}
 	}
 	if (anythingToPlay && underrun >= 0) {
-		DEBUG_LOG(HLE, "audio out buffer UNDERRUN at %i of %i", underrun, numFrames);
+		DEBUG_LOG(HLE, "Audio out buffer UNDERRUN at %i of %i", underrun, numFrames);
 	} else {
 		// DEBUG_LOG(HLE, "No underrun, mixed %i samples fine", numFrames);
 	}
