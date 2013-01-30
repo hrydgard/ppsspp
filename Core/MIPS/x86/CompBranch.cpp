@@ -152,21 +152,22 @@ void Jit::BranchRSRTComp(u32 op, Gen::CCFlags cc, bool likely)
 		gpr.BindToRegister(rs, true, false);
 		CMP(32, gpr.R(rs), rt == 0 ? Imm32(0) : gpr.R(rt));
 	}
-	FlushAll();
 
 	Gen::FixupBranch ptr;
 	if (!likely)
 	{
 		if (!delaySlotIsNice)
 			CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
+		else
+			FlushAll();
 		ptr = J_CC(cc, true);
 	}
 	else
 	{
+		FlushAll();
 		ptr = J_CC(cc, true);
 		CompileDelaySlot(DELAYSLOT_FLUSH);
 	}
-
 	// Take the branch
 	CONDITIONAL_LOG_EXIT(targetAddr);
 	WriteExit(targetAddr, 0);
@@ -198,17 +199,19 @@ void Jit::BranchRSZeroComp(u32 op, Gen::CCFlags cc, bool andLink, bool likely)
 
 	gpr.BindToRegister(rs, true, false);
 	CMP(32, gpr.R(rs), Imm32(0));
-	FlushAll();
 
 	Gen::FixupBranch ptr;
 	if (!likely)
 	{
 		if (!delaySlotIsNice)
 			CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
+		else
+			FlushAll();
 		ptr = J_CC(cc, true);
 	}
 	else
 	{
+		FlushAll();
 		ptr = J_CC(cc, true);
 		CompileDelaySlot(DELAYSLOT_FLUSH);
 	}

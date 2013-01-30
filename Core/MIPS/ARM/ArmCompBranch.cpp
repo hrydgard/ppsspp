@@ -83,18 +83,20 @@ void Jit::BranchRSRTComp(u32 op, ArmGen::CCFlags cc, bool likely)
 		gpr.ReleaseSpillLocks();
 		CMP(gpr.R(rs), gpr.R(rt));
   }
-  FlushAll();
 
   ArmGen::FixupBranch ptr;
   if (!likely)
   {
 		if (!delaySlotIsNice)
 			CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
+		else
+			FlushAll();
     ptr = B_CC(cc);
   }
   else
   {
-    ptr = B_CC(cc);
+		FlushAll();
+		ptr = B_CC(cc);
 		CompileDelaySlot(DELAYSLOT_FLUSH);
   }
 
@@ -127,18 +129,20 @@ void Jit::BranchRSZeroComp(u32 op, ArmGen::CCFlags cc, bool andLink, bool likely
 
 	gpr.MapReg(rs);
   CMP(gpr.R(rs), Operand2(0, TYPE_IMM));
-  FlushAll();
 
 	ArmGen::FixupBranch ptr;
 	if (!likely)
   {
 		if (!delaySlotIsNice)
 			CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
-    ptr = B_CC(cc);
+		else
+			FlushAll();
+		ptr = B_CC(cc);
   }
   else
   {
-    ptr = B_CC(cc);
+		FlushAll();
+		ptr = B_CC(cc);
 		CompileDelaySlot(DELAYSLOT_FLUSH);
   }
 

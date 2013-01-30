@@ -43,10 +43,12 @@ void ArmRegCache::Start(MIPSAnalyst::AnalysisResults &stats) {
 }
 
 static const ARMReg *GetMIPSAllocationOrder(int &count) {
-	// Note that R0 and R1 are reserved as scratch for now. We can probably free up R1 eventually.
+	// Note that R0 is reserved as scratch for now.
+	// R1 could be used as it's only used for scratch outside "regalloc space" now.
+	// R12 is also potentially usable.
+	// R4-R7 are registers we could use for static allocation.
 	// R8 is used to preserve flags in nasty branches.
 	// R9 and upwards are reserved for jit basics.
-	// Six allocated registers should be enough...
 	static const ARMReg allocationOrder[] = {
 		R2, R3, R4, R5, R6, R7
 	};
