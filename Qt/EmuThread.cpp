@@ -1,6 +1,7 @@
 #include "EmuThread.h"
 
 #include <QThread>
+#include <QElapsedTimer>
 
 #include "Core/HLE/sceCtrl.h"
 #include "Core/Config.h"
@@ -97,8 +98,12 @@ void EmuThread::run()
 #endif
 	host->BootDone();
 
+	QElapsedTimer timer;
+
 	while(running) {
 		//UpdateGamepad(*input_state);
+		timer.start();
+
 		UpdateInputState(input_state);
 
 		static const int mapping[12][2] = {
@@ -144,7 +149,15 @@ void EmuThread::run()
 		if (coreState == CORE_NEXTFRAME) {
 			// set back to running for the next frame
 			coreState = CORE_RUNNING;
+
+			qint64 time = timer.elapsed();
+			const int frameTime = (1.0f/60.0f) * 1000;
+			if(time < frameTime)
+			{
+				msleep(frameTime-time);
+			}
 		}
+		timer.start();
 
 		fbo_unbind();
 
