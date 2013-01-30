@@ -113,6 +113,7 @@ namespace MIPSComp
 			}
 			break;
 
+/*
 		case 11: // R(rt) = R(rs) < uimm; break; //sltiu
 			{
 				gpr.MapDirtyIn(rt, rs);
@@ -134,6 +135,7 @@ namespace MIPSComp
 				SetCC(CC_AL);
 			}
 			break;
+			*/
 
 		case 15: // R(rt) = uimm << 16;	 //lui
 			gpr.SetImm(rt, uimm << 16);
