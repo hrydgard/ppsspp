@@ -6,7 +6,5 @@ extern const GLint eqLookup[];
 extern const GLint cullingMode[];
 extern const GLuint ztests[];
 
-
-void ApplyDrawState(int prim);
 void UpdateViewportAndProjection();
 

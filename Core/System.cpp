@@ -101,8 +101,6 @@ void PSP_Shutdown()
 {
 	pspFileSystem.Shutdown();
 
-	TextureCache_Clear(true);
-
 	CoreTiming::Shutdown();
 
 	if (coreParameter.enableSound)

@@ -73,12 +73,12 @@ const GLuint stencilOps[] = {
 	GL_KEEP, // reserved
 };
 
-void ApplyDrawState(int prim) {
+void TransformDrawEngine::ApplyDrawState(int prim) {
 	// TODO: All this setup is soon so expensive that we'll need dirty flags, or simply do it in the command writes where we detect dirty by xoring. Silly to do all this work on every drawcall.
 
 	if (gstate_c.textureChanged) {
 		if ((gstate.textureMapEnable & 1) && !gstate.isModeClear()) {
-			PSPSetTexture();
+			textureCache_->SetTexture();
 		}
 		gstate_c.textureChanged = false;
 	}

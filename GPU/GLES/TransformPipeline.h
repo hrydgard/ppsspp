@@ -23,6 +23,7 @@
 
 class LinkedShader;
 class ShaderManager;
+class TextureCache;
 struct DecVtxFormat;
 
 // States transitions:
@@ -96,6 +97,9 @@ public:
 	void SetShaderManager(ShaderManager *shaderManager) {
 		shaderManager_ = shaderManager;
 	}
+	void SetTextureCache(TextureCache *textureCache) {
+		textureCache_ = textureCache;
+	}
 
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
@@ -106,6 +110,7 @@ public:
 
 private:
 	void SoftwareTransformAndDraw(int prim, u8 *decoded, LinkedShader *program, int vertexCount, u32 vertexType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex);
+	void ApplyDrawState(int prim);
 
 	// drawcall ID
 	u32 ComputeFastDCID();
@@ -149,6 +154,7 @@ private:
 
 	// Other
 	ShaderManager *shaderManager_;
+	TextureCache *textureCache_;
 
 	enum { MAX_DEFERRED_DRAW_CALLS = 128 };
 	DeferredDrawCall drawCalls[MAX_DEFERRED_DRAW_CALLS];

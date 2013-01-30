@@ -24,6 +24,7 @@
 #include "Framebuffer.h"
 #include "VertexDecoder.h"
 #include "TransformPipeline.h"
+#include "TextureCache.h"
 #include "gfx_es2/fbo.h"
 
 class ShaderManager;
@@ -61,6 +62,7 @@ public:
 
 private:
 	void DoBlockTransfer();
+	void ApplyDrawState(int prim);
 
 	// Applies states for debugging if enabled.
 	void BeginDebugDraw();
@@ -71,8 +73,10 @@ private:
 	void DestroyAllFBOs();
 
 	FramebufferManager framebufferManager;
+	TextureCache textureCache_;
 	TransformDrawEngine transformDraw_;
 	ShaderManager *shaderManager_;
+
 	u8 *flushBeforeCommand_;
 	bool interruptsEnabled_;
 	bool resized_;

@@ -17,8 +17,9 @@
 
 #pragma once
 
-// Utility to draw a PSP framebuffer to the screen using OpenGL. Useful for running
-// homebrew but the approach isn't great.
+// Keeps track of allocated FBOs.
+
+
 
 #include "../Globals.h"
 
@@ -44,6 +45,8 @@ public:
 
 	void DrawPixels(const u8 *framebuf, int pixelFormat, int linesize);
 	void DrawActiveTexture(float w, float h, bool flip = false);
+
+
 
 private:
 

@@ -19,13 +19,61 @@
 
 #include "../Globals.h"
 
+class TextureCache 
+{
+public:
+	TextureCache();
+	~TextureCache();
 
-void PSPSetTexture();
-void TextureCache_Init();
-void TextureCache_Shutdown();
-void TextureCache_Clear(bool delete_them);
-void TextureCache_StartFrame();
-void TextureCache_Decimate();  // Run this once per frame to get rid of old textures.
-void TextureCache_Invalidate(u32 addr, int size, bool force);
-void TextureCache_InvalidateAll(bool force);
-int TextureCache_NumLoadedTextures();
+	void SetTexture();
+
+	void Clear(bool delete_them);
+	void StartFrame();
+	void Invalidate(u32 addr, int size, bool force);
+	void InvalidateAll(bool force);
+
+	size_t NumLoadedTextures() const {
+		return cache.size();
+	}
+
+private:
+	struct TexCacheEntry {
+		u32 addr;
+		u32 hash;
+		u32 sizeInRAM;
+		int frameCounter;
+		u32 format;
+		u32 clutaddr;
+		u32 clutformat;
+		u32 cluthash;
+		int dim;
+		u32 texture;  //GLuint
+		int invalidHint;
+		u32 fullhash;
+
+		// Cache the current filter settings so we can avoid setting it again.
+		u8 magFilt;
+		u8 minFilt;
+		bool sClamp;
+		bool tClamp;
+	};
+
+	void Decimate();  // Run this once per frame to get rid of old textures.
+	void *UnswizzleFromMem(u32 texaddr, u32 bytesPerPixel, u32 level);
+	void *readIndexedTex(int level, u32 texaddr, int bytesPerIndex);
+	void UpdateSamplingParams(TexCacheEntry &entry, bool force);
+
+	typedef std::map<u64, TexCacheEntry> TexCache;
+
+	// TODO: Speed up by switching to ReadUnchecked*.
+	TexCache cache;
+
+	u32 *tmpTexBuf32;
+	u16 *tmpTexBuf16;
+
+	u32 *tmpTexBufRearrange;
+
+	u32 *clutBuf32;
+	u16 *clutBuf16;
+};
+

@@ -172,7 +172,8 @@ GLES_GPU::GLES_GPU()
 {
 	shaderManager_ = new ShaderManager();
 	transformDraw_.SetShaderManager(shaderManager_);
-	TextureCache_Init();
+	transformDraw_.SetTextureCache(&textureCache_);
+
 	// Sanity check gstate
 	if ((int *)&gstate.transferstart - (int *)&gstate != 0xEA) {
 		ERROR_LOG(G3D, "gstate has drifted out of sync!");
@@ -190,7 +191,6 @@ GLES_GPU::GLES_GPU()
 }
 
 GLES_GPU::~GLES_GPU() {
-	TextureCache_Shutdown();
 	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
 		fbo_destroy((*iter)->fbo);
 		delete (*iter);
@@ -205,7 +205,7 @@ void GLES_GPU::DeviceLost() {
 	// Simply drop all caches and textures.
 	// FBO:s appear to survive? Or no?
 	shaderManager_->ClearCache(false);
-	TextureCache_Clear(false);
+	textureCache_.Clear(false);
 }
 
 void GLES_GPU::InitClear() {
@@ -222,7 +222,7 @@ void GLES_GPU::DumpNextFrame() {
 }
 
 void GLES_GPU::BeginFrame() {
-	TextureCache_StartFrame();
+	textureCache_.StartFrame();
 	DecimateFBOs();
 	transformDraw_.DecimateTrackedVertexArrays();
 
@@ -1192,7 +1192,7 @@ void GLES_GPU::UpdateStats() {
 	gpuStats.numVertexShaders = shaderManager_->NumVertexShaders();
 	gpuStats.numFragmentShaders = shaderManager_->NumFragmentShaders();
 	gpuStats.numShaders = shaderManager_->NumPrograms();
-	gpuStats.numTextures = TextureCache_NumLoadedTextures();
+	gpuStats.numTextures = textureCache_.NumLoadedTextures();
 	gpuStats.numFBOs = (int)vfbs_.size();
 }
 
@@ -1234,21 +1234,21 @@ void GLES_GPU::DoBlockTransfer() {
 
 	// TODO: Notify all overlapping FBOs that they need to reload.
 
-	TextureCache_Invalidate(dstBasePtr + dstY * dstStride + dstX, height * dstStride + width * bpp, true);
+	textureCache_.Invalidate(dstBasePtr + dstY * dstStride + dstX, height * dstStride + width * bpp, true);
 }
 
 void GLES_GPU::InvalidateCache(u32 addr, int size) {
 	if (size > 0)
-		TextureCache_Invalidate(addr, size, true);
+		textureCache_.Invalidate(addr, size, true);
 	else
-		TextureCache_InvalidateAll(true);
+		textureCache_.InvalidateAll(true);
 }
 
 void GLES_GPU::InvalidateCacheHint(u32 addr, int size) {
 	if (size > 0)
-		TextureCache_Invalidate(addr, size, false);
+		textureCache_.Invalidate(addr, size, false);
 	else
-		TextureCache_InvalidateAll(false);
+		textureCache_.InvalidateAll(false);
 }
 
 void GLES_GPU::Flush() {
@@ -1271,7 +1271,7 @@ void GLES_GPU::Resized() {
 void GLES_GPU::DoState(PointerWrap &p) {
 	GPUCommon::DoState(p);
 
-	TextureCache_Clear(true);
+	textureCache_.Clear(true);
 
 	gstate_c.textureChanged = true;
 	DestroyAllFBOs();
