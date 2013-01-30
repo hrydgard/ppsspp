@@ -78,7 +78,7 @@ bool TryMakeOperand2_AllowNegation(s32 imm, Operand2 &op2, bool *negated)
 	}
 }
 
-void ARMXEmitter::ARMABI_MOVI2R(ARMReg reg, u32 val)
+void ARMXEmitter::MOVI2R(ARMReg reg, u32 val)
 {
 	Operand2 op2;
 	bool inverse;
@@ -117,7 +117,7 @@ void ARMXEmitter::ARMABI_MOVI2R(ARMReg reg, u32 val)
 }
 
 void ARMXEmitter::QuickCallFunction(ARMReg reg, void *func) {
-	ARMABI_MOVI2R(reg, (u32)(func));
+	MOVI2R(reg, (u32)(func));
 	BL(reg);
 }
 

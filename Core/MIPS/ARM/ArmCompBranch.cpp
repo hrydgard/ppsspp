@@ -150,7 +150,7 @@ void Jit::BranchRSZeroComp(u32 op, ArmGen::CCFlags cc, bool andLink, bool likely
 	if (andLink)
 	{
 		ADD(R1, R10, MIPS_REG_RA * 4);  // compute address of RA in ram
-		ARMABI_MOVI2R(R0, js.compilerPC + 8);
+		MOVI2R(R0, js.compilerPC + 8);
 		STR(R1, R0);
 	}
 
@@ -281,7 +281,7 @@ void Jit::BranchVFPUFlag(u32 op, ArmGen::CCFlags cc, bool likely)
 
 	int imm3 = (op >> 18) & 7;
 
-	ARMABI_MOVI2R(R0, (u32)&(mips_->vfpuCtrl[VFPU_CTRL_CC]));
+	MOVI2R(R0, (u32)&(mips_->vfpuCtrl[VFPU_CTRL_CC]));
 	LDR(R0, R0, Operand2(0, TYPE_IMM));
 	TST(R0, Operand2(1 << imm3, TYPE_IMM));
 
@@ -344,7 +344,7 @@ void Jit::Comp_Jump(u32 op)
 
 	case 3: //jal
 		ADD(R1, R10, MIPS_REG_RA * 4);  // compute address of RA in ram
-		ARMABI_MOVI2R(R0, js.compilerPC + 8);
+		MOVI2R(R0, js.compilerPC + 8);
 		STR(R1, R0);
 		WriteExit(targetAddr, 0);
 		break;
@@ -393,7 +393,7 @@ void Jit::Comp_JumpReg(u32 op)
 		break;
 	case 9: //jalr
 		ADD(R1, R10, MIPS_REG_RA * 4);  // compute address of RA in ram
-		ARMABI_MOVI2R(R0, js.compilerPC + 8);
+		MOVI2R(R0, js.compilerPC + 8);
 		STR(R1, R0);
 		break;
 	default:
@@ -415,7 +415,7 @@ void Jit::Comp_Syscall(u32 op)
 	WriteDownCount(offset);
 	js.downcountAmount = -offset;
 
-	ARMABI_MOVI2R(R0, op);
+	MOVI2R(R0, op);
 	QuickCallFunction(R1, (void *)&CallSyscall);
 
 	WriteSyscallExit();

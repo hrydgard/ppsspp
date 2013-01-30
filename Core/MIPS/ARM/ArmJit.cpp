@@ -138,7 +138,7 @@ const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 	b->checkedEntry = GetCodePtr();
 	// Downcount flag check. The last block decremented downcounter, and the flag should still be available.
 	SetCC(CC_LT);
-	ARMABI_MOVI2R(R0, js.blockStart);
+	MOVI2R(R0, js.blockStart);
 	MovToPC(R0);
 	B((const void *)outerLoop);
 	SetCC(CC_AL);
@@ -213,9 +213,9 @@ void Jit::Comp_Generic(u32 op)
 	MIPSInterpretFunc func = MIPSGetInterpretFunc(op);
 	if (func)
 	{
-		ARMABI_MOVI2R(R0, js.compilerPC);
+		MOVI2R(R0, js.compilerPC);
 		MovToPC(R0);
-		ARMABI_MOVI2R(R0, op);
+		MOVI2R(R0, op);
 		QuickCallFunction(R1, (void *)func);
 	}
 }
@@ -240,7 +240,7 @@ void Jit::WriteDownCount(int offset)
 	} else {
 		// Should be fine to use R2 here, flushed the regcache anyway.
 		// If js.downcountAmount can be expressed as an Imm8, we don't need this anyway.
-		ARMABI_MOVI2R(R2, theDowncount);
+		MOVI2R(R2, theDowncount);
 		SUBS(R1, R1, R2);
 		STR(R10, R1, offsetof(MIPSState, downcount));
 	}
@@ -265,7 +265,7 @@ void Jit::WriteExit(u32 destination, int exit_num)
 		B(blocks.GetBlock(block)->checkedEntry);
 		b->linkStatus[exit_num] = true;
 	} else {
-		ARMABI_MOVI2R(R0, destination);
+		MOVI2R(R0, destination);
 		MovToPC(R0);
 		B((const void *)dispatcher);	
 	}

@@ -92,7 +92,7 @@ allocate:
 						emit->MOV((ARMReg)reg, 0);
 					}
 				} else if (mr[mipsReg].loc == ML_IMM) {
-					emit->ARMABI_MOVI2R((ARMReg)reg, mr[mipsReg].imm);
+					emit->MOVI2R((ARMReg)reg, mr[mipsReg].imm);
 					ar[reg].isDirty = true;  // IMM is always dirty.
 				}
 			}
@@ -184,7 +184,7 @@ void ArmRegCache::FlushMipsReg(MIPSReg r) {
 	switch (mr[r].loc) {
 	case ML_IMM:
 		// IMM is always "dirty".
-		emit->ARMABI_MOVI2R(R0, mr[r].imm);
+		emit->MOVI2R(R0, mr[r].imm);
 		emit->STR(CTXREG, R0, GetMipsRegOffset(r));
 		break;
 

@@ -47,7 +47,7 @@ namespace MIPSComp
 			if (TryMakeOperand2(uimm, op2)) {
 				(this->*arith)(gpr.R(rt), gpr.R(rs), op2);
 			} else {
-				ARMABI_MOVI2R(R0, (u32)uimm);
+				MOVI2R(R0, (u32)uimm);
 				(this->*arith)(gpr.R(rt), gpr.R(rs), R0);
 			}
 		}
@@ -80,7 +80,7 @@ namespace MIPSComp
 						else
 							SUB(gpr.R(rt), gpr.R(rs), op2);
 					} else {
-						ARMABI_MOVI2R(R0, (u32)simm);
+						MOVI2R(R0, (u32)simm);
 						ADD(gpr.R(rt), gpr.R(rs), R0);
 					}
 				}
@@ -102,13 +102,13 @@ namespace MIPSComp
 					else
 						CMN(gpr.R(rs), op2);
 				} else {
-					ARMABI_MOVI2R(R0, simm);
+					MOVI2R(R0, simm);
 					CMP(gpr.R(rs), R0);
 				}
 				SetCC(CC_LT);
-				ARMABI_MOVI2R(gpr.R(rt), 1);
+				MOVI2R(gpr.R(rt), 1);
 				SetCC(CC_GE);
-				ARMABI_MOVI2R(gpr.R(rt), 0);
+				MOVI2R(gpr.R(rt), 0);
 				SetCC(CC_AL);
 			}
 			break;
@@ -200,9 +200,9 @@ namespace MIPSComp
 			gpr.MapDirtyInIn(rd, rs, rt);
 			CMP(gpr.R(rs), gpr.R(rt));
 			SetCC(CC_LT);
-			ARMABI_MOVI2R(gpr.R(rd), 1);
+			MOVI2R(gpr.R(rd), 1);
 			SetCC(CC_GE);
-			ARMABI_MOVI2R(gpr.R(rd), 0);
+			MOVI2R(gpr.R(rd), 0);
 			SetCC(CC_AL);
 			break; 
 
@@ -210,9 +210,9 @@ namespace MIPSComp
 			gpr.MapDirtyInIn(rd, rs, rt);
 			CMP(gpr.R(rs), gpr.R(rt));
 			SetCC(CC_LO);
-			ARMABI_MOVI2R(gpr.R(rd), 1);
+			MOVI2R(gpr.R(rd), 1);
 			SetCC(CC_HS);
-			ARMABI_MOVI2R(gpr.R(rd), 0);
+			MOVI2R(gpr.R(rd), 0);
 			SetCC(CC_AL);
 			break;
 

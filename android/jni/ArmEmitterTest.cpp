@@ -38,7 +38,7 @@ void TestCode::Generate()
 	testCodePtr = this->GetCodePtr();
 	// Sonic1 commented that R11 is the frame pointer in debug mode, whatever "debug mode" means.
 	PUSH(2, R11, _LR);
-	ARMABI_MOVI2R(R0, 0x13371338);
+	MOVI2R(R0, 0x13371338);
 	AND(R1, R0, Operand2(0xFC, 4));
 	BIC(R0, R0, Operand2(0xFC, 4));
 	CMP(R1, Operand2(0x10, 4));

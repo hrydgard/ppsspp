@@ -113,9 +113,9 @@ void Jit::GenerateFixedCode()
 	//   * downcount
 	//   * R2-R4
 	// Really starting to run low on registers already though...
-	ARMABI_MOVI2R(R11, (u32)Memory::base);
-	ARMABI_MOVI2R(R10, (u32)mips_);
-	ARMABI_MOVI2R(R9, (u32)GetBlockCache()->GetCodePointers());
+	MOVI2R(R11, (u32)Memory::base);
+	MOVI2R(R10, (u32)mips_);
+	MOVI2R(R9, (u32)GetBlockCache()->GetCodePointers());
 
 	outerLoop = GetCodePtr();
 		QuickCallFunction(R0, (void *)&CoreTiming::Advance);
@@ -127,7 +127,7 @@ void Jit::GenerateFixedCode()
 		// IMPORTANT - We jump on negative, not carry!!!
 		FixupBranch bailCoreState = B_CC(CC_MI);
 
-		ARMABI_MOVI2R(R0, (u32)&coreState);
+		MOVI2R(R0, (u32)&coreState);
 		LDR(R0, R0);
 		CMP(R0, 0);
 		FixupBranch badCoreState = B_CC(CC_NEQ);
@@ -172,7 +172,7 @@ void Jit::GenerateFixedCode()
 		SetJumpTarget(bail);
 		SetJumpTarget(bailCoreState);
 
-		ARMABI_MOVI2R(R0, (u32)&coreState);
+		MOVI2R(R0, (u32)&coreState);
 		LDR(R0, R0);
 		CMP(R0, 0);
 		B_CC(CC_EQ, outerLoop);

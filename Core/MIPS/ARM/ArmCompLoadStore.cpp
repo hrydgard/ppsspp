@@ -69,10 +69,10 @@ namespace MIPSComp
 			} else {
 				// Try to avoid using MOVT
 				if (offset < 0) {
-					ARMABI_MOVI2R(R0, (u32)(-offset));
+					MOVI2R(R0, (u32)(-offset));
 					SUB(R0, gpr.R(rs), R0);
 				} else {
-					ARMABI_MOVI2R(R0, (u32)offset);
+					MOVI2R(R0, (u32)offset);
 					ADD(R0, gpr.R(rs), R0);
 				}
 			}
@@ -105,7 +105,7 @@ namespace MIPSComp
 					// We can compute the full address at compile time. Kickass.
 					u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
 					gpr.MapReg(rt, MAP_NOINIT | MAP_DIRTY);  // must be OK even if rs == rt since we have the value from imm already.
-					ARMABI_MOVI2R(R0, addr);
+					MOVI2R(R0, addr);
 				} else {
 					gpr.MapDirtyIn(rt, rs);
 					SetR0ToEffectiveAddress(rs, offset);
@@ -133,7 +133,7 @@ namespace MIPSComp
 					// We can compute the full address at compile time. Kickass.
 					u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
 					gpr.MapReg(rt);
-					ARMABI_MOVI2R(R0, addr);
+					MOVI2R(R0, addr);
 				} else {
 					gpr.MapInIn(rt, rs);
 					SetR0ToEffectiveAddress(rs, offset);

@@ -484,7 +484,7 @@ public:
 
 	void QuickCallFunction(ARMReg scratchreg, void *func);
 	// Utility functions
-	void ARMABI_MOVI2R(ARMReg reg, u32 val);
+	void MOVI2R(ARMReg reg, u32 val);
 	void ARMABI_ShowConditions();
 	void ARMABI_Return();
 
