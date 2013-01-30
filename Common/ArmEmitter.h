@@ -333,6 +333,9 @@ private:
 	void WriteShiftedDataOp(u32 op, bool SetFlags, ARMReg dest, ARMReg src, Operand2 op2);
 	void WriteSignedMultiply(u32 Op, u32 Op2, u32 Op3, ARMReg dest, ARMReg r1, ARMReg r2);
 
+
+	void Write4OpMultiply(u32 op, ARMReg destLo, ARMReg destHi, ARMReg rn, ARMReg rm);
+
 	// New Ops
 	void WriteInstruction(u32 op, ARMReg Rd, ARMReg Rn, Operand2 Rm, bool SetFlags = false);
 
@@ -439,6 +442,10 @@ public:
 
 	void MUL (ARMReg dest,	ARMReg src, ARMReg op2);
 	void MULS(ARMReg dest,	ARMReg src, ARMReg op2);
+
+	void UMULL(ARMReg destLo, ARMReg destHi, ARMReg rn, ARMReg rm);
+	void SMULL(ARMReg destLo, ARMReg destHi, ARMReg rn, ARMReg rm);
+
 	void SXTB(ARMReg dest, ARMReg op2);
 	void SXTH(ARMReg dest, ARMReg op2, u8 rotation = 0);
 	void SXTAH(ARMReg dest, ARMReg src, ARMReg op2, u8 rotation = 0);

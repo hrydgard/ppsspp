@@ -77,7 +77,7 @@ public:
 
 	// Protect the arm register containing a MIPS register from spilling, to ensure that
 	// it's being kept allocated.
-	void SpillLock(MIPSReg reg, MIPSReg reg2 = -1, MIPSReg reg3 = -1);
+	void SpillLock(MIPSReg reg, MIPSReg reg2 = -1, MIPSReg reg3 = -1, MIPSReg reg4 = -1);
 	void ReleaseSpillLocks();
 
 	void SetImm(MIPSReg reg, u32 immVal);
@@ -89,6 +89,7 @@ public:
 	void MapInIn(MIPSReg rd, MIPSReg rs);
 	void MapDirtyIn(MIPSReg rd, MIPSReg rs, bool avoidLoad = true);
 	void MapDirtyInIn(MIPSReg rd, MIPSReg rs, MIPSReg rt, bool avoidLoad = true);
+	void MapDirtyDirtyInIn(MIPSReg rd1, MIPSReg rd2, MIPSReg rs, MIPSReg rt, bool avoidLoad = true);
 	void FlushArmReg(ARMReg r);
 	void FlushMipsReg(MIPSReg r);
 

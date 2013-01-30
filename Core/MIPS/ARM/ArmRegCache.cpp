@@ -83,7 +83,7 @@ allocate:
 			if (!(mapFlags & MAP_NOINIT)) {
 				if (mr[mipsReg].loc == ML_MEM) {
 					if (mipsReg != 0) {
-						emit->LDR((ARMReg)reg, CTXREG, 4 * mipsReg);
+						emit->LDR((ARMReg)reg, CTXREG, GetMipsRegOffset(mipsReg));
 					} else {
 						// If we get a request to load the zero register, at least we won't spend
 						// time on a memory access...
@@ -148,6 +148,17 @@ void ArmRegCache::MapDirtyInIn(MIPSReg rd, MIPSReg rs, MIPSReg rt, bool avoidLoa
 	ReleaseSpillLocks();
 }
 
+void ArmRegCache::MapDirtyDirtyInIn(MIPSReg rd1, MIPSReg rd2, MIPSReg rs, MIPSReg rt, bool avoidLoad) {
+	SpillLock(rd1, rd2, rs, rt);
+	bool overlap1 = avoidLoad && (rd1 == rs || rd1 == rt);
+	bool overlap2 = avoidLoad && (rd2 == rs || rd2 == rt);
+	MapReg(rd1, MAP_DIRTY | (overlap1 ? 0 : MAP_NOINIT));
+	MapReg(rd2, MAP_DIRTY | (overlap2 ? 0 : MAP_NOINIT));
+	MapReg(rt);
+	MapReg(rs);
+	ReleaseSpillLocks();
+}
+
 void ArmRegCache::FlushArmReg(ARMReg r) {
 	if (ar[r].mipsReg == -1) {
 		// Nothing to do, reg not mapped.
@@ -155,7 +166,7 @@ void ArmRegCache::FlushArmReg(ARMReg r) {
 	}
 	if (ar[r].mipsReg != -1) {
 		if (ar[r].isDirty && mr[ar[r].mipsReg].loc == ML_ARMREG)
-			emit->STR(CTXREG, r, 4 * ar[r].mipsReg);
+			emit->STR(CTXREG, r, GetMipsRegOffset(ar[r].mipsReg));
 		// IMMs won't be in an ARM reg.
 		mr[ar[r].mipsReg].loc = ML_MEM;
 		mr[ar[r].mipsReg].reg = INVALID_REG;
@@ -246,10 +257,11 @@ int ArmRegCache::GetMipsRegOffset(MIPSReg r) {
 	return 0;  // or what?
 }
 
-void ArmRegCache::SpillLock(MIPSReg r1, MIPSReg r2, MIPSReg r3) {
+void ArmRegCache::SpillLock(MIPSReg r1, MIPSReg r2, MIPSReg r3, MIPSReg r4) {
 	mr[r1].spillLock = true;
 	if (r2 != -1) mr[r2].spillLock = true;
 	if (r3 != -1) mr[r3].spillLock = true;
+	if (r4 != -1) mr[r4].spillLock = true;
 }
 
 void ArmRegCache::ReleaseSpillLocks() {

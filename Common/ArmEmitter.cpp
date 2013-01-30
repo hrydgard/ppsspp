@@ -453,6 +453,21 @@ void ARMXEmitter::MULS(ARMReg dest,	ARMReg src, ARMReg op2)
 {
 	Write32(condition | (1 << 20) | (dest << 16) | (src << 8) | (9 << 4) | op2);
 }
+
+void ARMXEmitter::Write4OpMultiply(u32 op, ARMReg destLo, ARMReg destHi, ARMReg rm, ARMReg rn) {
+	Write32(condition | (op << 20) | (destHi << 16) | (destLo << 12) | (rm << 8) | (9 << 4) | rn);
+}
+
+void ARMXEmitter::UMULL(ARMReg destLo, ARMReg destHi, ARMReg rm, ARMReg rn)
+{
+	Write4OpMultiply(0x8, destLo, destHi, rn, rm);
+}
+
+void ARMXEmitter::SMULL(ARMReg destLo, ARMReg destHi, ARMReg rm, ARMReg rn)
+{
+	Write4OpMultiply(0xC, destLo, destHi, rn, rm);
+}
+
 void ARMXEmitter::SXTB (ARMReg dest, ARMReg op2)
 {
 	Write32(condition | (0x6AF << 16) | (dest << 12) | (7 << 4) | op2);
