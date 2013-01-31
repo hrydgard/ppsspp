@@ -1057,7 +1057,7 @@ void GLES_GPU::Flush() {
 }
 
 void GLES_GPU::Resized() {
-	resized_ = true;
+	framebufferManager_.Resized();
 }
 
 void GLES_GPU::DoState(PointerWrap &p) {

@@ -65,6 +65,7 @@ public:
 	void DecimateFBOs();
 
 	void BeginFrame();
+	void Resized();
 	void CopyDisplayToOutput();
 	void SetRenderFrameBuffer();  // Uses parameters computed from gstate
 	// TODO: Break out into some form of FBO manager
