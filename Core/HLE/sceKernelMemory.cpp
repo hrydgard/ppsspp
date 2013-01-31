@@ -1125,9 +1125,9 @@ u32 GetMemoryBlockPtr(u32 uid, u32 addr) {
 }
 
 const HLEFunction SysMemUserForUser[] = {
-	{0xA291F107,sceKernelMaxFreeMemSize,	"sceKernelMaxFreeMemSize"},
+	{0xA291F107,sceKernelMaxFreeMemSize,"sceKernelMaxFreeMemSize"},
 	{0xF919F628,sceKernelTotalFreeMemSize,"sceKernelTotalFreeMemSize"},
-	{0x3FC9AE6A,sceKernelDevkitVersion,	 "sceKernelDevkitVersion"},
+	{0x3FC9AE6A,WrapU_V<sceKernelDevkitVersion>,"sceKernelDevkitVersion"},
 	{0x237DBD4F,sceKernelAllocPartitionMemory,"sceKernelAllocPartitionMemory"},	//(int size) ?
 	{0xB6D61D02,sceKernelFreePartitionMemory,"sceKernelFreePartitionMemory"},	 //(void *ptr) ?
 	{0x9D9A5BA1,sceKernelGetBlockHeadAddr,"sceKernelGetBlockHeadAddr"},			//(void *ptr) ?

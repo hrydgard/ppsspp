@@ -286,7 +286,7 @@ void sceKernelExitGame();
 void sceKernelSleepThread();
 void sceKernelSleepThreadCB();
 
-void sceKernelDevkitVersion();
+u32 sceKernelDevkitVersion();
 
 u32 sceKernelRegisterKprintfHandler();
 void sceKernelRegisterDefaultExceptionHandler();

@@ -215,11 +215,16 @@ u32 sceKernelRegisterExitCallback(u32 cbId)
 	return 0;
 }
 
-// TODO: What?
-void sceKernelDevkitVersion()
+
+u32 sceKernelDevkitVersion()
 {
-	ERROR_LOG(HLE,"unimpl sceKernelDevkitVersion");
-	RETURN(1);
+	int firmwareVersion = 150;
+	int major = firmwareVersion / 100;
+	int minor = (firmwareVersion / 10) % 10;
+	int revision = firmwareVersion % 10;
+	int devkitVersion = (major << 24) | (minor << 16) | (revision << 8) | 0x10;
+	DEBUG_LOG(HLE,"sceKernelDevkitVersion (%i) ", devkitVersion);
+	return devkitVersion;
 }
 
 u32 sceKernelRegisterKprintfHandler()
