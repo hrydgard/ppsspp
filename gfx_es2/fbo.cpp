@@ -75,7 +75,7 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, F
 
 #ifdef USING_GLES2
 	if (gl_extensions.OES_packed_depth_stencil) {
-		ILOG("Creating FBO using DEPTH24_STENCIL8");
+		ILOG("Creating %i x %i FBO using DEPTH24_STENCIL8", width, height);
 		// Standard method
 		fbo->stencil_buffer = 0;
 		fbo->z_buffer = 0;
@@ -90,7 +90,7 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, F
 		glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
 		glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
 	} else {
-		ILOG("Creating FBO using separate stencil");
+		ILOG("Creating %i x %i FBO using separate stencil", width, height);
 		// TEGRA
 		fbo->z_stencil_buffer = 0;
 		// 16/24-bit Z, separate 8-bit stencil
@@ -127,7 +127,7 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, F
 	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 	switch(status) {
 	case GL_FRAMEBUFFER_COMPLETE:
-		ILOG("Framebuffer verified complete.");
+		// ILOG("Framebuffer verified complete.");
 		break;
 	case GL_FRAMEBUFFER_UNSUPPORTED:
 		ELOG("GL_FRAMEBUFFER_UNSUPPORTED");
