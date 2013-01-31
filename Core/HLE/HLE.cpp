@@ -20,6 +20,7 @@
 #include <map>
 #include <vector>
 #include "../MemMap.h"
+#include "../Config.h"
 
 #include "HLETables.h"
 #include "../System.h"
@@ -400,5 +401,6 @@ void CallSyscall(u32 op)
 		ERROR_LOG(HLE,"Unimplemented HLE function %s", moduleDB[modulenum].funcTable[funcnum].name);
 	}
 	time_update();
-	updateSyscallStats(modulenum, funcnum, time_now_d() - start);
+	if (g_Config.bShowDebugStats)
+		updateSyscallStats(modulenum, funcnum, time_now_d() - start);
 }
