@@ -723,13 +723,12 @@ void TextureCache::SetTexture() {
 			u32 clutSharingOff = 0;//gstate.mipmapShareClut ? 0 : level * 16;
 			texByteAlign = 2;
 			if (!(gstate.texmode & 1)) {
-				u32 addr = texaddr;
+				u8 *addr = Memory::GetPointer(texaddr);
 				for (int i = 0; i < bufw * h; i += 2)
 				{
-					u8 index = Memory::ReadUnchecked_U8(addr);
+					u8 index = *addr++;
 					tmpTexBuf16[i + 0] = clut[GetClutIndex((index >> 0) & 0xf) + clutSharingOff];
 					tmpTexBuf16[i + 1] = clut[GetClutIndex((index >> 4) & 0xf) + clutSharingOff];
-					addr++;
 				}
 			} else {
 				UnswizzleFromMem(texaddr, 0, level);
@@ -753,13 +752,12 @@ void TextureCache::SetTexture() {
 			const u32 *clut = clutBuf32;
 			u32 clutSharingOff = 0;//gstate.mipmapShareClut ? 0 : level * 16;
 			if (!(gstate.texmode & 1)) {
-				u32 addr = texaddr;
+				u8 *addr = Memory::GetPointer(texaddr);
 				for (int i = 0; i < bufw * h; i += 2)
 				{
-					u8 index = Memory::ReadUnchecked_U8(addr);
+					u8 index = *addr++;
 					tmpTexBuf32[i + 0] = clut[GetClutIndex((index >> 0) & 0xf) + clutSharingOff];
 					tmpTexBuf32[i + 1] = clut[GetClutIndex((index >> 4) & 0xf) + clutSharingOff];
-					addr++;
 				}
 			} else {
 				u32 pixels = bufw * h;
