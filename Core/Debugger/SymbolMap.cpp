@@ -119,7 +119,8 @@ void SymbolMap::ResetSymbolMap()
 void SymbolMap::AddSymbol(const char *symbolname, unsigned int vaddress, size_t size, SymbolType st)
 {
 	MapEntry e;
-	strcpy(e.name, symbolname);
+	strncpy(e.name, symbolname, 127);
+	e.name[127] = '\0';
 	e.vaddress = vaddress;
 	e.size = size;
 	e.type = st;

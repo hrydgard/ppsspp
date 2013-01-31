@@ -260,7 +260,7 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, int saveId)
 	if(param->dataBuf != 0 && g_Config.bEncryptSave)
 	{
 		cryptedSize = param->dataSize;
-		if(cryptedSize == 0 || cryptedSize > param->dataBufSize)
+		if(cryptedSize == 0 || (SceSize)cryptedSize > param->dataBufSize)
 			cryptedSize = param->dataBufSize; // fallback, should never use this
 		u8* data_ = (u8*)Memory::GetPointer(param->dataBuf);
 
@@ -472,7 +472,7 @@ bool SavedataParam::Load(SceUtilitySavedataParam *param, int saveId)
 		ERROR_LOG(HLE,"Error reading file %s",filePath.c_str());
 		return false;
 	}
-	saveSize = readSize;
+	saveSize = (int)readSize;
 
 	// copy back save name in request
 	strncpy(param->saveName,GetSaveDirName(param, saveId).c_str(),20);
@@ -1204,7 +1204,7 @@ bool SavedataParam::IsSaveEncrypted(SceUtilitySavedataParam* param, int saveId)
 			// save created in PPSSPP and not encrypted has '0' in SAVEDATA_PARAMS
 			u32 tmpDataSize = 0;
 			u8* tmpDataOrig = sfoFile.GetValueData("SAVEDATA_PARAMS", &tmpDataSize);
-			for(int i = 0; i < tmpDataSize; i++)
+			for(u32 i = 0; i < tmpDataSize; i++)
 			{
 				if(tmpDataOrig[i] != 0)
 				{

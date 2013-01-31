@@ -432,15 +432,14 @@ u32 sceIoCancel(int id)
 	ERROR_LOG(HLE, "UNIMPL sceIoCancel(%d)", id);
 	u32 error;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
-	int result;
-	if (f) 
+	if (f) {
 		f->closePending = true;
-	else {
+	} else {
 		ERROR_LOG(HLE, "sceIoCancel: unknown id %d", id);
-		result = ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
+		error = ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
 	}
 
-	return result;
+	return error;
 }
 
 s64 sceIoLseek(int id, s64 offset, int whence) {
@@ -449,7 +448,7 @@ s64 sceIoLseek(int id, s64 offset, int whence) {
 	if (f) {
 		FileMove seek = FILEMOVE_BEGIN;
 		bool outOfBound = false;
-		int newPos = 0;
+		s64 newPos = 0;
 		switch (whence) {
 		case 0:
 			newPos = offset;
@@ -479,11 +478,9 @@ u32 sceIoLseek32(int id, int offset, int whence) {
 	u32 error;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
 	if (f) {
-		DEBUG_LOG(HLE, "sceIoLseek32(%d,%08x,%i)", id, (int) offset, whence);
-
 		FileMove seek = FILEMOVE_BEGIN;
 		bool outOfBound = false;
-		int newPos = 0;
+		s64 newPos = 0;
 		switch (whence) {
 		case 0:
 			newPos = offset;
@@ -501,9 +498,10 @@ u32 sceIoLseek32(int id, int offset, int whence) {
 			return -1;
 
 		f->asyncResult = (u32) pspFileSystem.SeekFile(f->handle, (s32) offset, seek);
+		DEBUG_LOG(HLE, "%i = sceIoLseek32(%d,%i,%i)", f->asyncResult, id, (int) offset, whence);
 		return f->asyncResult;
 	} else {
-		ERROR_LOG(HLE, "sceIoLseek32 ERROR: no file open");
+		ERROR_LOG(HLE, "sceIoLseek32(%d, %i, %i) - ERROR: invalid file", id, (int) offset, whence);
 		return error;
 	}
 }

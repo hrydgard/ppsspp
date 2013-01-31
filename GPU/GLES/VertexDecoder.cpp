@@ -704,8 +704,8 @@ u32 VertexDecoder::InjectUVs(u8 *decoded, const void *verts, float *customuv, in
 	u8 *out = decoded;
 	for (int i = 0; i < count; i++) {
 		if (pos) memcpy(out + decOut.posoff, inp + posoff, possize[pos]);
-		if (nrm) memcpy(out + decOut.nrmoff, inp + nrmoff, nrmsize[pos]);
-		if (col) memcpy(out + decOut.coloff, inp + coloff, colsize[pos]);
+		if (nrm) memcpy(out + decOut.nrmoff, inp + nrmoff, nrmsize[nrm]);
+		if (col) memcpy(out + decOut.coloff, inp + coloff, colsize[col]);
 		// Ignore others for now, this is all we need for puzbob.
 		// Inject!
 		memcpy(out + decOut.tcoff, &customuv[i * 2], tcsize[decOut.tc]);
