@@ -635,12 +635,11 @@ void TextureCache::SetTexture() {
 		// If it's not huge or has been invalidated many times, recheck the whole texture.
 		if (entry.invalidHint > 180 || (entry.invalidHint > 15 && dim <= 0x909)) {
 			entry.invalidHint = 0;
-			int bufw = gstate.texbufwidth[0] & 0x3ff;
-			int h = 1 << ((gstate.texsize[0]>>8) & 0xf);
 
 			u32 check = 0;
-			for (int i = 0; i < bufw * h; i += 4) {
-				check += Memory::ReadUnchecked_U32(texaddr + i);
+			u32 *checkp = (u32 *) Memory::GetPointer(texaddr);
+			for (u32 i = 0; i < (entry.sizeInRAM * 2) / 4; ++i) {
+				check += *checkp++;
 			}
 
 			if (check != entry.fullhash) {
@@ -694,8 +693,9 @@ void TextureCache::SetTexture() {
 	// to avoid excessive clearing caused by cache invalidations.
 	entry.sizeInRAM = (bitsPerPixel[format < 11 ? format : 0] * bufw * h / 2) / 8;
 
-	for (int i = 0; i < bufw * h; i += 4)
-		entry.fullhash += Memory::ReadUnchecked_U32(texaddr + i);
+	u32 *checkp = (u32 *) Memory::GetPointer(texaddr);
+	for (u32 i = 0; i < (entry.sizeInRAM * 2) / 4; ++i)
+		entry.fullhash += *checkp++;
 
 	gstate_c.curTextureWidth=w;
 	gstate_c.curTextureHeight=h;
@@ -723,13 +723,12 @@ void TextureCache::SetTexture() {
 			u32 clutSharingOff = 0;//gstate.mipmapShareClut ? 0 : level * 16;
 			texByteAlign = 2;
 			if (!(gstate.texmode & 1)) {
-				u32 addr = texaddr;
+				u8 *addr = Memory::GetPointer(texaddr);
 				for (int i = 0; i < bufw * h; i += 2)
 				{
-					u8 index = Memory::ReadUnchecked_U8(addr);
+					u8 index = *addr++;
 					tmpTexBuf16[i + 0] = clut[GetClutIndex((index >> 0) & 0xf) + clutSharingOff];
 					tmpTexBuf16[i + 1] = clut[GetClutIndex((index >> 4) & 0xf) + clutSharingOff];
-					addr++;
 				}
 			} else {
 				UnswizzleFromMem(texaddr, 0, level);
@@ -753,13 +752,12 @@ void TextureCache::SetTexture() {
 			const u32 *clut = clutBuf32;
 			u32 clutSharingOff = 0;//gstate.mipmapShareClut ? 0 : level * 16;
 			if (!(gstate.texmode & 1)) {
-				u32 addr = texaddr;
+				u8 *addr = Memory::GetPointer(texaddr);
 				for (int i = 0; i < bufw * h; i += 2)
 				{
-					u8 index = Memory::ReadUnchecked_U8(addr);
+					u8 index = *addr++;
 					tmpTexBuf32[i + 0] = clut[GetClutIndex((index >> 0) & 0xf) + clutSharingOff];
 					tmpTexBuf32[i + 1] = clut[GetClutIndex((index >> 4) & 0xf) + clutSharingOff];
-					addr++;
 				}
 			} else {
 				u32 pixels = bufw * h;
