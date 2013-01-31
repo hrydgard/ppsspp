@@ -161,11 +161,11 @@ public:
 		output = new QAudioOutput(fmt);
 		output->setBufferSize(mixlen);
 		feed = output->start();
-		startTimer(1000*AUDIO_SAMPLES / AUDIO_FREQ);
+		timer = startTimer(1000*AUDIO_SAMPLES / AUDIO_FREQ);
 	}
 	~MainAudio() {
+		killTimer(timer);
 		feed->close();
-		delete feed;
 		output->stop();
 		delete output;
 		free(mixbuf);
@@ -182,6 +182,7 @@ private:
 	QAudioOutput* output;
 	int mixlen;
 	char* mixbuf;
+	int timer;
 };
 
 #endif
