@@ -43,14 +43,27 @@ public:
 	void Log(LogTypes::LOG_LEVELS, const char *Text);
 	void ClearScreen(bool Cursor = true);
 
-  void Show(bool bShow);
-  bool Hidden() const { return bHidden; }
+	void Show(bool bShow);
+	bool Hidden() const { return bHidden; }
 private:
 #ifdef _WIN32
 	HWND GetHwnd(void);
 	HANDLE hConsole;
+
+	static DWORD WINAPI RunThread(LPVOID lpParam);
+	void LogWriterThread();
+	void SendToThread(LogTypes::LOG_LEVELS Level, const char *Text);
+	void WriteToConsole(LogTypes::LOG_LEVELS Level, const char *Text, size_t Len);
+
+	HANDLE hThread;
+	HANDLE hTriggerEvent;
+	CRITICAL_SECTION criticalSection;
+
+	char *logPending;
+	volatile u32 logPendingReadPos;
+	volatile u32 logPendingWritePos;
 #endif
-  bool bHidden;
+	bool bHidden;
 	bool bUseColor;
 };
 

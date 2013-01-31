@@ -30,12 +30,28 @@
 #include "Common.h"
 #include "LogManager.h" // Common
 #include "ConsoleListener.h" // Common
+#include "Atomic.h"
+
+#ifdef _WIN32
+const int LOG_PENDING_MAX = 120 * 10000;
+const int LOG_LATENCY_DELAY_MS = 20;
+const int LOG_SHUTDOWN_DELAY_MS = 250;
+const int LOG_MAX_DISPLAY_LINES = 4000;
+const int LOG_MAX_LINE_LENGTH = 480;
+#endif
 
 ConsoleListener::ConsoleListener()
 {
 #ifdef _WIN32
 	hConsole = NULL;
 	bUseColor = true;
+
+	hThread = NULL;
+	hTriggerEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
+	InitializeCriticalSection(&criticalSection);
+	logPending = NULL;
+	logPendingReadPos = 0;
+	logPendingWritePos = 0;
 #else
 	bUseColor = isatty(fileno(stdout));
 #endif
@@ -44,6 +60,13 @@ ConsoleListener::ConsoleListener()
 ConsoleListener::~ConsoleListener()
 {
 	Close();
+
+#ifdef _WIN32
+	DeleteCriticalSection(&criticalSection);
+
+	if (logPending != NULL)
+		delete [] logPending;
+#endif
 }
 
 // 100, 100, "Dolphin Log Console"
@@ -64,12 +87,18 @@ void ConsoleListener::Open(bool Hidden, int Width, int Height, const char *Title
 		// Set the console window title
 		SetConsoleTitle(Title);
 		// Set letter space
-		LetterSpace(Width, 4000);
+		LetterSpace(Width, LOG_MAX_DISPLAY_LINES);
 		//MoveWindow(GetConsoleWindow(), 200,200, 800,800, true);
 	}
 	else
 	{
 		hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+	}
+
+	if (hTriggerEvent != NULL)
+	{
+		logPending = new char[LOG_PENDING_MAX];
+		hThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) &ConsoleListener::RunThread, this, 0, NULL);
 	}
 #endif
 }
@@ -104,6 +133,19 @@ void ConsoleListener::Close()
 #ifdef _WIN32
 	if (hConsole == NULL)
 		return;
+
+	if (hThread != NULL)
+	{
+		Common::AtomicStoreRelease(logPendingWritePos, (u32) -1);
+
+		SetEvent(hTriggerEvent);
+		WaitForSingleObject(hThread, LOG_SHUTDOWN_DELAY_MS);
+		CloseHandle(hThread);
+		hThread = NULL;
+	}
+	if (hTriggerEvent != NULL)
+		CloseHandle(hTriggerEvent);
+
 	FreeConsole();
 	hConsole = NULL;
 #else
@@ -175,6 +217,7 @@ void ConsoleListener::LetterSpace(int Width, int Height)
 	//MoveWindow(GetConsoleWindow(), 200,200, (Width*8 + 50),(NewScreenHeight*12 + 200), true);
 #endif
 }
+
 #ifdef _WIN32
 COORD ConsoleListener::GetCoordinates(int BytesRead, int BufferWidth)
 {
@@ -186,7 +229,200 @@ COORD ConsoleListener::GetCoordinates(int BytesRead, int BufferWidth)
 	Ret.X = BytesRead - (BufferWidth * Step);
 	return Ret;
 }
+
+DWORD WINAPI ConsoleListener::RunThread(LPVOID lpParam)
+{
+	ConsoleListener *consoleLog = (ConsoleListener *) lpParam;
+	consoleLog->LogWriterThread();
+	return 0;
+}
+
+void ConsoleListener::LogWriterThread()
+{
+	char *logLocal = new char[LOG_PENDING_MAX];
+	int logLocalSize = 0;
+
+	while (true)
+	{
+		WaitForSingleObject(hTriggerEvent, INFINITE);
+		Sleep(LOG_LATENCY_DELAY_MS);
+
+		u32 logRemotePos = Common::AtomicLoadAcquire(logPendingWritePos);
+		if (logRemotePos == (u32) -1)
+			break;
+		else if (logRemotePos == logPendingReadPos)
+			continue;
+		else
+		{
+			EnterCriticalSection(&criticalSection);
+			logRemotePos = Common::AtomicLoadAcquire(logPendingWritePos);
+
+			int start = 0;
+			if (logRemotePos < logPendingReadPos)
+			{
+				const int count = LOG_PENDING_MAX - logPendingReadPos;
+				memcpy(logLocal + start, logPending + logPendingReadPos, count);
+
+				start = count;
+				logPendingReadPos = 0;
+			}
+
+			const int count = logRemotePos - logPendingReadPos;
+			memcpy(logLocal + start, logPending + logPendingReadPos, count);
+
+			logPendingReadPos = count;
+			LeaveCriticalSection(&criticalSection);
+
+			// Double check.
+			if (logPendingWritePos == (u32) -1)
+				break;
+
+			logLocalSize = start + count;
+		}
+
+		for (char *Text = logLocal, *End = logLocal + logLocalSize; Text < End; )
+		{
+			LogTypes::LOG_LEVELS Level = LogTypes::LINFO;
+
+			char *next = (char *) memchr(Text + 1, '\033', End - Text);
+			size_t Len = next - Text;
+			if (next == NULL)
+				Len = End - Text;
+
+			if (Text[0] == '\033' && Text + 1 < End)
+			{
+				Level = (LogTypes::LOG_LEVELS) (Text[1] - '0');
+				Len -= 2;
+				Text += 2;
+			}
+
+			// Make sure we didn't start quitting.  This is kinda slow.
+			if (logPendingWritePos == (u32) -1)
+				break;
+
+			WriteToConsole(Level, Text, Len);
+			Text += Len;
+		}
+	}
+
+	delete [] logLocal;
+}
+
+void ConsoleListener::SendToThread(LogTypes::LOG_LEVELS Level, const char *Text)
+{
+	// Oops, we're already quitting.  Just do nothing.
+	if (logPendingWritePos == (u32) -1)
+		return;
+
+	size_t Len = strlen(Text);
+
+	char ColorAttr[16] = "";
+	if (bUseColor)
+	{
+		// Not ANSI, since the console doesn't support it, but ANSI-like.
+		snprintf(ColorAttr, 16, "\033%d", Level);
+		// For now, rather than properly support it.
+		_dbg_assert_msg_(COMMON, strlen(ColorAttr) == 2, "Console logging doesn't support > 9 levels.");
+		Len += strlen(ColorAttr);
+	}
+
+	EnterCriticalSection(&criticalSection);
+	u32 logWritePos = Common::AtomicLoad(logPendingWritePos);
+	u32 prevLogWritePos = logWritePos;
+	if (logWritePos + Len >= LOG_PENDING_MAX)
+	{
+		// One line shouldn't be this long...
+		char temp[LOG_MAX_LINE_LENGTH];
+		snprintf(temp, LOG_MAX_LINE_LENGTH, "%s%s", ColorAttr, Text);
+
+		int start = 0;
+		if (logWritePos < LOG_PENDING_MAX)
+		{
+			const int count = LOG_PENDING_MAX - logWritePos;
+			memcpy(logPending + logWritePos, temp, count);
+			start = count;
+			logWritePos = 0;
+		}
+		const int count = Len - start;
+		memcpy(logPending + logWritePos, temp + start, count);
+		logWritePos += count;
+	}
+	else
+	{
+		snprintf(logPending + logWritePos, LOG_PENDING_MAX - logWritePos, "%s%s", ColorAttr, Text);
+		logWritePos += Len;
+	}
+
+	// Oops, we passed the read pos.
+	if (prevLogWritePos < logPendingReadPos && logWritePos >= logPendingReadPos)
+	{
+		char *nextNewline = (char *) memchr(logPending + logWritePos, '\n', LOG_PENDING_MAX - logWritePos);
+		if (nextNewline == NULL && logWritePos > 0)
+			nextNewline = (char *) memchr(logPending, '\n', logWritePos);
+
+		// Okay, have it go right after the next newline.
+		if (nextNewline != NULL)
+			logPendingReadPos = nextNewline - logPending + 1;
+	}
+
+	// Double check we didn't start quitting.
+	if (logPendingWritePos == (u32) -1)
+		return;
+
+	Common::AtomicStoreRelease(logPendingWritePos, logWritePos);
+	LeaveCriticalSection(&criticalSection);
+
+	SetEvent(hTriggerEvent);
+}
+
+void ConsoleListener::WriteToConsole(LogTypes::LOG_LEVELS Level, const char *Text, size_t Len)
+{
+	/*
+	const int MAX_BYTES = 1024*10;
+	char Str[MAX_BYTES];
+	va_list ArgPtr;
+	int Cnt;
+	va_start(ArgPtr, Text);
+	Cnt = vsnprintf(Str, MAX_BYTES, Text, ArgPtr);
+	va_end(ArgPtr);
+	*/
+	DWORD cCharsWritten;
+	WORD Color;
+
+	switch (Level)
+	{
+	case NOTICE_LEVEL: // light green
+		Color = FOREGROUND_GREEN | FOREGROUND_INTENSITY;
+		break;
+	case ERROR_LEVEL: // light red
+		Color = FOREGROUND_RED | FOREGROUND_INTENSITY;
+		break;
+	case WARNING_LEVEL: // light yellow
+		Color = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY;
+		break;
+	case INFO_LEVEL: // cyan
+		Color = FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY;
+		break;
+	case DEBUG_LEVEL: // gray
+		Color = FOREGROUND_INTENSITY;
+		break;
+	default: // off-white
+		Color = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE;
+		break;
+	}
+	if (Len > 10)
+	{
+		// First 10 chars white
+		SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY);
+		WriteConsole(hConsole, Text, 10, &cCharsWritten, NULL);
+		Text += 10;
+		Len -= 10;
+	}
+	SetConsoleTextAttribute(hConsole, Color);
+	WriteConsole(hConsole, Text, (DWORD)Len, &cCharsWritten, NULL);
+}
 #endif
+
 void ConsoleListener::PixelSpace(int Left, int Top, int Width, int Height, bool Resize)
 {
 #ifdef _WIN32
@@ -277,49 +513,10 @@ void ConsoleListener::PixelSpace(int Left, int Top, int Width, int Height, bool 
 void ConsoleListener::Log(LogTypes::LOG_LEVELS Level, const char *Text)
 {
 #if defined(_WIN32)
-	/*
-	const int MAX_BYTES = 1024*10;
-	char Str[MAX_BYTES];
-	va_list ArgPtr;
-	int Cnt;
-	va_start(ArgPtr, Text);
-	Cnt = vsnprintf(Str, MAX_BYTES, Text, ArgPtr);
-	va_end(ArgPtr);
-	*/
-	DWORD cCharsWritten;
-	WORD Color;
-	
-	switch (Level)
-	{
-	case NOTICE_LEVEL: // light green
-		Color = FOREGROUND_GREEN | FOREGROUND_INTENSITY;
-		break;
-	case ERROR_LEVEL: // light red
-		Color = FOREGROUND_RED | FOREGROUND_INTENSITY;
-		break;
-	case WARNING_LEVEL: // light yellow
-		Color = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY;
-		break;
-	case INFO_LEVEL: // cyan
-		Color = FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY;
-		break;
-	case DEBUG_LEVEL: // gray
-		Color = FOREGROUND_INTENSITY;
-		break;
-	default: // off-white
-		Color = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE;
-		break;
-	}
-	if (strlen(Text) > 10)
-	{
-		// First 10 chars white
-		SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY);
-		WriteConsole(hConsole, Text, 10, &cCharsWritten, NULL);
-		Text += 10;
-	}
-	SetConsoleTextAttribute(hConsole, Color);
-	size_t len = strlen(Text);
-	WriteConsole(hConsole, Text, (DWORD)len, &cCharsWritten, NULL);
+	if (hThread == NULL)
+		WriteToConsole(Level, Text, strlen(Text));
+	else
+		SendToThread(Level, Text);
 #else
 	char ColorAttr[16] = "";
 	char ResetAttr[16] = "";

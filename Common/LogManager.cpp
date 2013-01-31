@@ -26,6 +26,10 @@
 #include <e32debug.h>
 #endif
 
+// Unfortunately this is quite slow.
+// #define LOG_MSC_OUTPUTDEBUG true
+#define LOG_MSC_OUTPUTDEBUG false
+
 void GenericLog(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, 
 		const char *file, int line, const char* fmt, ...)
 {
@@ -82,7 +86,7 @@ LogManager::LogManager()
 		m_Log[i]->AddListener(m_fileLog);
 		m_Log[i]->AddListener(m_consoleLog);
 #ifdef _MSC_VER
-		if (IsDebuggerPresent())
+		if (IsDebuggerPresent() && m_debuggerLog != NULL && LOG_MSC_OUTPUTDEBUG)
 			m_Log[i]->AddListener(m_debuggerLog);
 #endif
 #endif
