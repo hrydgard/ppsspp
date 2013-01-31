@@ -164,7 +164,7 @@ struct SasVoice
 			sampleRate(44100),
 			sampleFrac(0),
 			pitch(PSP_SAS_PITCH_BASE),
-			loop(false),
+			loop(true), // true = ignore VAG loop , false = process VAG loop
 			noiseFreq(0),
 			volumeLeft(0),
 			volumeRight(0),
