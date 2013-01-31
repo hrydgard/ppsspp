@@ -208,7 +208,11 @@ void MainWindow::BrowseAndBoot(void)
 {
 	QString filename = QFileDialog::getOpenFileName(NULL, "Load File", g_Config.currentDirectory.c_str(), "PSP ROMs (*.pbp *.elf *.iso *.cso *.prx)");
 	if (QFile::exists(filename))
+	{
+		QFileInfo info(filename);
+		g_Config.currentDirectory = info.absolutePath().toStdString();
 		EmuThread_Start(filename, w);
+	}
 }
 
 void MainWindow::Boot()
