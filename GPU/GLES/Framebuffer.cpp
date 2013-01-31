@@ -398,3 +398,7 @@ void FramebufferManager::DestroyAllFBOs() {
 	}
 	vfbs_.clear();
 }
+
+void FramebufferManager::Resized() {
+	resized_ = true;
+}
