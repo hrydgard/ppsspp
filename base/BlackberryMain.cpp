@@ -368,8 +368,8 @@ int main(int argc, char *argv[]) {
 	screen_get_display_property_iv(screen_disp, SCREEN_PROPERTY_PHYSICAL_SIZE, screen_phys_size);
 	int screen_resolution[2];
 	screen_get_display_property_iv(screen_disp, SCREEN_PROPERTY_SIZE, screen_resolution);
-	double diagonal_pixels = sqrt(screen_resolution[0] * screen_resolution[0] + screen_resolution[1] * screen_resolution[1]);
-	double diagonal_inches = 0.0393700787 * sqrt(screen_phys_size[0] * screen_phys_size[0] + screen_phys_size[1] * screen_phys_size[1]);
+	double diagonal_pixels = sqrt((double)(screen_resolution[0] * screen_resolution[0] + screen_resolution[1] * screen_resolution[1]));
+	double diagonal_inches = 0.0393700787 * sqrt((double)(screen_phys_size[0] * screen_phys_size[0] + screen_phys_size[1] * screen_phys_size[1]));
 	int dpi = (int)(diagonal_pixels / diagonal_inches + 0.5);
 #endif
 	float dpi_scale = 213.6f / dpi;
