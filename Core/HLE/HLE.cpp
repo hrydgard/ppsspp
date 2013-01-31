@@ -162,13 +162,14 @@ u32 GetSyscallOp(const char *moduleName, u32 nib)
 		}
 		else
 		{
+			INFO_LOG(HLE, "Syscall (%s, %08x) unknown", moduleName, nib);
 			return (0x0003FFCC | (modindex<<18));  // invalid syscall
 		}
 	}
 	else
 	{
 		ERROR_LOG(HLE, "Unknown module %s!", moduleName);
-		return (0x0003FFCC);	// invalid syscall
+		return (0x03FFFFCC);	// invalid syscall
 	}
 }
 
@@ -383,7 +384,7 @@ void CallSyscall(u32 op)
 	if (funcnum == 0xfff || op == 0xffff)
 	{
 		_dbg_assert_msg_(HLE,0,"Unknown syscall");
-		ERROR_LOG(HLE,"Unknown syscall: Module: %s", moduleDB[modulenum].name); 
+		ERROR_LOG(HLE,"Unknown syscall: Module: %s", modulenum > (int) moduleDB.size() ? "(unknown)" : moduleDB[modulenum].name); 
 		return;
 	}
 	HLEFunc func = moduleDB[modulenum].funcTable[funcnum].func;
