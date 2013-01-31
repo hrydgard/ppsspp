@@ -27,8 +27,11 @@ blackberry: {
 	DEFINES += BLACKBERRY BLACKBERRY10 "_QNX_SOURCE=1" "_C99=1"
 }
 symbian: {
-	QMAKE_CXXFLAGS += -march=armv6 -mfpu=vfp -mfloat-abi=softfp -marm -Wno-parentheses -Wno-comment
-	DEFINES += SYMBIAN
+# Does not seem to be a way to change to armv6 compile so just override in variants.xml (see README)
+	MMP_RULES -= "ARMFPU softvfp+vfpv2"
+	MMP_RULES += "ARMFPU vfpv2"
+	QMAKE_CXXFLAGS += -marm -Wno-parentheses -Wno-comment
+	DEFINES += __MARM_ARMV6__
 	CONFIG += 4.6.3
 }
 
