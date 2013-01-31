@@ -220,7 +220,7 @@ public:
 	}
 	const u32 IMMSR() // IMM shifted register
 	{
-		_assert_msg_(DYNA_REC, Type = TYPE_IMMSREG, "IMMSR must be imm shifted register");
+		_assert_msg_(DYNA_REC, Type == TYPE_IMMSREG, "IMMSR must be imm shifted register");
 		return ((IndexOrShift & 0x1f) << 7 | (Shift << 5) | Value);
 	}
 	const u32 RSR() // Register shifted register

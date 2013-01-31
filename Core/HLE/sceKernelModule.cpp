@@ -640,7 +640,7 @@ Module *__KernelLoadModule(u8 *fileptr, SceKernelLMOption *options, std::string 
 
 void __KernelStartModule(Module *m, int args, const char *argp, SceKernelSMOption *options)
 {
-	if (m->nm.module_start_func != 0 || m->nm.module_start_func != -1)
+	if (m->nm.module_start_func != 0 && m->nm.module_start_func != -1)
 	{
 		if (m->nm.module_start_func != m->nm.entry_addr)
 			WARN_LOG(LOADER, "Main module has start func (%08x) different from entry (%08x)?", m->nm.module_start_func, m->nm.entry_addr);

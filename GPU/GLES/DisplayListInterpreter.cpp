@@ -414,12 +414,15 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_RET:
 		{
-			u32 target = (currentList->pc & 0xF0000000) | (stack[--stackptr] & 0x0FFFFFFF);
-			currentList->pc = target - 4;
-			if (!Memory::IsValidAddress(currentList->pc))
-			{
-				ERROR_LOG(G3D, "Invalid DL PC %08x on return", currentList->pc);
-				finished = true;
+			if (stackptr == 0) {
+				ERROR_LOG(G3D, "RET: Stack empty!");
+			} else {
+				u32 target = (currentList->pc & 0xF0000000) | (stack[--stackptr] & 0x0FFFFFFF);
+				currentList->pc = target - 4;
+				if (!Memory::IsValidAddress(currentList->pc)) {
+					ERROR_LOG(G3D, "Invalid DL PC %08x on return", currentList->pc);
+					finished = true;
+				}
 			}
 		}
 		break;

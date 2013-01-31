@@ -178,8 +178,8 @@ bool MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpat
 	const std::string *currentDirectory = &startingDirectory;
 
 	int currentThread = __KernelGetCurThread();
-	currentDir_t::iterator i = currentDir.find(currentThread);
-	if (i == currentDir.end())
+	currentDir_t::iterator it = currentDir.find(currentThread);
+	if (it == currentDir.end())
 	{
 		//TODO: emulate PSP's error 8002032C: "no current working directory" if relative... may break things requiring fixes elsewhere
 		if (inpath.find(':') == std::string::npos  /* means path is relative */)
@@ -187,7 +187,7 @@ bool MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpat
 	}
 	else
 	{
-		currentDirectory = &(i->second);
+		currentDirectory = &(it->second);
 	}
 
 	if ( RealPath(*currentDirectory, inpath, realpath) )
