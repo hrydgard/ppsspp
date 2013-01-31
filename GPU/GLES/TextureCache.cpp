@@ -593,6 +593,19 @@ static const u8 bitsPerPixel[11] = {
 	8,   //GE_TFMT_DXT5=8,
 };
 
+static const bool formatUsesClut[11] = {
+	false,
+	false,
+	false,
+	false,
+	true,
+	true,
+	true,
+	true,
+	false,
+	false,
+	false,
+};
 
 void TextureCache::SetTexture() {
 	u32 texaddr = (gstate.texaddr[0] & 0xFFFFF0) | ((gstate.texbufwidth[0]<<8) & 0x0F000000);
@@ -605,14 +618,21 @@ void TextureCache::SetTexture() {
 
 	u8 level = 0;
 	u32 format = gstate.texformat & 0xF;
+	if (format >= 11) {
+		ERROR_LOG(G3D, "Unknown texture format %i", format);
+		format = 0;
+	}
+
 	u32 clutformat = gstate.clutformat & 3;
 	u32 clutaddr = GetClutAddr(clutformat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2);
 
-	u8 *texptr = Memory::GetPointer(texaddr);
-	u32 texhash = texptr ? MiniHash((u32*)texptr) : 0;
+	const u8 *texptr = Memory::GetPointer(texaddr);
+	u32 texhash = texptr ? MiniHash((const u32*)texptr) : 0;
 
 	u64 cachekey = texaddr ^ texhash;
-	cachekey |= (u64) clutaddr << 32;
+	if (formatUsesClut[format])
+		cachekey |= (u64) clutaddr << 32;
+
 	TexCache::iterator iter = cache.find(cachekey);
 	if (iter != cache.end()) {
 		//Validate the texture here (width, height etc)
@@ -637,7 +657,7 @@ void TextureCache::SetTexture() {
 			entry.invalidHint = 0;
 
 			u32 check = 0;
-			u32 *checkp = (u32 *) Memory::GetPointer(texaddr);
+			const u32 *checkp = (const u32 *) Memory::GetPointer(texaddr);
 			for (u32 i = 0; i < (entry.sizeInRAM * 2) / 4; ++i) {
 				check += *checkp++;
 			}
@@ -693,7 +713,7 @@ void TextureCache::SetTexture() {
 	// to avoid excessive clearing caused by cache invalidations.
 	entry.sizeInRAM = (bitsPerPixel[format < 11 ? format : 0] * bufw * h / 2) / 8;
 
-	u32 *checkp = (u32 *) Memory::GetPointer(texaddr);
+	const u32 *checkp = (const u32 *) Memory::GetPointer(texaddr);
 	for (u32 i = 0; i < (entry.sizeInRAM * 2) / 4; ++i)
 		entry.fullhash += *checkp++;
 
@@ -723,7 +743,7 @@ void TextureCache::SetTexture() {
 			u32 clutSharingOff = 0;//gstate.mipmapShareClut ? 0 : level * 16;
 			texByteAlign = 2;
 			if (!(gstate.texmode & 1)) {
-				u8 *addr = Memory::GetPointer(texaddr);
+				const u8 *addr = Memory::GetPointer(texaddr);
 				for (int i = 0; i < bufw * h; i += 2)
 				{
 					u8 index = *addr++;
@@ -752,7 +772,7 @@ void TextureCache::SetTexture() {
 			const u32 *clut = clutBuf32;
 			u32 clutSharingOff = 0;//gstate.mipmapShareClut ? 0 : level * 16;
 			if (!(gstate.texmode & 1)) {
-				u8 *addr = Memory::GetPointer(texaddr);
+				const u8 *addr = Memory::GetPointer(texaddr);
 				for (int i = 0; i < bufw * h; i += 2)
 				{
 					u8 index = *addr++;
