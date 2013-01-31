@@ -68,9 +68,9 @@ u32 sceSasInit(u32 core, u32 grainSize, u32 maxVoices, u32 outputMode, u32 sampl
 	INFO_LOG(HLE,"sceSasInit(%08x, %i, %i, %i, %i)", core, grainSize, maxVoices, outputMode, sampleRate);
 	sas->SetGrainSize(grainSize);
 	sas->maxVoices = maxVoices;
-	sas->sampleRate = sampleRate;
 	sas->outputMode = outputMode;
-	for (int i = 0; i < 32; i++) {
+	for (int i = 0; i < sas->maxVoices; i++) {
+		sas->voices[i].sampleRate = sampleRate;
 		sas->voices[i].playing = false;
 	}
 	return 0;
