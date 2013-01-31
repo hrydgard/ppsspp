@@ -22,12 +22,6 @@
 
 #ifdef _WIN32
 #include <windows.h>
-
-struct ConsolePendingEvent
-{
-	LogTypes::LOG_LEVELS Level;
-	const char *Text;
-};
 #endif
 
 class ConsoleListener : public LogListener

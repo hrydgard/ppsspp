@@ -250,7 +250,6 @@ void ConsoleListener::LogWriterThread()
 		u32 logRemotePos = Common::AtomicLoadAcquire(logPendingWritePos);
 		if (logRemotePos == (u32) -1)
 			break;
-		// TODO: if we're really unlucky, this could mean we're LOG_PENDING_MAX behind...
 		else if (logRemotePos == logPendingReadPos)
 			continue;
 		else
@@ -271,6 +270,7 @@ void ConsoleListener::LogWriterThread()
 			const int count = logRemotePos - logPendingReadPos;
 			memcpy(logLocal + start, logPending + logPendingReadPos, count);
 
+			logPendingReadPos = count;
 			LeaveCriticalSection(&criticalSection);
 
 			// Double check.
@@ -278,7 +278,6 @@ void ConsoleListener::LogWriterThread()
 				break;
 
 			logLocalSize = start + count;
-			logPendingReadPos = count;
 		}
 
 		for (char *Text = logLocal, *End = logLocal + logLocalSize; Text < End; )
@@ -329,6 +328,7 @@ void ConsoleListener::SendToThread(LogTypes::LOG_LEVELS Level, const char *Text)
 
 	EnterCriticalSection(&criticalSection);
 	u32 logWritePos = Common::AtomicLoad(logPendingWritePos);
+	u32 prevLogWritePos = logWritePos;
 	if (logWritePos + Len >= LOG_PENDING_MAX)
 	{
 		// One line shouldn't be this long...
@@ -345,23 +345,31 @@ void ConsoleListener::SendToThread(LogTypes::LOG_LEVELS Level, const char *Text)
 		}
 		const int count = Len - start;
 		memcpy(logPending + logWritePos, temp + start, count);
-
-		// Double check we didn't start quitting.
-		if (logPendingWritePos == (u32) -1)
-			return;
-
-		Common::AtomicStoreRelease(logPendingWritePos, logWritePos + count);
+		logWritePos += count;
 	}
 	else
 	{
 		snprintf(logPending + logWritePos, LOG_PENDING_MAX - logWritePos, "%s%s", ColorAttr, Text);
-
-		// Double check we didn't start quitting.
-		if (logPendingWritePos == (u32) -1)
-			return;
-
-		Common::AtomicStoreRelease(logPendingWritePos, logWritePos + Len);
+		logWritePos += Len;
 	}
+
+	// Oops, we passed the read pos.
+	if (prevLogWritePos < logPendingReadPos && logWritePos >= logPendingReadPos)
+	{
+		char *nextNewline = (char *) memchr(logPending + logWritePos, '\n', LOG_PENDING_MAX - logWritePos);
+		if (nextNewline == NULL && logWritePos > 0)
+			nextNewline = (char *) memchr(logPending, '\n', logWritePos);
+
+		// Okay, have it go right after the next newline.
+		if (nextNewline != NULL)
+			logPendingReadPos = nextNewline - logPending + 1;
+	}
+
+	// Double check we didn't start quitting.
+	if (logPendingWritePos == (u32) -1)
+		return;
+
+	Common::AtomicStoreRelease(logPendingWritePos, logWritePos);
 	LeaveCriticalSection(&criticalSection);
 
 	SetEvent(hTriggerEvent);
