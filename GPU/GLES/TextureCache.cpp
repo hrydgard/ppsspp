@@ -111,6 +111,31 @@ void TextureCache::InvalidateAll(bool force) {
 		Invalidate(0, 0xFFFFFFFF, force);
 }
 
+TextureCache::TexCacheEntry *TextureCache::GetEntryAt(u32 texaddr) {
+	for (auto entry = cache.begin(); entry != cache.end(); ++entry) {
+		if (entry->second.addr == texaddr) {
+			return &entry->second;
+		}
+	}
+	return 0;
+}
+
+void TextureCache::NotifyFramebuffer(u32 address, FBO *fbo) {
+	TexCacheEntry *entry = GetEntryAt(address | 0x04000000);
+	if (entry) {
+		INFO_LOG(HLE, "Render to texture detected at %08x!", address);
+		if (!entry->fbo)
+			entry->fbo = fbo;
+	}
+}
+
+void TextureCache::NotifyFramebufferDestroyed(u32 address, FBO *fbo) {
+	TexCacheEntry *entry = GetEntryAt(address | 0x04000000);
+	if (entry && entry->fbo) {
+		entry->fbo = 0;
+	}
+}
+
 static u32 GetClutAddr(u32 clutEntrySize) {
 	return ((gstate.clutaddr & 0xFFFFFF) | ((gstate.clutaddrupper << 8) & 0x0F000000)) + ((gstate.clutformat >> 16) & 0x1f) * clutEntrySize;
 }
@@ -622,6 +647,7 @@ void TextureCache::SetTexture() {
 		ERROR_LOG(G3D, "Unknown texture format %i", format);
 		format = 0;
 	}
+	bool hasClut = formatUsesClut[format];
 
 	u32 clutformat = gstate.clutformat & 3;
 	u32 clutaddr = GetClutAddr(clutformat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2);
@@ -630,9 +656,18 @@ void TextureCache::SetTexture() {
 	u32 texhash = texptr ? MiniHash((const u32*)texptr) : 0;
 
 	u64 cachekey = texaddr ^ texhash;
-	if (formatUsesClut[format])
+	if (hasClut) {
 		cachekey |= (u64) clutaddr << 32;
+	}
 
+	// Check for FBO - slow!
+	TexCacheEntry *fboEntry = GetEntryAt(texaddr);
+	if (fboEntry && fboEntry->fbo) {
+		fbo_bind_color_as_texture(fboEntry->fbo, 0);
+		UpdateSamplingParams(*fboEntry, false);
+		return;
+	}
+	
 	TexCache::iterator iter = cache.find(cachekey);
 	if (iter != cache.end()) {
 		//Validate the texture here (width, height etc)
@@ -693,6 +728,7 @@ void TextureCache::SetTexture() {
 	entry.hash = texhash;
 	entry.format = format;
 	entry.frameCounter = gpuStats.numFrames;
+	entry.fbo = 0;
 
 	if (format >= GE_TFMT_CLUT4 && format <= GE_TFMT_CLUT32) {
 		entry.clutformat = clutformat;

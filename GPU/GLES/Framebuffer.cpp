@@ -29,6 +29,7 @@
 #include "GPU/GPUState.h"
 
 #include "GPU/GLES/Framebuffer.h"
+#include "GPU/GLES/TextureCache.h"
 
 static const char tex_fs[] =
 	"#ifdef GL_ES\n"
@@ -66,7 +67,8 @@ static bool MaskedEqual(u32 addr1, u32 addr2) {
 FramebufferManager::FramebufferManager() :
 	displayFramebufPtr_(0),
 	prevDisplayFramebuf_(0),
-	prevPrevDisplayFramebuf_(0)
+	prevPrevDisplayFramebuf_(0),
+	currentRenderVfb_(0)
 {
 	glGenTextures(1, &backbufTex);
 
@@ -216,6 +218,13 @@ FramebufferManager::VirtualFramebuffer *FramebufferManager::GetDisplayFBO() {
 	return 0;
 }
 
+void GetViewportDimensions(int *w, int *h) {
+	float vpXa = getFloat24(gstate.viewportx1);
+	float vpYa = getFloat24(gstate.viewporty1);
+	*w = fabsf(vpXa * 2);
+	*h = fabsf(vpYa * 2);
+}
+
 void FramebufferManager::SetRenderFrameBuffer() {
 	if (!g_Config.bBufferedRendering)
 		return;
@@ -226,12 +235,23 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	u32 z_address = (gstate.zbptr & 0xFFE000) | ((gstate.zbwidth & 0xFF0000) << 8);
 	int z_stride = gstate.zbwidth & 0x3C0;
 
+	// We guess that the viewport size during the first draw call is an appropriate
+	// size for a render target.
+	//UpdateViewportAndProjection();
+
 	// Yeah this is not completely right. but it'll do for now.
-	int drawing_width = ((gstate.region2) & 0x3FF) + 1;
-	int drawing_height = ((gstate.region2 >> 10) & 0x3FF) + 1;
+	//int drawing_width = ((gstate.region2) & 0x3FF) + 1;
+	//int drawing_height = ((gstate.region2 >> 10) & 0x3FF) + 1;
+
+	// As there are no clear "framebuffer width" and "framebuffer height" registers,
+	// we need to infer the size of the current framebuffer somehow. Let's try the viewport.
+	
+	int drawing_width, drawing_height;
+	GetViewportDimensions(&drawing_width, &drawing_height);
 
 	// HACK for first frame where some games don't init things right
-	if (drawing_width == 1 && drawing_height == 1) {
+	
+	if (drawing_width <= 1 && drawing_height <= 1) {
 		drawing_width = 480;
 		drawing_height = 272;
 	}
@@ -251,6 +271,9 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		}
 	}
 
+	float renderWidthFactor = (float)PSP_CoreParameter().renderWidth / 480.0f;
+	float renderHeightFactor = (float)PSP_CoreParameter().renderHeight / 272.0f;
+
 	// None found? Create one.
 	if (!vfb) {
 		gstate_c.textureChanged = true;
@@ -261,6 +284,8 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		vfb->z_stride = z_stride;
 		vfb->width = drawing_width;
 		vfb->height = drawing_height;
+		vfb->renderWidth = drawing_width * renderWidthFactor;
+		vfb->renderHeight = drawing_height * renderHeightFactor;
 		vfb->format = fmt;
 
 		vfb->colorDepth = FBO_8888;
@@ -273,15 +298,16 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		//#ifdef ANDROID
 		//	vfb->colorDepth = FBO_8888;
 		//#endif
-		float renderWidthFactor = (float)PSP_CoreParameter().renderWidth / 480.0f;
-		float renderHeightFactor = (float)PSP_CoreParameter().renderHeight / 272.0f;
-		vfb->fbo = fbo_create((int)(vfb->width * renderWidthFactor), (int)(vfb->height * renderHeightFactor), 1, true, vfb->colorDepth);
+
+		vfb->fbo = fbo_create(vfb->renderWidth, vfb->renderHeight, 1, true, vfb->colorDepth);
+		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb->fbo);
 
 		vfb->last_frame_used = gpuStats.numFrames;
 		vfbs_.push_back(vfb);
+
 		fbo_bind_as_render_target(vfb->fbo);
 		glEnable(GL_DITHER);
-		glstate.viewport.set(0, 0, PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
+		glstate.viewport.set(0, 0, vfb->renderWidth, vfb->renderHeight);
 		currentRenderVfb_ = vfb;
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 		INFO_LOG(HLE, "Creating FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
@@ -292,8 +318,15 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		// Use it as a render target.
 		DEBUG_LOG(HLE, "Switching render target to FBO for %08x", vfb->fb_address);
 		gstate_c.textureChanged = true;
+		if (vfb->last_frame_used != gpuStats.numFrames) {
+			// Android optimization
+			//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+		}
+		vfb->last_frame_used = gpuStats.numFrames;
+		
 		fbo_bind_as_render_target(vfb->fbo);
 
+		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb->fbo);
 #ifdef USING_GLES2
 		// Tiled renderers benefit IMMENSELY from clearing an FBO before rendering
 		// to it. Let's hope this doesn't break too many things...
@@ -301,9 +334,8 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		// the first time the buffer is bound on this frame.
 		// glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 #endif
-		glstate.viewport.set(0, 0, PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
+		glstate.viewport.set(0, 0, vfb->renderWidth, vfb->renderHeight);
 		currentRenderVfb_ = vfb;
-		vfb->last_frame_used = gpuStats.numFrames;
 	}
 }
 
@@ -374,15 +406,16 @@ void FramebufferManager::SetDisplayFramebuffer(u32 framebuf, u32 stride, int for
 
 void FramebufferManager::DecimateFBOs() {
 	for (auto iter = vfbs_.begin(); iter != vfbs_.end();) {
-		VirtualFramebuffer *v = *iter;
-		if (v == displayFramebuf_ || v == prevDisplayFramebuf_ || v == prevPrevDisplayFramebuf_) {
+		VirtualFramebuffer *vfb = *iter;
+		if (vfb == displayFramebuf_ || vfb == prevDisplayFramebuf_ || vfb == prevPrevDisplayFramebuf_) {
 			++iter;
 			continue;
 		}
 		if ((*iter)->last_frame_used + FBO_OLD_AGE < gpuStats.numFrames) {
-			INFO_LOG(HLE, "Destroying FBO %i (%i x %i x %i)", v->fb_address, v->width, v->height, v->format)
-				fbo_destroy(v->fbo);
-			delete v;
+			INFO_LOG(HLE, "Destroying FBO for %08x (%i x %i x %i)", vfb->fb_address, vfb->width, vfb->height, vfb->format)
+			textureCache_->NotifyFramebufferDestroyed(vfb->fb_address, vfb->fbo);
+			fbo_destroy(vfb->fbo);
+			delete vfb;
 			vfbs_.erase(iter++);
 		}
 		else
@@ -392,9 +425,10 @@ void FramebufferManager::DecimateFBOs() {
 
 void FramebufferManager::DestroyAllFBOs() {
 	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
-		VirtualFramebuffer *v = *iter;
-		fbo_destroy(v->fbo);
-		delete v;
+		VirtualFramebuffer *vfb = *iter;
+		textureCache_->NotifyFramebufferDestroyed(vfb->fb_address, vfb->fbo);
+		fbo_destroy(vfb->fbo);
+		delete vfb;
 	}
 	vfbs_.clear();
 }

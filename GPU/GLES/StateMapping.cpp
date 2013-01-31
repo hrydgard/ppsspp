@@ -213,11 +213,11 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	glstate.depthRange.set(depthRangeMin, depthRangeMax);
 }
 
-void UpdateViewportAndProjection() {
-	int renderWidth = PSP_CoreParameter().renderWidth;
-	int renderHeight = PSP_CoreParameter().renderHeight;
-	float renderWidthFactor = (float)renderWidth / 480.0f;
-	float renderHeightFactor = (float)renderHeight / 272.0f;
+void TransformDrawEngine::UpdateViewportAndProjection() {
+	int renderWidth = framebufferManager_->GetRenderWidth();
+	int renderHeight = framebufferManager_->GetRenderHeight();
+	float renderWidthFactor = (float)renderWidth / framebufferManager_->GetTargetWidth();
+	float renderHeightFactor = (float)renderHeight / framebufferManager_->GetTargetHeight();
 	bool throughmode = (gstate.vertType & GE_VTYPE_THROUGH_MASK) != 0;
 
 	// We can probably use these to simply set scissors? Maybe we need to offset by regionX1/Y1

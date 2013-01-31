@@ -165,6 +165,8 @@ GLES_GPU::GLES_GPU()
 	shaderManager_ = new ShaderManager();
 	transformDraw_.SetShaderManager(shaderManager_);
 	transformDraw_.SetTextureCache(&textureCache_);
+	transformDraw_.SetFramebufferManager(&framebufferManager_);
+	framebufferManager_.SetTextureCache(&textureCache_);
 
 	// Sanity check gstate
 	if ((int *)&gstate.transferstart - (int *)&gstate != 0xEA) {

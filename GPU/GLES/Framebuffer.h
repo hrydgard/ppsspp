@@ -28,6 +28,7 @@
 #include "../Globals.h"
 
 struct GLSLProgram;
+class TextureCache;
 
 enum PspDisplayPixelFormat {
 	PSP_DISPLAY_PIXEL_FORMAT_565 = 0,
@@ -41,6 +42,10 @@ public:
 	FramebufferManager();
 	~FramebufferManager();
 
+	void SetTextureCache(TextureCache *tc) {
+		textureCache_ = tc;
+	}
+
 	struct VirtualFramebuffer {
 		int last_frame_used;
 
@@ -50,8 +55,10 @@ public:
 		int z_stride;
 
 		// There's also a top left of the drawing region, but meh...
-		int width;
-		int height;
+		u16 width;
+		u16 height;
+		u16 renderWidth;
+		u16 renderHeight;
 
 		int format;  // virtual, right now they are all RGBA8888
 		FBOColorDepth colorDepth;
@@ -73,6 +80,11 @@ public:
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, int format);
 	size_t NumVFBs() const { return vfbs_.size(); }
 
+	int GetRenderWidth() const { return currentRenderVfb_ ? currentRenderVfb_->renderWidth : 480; }
+	int GetRenderHeight() const { return currentRenderVfb_ ? currentRenderVfb_->renderHeight : 272; }
+	int GetTargetWidth() const { return currentRenderVfb_ ? currentRenderVfb_->width : 480; }
+	int GetTargetHeight() const { return currentRenderVfb_ ? currentRenderVfb_->height : 272; }
+
 private:
 	// Deletes old FBOs.
 
@@ -93,5 +105,9 @@ private:
 
 	u8 *convBuf;
 	GLSLProgram *draw2dprogram;
+
+
+	TextureCache *textureCache_;
+
 	bool resized_;
 };
