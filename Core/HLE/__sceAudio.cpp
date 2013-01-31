@@ -80,7 +80,7 @@ void __AudioDoState(PointerWrap &p)
 	p.Do(eventAudioUpdate);
 	CoreTiming::RestoreRegisterEvent(eventAudioUpdate, "AudioUpdate", &hleAudioUpdate);
 	p.Do(eventHostAudioUpdate);
-	CoreTiming::RestoreRegisterEvent(eventHostAudioUpdate, "AudioUpdateHost", &hleAudioUpdate);
+	CoreTiming::RestoreRegisterEvent(eventHostAudioUpdate, "AudioUpdateHost", &hleHostAudioUpdate);
 
 	p.Do(mixFrequency);
 	outAudioQueue.DoState(p);
