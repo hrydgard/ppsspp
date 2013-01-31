@@ -47,7 +47,7 @@
 
 #ifdef __SYMBIAN32__
 #include <e32std.h>
-#define SYMBIAN_CODECHUNCK_SIZE 1024*1024*17;
+#define SYMBIAN_CODECHUNK_SIZE 1024*1024*17;
 static RChunk* g_code_chunk = NULL;
 static RHeap* g_code_heap = NULL;
 #endif
@@ -61,11 +61,11 @@ void* AllocateExecutableMemory(size_t size, bool low)
 	void* ptr = VirtualAlloc(0, size, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
 #elif defined(__SYMBIAN32__)
     //This function may be called more than once, and we want to create only one big
-    //memory chunck for all the executable code for the JIT
+    //memory chunk for all the executable code for the JIT
     if( g_code_chunk == NULL && g_code_heap == NULL)
     {
-        TInt minsize = SYMBIAN_CODECHUNCK_SIZE;
-        TInt maxsize = SYMBIAN_CODECHUNCK_SIZE + 3*4096; //some offsets
+        TInt minsize = SYMBIAN_CODECHUNK_SIZE;
+        TInt maxsize = SYMBIAN_CODECHUNK_SIZE + 3*GetPageSize(); //some offsets
         g_code_chunk = new RChunk();
         g_code_chunk->CreateLocalCode(minsize, maxsize);
         g_code_heap = UserHeap::ChunkHeap(*g_code_chunk, minsize, 1, maxsize);
@@ -128,12 +128,10 @@ void* AllocateMemoryPages(size_t size)
 {
 #ifdef _WIN32
 	void* ptr = VirtualAlloc(0, size, MEM_COMMIT, PAGE_READWRITE);
+#elif defined(__SYMBIAN32__)
+	void* ptr = new u8[size];
 #else
-	void* ptr = mmap(0, size, PROT_READ | PROT_WRITE,
-#ifndef __SYMBIAN32__
-		MAP_ANON |
-#endif
-		MAP_PRIVATE, -1, 0);
+	void* ptr = mmap(0, size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
 #endif
 
 	// printf("Mapped memory at %p (size %ld)\n", ptr,
@@ -153,7 +151,8 @@ void* AllocateAlignedMemory(size_t size,size_t alignment)
 #ifdef ANDROID
 	ptr = memalign(alignment, size);
 #elif defined(__SYMBIAN32__)
-	// On Symbian, we will want to create an RChunk.
+	// On Symbian, we will want to create an RChunk Allocator.
+	// See: javascriptcore:JavaScriptCore/wtf/symbian/BlockAllocatorSymbian.cpp
 	ptr = malloc(size);
 #else
 	if(posix_memalign(&ptr, alignment, size) != 0)
@@ -179,7 +178,8 @@ void FreeMemoryPages(void* ptr, size_t size)
 		if (!VirtualFree(ptr, 0, MEM_RELEASE))
 			PanicAlert("FreeMemoryPages failed!\n%s", GetLastErrorMsg());
 		ptr = NULL; // Is this our responsibility?
-	
+#elif defined(__SYMBIAN32__)
+		delete [] ptr;
 #else
 		munmap(ptr, size);
 #endif
@@ -191,11 +191,9 @@ void FreeAlignedMemory(void* ptr)
 	if (ptr)
 	{
 #ifdef _WIN32
-	
 		_aligned_free(ptr);
-	
 #else
-	free(ptr);
+		free(ptr);
 #endif
 	}
 }
