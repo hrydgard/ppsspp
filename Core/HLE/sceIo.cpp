@@ -432,15 +432,14 @@ u32 sceIoCancel(int id)
 	ERROR_LOG(HLE, "UNIMPL sceIoCancel(%d)", id);
 	u32 error;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
-	int result;
-	if (f) 
+	if (f) {
 		f->closePending = true;
-	else {
+	} else {
 		ERROR_LOG(HLE, "sceIoCancel: unknown id %d", id);
-		result = ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
+		error = ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
 	}
 
-	return result;
+	return error;
 }
 
 s64 sceIoLseek(int id, s64 offset, int whence) {
