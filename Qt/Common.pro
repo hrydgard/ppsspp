@@ -31,12 +31,6 @@ win32 {
 
 SOURCES += ../Common/ColorUtil.cpp \
 	../Common/ConsoleListener.cpp \
-	../Common/Crypto/aes_cbc.cpp \
-	../Common/Crypto/aes_core.cpp \
-	../Common/Crypto/bn.cpp \
-	../Common/Crypto/ec.cpp \
-	../Common/Crypto/md5.cpp \
-	../Common/Crypto/sha1.cpp \
 	../Common/ExtendedTrace.cpp \
 	../Common/FPURoundModeGeneric.cpp \
 	../Common/FileSearch.cpp \
@@ -52,11 +46,10 @@ SOURCES += ../Common/ColorUtil.cpp \
 	../Common/StringUtil.cpp \
 	../Common/Thread.cpp \
 	../Common/Timer.cpp \
-	../Common/Version.cpp
+	../Common/Version.cpp \
+	../Common/Crypto/*.cpp
 HEADERS += ../Common/ColorUtil.h \
 	../Common/ConsoleListener.h \
-	../Common/Crypto/md5.h \
-	../Common/Crypto/sha1.h \
 	../Common/ExtendedTrace.h \
 	../Common/FileSearch.h \
 	../Common/FileUtil.h \
@@ -69,5 +62,6 @@ HEADERS += ../Common/ColorUtil.h \
 	../Common/MsgHandler.h \
 	../Common/StringUtil.h \
 	../Common/Thread.h \
-	../Common/Timer.h
+	../Common/Timer.h \
+	../Common/Crypto/*.h
 

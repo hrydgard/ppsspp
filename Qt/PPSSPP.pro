@@ -57,11 +57,11 @@ linux:!mobile_platform {
 # Packaging
 symbian {
 	vendorinfo = "%{\"Qtness\"}" ":\"Qtness\""
-	packageheader = "$${LITERAL_HASH}{\"PPSSPP\"}, (0xE0095B1D), 0, 0, 5, TYPE=SA"
-	my_deployment.pkg_prerules = packageheader vendorinfo
-	assets.sources = ../android/assets/ui_atlas.zim ../android/assets/ppge_atlas.zim
+	packageheader = "$${LITERAL_HASH}{\"PPSSPP\"}, (0xE0095B1D), 0, 6, 1, TYPE=SA"
+	deployinfo.pkg_prerules = packageheader vendorinfo
+	assets.sources = ../android/assets/ui_atlas.zim ../assets/ppge_atlas.zim
 	assets.path = E:/PPSSPP
-	DEPLOYMENT += my_deployment assets
+	DEPLOYMENT += deployinfo assets
 	ICON = ../assets/icon.svg
 # 268MB maximum
 	TARGET.EPOCHEAPSIZE = 0x40000 0x10000000
