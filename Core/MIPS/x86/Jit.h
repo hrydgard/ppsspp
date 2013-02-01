@@ -122,6 +122,7 @@ public:
 	void Comp_Jump(u32 op);
 	void Comp_JumpReg(u32 op);
 	void Comp_Syscall(u32 op);
+	void Comp_Break(u32 op);
 
 	void Comp_IType(u32 op);
 	void Comp_RType3(u32 op);
