@@ -295,11 +295,12 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		fbo_bind_as_render_target(vfb->fbo);
 
 #ifdef USING_GLES2
-		// Tiled renderers benefit IMMENSELY from clearing an FBO before rendering
-		// to it. Let's hope this doesn't break too many things...
-		// It did, will have to find a better solution like clearing only if this is
-		// the first time the buffer is bound on this frame.
-		// glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+		// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
+		// to it. This broke stuff before, so now it only clears on the first use of an
+		// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
+		// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
+		if (vfb->last_frame_used != gpuStats.numFrames)
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 #endif
 		glstate.viewport.set(0, 0, PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
 		currentRenderVfb_ = vfb;
