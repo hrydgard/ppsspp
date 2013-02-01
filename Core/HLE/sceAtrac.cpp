@@ -160,13 +160,13 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 
 	Memory::Write_U32(1, numSamplesAddr);
 	Memory::Write_U32(1, finishFlagAddr);	// Lie that decoding is finished
-	Memory::Write_U32(0, remainAddr);	// Lie that decoding is finished
+	Memory::Write_U32(-1, remainAddr);	// Lie that decoding is finished
 
 	if (atrac != NULL) {
 		atrac->decodePos += 1;
 	}
 
-	return 0;
+	return ATRAC_ERROR_ALL_DATA_DECODED;
 }
 
 u32 sceAtracEndEntry()
