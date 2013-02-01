@@ -183,7 +183,7 @@ const MIPSInstruction tableSpecial[64] = /// 000000 ...... ...... .......... xxx
 	INSTR("movz",  &Jit::Comp_RType3, Dis_RType3, Int_RType3, OUT_RD|IN_RS|IN_RT),
 	INSTR("movn",  &Jit::Comp_RType3, Dis_RType3, Int_RType3, OUT_RD|IN_RS|IN_RT),
 	INSTR("syscall", &Jit::Comp_Syscall, Dis_Syscall, Int_Syscall,0),
-	INSTR("break", &Jit::Comp_Generic, Dis_Generic, Int_Break, 0),
+	INSTR("break", &Jit::Comp_Break, Dis_Generic, Int_Break, 0),
 	{-2},
 	INSTR("sync",  &Jit::Comp_Generic, Dis_Generic, Int_Sync, 0),
 

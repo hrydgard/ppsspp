@@ -506,4 +506,11 @@ void Jit::Comp_Syscall(u32 op)
 	js.compiling = false;
 }
 
+void Jit::Comp_Break(u32 op)
+{
+	Comp_Generic(op);
+	WriteSyscallExit();
+	js.compiling = false;
+}
+
 }	 // namespace Mipscomp
