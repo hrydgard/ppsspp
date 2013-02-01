@@ -163,7 +163,7 @@ void OpArg::WriteRex(XEmitter *emit, int opBits, int bits, int customOp) const
 	_dbg_assert_(DYNA_REC, (indexReg & 8) == 0);
 	_dbg_assert_(DYNA_REC, (offsetOrBaseReg & 8) == 0);
 	_dbg_assert_(DYNA_REC, opBits != 8 || (customOp & 0x10c) != 4 || customOp == -1);
-	_dbg_assert_(DYNA_REC, bits != 8 || (offsetOrBaseReg & 0x10c) != 4);
+	_dbg_assert_(DYNA_REC, scale == SCALE_ATREG || bits != 8 || (offsetOrBaseReg & 0x10c) != 4);
 #endif
 }
 
