@@ -18,6 +18,7 @@ blackberry: LIBS += -L. -lCore -lCommon -lNative -lscreen -lsocket -lstdc++
 win32: LIBS += -L. -lCore -lCommon -lNative -lwinmm -lws2_32 -lkernel32 -luser32 -lgdi32 -lshell32 -lcomctl32 -ldsound -lxinput
 
 linux: LIBS += -L. -lCore -lCommon -lNative
+linux: PRE_TARGETDEPS += ./libCommon.a ./libCore.a ./libNative.a
 
 # Main
 SOURCES += ../native/base/QtMain.cpp
