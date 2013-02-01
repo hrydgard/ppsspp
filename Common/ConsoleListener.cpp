@@ -340,7 +340,7 @@ void ConsoleListener::SendToThread(LogTypes::LOG_LEVELS Level, const char *Text)
 			logWritePos -= LOG_PENDING_MAX;
 
 		int start = 0;
-		if (logWritePos < LOG_PENDING_MAX)
+		if (logWritePos < LOG_PENDING_MAX && logWritePos + Len >= LOG_PENDING_MAX)
 		{
 			const int count = LOG_PENDING_MAX - logWritePos;
 			memcpy(logPending + logWritePos, Text, count);
