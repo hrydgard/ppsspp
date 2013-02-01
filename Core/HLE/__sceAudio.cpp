@@ -108,6 +108,7 @@ void __AudioShutdown()
 
 u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking)
 {
+	u32 ret = 0;
 	section.lock();
 	if (chan.sampleAddress == 0)
 		return SCE_ERROR_AUDIO_NOT_OUTPUT;
@@ -146,6 +147,8 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking)
 			for (u32 i = 0; i < totalSamples; i++)
 				chan.sampleQueue.push((s16)Memory::Read_U16(chan.sampleAddress + sizeof(s16) * i));
 		}
+
+		ret = chan.sampleCount;
 	}
 	else if (chan.format == PSP_AUDIO_FORMAT_MONO)
 	{
@@ -156,9 +159,11 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking)
 			chan.sampleQueue.push(sample);
 			chan.sampleQueue.push(sample);
 		}
+
+		ret = chan.sampleCount;
 	}
 	section.unlock();
-	return 0;
+	return ret;
 }
 
 // Mix samples from the various audio channels into a single sample queue.
@@ -205,7 +210,7 @@ void __AudioUpdate()
 				SceUID waitingThread = chans[i].waitingThread;
 				chans[i].waitingThread = 0;
 				// DEBUG_LOG(HLE, "Woke thread %i for some buffer filling", waitingThread);
-				__KernelResumeThreadFromWait(waitingThread);
+				__KernelResumeThreadFromWait(waitingThread, chans[i].sampleCount);
 			}
 		}
 	}

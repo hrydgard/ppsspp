@@ -35,16 +35,63 @@
 #define PSP_MODE_AT_3		0x00001001
 
 struct Atrac {
+	Atrac() : decodePos(0), buffer(0), bufferSize(0) {}
+	void DoState(PointerWrap &p) {
+		p.Do(decodePos);
+		p.Do(buffer);
+		p.Do(bufferSize);
+		p.DoMarker("Atrac");
+	}
 
+	u32 decodePos;
+	u32 buffer;
+	u32 bufferSize;
 };
 
-Atrac globalAtrac;
+std::map<int, Atrac *> atracMap;
+
+void __AtracInit()
+{
+}
+
+void __AtracDoState(PointerWrap &p) {
+	int n = (int) atracMap.size();
+	p.Do(n);
+	if (p.mode == p.MODE_READ) {
+		for (auto it = atracMap.begin(), end = atracMap.end(); it != end; ++it) {
+			delete it->second;
+		}
+		atracMap.clear();
+
+		for (int i = 0; i < n; ++i) {
+			int key;
+			p.Do(key);
+			Atrac *atrac = new Atrac;
+			atrac->DoState(p);
+			atracMap[key] = atrac;
+		}
+	} else {
+		for (auto it = atracMap.begin(), end = atracMap.end(); it != end; ++it) {
+			p.Do(it->first);
+			it->second->DoState(p);
+		}
+	}
+
+	p.DoMarker("sceAtrac");
+}
+
+void __AtracShutdown()
+{
+	for (auto it = atracMap.begin(), end = atracMap.end(); it != end; ++it) {
+		delete it->second;
+	}
+	atracMap.clear();
+}
 
 // Temporary workaround to prevent excessive logging making games very slow.
 // This is just the default cycle / 10, so about 1/10 second.
 const u64 atracLogTickFrequency = 22200;
-static bool atracShouldLogUnimpl(u64 &lastTicks)
-{
+static bool atracShouldLogUnimpl(u64 &lastTicks) {
 	u64 ticks = CoreTiming::GetTicks();
 	bool result = ticks - lastTicks >= atracLogTickFrequency;
 	lastTicks = ticks;
@@ -56,12 +103,23 @@ static bool atracShouldLogUnimpl(u64 &lastTicks)
 #define ERROR_LOG_LIMITED(t, ...) { static u64 limited__lastTicks = 0; if (atracShouldLogUnimpl(limited__lastTicks)) ERROR_LOG(t, __VA_ARGS__); }
 //#define ERROR_LOG_LIMITED(t, ...) { ERROR_LOG(t, __VA_ARGS__); }
 
-// TODO: Properly.
 Atrac *getAtrac(int atracID) {
-	if (atracID == 1) {
-		return &globalAtrac;
-	} else {
-		return 0;
+	if (atracMap.find(atracID) == atracMap.end()) {
+		return NULL;
+	}
+	return atracMap[atracID];
+}
+
+int createAtrac(Atrac *atrac) {
+	int id = (int) atracMap.size();
+	atracMap[id] = atrac;
+	return id;
+}
+
+void deleteAtrac(int atracID) {
+	if (atracMap.find(atracID) != atracMap.end()) {
+		delete atracMap[atracID];
+		atracMap.erase(atracID);
 	}
 }
 
@@ -78,7 +136,7 @@ int getCodecType(int addr) {
 u32 sceAtracGetAtracID(int codecType)
 {
 	ERROR_LOG_LIMITED(HLE, "FAKE sceAtracGetAtracID(%i)", codecType);
-	return 1;
+	return createAtrac(new Atrac);
 }
 
 u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd)
@@ -95,14 +153,20 @@ u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd)
 u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishFlagAddr, u32 remainAddr)
 {
 	ERROR_LOG_LIMITED(HLE, "FAKE sceAtracDecodeData(%i, %08x, %08x, %08x, %08x)", atracID, outAddr, numSamplesAddr, finishFlagAddr, remainAddr);
+	Atrac *atrac = getAtrac(atracID);
+
 	Memory::Write_U16(0, outAddr);	// Write a single 16-bit stereo
 	Memory::Write_U16(0, outAddr + 2);
 
 	Memory::Write_U32(1, numSamplesAddr);
 	Memory::Write_U32(1, finishFlagAddr);	// Lie that decoding is finished
-	Memory::Write_U32(0, remainAddr);	// Lie that decoding is finished
+	Memory::Write_U32(-1, remainAddr);	// Lie that decoding is finished
 
-	return 0;
+	if (atrac != NULL) {
+		atrac->decodePos += 1;
+	}
+
+	return ATRAC_ERROR_ALL_DATA_DECODED;
 }
 
 u32 sceAtracEndEntry()
@@ -116,10 +180,17 @@ u32 sceAtracGetBufferInfoForReseting(int atracID, int sample, u32 bufferInfoAddr
 	ERROR_LOG_LIMITED(HLE, "UNIMPL sceAtracGetBufferInfoForReseting(%i, %i, %08x)",atracID, sample, bufferInfoAddr);
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
+		// TODO: Write the right stuff instead.
+		Memory::Memset(bufferInfoAddr, 0, 32);
 		//return -1;
+	} else {
+		Memory::Write_U32(atrac->buffer, bufferInfoAddr);
+		Memory::Write_U32(atrac->bufferSize, bufferInfoAddr + 4);
+		Memory::Write_U32(0, bufferInfoAddr + 8);
+		Memory::Write_U32(0, bufferInfoAddr + 12);
+		// TODO: Write the right stuff instead.
+		Memory::Memset(bufferInfoAddr + 16, 0, 16);
 	}
-	// TODO: Write the right stuff instead.
-	Memory::Memset(bufferInfoAddr, 0, 32);
 	return 0;
 }
 
@@ -188,7 +259,7 @@ u32  sceAtracGetNextDecodePosition(int atracID, u32 outposAddr)
 	if (!atrac) {
 		//return -1;
 	}
-	Memory::Write_U32(1, outposAddr); // outpos
+	Memory::Write_U32(atrac != NULL ? atrac->decodePos : 0, outposAddr); // outpos
 	return 0;
 }
 
@@ -199,7 +270,7 @@ u32 sceAtracGetNextSample(int atracID, u32 outNAddr)
 	if (!atrac) {
 		//return -1;
 	}
-	Memory::Write_U32(0, outNAddr);
+	Memory::Write_U32(1, outNAddr);
 	return 0;
 }
 
@@ -246,7 +317,7 @@ u32 sceAtracGetStreamDataInfo(int atracID, u32 writePointerAddr, u32 availableBy
 	if (!atrac) {
 		//return -1;
 	}
-	Memory::Write_U32(0, readOffsetAddr);
+	Memory::Write_U32(atrac ? atrac->buffer : 0, readOffsetAddr);
 	Memory::Write_U32(0, availableBytesAddr);
 	Memory::Write_U32(0, writePointerAddr);
 	return 0;
@@ -255,6 +326,7 @@ u32 sceAtracGetStreamDataInfo(int atracID, u32 writePointerAddr, u32 availableBy
 u32 sceAtracReleaseAtracID(int atracID)
 {
 	ERROR_LOG_LIMITED(HLE, "UNIMPL sceAtracReleaseAtracID(%i)", atracID);
+	deleteAtrac(atracID);
 	return 0;
 }
 
@@ -287,6 +359,11 @@ u32 sceAtracSetSecondBuffer(int atracID, u32 secondBuffer, u32 secondBufferSize)
 u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize)
 {
 	ERROR_LOG_LIMITED(HLE, "UNIMPL sceAtracSetData(%i, %08x, %08x)", atracID, buffer, bufferSize);
+	Atrac *atrac = getAtrac(atracID);
+	if (atrac != NULL) {
+		atrac->buffer = buffer;
+		atrac->bufferSize = bufferSize;
+	}
 	return 0;
 } 
 
@@ -294,14 +371,22 @@ int sceAtracSetDataAndGetID(u32 buffer, u32 bufferSize)
 {	
 	ERROR_LOG_LIMITED(HLE, "UNIMPL sceAtracSetDataAndGetID(%08x, %08x)", buffer, bufferSize);
 	int codecType = getCodecType(buffer);
-	return 1;
+
+	Atrac *atrac = new Atrac();
+	atrac->buffer = buffer;
+	atrac->bufferSize = bufferSize;
+	return createAtrac(atrac);
 }
 
 int sceAtracSetHalfwayBufferAndGetID(int atracID, u32 halfBuffer, u32 readSize, u32 halfBufferSize)
 {
 	ERROR_LOG_LIMITED(HLE, "UNIMPL sceAtracSetHalfwayBufferAndGetID(%i, %08x, %08x, %08x)", atracID, halfBuffer, readSize, halfBufferSize);
 	int codecType = getCodecType(halfBuffer);
-	return 1;
+
+	Atrac *atrac = new Atrac();
+	atrac->buffer = halfBuffer;
+	atrac->bufferSize = halfBufferSize;
+	return createAtrac(atrac);
 }
 
 u32 sceAtracStartEntry()
@@ -354,7 +439,11 @@ int sceAtracSetAA3DataAndGetID(u32 buffer, int bufferSize, int fileSize, u32 met
 {
 	ERROR_LOG_LIMITED(HLE, "UNIMPL sceAtracSetAA3DataAndGetID(%08x, %i, %i, %08x)", buffer, bufferSize, fileSize, metadataSizeAddr);
 	int codecType = getCodecType(buffer);
-	return 1;
+
+	Atrac *atrac = new Atrac();
+	atrac->buffer = buffer;
+	atrac->bufferSize = bufferSize;
+	return createAtrac(atrac);
 }
 
 const HLEFunction sceAtrac3plus[] =
