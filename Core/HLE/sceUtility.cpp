@@ -226,6 +226,7 @@ int sceUtilityGamedataInstallGetStatus()
 #define PSP_SYSTEMPARAM_ID_INT_DAYLIGHTSAVINGS			7
 #define PSP_SYSTEMPARAM_ID_INT_LANGUAGE				8
 #define PSP_SYSTEMPARAM_ID_INT_BUTTON_PREFERENCE		9
+#define PSP_SYSTEMPARAM_ID_INT_LOCK_PARENTAL_LEVEL		10
 
 /**
 * Return values for the SystemParam functions
@@ -320,6 +321,9 @@ u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr)
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_BUTTON_PREFERENCE:
 		param = PSP_SYSTEMPARAM_BUTTON_CROSS;
+		break;
+	case PSP_SYSTEMPARAM_ID_INT_LOCK_PARENTAL_LEVEL:
+		param = 0;
 		break;
 	default:
 		return PSP_SYSTEMPARAM_RETVAL_FAIL;
