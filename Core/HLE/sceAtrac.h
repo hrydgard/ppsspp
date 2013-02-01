@@ -17,4 +17,9 @@
 
 #pragma once
 
+#include "../Common/ChunkFile.h"
+
 void Register_sceAtrac3plus();
+void __AtracInit();
+void __AtracDoState(PointerWrap &p);
+void __AtracShutdown();

@@ -35,16 +35,59 @@
 #define PSP_MODE_AT_3		0x00001001
 
 struct Atrac {
+	Atrac() : decodePos(0) {}
+	void DoState(PointerWrap &p) {
+		p.Do(decodePos);
+		p.DoMarker("Atrac");
+	}
 
+	u32 decodePos;
 };
 
-Atrac globalAtrac;
+std::map<int, Atrac *> atracMap;
+
+void __AtracInit()
+{
+}
+
+void __AtracDoState(PointerWrap &p) {
+	int n = (int) atracMap.size();
+	p.Do(n);
+	if (p.mode == p.MODE_READ) {
+		for (auto it = atracMap.begin(), end = atracMap.end(); it != end; ++it) {
+			delete it->second;
+		}
+		atracMap.clear();
+
+		for (int i = 0; i < n; ++i) {
+			int key;
+			p.Do(key);
+			Atrac *atrac = new Atrac;
+			atrac->DoState(p);
+			atracMap[key] = atrac;
+		}
+	} else {
+		for (auto it = atracMap.begin(), end = atracMap.end(); it != end; ++it) {
+			p.Do(it->first);
+			it->second->DoState(p);
+		}
+	}
+
+	p.DoMarker("sceAtrac");
+}
+
+void __AtracShutdown()
+{
+	for (auto it = atracMap.begin(), end = atracMap.end(); it != end; ++it) {
+		delete it->second;
+	}
+	atracMap.clear();
+}
 
 // Temporary workaround to prevent excessive logging making games very slow.
 // This is just the default cycle / 10, so about 1/10 second.
 const u64 atracLogTickFrequency = 22200;
-static bool atracShouldLogUnimpl(u64 &lastTicks)
-{
+static bool atracShouldLogUnimpl(u64 &lastTicks) {
 	u64 ticks = CoreTiming::GetTicks();
 	bool result = ticks - lastTicks >= atracLogTickFrequency;
 	lastTicks = ticks;
@@ -56,12 +99,23 @@ static bool atracShouldLogUnimpl(u64 &lastTicks)
 #define ERROR_LOG_LIMITED(t, ...) { static u64 limited__lastTicks = 0; if (atracShouldLogUnimpl(limited__lastTicks)) ERROR_LOG(t, __VA_ARGS__); }
 //#define ERROR_LOG_LIMITED(t, ...) { ERROR_LOG(t, __VA_ARGS__); }
 
-// TODO: Properly.
 Atrac *getAtrac(int atracID) {
-	if (atracID == 1) {
-		return &globalAtrac;
-	} else {
-		return 0;
+	if (atracMap.find(atracID) == atracMap.end()) {
+		return NULL;
+	}
+	return atracMap[atracID];
+}
+
+int createAtrac(Atrac *atrac) {
+	int id = (int) atracMap.size();
+	atracMap[id] = atrac;
+	return id;
+}
+
+void deleteAtrac(int atracID) {
+	if (atracMap.find(atracID) != atracMap.end()) {
+		delete atracMap[atracID];
+		atracMap.erase(atracID);
 	}
 }
 
@@ -78,7 +132,7 @@ int getCodecType(int addr) {
 u32 sceAtracGetAtracID(int codecType)
 {
 	ERROR_LOG_LIMITED(HLE, "FAKE sceAtracGetAtracID(%i)", codecType);
-	return 1;
+	return createAtrac(new Atrac);
 }
 
 u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd)
@@ -255,6 +309,7 @@ u32 sceAtracGetStreamDataInfo(int atracID, u32 writePointerAddr, u32 availableBy
 u32 sceAtracReleaseAtracID(int atracID)
 {
 	ERROR_LOG_LIMITED(HLE, "UNIMPL sceAtracReleaseAtracID(%i)", atracID);
+	deleteAtrac(atracID);
 	return 0;
 }
 
@@ -294,14 +349,14 @@ int sceAtracSetDataAndGetID(u32 buffer, u32 bufferSize)
 {	
 	ERROR_LOG_LIMITED(HLE, "UNIMPL sceAtracSetDataAndGetID(%08x, %08x)", buffer, bufferSize);
 	int codecType = getCodecType(buffer);
-	return 1;
+	return createAtrac(new Atrac);
 }
 
 int sceAtracSetHalfwayBufferAndGetID(int atracID, u32 halfBuffer, u32 readSize, u32 halfBufferSize)
 {
 	ERROR_LOG_LIMITED(HLE, "UNIMPL sceAtracSetHalfwayBufferAndGetID(%i, %08x, %08x, %08x)", atracID, halfBuffer, readSize, halfBufferSize);
 	int codecType = getCodecType(halfBuffer);
-	return 1;
+	return createAtrac(new Atrac);
 }
 
 u32 sceAtracStartEntry()
@@ -354,7 +409,7 @@ int sceAtracSetAA3DataAndGetID(u32 buffer, int bufferSize, int fileSize, u32 met
 {
 	ERROR_LOG_LIMITED(HLE, "UNIMPL sceAtracSetAA3DataAndGetID(%08x, %i, %i, %08x)", buffer, bufferSize, fileSize, metadataSizeAddr);
 	int codecType = getCodecType(buffer);
-	return 1;
+	return createAtrac(new Atrac);
 }
 
 const HLEFunction sceAtrac3plus[] =

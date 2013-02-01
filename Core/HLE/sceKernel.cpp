@@ -31,6 +31,7 @@
 
 
 #include "__sceAudio.h"
+#include "sceAtrac.h"
 #include "sceAudio.h"
 #include "sceCtrl.h"
 #include "sceDisplay.h"
@@ -93,6 +94,7 @@ void __KernelInit()
 	__IoInit();
 	__AudioInit();
 	__SasInit();
+	__AtracInit();
 	__DisplayInit();
 	__GeInit();
 	__PowerInit();
@@ -134,6 +136,7 @@ void __KernelShutdown()
 	__GeShutdown();
 	__SasShutdown();
 	__DisplayShutdown();
+	__AtracShutdown();
 	__AudioShutdown();
 	__IoShutdown();
 	__KernelMutexShutdown();
@@ -164,6 +167,7 @@ void __KernelDoState(PointerWrap &p)
 	__KernelSemaDoState(p);
 	__KernelTimeDoState(p);
 
+	__AtracDoState(p);
 	__AudioDoState(p);
 	__CtrlDoState(p);
 	__DisplayDoState(p);
