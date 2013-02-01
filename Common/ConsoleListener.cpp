@@ -270,7 +270,7 @@ void ConsoleListener::LogWriterThread()
 			const int count = logRemotePos - logPendingReadPos;
 			memcpy(logLocal + start, logPending + logPendingReadPos, count);
 
-			logPendingReadPos = count;
+			logPendingReadPos += count;
 			LeaveCriticalSection(&criticalSection);
 
 			// Double check.
