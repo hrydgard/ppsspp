@@ -21,8 +21,10 @@ linux: LIBS += -L. -lCore -lCommon -lNative
 linux: PRE_TARGETDEPS += ./libCommon.a ./libCore.a ./libNative.a
 
 # Main
-SOURCES += ../native/base/QtMain.cpp
-HEADERS += ../native/base/QtMain.h
+SOURCES += ../native/base/QtMain.cpp \
+    qkeyedit.cpp
+HEADERS += ../native/base/QtMain.h \
+    qkeyedit.h
 
 # Native
 SOURCES += ../android/jni/EmuScreen.cpp \
@@ -73,4 +75,7 @@ linux:!mobile_platform {
 	FORMS += mainwindow.ui \
 	debugger_disasm.ui \
 	controls.ui
+
+	RESOURCES += \
+	    resources.qrc
 }

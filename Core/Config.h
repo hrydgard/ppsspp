@@ -18,6 +18,7 @@
 #pragma once
 
 #include <string>
+#include <map>
 
 #define PPSSPP_VERSION_STR "0.6.1"
 
@@ -72,6 +73,9 @@ public:
 	bool bShowFPSCounter;
 	bool bShowDebugStats;
 	bool bLargeControls;
+
+	// Control
+	std::map<int,int> iMappingMap; // Can be used differently depending on systems
 
 	// SystemParam
 	int ilanguage;

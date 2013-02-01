@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/images">
+        <file>resources/psp.png</file>
+    </qresource>
+</RCC>

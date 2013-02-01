@@ -20,28 +20,6 @@
 #include "QtHost.h"
 #include "EmuThread.h"
 
-// Input
-const int buttonMappings[18] = {
-	Qt::Key_X,          //A
-	Qt::Key_S,          //B
-	Qt::Key_Z,          //X
-	Qt::Key_A,          //Y
-	Qt::Key_W,          //LBUMPER
-	Qt::Key_Q,          //RBUMPER
-	Qt::Key_1,          //START
-	Qt::Key_2,          //SELECT
-	Qt::Key_Up,         //UP
-	Qt::Key_Down,       //DOWN
-	Qt::Key_Left,       //LEFT
-	Qt::Key_Right,      //RIGHT
-	0,                  //MENU (event)
-	Qt::Key_Backspace,  //BACK
-	Qt::Key_I,          //JOY UP
-	Qt::Key_K,          //JOY DOWN
-	Qt::Key_J,          //JOY LEFT
-	Qt::Key_L,          //JOY RIGHT
-};
-
 const char *stateToLoad = NULL;
 
 MainWindow::MainWindow(QWidget *parent) :
@@ -673,20 +651,20 @@ void MainWindow::keyPressEvent(QKeyEvent *e)
 		return;
 	}
 
-	for (int b = 0; b < 14; b++) {
-		if (e->key() == buttonMappings[b])
+	for (int b = 0; b < controllistCount; b++) {
+		if (e->key() == controllist[b].key)
 		{
-			input_state.pad_buttons |= (1<<b);
+			input_state.pad_buttons |= (controllist[b].emu_id);
 		}
 	}
 }
 
 void MainWindow::keyReleaseEvent(QKeyEvent *e)
 {
-	for (int b = 0; b < 14; b++) {
-		if (e->key() == buttonMappings[b])
+	for (int b = 0; b < controllistCount; b++) {
+		if (e->key() == controllist[b].key)
 		{
-			input_state.pad_buttons &= ~(1<<b);
+			input_state.pad_buttons &= ~(controllist[b].emu_id);
 		}
 	}
 }
