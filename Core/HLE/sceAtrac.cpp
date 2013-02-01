@@ -149,12 +149,18 @@ u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd)
 u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishFlagAddr, u32 remainAddr)
 {
 	ERROR_LOG_LIMITED(HLE, "FAKE sceAtracDecodeData(%i, %08x, %08x, %08x, %08x)", atracID, outAddr, numSamplesAddr, finishFlagAddr, remainAddr);
+	Atrac *atrac = getAtrac(atracID);
+
 	Memory::Write_U16(0, outAddr);	// Write a single 16-bit stereo
 	Memory::Write_U16(0, outAddr + 2);
 
 	Memory::Write_U32(1, numSamplesAddr);
 	Memory::Write_U32(1, finishFlagAddr);	// Lie that decoding is finished
 	Memory::Write_U32(0, remainAddr);	// Lie that decoding is finished
+
+	if (atrac != NULL) {
+		atrac->decodePos += 1;
+	}
 
 	return 0;
 }
@@ -242,7 +248,7 @@ u32  sceAtracGetNextDecodePosition(int atracID, u32 outposAddr)
 	if (!atrac) {
 		//return -1;
 	}
-	Memory::Write_U32(1, outposAddr); // outpos
+	Memory::Write_U32(atrac != NULL ? atrac->decodePos : 0, outposAddr); // outpos
 	return 0;
 }
 
@@ -253,7 +259,7 @@ u32 sceAtracGetNextSample(int atracID, u32 outNAddr)
 	if (!atrac) {
 		//return -1;
 	}
-	Memory::Write_U32(0, outNAddr);
+	Memory::Write_U32(1, outNAddr);
 	return 0;
 }
 
