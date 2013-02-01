@@ -6,6 +6,7 @@
 #include <QDesktopServices>
 #include <QUrl>
 #include <QKeyEvent>
+#include <QDesktopWidget>
 
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/SaveState.h"
@@ -13,6 +14,8 @@
 #include "Core/Config.h"
 #include "ConsoleListener.h"
 #include "base/display.h"
+#include "GPU/GPUInterface.h"
+#include "GPU/GPUState.h"
 
 #include "QtHost.h"
 #include "EmuThread.h"
@@ -45,8 +48,7 @@ MainWindow::MainWindow(QWidget *parent) :
 	QMainWindow(parent),
 	ui(new Ui::MainWindow),
 	nextState(CORE_POWERDOWN),
-	dialogDisasm(0),
-	g_bFullScreen(false)
+	dialogDisasm(0)
 {
 	ui->setupUi(this);
 	qApp->installEventFilter(this);
@@ -208,7 +210,11 @@ void MainWindow::BrowseAndBoot(void)
 {
 	QString filename = QFileDialog::getOpenFileName(NULL, "Load File", g_Config.currentDirectory.c_str(), "PSP ROMs (*.pbp *.elf *.iso *.cso *.prx)");
 	if (QFile::exists(filename))
+	{
+		QFileInfo info(filename);
+		g_Config.currentDirectory = info.absolutePath().toStdString();
 		EmuThread_Start(filename, w);
+	}
 }
 
 void MainWindow::Boot()
@@ -297,9 +303,8 @@ void MainWindow::SetZoom(float zoom) {
 	setFixedSize(sizeHint());
 	resize(sizeHint());
 
-	PSP_CoreParameter().pixelWidth = (int) (480 * zoom);
-	PSP_CoreParameter().pixelHeight = (int) (272 * zoom);
-	//GL_Resized();
+	PSP_CoreParameter().pixelWidth = pixel_xres;
+	PSP_CoreParameter().pixelHeight = pixel_yres;
 }
 
 void MainWindow::on_action_FileLoad_triggered()
@@ -580,16 +585,36 @@ void MainWindow::on_action_OptionsIgnoreIllegalReadsWrites_triggered()
 
 void MainWindow::on_action_OptionsFullScreen_triggered()
 {
-	// TODO
-	if(g_bFullScreen) {
-		//_ViewNormal(hWnd);
-		SetZoom(1); //restore window to original size
+	if(isFullScreen()) {
+		showNormal();
+		ui->menubar->setVisible(true);
+		ui->statusbar->setVisible(true);
+		SetZoom(g_Config.iWindowZoom);
 	}
 	else {
-		/*int cx = ::GetSystemMetrics(SM_CXSCREEN);
-		float screenfactor = cx / 480.0f;
-		SetZoom(screenfactor);
-		_ViewFullScreen(hWnd);*/
+		ui->menubar->setVisible(false);
+		ui->statusbar->setVisible(false);
+
+		// Remove constraint
+		w->setMinimumSize(0, 0);
+		w->setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+		ui->centralwidget->setFixedSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+		setFixedSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+
+		showFullScreen();
+
+		int width = (int) QApplication::desktop()->screenGeometry().width();
+		int height = (int) QApplication::desktop()->screenGeometry().height();
+		PSP_CoreParameter().pixelWidth = width;
+		PSP_CoreParameter().pixelHeight = height;
+		PSP_CoreParameter().renderWidth = width;
+		PSP_CoreParameter().renderHeight = height;
+		PSP_CoreParameter().outputWidth = width;
+		PSP_CoreParameter().outputHeight = height;
+		pixel_xres = width;
+		pixel_yres = height;
+		if (gpu)
+			gpu->Resized();
 	}
 }
 
@@ -642,6 +667,12 @@ void MainWindow::closeEvent(QCloseEvent *event)
 
 void MainWindow::keyPressEvent(QKeyEvent *e)
 {
+	if(isFullScreen() && e->key() == Qt::Key_F12)
+	{
+		on_action_OptionsFullScreen_triggered();
+		return;
+	}
+
 	for (int b = 0; b < 14; b++) {
 		if (e->key() == buttonMappings[b])
 		{

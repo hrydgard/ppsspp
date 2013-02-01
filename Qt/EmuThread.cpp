@@ -33,7 +33,10 @@ void EmuThread_Stop()
 {
 //	DSound_UpdateSound();
 	Core_Stop();
-	glWindow->stop_rendering();
+	if(glWindow)
+	{
+		glWindow->stop_rendering();
+	}
 	host->UpdateUI();
 }
 
@@ -156,8 +159,8 @@ void EmuThread::run()
 			{
 				msleep(frameTime-time);
 			}
+			timer.start();
 		}
-		timer.start();
 
 		fbo_unbind();
 

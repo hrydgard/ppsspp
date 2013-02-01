@@ -324,9 +324,6 @@
    </property>
   </action>
   <action name="action_OptionsFullScreen">
-   <property name="enabled">
-    <bool>false</bool>
-   </property>
    <property name="text">
     <string>&amp;Toggle Full Screen</string>
    </property>
@@ -407,7 +404,7 @@
     <string>Screen &amp;2x</string>
    </property>
    <property name="shortcut">
-    <string>Ctrl+Shift+2</string>
+    <string>Ctrl+2</string>
    </property>
   </action>
   <action name="action_OptionsScreen3x">
@@ -418,7 +415,7 @@
     <string>Screen &amp;3x</string>
    </property>
    <property name="shortcut">
-    <string>Ctrl+Shift+3</string>
+    <string>Ctrl+3</string>
    </property>
   </action>
   <action name="action_OptionsScreen4x">
@@ -429,7 +426,7 @@
     <string>Screen &amp;4x</string>
    </property>
    <property name="shortcut">
-    <string>Ctrl+Shift+3</string>
+    <string>Ctrl+4</string>
    </property>
   </action>
   <action name="action_OptionsFastMemory">
