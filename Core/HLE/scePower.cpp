@@ -246,6 +246,11 @@ u32 scePowerGetBusClockFrequencyInt() {
 	return freq;
 }
 
+// a85880d0, unknown name
+u32 IsPSPNonFat() {
+	return 0;  // Fat PSP!
+}
+
 static const HLEFunction scePower[] = {
 	{0x04B7766E,&WrapI_II<scePowerRegisterCallback>,"scePowerRegisterCallback"},
 	{0x2B51FE2F,0,"scePower_2B51FE2F"},
@@ -295,8 +300,8 @@ static const HLEFunction scePower[] = {
 	{0x34f9c463,WrapU_V<scePowerGetPllClockFrequencyInt>,"scePowerGetPllClockFrequencyInt"},
 	{0xea382a27,0,"scePowerGetPllClockFrequencyFloat"},
 	{0xebd177d6,WrapV_UUU<scePowerSetClockFrequency>,"scePower_driver_EBD177D6"}, //TODO: used in a few places, jpcsp says is the same as scePowerSetClockFrequency
-	{0x469989ad,0,"scePower_469989ad"},
-	{0xa85880d0,0,"scePower_a85880d0"},
+	{0x469989ad,WrapV_UUU<scePowerSetClockFrequency>,"scePower_469989ad"},  // This is also the same as SetClockFrequency
+	{0xa85880d0,WrapU_V<IsPSPNonFat>,"scePower_a85880d0_IsPSPNonFat"},
 };
 
 //890129c in tyshooter looks bogus

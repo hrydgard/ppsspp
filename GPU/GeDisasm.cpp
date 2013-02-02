@@ -85,7 +85,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 	case GE_CMD_CALL:
 		{
 			u32 retval = pc + 4;
-			u32 target = (((gstate.base & 0x00FF0000) << 8) | (op & 0xFFFFFC)) & 0xFFFFFFF;
+			u32 target = gstate_c.getJumpAddress(op & 0xFFFFFF);
 			sprintf(buffer, "CMD CALL - %08x to %08x, ret=%08x", pc, target, retval);
 		}
 		break;
@@ -444,6 +444,14 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 		sprintf(buffer, "Material specular coef: %f", getFloat24(data));
 		break;
 
+	case GE_CMD_SHADEMODE:
+		sprintf(buffer, "Shade: %06x (%s)", data, data ? "gouraud" : "flat");
+		break;
+
+	case GE_CMD_LIGHTMODE:
+		sprintf(buffer, "Lightmode: %06x (%s)", data, data ? "separate spec" : "single color");
+		break;
+
 	case GE_CMD_LIGHTTYPE0:
 	case GE_CMD_LIGHTTYPE1:
 	case GE_CMD_LIGHTTYPE2:
@@ -532,10 +540,6 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 
 	case GE_CMD_CULL:
 		sprintf(buffer, "cull: %06x", data);
-		break;
-
-	case GE_CMD_LMODE:
-		sprintf(buffer, "Shade mode: %06x", data);
 		break;
 
 	case GE_CMD_PATCHDIVISION:

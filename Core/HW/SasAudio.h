@@ -73,8 +73,6 @@ enum VoiceType {
 
 // VAG is a Sony ADPCM audio compression format, which goes all the way back to the PSX.
 // It compresses 28 16-bit samples into a block of 16 bytes.
-// TODO: Get rid of the doubles, making sure it does not impact sound quality.
-// Doubles are pretty fast on Android devices these days though.
 class VagDecoder {
 public:
 	VagDecoder() : data_(0), read_(0) {}

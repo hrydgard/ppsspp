@@ -221,6 +221,7 @@ struct GPUgstate
 	int getNumBoneWeights() const {
 		return 1 + ((vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT);
 	}
+
 // Real data in the context ends here
 };
 	
@@ -230,6 +231,8 @@ struct GPUStateCache
 {
 	u32 vertexAddr;
 	u32 indexAddr;
+
+	u32 offsetAddr;
 
 	bool textureChanged;
 
@@ -247,6 +250,9 @@ struct GPUStateCache
 
 	float vpWidth;
 	float vpHeight;
+
+
+	u32 getJumpAddress(u32 data) const;
 };
 
 // TODO: Implement support for these.
@@ -322,3 +328,8 @@ extern GPUgstate gstate;
 extern GPUStateCache gstate_c;
 extern GPUInterface *gpu;
 extern GPUStatistics gpuStats;
+
+inline u32 GPUStateCache::getJumpAddress(u32 data) const {
+	u32 baseExtended = ((gstate.base & 0x0F0000) << 8) | (data & 0xFFFFFF);
+	return (gstate_c.offsetAddr + baseExtended) & 0x0FFFFFFF;
+}

@@ -37,7 +37,6 @@ const int LOG_PENDING_MAX = 120 * 10000;
 const int LOG_LATENCY_DELAY_MS = 20;
 const int LOG_SHUTDOWN_DELAY_MS = 250;
 const int LOG_MAX_DISPLAY_LINES = 4000;
-const int LOG_MAX_LINE_LENGTH = 480;
 #endif
 
 ConsoleListener::ConsoleListener()
@@ -270,7 +269,7 @@ void ConsoleListener::LogWriterThread()
 			const int count = logRemotePos - logPendingReadPos;
 			memcpy(logLocal + start, logPending + logPendingReadPos, count);
 
-			logPendingReadPos = count;
+			logPendingReadPos += count;
 			LeaveCriticalSection(&criticalSection);
 
 			// Double check.
@@ -315,42 +314,51 @@ void ConsoleListener::SendToThread(LogTypes::LOG_LEVELS Level, const char *Text)
 		return;
 
 	size_t Len = strlen(Text);
+	if (Len > LOG_PENDING_MAX)
+		Len = LOG_PENDING_MAX - 16;
 
 	char ColorAttr[16] = "";
+	int ColorLen = 0;
 	if (bUseColor)
 	{
 		// Not ANSI, since the console doesn't support it, but ANSI-like.
 		snprintf(ColorAttr, 16, "\033%d", Level);
 		// For now, rather than properly support it.
 		_dbg_assert_msg_(COMMON, strlen(ColorAttr) == 2, "Console logging doesn't support > 9 levels.");
-		Len += strlen(ColorAttr);
+		ColorLen = strlen(ColorAttr);
 	}
 
 	EnterCriticalSection(&criticalSection);
 	u32 logWritePos = Common::AtomicLoad(logPendingWritePos);
 	u32 prevLogWritePos = logWritePos;
-	if (logWritePos + Len >= LOG_PENDING_MAX)
+	if (logWritePos + ColorLen + Len >= LOG_PENDING_MAX)
 	{
-		// One line shouldn't be this long...
-		char temp[LOG_MAX_LINE_LENGTH];
-		snprintf(temp, LOG_MAX_LINE_LENGTH, "%s%s", ColorAttr, Text);
+		for (u32 i = 0; i < ColorLen; ++i)
+			logPending[(logWritePos + i) % LOG_PENDING_MAX] = ColorAttr[i];
+		logWritePos += ColorLen;
+		if (logWritePos >= LOG_PENDING_MAX)
+			logWritePos -= LOG_PENDING_MAX;
 
 		int start = 0;
-		if (logWritePos < LOG_PENDING_MAX)
+		if (logWritePos < LOG_PENDING_MAX && logWritePos + Len >= LOG_PENDING_MAX)
 		{
 			const int count = LOG_PENDING_MAX - logWritePos;
-			memcpy(logPending + logWritePos, temp, count);
+			memcpy(logPending + logWritePos, Text, count);
 			start = count;
 			logWritePos = 0;
 		}
 		const int count = Len - start;
-		memcpy(logPending + logWritePos, temp + start, count);
-		logWritePos += count;
+		if (count > 0)
+		{
+			memcpy(logPending + logWritePos, Text + start, count);
+			logWritePos += count;
+		}
 	}
 	else
 	{
-		snprintf(logPending + logWritePos, LOG_PENDING_MAX - logWritePos, "%s%s", ColorAttr, Text);
-		logWritePos += Len;
+		memcpy(logPending + logWritePos, ColorAttr, ColorLen);
+		memcpy(logPending + logWritePos + ColorLen, Text, Len);
+		logWritePos += ColorLen + Len;
 	}
 
 	// Oops, we passed the read pos.

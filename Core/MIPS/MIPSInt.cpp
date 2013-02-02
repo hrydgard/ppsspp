@@ -179,7 +179,7 @@ namespace MIPSInt
 
 	void Int_Break(u32 op)
 	{
-		DEBUG_LOG(CPU, "BREAK!");
+		ERROR_LOG(CPU, "BREAK!");
 		coreState = CORE_STEPPING;
 		PC += 4;
 	}

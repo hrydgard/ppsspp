@@ -169,6 +169,7 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_ORIGIN:
 		gstate.offsetAddr = currentList->pc & 0xFFFFFF;
+		gstate_c.offsetAddr = currentList->pc;
 		break;
 
 	case GE_CMD_VERTEXTYPE:
@@ -565,7 +566,7 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 		DEBUG_LOG(G3D,"DL cull: %06x", data);
 		break;
 
-	case GE_CMD_LMODE:
+	case GE_CMD_LIGHTMODE:
 		DEBUG_LOG(G3D,"DL Shade mode: %06x", data);
 		break;
 

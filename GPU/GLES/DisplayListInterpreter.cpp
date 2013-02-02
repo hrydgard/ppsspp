@@ -60,7 +60,7 @@ static const int flushOnChangedBeforeCommandList[] = {
 	GE_CMD_FOG1,
 	GE_CMD_FOG2,
 	GE_CMD_FOGCOLOR,
-	GE_CMD_LMODE,
+	GE_CMD_SHADEMODE,
 	GE_CMD_REVERSENORMAL,
 	GE_CMD_MATERIALUPDATE,
 	GE_CMD_MATERIALEMISSIVE,
@@ -71,7 +71,7 @@ static const int flushOnChangedBeforeCommandList[] = {
 	GE_CMD_MATERIALSPECULARCOEF,
 	GE_CMD_AMBIENTCOLOR,
 	GE_CMD_AMBIENTALPHA,
-	GE_CMD_COLORMODEL,
+	GE_CMD_LIGHTMODE,
 	GE_CMD_LIGHTTYPE0, GE_CMD_LIGHTTYPE1, GE_CMD_LIGHTTYPE2, GE_CMD_LIGHTTYPE3,
 	GE_CMD_LX0,GE_CMD_LY0,GE_CMD_LZ0,
 	GE_CMD_LX1,GE_CMD_LY1,GE_CMD_LZ1,
@@ -316,17 +316,14 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	// Handle control and drawing commands here directly. The others we delegate.
 	switch (cmd) {
 	case GE_CMD_BASE:
-		//DEBUG_LOG(G3D,"DL BASE: %06x", data & 0xFFFFFF);
 		break;
 
 	case GE_CMD_VADDR:		/// <<8????
 		gstate_c.vertexAddr = ((gstate.base & 0x00FF0000) << 8)|data;
-		//DEBUG_LOG(G3D,"DL VADDR: %06x", gstate_c.vertexAddr);
 		break;
 
 	case GE_CMD_IADDR:
 		gstate_c.indexAddr	= ((gstate.base & 0x00FF0000) << 8)|data;
-		//DEBUG_LOG(G3D,"DL IADDR: %06x", gstate_c.indexAddr);
 		break;
 
 	case GE_CMD_PRIM:
@@ -390,23 +387,24 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_JUMP:
 		{
-			u32 target = (((gstate.base & 0x00FF0000) << 8) | (op & 0xFFFFFC)) & 0x0FFFFFFF;
+			u32 target = gstate_c.getJumpAddress(data);
 			if (Memory::IsValidAddress(target)) {
 				currentList->pc = target - 4; // pc will be increased after we return, counteract that
 			} else {
-				ERROR_LOG(G3D, "JUMP to illegal address %08x - ignoring??", target);
+				ERROR_LOG(G3D, "JUMP to illegal address %08x - ignoring! data=%06x", target, data);
 			}
 		}
 		break;
 
 	case GE_CMD_CALL:
 		{
+			// Saint Seiya needs correct support for relative calls.
 			u32 retval = currentList->pc + 4;
-			u32 target = (((gstate.base & 0x00FF0000) << 8) | (op & 0xFFFFFC)) & 0xFFFFFFF;
+			u32 target = gstate_c.getJumpAddress(data);
 			if (stackptr == ARRAY_SIZE(stack)) {
 				ERROR_LOG(G3D, "CALL: Stack full!");
 			} else if (!Memory::IsValidAddress(target)) {
-				ERROR_LOG(G3D, "CALL to illegal address %08x - ignoring??", target);
+				ERROR_LOG(G3D, "CALL to illegal address %08x - ignoring! data=%06x", target, data);
 			} else {
 				stack[stackptr++] = retval;
 				currentList->pc = target - 4;	// pc will be increased after we return, counteract that
@@ -420,6 +418,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 				ERROR_LOG(G3D, "RET: Stack empty!");
 			} else {
 				u32 target = (currentList->pc & 0xF0000000) | (stack[--stackptr] & 0x0FFFFFFF);
+				//target = (target + gstate_c.originAddr) & 0xFFFFFFF;
 				currentList->pc = target - 4;
 				if (!Memory::IsValidAddress(currentList->pc)) {
 					ERROR_LOG(G3D, "Invalid DL PC %08x on return", currentList->pc);
@@ -428,6 +427,16 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 			}
 		}
 		break;
+
+	case GE_CMD_OFFSETADDR:
+		gstate_c.offsetAddr = data << 8;
+		// ???
+		break;
+
+	case GE_CMD_ORIGIN:
+		gstate_c.offsetAddr = currentList->pc;
+		break;
+
 
 	case GE_CMD_SIGNAL:
 		{
@@ -497,20 +506,12 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		// bounding box test. Let's do nothing.
 		break;
 
-	case GE_CMD_ORIGIN:
-		gstate.offsetAddr = currentList->pc & 0xFFFFFF;
-		break;
-
 	case GE_CMD_VERTEXTYPE:
 		if (diff & GE_VTYPE_THROUGH) {
 			// Throughmode changed, let's make the proj matrix dirty.
 			shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
 		}
 		// This sets through-mode or not, as well.
-		break;
-
-	case GE_CMD_OFFSETADDR:
-		//			offsetAddr = data<<8;
 		break;
 
 	case GE_CMD_REGION1:
@@ -813,7 +814,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_CULL:
 		break;
 
-	case GE_CMD_LMODE:
+	case GE_CMD_SHADEMODE:
 		break;
 
 	case GE_CMD_PATCHDIVISION:

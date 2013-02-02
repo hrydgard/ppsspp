@@ -130,19 +130,16 @@ int sceAudioGetChannelRestLength(u32 chan) {
 	return (int)chans[chan].sampleQueue.size() / 2;
 }
 
-static int GetFreeChannel() {
-	for (int i = 0; i < PSP_AUDIO_CHANNEL_MAX ; i++)
+static u32 GetFreeChannel() {
+	for (u32 i = 0; i < PSP_AUDIO_CHANNEL_MAX ; i++)
 		if (!chans[i].reserved)
 			return i;
 	return -1;
 }
 
 u32 sceAudioChReserve(u32 chan, u32 sampleCount, u32 format) {
-	if (chan == (u32)-1)	{
+	if (chan == (u32)-1) {
 		chan = GetFreeChannel();
-	} else {
-		ERROR_LOG(HLE,"sceAudioChReserve - reserve channel failed");
-		return SCE_ERROR_AUDIO_NO_CHANNELS_AVAILABLE;
 	} 
 	if (chan >= PSP_AUDIO_CHANNEL_MAX)	{
 		ERROR_LOG(HLE ,"sceAudioChReserve(%08x, %08x, %08x) - bad channel", chan, sampleCount, format);
@@ -152,8 +149,9 @@ u32 sceAudioChReserve(u32 chan, u32 sampleCount, u32 format) {
 		ERROR_LOG(HLE, "sceAudioChReserve(%08x, %08x, %08x) - invalid format", chan, sampleCount, format);
 		return SCE_ERROR_AUDIO_INVALID_FORMAT;
 	}
-	if (chans[chan].reserved)	{
-		WARN_LOG(HLE, "WARNING: Reserving already reserved channel.");
+	if (chans[chan].reserved) {
+		ERROR_LOG(HLE,"sceAudioChReserve - reserve channel failed");
+		return SCE_ERROR_AUDIO_NO_CHANNELS_AVAILABLE;
 	}
 
 	DEBUG_LOG(HLE, "sceAudioChReserve(%08x, %08x, %08x)", chan, sampleCount, format);

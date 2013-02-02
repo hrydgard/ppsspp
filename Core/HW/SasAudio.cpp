@@ -39,14 +39,17 @@ void VagDecoder::Start(u32 data, int vagSize, bool loopEnabled) {
 	read_ = data;
 	curSample = 28;
 	curBlock_ = -1;
-	s_1 = 0.0;	// per block?
-	s_2 = 0.0;
+	s_1 = 0;	// per block?
+	s_2 = 0;
 }
 
 void VagDecoder::DecodeBlock(u8 *&readp) {
 	int predict_nr = *readp++;
 	int shift_factor = predict_nr & 0xf;
 	predict_nr >>= 4;
+	if (predict_nr >= sizeof(f) / sizeof(s8)) {
+		predict_nr = 0;
+	}
 	int flags = *readp++;
 	if (flags == 7) {
 		end_ = true;
@@ -55,8 +58,10 @@ void VagDecoder::DecodeBlock(u8 *&readp) {
 	else if (flags == 6) {
 		loopStartBlock_ = curBlock_;
 	}
-	else if (flags == 3 && loopEnabled_) {
-		loopAtNextBlock_ = true;
+	else if (flags == 3) {
+		if (loopEnabled_) {
+			loopAtNextBlock_ = true;
+		}
 	}
 	for (int i = 0; i < 28; i += 2) {
 		int d = *readp++;
@@ -66,7 +71,7 @@ void VagDecoder::DecodeBlock(u8 *&readp) {
 		samples[i + 1] = s >> shift_factor;
 	}
 	for (int i = 0; i < 28; i++) {
-		samples[i] = samples[i] + ((s_1 * f[predict_nr][0] + s_2 * f[predict_nr][1]) >> 6);
+		samples[i] = (int) (samples[i] + ((s_1 * f[predict_nr][0] + s_2 * f[predict_nr][1]) >> 6));
 		s_2 = s_1;
 		s_1 = samples[i];
 	}
