@@ -85,7 +85,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 	case GE_CMD_CALL:
 		{
 			u32 retval = pc + 4;
-			u32 target = gstate_c.getJumpAddress(op & 0xFFFFFF);
+			u32 target = gstate_c.getRelativeAddress(op & 0xFFFFFF);
 			sprintf(buffer, "CMD CALL - %08x to %08x, ret=%08x", pc, target, retval);
 		}
 		break;

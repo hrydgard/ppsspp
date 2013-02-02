@@ -65,6 +65,10 @@ bool GPUCommon::InterpretList(DisplayList &list)
 	prev = 0;
 	finished = false;
 
+	// I don't know if this is the correct place to zero this, but something
+	// need to do it. See Sol Trigger title screen.
+	gstate_c.offsetAddr = 0;
+
 	if (!Memory::IsValidAddress(list.pc)) {
 		ERROR_LOG(G3D, "DL PC = %08x WTF!!!!", list.pc);
 		return true;

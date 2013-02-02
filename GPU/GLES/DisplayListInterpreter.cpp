@@ -316,12 +316,12 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_BASE:
 		break;
 
-	case GE_CMD_VADDR:		/// <<8????
-		gstate_c.vertexAddr = ((gstate.base & 0x00FF0000) << 8)|data;
+	case GE_CMD_VADDR:
+		gstate_c.vertexAddr = gstate_c.getRelativeAddress(data);
 		break;
 
 	case GE_CMD_IADDR:
-		gstate_c.indexAddr	= ((gstate.base & 0x00FF0000) << 8)|data;
+		gstate_c.indexAddr	= gstate_c.getRelativeAddress(data);
 		break;
 
 	case GE_CMD_PRIM:
@@ -385,7 +385,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_JUMP:
 		{
-			u32 target = gstate_c.getJumpAddress(data);
+			u32 target = gstate_c.getRelativeAddress(data);
 			if (Memory::IsValidAddress(target)) {
 				currentList->pc = target - 4; // pc will be increased after we return, counteract that
 			} else {
@@ -398,7 +398,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		{
 			// Saint Seiya needs correct support for relative calls.
 			u32 retval = currentList->pc + 4;
-			u32 target = gstate_c.getJumpAddress(data);
+			u32 target = gstate_c.getRelativeAddress(data);
 			if (stackptr == ARRAY_SIZE(stack)) {
 				ERROR_LOG(G3D, "CALL: Stack full!");
 			} else if (!Memory::IsValidAddress(target)) {

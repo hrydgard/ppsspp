@@ -252,7 +252,7 @@ struct GPUStateCache
 	float vpHeight;
 
 
-	u32 getJumpAddress(u32 data) const;
+	u32 getRelativeAddress(u32 data) const;
 };
 
 // TODO: Implement support for these.
@@ -329,7 +329,7 @@ extern GPUStateCache gstate_c;
 extern GPUInterface *gpu;
 extern GPUStatistics gpuStats;
 
-inline u32 GPUStateCache::getJumpAddress(u32 data) const {
+inline u32 GPUStateCache::getRelativeAddress(u32 data) const {
 	u32 baseExtended = ((gstate.base & 0x0F0000) << 8) | (data & 0xFFFFFF);
 	return (gstate_c.offsetAddr + baseExtended) & 0x0FFFFFFF;
 }
