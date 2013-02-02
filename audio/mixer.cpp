@@ -183,7 +183,7 @@ void mixer_mix(Mixer *mixer, short *buffer, int num_samples) {
 					// TODO: NEONize. Can also make special loops for left_volume == right_volume etc.
 					for (int s = 0; s < cnt; s++) {
 						int cdata = clip->data[chan->pos];
-						buffer[s * 2		] += cdata * left_volume >> 8;
+						buffer[s * 2 + 0] += cdata * left_volume >> 8;
 						buffer[s * 2 + 1] += cdata * right_volume >> 8;
 						chan->pos++;
 					}
