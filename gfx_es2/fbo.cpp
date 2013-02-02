@@ -170,3 +170,8 @@ void fbo_destroy(FBO *fbo) {
 	glDeleteTextures(1, &fbo->color_texture);
 	glDeleteRenderbuffers(1, &fbo->z_stencil_buffer);
 }
+
+void fbo_get_dimensions(FBO *fbo, int *w, int *h) {
+	*w = fbo->width;
+	*h = fbo->height;
+}

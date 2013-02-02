@@ -1,6 +1,8 @@
 #pragma once
 
 // Simple wrapper around FBO functionality.
+// Very C-ish API because that's what I felt like, and it's cool to completely
+// hide the data from callers...
 
 struct FBO;
 
@@ -29,3 +31,4 @@ void fbo_bind_color_as_texture(FBO *fbo, int color);
 void fbo_bind_for_read(FBO *fbo);
 void fbo_unbind();
 void fbo_destroy(FBO *fbo);
+void fbo_get_dimensions(FBO *fbo, int *w, int *h);
