@@ -612,9 +612,10 @@ void compressImageFile(uint8 *img,int width,int height,char *dstfile, int expand
 			printf("\n");
 
 		fclose(f);
-	free(imgdec);
-	printf("Saved file <%s>.\n",dstfile);
+		printf("Saved file <%s>.\n",dstfile);
 	}
+	
+	free(imgdec);
 }
 
 double calculatePSNR(uint8 *lossyimg, uint8 *origimg, int width, int height)
