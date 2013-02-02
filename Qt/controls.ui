@@ -17,7 +17,7 @@
    </sizepolicy>
   </property>
   <property name="windowTitle">
-   <string>Dialog</string>
+   <string>Controls</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
@@ -180,6 +180,37 @@
        </rect>
       </property>
      </widget>
+     <widget class="QLabel" name="PSP_Img_2">
+      <property name="geometry">
+       <rect>
+        <x>50</x>
+        <y>50</y>
+        <width>501</width>
+        <height>191</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string/>
+      </property>
+      <property name="pixmap">
+       <pixmap resource="resources.qrc">:/images/resources/psp_map.png</pixmap>
+      </property>
+     </widget>
+     <zorder>PSP_Img</zorder>
+     <zorder>PSP_Img_2</zorder>
+     <zorder>Edit_Up</zorder>
+     <zorder>Edit_Left</zorder>
+     <zorder>Edit_Right</zorder>
+     <zorder>Edit_Down</zorder>
+     <zorder>Edit_Home</zorder>
+     <zorder>Edit_Start</zorder>
+     <zorder>Edit_Select</zorder>
+     <zorder>Edit_X</zorder>
+     <zorder>Edit_S</zorder>
+     <zorder>Edit_O</zorder>
+     <zorder>Edit_T</zorder>
+     <zorder>Edit_RT</zorder>
+     <zorder>Edit_LT</zorder>
     </widget>
    </item>
    <item>
