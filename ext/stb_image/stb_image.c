@@ -3033,9 +3033,9 @@ static stbi_uc *tga_load(stbi *s, int *x, int *y, int *comp, int req_comp)
       //   load the palette
       tga_palette = (unsigned char*)malloc( tga_palette_len * tga_palette_bits / 8 );
       if (!tga_palette) {
-		free(tga_data);
-		return epuc("outofmem", "Out of memory");
-	  }
+         free(tga_data);
+         return epuc("outofmem", "Out of memory");
+      }
       if (!getn(s, tga_palette, tga_palette_len * tga_palette_bits / 8 )) {
          free(tga_data);
          free(tga_palette);
