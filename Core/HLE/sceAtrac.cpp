@@ -34,18 +34,22 @@
 #define PSP_MODE_AT_3_PLUS	0x00001000
 #define PSP_MODE_AT_3		0x00001001
 
+const u32 ATRAC_MAX_SAMPLES = 1024;
+
 struct Atrac {
-	Atrac() : decodePos(0), buffer(0), bufferSize(0) {}
+	Atrac() : decodePos(0), buffer(0), bufferSize(0), loopNum(0) {}
 	void DoState(PointerWrap &p) {
 		p.Do(decodePos);
 		p.Do(buffer);
 		p.Do(bufferSize);
+		p.Do(loopNum);
 		p.DoMarker("Atrac");
 	}
 
 	u32 decodePos;
 	u32 buffer;
 	u32 bufferSize;
+	int loopNum;
 };
 
 std::map<int, Atrac *> atracMap;
@@ -155,18 +159,54 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 	ERROR_LOG_LIMITED(HLE, "FAKE sceAtracDecodeData(%i, %08x, %08x, %08x, %08x)", atracID, outAddr, numSamplesAddr, finishFlagAddr, remainAddr);
 	Atrac *atrac = getAtrac(atracID);
 
-	Memory::Write_U16(0, outAddr);	// Write a single 16-bit stereo
-	Memory::Write_U16(0, outAddr + 2);
-
-	Memory::Write_U32(1, numSamplesAddr);
-	Memory::Write_U32(1, finishFlagAddr);	// Lie that decoding is finished
-	Memory::Write_U32(-1, remainAddr);	// Lie that decoding is finished
-
+	u32 ret = 0;
 	if (atrac != NULL) {
-		atrac->decodePos += 1;
+		// We already passed the end - return an error (many games check for this.)
+		if (atrac->decodePos >= atrac->bufferSize && atrac->loopNum == 0) {
+			Memory::Write_U32(0, numSamplesAddr);
+			Memory::Write_U32(1, finishFlagAddr);
+			Memory::Write_U32(0, remainAddr);
+
+			ret = ATRAC_ERROR_ALL_DATA_DECODED;
+		} else {
+			// TODO: This isn't at all right, but at least it makes the music "last" some time.
+			u32 numSamples = (atrac->bufferSize - atrac->decodePos) / (sizeof(s16) * 2);
+			if (numSamples > ATRAC_MAX_SAMPLES) {
+				numSamples = ATRAC_MAX_SAMPLES;
+			}
+
+			// Should we loop?
+			if (numSamples == 0 && atrac->loopNum != 0) {
+				// Restart.
+				atrac->decodePos = 0;
+				if (atrac->loopNum > 0)
+					atrac->loopNum--;
+				numSamples = ATRAC_MAX_SAMPLES;
+			}
+
+			Memory::Memset(outAddr, 0, numSamples * sizeof(s16) * 2);
+			Memory::Write_U32(numSamples, numSamplesAddr);
+			atrac->decodePos += ATRAC_MAX_SAMPLES;
+
+			if (numSamples == 0) {
+				Memory::Write_U32(1, finishFlagAddr);
+				Memory::Write_U32(-1, remainAddr);
+			} else {
+				Memory::Write_U32(0, finishFlagAddr);
+				Memory::Write_U32(-1, remainAddr);
+			}
+		}
+	// TODO: Can probably remove this after we validate no wrong ids?
+	} else {
+		Memory::Write_U16(0, outAddr);	// Write a single 16-bit stereo
+		Memory::Write_U16(0, outAddr + 2);
+
+		Memory::Write_U32(1, numSamplesAddr);
+		Memory::Write_U32(1, finishFlagAddr);	// Lie that decoding is finished
+		Memory::Write_U32(-1, remainAddr);	// Lie that decoding is finished
 	}
 
-	return ATRAC_ERROR_ALL_DATA_DECODED;
+	return ret;
 }
 
 u32 sceAtracEndEntry()
@@ -248,7 +288,7 @@ u32 sceAtracGetMaxSample(int atracID, u32 maxSamplesAddr)
 		//return -1;
 	}
 	if (Memory::IsValidAddress(maxSamplesAddr))
-		Memory::Write_U32(1024, maxSamplesAddr);
+		Memory::Write_U32(ATRAC_MAX_SAMPLES, maxSamplesAddr);
 	return 0;
 }
 
@@ -269,19 +309,29 @@ u32 sceAtracGetNextSample(int atracID, u32 outNAddr)
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
 		//return -1;
+		Memory::Write_U32(1, outNAddr);
+	} else {
+		if (atrac->decodePos >= atrac->bufferSize) {
+			Memory::Write_U32(0, outNAddr);
+		} else {
+			// TODO: This is not correct.
+			u32 numSamples = (atrac->bufferSize - atrac->decodePos) / (sizeof(s16) * 2);
+			Memory::Write_U32(numSamples, outNAddr);
+		}
 	}
-	Memory::Write_U32(1, outNAddr);
 	return 0;
 }
 
-u32 sceAtracGetRemainFrame(int atracID, u32 outposAddr)
+u32 sceAtracGetRemainFrame(int atracID, u32 remainAddr)
 {
-	ERROR_LOG_LIMITED(HLE, "sceAtracGetRemainFrame(%i, %08x)", atracID, outposAddr);
+	ERROR_LOG_LIMITED(HLE, "sceAtracGetRemainFrame(%i, %08x)", atracID, remainAddr);
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
 		//return -1;
+		Memory::Write_U32(12, remainAddr); // outpos
+	} else {
+		Memory::Write_U32(-1, remainAddr);
 	}
-	Memory::Write_U32(12, outposAddr); // outpos
 	return 0;
 }
 
@@ -398,6 +448,10 @@ u32 sceAtracStartEntry()
 u32 sceAtracSetLoopNum(int atracID, int loopNum)
 {
 	ERROR_LOG_LIMITED(HLE, "UNIMPL sceAtracSetLoopNum(%i, %i)", atracID, loopNum);
+	Atrac *atrac = getAtrac(atracID);
+	if (atrac) {
+		atrac->loopNum = loopNum;
+	}
 	return 0;
 }
 
