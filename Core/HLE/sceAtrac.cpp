@@ -386,6 +386,9 @@ u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFirstBuf,
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
 		//return -1;
+	} else {
+		// TODO: Not sure what this means?
+		atrac->decodePos = sample;
 	}
 	return 0;
 }
