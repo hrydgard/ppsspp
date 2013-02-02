@@ -728,7 +728,7 @@ double calculatePSNRfile(char *srcfile, uint8 *origimg)
 	int active_width;
 	int active_height;
 	int format;
-  f=fopen(srcfile,"rb");
+	f=fopen(srcfile,"rb");
 	if(f)
 	{
 		if(ktx_mode)
@@ -847,6 +847,7 @@ double calculatePSNRfile(char *srcfile, uint8 *origimg)
 		wPSNR = (float)(10*log((double)((255*255)/wMSE))/log((double)10));
 
 		printf("Perceptually weighted PSNR = (%f)\n",wPSNR);
+		fclose(f);
 		free(img);
 		return PSNR;
 	}
