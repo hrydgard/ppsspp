@@ -148,44 +148,70 @@ namespace MIPSComp
 			CompITypeMemWrite(op, 32, (void *) &Memory::Write_U32);
 			break;
 
-		case 134: //lwl
+		case 34: //lwl
 			{
-				Crash();
-				//u32 shift = (addr & 3) << 3;
-				//u32 mem = ReadMem32(addr & 0xfffffffc);
-				//R(rt) = ( u32(R(rt)) & (0x00ffffff >> shift) ) | ( mem << (24 - shift) );
+				u32 nextOp = Memory::Read_Instruction(js.compilerPC + 4);
+				// Looking for lwr rd, offset-3(rs) which makes a pair.
+				u32 desiredOp = ((op + (4 << 26)) & 0xFFFF0000) + (offset - 3);
+				if (!js.inDelaySlot && nextOp == desiredOp)
+				{
+					EatInstruction(nextOp);
+					// nextOp has the correct address.
+					CompITypeMemRead(nextOp, 32, &XEmitter::MOVZX, (void *) &Memory::Read_U32);
+				}
+				else
+					Comp_Generic(op);
 			}
 			break;
 
-		case 138: //lwr
+		case 38: //lwr
 			{
-				Crash();
-				//u32 shift = (addr & 3) << 3;
-				//u32 mem = ReadMem32(addr & 0xfffffffc);
-
-				//R(rt) = ( u32(rt) & (0xffffff00 << (24 - shift)) ) | ( mem	>> shift );
+				u32 nextOp = Memory::Read_Instruction(js.compilerPC + 4);
+				// Looking for lwl rd, offset+3(rs) which makes a pair.
+				u32 desiredOp = ((op - (4 << 26)) & 0xFFFF0000) + (offset + 3);
+				if (!js.inDelaySlot && nextOp == desiredOp)
+				{
+					EatInstruction(nextOp);
+					// op has the correct address.
+					CompITypeMemRead(op, 32, &XEmitter::MOVZX, (void *) &Memory::Read_U32);
+				}
+				else
+					Comp_Generic(op);
 			}
 			break;
 
-		case 142: //swl
+		case 42: //swl
 			{
-				Crash();
-				//u32 shift = (addr & 3) << 3;
-				//u32 mem = ReadMem32(addr & 0xfffffffc);
-				//WriteMem32((addr & 0xfffffffc),	( ( u32(R(rt)) >>	(24 - shift) ) ) |
-				//	(	mem & (0xffffff00 << shift) ));
+				u32 nextOp = Memory::Read_Instruction(js.compilerPC + 4);
+				// Looking for swr rd, offset-3(rs) which makes a pair.
+				u32 desiredOp = ((op + (4 << 26)) & 0xFFFF0000) + (offset - 3);
+				if (!js.inDelaySlot && nextOp == desiredOp)
+				{
+					EatInstruction(nextOp);
+					// nextOp has the correct address.
+					CompITypeMemWrite(nextOp, 32, (void *) &Memory::Write_U32);
+				}
+				else
+					Comp_Generic(op);
 			}
 			break;
-		case 146: //swr
+
+		case 46: //swr
 			{
-				Crash();
-				//	u32 shift = (addr & 3) << 3;
-			//	u32 mem = ReadMem32(addr & 0xfffffffc);
-//
-//				WriteMem32((addr & 0xfffffffc), ( ( u32(R(rt)) << shift ) |
-//					(mem	& (0x00ffffff >> (24 - shift)) ) ) );
+				u32 nextOp = Memory::Read_Instruction(js.compilerPC + 4);
+				// Looking for swl rd, offset+3(rs) which makes a pair.
+				u32 desiredOp = ((op - (4 << 26)) & 0xFFFF0000) + (offset + 3);
+				if (!js.inDelaySlot && nextOp == desiredOp)
+				{
+					EatInstruction(nextOp);
+					// op has the correct address.
+					CompITypeMemWrite(op, 32, (void *) &Memory::Write_U32);
+				}
+				else
+					Comp_Generic(op);
 			}
 			break;
+
 		default:
 			Comp_Generic(op);
 			return ;

@@ -297,17 +297,16 @@ namespace MIPSComp
 	// "over-shifts" work the same as on x86 - only bottom 5 bits are used to get the shift value
 	void Jit::CompShiftVar(u32 op, void (XEmitter::*shift)(int, OpArg, OpArg))
 	{
-		DISABLE;
 		int rd = _RD;
 		int rt = _RT;
 		int rs = _RS;
 		gpr.FlushLockX(ECX);
 		gpr.Lock(rd, rt, rs);
-		gpr.BindToRegister(rd, true, true);
-		if (rd != rt)
-			MOV(32, gpr.R(rd), gpr.R(rt));
+		gpr.BindToRegister(rd, rd == rt || rd == rs, true);
 		MOV(32, R(ECX), gpr.R(rs));	// Only ECX can be used for variable shifts.
 		AND(32, R(ECX), Imm32(0x1f));
+		if (rd != rt)
+			MOV(32, gpr.R(rd), gpr.R(rt));
 		(this->*shift)(32, gpr.R(rd), R(ECX));
 		gpr.UnlockAll();
 		gpr.UnlockAllX();
