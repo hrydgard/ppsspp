@@ -221,6 +221,7 @@ struct GPUgstate
 	int getNumBoneWeights() const {
 		return 1 + ((vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT);
 	}
+
 // Real data in the context ends here
 };
 	
