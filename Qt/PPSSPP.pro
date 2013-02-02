@@ -18,10 +18,13 @@ blackberry: LIBS += -L. -lCore -lCommon -lNative -lscreen -lsocket -lstdc++
 win32: LIBS += -L. -lCore -lCommon -lNative -lwinmm -lws2_32 -lkernel32 -luser32 -lgdi32 -lshell32 -lcomctl32 -ldsound -lxinput
 
 linux: LIBS += -L. -lCore -lCommon -lNative
+linux: PRE_TARGETDEPS += ./libCommon.a ./libCore.a ./libNative.a
 
 # Main
-SOURCES += ../native/base/QtMain.cpp
-HEADERS += ../native/base/QtMain.h
+SOURCES += ../native/base/QtMain.cpp \
+    qkeyedit.cpp
+HEADERS += ../native/base/QtMain.h \
+    qkeyedit.h
 
 # Native
 SOURCES += ../android/jni/EmuScreen.cpp \
@@ -72,4 +75,7 @@ linux:!mobile_platform {
 	FORMS += mainwindow.ui \
 	debugger_disasm.ui \
 	controls.ui
+
+	RESOURCES += \
+	    resources.qrc
 }

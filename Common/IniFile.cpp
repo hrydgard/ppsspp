@@ -148,7 +148,7 @@ void IniFile::Section::Set(const char* key, const std::vector<std::string>& newV
 	std::vector<std::string>::const_iterator it;
 	for (it = newValues.begin(); it != newValues.end(); ++it)
 	{
-		temp = (*it) + ",";
+		temp += (*it) + ",";
 	}
 	// remove last ,
   if (temp.length())
