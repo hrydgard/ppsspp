@@ -845,7 +845,87 @@ u32 sceMpegAvcDecodeStopYCbCr(u32 mpeg, u32 bufferAddr, u32 statusAddr)
 
 int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initAddr)
 {
-	ERROR_LOG(HLE, "UNIMPL sceMpegAvcDecodeYCbCr(%08x, %08x, %08x, %08x)", mpeg, auAddr, bufferAddr, initAddr);
+	MpegContext *ctx = getMpegCtx(mpeg);
+	if (!ctx) {
+		WARN_LOG(HLE, "sceMpegAvcDecodeYCbCr(%08x, %08x, %d, %08x, %08x): bad mpeg handle", mpeg, auAddr, bufferAddr, initAddr);
+		return 0;
+	}
+
+	if (!Memory::IsValidAddress(auAddr) || !Memory::IsValidAddress(bufferAddr) || !Memory::IsValidAddress(initAddr)) {
+		ERROR_LOG(HLE, "sceMpegAvcDecodeYCbCr: bad addresses");
+		return 0;
+	}
+
+	SceMpegAu avcAu;
+	avcAu.read(auAddr);
+
+	SceMpegRingBuffer ringbuffer;
+	Memory::ReadStruct(ctx->mpegRingbufferAddr, &ringbuffer);
+
+	if (ringbuffer.packetsRead == 0) {
+		// empty!
+		return MPEG_AVC_DECODE_ERROR_FATAL;
+	}
+
+	u32 buffer = Memory::Read_U32(bufferAddr);
+	u32 init = Memory::Read_U32(initAddr);
+	DEBUG_LOG(HLE, "*buffer = %08x, *init = %08x", buffer, init);
+
+	int packetsInRingBuffer = ringbuffer.packets - ringbuffer.packetsFree;
+	int processedPackets = ringbuffer.packetsRead - packetsInRingBuffer;
+	int processedSize = processedPackets * ringbuffer.packetSize;
+
+	int packetsConsumed = 3;
+	if (ctx->mpegStreamSize > 0 && ctx->mpegLastTimestamp > 0) {
+		// Try a better approximation of the packets consumed based on the timestamp
+		int processedSizeBasedOnTimestamp = (int) ((((float) avcAu.pts) / ctx->mpegLastTimestamp) * ctx->mpegStreamSize);
+		if (processedSizeBasedOnTimestamp < processedSize) {
+			packetsConsumed = 0;
+		} else {
+			packetsConsumed = (processedSizeBasedOnTimestamp - processedSize) / ringbuffer.packetSize;
+			if (packetsConsumed > 10) {
+				packetsConsumed = 10;
+			}
+		}
+		DEBUG_LOG(HLE, "sceMpegAvcDecodeYCbCr consumed %d %d/%d %d", processedSizeBasedOnTimestamp, processedSize, ctx->mpegStreamSize, packetsConsumed);
+	}
+
+	if (ctx->mediaengine->stepVideo()) {
+		// TODO: Write it somewhere or buffer it or something?
+		packetsConsumed += ctx->mediaengine->readLength() / ringbuffer.packetSize;
+
+		// Consuming all the remaining packets?
+		if (ringbuffer.packetsFree + packetsConsumed >= ringbuffer.packets) {
+			// Having not yet reached the last timestamp?
+			if (ctx->mpegLastTimestamp > 0 && avcAu.pts < ctx->mpegLastTimestamp) {
+				// Do not yet consume all the remaining packets.
+				packetsConsumed = 0;
+			}
+		}
+		ctx->mediaengine->setReadLength(ctx->mediaengine->readLength() - packetsConsumed * ringbuffer.packetSize);
+	} else {
+		// Consume all remaining packets
+		packetsConsumed = ringbuffer.packets - ringbuffer.packetsFree;
+	}
+	ctx->avc.avcFrameStatus = 1;
+	ctx->videoFrameCount++;
+
+	// Update the ringbuffer with the consumed packets
+	if (ringbuffer.packetsFree < ringbuffer.packets && packetsConsumed > 0) {
+		ringbuffer.packetsFree = std::min(ringbuffer.packets, ringbuffer.packetsFree + packetsConsumed);
+		DEBUG_LOG(HLE, "sceMpegAvcDecodeYCbCr consumed %d packets, remaining %d packets", packetsConsumed, ringbuffer.packets - ringbuffer.packetsFree);
+	}
+
+	ctx->avc.avcDecodeResult = MPEG_AVC_DECODE_SUCCESS;
+
+	// Flush structs back to memory
+	avcAu.write(auAddr);
+	Memory::WriteStruct(ctx->mpegRingbufferAddr, &ringbuffer);
+
+	Memory::Write_U32(ctx->avc.avcFrameStatus, initAddr);  // 1 = showing, 0 = not showing
+
+	DEBUG_LOG(HLE, "UNIMPL sceMpegAvcDecodeYCbCr(%08x, %08x, %08x, %08x)", mpeg, auAddr, bufferAddr, initAddr);
+
 	return 0;
 }
 
@@ -1201,6 +1281,8 @@ u32 sceMpegAvcCopyYCbCr(u32 mpeg, u32 sourceAddr, u32 YCbCrAddr)
 u32 sceMpegAtracDecode(u32 mpeg, u32 auAddr, u32 bufferAddr, int init)
 {
 	ERROR_LOG(HLE, "UNIMPL sceMpegAtracDecode(%08x, %08x, %08x, %i)", mpeg, auAddr, bufferAddr, init);
+	if (Memory::IsValidAddress(bufferAddr))
+		Memory::Memset(bufferAddr, 0, MPEG_ATRAC_ES_OUTPUT_SIZE);
 	return 0;
 }
 
