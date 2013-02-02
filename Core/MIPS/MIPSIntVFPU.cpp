@@ -1739,4 +1739,25 @@ bad:
 		EatPrefixes();
 	}
 
+	void Int_Vlgb(u32 op)
+	{
+		// S & D valid
+		_dbg_assert_msg_(CPU,0,"vlgb not implemented");
+	}
+
+	void Int_Vwbn(u32 op)
+	{
+		// S & D valid
+		_dbg_assert_msg_(CPU,0,"vwbn not implemented");
+	}
+
+	void Int_Vsbn(u32 op)
+	{
+		_dbg_assert_msg_(CPU,0,"vsbn not implemented");
+	}
+
+	void Int_Vsbz(u32 op)
+	{
+		_dbg_assert_msg_(CPU,0,"vsbz not implemented");
+	}
 }
