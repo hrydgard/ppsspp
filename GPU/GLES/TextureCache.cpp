@@ -64,7 +64,7 @@ void TextureCache::Clear(bool delete_them) {
 // Removes old textures.
 void TextureCache::Decimate() {
 	glBindTexture(GL_TEXTURE_2D, 0);
-	for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ) {
+	for (TexCache::iterator iter = cache.begin(), end = cache.end(); iter != end; ) {
 		if (iter->second.frameCounter + TEXTURE_KILL_AGE < gpuStats.numFrames) {
 			glDeleteTextures(1, &iter->second.texture);
 			cache.erase(iter++);
@@ -78,7 +78,7 @@ void TextureCache::Invalidate(u32 addr, int size, bool force) {
 	addr &= 0xFFFFFFF;
 	u32 addr_end = addr + size;
 
-	for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ) {
+	for (TexCache::iterator iter = cache.begin(), end = cache.end(); iter != end; ) {
 		u32 texAddr = iter->second.addr;
 		u32 texEnd = iter->second.addr + iter->second.sizeInRAM;
 		// Clear if either the addr or clutaddr is in the range.
