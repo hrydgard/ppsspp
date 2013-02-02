@@ -31,6 +31,7 @@ GPUStatistics gpuStats;
 void InitGfxState()
 {
 	memset(&gstate, 0, sizeof(gstate));
+	memset(&gstate_c, 0, sizeof(gstate_c));
 	for (int i = 0; i < 256; i++) {
 		gstate.cmdmem[i] = i << 24;
 	}
