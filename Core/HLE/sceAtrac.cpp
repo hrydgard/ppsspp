@@ -34,22 +34,37 @@
 #define PSP_MODE_AT_3_PLUS	0x00001000
 #define PSP_MODE_AT_3		0x00001001
 
+
 const u32 ATRAC_MAX_SAMPLES = 1024;
 
+struct InputBuffer {
+	u32 addr;
+	u32 size;
+	u32 offset;
+	u32 writableBytes;
+	u32 neededBytes;
+	u32 filesize;
+	u32 fileoffset;
+};
+
 struct Atrac {
-	Atrac() : decodePos(0), buffer(0), bufferSize(0), loopNum(0) {}
+	Atrac() : decodePos(0), loopNum(0) {
+		memset(&first, 0, sizeof(first));
+		memset(&second, 0, sizeof(second));
+	}
 	void DoState(PointerWrap &p) {
 		p.Do(decodePos);
-		p.Do(buffer);
-		p.Do(bufferSize);
 		p.Do(loopNum);
+		p.Do(first);
+		p.Do(second);
 		p.DoMarker("Atrac");
 	}
 
 	u32 decodePos;
-	u32 buffer;
-	u32 bufferSize;
 	int loopNum;
+
+	InputBuffer first;
+	InputBuffer second;
 };
 
 std::map<int, Atrac *> atracMap;
@@ -162,7 +177,7 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 	u32 ret = 0;
 	if (atrac != NULL) {
 		// We already passed the end - return an error (many games check for this.)
-		if (atrac->decodePos >= atrac->bufferSize && atrac->loopNum == 0) {
+		if (atrac->decodePos >= atrac->first.size && atrac->loopNum == 0) {
 			Memory::Write_U32(0, numSamplesAddr);
 			Memory::Write_U32(1, finishFlagAddr);
 			Memory::Write_U32(0, remainAddr);
@@ -170,7 +185,7 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 			ret = ATRAC_ERROR_ALL_DATA_DECODED;
 		} else {
 			// TODO: This isn't at all right, but at least it makes the music "last" some time.
-			u32 numSamples = (atrac->bufferSize - atrac->decodePos) / (sizeof(s16) * 2);
+			u32 numSamples = (atrac->first.size - atrac->decodePos) / (sizeof(s16) * 2);
 			if (numSamples > ATRAC_MAX_SAMPLES) {
 				numSamples = ATRAC_MAX_SAMPLES;
 			}
@@ -224,12 +239,14 @@ u32 sceAtracGetBufferInfoForReseting(int atracID, int sample, u32 bufferInfoAddr
 		Memory::Memset(bufferInfoAddr, 0, 32);
 		//return -1;
 	} else {
-		Memory::Write_U32(atrac->buffer, bufferInfoAddr);
-		Memory::Write_U32(atrac->bufferSize, bufferInfoAddr + 4);
-		Memory::Write_U32(0, bufferInfoAddr + 8);
-		Memory::Write_U32(0, bufferInfoAddr + 12);
-		// TODO: Write the right stuff instead.
-		Memory::Memset(bufferInfoAddr + 16, 0, 16);
+		Memory::Write_U32(atrac->first.addr, bufferInfoAddr);
+		Memory::Write_U32(atrac->first.writableBytes, bufferInfoAddr + 4);
+		Memory::Write_U32(atrac->first.neededBytes, bufferInfoAddr + 8);
+		Memory::Write_U32(atrac->first.fileoffset, bufferInfoAddr + 12);
+		Memory::Write_U32(atrac->second.addr, bufferInfoAddr + 16);
+		Memory::Write_U32(atrac->second.writableBytes, bufferInfoAddr + 20);
+		Memory::Write_U32(atrac->second.neededBytes, bufferInfoAddr + 24);
+		Memory::Write_U32(atrac->second.fileoffset, bufferInfoAddr + 28);
 	}
 	return 0;
 }
@@ -311,11 +328,11 @@ u32 sceAtracGetNextSample(int atracID, u32 outNAddr)
 		//return -1;
 		Memory::Write_U32(1, outNAddr);
 	} else {
-		if (atrac->decodePos >= atrac->bufferSize) {
+		if (atrac->decodePos >= atrac->first.size) {
 			Memory::Write_U32(0, outNAddr);
 		} else {
 			// TODO: This is not correct.
-			u32 numSamples = (atrac->bufferSize - atrac->decodePos) / (sizeof(s16) * 2);
+			u32 numSamples = (atrac->first.size - atrac->decodePos) / (sizeof(s16) * 2);
 			Memory::Write_U32(numSamples, outNAddr);
 		}
 	}
@@ -360,16 +377,16 @@ u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoopStartSa
 	return 0;
 }
 
-u32 sceAtracGetStreamDataInfo(int atracID, u32 writePointerAddr, u32 availableBytesAddr, u32 readOffsetAddr)
+u32 sceAtracGetStreamDataInfo(int atracID, u32 writeAddr, u32 writableBytesAddr, u32 readOffsetAddr)
 {
-	ERROR_LOG_LIMITED(HLE, "FAKE sceAtracGetStreamDataInfo(%i, %08x, %08x, %08x)", atracID, writePointerAddr, availableBytesAddr, readOffsetAddr);
+	ERROR_LOG_LIMITED(HLE, "FAKE sceAtracGetStreamDataInfo(%i, %08x, %08x, %08x)", atracID, writeAddr, writableBytesAddr, readOffsetAddr);
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
 		//return -1;
 	}
-	Memory::Write_U32(atrac ? atrac->buffer : 0, readOffsetAddr);
-	Memory::Write_U32(0, availableBytesAddr);
-	Memory::Write_U32(0, writePointerAddr);
+	Memory::Write_U32(atrac->first.addr, writeAddr);
+	Memory::Write_U32(atrac->first.writableBytes, writableBytesAddr);
+	Memory::Write_U32(atrac->first.fileoffset, readOffsetAddr);
 	return 0;
 }
 
@@ -414,8 +431,8 @@ u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize)
 	ERROR_LOG_LIMITED(HLE, "UNIMPL sceAtracSetData(%i, %08x, %08x)", atracID, buffer, bufferSize);
 	Atrac *atrac = getAtrac(atracID);
 	if (atrac != NULL) {
-		atrac->buffer = buffer;
-		atrac->bufferSize = bufferSize;
+		atrac->first.addr = buffer;
+		atrac->first.size = bufferSize;
 	}
 	return 0;
 } 
@@ -426,8 +443,8 @@ int sceAtracSetDataAndGetID(u32 buffer, u32 bufferSize)
 	int codecType = getCodecType(buffer);
 
 	Atrac *atrac = new Atrac();
-	atrac->buffer = buffer;
-	atrac->bufferSize = bufferSize;
+	atrac->first.addr = buffer;
+	atrac->first.size = bufferSize;
 	return createAtrac(atrac);
 }
 
@@ -437,8 +454,8 @@ int sceAtracSetHalfwayBufferAndGetID(int atracID, u32 halfBuffer, u32 readSize, 
 	int codecType = getCodecType(halfBuffer);
 
 	Atrac *atrac = new Atrac();
-	atrac->buffer = halfBuffer;
-	atrac->bufferSize = halfBufferSize;
+	atrac->first.addr = halfBuffer;
+	atrac->first.size = halfBufferSize;
 	return createAtrac(atrac);
 }
 
@@ -498,8 +515,8 @@ int sceAtracSetAA3DataAndGetID(u32 buffer, int bufferSize, int fileSize, u32 met
 	int codecType = getCodecType(buffer);
 
 	Atrac *atrac = new Atrac();
-	atrac->buffer = buffer;
-	atrac->bufferSize = bufferSize;
+	atrac->first.addr = buffer;
+	atrac->first.size = bufferSize;
 	return createAtrac(atrac);
 }
 
