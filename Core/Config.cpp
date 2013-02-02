@@ -83,6 +83,7 @@ void CConfig::Load(const char *iniFileName)
 		false);
 #endif
 	control->Get("LargeControls", &bLargeControls, false);
+	control->Get("KeyMapping",iMappingMap);
 
 	IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
 	pspConfig->Get("Language", &ilanguage, PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
@@ -133,6 +134,7 @@ void CConfig::Save()
 		control->Set("ShowStick", bShowAnalogStick);
 		control->Set("ShowTouchControls", bShowTouchControls);
 		control->Set("LargeControls", bLargeControls);
+		control->Set("KeyMapping",iMappingMap);
 
 		IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
 		pspConfig->Set("Language", ilanguage);

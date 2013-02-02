@@ -2,10 +2,25 @@
 #define CONTROLS_H
 
 #include <QDialog>
+#include "native/input/input_state.h"
+#include "Core/HLE/sceCtrl.h"
 
 namespace Ui {
 class Controls;
 }
+
+struct Controls_
+{
+public:
+	QString editName;
+	QString command;
+	Qt::Key key;
+	int emu_id;
+	int psp_id;
+};
+
+const int controllistCount = 16;
+extern Controls_ controllist[];
 
 class Controls : public QDialog
 {
@@ -14,7 +29,11 @@ class Controls : public QDialog
 public:
 	explicit Controls(QWidget *parent = 0);
 	~Controls();
-	
+
+	void showEvent(QShowEvent *);
+private slots:
+	void on_buttonBox_accepted();
+
 private:
 	Ui::Controls *ui;
 };

@@ -20,6 +20,7 @@
 
 #include <string>
 #include <vector>
+#include <map>
 
 #include "StringUtil.h"
 
@@ -68,12 +69,48 @@ public:
 		}
 		void Set(const char* key, const std::vector<std::string>& newValues);
 
+		template<typename U, typename V>
+		void Set(const char* key, const std::map<U,V>& newValues)
+		{
+			std::vector<std::string> temp;
+			for(typename std::map<U,V>::const_iterator it = newValues.begin(); it != newValues.end(); it++)
+			{
+				temp.push_back(ValueToString<U>(it->first)+"_"+ValueToString<V>(it->second));
+			}
+			Set(key,temp);
+		}
+
 		bool Get(const char* key, int* value, int defaultValue = 0);
 		bool Get(const char* key, u32* value, u32 defaultValue = 0);
 		bool Get(const char* key, bool* value, bool defaultValue = false);
 		bool Get(const char* key, float* value, float defaultValue = false);
 		bool Get(const char* key, double* value, double defaultValue = false);
 		bool Get(const char* key, std::vector<std::string>& values);
+		template<typename U, typename V>
+		bool Get(const char* key, std::map<U,V>& values)
+		{
+			std::vector<std::string> temp;
+			if(!Get(key,temp))
+			{
+				return false;
+			}
+			values.clear();
+			for(int i = 0; i < temp.size(); i++)
+			{
+				std::vector<std::string> key_val;
+				SplitString(temp[i],'_',key_val);
+				if(key_val.size() < 2)
+					continue;
+				U mapKey;
+				V mapValue;
+				if(!TryParse<U>(key_val[0],&mapKey))
+					continue;
+				if(!TryParse<V>(key_val[1],&mapValue))
+					continue;
+				values[mapKey] = mapValue;
+			}
+			return true;
+		}
 
 		bool operator < (const Section& other) const {
 			return name < other.name;

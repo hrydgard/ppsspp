@@ -6,43 +6,211 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>400</width>
-    <height>300</height>
+    <width>618</width>
+    <height>351</height>
    </rect>
   </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
+  </property>
   <property name="windowTitle">
-   <string>Dialog</string>
+   <string>Controls</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <widget class="QLabel" name="label">
-     <property name="text">
-      <string>Note : Currently controls are NOT configurable.</string>
+    <widget class="QWidget" name="widget" native="true">
+     <property name="minimumSize">
+      <size>
+       <width>600</width>
+       <height>300</height>
+      </size>
      </property>
-    </widget>
-   </item>
-   <item>
-    <widget class="QTableWidget" name="listControls">
-     <property name="selectionMode">
-      <enum>QAbstractItemView::SingleSelection</enum>
+     <property name="maximumSize">
+      <size>
+       <width>600</width>
+       <height>300</height>
+      </size>
      </property>
-     <property name="selectionBehavior">
-      <enum>QAbstractItemView::SelectRows</enum>
-     </property>
-     <property name="showGrid">
-      <bool>false</bool>
-     </property>
-     <property name="columnCount">
-      <number>2</number>
-     </property>
-     <attribute name="horizontalHeaderVisible">
-      <bool>false</bool>
-     </attribute>
-     <attribute name="verticalHeaderVisible">
-      <bool>false</bool>
-     </attribute>
-     <column/>
-     <column/>
+     <widget class="QLabel" name="PSP_Img">
+      <property name="geometry">
+       <rect>
+        <x>50</x>
+        <y>50</y>
+        <width>501</width>
+        <height>191</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string/>
+      </property>
+      <property name="pixmap">
+       <pixmap resource="resources.qrc">:/images/resources/psp.png</pixmap>
+      </property>
+     </widget>
+     <widget class="QKeyEdit" name="Edit_Up">
+      <property name="geometry">
+       <rect>
+        <x>50</x>
+        <y>100</y>
+        <width>41</width>
+        <height>25</height>
+       </rect>
+      </property>
+     </widget>
+     <widget class="QKeyEdit" name="Edit_Left">
+      <property name="geometry">
+       <rect>
+        <x>30</x>
+        <y>130</y>
+        <width>41</width>
+        <height>25</height>
+       </rect>
+      </property>
+     </widget>
+     <widget class="QKeyEdit" name="Edit_Right">
+      <property name="geometry">
+       <rect>
+        <x>80</x>
+        <y>130</y>
+        <width>41</width>
+        <height>25</height>
+       </rect>
+      </property>
+     </widget>
+     <widget class="QKeyEdit" name="Edit_Down">
+      <property name="geometry">
+       <rect>
+        <x>50</x>
+        <y>160</y>
+        <width>41</width>
+        <height>25</height>
+       </rect>
+      </property>
+     </widget>
+     <widget class="QKeyEdit" name="Edit_Home">
+      <property name="geometry">
+       <rect>
+        <x>150</x>
+        <y>240</y>
+        <width>41</width>
+        <height>25</height>
+       </rect>
+      </property>
+     </widget>
+     <widget class="QKeyEdit" name="Edit_Start">
+      <property name="geometry">
+       <rect>
+        <x>410</x>
+        <y>240</y>
+        <width>41</width>
+        <height>25</height>
+       </rect>
+      </property>
+     </widget>
+     <widget class="QKeyEdit" name="Edit_Select">
+      <property name="geometry">
+       <rect>
+        <x>360</x>
+        <y>240</y>
+        <width>41</width>
+        <height>25</height>
+       </rect>
+      </property>
+     </widget>
+     <widget class="QKeyEdit" name="Edit_X">
+      <property name="geometry">
+       <rect>
+        <x>510</x>
+        <y>160</y>
+        <width>41</width>
+        <height>25</height>
+       </rect>
+      </property>
+     </widget>
+     <widget class="QKeyEdit" name="Edit_S">
+      <property name="geometry">
+       <rect>
+        <x>480</x>
+        <y>130</y>
+        <width>41</width>
+        <height>25</height>
+       </rect>
+      </property>
+     </widget>
+     <widget class="QKeyEdit" name="Edit_O">
+      <property name="geometry">
+       <rect>
+        <x>530</x>
+        <y>130</y>
+        <width>41</width>
+        <height>25</height>
+       </rect>
+      </property>
+     </widget>
+     <widget class="QKeyEdit" name="Edit_T">
+      <property name="geometry">
+       <rect>
+        <x>510</x>
+        <y>100</y>
+        <width>41</width>
+        <height>25</height>
+       </rect>
+      </property>
+     </widget>
+     <widget class="QKeyEdit" name="Edit_RT">
+      <property name="geometry">
+       <rect>
+        <x>440</x>
+        <y>20</y>
+        <width>41</width>
+        <height>25</height>
+       </rect>
+      </property>
+     </widget>
+     <widget class="QKeyEdit" name="Edit_LT">
+      <property name="geometry">
+       <rect>
+        <x>120</x>
+        <y>20</y>
+        <width>41</width>
+        <height>25</height>
+       </rect>
+      </property>
+     </widget>
+     <widget class="QLabel" name="PSP_Img_2">
+      <property name="geometry">
+       <rect>
+        <x>50</x>
+        <y>50</y>
+        <width>501</width>
+        <height>191</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string/>
+      </property>
+      <property name="pixmap">
+       <pixmap resource="resources.qrc">:/images/resources/psp_map.png</pixmap>
+      </property>
+     </widget>
+     <zorder>PSP_Img</zorder>
+     <zorder>PSP_Img_2</zorder>
+     <zorder>Edit_Up</zorder>
+     <zorder>Edit_Left</zorder>
+     <zorder>Edit_Right</zorder>
+     <zorder>Edit_Down</zorder>
+     <zorder>Edit_Home</zorder>
+     <zorder>Edit_Start</zorder>
+     <zorder>Edit_Select</zorder>
+     <zorder>Edit_X</zorder>
+     <zorder>Edit_S</zorder>
+     <zorder>Edit_O</zorder>
+     <zorder>Edit_T</zorder>
+     <zorder>Edit_RT</zorder>
+     <zorder>Edit_LT</zorder>
     </widget>
    </item>
    <item>
@@ -57,7 +225,16 @@
    </item>
   </layout>
  </widget>
- <resources/>
+ <customwidgets>
+  <customwidget>
+   <class>QKeyEdit</class>
+   <extends>QLineEdit</extends>
+   <header>qkeyedit.h</header>
+  </customwidget>
+ </customwidgets>
+ <resources>
+  <include location="resources.qrc"/>
+ </resources>
  <connections>
   <connection>
    <sender>buttonBox</sender>
