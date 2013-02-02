@@ -660,11 +660,20 @@ void TextureCache::SetTexture() {
 		cachekey |= (u64) clutaddr << 32;
 	}
 
+	int w = 1 << (gstate.texsize[0] & 0xf);
+	int h = 1 << ((gstate.texsize[0]>>8) & 0xf);
+
 	// Check for FBO - slow!
 	TexCacheEntry *fboEntry = GetEntryAt(texaddr);
 	if (fboEntry && fboEntry->fbo) {
 		fbo_bind_color_as_texture(fboEntry->fbo, 0);
 		UpdateSamplingParams(*fboEntry, false);
+
+		int fbow, fboh;
+		fbo_get_dimensions(fboEntry->fbo, &fbow, &fboh);
+
+		gstate_c.curTextureWidth = w / fbow;  // except not - 
+		gstate_c.curTextureHeight = h / fboh;
 		return;
 	}
 	
@@ -741,9 +750,6 @@ void TextureCache::SetTexture() {
 	int bufw = gstate.texbufwidth[0] & 0x3ff;
 	
 	entry.dim = gstate.texsize[0] & 0xF0F;
-
-	int w = 1 << (gstate.texsize[0] & 0xf);
-	int h = 1 << ((gstate.texsize[0]>>8) & 0xf);
 
 	// This would overestimate the size in many case so we underestimate instead
 	// to avoid excessive clearing caused by cache invalidations.
