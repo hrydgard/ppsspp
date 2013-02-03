@@ -90,6 +90,12 @@ int sceKernelUSec2SysClock(u32 microsec, u32 clockPtr)
 	return 0;
 }
 
+u64 sceKernelUSec2SysClockWide(u32 usec)
+{
+	DEBUG_LOG(HLE, "sceKernelUSec2SysClockWide(%i)", usec);
+	return usec;  // ?
+}
+
 int sceKernelSysClock2USec(u32 sysclockPtr, u32 highPtr, u32 lowPtr)
 {
 	DEBUG_LOG(HLE, "sceKernelSysClock2USec(clock = %08x, lo = %08x, hi = %08x)", sysclockPtr, highPtr, lowPtr);
@@ -112,12 +118,6 @@ int sceKernelSysClock2USecWide(u32 lowClock, u32 highClock, u32 lowPtr, u32 high
 	if (Memory::IsValidAddress(highPtr))
 		Memory::Write_U32((u32)(clock % 1000000), highPtr);
 	return 0;
-}
-
-u32 sceKernelUSec2SysClockWide(u32 usec)
-{
-	DEBUG_LOG(HLE, "sceKernelUSec2SysClockWide(%i)", usec);
-	return usec * 1000000;  // ?
 }
 
 u32 sceKernelLibcClock()

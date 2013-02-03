@@ -617,11 +617,10 @@ const HLEFunction ThreadManForUser[] =
 	{0xDAA3F564,WrapI_IU<sceKernelReferAlarmStatus>,"sceKernelReferAlarmStatus"},
 
 	{0xba6b92e2,WrapI_UUU<sceKernelSysClock2USec>,"sceKernelSysClock2USec"},
-	{0x110DEC9A,0,"sceKernelUSec2SysClock"},
-	{0xC8CD158C,WrapU_U<sceKernelUSec2SysClockWide>,"sceKernelUSec2SysClockWide"},
+	{0x110dec9a,WrapI_UU<sceKernelUSec2SysClock>,"sceKernelUSec2SysClock"},
+	{0xC8CD158C,WrapU64_U<sceKernelUSec2SysClockWide>,"sceKernelUSec2SysClockWide"},
 	{0xE1619D7C,WrapI_UUUU<sceKernelSysClock2USecWide>,"sceKernelSysClock2USecWide"},
 
-	{0x110dec9a,WrapI_UU<sceKernelUSec2SysClock>,"sceKernelUSec2SysClock"},
 	{0x278C0DF5,WrapI_IU<sceKernelWaitThreadEnd>,"sceKernelWaitThreadEnd"},
 	{0xd59ead2f,sceKernelWakeupThread,"sceKernelWakeupThread"}, //AI Go, audio?
 
