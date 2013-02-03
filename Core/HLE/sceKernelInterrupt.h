@@ -63,6 +63,9 @@ enum PSPInterruptTriggerType {
 	PSP_INTR_HLE = 0x1,
 	// Only trigger (as above) if interrupts are not suspended.
 	PSP_INTR_ONLY_IF_ENABLED = 0x2,
+	// Always reschedule, even if there's no handler registered.
+	// TODO: Maybe this should just always do this?  Not sure.
+	PSP_INTR_ALWAYS_RESCHED = 0x4,
 };
 
 struct PendingInterrupt {
