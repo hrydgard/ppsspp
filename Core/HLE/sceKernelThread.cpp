@@ -2265,7 +2265,7 @@ bool __CanExecuteCallbackNow(Thread *thread) {
 	return g_inCbCount == 0;
 }
 
-void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, bool returnVoid, std::vector<int> args, bool reschedAfter)
+void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, bool returnVoid, std::vector<int> args, bool reschedAfter, SceUID cbId)
 {
 	if (thread) {
 		ActionAfterMipsCall *after = (ActionAfterMipsCall *) __KernelCreateAction(actionAfterMipsCall);
@@ -2293,6 +2293,7 @@ void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, bo
 	call->numArgs = (int) args.size();
 	call->doAfter = afterAction;
 	call->tag = "callAddress";
+	call->cbId = cbId;
 
 	int callId = mipsCalls.add(call);
 
@@ -2323,7 +2324,7 @@ void __KernelDirectMipsCall(u32 entryPoint, Action *afterAction, bool returnVoid
 	for (int i = 0; i < numargs; i++)
 		argsv.push_back(args[i]);
 
-	__KernelCallAddress(__GetCurrentThread(), entryPoint, afterAction, returnVoid, argsv, reschedAfter);
+	__KernelCallAddress(__GetCurrentThread(), entryPoint, afterAction, returnVoid, argsv, reschedAfter, 0);
 }
 
 void __KernelExecuteMipsCallOnCurrentThread(int callId, bool reschedAfter)
@@ -2362,8 +2363,11 @@ void __KernelExecuteMipsCallOnCurrentThread(int callId, bool reschedAfter)
 		currentMIPS->r[MIPS_REG_A0 + i] = call->args[i];
 	}
 
-	g_inCbCount++;
-	currentCallbackThreadID = currentThread;
+	if (call->cbId != 0)
+	{
+		g_inCbCount++;
+		currentCallbackThreadID = currentThread;
+	}
 }
 
 void __KernelReturnFromMipsCall()
@@ -2399,8 +2403,11 @@ void __KernelReturnFromMipsCall()
 	currentMIPS->r[MIPS_REG_CALL_ID] = call->savedIdRegister;
 	cur->currentCallbackId = call->savedId;
 
-	g_inCbCount--;
-	currentCallbackThreadID = 0;
+	if (call->cbId != 0)
+	{
+		g_inCbCount--;
+		currentCallbackThreadID = 0;
+	}
 
 	// yeah! back in the real world, let's keep going. Should we process more callbacks?
 	if (!__KernelExecutePendingMipsCalls(call->reschedAfter))
@@ -2464,7 +2471,7 @@ void __KernelRunCallbackOnThread(SceUID cbId, Thread *thread, bool reschedAfter)
 	else
 		ERROR_LOG(HLE, "Something went wrong creating a restore action for a callback.");
 
-	__KernelCallAddress(thread, cb->nc.entrypoint, action, false, args, reschedAfter);
+	__KernelCallAddress(thread, cb->nc.entrypoint, action, false, args, reschedAfter, cbId);
 }
 
 void ActionAfterCallback::run(MipsCall &call) {
