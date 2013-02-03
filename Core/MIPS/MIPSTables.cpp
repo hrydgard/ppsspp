@@ -415,8 +415,7 @@ const MIPSInstruction tableCop0[32] =
 	{Cop0CO},{Cop0CO},{Cop0CO},{Cop0CO},{Cop0CO},{Cop0CO},{Cop0CO},{Cop0CO},
 };
 
-
-//we won't encounter these since we only do user mode emulation
+// we won't encounter these since we only do user mode emulation
 const MIPSInstruction tableCop0CO[64] = 
 {
 	{-2}, 
@@ -481,7 +480,7 @@ const MIPSInstruction tableVFPU0[8] =
 {
 	INSTR("vadd",&Jit::Comp_Generic, Dis_VectorSet3, Int_VecDo3, IS_VFPU),
 	INSTR("vsub",&Jit::Comp_Generic, Dis_VectorSet3, Int_VecDo3, IS_VFPU), 
-	INSTR("vsbn",&Jit::Comp_Generic, Dis_VectorSet3, 0, IS_VFPU), 
+	INSTR("vsbn",&Jit::Comp_Generic, Dis_VectorSet3, Int_Vsbn, IS_VFPU), 
 	{-2}, {-2}, {-2}, {-2}, 
 	
 	INSTR("vdiv",&Jit::Comp_Generic, Dis_VectorSet3, Int_VecDo3, IS_VFPU),
@@ -535,14 +534,14 @@ const MIPSInstruction tableVFPU4Jump[32] = //110100 xxxxx
 	{-2},
 	{-2},
 
-	INSTR("vwbn.s", &Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU),
-	INSTR("vwbn.s", &Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU),
-	INSTR("vwbn.s", &Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU),
-	INSTR("vwbn.s", &Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU),
-	INSTR("vwbn.s", &Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU),
-	INSTR("vwbn.s", &Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU),
-	INSTR("vwbn.s", &Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU),
-	INSTR("vwbn.s", &Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU),
+	INSTR("vwbn.s", &Jit::Comp_Generic, Dis_Generic, Int_Vwbn, IS_VFPU),
+	INSTR("vwbn.s", &Jit::Comp_Generic, Dis_Generic, Int_Vwbn, IS_VFPU),
+	INSTR("vwbn.s", &Jit::Comp_Generic, Dis_Generic, Int_Vwbn, IS_VFPU),
+	INSTR("vwbn.s", &Jit::Comp_Generic, Dis_Generic, Int_Vwbn, IS_VFPU),
+	INSTR("vwbn.s", &Jit::Comp_Generic, Dis_Generic, Int_Vwbn, IS_VFPU),
+	INSTR("vwbn.s", &Jit::Comp_Generic, Dis_Generic, Int_Vwbn, IS_VFPU),
+	INSTR("vwbn.s", &Jit::Comp_Generic, Dis_Generic, Int_Vwbn, IS_VFPU),
+	INSTR("vwbn.s", &Jit::Comp_Generic, Dis_Generic, Int_Vwbn, IS_VFPU),
 };
 
 const MIPSInstruction tableVFPU7[32] = 
@@ -555,7 +554,8 @@ const MIPSInstruction tableVFPU7[32] =
 	{-2},{-2},{-2},{-2},
 	//8
 	{-2},{-2},{-2},{-2},
-	{-2},{-2},{-2},{-2},
+	INSTR("vsbz", &Jit::Comp_Generic, Dis_Generic, Int_Vsbz, IS_VFPU),
+	{-2},{-2},{-2},
 	//16
 	{-2},
 	{-2},
@@ -565,7 +565,7 @@ const MIPSInstruction tableVFPU7[32] =
 	{-2},
 	{-2},
 	{-2},
-	INSTR("vlgb", &Jit::Comp_Generic, Dis_Generic, 0, IS_VFPU),
+	INSTR("vlgb", &Jit::Comp_Generic, Dis_Generic, Int_Vlgb, IS_VFPU),
 	//24
 	INSTR("vuc2i", &Jit::Comp_Generic, Dis_Vs2i, Int_Vx2i, IS_VFPU),  // Seen in BraveStory, initialization  110100 00001110000 000 0001 0000 0000
 	INSTR("vc2i", &Jit::Comp_Generic, Dis_Vs2i, Int_Vx2i, IS_VFPU),

@@ -64,14 +64,17 @@ static const char *blacklistedModules[] = {
 	"sceATRAC3plus_Library",
 	"sceFont_Library",
 	"SceFont_Library",
+	"SceHttp_Library",
+	"sceMpeg_library",
 	"sceNetAdhocctl_Library",
 	"sceNetAdhocDownload_Library",
 	"sceNetAdhocMatching_Library",
+	"sceNetApDialogDummy_Library",
 	"sceNetAdhoc_Library",
 	"sceNetApctl_Library",
 	"sceNetInet_Library",
+	"sceNetResolver_Library",
 	"sceNet_Library",
-	"sceMpeg_library",
 };
 
 struct NativeModule {
@@ -826,25 +829,35 @@ void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValu
 		RETURN(error);
 		return;
 	} else if (module->isFake) {
-		INFO_LOG(HLE,"sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x): faked (undecryptable module)",
+		INFO_LOG(HLE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x): faked (undecryptable module)",
 		moduleId,argsize,argAddr,returnValueAddr,optionAddr);
 	} else {
-		ERROR_LOG(HLE,"UNIMPL sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x)",
+		WARN_LOG(HLE, "UNIMPL sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x)",
 		moduleId,argsize,argAddr,returnValueAddr,optionAddr);
 
 		u32 entryAddr = module->nm.entry_addr;
-		if (entryAddr == -1) {
-			entryAddr = module->nm.module_start_func;
-			// attr = module->nm
+		if (entryAddr == -1 || entryAddr == module->memoryBlockAddr - 1) {
+			// TODO: Do these always take effect, or do they not override optionAddr?
+			if (module->nm.module_start_func != 0 && module->nm.module_start_func != -1) {
+				entryAddr = module->nm.module_start_func;
+				priority = module->nm.module_start_thread_priority;
+				attr = module->nm.module_start_thread_attr;
+				stacksize = module->nm.module_start_thread_stacksize;
+			} else {
+				// TODO: Fix, check return value?  Or do we call nothing?
+				RETURN(moduleId);
+				return;
+			}
 		}
+
+		SceUID threadID = __KernelCreateThread(module->nm.name, moduleId, entryAddr, priority, stacksize, attr, 0);
+		sceKernelStartThread(threadID, argsize, argAddr);
+		// TODO: This will probably return the wrong value?
+		sceKernelWaitThreadEnd(threadID, 0);
 	}
 
-	//SceUID threadId;
-	//__KernelCreateThread(threadId, moduleId, module->nm.name, module->nm.entry_addr, priority, stacksize, attr);
-
-	// Apparently, we need to call the entry point directly and insert the return value afterwards. This calls
-	// for a MipsCall and an Action. TODO
-	RETURN(moduleId); // TODO: Delete
+	// TODO: Is this the correct return value?
+	RETURN(moduleId);
 }
 
 void sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 returnValueAddr, u32 optionAddr)
@@ -865,6 +878,12 @@ u32 sceKernelUnloadModule(u32 moduleId)
 		return error;
 
 	kernelObjects.Destroy<Module>(moduleId);
+	return 0;
+}
+
+u32 sceKernelStopUnloadSelfModuleWithStatus(u32 moduleId, u32 argSize, u32 argp, u32 statusAddr, u32 optionAddr)
+{
+	ERROR_LOG(HLE,"UNIMPL sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x,)", moduleId, argSize, argp, statusAddr, optionAddr);
 	return 0;
 }
 
@@ -989,7 +1008,7 @@ const HLEFunction ModuleMgrForUser[] =
 	{0x748CBED9,WrapU_UU<sceKernelQueryModuleInfo>,"sceKernelQueryModuleInfo"},
 	{0xd8b73127,&WrapU_U<sceKernelGetModuleIdByAddress>, "sceKernelGetModuleIdByAddress"},
 	{0xf0a26395,WrapU_V<sceKernelGetModuleId>, "sceKernelGetModuleId"},
-	{0x8f2df740,0,"sceKernelStopUnloadSelfModuleWithStatus"},
+	{0x8f2df740,WrapU_UUUUU<sceKernelStopUnloadSelfModuleWithStatus>,"sceKernelStopUnloadSelfModuleWithStatus"},
 	{0xfef27dc1,&WrapU_CU<sceKernelLoadModuleDNAS> , "sceKernelLoadModuleDNAS"},
 };
 

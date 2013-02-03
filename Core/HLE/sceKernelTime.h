@@ -19,13 +19,13 @@
 
 u32 sceKernelLibcGettimeofday(u32 timeAddr);
 u32 sceKernelLibcTime(u32 outPtr);
-void sceKernelUSec2SysClock();
-void sceKernelGetSystemTime();
-void sceKernelGetSystemTimeLow();
-void sceKernelGetSystemTimeWide();
-void sceKernelSysClock2USec();
-void sceKernelSysClock2USecWide();
-u32 sceKernelUSec2SysClockWide(u32 usec);
+int sceKernelUSec2SysClock(u32 microsec, u32 clockPtr);
+int sceKernelGetSystemTime(u32 sysclockPtr);
+u32 sceKernelGetSystemTimeLow();
+u64 sceKernelGetSystemTimeWide();
+int sceKernelSysClock2USec(u32 sysclockPtr, u32 highPtr, u32 lowPtr);
+int sceKernelSysClock2USecWide(u32 lowClock, u32 highClock, u32 lowPtr, u32 highPtr);
+u64 sceKernelUSec2SysClockWide(u32 usec);
 u32 sceKernelLibcClock();
 
 void __KernelTimeInit();

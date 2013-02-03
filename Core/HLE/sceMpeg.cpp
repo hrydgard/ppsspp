@@ -1055,7 +1055,7 @@ u32 sceMpegRingbufferPut(u32 ringbufferAddr, u32 numPackets, u32 available)
 		PostPutAction *action = (PostPutAction *) __KernelCreateAction(actionPostPut);
 		action->setRingAddr(ringbufferAddr);
 		u32 args[3] = {(u32)ringbuffer.data, numPackets, (u32)ringbuffer.callback_args};
-		__KernelDirectMipsCall(ringbuffer.callback_addr, action, false, args, 3, false);
+		__KernelDirectMipsCall(ringbuffer.callback_addr, action, args, 3, false);
 	} else {
 		ERROR_LOG(HLE, "sceMpegRingbufferPut: callback_addr zero");
 	}

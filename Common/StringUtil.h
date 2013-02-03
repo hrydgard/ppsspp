@@ -118,6 +118,14 @@ static bool TryParse(const std::string &str, N *const output)
 		return false;
 }
 
+template <typename N>
+static std::string ValueToString(const N value)
+{
+	std::stringstream string;
+	string << value;
+	return string.str();
+}
+
 // TODO: kill this
 bool AsciiToHex(const char* _szValue, u32& result);
 

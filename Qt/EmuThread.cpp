@@ -109,27 +109,12 @@ void EmuThread::run()
 
 		UpdateInputState(input_state);
 
-		static const int mapping[12][2] = {
-			{PAD_BUTTON_A, CTRL_CROSS},
-			{PAD_BUTTON_B, CTRL_CIRCLE},
-			{PAD_BUTTON_X, CTRL_SQUARE},
-			{PAD_BUTTON_Y, CTRL_TRIANGLE},
-			{PAD_BUTTON_UP, CTRL_UP},
-			{PAD_BUTTON_DOWN, CTRL_DOWN},
-			{PAD_BUTTON_LEFT, CTRL_LEFT},
-			{PAD_BUTTON_RIGHT, CTRL_RIGHT},
-			{PAD_BUTTON_LBUMPER, CTRL_LTRIGGER},
-			{PAD_BUTTON_RBUMPER, CTRL_RTRIGGER},
-			{PAD_BUTTON_START, CTRL_START},
-			{PAD_BUTTON_SELECT, CTRL_SELECT},
-		};
-
-		for (int i = 0; i < 12; i++) {
-            if (input_state->pad_buttons_down & mapping[i][0]) {
-				__CtrlButtonDown(mapping[i][1]);
+		for (int i = 0; i < controllistCount; i++) {
+			if (input_state->pad_buttons_down & controllist[i].emu_id) {
+				__CtrlButtonDown(controllist[i].psp_id);
 			}
-            if (input_state->pad_buttons_up & mapping[i][0]) {
-				__CtrlButtonUp(mapping[i][1]);
+			if (input_state->pad_buttons_up & controllist[i].emu_id) {
+				__CtrlButtonUp(controllist[i].psp_id);
 			}
 		}
 		__CtrlSetAnalog(input_state->pad_lstick_x, input_state->pad_lstick_y);

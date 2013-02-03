@@ -377,7 +377,8 @@ inline void updateSyscallStats(int modulenum, int funcnum, double total)
 
 void CallSyscall(u32 op)
 {
-	time_update();
+	if (g_Config.bShowDebugStats)
+		time_update();
 	double start = time_now_d();
 	u32 callno = (op >> 6) & 0xFFFFF; //20 bits
 	int funcnum = callno & 0xFFF;
@@ -400,7 +401,9 @@ void CallSyscall(u32 op)
 	{
 		ERROR_LOG(HLE,"Unimplemented HLE function %s", moduleDB[modulenum].funcTable[funcnum].name);
 	}
-	time_update();
 	if (g_Config.bShowDebugStats)
+	{
+		time_update();
 		updateSyscallStats(modulenum, funcnum, time_now_d() - start);
+	}
 }

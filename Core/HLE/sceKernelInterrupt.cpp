@@ -386,6 +386,11 @@ void __TriggerRunInterrupts(int type)
 	{
 		if ((type & PSP_INTR_HLE) != 0)
 			hleRunInterrupts();
+		else if ((type & PSP_INTR_ALWAYS_RESCHED) != 0)
+		{
+			if (!__RunOnePendingInterrupt())
+				__KernelSwitchOffThread("interrupt");
+		}
 		else
 			__RunOnePendingInterrupt();
 	}

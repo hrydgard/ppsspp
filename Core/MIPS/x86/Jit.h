@@ -53,6 +53,7 @@ struct JitState
 	bool cancel;
 	bool inDelaySlot;
 	int downcountAmount;
+	int numInstructions;
 	bool compiling;	// TODO: get rid of this in favor of using analysis results to determine end of block
 	JitBlock *curBlock;
 
@@ -107,8 +108,6 @@ public:
 	void Compile(u32 em_address);	// Compiles a block at current MIPS PC
 	const u8 *DoJit(u32 em_address, JitBlock *b);
 
-	// See CompileDelaySlotFlags for flags.
-	void CompileDelaySlot(int flags);
 	void CompileAt(u32 addr);
 	void Comp_RunBlock(u32 op);
 
@@ -150,6 +149,10 @@ public:
 private:
 	void FlushAll();
 	void WriteDowncount(int offset = 0);
+
+	// See CompileDelaySlotFlags for flags.
+	void CompileDelaySlot(int flags);
+	void EatInstruction(u32 op);
 
 	void WriteExit(u32 destination, int exit_num);
 	void WriteExitDestInEAX();

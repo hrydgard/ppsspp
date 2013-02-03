@@ -33,12 +33,6 @@
 #endif
 #endif
 
-#if defined(__SYMBIAN32__)
-	// Also Xbox 360
-	#define UNUSABLE_MMAP 1
-#endif
-
-
 #ifdef ANDROID
 
 // Hopefully this ABI will never change...

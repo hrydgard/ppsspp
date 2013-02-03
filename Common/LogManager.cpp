@@ -158,21 +158,24 @@ void LogManager::Log(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const 
 {
 	std::lock_guard<std::mutex> lk(m_log_lock);
 
-	char temp[MAX_MSGLEN];
 	char msg[MAX_MSGLEN * 2];
 	LogContainer *log = m_Log[type];
 	if (!log || !log->IsEnabled() || level > log->GetLevel() || ! log->HasListeners())
 		return;
 
-	CharArrayFromFormatV(temp, MAX_MSGLEN, format, args);
-
 	static const char level_to_char[7] = "-NEWID";
 	char formattedTime[13];
 	Common::Timer::GetTimeFormatted(formattedTime);
-	sprintf(msg, "%s %s:%d %c[%s]: %s\n",
+
+	char *msgPos = msg;
+	msgPos += sprintf(msgPos, "%s %s:%d %c[%s]: ",
 		formattedTime,
 		file, line, level_to_char[(int)level],
-		log->GetShortName(), temp);
+		log->GetShortName());
+
+	msgPos += vsnprintf(msgPos, MAX_MSGLEN, format, args);
+	// This will include the null terminator.
+	memcpy(msgPos, "\n", sizeof("\n"));
 
 	log->Trigger(level, msg);
 }

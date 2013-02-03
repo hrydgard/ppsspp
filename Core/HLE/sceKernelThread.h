@@ -26,6 +26,7 @@
 
 
 void sceKernelChangeThreadPriority();
+int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr);
 int sceKernelCreateThread(const char *threadName, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr);
 void sceKernelDelayThread();
 void sceKernelDelayThreadCB();
@@ -57,6 +58,7 @@ int sceKernelWaitThreadEndCB(SceUID threadID, u32 timeoutPtr);
 void sceKernelGetThreadExitStatus();
 u32 sceKernelGetThreadmanIdType(u32);
 u32 sceKernelGetThreadmanIdList(u32 type, u32 readBufPtr, u32 readBufSize, u32 idCountPtr);
+u32 sceKernelExtendThreadStack(u32 cpu, u32 size, u32 entryAddr, u32 entryParameter);
 
 struct SceKernelSysClock {
 	u32 lo;
@@ -182,7 +184,7 @@ void sceKernelReferCallbackStatus();
 class Action;
 
 // Not an official Callback object, just calls a mips function on the current thread.
-void __KernelDirectMipsCall(u32 entryPoint, Action *afterAction, bool returnVoid, u32 args[], int numargs, bool reschedAfter);
+void __KernelDirectMipsCall(u32 entryPoint, Action *afterAction, u32 args[], int numargs, bool reschedAfter);
 
 void __KernelReturnFromMipsCall();  // Called as HLE function
 bool __KernelInCallback();
@@ -207,6 +209,11 @@ int __KernelRegisterActionType(ActionCreator creator);
 void __KernelRestoreActionType(int actionType, ActionCreator creator);
 
 struct MipsCall {
+	MipsCall()
+	{
+		doAfter = NULL;
+	}
+
 	u32 entryPoint;
 	u32 cbId;
 	u32 args[6];
@@ -217,7 +224,6 @@ struct MipsCall {
 	u32 savedPc;
 	u32 savedV0;
 	u32 savedV1;
-	bool returnVoid;
 	std::string tag;
 	u32 savedId;
 	bool reschedAfter;

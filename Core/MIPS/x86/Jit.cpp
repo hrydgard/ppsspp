@@ -158,6 +158,18 @@ void Jit::CompileAt(u32 addr)
 	MIPSCompileOp(op);
 }
 
+void Jit::EatInstruction(u32 op)
+{
+	u32 info = MIPSGetInfo(op);
+	_dbg_assert_msg_(JIT, !(info & DELAYSLOT), "Never eat a branch op.");
+	_dbg_assert_msg_(JIT, !js.inDelaySlot, "Never eat an instruction inside a delayslot.");
+
+	CheckJitBreakpoint(js.compilerPC + 4, 0);
+	js.numInstructions++;
+	js.compilerPC += 4;
+	js.downcountAmount += MIPSGetInstructionCycleEstimate(op);
+}
+
 void Jit::Compile(u32 em_address)
 {
 	if (GetSpaceLeft() < 0x10000 || blocks.IsFull())
@@ -203,7 +215,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	gpr.Start(mips_, analysis);
 	fpr.Start(mips_, analysis);
 
-	int numInstructions = 0;
+	js.numInstructions = 0;
 	while (js.compiling)
 	{
 		// Jit breakpoints are quite fast, so let's do them in release too.
@@ -215,13 +227,13 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 		MIPSCompileOp(inst);
 
 		js.compilerPC += 4;
-		numInstructions++;
+		js.numInstructions++;
 	}
 
 	b->codeSize = (u32)(GetCodePtr() - b->normalEntry);
 	NOP();
 	AlignCode4();
-	b->originalSize = numInstructions;
+	b->originalSize = js.numInstructions;
 	return b->normalEntry;
 }
 
