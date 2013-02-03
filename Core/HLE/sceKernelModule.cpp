@@ -64,14 +64,16 @@ static const char *blacklistedModules[] = {
 	"sceATRAC3plus_Library",
 	"sceFont_Library",
 	"SceFont_Library",
+	"SceHttp_Library",
+	"sceMpeg_library",
 	"sceNetAdhocctl_Library",
 	"sceNetAdhocDownload_Library",
 	"sceNetAdhocMatching_Library",
 	"sceNetAdhoc_Library",
 	"sceNetApctl_Library",
 	"sceNetInet_Library",
+	"sceNetResolver_Library",
 	"sceNet_Library",
-	"sceMpeg_library",
 };
 
 struct NativeModule {
