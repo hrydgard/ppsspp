@@ -326,6 +326,8 @@ u32 sceAtracGetNextSample(int atracID, u32 outNAddr)
 		} else {
 			// TODO: This is not correct.
 			u32 numSamples = (atrac->first.size - atrac->decodePos) / (sizeof(s16) * 2);
+			if (numSamples > ATRAC_MAX_SAMPLES)
+				numSamples = ATRAC_MAX_SAMPLES;
 			Memory::Write_U32(numSamples, outNAddr);
 		}
 	}
