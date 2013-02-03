@@ -69,6 +69,7 @@ static const char *blacklistedModules[] = {
 	"sceNetAdhocctl_Library",
 	"sceNetAdhocDownload_Library",
 	"sceNetAdhocMatching_Library",
+	"sceNetApDialogDummy_Library",
 	"sceNetAdhoc_Library",
 	"sceNetApctl_Library",
 	"sceNetInet_Library",
