@@ -349,10 +349,12 @@ static void SwapUVs(TransformedVertex &a, TransformedVertex &b) {
 
 // Used by Star Soldier and Ys vs Sora.
 static void RotateUVs(TransformedVertex v[4]) {
-	if (/* (v[0].x > v[2].x && v[0].y < v[2].y) || */  // This first check seems wrong..
-		  (v[0].x < v[2].x && v[0].y > v[2].y)) {
+
+	/*  // This first check seems wrong..
+	if ( (v[0].x > v[2].x && v[0].y < v[2].y) || (v[0].x < v[2].x && v[0].y > v[2].y)) {
 		SwapUVs(v[1], v[3]);
 	}
+	*/
 }
 
 // This is the software transform pipeline, which is necessary for supporting RECT
