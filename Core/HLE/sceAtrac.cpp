@@ -48,12 +48,13 @@ struct InputBuffer {
 };
 
 struct Atrac {
-	Atrac() : decodePos(0), loopNum(0) {
+	Atrac() : decodePos(0), decodeEnd(0), loopNum(0) {
 		memset(&first, 0, sizeof(first));
 		memset(&second, 0, sizeof(second));
 	}
 	void DoState(PointerWrap &p) {
 		p.Do(decodePos);
+		p.Do(decodeEnd);
 		p.Do(loopNum);
 		p.Do(first);
 		p.Do(second);
@@ -61,6 +62,7 @@ struct Atrac {
 	}
 
 	u32 decodePos;
+	u32 decodeEnd;
 	int loopNum;
 
 	InputBuffer first;
@@ -162,7 +164,7 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 	u32 ret = 0;
 	if (atrac != NULL) {
 		// We already passed the end - return an error (many games check for this.)
-		if (atrac->decodePos >= atrac->first.size && atrac->loopNum == 0) {
+		if (atrac->decodePos >= atrac->decodeEnd && atrac->loopNum == 0) {
 			Memory::Write_U32(0, numSamplesAddr);
 			Memory::Write_U32(1, finishFlagAddr);
 			Memory::Write_U32(0, remainAddr);
@@ -170,8 +172,8 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 			ret = ATRAC_ERROR_ALL_DATA_DECODED;
 		} else {
 			// TODO: This isn't at all right, but at least it makes the music "last" some time.
-			int numSamples = (atrac->first.size - atrac->decodePos) / (sizeof(s16) * 2);
-			if (atrac->decodePos >= atrac->first.size) {
+			int numSamples = (atrac->decodeEnd - atrac->decodePos) / (sizeof(s16) * 2);
+			if (atrac->decodePos >= atrac->decodeEnd) {
 				numSamples = 0;
 			} else if (numSamples > ATRAC_MAX_SAMPLES) {
 				numSamples = ATRAC_MAX_SAMPLES;
@@ -321,11 +323,11 @@ u32 sceAtracGetNextSample(int atracID, u32 outNAddr)
 		//return -1;
 		Memory::Write_U32(1, outNAddr);
 	} else {
-		if (atrac->decodePos >= atrac->first.size) {
+		if (atrac->decodePos >= atrac->decodeEnd) {
 			Memory::Write_U32(0, outNAddr);
 		} else {
 			// TODO: This is not correct.
-			u32 numSamples = (atrac->first.size - atrac->decodePos) / (sizeof(s16) * 2);
+			u32 numSamples = (atrac->decodeEnd - atrac->decodePos) / (sizeof(s16) * 2);
 			if (numSamples > ATRAC_MAX_SAMPLES)
 				numSamples = ATRAC_MAX_SAMPLES;
 			Memory::Write_U32(numSamples, outNAddr);
@@ -428,6 +430,8 @@ u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize)
 	if (atrac != NULL) {
 		atrac->first.addr = buffer;
 		atrac->first.size = bufferSize;
+		// TODO: This is an ugly approximation of song length.
+		atrac->decodeEnd = bufferSize * 3;
 	}
 	return 0;
 } 
@@ -440,6 +444,8 @@ int sceAtracSetDataAndGetID(u32 buffer, u32 bufferSize)
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = buffer;
 	atrac->first.size = bufferSize;
+	// TODO: This is an ugly approximation of song length.
+	atrac->decodeEnd = bufferSize * 3;
 	return createAtrac(atrac);
 }
 
@@ -451,6 +457,8 @@ int sceAtracSetHalfwayBufferAndGetID(int atracID, u32 halfBuffer, u32 readSize, 
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = halfBuffer;
 	atrac->first.size = halfBufferSize;
+	// TODO: This is an ugly approximation of song length.
+	atrac->decodeEnd = halfBufferSize * 3;
 	return createAtrac(atrac);
 }
 
@@ -512,6 +520,8 @@ int sceAtracSetAA3DataAndGetID(u32 buffer, int bufferSize, int fileSize, u32 met
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = buffer;
 	atrac->first.size = bufferSize;
+	// TODO: This is an ugly approximation of song length.
+	atrac->decodeEnd = bufferSize * 3;
 	return createAtrac(atrac);
 }
 
