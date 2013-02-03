@@ -397,11 +397,11 @@ public:
 	ThreadWaitInfo getWaitInfo();
 
 	// Utils
-	bool isRunning() const { return (nt.status & THREADSTATUS_RUNNING) != 0; }
-	bool isStopped() const { return (nt.status & THREADSTATUS_DORMANT) != 0; }
-	bool isReady() const { return (nt.status & THREADSTATUS_READY) != 0; }
-	bool isWaiting() const { return (nt.status & THREADSTATUS_WAIT) != 0; }
-	bool isSuspended() const { return (nt.status & THREADSTATUS_SUSPEND) != 0; }
+	inline bool isRunning() const { return (nt.status & THREADSTATUS_RUNNING) != 0; }
+	inline bool isStopped() const { return (nt.status & THREADSTATUS_DORMANT) != 0; }
+	inline bool isReady() const { return (nt.status & THREADSTATUS_READY) != 0; }
+	inline bool isWaiting() const { return (nt.status & THREADSTATUS_WAIT) != 0; }
+	inline bool isSuspended() const { return (nt.status & THREADSTATUS_SUSPEND) != 0; }
 
 	virtual void DoState(PointerWrap &p)
 	{
@@ -696,6 +696,32 @@ void __KernelFireThreadEnd(SceUID threadID)
 	}
 }
 
+// TODO: Use __KernelChangeThreadState instead?  It has other affects...
+void __KernelChangeReadyState(Thread *thread, SceUID threadID, bool ready)
+{
+	int prio = thread->nt.currentPriority;
+
+	if (thread->isReady())
+	{
+		if (!ready)
+			threadReadyQueue[prio].erase(std::remove(threadReadyQueue[prio].begin(), threadReadyQueue[prio].end(), threadID), threadReadyQueue[prio].end());
+	}
+	else if (ready)
+		threadReadyQueue[prio].push_back(threadID);
+
+	thread->nt.status = THREADSTATUS_READY;
+}
+
+void __KernelChangeReadyState(SceUID threadID, bool ready)
+{
+	u32 error;
+	Thread *thread = kernelObjects.Get<Thread>(threadID, error);
+	if (thread)
+		__KernelChangeReadyState(thread, threadID, ready);
+	else
+		WARN_LOG(HLE, "Trying to change the ready state of an unknown thread?");
+}
+
 void __KernelStartIdleThreads()
 {
 	for (int i = 0; i < 2; i++)
@@ -705,7 +731,7 @@ void __KernelStartIdleThreads()
 		t->nt.gpreg = __KernelGetModuleGP(curModule);
 		t->context.r[MIPS_REG_GP] = t->nt.gpreg;
 		//t->context.pc += 4;	// ADJUSTPC
-		t->nt.status = THREADSTATUS_READY;
+		__KernelChangeReadyState(t, threadIdleID[i], true);
 	}
 }
 
@@ -720,7 +746,7 @@ bool __KernelSwitchOffThread(const char *reason)
 	{
 		Thread *current = __GetCurrentThread();
 		if (current && current->isRunning())
-			current->nt.status = (current->nt.status | THREADSTATUS_READY) & ~THREADSTATUS_RUNNING;
+			__KernelChangeReadyState(current, threadID, true);
 
 		u32 error;
 		// Idle 0 chosen entirely arbitrarily.
@@ -751,6 +777,7 @@ void __KernelIdle()
 		Thread *t = kernelObjects.Get<Thread>(currentCallbackThreadID, error);
 		if (t)
 		{
+			__KernelChangeReadyState(t, currentCallbackThreadID, false);
 			t->nt.status = (t->nt.status | THREADSTATUS_RUNNING) & ~THREADSTATUS_READY;
 			__KernelSwitchContext(t, "idle");
 		}
@@ -1339,7 +1366,6 @@ Thread *__KernelCreateThread(SceUID &id, SceUID moduleId, const char *name, u32 
 	id = kernelObjects.Create(t);
 
 	threadqueue.push_back(id);
-	threadReadyQueue[priority].push_back(id);
 
 	memset(&t->nt, 0xCD, sizeof(t->nt));
 
@@ -1381,7 +1407,7 @@ void __KernelSetupRootThread(SceUID moduleID, int args, const char *argp, int pr
 	__KernelResetThread(thread);
 
 	currentThread = id;
-	thread->nt.status = THREADSTATUS_READY; // do not schedule
+	__KernelChangeReadyState(thread, id, true); // do not schedule
 
 	strcpy(thread->nt.name, "root");
 
@@ -1459,7 +1485,7 @@ int sceKernelStartThread(SceUID threadToStartID, u32 argSize, u32 argBlockPtr)
 
 		__KernelResetThread(startThread);
 
-		startThread->nt.status = THREADSTATUS_READY;
+		__KernelChangeReadyState(startThread, threadToStartID, true);
 		u32 sp = startThread->context.r[MIPS_REG_SP];
 		if (argBlockPtr && argSize > 0)
 		{
@@ -1537,10 +1563,9 @@ void __KernelReturnFromThread()
 	}
 
 	thread->nt.exitStatus = currentMIPS->r[2];
+	__KernelChangeReadyState(thread, currentThread, false);
 	thread->nt.status = THREADSTATUS_DORMANT;
 	__KernelFireThreadEnd(thread->GetUID());
-
-	// TODO: Need to remove the thread from any ready queues.
 
 	__KernelTriggerWait(WAITTYPE_THREADEND, __KernelGetCurThread(), thread->nt.exitStatus, "thread returned", true);
 	hleReSchedule("thread returned");
@@ -1554,6 +1579,7 @@ void sceKernelExitThread()
 	_dbg_assert_msg_(HLE, thread != NULL, "Exited from a NULL thread.");
 
 	ERROR_LOG(HLE,"sceKernelExitThread FAKED");
+	__KernelChangeReadyState(thread, currentThread, false);
 	thread->nt.status = THREADSTATUS_DORMANT;
 	thread->nt.exitStatus = PARAM(0);
 	__KernelFireThreadEnd(thread->GetUID());
@@ -1588,6 +1614,7 @@ void sceKernelExitDeleteThread()
 	if (t)
 	{
 		INFO_LOG(HLE,"sceKernelExitDeleteThread()");
+		__KernelChangeReadyState(t, threadHandle, false);
 		t->nt.status = THREADSTATUS_DORMANT;
 		t->nt.exitStatus = PARAM(0);
 		error = __KernelDeleteThread(threadHandle, PARAM(0), "thread exited with delete", true);
@@ -1686,6 +1713,7 @@ int sceKernelTerminateThread(u32 threadID)
 		if (t)
 		{
 			t->nt.exitStatus = SCE_KERNEL_ERROR_THREAD_TERMINATED;
+			__KernelChangeReadyState(t, threadID, false);
 			t->nt.status = THREADSTATUS_DORMANT;
 			__KernelFireThreadEnd(threadID);
 			// TODO: Should this really reschedule?
@@ -1758,8 +1786,8 @@ void sceKernelChangeThreadPriority()
 
 		thread->nt.currentPriority = PARAM(1);
 
-		// TODO: Only if ready.
-		threadReadyQueue[thread->nt.currentPriority].push_back(id);
+		if (thread->isReady())
+			threadReadyQueue[thread->nt.currentPriority].push_back(id);
 
 		RETURN(0);
 	}
@@ -2134,6 +2162,7 @@ void ActionAfterMipsCall::run(MipsCall &call) {
 	u32 error;
 	Thread *thread = kernelObjects.Get<Thread>(threadID, error);
 	if (thread) {
+		__KernelChangeReadyState(thread, threadID, (status & THREADSTATUS_READY) != 0);
 		thread->nt.status = status;
 		thread->nt.waitType = waitType;
 		thread->nt.waitID = waitID;
@@ -2206,7 +2235,7 @@ void Thread::resumeFromWait()
 		this->nt.status &= ~THREADSTATUS_WAIT;
 		// TODO: What if DORMANT or DEAD?
 		if (!(this->nt.status & THREADSTATUS_WAITSUSPEND))
-			this->nt.status = THREADSTATUS_READY;
+			__KernelChangeReadyState(this, this->GetUID(), true);
 
 		// Non-waiting threads do not process callbacks.
 		this->isProcessingCallbacks = false;
@@ -2273,12 +2302,16 @@ void __KernelSwitchContext(Thread *target, const char *reason)
 			oldName = cur->GetName();
 
 		if (cur->isRunning())
+		{
+			__KernelChangeReadyState(cur, oldUID, false);
 			cur->nt.status = (cur->nt.status | THREADSTATUS_READY) & ~THREADSTATUS_RUNNING;
+		}
 	}
-	if (target && target->isRunning())
-		cur->nt.status = (cur->nt.status | THREADSTATUS_RUNNING) & ~THREADSTATUS_READY;
 
 	currentThread = target->GetUID();
+	if (target && target->isRunning())
+		__KernelChangeReadyState(target, currentThread, true);
+
 	__KernelLoadContext(&target->context);
 	DEBUG_LOG(HLE,"Context switched: %s -> %s (%s) (%i - pc: %08x -> %i - pc: %08x)",
 		oldName, target->GetName(),
@@ -2304,6 +2337,7 @@ void __KernelChangeThreadState(Thread *thread, ThreadStatus newStatus) {
 	// TODO: JPSCP has many conditions here, like removing wait timeout actions etc.
 	// if (thread->nt.status == THREADSTATUS_WAIT && newStatus != THREADSTATUS_WAITSUSPEND) {
 
+	__KernelChangeReadyState(thread, thread->GetUID(), (newStatus & THREADSTATUS_READY) != 0);
 	thread->nt.status = newStatus;
 
 	if (newStatus == THREADSTATUS_WAIT) {
