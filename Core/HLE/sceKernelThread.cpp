@@ -690,6 +690,10 @@ bool __KernelSwitchOffThread(const char *reason)
 
 	if (threadID != threadIdleID[0] && threadID != threadIdleID[1])
 	{
+		Thread *current = __GetCurrentThread();
+		if (current && current->isRunning())
+			current->nt.status = (current->nt.status | THREADSTATUS_READY) & ~THREADSTATUS_RUNNING;
+
 		u32 error;
 		// Idle 0 chosen entirely arbitrarily.
 		Thread *t = kernelObjects.Get<Thread>(threadIdleID[0], error);
@@ -718,7 +722,10 @@ void __KernelIdle()
 		u32 error;
 		Thread *t = kernelObjects.Get<Thread>(currentCallbackThreadID, error);
 		if (t)
+		{
+			t->nt.status = (t->nt.status | THREADSTATUS_RUNNING) & ~THREADSTATUS_READY;
 			__KernelSwitchContext(t, "idle");
+		}
 		else
 		{
 			WARN_LOG(HLE, "UNTESTED - Callback thread deleted during interrupt?");
@@ -2364,10 +2371,8 @@ void __KernelExecuteMipsCallOnCurrentThread(int callId, bool reschedAfter)
 	}
 
 	if (call->cbId != 0)
-	{
 		g_inCbCount++;
-		currentCallbackThreadID = currentThread;
-	}
+	currentCallbackThreadID = currentThread;
 }
 
 void __KernelReturnFromMipsCall()
@@ -2404,10 +2409,8 @@ void __KernelReturnFromMipsCall()
 	cur->currentCallbackId = call->savedId;
 
 	if (call->cbId != 0)
-	{
 		g_inCbCount--;
-		currentCallbackThreadID = 0;
-	}
+	currentCallbackThreadID = 0;
 
 	// yeah! back in the real world, let's keep going. Should we process more callbacks?
 	if (!__KernelExecutePendingMipsCalls(call->reschedAfter))
