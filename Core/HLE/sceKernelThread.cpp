@@ -697,7 +697,7 @@ void __KernelFireThreadEnd(SceUID threadID)
 }
 
 // TODO: Use __KernelChangeThreadState instead?  It has other affects...
-void __KernelChangeReadyState(Thread *thread, SceUID threadID, bool ready)
+void __KernelChangeReadyState(Thread *thread, SceUID threadID, bool ready, bool atStart = false)
 {
 	int prio = thread->nt.currentPriority;
 
@@ -707,7 +707,18 @@ void __KernelChangeReadyState(Thread *thread, SceUID threadID, bool ready)
 			threadReadyQueue[prio].erase(std::remove(threadReadyQueue[prio].begin(), threadReadyQueue[prio].end(), threadID), threadReadyQueue[prio].end());
 	}
 	else if (ready)
-		threadReadyQueue[prio].push_back(threadID);
+	{
+		if (atStart)
+		{
+			size_t oldSize = threadReadyQueue[prio].size();
+			threadReadyQueue[prio].resize(oldSize + 1);
+			if (oldSize > 0)
+				memmove(&threadReadyQueue[prio][1], &threadReadyQueue[prio][0], oldSize * sizeof(SceUID));
+			threadReadyQueue[prio][0] = threadID;
+		}
+		else
+			threadReadyQueue[prio].push_back(threadID);
+	}
 
 	thread->nt.status = THREADSTATUS_READY;
 }
@@ -1191,46 +1202,30 @@ u32 __KernelDeleteThread(SceUID threadID, int exitStatus, const char *reason, bo
 }
 
 Thread *__KernelNextThread() {
-	// round-robin scheduler
-	// seems to work ?
-	// not accurate!
-	int bestthread = -1;
-	int prio = 0xffffff;
-
-	int next = 0;
-	for (size_t i = 0; i < threadqueue.size(); i++)
+	SceUID bestThread = -1;
+	// This goes in priority order.
+	for (auto it = threadReadyQueue.begin(), end = threadReadyQueue.end(); it != end; ++it)
 	{
-		if (currentThread == threadqueue[i])
+		if (!it->second.empty())
 		{
-			next = (int)i;
+			bestThread = it->second[0];
 			break;
 		}
 	}
 
 	u32 error;
-	for (size_t i = 0; i < threadqueue.size(); i++)
-	{
-		next = (next + 1) % threadqueue.size();
-
-		Thread *t = kernelObjects.Get<Thread>(threadqueue[next], error);
-		if (t && t->nt.currentPriority < prio)
-		{
-			if (t->nt.status & THREADSTATUS_READY)
-			{
-				bestthread = next;
-				prio = t->nt.currentPriority;
-			}
-		}
-	}
-
-	if (bestthread != -1)
-		return kernelObjects.Get<Thread>(threadqueue[bestthread], error);
+	if (bestThread != -1)
+		return kernelObjects.Get<Thread>(bestThread, error);
 	else
 		return 0;
 }
 
 void __KernelReSchedule(const char *reason)
 {
+	// TODO: Not sure if this is correct?
+	if (__GetCurrentThread() && __GetCurrentThread()->isRunning())
+		__KernelChangeReadyState(currentThread, true);
+
 	// cancel rescheduling when in interrupt or callback, otherwise everything will be fucked up
 	if (__IsInInterrupt() || __KernelInCallback())
 	{
@@ -1484,8 +1479,8 @@ int sceKernelStartThread(SceUID threadToStartID, u32 argSize, u32 argBlockPtr)
 			threadToStartID,argSize,argBlockPtr);
 
 		__KernelResetThread(startThread);
+		__KernelChangeReadyState(startThread, threadToStartID, true, true);
 
-		__KernelChangeReadyState(startThread, threadToStartID, true);
 		u32 sp = startThread->context.r[MIPS_REG_SP];
 		if (argBlockPtr && argSize > 0)
 		{
