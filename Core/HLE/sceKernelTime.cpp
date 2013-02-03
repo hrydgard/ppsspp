@@ -66,29 +66,28 @@ int sceKernelGetSystemTime(u32 sysclockPtr)
 	return 0;
 }
 
-void sceKernelGetSystemTimeLow()
+u32 sceKernelGetSystemTimeLow()
 {
 	// This clock should tick at 1 Mhz.
 	u64 t = CoreTiming::GetTicks() / CoreTiming::GetClockFrequencyMHz();
 	// DEBUG_LOG(HLE,"%08x=sceKernelGetSystemTimeLow()",(u32)t);
-	RETURN((u32)t);
+	return (u32)t;
 }
 
-void sceKernelGetSystemTimeWide()
+u64 sceKernelGetSystemTimeWide()
 {
 	u64 t = CoreTiming::GetTicks() / CoreTiming::GetClockFrequencyMHz();
 	DEBUG_LOG(HLE,"%i=sceKernelGetSystemTimeWide()",(u32)t);
-	RETURN((u32)t);
-	currentMIPS->r[3] = t >> 32;
+	return t;
 }
 
-void sceKernelUSec2SysClock()
+int sceKernelUSec2SysClock(u32 microsec, u32 clockPtr)
 {
-	u32 microseconds = PARAM(0);
-	SceKernelSysClock *clock = (SceKernelSysClock*)Memory::GetPointer(PARAM(1));
+	u32 microseconds = microsec;
+	SceKernelSysClock *clock = (SceKernelSysClock*)Memory::GetPointer(clockPtr);
 	clock->lo = microseconds; //TODO: fix
-	DEBUG_LOG(HLE,"sceKernelUSec2SysClock(%i, %08x )",PARAM(0), PARAM(1));
-	RETURN(0);
+	DEBUG_LOG(HLE,"sceKernelUSec2SysClock(%i, %08x )",microsec,clockPtr);
+	return 0;
 }
 
 int sceKernelSysClock2USec(u32 sysclockPtr, u32 highPtr, u32 lowPtr)
@@ -104,15 +103,15 @@ int sceKernelSysClock2USec(u32 sysclockPtr, u32 highPtr, u32 lowPtr)
 	return 0;
 }
 
-void sceKernelSysClock2USecWide()
+int sceKernelSysClock2USecWide(u32 lowClock, u32 highClock, u32 lowPtr, u32 highPtr)
 {
-	u64 clock = PARAM(0) | ((u64)PARAM(1) << 32);
-	DEBUG_LOG(HLE, "sceKernelSysClock2USecWide(clock = %llu, lo = %08x, hi = %08x)", clock, PARAM(2), PARAM(3));
-	if (Memory::IsValidAddress(PARAM(2)))
-		Memory::Write_U32((u32)(clock / 1000000), PARAM(2));
-	if (Memory::IsValidAddress(PARAM(3)))
-		Memory::Write_U32((u32)(clock % 1000000), PARAM(3));
-	RETURN(0);
+	u64 clock = lowClock | ((u64)highClock << 32);
+	DEBUG_LOG(HLE, "sceKernelSysClock2USecWide(clock = %llu, lo = %08x, hi = %08x)", clock, lowPtr, highPtr);
+	if (Memory::IsValidAddress(lowPtr))
+		Memory::Write_U32((u32)(clock / 1000000), lowPtr);
+	if (Memory::IsValidAddress(highPtr))
+		Memory::Write_U32((u32)(clock % 1000000), highPtr);
+	return 0;
 }
 
 u32 sceKernelUSec2SysClockWide(u32 usec)
