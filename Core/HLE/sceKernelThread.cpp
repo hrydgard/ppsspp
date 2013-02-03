@@ -2265,7 +2265,7 @@ bool __CanExecuteCallbackNow(Thread *thread) {
 	return g_inCbCount == 0;
 }
 
-void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, bool returnVoid, std::vector<int> args, bool reschedAfter, SceUID cbId)
+void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, bool returnVoid, u32 args[], int numargs, bool reschedAfter, SceUID cbId)
 {
 	if (thread) {
 		ActionAfterMipsCall *after = (ActionAfterMipsCall *) __KernelCreateAction(actionAfterMipsCall);
@@ -2287,10 +2287,10 @@ void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, bo
 
 	MipsCall *call = new MipsCall();
 	call->entryPoint = entryPoint;
-	for (size_t i = 0; i < args.size(); i++) {
+	for (size_t i = 0; i < numargs; i++) {
 		call->args[i] = args[i];
 	}
-	call->numArgs = (int) args.size();
+	call->numArgs = (int) numargs;
 	call->doAfter = afterAction;
 	call->tag = "callAddress";
 	call->cbId = cbId;
@@ -2319,12 +2319,7 @@ void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, bo
 
 void __KernelDirectMipsCall(u32 entryPoint, Action *afterAction, bool returnVoid, u32 args[], int numargs, bool reschedAfter)
 {
-	// TODO: get rid of the vector
-	std::vector<int> argsv;
-	for (int i = 0; i < numargs; i++)
-		argsv.push_back(args[i]);
-
-	__KernelCallAddress(__GetCurrentThread(), entryPoint, afterAction, returnVoid, argsv, reschedAfter, 0);
+	__KernelCallAddress(__GetCurrentThread(), entryPoint, afterAction, returnVoid, args, numargs, reschedAfter, 0);
 }
 
 void __KernelExecuteMipsCallOnCurrentThread(int callId, bool reschedAfter)
@@ -2456,10 +2451,7 @@ void __KernelRunCallbackOnThread(SceUID cbId, Thread *thread, bool reschedAfter)
 	// Alright, we're on the right thread
 	// Should save/restore wait state?
 
-	std::vector<int> args;
-	args.push_back(cb->nc.notifyCount);
-	args.push_back(cb->nc.notifyArg);
-	args.push_back(cb->nc.commonArgument);
+	const u32 args[] = {(u32) cb->nc.notifyCount, (u32) cb->nc.notifyArg, cb->nc.commonArgument};
 
 	// Clear the notify count / arg
 	cb->nc.notifyCount = 0;
@@ -2471,7 +2463,7 @@ void __KernelRunCallbackOnThread(SceUID cbId, Thread *thread, bool reschedAfter)
 	else
 		ERROR_LOG(HLE, "Something went wrong creating a restore action for a callback.");
 
-	__KernelCallAddress(thread, cb->nc.entrypoint, action, false, args, reschedAfter, cbId);
+	__KernelCallAddress(thread, cb->nc.entrypoint, action, false, args, 3, reschedAfter, cbId);
 }
 
 void ActionAfterCallback::run(MipsCall &call) {
