@@ -7,6 +7,7 @@
 #include "input/input_state.h"
 #include "debugger_disasm.h"
 #include "controls.h"
+#include "gamepaddialog.h"
 
 class QtEmuGL;
 namespace Ui {
@@ -132,6 +133,8 @@ private slots:
 
 	void on_actionLogDefError_triggered();
 
+	void on_action_OptionsGamePadControls_triggered();
+
 private:
     Ui::MainWindow *ui;
 
@@ -139,10 +142,10 @@ private:
 	CoreState nextState;
 
 	InputState input_state;
-	bool g_bFullScreen;
 
 	Debugger_Disasm *dialogDisasm;
 	Controls* controls;
+	GamePadDialog* gamePadDlg;
 };
 
 #endif // MAINWINDOW_H

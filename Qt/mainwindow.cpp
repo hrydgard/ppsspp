@@ -32,6 +32,10 @@ MainWindow::MainWindow(QWidget *parent) :
 	qApp->installEventFilter(this);
 
 	controls = new Controls(this);
+#if QT_HAS_SDL
+	gamePadDlg = new GamePadDialog(&input_state, this);
+#endif
+
 	host = new QtHost(this);
 	w = ui->widget;
 	w->init(&input_state);
@@ -764,4 +768,13 @@ void MainWindow::on_actionLogDefError_triggered()
 		LogManager::GetInstance()->SetLogLevel(type, LogTypes::LERROR);
 	}
 	UpdateMenus();
+}
+
+void MainWindow::on_action_OptionsGamePadControls_triggered()
+{
+#if QT_HAS_SDL
+	gamePadDlg->show();
+#else
+	QMessageBox::information(this,"Gamepad","You need to compile with SDL to have Gamepad support.", QMessageBox::Ok);
+#endif
 }
