@@ -470,8 +470,13 @@ u32 idleThreadHackAddr;
 u32 threadReturnHackAddr;
 u32 cbReturnHackAddr;
 u32 intReturnHackAddr;
-std::vector<SceUID> threadqueue;
 std::vector<ThreadCallback> threadEndListeners;
+
+typedef std::vector<SceUID> ThreadList;
+// Lists all thread ids that aren't deleted/etc.
+ThreadList threadqueue;
+// Lists only ready thread ids.
+std::map<u32, ThreadList> threadReadyQueue;
 
 SceUID threadIdleID[2];
 
@@ -625,6 +630,29 @@ void __KernelThreadingDoState(PointerWrap &p)
 	p.Do(dispatchEnabled);
 	p.Do(curModule);
 
+	int n = (int) threadReadyQueue.size();
+	p.Do(n);
+	if (p.mode == p.MODE_READ)
+	{
+		threadReadyQueue.clear();
+		for (int i = 0; i < n; ++i)
+		{
+			u32 prio;
+			p.Do(prio);
+			ThreadList threads;
+			p.Do(threads, dv);
+			threadReadyQueue[prio] = threads;
+		}
+	}
+	else
+	{
+		for (auto it = threadReadyQueue.begin(), end = threadReadyQueue.end(); it != end; ++it)
+		{
+			p.Do(it->first);
+			p.Do(it->second, dv);
+		}
+	}
+
 	p.Do(eventScheduledWakeup);
 	CoreTiming::RestoreRegisterEvent(eventScheduledWakeup, "ScheduledWakeup", &hleScheduledWakeup);
 	p.Do(eventThreadEndTimeout);
@@ -744,6 +772,7 @@ void __KernelThreadingShutdown()
 {
 	kernelMemory.Free(threadReturnHackAddr);
 	threadqueue.clear();
+	threadReadyQueue.clear();
 	threadEndListeners.clear();
 	mipsCalls.clear();
 	threadReturnHackAddr = 0;
@@ -1101,15 +1130,11 @@ void __KernelCancelThreadEndTimeout(SceUID threadID)
 
 void __KernelRemoveFromThreadQueue(SceUID threadID)
 {
-	for (size_t i = 0; i < threadqueue.size(); i++)
-	{
-		if (threadqueue[i] == threadID)
-		{
-			DEBUG_LOG(HLE, "Deleted thread %08x (%i) from thread queue", threadID, threadID);
-			threadqueue.erase(threadqueue.begin() + i);
-			return;
-		}
-	}
+	int prio = __KernelGetThreadPrio(threadID);
+	if (prio != 0)
+		threadReadyQueue[prio].erase(std::remove(threadReadyQueue[prio].begin(), threadReadyQueue[prio].end(), threadID), threadReadyQueue[prio].end());
+
+	threadqueue.erase(std::remove(threadqueue.begin(), threadqueue.end(), threadID), threadqueue.end());
 }
 
 u32 __KernelDeleteThread(SceUID threadID, int exitStatus, const char *reason, bool dontSwitch)
@@ -1314,6 +1339,7 @@ Thread *__KernelCreateThread(SceUID &id, SceUID moduleId, const char *name, u32 
 	id = kernelObjects.Create(t);
 
 	threadqueue.push_back(id);
+	threadReadyQueue[priority].push_back(id);
 
 	memset(&t->nt, 0xCD, sizeof(t->nt));
 
@@ -1602,7 +1628,6 @@ int sceKernelDeleteThread(int threadHandle)
 {
 	if (threadHandle != currentThread)
 	{
-		//TODO: remove from threadqueue!
 		DEBUG_LOG(HLE,"sceKernelDeleteThread(%i)",threadHandle);
 
 		u32 error;
@@ -1627,7 +1652,6 @@ int sceKernelTerminateDeleteThread(int threadno)
 {
 	if (threadno != currentThread)
 	{
-		//TODO: remove from threadqueue!
 		INFO_LOG(HLE, "sceKernelTerminateDeleteThread(%i)", threadno);
 
 		u32 error;
@@ -1728,7 +1752,15 @@ void sceKernelChangeThreadPriority()
 	if (thread)
 	{
 		DEBUG_LOG(HLE,"sceKernelChangeThreadPriority(%i, %i)", id, PARAM(1));
+
+		int prio = thread->nt.currentPriority;
+		threadReadyQueue[prio].erase(std::remove(threadReadyQueue[prio].begin(), threadReadyQueue[prio].end(), id), threadReadyQueue[prio].end());
+
 		thread->nt.currentPriority = PARAM(1);
+
+		// TODO: Only if ready.
+		threadReadyQueue[thread->nt.currentPriority].push_back(id);
+
 		RETURN(0);
 	}
 	else
