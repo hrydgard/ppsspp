@@ -1418,6 +1418,7 @@ namespace MIPSInt
 		VectorSize sz = GetVecSize(op);
 		float c = constants[conNum];
 		float temp[4] = {c,c,c,c};
+		ApplyPrefixD(temp, sz);
 		WriteVector(temp, sz, vd);
 		PC += 4;
 		EatPrefixes();
