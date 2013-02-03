@@ -349,8 +349,8 @@ static void SwapUVs(TransformedVertex &a, TransformedVertex &b) {
 
 // Used by Star Soldier and Ys vs Sora.
 static void RotateUVs(TransformedVertex v[4]) {
-	if (/* (v[0].x > v[2].x && v[0].y < v[2].y) || */  // This first check seems wrong..
-		  (v[0].x < v[2].x && v[0].y > v[2].y)) {
+	if ((v[0].x > v[2].x && v[0].y < v[2].y) || (v[0].x < v[2].x && v[0].y > v[2].y)) // This first check seems wrong..
+	{
 		SwapUVs(v[1], v[3]);
 	}
 }
