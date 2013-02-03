@@ -347,7 +347,9 @@ static void SwapUVs(TransformedVertex &a, TransformedVertex &b) {
 //        to           to            or
 // 1   0       0   1        1   2          3   0
 
-// Used by Star Soldier and Ys vs Sora.
+
+// See comment below where this was called before.
+/*
 static void RotateUV(TransformedVertex v[4]) {
 	float x1 = v[2].x;
 	float x2 = v[0].x;
@@ -356,7 +358,7 @@ static void RotateUV(TransformedVertex v[4]) {
 
 	if ((x1 < x2 && y1 < y2) || (x1 > x2 && y1 > y2))
 		SwapUVs(v[1], v[3]);
-}
+}*/
 
 static void RotateUVThrough(TransformedVertex v[4]) {
 	float x1 = v[2].x;
@@ -635,8 +637,11 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 				// That's the four corners. Now process UV rotation.
 				if (throughmode)
 					RotateUVThrough(trans);
-				else
-					RotateUV(trans);
+				// Apparently, non-through RotateUV just breaks things.
+				// If we find a game where it helps, we'll just have to figure out how they differ.
+				// Possibly, it has something to do with flipped viewport Y axis, which a few games use.
+				// else
+				//	RotateUV(trans);
 
 				// bottom right
 				trans[4] = trans[0];
