@@ -182,6 +182,8 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	}
 	vblankWaitingThreads.clear();
 
+	// We want to "interrupt" even if there are no installed vblank handlers.
+	__KernelSwitchOffThread("vblank");
 	// Trigger VBlank interrupt handlers.
 	__TriggerInterrupt(PSP_INTR_IMMEDIATE | PSP_INTR_ONLY_IF_ENABLED, PSP_VBLANK_INTR);
 
