@@ -880,6 +880,12 @@ u32 sceKernelUnloadModule(u32 moduleId)
 	return 0;
 }
 
+u32 sceKernelStopUnloadSelfModuleWithStatus(u32 moduleId, u32 argSize, u32 argp, u32 statusAddr, u32 optionAddr)
+{
+	ERROR_LOG(HLE,"UNIMPL sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x,)", moduleId, argSize, argp, statusAddr, optionAddr);
+	return 0;
+}
+
 u32 sceKernelGetModuleIdByAddress(u32 moduleAddr)
 {
 	ERROR_LOG(HLE,"HACKIMPL sceKernelGetModuleIdByAddress(%08x)", PARAM(0));
@@ -1001,7 +1007,7 @@ const HLEFunction ModuleMgrForUser[] =
 	{0x748CBED9,WrapU_UU<sceKernelQueryModuleInfo>,"sceKernelQueryModuleInfo"},
 	{0xd8b73127,&WrapU_U<sceKernelGetModuleIdByAddress>, "sceKernelGetModuleIdByAddress"},
 	{0xf0a26395,WrapU_V<sceKernelGetModuleId>, "sceKernelGetModuleId"},
-	{0x8f2df740,0,"sceKernelStopUnloadSelfModuleWithStatus"},
+	{0x8f2df740,WrapU_UUUUU<sceKernelStopUnloadSelfModuleWithStatus>,"sceKernelStopUnloadSelfModuleWithStatus"},
 	{0xfef27dc1,&WrapU_CU<sceKernelLoadModuleDNAS> , "sceKernelLoadModuleDNAS"},
 };
 
