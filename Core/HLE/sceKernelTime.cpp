@@ -58,14 +58,12 @@ struct SceKernelSysClock
 	u32 hi;
 };
 
-void sceKernelGetSystemTime()
+int sceKernelGetSystemTime(u32 sysclockPtr)
 {
-	SceKernelSysClock *clock = (SceKernelSysClock*)Memory::GetPointer(PARAM(0));
 	u64 t = CoreTiming::GetTicks() / CoreTiming::GetClockFrequencyMHz();
-	clock->lo = (u32)t;
-	clock->hi = t >> 32;
-	DEBUG_LOG(HLE,"sceKernelGetSystemTime(out:%08x%08x)",clock->hi, clock->lo);
-	RETURN(0);
+	Memory::Write_U64(t, sysclockPtr);
+	DEBUG_LOG(HLE, "sceKernelGetSystemTime(out:%16llx)", t);
+	return 0;
 }
 
 void sceKernelGetSystemTimeLow()
@@ -93,17 +91,17 @@ void sceKernelUSec2SysClock()
 	RETURN(0);
 }
 
-void sceKernelSysClock2USec()
+int sceKernelSysClock2USec(u32 sysclockPtr, u32 highPtr, u32 lowPtr)
 {
-	SceKernelSysClock clock;
-	Memory::ReadStruct(PARAM(0), &clock);
-	DEBUG_LOG(HLE, "sceKernelSysClock2USec(clock = , lo = %08x, hi = %08x)", PARAM(1), PARAM(2));
-	u64 time = clock.lo | ((u64)clock.hi << 32);
-	if (Memory::IsValidAddress(PARAM(1)))
-		Memory::Write_U32((u32)(time / 1000000), PARAM(1));
-	if (Memory::IsValidAddress(PARAM(2)))
-		Memory::Write_U32((u32)(time % 1000000), PARAM(2));
-	RETURN(0);
+	DEBUG_LOG(HLE, "sceKernelSysClock2USec(clock = %08x, lo = %08x, hi = %08x)", sysclockPtr, highPtr, lowPtr);
+	u64 time = Memory::Read_U64(sysclockPtr);
+	u32 highResult = (u32)(time / 1000000);
+	u32 lowResult = (u32)(time % 1000000);
+	if (Memory::IsValidAddress(highPtr))
+		Memory::Write_U32(highResult, highPtr);
+	if (Memory::IsValidAddress(lowPtr))
+		Memory::Write_U32(lowResult, lowPtr);
+	return 0;
 }
 
 void sceKernelSysClock2USecWide()
