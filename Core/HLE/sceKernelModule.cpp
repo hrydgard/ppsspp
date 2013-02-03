@@ -75,6 +75,7 @@ static const char *blacklistedModules[] = {
 	"sceNetInet_Library",
 	"sceNetResolver_Library",
 	"sceNet_Library",
+	"sceSsl_Module",
 };
 
 struct NativeModule {
