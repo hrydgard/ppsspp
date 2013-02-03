@@ -512,7 +512,6 @@ void MipsCall::DoState(PointerWrap &p)
 	p.Do(savedPc);
 	p.Do(savedV0);
 	p.Do(savedV1);
-	p.Do(returnVoid);
 	p.Do(tag);
 	p.Do(savedId);
 	p.Do(reschedAfter);
@@ -2265,8 +2264,10 @@ bool __CanExecuteCallbackNow(Thread *thread) {
 	return g_inCbCount == 0;
 }
 
-void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, bool returnVoid, u32 args[], int numargs, bool reschedAfter, SceUID cbId)
+void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, const u32 args[], int numargs, bool reschedAfter, SceUID cbId)
 {
+	_dbg_assert_msg_(HLE, numargs <= 6, "MipsCalls can only take 6 args.");
+
 	if (thread) {
 		ActionAfterMipsCall *after = (ActionAfterMipsCall *) __KernelCreateAction(actionAfterMipsCall);
 		after->chainedAction = afterAction;
@@ -2287,7 +2288,7 @@ void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, bo
 
 	MipsCall *call = new MipsCall();
 	call->entryPoint = entryPoint;
-	for (size_t i = 0; i < numargs; i++) {
+	for (int i = 0; i < numargs; i++) {
 		call->args[i] = args[i];
 	}
 	call->numArgs = (int) numargs;
@@ -2317,9 +2318,9 @@ void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, bo
 	}
 }
 
-void __KernelDirectMipsCall(u32 entryPoint, Action *afterAction, bool returnVoid, u32 args[], int numargs, bool reschedAfter)
+void __KernelDirectMipsCall(u32 entryPoint, Action *afterAction, u32 args[], int numargs, bool reschedAfter)
 {
-	__KernelCallAddress(__GetCurrentThread(), entryPoint, afterAction, returnVoid, args, numargs, reschedAfter, 0);
+	__KernelCallAddress(__GetCurrentThread(), entryPoint, afterAction, args, numargs, reschedAfter, 0);
 }
 
 void __KernelExecuteMipsCallOnCurrentThread(int callId, bool reschedAfter)
@@ -2344,7 +2345,6 @@ void __KernelExecuteMipsCallOnCurrentThread(int callId, bool reschedAfter)
 	call->savedV1 = currentMIPS->r[MIPS_REG_V1];
 	call->savedIdRegister = currentMIPS->r[MIPS_REG_CALL_ID];
 	call->savedId = cur->currentCallbackId;
-	call->returnVoid = false;
 	call->reschedAfter = reschedAfter;
 
 	// Set up the new state
@@ -2463,7 +2463,7 @@ void __KernelRunCallbackOnThread(SceUID cbId, Thread *thread, bool reschedAfter)
 	else
 		ERROR_LOG(HLE, "Something went wrong creating a restore action for a callback.");
 
-	__KernelCallAddress(thread, cb->nc.entrypoint, action, false, args, 3, reschedAfter, cbId);
+	__KernelCallAddress(thread, cb->nc.entrypoint, action, args, 3, reschedAfter, cbId);
 }
 
 void ActionAfterCallback::run(MipsCall &call) {
