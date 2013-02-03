@@ -601,6 +601,7 @@ const HLEFunction ThreadManForUser[] =
 
 	{0x94416130,WrapU_UUUU<sceKernelGetThreadmanIdList>,"sceKernelGetThreadmanIdList"},
 	{0x57CF62DD,WrapU_U<sceKernelGetThreadmanIdType>,"sceKernelGetThreadmanIdType"},
+	{0xBC80EC7C,WrapU_UUUU<sceKernelExtendThreadStack>, "sceKernelExtendThreadStack"},
 
 	{0x82BC5777,WrapU64_V<sceKernelGetSystemTimeWide>,"sceKernelGetSystemTimeWide"},
 	{0xdb738f35,WrapI_U<sceKernelGetSystemTime>,"sceKernelGetSystemTime"},
