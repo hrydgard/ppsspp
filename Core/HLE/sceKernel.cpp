@@ -602,9 +602,9 @@ const HLEFunction ThreadManForUser[] =
 	{0x94416130,WrapU_UUUU<sceKernelGetThreadmanIdList>,"sceKernelGetThreadmanIdList"},
 	{0x57CF62DD,WrapU_U<sceKernelGetThreadmanIdType>,"sceKernelGetThreadmanIdType"},
 
-	{0x82BC5777,sceKernelGetSystemTimeWide,"sceKernelGetSystemTimeWide"},
+	{0x82BC5777,WrapU64_V<sceKernelGetSystemTimeWide>,"sceKernelGetSystemTimeWide"},
 	{0xdb738f35,WrapI_U<sceKernelGetSystemTime>,"sceKernelGetSystemTime"},
-	{0x369ed59d,sceKernelGetSystemTimeLow,"sceKernelGetSystemTimeLow"},
+	{0x369ed59d,WrapU_V<sceKernelGetSystemTimeLow>,"sceKernelGetSystemTimeLow"},
 
 	{0x8218B4DD,&WrapU_U<sceKernelReferGlobalProfiler>,"sceKernelReferGlobalProfiler"},
 	{0x627E6F3A,&WrapU_U<sceKernelReferSystemStatus>,"sceKernelReferSystemStatus"},
@@ -619,9 +619,9 @@ const HLEFunction ThreadManForUser[] =
 	{0xba6b92e2,WrapI_UUU<sceKernelSysClock2USec>,"sceKernelSysClock2USec"},
 	{0x110DEC9A,0,"sceKernelUSec2SysClock"},
 	{0xC8CD158C,WrapU_U<sceKernelUSec2SysClockWide>,"sceKernelUSec2SysClockWide"},
-	{0xE1619D7C,sceKernelSysClock2USecWide,"sceKernelSysClock2USecWide"},
+	{0xE1619D7C,WrapI_UUUU<sceKernelSysClock2USecWide>,"sceKernelSysClock2USecWide"},
 
-	{0x110dec9a,sceKernelUSec2SysClock,"sceKernelUSec2SysClock"},
+	{0x110dec9a,WrapI_UU<sceKernelUSec2SysClock>,"sceKernelUSec2SysClock"},
 	{0x278C0DF5,WrapI_IU<sceKernelWaitThreadEnd>,"sceKernelWaitThreadEnd"},
 	{0xd59ead2f,sceKernelWakeupThread,"sceKernelWakeupThread"}, //AI Go, audio?
 
