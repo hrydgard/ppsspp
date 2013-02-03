@@ -536,13 +536,13 @@ int _sceAtracGetContextAddress(int atracID)
 
 int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr)
 {
-	ERROR_LOG_LIMITED(HLE, "UNIMPL sceAtracLowLevelInitDecoder(%i, %08x)", atracID, paramsAddr);
+	ERROR_LOG(HLE, "UNIMPL sceAtracLowLevelInitDecoder(%i, %08x)", atracID, paramsAddr);
 	return 0;
 }
 
 int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedAddr, u32 samplesAddr, u32 sampleBytesAddr)
 {
-	ERROR_LOG_LIMITED(HLE, "UNIMPL sceAtracLowLevelDecode(%i, %i, %08x, %08x, %08x, %08x)", atracID, sourceAddr, sourceBytesConsumedAddr, samplesAddr, sampleBytesAddr);
+	ERROR_LOG(HLE, "UNIMPL sceAtracLowLevelDecode(%i, %i, %08x, %08x, %08x, %08x)", atracID, sourceAddr, sourceBytesConsumedAddr, samplesAddr, sampleBytesAddr);
 	return 0;
 }
 
