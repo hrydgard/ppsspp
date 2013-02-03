@@ -2233,7 +2233,13 @@ void __KernelSwitchContext(Thread *target, const char *reason)
 		// Profile on Windows shows this takes time, skip it.
 		if (DEBUG_LEVEL <= MAX_LOGLEVEL)
 			oldName = cur->GetName();
+
+		if (cur->isRunning())
+			cur->nt.status = (cur->nt.status | THREADSTATUS_READY) & ~THREADSTATUS_RUNNING;
 	}
+	if (target && target->isRunning())
+		cur->nt.status = (cur->nt.status | THREADSTATUS_RUNNING) & ~THREADSTATUS_READY;
+
 	currentThread = target->GetUID();
 	__KernelLoadContext(&target->context);
 	DEBUG_LOG(HLE,"Context switched: %s -> %s (%s) (%i - pc: %08x -> %i - pc: %08x)",
