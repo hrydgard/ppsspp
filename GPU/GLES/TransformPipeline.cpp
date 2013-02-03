@@ -347,17 +347,6 @@ static void SwapUVs(TransformedVertex &a, TransformedVertex &b) {
 //        to           to            or
 // 1   0       0   1        1   2          3   0
 
-// Used by Star Soldier and Ys vs Sora.
-static void RotateUV(TransformedVertex v[4]) {
-	float x1 = v[2].x;
-	float x2 = v[0].x;
-	float y1 = v[2].y;
-	float y2 = v[0].y;
-
-	if ((x1 < x2 && y1 < y2) || (x1 > x2 && y1 > y2))
-		SwapUVs(v[1], v[3]);
-}
-
 static void RotateUVThrough(TransformedVertex v[4]) {
 	float x1 = v[2].x;
 	float x2 = v[0].x;
@@ -635,8 +624,6 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 				// That's the four corners. Now process UV rotation.
 				if (throughmode)
 					RotateUVThrough(trans);
-				else
-					RotateUV(trans);
 
 				// bottom right
 				trans[4] = trans[0];
