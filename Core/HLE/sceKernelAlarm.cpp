@@ -23,6 +23,8 @@
 
 const int NATIVEALARM_SIZE = 20;
 
+std::list<SceUID> triggeredAlarm;
+
 struct NativeAlarm
 {
 	SceSize size;
@@ -49,35 +51,33 @@ struct Alarm : public KernelObject
 
 void __KernelScheduleAlarm(Alarm *alarm, u64 ticks);
 
-class AlarmIntrHandler : public SubIntrHandler
+class AlarmIntrHandler : public IntrHandler
 {
 public:
-	static SubIntrHandler *Create()
-	{
-		return new AlarmIntrHandler();
-	}
+	AlarmIntrHandler() : IntrHandler(PSP_SYSTIMER0_INTR) {}
 
-	void setAlarm(Alarm *alarm)
+	virtual bool run(PendingInterrupt& pend)
 	{
-		alarmID = alarm->GetUID();
-		handlerAddress = alarm->alm.handlerPtr;
-		enabled = true;
-	}
-
-	virtual void copyArgsToCPU(const PendingInterrupt &pend)
-	{
-		SubIntrHandler::copyArgsToCPU(pend);
-
 		u32 error;
+		int alarmID = triggeredAlarm.front();
+
 		Alarm *alarm = kernelObjects.Get<Alarm>(alarmID, error);
-		if (alarm)
-			currentMIPS->r[MIPS_REG_A0] = alarm->alm.commonPtr;
-		else
-			ERROR_LOG(HLE, "sceKernelAlarm: Unable to send interrupt args: alarm deleted?");
+		if(error)
+			return false;
+
+		currentMIPS->pc = alarm->alm.handlerPtr;
+		currentMIPS->r[MIPS_REG_A0] = alarm->alm.commonPtr;
+
+		return true;
 	}
 
-	virtual void handleResult(int result)
+	virtual void handleResult(PendingInterrupt& pend)
 	{
+		int result = currentMIPS->r[MIPS_REG_V0];
+
+		int alarmID = triggeredAlarm.front();
+		triggeredAlarm.pop_front();
+
 		// A non-zero result means to reschedule.
 		if (result > 0)
 		{
@@ -92,18 +92,8 @@ public:
 
 			// Delete the alarm if it's not rescheduled.
 			kernelObjects.Destroy<Alarm>(alarmID);
-			__ReleaseSubIntrHandler(PSP_SYSTIMER0_INTR, alarmID);
 		}
 	}
-
-	virtual void DoState(PointerWrap &p)
-	{
-		SubIntrHandler::DoState(p);
-		p.Do(alarmID);
-		p.DoMarker("AlarmIntrHandler");
-	}
-
-	SceUID alarmID;
 };
 
 static int alarmTimer = -1;
@@ -115,18 +105,23 @@ void __KernelTriggerAlarm(u64 userdata, int cyclesLate)
 	u32 error;
 	Alarm *alarm = kernelObjects.Get<Alarm>(uid, error);
 	if (alarm)
-		__TriggerInterrupt(PSP_INTR_IMMEDIATE, PSP_SYSTIMER0_INTR, uid);
+	{
+		triggeredAlarm.push_back(uid);
+		__TriggerInterrupt(PSP_INTR_IMMEDIATE, PSP_SYSTIMER0_INTR);
+	}
 }
 
 void __KernelAlarmInit()
 {
+	triggeredAlarm.clear();
+	__RegisterIntrHandler(PSP_SYSTIMER0_INTR, new AlarmIntrHandler());
 	alarmTimer = CoreTiming::RegisterEvent("Alarm", __KernelTriggerAlarm);
-	__RegisterSubIntrCreator(PSP_SYSTIMER0_INTR, AlarmIntrHandler::Create);
 }
 
 void __KernelAlarmDoState(PointerWrap &p)
 {
 	p.Do(alarmTimer);
+	p.Do(triggeredAlarm);
 	CoreTiming::RestoreRegisterEvent(alarmTimer, "Alarm", __KernelTriggerAlarm);
 	p.DoMarker("sceKernelAlarm");
 }
@@ -155,15 +150,6 @@ SceUID __KernelSetAlarm(u64 ticks, u32 handlerPtr, u32 commonPtr)
 	alarm->alm.handlerPtr = handlerPtr;
 	alarm->alm.commonPtr = commonPtr;
 
-	u32 error;
-	AlarmIntrHandler *handler = (AlarmIntrHandler *) __RegisterSubIntrHandler(PSP_SYSTIMER0_INTR, uid, error);
-	if (error != 0)
-	{
-		kernelObjects.Destroy<Alarm>(uid);
-		return error;
-	}
-
-	handler->setAlarm(alarm);
 	__KernelScheduleAlarm(alarm, ticks);
 	return uid;
 }
@@ -192,7 +178,6 @@ int sceKernelCancelAlarm(SceUID uid)
 	DEBUG_LOG(HLE, "sceKernelCancelAlarm(%08x)", uid);
 
 	CoreTiming::UnscheduleEvent(alarmTimer, uid);
-	__ReleaseSubIntrHandler(PSP_SYSTIMER0_INTR, uid);
 
 	return kernelObjects.Destroy<Alarm>(uid);
 }

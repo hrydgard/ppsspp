@@ -39,6 +39,8 @@ void Register_sceGe_user();
 void __GeInit();
 void __GeDoState(PointerWrap &p);
 void __GeShutdown();
+void __GeTriggerInterrupt(int listid, u32 pc);
+bool __GeHasPendingInterrupt();
 
 
 // Export functions for use by Util/PPGe
