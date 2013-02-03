@@ -321,6 +321,24 @@ namespace MainWindow
 				UpdateMenus();
 				break;
 
+			case ID_EMULATION_RESET:
+				for (int i=0; i<numCPUs; i++)
+					if (disasmWindow[i])
+						SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
+
+				Sleep(100);//UGLY wait for event instead
+
+				for (int i=0; i<numCPUs; i++)
+					if (disasmWindow[i])
+						SendMessage(disasmWindow[i]->GetDlgHandle(), WM_CLOSE, 0, 0);
+				for (int i=0; i<numCPUs; i++)
+					if (memoryWindow[i])
+						SendMessage(memoryWindow[i]->GetDlgHandle(), WM_CLOSE, 0, 0);
+
+				EmuThread_Stop();
+
+				EmuThread_Start(GetCurrentFilename());
+				break;
 
 			case ID_EMULATION_PAUSE:
 				for (int i=0; i<numCPUs; i++)
