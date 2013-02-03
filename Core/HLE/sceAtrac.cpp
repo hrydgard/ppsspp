@@ -170,8 +170,10 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 			ret = ATRAC_ERROR_ALL_DATA_DECODED;
 		} else {
 			// TODO: This isn't at all right, but at least it makes the music "last" some time.
-			u32 numSamples = (atrac->first.size - atrac->decodePos) / (sizeof(s16) * 2);
-			if (numSamples > ATRAC_MAX_SAMPLES) {
+			int numSamples = (atrac->first.size - atrac->decodePos) / (sizeof(s16) * 2);
+			if (atrac->decodePos >= atrac->first.size) {
+				numSamples = 0;
+			} else if (numSamples > ATRAC_MAX_SAMPLES) {
 				numSamples = ATRAC_MAX_SAMPLES;
 			}
 
@@ -260,12 +262,18 @@ u32 sceAtracGetChannel(int atracID, u32 channelAddr)
 	return 0;
 }
 
-u32 sceAtracGetLoopStatus(int atracID, u32 loopNbr, u32 statusAddr)
+u32 sceAtracGetLoopStatus(int atracID, u32 loopNumAddr, u32 statusAddr)
 {
-	ERROR_LOG(HLE, "UNIMPL sceAtracGetLoopStatus(%i, %08x, %08x)", atracID, loopNbr, statusAddr );
+	ERROR_LOG(HLE, "UNIMPL sceAtracGetLoopStatus(%i, %08x, %08x)", atracID, loopNumAddr, statusAddr);
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
 		//return -1;
+	} else {
+		if (Memory::IsValidAddress(loopNumAddr))
+			Memory::Write_U32(atrac->loopNum, loopNumAddr);
+		// TODO: What does this mean?
+		if (Memory::IsValidAddress(statusAddr))
+			Memory::Write_U32(1, statusAddr);
 	}
 	return 0;
 }
