@@ -208,6 +208,11 @@ int __KernelRegisterActionType(ActionCreator creator);
 void __KernelRestoreActionType(int actionType, ActionCreator creator);
 
 struct MipsCall {
+	MipsCall()
+	{
+		doAfter = NULL;
+	}
+
 	u32 entryPoint;
 	u32 cbId;
 	u32 args[6];

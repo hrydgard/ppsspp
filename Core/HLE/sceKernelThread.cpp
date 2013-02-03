@@ -231,12 +231,17 @@ private:
 
 class ActionAfterMipsCall : public Action
 {
+	ActionAfterMipsCall()
+	{
+		chainedAction = NULL;
+	}
+
 public:
 	virtual void run(MipsCall &call);
 
 	static Action *Create()
 	{
-		return new ActionAfterMipsCall;
+		return new ActionAfterMipsCall();
 	}
 
 	virtual void DoState(PointerWrap &p)
