@@ -26,6 +26,7 @@
 
 
 void sceKernelChangeThreadPriority();
+int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr);
 int sceKernelCreateThread(const char *threadName, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr);
 void sceKernelDelayThread();
 void sceKernelDelayThreadCB();

@@ -826,25 +826,35 @@ void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValu
 		RETURN(error);
 		return;
 	} else if (module->isFake) {
-		INFO_LOG(HLE,"sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x): faked (undecryptable module)",
+		INFO_LOG(HLE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x): faked (undecryptable module)",
 		moduleId,argsize,argAddr,returnValueAddr,optionAddr);
 	} else {
-		ERROR_LOG(HLE,"UNIMPL sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x)",
+		WARN_LOG(HLE, "UNIMPL sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x)",
 		moduleId,argsize,argAddr,returnValueAddr,optionAddr);
 
 		u32 entryAddr = module->nm.entry_addr;
-		if (entryAddr == -1) {
-			entryAddr = module->nm.module_start_func;
-			// attr = module->nm
+		if (entryAddr == -1 || entryAddr == module->memoryBlockAddr - 1) {
+			// TODO: Do these always take effect, or do they not override optionAddr?
+			if (module->nm.module_start_func != 0 && module->nm.module_start_func != -1) {
+				entryAddr = module->nm.module_start_func;
+				priority = module->nm.module_start_thread_priority;
+				attr = module->nm.module_start_thread_attr;
+				stacksize = module->nm.module_start_thread_stacksize;
+			} else {
+				// TODO: Fix, check return value?  Or do we call nothing?
+				RETURN(moduleId);
+				return;
+			}
 		}
+
+		SceUID threadID = __KernelCreateThread(module->nm.name, moduleId, entryAddr, priority, stacksize, attr, 0);
+		sceKernelStartThread(threadID, argsize, argAddr);
+		// TODO: This will probably return the wrong value?
+		sceKernelWaitThreadEnd(threadID, 0);
 	}
 
-	//SceUID threadId;
-	//__KernelCreateThread(threadId, moduleId, module->nm.name, module->nm.entry_addr, priority, stacksize, attr);
-
-	// Apparently, we need to call the entry point directly and insert the return value afterwards. This calls
-	// for a MipsCall and an Action. TODO
-	RETURN(moduleId); // TODO: Delete
+	// TODO: Is this the correct return value?
+	RETURN(moduleId);
 }
 
 void sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 returnValueAddr, u32 optionAddr)
