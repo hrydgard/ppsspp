@@ -192,13 +192,12 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 			Memory::Write_U32(numSamples, numSamplesAddr);
 			atrac->decodePos += ATRAC_MAX_SAMPLES;
 
-			if (numSamples == 0) {
+			if (numSamples < ATRAC_MAX_SAMPLES) {
 				Memory::Write_U32(1, finishFlagAddr);
-				Memory::Write_U32(-1, remainAddr);
 			} else {
 				Memory::Write_U32(0, finishFlagAddr);
-				Memory::Write_U32(-1, remainAddr);
 			}
+			Memory::Write_U32(-1, remainAddr);
 		}
 	// TODO: Can probably remove this after we validate no wrong ids?
 	} else {
