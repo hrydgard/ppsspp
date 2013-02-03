@@ -507,7 +507,7 @@ void sceKernelPrintf()
 
 void sceKernelSetCompiledSdkVersion(int sdkVersion)
 {
-	int sdkMainVersion = sdkVersion & 0xFFFF0000;
+/*	int sdkMainVersion = sdkVersion & 0xFFFF0000;
 	bool valiSDK = false;
 	switch(sdkMainVersion)
 	{
@@ -532,15 +532,15 @@ void sceKernelSetCompiledSdkVersion(int sdkVersion)
 	}
 
 	if(valiSDK)
-	{
+	{*/
 		sdkVersion_ = sdkVersion;
 		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
-	}
+/*	}
 	else
 	{
 		ERROR_LOG(HLE,"sceKernelSetCompiledSdkVersion unknown SDK : %x\n",sdkVersion);
 	}
-	return;
+	return;*/
 }
 
 void sceKernelSetCompiledSdkVersion370(int sdkVersion)
