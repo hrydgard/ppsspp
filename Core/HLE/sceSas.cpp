@@ -439,6 +439,23 @@ u32 sceSasSetSteepWave(u32 sasCore, int voice, int unknown)
 	return 0;
 }
 
+u32 __sceSasSetVoiceATRAC3(u32 core, int voice, int atrac3Context)
+{
+	ERROR_LOG(HLE,"UNIMPL __sceSasSetVoiceATRAC3(%08x, %i, %i)", core, voice, atrac3Context);
+	return 0;
+}
+
+u32 __sceSasConcatenateATRAC3(u32 core, int voice, u32 atrac3DataAddr, int atrac3DataLength)
+{
+	ERROR_LOG(HLE,"UNIMPL __sceSasConcatenateATRAC3(%08x, %i, %i)", core, voice, atrac3DataAddr, atrac3DataLength);
+	return 0;
+}
+
+u32 __sceSasUnsetATRAC3(u32 core, int voice)
+{
+	ERROR_LOG(HLE,"UNIMPL __sceSasUnsetATRAC3(%08x, %i, %i)", core, voice);
+	return 0;
+}
 const HLEFunction sceSasCore[] =
 {
 	{0x42778a9f, WrapU_UUUUU<sceSasInit>, "__sceSasInit"}, 
@@ -470,6 +487,9 @@ const HLEFunction sceSasCore[] =
 	{0xe855bf76, WrapU_UU<sceSasSetOutputMode>, "__sceSasSetOutputmode"},
 	{0x07f58c24, WrapU_UU<sceSasGetAllEnvelopeHeights>, "__sceSasGetAllEnvelopeHeights"},
 	{0xE1CD9561, WrapU_UIUII<sceSasSetVoicePCM>, "__sceSasSetVoicePCM"},
+	{0x4AA9EAD6, WrapU_UII<__sceSasSetVoiceATRAC3>,"__sceSasSetVoiceATRAC3"},
+	{0x7497EA85, WrapU_UIUI<__sceSasConcatenateATRAC3>,"__sceSasConcatenateATRAC3"},
+	{0xF6107F00, WrapU_UI<__sceSasUnsetATRAC3>,"__sceSasUnsetATRAC3"},
 };
 
 void Register_sceSasCore()

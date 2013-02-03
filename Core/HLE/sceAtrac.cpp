@@ -520,6 +520,16 @@ int sceAtracSetAA3DataAndGetID(u32 buffer, int bufferSize, int fileSize, u32 met
 	return createAtrac(atrac);
 }
 
+int _sceAtracGetContextAddress(int atracID)
+{
+	ERROR_LOG_LIMITED(HLE, "UNIMPL _sceAtracGetContextAddress(%i)", atracID);
+	Atrac *atrac = getAtrac(atracID);
+	if (!atrac) {
+		//return -1;
+	}
+	return 0;
+}
+
 const HLEFunction sceAtrac3plus[] =
 {
 	{0x7db31251,WrapU_IU<sceAtracAddStreamData>,"sceAtracAddStreamData"},
@@ -557,7 +567,7 @@ const HLEFunction sceAtrac3plus[] =
 	{0x9CD7DE03,0,"sceAtracSetMOutHalfwayBufferAndGetID"},
 	{0x5622B7C1,WrapI_UIIU<sceAtracSetAA3DataAndGetID>,"sceAtracSetAA3DataAndGetID"},
 	{0x5DD66588,0,"sceAtracSetAA3HalfwayBufferAndGetID"},
-	{0x231FC6B7,0,"_sceAtracGetContextAddress"},
+	{0x231FC6B7,WrapI_I<_sceAtracGetContextAddress>,"_sceAtracGetContextAddress"},
 };
 
 
