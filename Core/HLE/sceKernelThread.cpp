@@ -2308,10 +2308,16 @@ void __KernelSwitchContext(Thread *target, const char *reason)
 		__KernelChangeReadyState(target, currentThread, true);
 
 	__KernelLoadContext(&target->context);
-	DEBUG_LOG(HLE,"Context switched: %s -> %s (%s) (%i - pc: %08x -> %i - pc: %08x)",
-		oldName, target->GetName(),
-		reason,
-		oldUID, oldPC, target->GetUID(), currentMIPS->pc);
+
+	bool fromIdle = oldUID == threadIdleID[0] || oldUID == threadIdleID[1];
+	bool toIdle = currentThread == threadIdleID[0] || currentThread == threadIdleID[1];
+	if (!(fromIdle && toIdle))
+	{
+		DEBUG_LOG(HLE,"Context switched: %s -> %s (%s) (%i - pc: %08x -> %i - pc: %08x)",
+			oldName, target->GetName(),
+			reason,
+			oldUID, oldPC, currentThread, currentMIPS->pc);
+	}
 
 	// No longer waiting.
 	target->nt.waitType = WAITTYPE_NONE;
