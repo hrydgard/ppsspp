@@ -534,6 +534,18 @@ int _sceAtracGetContextAddress(int atracID)
 	return 0;
 }
 
+int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr)
+{
+	ERROR_LOG_LIMITED(HLE, "UNIMPL sceAtracLowLevelInitDecoder(%i, %08x)", atracID, paramsAddr);
+	return 0;
+}
+
+int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedAddr, u32 samplesAddr, u32 sampleBytesAddr)
+{
+	ERROR_LOG_LIMITED(HLE, "UNIMPL sceAtracLowLevelDecode(%i, %i, %08x, %08x, %08x, %08x)", atracID, sourceAddr, sourceBytesConsumedAddr, samplesAddr, sampleBytesAddr);
+	return 0;
+}
+
 const HLEFunction sceAtrac3plus[] =
 {
 	{0x7db31251,WrapU_IU<sceAtracAddStreamData>,"sceAtracAddStreamData"},
@@ -572,6 +584,8 @@ const HLEFunction sceAtrac3plus[] =
 	{0x5622B7C1,WrapI_UIIU<sceAtracSetAA3DataAndGetID>,"sceAtracSetAA3DataAndGetID"},
 	{0x5DD66588,0,"sceAtracSetAA3HalfwayBufferAndGetID"},
 	{0x231FC6B7,WrapI_I<_sceAtracGetContextAddress>,"_sceAtracGetContextAddress"},
+	{0x1575D64B,WrapI_IU<sceAtracLowLevelInitDecoder>,"sceAtracLowLevelInitDecoder"},
+	{0x0C116E1B,WrapI_IUUUU<sceAtracLowLevelDecode>,"sceAtracLowLevelDecode"},
 };
 
 

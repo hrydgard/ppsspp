@@ -2074,6 +2074,12 @@ void sceKernelGetCallbackCount()
 	}
 }
 
+u32 sceKernelExtendThreadStack(u32 cpu, u32 size, u32 entryAddr, u32 entryParameter)
+{
+	ERROR_LOG(HLE,"UNIMPL sceKernelExtendThreadStack(%08x, %08x, %08x, %08x)", cpu, size, entryAddr, entryParameter);
+	return 0;
+}
+
 void sceKernelReferCallbackStatus()
 {
 	SceUID cbId = PARAM(0);
