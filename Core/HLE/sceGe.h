@@ -44,5 +44,9 @@ void __GeShutdown();
 // Export functions for use by Util/PPGe
 u32 sceGeRestoreContext(u32 ctxAddr);
 u32 sceGeSaveContext(u32 ctxAddr);
+int sceGeBreak(u32 mode);
+int sceGeContinue();
+int sceGeListSync(u32 displayListID, u32 mode);
 
 u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, int callbackId, u32 optParamAddr);
+u32 sceGeListEnQueueHead(u32 listAddress, u32 stallAddress, int callbackId, u32 optParamAddr);
