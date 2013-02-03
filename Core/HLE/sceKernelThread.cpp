@@ -231,12 +231,17 @@ private:
 
 class ActionAfterMipsCall : public Action
 {
+	ActionAfterMipsCall()
+	{
+		chainedAction = NULL;
+	}
+
 public:
 	virtual void run(MipsCall &call);
 
 	static Action *Create()
 	{
-		return new ActionAfterMipsCall;
+		return new ActionAfterMipsCall();
 	}
 
 	virtual void DoState(PointerWrap &p)
@@ -512,7 +517,6 @@ void MipsCall::DoState(PointerWrap &p)
 	p.Do(savedPc);
 	p.Do(savedV0);
 	p.Do(savedV1);
-	p.Do(returnVoid);
 	p.Do(tag);
 	p.Do(savedId);
 	p.Do(reschedAfter);
@@ -686,6 +690,10 @@ bool __KernelSwitchOffThread(const char *reason)
 
 	if (threadID != threadIdleID[0] && threadID != threadIdleID[1])
 	{
+		Thread *current = __GetCurrentThread();
+		if (current && current->isRunning())
+			current->nt.status = (current->nt.status | THREADSTATUS_READY) & ~THREADSTATUS_RUNNING;
+
 		u32 error;
 		// Idle 0 chosen entirely arbitrarily.
 		Thread *t = kernelObjects.Get<Thread>(threadIdleID[0], error);
@@ -714,7 +722,10 @@ void __KernelIdle()
 		u32 error;
 		Thread *t = kernelObjects.Get<Thread>(currentCallbackThreadID, error);
 		if (t)
+		{
+			t->nt.status = (t->nt.status | THREADSTATUS_RUNNING) & ~THREADSTATUS_READY;
 			__KernelSwitchContext(t, "idle");
+		}
 		else
 		{
 			WARN_LOG(HLE, "UNTESTED - Callback thread deleted during interrupt?");
@@ -2222,7 +2233,13 @@ void __KernelSwitchContext(Thread *target, const char *reason)
 		// Profile on Windows shows this takes time, skip it.
 		if (DEBUG_LEVEL <= MAX_LOGLEVEL)
 			oldName = cur->GetName();
+
+		if (cur->isRunning())
+			cur->nt.status = (cur->nt.status | THREADSTATUS_READY) & ~THREADSTATUS_RUNNING;
 	}
+	if (target && target->isRunning())
+		cur->nt.status = (cur->nt.status | THREADSTATUS_RUNNING) & ~THREADSTATUS_READY;
+
 	currentThread = target->GetUID();
 	__KernelLoadContext(&target->context);
 	DEBUG_LOG(HLE,"Context switched: %s -> %s (%s) (%i - pc: %08x -> %i - pc: %08x)",
@@ -2265,8 +2282,10 @@ bool __CanExecuteCallbackNow(Thread *thread) {
 	return g_inCbCount == 0;
 }
 
-void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, bool returnVoid, std::vector<int> args, bool reschedAfter)
+void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, const u32 args[], int numargs, bool reschedAfter, SceUID cbId)
 {
+	_dbg_assert_msg_(HLE, numargs <= 6, "MipsCalls can only take 6 args.");
+
 	if (thread) {
 		ActionAfterMipsCall *after = (ActionAfterMipsCall *) __KernelCreateAction(actionAfterMipsCall);
 		after->chainedAction = afterAction;
@@ -2287,12 +2306,13 @@ void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, bo
 
 	MipsCall *call = new MipsCall();
 	call->entryPoint = entryPoint;
-	for (size_t i = 0; i < args.size(); i++) {
+	for (int i = 0; i < numargs; i++) {
 		call->args[i] = args[i];
 	}
-	call->numArgs = (int) args.size();
+	call->numArgs = (int) numargs;
 	call->doAfter = afterAction;
 	call->tag = "callAddress";
+	call->cbId = cbId;
 
 	int callId = mipsCalls.add(call);
 
@@ -2316,14 +2336,9 @@ void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, bo
 	}
 }
 
-void __KernelDirectMipsCall(u32 entryPoint, Action *afterAction, bool returnVoid, u32 args[], int numargs, bool reschedAfter)
+void __KernelDirectMipsCall(u32 entryPoint, Action *afterAction, u32 args[], int numargs, bool reschedAfter)
 {
-	// TODO: get rid of the vector
-	std::vector<int> argsv;
-	for (int i = 0; i < numargs; i++)
-		argsv.push_back(args[i]);
-
-	__KernelCallAddress(__GetCurrentThread(), entryPoint, afterAction, returnVoid, argsv, reschedAfter);
+	__KernelCallAddress(__GetCurrentThread(), entryPoint, afterAction, args, numargs, reschedAfter, 0);
 }
 
 void __KernelExecuteMipsCallOnCurrentThread(int callId, bool reschedAfter)
@@ -2348,7 +2363,6 @@ void __KernelExecuteMipsCallOnCurrentThread(int callId, bool reschedAfter)
 	call->savedV1 = currentMIPS->r[MIPS_REG_V1];
 	call->savedIdRegister = currentMIPS->r[MIPS_REG_CALL_ID];
 	call->savedId = cur->currentCallbackId;
-	call->returnVoid = false;
 	call->reschedAfter = reschedAfter;
 
 	// Set up the new state
@@ -2362,7 +2376,8 @@ void __KernelExecuteMipsCallOnCurrentThread(int callId, bool reschedAfter)
 		currentMIPS->r[MIPS_REG_A0 + i] = call->args[i];
 	}
 
-	g_inCbCount++;
+	if (call->cbId != 0)
+		g_inCbCount++;
 	currentCallbackThreadID = currentThread;
 }
 
@@ -2399,7 +2414,8 @@ void __KernelReturnFromMipsCall()
 	currentMIPS->r[MIPS_REG_CALL_ID] = call->savedIdRegister;
 	cur->currentCallbackId = call->savedId;
 
-	g_inCbCount--;
+	if (call->cbId != 0)
+		g_inCbCount--;
 	currentCallbackThreadID = 0;
 
 	// yeah! back in the real world, let's keep going. Should we process more callbacks?
@@ -2449,10 +2465,7 @@ void __KernelRunCallbackOnThread(SceUID cbId, Thread *thread, bool reschedAfter)
 	// Alright, we're on the right thread
 	// Should save/restore wait state?
 
-	std::vector<int> args;
-	args.push_back(cb->nc.notifyCount);
-	args.push_back(cb->nc.notifyArg);
-	args.push_back(cb->nc.commonArgument);
+	const u32 args[] = {(u32) cb->nc.notifyCount, (u32) cb->nc.notifyArg, cb->nc.commonArgument};
 
 	// Clear the notify count / arg
 	cb->nc.notifyCount = 0;
@@ -2464,7 +2477,7 @@ void __KernelRunCallbackOnThread(SceUID cbId, Thread *thread, bool reschedAfter)
 	else
 		ERROR_LOG(HLE, "Something went wrong creating a restore action for a callback.");
 
-	__KernelCallAddress(thread, cb->nc.entrypoint, action, false, args, reschedAfter);
+	__KernelCallAddress(thread, cb->nc.entrypoint, action, args, 3, reschedAfter, cbId);
 }
 
 void ActionAfterCallback::run(MipsCall &call) {

@@ -183,7 +183,7 @@ void sceKernelReferCallbackStatus();
 class Action;
 
 // Not an official Callback object, just calls a mips function on the current thread.
-void __KernelDirectMipsCall(u32 entryPoint, Action *afterAction, bool returnVoid, u32 args[], int numargs, bool reschedAfter);
+void __KernelDirectMipsCall(u32 entryPoint, Action *afterAction, u32 args[], int numargs, bool reschedAfter);
 
 void __KernelReturnFromMipsCall();  // Called as HLE function
 bool __KernelInCallback();
@@ -208,6 +208,11 @@ int __KernelRegisterActionType(ActionCreator creator);
 void __KernelRestoreActionType(int actionType, ActionCreator creator);
 
 struct MipsCall {
+	MipsCall()
+	{
+		doAfter = NULL;
+	}
+
 	u32 entryPoint;
 	u32 cbId;
 	u32 args[6];
@@ -218,7 +223,6 @@ struct MipsCall {
 	u32 savedPc;
 	u32 savedV0;
 	u32 savedV1;
-	bool returnVoid;
 	std::string tag;
 	u32 savedId;
 	bool reschedAfter;
