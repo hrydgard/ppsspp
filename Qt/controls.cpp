@@ -26,6 +26,14 @@ Controls::Controls(QWidget *parent) :
 	ui(new Ui::Controls)
 {
 	ui->setupUi(this);
+
+	for(int i = 0; i < controllistCount; i++)
+	{
+		if(g_Config.iMappingMap.find(i) != g_Config.iMappingMap.end())
+		{
+			controllist[i].key = (Qt::Key)g_Config.iMappingMap[i];
+		}
+	}
 }
 
 Controls::~Controls()
