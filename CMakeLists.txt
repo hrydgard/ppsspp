@@ -122,6 +122,10 @@ if(NOT MSVC)
 		add_definitions(-D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64)
 	endif()
 
+	if(APPLE)
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
+	endif()
+
 	if(BLACKBERRY)
 		add_definitions(-D_QNX_SOURCE=1 -D_C99=1)
 	endif()

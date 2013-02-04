@@ -112,6 +112,25 @@ void VagDecoder::GetSamples(s16 *outSamples, int numSamples) {
 	}
 }
 
+void VagDecoder::DoState(PointerWrap &p)
+{
+	p.DoArray(samples, ARRAY_SIZE(samples));
+	p.Do(curSample);
+
+	p.Do(data_);
+	p.Do(read_);
+	p.Do(curBlock_);
+	p.Do(loopStartBlock_);
+	p.Do(numBlocks_);
+
+	p.Do(s_1);
+	p.Do(s_2);
+
+	p.Do(loopEnabled_);
+	p.Do(loopAtNextBlock_);
+	p.Do(end_);
+}
+
 // http://code.google.com/p/jpcsp/source/browse/trunk/src/jpcsp/HLE/modules150/sceSasCore.java
 
 int simpleRate(int n) {
@@ -418,6 +437,40 @@ void SasVoice::ChangedParams(bool changedVag) {
 	// TODO: restart VAG somehow
 }
 
+void SasVoice::DoState(PointerWrap &p)
+{
+	p.Do(playing);
+	p.Do(paused);
+	p.Do(on);
+
+	p.Do(type);
+
+	p.Do(vagAddr);
+	p.Do(vagSize);
+	p.Do(pcmAddr);
+	p.Do(pcmSize);
+	p.Do(sampleRate);
+
+	p.Do(sampleFrac);
+	p.Do(pitch);
+	p.Do(loop);
+
+	p.Do(noiseFreq);
+
+	p.Do(volumeLeft);
+	p.Do(volumeRight);
+	p.Do(volumeLeftSend);
+	p.Do(volumeRightSend);
+	p.Do(effectLeft);
+	p.Do(effectRight);
+	p.DoArray(resampleHist, ARRAY_SIZE(resampleHist));
+
+	p.DoMarker("SasVoice");
+
+	envelope.DoState(p);
+	vag.DoState(p);
+}
+
 // This is horribly stolen from JPCSP.
 // Need to find a real solution.
 static const short expCurve[] = {
@@ -582,4 +635,20 @@ void ADSREnvelope::KeyOn() {
 void ADSREnvelope::KeyOff() {
 	SetState(STATE_RELEASE);
 	height_ = sustainLevel;
+}
+
+void ADSREnvelope::DoState(PointerWrap &p) {
+	p.Do(attackRate);
+	p.Do(decayRate);
+	p.Do(sustainRate);
+	p.Do(releaseRate);
+	p.Do(attackType);
+	p.Do(decayType);
+	p.Do(sustainType);
+	p.Do(sustainLevel);
+	p.Do(releaseType);
+	p.Do(state_);
+	p.Do(steps_);
+	p.Do(height_);
+	p.DoMarker("ADSREnvelope");
 }

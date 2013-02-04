@@ -18,6 +18,7 @@
 #include "HLE.h"
 #include "FunctionWrappers.h"
 #include "../MIPS/MIPS.h"
+#include "ChunkFile.h"
 
 
 const int PSP_LANGUAGE_JAPANESE = 0;

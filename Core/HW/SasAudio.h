@@ -23,7 +23,7 @@
 #pragma once
 
 #include "../Globals.h"
-#include "../../Common/ChunkFile.h"
+#include "ChunkFile.h"
 
 enum {
 	PSP_SAS_VOICES_MAX = 32,
@@ -83,6 +83,8 @@ public:
 	void DecodeBlock(u8 *&readp);
 	bool End() const { return end_; }
 
+	void DoState(PointerWrap &p);
+
 private:
 	int samples[28];
 	int curSample;
@@ -132,6 +134,8 @@ public:
 	int sustainLevel;
 	int releaseType;
 
+	void DoState(PointerWrap &p);
+
 private:
 	enum ADSRState {
 		STATE_ATTACK,
@@ -174,6 +178,8 @@ struct SasVoice
 	void KeyOn();
 	void KeyOff();
 	void ChangedParams(bool changedVag);
+
+	void DoState(PointerWrap &p);
 
 	bool playing;
 	bool paused;  // a voice can be playing AND paused. In that case, it won't play.

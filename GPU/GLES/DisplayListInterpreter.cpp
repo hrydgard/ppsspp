@@ -33,6 +33,7 @@
 
 #include "../../Core/HLE/sceKernelThread.h"
 #include "../../Core/HLE/sceKernelInterrupt.h"
+#include "../../Core/HLE/sceGe.h"
 
 extern u32 curTextureWidth;
 extern u32 curTextureHeight;
@@ -442,13 +443,15 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_SIGNAL:
 		{
 			// Processed in GE_END. Has data.
+			currentList->subIntrToken = data & 0xFFFF;
 		}
 		break;
 
 	case GE_CMD_FINISH:
+		currentList->subIntrToken = data & 0xFFFF;
 		// TODO: Should this run while interrupts are suspended?
 		if (interruptsEnabled_)
-			__TriggerInterruptWithArg(PSP_INTR_HLE, PSP_GE_INTR, currentList->subIntrBase | PSP_GE_SUBINTR_FINISH, 0);
+			__GeTriggerInterrupt(currentList->id, currentList->pc);
 		break;
 
 	case GE_CMD_END:
@@ -486,7 +489,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 				}
 				// TODO: Should this run while interrupts are suspended?
 				if (interruptsEnabled_)
-					__TriggerInterruptWithArg(PSP_INTR_HLE, PSP_GE_INTR, currentList->subIntrBase | PSP_GE_SUBINTR_SIGNAL, signal);
+					__GeTriggerInterrupt(currentList->id, currentList->pc);
 			}
 			break;
 		case GE_CMD_FINISH:
@@ -959,7 +962,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		{
 			int num = gstate.texmtxnum & 0xF;
 			float newVal = getFloat24(data);
-			if (newVal != gstate.tgenMatrix[num] && num < 12) {
+			if (num < 12 && newVal != gstate.tgenMatrix[num]) {
 				Flush();
 				gstate.tgenMatrix[num] = newVal;
 				shaderManager_->DirtyUniform(DIRTY_TEXMATRIX);
@@ -977,7 +980,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		{
 			int num = gstate.boneMatrixNumber & 0x7F;
 			float newVal = getFloat24(data);
-			if (newVal != gstate.boneMatrix[num] && num < 96) {
+			if (num < 96 && newVal != gstate.boneMatrix[num]) {
 				Flush();
 				gstate.boneMatrix[num] = newVal;
 				shaderManager_->DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));

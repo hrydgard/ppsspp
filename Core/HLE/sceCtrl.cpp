@@ -18,6 +18,7 @@
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
 #include "../CoreTiming.h"
+#include "ChunkFile.h"
 #include "StdMutex.h"
 #include "sceCtrl.h"
 #include "sceDisplay.h"

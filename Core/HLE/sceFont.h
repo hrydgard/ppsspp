@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../Common/ChunkFile.h"
+class PointerWrap;
 
 void Register_sceFont();
 

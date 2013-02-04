@@ -1,5 +1,6 @@
 #include "../../Globals.h"
-#include "../../Common/ChunkFile.h"
+
+class PointerWrap;
 
 // mscmhc0 states
 enum MemStickState {

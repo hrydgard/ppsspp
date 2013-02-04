@@ -18,8 +18,9 @@
 #pragma once
 
 #include "../Globals.h"
-#include "../Common/ChunkFile.h"
 #include <deque>
+
+class PointerWrap;
 
 enum DisplayListStatus
 {
@@ -38,6 +39,7 @@ struct DisplayList
 	u32 stall;
 	DisplayListStatus status;
 	int subIntrBase;
+	u16 subIntrToken;
 };
 
 class GPUInterface
@@ -49,11 +51,15 @@ public:
 	virtual void InitClear() = 0;
 
 	// Draw queue management
+	virtual DisplayList* getList(int listid) = 0;
 	// TODO: Much of this should probably be shared between the different GPU implementations.
 	virtual u32 EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head) = 0;
 	virtual void UpdateStall(int listid, u32 newstall) = 0;
 	virtual void DrawSync(int mode) = 0;
 	virtual void Continue() = 0;
+
+	virtual void InterruptStart() = 0;
+	virtual void InterruptEnd() = 0;
 
 	virtual void PreExecuteOp(u32 op, u32 diff) = 0;
 	virtual void ExecuteOp(u32 op, u32 diff) = 0;

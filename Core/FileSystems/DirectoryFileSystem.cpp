@@ -15,6 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ChunkFile.h"
+#include "FileUtil.h"
+#include "DirectoryFileSystem.h"
+
+
 #ifdef _WIN32
 #include <windows.h>
 #include <sys/stat.h>
@@ -25,8 +30,8 @@
 #include <ctype.h>
 #endif
 
-#include "FileUtil.h"
-#include "DirectoryFileSystem.h"
+
+#undef DeleteFile
 
 
 #if HOST_IS_CASE_SENSITIVE
@@ -246,7 +251,7 @@ bool DirectoryFileSystem::RenameFile(const std::string &from, const std::string 
 bool DirectoryFileSystem::DeleteFile(const std::string &filename) {
 	std::string fullName = GetLocalPath(filename);
 #ifdef _WIN32
-	bool retValue = (::DeleteFile(fullName.c_str()) == TRUE);
+	bool retValue = (::DeleteFileA(fullName.c_str()) == TRUE);
 #else
 	bool retValue = (0 == unlink(fullName.c_str()));
 #endif

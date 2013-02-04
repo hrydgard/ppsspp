@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "../../Common/ChunkFile.h"
+class PointerWrap;
 
 /**
 * Valid values for PSP_SYSTEMPARAM_ID_INT_LANGUAGE

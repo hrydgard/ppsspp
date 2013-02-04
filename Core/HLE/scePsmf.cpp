@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "HLE.h"
+#include "ChunkFile.h"
 
 #include "scePsmf.h"
 #include "sceMpeg.h"
@@ -102,6 +103,8 @@ typedef std::map<int, PsmfStream *> PsmfStreamMap;
 
 class Psmf {
 public:
+	// For savestates only.
+	Psmf() {}
 	Psmf(u32 data);
 	~Psmf();
 	void DoState(PointerWrap &p);
@@ -141,6 +144,8 @@ public:
 
 class PsmfPlayer {
 public:
+	// For savestates only.
+	PsmfPlayer() {}
 	PsmfPlayer(u32 data);
 	void DoState(PointerWrap &p);
 
@@ -163,6 +168,10 @@ public:
 
 class PsmfStream {
 public:
+	// Used for save states.
+	PsmfStream() {
+	}
+
 	PsmfStream(int type, int channel) {
 		this->type = type;
 		this->channel = channel;
@@ -277,23 +286,7 @@ void Psmf::DoState(PointerWrap &p) {
 	p.Do(audioChannels);
 	p.Do(audioFrequency);
 
-	int n = (int) streamMap.size();
-	p.Do(n);
-	if (p.mode == p.MODE_READ) {
-		// Already empty, if we're reading this is brand new.
-		for (int i = 0; i < n; ++i) {
-			int key;
-			p.Do(key);
-			PsmfStream *stream = new PsmfStream(0, 0);
-			stream->DoState(p);
-			streamMap[key] = stream;
-		}
-	} else {
-		for (auto it = streamMap.begin(), end = streamMap.end(); it != end; ++it) {
-			p.Do(it->first);
-			it->second->DoState(p);
-		}
-	}
+	p.Do(streamMap);
 
 	p.DoMarker("Psmf");
 }
@@ -345,58 +338,14 @@ void __PsmfInit()
 
 void __PsmfDoState(PointerWrap &p)
 {
-	int n = (int) psmfMap.size();
-	p.Do(n);
-	if (p.mode == p.MODE_READ) {
-		std::map<u32, Psmf *>::iterator it, end;
-		for (it = psmfMap.begin(), end = psmfMap.end(); it != end; ++it) {
-			delete it->second;
-		}
-		psmfMap.clear();
-
-		for (int i = 0; i < n; ++i) {
-			u32 key;
-			p.Do(key);
-			Psmf *psmf = new Psmf(0);
-			psmf->DoState(p);
-			psmfMap[key] = psmf;
-		}
-	} else {
-		std::map<u32, Psmf *>::iterator it, end;
-		for (it = psmfMap.begin(), end = psmfMap.end(); it != end; ++it) {
-			p.Do(it->first);
-			it->second->DoState(p);
-		}
-	}
+	p.Do(psmfMap);
 
 	p.DoMarker("scePsmf");
 }
 
 void __PsmfPlayerDoState(PointerWrap &p)
 {
-	int n = (int) psmfPlayerMap.size();
-	p.Do(n);
-	if (p.mode == p.MODE_READ) {
-		std::map<u32, PsmfPlayer *>::iterator it, end;
-		for (it = psmfPlayerMap.begin(), end = psmfPlayerMap.end(); it != end; ++it) {
-			delete it->second;
-		}
-		psmfMap.clear();
-
-		for (int i = 0; i < n; ++i) {
-			u32 key;
-			p.Do(key);
-			PsmfPlayer *psmfplayer = new PsmfPlayer(0);
-			psmfplayer->DoState(p);
-			psmfPlayerMap[key] = psmfplayer;
-		}
-	} else {
-		std::map<u32, PsmfPlayer *>::iterator it, end;
-		for (it = psmfPlayerMap.begin(), end = psmfPlayerMap.end(); it != end; ++it) {
-			p.Do(it->first);
-			it->second->DoState(p);
-		}
-	}
+	p.Do(psmfPlayerMap);
 
 	// TODO: Actually load this from a map.
 	psmfPlayerStatus = PSMF_PLAYER_STATUS_NONE;

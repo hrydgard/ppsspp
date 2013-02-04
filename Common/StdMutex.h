@@ -5,7 +5,7 @@
 #define GCC_VER(x,y,z)	((x) * 10000 + (y) * 100 + (z))
 #define GCC_VERSION GCC_VER(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)
 
-#if GCC_VERSION >= GCC_VER(4,4,0) && __GXX_EXPERIMENTAL_CXX0X__ && !defined(ANDROID) && !defined(__SYMBIAN32__)
+#if GCC_VERSION >= GCC_VER(4,4,0) && __GXX_EXPERIMENTAL_CXX0X__ && !defined(ANDROID) && !defined(__SYMBIAN32__) || defined(__APPLE__)
 // GCC 4.4 provides <mutex>
 #include <mutex>
 #else

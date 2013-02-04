@@ -3,7 +3,7 @@
 #include "GeDisasm.h"
 #include "GPUCommon.h"
 #include "GPUState.h"
-
+#include "ChunkFile.h"
 
 
 static int dlIdGenerator = 1;
@@ -134,4 +134,14 @@ void GPUCommon::DoState(PointerWrap &p) {
 	p.Do(dlIdGenerator);
 	p.Do<DisplayList>(dlQueue);
 	p.DoMarker("GPUCommon");
+}
+
+void GPUCommon::InterruptStart()
+{
+	interruptRunning = true;
+}
+void GPUCommon::InterruptEnd()
+{
+	interruptRunning = false;
+	ProcessDLQueue();
 }

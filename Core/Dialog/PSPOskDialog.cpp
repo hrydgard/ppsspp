@@ -18,6 +18,7 @@
 #include "PSPOskDialog.h"
 #include "../Util/PPGeDraw.h"
 #include "../HLE/sceCtrl.h"
+#include "ChunkFile.h"
 
 #define NUMKEYROWS 4
 #define KEYSPERROW 12

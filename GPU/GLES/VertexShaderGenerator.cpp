@@ -275,7 +275,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 					WRITE(p, "  worldnormal += %s * (u_bone%i * vec4(a_normal, 0.0)).xyz;\n", weightAttr, i);
 			}
 			// Finally, multiply by world matrix (yes, we have to).
-			WRITE(p, "  worldpos = (u_world * vec4(worldpos, 1.0)).xyz;\n");
+			WRITE(p, "  worldpos = (u_world * vec4(worldpos * 2.0, 1.0)).xyz;\n");
 			if (hasNormal)
 				WRITE(p, "  worldnormal = (u_world * vec4(worldnormal, 0.0)).xyz;\n");
 		}
@@ -292,7 +292,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 		}
 		// TODO: Declare variables for dots for shade mapping if needed.
 
-		const char *ambient = (gstate.materialupdate & 1) ? "unlitColor" : "u_matambientalpha.rgb";
+		const char *ambient = (gstate.materialupdate & 1) ? (hasColor ? "a_color0" : "u_matambientalpha") : "u_matambientalpha";
 		const char *diffuse = (gstate.materialupdate & 2) ? "unlitColor" : "u_matdiffuse";
 		const char *specular = (gstate.materialupdate & 4) ? "unlitColor" : "u_matspecular.rgb";
 
@@ -345,11 +345,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 
 		if (gstate.lightingEnable & 1) {
 			// Sum up ambient, emissive here.
-			if (hasColor) {
-				WRITE(p, "  v_color0 = clamp(lightSum0 + u_ambient * vec4(%s, a_color0.a) + vec4(u_matemissive, 0.0), 0.0, 1.0);\n", ambient);
-			} else {
-				WRITE(p, "  v_color0 = clamp(lightSum0 + u_ambient * vec4(%s, u_matambientalpha.a) + vec4(u_matemissive, 0.0), 0.0, 1.0);\n", ambient);
-			}
+			WRITE(p, "  v_color0 = clamp(lightSum0 + u_ambient * %s + vec4(u_matemissive, 0.0), 0.0, 1.0);\n", ambient);
 			if (lmode) {
 				WRITE(p, "  v_color1 = clamp(lightSum1, 0.0, 1.0);\n");
 			} else {

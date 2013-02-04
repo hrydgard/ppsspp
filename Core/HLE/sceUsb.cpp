@@ -17,7 +17,8 @@
 
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
-#include "../../Core/CoreTiming.h"
+#include "Core/CoreTiming.h"
+#include "ChunkFile.h"
 #include "sceUsb.h"
 
 bool usbActivated = false;

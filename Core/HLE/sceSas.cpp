@@ -44,16 +44,14 @@ enum {
 
 // TODO - allow more than one, associating each with one Core pointer (passed in to all the functions)
 // No known games use more than one instance of Sas though.
-SasInstance *sas;
+static SasInstance *sas = NULL;
 
 void __SasInit() {
 	sas = new SasInstance();
 }
 
 void __SasDoState(PointerWrap &p) {
-	if (sas != NULL) {
-		sas->DoState(p);
-	}
+	p.DoClass(sas);
 	p.DoMarker("sceSas");
 }
 

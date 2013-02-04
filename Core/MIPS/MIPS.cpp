@@ -98,6 +98,13 @@ void MIPSState::Reset()
 	rng.Init(0x1337);
 }
 
+void GMRng::DoState(PointerWrap &p)
+{
+	p.Do(m_w);
+	p.Do(m_z);
+	p.DoMarker("GMRng");
+}
+
 void MIPSState::DoState(PointerWrap &p)
 {
 	// Reset the jit if we're loading.
