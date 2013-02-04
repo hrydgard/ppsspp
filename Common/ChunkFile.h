@@ -81,6 +81,12 @@ public:
 	template<class T>
 	void Do(std::map<unsigned int, T> &x)
 	{
+		Do<unsigned int, T>(x);
+	}
+
+	template<class K, class T>
+	void Do(std::map<K, T> &x)
+	{
 		unsigned int number = (unsigned int)x.size();
 		Do(number);
 		switch (mode) {
@@ -89,7 +95,7 @@ public:
 				x.clear();
 				while (number > 0)
 				{
-					unsigned int first = 0;
+					K first = 0;
 					Do(first);
 					T second;
 					Do(second);
@@ -102,7 +108,7 @@ public:
 		case MODE_MEASURE:
 		case MODE_VERIFY:
 			{
-				typename std::map<unsigned int, T>::iterator itr = x.begin();
+				typename std::map<K, T>::iterator itr = x.begin();
 				while (number > 0)
 				{
 					Do(itr->first);
