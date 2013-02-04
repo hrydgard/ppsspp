@@ -33,6 +33,7 @@
 #include <string>
 #include <list>
 #include <set>
+#include <type_traits>
 
 #include "Common.h"
 #include "FileUtil.h"
@@ -47,6 +48,24 @@ struct LinkedListItem : public T
 // Wrapper class
 class PointerWrap
 {
+	template <typename T, bool isPOD = std::is_pod<T>::value>
+	struct DoHelper;
+
+	// This exists so that there's a compile error when it's not POD.
+	template <typename T>
+	struct DoHelper<T, true>
+	{
+		static void DoArray(PointerWrap *p, T *x, int count)
+		{
+			p->DoVoid((void *)x, sizeof(T) * count);
+		}
+
+		static void Do(PointerWrap *p, T &x)
+		{
+			p->DoVoid((void *)&x, sizeof(x));
+		}
+	};
+
 public:
 	enum Mode {
 		MODE_READ = 1, // load
@@ -272,14 +291,16 @@ public:
 		(*ptr) += stringLen;
 	}
 
-    template<class T>
+	template<class T>
 	void DoArray(T *x, int count) {
-        DoVoid((void *)x, sizeof(T) * count);
-    }
+		// TODO: Enable this check.
+		//DoHelper<T>::DoArray(this, x, count);
+		DoVoid((void *)x, sizeof(T) * count);
+	}
 	
 	template<class T>
 	void Do(T &x) {
-		DoVoid((void *)&x, sizeof(x));
+		DoHelper<T>::Do(this, x);
 	}
 
 	template<class T>
