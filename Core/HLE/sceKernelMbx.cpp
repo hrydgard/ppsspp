@@ -19,7 +19,8 @@
 #include "sceKernelThread.h"
 #include "sceKernelMbx.h"
 #include "HLE.h"
-#include "../../Core/CoreTiming.h"
+#include "Core/CoreTiming.h"
+#include "ChunkFile.h"
 
 #define SCE_KERNEL_MBA_THPRI 0x100
 #define SCE_KERNEL_MBA_MSPRI 0x400
@@ -27,7 +28,11 @@
 
 const int PSP_MBX_ERROR_DUPLICATE_MSG = 0x800201C9;
 
-typedef std::pair<SceUID, u32> MbxWaitingThread;
+struct MbxWaitingThread
+{
+	SceUID first;
+	u32 second;
+};
 void __KernelMbxTimeout(u64 userdata, int cyclesLate);
 
 static int mbxWaitTimer = -1;
@@ -58,14 +63,18 @@ struct Mbx : public KernelObject
 			{
 				if (__KernelGetThreadPrio(id) < __KernelGetThreadPrio((*it).first))
 				{
-					waitingThreads.insert(it, std::make_pair(id, addr));
+					MbxWaitingThread waiting = {id, addr};
+					waitingThreads.insert(it, waiting);
 					inserted = true;
 					break;
 				}
 			}
 		}
 		if (!inserted)
-			waitingThreads.push_back(std::make_pair(id, addr));
+		{
+			MbxWaitingThread waiting = {id, addr};
+			waitingThreads.push_back(waiting);
+		}
 	}
 
 	inline void AddInitialMessage(u32 ptr)
@@ -156,7 +165,7 @@ struct Mbx : public KernelObject
 	virtual void DoState(PointerWrap &p)
 	{
 		p.Do(nmb);
-		MbxWaitingThread mwt(0,0);
+		MbxWaitingThread mwt = {0};
 		p.Do(waitingThreads, mwt);
 		p.DoMarker("Mbx");
 	}

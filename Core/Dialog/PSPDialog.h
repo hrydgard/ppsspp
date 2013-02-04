@@ -17,9 +17,10 @@
 
 #pragma once
 
-
+#include "../Globals.h"
 #include "../Config.h"
-#include "../../Common/ChunkFile.h"
+
+class PointerWrap;
 
 #define SCE_UTILITY_DIALOG_RESULT_SUCCESS				0
 #define SCE_UTILITY_DIALOG_RESULT_CANCEL				1

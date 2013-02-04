@@ -27,6 +27,7 @@
 #include "../MIPS/MIPS.h"
 #include "../../Core/CoreTiming.h"
 #include "../../Core/MemMap.h"
+#include "ChunkFile.h"
 
 #include "sceAudio.h"
 #include "sceKernel.h"
@@ -197,27 +198,7 @@ public:
 	}
 
 	void DoState(PointerWrap &p) {
-
-		int n = (int) calls_.size();
-		p.Do(n);
-
-		if (p.mode == p.MODE_READ) {
-			clear();
-			for (int i = 0; i < n; ++i) {
-				int k;
-				p.Do(k);
-				MipsCall *call = new MipsCall();
-				call->DoState(p);
-				calls_[k] = call;
-			}
-		} else {
-			std::map<int, MipsCall *>::iterator it, end;
-			for (it = calls_.begin(), end = calls_.end(); it != end; ++it) {
-				p.Do(it->first);
-				it->second->DoState(p);
-			}
-		}
-
+		p.Do(calls_);
 		p.Do(idGen_);
 		p.DoMarker("MipsCallManager");
 	}
@@ -630,28 +611,7 @@ void __KernelThreadingDoState(PointerWrap &p)
 	p.Do(dispatchEnabled);
 	p.Do(curModule);
 
-	int n = (int) threadReadyQueue.size();
-	p.Do(n);
-	if (p.mode == p.MODE_READ)
-	{
-		threadReadyQueue.clear();
-		for (int i = 0; i < n; ++i)
-		{
-			u32 prio;
-			p.Do(prio);
-			ThreadList threads;
-			p.Do(threads, dv);
-			threadReadyQueue[prio] = threads;
-		}
-	}
-	else
-	{
-		for (auto it = threadReadyQueue.begin(), end = threadReadyQueue.end(); it != end; ++it)
-		{
-			p.Do(it->first);
-			p.Do(it->second, dv);
-		}
-	}
+	p.Do(threadReadyQueue);
 
 	p.Do(eventScheduledWakeup);
 	CoreTiming::RestoreRegisterEvent(eventScheduledWakeup, "ScheduledWakeup", &hleScheduledWakeup);

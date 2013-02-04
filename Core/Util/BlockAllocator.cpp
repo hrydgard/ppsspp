@@ -1,5 +1,6 @@
 #include "Log.h"
 #include "BlockAllocator.h"
+#include "ChunkFile.h"
 
 // Slow freaking thing but works (eventually) :)
 
@@ -330,4 +331,13 @@ void BlockAllocator::DoState(PointerWrap &p)
 	p.Do(rangeSize_);
 	p.Do(grain_);
 	p.DoMarker("BlockAllocator");
+}
+
+void BlockAllocator::Block::DoState(PointerWrap &p)
+{
+	p.Do(start);
+	p.Do(size);
+	p.Do(taken);
+	p.DoArray(tag, sizeof(tag));
+	p.DoMarker("Block");
 }

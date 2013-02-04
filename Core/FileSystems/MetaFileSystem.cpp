@@ -416,34 +416,11 @@ void MetaFileSystem::DoState(PointerWrap &p)
 	p.Do(current);
 
 	// Save/load per-thread current directory map
-	u32 n = (u32) currentDir.size();
-	p.Do(n);
-	if (p.mode == p.MODE_READ)
-	{
-		std::string dir;
-		currentDir.clear();
-		for (u32 i = 0; i < n; ++i)
-		{
-			int threadID;
-			p.Do(threadID);
-			p.Do(dir);
+	p.Do(currentDir);
 
-			currentDir[threadID] = dir;
-		}
-	}
-	else
-	{
-		currentDir_t::iterator i = currentDir.begin(), end = currentDir.end();
-		for (; i != end; ++i)
-		{
-			p.Do(i->first);
-			p.Do(i->second);
-		}
-	}
-
-	n = (u32) fileSystems.size();
+	u32 n = (u32) fileSystems.size();
 	p.Do(n);
-	if (n != fileSystems.size())
+	if (n != (u32) fileSystems.size())
 	{
 		ERROR_LOG(FILESYS, "Savestate failure: number of filesystems doesn't match.");
 		return;

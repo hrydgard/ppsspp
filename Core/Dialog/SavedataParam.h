@@ -140,6 +140,22 @@ struct SaveFileInfo
 	u32 textureData;
 	int textureWidth;
 	int textureHeight;
+
+	void DoState(PointerWrap &p)
+	{
+		p.Do(size);
+		p.Do(saveName);
+		p.Do(idx);
+
+		p.DoArray(title, sizeof(title));
+		p.DoArray(saveTitle, sizeof(saveTitle));
+		p.DoArray(saveDetail, sizeof(saveDetail));
+
+		p.Do(modif_time);
+		p.Do(textureData);
+		p.Do(textureWidth);
+		p.Do(textureHeight);
+	}
 };
 	
 class SavedataParam

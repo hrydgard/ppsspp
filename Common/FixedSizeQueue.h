@@ -19,6 +19,7 @@
 #define _FIXED_SIZE_QUEUE_H_
 
 #include <cstring>
+#include "ChunkFile.h"
 
 // STL-look-a-like interface, but name is mixed case to distinguish it clearly from the
 // real STL classes.

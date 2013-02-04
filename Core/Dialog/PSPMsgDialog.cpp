@@ -19,6 +19,7 @@
 #include "../Util/PPGeDraw.h"
 #include "../HLE/sceCtrl.h"
 #include "../Core/MemMap.h"
+#include "ChunkFile.h"
 
 PSPMsgDialog::PSPMsgDialog()
 	: PSPDialog()
@@ -246,7 +247,7 @@ void PSPMsgDialog::DoState(PointerWrap &p)
 	p.Do(flag);
 	p.Do(messageDialog);
 	p.Do(messageDialogAddr);
-	p.Do(msgText);
+	p.DoArray(msgText, sizeof(msgText));
 	p.Do(yesnoChoice);
 	p.Do(okButtonImg);
 	p.Do(cancelButtonImg);

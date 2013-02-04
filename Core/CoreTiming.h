@@ -32,9 +32,10 @@
 //   ScheduleEvent(periodInCycles - cyclesLate, callback, "whatever")
 
 #include "../Globals.h"
-#include "../Common/ChunkFile.h"
 
 #include <string>
+
+class PointerWrap;
 
 //const int CPU_HZ = 222000000;
 extern int CPU_HZ;
