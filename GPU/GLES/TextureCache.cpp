@@ -649,7 +649,7 @@ void TextureCache::SetTexture() {
 		if (match && (format >= GE_TFMT_CLUT4 && format <= GE_TFMT_CLUT32) &&
 			 (entry.clutformat != clutformat ||
 				entry.clutaddr != clutaddr ||
-				entry.cluthash != Memory::Read_U32(entry.clutaddr))) 
+				entry.cluthash != Memory::ReadUnchecked_U32(entry.clutaddr))) 
 			match = false;
 
 		// If it's not huge or has been invalidated many times, recheck the whole texture.
@@ -697,7 +697,7 @@ void TextureCache::SetTexture() {
 	if (format >= GE_TFMT_CLUT4 && format <= GE_TFMT_CLUT32) {
 		entry.clutformat = clutformat;
 		entry.clutaddr = GetClutAddr(clutformat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2);
-		entry.cluthash = Memory::Read_U32(entry.clutaddr);
+		entry.cluthash = Memory::ReadUnchecked_U32(entry.clutaddr);
 	} else {
 		entry.clutaddr = 0;
 	}
