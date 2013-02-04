@@ -47,6 +47,12 @@ public:
 		GeInterruptData intrdata = ge_pending_cb.front();
 		DisplayList* dl = gpu->getList(intrdata.listid);
 
+		if (dl == NULL)
+		{
+			WARN_LOG(HLE, "Unable to run GE interrupt: list doesn't exist: %d", intrdata.listid);
+			return false;
+		}
+
 		gpu->InterruptStart();
 
 		u32 cmd = Memory::ReadUnchecked_U32(intrdata.pc) >> 24;
