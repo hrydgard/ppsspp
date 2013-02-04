@@ -61,6 +61,8 @@ struct Atrac {
 		p.DoMarker("Atrac");
 	}
 
+	void Analyze();
+
 	u32 decodePos;
 	u32 decodeEnd;
 	int loopNum;
@@ -137,6 +139,38 @@ int getCodecType(int addr) {
 		return PSP_MODE_AT_3_PLUS;
 	}
 	return 0;
+}
+
+void Atrac::Analyze()
+{
+	// This is an ugly approximation of song length, in case we can't do better.
+	this->decodeEnd = first.size * 3;
+
+	if (first.size < 0x100)
+	{
+		ERROR_LOG(HLE, "Atrac buffer very small: %d", first.size);
+		return;
+	}
+
+	// TODO: Validate stuff.
+
+	// RIFF size excluding chunk header.
+	first.filesize = Memory::Read_U32(first.addr + 4) + 8;
+
+	u32 offset = 12;
+	while (first.size > offset + 8)
+	{
+		u32 magic = Memory::Read_U32(first.addr + offset);
+		u32 size = Memory::Read_U32(first.addr + offset + 4);
+		offset += 8;
+
+		if (magic == *(u32 *) "fmt " && size > 14 && first.size > offset + 14)
+		{
+			u16 bytesPerFrame = Memory::Read_U16(first.addr + offset + 12);
+			// TODO: This is probably still wrong?
+			this->decodeEnd = (first.filesize / bytesPerFrame) * ATRAC_MAX_SAMPLES;
+		}
+	}
 }
 
 u32 sceAtracGetAtracID(int codecType)
@@ -343,6 +377,7 @@ u32 sceAtracGetRemainFrame(int atracID, u32 remainAddr)
 		//return -1;
 		Memory::Write_U32(12, remainAddr); // outpos
 	} else {
+		// TODO: Seems like this is the number of bytes remaining to read from the file (or -1 if none)?
 		Memory::Write_U32(-1, remainAddr);
 	}
 	return 0;
@@ -429,8 +464,7 @@ u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize)
 	if (atrac != NULL) {
 		atrac->first.addr = buffer;
 		atrac->first.size = bufferSize;
-		// TODO: This is an ugly approximation of song length.
-		atrac->decodeEnd = bufferSize * 3;
+		atrac->Analyze();
 	}
 	return 0;
 } 
@@ -443,8 +477,7 @@ int sceAtracSetDataAndGetID(u32 buffer, u32 bufferSize)
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = buffer;
 	atrac->first.size = bufferSize;
-	// TODO: This is an ugly approximation of song length.
-	atrac->decodeEnd = bufferSize * 3;
+	atrac->Analyze();
 	return createAtrac(atrac);
 }
 
@@ -456,8 +489,7 @@ int sceAtracSetHalfwayBufferAndGetID(int atracID, u32 halfBuffer, u32 readSize, 
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = halfBuffer;
 	atrac->first.size = halfBufferSize;
-	// TODO: This is an ugly approximation of song length.
-	atrac->decodeEnd = halfBufferSize * 3;
+	atrac->Analyze();
 	return createAtrac(atrac);
 }
 
@@ -519,8 +551,7 @@ int sceAtracSetAA3DataAndGetID(u32 buffer, int bufferSize, int fileSize, u32 met
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = buffer;
 	atrac->first.size = bufferSize;
-	// TODO: This is an ugly approximation of song length.
-	atrac->decodeEnd = bufferSize * 3;
+	atrac->Analyze();
 	return createAtrac(atrac);
 }
 
