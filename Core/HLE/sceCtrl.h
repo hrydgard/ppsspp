@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "Common/CommonTypes.h"
+
 class PointerWrap;
 
 void Register_sceCtrl();
