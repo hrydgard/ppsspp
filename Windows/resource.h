@@ -258,6 +258,7 @@
 #define ID_OPTIONS_USEVBO               40134
 #define ID_OPTIONS_DISABLEG3DLOG        40135
 #define ID_OPTIONS_VERTEXCACHE          40136
+#define ID_OPTIONS_SET30FPS             40137
 #define IDC_STATIC                      -1
 
 // Next default values for new objects

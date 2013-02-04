@@ -518,7 +518,10 @@ namespace MainWindow
 				}
 				UpdateMenus();
 				break;
-
+			case ID_OPTIONS_SET30FPS:
+				g_Config.bSet30FPS = !g_Config.bSet30FPS;
+				UpdateMenus();
+				break;
 			case ID_OPTIONS_WIREFRAME:
 				g_Config.bDrawWireframe = !g_Config.bDrawWireframe;
 				UpdateMenus();
@@ -702,6 +705,7 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_USEVBO, g_Config.bUseVBO);
 		CHECKITEM(ID_OPTIONS_DISABLEG3DLOG, g_Config.bDisableG3DLog);
 		CHECKITEM(ID_OPTIONS_VERTEXCACHE, g_Config.bVertexCache);
+		CHECKITEM(ID_OPTIONS_SET30FPS, g_Config.bSet30FPS);
 
 		UINT enable = !Core_IsStepping() ? MF_GRAYED : MF_ENABLED;
 		EnableMenuItem(menu,ID_EMULATION_RUN, g_State.bEmuThreadStarted ? enable : MF_GRAYED);
