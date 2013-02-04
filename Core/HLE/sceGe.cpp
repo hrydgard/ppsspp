@@ -93,13 +93,9 @@ public:
 			if (sceKernelGetCompiledSdkVersion() <= 0x02000010)
 			{
 				// uofw says dl->state = endCmd & 0xFF;
-				DisplayListState newState = static_cast<DisplayListState>(Memory::ReadUnchecked_U32(intrdata.pc - 4) & 0xFF);
 				//dl->status = static_cast<DisplayListStatus>(Memory::ReadUnchecked_U32(intrdata.pc) & 0xFF);
 				//if(dl->status < 0 || dl->status > PSP_GE_LIST_PAUSED)
 				//	ERROR_LOG(HLE, "Weird DL status after signal suspend %x", dl->status);
-				if (newState != PSP_GE_DL_STATE_RUNNING)
-					WARN_LOG_REPORT(HLE, "GE Interrupt: newState might be %d", newState);
-
 				dl->state = PSP_GE_DL_STATE_RUNNING;
 			}
 			break;
@@ -208,13 +204,14 @@ u32 sceGeListEnQueueHead(u32 listAddress, u32 stallAddress, int callbackId,
 
 int sceGeListDeQueue(u32 listID)
 {
-	ERROR_LOG(HLE, "UNIMPL sceGeListDeQueue(%08x)", listID);
+	DEBUG_LOG(HLE, "sceGeListDequeue(dlid=%08x)", listID);
 	return gpu->DequeueList(listID);
 }
 
 int sceGeListUpdateStallAddr(u32 displayListID, u32 stallAddress)
 {
-	DEBUG_LOG(HLE, "sceGeListUpdateStallAddr(dlid=%i,stalladdr=%08x)", displayListID, stallAddress);
+	//DEBUG_LOG(HLE, "sceGeListUpdateStallAddr(dlid=%i,stalladdr=%08x)", displayListID, stallAddress);
+
 	return gpu->UpdateStall(displayListID, stallAddress);
 }
 
@@ -227,7 +224,7 @@ int sceGeListSync(u32 displayListID, u32 mode) //0 : wait for completion		1:chec
 u32 sceGeDrawSync(u32 mode)
 {
 	//wait/check entire drawing state
-	DEBUG_LOG(HLE, "FAKE sceGeDrawSync(mode=%d)  (0=wait for completion)", mode);
+	DEBUG_LOG(HLE, "sceGeDrawSync(mode=%d)  (0=wait for completion, 1=peek)", mode);
 	return gpu->DrawSync(mode);
 }
 

@@ -110,7 +110,6 @@ struct FramebufferInfo
 
 struct DisplayList
 {
-	int id;
 	u32 startpc;
 	u32 pc;
 	u32 stall;
@@ -121,6 +120,11 @@ struct DisplayList
 	u32 stack[32];
 	int stackptr;
 	bool interrupted;
+	bool threadWaiting;
+
+	bool stalled() {
+		return pc == stall;
+	}
 };
 
 class GPUInterface
@@ -135,7 +139,6 @@ public:
 
 	// Draw queue management
 	virtual DisplayList* getList(int listid) = 0;
-	// TODO: Much of this should probably be shared between the different GPU implementations.
 	virtual u32  EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head) = 0;
 	virtual u32  DequeueList(int listid) = 0;
 	virtual u32  UpdateStall(int listid, u32 newstall) = 0;
@@ -149,7 +152,7 @@ public:
 
 	virtual void PreExecuteOp(u32 op, u32 diff) = 0;
 	virtual void ExecuteOp(u32 op, u32 diff) = 0;
-	virtual bool InterpretList(DisplayList& list) = 0;
+	virtual void ProcessDLQueue() = 0;
 
 	// Framebuffer management
 	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, int format) = 0;
@@ -163,9 +166,6 @@ public:
 	// If size = -1, invalidate everything.
 	virtual void InvalidateCache(u32 addr, int size) = 0;
 	virtual void InvalidateCacheHint(u32 addr, int size) = 0;
-
-	// Internal hack to avoid interrupts from "PPGe" drawing (utility UI, etc)
-	virtual void EnableInterrupts(bool enable) = 0;
 
 	virtual void DeviceLost() = 0;
 	virtual void Flush() = 0;

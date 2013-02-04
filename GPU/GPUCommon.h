@@ -10,14 +10,10 @@ public:
 
 	virtual void InterruptStart();
 	virtual void InterruptEnd();
-	virtual void EnableInterrupts(bool enable) {
-		interruptsEnabled_ = enable;
-	}
-
+	
 	virtual void ExecuteOp(u32 op, u32 diff);
 	virtual void PreExecuteOp(u32 op, u32 diff);
-	virtual bool InterpretList(DisplayList &list);
-	virtual bool ProcessDLQueue();
+	virtual void ProcessDLQueue();
 	virtual u32  UpdateStall(int listid, u32 newstall);
 	virtual u32  EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head);
 	virtual u32  DequeueList(int listid);
@@ -36,12 +32,10 @@ protected:
 	typedef std::list<int> DisplayListQueue;
 
 	DisplayList dls[DisplayListMaxCount];
-	DisplayList *currentList;
 	DisplayListQueue dlQueue;
 
 	bool interruptRunning;
-	u32 prev;
-	GPUState gpuState;
+	bool drawSyncWait;
 	bool isbreak;
 
 	u64 startingTicks;
@@ -50,12 +44,24 @@ protected:
 
 	bool dumpNextFrame_;
 	bool dumpThisFrame_;
-	bool interruptsEnabled_;
+
+	bool running;
+	u32 pc;
+	u32 stall;
+	DisplayList *currentDisplayList;
 
 public:
 	virtual DisplayList* getList(int listid)
 	{
 		return &dls[listid];
+	}
+
+	DisplayList* currentList()
+	{
+		return currentDisplayList;
+		/*if(dlQueue.empty())
+			return NULL;
+		return &dls[dlQueue.front()];*/
 	}
 
 	const std::list<int>& GetDisplayLists()
@@ -64,7 +70,7 @@ public:
 	}
 	DisplayList* GetCurrentDisplayList()
 	{
-		return currentList;
+		return currentList();
 	}
 	virtual bool DecodeTexture(u8* dest, GPUgstate state)
 	{

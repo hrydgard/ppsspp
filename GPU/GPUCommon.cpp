@@ -13,12 +13,19 @@
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceGe.h"
 
+void init() {
+}
+
 GPUCommon::GPUCommon() :
-	currentList(NULL),
-	isbreak(false),
+	interruptRunning(false),
+	drawSyncWait(false),
 	dumpNextFrame_(false),
 	dumpThisFrame_(false),
-	interruptsEnabled_(true)
+	running(true),
+	isbreak(false),
+	pc(0),
+	stall(0),
+	currentDisplayList(NULL)
 {
 	for (int i = 0; i < DisplayListMaxCount; ++i)
 		dls[i].state = PSP_GE_DL_STATE_NONE;
@@ -28,12 +35,15 @@ void GPUCommon::PopDLQueue() {
 	if(!dlQueue.empty()) {
 		dlQueue.pop_front();
 		if(!dlQueue.empty()) {
-			bool running = currentList->state == PSP_GE_DL_STATE_RUNNING;
-			currentList = &dls[dlQueue.front()];
+			currentDisplayList = &dls[dlQueue.front()];
 			if (running)
-				currentList->state = PSP_GE_DL_STATE_RUNNING;
+				currentDisplayList->state = PSP_GE_DL_STATE_RUNNING;
+			pc = currentDisplayList->pc;
+			stall = currentDisplayList->stall;
 		} else {
-			currentList = NULL;
+			currentDisplayList = NULL;
+			pc = 0;
+			stall = 0;
 		}
 	}
 }
@@ -42,20 +52,32 @@ u32 GPUCommon::DrawSync(int mode) {
 	if (mode < 0 || mode > 1)
 		return SCE_KERNEL_ERROR_INVALID_MODE;
 
-	while (currentList != NULL && currentList->state == PSP_GE_DL_STATE_COMPLETED)
+	while (!dlQueue.empty() && currentList()->state == PSP_GE_DL_STATE_COMPLETED)
 		PopDLQueue();
 
 	CheckDrawSync();
 
 	if (mode == 0) {
-		// TODO: Wait.
+		// geman uses an event flag here to wait for an empty queue
+		if(dlQueue.empty()) {
+			for(int i = 0; i < DisplayListMaxCount; ++i)
+			{
+				dls[i].state = PSP_GE_DL_STATE_NONE;
+			}
+			return 0;
+		}
+
+		drawSyncWait = true;
+		__KernelWaitCurThread(WAITTYPE_GEDRAWSYNC, 0, 0, 0, false, "GeDrawSync");
+		ERROR_LOG(HLE, "Blocking thread on DrawSync");
+
 		return 0;
 	}
 
-	if (!currentList)
+	if (!currentDisplayList)
 		return PSP_GE_LIST_COMPLETED;
 
-	if (currentList->pc == currentList->stall)
+	if (pc == currentDisplayList->stall)
 		return PSP_GE_LIST_STALLING;
 
 	return PSP_GE_LIST_DRAWING;
@@ -63,9 +85,13 @@ u32 GPUCommon::DrawSync(int mode) {
 
 void GPUCommon::CheckDrawSync()
 {
-	if (dlQueue.empty()) {
-		for (int i = 0; i < DisplayListMaxCount; ++i)
+	if(dlQueue.empty() && drawSyncWait) {
+		drawSyncWait = false;
+		__KernelTriggerWait(WAITTYPE_GEDRAWSYNC, 0, 0, false);
+		for(int i = 0; i < DisplayListMaxCount; ++i)
+		{
 			dls[i].state = PSP_GE_DL_STATE_NONE;
+		}
 	}
 }
 
@@ -87,7 +113,7 @@ int GPUCommon::ListSync(int listid, int mode)
 			return PSP_GE_LIST_QUEUED;
 
 		case PSP_GE_DL_STATE_RUNNING:
-			if (dl.pc == dl.stall)
+			if (pc == dl.stall)
 				return PSP_GE_LIST_STALLING;
 			return PSP_GE_LIST_DRAWING;
 
@@ -102,11 +128,17 @@ int GPUCommon::ListSync(int listid, int mode)
 		}
 	}
 
-	// TODO: Wait here for mode == 0.
+	if(dls[listid].state != PSP_GE_DL_STATE_COMPLETED)
+	{
+		dls[listid].threadWaiting = true;
+		__KernelWaitCurThread(WAITTYPE_GELISTSYNC, listid, 0, 0, false, "GeListSync");
+		ERROR_LOG(HLE, "Blocking thread on ListSync");
+	}
+
 	return PSP_GE_LIST_COMPLETED;
 }
 
-u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head)
+u32 GPUCommon::EnqueueList(u32 listpc, u32 stalladdr, int subIntrBase, bool head)
 {
 	// TODO Check the stack values in missing arg and ajust the stack depth
 
@@ -122,6 +154,9 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head)
 		//stack = NULL;
 		oldCompatibility = false;
 	}
+
+	// Uncached address
+	listpc = listpc & 0x1FFFFFFF;
 
 	for (int i = 0; i < DisplayListMaxCount; ++i)
 	{
@@ -155,36 +190,39 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head)
 		}
 		return SCE_KERNEL_ERROR_OUT_OF_MEMORY;
 	}
-
+	
 	DisplayList &dl = dls[id];
-	dl.id = id;
-	dl.startpc = listpc & 0xFFFFFFF;
-	dl.pc = listpc & 0xFFFFFFF;
-	dl.stall = stall & 0xFFFFFFF;
-	dl.state = PSP_GE_DL_STATE_QUEUED;
+	dl.startpc = listpc;
+	dl.pc = listpc;
+	dl.stall = stalladdr & 0x1FFFFFFF;
 	dl.subIntrBase = std::max(subIntrBase, -1);
 	dl.stackptr = 0;
 	dl.signal = PSP_GE_SIGNAL_NONE;
 	dl.interrupted = false;
+	dl.threadWaiting = false;
 
 	if (head) {
-		if (currentList) {
-			if (currentList->state != PSP_GE_DL_STATE_PAUSED)
+		if (currentDisplayList) {
+			if (currentDisplayList->state != PSP_GE_DL_STATE_PAUSED)
 				return SCE_KERNEL_ERROR_INVALID_VALUE;
-			currentList->state = PSP_GE_DL_STATE_QUEUED;
+			currentDisplayList->state = PSP_GE_DL_STATE_QUEUED;
 		}
 
 		dl.state = PSP_GE_DL_STATE_PAUSED;
 
-		currentList = &dl;
+		currentDisplayList = &dls[id];
 		dlQueue.push_front(id);
-	} else if (currentList) {
+	} else if (currentDisplayList) {
 		dl.state = PSP_GE_DL_STATE_QUEUED;
 		dlQueue.push_back(id);
 	} else {
 		dl.state = PSP_GE_DL_STATE_RUNNING;
-		currentList = &dl;
+		currentDisplayList = &dls[id];
 		dlQueue.push_front(id);
+
+		pc = dl.pc;
+		stall = dl.stall;
+		running = true;
 
 		// TODO save context when starting the list if param is set
 		ProcessDLQueue();
@@ -208,7 +246,10 @@ u32 GPUCommon::DequeueList(int listid)
 	else
 		dlQueue.remove(listid);
 
-	// TODO: Release any list wait.
+	if(dls[listid].threadWaiting) {
+		dls[listid].threadWaiting = false;
+		__KernelTriggerWait(WAITTYPE_GELISTSYNC, listid, "GeDrawSync");
+	}
 
 	CheckDrawSync();
 
@@ -220,8 +261,21 @@ u32 GPUCommon::UpdateStall(int listid, u32 newstall)
 	if (listid < 0 || listid >= DisplayListMaxCount || dls[listid].state == PSP_GE_DL_STATE_NONE)
 		return SCE_KERNEL_ERROR_INVALID_ID;
 
-	dls[listid].stall = newstall & 0xFFFFFFF;
-	
+	if (dls[listid].state == PSP_GE_DL_STATE_COMPLETED)
+		return 0x80000020;
+
+	newstall = newstall & 0x1FFFFFFF;
+
+	if(dls[listid].state == PSP_GE_DL_STATE_RUNNING) {
+		stall = newstall;
+		dls[listid].stall = newstall;
+	} else {
+		// List is PAUSED or QUEUED
+		// When the list is PAUSED because of PSP_GE_SIGNAL_HANDLER_SUSPEND,
+		// we don't refresh the global stall, this is an intentional compatibility bug
+		dls[listid].stall = newstall;
+	}
+
 	ProcessDLQueue();
 
 	return 0;
@@ -229,26 +283,29 @@ u32 GPUCommon::UpdateStall(int listid, u32 newstall)
 
 u32 GPUCommon::Continue()
 {
-	if (!currentList)
+	if (!currentDisplayList)
 		return 0;
 
-	if (currentList->state == PSP_GE_DL_STATE_PAUSED)
+	if (currentDisplayList->state == PSP_GE_DL_STATE_PAUSED)
 	{
-		if (!isbreak)
+		if (true || !isbreak)
 		{
-			if (currentList->signal == PSP_GE_SIGNAL_HANDLER_PAUSE)
+			if (currentDisplayList->signal == PSP_GE_SIGNAL_HANDLER_PAUSE)
 				return 0x80000021;
 
-			currentList->state = PSP_GE_DL_STATE_RUNNING;
-			currentList->signal = PSP_GE_SIGNAL_NONE;
+			currentDisplayList->state = PSP_GE_DL_STATE_RUNNING;
+			currentDisplayList->signal = PSP_GE_SIGNAL_NONE;
 
 			// TODO Restore context of DL is necessary
 			// TODO Restore BASE
+			pc = currentDisplayList->pc;
+			stall = currentDisplayList->stall;
+			running = true;
 		}
 		else
-			currentList->state = PSP_GE_DL_STATE_QUEUED;
+			currentDisplayList->state = PSP_GE_DL_STATE_QUEUED;
 	}
-	else if (currentList->state == PSP_GE_DL_STATE_RUNNING)
+	else if (currentDisplayList->state == PSP_GE_DL_STATE_RUNNING)
 	{
 		if (sceKernelGetCompiledSdkVersion() >= 0x02000000)
 			return 0x80000020;
@@ -262,6 +319,7 @@ u32 GPUCommon::Continue()
 	}
 
 	ProcessDLQueue();
+
 	return 0;
 }
 
@@ -270,7 +328,7 @@ u32 GPUCommon::Break(int mode)
 	if (mode < 0 || mode > 1)
 		return SCE_KERNEL_ERROR_INVALID_MODE;
 
-	if (!currentList)
+	if (!currentDisplayList)
 		return 0x80000020;
 
 	if (mode == 1)
@@ -283,22 +341,26 @@ u32 GPUCommon::Break(int mode)
 			dls[i].signal = PSP_GE_SIGNAL_NONE;
 		}
 
-		currentList = NULL;
+		currentDisplayList = NULL;
+		pc = 0;
+		stall = 0;
+		running = false;
+
 		return 0;
 	}
 
-	if (currentList->state == PSP_GE_DL_STATE_NONE || currentList->state == PSP_GE_DL_STATE_COMPLETED)
+	if (currentDisplayList->state == PSP_GE_DL_STATE_NONE || currentDisplayList->state == PSP_GE_DL_STATE_COMPLETED)
 	{
 		if (sceKernelGetCompiledSdkVersion() >= 0x02000000)
 			return 0x80000004;
 		return -1;
 	}
 
-	if (currentList->state == PSP_GE_DL_STATE_PAUSED)
+	if (currentDisplayList->state == PSP_GE_DL_STATE_PAUSED)
 	{
 		if (sceKernelGetCompiledSdkVersion() > 0x02000010)
 		{
-			if (currentList->signal == PSP_GE_SIGNAL_HANDLER_PAUSE)
+			if (currentDisplayList->signal == PSP_GE_SIGNAL_HANDLER_PAUSE)
 			{
 				ERROR_LOG_REPORT(G3D, "sceGeBreak: can't break signal-pausing list");
 			}
@@ -308,44 +370,42 @@ u32 GPUCommon::Break(int mode)
 		return 0x80000021;
 	}
 
-	if (currentList->state == PSP_GE_DL_STATE_QUEUED)
+	if (currentDisplayList->state == PSP_GE_DL_STATE_QUEUED)
 	{
-		currentList->state = PSP_GE_DL_STATE_PAUSED;
-		return currentList->id;
+		currentDisplayList->state = PSP_GE_DL_STATE_PAUSED;
+		return dlQueue.front();
 	}
+
+	running = false;
+	currentDisplayList->pc = pc;
+	currentDisplayList->stall = stall;
 
 	// TODO Save BASE
 	// TODO Adjust pc to be just before SIGNAL/END
 
-	// TODO: Is this right?
-	if (currentList->signal == PSP_GE_SIGNAL_SYNC)
-		currentList->pc += 8;
+	if (currentDisplayList->signal == PSP_GE_SIGNAL_SYNC)
+		currentDisplayList->pc += 8;
 
-	currentList->interrupted = true;
-	currentList->state = PSP_GE_DL_STATE_PAUSED;
-	currentList->signal = PSP_GE_SIGNAL_HANDLER_SUSPEND;
+	currentDisplayList->interrupted = true;
+	currentDisplayList->state = PSP_GE_DL_STATE_PAUSED;
+	currentDisplayList->signal = PSP_GE_SIGNAL_HANDLER_SUSPEND;
+	stall = 0;
+	pc = 0;
+	running = true;
 	isbreak = true;
 
-	return currentList->id;
+	return dlQueue.front();
 }
 
-bool GPUCommon::InterpretList(DisplayList &list)
+void GPUCommon::ProcessDLQueue()
 {
 	time_update();
 	double start = time_now_d();
-	currentList = &list;
-	u32 op = 0;
-	prev = 0;
-	gpuState = GPUSTATE_RUNNING;
 
 	// I don't know if this is the correct place to zero this, but something
 	// need to do it. See Sol Trigger title screen.
 	gstate_c.offsetAddr = 0;
 
-	if (!Memory::IsValidAddress(list.pc)) {
-		ERROR_LOG_REPORT(G3D, "DL PC = %08x WTF!!!!", list.pc);
-		return true;
-	}
 #if defined(USING_QT_UI)
 	if(host->GpuStep())
 	{
@@ -353,19 +413,35 @@ bool GPUCommon::InterpretList(DisplayList &list)
 	}
 #endif
 
-	cycleLastPC = list.pc;
-	list.state = PSP_GE_DL_STATE_RUNNING;
-	list.interrupted = false;
-
-	while (gpuState == GPUSTATE_RUNNING)
+	u32 op;
+	//while(!dlQueue.empty() && !interruptRunning)
+	while(running && !interruptRunning && pc && pc != stall && currentDisplayList)
 	{
-		if (list.pc == list.stall)
-		{
-			gpuState = GPUSTATE_STALL;
+		DisplayList &list = *currentList();
+		//DEBUG_LOG(G3D,"Okay, starting DL execution at %08x - stall = %08x", l.pc, l.stall);
+
+		if(list.state == PSP_GE_DL_STATE_COMPLETED) {
+			PopDLQueue();
+			continue;
+		}
+
+		//if (list.status == PSP_GE_LIST_PAUSED)
+		//	break;
+
+		//cycleLastPC = pc;
+		//list.status = PSP_GE_LIST_DRAWING;
+		list.interrupted = false;
+
+		//if (list.stalled())
+		//if(pc == stall)
+		//	break;
+
+		if (!Memory::IsValidAddress(pc)) {
+			ERROR_LOG(G3D, "DL invalid address PC = %08x", pc);
 			break;
 		}
 
-		op = Memory::ReadUnchecked_U32(list.pc); //read from memory
+		op = Memory::ReadUnchecked_U32(pc); //read from memory
 		u32 cmd = op >> 24;
 
 #if defined(USING_QT_UI)
@@ -376,57 +452,34 @@ bool GPUCommon::InterpretList(DisplayList &list)
 #endif
 		u32 diff = op ^ gstate.cmdmem[cmd];
 		PreExecuteOp(op, diff);
+
 		// TODO: Add a compiler flag to remove stuff like this at very-final build time.
 		if (dumpThisFrame_) {
 			char temp[256];
-			GeDisassembleOp(list.pc, op, prev, temp);
-			NOTICE_LOG(HLE, "%s", temp);
+			GeDisassembleOp(list.pc, op, Memory::ReadUnchecked_U32(pc - 4), temp);
+			NOTICE_LOG(G3D, "%s", temp);
 		}
 		gstate.cmdmem[cmd] = op;
 		
 		ExecuteOp(op, diff);
 		
-		list.pc += 4;
-		prev = op;
+		pc += 4;
+
+		if(__GeHasPendingInterrupt())
+			break;
 	}
 
-	UpdateCycles(list.pc);
+	//UpdateCycles(pc);
+	CheckDrawSync();
 
 	time_update();
 	gpuStats.msProcessingDisplayLists += time_now_d() - start;
-	return gpuState == GPUSTATE_DONE || gpuState == GPUSTATE_ERROR;
 }
 
 inline void GPUCommon::UpdateCycles(u32 pc, u32 newPC)
 {
 	cyclesExecuted += (pc - cycleLastPC) / 4;
 	cycleLastPC = newPC == 0 ? pc : newPC;
-}
-
-bool GPUCommon::ProcessDLQueue()
-{
-	startingTicks = CoreTiming::GetTicks();
-	cyclesExecuted = 0;
-
-	DisplayListQueue::iterator iter = dlQueue.begin();
-	while (iter != dlQueue.end())
-	{
-		DisplayList &l = dls[*iter];
-		DEBUG_LOG(G3D,"Okay, starting DL execution at %08x - stall = %08x", l.pc, l.stall);
-		if (!InterpretList(l))
-		{
-			return false;
-		}
-		else
-		{
-			//At the end, we can remove it from the queue and continue
-			dlQueue.erase(iter);
-			//this invalidated the iterator, let's fix it
-			iter = dlQueue.begin();
-		}
-	}
-	currentList = NULL;
-	return true; //no more lists!
 }
 
 void GPUCommon::PreExecuteOp(u32 op, u32 diff) {
@@ -448,15 +501,15 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_ORIGIN:
-		gstate_c.offsetAddr = currentList->pc;
+		gstate_c.offsetAddr = currentList()->pc;
 		break;
 
 	case GE_CMD_JUMP:
 		{
 			u32 target = gstate_c.getRelativeAddress(data);
 			if (Memory::IsValidAddress(target)) {
-				UpdateCycles(currentList->pc, target - 4);
-				currentList->pc = target - 4; // pc will be increased after we return, counteract that
+				UpdateCycles(pc, target - 4);
+				pc = target - 4; // pc will be increased after we return, counteract that
 			} else {
 				ERROR_LOG_REPORT(G3D, "JUMP to illegal address %08x - ignoring! data=%06x", target, data);
 			}
@@ -466,32 +519,31 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_CALL:
 		{
 			// Saint Seiya needs correct support for relative calls.
-			u32 retval = currentList->pc + 4;
+			u32 retval = pc + 4;
 			u32 target = gstate_c.getRelativeAddress(data);
-			if (currentList->stackptr == ARRAY_SIZE(currentList->stack)) {
+			if (currentList()->stackptr == ARRAY_SIZE(currentList()->stack)) {
 				ERROR_LOG_REPORT(G3D, "CALL: Stack full!");
 			} else if (!Memory::IsValidAddress(target)) {
 				ERROR_LOG_REPORT(G3D, "CALL to illegal address %08x - ignoring! data=%06x", target, data);
 			} else {
-				currentList->stack[currentList->stackptr++] = retval;
-				UpdateCycles(currentList->pc, target - 4);
-				currentList->pc = target - 4;	// pc will be increased after we return, counteract that
+				currentList()->stack[currentList()->stackptr++] = retval;
+				UpdateCycles(pc, target - 4);
+				pc = target - 4;	// pc will be increased after we return, counteract that
 			}
 		}
 		break;
 
 	case GE_CMD_RET:
 		{
-			if (currentList->stackptr == 0) {
+			if (currentList()->stackptr == 0) {
 				ERROR_LOG_REPORT(G3D, "RET: Stack empty!");
 			} else {
-				u32 target = (currentList->pc & 0xF0000000) | (currentList->stack[--currentList->stackptr] & 0x0FFFFFFF);
+				u32 target = (pc & 0xF0000000) | (currentList()->stack[--currentList()->stackptr] & 0x0FFFFFFF);
 				//target = (target + gstate_c.originAddr) & 0xFFFFFFF;
-				UpdateCycles(currentList->pc, target - 4);
-				currentList->pc = target - 4;
-				if (!Memory::IsValidAddress(currentList->pc)) {
-					ERROR_LOG_REPORT(G3D, "Invalid DL PC %08x on return", currentList->pc);
-					gpuState = GPUSTATE_ERROR;
+				UpdateCycles(pc, target - 4);
+				pc = target - 4;
+				if (!Memory::IsValidAddress(currentList()->pc)) {
+					ERROR_LOG_REPORT(G3D, "Invalid DL PC %08x on return", pc);
 				}
 			}
 		}
@@ -503,88 +555,95 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_END:
-		UpdateCycles(currentList->pc);
-		switch (prev >> 24) {
-		case GE_CMD_SIGNAL:
-			{
-				// TODO: see http://code.google.com/p/jpcsp/source/detail?r=2935#
-				SignalBehavior behaviour = static_cast<SignalBehavior>((prev >> 16) & 0xFF);
-				int signal = prev & 0xFFFF;
-				int enddata = data & 0xFFFF;
-				currentList->subIntrToken = signal;
+		{
+			UpdateCycles(pc);
+			u32 prev = Memory::ReadUnchecked_U32(pc - 4);
+			currentList()->subIntrToken = prev & 0xFFFF;
+			switch (prev >> 24) {
+			case GE_CMD_SIGNAL:
+				{
+					// TODO: see http://code.google.com/p/jpcsp/source/detail?r=2935#
+					SignalBehavior behaviour = static_cast<SignalBehavior>((prev >> 16) & 0xFF);
+					int signal = prev & 0xFFFF;
+					int enddata = data & 0xFFFF;
 
-				switch (behaviour) {
-				case PSP_GE_SIGNAL_HANDLER_SUSPEND:
-					if (sceKernelGetCompiledSdkVersion() <= 0x02000010)
-						currentList->state = PSP_GE_DL_STATE_PAUSED;
-					currentList->signal = behaviour;
-					ERROR_LOG(G3D, "Signal with Wait UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
-					break;
-				case PSP_GE_SIGNAL_HANDLER_CONTINUE:
-					currentList->signal = behaviour;
-					ERROR_LOG(G3D, "Signal without wait. signal/end: %04x %04x", signal, enddata);
-					break;
-				case PSP_GE_SIGNAL_HANDLER_PAUSE:
-					ERROR_LOG(G3D, "Signal with Pause UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
-					break;
-				case PSP_GE_SIGNAL_SYNC:
-					ERROR_LOG(G3D, "Signal with Sync UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
-					break;
-				case PSP_GE_SIGNAL_JUMP:
-					ERROR_LOG_REPORT(G3D, "Signal with Jump UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
-					break;
-				case PSP_GE_SIGNAL_CALL:
-					ERROR_LOG_REPORT(G3D, "Signal with Call UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
-					break;
-				case PSP_GE_SIGNAL_RET:
-					ERROR_LOG_REPORT(G3D, "Signal with Return UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
-					break;
-				default:
-					ERROR_LOG_REPORT(G3D, "UNKNOWN Signal UNIMPLEMENTED %i ! signal/end: %04x %04x", behaviour, signal, enddata);
-					break;
+					switch (behaviour) {
+					case PSP_GE_SIGNAL_HANDLER_SUSPEND:  // Signal with Wait						
+						if (currentList()->subIntrBase >= 0) {
+							if (sceKernelGetCompiledSdkVersion() <= 0x02000010)
+								currentList()->state = PSP_GE_DL_STATE_PAUSED;
+
+							currentList()->signal = behaviour;
+							__GeTriggerInterrupt(dlQueue.front(), pc);
+						}
+						break;
+					case PSP_GE_SIGNAL_HANDLER_CONTINUE:
+						if (currentList()->subIntrBase >= 0) {
+							currentList()->signal = behaviour;
+							__GeTriggerInterrupt(dlQueue.front(), pc);
+						}
+						break;
+					case PSP_GE_SIGNAL_HANDLER_PAUSE:
+						ERROR_LOG(G3D, "Signal with Pause UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
+						break;
+					case PSP_GE_SIGNAL_SYNC:
+						ERROR_LOG(G3D, "Signal with Sync UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
+						break;
+					case PSP_GE_SIGNAL_JUMP:
+						ERROR_LOG(G3D, "Signal with Jump UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
+						break;
+					case PSP_GE_SIGNAL_CALL:
+						ERROR_LOG(G3D, "Signal with Call UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
+						break;
+					case PSP_GE_SIGNAL_RET:
+						ERROR_LOG(G3D, "Signal with Return UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
+						break;
+					default:
+						ERROR_LOG(G3D, "UNKNOWN Signal UNIMPLEMENTED %i ! signal/end: %04x %04x", behaviour, signal, enddata);
+						pc = 0;
+						break;
+					}
 				}
-				if (interruptsEnabled_) {
-					gpuState = GPUSTATE_INTERRUPT;
-					__GeTriggerInterrupt(currentList->id, currentList->pc);
+				break;
+			case GE_CMD_FINISH:
+				{
+					DEBUG_LOG(G3D, "Finish %i ! signal/end: %04x %04x", dlQueue.front(), prev & 0xFFFF, data & 0xFFFF);
+					currentList()->state = PSP_GE_DL_STATE_COMPLETED;
+					if(currentList()->threadWaiting) {
+						currentList()->threadWaiting = false;
+						__KernelTriggerWait(WAITTYPE_GELISTSYNC, dlQueue.front(), "GeListSync");
+					}
+
+					__GeTriggerInterrupt(dlQueue.front(), pc);
 				}
+				break;
+			default:
+				DEBUG_LOG(G3D,"Ah, not finished: %06x", prev & 0xFFFFFF);
+				break;
 			}
-			break;
-		case GE_CMD_FINISH:
-			currentList->state = PSP_GE_DL_STATE_COMPLETED;
-			gpuState = GPUSTATE_DONE;
-			currentList->subIntrToken = prev & 0xFFFF;
-			if (interruptsEnabled_)
-				__GeTriggerInterrupt(currentList->id, currentList->pc);
-			break;
-		default:
-			DEBUG_LOG(G3D,"Ah, not finished: %06x", prev & 0xFFFFFF);
-			break;
 		}
 		break;
-
 	default:
-		DEBUG_LOG(G3D,"DL Unknown: %08x @ %08x", op, currentList == NULL ? 0 : currentList->pc);
+		DEBUG_LOG(G3D, "DL Unknown: %08x @ %08x", op, pc);
 		break;
 	}
 }
 
 void GPUCommon::DoState(PointerWrap &p) {
-	p.Do<int>(dlQueue);
-	p.DoArray(dls, ARRAY_SIZE(dls));
+	p.Do(dls);
+	p.Do(dlQueue);
 	int currentID = 0;
-	if (currentList != NULL) {
-		ptrdiff_t off = currentList - &dls[0];
+	if (currentDisplayList != NULL) {
+		ptrdiff_t off = currentDisplayList - &dls[0];
 		currentID = off / sizeof(DisplayList);
 	}
 	p.Do(currentID);
 	if (currentID == 0) {
-		currentList = NULL;
+		currentDisplayList = NULL;
 	} else {
-		currentList = &dls[currentID];
+		currentDisplayList = &dls[currentID];
 	}
 	p.Do(interruptRunning);
-	p.Do(prev);
-	p.Do(gpuState);
 	p.Do(isbreak);
 	p.DoMarker("GPUCommon");
 }

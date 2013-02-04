@@ -236,12 +236,10 @@ void PPGeEnd()
 	if (dataWritePtr > dataPtr) {
 		sceGeBreak(0);
 		sceGeSaveContext(savedContextPtr);
-		gpu->EnableInterrupts(false);
 
 		// We actually drew something
 		u32 list = sceGeListEnQueueHead(dlPtr, dlWritePtr, -1, 0);
 		DEBUG_LOG(HLE, "PPGe enqueued display list %i", list);
-		gpu->EnableInterrupts(true);
 		sceGeContinue();
 		sceGeRestoreContext(savedContextPtr);
 	}
