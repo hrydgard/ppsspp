@@ -960,7 +960,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		{
 			int num = gstate.texmtxnum & 0xF;
 			float newVal = getFloat24(data);
-			if (newVal != gstate.tgenMatrix[num] && num < 12) {
+			if (num < 12 && newVal != gstate.tgenMatrix[num]) {
 				Flush();
 				gstate.tgenMatrix[num] = newVal;
 				shaderManager_->DirtyUniform(DIRTY_TEXMATRIX);
