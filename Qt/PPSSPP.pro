@@ -1,5 +1,5 @@
 TARGET = PPSSPPQt
-QT += core gui opengl
+QT += core gui opengl multimedia
 
 include(Settings.pri)
 linux {
