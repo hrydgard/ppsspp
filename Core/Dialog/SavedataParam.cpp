@@ -1178,9 +1178,16 @@ void SavedataParam::DoState(PointerWrap &p)
 	{
 		if (saveDataList != NULL)
 			delete [] saveDataList;
-		saveDataList = new SaveFileInfo[saveDataListCount];
+		if (saveDataListCount != 0)
+		{
+			saveDataList = new SaveFileInfo[saveDataListCount];
+			p.DoArray(saveDataList, saveDataListCount);
+		}
+		else
+			saveDataList = NULL;
 	}
-	p.DoArray(saveDataList, saveDataListCount);
+	else
+		p.DoArray(saveDataList, saveDataListCount);
 	p.DoMarker("SavedataParam");
 }
 
