@@ -48,12 +48,24 @@ struct LinkedListItem : public T
 // Wrapper class
 class PointerWrap
 {
-	template <typename T, bool isPOD = std::is_pod<T>::value>
-	struct DoHelper;
+	// This makes it a compile error if you forget to define DoState() on non-POD.
+	template<typename T, bool isPOD = std::is_pod<T>::value, bool isPointer = std::is_pointer<T>::value>
+	struct DoHelper
+	{
+		static void DoArray(PointerWrap *p, T *x, int count)
+		{
+			for (int i = 0; i < count; ++i)
+				p->DoClass(x[i]);
+		}
 
-	// This exists so that there's a compile error when it's not POD.
-	template <typename T>
-	struct DoHelper<T, true>
+		static void Do(PointerWrap *p, T &x)
+		{
+			p->DoClass(x);
+		}
+	};
+
+	template<typename T>
+	struct DoHelper<T, true, false>
 	{
 		static void DoArray(PointerWrap *p, T *x, int count)
 		{
@@ -289,6 +301,18 @@ public:
 		case MODE_VERIFY: _dbg_assert_msg_(COMMON, x == (wchar_t*)*ptr, "Savestate verification failure: \"%ls\" != \"%ls\" (at %p).\n", x.c_str(), (wchar_t*)*ptr, ptr); break;
 		}
 		(*ptr) += stringLen;
+	}
+
+	template<class T>
+	void DoClass(T &x) {
+		x.DoState(*this);
+	}
+
+	template<class T>
+	void DoClass(T *&x) {
+		if (mode == MODE_READ)
+			x = new T();
+		x->DoState(*this);
 	}
 
 	template<class T>
