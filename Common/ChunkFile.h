@@ -317,9 +317,7 @@ public:
 
 	template<class T>
 	void DoArray(T *x, int count) {
-		// TODO: Enable this check.
-		//DoHelper<T>::DoArray(this, x, count);
-		DoVoid((void *)x, sizeof(T) * count);
+		DoHelper<T>::DoArray(this, x, count);
 	}
 	
 	template<class T>

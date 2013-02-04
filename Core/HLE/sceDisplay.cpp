@@ -57,6 +57,12 @@ struct WaitVBlankInfo
 	WaitVBlankInfo(u32 tid) : threadID(tid), vcountUnblock(0) {}
 	u32 threadID;
 	int vcountUnblock; // what was this for again?
+
+	void DoState(PointerWrap &p)
+	{
+		p.Do(threadID);
+		p.Do(vcountUnblock);
+	}
 };
 
 // STATE BEGIN

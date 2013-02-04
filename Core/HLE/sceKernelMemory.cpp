@@ -108,7 +108,12 @@ struct FPL : public KernelObject
 	u32 address;
 };
 
-typedef std::pair<SceUID, u32> VplWaitingThread;
+struct VplWaitingThread
+{
+	SceUID threadID;
+	u32 addrPtr;
+};
+
 struct SceKernelVplInfo
 {
 	SceSize size;
@@ -132,7 +137,7 @@ struct VPL : public KernelObject
 	{
 		p.Do(nv);
 		p.Do(address);
-		VplWaitingThread dv(0, 0);
+		VplWaitingThread dv = {0};
 		p.Do(waitingThreads, dv);
 		alloc.DoState(p);
 		p.DoMarker("VPL");
@@ -730,7 +735,7 @@ enum SceKernelVplAttr
 
 bool __KernelUnlockVplForThread(VPL *vpl, VplWaitingThread &threadInfo, u32 &error, int result, bool &wokeThreads)
 {
-	const SceUID threadID = threadInfo.first;
+	const SceUID threadID = threadInfo.threadID;
 	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_VPL, error);
 	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
 
@@ -747,7 +752,7 @@ bool __KernelUnlockVplForThread(VPL *vpl, VplWaitingThread &threadInfo, u32 &err
 		u32 allocSize = size + 8;
 		u32 addr = vpl->alloc.Alloc(allocSize, true);
 		if (addr != (u32) -1)
-			Memory::Write_U32(addr, threadInfo.second);
+			Memory::Write_U32(addr, threadInfo.addrPtr);
 		else
 			return false;
 
@@ -771,7 +776,7 @@ void __KernelVplRemoveThread(VPL *vpl, SceUID threadID)
 	for (size_t i = 0; i < vpl->waitingThreads.size(); i++)
 	{
 		VplWaitingThread *t = &vpl->waitingThreads[i];
-		if (t->first == threadID)
+		if (t->threadID == threadID)
 		{
 			vpl->waitingThreads.erase(vpl->waitingThreads.begin() + i);
 			break;
@@ -781,7 +786,7 @@ void __KernelVplRemoveThread(VPL *vpl, SceUID threadID)
 
 bool __VplThreadSortPriority(VplWaitingThread thread1, VplWaitingThread thread2)
 {
-	return __KernelThreadSortPriority(thread1.first, thread2.first);
+	return __KernelThreadSortPriority(thread1.threadID, thread2.threadID);
 }
 
 bool __KernelClearVplThreads(VPL *vpl, int reason)
@@ -972,7 +977,8 @@ int sceKernelAllocateVpl(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr)
 
 				SceUID threadID = __KernelGetCurThread();
 				__KernelVplRemoveThread(vpl, threadID);
-				vpl->waitingThreads.push_back(std::make_pair(threadID, addrPtr));
+				VplWaitingThread waiting = {threadID, addrPtr};
+				vpl->waitingThreads.push_back(waiting);
 			}
 
 			__KernelSetVplTimeout(timeoutPtr);
@@ -998,7 +1004,8 @@ int sceKernelAllocateVplCB(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr)
 
 				SceUID threadID = __KernelGetCurThread();
 				__KernelVplRemoveThread(vpl, threadID);
-				vpl->waitingThreads.push_back(std::make_pair(threadID, addrPtr));
+				VplWaitingThread waiting = {threadID, addrPtr};
+				vpl->waitingThreads.push_back(waiting);
 			}
 
 			__KernelSetVplTimeout(timeoutPtr);
