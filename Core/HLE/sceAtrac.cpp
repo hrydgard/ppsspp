@@ -79,11 +79,6 @@ void __AtracInit()
 }
 
 void __AtracDoState(PointerWrap &p) {
-	if (p.mode == p.MODE_READ) {
-		for (auto it = atracMap.begin(), end = atracMap.end(); it != end; ++it) {
-			delete it->second;
-		}
-	}
 	p.Do(atracMap);
 
 	p.DoMarker("sceAtrac");

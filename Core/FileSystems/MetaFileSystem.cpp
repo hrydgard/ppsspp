@@ -418,9 +418,9 @@ void MetaFileSystem::DoState(PointerWrap &p)
 	// Save/load per-thread current directory map
 	p.Do(currentDir);
 
-	int n = (u32) fileSystems.size();
+	u32 n = (u32) fileSystems.size();
 	p.Do(n);
-	if (n != fileSystems.size())
+	if (n != (u32) fileSystems.size())
 	{
 		ERROR_LOG(FILESYS, "Savestate failure: number of filesystems doesn't match.");
 		return;

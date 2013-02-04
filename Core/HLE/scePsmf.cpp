@@ -338,13 +338,6 @@ void __PsmfInit()
 
 void __PsmfDoState(PointerWrap &p)
 {
-	if (p.mode == p.MODE_READ) {
-		std::map<u32, Psmf *>::iterator it, end;
-		for (it = psmfMap.begin(), end = psmfMap.end(); it != end; ++it) {
-			delete it->second;
-		}
-		psmfMap.clear();
-	}
 	p.Do(psmfMap);
 
 	p.DoMarker("scePsmf");
@@ -352,13 +345,6 @@ void __PsmfDoState(PointerWrap &p)
 
 void __PsmfPlayerDoState(PointerWrap &p)
 {
-	if (p.mode == p.MODE_READ) {
-		std::map<u32, PsmfPlayer *>::iterator it, end;
-		for (it = psmfPlayerMap.begin(), end = psmfPlayerMap.end(); it != end; ++it) {
-			delete it->second;
-		}
-		psmfMap.clear();
-	}
 	p.Do(psmfPlayerMap);
 
 	// TODO: Actually load this from a map.

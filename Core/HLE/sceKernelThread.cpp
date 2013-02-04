@@ -198,10 +198,6 @@ public:
 	}
 
 	void DoState(PointerWrap &p) {
-		// Gotta delete the calls.
-		if (p.mode == p.MODE_READ) {
-			clear();
-		}
 		p.Do(calls_);
 		p.Do(idGen_);
 		p.DoMarker("MipsCallManager");

@@ -109,14 +109,30 @@ public:
 		(*ptr) += size;
 	}
 
-	template<class T>
-	void Do(std::map<unsigned int, T> &x)
+	template<class K, class T>
+	void Do(std::map<K, T *> &x)
 	{
-		Do<unsigned int, T>(x);
+		if (mode == MODE_READ)
+		{
+			for (auto it = x.begin(), end = x.end(); it != end; ++it)
+			{
+				if (it->second != NULL)
+					delete it->second;
+			}
+		}
+		T *dv = NULL;
+		DoMap(x, dv);
 	}
 
 	template<class K, class T>
 	void Do(std::map<K, T> &x)
+	{
+		T dv;
+		DoMap(x, dv);
+	}
+
+	template<class K, class T>
+	void DoMap(std::map<K, T> &x, T &default_val)
 	{
 		unsigned int number = (unsigned int)x.size();
 		Do(number);
@@ -128,7 +144,7 @@ public:
 				{
 					K first = 0;
 					Do(first);
-					T second;
+					T second = default_val;
 					Do(second);
 					x[first] = second;
 					--number;
@@ -153,7 +169,29 @@ public:
 	}
 
 	template<class K, class T>
+	void Do(std::multimap<K, T *> &x)
+	{
+		if (mode == MODE_READ)
+		{
+			for (auto it = x.begin(), end = x.end(); it != end; ++it)
+			{
+				if (it->second != NULL)
+					delete it->second;
+			}
+		}
+		T *dv = NULL;
+		DoMultimap(x, dv);
+	}
+
+	template<class K, class T>
 	void Do(std::multimap<K, T> &x)
+	{
+		T dv;
+		DoMultimap(x, dv);
+	}
+
+	template<class K, class T>
+	void DoMultimap(std::multimap<K, T> &x, T &default_val)
 	{
 		unsigned int number = (unsigned int)x.size();
 		Do(number);
@@ -165,7 +203,7 @@ public:
 				{
 					K first;
 					Do(first);
-					T second;
+					T second = default_val;
 					Do(second);
 					x.insert(std::make_pair(first, second));
 					--number;
@@ -191,14 +229,27 @@ public:
 
 	// Store vectors.
 	template<class T>
+	void Do(std::vector<T *> &x)
+	{
+		T *dv = NULL;
+		DoVector(x, dv);
+	}
+
+	template<class T>
 	void Do(std::vector<T> &x)
 	{
 		T dv;
-		Do(x, dv);
+		DoVector(x, dv);
 	}
 
 	template<class T>
 	void Do(std::vector<T> &x, T &default_val)
+	{
+		DoVector(x, default_val);
+	}
+
+	template<class T>
+	void DoVector(std::vector<T> &x, T &default_val)
 	{
 		u32 vec_size = (u32)x.size();
 		Do(vec_size);
@@ -209,26 +260,53 @@ public:
 	
 	// Store deques.
 	template<class T>
+	void Do(std::deque<T *> &x)
+	{
+		T *dv = NULL;
+		DoDeque(x, dv);
+	}
+
+	template<class T>
 	void Do(std::deque<T> &x)
+	{
+		T dv;
+		DoDeque(x, dv);
+	}
+
+	template<class T>
+	void DoDeque(std::deque<T> &x, T &default_val)
 	{
 		u32 deq_size = (u32)x.size();
 		Do(deq_size);
-		x.resize(deq_size);
+		x.resize(deq_size, default_val);
 		u32 i;
 		for(i = 0; i < deq_size; i++)
-			DoVoid(&x[i],sizeof(T));
+			Do(x[i]);
 	}
 
 	// Store STL lists.
 	template<class T>
-	void Do(std::list<T> &x)
+	void Do(std::list<T *> &x)
 	{
-		T dv;
+		T *dv = NULL;
 		Do(x, dv);
 	}
 
 	template<class T>
+	void Do(std::list<T> &x)
+	{
+		T dv;
+		DoList(x, dv);
+	}
+
+	template<class T>
 	void Do(std::list<T> &x, T &default_val)
+	{
+		DoList(x, default_val);
+	}
+
+	template<class T>
+	void DoList(std::list<T> &x, T &default_val)
 	{
 		u32 list_size = (u32)x.size();
 		Do(list_size);
@@ -241,7 +319,27 @@ public:
 
 	// Store STL sets.
 	template <class T>
+	void Do(std::set<T *> &x)
+	{
+		if (mode == MODE_READ)
+		{
+			for (auto it = x.begin(), end = x.end(); it != end; ++it)
+			{
+				if (*it != NULL)
+					delete *it;
+			}
+		}
+		DoSet(x);
+	}
+
+	template <class T>
 	void Do(std::set<T> &x)
+	{
+		DoSet(x);
+	}
+
+	template <class T>
+	void DoSet(std::set<T> &x)
 	{
 		unsigned int number = (unsigned int)x.size();
 		Do(number);
@@ -311,7 +409,11 @@ public:
 	template<class T>
 	void DoClass(T *&x) {
 		if (mode == MODE_READ)
+		{
+			if (x != NULL)
+				delete x;
 			x = new T();
+		}
 		x->DoState(*this);
 	}
 

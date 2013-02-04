@@ -230,13 +230,7 @@ void __InterruptsDoState(PointerWrap &p)
 
 	intState.DoState(p);
 	PendingInterrupt pi(0, 0);
-
-	u32 list_size = (u32)pendingInterrupts.size();
-	p.Do(list_size);
-	pendingInterrupts.resize(list_size, pi);
-	for (auto it = pendingInterrupts.begin(), end = pendingInterrupts.end(); it != end; ++it)
-		it->DoState(p);
-
+	p.Do(pendingInterrupts, pi);
 	p.Do(interruptsEnabled);
 	p.Do(inInterrupt);
 	p.DoMarker("sceKernelInterrupt");
