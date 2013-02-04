@@ -182,7 +182,7 @@ struct MpegContext {
 		p.Do(ignoreAvc);
 		p.Do(isAnalyzed);
 		p.Do<StreamInfo>(streamMap);
-		mediaengine->DoState(p);
+		p.DoClass(mediaengine);
 		p.DoMarker("MpegContext");
 	}
 
@@ -369,31 +369,15 @@ void __MpegDoState(PointerWrap &p) {
 	p.Do(actionPostPut);
 	__KernelRestoreActionType(actionPostPut, PostPutAction::Create);
 
-	int n = (int) mpegMap.size();
-	p.Do(n);
 	if (p.mode == p.MODE_READ) {
 		std::map<u32, MpegContext *>::iterator it, end;
-		for (it = mpegMap.begin(), end = mpegMap.end(); it != end; ++it) {
+		for (auto it = mpegMap.begin(), end = mpegMap.end(); it != end; ++it) {
 			delete it->second->mediaengine;
 			delete it->second;
 		}
 		mpegMap.clear();
-
-		for (int i = 0; i < n; ++i) {
-			u32 key;
-			p.Do(key);
-			MpegContext *ctx = new MpegContext;
-			ctx->mediaengine = new MediaEngine;
-			ctx->DoState(p);
-			mpegMap[key] = ctx;
-		}
-	} else {
-		std::map<u32, MpegContext *>::iterator it, end;
-		for (it = mpegMap.begin(), end = mpegMap.end(); it != end; ++it) {
-			p.Do(it->first);
-			it->second->DoState(p);
-		}
 	}
+	p.Do(mpegMap);
 
 	p.DoMarker("sceMpeg");
 }

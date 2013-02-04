@@ -79,27 +79,12 @@ void __AtracInit()
 }
 
 void __AtracDoState(PointerWrap &p) {
-	int n = (int) atracMap.size();
-	p.Do(n);
 	if (p.mode == p.MODE_READ) {
 		for (auto it = atracMap.begin(), end = atracMap.end(); it != end; ++it) {
 			delete it->second;
 		}
-		atracMap.clear();
-
-		for (int i = 0; i < n; ++i) {
-			int key;
-			p.Do(key);
-			Atrac *atrac = new Atrac;
-			atrac->DoState(p);
-			atracMap[key] = atrac;
-		}
-	} else {
-		for (auto it = atracMap.begin(), end = atracMap.end(); it != end; ++it) {
-			p.Do(it->first);
-			it->second->DoState(p);
-		}
 	}
+	p.Do(atracMap);
 
 	p.DoMarker("sceAtrac");
 }
