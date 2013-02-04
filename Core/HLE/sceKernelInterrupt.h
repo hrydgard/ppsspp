@@ -52,8 +52,8 @@ enum PSPInterrupt {
 
 // These are invented for PPSSPP:
 enum PSPGeSubInterrupts {
-  PSP_GE_SUBINTR_FINISH = 14,
-  PSP_GE_SUBINTR_SIGNAL = 15
+  PSP_GE_SUBINTR_SIGNAL = 0,
+  PSP_GE_SUBINTR_FINISH = 1,
 };
 
 enum PSPInterruptTriggerType {
@@ -68,46 +68,61 @@ enum PSPInterruptTriggerType {
 	PSP_INTR_ALWAYS_RESCHED = 0x4,
 };
 
-struct PendingInterrupt {
-	PendingInterrupt(int intr_, int subintr_)
-		: intr(intr_), subintr(subintr_), hasArg(false) {}
-	PendingInterrupt(int intr_, int subintr_, int arg_)
-		: intr(intr_), subintr(subintr_), hasArg(true), arg(arg_) {}
-
-	u32 intr;
-	u32 subintr;
-	bool hasArg;
-	int arg;
+enum PSPSubInterruptTriggerType {
+	// Trigger all sub intr
+	PSP_INTR_SUB_ALL    = -2,
+	// Trigger code at the interrupt handler level
+	PSP_INTR_SUB_NONE   = -1,
+	// Trigger specific sub interrupt
+	PSP_INTR_SUB_NUMBER = 0,
 };
 
-class SubIntrHandler
+struct PendingInterrupt {
+	PendingInterrupt(int intr_, int subintr_)
+		: intr(intr_), subintr(subintr_) {}
+
+	int intr;
+	int subintr;
+};
+
+struct SubIntrHandler
 {
-public:
-	SubIntrHandler() {}
-	virtual ~SubIntrHandler() {}
-	virtual void queueUp();
-	virtual void queueUpWithArg(int arg);
-	virtual void copyArgsToCPU(const PendingInterrupt &pend);
-	virtual void handleResult(int result) {}
-
-	virtual void DoState(PointerWrap &p)
-	{
-		p.Do(enabled);
-		p.Do(intrNumber);
-		p.Do(number);
-		p.Do(handlerAddress);
-		p.Do(handlerArg);
-		p.DoMarker("SubIntrHandler");
-	}
-
 	bool enabled;
 	int intrNumber;
-	int number;
+	int subIntrNumber;
 	u32 handlerAddress;
 	u32 handlerArg;
 };
 
-typedef SubIntrHandler *(*SubIntrCreator)();
+class IntrHandler
+{
+public:
+	IntrHandler(int intrNumber_)
+		: intrNumber(intrNumber_)
+	{
+	}
+	virtual ~IntrHandler() {}
+
+	virtual bool run(PendingInterrupt& pend);
+	virtual void copyArgsToCPU(PendingInterrupt& pend);
+	virtual void handleResult(PendingInterrupt& pend);
+	void queueUp(int subintr);
+
+	SubIntrHandler* add(int subIntrNum);
+	void remove(int subIntrNum);
+	bool has(int subIntrNum) const;
+	void enable(int subIntrNum);
+	void disable(int subIntrNum);
+	SubIntrHandler *get(int subIntrNum);
+	void clear();
+
+
+	void DoState(PointerWrap &p);
+
+private:
+	int intrNumber;
+	std::map<int, SubIntrHandler> subIntrHandlers;
+};
 
 bool __IsInInterrupt();
 void __InterruptsInit();
@@ -115,11 +130,10 @@ void __InterruptsDoState(PointerWrap &p);
 void __InterruptsDoStateLate(PointerWrap &p);
 void __InterruptsShutdown();
 void __TriggerInterrupt(int type, PSPInterrupt intno, int subInterrupts = -1);
-void __TriggerInterruptWithArg(int type, PSPInterrupt intno, int subintr, int arg);  // For GE "callbacks"
 bool __RunOnePendingInterrupt();
 void __KernelReturnFromInterrupt();
 
-void __RegisterSubIntrCreator(u32 intrNumber, SubIntrCreator creator);
+void __RegisterIntrHandler(u32 intrNumber, IntrHandler* handler);
 SubIntrHandler *__RegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 &error);
 u32 __ReleaseSubIntrHandler(u32 intrNumber, u32 subIntrNumber);
 

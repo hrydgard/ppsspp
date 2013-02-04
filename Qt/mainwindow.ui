@@ -136,6 +136,7 @@
      <addaction name="action_OptionsScreen4x"/>
     </widget>
     <addaction name="action_OptionsControls"/>
+    <addaction name="action_OptionsGamePadControls"/>
     <addaction name="separator"/>
     <addaction name="action_OptionsFullScreen"/>
     <addaction name="action_OptionsBufferedRendering"/>
@@ -320,7 +321,7 @@
   </action>
   <action name="action_OptionsControls">
    <property name="text">
-    <string>&amp;Controls</string>
+    <string>Keyboard &amp;Controls</string>
    </property>
   </action>
   <action name="action_OptionsFullScreen">
@@ -554,6 +555,11 @@
    </property>
    <property name="text">
     <string>Error</string>
+   </property>
+  </action>
+  <action name="action_OptionsGamePadControls">
+   <property name="text">
+    <string>GamePad Controls</string>
    </property>
   </action>
  </widget>

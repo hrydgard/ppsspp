@@ -1,0 +1,512 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>GamePadDialog</class>
+ <widget class="QDialog" name="GamePadDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>850</width>
+    <height>501</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Gamepad Configuration</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout_2">
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_3">
+     <item>
+      <widget class="QGroupBox" name="groupBox">
+       <property name="title">
+        <string>GamePad List</string>
+       </property>
+       <layout class="QVBoxLayout" name="verticalLayout_3">
+        <item>
+         <widget class="QListWidget" name="GamePadList"/>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout">
+          <item>
+           <spacer name="horizontalSpacer">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item>
+           <widget class="QPushButton" name="refreshListBtn">
+            <property name="text">
+             <string>Refresh</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="SelectPadBtn">
+            <property name="text">
+             <string>Select</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="QLabel" name="label">
+          <property name="text">
+           <string>Gamepad Values :</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QTreeWidget" name="padValues">
+          <attribute name="headerVisible">
+           <bool>false</bool>
+          </attribute>
+          <column>
+           <property name="text">
+            <string notr="true">1</string>
+           </property>
+          </column>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <layout class="QVBoxLayout" name="verticalLayout">
+       <item>
+        <widget class="QLabel" name="JoyName">
+         <property name="text">
+          <string>TextLabel</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignCenter</set>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_2">
+         <item>
+          <widget class="QLabel" name="label_2">
+           <property name="text">
+            <string>Assign Gamepad input</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QComboBox" name="comboPadInput"/>
+         </item>
+         <item>
+          <widget class="QLabel" name="label_3">
+           <property name="text">
+            <string> to PSP button/axis</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QComboBox" name="comboPSPButton"/>
+         </item>
+         <item>
+          <widget class="QPushButton" name="AssignBtn">
+           <property name="text">
+            <string>Assign</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <widget class="QLabel" name="label_4">
+         <property name="text">
+          <string>Press buttons on your gamePad to verify mapping :</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_4">
+         <item>
+          <spacer name="horizontalSpacer_4">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QWidget" name="widget" native="true">
+           <property name="minimumSize">
+            <size>
+             <width>500</width>
+             <height>218</height>
+            </size>
+           </property>
+           <widget class="QLabel" name="PSPImg">
+            <property name="geometry">
+             <rect>
+              <x>0</x>
+              <y>0</y>
+              <width>500</width>
+              <height>218</height>
+             </rect>
+            </property>
+            <property name="text">
+             <string/>
+            </property>
+            <property name="pixmap">
+             <pixmap resource="resources.qrc">:/images/resources/psp.png</pixmap>
+            </property>
+           </widget>
+           <widget class="QLabel" name="Prev_Up">
+            <property name="geometry">
+             <rect>
+              <x>110</x>
+              <y>78</y>
+              <width>21</width>
+              <height>21</height>
+             </rect>
+            </property>
+            <property name="text">
+             <string/>
+            </property>
+            <property name="pixmap">
+             <pixmap resource="resources.qrc">:/images/resources/psp_up_red.png</pixmap>
+            </property>
+           </widget>
+           <widget class="QLabel" name="Prev_Left">
+            <property name="geometry">
+             <rect>
+              <x>92</x>
+              <y>93</y>
+              <width>21</width>
+              <height>20</height>
+             </rect>
+            </property>
+            <property name="text">
+             <string/>
+            </property>
+            <property name="pixmap">
+             <pixmap resource="resources.qrc">:/images/resources/psp_left_red.png</pixmap>
+            </property>
+           </widget>
+           <widget class="QLabel" name="Prev_Right">
+            <property name="geometry">
+             <rect>
+              <x>122</x>
+              <y>94</y>
+              <width>20</width>
+              <height>20</height>
+             </rect>
+            </property>
+            <property name="text">
+             <string/>
+            </property>
+            <property name="pixmap">
+             <pixmap resource="resources.qrc">:/images/resources/psp_right_red.png</pixmap>
+            </property>
+           </widget>
+           <widget class="QLabel" name="Prev_Down">
+            <property name="geometry">
+             <rect>
+              <x>109</x>
+              <y>105</y>
+              <width>21</width>
+              <height>30</height>
+             </rect>
+            </property>
+            <property name="text">
+             <string/>
+            </property>
+            <property name="pixmap">
+             <pixmap resource="resources.qrc">:/images/resources/psp_down_red.png</pixmap>
+            </property>
+           </widget>
+           <widget class="QLabel" name="Prev_Home">
+            <property name="geometry">
+             <rect>
+              <x>141</x>
+              <y>165</y>
+              <width>30</width>
+              <height>21</height>
+             </rect>
+            </property>
+            <property name="text">
+             <string/>
+            </property>
+            <property name="pixmap">
+             <pixmap resource="resources.qrc">:/images/resources/psp_smallbtn_red.png</pixmap>
+            </property>
+           </widget>
+           <widget class="QLabel" name="Prev_Select">
+            <property name="geometry">
+             <rect>
+              <x>312</x>
+              <y>166</y>
+              <width>21</width>
+              <height>16</height>
+             </rect>
+            </property>
+            <property name="text">
+             <string/>
+            </property>
+            <property name="pixmap">
+             <pixmap resource="resources.qrc">:/images/resources/psp_smallbtn_red.png</pixmap>
+            </property>
+           </widget>
+           <widget class="QLabel" name="Prev_Start">
+            <property name="geometry">
+             <rect>
+              <x>339</x>
+              <y>166</y>
+              <width>21</width>
+              <height>16</height>
+             </rect>
+            </property>
+            <property name="text">
+             <string/>
+            </property>
+            <property name="pixmap">
+             <pixmap resource="resources.qrc">:/images/resources/psp_smallbtn_red.png</pixmap>
+            </property>
+           </widget>
+           <widget class="QLabel" name="Prev_S">
+            <property name="geometry">
+             <rect>
+              <x>351</x>
+              <y>92</y>
+              <width>21</width>
+              <height>21</height>
+             </rect>
+            </property>
+            <property name="text">
+             <string/>
+            </property>
+            <property name="pixmap">
+             <pixmap resource="resources.qrc">:/images/resources/psp_rightbtn_red.png</pixmap>
+            </property>
+           </widget>
+           <widget class="QLabel" name="Prev_X">
+            <property name="geometry">
+             <rect>
+              <x>374</x>
+              <y>114</y>
+              <width>21</width>
+              <height>21</height>
+             </rect>
+            </property>
+            <property name="text">
+             <string/>
+            </property>
+            <property name="pixmap">
+             <pixmap resource="resources.qrc">:/images/resources/psp_rightbtn_red.png</pixmap>
+            </property>
+           </widget>
+           <widget class="QLabel" name="Prev_O">
+            <property name="geometry">
+             <rect>
+              <x>396</x>
+              <y>93</y>
+              <width>21</width>
+              <height>21</height>
+             </rect>
+            </property>
+            <property name="text">
+             <string/>
+            </property>
+            <property name="pixmap">
+             <pixmap resource="resources.qrc">:/images/resources/psp_rightbtn_red.png</pixmap>
+            </property>
+           </widget>
+           <widget class="QLabel" name="Prev_T">
+            <property name="geometry">
+             <rect>
+              <x>374</x>
+              <y>71</y>
+              <width>21</width>
+              <height>21</height>
+             </rect>
+            </property>
+            <property name="text">
+             <string/>
+            </property>
+            <property name="pixmap">
+             <pixmap resource="resources.qrc">:/images/resources/psp_rightbtn_red.png</pixmap>
+            </property>
+           </widget>
+           <widget class="QLabel" name="Prev_RT">
+            <property name="geometry">
+             <rect>
+              <x>351</x>
+              <y>32</y>
+              <width>61</width>
+              <height>21</height>
+             </rect>
+            </property>
+            <property name="text">
+             <string/>
+            </property>
+            <property name="pixmap">
+             <pixmap resource="resources.qrc">:/images/resources/psp_rt_red.png</pixmap>
+            </property>
+           </widget>
+           <widget class="QLabel" name="Prev_LT">
+            <property name="geometry">
+             <rect>
+              <x>93</x>
+              <y>32</y>
+              <width>60</width>
+              <height>21</height>
+             </rect>
+            </property>
+            <property name="text">
+             <string/>
+            </property>
+            <property name="pixmap">
+             <pixmap resource="resources.qrc">:/images/resources/psp_lt_red.png</pixmap>
+            </property>
+           </widget>
+           <widget class="QLabel" name="Prev_ADown">
+            <property name="geometry">
+             <rect>
+              <x>107</x>
+              <y>144</y>
+              <width>21</width>
+              <height>21</height>
+             </rect>
+            </property>
+            <property name="text">
+             <string/>
+            </property>
+            <property name="pixmap">
+             <pixmap resource="resources.qrc">:/images/resources/psp_adown.png</pixmap>
+            </property>
+           </widget>
+           <widget class="QLabel" name="Prev_ALeft">
+            <property name="geometry">
+             <rect>
+              <x>107</x>
+              <y>139</y>
+              <width>16</width>
+              <height>21</height>
+             </rect>
+            </property>
+            <property name="text">
+             <string/>
+            </property>
+            <property name="pixmap">
+             <pixmap resource="resources.qrc">:/images/resources/psp_aleft.png</pixmap>
+            </property>
+           </widget>
+           <widget class="QLabel" name="Prev_AUp">
+            <property name="geometry">
+             <rect>
+              <x>108</x>
+              <y>134</y>
+              <width>21</width>
+              <height>21</height>
+             </rect>
+            </property>
+            <property name="text">
+             <string/>
+            </property>
+            <property name="pixmap">
+             <pixmap resource="resources.qrc">:/images/resources/psp_aup.png</pixmap>
+            </property>
+           </widget>
+           <widget class="QLabel" name="Prev_ARight">
+            <property name="geometry">
+             <rect>
+              <x>118</x>
+              <y>138</y>
+              <width>21</width>
+              <height>21</height>
+             </rect>
+            </property>
+            <property name="text">
+             <string/>
+            </property>
+            <property name="pixmap">
+             <pixmap resource="resources.qrc">:/images/resources/psp_aright.png</pixmap>
+            </property>
+           </widget>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer_3">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+        </layout>
+       </item>
+      </layout>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources>
+  <include location="resources.qrc"/>
+ </resources>
+ <connections>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>accepted()</signal>
+   <receiver>GamePadDialog</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>248</x>
+     <y>254</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>157</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>rejected()</signal>
+   <receiver>GamePadDialog</receiver>
+   <slot>reject()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>316</x>
+     <y>260</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>286</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+</ui>
