@@ -252,6 +252,7 @@ BEGIN
         MENUITEM "&Controls",                   ID_OPTIONS_CONTROLS
         MENUITEM SEPARATOR
         MENUITEM "&Toggle Full Screen\tF12",    ID_OPTIONS_FULLSCREEN
+        MENUITEM "Set to 30 Frames per Sec",    ID_OPTIONS_SET30FPS
         MENUITEM "&Buffered Rendering\tF5",     ID_OPTIONS_BUFFEREDRENDERING
         MENUITEM "&Hardware Transform\tF6",     ID_OPTIONS_HARDWARETRANSFORM
         MENUITEM "&Linear Filtering",           ID_OPTIONS_LINEARFILTERING

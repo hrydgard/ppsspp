@@ -83,7 +83,7 @@ std::vector<VblankCallback> vblankListeners;
 
 // The vblank period is 731.5 us (0.7315 ms)
 const double vblankMs = 0.7315;
-const double frameMs = 1000.0 / 60.0;
+double frameMs = 1000.0 / 60.0;
 
 enum {
 	PSP_DISPLAY_SETBUF_IMMEDIATE = 0,
@@ -266,16 +266,25 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	static double lastFrameTime = 0.0;
 	// Best place to throttle the frame rate on non vsynced platforms is probably here. Let's try it.
 	time_update();
+	double framerate = 60.0;
+	if (g_Config.bSet30FPS){
+		framerate = 30.0;
+	}
 	if (lastFrameTime == 0.0)
 		lastFrameTime = time_now_d();
 	if (!GetAsyncKeyState(VK_TAB)) {
-		while (time_now_d() < lastFrameTime + 1.0 / 60.0) {
+		while (time_now_d() < lastFrameTime + 1.0 / framerate) {
 			Common::SleepCurrentThread(1);
 			time_update();
 		}
 		// Advance lastFrameTime by a constant amount each frame,
 		// but don't let it get too far behind.
-		lastFrameTime = std::max(lastFrameTime + 1.0 / 60.0, time_now_d() - 1.5 / 60.0);
+		lastFrameTime = std::max(lastFrameTime + 1.0 / framerate, time_now_d() - 1.5 / framerate);
+	}
+	if (g_Config.bSet30FPS){
+		frameMs = 1000.0 / 30.0;
+	}else{
+		frameMs = 1000.0 / 60.0;
 	}
 
 	// We are going to have to do something about audio timing for platforms that

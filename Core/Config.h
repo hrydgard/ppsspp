@@ -62,6 +62,7 @@ public:
 	bool bDisableG3DLog;
 	bool bVertexCache;
 	bool bFullScreen;
+	bool bSet30FPS;
 
 	// Sound
 	bool bEnableSound;
