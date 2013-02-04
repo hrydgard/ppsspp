@@ -730,15 +730,15 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 		break;
 
 	case GE_CMD_COLORTEST:
-		sprintf(buffer, "ColorTest: %06", data);
+		sprintf(buffer, "ColorTest: %06x", data);
 		break;
 
 	case GE_CMD_COLORREF:
-		sprintf(buffer, "ColorRef: %06", data);
+		sprintf(buffer, "ColorRef: %06x", data);
 		break;
 
 	case GE_CMD_COLORTESTMASK:
-		sprintf(buffer, "ColorTestMask: %06", data);
+		sprintf(buffer, "ColorTestMask: %06x", data);
 		break;
 
 	case GE_CMD_MASKRGB:
