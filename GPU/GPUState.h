@@ -251,7 +251,6 @@ struct GPUStateCache
 	float vpWidth;
 	float vpHeight;
 
-
 	u32 getRelativeAddress(u32 data) const;
 };
 

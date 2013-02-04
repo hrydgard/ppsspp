@@ -292,7 +292,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 		}
 		// TODO: Declare variables for dots for shade mapping if needed.
 
-		const char *ambient = (gstate.materialupdate & 1) ? (hasColor ? "a_color0" : "u_matambientalpha") : "vec4(u_matambient, 1.0)";
+		const char *ambient = (gstate.materialupdate & 1) ? (hasColor ? "a_color0" : "u_matambientalpha") : "u_matambientalpha";
 		const char *diffuse = (gstate.materialupdate & 2) ? "unlitColor" : "u_matdiffuse";
 		const char *specular = (gstate.materialupdate & 4) ? "unlitColor" : "u_matspecular.rgb";
 
