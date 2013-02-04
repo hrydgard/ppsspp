@@ -23,22 +23,85 @@
 
 enum DisplayListStatus
 {
-	PSP_GE_LIST_DONE          = 0, // reached finish+end
-	PSP_GE_LIST_QUEUED        = 1, // in queue, not stalled
-	PSP_GE_LIST_DRAWING       = 2, // drawing
-	PSP_GE_LIST_STALL_REACHED = 3, // stalled
-	PSP_GE_LIST_END_REACHED   = 4, // reached signal+end, in jpcsp but not in pspsdk?
-	PSP_GE_LIST_CANCEL_DONE   = 5, // canceled?
+    /** The list has been completed */
+    PSP_GE_LIST_COMPLETED = 0,
+    /** The list is queued but not executed yet */
+    PSP_GE_LIST_QUEUED = 1,
+    /** The list is currently being executed */
+    PSP_GE_LIST_DRAWING = 2,
+    /** The list was stopped because it encountered stall address */
+    PSP_GE_LIST_STALLING = 3,
+    /** The list is paused because of a signal or sceGeBreak */
+    PSP_GE_LIST_PAUSED = 4,
+};
+
+enum DisplayListState
+{
+    /** No state assigned, the list is empty */
+    PSP_GE_DL_STATE_NONE = 0,
+    /** The list has been queued */
+    PSP_GE_DL_STATE_QUEUED = 1,
+    /** The list is being executed */
+    PSP_GE_DL_STATE_RUNNING = 2,
+    /** The list was completed and will be removed */
+    PSP_GE_DL_STATE_COMPLETED = 3,
+    /** The list has been paused by a signal */
+    PSP_GE_DL_STATE_PAUSED = 4,
+};
+
+enum SignalBehavior
+{
+	PSP_GE_SIGNAL_NONE             = 0x00,
+	PSP_GE_SIGNAL_HANDLER_SUSPEND  = 0x01,
+	PSP_GE_SIGNAL_HANDLER_CONTINUE = 0x02,
+	PSP_GE_SIGNAL_HANDLER_PAUSE    = 0x03,
+	PSP_GE_SIGNAL_SYNC             = 0x08,
+	PSP_GE_SIGNAL_JUMP             = 0x10,
+	PSP_GE_SIGNAL_CALL             = 0x11,
+	PSP_GE_SIGNAL_RET              = 0x12,
+	PSP_GE_SIGNAL_RJUMP            = 0x13,
+	PSP_GE_SIGNAL_RCALL            = 0x14,
+	PSP_GE_SIGNAL_OJUMP            = 0x15,
+	PSP_GE_SIGNAL_OCALL            = 0x16,
+
+	PSP_GE_SIGNAL_RTBP0            = 0x20,
+	PSP_GE_SIGNAL_RTBP1            = 0x21,
+	PSP_GE_SIGNAL_RTBP2            = 0x22,
+	PSP_GE_SIGNAL_RTBP3            = 0x23,
+	PSP_GE_SIGNAL_RTBP4            = 0x24,
+	PSP_GE_SIGNAL_RTBP5            = 0x25,
+	PSP_GE_SIGNAL_RTBP6            = 0x26,
+	PSP_GE_SIGNAL_RTBP7            = 0x27,
+	PSP_GE_SIGNAL_OTBP0            = 0x28,
+	PSP_GE_SIGNAL_OTBP1            = 0x29,
+	PSP_GE_SIGNAL_OTBP2            = 0x2A,
+	PSP_GE_SIGNAL_OTBP3            = 0x2B,
+	PSP_GE_SIGNAL_OTBP4            = 0x2C,
+	PSP_GE_SIGNAL_OTBP5            = 0x2D,
+	PSP_GE_SIGNAL_OTBP6            = 0x2E,
+	PSP_GE_SIGNAL_OTBP7            = 0x2F,
+	PSP_GE_SIGNAL_RCBP             = 0x30,
+	PSP_GE_SIGNAL_OCBP             = 0x38,
+	PSP_GE_SIGNAL_BREAK1           = 0xF0,
+	PSP_GE_SIGNAL_BREAK2           = 0xFF,
 };
 
 struct DisplayList
 {
-	int id;
 	u32 pc;
 	u32 stall;
-	DisplayListStatus status;
+	DisplayListState state;
+	SignalBehavior signal;
 	int subIntrBase;
 	u16 subIntrToken;
+	u32 stack[32];
+	int stackptr;
+	bool interrupted;
+	bool threadWaiting;
+
+	bool stalled() {
+		return pc == stall;
+	}
 };
 
 class GPUInterface
@@ -46,24 +109,27 @@ class GPUInterface
 public:
 	virtual ~GPUInterface() {}
 
+	static const int DisplayListMaxCount = 64;
+
 	// Initialization
 	virtual void InitClear() = 0;
 
 	// Draw queue management
 	virtual DisplayList* getList(int listid) = 0;
-	// TODO: Much of this should probably be shared between the different GPU implementations.
-	virtual u32 EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head) = 0;
-	virtual void UpdateStall(int listid, u32 newstall) = 0;
-	virtual void DrawSync(int mode) = 0;
-	virtual void Continue() = 0;
+	virtual u32  EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head) = 0;
+	virtual u32  DequeueList(int listid) = 0;
+	virtual u32  UpdateStall(int listid, u32 newstall) = 0;
+	virtual u32  DrawSync(int mode) = 0;
+	virtual int  ListSync(int listid, int mode) = 0;
+	virtual u32  Continue() = 0;
+	virtual u32  Break(int mode) = 0;
 
 	virtual void InterruptStart() = 0;
 	virtual void InterruptEnd() = 0;
 
 	virtual void PreExecuteOp(u32 op, u32 diff) = 0;
 	virtual void ExecuteOp(u32 op, u32 diff) = 0;
-	virtual bool InterpretList(DisplayList& list) = 0;
-	virtual int  listStatus(int listid) = 0;
+	virtual void ProcessDLQueue() = 0;
 
 	// Framebuffer management
 	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, int format) = 0;
@@ -77,9 +143,6 @@ public:
 	// If size = -1, invalidate everything.
 	virtual void InvalidateCache(u32 addr, int size) = 0;
 	virtual void InvalidateCacheHint(u32 addr, int size) = 0;
-
-	// Internal hack to avoid interrupts from "PPGe" drawing (utility UI, etc)
-	virtual void EnableInterrupts(bool enable) = 0;
 
 	virtual void DeviceLost() = 0;
 	virtual void Flush() = 0;

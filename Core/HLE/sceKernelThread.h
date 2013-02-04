@@ -84,6 +84,8 @@ enum WaitType //probably not the real values
 	WAITTYPE_MUTEX = 13,
 	WAITTYPE_LWMUTEX = 14,
 	WAITTYPE_CTRL = 15,
+	WAITTYPE_GEDRAWSYNC = 16,
+	WAITTYPE_GELISTSYNC = 17,
 };
 
 
