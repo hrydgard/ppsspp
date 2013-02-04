@@ -229,15 +229,15 @@ void PPGeEnd()
 	WriteCmd(GE_CMD_END, 0);
 
 	if (dataWritePtr > dataPtr) {
+		sceGeBreak(0);
 		sceGeSaveContext(savedContextPtr);
 		gpu->EnableInterrupts(false);
 
 		// We actually drew something
-		u32 list = sceGeListEnQueue(dlPtr, dlWritePtr, 0, 0);
+		u32 list = sceGeListEnQueueHead(dlPtr, dlWritePtr, -1, 0);
 		DEBUG_LOG(HLE, "PPGe enqueued display list %i", list);
-		// TODO: Might need to call some internal trickery function when this is actually synchronous.
-		// sceGeListSync(u32 displayListID, 1); //0 : wait for completion		1:check and return
 		gpu->EnableInterrupts(true);
+		sceGeContinue();
 		sceGeRestoreContext(savedContextPtr);
 	}
 }

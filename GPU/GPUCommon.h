@@ -13,6 +13,9 @@ public:
 		dumpThisFrame_(false)
 	{}
 
+	virtual void InterruptStart();
+	virtual void InterruptEnd();
+
 	virtual void PreExecuteOp(u32 op, u32 diff);
 	virtual bool InterpretList(DisplayList &list);
 	virtual bool ProcessDLQueue();
@@ -28,6 +31,7 @@ protected:
 	DisplayList *currentList;
 	DisplayListQueue dlQueue;
 
+	bool interruptRunning;
 	u32 prev;
 	u32 stack[2];
 	u32 stackptr;
@@ -35,4 +39,18 @@ protected:
 
 	bool dumpNextFrame_;
 	bool dumpThisFrame_;
+
+
+public:
+	virtual DisplayList* getList(int listid)
+	{
+		if(currentList->id == listid)
+			return currentList;
+		for(auto it = dlQueue.begin(); it != dlQueue.end(); ++it)
+		{
+			if(it->id == listid)
+				return &*it;
+		}
+		return NULL;
+	}
 };
