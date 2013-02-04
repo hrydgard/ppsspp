@@ -59,6 +59,11 @@ Currently the user interface is identical to Android's, operated
 with the mouse.
 
 Alternatively, a Qt-based frontend is available in the Qt/ dir.
+Open PPSSPPQt.pro with Qt Creator.
+Install libsdl1.2 if you want to use USB Gamepad.
+For Ubuntu user (>= 12.10) :
+- Remove multimedia in PPSSPP.pro on line 3
+- Install the package "qtmobility-dev"
 
 Building for OSX
 ----------------
