@@ -5,52 +5,57 @@
 class GPUCommon : public GPUInterface
 {
 public:
-	GPUCommon() :
-		dlIdGenerator(1),
-		currentList(NULL),
-		stackptr(0),
-		dumpNextFrame_(false),
-		dumpThisFrame_(false)
-	{}
+	GPUCommon();
+	virtual ~GPUCommon() {}
 
 	virtual void InterruptStart();
 	virtual void InterruptEnd();
 
 	virtual void PreExecuteOp(u32 op, u32 diff);
-	virtual bool InterpretList(DisplayList &list);
-	virtual bool ProcessDLQueue();
-	virtual void UpdateStall(int listid, u32 newstall);
+	virtual void ExecuteOp(u32 op, u32 diff);
+	virtual void ProcessDLQueue();
+	virtual u32  UpdateStall(int listid, u32 newstall);
 	virtual u32  EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head);
-	virtual int  listStatus(int listid);
+	virtual u32  DequeueList(int listid);
+	virtual int  ListSync(int listid, int mode);
+	virtual u32  DrawSync(int mode);
 	virtual void DoState(PointerWrap &p);
+	virtual u32  Continue();
+	virtual u32  Break(int mode);
 
 protected:
-	typedef std::deque<DisplayList> DisplayListQueue;
+	typedef std::list<int> DisplayListQueue;
 
-	int dlIdGenerator;
-	DisplayList *currentList;
+	DisplayList dls[DisplayListMaxCount];
 	DisplayListQueue dlQueue;
 
 	bool interruptRunning;
-	u32 prev;
-	u32 stack[2];
-	u32 stackptr;
-	bool finished;
+
+	bool drawSyncWait;
 
 	bool dumpNextFrame_;
 	bool dumpThisFrame_;
 
+	bool running;
+	bool isbreak;
+	u32 pc;
+	u32 stall;
+	DisplayList *currentDisplayList;
+
+	void PopDLQueue();
+	void CheckDrawSync();
 
 public:
 	virtual DisplayList* getList(int listid)
 	{
-		if(currentList->id == listid)
-			return currentList;
-		for(auto it = dlQueue.begin(); it != dlQueue.end(); ++it)
-		{
-			if(it->id == listid)
-				return &*it;
-		}
-		return NULL;
+		return &dls[listid];
+	}
+
+	DisplayList* currentList()
+	{
+		return currentDisplayList;
+		/*if(dlQueue.empty())
+			return NULL;
+		return &dls[dlQueue.front()];*/
 	}
 };

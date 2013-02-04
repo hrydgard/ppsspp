@@ -25,24 +25,19 @@
 
 NullGPU::NullGPU()
 {
-	interruptsEnabled_ = true;
 }
 
 NullGPU::~NullGPU()
 {
 }
 
-void NullGPU::DrawSync(int mode)
+u32 NullGPU::DrawSync(int mode)
 {
 	if (mode == 0)  // Wait for completion
 	{
 		__RunOnePendingInterrupt();
 	}
-}
-
-void NullGPU::Continue()
-{
-
+	return GPUCommon::DrawSync(mode);
 }
 
 void NullGPU::ExecuteOp(u32 op, u32 diff)
@@ -104,60 +99,6 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 		}
 		break;
 
-	case GE_CMD_JUMP: 
-		{
-			u32 target = (((gstate.base & 0x00FF0000) << 8) | (op & 0xFFFFFC)) & 0x0FFFFFFF;
-			DEBUG_LOG(G3D,"DL CMD JUMP - %08x to %08x", currentList->pc, target);
-			currentList->pc = target - 4; // pc will be increased after we return, counteract that
-			if (!Memory::IsValidAddress(currentList->pc))
-			{
-				ERROR_LOG(G3D, "Invalid DL PC %08x on jump", currentList->pc);
-				finished = true;
-			}
-		}
-		break;
-
-	case GE_CMD_CALL: 
-		{
-			u32 retval = currentList->pc + 4;
-			stack[stackptr++] = retval; 
-			u32 target = (((gstate.base & 0x00FF0000) << 8) | (op & 0xFFFFFC)) & 0xFFFFFFF;
-			DEBUG_LOG(G3D,"DL CMD CALL - %08x to %08x, ret=%08x", currentList->pc, target, retval);
-			currentList->pc = target - 4;	// pc will be increased after we return, counteract that
-			if (!Memory::IsValidAddress(currentList->pc))
-			{
-				ERROR_LOG(G3D, "Invalid DL PC %08x on call", currentList->pc);
-				finished = true;
-			}
-		}
-		break;
-
-	case GE_CMD_RET: 
-		//TODO : debug!
-		{
-			u32 target = stack[--stackptr] & 0xFFFFFFF; 
-			DEBUG_LOG(G3D,"DL CMD RET - from %08x to %08x", currentList->pc, target);
-			currentList->pc = target - 4;
-			if (!Memory::IsValidAddress(currentList->pc))
-			{
-				ERROR_LOG(G3D, "Invalid DL PC %08x on return", currentList->pc);
-				finished = true;
-			}
-		}
-		break;
-
-	case GE_CMD_SIGNAL:
-		{
-			ERROR_LOG(G3D, "DL GE_CMD_SIGNAL %08x", data & 0xFFFFFF);
-			int behaviour = (data >> 16) & 0xFF;
-			currentList->subIntrToken = data & 0xFFFF;
-
-			// TODO: Should this run while interrupts are suspended?
-			if (interruptsEnabled_)
-				__GeTriggerInterrupt(currentList->id, currentList->pc);
-		}
-		break;
-
 	case GE_CMD_BJUMP:
 		// bounding box jump. Let's just not jump, for now.
 		DEBUG_LOG(G3D,"DL BBOX JUMP - unimplemented");
@@ -169,8 +110,8 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_ORIGIN:
-		gstate.offsetAddr = currentList->pc & 0xFFFFFF;
-		gstate_c.offsetAddr = currentList->pc;
+		gstate.offsetAddr = pc & 0xFFFFFF;
+		gstate_c.offsetAddr = pc;
 		break;
 
 	case GE_CMD_VERTEXTYPE:
@@ -180,35 +121,6 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_OFFSETADDR:
 		//			offsetAddr = data<<8;
-		break;
-
-
-	case GE_CMD_FINISH:
-		DEBUG_LOG(G3D,"DL CMD FINISH");
-		currentList->subIntrToken = data & 0xFFFF;
-		// TODO: Should this run while interrupts are suspended?
-		if (interruptsEnabled_)
-			__GeTriggerInterrupt(currentList->id, currentList->pc);
-		break;
-
-	case GE_CMD_END: 
-		DEBUG_LOG(G3D,"DL CMD END");
-		{
-			switch (prev >> 24)
-			{
-			case GE_CMD_FINISH:
-				finished = true;
-				break;
-			default:
-				DEBUG_LOG(G3D,"Ah, not finished: %06x", prev & 0xFFFFFF);
-				break;
-			}
-		}
-			
-		// This should generate a Reading Ended interrupt
-		// if (interruptsEnabled_)
-		// __TriggerInterrupt(PSP_GE_INTR);
-
 		break;
 
 	case GE_CMD_REGION1:
@@ -744,10 +656,7 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	default:
-		DEBUG_LOG(G3D,"DL Unknown: %08x @ %08x", op, currentList->pc);
-		break;
-
-		//ETC...
+		GPUCommon::ExecuteOp(op, diff);
 	}
 }
 
