@@ -18,8 +18,9 @@
 #pragma once
 
 #include "../../Globals.h"
-#include "../../Common/ChunkFile.h"
 #include "ppge_atlas.h"
+
+class PointerWrap;
 
 /////////////////////////////////////////////////////////////////////////////////////////////
 // PPGeDraw: Super simple internal drawing API for 2D overlays like sceUtility messageboxes

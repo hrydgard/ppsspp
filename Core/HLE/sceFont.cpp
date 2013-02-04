@@ -4,8 +4,7 @@
 
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
-
-#include "sceFont.h"
+#include "ChunkFile.h"
 
 
 typedef u32 FontLibraryHandle;

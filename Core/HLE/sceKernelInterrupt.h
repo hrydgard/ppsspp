@@ -17,7 +17,9 @@
 
 #pragma once
 
-#include "../../Common/ChunkFile.h"
+#include <map>
+
+class PointerWrap;
 
 enum PSPInterrupt {
 	PSP_GPIO_INTR      =  4,
@@ -80,6 +82,8 @@ enum PSPSubInterruptTriggerType {
 struct PendingInterrupt {
 	PendingInterrupt(int intr_, int subintr_)
 		: intr(intr_), subintr(subintr_) {}
+
+	void DoState(PointerWrap &p);
 
 	int intr;
 	int subintr;

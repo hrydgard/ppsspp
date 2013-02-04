@@ -21,6 +21,7 @@
 
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
+#include "ChunkFile.h"
 
 #include "sceKernel.h"
 #include "sceKernelThread.h"
@@ -198,6 +199,14 @@ void IntrHandler::DoState(PointerWrap &p)
 {
 	p.Do(intrNumber);
 	p.Do<int, SubIntrHandler>(subIntrHandlers);
+	p.DoMarker("IntrHandler");
+}
+
+void PendingInterrupt::DoState(PointerWrap &p)
+{
+	p.Do(intr);
+	p.Do(subintr);
+	p.DoMarker("PendingInterrupt");
 }
 
 void __InterruptsInit()

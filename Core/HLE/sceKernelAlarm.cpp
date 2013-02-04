@@ -19,7 +19,9 @@
 #include "sceKernelAlarm.h"
 #include "sceKernelInterrupt.h"
 #include "HLE.h"
-#include "../../Core/CoreTiming.h"
+#include "Core/CoreTiming.h"
+#include "ChunkFile.h"
+#include <list>
 
 const int NATIVEALARM_SIZE = 20;
 

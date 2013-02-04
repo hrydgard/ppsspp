@@ -1,4 +1,5 @@
 #include "MemoryStick.h"
+#include "ChunkFile.h"
 
 // MS and FatMS states.
 static MemStickState memStickState = PSP_MEMORYSTICK_STATE_DRIVER_READY;

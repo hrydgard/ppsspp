@@ -18,7 +18,8 @@
 #include <algorithm>
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
-#include "../../Core/CoreTiming.h"
+#include "Core/CoreTiming.h"
+#include "ChunkFile.h"
 #include "sceKernel.h"
 #include "sceKernelThread.h"
 #include "sceKernelSemaphore.h"

@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "HLE.h"
+#include "ChunkFile.h"
 
 #include "sceSsl.h"
 

@@ -27,6 +27,7 @@
 
 #include "../../Globals.h"
 #include "../HLE/sceMpeg.h"
+#include "ChunkFile.h"
 
 class MediaEngine
 {

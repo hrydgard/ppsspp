@@ -2,12 +2,12 @@
 #pragma once
 
 #include "../../Globals.h"
-#include "../../Common/ChunkFile.h"
 
 #include <vector>
 #include <list>
 #include <cstring>
 
+class PointerWrap;
 
 // Generic allocator thingy
 // Allocates blocks from a range
@@ -63,6 +63,7 @@ private:
 				strncpy(tag, "---", 32);
 			tag[31] = 0;
 		}
+		void DoState(PointerWrap &p);
 		u32 start;
 		u32 size;
 		bool taken;

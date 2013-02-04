@@ -18,8 +18,9 @@
 #pragma once
 
 #include "../Globals.h"
-#include "../Common/ChunkFile.h"
 #include <deque>
+
+class PointerWrap;
 
 enum DisplayListStatus
 {

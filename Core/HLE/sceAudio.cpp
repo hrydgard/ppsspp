@@ -17,12 +17,25 @@
 
 #include "../MIPS/MIPS.h"
 #include "../Host.h"
-#include "../../Core/CoreTiming.h"
+#include "Core/CoreTiming.h"
+#include "ChunkFile.h"
 
 #include "sceAudio.h"
 #include "__sceAudio.h"
 #include "HLE.h"
 
+void AudioChannel::DoState(PointerWrap &p)
+{
+	p.Do(reserved);
+	p.Do(sampleAddress);
+	p.Do(sampleCount);
+	p.Do(leftVolume);
+	p.Do(rightVolume);
+	p.Do(format);
+	p.Do(waitingThread);
+	sampleQueue.DoState(p);
+	p.DoMarker("AudioChannel");
+}
 
 // There's a second Audio api called Audio2 that only has one channel, I guess the 8 channel api was overkill.
 // We simply map it to the first of the 8 channels.
