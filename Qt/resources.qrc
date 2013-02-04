@@ -2,5 +2,17 @@
     <qresource prefix="/images">
         <file>resources/psp.png</file>
         <file>resources/psp_map.png</file>
+        <file>resources/psp_rightbtn_red.png</file>
+        <file>resources/psp_smallbtn_red.png</file>
+        <file>resources/psp_down_red.png</file>
+        <file>resources/psp_up_red.png</file>
+        <file>resources/psp_right_red.png</file>
+        <file>resources/psp_left_red.png</file>
+        <file>resources/psp_rt_red.png</file>
+        <file>resources/psp_lt_red.png</file>
+        <file>resources/psp_aright.png</file>
+        <file>resources/psp_adown.png</file>
+        <file>resources/psp_aleft.png</file>
+        <file>resources/psp_aup.png</file>
     </qresource>
 </RCC>
