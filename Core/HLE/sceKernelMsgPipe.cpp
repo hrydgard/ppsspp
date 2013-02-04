@@ -19,6 +19,7 @@
 #include "sceKernel.h"
 #include "sceKernelMsgPipe.h"
 #include "sceKernelThread.h"
+#include "ChunkFile.h"
 
 #define SCE_KERNEL_MPA_THFIFO_S 0x0000
 #define SCE_KERNEL_MPA_THPRI_S  0x0100

@@ -2,12 +2,12 @@
 #pragma once
 
 #include "../../Globals.h"
-#include "../../Common/ChunkFile.h"
 
 #include <vector>
 #include <list>
 #include <cstring>
 
+class PointerWrap;
 
 // Generic allocator thingy
 // Allocates blocks from a range

@@ -18,8 +18,9 @@
 #pragma once
 
 #include "../../Globals.h"
-#include "../../Common/ChunkFile.h"
 #include "../MIPS/MIPS.h"
+
+class PointerWrap;
 
 enum {
 	ERROR_MPEG_BAD_VERSION                              = 0x80610002,

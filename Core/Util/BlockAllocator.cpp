@@ -1,5 +1,6 @@
 #include "Log.h"
 #include "BlockAllocator.h"
+#include "ChunkFile.h"
 
 // Slow freaking thing but works (eventually) :)
 

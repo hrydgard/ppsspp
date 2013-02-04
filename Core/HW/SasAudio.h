@@ -23,7 +23,7 @@
 #pragma once
 
 #include "../Globals.h"
-#include "../../Common/ChunkFile.h"
+#include "ChunkFile.h"
 
 enum {
 	PSP_SAS_VOICES_MAX = 32,

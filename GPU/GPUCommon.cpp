@@ -3,7 +3,7 @@
 #include "GeDisasm.h"
 #include "GPUCommon.h"
 #include "GPUState.h"
-
+#include "ChunkFile.h"
 
 
 static int dlIdGenerator = 1;

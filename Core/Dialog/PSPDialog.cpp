@@ -17,6 +17,7 @@
 
 #include "../Util/PPGeDraw.h"
 #include "PSPDialog.h"
+#include "ChunkFile.h"
 
 #define FADE_TIME 0.5
 

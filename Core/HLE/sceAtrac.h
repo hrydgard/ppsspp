@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "../Common/ChunkFile.h"
+class PointerWrap;
 
 void Register_sceAtrac3plus();
 void __AtracInit();

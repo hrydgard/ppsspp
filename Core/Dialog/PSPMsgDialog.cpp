@@ -19,6 +19,7 @@
 #include "../Util/PPGeDraw.h"
 #include "../HLE/sceCtrl.h"
 #include "../Core/MemMap.h"
+#include "ChunkFile.h"
 
 PSPMsgDialog::PSPMsgDialog()
 	: PSPDialog()

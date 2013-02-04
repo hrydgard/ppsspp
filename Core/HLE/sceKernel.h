@@ -18,8 +18,10 @@
 #pragma once
 
 #include "../../Globals.h"
-#include "../../Common/ChunkFile.h"
 #include <cstring>
+#include <map>
+
+class PointerWrap;
 
 enum
 {

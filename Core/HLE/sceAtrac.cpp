@@ -22,6 +22,7 @@
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
 #include "../CoreTiming.h"
+#include "ChunkFile.h"
 
 #include "sceKernel.h"
 #include "sceUtility.h"

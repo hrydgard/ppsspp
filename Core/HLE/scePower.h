@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "../../Common/ChunkFile.h"
+class PointerWrap;
 
 void __PowerInit();
 void __PowerDoState(PointerWrap &p);

@@ -23,6 +23,8 @@
 #include "sceKernel.h"
 #include "FixedSizeQueue.h"
 
+class PointerWrap;
+
 enum  	PspAudioFormats { PSP_AUDIO_FORMAT_STEREO = 0, PSP_AUDIO_FORMAT_MONO = 0x10 };
 enum  	PspAudioFrequencies { PSP_AUDIO_FREQ_44K = 44100, PSP_AUDIO_FREQ_48K = 48000 };
 
@@ -63,17 +65,7 @@ struct AudioChannel
 	// Might try something more efficient later.
 	FixedSizeQueue<s16, 32768 * 8> sampleQueue;
 
-	void DoState(PointerWrap &p) {
-		p.Do(reserved);
-		p.Do(sampleAddress);
-		p.Do(sampleCount);
-		p.Do(leftVolume);
-		p.Do(rightVolume);
-		p.Do(format);
-		p.Do(waitingThread);
-		sampleQueue.DoState(p);
-		p.DoMarker("AudioChannel");
-	}
+	void DoState(PointerWrap &p);
 
 	void clear() {
 		reserved = false;

@@ -19,7 +19,8 @@
 #include "sceKernelThread.h"
 #include "sceKernelMbx.h"
 #include "HLE.h"
-#include "../../Core/CoreTiming.h"
+#include "Core/CoreTiming.h"
+#include "ChunkFile.h"
 
 #define SCE_KERNEL_MBA_THPRI 0x100
 #define SCE_KERNEL_MBA_MSPRI 0x400

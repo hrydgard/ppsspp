@@ -19,6 +19,7 @@
 #include "sceKernelThread.h"
 #include "sceKernelVTimer.h"
 #include "HLE.h"
+#include "ChunkFile.h"
 
 // Using ERROR_LOG liberally when this is in development. When done,
 // should be changed to DEBUG_LOG wherever applicable.

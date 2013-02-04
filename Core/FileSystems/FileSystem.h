@@ -18,7 +18,7 @@
 #pragma once
 
 #include "../../Globals.h"
-#include "../../Common/ChunkFile.h"
+#include "ChunkFile.h"
 #include <string>
 
 enum FileAccess
