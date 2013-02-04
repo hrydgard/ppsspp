@@ -39,12 +39,10 @@
 #include "FileUtil.h"
 #include "../ext/snappy/snappy-c.h"
 
-#ifndef _MSC_VER
-#ifndef __APPLE__
+#ifdef ANDROID
 namespace std {
 	using tr1::is_pointer;
 }
-#endif
 #endif
 
 template <class T>
