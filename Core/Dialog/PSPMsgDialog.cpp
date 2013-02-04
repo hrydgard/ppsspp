@@ -247,7 +247,7 @@ void PSPMsgDialog::DoState(PointerWrap &p)
 	p.Do(flag);
 	p.Do(messageDialog);
 	p.Do(messageDialogAddr);
-	p.Do(msgText);
+	p.DoArray(msgText, sizeof(msgText));
 	p.Do(yesnoChoice);
 	p.Do(okButtonImg);
 	p.Do(cancelButtonImg);

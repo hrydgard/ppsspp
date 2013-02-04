@@ -63,6 +63,7 @@ private:
 				strncpy(tag, "---", 32);
 			tag[31] = 0;
 		}
+		void DoState(PointerWrap &p);
 		u32 start;
 		u32 size;
 		bool taken;

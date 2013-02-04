@@ -27,6 +27,7 @@
 #include "../MIPS/MIPS.h"
 #include "../../Core/CoreTiming.h"
 #include "../../Core/MemMap.h"
+#include "ChunkFile.h"
 
 #include "sceAudio.h"
 #include "sceKernel.h"
