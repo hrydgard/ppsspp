@@ -164,14 +164,14 @@ void GenerateFragmentShader(char *buffer)
 		}
 		// Color doubling
 		if (gstate.texfunc & 0x10000) {
-			WRITE(p, "  v = v * vec4(2.0, 2.0, 2.0, 2.0);");
+			WRITE(p, "  v = v * vec4(2.0, 2.0, 2.0, 2.0);\n");
 		}
 
 		if (gstate.alphaTestEnable & 1) {
 			int alphaTestFunc = gstate.alphatest & 7;
 			const char *alphaTestFuncs[] = { "#", "#", " == ", " != ", " < ", " <= ", " > ", " >= " };	// never/always don't make sense
 			if (alphaTestFuncs[alphaTestFunc][0] != '#')
-				WRITE(p, "if (!(v.a %s u_alphacolorref.a)) discard;", alphaTestFuncs[alphaTestFunc]);
+				WRITE(p, "if (!(v.a %s u_alphacolorref.a)) discard;\n", alphaTestFuncs[alphaTestFunc]);
 		}
 
 		// Disabled for now until we actually find a need for it.
@@ -182,7 +182,7 @@ void GenerateFragmentShader(char *buffer)
 			const char *colorTestFuncs[] = { "#", "#", " == ", " != " };	// never/always don't make sense}
 			int colorTestMask = gstate.colormask;
 			if (colorTestFuncs[colorTestFunc][0] != '#')
-				WRITE(p, "if (!(v.rgb %s u_alphacolorref.rgb)) discard;", colorTestFuncs[colorTestFunc]);
+				WRITE(p, "if (!(v.rgb %s u_alphacolorref.rgb)) discard;\n", colorTestFuncs[colorTestFunc]);
 		}*/
 
 		if (enableFog) {
