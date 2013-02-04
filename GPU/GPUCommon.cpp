@@ -135,3 +135,13 @@ void GPUCommon::DoState(PointerWrap &p) {
 	p.Do<DisplayList>(dlQueue);
 	p.DoMarker("GPUCommon");
 }
+
+void GPUCommon::InterruptStart()
+{
+	interruptRunning = true;
+}
+void GPUCommon::InterruptEnd()
+{
+	interruptRunning = false;
+	ProcessDLQueue();
+}

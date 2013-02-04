@@ -21,6 +21,7 @@
 #include "../ge_constants.h"
 #include "../../Core/MemMap.h"
 #include "../../Core/HLE/sceKernelInterrupt.h"
+#include "../../Core/HLE/sceGe.h"
 
 NullGPU::NullGPU()
 {
@@ -149,11 +150,11 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 		{
 			ERROR_LOG(G3D, "DL GE_CMD_SIGNAL %08x", data & 0xFFFFFF);
 			int behaviour = (data >> 16) & 0xFF;
-			int signal = data & 0xFFFF;
+			currentList->subIntrToken = data & 0xFFFF;
 
 			// TODO: Should this run while interrupts are suspended?
 			if (interruptsEnabled_)
-				__TriggerInterruptWithArg(PSP_INTR_HLE, PSP_GE_INTR, currentList->subIntrBase | PSP_GE_SUBINTR_SIGNAL, signal);
+				__GeTriggerInterrupt(currentList->id, currentList->pc);
 		}
 		break;
 
@@ -184,9 +185,10 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_FINISH:
 		DEBUG_LOG(G3D,"DL CMD FINISH");
+		currentList->subIntrToken = data & 0xFFFF;
 		// TODO: Should this run while interrupts are suspended?
 		if (interruptsEnabled_)
-			__TriggerInterruptWithArg(PSP_INTR_HLE, PSP_GE_INTR, currentList->subIntrBase | PSP_GE_SUBINTR_FINISH, 0);
+			__GeTriggerInterrupt(currentList->id, currentList->pc);
 		break;
 
 	case GE_CMD_END: 
