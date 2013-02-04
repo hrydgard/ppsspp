@@ -275,7 +275,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 					WRITE(p, "  worldnormal += %s * (u_bone%i * vec4(a_normal, 0.0)).xyz;\n", weightAttr, i);
 			}
 			// Finally, multiply by world matrix (yes, we have to).
-			WRITE(p, "  worldpos = (u_world * vec4(worldpos, 1.0)).xyz;\n");
+			WRITE(p, "  worldpos = (u_world * vec4(worldpos * 2.0, 1.0)).xyz;\n");
 			if (hasNormal)
 				WRITE(p, "  worldnormal = (u_world * vec4(worldnormal, 0.0)).xyz;\n");
 		}

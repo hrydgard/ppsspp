@@ -133,12 +133,8 @@ private:
 class ShaderManager
 {
 public:
-	ShaderManager() : lastShader(NULL), globalDirty(0xFFFFFFFF) {
-		codeBuffer_ = new char[16384];
-	}
-	~ShaderManager() {
-		delete [] codeBuffer_;
-	}
+	ShaderManager();
+	~ShaderManager();
 
 	void ClearCache(bool deleteThem);  // TODO: deleteThem currently not respected
 	LinkedShader *ApplyShader(int prim);
@@ -160,6 +156,7 @@ private:
 
 	LinkedShader *lastShader;
 	u32 globalDirty;
+	u32 shaderSwitchDirty;
 	char *codeBuffer_;
 
 	typedef std::map<FragmentShaderID, Shader *> FSCache;

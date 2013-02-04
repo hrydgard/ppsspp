@@ -298,12 +298,12 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 }
 
 struct GlTypeInfo {
-	GLuint type;
-	int count;
-	GLboolean normalized;
+	u16 type;
+	u8 count;
+	u8 normalized;
 };
 
-const GlTypeInfo GLComp[] = {
+static const GlTypeInfo GLComp[] = {
 	{0}, // 	DEC_NONE,
 	{GL_FLOAT, 1, GL_FALSE}, // 	DEC_FLOAT_1,
 	{GL_FLOAT, 2, GL_FALSE}, // 	DEC_FLOAT_2,
@@ -311,8 +311,10 @@ const GlTypeInfo GLComp[] = {
 	{GL_FLOAT, 4, GL_FALSE}, // 	DEC_FLOAT_4,
 	{GL_BYTE, 4, GL_TRUE}, // 	DEC_S8_3,
 	{GL_SHORT, 4, GL_TRUE},// 	DEC_S16_3,
-	{GL_UNSIGNED_BYTE, 4, GL_TRUE},// 	DEC_U8_4,
+	{GL_UNSIGNED_BYTE, 1, GL_TRUE},// 	DEC_U8_1,
+	{GL_UNSIGNED_BYTE, 2, GL_TRUE},// 	DEC_U8_2,
 	{GL_UNSIGNED_BYTE, 3, GL_TRUE},// 	DEC_U8_3,
+	{GL_UNSIGNED_BYTE, 4, GL_TRUE},// 	DEC_U8_4,
 };
 
 static inline void VertexAttribSetup(int attrib, int fmt, int stride, u8 *ptr) {
@@ -838,8 +840,9 @@ void TransformDrawEngine::ClearTrackedVertexArrays() {
 }
 
 void TransformDrawEngine::DecimateTrackedVertexArrays() {
+	int threshold = gpuStats.numFrames - VAI_KILL_AGE;
 	for (auto iter = vai_.begin(); iter != vai_.end(); ) {
-		if (iter->second->lastFrame + VAI_KILL_AGE < gpuStats.numFrames) {
+		if (iter->second->lastFrame < threshold ) {
 			delete iter->second;
 			vai_.erase(iter++);
 		}
