@@ -245,6 +245,10 @@ Psmf::~Psmf() {
 }
 
 PsmfPlayer::PsmfPlayer(u32 data) {
+	// Used for savestates.
+	if (data == 0) {
+		return;
+	}
 	videoCodec = Memory::Read_U32(data);
 	videoStreamNum = Memory::Read_U32(data + 4);
 	audioCodec = Memory::Read_U32(data + 8);
