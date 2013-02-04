@@ -47,7 +47,7 @@ public:
 
 	void Log(LogTypes::LOG_LEVELS, const char *msg);
 
-	bool IsValid() { return (m_logfile != NULL); }
+	bool IsValid() { if (!m_logfile) return false; else return true; }
 	bool IsEnabled() const { return m_enable; }
 	void SetEnable(bool enable) { m_enable = enable; }
 
