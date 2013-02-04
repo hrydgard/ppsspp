@@ -15,6 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ChunkFile.h"
+#include "FileUtil.h"
+#include "DirectoryFileSystem.h"
+
+
 #ifdef _WIN32
 #include <windows.h>
 #include <sys/stat.h>
@@ -24,9 +29,6 @@
 #include <sys/stat.h>
 #include <ctype.h>
 #endif
-
-#include "FileUtil.h"
-#include "DirectoryFileSystem.h"
 
 
 #if HOST_IS_CASE_SENSITIVE

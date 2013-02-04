@@ -39,6 +39,12 @@
 #include "FileUtil.h"
 #include "../ext/snappy/snappy-c.h"
 
+#ifndef _MSC_VER
+namespace std {
+	using tr1::is_pointer;
+}
+#endif
+
 template <class T>
 struct LinkedListItem : public T
 {
@@ -49,7 +55,12 @@ struct LinkedListItem : public T
 class PointerWrap
 {
 	// This makes it a compile error if you forget to define DoState() on non-POD.
+	// Which also can be a problem, for example struct tm is non-POD on linux, for whatever reason...
+#ifdef _MSC_VER
 	template<typename T, bool isPOD = std::is_pod<T>::value, bool isPointer = std::is_pointer<T>::value>
+#else
+	template<typename T, bool isPOD = __is_pod(T), bool isPointer = std::is_pointer<T>::value>
+#endif
 	struct DoHelper
 	{
 		static void DoArray(PointerWrap *p, T *x, int count)
@@ -108,7 +119,7 @@ public:
 		}
 		(*ptr) += size;
 	}
-
+	
 	template<class K, class T>
 	void Do(std::map<K, T *> &x)
 	{
@@ -242,6 +253,14 @@ public:
 		DoVector(x, dv);
 	}
 
+
+	template<class T>
+	void DoPOD(std::vector<T> &x)
+	{
+		T dv;
+		DoVectorPOD(x, dv);
+	}
+
 	template<class T>
 	void Do(std::vector<T> &x, T &default_val)
 	{
@@ -250,6 +269,16 @@ public:
 
 	template<class T>
 	void DoVector(std::vector<T> &x, T &default_val)
+	{
+		u32 vec_size = (u32)x.size();
+		Do(vec_size);
+		x.resize(vec_size, default_val);
+		if (vec_size > 0)
+			DoArray(&x[0], vec_size);
+	}
+
+	template<class T>
+	void DoVectorPOD(std::vector<T> &x, T &default_val)
 	{
 		u32 vec_size = (u32)x.size();
 		Do(vec_size);
@@ -316,6 +345,7 @@ public:
 		for (itr = x.begin(), end = x.end(); itr != end; ++itr)
 			Do(*itr);
 	}
+
 
 	// Store STL sets.
 	template <class T>
@@ -421,9 +451,14 @@ public:
 	void DoArray(T *x, int count) {
 		DoHelper<T>::DoArray(this, x, count);
 	}
-	
+
 	template<class T>
 	void Do(T &x) {
+		DoHelper<T>::Do(this, x);
+	}
+	
+	template<class T>
+	void DoPOD(T &x) {
 		DoHelper<T>::Do(this, x);
 	}
 
