@@ -9,10 +9,10 @@
 #pragma warning (disable:4996)   //strcpy may be dangerous
 #endif
 
+#undef Crash
+
 // Logging
 #ifdef _WIN32
-
-#undef Crash
 
 #ifdef _M_X64
 inline void Crash() { /*DebugBreak();*/ }
@@ -23,8 +23,6 @@ inline void Crash() { __asm { int 3 }; }
 #else
 
 #if defined(ARM)
-#undef Crash
-
 inline void Crash() {
   char *p = (char *)1337;
   *p = 1;
