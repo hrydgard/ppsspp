@@ -38,7 +38,10 @@ enum {
 	DEC_U8_2,
 	DEC_U8_3,
 	DEC_U8_4,
+	DEC_U16_1,
 	DEC_U16_2,
+	DEC_U16_3,
+	DEC_U16_4,
 	DEC_U16A_2,
 };
 
@@ -287,6 +290,7 @@ public:
 
 	void ReadWeights(float weights[8]) {
 		const u8 *p = (const u8 *)(data_ + decFmt_.w0off);
+		const u16 *s = (const u16 *)(data_ + decFmt_.w0off);
 		switch (decFmt_.w0fmt) {
 		case DEC_FLOAT_1: memcpy(weights, data_ + decFmt_.w0off, 4); break;
 		case DEC_FLOAT_2: memcpy(weights, data_ + decFmt_.w0off, 8); break;
@@ -296,12 +300,17 @@ public:
 		case DEC_U8_2: for (int i = 0; i < 2; i++) weights[i] = p[i] / 128.f; break;
 		case DEC_U8_3: for (int i = 0; i < 3; i++) weights[i] = p[i] / 128.f; break;
 		case DEC_U8_4: for (int i = 0; i < 4; i++) weights[i] = p[i] / 128.f; break;
+		case DEC_U16_1: weights[0] = s[0] / 32768.f; break;
+		case DEC_U16_2: for (int i = 0; i < 2; i++) weights[i] = s[i] / 32768.f; break;
+		case DEC_U16_3: for (int i = 0; i < 3; i++) weights[i] = s[i] / 32768.f; break;
+		case DEC_U16_4: for (int i = 0; i < 4; i++) weights[i] = s[i] / 32768.f; break;
 		default:
 			ERROR_LOG(G3D, "Reader: Unsupported W0 Format");
 			break;
 		}
 
 		p = (const u8 *)(data_ + decFmt_.w1off);
+		s = (const u16 *)(data_ + decFmt_.w1off);
 		switch (decFmt_.w1fmt) {
 		case 0:
 			// It's fine for there to be w0 weights but not w1.
@@ -310,10 +319,10 @@ public:
 		case DEC_FLOAT_2: memcpy(weights + 4, data_ + decFmt_.w1off, 8); break;
 		case DEC_FLOAT_3: memcpy(weights + 4, data_ + decFmt_.w1off, 12); break;
 		case DEC_FLOAT_4: memcpy(weights + 4, data_ + decFmt_.w1off, 16); break;
-		case DEC_U8_1: weights[4] = p[0] / 128.f; break;
-		case DEC_U8_2: for (int i = 0; i < 2; i++) weights[i+4] = p[i] / 128.f; break;
-		case DEC_U8_3: for (int i = 0; i < 3; i++) weights[i+4] = p[i] / 128.f; break;
-		case DEC_U8_4: for (int i = 0; i < 4; i++) weights[i+4] = p[i] / 128.f; break;
+		case DEC_U16_1: weights[4] = s[0] / 32768.f; break;
+		case DEC_U16_2: for (int i = 0; i < 2; i++) weights[i+4] = s[i] / 32768.f; break;
+		case DEC_U16_3: for (int i = 0; i < 3; i++) weights[i+4] = s[i] / 32768.f; break;
+		case DEC_U16_4: for (int i = 0; i < 4; i++) weights[i+4] = s[i] / 32768.f; break;
 		default:
 			ERROR_LOG(G3D, "Reader: Unsupported W1 Format");
 			break;

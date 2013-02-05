@@ -73,7 +73,10 @@ int DecFmtSize(u8 fmt) {
 	case DEC_U8_2: return 4;
 	case DEC_U8_3: return 4;
 	case DEC_U8_4: return 4;
+	case DEC_U16_1: return 4;
 	case DEC_U16_2: return 4;
+	case DEC_U16_3: return 8;
+	case DEC_U16_4: return 8;
 	case DEC_U16A_2: return 4;
 	default:
 		return 0;
@@ -120,10 +123,10 @@ void VertexDecoder::Step_WeightsU8() const
 
 void VertexDecoder::Step_WeightsU16() const
 {
-	float *wt = (float *)(decoded_  + decFmt.w0off);
+	u16 *wt = (u16 *)(decoded_  + decFmt.w0off);
 	const u16 *wdata = (const u16*)(ptr_);
 	for (int j = 0; j < nweights; j++)
-		wt[j] = (float)wdata[j] / 65535.0f;
+		wt[j] = wdata[j];
 }
 
 // Float weights should be uncommon, we can live with having to multiply these by 2.0
@@ -559,6 +562,9 @@ void VertexDecoder::SetVertexType(u32 fmt) {
 		if (weighttype == GE_VTYPE_WEIGHT_8BIT >> GE_VTYPE_WEIGHT_SHIFT) {
 			fmtBase = DEC_U8_1;
 			weightSize = 1;
+		} else if (weighttype == GE_VTYPE_WEIGHT_16BIT >> GE_VTYPE_WEIGHT_SHIFT) {
+			fmtBase = DEC_U16_1;
+			weightSize = 2;
 		}
 
 		if (nweights < 5) {
