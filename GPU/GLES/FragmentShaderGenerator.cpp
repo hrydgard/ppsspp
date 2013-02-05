@@ -77,7 +77,7 @@ void GenerateFragmentShader(char *buffer)
 
 
 #if defined(GLSL_ES_1_0)
-	WRITE(p, "precision mediump float;\n");
+	WRITE(p, "precision lowp float;\n");
 #elif !defined(FORCE_OPENGL_2_0)
 	WRITE(p, "#version 110\n");
 #endif
@@ -86,30 +86,38 @@ void GenerateFragmentShader(char *buffer)
 
 	int doTexture = (gstate.textureMapEnable & 1) && !(gstate.clearmode & 1);
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
+	bool enableAlphaTest = (gstate.alphaTestEnable & 1) && !gstate.isModeClear();
+	bool enableColorTest = (gstate.colorTestEnable & 1) && !gstate.isModeClear();
+
 
 	if (doTexture)
 		WRITE(p, "uniform sampler2D tex;\n");
-	if ((gstate.alphaTestEnable & 1) || (gstate.colorTestEnable & 1)) {
+	if (enableAlphaTest || enableColorTest) {
 		WRITE(p, "uniform vec4 u_alphacolorref;\n");
 	}
-	WRITE(p, "uniform vec3 u_texenv;\n");
+	if (gstate.textureMapEnable & 1) {
+		WRITE(p, "uniform vec3 u_texenv;\n");
+	}
 	WRITE(p, "varying vec4 v_color0;\n");
 	if (lmode)
 		WRITE(p, "varying vec3 v_color1;\n");
 	if (enableFog) {
 		WRITE(p, "uniform vec3 u_fogcolor;\n");
+#if defined(GLSL_ES_1_0)
+		WRITE(p, "varying mediump float v_fogdepth;\n");
+#else
 		WRITE(p, "varying float v_fogdepth;\n");
+#endif
 	}
 	if (doTexture)
 		WRITE(p, "varying vec2 v_texcoord;\n");
 
 	WRITE(p, "void main() {\n");
-	WRITE(p, "  vec4 v;\n");
 
 	if (gstate.clearmode & 1)
 	{
 		// Clear mode does not allow any fancy shading.
-		WRITE(p, "  v = v_color0;\n");
+		WRITE(p, "  gl_FragColor = v_color0;\n");
 	}
 	else
 	{
@@ -119,59 +127,58 @@ void GenerateFragmentShader(char *buffer)
 			WRITE(p, "  vec4 s = vec4(v_color1, 0.0);\n");
 			secondary = " + s";
 		} else {
-			WRITE(p, "  vec4 s = vec4(0.0, 0.0, 0.0, 0.0);\n");
 			secondary = "";
 		}
 
 		if (gstate.textureMapEnable & 1) {
 			WRITE(p, "  vec4 t = texture2D(tex, v_texcoord);\n");
-			WRITE(p, "  vec4 p = clamp(v_color0, 0.0, 1.0);\n");
+			WRITE(p, "  vec4 p = v_color0;\n");
 
 			if (gstate.texfunc & 0x100) { // texfmt == RGBA
 				switch (gstate.texfunc & 0x7) {
 				case GE_TEXFUNC_MODULATE:
-					WRITE(p, "  v = t * p%s;\n", secondary); break;
+					WRITE(p, "  vec4 v = t * p%s;\n", secondary); break;
 				case GE_TEXFUNC_DECAL:
-					WRITE(p, "  v = vec4(1.0 - t.a * p.rgb + t.a * u_texenv.rgb, p.a)%s;\n", secondary); break;
+					WRITE(p, "  vec4 v = vec4(1.0 - t.a * p.rgb + t.a * u_texenv.rgb, p.a)%s;\n", secondary); break;
 				case GE_TEXFUNC_BLEND:
-					WRITE(p, "  v = vec4((1.0 - t.rgb) * p.rgb + t.rgb * u_texenv.rgb, p.a * t.a)%s;\n", secondary); break;
+					WRITE(p, "  vec4 v = vec4((1.0 - t.rgb) * p.rgb + t.rgb * u_texenv.rgb, p.a * t.a)%s;\n", secondary); break;
 				case GE_TEXFUNC_REPLACE:
-					WRITE(p, "  v = t%s;\n", secondary); break;
+					WRITE(p, "  vec4 v = t%s;\n", secondary); break;
 				case GE_TEXFUNC_ADD:
-					WRITE(p, "  v = vec4(t.rgb + p.rgb, p.a * t.a)%s;\n", secondary); break;
+					WRITE(p, "  vec4 v = vec4(t.rgb + p.rgb, p.a * t.a)%s;\n", secondary); break;
 				default:
-					WRITE(p, "  v = p;\n"); break;
+					WRITE(p, "  vec4 v = p;\n"); break;
 				}
 			} else {	// texfmt == RGB
 				switch (gstate.texfunc & 0x7) {
 				case GE_TEXFUNC_MODULATE:
-					WRITE(p, "	v = vec4(t.rgb * p.rgb, p.a)%s;\n", secondary); break;
+					WRITE(p, "	vec4 v = vec4(t.rgb * p.rgb, p.a)%s;\n", secondary); break;
 				case GE_TEXFUNC_DECAL:
-					WRITE(p, "	v = vec4(t.rgb, p.a)%s;\n", secondary); break;
+					WRITE(p, "	vec4 v = vec4(t.rgb, p.a)%s;\n", secondary); break;
 				case GE_TEXFUNC_BLEND:
-					WRITE(p, "	v = vec4(1.0 - t.rgb) * p.rgb + t.rgb * u_texenv.rgb, p.a)%s;\n", secondary); break;
+					WRITE(p, "	vec4 v = vec4(1.0 - t.rgb) * p.rgb + t.rgb * u_texenv.rgb, p.a)%s;\n", secondary); break;
 				case GE_TEXFUNC_REPLACE:
-					WRITE(p, "	v = vec4(t.rgb, p.a)%s;\n", secondary); break;
+					WRITE(p, "	vec4 v = vec4(t.rgb, p.a)%s;\n", secondary); break;
 				case GE_TEXFUNC_ADD:
-					WRITE(p, "	v = vec4(t.rgb + p.rgb, p.a)%s;\n", secondary); break;
+					WRITE(p, "	vec4 v = vec4(t.rgb + p.rgb, p.a)%s;\n", secondary); break;
 				default:
-					WRITE(p, "  v = p;\n"); break;
+					WRITE(p, "  vec4 v = p;\n"); break;
 				}
 			}
 		} else {
 			// No texture mapping
-			WRITE(p, "  v = clamp(v_color0, 0.0, 1.0)%s;\n", secondary);
+			WRITE(p, "  vec4 v = v_color0 %s;\n", secondary);
 		}
 		// Color doubling
 		if (gstate.texfunc & 0x10000) {
-			WRITE(p, "  v = v * vec4(2.0, 2.0, 2.0, 2.0);");
+			WRITE(p, "  v = v * 2.0;\n");
 		}
 
-		if (gstate.alphaTestEnable & 1) {
+		if (enableAlphaTest) {
 			int alphaTestFunc = gstate.alphatest & 7;
 			const char *alphaTestFuncs[] = { "#", "#", " == ", " != ", " < ", " <= ", " > ", " >= " };	// never/always don't make sense
 			if (alphaTestFuncs[alphaTestFunc][0] != '#')
-				WRITE(p, "if (!(v.a %s u_alphacolorref.a)) discard;", alphaTestFuncs[alphaTestFunc]);
+				WRITE(p, "  if (!(v.a %s u_alphacolorref.a)) discard;\n", alphaTestFuncs[alphaTestFunc]);
 		}
 
 		// Disabled for now until we actually find a need for it.
@@ -187,20 +194,20 @@ void GenerateFragmentShader(char *buffer)
 
 		if (enableFog) {
 			WRITE(p, "  float fogCoef = clamp(v_fogdepth, 0.0, 1.0);\n");
-			WRITE(p, "  v = mix(vec4(u_fogcolor, v.a), v, fogCoef);\n");
+			WRITE(p, "  gl_FragColor = mix(vec4(u_fogcolor, v.a), v, fogCoef);\n");
 			// WRITE(p, "  v.x = v_depth;\n");
+		} else {
+			WRITE(p, "  gl_FragColor = v;\n");
 		}
-
 	}
 
 #ifdef DEBUG_SHADER
 	if (doTexture) {
-		WRITE(p, "  v = texture2D(tex, v_texcoord);\n");
+		WRITE(p, "  gl_FragColor = texture2D(tex, v_texcoord);\n");
 	} else {
-		WRITE(p, "  v = vec4(1,0,1,1);\n");
+		WRITE(p, "  gl_FragColor = vec4(1,0,1,1);\n");
 	}
 #endif
-	WRITE(p, "  gl_FragColor = v;\n");
 	WRITE(p, "}\n");
 }
 

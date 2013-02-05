@@ -38,6 +38,8 @@ enum {
 	DEC_U8_2,
 	DEC_U8_3,
 	DEC_U8_4,
+	DEC_U16_2,
+	DEC_U16A_2,
 };
 
 int DecFmtSize(u8 fmt);
@@ -58,8 +60,8 @@ struct TransformedVertex
 {
 	float x, y, z, fog;     // in case of morph, preblend during decode
 	float u; float v;      // scaled by uscale, vscale, if there
-	float color0[4];   // prelit
-	float color1[3];   // prelit
+	u8 color0[4];   // prelit
+	u8 color1[3];   // prelit
 };
 
 DecVtxFormat GetTransformedVtxFormat(const DecVtxFormat &fmt);
@@ -189,14 +191,14 @@ public:
 			break;
 		case DEC_S16_3:
 			{
-				s16 *p = (s16 *)(data_ + decFmt_.posoff);
+				const s16 *p = (s16 *)(data_ + decFmt_.posoff);
 				for (int i = 0; i < 3; i++)
 					pos[i] = p[i] / 32767.0f;
 			}
 			break;
 		case DEC_S8_3:
 			{
-				s8 *p = (s8 *)(data_ + decFmt_.posoff);
+				const s8 *p = (s8 *)(data_ + decFmt_.posoff);
 				for (int i = 0; i < 3; i++)
 					pos[i] = p[i] / 127.0f;
 			}
@@ -214,14 +216,14 @@ public:
 			break;
 		case DEC_S16_3:
 			{
-				s16 *p = (s16 *)(data_ + decFmt_.nrmoff);
+				const s16 *p = (s16 *)(data_ + decFmt_.nrmoff);
 				for (int i = 0; i < 3; i++)
 					nrm[i] = p[i] / 32767.0f;
 			}
 			break;
 		case DEC_S8_3:
 			{
-				s8 *p = (s8 *)(data_ + decFmt_.nrmoff);
+				const s8 *p = (s8 *)(data_ + decFmt_.nrmoff);
 				for (int i = 0; i < 3; i++)
 					nrm[i] = p[i] / 127.0f;
 			}
@@ -236,6 +238,13 @@ public:
 		switch (decFmt_.uvfmt) {
 		case DEC_FLOAT_2:
 			memcpy(uv, data_ + decFmt_.uvoff, 8); break;
+		case DEC_U16A_2:
+			{
+				const u16 *p = (const u16 *)(data_ + decFmt_.uvoff);
+				uv[0] = (float)p[0];
+				uv[1] = (float)p[1];
+			}
+			break;
 		default:
 			ERROR_LOG(G3D, "Reader: Unsupported UV Format");
 			break;

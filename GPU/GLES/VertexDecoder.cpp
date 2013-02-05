@@ -73,6 +73,8 @@ int DecFmtSize(u8 fmt) {
 	case DEC_U8_2: return 4;
 	case DEC_U8_3: return 4;
 	case DEC_U8_4: return 4;
+	case DEC_U16_2: return 4;
+	case DEC_U16A_2: return 4;
 	default:
 		return 0;
 	}
@@ -154,10 +156,10 @@ void VertexDecoder::Step_TcU16() const
 
 void VertexDecoder::Step_TcU16Through() const
 {
-	float *uv = (float *)(decoded_ + decFmt.uvoff);
+	u16 *uv = (u16 *)(decoded_ + decFmt.uvoff);
 	const u16 *uvdata = (const u16*)(ptr_ + tcoff);
-	uv[0] = (float)uvdata[0] / (float)(gstate_c.curTextureWidth);
-	uv[1] = (float)uvdata[1] / (float)(gstate_c.curTextureHeight);
+	uv[0] = uvdata[0];
+	uv[1] = uvdata[1];
 }
 
 void VertexDecoder::Step_TcFloat() const
@@ -171,8 +173,8 @@ void VertexDecoder::Step_TcFloatThrough() const
 {
 	float *uv = (float *)(decoded_ + decFmt.uvoff);
 	const float *uvdata = (const float*)(ptr_ + tcoff);
-	uv[0] = uvdata[0] / (float)(gstate_c.curTextureWidth);
-	uv[1] = uvdata[1] / (float)(gstate_c.curTextureHeight);
+	uv[0] = uvdata[0];
+	uv[1] = uvdata[1];
 }
 
 void VertexDecoder::Step_Color565() const
@@ -580,8 +582,11 @@ void VertexDecoder::SetVertexType(u32 fmt) {
 
 		steps_[numSteps_++] = throughmode ? tcstep_through[tc] : tcstep[tc];
 
-		// All UV decode to DEC_FLOAT2 currently.
-		decFmt.uvfmt = DEC_FLOAT_2;
+		// All UV except through mode decode to DEC_FLOAT2 currently.
+		if (throughmode && (tc == (GE_VTYPE_TC_16BIT >> GE_VTYPE_TC_SHIFT)))
+			decFmt.uvfmt = DEC_U16A_2;
+		else
+			decFmt.uvfmt = DEC_FLOAT_2;
 		decFmt.uvoff = decOff;
 		decOff += DecFmtSize(decFmt.uvfmt);
 	}
