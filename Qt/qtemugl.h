@@ -16,6 +16,9 @@ public:
 
 	void start_rendering();
 	void stop_rendering();
+	void start_game(QString filename);
+	void stop_game();
+	void LockDraw(bool value);
 protected:
 	void initializeGL();
 
