@@ -1,10 +1,11 @@
 #include "StateMapping.h"
-#include "../../native/gfx_es2/gl_state.h"
+#include "native/gfx_es2/gl_state.h"
 
-#include "../Math3D.h"
-#include "../GPUState.h"
-#include "../../Core/System.h"
-#include "../ge_constants.h"
+#include "GPU/Math3D.h"
+#include "GPU/GPUState.h"
+#include "GPU/ge_constants.h"
+#include "Core/System.h"
+#include "Core/Config.h"
 #include "DisplayListInterpreter.h"
 #include "ShaderManager.h"
 #include "TextureCache.h"
@@ -214,8 +215,16 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 }
 
 void UpdateViewportAndProjection() {
-	int renderWidth = PSP_CoreParameter().renderWidth;
-	int renderHeight = PSP_CoreParameter().renderHeight;
+	int renderWidth, renderHeight;
+	
+	if (g_Config.bBufferedRendering) {
+		renderWidth = PSP_CoreParameter().renderWidth;
+		renderHeight = PSP_CoreParameter().renderHeight;
+	} else {
+		// TODO: Aspect-ratio aware and centered
+		renderWidth = PSP_CoreParameter().pixelWidth;
+		renderHeight = PSP_CoreParameter().pixelHeight;
+	}
 	float renderWidthFactor = (float)renderWidth / 480.0f;
 	float renderHeightFactor = (float)renderHeight / 272.0f;
 	bool throughmode = (gstate.vertType & GE_VTYPE_THROUGH_MASK) != 0;

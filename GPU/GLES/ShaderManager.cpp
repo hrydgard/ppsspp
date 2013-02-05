@@ -39,7 +39,7 @@ Shader::Shader(const char *code, uint32_t shaderType) {
 	OutputDebugString(code);
 #endif
 	shader = glCreateShader(shaderType);
-	glShaderSource(shader, 1, &code, 0);
+ 	glShaderSource(shader, 1, &code, 0);
 	glCompileShader(shader);
 	GLint success;
 	glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
@@ -264,7 +264,13 @@ void LinkedShader::updateUniforms() {
 
 	// Texturing
 	if (u_uvscaleoffset != -1 && (dirtyUniforms & DIRTY_UVSCALEOFFSET)) {
-		const float uvscaleoff[4] = { gstate_c.uScale, gstate_c.vScale, gstate_c.uOff, gstate_c.vOff};
+		float uvscaleoff[4] = { gstate_c.uScale, gstate_c.vScale, gstate_c.uOff, gstate_c.vOff};
+		if (gstate.isModeThrough()) {
+			uvscaleoff[0] /= gstate_c.curTextureWidth;
+			uvscaleoff[1] /= gstate_c.curTextureHeight;
+			uvscaleoff[2] /= gstate_c.curTextureWidth;
+			uvscaleoff[3] /= gstate_c.curTextureHeight;
+		}
 		glUniform4fv(u_uvscaleoffset, 1, uvscaleoff);
 	}
 
@@ -315,6 +321,15 @@ void LinkedShader::updateUniforms() {
 	dirtyUniforms = 0;
 }
 
+ShaderManager::ShaderManager() : lastShader(NULL), globalDirty(0xFFFFFFFF), shaderSwitchDirty(0) {
+	codeBuffer_ = new char[16384];
+}
+
+ShaderManager::~ShaderManager() {
+	delete [] codeBuffer_;
+}
+
+
 void ShaderManager::DirtyUniform(u32 what) {
 	globalDirty |= what;
 }
@@ -353,10 +368,9 @@ void ShaderManager::DirtyShader()
 LinkedShader *ShaderManager::ApplyShader(int prim)
 {
 	if (globalDirty) {
-		// Deferred dirtying! Let's see if we can make this even more clever later.
-		for (LinkedShaderCache::iterator iter = linkedShaderCache.begin(); iter != linkedShaderCache.end(); ++iter) {
-			iter->second->dirtyUniforms |= globalDirty;
-		}
+		if (lastShader)
+			lastShader->dirtyUniforms |= globalDirty;
+		shaderSwitchDirty |= globalDirty;
 		globalDirty = 0;
 	}
 
@@ -375,6 +389,12 @@ LinkedShader *ShaderManager::ApplyShader(int prim)
 		// There was a previous shader and we're switching.
 		lastShader->stop();
 	}
+
+	// Deferred dirtying! Let's see if we can make this even more clever later.
+	for (LinkedShaderCache::iterator iter = linkedShaderCache.begin(); iter != linkedShaderCache.end(); ++iter) {
+		iter->second->dirtyUniforms |= shaderSwitchDirty;
+	}
+	shaderSwitchDirty = 0;
 
 	lastVSID = VSID;
 	lastFSID = FSID;

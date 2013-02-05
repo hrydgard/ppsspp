@@ -298,12 +298,12 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 }
 
 struct GlTypeInfo {
-	GLuint type;
-	int count;
-	GLboolean normalized;
+	u16 type;
+	u8 count;
+	u8 normalized;
 };
 
-const GlTypeInfo GLComp[] = {
+static const GlTypeInfo GLComp[] = {
 	{0}, // 	DEC_NONE,
 	{GL_FLOAT, 1, GL_FALSE}, // 	DEC_FLOAT_1,
 	{GL_FLOAT, 2, GL_FALSE}, // 	DEC_FLOAT_2,
@@ -311,8 +311,12 @@ const GlTypeInfo GLComp[] = {
 	{GL_FLOAT, 4, GL_FALSE}, // 	DEC_FLOAT_4,
 	{GL_BYTE, 4, GL_TRUE}, // 	DEC_S8_3,
 	{GL_SHORT, 4, GL_TRUE},// 	DEC_S16_3,
-	{GL_UNSIGNED_BYTE, 4, GL_TRUE},// 	DEC_U8_4,
+	{GL_UNSIGNED_BYTE, 1, GL_TRUE},// 	DEC_U8_1,
+	{GL_UNSIGNED_BYTE, 2, GL_TRUE},// 	DEC_U8_2,
 	{GL_UNSIGNED_BYTE, 3, GL_TRUE},// 	DEC_U8_3,
+	{GL_UNSIGNED_BYTE, 4, GL_TRUE},// 	DEC_U8_4,
+	{GL_UNSIGNED_SHORT, 2, GL_TRUE},// 	DEC_U16_2,
+	{GL_UNSIGNED_SHORT, 2, GL_FALSE},// 	DEC_U16A_2,
 };
 
 static inline void VertexAttribSetup(int attrib, int fmt, int stride, u8 *ptr) {
@@ -397,6 +401,13 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		vertexCount = 0x10000/3;
 #endif
 
+	float uscale = 1.0f;
+	float vscale = 1.0f;
+	if (throughmode) {
+		uscale /= gstate_c.curTextureWidth;
+		vscale /= gstate_c.curTextureHeight;
+	}
+
 	Lighter lighter;
 	float fog_end = getFloat24(gstate.fog1);
 	float fog_slope = getFloat24(gstate.fog2);
@@ -428,6 +439,9 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 
 			if (reader.hasUV()) {
 				reader.ReadUV(uv);
+
+				uv[0] *= uscale;
+				uv[1] *= vscale;
 			}
 			fogCoef = 1.0f;
 			// Scale UV?
@@ -527,8 +541,8 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 				{
 				case 0:	// UV mapping
 					// Texture scale/offset is only performed in this mode.
-					uv[0] = ruv[0]*gstate_c.uScale + gstate_c.uOff;
-					uv[1] = ruv[1]*gstate_c.vScale + gstate_c.vOff;
+					uv[0] = uscale * (ruv[0]*gstate_c.uScale + gstate_c.uOff);
+					uv[1] = vscale * (ruv[1]*gstate_c.vScale + gstate_c.vOff);
 					break;
 				case 1:
 					{
@@ -578,8 +592,12 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		memcpy(&transformed[index].x, v, 3 * sizeof(float));
 		transformed[index].fog = fogCoef;
 		memcpy(&transformed[index].u, uv, 2 * sizeof(float));
-		memcpy(&transformed[index].color0, c0, 4 * sizeof(float));
-		memcpy(&transformed[index].color1, c1, 3 * sizeof(float));
+		for (int i = 0; i < 4; i++) {
+			transformed[index].color0[i] = c0[i] * 255.0f;
+		}
+		for (int i = 0; i < 4; i++) {
+			transformed[index].color1[i] = c1[i] * 255.0f;
+		}
 	}
 
 	// Step 2: expand rectangles.
@@ -672,8 +690,8 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 	}
 	glVertexAttribPointer(program->a_position, 4, GL_FLOAT, GL_FALSE, vertexSize, drawBuffer);
 	if (program->a_texcoord != -1) glVertexAttribPointer(program->a_texcoord, 2, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 4 * 4);
-	if (program->a_color0 != -1) glVertexAttribPointer(program->a_color0, 4, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 6 * 4);
-	if (program->a_color1 != -1) glVertexAttribPointer(program->a_color1, 3, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 10 * 4);
+	if (program->a_color0 != -1) glVertexAttribPointer(program->a_color0, 4, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, ((uint8_t*)drawBuffer) + 6 * 4);
+	if (program->a_color1 != -1) glVertexAttribPointer(program->a_color1, 3, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, ((uint8_t*)drawBuffer) + 7 * 4);
 	if (drawIndexed) {
 		if (useVBO) {
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_[curVbo_]);
@@ -838,8 +856,9 @@ void TransformDrawEngine::ClearTrackedVertexArrays() {
 }
 
 void TransformDrawEngine::DecimateTrackedVertexArrays() {
+	int threshold = gpuStats.numFrames - VAI_KILL_AGE;
 	for (auto iter = vai_.begin(); iter != vai_.end(); ) {
-		if (iter->second->lastFrame + VAI_KILL_AGE < gpuStats.numFrames) {
+		if (iter->second->lastFrame < threshold ) {
 			delete iter->second;
 			vai_.erase(iter++);
 		}

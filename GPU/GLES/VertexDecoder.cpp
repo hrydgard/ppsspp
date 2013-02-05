@@ -69,7 +69,12 @@ int DecFmtSize(u8 fmt) {
 	case DEC_FLOAT_4: return 16;
 	case DEC_S8_3: return 4;
 	case DEC_S16_3: return 8;
+	case DEC_U8_1: return 4;
+	case DEC_U8_2: return 4;
+	case DEC_U8_3: return 4;
 	case DEC_U8_4: return 4;
+	case DEC_U16_2: return 4;
+	case DEC_U16A_2: return 4;
 	default:
 		return 0;
 	}
@@ -107,10 +112,10 @@ DecVtxFormat GetTransformedVtxFormat(const DecVtxFormat &fmt) {
 
 void VertexDecoder::Step_WeightsU8() const
 {
-	float *wt = (float *)(decoded_ + decFmt.w0off);
+	u8 *wt = (u8 *)(decoded_ + decFmt.w0off);
 	const u8 *wdata = (const u8*)(ptr_);
 	for (int j = 0; j < nweights; j++)
-		wt[j] = (float)wdata[j] / 128.0f;
+		wt[j] = wdata[j];
 }
 
 void VertexDecoder::Step_WeightsU16() const
@@ -118,14 +123,19 @@ void VertexDecoder::Step_WeightsU16() const
 	float *wt = (float *)(decoded_  + decFmt.w0off);
 	const u16 *wdata = (const u16*)(ptr_);
 	for (int j = 0; j < nweights; j++)
-		wt[j] = (float)wdata[j] / 32768.0f;
+		wt[j] = (float)wdata[j] / 65535.0f;
 }
 
+// Float weights should be uncommon, we can live with having to multiply these by 2.0
+// to avoid special checks in the vertex shader generator.
+// (PSP uses 0.0-2.0 fixed point numbers for weights)
 void VertexDecoder::Step_WeightsFloat() const
 {
 	float *wt = (float *)(decoded_ + decFmt.w0off);
 	const float *wdata = (const float*)(ptr_);
-	memcpy(wt, wdata, nweights * sizeof(float));
+	for (int i = 0; i < nweights; i++) {
+		wt[i] = wdata[i] * 0.5f;
+	}
 }
 
 void VertexDecoder::Step_TcU8() const
@@ -146,10 +156,10 @@ void VertexDecoder::Step_TcU16() const
 
 void VertexDecoder::Step_TcU16Through() const
 {
-	float *uv = (float *)(decoded_ + decFmt.uvoff);
+	u16 *uv = (u16 *)(decoded_ + decFmt.uvoff);
 	const u16 *uvdata = (const u16*)(ptr_ + tcoff);
-	uv[0] = (float)uvdata[0] / (float)(gstate_c.curTextureWidth);
-	uv[1] = (float)uvdata[1] / (float)(gstate_c.curTextureHeight);
+	uv[0] = uvdata[0];
+	uv[1] = uvdata[1];
 }
 
 void VertexDecoder::Step_TcFloat() const
@@ -163,8 +173,8 @@ void VertexDecoder::Step_TcFloatThrough() const
 {
 	float *uv = (float *)(decoded_ + decFmt.uvoff);
 	const float *uvdata = (const float*)(ptr_ + tcoff);
-	uv[0] = uvdata[0] / (float)(gstate_c.curTextureWidth);
-	uv[1] = uvdata[1] / (float)(gstate_c.curTextureHeight);
+	uv[0] = uvdata[0];
+	uv[1] = uvdata[1];
 }
 
 void VertexDecoder::Step_Color565() const
@@ -544,14 +554,21 @@ void VertexDecoder::SetVertexType(u32 fmt) {
 
 		steps_[numSteps_++] = wtstep[weighttype];
 
+		int fmtBase = DEC_FLOAT_1;
+		int weightSize = 4;
+		if (weighttype == GE_VTYPE_WEIGHT_8BIT >> GE_VTYPE_WEIGHT_SHIFT) {
+			fmtBase = DEC_U8_1;
+			weightSize = 1;
+		}
+
 		if (nweights < 5) {
 			decFmt.w0off = decOff;
-			decFmt.w0fmt = DEC_FLOAT_1 + nweights - 1;
+			decFmt.w0fmt = fmtBase + nweights - 1;
 		} else {
 			decFmt.w0off = decOff;
-			decFmt.w0fmt = DEC_FLOAT_4;
-			decFmt.w1off = decOff + 4 * 4;
-			decFmt.w1fmt = DEC_FLOAT_1 + nweights - 5;
+			decFmt.w0fmt = fmtBase + 3;
+			decFmt.w1off = decOff + 4 * weightSize;
+			decFmt.w1fmt = fmtBase + nweights - 5;
 		}
 		decOff += nweights * 4;
 	}
@@ -565,8 +582,11 @@ void VertexDecoder::SetVertexType(u32 fmt) {
 
 		steps_[numSteps_++] = throughmode ? tcstep_through[tc] : tcstep[tc];
 
-		// All UV decode to DEC_FLOAT2 currently.
-		decFmt.uvfmt = DEC_FLOAT_2;
+		// All UV except through mode decode to DEC_FLOAT2 currently.
+		if (throughmode && (tc == (GE_VTYPE_TC_16BIT >> GE_VTYPE_TC_SHIFT)))
+			decFmt.uvfmt = DEC_U16A_2;
+		else
+			decFmt.uvfmt = DEC_FLOAT_2;
 		decFmt.uvoff = decOff;
 		decOff += DecFmtSize(decFmt.uvfmt);
 	}

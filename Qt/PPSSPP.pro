@@ -1,4 +1,5 @@
 TARGET = PPSSPPQt
+# Ubuntu user, remove multimedia
 QT += core gui opengl multimedia
 
 include(Settings.pri)

@@ -513,6 +513,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 			// Throughmode changed, let's make the proj matrix dirty.
 			shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
 		}
+		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 		// This sets through-mode or not, as well.
 		break;
 
