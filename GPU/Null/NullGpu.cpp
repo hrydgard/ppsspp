@@ -154,7 +154,7 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 
 			// TODO: Should this run while interrupts are suspended?
 			if (interruptsEnabled_)
-				__GeTriggerInterrupt(currentList->id, currentList->pc);
+				__GeTriggerInterrupt(currentList->id, currentList->pc, currentList->subIntrBase, currentList->subIntrToken);
 		}
 		break;
 
@@ -188,7 +188,7 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 		currentList->subIntrToken = data & 0xFFFF;
 		// TODO: Should this run while interrupts are suspended?
 		if (interruptsEnabled_)
-			__GeTriggerInterrupt(currentList->id, currentList->pc);
+			__GeTriggerInterrupt(currentList->id, currentList->pc, currentList->subIntrBase, currentList->subIntrToken);
 		break;
 
 	case GE_CMD_END: 
