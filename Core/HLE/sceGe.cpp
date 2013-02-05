@@ -75,7 +75,7 @@ public:
 		ge_pending_cb.pop_front();
 		gpu->InterruptEnd();
 
-		WARN_LOG(HLE, "Ignoring interrupt for display list %d, already been released.", intrdata.listid);
+		DEBUG_LOG(HLE, "Ignoring interrupt for display list %d, already been released.", intrdata.listid);
 		return false;
 	}
 
@@ -210,7 +210,7 @@ u32 sceGeDrawSync(u32 mode)
 
 int sceGeContinue()
 {
-	ERROR_LOG(HLE, "UNIMPL sceGeContinue");
+	DEBUG_LOG(HLE, "UNIMPL sceGeContinue");
 	// no arguments
 	return 0;
 }
@@ -218,7 +218,7 @@ int sceGeContinue()
 int sceGeBreak(u32 mode)
 {
 	//mode => 0 : current dlist 1: all drawing
-	ERROR_LOG(HLE, "UNIMPL sceGeBreak(mode=%d)", mode);
+	DEBUG_LOG(HLE, "UNIMPL sceGeBreak(mode=%d)", mode);
 	return 0;
 }
 
