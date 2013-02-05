@@ -38,6 +38,28 @@ void QtEmuGL::stop_rendering()
 	thread.Shutdown();
 }
 
+void QtEmuGL::start_game(QString filename)
+{
+	thread.startGame(filename);
+}
+
+void QtEmuGL::stop_game()
+{
+	thread.stopGame();
+}
+
+void QtEmuGL::LockDraw(bool value)
+{
+	if(value)
+	{
+		thread.gameMutex.lock();
+	}
+	else
+	{
+		thread.gameMutex.unlock();
+	}
+}
+
 void QtEmuGL::resizeEvent(QResizeEvent *evt)
 {
 	// TODO
