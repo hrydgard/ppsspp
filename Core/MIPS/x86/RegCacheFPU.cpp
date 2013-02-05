@@ -15,7 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#pragma once
 
 #include "Common/Log.h"
 #include "Common/x64Emitter.h"
@@ -81,7 +80,7 @@ void FPURegCache::ReleaseSpillLocks() {
 		regs[i].locked = false;
 }
 
-void FPURegCache::BindToRegister(int i, bool doLoad, bool makeDirty) {
+void FPURegCache::BindToRegister(const int i, bool doLoad, bool makeDirty) {
 	_assert_msg_(DYNA_REC, !regs[i].location.IsImm(), "WTF - load - imm");
 	if (!regs[i].away) {
 		// Reg is at home in the memory register file. Let's pull it out.
