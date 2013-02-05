@@ -819,6 +819,7 @@ u32 TransformDrawEngine::ComputeHash() {
 	u32 fullhash = 0;
 	int vertexSize = dec.GetDecVtxFmt().stride;
 
+	// TODO: Add some caps both for numDrawCalls and num verts to check?
 	for (int i = 0; i < numDrawCalls; i++) {
 		if (!drawCalls[i].inds) {
 			fullhash += CityHash32((const char *)drawCalls[i].verts, vertexSize * drawCalls[i].vertexCount);
@@ -920,6 +921,7 @@ void TransformDrawEngine::Flush() {
 					u32 dataHash = ComputeHash();
 					vai->hash = dataHash;
 					vai->status = VertexArrayInfo::VAI_HASHING;
+					vai->drawsUntilNextFullHash = 0;
 					DecodeVerts(); // writes to indexGen
 					goto rotateVBO;
 				}
@@ -928,27 +930,33 @@ void TransformDrawEngine::Flush() {
 				// But if we get this far it's likely to be worth creating a vertex buffer.
 			case VertexArrayInfo::VAI_HASHING:
 				{
-					u32 newHash = ComputeHash();
 					vai->numDraws++;
-					// TODO: tweak
-					if (vai->numDraws > 100000) {
-						vai->status = VertexArrayInfo::VAI_RELIABLE;
-					}
-					if (newHash == vai->hash) {
-						gpuStats.numCachedDrawCalls++;
+					if (vai->drawsUntilNextFullHash == 0) {
+						u32 newHash = ComputeHash();
+						// exponential backoff up to 16 frames
+						vai->drawsUntilNextFullHash = std::min(16, vai->numDraws);
+						// TODO: tweak
+						if (vai->numDraws > 1000) {
+							vai->status = VertexArrayInfo::VAI_RELIABLE;
+						}
+						if (newHash != vai->hash) {
+							vai->status = VertexArrayInfo::VAI_UNRELIABLE;
+							if (vai->vbo) {
+								glDeleteBuffers(1, &vai->vbo);
+								vai->vbo = 0;
+							}
+							if (vai->ebo) {
+								glDeleteBuffers(1, &vai->ebo);
+								vai->ebo = 0;
+							}
+							DecodeVerts();
+							goto rotateVBO;
+						}
 					} else {
-						vai->status = VertexArrayInfo::VAI_UNRELIABLE;
-						if (vai->vbo) {
-							glDeleteBuffers(1, &vai->vbo);
-							vai->vbo = 0;
-						}
-						if (vai->ebo) {
-							glDeleteBuffers(1, &vai->ebo);
-							vai->ebo = 0;
-						}
-						DecodeVerts();
-						goto rotateVBO;
+						vai->drawsUntilNextFullHash--;
+						// TODO: "mini-hashing" the first 32 bytes of the vertex/index data or something.
 					}
+
 					if (vai->vbo == 0) {
 						DecodeVerts();
 						vai->numVerts = indexGen.VertexCount();
@@ -970,6 +978,7 @@ void TransformDrawEngine::Flush() {
 							glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 						}
 					} else {
+						gpuStats.numCachedDrawCalls++;
 						glBindBuffer(GL_ARRAY_BUFFER, vai->vbo);
 						if (vai->ebo)
 							glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vai->ebo);
