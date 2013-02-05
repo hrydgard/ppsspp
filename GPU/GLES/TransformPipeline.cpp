@@ -262,7 +262,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		}
 
 		Color4 lightDiff(gstate_c.lightColor[1][l], 0.0f);
-		Color4 diff = (lightDiff * *diffuse) * (dot * lightScale);
+		Color4 diff = (lightDiff * *diffuse) * (max(dot, 0.0f) * lightScale);
 
 		// Real PSP specular
 		Vec3 toViewer(0,0,1);
