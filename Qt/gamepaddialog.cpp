@@ -2,6 +2,7 @@
 #include "ui_gamepaddialog.h"
 #include <QTimer>
 #include "Core/Config.h"
+#include "EmuThread.h"
 
 // Input
 struct GamePadInfo
@@ -94,6 +95,20 @@ GamePadDialog::~GamePadDialog()
 #endif
 
 	delete ui;
+}
+
+void GamePadDialog::showEvent(QShowEvent *)
+{
+#ifdef Q_WS_X11
+	// Hack to remove the X11 crash with threaded opengl when opening the first dialog
+	EmuThread_LockDraw(true);
+	QTimer::singleShot(100, this, SLOT(releaseLock()));
+#endif
+}
+
+void GamePadDialog::releaseLock()
+{
+	EmuThread_LockDraw(false);
 }
 
 void GamePadDialog::on_refreshListBtn_clicked()
