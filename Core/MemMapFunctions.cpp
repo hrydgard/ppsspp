@@ -151,7 +151,7 @@ bool IsValidAddress(const u32 address)
 
 u32 Read_Opcode(u32 _Address)
 {
-	assert(_Address == 0x00000000);
+	assert(_Address != 0x00000000);
 
 	return Read_Instruction(_Address);
 }
