@@ -91,7 +91,55 @@ void WindowsHeadlessHost::SendDebugOutput(const std::string &output)
 
 void WindowsHeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h)
 {
-	fprintf_s(out, "Got a screenshot: %d/%d\n", w, h);
+	// We ignore the current framebuffer parameters and just grab the full screen.
+	const static int FRAME_WIDTH = 512;
+	const static int FRAME_HEIGHT = 272;
+	u32 *pixels = (u32 *) calloc(FRAME_WIDTH * FRAME_HEIGHT, sizeof(u32));
+	u32 *reference = (u32 *) calloc(FRAME_WIDTH * FRAME_HEIGHT, sizeof(u32));
+
+	// TODO: Maybe the GPU should do this?
+	glReadBuffer(GL_FRONT);
+	glReadPixels(0, 0, FRAME_WIDTH, FRAME_HEIGHT, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+
+	BITMAPFILEHEADER header;
+	BITMAPINFOHEADER infoHeader;
+	FILE *bmp = fopen(comparisonScreenshot.c_str(), "rb");
+	if (bmp)
+	{
+		fread(&header, sizeof(header), 1, bmp);
+		fread(&infoHeader, sizeof(infoHeader), 1, bmp);
+		fread(reference, sizeof(u32), FRAME_WIDTH * FRAME_HEIGHT, bmp);
+		fclose(bmp);
+	}
+	else
+		fprintf_s(out, "Unable to read screenshot: %s\n", comparisonScreenshot.c_str());
+
+	// TODO: Better error rate and move to headless/shared between platforms.
+	int errors = 0;
+	for (int i = 0; i < FRAME_WIDTH * FRAME_HEIGHT; ++i)
+	{
+		// Ignore alpha.
+		errors += (pixels[i] & 0xFFFFFF) != (reference[i] & 0xFFFFFF) ? 1 : 0;
+	}
+
+	if (errors != 0)
+	{
+		fprintf_s(out, "Screenshot error: %f%%\n", (float) errors * 100.0f / (float) (FRAME_WIDTH * FRAME_HEIGHT));
+
+		FILE *saved = fopen("__testfailure.bmp", "wb");
+		if (saved)
+		{
+			fwrite(&header, sizeof(header), 1, saved);
+			fwrite(&infoHeader, sizeof(infoHeader), 1, saved);
+			fwrite(pixels, sizeof(u32), FRAME_WIDTH * FRAME_HEIGHT, saved);
+			fclose(saved);
+
+			fprintf_s(out, "Actual output written to: __testfailure.bmp\n");
+		}
+	}
+
+	free(pixels);
+	free(reference);
 }
 
 void WindowsHeadlessHost::SetComparisonScreenshot(const std::string &filename)
