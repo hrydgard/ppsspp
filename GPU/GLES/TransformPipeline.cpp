@@ -863,7 +863,7 @@ void TransformDrawEngine::ClearTrackedVertexArrays() {
 void TransformDrawEngine::DecimateTrackedVertexArrays() {
 	int threshold = gpuStats.numFrames - VAI_KILL_AGE;
 	for (auto iter = vai_.begin(); iter != vai_.end(); ) {
-		if (iter->second->lastFrame < threshold ) {
+		if (iter->second->lastFrame < threshold) {
 			delete iter->second;
 			vai_.erase(iter++);
 		}
@@ -937,9 +937,9 @@ void TransformDrawEngine::Flush() {
 						// exponential backoff up to 16 frames
 						vai->drawsUntilNextFullHash = std::min(16, vai->numDraws);
 						// TODO: tweak
-						if (vai->numDraws > 1000) {
-							vai->status = VertexArrayInfo::VAI_RELIABLE;
-						}
+						//if (vai->numDraws > 1000) {
+						//	vai->status = VertexArrayInfo::VAI_RELIABLE;
+						//}
 						if (newHash != vai->hash) {
 							vai->status = VertexArrayInfo::VAI_UNRELIABLE;
 							if (vai->vbo) {
