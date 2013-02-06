@@ -48,7 +48,8 @@ SOURCES += ../Common/ColorUtil.cpp \
 	../Common/Timer.cpp \
 	../Common/Version.cpp \
 	../Common/Crypto/*.cpp
-HEADERS += ../Common/ColorUtil.h \
+HEADERS += ../Common/ChunkFile.h \
+	../Common/ColorUtil.h \
 	../Common/ConsoleListener.h \
 	../Common/ExtendedTrace.h \
 	../Common/FileSearch.h \
