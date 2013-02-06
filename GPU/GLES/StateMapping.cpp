@@ -171,7 +171,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	bool wantDepthTest = gstate.isModeClear() || gstate.isDepthTestEnabled();
 	glstate.depthTest.set(wantDepthTest);
 	if(wantDepthTest) {
-		// Force GL_ALWAYS if mode clear
+		// Force GL_ALWAYS if mode clear - without depth test, no depth write.
 		int depthTestFunc = gstate.isModeClear() ? 1 : gstate.getDepthTestFunc();
 		glstate.depthFunc.set(ztests[depthTestFunc]);
 	}

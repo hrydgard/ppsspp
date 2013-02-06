@@ -55,16 +55,16 @@ MainWindow::MainWindow(QWidget *parent) :
 	if (zoom > 4) zoom = 4;
 	SetZoom(zoom);
 
+	EmuThread_Start(w);
+
 	if (!fileToStart.isNull())
 	{
 		SetPlaying(fileToStart);
 		//Update();
 		UpdateMenus();
 
-		EmuThread_Start(fileToStart, w);
+		EmuThread_StartGame(fileToStart);
 	}
-	else
-		BrowseAndBoot();
 
 	if (!fileToStart.isNull() && stateToLoad != NULL)
 		SaveState::Load(stateToLoad);
@@ -195,7 +195,7 @@ void MainWindow::BrowseAndBoot(void)
 	{
 		QFileInfo info(filename);
 		g_Config.currentDirectory = info.absolutePath().toStdString();
-		EmuThread_Start(filename, w);
+		EmuThread_StartGame(filename);
 	}
 }
 
@@ -324,7 +324,7 @@ void MainWindow::on_action_EmulationStop_triggered()
 		if (memoryWindow[i])
 			SendMessage(memoryWindow[i]->GetDlgHandle(), WM_CLOSE, 0, 0);*/
 
-	EmuThread_Stop();
+	EmuThread_StopGame();
 	SetPlaying(0);
 	//Update();
 	UpdateMenus();
@@ -485,6 +485,7 @@ void MainWindow::on_action_OptionsHardwareTransform_triggered()
 void MainWindow::on_action_FileExit_triggered()
 {
 	on_action_EmulationStop_triggered();
+	EmuThread_Stop();
 	QApplication::exit(0);
 }
 

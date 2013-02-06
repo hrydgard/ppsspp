@@ -451,6 +451,7 @@ static const char *credits[] =
 	"soywiz",
 	"kovensky",
 	"raven02",
+	"xele",
 	"",
 	"Written in C++ for speed and portability",
 	"",
