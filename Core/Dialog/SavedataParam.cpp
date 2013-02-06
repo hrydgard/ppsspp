@@ -55,7 +55,7 @@ namespace
 		if(dataSize == -1)
 		{
 			dataSize = pspFileSystem.GetFileInfo(filename).size;
-			*data = new u8[dataSize];
+			*data = new u8[(size_t)dataSize];
 		}
 
 		size_t result = pspFileSystem.ReadFile(handle, *data, dataSize);
