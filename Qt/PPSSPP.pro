@@ -27,6 +27,9 @@ linux {
 	}
 }
 
+TRANSLATIONS = languages/PPSSPP_en.ts \
+		languages/PPSSPP_pl.ts
+
 # Main
 SOURCES += ../native/base/QtMain.cpp
 HEADERS += ../native/base/QtMain.h

@@ -778,3 +778,92 @@ void MainWindow::on_action_OptionsGamePadControls_triggered()
 	QMessageBox::information(this,"Gamepad","You need to compile with SDL to have Gamepad support.", QMessageBox::Ok);
 #endif
 }
+
+void MainWindow::on_language_changed(QAction *action)
+{
+	if (0 != action)
+	{
+		loadLanguage(action->data().toString());
+	}
+}
+
+void switchTranslator(QTranslator &translator, const QString &filename)
+{
+	qApp->removeTranslator(&translator);
+
+	if (translator.load(filename))
+		qApp->installTranslator(&translator);
+}
+
+void MainWindow::loadLanguage(const QString& language)
+{
+	if (currentLanguage != language)
+	{
+		currentLanguage = language;
+		QLocale locale = QLocale(currentLanguage);
+		QLocale::setDefault(locale);
+		QString languageName = QLocale::languageToString(locale.language());
+		switchTranslator(translator, QString("PPSSPP_%l.qm").arg(language));
+		switchTranslator(qtTranslator, QString("qt_%l.qm").arg(language));
+		ui->statusbar->showMessage(tr("Current language changed to %l").arg(languageName));
+	}
+}
+
+void MainWindow::createLanguageMenu()
+{
+	QActionGroup *langGroup = new QActionGroup(ui->menuLanguage);
+	langGroup->setExclusive(true);
+
+	connect(langGroup, SIGNAL(triggered(QAction *)), this, SLOT(on_language_changed(QAction *)));
+
+	QString defaultLocale = QLocale::system().name();
+	defaultLocale.truncate(defaultLocale.lastIndexOf('_'));
+	languagePath = QApplication::applicationDirPath();
+	languagePath.append("/languages");
+	QDir langDir(languagePath);
+	QStringList fileNames = langDir.entryList(QStringList("PPSSPP_*.qm"));
+
+	for (int i = 0; i < fileNames.size(); ++i)
+	{
+		QString locale = fileNames[i];
+		locale.truncate(locale.lastIndexOf(','));
+		locale.remove(0, locale.indexOf('_') + 1);
+
+		QString language = QLocale::languageToString(QLocale(locale).language());
+		QAction *action = new QAction(language, this);
+		action->setCheckable(true);
+		action->setData(locale);
+
+		ui->menuLanguage->addAction(action);
+		langGroup->addAction(action);
+
+		if (defaultLocale == locale)
+		{
+			action->setChecked(true);
+		}
+	}
+}
+
+void MainWindow::changeEvent(QEvent *event)
+{
+	if (0 != event)
+	{
+		switch (event->type())
+		{
+		case QEvent::LanguageChange:
+			ui->retranslateUi(this);
+			break;
+		case QEvent::LocaleChange:
+			{
+				QString locale = QLocale::system().name();
+				locale.truncate(locale.lastIndexOf('_'));
+				loadLanguage(locale);
+			}
+			break;
+		default:
+			break;
+		}
+	}
+
+	QMainWindow::changeEvent(event);
+}
