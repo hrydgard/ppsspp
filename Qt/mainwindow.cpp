@@ -48,6 +48,7 @@ MainWindow::MainWindow(QWidget *parent) :
 	DialogManager::AddDlg(vfpudlg = new CVFPUDlg(_hInstance, hwndMain, currentDebugMIPS));
 	*/
 	// Update();
+	createLanguageMenu();
 	UpdateMenus();
 
 	int zoom = g_Config.iWindowZoom;
@@ -804,9 +805,7 @@ void MainWindow::loadLanguage(const QString& language)
 		QLocale locale = QLocale(currentLanguage);
 		QLocale::setDefault(locale);
 		QString languageName = QLocale::languageToString(locale.language());
-		switchTranslator(translator, QString("PPSSPP_%l.qm").arg(language));
-		switchTranslator(qtTranslator, QString("qt_%l.qm").arg(language));
-		ui->statusbar->showMessage(tr("Current language changed to %l").arg(languageName));
+		switchTranslator(translator, QString("languages/ppsspp_%1.qm").arg(language));
 	}
 }
 
@@ -822,15 +821,25 @@ void MainWindow::createLanguageMenu()
 	languagePath = QApplication::applicationDirPath();
 	languagePath.append("/languages");
 	QDir langDir(languagePath);
-	QStringList fileNames = langDir.entryList(QStringList("PPSSPP_*.qm"));
+	QStringList fileNames = langDir.entryList(QStringList("ppsspp_*.qm"));
+
+	if (fileNames.size() == 0)
+	{
+		QAction *action = new QAction(tr("No translations"), this);
+		action->setCheckable(false);
+		action->setDisabled(true);
+		ui->menuLanguage->addAction(action);
+		langGroup->addAction(action);
+	}
 
 	for (int i = 0; i < fileNames.size(); ++i)
 	{
 		QString locale = fileNames[i];
-		locale.truncate(locale.lastIndexOf(','));
+		locale.truncate(locale.lastIndexOf('.'));
 		locale.remove(0, locale.indexOf('_') + 1);
 
-		QString language = QLocale::languageToString(QLocale(locale).language());
+		//QString language = QLocale::languageToString(QLocale(locale).language());
+		QString language = QLocale(locale).nativeLanguageName();
 		QAction *action = new QAction(language, this);
 		action->setCheckable(true);
 		action->setData(locale);
@@ -838,15 +847,19 @@ void MainWindow::createLanguageMenu()
 		ui->menuLanguage->addAction(action);
 		langGroup->addAction(action);
 
-		if (defaultLocale == locale)
+		// TODO check en as default until we save language to config
+		if ("en" == locale)
 		{
 			action->setChecked(true);
+			currentLanguage = "en";
 		}
 	}
 }
 
 void MainWindow::changeEvent(QEvent *event)
 {
+	QMainWindow::changeEvent(event);
+
 	if (0 != event)
 	{
 		switch (event->type())
@@ -865,6 +878,4 @@ void MainWindow::changeEvent(QEvent *event)
 			break;
 		}
 	}
-
-	QMainWindow::changeEvent(event);
 }
