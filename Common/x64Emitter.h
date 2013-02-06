@@ -564,6 +564,8 @@ public:
 	void CVTDQ2PS(X64Reg regOp, OpArg arg);
 	void CVTPS2DQ(X64Reg regOp, OpArg arg);
 
+	void CVTSI2SS(X64Reg xregdest, OpArg arg);  // Yeah, destination really is a GPR like EAX!
+	void CVTSS2SI(X64Reg xregdest, OpArg arg);  // Yeah, destination really is a GPR like EAX!
 	void CVTTSS2SI(X64Reg xregdest, OpArg arg);  // Yeah, destination really is a GPR like EAX!
 	void CVTTPS2DQ(X64Reg regOp, OpArg arg);
 
