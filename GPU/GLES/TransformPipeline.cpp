@@ -276,10 +276,10 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 			halfVec.Normalize();
 
 			dot = halfVec * norm;
-			if (dot >= 0)
+			if (dot > 0)
 			{
 				Color4 lightSpec(gstate_c.lightColor[2][l], 0.0f);
-				lightSum1 += (lightSpec * *specular * (powf(dot, specCoef_)*lightScale));
+				lightSum1 += (lightSpec * *specular * (powf(dot, specCoef_) * lightScale));
 			}
 		}
 		dots[l] = dot;
