@@ -254,8 +254,13 @@ public:
 			break;
 
 		case DEC_FLOAT_2:
-			uv[0] = f[0] * 2.0f;
-			uv[1] = f[1] * 2.0f;
+			if (isThrough()) {
+				uv[0] = f[0];
+				uv[1] = f[1];
+			} else {
+				uv[0] = f[0] * 2.0f;
+				uv[1] = f[1] * 2.0f;
+			}
 			break;
 
 		case DEC_U16A_2:
@@ -357,7 +362,7 @@ public:
 	bool hasColor0() const { return decFmt_.c0fmt != 0; }
 	bool hasNormal() const { return decFmt_.nrmfmt != 0; }
 	bool hasUV() const { return decFmt_.uvfmt != 0; }
-
+	bool isThrough() const { return (vtype_ & GE_VTYPE_THROUGH) != 0; }
 	void Goto(int index) {
 		data_ = base_ + index * decFmt_.stride;
 	}

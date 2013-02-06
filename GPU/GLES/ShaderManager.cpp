@@ -273,8 +273,6 @@ void LinkedShader::updateUniforms() {
 		} else {
 			uvscaleoff[0] *= 2.0f;
 			uvscaleoff[1] *= 2.0f;
-			uvscaleoff[2] *= 2.0f;
-			uvscaleoff[3] *= 2.0f;
 		}
 		glUniform4fv(u_uvscaleoffset, 1, uvscaleoff);
 	}
