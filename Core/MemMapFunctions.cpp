@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <assert.h>
+
 #include "Common.h"
 #include "Atomic.h"
 
@@ -149,12 +151,7 @@ bool IsValidAddress(const u32 address)
 
 u32 Read_Opcode(u32 _Address)
 {
-	if (_Address == 0x00000000)
-	{
-		// FIXME use assert?
-		PanicAlert("Program tried to read an opcode from [00000000]. It has crashed.");
-		return 0x00000000;
-	}
+	assert(_Address != 0x00000000);
 
 	return Read_Instruction(_Address);
 }
