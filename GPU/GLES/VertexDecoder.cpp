@@ -178,8 +178,8 @@ void VertexDecoder::Step_TcFloatThrough() const
 {
 	float *uv = (float *)(decoded_ + decFmt.uvoff);
 	const float *uvdata = (const float*)(ptr_ + tcoff);
-	uv[0] = uvdata[0];
-	uv[1] = uvdata[1];
+	uv[0] = uvdata[0] * 0.5f;
+	uv[1] = uvdata[1] * 0.5f;
 }
 
 void VertexDecoder::Step_Color565() const
