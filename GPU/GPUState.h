@@ -145,7 +145,7 @@ struct GPUgstate
 				clutformat,
 				texfilter,
 				texwrap,
-				padxxxxx,
+				texlevel,
 				texfunc,
 				texenvcolor,
 				texflush,
