@@ -129,6 +129,63 @@
         <source>Press buttons on your gamePad to verify mapping :</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="134"/>
+        <location filename="../gamepaddialog.cpp" line="366"/>
+        <source>&lt;b&gt;No gamepad&lt;/b&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="146"/>
+        <source>&lt;b&gt;Unknown gamepad&lt;/b&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="287"/>
+        <source>Buttons</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="301"/>
+        <location filename="../gamepaddialog.cpp" line="344"/>
+        <source>Button %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="304"/>
+        <source>Axes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="310"/>
+        <source>%1 Neg</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="317"/>
+        <source>Axes %1 Neg</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="320"/>
+        <source>%1 Pos</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="327"/>
+        <source>Axes %1 Pos</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="331"/>
+        <source>Hats</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="368"/>
+        <source>&lt;b&gt;Current gamepad: %1&lt;/b&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>MainWindow</name>
@@ -481,8 +538,181 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="811"/>
-        <source>Current language changed to %1</source>
+        <location filename="../mainwindow.cpp" line="828"/>
+        <source>No translations</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>gamepadMapping</name>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="19"/>
+        <source>Prev_X</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="19"/>
+        <source>Cross</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="20"/>
+        <source>Prev_O</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="20"/>
+        <source>Circle</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="21"/>
+        <source>Prev_S</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="21"/>
+        <source>Square</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="22"/>
+        <source>Prev_T</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="22"/>
+        <source>Triangle</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="23"/>
+        <source>Prev_LT</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="23"/>
+        <source>Left Trigger</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="24"/>
+        <source>Prev_RT</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="24"/>
+        <source>Right Trigger</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="25"/>
+        <source>Prev_Start</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="25"/>
+        <source>Start</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="26"/>
+        <source>Prev_Select</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="26"/>
+        <source>Select</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="27"/>
+        <source>Prev_Up</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="27"/>
+        <source>Up</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="28"/>
+        <source>Prev_Down</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="28"/>
+        <source>Down</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="29"/>
+        <source>Prev_Left</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="29"/>
+        <source>Left</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="30"/>
+        <source>Prev_Right</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="30"/>
+        <source>Right</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="32"/>
+        <source>Prev_Home</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="32"/>
+        <source>Home</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="35"/>
+        <source>Prev_ALeft</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="35"/>
+        <source>Stick left</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="36"/>
+        <source>Prev_ARight</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="36"/>
+        <source>Stick right</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="37"/>
+        <source>Prev_AUp</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="37"/>
+        <source>Stick up</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="38"/>
+        <source>Prev_ADown</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../gamepaddialog.cpp" line="38"/>
+        <source>Stick bottom</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
