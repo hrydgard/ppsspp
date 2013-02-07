@@ -99,7 +99,7 @@ void WindowsHeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h)
 
 	// TODO: Maybe the GPU should do this?
 	glReadBuffer(GL_FRONT);
-	glReadPixels(0, 0, FRAME_WIDTH, FRAME_HEIGHT, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+	glReadPixels(0, 0, FRAME_WIDTH, FRAME_HEIGHT, GL_BGRA, GL_UNSIGNED_BYTE, pixels);
 
 	BITMAPFILEHEADER header;
 	BITMAPINFOHEADER infoHeader;
@@ -119,6 +119,7 @@ void WindowsHeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h)
 	for (int i = 0; i < FRAME_WIDTH * FRAME_HEIGHT; ++i)
 	{
 		// Ignore alpha.
+		// TODO: Error threshold?
 		errors += (pixels[i] & 0xFFFFFF) != (reference[i] & 0xFFFFFF) ? 1 : 0;
 	}
 
