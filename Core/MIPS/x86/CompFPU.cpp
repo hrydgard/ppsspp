@@ -181,15 +181,12 @@ void Jit::Comp_FPU2op(u32 op)
 		fpr.ReleaseSpillLocks();
 		break;
 
-	case 12: //FsI(fd) = (int)floorf(F(fs)+0.5f); break; //round.w.s
 
 	case 4:	//F(fd)	= sqrtf(F(fs)); break; //sqrt
-/*		fpr.Lock(fd, fs); // this probably works, just badly tested
+		fpr.SpillLock(fd, fs); // this probably works, just badly tested
 		fpr.BindToRegister(fd, fd == fs, true);
 		SQRTSS(fpr.RX(fd), fpr.R(fs));
-		fpr.UnlockAll();
-		break;*/ 
-		Comp_Generic(op);
+		fpr.ReleaseSpillLocks();
 		return;
 
 	case 13: //FsI(fd) = F(fs)>=0 ? (int)floorf(F(fs)) : (int)ceilf(F(fs)); break;//trunc.w.s
@@ -200,9 +197,15 @@ void Jit::Comp_FPU2op(u32 op)
 		fpr.ReleaseSpillLocks();
 		break;
 
+	case 32: //F(fd)	= (float)FsI(fs);			break; //cvt.s.w
+		fpr.StoreFromRegister(fs);
+		CVTSI2SS(XMM0, fpr.R(fs));
+		MOVSS(fpr.R(fd), XMM0);
+		break;
+
+	case 12: //FsI(fd) = (int)floorf(F(fs)+0.5f); break; //round.w.s
 	case 14: //FsI(fd) = (int)ceilf (F(fs)); break; //ceil.w.s
 	case 15: //FsI(fd) = (int)floorf(F(fs)); break; //floor.w.s
-	case 32: //F(fd)	= (float)FsI(fs);			break; //cvt.s.w
 	case 36: //FsI(fd) = (int)	F(fs);			 break; //cvt.w.s
 	default:
 		Comp_Generic(op);

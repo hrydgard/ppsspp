@@ -318,7 +318,7 @@ void ConsoleListener::SendToThread(LogTypes::LOG_LEVELS Level, const char *Text)
 		Len = LOG_PENDING_MAX - 16;
 
 	char ColorAttr[16] = "";
-	int ColorLen = 0;
+	size_t ColorLen = 0;
 	if (bUseColor)
 	{
 		// Not ANSI, since the console doesn't support it, but ANSI-like.
@@ -333,7 +333,7 @@ void ConsoleListener::SendToThread(LogTypes::LOG_LEVELS Level, const char *Text)
 	u32 prevLogWritePos = logWritePos;
 	if (logWritePos + ColorLen + Len >= LOG_PENDING_MAX)
 	{
-		for (u32 i = 0; i < ColorLen; ++i)
+		for (size_t i = 0; i < ColorLen; ++i)
 			logPending[(logWritePos + i) % LOG_PENDING_MAX] = ColorAttr[i];
 		logWritePos += ColorLen;
 		if (logWritePos >= LOG_PENDING_MAX)

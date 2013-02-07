@@ -270,6 +270,9 @@ void LinkedShader::updateUniforms() {
 			uvscaleoff[1] /= gstate_c.curTextureHeight;
 			uvscaleoff[2] /= gstate_c.curTextureWidth;
 			uvscaleoff[3] /= gstate_c.curTextureHeight;
+		} else {
+			uvscaleoff[0] *= 2.0f;
+			uvscaleoff[1] *= 2.0f;
 		}
 		glUniform4fv(u_uvscaleoffset, 1, uvscaleoff);
 	}

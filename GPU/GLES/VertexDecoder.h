@@ -38,7 +38,11 @@ enum {
 	DEC_U8_2,
 	DEC_U8_3,
 	DEC_U8_4,
+	DEC_U16_1,
 	DEC_U16_2,
+	DEC_U16_3,
+	DEC_U16_4,
+	DEC_U8A_2,
 	DEC_U16A_2,
 };
 
@@ -193,14 +197,14 @@ public:
 			{
 				const s16 *p = (s16 *)(data_ + decFmt_.posoff);
 				for (int i = 0; i < 3; i++)
-					pos[i] = p[i] / 32767.0f;
+					pos[i] = p[i] * (1.f / 32768.f);
 			}
 			break;
 		case DEC_S8_3:
 			{
 				const s8 *p = (s8 *)(data_ + decFmt_.posoff);
 				for (int i = 0; i < 3; i++)
-					pos[i] = p[i] / 127.0f;
+					pos[i] = p[i] * (1.f / 128.f);
 			}
 			break;
 		default:
@@ -218,14 +222,14 @@ public:
 			{
 				const s16 *p = (s16 *)(data_ + decFmt_.nrmoff);
 				for (int i = 0; i < 3; i++)
-					nrm[i] = p[i] / 32767.0f;
+					nrm[i] = p[i] * (1.f / 32768.f);
 			}
 			break;
 		case DEC_S8_3:
 			{
 				const s8 *p = (s8 *)(data_ + decFmt_.nrmoff);
 				for (int i = 0; i < 3; i++)
-					nrm[i] = p[i] / 127.0f;
+					nrm[i] = p[i] * (1.f / 128.0f);
 			}
 			break;
 		default:
@@ -235,9 +239,30 @@ public:
 	}
 
 	void ReadUV(float uv[2]) {
+		const u8 *b = (const u8 *)(data_ + decFmt_.uvoff);
+		const u16 *s = (const u16 *)(data_ + decFmt_.uvoff);
+		const float *f = (const float *)(data_ + decFmt_.uvoff);
 		switch (decFmt_.uvfmt) {
+		case DEC_U8_2:
+			uv[0] = b[0] * (1.f / 128.f);
+			uv[1] = b[1] * (1.f / 128.f);
+			break;
+
+		case DEC_U16_2:
+			uv[0] = s[0] * (1.f / 32768.f);
+			uv[1] = s[1] * (1.f / 32768.f);
+			break;
+
 		case DEC_FLOAT_2:
-			memcpy(uv, data_ + decFmt_.uvoff, 8); break;
+			if (isThrough()) {
+				uv[0] = f[0];
+				uv[1] = f[1];
+			} else {
+				uv[0] = f[0] * 2.0f;
+				uv[1] = f[1] * 2.0f;
+			}
+			break;
+
 		case DEC_U16A_2:
 			{
 				const u16 *p = (const u16 *)(data_ + decFmt_.uvoff);
@@ -257,7 +282,7 @@ public:
 			{
 				const u8 *p = (const u8 *)(data_ + decFmt_.c0off);
 				for (int i = 0; i < 4; i++)
-					color[i] = p[i] / 255.0f;
+					color[i] = p[i] * (1.f / 255.f);
 			}
 			break;
 		case DEC_FLOAT_4:
@@ -274,7 +299,7 @@ public:
 			{
 				const u8 *p = (const u8 *)(data_ + decFmt_.c1off);
 				for (int i = 0; i < 3; i++)
-					color[i] = p[i] / 255.0f;
+					color[i] = p[i] * (1.f / 255.f);
 			}
 			break;
 		case DEC_FLOAT_4:
@@ -286,34 +311,48 @@ public:
 	}
 
 	void ReadWeights(float weights[8]) {
+		const float *f = (const float *)(data_ + decFmt_.w0off);
 		const u8 *p = (const u8 *)(data_ + decFmt_.w0off);
+		const u16 *s = (const u16 *)(data_ + decFmt_.w0off);
 		switch (decFmt_.w0fmt) {
-		case DEC_FLOAT_1: memcpy(weights, data_ + decFmt_.w0off, 4); break;
-		case DEC_FLOAT_2: memcpy(weights, data_ + decFmt_.w0off, 8); break;
-		case DEC_FLOAT_3: memcpy(weights, data_ + decFmt_.w0off, 12); break;
-		case DEC_FLOAT_4: memcpy(weights, data_ + decFmt_.w0off, 16); break;
-		case DEC_U8_1: weights[0] = p[0] / 128.f; break;
-		case DEC_U8_2: for (int i = 0; i < 2; i++) weights[i] = p[i] / 128.f; break;
-		case DEC_U8_3: for (int i = 0; i < 3; i++) weights[i] = p[i] / 128.f; break;
-		case DEC_U8_4: for (int i = 0; i < 4; i++) weights[i] = p[i] / 128.f; break;
+		case DEC_FLOAT_1:
+		case DEC_FLOAT_2:
+		case DEC_FLOAT_3:
+		case DEC_FLOAT_4:
+			for (int i = 0; i <= decFmt_.w0fmt - DEC_FLOAT_1; i++)
+				weights[i] = f[i] * 2.0;
+			break;
+		case DEC_U8_1: weights[0] = p[0] * (1.f / 128.f); break;
+		case DEC_U8_2: for (int i = 0; i < 2; i++) weights[i] = p[i] * (1.f / 128.f); break;
+		case DEC_U8_3: for (int i = 0; i < 3; i++) weights[i] = p[i] * (1.f / 128.f); break;
+		case DEC_U8_4: for (int i = 0; i < 4; i++) weights[i] = p[i] * (1.f / 128.f); break;
+		case DEC_U16_1: weights[0] = s[0] * (1.f / 32768.f); break;
+		case DEC_U16_2: for (int i = 0; i < 2; i++) weights[i] = s[i] * (1.f / 32768.f); break;
+		case DEC_U16_3: for (int i = 0; i < 3; i++) weights[i] = s[i] * (1.f / 32768.f); break;
+		case DEC_U16_4: for (int i = 0; i < 4; i++) weights[i] = s[i] * (1.f / 32768.f); break;
 		default:
 			ERROR_LOG(G3D, "Reader: Unsupported W0 Format");
 			break;
 		}
 
+		f = (const float*)(data_ + decFmt_.w1off);
 		p = (const u8 *)(data_ + decFmt_.w1off);
+		s = (const u16 *)(data_ + decFmt_.w1off);
 		switch (decFmt_.w1fmt) {
 		case 0:
 			// It's fine for there to be w0 weights but not w1.
 			break;
-		case DEC_FLOAT_1: memcpy(weights + 4, data_ + decFmt_.w1off, 4); break;
-		case DEC_FLOAT_2: memcpy(weights + 4, data_ + decFmt_.w1off, 8); break;
-		case DEC_FLOAT_3: memcpy(weights + 4, data_ + decFmt_.w1off, 12); break;
-		case DEC_FLOAT_4: memcpy(weights + 4, data_ + decFmt_.w1off, 16); break;
-		case DEC_U8_1: weights[4] = p[0] / 128.f; break;
-		case DEC_U8_2: for (int i = 0; i < 2; i++) weights[i+4] = p[i] / 128.f; break;
-		case DEC_U8_3: for (int i = 0; i < 3; i++) weights[i+4] = p[i] / 128.f; break;
-		case DEC_U8_4: for (int i = 0; i < 4; i++) weights[i+4] = p[i] / 128.f; break;
+		case DEC_FLOAT_1:
+		case DEC_FLOAT_2:
+		case DEC_FLOAT_3:
+		case DEC_FLOAT_4:
+			for (int i = 0; i <= decFmt_.w1fmt - DEC_FLOAT_1; i++)
+				weights[i+4] = f[i] * 2.0;
+			break;
+		case DEC_U16_1: weights[4] = s[0] * (1.f / 32768.f); break;
+		case DEC_U16_2: for (int i = 0; i < 2; i++) weights[i+4] = s[i] * (1.f / 32768.f); break;
+		case DEC_U16_3: for (int i = 0; i < 3; i++) weights[i+4] = s[i] * (1.f / 32768.f); break;
+		case DEC_U16_4: for (int i = 0; i < 4; i++) weights[i+4] = s[i]  * (1.f / 32768.f); break;
 		default:
 			ERROR_LOG(G3D, "Reader: Unsupported W1 Format");
 			break;
@@ -323,7 +362,7 @@ public:
 	bool hasColor0() const { return decFmt_.c0fmt != 0; }
 	bool hasNormal() const { return decFmt_.nrmfmt != 0; }
 	bool hasUV() const { return decFmt_.uvfmt != 0; }
-
+	bool isThrough() const { return (vtype_ & GE_VTYPE_THROUGH) != 0; }
 	void Goto(int index) {
 		data_ = base_ + index * decFmt_.stride;
 	}

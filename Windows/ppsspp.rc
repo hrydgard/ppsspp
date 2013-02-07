@@ -179,8 +179,8 @@ FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
     DEFPUSHBUTTON   "OK",IDOK,176,217,50,14
     PUSHBUTTON      "Cancel",IDCANCEL,230,217,50,14
-    LTEXT           "NOTE: Currently controls are NOT configurable.",IDC_STATIC,7,7,188,10
-    LISTBOX         IDC_LISTCONTROLS,7,19,273,184,LBS_SORT | LBS_USETABSTOPS | LBS_NOINTEGRALHEIGHT | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "NOTE: Currently controls are NOT configurable.\nHowever: Xbox 360 controllers are supported! Just plug one in and use it!",IDC_STATIC,7,7,188,30
+    LISTBOX         IDC_LISTCONTROLS,7,39,273,164,LBS_SORT | LBS_USETABSTOPS | LBS_NOINTEGRALHEIGHT | WS_VSCROLL | WS_TABSTOP
 END
 
 

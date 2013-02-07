@@ -55,6 +55,7 @@ public:
 		numDraws = 0;
 		lastFrame = gpuStats.numFrames;
 		numVerts = 0;
+		drawsUntilNextFullHash = 0;
 	}
 	~VertexArrayInfo();
 	enum Status {
@@ -71,6 +72,7 @@ public:
 	u32 vbo;
 	u32 ebo;
 
+	// TODO: see if we can avoid having this full thing here.
 	DecVtxFormat decFmt;
 	
 	// Precalculated parameter for drawdrawElements
@@ -81,6 +83,7 @@ public:
 	u8 numDCs;
 	int numDraws;
 	int lastFrame;  // So that we can forget.
+	u16 drawsUntilNextFullHash;
 };
 
 

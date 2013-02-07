@@ -23,7 +23,10 @@ public:
 	void SetViewMode();
 	void SetCalibMode();
 	void CalibNextButton();
+protected:
+	void showEvent(QShowEvent *);
 private slots:
+	void releaseLock();
 	void on_refreshListBtn_clicked();
 
 	void on_SelectPadBtn_clicked();

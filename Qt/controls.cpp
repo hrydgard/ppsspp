@@ -1,6 +1,8 @@
 #include "controls.h"
 #include "ui_controls.h"
 #include "Core/Config.h"
+#include "EmuThread.h"
+#include <QTimer>
 
 Controls_ controllist[] = {
 	{"Edit_Start",		"Start",			Qt::Key_1,		PAD_BUTTON_START,	CTRL_START},
@@ -43,6 +45,12 @@ Controls::~Controls()
 
 void Controls::showEvent(QShowEvent*)
 {
+#ifdef Q_WS_X11
+	// Hack to remove the X11 crash with threaded opengl when opening the first dialog
+	EmuThread_LockDraw(true);
+	QTimer::singleShot(100, this, SLOT(releaseLock()));
+#endif
+
 	for(int i = 0; i < controllistCount; i++)
 	{
 		if(g_Config.iMappingMap.find(i) != g_Config.iMappingMap.end())
@@ -60,6 +68,11 @@ void Controls::showEvent(QShowEvent*)
 			}
 		}
 	}
+}
+
+void Controls::releaseLock()
+{
+	EmuThread_LockDraw(false);
 }
 
 void Controls::on_buttonBox_accepted()
