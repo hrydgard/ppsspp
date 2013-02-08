@@ -50,6 +50,7 @@ public:
 	virtual bool AttemptLoadSymbolMap() {return false;}
 
 	virtual void SendDebugOutput(const std::string &output) { printf("%s", output.c_str()); }
+	virtual void SetComparisonScreenshot(const std::string &filename) {}
 
 	virtual bool isGLWorking() { return false; }
 };

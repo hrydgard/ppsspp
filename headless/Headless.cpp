@@ -13,6 +13,7 @@
 #include "Log.h"
 #include "LogManager.h"
 
+#include "Compare.h"
 #include "StubHost.h"
 #ifdef _WIN32
 #include "WindowsHeadlessHost.h"
@@ -59,7 +60,10 @@ void printUsage(const char *progname, const char *reason)
 	HEADLESSHOST_CLASS h1;
 	HeadlessHost h2;
 	if (typeid(h1) != typeid(h2))
+	{
 		fprintf(stderr, "  --graphics            use the full gpu backend (slower)\n");
+		fprintf(stderr, "  --screenshot=FILE     compare against a screenshot\n");
+	}
 
 	fprintf(stderr, "  -f                    use the fast interpreter\n");
 	fprintf(stderr, "  -j                    use jit (overrides -f)\n");
@@ -77,6 +81,7 @@ int main(int argc, const char* argv[])
 	
 	const char *bootFilename = 0;
 	const char *mountIso = 0;
+	const char *screenshotFilename = 0;
 	bool readMount = false;
 
 	for (int i = 1; i < argc; i++)
@@ -99,6 +104,8 @@ int main(int argc, const char* argv[])
 			autoCompare = true;
 		else if (!strcmp(argv[i], "--graphics"))
 			useGraphics = true;
+		else if (!strncmp(argv[i], "--screenshot=", strlen("--screenshot=")) && strlen(argv[i]) > strlen("--screenshot="))
+			screenshotFilename = argv[i] + strlen("--screenshot=");
 		else if (bootFilename == 0)
 			bootFilename = argv[i];
 		else
@@ -174,6 +181,9 @@ int main(int argc, const char* argv[])
 
 	host->BootDone();
 
+	if (screenshotFilename != 0)
+		headlessHost->SetComparisonScreenshot(screenshotFilename);
+
 	coreState = CORE_RUNNING;
 	while (coreState == CORE_RUNNING)
 	{
@@ -195,17 +205,7 @@ int main(int argc, const char* argv[])
 	headlessHost = NULL;
 
 	if (autoCompare)
-	{
-		std::string expect_filename = std::string(bootFilename).substr(strlen(bootFilename - 4)) + ".expected";
-		if (File::Exists(expect_filename))
-		{
-			// TODO: Do the compare here
-		}
-		else
-		{
-			fprintf(stderr, "Expectation file %s not found", expect_filename.c_str());
-		}
-	}
+		CompareOutput(bootFilename);
 
 	return 0;
 }

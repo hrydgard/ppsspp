@@ -918,7 +918,11 @@ if(WIN32)
 endif()
 
 if(HEADLESS)
-	add_executable(PPSSPPHeadless headless/Headless.cpp headless/StubHost.h)
+	add_executable(PPSSPPHeadless
+		headless/Headless.cpp
+		headless/StubHost.h
+		headless/Compare.cpp
+		headless/Compare.h)
 	target_link_libraries(PPSSPPHeadless ${CoreLibName}
 		${COCOA_LIBRARY} ${CMAKE_THREAD_LIBS_INIT})
 	setup_target_project(PPSSPPHeadless headless)
