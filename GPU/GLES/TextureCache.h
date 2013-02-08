@@ -50,6 +50,8 @@ private:
 		u32 texture;  //GLuint
 		int invalidHint;
 		u32 fullhash;
+		int maxLevel;
+		float lodBias;
 
 		// Cache the current filter settings so we can avoid setting it again.
 		u8 magFilt;
@@ -62,6 +64,7 @@ private:
 	void *UnswizzleFromMem(u32 texaddr, u32 bytesPerPixel, u32 level);
 	void *readIndexedTex(int level, u32 texaddr, int bytesPerIndex);
 	void UpdateSamplingParams(TexCacheEntry &entry, bool force);
+	void LoadTextureLevel(TexCacheEntry &entry, int level);
 
 	typedef std::map<u64, TexCacheEntry> TexCache;
 

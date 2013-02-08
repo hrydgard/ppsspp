@@ -345,9 +345,9 @@ GLenum getClutDestFormat(GEPaletteFormat format) {
 	return 0;
 }
 
-const u8 texByteAlignMap[] = {2, 2, 2, 4};
+static const u8 texByteAlignMap[] = {2, 2, 2, 4};
 
-const GLuint MinFiltGL[8] = {
+static const GLuint MinFiltGL[8] = {
 	GL_NEAREST,
 	GL_LINEAR,
 	GL_NEAREST,
@@ -358,10 +358,21 @@ const GLuint MinFiltGL[8] = {
 	GL_LINEAR_MIPMAP_LINEAR,
 };
 
-const GLuint MagFiltGL[2] = {
+static const GLuint MagFiltGL[2] = {
 	GL_NEAREST,
 	GL_LINEAR
 };
+
+// OpenGL ES 2.0 workaround. Let's see if this hackery works.
+#ifndef GL_TEXTURE_LOD_BIAS
+#define GL_TEXTURE_LOD_BIAS 0x8501
+#endif
+
+#ifndef GL_TEXTURE_MAX_LOD
+#define GL_TEXTURE_MAX_LOD 0x813B
+#endif
+
+
 
 // This should not have to be done per texture! OpenGL is silly yo
 // TODO: Dirty-check this against the current texture.
@@ -371,8 +382,17 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	bool sClamp = gstate.texwrap & 1;
 	bool tClamp = (gstate.texwrap>>8) & 1;
 
-	// TODO: remove this line when we support mipmaps
-	minFilt &= 1; // no mipmaps yet
+	if (entry.maxLevel == 0) {
+		// Enforce no mip filtering, for safety.
+		minFilt &= 1; // no mipmaps yet
+	} else {
+		// TODO: Is this a signed value? Which direction?
+		float lodBias = 0.0; // -(float)((gstate.texlevel >> 16) & 0xFF) / 16.0f;
+		if (force || entry.lodBias != lodBias) {
+			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, lodBias);
+			entry.lodBias = lodBias;
+		}
+	}
 
 	if (g_Config.bLinearFiltering) {
 		magFilt |= 1;
@@ -437,7 +457,7 @@ struct DXT5Block {
 };
 
 static inline u32 makecol(int r, int g, int b, int a) {
-	return (a << 24)|(r << 16)|(g << 8)|b;
+	return (a << 24) | (r << 16) | (g << 8) | b;
 }
 
 // This could probably be done faster by decoding two or four blocks at a time with SSE/NEON.
@@ -616,7 +636,6 @@ void TextureCache::SetTexture() {
 		return;
 	}
 
-	u8 level = 0;
 	u32 format = gstate.texformat & 0xF;
 	if (format >= 11) {
 		ERROR_LOG(G3D, "Unknown texture format %i", format);
@@ -625,6 +644,8 @@ void TextureCache::SetTexture() {
 
 	u32 clutformat = gstate.clutformat & 3;
 	u32 clutaddr = GetClutAddr(clutformat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2);
+
+	int maxLevel = ((gstate.texmode >> 16) & 0x7);
 
 	const u8 *texptr = Memory::GetPointer(texaddr);
 	u32 texhash = texptr ? MiniHash((const u32*)texptr) : 0;
@@ -666,6 +687,8 @@ void TextureCache::SetTexture() {
 				match = false;
 			}
 		}
+		if (entry.maxLevel != maxLevel)
+			match = false;
 
 		if (match) {
 			//got one!
@@ -693,6 +716,8 @@ void TextureCache::SetTexture() {
 	entry.hash = texhash;
 	entry.format = format;
 	entry.frameCounter = gpuStats.numFrames;
+	entry.maxLevel = maxLevel;
+	entry.lodBias = 0.0f;
 
 	if (format >= GE_TFMT_CLUT4 && format <= GE_TFMT_CLUT32) {
 		entry.clutformat = clutformat;
@@ -707,7 +732,7 @@ void TextureCache::SetTexture() {
 	entry.dim = gstate.texsize[0] & 0xF0F;
 
 	int w = 1 << (gstate.texsize[0] & 0xf);
-	int h = 1 << ((gstate.texsize[0]>>8) & 0xf);
+	int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
 
 	// This would overestimate the size in many case so we underestimate instead
 	// to avoid excessive clearing caused by cache invalidations.
@@ -717,23 +742,66 @@ void TextureCache::SetTexture() {
 	for (u32 i = 0; i < (entry.sizeInRAM * 2) / 4; ++i)
 		entry.fullhash += *checkp++;
 
-	gstate_c.curTextureWidth=w;
-	gstate_c.curTextureHeight=h;
-	GLenum dstFmt = 0;
-	u32 texByteAlign = 1;
+	gstate_c.curTextureWidth = w;
+	gstate_c.curTextureHeight = h;
 
+	glGenTextures(1, &entry.texture);
+	glBindTexture(GL_TEXTURE_2D, entry.texture);
+	
+	for (int i = 0; i <= entry.maxLevel; i++) {
+		// If encountering levels pointing to nothing, adjust max level.
+		u32 levelTexaddr = (gstate.texaddr[i] & 0xFFFFF0) | ((gstate.texbufwidth[i] << 8) & 0x0F000000);
+		if (!Memory::IsValidAddress(levelTexaddr)) {
+			entry.maxLevel = i - 1;
+			break;
+		}
+		LoadTextureLevel(entry, i);
+	}
+
+#ifndef USING_GLES2
+	// See horrifying hack at the bottom of LoadTextureLevel!
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, entry.maxLevel);
+#endif
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, entry.maxLevel);
+
+	UpdateSamplingParams(entry, true);
+
+	//glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+	//glPixelStorei(GL_PACK_ROW_LENGTH, 0);
+	glPixelStorei(GL_PACK_ALIGNMENT, 1);
+
+	cache[cachekey] = entry;
+}
+
+
+void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level) 
+{
 	void *finalBuf = NULL;
 
+		// TODO: only do this once
+	u32 texByteAlign = 1;
+
 	// TODO: Look into using BGRA for 32-bit textures when the GL_EXT_texture_format_BGRA8888 extension is available, as it's faster than RGBA on some chips.
+	GLenum dstFmt = 0;
 
 	// TODO: Actually decode the mipmaps.
 
-	switch (format)
+	u32 texaddr = (gstate.texaddr[level] & 0xFFFFF0) | ((gstate.texbufwidth[level] << 8) & 0x0F000000);
+
+	int bufw = gstate.texbufwidth[level] & 0x3ff;
+
+
+	int w = 1 << (gstate.texsize[level] & 0xf);
+	int h = 1 << ((gstate.texsize[level] >> 8) & 0xf);
+	const u8 *texptr = Memory::GetPointer(texaddr);
+
+	switch (entry.format)
 	{
 	case GE_TFMT_CLUT4:
 		dstFmt = getClutDestFormat((GEPaletteFormat)(gstate.clutformat & 3));
 
-		switch (clutformat) {
+		switch (entry.clutformat) {
 		case GE_CMODE_16BIT_BGR5650:
 		case GE_CMODE_16BIT_ABGR5551:
 		case GE_CMODE_16BIT_ABGR4444:
@@ -821,11 +889,11 @@ void TextureCache::SetTexture() {
 	case GE_TFMT_4444:
 	case GE_TFMT_5551:
 	case GE_TFMT_5650:
-		if (format == GE_TFMT_4444)
+		if (entry.format == GE_TFMT_4444)
 			dstFmt = GL_UNSIGNED_SHORT_4_4_4_4;
-		else if (format == GE_TFMT_5551)
+		else if (entry.format == GE_TFMT_5551)
 			dstFmt = GL_UNSIGNED_SHORT_5_5_5_1;
-		else if (format == GE_TFMT_5650)
+		else if (entry.format == GE_TFMT_5650)
 			dstFmt = GL_UNSIGNED_SHORT_5_6_5;
 		texByteAlign = 2;
 
@@ -889,7 +957,7 @@ void TextureCache::SetTexture() {
 		break;
 
 	case GE_TFMT_DXT5:
-		ERROR_LOG(G3D, "Unhandled compressed texture, format %i! swizzle=%i", format, gstate.texmode & 1);
+		ERROR_LOG(G3D, "Unhandled compressed texture, format %i! swizzle=%i", entry.format, gstate.texmode & 1);
 		dstFmt = GL_UNSIGNED_BYTE;
 		{
 			u32 *dst = tmpTexBuf32;
@@ -909,7 +977,7 @@ void TextureCache::SetTexture() {
 		break;
 
 	default:
-		ERROR_LOG(G3D, "Unknown Texture Format %d!!!", format);
+		ERROR_LOG(G3D, "Unknown Texture Format %d!!!", entry.format);
 		finalBuf = tmpTexBuf32;
 		return;
 	}
@@ -957,19 +1025,27 @@ void TextureCache::SetTexture() {
 	//glPixelStorei(GL_PACK_ROW_LENGTH, bufw);
 	glPixelStorei(GL_PACK_ALIGNMENT, texByteAlign);
 
-	INFO_LOG(G3D, "Creating texture %i from %08x: %i x %i (stride: %i). fmt: %i", entry.texture, entry.addr, w, h, bufw, entry.format);
+	INFO_LOG(HLE, "Creating texture level %i/%i from %08x: %i x %i (stride: %i). fmt: %i", level, entry.maxLevel, texaddr, w, h, bufw, entry.format);
 
-	glGenTextures(1, &entry.texture);
-	glBindTexture(GL_TEXTURE_2D, entry.texture);
 	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
-	glTexImage2D(GL_TEXTURE_2D, 0, components, w, h, 0, components, dstFmt, finalBuf);
-	// glGenerateMipmap(GL_TEXTURE_2D);
-	UpdateSamplingParams(entry, true);
+	glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components, dstFmt, finalBuf);
 
-	//glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-	//glPixelStorei(GL_PACK_ROW_LENGTH, 0);
-	glPixelStorei(GL_PACK_ALIGNMENT, 1);
-
-	cache[cachekey] = entry;
+#ifdef USING_GLES2
+	// ARGH! OpenGL ES does not support max texture level!
+	// Let's do a HORRIBLE hack for now and re-specify the last level, but with changed dimensions.
+	// Will at least give us sort of the right colors and hopefully it'll be too blurry anyway.
+	// Later I will add proper downsampling of the bottom level.
+	// TEXTURE_MAX_LOD should ensure that we never get to see these anyway.
+	if (level == entry.maxLevel) {
+		while (w >= 2 || h >= 2) {
+			w /= 2;
+			h /= 2;
+			if (w == 0) w = 1;
+			if (h == 0) h = 1;
+			++level;
+			INFO_LOG(HLE, "Specifying extra texture level %i : %ix%i", level, w, h);
+			glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components, dstFmt, finalBuf);
+		}
+	}
+#endif
 }

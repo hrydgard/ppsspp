@@ -1,9 +1,11 @@
 DEFINES += USING_QT_UI
 blackberry|symbian|contains(MEEGO_EDITION,harmattan): CONFIG += mobile_platform
 unix:!blackberry:!symbian:!macx: CONFIG += linux
+linux:!mobile_platform: CONFIG += desktop_ui
 
 # Global specific
-QMAKE_CXXFLAGS += -std=c++0x -Wno-unused-function -Wno-unused-variable -Wno-multichar -Wno-uninitialized -Wno-ignored-qualifiers -Wno-missing-field-initializers -Wno-unused-parameter
+QMAKE_CXXFLAGS += -Wno-unused-function -Wno-unused-variable -Wno-multichar -Wno-uninitialized -Wno-ignored-qualifiers -Wno-missing-field-initializers -Wno-unused-parameter
+QMAKE_CXXFLAGS += -std=c++0x -ffast-math -fno-strict-aliasing
 
 # Arch specific
 contains(QT_ARCH, i686)|contains(QT_ARCH, x86)|contains(QT_ARCH, x86_64): {
@@ -34,4 +36,3 @@ symbian: {
 	DEFINES += __MARM_ARMV6__
 	CONFIG += 4.6.3
 }
-
