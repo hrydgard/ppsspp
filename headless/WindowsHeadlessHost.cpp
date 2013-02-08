@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "WindowsHeadlessHost.h"
+#include "Compare.h"
 
 #include <stdio.h>
 #include <windows.h>
@@ -94,44 +95,34 @@ void WindowsHeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h)
 	// We ignore the current framebuffer parameters and just grab the full screen.
 	const static int FRAME_WIDTH = 512;
 	const static int FRAME_HEIGHT = 272;
-	u32 *pixels = (u32 *) calloc(FRAME_WIDTH * FRAME_HEIGHT, sizeof(u32));
-	u32 *reference = (u32 *) calloc(FRAME_WIDTH * FRAME_HEIGHT, sizeof(u32));
+	u8 *pixels = new u8[FRAME_WIDTH * FRAME_HEIGHT * 4];
 
 	// TODO: Maybe the GPU should do this?
 	glReadBuffer(GL_FRONT);
 	glReadPixels(0, 0, FRAME_WIDTH, FRAME_HEIGHT, GL_BGRA, GL_UNSIGNED_BYTE, pixels);
 
-	BITMAPFILEHEADER header;
-	BITMAPINFOHEADER infoHeader;
-	FILE *bmp = fopen(comparisonScreenshot.c_str(), "rb");
-	if (bmp)
-	{
-		fread(&header, sizeof(header), 1, bmp);
-		fread(&infoHeader, sizeof(infoHeader), 1, bmp);
-		fread(reference, sizeof(u32), FRAME_WIDTH * FRAME_HEIGHT, bmp);
-		fclose(bmp);
-	}
-	else
-		fprintf_s(out, "Unable to read screenshot: %s\n", comparisonScreenshot.c_str());
+	std::string error;
+	double errors = CompareScreenshot(pixels, FRAME_WIDTH, FRAME_HEIGHT, FRAME_WIDTH, comparisonScreenshot, error);
+	if (errors < 0)
+		fprintf_s(out, "%s\n", error.c_str());
 
-	// TODO: Better error rate and move to headless/shared between platforms.
-	int errors = 0;
-	for (int i = 0; i < FRAME_WIDTH * FRAME_HEIGHT; ++i)
+	if (errors > 0)
 	{
-		// Ignore alpha.
-		// TODO: Error threshold?
-		errors += (pixels[i] & 0xFFFFFF) != (reference[i] & 0xFFFFFF) ? 1 : 0;
-	}
+		fprintf_s(out, "Screenshot error: %f%%\n", errors * 100.0f);
 
-	if (errors != 0)
-	{
-		fprintf_s(out, "Screenshot error: %f%%\n", (float) errors * 100.0f / (float) (FRAME_WIDTH * FRAME_HEIGHT));
+		// Lazy, just read in the original header to output the failed screenshot.
+		u8 header[14 + 40] = {0};
+		FILE *bmp = fopen(comparisonScreenshot.c_str(), "rb");
+		if (bmp)
+		{
+			fread(&header, sizeof(header), 1, bmp);
+			fclose(bmp);
+		}
 
 		FILE *saved = fopen("__testfailure.bmp", "wb");
 		if (saved)
 		{
 			fwrite(&header, sizeof(header), 1, saved);
-			fwrite(&infoHeader, sizeof(infoHeader), 1, saved);
 			fwrite(pixels, sizeof(u32), FRAME_WIDTH * FRAME_HEIGHT, saved);
 			fclose(saved);
 
@@ -139,8 +130,7 @@ void WindowsHeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h)
 		}
 	}
 
-	free(pixels);
-	free(reference);
+	delete [] pixels;
 }
 
 void WindowsHeadlessHost::SetComparisonScreenshot(const std::string &filename)

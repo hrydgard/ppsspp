@@ -13,6 +13,7 @@
 #include "Log.h"
 #include "LogManager.h"
 
+#include "Compare.h"
 #include "StubHost.h"
 #ifdef _WIN32
 #include "WindowsHeadlessHost.h"
@@ -204,17 +205,7 @@ int main(int argc, const char* argv[])
 	headlessHost = NULL;
 
 	if (autoCompare)
-	{
-		std::string expect_filename = std::string(bootFilename).substr(strlen(bootFilename - 4)) + ".expected";
-		if (File::Exists(expect_filename))
-		{
-			// TODO: Do the compare here
-		}
-		else
-		{
-			fprintf(stderr, "Expectation file %s not found", expect_filename.c_str());
-		}
-	}
+		CompareOutput(bootFilename);
 
 	return 0;
 }
