@@ -17,7 +17,6 @@
 
 #ifdef _WIN32
 #include <windows.h>
-#undef DeleteFile
 #endif
 
 #include "../Config.h"
@@ -552,7 +551,7 @@ u32 sceIoRemove(const char *filename) {
 	if(!pspFileSystem.GetFileInfo(filename).exists)
 		return ERROR_ERRNO_FILE_NOT_FOUND;
 
-	pspFileSystem.DeleteFile(filename);
+	pspFileSystem.RemoveFile(filename);
 	return 0;
 }
 

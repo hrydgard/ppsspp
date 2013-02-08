@@ -44,7 +44,7 @@ public:
 	virtual bool MkDir(const std::string &dirname) {return false;}
 	virtual bool RmDir(const std::string &dirname) {return false;}
 	virtual bool RenameFile(const std::string &from, const std::string &to) {return false;}
-	virtual bool DeleteFile(const std::string &filename) {return false;}
+	virtual bool RemoveFile(const std::string &filename) {return false;}
 
 private:
 	struct TreeEntry
