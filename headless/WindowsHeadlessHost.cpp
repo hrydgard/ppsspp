@@ -29,8 +29,8 @@
 #include "file/zip_read.h"
 
 const bool WINDOW_VISIBLE = false;
-const int WINDOW_WIDTH = 480;
-const int WINDOW_HEIGHT = 272;
+const unsigned int WINDOW_WIDTH = 480;
+const unsigned int WINDOW_HEIGHT = 272;
 
 typedef BOOL (APIENTRY *PFNWGLSWAPINTERVALFARPROC)(int value);
 PFNWGLSWAPINTERVALFARPROC wglSwapIntervalEXT = NULL;
@@ -93,11 +93,11 @@ void WindowsHeadlessHost::SendDebugOutput(const std::string &output)
 void WindowsHeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h)
 {
 	// We ignore the current framebuffer parameters and just grab the full screen.
-	const static int FRAME_WIDTH = 512;
-	const static int FRAME_HEIGHT = 272;
+	const static unsigned int FRAME_WIDTH = 512;
+	const static unsigned int FRAME_HEIGHT = 272;
 	u8 *pixels = new u8[FRAME_WIDTH * FRAME_HEIGHT * 4];
 
-	// TODO: Maybe the GPU should do this?
+	// TODO: Maybe the GPU should do this? (Ie, GetDesktopWindow(); from Windows.h)
 	glReadBuffer(GL_FRONT);
 	glReadPixels(0, 0, FRAME_WIDTH, FRAME_HEIGHT, GL_BGRA, GL_UNSIGNED_BYTE, pixels);
 
@@ -106,8 +106,7 @@ void WindowsHeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h)
 	if (errors < 0)
 		fprintf_s(out, "%s\n", error.c_str());
 
-	if (errors > 0)
-	{
+	else {
 		fprintf_s(out, "Screenshot error: %f%%\n", errors * 100.0f);
 
 		// Lazy, just read in the original header to output the failed screenshot.
