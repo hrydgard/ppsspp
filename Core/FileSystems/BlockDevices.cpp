@@ -165,14 +165,17 @@ bool CISOFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr)
 			//if (status != Z_OK)
 		{
 			ERROR_LOG(LOADER, "block %d:inflate : %s[%d]\n", blockNumber, (z.msg) ? z.msg : "error", status);
+			inflateEnd(&z);
 			return 1;
 		}
 		int cmp_size = blockSize - z.avail_out;
 		if (cmp_size != (int)blockSize)
 		{
 			ERROR_LOG(LOADER, "block %d : block size error %d != %d\n", blockNumber, cmp_size, blockSize);
+			inflateEnd(&z);
 			return 1;
 		}
+		inflateEnd(&z);
 	}
 	return true;
 }
