@@ -15,37 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#pragma once
+#include <string>
 
-#include "StubHost.h"
+#include "Globals.h"
 
-#undef HEADLESSHOST_CLASS
-#define HEADLESSHOST_CLASS WindowsHeadlessHost
-
-#include <windows.h>
-
-// TODO: Get rid of this junk
-class WindowsHeadlessHost : public HeadlessHost
-{
-public:
-	virtual void InitGL();
-	virtual void BeginFrame();
-	virtual void EndFrame();
-	virtual void ShutdownGL();
-	virtual bool isGLWorking() { return glOkay; }
-
-	virtual void SendDebugOutput(const std::string &output);
-	virtual void SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h);
-	virtual void SetComparisonScreenshot(const std::string &filename);
-
-private:
-	bool ResizeGL();
-	void LoadNativeAssets();
-
-	bool glOkay;
-	HWND hWnd;
-	HDC hDC;
-	HGLRC hRC;
-	FILE *out;
-	std::string comparisonScreenshot;
-};
+bool CompareOutput(std::string bootFilename);
+double CompareScreenshot(const u8 *pixels, int w, int h, int stride, const std::string screenshotFilename, std::string &error);

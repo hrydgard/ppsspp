@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "WindowsHeadlessHost.h"
+#include "Compare.h"
 
 #include <stdio.h>
 #include <windows.h>
@@ -87,6 +88,54 @@ void WindowsHeadlessHost::SendDebugOutput(const std::string &output)
 {
 	fprintf_s(out, "%s", output.c_str());
 	OutputDebugString(output.c_str());
+}
+
+void WindowsHeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h)
+{
+	// We ignore the current framebuffer parameters and just grab the full screen.
+	const static int FRAME_WIDTH = 512;
+	const static int FRAME_HEIGHT = 272;
+	u8 *pixels = new u8[FRAME_WIDTH * FRAME_HEIGHT * 4];
+
+	// TODO: Maybe the GPU should do this?
+	glReadBuffer(GL_FRONT);
+	glReadPixels(0, 0, FRAME_WIDTH, FRAME_HEIGHT, GL_BGRA, GL_UNSIGNED_BYTE, pixels);
+
+	std::string error;
+	double errors = CompareScreenshot(pixels, FRAME_WIDTH, FRAME_HEIGHT, FRAME_WIDTH, comparisonScreenshot, error);
+	if (errors < 0)
+		fprintf_s(out, "%s\n", error.c_str());
+
+	if (errors > 0)
+	{
+		fprintf_s(out, "Screenshot error: %f%%\n", errors * 100.0f);
+
+		// Lazy, just read in the original header to output the failed screenshot.
+		u8 header[14 + 40] = {0};
+		FILE *bmp = fopen(comparisonScreenshot.c_str(), "rb");
+		if (bmp)
+		{
+			fread(&header, sizeof(header), 1, bmp);
+			fclose(bmp);
+		}
+
+		FILE *saved = fopen("__testfailure.bmp", "wb");
+		if (saved)
+		{
+			fwrite(&header, sizeof(header), 1, saved);
+			fwrite(pixels, sizeof(u32), FRAME_WIDTH * FRAME_HEIGHT, saved);
+			fclose(saved);
+
+			fprintf_s(out, "Actual output written to: __testfailure.bmp\n");
+		}
+	}
+
+	delete [] pixels;
+}
+
+void WindowsHeadlessHost::SetComparisonScreenshot(const std::string &filename)
+{
+	comparisonScreenshot = filename;
 }
 
 void WindowsHeadlessHost::InitGL()

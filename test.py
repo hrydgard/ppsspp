@@ -222,6 +222,8 @@ def run_tests(test_list, args):
 
     cmdline = [PPSSPP_EXE, elf_filename]
     cmdline.extend([i for i in args if i not in ['-v', '-g']])
+    if os.path.exists(expected_filename + ".bmp"):
+      cmdline.extend(["--screenshot=" + expected_filename + ".bmp", "--graphics"])
 
     c = Command(cmdline)
     c.run(TIMEOUT)
