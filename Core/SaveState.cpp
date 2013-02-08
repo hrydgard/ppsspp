@@ -77,9 +77,10 @@ namespace SaveState
 		Memory::DoState(p);
 		MemoryStick_DoState(p);
 		currentMIPS->DoState(p);
-		pspFileSystem.DoState(p);
 		HLEDoState(p);
 		__KernelDoState(p);
+		// Kernel object destructors might close open files, so do the filesystem last.
+		pspFileSystem.DoState(p);
 	}
 
 	void Enqueue(SaveState::Operation op)
