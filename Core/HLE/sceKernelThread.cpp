@@ -1600,10 +1600,31 @@ u32 sceKernelResumeDispatchThread(u32 suspended)
 	return oldDispatchSuspended;
 }
 
-void sceKernelRotateThreadReadyQueue()
+int sceKernelRotateThreadReadyQueue(int priority)
 {
 	DEBUG_LOG(HLE,"sceKernelRotateThreadReadyQueue : rescheduling");
-	hleReSchedule("rotatethreadreadyqueue");
+
+	// TODO: Does it try better-priority threads?  Is 0 special?
+	if (!threadReadyQueue[priority].empty())
+	{
+		Thread *cur = __GetCurrentThread();
+		// TODO: Who gets switched to with currentThread-priority?  Next or next-next?
+		if (cur->nt.currentPriority == priority)
+			__KernelChangeReadyState(currentThread, true);
+
+		size_t readySize = threadReadyQueue[priority].size();
+		if (readySize > 1)
+		{
+			SceUID first = threadReadyQueue[priority][0];
+			memmove(&threadReadyQueue[priority][0], &threadReadyQueue[priority][1], (readySize - 1) * sizeof(SceUID));
+			threadReadyQueue[priority][readySize - 1] = first;
+		}
+		hleReSchedule("rotatethreadreadyqueue");
+	}
+	// TODO: Does it reschedule in other cases?
+
+	// TODO: Any way to get a different return?
+	return 0;
 }
 
 int sceKernelDeleteThread(int threadHandle)
