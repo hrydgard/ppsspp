@@ -123,6 +123,12 @@ CISOFileBlockDevice::~CISOFileBlockDevice()
 
 bool CISOFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr) 
 {
+	if ((u32)blockNumber >= numBlocks)
+	{
+		memset(outPtr, 0, 2048);
+		return false;
+	}
+
 	u32 idx = index[blockNumber];
 	u32 idx2 = index[blockNumber+1];
 	u8 inbuffer[4096]; //too big
@@ -153,7 +159,7 @@ bool CISOFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr)
 		if(inflateInit2(&z, -15) != Z_OK)
 		{
 			ERROR_LOG(LOADER, "deflateInit ERROR : %s\n", (z.msg) ? z.msg : "???");
-			return 1;
+			return false;
 		}
 		z.avail_in = readSize;
 		z.next_out = outPtr;
@@ -165,14 +171,17 @@ bool CISOFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr)
 			//if (status != Z_OK)
 		{
 			ERROR_LOG(LOADER, "block %d:inflate : %s[%d]\n", blockNumber, (z.msg) ? z.msg : "error", status);
+			inflateEnd(&z);
 			return 1;
 		}
 		int cmp_size = blockSize - z.avail_out;
 		if (cmp_size != (int)blockSize)
 		{
 			ERROR_LOG(LOADER, "block %d : block size error %d != %d\n", blockNumber, cmp_size, blockSize);
-			return 1;
+			inflateEnd(&z);
+			return false;
 		}
+		inflateEnd(&z);
 	}
 	return true;
 }
