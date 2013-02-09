@@ -25,6 +25,7 @@
 
 #include "Thread.h"
 #include "../Core/CoreTiming.h"
+#include "../Core/CoreParameter.h"
 #include "../MIPS/MIPS.h"
 #include "../HLE/HLE.h"
 #include "sceAudio.h"
@@ -78,7 +79,7 @@ static int hCountTotal; //unused
 static int vCount;
 static int isVblank;
 static bool hasSetMode;
-double lastFrameTime;
+static double lastFrameTime;
 
 std::vector<WaitVBlankInfo> vblankWaitingThreads;
 
@@ -269,12 +270,11 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	host->EndFrame();
 
 #ifdef _WIN32
-	static double lastFrameTime = 0.0;
 	// Best place to throttle the frame rate on non vsynced platforms is probably here. Let's try it.
 	time_update();
 	if (lastFrameTime == 0.0)
 		lastFrameTime = time_now_d();
-	if (!GetAsyncKeyState(VK_TAB)) {
+	if (!GetAsyncKeyState(VK_TAB) && !PSP_CoreParameter().headLess) {
 		while (time_now_d() < lastFrameTime + 1.0 / 60.0) {
 			Common::SleepCurrentThread(1);
 			time_update();
