@@ -1182,10 +1182,6 @@ Thread *__KernelNextThread() {
 
 void __KernelReSchedule(const char *reason)
 {
-	// TODO: Not sure if this is correct?
-	if (__GetCurrentThread() && __GetCurrentThread()->isRunning())
-		__KernelChangeReadyState(currentThread, true);
-
 	// cancel rescheduling when in interrupt or callback, otherwise everything will be fucked up
 	if (__IsInInterrupt() || __KernelInCallback())
 	{
@@ -1207,6 +1203,10 @@ void __KernelReSchedule(const char *reason)
 		reason = "In Interrupt Or Callback";
 		return;
 	}
+
+	// TODO: Not sure if this is correct?  Probably should remove.
+	if (__GetCurrentThread() && __GetCurrentThread()->isRunning())
+		__KernelChangeReadyState(currentThread, true);
 
 retry:
 	Thread *nextThread = __KernelNextThread();
@@ -1439,6 +1439,8 @@ int sceKernelStartThread(SceUID threadToStartID, u32 argSize, u32 argBlockPtr)
 			threadToStartID,argSize,argBlockPtr);
 
 		__KernelResetThread(startThread);
+		if (currentThread)
+			__KernelChangeReadyState(currentThread, true);
 		__KernelChangeReadyState(startThread, threadToStartID, true, true);
 
 		u32 sp = startThread->context.r[MIPS_REG_SP];
@@ -1602,7 +1604,7 @@ u32 sceKernelResumeDispatchThread(u32 suspended)
 
 int sceKernelRotateThreadReadyQueue(int priority)
 {
-	DEBUG_LOG(HLE,"sceKernelRotateThreadReadyQueue : rescheduling");
+	ERROR_LOG(HLE, "sceKernelRotateThreadReadyQueue(%x)", priority);
 
 	// TODO: Does it try better-priority threads?  Is 0 special?
 	if (!threadReadyQueue[priority].empty())
@@ -2278,15 +2280,15 @@ void __KernelSwitchContext(Thread *target, const char *reason)
 			oldName = cur->GetName();
 
 		if (cur->isRunning())
-		{
-			__KernelChangeReadyState(cur, oldUID, false);
-			cur->nt.status = (cur->nt.status | THREADSTATUS_READY) & ~THREADSTATUS_RUNNING;
-		}
+			__KernelChangeReadyState(cur, oldUID, true);
 	}
 
 	currentThread = target->GetUID();
-	if (target && target->isRunning())
-		__KernelChangeReadyState(target, currentThread, true);
+	if (target)
+	{
+		__KernelChangeReadyState(target, currentThread, false);
+		target->nt.status = (target->nt.status | THREADSTATUS_RUNNING) & ~THREADSTATUS_READY;
+	}
 
 	__KernelLoadContext(&target->context);
 
