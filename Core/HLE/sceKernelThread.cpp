@@ -453,9 +453,10 @@ u32 cbReturnHackAddr;
 u32 intReturnHackAddr;
 std::vector<ThreadCallback> threadEndListeners;
 
-typedef std::vector<SceUID> ThreadList;
 // Lists all thread ids that aren't deleted/etc.
-ThreadList threadqueue;
+std::vector<SceUID> threadqueue;
+
+typedef std::list<SceUID> ThreadList;
 // Lists only ready thread ids.
 std::map<u32, ThreadList> threadReadyQueue;
 
@@ -664,18 +665,12 @@ void __KernelChangeReadyState(Thread *thread, SceUID threadID, bool ready, bool 
 	if (thread->isReady())
 	{
 		if (!ready)
-			threadReadyQueue[prio].erase(std::remove(threadReadyQueue[prio].begin(), threadReadyQueue[prio].end(), threadID), threadReadyQueue[prio].end());
+			threadReadyQueue[prio].remove(threadID);
 	}
 	else if (ready)
 	{
-		if (atStart)
-		{
-			size_t oldSize = threadReadyQueue[prio].size();
-			threadReadyQueue[prio].resize(oldSize + 1);
-			if (oldSize > 0)
-				memmove(&threadReadyQueue[prio][1], &threadReadyQueue[prio][0], oldSize * sizeof(SceUID));
-			threadReadyQueue[prio][0] = threadID;
-		}
+		if (atStart || thread->isRunning())
+			threadReadyQueue[prio].push_front(threadID);
 		else
 			threadReadyQueue[prio].push_back(threadID);
 		thread->nt.status = THREADSTATUS_READY;
@@ -1129,7 +1124,7 @@ void __KernelRemoveFromThreadQueue(SceUID threadID)
 {
 	int prio = __KernelGetThreadPrio(threadID);
 	if (prio != 0)
-		threadReadyQueue[prio].erase(std::remove(threadReadyQueue[prio].begin(), threadReadyQueue[prio].end(), threadID), threadReadyQueue[prio].end());
+		threadReadyQueue[prio].remove(threadID);
 
 	threadqueue.erase(std::remove(threadqueue.begin(), threadqueue.end(), threadID), threadqueue.end());
 }
@@ -1167,7 +1162,7 @@ Thread *__KernelNextThread() {
 	{
 		if (!it->second.empty())
 		{
-			bestThread = it->second[0];
+			bestThread = it->second.front();
 			break;
 		}
 	}
@@ -1616,12 +1611,11 @@ int sceKernelRotateThreadReadyQueue(int priority)
 		if (cur->nt.currentPriority == priority)
 			__KernelChangeReadyState(currentThread, true);
 
-		size_t readySize = threadReadyQueue[priority].size();
-		if (readySize > 1)
+		if (threadReadyQueue[priority].size() > 1)
 		{
-			SceUID first = threadReadyQueue[priority][0];
-			memmove(&threadReadyQueue[priority][0], &threadReadyQueue[priority][1], (readySize - 1) * sizeof(SceUID));
-			threadReadyQueue[priority][readySize - 1] = first;
+			SceUID first = threadReadyQueue[priority].front();
+			threadReadyQueue[priority].pop_front();
+			threadReadyQueue[priority].push_back(first);
 		}
 		hleReSchedule("rotatethreadreadyqueue");
 	}
