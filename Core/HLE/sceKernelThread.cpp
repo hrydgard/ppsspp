@@ -1601,27 +1601,33 @@ u32 sceKernelResumeDispatchThread(u32 suspended)
 
 int sceKernelRotateThreadReadyQueue(int priority)
 {
-	ERROR_LOG(HLE, "sceKernelRotateThreadReadyQueue(%x)", priority);
+	DEBUG_LOG(HLE, "sceKernelRotateThreadReadyQueue(%x)", priority);
 
-	// TODO: Does it try better-priority threads?  Is 0 special?
+	Thread *cur = __GetCurrentThread();
+
+	// 0 is special, it means "my current priority."
+	if (priority == 0)
+		priority = cur->nt.currentPriority;
+
 	if (!threadReadyQueue[priority].empty())
 	{
-		Thread *cur = __GetCurrentThread();
-		// TODO: Who gets switched to with currentThread-priority?  Next or next-next?
+		// In other words, yield to everyone else.
 		if (cur->nt.currentPriority == priority)
-			__KernelChangeReadyState(currentThread, true);
-
-		if (threadReadyQueue[priority].size() > 1)
+		{
+			threadReadyQueue[priority].push_back(currentThread);
+			cur->nt.status = THREADSTATUS_READY;
+		}
+		// Yield the next thread of this priority to all other threads of same priority.
+		else if (threadReadyQueue[priority].size() > 1)
 		{
 			SceUID first = threadReadyQueue[priority].front();
 			threadReadyQueue[priority].pop_front();
 			threadReadyQueue[priority].push_back(first);
 		}
+
 		hleReSchedule("rotatethreadreadyqueue");
 	}
-	// TODO: Does it reschedule in other cases?
 
-	// TODO: Any way to get a different return?
 	return 0;
 }
 
