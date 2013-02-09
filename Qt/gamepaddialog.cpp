@@ -16,26 +16,26 @@ struct GamePadInfo
 
 // Initial values are PS3 controller
 GamePadInfo GamepadPadMapping[] = {
-	{0,	14, 0,		"Prev_X",		"Cross"},			//A
-	{0,	13, 0,		"Prev_O",		"Circle"},			//B
-	{0,	15, 0,		"Prev_S",		"Square"},			//X
-	{0,	12, 0,		"Prev_T",		"Triangle"},		//Y
-	{0,	10, 0,		"Prev_LT",		"Left Trigger"},	//LBUMPER
-	{0,	11, 0,		"Prev_RT",		"Right Trigger"},	//RBUMPER
-	{0,	3, 0,		"Prev_Start",	"Start"},			//START
-	{0,	0, 0,		"Prev_Select",	"Select"},			//SELECT
-	{0,	4, 0,		"Prev_Up",		"Up"},				//UP
-	{0,	6, 0,		"Prev_Down",	"Down"},			//DOWN
-	{0,	7, 0,		"Prev_Left",	"Left"},			//LEFT
-	{0,	5, 0,		"Prev_Right",	"Right"},			//RIGHT
-	{0,	0, 0,		""},								//MENU (event)
-	{0,	16, 0,		"Prev_Home",	"Home"},			//BACK
+	{0,	14, 0,	"Prev_X",	QT_TRANSLATE_NOOP("gamepadMapping", "Cross")},			//A
+	{0,	13, 0,	"Prev_O",	QT_TRANSLATE_NOOP("gamepadMapping", "Circle")},			//B
+	{0,	15, 0,	"Prev_S",	QT_TRANSLATE_NOOP("gamepadMapping", "Square")},			//X
+	{0,	12, 0,	"Prev_T",	QT_TRANSLATE_NOOP("gamepadMapping", "Triangle")},		//Y
+	{0,	10, 0,	"Prev_LT",	QT_TRANSLATE_NOOP("gamepadMapping", "Left Trigger")},	//LBUMPER
+	{0,	11, 0,	"Prev_RT",	QT_TRANSLATE_NOOP("gamepadMapping", "Right Trigger")},	//RBUMPER
+	{0,	3, 0,	"Prev_Start",	QT_TRANSLATE_NOOP("gamepadMapping", "Start")},			//START
+	{0,	0, 0,	"Prev_Select",	QT_TRANSLATE_NOOP("gamepadMapping", "Select")},			//SELECT
+	{0,	4, 0,	"Prev_Up",	QT_TRANSLATE_NOOP("gamepadMapping", "Up")},				//UP
+	{0,	6, 0,	"Prev_Down",	QT_TRANSLATE_NOOP("gamepadMapping", "Down")},			//DOWN
+	{0,	7, 0,	"Prev_Left",	QT_TRANSLATE_NOOP("gamepadMapping", "Left")},			//LEFT
+	{0,	5, 0,	"Prev_Right",	QT_TRANSLATE_NOOP("gamepadMapping", "Right")},			//RIGHT
+	{0,	0, 0,	""},								//MENU (event)
+	{0,	16, 0,	"Prev_Home",	QT_TRANSLATE_NOOP("gamepadMapping", "Home")},			//BACK
 
 	// Special case for analog stick
-	{1, 0, -1,		"Prev_ALeft",	"Stick left"},
-	{1, 0, 1,		"Prev_ARight",	"Stick right"},
-	{1, 1, -1,		"Prev_AUp",		"Stick up"},
-	{1, 1, 1,		"Prev_ADown",	"Stick bottom"}
+	{1, 0, -1,	"Prev_ALeft",	QT_TRANSLATE_NOOP("gamepadMapping", "Stick left")},
+	{1, 0, 1,	"Prev_ARight",	QT_TRANSLATE_NOOP("gamepadMapping", "Stick right")},
+	{1, 1, -1,	"Prev_AUp",	QT_TRANSLATE_NOOP("gamepadMapping", "Stick up")},
+	{1, 1, 1,	"Prev_ADown",	QT_TRANSLATE_NOOP("gamepadMapping", "Stick bottom")}
 };
 
 // id for mapping in config start at offset 200 to not get over key mapping
@@ -106,6 +106,20 @@ void GamePadDialog::showEvent(QShowEvent *)
 #endif
 }
 
+void GamePadDialog::changeEvent(QEvent *event)
+{
+	QDialog::changeEvent(event);
+
+	if (0 != event)
+	{
+		if (event->type() == QEvent::LanguageChange)
+		{
+			ui->retranslateUi(this);
+			on_refreshListBtn_clicked();
+		}
+	}
+}
+
 void GamePadDialog::releaseLock()
 {
 	EmuThread_LockDraw(false);
@@ -117,7 +131,7 @@ void GamePadDialog::on_refreshListBtn_clicked()
 	if(m_joystick)
 	{
 		SDL_JoystickClose(m_joystick);
-		ui->JoyName->setText("<b>No GamePad</b>");
+		ui->JoyName->setText(tr("<b>No gamepad</b>"));
 		m_joystick = 0;
 	}
 	SDL_QuitSubSystem(SDL_INIT_JOYSTICK);
@@ -129,7 +143,7 @@ void GamePadDialog::on_refreshListBtn_clicked()
 	{
 		QListWidgetItem* item = new QListWidgetItem();
 		QString padName = SDL_JoystickName(i);
-		if(padName == "") padName = "<b>Unknown GamePad</b>";
+		if(padName == "") padName = tr("<b>Unknown gamepad</b>");
 		item->setText(padName);
 		item->setData(Qt::UserRole,i);
 		ui->GamePadList->addItem(item);
@@ -270,7 +284,7 @@ void GamePadDialog::on_SelectPadBtn_clicked()
 	ui->comboPSPButton->clear();
 
 	QTreeWidgetItem* buttonItem = new QTreeWidgetItem();
-	buttonItem->setText(0,"Buttons");
+	buttonItem->setText(0,tr("Buttons"));
 	ui->padValues->addTopLevelItem(buttonItem);
 
 	for(int i = 0; i < SDL_JoystickNumButtons(m_joystick); i++)
@@ -284,37 +298,37 @@ void GamePadDialog::on_SelectPadBtn_clicked()
 		buttonItem->addChild(item);
 
 		int id = i << 8;
-		ui->comboPadInput->addItem("Button "+QVariant(i).toString(),GetIntFromMapping(i,0,0));
+		ui->comboPadInput->addItem(tr("Button %1").arg(i),GetIntFromMapping(i,0,0));
 	}
 	QTreeWidgetItem* axesItem = new QTreeWidgetItem();
-	axesItem->setText(0,"Axes");
+	axesItem->setText(0,tr("Axes"));
 	ui->padValues->addTopLevelItem(axesItem);
 
 	for(int i = 0; i < SDL_JoystickNumAxes(m_joystick); i++)
 	{
 		QTreeWidgetItem* item = new QTreeWidgetItem();
-		item->setText(0,QVariant(i).toString()+" Neg");
+		item->setText(0,tr("%1 Neg").arg(i));
 		item->setText(1,QVariant(0).toString());
 		item->setData(0, Qt::UserRole,1);
 		item->setData(0, Qt::UserRole+1,i);
 		item->setData(0, Qt::UserRole+2,-1);
 		axesItem->addChild(item);
 
-		ui->comboPadInput->addItem("Axes "+QVariant(i).toString()+" Neg",GetIntFromMapping(i,1,-1));
+		ui->comboPadInput->addItem(tr("Axes %1 Neg").arg(i),GetIntFromMapping(i,1,-1));
 
 		item = new QTreeWidgetItem();
-		item->setText(0,QVariant(i).toString()+" Pos");
+		item->setText(0,tr("%1 Pos").arg(i));
 		item->setText(1,QVariant(0).toString());
 		item->setData(0, Qt::UserRole,1);
 		item->setData(0, Qt::UserRole+1,i);
 		item->setData(0, Qt::UserRole+2,1);
 		axesItem->addChild(item);
 
-		ui->comboPadInput->addItem("Axes "+QVariant(i).toString()+" Pos",GetIntFromMapping(i,1,1));
+		ui->comboPadInput->addItem(tr("Axes %1 Pos").arg(i),GetIntFromMapping(i,1,1));
 	}
 
 	QTreeWidgetItem* hatsItem = new QTreeWidgetItem();
-	hatsItem->setText(0,"Hats");
+	hatsItem->setText(0,tr("Hats"));
 	ui->padValues->addTopLevelItem(hatsItem);
 
 	for(int i = 0; i < SDL_JoystickNumHats(m_joystick); i++)
@@ -327,14 +341,14 @@ void GamePadDialog::on_SelectPadBtn_clicked()
 		item->setData(0, Qt::UserRole+2,0);
 		hatsItem->addChild(item);
 
-		ui->comboPadInput->addItem("Button "+QVariant(i).toString(),GetIntFromMapping(i,2,0));
+		ui->comboPadInput->addItem(tr("Button %1").arg(i),GetIntFromMapping(i,2,0));
 	}
 
 	for(int i = 0; i < 18; i++)
 	{
 		if(GamepadPadMapping[i].Name != "")
 		{
-			ui->comboPSPButton->addItem(GamepadPadMapping[i].Name,i);
+			ui->comboPSPButton->addItem(QApplication::translate("gamepadMapping", GamepadPadMapping[i].Name.toStdString().c_str()),i);
 		}
 	}
 
@@ -349,9 +363,9 @@ void GamePadDialog::SetViewMode()
 	ui->refreshListBtn->setEnabled(true);
 	ui->SelectPadBtn->setEnabled(true);
 	if(!m_joystick)
-		ui->JoyName->setText("<b>No GamePad</b>");
+		ui->JoyName->setText(tr("<b>No gamepad</b>"));
 	else
-		ui->JoyName->setText(QString("<b>Current gamepad : ")+SDL_JoystickName(m_joyId)+"</b>");
+		ui->JoyName->setText(tr("<b>Current gamepad: %1</b>").arg(SDL_JoystickName(m_joyId)));
 #endif
 }
 
