@@ -26,6 +26,9 @@ Windows/ipch
 # For ppsspp.ini, etc.
 *.ini
 
+# Qt Linguist files
+*.qm
+
 Logs
 Memstick
 

@@ -44,7 +44,7 @@
      <x>0</x>
      <y>0</y>
      <width>800</width>
-     <height>23</height>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menu_File">
@@ -135,6 +135,11 @@
      <addaction name="action_OptionsScreen3x"/>
      <addaction name="action_OptionsScreen4x"/>
     </widget>
+    <widget class="QMenu" name="menuLanguage">
+     <property name="title">
+      <string>Language</string>
+     </property>
+    </widget>
     <addaction name="action_OptionsControls"/>
     <addaction name="action_OptionsGamePadControls"/>
     <addaction name="separator"/>
@@ -155,6 +160,7 @@
     <addaction name="action_OptionsFastMemory"/>
     <addaction name="action_OptionsIgnoreIllegalReadsWrites"/>
     <addaction name="separator"/>
+    <addaction name="menuLanguage"/>
    </widget>
    <widget class="QMenu" name="menu_Help">
     <property name="title">
