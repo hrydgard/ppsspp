@@ -446,7 +446,7 @@ int g_inCbCount = 0;
 // Normally, the same as currentThread.  In an interrupt, remembers the callback's thread id.
 SceUID currentCallbackThreadID = 0;
 int readyCallbacksCount = 0;
-SceUID currentThread;
+SceUID currentThread = 0;
 u32 idleThreadHackAddr;
 u32 threadReturnHackAddr;
 u32 cbReturnHackAddr;
@@ -678,9 +678,8 @@ void __KernelChangeReadyState(Thread *thread, SceUID threadID, bool ready, bool 
 		}
 		else
 			threadReadyQueue[prio].push_back(threadID);
+		thread->nt.status = THREADSTATUS_READY;
 	}
-
-	thread->nt.status = THREADSTATUS_READY;
 }
 
 void __KernelChangeReadyState(SceUID threadID, bool ready)
@@ -1361,8 +1360,11 @@ void __KernelSetupRootThread(SceUID moduleID, int args, const char *argp, int pr
 	Thread *thread = __KernelCreateThread(id, moduleID, "root", currentMIPS->pc, prio, stacksize, attr);
 	__KernelResetThread(thread);
 
+	Thread *prevThread = __GetCurrentThread();
+	if (prevThread && prevThread->isRunning())
+		__KernelChangeReadyState(currentThread, true);
 	currentThread = id;
-	__KernelChangeReadyState(thread, id, true); // do not schedule
+	thread->nt.status = THREADSTATUS_RUNNING; // do not schedule
 
 	strcpy(thread->nt.name, "root");
 
