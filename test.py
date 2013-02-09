@@ -233,6 +233,7 @@ def run_tests(test_list, args):
     if c.timeout:
       print(output)
       print("Test exceded limit of %d seconds." % TIMEOUT)
+      tests_failed.append(test)
       tcprint("##teamcity[testFailed name='%s' message='Test timeout']" % test)
       tcprint("##teamcity[testFinished name='%s']" % test)
       continue
