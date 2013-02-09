@@ -363,13 +363,13 @@ bool MetaFileSystem::RenameFile(const std::string &from, const std::string &to)
 	}
 }
 
-bool MetaFileSystem::DeleteFile(const std::string &filename)
+bool MetaFileSystem::RemoveFile(const std::string &filename)
 {
 	std::string of;
 	IFileSystem *system;
 	if (MapFilePath(filename, of, &system))
 	{
-		return system->DeleteFile(of);
+		return system->RemoveFile(of);
 	}
 	else
 	{
