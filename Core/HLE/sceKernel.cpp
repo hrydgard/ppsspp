@@ -157,6 +157,7 @@ void __KernelDoState(PointerWrap &p)
 	p.DoMarker("KernelObjects");
 
 	__InterruptsDoState(p);
+	// Memory needs to be after kernel objects, which may free kernel memory.
 	__KernelMemoryDoState(p);
 	__KernelThreadingDoState(p);
 	__KernelAlarmDoState(p);

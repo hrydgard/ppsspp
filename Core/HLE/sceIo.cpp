@@ -146,9 +146,10 @@ public:
 		p.Do(callbackID);
 		p.Do(callbackArg);
 		p.Do(asyncResult);
-		p.Do(closePending);
 		p.Do(pendingAsyncResult);
 		p.Do(sectorBlockMode);
+		p.Do(closePending);
+		p.Do(info);
 		p.Do(openMode);
 		p.DoMarker("File");
 	}
