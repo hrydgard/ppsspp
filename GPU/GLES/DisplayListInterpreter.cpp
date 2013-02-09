@@ -124,7 +124,6 @@ static const int flushBeforeCommandList[] = {
 	GE_CMD_SIGNAL,
 	GE_CMD_FINISH,
 	GE_CMD_BJUMP,
-	GE_CMD_OFFSETADDR,
 	GE_CMD_REGION1,GE_CMD_REGION2,
 	GE_CMD_FRAMEBUFPTR,
 	GE_CMD_FRAMEBUFWIDTH,
@@ -515,6 +514,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 			// Throughmode changed, let's make the proj matrix dirty.
 			shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
 		}
+		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 		// This sets through-mode or not, as well.
 		break;
 
@@ -679,6 +679,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_TEXSIZE0:
 		gstate_c.curTextureWidth = 1 << (gstate.texsize[0] & 0xf);
 		gstate_c.curTextureHeight = 1 << ((gstate.texsize[0]>>8) & 0xf);
+		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 		//fall thru - ignoring the mipmap sizes for now
 	case GE_CMD_TEXSIZE1:
 	case GE_CMD_TEXSIZE2:
@@ -799,16 +800,8 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_VIEWPORTY1:
 	case GE_CMD_VIEWPORTX2:
 	case GE_CMD_VIEWPORTY2:
-		break;
-
 	case GE_CMD_VIEWPORTZ1:
-		gstate_c.zScale = getFloat24(data) / 65535.f;
-		break;
-
 	case GE_CMD_VIEWPORTZ2:
-		gstate_c.zOff = getFloat24(data) / 65535.f;
-		break;
-
 	case GE_CMD_LIGHTENABLE0:
 	case GE_CMD_LIGHTENABLE1:
 	case GE_CMD_LIGHTENABLE2:

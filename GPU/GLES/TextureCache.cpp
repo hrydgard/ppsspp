@@ -112,6 +112,8 @@ void TextureCache::InvalidateAll(bool force) {
 }
 
 TextureCache::TexCacheEntry *TextureCache::GetEntryAt(u32 texaddr) {
+	// If no CLUT, as in framebuffer textures, cache key is simply texaddr.
+	auto iter = cache.find(texaddr);
 	for (auto entry = cache.begin(); entry != cache.end(); ++entry) {
 		if (entry->second.addr == texaddr) {
 			return &entry->second;
@@ -121,11 +123,13 @@ TextureCache::TexCacheEntry *TextureCache::GetEntryAt(u32 texaddr) {
 }
 
 void TextureCache::NotifyFramebuffer(u32 address, FBO *fbo) {
+	// Must be in VRAM so | 0x04000000 it is.
 	TexCacheEntry *entry = GetEntryAt(address | 0x04000000);
 	if (entry) {
 		INFO_LOG(HLE, "Render to texture detected at %08x!", address);
 		if (!entry->fbo)
 			entry->fbo = fbo;
+		// TODO: Delete the original non-fbo texture too.
 	}
 }
 
@@ -370,9 +374,9 @@ GLenum getClutDestFormat(GEPaletteFormat format) {
 	return 0;
 }
 
-const u8 texByteAlignMap[] = {2, 2, 2, 4};
+static const u8 texByteAlignMap[] = {2, 2, 2, 4};
 
-const GLuint MinFiltGL[8] = {
+static const GLuint MinFiltGL[8] = {
 	GL_NEAREST,
 	GL_LINEAR,
 	GL_NEAREST,
@@ -383,10 +387,15 @@ const GLuint MinFiltGL[8] = {
 	GL_LINEAR_MIPMAP_LINEAR,
 };
 
-const GLuint MagFiltGL[2] = {
+static const GLuint MagFiltGL[2] = {
 	GL_NEAREST,
 	GL_LINEAR
 };
+
+// OpenGL ES 2.0 workaround. Let's see if this hackery works.
+#ifndef GL_TEXTURE_LOD_BIAS
+#define GL_TEXTURE_LOD_BIAS 0x8501
+#endif
 
 // This should not have to be done per texture! OpenGL is silly yo
 // TODO: Dirty-check this against the current texture.
@@ -396,8 +405,17 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	bool sClamp = gstate.texwrap & 1;
 	bool tClamp = (gstate.texwrap>>8) & 1;
 
-	// TODO: remove this line when we support mipmaps
-	minFilt &= 1; // no mipmaps yet
+	if (entry.maxLevel == 0) {
+		// Enforce no mip filtering, for safety.
+		minFilt &= 1; // no mipmaps yet
+	} else {
+		// TODO: Is this a signed value? Which direction?
+		float lodBias = 0.0; // -(float)((gstate.texlevel >> 16) & 0xFF) / 16.0f;
+		if (force || entry.lodBias != lodBias) {
+			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, lodBias);
+			entry.lodBias = lodBias;
+		}
+	}
 
 	if (g_Config.bLinearFiltering) {
 		magFilt |= 1;
@@ -462,7 +480,7 @@ struct DXT5Block {
 };
 
 static inline u32 makecol(int r, int g, int b, int a) {
-	return (a << 24)|(r << 16)|(g << 8)|b;
+	return (a << 24) | (r << 16) | (g << 8) | b;
 }
 
 // This could probably be done faster by decoding two or four blocks at a time with SSE/NEON.
@@ -641,7 +659,6 @@ void TextureCache::SetTexture() {
 		return;
 	}
 
-	u8 level = 0;
 	u32 format = gstate.texformat & 0xF;
 	if (format >= 11) {
 		ERROR_LOG(G3D, "Unknown texture format %i", format);
@@ -649,38 +666,50 @@ void TextureCache::SetTexture() {
 	}
 	bool hasClut = formatUsesClut[format];
 
+	const u8 *texptr = Memory::GetPointer(texaddr);
+
 	u32 clutformat = gstate.clutformat & 3;
 	u32 clutaddr = GetClutAddr(clutformat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2);
 
-	const u8 *texptr = Memory::GetPointer(texaddr);
-	u32 texhash = texptr ? MiniHash((const u32*)texptr) : 0;
+	u64 cachekey = texaddr;
+	if (formatUsesClut[format])
+		cachekey |= (u64)clutaddr << 32;
 
-	u64 cachekey = texaddr ^ texhash;
-	if (hasClut) {
-		cachekey |= (u64) clutaddr << 32;
+	int maxLevel = ((gstate.texmode >> 16) & 0x7);
+
+	// Adjust maxLevel to actually present levels..
+	for (int i = 0; i <= maxLevel; i++) {
+		// If encountering levels pointing to nothing, adjust max level.
+		u32 levelTexaddr = (gstate.texaddr[i] & 0xFFFFF0) | ((gstate.texbufwidth[i] << 8) & 0x0F000000);
+		if (!Memory::IsValidAddress(levelTexaddr)) {
+			maxLevel = i - 1;
+			break;
+		}
 	}
+
+	u32 texhash = MiniHash((const u32 *)Memory::GetPointer(texaddr));
 
 	int w = 1 << (gstate.texsize[0] & 0xf);
-	int h = 1 << ((gstate.texsize[0]>>8) & 0xf);
+	int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
 
-	// Check for FBO - slow!
-	TexCacheEntry *fboEntry = GetEntryAt(texaddr);
-	if (fboEntry && fboEntry->fbo) {
-		fbo_bind_color_as_texture(fboEntry->fbo, 0);
-		UpdateSamplingParams(*fboEntry, false);
-
-		int fbow, fboh;
-		fbo_get_dimensions(fboEntry->fbo, &fbow, &fboh);
-
-		gstate_c.curTextureWidth = w / fbow;  // except not - 
-		gstate_c.curTextureHeight = h / fboh;
-		return;
-	}
-	
 	TexCache::iterator iter = cache.find(cachekey);
 	if (iter != cache.end()) {
-		//Validate the texture here (width, height etc)
 		TexCacheEntry &entry = iter->second;
+		// Check for FBO - slow!
+		if (entry.fbo) {
+			fbo_bind_color_as_texture(entry.fbo, 0);
+			UpdateSamplingParams(entry, false);
+
+			int fbow, fboh;
+			fbo_get_dimensions(entry.fbo, &fbow, &fboh);
+
+			// Almost certain this isn't right.
+			gstate_c.curTextureWidth = fbow;
+			gstate_c.curTextureHeight = fboh;
+			return;
+		}
+
+		//Validate the texture here (width, height etc)
 
 		int dim = gstate.texsize[0] & 0xF0F;
 		bool match = true;
@@ -710,6 +739,8 @@ void TextureCache::SetTexture() {
 				match = false;
 			}
 		}
+		if (entry.maxLevel != maxLevel)
+			match = false;
 
 		if (match) {
 			//got one!
@@ -738,6 +769,8 @@ void TextureCache::SetTexture() {
 	entry.format = format;
 	entry.frameCounter = gpuStats.numFrames;
 	entry.fbo = 0;
+	entry.maxLevel = maxLevel;
+	entry.lodBias = 0.0f;
 
 	if (format >= GE_TFMT_CLUT4 && format <= GE_TFMT_CLUT32) {
 		entry.clutformat = clutformat;
@@ -759,38 +792,86 @@ void TextureCache::SetTexture() {
 	for (u32 i = 0; i < (entry.sizeInRAM * 2) / 4; ++i)
 		entry.fullhash += *checkp++;
 
-	gstate_c.curTextureWidth=w;
-	gstate_c.curTextureHeight=h;
-	GLenum dstFmt = 0;
-	u32 texByteAlign = 1;
+	gstate_c.curTextureWidth = w;
+	gstate_c.curTextureHeight = h;
 
+	glGenTextures(1, &entry.texture);
+	glBindTexture(GL_TEXTURE_2D, entry.texture);
+	
+#ifdef USING_GLES2
+	// GLES2 doesn't have support for a "Max lod" which is critical as PSP games often
+	// don't specify mips all the way down. As a result, we either need to manually generate
+	// the bottom few levels or rely on OpenGL's autogen mipmaps instead, which might not
+	// be as good quality as the game's own (might even be better in some cases though).
+
+	// For now, I choose to use autogen mips on GLES2 and the game's own on other platforms.
+	// As is usual, GLES3 will solve this problem nicely but wide distribution of that is
+	// years away.
+	LoadTextureLevel(entry, 0);
+	if (entry.maxLevel > 0)
+		glGenerateMipmap(GL_TEXTURE_2D);
+#else
+	for (int i = 0; i <= entry.maxLevel; i++) {
+		LoadTextureLevel(entry, i);
+	}
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, entry.maxLevel);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, entry.maxLevel);
+#endif
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, 4);
+
+	UpdateSamplingParams(entry, true);
+
+	//glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+	//glPixelStorei(GL_PACK_ROW_LENGTH, 0);
+	glPixelStorei(GL_PACK_ALIGNMENT, 1);
+
+	cache[cachekey] = entry;
+}
+
+
+void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level) 
+{
 	void *finalBuf = NULL;
 
+		// TODO: only do this once
+	u32 texByteAlign = 1;
+
 	// TODO: Look into using BGRA for 32-bit textures when the GL_EXT_texture_format_BGRA8888 extension is available, as it's faster than RGBA on some chips.
+	GLenum dstFmt = 0;
 
 	// TODO: Actually decode the mipmaps.
 
-	switch (format)
+	u32 texaddr = (gstate.texaddr[level] & 0xFFFFF0) | ((gstate.texbufwidth[level] << 8) & 0x0F000000);
+
+	int bufw = gstate.texbufwidth[level] & 0x3ff;
+
+
+	int w = 1 << (gstate.texsize[level] & 0xf);
+	int h = 1 << ((gstate.texsize[level] >> 8) & 0xf);
+	const u8 *texptr = Memory::GetPointer(texaddr);
+
+	switch (entry.format)
 	{
 	case GE_TFMT_CLUT4:
-		dstFmt = getClutDestFormat((GEPaletteFormat)(gstate.clutformat & 3));
+		dstFmt = getClutDestFormat((GEPaletteFormat)(entry.clutformat));
 
-		switch (clutformat) {
+		switch (entry.clutformat) {
 		case GE_CMODE_16BIT_BGR5650:
 		case GE_CMODE_16BIT_ABGR5551:
 		case GE_CMODE_16BIT_ABGR4444:
 			{
 			ReadClut16(clutBuf16);
 			const u16 *clut = clutBuf16;
-			u32 clutSharingOff = 0;//gstate.mipmapShareClut ? 0 : level * 16;
+			u32 clutSharingOffset = 0; //(gstate.mipmapShareClut & 1) ? 0 : level * 16;
 			texByteAlign = 2;
 			if (!(gstate.texmode & 1)) {
 				const u8 *addr = Memory::GetPointer(texaddr);
 				for (int i = 0; i < bufw * h; i += 2)
 				{
 					u8 index = *addr++;
-					tmpTexBuf16[i + 0] = clut[GetClutIndex((index >> 0) & 0xf) + clutSharingOff];
-					tmpTexBuf16[i + 1] = clut[GetClutIndex((index >> 4) & 0xf) + clutSharingOff];
+					tmpTexBuf16[i + 0] = clut[GetClutIndex((index >> 0) & 0xf) + clutSharingOffset];
+					tmpTexBuf16[i + 1] = clut[GetClutIndex((index >> 4) & 0xf) + clutSharingOffset];
 				}
 			} else {
 				UnswizzleFromMem(texaddr, 0, level);
@@ -800,7 +881,7 @@ void TextureCache::SetTexture() {
 					u32 k, index;
 					for (k = 0; k < 8; k++) {
 						index = (n >> (k * 4)) & 0xf;
-						tmpTexBuf16[i + k] = clut[GetClutIndex(index) + clutSharingOff];
+						tmpTexBuf16[i + k] = clut[GetClutIndex(index) + clutSharingOffset];
 					}
 				}
 			}
@@ -863,11 +944,11 @@ void TextureCache::SetTexture() {
 	case GE_TFMT_4444:
 	case GE_TFMT_5551:
 	case GE_TFMT_5650:
-		if (format == GE_TFMT_4444)
+		if (entry.format == GE_TFMT_4444)
 			dstFmt = GL_UNSIGNED_SHORT_4_4_4_4;
-		else if (format == GE_TFMT_5551)
+		else if (entry.format == GE_TFMT_5551)
 			dstFmt = GL_UNSIGNED_SHORT_5_5_5_1;
-		else if (format == GE_TFMT_5650)
+		else if (entry.format == GE_TFMT_5650)
 			dstFmt = GL_UNSIGNED_SHORT_5_6_5;
 		texByteAlign = 2;
 
@@ -931,7 +1012,7 @@ void TextureCache::SetTexture() {
 		break;
 
 	case GE_TFMT_DXT5:
-		ERROR_LOG(G3D, "Unhandled compressed texture, format %i! swizzle=%i", format, gstate.texmode & 1);
+		ERROR_LOG(G3D, "Unhandled compressed texture, format %i! swizzle=%i", entry.format, gstate.texmode & 1);
 		dstFmt = GL_UNSIGNED_BYTE;
 		{
 			u32 *dst = tmpTexBuf32;
@@ -951,7 +1032,7 @@ void TextureCache::SetTexture() {
 		break;
 
 	default:
-		ERROR_LOG(G3D, "Unknown Texture Format %d!!!", format);
+		ERROR_LOG(G3D, "Unknown Texture Format %d!!!", entry.format);
 		finalBuf = tmpTexBuf32;
 		return;
 	}
@@ -999,19 +1080,8 @@ void TextureCache::SetTexture() {
 	//glPixelStorei(GL_PACK_ROW_LENGTH, bufw);
 	glPixelStorei(GL_PACK_ALIGNMENT, texByteAlign);
 
-	INFO_LOG(G3D, "Creating texture %i from %08x: %i x %i (stride: %i). fmt: %i", entry.texture, entry.addr, w, h, bufw, entry.format);
+	INFO_LOG(HLE, "Creating texture level %i/%i from %08x: %i x %i (stride: %i). fmt: %i", level, entry.maxLevel, texaddr, w, h, bufw, entry.format);
 
-	glGenTextures(1, &entry.texture);
-	glBindTexture(GL_TEXTURE_2D, entry.texture);
 	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
-	glTexImage2D(GL_TEXTURE_2D, 0, components, w, h, 0, components, dstFmt, finalBuf);
-	// glGenerateMipmap(GL_TEXTURE_2D);
-	UpdateSamplingParams(entry, true);
-
-	//glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-	//glPixelStorei(GL_PACK_ROW_LENGTH, 0);
-	glPixelStorei(GL_PACK_ALIGNMENT, 1);
-
-	cache[cachekey] = entry;
+	glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components, dstFmt, finalBuf);
 }

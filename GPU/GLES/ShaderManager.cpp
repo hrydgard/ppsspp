@@ -39,7 +39,7 @@ Shader::Shader(const char *code, uint32_t shaderType) {
 	OutputDebugString(code);
 #endif
 	shader = glCreateShader(shaderType);
-	glShaderSource(shader, 1, &code, 0);
+ 	glShaderSource(shader, 1, &code, 0);
 	glCompileShader(shader);
 	GLint success;
 	glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
@@ -264,7 +264,16 @@ void LinkedShader::updateUniforms() {
 
 	// Texturing
 	if (u_uvscaleoffset != -1 && (dirtyUniforms & DIRTY_UVSCALEOFFSET)) {
-		const float uvscaleoff[4] = { gstate_c.uScale, gstate_c.vScale, gstate_c.uOff, gstate_c.vOff};
+		float uvscaleoff[4] = { gstate_c.uScale, gstate_c.vScale, gstate_c.uOff, gstate_c.vOff};
+		if (gstate.isModeThrough()) {
+			uvscaleoff[0] /= gstate_c.curTextureWidth;
+			uvscaleoff[1] /= gstate_c.curTextureHeight;
+			uvscaleoff[2] /= gstate_c.curTextureWidth;
+			uvscaleoff[3] /= gstate_c.curTextureHeight;
+		} else {
+			uvscaleoff[0] *= 2.0f;
+			uvscaleoff[1] *= 2.0f;
+		}
 		glUniform4fv(u_uvscaleoffset, 1, uvscaleoff);
 	}
 

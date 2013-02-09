@@ -266,10 +266,10 @@ const MIPSInstruction tableSpecial2[64] =
 //24
 	{-2}, {-2}, {-2}, {-2}, {-2}, {-2}, {-2}, {-2},
 //32
-	INSTR("cvt.s.w", &Jit::Comp_Generic, Dis_FPU2op, Int_FPU2op, 0),
+	INSTR("cvt.s.w", &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, 0),
 	{-2}, {-2}, {-2}, 
 //36
-	INSTR("cvt.w.s", &Jit::Comp_Generic, Dis_FPU2op, Int_FPU2op, 0),
+	INSTR("cvt.w.s", &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, 0),
 	{-2}, 
 	INSTR("dis.int", &Jit::Comp_Generic, Dis_Generic, Int_Interrupt, 0), 
 	{-2}, 

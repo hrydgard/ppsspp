@@ -297,7 +297,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 		const char *specular = (gstate.materialupdate & 4) ? "unlitColor" : "u_matspecular.rgb";
 
 		if (gstate.lightingEnable & 1) {
-			WRITE(p, "  vec4 lightSum0 = vec4(0.0);\n");
+			WRITE(p, "  vec4 lightSum0 = u_ambient * %s + vec4(u_matemissive, 0.0);\n", ambient);
 			WRITE(p, "  vec3 lightSum1 = vec3(0.0);\n");
 		}
 
@@ -345,7 +345,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 
 		if (gstate.lightingEnable & 1) {
 			// Sum up ambient, emissive here.
-			WRITE(p, "  v_color0 = clamp(lightSum0 + u_ambient * %s + vec4(u_matemissive, 0.0), 0.0, 1.0);\n", ambient);
+			WRITE(p, "  v_color0 = clamp(lightSum0, 0.0, 1.0);\n");
 			if (lmode) {
 				WRITE(p, "  v_color1 = clamp(lightSum1, 0.0, 1.0);\n");
 			} else {
@@ -375,7 +375,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 					WRITE(p, "  vec3 temp_tc = a_position.xyz;\n");
 					break;
 				case 1:  // Use unscaled UV as source
-					WRITE(p, "  vec3 temp_tc = vec3(a_texcoord.xy, 0.0);\n");
+					WRITE(p, "  vec3 temp_tc = vec3(a_texcoord.xy * 2.0f, 0.0);\n");
 					break;
 				case 2:  // Use normalized transformed normal as source
 					WRITE(p, "  vec3 temp_tc = normalize(a_normal);\n");

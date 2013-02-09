@@ -97,6 +97,13 @@ enum ShiftType
 	ST_ROR = 3,
 	ST_RRX = 4
 };
+enum IntegerSize
+{
+	I_I8 = 0, 
+	I_I16,
+	I_I32,
+	I_I64
+};
 
 enum
 {
@@ -309,6 +316,9 @@ bool TryMakeOperand2_AllowNegation(s32 imm, Operand2 &op2, bool *negated);
 inline Operand2 R(ARMReg Reg)	{ return Operand2(Reg, TYPE_REG); }
 inline Operand2 IMM(u32 Imm)	{ return Operand2(Imm, TYPE_IMM); }
 inline Operand2 Mem(void *ptr)	{ return Operand2((u32)ptr, TYPE_IMM); }
+//usage: struct {int e;} s; STRUCT_OFFSET(s,e)
+#define STRUCT_OFF(str,elem) ((u32)((u32)&(str).elem-(u32)&(str)))
+
 
 struct FixupBranch
 {
@@ -418,6 +428,7 @@ public:
 	void SBC (ARMReg dest, ARMReg src, Operand2 op2);
 	void SBCS(ARMReg dest, ARMReg src, Operand2 op2);
 	void REV (ARMReg dest, ARMReg src);
+	void REV16 (ARMReg dest, ARMReg src);
 	void RSC (ARMReg dest, ARMReg src, Operand2 op2);
 	void RSCS(ARMReg dest, ARMReg src, Operand2 op2);
 	void TST (             ARMReg src, Operand2 op2);
@@ -459,6 +470,7 @@ public:
 	void LDR (ARMReg dest, ARMReg src, Operand2 op2 = 0);
 	// Offset adds to the base register in LDR
 	void LDR (ARMReg dest, ARMReg base, ARMReg offset, bool Index, bool Add);
+	void LDRH(ARMReg dest, ARMReg src, Operand2 op = 0); 
 	void LDRB(ARMReg dest, ARMReg src, Operand2 op2 = 0);
 	void STR (ARMReg dest, ARMReg src, Operand2 op2 = 0);
 	// Offset adds on to the destination register in STR
@@ -473,23 +485,37 @@ public:
 	// dest contains the result if the instruction managed to store the value
 	void STREX(ARMReg dest, ARMReg base, ARMReg op);
 	void DMB ();
+	void SVC(Operand2 op);
 
 	// NEON and ASIMD instructions
 	// None of these will be created with conditional since ARM
 	// is deprecating conditional execution of ASIMD instructions.
-	// Some ASIMD instructions don't even have a conditional encoding.
+	// ASIMD instructions don't even have a conditional encoding.
+
+	// Subtracts the base from the register to give us the real one
+	ARMReg SubBase(ARMReg Reg);	
+	// NEON Only
+	void VADD(IntegerSize Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VSUB(IntegerSize Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 		
-	void VLDR(ARMReg dest, ARMReg Base, Operand2 op);
+	// VFP Only
+	void VLDR(ARMReg Dest, ARMReg Base, Operand2 op);
+	void VSTR(ARMReg Src,  ARMReg Base, Operand2 op);
+	void VCMP(ARMReg Vd, ARMReg Vm);
+	// Compares against zero
+	void VCMP(ARMReg Vd);
+	void VDIV(ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VSQRT(ARMReg Vd, ARMReg Vm);
+	
+	// NEON and VFP
+	void VADD(ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VSUB(ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VMOV(ARMReg Dest, ARMReg Src);
 
 	void QuickCallFunction(ARMReg scratchreg, void *func);
 	// Utility functions
-	void MOVI2R(ARMReg reg, u32 val);
-	void ARMABI_ShowConditions();
-	void ARMABI_Return();
-
-	void UpdateAPSR(bool NZCVQ, u8 Flags, bool GE, u8 GEval);
-
+	void MOVI2R(ARMReg reg, u32 val, bool optimize = true);
+	void ARMABI_MOVI2M(Operand2 op, Operand2 val);	
 };  // class ARMXEmitter
 
 

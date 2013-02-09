@@ -95,7 +95,7 @@ public:
 				return false;
 			}
 			values.clear();
-			for(int i = 0; i < temp.size(); i++)
+			for(size_t i = 0; i < temp.size(); i++)
 			{
 				std::vector<std::string> key_val;
 				SplitString(temp[i],'_',key_val);

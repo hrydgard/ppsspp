@@ -17,28 +17,103 @@
 #include "gfx_es2/fbo.h"
 #include "gfx_es2/gl_state.h"
 #include "GPU/GPUState.h"
+#include "android/jni/ui_atlas.h"
+#include "native/util/random/rng.h"
+#include "native/base/timeutil.h"
+#include "native/base/colorutil.h"
 
 #include "qtemugl.h"
 #include "QtHost.h"
 
-void EmuThread_Start(QString filename, QtEmuGL* w)
+namespace
+{
+
+	static const int symbols[4] = {
+		I_CROSS,
+		I_CIRCLE,
+		I_SQUARE,
+		I_TRIANGLE
+	};
+
+	static const uint32_t colors[4] = {
+		/*
+		0xFF6666FF, // blue
+		0xFFFF6666, // red
+		0xFFFF66FF, // pink
+		0xFF66FF66, // green
+		*/
+		0xC0FFFFFF,
+		0xC0FFFFFF,
+		0xC0FFFFFF,
+		0xC0FFFFFF,
+	};
+
+	static void DrawBackground(float alpha) {
+		static float xbase[100] = {0};
+		static float ybase[100] = {0};
+		if (xbase[0] == 0.0f) {
+			GMRng rng;
+			for (int i = 0; i < 100; i++) {
+				xbase[i] = rng.F() * dp_xres;
+				ybase[i] = rng.F() * dp_yres;
+			}
+		}
+		glClearColor(0.1f,0.2f,0.43f,1.0f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+		ui_draw2d.DrawImageStretch(I_BG, 0, 0, dp_xres, dp_yres);
+		float t = time_now();
+		for (int i = 0; i < 100; i++) {
+			float x = xbase[i];
+			float y = ybase[i] + 40*cos(i * 7.2 + t * 1.3);
+			float angle = sin(i + t);
+			int n = i & 3;
+			ui_draw2d.DrawImageRotated(symbols[n], x, y, 1.0f, angle, colorAlpha(colors[n], alpha * 0.1f));
+		}
+	}
+
+}
+
+void EmuThread_Start(QtEmuGL* w)
 {
 	//_dbg_clear_();
-	fileToStart = filename;
 	glWindow = w;
+	glWindow->doneCurrent();
 	glWindow->start_rendering();
 }
 
 void EmuThread_Stop()
 {
-//	DSound_UpdateSound();
-	Core_Stop();
 	if(glWindow)
 	{
 		glWindow->stop_rendering();
 	}
 	host->UpdateUI();
 }
+
+void EmuThread_StartGame(QString filename)
+{
+	if(glWindow)
+	{
+		glWindow->start_game(filename);
+	}
+}
+
+void EmuThread_StopGame()
+{
+	if(glWindow)
+	{
+		glWindow->stop_game();
+	}
+}
+
+void EmuThread_LockDraw(bool value)
+{
+	if(glWindow)
+	{
+		glWindow->LockDraw(value);
+	}
+}
+
 
 void EmuThread::init(InputState *inputState)
 {
@@ -49,8 +124,6 @@ void EmuThread::run()
 {
 	running = true;
 	setCurrentThreadName("EmuThread");
-
-	g_State.bEmuThreadStarted = true;
 
 	host->UpdateUI();
 	host->InitGL();
@@ -64,80 +137,181 @@ void EmuThread::run()
 
 	INFO_LOG(BOOT, "Starting up hardware.");
 
-	CoreParameter coreParameter;
-	coreParameter.fileToStart = fileToStart.toStdString();
-	coreParameter.enableSound = true;
-	coreParameter.gpuCore = GPU_GLES;
-	coreParameter.cpuCore = (CPUCore)g_Config.iCpuCore;
-	coreParameter.enableDebugging = true;
-	coreParameter.printfEmuLog = false;
-	coreParameter.headLess = false;
-	coreParameter.renderWidth = 480 * g_Config.iWindowZoom;
-	coreParameter.renderHeight = 272 * g_Config.iWindowZoom;
-	coreParameter.outputWidth = dp_xres;
-	coreParameter.outputHeight = dp_yres;
-	coreParameter.pixelWidth = pixel_xres;
-	coreParameter.pixelHeight = pixel_yres;
-	coreParameter.startPaused = !g_Config.bAutoRun;
-
-	std::string error_string;
-	if (!PSP_Init(coreParameter, &error_string))
-	{
-		ERROR_LOG(BOOT, "Error loading: %s", error_string.c_str());
-		FinalShutdown();
-		return;
-	}
-
-	LayoutGamepad(dp_xres, dp_yres);
-
-	_dbg_update_();
-
-	host->UpdateDisassembly();
-	Core_EnableStepping(coreParameter.startPaused ? TRUE : FALSE);
-
-	g_State.bBooted = true;
-#ifdef _DEBUG
-	host->UpdateMemView();
-#endif
-	host->BootDone();
-
 	QElapsedTimer timer;
 
 	while(running) {
 		//UpdateGamepad(*input_state);
 		timer.start();
 
-		UpdateInputState(input_state);
+		gameMutex.lock();
+		bool gRun = gameRunning;
+		gameMutex.unlock();
 
-		for (int i = 0; i < controllistCount; i++) {
-			if (input_state->pad_buttons_down & controllist[i].emu_id) {
-				__CtrlButtonDown(controllist[i].psp_id);
+		if(gRun)
+		{
+			gameMutex.lock();
+
+			glWindow->makeCurrent();
+			if(needInitGame)
+			{
+				g_State.bEmuThreadStarted = true;
+
+				CoreParameter coreParameter;
+				coreParameter.fileToStart = fileToStart.toStdString();
+				coreParameter.enableSound = true;
+				coreParameter.gpuCore = GPU_GLES;
+				coreParameter.cpuCore = (CPUCore)g_Config.iCpuCore;
+				coreParameter.enableDebugging = true;
+				coreParameter.printfEmuLog = false;
+				coreParameter.headLess = false;
+				coreParameter.renderWidth = 480 * g_Config.iWindowZoom;
+				coreParameter.renderHeight = 272 * g_Config.iWindowZoom;
+				coreParameter.outputWidth = dp_xres;
+				coreParameter.outputHeight = dp_yres;
+				coreParameter.pixelWidth = pixel_xres;
+				coreParameter.pixelHeight = pixel_yres;
+				coreParameter.startPaused = !g_Config.bAutoRun;
+
+				std::string error_string;
+				if (!PSP_Init(coreParameter, &error_string))
+				{
+					ERROR_LOG(BOOT, "Error loading: %s", error_string.c_str());
+					FinalShutdown();
+					return;
+				}
+
+				LayoutGamepad(dp_xres, dp_yres);
+
+				_dbg_update_();
+
+				host->UpdateDisassembly();
+				Core_EnableStepping(coreParameter.startPaused ? TRUE : FALSE);
+
+				g_State.bBooted = true;
+			#ifdef _DEBUG
+				host->UpdateMemView();
+			#endif
+				host->BootDone();
+				needInitGame = false;
 			}
-			if (input_state->pad_buttons_up & controllist[i].emu_id) {
-				__CtrlButtonUp(controllist[i].psp_id);
+			UpdateInputState(input_state);
+
+			for (int i = 0; i < controllistCount; i++) {
+				if (input_state->pad_buttons_down & controllist[i].emu_id) {
+					__CtrlButtonDown(controllist[i].psp_id);
+				}
+				if (input_state->pad_buttons_up & controllist[i].emu_id) {
+					__CtrlButtonUp(controllist[i].psp_id);
+				}
 			}
+			__CtrlSetAnalog(input_state->pad_lstick_x, input_state->pad_lstick_y);
+
+			EndInputState(input_state);
+
+			glstate.Restore();
+			glViewport(0, 0, pixel_xres, pixel_yres);
+			Matrix4x4 ortho;
+			ortho.setOrtho(0.0f, dp_xres, dp_yres, 0.0f, -1.0f, 1.0f);
+			glsl_bind(UIShader_Get());
+			glUniformMatrix4fv(UIShader_Get()->u_worldviewproj, 1, GL_FALSE, ortho.getReadPtr());
+
+
+			ReapplyGfxState();
+
+			Core_Run();
+
+			// Hopefully coreState is now CORE_NEXTFRAME
+			if (coreState == CORE_NEXTFRAME) {
+				// set back to running for the next frame
+				coreState = CORE_RUNNING;
+
+				qint64 time = timer.elapsed();
+				const int frameTime = (1.0f/60.0f) * 1000;
+				gameMutex.unlock();
+				if(time < frameTime)
+				{
+					glWindow->doneCurrent();
+					msleep(frameTime-time);
+					glWindow->makeCurrent();
+				}
+				gameMutex.lock();
+				timer.start();
+			}
+
+			fbo_unbind();
+
+			UIShader_Prepare();
+
+			uiTexture->Bind(0);
+
+			glViewport(0, 0, pixel_xres, pixel_yres);
+
+			ui_draw2d.Begin(DBMODE_NORMAL);
+
+			//if (g_Config.bShowTouchControls)
+			//	DrawGamepad(ui_draw2d);
+
+			glsl_bind(UIShader_Get());
+			ui_draw2d.End();
+			ui_draw2d.Flush(UIShader_Get());
+
+
+			// Tiled renderers like PowerVR should benefit greatly from this. However - seems I can't call it?
+#if defined(USING_GLES2)
+			bool hasDiscard = false;  // TODO
+			if (hasDiscard) {
+				//glDiscardFramebuffer(GL_COLOR_EXT | GL_DEPTH_EXT | GL_STENCIL_EXT);
+			}
+#endif
+			glWindow->swapBuffers();
+			glWindow->doneCurrent();
+			gameMutex.unlock();
 		}
-		__CtrlSetAnalog(input_state->pad_lstick_x, input_state->pad_lstick_y);
+		else
+		{
+			gameMutex.lock();
+			glWindow->makeCurrent();
+			glClearColor(0, 0, 0, 0);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-		EndInputState(input_state);
+			time_update();
+			float t = (float)frames_ / 60.0f;
+			frames_++;
 
-		glstate.Restore();
-		glViewport(0, 0, pixel_xres, pixel_yres);
-		Matrix4x4 ortho;
-		ortho.setOrtho(0.0f, dp_xres, dp_yres, 0.0f, -1.0f, 1.0f);
-		glsl_bind(UIShader_Get());
-		glUniformMatrix4fv(UIShader_Get()->u_worldviewproj, 1, GL_FALSE, ortho.getReadPtr());
+			float alpha = t;
+			if (t > 1.0f) alpha = 1.0f;
+			float alphaText = alpha;
+			//if (t > 2.0f) alphaText = 3.0f - t;
+
+			glstate.Restore();
+			glViewport(0, 0, pixel_xres, pixel_yres);
+			Matrix4x4 ortho;
+			ortho.setOrtho(0.0f, dp_xres, dp_yres, 0.0f, -1.0f, 1.0f);
+			glsl_bind(UIShader_Get());
+			glUniformMatrix4fv(UIShader_Get()->u_worldviewproj, 1, GL_FALSE, ortho.getReadPtr());
 
 
-		ReapplyGfxState();
+			ReapplyGfxState();
 
-		Core_Run();
+			UIShader_Prepare();
+			UIBegin();
+			DrawBackground(alpha);
 
-		// Hopefully coreState is now CORE_NEXTFRAME
-		if (coreState == CORE_NEXTFRAME) {
-			// set back to running for the next frame
-			coreState = CORE_RUNNING;
+			ui_draw2d.SetFontScale(1.5f, 1.5f);
+			ui_draw2d.DrawText(UBUNTU48, "PPSSPP", dp_xres / 2, dp_yres / 2 - 30, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+			ui_draw2d.SetFontScale(1.0f, 1.0f);
+			ui_draw2d.DrawText(UBUNTU24, "Created by Henrik Rydgard", dp_xres / 2, dp_yres / 2 + 40, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+			ui_draw2d.DrawText(UBUNTU24, "Free Software under GPL 2.0", dp_xres / 2, dp_yres / 2 + 70, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+			ui_draw2d.DrawText(UBUNTU24, "www.ppsspp.org", dp_xres / 2, dp_yres / 2 + 130, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 
+			UIEnd();
+
+			glsl_bind(UIShader_Get());
+			ui_draw2d.Flush(UIShader_Get());
+
+			glWindow->swapBuffers();
+			glWindow->doneCurrent();
+			gameMutex.unlock();
 			qint64 time = timer.elapsed();
 			const int frameTime = (1.0f/60.0f) * 1000;
 			if(time < frameTime)
@@ -147,48 +321,24 @@ void EmuThread::run()
 			timer.start();
 		}
 
-		fbo_unbind();
-
-		UIShader_Prepare();
-
-		uiTexture->Bind(0);
-
-		glViewport(0, 0, pixel_xres, pixel_yres);
-
-		ui_draw2d.Begin(DBMODE_NORMAL);
-
-		//if (g_Config.bShowTouchControls)
-		//	DrawGamepad(ui_draw2d);
-
-		glsl_bind(UIShader_Get());
-		ui_draw2d.End();
-		ui_draw2d.Flush(UIShader_Get());
-
-
-		// Tiled renderers like PowerVR should benefit greatly from this. However - seems I can't call it?
-#if defined(USING_GLES2)
-		bool hasDiscard = false;  // TODO
-		if (hasDiscard) {
-			//glDiscardFramebuffer(GL_COLOR_EXT | GL_DEPTH_EXT | GL_STENCIL_EXT);
-		}
-#endif
-
-		glWindow->swapBuffers();
 	}
-	glWindow->doneCurrent();
+
+	if(gameRunning)
+	{
+		stopGame();
+	}
+
 }
 
 void EmuThread::Shutdown()
 {
 	host->PrepareShutdown();
-	PSP_Shutdown();
 	FinalShutdown();
 }
 void EmuThread::FinalShutdown()
 {
 
 	host->ShutdownGL();
-
 
 	delete uiTexture;
 	uiTexture = NULL;
@@ -197,10 +347,6 @@ void EmuThread::FinalShutdown()
 
 	gl_lost_manager_shutdown();
 
-	// TODO
-	//The CPU should return when a game is stopped and cleanup should be done here, 
-	//so we can restart the plugins (or load new ones) for the next game
-	g_State.bEmuThreadStarted = false;
 	//_endthreadex(0);
 	//return 0;
 }
@@ -208,6 +354,33 @@ void EmuThread::FinalShutdown()
 void EmuThread::setRunning(bool value)
 {
 	running = false;
+}
+
+void EmuThread::startGame(QString filename)
+{
+	gameMutex.lock();
+	needInitGame = true;
+	gameRunning = true;
+	fileToStart = filename;
+	gameMutex.unlock();
+
+}
+
+void EmuThread::stopGame()
+{
+	Core_Stop();
+	gameMutex.lock();
+	gameRunning = false;
+
+	PSP_Shutdown();
+
+	// TODO
+	//The CPU should return when a game is stopped and cleanup should be done here,
+	//so we can restart the plugins (or load new ones) for the next game
+	g_State.bEmuThreadStarted = false;
+	frames_ = 0;
+
+	gameMutex.unlock();
 }
 
 

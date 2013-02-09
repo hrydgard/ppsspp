@@ -262,7 +262,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		}
 
 		Color4 lightDiff(gstate_c.lightColor[1][l], 0.0f);
-		Color4 diff = (lightDiff * *diffuse) * (dot * lightScale);
+		Color4 diff = (lightDiff * *diffuse) * (max(dot, 0.0f) * lightScale);
 
 		// Real PSP specular
 		Vec3 toViewer(0,0,1);
@@ -276,10 +276,10 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 			halfVec.Normalize();
 
 			dot = halfVec * norm;
-			if (dot >= 0)
+			if (dot > 0)
 			{
 				Color4 lightSpec(gstate_c.lightColor[2][l], 0.0f);
-				lightSum1 += (lightSpec * *specular * (powf(dot, specCoef_)*lightScale));
+				lightSum1 += (lightSpec * *specular * (powf(dot, specCoef_) * lightScale));
 			}
 		}
 		dots[l] = dot;
@@ -315,6 +315,12 @@ static const GlTypeInfo GLComp[] = {
 	{GL_UNSIGNED_BYTE, 2, GL_TRUE},// 	DEC_U8_2,
 	{GL_UNSIGNED_BYTE, 3, GL_TRUE},// 	DEC_U8_3,
 	{GL_UNSIGNED_BYTE, 4, GL_TRUE},// 	DEC_U8_4,
+	{GL_UNSIGNED_SHORT, 1, GL_TRUE},// 	DEC_U16_1,
+	{GL_UNSIGNED_SHORT, 2, GL_TRUE},// 	DEC_U16_2,
+	{GL_UNSIGNED_SHORT, 3, GL_TRUE},// 	DEC_U16_3,
+	{GL_UNSIGNED_SHORT, 4, GL_TRUE},// 	DEC_U16_4,
+	{GL_UNSIGNED_BYTE,  2, GL_FALSE},// 	DEC_U8A_2,
+	{GL_UNSIGNED_SHORT, 2, GL_FALSE},// 	DEC_U16A_2,
 };
 
 static inline void VertexAttribSetup(int attrib, int fmt, int stride, u8 *ptr) {
@@ -399,6 +405,13 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		vertexCount = 0x10000/3;
 #endif
 
+	float uscale = 1.0f;
+	float vscale = 1.0f;
+	if (throughmode) {
+		uscale /= gstate_c.curTextureWidth;
+		vscale /= gstate_c.curTextureHeight;
+	}
+
 	Lighter lighter;
 	float fog_end = getFloat24(gstate.fog1);
 	float fog_slope = getFloat24(gstate.fog2);
@@ -430,6 +443,9 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 
 			if (reader.hasUV()) {
 				reader.ReadUV(uv);
+
+				uv[0] *= uscale;
+				uv[1] *= vscale;
 			}
 			fogCoef = 1.0f;
 			// Scale UV?
@@ -529,8 +545,8 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 				{
 				case 0:	// UV mapping
 					// Texture scale/offset is only performed in this mode.
-					uv[0] = ruv[0]*gstate_c.uScale + gstate_c.uOff;
-					uv[1] = ruv[1]*gstate_c.vScale + gstate_c.vOff;
+					uv[0] = uscale * (ruv[0]*gstate_c.uScale + gstate_c.uOff);
+					uv[1] = vscale * (ruv[1]*gstate_c.vScale + gstate_c.vOff);
 					break;
 				case 1:
 					{
@@ -580,8 +596,12 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		memcpy(&transformed[index].x, v, 3 * sizeof(float));
 		transformed[index].fog = fogCoef;
 		memcpy(&transformed[index].u, uv, 2 * sizeof(float));
-		memcpy(&transformed[index].color0, c0, 4 * sizeof(float));
-		memcpy(&transformed[index].color1, c1, 3 * sizeof(float));
+		for (int i = 0; i < 4; i++) {
+			transformed[index].color0[i] = c0[i] * 255.0f;
+		}
+		for (int i = 0; i < 4; i++) {
+			transformed[index].color1[i] = c1[i] * 255.0f;
+		}
 	}
 
 	// Step 2: expand rectangles.
@@ -674,8 +694,8 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 	}
 	glVertexAttribPointer(program->a_position, 4, GL_FLOAT, GL_FALSE, vertexSize, drawBuffer);
 	if (program->a_texcoord != -1) glVertexAttribPointer(program->a_texcoord, 2, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 4 * 4);
-	if (program->a_color0 != -1) glVertexAttribPointer(program->a_color0, 4, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 6 * 4);
-	if (program->a_color1 != -1) glVertexAttribPointer(program->a_color1, 3, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 10 * 4);
+	if (program->a_color0 != -1) glVertexAttribPointer(program->a_color0, 4, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, ((uint8_t*)drawBuffer) + 6 * 4);
+	if (program->a_color1 != -1) glVertexAttribPointer(program->a_color1, 3, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, ((uint8_t*)drawBuffer) + 7 * 4);
 	if (drawIndexed) {
 		if (useVBO) {
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_[curVbo_]);
@@ -800,6 +820,7 @@ u32 TransformDrawEngine::ComputeHash() {
 	u32 fullhash = 0;
 	int vertexSize = dec.GetDecVtxFmt().stride;
 
+	// TODO: Add some caps both for numDrawCalls and num verts to check?
 	for (int i = 0; i < numDrawCalls; i++) {
 		if (!drawCalls[i].inds) {
 			fullhash += CityHash32((const char *)drawCalls[i].verts, vertexSize * drawCalls[i].vertexCount);
@@ -842,7 +863,7 @@ void TransformDrawEngine::ClearTrackedVertexArrays() {
 void TransformDrawEngine::DecimateTrackedVertexArrays() {
 	int threshold = gpuStats.numFrames - VAI_KILL_AGE;
 	for (auto iter = vai_.begin(); iter != vai_.end(); ) {
-		if (iter->second->lastFrame < threshold ) {
+		if (iter->second->lastFrame < threshold) {
 			delete iter->second;
 			vai_.erase(iter++);
 		}
@@ -901,6 +922,7 @@ void TransformDrawEngine::Flush() {
 					u32 dataHash = ComputeHash();
 					vai->hash = dataHash;
 					vai->status = VertexArrayInfo::VAI_HASHING;
+					vai->drawsUntilNextFullHash = 0;
 					DecodeVerts(); // writes to indexGen
 					goto rotateVBO;
 				}
@@ -909,27 +931,33 @@ void TransformDrawEngine::Flush() {
 				// But if we get this far it's likely to be worth creating a vertex buffer.
 			case VertexArrayInfo::VAI_HASHING:
 				{
-					u32 newHash = ComputeHash();
 					vai->numDraws++;
-					// TODO: tweak
-					if (vai->numDraws > 100000) {
-						vai->status = VertexArrayInfo::VAI_RELIABLE;
-					}
-					if (newHash == vai->hash) {
-						gpuStats.numCachedDrawCalls++;
+					if (vai->drawsUntilNextFullHash == 0) {
+						u32 newHash = ComputeHash();
+						// exponential backoff up to 16 frames
+						vai->drawsUntilNextFullHash = std::min(16, vai->numDraws);
+						// TODO: tweak
+						//if (vai->numDraws > 1000) {
+						//	vai->status = VertexArrayInfo::VAI_RELIABLE;
+						//}
+						if (newHash != vai->hash) {
+							vai->status = VertexArrayInfo::VAI_UNRELIABLE;
+							if (vai->vbo) {
+								glDeleteBuffers(1, &vai->vbo);
+								vai->vbo = 0;
+							}
+							if (vai->ebo) {
+								glDeleteBuffers(1, &vai->ebo);
+								vai->ebo = 0;
+							}
+							DecodeVerts();
+							goto rotateVBO;
+						}
 					} else {
-						vai->status = VertexArrayInfo::VAI_UNRELIABLE;
-						if (vai->vbo) {
-							glDeleteBuffers(1, &vai->vbo);
-							vai->vbo = 0;
-						}
-						if (vai->ebo) {
-							glDeleteBuffers(1, &vai->ebo);
-							vai->ebo = 0;
-						}
-						DecodeVerts();
-						goto rotateVBO;
+						vai->drawsUntilNextFullHash--;
+						// TODO: "mini-hashing" the first 32 bytes of the vertex/index data or something.
 					}
+
 					if (vai->vbo == 0) {
 						DecodeVerts();
 						vai->numVerts = indexGen.VertexCount();
@@ -951,6 +979,7 @@ void TransformDrawEngine::Flush() {
 							glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 						}
 					} else {
+						gpuStats.numCachedDrawCalls++;
 						glBindBuffer(GL_ARRAY_BUFFER, vai->vbo);
 						if (vai->ebo)
 							glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vai->ebo);

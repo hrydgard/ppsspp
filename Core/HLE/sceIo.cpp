@@ -17,7 +17,6 @@
 
 #ifdef _WIN32
 #include <windows.h>
-#undef DeleteFile
 #endif
 
 #include "../Config.h"
@@ -37,6 +36,9 @@
 #include "sceKernel.h"
 #include "sceKernelMemory.h"
 #include "sceKernelThread.h"
+
+// For headless screenshots.
+#include "sceDisplay.h"
 
 #define ERROR_ERRNO_FILE_NOT_FOUND               0x80010002
 
@@ -144,9 +146,10 @@ public:
 		p.Do(callbackID);
 		p.Do(callbackArg);
 		p.Do(asyncResult);
-		p.Do(closePending);
 		p.Do(pendingAsyncResult);
 		p.Do(sectorBlockMode);
+		p.Do(closePending);
+		p.Do(info);
 		p.Do(openMode);
 		p.DoMarker("File");
 	}
@@ -549,7 +552,7 @@ u32 sceIoRemove(const char *filename) {
 	if(!pspFileSystem.GetFileInfo(filename).exists)
 		return ERROR_ERRNO_FILE_NOT_FOUND;
 
-	pspFileSystem.DeleteFile(filename);
+	pspFileSystem.RemoveFile(filename);
 	return 0;
 }
 
@@ -781,6 +784,15 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 			// Note that this is async, and makes sure the save state matches up.
 			SaveState::Verify();
 			// TODO: Maybe save/load to a file just to be sure?
+			return 0;
+
+		case 0x20: // EMULATOR_DEVCTL__EMIT_SCREENSHOT
+			u8 *topaddr;
+			u32 linesize, pixelFormat;
+
+			__DisplayGetFramebuf(&topaddr, &linesize, &pixelFormat, 0);
+			// TODO: Convert based on pixel format / mode / something?
+			host->SendDebugScreenshot(topaddr, linesize, 272);
 			return 0;
 		}
 

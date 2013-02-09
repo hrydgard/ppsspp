@@ -73,6 +73,12 @@ int DecFmtSize(u8 fmt) {
 	case DEC_U8_2: return 4;
 	case DEC_U8_3: return 4;
 	case DEC_U8_4: return 4;
+	case DEC_U16_1: return 4;
+	case DEC_U16_2: return 4;
+	case DEC_U16_3: return 8;
+	case DEC_U16_4: return 8;
+	case DEC_U8A_2: return 4;
+	case DEC_U16A_2: return 4;
 	default:
 		return 0;
 	}
@@ -118,10 +124,10 @@ void VertexDecoder::Step_WeightsU8() const
 
 void VertexDecoder::Step_WeightsU16() const
 {
-	float *wt = (float *)(decoded_  + decFmt.w0off);
+	u16 *wt = (u16 *)(decoded_  + decFmt.w0off);
 	const u16 *wdata = (const u16*)(ptr_);
 	for (int j = 0; j < nweights; j++)
-		wt[j] = (float)wdata[j] / 65535.0f;
+		wt[j] = wdata[j];
 }
 
 // Float weights should be uncommon, we can live with having to multiply these by 2.0
@@ -138,41 +144,42 @@ void VertexDecoder::Step_WeightsFloat() const
 
 void VertexDecoder::Step_TcU8() const
 {
-	float *uv = (float *)(decoded_ + decFmt.uvoff);
+	u8 *uv = (u8*)(decoded_ + decFmt.uvoff);
 	const u8 *uvdata = (const u8*)(ptr_ + tcoff);
-	for (int j = 0; j < 2; j++)
-		uv[j] = (float)uvdata[j] / 128.0f;
+	uv[0] = uvdata[0];
+	uv[1] = uvdata[1];
 }
 
 void VertexDecoder::Step_TcU16() const
 {
-	float *uv = (float *)(decoded_ + decFmt.uvoff);
+	u16 *uv = (u16 *)(decoded_ + decFmt.uvoff);
 	const u16 *uvdata = (const u16*)(ptr_ + tcoff);
-	uv[0] = (float)uvdata[0] / 32768.0f;
-	uv[1] = (float)uvdata[1] / 32768.0f;
+	uv[0] = uvdata[0];
+	uv[1] = uvdata[1];
 }
 
 void VertexDecoder::Step_TcU16Through() const
 {
-	float *uv = (float *)(decoded_ + decFmt.uvoff);
+	u16 *uv = (u16 *)(decoded_ + decFmt.uvoff);
 	const u16 *uvdata = (const u16*)(ptr_ + tcoff);
-	uv[0] = (float)uvdata[0] / (float)(gstate_c.curTextureWidth);
-	uv[1] = (float)uvdata[1] / (float)(gstate_c.curTextureHeight);
+	uv[0] = uvdata[0];
+	uv[1] = uvdata[1];
 }
 
 void VertexDecoder::Step_TcFloat() const
 {
 	float *uv = (float *)(decoded_ + decFmt.uvoff);
 	const float *uvdata = (const float*)(ptr_ + tcoff);
-	memcpy(uv, uvdata, sizeof(float) * 2);
+	uv[0] = uvdata[0] * 0.5f;
+	uv[1] = uvdata[1] * 0.5f;
 }
 
 void VertexDecoder::Step_TcFloatThrough() const
 {
 	float *uv = (float *)(decoded_ + decFmt.uvoff);
 	const float *uvdata = (const float*)(ptr_ + tcoff);
-	uv[0] = uvdata[0] / (float)(gstate_c.curTextureWidth);
-	uv[1] = uvdata[1] / (float)(gstate_c.curTextureHeight);
+	uv[0] = uvdata[0] * 0.5f;
+	uv[1] = uvdata[1] * 0.5f;
 }
 
 void VertexDecoder::Step_Color565() const
@@ -557,6 +564,9 @@ void VertexDecoder::SetVertexType(u32 fmt) {
 		if (weighttype == GE_VTYPE_WEIGHT_8BIT >> GE_VTYPE_WEIGHT_SHIFT) {
 			fmtBase = DEC_U8_1;
 			weightSize = 1;
+		} else if (weighttype == GE_VTYPE_WEIGHT_16BIT >> GE_VTYPE_WEIGHT_SHIFT) {
+			fmtBase = DEC_U16_1;
+			weightSize = 2;
 		}
 
 		if (nweights < 5) {
@@ -580,8 +590,18 @@ void VertexDecoder::SetVertexType(u32 fmt) {
 
 		steps_[numSteps_++] = throughmode ? tcstep_through[tc] : tcstep[tc];
 
-		// All UV decode to DEC_FLOAT2 currently.
-		decFmt.uvfmt = DEC_FLOAT_2;
+		switch (tc) {
+		case GE_VTYPE_TC_8BIT >> GE_VTYPE_TC_SHIFT:
+			decFmt.uvfmt = throughmode ? DEC_U8A_2 : DEC_U8_2;
+			break;
+		case GE_VTYPE_TC_16BIT >> GE_VTYPE_TC_SHIFT:
+			decFmt.uvfmt = throughmode ? DEC_U16A_2 : DEC_U16_2;
+			break;
+		case GE_VTYPE_TC_FLOAT >> GE_VTYPE_TC_SHIFT:
+			decFmt.uvfmt = DEC_FLOAT_2;
+			break;
+		}
+
 		decFmt.uvoff = decOff;
 		decOff += DecFmtSize(decFmt.uvfmt);
 	}

@@ -57,6 +57,7 @@ namespace MIPSComp
 	{
 		s32 simm = (s32)(s16)(op & 0xFFFF);  // sign extension
 		u32 uimm = op & 0xFFFF;
+		u32 suimm = (u32)(s32)simm;
 
 		int rt = _RT;
 		int rs = _RS;
@@ -113,29 +114,27 @@ namespace MIPSComp
 			}
 			break;
 
-/*
 		case 11: // R(rt) = R(rs) < uimm; break; //sltiu
 			{
 				gpr.MapDirtyIn(rt, rs);
 				Operand2 op2;
 				bool negated;
-				if (TryMakeOperand2_AllowNegation(uimm, op2, &negated)) {
+				if (TryMakeOperand2_AllowNegation(suimm, op2, &negated)) {
 					if (!negated)
 						CMP(gpr.R(rs), op2);
 					else
 						CMN(gpr.R(rs), op2);
 				} else {
-					ARMABI_MOVI2R(R0, uimm);
+					MOVI2R(R0, suimm);
 					CMP(gpr.R(rs), R0);
 				}
 				SetCC(CC_LO);
-				ARMABI_MOVI2R(gpr.R(rt), 1);
+				MOVI2R(gpr.R(rt), 1);
 				SetCC(CC_HS);
-				ARMABI_MOVI2R(gpr.R(rt), 0);
+				MOVI2R(gpr.R(rt), 0);
 				SetCC(CC_AL);
 			}
 			break;
-			*/
 
 		case 15: // R(rt) = uimm << 16;	 //lui
 			gpr.SetImm(rt, uimm << 16);

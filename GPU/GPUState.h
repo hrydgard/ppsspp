@@ -145,7 +145,7 @@ struct GPUgstate
 				clutformat,
 				texfilter,
 				texwrap,
-				padxxxxx,
+				texlevel,
 				texfunc,
 				texenvcolor,
 				texflush,
@@ -236,8 +236,8 @@ struct GPUStateCache
 
 	bool textureChanged;
 
-	float uScale,vScale,zScale;
-	float uOff,vOff,zOff;
+	float uScale,vScale;
+	float uOff,vOff;
 	float zMin, zMax;
 	float lightpos[4][3];
 	float lightdir[4][3];

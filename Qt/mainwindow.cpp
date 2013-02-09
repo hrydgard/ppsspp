@@ -48,6 +48,7 @@ MainWindow::MainWindow(QWidget *parent) :
 	DialogManager::AddDlg(vfpudlg = new CVFPUDlg(_hInstance, hwndMain, currentDebugMIPS));
 	*/
 	// Update();
+	createLanguageMenu();
 	UpdateMenus();
 
 	int zoom = g_Config.iWindowZoom;
@@ -55,16 +56,16 @@ MainWindow::MainWindow(QWidget *parent) :
 	if (zoom > 4) zoom = 4;
 	SetZoom(zoom);
 
+	EmuThread_Start(w);
+
 	if (!fileToStart.isNull())
 	{
 		SetPlaying(fileToStart);
 		//Update();
 		UpdateMenus();
 
-		EmuThread_Start(fileToStart, w);
+		EmuThread_StartGame(fileToStart);
 	}
-	else
-		BrowseAndBoot();
 
 	if (!fileToStart.isNull() && stateToLoad != NULL)
 		SaveState::Load(stateToLoad);
@@ -195,7 +196,7 @@ void MainWindow::BrowseAndBoot(void)
 	{
 		QFileInfo info(filename);
 		g_Config.currentDirectory = info.absolutePath().toStdString();
-		EmuThread_Start(filename, w);
+		EmuThread_StartGame(filename);
 	}
 }
 
@@ -324,7 +325,7 @@ void MainWindow::on_action_EmulationStop_triggered()
 		if (memoryWindow[i])
 			SendMessage(memoryWindow[i]->GetDlgHandle(), WM_CLOSE, 0, 0);*/
 
-	EmuThread_Stop();
+	EmuThread_StopGame();
 	SetPlaying(0);
 	//Update();
 	UpdateMenus();
@@ -485,6 +486,7 @@ void MainWindow::on_action_OptionsHardwareTransform_triggered()
 void MainWindow::on_action_FileExit_triggered()
 {
 	on_action_EmulationStop_triggered();
+	EmuThread_Stop();
 	QApplication::exit(0);
 }
 
@@ -777,4 +779,103 @@ void MainWindow::on_action_OptionsGamePadControls_triggered()
 #else
 	QMessageBox::information(this,"Gamepad","You need to compile with SDL to have Gamepad support.", QMessageBox::Ok);
 #endif
+}
+
+void MainWindow::on_language_changed(QAction *action)
+{
+	if (0 != action)
+	{
+		loadLanguage(action->data().toString());
+	}
+}
+
+void switchTranslator(QTranslator &translator, const QString &filename)
+{
+	qApp->removeTranslator(&translator);
+
+	if (translator.load(filename))
+		qApp->installTranslator(&translator);
+}
+
+void MainWindow::loadLanguage(const QString& language)
+{
+	if (currentLanguage != language)
+	{
+		currentLanguage = language;
+		QLocale locale = QLocale(currentLanguage);
+		QLocale::setDefault(locale);
+		QString languageName = QLocale::languageToString(locale.language());
+		switchTranslator(translator, QString("languages/ppsspp_%1.qm").arg(language));
+	}
+}
+
+void MainWindow::createLanguageMenu()
+{
+	QActionGroup *langGroup = new QActionGroup(ui->menuLanguage);
+	langGroup->setExclusive(true);
+
+	connect(langGroup, SIGNAL(triggered(QAction *)), this, SLOT(on_language_changed(QAction *)));
+
+	QString defaultLocale = QLocale::system().name();
+	defaultLocale.truncate(defaultLocale.lastIndexOf('_'));
+	languagePath = QApplication::applicationDirPath();
+	languagePath.append("/languages");
+	QDir langDir(languagePath);
+	QStringList fileNames = langDir.entryList(QStringList("ppsspp_*.qm"));
+
+	if (fileNames.size() == 0)
+	{
+		QAction *action = new QAction(tr("No translations"), this);
+		action->setCheckable(false);
+		action->setDisabled(true);
+		ui->menuLanguage->addAction(action);
+		langGroup->addAction(action);
+	}
+
+	for (int i = 0; i < fileNames.size(); ++i)
+	{
+		QString locale = fileNames[i];
+		locale.truncate(locale.lastIndexOf('.'));
+		locale.remove(0, locale.indexOf('_') + 1);
+
+		//QString language = QLocale::languageToString(QLocale(locale).language());
+		QString language = QLocale(locale).nativeLanguageName();
+		QAction *action = new QAction(language, this);
+		action->setCheckable(true);
+		action->setData(locale);
+
+		ui->menuLanguage->addAction(action);
+		langGroup->addAction(action);
+
+		// TODO check en as default until we save language to config
+		if ("en" == locale)
+		{
+			action->setChecked(true);
+			currentLanguage = "en";
+		}
+	}
+}
+
+void MainWindow::changeEvent(QEvent *event)
+{
+	QMainWindow::changeEvent(event);
+
+	if (0 != event)
+	{
+		switch (event->type())
+		{
+		case QEvent::LanguageChange:
+			ui->retranslateUi(this);
+			break;
+		case QEvent::LocaleChange:
+			{
+				QString locale = QLocale::system().name();
+				locale.truncate(locale.lastIndexOf('_'));
+				loadLanguage(locale);
+			}
+			break;
+		default:
+			break;
+		}
+	}
 }
