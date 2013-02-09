@@ -798,16 +798,8 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_VIEWPORTY1:
 	case GE_CMD_VIEWPORTX2:
 	case GE_CMD_VIEWPORTY2:
-		break;
-
 	case GE_CMD_VIEWPORTZ1:
-		gstate_c.zScale = getFloat24(data) / 65535.f;
-		break;
-
 	case GE_CMD_VIEWPORTZ2:
-		gstate_c.zOff = getFloat24(data) / 65535.f;
-		break;
-
 	case GE_CMD_LIGHTENABLE0:
 	case GE_CMD_LIGHTENABLE1:
 	case GE_CMD_LIGHTENABLE2:
