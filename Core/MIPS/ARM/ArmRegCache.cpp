@@ -30,7 +30,7 @@ void ArmRegCache::Init(ARMXEmitter *emitter) {
 }
 
 void ArmRegCache::Start(MIPSAnalyst::AnalysisResults &stats) {
-	for (int i = 0; i < 16; i++) {
+	for (int i = 0; i < NUM_ARMREG; i++) {
 		ar[i].mipsReg = -1;
 		ar[i].isDirty = false;
 	}

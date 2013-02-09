@@ -17,13 +17,81 @@
 
 #pragma once
 
-#include "Common/ArmEmitter.h"
+#pragma once
+
+#include "../MIPS.h"
+#include "../MIPSAnalyst.h"
+#include "ArmEmitter.h"
+#include "ArmRegCache.h"
+
+using namespace ArmGen;
+
+enum {
+	TOTAL_MAPPABLE_MIPSFPUREGS = 32 + 128,
+};
+
+struct FPURegARM {
+	int mipsReg;  // if -1, no mipsreg attached.
+	bool isDirty;  // Should the register be written back?
+};
+
+struct FPURegMIPS {
+	// Where is this MIPS register?
+	RegMIPSLoc loc;
+	// Data (only one of these is used, depending on loc. Could make a union).
+	u32 imm;
+	ARMReg reg;
+	bool spillLock;  // if true, this register cannot be spilled.
+	// If loc == ML_MEM, it's back in its location in the CPU context struct.
+};
 
 
-// The PSP has 160 FP registers: 32 FPRs + 128 VFPU registers.
-
-
-class FPURegCache {
+class ArmRegCacheFPU
+{
 public:
+	ArmRegCacheFPU(MIPSState *mips);
+	~ArmRegCacheFPU() {}
 
+	void Init(ARMXEmitter *emitter);
+	void Start(MIPSAnalyst::AnalysisResults &stats);
+
+	// Protect the arm register containing a MIPS register from spilling, to ensure that
+	// it's being kept allocated.
+	void SpillLock(MIPSReg reg, MIPSReg reg2 = -1, MIPSReg reg3 = -1, MIPSReg reg4 = -1);
+	void ReleaseSpillLocks();
+
+	void SetImm(MIPSReg reg, u32 immVal);
+	bool IsImm(MIPSReg reg) const;
+	u32 GetImm(MIPSReg reg) const;
+
+	// Returns an ARM register containing the requested MIPS register.
+	ARMReg MapReg(MIPSReg reg, int mapFlags = 0);
+	void MapInIn(MIPSReg rd, MIPSReg rs);
+	void MapDirtyIn(MIPSReg rd, MIPSReg rs, bool avoidLoad = true);
+	void MapDirtyInIn(MIPSReg rd, MIPSReg rs, MIPSReg rt, bool avoidLoad = true);
+	void FlushArmReg(ARMReg r);
+	void FlushMipsReg(MIPSReg r);
+
+	void FlushAll();
+
+	ARMReg R(int preg); // Returns a cached register
+
+	void SetEmitter(ARMXEmitter *emitter) { emit = emitter; }
+
+	// For better log output only.
+	void SetCompilerPC(u32 compilerPC) { compilerPC_ = compilerPC; }
+
+private:
+	int GetMipsRegOffset(MIPSReg r);
+	MIPSState *mips_;
+	ARMXEmitter *emit;
+	u32 compilerPC_;
+
+	enum {
+		NUM_ARMFPUREG = 16,  // TODO: Support 32, which you have with NEON
+		NUM_MIPSFPUREG = TOTAL_MAPPABLE_MIPSFPUREGS,
+	};
+
+	RegARM ar[NUM_ARMFPUREG];
+	RegMIPS mr[NUM_MIPSFPUREG];
 };
