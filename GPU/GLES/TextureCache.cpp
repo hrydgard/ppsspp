@@ -114,19 +114,17 @@ void TextureCache::InvalidateAll(bool force) {
 TextureCache::TexCacheEntry *TextureCache::GetEntryAt(u32 texaddr) {
 	// If no CLUT, as in framebuffer textures, cache key is simply texaddr.
 	auto iter = cache.find(texaddr);
-	for (auto entry = cache.begin(); entry != cache.end(); ++entry) {
-		if (entry->second.addr == texaddr) {
-			return &entry->second;
-		}
-	}
-	return 0;
+	if (iter != cache.end() && iter->second.addr == texaddr)
+		return &iter->second;
+	else
+		return 0;
 }
 
 void TextureCache::NotifyFramebuffer(u32 address, FBO *fbo) {
 	// Must be in VRAM so | 0x04000000 it is.
 	TexCacheEntry *entry = GetEntryAt(address | 0x04000000);
 	if (entry) {
-		INFO_LOG(HLE, "Render to texture detected at %08x!", address);
+		// INFO_LOG(HLE, "Render to texture detected at %08x!", address);
 		if (!entry->fbo)
 			entry->fbo = fbo;
 		// TODO: Delete the original non-fbo texture too.
@@ -1080,7 +1078,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 	//glPixelStorei(GL_PACK_ROW_LENGTH, bufw);
 	glPixelStorei(GL_PACK_ALIGNMENT, texByteAlign);
 
-	INFO_LOG(HLE, "Creating texture level %i/%i from %08x: %i x %i (stride: %i). fmt: %i", level, entry.maxLevel, texaddr, w, h, bufw, entry.format);
+	// INFO_LOG(G3D, "Creating texture level %i/%i from %08x: %i x %i (stride: %i). fmt: %i", level, entry.maxLevel, texaddr, w, h, bufw, entry.format);
 
 	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
 	glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components, dstFmt, finalBuf);
