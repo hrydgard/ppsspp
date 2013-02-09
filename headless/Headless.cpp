@@ -75,7 +75,7 @@ void printUsage(const char *progname, const char *reason)
 int main(int argc, const char* argv[])
 {
 	bool fullLog = false;
-	bool useJit = true;
+	bool useJit = false;
 	bool fastInterpreter = false;
 	bool autoCompare = false;
 	bool useGraphics = false;
