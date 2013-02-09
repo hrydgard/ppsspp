@@ -407,6 +407,9 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, MagFiltGL[magFilt]);
 		entry.magFilt = magFilt;
 	}
+	if (force || entry.maxLevel != 0 ) {
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, entry.maxLevel);
+	}
 	if (force || entry.sClamp != sClamp) {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, sClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT);
 		entry.sClamp = sClamp;
