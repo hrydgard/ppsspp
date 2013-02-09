@@ -227,8 +227,8 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	int z_stride = gstate.zbwidth & 0x3C0;
 
 	// Yeah this is not completely right. but it'll do for now.
-	int drawing_width = ((gstate.region2) & 0x3FF) + 1;
-	int drawing_height = ((gstate.region2 >> 10) & 0x3FF) + 1;
+	int drawing_width = ((gstate.region1) & 0x3FF) + 1;
+	int drawing_height = ((gstate.region1 >> 10) & 0x3FF) + 1;
 
 	// HACK for first frame where some games don't init things right
 	if (drawing_width == 1 && drawing_height == 1) {
