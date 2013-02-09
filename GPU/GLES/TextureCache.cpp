@@ -368,12 +368,6 @@ static const GLuint MagFiltGL[2] = {
 #define GL_TEXTURE_LOD_BIAS 0x8501
 #endif
 
-#ifndef GL_TEXTURE_MAX_LOD
-#define GL_TEXTURE_MAX_LOD 0x813B
-#endif
-
-
-
 // This should not have to be done per texture! OpenGL is silly yo
 // TODO: Dirty-check this against the current texture.
 void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
@@ -758,15 +752,26 @@ void TextureCache::SetTexture() {
 	glGenTextures(1, &entry.texture);
 	glBindTexture(GL_TEXTURE_2D, entry.texture);
 	
+#ifdef USING_GLES2
+	// GLES2 doesn't have support for a "Max lod" which is critical as PSP games often
+	// don't specify mips all the way down. As a result, we either need to manually generate
+	// the bottom few levels or rely on OpenGL's autogen mipmaps instead, which might not
+	// be as good quality as the game's own (might even be better in some cases though).
+
+	// For now, I choose to use autogen mips on GLES2 and the game's own on other platforms.
+	// As is usual, GLES3 will solve this problem nicely but wide distribution of that is
+	// years away.
+	LoadTextureLevel(entry, 0);
+	if (entry.maxLevel > 0)
+		glGenerateMipmap(GL_TEXTURE_2D);
+#else
 	for (int i = 0; i <= entry.maxLevel; i++) {
 		LoadTextureLevel(entry, i);
 	}
-
-#ifndef USING_GLES2
-	// See horrifying hack at the bottom of LoadTextureLevel!
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, entry.maxLevel);
-#endif
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, entry.maxLevel);
+#endif
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, 4);
 
 	UpdateSamplingParams(entry, true);
 
@@ -1033,23 +1038,4 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 
 	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
 	glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components, dstFmt, finalBuf);
-
-#ifdef USING_GLES2
-	// ARGH! OpenGL ES does not support max texture level!
-	// Let's do a HORRIBLE hack for now and re-specify the last level, but with changed dimensions.
-	// Will at least give us sort of the right colors and hopefully it'll be too blurry anyway.
-	// Later I will add proper downsampling of the bottom level.
-	// TEXTURE_MAX_LOD should ensure that we never get to see these anyway.
-	if (level == entry.maxLevel) {
-		while (w >= 2 || h >= 2) {
-			w /= 2;
-			h /= 2;
-			if (w == 0) w = 1;
-			if (h == 0) h = 1;
-			++level;
-			INFO_LOG(HLE, "Specifying extra texture level %i : %ix%i", level, w, h);
-			glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components, dstFmt, finalBuf);
-		}
-	}
-#endif
 }

@@ -677,6 +677,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_TEXSIZE0:
 		gstate_c.curTextureWidth = 1 << (gstate.texsize[0] & 0xf);
 		gstate_c.curTextureHeight = 1 << ((gstate.texsize[0]>>8) & 0xf);
+		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 		//fall thru - ignoring the mipmap sizes for now
 	case GE_CMD_TEXSIZE1:
 	case GE_CMD_TEXSIZE2:
