@@ -16,26 +16,26 @@ struct GamePadInfo
 
 // Initial values are PS3 controller
 GamePadInfo GamepadPadMapping[] = {
-	{0,	14, 0,	QT_TRANSLATE_NOOP("gamepadMapping", "Prev_X"),		QT_TRANSLATE_NOOP("gamepadMapping", "Cross")},			//A
-	{0,	13, 0,	QT_TRANSLATE_NOOP("gamepadMapping", "Prev_O"),		QT_TRANSLATE_NOOP("gamepadMapping", "Circle")},			//B
-	{0,	15, 0,	QT_TRANSLATE_NOOP("gamepadMapping", "Prev_S"),		QT_TRANSLATE_NOOP("gamepadMapping", "Square")},			//X
-	{0,	12, 0,	QT_TRANSLATE_NOOP("gamepadMapping", "Prev_T"),		QT_TRANSLATE_NOOP("gamepadMapping", "Triangle")},		//Y
-	{0,	10, 0,	QT_TRANSLATE_NOOP("gamepadMapping", "Prev_LT"),		QT_TRANSLATE_NOOP("gamepadMapping", "Left Trigger")},	//LBUMPER
-	{0,	11, 0,	QT_TRANSLATE_NOOP("gamepadMapping", "Prev_RT"),		QT_TRANSLATE_NOOP("gamepadMapping", "Right Trigger")},	//RBUMPER
-	{0,	3, 0,	QT_TRANSLATE_NOOP("gamepadMapping", "Prev_Start"),	QT_TRANSLATE_NOOP("gamepadMapping", "Start")},			//START
-	{0,	0, 0,	QT_TRANSLATE_NOOP("gamepadMapping", "Prev_Select"),	QT_TRANSLATE_NOOP("gamepadMapping", "Select")},			//SELECT
-	{0,	4, 0,	QT_TRANSLATE_NOOP("gamepadMapping", "Prev_Up"),		QT_TRANSLATE_NOOP("gamepadMapping", "Up")},				//UP
-	{0,	6, 0,	QT_TRANSLATE_NOOP("gamepadMapping", "Prev_Down"),	QT_TRANSLATE_NOOP("gamepadMapping", "Down")},			//DOWN
-	{0,	7, 0,	QT_TRANSLATE_NOOP("gamepadMapping", "Prev_Left"),	QT_TRANSLATE_NOOP("gamepadMapping", "Left")},			//LEFT
-	{0,	5, 0,	QT_TRANSLATE_NOOP("gamepadMapping", "Prev_Right"),	QT_TRANSLATE_NOOP("gamepadMapping", "Right")},			//RIGHT
-	{0,	0, 0,	QT_TRANSLATE_NOOP("gamepadMapping", "")},								//MENU (event)
-	{0,	16, 0,	QT_TRANSLATE_NOOP("gamepadMapping", "Prev_Home"),	QT_TRANSLATE_NOOP("gamepadMapping", "Home")},			//BACK
+	{0,	14, 0,	"Prev_X",	QT_TRANSLATE_NOOP("gamepadMapping", "Cross")},			//A
+	{0,	13, 0,	"Prev_O",	QT_TRANSLATE_NOOP("gamepadMapping", "Circle")},			//B
+	{0,	15, 0,	"Prev_S",	QT_TRANSLATE_NOOP("gamepadMapping", "Square")},			//X
+	{0,	12, 0,	"Prev_T",	QT_TRANSLATE_NOOP("gamepadMapping", "Triangle")},		//Y
+	{0,	10, 0,	"Prev_LT",	QT_TRANSLATE_NOOP("gamepadMapping", "Left Trigger")},	//LBUMPER
+	{0,	11, 0,	"Prev_RT",	QT_TRANSLATE_NOOP("gamepadMapping", "Right Trigger")},	//RBUMPER
+	{0,	3, 0,	"Prev_Start",	QT_TRANSLATE_NOOP("gamepadMapping", "Start")},			//START
+	{0,	0, 0,	"Prev_Select",	QT_TRANSLATE_NOOP("gamepadMapping", "Select")},			//SELECT
+	{0,	4, 0,	"Prev_Up",	QT_TRANSLATE_NOOP("gamepadMapping", "Up")},				//UP
+	{0,	6, 0,	"Prev_Down",	QT_TRANSLATE_NOOP("gamepadMapping", "Down")},			//DOWN
+	{0,	7, 0,	"Prev_Left",	QT_TRANSLATE_NOOP("gamepadMapping", "Left")},			//LEFT
+	{0,	5, 0,	"Prev_Right",	QT_TRANSLATE_NOOP("gamepadMapping", "Right")},			//RIGHT
+	{0,	0, 0,	""},								//MENU (event)
+	{0,	16, 0,	"Prev_Home",	QT_TRANSLATE_NOOP("gamepadMapping", "Home")},			//BACK
 
 	// Special case for analog stick
-	{1, 0, -1,	QT_TRANSLATE_NOOP("gamepadMapping", "Prev_ALeft"),	QT_TRANSLATE_NOOP("gamepadMapping", "Stick left")},
-	{1, 0, 1,	QT_TRANSLATE_NOOP("gamepadMapping", "Prev_ARight"),	QT_TRANSLATE_NOOP("gamepadMapping", "Stick right")},
-	{1, 1, -1,	QT_TRANSLATE_NOOP("gamepadMapping", "Prev_AUp"),	QT_TRANSLATE_NOOP("gamepadMapping", "Stick up")},
-	{1, 1, 1,	QT_TRANSLATE_NOOP("gamepadMapping", "Prev_ADown"),	QT_TRANSLATE_NOOP("gamepadMapping", "Stick bottom")}
+	{1, 0, -1,	"Prev_ALeft",	QT_TRANSLATE_NOOP("gamepadMapping", "Stick left")},
+	{1, 0, 1,	"Prev_ARight",	QT_TRANSLATE_NOOP("gamepadMapping", "Stick right")},
+	{1, 1, -1,	"Prev_AUp",	QT_TRANSLATE_NOOP("gamepadMapping", "Stick up")},
+	{1, 1, 1,	"Prev_ADown",	QT_TRANSLATE_NOOP("gamepadMapping", "Stick bottom")}
 };
 
 // id for mapping in config start at offset 200 to not get over key mapping
@@ -65,7 +65,7 @@ GamePadDialog::GamePadDialog(InputState* state, QWidget *parent) :
 
 	for(int i=0;i<18;i++)
 	{
-		QLabel* labelPreview = findChild<QLabel*>(tr(GamepadPadMapping[i].ViewLabelName.toStdString().c_str()));
+		QLabel* labelPreview = findChild<QLabel*>(GamepadPadMapping[i].ViewLabelName);
 		if(labelPreview)
 		{
 			labelPreview->setVisible(false);
@@ -179,7 +179,7 @@ void GamePadDialog::pollJoystick()
 		}
 		else if(GamepadPadMapping[i].mapping_type == 2)
 			val = SDL_JoystickGetHat(m_joystick,GamepadPadMapping[i].mapping_in);
-		QLabel* labelPreview = findChild<QLabel*>(tr(GamepadPadMapping[i].ViewLabelName.toStdString().c_str()));
+		QLabel* labelPreview = findChild<QLabel*>(GamepadPadMapping[i].ViewLabelName);
 		if(labelPreview)
 		{
 			labelPreview->setVisible(val != 0);
@@ -211,7 +211,7 @@ void GamePadDialog::pollJoystick()
 		}
 		else if(GamepadPadMapping[i].mapping_type == 2)
 			val = SDL_JoystickGetHat(m_joystick,GamepadPadMapping[i].mapping_in);
-		QLabel* labelPreview = findChild<QLabel*>(tr(GamepadPadMapping[i].ViewLabelName.toStdString().c_str()));
+		QLabel* labelPreview = findChild<QLabel*>(GamepadPadMapping[i].ViewLabelName);
 		if(labelPreview)
 		{
 			labelPreview->setVisible(val != 0);

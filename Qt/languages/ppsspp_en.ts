@@ -547,17 +547,7 @@
     <name>gamepadMapping</name>
     <message>
         <location filename="../gamepaddialog.cpp" line="19"/>
-        <source>Prev_X</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="19"/>
         <source>Cross</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="20"/>
-        <source>Prev_O</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -567,17 +557,7 @@
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="21"/>
-        <source>Prev_S</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="21"/>
         <source>Square</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="22"/>
-        <source>Prev_T</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -587,17 +567,7 @@
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="23"/>
-        <source>Prev_LT</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="23"/>
         <source>Left Trigger</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="24"/>
-        <source>Prev_RT</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -607,17 +577,7 @@
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="25"/>
-        <source>Prev_Start</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="25"/>
         <source>Start</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="26"/>
-        <source>Prev_Select</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -627,17 +587,7 @@
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="27"/>
-        <source>Prev_Up</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="27"/>
         <source>Up</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="28"/>
-        <source>Prev_Down</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -647,17 +597,7 @@
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="29"/>
-        <source>Prev_Left</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="29"/>
         <source>Left</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="30"/>
-        <source>Prev_Right</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -667,17 +607,7 @@
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="32"/>
-        <source>Prev_Home</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="32"/>
         <source>Home</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="35"/>
-        <source>Prev_ALeft</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -687,27 +617,12 @@
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="36"/>
-        <source>Prev_ARight</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="36"/>
         <source>Stick right</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="37"/>
-        <source>Prev_AUp</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="37"/>
         <source>Stick up</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../gamepaddialog.cpp" line="38"/>
-        <source>Prev_ADown</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
