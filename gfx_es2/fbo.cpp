@@ -169,6 +169,7 @@ void fbo_destroy(FBO *fbo) {
 	glDeleteFramebuffers(1, &fbo->handle);
 	glDeleteTextures(1, &fbo->color_texture);
 	glDeleteRenderbuffers(1, &fbo->z_stencil_buffer);
+	delete fbo;
 }
 
 void fbo_get_dimensions(FBO *fbo, int *w, int *h) {
