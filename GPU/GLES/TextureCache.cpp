@@ -642,17 +642,27 @@ void TextureCache::SetTexture() {
 		format = 0;
 	}
 
-	u32 clutformat = gstate.clutformat & 3;
-	u32 clutaddr = GetClutAddr(clutformat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2);
-
-	int maxLevel = ((gstate.texmode >> 16) & 0x7);
-
 	const u8 *texptr = Memory::GetPointer(texaddr);
 	u32 texhash = texptr ? MiniHash((const u32*)texptr) : 0;
 
+	u32 clutformat = gstate.clutformat & 3;
+	u32 clutaddr = GetClutAddr(clutformat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2);
+
 	u64 cachekey = texaddr ^ texhash;
 	if (formatUsesClut[format])
-		cachekey |= (u64) clutaddr << 32;
+		cachekey |= (u64)clutaddr << 32;
+
+	int maxLevel = ((gstate.texmode >> 16) & 0x7);
+
+	// Adjust maxLevel to actually present levels..
+	for (int i = 0; i <= maxLevel; i++) {
+		// If encountering levels pointing to nothing, adjust max level.
+		u32 levelTexaddr = (gstate.texaddr[i] & 0xFFFFF0) | ((gstate.texbufwidth[i] << 8) & 0x0F000000);
+		if (!Memory::IsValidAddress(levelTexaddr)) {
+			maxLevel = i - 1;
+			break;
+		}
+	}
 
 	TexCache::iterator iter = cache.find(cachekey);
 	if (iter != cache.end()) {
@@ -749,12 +759,6 @@ void TextureCache::SetTexture() {
 	glBindTexture(GL_TEXTURE_2D, entry.texture);
 	
 	for (int i = 0; i <= entry.maxLevel; i++) {
-		// If encountering levels pointing to nothing, adjust max level.
-		u32 levelTexaddr = (gstate.texaddr[i] & 0xFFFFF0) | ((gstate.texbufwidth[i] << 8) & 0x0F000000);
-		if (!Memory::IsValidAddress(levelTexaddr)) {
-			entry.maxLevel = i - 1;
-			break;
-		}
 		LoadTextureLevel(entry, i);
 	}
 
@@ -799,7 +803,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 	switch (entry.format)
 	{
 	case GE_TFMT_CLUT4:
-		dstFmt = getClutDestFormat((GEPaletteFormat)(gstate.clutformat & 3));
+		dstFmt = getClutDestFormat((GEPaletteFormat)(entry.clutformat));
 
 		switch (entry.clutformat) {
 		case GE_CMODE_16BIT_BGR5650:
@@ -808,15 +812,15 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 			{
 			ReadClut16(clutBuf16);
 			const u16 *clut = clutBuf16;
-			u32 clutSharingOff = 0;//gstate.mipmapShareClut ? 0 : level * 16;
+			u32 clutSharingOffset = 0; //(gstate.mipmapShareClut & 1) ? 0 : level * 16;
 			texByteAlign = 2;
 			if (!(gstate.texmode & 1)) {
 				const u8 *addr = Memory::GetPointer(texaddr);
 				for (int i = 0; i < bufw * h; i += 2)
 				{
 					u8 index = *addr++;
-					tmpTexBuf16[i + 0] = clut[GetClutIndex((index >> 0) & 0xf) + clutSharingOff];
-					tmpTexBuf16[i + 1] = clut[GetClutIndex((index >> 4) & 0xf) + clutSharingOff];
+					tmpTexBuf16[i + 0] = clut[GetClutIndex((index >> 0) & 0xf) + clutSharingOffset];
+					tmpTexBuf16[i + 1] = clut[GetClutIndex((index >> 4) & 0xf) + clutSharingOffset];
 				}
 			} else {
 				UnswizzleFromMem(texaddr, 0, level);
@@ -826,7 +830,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 					u32 k, index;
 					for (k = 0; k < 8; k++) {
 						index = (n >> (k * 4)) & 0xf;
-						tmpTexBuf16[i + k] = clut[GetClutIndex(index) + clutSharingOff];
+						tmpTexBuf16[i + k] = clut[GetClutIndex(index) + clutSharingOffset];
 					}
 				}
 			}
