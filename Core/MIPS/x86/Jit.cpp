@@ -413,9 +413,9 @@ OpArg Jit::JitSafeMem::PrepareMemoryOpArg()
 	if (!g_Config.bFastMemory)
 	{
 		// Is it in physical ram?
-		jit_->CMP(32, R(xaddr_), Imm32(PSP_GetKernelMemoryBase()));
+		jit_->CMP(32, R(xaddr_), Imm32(PSP_GetKernelMemoryBase() - offset_));
 		tooLow_ = jit_->J_CC(CC_L);
-		jit_->CMP(32, R(xaddr_), Imm32(PSP_GetUserMemoryEnd()));
+		jit_->CMP(32, R(xaddr_), Imm32(PSP_GetUserMemoryEnd() - offset_));
 		tooHigh_ = jit_->J_CC(CC_GE);
 
 		// We may need to jump back up here.
@@ -448,9 +448,9 @@ void Jit::JitSafeMem::PrepareSlowAccess()
 	jit_->SetJumpTarget(tooHigh_);
 
 	// Might also be the scratchpad.
-	jit_->CMP(32, R(xaddr_), Imm32(PSP_GetScratchpadMemoryBase()));
+	jit_->CMP(32, R(xaddr_), Imm32(PSP_GetScratchpadMemoryBase() - offset_));
 	FixupBranch tooLow = jit_->J_CC(CC_L);
-	jit_->CMP(32, R(xaddr_), Imm32(PSP_GetScratchpadMemoryEnd()));
+	jit_->CMP(32, R(xaddr_), Imm32(PSP_GetScratchpadMemoryEnd() - offset_));
 	jit_->J_CC(CC_L, safe_);
 	jit_->SetJumpTarget(tooLow);
 }
