@@ -288,7 +288,31 @@ void Jit::WriteExitDestInEAX()
 	// TODO: Some wasted potential, dispatcher will always read this back into EAX.
 	MOV(32, M(&mips_->pc), R(EAX));
 	WriteDowncount();
-	JMP(asm_.dispatcher, true);
+
+	// Validate the jump to avoid a crash?
+	if (!g_Config.bFastMemory)
+	{
+		CMP(32, R(EAX), Imm32(PSP_GetKernelMemoryBase()));
+		FixupBranch tooLow = J_CC(CC_L);
+		CMP(32, R(EAX), Imm32(PSP_GetUserMemoryEnd()));
+		FixupBranch tooHigh = J_CC(CC_GE);
+
+		JMP(asm_.dispatcher, true);
+
+		SetJumpTarget(tooLow);
+		SetJumpTarget(tooHigh);
+
+		ABI_CallFunctionA(thunks.ProtectFunction((void *) Memory::GetPointer, 1), R(EAX));
+		CMP(32, R(EAX), Imm32(0));
+		J_CC(CC_NE, asm_.dispatcher, true);
+
+		// TODO: "Ignore" this so other threads can continue?
+		if (g_Config.bIgnoreBadMemAccess)
+			MOV(32, M((void*)&coreState), Imm32(CORE_ERROR));
+		JMP(asm_.dispatcherCheckCoreState, true);
+	}
+	else
+		JMP(asm_.dispatcher, true);
 }
 
 void Jit::WriteSyscallExit()
