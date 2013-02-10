@@ -15,10 +15,17 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
+#include <algorithm>
 #include "Hash.h"
 #if _M_SSE >= 0x402
 #include "CPUDetect.h"
 #include <nmmintrin.h>
+#endif
+
+#ifdef _WIN32
+// Windows defines min/max which conflict with std::min/std::max.
+#undef min
+#undef max
 #endif
 
 static u64 (*ptrHashFunction)(const u8 *src, int len, u32 samples) = &GetMurmurHash3;
