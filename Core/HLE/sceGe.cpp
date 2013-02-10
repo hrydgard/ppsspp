@@ -33,6 +33,8 @@ struct GeInterruptData
 {
 	int listid;
 	u32 pc;
+	u32 subIntrBase;
+	u16 subIntrToken;
 };
 
 static std::list<GeInterruptData> ge_pending_cb;
@@ -50,20 +52,21 @@ public:
 		if (dl == NULL)
 		{
 			WARN_LOG(HLE, "Unable to run GE interrupt: list doesn't exist: %d", intrdata.listid);
-			return false;
+			// TODO: Use dl instead of just saving everything instead?
+			//return false;
 		}
 
 		gpu->InterruptStart();
 
 		u32 cmd = Memory::ReadUnchecked_U32(intrdata.pc) >> 24;
-		int subintr = dl->subIntrBase | (cmd == GE_CMD_FINISH ? PSP_GE_SUBINTR_FINISH : PSP_GE_SUBINTR_SIGNAL);
+		int subintr = intrdata.subIntrBase | (cmd == GE_CMD_FINISH ? PSP_GE_SUBINTR_FINISH : PSP_GE_SUBINTR_SIGNAL);
 		SubIntrHandler* handler = get(subintr);
 
 		if(handler != NULL)
 		{
 			DEBUG_LOG(CPU, "Entering interrupt handler %08x", handler->handlerAddress);
 			currentMIPS->pc = handler->handlerAddress;
-			u32 data = dl->subIntrToken;
+			u32 data = intrdata.subIntrToken;
 			currentMIPS->r[MIPS_REG_A0] = data & 0xFFFF;
 			currentMIPS->r[MIPS_REG_A1] = handler->handlerArg;
 			currentMIPS->r[MIPS_REG_A2] = sceKernelGetCompiledSdkVersion() <= 0x02000010 ? 0 : intrdata.pc + 4;
@@ -109,11 +112,13 @@ void __GeShutdown()
 
 }
 
-void __GeTriggerInterrupt(int listid, u32 pc)
+void __GeTriggerInterrupt(int listid, u32 pc, u32 subIntrBase, u16 subIntrToken)
 {
 	GeInterruptData intrdata;
 	intrdata.listid = listid;
 	intrdata.pc     = pc;
+	intrdata.subIntrBase = subIntrBase;
+	intrdata.subIntrToken = subIntrToken;
 	ge_pending_cb.push_back(intrdata);
 	__TriggerInterrupt(PSP_INTR_HLE, PSP_GE_INTR, PSP_INTR_SUB_NONE);
 }
