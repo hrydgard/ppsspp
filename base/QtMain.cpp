@@ -41,14 +41,10 @@ void SimulateGamepad(InputState *input) {
 
 float CalculateDPIScale()
 {
-	// Calculate DPI from TWIPS on Symbian
+	// Sane default for Symbian, Blackberry and Meego
 #ifdef __SYMBIAN32__
-	TSize sTwips = CEikonEnv::Static()->ScreenDevice()->SizeInTwips();
-	float dpi = sqrt((float)(pixel_xres*pixel_xres + pixel_yres*pixel_yres))
-		/ (sqrt((float)(sTwips.iHeight*sTwips.iHeight + sTwips.iWidth*sTwips.iWidth)) / KTwipsPerInch);
-	return dpi / 160.0f;
+	return 1.3f;
 #else
-	// Sane default for Blackberry and Meego
 	return 1.2f;
 #endif
 }
