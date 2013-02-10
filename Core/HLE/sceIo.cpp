@@ -17,7 +17,6 @@
 
 #ifdef _WIN32
 #include <windows.h>
-#undef DeleteFile
 #endif
 
 #include "../Config.h"
@@ -37,6 +36,9 @@
 #include "sceKernel.h"
 #include "sceKernelMemory.h"
 #include "sceKernelThread.h"
+
+// For headless screenshots.
+#include "sceDisplay.h"
 
 #define ERROR_ERRNO_FILE_NOT_FOUND               0x80010002
 
@@ -144,9 +146,10 @@ public:
 		p.Do(callbackID);
 		p.Do(callbackArg);
 		p.Do(asyncResult);
-		p.Do(closePending);
 		p.Do(pendingAsyncResult);
 		p.Do(sectorBlockMode);
+		p.Do(closePending);
+		p.Do(info);
 		p.Do(openMode);
 		p.DoMarker("File");
 	}
@@ -549,7 +552,7 @@ u32 sceIoRemove(const char *filename) {
 	if(!pspFileSystem.GetFileInfo(filename).exists)
 		return ERROR_ERRNO_FILE_NOT_FOUND;
 
-	pspFileSystem.DeleteFile(filename);
+	pspFileSystem.RemoveFile(filename);
 	return 0;
 }
 
@@ -781,6 +784,15 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 			// Note that this is async, and makes sure the save state matches up.
 			SaveState::Verify();
 			// TODO: Maybe save/load to a file just to be sure?
+			return 0;
+
+		case 0x20: // EMULATOR_DEVCTL__EMIT_SCREENSHOT
+			u8 *topaddr;
+			u32 linesize, pixelFormat;
+
+			__DisplayGetFramebuf(&topaddr, &linesize, &pixelFormat, 0);
+			// TODO: Convert based on pixel format / mode / something?
+			host->SendDebugScreenshot(topaddr, linesize, 272);
 			return 0;
 		}
 
@@ -1019,26 +1031,27 @@ u32 sceIoDread(int id, u32 dirent_addr) {
 	u32 error;
 	DirListing *dir = kernelObjects.Get<DirListing>(id, error);
 	if (dir) {
+		SceIoDirEnt *entry = (SceIoDirEnt*) Memory::GetPointer(dirent_addr);
+
 		if (dir->index == (int) dir->listing.size()) {
 			DEBUG_LOG(HLE, "sceIoDread( %d %08x ) - end of the line", id, dirent_addr);
+			entry->d_name[0] = '\0';
 			return 0;
 		}
 
 		PSPFileInfo &info = dir->listing[dir->index];
-
-		SceIoDirEnt *entry = (SceIoDirEnt*) Memory::GetPointer(dirent_addr);
-
 		__IoGetStat(&entry->d_stat, info);
 
 		strncpy(entry->d_name, info.name.c_str(), 256);
+		entry->d_name[255] = '\0';
 		entry->d_private = 0xC0DEBABE;
 		DEBUG_LOG(HLE, "sceIoDread( %d %08x ) = %s", id, dirent_addr, entry->d_name);
 
 		dir->index++;
-		return (u32)(dir->listing.size() - dir->index + 1);
+		return 1;
 	} else {
 		DEBUG_LOG(HLE, "sceIoDread - invalid listing %i, error %08x", id, error);
-		return -1;  // TODO
+		return SCE_KERNEL_ERROR_BADF;
 	}
 }
 

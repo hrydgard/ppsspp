@@ -191,6 +191,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 		}
 	}
 
+	VFSShutdown();
+
 	LogManager::Shutdown();
 	DialogManager::DestroyAll();
 	timeEndPeriod(1);

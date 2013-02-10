@@ -111,6 +111,33 @@ void TextureCache::InvalidateAll(bool force) {
 		Invalidate(0, 0xFFFFFFFF, force);
 }
 
+TextureCache::TexCacheEntry *TextureCache::GetEntryAt(u32 texaddr) {
+	// If no CLUT, as in framebuffer textures, cache key is simply texaddr.
+	auto iter = cache.find(texaddr);
+	if (iter != cache.end() && iter->second.addr == texaddr)
+		return &iter->second;
+	else
+		return 0;
+}
+
+void TextureCache::NotifyFramebuffer(u32 address, FBO *fbo) {
+	// Must be in VRAM so | 0x04000000 it is.
+	TexCacheEntry *entry = GetEntryAt(address | 0x04000000);
+	if (entry) {
+		// INFO_LOG(HLE, "Render to texture detected at %08x!", address);
+		if (!entry->fbo)
+			entry->fbo = fbo;
+		// TODO: Delete the original non-fbo texture too.
+	}
+}
+
+void TextureCache::NotifyFramebufferDestroyed(u32 address, FBO *fbo) {
+	TexCacheEntry *entry = GetEntryAt(address | 0x04000000);
+	if (entry && entry->fbo) {
+		entry->fbo = 0;
+	}
+}
+
 static u32 GetClutAddr(u32 clutEntrySize) {
 	return ((gstate.clutaddr & 0xFFFFFF) | ((gstate.clutaddrupper << 8) & 0x0F000000)) + ((gstate.clutformat >> 16) & 0x1f) * clutEntrySize;
 }
@@ -363,7 +390,8 @@ static const GLuint MagFiltGL[2] = {
 	GL_LINEAR
 };
 
-// OpenGL ES 2.0 workaround. Let's see if this hackery works.
+// OpenGL ES 2.0 workaround. This SHOULD be available but is NOT in the headers in Android.
+// Let's see if this hackery works.
 #ifndef GL_TEXTURE_LOD_BIAS
 #define GL_TEXTURE_LOD_BIAS 0x8501
 #endif
@@ -371,8 +399,6 @@ static const GLuint MagFiltGL[2] = {
 #ifndef GL_TEXTURE_MAX_LOD
 #define GL_TEXTURE_MAX_LOD 0x813B
 #endif
-
-
 
 // This should not have to be done per texture! OpenGL is silly yo
 // TODO: Dirty-check this against the current texture.
@@ -641,23 +667,52 @@ void TextureCache::SetTexture() {
 		ERROR_LOG(G3D, "Unknown texture format %i", format);
 		format = 0;
 	}
+	bool hasClut = formatUsesClut[format];
+
+	const u8 *texptr = Memory::GetPointer(texaddr);
 
 	u32 clutformat = gstate.clutformat & 3;
 	u32 clutaddr = GetClutAddr(clutformat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2);
 
+	u64 cachekey = texaddr;
+	if (formatUsesClut[format])
+		cachekey |= (u64)clutaddr << 32;
+
 	int maxLevel = ((gstate.texmode >> 16) & 0x7);
 
-	const u8 *texptr = Memory::GetPointer(texaddr);
-	u32 texhash = texptr ? MiniHash((const u32*)texptr) : 0;
+	// Adjust maxLevel to actually present levels..
+	for (int i = 0; i <= maxLevel; i++) {
+		// If encountering levels pointing to nothing, adjust max level.
+		u32 levelTexaddr = (gstate.texaddr[i] & 0xFFFFF0) | ((gstate.texbufwidth[i] << 8) & 0x0F000000);
+		if (!Memory::IsValidAddress(levelTexaddr)) {
+			maxLevel = i - 1;
+			break;
+		}
+	}
 
-	u64 cachekey = texaddr ^ texhash;
-	if (formatUsesClut[format])
-		cachekey |= (u64) clutaddr << 32;
+	u32 texhash = MiniHash((const u32 *)Memory::GetPointer(texaddr));
+
+	int w = 1 << (gstate.texsize[0] & 0xf);
+	int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
 
 	TexCache::iterator iter = cache.find(cachekey);
 	if (iter != cache.end()) {
-		//Validate the texture here (width, height etc)
 		TexCacheEntry &entry = iter->second;
+		// Check for FBO - slow!
+		if (entry.fbo) {
+			fbo_bind_color_as_texture(entry.fbo, 0);
+			UpdateSamplingParams(entry, false);
+
+			int fbow, fboh;
+			fbo_get_dimensions(entry.fbo, &fbow, &fboh);
+
+			// Almost certain this isn't right.
+			gstate_c.curTextureWidth = fbow;
+			gstate_c.curTextureHeight = fboh;
+			return;
+		}
+
+		//Validate the texture here (width, height etc)
 
 		int dim = gstate.texsize[0] & 0xF0F;
 		bool match = true;
@@ -716,6 +771,7 @@ void TextureCache::SetTexture() {
 	entry.hash = texhash;
 	entry.format = format;
 	entry.frameCounter = gpuStats.numFrames;
+	entry.fbo = 0;
 	entry.maxLevel = maxLevel;
 	entry.lodBias = 0.0f;
 
@@ -731,9 +787,6 @@ void TextureCache::SetTexture() {
 	
 	entry.dim = gstate.texsize[0] & 0xF0F;
 
-	int w = 1 << (gstate.texsize[0] & 0xf);
-	int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
-
 	// This would overestimate the size in many case so we underestimate instead
 	// to avoid excessive clearing caused by cache invalidations.
 	entry.sizeInRAM = (bitsPerPixel[format < 11 ? format : 0] * bufw * h / 2) / 8;
@@ -748,21 +801,26 @@ void TextureCache::SetTexture() {
 	glGenTextures(1, &entry.texture);
 	glBindTexture(GL_TEXTURE_2D, entry.texture);
 	
+#ifdef USING_GLES2
+	// GLES2 doesn't have support for a "Max lod" which is critical as PSP games often
+	// don't specify mips all the way down. As a result, we either need to manually generate
+	// the bottom few levels or rely on OpenGL's autogen mipmaps instead, which might not
+	// be as good quality as the game's own (might even be better in some cases though).
+
+	// For now, I choose to use autogen mips on GLES2 and the game's own on other platforms.
+	// As is usual, GLES3 will solve this problem nicely but wide distribution of that is
+	// years away.
+	LoadTextureLevel(entry, 0);
+	if (entry.maxLevel > 0)
+		glGenerateMipmap(GL_TEXTURE_2D);
+#else
 	for (int i = 0; i <= entry.maxLevel; i++) {
-		// If encountering levels pointing to nothing, adjust max level.
-		u32 levelTexaddr = (gstate.texaddr[i] & 0xFFFFF0) | ((gstate.texbufwidth[i] << 8) & 0x0F000000);
-		if (!Memory::IsValidAddress(levelTexaddr)) {
-			entry.maxLevel = i - 1;
-			break;
-		}
 		LoadTextureLevel(entry, i);
 	}
-
-#ifndef USING_GLES2
-	// See horrifying hack at the bottom of LoadTextureLevel!
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, entry.maxLevel);
 #endif
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, entry.maxLevel);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)entry.maxLevel);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, 4.0);
 
 	UpdateSamplingParams(entry, true);
 
@@ -799,7 +857,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 	switch (entry.format)
 	{
 	case GE_TFMT_CLUT4:
-		dstFmt = getClutDestFormat((GEPaletteFormat)(gstate.clutformat & 3));
+		dstFmt = getClutDestFormat((GEPaletteFormat)(entry.clutformat));
 
 		switch (entry.clutformat) {
 		case GE_CMODE_16BIT_BGR5650:
@@ -808,15 +866,15 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 			{
 			ReadClut16(clutBuf16);
 			const u16 *clut = clutBuf16;
-			u32 clutSharingOff = 0;//gstate.mipmapShareClut ? 0 : level * 16;
+			u32 clutSharingOffset = 0; //(gstate.mipmapShareClut & 1) ? 0 : level * 16;
 			texByteAlign = 2;
 			if (!(gstate.texmode & 1)) {
 				const u8 *addr = Memory::GetPointer(texaddr);
 				for (int i = 0; i < bufw * h; i += 2)
 				{
 					u8 index = *addr++;
-					tmpTexBuf16[i + 0] = clut[GetClutIndex((index >> 0) & 0xf) + clutSharingOff];
-					tmpTexBuf16[i + 1] = clut[GetClutIndex((index >> 4) & 0xf) + clutSharingOff];
+					tmpTexBuf16[i + 0] = clut[GetClutIndex((index >> 0) & 0xf) + clutSharingOffset];
+					tmpTexBuf16[i + 1] = clut[GetClutIndex((index >> 4) & 0xf) + clutSharingOffset];
 				}
 			} else {
 				UnswizzleFromMem(texaddr, 0, level);
@@ -826,7 +884,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 					u32 k, index;
 					for (k = 0; k < 8; k++) {
 						index = (n >> (k * 4)) & 0xf;
-						tmpTexBuf16[i + k] = clut[GetClutIndex(index) + clutSharingOff];
+						tmpTexBuf16[i + k] = clut[GetClutIndex(index) + clutSharingOffset];
 					}
 				}
 			}
@@ -1025,27 +1083,8 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 	//glPixelStorei(GL_PACK_ROW_LENGTH, bufw);
 	glPixelStorei(GL_PACK_ALIGNMENT, texByteAlign);
 
-	INFO_LOG(HLE, "Creating texture level %i/%i from %08x: %i x %i (stride: %i). fmt: %i", level, entry.maxLevel, texaddr, w, h, bufw, entry.format);
+	// INFO_LOG(G3D, "Creating texture level %i/%i from %08x: %i x %i (stride: %i). fmt: %i", level, entry.maxLevel, texaddr, w, h, bufw, entry.format);
 
 	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
 	glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components, dstFmt, finalBuf);
-
-#ifdef USING_GLES2
-	// ARGH! OpenGL ES does not support max texture level!
-	// Let's do a HORRIBLE hack for now and re-specify the last level, but with changed dimensions.
-	// Will at least give us sort of the right colors and hopefully it'll be too blurry anyway.
-	// Later I will add proper downsampling of the bottom level.
-	// TEXTURE_MAX_LOD should ensure that we never get to see these anyway.
-	if (level == entry.maxLevel) {
-		while (w >= 2 || h >= 2) {
-			w /= 2;
-			h /= 2;
-			if (w == 0) w = 1;
-			if (h == 0) h = 1;
-			++level;
-			INFO_LOG(HLE, "Specifying extra texture level %i : %ix%i", level, w, h);
-			glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components, dstFmt, finalBuf);
-		}
-	}
-#endif
 }

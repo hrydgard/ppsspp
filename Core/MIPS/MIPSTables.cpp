@@ -147,7 +147,7 @@ const MIPSInstruction tableImmediate[64] =  //xxxxxx .....
 	//48
 	INSTR("ll", &Jit::Comp_Generic, Dis_Generic, Int_StoreSync, 0),
 	INSTR("lwc1", &Jit::Comp_FPULS, Dis_FPULS, Int_FPULS, IN_RT|IN_RS_ADDR),
-	INSTR("lv.s", &Jit::Comp_Generic, Dis_SV, Int_SV, IS_VFPU),
+	INSTR("lv.s", &Jit::Comp_SV, Dis_SV, Int_SV, IS_VFPU),
 	{-2}, // HIT THIS IN WIPEOUT
 	{VFPU4Jump},
 	INSTR("lv", &Jit::Comp_SVQ, Dis_SVLRQ, Int_SVQ, IS_VFPU),
@@ -156,7 +156,7 @@ const MIPSInstruction tableImmediate[64] =  //xxxxxx .....
 	//56
 	INSTR("sc", &Jit::Comp_Generic, Dis_Generic, Int_StoreSync, 0),
 	INSTR("swc1", &Jit::Comp_FPULS, Dis_FPULS, Int_FPULS, 0), //copU
-	INSTR("sv.s", &Jit::Comp_Generic, Dis_SV, Int_SV,IS_VFPU),
+	INSTR("sv.s", &Jit::Comp_SV, Dis_SV, Int_SV,IS_VFPU),
 	{-2}, 
 	//60
 	{VFPU6},
@@ -185,7 +185,7 @@ const MIPSInstruction tableSpecial[64] = /// 000000 ...... ...... .......... xxx
 	INSTR("syscall", &Jit::Comp_Syscall, Dis_Syscall, Int_Syscall,0),
 	INSTR("break", &Jit::Comp_Break, Dis_Generic, Int_Break, 0),
 	{-2},
-	INSTR("sync",  &Jit::Comp_Generic, Dis_Generic, Int_Sync, 0),
+	INSTR("sync",  &Jit::Comp_DoNothing, Dis_Generic, Int_Sync, 0),
 
 	//16
 	INSTR("mfhi",  &Jit::Comp_MulDivType, Dis_FromHiloTransfer, Int_MulDivType, OUT_RD|IN_OTHER),
@@ -224,8 +224,8 @@ const MIPSInstruction tableSpecial[64] = /// 000000 ...... ...... .......... xxx
 	INSTR("sltu", &Jit::Comp_RType3, Dis_RType3, Int_RType3,IN_RS|IN_RT|OUT_RD),
 	INSTR("max",  &Jit::Comp_RType3, Dis_RType3, Int_RType3,IN_RS|IN_RT|OUT_RD),
 	INSTR("min",  &Jit::Comp_RType3, Dis_RType3, Int_RType3,IN_RS|IN_RT|OUT_RD),
-	INSTR("msub",  &Jit::Comp_Generic, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|OUT_OTHER),
-	INSTR("msubu", &Jit::Comp_Generic, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|OUT_OTHER),
+	INSTR("msub",  &Jit::Comp_RType3, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|OUT_OTHER),
+	INSTR("msubu", &Jit::Comp_RType3, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|OUT_OTHER),
 
 	//48
 	INSTR("tge",  &Jit::Comp_Generic, Dis_RType3, 0, 0),
@@ -276,32 +276,32 @@ const MIPSInstruction tableSpecial2[64] =
 //40
 	{-2}, {-2}, {-2}, {-2}, {-2}, {-2}, {-2}, {-2},
 //48
-	INSTR("c.f",   &Jit::Comp_Generic, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-	INSTR("c.un",  &Jit::Comp_Generic, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-	INSTR("c.eq",  &Jit::Comp_Generic, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-	INSTR("c.ueq", &Jit::Comp_Generic, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-  INSTR("c.olt", &Jit::Comp_Generic, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-  INSTR("c.ult", &Jit::Comp_Generic, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-  INSTR("c.ole", &Jit::Comp_Generic, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-  INSTR("c.ule", &Jit::Comp_Generic, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-  INSTR("c.sf",  &Jit::Comp_Generic, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-  INSTR("c.ngle",&Jit::Comp_Generic, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-  INSTR("c.seq", &Jit::Comp_Generic, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-  INSTR("c.ngl", &Jit::Comp_Generic, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-  INSTR("c.lt",  &Jit::Comp_Generic, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-  INSTR("c.nge", &Jit::Comp_Generic, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-  INSTR("c.le",  &Jit::Comp_Generic, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-  INSTR("c.ngt", &Jit::Comp_Generic, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
+	INSTR("c.f",   &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
+	INSTR("c.un",  &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
+	INSTR("c.eq",  &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
+	INSTR("c.ueq", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
+	INSTR("c.olt", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
+	INSTR("c.ult", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
+	INSTR("c.ole", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
+	INSTR("c.ule", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
+	INSTR("c.sf",  &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
+	INSTR("c.ngle",&Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
+	INSTR("c.seq", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
+	INSTR("c.ngl", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
+	INSTR("c.lt",  &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
+	INSTR("c.nge", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
+	INSTR("c.le",  &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
+	INSTR("c.ngt", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
 };
 
 
 const MIPSInstruction tableSpecial3[64] = 
 {
-	INSTR("ext", &Jit::Comp_Generic, Dis_Special3, Int_Special3, IN_RS|OUT_RT),
+	INSTR("ext", &Jit::Comp_Special3, Dis_Special3, Int_Special3, IN_RS|OUT_RT),
 	{-2},
 	{-2},
 	{-2},
-	INSTR("ins", &Jit::Comp_Generic, Dis_Special3, Int_Special3, IN_RS|OUT_RT),
+	INSTR("ins", &Jit::Comp_Special3, Dis_Special3, Int_Special3, IN_RS|OUT_RT),
 	{-2},
 	{-2},
 	{-2},
@@ -363,11 +363,11 @@ const MIPSInstruction tableCop2[32] =
 	INSTR("mfc2", &Jit::Comp_Generic, Dis_Generic, 0, OUT_RT),
 	{-2},
 	INSTR("cfc2", &Jit::Comp_Generic, Dis_Generic, 0, 0),
-	INSTR("mfv", &Jit::Comp_Generic, Dis_Mftv, Int_Mftv, 0),
+	INSTR("mfv", &Jit::Comp_Mftv, Dis_Mftv, Int_Mftv, 0),
 	INSTR("mtc2", &Jit::Comp_Generic, Dis_Generic, 0, IN_RT),
 	{-2},
 	INSTR("ctc2", &Jit::Comp_Generic, Dis_Generic, 0, 0),
-	INSTR("mtv", &Jit::Comp_Generic, Dis_Mftv, Int_Mftv, 0),
+	INSTR("mtv", &Jit::Comp_Mftv, Dis_Mftv, Int_Mftv, 0),
 
 	{Cop2BC2},
 	INSTR("??", &Jit::Comp_Generic, Dis_Generic, 0, 0),

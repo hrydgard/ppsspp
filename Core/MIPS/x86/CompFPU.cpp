@@ -148,10 +148,6 @@ static const u64 GC_ALIGNED16(ssOneBits[2])	= {0x0000000100000001ULL, 0x00000001
 static const u64 GC_ALIGNED16(ssSignBits2[2])	= {0x8000000080000000ULL, 0x8000000080000000ULL};
 static const u64 GC_ALIGNED16(ssNoSignMask[2]) = {0x7FFFFFFF7FFFFFFFULL, 0x7FFFFFFF7FFFFFFFULL};
 
-<<<<<<< Updated upstream
-void Jit::Comp_FPU2op(u32 op)
-{
-=======
 void Jit::Comp_FPUComp(u32 op) {
 	// TODO: Doesn't work yet.
 	DISABLE;
@@ -207,7 +203,6 @@ void Jit::Comp_FPUComp(u32 op) {
 }
 
 void Jit::Comp_FPU2op(u32 op) {
->>>>>>> Stashed changes
 	CONDITIONAL_DISABLE;
 	
 	int fs = _FS;

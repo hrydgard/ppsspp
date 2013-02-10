@@ -157,6 +157,7 @@ void __KernelDoState(PointerWrap &p)
 	p.DoMarker("KernelObjects");
 
 	__InterruptsDoState(p);
+	// Memory needs to be after kernel objects, which may free kernel memory.
 	__KernelMemoryDoState(p);
 	__KernelThreadingDoState(p);
 	__KernelAlarmDoState(p);
@@ -589,7 +590,7 @@ const HLEFunction ThreadManForUser[] =
 	{0x75156e8f,sceKernelResumeThread,"sceKernelResumeThread"},
 	{0x3ad58b8c,&WrapU_V<sceKernelSuspendDispatchThread>,"sceKernelSuspendDispatchThread"},
 	{0x27e22ec2,&WrapU_U<sceKernelResumeDispatchThread>,"sceKernelResumeDispatchThread"},
-	{0x912354a7,sceKernelRotateThreadReadyQueue,"sceKernelRotateThreadReadyQueue"},
+	{0x912354a7,&WrapI_I<sceKernelRotateThreadReadyQueue>,"sceKernelRotateThreadReadyQueue"},
 	{0x9ACE131E,sceKernelSleepThread,"sceKernelSleepThread"},
 	{0x82826f70,sceKernelSleepThreadCB,"sceKernelSleepThreadCB"},
 	{0xF475845D,&WrapI_IUU<sceKernelStartThread>,"sceKernelStartThread"},

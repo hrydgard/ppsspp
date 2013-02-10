@@ -18,6 +18,7 @@
 #pragma once
 
 #include "../Globals.h"
+#include "gfx_es2/fbo.h"
 
 class TextureCache 
 {
@@ -32,21 +33,28 @@ public:
 	void Invalidate(u32 addr, int size, bool force);
 	void InvalidateAll(bool force);
 
+	// FramebufferManager keeps TextureCache updated about what regions of memory
+	// are being rendered to. This is barebones so far.
+	void NotifyFramebuffer(u32 address, FBO *fbo);
+	void NotifyFramebufferDestroyed(u32 address, FBO *fbo);
+
 	size_t NumLoadedTextures() const {
 		return cache.size();
 	}
 
 private:
+	
 	struct TexCacheEntry {
 		u32 addr;
 		u32 hash;
+		FBO *fbo;  // if null, not sourced from an FBO.
 		u32 sizeInRAM;
 		int frameCounter;
-		u32 format;
+		u8 format;
+		u8 clutformat;
+		u16 dim;
 		u32 clutaddr;
-		u32 clutformat;
 		u32 cluthash;
-		int dim;
 		u32 texture;  //GLuint
 		int invalidHint;
 		u32 fullhash;
@@ -65,6 +73,8 @@ private:
 	void *readIndexedTex(int level, u32 texaddr, int bytesPerIndex);
 	void UpdateSamplingParams(TexCacheEntry &entry, bool force);
 	void LoadTextureLevel(TexCacheEntry &entry, int level);
+
+	TexCacheEntry *GetEntryAt(u32 texaddr);
 
 	typedef std::map<u64, TexCacheEntry> TexCache;
 

@@ -83,6 +83,10 @@ void Jit::Comp_FPULS(u32 op)
 	}
 }
 
+void Jit::Comp_FPUComp(u32 op) {
+	DISABLE;
+}
+
 void Jit::Comp_FPU2op(u32 op)
 {
 	DISABLE
