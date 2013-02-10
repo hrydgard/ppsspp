@@ -658,7 +658,7 @@ void __KernelFireThreadEnd(SceUID threadID)
 }
 
 // TODO: Use __KernelChangeThreadState instead?  It has other affects...
-void __KernelChangeReadyState(Thread *thread, SceUID threadID, bool ready, bool atStart = false)
+void __KernelChangeReadyState(Thread *thread, SceUID threadID, bool ready)
 {
 	int prio = thread->nt.currentPriority;
 
@@ -669,7 +669,7 @@ void __KernelChangeReadyState(Thread *thread, SceUID threadID, bool ready, bool 
 	}
 	else if (ready)
 	{
-		if (atStart || thread->isRunning())
+		if (thread->isRunning())
 			threadReadyQueue[prio].push_front(threadID);
 		else
 			threadReadyQueue[prio].push_back(threadID);
@@ -1436,9 +1436,6 @@ int sceKernelStartThread(SceUID threadToStartID, u32 argSize, u32 argBlockPtr)
 			threadToStartID,argSize,argBlockPtr);
 
 		__KernelResetThread(startThread);
-		if (currentThread)
-			__KernelChangeReadyState(currentThread, true);
-		__KernelChangeReadyState(startThread, threadToStartID, true, true);
 
 		u32 sp = startThread->context.r[MIPS_REG_SP];
 		if (argBlockPtr && argSize > 0)
@@ -1461,7 +1458,14 @@ int sceKernelStartThread(SceUID threadToStartID, u32 argSize, u32 argBlockPtr)
 			WARN_LOG(HLE,"sceKernelStartThread : had NULL arg");
 		}
 
-		hleReSchedule("thread started");
+		Thread *cur = __GetCurrentThread();
+		// Smaller is better for priority.  Only switch if the new thread is better.
+		if (cur && cur->nt.currentPriority > startThread->nt.currentPriority)
+		{
+			__KernelChangeReadyState(currentThread, true);
+			hleReSchedule("thread started");
+		}
+		__KernelChangeReadyState(startThread, threadToStartID, true);
 		return 0;
 	}
 	else
