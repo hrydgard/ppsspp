@@ -19,6 +19,8 @@ public:
 	void start_game(QString filename);
 	void stop_game();
 	void LockDraw(bool value);
+signals:
+	void doubleClick();
 protected:
 	void initializeGL();
 
@@ -26,6 +28,7 @@ protected:
 	void resizeEvent(QResizeEvent *evt);
 	void paintEvent(QPaintEvent *);
 	void closeEvent(QCloseEvent *evt);
+	void mouseDoubleClickEvent(QMouseEvent *);
 signals:
 	
 public slots:

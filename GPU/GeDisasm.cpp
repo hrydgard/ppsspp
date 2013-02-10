@@ -396,7 +396,11 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 	case GE_CMD_TEXSIZE5:
 	case GE_CMD_TEXSIZE6:
 	case GE_CMD_TEXSIZE7:
-		sprintf(buffer, "Texture Size %i: %06x", cmd - GE_CMD_TEXSIZE0, data);
+		{
+			int w = 1 << (data & 0xf);
+			int h = 1 << ((data>>8) & 0xf);
+			sprintf(buffer, "Texture Size %i: %06x, width : %d, height : %d", cmd - GE_CMD_TEXSIZE0, data, w, h);
+		}
 		break;
 
 	case GE_CMD_ZBUFPTR:

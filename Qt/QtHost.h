@@ -12,6 +12,7 @@
 #include "gfx/texture.h"
 #include "input/input_state.h"
 #include "math/math_util.h"
+#include "base/mutex.h"
 #include "math/lin/matrix4x4.h"
 #include <QGLWidget>
 
@@ -48,10 +49,17 @@ public:
 	bool AttemptLoadSymbolMap();
 	void SetWindowTitle(const char *message);
 
+	void SendCoreWait(bool);
+	bool GpuStep();
+	void SendGPUWait();
+	void SetGPUStep(bool value);
+	void NextGPUStep();
+
 signals:
 	void BootDoneSignal();
 private:
 	MainWindow* mainWindow;
+	bool m_GPUStep;
 };
 
 #endif // QTAPP_H

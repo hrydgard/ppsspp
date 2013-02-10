@@ -2722,3 +2722,38 @@ u32 __KernelNotifyCallbackType(RegisteredCallbackType type, SceUID cbId, int not
 	return 0;
 }
 
+std::vector<DebugThreadInfo> GetThreadsInfo()
+{
+	std::vector<DebugThreadInfo> threadList;
+
+	u32 error;
+	for (std::vector<SceUID>::iterator iter = threadqueue.begin(); iter != threadqueue.end(); iter++)
+	{
+		Thread *t = kernelObjects.Get<Thread>(*iter, error);
+		if (!t)
+			continue;
+
+		DebugThreadInfo info;
+		info.id = *iter;
+		strncpy(info.name,t->GetName(),KERNELOBJECT_MAX_NAME_LENGTH);
+		info.name[KERNELOBJECT_MAX_NAME_LENGTH+1] = 0;
+		info.status = t->nt.status;
+		info.entrypoint = t->nt.entrypoint;
+		info.curPC = t->context.pc;
+		info.isCurrent = (*iter == currentThread);
+		threadList.push_back(info);
+	}
+
+	return threadList;
+}
+
+void __KernelChangeThreadState(SceUID threadId, ThreadStatus newStatus)
+{
+	u32 error;
+	Thread *t = kernelObjects.Get<Thread>(threadId, error);
+	if (!t)
+		return;
+
+	__KernelChangeThreadState(t, newStatus);
+}
+

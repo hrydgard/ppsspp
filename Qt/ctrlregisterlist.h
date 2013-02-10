@@ -1,16 +1,21 @@
 #ifndef CTRLREGISTERLIST_H
 #define CTRLREGISTERLIST_H
 
-#include <QListWidget>
+#include <QWidget>
 #include "Core/Debugger/DebugInterface.h"
 
-class CtrlRegisterList : public QListWidget
+class Debugger_Disasm;
+class CtrlRegisterList : public QWidget
 {
 	Q_OBJECT
 public:
 	explicit CtrlRegisterList(QWidget *parent = 0);
 
-	void redraw();
+
+	void setParentWindow(Debugger_Disasm* win)
+	{
+		parentWindow = win;
+	}
 
 	void setCPU(DebugInterface *deb)
 	{
@@ -26,10 +31,27 @@ public:
 	{
 		return cpu;
 	}
+	~CtrlRegisterList();
+	void contextMenu(const QPoint &pos);
+protected:
+	void paintEvent(QPaintEvent *);
+	void keyPressEvent(QKeyEvent *e);
+	void mousePressEvent(QMouseEvent *e);
+	void wheelEvent(QWheelEvent *e);
 signals:
-	
+	void GotoDisasm(u32);
+
 public slots:
+	void redraw();
+	void scrollChanged(int);
+
+	void GotoDisAsm();
+	void CopyValue();
+	void Change();
+	void GotoMemory();
+
 private:
+	int yToIndex(int y);
 
 	int rowHeight;
 	int selection;
@@ -43,10 +65,13 @@ private:
 	bool hasFocus;
 	bool showHex;
 	DebugInterface *cpu;
+	int curVertOffset;
 
 	u32 lastPC;
 	u32 *lastCat0Values;
 	bool *changedCat0Regs;
+
+	Debugger_Disasm* parentWindow;
 };
 
 #endif // CTRLREGISTERLIST_H
