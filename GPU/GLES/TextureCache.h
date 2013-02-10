@@ -45,11 +45,21 @@ public:
 private:
 	
 	struct TexCacheEntry {
+		enum Status {
+			STATUS_HASHING,
+			STATUS_RELIABLE,  // cache, don't hash
+			STATUS_UNRELIABLE,  // never cache
+		};
+
+		// Status, but int so we can zero initialize.
+		int status;
 		u32 addr;
 		u32 hash;
 		FBO *fbo;  // if null, not sourced from an FBO.
 		u32 sizeInRAM;
-		int frameCounter;
+		int lastFrame;
+		int numFrames;
+		u32 framesUntilNextFullHash;
 		u8 format;
 		u8 clutformat;
 		u16 dim;
@@ -77,8 +87,6 @@ private:
 	TexCacheEntry *GetEntryAt(u32 texaddr);
 
 	typedef std::map<u64, TexCacheEntry> TexCache;
-
-	// TODO: Speed up by switching to ReadUnchecked*.
 	TexCache cache;
 
 	u32 *tmpTexBuf32;

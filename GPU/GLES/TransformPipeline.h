@@ -55,9 +55,10 @@ public:
 		numDCs = 0;
 		prim = -1;
 		numDraws = 0;
+		numFrames = 0;
 		lastFrame = gpuStats.numFrames;
 		numVerts = 0;
-		drawsUntilNextFullHash = 0;
+		framesUntilNextFullHash = 0;
 	}
 	~VertexArrayInfo();
 	enum Status {
@@ -84,8 +85,9 @@ public:
 	// ID information
 	u8 numDCs;
 	int numDraws;
+	int numFrames;
 	int lastFrame;  // So that we can forget.
-	u16 drawsUntilNextFullHash;
+	u16 framesUntilNextFullHash;
 };
 
 
