@@ -426,10 +426,13 @@ namespace MIPSComp
 		case 26: //div
 			{
 				gpr.FlushLockX(EDX);
+				// For CMP.
+				gpr.KillImmediate(rs, true, false);
 				gpr.KillImmediate(rt, true, false);
 				CMP(32, gpr.R(rt), Imm32(0));
 				FixupBranch divZero = J_CC(CC_E);
 
+				// INT_MAX / -1 would overflow.
 				CMP(32, gpr.R(rs), Imm32(0x80000000));
 				FixupBranch notOverflow = J_CC(CC_NE);
 				CMP(32, gpr.R(rt), Imm32((u32) -1));
