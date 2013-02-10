@@ -54,11 +54,11 @@ void DisassembleArm(const u8 *data, int size) {
 namespace MIPSComp
 {
 
-Jit::Jit(MIPSState *mips) : blocks(mips), gpr(mips), mips_(mips)
+Jit::Jit(MIPSState *mips) : blocks(mips), gpr(mips), fpr(mips),	 mips_(mips)
 { 
 	blocks.Init();
 	gpr.SetEmitter(this);
-	//fpr.SetEmitter(this);
+	fpr.SetEmitter(this);
 	AllocCodeSpace(1024 * 1024 * 16);  // 32MB is the absolute max because that's what an ARM branch instruction can reach, backwards and forwards.
 	GenerateFixedCode();
 }
@@ -66,7 +66,7 @@ Jit::Jit(MIPSState *mips) : blocks(mips), gpr(mips), mips_(mips)
 void Jit::FlushAll()
 {
 	gpr.FlushAll();
-	//fpr.Flush(FLUSH_ALL);
+	fpr.FlushAll();
 }
 
 void Jit::ClearCache()
@@ -148,6 +148,7 @@ const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 	MIPSAnalyst::AnalysisResults analysis; // = MIPSAnalyst::Analyze(em_address);
 
 	gpr.Start(analysis);
+	fpr.Start(analysis);
 
 	int numInstructions = 0;
 	int cycles = 0;

@@ -21,8 +21,8 @@
 
 #include "../MIPS.h"
 #include "../MIPSAnalyst.h"
-#include "ArmEmitter.h"
-#include "ArmRegCache.h"
+#include "Common/ArmEmitter.h"
+#include "Core/MIPS/ARM/ArmRegCache.h"
 
 using namespace ArmGen;
 
@@ -67,6 +67,7 @@ public:
 	// Returns an ARM register containing the requested MIPS register.
 	ARMReg MapReg(MIPSReg reg, int mapFlags = 0);
 	void MapInIn(MIPSReg rd, MIPSReg rs);
+	void MapDirty(MIPSReg rd);
 	void MapDirtyIn(MIPSReg rd, MIPSReg rs, bool avoidLoad = true);
 	void MapDirtyInIn(MIPSReg rd, MIPSReg rs, MIPSReg rt, bool avoidLoad = true);
 	void FlushArmReg(ARMReg r);
@@ -83,6 +84,9 @@ public:
 
 private:
 	int GetMipsRegOffset(MIPSReg r);
+	int GetMipsRegOffsetV(MIPSReg r) {
+		return GetMipsRegOffset(r + 32);
+	}
 	MIPSState *mips_;
 	ARMXEmitter *emit;
 	u32 compilerPC_;

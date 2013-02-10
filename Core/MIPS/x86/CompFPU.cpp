@@ -144,11 +144,70 @@ void Jit::Comp_FPULS(u32 op)
 	}
 }
 
+static const u64 GC_ALIGNED16(ssOneBits[2])	= {0x0000000100000001ULL, 0x0000000100000001ULL};
 static const u64 GC_ALIGNED16(ssSignBits2[2])	= {0x8000000080000000ULL, 0x8000000080000000ULL};
 static const u64 GC_ALIGNED16(ssNoSignMask[2]) = {0x7FFFFFFF7FFFFFFFULL, 0x7FFFFFFF7FFFFFFFULL};
 
+<<<<<<< Updated upstream
 void Jit::Comp_FPU2op(u32 op)
 {
+=======
+void Jit::Comp_FPUComp(u32 op) {
+	// TODO: Doesn't work yet.
+	DISABLE;
+
+	// TODO: Compile this more efficiently by combining with the following branch, which usually is there.
+	// In that case, probably want to use COMISS rather than CMPSS.
+	int fs = _FS;
+	int ft = _FT;
+	switch (op & 0xf)
+	{
+	case 0: //f
+	case 1: //un
+	case 8: //sf
+	case 9: //ngle
+		// cond = false;
+		MOV(32, M(&currentMIPS->fpcond), Imm32(0));
+		break;
+
+	case 2: //eq   // fs == ft
+	case 10: //seq
+	case 3: //ueq
+	case 11: //ngl
+		fpr.BindToRegister(fs, true, false);
+		CMPSS(fpr.RX(fs), fpr.R(ft), 0);
+		ANDPS(fpr.RX(fs), M((void *)&ssOneBits));
+		MOVSS(M(&currentMIPS->fpcond), fpr.RX(fs));
+		break;
+
+	case 4: //olt    // fs < ft
+	case 5: //ult
+	case 12: //lt
+	case 13: //nge
+		fpr.BindToRegister(fs, true, false);
+		CMPSS(fpr.RX(fs), fpr.R(ft), 1);
+		ANDPS(fpr.RX(fs), M((void *)&ssOneBits));
+		MOVSS(M(&currentMIPS->fpcond), fpr.RX(fs));
+		break;
+
+	case 6: //ole    // fs >= ft  (ft < fs)
+	case 7: //ule
+	case 14: //le
+	case 15: //ngt
+		fpr.BindToRegister(ft, true, false);
+		CMPSS(fpr.RX(ft), fpr.R(fs), 1);
+		ANDPS(fpr.RX(ft), M((void *)&ssOneBits));
+		MOVSS(M(&currentMIPS->fpcond), fpr.RX(ft));
+		break;
+
+	default:
+		_dbg_assert_msg_(CPU,0,"Trying to interpret FPUComp instruction that can't be interpreted");
+		break;
+	}
+}
+
+void Jit::Comp_FPU2op(u32 op) {
+>>>>>>> Stashed changes
 	CONDITIONAL_DISABLE;
 	
 	int fs = _FS;

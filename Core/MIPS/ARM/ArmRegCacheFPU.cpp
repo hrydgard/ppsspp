@@ -64,7 +64,7 @@ ARMReg ArmRegCacheFPU::MapReg(MIPSReg mipsReg, int mapFlags) {
 		if (mapFlags & MAP_DIRTY) {
 			ar[mr[mipsReg].reg].isDirty = true;
 		}
-		return mr[mipsReg].reg;
+		return (ARMReg)(mr[mipsReg].reg + S0);
 	}
 
 	// Okay, not mapped, so we need to allocate an ARM register.
@@ -86,8 +86,8 @@ allocate:
 			}
 			ar[reg].mipsReg = mipsReg;
 			mr[mipsReg].loc = ML_ARMREG;
-			mr[mipsReg].reg = (ARMReg)reg;
-			return (ARMReg)reg;
+			mr[mipsReg].reg = reg;
+			return (ARMReg)(reg + S0);
 		}
 	}
 
@@ -96,7 +96,7 @@ allocate:
 	// TODO: Spill dirty regs first? or opposite?
 	int bestToSpill = -1;
 	for (int i = 0; i < allocCount; i++) {
-		int reg = allocOrder[i];
+		int reg = allocOrder[i] - S0;
 		if (ar[reg].mipsReg != -1 && mr[ar[reg].mipsReg].spillLock)
 			continue;
 		bestToSpill = reg;
@@ -139,38 +139,39 @@ void ArmRegCacheFPU::MapDirtyInIn(MIPSReg rd, MIPSReg rs, MIPSReg rt, bool avoid
 }
 
 void ArmRegCacheFPU::FlushArmReg(ARMReg r) {
-	if (ar[r - S0].mipsReg == -1) {
+	int reg = r - S0;
+	if (ar[reg].mipsReg == -1) {
 		// Nothing to do, reg not mapped.
 		return;
 	}
-	if (ar[r - S0].mipsReg != -1) {
-		if (ar[r - S0].isDirty && mr[ar[r - S0].mipsReg].loc == ML_ARMREG)
-			emit->VSTR(CTXREG, r, GetMipsRegOffset(ar[r - S0].mipsReg));
+	if (ar[reg].mipsReg != -1) {
+		if (ar[reg].isDirty && mr[ar[reg].mipsReg].loc == ML_ARMREG)
+			emit->VSTR(CTXREG, r, GetMipsRegOffset(ar[reg].mipsReg));
 		// IMMs won't be in an ARM reg.
-		mr[ar[r - S0].mipsReg].loc = ML_MEM;
-		mr[ar[r - S0].mipsReg].reg = INVALID_REG;
-		mr[ar[r - S0].mipsReg].imm = 0;
+		mr[ar[reg].mipsReg].loc = ML_MEM;
+		mr[ar[reg].mipsReg].reg = INVALID_REG;
+		mr[ar[reg].mipsReg].imm = 0;
 	} else {
 		ERROR_LOG(HLE, "Dirty but no mipsreg?");
 	}
-	ar[r].isDirty = false;
-	ar[r].mipsReg = -1;
+	ar[reg].isDirty = false;
+	ar[reg].mipsReg = -1;
 }
 
 void ArmRegCacheFPU::FlushMipsReg(MIPSReg r) {
 	switch (mr[r].loc) {
 	case ML_IMM:
 		// IMM is always "dirty".
-		emit->MOVI2R(R0, mr[r].imm);
-		emit->STR(CTXREG, R0, GetMipsRegOffset(r));
+		// IMM is not allowed for FP (yet).
+		ERROR_LOG(HLE, "Imm in FP register?");
 		break;
 
 	case ML_ARMREG:
-		if (mr[r].reg == INVALID_REG) {
+		if (mr[r].reg == (int)INVALID_REG) {
 			ERROR_LOG(HLE, "FlushMipsReg: MipsReg had bad ArmReg");
 		}
 		if (ar[mr[r].reg].isDirty) {
-			emit->STR(CTXREG, mr[r].reg, GetMipsRegOffset(r));
+			emit->VSTR(CTXREG, (ARMReg)(mr[r].reg + S0), GetMipsRegOffset(r));
 			ar[mr[r].reg].isDirty = false;
 		}
 		ar[mr[r].reg].mipsReg = -1;
@@ -185,7 +186,7 @@ void ArmRegCacheFPU::FlushMipsReg(MIPSReg r) {
 		break;
 	}
 	mr[r].loc = ML_MEM;
-	mr[r].reg = INVALID_REG;
+	mr[r].reg = (int)INVALID_REG;
 	mr[r].imm = 0;
 }
 
@@ -249,7 +250,7 @@ void ArmRegCacheFPU::ReleaseSpillLocks() {
 
 ARMReg ArmRegCacheFPU::R(int mipsReg) {
 	if (mr[mipsReg].loc == ML_ARMREG) {
-		return mr[mipsReg].reg;
+		return (ARMReg)(mr[mipsReg].reg + S0);
 	} else {
 		ERROR_LOG(JIT, "Reg %i not in arm reg. compilerPC = %08x", mipsReg, compilerPC_);
 		return INVALID_REG;  // BAAAD

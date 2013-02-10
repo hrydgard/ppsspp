@@ -617,6 +617,7 @@ ARMReg ARMXEmitter::SubBase(ARMReg Reg)
 	}
 	return Reg;
 }
+
 // NEON Specific
 void ARMXEmitter::VADD(IntegerSize Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
 {
@@ -646,7 +647,6 @@ void ARMXEmitter::VSUB(IntegerSize Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
 	Write32((0xF3 << 24) | ((Vd & 0x10) << 18) | (Size << 20) | ((Vn & 0xF) << 16) \
 		| ((Vd & 0xF) << 12) | (0x8 << 8) | ((Vn & 0x10) << 3) | (1 << 6) \
 		| ((Vm & 0x10) << 2) | (Vm & 0xF)); 
-
 }
 
 // VFP Specific
@@ -655,7 +655,7 @@ void ARMXEmitter::VLDR(ARMReg Dest, ARMReg Base, Operand2 op)
 {
 	_assert_msg_(DYNA_REC, Dest >= S0 && Dest <= D31, "Passed Invalid dest register to VLDR"); 
 	_assert_msg_(DYNA_REC, Base <= R15, "Passed invalid Base register to VLDR");
-	_assert_msg_(DYNA_REC, !(op.Imm12() & 4), "Offset needs to be word aligned");
+	_assert_msg_(DYNA_REC, !(op.Imm12() & 4), "VLDR: Offset needs to be word aligned");
 	bool single_reg = Dest < D0;
 
 	Dest = SubBase(Dest);
@@ -676,7 +676,7 @@ void ARMXEmitter::VSTR(ARMReg Src, ARMReg Base, Operand2 op)
 {
 	_assert_msg_(DYNA_REC, Src >= S0 && Src <= D31, "Passed invalid src register to VSTR");
 	_assert_msg_(DYNA_REC, Base <= R15, "Passed invalid base register to VSTR");
-	_assert_msg_(DYNA_REC, !(op.Imm12() & 4), "Offset needs to be word aligned");
+	_assert_msg_(DYNA_REC, !(op.Imm12() & 4), "VSTR: Offset needs to be word aligned");
 	bool single_reg = Src < D0;
 
 	Src = SubBase(Src);
@@ -774,6 +774,7 @@ void ARMXEmitter::VSQRT(ARMReg Vd, ARMReg Vm)
 			| ((Vd & 0xF) << 12) | (0x2F << 6) | ((Vm & 0x10) << 2) | (Vm & 0xF));
 	}
 }
+
 // VFP and ASIMD
 void ARMXEmitter::VADD(ARMReg Vd, ARMReg Vn, ARMReg Vm)
 {
@@ -842,6 +843,42 @@ void ARMXEmitter::VSUB(ARMReg Vd, ARMReg Vn, ARMReg Vm)
 			Write32((0xF2 << 24) | (1 << 21) | ((Vd & 0x10) << 18) | ((Vn & 0xF) << 16) \
 				| ((Vd & 0xF) << 12) | (0xD << 8) | ((Vn & 0x10) << 3) \
 				| (1 << 6) | ((Vm & 0x10) << 2) | (Vm & 0xF));
+		}
+	}
+}
+// VFP and ASIMD
+void ARMXEmitter::VMUL(ARMReg Vd, ARMReg Vn, ARMReg Vm)
+{
+	_assert_msg_(DYNA_REC, Vd >= S0, "Passed invalid dest register to VADD");
+	_assert_msg_(DYNA_REC, Vn >= S0, "Passed invalid Vn to VADD");
+	_assert_msg_(DYNA_REC, Vm >= S0, "Passed invalid Vm to VADD");
+	bool single_reg = Vd < D0;
+	bool double_reg = Vd < Q0;
+
+	Vd = SubBase(Vd);
+	Vn = SubBase(Vn);
+	Vm = SubBase(Vm);
+
+	if (single_reg)
+	{
+		Write32(NO_COND | (0x1C << 23) | ((Vd & 0x1) << 22) | (0x1 << 20) \
+			| ((Vn & 0x1E) << 15) | ((Vd & 0x1E) << 12) | (0x5 << 9) \
+			| ((Vn & 0x1) << 7) | ((Vm & 0x1) << 5) | (Vm >> 1));
+	}
+	else
+	{
+		if (double_reg)
+		{
+			Write32(NO_COND | (0x1C << 23) | ((Vd & 0x10) << 18) | (0x1 << 20) \
+				| ((Vn & 0xF) << 16) | ((Vd & 0xF) << 12) | (0xB << 8) \
+				| ((Vn & 0x10) << 3) | ((Vm & 0x10) << 2) | (Vm & 0xF));
+		}
+		else
+		{
+			_assert_msg_(DYNA_REC, cpu_info.bNEON, "Trying to use VADD with Quad Reg without support!");
+			//Write32((0xF2 << 24) | ((Vd & 0x10) << 18) | ((Vn & 0xF) << 16)
+			//		| ((Vd & 0xF) << 12) | (0xD << 8) | ((Vn & 0x10) << 3)
+			//	| (1 << 6) | ((Vm & 0x10) << 2) | (Vm & 0xF));
 		}
 	}
 }

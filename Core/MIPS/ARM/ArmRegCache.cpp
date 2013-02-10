@@ -50,7 +50,7 @@ static const ARMReg *GetMIPSAllocationOrder(int &count) {
 	// R8 is used to preserve flags in nasty branches.
 	// R9 and upwards are reserved for jit basics.
 	static const ARMReg allocationOrder[] = {
-		R2, R3, R4, R5, R6, R7
+		R12, R2, R3, R4, R5, R6, R7, 
 	};
 	count = sizeof(allocationOrder) / sizeof(const int);
 	return allocationOrder;
@@ -67,7 +67,7 @@ ARMReg ArmRegCache::MapReg(MIPSReg mipsReg, int mapFlags) {
 		if (mapFlags & MAP_DIRTY) {
 			ar[mr[mipsReg].reg].isDirty = true;
 		}
-		return mr[mipsReg].reg;
+		return (ARMReg)mr[mipsReg].reg;
 	}
 
 	// Okay, not mapped, so we need to allocate an ARM register.
@@ -189,11 +189,11 @@ void ArmRegCache::FlushMipsReg(MIPSReg r) {
 		break;
 
 	case ML_ARMREG:
-		if (mr[r].reg == INVALID_REG) {
+		if (mr[r].reg == (int)INVALID_REG) {
 			ERROR_LOG(HLE, "FlushMipsReg: MipsReg had bad ArmReg");
 		}
 		if (ar[mr[r].reg].isDirty) {
-			emit->STR(CTXREG, mr[r].reg, GetMipsRegOffset(r));
+			emit->STR(CTXREG, (ARMReg)mr[r].reg, GetMipsRegOffset(r));
 			ar[mr[r].reg].isDirty = false;
 		}
 		ar[mr[r].reg].mipsReg = -1;
@@ -274,7 +274,7 @@ void ArmRegCache::ReleaseSpillLocks() {
 
 ARMReg ArmRegCache::R(int mipsReg) {
 	if (mr[mipsReg].loc == ML_ARMREG) {
-		return mr[mipsReg].reg;
+		return (ARMReg)mr[mipsReg].reg;
 	} else {
 		ERROR_LOG(JIT, "Reg %i not in arm reg. compilerPC = %08x", mipsReg, compilerPC_);
 		return INVALID_REG;  // BAAAD

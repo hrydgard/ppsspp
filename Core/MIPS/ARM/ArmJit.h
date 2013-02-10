@@ -21,6 +21,7 @@
 
 #include "ArmJitCache.h"
 #include "ArmRegCache.h"
+#include "ArmRegCacheFPU.h"
 #include "ArmAsm.h"
 
 namespace MIPSComp
@@ -139,7 +140,6 @@ private:
 	void CompShiftImm(u32 op, void (ARMXEmitter::*shift)(int, OpArg, OpArg));
 	void CompShiftVar(u32 op, void (XEmitter::*shift)(int, OpArg, OpArg));
 
-	void CompFPTriArith(u32 op, void (XEmitter::*arith)(X64Reg reg, OpArg), bool orderMatters);
 	*/
 
 	// Utils
@@ -150,7 +150,7 @@ private:
 	ArmJitState js;
 
 	ArmRegCache gpr;
-	// FPURegCache fpr;
+	ArmRegCacheFPU fpr;
 
 	MIPSState *mips_;
 

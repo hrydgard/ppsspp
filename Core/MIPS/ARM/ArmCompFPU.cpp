@@ -28,46 +28,26 @@
 #define _POS	((op>>6 ) & 0x1F)
 #define _SIZE ((op>>11 ) & 0x1F)
 
-#define OLDD Comp_Generic(op); return;
+#define DISABLE Comp_Generic(op); return;
+#define CONDITIONAL_DISABLE ; 
 
 namespace MIPSComp
 {
-	/*
-void Jit::CompFPTriArith(u32 op, void (XEmitter::*arith)(X64Reg reg, OpArg), bool orderMatters)
-{
-	int ft = _FT;
-	int fs = _FS;
-	int fd = _FD;
-	fpr.Lock(ft, fs, fd);
-
-	if (false && fs == fd) 
-	{
-		fpr.BindToRegister(fd, true, true);
-		(this->*arith)(fpr.RX(fd), fpr.R(ft));
-	}
-	else 
-	{
-		MOVSS(XMM0, fpr.R(fs));
-		MOVSS(XMM1, fpr.R(ft));
-		fpr.BindToRegister(fd, true, true);
-		(this->*arith)(XMM0, R(XMM1));
-		MOVSS(fpr.RX(fd), R(XMM0));
-	}
-	fpr.UnlockAll();
-}
-*/
-
-
 
 void Jit::Comp_FPU3op(u32 op)
 { 
-	OLDD
+	DISABLE
+
+	int ft = _FT;
+	int fs = _FS;
+	int fd = _FD;
+	fpr.MapDirtyInIn(fd, fs, ft);
 	switch (op & 0x3f) 
 	{
-	//case 0: CompFPTriArith(op, &XEmitter::ADDSS, false); break; //F(fd) = F(fs) + F(ft); //add
-	//case 1: CompFPTriArith(op, &XEmitter::SUBSS, true); break; //F(fd) = F(fs) - F(ft); //sub
-	//case 2: CompFPTriArith(op, &XEmitter::MULSS, false); break; //F(fd) = F(fs) * F(ft); //mul
-	//case 3: CompFPTriArith(op, &XEmitter::DIVSS, true); break; //F(fd) = F(fs) / F(ft); //div
+	case 0: VADD(fpr.R(fd), fpr.R(fs), fpr.R(fd)); break; //F(fd) = F(fs) + F(ft); //add
+	case 1: VSUB(fpr.R(fd), fpr.R(fs), fpr.R(fd)); break; //F(fd) = F(fs) - F(ft); //sub
+	case 2: VMUL(fpr.R(fd), fpr.R(fs), fpr.R(fd)); break; //F(fd) = F(fs) * F(ft); //mul
+	case 3: VDIV(fpr.R(fd), fpr.R(fs), fpr.R(fd)); break; //F(fd) = F(fs) / F(ft); //div
 	default:
 		Comp_Generic(op);
 		return;
@@ -76,7 +56,7 @@ void Jit::Comp_FPU3op(u32 op)
 
 void Jit::Comp_FPULS(u32 op)
 {
-	OLDD
+	DISABLE
 
 	s32 offset = (s16)(op&0xFFFF);
 	int ft = ((op>>16)&0x1f);
@@ -85,28 +65,18 @@ void Jit::Comp_FPULS(u32 op)
 
 	switch(op >> 26)
 	{
-		/*
 	case 49: //FI(ft) = Memory::Read_U32(addr); break; //lwc1
-		gpr.Lock(rs);
-		fpr.Lock(ft);
-		fpr.BindToRegister(ft, false, true);
-		MOV(32, R(EAX), gpr.R(rs));
-		AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
-		MOVSS(fpr.RX(ft), MDisp(EAX, (u32)Memory::base + offset));
-		gpr.UnlockAll();
-		fpr.UnlockAll();
+		fpr.MapReg(ft, MAP_NOINIT | MAP_DIRTY);
+		SetR0ToEffectiveAddress(rs, offset);
+		VLDR(fpr.R(ft), R0, 0);
 		break;
+
 	case 57: //Memory::Write_U32(FI(ft), addr); break; //swc1
-		gpr.Lock(rs);
-		fpr.Lock(ft);
-		fpr.BindToRegister(ft, true, false);
-		MOV(32, R(EAX), gpr.R(rs));
-		AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
-		MOVSS(MDisp(EAX, (u32)Memory::base + offset), fpr.RX(ft));
-		gpr.UnlockAll();
-		fpr.UnlockAll();
+		fpr.MapReg(ft, 0);
+		SetR0ToEffectiveAddress(rs, offset);
+		VSTR(fpr.R(ft), R0, 0);
 		break;
-		*/
+
 	default:
 		Comp_Generic(op);
 		return;
@@ -115,43 +85,44 @@ void Jit::Comp_FPULS(u32 op)
 
 void Jit::Comp_FPU2op(u32 op)
 {
-	OLDD
+	DISABLE
+
 	int fs = _FS;
 	int fd = _FD;
 
 	switch (op & 0x3f) 
 	{
-		/*
+		/*	
 	case 5:	//F(fd)	= fabsf(F(fs)); break; //abs
 		fpr.Lock(fd, fs);
 		fpr.BindToRegister(fd, fd == fs, true);
-		MOVSS(fpr.RX(fd), fpr.R(fs));
-		PAND(fpr.RX(fd), M((void *)ssNoSignMask));
+		MOVSS(fpr.R(fd), fpr.R(fs));
+		PAND(fpr.R(fd), M((void *)ssNoSignMask));
 		fpr.UnlockAll();
 		break;
+		*/
+
+	case 4:	//F(fd)	= sqrtf(F(fs)); break; //sqrt
+		fpr.MapDirtyIn(fd, fs);
+		VSQRT(fpr.R(fd), fpr.R(fd));
+		return;
+
 
 	case 6:	//F(fd)	= F(fs);				break; //mov
-		if (fd != fs) {
-			fpr.Lock(fd, fs);
-			fpr.BindToRegister(fd, fd == fs, true);
-			MOVSS(fpr.RX(fd), fpr.R(fs));
-			fpr.UnlockAll();
-		}
+		fpr.MapDirtyIn(fd, fs);
+		VMOV(fpr.R(fd), fpr.R(fd));
 		break;
 
+		/*
 	case 7:	//F(fd)	= -F(fs);			 break; //neg
 		fpr.Lock(fd, fs);
 		fpr.BindToRegister(fd, fd == fs, true);
-		MOVSS(fpr.RX(fd), fpr.R(fs));
-		PXOR(fpr.RX(fd), M((void *)ssSignBits2));
+		MOVSS(fpr.R(fd), fpr.R(fs));
+		PXOR(fpr.R(fd), M((void *)ssSignBits2));
 		fpr.UnlockAll();
 		break;
 
 	case 12: //FsI(fd) = (int)floorf(F(fs)+0.5f); break; //round.w.s
-
-	case 4:	//F(fd)	= sqrtf(F(fs)); break; //sqrt
-		Comp_Generic(op);
-		return;
 
 	case 13: //FsI(fd) = F(fs)>=0 ? (int)floorf(F(fs)) : (int)ceilf(F(fs)); break;//trunc.w.s
 		fpr.Lock(fs, fd);
@@ -174,7 +145,7 @@ void Jit::Comp_FPU2op(u32 op)
 
 void Jit::Comp_mxc1(u32 op)
 {
-	OLDD
+	DISABLE
 	int fs = _FS;
 	int rt = _RT;
 
@@ -199,7 +170,7 @@ void Jit::Comp_mxc1(u32 op)
 		gpr.StoreFromRegister(rt);
 		fpr.Lock(fs);
 		fpr.BindToRegister(fs, false, true);
-		MOVSS(fpr.RX(fs), gpr.R(rt));
+		MOVSS(fpr.R(fs), gpr.R(rt));
 		fpr.UnlockAll();
 		return;
 		*/
