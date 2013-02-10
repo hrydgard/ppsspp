@@ -423,81 +423,111 @@ namespace MIPSComp
 			gpr.UnlockAllX();
 			break;
 
-
-		default:
-			DISABLE;	
-			/*
-			case 28: //madd
-			{
-				u32 a=R(rs),b=R(rt),hi=HI,lo=LO;
-				u64 origValBits = (u64)lo | ((u64)(hi)<<32);
-				s64 origVal = (s64)origValBits;
-				s64 result = origVal + (s64)(s32)a * (s64)(s32)b;
-				u64 resultBits = (u64)(result);
-				LO = (u32)(resultBits);
-				HI = (u32)(resultBits>>32);
-			}
-			break;
-		case 29: //maddu
-			{
-				u32 a=R(rs),b=R(rt),hi=HI,lo=LO;
-				u64 origVal = (u64)lo | ((u64)(hi)<<32);
-				u64 result = origVal + (u64)a * (u64)b;
-				LO = (u32)(result);
-				HI = (u32)(result>>32);
-			}
-			break;
-		case 46: //msub
-			{
-				u32 a=R(rs),b=R(rt),hi=HI,lo=LO;
-				u64 origValBits = (u64)lo | ((u64)(hi)<<32);
-				s64 origVal = (s64)origValBits;
-				s64 result = origVal - (s64)(s32)a * (s64)(s32)b;
-				u64 resultBits = (u64)(result);
-				LO = (u32)(resultBits);
-				HI = (u32)(resultBits>>32);
-			}
-			break;
-		case 47: //msubu
-			{
-				u32 a=R(rs),b=R(rt),hi=HI,lo=LO;
-				u64 origVal = (u64)lo | ((u64)(hi)<<32);
-				u64 result = origVal - (u64)a * (u64)b;
-				LO = (u32)(result);
-				HI = (u32)(result>>32);
-			}
-			break;
 		case 26: //div
 			{
-				s32 a = (s32)R(rs);
-				s32 b = (s32)R(rt);
-				if (a == (s32)0x80000000 && b == -1) {
-					LO = 0x80000000;
-				} else if (b != 0) {
-					LO = (u32)(a / b);
-					HI = (u32)(a % b);
-				} else {
-					LO = HI = 0;	// Not sure what the right thing to do is?
-				}
-			}
-			break;
-		case 27: //divu
-			{
-				u32 a = R(rs);
-				u32 b = R(rt);
-				if (b != 0) 
-				{
-					LO = (a/b);
-					HI = (a%b);
-				} else {
-					LO = HI = 0;
-				}
+				gpr.FlushLockX(EDX);
+				// For CMP.
+				gpr.KillImmediate(rs, true, false);
+				gpr.KillImmediate(rt, true, false);
+				CMP(32, gpr.R(rt), Imm32(0));
+				FixupBranch divZero = J_CC(CC_E);
+
+				// INT_MAX / -1 would overflow.
+				CMP(32, gpr.R(rs), Imm32(0x80000000));
+				FixupBranch notOverflow = J_CC(CC_NE);
+				CMP(32, gpr.R(rt), Imm32((u32) -1));
+				FixupBranch notOverflow2 = J_CC(CC_NE);
+				// TODO: Should HI be set to anything?
+				MOV(32, M((void *)&mips_->lo), Imm32(0x80000000));
+				FixupBranch skip2 = J();
+
+				SetJumpTarget(notOverflow);
+				SetJumpTarget(notOverflow2);
+
+				MOV(32, R(EAX), gpr.R(rs));
+				CDQ();
+				IDIV(32, gpr.R(rt));
+				MOV(32, M((void *)&mips_->hi), R(EDX));
+				MOV(32, M((void *)&mips_->lo), R(EAX));
+				FixupBranch skip = J();
+
+				SetJumpTarget(divZero);
+				// TODO: Is this the right way to handle a divide by zero?
+				MOV(32, M((void *)&mips_->hi), Imm32(0));
+				MOV(32, M((void *)&mips_->lo), Imm32(0));
+
+				SetJumpTarget(skip);
+				SetJumpTarget(skip2);
+				gpr.UnlockAllX();
 			}
 			break;
 
+		case 27: //divu
+			{
+				gpr.FlushLockX(EDX);
+				gpr.KillImmediate(rt, true, false);
+				CMP(32, gpr.R(rt), Imm32(0));
+				FixupBranch divZero = J_CC(CC_E);
+
+				MOV(32, R(EAX), gpr.R(rs));
+				MOV(32, R(EDX), Imm32(0));
+				DIV(32, gpr.R(rt));
+				MOV(32, M((void *)&mips_->hi), R(EDX));
+				MOV(32, M((void *)&mips_->lo), R(EAX));
+				FixupBranch skip = J();
+
+				SetJumpTarget(divZero);
+				// TODO: Is this the right way to handle a divide by zero?
+				MOV(32, M((void *)&mips_->hi), Imm32(0));
+				MOV(32, M((void *)&mips_->lo), Imm32(0));
+
+				SetJumpTarget(skip);
+				gpr.UnlockAllX();
+			}
+			break;
+
+		case 28: // madd
+			gpr.FlushLockX(EDX);
+			gpr.KillImmediate(rt, true, false);
+			MOV(32, R(EAX), gpr.R(rs));
+			IMUL(32, gpr.R(rt));
+			ADD(32, M((void *)&mips_->lo), R(EAX));
+			ADC(32, M((void *)&mips_->hi), R(EDX));
+			gpr.UnlockAllX();
+			break;
+
+		case 29: // maddu
+			gpr.FlushLockX(EDX);
+			gpr.KillImmediate(rt, true, false);
+			MOV(32, R(EAX), gpr.R(rs));
+			MUL(32, gpr.R(rt));
+			ADD(32, M((void *)&mips_->lo), R(EAX));
+			ADC(32, M((void *)&mips_->hi), R(EDX));
+			gpr.UnlockAllX();
+			break;
+
+		case 46: // msub
+			gpr.FlushLockX(EDX);
+			gpr.KillImmediate(rt, true, false);
+			MOV(32, R(EAX), gpr.R(rs));
+			IMUL(32, gpr.R(rt));
+			SUB(32, M((void *)&mips_->lo), R(EAX));
+			SBB(32, M((void *)&mips_->hi), R(EDX));
+			gpr.UnlockAllX();
+			break;
+
+		case 47: // msubu
+			gpr.FlushLockX(EDX);
+			gpr.KillImmediate(rt, true, false);
+			MOV(32, R(EAX), gpr.R(rs));
+			MUL(32, gpr.R(rt));
+			SUB(32, M((void *)&mips_->lo), R(EAX));
+			SBB(32, M((void *)&mips_->hi), R(EDX));
+			gpr.UnlockAllX();
+			break;
+
 		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
-			break;*/
+			DISABLE;
 		}
 	}
 }
