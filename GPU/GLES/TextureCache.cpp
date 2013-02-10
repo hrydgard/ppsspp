@@ -89,6 +89,9 @@ void TextureCache::Invalidate(u32 addr, int size, bool force) {
 		invalidate = invalidate || (iter->second.clutaddr >= addr && iter->second.clutaddr < addr_end);
 
 		if (invalidate) {
+			if (iter->second.status == TexCacheEntry::STATUS_RELIABLE) {
+				iter->second.status = TexCacheEntry::STATUS_HASHING;
+			}
 			if (force) {
 				gpuStats.numTextureInvalidations++;
 				glDeleteTextures(1, &iter->second.texture);
@@ -715,15 +718,16 @@ void TextureCache::SetTexture() {
 	int bufw = gstate.texbufwidth[0] & 0x3ff;
 
 	TexCache::iterator iter = cache.find(cachekey);
+	TexCacheEntry *entry = NULL;
 	if (iter != cache.end()) {
-		TexCacheEntry &entry = iter->second;
+		entry = &iter->second;
 		// Check for FBO - slow!
-		if (entry.fbo) {
-			fbo_bind_color_as_texture(entry.fbo, 0);
-			UpdateSamplingParams(entry, false);
+		if (entry->fbo) {
+			fbo_bind_color_as_texture(entry->fbo, 0);
+			UpdateSamplingParams(*entry, false);
 
 			int fbow, fboh;
-			fbo_get_dimensions(entry.fbo, &fbow, &fboh);
+			fbo_get_dimensions(entry->fbo, &fbow, &fboh);
 
 			// Almost certain this isn't right.
 			gstate_c.curTextureWidth = fbow;
@@ -735,96 +739,103 @@ void TextureCache::SetTexture() {
 
 		int dim = gstate.texsize[0] & 0xF0F;
 		bool match = true;
+		bool rehash = entry->status == TexCacheEntry::STATUS_UNRELIABLE;
 		
 		//TODO: Check more texture parameters, compute real texture hash
-		if (dim != entry.dim || entry.hash != texhash || entry.format != format)
+		if (dim != entry->dim || entry->hash != texhash || entry->format != format)
 			match = false;
 
 		//TODO: Check more clut parameters, compute clut hash
 		if (match && (format >= GE_TFMT_CLUT4 && format <= GE_TFMT_CLUT32) &&
-			 (entry.clutformat != clutformat ||
-				entry.clutaddr != clutaddr ||
-				entry.cluthash != Memory::Read_U32(entry.clutaddr))) 
+			 (entry->clutformat != clutformat ||
+				entry->clutaddr != clutaddr ||
+				entry->cluthash != Memory::Read_U32(entry->clutaddr))) 
 			match = false;
 
-		if (entry.maxLevel != maxLevel)
+		if (entry->maxLevel != maxLevel)
 			match = false;
 
 		if (match) {
-			if (entry.lastFrame != gpuStats.numFrames) {
-				entry.numFrames++;
+			if (entry->lastFrame != gpuStats.numFrames) {
+				entry->numFrames++;
 			}
-			if (entry.framesUntilNextFullHash == 0) {
-				entry.invalidHint = 360;
+			if (entry->framesUntilNextFullHash == 0) {
 				// Exponential backoff up to 2048 frames.  Textures are often reused.
-				entry.framesUntilNextFullHash = std::min(2048, entry.numFrames);
+				entry->framesUntilNextFullHash = std::min(2048, entry->numFrames);
+				rehash = true;
 			} else {
-				--entry.framesUntilNextFullHash;
+				--entry->framesUntilNextFullHash;
 			}
 		}
 
 		// If it's not huge or has been invalidated many times, recheck the whole texture.
-		if (entry.invalidHint > 180 || (entry.invalidHint > 15 && dim <= 0x909)) {
-			entry.invalidHint = 0;
+		if (entry->invalidHint > 180 || (entry->invalidHint > 15 && dim <= 0x909)) {
+			entry->invalidHint = 0;
+			rehash = true;
+		}
 
+		if (rehash && entry->status != TexCacheEntry::STATUS_RELIABLE) {
 			u32 check = QuickTexHash(texaddr, bufw, w, h, format);
-			if (check != entry.fullhash) {
+			if (check != entry->fullhash) {
 				match = false;
+				entry->status = TexCacheEntry::STATUS_UNRELIABLE;
 			}
 		}
 
 		if (match) {
+			// TODO: Mark the entry reliable if it's been safe for long enough?
 			//got one!
-			entry.lastFrame = gpuStats.numFrames;
-			if (entry.texture != lastBoundTexture) {
-				glBindTexture(GL_TEXTURE_2D, entry.texture);
-				lastBoundTexture = entry.texture;
+			entry->lastFrame = gpuStats.numFrames;
+			if (entry->texture != lastBoundTexture) {
+				glBindTexture(GL_TEXTURE_2D, entry->texture);
+				lastBoundTexture = entry->texture;
 			}
-			UpdateSamplingParams(entry, false);
+			UpdateSamplingParams(*entry, false);
 			DEBUG_LOG(G3D, "Texture at %08x Found in Cache, applying", texaddr);
 			return; //Done!
 		} else {
 			INFO_LOG(G3D, "Texture different or overwritten, reloading at %08x", texaddr);
-			glDeleteTextures(1, &entry.texture);
-			cache.erase(iter);
+			glDeleteTextures(1, &entry->texture);
 		}
 	} else {
 		INFO_LOG(G3D,"No texture in cache, decoding...");
+		TexCacheEntry entryNew = {0};
+		cache[cachekey] = entryNew;
+		entry = &cache[cachekey];
 	}
 
 	//we have to decode it
-
-	TexCacheEntry entry = {0};
-	entry.addr = texaddr;
-	entry.hash = texhash;
-	entry.format = format;
-	entry.lastFrame = gpuStats.numFrames;
-	entry.fbo = 0;
-	entry.maxLevel = maxLevel;
-	entry.lodBias = 0.0f;
+	entry->status = TexCacheEntry::STATUS_HASHING;
+	entry->addr = texaddr;
+	entry->hash = texhash;
+	entry->format = format;
+	entry->lastFrame = gpuStats.numFrames;
+	entry->fbo = 0;
+	entry->maxLevel = maxLevel;
+	entry->lodBias = 0.0f;
 
 	if (format >= GE_TFMT_CLUT4 && format <= GE_TFMT_CLUT32) {
-		entry.clutformat = clutformat;
-		entry.clutaddr = GetClutAddr(clutformat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2);
-		entry.cluthash = Memory::Read_U32(entry.clutaddr);
+		entry->clutformat = clutformat;
+		entry->clutaddr = GetClutAddr(clutformat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2);
+		entry->cluthash = Memory::Read_U32(entry->clutaddr);
 	} else {
-		entry.clutaddr = 0;
+		entry->clutaddr = 0;
 	}
 
 	
-	entry.dim = gstate.texsize[0] & 0xF0F;
+	entry->dim = gstate.texsize[0] & 0xF0F;
 
 	// This would overestimate the size in many case so we underestimate instead
 	// to avoid excessive clearing caused by cache invalidations.
-	entry.sizeInRAM = (bitsPerPixel[format < 11 ? format : 0] * bufw * h / 2) / 8;
+	entry->sizeInRAM = (bitsPerPixel[format < 11 ? format : 0] * bufw * h / 2) / 8;
 
-	entry.fullhash = QuickTexHash(texaddr, bufw, w, h, format);
+	entry->fullhash = QuickTexHash(texaddr, bufw, w, h, format);
 
 	gstate_c.curTextureWidth = w;
 	gstate_c.curTextureHeight = h;
 
-	glGenTextures(1, &entry.texture);
-	glBindTexture(GL_TEXTURE_2D, entry.texture);
+	glGenTextures(1, &entry->texture);
+	glBindTexture(GL_TEXTURE_2D, entry->texture);
 	
 #ifdef USING_GLES2
 	// GLES2 doesn't have support for a "Max lod" which is critical as PSP games often
@@ -839,22 +850,20 @@ void TextureCache::SetTexture() {
 	if (entry.maxLevel > 0)
 		glGenerateMipmap(GL_TEXTURE_2D);
 #else
-	for (int i = 0; i <= entry.maxLevel; i++) {
-		LoadTextureLevel(entry, i);
+	for (int i = 0; i <= entry->maxLevel; i++) {
+		LoadTextureLevel(*entry, i);
 	}
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, entry.maxLevel);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, entry->maxLevel);
 #endif
-	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)entry.maxLevel);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)entry->maxLevel);
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, 4.0);
 
-	UpdateSamplingParams(entry, true);
+	UpdateSamplingParams(*entry, true);
 
 	//glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 	//glPixelStorei(GL_PACK_ROW_LENGTH, 0);
 	glPixelStorei(GL_PACK_ALIGNMENT, 1);
-
-	cache[cachekey] = entry;
 }
 
 
