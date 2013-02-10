@@ -1157,6 +1157,10 @@ u32 __KernelDeleteThread(SceUID threadID, int exitStatus, const char *reason, bo
 }
 
 Thread *__KernelNextThread() {
+	// If the current thread is running, it's a valid candidate.
+	if (__GetCurrentThread() && __GetCurrentThread()->isRunning())
+		__KernelChangeReadyState(currentThread, true);
+
 	SceUID bestThread = -1;
 	// This goes in priority order.
 	for (auto it = threadReadyQueue.begin(), end = threadReadyQueue.end(); it != end; ++it)
@@ -1198,10 +1202,6 @@ void __KernelReSchedule(const char *reason)
 		reason = "In Interrupt Or Callback";
 		return;
 	}
-
-	// TODO: Not sure if this is correct?  Probably should remove.
-	if (__GetCurrentThread() && __GetCurrentThread()->isRunning())
-		__KernelChangeReadyState(currentThread, true);
 
 retry:
 	Thread *nextThread = __KernelNextThread();
@@ -2289,6 +2289,7 @@ void __KernelSwitchContext(Thread *target, const char *reason)
 		if (DEBUG_LEVEL <= MAX_LOGLEVEL)
 			oldName = cur->GetName();
 
+		// Normally this is taken care of in __KernelNextThread().
 		if (cur->isRunning())
 			__KernelChangeReadyState(cur, oldUID, true);
 	}
