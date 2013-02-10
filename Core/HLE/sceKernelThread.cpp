@@ -446,7 +446,7 @@ int g_inCbCount = 0;
 // Normally, the same as currentThread.  In an interrupt, remembers the callback's thread id.
 SceUID currentCallbackThreadID = 0;
 int readyCallbacksCount = 0;
-SceUID currentThread = 0;
+SceUID currentThread;
 u32 idleThreadHackAddr;
 u32 threadReturnHackAddr;
 u32 cbReturnHackAddr;
@@ -556,6 +556,7 @@ void __KernelThreadingInit()
 
 	dispatchEnabled = true;
 
+	currentThread = 0;
 	g_inCbCount = 0;
 	currentCallbackThreadID = 0;
 	readyCallbacksCount = 0;
