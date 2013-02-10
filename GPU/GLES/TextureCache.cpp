@@ -79,7 +79,7 @@ void TextureCache::Invalidate(u32 addr, int size, bool force) {
 	addr &= 0xFFFFFFF;
 	u32 addr_end = addr + size;
 
-	for (TexCache::iterator iter = cache.begin(), end = cache.end(); iter != end; ) {
+	for (TexCache::iterator iter = cache.begin(), end = cache.end(); iter != end; ++iter) {
 		u32 texAddr = iter->second.addr;
 		u32 texEnd = iter->second.addr + iter->second.sizeInRAM;
 		// Clear if either the addr or clutaddr is in the range.
@@ -94,25 +94,16 @@ void TextureCache::Invalidate(u32 addr, int size, bool force) {
 			}
 			if (force) {
 				gpuStats.numTextureInvalidations++;
-				glDeleteTextures(1, &iter->second.texture);
-				cache.erase(iter++);
+				iter->second.status = TexCacheEntry::STATUS_UNRELIABLE;
 			} else {
 				iter->second.invalidHint++;
-				++iter;
 			}
 		}
-		else
-			++iter;
 	}
 }
 
 void TextureCache::InvalidateAll(bool force) {
-	if (force) {
-		gpuStats.numTextureInvalidations += 1000;
-		Clear(true);
-	}
-	else
-		Invalidate(0, 0xFFFFFFFF, force);
+	Invalidate(0, 0xFFFFFFFF, force);
 }
 
 TextureCache::TexCacheEntry *TextureCache::GetEntryAt(u32 texaddr) {
@@ -778,6 +769,7 @@ void TextureCache::SetTexture() {
 			u32 check = QuickTexHash(texaddr, bufw, w, h, format);
 			if (check != entry->fullhash) {
 				match = false;
+				gpuStats.numTextureInvalidations++;
 				entry->status = TexCacheEntry::STATUS_UNRELIABLE;
 			}
 		}
