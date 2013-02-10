@@ -451,7 +451,7 @@ u32 __sceSasConcatenateATRAC3(u32 core, int voice, u32 atrac3DataAddr, int atrac
 
 u32 __sceSasUnsetATRAC3(u32 core, int voice)
 {
-	ERROR_LOG(HLE,"UNIMPL __sceSasUnsetATRAC3(%08x, %i, %i)", core, voice);
+	ERROR_LOG(HLE, "UNIMPL __sceSasUnsetATRAC3(%08x, %i)", core, voice);
 	return 0;
 }
 const HLEFunction sceSasCore[] =
