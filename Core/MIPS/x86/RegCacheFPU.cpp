@@ -59,6 +59,10 @@ void FPURegCache::SpillLockV(int vec, VectorSize sz) {
 	SpillLockV(v, sz);
 }
 
+void FPURegCache::MapRegV(int vreg, int flags) {
+	BindToRegister(vreg + 32, (flags & MAP_NOINIT) == 0, (flags & MAP_DIRTY) != 0);
+}
+
 void FPURegCache::MapRegsV(int vec, VectorSize sz, int flags) {
 	u8 v[4];
 	GetVectorRegs(v, sz, vec);

@@ -569,4 +569,6 @@ void Jit::JitSafeMem::Finish()
 		jit_->SetJumpTarget(skip_);
 }
 
+void Jit::Comp_DoNothing(u32 op) { }
+
 } // namespace

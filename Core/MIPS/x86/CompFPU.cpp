@@ -147,8 +147,11 @@ void Jit::Comp_FPULS(u32 op)
 static const u64 GC_ALIGNED16(ssSignBits2[2])	= {0x8000000080000000ULL, 0x8000000080000000ULL};
 static const u64 GC_ALIGNED16(ssNoSignMask[2]) = {0x7FFFFFFF7FFFFFFFULL, 0x7FFFFFFF7FFFFFFFULL};
 
-void Jit::Comp_FPU2op(u32 op)
-{
+void Jit::Comp_FPUComp(u32 op) {
+	DISABLE;
+}
+
+void Jit::Comp_FPU2op(u32 op) {
 	CONDITIONAL_DISABLE;
 	
 	int fs = _FS;

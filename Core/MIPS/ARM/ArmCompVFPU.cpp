@@ -29,4 +29,14 @@ namespace MIPSComp
 	{
 		DISABLE;
 	}
+
+	void Jit::Comp_Mftv(u32 op)
+	{
+		DISABLE;
+	}
+
+	void Jit::Comp_SV(u32 op) {
+		DISABLE;
+	}
+
 }
