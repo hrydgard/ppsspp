@@ -423,6 +423,66 @@ namespace MIPSComp
 			gpr.UnlockAllX();
 			break;
 
+		case 26: //div
+			{
+				gpr.FlushLockX(EDX);
+				gpr.KillImmediate(rt, true, false);
+				CMP(32, gpr.R(rt), Imm32(0));
+				FixupBranch divZero = J_CC(CC_E);
+
+				CMP(32, gpr.R(rs), Imm32(0x80000000));
+				FixupBranch notOverflow = J_CC(CC_NE);
+				CMP(32, gpr.R(rt), Imm32((u32) -1));
+				FixupBranch notOverflow2 = J_CC(CC_NE);
+				// TODO: Should HI be set to anything?
+				MOV(32, M((void *)&mips_->lo), Imm32(0x80000000));
+				FixupBranch skip2 = J();
+
+				SetJumpTarget(notOverflow);
+				SetJumpTarget(notOverflow2);
+
+				MOV(32, R(EAX), gpr.R(rs));
+				CDQ();
+				IDIV(32, gpr.R(rt));
+				MOV(32, M((void *)&mips_->hi), R(EDX));
+				MOV(32, M((void *)&mips_->lo), R(EAX));
+				FixupBranch skip = J();
+
+				SetJumpTarget(divZero);
+				// TODO: Is this the right way to handle a divide by zero?
+				MOV(32, M((void *)&mips_->hi), Imm32(0));
+				MOV(32, M((void *)&mips_->lo), Imm32(0));
+
+				SetJumpTarget(skip);
+				SetJumpTarget(skip2);
+				gpr.UnlockAllX();
+			}
+			break;
+
+		case 27: //divu
+			{
+				gpr.FlushLockX(EDX);
+				gpr.KillImmediate(rt, true, false);
+				CMP(32, gpr.R(rt), Imm32(0));
+				FixupBranch divZero = J_CC(CC_E);
+
+				MOV(32, R(EAX), gpr.R(rs));
+				MOV(32, R(EDX), Imm32(0));
+				DIV(32, gpr.R(rt));
+				MOV(32, M((void *)&mips_->hi), R(EDX));
+				MOV(32, M((void *)&mips_->lo), R(EAX));
+				FixupBranch skip = J();
+
+				SetJumpTarget(divZero);
+				// TODO: Is this the right way to handle a divide by zero?
+				MOV(32, M((void *)&mips_->hi), Imm32(0));
+				MOV(32, M((void *)&mips_->lo), Imm32(0));
+
+				SetJumpTarget(skip);
+				gpr.UnlockAllX();
+			}
+			break;
+
 		case 28: // madd
 			gpr.FlushLockX(EDX);
 			gpr.KillImmediate(rt, true, false);
@@ -465,38 +525,6 @@ namespace MIPSComp
 
 		default:
 			DISABLE;
-			/*
-		case 26: //div
-			{
-				s32 a = (s32)R(rs);
-				s32 b = (s32)R(rt);
-				if (a == (s32)0x80000000 && b == -1) {
-					LO = 0x80000000;
-				} else if (b != 0) {
-					LO = (u32)(a / b);
-					HI = (u32)(a % b);
-				} else {
-					LO = HI = 0;	// Not sure what the right thing to do is?
-				}
-			}
-			break;
-		case 27: //divu
-			{
-				u32 a = R(rs);
-				u32 b = R(rt);
-				if (b != 0) 
-				{
-					LO = (a/b);
-					HI = (a%b);
-				} else {
-					LO = HI = 0;
-				}
-			}
-			break;
-
-		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
-			break;*/
 		}
 	}
 }
