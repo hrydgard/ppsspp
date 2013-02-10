@@ -8,14 +8,15 @@ class QtEmuGL;
 class EmuThread : public QThread
 {
 public:
-	EmuThread() : running(false), gameRunning(false), needInitGame(false), frames_(0) {}
+	EmuThread();
+	~EmuThread();
 	void init(InputState* inputState);
 	void run();
 	void FinalShutdown();
 	void setRunning(bool value);
 	void startGame(QString filename);
 	void stopGame();
-	QMutex gameMutex;
+	void LockGL(bool value);
 public slots:
 	void Shutdown();
 private:
@@ -24,6 +25,8 @@ private:
 	bool gameRunning;
 	bool needInitGame;
 	int frames_;
+	QMutex *gameMutex;
+	int mutexLockNum;
 
 };
 
@@ -32,3 +35,4 @@ void EmuThread_Stop();
 void EmuThread_StartGame(QString filename);
 void EmuThread_StopGame();
 void EmuThread_LockDraw(bool value);
+QString GetCurrentFilename();

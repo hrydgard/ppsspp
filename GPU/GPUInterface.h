@@ -35,6 +35,9 @@ enum DisplayListStatus
 struct DisplayList
 {
 	int id;
+#if defined(USING_QT_UI)
+	u32 startpc;
+#endif
 	u32 pc;
 	u32 stall;
 	DisplayListStatus status;
@@ -91,4 +94,6 @@ public:
 
 	// Debugging
 	virtual void DumpNextFrame() = 0;
+	virtual const std::deque<DisplayList>& GetDisplayLists() = 0;
+	virtual DisplayList* GetCurrentDisplayList() = 0;
 };

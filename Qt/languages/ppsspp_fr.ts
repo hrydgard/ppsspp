@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
-<TS version="2.0" language="en_US">
+<TS version="2.0" language="fr_FR">
 <context>
     <name>Controls</name>
     <message>
@@ -479,32 +479,32 @@
     <message>
         <location filename="../mainwindow.ui" line="20"/>
         <source>PPSSPP</source>
-        <translation type="unfinished"></translation>
+        <translation>PPSSPP</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="52"/>
         <source>&amp;File</source>
-        <translation type="unfinished"></translation>
+        <translation>&amp;Fichier</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="66"/>
         <source>&amp;Emulation</source>
-        <translation type="unfinished"></translation>
+        <translation>&amp;Emulation</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="81"/>
         <source>Debu&amp;g</source>
-        <translation type="unfinished"></translation>
+        <translation>Debu&amp;g</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="95"/>
         <source>&amp;Options</source>
-        <translation type="unfinished"></translation>
+        <translation>&amp;Options</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="99"/>
         <source>&amp;Log Levels</source>
-        <translation type="unfinished"></translation>
+        <translation>Niveaux de &amp;logs</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="103"/>
@@ -519,7 +519,7 @@
     <message>
         <location filename="../mainwindow.ui" line="121"/>
         <source>Default</source>
-        <translation type="unfinished"></translation>
+        <translation>Défaut</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="135"/>
@@ -529,22 +529,22 @@
     <message>
         <location filename="../mainwindow.ui" line="144"/>
         <source>Language</source>
-        <translation type="unfinished"></translation>
+        <translation>Langue</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="172"/>
         <source>&amp;Help</source>
-        <translation type="unfinished"></translation>
+        <translation>&amp;Aide</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="187"/>
         <source>&amp;Open...</source>
-        <translation type="unfinished"></translation>
+        <translation>&amp;Ouvrir...</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="192"/>
         <source>&amp;Close</source>
-        <translation type="unfinished"></translation>
+        <translation>&amp;Fermer</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="197"/>
@@ -584,7 +584,7 @@
     <message>
         <location filename="../mainwindow.ui" line="228"/>
         <source>E&amp;xit</source>
-        <translation type="unfinished"></translation>
+        <translation>&amp;Quitter</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="233"/>

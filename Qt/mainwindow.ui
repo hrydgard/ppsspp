@@ -70,6 +70,8 @@
     <addaction name="separator"/>
     <addaction name="action_EmulationReset"/>
     <addaction name="separator"/>
+    <addaction name="action_EmulationRunLoad"/>
+    <addaction name="separator"/>
     <addaction name="action_CPUInterpreter"/>
     <addaction name="action_CPUFastInterpreter"/>
     <addaction name="action_CPUDynarec"/>
@@ -81,6 +83,8 @@
     <addaction name="action_DebugLoadMapFile"/>
     <addaction name="action_DebugSaveMapFile"/>
     <addaction name="action_DebugResetSymbolTable"/>
+    <addaction name="separator"/>
+    <addaction name="action_DebugDumpFrame"/>
     <addaction name="separator"/>
     <addaction name="action_DebugDisassembly"/>
     <addaction name="action_DebugLog"/>
@@ -148,6 +152,7 @@
     <addaction name="action_OptionsHardwareTransform"/>
     <addaction name="action_OptionsLinearFiltering"/>
     <addaction name="action_OptionsUseVBO"/>
+    <addaction name="action_OptionsVertexCache"/>
     <addaction name="separator"/>
     <addaction name="action_OptionsWireframe"/>
     <addaction name="action_OptionsDisplayRawFramebuffer"/>
@@ -293,9 +298,6 @@
    </property>
   </action>
   <action name="action_DebugDisassembly">
-   <property name="enabled">
-    <bool>false</bool>
-   </property>
    <property name="text">
     <string>&amp;Disassembly</string>
    </property>
@@ -315,9 +317,6 @@
    </property>
   </action>
   <action name="action_DebugMemoryView">
-   <property name="enabled">
-    <bool>false</bool>
-   </property>
    <property name="text">
     <string>Memory &amp;View...</string>
    </property>
@@ -566,6 +565,26 @@
   <action name="action_OptionsGamePadControls">
    <property name="text">
     <string>GamePad Controls</string>
+   </property>
+  </action>
+  <action name="action_EmulationRunLoad">
+   <property name="text">
+    <string>&amp;Run on load</string>
+   </property>
+  </action>
+  <action name="action_DebugDumpFrame">
+   <property name="text">
+    <string>D&amp;ump next frame to log</string>
+   </property>
+  </action>
+  <action name="action_OptionsVertexCache">
+   <property name="text">
+    <string>&amp;Vertex Cache</string>
+   </property>
+  </action>
+  <action name="action_DebugMemoryViewTexture">
+   <property name="text">
+    <string>Memory View Texture...</string>
    </property>
   </action>
  </widget>
