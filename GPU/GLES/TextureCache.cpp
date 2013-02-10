@@ -622,10 +622,6 @@ void TextureCache::StartFrame() {
 	Decimate();
 }
 
-static inline u32 MiniHash(const u32 *ptr) {
-	return ptr[0];
-}
-
 static const u8 bitsPerPixel[11] = {
 	16,  //GE_TFMT_5650=16,
 	16,  //GE_TFMT_5551=16,
@@ -653,6 +649,27 @@ static const bool formatUsesClut[11] = {
 	false,
 	false,
 };
+
+static inline u32 MiniHash(const u32 *ptr) {
+	return ptr[0];
+}
+
+static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, u32 format) {
+	int pixToBytes = (bitsPerPixel[format < 11 ? format : 0] + 7) / 8;
+	int w32 = (w * pixToBytes + 3) / 4;
+	int pad32 = ((bufw * pixToBytes + 3) / 4) - w32;
+
+	const u32 *checkp = (const u32 *) Memory::GetPointer(addr);
+	u32 check = 0;
+	for (int y = 0; y < h; ++y) {
+		for (int x = 0; x < w32; ++x) {
+			check += *checkp++;
+		}
+		checkp += pad32;
+	}
+
+	return check;
+}
 
 void TextureCache::SetTexture() {
 	u32 texaddr = (gstate.texaddr[0] & 0xFFFFF0) | ((gstate.texbufwidth[0]<<8) & 0x0F000000);
@@ -695,6 +712,7 @@ void TextureCache::SetTexture() {
 
 	int w = 1 << (gstate.texsize[0] & 0xf);
 	int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
+	int bufw = gstate.texbufwidth[0] & 0x3ff;
 
 	TexCache::iterator iter = cache.find(cachekey);
 	if (iter != cache.end()) {
@@ -749,12 +767,7 @@ void TextureCache::SetTexture() {
 		if (entry.invalidHint > 180 || (entry.invalidHint > 15 && dim <= 0x909)) {
 			entry.invalidHint = 0;
 
-			u32 check = 0;
-			const u32 *checkp = (const u32 *) Memory::GetPointer(texaddr);
-			for (u32 i = 0; i < (entry.sizeInRAM * 2) / 4; ++i) {
-				check += *checkp++;
-			}
-
+			u32 check = QuickTexHash(texaddr, bufw, w, h, format);
 			if (check != entry.fullhash) {
 				match = false;
 			}
@@ -798,7 +811,6 @@ void TextureCache::SetTexture() {
 		entry.clutaddr = 0;
 	}
 
-	int bufw = gstate.texbufwidth[0] & 0x3ff;
 	
 	entry.dim = gstate.texsize[0] & 0xF0F;
 
@@ -806,9 +818,7 @@ void TextureCache::SetTexture() {
 	// to avoid excessive clearing caused by cache invalidations.
 	entry.sizeInRAM = (bitsPerPixel[format < 11 ? format : 0] * bufw * h / 2) / 8;
 
-	const u32 *checkp = (const u32 *) Memory::GetPointer(texaddr);
-	for (u32 i = 0; i < (entry.sizeInRAM * 2) / 4; ++i)
-		entry.fullhash += *checkp++;
+	entry.fullhash = QuickTexHash(texaddr, bufw, w, h, format);
 
 	gstate_c.curTextureWidth = w;
 	gstate_c.curTextureHeight = h;
