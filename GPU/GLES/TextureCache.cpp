@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <map>
+#include <algorithm>
 
 #include "../../Core/MemMap.h"
 #include "../ge_constants.h"
@@ -65,7 +66,7 @@ void TextureCache::Clear(bool delete_them) {
 void TextureCache::Decimate() {
 	glBindTexture(GL_TEXTURE_2D, 0);
 	for (TexCache::iterator iter = cache.begin(), end = cache.end(); iter != end; ) {
-		if (iter->second.frameCounter + TEXTURE_KILL_AGE < gpuStats.numFrames) {
+		if (iter->second.lastFrame + TEXTURE_KILL_AGE < gpuStats.numFrames) {
 			glDeleteTextures(1, &iter->second.texture);
 			cache.erase(iter++);
 		}
@@ -728,6 +729,22 @@ void TextureCache::SetTexture() {
 				entry.cluthash != Memory::Read_U32(entry.clutaddr))) 
 			match = false;
 
+		if (entry.maxLevel != maxLevel)
+			match = false;
+
+		if (match) {
+			if (entry.lastFrame != gpuStats.numFrames) {
+				entry.numFrames++;
+			}
+			if (entry.framesUntilNextFullHash == 0) {
+				entry.invalidHint = 360;
+				// Exponential backoff up to 2048 frames.  Textures are often reused.
+				entry.framesUntilNextFullHash = std::min(2048, entry.numFrames);
+			} else {
+				--entry.framesUntilNextFullHash;
+			}
+		}
+
 		// If it's not huge or has been invalidated many times, recheck the whole texture.
 		if (entry.invalidHint > 180 || (entry.invalidHint > 15 && dim <= 0x909)) {
 			entry.invalidHint = 0;
@@ -742,12 +759,10 @@ void TextureCache::SetTexture() {
 				match = false;
 			}
 		}
-		if (entry.maxLevel != maxLevel)
-			match = false;
 
 		if (match) {
 			//got one!
-			entry.frameCounter = gpuStats.numFrames;
+			entry.lastFrame = gpuStats.numFrames;
 			if (entry.texture != lastBoundTexture) {
 				glBindTexture(GL_TEXTURE_2D, entry.texture);
 				lastBoundTexture = entry.texture;
@@ -770,7 +785,7 @@ void TextureCache::SetTexture() {
 	entry.addr = texaddr;
 	entry.hash = texhash;
 	entry.format = format;
-	entry.frameCounter = gpuStats.numFrames;
+	entry.lastFrame = gpuStats.numFrames;
 	entry.fbo = 0;
 	entry.maxLevel = maxLevel;
 	entry.lodBias = 0.0f;

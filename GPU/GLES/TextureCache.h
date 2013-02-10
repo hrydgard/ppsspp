@@ -49,7 +49,9 @@ private:
 		u32 hash;
 		FBO *fbo;  // if null, not sourced from an FBO.
 		u32 sizeInRAM;
-		int frameCounter;
+		int lastFrame;
+		int numFrames;
+		u32 framesUntilNextFullHash;
 		u8 format;
 		u8 clutformat;
 		u16 dim;
