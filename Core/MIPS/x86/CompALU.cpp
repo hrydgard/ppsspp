@@ -423,50 +423,49 @@ namespace MIPSComp
 			gpr.UnlockAllX();
 			break;
 
+		case 28: // madd
+			gpr.FlushLockX(EDX);
+			gpr.KillImmediate(rt, true, false);
+			MOV(32, R(EAX), gpr.R(rs));
+			IMUL(32, gpr.R(rt));
+			ADD(32, M((void *)&mips_->lo), R(EAX));
+			ADC(32, M((void *)&mips_->hi), R(EDX));
+			gpr.UnlockAllX();
+			break;
+
+		case 29: // maddu
+			gpr.FlushLockX(EDX);
+			gpr.KillImmediate(rt, true, false);
+			MOV(32, R(EAX), gpr.R(rs));
+			MUL(32, gpr.R(rt));
+			ADD(32, M((void *)&mips_->lo), R(EAX));
+			ADC(32, M((void *)&mips_->hi), R(EDX));
+			gpr.UnlockAllX();
+			break;
+
+		case 46: // msub
+			gpr.FlushLockX(EDX);
+			gpr.KillImmediate(rt, true, false);
+			MOV(32, R(EAX), gpr.R(rs));
+			IMUL(32, gpr.R(rt));
+			SUB(32, M((void *)&mips_->lo), R(EAX));
+			SBB(32, M((void *)&mips_->hi), R(EDX));
+			gpr.UnlockAllX();
+			break;
+
+		case 47: // msubu
+			gpr.FlushLockX(EDX);
+			gpr.KillImmediate(rt, true, false);
+			MOV(32, R(EAX), gpr.R(rs));
+			MUL(32, gpr.R(rt));
+			SUB(32, M((void *)&mips_->lo), R(EAX));
+			SBB(32, M((void *)&mips_->hi), R(EDX));
+			gpr.UnlockAllX();
+			break;
 
 		default:
-			DISABLE;	
+			DISABLE;
 			/*
-			case 28: //madd
-			{
-				u32 a=R(rs),b=R(rt),hi=HI,lo=LO;
-				u64 origValBits = (u64)lo | ((u64)(hi)<<32);
-				s64 origVal = (s64)origValBits;
-				s64 result = origVal + (s64)(s32)a * (s64)(s32)b;
-				u64 resultBits = (u64)(result);
-				LO = (u32)(resultBits);
-				HI = (u32)(resultBits>>32);
-			}
-			break;
-		case 29: //maddu
-			{
-				u32 a=R(rs),b=R(rt),hi=HI,lo=LO;
-				u64 origVal = (u64)lo | ((u64)(hi)<<32);
-				u64 result = origVal + (u64)a * (u64)b;
-				LO = (u32)(result);
-				HI = (u32)(result>>32);
-			}
-			break;
-		case 46: //msub
-			{
-				u32 a=R(rs),b=R(rt),hi=HI,lo=LO;
-				u64 origValBits = (u64)lo | ((u64)(hi)<<32);
-				s64 origVal = (s64)origValBits;
-				s64 result = origVal - (s64)(s32)a * (s64)(s32)b;
-				u64 resultBits = (u64)(result);
-				LO = (u32)(resultBits);
-				HI = (u32)(resultBits>>32);
-			}
-			break;
-		case 47: //msubu
-			{
-				u32 a=R(rs),b=R(rt),hi=HI,lo=LO;
-				u64 origVal = (u64)lo | ((u64)(hi)<<32);
-				u64 result = origVal - (u64)a * (u64)b;
-				LO = (u32)(result);
-				HI = (u32)(result>>32);
-			}
-			break;
 		case 26: //div
 			{
 				s32 a = (s32)R(rs);
