@@ -788,16 +788,20 @@ void TextureCache::SetTexture() {
 		} else {
 			INFO_LOG(G3D, "Texture different or overwritten, reloading at %08x", texaddr);
 			glDeleteTextures(1, &entry->texture);
+			if (entry->status == TexCacheEntry::STATUS_RELIABLE) {
+				entry->status = TexCacheEntry::STATUS_HASHING;
+			}
 		}
 	} else {
 		INFO_LOG(G3D,"No texture in cache, decoding...");
 		TexCacheEntry entryNew = {0};
 		cache[cachekey] = entryNew;
+
 		entry = &cache[cachekey];
+		entry->status = TexCacheEntry::STATUS_HASHING;
 	}
 
 	//we have to decode it
-	entry->status = TexCacheEntry::STATUS_HASHING;
 	entry->addr = texaddr;
 	entry->hash = texhash;
 	entry->format = format;
