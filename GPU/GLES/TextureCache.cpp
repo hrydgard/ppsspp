@@ -390,9 +390,14 @@ static const GLuint MagFiltGL[2] = {
 	GL_LINEAR
 };
 
-// OpenGL ES 2.0 workaround. Let's see if this hackery works.
+// OpenGL ES 2.0 workaround. This SHOULD be available but is NOT in the headers in Android.
+// Let's see if this hackery works.
 #ifndef GL_TEXTURE_LOD_BIAS
 #define GL_TEXTURE_LOD_BIAS 0x8501
+#endif
+
+#ifndef GL_TEXTURE_MAX_LOD
+#define GL_TEXTURE_MAX_LOD 0x813B
 #endif
 
 // This should not have to be done per texture! OpenGL is silly yo
@@ -813,9 +818,9 @@ void TextureCache::SetTexture() {
 		LoadTextureLevel(entry, i);
 	}
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, entry.maxLevel);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, entry.maxLevel);
 #endif
-	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, 4);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)entry.maxLevel);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, 4.0);
 
 	UpdateSamplingParams(entry, true);
 

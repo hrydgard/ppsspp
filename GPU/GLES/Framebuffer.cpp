@@ -221,8 +221,8 @@ FramebufferManager::VirtualFramebuffer *FramebufferManager::GetDisplayFBO() {
 void GetViewportDimensions(int *w, int *h) {
 	float vpXa = getFloat24(gstate.viewportx1);
 	float vpYa = getFloat24(gstate.viewporty1);
-	*w = fabsf(vpXa * 2);
-	*h = fabsf(vpYa * 2);
+	*w = (int)fabsf(vpXa * 2);
+	*h = (int)fabsf(vpYa * 2);
 }
 
 void FramebufferManager::SetRenderFrameBuffer() {
@@ -284,8 +284,8 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		vfb->z_stride = z_stride;
 		vfb->width = drawing_width;
 		vfb->height = drawing_height;
-		vfb->renderWidth = drawing_width * renderWidthFactor;
-		vfb->renderHeight = drawing_height * renderHeightFactor;
+		vfb->renderWidth = (u16)(drawing_width * renderWidthFactor);
+		vfb->renderHeight = (u16)(drawing_height * renderHeightFactor);
 		vfb->format = fmt;
 
 		vfb->colorDepth = FBO_8888;
