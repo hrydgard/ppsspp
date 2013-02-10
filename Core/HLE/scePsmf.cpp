@@ -91,7 +91,7 @@ struct PsmfEntry {
 	int id;
 };
 
-int getMaxAheadTimestamp(int packets) {return max(40000, packets * 700);}
+int getMaxAheadTimestamp(int packets) {return std::max(40000, packets * 700);}
 
 class PsmfStream;
 
