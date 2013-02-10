@@ -30,9 +30,7 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head)
 {
 	DisplayList dl;
 	dl.id = dlIdGenerator++;
-#if defined(USING_QT_UI)
 	dl.startpc = listpc & 0xFFFFFFF;
-#endif
 	dl.pc = listpc & 0xFFFFFFF;
 	dl.stall = stall & 0xFFFFFFF;
 	dl.status = PSP_GE_LIST_QUEUED;
