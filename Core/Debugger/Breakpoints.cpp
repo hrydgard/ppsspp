@@ -143,3 +143,13 @@ void CBreakPoints::InvalidateJit()
 	if (MIPSComp::jit && coreState == CORE_STEPPING)
 		MIPSComp::jit->ClearCache();
 }
+
+int CBreakPoints::GetNumBreakpoints()
+{
+	return m_iBreakPoints.size();
+}
+
+int CBreakPoints::GetBreakpointAddress(int i)
+{
+	return m_iBreakPoints[i].iAddress;
+}

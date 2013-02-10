@@ -50,14 +50,7 @@ void QtEmuGL::stop_game()
 
 void QtEmuGL::LockDraw(bool value)
 {
-	if(value)
-	{
-		thread.gameMutex.lock();
-	}
-	else
-	{
-		thread.gameMutex.unlock();
-	}
+	thread.LockGL(value);
 }
 
 void QtEmuGL::resizeEvent(QResizeEvent *evt)
@@ -74,4 +67,9 @@ void QtEmuGL::closeEvent(QCloseEvent *evt)
 {
 	//TODO stopRendering();
 	QGLWidget::closeEvent(evt);
+}
+
+void QtEmuGL::mouseDoubleClickEvent(QMouseEvent *)
+{
+	emit doubleClick();
 }

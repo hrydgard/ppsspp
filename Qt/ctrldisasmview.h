@@ -1,10 +1,13 @@
 #ifndef CTRLDISASMVIEW_H
 #define CTRLDISASMVIEW_H
 
-#include <QTableWidget>
+#include <QWidget>
 #include "Core/Debugger/DebugInterface.h"
+#include "EmuThread.h"
 
-class CtrlDisAsmView : public QTableWidget
+class Debugger_Disasm;
+
+class CtrlDisAsmView : public QWidget
 {
 	Q_OBJECT
 public:
@@ -17,11 +20,18 @@ public:
 		align=l;
 	}
 
+	void setParentWindow(Debugger_Disasm* win)
+	{
+		parentWindow = win;
+	}
+
 	void setDebugger(DebugInterface *deb)
 	{
+		EmuThread_LockDraw(true);
 		debugger=deb;
 		curAddress=debugger->getPC();
 		align=debugger->getInstructionSize(0);
+		EmuThread_LockDraw(false);
 	}
 	DebugInterface *getDebugger()
 	{
@@ -34,7 +44,9 @@ public:
 	}
 	void gotoPC()
 	{
+		EmuThread_LockDraw(true);
 		curAddress=debugger->getPC()&(~(align-1));
+		EmuThread_LockDraw(false);
 		redraw();
 	}
 	unsigned int getSelection()
@@ -49,21 +61,38 @@ public:
 
 	void toggleBreakpoint()
 	{
+		EmuThread_LockDraw(true);
 		debugger->toggleBreakpoint(curAddress);
+		EmuThread_LockDraw(false);
 		redraw();
 	}
 
 	void contextMenu(const QPoint& pos);
-	void click(int row, int col);
+protected:
+	void paintEvent(QPaintEvent *);
+	void mousePressEvent(QMouseEvent *e);
+	void keyPressEvent(QKeyEvent *);
+	void wheelEvent(QWheelEvent *e);
 signals:
 	
 public slots:
+	void CopyAddress();
+	void CopyInstrDisAsm();
+	void SetNextStatement();
+	void FollowBranch();
+	void CopyInstrHex();
+	void RunToHere();
+	void ToggleBreakpoint();
+	void GoToMemoryView();
+	void RenameFunction();
 
 private:
+	int yToAddress(int y);
 
 	int curAddress;
 	int align;
 
+	int rowHeight;
 	int selection;
 	int marker;
 	int oldSelection;
@@ -73,6 +102,7 @@ private:
 	bool showHex;
 
 	DebugInterface *debugger;
+	Debugger_Disasm* parentWindow;
 	
 };
 

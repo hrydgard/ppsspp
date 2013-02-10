@@ -7,6 +7,7 @@
 #include "Core/Core.h"
 #include "input/input_state.h"
 #include "debugger_disasm.h"
+#include "debugger_memory.h"
 #include "controls.h"
 #include "gamepaddialog.h"
 
@@ -31,13 +32,17 @@ public:
 	void SetPlaying(QString text);
 
 	Debugger_Disasm* GetDialogDisasm() { return dialogDisasm; }
+	Debugger_Memory* GetDialogMemory() { return memoryWindow; }
 	CoreState GetNextState() { return nextState; }
 	void closeEvent(QCloseEvent *event);
 	void keyPressEvent(QKeyEvent *);
 	void keyReleaseEvent(QKeyEvent *e);
+	void ShowMemory(u32 addr);
+	void Update();
 public slots:
 
 	void Boot();
+	void CoreEmitWait(bool);
 
 private slots:
 	void on_action_FileLoad_triggered();
@@ -138,6 +143,16 @@ private slots:
 
 	void on_language_changed(QAction *action);
 
+	void on_action_EmulationReset_triggered();
+
+	void on_action_DebugDumpFrame_triggered();
+
+	void on_action_EmulationRunLoad_triggered();
+
+	void on_action_OptionsVertexCache_triggered();
+
+	void on_action_OptionsUseVBO_triggered();
+
 private:
 	void loadLanguage(const QString &language);
 	void createLanguageMenu();
@@ -156,6 +171,7 @@ private:
 	InputState input_state;
 
 	Debugger_Disasm *dialogDisasm;
+	Debugger_Memory *memoryWindow;
 	Controls* controls;
 	GamePadDialog* gamePadDlg;
 };

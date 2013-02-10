@@ -257,3 +257,16 @@ void __KernelChangeThreadState(Thread *thread, ThreadStatus newStatus);
 
 typedef void (*ThreadCallback)(SceUID threadID);
 void __KernelListenThreadEnd(ThreadCallback callback);
+
+struct DebugThreadInfo
+{
+	SceUID id;
+	char name[KERNELOBJECT_MAX_NAME_LENGTH+1];
+	u32 status;
+	int curPC;
+	int entrypoint;
+	bool isCurrent;
+};
+
+std::vector<DebugThreadInfo> GetThreadsInfo();
+void __KernelChangeThreadState(SceUID threadId, ThreadStatus newStatus);

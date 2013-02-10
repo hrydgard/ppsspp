@@ -52,6 +52,7 @@ public:
 	void SetSymbolName(int i, const char *newname);
 	u32 GetSymbolSize(int i);
 	u32 GetSymbolAddr(int i);
+	SymbolType GetSymbolType(int i);
 	int FindSymbol(const char *name);
 	u32	GetAddress(int num);
 	void IncreaseRunCount(int num);
@@ -60,7 +61,6 @@ public:
 
 	void UseFuncSignaturesFile(const char *filename, u32 maxAddress);
 	void CompileFuncSignaturesFile(const char *filename);
-
 
 private:
 	struct MapEntry
