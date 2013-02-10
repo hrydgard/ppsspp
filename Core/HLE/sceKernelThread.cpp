@@ -1609,6 +1609,9 @@ int sceKernelRotateThreadReadyQueue(int priority)
 	if (priority == 0)
 		priority = cur->nt.currentPriority;
 
+	if (priority <= 0x07 || priority > 0x77)
+		return SCE_KERNEL_ERROR_ILLEGAL_PRIORITY;
+
 	if (!threadReadyQueue[priority].empty())
 	{
 		// In other words, yield to everyone else.
