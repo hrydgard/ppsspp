@@ -178,80 +178,74 @@ ISOFileSystem::~ISOFileSystem()
 
 void ISOFileSystem::ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root)
 {
-	u8 buffer[2048];
-	int offset = 0;
-	u32 secnum = startsector;
-
-	u8 theSector[2048];
-	blockDevice->ReadBlock(secnum, theSector);
-
-	while (secnum < (dirsize/2048 + startsector))
+	for (u32 secnum = startsector, endsector = dirsize/2048 + startsector; secnum < endsector; ++secnum)
 	{
-		DirectoryEntry &dir = *((DirectoryEntry *)buffer);
-		u8 sz = theSector[offset];
-		if (sz == 0) // NOT the correct way
-			goto nextblock; //done
+		u8 theSector[2048];
+		blockDevice->ReadBlock(secnum, theSector);
 
-		memcpy(&dir, theSector + offset, sz);
-		
-		buffer[2047]=0;
-		offset += dir.size;
-		if (offset >= 2048)
+		for (int offset = 0; offset < 2048; )
 		{
-nextblock:
-			offset=0;
-			secnum++;
-			blockDevice->ReadBlock(secnum, theSector);
-			memcpy(&dir, theSector + offset, sz);
-		}
-		bool isFile = (dir.flags & 2) ? false : true;
+			DirectoryEntry &dir = *(DirectoryEntry *)&theSector[offset];
+			u8 sz = theSector[offset];
 
-		int fnLength = dir.identifierLength;
+			// Nothing left in this sector.  There might be more in the next one.
+			if (sz == 0)
+				break;
 
-		char name[256];
-		for (int i = 0; i < fnLength; i++)
-			name[i] = buffer[33+i] ? buffer[33+i] : '.';
-		name[fnLength] = '\0';
-
-		bool relative = false;
-
-		if (!strcmp(name, "."))	// "." record
-		{
-			relative = true;
-		}
-
-		if (strlen(name) == 1 && name[0] == '\x01')	 // ".." record
-		{
-			strcpy(name,"..");
-			relative = true;
-		}
-
-		TreeEntry *e = new TreeEntry;
-		e->name = name;
-		e->size = dir.dataLengthLE;
-		e->startingPosition = dir.firstDataSectorLE * 2048;
-		e->isDirectory = !isFile;
-		e->flags = dir.flags;
-		e->isBlockSectorMode = false;
-		e->parent = root;
-
-		// Let's not excessively spam the log - I commented this line out.
-		//DEBUG_LOG(FILESYS, "%s: %s %08x %08x %i", e->isDirectory?"D":"F", name, dir.firstDataSectorLE, e->startingPosition, e->startingPosition);
-
-		if (e->isDirectory && !relative)
-		{
-			if (dir.firstDataSectorLE == startsector)
+			const int IDENTIFIER_OFFSET = 33;
+			if (offset + IDENTIFIER_OFFSET + dir.identifierLength > 2048)
 			{
-				ERROR_LOG(FILESYS, "WARNING: Appear to have a recursive file system, breaking recursion");
+				ERROR_LOG(FILESYS, "Directory entry crosses sectors, corrupt iso?");
+				break;
+			}
+
+			offset += dir.size;
+
+			bool isFile = (dir.flags & 2) ? false : true;
+			bool relative;
+			int fnLength = dir.identifierLength;
+
+			TreeEntry *e = new TreeEntry();
+			if (dir.identifierLength == 1 && (dir.firstIdChar == '\x00' || dir.firstIdChar == '.'))
+			{
+				e->name = ".";
+				relative = true;
+			}
+			else if (dir.identifierLength == 1 && dir.firstIdChar == '\x01')
+			{
+				e->name = "..";
+				relative = true;
 			}
 			else
 			{
-				ReadDirectory(dir.firstDataSectorLE, dir.dataLengthLE, e);
+				e->name = std::string((char *)&dir.firstIdChar, dir.identifierLength);
+				relative = false;
 			}
-		}
-		root->children.push_back(e);
-	}
 
+			e->size = dir.dataLengthLE;
+			e->startingPosition = dir.firstDataSectorLE * 2048;
+			e->isDirectory = !isFile;
+			e->flags = dir.flags;
+			e->isBlockSectorMode = false;
+			e->parent = root;
+
+			// Let's not excessively spam the log - I commented this line out.
+			//DEBUG_LOG(FILESYS, "%s: %s %08x %08x %i", e->isDirectory?"D":"F", e->name.c_str(), dir.firstDataSectorLE, e->startingPosition, e->startingPosition);
+
+			if (e->isDirectory && !relative)
+			{
+				if (dir.firstDataSectorLE == startsector)
+				{
+					ERROR_LOG(FILESYS, "WARNING: Appear to have a recursive file system, breaking recursion");
+				}
+				else
+				{
+					ReadDirectory(dir.firstDataSectorLE, dir.dataLengthLE, e);
+				}
+			}
+			root->children.push_back(e);
+		}
+	}
 }
 
 ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(std::string path, bool catchError)

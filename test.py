@@ -109,6 +109,12 @@ tests_good = [
   "threads/semaphores/refer/refer",
   "threads/semaphores/signal/signal",
   "threads/semaphores/wait/wait",
+  "threads/vpl/vpl",
+  "threads/vpl/delete",
+  "threads/vpl/free",
+  "threads/vpl/priority",
+  "threads/vpl/refer",
+  "threads/vpl/try",
   "power/power",
   "umd/callbacks/umd",
   "umd/wait/wait",
@@ -124,11 +130,13 @@ tests_next = [
   "threads/msgpipe/msgpipe",
   "threads/scheduling/scheduling",
   "threads/threads/threads",
-  "threads/vpl/vpl",
   "threads/vtimers/vtimer",
+  "threads/vpl/allocate",
+  "threads/vpl/create",
   "threads/wakeup/wakeup",
   "gpu/simple/simple",
   "gpu/triangle/triangle",
+  "gpu/commands/basic",
   "hle/check_not_used_uids",
   "font/fonttest",
   "io/cwd/cwd",
@@ -233,6 +241,7 @@ def run_tests(test_list, args):
     if c.timeout:
       print(output)
       print("Test exceded limit of %d seconds." % TIMEOUT)
+      tests_failed.append(test)
       tcprint("##teamcity[testFailed name='%s' message='Test timeout']" % test)
       tcprint("##teamcity[testFinished name='%s']" % test)
       continue

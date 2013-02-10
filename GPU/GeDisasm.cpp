@@ -521,13 +521,13 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 	case GE_CMD_VIEWPORTZ1:
 		{
 			float zScale = getFloat24(data) / 65535.f;
-			sprintf(buffer, "Z scale: %f", zScale);
+			sprintf(buffer, "Viewport Z scale: %f", zScale);
 		}
 		break;
 	case GE_CMD_VIEWPORTZ2:
 		{
 			float zOff = getFloat24(data) / 65535.f;
-			sprintf(buffer, "Z pos: %f", zOff);
+			sprintf(buffer, "Viewport Z pos: %f", zOff);
 		}
 		break;
 

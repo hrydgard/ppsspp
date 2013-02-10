@@ -375,7 +375,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 					WRITE(p, "  vec3 temp_tc = a_position.xyz;\n");
 					break;
 				case 1:  // Use unscaled UV as source
-					WRITE(p, "  vec3 temp_tc = vec3(a_texcoord.xy * 2.0f, 0.0);\n");
+					WRITE(p, "  vec3 temp_tc = vec3(a_texcoord.xy * 2.0, 0.0);\n");
 					break;
 				case 2:  // Use normalized transformed normal as source
 					WRITE(p, "  vec3 temp_tc = normalize(a_normal);\n");

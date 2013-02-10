@@ -97,7 +97,7 @@ void WindowsHeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h)
 	const static int FRAME_HEIGHT = 272;
 	u8 *pixels = new u8[FRAME_WIDTH * FRAME_HEIGHT * 4];
 
-	// TODO: Maybe the GPU should do this?
+	// TODO: Maybe this code should be moved into GLES_GPU.
 	glReadBuffer(GL_FRONT);
 	glReadPixels(0, 0, FRAME_WIDTH, FRAME_HEIGHT, GL_BGRA, GL_UNSIGNED_BYTE, pixels);
 

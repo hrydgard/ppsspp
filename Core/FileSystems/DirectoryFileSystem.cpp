@@ -31,9 +31,6 @@
 #endif
 
 
-#undef DeleteFile
-
-
 #if HOST_IS_CASE_SENSITIVE
 
 static bool FixFilenameCase(const std::string &path, std::string &filename)
@@ -248,7 +245,7 @@ bool DirectoryFileSystem::RenameFile(const std::string &from, const std::string 
 	return retValue;
 }
 
-bool DirectoryFileSystem::DeleteFile(const std::string &filename) {
+bool DirectoryFileSystem::RemoveFile(const std::string &filename) {
 	std::string fullName = GetLocalPath(filename);
 #ifdef _WIN32
 	bool retValue = (::DeleteFileA(fullName.c_str()) == TRUE);
@@ -266,7 +263,7 @@ bool DirectoryFileSystem::DeleteFile(const std::string &filename) {
 		fullName = GetLocalPath(fullName);
 
 #ifdef _WIN32
-		retValue = (::DeleteFile(fullName.c_str()) == TRUE);
+		retValue = (::DeleteFileA(fullName.c_str()) == TRUE);
 #else
 		retValue = (0 == unlink(fullName.c_str()));
 #endif

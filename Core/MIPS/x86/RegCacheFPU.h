@@ -64,6 +64,9 @@ public:
 	void Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats);
 	void BindToRegister(int preg, bool doLoad = true, bool makeDirty = true);
 	void StoreFromRegister(int preg);
+	void StoreFromRegisterV(int preg) {
+		StoreFromRegister(preg + 32);
+	}
 	OpArg GetDefaultLocation(int reg) const;
 
 	void SetEmitter(XEmitter *emitter) {emit = emitter;}
@@ -94,6 +97,7 @@ public:
 	void SpillLock(int p1, int p2=0xff, int p3=0xff, int p4=0xff);
 	void ReleaseSpillLocks();
 
+	void MapRegV(int vreg, int flags);
 	void MapRegsV(int vec, VectorSize vsz, int flags);
 	void MapRegsV(const u8 *v, VectorSize vsz, int flags);
 	void SpillLockV(const u8 *v, VectorSize vsz);

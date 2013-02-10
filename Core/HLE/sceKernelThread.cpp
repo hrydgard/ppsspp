@@ -446,16 +446,17 @@ int g_inCbCount = 0;
 // Normally, the same as currentThread.  In an interrupt, remembers the callback's thread id.
 SceUID currentCallbackThreadID = 0;
 int readyCallbacksCount = 0;
-SceUID currentThread;
+SceUID currentThread = 0;
 u32 idleThreadHackAddr;
 u32 threadReturnHackAddr;
 u32 cbReturnHackAddr;
 u32 intReturnHackAddr;
 std::vector<ThreadCallback> threadEndListeners;
 
-typedef std::vector<SceUID> ThreadList;
 // Lists all thread ids that aren't deleted/etc.
-ThreadList threadqueue;
+std::vector<SceUID> threadqueue;
+
+typedef std::list<SceUID> ThreadList;
 // Lists only ready thread ids.
 std::map<u32, ThreadList> threadReadyQueue;
 
@@ -657,30 +658,23 @@ void __KernelFireThreadEnd(SceUID threadID)
 }
 
 // TODO: Use __KernelChangeThreadState instead?  It has other affects...
-void __KernelChangeReadyState(Thread *thread, SceUID threadID, bool ready, bool atStart = false)
+void __KernelChangeReadyState(Thread *thread, SceUID threadID, bool ready)
 {
 	int prio = thread->nt.currentPriority;
 
 	if (thread->isReady())
 	{
 		if (!ready)
-			threadReadyQueue[prio].erase(std::remove(threadReadyQueue[prio].begin(), threadReadyQueue[prio].end(), threadID), threadReadyQueue[prio].end());
+			threadReadyQueue[prio].remove(threadID);
 	}
 	else if (ready)
 	{
-		if (atStart)
-		{
-			size_t oldSize = threadReadyQueue[prio].size();
-			threadReadyQueue[prio].resize(oldSize + 1);
-			if (oldSize > 0)
-				memmove(&threadReadyQueue[prio][1], &threadReadyQueue[prio][0], oldSize * sizeof(SceUID));
-			threadReadyQueue[prio][0] = threadID;
-		}
+		if (thread->isRunning())
+			threadReadyQueue[prio].push_front(threadID);
 		else
 			threadReadyQueue[prio].push_back(threadID);
+		thread->nt.status = THREADSTATUS_READY;
 	}
-
-	thread->nt.status = THREADSTATUS_READY;
 }
 
 void __KernelChangeReadyState(SceUID threadID, bool ready)
@@ -1130,7 +1124,7 @@ void __KernelRemoveFromThreadQueue(SceUID threadID)
 {
 	int prio = __KernelGetThreadPrio(threadID);
 	if (prio != 0)
-		threadReadyQueue[prio].erase(std::remove(threadReadyQueue[prio].begin(), threadReadyQueue[prio].end(), threadID), threadReadyQueue[prio].end());
+		threadReadyQueue[prio].remove(threadID);
 
 	threadqueue.erase(std::remove(threadqueue.begin(), threadqueue.end(), threadID), threadqueue.end());
 }
@@ -1168,7 +1162,7 @@ Thread *__KernelNextThread() {
 	{
 		if (!it->second.empty())
 		{
-			bestThread = it->second[0];
+			bestThread = it->second.front();
 			break;
 		}
 	}
@@ -1182,10 +1176,6 @@ Thread *__KernelNextThread() {
 
 void __KernelReSchedule(const char *reason)
 {
-	// TODO: Not sure if this is correct?
-	if (__GetCurrentThread() && __GetCurrentThread()->isRunning())
-		__KernelChangeReadyState(currentThread, true);
-
 	// cancel rescheduling when in interrupt or callback, otherwise everything will be fucked up
 	if (__IsInInterrupt() || __KernelInCallback())
 	{
@@ -1207,6 +1197,10 @@ void __KernelReSchedule(const char *reason)
 		reason = "In Interrupt Or Callback";
 		return;
 	}
+
+	// TODO: Not sure if this is correct?  Probably should remove.
+	if (__GetCurrentThread() && __GetCurrentThread()->isRunning())
+		__KernelChangeReadyState(currentThread, true);
 
 retry:
 	Thread *nextThread = __KernelNextThread();
@@ -1361,8 +1355,11 @@ void __KernelSetupRootThread(SceUID moduleID, int args, const char *argp, int pr
 	Thread *thread = __KernelCreateThread(id, moduleID, "root", currentMIPS->pc, prio, stacksize, attr);
 	__KernelResetThread(thread);
 
+	Thread *prevThread = __GetCurrentThread();
+	if (prevThread && prevThread->isRunning())
+		__KernelChangeReadyState(currentThread, true);
 	currentThread = id;
-	__KernelChangeReadyState(thread, id, true); // do not schedule
+	thread->nt.status = THREADSTATUS_RUNNING; // do not schedule
 
 	strcpy(thread->nt.name, "root");
 
@@ -1439,7 +1436,6 @@ int sceKernelStartThread(SceUID threadToStartID, u32 argSize, u32 argBlockPtr)
 			threadToStartID,argSize,argBlockPtr);
 
 		__KernelResetThread(startThread);
-		__KernelChangeReadyState(startThread, threadToStartID, true, true);
 
 		u32 sp = startThread->context.r[MIPS_REG_SP];
 		if (argBlockPtr && argSize > 0)
@@ -1462,7 +1458,14 @@ int sceKernelStartThread(SceUID threadToStartID, u32 argSize, u32 argBlockPtr)
 			WARN_LOG(HLE,"sceKernelStartThread : had NULL arg");
 		}
 
-		hleReSchedule("thread started");
+		Thread *cur = __GetCurrentThread();
+		// Smaller is better for priority.  Only switch if the new thread is better.
+		if (cur && cur->nt.currentPriority > startThread->nt.currentPriority)
+		{
+			__KernelChangeReadyState(currentThread, true);
+			hleReSchedule("thread started");
+		}
+		__KernelChangeReadyState(startThread, threadToStartID, true);
 		return 0;
 	}
 	else
@@ -1600,10 +1603,39 @@ u32 sceKernelResumeDispatchThread(u32 suspended)
 	return oldDispatchSuspended;
 }
 
-void sceKernelRotateThreadReadyQueue()
+int sceKernelRotateThreadReadyQueue(int priority)
 {
-	DEBUG_LOG(HLE,"sceKernelRotateThreadReadyQueue : rescheduling");
-	hleReSchedule("rotatethreadreadyqueue");
+	DEBUG_LOG(HLE, "sceKernelRotateThreadReadyQueue(%x)", priority);
+
+	Thread *cur = __GetCurrentThread();
+
+	// 0 is special, it means "my current priority."
+	if (priority == 0)
+		priority = cur->nt.currentPriority;
+
+	if (priority <= 0x07 || priority > 0x77)
+		return SCE_KERNEL_ERROR_ILLEGAL_PRIORITY;
+
+	if (!threadReadyQueue[priority].empty())
+	{
+		// In other words, yield to everyone else.
+		if (cur->nt.currentPriority == priority)
+		{
+			threadReadyQueue[priority].push_back(currentThread);
+			cur->nt.status = THREADSTATUS_READY;
+		}
+		// Yield the next thread of this priority to all other threads of same priority.
+		else if (threadReadyQueue[priority].size() > 1)
+		{
+			SceUID first = threadReadyQueue[priority].front();
+			threadReadyQueue[priority].pop_front();
+			threadReadyQueue[priority].push_back(first);
+		}
+
+		hleReSchedule("rotatethreadreadyqueue");
+	}
+
+	return 0;
 }
 
 int sceKernelDeleteThread(int threadHandle)
@@ -2257,15 +2289,15 @@ void __KernelSwitchContext(Thread *target, const char *reason)
 			oldName = cur->GetName();
 
 		if (cur->isRunning())
-		{
-			__KernelChangeReadyState(cur, oldUID, false);
-			cur->nt.status = (cur->nt.status | THREADSTATUS_READY) & ~THREADSTATUS_RUNNING;
-		}
+			__KernelChangeReadyState(cur, oldUID, true);
 	}
 
 	currentThread = target->GetUID();
-	if (target && target->isRunning())
-		__KernelChangeReadyState(target, currentThread, true);
+	if (target)
+	{
+		__KernelChangeReadyState(target, currentThread, false);
+		target->nt.status = (target->nt.status | THREADSTATUS_RUNNING) & ~THREADSTATUS_READY;
+	}
 
 	__KernelLoadContext(&target->context);
 

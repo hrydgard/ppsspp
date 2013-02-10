@@ -86,6 +86,7 @@ public:
 	void Comp_RelBranchRI(u32 op);
 	void Comp_FPUBranch(u32 op);
 	void Comp_FPULS(u32 op);
+	void Comp_FPUComp(u32 op);
 	void Comp_Jump(u32 op);
 	void Comp_JumpReg(u32 op);
 	void Comp_Syscall(u32 op);
@@ -96,13 +97,18 @@ public:
 	void Comp_ShiftType(u32 op);
 	void Comp_Allegrex(u32 op);
 	void Comp_VBranch(u32 op);
-	void Comp_VDot(u32 op);
 	void Comp_MulDivType(u32 op);
+	void Comp_Special3(u32 op);
 
 	void Comp_FPU3op(u32 op);
 	void Comp_FPU2op(u32 op);
 	void Comp_mxc1(u32 op);
+	void Comp_Mftv(u32 op);
+	void Comp_VDot(u32 op);
 
+	void Comp_DoNothing(u32 op);
+
+	void Comp_SV(u32 op);
 	void Comp_SVQ(u32 op);
 
 	ArmJitBlockCache *GetBlockCache() { return &blocks; }

@@ -65,8 +65,9 @@ void printUsage(const char *progname, const char *reason)
 		fprintf(stderr, "  --screenshot=FILE     compare against a screenshot\n");
 	}
 
+	fprintf(stderr, "  -i                    use the interpreter\n");
 	fprintf(stderr, "  -f                    use the fast interpreter\n");
-	fprintf(stderr, "  -j                    use jit (overrides -f)\n");
+	fprintf(stderr, "  -j                    use jit (default)\n");
 	fprintf(stderr, "  -c, --compare         compare with output in file.expected\n");
 	fprintf(stderr, "\nSee headless.txt for details.\n");
 }
@@ -96,6 +97,8 @@ int main(int argc, const char* argv[])
 			readMount = true;
 		else if (!strcmp(argv[i], "-l") || !strcmp(argv[i], "--log"))
 			fullLog = true;
+		else if (!strcmp(argv[i], "-i"))
+			useJit = false;
 		else if (!strcmp(argv[i], "-j"))
 			useJit = true;
 		else if (!strcmp(argv[i], "-f"))
@@ -153,7 +156,7 @@ int main(int argc, const char* argv[])
 	coreParameter.fileToStart = bootFilename;
 	coreParameter.mountIso = mountIso ? mountIso : "";
 	coreParameter.startPaused = false;
-	coreParameter.cpuCore = useJit ? CPU_JIT : (fastInterpreter ? CPU_FASTINTERPRETER : CPU_INTERPRETER);
+	coreParameter.cpuCore = fastInterpreter ? CPU_FASTINTERPRETER : (useJit ? CPU_JIT : CPU_INTERPRETER);
 	coreParameter.gpuCore = headlessHost->isGLWorking() ? GPU_GLES : GPU_NULL;
 	coreParameter.enableSound = false;
 	coreParameter.headLess = true;

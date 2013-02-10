@@ -141,11 +141,77 @@ void Jit::ApplyPrefixD(const u8 *vregs, u32 prefix, VectorSize sz, bool onlyWrit
 
 static u32 GC_ALIGNED16(ssLoadStoreTemp[1]);
 
+void Jit::Comp_SV(u32 op) {
+	// DISABLE;
+
+	s32 imm = (signed short)(op&0xFFFC);
+	int vt = ((op >> 16) & 0x1f) | ((op & 3) << 5);
+	int rs = _RS;
+
+	switch (op >> 26)
+	{
+	case 50: //lv.s  // VI(vt) = Memory::Read_U32(addr);
+		{
+			gpr.BindToRegister(rs, true, false);
+			fpr.MapRegV(vt, MAP_NOINIT);
+
+			JitSafeMem safe(this, rs, imm);
+			safe.SetFar();
+			OpArg src;
+			if (safe.PrepareRead(src))
+			{
+				MOVSS(fpr.VX(vt), safe.NextFastAddress(0));
+			}
+			if (safe.PrepareSlowRead((void *) &Memory::Read_U32))
+			{
+				safe.NextSlowRead((void *) &Memory::Read_U32, 0);
+				MOV(32, M((void *)&ssLoadStoreTemp), R(EAX));
+				MOVSS(fpr.VX(vt), M((void *)&ssLoadStoreTemp));
+			}
+			safe.Finish();
+
+			gpr.UnlockAll();
+			fpr.ReleaseSpillLocks();
+		}
+		break;
+
+	case 58: //sv.s   // Memory::Write_U32(VI(vt), addr);
+		{
+			gpr.BindToRegister(rs, true, true);
+
+			// Even if we don't use real SIMD there's still 8 or 16 scalar float registers.
+			fpr.MapRegV(vt, 0);
+
+			JitSafeMem safe(this, rs, imm);
+			safe.SetFar();
+			OpArg dest;
+			if (safe.PrepareWrite(dest))
+			{
+				MOVSS(safe.NextFastAddress(0), fpr.VX(vt));
+			}
+			if (safe.PrepareSlowWrite())
+			{
+				MOVSS(M((void *)&ssLoadStoreTemp), fpr.VX(vt));
+				safe.DoSlowWrite((void *) &Memory::Write_U32, M((void *)&ssLoadStoreTemp), 0);
+			}
+			safe.Finish();
+
+			fpr.ReleaseSpillLocks();
+			gpr.UnlockAll();
+		}
+		break;
+
+	default:
+		_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+		break;
+	}
+}
+
 void Jit::Comp_SVQ(u32 op)
 {
 	int imm = (signed short)(op&0xFFFC);
-	int rs = _RS;
 	int vt = (((op >> 16) & 0x1f)) | ((op&1) << 5);
+	int rs = _RS;
 
 	switch (op >> 26)
 	{
@@ -263,5 +329,47 @@ void Jit::Comp_VDot(u32 op) {
 	js.EatPrefix();
 }
 
+void Jit::Comp_Mftv(u32 op) {
+	int imm = op & 0xFF;
+	int rt = _RT;
+	switch ((op >> 21) & 0x1f)
+	{
+	case 3: //mfv / mfvc
+		if (imm < 128) {  //R(rt) = VI(imm);
+			fpr.StoreFromRegisterV(imm);
+			gpr.BindToRegister(rt, false, true);
+			MOV(32, gpr.R(rt), fpr.V(imm));
+		} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc
+			gpr.BindToRegister(rt, false, true);
+			MOV(32, gpr.R(rt), M(&currentMIPS->vfpuCtrl[imm - 128]));
+		} else if (rt == 0 && imm == 255) {
+			// This appears to be used as a CPU interlock by some games. Do nothing.
+		} else {
+			//ERROR - maybe need to make this value too an "interlock" value?
+			_dbg_assert_msg_(CPU,0,"mfv - invalid register");
+		}
+		break;
+
+	case 7: //mtv
+		if (imm < 128) {
+			fpr.StoreFromRegisterV(imm);
+			gpr.BindToRegister(rt, true, false);
+			MOV(32, fpr.V(imm), gpr.R(rt));
+			// VI(imm) = R(rt);
+		} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc //currentMIPS->vfpuCtrl[imm - 128] = R(rt);
+			gpr.BindToRegister(rt, true, false);
+			MOV(32, M(&currentMIPS->vfpuCtrl[imm - 128]), gpr.R(rt));
+		} else {
+			//ERROR
+			_dbg_assert_msg_(CPU,0,"mtv - invalid register");
+		}
+		break;
+
+	default:
+		DISABLE;
+		_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+		break;
+	}
+}
 
 }

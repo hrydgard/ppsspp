@@ -2,6 +2,7 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <QTranslator>
 
 #include "Core/Core.h"
 #include "input/input_state.h"
@@ -135,7 +136,18 @@ private slots:
 
 	void on_action_OptionsGamePadControls_triggered();
 
+	void on_language_changed(QAction *action);
+
 private:
+	void loadLanguage(const QString &language);
+	void createLanguageMenu();
+	void changeEvent(QEvent *);
+
+	QTranslator translator;
+	QTranslator qtTranslator;
+	QString currentLanguage;
+	QString languagePath;
+
     Ui::MainWindow *ui;
 
 	QtEmuGL* w;

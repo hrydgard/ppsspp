@@ -21,6 +21,9 @@ desktop_ui {
 	}
 }
 
+TRANSLATIONS = languages/ppsspp_en.ts \
+		languages/ppsspp_pl.ts
+
 # Main
 SOURCES += ../native/base/QtMain.cpp
 HEADERS += ../native/base/QtMain.h

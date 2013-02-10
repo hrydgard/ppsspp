@@ -25,6 +25,7 @@ public:
 	void CalibNextButton();
 protected:
 	void showEvent(QShowEvent *);
+	void changeEvent(QEvent *);
 private slots:
 	void releaseLock();
 	void on_refreshListBtn_clicked();

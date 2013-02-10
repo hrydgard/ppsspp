@@ -110,6 +110,7 @@ static const int flushOnChangedBeforeCommandList[] = {
 	GE_CMD_TEXFORMAT,
 	GE_CMD_TEXWRAP,
 	GE_CMD_ZTESTENABLE,
+	GE_CMD_ZWRITEDISABLE,
 	GE_CMD_STENCILTESTENABLE,
 	GE_CMD_STENCILOP,
 	GE_CMD_STENCILTEST,
@@ -166,6 +167,8 @@ GLES_GPU::GLES_GPU()
 	shaderManager_ = new ShaderManager();
 	transformDraw_.SetShaderManager(shaderManager_);
 	transformDraw_.SetTextureCache(&textureCache_);
+	transformDraw_.SetFramebufferManager(&framebufferManager_);
+	framebufferManager_.SetTextureCache(&textureCache_);
 
 	// Sanity check gstate
 	if ((int *)&gstate.transferstart - (int *)&gstate != 0xEA) {
@@ -448,7 +451,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		currentList->subIntrToken = data & 0xFFFF;
 		// TODO: Should this run while interrupts are suspended?
 		if (interruptsEnabled_)
-			__GeTriggerInterrupt(currentList->id, currentList->pc);
+			__GeTriggerInterrupt(currentList->id, currentList->pc, currentList->subIntrBase, currentList->subIntrToken);
 		break;
 
 	case GE_CMD_END:
@@ -486,7 +489,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 				}
 				// TODO: Should this run while interrupts are suspended?
 				if (interruptsEnabled_)
-					__GeTriggerInterrupt(currentList->id, currentList->pc);
+					__GeTriggerInterrupt(currentList->id, currentList->pc, currentList->subIntrBase, currentList->subIntrToken);
 			}
 			break;
 		case GE_CMD_FINISH:
@@ -677,6 +680,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_TEXSIZE0:
 		gstate_c.curTextureWidth = 1 << (gstate.texsize[0] & 0xf);
 		gstate_c.curTextureHeight = 1 << ((gstate.texsize[0]>>8) & 0xf);
+		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 		//fall thru - ignoring the mipmap sizes for now
 	case GE_CMD_TEXSIZE1:
 	case GE_CMD_TEXSIZE2:
@@ -797,16 +801,8 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_VIEWPORTY1:
 	case GE_CMD_VIEWPORTX2:
 	case GE_CMD_VIEWPORTY2:
-		break;
-
 	case GE_CMD_VIEWPORTZ1:
-		gstate_c.zScale = getFloat24(data) / 65535.f;
-		break;
-
 	case GE_CMD_VIEWPORTZ2:
-		gstate_c.zOff = getFloat24(data) / 65535.f;
-		break;
-
 	case GE_CMD_LIGHTENABLE0:
 	case GE_CMD_LIGHTENABLE1:
 	case GE_CMD_LIGHTENABLE2:

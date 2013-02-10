@@ -335,6 +335,13 @@ namespace MIPSComp
 		}
 	}
 
+	void Jit::Comp_Special3(u32 op)
+	{
+		// ext, ins
+		DISABLE;
+	}
+
+
 	void Jit::Comp_Allegrex(u32 op)
 	{
 		CONDITIONAL_DISABLE

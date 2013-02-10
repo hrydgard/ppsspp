@@ -28,7 +28,8 @@
 #define _POS	((op>>6 ) & 0x1F)
 #define _SIZE ((op>>11 ) & 0x1F)
 
-#define OLDD Comp_Generic(op); return;
+#define CONDITIONAL_DISABLE ;
+#define DISABLE Comp_Generic(op); return;
 
 namespace MIPSComp
 {
@@ -61,7 +62,7 @@ void Jit::CompFPTriArith(u32 op, void (XEmitter::*arith)(X64Reg reg, OpArg), boo
 
 void Jit::Comp_FPU3op(u32 op)
 { 
-	OLDD
+	DISABLE
 	switch (op & 0x3f) 
 	{
 	//case 0: CompFPTriArith(op, &XEmitter::ADDSS, false); break; //F(fd) = F(fs) + F(ft); //add
@@ -76,7 +77,7 @@ void Jit::Comp_FPU3op(u32 op)
 
 void Jit::Comp_FPULS(u32 op)
 {
-	OLDD
+	DISABLE
 
 	s32 offset = (s16)(op&0xFFFF);
 	int ft = ((op>>16)&0x1f);
@@ -113,9 +114,13 @@ void Jit::Comp_FPULS(u32 op)
 	}
 }
 
+void Jit::Comp_FPUComp(u32 op) {
+	DISABLE;
+}
+
 void Jit::Comp_FPU2op(u32 op)
 {
-	OLDD
+	DISABLE
 	int fs = _FS;
 	int fd = _FD;
 
@@ -174,7 +179,7 @@ void Jit::Comp_FPU2op(u32 op)
 
 void Jit::Comp_mxc1(u32 op)
 {
-	OLDD
+	DISABLE
 	int fs = _FS;
 	int rt = _RT;
 

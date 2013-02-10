@@ -52,7 +52,7 @@
 #define _POS	((op>>6 ) & 0x1F)
 #define _SIZE ((op>>11 ) & 0x1F)
 
-#define OLDD Comp_Generic(op); return;
+#define DISABLE Comp_Generic(op); return;
 
 namespace MIPSComp
 {

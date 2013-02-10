@@ -208,25 +208,20 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 
 	bool wantDepthWrite = gstate.isModeClear() || gstate.isDepthWriteEnabled();
 	glstate.depthWrite.set(wantDepthWrite ? GL_TRUE : GL_FALSE);
-
-	float depthRangeMin = gstate_c.zOff - gstate_c.zScale;
-	float depthRangeMax = gstate_c.zOff + gstate_c.zScale;
-	glstate.depthRange.set(depthRangeMin, depthRangeMax);
 }
 
-void UpdateViewportAndProjection() {
+void TransformDrawEngine::UpdateViewportAndProjection() {
 	int renderWidth, renderHeight;
-	
 	if (g_Config.bBufferedRendering) {
-		renderWidth = PSP_CoreParameter().renderWidth;
-		renderHeight = PSP_CoreParameter().renderHeight;
+	  renderWidth = framebufferManager_->GetRenderWidth();
+	  renderHeight = framebufferManager_->GetRenderHeight();
 	} else {
 		// TODO: Aspect-ratio aware and centered
 		renderWidth = PSP_CoreParameter().pixelWidth;
 		renderHeight = PSP_CoreParameter().pixelHeight;
 	}
-	float renderWidthFactor = (float)renderWidth / 480.0f;
-	float renderHeightFactor = (float)renderHeight / 272.0f;
+	float renderWidthFactor = (float)renderWidth / framebufferManager_->GetTargetWidth();
+	float renderHeightFactor = (float)renderHeight / framebufferManager_->GetTargetHeight();
 	bool throughmode = (gstate.vertType & GE_VTYPE_THROUGH_MASK) != 0;
 
 	// We can probably use these to simply set scissors? Maybe we need to offset by regionX1/Y1
@@ -241,14 +236,13 @@ void UpdateViewportAndProjection() {
 	if (throughmode) {
 		// No viewport transform here. Let's experiment with using region.
 		glstate.viewport.set((0 + regionX1) * renderWidthFactor, (0 - regionY1) * renderHeightFactor, (regionX2 - regionX1) * renderWidthFactor, (regionY2 - regionY1) * renderHeightFactor);
+		glstate.depthRange.set(1.0, 0.0);
 	} else {
 		// These we can turn into a glViewport call, offset by offsetX and offsetY. Math after.
 		float vpXa = getFloat24(gstate.viewportx1);
 		float vpXb = getFloat24(gstate.viewportx2);
 		float vpYa = getFloat24(gstate.viewporty1);
 		float vpYb = getFloat24(gstate.viewporty2);
-		float vpZa = getFloat24(gstate.viewportz1);  //  / 65536.0f   should map it to OpenGL's 0.0-1.0 Z range
-		float vpZb = getFloat24(gstate.viewportz2);  //  / 65536.0f
 
 		// The viewport transform appears to go like this: 
 		// Xscreen = -offsetX + vpXb + vpXa * Xview
@@ -264,10 +258,6 @@ void UpdateViewportAndProjection() {
 		float vpWidth = fabsf(gstate_c.vpWidth);
 		float vpHeight = fabsf(gstate_c.vpHeight);
 
-		// TODO: These two should feed into glDepthRange somehow.
-		float vpZ0 = (vpZb - vpZa) / 65536.0f;
-		float vpZ1 = (vpZa * 2) / 65536.0f;
-
 		vpX0 *= renderWidthFactor;
 		vpY0 *= renderHeightFactor;
 		vpWidth *= renderWidthFactor;
@@ -278,5 +268,11 @@ void UpdateViewportAndProjection() {
 		glstate.viewport.set(vpX0, vpY0, vpWidth, vpHeight);
 		// Sadly, as glViewport takes integers, we will not be able to support sub pixel offsets this way. But meh.
 		// shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
+
+		float zScale = getFloat24(gstate.viewportz1) / 65535.f;
+		float zOff = getFloat24(gstate.viewportz2) / 65535.f;
+		float depthRangeMin = zOff - zScale;
+		float depthRangeMax = zOff + zScale;
+		glstate.depthRange.set(depthRangeMin, depthRangeMax);
 	}
 }

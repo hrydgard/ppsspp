@@ -288,7 +288,31 @@ void Jit::WriteExitDestInEAX()
 	// TODO: Some wasted potential, dispatcher will always read this back into EAX.
 	MOV(32, M(&mips_->pc), R(EAX));
 	WriteDowncount();
-	JMP(asm_.dispatcher, true);
+
+	// Validate the jump to avoid a crash?
+	if (!g_Config.bFastMemory)
+	{
+		CMP(32, R(EAX), Imm32(PSP_GetKernelMemoryBase()));
+		FixupBranch tooLow = J_CC(CC_L);
+		CMP(32, R(EAX), Imm32(PSP_GetUserMemoryEnd()));
+		FixupBranch tooHigh = J_CC(CC_GE);
+
+		JMP(asm_.dispatcher, true);
+
+		SetJumpTarget(tooLow);
+		SetJumpTarget(tooHigh);
+
+		ABI_CallFunctionA(thunks.ProtectFunction((void *) Memory::GetPointer, 1), R(EAX));
+		CMP(32, R(EAX), Imm32(0));
+		J_CC(CC_NE, asm_.dispatcher, true);
+
+		// TODO: "Ignore" this so other threads can continue?
+		if (g_Config.bIgnoreBadMemAccess)
+			MOV(32, M((void*)&coreState), Imm32(CORE_ERROR));
+		JMP(asm_.dispatcherCheckCoreState, true);
+	}
+	else
+		JMP(asm_.dispatcher, true);
 }
 
 void Jit::WriteSyscallExit()
@@ -413,9 +437,9 @@ OpArg Jit::JitSafeMem::PrepareMemoryOpArg()
 	if (!g_Config.bFastMemory)
 	{
 		// Is it in physical ram?
-		jit_->CMP(32, R(xaddr_), Imm32(PSP_GetKernelMemoryBase()));
+		jit_->CMP(32, R(xaddr_), Imm32(PSP_GetKernelMemoryBase() - offset_));
 		tooLow_ = jit_->J_CC(CC_L);
-		jit_->CMP(32, R(xaddr_), Imm32(PSP_GetUserMemoryEnd()));
+		jit_->CMP(32, R(xaddr_), Imm32(PSP_GetUserMemoryEnd() - offset_));
 		tooHigh_ = jit_->J_CC(CC_GE);
 
 		// We may need to jump back up here.
@@ -448,9 +472,9 @@ void Jit::JitSafeMem::PrepareSlowAccess()
 	jit_->SetJumpTarget(tooHigh_);
 
 	// Might also be the scratchpad.
-	jit_->CMP(32, R(xaddr_), Imm32(PSP_GetScratchpadMemoryBase()));
+	jit_->CMP(32, R(xaddr_), Imm32(PSP_GetScratchpadMemoryBase() - offset_));
 	FixupBranch tooLow = jit_->J_CC(CC_L);
-	jit_->CMP(32, R(xaddr_), Imm32(PSP_GetScratchpadMemoryEnd()));
+	jit_->CMP(32, R(xaddr_), Imm32(PSP_GetScratchpadMemoryEnd() - offset_));
 	jit_->J_CC(CC_L, safe_);
 	jit_->SetJumpTarget(tooLow);
 }
@@ -544,5 +568,7 @@ void Jit::JitSafeMem::Finish()
 	if (needsSkip_)
 		jit_->SetJumpTarget(skip_);
 }
+
+void Jit::Comp_DoNothing(u32 op) { }
 
 } // namespace
