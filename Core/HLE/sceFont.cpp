@@ -6,7 +6,6 @@
 #include "../MIPS/MIPS.h"
 #include "ChunkFile.h"
 
-
 typedef u32 FontLibraryHandle;
 typedef u32 FontHandle;
 
@@ -297,9 +296,9 @@ int sceFontGetFontInfoByIndexNumber(u32 libHandle, u32 fontInfoPtr, u32 unknown,
 
 }
 
-int sceFontGetCharInfo(u32 libHandler, u32 charCode, u32 charInfoPtr)
+int sceFontGetCharInfo(u32 fontHandle, u32 charCode, u32 charInfoPtr)
 {
-	ERROR_LOG(HLE, "sceFontGetCharInfo %x, %x, %x", libHandler, charCode, charInfoPtr);
+	ERROR_LOG(HLE, "sceFontGetCharInfo %x, %x, %x", fontHandle, charCode, charInfoPtr);
 	if (Memory::IsValidAddress(charInfoPtr))
 	{
 		CharInfo pspCharInfo;
@@ -316,9 +315,16 @@ int sceFontGetCharInfo(u32 libHandler, u32 charCode, u32 charInfoPtr)
 	return 0;
 }
 
-int sceFontGetCharGlyphImage(u32 libHandler, u32 charCode, u32 glyphImagePtr)
+int sceFontGetCharImageRect(u32 fontHandle, u32 charCode, u32 charRectPtr)
+	// finish this
 {
-	ERROR_LOG(HLE, "sceFontGetCharGlyphImage %x, %x, %x (%c)", libHandler, charCode, glyphImagePtr, charCode);
+	ERROR_LOG(HLE, "sceFontGetCharImageRect %x, %x (%c)", fontHandle, charRectPtr, charCode);
+	return 0;
+}
+
+int sceFontGetCharGlyphImage(u32 fontHandle, u32 charCode, u32 glyphImagePtr)
+{
+	ERROR_LOG(HLE, "sceFontGetCharGlyphImage %x, %x, %x (%c)", fontHandle, charCode, glyphImagePtr, charCode);
 
 	int pixelFormat = Memory::Read_U32(glyphImagePtr);
 	int xPos64 = Memory::Read_U32(glyphImagePtr+4);
@@ -343,6 +349,18 @@ int sceFontGetCharGlyphImage_Clip(u32 libHandler, u32 charCode, u32 glyphImagePt
 {
 	ERROR_LOG(HLE, "sceFontGetCharGlyphImage_Clip %x, %x, %x (%c)", libHandler, charCode, glyphImagePtr, charCode);
 	//sceFontGetCharGlyphImage(libHandler, charCode, glyphImagePtr);
+	return 0;
+}
+
+int sceFontSetAltCharacterCode(u32 libHandle, u32 charCode)
+{
+	ERROR_LOG(HLE, "sceFontSetAltCharacterCode %x (%c)", libHandle, charCode);
+	return 0;
+}
+
+int sceFontFlush(u32 fontHandle)
+{
+	ERROR_LOG(HLE, "sceFontFlush %x", fontHandle);
 	return 0;
 }
 
@@ -383,19 +401,19 @@ const HLEFunction sceLibFont[] =
 	{0x3aea8cb6, WrapI_U<sceFontClose>, "sceFontClose"},	
 	{0x0da7535e, WrapI_UU<sceFontGetFontInfo>, "sceFontGetFontInfo"},	
 	{0xdcc80c2f, WrapI_UUU<sceFontGetCharInfo>, "sceFontGetCharInfo"},	
-	{0x5c3e4a9e, 0, "sceFontGetCharImageRect"},	
+	{0x5c3e4a9e, WrapI_UUU<sceFontGetCharImageRect>, "sceFontGetCharImageRect"},	
 	{0x980f4895, WrapI_UUU<sceFontGetCharGlyphImage>, "sceFontGetCharGlyphImage"},	
 	{0xca1e6945, WrapI_UUUIIII<sceFontGetCharGlyphImage_Clip>, "sceFontGetCharGlyphImage_Clip"},
 	{0x74b21701, 0, "sceFontPixelToPointH"},	
 	{0xf8f0752e, 0, "sceFontPixelToPointV"},	
 	{0x472694cd, 0, "sceFontPointToPixelH"},	
 	{0x3c4b7e82, 0, "sceFontPointToPixelV"},	
-	{0xee232411, 0, "sceFontSetAltCharacterCode"},
+	{0xee232411, WrapI_UU<sceFontSetAltCharacterCode>, "sceFontSetAltCharacterCode"},
 	{0xaa3de7b5, 0, "sceFontGetShadowInfo"}, 	 
 	{0x48b06520, 0, "sceFontGetShadowImageRect"},
 	{0x568be516, 0, "sceFontGetShadowGlyphImage"},
 	{0x5dcf6858, 0, "sceFontGetShadowGlyphImage_Clip"},
-	{0x02d7f94b, 0, "sceFontFlush"},
+	{0x02d7f94b, WrapI_U<sceFontFlush>, "sceFontFlush"},
 
 };
 void Register_sceFont()
