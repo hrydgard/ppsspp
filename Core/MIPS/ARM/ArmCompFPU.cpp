@@ -41,38 +41,46 @@ void Jit::Comp_FPU3op(u32 op)
 	int ft = _FT;
 	int fs = _FS;
 	int fd = _FD;
-	fpr.MapDirtyInIn(fd, fs, ft);
 	switch (op & 0x3f) 
 	{
-	case 0: VADD(fpr.R(fd), fpr.R(fs), fpr.R(fd)); break; //F(fd) = F(fs) + F(ft); //add
-	case 1: VSUB(fpr.R(fd), fpr.R(fs), fpr.R(fd)); break; //F(fd) = F(fs) - F(ft); //sub
-	case 2: VMUL(fpr.R(fd), fpr.R(fs), fpr.R(fd)); break; //F(fd) = F(fs) * F(ft); //mul
-	case 3: VDIV(fpr.R(fd), fpr.R(fs), fpr.R(fd)); break; //F(fd) = F(fs) / F(ft); //div
+	case 0: 
+		fpr.MapDirtyInIn(fd, fs, ft);
+		INFO_LOG(HLE,"add.s %i %i %i -> VADD %i %i %i", fd, fs, ft, fpr.R(fd) - S0, fpr.R(fs) - S0, fpr.R(ft) - S0);
+		VADD(fpr.R(fd), fpr.R(fs), fpr.R(fd)); break; //F(fd) = F(fs) + F(ft); //add
+	//case 1: VSUB(fpr.R(fd), fpr.R(fs), fpr.R(fd)); break; //F(fd) = F(fs) - F(ft); //sub
+	//case 2: VMUL(fpr.R(fd), fpr.R(fs), fpr.R(fd)); break; //F(fd) = F(fs) * F(ft); //mul
+	//case 3: VDIV(fpr.R(fd), fpr.R(fs), fpr.R(fd)); break; //F(fd) = F(fs) / F(ft); //div
 	default:
-		Comp_Generic(op);
+		DISABLE;
 		return;
 	}
 }
+
+extern int logBlocks;
 
 void Jit::Comp_FPULS(u32 op)
 {
 	DISABLE
 
-	s32 offset = (s16)(op&0xFFFF);
-	int ft = ((op>>16)&0x1f);
+	s32 offset = (s16)(op & 0xFFFF);
+	int ft = _FT;
 	int rs = _RS;
 	// u32 addr = R(rs) + offset;
-
+	logBlocks = 1;
 	switch(op >> 26)
 	{
 	case 49: //FI(ft) = Memory::Read_U32(addr); break; //lwc1
+		gpr.MapReg(rs);
 		fpr.MapReg(ft, MAP_NOINIT | MAP_DIRTY);
+		ERROR_LOG(HLE, "lwc1 rs=%i offset=%i   armr=%i", rs, offset, fpr.R(ft) - S0);
 		SetR0ToEffectiveAddress(rs, offset);
 		VLDR(fpr.R(ft), R0, 0);
 		break;
 
 	case 57: //Memory::Write_U32(FI(ft), addr); break; //swc1
+		DISABLE;
 		fpr.MapReg(ft, 0);
+		gpr.MapReg(rs);
 		SetR0ToEffectiveAddress(rs, offset);
 		VSTR(fpr.R(ft), R0, 0);
 		break;

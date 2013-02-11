@@ -21,7 +21,6 @@
 
 using namespace ArmGen;
 
-#define CTXREG (R10)
 
 ArmRegCacheFPU::ArmRegCacheFPU(MIPSState *mips) : mips_(mips) {
 }
@@ -38,7 +37,6 @@ void ArmRegCacheFPU::Start(MIPSAnalyst::AnalysisResults &stats) {
 	for (int i = 0; i < NUM_MIPSFPUREG; i++) {
 		mr[i].loc = ML_MEM;
 		mr[i].reg = INVALID_REG;
-		mr[i].imm = -1;
 		mr[i].spillLock = false;
 	}
 }
@@ -64,6 +62,7 @@ ARMReg ArmRegCacheFPU::MapReg(MIPSReg mipsReg, int mapFlags) {
 		if (mapFlags & MAP_DIRTY) {
 			ar[mr[mipsReg].reg].isDirty = true;
 		}
+		INFO_LOG(HLE, "Already mapped %i to %i", mipsReg, mr[mipsReg].reg);
 		return (ARMReg)(mr[mipsReg].reg + S0);
 	}
 
@@ -87,9 +86,11 @@ allocate:
 			ar[reg].mipsReg = mipsReg;
 			mr[mipsReg].loc = ML_ARMREG;
 			mr[mipsReg].reg = reg;
+			INFO_LOG(HLE, "Mapped %i to %i", mipsReg, mr[mipsReg].reg);
 			return (ARMReg)(reg + S0);
 		}
 	}
+
 
 	// Still nothing. Let's spill a reg and goto 10.
 	// TODO: Use age or something to choose which register to spill?
@@ -104,8 +105,9 @@ allocate:
 	}
 
 	if (bestToSpill != -1) {
+		INFO_LOG(HLE, "Spillin! %i", bestToSpill);
 		// ERROR_LOG(JIT, "Out of registers at PC %08x - spills register %i.", mips_->pc, bestToSpill);
-		FlushArmReg((ARMReg)bestToSpill);
+		FlushArmReg((ARMReg)(S0 + bestToSpill));
 		goto allocate;
 	}
 
@@ -146,11 +148,14 @@ void ArmRegCacheFPU::FlushArmReg(ARMReg r) {
 	}
 	if (ar[reg].mipsReg != -1) {
 		if (ar[reg].isDirty && mr[ar[reg].mipsReg].loc == ML_ARMREG)
-			emit->VSTR(CTXREG, r, GetMipsRegOffset(ar[reg].mipsReg));
+		{
+			INFO_LOG(HLE, "Flushing ARM reg %i", reg);
+
+			emit->VSTR(r, CTXREG, GetMipsRegOffset(ar[reg].mipsReg));
+		}
 		// IMMs won't be in an ARM reg.
 		mr[ar[reg].mipsReg].loc = ML_MEM;
 		mr[ar[reg].mipsReg].reg = INVALID_REG;
-		mr[ar[reg].mipsReg].imm = 0;
 	} else {
 		ERROR_LOG(HLE, "Dirty but no mipsreg?");
 	}
@@ -171,7 +176,8 @@ void ArmRegCacheFPU::FlushMipsReg(MIPSReg r) {
 			ERROR_LOG(HLE, "FlushMipsReg: MipsReg had bad ArmReg");
 		}
 		if (ar[mr[r].reg].isDirty) {
-			emit->VSTR(CTXREG, (ARMReg)(mr[r].reg + S0), GetMipsRegOffset(r));
+			INFO_LOG(HLE, "Flushing dirty reg %i", mr[r].reg);
+			emit->VSTR((ARMReg)(mr[r].reg + S0), CTXREG, GetMipsRegOffset(r));
 			ar[mr[r].reg].isDirty = false;
 		}
 		ar[mr[r].reg].mipsReg = -1;
@@ -187,7 +193,6 @@ void ArmRegCacheFPU::FlushMipsReg(MIPSReg r) {
 	}
 	mr[r].loc = ML_MEM;
 	mr[r].reg = (int)INVALID_REG;
-	mr[r].imm = 0;
 }
 
 void ArmRegCacheFPU::FlushAll() {
@@ -202,34 +207,10 @@ void ArmRegCacheFPU::FlushAll() {
 	}
 }
 
-void ArmRegCacheFPU::SetImm(MIPSReg r, u32 immVal) {
-	// Zap existing value if cached in a reg
-	if (mr[r].loc == ML_ARMREG) {
-		ar[mr[r].reg].mipsReg = -1;
-		ar[mr[r].reg].isDirty = false;
-	}
-	mr[r].loc = ML_IMM;
-	mr[r].imm = immVal;
-	mr[r].reg = INVALID_REG;
-}
-
-bool ArmRegCacheFPU::IsImm(MIPSReg r) const {
-	return mr[r].loc == ML_IMM;
-}
-
-u32 ArmRegCacheFPU::GetImm(MIPSReg r) const {
-	if (mr[r].loc != ML_IMM) {
-		ERROR_LOG(JIT, "Trying to get imm from non-imm register %i", r);
-	}
-	return mr[r].imm;
-}
-
 int ArmRegCacheFPU::GetMipsRegOffset(MIPSReg r) {
 	// These are offsets within the MIPSState structure. First there are the GPRS, then FPRS, then the "VFPURs".
-	if (r < 32)
-		return (r + 32) * 4;
-	else if (r < 32 + 128)
-		return (r + 64) * 4;
+	if (r < 32 + 128)
+		return (r + 32) << 2;
 	ERROR_LOG(JIT, "bad mips register %i", r);
 	return 0;  // or what?
 }

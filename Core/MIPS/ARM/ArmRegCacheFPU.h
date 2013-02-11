@@ -39,7 +39,6 @@ struct FPURegMIPS {
 	// Where is this MIPS register?
 	RegMIPSLoc loc;
 	// Data (only one of these is used, depending on loc. Could make a union).
-	u32 imm;
 	ARMReg reg;
 	bool spillLock;  // if true, this register cannot be spilled.
 	// If loc == ML_MEM, it's back in its location in the CPU context struct.

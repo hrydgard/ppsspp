@@ -124,6 +124,8 @@ void Jit::RunLoopUntil(u64 globalticks)
 	// TODO: copy globalticks somewhere
 	((void (*)())enterCode)();
 }
+static int dontLogBlocks = 20;
+int logBlocks = 40;
 
 const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 {
@@ -152,8 +154,6 @@ const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 
 	int numInstructions = 0;
 	int cycles = 0;
-	static int dontLogBlocks = 20;
-	static int logBlocks = 40;
 	if (logBlocks > 0) logBlocks--;
 	if (dontLogBlocks > 0) dontLogBlocks--;
 
@@ -164,24 +164,21 @@ const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 	while (js.compiling)
 	{
 		gpr.SetCompilerPC(js.compilerPC);  // Let it know for log messages
+		fpr.SetCompilerPC(js.compilerPC);
 		u32 inst = Memory::Read_Instruction(js.compilerPC);
-#ifdef LOGASM
-		if (logBlocks > 0 && dontLogBlocks == 0) {
-			MIPSDisAsm(inst, js.compilerPC, temp, true);
-			INFO_LOG(DYNA_REC, "M: %08x   %s", js.compilerPC, temp);
-		}
-#endif
 		js.downcountAmount += MIPSGetInstructionCycleEstimate(inst);
 
 		MIPSCompileOp(inst);
-		// FlushAll(); ///HACKK
+		FlushAll(); ///HACKK
 		js.compilerPC += 4;
 		numInstructions++;
 	}
 #ifdef LOGASM
 	if (logBlocks > 0 && dontLogBlocks == 0) {
-		MIPSDisAsm(Memory::Read_Instruction(js.compilerPC), js.compilerPC, temp, true);
-		INFO_LOG(DYNA_REC, "M: %08x   %s", js.compilerPC, temp);
+		for (u32 cpc = em_address; cpc != js.compilerPC; cpc += 4) {
+			MIPSDisAsm(Memory::Read_Instruction(cpc), cpc, temp, true);
+			INFO_LOG(DYNA_REC, "M: %08x   %s", cpc, temp);
+		}
 	}
 #endif
 

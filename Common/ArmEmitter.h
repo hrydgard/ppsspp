@@ -499,8 +499,8 @@ public:
 	void VSUB(IntegerSize Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 		
 	// VFP Only
-	void VLDR(ARMReg Dest, ARMReg Base, Operand2 op);
-	void VSTR(ARMReg Src,  ARMReg Base, Operand2 op);
+	void VLDR(ARMReg Dest, ARMReg Base, u16 offset);
+	void VSTR(ARMReg Src,  ARMReg Base, u16 offset);
 	void VCMP(ARMReg Vd, ARMReg Vm);
 	// Compares against zero
 	void VCMP(ARMReg Vd);

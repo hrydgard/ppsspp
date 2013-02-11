@@ -23,6 +23,8 @@
 
 using namespace ArmGen;
 
+#define CTXREG (R10)
+
 // R2 to R8: mapped MIPS regs
 // R9 = code pointers
 // R10 = MIPS context
