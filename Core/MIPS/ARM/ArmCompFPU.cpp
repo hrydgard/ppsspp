@@ -36,7 +36,7 @@ namespace MIPSComp
 
 void Jit::Comp_FPU3op(u32 op)
 { 
-	DISABLE
+	// DISABLE
 
 	int ft = _FT;
 	int fs = _FS;
@@ -45,10 +45,13 @@ void Jit::Comp_FPU3op(u32 op)
 	{
 	case 0: 
 		fpr.MapDirtyInIn(fd, fs, ft);
-		INFO_LOG(HLE,"add.s %i %i %i -> VADD %i %i %i", fd, fs, ft, fpr.R(fd) - S0, fpr.R(fs) - S0, fpr.R(ft) - S0);
-		VADD(fpr.R(fd), fpr.R(fs), fpr.R(fd)); break; //F(fd) = F(fs) + F(ft); //add
-	//case 1: VSUB(fpr.R(fd), fpr.R(fs), fpr.R(fd)); break; //F(fd) = F(fs) - F(ft); //sub
-	//case 2: VMUL(fpr.R(fd), fpr.R(fs), fpr.R(fd)); break; //F(fd) = F(fs) * F(ft); //mul
+		VADD(fpr.R(fd), fpr.R(fs), fpr.R(ft)); break; //F(fd) = F(fs) + F(ft); //add
+	case 1:
+  	fpr.MapDirtyInIn(fd, fs, ft);
+		VSUB(fpr.R(fd), fpr.R(fs), fpr.R(ft)); break; //F(fd) = F(fs) - F(ft); //sub
+	//case 2:
+	//	fpr.MapDirtyInIn(fd, fs, ft);
+	//	VMUL(fpr.R(fd), fpr.R(fs), fpr.R(ft)); break; //F(fd) = F(fs) * F(ft); //mul
 	//case 3: VDIV(fpr.R(fd), fpr.R(fs), fpr.R(fd)); break; //F(fd) = F(fs) / F(ft); //div
 	default:
 		DISABLE;

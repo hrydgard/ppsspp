@@ -839,7 +839,7 @@ void ARMXEmitter::VSUB(ARMReg Vd, ARMReg Vn, ARMReg Vm)
 	if (single_reg)
 	{
 		Write32(NO_COND | (0x1C << 23) | ((Vd & 0x1) << 22) | (0x3 << 20) \
-			| ((Vn & 0x1E) << 15) | ((Vd & 0x1E) << 12) | (0x5 << 9) \
+			| ((Vn & 0x1E) << 15) | ((Vd & 0x1E) << 11) | (0x5 << 9) \
 			| ((Vn & 0x1) << 7) | (1 << 6) | ((Vm & 0x1) << 5) | (Vm >> 1));
 	}
 	else
@@ -875,7 +875,7 @@ void ARMXEmitter::VMUL(ARMReg Vd, ARMReg Vn, ARMReg Vm)
 	if (single_reg)
 	{
 		Write32(NO_COND | (0x1C << 23) | ((Vd & 0x1) << 22) | (0x1 << 20) \
-			| ((Vn & 0x1E) << 15) | ((Vd & 0x1E) << 12) | (0x5 << 9) \
+			| ((Vn & 0x1E) << 15) | ((Vd & 0x1E) << 11) | (0x5 << 9) \
 			| ((Vn & 0x1) << 7) | ((Vm & 0x1) << 5) | (Vm >> 1));
 	}
 	else
