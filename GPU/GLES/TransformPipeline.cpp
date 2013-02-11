@@ -922,7 +922,7 @@ void TransformDrawEngine::Flush() {
 					u32 dataHash = ComputeHash();
 					vai->hash = dataHash;
 					vai->status = VertexArrayInfo::VAI_HASHING;
-					vai->drawsUntilNextFullHash = 0;
+					vai->framesUntilNextFullHash = 0;
 					DecodeVerts(); // writes to indexGen
 					goto rotateVBO;
 				}
@@ -932,12 +932,15 @@ void TransformDrawEngine::Flush() {
 			case VertexArrayInfo::VAI_HASHING:
 				{
 					vai->numDraws++;
-					if (vai->drawsUntilNextFullHash == 0) {
+					if (vai->lastFrame != gpuStats.numFrames) {
+						vai->numFrames++;
+					}
+					if (vai->framesUntilNextFullHash == 0) {
 						u32 newHash = ComputeHash();
 						// exponential backoff up to 16 frames
-						vai->drawsUntilNextFullHash = std::min(16, vai->numDraws);
+						vai->framesUntilNextFullHash = std::min(16, vai->numFrames);
 						// TODO: tweak
-						//if (vai->numDraws > 1000) {
+						//if (vai->numFrames > 1000) {
 						//	vai->status = VertexArrayInfo::VAI_RELIABLE;
 						//}
 						if (newHash != vai->hash) {
@@ -954,7 +957,7 @@ void TransformDrawEngine::Flush() {
 							goto rotateVBO;
 						}
 					} else {
-						vai->drawsUntilNextFullHash--;
+						vai->framesUntilNextFullHash--;
 						// TODO: "mini-hashing" the first 32 bytes of the vertex/index data or something.
 					}
 
@@ -997,6 +1000,9 @@ void TransformDrawEngine::Flush() {
 			case VertexArrayInfo::VAI_RELIABLE:
 				{
 					vai->numDraws++;
+					if (vai->lastFrame != gpuStats.numFrames) {
+						vai->numFrames++;
+					}
 					gpuStats.numCachedDrawCalls++;
 					gpuStats.numCachedVertsDrawn += vai->numVerts;
 					vbo = vai->vbo;
@@ -1012,6 +1018,9 @@ void TransformDrawEngine::Flush() {
 			case VertexArrayInfo::VAI_UNRELIABLE:
 				{
 					vai->numDraws++;
+					if (vai->lastFrame != gpuStats.numFrames) {
+						vai->numFrames++;
+					}
 					DecodeVerts();
 					goto rotateVBO;
 				}

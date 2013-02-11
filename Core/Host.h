@@ -61,6 +61,13 @@ public:
 	virtual bool AttemptLoadSymbolMap() {return false;}
 	virtual void SetWindowTitle(const char *message) {}
 
+	virtual void SendCoreWait(bool) {}
+
+	virtual bool GpuStep() { return false; }
+	virtual void SendGPUWait() {}
+	virtual void SetGPUStep(bool value) {}
+	virtual void NextGPUStep() {}
+
 	// Used for headless.
 	virtual void SendDebugOutput(const std::string &output) {}
 	virtual void SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h) {}

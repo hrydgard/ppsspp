@@ -4,7 +4,9 @@
 #include "GPUCommon.h"
 #include "GPUState.h"
 #include "ChunkFile.h"
-
+#if defined(USING_QT_UI)
+#include "Core/Host.h"
+#endif
 
 static int dlIdGenerator = 1;
 
@@ -28,6 +30,7 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head)
 {
 	DisplayList dl;
 	dl.id = dlIdGenerator++;
+	dl.startpc = listpc & 0xFFFFFFF;
 	dl.pc = listpc & 0xFFFFFFF;
 	dl.stall = stall & 0xFFFFFFF;
 	dl.status = PSP_GE_LIST_QUEUED;
@@ -82,6 +85,12 @@ bool GPUCommon::InterpretList(DisplayList &list)
 			list.status = PSP_GE_LIST_STALL_REACHED;
 			return false;
 		}
+#if defined(USING_QT_UI)
+		if(host->GpuStep())
+		{
+			host->SendGPUWait();
+		}
+#endif
 		op = Memory::ReadUnchecked_U32(list.pc); //read from memory
 		u32 cmd = op >> 24;
 		u32 diff = op ^ gstate.cmdmem[cmd];

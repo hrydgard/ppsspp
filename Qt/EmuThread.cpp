@@ -18,9 +18,10 @@
 #include "gfx_es2/gl_state.h"
 #include "GPU/GPUState.h"
 #include "android/jni/ui_atlas.h"
-#include "native/util/random/rng.h"
 #include "native/base/timeutil.h"
 #include "native/base/colorutil.h"
+#include "GPU/GPUState.h"
+#include "GPU/GPUInterface.h"
 
 #include "qtemugl.h"
 #include "QtHost.h"
@@ -114,6 +115,26 @@ void EmuThread_LockDraw(bool value)
 	}
 }
 
+QString GetCurrentFilename()
+{
+	return fileToStart;
+}
+
+
+EmuThread::EmuThread()
+	: running(false)
+	, gameRunning(false)
+	, needInitGame(false)
+	, frames_(0)
+	, gameMutex( new QMutex(QMutex::Recursive))
+	, mutexLockNum(0)
+{
+}
+
+EmuThread::~EmuThread()
+{
+	delete gameMutex;
+}
 
 void EmuThread::init(InputState *inputState)
 {
@@ -143,13 +164,14 @@ void EmuThread::run()
 		//UpdateGamepad(*input_state);
 		timer.start();
 
-		gameMutex.lock();
+		gameMutex->lock();
 		bool gRun = gameRunning;
-		gameMutex.unlock();
+		gameMutex->unlock();
 
 		if(gRun)
 		{
-			gameMutex.lock();
+
+			gameMutex->lock();
 
 			glWindow->makeCurrent();
 			if(needInitGame)
@@ -227,14 +249,14 @@ void EmuThread::run()
 
 				qint64 time = timer.elapsed();
 				const int frameTime = (1.0f/60.0f) * 1000;
-				gameMutex.unlock();
+				gameMutex->unlock();
 				if(time < frameTime)
 				{
 					glWindow->doneCurrent();
 					msleep(frameTime-time);
 					glWindow->makeCurrent();
 				}
-				gameMutex.lock();
+				gameMutex->lock();
 				timer.start();
 			}
 
@@ -265,11 +287,11 @@ void EmuThread::run()
 #endif
 			glWindow->swapBuffers();
 			glWindow->doneCurrent();
-			gameMutex.unlock();
+			gameMutex->unlock();
 		}
 		else
 		{
-			gameMutex.lock();
+			gameMutex->lock();
 			glWindow->makeCurrent();
 			glClearColor(0, 0, 0, 0);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
@@ -311,7 +333,7 @@ void EmuThread::run()
 
 			glWindow->swapBuffers();
 			glWindow->doneCurrent();
-			gameMutex.unlock();
+			gameMutex->unlock();
 			qint64 time = timer.elapsed();
 			const int frameTime = (1.0f/60.0f) * 1000;
 			if(time < frameTime)
@@ -358,18 +380,18 @@ void EmuThread::setRunning(bool value)
 
 void EmuThread::startGame(QString filename)
 {
-	gameMutex.lock();
+	gameMutex->lock();
 	needInitGame = true;
 	gameRunning = true;
 	fileToStart = filename;
-	gameMutex.unlock();
+	gameMutex->unlock();
 
 }
 
 void EmuThread::stopGame()
 {
 	Core_Stop();
-	gameMutex.lock();
+	gameMutex->lock();
 	gameRunning = false;
 
 	PSP_Shutdown();
@@ -380,7 +402,25 @@ void EmuThread::stopGame()
 	g_State.bEmuThreadStarted = false;
 	frames_ = 0;
 
-	gameMutex.unlock();
+	gameMutex->unlock();
+}
+
+void EmuThread::LockGL(bool lock)
+{
+	if(lock)
+	{
+		gameMutex->lock();
+		if(mutexLockNum == 0)
+			glWindow->makeCurrent();
+		mutexLockNum++;
+	}
+	else
+	{
+		mutexLockNum--;
+		if(mutexLockNum == 0)
+			glWindow->doneCurrent();
+		gameMutex->unlock();
+	}
 }
 
 
