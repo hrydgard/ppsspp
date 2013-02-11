@@ -891,9 +891,20 @@ u32 sceIoOpenAsync(const char *filename, int flags, int mode)
 {
 	DEBUG_LOG(HLE, "sceIoOpenAsync() sorta implemented");
 	u32 fd = sceIoOpen(filename, flags, mode);
+
 	// TODO: This can't actually have a callback yet, but if it's set before waiting, it should be called.
 	__IoCompleteAsyncIO(fd);
+
 	// We have to return an fd here, which may have been destroyed when we reach Wait if it failed.
+	if (fd == ERROR_ERRNO_FILE_NOT_FOUND)
+	{
+		FileNode *f = new FileNode();
+		fd = kernelObjects.Create(f);
+		f->handle = 0;
+		f->fullpath = filename;
+		f->asyncResult = ERROR_ERRNO_FILE_NOT_FOUND;
+	}
+
 	return fd;
 }
 
