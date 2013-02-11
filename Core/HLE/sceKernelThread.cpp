@@ -1221,8 +1221,9 @@ u32 __KernelDeleteThread(SceUID threadID, int exitStatus, const char *reason, bo
 
 Thread *__KernelNextThread() {
 	// If the current thread is running, it's a valid candidate.
-	if (__GetCurrentThread() && __GetCurrentThread()->isRunning())
-		__KernelChangeReadyState(currentThread, true);
+	Thread *cur = __GetCurrentThread();
+	if (cur && cur->isRunning())
+		__KernelChangeReadyState(cur, currentThread, true);
 
 	SceUID bestThread = -1;
 	// This goes in priority order.
