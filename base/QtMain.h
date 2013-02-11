@@ -130,7 +130,7 @@ protected:
 		NativeUpdate(input_state);
 		EndInputState(&input_state);
 		NativeRender();
-
+		time_update();
 		update();
 	}
 
