@@ -350,7 +350,7 @@ void CtrlRegisterList::Change()
 
 	bool ok;
 	QString text = QInputDialog::getText(this, tr("Set new value"),
-								tr("Set new value :"), QLineEdit::Normal,
+								tr("Set new value:"), QLineEdit::Normal,
 								QString::number(val), &ok);
 	if (ok && !text.isEmpty())
 	{

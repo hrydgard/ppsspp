@@ -6,6 +6,7 @@
     <message>
         <location filename="../controls.ui" line="20"/>
         <source>Controls</source>
+        <comment>Control window title</comment>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -63,7 +64,7 @@
     </message>
     <message>
         <location filename="../ctrldisasmview.cpp" line="241"/>
-        <source>New function name :</source>
+        <source>New function name:</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -114,7 +115,7 @@
     </message>
     <message>
         <location filename="../ctrlregisterlist.cpp" line="353"/>
-        <source>Set new value :</source>
+        <source>Set new value:</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -122,7 +123,8 @@
     <name>Debugger_Disasm</name>
     <message>
         <location filename="../debugger_disasm.ui" line="17"/>
-        <source>Dialog</source>
+        <source>Disassembler</source>
+        <comment>Window title</comment>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -325,12 +327,17 @@
         <source>Symbols</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <location filename="../debugger_memory.cpp" line="15"/>
+        <source>Memory Viewer - %1</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>Debugger_VFPU</name>
     <message>
         <location filename="../debugger_vfpu.ui" line="14"/>
-        <source>Dialog</source>
+        <source>VFPU</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

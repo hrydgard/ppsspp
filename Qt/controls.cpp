@@ -70,6 +70,15 @@ void Controls::showEvent(QShowEvent*)
 	}
 }
 
+void Controls::changeEvent(QEvent *event)
+{
+	if (event)
+		if (event->type() == QEvent::LanguageChange)
+			ui->retranslateUi(this);
+
+	QDialog::changeEvent(event);
+}
+
 void Controls::releaseLock()
 {
 	EmuThread_LockDraw(false);
