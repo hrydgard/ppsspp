@@ -1079,7 +1079,9 @@ void __KernelWaitCurThread(WaitType type, SceUID waitID, u32 waitValue, u32 time
 void hleScheduledWakeup(u64 userdata, int cyclesLate)
 {
 	SceUID threadID = (SceUID)userdata;
-	__KernelTriggerWait(WAITTYPE_DELAY, threadID, "thread delay finished", true);
+	u32 error;
+	if (__KernelGetWaitID(threadID, WAITTYPE_DELAY, error) == threadID)
+		__KernelResumeThreadFromWait(threadID);
 }
 
 void __KernelScheduleWakeup(SceUID threadID, s64 usFromNow)
