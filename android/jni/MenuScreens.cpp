@@ -245,6 +245,7 @@ void InGameMenuScreen::render() {
 	int x = 30;
 	int y = 50;
 	UICheckBox(GEN_ID, x, y += 50, "Show Debug Statistics", ALIGN_TOPLEFT, &g_Config.bShowDebugStats);
+	UICheckBox(GEN_ID, x, y += 50, "Show FPS", ALIGN_TOPLEFT, &g_Config.bShowFPSCounter);
 	UICheckBox(GEN_ID, x, y += 50, "Hardware Transform", ALIGN_TOPLEFT, &g_Config.bHardwareTransform);
 
 	// TODO: Add UI for more than one slot.
