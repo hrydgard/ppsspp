@@ -213,6 +213,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 
     if (g_Config.bShowFPSCounter)
     {
+        static double highestFps = 0.0;
         static int lastFpsFrame = 0;
         static double lastFpsTime = 0.0;
         static double fps = 0.0;
@@ -224,13 +225,16 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
             {
                 fps = (gpuStats.numFrames - lastFpsFrame) / (now - lastFpsTime);
 
+                if (fps > highestFps)
+                    highestFps = fps;
+
                 lastFpsFrame = gpuStats.numFrames;
                 lastFpsTime = now;
             }
 
             char stats[2048];
 
-            sprintf(stats, "FPS: %f", fps);
+            sprintf(stats, "FPS: %f\nRecord high FPS: %f", fps, highestFps);
 
             float zoom = 0.3f; /// g_Config.iWindowZoom;
             float soff = 0.3f;
