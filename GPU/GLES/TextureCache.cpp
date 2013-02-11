@@ -26,6 +26,7 @@
 
 // If a texture hasn't been seen for 200 frames, get rid of it.
 #define TEXTURE_KILL_AGE 200
+float maxAnisotropyLevel ;
 
 TextureCache::TextureCache() {
 	// TODO: Switch to aligned allocations for alignment. AllocateMemoryPages would do the trick.
@@ -35,6 +36,7 @@ TextureCache::TextureCache() {
 	tmpTexBufRearrange = new u32[1024 * 512];   // 2MB
 	clutBuf32 = new u32[4096];  // 4K
 	clutBuf16 = new u16[4096];  // 4K
+	glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropyLevel);
 }
 
 TextureCache::~TextureCache() {
@@ -857,7 +859,9 @@ void TextureCache::SetTexture() {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, entry->maxLevel);
 #endif
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)entry->maxLevel);
-	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, 4.0);
+	float anisotropyLevel = (float) g_Config.iAnisotropyLevel > maxAnisotropyLevel ? maxAnisotropyLevel : (float) g_Config.iAnisotropyLevel;
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, anisotropyLevel );
+	// NOTICE_LOG(G3D,"AnisotropyLevel = %0.1f , MaxAnisotropyLevel = %0.1f ", anisotropyLevel, maxAnisotropyLevel );
 
 	UpdateSamplingParams(*entry, true);
 

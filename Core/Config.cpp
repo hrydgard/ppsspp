@@ -67,6 +67,7 @@ void CConfig::Load(const char *iniFileName)
 	graphics->Get("LinearFiltering", &bLinearFiltering, false);
 	graphics->Get("SSAA", &SSAntiAliasing, 0);
 	graphics->Get("VBO", &bUseVBO, false);
+	graphics->Get("AnisotropyLevel", &iAnisotropyLevel, 4);
 	graphics->Get("DisableG3DLog", &bDisableG3DLog, false);
 	graphics->Get("VertexCache", &bVertexCache, true);
 	graphics->Get("FullScreen", &bFullScreen, false);	
@@ -123,6 +124,7 @@ void CConfig::Save()
 		graphics->Set("LinearFiltering", bLinearFiltering);
 		graphics->Set("SSAA", SSAntiAliasing);
 		graphics->Set("VBO", bUseVBO);
+		graphics->Set("AnisotropyLevel", iAnisotropyLevel);
 		graphics->Set("DisableG3DLog", bDisableG3DLog);
 		graphics->Set("VertexCache", bVertexCache);
 		graphics->Set("FullScreen", bFullScreen);
