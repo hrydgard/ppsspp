@@ -843,7 +843,7 @@ void TextureCache::SetTexture() {
 	// As is usual, GLES3 will solve this problem nicely but wide distribution of that is
 	// years away.
 	LoadTextureLevel(*entry, 0);
-	if (entry.maxLevel > 0)
+	if (entry->maxLevel > 0)
 		glGenerateMipmap(GL_TEXTURE_2D);
 #else
 	for (int i = 0; i <= entry->maxLevel; i++) {
