@@ -61,7 +61,8 @@ struct FrameBufferState {
 
 struct WaitVBlankInfo
 {
-	WaitVBlankInfo(u32 tid) : threadID(tid), vcountUnblock(0) {}
+	WaitVBlankInfo(u32 tid) : threadID(tid), vcountUnblock(1) {}
+	WaitVBlankInfo(u32 tid, int vcount) : threadID(tid), vcountUnblock(vcount) {}
 	u32 threadID;
 	int vcountUnblock; // what was this for again?
 
@@ -191,9 +192,11 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 
 	// Wake up threads waiting for VBlank
 	for (size_t i = 0; i < vblankWaitingThreads.size(); i++) {
-		__KernelResumeThreadFromWait(vblankWaitingThreads[i].threadID, 0);
+		if (--vblankWaitingThreads[i].vcountUnblock == 0) {
+			__KernelResumeThreadFromWait(vblankWaitingThreads[i].threadID, 0);
+			vblankWaitingThreads.erase(vblankWaitingThreads.begin() + i--);
+		}
 	}
-	vblankWaitingThreads.clear();
 
 	// Trigger VBlank interrupt handlers.
 	__TriggerInterrupt(PSP_INTR_IMMEDIATE | PSP_INTR_ONLY_IF_ENABLED | PSP_INTR_ALWAYS_RESCHED, PSP_VBLANK_INTR, PSP_INTR_SUB_ALL);
@@ -409,9 +412,9 @@ u32 sceDisplayWaitVblank() {
 	}
 }
 
-u32 sceDisplayWaitVblankStartMulti() {
+u32 sceDisplayWaitVblankStartMulti(int vblanks) {
 	DEBUG_LOG(HLE,"sceDisplayWaitVblankStartMulti()");
-	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread()));
+	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread(), vblanks));
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, false, "vblank start multi waited");
 	return 0;
 }
@@ -435,9 +438,9 @@ u32 sceDisplayWaitVblankStartCB() {
 	return 0;
 }
 
-u32 sceDisplayWaitVblankStartMultiCB() {
+u32 sceDisplayWaitVblankStartMultiCB(int vblanks) {
 	DEBUG_LOG(HLE,"sceDisplayWaitVblankStartMultiCB()");
-	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread()));
+	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread(), vblanks));
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, true, "vblank start multi waited");
 	return 0;
 }
@@ -478,10 +481,10 @@ const HLEFunction sceDisplay[] = {
 	{0xEEDA2E54,WrapU_UUUI<sceDisplayGetFramebuf>,"sceDisplayGetFrameBuf"},
 	{0x36CDFADE,WrapU_V<sceDisplayWaitVblank>, "sceDisplayWaitVblank"},
 	{0x984C27E7,WrapU_V<sceDisplayWaitVblankStart>, "sceDisplayWaitVblankStart"},
-	{0x40f1469c,WrapU_V<sceDisplayWaitVblankStartMulti>, "sceDisplayWaitVblankStartMulti"},
+	{0x40f1469c,WrapU_I<sceDisplayWaitVblankStartMulti>, "sceDisplayWaitVblankStartMulti"},
 	{0x8EB9EC49,WrapU_V<sceDisplayWaitVblankCB>, "sceDisplayWaitVblankCB"},
 	{0x46F186C3,WrapU_V<sceDisplayWaitVblankStartCB>, "sceDisplayWaitVblankStartCB"},
-	{0x77ed8b3a,WrapU_V<sceDisplayWaitVblankStartMultiCB>,"sceDisplayWaitVblankStartMultiCB"},
+	{0x77ed8b3a,WrapU_I<sceDisplayWaitVblankStartMultiCB>,"sceDisplayWaitVblankStartMultiCB"},
 	{0xdba6c4c4,WrapF_V<sceDisplayGetFramePerSec>,"sceDisplayGetFramePerSec"},
 	{0x773dd3a3,sceDisplayGetCurrentHcount,"sceDisplayGetCurrentHcount"},
 	{0x210eab3a,sceDisplayGetAccumulatedHcount,"sceDisplayGetAccumulatedHcount"},
