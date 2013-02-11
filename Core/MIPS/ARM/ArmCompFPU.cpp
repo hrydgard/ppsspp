@@ -41,18 +41,14 @@ void Jit::Comp_FPU3op(u32 op)
 	int ft = _FT;
 	int fs = _FS;
 	int fd = _FD;
+	
+	fpr.MapDirtyInIn(fd, fs, ft);
 	switch (op & 0x3f) 
 	{
-	case 0: 
-		fpr.MapDirtyInIn(fd, fs, ft);
-		VADD(fpr.R(fd), fpr.R(fs), fpr.R(ft)); break; //F(fd) = F(fs) + F(ft); //add
-	case 1:
-  	fpr.MapDirtyInIn(fd, fs, ft);
-		VSUB(fpr.R(fd), fpr.R(fs), fpr.R(ft)); break; //F(fd) = F(fs) - F(ft); //sub
-	//case 2:
-	//	fpr.MapDirtyInIn(fd, fs, ft);
-	//	VMUL(fpr.R(fd), fpr.R(fs), fpr.R(ft)); break; //F(fd) = F(fs) * F(ft); //mul
-	//case 3: VDIV(fpr.R(fd), fpr.R(fs), fpr.R(fd)); break; //F(fd) = F(fs) / F(ft); //div
+	case 0: VADD(fpr.R(fd), fpr.R(fs), fpr.R(ft)); break; //F(fd) = F(fs) + F(ft); //add
+	case 1: VSUB(fpr.R(fd), fpr.R(fs), fpr.R(ft)); break; //F(fd) = F(fs) - F(ft); //sub
+	case 2: VMUL(fpr.R(fd), fpr.R(fs), fpr.R(ft)); break; //F(fd) = F(fs) * F(ft); //mul
+	case 3: VDIV(fpr.R(fd), fpr.R(fs), fpr.R(ft)); break; //F(fd) = F(fs) / F(ft); //div
 	default:
 		DISABLE;
 		return;
