@@ -52,7 +52,10 @@ namespace
 	static void DrawBackground(float alpha) {
 		static float xbase[100] = {0};
 		static float ybase[100] = {0};
-		if (xbase[0] == 0.0f) {
+		static int old_dp_xres = dp_xres;
+		// if window was resized, recalculate animation coordinates
+		if (xbase[0] == 0.0f || dp_xres != old_dp_xres) {
+			old_dp_xres = dp_xres;
 			GMRng rng;
 			for (int i = 0; i < 100; i++) {
 				xbase[i] = rng.F() * dp_xres;
@@ -316,6 +319,7 @@ void EmuThread::run()
 			ReapplyGfxState();
 
 			UIShader_Prepare();
+			glViewport(0, 0, pixel_xres, pixel_yres);
 			UIBegin();
 			DrawBackground(alpha);
 
