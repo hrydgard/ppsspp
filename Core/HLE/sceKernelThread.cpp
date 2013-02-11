@@ -430,6 +430,68 @@ public:
 	u32 stackBlock;
 };
 
+// std::vector<SceUID> with push_front(), remove(), etc.
+struct ThreadList
+{
+	std::vector<SceUID> list;
+
+	inline bool empty() const
+	{
+		return list.empty();
+	}
+
+	inline size_t size() const
+	{
+		return list.size();
+	}
+
+	inline SceUID &front()
+	{
+		return list.front();
+	}
+
+	inline void push_front(const SceUID threadID)
+	{
+		if (empty())
+			push_back(threadID);
+		else
+		{
+			size_t oldSize = list.size();
+			list.resize(oldSize + 1);
+			memmove(&list[1], &list[0], oldSize * sizeof(SceUID));
+			list[0] = threadID;
+		}
+	}
+
+	inline void push_back(const SceUID threadID)
+	{
+		list.push_back(threadID);
+	}
+
+	inline void pop_front()
+	{
+		size_t newSize = list.size() - 1;
+		list.resize(newSize);
+		if (newSize > 0)
+			memmove(&list[0], &list[1], newSize * sizeof(SceUID));
+	}
+
+	inline void pop_back()
+	{
+		list.pop_back();
+	}
+
+	inline void remove(const SceUID threadID)
+	{
+		list.erase(std::remove(list.begin(), list.end(), threadID), list.end());
+	}
+
+	void DoState(PointerWrap &p)
+	{
+		p.Do(list);
+	}
+};
+
 void __KernelExecuteMipsCallOnCurrentThread(int callId, bool reschedAfter);
 
 
@@ -446,7 +508,7 @@ int g_inCbCount = 0;
 // Normally, the same as currentThread.  In an interrupt, remembers the callback's thread id.
 SceUID currentCallbackThreadID = 0;
 int readyCallbacksCount = 0;
-SceUID currentThread = 0;
+SceUID currentThread;
 u32 idleThreadHackAddr;
 u32 threadReturnHackAddr;
 u32 cbReturnHackAddr;
@@ -456,7 +518,6 @@ std::vector<ThreadCallback> threadEndListeners;
 // Lists all thread ids that aren't deleted/etc.
 std::vector<SceUID> threadqueue;
 
-typedef std::list<SceUID> ThreadList;
 // Lists only ready thread ids.
 std::map<u32, ThreadList> threadReadyQueue;
 
@@ -556,6 +617,7 @@ void __KernelThreadingInit()
 
 	dispatchEnabled = true;
 
+	currentThread = 0;
 	g_inCbCount = 0;
 	currentCallbackThreadID = 0;
 	readyCallbacksCount = 0;
@@ -1078,7 +1140,9 @@ void __KernelWaitCurThread(WaitType type, SceUID waitID, u32 waitValue, u32 time
 void hleScheduledWakeup(u64 userdata, int cyclesLate)
 {
 	SceUID threadID = (SceUID)userdata;
-	__KernelTriggerWait(WAITTYPE_DELAY, threadID, "thread delay finished", true);
+	u32 error;
+	if (__KernelGetWaitID(threadID, WAITTYPE_DELAY, error) == threadID)
+		__KernelResumeThreadFromWait(threadID);
 }
 
 void __KernelScheduleWakeup(SceUID threadID, s64 usFromNow)
@@ -1156,6 +1220,11 @@ u32 __KernelDeleteThread(SceUID threadID, int exitStatus, const char *reason, bo
 }
 
 Thread *__KernelNextThread() {
+	// If the current thread is running, it's a valid candidate.
+	Thread *cur = __GetCurrentThread();
+	if (cur && cur->isRunning())
+		__KernelChangeReadyState(cur, currentThread, true);
+
 	SceUID bestThread = -1;
 	// This goes in priority order.
 	for (auto it = threadReadyQueue.begin(), end = threadReadyQueue.end(); it != end; ++it)
@@ -1197,10 +1266,6 @@ void __KernelReSchedule(const char *reason)
 		reason = "In Interrupt Or Callback";
 		return;
 	}
-
-	// TODO: Not sure if this is correct?  Probably should remove.
-	if (__GetCurrentThread() && __GetCurrentThread()->isRunning())
-		__KernelChangeReadyState(currentThread, true);
 
 retry:
 	Thread *nextThread = __KernelNextThread();
@@ -1769,7 +1834,7 @@ void sceKernelChangeThreadPriority()
 		DEBUG_LOG(HLE,"sceKernelChangeThreadPriority(%i, %i)", id, PARAM(1));
 
 		int prio = thread->nt.currentPriority;
-		threadReadyQueue[prio].erase(std::remove(threadReadyQueue[prio].begin(), threadReadyQueue[prio].end(), id), threadReadyQueue[prio].end());
+		threadReadyQueue[prio].remove(id);
 
 		thread->nt.currentPriority = PARAM(1);
 
@@ -2288,6 +2353,7 @@ void __KernelSwitchContext(Thread *target, const char *reason)
 		if (DEBUG_LEVEL <= MAX_LOGLEVEL)
 			oldName = cur->GetName();
 
+		// Normally this is taken care of in __KernelNextThread().
 		if (cur->isRunning())
 			__KernelChangeReadyState(cur, oldUID, true);
 	}
