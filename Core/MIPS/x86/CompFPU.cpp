@@ -46,24 +46,27 @@ void Jit::CompFPTriArith(u32 op, void (XEmitter::*arith)(X64Reg reg, OpArg), boo
 	int ft = _FT;
 	int fs = _FS;
 	int fd = _FD;
-	fpr.SpillLock(ft, fs, fd);
+	fpr.SpillLock(fd, fs, ft);
 
-	if (false && fs == fd) 
+	if (fs == fd)
 	{
 		fpr.BindToRegister(fd, true, true);
 		(this->*arith)(fpr.RX(fd), fpr.R(ft));
 	}
-	else 
+	else if (ft == fd && !orderMatters)
 	{
-		/*
 		fpr.BindToRegister(fd, true, true);
-		if (fd != fs)
-			MOVSS(fpr.RX(fd), fpr.R(fs));
-		(this->*arith)(fpr.RX(fd), fpr.R(ft));*/
+		(this->*arith)(fpr.RX(fd), fpr.R(fs));
+	}
+	else if (ft != fd && fs != fd && ft != fs) {
+		fpr.BindToRegister(fd, false, true);
+		MOVSS(fpr.RX(fd), fpr.R(fs));
+		(this->*arith)(fpr.RX(fd), fpr.R(ft));
+	}
+	else {
+		fpr.BindToRegister(fd, true, true);
 		MOVSS(XMM0, fpr.R(fs));
-		MOVSS(XMM1, fpr.R(ft));
-		fpr.BindToRegister(fd, true, true);
-		(this->*arith)(XMM0, R(XMM1));
+		(this->*arith)(XMM0, fpr.R(ft));
 		MOVSS(fpr.RX(fd), R(XMM0));
 	}
 	fpr.ReleaseSpillLocks();
