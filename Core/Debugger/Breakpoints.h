@@ -83,6 +83,9 @@ public:
 
 	static void InvalidateJit(u32 _iAddress);
 	static void InvalidateJit();
+
+	static int GetNumBreakpoints();
+	static int GetBreakpointAddress(int i);
 };
 
 

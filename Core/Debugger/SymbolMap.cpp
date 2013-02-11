@@ -334,6 +334,11 @@ int SymbolMap::GetNumSymbols()
 {
 	return (int)entries.size();
 }
+SymbolType SymbolMap::GetSymbolType(int i)
+{
+	return entries[i].type;
+}
+
 char *SymbolMap::GetSymbolName(int i)
 {
 	return entries[i].name;

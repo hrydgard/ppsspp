@@ -9,6 +9,7 @@
 #include <QDesktopWidget>
 
 #include "Core/MIPS/MIPSDebugInterface.h"
+#include "Core/Debugger/SymbolMap.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
 #include "Core/Config.h"
@@ -26,7 +27,8 @@ MainWindow::MainWindow(QWidget *parent) :
 	QMainWindow(parent),
 	ui(new Ui::MainWindow),
 	nextState(CORE_POWERDOWN),
-	dialogDisasm(0)
+	dialogDisasm(0),
+	memoryWindow(0)
 {
 	ui->setupUi(this);
 	qApp->installEventFilter(this);
@@ -36,19 +38,18 @@ MainWindow::MainWindow(QWidget *parent) :
 	gamePadDlg = new GamePadDialog(&input_state, this);
 #endif
 
+	SetPlaying(0);
+
 	host = new QtHost(this);
 	w = ui->widget;
 	w->init(&input_state);
 	w->resize(pixel_xres, pixel_yres);
 	w->setMinimumSize(pixel_xres, pixel_yres);
 	w->setMaximumSize(pixel_xres, pixel_yres);
+	QObject::connect( w, SIGNAL(doubleClick()), this, SLOT(on_action_OptionsFullScreen_triggered()) );
 
-	/*
-	DialogManager::AddDlg(memoryWindow[0] = new CMemoryDlg(_hInstance, hwndMain, currentDebugMIPS));
-	DialogManager::AddDlg(vfpudlg = new CVFPUDlg(_hInstance, hwndMain, currentDebugMIPS));
-	*/
-	// Update();
 	createLanguageMenu();
+
 	UpdateMenus();
 
 	int zoom = g_Config.iWindowZoom;
@@ -173,15 +174,16 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 
 void MainWindow::SetPlaying(QString text)
 {
-	// TODO
-	/*if (text == 0)
-		SetWindowText(hwndMain,programname);
+	if (text == 0)
+	{
+		QString title = "PPSSPP " + QString(PPSSPP_VERSION_STR);
+		setWindowTitle(title);
+	}
 	else
 	{
-		char temp[256];
-		sprintf(temp, "%s - %s", text, programname);
-		SetWindowText(hwndMain,temp);
-	}*/
+		QString title = "PPSSPP " + QString(PPSSPP_VERSION_STR) + "-" + text;
+		setWindowTitle(title);
+	}
 }
 
 void MainWindow::SetNextState(CoreState state)
@@ -205,18 +207,26 @@ void MainWindow::Boot()
 	dialogDisasm = new Debugger_Disasm(currentDebugMIPS, this, this);
 	if(g_Config.bShowDebuggerOnLoad)
 		dialogDisasm->show();
-	/*
-	// TODO
-	memoryWindow[0] = new CMemoryDlg(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
-	DialogManager::AddDlg(memoryWindow[0]);
-	if (disasmWindow[0])
-		disasmWindow[0]->NotifyMapLoaded();
-	if (memoryWindow[0])
-		memoryWindow[0]->NotifyMapLoaded();*/
+
+	if(g_Config.bFullScreen != isFullScreen())
+		on_action_OptionsFullScreen_triggered();
+
+	memoryWindow = new Debugger_Memory(currentDebugMIPS, this, this);
+
+	if (dialogDisasm)
+		dialogDisasm->NotifyMapLoaded();
+	if (memoryWindow)
+		memoryWindow->NotifyMapLoaded();
 
 	if (nextState == CORE_RUNNING)
 		on_action_EmulationRun_triggered();
 	UpdateMenus();
+}
+
+void MainWindow::CoreEmitWait(bool isWaiting)
+{
+	// Unlock mutex while core is waiting;
+	EmuThread_LockDraw(!isWaiting);
 }
 
 void MainWindow::UpdateMenus()
@@ -227,10 +237,14 @@ void MainWindow::UpdateMenus()
 	ui->action_CPUFastInterpreter->setChecked(g_Config.iCpuCore == CPU_FASTINTERPRETER);
 	ui->action_CPUDynarec->setChecked(g_Config.iCpuCore == CPU_JIT);
 	ui->action_OptionsBufferedRendering->setChecked(g_Config.bBufferedRendering);
+	ui->action_OptionsShowDebugStatistics->setChecked(g_Config.bShowDebugStats);
 	ui->action_OptionsWireframe->setChecked(g_Config.bDrawWireframe);
 	ui->action_OptionsHardwareTransform->setChecked(g_Config.bHardwareTransform);
 	ui->action_OptionsFastMemory->setChecked(g_Config.bFastMemory);
 	ui->action_OptionsLinearFiltering->setChecked(g_Config.bLinearFiltering);
+	ui->action_EmulationRunLoad->setChecked(g_Config.bAutoRun);
+	ui->action_OptionsUseVBO->setChecked(g_Config.bUseVBO);
+	ui->action_OptionsVertexCache->setChecked(g_Config.bVertexCache);
 
 	bool enable = !Core_IsStepping() ? false : true;
 	ui->action_EmulationRun->setEnabled(g_State.bEmuThreadStarted ? enable : false);
@@ -275,6 +289,8 @@ void MainWindow::SetZoom(float zoom) {
 
 	pixel_xres = 480 * zoom;
 	pixel_yres = 272 * zoom;
+	dp_xres = pixel_xres;
+	dp_yres = pixel_yres;
 
 	w->resize(pixel_xres, pixel_yres);
 	w->setMinimumSize(pixel_xres, pixel_yres);
@@ -299,7 +315,6 @@ void MainWindow::on_action_EmulationRun_triggered()
 {
 	if (g_State.bEmuThreadStarted)
 	{
-		/*for (int i=0; i<numCPUs; i++)*/
 		if(dialogDisasm)
 		{
 			dialogDisasm->Stop();
@@ -310,34 +325,29 @@ void MainWindow::on_action_EmulationRun_triggered()
 
 void MainWindow::on_action_EmulationStop_triggered()
 {
-	/*for (int i=0; i<numCPUs; i++)*/
-
 	if(dialogDisasm)
 	{
 		dialogDisasm->Stop();
 	}
-	usleep(100); // TODO : UGLY wait for event instead
+	// This will wait for ppsspp to pause
+	EmuThread_LockDraw(true);
+	EmuThread_LockDraw(false);
 
-	/*for (int i=0; i<numCPUs; i++)
-		if (disasmWindow[i])
-			SendMessage(disasmWindow[i]->GetDlgHandle(), WM_CLOSE, 0, 0);
-	for (int i=0; i<numCPUs; i++)
-		if (memoryWindow[i])
-			SendMessage(memoryWindow[i]->GetDlgHandle(), WM_CLOSE, 0, 0);*/
+	if(dialogDisasm && dialogDisasm->isVisible())
+		dialogDisasm->close();
+	if(memoryWindow && memoryWindow->isVisible())
+		memoryWindow->close();
 
 	EmuThread_StopGame();
 	SetPlaying(0);
-	//Update();
+	Update();
 	UpdateMenus();
 }
 
 void MainWindow::on_action_EmulationPause_triggered()
 {
-	/*for (int i=0; i<numCPUs; i++)*/
 	if(dialogDisasm)
-	{
 		dialogDisasm->Stop();
-	}
 }
 
 void SaveStateActionFinished(bool result, void *userdata)
@@ -356,7 +366,6 @@ void SaveStateActionFinished(bool result, void *userdata)
 
 	if (g_State.bEmuThreadStarted && mainWindow->GetNextState() == CORE_RUNNING)
 	{
-		/*for (int i=0; i<numCPUs; i++)*/
 		if(mainWindow->GetDialogDisasm())
 			mainWindow->GetDialogDisasm()->Go();
 	}
@@ -367,7 +376,6 @@ void MainWindow::on_action_FileLoadStateFile_triggered()
 	if (g_State.bEmuThreadStarted)
 	{
 		nextState = Core_IsStepping() ? CORE_STEPPING : CORE_RUNNING;
-		/*for (int i=0; i<numCPUs; i++)*/
 		if(dialogDisasm)
 		{
 			dialogDisasm->Stop();
@@ -393,7 +401,6 @@ void MainWindow::on_action_FileSaveStateFile_triggered()
 	if (g_State.bEmuThreadStarted)
 	{
 		nextState = Core_IsStepping() ? CORE_STEPPING : CORE_RUNNING;
-		/*for (int i=0; i<numCPUs; i++)*/
 		if(dialogDisasm)
 		{
 			dialogDisasm->Stop();
@@ -418,7 +425,6 @@ void MainWindow::on_action_FileQuickloadState_triggered()
 	if (g_State.bEmuThreadStarted)
 	{
 		nextState = Core_IsStepping() ? CORE_STEPPING : CORE_RUNNING;
-		/*for (int i=0; i<numCPUs; i++)*/
 		if(dialogDisasm)
 		{
 			dialogDisasm->Stop();
@@ -432,7 +438,6 @@ void MainWindow::on_action_FileQuickSaveState_triggered()
 	if (g_State.bEmuThreadStarted)
 	{
 		nextState = Core_IsStepping() ? CORE_STEPPING : CORE_RUNNING;
-		/*for (int i=0; i<numCPUs; i++)*/
 		if(dialogDisasm)
 		{
 			dialogDisasm->Stop();
@@ -510,37 +515,47 @@ void MainWindow::on_action_CPUFastInterpreter_triggered()
 
 void MainWindow::on_action_DebugLoadMapFile_triggered()
 {
-	// TODO
-	/*if (W32Util::BrowseForFileName(true, hWnd, "Load .MAP",0,"Maps\0*.map\0All files\0*.*\0\0","map",fn))
+	QFileDialog dialog(0,"Load .MAP");
+	dialog.setFileMode(QFileDialog::ExistingFile);
+	QStringList filters;
+	filters << "Maps (*.map)" << "|All files (*.*)";
+	dialog.setNameFilters(filters);
+	dialog.setAcceptMode(QFileDialog::AcceptOpen);
+	QStringList fileNames;
+	if (dialog.exec())
 	{
-		symbolMap.LoadSymbolMap(fn.c_str());
-//					HLE_PatchFunctions();
-		for (int i=0; i<numCPUs; i++)
-			if (disasmWindow[i])
-				disasmWindow[i]->NotifyMapLoaded();
-		for (int i=0; i<numCPUs; i++)
-			if (memoryWindow[i])
-				memoryWindow[i]->NotifyMapLoaded();
-	}*/
+		fileNames = dialog.selectedFiles();
+		symbolMap.LoadSymbolMap(fileNames[0].toStdString().c_str());
+		if (dialogDisasm)
+			dialogDisasm->NotifyMapLoaded();
+		if (memoryWindow)
+			memoryWindow->NotifyMapLoaded();
+	}
 }
 
 void MainWindow::on_action_DebugSaveMapFile_triggered()
 {
-	// TODO
-	/*if (W32Util::BrowseForFileName(false, hWnd, "Save .MAP",0,"Maps\0*.map\0All files\0*.*\0\0","map",fn))
-						symbolMap.SaveSymbolMap(fn.c_str());*/
+	QFileDialog dialog(0,"Save .MAP");
+	dialog.setFileMode(QFileDialog::AnyFile);
+	dialog.setAcceptMode(QFileDialog::AcceptSave);
+	QStringList filters;
+	filters << "Save .MAP (*.map)" << "|All files (*.*)";
+	dialog.setNameFilters(filters);
+	QStringList fileNames;
+	if (dialog.exec())
+	{
+		fileNames = dialog.selectedFiles();
+		symbolMap.SaveSymbolMap(fileNames[0].toStdString().c_str());
+	}
 }
 
 void MainWindow::on_action_DebugResetSymbolTable_triggered()
 {
-	// TODO
-	/*symbolMap.ResetSymbolMap();
-	for (int i=0; i<numCPUs; i++)
-		if (disasmWindow[i])
-			disasmWindow[i]->NotifyMapLoaded();
-	for (int i=0; i<numCPUs; i++)
-		if (memoryWindow[i])
-			memoryWindow[i]->NotifyMapLoaded();*/
+	symbolMap.ResetSymbolMap();
+	if (dialogDisasm)
+		dialogDisasm->NotifyMapLoaded();
+	if (memoryWindow)
+		memoryWindow->NotifyMapLoaded();
 }
 
 void MainWindow::on_action_DebugDisassembly_triggered()
@@ -551,9 +566,8 @@ void MainWindow::on_action_DebugDisassembly_triggered()
 
 void MainWindow::on_action_DebugMemoryView_triggered()
 {
-	// TODO
-	/*if (memoryWindow[0])
-		memoryWindow[0]->Show(true);*/
+	if (memoryWindow)
+		memoryWindow->show();
 }
 
 void MainWindow::on_action_DebugLog_triggered()
@@ -570,12 +584,14 @@ void MainWindow::on_action_OptionsIgnoreIllegalReadsWrites_triggered()
 void MainWindow::on_action_OptionsFullScreen_triggered()
 {
 	if(isFullScreen()) {
+		g_Config.bFullScreen = false;
 		showNormal();
 		ui->menubar->setVisible(true);
 		ui->statusbar->setVisible(true);
 		SetZoom(g_Config.iWindowZoom);
 	}
 	else {
+		g_Config.bFullScreen = true;
 		ui->menubar->setVisible(false);
 		ui->statusbar->setVisible(false);
 
@@ -597,6 +613,8 @@ void MainWindow::on_action_OptionsFullScreen_triggered()
 		PSP_CoreParameter().outputHeight = height;
 		pixel_xres = width;
 		pixel_yres = height;
+		dp_xres = pixel_xres;
+		dp_yres = pixel_yres;
 		if (gpu)
 			gpu->Resized();
 	}
@@ -638,10 +656,7 @@ void MainWindow::on_action_HelpOpenWebsite_triggered()
 
 void MainWindow::on_action_HelpAbout_triggered()
 {
-	// TODO
-	/*DialogManager::EnableAll(FALSE);
-	DialogBox(hInst, (LPCTSTR)IDD_ABOUTBOX, hWnd, (DLGPROC)About);
-	DialogManager::EnableAll(TRUE);*/
+	// TODO display about
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
@@ -878,4 +893,56 @@ void MainWindow::changeEvent(QEvent *event)
 			break;
 		}
 	}
+}
+
+void MainWindow::ShowMemory(u32 addr)
+{
+	if(memoryWindow)
+		memoryWindow->Goto(addr);
+}
+
+void MainWindow::Update()
+{
+
+}
+
+void MainWindow::on_action_EmulationReset_triggered()
+{
+	if(dialogDisasm)
+		dialogDisasm->Stop();
+
+	EmuThread_LockDraw(true);
+	EmuThread_LockDraw(false);
+
+	if(dialogDisasm)
+		dialogDisasm->close();
+	if(memoryWindow)
+		memoryWindow->close();
+
+	EmuThread_StopGame();
+
+	EmuThread_StartGame(GetCurrentFilename());
+}
+
+void MainWindow::on_action_DebugDumpFrame_triggered()
+{
+	gpu->DumpNextFrame();
+}
+
+void MainWindow::on_action_EmulationRunLoad_triggered()
+{
+	g_Config.bAutoRun = !g_Config.bAutoRun;
+	UpdateMenus();
+}
+
+void MainWindow::on_action_OptionsVertexCache_triggered()
+{
+	g_Config.bVertexCache = !g_Config.bVertexCache;
+	UpdateMenus();
+}
+
+void MainWindow::on_action_OptionsUseVBO_triggered()
+{
+	g_Config.bUseVBO = !g_Config.bUseVBO;
+	UpdateMenus();
 }

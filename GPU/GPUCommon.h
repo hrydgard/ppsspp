@@ -53,4 +53,13 @@ public:
 		}
 		return NULL;
 	}
+
+	const std::deque<DisplayList>& GetDisplayLists()
+	{
+		return dlQueue;
+	}
+	DisplayList* GetCurrentDisplayList()
+	{
+		return currentList;
+	}
 };

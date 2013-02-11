@@ -164,7 +164,6 @@ void Jit::Comp_SV(u32 op) {
 			}
 			if (safe.PrepareSlowRead((void *) &Memory::Read_U32))
 			{
-				safe.NextSlowRead((void *) &Memory::Read_U32, 0);
 				MOV(32, M((void *)&ssLoadStoreTemp), R(EAX));
 				MOVSS(fpr.VX(vt), M((void *)&ssLoadStoreTemp));
 			}

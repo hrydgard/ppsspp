@@ -14,5 +14,7 @@
         <file>resources/psp_adown.png</file>
         <file>resources/psp_aleft.png</file>
         <file>resources/psp_aup.png</file>
+        <file alias="breakpointDisable">resources/stop1.ico</file>
+        <file alias="breakpoint">resources/icon1.ico</file>
     </qresource>
 </RCC>

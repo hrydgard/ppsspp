@@ -99,7 +99,15 @@ reswitch:
 		// We should never get here on Android.
 		case CORE_STEPPING:
 			//1: wait for step command..
+#if defined(USING_QT_UI) || defined(_DEBUG)
+			host->SendCoreWait(true);
+#endif
+
 			m_hStepEvent.wait(m_hStepMutex);
+
+#if defined(USING_QT_UI) || defined(_DEBUG)
+			host->SendCoreWait(false);
+#endif
 			if (coreState == CORE_POWERDOWN)
 				return;
 			if (coreState != CORE_STEPPING)
@@ -112,7 +120,7 @@ reswitch:
 			currentCPU = &mipsr4k;
 			Core_SingleStep();
 			//4: update disasm dialog
-#ifdef _DEBUG
+#if defined(USING_QT_UI) || defined(_DEBUG)
 			host->UpdateDisassembly();
 			host->UpdateMemView();
 #endif

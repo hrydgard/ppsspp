@@ -12,6 +12,7 @@
 #include "android/jni/EmuScreen.h"
 #include "android/jni/UIShader.h"
 #include "android/jni/ui_atlas.h"
+#include "EmuThread.h"
 
 std::string boot_filename = "";
 Texture *uiTexture;
@@ -20,20 +21,22 @@ ScreenManager *screenManager;
 std::string config_filename;
 std::string game_title;
 
+event m_hGPUStepEvent;
+recursive_mutex m_hGPUStepMutex;
+
 QtHost::QtHost(MainWindow *mainWindow_)
     : mainWindow(mainWindow_)
+	, m_GPUStep(false)
 {
 	QObject::connect(this,SIGNAL(BootDoneSignal()),mainWindow,SLOT(Boot()));
 }
 
 void QtHost::InitGL()
 {
-
 }
 
 void QtHost::ShutdownGL()
 {
-	//GL_Shutdown();
 }
 
 void QtHost::SetWindowTitle(const char *message)
@@ -45,30 +48,28 @@ void QtHost::SetWindowTitle(const char *message)
 
 void QtHost::UpdateUI()
 {
-	//mainWindow->Update();
+	mainWindow->Update();
 	mainWindow->UpdateMenus();
 }
 
 
 void QtHost::UpdateMemView()
 {
-	/*for (int i=0; i<numCPUs; i++)
-		if (memoryWindow[i])
-			memoryWindow[i]->Update();*/
+	if(mainWindow->GetDialogMemory())
+		mainWindow->GetDialogMemory()->Update();
 }
 
 void QtHost::UpdateDisassembly()
 {
-	/*for (int i=0; i<numCPUs; i++)
-		if (disasmWindow[i])
-			disasmWindow[i]->Update();*/
-	/*if(dialogDisasm)
-		dialogDisasm->Update();*/
+	if(mainWindow->GetDialogDisasm())
+	{
+		mainWindow->GetDialogDisasm()->GotoPC();
+		mainWindow->GetDialogDisasm()->Update();
+	}
 }
 
 void QtHost::SetDebugMode(bool mode)
 {
-	/*for (int i=0; i<numCPUs; i++)*/
 	if(mainWindow->GetDialogDisasm())
 		mainWindow->GetDialogDisasm()->SetDebugMode(mode);
 }
@@ -76,14 +77,9 @@ void QtHost::SetDebugMode(bool mode)
 
 void QtHost::BeginFrame()
 {
-	/*for (auto iter = this->input.begin(); iter != this->input.end(); iter++)
-		if ((*iter)->UpdateState() == 0)
-			break; // *iter is std::shared_ptr, **iter is InputDevice
-	GL_BeginFrame();*/
 }
 void QtHost::EndFrame()
 {
-	//GL_EndFrame();
 }
 
 void QtHost::InitSound(PMixer *mixer)
@@ -102,18 +98,26 @@ void QtHost::BootDone()
 	emit BootDoneSignal();
 }
 
+
+static QString SymbolMapFilename(QString currentFilename)
+{
+	std::string result = currentFilename.toStdString();
+	size_t dot = result.rfind('.');
+	if (dot == result.npos)
+		return (result + ".map").c_str();
+
+	result.replace(dot, result.npos, ".map");
+	return result.c_str();
+}
+
 bool QtHost::AttemptLoadSymbolMap()
 {
-	QFileInfo currentFile(fileToStart);
-	QString ret = currentFile.baseName() + ".map";
-	return symbolMap.LoadSymbolMap(ret.toAscii().constData());
+	return symbolMap.LoadSymbolMap(SymbolMapFilename(GetCurrentFilename()).toStdString().c_str());
 }
 
 void QtHost::PrepareShutdown()
 {
-	QFileInfo currentFile(fileToStart);
-	QString ret = currentFile.baseName() + ".map";
-	symbolMap.SaveSymbolMap(ret.toAscii().constData());
+	symbolMap.SaveSymbolMap(SymbolMapFilename(GetCurrentFilename()).toStdString().c_str());
 }
 
 void QtHost::AddSymbol(std::string name, u32 addr, u32 size, int type=0)
@@ -128,6 +132,36 @@ bool QtHost::IsDebuggingEnabled()
 #else
 	return false;
 #endif
+}
+
+void QtHost::SendCoreWait(bool isWaiting)
+{
+	mainWindow->CoreEmitWait(isWaiting);
+}
+
+bool QtHost::GpuStep()
+{
+	return m_GPUStep;
+}
+
+void QtHost::SendGPUWait()
+{
+	EmuThread_LockDraw(false);
+
+	mainWindow->GetDialogDisasm()->UpdateDisplayList();
+	m_hGPUStepEvent.wait(m_hGPUStepMutex);
+
+	EmuThread_LockDraw(true);
+}
+
+void QtHost::SetGPUStep(bool value)
+{
+	m_GPUStep = value;
+}
+
+void QtHost::NextGPUStep()
+{
+	m_hGPUStepEvent.notify_one();
 }
 
 void NativeMix(short *audio, int num_samples)

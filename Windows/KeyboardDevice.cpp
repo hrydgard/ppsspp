@@ -26,8 +26,12 @@ static const unsigned short analog_ctrl_map[] = {
 };
 
 int KeyboardDevice::UpdateState() {
+	bool alternate = GetAsyncKeyState(VK_SHIFT) != 0;
+	static u32 alternator = 0;
+	bool doAlternate = alternate && (alternator++ % 10) < 5;
+
 	for (int i = 0; i < sizeof(key_ctrl_map)/sizeof(key_ctrl_map[0]); i += 2) {
-		if (!GetAsyncKeyState(key_ctrl_map[i]))
+		if (!GetAsyncKeyState(key_ctrl_map[i]) || doAlternate)
 			__CtrlButtonUp(key_ctrl_map[i+1]);
 		else {
 			__CtrlButtonDown(key_ctrl_map[i+1]);
