@@ -45,6 +45,9 @@ public:
 private:
 	
 	struct TexCacheEntry {
+		// After marking STATUS_UNRELIABLE, if it stays the same this many frames we'll trust it again.
+		const static int FRAMES_REGAIN_TRUST = 1000;
+
 		enum Status {
 			STATUS_HASHING,
 			STATUS_RELIABLE,  // cache, don't hash
