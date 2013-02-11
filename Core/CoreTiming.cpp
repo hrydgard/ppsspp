@@ -21,6 +21,7 @@
 
 #include "MsgHandler.h"
 #include "StdMutex.h"
+#include "Atomic.h"
 #include "CoreTiming.h"
 #include "Core.h"
 #include "HLE/sceKernelThread.h"
@@ -66,6 +67,8 @@ Event *tsLast;
 Event *eventPool = 0;
 Event *eventTsPool = 0;
 int allocatedTsEvents = 0;
+// Optimization to skip MoveEvents when possible.
+volatile u32 hasTsEvents = false;
 
 // Downcount has been moved to currentMIPS, to save a couple of clocks in every ARM JIT block
 // as we can already reach that structure through a register.
@@ -159,6 +162,7 @@ void Init()
 	slicelength = INITIAL_SLICE_LENGTH;
 	globalTimer = 0;
 	idledCycles = 0;
+	hasTsEvents = 0;
 }
 
 void Shutdown()
@@ -209,6 +213,8 @@ void ScheduleEvent_Threadsafe(s64 cyclesIntoFuture, int event_type, u64 userdata
 	if(tsLast)
 		tsLast->next = ne;
 	tsLast = ne;
+
+	Common::AtomicStoreRelease(hasTsEvents, 1);
 }
 
 // Same as ScheduleEvent_Threadsafe(0, ...) EXCEPT if we are already on the CPU thread
@@ -416,7 +422,8 @@ void RemoveAllEvents(int event_type)
 //This raise only the events required while the fifo is processing data
 void ProcessFifoWaitEvents()
 {
-	MoveEvents();
+	if (Common::AtomicLoadAcquire(hasTsEvents))
+		MoveEvents();
 
 	if (!first)
 		return;
@@ -441,6 +448,8 @@ void ProcessFifoWaitEvents()
 
 void MoveEvents()
 {
+	Common::AtomicStoreRelease(hasTsEvents, 0);
+
 	std::lock_guard<std::recursive_mutex> lk(externalEventSection);
 		// Move events from async queue into main queue
 	while (tsFirst)

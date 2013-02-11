@@ -773,6 +773,7 @@ namespace MainWindow
 		"Analog Down\tK",
 		"Analog Left\tJ",
 		"Analog Right\tL",
+		"Rapid Fire\tShift",
 	};
 	// Message handler for about box.
 	LRESULT CALLBACK Controls(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
