@@ -211,6 +211,37 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	// Draw screen overlays before blitting. Saves and restores the Ge context.
 	gpuStats.numFrames++;
 
+    if (g_Config.bShowFPSCounter)
+    {
+        static int lastFpsFrame = 0;
+        static double lastFpsTime = 0.0;
+        static double fps = 0.0;
+        {
+            time_update();
+            double now = time_now_d();
+
+            if (now >= lastFpsTime + 1.0)
+            {
+                fps = (gpuStats.numFrames - lastFpsFrame) / (now - lastFpsTime);
+
+                lastFpsFrame = gpuStats.numFrames;
+                lastFpsTime = now;
+            }
+
+            char stats[2048];
+
+            sprintf(stats, "FPS: %f", fps);
+
+            float zoom = 0.3f; /// g_Config.iWindowZoom;
+            float soff = 0.3f;
+            PPGeBegin();
+            PPGeDrawText(stats, soff, soff, 0, zoom, 0xCC000000);
+            PPGeDrawText(stats, -soff, -soff, 0, zoom, 0xCC000000);
+            PPGeDrawText(stats, 0, 0, 0, zoom, 0xFFFFFFFF);
+            PPGeEnd();
+        }
+    }
+
 	// Now we can subvert the Ge engine in order to draw custom overlays like stat counters etc.
 	if (g_Config.bShowDebugStats && gpuStats.numDrawCalls) {
 		gpu->UpdateStats();
