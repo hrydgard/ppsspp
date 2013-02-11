@@ -94,7 +94,9 @@ void TextureCache::Invalidate(u32 addr, int size, bool force) {
 			}
 			if (force) {
 				gpuStats.numTextureInvalidations++;
-				iter->second.status = TexCacheEntry::STATUS_UNRELIABLE;
+				// Start it over from 0.
+				iter->second.numFrames = 0;
+				iter->second.framesUntilNextFullHash = 0;
 			} else {
 				iter->second.invalidHint++;
 			}
@@ -771,6 +773,9 @@ void TextureCache::SetTexture() {
 				match = false;
 				gpuStats.numTextureInvalidations++;
 				entry->status = TexCacheEntry::STATUS_UNRELIABLE;
+				entry->numFrames = 0;
+			} else if (entry->status == TexCacheEntry::STATUS_UNRELIABLE && entry->numFrames > TexCacheEntry::FRAMES_REGAIN_TRUST) {
+				entry->status = TexCacheEntry::STATUS_HASHING;
 			}
 		}
 
