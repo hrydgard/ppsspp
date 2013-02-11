@@ -468,6 +468,7 @@ int main(int argc, char *argv[]) {
 		NativeUpdate(input_state);
 		EndInputState(&input_state);
 		NativeRender();
+		time_update();
 		// On Blackberry, this handles VSync for us
 		eglSwapBuffers(egl_disp, egl_surf);
 	}
