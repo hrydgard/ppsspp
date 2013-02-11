@@ -62,7 +62,7 @@ ARMReg ArmRegCacheFPU::MapReg(MIPSReg mipsReg, int mapFlags) {
 		if (mapFlags & MAP_DIRTY) {
 			ar[mr[mipsReg].reg].isDirty = true;
 		}
-		INFO_LOG(HLE, "Already mapped %i to %i", mipsReg, mr[mipsReg].reg);
+		//INFO_LOG(HLE, "Already mapped %i to %i", mipsReg, mr[mipsReg].reg);
 		return (ARMReg)(mr[mipsReg].reg + S0);
 	}
 
@@ -86,7 +86,7 @@ allocate:
 			ar[reg].mipsReg = mipsReg;
 			mr[mipsReg].loc = ML_ARMREG;
 			mr[mipsReg].reg = reg;
-			INFO_LOG(HLE, "Mapped %i to %i", mipsReg, mr[mipsReg].reg);
+			//INFO_LOG(HLE, "Mapped %i to %i", mipsReg, mr[mipsReg].reg);
 			return (ARMReg)(reg + S0);
 		}
 	}
@@ -105,8 +105,6 @@ allocate:
 	}
 
 	if (bestToSpill != -1) {
-		INFO_LOG(HLE, "Spillin! %i", bestToSpill);
-		// ERROR_LOG(JIT, "Out of registers at PC %08x - spills register %i.", mips_->pc, bestToSpill);
 		FlushArmReg((ARMReg)(S0 + bestToSpill));
 		goto allocate;
 	}
@@ -149,7 +147,7 @@ void ArmRegCacheFPU::FlushArmReg(ARMReg r) {
 	if (ar[reg].mipsReg != -1) {
 		if (ar[reg].isDirty && mr[ar[reg].mipsReg].loc == ML_ARMREG)
 		{
-			INFO_LOG(HLE, "Flushing ARM reg %i", reg);
+			//INFO_LOG(HLE, "Flushing ARM reg %i", reg);
 
 			emit->VSTR(r, CTXREG, GetMipsRegOffset(ar[reg].mipsReg));
 		}
@@ -176,7 +174,7 @@ void ArmRegCacheFPU::FlushMipsReg(MIPSReg r) {
 			ERROR_LOG(HLE, "FlushMipsReg: MipsReg had bad ArmReg");
 		}
 		if (ar[mr[r].reg].isDirty) {
-			INFO_LOG(HLE, "Flushing dirty reg %i", mr[r].reg);
+			//INFO_LOG(HLE, "Flushing dirty reg %i", mr[r].reg);
 			emit->VSTR((ARMReg)(mr[r].reg + S0), CTXREG, GetMipsRegOffset(r));
 			ar[mr[r].reg].isDirty = false;
 		}

@@ -69,7 +69,7 @@ void Jit::Comp_FPULS(u32 op)
 	int ft = _FT;
 	int rs = _RS;
 	// u32 addr = R(rs) + offset;
-	logBlocks = 1;
+	// logBlocks = 1;
 	switch(op >> 26)
 	{
 	case 49: //FI(ft) = Memory::Read_U32(addr); break; //lwc1
@@ -100,10 +100,11 @@ void Jit::Comp_FPUComp(u32 op) {
 
 void Jit::Comp_FPU2op(u32 op)
 {
-	DISABLE
+	// DISABLE
 
 	int fs = _FS;
 	int fd = _FD;
+	logBlocks = 1;
 
 	switch (op & 0x3f) 
 	{
@@ -119,13 +120,13 @@ void Jit::Comp_FPU2op(u32 op)
 
 	case 4:	//F(fd)	= sqrtf(F(fs)); break; //sqrt
 		fpr.MapDirtyIn(fd, fs);
-		VSQRT(fpr.R(fd), fpr.R(fd));
+		VSQRT(fpr.R(fd), fpr.R(fs));
 		return;
 
 
 	case 6:	//F(fd)	= F(fs);				break; //mov
 		fpr.MapDirtyIn(fd, fs);
-		VMOV(fpr.R(fd), fpr.R(fd));
+		VMOV(fpr.R(fd), fpr.R(fs));
 		break;
 
 		/*
@@ -153,8 +154,7 @@ void Jit::Comp_FPU2op(u32 op)
 	case 36: //FsI(fd) = (int)	F(fs);			 break; //cvt.w.s
 	*/
 	default:
-		Comp_Generic(op);
-		return;
+		DISABLE;
 	}
 }
 

@@ -169,7 +169,7 @@ const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 		js.downcountAmount += MIPSGetInstructionCycleEstimate(inst);
 
 		MIPSCompileOp(inst);
-		FlushAll(); ///HACKK
+		// FlushAll(); ///HACKK
 		js.compilerPC += 4;
 		numInstructions++;
 	}
