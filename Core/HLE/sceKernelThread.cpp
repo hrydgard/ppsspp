@@ -430,6 +430,68 @@ public:
 	u32 stackBlock;
 };
 
+// std::vector<SceUID> with push_front(), remove(), etc.
+struct ThreadList
+{
+	std::vector<SceUID> list;
+
+	inline bool empty() const
+	{
+		return list.empty();
+	}
+
+	inline size_t size() const
+	{
+		return list.size();
+	}
+
+	inline SceUID &front()
+	{
+		return list.front();
+	}
+
+	inline void push_front(const SceUID threadID)
+	{
+		if (empty())
+			push_back(threadID);
+		else
+		{
+			size_t oldSize = list.size();
+			list.resize(oldSize + 1);
+			memmove(&list[1], &list[0], oldSize * sizeof(SceUID));
+			list[0] = threadID;
+		}
+	}
+
+	inline void push_back(const SceUID threadID)
+	{
+		list.push_back(threadID);
+	}
+
+	inline void pop_front()
+	{
+		size_t newSize = list.size() - 1;
+		list.resize(newSize);
+		if (newSize > 0)
+			memmove(&list[0], &list[1], newSize * sizeof(SceUID));
+	}
+
+	inline void pop_back()
+	{
+		list.pop_back();
+	}
+
+	inline void remove(const SceUID threadID)
+	{
+		list.erase(std::remove(list.begin(), list.end(), threadID), list.end());
+	}
+
+	void DoState(PointerWrap &p)
+	{
+		p.Do(list);
+	}
+};
+
 void __KernelExecuteMipsCallOnCurrentThread(int callId, bool reschedAfter);
 
 
@@ -456,7 +518,6 @@ std::vector<ThreadCallback> threadEndListeners;
 // Lists all thread ids that aren't deleted/etc.
 std::vector<SceUID> threadqueue;
 
-typedef std::list<SceUID> ThreadList;
 // Lists only ready thread ids.
 std::map<u32, ThreadList> threadReadyQueue;
 
@@ -1772,7 +1833,7 @@ void sceKernelChangeThreadPriority()
 		DEBUG_LOG(HLE,"sceKernelChangeThreadPriority(%i, %i)", id, PARAM(1));
 
 		int prio = thread->nt.currentPriority;
-		threadReadyQueue[prio].erase(std::remove(threadReadyQueue[prio].begin(), threadReadyQueue[prio].end(), id), threadReadyQueue[prio].end());
+		threadReadyQueue[prio].remove(id);
 
 		thread->nt.currentPriority = PARAM(1);
 
