@@ -67,7 +67,11 @@ void CConfig::Load(const char *iniFileName)
 	graphics->Get("LinearFiltering", &bLinearFiltering, false);
 	graphics->Get("SSAA", &SSAntiAliasing, 0);
 	graphics->Get("VBO", &bUseVBO, false);
-	graphics->Get("AnisotropyLevel", &iAnisotropyLevel, 4);
+#ifdef USING_GLES2
+	graphics->Get("AnisotropyLevel", &iAnisotropyLevel, 0);
+#else
+	graphics->Get("AnisotropyLevel", &iAnisotropyLevel, 8);
+#endif
 	graphics->Get("DisableG3DLog", &bDisableG3DLog, false);
 	graphics->Get("VertexCache", &bVertexCache, true);
 	graphics->Get("FullScreen", &bFullScreen, false);	
