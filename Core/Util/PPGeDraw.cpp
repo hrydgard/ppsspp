@@ -249,16 +249,17 @@ static void PPGeMeasureText(const char *text, float scale, float *w, float *h) {
 	float maxw = 0;
 	int lines = 1;
 	while ((cval = *text++) != '\0') {
-		if (cval < 32) continue;
-		if (cval > 127) continue;
 		if (cval == '\n') {
 			if (wacc > maxw) maxw = wacc;
 			wacc = 0;
 			lines++;
 		}
+		if (cval < 32) continue;
+		if (cval > 127) continue;
 		AtlasChar c = atlasfont.chars[cval - 32];
 		wacc += c.wx * scale;
 	}
+	if (wacc > maxw) maxw = wacc;
 	if (w) *w = maxw;
 	if (h) *h = atlasfont.height * scale * lines;
 }
