@@ -12,7 +12,7 @@ Debugger_Memory::Debugger_Memory(DebugInterface *_cpu, MainWindow* mainWindow_, 
 {
 	ui->setupUi(this);
 
-	setWindowTitle(QString("Memory Viewer - ")+cpu->GetName());
+	setWindowTitle(tr("Memory Viewer - %1").arg(cpu->GetName()));
 
 	ui->memView->setDebugger(_cpu);
 }

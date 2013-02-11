@@ -238,7 +238,7 @@ void CtrlDisAsmView::RenameFunction()
 		strncpy(name, symbolMap.GetSymbolName(sym),256);
 		bool ok;
 		QString newname = QInputDialog::getText(this, tr("New function name"),
-									tr("New function name :"), QLineEdit::Normal,
+									tr("New function name:"), QLineEdit::Normal,
 									name, &ok);
 		if (ok && !newname.isEmpty())
 		{
