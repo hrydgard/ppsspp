@@ -180,7 +180,7 @@ void __DisplayFireVblank() {
 	}
 }
 
-float showFPS()
+float calculateFPS()
 {
 	static double highestFps = 0.0;
 	static int lastFpsFrame = 0;
@@ -260,7 +260,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 			"Vertex shaders loaded: %i\n"
 			"Fragment shaders loaded: %i\n"
 			"Combined shaders loaded: %i\n",
-			showFPS(),
+			calculateFPS(),
 			gpuStats.numFrames,
 			gpuStats.msProcessingDisplayLists * 1000.0f,
 			kernelStats.msInSyscalls * 1000.0f,
@@ -299,7 +299,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	if (g_Config.bShowFPSCounter) {
 		char stats[50];
 
-		sprintf(stats, "FPS: %0.1f", showFPS());
+		sprintf(stats, "FPS: %0.1f", calculateFPS());
 
 		float zoom = 0.3f; /// g_Config.iWindowZoom;
 		float soff = 0.3f;
