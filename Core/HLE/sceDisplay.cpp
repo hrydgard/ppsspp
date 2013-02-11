@@ -485,13 +485,16 @@ const HLEFunction sceDisplay[] = {
 	{0xdba6c4c4,WrapF_V<sceDisplayGetFramePerSec>,"sceDisplayGetFramePerSec"},
 	{0x773dd3a3,sceDisplayGetCurrentHcount,"sceDisplayGetCurrentHcount"},
 	{0x210eab3a,sceDisplayGetAccumulatedHcount,"sceDisplayGetAccumulatedHcount"},
+	{0xA83EF139,0,"sceDisplayAdjustAccumulatedHcount"},
 	{0x9C6EAAD7,WrapU_V<sceDisplayGetVcount>,"sceDisplayGetVcount"},
 	{0xDEA197D4,0,"sceDisplayGetMode"},
 	{0x7ED59BC4,0,"sceDisplaySetHoldMode"},
 	{0xA544C486,0,"sceDisplaySetResumeMode"},
+	{0xBF79F646,0,"sceDisplayGetResumeMode"},
 	{0xB4F378FA,0,"sceDisplayIsForeground"},
 	{0x31C4BAA8,0,"sceDisplayGetBrightness"},
 	{0x4D4E10EC,sceDisplayIsVblank,"sceDisplayIsVblank"},
+	{0x21038913,0,"sceDisplayIsVsync"},
 };
 
 void Register_sceDisplay() {
