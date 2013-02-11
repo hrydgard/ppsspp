@@ -242,9 +242,9 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
             float zoom = 0.3f; /// g_Config.iWindowZoom;
             float soff = 0.3f;
             PPGeBegin();
-            PPGeDrawText(stats, soff, soff, 0, zoom, 0xCC000000);
-            PPGeDrawText(stats, -soff, -soff, 0, zoom, 0xCC000000);
-            PPGeDrawText(stats, 0, 0, 0, zoom, 0xFFFFFFFF);
+            PPGeDrawText(stats, 478.0f + soff, soff, PPGE_ALIGN_RIGHT, zoom, 0xCC000000);
+            PPGeDrawText(stats, 478.0f + -soff, -soff, PPGE_ALIGN_RIGHT, zoom, 0xCC000000);
+            PPGeDrawText(stats, 478.0f + 0.0f, 0, PPGE_ALIGN_RIGHT, zoom, 0xFFFFFFFF);
             PPGeEnd();
         }
     }
