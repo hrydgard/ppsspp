@@ -842,7 +842,7 @@ void TextureCache::SetTexture() {
 	// For now, I choose to use autogen mips on GLES2 and the game's own on other platforms.
 	// As is usual, GLES3 will solve this problem nicely but wide distribution of that is
 	// years away.
-	LoadTextureLevel(entry, 0);
+	LoadTextureLevel(*entry, 0);
 	if (entry.maxLevel > 0)
 		glGenerateMipmap(GL_TEXTURE_2D);
 #else
