@@ -954,7 +954,7 @@ void TransformDrawEngine::Flush() {
 							vai->drawsUntilNextFullHash = std::min(24, vai->numFrames);
 						} else {
 							// Lower numbers seem much more likely to change.
-							vai->status = VertexArrayInfo::VAI_UNRELIABLE;
+							vai->drawsUntilNextFullHash = 0;
 						}
 						// TODO: tweak
 						//if (vai->numFrames > 1000) {
