@@ -913,7 +913,6 @@ void TransformDrawEngine::Flush() {
 				vai->decFmt = dec.GetDecVtxFmt();
 				vai_[id] = vai;
 			}
-			vai->lastFrame = gpuStats.numFrames;
 
 			switch (vai->status) {
 			case VertexArrayInfo::VAI_NEW:
@@ -1025,6 +1024,8 @@ void TransformDrawEngine::Flush() {
 					goto rotateVBO;
 				}
 			}
+
+			vai->lastFrame = gpuStats.numFrames;
 		} else {
 			DecodeVerts();
 rotateVBO:
