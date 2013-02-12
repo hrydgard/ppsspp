@@ -167,6 +167,12 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 		LogManager::GetInstance()->ChangeFileLog(fileToLog);
 
 	LogManager::GetInstance()->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
+
+#if defined(Q_WS_X11) && !defined(USING_GLES2)
+	// Start Desktop UI
+	MainWindow* mainWindow = new MainWindow();
+	mainWindow->show();
+#endif
 }
 
 void MainWindow::SetNextState(CoreState state)
