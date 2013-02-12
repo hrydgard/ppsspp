@@ -509,6 +509,14 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 
 			if (gstate.lightingEnable & 1) {
 				// Don't ignore gstate.lmode - we should send two colors in that case
+				if (reader.hasColor0()) {
+					reader.ReadColor0(litColor0);
+				} else {
+					litColor0[0] = (gstate.materialambient & 0xFF) / 255.f;
+					litColor0[1] = ((gstate.materialambient >> 8)  & 0xFF) / 255.f;
+					litColor0[2] = ((gstate.materialambient >> 16) & 0xFF) / 255.f;
+					litColor0[3] = (gstate.materialalpha & 0xFF) / 255.f;
+				}
 				if (gstate.lmode & 1) {
 					// Separate colors
 					for (int j = 0; j < 4; j++) {
