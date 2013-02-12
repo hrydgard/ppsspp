@@ -29,7 +29,7 @@ public:
 	void Create(int argc, const char *argv[], const char *savegame_directory, const char *external_directory, const char *installID);
 	void BrowseAndBoot();
 	void SetNextState(CoreState state);
-	void SetPlaying(QString text);
+	void SetGameTitle(QString text);
 
 	Debugger_Disasm* GetDialogDisasm() { return dialogDisasm; }
 	Debugger_Memory* GetDialogMemory() { return memoryWindow; }
@@ -153,6 +153,20 @@ private slots:
 
 	void on_action_OptionsUseVBO_triggered();
 
+	void on_action_Simple_2xAA_triggered();
+
+	void on_action_AFOff_triggered();
+
+	void on_action_AF2x_triggered();
+
+	void on_action_AF4x_triggered();
+
+	void on_action_AF8x_triggered();
+
+	void on_action_AF16x_triggered();
+
+	void on_action_Show_FPS_counter_triggered();
+
 private:
 	void loadLanguage(const QString &language);
 	void createLanguageMenu();
@@ -163,9 +177,9 @@ private:
 	QString currentLanguage;
 	QString languagePath;
 
-    Ui::MainWindow *ui;
+	Ui::MainWindow *ui;
 
-	QtEmuGL* w;
+	QtEmuGL* emugl;
 	CoreState nextState;
 
 	InputState input_state;
