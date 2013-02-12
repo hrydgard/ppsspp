@@ -13,9 +13,6 @@
 #ifdef __SYMBIAN32__
 #include <AknAppUi.h>
 #endif
-#if defined(Q_WS_X11) && !defined(USING_GLES2)
-#include "mainwindow.h"
-#endif
 #include "QtMain.h"
 
 void LaunchBrowser(const char *url)
@@ -81,10 +78,7 @@ int main(int argc, char *argv[])
 	NativeInit(argc, (const char **)argv, "./", "/tmp", "BADCOFFEE");
 #endif
 
-#if defined(Q_WS_X11) && !defined(USING_GLES2)
-	MainWindow mainWindow;
-	mainWindow.show();
-#else
+#if !defined(Q_WS_X11) || defined(USING_GLES2)
 	MainUI w(dpi_scale);
 	w.resize(pixel_xres, pixel_yres);
 #ifdef USING_GLES2
