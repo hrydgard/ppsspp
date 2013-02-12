@@ -43,6 +43,7 @@ INCLUDEPATH += .. ../Common ../native
 desktop_ui {
 	MOC_DIR = moc
 	UI_DIR = ui
+	RCC_DIR = rcc
 	SOURCES += *.cpp
 	HEADERS += *.h
 	FORMS += *.ui
