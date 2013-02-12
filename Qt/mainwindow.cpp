@@ -833,10 +833,7 @@ void MainWindow::createLanguageMenu()
 
 	QString defaultLocale = QLocale::system().name();
 	defaultLocale.truncate(defaultLocale.lastIndexOf('_'));
-	languagePath = QApplication::applicationDirPath();
-	languagePath.append("/languages");
-	QDir langDir(languagePath);
-	QStringList fileNames = langDir.entryList(QStringList("ppsspp_*.qm"));
+	QStringList fileNames = QDir(":/languages").entryList(QStringList("ppsspp_*.qm"));
 
 	if (fileNames.size() == 0)
 	{

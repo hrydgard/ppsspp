@@ -17,4 +17,10 @@
         <file alias="breakpointDisable">resources/stop1.ico</file>
         <file alias="breakpoint">resources/icon1.ico</file>
     </qresource>
+    <qresource prefix="/">
+        <file>languages/ppsspp_cn.qm</file>
+        <file>languages/ppsspp_en.qm</file>
+        <file>languages/ppsspp_fr.qm</file>
+        <file>languages/ppsspp_pl.qm</file>
+    </qresource>
 </RCC>
