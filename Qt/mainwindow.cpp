@@ -826,7 +826,7 @@ void MainWindow::loadLanguage(const QString& language)
 		QLocale locale = QLocale(currentLanguage);
 		QLocale::setDefault(locale);
 		QString languageName = QLocale::languageToString(locale.language());
-		switchTranslator(translator, QString("languages/ppsspp_%1.qm").arg(language));
+		switchTranslator(translator, QString(":/languages/ppsspp_%1.qm").arg(language));
 	}
 }
 
