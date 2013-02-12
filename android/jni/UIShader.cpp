@@ -89,6 +89,7 @@ void UIShader_Prepare()
 	glstate.depthTest.disable();
 	glstate.scissorTest.disable();
 	glstate.stencilTest.disable();
+	glstate.dither.enable();
 
 	glstate.blend.enable();
 	glstate.blendFunc.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
