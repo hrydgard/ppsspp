@@ -12,7 +12,7 @@ blackberry: LIBS += -L. -lCore -lCommon -lNative -lscreen -lsocket -lstdc++
 win32: LIBS += -L. -lCore -lCommon -lNative -lwinmm -lws2_32 -lkernel32 -luser32 -lgdi32 -lshell32 -lcomctl32 -ldsound -lxinput
 linux: LIBS += -L. -lCore -lCommon -lNative
 
-desktop_ui {
+!mobile_platform {
 	PRE_TARGETDEPS += ./libCommon.a ./libCore.a ./libNative.a
 	CONFIG += link_pkgconfig
 	packagesExist(sdl) {
@@ -40,7 +40,9 @@ SOURCES += ../android/jni/EmuScreen.cpp \
 INCLUDEPATH += .. ../Common ../native
 
 # Temporarily only use new UI for Linux desktop
-desktop_ui {
+mobile_platform {
+	SOURCES += ../android/jni/NativeApp.cpp
+} else {
 	MOC_DIR = moc
 	UI_DIR = ui
 	RCC_DIR = rcc
@@ -48,8 +50,6 @@ desktop_ui {
 	HEADERS += *.h
 	FORMS += *.ui
 	RESOURCES += resources.qrc
-} else {
-	SOURCES += ../android/jni/NativeApp.cpp
 }
 
 # Packaging
