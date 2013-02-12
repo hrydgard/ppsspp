@@ -29,7 +29,7 @@ public:
 	void Create(int argc, const char *argv[], const char *savegame_directory, const char *external_directory, const char *installID);
 	void BrowseAndBoot();
 	void SetNextState(CoreState state);
-	void SetPlaying(QString text);
+	void SetGameTitle(QString text);
 
 	Debugger_Disasm* GetDialogDisasm() { return dialogDisasm; }
 	Debugger_Memory* GetDialogMemory() { return memoryWindow; }
@@ -163,9 +163,9 @@ private:
 	QString currentLanguage;
 	QString languagePath;
 
-    Ui::MainWindow *ui;
+	Ui::MainWindow *ui;
 
-	QtEmuGL* w;
+	QtEmuGL* emugl;
 	CoreState nextState;
 
 	InputState input_state;
