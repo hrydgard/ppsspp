@@ -24,6 +24,7 @@ desktop_ui {
 TRANSLATIONS = languages/ppsspp_en.ts \
 		languages/ppsspp_pl.ts \
 		languages/ppsspp_fr.ts \
+		languages/ppsspp_de.ts \
 		languages/ppsspp_cn.ts
 
 # Main

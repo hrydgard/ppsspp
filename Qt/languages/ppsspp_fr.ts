@@ -892,7 +892,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="843"/>
+        <location filename="../mainwindow.cpp" line="840"/>
         <source>No translations</source>
         <translation type="unfinished"></translation>
     </message>
