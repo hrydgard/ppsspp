@@ -144,6 +144,16 @@
       <string>Language</string>
      </property>
     </widget>
+    <widget class="QMenu" name="menuAnisotropic_filtering">
+     <property name="title">
+      <string>Anisotropic filtering</string>
+     </property>
+     <addaction name="action_AFOff"/>
+     <addaction name="action_AF2x"/>
+     <addaction name="action_AF4x"/>
+     <addaction name="action_AF8x"/>
+     <addaction name="action_AF16x"/>
+    </widget>
     <addaction name="action_OptionsControls"/>
     <addaction name="action_OptionsGamePadControls"/>
     <addaction name="separator"/>
@@ -151,12 +161,15 @@
     <addaction name="action_OptionsBufferedRendering"/>
     <addaction name="action_OptionsHardwareTransform"/>
     <addaction name="action_OptionsLinearFiltering"/>
+    <addaction name="action_Simple_2xAA"/>
+    <addaction name="menuAnisotropic_filtering"/>
     <addaction name="action_OptionsUseVBO"/>
     <addaction name="action_OptionsVertexCache"/>
     <addaction name="separator"/>
     <addaction name="action_OptionsWireframe"/>
     <addaction name="action_OptionsDisplayRawFramebuffer"/>
     <addaction name="action_OptionsShowDebugStatistics"/>
+    <addaction name="action_Show_FPS_counter"/>
     <addaction name="separator"/>
     <addaction name="menu_Log_Levels"/>
     <addaction name="separator"/>
@@ -462,6 +475,9 @@
    </property>
   </action>
   <action name="action_OptionsUseVBO">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
    <property name="text">
     <string>&amp;Use VBO</string>
    </property>
@@ -578,6 +594,9 @@
    </property>
   </action>
   <action name="action_OptionsVertexCache">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
    <property name="text">
     <string>&amp;Vertex Cache</string>
    </property>
@@ -585,6 +604,62 @@
   <action name="action_DebugMemoryViewTexture">
    <property name="text">
     <string>Memory View Texture...</string>
+   </property>
+  </action>
+  <action name="action_Simple_2xAA">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Simple 2xAA</string>
+   </property>
+  </action>
+  <action name="action_AFOff">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Off</string>
+   </property>
+  </action>
+  <action name="action_AF2x">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>2x</string>
+   </property>
+  </action>
+  <action name="action_AF4x">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>4x</string>
+   </property>
+  </action>
+  <action name="action_AF8x">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>8x</string>
+   </property>
+  </action>
+  <action name="action_AF16x">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>16x</string>
+   </property>
+  </action>
+  <action name="action_Show_FPS_counter">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Show FPS counter</string>
    </property>
   </action>
  </widget>

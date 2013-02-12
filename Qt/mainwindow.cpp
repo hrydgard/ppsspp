@@ -237,6 +237,12 @@ void MainWindow::UpdateMenus()
 	ui->action_EmulationRunLoad->setChecked(g_Config.bAutoRun);
 	ui->action_OptionsUseVBO->setChecked(g_Config.bUseVBO);
 	ui->action_OptionsVertexCache->setChecked(g_Config.bVertexCache);
+	ui->action_AFOff->setChecked(g_Config.iAnisotropyLevel == 0);
+	ui->action_AF2x->setChecked(g_Config.iAnisotropyLevel == 2);
+	ui->action_AF4x->setChecked(g_Config.iAnisotropyLevel == 4);
+	ui->action_AF8x->setChecked(g_Config.iAnisotropyLevel == 8);
+	ui->action_AF16x->setChecked(g_Config.iAnisotropyLevel == 16);
+	ui->action_Show_FPS_counter->setChecked(g_Config.bShowFPSCounter);
 
 	bool enable = !Core_IsStepping() ? false : true;
 	ui->action_EmulationRun->setEnabled(g_State.bEmuThreadStarted ? enable : false);
@@ -937,5 +943,47 @@ void MainWindow::on_action_OptionsVertexCache_triggered()
 void MainWindow::on_action_OptionsUseVBO_triggered()
 {
 	g_Config.bUseVBO = !g_Config.bUseVBO;
+	UpdateMenus();
+}
+
+void MainWindow::on_action_Simple_2xAA_triggered()
+{
+	g_Config.SSAntiAliasing = !g_Config.SSAntiAliasing;
+	UpdateMenus();
+}
+
+void MainWindow::on_action_AFOff_triggered()
+{
+	g_Config.iAnisotropyLevel = 0;
+	UpdateMenus();
+}
+
+void MainWindow::on_action_AF2x_triggered()
+{
+	g_Config.iAnisotropyLevel = 2;
+	UpdateMenus();
+}
+
+void MainWindow::on_action_AF4x_triggered()
+{
+	g_Config.iAnisotropyLevel = 4;
+	UpdateMenus();
+}
+
+void MainWindow::on_action_AF8x_triggered()
+{
+	g_Config.iAnisotropyLevel = 8;
+	UpdateMenus();
+}
+
+void MainWindow::on_action_AF16x_triggered()
+{
+	g_Config.iAnisotropyLevel = 16;
+	UpdateMenus();
+}
+
+void MainWindow::on_action_Show_FPS_counter_triggered()
+{
+	g_Config.bShowFPSCounter = !g_Config.bShowFPSCounter;
 	UpdateMenus();
 }
