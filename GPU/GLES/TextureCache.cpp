@@ -775,6 +775,9 @@ void TextureCache::SetTexture() {
 			return; //Done!
 		} else {
 			INFO_LOG(G3D, "Texture different or overwritten, reloading at %08x", texaddr);
+			if (entry->texture == lastBoundTexture)
+				lastBoundTexture = -1;
+
 			glDeleteTextures(1, &entry->texture);
 			if (entry->status == TexCacheEntry::STATUS_RELIABLE) {
 				entry->status = TexCacheEntry::STATUS_HASHING;
@@ -820,6 +823,7 @@ void TextureCache::SetTexture() {
 
 	glGenTextures(1, &entry->texture);
 	glBindTexture(GL_TEXTURE_2D, entry->texture);
+	lastBoundTexture = entry->texture;
 	
 #ifdef USING_GLES2
 	// GLES2 doesn't have support for a "Max lod" which is critical as PSP games often
