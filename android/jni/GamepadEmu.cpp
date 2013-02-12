@@ -32,6 +32,9 @@ TouchButton buttonLeft(&ui_atlas, I_DIR, I_ARROW, PAD_BUTTON_LEFT, 0);
 TouchButton buttonUp(&ui_atlas, I_DIR, I_ARROW, PAD_BUTTON_UP, 90);
 TouchButton buttonRight(&ui_atlas, I_DIR, I_ARROW, PAD_BUTTON_RIGHT, 180);
 TouchButton buttonDown(&ui_atlas, I_DIR, I_ARROW, PAD_BUTTON_DOWN, 270);
+#ifdef __SYMBIAN32__
+TouchButton buttonPause(&ui_atlas, I_RECT, I_ARROW, PAD_BUTTON_BACK, 90);
+#endif
 
 TouchStick leftStick(&ui_atlas, I_STICKBG, I_STICK, 0);
 
@@ -72,6 +75,10 @@ void LayoutGamepad(int w, int h)
 	buttonLShoulder.setPos(button_spacing + 10 * controlScale, 15 * controlScale, controlScale);
 	buttonRShoulder.setPos(w - button_spacing - 10 * controlScale, 15 * controlScale, controlScale);
 
+#ifdef __SYMBIAN32__
+	buttonPause.setPos(halfW, 15 * controlScale, controlScale);
+#endif
+
 	leftStick.setPos(stickX, stickY, controlScale);
 }
 
@@ -93,6 +100,10 @@ void UpdateGamepad(InputState &input_state)
 	buttonStart.update(input_state);
 	buttonLShoulder.update(input_state);
 	buttonRShoulder.update(input_state);
+
+#ifdef __SYMBIAN32__
+	buttonPause.update(input_state);
+#endif
 
 	if (g_Config.bShowAnalogStick)
 		leftStick.update(input_state);
@@ -116,6 +127,10 @@ void DrawGamepad(DrawBuffer &db)
 	buttonStart.draw(db, color, colorOverlay);
 	buttonLShoulder.draw(db, color, colorOverlay);
 	buttonRShoulder.draw(db, color, colorOverlay);
+
+#ifdef __SYMBIAN32__
+	buttonPause.draw(db, color, colorOverlay);
+#endif
 
 	if (g_Config.bShowAnalogStick)
 		leftStick.draw(db, color);
