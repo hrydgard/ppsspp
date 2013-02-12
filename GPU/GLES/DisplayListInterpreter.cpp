@@ -841,6 +841,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_COLORREF:
+	case GE_CMD_COLORTEST:
 	case GE_CMD_ALPHATEST:
 		shaderManager_->DirtyUniform(DIRTY_ALPHACOLORREF);
 		break;
