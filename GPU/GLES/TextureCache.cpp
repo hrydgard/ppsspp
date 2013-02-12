@@ -653,18 +653,11 @@ static inline u32 MiniHash(const u32 *ptr) {
 }
 
 static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, u32 format) {
-	int pixToBytes = (bitsPerPixel[format < 11 ? format : 0] + 7) / 8;
-	int w32 = (w * pixToBytes + 3) / 4;
-	int pad32 = ((bufw * pixToBytes + 3) / 4) - w32;
-
+	u32 sizeInRAM = (bitsPerPixel[format < 11 ? format : 0] * bufw * h / 2) / 8;
 	const u32 *checkp = (const u32 *) Memory::GetPointer(addr);
 	u32 check = 0;
-	for (int y = 0; y < h; ++y) {
-		for (int x = 0; x < w32; ++x) {
-			check += *checkp++;
-		}
-		checkp += pad32;
-	}
+	for (u32 i = 0; i < (sizeInRAM * 2) / 4; ++i)
+		check += *checkp++;
 
 	return check;
 }
