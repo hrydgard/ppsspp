@@ -892,7 +892,7 @@
         <translation>Pokaż licznik FPS</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="843"/>
+        <location filename="../mainwindow.cpp" line="840"/>
         <source>No translations</source>
         <translation>Brak tłumaczeń</translation>
     </message>
