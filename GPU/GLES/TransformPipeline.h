@@ -58,7 +58,7 @@ public:
 		numFrames = 0;
 		lastFrame = gpuStats.numFrames;
 		numVerts = 0;
-		framesUntilNextFullHash = 0;
+		drawsUntilNextFullHash = 0;
 	}
 	~VertexArrayInfo();
 	enum Status {
@@ -87,7 +87,7 @@ public:
 	int numDraws;
 	int numFrames;
 	int lastFrame;  // So that we can forget.
-	u16 framesUntilNextFullHash;
+	u16 drawsUntilNextFullHash;
 };
 
 

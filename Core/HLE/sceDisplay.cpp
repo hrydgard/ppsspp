@@ -86,6 +86,7 @@ static int hCountTotal; //unused
 static int vCount;
 static int isVblank;
 static bool hasSetMode;
+// Don't include this in the state, time increases regardless of state.
 static double lastFrameTime;
 
 std::vector<WaitVBlankInfo> vblankWaitingThreads;
@@ -137,7 +138,6 @@ void __DisplayDoState(PointerWrap &p) {
 	p.Do(vCount);
 	p.Do(isVblank);
 	p.Do(hasSetMode);
-	p.Do(lastFrameTime);
 	WaitVBlankInfo wvi(0);
 	p.Do(vblankWaitingThreads, wvi);
 
@@ -242,7 +242,6 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 		char stats[2048];
 		
 		sprintf(stats,
-			"FPS: %0.1f\n"
 			"Frames: %i\n"
 			"DL processing time: %0.2f ms\n"
 			"Kernel processing time: %0.2f ms\n"
@@ -260,7 +259,6 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 			"Vertex shaders loaded: %i\n"
 			"Fragment shaders loaded: %i\n"
 			"Combined shaders loaded: %i\n",
-			calculateFPS(),
 			gpuStats.numFrames,
 			gpuStats.msProcessingDisplayLists * 1000.0f,
 			kernelStats.msInSyscalls * 1000.0f,
@@ -299,14 +297,19 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	if (g_Config.bShowFPSCounter) {
 		char stats[50];
 
-		sprintf(stats, "FPS: %0.1f", calculateFPS());
+		sprintf(stats, "%0.1f", calculateFPS());
 
-		float zoom = 0.3f; /// g_Config.iWindowZoom;
-		float soff = 0.3f;
+		#ifdef USING_GLES2
+			float zoom = 0.7f; /// g_Config.iWindowZoom;
+			float soff = 0.7f;
+		#else
+			float zoom = 0.5f; /// g_Config.iWindowZoom;
+			float soff = 0.5f;
+		#endif
 		PPGeBegin();
-		PPGeDrawText(stats, soff, soff, 0, zoom, 0xCC000000);
-		PPGeDrawText(stats, -soff, -soff, 0, zoom, 0xCC000000);
-		PPGeDrawText(stats, 0, 0, 0, zoom, 0xFFFFFFFF);
+		PPGeDrawText(stats, 476 + soff, 4 + soff, PPGE_ALIGN_RIGHT, zoom, 0xCC000000);
+		PPGeDrawText(stats, 476 + -soff, 4 -soff, PPGE_ALIGN_RIGHT, zoom, 0xCC000000);
+		PPGeDrawText(stats, 476, 4, PPGE_ALIGN_RIGHT, zoom, 0xFF30FF30);
 		PPGeEnd();
 	}
 

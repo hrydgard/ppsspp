@@ -170,7 +170,7 @@ void MenuScreen::render() {
 	VLinear vlinear(dp_xres + xoff, 95, 20);
 
 	if (UIButton(GEN_ID, vlinear, w, "Load...", ALIGN_RIGHT)) {
-#if defined(USING_QT_UI) && defined(__SYMBIAN32__)
+#if defined(USING_QT_UI)
 		QString fileName = QFileDialog::getOpenFileName(NULL, "Load ROM", g_Config.currentDirectory.c_str(), "PSP ROMs (*.iso *.cso *.pbp *.elf)");
 		if (QFile::exists(fileName)) {
 			QDir newPath;
@@ -245,6 +245,7 @@ void InGameMenuScreen::render() {
 	int x = 30;
 	int y = 50;
 	UICheckBox(GEN_ID, x, y += 50, "Show Debug Statistics", ALIGN_TOPLEFT, &g_Config.bShowDebugStats);
+	UICheckBox(GEN_ID, x, y += 50, "Show FPS", ALIGN_TOPLEFT, &g_Config.bShowFPSCounter);
 	UICheckBox(GEN_ID, x, y += 50, "Hardware Transform", ALIGN_TOPLEFT, &g_Config.bHardwareTransform);
 
 	// TODO: Add UI for more than one slot.
@@ -461,7 +462,8 @@ static const char *credits[] =
 	"Android SDK + NDK",
 #elif defined(BLACKBERRY)
 	"Blackberry NDK",
-#elif defined(USING_QT_UI)
+#endif
+#if defined(USING_QT_UI)
 	"Qt",
 #else
 	"SDL",
