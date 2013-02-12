@@ -29,6 +29,7 @@
 float maxAnisotropyLevel ;
 
 TextureCache::TextureCache() {
+	lastBoundTexture = -1;
 	// TODO: Switch to aligned allocations for alignment. AllocateMemoryPages would do the trick.
 	// This is 5MB of temporary storage. Might be possible to shrink it.
 	tmpTexBuf32 = new u32[1024 * 512];  // 2MB
@@ -442,24 +443,6 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	}
 }
 
-// Todo: Make versions of these that do two pixels at a time within a 32-bit register.
-
-// Convert from PSP bit order to GLES bit order
-static inline u16 convert565(u16 c) {
-	return (c >> 11) | (c & 0x07E0) | (c << 11);
-}
-
-// Convert from PSP bit order to GLES bit order
-static inline u16 convert4444(u16 c) {
-	return (c >> 12) | ((c >> 4) & 0xF0) | ((c << 4) & 0xF00) | (c << 12);
-}
-
-// Convert from PSP bit order to GLES bit order
-static inline u16 convert5551(u16 c) {
-	return ((c & 0x8000) >> 15) | (c << 1);
-}
-
-
 // All these DXT structs are in the reverse order, as compared to PC.
 // On PC, alpha comes before color, and interpolants are before the tile data.
 
@@ -575,33 +558,40 @@ static void decodeDXT5Block(u32 *dst, const DXT5Block *src, int pitch) {
 }
 
 static void convertColors(u8 *finalBuf, GLuint dstFmt, int numPixels) {
-	// TODO: All these can be massively sped up with SSE, or even
-	// somewhat sped up using "manual simd" in 32 or 64-bit gprs.
+	// TODO: All these can be further sped up with SSE or NEON.
 	switch (dstFmt) {
 	case GL_UNSIGNED_SHORT_4_4_4_4:
 		{
-			u16 *p = (u16 *)finalBuf;
-			for (int i = 0; i < numPixels; i++) {
-				u16 c = p[i];
-				p[i] = (c >> 12) | ((c >> 4) & 0xF0) | ((c << 4) & 0xF00) | (c << 12);
+			u32 *p = (u32 *)finalBuf;
+			for (int i = 0; i < (numPixels + 1) / 2; i++) {
+				u32 c = p[i];
+				p[i] = ((c >> 12) & 0x000F000F) |
+					     ((c >> 4)  & 0x00F000F0) |
+							 ((c << 4)  & 0x0F000F00) |
+							 ((c << 12) & 0xF000F000);
 			}
 		}
 		break;
 	case GL_UNSIGNED_SHORT_5_5_5_1:
 		{
-			u16 *p = (u16 *)finalBuf;
-			for (int i = 0; i < numPixels; i++) {
-				u16 c = p[i];
-				p[i] = ((c & 0x8000) >> 15) | ((c >> 9) & 0x3E) | ((c << 1) & 0x7C0) | ((c << 11) & 0xF800);
+			u32 *p = (u32 *)finalBuf;
+			for (int i = 0; i < (numPixels + 1) / 2; i++) {
+				u32 c = p[i];
+				p[i] = ((c >> 15) & 0x00010001) |
+					     ((c >> 9)  & 0x003E003E) |
+							 ((c << 1)  & 0x07C007C0) |
+							 ((c << 11) & 0xF800F800);
 			}
 		}
 		break;
 	case GL_UNSIGNED_SHORT_5_6_5:
 		{
-			u16 *p = (u16 *)finalBuf;
-			for (int i = 0; i < numPixels; i++) {
-				u16 c = p[i];
-				p[i] = (c >> 11) | (c & 0x07E0) | (c << 11);
+			u32 *p = (u32 *)finalBuf;
+			for (int i = 0; i < (numPixels + 1) / 2; i++) {
+				u32 c = p[i];
+				p[i] = ((c >> 11) & 0x001F001F) |
+					     (c & 0x07E007E0) |
+							 ((c << 11) & 0xF800F800);
 			}
 		}
 		break;
@@ -612,8 +602,6 @@ static void convertColors(u8 *finalBuf, GLuint dstFmt, int numPixels) {
 		break;
 	}
 }
-
-int lastBoundTexture = -1;
 
 void TextureCache::StartFrame() {
 	lastBoundTexture = -1;
