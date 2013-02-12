@@ -57,16 +57,11 @@ int main(int argc, char *argv[])
 	QT_TRAP_THROWING(dynamic_cast<CAknAppUi*>(CEikonEnv::Static()->AppUi())->SetOrientationL(CAknAppUi::EAppUiOrientationLandscape));
 #endif
 	QSize res = QApplication::desktop()->screenGeometry().size();
-#ifdef USING_GLES2
 	if (res.width() < res.height())
 		res.transpose();
 	pixel_xres = res.width();
 	pixel_yres = res.height();
-#else
-	// Set resolution to half of the monitor on desktop systems
-	pixel_xres = res.width() / 2;
-	pixel_yres = res.height() / 2;
-#endif
+
 	float dpi_scale = CalculateDPIScale();
 	dp_xres = (int)(pixel_xres * dpi_scale); dp_yres = (int)(pixel_yres * dpi_scale);
 	net::Init();
@@ -78,14 +73,10 @@ int main(int argc, char *argv[])
 	NativeInit(argc, (const char **)argv, "./", "/tmp", "BADCOFFEE");
 #endif
 
-#if !defined(Q_WS_X11) || defined(USING_GLES2)
+#if defined(USING_GLES2)
 	MainUI w(dpi_scale);
 	w.resize(pixel_xres, pixel_yres);
-#ifdef USING_GLES2
 	w.showFullScreen();
-#else
-	w.show();
-#endif
 #endif
 
 	MainAudio *audio = new MainAudio();
