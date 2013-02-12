@@ -1065,6 +1065,7 @@ void GLES_GPU::DoState(PointerWrap &p) {
 	GPUCommon::DoState(p);
 
 	textureCache_.Clear(true);
+	transformDraw_.ClearTrackedVertexArrays();
 
 	gstate_c.textureChanged = true;
 	framebufferManager_.DestroyAllFBOs();
