@@ -936,12 +936,6 @@ void TransformDrawEngine::Flush() {
 					}
 					if (vai->drawsUntilNextFullHash == 0) {
 						u32 newHash = ComputeHash();
-						// exponential backoff up to 16 draws, then every 24
-						vai->drawsUntilNextFullHash = std::min(24, vai->numFrames);
-						// TODO: tweak
-						//if (vai->numFrames > 1000) {
-						//	vai->status = VertexArrayInfo::VAI_RELIABLE;
-						//}
 						if (newHash != vai->hash) {
 							vai->status = VertexArrayInfo::VAI_UNRELIABLE;
 							if (vai->vbo) {
@@ -955,6 +949,17 @@ void TransformDrawEngine::Flush() {
 							DecodeVerts();
 							goto rotateVBO;
 						}
+						if (vai->numVerts > 100) {
+							// exponential backoff up to 16 draws, then every 24
+							vai->drawsUntilNextFullHash = std::min(24, vai->numFrames);
+						} else {
+							// Lower numbers seem much more likely to change.
+							vai->status = VertexArrayInfo::VAI_UNRELIABLE;
+						}
+						// TODO: tweak
+						//if (vai->numFrames > 1000) {
+						//	vai->status = VertexArrayInfo::VAI_RELIABLE;
+						//}
 					} else {
 						vai->drawsUntilNextFullHash--;
 						// TODO: "mini-hashing" the first 32 bytes of the vertex/index data or something.
