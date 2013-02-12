@@ -44,7 +44,7 @@ protected:
 public:
 	virtual DisplayList* getList(int listid)
 	{
-		if(currentList->id == listid)
+		if (currentList && currentList->id == listid)
 			return currentList;
 		for(auto it = dlQueue.begin(); it != dlQueue.end(); ++it)
 		{
