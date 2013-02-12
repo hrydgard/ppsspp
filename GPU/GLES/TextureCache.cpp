@@ -652,7 +652,6 @@ static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, u32 format) {
 
 void TextureCache::SetTexture() {
 	u32 texaddr = (gstate.texaddr[0] & 0xFFFFF0) | ((gstate.texbufwidth[0]<<8) & 0x0F000000);
-
 	if (!Memory::IsValidAddress(texaddr)) {
 		// Bind a null texture and return.
 		glBindTexture(GL_TEXTURE_2D, 0);
@@ -667,31 +666,18 @@ void TextureCache::SetTexture() {
 	bool hasClut = formatUsesClut[format];
 
 	const u8 *texptr = Memory::GetPointer(texaddr);
-
-	u32 clutformat = gstate.clutformat & 3;
-	u32 clutaddr = GetClutAddr(clutformat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2);
-
 	u64 cachekey = texaddr;
-	if (formatUsesClut[format])
+
+	u32 clutformat, clutaddr;
+	if (hasClut) {
+		clutformat = gstate.clutformat & 3;
+		clutaddr = GetClutAddr(clutformat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2);
 		cachekey |= (u64)clutaddr << 32;
+	}
 
 	int maxLevel = ((gstate.texmode >> 16) & 0x7);
 
-	// Adjust maxLevel to actually present levels..
-	for (int i = 0; i <= maxLevel; i++) {
-		// If encountering levels pointing to nothing, adjust max level.
-		u32 levelTexaddr = (gstate.texaddr[i] & 0xFFFFF0) | ((gstate.texbufwidth[i] << 8) & 0x0F000000);
-		if (!Memory::IsValidAddress(levelTexaddr)) {
-			maxLevel = i - 1;
-			break;
-		}
-	}
-
 	u32 texhash = MiniHash((const u32 *)Memory::GetPointer(texaddr));
-
-	int w = 1 << (gstate.texsize[0] & 0xf);
-	int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
-	int bufw = gstate.texbufwidth[0] & 0x3ff;
 
 	TexCache::iterator iter = cache.find(cachekey);
 	TexCacheEntry *entry = NULL;
@@ -718,17 +704,14 @@ void TextureCache::SetTexture() {
 		bool rehash = entry->status == TexCacheEntry::STATUS_UNRELIABLE;
 		
 		//TODO: Check more texture parameters, compute real texture hash
-		if (dim != entry->dim || entry->hash != texhash || entry->format != format)
-			match = false;
-
-		//TODO: Check more clut parameters, compute clut hash
-		if (match && (format >= GE_TFMT_CLUT4 && format <= GE_TFMT_CLUT32) &&
-			 (entry->clutformat != clutformat ||
+		if (dim != entry->dim ||
+			entry->hash != texhash ||
+			entry->format != format ||
+			entry->maxLevel != maxLevel ||
+			((format >= GE_TFMT_CLUT4 && format <= GE_TFMT_CLUT32) &&
+			(entry->clutformat != clutformat ||
 				entry->clutaddr != clutaddr ||
-				entry->cluthash != Memory::Read_U32(entry->clutaddr))) 
-			match = false;
-
-		if (entry->maxLevel != maxLevel)
+				entry->cluthash != Memory::Read_U32(entry->clutaddr)))) 
 			match = false;
 
 		if (match) {
@@ -751,6 +734,9 @@ void TextureCache::SetTexture() {
 		}
 
 		if (rehash && entry->status != TexCacheEntry::STATUS_RELIABLE) {
+			int w = 1 << (gstate.texsize[0] & 0xf);
+			int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
+			int bufw = gstate.texbufwidth[0] & 0x3ff;
 			u32 check = QuickTexHash(texaddr, bufw, w, h, format);
 			if (check != entry->fullhash) {
 				match = false;
@@ -792,6 +778,11 @@ void TextureCache::SetTexture() {
 		entry->status = TexCacheEntry::STATUS_HASHING;
 	}
 
+	int w = 1 << (gstate.texsize[0] & 0xf);
+	int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
+
+	int bufw = gstate.texbufwidth[0] & 0x3ff;
+
 	//we have to decode it
 	entry->addr = texaddr;
 	entry->hash = texhash;
@@ -800,6 +791,7 @@ void TextureCache::SetTexture() {
 	entry->fbo = 0;
 	entry->maxLevel = maxLevel;
 	entry->lodBias = 0.0f;
+
 
 	if (format >= GE_TFMT_CLUT4 && format <= GE_TFMT_CLUT32) {
 		entry->clutformat = clutformat;
@@ -825,6 +817,16 @@ void TextureCache::SetTexture() {
 	glBindTexture(GL_TEXTURE_2D, entry->texture);
 	lastBoundTexture = entry->texture;
 	
+	// Adjust maxLevel to actually present levels..
+	for (int i = 0; i <= maxLevel; i++) {
+		// If encountering levels pointing to nothing, adjust max level.
+		u32 levelTexaddr = (gstate.texaddr[i] & 0xFFFFF0) | ((gstate.texbufwidth[i] << 8) & 0x0F000000);
+		if (!Memory::IsValidAddress(levelTexaddr)) {
+			maxLevel = i - 1;
+			break;
+		}
+	}
+
 #ifdef USING_GLES2
 	// GLES2 doesn't have support for a "Max lod" which is critical as PSP games often
 	// don't specify mips all the way down. As a result, we either need to manually generate
@@ -835,15 +837,15 @@ void TextureCache::SetTexture() {
 	// As is usual, GLES3 will solve this problem nicely but wide distribution of that is
 	// years away.
 	LoadTextureLevel(*entry, 0);
-	if (entry->maxLevel > 0)
+	if (maxLevel > 0)
 		glGenerateMipmap(GL_TEXTURE_2D);
 #else
-	for (int i = 0; i <= entry->maxLevel; i++) {
+	for (int i = 0; i <= maxLevel; i++) {
 		LoadTextureLevel(*entry, i);
 	}
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, entry->maxLevel);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, maxLevel);
 #endif
-	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)entry->maxLevel);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)maxLevel);
 	float anisotropyLevel = (float) g_Config.iAnisotropyLevel > maxAnisotropyLevel ? maxAnisotropyLevel : (float) g_Config.iAnisotropyLevel;
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, anisotropyLevel);
 	// NOTICE_LOG(G3D,"AnisotropyLevel = %0.1f , MaxAnisotropyLevel = %0.1f ", anisotropyLevel, maxAnisotropyLevel );
