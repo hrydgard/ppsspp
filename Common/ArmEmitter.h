@@ -511,6 +511,7 @@ public:
 	void VADD(ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VSUB(ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VMUL(ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VMOV(ARMReg Dest, ARMReg Src, bool high);
 	void VMOV(ARMReg Dest, ARMReg Src);
 
 	void QuickCallFunction(ARMReg scratchreg, void *func);

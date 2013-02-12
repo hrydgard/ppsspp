@@ -621,8 +621,10 @@ ARMReg ARMXEmitter::SubBase(ARMReg Reg)
 // NEON Specific
 void ARMXEmitter::VADD(IntegerSize Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
 {
-	_assert_msg_(DYNA_REC, Vd >= Q0, "Pass invalid register to VADD(integer)");
+	_assert_msg_(DYNA_REC, Vd >= D0, "Pass invalid register to VADD(integer)");
 	_assert_msg_(DYNA_REC, cpu_info.bNEON, "Can't use VADD(integer) when CPU doesn't support it");
+
+	bool register_quad = Vd >= Q0;
 
 	// Gets encoded as a double register
 	Vd = SubBase(Vd);
@@ -630,7 +632,7 @@ void ARMXEmitter::VADD(IntegerSize Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
 	Vm = SubBase(Vm);
 
 	Write32((0xF2 << 24) | ((Vd & 0x10) << 18) | (Size << 20) | ((Vn & 0xF) << 16) \
-		| ((Vd & 0xF) << 12) | (0x8 << 8) | ((Vn & 0x10) << 3) | (1 << 6) \
+		| ((Vd & 0xF) << 12) | (0x8 << 8) | ((Vn & 0x10) << 3) | (register_quad << 6) \
 		| ((Vm & 0x10) << 2) | (Vm & 0xF)); 
 
 }
@@ -894,6 +896,17 @@ void ARMXEmitter::VMUL(ARMReg Vd, ARMReg Vn, ARMReg Vm)
 			//	| (1 << 6) | ((Vm & 0x10) << 2) | (Vm & 0xF));
 		}
 	}
+}
+
+void ARMXEmitter::VMOV(ARMReg Dest, ARMReg Src, bool high)
+{
+	_assert_msg_(DYNA_REC, Src < S0, "This VMOV doesn't support SRC other than ARM Reg");
+	_assert_msg_(DYNA_REC, Dest >= D0, "This VMOV doesn't support DEST other than VFP");
+
+	Dest = SubBase(Dest);
+
+	Write32(NO_COND | (0xE << 24) | (high << 21) | ((Dest & 0xF) << 16) | (Src << 12) \
+		| (11 << 8) | ((Dest & 0x10) << 3) | (1 << 4));
 }
 
 void ARMXEmitter::VMOV(ARMReg Dest, ARMReg Src)
