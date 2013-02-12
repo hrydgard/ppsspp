@@ -124,7 +124,7 @@ void TextureCache::NotifyFramebuffer(u32 address, FBO *fbo) {
 	// Must be in VRAM so | 0x04000000 it is.
 	TexCacheEntry *entry = GetEntryAt(address | 0x04000000);
 	if (entry) {
-		// INFO_LOG(HLE, "Render to texture detected at %08x!", address);
+		DEBUG_LOG(HLE, "Render to texture detected at %08x!", address);
 		if (!entry->fbo)
 			entry->fbo = fbo;
 		// TODO: Delete the original non-fbo texture too.
