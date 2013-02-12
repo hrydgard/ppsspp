@@ -86,6 +86,7 @@ static int hCountTotal; //unused
 static int vCount;
 static int isVblank;
 static bool hasSetMode;
+// Don't include this in the state, time increases regardless of state.
 static double lastFrameTime;
 
 std::vector<WaitVBlankInfo> vblankWaitingThreads;
@@ -137,7 +138,6 @@ void __DisplayDoState(PointerWrap &p) {
 	p.Do(vCount);
 	p.Do(isVblank);
 	p.Do(hasSetMode);
-	p.Do(lastFrameTime);
 	WaitVBlankInfo wvi(0);
 	p.Do(vblankWaitingThreads, wvi);
 
