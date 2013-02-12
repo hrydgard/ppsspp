@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
-<TS version="2.0" language="zh_CN">
+<TS version="2.0" language="cn_ZH">
 <context>
     <name>Controls</name>
     <message>
         <location filename="../controls.ui" line="20"/>
         <source>Controls</source>
-        <translation>键盘布局</translation>
+        <translation>控制器</translation>
     </message>
 </context>
 <context>
@@ -14,57 +14,57 @@
     <message>
         <location filename="../ctrldisasmview.cpp" line="106"/>
         <source>Copy &amp;address</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;A)复制地址</translation>
     </message>
     <message>
         <location filename="../ctrldisasmview.cpp" line="110"/>
         <source>Copy instruction (&amp;hex)</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;H)复制指令(十六进制型)</translation>
     </message>
     <message>
         <location filename="../ctrldisasmview.cpp" line="114"/>
         <source>Copy instruction (&amp;disasm)</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;D)复制指令(汇编型)</translation>
     </message>
     <message>
         <location filename="../ctrldisasmview.cpp" line="120"/>
         <source>&amp;Run to here</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;R)执行到此处</translation>
     </message>
     <message>
         <location filename="../ctrldisasmview.cpp" line="124"/>
         <source>&amp;Set Next Statement</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;S)设置下一语句</translation>
     </message>
     <message>
         <location filename="../ctrldisasmview.cpp" line="128"/>
         <source>&amp;Toggle breakpoint</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;T)锁定断点</translation>
     </message>
     <message>
         <location filename="../ctrldisasmview.cpp" line="132"/>
         <source>&amp;Follow branch</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;F)跟随分支</translation>
     </message>
     <message>
         <location filename="../ctrldisasmview.cpp" line="142"/>
         <source>Go to in &amp;Memory View</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;M)转到内存视图</translation>
     </message>
     <message>
         <location filename="../ctrldisasmview.cpp" line="152"/>
         <source>&amp;Rename function...</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;R)重命名函数...</translation>
     </message>
     <message>
         <location filename="../ctrldisasmview.cpp" line="240"/>
         <source>New function name</source>
-        <translation type="unfinished"></translation>
+        <translation>新函数名称</translation>
     </message>
     <message>
         <location filename="../ctrldisasmview.cpp" line="241"/>
         <source>New function name :</source>
-        <translation type="unfinished"></translation>
+        <translation>新函数名称:</translation>
     </message>
 </context>
 <context>
@@ -72,17 +72,17 @@
     <message>
         <location filename="../ctrlmemview.cpp" line="215"/>
         <source>Go to in &amp;disasm</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;D)转到汇编视图</translation>
     </message>
     <message>
         <location filename="../ctrlmemview.cpp" line="221"/>
         <source>&amp;Copy value</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;C)复制值</translation>
     </message>
     <message>
         <location filename="../ctrlmemview.cpp" line="225"/>
         <source>Dump...</source>
-        <translation type="unfinished"></translation>
+        <translation>转储...</translation>
     </message>
 </context>
 <context>
@@ -90,32 +90,32 @@
     <message>
         <location filename="../ctrlregisterlist.cpp" line="274"/>
         <source>Go to in &amp;memory view</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;M)转到内存视图</translation>
     </message>
     <message>
         <location filename="../ctrlregisterlist.cpp" line="278"/>
         <source>Go to in &amp;disasm</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;D)转到汇编视图</translation>
     </message>
     <message>
         <location filename="../ctrlregisterlist.cpp" line="284"/>
         <source>&amp;Copy value</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;C)复制值</translation>
     </message>
     <message>
         <location filename="../ctrlregisterlist.cpp" line="288"/>
         <source>C&amp;hange...</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;H)更改...</translation>
     </message>
     <message>
         <location filename="../ctrlregisterlist.cpp" line="352"/>
         <source>Set new value</source>
-        <translation type="unfinished"></translation>
+        <translation>设置新值</translation>
     </message>
     <message>
         <location filename="../ctrlregisterlist.cpp" line="353"/>
         <source>Set new value :</source>
-        <translation type="unfinished"></translation>
+        <translation>设置新值:</translation>
     </message>
 </context>
 <context>
@@ -123,179 +123,179 @@
     <message>
         <location filename="../debugger_disasm.ui" line="17"/>
         <source>Dialog</source>
-        <translation type="unfinished"></translation>
+        <translation>对话框</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="30"/>
         <source>Ctr:</source>
-        <translation type="unfinished"></translation>
+        <translation>计数器:</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="43"/>
         <source>&amp;Go to</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;G)转到</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="78"/>
         <source>&amp;PC</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;P)PC寄存器</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="91"/>
         <source>&amp;LR</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;L)连接寄存器</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="128"/>
         <source>Show VFPU</source>
-        <translation type="unfinished"></translation>
+        <translation>显示VFPU</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="147"/>
         <source>Regs</source>
-        <translation type="unfinished"></translation>
+        <translation>寄存器</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="198"/>
         <source>Funcs</source>
-        <translation type="unfinished"></translation>
+        <translation>函数</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="223"/>
         <source>&amp;Go</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;G)转到</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="236"/>
         <source>Stop</source>
-        <translation type="unfinished"></translation>
+        <translation>停止</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="249"/>
         <source>Step &amp;Into</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;I)单步跟进</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="265"/>
         <source>Step &amp;Over</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;O)单步步过</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="278"/>
         <source>S&amp;kip</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;K)跳过</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="291"/>
         <source>Next &amp;HLE</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;H)下一HLE</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="320"/>
         <source>Breakpoints</source>
-        <translation type="unfinished"></translation>
+        <translation>断点</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="339"/>
         <source>Address</source>
-        <translation type="unfinished"></translation>
+        <translation>地址</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="362"/>
         <source>Clear All</source>
-        <translation type="unfinished"></translation>
+        <translation>清空所有</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="372"/>
         <source>Callstack</source>
-        <translation type="unfinished"></translation>
+        <translation>调用栈</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="382"/>
         <source>Display Lists</source>
-        <translation type="unfinished"></translation>
+        <translation>显示列表</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="408"/>
         <location filename="../debugger_disasm.ui" line="519"/>
         <source>Id</source>
-        <translation type="unfinished"></translation>
+        <translation>Id</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="413"/>
         <location filename="../debugger_disasm.ui" line="529"/>
         <source>Status</source>
-        <translation type="unfinished"></translation>
+        <translation>状态</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="418"/>
         <source>Start Address</source>
-        <translation type="unfinished"></translation>
+        <translation>起始地址</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="423"/>
         <source>Current Address</source>
-        <translation type="unfinished"></translation>
+        <translation>当前地址</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="476"/>
         <source>Run</source>
-        <translation type="unfinished"></translation>
+        <translation>执行</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="483"/>
         <source>Step</source>
-        <translation type="unfinished"></translation>
+        <translation>单步执行</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="497"/>
         <source>Threads</source>
-        <translation type="unfinished"></translation>
+        <translation>线程</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="524"/>
         <source>Name</source>
-        <translation type="unfinished"></translation>
+        <translation>名称</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="534"/>
         <source>Current PC</source>
-        <translation type="unfinished"></translation>
+        <translation>当前PC寄存器</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="539"/>
         <source>Entry point</source>
-        <translation type="unfinished"></translation>
+        <translation>入口点</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.cpp" line="401"/>
         <source>Remove breakpoint</source>
-        <translation type="unfinished"></translation>
+        <translation>移除断点</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.cpp" line="480"/>
         <source>Go to entry point</source>
-        <translation type="unfinished"></translation>
+        <translation>转到入口点</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.cpp" line="486"/>
         <source>Running</source>
-        <translation type="unfinished"></translation>
+        <translation>执行中</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.cpp" line="490"/>
         <source>Wait</source>
-        <translation type="unfinished"></translation>
+        <translation>等待</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.cpp" line="494"/>
         <source>Suspend</source>
-        <translation type="unfinished"></translation>
+        <translation>挂起</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.cpp" line="626"/>
         <source>Show code</source>
-        <translation type="unfinished"></translation>
+        <translation>显示代码</translation>
     </message>
 </context>
 <context>
@@ -303,27 +303,27 @@
     <message>
         <location filename="../debugger_memory.ui" line="14"/>
         <source>Dialog</source>
-        <translation type="unfinished"></translation>
+        <translation>对话框</translation>
     </message>
     <message>
         <location filename="../debugger_memory.ui" line="22"/>
         <source>Goto:</source>
-        <translation type="unfinished"></translation>
+        <translation>转到:</translation>
     </message>
     <message>
         <location filename="../debugger_memory.ui" line="35"/>
         <source>Mode</source>
-        <translation type="unfinished"></translation>
+        <translation>模式</translation>
     </message>
     <message>
         <location filename="../debugger_memory.ui" line="41"/>
         <source>Normal</source>
-        <translation type="unfinished"></translation>
+        <translation>普通模式</translation>
     </message>
     <message>
         <location filename="../debugger_memory.ui" line="48"/>
         <source>Symbols</source>
-        <translation type="unfinished"></translation>
+        <translation>特征符模式</translation>
     </message>
 </context>
 <context>
@@ -331,37 +331,37 @@
     <message>
         <location filename="../debugger_vfpu.ui" line="14"/>
         <source>Dialog</source>
-        <translation type="unfinished"></translation>
+        <translation>对话框</translation>
     </message>
     <message>
         <location filename="../debugger_vfpu.ui" line="23"/>
         <source>Float</source>
-        <translation type="unfinished"></translation>
+        <translation>浮点型</translation>
     </message>
     <message>
         <location filename="../debugger_vfpu.ui" line="28"/>
         <source>HalfFloat</source>
-        <translation type="unfinished"></translation>
+        <translation>半浮点型</translation>
     </message>
     <message>
         <location filename="../debugger_vfpu.ui" line="33"/>
         <source>Hex</source>
-        <translation type="unfinished"></translation>
+        <translation>十六进制型</translation>
     </message>
     <message>
         <location filename="../debugger_vfpu.ui" line="38"/>
         <source>Bytes</source>
-        <translation type="unfinished"></translation>
+        <translation>字节型</translation>
     </message>
     <message>
         <location filename="../debugger_vfpu.ui" line="43"/>
         <source>Shorts</source>
-        <translation type="unfinished"></translation>
+        <translation>短整型</translation>
     </message>
     <message>
         <location filename="../debugger_vfpu.ui" line="48"/>
         <source>Ints</source>
-        <translation type="unfinished"></translation>
+        <translation>整型</translation>
     </message>
 </context>
 <context>
@@ -369,109 +369,110 @@
     <message>
         <location filename="../gamepaddialog.ui" line="14"/>
         <source>Gamepad Configuration</source>
-        <translation type="unfinished"></translation>
+        <translation>手柄设置</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.ui" line="22"/>
         <source>GamePad List</source>
-        <translation type="unfinished"></translation>
+        <translation>手柄列表</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.ui" line="46"/>
         <source>Refresh</source>
-        <translation type="unfinished"></translation>
+        <translation>刷新</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.ui" line="53"/>
         <source>Select</source>
-        <translation type="unfinished"></translation>
+        <translation>选中</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.ui" line="62"/>
         <source>Gamepad Values :</source>
-        <translation type="unfinished"></translation>
+        <translation>手柄值:</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.ui" line="86"/>
         <source>TextLabel</source>
-        <translation type="unfinished"></translation>
+        <translatorcomment>TextLabel</translatorcomment>
+        <translation>TextLabel</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.ui" line="98"/>
         <source>Assign Gamepad input</source>
-        <translation type="unfinished"></translation>
+        <translation>指定该手柄</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.ui" line="108"/>
         <source> to PSP button/axis</source>
-        <translation type="unfinished"></translation>
+        <translation>作为PSP按键/摇杆输入</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.ui" line="118"/>
         <source>Assign</source>
-        <translation type="unfinished"></translation>
+        <translation>指定</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.ui" line="127"/>
         <source>Press buttons on your gamePad to verify mapping :</source>
-        <translation type="unfinished"></translation>
+        <translation>按下手柄按键来确认键位映射:</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="134"/>
         <location filename="../gamepaddialog.cpp" line="366"/>
         <source>&lt;b&gt;No gamepad&lt;/b&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>&lt;b&gt;未发现手柄&lt;/b&gt;</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="146"/>
         <source>&lt;b&gt;Unknown gamepad&lt;/b&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>&lt;b&gt;未识别的手柄&lt;/b&gt;</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="287"/>
         <source>Buttons</source>
-        <translation type="unfinished"></translation>
+        <translation>按钮</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="301"/>
         <location filename="../gamepaddialog.cpp" line="344"/>
         <source>Button %1</source>
-        <translation type="unfinished"></translation>
+        <translation>按钮 %1</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="304"/>
         <source>Axes</source>
-        <translation type="unfinished"></translation>
+        <translation>摇杆</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="310"/>
         <source>%1 Neg</source>
-        <translation type="unfinished"></translation>
+        <translation>%1 Neg</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="317"/>
         <source>Axes %1 Neg</source>
-        <translation type="unfinished"></translation>
+        <translation>Axes %1 Neg</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="320"/>
         <source>%1 Pos</source>
-        <translation type="unfinished"></translation>
+        <translation>%1 Pos</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="327"/>
         <source>Axes %1 Pos</source>
-        <translation type="unfinished"></translation>
+        <translation>Axes %1 Pos</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="331"/>
         <source>Hats</source>
-        <translation type="unfinished"></translation>
+        <translation>Hats</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="368"/>
         <source>&lt;b&gt;Current gamepad: %1&lt;/b&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>&lt;b&gt;当前手柄: %1&lt;/b&gt;</translation>
     </message>
 </context>
 <context>
@@ -479,7 +480,7 @@
     <message>
         <location filename="../mainwindow.ui" line="20"/>
         <source>PPSSPP</source>
-        <translation type="unfinished">PPSSPP</translation>
+        <translation>PPSSPP</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="52"/>
@@ -509,12 +510,12 @@
     <message>
         <location filename="../mainwindow.ui" line="103"/>
         <source>G3D</source>
-        <translation type="unfinished"></translation>
+        <translation></translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="112"/>
         <source>HLE</source>
-        <translation type="unfinished"></translation>
+        <translation></translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="121"/>
@@ -539,7 +540,7 @@
     <message>
         <location filename="../mainwindow.ui" line="187"/>
         <source>&amp;Open...</source>
-        <translation>(&amp;O)打开</translation>
+        <translation>(&amp;O)打开...</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="192"/>
@@ -549,7 +550,7 @@
     <message>
         <location filename="../mainwindow.ui" line="197"/>
         <source>-</source>
-        <translation></translation>
+        <translation>-</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="202"/>
@@ -574,12 +575,12 @@
     <message>
         <location filename="../mainwindow.ui" line="218"/>
         <source>&amp;Load State File...</source>
-        <translation>(&amp;L)读取存档</translation>
+        <translation>(&amp;L)读取存档...</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="223"/>
         <source>&amp;Save State File...</source>
-        <translation>(&amp;S)保存存档</translation>
+        <translation>(&amp;S)保存存档...</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="228"/>
@@ -629,12 +630,12 @@
     <message>
         <location filename="../mainwindow.ui" line="281"/>
         <source>Load &amp;Map File...</source>
-        <translation>(&amp;M)读取Map文件</translation>
+        <translation>(&amp;M)读取Map文件...</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="289"/>
         <source>&amp;Save Map File...</source>
-        <translation>(&amp;S)保存Map文件</translation>
+        <translation>(&amp;S)保存Map文件...</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="297"/>
@@ -649,7 +650,7 @@
     <message>
         <location filename="../mainwindow.ui" line="305"/>
         <source>Ctrl+D</source>
-        <translation type="unfinished">Ctrl+D</translation>
+        <translation>Ctrl+D</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="313"/>
@@ -659,22 +660,22 @@
     <message>
         <location filename="../mainwindow.ui" line="316"/>
         <source>Ctrl+L</source>
-        <translation type="unfinished">Ctrl+L</translation>
+        <translation>Ctrl+L</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="321"/>
         <source>Memory &amp;View...</source>
-        <translation>(&amp;V)内存视图</translation>
+        <translation>(&amp;V)内存视图...</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="324"/>
         <source>Ctrl+M</source>
-        <translation type="unfinished">Ctrl+M</translation>
+        <translation>Ctrl+M</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="329"/>
         <source>Keyboard &amp;Controls</source>
-        <translation type="unfinished">键盘与控制</translation>
+        <translation>(&amp;C)键盘与控制</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="334"/>
@@ -684,7 +685,7 @@
     <message>
         <location filename="../mainwindow.ui" line="337"/>
         <source>F12</source>
-        <translation type="unfinished">F12</translation>
+        <translation>F12</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="345"/>
@@ -694,7 +695,7 @@
     <message>
         <location filename="../mainwindow.ui" line="348"/>
         <source>F5</source>
-        <translation type="unfinished">F5</translation>
+        <translation>F5</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="356"/>
@@ -704,7 +705,7 @@
     <message>
         <location filename="../mainwindow.ui" line="359"/>
         <source>F6</source>
-        <translation type="unfinished">F6</translation>
+        <translation>F6</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="367"/>
@@ -734,7 +735,7 @@
     <message>
         <location filename="../mainwindow.ui" line="402"/>
         <source>Ctrl+1</source>
-        <translation type="unfinished">Ctrl+1</translation>
+        <translation>Ctrl+1</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="410"/>
@@ -744,7 +745,7 @@
     <message>
         <location filename="../mainwindow.ui" line="413"/>
         <source>Ctrl+2</source>
-        <translation type="unfinished">Ctrl+2</translation>
+        <translation>Ctrl+2</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="421"/>
@@ -754,7 +755,7 @@
     <message>
         <location filename="../mainwindow.ui" line="424"/>
         <source>Ctrl+3</source>
-        <translation type="unfinished">Ctrl+3</translation>
+        <translation>Ctrl+3</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="432"/>
@@ -764,7 +765,7 @@
     <message>
         <location filename="../mainwindow.ui" line="435"/>
         <source>Ctrl+4</source>
-        <translation type="unfinished">Ctrl+4</translation>
+        <translation>Ctrl+4</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="443"/>
@@ -796,33 +797,33 @@
         <location filename="../mainwindow.ui" line="506"/>
         <location filename="../mainwindow.ui" line="538"/>
         <source>Debug</source>
-        <translation type="unfinished">调试</translation>
+        <translation>调试</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="482"/>
         <location filename="../mainwindow.ui" line="514"/>
         <location filename="../mainwindow.ui" line="546"/>
         <source>Warning</source>
-        <translation type="unfinished">警告</translation>
+        <translation>警告</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="490"/>
         <location filename="../mainwindow.ui" line="530"/>
         <location filename="../mainwindow.ui" line="562"/>
         <source>Error</source>
-        <translation type="unfinished">错误</translation>
+        <translation>错误</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="498"/>
         <location filename="../mainwindow.ui" line="522"/>
         <location filename="../mainwindow.ui" line="554"/>
         <source>Info</source>
-        <translation type="unfinished">信息</translation>
+        <translation>信息</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="567"/>
         <source>GamePad Controls</source>
-        <translation type="unfinished">手柄控制</translation>
+        <translation>手柄控制</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="572"/>
@@ -842,12 +843,12 @@
     <message>
         <location filename="../mainwindow.ui" line="587"/>
         <source>Memory View Texture...</source>
-        <translation type="unfinished"></translation>
+        <translation>内存纹理视图...</translation>
     </message>
     <message>
         <location filename="../mainwindow.cpp" line="843"/>
         <source>No translations</source>
-        <translation type="unfinished"></translation>
+        <translation>未翻译</translation>
     </message>
 </context>
 <context>
@@ -855,87 +856,87 @@
     <message>
         <location filename="../gamepaddialog.cpp" line="19"/>
         <source>Cross</source>
-        <translation type="unfinished"></translation>
+        <translation>×</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="20"/>
         <source>Circle</source>
-        <translation type="unfinished"></translation>
+        <translation>○</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="21"/>
         <source>Square</source>
-        <translation type="unfinished"></translation>
+        <translation>□</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="22"/>
         <source>Triangle</source>
-        <translation type="unfinished"></translation>
+        <translation>△</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="23"/>
         <source>Left Trigger</source>
-        <translation type="unfinished"></translation>
+        <translation>L</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="24"/>
         <source>Right Trigger</source>
-        <translation type="unfinished"></translation>
+        <translation>R</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="25"/>
         <source>Start</source>
-        <translation type="unfinished"></translation>
+        <translation>开始</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="26"/>
         <source>Select</source>
-        <translation type="unfinished"></translation>
+        <translation>选择</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="27"/>
         <source>Up</source>
-        <translation type="unfinished"></translation>
+        <translation>↑</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="28"/>
         <source>Down</source>
-        <translation type="unfinished"></translation>
+        <translation>↓</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="29"/>
         <source>Left</source>
-        <translation type="unfinished"></translation>
+        <translation>←</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="30"/>
         <source>Right</source>
-        <translation type="unfinished"></translation>
+        <translation>→</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="32"/>
         <source>Home</source>
-        <translation type="unfinished"></translation>
+        <translation>Home</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="35"/>
         <source>Stick left</source>
-        <translation type="unfinished"></translation>
+        <translation>摇杆左</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="36"/>
         <source>Stick right</source>
-        <translation type="unfinished"></translation>
+        <translation>摇杆右</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="37"/>
         <source>Stick up</source>
-        <translation type="unfinished"></translation>
+        <translation>摇杆上</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="38"/>
         <source>Stick bottom</source>
-        <translation type="unfinished"></translation>
+        <translation>摇杆下</translation>
     </message>
 </context>
 </TS>
