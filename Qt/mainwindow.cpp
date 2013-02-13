@@ -248,6 +248,7 @@ void MainWindow::UpdateMenus()
 	ui->action_AF4x->setChecked(g_Config.iAnisotropyLevel == 4);
 	ui->action_AF8x->setChecked(g_Config.iAnisotropyLevel == 8);
 	ui->action_AF16x->setChecked(g_Config.iAnisotropyLevel == 16);
+	ui->action_Simple_2xAA->setChecked(g_Config.SSAntiAliasing);
 	ui->action_Show_FPS_counter->setChecked(g_Config.bShowFPSCounter);
 
 	bool enable = !Core_IsStepping() ? false : true;
@@ -311,6 +312,18 @@ void MainWindow::SetZoom(float zoom) {
 
 	PSP_CoreParameter().pixelWidth = pixel_xres;
 	PSP_CoreParameter().pixelHeight = pixel_yres;
+	PSP_CoreParameter().outputWidth = pixel_xres;
+	PSP_CoreParameter().outputHeight = pixel_yres;
+
+	if (g_Config.SSAntiAliasing)
+	{
+		zoom *= 2;
+		PSP_CoreParameter().renderWidth = 480 * zoom;
+		PSP_CoreParameter().renderHeight = 272 * zoom;
+	}
+
+	if (gpu)
+		gpu->Resized();
 }
 
 void MainWindow::on_action_FileLoad_triggered()
@@ -613,10 +626,14 @@ void MainWindow::on_action_OptionsFullScreen_triggered()
 		int height = (int) QApplication::desktop()->screenGeometry().height();
 		PSP_CoreParameter().pixelWidth = width;
 		PSP_CoreParameter().pixelHeight = height;
-		PSP_CoreParameter().renderWidth = width;
-		PSP_CoreParameter().renderHeight = height;
 		PSP_CoreParameter().outputWidth = width;
 		PSP_CoreParameter().outputHeight = height;
+
+		int antialias = 1;
+		if (g_Config.SSAntiAliasing) antialias = 2;
+		PSP_CoreParameter().renderWidth = width * antialias;
+		PSP_CoreParameter().renderHeight = height * antialias;
+
 		pixel_xres = width;
 		pixel_yres = height;
 		dp_xres = pixel_xres;

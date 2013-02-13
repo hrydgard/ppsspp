@@ -189,8 +189,8 @@ void EmuThread::run()
 				coreParameter.enableDebugging = true;
 				coreParameter.printfEmuLog = false;
 				coreParameter.headLess = false;
-				coreParameter.renderWidth = 480 * g_Config.iWindowZoom;
-				coreParameter.renderHeight = 272 * g_Config.iWindowZoom;
+				coreParameter.renderWidth = (480 * g_Config.iWindowZoom) * (g_Config.SSAntiAliasing + 1);
+				coreParameter.renderHeight = (272 * g_Config.iWindowZoom) * (g_Config.SSAntiAliasing + 1);
 				coreParameter.outputWidth = dp_xres;
 				coreParameter.outputHeight = dp_yres;
 				coreParameter.pixelWidth = pixel_xres;
