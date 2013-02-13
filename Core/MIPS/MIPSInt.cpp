@@ -495,7 +495,7 @@ namespace MIPSInt
 	void Int_FPULS(u32 op)
 	{
 		s32 offset = (s16)(op&0xFFFF);
-		int ft = ((op>>16)&0x1f);
+		int ft = _FT;
 		int rs = _RS;
 		u32 addr = R(rs) + offset;
 

@@ -56,7 +56,6 @@
 
 namespace MIPSComp
 {
-	
 	void Jit::SetR0ToEffectiveAddress(int rs, s16 offset) {
 		Operand2 op2;
 		if (offset) {

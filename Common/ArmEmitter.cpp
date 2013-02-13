@@ -657,13 +657,13 @@ void ARMXEmitter::VLDR(ARMReg Dest, ARMReg Base, u16 offset)
 {
 	_assert_msg_(DYNA_REC, Dest >= S0 && Dest <= D31, "Passed Invalid dest register to VLDR"); 
 	_assert_msg_(DYNA_REC, Base <= R15, "Passed invalid Base register to VLDR");
-	_assert_msg_(DYNA_REC, (offset & 0xC003) == 0, "VLDR: Offset needs to be word aligned and small enough");
+	_assert_msg_(DYNA_REC, (offset & 0xC03) == 0, "VLDR: Offset needs to be word aligned and small enough");
 
 	if (offset & 0xC03) {
 		ERROR_LOG(DYNA_REC, "VLDR: Bad offset %08x", offset);
 	}
 
-	ERROR_LOG(DYNA_REC, "VLDR: s%i, r%i + %i", Dest - S0, Base, offset);
+	// ERROR_LOG(DYNA_REC, "VLDR: s%i, r%i + %i", Dest - S0, Base, offset);
 
 	bool single_reg = Dest < D0;
 
@@ -685,12 +685,12 @@ void ARMXEmitter::VSTR(ARMReg Src, ARMReg Base, u16 offset)
 {
 	_assert_msg_(DYNA_REC, Src >= S0 && Src <= D31, "Passed invalid src register to VSTR");
 	_assert_msg_(DYNA_REC, Base <= R15, "Passed invalid base register to VSTR");
-	_assert_msg_(DYNA_REC, (offset & 0xC003) == 0, "VSTR: Offset needs to be word aligned");
+	_assert_msg_(DYNA_REC, (offset & 0xC03) == 0, "VSTR: Offset needs to be word aligned");
 
 	if (offset & 0xC03) {
 		ERROR_LOG(DYNA_REC, "VSTR: Bad offset %08x", offset);
 	}
-	ERROR_LOG(DYNA_REC, "VSTR: s%i, r%i + %i", Src - S0, Base, offset);
+	// ERROR_LOG(DYNA_REC, "VSTR: s%i, r%i + %i", Src - S0, Base, offset);
 
 	bool single_reg = Src < D0;
 

@@ -59,8 +59,7 @@ extern int logBlocks;
 
 void Jit::Comp_FPULS(u32 op)
 {
-	DISABLE
-
+	FlushAll();
 	s32 offset = (s16)(op & 0xFFFF);
 	int ft = _FT;
 	int rs = _RS;
@@ -69,18 +68,28 @@ void Jit::Comp_FPULS(u32 op)
 	switch(op >> 26)
 	{
 	case 49: //FI(ft) = Memory::Read_U32(addr); break; //lwc1
-		gpr.MapReg(rs);
 		fpr.MapReg(ft, MAP_NOINIT | MAP_DIRTY);
-		ERROR_LOG(HLE, "lwc1 rs=%i offset=%i   armr=%i", rs, offset, fpr.R(ft) - S0);
-		SetR0ToEffectiveAddress(rs, offset);
+		if (gpr.IsImm(rs)) {
+			u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
+			MOVI2R(R0, addr + (u32)Memory::base);
+		} else {
+			gpr.MapReg(rs);
+			SetR0ToEffectiveAddress(rs, offset);
+			ADD(R0, R0, R11);
+		}
 		VLDR(fpr.R(ft), R0, 0);
 		break;
 
 	case 57: //Memory::Write_U32(FI(ft), addr); break; //swc1
-		DISABLE;
-		fpr.MapReg(ft, 0);
-		gpr.MapReg(rs);
-		SetR0ToEffectiveAddress(rs, offset);
+		fpr.MapReg(ft);
+		if (gpr.IsImm(rs)) {
+			u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
+			MOVI2R(R0, addr + (u32)Memory::base);
+		} else {
+			gpr.MapReg(rs);
+			SetR0ToEffectiveAddress(rs, offset);
+			ADD(R0, R0, R11);
+		}
 		VSTR(fpr.R(ft), R0, 0);
 		break;
 
@@ -100,7 +109,7 @@ void Jit::Comp_FPU2op(u32 op)
 
 	int fs = _FS;
 	int fd = _FD;
-	logBlocks = 1;
+	// logBlocks = 1;
 
 	switch (op & 0x3f) 
 	{
