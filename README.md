@@ -100,15 +100,30 @@ to get Eclipse to rebuild the project.
 Also note that the `Visual Studio` generators aren't compatible with compilers
 other than Microsoft's, but `NMake Makefiles` works fine.
 
+Building for iOS
+----------------
+
+Note: This does not work yet.
+
+Create a `build-ios` directory and inside it run:
+
+    cmake -DCMAKE_TOOLCHAIN_FILE=../ios/ios.toolchain.cmake -GXcode ..
+
+Then open the generated project in Xcode.
+
+For more information, see: http://code.google.com/p/ios-cmake/wiki/HowTo
+
 Building for Blackberry
 -----------------------
 
 To build for Blackberry, you must first have the [latest Native SDK][blackberry-ndk] installed.
 
 To set up your environment for cross-compiling you must then use:
+
     source ~/bbndk/bbndk-env.sh
 
 Finally, you are ready to compile. Go to ppsspp/Blackberry/ and run:
+
     ./build.sh
 
 If you are on Windows, you will need GNU and CMake to run the bash script.
