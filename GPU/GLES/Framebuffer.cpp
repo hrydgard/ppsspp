@@ -64,6 +64,32 @@ static bool MaskedEqual(u32 addr1, u32 addr2) {
 	return (addr1 & 0x3FFFFFF) == (addr2 & 0x3FFFFFF);
 }
 
+static void CenterRect(float *x, float *y, float *w, float *h,
+	                     float origW, float origH, float frameW, float frameH)
+{
+	float origRatio = origW/origH;
+	float frameRatio = frameW/frameH;
+
+	if (origRatio > frameRatio)
+	{
+		// Image is wider than frame. Center vertically.
+		float scale = origW / frameW;
+		*x = 0.0f;
+		*w = frameW;
+		*h = frameW / origRatio;
+		*y = (frameH - *h) / 2.0f;
+	}
+	else
+	{
+		// Image is taller than frame. Center horizontally.
+		float scale = origH / frameH;
+		*y = 0.0f;
+		*h = frameH;
+		*w = frameH * origRatio;
+		*x = (frameW - *w) / 2.0f;
+	}
+}
+
 FramebufferManager::FramebufferManager() :
 	displayFramebufPtr_(0),
 	prevDisplayFramebuf_(0),
@@ -170,20 +196,23 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, int pixelFormat, int lin
 
 	glBindTexture(GL_TEXTURE_2D,backbufTex);
 	glTexSubImage2D(GL_TEXTURE_2D,0,0,0,480,272, GL_RGBA, GL_UNSIGNED_BYTE, convBuf);
-	DrawActiveTexture(480, 272);
+
+	float x, y, w, h;
+	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
+	DrawActiveTexture(x, y, w, h);
 }
 
-void FramebufferManager::DrawActiveTexture(float w, float h, bool flip) {
+void FramebufferManager::DrawActiveTexture(float x, float y, float w, float h, bool flip) {
 	float u2 = 1.0f;
 	float v1 = flip ? 1.0f : 0.0f;
 	float v2 = flip ? 0.0f : 1.0f;
 
-	const float pos[12] = {0,0,0, w,0,0, w,h,0, 0,h,0};
+	const float pos[12] = {x,y,0, x+w,y,0, x+w,y+h,0, x,y+h,0};
 	const float texCoords[8] = {0, v1, u2, v1, u2, v2, 0, v2};
 
 	glsl_bind(draw2dprogram);
 	Matrix4x4 ortho;
-	ortho.setOrtho(0, 480, 272, 0, -1, 1);
+	ortho.setOrtho(0, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, 0, -1, 1);
 	glUniformMatrix4fv(draw2dprogram->u_viewproj, 1, GL_FALSE, ortho.getReadPtr());
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
@@ -370,7 +399,9 @@ void FramebufferManager::CopyDisplayToOutput() {
 	fbo_bind_color_as_texture(vfb->fbo, 0);
 
 	// These are in the output display coordinates
-	DrawActiveTexture(480, 272, true);
+	float x, y, w, h;
+	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
+	DrawActiveTexture(x, y, w, h, true);
 
 	if (resized_) {
 		DestroyAllFBOs();

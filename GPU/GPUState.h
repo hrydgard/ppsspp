@@ -242,7 +242,7 @@ struct GPUStateCache
 	float lightpos[4][3];
 	float lightdir[4][3];
 	float lightatt[4][3];
-	float lightColor[3][4][3]; //Amtient Diffuse Specular
+	float lightColor[3][4][3];  // Ambient Diffuse Specular
 	float morphWeights[8];
 
 	u32 curTextureWidth;

@@ -605,11 +605,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_FRAMEBUFPTR:
-		break;
-
 	case GE_CMD_FRAMEBUFWIDTH:
-		break;
-
 	case GE_CMD_FRAMEBUFPIXFORMAT:
 		break;
 
@@ -636,21 +632,13 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_CLUTADDR:
-		gstate_c.textureChanged = true;
-		break;
-
 	case GE_CMD_CLUTADDRUPPER:
-		gstate_c.textureChanged = true;
-		break;
-
 	case GE_CMD_LOADCLUT:
 		gstate_c.textureChanged = true;
 		// This could be used to "dirty" textures with clut.
 		break;
 
 	case GE_CMD_TEXMAPMODE:
-		break;
-
 	case GE_CMD_TEXSHADELS:
 		break;
 
@@ -698,6 +686,8 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_AMBIENTCOLOR:
 	case GE_CMD_AMBIENTALPHA:
+		if (diff)
+			shaderManager_->DirtyUniform(DIRTY_AMBIENT);
 		break;
 
 	case GE_CMD_MATERIALAMBIENT:

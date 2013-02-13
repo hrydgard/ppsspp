@@ -337,7 +337,7 @@ u32 ISOFileSystem::OpenFile(std::string filename, FileAccess access)
 			return 0;
 		}
 
-		INFO_LOG(FILESYS, "Got a raw sector open: %s, sector %08x, size %08x", filename.c_str(), sectorStart, readSize);
+		DEBUG_LOG(FILESYS, "Got a raw sector open: %s, sector %08x, size %08x", filename.c_str(), sectorStart, readSize);
 		u32 newHandle = hAlloc->GetNewHandle();
 		entry.seekPos = 0;
 		entry.file = 0;

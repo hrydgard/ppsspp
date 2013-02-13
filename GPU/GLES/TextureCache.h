@@ -99,5 +99,7 @@ private:
 
 	u32 *clutBuf32;
 	u16 *clutBuf16;
+
+	int lastBoundTexture;
 };
 

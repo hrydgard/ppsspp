@@ -131,6 +131,12 @@ template<int func(u32, u32)> void WrapI_UU() {
 	RETURN(retval);
 }
 
+template<int func(u32, float, float)> void WrapI_UFF() {
+	// Not sure about the float arguments.
+	int retval = func(PARAM(0), currentMIPS->f[0], currentMIPS->f[1]);
+	RETURN(retval);
+}
+
 template<int func(u32, u32, u32)> void WrapI_UUU() {
 	int retval = func(PARAM(0), PARAM(1), PARAM(2));
 	RETURN(retval);

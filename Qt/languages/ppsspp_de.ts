@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
-<TS version="2.0" language="en_US">
+<TS version="2.0" language="de_DE">
 <context>
     <name>Controls</name>
     <message>
@@ -491,7 +491,7 @@
     <message>
         <location filename="../mainwindow.ui" line="52"/>
         <source>&amp;File</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">&amp;Datei</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="66"/>
@@ -506,7 +506,7 @@
     <message>
         <location filename="../mainwindow.ui" line="95"/>
         <source>&amp;Options</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">&amp;Optionen</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="99"/>
@@ -526,7 +526,7 @@
     <message>
         <location filename="../mainwindow.ui" line="121"/>
         <source>Default</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Standard</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="135"/>
@@ -536,7 +536,7 @@
     <message>
         <location filename="../mainwindow.ui" line="144"/>
         <source>Language</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Sprache</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="149"/>
@@ -546,17 +546,17 @@
     <message>
         <location filename="../mainwindow.ui" line="185"/>
         <source>&amp;Help</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">&amp;Hilfe</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="200"/>
         <source>&amp;Open...</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">&amp;Öffnen...</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="205"/>
         <source>&amp;Close</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">&amp;Schließen</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="210"/>
@@ -566,7 +566,7 @@
     <message>
         <location filename="../mainwindow.ui" line="215"/>
         <source>Quickload state</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Schnellladen</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="218"/>
@@ -576,7 +576,7 @@
     <message>
         <location filename="../mainwindow.ui" line="223"/>
         <source>Quicksave state</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Schnellspeichern</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="226"/>
@@ -586,12 +586,12 @@
     <message>
         <location filename="../mainwindow.ui" line="231"/>
         <source>&amp;Load State File...</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">&amp;Lade Spielstand...</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="236"/>
         <source>&amp;Save State File...</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">&amp;Speichere Spielstand...</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="241"/>
@@ -601,7 +601,7 @@
     <message>
         <location filename="../mainwindow.ui" line="246"/>
         <source>&amp;Run</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">&amp;Starte</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="249"/>
@@ -631,7 +631,7 @@
     <message>
         <location filename="../mainwindow.ui" line="278"/>
         <source>&amp;Slightly Faster Interpreter</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">&amp;etwas scnellerer Interpreter</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="286"/>
@@ -641,17 +641,17 @@
     <message>
         <location filename="../mainwindow.ui" line="294"/>
         <source>Load &amp;Map File...</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Lade &amp;Map Dateien...</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="302"/>
         <source>&amp;Save Map File...</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">&amp;Speichere Map Dateien...</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="310"/>
         <source>&amp;Reset Symbol Table</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">&amp;Setze Symboltabelle zurück</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="315"/>
@@ -666,7 +666,7 @@
     <message>
         <location filename="../mainwindow.ui" line="326"/>
         <source>&amp;Log Console</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">&amp;Log Konsole</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="329"/>
@@ -686,7 +686,7 @@
     <message>
         <location filename="../mainwindow.ui" line="342"/>
         <source>Keyboard &amp;Controls</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Tastatur &amp;Tastenbelegung</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="347"/>
@@ -902,87 +902,87 @@
     <message>
         <location filename="../gamepaddialog.cpp" line="19"/>
         <source>Cross</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Kreuz</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="20"/>
         <source>Circle</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Kreis</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="21"/>
         <source>Square</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Viereck</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="22"/>
         <source>Triangle</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Dreieck</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="23"/>
         <source>Left Trigger</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Linke Schultertaste</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="24"/>
         <source>Right Trigger</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Rechte Schultertaste</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="25"/>
         <source>Start</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Start</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="26"/>
         <source>Select</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Select</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="27"/>
         <source>Up</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Hoch</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="28"/>
         <source>Down</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Runter</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="29"/>
         <source>Left</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Links</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="30"/>
         <source>Right</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Rechts</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="32"/>
         <source>Home</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Home</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="35"/>
         <source>Stick left</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Analogstick links</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="36"/>
         <source>Stick right</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Analogstick rechts</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="37"/>
         <source>Stick up</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Analogstick oben</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="38"/>
         <source>Stick bottom</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Analogstick unten</translation>
     </message>
 </context>
 </TS>
