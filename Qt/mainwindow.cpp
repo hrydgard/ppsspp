@@ -856,7 +856,11 @@ void MainWindow::createLanguageMenu()
 		locale.truncate(locale.lastIndexOf('.'));
 		locale.remove(0, locale.indexOf('_') + 1);
 
+#if QT_VERSION >= 0x040800
 		QString language = QLocale(locale).nativeLanguageName();
+#else
+		QString language = QLocale::languageToString(QLocale(locale).language());
+#endif
 		QAction *action = new QAction(language, this);
 		action->setCheckable(true);
 		action->setData(locale);
