@@ -9,7 +9,7 @@ include(Settings.pri)
 # Libs
 symbian: LIBS += -lCore.lib -lCommon.lib -lNative.lib -lcone -leikcore -lavkon -lezlib
 blackberry: LIBS += -L. -lCore -lCommon -lNative -lscreen -lsocket -lstdc++
-win32: LIBS += -L. -lCore -lCommon -lNative -lwinmm -lws2_32 -lkernel32 -luser32 -lgdi32 -lshell32 -lcomctl32 -ldsound -lxinput
+win32: LIBS += -L$$OUT_PWD/release -lCore -lCommon -lNative -lwinmm -lws2_32 -lkernel32 -luser32 -lgdi32 -lshell32 -lcomctl32 -ldsound -lxinput
 linux: LIBS += -L. -lCore -lCommon -lNative
 
 !mobile_platform {

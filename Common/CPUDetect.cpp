@@ -27,6 +27,7 @@
 #undef _interlockedbittestandreset
 #undef _interlockedbittestandset64
 #undef _interlockedbittestandreset64
+#include <windows.h>
 #else
 
 #ifndef _M_GENERIC
