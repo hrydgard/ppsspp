@@ -168,7 +168,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 
 	LogManager::GetInstance()->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
 
-#if defined(USING_GLES2)
+#if !defined(USING_GLES2)
 	// Start Desktop UI
 	MainWindow* mainWindow = new MainWindow();
 	mainWindow->show();
