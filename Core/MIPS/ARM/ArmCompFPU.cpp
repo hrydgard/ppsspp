@@ -59,7 +59,6 @@ extern int logBlocks;
 
 void Jit::Comp_FPULS(u32 op)
 {
-	FlushAll();
 	s32 offset = (s16)(op & 0xFFFF);
 	int ft = _FT;
 	int rs = _RS;
