@@ -20,6 +20,11 @@
 
 namespace MIPSComp
 {
+	void Jit::Comp_VPFX(u32 op)
+	{
+		DISABLE;
+	}
+
 	void Jit::Comp_SVQ(u32 op)
 	{
 		DISABLE;
