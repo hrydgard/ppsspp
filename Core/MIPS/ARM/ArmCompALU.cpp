@@ -191,8 +191,12 @@ namespace MIPSComp
 
 		case 39: // R(rd) = ~(R(rs) | R(rt)); //nor
 			gpr.MapDirtyInIn(rd, rs, rt);
-			ORR(gpr.R(rd), gpr.R(rs), gpr.R(rt));
-			MVN(gpr.R(rd), gpr.R(rd));
+			if (rt == 0) {
+				MVN(gpr.R(rd), gpr.R(rs));
+			} else {
+				ORR(gpr.R(rd), gpr.R(rs), gpr.R(rt));
+				MVN(gpr.R(rd), gpr.R(rd));
+			}
 			break;
 
 		case 42: //R(rd) = (int)R(rs) < (int)R(rt); break; //slt

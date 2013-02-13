@@ -121,6 +121,9 @@ void Jit::GenerateFixedCode()
 	MOVI2R(R10, (u32)mips_);
 	MOVI2R(R9, (u32)GetBlockCache()->GetCodePointers());
 
+	MovFromPC(R0);
+	outerLoopPCInR0 = GetCodePtr();
+	MovToPC(R0);
 	outerLoop = GetCodePtr();
 		QuickCallFunction(R0, (void *)&CoreTiming::Advance);
 		FixupBranch skipToRealDispatch = B(); //skip the sync and compare first time

@@ -44,16 +44,18 @@ static const ARMReg *GetMIPSAllocationOrder(int &count) {
 	// Note that R0 is reserved as scratch for now.
 	// R1 could be used as it's only used for scratch outside "regalloc space" now.
 	// R12 is also potentially usable.
-	// R4-R7 are registers we could use for static allocation.
+	// R4-R7 are registers we could use for static allocation or downcount.
 	// R8 is used to preserve flags in nasty branches.
 	// R9 and upwards are reserved for jit basics.
 	static const ARMReg allocationOrder[] = {
-		R12, R2, R3, R4, R5, R6, R7, 
+		R12, R1, R2, R3, R4, R5, R6, R7, 
 	};
 	count = sizeof(allocationOrder) / sizeof(const int);
 	return allocationOrder;
 }
 
+// TODO: Somewhat smarter spilling - currently simply spills the first available, should do
+// round robin or FIFO or something.
 ARMReg ArmRegCache::MapReg(MIPSReg mipsReg, int mapFlags) {
 	// Let's see if it's already mapped. If so we just need to update the dirty flag.
 	// We don't need to check for ML_NOINIT because we assume that anyone who maps
@@ -179,6 +181,11 @@ void ArmRegCache::FlushArmReg(ARMReg r) {
 }
 
 void ArmRegCache::FlushMipsReg(MIPSReg r) {
+	/*
+	if (r == 0) {
+		ERROR_LOG(JIT, "Flushing r0");
+		return;
+	}*/
 	switch (mr[r].loc) {
 	case ML_IMM:
 		// IMM is always "dirty".
@@ -223,6 +230,9 @@ void ArmRegCache::FlushAll() {
 }
 
 void ArmRegCache::SetImm(MIPSReg r, u32 immVal) {
+	if (r == 0)
+		ERROR_LOG(JIT, "Trying to set immediate %08x to r0", immVal);
+
 	// Zap existing value if cached in a reg
 	if (mr[r].loc == ML_ARMREG) {
 		ar[mr[r].reg].mipsReg = -1;
@@ -234,10 +244,12 @@ void ArmRegCache::SetImm(MIPSReg r, u32 immVal) {
 }
 
 bool ArmRegCache::IsImm(MIPSReg r) const {
+	if (r == 0) return true;
 	return mr[r].loc == ML_IMM;
 }
 
 u32 ArmRegCache::GetImm(MIPSReg r) const {
+	if (r == 0) return 0;
 	if (mr[r].loc != ML_IMM) {
 		ERROR_LOG(JIT, "Trying to get imm from non-imm register %i", r);
 	}

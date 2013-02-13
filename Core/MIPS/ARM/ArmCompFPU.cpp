@@ -36,7 +36,7 @@ namespace MIPSComp
 
 void Jit::Comp_FPU3op(u32 op)
 { 
-	// DISABLE
+	CONDITIONAL_DISABLE;
 
 	int ft = _FT;
 	int fs = _FS;
@@ -59,6 +59,8 @@ extern int logBlocks;
 
 void Jit::Comp_FPULS(u32 op)
 {
+	CONDITIONAL_DISABLE;
+
 	s32 offset = (s16)(op & 0xFFFF);
 	int ft = _FT;
 	int rs = _RS;
@@ -100,11 +102,58 @@ void Jit::Comp_FPULS(u32 op)
 
 void Jit::Comp_FPUComp(u32 op) {
 	DISABLE;
+	int fs = _FS;
+	int ft = _FT;
+
+	switch (op & 0xf) 	{
+	case 0: //f
+	case 8: //sf
+		// MOV(32, M((void *) &currentMIPS->fpcond), Imm32(0));
+		break;
+
+	case 1: //un
+	case 9: //ngle
+		// CompFPComp(fs, ft, CMPUNORDSS);
+		break;
+
+	case 2: //eq
+	case 10: //seq
+		// CompFPComp(fs, ft, CMPEQSS);
+		break;
+
+	case 3: //ueq
+	case 11: //ngl
+		// CompFPComp(fs, ft, CMPEQSS, true);
+		break;
+
+	case 4: //olt
+	case 12: //lt
+		// CompFPComp(fs, ft, CMPLTSS);
+		break;
+
+	case 5: //ult
+	case 13: //nge
+		// CompFPComp(ft, fs, CMPNLESS);
+		break;
+
+	case 6: //ole
+	case 14: //le
+		// CompFPComp(fs, ft, CMPLESS);
+		break;
+
+	case 7: //ule
+	case 15: //ngt
+		// CompFPComp(ft, fs, CMPNLTSS);
+		break;
+
+	default:
+		DISABLE;
+	}
 }
 
 void Jit::Comp_FPU2op(u32 op)
 {
-	// DISABLE
+	CONDITIONAL_DISABLE;
 
 	int fs = _FS;
 	int fd = _FD;
@@ -164,20 +213,18 @@ void Jit::Comp_FPU2op(u32 op)
 
 void Jit::Comp_mxc1(u32 op)
 {
-	DISABLE
+	CONDITIONAL_DISABLE;
+
 	int fs = _FS;
 	int rt = _RT;
 
 	switch((op >> 21) & 0x1f) 
 	{
-		/*
 	case 0: // R(rt) = FI(fs); break; //mfc1
-		// Cross move! slightly tricky
-		fpr.StoreFromRegister(fs);
-		gpr.Lock(rt);
-		gpr.BindToRegister(rt, false, true);
-		MOV(32, gpr.R(rt), fpr.R(fs));
-		gpr.UnlockAll();
+		// Let's just go through RAM for now.
+		fpr.FlushMipsReg(fs);
+		gpr.MapReg(rt, MAP_DIRTY | MAP_NOINIT);
+		LDR(gpr.R(rt), CTXREG, fpr.GetMipsRegOffset(fs));
 		return;
 
 	case 2: // R(rt) = currentMIPS->ReadFCR(fs); break; //cfc1
@@ -185,14 +232,12 @@ void Jit::Comp_mxc1(u32 op)
 		return;
 
 	case 4: //FI(fs) = R(rt);	break; //mtc1
-		// Cross move! slightly tricky
-		gpr.StoreFromRegister(rt);
-		fpr.Lock(fs);
-		fpr.BindToRegister(fs, false, true);
-		MOVSS(fpr.R(fs), gpr.R(rt));
-		fpr.UnlockAll();
+		// Let's just go through RAM for now.
+		gpr.FlushMipsReg(rt);
+		fpr.MapReg(fs, MAP_DIRTY | MAP_NOINIT);
+		VLDR(fpr.R(fs), CTXREG, gpr.GetMipsRegOffset(rt));
 		return;
-		*/
+
 	case 6: //currentMIPS->WriteFCR(fs, R(rt)); break; //ctc1
 		Comp_Generic(op);
 		return;

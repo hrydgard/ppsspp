@@ -104,8 +104,9 @@ public:
 	// For better log output only.
 	void SetCompilerPC(u32 compilerPC) { compilerPC_ = compilerPC; }
 
-private:
 	int GetMipsRegOffset(MIPSReg r);
+
+private:
 	MIPSState *mips_;
 	ARMXEmitter *emit;
 	u32 compilerPC_;

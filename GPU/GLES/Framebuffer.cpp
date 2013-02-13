@@ -363,8 +363,6 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		vfb->last_frame_used = gpuStats.numFrames;
 		
 		fbo_bind_as_render_target(vfb->fbo);
-
-		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb->fbo);
 #ifdef USING_GLES2
 		// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
 		// to it. This broke stuff before, so now it only clears on the first use of an
@@ -373,6 +371,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		if (vfb->last_frame_used != gpuStats.numFrames)
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 #endif
+		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb->fbo);
 		glstate.viewport.set(0, 0, vfb->renderWidth, vfb->renderHeight);
 		currentRenderVfb_ = vfb;
 	}

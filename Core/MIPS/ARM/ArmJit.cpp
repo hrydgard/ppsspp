@@ -141,8 +141,7 @@ const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 	// Downcount flag check. The last block decremented downcounter, and the flag should still be available.
 	SetCC(CC_LT);
 	MOVI2R(R0, js.blockStart);
-	MovToPC(R0);
-	B((const void *)outerLoop);
+	B((const void *)outerLoopPCInR0);
 	SetCC(CC_AL);
 
 	b->normalEntry = GetCodePtr();
@@ -175,7 +174,7 @@ const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 	}
 #ifdef LOGASM
 	if (logBlocks > 0 && dontLogBlocks == 0) {
-		for (u32 cpc = em_address; cpc != js.compilerPC; cpc += 4) {
+		for (u32 cpc = em_address; cpc != js.compilerPC + 4; cpc += 4) {
 			MIPSDisAsm(Memory::Read_Instruction(cpc), cpc, temp, true);
 			INFO_LOG(DYNA_REC, "M: %08x   %s", cpc, temp);
 		}

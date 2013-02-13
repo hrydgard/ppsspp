@@ -77,10 +77,7 @@ void Jit::BranchRSRTComp(u32 op, ArmGen::CCFlags cc, bool likely)
 	}
 	else 
 	{
-		gpr.SpillLock(rs, rt);
-		gpr.MapReg(rs);
-		gpr.MapReg(rt);
-		gpr.ReleaseSpillLocks();
+		gpr.MapInIn(rs, rt);
 		CMP(gpr.R(rs), gpr.R(rt));
   }
 
