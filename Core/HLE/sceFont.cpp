@@ -9,7 +9,7 @@
 typedef u32 FontLibraryHandle;
 typedef u32 FontHandle;
 
-typedef struct {
+struct FontNewLibParams {
 	u32 userDataAddr;
 	u32 numFonts;
 	u32 cacheDataAddr;
@@ -23,28 +23,28 @@ typedef struct {
 	u32 seekFuncAddr;
 	u32 errorFuncAddr;
 	u32 ioFinishFuncAddr;
-} FontNewLibParams;
+};
 
-typedef enum {
+typedef enum Family {
 	FONT_FAMILY_SANS_SERIF = 1,
 	FONT_FAMILY_SERIF      = 2,
-} Family;
+};
 
-typedef enum {
+typedef enum Style {
 	FONT_STYLE_REGULAR     = 1,
 	FONT_STYLE_ITALIC      = 2,
 	FONT_STYLE_BOLD        = 5,
 	FONT_STYLE_BOLD_ITALIC = 6,
 	FONT_STYLE_DB          = 103, // Demi-Bold / semi-bold
-} Style;
+};
 
-typedef enum {
+typedef enum Language {
 	FONT_LANGUAGE_JAPANESE = 1,
 	FONT_LANGUAGE_LATIN    = 2,
 	FONT_LANGUAGE_KOREAN   = 3,
-} Language;
+};
 
-typedef struct {
+struct FontStyle {
 	float  fontH;
 	float  fontV;
 	float  fontHRes;
@@ -61,9 +61,9 @@ typedef struct {
 	char   fontFileName[64];
 	u32    fontAttributes;
 	u32    fontExpire;
-} FontStyle;
+};
 
-typedef struct {
+struct FontInfo {
 	// Glyph metrics (in 26.6 signed fixed-point).
 	u32 maxGlyphWidthI;
 	u32 maxGlyphHeightI;
@@ -99,9 +99,9 @@ typedef struct {
 
 	u8 BPP; // Font's BPP.
 	u8 pad[3];
-} FontInfo;
+};
 
-typedef struct {
+struct CharInfo {
 	u32 bitmapWidth;
 	u32 bitmapHeight;
 	u32 bitmapLeft;
@@ -118,17 +118,17 @@ typedef struct {
 	s32 spf26AdvanceH;
 	s32 spf26AdvanceV;
 	u8 pad[4];
-} CharInfo;
+};
 
-typedef enum {
+enum FontPixelFormat {
 	PSP_FONT_PIXELFORMAT_4 = 0,
 	PSP_FONT_PIXELFORMAT_4_REV = 1,
 	PSP_FONT_PIXELFORMAT_8 = 2,
 	PSP_FONT_PIXELFORMAT_24 = 3,
 	PSP_FONT_PIXELFORMAT_32 = 4
-} FontPixelFormat;
+};
 
-typedef struct {
+struct GlyphImage {
 	FontPixelFormat pixelFormat;
 	s32 xPos64;
 	s32 yPos64;
@@ -137,7 +137,7 @@ typedef struct {
 	u16 bytesPerLine;
 	u16 pad;
 	u32 bufferPtr;
-} GlyphImage;
+};
 
 FontNewLibParams fontLib;
 
@@ -209,17 +209,6 @@ int sceFontClose(u32 fontHandle)
 	return 0;
 }
 
-
-int sceFontGetNumFontList(u32 libHandle, u32 errorCodePtr)
-{	
-	ERROR_LOG(HLE, "sceFontGetNumFontList %x, %x", libHandle, errorCodePtr);
-	if (Memory::IsValidAddress(errorCodePtr))
-	{
-		Memory::Write_U32(0, errorCodePtr);
-	}
-	return 1;
-}
-
 int sceFontFindOptimumFont(u32 libHandlePtr, u32 fontStylePtr, u32 errorCodePtr)
 {
 	ERROR_LOG(HLE, "sceFontFindOptimumFont %x, %x, %x", libHandlePtr, fontStylePtr, errorCodePtr);
@@ -273,11 +262,11 @@ int sceFontGetFontInfo(u32 fontHandle, u32 fontInfoPtr)
 		fi.fontStyle.fontCountry= 1;
 		fi.fontStyle.fontExpire= 1;
 		fi.fontStyle.fontFamily= 1;
-		//fi.fontStyle.fontFileName="asd";
+		strcpy(fi.fontStyle.fontFileName, "asd");
 		fi.fontStyle.fontH=32;
 		fi.fontStyle.fontHRes=32;
 		fi.fontStyle.fontLanguage=1;
-		//	fi.fontStyle.fontName="ppsspp";
+		strcpy(fi.fontStyle.fontName, "ppsspp");
 		fi.fontStyle.fontRegion=9;
 		fi.fontStyle.fontV=32;
 		fi.fontStyle.fontVRes=32;
@@ -290,7 +279,7 @@ int sceFontGetFontInfo(u32 fontHandle, u32 fontInfoPtr)
 
 int sceFontGetFontInfoByIndexNumber(u32 libHandle, u32 fontInfoPtr, u32 unknown, u32 fontIndex)
 {
-	ERROR_LOG(HLE, "sceFontGetFontInfoByIndexNumber %x, %x, %x, %x", libHandle, fontInfoPtr, unknown, fontIndex);
+	ERROR_LOG(HLE, "HACK sceFontGetFontInfoByIndexNumber %x, %x, %x, %x", libHandle, fontInfoPtr, unknown, fontIndex);
 	// clearly wrong..
 	return sceFontGetFontInfo(libHandle, fontInfoPtr);
 
@@ -298,13 +287,13 @@ int sceFontGetFontInfoByIndexNumber(u32 libHandle, u32 fontInfoPtr, u32 unknown,
 
 int sceFontGetCharInfo(u32 fontHandle, u32 charCode, u32 charInfoPtr)
 {
-	ERROR_LOG(HLE, "sceFontGetCharInfo %x, %x, %x", fontHandle, charCode, charInfoPtr);
+	ERROR_LOG(HLE, "HACK sceFontGetCharInfo %x, %x, %x", fontHandle, charCode, charInfoPtr);
 	if (Memory::IsValidAddress(charInfoPtr))
 	{
 		CharInfo pspCharInfo;
 		memset(&pspCharInfo, 0, sizeof(pspCharInfo));		
-		pspCharInfo.bitmapWidth = 32;
-		pspCharInfo.bitmapHeight = 32;
+		pspCharInfo.bitmapWidth = 16;
+		pspCharInfo.bitmapHeight = 16;
 
 		pspCharInfo.spf26Width = pspCharInfo.bitmapWidth << 6;
 		pspCharInfo.spf26Height = pspCharInfo.bitmapHeight << 6;
@@ -316,15 +305,18 @@ int sceFontGetCharInfo(u32 fontHandle, u32 charCode, u32 charInfoPtr)
 }
 
 int sceFontGetCharImageRect(u32 fontHandle, u32 charCode, u32 charRectPtr)
-	// finish this
 {
-	ERROR_LOG(HLE, "sceFontGetCharImageRect %x, %x (%c)", fontHandle, charRectPtr, charCode);
+	ERROR_LOG(HLE, "HACK sceFontGetCharImageRect %x, %x (%c)", fontHandle, charRectPtr, charCode);
+	if (Memory::IsValidAddress(charRectPtr)) {
+		Memory::Write_U16(16, charRectPtr);  // character bitmap width in pixels
+		Memory::Write_U16(16, charRectPtr + 2);  // character bitmap height in pixels
+	}
 	return 0;
 }
 
 int sceFontGetCharGlyphImage(u32 fontHandle, u32 charCode, u32 glyphImagePtr)
 {
-	ERROR_LOG(HLE, "sceFontGetCharGlyphImage %x, %x, %x (%c)", fontHandle, charCode, glyphImagePtr, charCode);
+	ERROR_LOG(HLE, "HACK sceFontGetCharGlyphImage %x, %x, %x (%c)", fontHandle, charCode, glyphImagePtr, charCode);
 
 	int pixelFormat = Memory::Read_U32(glyphImagePtr);
 	int xPos64 = Memory::Read_U32(glyphImagePtr+4);
@@ -332,13 +324,17 @@ int sceFontGetCharGlyphImage(u32 fontHandle, u32 charCode, u32 glyphImagePtr)
 	int bufWidth = Memory::Read_U16(glyphImagePtr+12);
 	int bufHeight = Memory::Read_U16(glyphImagePtr+14);
 	int bytesPerLine = Memory::Read_U16(glyphImagePtr+16);
-	int buffer =Memory::Read_U32(glyphImagePtr+20);
+	int buffer = Memory::Read_U32(glyphImagePtr+20);
 
-	for (int y= 0; y < bufHeight; y++)
+	// Small chessboard. Does not respect pixelformat currently...
+
+	// Actually should be really easy to substitute in a proper font here...
+	// could even grab pixel data from the PPGe one.
+	for (int y = 0; y < bufHeight; y++)
 	{
-		for (int x=0; x<bytesPerLine; x++)
+		for (int x = 0; x < bytesPerLine; x++)
 		{
-			Memory::Write_U8(0xff, buffer + (x * y));
+			Memory::Write_U8((((x >> 1) ^ (y >> 1)) & 1) ? 0xff : 0x00, buffer + (y * bytesPerLine + x));
 		}
 	}
 
@@ -360,7 +356,7 @@ int sceFontSetAltCharacterCode(u32 libHandle, u32 charCode)
 
 int sceFontFlush(u32 fontHandle)
 {
-	ERROR_LOG(HLE, "sceFontFlush %x", fontHandle);
+	DEBUG_LOG(HLE, "sceFontFlush(%i)", fontHandle);
 	return 0;
 }
 
@@ -376,24 +372,48 @@ int sceFontGetFontList(u32 fontLibHandle, u32 fontStylePtr, u32 numFonts)
 	style.fontHRes = 20 / 64.f;
 	style.fontVRes = 20 / 64.f;
 	style.fontStyle = 1;
+	//style.fontFamily
 
 	for (u32 i = 0; i < numFonts; i++)
 	{
-		Memory::WriteStruct(fontStylePtr+ (sizeof(style)), &style);
+		Memory::WriteStruct(fontStylePtr + (sizeof(style)) * i, &style);
 	}
 	return 0;
 }
+
+int sceFontGetNumFontList(u32 libHandle, u32 errorCodePtr)
+{	
+	ERROR_LOG(HLE, "UNIMPL sceFontGetNumFontList %x, %x", libHandle, errorCodePtr);
+	if (Memory::IsValidAddress(errorCodePtr))
+	{
+		Memory::Write_U32(0, errorCodePtr);
+	}
+	return 1;
+}
+
+int sceFontSetResolution(u32 fontLibHandle, float hRes, float vRes) 
+{
+	ERROR_LOG(HLE, "UNIMPL sceFontSetResolution(%i, %f, %f)", fontLibHandle, hRes, vRes);
+	return 0;
+}
+
+int sceFontCalcMemorySize() {
+	ERROR_LOG(HLE, "UNIMPL sceFontCalcMemorySize()");
+	return 0;
+}
+
+
 
 const HLEFunction sceLibFont[] = 
 {
 	{0x67f17ed7, WrapU_UU<sceFontNewLib>, "sceFontNewLib"},	
 	{0x574b6fbc, WrapI_U<sceFontDoneLib>, "sceFontDoneLib"},
-	{0x48293280, 0, "sceFontSetResolution"},	
+	{0x48293280, WrapI_UFF<sceFontSetResolution>, "sceFontSetResolution"},	
 	{0x27f6e642, WrapI_UU<sceFontGetNumFontList>, "sceFontGetNumFontList"},
 	{0xbc75d85b, WrapI_UUU<sceFontGetFontList>, "sceFontGetFontList"},	
 	{0x099ef33c, WrapI_UUU<sceFontFindOptimumFont>, "sceFontFindOptimumFont"},	
 	{0x681e61a7, WrapI_UUU<sceFontFindFont>, "sceFontFindFont"},	
-	{0x2f67356a, 0, "sceFontCalcMemorySize"},	
+	{0x2f67356a, WrapI_V<sceFontCalcMemorySize>, "sceFontCalcMemorySize"},	
 	{0x5333322d, WrapI_UUUU<sceFontGetFontInfoByIndexNumber>, "sceFontGetFontInfoByIndexNumber"},
 	{0xa834319d, WrapU_UUUU<sceFontOpen>, "sceFontOpen"},	
 	{0x57fcb733, WrapU_UUUU<sceFontOpenUserFile>, "sceFontOpenUserFile"},	

@@ -29,6 +29,7 @@
 float maxAnisotropyLevel ;
 
 TextureCache::TextureCache() {
+	lastBoundTexture = -1;
 	// TODO: Switch to aligned allocations for alignment. AllocateMemoryPages would do the trick.
 	// This is 5MB of temporary storage. Might be possible to shrink it.
 	tmpTexBuf32 = new u32[1024 * 512];  // 2MB
@@ -123,7 +124,7 @@ void TextureCache::NotifyFramebuffer(u32 address, FBO *fbo) {
 	// Must be in VRAM so | 0x04000000 it is.
 	TexCacheEntry *entry = GetEntryAt(address | 0x04000000);
 	if (entry) {
-		// INFO_LOG(HLE, "Render to texture detected at %08x!", address);
+		DEBUG_LOG(HLE, "Render to texture detected at %08x!", address);
 		if (!entry->fbo)
 			entry->fbo = fbo;
 		// TODO: Delete the original non-fbo texture too.
@@ -442,24 +443,6 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	}
 }
 
-// Todo: Make versions of these that do two pixels at a time within a 32-bit register.
-
-// Convert from PSP bit order to GLES bit order
-static inline u16 convert565(u16 c) {
-	return (c >> 11) | (c & 0x07E0) | (c << 11);
-}
-
-// Convert from PSP bit order to GLES bit order
-static inline u16 convert4444(u16 c) {
-	return (c >> 12) | ((c >> 4) & 0xF0) | ((c << 4) & 0xF00) | (c << 12);
-}
-
-// Convert from PSP bit order to GLES bit order
-static inline u16 convert5551(u16 c) {
-	return ((c & 0x8000) >> 15) | (c << 1);
-}
-
-
 // All these DXT structs are in the reverse order, as compared to PC.
 // On PC, alpha comes before color, and interpolants are before the tile data.
 
@@ -575,33 +558,40 @@ static void decodeDXT5Block(u32 *dst, const DXT5Block *src, int pitch) {
 }
 
 static void convertColors(u8 *finalBuf, GLuint dstFmt, int numPixels) {
-	// TODO: All these can be massively sped up with SSE, or even
-	// somewhat sped up using "manual simd" in 32 or 64-bit gprs.
+	// TODO: All these can be further sped up with SSE or NEON.
 	switch (dstFmt) {
 	case GL_UNSIGNED_SHORT_4_4_4_4:
 		{
-			u16 *p = (u16 *)finalBuf;
-			for (int i = 0; i < numPixels; i++) {
-				u16 c = p[i];
-				p[i] = (c >> 12) | ((c >> 4) & 0xF0) | ((c << 4) & 0xF00) | (c << 12);
+			u32 *p = (u32 *)finalBuf;
+			for (int i = 0; i < (numPixels + 1) / 2; i++) {
+				u32 c = p[i];
+				p[i] = ((c >> 12) & 0x000F000F) |
+					     ((c >> 4)  & 0x00F000F0) |
+							 ((c << 4)  & 0x0F000F00) |
+							 ((c << 12) & 0xF000F000);
 			}
 		}
 		break;
 	case GL_UNSIGNED_SHORT_5_5_5_1:
 		{
-			u16 *p = (u16 *)finalBuf;
-			for (int i = 0; i < numPixels; i++) {
-				u16 c = p[i];
-				p[i] = ((c & 0x8000) >> 15) | ((c >> 9) & 0x3E) | ((c << 1) & 0x7C0) | ((c << 11) & 0xF800);
+			u32 *p = (u32 *)finalBuf;
+			for (int i = 0; i < (numPixels + 1) / 2; i++) {
+				u32 c = p[i];
+				p[i] = ((c >> 15) & 0x00010001) |
+					     ((c >> 9)  & 0x003E003E) |
+							 ((c << 1)  & 0x07C007C0) |
+							 ((c << 11) & 0xF800F800);
 			}
 		}
 		break;
 	case GL_UNSIGNED_SHORT_5_6_5:
 		{
-			u16 *p = (u16 *)finalBuf;
-			for (int i = 0; i < numPixels; i++) {
-				u16 c = p[i];
-				p[i] = (c >> 11) | (c & 0x07E0) | (c << 11);
+			u32 *p = (u32 *)finalBuf;
+			for (int i = 0; i < (numPixels + 1) / 2; i++) {
+				u32 c = p[i];
+				p[i] = ((c >> 11) & 0x001F001F) |
+					     (c & 0x07E007E0) |
+							 ((c << 11) & 0xF800F800);
 			}
 		}
 		break;
@@ -612,8 +602,6 @@ static void convertColors(u8 *finalBuf, GLuint dstFmt, int numPixels) {
 		break;
 	}
 }
-
-int lastBoundTexture = -1;
 
 void TextureCache::StartFrame() {
 	lastBoundTexture = -1;
@@ -653,25 +641,17 @@ static inline u32 MiniHash(const u32 *ptr) {
 }
 
 static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, u32 format) {
-	int pixToBytes = (bitsPerPixel[format < 11 ? format : 0] + 7) / 8;
-	int w32 = (w * pixToBytes + 3) / 4;
-	int pad32 = ((bufw * pixToBytes + 3) / 4) - w32;
-
+	u32 sizeInRAM = (bitsPerPixel[format < 11 ? format : 0] * bufw * h / 2) / 8;
 	const u32 *checkp = (const u32 *) Memory::GetPointer(addr);
 	u32 check = 0;
-	for (int y = 0; y < h; ++y) {
-		for (int x = 0; x < w32; ++x) {
-			check += *checkp++;
-		}
-		checkp += pad32;
-	}
+	for (u32 i = 0; i < (sizeInRAM * 2) / 4; ++i)
+		check += *checkp++;
 
 	return check;
 }
 
 void TextureCache::SetTexture() {
 	u32 texaddr = (gstate.texaddr[0] & 0xFFFFF0) | ((gstate.texbufwidth[0]<<8) & 0x0F000000);
-
 	if (!Memory::IsValidAddress(texaddr)) {
 		// Bind a null texture and return.
 		glBindTexture(GL_TEXTURE_2D, 0);
@@ -686,31 +666,18 @@ void TextureCache::SetTexture() {
 	bool hasClut = formatUsesClut[format];
 
 	const u8 *texptr = Memory::GetPointer(texaddr);
-
-	u32 clutformat = gstate.clutformat & 3;
-	u32 clutaddr = GetClutAddr(clutformat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2);
-
 	u64 cachekey = texaddr;
-	if (formatUsesClut[format])
+
+	u32 clutformat, clutaddr;
+	if (hasClut) {
+		clutformat = gstate.clutformat & 3;
+		clutaddr = GetClutAddr(clutformat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2);
 		cachekey |= (u64)clutaddr << 32;
+	}
 
 	int maxLevel = ((gstate.texmode >> 16) & 0x7);
 
-	// Adjust maxLevel to actually present levels..
-	for (int i = 0; i <= maxLevel; i++) {
-		// If encountering levels pointing to nothing, adjust max level.
-		u32 levelTexaddr = (gstate.texaddr[i] & 0xFFFFF0) | ((gstate.texbufwidth[i] << 8) & 0x0F000000);
-		if (!Memory::IsValidAddress(levelTexaddr)) {
-			maxLevel = i - 1;
-			break;
-		}
-	}
-
 	u32 texhash = MiniHash((const u32 *)Memory::GetPointer(texaddr));
-
-	int w = 1 << (gstate.texsize[0] & 0xf);
-	int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
-	int bufw = gstate.texbufwidth[0] & 0x3ff;
 
 	TexCache::iterator iter = cache.find(cachekey);
 	TexCacheEntry *entry = NULL;
@@ -737,17 +704,14 @@ void TextureCache::SetTexture() {
 		bool rehash = entry->status == TexCacheEntry::STATUS_UNRELIABLE;
 		
 		//TODO: Check more texture parameters, compute real texture hash
-		if (dim != entry->dim || entry->hash != texhash || entry->format != format)
-			match = false;
-
-		//TODO: Check more clut parameters, compute clut hash
-		if (match && (format >= GE_TFMT_CLUT4 && format <= GE_TFMT_CLUT32) &&
-			 (entry->clutformat != clutformat ||
+		if (dim != entry->dim ||
+			entry->hash != texhash ||
+			entry->format != format ||
+			entry->maxLevel != maxLevel ||
+			((format >= GE_TFMT_CLUT4 && format <= GE_TFMT_CLUT32) &&
+			(entry->clutformat != clutformat ||
 				entry->clutaddr != clutaddr ||
-				entry->cluthash != Memory::Read_U32(entry->clutaddr))) 
-			match = false;
-
-		if (entry->maxLevel != maxLevel)
+				entry->cluthash != Memory::Read_U32(entry->clutaddr)))) 
 			match = false;
 
 		if (match) {
@@ -770,6 +734,9 @@ void TextureCache::SetTexture() {
 		}
 
 		if (rehash && entry->status != TexCacheEntry::STATUS_RELIABLE) {
+			int w = 1 << (gstate.texsize[0] & 0xf);
+			int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
+			int bufw = gstate.texbufwidth[0] & 0x3ff;
 			u32 check = QuickTexHash(texaddr, bufw, w, h, format);
 			if (check != entry->fullhash) {
 				match = false;
@@ -794,6 +761,9 @@ void TextureCache::SetTexture() {
 			return; //Done!
 		} else {
 			INFO_LOG(G3D, "Texture different or overwritten, reloading at %08x", texaddr);
+			if (entry->texture == lastBoundTexture)
+				lastBoundTexture = -1;
+
 			glDeleteTextures(1, &entry->texture);
 			if (entry->status == TexCacheEntry::STATUS_RELIABLE) {
 				entry->status = TexCacheEntry::STATUS_HASHING;
@@ -808,6 +778,11 @@ void TextureCache::SetTexture() {
 		entry->status = TexCacheEntry::STATUS_HASHING;
 	}
 
+	int w = 1 << (gstate.texsize[0] & 0xf);
+	int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
+
+	int bufw = gstate.texbufwidth[0] & 0x3ff;
+
 	//we have to decode it
 	entry->addr = texaddr;
 	entry->hash = texhash;
@@ -816,6 +791,7 @@ void TextureCache::SetTexture() {
 	entry->fbo = 0;
 	entry->maxLevel = maxLevel;
 	entry->lodBias = 0.0f;
+
 
 	if (format >= GE_TFMT_CLUT4 && format <= GE_TFMT_CLUT32) {
 		entry->clutformat = clutformat;
@@ -839,7 +815,18 @@ void TextureCache::SetTexture() {
 
 	glGenTextures(1, &entry->texture);
 	glBindTexture(GL_TEXTURE_2D, entry->texture);
+	lastBoundTexture = entry->texture;
 	
+	// Adjust maxLevel to actually present levels..
+	for (int i = 0; i <= maxLevel; i++) {
+		// If encountering levels pointing to nothing, adjust max level.
+		u32 levelTexaddr = (gstate.texaddr[i] & 0xFFFFF0) | ((gstate.texbufwidth[i] << 8) & 0x0F000000);
+		if (!Memory::IsValidAddress(levelTexaddr)) {
+			maxLevel = i - 1;
+			break;
+		}
+	}
+
 #ifdef USING_GLES2
 	// GLES2 doesn't have support for a "Max lod" which is critical as PSP games often
 	// don't specify mips all the way down. As a result, we either need to manually generate
@@ -850,15 +837,15 @@ void TextureCache::SetTexture() {
 	// As is usual, GLES3 will solve this problem nicely but wide distribution of that is
 	// years away.
 	LoadTextureLevel(*entry, 0);
-	if (entry->maxLevel > 0)
+	if (maxLevel > 0)
 		glGenerateMipmap(GL_TEXTURE_2D);
 #else
-	for (int i = 0; i <= entry->maxLevel; i++) {
+	for (int i = 0; i <= maxLevel; i++) {
 		LoadTextureLevel(*entry, i);
 	}
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, entry->maxLevel);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, maxLevel);
 #endif
-	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)entry->maxLevel);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)maxLevel);
 	float anisotropyLevel = (float) g_Config.iAnisotropyLevel > maxAnisotropyLevel ? maxAnisotropyLevel : (float) g_Config.iAnisotropyLevel;
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, anisotropyLevel);
 	// NOTICE_LOG(G3D,"AnisotropyLevel = %0.1f , MaxAnisotropyLevel = %0.1f ", anisotropyLevel, maxAnisotropyLevel );

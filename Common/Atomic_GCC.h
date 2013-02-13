@@ -18,6 +18,10 @@
 #ifndef _ATOMIC_GCC_H_
 #define _ATOMIC_GCC_H_
 
+#ifdef BLACKBERRY
+#include <atomic.h>
+#endif
+
 #include "Common.h"
 
 // Atomic operations are performed in a single step by the CPU. It is
@@ -73,7 +77,11 @@ inline void AtomicStore(volatile u32& dest, u32 value) {
 	dest = value; // 32-bit writes are always atomic.
 }
 inline void AtomicStoreRelease(volatile u32& dest, u32 value) {
+#ifdef BLACKBERRY
+	atomic_set(&dest, value);
+#else
 	__sync_lock_test_and_set(&dest, value); // TODO: Wrong! This function is has acquire semantics.
+#endif
 }
 
 }

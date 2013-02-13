@@ -149,8 +149,46 @@ void TransformDrawEngine::DrawBezier(int ucount, int vcount) {
 	Flush();  // as our vertex storage here is temporary, it will only survive one draw.
 }
 
+// Copy code from bezier. This is not right, but allow to display something.
 void TransformDrawEngine::DrawSpline(int ucount, int vcount, int utype, int vtype) {
-	// TODO
+	u16 indices[3 * 3 * 6];
+
+	// Generate indices for a rectangular mesh.
+	int c = 0;
+	for (int y = 0; y < 3; y++) {
+		for (int x = 0; x < 3; x++) {
+			indices[c++] = y * 4 + x;
+			indices[c++] = y * 4 + x + 1;
+			indices[c++] = (y + 1) * 4 + x + 1;
+			indices[c++] = (y + 1) * 4 + x + 1;
+			indices[c++] = (y + 1) * 4 + x;
+			indices[c++] = y * 4 + x;
+		}
+	}
+
+	// We are free to use the "decoded" buffer here.
+	// Let's split it into two to get a second buffer, there's enough space.
+	u8 *decoded2 = decoded + 65536 * 24;
+
+	// Alright, now for the vertex data.
+	// For now, we will simply inject UVs.
+
+	float customUV[4 * 4 * 2];
+	for (int y = 0; y < 4; y++) {
+		for (int x = 0; x < 4; x++) {
+			customUV[(y * 4 + x) * 2 + 0] = (float)x/3.0f;
+			customUV[(y * 4 + x) * 2 + 1] = (float)y/3.0f;
+		}
+	}
+
+	if (!(gstate.vertType & GE_VTYPE_TC_MASK)) {
+		dec.SetVertexType(gstate.vertType);
+		u32 newVertType = dec.InjectUVs(decoded2, Memory::GetPointer(gstate_c.vertexAddr), customUV, 16);
+		SubmitPrim(decoded2, &indices[0], GE_PRIM_TRIANGLES, c, newVertType, GE_VTYPE_IDX_16BIT, 0);
+	} else {
+		SubmitPrim(Memory::GetPointer(gstate_c.vertexAddr), &indices[0], GE_PRIM_TRIANGLES, c, gstate.vertType, GE_VTYPE_IDX_16BIT, 0);
+	}
+	Flush();  // as our vertex storage here is temporary, it will only survive one draw.
 }
 
 // Convenient way to do precomputation to save the parts of the lighting calculation
@@ -509,6 +547,14 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 
 			if (gstate.lightingEnable & 1) {
 				// Don't ignore gstate.lmode - we should send two colors in that case
+				if (reader.hasColor0()) {
+					reader.ReadColor0(litColor0);
+				} else {
+					litColor0[0] = (gstate.materialambient & 0xFF) / 255.f;
+					litColor0[1] = ((gstate.materialambient >> 8)  & 0xFF) / 255.f;
+					litColor0[2] = ((gstate.materialambient >> 16) & 0xFF) / 255.f;
+					litColor0[3] = (gstate.materialalpha & 0xFF) / 255.f;
+				}
 				if (gstate.lmode & 1) {
 					// Separate colors
 					for (int j = 0; j < 4; j++) {
@@ -913,7 +959,6 @@ void TransformDrawEngine::Flush() {
 				vai->decFmt = dec.GetDecVtxFmt();
 				vai_[id] = vai;
 			}
-			vai->lastFrame = gpuStats.numFrames;
 
 			switch (vai->status) {
 			case VertexArrayInfo::VAI_NEW:
@@ -922,7 +967,7 @@ void TransformDrawEngine::Flush() {
 					u32 dataHash = ComputeHash();
 					vai->hash = dataHash;
 					vai->status = VertexArrayInfo::VAI_HASHING;
-					vai->framesUntilNextFullHash = 0;
+					vai->drawsUntilNextFullHash = 0;
 					DecodeVerts(); // writes to indexGen
 					goto rotateVBO;
 				}
@@ -935,14 +980,8 @@ void TransformDrawEngine::Flush() {
 					if (vai->lastFrame != gpuStats.numFrames) {
 						vai->numFrames++;
 					}
-					if (vai->framesUntilNextFullHash == 0) {
+					if (vai->drawsUntilNextFullHash == 0) {
 						u32 newHash = ComputeHash();
-						// exponential backoff up to 16 frames
-						vai->framesUntilNextFullHash = std::min(16, vai->numFrames);
-						// TODO: tweak
-						//if (vai->numFrames > 1000) {
-						//	vai->status = VertexArrayInfo::VAI_RELIABLE;
-						//}
 						if (newHash != vai->hash) {
 							vai->status = VertexArrayInfo::VAI_UNRELIABLE;
 							if (vai->vbo) {
@@ -956,8 +995,19 @@ void TransformDrawEngine::Flush() {
 							DecodeVerts();
 							goto rotateVBO;
 						}
+						if (vai->numVerts > 100) {
+							// exponential backoff up to 16 draws, then every 24
+							vai->drawsUntilNextFullHash = std::min(24, vai->numFrames);
+						} else {
+							// Lower numbers seem much more likely to change.
+							vai->drawsUntilNextFullHash = 0;
+						}
+						// TODO: tweak
+						//if (vai->numFrames > 1000) {
+						//	vai->status = VertexArrayInfo::VAI_RELIABLE;
+						//}
 					} else {
-						vai->framesUntilNextFullHash--;
+						vai->drawsUntilNextFullHash--;
 						// TODO: "mini-hashing" the first 32 bytes of the vertex/index data or something.
 					}
 
@@ -1025,6 +1075,8 @@ void TransformDrawEngine::Flush() {
 					goto rotateVBO;
 				}
 			}
+
+			vai->lastFrame = gpuStats.numFrames;
 		} else {
 			DecodeVerts();
 rotateVBO:

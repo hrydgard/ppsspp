@@ -253,6 +253,7 @@ BEGIN
         MENUITEM SEPARATOR
         MENUITEM "&Toggle Full Screen\tF12",    ID_OPTIONS_FULLSCREEN
         MENUITEM "&Buffered Rendering\tF5",     ID_OPTIONS_BUFFEREDRENDERING
+        MENUITEM "&Stretch to display",         ID_OPTIONS_STRETCHDISPLAY
         MENUITEM "&Hardware Transform\tF6",     ID_OPTIONS_HARDWARETRANSFORM
         MENUITEM "&Linear Filtering",           ID_OPTIONS_LINEARFILTERING
         MENUITEM "Si&mple 2x SSAA",             ID_OPTIONS_SIMPLE2XSSAA

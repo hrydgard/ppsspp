@@ -75,6 +75,7 @@ void CConfig::Load(const char *iniFileName)
 	graphics->Get("DisableG3DLog", &bDisableG3DLog, false);
 	graphics->Get("VertexCache", &bVertexCache, true);
 	graphics->Get("FullScreen", &bFullScreen, false);	
+	graphics->Get("StretchToDisplay", &bStretchToDisplay, false);
 
 	IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 	sound->Get("Enable", &bEnableSound, true);
@@ -132,6 +133,7 @@ void CConfig::Save()
 		graphics->Set("DisableG3DLog", bDisableG3DLog);
 		graphics->Set("VertexCache", bVertexCache);
 		graphics->Set("FullScreen", bFullScreen);
+		graphics->Set("StretchToDisplay", bStretchToDisplay);
 
 		IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 		sound->Set("Enable", bEnableSound);

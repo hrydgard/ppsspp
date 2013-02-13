@@ -142,6 +142,23 @@ void GPUCommon::PreExecuteOp(u32 op, u32 diff) {
 void GPUCommon::DoState(PointerWrap &p) {
 	p.Do(dlIdGenerator);
 	p.Do<DisplayList>(dlQueue);
+	int currentID = currentList == NULL ? 0 : currentList->id;
+	p.Do(currentID);
+	if (currentID == 0) {
+		currentList = 0;
+	} else {
+		for (auto it = dlQueue.begin(), end = dlQueue.end(); it != end; ++it) {
+			if (it->id == currentID) {
+				currentList = &*it;
+				break;
+			}
+		}
+	}
+	p.Do(interruptRunning);
+	p.Do(prev);
+	p.Do(stack);
+	p.Do(stackptr);
+	p.Do(finished);
 	p.DoMarker("GPUCommon");
 }
 

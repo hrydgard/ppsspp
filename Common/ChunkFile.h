@@ -41,7 +41,7 @@
 #include "FileUtil.h"
 #include "../ext/snappy/snappy-c.h"
 
-#ifdef ANDROID
+#if defined(ANDROID) || defined(IOS)
 namespace std {
 	using tr1::is_pointer;
 }

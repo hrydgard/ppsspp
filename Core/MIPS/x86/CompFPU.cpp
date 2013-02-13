@@ -46,24 +46,27 @@ void Jit::CompFPTriArith(u32 op, void (XEmitter::*arith)(X64Reg reg, OpArg), boo
 	int ft = _FT;
 	int fs = _FS;
 	int fd = _FD;
-	fpr.SpillLock(ft, fs, fd);
+	fpr.SpillLock(fd, fs, ft);
 
-	if (false && fs == fd) 
+	if (fs == fd)
 	{
 		fpr.BindToRegister(fd, true, true);
 		(this->*arith)(fpr.RX(fd), fpr.R(ft));
 	}
-	else 
+	else if (ft == fd && !orderMatters)
 	{
-		/*
 		fpr.BindToRegister(fd, true, true);
-		if (fd != fs)
-			MOVSS(fpr.RX(fd), fpr.R(fs));
-		(this->*arith)(fpr.RX(fd), fpr.R(ft));*/
+		(this->*arith)(fpr.RX(fd), fpr.R(fs));
+	}
+	else if (ft != fd && fs != fd && ft != fs) {
+		fpr.BindToRegister(fd, false, true);
+		MOVSS(fpr.RX(fd), fpr.R(fs));
+		(this->*arith)(fpr.RX(fd), fpr.R(ft));
+	}
+	else {
+		fpr.BindToRegister(fd, true, true);
 		MOVSS(XMM0, fpr.R(fs));
-		MOVSS(XMM1, fpr.R(ft));
-		fpr.BindToRegister(fd, true, true);
-		(this->*arith)(XMM0, R(XMM1));
+		(this->*arith)(XMM0, fpr.R(ft));
 		MOVSS(fpr.RX(fd), R(XMM0));
 	}
 	fpr.ReleaseSpillLocks();
@@ -148,57 +151,91 @@ static const u64 GC_ALIGNED16(ssOneBits[2])	= {0x0000000100000001ULL, 0x00000001
 static const u64 GC_ALIGNED16(ssSignBits2[2])	= {0x8000000080000000ULL, 0x8000000080000000ULL};
 static const u64 GC_ALIGNED16(ssNoSignMask[2]) = {0x7FFFFFFF7FFFFFFFULL, 0x7FFFFFFF7FFFFFFFULL};
 
-void Jit::Comp_FPUComp(u32 op) {
-	// TODO: Doesn't work yet.
-	DISABLE;
+static u32 ssCompareTemp;
 
-	// TODO: Compile this more efficiently by combining with the following branch, which usually is there.
-	// In that case, probably want to use COMISS rather than CMPSS.
+enum
+{
+	CMPEQSS = 0,
+	CMPLTSS = 1,
+	CMPLESS = 2,
+	CMPUNORDSS = 3,
+	CMPNEQSS = 4,
+	CMPNLTSS = 5,
+	CMPNLESS = 6,
+	CMPORDSS = 7,
+};
+
+void Jit::CompFPComp(int lhs, int rhs, u8 compare, bool allowNaN)
+{
+	CONDITIONAL_DISABLE;
+
+	MOVSS(XMM0, fpr.R(lhs));
+	CMPSS(XMM0, fpr.R(rhs), compare);
+	MOVSS(M((void *) &currentMIPS->fpcond), XMM0);
+
+	// This means that NaN also means true, e.g. !<> or !>, etc.
+	if (allowNaN)
+	{
+		MOVSS(XMM0, fpr.R(lhs));
+		CMPSS(XMM0, fpr.R(rhs), CMPUNORDSS);
+		MOVSS(M((void *) &ssCompareTemp), XMM0);
+
+		MOV(32, R(EAX), M((void *) &ssCompareTemp));
+		OR(32, M((void *) &currentMIPS->fpcond), R(EAX));
+	}
+}
+
+void Jit::Comp_FPUComp(u32 op)
+{
+	CONDITIONAL_DISABLE;
+
 	int fs = _FS;
 	int ft = _FT;
+
 	switch (op & 0xf)
 	{
 	case 0: //f
-	case 1: //un
 	case 8: //sf
-	case 9: //ngle
-		// cond = false;
-		MOV(32, M(&currentMIPS->fpcond), Imm32(0));
+		MOV(32, M((void *) &currentMIPS->fpcond), Imm32(0));
 		break;
 
-	case 2: //eq   // fs == ft
+	case 1: //un
+	case 9: //ngle
+		CompFPComp(fs, ft, CMPUNORDSS);
+		break;
+
+	case 2: //eq
 	case 10: //seq
+		CompFPComp(fs, ft, CMPEQSS);
+		break;
+
 	case 3: //ueq
 	case 11: //ngl
-		fpr.BindToRegister(fs, true, false);
-		CMPSS(fpr.RX(fs), fpr.R(ft), 0);
-		ANDPS(fpr.RX(fs), M((void *)&ssOneBits));
-		MOVSS(M(&currentMIPS->fpcond), fpr.RX(fs));
+		CompFPComp(fs, ft, CMPEQSS, true);
 		break;
 
-	case 4: //olt    // fs < ft
-	case 5: //ult
+	case 4: //olt
 	case 12: //lt
-	case 13: //nge
-		fpr.BindToRegister(fs, true, false);
-		CMPSS(fpr.RX(fs), fpr.R(ft), 1);
-		ANDPS(fpr.RX(fs), M((void *)&ssOneBits));
-		MOVSS(M(&currentMIPS->fpcond), fpr.RX(fs));
+		CompFPComp(fs, ft, CMPLTSS);
 		break;
 
-	case 6: //ole    // fs >= ft  (ft < fs)
-	case 7: //ule
+	case 5: //ult
+	case 13: //nge
+		CompFPComp(ft, fs, CMPNLESS);
+		break;
+
+	case 6: //ole
 	case 14: //le
+		CompFPComp(fs, ft, CMPLESS);
+		break;
+
+	case 7: //ule
 	case 15: //ngt
-		fpr.BindToRegister(ft, true, false);
-		CMPSS(fpr.RX(ft), fpr.R(fs), 1);
-		ANDPS(fpr.RX(ft), M((void *)&ssOneBits));
-		MOVSS(M(&currentMIPS->fpcond), fpr.RX(ft));
+		CompFPComp(ft, fs, CMPNLTSS);
 		break;
 
 	default:
-		_dbg_assert_msg_(CPU,0,"Trying to interpret FPUComp instruction that can't be interpreted");
-		break;
+		DISABLE;
 	}
 }
 

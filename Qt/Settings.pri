@@ -1,15 +1,24 @@
 DEFINES += USING_QT_UI
 blackberry|symbian|contains(MEEGO_EDITION,harmattan): CONFIG += mobile_platform
 unix:!blackberry:!symbian:!macx: CONFIG += linux
-linux:!mobile_platform: CONFIG += desktop_ui
 
 # Global specific
-QMAKE_CXXFLAGS += -Wno-unused-function -Wno-unused-variable -Wno-multichar -Wno-uninitialized -Wno-ignored-qualifiers -Wno-missing-field-initializers -Wno-unused-parameter
-QMAKE_CXXFLAGS += -std=c++0x -ffast-math -fno-strict-aliasing
+DEFINES -= UNICODE
+INCLUDEPATH += ../ext/zlib ../native/ext/glew ../Common
+
+win32-msvc* {
+	QMAKE_CXXFLAGS_RELEASE += /O2 /arch:SSE2 /fp:fast
+	DEFINES += _MBCS GLEW_STATIC NOMINMAX
+	PRECOMPILED_HEADER = ../Windows/stdafx.h
+	PRECOMPILED_SOURCE = ../Windows/stdafx.cpp
+} else {
+	QMAKE_CXXFLAGS += -Wno-unused-function -Wno-unused-variable -Wno-multichar -Wno-uninitialized -Wno-ignored-qualifiers -Wno-missing-field-initializers -Wno-unused-parameter
+	QMAKE_CXXFLAGS += -std=c++0x -ffast-math -fno-strict-aliasing
+}
 
 # Arch specific
-contains(QT_ARCH, i686)|contains(QT_ARCH, x86)|contains(QT_ARCH, x86_64): {
-	QMAKE_CXXFLAGS += -msse2
+contains(QT_ARCH, i686)|contains(QT_ARCH, x86)|contains(QT_ARCH, x86_64)|contains(QT_ARCH, windows): {
+	!win32-msvc*: QMAKE_CXXFLAGS += -msse2
 	CONFIG += x86
 }
 else { # Assume ARM

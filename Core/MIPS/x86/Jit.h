@@ -183,6 +183,7 @@ private:
 	void CompITypeMemWrite(u32 op, u32 bits, void *safeFunc);
 
 	void CompFPTriArith(u32 op, void (XEmitter::*arith)(X64Reg reg, OpArg), bool orderMatters);
+	void CompFPComp(int lhs, int rhs, u8 compare, bool allowNaN = false);
 
 	JitBlockCache blocks;
 	JitOptions jo;

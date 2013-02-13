@@ -38,18 +38,15 @@ MainWindow::MainWindow(QWidget *parent) :
 	gamePadDlg = new GamePadDialog(&input_state, this);
 #endif
 
-	SetPlaying(0);
-
 	host = new QtHost(this);
-	w = ui->widget;
-	w->init(&input_state);
-	w->resize(pixel_xres, pixel_yres);
-	w->setMinimumSize(pixel_xres, pixel_yres);
-	w->setMaximumSize(pixel_xres, pixel_yres);
-	QObject::connect( w, SIGNAL(doubleClick()), this, SLOT(on_action_OptionsFullScreen_triggered()) );
+	emugl = ui->widget;
+	emugl->init(&input_state);
+	emugl->resize(pixel_xres, pixel_yres);
+	emugl->setMinimumSize(pixel_xres, pixel_yres);
+	emugl->setMaximumSize(pixel_xres, pixel_yres);
+	QObject::connect( emugl, SIGNAL(doubleClick()), this, SLOT(on_action_OptionsFullScreen_triggered()) );
 
 	createLanguageMenu();
-
 	UpdateMenus();
 
 	int zoom = g_Config.iWindowZoom;
@@ -57,19 +54,20 @@ MainWindow::MainWindow(QWidget *parent) :
 	if (zoom > 4) zoom = 4;
 	SetZoom(zoom);
 
-	EmuThread_Start(w);
+	EmuThread_Start(emugl);
 
 	if (!fileToStart.isNull())
 	{
-		SetPlaying(fileToStart);
-		//Update();
+		SetGameTitle(fileToStart);
 		UpdateMenus();
 
 		EmuThread_StartGame(fileToStart);
-	}
 
-	if (!fileToStart.isNull() && stateToLoad != NULL)
-		SaveState::Load(stateToLoad);
+		if (stateToLoad != NULL)
+			SaveState::Load(stateToLoad);
+	}
+	else
+		SetGameTitle("");
 }
 
 MainWindow::~MainWindow()
@@ -164,31 +162,31 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	g_Config.memCardDirectory = std::string(getenv("HOME"))+"/.ppsspp/";
 	g_Config.flashDirectory = g_Config.memCardDirectory+"/flash/";
 
-
 	LogManager::Init();
 	if (fileToLog != NULL)
-			LogManager::GetInstance()->ChangeFileLog(fileToLog);
-	//LogManager::GetInstance()->GetConsoleListener()->Open(hideLog, 150, 120, "PPSSPP Debug Console");
-	LogManager::GetInstance()->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
-}
+		LogManager::GetInstance()->ChangeFileLog(fileToLog);
 
-void MainWindow::SetPlaying(QString text)
-{
-	if (text == 0)
-	{
-		QString title = "PPSSPP " + QString(PPSSPP_VERSION_STR);
-		setWindowTitle(title);
-	}
-	else
-	{
-		QString title = "PPSSPP " + QString(PPSSPP_VERSION_STR) + "-" + text;
-		setWindowTitle(title);
-	}
+	LogManager::GetInstance()->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
+
+#if !defined(USING_GLES2)
+	// Start Desktop UI
+	MainWindow* mainWindow = new MainWindow();
+	mainWindow->show();
+#endif
 }
 
 void MainWindow::SetNextState(CoreState state)
 {
 	nextState = state;
+}
+
+void MainWindow::SetGameTitle(QString text)
+{
+	QString title = "PPSSPP " + QString(PPSSPP_VERSION_STR);
+	if (text != "")
+		title += QString(" - %1").arg(text);
+
+	setWindowTitle(title);
 }
 
 void MainWindow::BrowseAndBoot(void)
@@ -245,6 +243,12 @@ void MainWindow::UpdateMenus()
 	ui->action_EmulationRunLoad->setChecked(g_Config.bAutoRun);
 	ui->action_OptionsUseVBO->setChecked(g_Config.bUseVBO);
 	ui->action_OptionsVertexCache->setChecked(g_Config.bVertexCache);
+	ui->action_AFOff->setChecked(g_Config.iAnisotropyLevel == 0);
+	ui->action_AF2x->setChecked(g_Config.iAnisotropyLevel == 2);
+	ui->action_AF4x->setChecked(g_Config.iAnisotropyLevel == 4);
+	ui->action_AF8x->setChecked(g_Config.iAnisotropyLevel == 8);
+	ui->action_AF16x->setChecked(g_Config.iAnisotropyLevel == 16);
+	ui->action_Show_FPS_counter->setChecked(g_Config.bShowFPSCounter);
 
 	bool enable = !Core_IsStepping() ? false : true;
 	ui->action_EmulationRun->setEnabled(g_State.bEmuThreadStarted ? enable : false);
@@ -261,6 +265,9 @@ void MainWindow::UpdateMenus()
 	ui->action_CPUInterpreter->setEnabled(enable);
 	ui->action_CPUFastInterpreter->setEnabled(enable);
 	ui->action_EmulationStop->setEnabled(!enable);
+	ui->action_DebugDumpFrame->setEnabled(!enable);
+	ui->action_DebugDisassembly->setEnabled(!enable);
+	ui->action_DebugMemoryView->setEnabled(!enable);
 
 	ui->action_OptionsScreen1x->setChecked(0 == (g_Config.iWindowZoom - 1));
 	ui->action_OptionsScreen2x->setChecked(1 == (g_Config.iWindowZoom - 1));
@@ -292,9 +299,9 @@ void MainWindow::SetZoom(float zoom) {
 	dp_xres = pixel_xres;
 	dp_yres = pixel_yres;
 
-	w->resize(pixel_xres, pixel_yres);
-	w->setMinimumSize(pixel_xres, pixel_yres);
-	w->setMaximumSize(pixel_xres, pixel_yres);
+	emugl->resize(pixel_xres, pixel_yres);
+	emugl->setMinimumSize(pixel_xres, pixel_yres);
+	emugl->setMaximumSize(pixel_xres, pixel_yres);
 
 	ui->centralwidget->setFixedSize(pixel_xres, pixel_yres);
 	ui->centralwidget->resize(pixel_xres, pixel_yres);
@@ -339,8 +346,7 @@ void MainWindow::on_action_EmulationStop_triggered()
 		memoryWindow->close();
 
 	EmuThread_StopGame();
-	SetPlaying(0);
-	Update();
+	SetGameTitle("");
 	UpdateMenus();
 }
 
@@ -596,8 +602,8 @@ void MainWindow::on_action_OptionsFullScreen_triggered()
 		ui->statusbar->setVisible(false);
 
 		// Remove constraint
-		w->setMinimumSize(0, 0);
-		w->setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+		emugl->setMinimumSize(0, 0);
+		emugl->setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
 		ui->centralwidget->setFixedSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
 		setFixedSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
 
@@ -820,7 +826,7 @@ void MainWindow::loadLanguage(const QString& language)
 		QLocale locale = QLocale(currentLanguage);
 		QLocale::setDefault(locale);
 		QString languageName = QLocale::languageToString(locale.language());
-		switchTranslator(translator, QString("languages/ppsspp_%1.qm").arg(language));
+		switchTranslator(translator, QString(":/languages/ppsspp_%1.qm").arg(language));
 	}
 }
 
@@ -833,10 +839,7 @@ void MainWindow::createLanguageMenu()
 
 	QString defaultLocale = QLocale::system().name();
 	defaultLocale.truncate(defaultLocale.lastIndexOf('_'));
-	languagePath = QApplication::applicationDirPath();
-	languagePath.append("/languages");
-	QDir langDir(languagePath);
-	QStringList fileNames = langDir.entryList(QStringList("ppsspp_*.qm"));
+	QStringList fileNames = QDir(":/languages").entryList(QStringList("ppsspp_*.qm"));
 
 	if (fileNames.size() == 0)
 	{
@@ -853,8 +856,11 @@ void MainWindow::createLanguageMenu()
 		locale.truncate(locale.lastIndexOf('.'));
 		locale.remove(0, locale.indexOf('_') + 1);
 
-		//QString language = QLocale::languageToString(QLocale(locale).language());
+#if QT_VERSION >= 0x040800
 		QString language = QLocale(locale).nativeLanguageName();
+#else
+		QString language = QLocale::languageToString(QLocale(locale).language());
+#endif
 		QAction *action = new QAction(language, this);
 		action->setCheckable(true);
 		action->setData(locale);
@@ -944,5 +950,47 @@ void MainWindow::on_action_OptionsVertexCache_triggered()
 void MainWindow::on_action_OptionsUseVBO_triggered()
 {
 	g_Config.bUseVBO = !g_Config.bUseVBO;
+	UpdateMenus();
+}
+
+void MainWindow::on_action_Simple_2xAA_triggered()
+{
+	g_Config.SSAntiAliasing = !g_Config.SSAntiAliasing;
+	UpdateMenus();
+}
+
+void MainWindow::on_action_AFOff_triggered()
+{
+	g_Config.iAnisotropyLevel = 0;
+	UpdateMenus();
+}
+
+void MainWindow::on_action_AF2x_triggered()
+{
+	g_Config.iAnisotropyLevel = 2;
+	UpdateMenus();
+}
+
+void MainWindow::on_action_AF4x_triggered()
+{
+	g_Config.iAnisotropyLevel = 4;
+	UpdateMenus();
+}
+
+void MainWindow::on_action_AF8x_triggered()
+{
+	g_Config.iAnisotropyLevel = 8;
+	UpdateMenus();
+}
+
+void MainWindow::on_action_AF16x_triggered()
+{
+	g_Config.iAnisotropyLevel = 16;
+	UpdateMenus();
+}
+
+void MainWindow::on_action_Show_FPS_counter_triggered()
+{
+	g_Config.bShowFPSCounter = !g_Config.bShowFPSCounter;
 	UpdateMenus();
 }

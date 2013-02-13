@@ -9,7 +9,6 @@ include(Settings.pri)
 !mobile_platform: {
 	SOURCES += ../native/ext/glew/glew.c
 	HEADERS += ../native/ext/glew/GL/*.h
-	INCLUDEPATH += ../native/ext/glew
 }
 
 # Backtrace
@@ -55,7 +54,6 @@ INCLUDEPATH += ../ext/snappy
 !symbian: {
 	SOURCES += ../ext/zlib/*.c
 	HEADERS += ../ext/zlib/*.h
-	INCLUDEPATH += ../ext/zlib
 }
 
 
