@@ -25,7 +25,8 @@ TRANSLATIONS = languages/ppsspp_en.ts \
 		languages/ppsspp_pl.ts \
 		languages/ppsspp_fr.ts \
 		languages/ppsspp_de.ts \
-		languages/ppsspp_cn.ts
+		languages/ppsspp_cn.ts \
+		languages/ppsspp_tc.ts 
 
 # Main
 SOURCES += ../native/base/QtMain.cpp
