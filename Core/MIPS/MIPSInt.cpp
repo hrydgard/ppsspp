@@ -826,6 +826,7 @@ namespace MIPSInt
 
 	void Int_FPUComp(u32 op)
 	{
+		// TODO: NaN handling seems wrong.
 		int fs = _FS;
 		int ft = _FT;
 		bool cond;

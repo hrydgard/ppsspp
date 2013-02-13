@@ -151,7 +151,51 @@ static const u64 GC_ALIGNED16(ssSignBits2[2])	= {0x8000000080000000ULL, 0x800000
 static const u64 GC_ALIGNED16(ssNoSignMask[2]) = {0x7FFFFFFF7FFFFFFFULL, 0x7FFFFFFF7FFFFFFFULL};
 
 void Jit::Comp_FPUComp(u32 op) {
-	DISABLE;
+	CONDITIONAL_DISABLE;
+
+	int fs = _FS;
+	int ft = _FT;
+
+	// TODO: NaN handling seems wrong.
+	switch (op & 0xf)
+	{
+	case 0: //f
+	case 1: //un
+	case 8: //sf
+	case 9: //ngle
+		MOV(32, M((void *) &currentMIPS->fpcond), Imm32(0));
+		break;
+
+	case 2: //eq
+	case 3: //ueq
+	case 10: //seq
+	case 11: //ngl
+		MOVSS(XMM0, fpr.R(fs));
+		CMPSS(XMM0, fpr.R(ft), 0);
+		MOVSS(M((void *) &currentMIPS->fpcond), XMM0);
+		break;
+
+	case 4: //olt
+	case 5: //ult
+	case 12: //lt
+	case 13: //nge
+		MOVSS(XMM0, fpr.R(fs));
+		CMPSS(XMM0, fpr.R(ft), 1);
+		MOVSS(M((void *) &currentMIPS->fpcond), XMM0);
+		break;
+
+	case 6: //ole
+	case 7: //ule
+	case 14: //le
+	case 15: //ngt
+		MOVSS(XMM0, fpr.R(fs));
+		CMPSS(XMM0, fpr.R(ft), 2);
+		MOVSS(M((void *) &currentMIPS->fpcond), XMM0);
+		break;
+
+	default:
+		DISABLE;
+	}
 }
 
 void Jit::Comp_FPU2op(u32 op) {
