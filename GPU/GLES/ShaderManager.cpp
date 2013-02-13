@@ -351,6 +351,7 @@ void ShaderManager::Clear() {
 	fsCache.clear();
 	vsCache.clear();
 	globalDirty = 0xFFFFFFFF;
+	DirtyShader();
 }
 
 void ShaderManager::ClearCache(bool deleteThem)
