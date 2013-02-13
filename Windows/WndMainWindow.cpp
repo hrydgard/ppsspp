@@ -441,6 +441,12 @@ namespace MainWindow
 				UpdateMenus();
 				break;
 
+			case ID_OPTIONS_STRETCHDISPLAY:
+				g_Config.bStretchToDisplay = !g_Config.bStretchToDisplay;
+				UpdateMenus();
+				gpu->Resized();  // easy way to force a clear...
+				break;
+
 			case ID_FILE_EXIT:
 				DestroyWindow(hWnd);
 				break;
@@ -705,6 +711,7 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_FASTMEMORY, g_Config.bFastMemory);
 		CHECKITEM(ID_OPTIONS_LINEARFILTERING, g_Config.bLinearFiltering);
 		CHECKITEM(ID_OPTIONS_SIMPLE2XSSAA, g_Config.SSAntiAliasing);
+		CHECKITEM(ID_OPTIONS_STRETCHDISPLAY, g_Config.bStretchToDisplay);
 		CHECKITEM(ID_EMULATION_RUNONLOAD, g_Config.bAutoRun);
 		CHECKITEM(ID_OPTIONS_USEVBO, g_Config.bUseVBO);
 		CHECKITEM(ID_OPTIONS_DISABLEG3DLOG, g_Config.bDisableG3DLog);

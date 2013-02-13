@@ -67,6 +67,15 @@ static bool MaskedEqual(u32 addr1, u32 addr2) {
 static void CenterRect(float *x, float *y, float *w, float *h,
 	                     float origW, float origH, float frameW, float frameH)
 {
+	if (g_Config.bStretchToDisplay)
+	{
+		*x = 0;
+		*y = 0;
+		*w = frameW;
+		*h = frameH;
+		return;
+	}
+
 	float origRatio = origW/origH;
 	float frameRatio = frameW/frameH;
 
@@ -398,6 +407,10 @@ void FramebufferManager::CopyDisplayToOutput() {
 
 	fbo_bind_color_as_texture(vfb->fbo, 0);
 
+	if (resized_) {
+		glClearColor(0,0,0,1);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+	}
 	// These are in the output display coordinates
 	float x, y, w, h;
 	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);

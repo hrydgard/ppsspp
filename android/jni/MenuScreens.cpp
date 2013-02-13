@@ -246,6 +246,10 @@ void InGameMenuScreen::render() {
 	int y = 50;
 	UICheckBox(GEN_ID, x, y += 50, "Show Debug Statistics", ALIGN_TOPLEFT, &g_Config.bShowDebugStats);
 	UICheckBox(GEN_ID, x, y += 50, "Show FPS", ALIGN_TOPLEFT, &g_Config.bShowFPSCounter);
+
+	// TODO: Maybe shouldn't show this if the screen ratios are very close...
+	UICheckBox(GEN_ID, x, y += 50, "Stretch to display", ALIGN_TOPLEFT, &g_Config.bStretchToDisplay);
+
 	UICheckBox(GEN_ID, x, y += 50, "Hardware Transform", ALIGN_TOPLEFT, &g_Config.bHardwareTransform);
 
 	// TODO: Add UI for more than one slot.
