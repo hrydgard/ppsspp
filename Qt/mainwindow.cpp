@@ -250,6 +250,8 @@ void MainWindow::UpdateMenus()
 	ui->action_AF16x->setChecked(g_Config.iAnisotropyLevel == 16);
 	ui->action_Simple_2xAA->setChecked(g_Config.SSAntiAliasing);
 	ui->action_Show_FPS_counter->setChecked(g_Config.bShowFPSCounter);
+	ui->action_Stretch_to_display->setChecked(g_Config.bStretchToDisplay);
+	ui->action_Sound->setChecked(g_Config.bEnableSound);
 
 	bool enable = !Core_IsStepping() ? false : true;
 	ui->action_EmulationRun->setEnabled(g_State.bEmuThreadStarted ? enable : false);
@@ -1009,5 +1011,19 @@ void MainWindow::on_action_AF16x_triggered()
 void MainWindow::on_action_Show_FPS_counter_triggered()
 {
 	g_Config.bShowFPSCounter = !g_Config.bShowFPSCounter;
+	UpdateMenus();
+}
+
+void MainWindow::on_action_Stretch_to_display_triggered()
+{
+	g_Config.bStretchToDisplay = !g_Config.bStretchToDisplay;
+	UpdateMenus();
+	if (gpu)
+		gpu->Resized();
+}
+
+void MainWindow::on_action_Sound_triggered()
+{
+	g_Config.bEnableSound = !g_Config.bEnableSound;
 	UpdateMenus();
 }
