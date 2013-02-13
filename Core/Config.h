@@ -57,6 +57,8 @@ public:
 	bool bDrawWireframe;
 	bool bLinearFiltering;
 	bool bUseVBO;
+	bool bStretchToDisplay;
+
 	int iWindowZoom;  // for Windows
 	bool SSAntiAliasing; //for Windows, too
 	bool bDisableG3DLog;
