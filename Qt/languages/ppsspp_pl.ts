@@ -7,7 +7,7 @@
         <location filename="../controls.ui" line="20"/>
         <source>Controls</source>
         <comment>Controls window title</comment>
-        <translation type="unfinished">Układ klawiszy</translation>
+        <translation>Układ klawiszy</translation>
     </message>
 </context>
 <context>
@@ -499,400 +499,425 @@
         <translation>&amp;Emulacja</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="81"/>
+        <location filename="../mainwindow.ui" line="77"/>
         <source>Debu&amp;g</source>
         <translation>&amp;Debugger</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="95"/>
+        <location filename="../mainwindow.ui" line="91"/>
         <source>&amp;Options</source>
         <translation>&amp;Opcje</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="99"/>
-        <source>&amp;Log Levels</source>
-        <translation>P&amp;oziomy logowania</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="103"/>
         <source>G3D</source>
         <translation>G3D</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="112"/>
+        <location filename="../mainwindow.ui" line="108"/>
         <source>HLE</source>
         <translation>HLE</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="121"/>
+        <location filename="../mainwindow.ui" line="117"/>
         <source>Default</source>
         <translation>Domyślne</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="135"/>
-        <source>Zoom</source>
-        <translation>Zoom</translation>
+        <location filename="../mainwindow.ui" line="95"/>
+        <source>Lo&amp;g Levels</source>
+        <translation>&amp;Poziomy logowania</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="144"/>
-        <source>Language</source>
-        <translation>Język</translation>
+        <location filename="../mainwindow.ui" line="131"/>
+        <source>&amp;Language</source>
+        <translation>&amp;Język</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="149"/>
-        <source>Anisotropic filtering</source>
-        <translation>Filtrowanie anizotropowe</translation>
+        <location filename="../mainwindow.ui" line="136"/>
+        <source>&amp;Video</source>
+        <translation>&amp;Wideo</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="185"/>
+        <location filename="../mainwindow.ui" line="140"/>
+        <source>&amp;Anisotropic filtering</source>
+        <translation>&amp;Filtrowanie anizotropowe</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="150"/>
+        <source>&amp;Zoom</source>
+        <translation>&amp;Powiększenie</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="173"/>
+        <source>Co&amp;ntrols</source>
+        <translation>S&amp;terowanie</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="180"/>
+        <source>&amp;Core</source>
+        <translation>Jądr&amp;o</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="204"/>
         <source>&amp;Help</source>
         <translation>Pomo&amp;c</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="200"/>
+        <location filename="../mainwindow.ui" line="219"/>
         <source>&amp;Open...</source>
         <translation>&amp;Otwórz...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="205"/>
+        <location filename="../mainwindow.ui" line="224"/>
         <source>&amp;Close</source>
         <translation>&amp;Zamknij</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="210"/>
+        <location filename="../mainwindow.ui" line="229"/>
         <source>-</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="215"/>
+        <location filename="../mainwindow.ui" line="234"/>
         <source>Quickload state</source>
         <translation>Wczytaj stan</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="218"/>
+        <location filename="../mainwindow.ui" line="237"/>
         <source>F4</source>
         <translation>F4</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="223"/>
+        <location filename="../mainwindow.ui" line="242"/>
         <source>Quicksave state</source>
         <translation>Zapisz stan</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="226"/>
+        <location filename="../mainwindow.ui" line="245"/>
         <source>F2</source>
         <translation>F2</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="231"/>
+        <location filename="../mainwindow.ui" line="250"/>
         <source>&amp;Load State File...</source>
         <translation>&amp;Wczytaj plik stanu...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="236"/>
+        <location filename="../mainwindow.ui" line="255"/>
         <source>&amp;Save State File...</source>
         <translation>&amp;Zapisz plik stanu...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="241"/>
+        <location filename="../mainwindow.ui" line="260"/>
         <source>E&amp;xit</source>
         <translation>Wyj&amp;dź</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="246"/>
+        <location filename="../mainwindow.ui" line="265"/>
         <source>&amp;Run</source>
         <translation>&amp;Uruchom</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="249"/>
+        <location filename="../mainwindow.ui" line="268"/>
         <source>F7</source>
         <translation>F7</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="254"/>
+        <location filename="../mainwindow.ui" line="273"/>
         <source>&amp;Pause</source>
         <translation>&amp;Pauza</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="257"/>
+        <location filename="../mainwindow.ui" line="276"/>
         <source>F8</source>
         <translation>F8</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="262"/>
+        <location filename="../mainwindow.ui" line="281"/>
         <source>R&amp;eset</source>
         <translation>&amp;Reset</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="270"/>
+        <location filename="../mainwindow.ui" line="289"/>
         <source>&amp;Interpreter</source>
         <translation>&amp;Interpreter</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="278"/>
+        <location filename="../mainwindow.ui" line="297"/>
         <source>&amp;Slightly Faster Interpreter</source>
         <translation>&amp;Szybszy interpreter</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="286"/>
+        <location filename="../mainwindow.ui" line="305"/>
         <source>&amp;Dynarec</source>
         <translation>R&amp;ekompilacja (Dynarec)</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="294"/>
+        <location filename="../mainwindow.ui" line="313"/>
         <source>Load &amp;Map File...</source>
         <translation>&amp;Wczytaj plik mapy...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="302"/>
+        <location filename="../mainwindow.ui" line="321"/>
         <source>&amp;Save Map File...</source>
         <translation>&amp;Zapisz plik mapy...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="310"/>
+        <location filename="../mainwindow.ui" line="329"/>
         <source>&amp;Reset Symbol Table</source>
         <translation>Zresetuj &amp;tablicę symboli</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="315"/>
+        <location filename="../mainwindow.ui" line="334"/>
         <source>&amp;Disassembly</source>
         <translation>&amp;Deasembler</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="318"/>
+        <location filename="../mainwindow.ui" line="337"/>
         <source>Ctrl+D</source>
         <translation>Ctrl+D</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="326"/>
+        <location filename="../mainwindow.ui" line="345"/>
         <source>&amp;Log Console</source>
         <translation>&amp;Konsola logowania</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="329"/>
+        <location filename="../mainwindow.ui" line="348"/>
         <source>Ctrl+L</source>
         <translation>Ctrl+L</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="334"/>
+        <location filename="../mainwindow.ui" line="353"/>
         <source>Memory &amp;View...</source>
         <translation>Widok &amp;pamięci...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="337"/>
+        <location filename="../mainwindow.ui" line="356"/>
         <source>Ctrl+M</source>
         <translation>Ctrl+M</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="342"/>
-        <source>Keyboard &amp;Controls</source>
-        <translation>Ustawienia &amp;klawiatury</translation>
+        <location filename="../mainwindow.ui" line="361"/>
+        <source>&amp;Keyboard</source>
+        <translation>&amp;Klawiatura</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="347"/>
-        <source>&amp;Toggle Full Screen</source>
-        <translation>&amp;Pełny ekran</translation>
+        <location filename="../mainwindow.ui" line="366"/>
+        <source>&amp;Toggle fullscreen</source>
+        <translation>Pełny &amp;ekran</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="350"/>
+        <location filename="../mainwindow.ui" line="423"/>
+        <source>Show &amp;debug statistics</source>
+        <translation>Pokaż &amp;statystyki</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="483"/>
+        <source>I&amp;gnore illegal reads/writes</source>
+        <translation>I&amp;gnoruj błędne odczyty/zapisy</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="602"/>
+        <source>&amp;Gamepad</source>
+        <translation>&amp;Pad</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="607"/>
+        <source>Run on loa&amp;d</source>
+        <translation>Uruchom po &amp;załadowaniu</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="681"/>
+        <source>Show &amp;FPS counter</source>
+        <translation>Pokaż licznik &amp;FPS</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="689"/>
+        <source>S&amp;tretch to display</source>
+        <translation>&amp;Rozciągnij obraz</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="697"/>
+        <source>&amp;Sound emulation</source>
+        <translation>&amp;Emulacja dźwięku</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="369"/>
         <source>F12</source>
         <translation>F12</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="358"/>
+        <location filename="../mainwindow.ui" line="377"/>
         <source>&amp;Buffered Rendering</source>
         <translation>&amp;Buforowane renderowanie</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="361"/>
+        <location filename="../mainwindow.ui" line="380"/>
         <source>F5</source>
         <translation>F5</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="369"/>
+        <location filename="../mainwindow.ui" line="388"/>
         <source>&amp;Hardware Transform</source>
         <translation>Sprzętowa &amp;transformacja</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="372"/>
+        <location filename="../mainwindow.ui" line="391"/>
         <source>F6</source>
         <translation>F6</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="380"/>
+        <location filename="../mainwindow.ui" line="399"/>
         <source>&amp;Linear Filtering</source>
         <translation>Filtrowanie &amp;liniowe</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="388"/>
+        <location filename="../mainwindow.ui" line="407"/>
         <source>&amp;Wireframe (experimental)</source>
         <translation>&amp;Widok siatki (eksperymentalny)</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="396"/>
+        <location filename="../mainwindow.ui" line="415"/>
         <source>&amp;Display Raw Framebuffer</source>
         <translation>Wyświetl &amp;surowy framebuffer</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="404"/>
-        <source>&amp;Show Debug Statistics</source>
-        <translation>Pokaż statystyki &amp;emulacji</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="412"/>
+        <location filename="../mainwindow.ui" line="431"/>
         <source>Screen &amp;1x</source>
         <translation>&amp;1x</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="415"/>
+        <location filename="../mainwindow.ui" line="434"/>
         <source>Ctrl+1</source>
         <translation>Ctrl+1</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="423"/>
+        <location filename="../mainwindow.ui" line="442"/>
         <source>Screen &amp;2x</source>
         <translation>&amp;2x</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="426"/>
+        <location filename="../mainwindow.ui" line="445"/>
         <source>Ctrl+2</source>
         <translation>Ctrl+2</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="434"/>
+        <location filename="../mainwindow.ui" line="453"/>
         <source>Screen &amp;3x</source>
         <translation>&amp;3x</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="437"/>
+        <location filename="../mainwindow.ui" line="456"/>
         <source>Ctrl+3</source>
         <translation>Ctrl+3</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="445"/>
+        <location filename="../mainwindow.ui" line="464"/>
         <source>Screen &amp;4x</source>
         <translation>&amp;4x</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="448"/>
+        <location filename="../mainwindow.ui" line="467"/>
         <source>Ctrl+4</source>
         <translation>Ctrl+4</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="456"/>
+        <location filename="../mainwindow.ui" line="475"/>
         <source>&amp;Fast Memory (dynarec, unstable)</source>
         <translation>S&amp;zybka pamięć (wymagany Dynarec, niestabilne)</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="464"/>
-        <source>&amp;Ignore illegal reads/writes</source>
-        <translation>&amp;Ignoruj nieprawidłowe odczyty/zapisy</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="469"/>
+        <location filename="../mainwindow.ui" line="488"/>
         <source>&amp;Go to http://www.ppsspp.org/</source>
         <translation>&amp;Idź do http://www.ppsspp.org</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="474"/>
+        <location filename="../mainwindow.ui" line="493"/>
         <source>&amp;About PPSSPP...</source>
         <translation>&amp;O PPSSPP...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="482"/>
+        <location filename="../mainwindow.ui" line="501"/>
         <source>&amp;Use VBO</source>
         <translation>Użyj &amp;VBO</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="490"/>
-        <location filename="../mainwindow.ui" line="522"/>
-        <location filename="../mainwindow.ui" line="554"/>
+        <location filename="../mainwindow.ui" line="509"/>
+        <location filename="../mainwindow.ui" line="541"/>
+        <location filename="../mainwindow.ui" line="573"/>
         <source>Debug</source>
         <translation>Debug</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="498"/>
-        <location filename="../mainwindow.ui" line="530"/>
-        <location filename="../mainwindow.ui" line="562"/>
+        <location filename="../mainwindow.ui" line="517"/>
+        <location filename="../mainwindow.ui" line="549"/>
+        <location filename="../mainwindow.ui" line="581"/>
         <source>Warning</source>
         <translation>Ostrzeżenia</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="506"/>
-        <location filename="../mainwindow.ui" line="546"/>
-        <location filename="../mainwindow.ui" line="578"/>
+        <location filename="../mainwindow.ui" line="525"/>
+        <location filename="../mainwindow.ui" line="565"/>
+        <location filename="../mainwindow.ui" line="597"/>
         <source>Error</source>
         <translation>Błędy</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="514"/>
-        <location filename="../mainwindow.ui" line="538"/>
-        <location filename="../mainwindow.ui" line="570"/>
+        <location filename="../mainwindow.ui" line="533"/>
+        <location filename="../mainwindow.ui" line="557"/>
+        <location filename="../mainwindow.ui" line="589"/>
         <source>Info</source>
         <translation>Info</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="583"/>
-        <source>GamePad Controls</source>
-        <translation>Ustawienia pada</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="588"/>
-        <source>&amp;Run on load</source>
-        <translation>Uruchom po &amp;załadowaniu</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="593"/>
+        <location filename="../mainwindow.ui" line="612"/>
         <source>D&amp;ump next frame to log</source>
         <translation>Z&amp;rzuć następną ramkę do logu</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="601"/>
+        <location filename="../mainwindow.ui" line="620"/>
         <source>&amp;Vertex Cache</source>
         <translation>&amp;Cache wierzchołków</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="606"/>
+        <location filename="../mainwindow.ui" line="625"/>
         <source>Memory View Texture...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="614"/>
+        <location filename="../mainwindow.ui" line="633"/>
         <source>Simple 2xAA</source>
         <translation>Prosty antyaliasing 2x</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="622"/>
+        <location filename="../mainwindow.ui" line="641"/>
         <source>Off</source>
         <translation>Wyłączone</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="630"/>
+        <location filename="../mainwindow.ui" line="649"/>
         <source>2x</source>
         <translation>2x</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="638"/>
+        <location filename="../mainwindow.ui" line="657"/>
         <source>4x</source>
         <translation>4x</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="646"/>
+        <location filename="../mainwindow.ui" line="665"/>
         <source>8x</source>
         <translation>8x</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="654"/>
+        <location filename="../mainwindow.ui" line="673"/>
         <source>16x</source>
         <translation>16x</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="662"/>
-        <source>Show FPS counter</source>
-        <translation>Pokaż licznik FPS</translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.cpp" line="840"/>
+        <location filename="../mainwindow.cpp" line="865"/>
         <source>No translations</source>
         <translation>Brak tłumaczeń</translation>
     </message>
