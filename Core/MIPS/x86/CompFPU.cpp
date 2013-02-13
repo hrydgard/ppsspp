@@ -220,7 +220,7 @@ void Jit::Comp_FPUComp(u32 op)
 
 	case 5: //ult
 	case 13: //nge
-		CompFPComp(fs, ft, CMPLTSS, true);
+		CompFPComp(ft, fs, CMPNLESS);
 		break;
 
 	case 6: //ole
@@ -230,7 +230,7 @@ void Jit::Comp_FPUComp(u32 op)
 
 	case 7: //ule
 	case 15: //ngt
-		CompFPComp(fs, ft, CMPLESS, true);
+		CompFPComp(ft, fs, CMPNLTSS);
 		break;
 
 	default:
