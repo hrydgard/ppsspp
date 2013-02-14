@@ -56,6 +56,7 @@ const u32 GC_ALIGNED16( signBitLower[4] ) = {0x80000000, 0, 0, 0};
 
 void Jit::Comp_VPFX(u32 op)
 {
+	CONDITIONAL_DISABLE;
 	int data = op & 0xFFFFF;
 	int regnum = (op >> 24) & 3;
 	switch (regnum) {
@@ -142,7 +143,7 @@ void Jit::ApplyPrefixD(const u8 *vregs, u32 prefix, VectorSize sz, bool onlyWrit
 static u32 GC_ALIGNED16(ssLoadStoreTemp[1]);
 
 void Jit::Comp_SV(u32 op) {
-	// DISABLE;
+	CONDITIONAL_DISABLE;
 
 	s32 imm = (signed short)(op&0xFFFC);
 	int vt = ((op >> 16) & 0x1f) | ((op & 3) << 5);
@@ -208,6 +209,8 @@ void Jit::Comp_SV(u32 op) {
 
 void Jit::Comp_SVQ(u32 op)
 {
+	CONDITIONAL_DISABLE;
+
 	int imm = (signed short)(op&0xFFFC);
 	int vt = (((op >> 16) & 0x1f)) | ((op&1) << 5);
 	int rs = _RS;
@@ -329,6 +332,8 @@ void Jit::Comp_VDot(u32 op) {
 }
 
 void Jit::Comp_Mftv(u32 op) {
+	CONDITIONAL_DISABLE;
+
 	int imm = op & 0xFF;
 	int rt = _RT;
 	switch ((op >> 21) & 0x1f)
