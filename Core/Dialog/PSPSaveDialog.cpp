@@ -738,7 +738,7 @@ int PSPSaveDialog::Update()
 					status = SCE_UTILITY_STATUS_FINISHED;
 				break;
 				case SCE_UTILITY_SAVEDATA_TYPE_SINGLEDELETE:
-					if(param.Delete(param.GetPspParam()), param.GetSelectedSave())
+					if(param.Delete(param.GetPspParam(), param.GetSelectedSave()))
 					{
 						param.GetPspParam()->result = 0;
 					}
