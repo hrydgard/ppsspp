@@ -364,6 +364,15 @@ void Jit::Comp_Mftv(u32 op) {
 		} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc //currentMIPS->vfpuCtrl[imm - 128] = R(rt);
 			gpr.BindToRegister(rt, true, false);
 			MOV(32, M(&currentMIPS->vfpuCtrl[imm - 128]), gpr.R(rt));
+
+			// TODO: Optimization if rt is Imm?
+			if (imm - 128 == VFPU_CTRL_SPREFIX) {
+				js.prefixSKnown = false;
+			} else if (imm - 128 == VFPU_CTRL_TPREFIX) {
+				js.prefixTKnown = false;
+			} else if (imm - 128 == VFPU_CTRL_DPREFIX) {
+				js.prefixDKnown = false;
+			}
 		} else {
 			//ERROR
 			_dbg_assert_msg_(CPU,0,"mtv - invalid register");
@@ -374,6 +383,25 @@ void Jit::Comp_Mftv(u32 op) {
 		DISABLE;
 		_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
 		break;
+	}
+}
+
+void Jit::Comp_Vmtvc(u32 op) {
+	CONDITIONAL_DISABLE;
+	int vs = _VS;
+	int imm = op & 0xFF;
+	if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
+		fpr.MapRegV(vs, 0);
+		MOVSS(M(&currentMIPS->vfpuCtrl[imm - 128]), fpr.RX(vs));
+		fpr.ReleaseSpillLocks();
+
+		if (imm - 128 == VFPU_CTRL_SPREFIX) {
+			js.prefixSKnown = false;
+		} else if (imm - 128 == VFPU_CTRL_TPREFIX) {
+			js.prefixTKnown = false;
+		} else if (imm - 128 == VFPU_CTRL_DPREFIX) {
+			js.prefixDKnown = false;
+		}
 	}
 }
 

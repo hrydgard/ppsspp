@@ -44,4 +44,8 @@ namespace MIPSComp
 		DISABLE;
 	}
 
+	void Jit::Comp_Vmtvc(u32 op) {
+		DISABLE;
+	}
+
 }
