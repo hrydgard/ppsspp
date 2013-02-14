@@ -186,7 +186,7 @@ public:
 class VertexReader
 {
 public:
-	VertexReader(u8 *base, const DecVtxFormat &decFmt) : base_(base), data_(base), decFmt_(decFmt) {}
+	VertexReader(u8 *base, const DecVtxFormat &decFmt, int vtype) : base_(base), data_(base), decFmt_(decFmt), vtype_(vtype) {}
 
 	void ReadPos(float pos[3]) {
 		switch (decFmt_.posfmt) {
