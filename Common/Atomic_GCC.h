@@ -20,6 +20,8 @@
 
 #ifdef BLACKBERRY
 #include <atomic.h>
+#elif defined(__SYMBIAN32__)
+#include <glib/gatomic.h>
 #endif
 
 #include "Common.h"
@@ -79,6 +81,8 @@ inline void AtomicStore(volatile u32& dest, u32 value) {
 inline void AtomicStoreRelease(volatile u32& dest, u32 value) {
 #ifdef BLACKBERRY
 	atomic_set(&dest, value);
+#elif defined(__SYMBIAN32__)
+    g_atomic_int_set(&dest, value);
 #else
 	__sync_lock_test_and_set(&dest, value); // TODO: Wrong! This function is has acquire semantics.
 #endif
