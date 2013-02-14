@@ -166,8 +166,6 @@ enum
 
 void Jit::CompFPComp(int lhs, int rhs, u8 compare, bool allowNaN)
 {
-	CONDITIONAL_DISABLE;
-
 	MOVSS(XMM0, fpr.R(lhs));
 	CMPSS(XMM0, fpr.R(rhs), compare);
 	MOVSS(M((void *) &currentMIPS->fpcond), XMM0);
