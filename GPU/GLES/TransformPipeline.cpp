@@ -223,7 +223,7 @@ Lighter::Lighter() {
 	globalAmbient.GetFromRGB(gstate.ambientcolor);
 	globalAmbient.GetFromA(gstate.ambientalpha);
 	materialAmbient.GetFromRGB(gstate.materialambient);
-	materialAmbient.a = 1.0f;
+	materialAmbient.GetFromA(gstate.materialalpha);
 	materialDiffuse.GetFromRGB(gstate.materialdiffuse);
 	materialDiffuse.a = 1.0f;
 	materialSpecular.GetFromRGB(gstate.materialspecular);
@@ -283,7 +283,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		bool doSpecular = (comp != GE_LIGHTCOMP_ONLYDIFFUSE);
 		bool poweredDiffuse = comp == GE_LIGHTCOMP_BOTHWITHPOWDIFFUSE;
 
-		float dot = toLight * norm;
+		float dot = toLight.Normalized() * norm;
 
 		// Clamp dot to zero.
 		if (dot < 0.0f) dot = 0.0f;
@@ -300,7 +300,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		}
 
 		Color4 lightDiff(gstate_c.lightColor[1][l], 0.0f);
-		Color4 diff = (lightDiff * *diffuse) * (std::max(dot, 0.0f) * lightScale);
+		Color4 diff = (lightDiff * *diffuse) * (dot * lightScale);
 
 		// Real PSP specular
 		Vec3 toViewer(0,0,1);
@@ -309,22 +309,21 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 
 		if (doSpecular)
 		{
-			Vec3 halfVec = toLight;
-			halfVec += toViewer;
+			Vec3 halfVec = (toLight + toViewer);
 			halfVec.Normalize();
 
 			dot = halfVec * norm;
-			if (dot > 0)
+			if (dot > 0.0f)
 			{
 				Color4 lightSpec(gstate_c.lightColor[2][l], 0.0f);
-				lightSum1 += (lightSpec * *specular * (powf(dot, specCoef_) * lightScale));
+				lightSum1 += (lightSpec * *specular * (powf(dot, specCoef_) * (dot * lightScale)));
 			}
 		}
 		dots[l] = dot;
 		if (gstate.lightEnable[l] & 1)
 		{
-			Color4 lightAmbient(gstate_c.lightColor[0][l], 1.0f);
-			lightSum0 += lightAmbient * *ambient + diff;
+			Color4 lightAmbient(gstate_c.lightColor[0][l], 0.0f);
+			lightSum0 += lightAmbient + diff;
 		}
 	}
 
@@ -547,14 +546,6 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 
 			if (gstate.lightingEnable & 1) {
 				// Don't ignore gstate.lmode - we should send two colors in that case
-				if (reader.hasColor0()) {
-					reader.ReadColor0(litColor0);
-				} else {
-					litColor0[0] = (gstate.materialambient & 0xFF) / 255.f;
-					litColor0[1] = ((gstate.materialambient >> 8)  & 0xFF) / 255.f;
-					litColor0[2] = ((gstate.materialambient >> 16) & 0xFF) / 255.f;
-					litColor0[3] = (gstate.materialalpha & 0xFF) / 255.f;
-				}
 				if (gstate.lmode & 1) {
 					// Separate colors
 					for (int j = 0; j < 4; j++) {
