@@ -517,8 +517,8 @@ namespace MIPSInt
 
 		switch((op>>21)&0x1f) 
 		{
-		case 0: R(rt) = FI(fs); break; //mfc1
-		case 2: R(rt) = currentMIPS->ReadFCR(fs); break; //cfc1
+		case 0: if (rt != 0) R(rt) = FI(fs); break; //mfc1
+		case 2: if (rt != 0) R(rt) = currentMIPS->ReadFCR(fs); break; //cfc1
 		case 4: FI(fs) = R(rt);	break; //mtc1
 		case 6: currentMIPS->WriteFCR(fs, R(rt)); break; //ctc1
 		

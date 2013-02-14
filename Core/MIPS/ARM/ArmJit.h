@@ -103,13 +103,15 @@ public:
 	void Comp_FPU3op(u32 op);
 	void Comp_FPU2op(u32 op);
 	void Comp_mxc1(u32 op);
-	void Comp_Mftv(u32 op);
-	void Comp_VDot(u32 op);
 
 	void Comp_DoNothing(u32 op);
 
 	void Comp_SV(u32 op);
 	void Comp_SVQ(u32 op);
+	void Comp_VPFX(u32 op);
+	void Comp_VDot(u32 op);
+	void Comp_Mftv(u32 op);
+	void Comp_Vmtvc(u32 op);
 
 	ArmJitBlockCache *GetBlockCache() { return &blocks; }
 
