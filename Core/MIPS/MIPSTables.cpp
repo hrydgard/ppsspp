@@ -613,12 +613,12 @@ const MIPSInstruction tableVFPU4[32] =  //110100 00000 xxxxx
 
 MIPSInstruction tableVFPU5[8] =  //110111 xxx
 {
-	INSTR("vpfxs",&Jit::Comp_Generic, Dis_VPFXST, Int_VPFX, IS_VFPU),
-	INSTR("vpfxs",&Jit::Comp_Generic, Dis_VPFXST, Int_VPFX, IS_VFPU),
-	INSTR("vpfxt",&Jit::Comp_Generic, Dis_VPFXST, Int_VPFX, IS_VFPU),
-	INSTR("vpfxt",&Jit::Comp_Generic, Dis_VPFXST, Int_VPFX, IS_VFPU),
-	INSTR("vpfxd", &Jit::Comp_Generic, Dis_VPFXD, Int_VPFX, IS_VFPU),
-	INSTR("vpfxd", &Jit::Comp_Generic, Dis_VPFXD, Int_VPFX, IS_VFPU),
+	INSTR("vpfxs",&Jit::Comp_VPFX, Dis_VPFXST, Int_VPFX, IS_VFPU),
+	INSTR("vpfxs",&Jit::Comp_VPFX, Dis_VPFXST, Int_VPFX, IS_VFPU),
+	INSTR("vpfxt",&Jit::Comp_VPFX, Dis_VPFXST, Int_VPFX, IS_VFPU),
+	INSTR("vpfxt",&Jit::Comp_VPFX, Dis_VPFXST, Int_VPFX, IS_VFPU),
+	INSTR("vpfxd", &Jit::Comp_VPFX, Dis_VPFXD, Int_VPFX, IS_VFPU),
+	INSTR("vpfxd", &Jit::Comp_VPFX, Dis_VPFXD, Int_VPFX, IS_VFPU),
 	INSTR("viim.s",&Jit::Comp_Generic, Dis_Viim,Int_Viim, IS_VFPU),
 	INSTR("vfim.s",&Jit::Comp_Generic, Dis_Viim,Int_Viim, IS_VFPU),
 };
