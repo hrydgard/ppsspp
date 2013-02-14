@@ -300,7 +300,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		}
 
 		Color4 lightDiff(gstate_c.lightColor[1][l], 0.0f);
-		Color4 diff = (lightDiff * *diffuse) * (std::max(dot, 0.0f) * lightScale);
+		Color4 diff = (lightDiff * *diffuse) * (dot * lightScale);
 
 		// Real PSP specular
 		Vec3 toViewer(0,0,1);
@@ -473,10 +473,10 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 					c1[j] = 0.0f;
 				}
 			} else {
-				c0[0] = (gstate.materialambient & 0xFF) / 255.f;
-				c0[1] = ((gstate.materialambient >> 8)  & 0xFF) / 255.f;
-				c0[2] = ((gstate.materialambient >> 16) & 0xFF) / 255.f;
-				c0[3] = (gstate.materialalpha & 0xFF) / 255.f;
+				c0[0] = (gstate.materialambient & 0xFF) / 255.0f;
+				c0[1] = ((gstate.materialambient >> 8)  & 0xFF) / 255.0f;
+				c0[2] = ((gstate.materialambient >> 16) & 0xFF) / 255.0f;
+				c0[3] = (gstate.materialalpha & 0xFF) / 255.0f;
 			}
 
 			if (reader.hasUV()) {
@@ -536,10 +536,10 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			if (reader.hasColor0()) {
 				reader.ReadColor0(unlitColor);
 			} else {
-				unlitColor[0] = (gstate.materialambient & 0xFF) / 255.f;
-				unlitColor[1] = ((gstate.materialambient >> 8)  & 0xFF) / 255.f;
-				unlitColor[2] = ((gstate.materialambient >> 16) & 0xFF) / 255.f;
-				unlitColor[3] = (gstate.materialalpha & 0xFF) / 255.f;
+				unlitColor[0] = (gstate.materialambient & 0xFF) / 255.0f;
+				unlitColor[1] = ((gstate.materialambient >> 8)  & 0xFF) / 255.0f;
+				unlitColor[2] = ((gstate.materialambient >> 16) & 0xFF) / 255.0f;
+				unlitColor[3] = (gstate.materialalpha & 0xFF) / 255.0f;
 			}
 			float litColor0[4];
 			float litColor1[4];
@@ -550,10 +550,10 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 				if (reader.hasColor0()) {
 					reader.ReadColor0(litColor0);
 				} else {
-					litColor0[0] = (gstate.materialambient & 0xFF) / 255.f;
-					litColor0[1] = ((gstate.materialambient >> 8)  & 0xFF) / 255.f;
-					litColor0[2] = ((gstate.materialambient >> 16) & 0xFF) / 255.f;
-					litColor0[3] = (gstate.materialalpha & 0xFF) / 255.f;
+					litColor0[0] = (gstate.materialambient & 0xFF) / 255.0f;
+					litColor0[1] = ((gstate.materialambient >> 8)  & 0xFF) / 255.0f;
+					litColor0[2] = ((gstate.materialambient >> 16) & 0xFF) / 255.0f;
+					litColor0[3] = (gstate.materialalpha & 0xFF) / 255.0f;
 				}
 				if (gstate.lmode & 1) {
 					// Separate colors
@@ -575,10 +575,10 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 						c1[j] = 0.0f;
 					}
 				} else {
-					c0[0] = (gstate.materialambient & 0xFF) / 255.f;
-					c0[1] = ((gstate.materialambient >> 8) & 0xFF) / 255.f;
-					c0[2] = ((gstate.materialambient >> 16)& 0xFF) / 255.f;
-					c0[3] = (gstate.materialalpha & 0xFF) / 255.f;
+					c0[0] = (gstate.materialambient & 0xFF) / 255.0f;
+					c0[1] = ((gstate.materialambient >> 8) & 0xFF) / 255.0f;
+					c0[2] = ((gstate.materialambient >> 16)& 0xFF) / 255.0f;
+					c0[3] = (gstate.materialalpha & 0xFF) / 255.0f;
 					memset(c1, 0, sizeof(c1));
 				}
 			}
