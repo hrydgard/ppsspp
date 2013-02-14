@@ -454,7 +454,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 	float fog_end = getFloat24(gstate.fog1);
 	float fog_slope = getFloat24(gstate.fog2);
 
-	VertexReader reader(decoded, decVtxFormat);
+	VertexReader reader(decoded, decVtxFormat, vertType);
 	for (int index = 0; index < maxIndex; index++) {
 		reader.Goto(index);
 

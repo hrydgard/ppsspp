@@ -167,6 +167,10 @@ private slots:
 
 	void on_action_Show_FPS_counter_triggered();
 
+	void on_action_Stretch_to_display_triggered();
+
+	void on_action_Sound_triggered();
+
 private:
 	void loadLanguage(const QString &language);
 	void createLanguageMenu();
