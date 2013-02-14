@@ -60,6 +60,9 @@ void ComputeVertexShaderID(VertexShaderID *id, int prim)
 	id->d[0] |= ((int)enableFog) << 2;
 	id->d[0] |= doTexture << 3;
 	id->d[0] |= (hasColor & 1) << 4;
+	if (doTexture)
+		id->d[0] |= (gstate_c.flipTexture & 1) << 5;
+
 	if (CanUseHardwareTransform(prim)) {
 		id->d[0] |= 1 << 8;
 		id->d[0] |= (hasNormal & 1) << 9;
@@ -139,6 +142,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 	bool hasColor = (gstate.vertType & GE_VTYPE_COL_MASK) != 0 || !hwXForm;
 	bool hasNormal = (gstate.vertType & GE_VTYPE_NRM_MASK) != 0 && hwXForm;
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
+	bool flipV = gstate_c.flipTexture;
 
 	DoLightComputation doLight[4] = {LIGHT_OFF, LIGHT_OFF, LIGHT_OFF, LIGHT_OFF};
 	if (hwXForm) {
@@ -396,6 +400,8 @@ void GenerateVertexShader(int prim, char *buffer) {
 				// ILLEGAL
 				break;
 			}
+			if (flipV)
+				WRITE(p, "  v_texcoord.y = 1.0f - v_texcoord.y;\n");
 		}
 
 		// Compute fogdepth

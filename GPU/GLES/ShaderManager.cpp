@@ -138,6 +138,7 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs)
 	glUniform1i(u_tex, 0);
 	// The rest, use the "dirty" mechanism.
 	dirtyUniforms = DIRTY_ALL;
+	use();
 }
 
 LinkedShader::~LinkedShader() {
@@ -264,8 +265,10 @@ void LinkedShader::updateUniforms() {
 
 	// Texturing
 	if (u_uvscaleoffset != -1 && (dirtyUniforms & DIRTY_UVSCALEOFFSET)) {
-		float uvscaleoff[4] = { gstate_c.uScale, gstate_c.vScale, gstate_c.uOff, gstate_c.vOff};
+		float uvscaleoff[4] = {gstate_c.uScale, gstate_c.vScale, gstate_c.uOff, gstate_c.vOff};
 		if (gstate.isModeThrough()) {
+			// We never get here because we don't use HW transform with through mode.
+			// Although - why don't we?
 			uvscaleoff[0] /= gstate_c.curTextureWidth;
 			uvscaleoff[1] /= gstate_c.curTextureHeight;
 			uvscaleoff[2] /= gstate_c.curTextureWidth;

@@ -542,22 +542,26 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_TEXTUREMAPENABLE:
-		gstate_c.textureChanged = true;
+		if (diff)
+			gstate_c.textureChanged = true;
 		break;
 
 	case GE_CMD_LIGHTINGENABLE:
 		break;
 
 	case GE_CMD_FOGCOLOR:
-		shaderManager_->DirtyUniform(DIRTY_FOGCOLOR);
+		if (diff)
+			shaderManager_->DirtyUniform(DIRTY_FOGCOLOR);
 		break;
 
 	case GE_CMD_FOG1:
-		shaderManager_->DirtyUniform(DIRTY_FOGCOEF);
+		if (diff)
+			shaderManager_->DirtyUniform(DIRTY_FOGCOEF);
 		break;
 
 	case GE_CMD_FOG2:
-		shaderManager_->DirtyUniform(DIRTY_FOGCOEF);
+		if (diff)
+			shaderManager_->DirtyUniform(DIRTY_FOGCOEF);
 		break;
 
 	case GE_CMD_FOGENABLE:
@@ -618,6 +622,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_TEXADDR6:
 	case GE_CMD_TEXADDR7:
 		gstate_c.textureChanged = true;
+		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 		break;
 
 	case GE_CMD_TEXBUFWIDTH0:
@@ -667,7 +672,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_TEXSIZE0:
 		gstate_c.curTextureWidth = 1 << (gstate.texsize[0] & 0xf);
-		gstate_c.curTextureHeight = 1 << ((gstate.texsize[0]>>8) & 0xf);
+		gstate_c.curTextureHeight = 1 << ((gstate.texsize[0] >> 8) & 0xf);
 		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 		//fall thru - ignoring the mipmap sizes for now
 	case GE_CMD_TEXSIZE1:
