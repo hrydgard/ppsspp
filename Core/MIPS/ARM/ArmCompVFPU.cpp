@@ -22,7 +22,7 @@ namespace MIPSComp
 {
 	void Jit::Comp_VPFX(u32 op)
 	{
-		DISABLE;
+		CONDITIONAL_DISABLE;
 
 		int data = op & 0xFFFFF;
 		int regnum = (op >> 24) & 3;

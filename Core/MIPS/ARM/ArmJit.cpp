@@ -72,8 +72,6 @@ void Jit::FlushAll()
 
 void Jit::FlushPrefixV()
 {
-	return;
-
 	if ((js.prefixSFlag & ArmJitState::PREFIX_DIRTY) != 0)
 	{
 		MOVI2R(R0, js.prefixS);
@@ -92,14 +90,6 @@ void Jit::FlushPrefixV()
 	{
 		MOVI2R(R0, js.prefixD);
 		STR(CTXREG, R0, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_DPREFIX]));
-		//MOV(32, M((void *)&mips_->vfpuCtrl[VFPU_CTRL_DPREFIX]), Imm32(js.prefixD));
-		// TODO:
-		/*
-		_dbg_assert_msg_(JIT, sizeof(bool) <= 4, "Bools shouldn't be that big?");
-		const size_t bool_stride = 4 / sizeof(bool);
-		for (size_t i = 0; i < ARRAY_SIZE(mips_->vfpuWriteMask); i += bool_stride)
-			MOV(32, M((void *)&mips_->vfpuWriteMask[i]), Imm32(*(u32 *)&js.writeMask[i]));
-			*/
 		js.prefixDFlag = (ArmJitState::PrefixState) (js.prefixDFlag & ~ArmJitState::PREFIX_DIRTY);
 	}
 }
@@ -170,6 +160,7 @@ const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 	js.curBlock = b;
 	js.compiling = true;
 	js.inDelaySlot = false;
+	js.PrefixStart();
 
 	// We add a check before the block, used when entering from a linked block.
 	b->checkedEntry = GetCodePtr();
@@ -250,6 +241,10 @@ void Jit::Comp_Generic(u32 op)
 		MOVI2R(R0, op);
 		QuickCallFunction(R1, (void *)func);
 	}
+
+	// Might have eaten prefixes, hard to tell...
+	if ((MIPSGetInfo(op) & IS_VFPU) != 0)
+		js.PrefixStart();
 }
 
 void Jit::MovFromPC(ARMReg r) {
