@@ -363,11 +363,11 @@ const MIPSInstruction tableCop2[32] =
 	INSTR("mfc2", &Jit::Comp_Generic, Dis_Generic, 0, OUT_RT),
 	{-2},
 	INSTR("cfc2", &Jit::Comp_Generic, Dis_Generic, 0, 0),
-	INSTR("mfv", &Jit::Comp_Mftv, Dis_Mftv, Int_Mftv, 0),
+	INSTR("mfv", &Jit::Comp_Mftv, Dis_Mftv, Int_Mftv, IS_VFPU),
 	INSTR("mtc2", &Jit::Comp_Generic, Dis_Generic, 0, IN_RT),
 	{-2},
 	INSTR("ctc2", &Jit::Comp_Generic, Dis_Generic, 0, 0),
-	INSTR("mtv", &Jit::Comp_Mftv, Dis_Mftv, Int_Mftv, 0),
+	INSTR("mtv", &Jit::Comp_Mftv, Dis_Mftv, Int_Mftv, IS_VFPU),
 
 	{Cop2BC2},
 	INSTR("??", &Jit::Comp_Generic, Dis_Generic, 0, 0),
