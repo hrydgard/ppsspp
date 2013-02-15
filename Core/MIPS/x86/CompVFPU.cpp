@@ -288,7 +288,13 @@ void Jit::Comp_SVQ(u32 op)
 
 void Jit::Comp_VDot(u32 op) {
 	DISABLE;
+
 	// WARNING: No prefix support!
+	if (js.MayHavePrefix()) {
+		Comp_Generic(op);
+		js.EatPrefix();
+		return;
+	}
 
 	int vd = _VD;
 	int vs = _VS;
@@ -306,7 +312,6 @@ void Jit::Comp_VDot(u32 op) {
 	MOVSS(XMM0, fpr.V(sregs[0]));
 	MULSS(XMM0, fpr.V(tregs[0]));
 
-	float sum = 0.0f;
 	int n = GetNumVectorElements(sz);
 	for (int i = 1; i < n; i++)
 	{

@@ -78,6 +78,17 @@ struct JitState
 		prefixTFlag = PREFIX_UNKNOWN;
 		prefixDFlag = PREFIX_UNKNOWN;
 	}
+	bool MayHavePrefix() const {
+		if (!(prefixSFlag & PREFIX_KNOWN) || !(prefixTFlag & PREFIX_KNOWN) || !(prefixDFlag & PREFIX_KNOWN)) {
+			return true;
+		} else if (prefixS != 0xE4 || prefixT != 0xE4 || prefixD != 0) {
+			return true;
+		} else if (writeMask[0] || writeMask[1] || writeMask[2] || writeMask[3]) {
+			return true;
+		}
+
+		return false;
+	}
 	void EatPrefix() {
 		if ((prefixSFlag & PREFIX_KNOWN) == 0 || prefixS != 0xE4) {
 			prefixSFlag = PREFIX_KNOWN_DIRTY;
