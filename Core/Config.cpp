@@ -55,7 +55,7 @@ void CConfig::Load(const char *iniFileName)
 	general->Get("ShowDebuggerOnLoad", &bShowDebuggerOnLoad, false);
 
 	IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
-	cpu->Get("Core", &iCpuCore, 0);
+	cpu->Get("Core", &iCpuCore, 2);
 	cpu->Get("FastMemory", &bFastMemory, false);
 
 	IniFile::Section *graphics = iniFile.GetOrCreateSection("Graphics");

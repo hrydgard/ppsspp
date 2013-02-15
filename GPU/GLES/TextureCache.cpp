@@ -24,9 +24,20 @@
 #include "TextureCache.h"
 #include "../Core/Config.h"
 
-// If a texture hasn't been seen for 200 frames, get rid of it.
+// If a texture hasn't been seen for this many frames, get rid of it.
 #define TEXTURE_KILL_AGE 200
-float maxAnisotropyLevel ;
+
+u32 RoundUpToPowerOf2(u32 v)
+{
+	v--;
+	v |= v >> 1;
+	v |= v >> 2;
+	v |= v >> 4;
+	v |= v >> 8;
+	v |= v >> 16;
+	v++;
+	return v;
+}
 
 TextureCache::TextureCache() {
 	lastBoundTexture = -1;
@@ -681,22 +692,28 @@ void TextureCache::SetTexture() {
 
 	TexCache::iterator iter = cache.find(cachekey);
 	TexCacheEntry *entry = NULL;
+	gstate_c.flipTexture = false;
+
 	if (iter != cache.end()) {
 		entry = &iter->second;
 		// Check for FBO - slow!
 		if (entry->fbo) {
+			int w = 1 << (gstate.texsize[0] & 0xf);
+			int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
+			
 			fbo_bind_color_as_texture(entry->fbo, 0);
 			UpdateSamplingParams(*entry, false);
 
 			int fbow, fboh;
 			fbo_get_dimensions(entry->fbo, &fbow, &fboh);
 
-			// Almost certain this isn't right.
-			gstate_c.curTextureWidth = fbow;
-			gstate_c.curTextureHeight = fboh;
+			// This isn't right.
+			gstate_c.curTextureWidth = w; //w;  //RoundUpToPowerOf2(fbow);
+			gstate_c.curTextureHeight = h;  // RoundUpToPowerOf2(fboh);
+			gstate_c.flipTexture = true;
+			entry->lastFrame = gpuStats.numFrames;
 			return;
 		}
-
 		//Validate the texture here (width, height etc)
 
 		int dim = gstate.texsize[0] & 0xF0F;

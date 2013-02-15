@@ -186,7 +186,7 @@ public:
 class VertexReader
 {
 public:
-	VertexReader(u8 *base, const DecVtxFormat &decFmt) : base_(base), data_(base), decFmt_(decFmt) {}
+	VertexReader(u8 *base, const DecVtxFormat &decFmt, int vtype) : base_(base), data_(base), decFmt_(decFmt), vtype_(vtype) {}
 
 	void ReadPos(float pos[3]) {
 		switch (decFmt_.posfmt) {
@@ -254,13 +254,8 @@ public:
 			break;
 
 		case DEC_FLOAT_2:
-			if (isThrough()) {
-				uv[0] = f[0];
-				uv[1] = f[1];
-			} else {
-				uv[0] = f[0] * 2.0f;
-				uv[1] = f[1] * 2.0f;
-			}
+			uv[0] = f[0] * 2.0f;
+			uv[1] = f[1] * 2.0f;
 			break;
 
 		case DEC_U16A_2:

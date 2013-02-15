@@ -22,9 +22,14 @@
 #include <assert.h>
 #include <stdarg.h>
 
-// For cache flushing on Symbian/Blackberry
+// For cache flushing on Symbian/iOS/Blackberry
 #ifdef __SYMBIAN32__
 #include <e32std.h>
+#endif
+
+#ifdef IOS
+#include <libkern/OSCacheControl.h>
+#include <sys/mman.h>
 #endif
 
 #ifdef BLACKBERRY
@@ -185,13 +190,13 @@ void ARMXEmitter::FlushIcache()
 void ARMXEmitter::FlushIcacheSection(u8 *start, u8 *end)
 {
 #ifdef __SYMBIAN32__
-	User::IMB_Range( start, end);
+	User::IMB_Range(start, end);
 #elif defined(BLACKBERRY)
 	msync(start, end - start, MS_SYNC | MS_INVALIDATE_ICACHE);
-#else
-#ifndef _WIN32
-	__builtin___clear_cache (start, end);
-#endif
+#elif defined(IOS)
+	sys_cache_control(kCacheFunctionPrepareForExecution, start, end - start);
+#elif !defined(_WIN32)
+	__builtin___clear_cache(start, end);
 #endif
 }
 

@@ -28,9 +28,9 @@
 // All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
 // Currently known non working ones should have DISABLE.
 
-// #define CONDITIONAL_DISABLE Comp_Generic(op); return;
+// #define CONDITIONAL_DISABLE { Comp_Generic(op); return; }
 #define CONDITIONAL_DISABLE ;
-#define DISABLE Comp_Generic(op); return;
+#define DISABLE { Comp_Generic(op); return; }
 
 
 #define _RS ((op>>21) & 0x1F)
@@ -56,24 +56,23 @@ const u32 GC_ALIGNED16( signBitLower[4] ) = {0x80000000, 0, 0, 0};
 
 void Jit::Comp_VPFX(u32 op)
 {
+	CONDITIONAL_DISABLE;
 	int data = op & 0xFFFFF;
 	int regnum = (op >> 24) & 3;
 	switch (regnum) {
 	case 0:  // S
 		js.prefixS = data;
-		js.prefixSKnown = true;
+		js.prefixSFlag = JitState::PREFIX_KNOWN_DIRTY;
 		break;
 	case 1:  // T
 		js.prefixT = data;
-		js.prefixTKnown = true;
+		js.prefixTFlag = JitState::PREFIX_KNOWN_DIRTY;
 		break;
 	case 2:  // D
 		js.prefixD = data;
-		js.prefixDKnown = true;
+		js.prefixDFlag = JitState::PREFIX_KNOWN_DIRTY;
 		break;
 	}
-	// TODO: Defer this to end of block
-	MOV(32, M((void *)&mips_->vfpuCtrl[VFPU_CTRL_SPREFIX + regnum]), Imm32(data));
 }
 
 
@@ -113,7 +112,7 @@ void Jit::ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz) {
 }
 
 void Jit::ApplyPrefixD(const u8 *vregs, u32 prefix, VectorSize sz, bool onlyWriteMask) {
-	_assert_(js.prefixDKnown);
+	_assert_(js.prefixDFlag & JitState::PREFIX_KNOWN);
 	if (!prefix) return;
 
 	int n = GetNumVectorElements(sz);
@@ -142,7 +141,7 @@ void Jit::ApplyPrefixD(const u8 *vregs, u32 prefix, VectorSize sz, bool onlyWrit
 static u32 GC_ALIGNED16(ssLoadStoreTemp[1]);
 
 void Jit::Comp_SV(u32 op) {
-	// DISABLE;
+	CONDITIONAL_DISABLE;
 
 	s32 imm = (signed short)(op&0xFFFC);
 	int vt = ((op >> 16) & 0x1f) | ((op & 3) << 5);
@@ -201,13 +200,14 @@ void Jit::Comp_SV(u32 op) {
 		break;
 
 	default:
-		_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
-		break;
+		DISABLE;
 	}
 }
 
 void Jit::Comp_SVQ(u32 op)
 {
+	CONDITIONAL_DISABLE;
+
 	int imm = (signed short)(op&0xFFFC);
 	int vt = (((op >> 16) & 0x1f)) | ((op&1) << 5);
 	int rs = _RS;
@@ -285,10 +285,15 @@ void Jit::Comp_SVQ(u32 op)
 	}
 }
 
-
 void Jit::Comp_VDot(u32 op) {
 	DISABLE;
+
 	// WARNING: No prefix support!
+	if (js.MayHavePrefix()) {
+		Comp_Generic(op);
+		js.EatPrefix();
+		return;
+	}
 
 	int vd = _VD;
 	int vs = _VS;
@@ -306,7 +311,6 @@ void Jit::Comp_VDot(u32 op) {
 	MOVSS(XMM0, fpr.V(sregs[0]));
 	MULSS(XMM0, fpr.V(tregs[0]));
 
-	float sum = 0.0f;
 	int n = GetNumVectorElements(sz);
 	for (int i = 1; i < n; i++)
 	{
@@ -328,24 +332,101 @@ void Jit::Comp_VDot(u32 op) {
 	js.EatPrefix();
 }
 
+void Jit::Comp_VecDo3(u32 op) {
+	DISABLE;
+
+	// WARNING: No prefix support!
+	if (js.MayHavePrefix())
+	{
+		Comp_Generic(op);
+		js.EatPrefix();
+		return;
+	}
+
+	int vd = _VD;
+	int vs = _VS;
+	int vt = _VT;
+	VectorSize sz = GetVecSize(op);
+
+	u8 sregs[4], tregs[4], dregs[4];
+	GetVectorRegs(sregs, sz, vs);
+	GetVectorRegs(tregs, sz, vt);
+	GetVectorRegs(dregs, sz, vd);
+
+	void (XEmitter::*xmmop)(X64Reg, OpArg) = NULL;
+	switch (op >> 26)
+	{
+	case 24: //VFPU0
+		switch ((op >> 23)&7)
+		{
+		case 0: // d[i] = s[i] + t[i]; break; //vadd
+			xmmop = &XEmitter::ADDSS;
+			break;
+		case 1: // d[i] = s[i] - t[i]; break; //vsub
+			xmmop = &XEmitter::SUBSS;
+			break;
+		case 7: // d[i] = s[i] / t[i]; break; //vdiv
+			xmmop = &XEmitter::DIVSS;
+			break;
+		}
+		break;
+	case 25: //VFPU1
+		switch ((op >> 23)&7)
+		{
+		case 0: // d[i] = s[i] * t[i]; break; //vmul
+			xmmop = &XEmitter::MULSS;
+			break;
+		}
+		break;
+	}
+
+	if (xmmop == NULL)
+	{
+		Comp_Generic(op);
+		js.EatPrefix();
+		return;
+	}
+
+	int n = GetNumVectorElements(sz);
+	// We need at least n temporaries...
+	if (n > 2)
+		fpr.Flush();
+
+	for (int i = 0; i < n; ++i)
+		MOVSS((X64Reg) (XMM0 + i), fpr.V(sregs[i]));
+	for (int i = 0; i < n; ++i)
+		(this->*xmmop)((X64Reg) (XMM0 + i), fpr.V(tregs[i]));
+	for (int i = 0; i < n; ++i)
+		MOVSS(fpr.V(dregs[i]), (X64Reg) (XMM0 + i));
+
+	fpr.ReleaseSpillLocks();
+
+	js.EatPrefix();
+}
+
 void Jit::Comp_Mftv(u32 op) {
+	CONDITIONAL_DISABLE;
+
 	int imm = op & 0xFF;
 	int rt = _RT;
 	switch ((op >> 21) & 0x1f)
 	{
 	case 3: //mfv / mfvc
-		if (imm < 128) {  //R(rt) = VI(imm);
-			fpr.StoreFromRegisterV(imm);
-			gpr.BindToRegister(rt, false, true);
-			MOV(32, gpr.R(rt), fpr.V(imm));
-		} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc
-			gpr.BindToRegister(rt, false, true);
-			MOV(32, gpr.R(rt), M(&currentMIPS->vfpuCtrl[imm - 128]));
-		} else if (rt == 0 && imm == 255) {
-			// This appears to be used as a CPU interlock by some games. Do nothing.
-		} else {
-			//ERROR - maybe need to make this value too an "interlock" value?
-			_dbg_assert_msg_(CPU,0,"mfv - invalid register");
+		// rt = 0, imm = 255 appears to be used as a CPU interlock by some games.
+		if (rt != 0) {
+			if (imm < 128) {  //R(rt) = VI(imm);
+				fpr.StoreFromRegisterV(imm);
+				gpr.BindToRegister(rt, false, true);
+				MOV(32, gpr.R(rt), fpr.V(imm));
+			} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc
+				// In case we have a saved prefix.
+				FlushPrefixV();
+				gpr.BindToRegister(rt, false, true);
+				MOV(32, gpr.R(rt), M(&currentMIPS->vfpuCtrl[imm - 128]));
+			} else {
+				//ERROR - maybe need to make this value too an "interlock" value?
+				_dbg_assert_msg_(CPU,0,"mfv - invalid register");
+			}
 		}
 		break;
 
@@ -358,6 +439,15 @@ void Jit::Comp_Mftv(u32 op) {
 		} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc //currentMIPS->vfpuCtrl[imm - 128] = R(rt);
 			gpr.BindToRegister(rt, true, false);
 			MOV(32, M(&currentMIPS->vfpuCtrl[imm - 128]), gpr.R(rt));
+
+			// TODO: Optimization if rt is Imm?
+			if (imm - 128 == VFPU_CTRL_SPREFIX) {
+				js.prefixSFlag = JitState::PREFIX_UNKNOWN;
+			} else if (imm - 128 == VFPU_CTRL_TPREFIX) {
+				js.prefixTFlag = JitState::PREFIX_UNKNOWN;
+			} else if (imm - 128 == VFPU_CTRL_DPREFIX) {
+				js.prefixDFlag = JitState::PREFIX_UNKNOWN;
+			}
 		} else {
 			//ERROR
 			_dbg_assert_msg_(CPU,0,"mtv - invalid register");
@@ -366,8 +456,25 @@ void Jit::Comp_Mftv(u32 op) {
 
 	default:
 		DISABLE;
-		_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
-		break;
+	}
+}
+
+void Jit::Comp_Vmtvc(u32 op) {
+	CONDITIONAL_DISABLE;
+	int vs = _VS;
+	int imm = op & 0xFF;
+	if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
+		fpr.MapRegV(vs, 0);
+		MOVSS(M(&currentMIPS->vfpuCtrl[imm - 128]), fpr.RX(vs));
+		fpr.ReleaseSpillLocks();
+
+		if (imm - 128 == VFPU_CTRL_SPREFIX) {
+			js.prefixSFlag = JitState::PREFIX_UNKNOWN;
+		} else if (imm - 128 == VFPU_CTRL_TPREFIX) {
+			js.prefixTFlag = JitState::PREFIX_UNKNOWN;
+		} else if (imm - 128 == VFPU_CTRL_DPREFIX) {
+			js.prefixDFlag = JitState::PREFIX_UNKNOWN;
+		}
 	}
 }
 

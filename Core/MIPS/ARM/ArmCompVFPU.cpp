@@ -20,6 +20,11 @@
 
 namespace MIPSComp
 {
+	void Jit::Comp_VPFX(u32 op)
+	{
+		DISABLE;
+	}
+
 	void Jit::Comp_SVQ(u32 op)
 	{
 		DISABLE;
@@ -30,12 +35,21 @@ namespace MIPSComp
 		DISABLE;
 	}
 
+	void Jit::Comp_VecDo3(u32 op)
+	{
+		DISABLE;
+	}
+
 	void Jit::Comp_Mftv(u32 op)
 	{
 		DISABLE;
 	}
 
 	void Jit::Comp_SV(u32 op) {
+		DISABLE;
+	}
+
+	void Jit::Comp_Vmtvc(u32 op) {
 		DISABLE;
 	}
 

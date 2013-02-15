@@ -71,10 +71,6 @@
     <addaction name="action_EmulationReset"/>
     <addaction name="separator"/>
     <addaction name="action_EmulationRunLoad"/>
-    <addaction name="separator"/>
-    <addaction name="action_CPUInterpreter"/>
-    <addaction name="action_CPUFastInterpreter"/>
-    <addaction name="action_CPUDynarec"/>
    </widget>
    <widget class="QMenu" name="menuDebu_g">
     <property name="title">
@@ -96,7 +92,7 @@
     </property>
     <widget class="QMenu" name="menu_Log_Levels">
      <property name="title">
-      <string>&amp;Log Levels</string>
+      <string>Lo&amp;g Levels</string>
      </property>
      <widget class="QMenu" name="menuG3D">
       <property name="title">
@@ -130,53 +126,76 @@
      <addaction name="menuG3D"/>
      <addaction name="menuHLE"/>
     </widget>
-    <widget class="QMenu" name="menuZoom">
-     <property name="title">
-      <string>Zoom</string>
-     </property>
-     <addaction name="action_OptionsScreen1x"/>
-     <addaction name="action_OptionsScreen2x"/>
-     <addaction name="action_OptionsScreen3x"/>
-     <addaction name="action_OptionsScreen4x"/>
-    </widget>
     <widget class="QMenu" name="menuLanguage">
      <property name="title">
-      <string>Language</string>
+      <string>&amp;Language</string>
      </property>
     </widget>
-    <widget class="QMenu" name="menuAnisotropic_filtering">
+    <widget class="QMenu" name="menuVideo">
      <property name="title">
-      <string>Anisotropic filtering</string>
+      <string>&amp;Video</string>
      </property>
-     <addaction name="action_AFOff"/>
-     <addaction name="action_AF2x"/>
-     <addaction name="action_AF4x"/>
-     <addaction name="action_AF8x"/>
-     <addaction name="action_AF16x"/>
+     <widget class="QMenu" name="menuAnisotropic_filtering">
+      <property name="title">
+       <string>&amp;Anisotropic filtering</string>
+      </property>
+      <addaction name="action_AFOff"/>
+      <addaction name="action_AF2x"/>
+      <addaction name="action_AF4x"/>
+      <addaction name="action_AF8x"/>
+      <addaction name="action_AF16x"/>
+     </widget>
+     <widget class="QMenu" name="menuZoom">
+      <property name="title">
+       <string>&amp;Zoom</string>
+      </property>
+      <addaction name="action_OptionsScreen1x"/>
+      <addaction name="action_OptionsScreen2x"/>
+      <addaction name="action_OptionsScreen3x"/>
+      <addaction name="action_OptionsScreen4x"/>
+     </widget>
+     <addaction name="menuAnisotropic_filtering"/>
+     <addaction name="action_OptionsBufferedRendering"/>
+     <addaction name="action_OptionsLinearFiltering"/>
+     <addaction name="action_Simple_2xAA"/>
+     <addaction name="separator"/>
+     <addaction name="menuZoom"/>
+     <addaction name="action_Stretch_to_display"/>
+     <addaction name="separator"/>
+     <addaction name="action_OptionsHardwareTransform"/>
+     <addaction name="action_OptionsUseVBO"/>
+     <addaction name="action_OptionsVertexCache"/>
+     <addaction name="action_OptionsWireframe"/>
+     <addaction name="action_OptionsDisplayRawFramebuffer"/>
     </widget>
-    <addaction name="action_OptionsControls"/>
-    <addaction name="action_OptionsGamePadControls"/>
+    <widget class="QMenu" name="menuControls">
+     <property name="title">
+      <string>Co&amp;ntrols</string>
+     </property>
+     <addaction name="action_OptionsControls"/>
+     <addaction name="action_OptionsGamePadControls"/>
+    </widget>
+    <widget class="QMenu" name="menuCore">
+     <property name="title">
+      <string>&amp;Core</string>
+     </property>
+     <addaction name="action_CPUInterpreter"/>
+     <addaction name="action_CPUFastInterpreter"/>
+     <addaction name="action_CPUDynarec"/>
+     <addaction name="separator"/>
+     <addaction name="action_OptionsFastMemory"/>
+     <addaction name="action_OptionsIgnoreIllegalReadsWrites"/>
+    </widget>
+    <addaction name="menuCore"/>
+    <addaction name="menuControls"/>
+    <addaction name="menuVideo"/>
+    <addaction name="action_Sound"/>
     <addaction name="separator"/>
     <addaction name="action_OptionsFullScreen"/>
-    <addaction name="action_OptionsBufferedRendering"/>
-    <addaction name="action_OptionsHardwareTransform"/>
-    <addaction name="action_OptionsLinearFiltering"/>
-    <addaction name="action_Simple_2xAA"/>
-    <addaction name="menuAnisotropic_filtering"/>
-    <addaction name="action_OptionsUseVBO"/>
-    <addaction name="action_OptionsVertexCache"/>
-    <addaction name="separator"/>
-    <addaction name="action_OptionsWireframe"/>
-    <addaction name="action_OptionsDisplayRawFramebuffer"/>
     <addaction name="action_OptionsShowDebugStatistics"/>
     <addaction name="action_Show_FPS_counter"/>
     <addaction name="separator"/>
     <addaction name="menu_Log_Levels"/>
-    <addaction name="separator"/>
-    <addaction name="menuZoom"/>
-    <addaction name="separator"/>
-    <addaction name="action_OptionsFastMemory"/>
-    <addaction name="action_OptionsIgnoreIllegalReadsWrites"/>
     <addaction name="separator"/>
     <addaction name="menuLanguage"/>
    </widget>
@@ -339,12 +358,12 @@
   </action>
   <action name="action_OptionsControls">
    <property name="text">
-    <string>Keyboard &amp;Controls</string>
+    <string>&amp;Keyboard</string>
    </property>
   </action>
   <action name="action_OptionsFullScreen">
    <property name="text">
-    <string>&amp;Toggle Full Screen</string>
+    <string>&amp;Toggle fullscreen</string>
    </property>
    <property name="shortcut">
     <string>F12</string>
@@ -401,7 +420,7 @@
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>&amp;Show Debug Statistics</string>
+    <string>Show &amp;debug statistics</string>
    </property>
   </action>
   <action name="action_OptionsScreen1x">
@@ -461,7 +480,7 @@
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>&amp;Ignore illegal reads/writes</string>
+    <string>I&amp;gnore illegal reads/writes</string>
    </property>
   </action>
   <action name="action_HelpOpenWebsite">
@@ -580,12 +599,12 @@
   </action>
   <action name="action_OptionsGamePadControls">
    <property name="text">
-    <string>GamePad Controls</string>
+    <string>&amp;Gamepad</string>
    </property>
   </action>
   <action name="action_EmulationRunLoad">
    <property name="text">
-    <string>&amp;Run on load</string>
+    <string>Run on loa&amp;d</string>
    </property>
   </action>
   <action name="action_DebugDumpFrame">
@@ -659,7 +678,23 @@
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>Show FPS counter</string>
+    <string>Show &amp;FPS counter</string>
+   </property>
+  </action>
+  <action name="action_Stretch_to_display">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>S&amp;tretch to display</string>
+   </property>
+  </action>
+  <action name="action_Sound">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>&amp;Sound emulation</string>
    </property>
   </action>
  </widget>

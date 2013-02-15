@@ -34,9 +34,9 @@
 // All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
 // Currently known non working ones should have DISABLE.
 
-// #define CONDITIONAL_DISABLE Comp_Generic(op); return;
+// #define CONDITIONAL_DISABLE { Comp_Generic(op); return; }
 #define CONDITIONAL_DISABLE ;
-#define DISABLE Comp_Generic(op); return;
+#define DISABLE { Comp_Generic(op); return; }
 
 namespace MIPSComp
 {
@@ -167,8 +167,6 @@ enum
 
 void Jit::CompFPComp(int lhs, int rhs, u8 compare, bool allowNaN)
 {
-	CONDITIONAL_DISABLE;
-
 	MOVSS(XMM0, fpr.R(lhs));
 	CMPSS(XMM0, fpr.R(rhs), compare);
 	MOVSS(M((void *) &currentMIPS->fpcond), XMM0);
@@ -314,12 +312,15 @@ void Jit::Comp_mxc1(u32 op)
 	switch((op >> 21) & 0x1f) 
 	{
 	case 0: // R(rt) = FI(fs); break; //mfc1
-		// Cross move! slightly tricky
-		fpr.StoreFromRegister(fs);
-		gpr.Lock(rt);
-		gpr.BindToRegister(rt, false, true);
-		MOV(32, gpr.R(rt), fpr.R(fs));
-		gpr.UnlockAll();
+		if (rt != 0)
+		{
+			// Cross move! slightly tricky
+			fpr.StoreFromRegister(fs);
+			gpr.Lock(rt);
+			gpr.BindToRegister(rt, false, true);
+			MOV(32, gpr.R(rt), fpr.R(fs));
+			gpr.UnlockAll();
+		}
 		return;
 
 	case 2: // R(rt) = currentMIPS->ReadFCR(fs); break; //cfc1

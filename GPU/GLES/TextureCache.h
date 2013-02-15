@@ -101,5 +101,6 @@ private:
 	u16 *clutBuf16;
 
 	int lastBoundTexture;
+	float maxAnisotropyLevel;
 };
 

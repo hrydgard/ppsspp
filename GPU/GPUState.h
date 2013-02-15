@@ -238,6 +238,8 @@ struct GPUStateCache
 
 	float uScale,vScale;
 	float uOff,vOff;
+	bool flipTexture;
+
 	float zMin, zMax;
 	float lightpos[4][3];
 	float lightdir[4][3];
