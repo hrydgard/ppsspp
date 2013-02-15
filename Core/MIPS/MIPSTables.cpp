@@ -478,17 +478,17 @@ const MIPSInstruction tableCop1BC[32] =
 
 const MIPSInstruction tableVFPU0[8] = 
 {
-	INSTR("vadd",&Jit::Comp_Generic, Dis_VectorSet3, Int_VecDo3, IS_VFPU),
-	INSTR("vsub",&Jit::Comp_Generic, Dis_VectorSet3, Int_VecDo3, IS_VFPU), 
+	INSTR("vadd",&Jit::Comp_VecDo3, Dis_VectorSet3, Int_VecDo3, IS_VFPU),
+	INSTR("vsub",&Jit::Comp_VecDo3, Dis_VectorSet3, Int_VecDo3, IS_VFPU),
 	INSTR("vsbn",&Jit::Comp_Generic, Dis_VectorSet3, Int_Vsbn, IS_VFPU), 
 	{-2}, {-2}, {-2}, {-2}, 
 	
-	INSTR("vdiv",&Jit::Comp_Generic, Dis_VectorSet3, Int_VecDo3, IS_VFPU),
+	INSTR("vdiv",&Jit::Comp_VecDo3, Dis_VectorSet3, Int_VecDo3, IS_VFPU),
 };
 
 const MIPSInstruction tableVFPU1[8] = 
 {
-	INSTR("vmul",&Jit::Comp_Generic, Dis_VectorSet3, Int_VecDo3, IS_VFPU),
+	INSTR("vmul",&Jit::Comp_VecDo3, Dis_VectorSet3, Int_VecDo3, IS_VFPU),
 	INSTR("vdot",&Jit::Comp_VDot, Dis_VectorDot, Int_VDot, IS_VFPU), 
 	INSTR("vscl",&Jit::Comp_Generic, Dis_VScl, Int_VScl, IS_VFPU),
 	{-2},

@@ -285,7 +285,6 @@ void Jit::Comp_SVQ(u32 op)
 	}
 }
 
-
 void Jit::Comp_VDot(u32 op) {
 	DISABLE;
 
@@ -327,6 +326,78 @@ void Jit::Comp_VDot(u32 op) {
 	// TODO: applyprefixD here somehow (write mask etc..)
 
 	MOVSS(fpr.V(vd), XMM0);
+
+	fpr.ReleaseSpillLocks();
+
+	js.EatPrefix();
+}
+
+void Jit::Comp_VecDo3(u32 op) {
+	DISABLE;
+
+	// WARNING: No prefix support!
+	if (js.MayHavePrefix())
+	{
+		Comp_Generic(op);
+		js.EatPrefix();
+		return;
+	}
+
+	int vd = _VD;
+	int vs = _VS;
+	int vt = _VT;
+	VectorSize sz = GetVecSize(op);
+
+	u8 sregs[4], tregs[4], dregs[4];
+	GetVectorRegs(sregs, sz, vs);
+	GetVectorRegs(tregs, sz, vt);
+	GetVectorRegs(dregs, sz, vd);
+
+	void (XEmitter::*xmmop)(X64Reg, OpArg) = NULL;
+	switch (op >> 26)
+	{
+	case 24: //VFPU0
+		switch ((op >> 23)&7)
+		{
+		case 0: // d[i] = s[i] + t[i]; break; //vadd
+			xmmop = &XEmitter::ADDSS;
+			break;
+		case 1: // d[i] = s[i] - t[i]; break; //vsub
+			xmmop = &XEmitter::SUBSS;
+			break;
+		case 7: // d[i] = s[i] / t[i]; break; //vdiv
+			xmmop = &XEmitter::DIVSS;
+			break;
+		}
+		break;
+	case 25: //VFPU1
+		switch ((op >> 23)&7)
+		{
+		case 0: // d[i] = s[i] * t[i]; break; //vmul
+			xmmop = &XEmitter::MULSS;
+			break;
+		}
+		break;
+	}
+
+	if (xmmop == NULL)
+	{
+		Comp_Generic(op);
+		js.EatPrefix();
+		return;
+	}
+
+	int n = GetNumVectorElements(sz);
+	// We need at least n temporaries...
+	if (n > 2)
+		fpr.Flush();
+
+	for (int i = 0; i < n; ++i)
+		MOVSS((X64Reg) (XMM0 + i), fpr.V(sregs[i]));
+	for (int i = 0; i < n; ++i)
+		(this->*xmmop)((X64Reg) (XMM0 + i), fpr.V(tregs[i]));
+	for (int i = 0; i < n; ++i)
+		MOVSS(fpr.V(dregs[i]), (X64Reg) (XMM0 + i));
 
 	fpr.ReleaseSpillLocks();
 
