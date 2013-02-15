@@ -283,8 +283,13 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		bool doSpecular = (comp != GE_LIGHTCOMP_ONLYDIFFUSE);
 		bool poweredDiffuse = comp == GE_LIGHTCOMP_BOTHWITHPOWDIFFUSE;
 
-		float dot = toLight * norm;
-
+		float distanceToLight = toLight.Length();
+		float dot = 0.0f;
+		if (distanceToLight > 0.0f)
+		{
+			toLight /= distanceToLight;
+			dot = toLight * norm;
+		}
 		// Clamp dot to zero.
 		if (dot < 0.0f) dot = 0.0f;
 
@@ -292,10 +297,9 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 			dot = powf(dot, specCoef_);
 
 		float lightScale = 1.0f;
-		float distance = toLight.Normalize();
 		if (type != GE_LIGHTTYPE_DIRECTIONAL)
 		{
-			lightScale = 1.0f / (gstate_c.lightatt[l][0] + gstate_c.lightatt[l][1]*distance + gstate_c.lightatt[l][2]*distance*distance);
+			lightScale = 1.0f / (gstate_c.lightatt[l][0] + gstate_c.lightatt[l][1]*distanceToLight + gstate_c.lightatt[l][2]*distanceToLight*distanceToLight);
 			if (lightScale > 1.0f) lightScale = 1.0f;
 		}
 
