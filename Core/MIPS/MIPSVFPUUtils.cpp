@@ -32,16 +32,14 @@ void GetVectorRegs(u8 regs[4], VectorSize N, int vectorReg) {
 	int length = 0;
 	int transpose = (vectorReg>>5) & 1;
 
-	switch (N)
-	{
+	switch (N) {
 	case V_Single: transpose = 0; row=(vectorReg>>5)&3; length = 1; break;
 	case V_Pair:   row=(vectorReg>>5)&2; length = 2; break;
 	case V_Triple: row=(vectorReg>>6)&1; length = 3; break;
 	case V_Quad:   row=(vectorReg>>5)&2; length = 4; break;
 	}
 
-	for (int i = 0; i < length; i++)
-	{
+	for (int i = 0; i < length; i++) {
 		int index = mtx * 4;
 		if (transpose)
 			index += ((row+i)&3) + col*32;
@@ -58,8 +56,7 @@ void GetMatrixRegs(u8 regs[16], MatrixSize N, int matrixReg) {
 	int row = 0;
 	int side = 0;
 
-	switch (N)
-	{
+	switch (N) {
 	case M_2x2: row = (matrixReg>>5)&2; side = 2; break;
 	case M_3x3: row = (matrixReg>>6)&1; side = 3; break;
 	case M_4x4: row = (matrixReg>>5)&2; side = 4; break;
@@ -67,10 +64,8 @@ void GetMatrixRegs(u8 regs[16], MatrixSize N, int matrixReg) {
 
 	int transpose = (matrixReg>>5) & 1;
 
-	for (int i = 0; i < side; i++)
-	{
-		for (int j = 0; j < side; j++)
-		{
+	for (int i = 0; i < side; i++) {
+		for (int j = 0; j < side; j++) {
 			int index = mtx * 4;
 			if (transpose)
 				index += ((row+i)&3) + ((col+j)&3)*32;
@@ -81,8 +76,7 @@ void GetMatrixRegs(u8 regs[16], MatrixSize N, int matrixReg) {
 	}
 }
 
-void ReadVector(float *rd, VectorSize size, int reg)
-{
+void ReadVector(float *rd, VectorSize size, int reg) {
   int mtx = (reg >> 2) & 7;
   int col = reg & 3;
   int row = 0;
@@ -97,24 +91,24 @@ void ReadVector(float *rd, VectorSize size, int reg)
   }
 
 	if (transpose) {
+		int base = mtx * 4 + col * 32;
 		for (int i = 0; i < length; i++)
-			rd[i] = V(mtx * 4 + ((row+i)&3) + col*32);
+			rd[i] = V(base + ((row+i)&3));
 	} else {
+		int base = mtx * 4 + col;
 		for (int i = 0; i < length; i++)
-			rd[i] = V(mtx * 4 + col + ((row+i)&3)*32);
+			rd[i] = V(base + ((row+i)&3)*32);
 	}
 }
 
-void WriteVector(const float *rd, VectorSize size, int reg)
-{
+void WriteVector(const float *rd, VectorSize size, int reg) {
   int mtx = (reg>>2)&7;
   int col = reg & 3;
   int row = 0;
   int length = 0;
   int transpose = (reg>>5)&1;
 
-  switch (size)
-  {
+  switch (size) {
   case V_Single: transpose = 0; row=(reg>>5)&3; length = 1; break;
   case V_Pair:   row=(reg>>5)&2; length = 2; break;
   case V_Triple: row=(reg>>6)&1; length = 3; break;
@@ -123,17 +117,17 @@ void WriteVector(const float *rd, VectorSize size, int reg)
 
 	if (currentMIPS->VfpuWriteMask() == 0) {
 		if (transpose) {
+			int base = mtx * 4 + col * 32;
 			for (int i = 0; i < length; i++)
-				V(mtx * 4 + ((row+i)&3) + col*32) = rd[i];
+				V(base + ((row+i)&3)) = rd[i];
 		} else {
+			int base = mtx * 4 + col;
 			for (int i = 0; i < length; i++)
-				V(mtx * 4 + col + ((row+i)&3)*32) = rd[i];
+				V(base + ((row+i)&3)*32) = rd[i];
 		}
 	} else {
-		for (int i = 0; i < length; i++)
-		{
-			if (!currentMIPS->VfpuWriteMask(i))
-			{
+		for (int i = 0; i < length; i++) {
+			if (!currentMIPS->VfpuWriteMask(i)) {
 				int index = mtx * 4;
 				if (transpose)
 					index += ((row+i)&3) + col*32;
@@ -145,16 +139,14 @@ void WriteVector(const float *rd, VectorSize size, int reg)
 	}
 }
 
-void ReadMatrix(float *rd, MatrixSize size, int reg)
-{
+void ReadMatrix(float *rd, MatrixSize size, int reg) {
 	int mtx = (reg >> 2) & 7;
 	int col = reg & 3;
 
 	int row = 0;
 	int side = 0;
 
-	switch (size)
-	{
+	switch (size) {
 	case M_2x2: row = (reg>>5)&2; side = 2; break;
 	case M_3x3: row = (reg>>6)&1; side = 3; break;
 	case M_4x4: row = (reg>>5)&2; side = 4; break;
@@ -162,10 +154,8 @@ void ReadMatrix(float *rd, MatrixSize size, int reg)
 
   int transpose = (reg>>5) & 1;
 
-	for (int i = 0; i < side; i++)
-	{
-		for (int j = 0; j < side; j++)
-		{
+	for (int i = 0; i < side; i++) {
+		for (int j = 0; j < side; j++) {
       int index = mtx * 4;
 			if (transpose)
         index += ((row+i)&3) + ((col+j)&3)*32;
@@ -176,16 +166,14 @@ void ReadMatrix(float *rd, MatrixSize size, int reg)
 	}
 }
 
-void WriteMatrix(const float *rd, MatrixSize size, int reg)
-{
+void WriteMatrix(const float *rd, MatrixSize size, int reg) {
 	int mtx = (reg>>2)&7;
 	int col = reg&3;
 
 	int row = 0;
 	int side = 0;
 
-	switch (size)
-	{
+	switch (size) {
 	case M_2x2: row = (reg>>5)&2; side = 2; break;
 	case M_3x3: row = (reg>>6)&1; side = 3; break;
 	case M_4x4: row = (reg>>5)&2; side = 4; break;
@@ -193,10 +181,8 @@ void WriteMatrix(const float *rd, MatrixSize size, int reg)
 
   int transpose = (reg>>5)&1;
 
-	for (int i=0; i<side; i++)
-	{
-		for (int j=0; j<side; j++)
-		{
+	for (int i=0; i<side; i++) {
+		for (int j=0; j<side; j++) {
 			// Hm, I wonder if this should affect matrices at all.
 			if (!currentMIPS->VfpuWriteMask(i))
 			{
