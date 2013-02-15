@@ -89,23 +89,20 @@ void ReadVector(float *rd, VectorSize size, int reg)
   int length = 0;
   int transpose = (reg>>5) & 1;
 
-  switch (size)
-  {
+  switch (size) {
   case V_Single: transpose = 0; row=(reg>>5)&3; length = 1; break;
   case V_Pair:   row=(reg>>5)&2; length = 2; break;
   case V_Triple: row=(reg>>6)&1; length = 3; break;
   case V_Quad:   row=(reg>>5)&2; length = 4; break;
   }
 
-  for (int i = 0; i < length; i++)
-  {
-    int index = mtx * 4;
-    if (transpose)
-      index += ((row+i)&3) + col*32;
-    else
-      index += col + ((row+i)&3)*32;
-    rd[i] = V(index);
-  }
+	if (transpose) {
+		for (int i = 0; i < length; i++)
+			rd[i] = V(mtx * 4 + ((row+i)&3) + col*32);
+	} else {
+		for (int i = 0; i < length; i++)
+			rd[i] = V(mtx * 4 + col + ((row+i)&3)*32);
+	}
 }
 
 void WriteVector(const float *rd, VectorSize size, int reg)
@@ -124,18 +121,28 @@ void WriteVector(const float *rd, VectorSize size, int reg)
   case V_Quad:   row=(reg>>5)&2; length = 4; break;
   }
 
-  for (int i = 0; i < length; i++)
-  {
-    if (!currentMIPS->vfpuWriteMask[i])
-    {
-      int index = mtx * 4;
-      if (transpose)
-        index += ((row+i)&3) + col*32;
-      else
-        index += col + ((row+i)&3)*32;
-      V(index) = rd[i];
-    }
-  }
+	if (currentMIPS->VfpuWriteMask() == 0) {
+		if (transpose) {
+			for (int i = 0; i < length; i++)
+				V(mtx * 4 + ((row+i)&3) + col*32) = rd[i];
+		} else {
+			for (int i = 0; i < length; i++)
+				V(mtx * 4 + col + ((row+i)&3)*32) = rd[i];
+		}
+	} else {
+		for (int i = 0; i < length; i++)
+		{
+			if (!currentMIPS->VfpuWriteMask(i))
+			{
+				int index = mtx * 4;
+				if (transpose)
+					index += ((row+i)&3) + col*32;
+				else
+					index += col + ((row+i)&3)*32;
+				V(index) = rd[i];
+			}
+		}
+	}
 }
 
 void ReadMatrix(float *rd, MatrixSize size, int reg)
@@ -190,7 +197,8 @@ void WriteMatrix(const float *rd, MatrixSize size, int reg)
 	{
 		for (int j=0; j<side; j++)
 		{
-			if (!currentMIPS->vfpuWriteMask[i])
+			// Hm, I wonder if this should affect matrices at all.
+			if (!currentMIPS->VfpuWriteMask(i))
 			{
         int index = mtx * 4;
 				if (transpose)
