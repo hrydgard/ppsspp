@@ -23,6 +23,7 @@
 #include "../MIPSAnalyst.h"
 #include "Common/ArmEmitter.h"
 #include "Core/MIPS/ARM/ArmRegCache.h"
+#include "Core/MIPS/MIPSVFPUUtils.h"
 
 using namespace ArmGen;
 
@@ -75,6 +76,19 @@ public:
 	void FlushAll();
 
 	ARMReg R(int preg); // Returns a cached register
+	
+	// VFPU registers
+	
+	ARMReg V(int vreg) { return R(vreg + 32); }
+
+	void MapRegV(int vreg, int flags);
+
+	// NOTE: These require you to release spill locks manually!
+	void MapRegsV(int vec, VectorSize vsz, int flags);
+	void MapRegsV(const u8 *v, VectorSize vsz, int flags);
+
+	void SpillLockV(const u8 *v, VectorSize vsz);
+	void SpillLockV(int vec, VectorSize vsz);
 
 	void SetEmitter(ARMXEmitter *emitter) { emit = emitter; }
 
@@ -86,7 +100,7 @@ public:
 		return GetMipsRegOffset(r + 32);
 	}
 
-	private:
+private:
 	MIPSState *mips_;
 	ARMXEmitter *emit;
 	u32 compilerPC_;
@@ -98,4 +112,5 @@ public:
 
 	RegARM ar[NUM_ARMFPUREG];
 	RegMIPS mr[NUM_MIPSFPUREG];
+	RegMIPS *vr;
 };

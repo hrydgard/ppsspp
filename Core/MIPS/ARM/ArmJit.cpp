@@ -67,6 +67,41 @@ void Jit::FlushAll()
 {
 	gpr.FlushAll();
 	fpr.FlushAll();
+	FlushPrefixV();
+}
+
+void Jit::FlushPrefixV()
+{
+	return;
+
+	if ((js.prefixSFlag & ArmJitState::PREFIX_DIRTY) != 0)
+	{
+		MOVI2R(R0, js.prefixS);
+		STR(CTXREG, R0, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_SPREFIX]));
+		js.prefixSFlag = (ArmJitState::PrefixState) (js.prefixSFlag & ~ArmJitState::PREFIX_DIRTY);
+	}
+
+	if ((js.prefixTFlag & ArmJitState::PREFIX_DIRTY) != 0)
+	{
+		MOVI2R(R0, js.prefixT);
+		STR(CTXREG, R0, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_TPREFIX]));
+		js.prefixTFlag = (ArmJitState::PrefixState) (js.prefixTFlag & ~ArmJitState::PREFIX_DIRTY);
+	}
+
+	if ((js.prefixDFlag & ArmJitState::PREFIX_DIRTY) != 0)
+	{
+		MOVI2R(R0, js.prefixD);
+		STR(CTXREG, R0, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_DPREFIX]));
+		//MOV(32, M((void *)&mips_->vfpuCtrl[VFPU_CTRL_DPREFIX]), Imm32(js.prefixD));
+		// TODO:
+		/*
+		_dbg_assert_msg_(JIT, sizeof(bool) <= 4, "Bools shouldn't be that big?");
+		const size_t bool_stride = 4 / sizeof(bool);
+		for (size_t i = 0; i < ARRAY_SIZE(mips_->vfpuWriteMask); i += bool_stride)
+			MOV(32, M((void *)&mips_->vfpuWriteMask[i]), Imm32(*(u32 *)&js.writeMask[i]));
+			*/
+		js.prefixDFlag = (ArmJitState::PrefixState) (js.prefixDFlag & ~ArmJitState::PREFIX_DIRTY);
+	}
 }
 
 void Jit::ClearCache()

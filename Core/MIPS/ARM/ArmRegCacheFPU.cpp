@@ -22,7 +22,7 @@
 using namespace ArmGen;
 
 
-ArmRegCacheFPU::ArmRegCacheFPU(MIPSState *mips) : mips_(mips) {
+ArmRegCacheFPU::ArmRegCacheFPU(MIPSState *mips) : mips_(mips), vr(mr + 32) {
 }
 
 void ArmRegCacheFPU::Init(ARMXEmitter *emitter) {
@@ -136,6 +136,38 @@ void ArmRegCacheFPU::MapDirtyInIn(MIPSReg rd, MIPSReg rs, MIPSReg rt, bool avoid
 	MapReg(rt);
 	MapReg(rs);
 	ReleaseSpillLocks();
+}
+
+void ArmRegCacheFPU::SpillLockV(const u8 *v, VectorSize sz) {
+	for (int i = 0; i < GetNumVectorElements(sz); i++) {
+		vr[v[i]].spillLock = true;
+	}
+}
+
+void ArmRegCacheFPU::SpillLockV(int vec, VectorSize sz) {
+	u8 v[4];
+	GetVectorRegs(v, sz, vec);
+	SpillLockV(v, sz);
+}
+
+void ArmRegCacheFPU::MapRegV(int vreg, int flags) {
+	MapReg(vreg + 32, flags);
+}
+
+void ArmRegCacheFPU::MapRegsV(int vec, VectorSize sz, int flags) {
+	u8 v[4];
+	GetVectorRegs(v, sz, vec);
+	SpillLockV(v, sz);
+	for (int i = 0; i < GetNumVectorElements(sz); i++) {
+		MapRegV(v[i], flags);
+	}
+}
+
+void ArmRegCacheFPU::MapRegsV(const u8 *v, VectorSize sz, int flags) {
+	SpillLockV(v, sz);
+	for (int i = 0; i < GetNumVectorElements(sz); i++) {
+		MapRegV(v[i], flags);
+	}
 }
 
 void ArmRegCacheFPU::FlushArmReg(ARMReg r) {

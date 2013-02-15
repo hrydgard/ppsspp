@@ -23,11 +23,69 @@ namespace MIPSComp
 	void Jit::Comp_VPFX(u32 op)
 	{
 		DISABLE;
+
+		int data = op & 0xFFFFF;
+		int regnum = (op >> 24) & 3;
+		switch (regnum) {
+		case 0:  // S
+			js.prefixS = data;
+			js.prefixSFlag = ArmJitState::PREFIX_KNOWN_DIRTY;
+			break;
+		case 1:  // T
+			js.prefixT = data;
+			js.prefixTFlag = ArmJitState::PREFIX_KNOWN_DIRTY;
+			break;
+		case 2:  // D
+			js.prefixD = data;
+			js.prefixDFlag = ArmJitState::PREFIX_KNOWN_DIRTY;
+			break;
+		}
 	}
 
 	void Jit::Comp_SVQ(u32 op)
 	{
 		DISABLE;
+
+		int imm = (signed short)(op&0xFFFC);
+		int vt = (((op >> 16) & 0x1f)) | ((op&1) << 5);
+		int rs = _RS;
+
+		switch (op >> 26)
+		{
+		case 54: //lv.q
+			{
+				gpr.MapReg(rs);
+				SetR0ToEffectiveAddress(rs, imm);
+				u8 vregs[4];
+				GetVectorRegs(vregs, V_Quad, vt);
+				fpr.MapRegsV(vregs, V_Quad, MAP_DIRTY | MAP_NOINIT);
+				fpr.ReleaseSpillLocks();
+				// Just copy 4 words the easiest way while not wasting registers.
+				for (int i = 0; i < 4; i++)
+					VLDR(fpr.V(vregs[i]), R0, i * 4);
+			}
+			break;
+
+		case 62: //sv.q
+			{
+				gpr.MapReg(rs);
+				SetR0ToEffectiveAddress(rs, imm);
+
+				u8 vregs[4];
+				GetVectorRegs(vregs, V_Quad, vt);
+				// Even if we don't use real SIMD there's still 8 or 16 scalar float registers.
+				fpr.MapRegsV(vregs, V_Quad, 0);
+				fpr.ReleaseSpillLocks();
+				// Just copy 4 words the easiest way while not wasting registers.
+				for (int i = 0; i < 4; i++)
+					VSTR(fpr.V(vregs[i]), R0, i * 4);
+			}
+			break;
+
+		default:
+			DISABLE;
+			break;
+		}
 	}
 
 	void Jit::Comp_VDot(u32 op)

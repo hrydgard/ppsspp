@@ -39,6 +39,14 @@ struct ArmJitOptions
 
 struct ArmJitState
 {
+	enum PrefixState
+	{
+		PREFIX_UNKNOWN = 0x00,
+		PREFIX_KNOWN = 0x01,
+		PREFIX_DIRTY = 0x10,
+		PREFIX_KNOWN_DIRTY = 0x11,
+	};
+
 	u32 compilerPC;
 	u32 blockStart;
 	bool cancel;
@@ -46,6 +54,46 @@ struct ArmJitState
 	int downcountAmount;
 	bool compiling;	// TODO: get rid of this in favor of using analysis results to determine end of block
 	ArmJitBlock *curBlock;
+
+	// VFPU prefix magic
+	u32 prefixS;
+	u32 prefixT;
+	u32 prefixD;
+	bool writeMask[4];
+	PrefixState prefixSFlag;
+	PrefixState prefixTFlag;
+	PrefixState prefixDFlag;
+	void PrefixStart() {
+		prefixSFlag = PREFIX_UNKNOWN;
+		prefixTFlag = PREFIX_UNKNOWN;
+		prefixDFlag = PREFIX_UNKNOWN;
+	}
+	bool MayHavePrefix() const {
+		if (!(prefixSFlag & PREFIX_KNOWN) || !(prefixTFlag & PREFIX_KNOWN) || !(prefixDFlag & PREFIX_KNOWN)) {
+			return true;
+		} else if (prefixS != 0xE4 || prefixT != 0xE4 || prefixD != 0) {
+			return true;
+		} else if (writeMask[0] || writeMask[1] || writeMask[2] || writeMask[3]) {
+			return true;
+		}
+
+		return false;
+	}
+	void EatPrefix() {
+		if ((prefixSFlag & PREFIX_KNOWN) == 0 || prefixS != 0xE4) {
+			prefixSFlag = PREFIX_KNOWN_DIRTY;
+			prefixS = 0xE4;
+		}
+		if ((prefixTFlag & PREFIX_KNOWN) == 0 || prefixT != 0xE4) {
+			prefixTFlag = PREFIX_KNOWN_DIRTY;
+			prefixT = 0xE4;
+		}
+		if ((prefixDFlag & PREFIX_KNOWN) == 0 || prefixD != 0x0 || writeMask[0] || writeMask[1] || writeMask[2] || writeMask[3]) {
+			prefixDFlag = PREFIX_KNOWN_DIRTY;
+			prefixD = 0x0;
+			writeMask[0] = writeMask[1] = writeMask[2] = writeMask[3] = false;
+		}
+	}
 };
 
 
@@ -123,6 +171,7 @@ public:
 private:
 	void GenerateFixedCode();
 	void FlushAll();
+	void FlushPrefixV();
 
 	void WriteDownCount(int offset = 0);
 	void MovFromPC(ARMReg r);
