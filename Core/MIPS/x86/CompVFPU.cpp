@@ -62,19 +62,17 @@ void Jit::Comp_VPFX(u32 op)
 	switch (regnum) {
 	case 0:  // S
 		js.prefixS = data;
-		js.prefixSKnown = true;
+		js.prefixSFlag = JitState::PREFIX_KNOWN_DIRTY;
 		break;
 	case 1:  // T
 		js.prefixT = data;
-		js.prefixTKnown = true;
+		js.prefixTFlag = JitState::PREFIX_KNOWN_DIRTY;
 		break;
 	case 2:  // D
 		js.prefixD = data;
-		js.prefixDKnown = true;
+		js.prefixDFlag = JitState::PREFIX_KNOWN_DIRTY;
 		break;
 	}
-	// TODO: Defer this to end of block
-	MOV(32, M((void *)&mips_->vfpuCtrl[VFPU_CTRL_SPREFIX + regnum]), Imm32(data));
 }
 
 
@@ -114,7 +112,7 @@ void Jit::ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz) {
 }
 
 void Jit::ApplyPrefixD(const u8 *vregs, u32 prefix, VectorSize sz, bool onlyWriteMask) {
-	_assert_(js.prefixDKnown);
+	_assert_(js.prefixDFlag & JitState::PREFIX_KNOWN);
 	if (!prefix) return;
 
 	int n = GetNumVectorElements(sz);
@@ -345,6 +343,8 @@ void Jit::Comp_Mftv(u32 op) {
 				gpr.BindToRegister(rt, false, true);
 				MOV(32, gpr.R(rt), fpr.V(imm));
 			} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc
+				// In case we have a saved prefix.
+				FlushAll();
 				gpr.BindToRegister(rt, false, true);
 				MOV(32, gpr.R(rt), M(&currentMIPS->vfpuCtrl[imm - 128]));
 			} else {
@@ -366,11 +366,11 @@ void Jit::Comp_Mftv(u32 op) {
 
 			// TODO: Optimization if rt is Imm?
 			if (imm - 128 == VFPU_CTRL_SPREFIX) {
-				js.prefixSKnown = false;
+				js.prefixSFlag = JitState::PREFIX_UNKNOWN;
 			} else if (imm - 128 == VFPU_CTRL_TPREFIX) {
-				js.prefixTKnown = false;
+				js.prefixTFlag = JitState::PREFIX_UNKNOWN;
 			} else if (imm - 128 == VFPU_CTRL_DPREFIX) {
-				js.prefixDKnown = false;
+				js.prefixDFlag = JitState::PREFIX_UNKNOWN;
 			}
 		} else {
 			//ERROR
@@ -393,11 +393,11 @@ void Jit::Comp_Vmtvc(u32 op) {
 		fpr.ReleaseSpillLocks();
 
 		if (imm - 128 == VFPU_CTRL_SPREFIX) {
-			js.prefixSKnown = false;
+			js.prefixSFlag = JitState::PREFIX_UNKNOWN;
 		} else if (imm - 128 == VFPU_CTRL_TPREFIX) {
-			js.prefixTKnown = false;
+			js.prefixTFlag = JitState::PREFIX_UNKNOWN;
 		} else if (imm - 128 == VFPU_CTRL_DPREFIX) {
-			js.prefixDKnown = false;
+			js.prefixDFlag = JitState::PREFIX_UNKNOWN;
 		}
 	}
 }
