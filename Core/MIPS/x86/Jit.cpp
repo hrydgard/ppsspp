@@ -109,6 +109,34 @@ void Jit::FlushAll()
 {
 	gpr.Flush();
 	fpr.Flush();
+	FlushPrefixV();
+}
+
+void Jit::FlushPrefixV()
+{
+	if ((js.prefixSFlag & JitState::PREFIX_DIRTY) != 0)
+	{
+		MOV(32, M((void *)&mips_->vfpuCtrl[VFPU_CTRL_SPREFIX]), Imm32(js.prefixS));
+		js.prefixSFlag = (JitState::PrefixState) (js.prefixSFlag & ~JitState::PREFIX_DIRTY);
+	}
+
+	if ((js.prefixTFlag & JitState::PREFIX_DIRTY) != 0)
+	{
+		MOV(32, M((void *)&mips_->vfpuCtrl[VFPU_CTRL_TPREFIX]), Imm32(js.prefixT));
+		js.prefixTFlag = (JitState::PrefixState) (js.prefixTFlag & ~JitState::PREFIX_DIRTY);
+	}
+
+	if ((js.prefixDFlag & JitState::PREFIX_DIRTY) != 0)
+	{
+		MOV(32, M((void *)&mips_->vfpuCtrl[VFPU_CTRL_DPREFIX]), Imm32(js.prefixD));
+
+		_dbg_assert_msg_(JIT, sizeof(bool) <= 4, "Bools shouldn't be that big?");
+		const size_t bool_stride = 4 / sizeof(bool);
+		for (size_t i = 0; i < ARRAY_SIZE(mips_->vfpuWriteMask); i += bool_stride)
+			MOV(32, M((void *)&mips_->vfpuWriteMask[i]), Imm32(*(u32 *)&js.writeMask[i]));
+
+		js.prefixDFlag = (JitState::PrefixState) (js.prefixDFlag & ~JitState::PREFIX_DIRTY);
+	}
 }
 
 void Jit::WriteDowncount(int offset)
@@ -259,6 +287,10 @@ void Jit::Comp_Generic(u32 op)
 	}
 	else
 		_dbg_assert_msg_(JIT, 0, "Trying to compile instruction that can't be interpreted");
+
+	// Might have eaten prefixes, hard to tell...
+	if ((MIPSGetInfo(op) & IS_VFPU) != 0)
+		js.PrefixStart();
 }
 
 void Jit::WriteExit(u32 destination, int exit_num)
