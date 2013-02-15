@@ -283,7 +283,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		bool doSpecular = (comp != GE_LIGHTCOMP_ONLYDIFFUSE);
 		bool poweredDiffuse = comp == GE_LIGHTCOMP_BOTHWITHPOWDIFFUSE;
 
-		float dot = toLight.Normalized() * norm;
+		float dot = toLight * norm;
 
 		// Clamp dot to zero.
 		if (dot < 0.0f) dot = 0.0f;
