@@ -28,9 +28,9 @@
 // All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
 // Currently known non working ones should have DISABLE.
 
-// #define CONDITIONAL_DISABLE Comp_Generic(op); return;
+// #define CONDITIONAL_DISABLE { Comp_Generic(op); return; }
 #define CONDITIONAL_DISABLE ;
-#define DISABLE Comp_Generic(op); return;
+#define DISABLE { Comp_Generic(op); return; }
 
 
 #define _RS ((op>>21) & 0x1F)
@@ -202,8 +202,7 @@ void Jit::Comp_SV(u32 op) {
 		break;
 
 	default:
-		_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
-		break;
+		DISABLE;
 	}
 }
 
@@ -381,8 +380,6 @@ void Jit::Comp_Mftv(u32 op) {
 
 	default:
 		DISABLE;
-		_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
-		break;
 	}
 }
 
