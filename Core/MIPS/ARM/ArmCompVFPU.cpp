@@ -68,6 +68,8 @@ namespace MIPSComp
 
 		case 62: //sv.q
 			{
+				DISABLE;
+
 				gpr.MapReg(rs);
 				SetR0ToEffectiveAddress(rs, imm);
 

@@ -146,9 +146,8 @@ void Jit::BranchRSZeroComp(u32 op, ArmGen::CCFlags cc, bool andLink, bool likely
 	// Take the branch
 	if (andLink)
 	{
-		ADD(R1, R10, MIPS_REG_RA * 4);  // compute address of RA in ram
 		MOVI2R(R0, js.compilerPC + 8);
-		STR(R1, R0);
+		STR(CTXREG, R0, MIPS_REG_RA * 4);
 	}
 
 	WriteExit(targetAddr, 0);
@@ -340,9 +339,8 @@ void Jit::Comp_Jump(u32 op)
     break; 
 
 	case 3: //jal
-		ADD(R1, R10, MIPS_REG_RA * 4);  // compute address of RA in ram
 		MOVI2R(R0, js.compilerPC + 8);
-		STR(R1, R0);
+		STR(CTXREG, R0, MIPS_REG_RA * 4);
 		WriteExit(targetAddr, 0);
 		break;
 
@@ -389,9 +387,8 @@ void Jit::Comp_JumpReg(u32 op)
 	case 8: //jr
 		break;
 	case 9: //jalr
-		ADD(R1, R10, MIPS_REG_RA * 4);  // compute address of RA in ram
 		MOVI2R(R0, js.compilerPC + 8);
-		STR(R1, R0);
+		STR(CTXREG, R0, MIPS_REG_RA * 4);
 		break;
 	default:
 		_dbg_assert_msg_(CPU,0,"Trying to compile instruction that can't be compiled");

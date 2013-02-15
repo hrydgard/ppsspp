@@ -293,8 +293,7 @@ void Jit::WriteExit(u32 destination, int exit_num)
 		b->linkStatus[exit_num] = true;
 	} else {
 		MOVI2R(R0, destination);
-		MovToPC(R0);
-		B((const void *)dispatcher);	
+		B((const void *)dispatcherPCInR0);	
 	}
 }
 

@@ -140,6 +140,9 @@ void Jit::GenerateFixedCode()
 		FixupBranch badCoreState = B_CC(CC_NEQ);
 		FixupBranch skipToRealDispatch2 = B(); //skip the sync and compare first time
 
+		dispatcherPCInR0 = GetCodePtr();
+		MovToPC(R0);
+
 		// At this point : flags = EQ. Fine for the next check, no need to jump over it.
 		dispatcher = GetCodePtr();
 
