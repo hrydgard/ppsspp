@@ -760,7 +760,7 @@ int sceSdSetMember_(pspChnnlsvContext2& ctx, u8* data, int alignedLen)
 	{
 		return 0;
 	}
-	if (alignedLen & 0xF != 0)
+	if ((alignedLen & 0xF) != 0)
 	{
 		return -1025;
 	}

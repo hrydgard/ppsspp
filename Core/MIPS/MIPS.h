@@ -120,7 +120,6 @@ public:
 	float f[32];
 	float v[128];
 	u32 vfpuCtrl[16];
-	bool vfpuWriteMask[4];
 
 	u32 pc;
 	u32 nextPC;
@@ -144,7 +143,13 @@ public:
 
 	void WriteFCR(int reg, int value);
 	u32 ReadFCR(int reg);
-	void SetWriteMask(const bool wm[4]);
+
+	u8 VfpuWriteMask() const {
+		return (vfpuCtrl[VFPU_CTRL_DPREFIX] >> 8) & 0xF;
+	}
+	bool VfpuWriteMask(int i) const {
+		return (vfpuCtrl[VFPU_CTRL_DPREFIX] >> (8 + i)) & 1;
+	}
 
 	void Irq();
 	void SWI();
