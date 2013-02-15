@@ -159,7 +159,6 @@ void ApplyPrefixD(float *v, VectorSize size, bool onlyWriteMask = false)
 			}
 		}
 	}
-  currentMIPS->SetWriteMask(writeMask);
 }
 
 void EatPrefixes()
@@ -167,8 +166,6 @@ void EatPrefixes()
 	currentMIPS->vfpuCtrl[VFPU_CTRL_SPREFIX] = 0xe4;  // passthru
 	currentMIPS->vfpuCtrl[VFPU_CTRL_TPREFIX] = 0xe4;  // passthru
 	currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] = 0;
-  static const bool noWriteMask[4] = {false, false, false, false};
-	currentMIPS->SetWriteMask(noWriteMask);
 }
 
 namespace MIPSInt

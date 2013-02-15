@@ -129,12 +129,6 @@ void Jit::FlushPrefixV()
 	if ((js.prefixDFlag & JitState::PREFIX_DIRTY) != 0)
 	{
 		MOV(32, M((void *)&mips_->vfpuCtrl[VFPU_CTRL_DPREFIX]), Imm32(js.prefixD));
-
-		_dbg_assert_msg_(JIT, sizeof(bool) <= 4, "Bools shouldn't be that big?");
-		const size_t bool_stride = 4 / sizeof(bool);
-		for (size_t i = 0; i < ARRAY_SIZE(mips_->vfpuWriteMask); i += bool_stride)
-			MOV(32, M((void *)&mips_->vfpuWriteMask[i]), Imm32(*(u32 *)&js.writeMask[i]));
-
 		js.prefixDFlag = (JitState::PrefixState) (js.prefixDFlag & ~JitState::PREFIX_DIRTY);
 	}
 }
