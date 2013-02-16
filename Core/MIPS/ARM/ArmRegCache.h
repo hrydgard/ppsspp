@@ -93,7 +93,7 @@ public:
 	void MapDirtyInIn(MIPSReg rd, MIPSReg rs, MIPSReg rt, bool avoidLoad = true);
 	void MapDirtyDirtyInIn(MIPSReg rd1, MIPSReg rd2, MIPSReg rs, MIPSReg rt, bool avoidLoad = true);
 	void FlushArmReg(ARMReg r);
-	void FlushMipsReg(MIPSReg r);
+	void FlushR(MIPSReg r);
 
 	void FlushAll();
 

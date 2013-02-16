@@ -2802,7 +2802,7 @@ std::vector<DebugThreadInfo> GetThreadsInfo()
 		DebugThreadInfo info;
 		info.id = *iter;
 		strncpy(info.name,t->GetName(),KERNELOBJECT_MAX_NAME_LENGTH);
-		info.name[KERNELOBJECT_MAX_NAME_LENGTH+1] = 0;
+		info.name[KERNELOBJECT_MAX_NAME_LENGTH] = 0;
 		info.status = t->nt.status;
 		info.entrypoint = t->nt.entrypoint;
 		info.curPC = t->context.pc;

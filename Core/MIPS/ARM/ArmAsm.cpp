@@ -159,7 +159,7 @@ void Jit::GenerateFixedCode()
 			// MOV(R0, R13);
 			// QuickCallFunction(R1, (void *)&ShowPC);
 
-			LDR(R0, R10, offsetof(MIPSState, pc));
+			LDR(R0, CTXREG, offsetof(MIPSState, pc));
 			BIC(R0, R0, Operand2(0xC0, 4));   // &= 0x3FFFFFFF
 			LDR(R0, R11, R0, true, true);
 			AND(R1, R0, Operand2(0xFC, 4));   // rotation is to the right, in 2-bit increments.

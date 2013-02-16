@@ -28,7 +28,12 @@
 using namespace ArmGen;
 
 enum {
-	TOTAL_MAPPABLE_MIPSFPUREGS = 32 + 128,
+	NUM_TEMPS = 4,
+	TEMP0 = 32 + 128,
+	TEMP1 = TEMP0 + 1,
+	TEMP2 = TEMP0 + 2,
+	TEMP3 = TEMP0 + 3,
+	TOTAL_MAPPABLE_MIPSFPUREGS = 32 + 128 + NUM_TEMPS,
 };
 
 struct FPURegARM {
@@ -59,6 +64,10 @@ public:
 	// it's being kept allocated.
 	void SpillLock(MIPSReg reg, MIPSReg reg2 = -1, MIPSReg reg3 = -1, MIPSReg reg4 = -1);
 	void ReleaseSpillLocks();
+	void ReleaseSpillLock(int mipsreg)
+	{
+		mr[mipsreg].spillLock = false;
+	}
 
 	void SetImm(MIPSReg reg, u32 immVal);
 	bool IsImm(MIPSReg reg) const;
@@ -71,7 +80,10 @@ public:
 	void MapDirtyIn(MIPSReg rd, MIPSReg rs, bool avoidLoad = true);
 	void MapDirtyInIn(MIPSReg rd, MIPSReg rs, MIPSReg rt, bool avoidLoad = true);
 	void FlushArmReg(ARMReg r);
-	void FlushMipsReg(MIPSReg r);
+	void FlushR(MIPSReg r);
+	void FlushV(MIPSReg r) { FlushR(r + 32); }
+	void DiscardR(MIPSReg r);
+	void DiscardV(MIPSReg r) { DiscardR(r + 32);}
 
 	void FlushAll();
 
@@ -81,7 +93,7 @@ public:
 	
 	ARMReg V(int vreg) { return R(vreg + 32); }
 
-	void MapRegV(int vreg, int flags);
+	void MapRegV(int vreg, int flags = 0);
 
 	// NOTE: These require you to release spill locks manually!
 	void MapRegsV(int vec, VectorSize vsz, int flags);

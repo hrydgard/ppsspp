@@ -47,8 +47,19 @@ static const ARMReg *GetMIPSAllocationOrder(int &count) {
 	static const ARMReg allocationOrder[] = {
 		S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15
 	};
-	count = sizeof(allocationOrder) / sizeof(const int);
-	return allocationOrder;
+	// With NEON, we'll have many more.
+	static const ARMReg allocationOrderNEON[] = {
+		S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15,
+		S16, S17, S18, S19, S20, S21, S22, S23, S24, S25, S26, S27, S28, S29, S30, S31
+	};
+	bool useNEON = false;  // TODO: Use cpu detect
+	if (useNEON) {
+		count = sizeof(allocationOrderNEON) / sizeof(const int);
+		return allocationOrderNEON;
+	} else {
+		count = sizeof(allocationOrder) / sizeof(const int);
+		return allocationOrder;
+	}
 }
 
 ARMReg ArmRegCacheFPU::MapReg(MIPSReg mipsReg, int mapFlags) {
@@ -79,7 +90,7 @@ allocate:
 			// That means it's free. Grab it, and load the value into it (if requested).
 			ar[reg].isDirty = (mapFlags & MAP_DIRTY) ? true : false;
 			if (!(mapFlags & MAP_NOINIT)) {
-				if (mr[mipsReg].loc == ML_MEM) {
+				if (mr[mipsReg].loc == ML_MEM && mipsReg < TEMP0) {
 					emit->VLDR((ARMReg)(reg + S0), CTXREG, GetMipsRegOffset(mipsReg));
 				}
 			}
@@ -180,7 +191,6 @@ void ArmRegCacheFPU::FlushArmReg(ARMReg r) {
 		if (ar[reg].isDirty && mr[ar[reg].mipsReg].loc == ML_ARMREG)
 		{
 			//INFO_LOG(HLE, "Flushing ARM reg %i", reg);
-
 			emit->VSTR(r, CTXREG, GetMipsRegOffset(ar[reg].mipsReg));
 		}
 		// IMMs won't be in an ARM reg.
@@ -193,7 +203,7 @@ void ArmRegCacheFPU::FlushArmReg(ARMReg r) {
 	ar[reg].mipsReg = -1;
 }
 
-void ArmRegCacheFPU::FlushMipsReg(MIPSReg r) {
+void ArmRegCacheFPU::FlushR(MIPSReg r) {
 	switch (mr[r].loc) {
 	case ML_IMM:
 		// IMM is always "dirty".
@@ -203,7 +213,7 @@ void ArmRegCacheFPU::FlushMipsReg(MIPSReg r) {
 
 	case ML_ARMREG:
 		if (mr[r].reg == (int)INVALID_REG) {
-			ERROR_LOG(HLE, "FlushMipsReg: MipsReg had bad ArmReg");
+			ERROR_LOG(HLE, "FlushR: MipsReg had bad ArmReg");
 		}
 		if (ar[mr[r].reg].isDirty) {
 			//INFO_LOG(HLE, "Flushing dirty reg %i", mr[r].reg);
@@ -225,9 +235,42 @@ void ArmRegCacheFPU::FlushMipsReg(MIPSReg r) {
 	mr[r].reg = (int)INVALID_REG;
 }
 
+void ArmRegCacheFPU::DiscardR(MIPSReg r) {
+	switch (mr[r].loc) {
+	case ML_IMM:
+		// IMM is always "dirty".
+		// IMM is not allowed for FP (yet).
+		ERROR_LOG(HLE, "Imm in FP register?");
+		break;
+
+	case ML_ARMREG:
+		if (mr[r].reg == (int)INVALID_REG) {
+			ERROR_LOG(HLE, "DiscardR: MipsReg had bad ArmReg");
+		}
+		// Note that we DO NOT write it back here. That's the whole point of Discard.
+		ar[mr[r].reg].isDirty = false;
+		ar[mr[r].reg].mipsReg = -1;
+		break;
+
+	case ML_MEM:
+		// Already there, nothing to do.
+		break;
+
+	default:
+		//BAD
+		break;
+	}
+	mr[r].loc = ML_MEM;
+	mr[r].reg = (int)INVALID_REG;
+}
+
 void ArmRegCacheFPU::FlushAll() {
+	// Discard temps!
+	for (int i = TEMP0; i < TEMP0 + NUM_TEMPS; i++) {
+		DiscardR(i);
+	}
 	for (int i = 0; i < NUM_MIPSFPUREG; i++) {
-		FlushMipsReg(i);
+		FlushR(i);
 	}
 	// Sanity check
 	for (int i = 0; i < NUM_ARMFPUREG; i++) {
@@ -239,7 +282,7 @@ void ArmRegCacheFPU::FlushAll() {
 
 int ArmRegCacheFPU::GetMipsRegOffset(MIPSReg r) {
 	// These are offsets within the MIPSState structure. First there are the GPRS, then FPRS, then the "VFPURs".
-	if (r < 32 + 128)
+	if (r < 32 + 128 + NUM_TEMPS)
 		return (r + 32) << 2;
 	ERROR_LOG(JIT, "bad mips register %i", r);
 	return 0;  // or what?

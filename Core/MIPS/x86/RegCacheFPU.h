@@ -95,6 +95,7 @@ public:
 
 	// Register locking. Prevents them from being spilled.
 	void SpillLock(int p1, int p2=0xff, int p3=0xff, int p4=0xff);
+	void ReleaseSpillLock(int mipsrega);
 	void ReleaseSpillLocks();
 
 	void MapRegV(int vreg, int flags);

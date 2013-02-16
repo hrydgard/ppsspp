@@ -304,7 +304,7 @@ void Jit::Comp_VDot(u32 op) {
 	u8 sregs[4], tregs[4], dregs[4];
 	GetVectorRegs(sregs, sz, vs);
 	GetVectorRegs(tregs, sz, vt);
-	GetVectorRegs(dregs, sz, vd);
+	GetVectorRegs(dregs, V_Single, vd);
 
 	// TODO: applyprefixST here somehow (shuffle, etc...)
 

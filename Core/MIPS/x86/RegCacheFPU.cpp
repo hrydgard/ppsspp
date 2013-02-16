@@ -79,6 +79,11 @@ void FPURegCache::MapRegsV(const u8 *v, VectorSize sz, int flags) {
 	}
 }
 
+void FPURegCache::ReleaseSpillLock(int mipsreg)
+{
+	regs[mipsreg].locked = false;
+}
+
 void FPURegCache::ReleaseSpillLocks() {
 	for (int i = 0; i < NUM_MIPS_FPRS; i++)
 		regs[i].locked = false;

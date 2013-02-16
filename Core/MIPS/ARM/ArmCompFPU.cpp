@@ -222,7 +222,7 @@ void Jit::Comp_mxc1(u32 op)
 	{
 	case 0: // R(rt) = FI(fs); break; //mfc1
 		// Let's just go through RAM for now.
-		fpr.FlushMipsReg(fs);
+		fpr.FlushR(fs);
 		gpr.MapReg(rt, MAP_DIRTY | MAP_NOINIT);
 		LDR(gpr.R(rt), CTXREG, fpr.GetMipsRegOffset(fs));
 		return;
@@ -233,7 +233,7 @@ void Jit::Comp_mxc1(u32 op)
 
 	case 4: //FI(fs) = R(rt);	break; //mtc1
 		// Let's just go through RAM for now.
-		gpr.FlushMipsReg(rt);
+		gpr.FlushR(rt);
 		fpr.MapReg(fs, MAP_DIRTY | MAP_NOINIT);
 		VLDR(fpr.R(fs), CTXREG, gpr.GetMipsRegOffset(rt));
 		return;

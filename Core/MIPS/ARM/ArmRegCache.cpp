@@ -180,12 +180,7 @@ void ArmRegCache::FlushArmReg(ARMReg r) {
 	ar[r].mipsReg = -1;
 }
 
-void ArmRegCache::FlushMipsReg(MIPSReg r) {
-	/*
-	if (r == 0) {
-		ERROR_LOG(JIT, "Flushing r0");
-		return;
-	}*/
+void ArmRegCache::FlushR(MIPSReg r) {
 	switch (mr[r].loc) {
 	case ML_IMM:
 		// IMM is always "dirty".
@@ -219,7 +214,7 @@ void ArmRegCache::FlushMipsReg(MIPSReg r) {
 
 void ArmRegCache::FlushAll() {
 	for (int i = 0; i < NUM_MIPSREG; i++) {
-		FlushMipsReg(i);
+		FlushR(i);
 	}
 	// Sanity check
 	for (int i = 0; i < NUM_ARMREG; i++) {
