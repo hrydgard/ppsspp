@@ -185,7 +185,7 @@ void EmuThread::run()
 				coreParameter.fileToStart = fileToStart.toStdString();
 				coreParameter.enableSound = true;
 				coreParameter.gpuCore = GPU_GLES;
-				coreParameter.cpuCore = (CPUCore)g_Config.iCpuCore;
+				coreParameter.cpuCore = (CPUCore)g_Config.bJit;
 				coreParameter.enableDebugging = true;
 				coreParameter.printfEmuLog = false;
 				coreParameter.headLess = false;
