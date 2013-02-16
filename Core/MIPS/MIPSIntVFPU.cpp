@@ -110,6 +110,11 @@ void ApplyPrefixST(float *v, u32 data, VectorSize size)
 
 		if (!constants)
 		{
+			// Prefix may say "z, z, z, z" but if this is a pair, we force to x.
+			// TODO: But some ops seem to use const 0 instead?
+			if (regnum >= n)
+				regnum = 0;
+
 			v[i] = origV[regnum];
 			if (abs)
 				v[i] = fabs(v[i]);
