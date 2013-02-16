@@ -697,8 +697,8 @@ namespace MainWindow
 //		CHECK(ID_OPTIONS_EMULATESYSCALL,g_bEmulateSyscall);
 		CHECKITEM(ID_OPTIONS_DISPLAYRAWFRAMEBUFFER, g_Config.bDisplayFramebuffer);
 		CHECKITEM(ID_OPTIONS_IGNOREILLEGALREADS,g_Config.bIgnoreBadMemAccess);
-		CHECKITEM(ID_CPU_INTERPRETER,g_Config.bJit == true);
-		CHECKITEM(ID_CPU_DYNAREC,g_Config.bJit == false);
+		CHECKITEM(ID_CPU_INTERPRETER,g_Config.bJit == false);
+		CHECKITEM(ID_CPU_DYNAREC,g_Config.bJit == true);
 		CHECKITEM(ID_OPTIONS_BUFFEREDRENDERING, g_Config.bBufferedRendering);
 		CHECKITEM(ID_OPTIONS_SHOWDEBUGSTATISTICS, g_Config.bShowDebugStats);
 		CHECKITEM(ID_OPTIONS_WIREFRAME, g_Config.bDrawWireframe);
