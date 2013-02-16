@@ -109,15 +109,11 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 				gfxLog = true;
 				break;
 			case 'j':
-				g_Config.iCpuCore = CPU_JIT;
-				g_Config.bSaveSettings = false;
-				break;
-			case 'f':
-				g_Config.iCpuCore = CPU_FASTINTERPRETER;
+				g_Config.bJit = true;
 				g_Config.bSaveSettings = false;
 				break;
 			case 'i':
-				g_Config.iCpuCore = CPU_INTERPRETER;
+				g_Config.bJit = false;
 				g_Config.bSaveSettings = false;
 				break;
 			case 'l':
@@ -231,9 +227,8 @@ void MainWindow::UpdateMenus()
 {
 	ui->action_OptionsDisplayRawFramebuffer->setChecked(g_Config.bDisplayFramebuffer);
 	ui->action_OptionsIgnoreIllegalReadsWrites->setChecked(g_Config.bIgnoreBadMemAccess);
-	ui->action_CPUInterpreter->setChecked(g_Config.iCpuCore == CPU_INTERPRETER);
-	ui->action_CPUFastInterpreter->setChecked(g_Config.iCpuCore == CPU_FASTINTERPRETER);
-	ui->action_CPUDynarec->setChecked(g_Config.iCpuCore == CPU_JIT);
+	ui->action_CPUInterpreter->setChecked(!g_Config.bJit);
+	ui->action_CPUDynarec->setChecked(g_Config.bJit);
 	ui->action_OptionsBufferedRendering->setChecked(g_Config.bBufferedRendering);
 	ui->action_OptionsShowDebugStatistics->setChecked(g_Config.bShowDebugStats);
 	ui->action_OptionsWireframe->setChecked(g_Config.bDrawWireframe);
@@ -518,19 +513,13 @@ void MainWindow::on_action_FileExit_triggered()
 
 void MainWindow::on_action_CPUDynarec_triggered()
 {
-	g_Config.iCpuCore = CPU_JIT;
+	g_Config.bJit = true;
 	UpdateMenus();
 }
 
 void MainWindow::on_action_CPUInterpreter_triggered()
 {
-	g_Config.iCpuCore = CPU_INTERPRETER;
-	UpdateMenus();
-}
-
-void MainWindow::on_action_CPUFastInterpreter_triggered()
-{
-	g_Config.iCpuCore = CPU_FASTINTERPRETER;
+	g_Config.bJit = false;
 	UpdateMenus();
 }
 

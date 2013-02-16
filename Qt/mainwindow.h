@@ -81,8 +81,6 @@ private slots:
 
 	void on_action_CPUInterpreter_triggered();
 
-	void on_action_CPUFastInterpreter_triggered();
-
 	void on_action_DebugLoadMapFile_triggered();
 
 	void on_action_DebugSaveMapFile_triggered();
