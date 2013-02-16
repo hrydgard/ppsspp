@@ -143,11 +143,7 @@ int MIPSState::RunLoopUntil(u64 globalTicks)
 		MIPSComp::jit->RunLoopUntil(globalTicks);
 		break;
 
-	case CPU_FASTINTERPRETER:  // For jit-less platforms. Crashier than INTERPRETER.
-		return MIPSInterpret_RunFastUntil(globalTicks);
-
 	case CPU_INTERPRETER:
-		// INFO_LOG(CPU, "Entering run loop for %i ticks, pc=%08x", (int)globalTicks, mipsr4k.pc);
 		return MIPSInterpret_RunUntil(globalTicks);
 	}
 	return 1;

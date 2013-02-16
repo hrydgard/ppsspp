@@ -48,7 +48,7 @@ public:
 	// Core
 	bool bIgnoreBadMemAccess;
 	bool bFastMemory;
-	int iCpuCore;
+	bool bJit;
 
 	// GFX
 	bool bDisplayFramebuffer;

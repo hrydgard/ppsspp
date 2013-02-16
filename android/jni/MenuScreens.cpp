@@ -314,11 +314,9 @@ void SettingsScreen::render() {
 	UICheckBox(GEN_ID, x, y += stride, "Draw using Stream VBO", ALIGN_TOPLEFT, &g_Config.bUseVBO);
 	UICheckBox(GEN_ID, x, y += stride, "Vertex Cache", ALIGN_TOPLEFT, &g_Config.bVertexCache);
 
-	bool useJit = g_Config.iCpuCore == CPU_JIT;
-	UICheckBox(GEN_ID, x, y += stride, "JIT (Dynarec)", ALIGN_TOPLEFT, &useJit);
-	if (g_Config.iCpuCore == CPU_JIT)
-		UICheckBox(GEN_ID, x + 450, y, "Fastmem (may crash)", ALIGN_TOPLEFT, &g_Config.bFastMemory);
-	g_Config.iCpuCore = useJit ? CPU_JIT : CPU_INTERPRETER;
+	UICheckBox(GEN_ID, x, y += stride, "JIT (Dynarec)", ALIGN_TOPLEFT, &g_Config.bJit);
+	if (g_Config.bJit)
+		UICheckBox(GEN_ID, x + 450, y, "Fastmem (may be unstable)", ALIGN_TOPLEFT, &g_Config.bFastMemory);
 	// ui_draw2d.DrawText(UBUNTU48, "much faster JIT coming later", x, y+=50, 0xcFFFFFFF, ALIGN_LEFT);
 	UICheckBox(GEN_ID, x, y += stride, "On-screen Touch Controls", ALIGN_TOPLEFT, &g_Config.bShowTouchControls);
 	if (g_Config.bShowTouchControls) {

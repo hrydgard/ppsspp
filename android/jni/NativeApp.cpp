@@ -201,15 +201,11 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 				gfxLog = true;
 				break;
 			case 'j':
-				g_Config.iCpuCore = CPU_JIT;
-				g_Config.bSaveSettings = false;
-				break;
-			case 'f':
-				g_Config.iCpuCore = CPU_FASTINTERPRETER;
+				g_Config.bJit = true;
 				g_Config.bSaveSettings = false;
 				break;
 			case 'i':
-				g_Config.iCpuCore = CPU_INTERPRETER;
+				g_Config.bJit = false;
 				g_Config.bSaveSettings = false;
 				break;
 			case '-':

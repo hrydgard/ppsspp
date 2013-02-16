@@ -83,7 +83,7 @@ inline void ReadFromHardware(T &var, const u32 address)
 	}
 	else
 	{
-		if (g_Config.iCpuCore == CPU_JIT) {
+		if (g_Config.bJit) {
 			WARN_LOG(MEMMAP, "ReadFromHardware: Invalid address %08x", address);
 		} else {
 			WARN_LOG(MEMMAP, "ReadFromHardware: Invalid address %08x PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
@@ -115,7 +115,7 @@ inline void WriteToHardware(u32 address, const T data)
 	}
 	else
 	{
-		if (g_Config.iCpuCore == CPU_JIT) {
+		if (g_Config.bJit) {
 			WARN_LOG(MEMMAP, "WriteToHardware: Invalid address %08x", address);
 		} else {
 			WARN_LOG(MEMMAP, "WriteToHardware: Invalid address %08x	PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);

@@ -47,7 +47,7 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true)
 	INFO_LOG(BOOT, "Starting up hardware.");
 
 	CoreParameter coreParam;
-	coreParam.cpuCore = (CPUCore)g_Config.iCpuCore;
+	coreParam.cpuCore = g_Config.bJit ? CPU_JIT : CPU_INTERPRETER;
 	coreParam.gpuCore = GPU_GLES;
 	coreParam.enableSound = g_Config.bEnableSound;
 	coreParam.fileToStart = fileToStart;
