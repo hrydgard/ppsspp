@@ -144,6 +144,24 @@ void Jit::ApplyPrefixD(const u8 *vregs, u32 prefix, VectorSize sz, bool onlyWrit
 	}
 }
 
+// Vector regs can overlap in all sorts of swizzled ways.
+bool DestRegOverlaps(int dreg, int sn, u8 sregs[], int tn, u8 tregs[])
+{
+	for (int i = 0; i < sn; ++i)
+	{
+		if (sregs[i] == dreg)
+			return true;
+	}
+	for (int i = 0; i < tn; ++i)
+	{
+		if (tregs[i] == dreg)
+			return true;
+	}
+
+	// Hurray, no overlap, we can write directly.
+	return false;
+}
+
 static u32 GC_ALIGNED16(ssLoadStoreTemp[1]);
 
 void Jit::Comp_SV(u32 op) {
@@ -394,16 +412,39 @@ void Jit::Comp_VecDo3(u32 op) {
 	}
 
 	int n = GetNumVectorElements(sz);
-	// We need at least n temporaries...
-	if (n > 2)
-		fpr.Flush();
+
+	X64Reg tempxregs[4];
+	for (int i = 0; i < n; ++i)
+	{
+		if (DestRegOverlaps(dregs[i], n, sregs, n, tregs))
+		{
+			// On 32-bit we only have 6 xregs for mips regs, use XMM0/XMM1 if possible.
+			if (i < 2)
+				tempxregs[i] = (X64Reg) (XMM0 + i);
+			else
+			{
+				fpr.BindToRegister(TEMP0 + i, false, true);
+				fpr.SpillLock(TEMP0 + i);
+				tempxregs[i] = fpr.RX(TEMP0 + i);
+			}
+		}
+		else
+		{
+			fpr.MapRegV(dregs[i], MAP_NOINIT | MAP_DIRTY);
+			fpr.SpillLockV(dregs[i]);
+			tempxregs[i] = fpr.VX(dregs[i]);
+		}
+	}
 
 	for (int i = 0; i < n; ++i)
-		MOVSS((X64Reg) (XMM0 + i), fpr.V(sregs[i]));
+		MOVSS(tempxregs[i], fpr.V(sregs[i]));
 	for (int i = 0; i < n; ++i)
-		(this->*xmmop)((X64Reg) (XMM0 + i), fpr.V(tregs[i]));
+		(this->*xmmop)(tempxregs[i], fpr.V(tregs[i]));
 	for (int i = 0; i < n; ++i)
-		MOVSS(fpr.V(dregs[i]), (X64Reg) (XMM0 + i));
+	{
+		if (!fpr.R(dregs[i]).IsSimpleReg(tempxregs[i]))
+			MOVSS(fpr.V(dregs[i]), tempxregs[i]);
+	}
 
 	fpr.ReleaseSpillLocks();
 

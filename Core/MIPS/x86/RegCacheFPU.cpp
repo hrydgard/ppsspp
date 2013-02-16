@@ -97,7 +97,9 @@ void FPURegCache::BindToRegister(const int i, bool doLoad, bool makeDirty) {
 			if (!regs[i].location.IsImm() && (regs[i].location.offset & 0x3)) {
 				PanicAlert("WARNING - misaligned fp register location %i", i);
 			}
-			emit->MOVSS(xr, regs[i].location);
+			if (i < TEMP0) {
+				emit->MOVSS(xr, regs[i].location);
+			}
 		}
 		regs[i].location = newloc;
 		regs[i].away = true;
@@ -124,8 +126,24 @@ void FPURegCache::StoreFromRegister(int i) {
 	}
 }
 
+void FPURegCache::DiscardR(int i)
+{
+	_assert_msg_(DYNA_REC, !regs[i].location.IsImm(), "FPU can't handle imm yet.");
+	if (regs[i].away) {
+		X64Reg xr = regs[i].location.GetSimpleReg();
+		_assert_msg_(DYNA_REC, xr < NUM_X_FPREGS, "DiscardR: MipsReg had bad X64Reg");
+		// Note that we DO NOT write it back here. That's the whole point of Discard.
+		xregs[xr].dirty = false;
+		xregs[xr].mipsReg = -1;
+		regs[i].location = GetDefaultLocation(i);
+		regs[i].away = false;
+	} else {
+		//	_assert_msg_(DYNA_REC,0,"already stored");
+	}
+}
+
 void FPURegCache::Flush() {
-	for (int i = 0; i < NUM_MIPS_FPRS; i++) {
+	for (int i = 0; i < TEMP0; i++) {
 		if (regs[i].locked) {
 			PanicAlert("Somebody forgot to unlock MIPS reg %i.", i);
 		}
@@ -140,6 +158,9 @@ void FPURegCache::Flush() {
 				_assert_msg_(DYNA_REC,0,"Jit64 - Flush unhandled case, reg %i PC: %08x", i, mips->pc);
 			}
 		}
+	}
+	for (int i = TEMP0; i < TEMP0 + NUM_TEMPS; ++i) {
+		DiscardR(i);
 	}
 }
 
@@ -189,6 +210,15 @@ X64Reg FPURegCache::GetFreeXReg() {
 	}
 	//Okay, not found :( Force grab one
 
+	// Maybe a temp reg?
+	for (int i = TEMP0; i < NUM_MIPS_FPRS; ++i) {
+		if (regs[i].away && !regs[i].locked) {
+			X64Reg xr = regs[i].location.GetSimpleReg();
+			DiscardR(i);
+			return xr;
+		}
+	}
+
 	//TODO - add a pass to grab xregs whose mipsreg is not used in the next 3 instructions
 	for (int i = 0; i < aCount; i++) {
 		X64Reg xr = (X64Reg)aOrder[i];
@@ -203,7 +233,7 @@ X64Reg FPURegCache::GetFreeXReg() {
 	return (X64Reg) -1;
 }
 
-void FPURegCache::FlushR(X64Reg reg) {
+void FPURegCache::FlushX(X64Reg reg) {
 	if (reg >= NUM_X_FPREGS)
 		PanicAlert("Flushing non existent reg");
 	if (xregs[reg].mipsReg != -1) {
