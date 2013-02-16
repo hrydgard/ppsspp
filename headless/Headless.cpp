@@ -156,7 +156,7 @@ int main(int argc, const char* argv[])
 	coreParameter.fileToStart = bootFilename;
 	coreParameter.mountIso = mountIso ? mountIso : "";
 	coreParameter.startPaused = false;
-	coreParameter.cpuCore = fastInterpreter ? CPU_FASTINTERPRETER : (useJit ? CPU_JIT : CPU_INTERPRETER);
+	coreParameter.cpuCore = g_Config.bJit ? CPU_JIT : CPU_INTERPRETER;
 	coreParameter.gpuCore = headlessHost->isGLWorking() ? GPU_GLES : GPU_NULL;
 	coreParameter.enableSound = false;
 	coreParameter.headLess = true;
