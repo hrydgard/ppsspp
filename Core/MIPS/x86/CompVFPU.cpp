@@ -87,6 +87,7 @@ void Jit::ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz) {
 
 	for (int i = 0; i < n; i++)
 	{
+		// TODO: This needs to be the original values, not the original regs. (e.g. [-x, |x|, x])
 		origV[i] = vregs[i];
 	}
 
@@ -98,6 +99,11 @@ void Jit::ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz) {
 		int constants = (prefix >> (12+i)) & 1;
 
 		if (!constants) {
+			// Prefix may say "z, z, z, z" but if this is a pair, we force to x.
+			// TODO: But some ops seem to use const 0 instead?
+			if (regnum > n) {
+				regnum = 0;
+			}
 			vregs[i] = origV[regnum];
 			if (abs) {
 				ANDPS(fpr.VX(vregs[i]), M((void *)&noSignMask));
