@@ -697,22 +697,12 @@ void MainWindow::keyPressEvent(QKeyEvent *e)
 		return;
 	}
 
-	for (int b = 0; b < controllistCount; b++) {
-		if (e->key() == controllist[b].key)
-		{
-			input_state.pad_buttons |= (controllist[b].emu_id);
-		}
-	}
+	pressedKeys.insert(e->key());
 }
 
 void MainWindow::keyReleaseEvent(QKeyEvent *e)
 {
-	for (int b = 0; b < controllistCount; b++) {
-		if (e->key() == controllist[b].key)
-		{
-			input_state.pad_buttons &= ~(controllist[b].emu_id);
-		}
-	}
+	pressedKeys.remove(e->key());
 }
 
 void MainWindow::on_MainWindow_destroyed()
@@ -928,7 +918,17 @@ void MainWindow::ShowMemory(u32 addr)
 
 void MainWindow::Update()
 {
+	UpdateInputState(&input_state);
 
+	for (int i = 0; i < controllistCount; i++)
+	{
+		if (pressedKeys.contains(controllist[i].key) ||
+				input_state.pad_buttons_down & controllist[i].emu_id)
+			__CtrlButtonDown(controllist[i].psp_id);
+		else
+			__CtrlButtonUp(controllist[i].psp_id);
+	}
+	__CtrlSetAnalog(input_state.pad_lstick_x, input_state.pad_lstick_y);
 }
 
 void MainWindow::on_action_EmulationReset_triggered()
