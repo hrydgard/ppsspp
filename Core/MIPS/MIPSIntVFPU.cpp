@@ -150,7 +150,8 @@ void ApplyPrefixD(float *v, VectorSize size, bool onlyWriteMask = false)
 			if (sat == 1)
 			{
 				if (v[i] > 1.0f) v[i] = 1.0f;
-				if (v[i] < 0.0f) v[i] = 0.0f;
+				// This includes -0.0f -> +0.0f.
+				if (v[i] <= 0.0f) v[i] = 0.0f;
 			}
 			else if (sat == 3)
 			{
