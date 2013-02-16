@@ -1183,6 +1183,7 @@ namespace MIPSInt
 		ReadVector(s, sz, vs);
 		ApplySwizzleS(s, sz);
 		float scale = V(vt);
+		ApplySwizzleT(&scale, V_Single);
 		int n = GetNumVectorElements(sz);
 		for (int i = 0; i < n; i++)
 		{
