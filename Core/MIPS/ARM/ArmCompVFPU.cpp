@@ -35,6 +35,11 @@ namespace MIPSComp
 		DISABLE;
 	}
 
+	void Jit::Comp_VecDo3(u32 op)
+	{
+		DISABLE;
+	}
+
 	void Jit::Comp_Mftv(u32 op)
 	{
 		DISABLE;

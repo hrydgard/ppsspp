@@ -68,7 +68,7 @@ DWORD TheThread(LPVOID x)
 	coreParameter.fileToStart = fileToStart;
 	coreParameter.enableSound = true;
 	coreParameter.gpuCore = GPU_GLES;
-	coreParameter.cpuCore = (CPUCore)g_Config.iCpuCore;
+	coreParameter.cpuCore = g_Config.bJit ? CPU_JIT : CPU_INTERPRETER;
 	coreParameter.enableDebugging = true;
 	coreParameter.printfEmuLog = false;
 	coreParameter.headLess = false;

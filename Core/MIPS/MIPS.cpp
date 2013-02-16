@@ -79,9 +79,6 @@ void MIPSState::Reset()
 	vfpuCtrl[VFPU_CTRL_RCX6] = 0x3f800000;
 	vfpuCtrl[VFPU_CTRL_RCX7] = 0x3f800000;
 
-	bool b[4] = {false, false, false, false};
-	SetWriteMask(b);
-
 	pc = 0;
 	hi = 0;
 	lo = 0;
@@ -115,7 +112,6 @@ void MIPSState::DoState(PointerWrap &p)
 	p.DoArray(f, sizeof(f) / sizeof(f[0]));
 	p.DoArray(v, sizeof(v) / sizeof(v[0]));
 	p.DoArray(vfpuCtrl, sizeof(vfpuCtrl) / sizeof(vfpuCtrl[0]));
-	p.DoArray(vfpuWriteMask, sizeof(vfpuWriteMask) / sizeof(vfpuWriteMask[0]));
 	p.Do(pc);
 	p.Do(nextPC);
 	p.Do(downcount);
@@ -129,12 +125,6 @@ void MIPSState::DoState(PointerWrap &p)
 	p.Do(llBit);
 	p.Do(debugCount);
 	p.DoMarker("MIPSState");
-}
-
-void MIPSState::SetWriteMask(const bool wm[4])
-{
-	for (int i = 0; i < 4; i++)
-		vfpuWriteMask[i] = wm[i];
 }
 
 void MIPSState::SingleStep()
@@ -153,11 +143,7 @@ int MIPSState::RunLoopUntil(u64 globalTicks)
 		MIPSComp::jit->RunLoopUntil(globalTicks);
 		break;
 
-	case CPU_FASTINTERPRETER:  // For jit-less platforms. Crashier than INTERPRETER.
-		return MIPSInterpret_RunFastUntil(globalTicks);
-
 	case CPU_INTERPRETER:
-		// INFO_LOG(CPU, "Entering run loop for %i ticks, pc=%08x", (int)globalTicks, mipsr4k.pc);
 		return MIPSInterpret_RunUntil(globalTicks);
 	}
 	return 1;

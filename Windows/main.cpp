@@ -76,15 +76,11 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 			switch (__argv[i][1])
 			{
 			case 'j':
-				g_Config.iCpuCore = CPU_JIT;
+				g_Config.bJit = true;
 				g_Config.bSaveSettings = false;
 				break;
 			case 'i':
-				g_Config.iCpuCore = CPU_INTERPRETER;
-				g_Config.bSaveSettings = false;
-				break;
-			case 'f':
-				g_Config.iCpuCore = CPU_FASTINTERPRETER;
+				g_Config.bJit = false;
 				g_Config.bSaveSettings = false;
 				break;
 			case 'l':
@@ -163,8 +159,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 		EmuThread_Start(fileToStart);
 	}
-	else
-		MainWindow::BrowseAndBoot();
+	// else
+	//	MainWindow::BrowseAndBoot();
 
 	if (fileToStart != NULL && stateToLoad != NULL)
 		SaveState::Load(stateToLoad);

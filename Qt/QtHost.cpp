@@ -48,7 +48,6 @@ void QtHost::SetWindowTitle(const char *message)
 
 void QtHost::UpdateUI()
 {
-	mainWindow->Update();
 	mainWindow->UpdateMenus();
 }
 
@@ -77,7 +76,9 @@ void QtHost::SetDebugMode(bool mode)
 
 void QtHost::BeginFrame()
 {
+	mainWindow->Update();
 }
+
 void QtHost::EndFrame()
 {
 }

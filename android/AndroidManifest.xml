@@ -2,7 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="org.ppsspp.ppsspp"
     android:versionCode="61"
-    android:versionName="0.61" >
+    android:versionName="0.61"
+    android:installLocation="auto" >
 
     <uses-sdk android:minSdkVersion="8" android:targetSdkVersion="8"/>
     

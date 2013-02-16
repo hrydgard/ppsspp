@@ -192,6 +192,8 @@ private:
 	Debugger_Memory *memoryWindow;
 	Controls* controls;
 	GamePadDialog* gamePadDlg;
+
+	QSet<int> pressedKeys;
 };
 
 #endif // MAINWINDOW_H

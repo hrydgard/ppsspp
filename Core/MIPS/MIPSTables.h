@@ -57,7 +57,6 @@ void MIPSCompileOp(u32 op);
 void MIPSDisAsm(u32 op, u32 pc, char *out, bool tabsToSpaces = false);
 u32  MIPSGetInfo(u32 op);
 void MIPSInterpret(u32 op); //only for those rare ones
-int MIPSInterpret_RunFastUntil(u64 globalTicks);
 int MIPSInterpret_RunUntil(u64 globalTicks);
 MIPSInterpretFunc MIPSGetInterpretFunc(u32 op);
 

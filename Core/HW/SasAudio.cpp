@@ -551,6 +551,7 @@ ADSREnvelope::ADSREnvelope()
 	: steps_(0),
 		state_(STATE_OFF),
 		height_(0) {
+	memset(this, 0, sizeof(*this));
 }
 
 void ADSREnvelope::WalkCurve(int rate, int type) {

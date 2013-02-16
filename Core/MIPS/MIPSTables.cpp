@@ -363,11 +363,11 @@ const MIPSInstruction tableCop2[32] =
 	INSTR("mfc2", &Jit::Comp_Generic, Dis_Generic, 0, OUT_RT),
 	{-2},
 	INSTR("cfc2", &Jit::Comp_Generic, Dis_Generic, 0, 0),
-	INSTR("mfv", &Jit::Comp_Mftv, Dis_Mftv, Int_Mftv, 0),
+	INSTR("mfv", &Jit::Comp_Mftv, Dis_Mftv, Int_Mftv, IS_VFPU),
 	INSTR("mtc2", &Jit::Comp_Generic, Dis_Generic, 0, IN_RT),
 	{-2},
 	INSTR("ctc2", &Jit::Comp_Generic, Dis_Generic, 0, 0),
-	INSTR("mtv", &Jit::Comp_Mftv, Dis_Mftv, Int_Mftv, 0),
+	INSTR("mtv", &Jit::Comp_Mftv, Dis_Mftv, Int_Mftv, IS_VFPU),
 
 	{Cop2BC2},
 	INSTR("??", &Jit::Comp_Generic, Dis_Generic, 0, 0),
@@ -478,17 +478,17 @@ const MIPSInstruction tableCop1BC[32] =
 
 const MIPSInstruction tableVFPU0[8] = 
 {
-	INSTR("vadd",&Jit::Comp_Generic, Dis_VectorSet3, Int_VecDo3, IS_VFPU),
-	INSTR("vsub",&Jit::Comp_Generic, Dis_VectorSet3, Int_VecDo3, IS_VFPU), 
+	INSTR("vadd",&Jit::Comp_VecDo3, Dis_VectorSet3, Int_VecDo3, IS_VFPU),
+	INSTR("vsub",&Jit::Comp_VecDo3, Dis_VectorSet3, Int_VecDo3, IS_VFPU),
 	INSTR("vsbn",&Jit::Comp_Generic, Dis_VectorSet3, Int_Vsbn, IS_VFPU), 
 	{-2}, {-2}, {-2}, {-2}, 
 	
-	INSTR("vdiv",&Jit::Comp_Generic, Dis_VectorSet3, Int_VecDo3, IS_VFPU),
+	INSTR("vdiv",&Jit::Comp_VecDo3, Dis_VectorSet3, Int_VecDo3, IS_VFPU),
 };
 
 const MIPSInstruction tableVFPU1[8] = 
 {
-	INSTR("vmul",&Jit::Comp_Generic, Dis_VectorSet3, Int_VecDo3, IS_VFPU),
+	INSTR("vmul",&Jit::Comp_VecDo3, Dis_VectorSet3, Int_VecDo3, IS_VFPU),
 	INSTR("vdot",&Jit::Comp_VDot, Dis_VectorDot, Int_VDot, IS_VFPU), 
 	INSTR("vscl",&Jit::Comp_Generic, Dis_VScl, Int_VScl, IS_VFPU),
 	{-2},
@@ -1015,124 +1015,6 @@ static inline void DelayBranchTo(MIPSState *curMips, u32 where)
 	curMips->nextPC = where;
 	curMips->inDelaySlot = true;
 }
-
-// Optimized interpreter loop that shortcuts the most common instructions.
-// For slow platforms without JITs.
-#define SIMM16 (s32)(s16)(op & 0xFFFF)
-#define UIMM16 (u32)(u16)(op & 0xFFFF)
-#define SUIMM16 (u32)(s32)(s16)(op & 0xFFFF)
-int MIPSInterpret_RunFastUntil(u64 globalTicks)
-{
-	MIPSState *curMips = currentMIPS;
-	while (coreState == CORE_RUNNING) 
-	{
-		CoreTiming::Advance();
-
-		while (curMips->downcount >= 0 && coreState == CORE_RUNNING)   // TODO: Try to get rid of the latter check
-		{
-			again:
-			bool wasInDelaySlot = curMips->inDelaySlot;
-			u32 op = Memory::ReadUnchecked_U32(curMips->pc);
-			switch (op >> 29)
-			{
-			case 0x0:
-				{
-					int imm = (s16)(op&0xFFFF) << 2;
-					int rs = _RS;
-					int rt = _RT;
-					u32 addr = curMips->pc + imm + 4;
-					switch (op >> 26) 
-					{
-					case 4:	if (R(rt) == R(rs))	DelayBranchTo(curMips, addr); else curMips->pc += 4; break; //beq
-					case 5:	if (R(rt) != R(rs))	DelayBranchTo(curMips, addr); else curMips->pc += 4; break; //bne
-					case 6:	if ((s32)R(rs) <= 0) DelayBranchTo(curMips, addr); else curMips->pc += 4; break; //blez
-					case 7:	 if ((s32)R(rs) >	0) DelayBranchTo(curMips, addr); else curMips->pc += 4; break; //bgtz
-					default:
-						goto interpret;
-					}
-				}
-				break;
-
-			case 0x1:
-				{
-					int rt = _RT;
-					int rs = _RS;
-					switch (op >> 26) 
-					{
-					case 8:  R(rt) = R(rs) + SIMM16; break;      //addi
-					case 9:  R(rt) = R(rs) + SIMM16; break;      //addiu
-					case 10: R(rt) = (s32)R(rs) < SIMM16; break; //slti
-					case 11: R(rt) = R(rs) < SUIMM16; break;     //sltiu
-					case 12: R(rt) = R(rs) & UIMM16; break;      //andi
-					case 13: R(rt) = R(rs) | UIMM16; break;      //ori
-					case 14: R(rt) = R(rs) ^ UIMM16; break;      //xori
-					case 15: R(rt) = UIMM16 << 16;   break;      //lui
-					default:
-						goto interpret;
-					}
-					currentMIPS->pc += 4;
-				}
-				break;
-				
-			case 0x4:
-				{
-					int rt = _RT;
-					int rs = _RS;
-					int imm = (s16)(op & 0xFFFF);
-					u32 addr = R(rs) + imm;
-					switch (op >> 26) 
-					{
-					case 32: R(rt) = (u32)(s32)(s8) Memory::ReadUnchecked_U8(addr); break; //lb
-					case 33: R(rt) = (u32)(s32)(s16)Memory::ReadUnchecked_U16(addr); break; //lh
-					case 35: R(rt) = Memory::ReadUnchecked_U32(addr); break; //lw
-					case 36: R(rt) = Memory::ReadUnchecked_U8(addr); break; //lbu
-					case 37: R(rt) = Memory::ReadUnchecked_U16(addr); break; //lhu
-					default:
-						goto interpret;
-					}
-					currentMIPS->pc += 4;
-				}
-			  break;
-
-			case 0x5:
-				{
-					int rt = _RT;
-					int rs = _RS;
-					int imm = (s16)(op & 0xFFFF);
-					u32 addr = R(rs) + imm;
-					switch (op >> 26)
-					{
-					case 40: Memory::WriteUnchecked_U8(R(rt), addr); break; //sb
-					case 41: Memory::WriteUnchecked_U16(R(rt), addr); break; //sh
-					case 43: Memory::WriteUnchecked_U32(R(rt), addr); break; //sw
-					default:
-						goto interpret;
-					}
-					currentMIPS->pc += 4;
-				}
-				break;
-				
-			default:
-				interpret:
-				MIPSInterpret(op);
-			}
-
-			if (curMips->inDelaySlot)
-			{
-				// The reason we have to check this is the delay slot hack in Int_Syscall.
-				if (wasInDelaySlot)
-				{
-					curMips->pc = curMips->nextPC;
-					curMips->inDelaySlot = false;
-				}
-				curMips->downcount -= 1;
-				goto again;
-			}
-		}
-	}
-	return 1;
-}
-
 
 const char *MIPSGetName(u32 op)
 {

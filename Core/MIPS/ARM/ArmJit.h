@@ -110,6 +110,7 @@ public:
 	void Comp_SVQ(u32 op);
 	void Comp_VPFX(u32 op);
 	void Comp_VDot(u32 op);
+	void Comp_VecDo3(u32 op);
 	void Comp_Mftv(u32 op);
 	void Comp_Vmtvc(u32 op);
 

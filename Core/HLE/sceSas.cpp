@@ -70,6 +70,7 @@ u32 sceSasInit(u32 core, u32 grainSize, u32 maxVoices, u32 outputMode, u32 sampl
 	for (int i = 0; i < sas->maxVoices; i++) {
 		sas->voices[i].sampleRate = sampleRate;
 		sas->voices[i].playing = false;
+		sas->voices[i].loop = true;  // inverted flag
 	}
 	return 0;
 }

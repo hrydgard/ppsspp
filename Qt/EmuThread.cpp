@@ -219,19 +219,6 @@ void EmuThread::run()
 				host->BootDone();
 				needInitGame = false;
 			}
-			UpdateInputState(input_state);
-
-			for (int i = 0; i < controllistCount; i++) {
-				if (input_state->pad_buttons_down & controllist[i].emu_id) {
-					__CtrlButtonDown(controllist[i].psp_id);
-				}
-				if (input_state->pad_buttons_up & controllist[i].emu_id) {
-					__CtrlButtonUp(controllist[i].psp_id);
-				}
-			}
-			__CtrlSetAnalog(input_state->pad_lstick_x, input_state->pad_lstick_y);
-
-			EndInputState(input_state);
 
 			glstate.Restore();
 			glViewport(0, 0, pixel_xres, pixel_yres);

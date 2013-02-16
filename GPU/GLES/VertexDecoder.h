@@ -254,13 +254,8 @@ public:
 			break;
 
 		case DEC_FLOAT_2:
-			if (isThrough()) {
-				uv[0] = f[0];
-				uv[1] = f[1];
-			} else {
-				uv[0] = f[0] * 2.0f;
-				uv[1] = f[1] * 2.0f;
-			}
+			uv[0] = f[0] * 2.0f;
+			uv[1] = f[1] * 2.0f;
 			break;
 
 		case DEC_U16A_2:

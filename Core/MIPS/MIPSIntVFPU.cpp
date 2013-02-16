@@ -110,6 +110,11 @@ void ApplyPrefixST(float *v, u32 data, VectorSize size)
 
 		if (!constants)
 		{
+			// Prefix may say "z, z, z, z" but if this is a pair, we force to x.
+			// TODO: But some ops seem to use const 0 instead?
+			if (regnum >= n)
+				regnum = 0;
+
 			v[i] = origV[regnum];
 			if (abs)
 				v[i] = fabs(v[i]);
@@ -150,7 +155,8 @@ void ApplyPrefixD(float *v, VectorSize size, bool onlyWriteMask = false)
 			if (sat == 1)
 			{
 				if (v[i] > 1.0f) v[i] = 1.0f;
-				if (v[i] < 0.0f) v[i] = 0.0f;
+				// This includes -0.0f -> +0.0f.
+				if (v[i] <= 0.0f) v[i] = 0.0f;
 			}
 			else if (sat == 3)
 			{
@@ -159,7 +165,6 @@ void ApplyPrefixD(float *v, VectorSize size, bool onlyWriteMask = false)
 			}
 		}
 	}
-  currentMIPS->SetWriteMask(writeMask);
 }
 
 void EatPrefixes()
@@ -167,8 +172,6 @@ void EatPrefixes()
 	currentMIPS->vfpuCtrl[VFPU_CTRL_SPREFIX] = 0xe4;  // passthru
 	currentMIPS->vfpuCtrl[VFPU_CTRL_TPREFIX] = 0xe4;  // passthru
 	currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] = 0;
-  static const bool noWriteMask[4] = {false, false, false, false};
-	currentMIPS->SetWriteMask(noWriteMask);
 }
 
 namespace MIPSInt
@@ -1182,6 +1185,7 @@ namespace MIPSInt
 		ReadVector(s, sz, vs);
 		ApplySwizzleS(s, sz);
 		float scale = V(vt);
+		ApplySwizzleT(&scale, V_Single);
 		int n = GetNumVectorElements(sz);
 		for (int i = 0; i < n; i++)
 		{
