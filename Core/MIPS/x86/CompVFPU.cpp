@@ -49,7 +49,7 @@ namespace MIPSComp
 
 static const float one = 1.0f;
 static const float minus_one = -1.0f;
-static const float zero = -1.0f;
+static const float zero = 0.0f;
 
 const u32 GC_ALIGNED16( noSignMask[4] ) = {0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF};
 const u32 GC_ALIGNED16( signBitLower[4] ) = {0x80000000, 0, 0, 0};
@@ -341,9 +341,10 @@ void Jit::Comp_VDot(u32 op) {
 		tempxreg = fpr.VX(dregs[0]);
 	}
 
-	if (!fpr.V(sregs[0]).IsSimpleReg(tempxreg))
-		MOVSS(tempxreg, fpr.V(sregs[0]));
-	MULSS(tempxreg, fpr.V(tregs[0]));
+	MOVSS(tempxreg, M((void *) &zero));
+	MOVSS(XMM1, fpr.V(sregs[0]));
+	MULSS(XMM1, fpr.V(tregs[0]));
+	ADDSS(tempxreg, R(XMM1));
 
 	for (int i = 1; i < n; i++)
 	{
