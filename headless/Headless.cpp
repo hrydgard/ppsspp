@@ -66,7 +66,6 @@ void printUsage(const char *progname, const char *reason)
 	}
 
 	fprintf(stderr, "  -i                    use the interpreter\n");
-	fprintf(stderr, "  -f                    use the fast interpreter\n");
 	fprintf(stderr, "  -j                    use jit (default)\n");
 	fprintf(stderr, "  -c, --compare         compare with output in file.expected\n");
 	fprintf(stderr, "\nSee headless.txt for details.\n");
@@ -76,7 +75,6 @@ int main(int argc, const char* argv[])
 {
 	bool fullLog = false;
 	bool useJit = false;
-	bool fastInterpreter = false;
 	bool autoCompare = false;
 	bool useGraphics = false;
 	
@@ -101,8 +99,6 @@ int main(int argc, const char* argv[])
 			useJit = false;
 		else if (!strcmp(argv[i], "-j"))
 			useJit = true;
-		else if (!strcmp(argv[i], "-f"))
-			fastInterpreter = true;
 		else if (!strcmp(argv[i], "-c") || !strcmp(argv[i], "--compare"))
 			autoCompare = true;
 		else if (!strcmp(argv[i], "--graphics"))
@@ -156,7 +152,7 @@ int main(int argc, const char* argv[])
 	coreParameter.fileToStart = bootFilename;
 	coreParameter.mountIso = mountIso ? mountIso : "";
 	coreParameter.startPaused = false;
-	coreParameter.cpuCore = fastInterpreter ? CPU_FASTINTERPRETER : (useJit ? CPU_JIT : CPU_INTERPRETER);
+	coreParameter.cpuCore = useJit ? CPU_JIT : CPU_INTERPRETER;
 	coreParameter.gpuCore = headlessHost->isGLWorking() ? GPU_GLES : GPU_NULL;
 	coreParameter.enableSound = false;
 	coreParameter.headLess = true;
