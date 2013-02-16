@@ -49,7 +49,7 @@ namespace MIPSComp
 
 static const float one = 1.0f;
 static const float minus_one = -1.0f;
-static const float zero = -1.0f;
+static const float zero = 0.0f;
 
 const u32 GC_ALIGNED16( noSignMask[4] ) = {0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF};
 const u32 GC_ALIGNED16( signBitLower[4] ) = {0x80000000, 0, 0, 0};
@@ -142,6 +142,25 @@ void Jit::ApplyPrefixD(const u8 *vregs, u32 prefix, VectorSize sz, bool onlyWrit
 			}
 		}
 	}
+}
+
+// Vector regs can overlap in all sorts of swizzled ways.
+// This does allow a single overlap in sregs[i].
+bool DestRegOverlaps(int dreg, int di, int sn, u8 sregs[], int tn, u8 tregs[])
+{
+	for (int i = 0; i < sn; ++i)
+	{
+		if (sregs[i] == dreg && i != di)
+			return true;
+	}
+	for (int i = 0; i < tn; ++i)
+	{
+		if (tregs[i] == dreg)
+			return true;
+	}
+
+	// Hurray, no overlap, we can write directly.
+	return false;
 }
 
 static u32 GC_ALIGNED16(ssLoadStoreTemp[1]);
@@ -292,7 +311,7 @@ void Jit::Comp_SVQ(u32 op)
 }
 
 void Jit::Comp_VDot(u32 op) {
-	DISABLE;
+	CONDITIONAL_DISABLE;
 
 	// WARNING: No prefix support!
 	if (js.MayHavePrefix()) {
@@ -314,24 +333,34 @@ void Jit::Comp_VDot(u32 op) {
 
 	// TODO: applyprefixST here somehow (shuffle, etc...)
 
-	MOVSS(XMM0, fpr.V(sregs[0]));
-	MULSS(XMM0, fpr.V(tregs[0]));
-
 	int n = GetNumVectorElements(sz);
+	X64Reg tempxreg = XMM0;
+	if (!DestRegOverlaps(dregs[0], 0, n, sregs, n, tregs))
+	{
+		fpr.MapRegsV(dregs, V_Single, MAP_NOINIT);
+		tempxreg = fpr.VX(dregs[0]);
+	}
+
+	MOVSS(tempxreg, M((void *) &zero));
+	MOVSS(XMM1, fpr.V(sregs[0]));
+	MULSS(XMM1, fpr.V(tregs[0]));
+	ADDSS(tempxreg, R(XMM1));
+
 	for (int i = 1; i < n; i++)
 	{
 		// sum += s[i]*t[i];
 		MOVSS(XMM1, fpr.V(sregs[i]));
 		MULSS(XMM1, fpr.V(tregs[i]));
-		ADDSS(XMM0, R(XMM1));
+		ADDSS(tempxreg, R(XMM1));
 	}
-	fpr.ReleaseSpillLocks();
 
-	fpr.MapRegsV(dregs, V_Single, MAP_NOINIT);
+	if (!fpr.V(dregs[0]).IsSimpleReg(tempxreg))
+	{
+		fpr.MapRegsV(dregs, V_Single, MAP_NOINIT);
+		MOVSS(fpr.V(dregs[0]), XMM0);
+	}
 
 	// TODO: applyprefixD here somehow (write mask etc..)
-
-	MOVSS(fpr.V(vd), XMM0);
 
 	fpr.ReleaseSpillLocks();
 
@@ -339,7 +368,7 @@ void Jit::Comp_VDot(u32 op) {
 }
 
 void Jit::Comp_VecDo3(u32 op) {
-	DISABLE;
+	CONDITIONAL_DISABLE;
 
 	// WARNING: No prefix support!
 	if (js.MayHavePrefix())
@@ -394,16 +423,42 @@ void Jit::Comp_VecDo3(u32 op) {
 	}
 
 	int n = GetNumVectorElements(sz);
-	// We need at least n temporaries...
-	if (n > 2)
-		fpr.Flush();
+
+	X64Reg tempxregs[4];
+	for (int i = 0; i < n; ++i)
+	{
+		if (DestRegOverlaps(dregs[i], i, n, sregs, n, tregs))
+		{
+			// On 32-bit we only have 6 xregs for mips regs, use XMM0/XMM1 if possible.
+			if (i < 2)
+				tempxregs[i] = (X64Reg) (XMM0 + i);
+			else
+			{
+				fpr.BindToRegister(TEMP0 + i, false, true);
+				fpr.SpillLock(TEMP0 + i);
+				tempxregs[i] = fpr.RX(TEMP0 + i);
+			}
+		}
+		else
+		{
+			fpr.MapRegV(dregs[i], (dregs[i] == sregs[i] ? 0 : MAP_NOINIT) | MAP_DIRTY);
+			fpr.SpillLockV(dregs[i]);
+			tempxregs[i] = fpr.VX(dregs[i]);
+		}
+	}
 
 	for (int i = 0; i < n; ++i)
-		MOVSS((X64Reg) (XMM0 + i), fpr.V(sregs[i]));
+	{
+		if (!fpr.V(sregs[i]).IsSimpleReg(tempxregs[i]))
+			MOVSS(tempxregs[i], fpr.V(sregs[i]));
+	}
 	for (int i = 0; i < n; ++i)
-		(this->*xmmop)((X64Reg) (XMM0 + i), fpr.V(tregs[i]));
+		(this->*xmmop)(tempxregs[i], fpr.V(tregs[i]));
 	for (int i = 0; i < n; ++i)
-		MOVSS(fpr.V(dregs[i]), (X64Reg) (XMM0 + i));
+	{
+		if (!fpr.V(dregs[i]).IsSimpleReg(tempxregs[i]))
+			MOVSS(fpr.V(dregs[i]), tempxregs[i]);
+	}
 
 	fpr.ReleaseSpillLocks();
 

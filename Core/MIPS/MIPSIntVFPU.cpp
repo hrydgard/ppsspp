@@ -113,7 +113,10 @@ void ApplyPrefixST(float *v, u32 data, VectorSize size)
 			// Prefix may say "z, z, z, z" but if this is a pair, we force to x.
 			// TODO: But some ops seem to use const 0 instead?
 			if (regnum >= n)
+			{
+				ERROR_LOG(CPU, "Invalid VFPU swizzle: %08x / %d", data, size);
 				regnum = 0;
+			}
 
 			v[i] = origV[regnum];
 			if (abs)
@@ -1185,7 +1188,11 @@ namespace MIPSInt
 		ReadVector(s, sz, vs);
 		ApplySwizzleS(s, sz);
 		float scale = V(vt);
-		ApplySwizzleT(&scale, V_Single);
+		if (currentMIPS->vfpuCtrl[VFPU_CTRL_TPREFIX] != 0xE4)
+		{
+			WARN_LOG(CPU, "Broken T prefix used with VScl: %08x / %08x", currentMIPS->vfpuCtrl[VFPU_CTRL_TPREFIX], op);
+			ApplySwizzleT(&scale, V_Single);
+		}
 		int n = GetNumVectorElements(sz);
 		for (int i = 0; i < n; i++)
 		{
