@@ -26,7 +26,8 @@ using namespace Gen;
 
 
 // GPRs are numbered 0 to 31
-// VFPU regs are numbered 32 to 160.
+// VFPU regs are numbered 32 to 159.
+// Then we have some temp regs for VFPU handling from 160 to 167.
 
 enum {
 	NUM_TEMPS = 4,
@@ -34,6 +35,7 @@ enum {
 	TEMP1 = TEMP0 + 1,
 	TEMP2 = TEMP0 + 2,
 	TEMP3 = TEMP0 + 3,
+	TEMP4 = TEMP0 + 4,
 	NUM_MIPS_FPRS = 32 + 128 + NUM_TEMPS,
 };
 
@@ -75,7 +77,11 @@ public:
 		StoreFromRegister(preg + 32);
 	}
 	OpArg GetDefaultLocation(int reg) const;
-	void DiscardR(int preg);
+	void DiscardR(int freg);
+	void DiscardV(int vreg) {
+		DiscardR(vreg + 32);
+	}
+	bool IsTemp(X64Reg xreg);
 
 	void SetEmitter(XEmitter *emitter) {emit = emitter;}
 

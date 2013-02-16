@@ -82,6 +82,8 @@ void FPURegCache::MapRegsV(const u8 *v, VectorSize sz, int flags) {
 void FPURegCache::ReleaseSpillLocks() {
 	for (int i = 0; i < NUM_MIPS_FPRS; i++)
 		regs[i].locked = false;
+	for (int i = TEMP0; i < TEMP0 + NUM_TEMPS; ++i)
+		DiscardR(i);
 }
 
 void FPURegCache::BindToRegister(const int i, bool doLoad, bool makeDirty) {
@@ -126,8 +128,7 @@ void FPURegCache::StoreFromRegister(int i) {
 	}
 }
 
-void FPURegCache::DiscardR(int i)
-{
+void FPURegCache::DiscardR(int i) {
 	_assert_msg_(DYNA_REC, !regs[i].location.IsImm(), "FPU can't handle imm yet.");
 	if (regs[i].away) {
 		X64Reg xr = regs[i].location.GetSimpleReg();
@@ -140,6 +141,10 @@ void FPURegCache::DiscardR(int i)
 	} else {
 		//	_assert_msg_(DYNA_REC,0,"already stored");
 	}
+}
+
+bool FPURegCache::IsTemp(X64Reg xr) {
+	return xregs[xr].mipsReg >= TEMP0;
 }
 
 void FPURegCache::Flush() {
@@ -209,15 +214,6 @@ X64Reg FPURegCache::GetFreeXReg() {
 		}
 	}
 	//Okay, not found :( Force grab one
-
-	// Maybe a temp reg?
-	for (int i = TEMP0; i < NUM_MIPS_FPRS; ++i) {
-		if (regs[i].away && !regs[i].locked) {
-			X64Reg xr = regs[i].location.GetSimpleReg();
-			DiscardR(i);
-			return xr;
-		}
-	}
 
 	//TODO - add a pass to grab xregs whose mipsreg is not used in the next 3 instructions
 	for (int i = 0; i < aCount; i++) {
