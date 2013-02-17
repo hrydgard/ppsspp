@@ -344,7 +344,7 @@ void Debugger_Disasm::FillFunctions()
 		if(symbolMap.GetSymbolType(i) & ST_FUNCTION)
 		{
 			QListWidgetItem* item = new QListWidgetItem();
-			item->setText(QString(symbolMap.GetSymbolName(i)) + " ("+ QVariant(symbolMap.GetSymbolSize(i)).toString() +")");
+			item->setText(QString(symbolMap.GetSymbolName(i)) + " ("+ QString::number(symbolMap.GetSymbolSize(i)) +")");
 			item->setData(Qt::UserRole, symbolMap.GetAddress(i));
 			ui->FuncList->addItem(item);
 		}
@@ -372,9 +372,7 @@ void Debugger_Disasm::UpdateBreakpointsGUI()
 		if(!CBreakPoints::IsTempBreakPoint(addr_))
 		{
 			QTreeWidgetItem* item = new QTreeWidgetItem();
-			char temp[24];
-			sprintf(temp,"%08x",addr_);
-			item->setText(0,temp);
+			item->setText(0,QString("%1").arg(addr_,8,16,QChar('0')));
 			item->setData(0,Qt::UserRole,addr_);
 			ui->breakpointsList->addTopLevelItem(item);
 			if(curBpAddr == addr_)
@@ -434,7 +432,7 @@ void Debugger_Disasm::UpdateThreadGUI()
 	for(int i = 0; i < threads.size(); i++)
 	{
 		QTreeWidgetItem* item = new QTreeWidgetItem();
-		item->setText(0,QVariant(threads[i].id).toString());
+		item->setText(0,QString::number(threads[i].id));
 		item->setData(0,Qt::UserRole,threads[i].id);
 		item->setText(1,threads[i].name);
 		QString status = "";
@@ -445,12 +443,9 @@ void Debugger_Disasm::UpdateThreadGUI()
 		if(threads[i].status & THREADSTATUS_DORMANT) status += "Dormant ";
 		if(threads[i].status & THREADSTATUS_DEAD) status += "Dead ";
 		item->setText(2,status);
-		char temp[24];
-		sprintf(temp,"%08x",threads[i].curPC);
-		item->setText(3,temp);
+		item->setText(3,QString("%1").arg(threads[i].curPC,8,16,QChar('0')));
 		item->setData(3,Qt::UserRole,threads[i].curPC);
-		sprintf(temp,"%08x",threads[i].entrypoint);
-		item->setText(4,temp);
+		item->setText(4,QString("%1").arg(threads[i].entrypoint,8,16,QChar('0')));
 		item->setData(4,Qt::UserRole,threads[i].entrypoint);
 
 		if(threads[i].isCurrent)
@@ -461,6 +456,8 @@ void Debugger_Disasm::UpdateThreadGUI()
 
 		ui->threadList->addTopLevelItem(item);
 	}
+	for(int i = 0; i < ui->threadList->columnCount(); i++)
+		ui->threadList->resizeColumnToContents(i);
 }
 
 void Debugger_Disasm::on_threadList_itemClicked(QTreeWidgetItem *item, int column)
@@ -542,7 +539,6 @@ void Debugger_Disasm::UpdateDisplayListGUI()
 		curDlId = ui->displayList->currentItem()->data(0,Qt::UserRole).toInt();
 
 	ui->displayList->clear();
-	ui->displayListData->clear();
 
 	EmuThread_LockDraw(true);
 	const std::deque<DisplayList>& dlQueue = gpu->GetDisplayLists();
@@ -551,7 +547,7 @@ void Debugger_Disasm::UpdateDisplayListGUI()
 	if(dl)
 	{
 		QTreeWidgetItem* item = new QTreeWidgetItem();
-		item->setText(0,QVariant(dl->id).toString());
+		item->setText(0,QString::number(dl->id));
 		item->setData(0, Qt::UserRole, dl->id);
 		switch(dl->status)
 		{
@@ -563,19 +559,15 @@ void Debugger_Disasm::UpdateDisplayListGUI()
 		case PSP_GE_LIST_CANCEL_DONE:	item->setText(1,"Cancel Done"); break;
 		default: break;
 		}
-		char temp[24];
-		sprintf(temp,"%08x",dl->startpc);
-		item->setText(2,temp);
+		item->setText(2,QString("%1").arg(dl->startpc,8,16,QChar('0')));
 		item->setData(2, Qt::UserRole, dl->startpc);
-		sprintf(temp,"%08x",dl->pc);
-		item->setText(3,temp);
+		item->setText(3,QString("%1").arg(dl->pc,8,16,QChar('0')));
 		item->setData(3, Qt::UserRole, dl->pc);
 		ui->displayList->addTopLevelItem(item);
 		if(curDlId == dl->id)
 		{
 			ui->displayList->setCurrentItem(item);
 			displayListRowSelected = item;
-			ShowDLCode();
 		}
 	}
 
@@ -584,7 +576,7 @@ void Debugger_Disasm::UpdateDisplayListGUI()
 		if(dl && it->id == dl->id)
 			continue;
 		QTreeWidgetItem* item = new QTreeWidgetItem();
-		item->setText(0,QVariant(it->id).toString());
+		item->setText(0,QString::number(it->id));
 		item->setData(0, Qt::UserRole, it->id);
 		switch(it->status)
 		{
@@ -596,21 +588,19 @@ void Debugger_Disasm::UpdateDisplayListGUI()
 		case PSP_GE_LIST_CANCEL_DONE:	item->setText(1,"Cancel Done"); break;
 		default: break;
 		}
-		char temp[24];
-		sprintf(temp,"%08x",it->startpc);
-		item->setText(2,temp);
+		item->setText(2,QString("%1").arg(it->startpc,8,16,QChar('0')));
 		item->setData(2, Qt::UserRole, it->startpc);
-		sprintf(temp,"%08x",it->pc);
-		item->setText(3,temp);
+		item->setText(3,QString("%1").arg(it->pc,8,16,QChar('0')));
 		item->setData(3, Qt::UserRole, it->pc);
 		ui->displayList->addTopLevelItem(item);
 		if(curDlId == it->id)
 		{
 			ui->displayList->setCurrentItem(item);
 			displayListRowSelected = item;
-			ShowDLCode();
 		}
 	}
+	for(int i = 0; i < ui->displayList->columnCount(); i++)
+		ui->displayList->resizeColumnToContents(i);
 	EmuThread_LockDraw(false);
 }
 
@@ -621,96 +611,12 @@ void Debugger_Disasm::on_displayList_customContextMenuRequested(const QPoint &po
 	{
 		displayListRowSelected = item;
 
-		QMenu menu(this);
+		/*QMenu menu(this);
 
 		QAction *showCode = new QAction(tr("Show code"), this);
 		connect(showCode, SIGNAL(triggered()), this, SLOT(ShowDLCode()));
-		menu.addAction(showCode);
+		menu.addAction(showCode);*/
 
-		menu.exec( ui->displayList->mapToGlobal(pos));
+		//menu.exec( ui->displayList->mapToGlobal(pos));
 	}
-}
-
-void Debugger_Disasm::ShowDLCode()
-{
-	ui->displayListData->clear();
-	ui->displayListData->setColumnWidth(0,70);
-
-	u32 startPc = displayListRowSelected->data(2,Qt::UserRole).toInt();
-	u32 curPc = displayListRowSelected->data(3,Qt::UserRole).toInt();
-
-	std::map<int,std::string> data;
-	FillDisplayListCmd(data, startPc,0);
-
-	for(std::map<int,std::string>::iterator it = data.begin(); it != data.end(); it++)
-	{
-		QTreeWidgetItem* item = new QTreeWidgetItem();
-		char temp[24];
-		sprintf(temp,"%08x",it->first);
-		item->setText(0,temp);
-		item->setText(1,it->second.c_str());
-		if(curPc == it->first)
-		{
-			for(int j = 0; j < 2; j++)
-				item->setTextColor(j, Qt::green);
-		}
-		ui->displayListData->addTopLevelItem(item);
-	}
-}
-
-void Debugger_Disasm::FillDisplayListCmd(std::map<int,std::string>& data, u32 pc, u32 prev)
-{
-	u32 curPc = pc;
-	int debugLimit = 10000; // Anti crash if this code is bugged
-	while(Memory::IsValidAddress(curPc) && debugLimit > 0)
-	{
-		if(data.find(curPc) != data.end())
-			return;
-
-		u32 op = Memory::ReadUnchecked_U32(curPc); //read from memory
-		u32 cmd = op >> 24;
-		u32 diff = op ^ gstate.cmdmem[cmd];
-		char temp[256];
-		GeDisassembleOp(curPc, op, prev, temp);
-		data[curPc] = temp;
-		prev = op;
-		if(cmd == GE_CMD_JUMP)
-		{
-			u32 target = (((gstate.base & 0x00FF0000) << 8) | (op & 0xFFFFFC)) & 0x0FFFFFFF;
-			FillDisplayListCmd(data, target, prev);
-			return;
-		}
-		else if(cmd == GE_CMD_CALL)
-		{
-			u32 target = gstate_c.getRelativeAddress(op & 0xFFFFFF);
-			FillDisplayListCmd(data, target, prev);
-		}
-		else if(cmd == GE_CMD_RET)
-		{
-			return;
-		}
-		else if(cmd == GE_CMD_FINISH)
-		{
-			return;
-		}
-		else if(cmd == GE_CMD_END)
-		{
-			if(prev >> 24 == GE_CMD_FINISH)
-				return;
-		}
-		curPc += 4;
-		debugLimit--;
-	}
-}
-
-void Debugger_Disasm::on_nextGPU_clicked()
-{
-	host->SetGPUStep(true);
-	host->NextGPUStep();
-}
-
-void Debugger_Disasm::on_runBtn_clicked()
-{
-	host->SetGPUStep(false);
-	host->NextGPUStep();
 }

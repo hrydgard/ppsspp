@@ -108,7 +108,6 @@ void CtrlMemView::paintEvent(QPaintEvent *)
 		int rowY2 = rect().bottom()/2 + rowHeight*i + rowHeight/2;
 
 		char temp[256];
-		sprintf(temp,"%08x",address);
 
 		painter.setBrush(currentBrush);
 
@@ -123,7 +122,7 @@ void CtrlMemView::paintEvent(QPaintEvent *)
 		textPen.setColor(0x600000);
 		painter.setPen(textPen);
 		painter.setFont(alignedFont);
-		painter.drawText(17,rowY1-2+rowHeight, temp);
+		painter.drawText(17,rowY1-2+rowHeight, QString("%1").arg(address,8,16,QChar('0')));
 		textPen.setColor(0xFF000000);
 		painter.setPen(textPen);
 		if (debugger->isAlive())
@@ -231,9 +230,7 @@ void CtrlMemView::contextMenu(const QPoint &pos)
 
 void CtrlMemView::CopyValue()
 {
-	char temp[24];
-	sprintf(temp,"%08x",Memory::ReadUnchecked_U32(selection));
-	QApplication::clipboard()->setText(temp);
+	QApplication::clipboard()->setText(QString("%1").arg(Memory::ReadUnchecked_U32(selection),8,16,QChar('0')));
 }
 
 void CtrlMemView::Dump()

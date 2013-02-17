@@ -18,6 +18,7 @@
 #pragma once
 
 #include "../Globals.h"
+#include "GPUState.h"
 #include <deque>
 
 class PointerWrap;
@@ -30,6 +31,18 @@ enum DisplayListStatus
 	PSP_GE_LIST_STALL_REACHED = 3, // stalled
 	PSP_GE_LIST_END_REACHED   = 4, // reached signal+end, in jpcsp but not in pspsdk?
 	PSP_GE_LIST_CANCEL_DONE   = 5, // canceled?
+};
+
+
+// Used for debug
+struct FramebufferInfo
+{
+	u32 fb_address;
+	u32 z_address;
+	int format;
+	u32 width;
+	u32 height;
+	void* fbo;
 };
 
 struct DisplayList
@@ -94,4 +107,6 @@ public:
 	virtual void DumpNextFrame() = 0;
 	virtual const std::deque<DisplayList>& GetDisplayLists() = 0;
 	virtual DisplayList* GetCurrentDisplayList() = 0;
+	virtual bool DecodeTexture(u8* dest, GPUgstate state) = 0;
+	virtual std::vector<FramebufferInfo> GetFramebufferList() = 0;
 };

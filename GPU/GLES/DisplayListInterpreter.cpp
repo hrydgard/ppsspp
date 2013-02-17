@@ -1056,6 +1056,11 @@ void GLES_GPU::Resized() {
 	framebufferManager_.Resized();
 }
 
+std::vector<FramebufferInfo> GLES_GPU::GetFramebufferList()
+{
+	return framebufferManager_.GetFramebufferList();
+}
+
 void GLES_GPU::DoState(PointerWrap &p) {
 	GPUCommon::DoState(p);
 
