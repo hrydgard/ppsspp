@@ -51,9 +51,7 @@ void Debugger_Memory::Goto(u32 addr)
 
 void Debugger_Memory::on_editAddress_textChanged(const QString &arg1)
 {
-	u32 addr;
-	sscanf(arg1.toStdString().c_str(),"%08x",&addr);
-	ui->memView->gotoAddr(addr & ~3);
+	ui->memView->gotoAddr(arg1.toInt(0,16) & ~3);
 }
 
 void Debugger_Memory::on_normalBtn_clicked()
@@ -83,7 +81,7 @@ void Debugger_Memory::NotifyMapLoaded()
 		if(symbolMap.GetSymbolType(i) & ST_DATA)
 		{
 			QListWidgetItem* item = new QListWidgetItem();
-			item->setText(QString(symbolMap.GetSymbolName(i)) + " ("+ QVariant(symbolMap.GetSymbolSize(i)).toString() +")");
+			item->setText(QString(symbolMap.GetSymbolName(i)) + " ("+ QString::number(symbolMap.GetSymbolSize(i)) +")");
 			item->setData(Qt::UserRole, symbolMap.GetAddress(i));
 			ui->symbols->addItem(item);
 		}

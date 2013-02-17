@@ -152,7 +152,7 @@ void EmuThread::run()
 	host->UpdateUI();
 	host->InitGL();
 
-	glWindow->makeCurrent();
+	EmuThread_LockDraw(true);
 
 #ifndef USING_GLES2
 	glewInit();
@@ -162,6 +162,8 @@ void EmuThread::run()
 	INFO_LOG(BOOT, "Starting up hardware.");
 
 	QElapsedTimer timer;
+
+	EmuThread_LockDraw(false);
 
 	while(running) {
 		//UpdateGamepad(*input_state);
@@ -173,10 +175,7 @@ void EmuThread::run()
 
 		if(gRun)
 		{
-
-			gameMutex->lock();
-
-			glWindow->makeCurrent();
+			EmuThread_LockDraw(true);
 			if(needInitGame)
 			{
 				g_State.bEmuThreadStarted = true;
@@ -239,14 +238,12 @@ void EmuThread::run()
 
 				qint64 time = timer.elapsed();
 				const int frameTime = (1.0f/60.0f) * 1000;
-				gameMutex->unlock();
 				if(time < frameTime)
 				{
-					glWindow->doneCurrent();
+					EmuThread_LockDraw(false);
 					msleep(frameTime-time);
-					glWindow->makeCurrent();
+					EmuThread_LockDraw(true);
 				}
-				gameMutex->lock();
 				timer.start();
 			}
 
@@ -276,13 +273,11 @@ void EmuThread::run()
 			}
 #endif
 			glWindow->swapBuffers();
-			glWindow->doneCurrent();
-			gameMutex->unlock();
+			EmuThread_LockDraw(false);
 		}
 		else
 		{
-			gameMutex->lock();
-			glWindow->makeCurrent();
+			EmuThread_LockDraw(true);
 			glClearColor(0, 0, 0, 0);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
@@ -323,8 +318,7 @@ void EmuThread::run()
 			ui_draw2d.Flush(UIShader_Get());
 
 			glWindow->swapBuffers();
-			glWindow->doneCurrent();
-			gameMutex->unlock();
+			EmuThread_LockDraw(false);
 			qint64 time = timer.elapsed();
 			const int frameTime = (1.0f/60.0f) * 1000;
 			if(time < frameTime)

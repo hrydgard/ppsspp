@@ -236,14 +236,14 @@ void CtrlRegisterList::paintEvent(QPaintEvent *)
 		painter.setBrush(currentBrush);
 		if (i<cpu->GetNumRegsInCategory(category))
 		{
-			char temp[256];
-			sprintf(temp,"%s",cpu->GetRegName(category,i));
+			QString regName = cpu->GetRegName(category,i);
 			textPen.setColor(0x600000);
 			painter.setPen(textPen);
-			painter.drawText(17,rowY1-3+rowHeight,temp);
+			painter.drawText(17,rowY1-3+rowHeight,regName);
 			textPen.setColor(0xFF000000);
 			painter.setPen(textPen);
 
+			char temp[256];
 			cpu->PrintRegValue(category,i,temp);
 			if (category == 0 && changedCat0Regs[i])
 			{
@@ -331,10 +331,7 @@ void CtrlRegisterList::CopyValue()
 	u32 val = cpu->GetRegValue(cat,reg);
 	EmuThread_LockDraw(false);
 
-	char temp[24];
-	sprintf(temp,"%08x",val);
-
-	QApplication::clipboard()->setText(temp);
+	QApplication::clipboard()->setText(QString("%1").arg(val,8,16,QChar('0')));
 }
 
 void CtrlRegisterList::Change()

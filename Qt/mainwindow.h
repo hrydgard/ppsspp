@@ -8,6 +8,8 @@
 #include "input/input_state.h"
 #include "debugger_disasm.h"
 #include "debugger_memory.h"
+#include "debugger_memorytex.h"
+#include "debugger_displaylist.h"
 #include "controls.h"
 #include "gamepaddialog.h"
 
@@ -33,6 +35,8 @@ public:
 
 	Debugger_Disasm* GetDialogDisasm() { return dialogDisasm; }
 	Debugger_Memory* GetDialogMemory() { return memoryWindow; }
+	Debugger_MemoryTex* GetDialogMemoryTex() { return memoryTexWindow; }
+	Debugger_DisplayList* GetDialogDisplaylist() { return displaylistWindow; }
 	CoreState GetNextState() { return nextState; }
 	void closeEvent(QCloseEvent *event);
 	void keyPressEvent(QKeyEvent *);
@@ -169,6 +173,10 @@ private slots:
 
 	void on_action_Sound_triggered();
 
+	void on_action_DebugMemoryViewTexture_triggered();
+
+	void on_action_DebugDisplayList_triggered();
+
 private:
 	void loadLanguage(const QString &language);
 	void createLanguageMenu();
@@ -188,6 +196,8 @@ private:
 
 	Debugger_Disasm *dialogDisasm;
 	Debugger_Memory *memoryWindow;
+	Debugger_MemoryTex *memoryTexWindow;
+	Debugger_DisplayList *displaylistWindow;
 	Controls* controls;
 	GamePadDialog* gamePadDlg;
 

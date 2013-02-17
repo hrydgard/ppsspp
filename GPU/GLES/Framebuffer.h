@@ -26,6 +26,7 @@
 
 
 #include "../Globals.h"
+#include "GPU/GPUCommon.h"
 
 struct GLSLProgram;
 class TextureCache;
@@ -79,6 +80,8 @@ public:
 	VirtualFramebuffer *GetDisplayFBO();
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, int format);
 	size_t NumVFBs() const { return vfbs_.size(); }
+
+	std::vector<FramebufferInfo> GetFramebufferList();
 
 	int GetRenderWidth() const { return currentRenderVfb_ ? currentRenderVfb_->renderWidth : 480; }
 	int GetRenderHeight() const { return currentRenderVfb_ ? currentRenderVfb_->renderHeight : 272; }

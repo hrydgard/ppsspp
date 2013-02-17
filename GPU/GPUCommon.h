@@ -62,4 +62,13 @@ public:
 	{
 		return currentList;
 	}
+	virtual bool DecodeTexture(u8* dest, GPUgstate state)
+	{
+		return false;
+	}
+	std::vector<FramebufferInfo> GetFramebufferList()
+	{
+		return std::vector<FramebufferInfo>();
+	}
+
 };

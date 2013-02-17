@@ -44,7 +44,7 @@
      <x>0</x>
      <y>0</y>
      <width>800</width>
-     <height>21</height>
+     <height>23</height>
     </rect>
    </property>
    <widget class="QMenu" name="menu_File">
@@ -83,8 +83,10 @@
     <addaction name="action_DebugDumpFrame"/>
     <addaction name="separator"/>
     <addaction name="action_DebugDisassembly"/>
+    <addaction name="action_DebugDisplayList"/>
     <addaction name="action_DebugLog"/>
     <addaction name="action_DebugMemoryView"/>
+    <addaction name="action_DebugMemoryViewTexture"/>
    </widget>
    <widget class="QMenu" name="menu_Options">
     <property name="title">
@@ -614,6 +616,11 @@
   <action name="action_DebugMemoryViewTexture">
    <property name="text">
     <string>Memory View Texture...</string>
+   </property>
+  </action>
+  <action name="action_DebugDisplayList">
+   <property name="text">
+    <string>DisplayList...</string>
    </property>
   </action>
   <action name="action_Simple_2xAA">
