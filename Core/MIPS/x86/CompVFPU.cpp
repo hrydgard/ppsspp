@@ -163,7 +163,7 @@ bool DestRegOverlaps(int dreg, int di, int sn, u8 sregs[], int tn, u8 tregs[])
 	return false;
 }
 
-static u32 GC_ALIGNED16(ssLoadStoreTemp[1]);
+static u32 GC_ALIGNED16(ssLoadStoreTemp);
 
 void Jit::Comp_SV(u32 op) {
 	CONDITIONAL_DISABLE;

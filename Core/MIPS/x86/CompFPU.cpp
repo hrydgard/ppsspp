@@ -87,7 +87,7 @@ void Jit::Comp_FPU3op(u32 op)
 	}
 }
 
-static u32 GC_ALIGNED16(ssLoadStoreTemp[1]);
+static u32 GC_ALIGNED16(ssLoadStoreTemp);
 
 void Jit::Comp_FPULS(u32 op)
 {
