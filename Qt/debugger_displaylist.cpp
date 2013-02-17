@@ -372,7 +372,7 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 		{
 			int bz_ucount = data & 0xFF;
 			int bz_vcount = (data >> 8) & 0xFF;
-			return QString("DRAW BEZIER: %1 x %2").arg(bz_ucount).arg(bz_vcount);
+			return QString("DRAW BEZIER: U=%1 x V=%2").arg(bz_ucount).arg(bz_vcount);
 		}
 		break;
 
@@ -380,9 +380,15 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 		{
 			int sp_ucount = data & 0xFF;
 			int sp_vcount = (data >> 8) & 0xFF;
+			static const char* type[4] = {
+				"Close/Close",
+				"Open/Close",
+				"Close/Open",
+				"Open/Open"
+			};
 			int sp_utype = (data >> 16) & 0x3;
 			int sp_vtype = (data >> 18) & 0x3;
-			return QString("DRAW SPLINE: %1 x %2, %3 x %4").arg(sp_ucount).arg(sp_vcount).arg(sp_utype).arg(sp_vtype);
+			return QString("DRAW SPLINE: U=%1 x V=%2, U Type = %3 , V Type = %4").arg(sp_ucount).arg(sp_vcount).arg(type[sp_utype]).arg(type[sp_vtype]);
 		}
 		break;
 
@@ -459,13 +465,15 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 		break;
 
 	case GE_CMD_BJUMP:
+	{
 		// bounding box jump. Let's just not jump, for now.
-		return QString("BBOX JUMP - unimplemented");
+		u32 target = (((state.base & 0x00FF0000) << 8) | (op & 0xFFFFFC)) & 0x0FFFFFFF;
+		return QString("BBOX JUMP - %1 to %2").arg(pc,8,16,QChar('0')).arg(target,8,16,QChar('0'));
 		break;
-
+	}
 	case GE_CMD_BOUNDINGBOX:
 		// bounding box test. Let's do nothing.
-		return QString("BBOX TEST - unimplemented");
+		return QString("BBOX TEST - number : %1").arg(data & 0xFFFF,4,16,QChar('0'));
 		break;
 
 	case GE_CMD_ORIGIN:
@@ -473,9 +481,57 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 		break;
 
 	case GE_CMD_VERTEXTYPE:
-		return QString("SetVertexType: %1").arg(data,6,16,QChar('0'));
-		break;
+	{
+		const char* format[4] =
+		{
+			"No",
+			"8 Bits fixed",
+			"16 Bits fixed",
+			"Float"
+		};
+		const char* colFormat[8] =
+		{
+			"No",
+			"",
+			"",
+			"",
+			"16-bit BGR-5650",
+			"16-bit ABGR-5551",
+			"16-bit ABGR-4444",
+			"32-bit ABGR-8888"
+		};
+		QString retString = "SetVertexType:";
 
+		u32 transform = data & GE_VTYPE_THROUGH_MASK;
+		retString += QString(" Transform : %1").arg(transform==0?"Transformed":"Raw");
+
+		u32 numVertMorph = (data & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT;
+		retString += QString(", Num Vtx Morph : %1").arg(numVertMorph);
+
+		u32 numWeight = (data & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT;
+		retString += QString(", Num Weights : %1").arg(numWeight);
+
+		u32 indexFmt = (data & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT;
+		retString += QString(", Index Format : %1").arg(format[indexFmt]);
+
+		u32 weightFmt = (data & GE_VTYPE_WEIGHT_MASK) >> GE_VTYPE_WEIGHT_SHIFT;
+		retString += QString(", Weight Format : %1").arg(format[weightFmt]);
+
+		u32 posFmt = (data & GE_VTYPE_POS_MASK) >> GE_VTYPE_POS_SHIFT;
+		retString += QString(", Position Format : %1").arg(format[posFmt]);
+
+		u32 nrmFmt = (data & GE_VTYPE_NRM_MASK) >> GE_VTYPE_NRM_SHIFT;
+		retString += QString(", Normal Format : %1").arg(format[nrmFmt]);
+
+		u32 colFmt = (data & GE_VTYPE_COL_MASK) >> GE_VTYPE_COL_SHIFT;
+		retString += QString(", Color Format : %1").arg(colFormat[colFmt]);
+
+		u32 tcFmt = (data & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT;
+		retString += QString(", Texture UV Format : %1").arg(format[tcFmt]);
+
+		return retString;
+		break;
+	}
 	case GE_CMD_OFFSETADDR:
 		return QString("OffsetAddr: %1").arg(data,6,16,QChar('0'));
 		break;
@@ -588,9 +644,17 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 		break;
 
 	case GE_CMD_FRAMEBUFPIXFORMAT:
-		return QString("FramebufPixeFormat: %1").arg(data);
+	{
+		const char* fmt[4] =
+		{
+			"16-bit BGR 5650",
+			"16-bit ABGR 5551",
+			"16-bit ABGR 4444",
+			"32-bit ABGR 8888"
+		};
+		return QString("FramebufPixeFormat: %1").arg(fmt[data]);
 		break;
-
+	}
 	case GE_CMD_TEXADDR0:
 	case GE_CMD_TEXADDR1:
 	case GE_CMD_TEXADDR2:
@@ -610,7 +674,7 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 	case GE_CMD_TEXBUFWIDTH5:
 	case GE_CMD_TEXBUFWIDTH6:
 	case GE_CMD_TEXBUFWIDTH7:
-		return QString("Texture BUFWIDTHess %1: %2").arg(cmd-GE_CMD_TEXBUFWIDTH0).arg(data,6,16,QChar('0'));
+		return QString("Texture BUFWIDTHess %1: %2 width : %3").arg(cmd-GE_CMD_TEXBUFWIDTH0).arg(data,6,16,QChar('0')).arg(data & 0xFFFF);
 		break;
 
 	case GE_CMD_CLUTADDR:
@@ -623,20 +687,41 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 
 	case GE_CMD_LOADCLUT:
 		// This could be used to "dirty" textures with clut.
-		return QString("Clut load");
+		return QString("Clut load, numColor : %1").arg(data*8);
 		break;
 
 	case GE_CMD_TEXMAPMODE:
-		return QString("Tex map mode: %1").arg(data,6,16,QChar('0'));
+	{
+		const char* texMapMode[3] =
+		{
+			"Texture Coordinates (UV)",
+			"Texture Matrix",
+			"Environment Map"
+		};
+		const char* texProjMode[4] =
+		{
+			"Position",
+			"Texture Coordinates",
+			"Normalized Normal",
+			"Normal"
+		};
+		return QString("Tex map mode: Map mode : %1, Proj Mode : %2").arg(texMapMode[data & 0x3]).arg(texProjMode[(data >> 8) & 0x3]);
 		break;
-
+	}
 	case GE_CMD_TEXSHADELS:
 		return QString("Tex shade light sources: %1").arg(data,6,16,QChar('0'));
 		break;
 
 	case GE_CMD_CLUTFORMAT:
 		{
-			return QString("Clut format: %1").arg(data,6,16,QChar('0'));
+		const char* fmt[4] =
+		{
+			"16-bit BGR 5650",
+			"16-bit ABGR 5551",
+			"16-bit ABGR 4444",
+			"32-bit ABGR 8888"
+		};
+		return QString("Clut format: %1 , Fmt : %2").arg(data,6,16,QChar('0')).arg(fmt[data & 0x3]);
 		}
 		break;
 
@@ -696,7 +781,7 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 
 	case GE_CMD_TRANSFERSTART:  // Orphis calls this TRXKICK
 		{
-			return QString("Block Transfer Start");
+		return QString("Block Transfer Start : %1").arg(data ? "32-bit texel size" : "16-bit texel size");
 			break;
 		}
 
@@ -772,9 +857,22 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 	case GE_CMD_LIGHTTYPE1:
 	case GE_CMD_LIGHTTYPE2:
 	case GE_CMD_LIGHTTYPE3:
-		return QString("Light %1 type: %2").arg(cmd-GE_CMD_LIGHTTYPE0).arg(data,6,16,QChar('0'));
+	{
+		const char* lightType[3] =
+		{
+			"Directional Light",
+			"Point Light",
+			"Spot Light"
+		};
+		const char* lightComp[3] =
+		{
+			"Ambient & Diffuse",
+			"Diffuse & Specular",
+			"Unknown (diffuse color, affected by specular power)"
+		};
+		return QString("Light %1 type: %2 %3").arg(cmd-GE_CMD_LIGHTTYPE0).arg(lightType[(data) >> 8 & 0x3]).arg(lightComp[data & 0x3]);
 		break;
-
+	}
 	case GE_CMD_LX0:case GE_CMD_LY0:case GE_CMD_LZ0:
 	case GE_CMD_LX1:case GE_CMD_LY1:case GE_CMD_LZ1:
 	case GE_CMD_LX2:case GE_CMD_LY2:case GE_CMD_LZ2:
@@ -855,42 +953,78 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 		break;
 
 	case GE_CMD_CULL:
-		return QString("cull: %1").arg(data,6,16,QChar('0'));
+	{
+		const char* cull[2] =
+		{
+			"Clockwise visible",
+			"Counter-clockwise visible"
+		};
+		return QString("cull: %1").arg(cull[data & 0x1]);
 		break;
-
+	}
 	case GE_CMD_PATCHDIVISION:
 		{
 			int patch_div_s = data & 0xFF;
 			int patch_div_t = (data >> 8) & 0xFF;
-			return QString("Patch subdivision: %1 x %2").arg(patch_div_s).arg(patch_div_t);
+			return QString("Patch subdivision: S=%1 x T=%2").arg(patch_div_s).arg(patch_div_t);
 		}
 		break;
 
 	case GE_CMD_PATCHPRIMITIVE:
-		return QString("Patch Primitive: %1").arg(data);
+	{
+		const char* type[3] =
+		{
+			"Triangles",
+			"Lines",
+			"Points"
+		};
+		return QString("Patch Primitive: %1").arg(type[data]);
 		break;
-
+	}
 	case GE_CMD_PATCHFACING:
-		return QString( "Patch Facing: %1").arg(data);
+	{
+		const char* val[2] =
+		{
+			"Clockwise",
+			"Counter-Clockwise"
+		};
+		return QString( "Patch Facing: %1").arg(val[data]);
 		break;
-
+	}
 	case GE_CMD_REVERSENORMAL:
 		return QString("Reverse normal: %1").arg(data);
 		break;
 
 	case GE_CMD_MATERIALUPDATE:
-		return QString("Material Update: %1").arg(data);
+	{
+		QString txt = "";
+		if(data & 1) txt += " Ambient";
+		if(data & 2) txt += " Diffuse";
+		if(data & 4) txt += " Specular";
+		return QString("Material Update: %1").arg(txt);
 		break;
-
+	}
 
 	//////////////////////////////////////////////////////////////////
 	//	CLEARING
 	//////////////////////////////////////////////////////////////////
 	case GE_CMD_CLEARMODE:
+	{
 		// If it becomes a performance problem, check diff&1
-		return QString("Clear mode: %1").arg(data,6,16,QChar('0'));
+		const char* clearMode[8] =
+		{
+			"",
+			"Clear Color Buffer",
+			"Clear Stencil/Alpha Buffer",
+			"",
+			"Clear Depth Buffer",
+			"",
+			"",
+			""
+		};
+		return QString("Clear mode: %1, enabled : %2").arg(clearMode[(data >> 8) & 0xF]).arg(data & 0x1);
 		break;
-
+	}
 
 	//////////////////////////////////////////////////////////////////
 	//	ALPHA BLENDING
@@ -900,9 +1034,31 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 		break;
 
 	case GE_CMD_BLENDMODE:
-		return QString("Blend mode: %1").arg(data,6,16,QChar('0'));
+	{
+		const char* func[9] =
+		{
+			"Source Color",
+			"One Minus Source Color",
+			"Source Alpha",
+			"One Minus Source Alpha",
+			"Destination Color",
+			"One Minus Destination Color",
+			"Destination Alpha",
+			"One Minus Destination Alpha",
+			"Fix"
+		};
+		const char* op[6] =
+		{
+			"Add",
+			"Subtract",
+			"Reverse Subtract",
+			"Minimum Value",
+			"Maximum Value",
+			"Absolute Value"
+		};
+		return QString("Blend mode: Src : %1, Dest : %2, Op : %3").arg(func[(data >> 4) & 0xF]).arg(func[(data >> 8) & 0xF]).arg(op[(data) & 0x7]);
 		break;
-
+	}
 	case GE_CMD_BLENDFIXEDA:
 		return QString("Blend fix A: %1").arg(data,6,16,QChar('0'));
 		break;
@@ -916,9 +1072,21 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 		break;
 
 	case GE_CMD_ALPHATEST:
-		return QString("Alpha test settings");
+	{
+		const char* testFunc[8] =
+		{
+			"Never pass pixel",
+			"Always pass pixel",
+			"Pass pixel if match",
+			"Pass pixel if difference",
+			"Pass pixel if less",
+			"Pass pixel if less or equal",
+			"Pass pixel if greater",
+			"Pass pixel if greater or equal"
+		};
+		return QString("Alpha test settings, Mask : %1, Ref : %2, Test : %3").arg((data >> 8) & 0xFF).arg((data >> 16) & 0xFF).arg(testFunc[data & 0x7]);
 		break;
-
+	}
 	case GE_CMD_ANTIALIASENABLE:
 		return QString("Antialias enable: %1").arg(data);
 		break;
@@ -928,22 +1096,71 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 		break;
 
 	case GE_CMD_COLORTESTENABLE:
-		return QString("Color Test enable: %1").arg(data);
+	{
+		const char* colorTest[4] =
+		{
+			"Never pass pixel",
+			"Always pass pixel",
+			"Pass pixel if color matches",
+			"Pass pixel if color differs"
+		};
+		return QString("Color Test enable: %1").arg(colorTest[data]);
 		break;
-
+	}
 	case GE_CMD_LOGICOPENABLE:
-		return QString("Logic op enable: %1").arg(data);
+	{
+		const char* logicOp[16] =
+		{
+			"Clear",
+			"And",
+			"Reverse And",
+			"Copy",
+			"Inverted And",
+			"No Operation",
+			"Exclusive Or",
+			"Or",
+			"Negated Or",
+			"Equivalence",
+			"Inverted",
+			"Reverse Or",
+			"Inverted Copy",
+			"Inverted Or",
+			"Negated And",
+			"Set"
+		};
+		return QString("Logic op enable: %1").arg(logicOp[data]);
 		break;
-
+	}
 	case GE_CMD_TEXFUNC:
-		return QString("TexFunc %1").arg(data&7);
+	{
+		const char* effect[8] =
+		{
+			"Modulate",
+			"Decal",
+			"Blend",
+			"Replace",
+			"Add",
+			"","",""
+		};
+		return QString("TexFunc %1 / %2 / %3").arg((data&0x100)?"Texture alpha is read":"Texture alpha is ignored").arg((data & 0x10000)?"Fragment color is doubled":"Fragment color is untouched").arg(effect[data & 0x7]);
 		break;
-
+	}
 	case GE_CMD_TEXFILTER:
 		{
-			int min = data & 7;
-			int mag = (data >> 8) & 1;
-			return QString("TexFilter min: %1 mag: %2").arg( min).arg(mag);
+		const char* filter[8]=
+		{
+			"Nearest",
+			"Linear",
+			"",
+			"",
+			"Nearest; Mipmap Nearest",
+			"Linear; Mipmap Nearest",
+			"Nearest; Mipmap Linear",
+			"Linear; Mipmap Linear"
+		};
+			int min = data & 0x7;
+			int mag = (data >> 8) & 0x7;
+			return QString("TexFilter min: %1 mag: %2").arg(filter[min]).arg(filter[mag]);
 		}
 		break;
 
@@ -952,13 +1169,30 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 		break;
 
 	case GE_CMD_TEXMODE:
-		return QString("TexMode %1").arg(data,8,16,QChar('0'));
+	{
+		u32 maxMipMap = (data >> 16) & 0xF;
+		return QString("TexMode MaxmipMap : %1, Swizzle : %2").arg(maxMipMap).arg(data & 0x1);
 		break;
-
+	}
 	case GE_CMD_TEXFORMAT:
-		return QString("TexFormat %1").arg(data,8,16,QChar('0'));
+	{
+		const char* texFmt[11] =
+		{
+			"16-bit BGR 5650",
+			"16-bit ABGR 5551",
+			"16-bit ABGR 4444",
+			"32-bit ABGR 8888",
+			"4-bit indexed",
+			"8-bit indexed",
+			"16-bit indexed",
+			"32-bit indexed",
+			"DXT1",
+			"DXT3",
+			"DXT5"
+		};
+		return QString("TexFormat %1").arg(texFmt[data]);
 		break;
-
+	}
 	case GE_CMD_TEXFLUSH:
 		return QString("TexFlush");
 		break;
@@ -968,9 +1202,15 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 		break;
 
 	case GE_CMD_TEXWRAP:
-		return QString("TexWrap %1").arg(data,8,16,QChar('0'));
+	{
+		const char* wrapMode[2] =
+		{
+			"Repeat",
+			"Clamp"
+		};
+		return QString("TexWrap U : %1, V : %2").arg(wrapMode[data & 0x1]).arg(wrapMode[(data >> 8) & 0x1]);
 		break;
-
+	}
 	case GE_CMD_TEXLEVEL:
 		return QString("TexWrap Mode: %1 Offset: %2").arg(data&3).arg(data >> 16);
 		break;
@@ -1000,21 +1240,57 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 		break;
 
 	case GE_CMD_STENCILOP:
-		return QString("Stencil op: %1").arg(data,6,16,QChar('0'));
+	{
+		const char* stencilOp[8] =
+		{
+			"Keep stencil value",
+			"Zero stencil value",
+			"Replace stencil value",
+			"Invert stencil value",
+			"Increment stencil value",
+			"Decrement stencil value",
+			"",""
+		};
+		return QString("Stencil op: ZFail : %1, Fail : %2, Pass : %3").arg(stencilOp[(data >> 16) & 0x7]).arg(stencilOp[(data >> 8) & 0x7]).arg(stencilOp[(data) & 0x7]);
 		break;
-
+	}
 	case GE_CMD_STENCILTEST:
-		return QString("Stencil test: %1").arg(data,6,16,QChar('0'));
+	{
+		const char* testFunc[8] =
+		{
+			"Never pass stencil pixel",
+			"Always pass stencil pixel",
+			"Pass test if match",
+			"Pass test if difference",
+			"Pass test if less",
+			"Pass test if less or equal",
+			"Pass test if greater",
+			"Pass test if greater or equal"
+		};
+		return QString("Stencil test, Mask : %1, Ref : %2, Test : %3").arg((data >> 8) & 0xFF).arg((data >> 16) & 0xFF).arg(testFunc[data & 0x7]);
 		break;
+	}
 
 	case GE_CMD_STENCILTESTENABLE:
 		return QString("Stencil test enable: %1").arg(data);
 		break;
 
 	case GE_CMD_ZTEST:
-		return QString("Z test mode: %1").arg(data);
+	{
+		const char* testFunc[8] =
+		{
+			"Never pass stencil pixel",
+			"Always pass stencil pixel",
+			"Pass pixel if match",
+			"Pass pixel if difference",
+			"Pass pixel if less",
+			"Pass pixel if less or equal",
+			"Pass pixel if greater",
+			"Pass pixel if greater or equal"
+		};
+		return QString("Z test mode: %1").arg(testFunc[data & 0x7]);
 		break;
-
+	}
 	case GE_CMD_MORPHWEIGHT0:
 	case GE_CMD_MORPHWEIGHT1:
 	case GE_CMD_MORPHWEIGHT2:
