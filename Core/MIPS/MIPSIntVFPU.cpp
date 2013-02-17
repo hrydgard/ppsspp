@@ -936,8 +936,7 @@ namespace MIPSInt
 		}
 		d = sum;
 		ApplyPrefixD(&d,V_Single);
-		// TODO: Shouldn't this respect the mask?
-		V(vd) = d;
+		WriteVector(&d, V_Single, vd);
 		PC += 4;
 		EatPrefixes();
 	}
