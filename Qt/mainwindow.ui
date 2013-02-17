@@ -180,7 +180,6 @@
       <string>&amp;Core</string>
      </property>
      <addaction name="action_CPUInterpreter"/>
-     <addaction name="action_CPUFastInterpreter"/>
      <addaction name="action_CPUDynarec"/>
      <addaction name="separator"/>
      <addaction name="action_OptionsFastMemory"/>
@@ -287,14 +286,6 @@
    </property>
    <property name="text">
     <string>&amp;Interpreter</string>
-   </property>
-  </action>
-  <action name="action_CPUFastInterpreter">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>&amp;Slightly Faster Interpreter</string>
    </property>
   </action>
   <action name="action_CPUDynarec">
