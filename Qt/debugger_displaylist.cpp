@@ -2,6 +2,7 @@
 
 #include <QTimer>
 #include <set>
+#include <QMenu>
 
 #include "Core/CPU.h"
 #include "ui_debugger_displaylist.h"
@@ -1517,4 +1518,50 @@ void Debugger_DisplayList::on_nextIdx_clicked()
 void Debugger_DisplayList::on_indexList_itemClicked(QTreeWidgetItem *item, int column)
 {
 	UpdateIndexInfo();
+}
+
+void Debugger_DisplayList::on_displayListData_customContextMenuRequested(const QPoint &pos)
+{
+	QTreeWidgetItem* item = ui->displayListData->itemAt(pos);
+	if(!item)
+		return;
+	displayListDataSelected = item;
+
+	QMenu menu(this);
+
+	QAction *runToHere = new QAction(tr("Run to here"), this);
+	connect(runToHere, SIGNAL(triggered()), this, SLOT(RunToDLPC()));
+	menu.addAction(runToHere);
+
+	menu.exec( ui->displayListData->mapToGlobal(pos));
+}
+
+void Debugger_DisplayList::RunToDLPC()
+{
+	u32 addr = displayListDataSelected->text(0).toInt(0,16);
+	host->SetGPUStep(true, 2, addr);
+	host->NextGPUStep();
+}
+
+void Debugger_DisplayList::on_texturesList_customContextMenuRequested(const QPoint &pos)
+{
+	QTreeWidgetItem* item = ui->texturesList->itemAt(pos);
+	if(!item)
+		return;
+	textureDataSelected = item;
+
+	QMenu menu(this);
+
+	QAction *runToDraw = new QAction(tr("Run to draw using this texture"), this);
+	connect(runToDraw, SIGNAL(triggered()), this, SLOT(RunToDrawTex()));
+	menu.addAction(runToDraw);
+
+	menu.exec( ui->texturesList->mapToGlobal(pos));
+}
+
+void Debugger_DisplayList::RunToDrawTex()
+{
+	u32 addr = textureDataSelected->text(0).toInt(0,16);
+	host->SetGPUStep(true, 3, addr);
+	host->NextGPUStep();
 }
