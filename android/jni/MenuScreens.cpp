@@ -246,6 +246,7 @@ void InGameMenuScreen::render() {
 	int y = 50;
 	UICheckBox(GEN_ID, x, y += 50, "Show Debug Statistics", ALIGN_TOPLEFT, &g_Config.bShowDebugStats);
 	UICheckBox(GEN_ID, x, y += 50, "Show FPS", ALIGN_TOPLEFT, &g_Config.bShowFPSCounter);
+	UICheckBox(GEN_ID, x, y += 50, "Reverse Landscape", ALIGN_TOPLEFT, &g_Config.bFlip);
 
 	// TODO: Maybe shouldn't show this if the screen ratios are very close...
 	UICheckBox(GEN_ID, x, y += 50, "Stretch to display", ALIGN_TOPLEFT, &g_Config.bStretchToDisplay);
