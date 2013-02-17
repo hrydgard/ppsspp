@@ -5,7 +5,6 @@
 #include <QMenu>
 #include <QAction>
 #include <QApplication>
-#include <QDebug>
 #include <QInputDialog>
 #include <QMessageBox>
 
@@ -164,9 +163,7 @@ void CtrlDisAsmView::GoToMemoryView()
 
 void CtrlDisAsmView::CopyAddress()
 {
-	char temp[16];
-	sprintf(temp,"%08x",selection);
-	QApplication::clipboard()->setText(QString(temp));
+	QApplication::clipboard()->setText(QString("%1").arg(selection,8,16,QChar('0')));
 }
 
 void CtrlDisAsmView::CopyInstrDisAsm()
@@ -178,11 +175,9 @@ void CtrlDisAsmView::CopyInstrDisAsm()
 
 void CtrlDisAsmView::CopyInstrHex()
 {
-	char temp[24];
 	EmuThread_LockDraw(true);
-	sprintf(temp,"%08x",debugger->readMemory(selection));
+	QApplication::clipboard()->setText(QString("%1").arg(debugger->readMemory(selection),8,16,QChar('0')));
 	EmuThread_LockDraw(false);
-	QApplication::clipboard()->setText(temp);
 }
 
 void CtrlDisAsmView::SetNextStatement()
@@ -234,8 +229,7 @@ void CtrlDisAsmView::RenameFunction()
 	int sym = symbolMap.GetSymbolNum(selection);
 	if (sym != -1)
 	{
-		char name[256];
-		strncpy(name, symbolMap.GetSymbolName(sym),256);
+		QString name = symbolMap.GetSymbolName(sym);
 		bool ok;
 		QString newname = QInputDialog::getText(this, tr("New function name"),
 									tr("New function name:"), QLineEdit::Normal,
@@ -300,8 +294,6 @@ void CtrlDisAsmView::paintEvent(QPaintEvent *)
 
 		int rowY1 = rect().bottom()/2 + rowHeight*i - rowHeight/2;
 		int rowY2 = rect().bottom()/2 + rowHeight*i + rowHeight/2 - 1;
-		char temp[256];
-		sprintf(temp,"%08x",address);
 
 		lbr.setColor(marker==address?QColor(0xFFFFEEE0):QColor(debugger->getColor(address)));
 		QColor bg = lbr.color();
@@ -319,7 +311,6 @@ void CtrlDisAsmView::paintEvent(QPaintEvent *)
 		if (address == debugger->getPC())
 		{
 			painter.setBrush(pcBrush);
-			qDebug() << address;
 		}
 
 		painter.drawRect(16,rowY1,width-16-1,rowY2-rowY1);
@@ -327,7 +318,7 @@ void CtrlDisAsmView::paintEvent(QPaintEvent *)
 		QPen textPen = QPen(QColor(halfAndHalf(bg.rgba(),0)));
 		painter.setPen(textPen);
 		painter.setFont(alignedFont);
-		painter.drawText(17,rowY1-3+rowHeight,QString(temp));
+		painter.drawText(17,rowY1-3+rowHeight,QString("%1").arg(address,8,16,QChar('0')));
 		painter.setFont(normalFont);
 		textPen.setColor(QColor(0xFF000000));
 		painter.setPen(textPen);

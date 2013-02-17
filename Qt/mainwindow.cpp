@@ -28,7 +28,9 @@ MainWindow::MainWindow(QWidget *parent) :
 	ui(new Ui::MainWindow),
 	nextState(CORE_POWERDOWN),
 	dialogDisasm(0),
-	memoryWindow(0)
+	memoryWindow(0),
+	memoryTexWindow(0),
+	displaylistWindow(0)
 {
 	ui->setupUi(this);
 	qApp->installEventFilter(this);
@@ -206,6 +208,8 @@ void MainWindow::Boot()
 		on_action_OptionsFullScreen_triggered();
 
 	memoryWindow = new Debugger_Memory(currentDebugMIPS, this, this);
+	memoryTexWindow = new Debugger_MemoryTex(this);
+	displaylistWindow = new Debugger_DisplayList(currentDebugMIPS, this, this);
 
 	if (dialogDisasm)
 		dialogDisasm->NotifyMapLoaded();
@@ -261,11 +265,12 @@ void MainWindow::UpdateMenus()
 	ui->action_FileQuickSaveState->setEnabled(!enable);
 	ui->action_CPUDynarec->setEnabled(enable);
 	ui->action_CPUInterpreter->setEnabled(enable);
-	ui->action_CPUFastInterpreter->setEnabled(enable);
 	ui->action_EmulationStop->setEnabled(!enable);
 	ui->action_DebugDumpFrame->setEnabled(!enable);
 	ui->action_DebugDisassembly->setEnabled(!enable);
 	ui->action_DebugMemoryView->setEnabled(!enable);
+	ui->action_DebugMemoryViewTexture->setEnabled(!enable);
+	ui->action_DebugDisplayList->setEnabled(!enable);
 
 	ui->action_OptionsScreen1x->setChecked(0 == (g_Config.iWindowZoom - 1));
 	ui->action_OptionsScreen2x->setChecked(1 == (g_Config.iWindowZoom - 1));
@@ -354,6 +359,10 @@ void MainWindow::on_action_EmulationStop_triggered()
 		dialogDisasm->close();
 	if(memoryWindow && memoryWindow->isVisible())
 		memoryWindow->close();
+	if(memoryTexWindow && memoryTexWindow->isVisible())
+		memoryTexWindow->close();
+	if(displaylistWindow && displaylistWindow->isVisible())
+		displaylistWindow->close();
 
 	EmuThread_StopGame();
 	SetGameTitle("");
@@ -932,6 +941,10 @@ void MainWindow::on_action_EmulationReset_triggered()
 		dialogDisasm->close();
 	if(memoryWindow)
 		memoryWindow->close();
+	if(memoryTexWindow)
+		memoryTexWindow->close();
+	if(displaylistWindow)
+		displaylistWindow->close();
 
 	EmuThread_StopGame();
 
@@ -1015,4 +1028,16 @@ void MainWindow::on_action_Sound_triggered()
 {
 	g_Config.bEnableSound = !g_Config.bEnableSound;
 	UpdateMenus();
+}
+
+void MainWindow::on_action_DebugMemoryViewTexture_triggered()
+{
+	if(memoryTexWindow)
+		memoryTexWindow->show();
+}
+
+void MainWindow::on_action_DebugDisplayList_triggered()
+{
+	if(displaylistWindow)
+		displaylistWindow->show();
 }

@@ -100,6 +100,8 @@ reswitch:
 		case CORE_STEPPING:
 			//1: wait for step command..
 #if defined(USING_QT_UI) || defined(_DEBUG)
+			host->UpdateDisassembly();
+			host->UpdateMemView();
 			host->SendCoreWait(true);
 #endif
 

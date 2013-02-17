@@ -1131,3 +1131,291 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
 	glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components, dstFmt, finalBuf);
 }
+
+bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
+{
+	GPUgstate oldState = gstate;
+	gstate = state;
+
+	u32 texaddr = (gstate.texaddr[0] & 0xFFFFF0) | ((gstate.texbufwidth[0]<<8) & 0x0F000000);
+
+	if (!Memory::IsValidAddress(texaddr)) {
+		return false;
+	}
+
+	u8 level = 0;
+	u32 format = gstate.texformat & 0xF;
+	if (format >= 11) {
+		ERROR_LOG(G3D, "Unknown texture format %i", format);
+		format = 0;
+	}
+
+	u32 clutformat = gstate.clutformat & 3;
+	u32 clutaddr = GetClutAddr(clutformat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2);
+
+	const u8 *texptr = Memory::GetPointer(texaddr);
+	u32 texhash = texptr ? MiniHash((const u32*)texptr) : 0;
+
+	u64 cachekey = texaddr ^ texhash;
+	if (formatUsesClut[format])
+		cachekey |= (u64) clutaddr << 32;
+
+	int bufw = gstate.texbufwidth[0] & 0x3ff;
+
+	int w = 1 << (gstate.texsize[0] & 0xf);
+	int h = 1 << ((gstate.texsize[0]>>8) & 0xf);
+
+
+	GLenum dstFmt = 0;
+	u32 texByteAlign = 1;
+
+	void *finalBuf = NULL;
+
+	// TODO: Look into using BGRA for 32-bit textures when the GL_EXT_texture_format_BGRA8888 extension is available, as it's faster than RGBA on some chips.
+
+	// TODO: Actually decode the mipmaps.
+
+	switch (format)
+	{
+	case GE_TFMT_CLUT4:
+		dstFmt = getClutDestFormat((GEPaletteFormat)(gstate.clutformat & 3));
+
+		switch (clutformat) {
+		case GE_CMODE_16BIT_BGR5650:
+		case GE_CMODE_16BIT_ABGR5551:
+		case GE_CMODE_16BIT_ABGR4444:
+			{
+			ReadClut16(clutBuf16);
+			const u16 *clut = clutBuf16;
+			u32 clutSharingOff = 0;//gstate.mipmapShareClut ? 0 : level * 16;
+			texByteAlign = 2;
+			if (!(gstate.texmode & 1)) {
+				const u8 *addr = Memory::GetPointer(texaddr);
+				for (int i = 0; i < bufw * h; i += 2)
+				{
+					u8 index = *addr++;
+					tmpTexBuf16[i + 0] = clut[GetClutIndex((index >> 0) & 0xf) + clutSharingOff];
+					tmpTexBuf16[i + 1] = clut[GetClutIndex((index >> 4) & 0xf) + clutSharingOff];
+				}
+			} else {
+				UnswizzleFromMem(texaddr, 0, level);
+				for (int i = 0, j = 0; i < bufw * h; i += 8, j++)
+				{
+					u32 n = tmpTexBuf32[j];
+					u32 k, index;
+					for (k = 0; k < 8; k++) {
+						index = (n >> (k * 4)) & 0xf;
+						tmpTexBuf16[i + k] = clut[GetClutIndex(index) + clutSharingOff];
+					}
+				}
+			}
+			finalBuf = tmpTexBuf16;
+			}
+			break;
+
+		case GE_CMODE_32BIT_ABGR8888:
+			{
+			ReadClut32(clutBuf32);
+			const u32 *clut = clutBuf32;
+			u32 clutSharingOff = 0;//gstate.mipmapShareClut ? 0 : level * 16;
+			if (!(gstate.texmode & 1)) {
+				const u8 *addr = Memory::GetPointer(texaddr);
+				for (int i = 0; i < bufw * h; i += 2)
+				{
+					u8 index = *addr++;
+					tmpTexBuf32[i + 0] = clut[GetClutIndex((index >> 0) & 0xf) + clutSharingOff];
+					tmpTexBuf32[i + 1] = clut[GetClutIndex((index >> 4) & 0xf) + clutSharingOff];
+				}
+			} else {
+				u32 pixels = bufw * h;
+				UnswizzleFromMem(texaddr, 0, level);
+				for (int i = pixels - 8, j = (pixels / 8) - 1; i >= 0; i -= 8, j--) {
+					u32 n = tmpTexBuf32[j];
+					for (int k = 0; k < 8; k++) {
+						u32 index = (n >> (k * 4)) & 0xf;
+						tmpTexBuf32[i + k] = clut[GetClutIndex(index) + clutSharingOff];
+					}
+				}
+			}
+			finalBuf = tmpTexBuf32;
+			}
+			break;
+
+		default:
+			ERROR_LOG(G3D, "Unknown CLUT4 texture mode %d", (gstate.clutformat & 3));
+			return false;
+		}
+		break;
+
+	case GE_TFMT_CLUT8:
+		finalBuf = readIndexedTex(level, texaddr, 1);
+		dstFmt = getClutDestFormat((GEPaletteFormat)(gstate.clutformat & 3));
+		texByteAlign = texByteAlignMap[(gstate.clutformat & 3)];
+		break;
+
+	case GE_TFMT_CLUT16:
+		finalBuf = readIndexedTex(level, texaddr, 2);
+		dstFmt = getClutDestFormat((GEPaletteFormat)(gstate.clutformat & 3));
+		texByteAlign = texByteAlignMap[(gstate.clutformat & 3)];
+		break;
+
+	case GE_TFMT_CLUT32:
+		finalBuf = readIndexedTex(level, texaddr, 4);
+		dstFmt = getClutDestFormat((GEPaletteFormat)(gstate.clutformat & 3));
+		texByteAlign = texByteAlignMap[(gstate.clutformat & 3)];
+		break;
+
+	case GE_TFMT_4444:
+	case GE_TFMT_5551:
+	case GE_TFMT_5650:
+		if (format == GE_TFMT_4444)
+			dstFmt = GL_UNSIGNED_SHORT_4_4_4_4;
+		else if (format == GE_TFMT_5551)
+			dstFmt = GL_UNSIGNED_SHORT_5_5_5_1;
+		else if (format == GE_TFMT_5650)
+			dstFmt = GL_UNSIGNED_SHORT_5_6_5;
+		texByteAlign = 2;
+
+		if (!(gstate.texmode & 1)) {
+			int len = std::max(bufw, w) * h;
+			for (int i = 0; i < len; i++)
+				tmpTexBuf16[i] = Memory::ReadUnchecked_U16(texaddr + i * 2);
+			finalBuf = tmpTexBuf16;
+		}
+		else
+			finalBuf = UnswizzleFromMem(texaddr, 2, level);
+		break;
+
+	case GE_TFMT_8888:
+		dstFmt = GL_UNSIGNED_BYTE;
+		if (!(gstate.texmode & 1)) {
+			int len = bufw * h;
+			for (int i = 0; i < len; i++)
+				tmpTexBuf32[i] = Memory::ReadUnchecked_U32(texaddr + i * 4);
+			finalBuf = tmpTexBuf32;
+		}
+		else
+			finalBuf = UnswizzleFromMem(texaddr, 4, level);
+		break;
+
+	case GE_TFMT_DXT1:
+		dstFmt = GL_UNSIGNED_BYTE;
+		{
+			u32 *dst = tmpTexBuf32;
+			DXT1Block *src = (DXT1Block*)texptr;
+
+			for (int y = 0; y < h; y += 4) {
+				u32 blockIndex = (y / 4) * (bufw / 4);
+				for (int x = 0; x < std::min(bufw, w); x += 4) {
+					decodeDXT1Block(dst + bufw * y + x, src + blockIndex, bufw);
+					blockIndex++;
+				}
+			}
+			finalBuf = tmpTexBuf32;
+			w = (w + 3) & ~3;
+		}
+		break;
+
+	case GE_TFMT_DXT3:
+		dstFmt = GL_UNSIGNED_BYTE;
+		{
+			u32 *dst = tmpTexBuf32;
+			DXT3Block *src = (DXT3Block*)texptr;
+
+			// Alpha is off
+			for (int y = 0; y < h; y += 4) {
+				u32 blockIndex = (y / 4) * (bufw / 4);
+				for (int x = 0; x < std::min(bufw, w); x += 4) {
+					decodeDXT3Block(dst + bufw * y + x, src + blockIndex, bufw);
+					blockIndex++;
+				}
+			}
+			w = (w + 3) & ~3;
+			finalBuf = tmpTexBuf32;
+		}
+		break;
+
+	case GE_TFMT_DXT5:
+		ERROR_LOG(G3D, "Unhandled compressed texture, format %i! swizzle=%i", format, gstate.texmode & 1);
+		dstFmt = GL_UNSIGNED_BYTE;
+		{
+			u32 *dst = tmpTexBuf32;
+			DXT5Block *src = (DXT5Block*)texptr;
+
+			// Alpha is almost right
+			for (int y = 0; y < h; y += 4) {
+				u32 blockIndex = (y / 4) * (bufw / 4);
+				for (int x = 0; x < std::min(bufw, w); x += 4) {
+					decodeDXT5Block(dst + bufw * y + x, src + blockIndex, bufw);
+					blockIndex++;
+				}
+			}
+			w = (w + 3) & ~3;
+			finalBuf = tmpTexBuf32;
+		}
+		break;
+
+	default:
+		ERROR_LOG(G3D, "Unknown Texture Format %d!!!", format);
+		finalBuf = tmpTexBuf32;
+		return false;
+	}
+
+	if (!finalBuf) {
+		ERROR_LOG(G3D, "NO finalbuf! Will crash!");
+	}
+
+	convertColors((u8*)finalBuf, dstFmt, bufw * h);
+
+	if(dstFmt == GL_UNSIGNED_SHORT_4_4_4_4)
+	{
+		for(int x = 0; x < h; x++)
+			for(int y = 0; y < bufw; y++)
+			{
+				u32 val = ((u16*)finalBuf)[x*bufw + y];
+				u32 a = (val & 0xF) * 255 / 15;
+				u32 r = ((val & 0xF) >> 24) * 255 / 15;
+				u32 g = ((val & 0xF) >> 16) * 255 / 15;
+				u32 b = ((val & 0xF) >> 8) * 255 / 15;
+				((u32*)output)[x*w + y] = (a << 24) | (r << 16) | (g << 8) | b;
+			}
+	}
+	else if(dstFmt == GL_UNSIGNED_SHORT_5_5_5_1)
+	{
+		for(int x = 0; x < h; x++)
+			for(int y = 0; y < bufw; y++)
+			{
+				u32 val = ((u16*)finalBuf)[x*bufw + y];
+				u32 a = (val & 0x1) * 255;
+				u32 r = ((val & 0x1F) >> 11) * 255 / 31;
+				u32 g = ((val & 0x1F) >> 6) * 255 / 31;
+				u32 b = ((val & 0x1F) >> 1) * 255 / 31;
+				((u32*)output)[x*w + y] = (a << 24) | (r << 16) | (g << 8) | b;
+			}
+	}
+	else if(dstFmt == GL_UNSIGNED_SHORT_5_6_5)
+	{
+		for(int x = 0; x < h; x++)
+			for(int y = 0; y < bufw; y++)
+			{
+				u32 val = ((u16*)finalBuf)[x*bufw + y];
+				u32 a = 0xFF;
+				u32 r = ((val & 0x1F) >> 11) * 255 / 31;
+				u32 g = ((val & 0x3F) >> 6) * 255 / 63;
+				u32 b = ((val & 0x1F)) * 255 / 31;
+				((u32*)output)[x*w + y] = (a << 24) | (r << 16) | (g << 8) | b;
+			}
+	}
+	else
+	{
+		for(int x = 0; x < h; x++)
+			for(int y = 0; y < bufw; y++)
+			{
+				u32 val = ((u32*)finalBuf)[x*bufw + y];
+				((u32*)output)[x*w + y] = ((val & 0xFF000000)) | ((val & 0x00FF0000)>>16) | ((val & 0x0000FF00)) | ((val & 0x000000FF)<<16);
+			}
+	}
+
+	gstate = oldState;
+	return true;
+}
