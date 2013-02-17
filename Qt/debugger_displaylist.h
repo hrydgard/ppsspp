@@ -54,10 +54,12 @@ protected:
 signals:
 	void updateDisplayList_();
 	void updateRenderBufferList_();
+	void updateRenderBuffer_();
 
 private slots:
 	void UpdateDisplayListGUI();
 	void UpdateRenderBufferListGUI();
+	void UpdateRenderBufferGUI();
 	void releaseLock();
 
 	void on_displayList_itemClicked(QTreeWidgetItem *item, int column);

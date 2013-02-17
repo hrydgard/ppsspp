@@ -31,6 +31,7 @@ Debugger_DisplayList::Debugger_DisplayList(DebugInterface *_cpu, MainWindow* mai
 
 	QObject::connect(this, SIGNAL(updateDisplayList_()), this, SLOT(UpdateDisplayListGUI()));
 	QObject::connect(this, SIGNAL(updateRenderBufferList_()), this, SLOT(UpdateRenderBufferListGUI()));
+	QObject::connect(this, SIGNAL(updateRenderBuffer_()), this, SLOT(UpdateRenderBufferGUI()));
 
 }
 
@@ -1499,6 +1500,11 @@ void Debugger_DisplayList::on_stopBtn_clicked()
 
 void Debugger_DisplayList::UpdateRenderBuffer()
 {
+	emit updateRenderBuffer_();
+}
+
+void Debugger_DisplayList::UpdateRenderBufferGUI()
+{
 	EmuThread_LockDraw(true);
 
 	gpu->Flush();
@@ -1580,7 +1586,7 @@ void Debugger_DisplayList::on_texturesList_itemDoubleClicked(QTreeWidgetItem *it
 void Debugger_DisplayList::on_comboBox_currentIndexChanged(int index)
 {
 	currentRenderFrameDisplay = index;
-	UpdateRenderBuffer();
+	UpdateRenderBufferGUI();
 }
 
 void Debugger_DisplayList::UpdateRenderBufferList()
@@ -1622,7 +1628,7 @@ void Debugger_DisplayList::on_fboList_itemClicked(QTreeWidgetItem *item, int col
 	u64 addr = item->data(0,Qt::UserRole).toULongLong();
 	FBO* fbo = (FBO*)addr;
 	currentTextureDisplay = fbo;
-	UpdateRenderBuffer();
+	UpdateRenderBufferGUI();
 }
 
 void Debugger_DisplayList::on_nextDLBtn_clicked()
