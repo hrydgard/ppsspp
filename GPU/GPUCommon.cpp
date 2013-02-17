@@ -98,7 +98,7 @@ bool GPUCommon::InterpretList(DisplayList &list)
 #if defined(USING_QT_UI)
 		if(host->GpuStep())
 		{
-			host->SendGPUWait(cmd);
+			host->SendGPUWait(cmd, list.pc, &gstate);
 		}
 #endif
 		u32 diff = op ^ gstate.cmdmem[cmd];

@@ -72,6 +72,7 @@ signals:
 public slots:
 	void CopyValue();
 	void Dump();
+	void Change();
 private:
 	int curAddress;
 	int align;

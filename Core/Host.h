@@ -65,8 +65,8 @@ public:
 
 	virtual bool GpuStep() { return false; }
 	virtual void SendGPUStart() {}
-	virtual void SendGPUWait(u32 cmd) {}
-	virtual void SetGPUStep(bool value, int flag = 0) {}
+	virtual void SendGPUWait(u32 cmd, u32 addr, void* data) {}
+	virtual void SetGPUStep(bool value, int flag = 0, int data = 0) {}
 	virtual void NextGPUStep() {}
 
 	// Used for headless.

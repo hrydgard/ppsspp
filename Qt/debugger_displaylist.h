@@ -54,10 +54,12 @@ protected:
 signals:
 	void updateDisplayList_();
 	void updateRenderBufferList_();
+	void updateRenderBuffer_();
 
 private slots:
 	void UpdateDisplayListGUI();
 	void UpdateRenderBufferListGUI();
+	void UpdateRenderBufferGUI();
 	void releaseLock();
 
 	void on_displayList_itemClicked(QTreeWidgetItem *item, int column);
@@ -93,6 +95,12 @@ private slots:
 
 	void on_indexList_itemClicked(QTreeWidgetItem *item, int column);
 
+	void on_displayListData_customContextMenuRequested(const QPoint &pos);
+
+	void on_texturesList_customContextMenuRequested(const QPoint &pos);
+	void RunToDLPC();
+	void RunToDrawTex();
+
 private:
 	QString DisassembleOp(u32 pc, u32 op, u32 prev, const GPUgstate &state);
 
@@ -100,6 +108,8 @@ private:
 	DebugInterface* cpu;
 	MainWindow* mainWindow;
 	QTreeWidgetItem* displayListRowSelected;
+	QTreeWidgetItem* displayListDataSelected;
+	QTreeWidgetItem* textureDataSelected;
 	int currentRenderFrameDisplay;
 	FBO* currentTextureDisplay;
 	float fboZoomFactor;
