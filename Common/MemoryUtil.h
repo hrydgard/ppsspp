@@ -23,11 +23,6 @@
 #endif
 #include <string>
 
-#if defined(__SYMBIAN32__)
-	// Also Xbox 360
-	#define UNUSABLE_MMAP 1
-#endif
-
 void* AllocateExecutableMemory(size_t size, bool low = true);
 void* AllocateMemoryPages(size_t size);
 void FreeMemoryPages(void* ptr, size_t size);

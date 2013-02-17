@@ -22,6 +22,10 @@
 #include <windows.h>
 #endif
 
+#ifdef __SYMBIAN32__
+#include <e32std.h>
+#endif
+
 #include "Common.h"
 
 // This class lets you create a block of anonymous RAM, and then arbitrarily map views into it.
@@ -36,8 +40,12 @@ public:
 	void *CreateView(s64 offset, size_t size, void *base = 0);
 	void ReleaseView(void *view, size_t size);
 
+#ifdef __SYMBIAN32__
+	RChunk* memmap;
+#else
 	// This only finds 1 GB in 32-bit
 	static u8 *Find4GBBase();
+#endif
 private:
 
 #ifdef _WIN32
