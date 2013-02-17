@@ -146,24 +146,29 @@ void Jit::ApplyPrefixD(const u8 *vregs, u32 prefix, VectorSize sz, bool onlyWrit
 
 // Vector regs can overlap in all sorts of swizzled ways.
 // This does allow a single overlap in sregs[i].
-bool DestRegOverlaps(int dreg, int di, int sn, u8 sregs[], int tn, u8 tregs[])
+bool IsOverlapSafeAllowS(int dreg, int di, int sn, u8 sregs[], int tn, u8 tregs[])
 {
 	for (int i = 0; i < sn; ++i)
 	{
 		if (sregs[i] == dreg && i != di)
-			return true;
+			return false;
 	}
 	for (int i = 0; i < tn; ++i)
 	{
 		if (tregs[i] == dreg)
-			return true;
+			return false;
 	}
 
 	// Hurray, no overlap, we can write directly.
-	return false;
+	return true;
 }
 
-static u32 GC_ALIGNED16(ssLoadStoreTemp[1]);
+bool IsOverlapSafe(int dreg, int di, int sn, u8 sregs[], int tn, u8 tregs[])
+{
+	return IsOverlapSafeAllowS(dreg, di, sn, sregs, tn, tregs) && sregs[di] != dreg;
+}
+
+static u32 GC_ALIGNED16(ssLoadStoreTemp);
 
 void Jit::Comp_SV(u32 op) {
 	CONDITIONAL_DISABLE;
@@ -335,18 +340,15 @@ void Jit::Comp_VDot(u32 op) {
 
 	int n = GetNumVectorElements(sz);
 	X64Reg tempxreg = XMM0;
-	if (!DestRegOverlaps(dregs[0], 0, n, sregs, n, tregs))
+	if (IsOverlapSafe(dregs[0], 0, n, sregs, n, tregs))
 	{
 		fpr.MapRegsV(dregs, V_Single, MAP_NOINIT);
 		tempxreg = fpr.VX(dregs[0]);
 	}
 
+	// Need to start with +0.0f so it doesn't result in -0.0f.
 	MOVSS(tempxreg, M((void *) &zero));
-	MOVSS(XMM1, fpr.V(sregs[0]));
-	MULSS(XMM1, fpr.V(tregs[0]));
-	ADDSS(tempxreg, R(XMM1));
-
-	for (int i = 1; i < n; i++)
+	for (int i = 0; i < n; i++)
 	{
 		// sum += s[i]*t[i];
 		MOVSS(XMM1, fpr.V(sregs[i]));
@@ -357,7 +359,7 @@ void Jit::Comp_VDot(u32 op) {
 	if (!fpr.V(dregs[0]).IsSimpleReg(tempxreg))
 	{
 		fpr.MapRegsV(dregs, V_Single, MAP_NOINIT);
-		MOVSS(fpr.V(dregs[0]), XMM0);
+		MOVSS(fpr.V(dregs[0]), tempxreg);
 	}
 
 	// TODO: applyprefixD here somehow (write mask etc..)
@@ -427,7 +429,7 @@ void Jit::Comp_VecDo3(u32 op) {
 	X64Reg tempxregs[4];
 	for (int i = 0; i < n; ++i)
 	{
-		if (DestRegOverlaps(dregs[i], i, n, sregs, n, tregs))
+		if (!IsOverlapSafeAllowS(dregs[i], i, n, sregs, n, tregs))
 		{
 			// On 32-bit we only have 6 xregs for mips regs, use XMM0/XMM1 if possible.
 			if (i < 2)
