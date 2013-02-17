@@ -189,7 +189,7 @@ void MemArena::ReleaseView(void* view, size_t size)
 #ifdef _WIN32
 	UnmapViewOfFile(view);
 #elif defined(__SYMBIAN32__)
-	memmap->Decommit((int)view - (int)memmap->Base(), size);
+	memmap->Decommit(((int)view - (int)memmap->Base()) & 0x3FFFFFFF, size);
 #else
 	munmap(view, size);
 #endif
