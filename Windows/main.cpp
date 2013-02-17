@@ -159,8 +159,9 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 		EmuThread_Start(fileToStart);
 	}
-	// else
-	//	MainWindow::BrowseAndBoot();
+	if (g_Config.bBrowse)
+		MainWindow::BrowseAndBoot();
+
 	if (!hideLog)
 		SetForegroundWindow(hwndMain);
 

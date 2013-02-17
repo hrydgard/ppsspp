@@ -44,6 +44,7 @@ public:
 	bool bSpeedLimit;
 	bool bConfirmOnQuit;
 	bool bAutoRun;  // start immediately
+	bool bBrowse;
 
 	// Core
 	bool bIgnoreBadMemAccess;
