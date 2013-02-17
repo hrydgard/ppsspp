@@ -263,6 +263,8 @@ void MainWindow::UpdateMenus()
 	ui->action_FileLoadStateFile->setEnabled(!enable);
 	ui->action_FileQuickloadState->setEnabled(!enable);
 	ui->action_FileQuickSaveState->setEnabled(!enable);
+	ui->action_CPUDynarec->setEnabled(enable);
+	ui->action_CPUInterpreter->setEnabled(enable);
 	ui->action_EmulationStop->setEnabled(!enable);
 	ui->action_DebugDumpFrame->setEnabled(!enable);
 	ui->action_DebugDisassembly->setEnabled(!enable);
