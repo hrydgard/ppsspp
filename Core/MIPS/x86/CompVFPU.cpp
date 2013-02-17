@@ -318,10 +318,14 @@ void Jit::Comp_SVQ(u32 op)
 void Jit::Comp_VDot(u32 op) {
 	DISABLE;
 
+	// No-op.
+	if (js.writeMask[0]) {
+		return;
+	}
+
 	// WARNING: No prefix support!
 	if (js.MayHavePrefix()) {
 		Comp_Generic(op);
-		js.EatPrefix();
 		return;
 	}
 
@@ -365,8 +369,6 @@ void Jit::Comp_VDot(u32 op) {
 	// TODO: applyprefixD here somehow (write mask etc..)
 
 	fpr.ReleaseSpillLocks();
-
-	js.EatPrefix();
 }
 
 void Jit::Comp_VecDo3(u32 op) {
@@ -376,7 +378,6 @@ void Jit::Comp_VecDo3(u32 op) {
 	if (js.MayHavePrefix())
 	{
 		Comp_Generic(op);
-		js.EatPrefix();
 		return;
 	}
 
@@ -420,7 +421,6 @@ void Jit::Comp_VecDo3(u32 op) {
 	if (xmmop == NULL)
 	{
 		Comp_Generic(op);
-		js.EatPrefix();
 		return;
 	}
 
@@ -463,8 +463,6 @@ void Jit::Comp_VecDo3(u32 op) {
 	}
 
 	fpr.ReleaseSpillLocks();
-
-	js.EatPrefix();
 }
 
 void Jit::Comp_Mftv(u32 op) {

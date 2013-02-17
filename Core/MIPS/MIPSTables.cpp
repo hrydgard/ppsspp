@@ -868,6 +868,7 @@ void MIPSCompileOp(u32 op)
 	if (op==0)
 		return;
 	const MIPSInstruction *instr = MIPSGetInstruction(op);
+	const int info = MIPSGetInfo(op);
 	if (instr)
 	{
 		if (instr->compile)
@@ -877,6 +878,9 @@ void MIPSCompileOp(u32 op)
 			ERROR_LOG(CPU,"MIPSCompileOp %08x failed",op);
 			//MessageBox(0,"ARGH2",0,0);//compile an interpreter call
 		}
+
+		if (info & OUT_EAT_PREFIX)
+			MIPSComp::jit->EatPrefix();
 	}
 	else
 	{
