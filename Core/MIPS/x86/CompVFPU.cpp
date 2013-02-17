@@ -316,7 +316,7 @@ void Jit::Comp_SVQ(u32 op)
 }
 
 void Jit::Comp_VDot(u32 op) {
-	DISABLE;
+	CONDITIONAL_DISABLE;
 
 	// No-op.
 	if (js.writeMask[0]) {
@@ -372,7 +372,7 @@ void Jit::Comp_VDot(u32 op) {
 }
 
 void Jit::Comp_VecDo3(u32 op) {
-	DISABLE;
+	CONDITIONAL_DISABLE;
 
 	// WARNING: No prefix support!
 	if (js.MayHavePrefix())
