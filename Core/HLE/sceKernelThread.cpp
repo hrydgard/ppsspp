@@ -2805,7 +2805,10 @@ std::vector<DebugThreadInfo> GetThreadsInfo()
 		info.name[KERNELOBJECT_MAX_NAME_LENGTH+1] = 0;
 		info.status = t->nt.status;
 		info.entrypoint = t->nt.entrypoint;
-		info.curPC = t->context.pc;
+		if(*iter == currentThread)
+			info.curPC = currentMIPS->pc;
+		else
+			info.curPC = t->context.pc;
 		info.isCurrent = (*iter == currentThread);
 		threadList.push_back(info);
 	}

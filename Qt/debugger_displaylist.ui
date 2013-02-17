@@ -118,6 +118,9 @@
         <layout class="QVBoxLayout" name="verticalLayout_2">
          <item>
           <widget class="QTreeWidget" name="displayListData">
+           <property name="contextMenuPolicy">
+            <enum>Qt::CustomContextMenu</enum>
+           </property>
            <property name="rootIsDecorated">
             <bool>false</bool>
            </property>
@@ -192,6 +195,9 @@
         <layout class="QVBoxLayout" name="verticalLayout_3">
          <item>
           <widget class="QTreeWidget" name="texturesList">
+           <property name="contextMenuPolicy">
+            <enum>Qt::CustomContextMenu</enum>
+           </property>
            <column>
             <property name="text">
              <string>Address</string>
