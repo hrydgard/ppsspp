@@ -129,7 +129,9 @@ public:
     ResetEvent(event_); // necessary?
     // mtx.lock();
 #else
+    pthread_mutex_lock(&mtx.native_handle());
     pthread_cond_wait(&event_, &mtx.native_handle());
+    pthread_mutex_unlock(&mtx.native_handle());
 #endif
   }
 
