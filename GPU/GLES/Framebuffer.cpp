@@ -449,6 +449,26 @@ void FramebufferManager::SetDisplayFramebuffer(u32 framebuf, u32 stride, int for
 	}
 }
 
+std::vector<FramebufferInfo> FramebufferManager::GetFramebufferList()
+{
+	std::vector<FramebufferInfo> list;
+
+	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
+		VirtualFramebuffer *vfb = *iter;
+
+		FramebufferInfo info;
+		info.fb_address = vfb->fb_address;
+		info.z_address = vfb->z_address;
+		info.format = vfb->format;
+		info.width = vfb->width;
+		info.height = vfb->height;
+		info.fbo = vfb->fbo;
+		list.push_back(info);
+	}
+
+	return list;
+}
+
 void FramebufferManager::DecimateFBOs() {
 	for (auto iter = vfbs_.begin(); iter != vfbs_.end();) {
 		VirtualFramebuffer *vfb = *iter;

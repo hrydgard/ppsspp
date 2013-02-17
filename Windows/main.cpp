@@ -161,6 +161,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	}
 	// else
 	//	MainWindow::BrowseAndBoot();
+	if (!hideLog)
+		SetForegroundWindow(hwndMain);
 
 	if (fileToStart != NULL && stateToLoad != NULL)
 		SaveState::Load(stateToLoad);

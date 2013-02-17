@@ -59,6 +59,13 @@ public:
 
 	// Called by the window system if the window size changed. This will be reflected in PSPCoreParam.pixel*.
 	virtual void Resized();
+	virtual bool DecodeTexture(u8* dest, GPUgstate state)
+	{
+		return textureCache_.DecodeTexture(dest, state);
+	}
+
+
+	std::vector<FramebufferInfo> GetFramebufferList();
 
 private:
 	void DoBlockTransfer();

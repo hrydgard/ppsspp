@@ -131,8 +131,6 @@ void MemArena::GrabLowMemSpace(size_t size)
 		ERROR_LOG(MEMMAP, "Failed to grab ashmem space of size: %08x  errno: %d", (int)size, (int)(errno));
 		return;
 	}
-#elif defined(UNUSABLE_MMAP)
-	// Do nothing as we are using malloc()
 #else
 	mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
 	fd = open(ram_temp_file.c_str(), O_RDWR | O_CREAT, mode);
@@ -157,8 +155,9 @@ void MemArena::ReleaseSpace()
 #ifdef _WIN32
 	CloseHandle(hMemoryMapping);
 	hMemoryMapping = 0;
-#elif defined(UNUSABLE_MMAP)
-	// Do nothing as we are using malloc()
+#elif defined(__SYMBIAN32__)
+	memmap->Close();
+	delete memmap;
 #else
 	close(fd);
 #endif
@@ -170,20 +169,7 @@ void *MemArena::CreateView(s64 offset, size_t size, void *base)
 #ifdef _WIN32
 	size = roundup(size);
 	void *ptr = MapViewOfFileEx(hMemoryMapping, FILE_MAP_ALL_ACCESS, 0, (DWORD)((u64)offset), size, base);
-	if (!ptr) {
-		//ERROR_LOG(MEMMAP, "Failed to map memory: %08x %08x %08x : %s", (u32)offset, (u32)size, (u32)base, GetLastErrorMsg());
-	} else {
-		//ERROR_LOG(MEMMAP, "Mapped memory: %08x %08x %08x : %s", (u32)offset, (u32)size, (u32)base, GetLastErrorMsg());
-	}
 	return ptr;
-#elif defined(UNUSABLE_MMAP)
-	void *retval = malloc(size);
-	if (!retval)
-	{
-		NOTICE_LOG(MEMMAP, "malloc failed: %s", strerror(errno));
-		return 0;
-	}
-	return retval;
 #else
 	void *retval = mmap(base, size, PROT_READ | PROT_WRITE, MAP_SHARED |
 		((base == 0) ? 0 : MAP_FIXED), fd, offset);
@@ -202,14 +188,14 @@ void MemArena::ReleaseView(void* view, size_t size)
 {
 #ifdef _WIN32
 	UnmapViewOfFile(view);
-#elif defined(UNUSABLE_MMAP)
-	free(view);
+#elif defined(__SYMBIAN32__)
+	memmap->Decommit(((int)view - (int)memmap->Base()) & 0x3FFFFFFF, size);
 #else
 	munmap(view, size);
 #endif
 }
 
-
+#ifndef __SYMBIAN32__
 u8* MemArena::Find4GBBase()
 {
 #ifdef _M_X64
@@ -224,8 +210,8 @@ u8* MemArena::Find4GBBase()
 	return reinterpret_cast<u8*>(0x2300000000ULL);
 #endif
 
-#else
-	// 32 bit
+#else // 32 bit
+
 #ifdef _WIN32
 	// The highest thing in any 1GB section of memory space is the locked cache. We only need to fit it.
 	u8* base = (u8*)VirtualAlloc(0, 0x10000000, MEM_RESERVE, PAGE_READWRITE);
@@ -233,9 +219,6 @@ u8* MemArena::Find4GBBase()
 		VirtualFree(base, 0, MEM_RELEASE);
 	}
 	return base;
-#elif defined(UNUSABLE_MMAP)
-	// We are unable to use relative addresses due to lack of mmap()
-	return NULL;
 #else
 	void* base = mmap(0, 0x10000000, PROT_READ | PROT_WRITE,
 		MAP_ANON | MAP_SHARED, -1, 0);
@@ -248,6 +231,7 @@ u8* MemArena::Find4GBBase()
 #endif
 #endif
 }
+#endif
 
 
 // yeah, this could also be done in like two bitwise ops...
@@ -282,6 +266,12 @@ static bool Memory_TryBase(u8 *base, const MemoryView *views, int num_views, u32
 		if (view.flags & MV_MIRROR_PREVIOUS) {
 			position = last_position;
 		} else {
+#ifdef __SYMBIAN32__
+			*(view.out_ptr_low) = (u8*)((int)arena->memmap->Base() + view.virtual_address);
+			arena->memmap->Commit(view.virtual_address & 0x3FFFFFFF, view.size);
+		}
+		*(view.out_ptr) = (u8*)((int)arena->memmap->Base() + view.virtual_address & 0x3FFFFFFF);
+#else
 			*(view.out_ptr_low) = (u8*)arena->CreateView(position, view.size);
 			if (!*view.out_ptr_low)
 				goto bail;
@@ -299,6 +289,8 @@ static bool Memory_TryBase(u8 *base, const MemoryView *views, int num_views, u32
 			if (!*view.out_ptr)
 				goto bail;
 		}
+#endif
+
 #endif
 		last_position = position;
 		position += roundup(view.size);
@@ -344,7 +336,9 @@ u8 *MemoryMap_Setup(const MemoryView *views, int num_views, u32 flags, MemArena 
 			total_mem += roundup(views[i].size);
 	}
 	// Grab some pagefile backed memory out of the void ...
+#ifndef __SYMBIAN32__
 	arena->GrabLowMemSpace(total_mem);
+#endif
 
 	// Now, create views in high memory where there's plenty of space.
 #ifdef _M_X64
@@ -374,6 +368,16 @@ u8 *MemoryMap_Setup(const MemoryView *views, int num_views, u32 flags, MemArena 
 			break;
 		}
 	}
+#elif defined(__SYMBIAN32__)
+	arena->memmap = new RChunk();
+	arena->memmap->CreateDisconnectedLocal(0 , 0, 0x10000000);
+	if (!Memory_TryBase(arena->memmap->Base(), views, num_views, flags, arena))
+	{
+		PanicAlert("MemoryMap_Setup: Failed finding a memory base.");
+		exit(0);
+		return 0;
+	}
+	u8* base = arena->memmap->Base();
 #else
 	// Linux32 is fine with the x64 method, although limited to 32-bit with no automirrors.
 	u8 *base = MemArena::Find4GBBase();

@@ -19,6 +19,7 @@
 
 #include "../Globals.h"
 #include "gfx_es2/fbo.h"
+#include "GPU/GPUState.h"
 
 class TextureCache 
 {
@@ -42,6 +43,7 @@ public:
 		return cache.size();
 	}
 
+	bool DecodeTexture(u8 *output, GPUgstate state);
 private:
 	
 	struct TexCacheEntry {
