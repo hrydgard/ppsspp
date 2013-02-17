@@ -113,11 +113,7 @@ void Jit::GenerateFixedCode()
 	//   * downcount
 	//   * R2-R4
 	// Really starting to run low on registers already though...
-#ifdef UNUSABLE_MMAP
-	MOVI2R(R11, (u32)Memory::m_pRAM - 0x08000000);
-#else
 	MOVI2R(R11, (u32)Memory::base);
-#endif
 	MOVI2R(R10, (u32)mips_);
 	MOVI2R(R9, (u32)GetBlockCache()->GetCodePointers());
 
