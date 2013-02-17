@@ -313,7 +313,7 @@
        <item>
         <widget class="QTabWidget" name="tabWidget_2">
          <property name="currentIndex">
-          <number>2</number>
+          <number>0</number>
          </property>
          <widget class="QWidget" name="tab_3">
           <attribute name="title">
@@ -423,70 +423,6 @@
                 <string>Current Address</string>
                </property>
               </column>
-             </widget>
-             <widget class="QWidget" name="layoutWidget">
-              <layout class="QVBoxLayout" name="verticalLayout_6">
-               <item>
-                <widget class="QTreeWidget" name="displayListData">
-                 <property name="rootIsDecorated">
-                  <bool>false</bool>
-                 </property>
-                 <property name="itemsExpandable">
-                  <bool>false</bool>
-                 </property>
-                 <property name="expandsOnDoubleClick">
-                  <bool>false</bool>
-                 </property>
-                 <property name="columnCount">
-                  <number>2</number>
-                 </property>
-                 <attribute name="headerVisible">
-                  <bool>false</bool>
-                 </attribute>
-                 <column>
-                  <property name="text">
-                   <string notr="true">1</string>
-                  </property>
-                 </column>
-                 <column>
-                  <property name="text">
-                   <string notr="true">2</string>
-                  </property>
-                 </column>
-                </widget>
-               </item>
-               <item>
-                <layout class="QHBoxLayout" name="horizontalLayout_9">
-                 <item>
-                  <spacer name="horizontalSpacer_4">
-                   <property name="orientation">
-                    <enum>Qt::Horizontal</enum>
-                   </property>
-                   <property name="sizeHint" stdset="0">
-                    <size>
-                     <width>40</width>
-                     <height>20</height>
-                    </size>
-                   </property>
-                  </spacer>
-                 </item>
-                 <item>
-                  <widget class="QPushButton" name="runBtn">
-                   <property name="text">
-                    <string>Run</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QPushButton" name="nextGPU">
-                   <property name="text">
-                    <string>Step</string>
-                   </property>
-                  </widget>
-                 </item>
-                </layout>
-               </item>
-              </layout>
              </widget>
             </widget>
            </item>

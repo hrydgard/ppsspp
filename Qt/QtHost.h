@@ -51,8 +51,9 @@ public:
 
 	void SendCoreWait(bool);
 	bool GpuStep();
-	void SendGPUWait();
-	void SetGPUStep(bool value);
+	void SendGPUWait(u32 cmd);
+	void SendGPUStart();
+	void SetGPUStep(bool value, int flag = 0);
 	void NextGPUStep();
 
 signals:
@@ -60,6 +61,7 @@ signals:
 private:
 	MainWindow* mainWindow;
 	bool m_GPUStep;
+	int m_GPUFlag;
 };
 
 #endif // QTAPP_H

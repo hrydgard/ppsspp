@@ -9,9 +9,7 @@ if(ANDROID)
 endif()
 
 if (IOS)
-	if (${IOS_PLATFORM} STREQUAL "OS")
-		set(ARM ON)
-	endif()
+	set(ARM ON)
 endif()
 
 if(BLACKBERRY)
@@ -410,6 +408,16 @@ if(ANDROID)
 		native/android/native-audio-so.h)
 	target_link_libraries(native_audio OpenSLES)
 	# No target
+elseif(IOS)
+	set(nativeExtra ${nativeExtra}
+		ios/main.m
+		ios/AppDelegate.m
+		ios/AppDelegate.h
+		ios/ViewController.mm
+		ios/ViewController.h)
+	set(CMAKE_EXE_LINKER_FLAGS "-framework Foundation -framework CoreGraphics -framework QuartzCore -framework OpenGLES -framework UIKit")
+	# No target
+	# set(TargetBin PPSSPP)
 elseif(USING_QT_UI)
 	# Currently unused
 	find_package(Qt4 COMPONENTS QtMultimedia QtOpenGL QtGui QtCore)
@@ -433,9 +441,7 @@ elseif(SDL_FOUND)
 	elseif(PANDORA)
 		set(nativeExtraLibs ${nativeExtraLibs} pthread EGL X11)
 	endif()
-	if(NOT IOS) # No target
-		set(TargetBin PPSSPPSDL)
-	endif()
+	set(TargetBin PPSSPPSDL)
 else()
     message(FATAL_ERROR "Could not find SDL. Failing.")
 endif()
@@ -949,5 +955,10 @@ if (TargetBin)
 endif()
 
 file(INSTALL ${NativeAssets} DESTINATION assets)
+
+# code signing
+if (IOS)
+	set_target_properties(${NAME} PROPERTIES MACOSX_BUNDLE_INFO_PLIST PPSSPP-Info.plist XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "iPhone Developer: My Name")
+endif()
 
 #include(CPack)
