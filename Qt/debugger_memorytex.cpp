@@ -70,8 +70,10 @@ void Debugger_MemoryTex::on_readBtn_clicked()
 	state.clutaddr = ui->clutaddr->text().toInt(0,16);
 	state.clutaddrupper = ui->clutaddrupper->text().toInt(0,16);
 	state.loadclut = ui->loadclut->text().toInt(0,16);
+	int bufW = state.texbufwidth[0] & 0x3ff;
 	int w = 1 << (state.texsize[0] & 0xf);
 	int h = 1 << ((state.texsize[0]>>8) & 0xf);
+	w = std::max(bufW,w);
 	uchar* newData = new uchar[w*h*4];
 
 	if(gpu->DecodeTexture(newData, state))
