@@ -309,14 +309,15 @@ void Debugger_DisplayList::ShowDLCode()
 			}
 			usedIdxAddr.insert(iaddr);
 		}
-
-		for(int i = 0; i < ui->texturesList->columnCount(); i++)
-			ui->texturesList->resizeColumnToContents(i);
-		for(int i = 0; i < ui->vertexList->columnCount(); i++)
-			ui->vertexList->resizeColumnToContents(i);
-		for(int i = 0; i < ui->indexList->columnCount(); i++)
-			ui->indexList->resizeColumnToContents(i);
 	}
+
+
+	for(int i = 0; i < ui->texturesList->columnCount(); i++)
+		ui->texturesList->resizeColumnToContents(i);
+	for(int i = 0; i < ui->vertexList->columnCount(); i++)
+		ui->vertexList->resizeColumnToContents(i);
+	for(int i = 0; i < ui->indexList->columnCount(); i++)
+		ui->indexList->resizeColumnToContents(i);
 
 	UpdateVertexInfo();
 	UpdateIndexInfo();
