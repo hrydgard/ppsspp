@@ -9,9 +9,7 @@ if(ANDROID)
 endif()
 
 if (IOS)
-	if (${IOS_PLATFORM} STREQUAL "OS")
-		set(ARM ON)
-	endif()
+	set(ARM ON)
 endif()
 
 if(BLACKBERRY)
