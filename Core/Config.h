@@ -65,6 +65,7 @@ public:
 	bool bVertexCache;
 	bool bFullScreen;
 	int iAnisotropyLevel;
+	bool bFlip;
 
 	// Sound
 	bool bEnableSound;
