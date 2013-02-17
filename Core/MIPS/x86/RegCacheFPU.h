@@ -35,7 +35,6 @@ enum {
 	TEMP1 = TEMP0 + 1,
 	TEMP2 = TEMP0 + 2,
 	TEMP3 = TEMP0 + 3,
-	TEMP4 = TEMP0 + 4,
 	NUM_MIPS_FPRS = 32 + 128 + NUM_TEMPS,
 };
 
