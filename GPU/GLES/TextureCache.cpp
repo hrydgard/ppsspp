@@ -684,6 +684,8 @@ void TextureCache::SetTexture() {
 		clutformat = gstate.clutformat & 3;
 		clutaddr = GetClutAddr(clutformat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2);
 		cachekey |= (u64)clutaddr << 32;
+	} else {
+		clutaddr = 0;
 	}
 
 	int maxLevel = ((gstate.texmode >> 16) & 0x7);
@@ -725,7 +727,7 @@ void TextureCache::SetTexture() {
 			entry->hash != texhash ||
 			entry->format != format ||
 			entry->maxLevel != maxLevel ||
-			((format >= GE_TFMT_CLUT4 && format <= GE_TFMT_CLUT32) &&
+			(hasClut &&
 			(entry->clutformat != clutformat ||
 				entry->clutaddr != clutaddr ||
 				entry->cluthash != Memory::Read_U32(entry->clutaddr)))) 
@@ -810,9 +812,9 @@ void TextureCache::SetTexture() {
 	entry->lodBias = 0.0f;
 
 
-	if (format >= GE_TFMT_CLUT4 && format <= GE_TFMT_CLUT32) {
+	if (hasClut) {
 		entry->clutformat = clutformat;
-		entry->clutaddr = GetClutAddr(clutformat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2);
+		entry->clutaddr = clutaddr;
 		entry->cluthash = Memory::Read_U32(entry->clutaddr);
 	} else {
 		entry->clutaddr = 0;
@@ -1172,8 +1174,6 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 	void *finalBuf = NULL;
 
 	// TODO: Look into using BGRA for 32-bit textures when the GL_EXT_texture_format_BGRA8888 extension is available, as it's faster than RGBA on some chips.
-
-	// TODO: Actually decode the mipmaps.
 
 	switch (format)
 	{

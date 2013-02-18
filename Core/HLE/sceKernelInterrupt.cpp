@@ -213,7 +213,7 @@ void __InterruptsInit()
 {
 	interruptsEnabled = 1;
 	inInterrupt = false;
-	for(int i = 0; i < ARRAY_SIZE(intrHandlers); ++i)
+	for (size_t i = 0; i < ARRAY_SIZE(intrHandlers); ++i)
 		intrHandlers[i] = new IntrHandler(i);
 	intState.clear();
 }
@@ -246,11 +246,11 @@ void __InterruptsDoStateLate(PointerWrap &p)
 
 void __InterruptsShutdown()
 {
-	for (int i = 0; i < ARRAY_SIZE(intrHandlers); ++i)
+	for (size_t i = 0; i < ARRAY_SIZE(intrHandlers); ++i)
 		intrHandlers[i]->clear();
-	for(int i = 0; i < ARRAY_SIZE(intrHandlers); ++i)
+	for (size_t i = 0; i < ARRAY_SIZE(intrHandlers); ++i)
 	{
-		if(intrHandlers[i])
+		if (intrHandlers[i])
 		{
 			delete intrHandlers[i];
 			intrHandlers[i] = 0;

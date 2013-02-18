@@ -237,10 +237,10 @@ u32 sceGeSetCallback(u32 structAddr)
 	DEBUG_LOG(HLE, "sceGeSetCallback(struct=%08x)", structAddr);
 
 	int cbID = -1;
-	for (int i = 0; i < ARRAY_SIZE(ge_used_callbacks); ++i)
+	for (size_t i = 0; i < ARRAY_SIZE(ge_used_callbacks); ++i)
 		if (!ge_used_callbacks[i])
 		{
-			cbID = i;
+			cbID = (int) i;
 			break;
 		}
 
