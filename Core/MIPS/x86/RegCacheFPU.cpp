@@ -27,6 +27,7 @@ FPURegCache::FPURegCache() : emit(0), mips(0) {
 	memset(regs, 0, sizeof(regs));
 	memset(xregs, 0, sizeof(xregs));
 	vregs = regs + 32;
+	tempRoundRobin = 0;
 }
 
 void FPURegCache::Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats) {
@@ -153,7 +154,9 @@ bool FPURegCache::IsTempX(X64Reg xr) {
 }
 
 int FPURegCache::GetTempR() {
-	for (int r = TEMP0; r < TEMP0 + NUM_TEMPS; ++r) {
+	for (int i = 0; i < NUM_TEMPS; ++i) {
+		// Make sure we don't give out the same one over and over, even if not locked.
+		int r = TEMP0 + (tempRoundRobin++ + i) % NUM_TEMPS;
 		if (!regs[r].away) {
 			return r;
 		}
