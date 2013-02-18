@@ -209,9 +209,11 @@
     <None Include="..\android\atlasscript.txt">
       <Filter>Android</Filter>
     </None>
-    <None Include="..\CMakeLists.txt" />
     <None Include="..\android\jni\Application.mk">
       <Filter>Android</Filter>
+    </None>
+    <None Include="..\CMakeLists.txt">
+      <Filter>Windows</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>

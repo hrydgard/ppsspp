@@ -89,7 +89,8 @@ static int isVblank;
 static int numSkippedFrames;
 static bool hasSetMode;
 // Don't include this in the state, time increases regardless of state.
-static double lastFrameTime;
+static double curFrameTime;
+static double nextFrameTime;
 
 std::vector<WaitVBlankInfo> vblankWaitingThreads;
 
@@ -129,7 +130,8 @@ void __DisplayInit() {
 	vCount = 0;
 	hCount = 0;
 	hCountTotal = 0;
-	lastFrameTime = 0;
+	curFrameTime = 0.0;
+	nextFrameTime = 0.0;
 
 	InitGfxState();
 }
@@ -191,7 +193,7 @@ float calculateFPS()
 	static int lastFpsFrame = 0;
 	static double lastFpsTime = 0.0;
 	static double fps = 0.0;
-        
+
 	time_update();
 	double now = time_now_d();
 
@@ -274,25 +276,56 @@ void DoFrameTiming(bool &throttle, bool &skipFrame, bool &skipFlip) {
 #endif
 	skipFlip = false;
 	skipFrame = false;
-
 	if (PSP_CoreParameter().headLess)
 		throttle = false;
 
-	if (throttle) {
-		// Best place to throttle the frame rate on non vsynced platforms is probably here. Let's try it.
-		time_update();
-		if (lastFrameTime == 0.0)
-			lastFrameTime = time_now_d();
-
-		// First, check if we are already behind.
-		// Wait until it's time.
-		while (time_now_d() < lastFrameTime + 1.0 / 60.0) {
-			Common::SleepCurrentThread(1);
-			time_update();
+	// Check if the frameskipping code should be enabled. If neither throttling or frameskipping is on,
+	// we have nothing to do here.
+	bool doFrameSkip = g_Config.iFrameSkip == 1;
+	if (!throttle && !doFrameSkip)
+		return;
+	
+	time_update();
+	
+	curFrameTime = time_now_d();
+	if (nextFrameTime == 0.0)
+		nextFrameTime = time_now_d() + 1.0 / 60.0;
+	
+	if (curFrameTime > nextFrameTime && doFrameSkip) {
+		// Argh, we are falling behind! Let's skip a frame and see if we catch up.
+		skipFrame = true;
+		skipFlip = true;
+		INFO_LOG(HLE,"FRAMESKIP %i", numSkippedFrames);
+	}
+	
+	if (curFrameTime < nextFrameTime && throttle)
+	{
+		// If time gap is huge just jump (somebody unthrottled)
+		if (nextFrameTime - curFrameTime > 1.0 / 30.0) {
+			nextFrameTime = curFrameTime + 1.0 / 60.0;
+		} else {
+			// Wait until we've catched up.
+			while (time_now_d() < nextFrameTime) {
+				Common::SleepCurrentThread(1);
+				time_update();
+			}
 		}
-		// Advance lastFrameTime by a constant amount each frame,
-		// but don't let it get too far behind.
-		lastFrameTime = std::max(lastFrameTime + 1.0 / 60.0, time_now_d() - 1.5 / 60.0);
+		curFrameTime = time_now_d();
+	}
+	// Advance lastFrameTime by a constant amount each frame,
+	// but don't let it get too far behind as things can get very jumpy.
+	const double maxFallBehindFrames = 5.5;
+
+	if (throttle || doFrameSkip) {
+		nextFrameTime = std::max(nextFrameTime + 1.0 / 60.0, time_now_d() - maxFallBehindFrames / 60.0);
+	} else {
+		nextFrameTime = nextFrameTime + 1.0 / 60.0;
+	}
+
+	// Max 6 skipped frames in a row - 10 fps is really the bare minimum for playability.
+	if (numSkippedFrames >= 4) {
+		skipFrame = false;
+		skipFlip = false;
 	}
 }
 
