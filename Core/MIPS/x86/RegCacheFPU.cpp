@@ -148,8 +148,19 @@ void FPURegCache::DiscardR(int i) {
 	}
 }
 
-bool FPURegCache::IsTemp(X64Reg xr) {
+bool FPURegCache::IsTempX(X64Reg xr) {
 	return xregs[xr].mipsReg >= TEMP0;
+}
+
+int FPURegCache::GetTempR() {
+	for (int r = TEMP0; r < TEMP0 + NUM_TEMPS; ++r) {
+		if (!regs[r].away) {
+			return r;
+		}
+	}
+
+	_assert_msg_(DYNA_REC, 0, "Regcache ran out of temp regs, might need to DiscardR() some.");
+	return -1;
 }
 
 void FPURegCache::Flush() {

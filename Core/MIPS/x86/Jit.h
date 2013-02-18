@@ -79,7 +79,7 @@ struct JitState
 		prefixDFlag = PREFIX_UNKNOWN;
 	}
 	bool MayHavePrefix() const {
-		if (!(prefixSFlag & PREFIX_KNOWN) || !(prefixTFlag & PREFIX_KNOWN) || !(prefixDFlag & PREFIX_KNOWN)) {
+		if (HasUnknownPrefix()) {
 			return true;
 		} else if (prefixS != 0xE4 || prefixT != 0xE4 || prefixD != 0) {
 			return true;
@@ -87,6 +87,12 @@ struct JitState
 			return true;
 		}
 
+		return false;
+	}
+	bool HasUnknownPrefix() const {
+		if (!(prefixSFlag & PREFIX_KNOWN) || !(prefixTFlag & PREFIX_KNOWN) || !(prefixDFlag & PREFIX_KNOWN)) {
+			return true;
+		}
 		return false;
 	}
 	void EatPrefix() {

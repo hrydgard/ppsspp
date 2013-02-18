@@ -75,9 +75,6 @@ void Jit::Comp_VPFX(u32 op)
 	}
 }
 
-
-// TODO:  Got register value ownership issues. We need to be sure that if we modify input
-// like this, it does NOT get written back!
 void Jit::ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz) {
 	if (prefix == 0xE4) return;
 
@@ -86,10 +83,7 @@ void Jit::ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz) {
 	static const float constantArray[8] = {0.f, 1.f, 2.f, 0.5f, 3.f, 1.f/3.f, 0.25f, 1.f/6.f};
 
 	for (int i = 0; i < n; i++)
-	{
-		// TODO: This needs to be the original values, not the original regs. (e.g. [-x, |x|, x])
 		origV[i] = vregs[i];
-	}
 
 	for (int i = 0; i < n; i++)
 	{
@@ -98,22 +92,33 @@ void Jit::ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz) {
 		int negate = (prefix >> (16+i)) & 1;
 		int constants = (prefix >> (12+i)) & 1;
 
+		// Unchanged, hurray.
+		if (!constants && regnum == i && !abs && !negate)
+			continue;
+
+		// This puts the value into a temp reg, so we won't write the modified value back.
+		vregs[i] = fpr.GetTempV();
+		fpr.MapRegV(vregs[i], MAP_NOINIT | MAP_DIRTY);
+
 		if (!constants) {
 			// Prefix may say "z, z, z, z" but if this is a pair, we force to x.
 			// TODO: But some ops seem to use const 0 instead?
 			if (regnum > n) {
 				regnum = 0;
 			}
-			vregs[i] = origV[regnum];
+			MOVSS(fpr.VX(vregs[i]), fpr.V(origV[regnum]));
 			if (abs) {
 				ANDPS(fpr.VX(vregs[i]), M((void *)&noSignMask));
 			}
-		}	else {
+		} else {
 			MOVSS(fpr.VX(vregs[i]), M((void *)&constantArray[regnum + (abs<<2)]));
 		}
 
 		if (negate)
 			XORPS(fpr.VX(vregs[i]), M((void *)&signBitLower));
+
+		// TODO: This probably means it will swap out soon, inefficiently...
+		fpr.ReleaseSpillLockV(vregs[i]);
 	}
 }
 

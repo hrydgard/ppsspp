@@ -88,7 +88,11 @@ public:
 	void DiscardV(int vreg) {
 		DiscardR(vreg + 32);
 	}
-	bool IsTemp(X64Reg xreg);
+	bool IsTempX(X64Reg xreg);
+	int GetTempR();
+	int GetTempV() {
+		return GetTempR() - 32;
+	}
 
 	void SetEmitter(XEmitter *emitter) {emit = emitter;}
 
@@ -127,6 +131,9 @@ public:
 	}
 	void SpillLockV(const u8 *v, VectorSize vsz);
 	void SpillLockV(int vec, VectorSize vsz);
+	void ReleaseSpillLockV(int vreg) {
+		ReleaseSpillLock(vreg + 32);
+	}
 
 	MIPSState *mips;
 
