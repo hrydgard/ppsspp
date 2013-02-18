@@ -27,14 +27,14 @@ using namespace Gen;
 
 // GPRs are numbered 0 to 31
 // VFPU regs are numbered 32 to 159.
-// Then we have some temp regs for VFPU handling from 160 to 167.
+// Then we have some temp regs for VFPU handling from 160 to 175.
+
+// Temp regs: 4 from S prefix, 4 from T prefix, 4 from D mask, and 4 for work (worst case.)
+// But most of the time prefixes aren't used that heavily so we won't use all of them.
 
 enum {
-	NUM_TEMPS = 4,
+	NUM_TEMPS = 16,
 	TEMP0 = 32 + 128,
-	TEMP1 = TEMP0 + 1,
-	TEMP2 = TEMP0 + 2,
-	TEMP3 = TEMP0 + 3,
 	NUM_MIPS_FPRS = 32 + 128 + NUM_TEMPS,
 };
 
@@ -53,6 +53,8 @@ struct MIPSCachedFPReg {
 	OpArg location;
 	bool away;  // value not in source register
 	bool locked;
+	// Only for temp regs.
+	bool tempLocked;
 };
 
 enum {
@@ -80,7 +82,11 @@ public:
 	void DiscardV(int vreg) {
 		DiscardR(vreg + 32);
 	}
-	bool IsTemp(X64Reg xreg);
+	bool IsTempX(X64Reg xreg);
+	int GetTempR();
+	int GetTempV() {
+		return GetTempR() - 32;
+	}
 
 	void SetEmitter(XEmitter *emitter) {emit = emitter;}
 
@@ -108,6 +114,7 @@ public:
 
 	// Register locking. Prevents them from being spilled.
 	void SpillLock(int p1, int p2=0xff, int p3=0xff, int p4=0xff);
+	void ReleaseSpillLock(int mipsrega);
 	void ReleaseSpillLocks();
 
 	void MapRegV(int vreg, int flags);
@@ -118,6 +125,9 @@ public:
 	}
 	void SpillLockV(const u8 *v, VectorSize vsz);
 	void SpillLockV(int vec, VectorSize vsz);
+	void ReleaseSpillLockV(int vreg) {
+		ReleaseSpillLock(vreg + 32);
+	}
 
 	MIPSState *mips;
 
@@ -129,6 +139,9 @@ private:
 	MIPSCachedFPReg regs[NUM_MIPS_FPRS];
 	X64CachedFPReg xregs[NUM_X_FPREGS];
 	MIPSCachedFPReg *vregs;
+
+	// TEMP0, etc. are swapped in here if necessary (e.g. on x86.)
+	static u32 tempValues[NUM_TEMPS];
 
 	XEmitter *emit;
 };
