@@ -330,6 +330,9 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_PRIM:
 		{
+			if (gstate_c.skipDrawReason)
+				return;
+
 			framebufferManager_.SetRenderFrameBuffer();
 
 			u32 count = data & 0xFFFF;

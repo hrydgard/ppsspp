@@ -64,7 +64,6 @@ public:
 		return textureCache_.DecodeTexture(dest, state);
 	}
 
-
 	std::vector<FramebufferInfo> GetFramebufferList();
 
 private:

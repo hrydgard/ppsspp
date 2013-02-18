@@ -86,6 +86,7 @@ static int hCount;
 static int hCountTotal; //unused
 static int vCount;
 static int isVblank;
+static int numSkippedFrames;
 static bool hasSetMode;
 // Don't include this in the state, time increases regardless of state.
 static double lastFrameTime;
@@ -113,6 +114,7 @@ void hleAfterFlip(u64 userdata, int cyclesLate);
 void __DisplayInit() {
 	gpuStats.reset();
 	hasSetMode = false;
+	numSkippedFrames = 0;
 	framebufIsLatched = false;
 	framebuf.topaddr = 0x04000000;
 	framebuf.pspFramebufFormat = PSP_DISPLAY_PIXEL_FORMAT_8888;
@@ -264,12 +266,15 @@ void DebugStats()
 }
 
 // Let's collect all the throttling and frameskipping logic here.
-void DoFrameTiming(bool &throttle) {
+void DoFrameTiming(bool &throttle, bool &skipFrame, bool &skipFlip) {
 #ifdef _WIN32
 	throttle = !GetAsyncKeyState(VK_TAB);
 #else
 	throttle = false;
 #endif
+	skipFlip = false;
+	skipFrame = false;
+
 	if (PSP_CoreParameter().headLess)
 		throttle = false;
 
@@ -353,16 +358,26 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	// Yeah, this has to be the right moment to end the frame. Give the graphics backend opportunity
 	// to blit the framebuffer, in order to support half-framerate games that otherwise wouldn't have
 	// anything to draw here.
-	gpu->CopyDisplayToOutput();
+	gstate_c.skipDrawReason &= ~SKIPDRAW_SKIPFRAME;
 
-	bool throttle;
+	bool throttle, skipFrame, skipFlip;
 	
-	DoFrameTiming(throttle);
+	DoFrameTiming(throttle, skipFrame, skipFlip);
 
 	// Setting CORE_NEXTFRAME causes a swap.
-	coreState = CORE_NEXTFRAME;
-	
-	CoreTiming::ScheduleEvent(0 - cyclesLate, afterFlipEvent, 0);
+	if (skipFrame) {
+		gstate_c.skipDrawReason |= SKIPDRAW_SKIPFRAME;
+		numSkippedFrames++;
+	}	else {
+		numSkippedFrames = 0;
+	}
+
+	if (!skipFlip) {
+		coreState = CORE_NEXTFRAME;
+		CoreTiming::ScheduleEvent(0 - cyclesLate, afterFlipEvent, 0);
+
+		gpu->CopyDisplayToOutput();
+	}
 
 	// Returning here with coreState == CORE_NEXTFRAME causes a buffer flip to happen (next frame).
 	// Right after, we regain control for a little bit in hleAfterFlip. I think that's a great
