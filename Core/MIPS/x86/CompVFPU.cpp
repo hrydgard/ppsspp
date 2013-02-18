@@ -124,27 +124,21 @@ void Jit::ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz) {
 
 void Jit::ApplyPrefixD(const u8 *vregs, u32 prefix, VectorSize sz, bool onlyWriteMask) {
 	_assert_(js.prefixDFlag & JitState::PREFIX_KNOWN);
-	if (!prefix) return;
+	if (!prefix || onlyWriteMask) return;
 
 	int n = GetNumVectorElements(sz);
 	for (int i = 0; i < n; i++)
 	{
-		int mask = (prefix >> (8 + i)) & 1;
-		js.writeMask[i] = mask ? true : false;
-		if (onlyWriteMask)
-			continue;
-		if (!mask) {
-			int sat = (prefix >> (i * 2)) & 3;
-			if (sat == 1)
-			{
-				MAXSS(fpr.VX(vregs[i]), M((void *)&zero));
-				MINSS(fpr.VX(vregs[i]), M((void *)&one));
-			}
-			else if (sat == 3)
-			{
-				MAXSS(fpr.VX(vregs[i]), M((void *)&minus_one));
-				MINSS(fpr.VX(vregs[i]), M((void *)&one));
-			}
+		int sat = (prefix >> (i * 2)) & 3;
+		if (sat == 1)
+		{
+			MAXSS(fpr.VX(vregs[i]), M((void *)&zero));
+			MINSS(fpr.VX(vregs[i]), M((void *)&one));
+		}
+		else if (sat == 3)
+		{
+			MAXSS(fpr.VX(vregs[i]), M((void *)&minus_one));
+			MINSS(fpr.VX(vregs[i]), M((void *)&one));
 		}
 	}
 }
@@ -323,8 +317,13 @@ void Jit::Comp_SVQ(u32 op)
 void Jit::Comp_VDot(u32 op) {
 	CONDITIONAL_DISABLE;
 
+	if (js.HasUnknownPrefix()) {
+		Comp_Generic(op);
+		return;
+	}
+
 	// No-op.
-	if (js.writeMask[0]) {
+	if (js.VfpuWriteMask(0)) {
 		return;
 	}
 

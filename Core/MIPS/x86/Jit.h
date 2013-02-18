@@ -69,7 +69,6 @@ struct JitState
 	u32 prefixS;
 	u32 prefixT;
 	u32 prefixD;
-	bool writeMask[4];
 	PrefixState prefixSFlag;
 	PrefixState prefixTFlag;
 	PrefixState prefixDFlag;
@@ -83,7 +82,7 @@ struct JitState
 			return true;
 		} else if (prefixS != 0xE4 || prefixT != 0xE4 || prefixD != 0) {
 			return true;
-		} else if (writeMask[0] || writeMask[1] || writeMask[2] || writeMask[3]) {
+		} else if (VfpuWriteMask() != 0) {
 			return true;
 		}
 
@@ -104,11 +103,18 @@ struct JitState
 			prefixTFlag = PREFIX_KNOWN_DIRTY;
 			prefixT = 0xE4;
 		}
-		if ((prefixDFlag & PREFIX_KNOWN) == 0 || prefixD != 0x0 || writeMask[0] || writeMask[1] || writeMask[2] || writeMask[3]) {
+		if ((prefixDFlag & PREFIX_KNOWN) == 0 || prefixD != 0x0 || VfpuWriteMask() != 0) {
 			prefixDFlag = PREFIX_KNOWN_DIRTY;
 			prefixD = 0x0;
-			writeMask[0] = writeMask[1] = writeMask[2] = writeMask[3] = false;
 		}
+	}
+	u8 VfpuWriteMask() const {
+		_assert_(prefixDFlag & JitState::PREFIX_KNOWN);
+		return (prefixD >> 8) & 0xF;
+	}
+	bool VfpuWriteMask(int i) const {
+		_assert_(prefixDFlag & JitState::PREFIX_KNOWN);
+		return (prefixD >> (8 + i)) & 1;
 	}
 };
 
