@@ -283,7 +283,8 @@ void Jit::Comp_Generic(u32 op)
 		_dbg_assert_msg_(JIT, 0, "Trying to compile instruction that can't be interpreted");
 
 	// Might have eaten prefixes, hard to tell...
-	if ((MIPSGetInfo(op) & IS_VFPU) != 0)
+	const int info = MIPSGetInfo(op);
+	if ((info & IS_VFPU) != 0 && (info & OUT_EAT_PREFIX) == 0)
 		js.PrefixStart();
 }
 

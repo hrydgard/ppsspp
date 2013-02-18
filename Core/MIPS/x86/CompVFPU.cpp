@@ -316,12 +316,16 @@ void Jit::Comp_SVQ(u32 op)
 }
 
 void Jit::Comp_VDot(u32 op) {
-	DISABLE;
+	CONDITIONAL_DISABLE;
+
+	// No-op.
+	if (js.writeMask[0]) {
+		return;
+	}
 
 	// WARNING: No prefix support!
 	if (js.MayHavePrefix()) {
 		Comp_Generic(op);
-		js.EatPrefix();
 		return;
 	}
 
@@ -331,10 +335,10 @@ void Jit::Comp_VDot(u32 op) {
 	VectorSize sz = GetVecSize(op);
 	
 	// TODO: Force read one of them into regs? probably not.
-	u8 sregs[4], tregs[4], dregs[4];
+	u8 sregs[4], tregs[4], dregs[1];
 	GetVectorRegs(sregs, sz, vs);
 	GetVectorRegs(tregs, sz, vt);
-	GetVectorRegs(dregs, sz, vd);
+	GetVectorRegs(dregs, V_Single, vd);
 
 	// TODO: applyprefixST here somehow (shuffle, etc...)
 
@@ -347,7 +351,7 @@ void Jit::Comp_VDot(u32 op) {
 	}
 
 	// Need to start with +0.0f so it doesn't result in -0.0f.
-	MOVSS(tempxreg, M((void *) &zero));
+	XORPS(tempxreg, R(tempxreg));
 	for (int i = 0; i < n; i++)
 	{
 		// sum += s[i]*t[i];
@@ -365,18 +369,15 @@ void Jit::Comp_VDot(u32 op) {
 	// TODO: applyprefixD here somehow (write mask etc..)
 
 	fpr.ReleaseSpillLocks();
-
-	js.EatPrefix();
 }
 
 void Jit::Comp_VecDo3(u32 op) {
-	DISABLE;
+	CONDITIONAL_DISABLE;
 
 	// WARNING: No prefix support!
 	if (js.MayHavePrefix())
 	{
 		Comp_Generic(op);
-		js.EatPrefix();
 		return;
 	}
 
@@ -420,7 +421,6 @@ void Jit::Comp_VecDo3(u32 op) {
 	if (xmmop == NULL)
 	{
 		Comp_Generic(op);
-		js.EatPrefix();
 		return;
 	}
 
@@ -463,8 +463,6 @@ void Jit::Comp_VecDo3(u32 op) {
 	}
 
 	fpr.ReleaseSpillLocks();
-
-	js.EatPrefix();
 }
 
 void Jit::Comp_Mftv(u32 op) {
