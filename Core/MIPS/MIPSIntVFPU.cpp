@@ -1185,7 +1185,7 @@ namespace MIPSInt
 		float scale = V(vt);
 		if (currentMIPS->vfpuCtrl[VFPU_CTRL_TPREFIX] != 0xE4)
 		{
-			WARN_LOG(CPU, "Broken T prefix used with VScl: %08x / %08x", currentMIPS->vfpuCtrl[VFPU_CTRL_TPREFIX], op);
+			// WARN_LOG(CPU, "Broken T prefix used with VScl: %08x / %08x", currentMIPS->vfpuCtrl[VFPU_CTRL_TPREFIX], op);
 			ApplySwizzleT(&scale, V_Single);
 		}
 		int n = GetNumVectorElements(sz);
