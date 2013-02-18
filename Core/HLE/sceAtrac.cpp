@@ -187,7 +187,7 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 			ret = ATRAC_ERROR_ALL_DATA_DECODED;
 		} else {
 			// TODO: This isn't at all right, but at least it makes the music "last" some time.
-			int numSamples = (atrac->decodeEnd - atrac->decodePos) / (sizeof(s16) * 2);
+			u32 numSamples = (atrac->decodeEnd - atrac->decodePos) / (sizeof(s16) * 2);
 			if (atrac->decodePos >= atrac->decodeEnd) {
 				numSamples = 0;
 			} else if (numSamples > ATRAC_MAX_SAMPLES) {
@@ -554,7 +554,7 @@ int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr)
 
 int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedAddr, u32 samplesAddr, u32 sampleBytesAddr)
 {
-	ERROR_LOG(HLE, "UNIMPL sceAtracLowLevelDecode(%i, %i, %08x, %08x, %08x, %08x)", atracID, sourceAddr, sourceBytesConsumedAddr, samplesAddr, sampleBytesAddr);
+	ERROR_LOG(HLE, "UNIMPL sceAtracLowLevelDecode(%i, %08x, %08x, %08x, %08x)", atracID, sourceAddr, sourceBytesConsumedAddr, samplesAddr, sampleBytesAddr);
 	return 0;
 }
 
