@@ -173,6 +173,7 @@ public:
 
 	void ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz);
 	void ApplyPrefixD(const u8 *vregs, u32 prefix, VectorSize sz, bool onlyWriteMask = false);
+	void EatPrefix() { js.EatPrefix(); }
 
 	JitBlockCache *GetBlockCache() { return &blocks; }
 	AsmRoutineManager &Asm() { return asm_; }

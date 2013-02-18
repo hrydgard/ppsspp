@@ -278,7 +278,10 @@ const char *GetVectorNotation(int reg, VectorSize size)
 	case V_Quad:    c='C'; row=(reg>>5)&2; break;
 	}
 	if (transpose && c == 'C') c='R';
-	sprintf(hej[yo],"%c%i%i%i",c,mtx,col,row);
+	if (transpose)
+		sprintf(hej[yo],"%c%i%i%i",c,mtx,row,col);
+	else
+		sprintf(hej[yo],"%c%i%i%i",c,mtx,col,row);
 	return hej[yo];
 }
 
