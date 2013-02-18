@@ -303,10 +303,13 @@ void Jit::Comp_Generic(u32 op)
 	else
 		_dbg_assert_msg_(JIT, 0, "Trying to compile instruction that can't be interpreted");
 
-	// Might have eaten prefixes, hard to tell...
 	const int info = MIPSGetInfo(op);
-	if ((info & IS_VFPU) != 0 && (info & OUT_EAT_PREFIX) == 0)
-		js.PrefixUnknown();
+	if ((info & IS_VFPU) != 0 && (info & VFPU_NO_PREFIX) == 0)
+	{
+		// If it does eat them, it'll happen in MIPSCompileOp().
+		if ((info & OUT_EAT_PREFIX) == 0)
+			js.PrefixUnknown();
+	}
 }
 
 void Jit::WriteExit(u32 destination, int exit_num)

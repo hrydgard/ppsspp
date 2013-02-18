@@ -45,6 +45,7 @@
 #define OUT_FPUFLAG     0x02000000
 #define OUT_EAT_PREFIX  0x04000000
 
+#define VFPU_NO_PREFIX  0x08000000
 #define IS_VFPU         0x80000000
 
 #ifndef CDECL
