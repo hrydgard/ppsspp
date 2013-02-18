@@ -722,7 +722,7 @@ namespace MIPSInt
 	void Int_Vx2i(u32 op)
 	{
 		int s[4];
-    u32 d[4] = {0};
+		u32 d[4] = {0};
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
@@ -1205,6 +1205,7 @@ namespace MIPSInt
 		int seed = VI(vd);
 		currentMIPS->rng.Init(seed);
 		PC += 4;
+		EatPrefixes();
 	}
 
 	void Int_VrndX(u32 op)
