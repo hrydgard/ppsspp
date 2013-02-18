@@ -66,6 +66,7 @@ struct JitState
 	JitBlock *curBlock;
 
 	// VFPU prefix magic
+	bool startDefaultPrefix;
 	u32 prefixS;
 	u32 prefixT;
 	u32 prefixD;
@@ -73,6 +74,13 @@ struct JitState
 	PrefixState prefixTFlag;
 	PrefixState prefixDFlag;
 	void PrefixStart() {
+		if (startDefaultPrefix) {
+			EatPrefix();
+		} else {
+			PrefixUnknown();
+		}
+	}
+	void PrefixUnknown() {
 		prefixSFlag = PREFIX_UNKNOWN;
 		prefixTFlag = PREFIX_UNKNOWN;
 		prefixDFlag = PREFIX_UNKNOWN;
@@ -134,6 +142,7 @@ class Jit : public Gen::XCodeBlock
 {
 public:
 	Jit(MIPSState *mips);
+	void DoState(PointerWrap &p);
 
 	// Compiled ops should ignore delay slots
 	// the compiler will take care of them by itself
