@@ -625,7 +625,7 @@ public:
 			u8 *uncomp_buffer = new u8[header.UncompressedSize];
 			size_t uncomp_size = header.UncompressedSize;
 			snappy_uncompress((const char *)buffer, sz, (char *)uncomp_buffer, &uncomp_size);
-			if (uncomp_size != header.UncompressedSize) {
+			if ((int)uncomp_size != header.UncompressedSize) {
 				ERROR_LOG(COMMON,"Size mismatch: file: %i  calc: %i", (int)header.UncompressedSize, (int)uncomp_size);
 			}
 			ptr = uncomp_buffer;

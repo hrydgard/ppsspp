@@ -35,7 +35,6 @@ public:
 
 	virtual void InitGL() {}
 	virtual void BeginFrame() {}
-	virtual void EndFrame() {}
 	virtual void ShutdownGL() {}
 
 	virtual void InitSound(PMixer *mixer) {}
@@ -53,4 +52,9 @@ public:
 	virtual void SetComparisonScreenshot(const std::string &filename) {}
 
 	virtual bool isGLWorking() { return false; }
+
+
+	// Unique for HeadlessHost
+	virtual void SwapBuffers() {}
+
 };

@@ -21,6 +21,8 @@
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/x86/RegCacheFPU.h"
 
+u32 FPURegCache::tempValues[NUM_TEMPS];
+
 FPURegCache::FPURegCache() : emit(0), mips(0) {
 	memset(regs, 0, sizeof(regs));
 	memset(xregs, 0, sizeof(xregs));
@@ -37,6 +39,7 @@ void FPURegCache::Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats) {
 		regs[i].location = GetDefaultLocation(i);
 		regs[i].away = false;
 		regs[i].locked = false;
+		regs[i].tempLocked = false;
 	}
 }
 
@@ -87,6 +90,8 @@ void FPURegCache::ReleaseSpillLock(int mipsreg)
 void FPURegCache::ReleaseSpillLocks() {
 	for (int i = 0; i < NUM_MIPS_FPRS; i++)
 		regs[i].locked = false;
+	for (int i = TEMP0; i < TEMP0 + NUM_TEMPS; ++i)
+		DiscardR(i);
 }
 
 void FPURegCache::BindToRegister(const int i, bool doLoad, bool makeDirty) {
@@ -129,6 +134,39 @@ void FPURegCache::StoreFromRegister(int i) {
 	}
 }
 
+void FPURegCache::DiscardR(int i) {
+	_assert_msg_(DYNA_REC, !regs[i].location.IsImm(), "FPU can't handle imm yet.");
+	if (regs[i].away) {
+		X64Reg xr = regs[i].location.GetSimpleReg();
+		_assert_msg_(DYNA_REC, xr < NUM_X_FPREGS, "DiscardR: MipsReg had bad X64Reg");
+		// Note that we DO NOT write it back here. That's the whole point of Discard.
+		xregs[xr].dirty = false;
+		xregs[xr].mipsReg = -1;
+		regs[i].location = GetDefaultLocation(i);
+		regs[i].away = false;
+		regs[i].tempLocked = false;
+	} else {
+		//	_assert_msg_(DYNA_REC,0,"already stored");
+		regs[i].tempLocked = false;
+	}
+}
+
+bool FPURegCache::IsTempX(X64Reg xr) {
+	return xregs[xr].mipsReg >= TEMP0;
+}
+
+int FPURegCache::GetTempR() {
+	for (int r = TEMP0; r < TEMP0 + NUM_TEMPS; ++r) {
+		if (!regs[r].away && !regs[r].tempLocked) {
+			regs[r].tempLocked = true;
+			return r;
+		}
+	}
+
+	_assert_msg_(DYNA_REC, 0, "Regcache ran out of temp regs, might need to DiscardR() some.");
+	return -1;
+}
+
 void FPURegCache::Flush() {
 	for (int i = 0; i < NUM_MIPS_FPRS; i++) {
 		if (regs[i].locked) {
@@ -151,8 +189,10 @@ void FPURegCache::Flush() {
 OpArg FPURegCache::GetDefaultLocation(int reg) const {
 	if (reg < 32) {
 		return M(&mips->f[reg]);
-	} else {
+	} else if (reg < 32 + 128) {
 		return M(&mips->v[reg - 32]);
+	} else {
+		return M(&tempValues[reg - 32 - 128]);
 	}
 }
 
@@ -208,7 +248,7 @@ X64Reg FPURegCache::GetFreeXReg() {
 	return (X64Reg) -1;
 }
 
-void FPURegCache::FlushR(X64Reg reg) {
+void FPURegCache::FlushX(X64Reg reg) {
 	if (reg >= NUM_X_FPREGS)
 		PanicAlert("Flushing non existent reg");
 	if (xregs[reg].mipsReg != -1) {

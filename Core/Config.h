@@ -44,11 +44,12 @@ public:
 	bool bSpeedLimit;
 	bool bConfirmOnQuit;
 	bool bAutoRun;  // start immediately
+	bool bBrowse;
 
 	// Core
 	bool bIgnoreBadMemAccess;
 	bool bFastMemory;
-	int iCpuCore;
+	bool bJit;
 
 	// GFX
 	bool bDisplayFramebuffer;
@@ -58,6 +59,7 @@ public:
 	bool bLinearFiltering;
 	bool bUseVBO;
 	bool bStretchToDisplay;
+	int iFrameSkip;  // 0 = off;  1 = auto;  (future:  2 = skip every 2nd frame;  3 = skip every 3rd frame etc).
 
 	int iWindowZoom;  // for Windows
 	bool SSAntiAliasing; //for Windows, too

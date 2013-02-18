@@ -28,7 +28,9 @@ MainWindow::MainWindow(QWidget *parent) :
 	ui(new Ui::MainWindow),
 	nextState(CORE_POWERDOWN),
 	dialogDisasm(0),
-	memoryWindow(0)
+	memoryWindow(0),
+	memoryTexWindow(0),
+	displaylistWindow(0)
 {
 	ui->setupUi(this);
 	qApp->installEventFilter(this);
@@ -109,15 +111,11 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 				gfxLog = true;
 				break;
 			case 'j':
-				g_Config.iCpuCore = CPU_JIT;
-				g_Config.bSaveSettings = false;
-				break;
-			case 'f':
-				g_Config.iCpuCore = CPU_FASTINTERPRETER;
+				g_Config.bJit = true;
 				g_Config.bSaveSettings = false;
 				break;
 			case 'i':
-				g_Config.iCpuCore = CPU_INTERPRETER;
+				g_Config.bJit = false;
 				g_Config.bSaveSettings = false;
 				break;
 			case 'l':
@@ -210,6 +208,8 @@ void MainWindow::Boot()
 		on_action_OptionsFullScreen_triggered();
 
 	memoryWindow = new Debugger_Memory(currentDebugMIPS, this, this);
+	memoryTexWindow = new Debugger_MemoryTex(this);
+	displaylistWindow = new Debugger_DisplayList(currentDebugMIPS, this, this);
 
 	if (dialogDisasm)
 		dialogDisasm->NotifyMapLoaded();
@@ -231,9 +231,8 @@ void MainWindow::UpdateMenus()
 {
 	ui->action_OptionsDisplayRawFramebuffer->setChecked(g_Config.bDisplayFramebuffer);
 	ui->action_OptionsIgnoreIllegalReadsWrites->setChecked(g_Config.bIgnoreBadMemAccess);
-	ui->action_CPUInterpreter->setChecked(g_Config.iCpuCore == CPU_INTERPRETER);
-	ui->action_CPUFastInterpreter->setChecked(g_Config.iCpuCore == CPU_FASTINTERPRETER);
-	ui->action_CPUDynarec->setChecked(g_Config.iCpuCore == CPU_JIT);
+	ui->action_CPUInterpreter->setChecked(!g_Config.bJit);
+	ui->action_CPUDynarec->setChecked(g_Config.bJit);
 	ui->action_OptionsBufferedRendering->setChecked(g_Config.bBufferedRendering);
 	ui->action_OptionsShowDebugStatistics->setChecked(g_Config.bShowDebugStats);
 	ui->action_OptionsWireframe->setChecked(g_Config.bDrawWireframe);
@@ -266,11 +265,12 @@ void MainWindow::UpdateMenus()
 	ui->action_FileQuickSaveState->setEnabled(!enable);
 	ui->action_CPUDynarec->setEnabled(enable);
 	ui->action_CPUInterpreter->setEnabled(enable);
-	ui->action_CPUFastInterpreter->setEnabled(enable);
 	ui->action_EmulationStop->setEnabled(!enable);
 	ui->action_DebugDumpFrame->setEnabled(!enable);
 	ui->action_DebugDisassembly->setEnabled(!enable);
 	ui->action_DebugMemoryView->setEnabled(!enable);
+	ui->action_DebugMemoryViewTexture->setEnabled(!enable);
+	ui->action_DebugDisplayList->setEnabled(!enable);
 
 	ui->action_OptionsScreen1x->setChecked(0 == (g_Config.iWindowZoom - 1));
 	ui->action_OptionsScreen2x->setChecked(1 == (g_Config.iWindowZoom - 1));
@@ -359,6 +359,10 @@ void MainWindow::on_action_EmulationStop_triggered()
 		dialogDisasm->close();
 	if(memoryWindow && memoryWindow->isVisible())
 		memoryWindow->close();
+	if(memoryTexWindow && memoryTexWindow->isVisible())
+		memoryTexWindow->close();
+	if(displaylistWindow && displaylistWindow->isVisible())
+		displaylistWindow->close();
 
 	EmuThread_StopGame();
 	SetGameTitle("");
@@ -518,19 +522,13 @@ void MainWindow::on_action_FileExit_triggered()
 
 void MainWindow::on_action_CPUDynarec_triggered()
 {
-	g_Config.iCpuCore = CPU_JIT;
+	g_Config.bJit = true;
 	UpdateMenus();
 }
 
 void MainWindow::on_action_CPUInterpreter_triggered()
 {
-	g_Config.iCpuCore = CPU_INTERPRETER;
-	UpdateMenus();
-}
-
-void MainWindow::on_action_CPUFastInterpreter_triggered()
-{
-	g_Config.iCpuCore = CPU_FASTINTERPRETER;
+	g_Config.bJit = false;
 	UpdateMenus();
 }
 
@@ -697,22 +695,12 @@ void MainWindow::keyPressEvent(QKeyEvent *e)
 		return;
 	}
 
-	for (int b = 0; b < controllistCount; b++) {
-		if (e->key() == controllist[b].key)
-		{
-			input_state.pad_buttons |= (controllist[b].emu_id);
-		}
-	}
+	pressedKeys.insert(e->key());
 }
 
 void MainWindow::keyReleaseEvent(QKeyEvent *e)
 {
-	for (int b = 0; b < controllistCount; b++) {
-		if (e->key() == controllist[b].key)
-		{
-			input_state.pad_buttons &= ~(controllist[b].emu_id);
-		}
-	}
+	pressedKeys.remove(e->key());
 }
 
 void MainWindow::on_MainWindow_destroyed()
@@ -928,7 +916,17 @@ void MainWindow::ShowMemory(u32 addr)
 
 void MainWindow::Update()
 {
+	UpdateInputState(&input_state);
 
+	for (int i = 0; i < controllistCount; i++)
+	{
+		if (pressedKeys.contains(controllist[i].key) ||
+				input_state.pad_buttons_down & controllist[i].emu_id)
+			__CtrlButtonDown(controllist[i].psp_id);
+		else
+			__CtrlButtonUp(controllist[i].psp_id);
+	}
+	__CtrlSetAnalog(input_state.pad_lstick_x, input_state.pad_lstick_y);
 }
 
 void MainWindow::on_action_EmulationReset_triggered()
@@ -943,6 +941,10 @@ void MainWindow::on_action_EmulationReset_triggered()
 		dialogDisasm->close();
 	if(memoryWindow)
 		memoryWindow->close();
+	if(memoryTexWindow)
+		memoryTexWindow->close();
+	if(displaylistWindow)
+		displaylistWindow->close();
 
 	EmuThread_StopGame();
 
@@ -1026,4 +1028,16 @@ void MainWindow::on_action_Sound_triggered()
 {
 	g_Config.bEnableSound = !g_Config.bEnableSound;
 	UpdateMenus();
+}
+
+void MainWindow::on_action_DebugMemoryViewTexture_triggered()
+{
+	if(memoryTexWindow)
+		memoryTexWindow->show();
+}
+
+void MainWindow::on_action_DebugDisplayList_triggered()
+{
+	if(displaylistWindow)
+		displaylistWindow->show();
 }

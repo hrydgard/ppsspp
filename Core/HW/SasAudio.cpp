@@ -548,9 +548,10 @@ static int getExpCurveAt(int index, int duration) {
 }
 
 ADSREnvelope::ADSREnvelope()
-	: steps_(0),
-		state_(STATE_OFF),
+	: state_(STATE_OFF),
+		steps_(0),
 		height_(0) {
+	memset(this, 0, sizeof(*this));
 }
 
 void ADSREnvelope::WalkCurve(int rate, int type) {

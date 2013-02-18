@@ -6,6 +6,7 @@
 #include <QMessageBox>
 #include <QApplication>
 #include <QClipboard>
+#include <QInputDialog>
 
 #include "EmuThread.h"
 #include "Core/MemMap.h"
@@ -108,7 +109,6 @@ void CtrlMemView::paintEvent(QPaintEvent *)
 		int rowY2 = rect().bottom()/2 + rowHeight*i + rowHeight/2;
 
 		char temp[256];
-		sprintf(temp,"%08x",address);
 
 		painter.setBrush(currentBrush);
 
@@ -123,7 +123,7 @@ void CtrlMemView::paintEvent(QPaintEvent *)
 		textPen.setColor(0x600000);
 		painter.setPen(textPen);
 		painter.setFont(alignedFont);
-		painter.drawText(17,rowY1-2+rowHeight, temp);
+		painter.drawText(17,rowY1-2+rowHeight, QString("%1").arg(address,8,16,QChar('0')));
 		textPen.setColor(0xFF000000);
 		painter.setPen(textPen);
 		if (debugger->isAlive())
@@ -222,6 +222,10 @@ void CtrlMemView::contextMenu(const QPoint &pos)
 	connect(copyValue, SIGNAL(triggered()), this, SLOT(CopyValue()));
 	menu.addAction(copyValue);
 
+	QAction *changeValue = new QAction(tr("C&hange value"), this);
+	connect(changeValue, SIGNAL(triggered()), this, SLOT(Change()));
+	menu.addAction(changeValue);
+
 	QAction *dump = new QAction(tr("Dump..."), this);
 	connect(dump, SIGNAL(triggered()), this, SLOT(Dump()));
 	menu.addAction(dump);
@@ -231,15 +235,36 @@ void CtrlMemView::contextMenu(const QPoint &pos)
 
 void CtrlMemView::CopyValue()
 {
-	char temp[24];
-	sprintf(temp,"%08x",Memory::ReadUnchecked_U32(selection));
-	QApplication::clipboard()->setText(temp);
+	EmuThread_LockDraw(true);
+	QApplication::clipboard()->setText(QString("%1").arg(Memory::ReadUnchecked_U32(selection),8,16,QChar('0')));
+	EmuThread_LockDraw(false);
 }
 
 void CtrlMemView::Dump()
 {
 	QMessageBox::information(this,"Sorry","This feature has not been implemented.",QMessageBox::Ok);
 }
+
+
+void CtrlMemView::Change()
+{
+	EmuThread_LockDraw(true);
+	QString curVal = QString("%1").arg(Memory::ReadUnchecked_U32(selection),8,16,QChar('0'));
+	EmuThread_LockDraw(false);
+
+	bool ok;
+	QString text = QInputDialog::getText(this, tr("Set new value"),
+								tr("Set new value:"), QLineEdit::Normal,
+								curVal, &ok);
+	if (ok && !text.isEmpty())
+	{
+		EmuThread_LockDraw(true);
+		Memory::WriteUnchecked_U32(text.toInt(0,16),selection);
+		EmuThread_LockDraw(false);
+		redraw();
+	}
+}
+
 
 int CtrlMemView::yToAddress(int y)
 {

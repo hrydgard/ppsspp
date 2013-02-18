@@ -47,7 +47,7 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true)
 	INFO_LOG(BOOT, "Starting up hardware.");
 
 	CoreParameter coreParam;
-	coreParam.cpuCore = (CPUCore)g_Config.iCpuCore;
+	coreParam.cpuCore = g_Config.bJit ? CPU_JIT : CPU_INTERPRETER;
 	coreParam.gpuCore = GPU_GLES;
 	coreParam.enableSound = g_Config.bEnableSound;
 	coreParam.fileToStart = fileToStart;
@@ -156,7 +156,7 @@ void EmuScreen::render()
 
 	// We just run the CPU until we get to vblank. This will quickly sync up pretty nicely.
 	// The actual number of cycles doesn't matter so much here as we will break due to CORE_NEXTFRAME, most of the time hopefully...
-	int blockTicks = usToCycles(1000000 / 2);
+	int blockTicks = usToCycles(1000000 / 10);
 
 	// Run until CORE_NEXTFRAME
 	while (coreState == CORE_RUNNING) {

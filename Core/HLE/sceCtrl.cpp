@@ -35,7 +35,7 @@
 const int PSP_CTRL_ERROR_INVALID_MODE = 0x80000107;
 const int PSP_CTRL_ERROR_INVALID_IDLE_PTR = 0x80000023;
 
-const int NUM_CTRL_BUFFERS = 64;
+const u32 NUM_CTRL_BUFFERS = 64;
 
 enum
 {
@@ -68,8 +68,8 @@ static u32 ctrlOldButtons = 0;
 
 static _ctrl_data ctrlBufs[NUM_CTRL_BUFFERS];
 static _ctrl_data ctrlCurrent;
-static int ctrlBuf = 0;
-static int ctrlBufRead = 0;
+static u32 ctrlBuf = 0;
+static u32 ctrlBufRead = 0;
 static CtrlLatch latch;
 
 static int ctrlIdleReset = -1;
@@ -189,7 +189,7 @@ int __CtrlReadBuffer(u32 ctrlDataPtr, u32 nBufs, bool negative, bool peek)
 	if (nBufs > NUM_CTRL_BUFFERS)
 		return SCE_KERNEL_ERROR_INVALID_SIZE;
 
-	int resetRead = ctrlBufRead;
+	u32 resetRead = ctrlBufRead;
 
 	u32 availBufs;
 	// Peeks always work, they just go go from now X buffers.

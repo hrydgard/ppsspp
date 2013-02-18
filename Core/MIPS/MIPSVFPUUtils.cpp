@@ -179,19 +179,22 @@ void WriteMatrix(const float *rd, MatrixSize size, int reg) {
 	case M_4x4: row = (reg>>5)&2; side = 4; break;
 	}
 
-  int transpose = (reg>>5)&1;
+	int transpose = (reg>>5)&1;
+	if (currentMIPS->VfpuWriteMask() != 0) {
+		ERROR_LOG(CPU, "Write mask used with vfpu matrix instruction.");
+	}
 
 	for (int i=0; i<side; i++) {
 		for (int j=0; j<side; j++) {
 			// Hm, I wonder if this should affect matrices at all.
-			if (!currentMIPS->VfpuWriteMask(i))
+			if (j != side -1 || !currentMIPS->VfpuWriteMask(i))
 			{
-        int index = mtx * 4;
+				int index = mtx * 4;
 				if (transpose)
-          index += ((row+i)&3) + ((col+j)&3)*32;
-        else
-          index += ((col+j)&3) + ((row+i)&3)*32;
-        V(index) = rd[j*4+i];
+					index += ((row+i)&3) + ((col+j)&3)*32;
+				else
+					index += ((col+j)&3) + ((row+i)&3)*32;
+				V(index) = rd[j*4+i];
 			}
 		}
 	}
@@ -278,7 +281,10 @@ const char *GetVectorNotation(int reg, VectorSize size)
 	case V_Quad:    c='C'; row=(reg>>5)&2; break;
 	}
 	if (transpose && c == 'C') c='R';
-	sprintf(hej[yo],"%c%i%i%i",c,mtx,col,row);
+	if (transpose)
+		sprintf(hej[yo],"%c%i%i%i",c,mtx,row,col);
+	else
+		sprintf(hej[yo],"%c%i%i%i",c,mtx,col,row);
 	return hej[yo];
 }
 

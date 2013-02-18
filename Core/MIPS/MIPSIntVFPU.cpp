@@ -110,6 +110,14 @@ void ApplyPrefixST(float *v, u32 data, VectorSize size)
 
 		if (!constants)
 		{
+			// Prefix may say "z, z, z, z" but if this is a pair, we force to x.
+			// TODO: But some ops seem to use const 0 instead?
+			if (regnum >= n)
+			{
+				ERROR_LOG(CPU, "Invalid VFPU swizzle: %08x / %d", data, size);
+				regnum = 0;
+			}
+
 			v[i] = origV[regnum];
 			if (abs)
 				v[i] = fabs(v[i]);
@@ -137,26 +145,22 @@ inline void ApplySwizzleT(float *v, VectorSize size)
 void ApplyPrefixD(float *v, VectorSize size, bool onlyWriteMask = false)
 {
 	u32 data = currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX];
-	if (!data)
+	if (!data || onlyWriteMask)
 		return;
 	int n = GetNumVectorElements(size);
-	bool writeMask[4];
 	for (int i = 0; i < n; i++)
 	{
-		int mask = (data >> (8 + i)) & 1;
-		writeMask[i] = mask ? true : false;
-		if (!onlyWriteMask) {
-			int sat = (data >> (i * 2)) & 3;
-			if (sat == 1)
-			{
-				if (v[i] > 1.0f) v[i] = 1.0f;
-				if (v[i] < 0.0f) v[i] = 0.0f;
-			}
-			else if (sat == 3)
-			{
-				if (v[i] > 1.0f)  v[i] = 1.0f;
-				if (v[i] < -1.0f) v[i] = -1.0f;
-			}
+		int sat = (data >> (i * 2)) & 3;
+		if (sat == 1)
+		{
+			if (v[i] > 1.0f) v[i] = 1.0f;
+			// This includes -0.0f -> +0.0f.
+			if (v[i] <= 0.0f) v[i] = 0.0f;
+		}
+		else if (sat == 3)
+		{
+			if (v[i] > 1.0f)  v[i] = 1.0f;
+			if (v[i] < -1.0f) v[i] = -1.0f;
 		}
 	}
 }
@@ -718,7 +722,7 @@ namespace MIPSInt
 	void Int_Vx2i(u32 op)
 	{
 		int s[4];
-    u32 d[4] = {0};
+		u32 d[4] = {0};
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
@@ -852,7 +856,7 @@ namespace MIPSInt
 			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
 			break;
 		}
-		ApplyPrefixD((float*)d,oz,true);
+		ApplyPrefixD((float*)d,oz);
 		WriteVector((float*)d,oz,vd);
 		PC += 4;
 		EatPrefixes();
@@ -927,7 +931,7 @@ namespace MIPSInt
 		}
 		d = sum;
 		ApplyPrefixD(&d,V_Single);
-		V(vd) = d;
+		WriteVector(&d, V_Single, vd);
 		PC += 4;
 		EatPrefixes();
 	}
@@ -1179,6 +1183,11 @@ namespace MIPSInt
 		ReadVector(s, sz, vs);
 		ApplySwizzleS(s, sz);
 		float scale = V(vt);
+		if (currentMIPS->vfpuCtrl[VFPU_CTRL_TPREFIX] != 0xE4)
+		{
+			// WARN_LOG(CPU, "Broken T prefix used with VScl: %08x / %08x", currentMIPS->vfpuCtrl[VFPU_CTRL_TPREFIX], op);
+			ApplySwizzleT(&scale, V_Single);
+		}
 		int n = GetNumVectorElements(sz);
 		for (int i = 0; i < n; i++)
 		{
@@ -1196,6 +1205,7 @@ namespace MIPSInt
 		int seed = VI(vd);
 		currentMIPS->rng.Init(seed);
 		PC += 4;
+		EatPrefixes();
 	}
 
 	void Int_VrndX(u32 op)

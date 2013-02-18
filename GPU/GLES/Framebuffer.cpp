@@ -326,12 +326,12 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		vfb->renderHeight = (u16)(drawing_height * renderHeightFactor);
 		vfb->format = fmt;
 
-		vfb->colorDepth = FBO_8888;
 		switch (fmt) {
-		case GE_FORMAT_4444: vfb->colorDepth = FBO_4444;
-		case GE_FORMAT_5551: vfb->colorDepth = FBO_5551;
-		case GE_FORMAT_565: vfb->colorDepth = FBO_565;
-		case GE_FORMAT_8888: vfb->colorDepth = FBO_8888;
+		case GE_FORMAT_4444: vfb->colorDepth = FBO_4444; break;
+		case GE_FORMAT_5551: vfb->colorDepth = FBO_5551; break;
+		case GE_FORMAT_565: vfb->colorDepth = FBO_565; break;
+		case GE_FORMAT_8888: vfb->colorDepth = FBO_8888; break;
+		default: vfb->colorDepth = FBO_8888; break;
 		}
 		//#ifdef ANDROID
 		//	vfb->colorDepth = FBO_8888;
@@ -446,6 +446,26 @@ void FramebufferManager::SetDisplayFramebuffer(u32 framebuf, u32 stride, int for
 	} else {
 		ERROR_LOG(HLE, "Bogus framebuffer address: %08x", framebuf);
 	}
+}
+
+std::vector<FramebufferInfo> FramebufferManager::GetFramebufferList()
+{
+	std::vector<FramebufferInfo> list;
+
+	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
+		VirtualFramebuffer *vfb = *iter;
+
+		FramebufferInfo info;
+		info.fb_address = vfb->fb_address;
+		info.z_address = vfb->z_address;
+		info.format = vfb->format;
+		info.width = vfb->width;
+		info.height = vfb->height;
+		info.fbo = vfb->fbo;
+		list.push_back(info);
+	}
+
+	return list;
 }
 
 void FramebufferManager::DecimateFBOs() {

@@ -76,6 +76,12 @@ bool GPUCommon::InterpretList(DisplayList &list)
 		ERROR_LOG(G3D, "DL PC = %08x WTF!!!!", list.pc);
 		return true;
 	}
+#if defined(USING_QT_UI)
+		if(host->GpuStep())
+		{
+			host->SendGPUStart();
+		}
+#endif
 
 	while (!finished)
 	{
@@ -85,14 +91,16 @@ bool GPUCommon::InterpretList(DisplayList &list)
 			list.status = PSP_GE_LIST_STALL_REACHED;
 			return false;
 		}
+
+		op = Memory::ReadUnchecked_U32(list.pc); //read from memory
+		u32 cmd = op >> 24;
+
 #if defined(USING_QT_UI)
 		if(host->GpuStep())
 		{
-			host->SendGPUWait();
+			host->SendGPUWait(cmd, list.pc, &gstate);
 		}
 #endif
-		op = Memory::ReadUnchecked_U32(list.pc); //read from memory
-		u32 cmd = op >> 24;
 		u32 diff = op ^ gstate.cmdmem[cmd];
 		PreExecuteOp(op, diff);
 		// TODO: Add a compiler flag to remove stuff like this at very-final build time.

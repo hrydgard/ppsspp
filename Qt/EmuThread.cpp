@@ -152,7 +152,7 @@ void EmuThread::run()
 	host->UpdateUI();
 	host->InitGL();
 
-	glWindow->makeCurrent();
+	EmuThread_LockDraw(true);
 
 #ifndef USING_GLES2
 	glewInit();
@@ -162,6 +162,8 @@ void EmuThread::run()
 	INFO_LOG(BOOT, "Starting up hardware.");
 
 	QElapsedTimer timer;
+
+	EmuThread_LockDraw(false);
 
 	while(running) {
 		//UpdateGamepad(*input_state);
@@ -173,10 +175,7 @@ void EmuThread::run()
 
 		if(gRun)
 		{
-
-			gameMutex->lock();
-
-			glWindow->makeCurrent();
+			EmuThread_LockDraw(true);
 			if(needInitGame)
 			{
 				g_State.bEmuThreadStarted = true;
@@ -185,7 +184,7 @@ void EmuThread::run()
 				coreParameter.fileToStart = fileToStart.toStdString();
 				coreParameter.enableSound = true;
 				coreParameter.gpuCore = GPU_GLES;
-				coreParameter.cpuCore = (CPUCore)g_Config.iCpuCore;
+				coreParameter.cpuCore = g_Config.bJit ? CPU_JIT : CPU_INTERPRETER;
 				coreParameter.enableDebugging = true;
 				coreParameter.printfEmuLog = false;
 				coreParameter.headLess = false;
@@ -219,19 +218,6 @@ void EmuThread::run()
 				host->BootDone();
 				needInitGame = false;
 			}
-			UpdateInputState(input_state);
-
-			for (int i = 0; i < controllistCount; i++) {
-				if (input_state->pad_buttons_down & controllist[i].emu_id) {
-					__CtrlButtonDown(controllist[i].psp_id);
-				}
-				if (input_state->pad_buttons_up & controllist[i].emu_id) {
-					__CtrlButtonUp(controllist[i].psp_id);
-				}
-			}
-			__CtrlSetAnalog(input_state->pad_lstick_x, input_state->pad_lstick_y);
-
-			EndInputState(input_state);
 
 			glstate.Restore();
 			glViewport(0, 0, pixel_xres, pixel_yres);
@@ -252,14 +238,12 @@ void EmuThread::run()
 
 				qint64 time = timer.elapsed();
 				const int frameTime = (1.0f/60.0f) * 1000;
-				gameMutex->unlock();
 				if(time < frameTime)
 				{
-					glWindow->doneCurrent();
+					EmuThread_LockDraw(false);
 					msleep(frameTime-time);
-					glWindow->makeCurrent();
+					EmuThread_LockDraw(true);
 				}
-				gameMutex->lock();
 				timer.start();
 			}
 
@@ -289,13 +273,11 @@ void EmuThread::run()
 			}
 #endif
 			glWindow->swapBuffers();
-			glWindow->doneCurrent();
-			gameMutex->unlock();
+			EmuThread_LockDraw(false);
 		}
 		else
 		{
-			gameMutex->lock();
-			glWindow->makeCurrent();
+			EmuThread_LockDraw(true);
 			glClearColor(0, 0, 0, 0);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
@@ -336,8 +318,7 @@ void EmuThread::run()
 			ui_draw2d.Flush(UIShader_Get());
 
 			glWindow->swapBuffers();
-			glWindow->doneCurrent();
-			gameMutex->unlock();
+			EmuThread_LockDraw(false);
 			qint64 time = timer.elapsed();
 			const int frameTime = (1.0f/60.0f) * 1000;
 			if(time < frameTime)

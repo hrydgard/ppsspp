@@ -41,7 +41,6 @@ public:
 	void UpdateDisplayList();
 protected:
 	void showEvent(QShowEvent *);
-	void FillDisplayListCmd(std::map<int,std::string>& data, u32 pc, u32 prev);
 
 signals:
 	void updateDisplayList_();
@@ -52,7 +51,6 @@ public slots:
 	void Goto(u32 addr);
 	void RemoveBreakpoint();
 	void GotoThreadEntryPoint();
-	void ShowDLCode();
 
 private slots:
 	void UpdateDisplayListGUI();
@@ -103,9 +101,6 @@ private slots:
 	void SetThreadStatusSuspend();
 	void on_displayList_customContextMenuRequested(const QPoint &pos);
 
-	void on_nextGPU_clicked();
-
-	void on_runBtn_clicked();
 
 private:
 	void SetThreadStatus(ThreadStatus status);

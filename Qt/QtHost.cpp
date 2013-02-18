@@ -12,6 +12,7 @@
 #include "android/jni/EmuScreen.h"
 #include "android/jni/UIShader.h"
 #include "android/jni/ui_atlas.h"
+#include "GPU/ge_constants.h"
 #include "EmuThread.h"
 
 std::string boot_filename = "";
@@ -27,6 +28,7 @@ recursive_mutex m_hGPUStepMutex;
 QtHost::QtHost(MainWindow *mainWindow_)
     : mainWindow(mainWindow_)
 	, m_GPUStep(false)
+	, m_GPUFlag(0)
 {
 	QObject::connect(this,SIGNAL(BootDoneSignal()),mainWindow,SLOT(Boot()));
 }
@@ -48,7 +50,6 @@ void QtHost::SetWindowTitle(const char *message)
 
 void QtHost::UpdateUI()
 {
-	mainWindow->Update();
 	mainWindow->UpdateMenus();
 }
 
@@ -66,6 +67,10 @@ void QtHost::UpdateDisassembly()
 		mainWindow->GetDialogDisasm()->GotoPC();
 		mainWindow->GetDialogDisasm()->Update();
 	}
+	if(mainWindow->GetDialogDisplaylist())
+	{
+		mainWindow->GetDialogDisplaylist()->Update();
+	}
 }
 
 void QtHost::SetDebugMode(bool mode)
@@ -77,7 +82,9 @@ void QtHost::SetDebugMode(bool mode)
 
 void QtHost::BeginFrame()
 {
+	mainWindow->Update();
 }
+
 void QtHost::EndFrame()
 {
 }
@@ -144,19 +151,59 @@ bool QtHost::GpuStep()
 	return m_GPUStep;
 }
 
-void QtHost::SendGPUWait()
+void QtHost::SendGPUStart()
 {
 	EmuThread_LockDraw(false);
 
-	mainWindow->GetDialogDisasm()->UpdateDisplayList();
-	m_hGPUStepEvent.wait(m_hGPUStepMutex);
+	if(m_GPUFlag == -1)
+	{
+		m_GPUFlag = 0;
+	}
 
 	EmuThread_LockDraw(true);
 }
 
-void QtHost::SetGPUStep(bool value)
+void QtHost::SendGPUWait(u32 cmd, u32 addr, void *data)
+{
+	EmuThread_LockDraw(false);
+
+	if((m_GPUFlag == 1 && (cmd == GE_CMD_PRIM || cmd == GE_CMD_BEZIER || cmd == GE_CMD_SPLINE)))
+	{
+		// Break after the draw
+		m_GPUFlag = 0;
+	}
+	else if(m_GPUFlag == 0)
+	{
+		mainWindow->GetDialogDisasm()->UpdateDisplayList();
+		mainWindow->GetDialogDisplaylist()->Update();
+		m_hGPUStepEvent.wait(m_hGPUStepMutex);
+	}
+	else if(m_GPUFlag == 2 && addr == m_GPUData)
+	{
+		mainWindow->GetDialogDisasm()->UpdateDisplayList();
+		mainWindow->GetDialogDisplaylist()->Update();
+		m_hGPUStepEvent.wait(m_hGPUStepMutex);
+	}
+	else if(m_GPUFlag == 3 && (cmd == GE_CMD_PRIM || cmd == GE_CMD_BEZIER || cmd == GE_CMD_SPLINE))
+	{
+		GPUgstate *state = (GPUgstate*)data;
+		u32 texAddr = (state->texaddr[0] & 0xFFFFF0) | ((state->texbufwidth[0]<<8) & 0x0F000000);
+		if(texAddr == m_GPUData)
+		{
+			mainWindow->GetDialogDisasm()->UpdateDisplayList();
+			mainWindow->GetDialogDisplaylist()->Update();
+			m_hGPUStepEvent.wait(m_hGPUStepMutex);
+		}
+	}
+
+	EmuThread_LockDraw(true);
+}
+
+void QtHost::SetGPUStep(bool value, int flag, int data)
 {
 	m_GPUStep = value;
+	m_GPUFlag = flag;
+	m_GPUData = data;
 }
 
 void QtHost::NextGPUStep()

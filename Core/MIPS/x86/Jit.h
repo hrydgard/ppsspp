@@ -66,27 +66,40 @@ struct JitState
 	JitBlock *curBlock;
 
 	// VFPU prefix magic
+	bool startDefaultPrefix;
 	u32 prefixS;
 	u32 prefixT;
 	u32 prefixD;
-	bool writeMask[4];
 	PrefixState prefixSFlag;
 	PrefixState prefixTFlag;
 	PrefixState prefixDFlag;
 	void PrefixStart() {
+		if (startDefaultPrefix) {
+			EatPrefix();
+		} else {
+			PrefixUnknown();
+		}
+	}
+	void PrefixUnknown() {
 		prefixSFlag = PREFIX_UNKNOWN;
 		prefixTFlag = PREFIX_UNKNOWN;
 		prefixDFlag = PREFIX_UNKNOWN;
 	}
 	bool MayHavePrefix() const {
-		if (!(prefixSFlag & PREFIX_KNOWN) || !(prefixTFlag & PREFIX_KNOWN) || !(prefixDFlag & PREFIX_KNOWN)) {
+		if (HasUnknownPrefix()) {
 			return true;
 		} else if (prefixS != 0xE4 || prefixT != 0xE4 || prefixD != 0) {
 			return true;
-		} else if (writeMask[0] || writeMask[1] || writeMask[2] || writeMask[3]) {
+		} else if (VfpuWriteMask() != 0) {
 			return true;
 		}
 
+		return false;
+	}
+	bool HasUnknownPrefix() const {
+		if (!(prefixSFlag & PREFIX_KNOWN) || !(prefixTFlag & PREFIX_KNOWN) || !(prefixDFlag & PREFIX_KNOWN)) {
+			return true;
+		}
 		return false;
 	}
 	void EatPrefix() {
@@ -98,11 +111,18 @@ struct JitState
 			prefixTFlag = PREFIX_KNOWN_DIRTY;
 			prefixT = 0xE4;
 		}
-		if ((prefixDFlag & PREFIX_KNOWN) == 0 || prefixD != 0x0 || writeMask[0] || writeMask[1] || writeMask[2] || writeMask[3]) {
+		if ((prefixDFlag & PREFIX_KNOWN) == 0 || prefixD != 0x0 || VfpuWriteMask() != 0) {
 			prefixDFlag = PREFIX_KNOWN_DIRTY;
 			prefixD = 0x0;
-			writeMask[0] = writeMask[1] = writeMask[2] = writeMask[3] = false;
 		}
+	}
+	u8 VfpuWriteMask() const {
+		_assert_(prefixDFlag & JitState::PREFIX_KNOWN);
+		return (prefixD >> 8) & 0xF;
+	}
+	bool VfpuWriteMask(int i) const {
+		_assert_(prefixDFlag & JitState::PREFIX_KNOWN);
+		return (prefixD >> (8 + i)) & 1;
 	}
 };
 
@@ -122,6 +142,7 @@ class Jit : public Gen::XCodeBlock
 {
 public:
 	Jit(MIPSState *mips);
+	void DoState(PointerWrap &p);
 
 	// Compiled ops should ignore delay slots
 	// the compiler will take care of them by itself
@@ -172,7 +193,19 @@ public:
 	void Comp_DoNothing(u32 op);
 
 	void ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz);
-	void ApplyPrefixD(const u8 *vregs, u32 prefix, VectorSize sz, bool onlyWriteMask = false);
+	void ApplyPrefixD(const u8 *vregs, VectorSize sz);
+	void GetVectorRegsPrefixS(u8 *regs, VectorSize sz, int vectorReg) {
+		_assert_(js.prefixSFlag & JitState::PREFIX_KNOWN);
+		GetVectorRegs(regs, sz, vectorReg);
+		ApplyPrefixST(regs, js.prefixS, sz);
+	}
+	void GetVectorRegsPrefixT(u8 *regs, VectorSize sz, int vectorReg) {
+		_assert_(js.prefixTFlag & JitState::PREFIX_KNOWN);
+		GetVectorRegs(regs, sz, vectorReg);
+		ApplyPrefixST(regs, js.prefixT, sz);
+	}
+	void GetVectorRegsPrefixD(u8 *regs, VectorSize sz, int vectorReg);
+	void EatPrefix() { js.EatPrefix(); }
 
 	JitBlockCache *GetBlockCache() { return &blocks; }
 	AsmRoutineManager &Asm() { return asm_; }

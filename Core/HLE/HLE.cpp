@@ -297,7 +297,7 @@ bool hleExecuteDebugBreak(const HLEFunction &func)
 
 	// Never break on these, they're noise.
 	u32 blacklistedNIDs[] = {NID_SUSPEND_INTR, NID_RESUME_INTR, NID_IDLE};
-	for (int i = 0; i < ARRAY_SIZE(blacklistedNIDs); ++i)
+	for (size_t i = 0; i < ARRAY_SIZE(blacklistedNIDs); ++i)
 	{
 		if (func.ID == blacklistedNIDs[i])
 			return false;

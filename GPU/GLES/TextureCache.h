@@ -19,6 +19,7 @@
 
 #include "../Globals.h"
 #include "gfx_es2/fbo.h"
+#include "GPU/GPUState.h"
 
 class TextureCache 
 {
@@ -42,6 +43,7 @@ public:
 		return cache.size();
 	}
 
+	bool DecodeTexture(u8 *output, GPUgstate state);
 private:
 	
 	struct TexCacheEntry {
@@ -64,8 +66,8 @@ private:
 		int numFrames;
 		u32 framesUntilNextFullHash;
 		u8 format;
-		u8 clutformat;
 		u16 dim;
+		u8 clutformat;
 		u32 clutaddr;
 		u32 cluthash;
 		u32 texture;  //GLuint
@@ -100,7 +102,7 @@ private:
 	u32 *clutBuf32;
 	u16 *clutBuf16;
 
-	int lastBoundTexture;
+	u32 lastBoundTexture;
 	float maxAnisotropyLevel;
 };
 

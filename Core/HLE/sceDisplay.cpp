@@ -80,14 +80,17 @@ static bool framebufIsLatched;
 
 static int enterVblankEvent = -1;
 static int leaveVblankEvent = -1;
+static int afterFlipEvent = -1;
 
 static int hCount;
 static int hCountTotal; //unused
 static int vCount;
 static int isVblank;
+static int numSkippedFrames;
 static bool hasSetMode;
 // Don't include this in the state, time increases regardless of state.
-static double lastFrameTime;
+static double curFrameTime;
+static double nextFrameTime;
 
 std::vector<WaitVBlankInfo> vblankWaitingThreads;
 
@@ -107,10 +110,12 @@ enum {
 
 void hleEnterVblank(u64 userdata, int cyclesLate);
 void hleLeaveVblank(u64 userdata, int cyclesLate);
+void hleAfterFlip(u64 userdata, int cyclesLate);
 
 void __DisplayInit() {
 	gpuStats.reset();
 	hasSetMode = false;
+	numSkippedFrames = 0;
 	framebufIsLatched = false;
 	framebuf.topaddr = 0x04000000;
 	framebuf.pspFramebufFormat = PSP_DISPLAY_PIXEL_FORMAT_8888;
@@ -118,13 +123,15 @@ void __DisplayInit() {
 
 	enterVblankEvent = CoreTiming::RegisterEvent("EnterVBlank", &hleEnterVblank);
 	leaveVblankEvent = CoreTiming::RegisterEvent("LeaveVBlank", &hleLeaveVblank);
+	afterFlipEvent = CoreTiming::RegisterEvent("AfterFlip", &hleAfterFlip);
 
 	CoreTiming::ScheduleEvent(msToCycles(frameMs - vblankMs), enterVblankEvent, 0);
 	isVblank = 0;
 	vCount = 0;
 	hCount = 0;
 	hCountTotal = 0;
-	lastFrameTime = 0;
+	curFrameTime = 0.0;
+	nextFrameTime = 0.0;
 
 	InitGfxState();
 }
@@ -186,7 +193,7 @@ float calculateFPS()
 	static int lastFpsFrame = 0;
 	static double lastFpsTime = 0.0;
 	static double fps = 0.0;
-        
+
 	time_update();
 	double now = time_now_d();
 
@@ -201,6 +208,127 @@ float calculateFPS()
 	}
 	return fps;
 }
+
+void DebugStats()
+{
+	gpu->UpdateStats();
+	char stats[2048];
+
+	sprintf(stats,
+		"Frames: %i\n"
+		"DL processing time: %0.2f ms\n"
+		"Kernel processing time: %0.2f ms\n"
+		"Slowest syscall: %s : %0.2f ms\n"
+		"Most active syscall: %s : %0.2f ms\n"
+		"Draw calls: %i, flushes %i\n"
+		"Cached Draw calls: %i\n"
+		"Num Tracked Vertex Arrays: %i\n"
+		"Vertices Submitted: %i\n"
+		"Cached Vertices Drawn: %i\n"
+		"Uncached Vertices Drawn: %i\n"
+		"FBOs active: %i\n"
+		"Textures active: %i, decoded: %i\n"
+		"Texture invalidations: %i\n"
+		"Vertex shaders loaded: %i\n"
+		"Fragment shaders loaded: %i\n"
+		"Combined shaders loaded: %i\n",
+		gpuStats.numFrames,
+		gpuStats.msProcessingDisplayLists * 1000.0f,
+		kernelStats.msInSyscalls * 1000.0f,
+		kernelStats.slowestSyscallName ? kernelStats.slowestSyscallName : "(none)",
+		kernelStats.slowestSyscallTime * 1000.0f,
+		kernelStats.summedSlowestSyscallName ? kernelStats.summedSlowestSyscallName : "(none)",
+		kernelStats.summedSlowestSyscallTime * 1000.0f,
+		gpuStats.numDrawCalls,
+		gpuStats.numFlushes,
+		gpuStats.numCachedDrawCalls,
+		gpuStats.numTrackedVertexArrays,
+		gpuStats.numVertsSubmitted,
+		gpuStats.numCachedVertsDrawn,
+		gpuStats.numUncachedVertsDrawn,
+		gpuStats.numFBOs,
+		gpuStats.numTextures,
+		gpuStats.numTexturesDecoded,
+		gpuStats.numTextureInvalidations,
+		gpuStats.numVertexShaders,
+		gpuStats.numFragmentShaders,
+		gpuStats.numShaders
+		);
+
+	float zoom = 0.3f; /// g_Config.iWindowZoom;
+	float soff = 0.3f;
+	PPGeBegin();
+	PPGeDrawText(stats, soff, soff, 0, zoom, 0xCC000000);
+	PPGeDrawText(stats, -soff, -soff, 0, zoom, 0xCC000000);
+	PPGeDrawText(stats, 0, 0, 0, zoom, 0xFFFFFFFF);
+	PPGeEnd();
+
+	gpuStats.resetFrame();
+	kernelStats.ResetFrame();
+}
+
+// Let's collect all the throttling and frameskipping logic here.
+void DoFrameTiming(bool &throttle, bool &skipFrame, bool &skipFlip) {
+#ifdef _WIN32
+	throttle = !GetAsyncKeyState(VK_TAB);
+#else
+	throttle = false;
+#endif
+	skipFlip = false;
+	skipFrame = false;
+	if (PSP_CoreParameter().headLess)
+		throttle = false;
+
+	// Check if the frameskipping code should be enabled. If neither throttling or frameskipping is on,
+	// we have nothing to do here.
+	bool doFrameSkip = g_Config.iFrameSkip == 1;
+	if (!throttle && !doFrameSkip)
+		return;
+	
+	time_update();
+	
+	curFrameTime = time_now_d();
+	if (nextFrameTime == 0.0)
+		nextFrameTime = time_now_d() + 1.0 / 60.0;
+	
+	if (curFrameTime > nextFrameTime && doFrameSkip) {
+		// Argh, we are falling behind! Let's skip a frame and see if we catch up.
+		skipFrame = true;
+		skipFlip = true;
+		INFO_LOG(HLE,"FRAMESKIP %i", numSkippedFrames);
+	}
+	
+	if (curFrameTime < nextFrameTime && throttle)
+	{
+		// If time gap is huge just jump (somebody unthrottled)
+		if (nextFrameTime - curFrameTime > 1.0 / 30.0) {
+			nextFrameTime = curFrameTime + 1.0 / 60.0;
+		} else {
+			// Wait until we've catched up.
+			while (time_now_d() < nextFrameTime) {
+				Common::SleepCurrentThread(1);
+				time_update();
+			}
+		}
+		curFrameTime = time_now_d();
+	}
+	// Advance lastFrameTime by a constant amount each frame,
+	// but don't let it get too far behind as things can get very jumpy.
+	const double maxFallBehindFrames = 5.5;
+
+	if (throttle || doFrameSkip) {
+		nextFrameTime = std::max(nextFrameTime + 1.0 / 60.0, time_now_d() - maxFallBehindFrames / 60.0);
+	} else {
+		nextFrameTime = nextFrameTime + 1.0 / 60.0;
+	}
+
+	// Max 6 skipped frames in a row - 10 fps is really the bare minimum for playability.
+	if (numSkippedFrames >= 4) {
+		skipFrame = false;
+		skipFlip = false;
+	}
+}
+
 
 void hleEnterVblank(u64 userdata, int cyclesLate) {
 	int vbCount = userdata;
@@ -223,7 +351,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	// Trigger VBlank interrupt handlers.
 	__TriggerInterrupt(PSP_INTR_IMMEDIATE | PSP_INTR_ONLY_IF_ENABLED | PSP_INTR_ALWAYS_RESCHED, PSP_VBLANK_INTR, PSP_INTR_SUB_ALL);
 
-	CoreTiming::ScheduleEvent(msToCycles(vblankMs) - cyclesLate, leaveVblankEvent, vbCount+1);
+	CoreTiming::ScheduleEvent(msToCycles(vblankMs) - cyclesLate, leaveVblankEvent, vbCount + 1);
 
 	// TODO: Should this be done here or in hleLeaveVblank?
 	if (framebufIsLatched) {
@@ -233,65 +361,11 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 		gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
 	}
 
-	// Draw screen overlays before blitting. Saves and restores the Ge context.
 	gpuStats.numFrames++;
 
 	// Now we can subvert the Ge engine in order to draw custom overlays like stat counters etc.
 	if (g_Config.bShowDebugStats && gpuStats.numDrawCalls) {
-		gpu->UpdateStats();
-		char stats[2048];
-		
-		sprintf(stats,
-			"Frames: %i\n"
-			"DL processing time: %0.2f ms\n"
-			"Kernel processing time: %0.2f ms\n"
-			"Slowest syscall: %s : %0.2f ms\n"
-			"Most active syscall: %s : %0.2f ms\n"
-			"Draw calls: %i, flushes %i\n"
-			"Cached Draw calls: %i\n"
-			"Num Tracked Vertex Arrays: %i\n"
-			"Vertices Submitted: %i\n"
-			"Cached Vertices Drawn: %i\n"
-			"Uncached Vertices Drawn: %i\n"
-			"FBOs active: %i\n"
-			"Textures active: %i, decoded: %i\n"
-			"Texture invalidations: %i\n"
-			"Vertex shaders loaded: %i\n"
-			"Fragment shaders loaded: %i\n"
-			"Combined shaders loaded: %i\n",
-			gpuStats.numFrames,
-			gpuStats.msProcessingDisplayLists * 1000.0f,
-			kernelStats.msInSyscalls * 1000.0f,
-			kernelStats.slowestSyscallName ? kernelStats.slowestSyscallName : "(none)",
-			kernelStats.slowestSyscallTime * 1000.0f,
-			kernelStats.summedSlowestSyscallName ? kernelStats.summedSlowestSyscallName : "(none)",
-			kernelStats.summedSlowestSyscallTime * 1000.0f,
-			gpuStats.numDrawCalls,
-			gpuStats.numFlushes,
-			gpuStats.numCachedDrawCalls,
-			gpuStats.numTrackedVertexArrays,
-			gpuStats.numVertsSubmitted,
-			gpuStats.numCachedVertsDrawn,
-			gpuStats.numUncachedVertsDrawn,
-			gpuStats.numFBOs,
-			gpuStats.numTextures,
-			gpuStats.numTexturesDecoded,
-			gpuStats.numTextureInvalidations,
-			gpuStats.numVertexShaders,
-			gpuStats.numFragmentShaders,
-			gpuStats.numShaders
-			);
-
-		float zoom = 0.3f; /// g_Config.iWindowZoom;
-		float soff = 0.3f;
-		PPGeBegin();
-		PPGeDrawText(stats, soff, soff, 0, zoom, 0xCC000000);
-		PPGeDrawText(stats, -soff, -soff, 0, zoom, 0xCC000000);
-		PPGeDrawText(stats, 0, 0, 0, zoom, 0xFFFFFFFF);
-		PPGeEnd();
-
-		gpuStats.resetFrame();
-		kernelStats.ResetFrame();
+		DebugStats();
 	}
 
 	if (g_Config.bShowFPSCounter) {
@@ -313,41 +387,42 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 		PPGeEnd();
 	}
 
+	// Draw screen overlays before blitting. Saves and restores the Ge context.
 	// Yeah, this has to be the right moment to end the frame. Give the graphics backend opportunity
 	// to blit the framebuffer, in order to support half-framerate games that otherwise wouldn't have
 	// anything to draw here.
-	gpu->CopyDisplayToOutput();
+	gstate_c.skipDrawReason &= ~SKIPDRAW_SKIPFRAME;
 
-	host->EndFrame();
+	bool throttle, skipFrame, skipFlip;
+	
+	DoFrameTiming(throttle, skipFrame, skipFlip);
 
-#ifdef _WIN32
-	// Best place to throttle the frame rate on non vsynced platforms is probably here. Let's try it.
-	time_update();
-	if (lastFrameTime == 0.0)
-		lastFrameTime = time_now_d();
-	if (!GetAsyncKeyState(VK_TAB) && !PSP_CoreParameter().headLess) {
-		while (time_now_d() < lastFrameTime + 1.0 / 60.0) {
-			Common::SleepCurrentThread(1);
-			time_update();
-		}
-		// Advance lastFrameTime by a constant amount each frame,
-		// but don't let it get too far behind.
-		lastFrameTime = std::max(lastFrameTime + 1.0 / 60.0, time_now_d() - 1.5 / 60.0);
+	// Setting CORE_NEXTFRAME causes a swap.
+	if (skipFrame) {
+		gstate_c.skipDrawReason |= SKIPDRAW_SKIPFRAME;
+		numSkippedFrames++;
+	}	else {
+		numSkippedFrames = 0;
 	}
 
-	// We are going to have to do something about audio timing for platforms that
-	// are vsynced to something that's not exactly 60fps..
+	if (!skipFlip) {
+		coreState = CORE_NEXTFRAME;
+		CoreTiming::ScheduleEvent(0 - cyclesLate, afterFlipEvent, 0);
 
-#endif
+		gpu->CopyDisplayToOutput();
+	}
 
+	// Returning here with coreState == CORE_NEXTFRAME causes a buffer flip to happen (next frame).
+	// Right after, we regain control for a little bit in hleAfterFlip. I think that's a great
+	// place to do housekeeping.
+}
+
+void hleAfterFlip(u64 userdata, int cyclesLate)
+{
+	// This checks input on PC. Fine to do even if not calling BeginFrame.
 	host->BeginFrame();
-	gpu->BeginFrame();
 
-	// Tell the emu core that it's time to stop emulating
-	// Win32 doesn't need this.
-#ifndef _WIN32
-	coreState = CORE_NEXTFRAME;
-#endif
+	gpu->BeginFrame();  // doesn't really matter if begin or end of frame.
 }
 
 void hleLeaveVblank(u64 userdata, int cyclesLate) {

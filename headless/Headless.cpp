@@ -4,12 +4,13 @@
 
 #include <stdio.h>
 
-#include "../Core/Config.h"
-#include "../Core/Core.h"
-#include "../Core/CoreTiming.h"
-#include "../Core/System.h"
-#include "../Core/MIPS/MIPS.h"
-#include "../Core/Host.h"
+#include "Core/Config.h"
+#include "Core/Core.h"
+#include "Core/CoreTiming.h"
+#include "Core/System.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/Host.h"
+#include "Windows/OpenGLBase.h"
 #include "Log.h"
 #include "LogManager.h"
 
@@ -46,6 +47,9 @@ public:
 	}
 };
 
+// Temporary hack around annoying linking error.
+void GL_SwapBuffers() { }
+
 void printUsage(const char *progname, const char *reason)
 {
 	if (reason != NULL)
@@ -66,7 +70,6 @@ void printUsage(const char *progname, const char *reason)
 	}
 
 	fprintf(stderr, "  -i                    use the interpreter\n");
-	fprintf(stderr, "  -f                    use the fast interpreter\n");
 	fprintf(stderr, "  -j                    use jit (default)\n");
 	fprintf(stderr, "  -c, --compare         compare with output in file.expected\n");
 	fprintf(stderr, "\nSee headless.txt for details.\n");
@@ -76,7 +79,6 @@ int main(int argc, const char* argv[])
 {
 	bool fullLog = false;
 	bool useJit = false;
-	bool fastInterpreter = false;
 	bool autoCompare = false;
 	bool useGraphics = false;
 	
@@ -101,8 +103,6 @@ int main(int argc, const char* argv[])
 			useJit = false;
 		else if (!strcmp(argv[i], "-j"))
 			useJit = true;
-		else if (!strcmp(argv[i], "-f"))
-			fastInterpreter = true;
 		else if (!strcmp(argv[i], "-c") || !strcmp(argv[i], "--compare"))
 			autoCompare = true;
 		else if (!strcmp(argv[i], "--graphics"))
@@ -156,7 +156,7 @@ int main(int argc, const char* argv[])
 	coreParameter.fileToStart = bootFilename;
 	coreParameter.mountIso = mountIso ? mountIso : "";
 	coreParameter.startPaused = false;
-	coreParameter.cpuCore = fastInterpreter ? CPU_FASTINTERPRETER : (useJit ? CPU_JIT : CPU_INTERPRETER);
+	coreParameter.cpuCore = useJit ? CPU_JIT : CPU_INTERPRETER;
 	coreParameter.gpuCore = headlessHost->isGLWorking() ? GPU_GLES : GPU_NULL;
 	coreParameter.enableSound = false;
 	coreParameter.headLess = true;
@@ -196,8 +196,10 @@ int main(int argc, const char* argv[])
 		mipsr4k.RunLoopUntil(nowTicks + frameTicks);
 
 		// If we were rendering, this might be a nice time to do something about it.
-		if (coreState == CORE_NEXTFRAME)
+		if (coreState == CORE_NEXTFRAME) {
+			headlessHost->SwapBuffers();
 			coreState = CORE_RUNNING;
+		}
 	}
 
 	host->ShutdownGL();

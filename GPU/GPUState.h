@@ -224,7 +224,11 @@ struct GPUgstate
 
 // Real data in the context ends here
 };
-	
+
+enum SkipDrawReasonFlags {
+	SKIPDRAW_SKIPFRAME = 1,
+};
+
 // The rest is cached simplified/converted data for fast access.
 // Does not need to be saved when saving/restoring context.
 struct GPUStateCache
@@ -235,6 +239,8 @@ struct GPUStateCache
 	u32 offsetAddr;
 
 	bool textureChanged;
+
+	int skipDrawReason;
 
 	float uScale,vScale;
 	float uOff,vOff;

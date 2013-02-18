@@ -45,8 +45,11 @@ MIPSState::MIPSState()
 
 MIPSState::~MIPSState()
 {
-	delete MIPSComp::jit;
-	MIPSComp::jit = 0;
+	if (MIPSComp::jit)
+	{
+		delete MIPSComp::jit;
+		MIPSComp::jit = 0;
+	}
 }
 
 void MIPSState::Reset()
@@ -107,6 +110,8 @@ void MIPSState::DoState(PointerWrap &p)
 	// Reset the jit if we're loading.
 	if (p.mode == p.MODE_READ)
 		Reset();
+	if (MIPSComp::jit)
+		MIPSComp::jit->DoState(p);
 
 	p.DoArray(r, sizeof(r) / sizeof(r[0]));
 	p.DoArray(f, sizeof(f) / sizeof(f[0]));
@@ -143,11 +148,7 @@ int MIPSState::RunLoopUntil(u64 globalTicks)
 		MIPSComp::jit->RunLoopUntil(globalTicks);
 		break;
 
-	case CPU_FASTINTERPRETER:  // For jit-less platforms. Crashier than INTERPRETER.
-		return MIPSInterpret_RunFastUntil(globalTicks);
-
 	case CPU_INTERPRETER:
-		// INFO_LOG(CPU, "Entering run loop for %i ticks, pc=%08x", (int)globalTicks, mipsr4k.pc);
 		return MIPSInterpret_RunUntil(globalTicks);
 	}
 	return 1;

@@ -45,9 +45,7 @@ void CtrlVfpuView::paintEvent(QPaintEvent *)
 	{
 		int my = (int)(yStart + matrix * rowHeight * 5.5f);
 		painter.drawRect(0, my, xStart-1, rowHeight-1);
-		char temp[256];
-		sprintf(temp, "M%i00", matrix);
-		painter.drawText(3, my+rowHeight-3, temp);
+		painter.drawText(3, my+rowHeight-3, QString("M%1").arg(matrix)+"00");
 		painter.drawRect(xStart, my+rowHeight, columnWidth*4-1, 4*rowHeight-1);
 
 		for (int column = 0; column<4; column++)
@@ -56,13 +54,10 @@ void CtrlVfpuView::paintEvent(QPaintEvent *)
 			int x = column * columnWidth + xStart;
 
 			painter.drawRect(x, y, columnWidth-1, rowHeight - 1);
-			char temp[256];
-			sprintf(temp, "R%i0%i", matrix, column);
-			painter.drawText(x+3, y-3+rowHeight, temp);
+			painter.drawText(x+3, y-3+rowHeight, QString("R%1").arg(matrix)+QString("0%1").arg(column));
 
 			painter.drawRect(0, y+rowHeight*(column+1), xStart - 1, rowHeight - 1);
-			sprintf(temp, "C%i%i0", matrix, column);
-			painter.drawText(3, y+rowHeight*(column+2)-3, temp);
+			painter.drawText(3, y+rowHeight*(column+2)-3, QString("C%1").arg(matrix)+QString("%1").arg(column)+"0");
 
 			y+=rowHeight;
 

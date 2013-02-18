@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/ChunkFile.h"
 #include "../../Core.h"
 #include "../../CoreTiming.h"
 #include "../MIPS.h"
@@ -61,6 +62,11 @@ Jit::Jit(MIPSState *mips) : blocks(mips), gpr(mips), fpr(mips),	 mips_(mips)
 	fpr.SetEmitter(this);
 	AllocCodeSpace(1024 * 1024 * 16);  // 32MB is the absolute max because that's what an ARM branch instruction can reach, backwards and forwards.
 	GenerateFixedCode();
+}
+
+void Jit::DoState(PointerWrap &p)
+{
+	p.DoMarker("Jit");
 }
 
 void Jit::FlushAll()

@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <iterator>
+#include "Common/ChunkFile.h"
 #include "../../Core.h"
 #include "../../CoreTiming.h"
 #include "../../Config.h"
@@ -103,6 +104,15 @@ Jit::Jit(MIPSState *mips) : blocks(mips), mips_(mips)
 	gpr.SetEmitter(this);
 	fpr.SetEmitter(this);
 	AllocCodeSpace(1024 * 1024 * 16);
+
+	// TODO: If it becomes possible to switch from the interpreter, this should be set right.
+	js.startDefaultPrefix = true;
+}
+
+void Jit::DoState(PointerWrap &p)
+{
+	p.Do(js.startDefaultPrefix);
+	p.DoMarker("Jit");
 }
 
 void Jit::FlushAll()
@@ -202,6 +212,17 @@ void Jit::Compile(u32 em_address)
 	int block_num = blocks.AllocateBlock(em_address);
 	JitBlock *b = blocks.GetBlock(block_num);
 	blocks.FinalizeBlock(block_num, jo.enableBlocklink, DoJit(em_address, b));
+
+	// Drat.  The VFPU hit an uneaten prefix at the end of a block.
+	if (js.startDefaultPrefix && js.MayHavePrefix())
+	{
+		js.startDefaultPrefix = false;
+		// Our assumptions are all wrong so it's clean-slate time.
+		ClearCache();
+
+		// Let's try that one more time.  We won't get back here because we toggled the value.
+		Compile(em_address);
+	}
 }
 
 void Jit::RunLoopUntil(u64 globalticks)
@@ -282,9 +303,13 @@ void Jit::Comp_Generic(u32 op)
 	else
 		_dbg_assert_msg_(JIT, 0, "Trying to compile instruction that can't be interpreted");
 
-	// Might have eaten prefixes, hard to tell...
-	if ((MIPSGetInfo(op) & IS_VFPU) != 0)
-		js.PrefixStart();
+	const int info = MIPSGetInfo(op);
+	if ((info & IS_VFPU) != 0 && (info & VFPU_NO_PREFIX) == 0)
+	{
+		// If it does eat them, it'll happen in MIPSCompileOp().
+		if ((info & OUT_EAT_PREFIX) == 0)
+			js.PrefixUnknown();
+	}
 }
 
 void Jit::WriteExit(u32 destination, int exit_num)

@@ -239,23 +239,29 @@ public:
 	}
 
 	void ReadUV(float uv[2]) {
-		const u8 *b = (const u8 *)(data_ + decFmt_.uvoff);
-		const u16 *s = (const u16 *)(data_ + decFmt_.uvoff);
-		const float *f = (const float *)(data_ + decFmt_.uvoff);
 		switch (decFmt_.uvfmt) {
 		case DEC_U8_2:
-			uv[0] = b[0] * (1.f / 128.f);
-			uv[1] = b[1] * (1.f / 128.f);
+			{
+				const u8 *b = (const u8 *)(data_ + decFmt_.uvoff);
+				uv[0] = b[0] * (1.f / 128.f);
+				uv[1] = b[1] * (1.f / 128.f);
+			}
 			break;
 
 		case DEC_U16_2:
-			uv[0] = s[0] * (1.f / 32768.f);
-			uv[1] = s[1] * (1.f / 32768.f);
+			{
+				const u16 *s = (const u16 *)(data_ + decFmt_.uvoff);
+				uv[0] = s[0] * (1.f / 32768.f);
+				uv[1] = s[1] * (1.f / 32768.f);
+			}
 			break;
 
 		case DEC_FLOAT_2:
-			uv[0] = f[0] * 2.0f;
-			uv[1] = f[1] * 2.0f;
+			{
+				const float *f = (const float *)(data_ + decFmt_.uvoff);
+				uv[0] = f[0] * 2.0f;
+				uv[1] = f[1] * 2.0f;
+			}
 			break;
 
 		case DEC_U16A_2:

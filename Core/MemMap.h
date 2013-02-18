@@ -36,9 +36,9 @@
 #if defined(_DEBUG)
 //#define SAFE_MEMORY
 #endif
-// Required for UNUSABLE_MMAP. Can define this in cmake instead later
+
 #ifdef __SYMBIAN32__
-#define SAFE_MEMORY
+//#define SAFE_MEMORY
 #endif
 
 

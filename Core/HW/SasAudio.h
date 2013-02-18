@@ -157,7 +157,9 @@ private:
 struct SasVoice
 {
 	SasVoice()
-		: playing(false), paused(false), on(false),
+		: playing(false),
+		  paused(false),
+			on(false),
 			type(VOICETYPE_OFF),
 			vagAddr(0),
 			vagSize(0),
@@ -171,7 +173,10 @@ struct SasVoice
 			volumeLeft(0),
 			volumeRight(0),
 			volumeLeftSend(0),
-			volumeRightSend(0) {
+			volumeRightSend(0),
+			effectLeft(0),
+			effectRight(0) {
+		memset(resampleHist, 0, sizeof(resampleHist));
 	}
 
 	void Reset();

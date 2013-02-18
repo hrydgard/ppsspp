@@ -49,14 +49,15 @@ void CConfig::Load(const char *iniFileName)
 	general->Get("FirstRun", &bFirstRun, true);
 	general->Get("AutoLoadLast", &bAutoLoadLast, false);
 	general->Get("AutoRun", &bAutoRun, true);
+	general->Get("Browse", &bBrowse, false);
 	general->Get("ConfirmOnQuit", &bConfirmOnQuit, false);
 	general->Get("IgnoreBadMemAccess", &bIgnoreBadMemAccess, true);
 	general->Get("CurrentDirectory", &currentDirectory, "");
 	general->Get("ShowDebuggerOnLoad", &bShowDebuggerOnLoad, false);
 
 	IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
-	cpu->Get("Core", &iCpuCore, 2);
-	cpu->Get("FastMemory", &bFastMemory, false);
+	cpu->Get("Jit", &bJit, true);
+	cpu->Get("FastMemory", &bFastMemory, true);
 
 	IniFile::Section *graphics = iniFile.GetOrCreateSection("Graphics");
 	graphics->Get("ShowFPSCounter", &bShowFPSCounter, false);
@@ -67,6 +68,7 @@ void CConfig::Load(const char *iniFileName)
 	graphics->Get("LinearFiltering", &bLinearFiltering, false);
 	graphics->Get("SSAA", &SSAntiAliasing, 0);
 	graphics->Get("VBO", &bUseVBO, false);
+	graphics->Get("FrameSkip", &iFrameSkip, 0);
 #ifdef USING_GLES2
 	graphics->Get("AnisotropyLevel", &iAnisotropyLevel, 0);
 #else
@@ -112,12 +114,13 @@ void CConfig::Save()
 		general->Set("FirstRun", bFirstRun);
 		general->Set("AutoLoadLast", bAutoLoadLast);
 		general->Set("AutoRun", bAutoRun);
+		general->Set("Browse", bBrowse);
 		general->Set("ConfirmOnQuit", bConfirmOnQuit);
 		general->Set("IgnoreBadMemAccess", bIgnoreBadMemAccess);
 		general->Set("CurrentDirectory", currentDirectory);
 		general->Set("ShowDebuggerOnLoad", bShowDebuggerOnLoad);
 		IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
-		cpu->Set("Core", iCpuCore);
+		cpu->Set("Jit", bJit);
 		cpu->Set("FastMemory", bFastMemory);
 
 		IniFile::Section *graphics = iniFile.GetOrCreateSection("Graphics");
@@ -129,6 +132,7 @@ void CConfig::Save()
 		graphics->Set("LinearFiltering", bLinearFiltering);
 		graphics->Set("SSAA", SSAntiAliasing);
 		graphics->Set("VBO", bUseVBO);
+		graphics->Set("FrameSkip", iFrameSkip);
 		graphics->Set("AnisotropyLevel", iAnisotropyLevel);
 		graphics->Set("DisableG3DLog", bDisableG3DLog);
 		graphics->Set("VertexCache", bVertexCache);
