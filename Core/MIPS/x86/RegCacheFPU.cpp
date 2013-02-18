@@ -21,6 +21,8 @@
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/x86/RegCacheFPU.h"
 
+u32 FPURegCache::tempValues[NUM_TEMPS];
+
 FPURegCache::FPURegCache() : emit(0), mips(0) {
 	memset(regs, 0, sizeof(regs));
 	memset(xregs, 0, sizeof(xregs));
@@ -79,6 +81,11 @@ void FPURegCache::MapRegsV(const u8 *v, VectorSize sz, int flags) {
 	}
 }
 
+void FPURegCache::ReleaseSpillLock(int mipsreg)
+{
+	regs[mipsreg].locked = false;
+}
+
 void FPURegCache::ReleaseSpillLocks() {
 	for (int i = 0; i < NUM_MIPS_FPRS; i++)
 		regs[i].locked = false;
@@ -99,9 +106,7 @@ void FPURegCache::BindToRegister(const int i, bool doLoad, bool makeDirty) {
 			if (!regs[i].location.IsImm() && (regs[i].location.offset & 0x3)) {
 				PanicAlert("WARNING - misaligned fp register location %i", i);
 			}
-			if (i < TEMP0) {
-				emit->MOVSS(xr, regs[i].location);
-			}
+			emit->MOVSS(xr, regs[i].location);
 		}
 		regs[i].location = newloc;
 		regs[i].away = true;
@@ -148,7 +153,7 @@ bool FPURegCache::IsTemp(X64Reg xr) {
 }
 
 void FPURegCache::Flush() {
-	for (int i = 0; i < TEMP0; i++) {
+	for (int i = 0; i < NUM_MIPS_FPRS; i++) {
 		if (regs[i].locked) {
 			PanicAlert("Somebody forgot to unlock MIPS reg %i.", i);
 		}
@@ -164,16 +169,15 @@ void FPURegCache::Flush() {
 			}
 		}
 	}
-	for (int i = TEMP0; i < TEMP0 + NUM_TEMPS; ++i) {
-		DiscardR(i);
-	}
 }
 
 OpArg FPURegCache::GetDefaultLocation(int reg) const {
 	if (reg < 32) {
 		return M(&mips->f[reg]);
-	} else {
+	} else if (reg < 32 + 128) {
 		return M(&mips->v[reg - 32]);
+	} else {
+		return M(&tempValues[reg - 32 - 128]);
 	}
 }
 

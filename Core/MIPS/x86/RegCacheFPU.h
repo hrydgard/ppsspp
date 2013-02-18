@@ -27,14 +27,22 @@ using namespace Gen;
 
 // GPRs are numbered 0 to 31
 // VFPU regs are numbered 32 to 159.
-// Then we have some temp regs for VFPU handling from 160 to 167.
+// Then we have some temp regs for VFPU handling from 160 to 171.
 
 enum {
-	NUM_TEMPS = 4,
+	NUM_TEMPS = 12,
 	TEMP0 = 32 + 128,
 	TEMP1 = TEMP0 + 1,
 	TEMP2 = TEMP0 + 2,
 	TEMP3 = TEMP0 + 3,
+	TEMP4 = TEMP0 + 4,
+	TEMP5 = TEMP0 + 5,
+	TEMP6 = TEMP0 + 6,
+	TEMP7 = TEMP0 + 7,
+	TEMP8 = TEMP0 + 8,
+	TEMP9 = TEMP0 + 9,
+	TEMP10 = TEMP0 + 10,
+	TEMP11 = TEMP0 + 11,
 	NUM_MIPS_FPRS = 32 + 128 + NUM_TEMPS,
 };
 
@@ -108,6 +116,7 @@ public:
 
 	// Register locking. Prevents them from being spilled.
 	void SpillLock(int p1, int p2=0xff, int p3=0xff, int p4=0xff);
+	void ReleaseSpillLock(int mipsrega);
 	void ReleaseSpillLocks();
 
 	void MapRegV(int vreg, int flags);
@@ -129,6 +138,9 @@ private:
 	MIPSCachedFPReg regs[NUM_MIPS_FPRS];
 	X64CachedFPReg xregs[NUM_X_FPREGS];
 	MIPSCachedFPReg *vregs;
+
+	// TEMP0, etc. are swapped in here if necessary (e.g. on x86.)
+	static u32 tempValues[NUM_TEMPS];
 
 	XEmitter *emit;
 };
