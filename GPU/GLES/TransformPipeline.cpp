@@ -53,12 +53,14 @@ enum {
 };
 
 TransformDrawEngine::TransformDrawEngine()
-	: numDrawCalls(0),
-	  collectedVerts(0),
+	: collectedVerts(0),
 		prevPrim_(-1),
 		lastVType_(-1),
 		curVbo_(0),
-		shaderManager_(0) {
+		shaderManager_(0),
+		textureCache_(0),
+		framebufferManager_(0),
+		numDrawCalls(0) {
 	// Allocate nicely aligned memory. Maybe graphics drivers will
 	// appreciate it.
 	// All this is a LOT of memory, need to see if we can cut down somehow.

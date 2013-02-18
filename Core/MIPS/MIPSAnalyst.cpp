@@ -98,7 +98,7 @@ namespace MIPSAnalyst
 			"slt", "sltu",
 		};
 		const char *opName = MIPSGetName(op);
-		for (int i = 0; i < ARRAY_SIZE(safeOps); ++i)
+		for (size_t i = 0; i < ARRAY_SIZE(safeOps); ++i)
 		{
 			if (!strcmp(safeOps[i], opName))
 				return true;

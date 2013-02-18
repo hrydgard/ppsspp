@@ -1080,7 +1080,7 @@ bool SavedataParam::CreatePNGIcon(u8* pngData, int pngSize, SaveFileInfo& info)
 	u32 atlasPtr;
 	if (success)
 		atlasPtr = kernelMemory.Alloc(texSize, true, "SaveData Icon");
-	if (success && atlasPtr != -1)
+	if (success && atlasPtr != (u32)-1)
 	{
 		info.textureData = atlasPtr;
 		Memory::Memcpy(atlasPtr, textureData, texSize);
