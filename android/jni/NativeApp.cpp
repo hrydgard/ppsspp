@@ -101,7 +101,6 @@ public:
 
 	virtual void InitGL() {}
 	virtual void BeginFrame() {}
-	virtual void EndFrame() {}
 	virtual void ShutdownGL() {}
 
 	virtual void InitSound(PMixer *mixer);

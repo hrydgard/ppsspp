@@ -46,7 +46,6 @@ public:
 
 	virtual void InitGL() = 0;
 	virtual void BeginFrame() {}
-	virtual void EndFrame() {}
 	virtual void ShutdownGL() = 0;
 
 	virtual void InitSound(PMixer *mixer) = 0;
