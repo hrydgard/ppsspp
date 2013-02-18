@@ -430,7 +430,7 @@ u32 __sceSasSetVoiceATRAC3(u32 core, int voice, int atrac3Context) {
 }
 
 u32 __sceSasConcatenateATRAC3(u32 core, int voice, u32 atrac3DataAddr, int atrac3DataLength) {
-	ERROR_LOG(HLE,"UNIMPL __sceSasConcatenateATRAC3(%08x, %i, %i)", core, voice, atrac3DataAddr, atrac3DataLength);
+	ERROR_LOG(HLE,"UNIMPL __sceSasConcatenateATRAC3(%08x, %i, %08x, %i)", core, voice, atrac3DataAddr, atrac3DataLength);
 	return 0;
 }
 
