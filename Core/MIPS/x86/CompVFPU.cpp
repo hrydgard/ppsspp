@@ -104,6 +104,7 @@ void Jit::ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz) {
 			// Prefix may say "z, z, z, z" but if this is a pair, we force to x.
 			// TODO: But some ops seem to use const 0 instead?
 			if (regnum > n) {
+				ERROR_LOG(CPU, "Invalid VFPU swizzle: %08x / %d", prefix, sz);
 				regnum = 0;
 			}
 			MOVSS(fpr.VX(vregs[i]), fpr.V(origV[regnum]));
@@ -343,12 +344,6 @@ void Jit::Comp_VDot(u32 op) {
 		return;
 	}
 
-	// WARNING: No prefix support! (maybe soon)
-	if (js.MayHavePrefix()) {
-		Comp_Generic(op);
-		return;
-	}
-
 	int vd = _VD;
 	int vs = _VS;
 	int vt = _VT;
@@ -392,9 +387,7 @@ void Jit::Comp_VDot(u32 op) {
 void Jit::Comp_VecDo3(u32 op) {
 	CONDITIONAL_DISABLE;
 
-	// WARNING: No prefix support!
-	if (js.MayHavePrefix())
-	{
+	if (js.HasUnknownPrefix()) {
 		Comp_Generic(op);
 		return;
 	}
@@ -405,9 +398,9 @@ void Jit::Comp_VecDo3(u32 op) {
 	VectorSize sz = GetVecSize(op);
 
 	u8 sregs[4], tregs[4], dregs[4];
-	GetVectorRegs(sregs, sz, vs);
-	GetVectorRegs(tregs, sz, vt);
-	GetVectorRegs(dregs, sz, vd);
+	GetVectorRegsPrefixS(sregs, sz, vs);
+	GetVectorRegsPrefixT(tregs, sz, vt);
+	GetVectorRegsPrefixD(dregs, sz, vd);
 
 	void (XEmitter::*xmmop)(X64Reg, OpArg) = NULL;
 	switch (op >> 26)
@@ -480,6 +473,8 @@ void Jit::Comp_VecDo3(u32 op) {
 		if (!fpr.V(dregs[i]).IsSimpleReg(tempxregs[i]))
 			MOVSS(fpr.V(dregs[i]), tempxregs[i]);
 	}
+
+	ApplyPrefixD(dregs, sz);
 
 	fpr.ReleaseSpillLocks();
 }
