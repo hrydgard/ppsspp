@@ -326,12 +326,12 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		vfb->renderHeight = (u16)(drawing_height * renderHeightFactor);
 		vfb->format = fmt;
 
-		vfb->colorDepth = FBO_8888;
 		switch (fmt) {
-		case GE_FORMAT_4444: vfb->colorDepth = FBO_4444;
-		case GE_FORMAT_5551: vfb->colorDepth = FBO_5551;
-		case GE_FORMAT_565: vfb->colorDepth = FBO_565;
-		case GE_FORMAT_8888: vfb->colorDepth = FBO_8888;
+		case GE_FORMAT_4444: vfb->colorDepth = FBO_4444; break;
+		case GE_FORMAT_5551: vfb->colorDepth = FBO_5551; break;
+		case GE_FORMAT_565: vfb->colorDepth = FBO_565; break;
+		case GE_FORMAT_8888: vfb->colorDepth = FBO_8888; break;
+		default: vfb->colorDepth = FBO_8888; break;
 		}
 		//#ifdef ANDROID
 		//	vfb->colorDepth = FBO_8888;
