@@ -45,8 +45,11 @@ MIPSState::MIPSState()
 
 MIPSState::~MIPSState()
 {
-	delete MIPSComp::jit;
-	MIPSComp::jit = 0;
+	if (MIPSComp::jit)
+	{
+		delete MIPSComp::jit;
+		MIPSComp::jit = 0;
+	}
 }
 
 void MIPSState::Reset()
@@ -107,6 +110,8 @@ void MIPSState::DoState(PointerWrap &p)
 	// Reset the jit if we're loading.
 	if (p.mode == p.MODE_READ)
 		Reset();
+	if (MIPSComp::jit)
+		MIPSComp::jit->DoState(p);
 
 	p.DoArray(r, sizeof(r) / sizeof(r[0]));
 	p.DoArray(f, sizeof(f) / sizeof(f[0]));

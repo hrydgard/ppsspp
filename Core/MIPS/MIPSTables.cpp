@@ -147,22 +147,22 @@ const MIPSInstruction tableImmediate[64] =  //xxxxxx .....
 	//48
 	INSTR("ll", &Jit::Comp_Generic, Dis_Generic, Int_StoreSync, 0),
 	INSTR("lwc1", &Jit::Comp_FPULS, Dis_FPULS, Int_FPULS, IN_RT|IN_RS_ADDR),
-	INSTR("lv.s", &Jit::Comp_SV, Dis_SV, Int_SV, IS_VFPU),
+	INSTR("lv.s", &Jit::Comp_SV, Dis_SV, Int_SV, IS_VFPU|VFPU_NO_PREFIX),
 	{-2}, // HIT THIS IN WIPEOUT
 	{VFPU4Jump},
-	INSTR("lv", &Jit::Comp_SVQ, Dis_SVLRQ, Int_SVQ, IS_VFPU),
-	INSTR("lv.q", &Jit::Comp_SVQ, Dis_SVQ, Int_SVQ, IS_VFPU), //copU
+	INSTR("lv", &Jit::Comp_SVQ, Dis_SVLRQ, Int_SVQ, IS_VFPU|VFPU_NO_PREFIX),
+	INSTR("lv.q", &Jit::Comp_SVQ, Dis_SVQ, Int_SVQ, IS_VFPU|VFPU_NO_PREFIX), //copU
 	{VFPU5},
 	//56
 	INSTR("sc", &Jit::Comp_Generic, Dis_Generic, Int_StoreSync, 0),
 	INSTR("swc1", &Jit::Comp_FPULS, Dis_FPULS, Int_FPULS, 0), //copU
-	INSTR("sv.s", &Jit::Comp_SV, Dis_SV, Int_SV,IS_VFPU),
+	INSTR("sv.s", &Jit::Comp_SV, Dis_SV, Int_SV,IS_VFPU|VFPU_NO_PREFIX),
 	{-2}, 
 	//60
 	{VFPU6},
-	INSTR("sv", &Jit::Comp_SVQ, Dis_SVLRQ, Int_SVQ, IS_VFPU), //copU
-	INSTR("sv.q", &Jit::Comp_SVQ, Dis_SVQ, Int_SVQ, IS_VFPU),
-	INSTR("vflush", &Jit::Comp_Generic, Dis_Vflush, Int_Vflush, IS_VFPU),
+	INSTR("sv", &Jit::Comp_SVQ, Dis_SVLRQ, Int_SVQ, IS_VFPU|VFPU_NO_PREFIX), //copU
+	INSTR("sv.q", &Jit::Comp_SVQ, Dis_SVQ, Int_SVQ, IS_VFPU|VFPU_NO_PREFIX),
+	INSTR("vflush", &Jit::Comp_Generic, Dis_Vflush, Int_Vflush, IS_VFPU|VFPU_NO_PREFIX),
 };
 
 const MIPSInstruction tableSpecial[64] = /// 000000 ...... ...... .......... xxxxxx
