@@ -372,7 +372,7 @@ namespace MIPSInt
 				if (rt != 0) {
 					R(rt) = 1;
 				}
-			} else {
+			} else if (rt != 0) {
 				R(rt) = 0;
 			}
 			break;
