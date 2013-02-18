@@ -21,6 +21,8 @@
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/x86/RegCacheFPU.h"
 
+u32 FPURegCache::tempValues[NUM_TEMPS];
+
 FPURegCache::FPURegCache() : emit(0), mips(0) {
 	memset(regs, 0, sizeof(regs));
 	memset(xregs, 0, sizeof(xregs));
@@ -37,6 +39,7 @@ void FPURegCache::Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats) {
 		regs[i].location = GetDefaultLocation(i);
 		regs[i].away = false;
 		regs[i].locked = false;
+		regs[i].tempLocked = false;
 	}
 }
 
@@ -79,6 +82,11 @@ void FPURegCache::MapRegsV(const u8 *v, VectorSize sz, int flags) {
 	}
 }
 
+void FPURegCache::ReleaseSpillLock(int mipsreg)
+{
+	regs[mipsreg].locked = false;
+}
+
 void FPURegCache::ReleaseSpillLocks() {
 	for (int i = 0; i < NUM_MIPS_FPRS; i++)
 		regs[i].locked = false;
@@ -99,9 +107,7 @@ void FPURegCache::BindToRegister(const int i, bool doLoad, bool makeDirty) {
 			if (!regs[i].location.IsImm() && (regs[i].location.offset & 0x3)) {
 				PanicAlert("WARNING - misaligned fp register location %i", i);
 			}
-			if (i < TEMP0) {
-				emit->MOVSS(xr, regs[i].location);
-			}
+			emit->MOVSS(xr, regs[i].location);
 		}
 		regs[i].location = newloc;
 		regs[i].away = true;
@@ -138,17 +144,31 @@ void FPURegCache::DiscardR(int i) {
 		xregs[xr].mipsReg = -1;
 		regs[i].location = GetDefaultLocation(i);
 		regs[i].away = false;
+		regs[i].tempLocked = false;
 	} else {
 		//	_assert_msg_(DYNA_REC,0,"already stored");
+		regs[i].tempLocked = false;
 	}
 }
 
-bool FPURegCache::IsTemp(X64Reg xr) {
+bool FPURegCache::IsTempX(X64Reg xr) {
 	return xregs[xr].mipsReg >= TEMP0;
 }
 
+int FPURegCache::GetTempR() {
+	for (int r = TEMP0; r < TEMP0 + NUM_TEMPS; ++r) {
+		if (!regs[r].away && !regs[r].tempLocked) {
+			regs[r].tempLocked = true;
+			return r;
+		}
+	}
+
+	_assert_msg_(DYNA_REC, 0, "Regcache ran out of temp regs, might need to DiscardR() some.");
+	return -1;
+}
+
 void FPURegCache::Flush() {
-	for (int i = 0; i < TEMP0; i++) {
+	for (int i = 0; i < NUM_MIPS_FPRS; i++) {
 		if (regs[i].locked) {
 			PanicAlert("Somebody forgot to unlock MIPS reg %i.", i);
 		}
@@ -164,16 +184,15 @@ void FPURegCache::Flush() {
 			}
 		}
 	}
-	for (int i = TEMP0; i < TEMP0 + NUM_TEMPS; ++i) {
-		DiscardR(i);
-	}
 }
 
 OpArg FPURegCache::GetDefaultLocation(int reg) const {
 	if (reg < 32) {
 		return M(&mips->f[reg]);
-	} else {
+	} else if (reg < 32 + 128) {
 		return M(&mips->v[reg - 32]);
+	} else {
+		return M(&tempValues[reg - 32 - 128]);
 	}
 }
 

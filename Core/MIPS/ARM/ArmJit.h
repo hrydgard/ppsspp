@@ -64,6 +64,7 @@ class Jit : public ArmGen::ARMXCodeBlock
 {
 public:
 	Jit(MIPSState *mips);
+	void DoState(PointerWrap &p);
 
 	// Compiled ops should ignore delay slots
 	// the compiler will take care of them by itself
@@ -118,6 +119,9 @@ public:
 
 	void ClearCache();
 	void ClearCacheAt(u32 em_address);
+
+	// TODO: Eat VFPU prefixes here.
+	void EatPrefix() { }
 
 private:
 	void GenerateFixedCode();

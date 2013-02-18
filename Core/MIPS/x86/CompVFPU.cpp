@@ -75,9 +75,6 @@ void Jit::Comp_VPFX(u32 op)
 	}
 }
 
-
-// TODO:  Got register value ownership issues. We need to be sure that if we modify input
-// like this, it does NOT get written back!
 void Jit::ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz) {
 	if (prefix == 0xE4) return;
 
@@ -86,10 +83,7 @@ void Jit::ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz) {
 	static const float constantArray[8] = {0.f, 1.f, 2.f, 0.5f, 3.f, 1.f/3.f, 0.25f, 1.f/6.f};
 
 	for (int i = 0; i < n; i++)
-	{
-		// TODO: This needs to be the original values, not the original regs. (e.g. [-x, |x|, x])
 		origV[i] = vregs[i];
-	}
 
 	for (int i = 0; i < n; i++)
 	{
@@ -98,48 +92,75 @@ void Jit::ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz) {
 		int negate = (prefix >> (16+i)) & 1;
 		int constants = (prefix >> (12+i)) & 1;
 
+		// Unchanged, hurray.
+		if (!constants && regnum == i && !abs && !negate)
+			continue;
+
+		// This puts the value into a temp reg, so we won't write the modified value back.
+		vregs[i] = fpr.GetTempV();
+		fpr.MapRegV(vregs[i], MAP_NOINIT | MAP_DIRTY);
+
 		if (!constants) {
 			// Prefix may say "z, z, z, z" but if this is a pair, we force to x.
 			// TODO: But some ops seem to use const 0 instead?
 			if (regnum > n) {
+				ERROR_LOG(CPU, "Invalid VFPU swizzle: %08x / %d", prefix, sz);
 				regnum = 0;
 			}
-			vregs[i] = origV[regnum];
+			MOVSS(fpr.VX(vregs[i]), fpr.V(origV[regnum]));
 			if (abs) {
 				ANDPS(fpr.VX(vregs[i]), M((void *)&noSignMask));
 			}
-		}	else {
+		} else {
 			MOVSS(fpr.VX(vregs[i]), M((void *)&constantArray[regnum + (abs<<2)]));
 		}
 
 		if (negate)
 			XORPS(fpr.VX(vregs[i]), M((void *)&signBitLower));
+
+		// TODO: This probably means it will swap out soon, inefficiently...
+		fpr.ReleaseSpillLockV(vregs[i]);
 	}
 }
 
-void Jit::ApplyPrefixD(const u8 *vregs, u32 prefix, VectorSize sz, bool onlyWriteMask) {
+void Jit::GetVectorRegsPrefixD(u8 *regs, VectorSize sz, int vectorReg) {
 	_assert_(js.prefixDFlag & JitState::PREFIX_KNOWN);
-	if (!prefix) return;
+
+	GetVectorRegs(regs, sz, vectorReg);
+	if (js.prefixD == 0)
+		return;
 
 	int n = GetNumVectorElements(sz);
 	for (int i = 0; i < n; i++)
 	{
-		int mask = (prefix >> (8 + i)) & 1;
-		js.writeMask[i] = mask ? true : false;
-		if (onlyWriteMask)
+		// Hopefully this is rare, we'll just write it into a reg we drop.
+		if (js.VfpuWriteMask(i))
+			regs[i] = fpr.GetTempV();
+	}
+}
+
+void Jit::ApplyPrefixD(const u8 *vregs, VectorSize sz) {
+	_assert_(js.prefixDFlag & JitState::PREFIX_KNOWN);
+	if (!js.prefixD) return;
+
+	int n = GetNumVectorElements(sz);
+	for (int i = 0; i < n; i++)
+	{
+		if (js.VfpuWriteMask(i))
 			continue;
-		if (!mask) {
-			int sat = (prefix >> (i * 2)) & 3;
-			if (sat == 1)
-			{
-				MAXSS(fpr.VX(vregs[i]), M((void *)&zero));
-				MINSS(fpr.VX(vregs[i]), M((void *)&one));
-			}
-			else if (sat == 3)
-			{
-				MAXSS(fpr.VX(vregs[i]), M((void *)&minus_one));
-				MINSS(fpr.VX(vregs[i]), M((void *)&one));
-			}
+
+		int sat = (js.prefixD >> (i * 2)) & 3;
+		if (sat == 1)
+		{
+			fpr.MapRegV(vregs[i], MAP_DIRTY);
+			MAXSS(fpr.VX(vregs[i]), M((void *)&zero));
+			MINSS(fpr.VX(vregs[i]), M((void *)&one));
+		}
+		else if (sat == 3)
+		{
+			fpr.MapRegV(vregs[i], MAP_DIRTY);
+			MAXSS(fpr.VX(vregs[i]), M((void *)&minus_one));
+			MINSS(fpr.VX(vregs[i]), M((void *)&one));
 		}
 	}
 }
@@ -316,12 +337,10 @@ void Jit::Comp_SVQ(u32 op)
 }
 
 void Jit::Comp_VDot(u32 op) {
-	DISABLE;
+	CONDITIONAL_DISABLE;
 
-	// WARNING: No prefix support!
-	if (js.MayHavePrefix()) {
+	if (js.HasUnknownPrefix()) {
 		Comp_Generic(op);
-		js.EatPrefix();
 		return;
 	}
 
@@ -331,12 +350,10 @@ void Jit::Comp_VDot(u32 op) {
 	VectorSize sz = GetVecSize(op);
 	
 	// TODO: Force read one of them into regs? probably not.
-	u8 sregs[4], tregs[4], dregs[4];
-	GetVectorRegs(sregs, sz, vs);
-	GetVectorRegs(tregs, sz, vt);
-	GetVectorRegs(dregs, sz, vd);
-
-	// TODO: applyprefixST here somehow (shuffle, etc...)
+	u8 sregs[4], tregs[4], dregs[1];
+	GetVectorRegsPrefixS(sregs, sz, vs);
+	GetVectorRegsPrefixT(tregs, sz, vt);
+	GetVectorRegsPrefixD(dregs, V_Single, vd);
 
 	int n = GetNumVectorElements(sz);
 	X64Reg tempxreg = XMM0;
@@ -347,7 +364,7 @@ void Jit::Comp_VDot(u32 op) {
 	}
 
 	// Need to start with +0.0f so it doesn't result in -0.0f.
-	MOVSS(tempxreg, M((void *) &zero));
+	XORPS(tempxreg, R(tempxreg));
 	for (int i = 0; i < n; i++)
 	{
 		// sum += s[i]*t[i];
@@ -362,21 +379,16 @@ void Jit::Comp_VDot(u32 op) {
 		MOVSS(fpr.V(dregs[0]), tempxreg);
 	}
 
-	// TODO: applyprefixD here somehow (write mask etc..)
+	ApplyPrefixD(dregs, V_Single);
 
 	fpr.ReleaseSpillLocks();
-
-	js.EatPrefix();
 }
 
 void Jit::Comp_VecDo3(u32 op) {
-	DISABLE;
+	CONDITIONAL_DISABLE;
 
-	// WARNING: No prefix support!
-	if (js.MayHavePrefix())
-	{
+	if (js.HasUnknownPrefix()) {
 		Comp_Generic(op);
-		js.EatPrefix();
 		return;
 	}
 
@@ -386,9 +398,9 @@ void Jit::Comp_VecDo3(u32 op) {
 	VectorSize sz = GetVecSize(op);
 
 	u8 sregs[4], tregs[4], dregs[4];
-	GetVectorRegs(sregs, sz, vs);
-	GetVectorRegs(tregs, sz, vt);
-	GetVectorRegs(dregs, sz, vd);
+	GetVectorRegsPrefixS(sregs, sz, vs);
+	GetVectorRegsPrefixT(tregs, sz, vt);
+	GetVectorRegsPrefixD(dregs, sz, vd);
 
 	void (XEmitter::*xmmop)(X64Reg, OpArg) = NULL;
 	switch (op >> 26)
@@ -419,8 +431,8 @@ void Jit::Comp_VecDo3(u32 op) {
 
 	if (xmmop == NULL)
 	{
+		fpr.ReleaseSpillLocks();
 		Comp_Generic(op);
-		js.EatPrefix();
 		return;
 	}
 
@@ -436,9 +448,10 @@ void Jit::Comp_VecDo3(u32 op) {
 				tempxregs[i] = (X64Reg) (XMM0 + i);
 			else
 			{
-				fpr.BindToRegister(TEMP0 + i, false, true);
-				fpr.SpillLock(TEMP0 + i);
-				tempxregs[i] = fpr.RX(TEMP0 + i);
+				int reg = fpr.GetTempV();
+				fpr.MapRegV(reg, MAP_NOINIT | MAP_DIRTY);
+				fpr.SpillLockV(reg);
+				tempxregs[i] = fpr.VX(reg);
 			}
 		}
 		else
@@ -462,9 +475,9 @@ void Jit::Comp_VecDo3(u32 op) {
 			MOVSS(fpr.V(dregs[i]), tempxregs[i]);
 	}
 
-	fpr.ReleaseSpillLocks();
+	ApplyPrefixD(dregs, sz);
 
-	js.EatPrefix();
+	fpr.ReleaseSpillLocks();
 }
 
 void Jit::Comp_Mftv(u32 op) {

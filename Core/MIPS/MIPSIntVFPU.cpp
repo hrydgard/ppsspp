@@ -145,27 +145,22 @@ inline void ApplySwizzleT(float *v, VectorSize size)
 void ApplyPrefixD(float *v, VectorSize size, bool onlyWriteMask = false)
 {
 	u32 data = currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX];
-	if (!data)
+	if (!data || onlyWriteMask)
 		return;
 	int n = GetNumVectorElements(size);
-	bool writeMask[4];
 	for (int i = 0; i < n; i++)
 	{
-		int mask = (data >> (8 + i)) & 1;
-		writeMask[i] = mask ? true : false;
-		if (!onlyWriteMask) {
-			int sat = (data >> (i * 2)) & 3;
-			if (sat == 1)
-			{
-				if (v[i] > 1.0f) v[i] = 1.0f;
-				// This includes -0.0f -> +0.0f.
-				if (v[i] <= 0.0f) v[i] = 0.0f;
-			}
-			else if (sat == 3)
-			{
-				if (v[i] > 1.0f)  v[i] = 1.0f;
-				if (v[i] < -1.0f) v[i] = -1.0f;
-			}
+		int sat = (data >> (i * 2)) & 3;
+		if (sat == 1)
+		{
+			if (v[i] > 1.0f) v[i] = 1.0f;
+			// This includes -0.0f -> +0.0f.
+			if (v[i] <= 0.0f) v[i] = 0.0f;
+		}
+		else if (sat == 3)
+		{
+			if (v[i] > 1.0f)  v[i] = 1.0f;
+			if (v[i] < -1.0f) v[i] = -1.0f;
 		}
 	}
 }
@@ -936,8 +931,7 @@ namespace MIPSInt
 		}
 		d = sum;
 		ApplyPrefixD(&d,V_Single);
-		// TODO: Shouldn't this respect the mask?
-		V(vd) = d;
+		WriteVector(&d, V_Single, vd);
 		PC += 4;
 		EatPrefixes();
 	}

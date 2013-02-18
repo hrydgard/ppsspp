@@ -63,6 +63,11 @@ Jit::Jit(MIPSState *mips) : blocks(mips), gpr(mips), mips_(mips)
 	GenerateFixedCode();
 }
 
+void Jit::DoState(PointerWrap &p)
+{
+	p.DoMarker("Jit");
+}
+
 void Jit::FlushAll()
 {
 	gpr.FlushAll();
