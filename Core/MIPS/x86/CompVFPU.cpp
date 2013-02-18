@@ -431,6 +431,7 @@ void Jit::Comp_VecDo3(u32 op) {
 
 	if (xmmop == NULL)
 	{
+		fpr.ReleaseSpillLocks();
 		Comp_Generic(op);
 		return;
 	}

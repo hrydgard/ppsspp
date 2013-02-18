@@ -27,7 +27,6 @@ FPURegCache::FPURegCache() : emit(0), mips(0) {
 	memset(regs, 0, sizeof(regs));
 	memset(xregs, 0, sizeof(xregs));
 	vregs = regs + 32;
-	tempRoundRobin = 0;
 }
 
 void FPURegCache::Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats) {
@@ -40,6 +39,7 @@ void FPURegCache::Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats) {
 		regs[i].location = GetDefaultLocation(i);
 		regs[i].away = false;
 		regs[i].locked = false;
+		regs[i].tempLocked = false;
 	}
 }
 
@@ -144,8 +144,10 @@ void FPURegCache::DiscardR(int i) {
 		xregs[xr].mipsReg = -1;
 		regs[i].location = GetDefaultLocation(i);
 		regs[i].away = false;
+		regs[i].tempLocked = false;
 	} else {
 		//	_assert_msg_(DYNA_REC,0,"already stored");
+		regs[i].tempLocked = false;
 	}
 }
 
@@ -154,10 +156,9 @@ bool FPURegCache::IsTempX(X64Reg xr) {
 }
 
 int FPURegCache::GetTempR() {
-	for (int i = 0; i < NUM_TEMPS; ++i) {
-		// Make sure we don't give out the same one over and over, even if not locked.
-		int r = TEMP0 + (tempRoundRobin++ + i) % NUM_TEMPS;
-		if (!regs[r].away) {
+	for (int r = TEMP0; r < TEMP0 + NUM_TEMPS; ++r) {
+		if (!regs[r].away && !regs[r].tempLocked) {
+			regs[r].tempLocked = true;
 			return r;
 		}
 	}

@@ -53,6 +53,8 @@ struct MIPSCachedFPReg {
 	OpArg location;
 	bool away;  // value not in source register
 	bool locked;
+	// Only for temp regs.
+	bool tempLocked;
 };
 
 enum {
@@ -140,7 +142,6 @@ private:
 
 	// TEMP0, etc. are swapped in here if necessary (e.g. on x86.)
 	static u32 tempValues[NUM_TEMPS];
-	int tempRoundRobin;
 
 	XEmitter *emit;
 };
