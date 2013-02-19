@@ -690,8 +690,8 @@ namespace MIPSInt
 			_dbg_assert_msg_(CPU, 0, "Trying to interpret Int_Vh2f instruction that can't be interpreted");
 			break;
 		}
-		ApplyPrefixD(d, sz); //TODO: and the mask to kill everything but mask
-		WriteVector(d, sz, vd);
+		ApplyPrefixD(d, outsize); //TODO: and the mask to kill everything but mask
+		WriteVector(d, outsize, vd);
 		PC += 4;
 		EatPrefixes();
 	}
