@@ -103,7 +103,7 @@ void Jit::ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz) {
 		if (!constants) {
 			// Prefix may say "z, z, z, z" but if this is a pair, we force to x.
 			// TODO: But some ops seem to use const 0 instead?
-			if (regnum > n) {
+			if (regnum >= n) {
 				ERROR_LOG(CPU, "Invalid VFPU swizzle: %08x / %d", prefix, sz);
 				regnum = 0;
 			}
