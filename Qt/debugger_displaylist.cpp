@@ -1467,6 +1467,8 @@ void Debugger_DisplayList::FillDisplayListCmd(std::map<int,DListLine>& data, u32
 
 void Debugger_DisplayList::Update()
 {
+	if(!isVisible())
+		return;
 	UpdateRenderBuffer();
 	UpdateRenderBufferList();
 	UpdateDisplayList();
@@ -1689,7 +1691,6 @@ void Debugger_DisplayList::UpdateVertexInfo()
 	u8* tmp = new u8[20*vtcDec.GetDecVtxFmt().stride];
 	vtcDec.DecodeVerts(tmp,Memory::GetPointer(vaddr),0,0,0,0,19);
 	VertexReader vtxRead(tmp,vtcDec.GetDecVtxFmt(),state.vertType);
-	delete [] tmp;
 
 	for(int i = 0; i < maxVtxDisplay; i++)
 	{
@@ -1739,6 +1740,7 @@ void Debugger_DisplayList::UpdateVertexInfo()
 		item->setText(2,QString("X: %1, Y: %2, Z: %3").arg(pos[0]).arg(pos[1]).arg(pos[2]));
 		itemTop->addChild(item);
 	}
+	delete [] tmp;
 	for(int i = 0; i < ui->vertexData->columnCount(); i++)
 	{
 		ui->vertexData->resizeColumnToContents(i);
@@ -1822,7 +1824,7 @@ void Debugger_DisplayList::on_displayListData_customContextMenuRequested(const Q
 
 void Debugger_DisplayList::RunToDLPC()
 {
-	u32 addr = displayListDataSelected->text(0).toInt(0,16);
+	u32 addr = displayListDataSelected->text(0).toUInt(0,16);
 	host->SetGPUStep(true, 2, addr);
 	host->NextGPUStep();
 }
@@ -1845,7 +1847,7 @@ void Debugger_DisplayList::on_texturesList_customContextMenuRequested(const QPoi
 
 void Debugger_DisplayList::RunToDrawTex()
 {
-	u32 addr = textureDataSelected->text(0).toInt(0,16);
+	u32 addr = textureDataSelected->text(0).toUInt(0,16);
 	host->SetGPUStep(true, 3, addr);
 	host->NextGPUStep();
 }
