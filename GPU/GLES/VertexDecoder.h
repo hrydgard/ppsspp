@@ -359,6 +359,10 @@ public:
 			for (int i = 0; i <= decFmt_.w1fmt - DEC_FLOAT_1; i++)
 				weights[i+4] = f[i] * 2.f;
 			break;
+		case DEC_U8_1: weights[4] = p[0] * (1.f / 128.f); break;
+		case DEC_U8_2: for (int i = 0; i < 2; i++) weights[i+4] = p[i] * (1.f / 128.f); break;
+		case DEC_U8_3: for (int i = 0; i < 3; i++) weights[i+4] = p[i] * (1.f / 128.f); break;
+		case DEC_U8_4: for (int i = 0; i < 4; i++) weights[i+4] = p[i] * (1.f / 128.f); break;
 		case DEC_U16_1: weights[4] = s[0] * (1.f / 32768.f); break;
 		case DEC_U16_2: for (int i = 0; i < 2; i++) weights[i+4] = s[i] * (1.f / 32768.f); break;
 		case DEC_U16_3: for (int i = 0; i < 3; i++) weights[i+4] = s[i] * (1.f / 32768.f); break;
