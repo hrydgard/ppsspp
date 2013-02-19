@@ -212,16 +212,32 @@ public:
 			break;
 		case DEC_S16_3:
 			{
+				// X and Y are signed 16 bit, Z is unsigned 16 bit
 				const s16 *s = (const s16 *)(data_ + decFmt_.posoff);
-				for (int i = 0; i < 3; i++)
-					pos[i] = s[i] * (1.f / 32767.f);
+				const u16 *u = (const u16 *)(data_ + decFmt_.posoff);
+				if  ((vtype_ >> 23) & 0x1) {
+					for (int i = 0; i < 2; i++)
+						pos[i] = s[i] ;
+					pos[2] = u[2] ; 
+				} else {
+					for (int i = 0; i < 3; i++)
+						pos[i] = s[i] * (1.f / 32767.f);
+				}
 			}
 			break;
 		case DEC_S8_3:
 			{
+				// X and Y are signed 8 bit, Z is unsigned 8 bit
 				const s8 *b = (const s8 *)(data_ + decFmt_.posoff);
-				for (int i = 0; i < 3; i++)
-					pos[i] = b[i] * (1.f / 127.f);
+				const u8 *u = (const u8 *)(data_ + decFmt_.posoff);
+				if  ((vtype_ >> 23) & 0x1) {
+					for (int i = 0; i < 2; i++)
+						pos[i] = b[i] ;
+					pos[2] = u[2] ;
+				} else {
+					for (int i = 0; i < 3; i++)
+						pos[i] = b[i] * (1.f / 127.f);
+				}
 			}
 			break;
 		default:
