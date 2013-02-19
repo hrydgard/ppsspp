@@ -1822,7 +1822,7 @@ void Debugger_DisplayList::on_displayListData_customContextMenuRequested(const Q
 
 void Debugger_DisplayList::RunToDLPC()
 {
-	u32 addr = displayListDataSelected->text(0).toInt(0,16);
+	u32 addr = displayListDataSelected->text(0).toUInt(0,16);
 	host->SetGPUStep(true, 2, addr);
 	host->NextGPUStep();
 }
@@ -1845,7 +1845,7 @@ void Debugger_DisplayList::on_texturesList_customContextMenuRequested(const QPoi
 
 void Debugger_DisplayList::RunToDrawTex()
 {
-	u32 addr = textureDataSelected->text(0).toInt(0,16);
+	u32 addr = textureDataSelected->text(0).toUInt(0,16);
 	host->SetGPUStep(true, 3, addr);
 	host->NextGPUStep();
 }

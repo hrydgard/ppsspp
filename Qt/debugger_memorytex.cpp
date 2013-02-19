@@ -61,15 +61,15 @@ void Debugger_MemoryTex::on_readBtn_clicked()
 	EmuThread_LockDraw(true);
 
 	GPUgstate state;
-	state.texaddr[0] = ui->texaddr->text().toInt(0,16);
-	state.texbufwidth[0] = ui->texbufwidth0->text().toInt(0,16);
-	state.texformat = ui->texformat->text().toInt(0,16);
-	state.texsize[0] = ui->texsize->text().toInt(0,16);
-	state.texmode = ui->texmode->text().toInt(0,16);
-	state.clutformat = ui->clutformat->text().toInt(0,16);
-	state.clutaddr = ui->clutaddr->text().toInt(0,16);
-	state.clutaddrupper = ui->clutaddrupper->text().toInt(0,16);
-	state.loadclut = ui->loadclut->text().toInt(0,16);
+	state.texaddr[0] = ui->texaddr->text().toUInt(0,16);
+	state.texbufwidth[0] = ui->texbufwidth0->text().toUInt(0,16);
+	state.texformat = ui->texformat->text().toUInt(0,16);
+	state.texsize[0] = ui->texsize->text().toUInt(0,16);
+	state.texmode = ui->texmode->text().toUInt(0,16);
+	state.clutformat = ui->clutformat->text().toUInt(0,16);
+	state.clutaddr = ui->clutaddr->text().toUInt(0,16);
+	state.clutaddrupper = ui->clutaddrupper->text().toUInt(0,16);
+	state.loadclut = ui->loadclut->text().toUInt(0,16);
 	int bufW = state.texbufwidth[0] & 0x3ff;
 	int w = 1 << (state.texsize[0] & 0xf);
 	int h = 1 << ((state.texsize[0]>>8) & 0xf);
