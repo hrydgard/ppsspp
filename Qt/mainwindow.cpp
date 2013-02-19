@@ -154,10 +154,10 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 
 	if (g_Config.currentDirectory == "")
 	{
-		g_Config.currentDirectory = getenv("HOME");
+		g_Config.currentDirectory = QDir::homePath().toStdString();
 	}
 
-	g_Config.memCardDirectory = std::string(getenv("HOME"))+"/.ppsspp/";
+	g_Config.memCardDirectory = QDir::homePath().toStdString()+"/.ppsspp/";
 	g_Config.flashDirectory = g_Config.memCardDirectory+"/flash/";
 
 	LogManager::Init();
