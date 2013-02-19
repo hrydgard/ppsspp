@@ -192,6 +192,9 @@ public:
 		switch (decFmt_.posfmt) {
 		case DEC_FLOAT_3:
 			memcpy(pos, data_ + decFmt_.posoff, 12);
+			// pos[2] is limited between 0 and 65535
+			if (pos[2] < 0.0 || pos[2] > 65535.0)
+				pos[2] = 0.0;
 			break;
 		case DEC_S16_3:
 			{
