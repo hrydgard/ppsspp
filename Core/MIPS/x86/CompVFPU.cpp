@@ -520,12 +520,14 @@ void Jit::Comp_VV2Op(u32 op) {
 		case 4: // if (s[i] < 0) d[i] = 0; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;    // vsat0
 			if (!fpr.V(sregs[i]).IsSimpleReg(tempxregs[i]))
 				MOVSS(tempxregs[i], fpr.V(sregs[i]));
+			// TODO: Doesn't handle NaN correctly.
 			MAXSS(tempxregs[i], M((void *)&zero));
 			MINSS(tempxregs[i], M((void *)&one));
 			break;
 		case 5: // if (s[i] < -1.0f) d[i] = -1.0f; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;  // vsat1
 			if (!fpr.V(sregs[i]).IsSimpleReg(tempxregs[i]))
 				MOVSS(tempxregs[i], fpr.V(sregs[i]));
+			// TODO: Doesn't handle NaN correctly.
 			MAXSS(tempxregs[i], M((void *)&minus_one));
 			MINSS(tempxregs[i], M((void *)&one));
 			break;
