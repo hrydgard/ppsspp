@@ -7,6 +7,7 @@
 
 #include <QtGui/QApplication>
 #include <QUrl>
+#include <QDir>
 #include <QDesktopWidget>
 #include <QDesktopServices>
 
