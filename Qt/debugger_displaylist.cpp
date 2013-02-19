@@ -1467,6 +1467,8 @@ void Debugger_DisplayList::FillDisplayListCmd(std::map<int,DListLine>& data, u32
 
 void Debugger_DisplayList::Update()
 {
+	if(!isVisible())
+		return;
 	UpdateRenderBuffer();
 	UpdateRenderBufferList();
 	UpdateDisplayList();
