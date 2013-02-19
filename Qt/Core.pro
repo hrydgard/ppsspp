@@ -18,6 +18,11 @@ x86 {
 	HEADERS += ../Core/MIPS/x86/*.h
 }
 
+win32 {
+	SOURCES += ../Windows/OpenGLBase.cpp
+	HEADERS += ../Windows/OpenGLBase.h
+}
+
 SOURCES += ../Core/CPU.cpp \ # Core
 	../Core/Config.cpp \
 	../Core/Core.cpp \
