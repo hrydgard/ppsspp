@@ -259,7 +259,7 @@ void CtrlMemView::Change()
 	if (ok && !text.isEmpty())
 	{
 		EmuThread_LockDraw(true);
-		Memory::WriteUnchecked_U32(text.toInt(0,16),selection);
+		Memory::WriteUnchecked_U32(text.toUInt(0,16),selection);
 		EmuThread_LockDraw(false);
 		redraw();
 	}

@@ -132,6 +132,8 @@ void Debugger_Disasm::StepHLE()
 
 void Debugger_Disasm::UpdateDialog()
 {
+	if(!isVisible())
+		return;
 	ui->DisasmView->setAlign(cpu->getInstructionSize(0));
 	ui->DisasmView->redraw();
 	ui->RegList->redraw();
