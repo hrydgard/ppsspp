@@ -1689,7 +1689,6 @@ void Debugger_DisplayList::UpdateVertexInfo()
 	u8* tmp = new u8[20*vtcDec.GetDecVtxFmt().stride];
 	vtcDec.DecodeVerts(tmp,Memory::GetPointer(vaddr),0,0,0,0,19);
 	VertexReader vtxRead(tmp,vtcDec.GetDecVtxFmt(),state.vertType);
-	delete [] tmp;
 
 	for(int i = 0; i < maxVtxDisplay; i++)
 	{
@@ -1739,6 +1738,7 @@ void Debugger_DisplayList::UpdateVertexInfo()
 		item->setText(2,QString("X: %1, Y: %2, Z: %3").arg(pos[0]).arg(pos[1]).arg(pos[2]));
 		itemTop->addChild(item);
 	}
+	delete [] tmp;
 	for(int i = 0; i < ui->vertexData->columnCount(); i++)
 	{
 		ui->vertexData->resizeColumnToContents(i);
