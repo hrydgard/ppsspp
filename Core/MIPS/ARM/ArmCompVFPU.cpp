@@ -30,6 +30,11 @@ namespace MIPSComp
 		DISABLE;
 	}
 
+	void Jit::Comp_VVectorInit(u32 op)
+	{
+		DISABLE;
+	}
+
 	void Jit::Comp_VDot(u32 op)
 	{
 		DISABLE;
