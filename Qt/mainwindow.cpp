@@ -23,6 +23,8 @@
 
 const char *stateToLoad = NULL;
 
+// TODO: Make this class thread-aware. Can't send events to a different thread. Currently only works on X11.
+// Needs to use QueuedConnection for signals/slots.
 MainWindow::MainWindow(QWidget *parent) :
 	QMainWindow(parent),
 	ui(new Ui::MainWindow),
