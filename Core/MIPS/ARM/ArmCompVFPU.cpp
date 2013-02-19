@@ -63,7 +63,7 @@ namespace MIPSComp
 		DISABLE;
 	}
 
-	void Comp_Vmmov(u32 op) {
+	void Jit::Comp_Vmmov(u32 op) {
 		DISABLE;
 	}
 
