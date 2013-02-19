@@ -1686,9 +1686,10 @@ void Debugger_DisplayList::UpdateVertexInfo()
 
 	VertexDecoder vtcDec;
 	vtcDec.SetVertexType(state.vertType);
-	u8 tmp[20*vtcDec.GetDecVtxFmt().stride];
+	u8* tmp = new u8[20*vtcDec.GetDecVtxFmt().stride];
 	vtcDec.DecodeVerts(tmp,Memory::GetPointer(vaddr),0,0,0,0,19);
 	VertexReader vtxRead(tmp,vtcDec.GetDecVtxFmt(),state.vertType);
+	delete [] tmp;
 
 	for(int i = 0; i < maxVtxDisplay; i++)
 	{

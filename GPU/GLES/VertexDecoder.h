@@ -192,6 +192,15 @@ public:
 		switch (decFmt_.posfmt) {
 		case DEC_FLOAT_3:
 			memcpy(pos, data_ + decFmt_.posoff, 12);
+			// pos[2] is an integer value clamped between 0 and 65535
+			if (pos[2] < 0.f) {
+				pos[2] = 0.f;
+			} else if (pos[2] > 65535.f) {
+				pos[2] = 65535.f;
+			} else {
+				// 2D positions are always integer values: truncate float value
+				pos[2] = (int) pos[2];
+			}
 			break;
 		case DEC_S16_3:
 			{
@@ -229,7 +238,7 @@ public:
 			{
 				const s8 *p = (s8 *)(data_ + decFmt_.nrmoff);
 				for (int i = 0; i < 3; i++)
-					nrm[i] = p[i] * (1.f / 128.0f);
+					nrm[i] = p[i] * (1.f / 128.f);
 			}
 			break;
 		default:
@@ -259,8 +268,8 @@ public:
 		case DEC_FLOAT_2:
 			{
 				const float *f = (const float *)(data_ + decFmt_.uvoff);
-				uv[0] = f[0] * 2.0f;
-				uv[1] = f[1] * 2.0f;
+				uv[0] = f[0] * 2.f;
+				uv[1] = f[1] * 2.f;
 			}
 			break;
 
@@ -321,7 +330,7 @@ public:
 		case DEC_FLOAT_3:
 		case DEC_FLOAT_4:
 			for (int i = 0; i <= decFmt_.w0fmt - DEC_FLOAT_1; i++)
-				weights[i] = f[i] * 2.0;
+				weights[i] = f[i] * 2.f;
 			break;
 		case DEC_U8_1: weights[0] = p[0] * (1.f / 128.f); break;
 		case DEC_U8_2: for (int i = 0; i < 2; i++) weights[i] = p[i] * (1.f / 128.f); break;
@@ -348,8 +357,12 @@ public:
 		case DEC_FLOAT_3:
 		case DEC_FLOAT_4:
 			for (int i = 0; i <= decFmt_.w1fmt - DEC_FLOAT_1; i++)
-				weights[i+4] = f[i] * 2.0;
+				weights[i+4] = f[i] * 2.f;
 			break;
+		case DEC_U8_1: weights[4] = p[0] * (1.f / 128.f); break;
+		case DEC_U8_2: for (int i = 0; i < 2; i++) weights[i+4] = p[i] * (1.f / 128.f); break;
+		case DEC_U8_3: for (int i = 0; i < 3; i++) weights[i+4] = p[i] * (1.f / 128.f); break;
+		case DEC_U8_4: for (int i = 0; i < 4; i++) weights[i+4] = p[i] * (1.f / 128.f); break;
 		case DEC_U16_1: weights[4] = s[0] * (1.f / 32768.f); break;
 		case DEC_U16_2: for (int i = 0; i < 2; i++) weights[i+4] = s[i] * (1.f / 32768.f); break;
 		case DEC_U16_3: for (int i = 0; i < 3; i++) weights[i+4] = s[i] * (1.f / 32768.f); break;

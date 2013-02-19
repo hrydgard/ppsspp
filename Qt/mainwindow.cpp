@@ -23,6 +23,8 @@
 
 const char *stateToLoad = NULL;
 
+// TODO: Make this class thread-aware. Can't send events to a different thread. Currently only works on X11.
+// Needs to use QueuedConnection for signals/slots.
 MainWindow::MainWindow(QWidget *parent) :
 	QMainWindow(parent),
 	ui(new Ui::MainWindow),
@@ -154,10 +156,10 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 
 	if (g_Config.currentDirectory == "")
 	{
-		g_Config.currentDirectory = getenv("HOME");
+		g_Config.currentDirectory = QDir::homePath().toStdString();
 	}
 
-	g_Config.memCardDirectory = std::string(getenv("HOME"))+"/.ppsspp/";
+	g_Config.memCardDirectory = QDir::homePath().toStdString()+"/.ppsspp/";
 	g_Config.flashDirectory = g_Config.memCardDirectory+"/flash/";
 
 	LogManager::Init();

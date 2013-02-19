@@ -85,6 +85,9 @@
 #ifdef __APPLE__
 using std::isnan;
 #endif
+#ifdef _MSC_VER
+#define isnan _isnan
+#endif
 
 void ApplyPrefixST(float *v, u32 data, VectorSize size)
 {
@@ -486,15 +489,16 @@ namespace MIPSInt
 			case 0: d[i] = s[i]; break; //vmov
 			case 1: d[i] = fabsf(s[i]); break; //vabs
 			case 2: d[i] = -s[i]; break; //vneg
-			case 4: if (s[i] < 0) d[i] = 0; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;    // vsat0
+			// vsat0 changes -0.0 to +0.0.
+			case 4: if (s[i] <= 0) d[i] = 0; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;    // vsat0
 			case 5: if (s[i] < -1.0f) d[i] = -1.0f; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;  // vsat1
 			case 16: d[i] = 1.0f / s[i]; break; //vrcp
 			case 17: d[i] = 1.0f / sqrtf(s[i]); break; //vrsq
 			case 18: d[i] = sinf((float)M_PI_2 * s[i]); break; //vsin
 			case 19: d[i] = cosf((float)M_PI_2 * s[i]); break; //vcos
-			case 20: d[i] = powf(2.0f, s[i]); break;
-			case 21: d[i] = logf(s[i])/log(2.0f); break;
-			case 22: d[i] = sqrtf(s[i]); break; //vsqrt
+			case 20: d[i] = powf(2.0f, s[i]); break; //vexp2
+			case 21: d[i] = logf(s[i])/log(2.0f); break; //vlog2
+			case 22: d[i] = fabsf(sqrtf(s[i])); break; //vsqrt
 			case 23: d[i] = asinf(s[i] * (float)M_2_PI); break; //vasin
 			case 24: d[i] = -1.0f / s[i]; break; // vnrcp
 			case 26: d[i] = -sinf((float)M_PI_2 * s[i]); break; // vnsin
@@ -722,7 +726,7 @@ namespace MIPSInt
 	void Int_Vx2i(u32 op)
 	{
 		int s[4];
-    u32 d[4] = {0};
+		u32 d[4] = {0};
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
@@ -856,7 +860,7 @@ namespace MIPSInt
 			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
 			break;
 		}
-		ApplyPrefixD((float*)d,oz,true);
+		ApplyPrefixD((float*)d,oz);
 		WriteVector((float*)d,oz,vd);
 		PC += 4;
 		EatPrefixes();
@@ -1185,7 +1189,7 @@ namespace MIPSInt
 		float scale = V(vt);
 		if (currentMIPS->vfpuCtrl[VFPU_CTRL_TPREFIX] != 0xE4)
 		{
-			WARN_LOG(CPU, "Broken T prefix used with VScl: %08x / %08x", currentMIPS->vfpuCtrl[VFPU_CTRL_TPREFIX], op);
+			// WARN_LOG(CPU, "Broken T prefix used with VScl: %08x / %08x", currentMIPS->vfpuCtrl[VFPU_CTRL_TPREFIX], op);
 			ApplySwizzleT(&scale, V_Single);
 		}
 		int n = GetNumVectorElements(sz);
@@ -1205,6 +1209,7 @@ namespace MIPSInt
 		int seed = VI(vd);
 		currentMIPS->rng.Init(seed);
 		PC += 4;
+		EatPrefixes();
 	}
 
 	void Int_VrndX(u32 op)
@@ -1450,10 +1455,6 @@ namespace MIPSInt
 		VC_NI,
 		VC_NS
 	};
-
-#ifdef _MSC_VER
-#define isnan _isnan
-#endif
 
 	void Int_Vcmp(u32 op)
 	{

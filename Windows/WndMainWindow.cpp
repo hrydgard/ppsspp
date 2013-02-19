@@ -447,6 +447,11 @@ namespace MainWindow
 				gpu->Resized();  // easy way to force a clear...
 				break;
 
+			case ID_OPTIONS_FRAMESKIP:
+				g_Config.iFrameSkip = !g_Config.iFrameSkip;
+				UpdateMenus();
+				break;
+
 			case ID_FILE_EXIT:
 				DestroyWindow(hWnd);
 				break;
@@ -712,6 +717,7 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_DISABLEG3DLOG, g_Config.bDisableG3DLog);
 		CHECKITEM(ID_OPTIONS_VERTEXCACHE, g_Config.bVertexCache);
 		CHECKITEM(ID_OPTIONS_SHOWFPS, g_Config.bShowFPSCounter);
+		CHECKITEM(ID_OPTIONS_FRAMESKIP, g_Config.iFrameSkip != 0);
 
 		UINT enable = !Core_IsStepping() ? MF_GRAYED : MF_ENABLED;
 		EnableMenuItem(menu,ID_EMULATION_RUN, g_State.bEmuThreadStarted ? enable : MF_GRAYED);

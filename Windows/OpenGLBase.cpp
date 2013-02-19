@@ -49,14 +49,7 @@ void GL_Resized()					// Resize And Initialize The GL Window
 	glstate.viewport.restore();
 }
 
-
-void GL_BeginFrame()
-{
-
-}
-
-
-void GL_EndFrame()
+void GL_SwapBuffers()
 {
 	SwapBuffers(hDC);
 }

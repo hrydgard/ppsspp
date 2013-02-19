@@ -38,7 +38,7 @@
 extern u32 curTextureWidth;
 extern u32 curTextureHeight;
 
-static const int flushOnChangedBeforeCommandList[] = {
+static const u8 flushOnChangedBeforeCommandList[] = {
 	GE_CMD_VERTEXTYPE,
 	GE_CMD_BLENDMODE,
 	GE_CMD_BLENDFIXEDA,
@@ -137,7 +137,7 @@ static const int flushOnChangedBeforeCommandList[] = {
 	GE_CMD_ZBUFWIDTH,
 };
 
-static const int flushBeforeCommandList[] = {
+static const u8 flushBeforeCommandList[] = {
 	GE_CMD_BEZIER,
 	GE_CMD_SPLINE,
 	GE_CMD_SIGNAL,
@@ -330,6 +330,9 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_PRIM:
 		{
+			if (gstate_c.skipDrawReason)
+				return;
+
 			framebufferManager_.SetRenderFrameBuffer();
 
 			u32 count = data & 0xFFFF;

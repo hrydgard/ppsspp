@@ -30,12 +30,22 @@ namespace MIPSComp
 		DISABLE;
 	}
 
+	void Jit::Comp_VVectorInit(u32 op)
+	{
+		DISABLE;
+	}
+
 	void Jit::Comp_VDot(u32 op)
 	{
 		DISABLE;
 	}
 
 	void Jit::Comp_VecDo3(u32 op)
+	{
+		DISABLE;
+	}
+
+	void Jit::Comp_VV2Op(u32 op)
 	{
 		DISABLE;
 	}
@@ -50,6 +60,10 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vmtvc(u32 op) {
+		DISABLE;
+	}
+
+	void Jit::Comp_Vmmov(u32 op) {
 		DISABLE;
 	}
 

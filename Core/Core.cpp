@@ -22,6 +22,9 @@
 #include "Core.h"
 #include "MemMap.h"
 #include "MIPS/MIPS.h"
+#ifdef _WIN32
+#include "Windows/OpenGLBase.h"
+#endif
 
 #include "Host.h"
 
@@ -64,7 +67,16 @@ bool Core_IsStepping()
 
 void Core_RunLoop()
 {
-	currentMIPS->RunLoopUntil(0xFFFFFFFFFFFFFFFULL);
+	while (!coreState) {
+		currentMIPS->RunLoopUntil(0xFFFFFFFFFFFFFFFULL);
+		if (coreState == CORE_NEXTFRAME)
+		{
+#ifdef _WIN32
+			GL_SwapBuffers();
+			coreState = CORE_RUNNING;
+#endif
+		}
+	}
 }
 
 void Core_DoSingleStep()

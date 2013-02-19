@@ -218,7 +218,7 @@ void WindowsHeadlessHost::BeginFrame()
 
 }
 
-void WindowsHeadlessHost::EndFrame()
+void WindowsHeadlessHost::SwapBuffers()
 {
-	SwapBuffers(hDC);
+	::SwapBuffers(hDC);
 }

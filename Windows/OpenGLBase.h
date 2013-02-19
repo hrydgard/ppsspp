@@ -2,9 +2,10 @@
 
 #pragma once
 
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
 
 bool GL_Init(HWND window);
 void GL_Shutdown();
 void GL_Resized();
-void GL_BeginFrame();
-void GL_EndFrame();
+void GL_SwapBuffers();

@@ -185,10 +185,13 @@ public:
 	void Comp_SV(u32 op);
 	void Comp_SVQ(u32 op);
 	void Comp_VPFX(u32 op);
+	void Comp_VVectorInit(u32 op);
 	void Comp_VDot(u32 op);
 	void Comp_VecDo3(u32 op);
+	void Comp_VV2Op(u32 op);
 	void Comp_Mftv(u32 op);
 	void Comp_Vmtvc(u32 op);
+	void Comp_Vmmov(u32 op);
 
 	void Comp_DoNothing(u32 op);
 

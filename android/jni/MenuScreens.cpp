@@ -251,6 +251,9 @@ void InGameMenuScreen::render() {
 	UICheckBox(GEN_ID, x, y += 50, "Stretch to display", ALIGN_TOPLEFT, &g_Config.bStretchToDisplay);
 
 	UICheckBox(GEN_ID, x, y += 50, "Hardware Transform", ALIGN_TOPLEFT, &g_Config.bHardwareTransform);
+	bool fs = g_Config.iFrameSkip == 1;
+	UICheckBox(GEN_ID, x, y += 50, "Frameskip", ALIGN_TOPLEFT, &fs);
+	g_Config.iFrameSkip = fs ? 1 : 0;
 
 	// TODO: Add UI for more than one slot.
 	VLinear vlinear1(x, y + 80, 20);

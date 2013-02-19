@@ -21,7 +21,6 @@ public:
 
 	void InitGL();
 	void BeginFrame();
-	void EndFrame();
 	void ShutdownGL();
 
 	void InitSound(PMixer *mixer);
