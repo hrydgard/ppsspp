@@ -198,13 +198,15 @@ public:
 					pos[i] = f[i] ;
 
 				// pos[2] is an integer value clamped between 0 and 65535
-				if (pos[2] < 0.f) {
-					pos[2] = 0.f;
-				} else if (pos[2] > 65535.f) {
-					pos[2] = 65535.f;
-				} else {
-					// 2D positions are always integer values: truncate float value
-					pos[2] = (int) pos[2];
+				if  ((vtype_ >> 23) & 0x1) {
+					if (pos[2] < 0.f) {
+						pos[2] = 0.f;
+					} else if (pos[2] > 65535.f) {
+						pos[2] = 65535.f;
+					} else {
+						// 2D positions are always integer values: truncate float value
+						pos[2] = (int) pos[2];
+					}
 				}
 			}
 			break;
