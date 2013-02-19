@@ -62,11 +62,15 @@ Jit::Jit(MIPSState *mips) : blocks(mips), gpr(mips), fpr(mips),	 mips_(mips)
 	fpr.SetEmitter(this);
 	AllocCodeSpace(1024 * 1024 * 16);  // 32MB is the absolute max because that's what an ARM branch instruction can reach, backwards and forwards.
 	GenerateFixedCode();
+
+	js.startDefaultPrefix = true;
 }
 
 void Jit::DoState(PointerWrap &p)
 {
+	p.Do(js.startDefaultPrefix);
 	p.DoMarker("Jit");
+	FlushPrefixV();
 }
 
 void Jit::FlushAll()
@@ -148,6 +152,17 @@ void Jit::Compile(u32 em_address)
 	int block_num = blocks.AllocateBlock(em_address);
 	ArmJitBlock *b = blocks.GetBlock(block_num);
 	blocks.FinalizeBlock(block_num, jo.enableBlocklink, DoJit(em_address, b));
+
+	// Drat.  The VFPU hit an uneaten prefix at the end of a block.
+	if (js.startDefaultPrefix && js.MayHavePrefix())
+	{
+		js.startDefaultPrefix = false;
+		// Our assumptions are all wrong so it's clean-slate time.
+		ClearCache();
+
+		// Let's try that one more time.  We won't get back here because we toggled the value.
+		Compile(em_address);
+	}
 }
 
 void Jit::RunLoopUntil(u64 globalticks)
@@ -200,7 +215,7 @@ const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 		js.downcountAmount += MIPSGetInstructionCycleEstimate(inst);
 
 		MIPSCompileOp(inst);
-		// FlushAll(); ///HACKK
+	
 		js.compilerPC += 4;
 		numInstructions++;
 	}

@@ -16,10 +16,35 @@
 
 // #define CONDITIONAL_DISABLE Comp_Generic(op); return;
 #define CONDITIONAL_DISABLE ;
-#define DISABLE Comp_Generic(op); return;
+#define DISABLE {fpr.ReleaseSpillLocks(); Comp_Generic(op); return;}
 
 namespace MIPSComp
 {
+
+	// Vector regs can overlap in all sorts of swizzled ways.
+	// This does allow a single overlap in sregs[i].
+	bool IsOverlapSafeAllowS(int dreg, int di, int sn, u8 sregs[], int tn = 0, u8 tregs[] = NULL)
+	{
+		for (int i = 0; i < sn; ++i)
+		{
+			if (sregs[i] == dreg && i != di)
+				return false;
+		}
+		for (int i = 0; i < tn; ++i)
+		{
+			if (tregs[i] == dreg)
+				return false;
+		}
+
+		// Hurray, no overlap, we can write directly.
+		return true;
+	}
+
+	bool IsOverlapSafe(int dreg, int di, int sn, u8 sregs[], int tn = 0, u8 tregs[] = NULL)
+	{
+		return IsOverlapSafeAllowS(dreg, di, sn, sregs, tn, tregs) && sregs[di] != dreg;
+	}
+
 	void Jit::Comp_VPFX(u32 op)
 	{
 		CONDITIONAL_DISABLE;
@@ -39,6 +64,103 @@ namespace MIPSComp
 			js.prefixD = data;
 			js.prefixDFlag = ArmJitState::PREFIX_KNOWN_DIRTY;
 			break;
+		}
+	}
+
+	void Jit::ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz) {
+		if (prefix == 0xE4) return;
+
+		int n = GetNumVectorElements(sz);
+		u8 origV[4];
+		static const float constantArray[8] = {0.f, 1.f, 2.f, 0.5f, 3.f, 1.f/3.f, 0.25f, 1.f/6.f};
+
+		for (int i = 0; i < n; i++)
+			origV[i] = vregs[i];
+
+		for (int i = 0; i < n; i++)
+		{
+			int regnum = (prefix >> (i*2)) & 3;
+			int abs    = (prefix >> (8+i)) & 1;
+			int negate = (prefix >> (16+i)) & 1;
+			int constants = (prefix >> (12+i)) & 1;
+
+			// Unchanged, hurray.
+			if (!constants && regnum == i && !abs && !negate)
+				continue;
+
+			// This puts the value into a temp reg, so we won't write the modified value back.
+			vregs[i] = fpr.GetTempV();
+			fpr.MapRegV(vregs[i], MAP_NOINIT | MAP_DIRTY);
+
+			if (!constants) {
+				// Prefix may say "z, z, z, z" but if this is a pair, we force to x.
+				// TODO: But some ops seem to use const 0 instead?
+				if (regnum >= n) {
+					ERROR_LOG(CPU, "Invalid VFPU swizzle: %08x / %d", prefix, sz);
+					regnum = 0;
+				}
+				
+				if (abs) {
+					VABS(fpr.V(vregs[i]), fpr.V(origV[regnum]));
+				} else {
+					VMOV(fpr.V(vregs[i]), fpr.V(origV[regnum]));
+				}
+			} else {
+				MOVI2R(R0, (u32)(constantArray[regnum + (abs<<2)]));
+				VMOV(fpr.V(vregs[i]), R0);
+			}
+
+			// TODO: This can be integrated into the VABS / VMOV above, and also the constants.
+			if (negate)
+				VNEG(fpr.V(vregs[i]), fpr.V(vregs[i]));
+
+			// TODO: This probably means it will swap out soon, inefficiently...
+			fpr.ReleaseSpillLockV(vregs[i]);
+		}
+	}
+
+	void Jit::GetVectorRegsPrefixD(u8 *regs, VectorSize sz, int vectorReg) {
+		_assert_(js.prefixDFlag & JitState::PREFIX_KNOWN);
+
+		GetVectorRegs(regs, sz, vectorReg);
+		if (js.prefixD == 0)
+			return;
+
+		int n = GetNumVectorElements(sz);
+		for (int i = 0; i < n; i++)
+		{
+			// Hopefully this is rare, we'll just write it into a reg we drop.
+			if (js.VfpuWriteMask(i))
+				regs[i] = fpr.GetTempV();
+		}
+	}
+
+	void Jit::ApplyPrefixD(const u8 *vregs, VectorSize sz) {
+		_assert_(js.prefixDFlag & JitState::PREFIX_KNOWN);
+		if (!js.prefixD) return;
+
+		int n = GetNumVectorElements(sz);
+		for (int i = 0; i < n; i++)
+		{
+			if (js.VfpuWriteMask(i))
+				continue;
+
+			int sat = (js.prefixD >> (i * 2)) & 3;
+			if (sat == 1)
+			{
+				fpr.MapRegV(vregs[i], MAP_DIRTY);
+				// ARGH this is a pain - no MIN/MAX in non-NEON VFP!
+				// TODO
+
+				//MAXSS(fpr.VX(vregs[i]), M((void *)&zero));
+				//MINSS(fpr.VX(vregs[i]), M((void *)&one));
+			}
+			else if (sat == 3)
+			{
+				fpr.MapRegV(vregs[i], MAP_DIRTY);
+				//MAXSS(fpr.VX(vregs[i]), M((void *)&minus_one));
+				//MINSS(fpr.VX(vregs[i]), M((void *)&one));
+			}
 		}
 	}
 
@@ -123,6 +245,11 @@ namespace MIPSComp
 			DISABLE;
 			break;
 		}
+	}
+
+	void Jit::Comp_VVectorInit(u32 op)
+	{
+		DISABLE;
 	}
 
 	void Jit::Comp_VDot(u32 op)
@@ -229,9 +356,6 @@ namespace MIPSComp
 		int n = GetNumVectorElements(sz);
 		fpr.MapRegsV(sregs, sz, 0);
 		fpr.MapRegsV(tregs, sz, 0);
-		fpr.MapReg(TEMP1);
-		fpr.MapReg(TEMP2);
-		fpr.MapReg(TEMP3);
 
 		for (int i = 0; i < n; ++i) {
 			fpr.MapReg(TEMP0 + i);
@@ -247,6 +371,117 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocks();
 
 		js.EatPrefix();
+	}
+
+	void Jit::Comp_VV2Op(u32 op) {
+		CONDITIONAL_DISABLE;
+
+		DISABLE;
+
+		if (js.HasUnknownPrefix())
+			DISABLE;
+
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+
+		u8 sregs[4], dregs[4];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixD(dregs, sz, _VD);
+
+		ARMReg tempxregs[4];
+		for (int i = 0; i < n; ++i)
+		{
+			if (!IsOverlapSafeAllowS(dregs[i], i, n, sregs))
+			{
+				int reg = fpr.GetTempV();
+				fpr.MapRegV(reg, MAP_NOINIT | MAP_DIRTY);
+				fpr.SpillLockV(reg);
+				tempxregs[i] = fpr.V(reg);
+			}
+			else
+			{
+				fpr.MapRegV(dregs[i], (dregs[i] == sregs[i] ? 0 : MAP_NOINIT) | MAP_DIRTY);
+				fpr.SpillLockV(dregs[i]);
+				tempxregs[i] = fpr.V(dregs[i]);
+			}
+		}
+
+		// Warning: sregs[i] and tempxregs[i] may be the same reg.
+		// Helps for vmov, hurts for vrcp, etc.
+		for (int i = 0; i < n; ++i)
+		{
+			switch ((op >> 16) & 0x1f)
+			{
+			case 0: // d[i] = s[i]; break; //vmov
+				// Probably for swizzle.
+				VMOV(tempxregs[i], fpr.V(sregs[i]));
+				break;
+			case 1: // d[i] = fabsf(s[i]); break; //vabs
+				//if (!fpr.V(sregs[i]).IsSimpleReg(tempxregs[i]))
+				VABS(tempxregs[i], fpr.V(sregs[i]));
+				break;
+			case 2: // d[i] = -s[i]; break; //vneg
+				VNEG(tempxregs[i], fpr.V(sregs[i]));
+				break;
+			case 4: // if (s[i] < 0) d[i] = 0; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;    // vsat0
+				DISABLE;
+				break;
+			case 5: // if (s[i] < -1.0f) d[i] = -1.0f; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;  // vsat1
+				DISABLE;
+				break;
+			case 16: // d[i] = 1.0f / s[i]; break; //vrcp
+				MOVI2R(R0, 0x3F800000);  // 1.0f
+				VMOV(S0, R0);
+				VDIV(tempxregs[i], S0, fpr.V(sregs[i]));
+				break;
+			case 17: // d[i] = 1.0f / sqrtf(s[i]); break; //vrsq
+				MOVI2R(R0, 0x3F800000);  // 1.0f
+				VMOV(S0, R0);
+				VSQRT(S1, fpr.V(sregs[i]));
+				VDIV(tempxregs[i], S0, S1);
+				break;
+			case 18: // d[i] = sinf((float)M_PI_2 * s[i]); break; //vsin
+				DISABLE;
+				break;
+			case 19: // d[i] = cosf((float)M_PI_2 * s[i]); break; //vcos
+				DISABLE;
+				break;
+			case 20: // d[i] = powf(2.0f, s[i]); break; //vexp2
+				DISABLE;
+				break;
+			case 21: // d[i] = logf(s[i])/log(2.0f); break; //vlog2
+				DISABLE;
+				break;
+			case 22: // d[i] = sqrtf(s[i]); break; //vsqrt
+				VSQRT(tempxregs[i], fpr.V(sregs[i]));
+				VABS(tempxregs[i], tempxregs[i]);
+				break;
+			case 23: // d[i] = asinf(s[i] * (float)M_2_PI); break; //vasin
+				DISABLE;
+				break;
+			case 24: // d[i] = -1.0f / s[i]; break; // vnrcp
+				MOVI2R(R0, 0x80000000 | 0x3F800000);  // -1.0f
+				VMOV(S0, R0);
+				VDIV(tempxregs[i], S0, fpr.V(sregs[i]));
+				break;
+			case 26: // d[i] = -sinf((float)M_PI_2 * s[i]); break; // vnsin
+				DISABLE;
+				break;
+			case 28: // d[i] = 1.0f / expf(s[i] * (float)M_LOG2E); break; // vrexp2
+				DISABLE;
+				break;
+			}
+		}
+
+		fpr.MapRegsV(dregs, sz, MAP_NOINIT | MAP_DIRTY);
+		for (int i = 0; i < n; ++i)
+		{
+			VMOV(fpr.V(dregs[i]), tempxregs[i]);
+		}
+
+		ApplyPrefixD(dregs, sz);
+
+		fpr.ReleaseSpillLocks();
 	}
 
 	void Jit::Comp_Mftv(u32 op)
@@ -326,6 +561,10 @@ namespace MIPSComp
 				js.prefixDFlag = ArmJitState::PREFIX_UNKNOWN;
 			}
 		}
+	}
+
+	void Jit::Comp_Vmmov(u32 op) {
+		DISABLE;
 	}
 
 }

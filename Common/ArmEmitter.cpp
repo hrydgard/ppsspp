@@ -903,6 +903,16 @@ void ARMXEmitter::VMUL(ARMReg Vd, ARMReg Vn, ARMReg Vm)
 	}
 }
 
+void ARMXEmitter::VABS(ARMReg Vd, ARMReg Vn)
+{
+	_assert_msg_(DYNA_REC, 0, "VABS not implemented");
+}
+
+void ARMXEmitter::VNEG(ARMReg Vd, ARMReg Vn)
+{
+	_assert_msg_(DYNA_REC, 0, "VNEG not implemented");
+}
+
 void ARMXEmitter::VMOV(ARMReg Dest, ARMReg Src, bool high)
 {
 	_assert_msg_(DYNA_REC, Src < S0, "This VMOV doesn't support SRC other than ARM Reg");

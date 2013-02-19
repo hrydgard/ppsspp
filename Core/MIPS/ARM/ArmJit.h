@@ -56,27 +56,40 @@ struct ArmJitState
 	ArmJitBlock *curBlock;
 
 	// VFPU prefix magic
+	bool startDefaultPrefix;
 	u32 prefixS;
 	u32 prefixT;
 	u32 prefixD;
-	bool writeMask[4];
 	PrefixState prefixSFlag;
 	PrefixState prefixTFlag;
 	PrefixState prefixDFlag;
 	void PrefixStart() {
+		if (startDefaultPrefix) {
+			EatPrefix();
+		} else {
+			PrefixUnknown();
+		}
+	}
+	void PrefixUnknown() {
 		prefixSFlag = PREFIX_UNKNOWN;
 		prefixTFlag = PREFIX_UNKNOWN;
 		prefixDFlag = PREFIX_UNKNOWN;
 	}
 	bool MayHavePrefix() const {
-		if (!(prefixSFlag & PREFIX_KNOWN) || !(prefixTFlag & PREFIX_KNOWN) || !(prefixDFlag & PREFIX_KNOWN)) {
+		if (HasUnknownPrefix()) {
 			return true;
 		} else if (prefixS != 0xE4 || prefixT != 0xE4 || prefixD != 0) {
 			return true;
-		} else if (writeMask[0] || writeMask[1] || writeMask[2] || writeMask[3]) {
+		} else if (VfpuWriteMask() != 0) {
 			return true;
 		}
 
+		return false;
+	}
+	bool HasUnknownPrefix() const {
+		if (!(prefixSFlag & PREFIX_KNOWN) || !(prefixTFlag & PREFIX_KNOWN) || !(prefixDFlag & PREFIX_KNOWN)) {
+			return true;
+		}
 		return false;
 	}
 	void EatPrefix() {
@@ -88,11 +101,18 @@ struct ArmJitState
 			prefixTFlag = PREFIX_KNOWN_DIRTY;
 			prefixT = 0xE4;
 		}
-		if ((prefixDFlag & PREFIX_KNOWN) == 0 || prefixD != 0x0 || writeMask[0] || writeMask[1] || writeMask[2] || writeMask[3]) {
+		if ((prefixDFlag & PREFIX_KNOWN) == 0 || prefixD != 0x0 || VfpuWriteMask() != 0) {
 			prefixDFlag = PREFIX_KNOWN_DIRTY;
 			prefixD = 0x0;
-			writeMask[0] = writeMask[1] = writeMask[2] = writeMask[3] = false;
 		}
+	}
+	u8 VfpuWriteMask() const {
+		_assert_(prefixDFlag & JitState::PREFIX_KNOWN);
+		return (prefixD >> 8) & 0xF;
+	}
+	bool VfpuWriteMask(int i) const {
+		_assert_(prefixDFlag & JitState::PREFIX_KNOWN);
+		return (prefixD >> (8 + i)) & 1;
 	}
 };
 
@@ -159,10 +179,14 @@ public:
 	void Comp_SV(u32 op);
 	void Comp_SVQ(u32 op);
 	void Comp_VPFX(u32 op);
+	void Comp_VVectorInit(u32 op);
 	void Comp_VDot(u32 op);
 	void Comp_VecDo3(u32 op);
+	void Comp_VV2Op(u32 op);
 	void Comp_Mftv(u32 op);
 	void Comp_Vmtvc(u32 op);
+	void Comp_Vmmov(u32 op);
+
 
 	ArmJitBlockCache *GetBlockCache() { return &blocks; }
 
@@ -196,12 +220,27 @@ private:
 	void CompShiftImm(u32 op, ArmGen::ShiftType shiftType);
 
 	void LogBlockNumber();
+	
+	void ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz);
+	void ApplyPrefixD(const u8 *vregs, VectorSize sz);
+	void GetVectorRegsPrefixS(u8 *regs, VectorSize sz, int vectorReg) {
+		_assert_(js.prefixSFlag & JitState::PREFIX_KNOWN);
+		GetVectorRegs(regs, sz, vectorReg);
+		ApplyPrefixST(regs, js.prefixS, sz);
+	}
+	void GetVectorRegsPrefixT(u8 *regs, VectorSize sz, int vectorReg) {
+		_assert_(js.prefixTFlag & JitState::PREFIX_KNOWN);
+		GetVectorRegs(regs, sz, vectorReg);
+		ApplyPrefixST(regs, js.prefixT, sz);
+	}
+	void GetVectorRegsPrefixD(u8 *regs, VectorSize sz, int vectorReg);
+
+
 		/*
 	void CompImmLogic(u32 op, void (ARMXEmitter::*arith)(int, const OpArg &, const OpArg &));
 	void CompTriArith(u32 op, void (ARMXEmitter::*arith)(int, const OpArg &, const OpArg &));
 	void CompShiftImm(u32 op, void (ARMXEmitter::*shift)(int, OpArg, OpArg));
 	void CompShiftVar(u32 op, void (XEmitter::*shift)(int, OpArg, OpArg));
-
 	*/
 
 	// Utils

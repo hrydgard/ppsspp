@@ -55,7 +55,7 @@ struct RegMIPS {
 	RegMIPSLoc loc;
 	// Data (only one of these is used, depending on loc. Could make a union).
 	u32 imm;
-	int reg;  // reg index (need to add S0 to get ARMReg)
+	ARMReg reg;  // reg index
 	bool spillLock;  // if true, this register cannot be spilled.
 	// If loc == ML_MEM, it's back in its location in the CPU context struct.
 };

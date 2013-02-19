@@ -28,11 +28,8 @@
 using namespace ArmGen;
 
 enum {
-	NUM_TEMPS = 4,
+	NUM_TEMPS = 16,
 	TEMP0 = 32 + 128,
-	TEMP1 = TEMP0 + 1,
-	TEMP2 = TEMP0 + 2,
-	TEMP3 = TEMP0 + 3,
 	TOTAL_MAPPABLE_MIPSFPUREGS = 32 + 128 + NUM_TEMPS,
 };
 
@@ -45,8 +42,9 @@ struct FPURegMIPS {
 	// Where is this MIPS register?
 	RegMIPSLoc loc;
 	// Data (only one of these is used, depending on loc. Could make a union).
-	ARMReg reg;
+	int reg;
 	bool spillLock;  // if true, this register cannot be spilled.
+	bool tempLock;
 	// If loc == ML_MEM, it's back in its location in the CPU context struct.
 };
 
@@ -63,10 +61,15 @@ public:
 	// Protect the arm register containing a MIPS register from spilling, to ensure that
 	// it's being kept allocated.
 	void SpillLock(MIPSReg reg, MIPSReg reg2 = -1, MIPSReg reg3 = -1, MIPSReg reg4 = -1);
+	void SpillLockV(MIPSReg r) { SpillLock(r + 32); }
+
 	void ReleaseSpillLocks();
 	void ReleaseSpillLock(int mipsreg)
 	{
 		mr[mipsreg].spillLock = false;
+	}
+	void ReleaseSpillLockV(int mipsreg) {
+		ReleaseSpillLock(mipsreg + 32);
 	}
 
 	void SetImm(MIPSReg reg, u32 immVal);
@@ -84,7 +87,11 @@ public:
 	void FlushV(MIPSReg r) { FlushR(r + 32); }
 	void DiscardR(MIPSReg r);
 	void DiscardV(MIPSReg r) { DiscardR(r + 32);}
+	bool IsTempX(ARMReg r) const;
 
+	MIPSReg GetTempR();
+	MIPSReg GetTempV() { return GetTempR() - 32; }
+	 
 	void FlushAll();
 
 	ARMReg R(int preg); // Returns a cached register
@@ -123,6 +130,6 @@ private:
 	};
 
 	RegARM ar[NUM_ARMFPUREG];
-	RegMIPS mr[NUM_MIPSFPUREG];
-	RegMIPS *vr;
+	FPURegMIPS mr[NUM_MIPSFPUREG];
+	FPURegMIPS *vr;
 };

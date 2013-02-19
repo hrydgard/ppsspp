@@ -38,6 +38,7 @@ void ArmRegCacheFPU::Start(MIPSAnalyst::AnalysisResults &stats) {
 		mr[i].loc = ML_MEM;
 		mr[i].reg = INVALID_REG;
 		mr[i].spillLock = false;
+		mr[i].tempLock = false;
 	}
 }
 
@@ -109,7 +110,7 @@ allocate:
 	int bestToSpill = -1;
 	for (int i = 0; i < allocCount; i++) {
 		int reg = allocOrder[i] - S0;
-		if (ar[reg].mipsReg != -1 && mr[ar[reg].mipsReg].spillLock)
+		if (ar[reg].mipsReg != -1 && (mr[ar[reg].mipsReg].spillLock || mr[ar[reg].mipsReg].tempLock))
 			continue;
 		bestToSpill = reg;
 		break;
@@ -242,7 +243,7 @@ void ArmRegCacheFPU::DiscardR(MIPSReg r) {
 		// IMM is not allowed for FP (yet).
 		ERROR_LOG(HLE, "Imm in FP register?");
 		break;
-
+		 
 	case ML_ARMREG:
 		if (mr[r].reg == (int)INVALID_REG) {
 			ERROR_LOG(HLE, "DiscardR: MipsReg had bad ArmReg");
@@ -262,7 +263,27 @@ void ArmRegCacheFPU::DiscardR(MIPSReg r) {
 	}
 	mr[r].loc = ML_MEM;
 	mr[r].reg = (int)INVALID_REG;
+	mr[r].tempLock = false;
+	// spill lock?
 }
+
+
+bool ArmRegCacheFPU::IsTempX(ARMReg r) const {
+	return ar[r - S0].mipsReg >= TEMP0;
+}
+
+int ArmRegCacheFPU::GetTempR() {
+	for (int r = TEMP0; r < TEMP0 + NUM_TEMPS; ++r) {
+		if (mr[r].loc == ML_MEM && !mr[r].tempLock) {
+			mr[r].tempLock = true;
+			return r;
+		}
+	}
+
+	_assert_msg_(DYNA_REC, 0, "Regcache ran out of temp regs, might need to DiscardR() some.");
+	return -1;
+}
+
 
 void ArmRegCacheFPU::FlushAll() {
 	// Discard temps!
@@ -271,7 +292,7 @@ void ArmRegCacheFPU::FlushAll() {
 	}
 	for (int i = 0; i < NUM_MIPSFPUREG; i++) {
 		FlushR(i);
-	}
+	} 
 	// Sanity check
 	for (int i = 0; i < NUM_ARMFPUREG; i++) {
 		if (ar[i].mipsReg != -1) {
@@ -297,9 +318,10 @@ void ArmRegCacheFPU::SpillLock(MIPSReg r1, MIPSReg r2, MIPSReg r3, MIPSReg r4) {
 
 // This is actually pretty slow with all the 160 regs...
 void ArmRegCacheFPU::ReleaseSpillLocks() {
-	for (int i = 0; i < NUM_MIPSFPUREG; i++) {
+	for (int i = 0; i < NUM_MIPSFPUREG; i++)
 		mr[i].spillLock = false;
-	}
+	for (int i = TEMP0; i < TEMP0 + NUM_TEMPS; ++i)
+		DiscardR(i);
 }
 
 ARMReg ArmRegCacheFPU::R(int mipsReg) {
