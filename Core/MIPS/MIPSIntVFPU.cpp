@@ -492,8 +492,8 @@ namespace MIPSInt
 			case 17: d[i] = 1.0f / sqrtf(s[i]); break; //vrsq
 			case 18: d[i] = sinf((float)M_PI_2 * s[i]); break; //vsin
 			case 19: d[i] = cosf((float)M_PI_2 * s[i]); break; //vcos
-			case 20: d[i] = powf(2.0f, s[i]); break;
-			case 21: d[i] = logf(s[i])/log(2.0f); break;
+			case 20: d[i] = powf(2.0f, s[i]); break; //vexp2
+			case 21: d[i] = logf(s[i])/log(2.0f); break; //vlog2
 			case 22: d[i] = sqrtf(s[i]); break; //vsqrt
 			case 23: d[i] = asinf(s[i] * (float)M_2_PI); break; //vasin
 			case 24: d[i] = -1.0f / s[i]; break; // vnrcp
