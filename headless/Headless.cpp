@@ -10,13 +10,13 @@
 #include "Core/System.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Host.h"
-#include "Windows/OpenGLBase.h"
 #include "Log.h"
 #include "LogManager.h"
 
 #include "Compare.h"
 #include "StubHost.h"
 #ifdef _WIN32
+#include "Windows/OpenGLBase.h"
 #include "WindowsHeadlessHost.h"
 #endif
 
