@@ -192,21 +192,20 @@ public:
 		switch (decFmt_.posfmt) {
 		case DEC_FLOAT_3:
 			{
-				//memcpy(pos, data_ + decFmt_.posoff, 12);
 				const float *f = (const float *)(data_ + decFmt_.posoff);
-				for (int i = 0; i < 3; i++)
-					pos[i] = f[i] ;
-
+				memcpy(pos, f, 12);
+				
 				// pos[2] is an integer value clamped between 0 and 65535
-				if  ((vtype_ >> 23) & 0x1) {
-					if (pos[2] < 0.f) {
-						pos[2] = 0.f;
+				if (isThrough()) {
+					if (pos[2] < 0.f && pos[2] != 0.0f) {  // make sure we get negative zero
+						pos[2] = 0.f; 
 					} else if (pos[2] > 65535.f) {
 						pos[2] = 65535.f;
 					} else {
 						// 2D positions are always integer values: truncate float value
 						pos[2] = (int) pos[2];
 					}
+					pos[2] /= 65535.0f;
 				}
 			}
 			break;
@@ -215,10 +214,10 @@ public:
 				// X and Y are signed 16 bit, Z is unsigned 16 bit
 				const s16 *s = (const s16 *)(data_ + decFmt_.posoff);
 				const u16 *u = (const u16 *)(data_ + decFmt_.posoff);
-				if  ((vtype_ >> 23) & 0x1) {
+				if (isThrough()) {
 					for (int i = 0; i < 2; i++)
-						pos[i] = s[i] ;
-					pos[2] = u[2] ; 
+						pos[i] = s[i];
+					pos[2] = u[2] / 65535.0f; 
 				} else {
 					for (int i = 0; i < 3; i++)
 						pos[i] = s[i] * (1.f / 32767.f);
@@ -230,10 +229,10 @@ public:
 				// X and Y are signed 8 bit, Z is unsigned 8 bit
 				const s8 *b = (const s8 *)(data_ + decFmt_.posoff);
 				const u8 *u = (const u8 *)(data_ + decFmt_.posoff);
-				if  ((vtype_ >> 23) & 0x1) {
+				if (isThrough()) {
 					for (int i = 0; i < 2; i++)
-						pos[i] = b[i] ;
-					pos[2] = u[2] ;
+						pos[i] = b[i];
+					pos[2] = u[2] / 255.0f;
 				} else {
 					for (int i = 0; i < 3; i++)
 						pos[i] = b[i] * (1.f / 127.f);
