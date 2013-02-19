@@ -73,8 +73,8 @@ void Core_RunLoop()
 		{
 #ifdef _WIN32
 			GL_SwapBuffers();
-#endif
 			coreState = CORE_RUNNING;
+#endif
 		}
 	}
 }
