@@ -553,6 +553,7 @@ void Jit::Comp_VV2Op(u32 op) {
 			break;
 		case 22: // d[i] = sqrtf(s[i]); break; //vsqrt
 			SQRTSS(tempxregs[i], fpr.V(sregs[i]));
+			ANDPS(tempxregs[i], M((void *)&noSignMask));
 			break;
 		case 23: // d[i] = asinf(s[i] * (float)M_2_PI); break; //vasin
 			DISABLE;
