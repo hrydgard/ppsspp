@@ -595,9 +595,8 @@ void Jit::Comp_VV2Op(u32 op) {
 			DISABLE;
 			break;
 		case 24: // d[i] = -1.0f / s[i]; break; // vnrcp
-			MOVSS(XMM0, M((void *)&one));
+			MOVSS(XMM0, M((void *)&minus_one));
 			DIVSS(XMM0, fpr.V(sregs[i]));
-			XORPS(XMM0, M((void *)&signBitLower));
 			MOVSS(tempxregs[i], R(XMM0));
 			break;
 		case 26: // d[i] = -sinf((float)M_PI_2 * s[i]); break; // vnsin
