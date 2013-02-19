@@ -643,7 +643,7 @@ void Jit::Comp_Vmtvc(u32 op) {
 	int imm = op & 0xFF;
 	if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
 		fpr.MapRegV(vs, 0);
-		MOVSS(M(&currentMIPS->vfpuCtrl[imm - 128]), fpr.RX(vs));
+		MOVSS(M(&currentMIPS->vfpuCtrl[imm - 128]), fpr.VX(vs));
 		fpr.ReleaseSpillLocks();
 
 		if (imm - 128 == VFPU_CTRL_SPREFIX) {
