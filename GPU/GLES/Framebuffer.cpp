@@ -333,6 +333,10 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		case GE_FORMAT_565: vfb->colorDepth = FBO_565;
 		case GE_FORMAT_8888: vfb->colorDepth = FBO_8888;
 		}
+		
+		if (g_Config.bTrueColor) 
+			vfb->colorDepth = FBO_8888;
+			
 		//#ifdef ANDROID
 		//	vfb->colorDepth = FBO_8888;
 		//#endif
