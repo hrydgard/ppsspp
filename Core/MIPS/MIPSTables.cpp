@@ -669,7 +669,7 @@ const MIPSInstruction tableVFPU6[32] =  //111100 xxx
 
 const MIPSInstruction tableVFPUMatrixSet1[16] = //111100 11100 0xxxx   (rm x is 16)
 {
-	INSTR("vmmov",&Jit::Comp_Generic, Dis_MatrixSet2, Int_Vmmov, IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vmmov",&Jit::Comp_Vmmov, Dis_MatrixSet2, Int_Vmmov, IS_VFPU|OUT_EAT_PREFIX),
 	{-2},
 	{-2},
 	INSTR("vmidt",&Jit::Comp_Generic, Dis_MatrixSet1, Int_VMatrixInit, IS_VFPU|OUT_EAT_PREFIX),

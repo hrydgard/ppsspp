@@ -693,4 +693,46 @@ void Jit::Comp_Vmtvc(u32 op) {
 	}
 }
 
+void Jit::Comp_Vmmov(u32 op) {
+	CONDITIONAL_DISABLE;
+
+	// TODO: This probably ignores prefixes?
+	if (js.MayHavePrefix())
+		DISABLE;
+
+	MatrixSize sz = GetMtxSize(op);
+	int n = GetMatrixSide(sz);
+
+	u8 sregs[16], dregs[16];
+	GetMatrixRegs(sregs, sz, _VS);
+	GetMatrixRegs(dregs, sz, _VD);
+
+	// TODO: gas doesn't allow overlap, what does the PSP do?
+	// Potentially detect overlap or the safe direction to move in, or just DISABLE?
+	// This is very not optimal, blows the regcache everytime.
+	u8 tempregs[16];
+	for (int a = 0; a < n; a++)
+	{
+		for (int b = 0; b < n; b++)
+		{
+			u8 temp = (u8) fpr.GetTempV();
+			fpr.MapRegV(temp, MAP_NOINIT | MAP_DIRTY);
+			MOVSS(fpr.VX(temp), fpr.V(sregs[a * 4 + b]));
+			fpr.StoreFromRegisterV(temp);
+			tempregs[a * 4 + b] = temp;
+		}
+	}
+	for (int a = 0; a < n; a++)
+	{
+		for (int b = 0; b < n; b++)
+		{
+			u8 temp = tempregs[a * 4 + b];
+			fpr.MapRegV(temp, 0);
+			MOVSS(fpr.V(dregs[a * 4 + b]), fpr.VX(temp));
+		}
+	}
+
+	fpr.ReleaseSpillLocks();
+}
+
 }
