@@ -152,6 +152,8 @@ void __DisplayDoState(PointerWrap &p) {
 	CoreTiming::RestoreRegisterEvent(enterVblankEvent, "EnterVBlank", &hleEnterVblank);
 	p.Do(leaveVblankEvent);
 	CoreTiming::RestoreRegisterEvent(leaveVblankEvent, "LeaveVBlank", &hleLeaveVblank);
+	p.Do(afterFlipEvent);
+	CoreTiming::RestoreRegisterEvent(afterFlipEvent, "AfterFlipEVent", &hleAfterFlip);
 
 	p.Do(gstate);
 	p.Do(gstate_c);
