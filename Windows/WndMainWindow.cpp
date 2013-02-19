@@ -73,7 +73,8 @@ namespace MainWindow
 
 	void Init(HINSTANCE hInstance)
 	{
-#ifdef THEMES		WTL::CTheme::IsThemingSupported();
+#ifdef THEMES
+		WTL::CTheme::IsThemingSupported();
 #endif
 		//Register classes
 		WNDCLASSEX wcex;
