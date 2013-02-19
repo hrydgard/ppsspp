@@ -85,6 +85,9 @@
 #ifdef __APPLE__
 using std::isnan;
 #endif
+#ifdef _MSC_VER
+#define isnan _isnan
+#endif
 
 void ApplyPrefixST(float *v, u32 data, VectorSize size)
 {
@@ -486,15 +489,16 @@ namespace MIPSInt
 			case 0: d[i] = s[i]; break; //vmov
 			case 1: d[i] = fabsf(s[i]); break; //vabs
 			case 2: d[i] = -s[i]; break; //vneg
-			case 4: if (s[i] < 0) d[i] = 0; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;    // vsat0
+			// vsat0 changes -0.0 to +0.0.
+			case 4: if (s[i] <= 0) d[i] = 0; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;    // vsat0
 			case 5: if (s[i] < -1.0f) d[i] = -1.0f; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;  // vsat1
 			case 16: d[i] = 1.0f / s[i]; break; //vrcp
 			case 17: d[i] = 1.0f / sqrtf(s[i]); break; //vrsq
 			case 18: d[i] = sinf((float)M_PI_2 * s[i]); break; //vsin
 			case 19: d[i] = cosf((float)M_PI_2 * s[i]); break; //vcos
-			case 20: d[i] = powf(2.0f, s[i]); break;
-			case 21: d[i] = logf(s[i])/log(2.0f); break;
-			case 22: d[i] = sqrtf(s[i]); break; //vsqrt
+			case 20: d[i] = powf(2.0f, s[i]); break; //vexp2
+			case 21: d[i] = logf(s[i])/log(2.0f); break; //vlog2
+			case 22: d[i] = fabsf(sqrtf(s[i])); break; //vsqrt
 			case 23: d[i] = asinf(s[i] * (float)M_2_PI); break; //vasin
 			case 24: d[i] = -1.0f / s[i]; break; // vnrcp
 			case 26: d[i] = -sinf((float)M_PI_2 * s[i]); break; // vnsin
@@ -1451,10 +1455,6 @@ namespace MIPSInt
 		VC_NI,
 		VC_NS
 	};
-
-#ifdef _MSC_VER
-#define isnan _isnan
-#endif
 
 	void Int_Vcmp(u32 op)
 	{
