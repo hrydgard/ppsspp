@@ -68,9 +68,9 @@ int main(int argc, char *argv[])
 #ifdef __SYMBIAN32__
 	NativeInit(argc, (const char **)argv, "E:/PPSSPP/", "E:", "BADCOFFEE");
 #elif defined(BLACKBERRY)
-	NativeInit(argc, (const char **)argv, "data/", "/tmp", "BADCOFFEE");
+	NativeInit(argc, (const char **)argv, "data/", QDir::tempPath().toStdString().c_str(), "BADCOFFEE");
 #else
-	NativeInit(argc, (const char **)argv, "./", "/tmp", "BADCOFFEE");
+	NativeInit(argc, (const char **)argv, "./", QDir::tempPath().toStdString().c_str(), "BADCOFFEE");
 #endif
 
 #if defined(USING_GLES2)
