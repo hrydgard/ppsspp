@@ -438,23 +438,82 @@ namespace MIPSComp
 		switch ((op >> 6) & 31)
 		{
 		case 16: // seb  // R(rd) = (u32)(s32)(s8)(u8)R(rt);
-			gpr.Lock(rd, rt);
-			gpr.BindToRegister(rd, true, true);
-			MOV(32, R(EAX), gpr.R(rt));  // work around the byte-register addressing problem
-			MOVSX(32, 8, gpr.RX(rd), R(EAX));
-			gpr.UnlockAll();
-			break;
+			if (gpr.IsImmediate(rt))
+			{
+				gpr.SetImmediate32(rd, (u32)(s32)(s8)(u8)gpr.GetImmediate32(rt));
+				break;
+			}
 
-		case 24: // seh
 			gpr.Lock(rd, rt);
-			// MOVSX doesn't like immediate arguments, for example, so let's force it to a register.
-			gpr.BindToRegister(rt, true, false);
-			gpr.BindToRegister(rd, true, true);
-			MOVSX(32, 16, gpr.RX(rd), gpr.R(rt));
+			gpr.BindToRegister(rd, rd == rt, true);
+#ifdef _M_IX86
+			// work around the byte-register addressing problem
+			if (!gpr.R(rt).IsSimpleReg(EDX) && !gpr.R(rt).IsSimpleReg(ECX))
+			{
+				MOV(32, R(EAX), gpr.R(rt));
+				MOVSX(32, 8, gpr.RX(rd), R(EAX));
+			}
+			else
+#endif
+			{
+				gpr.KillImmediate(rt, true, false);
+				MOVSX(32, 8, gpr.RX(rd), gpr.R(rt));
+			}
 			gpr.UnlockAll();
 			break;
 
 		case 20: //bitrev
+			if (gpr.IsImmediate(rt))
+			{
+				u32 result = 0;
+				u32 src = gpr.GetImmediate32(rt);
+				for (int sa = 31; sa >= 0; --sa)
+				{
+					result |= (src & 1) << sa;
+					src >>= 1;
+				}
+				gpr.SetImmediate32(rd, result);
+				break;
+			}
+
+			gpr.Lock(rd, rt);
+			gpr.FlushLockX(EDX);
+			gpr.BindToRegister(rd, rd == rt, true);
+			MOV(32, R(EDX), gpr.R(rt));
+			// This is okay even if rd == rt, since we saved it above.
+			XOR(32, gpr.R(rd), gpr.R(rd));
+			for (int sa = 31; sa >= 0; --sa)
+			{
+				MOV(32, R(EAX), R(EDX));
+				AND(32, R(EAX), Imm32(1));
+				if (sa == 0)
+					OR(32, gpr.R(rd), R(EAX));
+				else
+				{
+					SHL(32, R(EAX), Imm8(sa));
+					OR(32, gpr.R(rd), R(EAX));
+					SHR(32, R(EDX), Imm8(1));
+				}
+			}
+			gpr.UnlockAllX();
+			gpr.UnlockAll();
+			break;
+
+		case 24: // seh  // R(rd) = (u32)(s32)(s16)(u16)R(rt);
+			if (gpr.IsImmediate(rt))
+			{
+				gpr.SetImmediate32(rd, (u32)(s32)(s16)(u16)gpr.GetImmediate32(rt));
+				break;
+			}
+
+			gpr.Lock(rd, rt);
+			// MOVSX doesn't like immediate arguments, for example.
+			gpr.KillImmediate(rt, true, false);
+			gpr.BindToRegister(rd, rd == rt, true);
+			MOVSX(32, 16, gpr.RX(rd), gpr.R(rt));
+			gpr.UnlockAll();
+			break;
+
 		default:
 			Comp_Generic(op);
 			return;
