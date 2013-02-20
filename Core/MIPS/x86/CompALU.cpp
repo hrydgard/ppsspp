@@ -17,6 +17,7 @@
 
 #include "Jit.h"
 #include "RegCache.h"
+#include <algorithm>
 
 using namespace MIPSAnalyst;
 #define _RS ((op>>21) & 0x1F)
@@ -218,15 +219,63 @@ namespace MIPSComp
 
 		switch (op & 63)
 		{
-		//case 10: if (!R(rt)) R(rd) = R(rs); break; //movz
-		//case 11: if (R(rt)) R(rd) = R(rs); break; //movn
+		case 10: //if (R(rt) == 0) R(rd) = R(rs); break; //movz
+			if (rd == rs)
+				break;
+			gpr.Lock(rt, rs, rd);
+			if (!gpr.IsImmediate(rt))
+			{
+				gpr.KillImmediate(rs, true, false);
+				// Need to load rd in case the condition fails.
+				gpr.BindToRegister(rd, true, true);
+				CMP(32, gpr.R(rt), Imm32(0));
+				CMOVcc(32, gpr.RX(rd), gpr.R(rs), CC_E);
+			}
+			else if (gpr.GetImmediate32(rt) == 0)
+			{
+				// Yes, this actually happens.
+				if (gpr.IsImmediate(rs))
+					gpr.SetImmediate32(rd, gpr.GetImmediate32(rs));
+				else if (rd != rs)
+				{
+					gpr.BindToRegister(rd, false, true);
+					MOV(32, gpr.R(rd), gpr.R(rs));
+				}
+			}
+			gpr.UnlockAll();
+			break;
 
-		// case 32: //R(rd) = R(rs) + R(rt);		break; //add
+		case 11: //if (R(rt) != 0) R(rd) = R(rs); break; //movn
+			if (rd == rs)
+				break;
+			gpr.Lock(rt, rs, rd);
+			if (!gpr.IsImmediate(rt))
+			{
+				gpr.KillImmediate(rs, true, false);
+				// Need to load rd in case the condition fails.
+				gpr.BindToRegister(rd, true, true);
+				CMP(32, gpr.R(rt), Imm32(0));
+				CMOVcc(32, gpr.RX(rd), gpr.R(rs), CC_NE);
+			}
+			else if (gpr.GetImmediate32(rt) != 0)
+			{
+				if (gpr.IsImmediate(rs))
+					gpr.SetImmediate32(rd, gpr.GetImmediate32(rs));
+				else if (rd != rs)
+				{
+					gpr.BindToRegister(rd, false, true);
+					MOV(32, gpr.R(rd), gpr.R(rs));
+				}
+			}
+			gpr.UnlockAll();
+			break;
+
+		case 32: //R(rd) = R(rs) + R(rt);		break; //add
 		case 33: //R(rd) = R(rs) + R(rt);		break; //addu
 			CompTriArith(op, &XEmitter::ADD, &RType3_ImmAdd);
 			break;
 		case 34: //R(rd) = R(rs) - R(rt);		break; //sub
-		case 35:
+		case 35: //R(rd) = R(rs) - R(rt);		break; //subu
 			CompTriArith(op, &XEmitter::SUB, &RType3_ImmSub);
 			break;
 		case 36: //R(rd) = R(rs) & R(rt);		break; //and
@@ -248,32 +297,71 @@ namespace MIPSComp
 			break;
 
 		case 42: //R(rd) = (int)R(rs) < (int)R(rt); break; //slt
-			gpr.Lock(rt, rs, rd);
-			gpr.BindToRegister(rs, true, true);
-			gpr.BindToRegister(rd, true, true);
-			XOR(32, R(EAX), R(EAX));
-			CMP(32, gpr.R(rs), gpr.R(rt));
-			SETcc(CC_L, R(EAX));
-			MOV(32, gpr.R(rd), R(EAX));
-			gpr.UnlockAll();
+			if (gpr.IsImmediate(rs) && gpr.IsImmediate(rt))
+				gpr.SetImmediate32(rd, (s32)gpr.GetImmediate32(rs) < (s32)gpr.GetImmediate32(rt));
+			else
+			{
+				gpr.Lock(rt, rs, rd);
+				gpr.BindToRegister(rs, true, false);
+				gpr.BindToRegister(rd, rd == rt, true);
+				XOR(32, R(EAX), R(EAX));
+				CMP(32, gpr.R(rs), gpr.R(rt));
+				SETcc(CC_L, R(EAX));
+				MOV(32, gpr.R(rd), R(EAX));
+				gpr.UnlockAll();
+			}
 			break;
 
 		case 43: //R(rd) = R(rs) < R(rt);		break; //sltu
-			gpr.Lock(rd, rs, rt);
-			gpr.BindToRegister(rs, true, true);
-			gpr.BindToRegister(rd, true, true);
-			XOR(32, R(EAX), R(EAX));
-			CMP(32, gpr.R(rs), gpr.R(rt));
-			SETcc(CC_B, R(EAX));
-			MOV(32, gpr.R(rd), R(EAX));
-			gpr.UnlockAll();
+			if (gpr.IsImmediate(rs) && gpr.IsImmediate(rt))
+				gpr.SetImmediate32(rd, gpr.GetImmediate32(rs) < gpr.GetImmediate32(rt));
+			else
+			{
+				gpr.Lock(rd, rs, rt);
+				gpr.BindToRegister(rs, true, false);
+				gpr.BindToRegister(rd, rd == rt, true);
+				XOR(32, R(EAX), R(EAX));
+				CMP(32, gpr.R(rs), gpr.R(rt));
+				SETcc(CC_B, R(EAX));
+				MOV(32, gpr.R(rd), R(EAX));
+				gpr.UnlockAll();
+			}
 			break;
 
-		// case 44: R(rd) = (R(rs) > R(rt)) ? R(rs) : R(rt); break; //max
-		// CMP(a,b); CMOVLT(a,b)
+		case 44: //R(rd) = (R(rs) > R(rt)) ? R(rs) : R(rt); break; //max
+			if (gpr.IsImmediate(rs) && gpr.IsImmediate(rt))
+				gpr.SetImmediate32(rd, std::max((s32)gpr.GetImmediate32(rs), (s32)gpr.GetImmediate32(rt)));
+			else
+			{
+				int rsrc = rd == rt ? rs : rt;
+				gpr.Lock(rd, rs, rt);
+				gpr.KillImmediate(rsrc, true, false);
+				gpr.BindToRegister(rd, rd == rs || rd == rt, true);
+				if (rd != rt && rd != rs)
+					MOV(32, gpr.R(rd), gpr.R(rs));
+				CMP(32, gpr.R(rd), gpr.R(rsrc));
+				CMOVcc(32, gpr.RX(rd), gpr.R(rsrc), CC_L);
+				gpr.UnlockAll();
+			}
+			break;
 
-		// case 45: R(rd) = (R(rs) < R(rt)) ? R(rs) : R(rt); break; //min
-		// CMP(a,b); CMOVGT(a,b)
+		case 45: //R(rd) = (R(rs) < R(rt)) ? R(rs) : R(rt); break; //min
+			if (gpr.IsImmediate(rs) && gpr.IsImmediate(rt))
+				gpr.SetImmediate32(rd, std::min((s32)gpr.GetImmediate32(rs), (s32)gpr.GetImmediate32(rt)));
+			else
+			{
+				int rsrc = rd == rt ? rs : rt;
+				gpr.Lock(rd, rs, rt);
+				gpr.KillImmediate(rsrc, true, false);
+				gpr.BindToRegister(rd, rd == rs || rd == rt, true);
+				if (rd != rt && rd != rs)
+					MOV(32, gpr.R(rd), gpr.R(rs));
+				CMP(32, gpr.R(rd), gpr.R(rsrc));
+				CMOVcc(32, gpr.RX(rd), gpr.R(rsrc), CC_G);
+				gpr.UnlockAll();
+			}
+			break;
+
 		default:
 			Comp_Generic(op);
 			break;
@@ -350,23 +438,98 @@ namespace MIPSComp
 		switch ((op >> 6) & 31)
 		{
 		case 16: // seb  // R(rd) = (u32)(s32)(s8)(u8)R(rt);
-			gpr.Lock(rd, rt);
-			gpr.BindToRegister(rd, true, true);
-			MOV(32, R(EAX), gpr.R(rt));  // work around the byte-register addressing problem
-			MOVSX(32, 8, gpr.RX(rd), R(EAX));
-			gpr.UnlockAll();
-			break;
+			if (gpr.IsImmediate(rt))
+			{
+				gpr.SetImmediate32(rd, (u32)(s32)(s8)(u8)gpr.GetImmediate32(rt));
+				break;
+			}
 
-		case 24: // seh
 			gpr.Lock(rd, rt);
-			// MOVSX doesn't like immediate arguments, for example, so let's force it to a register.
-			gpr.BindToRegister(rt, true, false);
-			gpr.BindToRegister(rd, true, true);
-			MOVSX(32, 16, gpr.RX(rd), gpr.R(rt));
+			gpr.BindToRegister(rd, rd == rt, true);
+#ifdef _M_IX86
+			// work around the byte-register addressing problem
+			if (!gpr.R(rt).IsSimpleReg(EDX) && !gpr.R(rt).IsSimpleReg(ECX))
+			{
+				MOV(32, R(EAX), gpr.R(rt));
+				MOVSX(32, 8, gpr.RX(rd), R(EAX));
+			}
+			else
+#endif
+			{
+				gpr.KillImmediate(rt, true, false);
+				MOVSX(32, 8, gpr.RX(rd), gpr.R(rt));
+			}
 			gpr.UnlockAll();
 			break;
 
 		case 20: //bitrev
+			if (gpr.IsImmediate(rt))
+			{
+				// http://graphics.stanford.edu/~seander/bithacks.html#ReverseParallel
+				u32 v = gpr.GetImmediate32(rt);
+				// swap odd and even bits
+				v = ((v >> 1) & 0x55555555) | ((v & 0x55555555) << 1);
+				// swap consecutive pairs
+				v = ((v >> 2) & 0x33333333) | ((v & 0x33333333) << 2);
+				// swap nibbles ...
+				v = ((v >> 4) & 0x0F0F0F0F) | ((v & 0x0F0F0F0F) << 4);
+				// swap bytes
+				v = ((v >> 8) & 0x00FF00FF) | ((v & 0x00FF00FF) << 8);
+				// swap 2-byte long pairs
+				v = ( v >> 16             ) | ( v               << 16);
+				gpr.SetImmediate32(rd, v);
+				break;
+			}
+
+			gpr.Lock(rd, rt);
+			gpr.BindToRegister(rd, rd == rt, true);
+			if (rd != rt)
+				MOV(32, gpr.R(rd), gpr.R(rt));
+
+			LEA(32, EAX, MScaled(gpr.RX(rd), 2, 0));
+			SHR(32, gpr.R(rd), Imm8(1));
+			XOR(32, gpr.R(rd), R(EAX));
+			AND(32, gpr.R(rd), Imm32(0x55555555));
+			XOR(32, gpr.R(rd), R(EAX));
+
+			LEA(32, EAX, MScaled(gpr.RX(rd), 4, 0));
+			SHR(32, gpr.R(rd), Imm8(2));
+			XOR(32, gpr.R(rd), R(EAX));
+			AND(32, gpr.R(rd), Imm32(0x33333333));
+			XOR(32, gpr.R(rd), R(EAX));
+
+			MOV(32, R(EAX), gpr.R(rd));
+			SHL(32, R(EAX), Imm8(4));
+			SHR(32, gpr.R(rd), Imm8(4));
+			XOR(32, gpr.R(rd), R(EAX));
+			AND(32, gpr.R(rd), Imm32(0x0F0F0F0F));
+			XOR(32, gpr.R(rd), R(EAX));
+
+			MOV(32, R(EAX), gpr.R(rd));
+			SHL(32, R(EAX), Imm8(8));
+			SHR(32, gpr.R(rd), Imm8(8));
+			XOR(32, gpr.R(rd), R(EAX));
+			AND(32, gpr.R(rd), Imm32(0x00FF00FF));
+			XOR(32, gpr.R(rd), R(EAX));
+
+			ROL(32, gpr.R(rd), Imm8(16));
+
+			gpr.UnlockAll();
+			break;
+
+		case 24: // seh  // R(rd) = (u32)(s32)(s16)(u16)R(rt);
+			if (gpr.IsImmediate(rt))
+			{
+				gpr.SetImmediate32(rd, (u32)(s32)(s16)(u16)gpr.GetImmediate32(rt));
+				break;
+			}
+
+			gpr.Lock(rd, rt);
+			gpr.BindToRegister(rd, rd == rt, true);
+			MOVSX(32, 16, gpr.RX(rd), gpr.R(rt));
+			gpr.UnlockAll();
+			break;
+
 		default:
 			Comp_Generic(op);
 			return;

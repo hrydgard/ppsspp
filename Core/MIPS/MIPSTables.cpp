@@ -738,7 +738,7 @@ const MIPSInstruction tableALLEGREX0[32] =  //111111
 	{-2},
 	{-2},
 //20
-	INSTR("bitrev",&Jit::Comp_Generic, Dis_Allegrex,Int_Allegrex, IN_RT|OUT_RD),
+	INSTR("bitrev",&Jit::Comp_Allegrex, Dis_Allegrex,Int_Allegrex, IN_RT|OUT_RD),
 	{-2},
 	{-2},
 	{-2},
