@@ -507,8 +507,6 @@ namespace MIPSComp
 			}
 
 			gpr.Lock(rd, rt);
-			// MOVSX doesn't like immediate arguments, for example.
-			gpr.KillImmediate(rt, true, false);
 			gpr.BindToRegister(rd, rd == rt, true);
 			MOVSX(32, 16, gpr.RX(rd), gpr.R(rt));
 			gpr.UnlockAll();
