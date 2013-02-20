@@ -25,11 +25,11 @@ void CtrlVfpuView::paintEvent(QPaintEvent *)
 	if (!cpu)
 		return;
 
-	QFont normalFont = QFont("Arial", 10);
+	QFont normalFont("Arial", 10);
 	painter.setFont(normalFont);
 
-	QPen currentPen=QPen(0xFF000000);
-	QBrush nullBrush=QBrush(0xFFEfE8);
+	QPen currentPen(0xFF000000);
+	QBrush nullBrush(0xFFEfE8);
 	painter.setPen(currentPen);
 	painter.setBrush(nullBrush);
 
