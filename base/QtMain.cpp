@@ -53,9 +53,11 @@ int main(int argc, char *argv[])
 	QApplication::setAttribute(Qt::AA_X11InitThreads, true);
 #endif
 	QApplication a(argc, argv);
-	// Lock orientation to landscape on Symbian
 #ifdef __SYMBIAN32__
+	// Lock orientation to landscape on Symbian
 	QT_TRAP_THROWING(dynamic_cast<CAknAppUi*>(CEikonEnv::Static()->AppUi())->SetOrientationL(CAknAppUi::EAppUiOrientationLandscape));
+	// Set RunFast hardware mode for VFPv2. Denormalised values are treated as 0. NaN used for all NaN situations.
+	User::SetFloatingPointMode(EFpModeRunFast);
 #endif
 	QSize res = QApplication::desktop()->screenGeometry().size();
 	if (res.width() < res.height())
@@ -67,12 +69,13 @@ int main(int argc, char *argv[])
 	dp_xres = (int)(pixel_xres * dpi_scale); dp_yres = (int)(pixel_yres * dpi_scale);
 	net::Init();
 #ifdef __SYMBIAN32__
-	NativeInit(argc, (const char **)argv, "E:/PPSSPP/", "E:", "BADCOFFEE");
+	char* savegame_dir = "E:/PPSSPP/";
 #elif defined(BLACKBERRY)
-	NativeInit(argc, (const char **)argv, "data/", QDir::tempPath().toStdString().c_str(), "BADCOFFEE");
+	char* savegame_dir = "data/";
 #else
-	NativeInit(argc, (const char **)argv, "./", QDir::tempPath().toStdString().c_str(), "BADCOFFEE");
+	char* savegame_dir = "./";
 #endif
+	NativeInit(argc, (const char **)argv, savegame_dir, QDir::tempPath().toStdString().c_str(), "BADCOFFEE");
 
 #if defined(USING_GLES2)
 	MainUI w(dpi_scale);
