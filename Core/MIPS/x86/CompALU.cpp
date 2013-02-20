@@ -17,6 +17,7 @@
 
 #include "Jit.h"
 #include "RegCache.h"
+#include <algorithm>
 
 using namespace MIPSAnalyst;
 #define _RS ((op>>21) & 0x1F)
@@ -248,32 +249,71 @@ namespace MIPSComp
 			break;
 
 		case 42: //R(rd) = (int)R(rs) < (int)R(rt); break; //slt
-			gpr.Lock(rt, rs, rd);
-			gpr.BindToRegister(rs, true, true);
-			gpr.BindToRegister(rd, true, true);
-			XOR(32, R(EAX), R(EAX));
-			CMP(32, gpr.R(rs), gpr.R(rt));
-			SETcc(CC_L, R(EAX));
-			MOV(32, gpr.R(rd), R(EAX));
-			gpr.UnlockAll();
+			if (gpr.IsImmediate(rs) && gpr.IsImmediate(rt))
+				gpr.SetImmediate32(rd, (s32)gpr.GetImmediate32(rs) < (s32)gpr.GetImmediate32(rt));
+			else
+			{
+				gpr.Lock(rt, rs, rd);
+				gpr.BindToRegister(rs, true, false);
+				gpr.BindToRegister(rd, rd == rt, true);
+				XOR(32, R(EAX), R(EAX));
+				CMP(32, gpr.R(rs), gpr.R(rt));
+				SETcc(CC_L, R(EAX));
+				MOV(32, gpr.R(rd), R(EAX));
+				gpr.UnlockAll();
+			}
 			break;
 
 		case 43: //R(rd) = R(rs) < R(rt);		break; //sltu
-			gpr.Lock(rd, rs, rt);
-			gpr.BindToRegister(rs, true, true);
-			gpr.BindToRegister(rd, true, true);
-			XOR(32, R(EAX), R(EAX));
-			CMP(32, gpr.R(rs), gpr.R(rt));
-			SETcc(CC_B, R(EAX));
-			MOV(32, gpr.R(rd), R(EAX));
-			gpr.UnlockAll();
+			if (gpr.IsImmediate(rs) && gpr.IsImmediate(rt))
+				gpr.SetImmediate32(rd, gpr.GetImmediate32(rs) < gpr.GetImmediate32(rt));
+			else
+			{
+				gpr.Lock(rd, rs, rt);
+				gpr.BindToRegister(rs, true, false);
+				gpr.BindToRegister(rd, rd == rt, true);
+				XOR(32, R(EAX), R(EAX));
+				CMP(32, gpr.R(rs), gpr.R(rt));
+				SETcc(CC_B, R(EAX));
+				MOV(32, gpr.R(rd), R(EAX));
+				gpr.UnlockAll();
+			}
 			break;
 
-		// case 44: R(rd) = (R(rs) > R(rt)) ? R(rs) : R(rt); break; //max
-		// CMP(a,b); CMOVLT(a,b)
+		case 44: //R(rd) = (R(rs) > R(rt)) ? R(rs) : R(rt); break; //max
+			if (gpr.IsImmediate(rs) && gpr.IsImmediate(rt))
+				gpr.SetImmediate32(rd, std::max((s32)gpr.GetImmediate32(rs), (s32)gpr.GetImmediate32(rt)));
+			else
+			{
+				int rsrc = rd == rt ? rs : rt;
+				gpr.Lock(rd, rs, rt);
+				gpr.KillImmediate(rsrc, true, false);
+				gpr.BindToRegister(rd, rd == rs || rd == rt, true);
+				if (rd != rt && rd != rs)
+					MOV(32, gpr.R(rd), gpr.R(rs));
+				CMP(32, gpr.R(rd), gpr.R(rsrc));
+				CMOVcc(32, gpr.RX(rd), gpr.R(rsrc), CC_L);
+				gpr.UnlockAll();
+			}
+			break;
 
-		// case 45: R(rd) = (R(rs) < R(rt)) ? R(rs) : R(rt); break; //min
-		// CMP(a,b); CMOVGT(a,b)
+		case 45: //R(rd) = (R(rs) < R(rt)) ? R(rs) : R(rt); break; //min
+			if (gpr.IsImmediate(rs) && gpr.IsImmediate(rt))
+				gpr.SetImmediate32(rd, std::min((s32)gpr.GetImmediate32(rs), (s32)gpr.GetImmediate32(rt)));
+			else
+			{
+				int rsrc = rd == rt ? rs : rt;
+				gpr.Lock(rd, rs, rt);
+				gpr.KillImmediate(rsrc, true, false);
+				gpr.BindToRegister(rd, rd == rs || rd == rt, true);
+				if (rd != rt && rd != rs)
+					MOV(32, gpr.R(rd), gpr.R(rs));
+				CMP(32, gpr.R(rd), gpr.R(rsrc));
+				CMOVcc(32, gpr.RX(rd), gpr.R(rsrc), CC_G);
+				gpr.UnlockAll();
+			}
+			break;
+
 		default:
 			Comp_Generic(op);
 			break;
