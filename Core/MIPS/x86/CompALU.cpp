@@ -465,37 +465,55 @@ namespace MIPSComp
 		case 20: //bitrev
 			if (gpr.IsImmediate(rt))
 			{
-				u32 result = 0;
-				u32 src = gpr.GetImmediate32(rt);
-				for (int sa = 31; sa >= 0; --sa)
-				{
-					result |= (src & 1) << sa;
-					src >>= 1;
-				}
-				gpr.SetImmediate32(rd, result);
+				// http://graphics.stanford.edu/~seander/bithacks.html#ReverseParallel
+				u32 v = gpr.GetImmediate32(rt);
+				// swap odd and even bits
+				v = ((v >> 1) & 0x55555555) | ((v & 0x55555555) << 1);
+				// swap consecutive pairs
+				v = ((v >> 2) & 0x33333333) | ((v & 0x33333333) << 2);
+				// swap nibbles ...
+				v = ((v >> 4) & 0x0F0F0F0F) | ((v & 0x0F0F0F0F) << 4);
+				// swap bytes
+				v = ((v >> 8) & 0x00FF00FF) | ((v & 0x00FF00FF) << 8);
+				// swap 2-byte long pairs
+				v = ( v >> 16             ) | ( v               << 16);
+				gpr.SetImmediate32(rd, v);
 				break;
 			}
 
 			gpr.Lock(rd, rt);
-			gpr.FlushLockX(EDX);
 			gpr.BindToRegister(rd, rd == rt, true);
-			MOV(32, R(EDX), gpr.R(rt));
-			// This is okay even if rd == rt, since we saved it above.
-			XOR(32, gpr.R(rd), gpr.R(rd));
-			for (int sa = 31; sa >= 0; --sa)
-			{
-				MOV(32, R(EAX), R(EDX));
-				AND(32, R(EAX), Imm32(1));
-				if (sa == 0)
-					OR(32, gpr.R(rd), R(EAX));
-				else
-				{
-					SHL(32, R(EAX), Imm8(sa));
-					OR(32, gpr.R(rd), R(EAX));
-					SHR(32, R(EDX), Imm8(1));
-				}
-			}
-			gpr.UnlockAllX();
+			if (rd != rt)
+				MOV(32, gpr.R(rd), gpr.R(rt));
+
+			LEA(32, EAX, MScaled(gpr.RX(rd), 2, 0));
+			SHR(32, gpr.R(rd), Imm8(1));
+			XOR(32, gpr.R(rd), R(EAX));
+			AND(32, gpr.R(rd), Imm32(0x55555555));
+			XOR(32, gpr.R(rd), R(EAX));
+
+			LEA(32, EAX, MScaled(gpr.RX(rd), 4, 0));
+			SHR(32, gpr.R(rd), Imm8(2));
+			XOR(32, gpr.R(rd), R(EAX));
+			AND(32, gpr.R(rd), Imm32(0x33333333));
+			XOR(32, gpr.R(rd), R(EAX));
+
+			MOV(32, R(EAX), gpr.R(rd));
+			SHL(32, R(EAX), Imm8(4));
+			SHR(32, gpr.R(rd), Imm8(4));
+			XOR(32, gpr.R(rd), R(EAX));
+			AND(32, gpr.R(rd), Imm32(0x0F0F0F0F));
+			XOR(32, gpr.R(rd), R(EAX));
+
+			MOV(32, R(EAX), gpr.R(rd));
+			SHL(32, R(EAX), Imm8(8));
+			SHR(32, gpr.R(rd), Imm8(8));
+			XOR(32, gpr.R(rd), R(EAX));
+			AND(32, gpr.R(rd), Imm32(0x00FF00FF));
+			XOR(32, gpr.R(rd), R(EAX));
+
+			ROL(32, gpr.R(rd), Imm8(16));
+
 			gpr.UnlockAll();
 			break;
 
