@@ -890,12 +890,12 @@
     <message>
         <location filename="../mainwindow.ui" line="633"/>
         <source>Simple 2xAA</source>
-        <translation>Simple 2xAA</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="641"/>
         <source>Off</source>
-        <translation>Off</translation>
+        <translation>关闭</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="649"/>
