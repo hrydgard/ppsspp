@@ -51,7 +51,7 @@ void Debugger_Memory::Goto(u32 addr)
 
 void Debugger_Memory::on_editAddress_textChanged(const QString &arg1)
 {
-	ui->memView->gotoAddr(arg1.toInt(0,16) & ~3);
+	ui->memView->gotoAddr(arg1.toUInt(0,16) & ~3);
 }
 
 void Debugger_Memory::on_normalBtn_clicked()

@@ -256,13 +256,12 @@ void InGameMenuScreen::render() {
 	g_Config.iFrameSkip = fs ? 1 : 0;
 
 	// TODO: Add UI for more than one slot.
-	VLinear vlinear1(x, y + 80, 20);
-	UIText(UBUNTU24, vlinear1, "Save states are experimental (and large)", 0xFFFFFFFF);
-	if (UIButton(GEN_ID, vlinear1, LARGE_BUTTON_WIDTH, "Save State", ALIGN_LEFT)) {
+	HLinear hlinear1(x, y + 80, 20);
+	if (UIButton(GEN_ID, hlinear1, LARGE_BUTTON_WIDTH, "Save State", ALIGN_LEFT)) {
 		SaveState::SaveSlot(0, 0, 0);
 		screenManager()->finishDialog(this, DR_CANCEL);
 	}
-	if (UIButton(GEN_ID, vlinear1, LARGE_BUTTON_WIDTH, "Load State", ALIGN_LEFT)) {
+	if (UIButton(GEN_ID, hlinear1, LARGE_BUTTON_WIDTH, "Load State", ALIGN_LEFT)) {
 		SaveState::LoadSlot(0, 0, 0);
 		screenManager()->finishDialog(this, DR_CANCEL);
 	}

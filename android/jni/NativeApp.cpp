@@ -231,8 +231,10 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 		LogManager::GetInstance()->ChangeFileLog(fileToLog);
 
 	if (g_Config.currentDirectory == "") {
-#if defined(ANDROID) || defined(BLACKBERRY) || defined(__SYMBIAN32__)
+#if defined(ANDROID)
 		g_Config.currentDirectory = external_directory;
+#elif defined(BLACKBERRY) || defined(__SYMBIAN32__)
+		g_Config.currentDirectory = savegame_directory;
 #else
 		g_Config.currentDirectory = getenv("HOME");
 #endif

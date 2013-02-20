@@ -191,29 +191,52 @@ public:
 	void ReadPos(float pos[3]) {
 		switch (decFmt_.posfmt) {
 		case DEC_FLOAT_3:
-			memcpy(pos, data_ + decFmt_.posoff, 12);
-			// pos[2] is an integer value clamped between 0 and 65535
-			if (pos[2] < 0.f) {
-				pos[2] = 0.f;
-			} else if (pos[2] > 65535.f) {
-				pos[2] = 65535.f;
-			} else {
-				// 2D positions are always integer values: truncate float value
-				pos[2] = (int) pos[2];
+			{
+				const float *f = (const float *)(data_ + decFmt_.posoff);
+				memcpy(pos, f, 12);
+				
+				// pos[2] is an integer value clamped between 0 and 65535
+				if (isThrough()) {
+					if (pos[2] < 0.f && pos[2] != 0.0f) {  // make sure we get negative zero
+						pos[2] = 0.f; 
+					} else if (pos[2] > 65535.f) {
+						pos[2] = 65535.f;
+					} else {
+						// 2D positions are always integer values: truncate float value
+						pos[2] = (int) pos[2];
+					}
+					pos[2] /= 65535.0f;
+				}
 			}
 			break;
 		case DEC_S16_3:
 			{
-				const s16 *p = (s16 *)(data_ + decFmt_.posoff);
-				for (int i = 0; i < 3; i++)
-					pos[i] = p[i] * (1.f / 32768.f);
+				// X and Y are signed 16 bit, Z is unsigned 16 bit
+				const s16 *s = (const s16 *)(data_ + decFmt_.posoff);
+				const u16 *u = (const u16 *)(data_ + decFmt_.posoff);
+				if (isThrough()) {
+					for (int i = 0; i < 2; i++)
+						pos[i] = s[i];
+					pos[2] = u[2] / 65535.0f; 
+				} else {
+					for (int i = 0; i < 3; i++)
+						pos[i] = s[i] * (1.f / 32767.f);
+				}
 			}
 			break;
 		case DEC_S8_3:
 			{
-				const s8 *p = (s8 *)(data_ + decFmt_.posoff);
-				for (int i = 0; i < 3; i++)
-					pos[i] = p[i] * (1.f / 128.f);
+				// X and Y are signed 8 bit, Z is unsigned 8 bit
+				const s8 *b = (const s8 *)(data_ + decFmt_.posoff);
+				const u8 *u = (const u8 *)(data_ + decFmt_.posoff);
+				if (isThrough()) {
+					for (int i = 0; i < 2; i++)
+						pos[i] = b[i];
+					pos[2] = u[2] / 255.0f;
+				} else {
+					for (int i = 0; i < 3; i++)
+						pos[i] = b[i] * (1.f / 127.f);
+				}
 			}
 			break;
 		default:
@@ -225,20 +248,25 @@ public:
 	void ReadNrm(float nrm[3]) {
 		switch (decFmt_.nrmfmt) {
 		case DEC_FLOAT_3:
-			memcpy(nrm, data_ + decFmt_.nrmoff, 12);
+			//memcpy(nrm, data_ + decFmt_.nrmoff, 12);
+			{
+				const float *f = (const float *)(data_ + decFmt_.nrmoff);
+				for (int i = 0; i < 3; i++)
+					nrm[i] = f[i] ;
+			}
 			break;
 		case DEC_S16_3:
 			{
-				const s16 *p = (s16 *)(data_ + decFmt_.nrmoff);
+				const s16 *s = (const s16 *)(data_ + decFmt_.nrmoff);
 				for (int i = 0; i < 3; i++)
-					nrm[i] = p[i] * (1.f / 32768.f);
+					nrm[i] = s[i] * (1.f / 32767.f);
 			}
 			break;
 		case DEC_S8_3:
 			{
-				const s8 *p = (s8 *)(data_ + decFmt_.nrmoff);
+				const s8 *b = (const s8 *)(data_ + decFmt_.nrmoff);
 				for (int i = 0; i < 3; i++)
-					nrm[i] = p[i] * (1.f / 128.f);
+					nrm[i] = b[i] * (1.f / 127.f);
 			}
 			break;
 		default:
@@ -290,13 +318,14 @@ public:
 		switch (decFmt_.c0fmt) {
 		case DEC_U8_4:
 			{
-				const u8 *p = (const u8 *)(data_ + decFmt_.c0off);
+				const u8 *b = (const u8 *)(data_ + decFmt_.c0off);
 				for (int i = 0; i < 4; i++)
-					color[i] = p[i] * (1.f / 255.f);
+					color[i] = b[i] * (1.f / 255.f);
 			}
 			break;
 		case DEC_FLOAT_4:
-			memcpy(color, data_ + decFmt_.c0off, 16); break;
+			memcpy(color, data_ + decFmt_.c0off, 16); 
+			break;
 		default:
 			ERROR_LOG(G3D, "Reader: Unsupported C0 Format");
 			break;
@@ -307,13 +336,14 @@ public:
 		switch (decFmt_.c1fmt) {
 		case DEC_U8_4:
 			{
-				const u8 *p = (const u8 *)(data_ + decFmt_.c1off);
+				const u8 *b = (const u8 *)(data_ + decFmt_.c1off);
 				for (int i = 0; i < 3; i++)
-					color[i] = p[i] * (1.f / 255.f);
+					color[i] = b[i] * (1.f / 255.f);
 			}
 			break;
 		case DEC_FLOAT_4:
-			memcpy(color, data_ + decFmt_.c1off, 12); break;
+			memcpy(color, data_ + decFmt_.c1off, 12); 
+			break;
 		default:
 			ERROR_LOG(G3D, "Reader: Unsupported C1 Format");
 			break;
@@ -322,7 +352,7 @@ public:
 
 	void ReadWeights(float weights[8]) {
 		const float *f = (const float *)(data_ + decFmt_.w0off);
-		const u8 *p = (const u8 *)(data_ + decFmt_.w0off);
+		const u8 *b = (const u8 *)(data_ + decFmt_.w0off);
 		const u16 *s = (const u16 *)(data_ + decFmt_.w0off);
 		switch (decFmt_.w0fmt) {
 		case DEC_FLOAT_1:
@@ -332,10 +362,10 @@ public:
 			for (int i = 0; i <= decFmt_.w0fmt - DEC_FLOAT_1; i++)
 				weights[i] = f[i] * 2.f;
 			break;
-		case DEC_U8_1: weights[0] = p[0] * (1.f / 128.f); break;
-		case DEC_U8_2: for (int i = 0; i < 2; i++) weights[i] = p[i] * (1.f / 128.f); break;
-		case DEC_U8_3: for (int i = 0; i < 3; i++) weights[i] = p[i] * (1.f / 128.f); break;
-		case DEC_U8_4: for (int i = 0; i < 4; i++) weights[i] = p[i] * (1.f / 128.f); break;
+		case DEC_U8_1: weights[0] = b[0] * (1.f / 128.f); break;
+		case DEC_U8_2: for (int i = 0; i < 2; i++) weights[i] = b[i] * (1.f / 128.f); break;
+		case DEC_U8_3: for (int i = 0; i < 3; i++) weights[i] = b[i] * (1.f / 128.f); break;
+		case DEC_U8_4: for (int i = 0; i < 4; i++) weights[i] = b[i] * (1.f / 128.f); break;
 		case DEC_U16_1: weights[0] = s[0] * (1.f / 32768.f); break;
 		case DEC_U16_2: for (int i = 0; i < 2; i++) weights[i] = s[i] * (1.f / 32768.f); break;
 		case DEC_U16_3: for (int i = 0; i < 3; i++) weights[i] = s[i] * (1.f / 32768.f); break;
@@ -345,8 +375,8 @@ public:
 			break;
 		}
 
-		f = (const float*)(data_ + decFmt_.w1off);
-		p = (const u8 *)(data_ + decFmt_.w1off);
+		f = (const float *)(data_ + decFmt_.w1off);
+		b = (const u8 *)(data_ + decFmt_.w1off);
 		s = (const u16 *)(data_ + decFmt_.w1off);
 		switch (decFmt_.w1fmt) {
 		case 0:
@@ -359,10 +389,10 @@ public:
 			for (int i = 0; i <= decFmt_.w1fmt - DEC_FLOAT_1; i++)
 				weights[i+4] = f[i] * 2.f;
 			break;
-		case DEC_U8_1: weights[4] = p[0] * (1.f / 128.f); break;
-		case DEC_U8_2: for (int i = 0; i < 2; i++) weights[i+4] = p[i] * (1.f / 128.f); break;
-		case DEC_U8_3: for (int i = 0; i < 3; i++) weights[i+4] = p[i] * (1.f / 128.f); break;
-		case DEC_U8_4: for (int i = 0; i < 4; i++) weights[i+4] = p[i] * (1.f / 128.f); break;
+		case DEC_U8_1: weights[4] = b[0] * (1.f / 128.f); break;
+		case DEC_U8_2: for (int i = 0; i < 2; i++) weights[i+4] = b[i] * (1.f / 128.f); break;
+		case DEC_U8_3: for (int i = 0; i < 3; i++) weights[i+4] = b[i] * (1.f / 128.f); break;
+		case DEC_U8_4: for (int i = 0; i < 4; i++) weights[i+4] = b[i] * (1.f / 128.f); break;
 		case DEC_U16_1: weights[4] = s[0] * (1.f / 32768.f); break;
 		case DEC_U16_2: for (int i = 0; i < 2; i++) weights[i+4] = s[i] * (1.f / 32768.f); break;
 		case DEC_U16_3: for (int i = 0; i < 3; i++) weights[i+4] = s[i] * (1.f / 32768.f); break;
