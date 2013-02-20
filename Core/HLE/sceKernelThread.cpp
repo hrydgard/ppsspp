@@ -1034,6 +1034,9 @@ void __KernelLoadContext(ThreadContext *ctx)
 	currentMIPS->fcr0 = ctx->fcr0;
 	currentMIPS->fcr31 = ctx->fcr31;
 	currentMIPS->fpcond = ctx->fpcond;
+
+	// Reset the llBit, the other thread may have touched memory.
+	currentMIPS->llBit = 0;
 }
 
 u32 __KernelResumeThreadFromWait(SceUID threadID)
