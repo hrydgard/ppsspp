@@ -46,30 +46,30 @@ LogManager *LogManager::m_logManager = NULL;
 LogManager::LogManager()
 {
 	// create log files
-	m_Log[LogTypes::MASTER_LOG] = new LogContainer("*",				"Master Log");
-	m_Log[LogTypes::BOOT]       = new LogContainer("BOOT",			"Boot");
-	m_Log[LogTypes::COMMON]     = new LogContainer("COMMON",		"Common");
-	m_Log[LogTypes::CPU]        = new LogContainer("CPU",			"CPU");
-	m_Log[LogTypes::LOADER]     = new LogContainer("LOAD",			"Loader");
-	m_Log[LogTypes::IO]         = new LogContainer("IO",	    	"IO");
-	m_Log[LogTypes::DISCIO]     = new LogContainer("DIO",	    	"DiscIO");
-	m_Log[LogTypes::PAD]        = new LogContainer("PAD",			"Pad");
-	m_Log[LogTypes::FILESYS]    = new LogContainer("FileSys",		"File System");
-	m_Log[LogTypes::G3D]        = new LogContainer("G3D",			"3D Graphics");
-	m_Log[LogTypes::DMA]        = new LogContainer("DMA",			"DMA");
-	m_Log[LogTypes::INTC]       = new LogContainer("INTC",			"Interrupts");
-	m_Log[LogTypes::MEMMAP]     = new LogContainer("MM",		"Memory Map");
-	m_Log[LogTypes::SOUND]      = new LogContainer("SND",			"Sound");
-	m_Log[LogTypes::SAS]        = new LogContainer("SAS",			"Sound Mixer (Sas)");
-	m_Log[LogTypes::HLE]        = new LogContainer("HLE",			"HLE");
-	m_Log[LogTypes::TIMER]      = new LogContainer("TMR",			"Timer");
-	m_Log[LogTypes::VIDEO]      = new LogContainer("VID",			"Video");
-	m_Log[LogTypes::DYNA_REC]   = new LogContainer("Jit",			"JIT compiler");
-	m_Log[LogTypes::NETPLAY]    = new LogContainer("NET",			"Net play");
-  m_Log[LogTypes::ME]    = new LogContainer("ME",			"Media Engine");
+	m_Log[LogTypes::MASTER_LOG] = new LogContainer("*",	      "Master Log");
+	m_Log[LogTypes::BOOT]       = new LogContainer("BOOT",    "Boot");
+	m_Log[LogTypes::COMMON]     = new LogContainer("COMMON",  "Common");
+	m_Log[LogTypes::CPU]        = new LogContainer("CPU",     "CPU");
+	m_Log[LogTypes::LOADER]     = new LogContainer("LOAD",    "Loader");
+	m_Log[LogTypes::IO]         = new LogContainer("IO",      "IO");
+	m_Log[LogTypes::DISCIO]     = new LogContainer("DIO",     "DiscIO");
+	m_Log[LogTypes::PAD]        = new LogContainer("PAD",     "Pad");
+	m_Log[LogTypes::FILESYS]    = new LogContainer("FileSys", "File System");
+	m_Log[LogTypes::G3D]        = new LogContainer("G3D",     "3D Graphics");
+	m_Log[LogTypes::DMA]        = new LogContainer("DMA",     "DMA");
+	m_Log[LogTypes::INTC]       = new LogContainer("INTC",    "Interrupts");
+	m_Log[LogTypes::MEMMAP]     = new LogContainer("MM",      "Memory Map");
+	m_Log[LogTypes::SOUND]      = new LogContainer("SND",     "Sound");
+	m_Log[LogTypes::SAS]        = new LogContainer("SAS",     "Sound Mixer (Sas)");
+	m_Log[LogTypes::HLE]        = new LogContainer("HLE",     "HLE");
+	m_Log[LogTypes::TIMER]      = new LogContainer("TMR",     "Timer");
+	m_Log[LogTypes::VIDEO]      = new LogContainer("VID",     "Video");
+	m_Log[LogTypes::DYNA_REC]   = new LogContainer("Jit",     "JIT compiler");
+	m_Log[LogTypes::NETPLAY]    = new LogContainer("NET",     "Net play");
+	m_Log[LogTypes::ME]         = new LogContainer("ME",      "Media Engine");
 
 	// Remove file logging on small devices
-#if !defined(ANDROID) && !defined(IOS) && !defined(BLACKBERRY)
+#ifndef USING_GLES2
 	m_fileLog = new FileLogListener(File::GetUserPath(F_MAINLOG_IDX).c_str());
 	m_consoleLog = new ConsoleListener();
 	m_debuggerLog = new DebuggerLogListener();
@@ -82,7 +82,7 @@ LogManager::LogManager()
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; ++i)
 	{
 		m_Log[i]->SetEnable(true);
-#if !defined(ANDROID) && !defined(IOS) && !defined(BLACKBERRY)
+#ifndef USING_GLES2
 		m_Log[i]->AddListener(m_fileLog);
 		m_Log[i]->AddListener(m_consoleLog);
 #ifdef _MSC_VER
@@ -97,11 +97,13 @@ LogManager::~LogManager()
 {
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; ++i)
 	{
+#ifndef USING_GLES2
 		if (m_fileLog != NULL)
 			m_logManager->RemoveListener((LogTypes::LOG_TYPE)i, m_fileLog);
-#if !defined(ANDROID) && !defined(IOS) && !defined(BLACKBERRY)
 		m_logManager->RemoveListener((LogTypes::LOG_TYPE)i, m_consoleLog);
+#ifdef _MSC_VER
 		m_logManager->RemoveListener((LogTypes::LOG_TYPE)i, m_debuggerLog);
+#endif
 #endif
 	}
 
@@ -109,7 +111,7 @@ LogManager::~LogManager()
 		delete m_Log[i];
 	if (m_fileLog != NULL)
 		delete m_fileLog;
-#if !defined(ANDROID) && !defined(IOS) && !defined(BLACKBERRY)
+#ifndef USING_GLES2
 	delete m_consoleLog;
 	delete m_debuggerLog;
 #endif
@@ -214,6 +216,9 @@ void LogContainer::RemoveListener(LogListener *listener)
 
 void LogContainer::Trigger(LogTypes::LOG_LEVELS level, const char *msg)
 {
+#ifdef __SYMBIAN32__
+	RDebug::Printf("%s",msg);
+#else
 	std::lock_guard<std::mutex> lk(m_listeners_lock);
 
 	std::set<LogListener*>::const_iterator i;
@@ -221,6 +226,7 @@ void LogContainer::Trigger(LogTypes::LOG_LEVELS level, const char *msg)
 	{
 		(*i)->Log(level, msg);
 	}
+#endif
 }
 
 FileLogListener::FileLogListener(const char *filename)
@@ -235,11 +241,7 @@ void FileLogListener::Log(LogTypes::LOG_LEVELS, const char *msg)
 		return;
 
 	std::lock_guard<std::mutex> lk(m_log_lock);
-#ifdef __SYMBIAN32__
-	RDebug::Printf("%s",msg);
-#else
 	m_logfile << msg << std::flush;
-#endif
 }
 
 void DebuggerLogListener::Log(LogTypes::LOG_LEVELS, const char *msg)
