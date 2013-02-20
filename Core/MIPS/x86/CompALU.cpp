@@ -219,15 +219,63 @@ namespace MIPSComp
 
 		switch (op & 63)
 		{
-		//case 10: if (!R(rt)) R(rd) = R(rs); break; //movz
-		//case 11: if (R(rt)) R(rd) = R(rs); break; //movn
+		case 10: //if (R(rt) == 0) R(rd) = R(rs); break; //movz
+			if (rd == rs)
+				break;
+			gpr.Lock(rt, rs, rd);
+			if (!gpr.IsImmediate(rt))
+			{
+				gpr.KillImmediate(rs, true, false);
+				// Need to load rd in case the condition fails.
+				gpr.BindToRegister(rd, true, true);
+				CMP(32, gpr.R(rt), Imm32(0));
+				CMOVcc(32, gpr.RX(rd), gpr.R(rs), CC_E);
+			}
+			else if (gpr.GetImmediate32(rt) == 0)
+			{
+				// Yes, this actually happens.
+				if (gpr.IsImmediate(rs))
+					gpr.SetImmediate32(rd, gpr.GetImmediate32(rs));
+				else if (rd != rs)
+				{
+					gpr.BindToRegister(rd, false, true);
+					MOV(32, gpr.R(rd), gpr.R(rs));
+				}
+			}
+			gpr.UnlockAll();
+			break;
 
-		// case 32: //R(rd) = R(rs) + R(rt);		break; //add
+		case 11: //if (R(rt) != 0) R(rd) = R(rs); break; //movn
+			if (rd == rs)
+				break;
+			gpr.Lock(rt, rs, rd);
+			if (!gpr.IsImmediate(rt))
+			{
+				gpr.KillImmediate(rs, true, false);
+				// Need to load rd in case the condition fails.
+				gpr.BindToRegister(rd, true, true);
+				CMP(32, gpr.R(rt), Imm32(0));
+				CMOVcc(32, gpr.RX(rd), gpr.R(rs), CC_NE);
+			}
+			else if (gpr.GetImmediate32(rt) != 0)
+			{
+				if (gpr.IsImmediate(rs))
+					gpr.SetImmediate32(rd, gpr.GetImmediate32(rs));
+				else if (rd != rs)
+				{
+					gpr.BindToRegister(rd, false, true);
+					MOV(32, gpr.R(rd), gpr.R(rs));
+				}
+			}
+			gpr.UnlockAll();
+			break;
+
+		case 32: //R(rd) = R(rs) + R(rt);		break; //add
 		case 33: //R(rd) = R(rs) + R(rt);		break; //addu
 			CompTriArith(op, &XEmitter::ADD, &RType3_ImmAdd);
 			break;
 		case 34: //R(rd) = R(rs) - R(rt);		break; //sub
-		case 35:
+		case 35: //R(rd) = R(rs) - R(rt);		break; //subu
 			CompTriArith(op, &XEmitter::SUB, &RType3_ImmSub);
 			break;
 		case 36: //R(rd) = R(rs) & R(rt);		break; //and
