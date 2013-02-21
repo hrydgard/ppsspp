@@ -158,6 +158,29 @@ namespace MIPSComp
 		}
 	}
 
+	void Jit::Comp_RType2(u32 op)
+	{
+		CONDITIONAL_DISABLE;
+		int rs = _RS;
+		int rd = _RD;
+
+		// Don't change $zr.
+		if (rd == 0)
+			return;
+
+		switch (op & 63)
+		{
+		case 22: //clz
+			DISABLE;
+			break;
+		case 23: //clo
+			DISABLE;
+			break;
+		default:
+			DISABLE;
+		}
+	}
+
 	static u32 RType3_ImmAdd(const u32 a, const u32 b)
 	{
 		return a + b;

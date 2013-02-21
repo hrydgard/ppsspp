@@ -145,7 +145,12 @@ namespace MIPSComp
 			break;
 		}
 	}
-	
+
+	void Jit::Comp_RType2(u32 op)
+	{
+		DISABLE;
+	}
+
 	void Jit::Comp_RType3(u32 op)
 	{
 		int rt = _RT;

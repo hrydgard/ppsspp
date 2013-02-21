@@ -94,6 +94,7 @@ public:
 	void Comp_Break(u32 op);
 
 	void Comp_IType(u32 op);
+	void Comp_RType2(u32 op);
 	void Comp_RType3(u32 op);
 	void Comp_ShiftType(u32 op);
 	void Comp_Allegrex(u32 op);
