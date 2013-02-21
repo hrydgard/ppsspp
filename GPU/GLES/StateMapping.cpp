@@ -87,19 +87,10 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	// TODO: The top bit of the alpha channel should be written to the stencil bit somehow. This appears to require very expensive multipass rendering :( Alternatively, one could do a
 	// single fullscreen pass that converts alpha to stencil (or 2 passes, to set both the 0 and 1 values) very easily.
 
-	// Set cull
-	bool wantCull = !gstate.isModeClear() && !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
-	glstate.cullFace.set(wantCull);
-
-	if (wantCull) {
-		u8 cullMode = gstate.getCullMode();
-		glstate.cullFaceMode.set(cullingMode[cullMode]);
-	}
-
 	// Set blend
 	bool wantBlend = !gstate.isModeClear() && (gstate.alphaBlendEnable & 1);
 	glstate.blend.set(wantBlend);
-	if(wantBlend) {
+	if (wantBlend) {
 		// This can't be done exactly as there are several PSP blend modes that are impossible to do on OpenGL ES 2.0, and some even on regular OpenGL for desktop.
 		// HOWEVER - we should be able to approximate the 2x modes in the shader, although they will clip wrongly.
 
@@ -168,46 +159,54 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		}
 	}
 
-	bool wantDepthTest = gstate.isModeClear() || gstate.isDepthTestEnabled();
-	glstate.depthTest.set(wantDepthTest);
-	if(wantDepthTest) {
-		// Force GL_ALWAYS if mode clear - without depth test, no depth write.
-		int depthTestFunc = gstate.isModeClear() ? 1 : gstate.getDepthTestFunc();
-		glstate.depthFunc.set(ztests[depthTestFunc]);
-	}
+	// Dither
+	glstate.dither.set(gstate.ditherEnable & 1);
+	// Set cull
 
-	// PSP color/alpha mask is per bit but we can only support per byte.
-	// But let's do that, at least. And let's try a threshold.
-	if (!gstate.isModeClear()) {
+	if (gstate.isModeClear()) {
+		bool colMask = (gstate.clearmode >> 8) & 1;
+		bool alphaMask = (gstate.clearmode >> 9) & 1;
+		bool updateZ = (gstate.clearmode >> 10) & 1;
+
+		glstate.colorMask.set(colMask, colMask, colMask, alphaMask);
+
+		glstate.stencilTest.enable();
+		glstate.stencilOp.set(GL_REPLACE, GL_REPLACE, GL_REPLACE);
+		glstate.stencilFunc.set(GL_ALWAYS, 0, 0xFF);
+
+		glstate.depthTest.enable();
+		glstate.depthFunc.set(GL_ALWAYS);
+		glstate.depthWrite.set(updateZ ? GL_TRUE : GL_FALSE);
+	} else {
+		u8 cullMode = gstate.getCullMode();
+		bool wantCull = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
+		glstate.cullFace.set(wantCull);
+		glstate.cullFaceMode.set(cullingMode[cullMode]);
+
+		glstate.depthTest.set(gstate.isDepthTestEnabled());
+		glstate.depthFunc.set(ztests[gstate.getDepthTestFunc()]);
+		glstate.depthWrite.set(gstate.isDepthWriteEnabled() ? GL_TRUE : GL_FALSE);
+
+		// PSP color/alpha mask is per bit but we can only support per byte.
+		// But let's do that, at least. And let's try a threshold.
 		bool rmask = (gstate.pmskc & 0xFF) < 128;
 		bool gmask = ((gstate.pmskc >> 8) & 0xFF) < 128;
 		bool bmask = ((gstate.pmskc >> 16) & 0xFF) < 128;
 		bool amask = (gstate.pmska & 0xFF) < 128;
 		glstate.colorMask.set(rmask, gmask, bmask, amask);
+
+		if (gstate.isStencilTestEnabled()) {
+			glstate.stencilTest.enable();
+			glstate.stencilFunc.set(ztests[gstate.stenciltest & 0x7],  // func
+				(gstate.stenciltest >> 8) & 0xFF,  // ref
+				(gstate.stenciltest >> 16) & 0xFF);  // mask
+			glstate.stencilOp.set(stencilOps[gstate.stencilop & 0x7],  // stencil fail
+				stencilOps[(gstate.stencilop >> 8) & 0x7],  // depth fail
+				stencilOps[(gstate.stencilop >> 16) & 0x7]);
+		} else {
+			glstate.stencilTest.disable();
+		}
 	}
-
-	// Stencil test
-	if (!gstate.isModeClear() && gstate.isStencilTestEnabled()) {
-		glstate.stencilTest.enable();
-		glstate.stencilFunc.set(ztests[gstate.stenciltest & 0x7],  // func
-			                      (gstate.stenciltest >> 8) & 0xFF,  // ref
-														(gstate.stenciltest >> 16) & 0xFF);  // mask
-		glstate.stencilOp.set(stencilOps[gstate.stencilop & 0x7],  // stencil fail
-													stencilOps[(gstate.stencilop >> 8) & 0x7],  // depth fail
-													stencilOps[(gstate.stencilop >> 16) & 0x7]);
-	} else if (gstate.isModeClear()) {
-		glstate.stencilTest.enable();
-		glstate.stencilOp.set(GL_REPLACE, GL_REPLACE, GL_REPLACE);
-		glstate.stencilFunc.set(GL_ALWAYS, 0, 0xFF);
-	} else {
-		glstate.stencilTest.disable();
-	}
-
-	// Dither
-	glstate.dither.set(gstate.ditherEnable & 1);
-
-	bool wantDepthWrite = gstate.isModeClear() || gstate.isDepthWriteEnabled();
-	glstate.depthWrite.set(wantDepthWrite ? GL_TRUE : GL_FALSE);
 }
 
 void TransformDrawEngine::UpdateViewportAndProjection() {

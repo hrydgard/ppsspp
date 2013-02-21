@@ -280,26 +280,6 @@ void GLES_GPU::Break() {
 
 }
 
-static void EnterClearMode(u32 data) {
-	bool colMask = (data >> 8) & 1;
-	bool alphaMask = (data >> 9) & 1;
-	bool updateZ = (data >> 10) & 1;
-	glstate.colorMask.set(colMask, colMask, colMask, alphaMask);
-	glstate.depthWrite.set(updateZ ? GL_TRUE : GL_FALSE);
-}
-
-static void LeaveClearMode() {
-	// We have to reset the following state as per the state of the command registers:
-	// Back face culling
-	// Texture map enable	(meh)
-	// Fogging
-	// Antialiasing
-	// Alpha test
-	glstate.colorMask.set(1,1,1,1);
-	glstate.depthWrite.set(!(gstate.zmsk & 1) ? GL_TRUE : GL_FALSE);
-	// dirtyshader?
-}
-
 void GLES_GPU::PreExecuteOp(u32 op, u32 diff) {
 	u32 cmd = op >> 24;
 	if (flushBeforeCommand_[cmd] == 1 || (diff && flushBeforeCommand_[cmd] == 2))
@@ -826,13 +806,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	//	CLEARING
 	//////////////////////////////////////////////////////////////////
 	case GE_CMD_CLEARMODE:
-		// If it becomes a performance problem, check diff&1
-		if (data & 1)
-			EnterClearMode(data);
-		else
-			LeaveClearMode();
 		break;
-
 
 	//////////////////////////////////////////////////////////////////
 	//	ALPHA BLENDING
