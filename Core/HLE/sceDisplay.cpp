@@ -403,12 +403,15 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	if (skipFrame) {
 		gstate_c.skipDrawReason |= SKIPDRAW_SKIPFRAME;
 		numSkippedFrames++;
-	}	else {
+	} else {
 		numSkippedFrames = 0;
 	}
 
 	if (!skipFlip) {
-		coreState = CORE_NEXTFRAME;
+		// Might've just quit / been paused.
+		if (coreState == CORE_RUNNING) {
+			coreState = CORE_NEXTFRAME;
+		}
 		CoreTiming::ScheduleEvent(0 - cyclesLate, afterFlipEvent, 0);
 
 		gpu->CopyDisplayToOutput();

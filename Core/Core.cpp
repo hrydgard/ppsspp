@@ -72,8 +72,8 @@ void Core_RunLoop()
 		if (coreState == CORE_NEXTFRAME)
 		{
 #ifdef _WIN32
-			GL_SwapBuffers();
 			coreState = CORE_RUNNING;
+			GL_SwapBuffers();
 #endif
 		}
 	}
