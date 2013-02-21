@@ -236,7 +236,7 @@ void TransformDrawEngine::UpdateViewportAndProjection() {
 	if (throughmode) {
 		// No viewport transform here. Let's experiment with using region.
 		glstate.viewport.set((0 + regionX1) * renderWidthFactor, (0 - regionY1) * renderHeightFactor, (regionX2 - regionX1) * renderWidthFactor, (regionY2 - regionY1) * renderHeightFactor);
-		glstate.depthRange.set(1.0, 0.0);
+		glstate.depthRange.set(0.0, 1.0);
 	} else {
 		// These we can turn into a glViewport call, offset by offsetX and offsetY. Math after.
 		float vpXa = getFloat24(gstate.viewportx1);

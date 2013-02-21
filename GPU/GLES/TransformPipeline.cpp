@@ -640,7 +640,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		transformed[index].fog = fogCoef;
 		memcpy(&transformed[index].u, uv, 2 * sizeof(float));
 		if (gstate_c.flipTexture)
-			transformed[index].v = 1.0f - transformed[index].v * 2.0f;
+			transformed[index].v = 1.0f - transformed[index].v; //(float)gstate_c.actualTextureHeight / gstate_c.curTextureHeight - transformed[index].v;
 		for (int i = 0; i < 4; i++) {
 			transformed[index].color0[i] = c0[i] * 255.0f;
 		}

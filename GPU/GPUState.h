@@ -255,6 +255,7 @@ struct GPUStateCache
 
 	u32 curTextureWidth;
 	u32 curTextureHeight;
+	u32 actualTextureHeight;
 
 	float vpWidth;
 	float vpHeight;

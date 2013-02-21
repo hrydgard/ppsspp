@@ -235,7 +235,7 @@ void FramebufferManager::DrawActiveTexture(float x, float y, float w, float h, b
 	glsl_unbind();
 }
 
-FramebufferManager::VirtualFramebuffer *FramebufferManager::GetDisplayFBO() {
+VirtualFramebuffer *FramebufferManager::GetDisplayFBO() {
 	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
 		VirtualFramebuffer *v = *iter;
 		if (MaskedEqual(v->fb_address, displayFramebufPtr_) && v->format == displayFormat_) {
@@ -325,6 +325,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		vfb->renderWidth = (u16)(drawing_width * renderWidthFactor);
 		vfb->renderHeight = (u16)(drawing_height * renderHeightFactor);
 		vfb->format = fmt;
+		vfb->usageFlags = FB_USAGE_RENDERTARGET;
 
 		switch (fmt) {
 		case GE_FORMAT_4444: vfb->colorDepth = FBO_4444; break;
@@ -342,7 +343,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		//#endif
 
 		vfb->fbo = fbo_create(vfb->renderWidth, vfb->renderHeight, 1, true, vfb->colorDepth);
-		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb->fbo);
+		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb);
 
 		vfb->last_frame_used = gpuStats.numFrames;
 		vfbs_.push_back(vfb);
@@ -368,7 +369,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		
 		fbo_bind_as_render_target(vfb->fbo);
 
-		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb->fbo);
+		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb);
 #ifdef USING_GLES2
 		// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
 		// to it. This broke stuff before, so now it only clears on the first use of an
@@ -482,7 +483,7 @@ void FramebufferManager::DecimateFBOs() {
 		}
 		if ((*iter)->last_frame_used + FBO_OLD_AGE < gpuStats.numFrames) {
 			INFO_LOG(HLE, "Destroying FBO for %08x (%i x %i x %i)", vfb->fb_address, vfb->width, vfb->height, vfb->format)
-			textureCache_->NotifyFramebufferDestroyed(vfb->fb_address, vfb->fbo);
+			textureCache_->NotifyFramebufferDestroyed(vfb->fb_address, vfb);
 			fbo_destroy(vfb->fbo);
 			delete vfb;
 			vfbs_.erase(iter++);
@@ -495,7 +496,7 @@ void FramebufferManager::DecimateFBOs() {
 void FramebufferManager::DestroyAllFBOs() {
 	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
 		VirtualFramebuffer *vfb = *iter;
-		textureCache_->NotifyFramebufferDestroyed(vfb->fb_address, vfb->fbo);
+		textureCache_->NotifyFramebufferDestroyed(vfb->fb_address, vfb);
 		fbo_destroy(vfb->fbo);
 		delete vfb;
 	}
