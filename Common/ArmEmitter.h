@@ -552,7 +552,9 @@ public:
 	// Call this when shutting down. Don't rely on the destructor, even though it'll do the job.
 	void FreeCodeSpace()
 	{
+#ifndef __SYMBIAN32__
 		FreeMemoryPages(region, region_size);
+#endif
 		region = NULL;
 		region_size = 0;
 	}
