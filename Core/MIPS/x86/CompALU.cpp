@@ -506,8 +506,69 @@ namespace MIPSComp
 
 	void Jit::Comp_Special3(u32 op)
 	{
-		// ext, ins
-		DISABLE;
+		CONDITIONAL_DISABLE;
+		int rs = _RS;
+		int rt = _RT;
+		int pos = _POS;
+
+		int size = _SIZE + 1;
+		u32 mask = 0xFFFFFFFFUL >> (32 - size);
+
+		// Don't change $zr.
+		if (rt == 0)
+			return;
+
+		switch (op & 0x3f)
+		{
+		case 0x0: //ext
+			if (gpr.IsImmediate(rs))
+			{
+				gpr.SetImmediate32(rt, (gpr.GetImmediate32(rs) >> pos) & mask);
+				return;
+			}
+
+			gpr.Lock(rs, rt);
+			gpr.BindToRegister(rt, rs == rt, true);
+			if (rs != rt)
+				MOV(32, gpr.R(rt), gpr.R(rs));
+			SHR(32, gpr.R(rt), Imm8(pos));
+			AND(32, gpr.R(rt), Imm32(mask));
+			gpr.UnlockAll();
+			break;
+
+		case 0x4: //ins
+			{
+				u32 sourcemask = mask >> pos;
+				u32 destmask = ~(sourcemask << pos);
+				if (gpr.IsImmediate(rs))
+				{
+					u32 inserted = (gpr.GetImmediate32(rs) & sourcemask) << pos;
+					if (gpr.IsImmediate(rt))
+					{
+						gpr.SetImmediate32(rt, (gpr.GetImmediate32(rt) & destmask) | inserted);
+						return;
+					}
+
+					gpr.Lock(rs, rt);
+					gpr.BindToRegister(rt, true, true);
+					AND(32, gpr.R(rt), Imm32(destmask));
+					OR(32, gpr.R(rt), Imm32(inserted));
+					gpr.UnlockAll();
+				}
+				else
+				{
+					gpr.Lock(rs, rt);
+					gpr.BindToRegister(rt, true, true);
+					MOV(32, R(EAX), gpr.R(rs));
+					AND(32, R(EAX), Imm32(sourcemask));
+					SHL(32, R(EAX), Imm8(pos));
+					AND(32, gpr.R(rt), Imm32(destmask));
+					OR(32, gpr.R(rt), R(EAX));
+					gpr.UnlockAll();
+				}
+			}
+			break;
+		}
 	}
 
 
@@ -620,6 +681,7 @@ namespace MIPSComp
 
 	void Jit::Comp_MulDivType(u32 op)
 	{
+		CONDITIONAL_DISABLE;
 		int rt = _RT;
 		int rs = _RS;
 		int rd = _RD;
