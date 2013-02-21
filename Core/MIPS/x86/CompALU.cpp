@@ -78,16 +78,26 @@ namespace MIPSComp
 
 				gpr.Lock(rt, rs);
 				gpr.BindToRegister(rt, rt == rs, true);
-				if (rt != rs)
+				if (rt == rs || gpr.R(rs).IsSimpleReg())
+					LEA(32, gpr.RX(rt), MDisp(gpr.RX(rs), simm));
+				else
+				{
 					MOV(32, gpr.R(rt), gpr.R(rs));
-				if (simm != 0)
-					ADD(32, gpr.R(rt), Imm32((u32)(s32)simm));
-				// TODO: Can also do LEA if both operands happen to be in registers.
+					if (simm != 0)
+						ADD(32, gpr.R(rt), Imm32((u32)(s32)simm));
+				}
 				gpr.UnlockAll();
 			}
 			break;
 
 		case 10: // R(rt) = (s32)R(rs) < simm; break; //slti
+			// There's a mips compiler out there asking it already knows the answer to...
+			if (gpr.IsImmediate(rs))
+			{
+				gpr.SetImmediate32(rt, (s32)gpr.GetImmediate32(rs) < simm);
+				break;
+			}
+
 			gpr.Lock(rt, rs);
 			gpr.BindToRegister(rs, true, false);
 			gpr.BindToRegister(rt, rt == rs, true);
@@ -99,6 +109,12 @@ namespace MIPSComp
 			break;
 
 		case 11: // R(rt) = R(rs) < uimm; break; //sltiu
+			if (gpr.IsImmediate(rs))
+			{
+				gpr.SetImmediate32(rt, gpr.GetImmediate32(rs) < uimm);
+				break;
+			}
+
 			gpr.Lock(rt, rs);
 			gpr.BindToRegister(rs, true, false);
 			gpr.BindToRegister(rt, rt == rs, true);
@@ -142,6 +158,29 @@ namespace MIPSComp
 		}
 	}
 
+	void Jit::Comp_RType2(u32 op)
+	{
+		CONDITIONAL_DISABLE;
+		int rs = _RS;
+		int rd = _RD;
+
+		// Don't change $zr.
+		if (rd == 0)
+			return;
+
+		switch (op & 63)
+		{
+		case 22: //clz
+			DISABLE;
+			break;
+		case 23: //clo
+			DISABLE;
+			break;
+		default:
+			DISABLE;
+		}
+	}
+
 	static u32 RType3_ImmAdd(const u32 a, const u32 b)
 	{
 		return a + b;
@@ -181,16 +220,36 @@ namespace MIPSComp
 			return;
 		}
 
+		// Act like zero was used if the operand is equivalent.  This happens.
+		if (gpr.IsImmediate(rs) && gpr.GetImmediate32(rs) == 0)
+			rs = 0;
+		if (gpr.IsImmediate(rt) && gpr.GetImmediate32(rt) == 0)
+			rt = 0;
+
 		gpr.Lock(rt, rs, rd);
-		// Optimize out + 0 and | 0.
-		if ((doImm == &RType3_ImmAdd || doImm == &RType3_ImmOr) && (rs == 0 || rt == 0))
+		// Optimize out operations against 0... and is the only one that isn't a MOV.
+		if (rt == 0 || (rs == 0 && doImm != &RType3_ImmSub))
 		{
-			int rsource = rt == 0 ? rs : rt;
-			if (rsource != rd)
+			if (doImm == &RType3_ImmAnd)
+				gpr.SetImmediate32(rd, 0);
+			else
 			{
-				gpr.BindToRegister(rd, false, true);
-				MOV(32, gpr.R(rd), gpr.R(rsource));
+				int rsource = rt == 0 ? rs : rt;
+				if (rsource != rd)
+				{
+					gpr.BindToRegister(rd, false, true);
+					MOV(32, gpr.R(rd), gpr.R(rsource));
+				}
 			}
+		}
+		else if (gpr.IsImmediate(rt))
+		{
+			// No temporary needed.
+			u32 rtval = gpr.GetImmediate32(rt);
+			gpr.BindToRegister(rd, rs == rd, true);
+			if (rs != rd)
+				MOV(32, gpr.R(rd), gpr.R(rs));
+			(this->*arith)(32, gpr.R(rd), Imm32(rtval));
 		}
 		else
 		{
@@ -368,13 +427,40 @@ namespace MIPSComp
 		}
 	}
 
+	static u32 ShiftType_ImmLogicalLeft(const u32 a, const u32 b)
+	{
+		return a << (b & 0x1f);
+	}
 
-	void Jit::CompShiftImm(u32 op, void (XEmitter::*shift)(int, OpArg, OpArg))
+	static u32 ShiftType_ImmLogicalRight(const u32 a, const u32 b)
+	{
+		return a >> (b & 0x1f);
+	}
+
+	static u32 ShiftType_ImmArithRight(const u32 a, const u32 b)
+	{
+		return ((s32) a) >> (b & 0x1f);
+	}
+
+	static u32 ShiftType_ImmRotateRight(const u32 a, const u32 b)
+	{
+		const s8 sa = b & 0x1f;
+		return (a >> sa) | (a << (32 - sa));
+	}
+
+	void Jit::CompShiftImm(u32 op, void (XEmitter::*shift)(int, OpArg, OpArg), u32 (*doImm)(const u32, const u32))
 	{
 		int rd = _RD;
 		int rt = _RT;
-		gpr.Lock(rd, rt);
 		int sa = _SA;
+
+		if (doImm && gpr.IsImmediate(rt))
+		{
+			gpr.SetImmediate32(rd, doImm(gpr.GetImmediate32(rt), sa));
+			return;
+		}
+
+		gpr.Lock(rd, rt);
 		gpr.BindToRegister(rd, rd == rt, true);
 		if (rd != rt)
 			MOV(32, gpr.R(rd), gpr.R(rt));
@@ -383,38 +469,56 @@ namespace MIPSComp
 	}
 
 	// "over-shifts" work the same as on x86 - only bottom 5 bits are used to get the shift value
-	void Jit::CompShiftVar(u32 op, void (XEmitter::*shift)(int, OpArg, OpArg))
+	void Jit::CompShiftVar(u32 op, void (XEmitter::*shift)(int, OpArg, OpArg), u32 (*doImm)(const u32, const u32))
 	{
 		int rd = _RD;
 		int rt = _RT;
 		int rs = _RS;
-		gpr.FlushLockX(ECX);
+
+		if (doImm && gpr.IsImmediate(rs) && gpr.IsImmediate(rt))
+		{
+			gpr.SetImmediate32(rd, doImm(gpr.GetImmediate32(rt), gpr.GetImmediate32(rs)));
+			return;
+		}
+
 		gpr.Lock(rd, rt, rs);
-		gpr.BindToRegister(rd, rd == rt || rd == rs, true);
-		MOV(32, R(ECX), gpr.R(rs));	// Only ECX can be used for variable shifts.
-		AND(32, R(ECX), Imm32(0x1f));
-		if (rd != rt)
-			MOV(32, gpr.R(rd), gpr.R(rt));
-		(this->*shift)(32, gpr.R(rd), R(ECX));
+		if (gpr.IsImmediate(rs))
+		{
+			int sa = gpr.GetImmediate32(rs);
+			gpr.BindToRegister(rd, rd == rt, true);
+			if (rd != rt)
+				MOV(32, gpr.R(rd), gpr.R(rt));
+			(this->*shift)(32, gpr.R(rd), Imm8(sa));
+		}
+		else
+		{
+			gpr.FlushLockX(ECX);
+			gpr.BindToRegister(rd, rd == rt || rd == rs, true);
+			MOV(32, R(ECX), gpr.R(rs));	// Only ECX can be used for variable shifts.
+			AND(32, R(ECX), Imm32(0x1f));
+			if (rd != rt)
+				MOV(32, gpr.R(rd), gpr.R(rt));
+			(this->*shift)(32, gpr.R(rd), R(ECX));
+			gpr.UnlockAllX();
+		}
 		gpr.UnlockAll();
-		gpr.UnlockAllX();
 	}
 
 	void Jit::Comp_ShiftType(u32 op)
 	{
-		CONDITIONAL_DISABLE
+		CONDITIONAL_DISABLE;
 		int rs = _RS;
 		int fd = _FD;
 		// WARNIGN : ROTR
 		switch (op & 0x3f)
 		{
-		case 0: CompShiftImm(op, &XEmitter::SHL); break;
-		case 2: CompShiftImm(op, rs == 1 ? &XEmitter::ROR : &XEmitter::SHR); break;	// srl, rotr
-		case 3: CompShiftImm(op, &XEmitter::SAR); break;	// sra
+		case 0: CompShiftImm(op, &XEmitter::SHL, &ShiftType_ImmLogicalLeft); break;
+		case 2: CompShiftImm(op, rs == 1 ? &XEmitter::ROR : &XEmitter::SHR, rs == 1 ? &ShiftType_ImmRotateRight : &ShiftType_ImmLogicalRight); break;	// srl, rotr
+		case 3: CompShiftImm(op, &XEmitter::SAR, &ShiftType_ImmArithRight); break;	// sra
 
-		case 4: CompShiftVar(op, &XEmitter::SHL); break; //sllv
-		case 6: CompShiftVar(op, fd == 1 ? &XEmitter::ROR : &XEmitter::SHR); break;	//srlv
-		case 7: CompShiftVar(op, &XEmitter::SAR); break; //srav
+		case 4: CompShiftVar(op, &XEmitter::SHL, &ShiftType_ImmLogicalLeft); break; //sllv
+		case 6: CompShiftVar(op, fd == 1 ? &XEmitter::ROR : &XEmitter::SHR, fd == 1 ? &ShiftType_ImmRotateRight : &ShiftType_ImmLogicalRight); break;	//srlv
+		case 7: CompShiftVar(op, &XEmitter::SAR, &ShiftType_ImmArithRight); break; //srav
 
 		default:
 			Comp_Generic(op);
@@ -425,8 +529,69 @@ namespace MIPSComp
 
 	void Jit::Comp_Special3(u32 op)
 	{
-		// ext, ins
-		DISABLE;
+		CONDITIONAL_DISABLE;
+		int rs = _RS;
+		int rt = _RT;
+		int pos = _POS;
+
+		int size = _SIZE + 1;
+		u32 mask = 0xFFFFFFFFUL >> (32 - size);
+
+		// Don't change $zr.
+		if (rt == 0)
+			return;
+
+		switch (op & 0x3f)
+		{
+		case 0x0: //ext
+			if (gpr.IsImmediate(rs))
+			{
+				gpr.SetImmediate32(rt, (gpr.GetImmediate32(rs) >> pos) & mask);
+				return;
+			}
+
+			gpr.Lock(rs, rt);
+			gpr.BindToRegister(rt, rs == rt, true);
+			if (rs != rt)
+				MOV(32, gpr.R(rt), gpr.R(rs));
+			SHR(32, gpr.R(rt), Imm8(pos));
+			AND(32, gpr.R(rt), Imm32(mask));
+			gpr.UnlockAll();
+			break;
+
+		case 0x4: //ins
+			{
+				u32 sourcemask = mask >> pos;
+				u32 destmask = ~(sourcemask << pos);
+				if (gpr.IsImmediate(rs))
+				{
+					u32 inserted = (gpr.GetImmediate32(rs) & sourcemask) << pos;
+					if (gpr.IsImmediate(rt))
+					{
+						gpr.SetImmediate32(rt, (gpr.GetImmediate32(rt) & destmask) | inserted);
+						return;
+					}
+
+					gpr.Lock(rs, rt);
+					gpr.BindToRegister(rt, true, true);
+					AND(32, gpr.R(rt), Imm32(destmask));
+					OR(32, gpr.R(rt), Imm32(inserted));
+					gpr.UnlockAll();
+				}
+				else
+				{
+					gpr.Lock(rs, rt);
+					gpr.BindToRegister(rt, true, true);
+					MOV(32, R(EAX), gpr.R(rs));
+					AND(32, R(EAX), Imm32(sourcemask));
+					SHL(32, R(EAX), Imm8(pos));
+					AND(32, gpr.R(rt), Imm32(destmask));
+					OR(32, gpr.R(rt), R(EAX));
+					gpr.UnlockAll();
+				}
+			}
+			break;
+		}
 	}
 
 
@@ -539,6 +704,7 @@ namespace MIPSComp
 
 	void Jit::Comp_MulDivType(u32 op)
 	{
+		CONDITIONAL_DISABLE;
 		int rt = _RT;
 		int rs = _RS;
 		int rd = _RD;

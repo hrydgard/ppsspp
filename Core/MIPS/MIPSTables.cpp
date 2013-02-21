@@ -194,8 +194,8 @@ const MIPSInstruction tableSpecial[64] = /// 000000 ...... ...... .......... xxx
 	INSTR("mtlo",  &Jit::Comp_MulDivType, Dis_ToHiloTransfer,   Int_MulDivType, IN_RS|OUT_OTHER),
 	{-2},
 	{-2},
-	INSTR("clz",   &Jit::Comp_Generic, Dis_RType2, Int_RType2, OUT_RD|IN_RS|IN_RT),
-	INSTR("clo",   &Jit::Comp_Generic, Dis_RType2, Int_RType2, OUT_RD|IN_RS|IN_RT),
+	INSTR("clz",   &Jit::Comp_RType2, Dis_RType2, Int_RType2, OUT_RD|IN_RS|IN_RT),
+	INSTR("clo",   &Jit::Comp_RType2, Dis_RType2, Int_RType2, OUT_RD|IN_RS|IN_RT),
 
 	//24
 	INSTR("mult",  &Jit::Comp_MulDivType, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|OUT_OTHER),

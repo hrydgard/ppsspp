@@ -832,7 +832,7 @@ namespace MIPSInt
 				R(rt) = (R(rs) >> pos) & ((1<<size) - 1);
 			}
 			break;
-		case 0x4: // ins
+		case 0x4: //ins
 			{
 				int size = (_SIZE + 1) - pos;
 				int sourcemask = (1 << size) - 1;
