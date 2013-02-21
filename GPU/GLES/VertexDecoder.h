@@ -196,7 +196,7 @@ public:
 				memcpy(pos, f, 12);
 				if (isThrough()) {
 					// Integer value passed in a float. Wraps and all, required for Monster Hunter.
-					pos[2] = (float)((u16)pos[2]) * (1.0f / 65535.0f);
+					pos[2] = (float)((u16)(s32)pos[2]) * (1.0f / 65535.0f);
 				}
 			}
 			break;
@@ -208,7 +208,7 @@ public:
 				if (isThrough()) {
 					for (int i = 0; i < 2; i++)
 						pos[i] = s[i];
-					pos[2] = u[2] / 65535.0f; 
+					pos[2] = u[2] * (1.0f / 65535.0f);
 				} else {
 					for (int i = 0; i < 3; i++)
 						pos[i] = s[i] * (1.f / 32767.f);
