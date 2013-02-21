@@ -304,7 +304,6 @@ namespace MIPSInt
 			_dbg_assert_msg_(CPU,0,"Jump in delay slot :(");
 		}
 
-
 		int rs = (op>>21)&0x1f;
 		u32 addr = R(rs);
 		switch (op & 0x3f) 
@@ -362,14 +361,18 @@ namespace MIPSInt
 		switch (op >> 26)
 		{
 		case 48: // ll
-			R(rt) = Memory::Read_U32(addr);
+			if (rt != 0) {
+				R(rt) = Memory::Read_U32(addr);
+			}
 			currentMIPS->llBit = 1;
 			break;
 		case 56: // sc
 			if (currentMIPS->llBit) {
 				Memory::Write_U32(R(rt), addr);
-				R(rt) = 1;
-			} else {
+				if (rt != 0) {
+					R(rt) = 1;
+				}
+			} else if (rt != 0) {
 				R(rt) = 0;
 			}
 			break;
@@ -387,6 +390,13 @@ namespace MIPSInt
 		int rs = _RS;
 		int rd = _RD;
 		static bool has_warned = false;
+
+		// Don't change $zr.
+		if (rd == 0)
+		{
+			PC += 4;
+			return;
+		}
 
 		switch (op & 63) 
 		{
@@ -533,6 +543,14 @@ namespace MIPSInt
 	{
 		int rs = _RS;
 		int rd = _RD;
+
+		// Don't change $zr.
+		if (rd == 0)
+		{
+			PC += 4;
+			return;
+		}
+
 		switch (op & 63)
 		{
 		case 22:	//clz
@@ -675,6 +693,13 @@ namespace MIPSInt
 		int rs = _RS;
 		int rd = _RD;
 		int sa = _FD;
+
+		// Don't change $zr.
+		if (rd == 0)
+		{
+			PC += 4;
+			return;
+		}
 		
 		switch (op & 0x3f)
 		{
@@ -720,6 +745,14 @@ namespace MIPSInt
 	{
 		int rt = _RT;
 		int rd = _RD;
+
+		// Don't change $zr.
+		if (rd == 0)
+		{
+			PC += 4;
+			return;
+		}
+
 		switch((op>>6)&31)
 		{
 		case 16: // seb
@@ -756,6 +789,13 @@ namespace MIPSInt
 		int rt = _RT;
 		int rd = _RD;
 
+		// Don't change $zr.
+		if (rd == 0)
+		{
+			PC += 4;
+			return;
+		}
+
 		switch (op & 0x3ff)
 		{
 		case 0xA0: //wsbh
@@ -776,6 +816,13 @@ namespace MIPSInt
 		int rs = _RS;
 		int rt = _RT;
 		int pos = _POS;
+
+		// Don't change $zr.
+		if (rt == 0)
+		{
+			PC += 4;
+			return;
+		}
 
 		switch (op & 0x3f)
 		{

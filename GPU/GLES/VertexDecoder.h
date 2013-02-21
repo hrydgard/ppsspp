@@ -194,18 +194,9 @@ public:
 			{
 				const float *f = (const float *)(data_ + decFmt_.posoff);
 				memcpy(pos, f, 12);
-				
-				// pos[2] is an integer value clamped between 0 and 65535
 				if (isThrough()) {
-					if (pos[2] < 0.f && pos[2] != 0.0f) {  // make sure we get negative zero
-						pos[2] = 0.f; 
-					} else if (pos[2] > 65535.f) {
-						pos[2] = 65535.f;
-					} else {
-						// 2D positions are always integer values: truncate float value
-						pos[2] = (int) pos[2];
-					}
-					pos[2] /= 65535.0f;
+					// Integer value passed in a float. Wraps and all, required for Monster Hunter.
+					pos[2] = (float)((u16)pos[2]) * (1.0f / 65535.0f);
 				}
 			}
 			break;

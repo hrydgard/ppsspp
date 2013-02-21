@@ -108,9 +108,9 @@ void PSPOskDialog::RenderKeyboard()
 	if (limit <= 0)
 		limit = 16;
 
-	const float keyboardLeftSide = (480.0f - (23.0f * KEYSPERROW)) / 2.0f;
-	float previewLeftSide = (480.0f - (15.0f * limit)) / 2.0f;
-	float title = (480.0f - (7.0f * limit)) / 2.0f;
+	const float keyboardLeftSide = (480.0f - (24.0f * KEYSPERROW)) / 2.0f;
+	float previewLeftSide = (480.0f - (16.0f * limit)) / 2.0f;
+	float title = (480.0f - limit) / 2.0f;
 
 	PPGeDrawText(oskDesc.c_str(), title , 20, PPGE_ALIGN_CENTER, 0.5f, CalcFadedColor(0xFFFFFFFF));
 	for (u32 i = 0; i < limit; ++i)
