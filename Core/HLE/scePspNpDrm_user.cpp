@@ -1,3 +1,5 @@
+#include "scePspNpDrm_user.h"
+
 #include "HLE.h"
 
 int sceNpDrmSetLicenseeKey()
@@ -18,15 +20,15 @@ int sceNpDrmRenameCheck()
 	return 0;
 }
 
-int sceNpDrmEdataSetupKey()
+int sceNpDrmEdataSetupKey(u32 edataFd)
 {
-	ERROR_LOG(HLE, "UNIMPL sceNpDrmEdataSetupKey");
+	ERROR_LOG(HLE, "UNIMPL sceNpDrmEdataSetupKey %x", edataFd);
 	return 0;
 }
 
-int sceNpDrmEdataGetDataSize()
+int sceNpDrmEdataGetDataSize(u32 edataFd)
 {
-	ERROR_LOG(HLE, "UNIMPL sceNpDrmEdataGetDataSize");
+	ERROR_LOG(HLE, "UNIMPL sceNpDrmEdataGetDataSize %x", edataFd);
 	return 0;
 }
 
@@ -59,3 +61,8 @@ const HLEFunction sceNpDrm[] =
 	{0xC618D0B1, 0, "sceKernelLoadModuleNpDrm"},
 	{0xAA5FC85B, 0, "sceKernelLoadExecNpDrm"},
 };
+
+void Register_sceNpDrm()
+{
+	RegisterModule("sceNpDrm", ARRAY_SIZE(sceNpDrm), sceNpDrm);
+}
