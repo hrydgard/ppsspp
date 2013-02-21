@@ -197,8 +197,8 @@ int main(int argc, const char* argv[])
 
 		// If we were rendering, this might be a nice time to do something about it.
 		if (coreState == CORE_NEXTFRAME) {
-			headlessHost->SwapBuffers();
 			coreState = CORE_RUNNING;
+			headlessHost->SwapBuffers();
 		}
 	}
 
