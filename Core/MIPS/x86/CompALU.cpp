@@ -91,6 +91,13 @@ namespace MIPSComp
 			break;
 
 		case 10: // R(rt) = (s32)R(rs) < simm; break; //slti
+			// There's a mips compiler out there asking it already knows the answer to...
+			if (gpr.IsImmediate(rs))
+			{
+				gpr.SetImmediate32(rt, (s32)gpr.GetImmediate32(rs) < simm);
+				break;
+			}
+
 			gpr.Lock(rt, rs);
 			gpr.BindToRegister(rs, true, false);
 			gpr.BindToRegister(rt, rt == rs, true);
@@ -102,6 +109,12 @@ namespace MIPSComp
 			break;
 
 		case 11: // R(rt) = R(rs) < uimm; break; //sltiu
+			if (gpr.IsImmediate(rs))
+			{
+				gpr.SetImmediate32(rt, gpr.GetImmediate32(rs) < uimm);
+				break;
+			}
+
 			gpr.Lock(rt, rs);
 			gpr.BindToRegister(rs, true, false);
 			gpr.BindToRegister(rt, rt == rs, true);
