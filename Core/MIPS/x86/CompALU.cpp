@@ -78,11 +78,14 @@ namespace MIPSComp
 
 				gpr.Lock(rt, rs);
 				gpr.BindToRegister(rt, rt == rs, true);
-				if (rt != rs)
+				if (rt == rs || gpr.R(rs).IsSimpleReg())
+					LEA(32, gpr.RX(rt), MDisp(gpr.RX(rs), simm));
+				else
+				{
 					MOV(32, gpr.R(rt), gpr.R(rs));
-				if (simm != 0)
-					ADD(32, gpr.R(rt), Imm32((u32)(s32)simm));
-				// TODO: Can also do LEA if both operands happen to be in registers.
+					if (simm != 0)
+						ADD(32, gpr.R(rt), Imm32((u32)(s32)simm));
+				}
 				gpr.UnlockAll();
 			}
 			break;
