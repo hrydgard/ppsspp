@@ -184,16 +184,36 @@ namespace MIPSComp
 			return;
 		}
 
+		// Act like zero was used if the operand is equivalent.  This happens.
+		if (gpr.IsImmediate(rs) && gpr.GetImmediate32(rs) == 0)
+			rs = 0;
+		if (gpr.IsImmediate(rt) && gpr.GetImmediate32(rt) == 0)
+			rt = 0;
+
 		gpr.Lock(rt, rs, rd);
-		// Optimize out + 0 and | 0.
-		if ((doImm == &RType3_ImmAdd || doImm == &RType3_ImmOr) && (rs == 0 || rt == 0))
+		// Optimize out operations against 0... and is the only one that isn't a MOV.
+		if (rt == 0 || (rs == 0 && doImm != &RType3_ImmSub))
 		{
-			int rsource = rt == 0 ? rs : rt;
-			if (rsource != rd)
+			if (doImm == &RType3_ImmAnd)
+				gpr.SetImmediate32(rd, 0);
+			else
 			{
-				gpr.BindToRegister(rd, false, true);
-				MOV(32, gpr.R(rd), gpr.R(rsource));
+				int rsource = rt == 0 ? rs : rt;
+				if (rsource != rd)
+				{
+					gpr.BindToRegister(rd, false, true);
+					MOV(32, gpr.R(rd), gpr.R(rsource));
+				}
 			}
+		}
+		else if (gpr.IsImmediate(rt))
+		{
+			// No temporary needed.
+			u32 rtval = gpr.GetImmediate32(rt);
+			gpr.BindToRegister(rd, rs == rd, true);
+			if (rs != rd)
+				MOV(32, gpr.R(rd), gpr.R(rs));
+			(this->*arith)(32, gpr.R(rd), Imm32(rtval));
 		}
 		else
 		{
