@@ -144,7 +144,7 @@ void Jit::BranchRSRTComp(u32 op, Gen::CCFlags cc, bool likely)
 
 	if (rt == 0)
 	{
-		gpr.KillImmediate(rs, true, true);
+		gpr.KillImmediate(rs, true, false);
 		CMP(32, gpr.R(rs), Imm32(0));
 	}
 	else
