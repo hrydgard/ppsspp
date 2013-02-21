@@ -191,7 +191,7 @@ int PSPMsgDialog::Update()
 
 		if(flag & DS_YESNO)
 			DisplayYesNo();
-		if(flag & DS_OK)
+		if (flag & (DS_OK | DS_VALIDBUTTON)) 
 			DisplayOk();
 
 		if(flag & DS_CANCELBUTTON)
