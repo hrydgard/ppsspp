@@ -368,13 +368,40 @@ namespace MIPSComp
 		}
 	}
 
+	static u32 ShiftType_ImmLogicalLeft(const u32 a, const u32 b)
+	{
+		return a << (b & 0x1f);
+	}
 
-	void Jit::CompShiftImm(u32 op, void (XEmitter::*shift)(int, OpArg, OpArg))
+	static u32 ShiftType_ImmLogicalRight(const u32 a, const u32 b)
+	{
+		return a >> (b & 0x1f);
+	}
+
+	static u32 ShiftType_ImmArithRight(const u32 a, const u32 b)
+	{
+		return ((s32) a) >> (b & 0x1f);
+	}
+
+	static u32 ShiftType_ImmRotateRight(const u32 a, const u32 b)
+	{
+		const s8 sa = b & 0x1f;
+		return (a >> sa) | (a << (32 - sa));
+	}
+
+	void Jit::CompShiftImm(u32 op, void (XEmitter::*shift)(int, OpArg, OpArg), u32 (*doImm)(const u32, const u32))
 	{
 		int rd = _RD;
 		int rt = _RT;
-		gpr.Lock(rd, rt);
 		int sa = _SA;
+
+		if (doImm && gpr.IsImmediate(rt))
+		{
+			gpr.SetImmediate32(rd, doImm(gpr.GetImmediate32(rt), sa));
+			return;
+		}
+
+		gpr.Lock(rd, rt);
 		gpr.BindToRegister(rd, rd == rt, true);
 		if (rd != rt)
 			MOV(32, gpr.R(rd), gpr.R(rt));
@@ -383,38 +410,56 @@ namespace MIPSComp
 	}
 
 	// "over-shifts" work the same as on x86 - only bottom 5 bits are used to get the shift value
-	void Jit::CompShiftVar(u32 op, void (XEmitter::*shift)(int, OpArg, OpArg))
+	void Jit::CompShiftVar(u32 op, void (XEmitter::*shift)(int, OpArg, OpArg), u32 (*doImm)(const u32, const u32))
 	{
 		int rd = _RD;
 		int rt = _RT;
 		int rs = _RS;
-		gpr.FlushLockX(ECX);
+
+		if (doImm && gpr.IsImmediate(rs) && gpr.IsImmediate(rt))
+		{
+			gpr.SetImmediate32(rd, doImm(gpr.GetImmediate32(rt), gpr.GetImmediate32(rs)));
+			return;
+		}
+
 		gpr.Lock(rd, rt, rs);
-		gpr.BindToRegister(rd, rd == rt || rd == rs, true);
-		MOV(32, R(ECX), gpr.R(rs));	// Only ECX can be used for variable shifts.
-		AND(32, R(ECX), Imm32(0x1f));
-		if (rd != rt)
-			MOV(32, gpr.R(rd), gpr.R(rt));
-		(this->*shift)(32, gpr.R(rd), R(ECX));
+		if (gpr.IsImmediate(rs))
+		{
+			int sa = gpr.GetImmediate32(rs);
+			gpr.BindToRegister(rd, rd == rt, true);
+			if (rd != rt)
+				MOV(32, gpr.R(rd), gpr.R(rt));
+			(this->*shift)(32, gpr.R(rd), Imm8(sa));
+		}
+		else
+		{
+			gpr.FlushLockX(ECX);
+			gpr.BindToRegister(rd, rd == rt || rd == rs, true);
+			MOV(32, R(ECX), gpr.R(rs));	// Only ECX can be used for variable shifts.
+			AND(32, R(ECX), Imm32(0x1f));
+			if (rd != rt)
+				MOV(32, gpr.R(rd), gpr.R(rt));
+			(this->*shift)(32, gpr.R(rd), R(ECX));
+			gpr.UnlockAllX();
+		}
 		gpr.UnlockAll();
-		gpr.UnlockAllX();
 	}
 
 	void Jit::Comp_ShiftType(u32 op)
 	{
-		CONDITIONAL_DISABLE
+		CONDITIONAL_DISABLE;
 		int rs = _RS;
 		int fd = _FD;
 		// WARNIGN : ROTR
 		switch (op & 0x3f)
 		{
-		case 0: CompShiftImm(op, &XEmitter::SHL); break;
-		case 2: CompShiftImm(op, rs == 1 ? &XEmitter::ROR : &XEmitter::SHR); break;	// srl, rotr
-		case 3: CompShiftImm(op, &XEmitter::SAR); break;	// sra
+		case 0: CompShiftImm(op, &XEmitter::SHL, &ShiftType_ImmLogicalLeft); break;
+		case 2: CompShiftImm(op, rs == 1 ? &XEmitter::ROR : &XEmitter::SHR, rs == 1 ? &ShiftType_ImmRotateRight : &ShiftType_ImmLogicalRight); break;	// srl, rotr
+		case 3: CompShiftImm(op, &XEmitter::SAR, &ShiftType_ImmArithRight); break;	// sra
 
-		case 4: CompShiftVar(op, &XEmitter::SHL); break; //sllv
-		case 6: CompShiftVar(op, fd == 1 ? &XEmitter::ROR : &XEmitter::SHR); break;	//srlv
-		case 7: CompShiftVar(op, &XEmitter::SAR); break; //srav
+		case 4: CompShiftVar(op, &XEmitter::SHL, &ShiftType_ImmLogicalLeft); break; //sllv
+		case 6: CompShiftVar(op, fd == 1 ? &XEmitter::ROR : &XEmitter::SHR, fd == 1 ? &ShiftType_ImmRotateRight : &ShiftType_ImmLogicalRight); break;	//srlv
+		case 7: CompShiftVar(op, &XEmitter::SAR, &ShiftType_ImmArithRight); break; //srav
 
 		default:
 			Comp_Generic(op);
