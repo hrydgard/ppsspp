@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
-<TS version="2.0" language="tw_ZH">
+<TS version="2.0" language="zh_TW">
 <context>
     <name>Controls</name>
     <message>
         <location filename="../controls.ui" line="20"/>
         <source>Controls</source>
         <comment>Controls window title</comment>
-        <translation type="unfinished">æ§åˆ¶å™¨</translation>
+        <translation>±±¨î¾¹</translation>
     </message>
 </context>
 <context>
@@ -15,57 +15,57 @@
     <message>
         <location filename="../ctrldisasmview.cpp" line="106"/>
         <source>Copy &amp;address</source>
-        <translation>(&amp;A)è¤‡è£½åœ°å€</translation>
+        <translation>(&amp;A)½Æ»s¦a§}</translation>
     </message>
     <message>
         <location filename="../ctrldisasmview.cpp" line="110"/>
         <source>Copy instruction (&amp;hex)</source>
-        <translation>(&amp;H)è¤‡è£½æŒ‡ä»¤(åå…­é€²åˆ¶å‹)</translation>
+        <translation>(&amp;H)½Æ»s«ü¥O(¤Q¤»¶i¨î«¬)</translation>
     </message>
     <message>
         <location filename="../ctrldisasmview.cpp" line="114"/>
         <source>Copy instruction (&amp;disasm)</source>
-        <translation>(&amp;D)è¤‡è£½æŒ‡ä»¤(åå½™ç·¨å‹)</translation>
+        <translation>(&amp;D)½Æ»s«ü¥O(·J½s«¬)</translation>
     </message>
     <message>
         <location filename="../ctrldisasmview.cpp" line="120"/>
         <source>&amp;Run to here</source>
-        <translation>(&amp;R)åŸ·è¡Œåˆ°æ­¤è™•</translation>
+        <translation>(&amp;R)°õ¦æ¨ì¦¹³B</translation>
     </message>
     <message>
         <location filename="../ctrldisasmview.cpp" line="124"/>
         <source>&amp;Set Next Statement</source>
-        <translation>(&amp;S)è¨­ç½®ä¸‹ä¸€èªå¥</translation>
+        <translation>(&amp;S)³]¸m¤U¤@»y¥y</translation>
     </message>
     <message>
         <location filename="../ctrldisasmview.cpp" line="128"/>
         <source>&amp;Toggle breakpoint</source>
-        <translation>(&amp;T)é–å®šæ–·é»</translation>
+        <translation>(&amp;T)Âê©wÂ_ÂI</translation>
     </message>
     <message>
         <location filename="../ctrldisasmview.cpp" line="132"/>
         <source>&amp;Follow branch</source>
-        <translation>(&amp;F)è·Ÿéš¨åˆ†æ”¯</translation>
+        <translation>(&amp;F)¸òÀH¤À¤ä</translation>
     </message>
     <message>
         <location filename="../ctrldisasmview.cpp" line="142"/>
         <source>Go to in &amp;Memory View</source>
-        <translation>(&amp;M)è½‰åˆ°å…§å­˜è¦–åœ–</translation>
+        <translation>(&amp;M)Âà¨ì¤º¦sµø¹Ï</translation>
     </message>
     <message>
         <location filename="../ctrldisasmview.cpp" line="152"/>
         <source>&amp;Rename function...</source>
-        <translation>(&amp;R)é‡å‘½åå‡½æ•¸...</translation>
+        <translation>(&amp;R)­«©R¦W¨ç¼Æ...</translation>
     </message>
     <message>
         <location filename="../ctrldisasmview.cpp" line="240"/>
         <source>New function name</source>
-        <translation>æ–°å‡½æ•¸åç¨±</translation>
+        <translation>·s¨ç¼Æ¦WºÙ</translation>
     </message>
     <message>
         <location filename="../ctrldisasmview.cpp" line="241"/>
         <source>New function name:</source>
-        <translation type="unfinished"></translation>
+        <translation>·s¨ç¼Æ¦WºÙ¡G</translation>
     </message>
 </context>
 <context>
@@ -73,17 +73,17 @@
     <message>
         <location filename="../ctrlmemview.cpp" line="215"/>
         <source>Go to in &amp;disasm</source>
-        <translation>(&amp;D)è½‰åˆ°åå½™ç·¨å™¨</translation>
+        <translation>(&amp;D)Âà¨ì·J½sµø¹Ï</translation>
     </message>
     <message>
         <location filename="../ctrlmemview.cpp" line="221"/>
         <source>&amp;Copy value</source>
-        <translation>(&amp;C)è¤‡è£½å€¼</translation>
+        <translation>(&amp;C)½Æ»s­È</translation>
     </message>
     <message>
         <location filename="../ctrlmemview.cpp" line="225"/>
         <source>Dump...</source>
-        <translation>è½‰å„²...</translation>
+        <translation>ÂàÀx...</translation>
     </message>
 </context>
 <context>
@@ -91,32 +91,32 @@
     <message>
         <location filename="../ctrlregisterlist.cpp" line="274"/>
         <source>Go to in &amp;memory view</source>
-        <translation>(&amp;M)è½‰åˆ°å…§å­˜è¦–åœ–</translation>
+        <translation>(&amp;M)Âà¨ì¤º¦sµø¹Ï</translation>
     </message>
     <message>
         <location filename="../ctrlregisterlist.cpp" line="278"/>
         <source>Go to in &amp;disasm</source>
-        <translation>(&amp;D)è½‰åˆ°åå½™ç·¨å™¨</translation>
+        <translation>(&amp;D)Âà¨ì·J½sµø¹Ï</translation>
     </message>
     <message>
         <location filename="../ctrlregisterlist.cpp" line="284"/>
         <source>&amp;Copy value</source>
-        <translation>(&amp;C)è¤‡è£½å€¼</translation>
+        <translation>(&amp;C)½Æ»s­È</translation>
     </message>
     <message>
         <location filename="../ctrlregisterlist.cpp" line="288"/>
         <source>C&amp;hange...</source>
-        <translation>(&amp;H)æ›´æ”¹...</translation>
+        <translation>(&amp;H)§ó§ï...</translation>
     </message>
     <message>
         <location filename="../ctrlregisterlist.cpp" line="352"/>
         <source>Set new value</source>
-        <translation>è¨­ç½®æ–°å€¼</translation>
+        <translation>³]¸m·s­È</translation>
     </message>
     <message>
         <location filename="../ctrlregisterlist.cpp" line="353"/>
         <source>Set new value:</source>
-        <translation type="unfinished"></translation>
+        <translation>³]¸m·s­È¡G</translation>
     </message>
 </context>
 <context>
@@ -125,97 +125,97 @@
         <location filename="../debugger_disasm.ui" line="17"/>
         <source>Disassembler</source>
         <comment>Window title</comment>
-        <translation type="unfinished"></translation>
+        <translation>¤Ï·J½s¾¹</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="30"/>
         <source>Ctr:</source>
-        <translation>è¨ˆæ•¸å™¨:</translation>
+        <translation>­p¼Æ¾¹:</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="43"/>
         <source>&amp;Go to</source>
-        <translation>(&amp;G)è½‰åˆ°</translation>
+        <translation>(&amp;G)Âà¨ì</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="78"/>
         <source>&amp;PC</source>
-        <translation>(&amp;P)PCå¯„å­˜å™¨</translation>
+        <translation>(&amp;P)PC±H¦s¾¹</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="91"/>
         <source>&amp;LR</source>
-        <translation>(&amp;L)é€£æ¥å¯„å­˜å™¨</translation>
+        <translation>(&amp;L)³s±µ±H¦s¾¹</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="128"/>
         <source>Show VFPU</source>
-        <translation>é¡¯ç¤ºVFPU</translation>
+        <translation>Åã¥ÜVFPU</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="147"/>
         <source>Regs</source>
-        <translation>å¯„å­˜å™¨</translation>
+        <translation>±H¦s¾¹</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="198"/>
         <source>Funcs</source>
-        <translation>å‡½æ•¸</translation>
+        <translation>¨ç¼Æ</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="223"/>
         <source>&amp;Go</source>
-        <translation>(&amp;G)è½‰åˆ°</translation>
+        <translation>(&amp;G)Âà¨ì</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="236"/>
         <source>Stop</source>
-        <translation>åœæ­¢</translation>
+        <translation>°±¤î</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="249"/>
         <source>Step &amp;Into</source>
-        <translation>(&amp;I)å–®æ­¥è·Ÿé€²</translation>
+        <translation>(&amp;I)³æ¨B¸ò¶i</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="265"/>
         <source>Step &amp;Over</source>
-        <translation>(&amp;O)å–®æ­¥æ­¥é</translation>
+        <translation>(&amp;O)³æ¨B¨B¹L</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="278"/>
         <source>S&amp;kip</source>
-        <translation>(&amp;K)è·³é</translation>
+        <translation>(&amp;K)¸õ¹L</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="291"/>
         <source>Next &amp;HLE</source>
-        <translation>(&amp;H)ä¸‹ä¸€HLE</translation>
+        <translation>(&amp;H)¤U¤@HLE</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="320"/>
         <source>Breakpoints</source>
-        <translation>æ–·é»</translation>
+        <translation>Â_ÂI</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="339"/>
         <source>Address</source>
-        <translation>åœ°å€</translation>
+        <translation>¦a§}</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="362"/>
         <source>Clear All</source>
-        <translation>æ¸…ç©ºæ‰€æœ‰</translation>
+        <translation>²MªÅ©Ò¦³</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="372"/>
         <source>Callstack</source>
-        <translation>èª¿ç”¨æ£§</translation>
+        <translation>½Õ¥Î´Ì</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="382"/>
         <source>Display Lists</source>
-        <translation>é¡¯ç¤ºåˆ—è¡¨</translation>
+        <translation>Åã¥Ü¦Cªí</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="408"/>
@@ -227,77 +227,77 @@
         <location filename="../debugger_disasm.ui" line="413"/>
         <location filename="../debugger_disasm.ui" line="529"/>
         <source>Status</source>
-        <translation>ç‹€æ…‹</translation>
+        <translation>ª¬ºA</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="418"/>
         <source>Start Address</source>
-        <translation>èµ·å§‹åœ°å€</translation>
+        <translation>°_©l¦a§}</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="423"/>
         <source>Current Address</source>
-        <translation>ç•¶å‰åœ°å€</translation>
+        <translation>·í«e¦a§}</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="476"/>
         <source>Run</source>
-        <translation>åŸ·è¡Œ</translation>
+        <translation>°õ¦æ</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="483"/>
         <source>Step</source>
-        <translation>å–®æ­¥åŸ·è¡Œ</translation>
+        <translation>³æ¨B°õ¦æ</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="497"/>
         <source>Threads</source>
-        <translation>ç·šç¨‹</translation>
+        <translation>½uµ{</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="524"/>
         <source>Name</source>
-        <translation>åç¨±</translation>
+        <translation>¦WºÙ</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="534"/>
         <source>Current PC</source>
-        <translation>ç•¶å‰PCå¯„å­˜å™¨</translation>
+        <translation>·í«ePC±H¦s¾¹</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="539"/>
         <source>Entry point</source>
-        <translation>å…¥å£é»</translation>
+        <translation>¤J¤fÂI</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.cpp" line="401"/>
         <source>Remove breakpoint</source>
-        <translation>ç§»é™¤æ–·é»</translation>
+        <translation>²¾°£Â_ÂI</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.cpp" line="480"/>
         <source>Go to entry point</source>
-        <translation>è½‰åˆ°å…¥å£é»</translation>
+        <translation>Âà¨ì¤J¤fÂI</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.cpp" line="486"/>
         <source>Running</source>
-        <translation>åŸ·è¡Œä¸­</translation>
+        <translation>°õ¦æ¤¤</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.cpp" line="490"/>
         <source>Wait</source>
-        <translation>ç­‰å¾…</translation>
+        <translation>µ¥«İ</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.cpp" line="494"/>
         <source>Suspend</source>
-        <translation>æ›èµ·</translation>
+        <translation>±¾°_</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.cpp" line="626"/>
         <source>Show code</source>
-        <translation>é¡¯ç¤ºä»£ç¢¼</translation>
+        <translation>Åã¥Ü¥N½X</translation>
     </message>
 </context>
 <context>
@@ -305,32 +305,32 @@
     <message>
         <location filename="../debugger_memory.ui" line="14"/>
         <source>Dialog</source>
-        <translation>å°è©±æ¡†</translation>
+        <translation>¹ï¸Ü®Ø</translation>
     </message>
     <message>
         <location filename="../debugger_memory.ui" line="22"/>
         <source>Goto:</source>
-        <translation>è½‰åˆ°:</translation>
+        <translation>Âà¨ì:</translation>
     </message>
     <message>
         <location filename="../debugger_memory.ui" line="35"/>
         <source>Mode</source>
-        <translation>æ¨¡å¼</translation>
+        <translation>¼Ò¦¡</translation>
     </message>
     <message>
         <location filename="../debugger_memory.ui" line="41"/>
         <source>Normal</source>
-        <translation>æ™®é€šæ¨¡å¼</translation>
+        <translation>´¶³q¼Ò¦¡</translation>
     </message>
     <message>
         <location filename="../debugger_memory.ui" line="48"/>
         <source>Symbols</source>
-        <translation>ç‰¹å¾µç¬¦æ¨¡å¼</translation>
+        <translation>¯S¼x²Å¼Ò¦¡</translation>
     </message>
     <message>
         <location filename="../debugger_memory.cpp" line="15"/>
         <source>Memory Viewer - %1</source>
-        <translation type="unfinished"></translation>
+        <translation>¤º¦s¬d¬İ¾¹ - %1</translation>
     </message>
 </context>
 <context>
@@ -338,37 +338,37 @@
     <message>
         <location filename="../debugger_vfpu.ui" line="14"/>
         <source>VFPU</source>
-        <translation type="unfinished"></translation>
+        <translation>VFPU</translation>
     </message>
     <message>
         <location filename="../debugger_vfpu.ui" line="23"/>
         <source>Float</source>
-        <translation>æµ®é»å‹</translation>
+        <translation>¯BÂI«¬</translation>
     </message>
     <message>
         <location filename="../debugger_vfpu.ui" line="28"/>
         <source>HalfFloat</source>
-        <translation>åŠæµ®é»å‹</translation>
+        <translation>¥b¯BÂI«¬</translation>
     </message>
     <message>
         <location filename="../debugger_vfpu.ui" line="33"/>
         <source>Hex</source>
-        <translation>åå…­é€²åˆ¶å‹</translation>
+        <translation>¤Q¤»¶i¨î«¬</translation>
     </message>
     <message>
         <location filename="../debugger_vfpu.ui" line="38"/>
         <source>Bytes</source>
-        <translation>å­—ç¯€å‹</translation>
+        <translation>¦r¸`«¬</translation>
     </message>
     <message>
         <location filename="../debugger_vfpu.ui" line="43"/>
         <source>Shorts</source>
-        <translation>çŸ­æ•´å‹</translation>
+        <translation>µu¾ã«¬</translation>
     </message>
     <message>
         <location filename="../debugger_vfpu.ui" line="48"/>
         <source>Ints</source>
-        <translation>æ•´å‹</translation>
+        <translation>¾ã«¬</translation>
     </message>
 </context>
 <context>
@@ -376,27 +376,27 @@
     <message>
         <location filename="../gamepaddialog.ui" line="14"/>
         <source>Gamepad Configuration</source>
-        <translation>æ‰‹æŸ„è¨­ç½®</translation>
+        <translation>¤â¬`³]¸m</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.ui" line="22"/>
         <source>GamePad List</source>
-        <translation>æ‰‹æŸ„åˆ—è¡¨</translation>
+        <translation>¤â¬`¦Cªí</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.ui" line="46"/>
         <source>Refresh</source>
-        <translation>åˆ·æ–°</translation>
+        <translation>¨ê·s</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.ui" line="53"/>
         <source>Select</source>
-        <translation>é¸ä¸­</translation>
+        <translation>¿ï¤¤</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.ui" line="62"/>
         <source>Gamepad Values :</source>
-        <translation>æ‰‹æŸ„å€¼:</translation>
+        <translation>¤â¬`­È:</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.ui" line="86"/>
@@ -407,49 +407,49 @@
     <message>
         <location filename="../gamepaddialog.ui" line="98"/>
         <source>Assign Gamepad input</source>
-        <translation>æŒ‡å®šè©²æ‰‹æŸ„</translation>
+        <translation>«ü©w¸Ó¤â¬`</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.ui" line="108"/>
         <source> to PSP button/axis</source>
-        <translation>ä½œç‚ºPSPæŒ‰éµ/æ–æ¡¿è¼¸å…¥</translation>
+        <translation>§@¬°PSP«öÁä/·n±ì¿é¤J</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.ui" line="118"/>
         <source>Assign</source>
-        <translation>æŒ‡å®š</translation>
+        <translation>«ü©w</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.ui" line="127"/>
         <source>Press buttons on your gamePad to verify mapping :</source>
-        <translation>æŒ‰ä¸‹æ‰‹æŸ„æŒ‰éµä¾†ç¢ºèªéµä½æ˜ å°„:</translation>
+        <translation>«ö¤U¤â¬`«öÁä¨Ó½T»{Áä¦ì¬M®g:</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="134"/>
         <location filename="../gamepaddialog.cpp" line="366"/>
         <source>&lt;b&gt;No gamepad&lt;/b&gt;</source>
-        <translation>&lt;b&gt;æœªç™¼ç¾æ‰‹æŸ„&lt;/b&gt;</translation>
+        <translation>&lt;b&gt;¥¼µo²{¤â¬`&lt;/b&gt;</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="146"/>
         <source>&lt;b&gt;Unknown gamepad&lt;/b&gt;</source>
-        <translation>&lt;b&gt;æœªè­˜åˆ¥çš„æ‰‹æŸ„&lt;/b&gt;</translation>
+        <translation>&lt;b&gt;¥¼ÃÑ§Oªº¤â¬`&lt;/b&gt;</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="287"/>
         <source>Buttons</source>
-        <translation>æŒ‰éˆ•</translation>
+        <translation>«ö¶s</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="301"/>
         <location filename="../gamepaddialog.cpp" line="344"/>
         <source>Button %1</source>
-        <translation>æŒ‰éˆ• %1</translation>
+        <translation>«ö¶s %1</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="304"/>
         <source>Axes</source>
-        <translation>æ–æ¡¿</translation>
+        <translation>·n±ì</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="310"/>
@@ -479,7 +479,7 @@
     <message>
         <location filename="../gamepaddialog.cpp" line="368"/>
         <source>&lt;b&gt;Current gamepad: %1&lt;/b&gt;</source>
-        <translation>&lt;b&gt;ç•¶å‰æ‰‹æŸ„: %1&lt;/b&gt;</translation>
+        <translation>&lt;b&gt;·í«e¤â¬`: %1&lt;/b&gt;</translation>
     </message>
 </context>
 <context>
@@ -492,22 +492,22 @@
     <message>
         <location filename="../mainwindow.ui" line="52"/>
         <source>&amp;File</source>
-        <translation>(&amp;F)æ–‡ä»¶</translation>
+        <translation>(&amp;F)¤å¥ó</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="66"/>
         <source>&amp;Emulation</source>
-        <translation>(&amp;E)æ¨¡æ“¬</translation>
+        <translation>(&amp;E)¼ÒÀÀ</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="77"/>
         <source>Debu&amp;g</source>
-        <translation>(&amp;G)é™¤éŒ¯</translation>
+        <translation>(&amp;G)½Õ¸Õ</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="91"/>
         <source>&amp;Options</source>
-        <translation>(&amp;O)é¸é …</translation>
+        <translation>(&amp;O)¿ï¶µ</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="99"/>
@@ -522,57 +522,57 @@
     <message>
         <location filename="../mainwindow.ui" line="117"/>
         <source>Default</source>
-        <translation>é»˜èª</translation>
+        <translation>Àq»{</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="95"/>
         <source>Lo&amp;g Levels</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;G)¤é»x¯Å§O</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="131"/>
         <source>&amp;Language</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;L)»y¨¥¿ï¾Ü</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="136"/>
         <source>&amp;Video</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;V)µøÀW</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="140"/>
         <source>&amp;Anisotropic filtering</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;A)¦U¦V²§©Ê¹LÂo</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="150"/>
         <source>&amp;Zoom</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;Z)ÁY©ñ</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="173"/>
         <source>Co&amp;ntrols</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;N)±±¨î</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="180"/>
         <source>&amp;Core</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;C)®Ö¤ß</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="204"/>
         <source>&amp;Help</source>
-        <translation>(&amp;H)å¹«åŠ©</translation>
+        <translation>(&amp;H)À°§U</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="219"/>
         <source>&amp;Open...</source>
-        <translation>(&amp;O)æ‰“é–‹...</translation>
+        <translation>(&amp;O)¥´¶}...</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="224"/>
         <source>&amp;Close</source>
-        <translation>(&amp;C)é—œé–‰</translation>
+        <translation>(&amp;C)Ãö³¬</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="229"/>
@@ -582,7 +582,7 @@
     <message>
         <location filename="../mainwindow.ui" line="234"/>
         <source>Quickload state</source>
-        <translation>å¿«é€Ÿè®€æª”</translation>
+        <translation>§Ö³tÅªÀÉ</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="237"/>
@@ -592,7 +592,7 @@
     <message>
         <location filename="../mainwindow.ui" line="242"/>
         <source>Quicksave state</source>
-        <translation>å¿«é€Ÿå­˜æª”</translation>
+        <translation>§Ö³t¦sÀÉ</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="245"/>
@@ -602,22 +602,22 @@
     <message>
         <location filename="../mainwindow.ui" line="250"/>
         <source>&amp;Load State File...</source>
-        <translation>(&amp;L)è®€å–å­˜æª”...</translation>
+        <translation>(&amp;L)Åª¨ú¦sÀÉ...</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="255"/>
         <source>&amp;Save State File...</source>
-        <translation>(&amp;S)ä¿å­˜å­˜æª”...</translation>
+        <translation>(&amp;S)«O¦s¦sÀÉ...</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="260"/>
         <source>E&amp;xit</source>
-        <translation>(&amp;X)é€€å‡º</translation>
+        <translation>(&amp;X)°h¥X</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="265"/>
         <source>&amp;Run</source>
-        <translation>(&amp;R)é‹è¡Œ</translation>
+        <translation>(&amp;R)¹B¦æ</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="268"/>
@@ -627,7 +627,7 @@
     <message>
         <location filename="../mainwindow.ui" line="273"/>
         <source>&amp;Pause</source>
-        <translation>(&amp;P)æš«åœ</translation>
+        <translation>(&amp;P)¼È°±</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="276"/>
@@ -637,42 +637,42 @@
     <message>
         <location filename="../mainwindow.ui" line="281"/>
         <source>R&amp;eset</source>
-        <translation>(&amp;E)é‡ç½®</translation>
+        <translation>(&amp;E)­«¸m</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="289"/>
         <source>&amp;Interpreter</source>
-        <translation>(&amp;I)è§£é‡‹å™¨</translation>
+        <translation>(&amp;I)¸ÑÄÀ¾¹</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="297"/>
         <source>&amp;Slightly Faster Interpreter</source>
-        <translation>(&amp;S)è¼ƒå¿«çš„è§£é‡‹å™¨</translation>
+        <translation>(&amp;S)¸û§Öªº¸ÑÄÀ¾¹</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="305"/>
         <source>&amp;Dynarec</source>
-        <translation>(&amp;D)å‹•æ…‹è§£é‡‹å™¨</translation>
+        <translation>(&amp;D)°ÊºA­«½sÄ¶</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="313"/>
         <source>Load &amp;Map File...</source>
-        <translation>(&amp;M)è®€å–Mapæ–‡ä»¶...</translation>
+        <translation>(&amp;M)Åª¨úMap¤å¥ó...</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="321"/>
         <source>&amp;Save Map File...</source>
-        <translation>(&amp;S)ä¿å­˜Mapæ–‡ä»¶...</translation>
+        <translation>(&amp;S)«O¦sMap¤å¥ó...</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="329"/>
         <source>&amp;Reset Symbol Table</source>
-        <translation>(&amp;R)é‡ç½®ç¬¦è™Ÿè¡¨</translation>
+        <translation>(&amp;R)­«¸m²Å¸¹ªí</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="334"/>
         <source>&amp;Disassembly</source>
-        <translation>(&amp;D)åå½™ç·¨å™¨</translation>
+        <translation>(&amp;D)·J½sµø¹Ï</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="337"/>
@@ -682,7 +682,7 @@
     <message>
         <location filename="../mainwindow.ui" line="345"/>
         <source>&amp;Log Console</source>
-        <translation>(&amp;L)æŸ¥çœ‹æ§åˆ¶å°æ—¥èªŒ</translation>
+        <translation>(&amp;L)¬d¬İ±±¨î¥x¤é»x</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="348"/>
@@ -692,7 +692,7 @@
     <message>
         <location filename="../mainwindow.ui" line="353"/>
         <source>Memory &amp;View...</source>
-        <translation>(&amp;V)å…§å­˜è¦–åœ–...</translation>
+        <translation>(&amp;V)¤º¦sµø¹Ï...</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="356"/>
@@ -702,47 +702,47 @@
     <message>
         <location filename="../mainwindow.ui" line="361"/>
         <source>&amp;Keyboard</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;K)Áä½L</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="366"/>
         <source>&amp;Toggle fullscreen</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;T)¥ş«Ì</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="423"/>
         <source>Show &amp;debug statistics</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;D)Åã¥Ü½Õ¸Õ«H®§</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="483"/>
         <source>I&amp;gnore illegal reads/writes</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;G)©¿²¤«DªkÅª¼g</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="602"/>
         <source>&amp;Gamepad</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;G)¤â¬`</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="607"/>
         <source>Run on loa&amp;d</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;D)¸ü¤J®É¹B¦æ</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="681"/>
         <source>Show &amp;FPS counter</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;F)Åã¥Ü´V²v­p¼Æ¾¹</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="689"/>
         <source>S&amp;tretch to display</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;T)©Ô¦ùÅã¥Ü</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="697"/>
         <source>&amp;Sound emulation</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;S)¼ÒÀÀÁn­µ</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="369"/>
@@ -752,7 +752,7 @@
     <message>
         <location filename="../mainwindow.ui" line="377"/>
         <source>&amp;Buffered Rendering</source>
-        <translation>(&amp;B)æ¸²æŸ“ç·©è¡</translation>
+        <translation>(&amp;B)´è¬V½w½Ä</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="380"/>
@@ -762,7 +762,7 @@
     <message>
         <location filename="../mainwindow.ui" line="388"/>
         <source>&amp;Hardware Transform</source>
-        <translation>(&amp;H)ç¡¬ä»¶åŠ é€Ÿ</translation>
+        <translation>(&amp;H)µw¥ó¥[³t</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="391"/>
@@ -772,22 +772,22 @@
     <message>
         <location filename="../mainwindow.ui" line="399"/>
         <source>&amp;Linear Filtering</source>
-        <translation>(&amp;L)ç·šæ€§éæ¿¾</translation>
+        <translation>(&amp;L)½u©Ê¹LÂo</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="407"/>
         <source>&amp;Wireframe (experimental)</source>
-        <translation>(&amp;W)ä½¿ç”¨ç·šæ¡† (å¯¦é©—æ€§)</translation>
+        <translation>(&amp;W)¨Ï¥Î½u®Ø (¹êÅç©Ê¿ï¶µ)</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="415"/>
         <source>&amp;Display Raw Framebuffer</source>
-        <translation>(&amp;D)é¡¯ç¤ºåŸå§‹?ç·©è¡</translation>
+        <translation>(&amp;D)Åã¥Ü Raw ­ì©l½w½Ä</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="431"/>
         <source>Screen &amp;1x</source>
-        <translation>&amp;1å€çª—å£</translation>
+        <translation>&amp;1­¿µ¡¤f</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="434"/>
@@ -797,7 +797,7 @@
     <message>
         <location filename="../mainwindow.ui" line="442"/>
         <source>Screen &amp;2x</source>
-        <translation>&amp;2å€çª—å£</translation>
+        <translation>&amp;2­¿µ¡¤f</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="445"/>
@@ -807,7 +807,7 @@
     <message>
         <location filename="../mainwindow.ui" line="453"/>
         <source>Screen &amp;3x</source>
-        <translation>&amp;3å€çª—å£</translation>
+        <translation>&amp;3­¿µ¡¤f</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="456"/>
@@ -817,7 +817,7 @@
     <message>
         <location filename="../mainwindow.ui" line="464"/>
         <source>Screen &amp;4x</source>
-        <translation>&amp;4å€çª—å£</translation>
+        <translation>&amp;4­¿µ¡¤f</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="467"/>
@@ -827,65 +827,65 @@
     <message>
         <location filename="../mainwindow.ui" line="475"/>
         <source>&amp;Fast Memory (dynarec, unstable)</source>
-        <translation>(&amp;F)é«˜é€Ÿé–ƒå­˜ (å‹•æ…‹é‡ç·¨è­¯,ä¸ç©©å®š)</translation>
+        <translation>(&amp;F)°ª³t°{¦s (°ÊºA­«½sÄ¶,¤£Ã­©w)</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="488"/>
         <source>&amp;Go to http://www.ppsspp.org/</source>
-        <translation>(&amp;G)è½‰åˆ° http://www.ppsspp.org/</translation>
+        <translation>(&amp;G)Âà¨ì http://www.ppsspp.org/</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="493"/>
         <source>&amp;About PPSSPP...</source>
-        <translation>(&amp;A)é—œæ–¼ PPSSPP...</translation>
+        <translation>(&amp;A)Ãö©ó PPSSPP...</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="501"/>
         <source>&amp;Use VBO</source>
-        <translation>(&amp;U)ä½¿ç”¨ VBO</translation>
+        <translation>(&amp;U)¨Ï¥Î VBO</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="509"/>
         <location filename="../mainwindow.ui" line="541"/>
         <location filename="../mainwindow.ui" line="573"/>
         <source>Debug</source>
-        <translation>é™¤éŒ¯</translation>
+        <translation>½Õ¸Õ</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="517"/>
         <location filename="../mainwindow.ui" line="549"/>
         <location filename="../mainwindow.ui" line="581"/>
         <source>Warning</source>
-        <translation>è­¦å‘Š</translation>
+        <translation>Äµ§i</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="525"/>
         <location filename="../mainwindow.ui" line="565"/>
         <location filename="../mainwindow.ui" line="597"/>
         <source>Error</source>
-        <translation>éŒ¯èª¤</translation>
+        <translation>¿ù»~</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="533"/>
         <location filename="../mainwindow.ui" line="557"/>
         <location filename="../mainwindow.ui" line="589"/>
         <source>Info</source>
-        <translation>ä¿¡æ¯</translation>
+        <translation>«H®§</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="612"/>
         <source>D&amp;ump next frame to log</source>
-        <translation>(&amp;U)å°‡ä¸‹ä¸€å¹€è½‰å„²è‡³æ—¥èªŒ</translation>
+        <translation>(&amp;U)±N¤U¤@´VÂàÀx¦Ü¤é»x</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="620"/>
         <source>&amp;Vertex Cache</source>
-        <translation>(&amp;V)é ‚é»ç·©å­˜</translation>
+        <translation>(&amp;V)³»ÂI½w¦s</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="625"/>
         <source>Memory View Texture...</source>
-        <translation>å…§å­˜ç´‹ç†è¦–åœ–...</translation>
+        <translation>¤º¦s¯¾²zµø¹Ï...</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="633"/>
@@ -895,32 +895,32 @@
     <message>
         <location filename="../mainwindow.ui" line="641"/>
         <source>Off</source>
-        <translation type="unfinished"></translation>
+        <translation>Ãö³¬</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="649"/>
         <source>2x</source>
-        <translation type="unfinished"></translation>
+        <translation>2x</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="657"/>
         <source>4x</source>
-        <translation type="unfinished"></translation>
+        <translation>4x</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="665"/>
         <source>8x</source>
-        <translation type="unfinished"></translation>
+        <translation>8x</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="673"/>
         <source>16x</source>
-        <translation type="unfinished"></translation>
+        <translation>16x</translation>
     </message>
     <message>
         <location filename="../mainwindow.cpp" line="865"/>
         <source>No translations</source>
-        <translation>æœªç¿»è­¯</translation>
+        <translation>¥¼Â½Ä¶</translation>
     </message>
 </context>
 <context>
@@ -928,22 +928,22 @@
     <message>
         <location filename="../gamepaddialog.cpp" line="19"/>
         <source>Cross</source>
-        <translation>Ã—</translation>
+        <translation>¡Ñ</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="20"/>
         <source>Circle</source>
-        <translation>â—‹</translation>
+        <translation>¡³</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="21"/>
         <source>Square</source>
-        <translation>â–¡</translation>
+        <translation>¡¼</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="22"/>
         <source>Triangle</source>
-        <translation>â–³</translation>
+        <translation>¡µ</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="23"/>
@@ -958,32 +958,32 @@
     <message>
         <location filename="../gamepaddialog.cpp" line="25"/>
         <source>Start</source>
-        <translation>é–‹å§‹</translation>
+        <translation>¶}©l</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="26"/>
         <source>Select</source>
-        <translation>é¸æ“‡</translation>
+        <translation>¿ï¾Ü</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="27"/>
         <source>Up</source>
-        <translation>â†‘</translation>
+        <translation>¡ô</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="28"/>
         <source>Down</source>
-        <translation>â†“</translation>
+        <translation>¡õ</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="29"/>
         <source>Left</source>
-        <translation>â†</translation>
+        <translation>¡ö</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="30"/>
         <source>Right</source>
-        <translation>â†’</translation>
+        <translation>¡÷</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="32"/>
@@ -993,22 +993,22 @@
     <message>
         <location filename="../gamepaddialog.cpp" line="35"/>
         <source>Stick left</source>
-        <translation>æ–æ¡¿å·¦</translation>
+        <translation>·n±ì¥ª</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="36"/>
         <source>Stick right</source>
-        <translation>æ–æ¡¿å³</translation>
+        <translation>·n±ì¥k</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="37"/>
         <source>Stick up</source>
-        <translation>æ–æ¡¿ä¸Š</translation>
+        <translation>·n±ì¤W</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="38"/>
         <source>Stick bottom</source>
-        <translation>æ–æ¡¿ä¸‹</translation>
+        <translation>·n±ì¤U</translation>
     </message>
 </context>
 </TS>
