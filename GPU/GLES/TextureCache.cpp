@@ -64,10 +64,15 @@ void TextureCache::Clear(bool delete_them) {
 			DEBUG_LOG(G3D, "Deleting texture %i", iter->second.texture);
 			glDeleteTextures(1, &iter->second.texture);
 		}
+		for (TexCache::iterator iter = secondCache.begin(); iter != secondCache.end(); ++iter) {
+			DEBUG_LOG(G3D, "Deleting texture %i", iter->second.texture);
+			glDeleteTextures(1, &iter->second.texture);
+		}
 	}
-	if (cache.size()) {
-		INFO_LOG(G3D, "Texture cached cleared from %i textures", (int)cache.size());
+	if (cache.size() + secondCache.size()) {
+		INFO_LOG(G3D, "Texture cached cleared from %i textures", (int)(cache.size() + secondCache.size()));
 		cache.clear();
+		secondCache.clear();
 	}
 }
 
@@ -78,6 +83,14 @@ void TextureCache::Decimate() {
 		if (iter->second.lastFrame + TEXTURE_KILL_AGE < gpuStats.numFrames) {
 			glDeleteTextures(1, &iter->second.texture);
 			cache.erase(iter++);
+		}
+		else
+			++iter;
+	}
+	for (TexCache::iterator iter = secondCache.begin(), end = secondCache.end(); iter != end; ) {
+		if (iter->second.lastFrame + TEXTURE_KILL_AGE < gpuStats.numFrames) {
+			glDeleteTextures(1, &iter->second.texture);
+			secondCache.erase(iter++);
 		}
 		else
 			++iter;
@@ -662,6 +675,15 @@ static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, u32 format) {
 	return check;
 }
 
+inline bool TextureCache::TexCacheEntry::Matches(u16 dim2, u32 hash2, u8 format2, int maxLevel2) {
+	return dim == dim2 && hash == hash2 && format == format2 && maxLevel == maxLevel2;
+}
+inline bool TextureCache::TexCacheEntry::MatchesClut(bool hasClut, u8 clutformat2, u32 clutaddr2) {
+	if (!hasClut)
+		return true;
+	return clutformat == clutformat2 && clutaddr == clutaddr2 && cluthash == Memory::Read_U32(clutaddr);
+}
+
 void TextureCache::SetTexture() {
 	u32 texaddr = (gstate.texaddr[0] & 0xFFFFF0) | ((gstate.texbufwidth[0]<<8) & 0x0F000000);
 	if (!Memory::IsValidAddress(texaddr)) {
@@ -727,19 +749,9 @@ void TextureCache::SetTexture() {
 		//Validate the texture here (width, height etc)
 
 		int dim = gstate.texsize[0] & 0xF0F;
-		bool match = true;
-		bool rehash = entry->status == TexCacheEntry::STATUS_UNRELIABLE;
-		
 		//TODO: Check more texture parameters, compute real texture hash
-		if (dim != entry->dim ||
-			entry->hash != texhash ||
-			entry->format != format ||
-			entry->maxLevel != maxLevel ||
-			(hasClut &&
-			(entry->clutformat != clutformat ||
-				entry->clutaddr != clutaddr ||
-				entry->cluthash != Memory::Read_U32(entry->clutaddr)))) 
-			match = false;
+		bool match = entry->Matches(dim, texhash, format, maxLevel) && entry->MatchesClut(hasClut, clutformat, clutaddr);
+		bool rehash = entry->status == TexCacheEntry::STATUS_UNRELIABLE;
 
 		if (match) {
 			if (entry->lastFrame != gpuStats.numFrames) {
