@@ -1,6 +1,7 @@
 #include <string.h>
 
 #include "base/logging.h"
+#include "gfx/gl_common.h"
 #include "gfx_es2/fbo.h"
 #include "gfx/gl_common.h"
 #include "gfx_es2/gl_state.h"
@@ -35,7 +36,6 @@ struct FBO {
 
 FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, FBOColorDepth colorDepth) {
 	CheckGLExtensions();
-
 	FBO *fbo = new FBO();
 	fbo->width = width;
 	fbo->height = height;
