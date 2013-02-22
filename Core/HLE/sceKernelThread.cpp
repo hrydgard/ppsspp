@@ -795,7 +795,7 @@ void __KernelIdle()
 	CoreTiming::Idle();
 	// Advance must happen between Idle and Reschedule, so that threads that were waiting for something
 	// that was triggered at the end of the Idle period must get a chance to be scheduled.
-	CoreTiming::Advance();
+	CoreTiming::AdvanceQuick();
 
 	// We must've exited a callback?
 	if (__KernelInCallback())
@@ -1263,7 +1263,7 @@ void __KernelReSchedule(const char *reason)
 	}
 
 	// Execute any pending events while we're doing scheduling.
-	CoreTiming::Advance();
+	CoreTiming::AdvanceQuick();
 	if (__IsInInterrupt() || __KernelInCallback())
 	{
 		reason = "In Interrupt Or Callback";

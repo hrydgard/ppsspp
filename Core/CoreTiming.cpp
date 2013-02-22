@@ -422,12 +422,6 @@ void RemoveAllEvents(int event_type)
 //This raise only the events required while the fifo is processing data
 void ProcessFifoWaitEvents()
 {
-	if (Common::AtomicLoadAcquire(hasTsEvents))
-		MoveEvents();
-
-	if (!first)
-		return;
-
 	while (first)
 	{
 		if (first->time <= globalTimer)
@@ -471,13 +465,11 @@ void MoveEvents()
 	}
 }
 
-void Advance()
+void AdvanceQuick()
 {
 	int cyclesExecuted = slicelength - currentMIPS->downcount;
 	globalTimer += cyclesExecuted;
 	currentMIPS->downcount = slicelength;
-
-	ProcessFifoWaitEvents();
 
 	if (!first)
 	{
@@ -486,6 +478,8 @@ void Advance()
 	}
 	else
 	{
+		ProcessFifoWaitEvents();
+
 		slicelength = (int)(first->time - globalTimer);
 		if (slicelength > MAX_SLICE_LENGTH)
 			slicelength = MAX_SLICE_LENGTH;
@@ -493,6 +487,14 @@ void Advance()
 	}
 	if (advanceCallback)
 		advanceCallback(cyclesExecuted);
+}
+
+void Advance()
+{
+	if (Common::AtomicLoadAcquire(hasTsEvents))
+		MoveEvents();
+
+	AdvanceQuick();
 }
 
 void LogPendingEvents()
