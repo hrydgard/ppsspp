@@ -24,6 +24,7 @@
 #include "base/timeutil.h"
 #include "base/NativeApp.h"
 #include "gfx_es2/glsl_program.h"
+#include "gfx_es2/gl_state.h"
 #include "input/input_state.h"
 #include "math/curves.h"
 #include "ui/ui.h"
@@ -83,6 +84,8 @@ static void DrawBackground(float alpha) {
 			ybase[i] = rng.F() * dp_yres;
 		}
 	}
+	glstate.depthWrite.set(GL_TRUE);
+	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	glClearColor(0.1f,0.2f,0.43f,1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 	ui_draw2d.DrawImageStretch(I_BG, 0, 0, dp_xres, dp_yres);

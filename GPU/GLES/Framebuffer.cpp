@@ -125,6 +125,8 @@ FramebufferManager::FramebufferManager() :
 
 	// And an initial clear. We don't clear per frame as the games are supposed to handle that
 	// by themselves.
+	glstate.depthWrite.set(GL_TRUE);
+	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	glClearColor(0, 0, 0, 0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
@@ -352,6 +354,8 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		glEnable(GL_DITHER);
 		glstate.viewport.set(0, 0, vfb->renderWidth, vfb->renderHeight);
 		currentRenderVfb_ = vfb;
+		glstate.depthWrite.set(GL_TRUE);
+		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 		INFO_LOG(HLE, "Creating FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 		return;
@@ -376,7 +380,11 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
 		// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
 		if (vfb->last_frame_used != gpuStats.numFrames)
+		{
+			glstate.depthWrite.set(GL_TRUE);
+			glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+		}
 #endif
 		glstate.viewport.set(0, 0, vfb->renderWidth, vfb->renderHeight);
 		currentRenderVfb_ = vfb;
@@ -391,6 +399,8 @@ void FramebufferManager::CopyDisplayToOutput() {
 	if (!vfb) {
 		DEBUG_LOG(HLE, "Found no FBO! displayFBPtr = %08x", displayFramebufPtr_);
 		// No framebuffer to display! Clear to black.
+		glstate.depthWrite.set(GL_TRUE);
+		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 		glClearColor(0,0,0,1);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 		return;
@@ -413,6 +423,8 @@ void FramebufferManager::CopyDisplayToOutput() {
 	fbo_bind_color_as_texture(vfb->fbo, 0);
 
 	if (resized_) {
+		glstate.depthWrite.set(GL_TRUE);
+		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 		glClearColor(0,0,0,1);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 	}
