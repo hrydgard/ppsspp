@@ -197,7 +197,7 @@ void __IoInit() {
 
 	char path_buffer[_MAX_PATH], drive[_MAX_DRIVE] ,dir[_MAX_DIR], file[_MAX_FNAME], ext[_MAX_EXT];
 	char memstickpath[_MAX_PATH];
-	char flashpath[_MAX_PATH];
+	char flash0path[_MAX_PATH];
 
 	GetModuleFileName(NULL,path_buffer,sizeof(path_buffer));
 
@@ -210,24 +210,23 @@ void __IoInit() {
 
 	// Mount a couple of filesystems
 	sprintf(memstickpath, "%s%sMemStick\\", drive, dir);
-	sprintf(flashpath, "%s%sFlash\\", drive, dir);
+	sprintf(flash0path, "%s%sflash0\\", drive, dir);
 
 #else
 	// TODO
 	std::string memstickpath = g_Config.memCardDirectory;
-	std::string flashpath = g_Config.flashDirectory;
+	std::string flash0path = g_Config.flashDirectory;
 #endif
 
-	DirectoryFileSystem *memstick;
-	DirectoryFileSystem *flash;
 
-	memstick = new DirectoryFileSystem(&pspFileSystem, memstickpath);
-	flash = new DirectoryFileSystem(&pspFileSystem, flashpath);
+	DirectoryFileSystem *memstick = new DirectoryFileSystem(&pspFileSystem, memstickpath);
+	DirectoryFileSystem *flash0 = new DirectoryFileSystem(&pspFileSystem, flash0path);
+	DirectoryFileSystem *flash1 = new DirectoryFileSystem(&pspFileSystem, flash0path);
 	pspFileSystem.Mount("ms0:", memstick);
 	pspFileSystem.Mount("fatms0:", memstick);
 	pspFileSystem.Mount("fatms:", memstick);
-	pspFileSystem.Mount("flash0:", flash);
-	pspFileSystem.Mount("flash1:", flash);
+	pspFileSystem.Mount("flash0:", flash0);
+	pspFileSystem.Mount("flash1:", flash1);
 	
 	__KernelListenThreadEnd(&TellFsThreadEnded);
 }
