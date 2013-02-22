@@ -28,7 +28,7 @@
 
 // Unfortunately this is quite slow.
 // #define LOG_MSC_OUTPUTDEBUG true
-#define LOG_MSC_OUTPUTDEBUG false
+#define LOG_MSC_OUTPUTDEBUG true
 
 void GenericLog(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, 
 		const char *file, int line, const char* fmt, ...)

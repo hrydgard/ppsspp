@@ -21,6 +21,7 @@ set(SRCS
   ELF/ElfReader.cpp
   ELF/ParamSFO.cpp
   ELF/PrxDecrypter.cpp
+  Font/PGF.cpp
   HLE/HLE.cpp
   HLE/HLETables.cpp
   HLE/sceAtrac.cpp
