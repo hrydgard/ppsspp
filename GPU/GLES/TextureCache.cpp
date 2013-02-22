@@ -764,26 +764,27 @@ void TextureCache::SetTexture() {
 			} else {
 				--entry->framesUntilNextFullHash;
 			}
-		}
 
-		// If it's not huge or has been invalidated many times, recheck the whole texture.
-		if (entry->invalidHint > 180 || (entry->invalidHint > 15 && dim <= 0x909)) {
-			entry->invalidHint = 0;
-			rehash = true;
-		}
+			// If it's not huge or has been invalidated many times, recheck the whole texture.
+			if (entry->invalidHint > 180 || (entry->invalidHint > 15 && dim <= 0x909)) {
+				entry->invalidHint = 0;
+				rehash = true;
+			}
 
-		if (rehash && entry->status != TexCacheEntry::STATUS_RELIABLE) {
-			int w = 1 << (gstate.texsize[0] & 0xf);
-			int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
-			int bufw = gstate.texbufwidth[0] & 0x3ff;
-			u32 check = QuickTexHash(texaddr, bufw, w, h, format);
-			if (check != entry->fullhash) {
-				match = false;
-				gpuStats.numTextureInvalidations++;
-				entry->status = TexCacheEntry::STATUS_UNRELIABLE;
-				entry->numFrames = 0;
-			} else if (entry->status == TexCacheEntry::STATUS_UNRELIABLE && entry->numFrames > TexCacheEntry::FRAMES_REGAIN_TRUST) {
-				entry->status = TexCacheEntry::STATUS_HASHING;
+			if (rehash && entry->status != TexCacheEntry::STATUS_RELIABLE) {
+				int w = 1 << (gstate.texsize[0] & 0xf);
+				int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
+				int bufw = gstate.texbufwidth[0] & 0x3ff;
+				u32 check = QuickTexHash(texaddr, bufw, w, h, format);
+				if (check != entry->fullhash) {
+					// TODO: Try looking in the secondCache.
+					match = false;
+					gpuStats.numTextureInvalidations++;
+					entry->status = TexCacheEntry::STATUS_UNRELIABLE;
+					entry->numFrames = 0;
+				} else if (entry->status == TexCacheEntry::STATUS_UNRELIABLE && entry->numFrames > TexCacheEntry::FRAMES_REGAIN_TRUST) {
+					entry->status = TexCacheEntry::STATUS_HASHING;
+				}
 			}
 		}
 
@@ -803,6 +804,7 @@ void TextureCache::SetTexture() {
 			if (entry->texture == lastBoundTexture)
 				lastBoundTexture = -1;
 
+			// TODO: Put in the secondCache instead.
 			glDeleteTextures(1, &entry->texture);
 			if (entry->status == TexCacheEntry::STATUS_RELIABLE) {
 				entry->status = TexCacheEntry::STATUS_HASHING;
