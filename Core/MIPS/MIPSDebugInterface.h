@@ -77,4 +77,8 @@ public:
 		return cpu->r[index];
 	}
 
+	void SetRegValue(int cat, int index, u32 value)
+	{
+		cpu->r[index] = value;
+	}
 };
