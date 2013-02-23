@@ -620,8 +620,8 @@ namespace MIPSInt
 		int imm = (op >> 16) & 0x1f;
 		float mult = 1.0f/(float)(1 << imm);
 		VectorSize sz = GetVecSize(op);
-		ReadVector((float*)&s, sz, vs);
-		ApplySwizzleS((float*)&s, sz); //TODO: and the mask to kill everything but swizzle
+		ReadVector((float*)&s[0], sz, vs);
+		ApplySwizzleS((float*)&s[0], sz); //TODO: and the mask to kill everything but swizzle
 		for (int i = 0; i < GetNumVectorElements(sz); i++)
 		{
 			d[i] = (float)s[i] * mult;
@@ -642,6 +642,7 @@ namespace MIPSInt
 	};
 
 	// magic code from ryg: http://fgiesen.wordpress.com/2012/03/28/half-to-float-done-quic/
+	// See also SSE2 version: https://gist.github.com/rygorous/2144712
 	static FP32 half_to_float_fast5(FP16 h)
 	{
 		static const FP32 magic = { (127 + (127 - 15)) << 23 };
@@ -662,6 +663,42 @@ namespace MIPSInt
 		return fp.f;
 	}
 
+	// More magic code: https://gist.github.com/rygorous/2156668
+	static FP16 float_to_half_fast3(FP32 f)
+	{
+		static const FP32 f32infty = { 255 << 23 };
+		static const FP32 f16infty = { 31 << 23 };
+		static const FP32 magic = { 15 << 23 };
+		static const u32 sign_mask = 0x80000000u;
+		static const u32 round_mask = ~0xfffu;
+		FP16 o = { 0 };
+
+		u32 sign = f.u & sign_mask;
+		f.u ^= sign;
+
+		if (f.u >= f32infty.u) // Inf or NaN (all exponent bits set)
+			 o.u = (f.u > f32infty.u) ? 0x7e00 : 0x7c00; // NaN->qNaN and Inf->Inf
+		else // (De)normalized number or zero
+		{
+			f.u &= round_mask;
+			f.f *= magic.f;
+			f.u -= round_mask;
+			if (f.u > f16infty.u) f.u = f16infty.u; // Clamp to signed infinity if overflowed
+
+			 o.u = f.u >> 13; // Take the bits!
+		}
+
+		o.u |= sign >> 16;
+		return o;
+	}
+
+	static u16 ShrinkToHalf(float full) {
+		FP32 fp32;
+		fp32.f = full;
+		FP16 fp = float_to_half_fast3(fp32);
+		return fp.u;
+	}
+
 	void Int_Vh2f(u32 op)
 	{
 		u32 s[4];
@@ -669,7 +706,8 @@ namespace MIPSInt
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
-		ReadVector((float*)&s, sz, vs);
+		ReadVector((float*)&s[0], sz, vs);
+		ApplySwizzleS((float*)&s[0], sz);
 		
 		VectorSize outsize = V_Pair;
 		switch (sz) {
@@ -690,7 +728,7 @@ namespace MIPSInt
 			_dbg_assert_msg_(CPU, 0, "Trying to interpret Int_Vh2f instruction that can't be interpreted");
 			break;
 		}
-		ApplyPrefixD(d, outsize); //TODO: and the mask to kill everything but mask
+		ApplyPrefixD(d, outsize);
 		WriteVector(d, outsize, vd);
 		PC += 4;
 		EatPrefixes();
@@ -698,27 +736,32 @@ namespace MIPSInt
 
 	void Int_Vf2h(u32 op)
 	{
-		_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
-		// See http://stackoverflow.com/questions/1659440/32-bit-to-16-bit-floating-point-conversion
-
-		/*
-		int s[4];
-		float d[4];
+		float s[4];
+		u32 d[4];
 		int vd = _VD;
 		int vs = _VS;
-		int imm = (op >> 16) & 0x1f;
-		float mult = 1.0f/(float)(1 << imm);
 		VectorSize sz = GetVecSize(op);
-		ReadVector((float*)&s, sz, vs);
-		ApplySwizzleS((float*)&s, sz); //TODO: and the mask to kill everything but swizzle
+		ReadVector(s, sz, vs);
+		ApplySwizzleS(s, sz);
 		
-		for (int i = 0; i < GetNumVectorElements(sz); i++)
-		{
-			d[i] = (float)s[i] * mult;
+		VectorSize outsize = V_Single;
+		switch (sz) {
+		case V_Pair:
+			outsize = V_Single;
+			d[0] = ShrinkToHalf(s[0]) | ((u32)ShrinkToHalf(s[1]) << 16);
+			break;
+		case V_Quad:
+			outsize = V_Pair;
+			d[0] = ShrinkToHalf(s[0]) | ((u32)ShrinkToHalf(s[1]) << 16);
+			d[1] = ShrinkToHalf(s[2]) | ((u32)ShrinkToHalf(s[3]) << 16);
+			break;
+		case V_Single:
+		case V_Triple:
+			_dbg_assert_msg_(CPU, 0, "Trying to interpret Int_Vf2h instruction that can't be interpreted");
+			break;
 		}
-		ApplyPrefixD(d, sz); //TODO: and the mask to kill everything but mask
-		WriteVector(d, sz, vd);
-		*/
+		ApplyPrefixD((float*)&d[0], outsize);
+		WriteVector((float*)&d[0], outsize, vd);
 		PC += 4;
 		EatPrefixes();
 	}
