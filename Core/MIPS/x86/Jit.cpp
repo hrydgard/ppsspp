@@ -348,6 +348,8 @@ void Jit::WriteExitDestInEAX()
 		CMP(32, R(EAX), Imm32(PSP_GetUserMemoryEnd()));
 		FixupBranch tooHigh = J_CC(CC_GE);
 
+		// Need to set neg flag again if necessary.
+		SUB(32, M(&currentMIPS->downcount), Imm32(0));
 		JMP(asm_.dispatcher, true);
 
 		SetJumpTarget(tooLow);
@@ -355,12 +357,18 @@ void Jit::WriteExitDestInEAX()
 
 		ABI_CallFunctionA(thunks.ProtectFunction((void *) Memory::GetPointer, 1), R(EAX));
 		CMP(32, R(EAX), Imm32(0));
-		J_CC(CC_NE, asm_.dispatcher, true);
+		FixupBranch skip = J_CC(CC_NE);
 
 		// TODO: "Ignore" this so other threads can continue?
 		if (g_Config.bIgnoreBadMemAccess)
 			ABI_CallFunctionA(thunks.ProtectFunction((void *) Core_UpdateState, 1), Imm32(CORE_ERROR));
+
+		SUB(32, M(&currentMIPS->downcount), Imm32(0));
 		JMP(asm_.dispatcherCheckCoreState, true);
+		SetJumpTarget(skip);
+
+		SUB(32, M(&currentMIPS->downcount), Imm32(0));
+		J_CC(CC_NE, asm_.dispatcher, true);
 	}
 	else
 		JMP(asm_.dispatcher, true);
