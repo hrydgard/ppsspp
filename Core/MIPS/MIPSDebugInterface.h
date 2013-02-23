@@ -74,7 +74,40 @@ public:
 
 	u32 GetRegValue(int cat, int index)
 	{
-		return cpu->r[index];
+		switch (cat)
+		{
+		case 0:
+			return cpu->r[index];
+
+		case 1:
+			return *(u32 *)&cpu->f[index];
+
+		case 2:
+			return *(u32 *)&cpu->v[index];
+
+		default:
+			return 0;
+		}
 	}
 
+	void SetRegValue(int cat, int index, u32 value)
+	{
+		switch (cat)
+		{
+		case 0:
+			cpu->r[index] = value;
+			break;
+
+		case 1:
+			cpu->f[index] = *(float *)&value;
+			break;
+
+		case 2:
+			cpu->v[index] = *(float *)&value;
+			break;
+
+		default:
+			break;
+		}
+	}
 };
