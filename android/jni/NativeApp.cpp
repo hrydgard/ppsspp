@@ -6,7 +6,7 @@
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License 2.0 for more details.
 
 // A copy of the GPL 2.0 should have been included with the program.
@@ -15,389 +15,857 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-// NativeApp implementation for platforms that will use that framework, like:
-// Android, Linux, MacOSX.
-//
-// Native is a cross platform framework. It's not very mature and mostly
-// just built according to the needs of my own apps.
-//
-// Windows has its own code that bypasses the framework entirely.
+#include "NativeApp.h"
+#include "NativeGL.h"
+#include "NativeJNI.h"
 
-#include "base/logging.h"
+#include <sched.h>
+
+#include <errno.h>
+
+#include "base/basictypes.h"
+#include "base/display.h"
 #include "base/NativeApp.h"
-#include "file/vfs.h"
+#include "base/logging.h"
+#include "base/timeutil.h"
 #include "file/zip_read.h"
-#include "gfx_es2/gl_state.h"
-#include "gfx/gl_lost_manager.h"
-#include "gfx/texture.h"
 #include "input/input_state.h"
+#include "audio/mixer.h"
 #include "math/math_util.h"
-#include "math/lin/matrix4x4.h"
-#include "ui/screen.h"
-#include "ui/ui.h"
+#include "net/resolve.h"
+#include "android/native_audio.h"
 
-#include "FileUtil.h"
-#include "LogManager.h"
-#include "../../Core/PSPMixer.h"
-#include "../../Core/CPU.h"
-#include "../../Core/Config.h"
-#include "../../Core/HLE/sceCtrl.h"
-#include "../../Core/Host.h"
-#include "../../Common/MemArena.h"
+#define TAG "PPSSPP"
 
-#include "ui_atlas.h"
-#include "EmuScreen.h"
-#include "MenuScreens.h"
-#include "UIShader.h"
+#define APP_STATE_NONE		0
+#define APP_STATE_START		1
+#define APP_STATE_RESUME	2
+#define APP_STATE_PAUSE		3
+#define APP_STATE_STOP		4
 
-#include "ArmEmitterTest.h"
+#define LOOPER_ID_INPUT		1
 
-Texture *uiTexture;
+#define MSG_APP_START				1
+#define MSG_APP_RESUME				2
+#define MSG_APP_PAUSE				3
+#define MSG_APP_SAVEINSTANCESTATE	4
+#define MSG_APP_STOP				5
+#define MSG_APP_DESTROYED			6
+#define MSG_APP_CONFIGCHANGED		7
+#define MSG_APP_LOWMEMORY			8
+#define MSG_WINDOW_FOCUSCHANGED		9
+#define MSG_WINDOW_CREATED			10
+#define MSG_WINDOW_DESTROYED		11
+#define MSG_INPUTQUEUE_CREATED		12
+#define MSG_INPUTQUEUE_DESTROYED	13
 
-ScreenManager *screenManager;
-std::string config_filename;
-std::string game_title;
+float dp_xscale;
+float dp_yscale;
 
-class AndroidLogger : public LogListener
+InputState input_state;
+
+static bool renderer_inited = false;
+static bool first_lost = true;
+static bool use_native_audio = true;
+
+static uint32_t pad_buttons_async_set;
+static uint32_t pad_buttons_async_clear;
+
+static int engine_init_display( struct ENGINE* engine, int native_format )
 {
-public:
-	void Log(LogTypes::LOG_LEVELS level, const char *msg)
-	{
-		switch (level)
-		{
-		case LogTypes::LDEBUG:
-		case LogTypes::LINFO:
-			ILOG("%s", msg);
-			break;
-		case LogTypes::LERROR:
-			ELOG("%s", msg);
-			break;
-		case LogTypes::LWARNING:
-			WLOG("%s", msg);
-			break;
-		case LogTypes::LNOTICE:
-		default:
-			ILOG("%s", msg);
-			break;
-		}
-	}
-};
+	LOGI("engine_init_display()");
+	if (!renderer_inited) {
 
+		engine_gl_init(engine, native_format);
 
-// TODO: Get rid of this junk
-class NativeHost : public Host
-{
-public:
-	NativeHost() {
-		// hasRendered = false;
-	}
+		// We default to 240 dpi and all UI code is written to assume it. (DENSITY_HIGH, like Nexus S).
+		// Note that we don't compute dp_xscale and dp_yscale until later! This is so that NativeGetAppInfo
+		// can change the dp resolution if it feels like it.
 
-	virtual void UpdateUI() {}
+		g_dpi = getDPI(); //TODO: JNI this for a real value
+		g_dpi_scale = (float)240.0f / (float)g_dpi;
+		pixel_xres = ANativeWindow_getWidth(engine->app->window);
+		pixel_yres = ANativeWindow_getHeight(engine->app->window);
+		pixel_in_dps = (float)pixel_xres / (float)dp_xres;
 
-	virtual void UpdateMemView() {}
-	virtual void UpdateDisassembly() {}
+		dp_xres = pixel_xres * g_dpi_scale;
+		dp_yres = pixel_yres * g_dpi_scale;
 
-	virtual void SetDebugMode(bool mode) { }
+		LOGI("Calling NativeInitGraphics();	dpi = %i, dp_xres = %i, dp_yres = %i, g_dpi_scale = %f", g_dpi, dp_xres, dp_yres, g_dpi_scale);
+		NativeInitGraphics();
 
-	virtual void InitGL() {}
-	virtual void BeginFrame() {}
-	virtual void ShutdownGL() {}
+		dp_xscale = (float)dp_xres / pixel_xres;
+		dp_yscale = (float)dp_yres / pixel_yres;
 
-	virtual void InitSound(PMixer *mixer);
-	virtual void UpdateSound() {};
-	virtual void ShutdownSound();
+		renderer_inited = true;
 
-	// this is sent from EMU thread! Make sure that Host handles it properly!
-	virtual void BootDone() {}
-	virtual void PrepareShutdown() {}
-
-	virtual bool IsDebuggingEnabled() {return false;}
-	virtual bool AttemptLoadSymbolMap() {return false;}
-	virtual void ResetSymbolMap() {}
-	virtual void AddSymbol(std::string name, u32 addr, u32 size, int type=0) {}
-	virtual void SetWindowTitle(const char *message) {
-		game_title = message;
-	}
-};
-
-// globals
-static PMixer *g_mixer = 0;
-static AndroidLogger *logger = 0;
-
-std::string boot_filename = "";
-
-void NativeHost::InitSound(PMixer *mixer)
-{
-	g_mixer = mixer;
-}
-
-void NativeHost::ShutdownSound()
-{
-	g_mixer = 0;
-}
-
-void NativeMix(short *audio, int num_samples)
-{
-	if (g_mixer)
-	{
-		g_mixer->Mix(audio, num_samples);
-	}
-	else
-	{
-		//memset(audio, 0, numSamples * 2);
-	}
-}
-
-void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, bool *landscape)
-{
-	*app_nice_name = "PPSSPP";
-	*app_dir_name = "ppsspp";
-	*landscape = true;
-
-	// ArmEmitterTest();
-}
-
-void NativeInit(int argc, const char *argv[], const char *savegame_directory, const char *external_directory, const char *installID)
-{
-	EnableFZ();
-	std::string user_data_path = savegame_directory;
-
-	// We want this to be FIRST.
-#ifdef BLACKBERRY
-	// Packed assets are included in app/native/ dir
-	VFSRegister("", new DirectoryAssetReader("app/native/assets/"));
-#else
-	VFSRegister("", new DirectoryAssetReader("assets/"));
-#endif
-	VFSRegister("", new DirectoryAssetReader(user_data_path.c_str()));
-
-	host = new NativeHost();
-
-	logger = new AndroidLogger();
-
-	LogManager::Init();
-	LogManager *logman = LogManager::GetInstance();
-	ILOG("Logman: %p", logman);
-
-	config_filename = user_data_path + "ppsspp.ini";
-
-	g_Config.Load(config_filename.c_str());
-
-	const char *fileToLog = 0;
-
-	bool gfxLog = false;
-	// Parse command line
-	LogTypes::LOG_LEVELS logLevel = LogTypes::LINFO;
-	for (int i = 1; i < argc; i++) {
-		if (argv[i][0] == '-') {
-			switch (argv[i][1]) {
-			case 'd':
-				// Enable debug logging
-				// Note that you must also change the max log level in Log.h.
-				logLevel = LogTypes::LDEBUG;
-				break;
-			case 'g':
-				gfxLog = true;
-				break;
-			case 'j':
-				g_Config.bJit = true;
-				g_Config.bSaveSettings = false;
-				break;
-			case 'i':
-				g_Config.bJit = false;
-				g_Config.bSaveSettings = false;
-				break;
-			case '-':
-				if (!strncmp(argv[i], "--log=", strlen("--log=")) && strlen(argv[i]) > strlen("--log="))
-					fileToLog = argv[i] + strlen("--log=");
-				break;
-			}
-		} else {
-			if (boot_filename.empty()) {
-				boot_filename = argv[i];
-				if (!File::Exists(boot_filename))
-				{
-					fprintf(stderr, "File not found: %s\n", boot_filename.c_str());
-					exit(1);
-				}
-			} else {
-				fprintf(stderr, "Can only boot one file");
-				exit(1);
-			}
-		}
-	}
-
-	if (fileToLog != NULL)
-		LogManager::GetInstance()->ChangeFileLog(fileToLog);
-
-	if (g_Config.currentDirectory == "") {
-#if defined(ANDROID)
-		g_Config.currentDirectory = external_directory;
-#elif defined(BLACKBERRY) || defined(__SYMBIAN32__)
-		g_Config.currentDirectory = savegame_directory;
-#else
-		g_Config.currentDirectory = getenv("HOME");
-#endif
-	}
-
-#if defined(ANDROID)
-	// Maybe there should be an option to use internal memory instead, but I think
-	// that for most people, using external memory (SDCard/USB Storage) makes the
-	// most sense.
-	g_Config.memCardDirectory = std::string(external_directory) + "/";
-	g_Config.flashDirectory = std::string(external_directory)+"/flash/";
-#elif defined(BLACKBERRY) || defined(__SYMBIAN32__)
-	g_Config.memCardDirectory = user_data_path;
-	g_Config.flashDirectory = user_data_path+"/flash/";
-#else
-	g_Config.memCardDirectory = std::string(getenv("HOME"))+"/.ppsspp/";
-	g_Config.flashDirectory = g_Config.memCardDirectory+"/flash/";
-#endif
-
-	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++)
-	{
-		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
-		logman->SetEnable(type, true);
-		logman->SetLogLevel(type, gfxLog && i == LogTypes::G3D ? LogTypes::LDEBUG : logLevel);
-#ifdef ANDROID
-		logman->AddListener(type, logger);
-#endif
-	}
-	// Special hack for G3D as it's very spammy. Need to make a flag for this.
-	if (!gfxLog)
-		logman->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
-	INFO_LOG(BOOT, "Logger inited.");
-}
-
-void NativeInitGraphics()
-{
-	INFO_LOG(BOOT, "NativeInitGraphics - should only be called once!");
-	gl_lost_manager_init();
-	ui_draw2d.SetAtlas(&ui_atlas);
-
-	screenManager = new ScreenManager();
-	if (boot_filename.empty()) {
-		screenManager->switchScreen(new LogoScreen(boot_filename));
 	} else {
-		// Go directly into the game.
-		screenManager->switchScreen(new EmuScreen(boot_filename));
+		LOGI("Calling NativeDeviceLost();");
+		NativeDeviceLost();
 	}
-	// screenManager->switchScreen(new FileSelectScreen());
+	return 0;
+}
 
-	UIShader_Init();
+static void engine_term_display( struct ENGINE* engine )
+{
+	LOGI( "engine_term_display" );
+	if (renderer_inited) {
+		NativeShutdownGraphics();
+		renderer_inited = false;
+	}
+	engine->render	= 0;
+	engine_gl_term(engine);
+}
 
-	UITheme theme = {0};
-	theme.uiFont = UBUNTU24;
-	theme.uiFontSmall = UBUNTU24;
-	theme.uiFontSmaller = UBUNTU24;
-	theme.buttonImage = I_BUTTON;
-	theme.buttonSelected = I_BUTTON_SELECTED;
-	theme.checkOn = I_CHECKEDBOX;
-	theme.checkOff = I_SQUARE;
+static void engine_draw_frame( struct ENGINE* engine )
+{
+	if (renderer_inited) {
+		{
+			lock_guard guard(input_state.lock);
+			input_state.pad_buttons |= pad_buttons_async_set;
+			input_state.pad_buttons &= ~pad_buttons_async_clear;
+			UpdateInputState(&input_state);
+		}
 
-	ui_draw2d.Init();
-	ui_draw2d_front.Init();
+		{
+			lock_guard guard(input_state.lock);
+			NativeUpdate(input_state);
+		}
 
-	UIInit(&ui_atlas, theme);
+		{
+			lock_guard guard(input_state.lock);
+			EndInputState(&input_state);
+		}
 
-	uiTexture = new Texture();
-	if (!uiTexture->Load("ui_atlas.zim"))
+		NativeRender();
+		engine_gl_swapbuffers(engine);
+
+		time_update();
+	} else {
+		ELOG("Ended up in nativeRender even though app has quit.%s", "");
+		// Shouldn't really get here.
+		glClearColor(1.0, 0.0, 1.0f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+	}
+}
+
+
+static void AsyncDown(int padbutton)
+{
+	pad_buttons_async_set |= padbutton;
+	pad_buttons_async_clear &= ~padbutton;
+}
+
+static void AsyncUp(int padbutton)
+{
+	pad_buttons_async_set &= ~padbutton;
+	pad_buttons_async_clear |= padbutton;
+}
+
+static int32_t engine_handle_input( struct APP_INSTANCE* app, AInputEvent* event )
+{
+	struct ENGINE* engine = (struct ENGINE*)app->userData;
+	if( AInputEvent_getType(event) == AINPUT_EVENT_TYPE_MOTION ) //Touchpad or Touchscreen
 	{
-		ELOG("Failed to load texture");
+		int nPointerCount	= AMotionEvent_getPointerCount( event );
+		int nSourceId		= AInputEvent_getSource( event );
+		int n;
+
+		for( n = 0 ; n < nPointerCount ; ++n )
+		{
+			int nPointerId	= AMotionEvent_getPointerId( event, n );
+			int nAction		= AMOTION_EVENT_ACTION_MASK & AMotionEvent_getAction( event );
+			//struct TOUCHSTATE *touchstate = 0;
+
+			if( nSourceId == AINPUT_SOURCE_TOUCHPAD )
+			{
+				//LOGI("Boop.");
+				if (nAction == AMOTION_EVENT_ACTION_POINTER_DOWN)
+				{
+					lock_guard guard(input_state.lock);
+					input_state.pad_lstick_x = AMotionEvent_getX( event, n );
+					input_state.pad_lstick_y = AMotionEvent_getY( event, n );
+				}
+			}
+			else
+			{
+				if( nAction == AMOTION_EVENT_ACTION_POINTER_DOWN || nAction == AMOTION_EVENT_ACTION_POINTER_UP )
+				{
+					int nPointerIndex = (AMotionEvent_getAction( event ) & AMOTION_EVENT_ACTION_POINTER_INDEX_MASK) >> AMOTION_EVENT_ACTION_POINTER_INDEX_SHIFT;
+					nPointerId = AMotionEvent_getPointerId( event, nPointerIndex );
+				}
+
+				float scaledX = (int)(AMotionEvent_getX( event, n ) * dp_xscale);	// why the (int) cast?
+				float scaledY = (int)(AMotionEvent_getY( event, n ) * dp_yscale);
+				input_state.pointer_x[nPointerId] = scaledX;
+				input_state.pointer_y[nPointerId] = scaledY;
+
+				if( nAction == AMOTION_EVENT_ACTION_DOWN || nAction == AMOTION_EVENT_ACTION_POINTER_DOWN )
+				{
+					input_state.pointer_down[nPointerId] = true;
+					NativeTouch(nPointerId, scaledX, scaledY, 0, TOUCH_DOWN);
+				}
+				else if( nAction == AMOTION_EVENT_ACTION_UP || nAction == AMOTION_EVENT_ACTION_POINTER_UP || nAction == AMOTION_EVENT_ACTION_CANCEL )
+				{
+					input_state.pointer_down[nPointerId] = false;
+					NativeTouch(nPointerId, scaledX, scaledY, 0, TOUCH_UP);
+				}
+				else {
+					NativeTouch(nPointerId, scaledX, scaledY, 0, TOUCH_MOVE);
+				}
+			}
+		}
+
+		return 1;
 	}
-	uiTexture->Bind(0);
+	else if( AInputEvent_getType(event) == AINPUT_EVENT_TYPE_KEY ) //Physical button press
+	{
+		int nAction	= AKeyEvent_getAction( event );
+		int metaState = AKeyEvent_getMetaState( event );
+		if(nAction == AKEY_EVENT_ACTION_DOWN)
+		{
+			switch(AKeyEvent_getKeyCode(event))
+			{
+				case AKEYCODE_BACK:
+					if(((metaState & AMETA_ALT_ON) == AMETA_ALT_ON))
+						AsyncDown(PAD_BUTTON_B);
+					else
+						AsyncDown(PAD_BUTTON_BACK);
+					break; 	// Back and O
+				case AKEYCODE_MENU:	AsyncDown(PAD_BUTTON_MENU); break;  // Menu
+				case AKEYCODE_SEARCH:	AsyncDown(PAD_BUTTON_A); break; // Search
+				case AKEYCODE_DPAD_CENTER: AsyncDown(PAD_BUTTON_A); break;
+				case AKEYCODE_BUTTON_X: AsyncDown(PAD_BUTTON_X); break;
+				case AKEYCODE_BUTTON_Y: AsyncDown(PAD_BUTTON_Y); break;
+				case AKEYCODE_DPAD_LEFT: AsyncDown(PAD_BUTTON_LEFT); break;
+				case AKEYCODE_DPAD_UP: AsyncDown(PAD_BUTTON_UP); break;
+				case AKEYCODE_DPAD_RIGHT: AsyncDown(PAD_BUTTON_RIGHT); break;
+				case AKEYCODE_DPAD_DOWN: AsyncDown(PAD_BUTTON_DOWN); break;
+				case AKEYCODE_BUTTON_L1: AsyncDown(PAD_BUTTON_LBUMPER); break;
+				case AKEYCODE_BUTTON_R1: AsyncDown(PAD_BUTTON_RBUMPER); break;
+				case AKEYCODE_BUTTON_START: AsyncDown(PAD_BUTTON_START); break;
+				case AKEYCODE_BUTTON_SELECT: AsyncDown(PAD_BUTTON_SELECT); break;
 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+				case AKEYCODE_VOLUME_UP:
+				case AKEYCODE_VOLUME_DOWN:
+					return 0; //Let the system handle volume changes
+			}
+		}
+		else if(nAction == AKEY_EVENT_ACTION_UP)
+		{
+			switch(AKeyEvent_getKeyCode(event))
+			{
+				case AKEYCODE_BACK:
+					if(((metaState & AMETA_ALT_ON) == AMETA_ALT_ON))
+						AsyncUp(PAD_BUTTON_B);
+					else
+						AsyncUp(PAD_BUTTON_BACK);
+					break; 	// Back and O
+				case AKEYCODE_MENU:	AsyncUp(PAD_BUTTON_MENU); break;  // Menu
+				case AKEYCODE_SEARCH:	AsyncUp(PAD_BUTTON_A); break; // Search
+				case AKEYCODE_DPAD_CENTER: AsyncUp(PAD_BUTTON_A); break;
+				case AKEYCODE_BUTTON_X: AsyncUp(PAD_BUTTON_X); break;
+				case AKEYCODE_BUTTON_Y: AsyncUp(PAD_BUTTON_Y); break;
+				case AKEYCODE_DPAD_LEFT: AsyncUp(PAD_BUTTON_LEFT); break;
+				case AKEYCODE_DPAD_UP: AsyncUp(PAD_BUTTON_UP); break;
+				case AKEYCODE_DPAD_RIGHT: AsyncUp(PAD_BUTTON_RIGHT); break;
+				case AKEYCODE_DPAD_DOWN: AsyncUp(PAD_BUTTON_DOWN); break;
+				case AKEYCODE_BUTTON_L1: AsyncUp(PAD_BUTTON_LBUMPER); break;
+				case AKEYCODE_BUTTON_R1: AsyncUp(PAD_BUTTON_RBUMPER); break;
+				case AKEYCODE_BUTTON_START: AsyncUp(PAD_BUTTON_START); break;
+				case AKEYCODE_BUTTON_SELECT: AsyncUp(PAD_BUTTON_SELECT); break;
 
-	glstate.viewport.set(0, 0, pixel_xres, pixel_yres);
+				case AKEYCODE_VOLUME_UP:
+				case AKEYCODE_VOLUME_DOWN:
+					return 0; //Let the system handle volume changes
+			}
+		}
+		return 1;
+	}
+	return 0;
 }
 
-void NativeRender()
+void
+app_lock_queue( struct APP_INSTANCE* state )
 {
-	EnableFZ();
-	glstate.depthWrite.set(GL_TRUE);
-	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-
-	// Clearing the screen at the start of the frame is an optimization for tiled mobile GPUs, as it then doesn't need to keep it around between frames.
-	glClearColor(0,0,0,1);
-	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
-	glstate.Restore();
-	glViewport(0, 0, pixel_xres, pixel_yres);
-	Matrix4x4 ortho;
-	ortho.setOrtho(0.0f, dp_xres, dp_yres, 0.0f, -1.0f, 1.0f);
-	glsl_bind(UIShader_Get());
-	glUniformMatrix4fv(UIShader_Get()->u_worldviewproj, 1, GL_FALSE, ortho.getReadPtr());
-
-	screenManager->render();
+	pthread_mutex_lock( &state->mutex );
 }
 
-void NativeUpdate(InputState &input)
+void
+app_unlock_queue( struct APP_INSTANCE* state )
 {
-	UIUpdateMouse(0, input.pointer_x[0], input.pointer_y[0], input.pointer_down[0]);
-	screenManager->update(input);
+	pthread_cond_broadcast( &state->cond );
+	pthread_mutex_unlock( &state->mutex );
 }
 
-void NativeDeviceLost()
+static void InitMain(struct APP_INSTANCE* app_instance)
 {
-	screenManager->deviceLost();
-	gl_lost();
-	// Should dirty EVERYTHING
-}
+	memset(&input_state, 0, sizeof(input_state));
+	renderer_inited = false;
+	first_lost = true;
 
-bool NativeIsAtTopLevel()
-{
-	// TODO
-	return false;
-}
+	pad_buttons_async_set = 0;
+	pad_buttons_async_clear = 0;
 
-void NativeTouch(int finger, float x, float y, double time, TouchEvent event)
-{
-	switch (event) {
-	case TOUCH_DOWN:
-		break;
-	case TOUCH_MOVE:
-		break;
-	case TOUCH_UP:
-		break;
+	std::string apkPath = getApkPath();
+	std::string externalDir = getExternalDir();
+	std::string user_data_path = getUserDataPath();
+	std::string library_path = getLibraryPath();
+	std::string installID = getInstallID();
+
+	LOGI("APK path: %s", apkPath.c_str());
+	VFSRegister("", new ZipAssetReader(apkPath.c_str(), "assets/"));
+
+	LOGI("External storage path: %s", externalDir.c_str());
+
+	std::string app_name;
+	std::string app_nice_name;
+	bool landscape;
+
+	net::Init();
+	//LOGI("net::Init() done");
+
+	NativeGetAppInfo(&app_name, &app_nice_name, &landscape);
+
+	LOGI("NativeInit()");
+	const char *argv[2] = {app_name.c_str(), 0};
+	NativeInit(1, argv, user_data_path.c_str(), externalDir.c_str(), installID.c_str());
+
+	if (use_native_audio) {
+		AndroidAudio_Init(&NativeMix, library_path);
 	}
 }
 
-void NativeMessageReceived(const char *message, const char *value)
+void
+instance_app_main( struct APP_INSTANCE* app_instance )
 {
-	// Unused
+	LOGI( "main entering." );
+
+	struct ENGINE engine;
+
+	memset( &engine, 0, sizeof(engine) );
+	app_instance->userData	= &engine;
+	engine.app				= app_instance;
+
+	int run = 1;
+
+	//run real main
+	InitMain( app_instance );
+
+	// our 'main loop'
+	while( run == 1 )
+	{
+		// Read all pending events.
+		int msg_index;
+		int ident;
+		int events;
+		struct android_poll_source* source;
+
+		app_lock_queue( app_instance );
+
+		for( msg_index = 0; msg_index < app_instance->msgQueueLength; ++msg_index )
+		{
+			switch( app_instance->msgQueue[msg_index].msg )
+			{
+				case MSG_APP_START:
+				{
+					app_instance->activityState = app_instance->pendingActivityState;
+				}
+				break;
+				case MSG_APP_RESUME:
+				{
+					app_instance->activityState = app_instance->pendingActivityState;
+					ILOG("NativeResume");
+					if (use_native_audio) {
+						AndroidAudio_Resume();
+					}
+				}
+				break;
+				case MSG_APP_PAUSE:
+				{
+					app_instance->activityState = app_instance->pendingActivityState;
+					ILOG("NativePause");
+					engine.render = 0;
+					if (use_native_audio) {
+						AndroidAudio_Pause();
+					}
+				}
+				break;
+				case MSG_APP_STOP:
+				{
+					app_instance->activityState = app_instance->pendingActivityState;
+					LOGI("NativeShutdown.");
+					if (use_native_audio) {
+						AndroidAudio_Shutdown();
+					}
+					NativeShutdown();
+					LOGI("VFSShutdown.");
+					VFSShutdown();
+					net::Shutdown();
+				}
+				break;
+				case MSG_APP_SAVEINSTANCESTATE:
+				{
+				}
+				break;
+				case MSG_APP_LOWMEMORY:
+				{
+				}
+				break;
+				case MSG_APP_CONFIGCHANGED:
+				{
+				}
+				break;
+				case MSG_APP_DESTROYED:
+				{
+					run = 0;
+				}
+				break;
+				case MSG_WINDOW_FOCUSCHANGED:
+				{
+					engine.render = app_instance->msgQueue[msg_index].arg1;
+				}
+				break;
+				case MSG_WINDOW_CREATED:
+				{
+					app_instance->window = app_instance->pendingWindow;
+
+					int nWidth	= ANativeWindow_getWidth( app_instance->window );
+					int nHeight	= ANativeWindow_getHeight( app_instance->window );
+					int nFormat	= ANativeWindow_getFormat( app_instance->window );
+
+					unsigned int nHexFormat = 0x00000000;
+					if( nFormat == WINDOW_FORMAT_RGBA_8888 )
+						nHexFormat = 0x8888;
+					else if(nFormat == WINDOW_FORMAT_RGBX_8888)
+						nHexFormat = 0x8880;
+					else
+						nHexFormat = 0x0565;
+
+					LOGI("Window Created : Width(%d) Height(%d) Format(%04x)", nWidth, nHeight, nHexFormat);
+
+					engine_init_display( &engine, nFormat );
+					engine.render = 1;
+				}
+				break;
+				case MSG_WINDOW_DESTROYED:
+				{
+					engine_term_display(&engine);
+					app_instance->window = NULL;
+				}
+				break;
+				case MSG_INPUTQUEUE_CREATED:
+				case MSG_INPUTQUEUE_DESTROYED:
+				{
+					if( app_instance->inputQueue != NULL )
+						AInputQueue_detachLooper( app_instance->inputQueue );
+
+					app_instance->inputQueue = app_instance->pendingInputQueue;
+					if( app_instance->inputQueue != NULL )
+					{
+						AInputQueue_attachLooper( app_instance->inputQueue, app_instance->looper, LOOPER_ID_INPUT, NULL, NULL );
+					}
+				}
+				break;
+			};
+		}
+
+		app_instance->msgQueueLength = 0;
+
+		app_unlock_queue( app_instance );
+
+		if (!run)
+			break;
+
+		// If not rendering, we will block forever waiting for events.
+		// If rendering, we loop until all events are read, then continue
+		// to draw the next frame.
+		while( (ident = ALooper_pollAll( 0, NULL, &events, (void**)&source )) >= 0 )
+		{
+			if( ident == LOOPER_ID_INPUT )
+			{
+				AInputEvent* event = NULL;
+				if (AInputQueue_getEvent( app_instance->inputQueue, &event ) >= 0)
+				{
+					if( AInputQueue_preDispatchEvent( app_instance->inputQueue, event ) )
+						continue;
+
+					int handled = engine_handle_input( app_instance, event );
+
+					AInputQueue_finishEvent( app_instance->inputQueue, event, handled );
+				}
+			}
+		}
+
+		if( engine.render )
+		{
+			engine_draw_frame( &engine );
+		}
+	}
+
+	LOGI( "main exiting." );
 }
 
-void NativeShutdownGraphics()
+///////////////////////
+///////////////////////
+///////////////////////
+///////////////////////
+///////////////////////
+
+
+
+///////////////
+static
+void
+OnDestroy( ANativeActivity* activity )
 {
-	delete uiTexture;
-	uiTexture = NULL;
+	LOGI( "NativeActivity destroy: %p\n", activity );
 
-	screenManager->shutdown();
-	delete screenManager;
-	screenManager = 0;
+	struct APP_INSTANCE* app_instance = (struct APP_INSTANCE*)activity->instance;
 
-	ui_draw2d.Shutdown();
-	ui_draw2d_front.Shutdown();
+	pthread_mutex_lock( &app_instance->mutex );
 
-	UIShader_Shutdown();
+	app_instance->msgQueue[ app_instance->msgQueueLength++ ].msg = MSG_APP_DESTROYED;
 
-	gl_lost_manager_shutdown();
+	while( !app_instance->destroyed )
+	{
+		LOGI( "NativeActivity destroy waiting on app thread" );
+		pthread_cond_wait(&app_instance->cond, &app_instance->mutex);
+	}
+
+	pthread_mutex_unlock( &app_instance->mutex );
 }
 
-void NativeShutdown()
+static
+void
+OnStart( ANativeActivity* activity )
 {
-	delete host;
-	host = 0;
-	g_Config.Save();
-	LogManager::Shutdown();
-	// This means that the activity has been completely destroyed. PPSSPP does not
-	// boot up correctly with "dirty" global variables currently, so we hack around that
-	// by simply exiting.
-#ifdef ANDROID
-	exit(0);
-#endif
+	LOGI( "NativeActivity start: %p\n", activity );
+
+	struct APP_INSTANCE* app_instance = (struct APP_INSTANCE*)activity->instance;
+
+	pthread_mutex_lock( &app_instance->mutex );
+
+	app_instance->pendingActivityState = APP_STATE_START;
+	app_instance->msgQueue[ app_instance->msgQueueLength++ ].msg = MSG_APP_START;
+
+	while( app_instance->activityState != app_instance->pendingActivityState )
+	{
+		pthread_cond_wait(&app_instance->cond, &app_instance->mutex);
+	}
+
+	app_instance->pendingActivityState = APP_STATE_NONE;
+
+	pthread_mutex_unlock( &app_instance->mutex );
+}
+
+static
+void
+OnResume( ANativeActivity* activity )
+{
+	LOGI( "NativeActivity resume: %p\n", activity );
+
+	struct APP_INSTANCE* app_instance = (struct APP_INSTANCE*)activity->instance;
+
+	pthread_mutex_lock( &app_instance->mutex );
+
+	app_instance->pendingActivityState = APP_STATE_RESUME;
+	app_instance->msgQueue[ app_instance->msgQueueLength++ ].msg = MSG_APP_RESUME;
+
+	while( app_instance->activityState != app_instance->pendingActivityState )
+	{
+		pthread_cond_wait(&app_instance->cond, &app_instance->mutex);
+	}
+
+	app_instance->pendingActivityState = APP_STATE_NONE;
+
+	pthread_mutex_unlock( &app_instance->mutex );
+}
+
+static
+void*
+OnSaveInstanceState( ANativeActivity* activity, size_t* out_lentch )
+{
+	LOGI( "NativeActivity save instance state: %p\n", activity );
+
+	return 0;
+}
+
+static
+void
+OnPause( ANativeActivity* activity )
+{
+	LOGI( "NativeActivity pause: %p\n", activity );
+
+	struct APP_INSTANCE* app_instance = (struct APP_INSTANCE*)activity->instance;
+
+	pthread_mutex_lock( &app_instance->mutex );
+
+	app_instance->pendingActivityState = APP_STATE_PAUSE;
+	app_instance->msgQueue[ app_instance->msgQueueLength++ ].msg = MSG_APP_PAUSE;
+
+	while( app_instance->activityState != app_instance->pendingActivityState )
+	{
+		pthread_cond_wait(&app_instance->cond, &app_instance->mutex);
+	}
+
+	app_instance->pendingActivityState = APP_STATE_NONE;
+
+	pthread_mutex_unlock( &app_instance->mutex );
+}
+
+static
+void
+OnStop( ANativeActivity* activity )
+{
+	LOGI( "NativeActivity stop: %p\n", activity );
+
+	struct APP_INSTANCE* app_instance = (struct APP_INSTANCE*)activity->instance;
+
+	pthread_mutex_lock( &app_instance->mutex );
+
+	app_instance->pendingActivityState = APP_STATE_STOP;
+	app_instance->msgQueue[ app_instance->msgQueueLength++ ].msg = MSG_APP_STOP;
+
+	while( app_instance->activityState != app_instance->pendingActivityState )
+	{
+		pthread_cond_wait(&app_instance->cond, &app_instance->mutex);
+	}
+
+	app_instance->pendingActivityState = APP_STATE_NONE;
+
+	pthread_mutex_unlock( &app_instance->mutex );
+}
+
+static
+void
+OnConfigurationChanged( ANativeActivity* activity )
+{
+	LOGI( "NativeActivity configuration changed: %p\n", activity );
+
+	struct APP_INSTANCE* app_instance = (struct APP_INSTANCE*)activity->instance;
+
+	pthread_mutex_lock( &app_instance->mutex );
+
+	app_instance->msgQueue[ app_instance->msgQueueLength++ ].msg = MSG_APP_CONFIGCHANGED;
+
+	pthread_mutex_unlock( &app_instance->mutex );
+}
+
+static
+void
+OnLowMemory( ANativeActivity* activity )
+{
+	LOGI( "NativeActivity low memory: %p\n", activity );
+
+	struct APP_INSTANCE* app_instance = (struct APP_INSTANCE*)activity->instance;
+
+	pthread_mutex_lock( &app_instance->mutex );
+
+	app_instance->msgQueue[ app_instance->msgQueueLength++ ].msg = MSG_APP_CONFIGCHANGED;
+
+	pthread_mutex_unlock( &app_instance->mutex );
+}
+
+static
+void
+OnWindowFocusChanged( ANativeActivity* activity, int focused )
+{
+	LOGI( "NativeActivity window focus changed: %p -- %d\n", activity, focused );
+
+	struct APP_INSTANCE* app_instance = (struct APP_INSTANCE*)activity->instance;
+
+	pthread_mutex_lock( &app_instance->mutex );
+
+	app_instance->msgQueue[ app_instance->msgQueueLength ].msg		= MSG_WINDOW_FOCUSCHANGED;
+	app_instance->msgQueue[ app_instance->msgQueueLength++ ].arg1	= focused;
+
+	pthread_mutex_unlock( &app_instance->mutex );
+}
+
+static
+void
+OnNativeWindowCreated( ANativeActivity* activity, ANativeWindow* window )
+{
+	LOGI( "NativeActivity native window created: %p -- %p\n", activity, window );
+	
+	struct APP_INSTANCE* app_instance = (struct APP_INSTANCE*)activity->instance;
+
+	pthread_mutex_lock( &app_instance->mutex );
+
+	app_instance->pendingWindow = window;
+	app_instance->msgQueue[ app_instance->msgQueueLength++ ].msg = MSG_WINDOW_CREATED;
+
+	while( app_instance->window != app_instance->pendingWindow )
+	{
+		pthread_cond_wait(&app_instance->cond, &app_instance->mutex);
+	}
+
+	app_instance->pendingWindow = NULL;
+
+	pthread_mutex_unlock( &app_instance->mutex );
+}
+
+static
+void
+OnNativeWindowDestroyed( ANativeActivity* activity, ANativeWindow* window )
+{
+	LOGI( "NativeActivity native window destroyed: %p -- %p\n", activity, window );
+
+	struct APP_INSTANCE* app_instance = (struct APP_INSTANCE*)activity->instance;
+
+	pthread_mutex_lock( &app_instance->mutex );
+
+	app_instance->pendingWindow = NULL;
+	app_instance->msgQueue[ app_instance->msgQueueLength++ ].msg = MSG_WINDOW_DESTROYED;
+
+	while( app_instance->window != app_instance->pendingWindow )
+	{
+		pthread_cond_wait(&app_instance->cond, &app_instance->mutex);
+	}
+
+	pthread_mutex_unlock( &app_instance->mutex );
+}
+
+static
+void
+OnInputQueueCreated( ANativeActivity* activity, AInputQueue* queue )
+{
+	LOGI( "NativeActivity input queue created: %p -- %p\n", activity, queue );
+
+	struct APP_INSTANCE* app_instance = (struct APP_INSTANCE*)activity->instance;
+
+	pthread_mutex_lock( &app_instance->mutex );
+
+	app_instance->pendingInputQueue = queue;
+	app_instance->msgQueue[ app_instance->msgQueueLength++ ].msg = MSG_INPUTQUEUE_CREATED;
+
+	while( app_instance->inputQueue != app_instance->pendingInputQueue )
+	{
+		pthread_cond_wait(&app_instance->cond, &app_instance->mutex);
+	}
+
+	app_instance->pendingInputQueue = NULL;
+
+	pthread_mutex_unlock( &app_instance->mutex );
+}
+
+static
+void
+OnInputQueueDestroyed(ANativeActivity* activity, AInputQueue* queue )
+{
+	LOGI( "NativeActivity input queue destroyed: %p -- %p\n", activity, queue );
+
+	struct APP_INSTANCE* app_instance = (struct APP_INSTANCE*)activity->instance;
+
+	pthread_mutex_lock( &app_instance->mutex );
+
+	app_instance->pendingInputQueue = NULL;
+	app_instance->msgQueue[ app_instance->msgQueueLength++ ].msg = MSG_INPUTQUEUE_DESTROYED;
+
+	while( app_instance->inputQueue != app_instance->pendingInputQueue )
+	{
+		pthread_cond_wait(&app_instance->cond, &app_instance->mutex);
+	}
+
+	pthread_mutex_unlock( &app_instance->mutex );
+}
+///////////////
+
+static
+void*
+app_thread_entry( void* param )
+{
+	LOGI( "NativeActivity entered application thread" );
+
+	struct APP_INSTANCE* app_instance = (struct APP_INSTANCE*)param;
+
+	setupJNI(app_instance);
+
+	app_instance->config = AConfiguration_new();
+	AConfiguration_fromAssetManager( app_instance->config, app_instance->activity->assetManager );
+
+	//create/get a looper
+	ALooper* looper			= ALooper_prepare( ALOOPER_PREPARE_ALLOW_NON_CALLBACKS );
+	app_instance->looper	= looper;
+
+	//tell the thread which created this one that we are now up and running
+	pthread_mutex_lock( &app_instance->mutex );
+	app_instance->running = 1;
+	pthread_cond_broadcast( &app_instance->cond );
+	pthread_mutex_unlock( &app_instance->mutex );
+
+	//run instance
+	instance_app_main( app_instance );
+
+	pthread_mutex_lock( &app_instance->mutex );
+	
+	AConfiguration_delete(app_instance->config);
+	
+	if( app_instance->inputQueue != NULL )
+	{
+		AInputQueue_detachLooper(app_instance->inputQueue);
+	}
+
+	app_instance->destroyed = 1;
+
+	pthread_cond_broadcast( &app_instance->cond );
+	pthread_mutex_unlock( &app_instance->mutex );
+
+	free( app_instance );
+
+	LOGI( "NativeActivity exting application thread" );
+
+	return NULL;
+}
+
+//
+static
+struct APP_INSTANCE*
+app_instance_create( ANativeActivity* activity, void* saved_state, size_t saved_state_size )
+{
+    struct APP_INSTANCE* app_instance = (struct APP_INSTANCE*)malloc( sizeof(struct APP_INSTANCE) );
+    memset(app_instance, 0, sizeof(struct APP_INSTANCE));
+    app_instance->activity = activity;
+
+    pthread_mutex_init( &app_instance->mutex, NULL );
+    pthread_cond_init( &app_instance->cond, NULL );
+
+    pthread_attr_t attr; 
+    pthread_attr_init( &attr );
+    pthread_attr_setdetachstate( &attr, PTHREAD_CREATE_DETACHED );
+    pthread_create( &app_instance->thread, &attr, app_thread_entry, app_instance );
+
+    // Wait for thread to start.
+    pthread_mutex_lock( &app_instance->mutex );
+    while( !app_instance->running )
+    {
+        pthread_cond_wait( &app_instance->cond, &app_instance->mutex );
+    }
+    pthread_mutex_unlock( &app_instance->mutex );
+
+    return app_instance;
+}
+
+//entry point from android/nativeactivity
+void
+ANativeActivity_onCreate( ANativeActivity* activity, void* saved_state, size_t saved_state_size )
+{
+	LOGI( "NativeActivity creating: %p\n", activity );
+
+	activity->callbacks->onDestroy					= OnDestroy;
+	activity->callbacks->onStart					= OnStart;
+	activity->callbacks->onResume					= OnResume;
+	activity->callbacks->onSaveInstanceState		= OnSaveInstanceState;
+	activity->callbacks->onPause					= OnPause;
+	activity->callbacks->onStop						= OnStop;
+	activity->callbacks->onConfigurationChanged		= OnConfigurationChanged;
+	activity->callbacks->onLowMemory				= OnLowMemory;
+	activity->callbacks->onWindowFocusChanged		= OnWindowFocusChanged;
+	activity->callbacks->onNativeWindowCreated		= OnNativeWindowCreated;
+	activity->callbacks->onNativeWindowDestroyed	= OnNativeWindowDestroyed;
+	activity->callbacks->onInputQueueCreated		= OnInputQueueCreated;
+	activity->callbacks->onInputQueueDestroyed		= OnInputQueueDestroyed;
+
+	activity->instance = app_instance_create( activity, saved_state, saved_state_size );
 }

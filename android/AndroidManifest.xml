@@ -2,10 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="org.ppsspp.ppsspp"
     android:versionCode="61"
-    android:versionName="0.61"
-    android:installLocation="auto" >
+    android:versionName="0.61" >
 
-    <uses-sdk android:minSdkVersion="8" android:targetSdkVersion="8"/>
+    <uses-sdk android:minSdkVersion="9" android:targetSdkVersion="9"/>
     
     <uses-feature android:glEsVersion="0x00020000"></uses-feature>
 		<uses-feature android:name="android.hardware.screen.landscape" />
@@ -15,11 +14,15 @@
 		<application
         android:icon="@drawable/ic_launcher"
         android:label="@string/app_name">
-        <activity
-            android:name=".PpssppActivity"
+		<activity 
+			android:name="android.app.NativeActivity"
             android:label="@string/app_name"
             android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
+            android:screenOrientation="landscape"
             android:configChanges="orientation|locale|keyboard|keyboardHidden|navigation|fontScale|uiMode" >
+            <!-- Tell NativeActivity the name of or .so -->
+            <meta-data android:name="android.app.lib_name"
+                    android:value="ppsspp_jni" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
