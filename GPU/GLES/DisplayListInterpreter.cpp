@@ -623,16 +623,13 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_CLUTADDR:
 	case GE_CMD_CLUTADDRUPPER:
 	case GE_CMD_LOADCLUT:
+	case GE_CMD_CLUTFORMAT:
 		gstate_c.textureChanged = true;
 		// This could be used to "dirty" textures with clut.
 		break;
 
 	case GE_CMD_TEXMAPMODE:
 	case GE_CMD_TEXSHADELS:
-		break;
-
-	case GE_CMD_CLUTFORMAT:
-		gstate_c.textureChanged = true;
 		break;
 
 	case GE_CMD_TRANSFERSRC:
