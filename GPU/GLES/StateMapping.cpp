@@ -183,9 +183,13 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		glstate.cullFace.set(wantCull);
 		glstate.cullFaceMode.set(cullingMode[cullMode]);
 
-		glstate.depthTest.set(gstate.isDepthTestEnabled());
-		glstate.depthFunc.set(ztests[gstate.getDepthTestFunc()]);
-		glstate.depthWrite.set(gstate.isDepthWriteEnabled() ? GL_TRUE : GL_FALSE);
+		if (gstate.isDepthTestEnabled()) {
+			glstate.depthTest.enable();
+			glstate.depthFunc.set(ztests[gstate.getDepthTestFunc()]);
+			glstate.depthWrite.set(gstate.isDepthWriteEnabled() ? GL_TRUE : GL_FALSE);
+		} else {
+			glstate.depthTest.disable();
+		}
 
 		// PSP color/alpha mask is per bit but we can only support per byte.
 		// But let's do that, at least. And let's try a threshold.
