@@ -164,11 +164,11 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	// Set cull
 
 	if (gstate.isModeClear()) {
-		bool colMask = (gstate.clearmode >> 8) & 1;
+		bool colorMask = (gstate.clearmode >> 8) & 1;
 		bool alphaMask = (gstate.clearmode >> 9) & 1;
-		bool updateZ = (gstate.clearmode >> 10) & 1;
+		bool depthMask = (gstate.clearmode >> 10) & 1;
 
-		glstate.colorMask.set(colMask, colMask, colMask, alphaMask);
+		glstate.colorMask.set(colorMask, colorMask, colorMask, alphaMask);
 
 		glstate.stencilTest.enable();
 		glstate.stencilOp.set(GL_REPLACE, GL_REPLACE, GL_REPLACE);
@@ -176,16 +176,20 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 
 		glstate.depthTest.enable();
 		glstate.depthFunc.set(GL_ALWAYS);
-		glstate.depthWrite.set(updateZ ? GL_TRUE : GL_FALSE);
+		glstate.depthWrite.set(depthMask ? GL_TRUE : GL_FALSE);
 	} else {
 		u8 cullMode = gstate.getCullMode();
 		bool wantCull = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
 		glstate.cullFace.set(wantCull);
 		glstate.cullFaceMode.set(cullingMode[cullMode]);
 
-		glstate.depthTest.set(gstate.isDepthTestEnabled());
-		glstate.depthFunc.set(ztests[gstate.getDepthTestFunc()]);
-		glstate.depthWrite.set(gstate.isDepthWriteEnabled() ? GL_TRUE : GL_FALSE);
+		if (gstate.isDepthTestEnabled()) {
+			glstate.depthTest.enable();
+			glstate.depthFunc.set(ztests[gstate.getDepthTestFunc()]);
+			glstate.depthWrite.set(gstate.isDepthWriteEnabled() ? GL_TRUE : GL_FALSE);
+		} else {
+			glstate.depthTest.disable();
+		}
 
 		// PSP color/alpha mask is per bit but we can only support per byte.
 		// But let's do that, at least. And let's try a threshold.
@@ -202,7 +206,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 				(gstate.stenciltest >> 16) & 0xFF);  // mask
 			glstate.stencilOp.set(stencilOps[gstate.stencilop & 0x7],  // stencil fail
 				stencilOps[(gstate.stencilop >> 8) & 0x7],  // depth fail
-				stencilOps[(gstate.stencilop >> 16) & 0x7]);
+				stencilOps[(gstate.stencilop >> 16) & 0x7]); // depth pass
 		} else {
 			glstate.stencilTest.disable();
 		}
@@ -235,7 +239,7 @@ void TransformDrawEngine::UpdateViewportAndProjection() {
 	if (throughmode) {
 		// No viewport transform here. Let's experiment with using region.
 		glstate.viewport.set((0 + regionX1) * renderWidthFactor, (0 - regionY1) * renderHeightFactor, (regionX2 - regionX1) * renderWidthFactor, (regionY2 - regionY1) * renderHeightFactor);
-		glstate.depthRange.set(0.0, 1.0);
+		glstate.depthRange.set(0.0f, 1.0f);
 	} else {
 		// These we can turn into a glViewport call, offset by offsetX and offsetY. Math after.
 		float vpXa = getFloat24(gstate.viewportx1);
@@ -268,8 +272,8 @@ void TransformDrawEngine::UpdateViewportAndProjection() {
 		// Sadly, as glViewport takes integers, we will not be able to support sub pixel offsets this way. But meh.
 		// shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
 
-		float zScale = getFloat24(gstate.viewportz1) / 65535.f;
-		float zOff = getFloat24(gstate.viewportz2) / 65535.f;
+		float zScale = getFloat24(gstate.viewportz1) / 65535.0f;
+		float zOff = getFloat24(gstate.viewportz2) / 65535.0f;
 		float depthRangeMin = zOff - zScale;
 		float depthRangeMax = zOff + zScale;
 		glstate.depthRange.set(depthRangeMin, depthRangeMax);
