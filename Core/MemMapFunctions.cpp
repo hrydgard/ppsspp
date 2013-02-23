@@ -56,6 +56,10 @@ u8 *GetPointer(const u32 address)
 	else
 	{
 		ERROR_LOG(MEMMAP, "Unknown GetPointer %08x PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
+		if (!g_Config.bIgnoreBadMemAccess) {
+			Core_EnableStepping(true);
+			host->SetDebugMode(true);
+		}
 		return 0;
 	}
 }

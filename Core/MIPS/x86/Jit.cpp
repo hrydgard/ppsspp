@@ -359,7 +359,7 @@ void Jit::WriteExitDestInEAX()
 
 		// TODO: "Ignore" this so other threads can continue?
 		if (g_Config.bIgnoreBadMemAccess)
-			MOV(32, M((void*)&coreState), Imm32(CORE_ERROR));
+			ABI_CallFunctionA(thunks.ProtectFunction((void *) Core_UpdateState, 1), Imm32(CORE_ERROR));
 		JMP(asm_.dispatcherCheckCoreState, true);
 	}
 	else
