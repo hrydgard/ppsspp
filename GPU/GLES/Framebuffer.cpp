@@ -421,7 +421,8 @@ void FramebufferManager::CopyDisplayToOutput() {
 	glstate.cullFace.disable();
 	glstate.depthTest.disable();
 	glstate.scissorTest.disable();
-
+	glstate.stencilTest.disable();
+	
 	fbo_bind_color_as_texture(vfb->fbo, 0);
 
 	if (resized_) {
@@ -451,6 +452,8 @@ void FramebufferManager::BeginFrame() {
 		glstate.cullFace.disable();
 		glstate.depthTest.disable();
 		glstate.blend.disable();
+		glstate.scissorTest.disable();
+		glstate.stencilTest.disable();
 		DrawPixels(pspframebuf, displayFormat_, displayStride_);
 		// TODO: restore state?
 	}
