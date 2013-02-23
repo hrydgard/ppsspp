@@ -707,6 +707,7 @@ namespace MIPSInt
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
 		ReadVector((float*)&s[0], sz, vs);
+		ApplySwizzleS((float*)&s[0], sz);
 		
 		VectorSize outsize = V_Pair;
 		switch (sz) {
@@ -727,7 +728,7 @@ namespace MIPSInt
 			_dbg_assert_msg_(CPU, 0, "Trying to interpret Int_Vh2f instruction that can't be interpreted");
 			break;
 		}
-		ApplyPrefixD(d, outsize); //TODO: and the mask to kill everything but mask
+		ApplyPrefixD(d, outsize);
 		WriteVector(d, outsize, vd);
 		PC += 4;
 		EatPrefixes();
@@ -741,6 +742,7 @@ namespace MIPSInt
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
 		ReadVector(s, sz, vs);
+		ApplySwizzleS(s, sz);
 		
 		VectorSize outsize = V_Single;
 		switch (sz) {
@@ -758,7 +760,7 @@ namespace MIPSInt
 			_dbg_assert_msg_(CPU, 0, "Trying to interpret Int_Vf2h instruction that can't be interpreted");
 			break;
 		}
-		ApplyPrefixD((float*)&d[0], outsize); //TODO: and the mask to kill everything but mask
+		ApplyPrefixD((float*)&d[0], outsize);
 		WriteVector((float*)&d[0], outsize, vd);
 		PC += 4;
 		EatPrefixes();
