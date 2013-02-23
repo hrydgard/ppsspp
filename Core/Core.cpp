@@ -89,8 +89,8 @@ void Core_WaitInactive()
 
 void Core_WaitInactive(int milliseconds)
 {
-	// TODO
-	Core_WaitInactive();
+	while (!Core_IsInactive())
+		m_hInactiveEvent.wait_for(m_hInactiveMutex, milliseconds);
 }
 
 void Core_RunLoop()
