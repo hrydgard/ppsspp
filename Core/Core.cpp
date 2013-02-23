@@ -33,13 +33,24 @@
 // HANDLE m_hStepEvent;
 event m_hStepEvent;
 recursive_mutex m_hStepMutex;
+event m_hInactiveEvent;
+recursive_mutex m_hInactiveMutex;
 
 // This can be read and written from ANYWHERE.
 volatile CoreState coreState = CORE_STEPPING;
+// Note: intentionally not used for CORE_NEXTFRAME.
+volatile bool coreStatePending = false;
+
+void Core_UpdateState(CoreState newState)
+{
+	if ((coreState == CORE_RUNNING || coreState == CORE_NEXTFRAME) && newState != CORE_RUNNING)
+		coreStatePending = true;
+	coreState = newState;
+}
 
 void Core_ErrorPause()
 {
-	coreState = CORE_ERROR;
+	Core_UpdateState(CORE_ERROR);
 }
 
 void Core_Pause()
@@ -56,13 +67,30 @@ void Core_Halt(const char *msg)
 
 void Core_Stop()
 {
-	coreState = CORE_POWERDOWN;
+	Core_UpdateState(CORE_POWERDOWN);
 	m_hStepEvent.notify_one();
 }
 
 bool Core_IsStepping()
 {
 	return coreState == CORE_STEPPING || coreState == CORE_POWERDOWN;
+}
+
+bool Core_IsInactive()
+{
+	return coreState != CORE_RUNNING && coreState != CORE_NEXTFRAME && !coreStatePending;
+}
+
+void Core_WaitInactive()
+{
+	while (!Core_IsInactive())
+		m_hInactiveEvent.wait(m_hInactiveMutex);
+}
+
+void Core_WaitInactive(int milliseconds)
+{
+	while (!Core_IsInactive())
+		m_hInactiveEvent.wait_for(m_hInactiveMutex, milliseconds);
 }
 
 void Core_RunLoop()
@@ -110,6 +138,10 @@ reswitch:
 
 		// We should never get here on Android.
 		case CORE_STEPPING:
+			if (coreStatePending)
+				m_hInactiveEvent.notify_one();
+			coreStatePending = false;
+
 			//1: wait for step command..
 #if defined(USING_QT_UI) || defined(_DEBUG)
 			host->UpdateDisassembly();
@@ -142,8 +174,13 @@ reswitch:
 
 		case CORE_POWERDOWN:
 		case CORE_ERROR:
-		case CORE_NEXTFRAME:
 			//1: Exit loop!!
+			if (coreStatePending)
+				m_hInactiveEvent.notify_one();
+			coreStatePending = false;
+			return;
+
+		case CORE_NEXTFRAME:
 			return;
 		}
 	}
@@ -158,7 +195,7 @@ void Core_EnableStepping(bool step)
 #if defined(_DEBUG)
 		host->SetDebugMode(true);
 #endif
-		coreState = CORE_STEPPING;
+		Core_UpdateState(CORE_STEPPING);
 	}
 	else
 	{
@@ -166,6 +203,7 @@ void Core_EnableStepping(bool step)
 		host->SetDebugMode(false);
 #endif
 		coreState = CORE_RUNNING;
+		coreStatePending = false;
 		m_hStepEvent.notify_one();
 	}
 }

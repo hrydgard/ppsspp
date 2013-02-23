@@ -90,7 +90,7 @@ namespace SaveState
 
 		// Don't actually run it until next CoreTiming::Advance().
 		// It's possible there might be a duplicate but it won't hurt us.
-		if (Core_IsStepping() && __KernelIsRunning())
+		if (Core_IsInactive() && __KernelIsRunning())
 		{
 			// Warning: this may run on a different thread.
 			Process(0, 0);

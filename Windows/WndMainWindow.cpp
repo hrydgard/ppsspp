@@ -308,7 +308,7 @@ namespace MainWindow
 					if (disasmWindow[i])
 						SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
 
-				Sleep(100);//UGLY wait for event instead
+				Core_WaitInactive();
 
 				for (int i=0; i<numCPUs; i++)
 					if (disasmWindow[i])
@@ -328,7 +328,7 @@ namespace MainWindow
 					if (disasmWindow[i])
 						SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
 
-				Sleep(100);//UGLY wait for event instead
+				Core_WaitInactive();
 
 				for (int i=0; i<numCPUs; i++)
 					if (disasmWindow[i])
@@ -354,13 +354,6 @@ namespace MainWindow
 				break;
 
 			case ID_FILE_LOADSTATEFILE:
-				if (g_State.bEmuThreadStarted)
-				{
-					nextState = Core_IsStepping() ? CORE_STEPPING : CORE_RUNNING;
-					for (int i=0; i<numCPUs; i++)
-						if (disasmWindow[i])
-							SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
-				}
 				if (W32Util::BrowseForFileName(true, hWnd, "Load state",0,"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0","ppst",fn))
 				{
 					SetCursor(LoadCursor(0,IDC_WAIT));
@@ -369,13 +362,6 @@ namespace MainWindow
 				break;
 
 			case ID_FILE_SAVESTATEFILE:
-				if (g_State.bEmuThreadStarted)
-				{
-					nextState = Core_IsStepping() ? CORE_STEPPING : CORE_RUNNING;
-					for (int i=0; i<numCPUs; i++)
-						if (disasmWindow[i])
-							SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
-				}
 				if (W32Util::BrowseForFileName(false, hWnd, "Save state",0,"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0","ppst",fn))
 				{
 					SetCursor(LoadCursor(0,IDC_WAIT));
@@ -386,25 +372,11 @@ namespace MainWindow
 			// TODO: Add UI for multiple slots
 
 			case ID_FILE_QUICKLOADSTATE:
-				if (g_State.bEmuThreadStarted)
-				{
-					nextState = Core_IsStepping() ? CORE_STEPPING : CORE_RUNNING;
-					for (int i=0; i<numCPUs; i++)
-						if (disasmWindow[i])
-							SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
-				}
 				SetCursor(LoadCursor(0,IDC_WAIT));
 				SaveState::LoadSlot(0, SaveStateActionFinished);
 				break;
 
 			case ID_FILE_QUICKSAVESTATE:
-				if (g_State.bEmuThreadStarted)
-				{
-					nextState = Core_IsStepping() ? CORE_STEPPING : CORE_RUNNING;
-					for (int i=0; i<numCPUs; i++)
-						if (disasmWindow[i])
-							SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
-				}
 				SetCursor(LoadCursor(0,IDC_WAIT));
 				SaveState::SaveSlot(0, SaveStateActionFinished);
 				break;
@@ -643,7 +615,8 @@ namespace MainWindow
 			break;
 
 		case WM_CLOSE:
-			Sleep(100);//UGLY wait for event instead
+			Core_Stop();
+			Core_WaitInactive(200);
 			EmuThread_Stop();
 
 			/*
@@ -896,13 +869,6 @@ namespace MainWindow
 		if (!result)
 			MessageBox(0, "Savestate failure.  Please try again later.", "Sorry", MB_OK);
 		SetCursor(LoadCursor(0, IDC_ARROW));
-
-		if (g_State.bEmuThreadStarted && nextState == CORE_RUNNING)
-		{
-			for (int i=0; i<numCPUs; i++)
-				if (disasmWindow[i])
-					SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_GO, 0);
-		}
 	}
 
 	void SetNextState(CoreState state)

@@ -133,14 +133,14 @@ void CBreakPoints::AddBreakPoint(u32 _iAddress, bool temp)
 void CBreakPoints::InvalidateJit(u32 _iAddress)
 {
 	// Don't want to clear cache while running, I think?
-	if (MIPSComp::jit && coreState == CORE_STEPPING)
+	if (MIPSComp::jit && Core_IsInactive())
 		MIPSComp::jit->ClearCacheAt(_iAddress);
 }
 
 void CBreakPoints::InvalidateJit()
 {
 	// Don't want to clear cache while running, I think?
-	if (MIPSComp::jit && coreState == CORE_STEPPING)
+	if (MIPSComp::jit && Core_IsInactive())
 		MIPSComp::jit->ClearCache();
 }
 
