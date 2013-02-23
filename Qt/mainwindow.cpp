@@ -388,26 +388,10 @@ void SaveStateActionFinished(bool result, void *userdata)
 		msgBox.exec();
 		return;
 	}
-
-	MainWindow* mainWindow = (MainWindow*)userdata;
-
-	if (g_State.bEmuThreadStarted && mainWindow->GetNextState() == CORE_RUNNING)
-	{
-		if(mainWindow->GetDialogDisasm())
-			mainWindow->GetDialogDisasm()->Go();
-	}
 }
 
 void MainWindow::on_action_FileLoadStateFile_triggered()
 {
-	if (g_State.bEmuThreadStarted)
-	{
-		nextState = Core_IsStepping() ? CORE_STEPPING : CORE_RUNNING;
-		if(dialogDisasm)
-		{
-			dialogDisasm->Stop();
-		}
-	}
 	QFileDialog dialog(0,"Load state");
 	dialog.setFileMode(QFileDialog::ExistingFile);
 	QStringList filters;
@@ -425,14 +409,6 @@ void MainWindow::on_action_FileLoadStateFile_triggered()
 
 void MainWindow::on_action_FileSaveStateFile_triggered()
 {
-	if (g_State.bEmuThreadStarted)
-	{
-		nextState = Core_IsStepping() ? CORE_STEPPING : CORE_RUNNING;
-		if(dialogDisasm)
-		{
-			dialogDisasm->Stop();
-		}
-	}
 	QFileDialog dialog(0,"Save state");
 	dialog.setFileMode(QFileDialog::AnyFile);
 	dialog.setAcceptMode(QFileDialog::AcceptSave);
@@ -449,27 +425,11 @@ void MainWindow::on_action_FileSaveStateFile_triggered()
 
 void MainWindow::on_action_FileQuickloadState_triggered()
 {
-	if (g_State.bEmuThreadStarted)
-	{
-		nextState = Core_IsStepping() ? CORE_STEPPING : CORE_RUNNING;
-		if(dialogDisasm)
-		{
-			dialogDisasm->Stop();
-		}
-	}
 	SaveState::LoadSlot(0, SaveStateActionFinished, this);
 }
 
 void MainWindow::on_action_FileQuickSaveState_triggered()
 {
-	if (g_State.bEmuThreadStarted)
-	{
-		nextState = Core_IsStepping() ? CORE_STEPPING : CORE_RUNNING;
-		if(dialogDisasm)
-		{
-			dialogDisasm->Stop();
-		}
-	}
 	SaveState::SaveSlot(0, SaveStateActionFinished, this);
 }
 

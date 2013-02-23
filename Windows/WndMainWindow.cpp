@@ -869,13 +869,6 @@ namespace MainWindow
 		if (!result)
 			MessageBox(0, "Savestate failure.  Please try again later.", "Sorry", MB_OK);
 		SetCursor(LoadCursor(0, IDC_ARROW));
-
-		if (g_State.bEmuThreadStarted && nextState == CORE_RUNNING)
-		{
-			for (int i=0; i<numCPUs; i++)
-				if (disasmWindow[i])
-					SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_GO, 0);
-		}
 	}
 
 	void SetNextState(CoreState state)
