@@ -384,6 +384,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		{
 			glstate.depthWrite.set(GL_TRUE);
 			glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+			glClearColor(0,0,0,1);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 		}
 #endif
@@ -420,7 +421,8 @@ void FramebufferManager::CopyDisplayToOutput() {
 	glstate.cullFace.disable();
 	glstate.depthTest.disable();
 	glstate.scissorTest.disable();
-
+	glstate.stencilTest.disable();
+	
 	fbo_bind_color_as_texture(vfb->fbo, 0);
 
 	if (resized_) {
@@ -450,6 +452,8 @@ void FramebufferManager::BeginFrame() {
 		glstate.cullFace.disable();
 		glstate.depthTest.disable();
 		glstate.blend.disable();
+		glstate.scissorTest.disable();
+		glstate.stencilTest.disable();
 		DrawPixels(pspframebuf, displayFormat_, displayStride_);
 		// TODO: restore state?
 	}
