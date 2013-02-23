@@ -80,10 +80,17 @@ bool Core_IsInactive()
 {
 	return coreState != CORE_RUNNING && coreState != CORE_NEXTFRAME && !coreStatePending;
 }
+
 void Core_WaitInactive()
 {
 	while (!Core_IsInactive())
 		m_hInactiveEvent.wait(m_hInactiveMutex);
+}
+
+void Core_WaitInactive(int milliseconds)
+{
+	// TODO
+	Core_WaitInactive();
 }
 
 void Core_RunLoop()

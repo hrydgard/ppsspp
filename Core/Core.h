@@ -46,6 +46,7 @@ enum CoreState
 void Core_UpdateState(CoreState newState);
 bool Core_IsInactive();
 void Core_WaitInactive();
+void Core_WaitInactive(int milliseconds);
 
 
 extern volatile CoreState coreState;
