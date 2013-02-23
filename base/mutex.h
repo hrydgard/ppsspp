@@ -135,6 +135,23 @@ public:
 #endif
   }
 
+  void wait_for(recursive_mutex &mtx, int milliseconds) {
+#ifdef _WIN32
+    //mtx.unlock();
+    WaitForSingleObject(event_, milliseconds);
+    ResetEvent(event_); // necessary?
+    // mtx.lock();
+#else
+    timespec timeout;
+	clock_gettime(CLOCK_REALTIME, &timeout);
+    timeout.tv_sec += milliseconds / 1000;
+    timeout.tv_nsec += milliseconds * 1000000;
+    pthread_mutex_lock(&mtx.native_handle());
+    pthread_cond_timedwait(&event_, &mtx.native_handle(), &timeout);
+    pthread_mutex_unlock(&mtx.native_handle());
+#endif
+  }
+
 private:
 #ifdef _WIN32
   HANDLE event_;
