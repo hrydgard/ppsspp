@@ -57,7 +57,8 @@ void CConfig::Load(const char *iniFileName)
 
 	IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 	cpu->Get("Jit", &bJit, true);
-	cpu->Get("FastMemory", &bFastMemory, true);
+	//FastMemory Default set back to True when solve UNIMPL _sceAtracGetContextAddress making game crash
+	cpu->Get("FastMemory", &bFastMemory, false);
 
 	IniFile::Section *graphics = iniFile.GetOrCreateSection("Graphics");
 	graphics->Get("ShowFPSCounter", &bShowFPSCounter, false);
