@@ -116,6 +116,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="AES.c" />
+    <ClCompile Include="amctrl.c" />
     <ClCompile Include="bn.c" />
     <ClCompile Include="ec.c" />
     <ClCompile Include="kirk_engine.c" />
