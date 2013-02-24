@@ -44,10 +44,10 @@ const int configOffset = 200;
 GamePadDialog::GamePadDialog(InputState* state, QWidget *parent) :
 	QDialog(parent),
 	ui(new Ui::GamePadDialog),
-	m_inputState(state),
 #if QT_HAS_SDL
 	m_joystick(0),
 #endif
+	m_inputState(state),
 	m_isInit(false)
 {
 	ui->setupUi(this);
@@ -108,15 +108,10 @@ void GamePadDialog::showEvent(QShowEvent *)
 
 void GamePadDialog::changeEvent(QEvent *event)
 {
-	QDialog::changeEvent(event);
-
-	if (0 != event)
+	if (event->type() == QEvent::LanguageChange)
 	{
-		if (event->type() == QEvent::LanguageChange)
-		{
-			ui->retranslateUi(this);
-			on_refreshListBtn_clicked();
-		}
+		ui->retranslateUi(this);
+		on_refreshListBtn_clicked();
 	}
 }
 

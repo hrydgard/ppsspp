@@ -281,12 +281,12 @@ void CtrlDisAsmView::paintEvent(QPaintEvent *)
 		int rowY1 = rect().bottom()/2 + rowHeight*i - rowHeight/2;
 		int rowY2 = rect().bottom()/2 + rowHeight*i + rowHeight/2 - 1;
 
-		lbr.setColor(marker==address?QColor(0xFFFFEEE0):QColor(debugger->getColor(address)));
+		lbr.setColor((unsigned int)marker == address ? QColor(0xFFFFEEE0) : QColor(debugger->getColor(address)));
 		QColor bg = lbr.color();
 		painter.setPen(nullPen);
 		painter.drawRect(0,rowY1,16-1,rowY2-rowY1);
 
-		if (selecting && address == selection)
+		if (selecting && address == (unsigned int)selection)
 			painter.setPen(selPen);
 		else
 			painter.setPen(i==0 ? currentPen : nullPen);

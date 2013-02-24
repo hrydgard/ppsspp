@@ -97,7 +97,7 @@ void CtrlMemView::paintEvent(QPaintEvent *)
 
 		painter.setBrush(currentBrush);
 
-		if (selecting && address == selection)
+		if (selecting && address == (unsigned int)selection)
 		  painter.setPen(selPen);
 		else
 		  painter.setPen(i==0 ? currentPen : nullPen);
@@ -173,6 +173,7 @@ void CtrlMemView::paintEvent(QPaintEvent *)
 					painter.drawText(85,rowY1 - 2 + rowHeight, temp);
 					break;
 				}
+			case MV_MAX: break;
 			}
 		}
 	}

@@ -99,7 +99,7 @@ void Debugger_DisplayList::UpdateDisplayListGUI()
 		item->setText(3,QString("%1").arg(dl->pc,8,16,QChar('0')));
 		item->setData(3, Qt::UserRole, dl->pc);
 		ui->displayList->addTopLevelItem(item);
-		if(curDlId == dl->id)
+		if(curDlId == (u32)dl->id)
 		{
 			ui->displayList->setCurrentItem(item);
 			displayListRowSelected = item;
@@ -129,7 +129,7 @@ void Debugger_DisplayList::UpdateDisplayListGUI()
 		item->setText(3,QString("%1").arg(it->pc,8,16,QChar('0')));
 		item->setData(3, Qt::UserRole, it->pc);
 		ui->displayList->addTopLevelItem(item);
-		if(curDlId == it->id)
+		if(curDlId == (u32)it->id)
 		{
 			ui->displayList->setCurrentItem(item);
 			displayListRowSelected = item;
@@ -171,7 +171,7 @@ void Debugger_DisplayList::ShowDLCode()
 		item->setText(1,QString("%1").arg(it->second.cmd,2,16,QChar('0')));
 		item->setText(2,QString("%1").arg(it->second.data,6,16,QChar('0')));
 		item->setText(3,it->second.comment);
-		if(curPc == it->first)
+		if(curPc == (u32)it->first)
 		{
 			curTexAddr = it->second.texAddr;
 			curVtxAddr = it->second.vtxAddr;
@@ -187,7 +187,7 @@ void Debugger_DisplayList::ShowDLCode()
 		}
 		ui->displayListData->addTopLevelItem(item);
 
-		if(curPc == it->first)
+		if(curPc == (u32)it->first)
 		{
 			ui->displayListData->setCurrentItem(item);
 		}
@@ -1573,7 +1573,7 @@ void Debugger_DisplayList::on_gotoPCBtn_clicked()
 
 	for(int i = 0; i < ui->displayListData->topLevelItemCount(); i++)
 	{
-		if(ui->displayListData->topLevelItem(i)->data(0, Qt::UserRole).toInt() == currentPC)
+		if((u32)ui->displayListData->topLevelItem(i)->data(0, Qt::UserRole).toInt() == currentPC)
 		{
 			ui->displayListData->setCurrentItem(ui->displayListData->topLevelItem(i));
 		}
@@ -1610,7 +1610,7 @@ void Debugger_DisplayList::UpdateRenderBufferListGUI()
 
 	std::vector<FramebufferInfo> fboList = gpu->GetFramebufferList();
 
-	for(int i = 0; i < fboList.size(); i++)
+	for(size_t i = 0; i < fboList.size(); i++)
 	{
 		QTreeWidgetItem* item = new QTreeWidgetItem();
 		item->setText(0,QString("%1").arg(fboList[i].fb_address,8,16,QChar('0')));
@@ -1643,7 +1643,7 @@ void Debugger_DisplayList::setCurrentFBO(u32 addr)
 {
 	for(int i = 0; i < ui->fboList->topLevelItemCount(); i++)
 	{
-		if(ui->fboList->topLevelItem(i)->data(0,Qt::UserRole+1).toInt() == addr)
+		if((u32)ui->fboList->topLevelItem(i)->data(0,Qt::UserRole+1).toInt() == addr)
 		{
 			for(int j = 0; j < ui->fboList->colorCount(); j++)
 				ui->fboList->topLevelItem(i)->setTextColor(j,Qt::green);
