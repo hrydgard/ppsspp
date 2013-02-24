@@ -34,7 +34,11 @@
 #include <list>
 #include <set>
 #ifndef __SYMBIAN32__
+#ifdef IOS
+#include <tr1/type_traits>
+#else
 #include <type_traits>
+#endif
 #endif
 
 #include "Common.h"

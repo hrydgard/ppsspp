@@ -13,10 +13,9 @@
 #include "file/zip_read.h"
 #include "input/input_state.h"
 #include "net/resolve.h"
-#include "ui_atlas.h"
 #include "ui/screen.h"
 
-#include "Config.h"
+#include "Core/Config.h"
 #include "gfx_es2/fbo.h"
 
 #define IS_IPAD() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad)
