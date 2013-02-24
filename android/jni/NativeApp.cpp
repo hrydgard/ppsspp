@@ -167,7 +167,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	// Packed assets are included in app/native/ dir
 	VFSRegister("", new DirectoryAssetReader("app/native/assets/"));
 #elif defined(IOS)
-	VFSRegister("", new DirectoryAssetReader(external_directory);
+	VFSRegister("", new DirectoryAssetReader(external_directory));
 #else
 	VFSRegister("", new DirectoryAssetReader("assets/"));
 #endif

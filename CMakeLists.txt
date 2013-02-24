@@ -592,6 +592,8 @@ endif()
 add_library(kirk STATIC
 	ext/libkirk/AES.c
 	ext/libkirk/AES.h
+	ext/libkirk/amctrl.c
+	ext/libkirk/amctrl.h
 	ext/libkirk/SHA1.c
 	ext/libkirk/SHA1.h
 	ext/libkirk/bn.c

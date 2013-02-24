@@ -54,6 +54,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/native/android/app-android.cpp \
   $(SRC)/ext/disarm.cpp \
   $(SRC)/ext/libkirk/AES.c \
+  $(SRC)/ext/libkirk/amctrl.c \
   $(SRC)/ext/libkirk/SHA1.c \
   $(SRC)/ext/libkirk/bn.c \
   $(SRC)/ext/libkirk/ec.c \
