@@ -34,6 +34,8 @@ InputState input_state;
 
 extern std::string ram_temp_file;
 
+ViewController* sharedViewController;
+
 @interface ViewController ()
 
 @property (strong, nonatomic) EAGLContext *context;
@@ -50,6 +52,7 @@ extern std::string ram_temp_file;
 {
 	self = [super init];
 	if (self) {
+		sharedViewController = self;
 		self.touches = [[[NSMutableArray alloc] init] autorelease];
 
 		self.documentsPath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0];
@@ -230,9 +233,19 @@ extern std::string ram_temp_file;
 	}
 }
 
+- (void)bindDefaultFBO
+{
+	[(GLKView*)self.view bindDrawable];
+}
+
 void LaunchBrowser(char const* url)
 {
 	[[UIApplication sharedApplication] openURL:[NSURL URLWithString:[NSString stringWithCString:url encoding:NSStringEncodingConversionAllowLossy]]];
+}
+
+void bindDefaultFBO()
+{
+	[sharedViewController bindDefaultFBO];
 }
 
 void EnableFZ(){};
