@@ -112,9 +112,9 @@ void *ThunkManager::ProtectFunction(void *function, int num_params)
 #else
 	SUB(64, R(ESP), Imm8(0x8));
 #endif
-	CALL((void*)save_regs);
-	CALL((void*)function);
-	CALL((void*)load_regs);
+	ABI_CallFunction((void*)save_regs);
+	ABI_CallFunction((void*)function);
+	ABI_CallFunction((void*)load_regs);
 #ifdef _WIN32
 	ADD(64, R(ESP), Imm8(0x28));
 #else
