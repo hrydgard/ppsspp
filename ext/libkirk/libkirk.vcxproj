@@ -71,6 +71,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <PreprocessorDefinitions>_MBCS;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -116,6 +117,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="AES.c" />
+    <ClCompile Include="amctrl.c" />
     <ClCompile Include="bn.c" />
     <ClCompile Include="ec.c" />
     <ClCompile Include="kirk_engine.c" />
@@ -123,6 +125,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AES.h" />
+    <ClInclude Include="amctrl.h" />
     <ClInclude Include="kirk_engine.h" />
     <ClInclude Include="SHA1.h" />
   </ItemGroup>

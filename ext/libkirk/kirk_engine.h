@@ -184,7 +184,7 @@ typedef struct
       0x0C: Mul1
       0x0D: Mul2
       0x0E: Random Number Gen
-      0x0F: (absolutely no idea – could be KIRK initialization)
+      0x0F: (absolutely no idea ?could be KIRK initialization)
       0x10: Signature Gen
       // Sig Checks
       0x11: Signature Check (checks for generated sigs)
