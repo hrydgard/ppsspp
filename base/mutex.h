@@ -149,7 +149,6 @@ public:
 	gettimeofday(&tv, NULL);
 	timeout.tv_sec = tv.tv_sec;
 	timeout.tv_nsec = tv.tv_usec * 1000;
-	clock_gettime(CLOCK_REALTIME, &timeout);
 #else
 	clock_gettime(CLOCK_REALTIME, &timeout);
 #endif
