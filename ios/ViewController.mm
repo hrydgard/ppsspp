@@ -62,7 +62,7 @@ ViewController* sharedViewController;
 		net::Init();
 
 		ram_temp_file = [[NSTemporaryDirectory() stringByAppendingPathComponent:@"ram_tmp.file"] fileSystemRepresentation];
-		NativeInit(0, NULL, [self.bundlePath UTF8String], [self.documentsPath UTF8String], NULL);
+		NativeInit(0, NULL, [self.documentsPath UTF8String], [self.bundlePath UTF8String], NULL);
 		
 	}
 	return self;
