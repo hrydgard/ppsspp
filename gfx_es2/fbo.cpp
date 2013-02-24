@@ -18,6 +18,10 @@
 #endif
 #endif
 
+#ifdef IOS
+extern void bindDefaultFBO();
+#endif
+
 struct FBO {
 	GLuint handle;
 	GLuint color_texture;
@@ -147,6 +151,9 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, F
 
 void fbo_unbind() {
 	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+#ifdef IOS
+	bindDefaultFBO();
+#endif
 }
 
 void fbo_bind_as_render_target(FBO *fbo) {
