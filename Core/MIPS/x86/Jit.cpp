@@ -386,7 +386,7 @@ bool Jit::CheckJitBreakpoint(u32 addr, int downcountOffset)
 	{
 		FlushAll();
 		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
-		CALL((void *)&JitBreakpoint);
+		ABI_CallFunction((void *)&JitBreakpoint);
 
 		WriteDowncount(downcountOffset);
 		JMP(asm_.dispatcherCheckCoreState, true);
