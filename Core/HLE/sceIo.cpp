@@ -633,8 +633,7 @@ u32 sceIoClose(int id) {
 	DEBUG_LOG(HLE, "sceIoClose(%d)", id);
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
 	if(f && f->npdrm){
-		free(f->pgdInfo->block_buf);
-		free(f->pgdInfo);
+		pgd_close(f->pgdInfo);
 	}
 	return kernelObjects.Destroy < FileNode > (id);
 }
