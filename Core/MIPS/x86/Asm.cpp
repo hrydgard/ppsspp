@@ -129,13 +129,7 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 			SetJumpTarget(notfound);
 
 			//Ok, no block, let's jit
-#ifdef _M_IX86
-			ABI_AlignStack(0);
-			CALL(reinterpret_cast<void *>(&Jit));
-			ABI_RestoreStack(0);
-#elif _M_X64
-			CALL((void *)&Jit);
-#endif
+			ABI_CallFunction((void *)&Jit);
 			JMP(dispatcherNoCheck); // Let's just dispatch again, we'll enter the block since we know it's there.
 
 		SetJumpTarget(bail);
