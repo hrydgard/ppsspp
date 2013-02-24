@@ -965,14 +965,13 @@ file(INSTALL ${NativeAssets} DESTINATION assets)
 # packaging and code signing
 if (IOS)
 	set(RSRC_XIB_FILES assets/Icon@2x.png)
-	set(RSRC_PATH /Developer/Library/PrivateFrameworks/DevToolsCore.framework/Resources)
 	SET_SOURCE_FILES_PROPERTIES(${RSRC_XIB_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
 	set(APP_DIR_NAME \${TARGET_BUILD_DIR}/\${FULL_PRODUCT_NAME})
 	set(RES_DIR assets)
 	add_custom_command(TARGET PPSSPP POST_BUILD
-		COMMAND ${RSRC_PATH}/pbxcp -exclude .DS_Store -exclude CVS -exclude .git -resolve-src-symlinks ${RES_DIR} ${APP_DIR_NAME}
+		COMMAND tar -c -C . --exclude .DS_Store --exclude .git -H `find {RES_DIR}` | tar -x -C ${APP_DIR_NAME}
 	)
-	set_target_properties(${TargetBin} PROPERTIES MACOSX_BUNDLE_INFO_PLIST ../ios/PPSSPP-Info.plist XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "iPhone Developer: My Name")
+	set_target_properties(${TargetBin} PROPERTIES MACOSX_BUNDLE_INFO_PLIST "../ios/PPSSPP-Info.plist" XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "iPhone Developer: My Name")
 endif()
 
 #include(CPack)
