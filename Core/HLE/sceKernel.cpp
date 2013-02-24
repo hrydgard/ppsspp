@@ -60,6 +60,7 @@
 #include "scePsmf.h"
 #include "sceImpose.h"
 #include "sceUsb.h"
+#include "scePspNpDrm_user.h"
 
 #include "../Util/PPGeDraw.h"
 

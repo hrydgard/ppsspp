@@ -769,6 +769,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceUtility.h
 	Core/HLE/sceVaudio.cpp
 	Core/HLE/sceVaudio.h
+	Core/HLE/scePspNpDrm_user.cpp
+	Core/HLE/scePspNpDrm_user.h
 	Core/HW/MediaEngine.cpp
 	Core/HW/MediaEngine.h
 	Core/HW/MemoryStick.cpp
