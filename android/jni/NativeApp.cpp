@@ -166,6 +166,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 #ifdef BLACKBERRY
 	// Packed assets are included in app/native/ dir
 	VFSRegister("", new DirectoryAssetReader("app/native/assets/"));
+#elif defined(IOS)
+	VFSRegister("", new DirectoryAssetReader(external_directory);
 #else
 	VFSRegister("", new DirectoryAssetReader("assets/"));
 #endif
@@ -179,7 +181,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	LogManager *logman = LogManager::GetInstance();
 	ILOG("Logman: %p", logman);
 
-	config_filename = user_data_path + "ppsspp.ini";
+	config_filename = user_data_path + "/ppsspp.ini";
 
 	g_Config.Load(config_filename.c_str());
 
@@ -233,7 +235,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	if (g_Config.currentDirectory == "") {
 #if defined(ANDROID)
 		g_Config.currentDirectory = external_directory;
-#elif defined(BLACKBERRY) || defined(__SYMBIAN32__)
+#elif defined(BLACKBERRY) || defined(__SYMBIAN32__) || defined(IOS)
 		g_Config.currentDirectory = savegame_directory;
 #else
 		g_Config.currentDirectory = getenv("HOME");
@@ -246,7 +248,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	// most sense.
 	g_Config.memCardDirectory = std::string(external_directory) + "/";
 	g_Config.flashDirectory = std::string(external_directory)+"/flash/";
-#elif defined(BLACKBERRY) || defined(__SYMBIAN32__)
+#elif defined(BLACKBERRY) || defined(__SYMBIAN32__) || defined(IOS)
 	g_Config.memCardDirectory = user_data_path;
 	g_Config.flashDirectory = user_data_path+"/flash/";
 #else
