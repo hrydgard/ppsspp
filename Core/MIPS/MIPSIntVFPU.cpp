@@ -89,6 +89,25 @@ using std::isnan;
 #define isnan _isnan
 #endif
 
+// Preserves NaN in first param, takes sign of equal second param.
+// Technically, std::max may do this but it's undefined.
+inline float nanmax(float f, float cst)
+{
+	return f <= cst ? cst : f;
+}
+
+// Preserves NaN in first param, takes sign of equal second param.
+inline float nanmin(float f, float cst)
+{
+	return f >= cst ? cst : f;
+}
+
+// Preserves NaN in first param, takes sign of equal value in others.
+inline float nanclamp(float f, float lower, float upper)
+{
+	return nanmin(nanmax(f, lower), upper);
+}
+
 void ApplyPrefixST(float *v, u32 data, VectorSize size)
 {
   // Possible optimization shortcut:
@@ -523,7 +542,8 @@ namespace MIPSInt
 		ReadVector(s, sz, vs);
 		for (int i = 0; i < GetNumVectorElements(sz); i++)
 		{
-			d[i] = 1.0f - s[i];
+			// Always positive NaN.
+			d[i] = isnan(s[i]) ? fabsf(s[i]) : 1.0f - s[i];
 		}
 		ApplyPrefixD(d, sz);
 		WriteVector(d, sz, vd);
@@ -540,13 +560,13 @@ namespace MIPSInt
 		ReadVector(s, sz, vs);
 		int n = GetNumVectorElements(sz);
 		float x = s[0];
-		d[0] = std::min(std::max(0.0f, 1.0f - x), 1.0f);
-		d[1] = std::min(std::max(0.0f, x), 1.0f);
+		d[0] = nanclamp(1.0f - x, 0.0f, 1.0f);
+		d[1] = nanclamp(x, 0.0f, 1.0f);
 		VectorSize outSize = V_Pair;
 		if (n > 1) {
 			float y = s[1];
-			d[2] = std::min(std::max(0.0f, 1.0f - y), 1.0f);
-			d[3] = std::min(std::max(0.0f, y), 1.0f);
+			d[2] = nanclamp(1.0f - y, 0.0f, 1.0f);
+			d[3] = nanclamp(y, 0.0f, 1.0f);
 			outSize = V_Quad;
 		} 
 		WriteVector(d, outSize, vd);
@@ -1001,7 +1021,7 @@ namespace MIPSInt
 		{
 			sum += (i == n - 1) ? t[i] : s[i]*t[i];
 		}
-		d = sum;
+		d = isnan(sum) ? fabsf(sum) : sum;
 		ApplyPrefixD(&d,V_Single);
 		V(vd) = d;
 		PC += 4;
