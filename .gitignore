@@ -42,6 +42,7 @@ build*/
 __testoutput.txt
 __testerror.txt
 __testfinish.txt
+__testfailure.bmp
 GameLogNotes.txt
 
 android/ui_atlas.zim
