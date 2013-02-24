@@ -166,8 +166,8 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	if (gstate.isModeClear()) {
 		bool colorMask = (gstate.clearmode >> 8) & 1;
 		bool alphaMask = (gstate.clearmode >> 9) & 1;
-		bool depthMask = (gstate.clearmode >> 10) & 1;
-
+		bool depthMask = ((gstate.clearmode >> 10) & 1) || !(gstate.zmsk & 1);
+		
 		glstate.colorMask.set(colorMask, colorMask, colorMask, alphaMask);
 
 		glstate.stencilTest.enable();
