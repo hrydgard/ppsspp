@@ -146,7 +146,7 @@ void CBreakPoints::InvalidateJit()
 
 int CBreakPoints::GetNumBreakpoints()
 {
-	return m_iBreakPoints.size();
+	return (int)m_iBreakPoints.size();
 }
 
 int CBreakPoints::GetBreakpointAddress(int i)

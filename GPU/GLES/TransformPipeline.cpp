@@ -926,7 +926,7 @@ void TransformDrawEngine::Flush() {
 
 	gpuStats.numFlushes++;
 	
-	gpuStats.numTrackedVertexArrays = vai_.size();
+	gpuStats.numTrackedVertexArrays = (int)vai_.size();
 
 	// TODO: This should not be done on every drawcall, we should collect vertex data
 	// until critical state changes. That's when we draw (flush).

@@ -1216,7 +1216,7 @@ u32 __KernelDeleteThread(SceUID threadID, int exitStatus, const char *reason, bo
 	{
 		// TODO: Unless they should be run before deletion?
 		for (int i = 0; i < THREAD_CALLBACK_NUM_TYPES; i++)
-			readyCallbacksCount -= t->readyCallbacks[i].size();
+			readyCallbacksCount -= (int)t->readyCallbacks[i].size();
 	}
 
 	return kernelObjects.Destroy<Thread>(threadID);
