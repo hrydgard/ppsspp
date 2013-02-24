@@ -84,9 +84,11 @@
 
 #ifdef __APPLE__
 using std::isnan;
+using std::isinf;
 #endif
 #ifdef _MSC_VER
 #define isnan _isnan
+#define isinf(x) (!_finite(x) && !_isnan(x))
 #endif
 
 // Preserves NaN in first param, takes sign of equal second param.
@@ -1554,16 +1556,18 @@ namespace MIPSInt
 
 			case VC_EZ: c = s[i] == 0.0f || s[i] == -0.0f; break;
 			case VC_EN: c = isnan(s[i]); break;
-			case VC_EI: c = 0; break;
-			case VC_ES: c = (s[i] != s[i]) || (s[i] == std::numeric_limits<float>::infinity()); break;   // Tekken Dark Resurrection
+			case VC_EI: c = isinf(s[i]); break;
+			case VC_ES: c = isnan(s[i]) || isinf(s[i]); break;   // Tekken Dark Resurrection
 
 			case VC_NZ: c = s[i] != 0; break;
-			case VC_NN: c = s[i] != 0; break;
-			case VC_NI: c = s[i] != 0; break;
-			case VC_NS: c = s[i] != 0; break;
+			case VC_NN: c = !isnan(s[i]); break;
+			case VC_NI: c = !isinf(s[i]); break;
+			case VC_NS: c = !isnan(s[i]) && !isinf(s[i]); break;
+
 			default:
 				_dbg_assert_msg_(CPU,0,"Unsupported vcmp condition code %d", cond);
 				PC += 4;
+				EatPrefixes();
 				return;
 			}
 			cc |= (c<<i);
