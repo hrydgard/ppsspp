@@ -88,6 +88,11 @@ void VagDecoder::GetSamples(s16 *outSamples, int numSamples) {
 		return;
 	}
 	u8 *readp = Memory::GetPointer(read_);
+	if (!readp)
+	{
+		WARN_LOG(HLE, "Bad VAG samples address?");
+		return;
+	}
 	u8 *origp = readp;
 	for (int i = 0; i < numSamples; i++) {
 		if (curSample == 28) {
