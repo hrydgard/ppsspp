@@ -13,7 +13,6 @@
 #include "base/display.h"
 #include "mainwindow.h"
 #include "GPU/GLES/VertexDecoder.h"
-#include <QDebug>
 
 
 Debugger_DisplayList::Debugger_DisplayList(DebugInterface *_cpu, MainWindow* mainWindow_, QWidget *parent) :
@@ -78,39 +77,8 @@ void Debugger_DisplayList::UpdateDisplayListGUI()
 	EmuThread_LockDraw(true);
 	const std::deque<DisplayList>& dlQueue = gpu->GetDisplayLists();
 
-	DisplayList* dl = gpu->GetCurrentDisplayList();
-	if(dl)
-	{
-		QTreeWidgetItem* item = new QTreeWidgetItem();
-		item->setText(0,QString::number(dl->id));
-		item->setData(0, Qt::UserRole, dl->id);
-		switch(dl->status)
-		{
-		case PSP_GE_LIST_DONE:	item->setText(1,"Done"); break;
-		case PSP_GE_LIST_QUEUED:	item->setText(1,"Queued"); break;
-		case PSP_GE_LIST_DRAWING:	item->setText(1,"Drawing"); break;
-		case PSP_GE_LIST_STALL_REACHED:	item->setText(1,"Stall Reached"); break;
-		case PSP_GE_LIST_END_REACHED:	item->setText(1,"End Reached"); break;
-		case PSP_GE_LIST_CANCEL_DONE:	item->setText(1,"Cancel Done"); break;
-		default: break;
-		}
-		item->setText(2,QString("%1").arg(dl->startpc,8,16,QChar('0')));
-		item->setData(2, Qt::UserRole, dl->startpc);
-		item->setText(3,QString("%1").arg(dl->pc,8,16,QChar('0')));
-		item->setData(3, Qt::UserRole, dl->pc);
-		ui->displayList->addTopLevelItem(item);
-		if(curDlId == (u32)dl->id)
-		{
-			ui->displayList->setCurrentItem(item);
-			displayListRowSelected = item;
-			ShowDLCode();
-		}
-	}
-
 	for(auto it = dlQueue.begin(); it != dlQueue.end(); ++it)
 	{
-		if(dl && it->id == dl->id)
-			continue;
 		QTreeWidgetItem* item = new QTreeWidgetItem();
 		item->setText(0,QString::number(it->id));
 		item->setData(0, Qt::UserRole, it->id);
@@ -138,6 +106,14 @@ void Debugger_DisplayList::UpdateDisplayListGUI()
 	}
 	for(int i = 0; i < ui->displayList->columnCount(); i++)
 		ui->displayList->resizeColumnToContents(i);
+
+	if (ui->displayList->selectedItems().size() == 0 && ui->displayList->topLevelItemCount() != 0)
+	{
+		ui->displayList->setCurrentItem(ui->displayList->topLevelItem(0));
+		displayListRowSelected = ui->displayList->topLevelItem(0);
+		ShowDLCode();
+	}
+
 	EmuThread_LockDraw(false);
 }
 
@@ -209,7 +185,7 @@ void Debugger_DisplayList::ShowDLCode()
 		// Textures
 		QTreeWidgetItem* item = new QTreeWidgetItem();
 		u32 texaddr = (drawGPUState[i].texaddr[0] & 0xFFFFF0) | ((drawGPUState[i].texbufwidth[0]<<8) & 0x0F000000);
-		if(!(usedTexAddr.find(texaddr) != usedTexAddr.end() || !Memory::IsValidAddress(texaddr)))
+		if(usedTexAddr.find(texaddr) == usedTexAddr.end() && Memory::IsValidAddress(texaddr))
 		{
 			u32 format = drawGPUState[i].texformat & 0xF;
 			int w = 1 << (drawGPUState[i].texsize[0] & 0xf);
@@ -234,7 +210,7 @@ void Debugger_DisplayList::ShowDLCode()
 		QTreeWidgetItem* vertexItem = new QTreeWidgetItem();
 		u32 baseExtended = ((drawGPUState[i].base & 0x0F0000) << 8) | (drawGPUState[i].vaddr & 0xFFFFFF);
 		u32 vaddr = ((drawGPUState[i].offsetAddr & 0xFFFFFF) + baseExtended) & 0x0FFFFFFF;
-		if(!((drawGPUState[i].vaddr)  == 0 || !Memory::IsValidAddress(vaddr) || usedVtxAddr.find(vaddr) != usedVtxAddr.end()))
+		if(drawGPUState[i].vaddr != 0 && Memory::IsValidAddress(vaddr) && usedVtxAddr.find(vaddr) == usedVtxAddr.end())
 		{
 			vertexItem->setText(0, QString("%1").arg(vaddr,8,16,QChar('0')));
 			vertexItem->setData(0,Qt::UserRole, i);
@@ -296,7 +272,7 @@ void Debugger_DisplayList::ShowDLCode()
 		QTreeWidgetItem* indexItem = new QTreeWidgetItem();
 		baseExtended = ((drawGPUState[i].base & 0x0F0000) << 8) | (drawGPUState[i].iaddr & 0xFFFFFF);
 		u32 iaddr = ((drawGPUState[i].offsetAddr & 0xFFFFFF) + baseExtended) & 0x0FFFFFFF;
-		if(!((drawGPUState[i].iaddr & 0xFFFFFF) == 0 || !Memory::IsValidAddress(iaddr) || usedIdxAddr.find(iaddr) != usedIdxAddr.end()))
+		if((drawGPUState[i].iaddr & 0xFFFFFF) != 0 && Memory::IsValidAddress(iaddr) && usedIdxAddr.find(iaddr) == usedIdxAddr.end())
 		{
 			indexItem->setText(0, QString("%1").arg(iaddr,8,16,QChar('0')));
 			indexItem->setData(0,Qt::UserRole, i);
