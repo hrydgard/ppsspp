@@ -16,6 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "GamepadEmu.h"
+#include <android/looper.h>
+#include <android/native_activity.h>
 #include "ui/virtual_input.h"
 #include "../../Core/Config.h"
 #include "ui_atlas.h"
@@ -32,7 +34,7 @@ TouchButton buttonLeft(&ui_atlas, I_DIR, I_ARROW, PAD_BUTTON_LEFT, 0);
 TouchButton buttonUp(&ui_atlas, I_DIR, I_ARROW, PAD_BUTTON_UP, 90);
 TouchButton buttonRight(&ui_atlas, I_DIR, I_ARROW, PAD_BUTTON_RIGHT, 180);
 TouchButton buttonDown(&ui_atlas, I_DIR, I_ARROW, PAD_BUTTON_DOWN, 270);
-#if defined(__SYMBIAN32__) || defined(IOS)
+#ifdef __SYMBIAN32__
 TouchButton buttonPause(&ui_atlas, I_RECT, I_ARROW, PAD_BUTTON_BACK, 90);
 #endif
 
@@ -75,7 +77,7 @@ void LayoutGamepad(int w, int h)
 	buttonLShoulder.setPos(button_spacing + 10 * controlScale, 15 * controlScale, controlScale);
 	buttonRShoulder.setPos(w - button_spacing - 10 * controlScale, 15 * controlScale, controlScale);
 
-#if defined(__SYMBIAN32__) || defined(IOS)
+#ifdef __SYMBIAN32__
 	buttonPause.setPos(halfW, 15 * controlScale, controlScale);
 #endif
 
@@ -101,7 +103,7 @@ void UpdateGamepad(InputState &input_state)
 	buttonLShoulder.update(input_state);
 	buttonRShoulder.update(input_state);
 
-#if defined(__SYMBIAN32__) || defined(IOS)
+#ifdef __SYMBIAN32__
 	buttonPause.update(input_state);
 #endif
 
@@ -127,8 +129,7 @@ void DrawGamepad(DrawBuffer &db)
 	buttonStart.draw(db, color, colorOverlay);
 	buttonLShoulder.draw(db, color, colorOverlay);
 	buttonRShoulder.draw(db, color, colorOverlay);
-
-#if defined(__SYMBIAN32__) || defined(IOS)
+#ifdef __SYMBIAN32__
 	buttonPause.draw(db, color, colorOverlay);
 #endif
 

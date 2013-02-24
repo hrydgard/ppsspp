@@ -19,7 +19,7 @@ include $(BUILD_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)
 
-#TARGET_PLATFORM := android-8
+TARGET_PLATFORM := android-9
 
 LOCAL_MODULE := ppsspp_jni
 
@@ -38,20 +38,22 @@ LOCAL_C_INCLUDES := \
   $(LOCAL_PATH) \
 
 LOCAL_STATIC_LIBRARIES := native libzip
-LOCAL_LDLIBS := -lz -lGLESv2 -ldl -llog
+LOCAL_LDLIBS := -lz -lGLESv2 -ldl -llog -landroid -lEGL
 
 
 #  $(SRC)/Core/EmuThread.cpp \
 
 LOCAL_SRC_FILES := \
   NativeApp.cpp \
+  NativeGL.cpp \
+  NativeJNI.cpp \
+  PPSSPP.cpp \
   EmuScreen.cpp \
   MenuScreens.cpp \
   UIShader.cpp \
   GamepadEmu.cpp \
   ArmEmitterTest.cpp \
   ui_atlas.cpp \
-  $(SRC)/native/android/app-android.cpp \
   $(SRC)/ext/disarm.cpp \
   $(SRC)/ext/libkirk/AES.c \
   $(SRC)/ext/libkirk/SHA1.c \

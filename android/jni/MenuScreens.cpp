@@ -18,13 +18,14 @@
 #include <cmath>
 #include <string>
 
+#include "NativeJNI.h"
+
 #include "base/display.h"
 #include "base/logging.h"
 #include "base/colorutil.h"
 #include "base/timeutil.h"
 #include "base/NativeApp.h"
 #include "gfx_es2/glsl_program.h"
-#include "gfx_es2/gl_state.h"
 #include "input/input_state.h"
 #include "math/curves.h"
 #include "ui/ui.h"
@@ -84,8 +85,6 @@ static void DrawBackground(float alpha) {
 			ybase[i] = rng.F() * dp_yres;
 		}
 	}
-	glstate.depthWrite.set(GL_TRUE);
-	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	glClearColor(0.1f,0.2f,0.43f,1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 	ui_draw2d.DrawImageStretch(I_BG, 0, 0, dp_xres, dp_yres);
@@ -213,7 +212,7 @@ void MenuScreen::render() {
 	}
 
 	if (UIButton(GEN_ID, vlinear, w, "www.ppsspp.org", ALIGN_RIGHT)) {
-		LaunchBrowser("http://www.ppsspp.org/");
+		launchBrowser("http://www.ppsspp.org/");
 	}
 
 	DrawWatermark();
@@ -254,17 +253,15 @@ void InGameMenuScreen::render() {
 	UICheckBox(GEN_ID, x, y += 50, "Stretch to display", ALIGN_TOPLEFT, &g_Config.bStretchToDisplay);
 
 	UICheckBox(GEN_ID, x, y += 50, "Hardware Transform", ALIGN_TOPLEFT, &g_Config.bHardwareTransform);
-	bool fs = g_Config.iFrameSkip == 1;
-	UICheckBox(GEN_ID, x, y += 50, "Frameskip", ALIGN_TOPLEFT, &fs);
-	g_Config.iFrameSkip = fs ? 1 : 0;
 
 	// TODO: Add UI for more than one slot.
-	HLinear hlinear1(x, y + 80, 20);
-	if (UIButton(GEN_ID, hlinear1, LARGE_BUTTON_WIDTH, "Save State", ALIGN_LEFT)) {
+	VLinear vlinear1(x, y + 80, 20);
+	UIText(UBUNTU24, vlinear1, "Save states are experimental (and large)", 0xFFFFFFFF);
+	if (UIButton(GEN_ID, vlinear1, LARGE_BUTTON_WIDTH, "Save State", ALIGN_LEFT)) {
 		SaveState::SaveSlot(0, 0, 0);
 		screenManager()->finishDialog(this, DR_CANCEL);
 	}
-	if (UIButton(GEN_ID, hlinear1, LARGE_BUTTON_WIDTH, "Load State", ALIGN_LEFT)) {
+	if (UIButton(GEN_ID, vlinear1, LARGE_BUTTON_WIDTH, "Load State", ALIGN_LEFT)) {
 		SaveState::LoadSlot(0, 0, 0);
 		screenManager()->finishDialog(this, DR_CANCEL);
 	}
