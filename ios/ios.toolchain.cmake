@@ -45,6 +45,11 @@ if (CMAKE_UNAME)
 	string (REGEX REPLACE "^([0-9]+)\\.([0-9]+).*$" "\\1" DARWIN_MAJOR_VERSION "${CMAKE_HOST_SYSTEM_VERSION}")
 endif (CMAKE_UNAME)
 
+# Force the compilers to clang for iOS
+include (CMakeForceCompiler)
+CMAKE_FORCE_C_COMPILER (gcc gcc)
+CMAKE_FORCE_CXX_COMPILER (g++ g++)
+
 # Skip the platform compiler checks for cross compiling
 set (CMAKE_CROSSCOMPILING TRUE)
 set (CMAKE_CXX_COMPILER_WORKS TRUE)
@@ -127,13 +132,6 @@ set (CMAKE_IOS_SDK_ROOT ${CMAKE_IOS_SDK_ROOT} CACHE PATH "Location of the select
 
 # Set the sysroot default to the most recent SDK
 set (CMAKE_OSX_SYSROOT ${CMAKE_IOS_SDK_ROOT} CACHE PATH "Sysroot used for iOS support")
-
-# Force the compilers to clang for iOS
-include (CMakeForceCompiler)
-CMAKE_FORCE_C_COMPILER ("${CMAKE_IOS_DEVELOPER_ROOT}/usr/bin/clang")
-CMAKE_FORCE_CXX_COMPILER ("${CMAKE_IOS_DEVELOPER_ROOT}/usr/bin/clang++")
-set(CMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LANGUAGE_STANDARD "c++0x")
-set(CMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY "libstdc++")
 
 # set the architecture for iOS 
 # NOTE: Currently both ARCHS_STANDARD_32_BIT and ARCHS_UNIVERSAL_IPHONE_OS set armv7 only, so set both manually
