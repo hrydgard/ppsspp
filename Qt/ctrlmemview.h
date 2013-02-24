@@ -67,7 +67,6 @@ protected:
 	void keyPressEvent(QKeyEvent *e);
 	void wheelEvent(QWheelEvent *e);
 	void mousePressEvent(QMouseEvent *e);
-signals:
 	
 public slots:
 	void CopyValue();

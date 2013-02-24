@@ -58,49 +58,31 @@ private slots:
 	void UpdateThreadGUI();
 
 	void on_GotoPc_clicked();
-
 	void on_Go_clicked();
-
 	void on_Stop_clicked();
-
 	void on_StepInto_clicked();
-
 	void on_StepOver_clicked();
-
 	void on_Skip_clicked();
-
 	void on_NextHLE_clicked();
-
 	void on_GotoLr_clicked();
-
 	void on_GotoInt_currentIndexChanged(int index);
-
 	void on_Address_textChanged(const QString &arg1);
-
 	void on_DisasmView_customContextMenuRequested(const QPoint &pos);
 
-	void releaseLock();
 	void on_RegList_customContextMenuRequested(const QPoint &pos);
-
 	void on_vfpu_clicked();
-
 	void on_FuncList_itemClicked(QListWidgetItem *item);
-
 	void on_breakpointsList_itemClicked(QTreeWidgetItem *item, int column);
-
 	void on_breakpointsList_customContextMenuRequested(const QPoint &pos);
-
 	void on_clearAllBP_clicked();
-
 	void on_threadList_itemClicked(QTreeWidgetItem *item, int column);
-
 	void on_threadList_customContextMenuRequested(const QPoint &pos);
 
 	void SetThreadStatusRun();
 	void SetThreadStatusWait();
 	void SetThreadStatusSuspend();
 	void on_displayList_customContextMenuRequested(const QPoint &pos);
-
+	void releaseLock();
 
 private:
 	void SetThreadStatus(ThreadStatus status);

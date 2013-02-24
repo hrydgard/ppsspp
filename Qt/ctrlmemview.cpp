@@ -15,7 +15,6 @@
 CtrlMemView::CtrlMemView(QWidget *parent) :
 	QWidget(parent)
 {
-
 	curAddress=0;
 	rowHeight=14;
 	align=4;
@@ -32,44 +31,30 @@ void CtrlMemView::redraw()
 	update();
 }
 
-
 void CtrlMemView::wheelEvent(QWheelEvent* e)
 {
 	int numDegrees = e->delta() / 8;
 	int numSteps = numDegrees / 15;
-	if (e->orientation() == Qt::Horizontal) {
-	 } else {
+	if (e->orientation() == Qt::Vertical)
+	{
 		 curAddress -= numSteps*align*alignMul;
-		 e->accept();
 		 redraw();
-	 }
+	}
 }
-
 
 void CtrlMemView::keyPressEvent(QKeyEvent *e)
 {
 	int page=(rect().bottom()/rowHeight)/2-1;
 
-	if(e->key() == Qt::Key_Up)
+	switch (e->key())
 	{
-		curAddress-=align*alignMul;
-		e->accept();
+	case Qt::Key_Up: curAddress -= align*alignMul; break;
+	case Qt::Key_Down: curAddress += align*alignMul; break;
+	case Qt::Key_PageUp: curAddress -= page*align*alignMul; break;
+	case Qt::Key_PageDown: curAddress += page*align*alignMul; break;
+	default: QWidget::keyPressEvent(e); break;
 	}
-	else if(e->key() == Qt::Key_Down)
-	{
-		curAddress+=align*alignMul;
-		e->accept();
-	}
-	else if(e->key() == Qt::Key_PageUp)
-	{
-		curAddress-=page*align*alignMul;
-		e->accept();
-	}
-	else if(e->key() == Qt::Key_PageDown)
-	{
-		curAddress+=page*align*alignMul;
-		e->accept();
-	}
+
 	redraw();
 }
 
@@ -86,17 +71,17 @@ void CtrlMemView::paintEvent(QPaintEvent *)
 	int width = rect().width();
 	int numRows=(rect().bottom()/rowHeight)/2+1;
 
-	QPen nullPen=QPen(0xFFFFFF);
-	QPen currentPen=QPen(0xFF000000);
-	QPen selPen=QPen(0x808080);
-	QBrush lbr = QBrush(0xFFFFFF);
-	QBrush nullBrush=QBrush(0xFFFFFF);
-	QBrush currentBrush=QBrush(0xFFEfE8);
-	QBrush pcBrush=QBrush(0x70FF70);
+	QPen nullPen(0xFFFFFF);
+	QPen currentPen(0xFF000000);
+	QPen selPen(0x808080);
+	QBrush lbr(0xFFFFFF);
+	QBrush nullBrush(0xFFFFFF);
+	QBrush currentBrush(0xFFEFE8);
+	QBrush pcBrush(0x70FF70);
 	QPen textPen;
 
-	QFont normalFont = QFont("Arial", 10);
-	QFont alignedFont = QFont("Monospace", 10);
+	QFont normalFont("Arial", 10);
+	QFont alignedFont("Monospace", 10);
 	painter.setFont(normalFont);
 
 	int i;
@@ -112,7 +97,7 @@ void CtrlMemView::paintEvent(QPaintEvent *)
 
 		painter.setBrush(currentBrush);
 
-		if (selecting && address == selection)
+		if (selecting && address == (unsigned int)selection)
 		  painter.setPen(selPen);
 		else
 		  painter.setPen(i==0 ? currentPen : nullPen);
@@ -188,6 +173,7 @@ void CtrlMemView::paintEvent(QPaintEvent *)
 					painter.drawText(85,rowY1 - 2 + rowHeight, temp);
 					break;
 				}
+			case MV_MAX: break;
 			}
 		}
 	}
