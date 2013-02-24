@@ -64,7 +64,7 @@ void HLEInit()
 
 void HLEDoState(PointerWrap &p)
 {
-	Syscall sc = {0};
+	Syscall sc = {""};
 	p.Do(unresolvedSyscalls, sc);
 	p.Do(exportedCalls, sc);
 	p.DoMarker("HLE");

@@ -471,6 +471,8 @@ void AdvanceQuick()
 	globalTimer += cyclesExecuted;
 	currentMIPS->downcount = slicelength;
 
+	ProcessFifoWaitEvents();
+
 	if (!first)
 	{
 		// WARN_LOG(CPU, "WARNING - no events in queue. Setting currentMIPS->downcount to 10000");
@@ -478,8 +480,6 @@ void AdvanceQuick()
 	}
 	else
 	{
-		ProcessFifoWaitEvents();
-
 		slicelength = (int)(first->time - globalTimer);
 		if (slicelength > MAX_SLICE_LENGTH)
 			slicelength = MAX_SLICE_LENGTH;

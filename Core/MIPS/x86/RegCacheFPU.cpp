@@ -23,7 +23,7 @@
 
 u32 FPURegCache::tempValues[NUM_TEMPS];
 
-FPURegCache::FPURegCache() : emit(0), mips(0) {
+FPURegCache::FPURegCache() : mips(0), emit(0) {
 	memset(regs, 0, sizeof(regs));
 	memset(xregs, 0, sizeof(xregs));
 	vregs = regs + 32;

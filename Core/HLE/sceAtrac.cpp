@@ -395,10 +395,11 @@ u32 sceAtracGetStreamDataInfo(int atracID, u32 writeAddr, u32 writableBytesAddr,
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
 		//return -1;
+	} else {
+		Memory::Write_U32(atrac->first.addr, writeAddr);
+		Memory::Write_U32(atrac->first.writableBytes, writableBytesAddr);
+		Memory::Write_U32(atrac->first.fileoffset, readOffsetAddr);
 	}
-	Memory::Write_U32(atrac->first.addr, writeAddr);
-	Memory::Write_U32(atrac->first.writableBytes, writableBytesAddr);
-	Memory::Write_U32(atrac->first.fileoffset, readOffsetAddr);
 	return 0;
 }
 
