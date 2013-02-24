@@ -84,10 +84,31 @@
 
 #ifdef __APPLE__
 using std::isnan;
+using std::isinf;
 #endif
 #ifdef _MSC_VER
 #define isnan _isnan
+#define isinf(x) (!_finite(x) && !_isnan(x))
 #endif
+
+// Preserves NaN in first param, takes sign of equal second param.
+// Technically, std::max may do this but it's undefined.
+inline float nanmax(float f, float cst)
+{
+	return f <= cst ? cst : f;
+}
+
+// Preserves NaN in first param, takes sign of equal second param.
+inline float nanmin(float f, float cst)
+{
+	return f >= cst ? cst : f;
+}
+
+// Preserves NaN in first param, takes sign of equal value in others.
+inline float nanclamp(float f, float lower, float upper)
+{
+	return nanmin(nanmax(f, lower), upper);
+}
 
 void ApplyPrefixST(float *v, u32 data, VectorSize size)
 {
@@ -523,7 +544,8 @@ namespace MIPSInt
 		ReadVector(s, sz, vs);
 		for (int i = 0; i < GetNumVectorElements(sz); i++)
 		{
-			d[i] = 1.0f - s[i];
+			// Always positive NaN.
+			d[i] = isnan(s[i]) ? fabsf(s[i]) : 1.0f - s[i];
 		}
 		ApplyPrefixD(d, sz);
 		WriteVector(d, sz, vd);
@@ -540,13 +562,13 @@ namespace MIPSInt
 		ReadVector(s, sz, vs);
 		int n = GetNumVectorElements(sz);
 		float x = s[0];
-		d[0] = std::min(std::max(0.0f, 1.0f - x), 1.0f);
-		d[1] = std::min(std::max(0.0f, x), 1.0f);
+		d[0] = nanclamp(1.0f - x, 0.0f, 1.0f);
+		d[1] = nanclamp(x, 0.0f, 1.0f);
 		VectorSize outSize = V_Pair;
 		if (n > 1) {
 			float y = s[1];
-			d[2] = std::min(std::max(0.0f, 1.0f - y), 1.0f);
-			d[3] = std::min(std::max(0.0f, y), 1.0f);
+			d[2] = nanclamp(1.0f - y, 0.0f, 1.0f);
+			d[3] = nanclamp(y, 0.0f, 1.0f);
 			outSize = V_Quad;
 		} 
 		WriteVector(d, outSize, vd);
@@ -1001,7 +1023,7 @@ namespace MIPSInt
 		{
 			sum += (i == n - 1) ? t[i] : s[i]*t[i];
 		}
-		d = sum;
+		d = isnan(sum) ? fabsf(sum) : sum;
 		ApplyPrefixD(&d,V_Single);
 		V(vd) = d;
 		PC += 4;
@@ -1534,16 +1556,18 @@ namespace MIPSInt
 
 			case VC_EZ: c = s[i] == 0.0f || s[i] == -0.0f; break;
 			case VC_EN: c = isnan(s[i]); break;
-			case VC_EI: c = 0; break;
-			case VC_ES: c = (s[i] != s[i]) || (s[i] == std::numeric_limits<float>::infinity()); break;   // Tekken Dark Resurrection
+			case VC_EI: c = isinf(s[i]); break;
+			case VC_ES: c = isnan(s[i]) || isinf(s[i]); break;   // Tekken Dark Resurrection
 
 			case VC_NZ: c = s[i] != 0; break;
-			case VC_NN: c = s[i] != 0; break;
-			case VC_NI: c = s[i] != 0; break;
-			case VC_NS: c = s[i] != 0; break;
+			case VC_NN: c = !isnan(s[i]); break;
+			case VC_NI: c = !isinf(s[i]); break;
+			case VC_NS: c = !isnan(s[i]) && !isinf(s[i]); break;
+
 			default:
 				_dbg_assert_msg_(CPU,0,"Unsupported vcmp condition code %d", cond);
 				PC += 4;
+				EatPrefixes();
 				return;
 			}
 			cc |= (c<<i);
