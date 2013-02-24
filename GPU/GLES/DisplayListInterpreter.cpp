@@ -965,8 +965,8 @@ void GLES_GPU::UpdateStats() {
 	gpuStats.numVertexShaders = shaderManager_->NumVertexShaders();
 	gpuStats.numFragmentShaders = shaderManager_->NumFragmentShaders();
 	gpuStats.numShaders = shaderManager_->NumPrograms();
-	gpuStats.numTextures = textureCache_.NumLoadedTextures();
-	gpuStats.numFBOs = framebufferManager_.NumVFBs();
+	gpuStats.numTextures = (int)textureCache_.NumLoadedTextures();
+	gpuStats.numFBOs = (int)framebufferManager_.NumVFBs();
 }
 
 void GLES_GPU::DoBlockTransfer() {

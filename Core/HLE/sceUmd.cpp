@@ -128,7 +128,6 @@ int sceUmdActivate(u32 unknown, const char *name)
 	if (unknown < 1 || unknown > 2)
 		return PSP_ERROR_UMD_INVALID_PARAM;
 
-	bool changed = umdActivated == 0;
 	__KernelUmdActivate();
 
 	if (unknown == 1)
@@ -152,7 +151,6 @@ int sceUmdDeactivate(u32 unknown, const char *name)
 	if (unknown > 18)
 		return PSP_ERROR_UMD_INVALID_PARAM;
 
-	bool changed = umdActivated != 0;
 	__KernelUmdDeactivate();
 
 	if (unknown == 1)

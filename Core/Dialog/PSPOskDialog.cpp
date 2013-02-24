@@ -229,7 +229,7 @@ int PSPOskDialog::Update()
 		Memory::Write_U16(value, oskData.outtextPtr + (2 * i));
 	}
 
-	oskData.outtextlength = inputChars.size();
+	oskData.outtextlength = (u32)inputChars.size();
 	oskParams.base.result= 0;
 	oskData.result = PSP_UTILITY_OSK_RESULT_CHANGED;
 	Memory::WriteStruct(oskParams.SceUtilityOskDataPtr, &oskData);

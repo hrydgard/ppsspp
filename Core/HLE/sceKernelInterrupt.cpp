@@ -213,7 +213,7 @@ void __InterruptsInit()
 {
 	interruptsEnabled = 1;
 	inInterrupt = false;
-	for (size_t i = 0; i < ARRAY_SIZE(intrHandlers); ++i)
+	for (int i = 0; i < (int)ARRAY_SIZE(intrHandlers); ++i)
 		intrHandlers[i] = new IntrHandler(i);
 	intState.clear();
 }

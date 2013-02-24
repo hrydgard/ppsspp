@@ -313,19 +313,19 @@ void ConsoleListener::SendToThread(LogTypes::LOG_LEVELS Level, const char *Text)
 	if (logPendingWritePos == (u32) -1)
 		return;
 
-	size_t Len = strlen(Text);
+	int Len = (int)strlen(Text);
 	if (Len > LOG_PENDING_MAX)
 		Len = LOG_PENDING_MAX - 16;
 
 	char ColorAttr[16] = "";
-	size_t ColorLen = 0;
+	int ColorLen = 0;
 	if (bUseColor)
 	{
 		// Not ANSI, since the console doesn't support it, but ANSI-like.
 		snprintf(ColorAttr, 16, "\033%d", Level);
 		// For now, rather than properly support it.
 		_dbg_assert_msg_(COMMON, strlen(ColorAttr) == 2, "Console logging doesn't support > 9 levels.");
-		ColorLen = strlen(ColorAttr);
+		ColorLen = (int)strlen(ColorAttr);
 	}
 
 	EnterCriticalSection(&criticalSection);
@@ -333,7 +333,7 @@ void ConsoleListener::SendToThread(LogTypes::LOG_LEVELS Level, const char *Text)
 	u32 prevLogWritePos = logWritePos;
 	if (logWritePos + ColorLen + Len >= LOG_PENDING_MAX)
 	{
-		for (size_t i = 0; i < ColorLen; ++i)
+		for (int i = 0; i < ColorLen; ++i)
 			logPending[(logWritePos + i) % LOG_PENDING_MAX] = ColorAttr[i];
 		logWritePos += ColorLen;
 		if (logWritePos >= LOG_PENDING_MAX)
@@ -370,7 +370,7 @@ void ConsoleListener::SendToThread(LogTypes::LOG_LEVELS Level, const char *Text)
 
 		// Okay, have it go right after the next newline.
 		if (nextNewline != NULL)
-			logPendingReadPos = nextNewline - logPending + 1;
+			logPendingReadPos = (u32)(nextNewline - logPending + 1);
 	}
 
 	// Double check we didn't start quitting.
