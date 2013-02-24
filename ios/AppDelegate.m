@@ -19,6 +19,7 @@
 	self.viewController = [[[ViewController alloc] init] autorelease];
 	self.window.rootViewController = self.viewController;
 	[self.window makeKeyAndVisible];
+	[self setFrameRate:60];
 	return YES;
 }
 
