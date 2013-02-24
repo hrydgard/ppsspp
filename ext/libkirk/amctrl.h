@@ -59,6 +59,7 @@ int sceNpDrmGetFixedKey(u8 *key, char *npstr, int type);
 
 PGD_DESC *pgd_open(u8 *pgd_buf, int pgd_flag, u8 *pgd_vkey);
 int pgd_decrypt_block(PGD_DESC *pgd, int block);
+int pgd_close(PGD_DESC *pgd);
 
 #endif
 
