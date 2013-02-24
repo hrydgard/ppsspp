@@ -816,9 +816,12 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_ALPHATESTENABLE:
 	case GE_CMD_COLORTESTENABLE:
+		// They are done in the fragment shader.
+		break;
+
 	case GE_CMD_COLORTEST:
 	case GE_CMD_COLORTESTMASK:
-		// This is done in the shader.
+		shaderManager_->DirtyUniform(DIRTY_COLORMASK);
 		break;
 
 	case GE_CMD_COLORREF:

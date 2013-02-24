@@ -94,6 +94,7 @@ void GenerateFragmentShader(char *buffer)
 		WRITE(p, "uniform sampler2D tex;\n");
 	if (enableAlphaTest || enableColorTest) {
 		WRITE(p, "uniform vec4 u_alphacolorref;\n");
+		WRITE(p, "uniform vec4 u_colormask;\n");
 	}
 	if (gstate.textureMapEnable & 1) {
 		WRITE(p, "uniform vec3 u_texenv;\n");
@@ -189,9 +190,8 @@ void GenerateFragmentShader(char *buffer)
 			const char *colorTestFuncs[] = { "#", "#", " == ", " != " };	// never/always don't make sense}
 			int colorTestMask = gstate.colormask;
 			if (colorTestFuncs[colorTestFunc][0] != '#')
-				WRITE(p, "if (!(v.rgb %s u_alphacolorref.rgb)) discard;\n", colorTestFuncs[colorTestFunc]);
-		}*/
-
+				WRITE(p, "if (!(v.rgb %s (u_alphacolorref.rgb & u_colormask.rgb)) discard;\n", colorTestFuncs[colorTestFunc]);
+		}*/		
 		if (enableFog) {
 			WRITE(p, "  float fogCoef = clamp(v_fogdepth, 0.0, 1.0);\n");
 			WRITE(p, "  gl_FragColor = mix(vec4(u_fogcolor, v.a), v, fogCoef);\n");
