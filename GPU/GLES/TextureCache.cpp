@@ -677,7 +677,6 @@ void TextureCache::SetTexture() {
 	}
 	bool hasClut = formatUsesClut[format];
 
-	const u8 *texptr = Memory::GetPointer(texaddr);
 	u64 cachekey = texaddr;
 
 	u32 clutformat, clutaddr;
@@ -1150,14 +1149,8 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 	}
 
 	u32 clutformat = gstate.clutformat & 3;
-	u32 clutaddr = GetClutAddr(clutformat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2);
 
 	const u8 *texptr = Memory::GetPointer(texaddr);
-	u32 texhash = texptr ? MiniHash((const u32*)texptr) : 0;
-
-	u64 cachekey = texaddr ^ texhash;
-	if (formatUsesClut[format])
-		cachekey |= (u64) clutaddr << 32;
 
 	int bufw = gstate.texbufwidth[0] & 0x3ff;
 

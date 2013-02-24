@@ -833,7 +833,7 @@ int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initAddr)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
-		WARN_LOG(HLE, "sceMpegAvcDecodeYCbCr(%08x, %08x, %d, %08x, %08x): bad mpeg handle", mpeg, auAddr, bufferAddr, initAddr);
+		WARN_LOG(HLE, "sceMpegAvcDecodeYCbCr(%08x, %08x, %08x, %08x): bad mpeg handle", mpeg, auAddr, bufferAddr, initAddr);
 		return 0;
 	}
 

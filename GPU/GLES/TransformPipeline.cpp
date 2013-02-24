@@ -660,10 +660,6 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		numTrans = vertexCount;
 		drawIndexed = true;
 	} else {
-		// Temporary storage for RECTANGLES emulation
-		float v2[3] = {0};
-		float uv2[2] = {0};
-
 		numTrans = 0;
 		drawBuffer = transformedExpanded;
 		TransformedVertex *trans = &transformedExpanded[0];
