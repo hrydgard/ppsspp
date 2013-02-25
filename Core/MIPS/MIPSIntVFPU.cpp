@@ -90,6 +90,9 @@ using std::isinf;
 #define isnan _isnan
 #define isinf(x) (!_finite(x) && !_isnan(x))
 #endif
+#ifdef ANDROID
+using __captured::isinf;
+#endif
 
 // Preserves NaN in first param, takes sign of equal second param.
 // Technically, std::max may do this but it's undefined.
