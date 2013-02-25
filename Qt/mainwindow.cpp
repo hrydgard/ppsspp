@@ -244,7 +244,7 @@ void MainWindow::UpdateMenus()
 	ui->action_OptionsVertexCache->setChecked(g_Config.bVertexCache);
 	ui->action_OptionsWireframe->setChecked(g_Config.bDrawWireframe);
 	ui->action_OptionsDisplayRawFramebuffer->setChecked(g_Config.bDisplayFramebuffer);
-//	ui->actionFrameskip->setChecked(g_Config.iFrameSkip != 0);
+	ui->actionFrameskip->setChecked(g_Config.iFrameSkip != 0);
 
 	ui->action_Sound->setChecked(g_Config.bEnableSound);
 
@@ -684,7 +684,7 @@ void MainWindow::on_action_OptionsDisplayRawFramebuffer_triggered()
 
 void MainWindow::on_actionFrameskip_triggered()
 {
-//	g_Config.iFrameSkip = !g_Config.iFrameSkip;
+	g_Config.iFrameSkip = !g_Config.iFrameSkip;
 	UpdateMenus();
 }
 
