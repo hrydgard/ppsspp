@@ -32,6 +32,8 @@ int sceKernelTryLockLwMutex_600(u32 workareaPtr, int count);
 int sceKernelLockLwMutex(u32 workareaPtr, int count, u32 timeoutPtr);
 int sceKernelLockLwMutexCB(u32 workareaPtr, int count, u32 timeoutPtr);
 int sceKernelUnlockLwMutex(u32 workareaPtr, int count);
+int sceKernelReferLwMutexStatusByID(SceUID uid, u32 infoPtr);
+int sceKernelReferLwMutexStatus(u32 workareaPtr, u32 infoPtr);
 
 void __KernelMutexTimeout(u64 userdata, int cyclesLate);
 void __KernelLwMutexTimeout(u64 userdata, int cyclesLate);
