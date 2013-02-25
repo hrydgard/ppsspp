@@ -23,3 +23,4 @@
 
 bool Load_PSP_ISO(const char *filename, std::string *error_string);
 bool Load_PSP_ELF_PBP(const char *filename, std::string *error_string);
+bool hasEncrypted(std::string bootpath);
