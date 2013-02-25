@@ -12,7 +12,7 @@ Debugger_VFPU::Debugger_VFPU(DebugInterface *_cpu, MainWindow* mainWindow_, QWid
 {
 	ui->setupUi(this);
 
-	setWindowTitle(QString("VFPU - ")+cpu->GetName());
+	setWindowTitle(QString("VFPU - %1").arg(cpu->GetName()));
 
 	ui->vfpu->setCPU(_cpu);
 }

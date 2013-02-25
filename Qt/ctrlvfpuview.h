@@ -27,13 +27,9 @@ public:
 	void setMode(int newMode);
 	void redraw();
 protected:
-
 	void paintEvent(QPaintEvent *);
-signals:
-	
-public slots:
-private:
 
+private:
 	DebugInterface *cpu;
 	Debugger_Vfpu* parentWindow;
 	int mode;

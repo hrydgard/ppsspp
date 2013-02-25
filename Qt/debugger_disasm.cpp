@@ -346,7 +346,7 @@ void Debugger_Disasm::FillFunctions()
 		if(symbolMap.GetSymbolType(i) & ST_FUNCTION)
 		{
 			QListWidgetItem* item = new QListWidgetItem();
-			item->setText(QString(symbolMap.GetSymbolName(i)) + " ("+ QString::number(symbolMap.GetSymbolSize(i)) +")");
+			item->setText(QString("%1 (%2)").arg(symbolMap.GetSymbolName(i)).arg(symbolMap.GetSymbolSize(i)));
 			item->setData(Qt::UserRole, symbolMap.GetAddress(i));
 			ui->FuncList->addItem(item);
 		}
@@ -431,7 +431,7 @@ void Debugger_Disasm::UpdateThreadGUI()
 	std::vector<DebugThreadInfo> threads = GetThreadsInfo();
 	EmuThread_LockDraw(false);
 
-	for(int i = 0; i < threads.size(); i++)
+	for(size_t i = 0; i < threads.size(); i++)
 	{
 		QTreeWidgetItem* item = new QTreeWidgetItem();
 		item->setText(0,QString::number(threads[i].id));
@@ -480,7 +480,7 @@ void Debugger_Disasm::on_threadList_customContextMenuRequested(const QPoint &pos
 		connect(gotoEntryPoint, SIGNAL(triggered()), this, SLOT(GotoThreadEntryPoint()));
 		menu.addAction(gotoEntryPoint);
 
-		QMenu* changeStatus = menu.addMenu("Change status");
+		QMenu* changeStatus = menu.addMenu(tr("Change status"));
 
 		QAction *statusRunning = new QAction(tr("Running"), this);
 		connect(statusRunning, SIGNAL(triggered()), this, SLOT(SetThreadStatusRun()));
@@ -566,7 +566,7 @@ void Debugger_Disasm::UpdateDisplayListGUI()
 		item->setText(3,QString("%1").arg(dl->pc,8,16,QChar('0')));
 		item->setData(3, Qt::UserRole, dl->pc);
 		ui->displayList->addTopLevelItem(item);
-		if(curDlId == dl->id)
+		if(curDlId == (u32)dl->id)
 		{
 			ui->displayList->setCurrentItem(item);
 			displayListRowSelected = item;
@@ -595,7 +595,7 @@ void Debugger_Disasm::UpdateDisplayListGUI()
 		item->setText(3,QString("%1").arg(it->pc,8,16,QChar('0')));
 		item->setData(3, Qt::UserRole, it->pc);
 		ui->displayList->addTopLevelItem(item);
-		if(curDlId == it->id)
+		if(curDlId == (u32)it->id)
 		{
 			ui->displayList->setCurrentItem(item);
 			displayListRowSelected = item;

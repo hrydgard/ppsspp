@@ -63,40 +63,23 @@ private slots:
 	void releaseLock();
 
 	void on_displayList_itemClicked(QTreeWidgetItem *item, int column);
-
 	void on_stepBtn_clicked();
-
 	void on_runBtn_clicked();
-
 	void on_stopBtn_clicked();
-
 	void on_nextDrawBtn_clicked();
-
 	void on_gotoPCBtn_clicked();
-
 	void on_texturesList_itemDoubleClicked(QTreeWidgetItem *item, int column);
-
 	void on_comboBox_currentIndexChanged(int index);
-
 	void on_fboList_itemClicked(QTreeWidgetItem *item, int column);
-
 	void on_nextDLBtn_clicked();
 	void setCurrentFBO(u32 addr);
-
 	void on_zoommBtn_clicked();
-
 	void on_zoompBtn_clicked();
-
 	void on_vertexList_itemClicked(QTreeWidgetItem *item, int column);
-
 	void on_pushButton_clicked();
-
 	void on_nextIdx_clicked();
-
 	void on_indexList_itemClicked(QTreeWidgetItem *item, int column);
-
 	void on_displayListData_customContextMenuRequested(const QPoint &pos);
-
 	void on_texturesList_customContextMenuRequested(const QPoint &pos);
 	void RunToDLPC();
 	void RunToDrawTex();

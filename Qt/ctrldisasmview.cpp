@@ -33,26 +33,15 @@ void CtrlDisAsmView::keyPressEvent(QKeyEvent *e)
 {
 	int page=(rect().bottom()/rowHeight)/2-1;
 
-	if(e->key() == Qt::Key_Down)
+	switch (e->key())
 	{
-		curAddress += align;
-		e->accept();
+	case Qt::Key_Down: curAddress += align; break;
+	case Qt::Key_Up: curAddress -= align; break;
+	case Qt::Key_PageDown: curAddress += page*align; break;
+	case Qt::Key_PageUp: curAddress -= page*align; break;
+	default: QWidget::keyPressEvent(e); break;
 	}
-	else if(e->key() == Qt::Key_Up)
-	{
-		curAddress -= align;
-		e->accept();
-	}
-	else if(e->key() == Qt::Key_PageDown)
-	{
-		curAddress += page*align;
-		e->accept();
-	}
-	else if(e->key() == Qt::Key_PageUp)
-	{
-		curAddress -= page*align;
-		e->accept();
-	}
+
 	update();
 }
 
@@ -68,7 +57,6 @@ void CtrlDisAsmView::mousePressEvent(QMouseEvent *e)
 		selecting=true;
 		if (!oldselecting || (selection!=oldSelection))
 			redraw();
-		e->accept();
 	}
 	else
 	{
@@ -77,7 +65,6 @@ void CtrlDisAsmView::mousePressEvent(QMouseEvent *e)
 		EmuThread_LockDraw(false);
 		parentWindow->Update();
 		redraw();
-		e->accept();
 	}
 }
 
@@ -85,12 +72,11 @@ void CtrlDisAsmView::wheelEvent(QWheelEvent* e)
 {
 	int numDegrees = e->delta() / 8;
 	int numSteps = numDegrees / 15;
-	if (e->orientation() == Qt::Horizontal) {
-	 } else {
+	if (e->orientation() == Qt::Vertical)
+	{
 		 curAddress -= numSteps*align;
-		 e->accept();
 		 update();
-	 }
+	}
 }
 
 void CtrlDisAsmView::redraw()
@@ -243,7 +229,7 @@ void CtrlDisAsmView::RenameFunction()
 	}
 	else
 	{
-		QMessageBox::information(this,"Warning","No symbol selected",QMessageBox::Ok);
+		QMessageBox::information(this,tr("Warning"),tr("No symbol selected"),QMessageBox::Ok);
 	}
 }
 
@@ -265,20 +251,20 @@ void CtrlDisAsmView::paintEvent(QPaintEvent *)
 	int width = rect().width();
 	int numRows=(rect().height()/rowHeight)/2+1;
 
-	QColor bgColor = QColor(0xFFFFFFFF);
-	QPen nullPen= QPen(bgColor);
-	QPen currentPen=QPen(QColor(0,0,0));
-	QPen selPen=QPen(QColor(0xFF808080));
-	QPen condPen=QPen(QColor(0xFFFF3020));
+	QColor bgColor(0xFFFFFFFF);
+	QPen nullPen(bgColor);
+	QPen currentPen(QColor(0,0,0));
+	QPen selPen(QColor(0xFF808080));
+	QPen condPen(QColor(0xFFFF3020));
 
 	QBrush lbr;
 	lbr.setColor(bgColor);
-	QBrush currentBrush=QBrush(QColor(0xFFFFEfE8));
-	QBrush pcBrush=QBrush(QColor(0xFF70FF70));
+	QBrush currentBrush(QColor(0xFFFFEfE8));
+	QBrush pcBrush(QColor(0xFF70FF70));
 
-	QFont normalFont = QFont("Arial", 10);
-	QFont boldFont = QFont("Arial", 10);
-	QFont alignedFont = QFont("Monospace", 10);
+	QFont normalFont("Arial", 10);
+	QFont boldFont("Arial", 10);
+	QFont alignedFont("Monospace", 10);
 	boldFont.setBold(true);
 	painter.setFont(normalFont);
 
@@ -295,17 +281,17 @@ void CtrlDisAsmView::paintEvent(QPaintEvent *)
 		int rowY1 = rect().bottom()/2 + rowHeight*i - rowHeight/2;
 		int rowY2 = rect().bottom()/2 + rowHeight*i + rowHeight/2 - 1;
 
-		lbr.setColor(marker==address?QColor(0xFFFFEEE0):QColor(debugger->getColor(address)));
+		lbr.setColor((unsigned int)marker == address ? QColor(0xFFFFEEE0) : QColor(debugger->getColor(address)));
 		QColor bg = lbr.color();
 		painter.setPen(nullPen);
 		painter.drawRect(0,rowY1,16-1,rowY2-rowY1);
 
-		if (selecting && address == selection)
+		if (selecting && address == (unsigned int)selection)
 			painter.setPen(selPen);
 		else
 			painter.setPen(i==0 ? currentPen : nullPen);
 
-		QBrush mojsBrush=QBrush(lbr.color());
+		QBrush mojsBrush(lbr.color());
 		painter.setBrush(mojsBrush);
 
 		if (address == debugger->getPC())
@@ -315,7 +301,7 @@ void CtrlDisAsmView::paintEvent(QPaintEvent *)
 
 		painter.drawRect(16,rowY1,width-16-1,rowY2-rowY1);
 		painter.setBrush(currentBrush);
-		QPen textPen = QPen(QColor(halfAndHalf(bg.rgba(),0)));
+		QPen textPen(QColor(halfAndHalf(bg.rgba(),0)));
 		painter.setPen(textPen);
 		painter.setFont(alignedFont);
 		painter.drawText(17,rowY1-3+rowHeight,QString("%1").arg(address,8,16,QChar('0')));
@@ -412,7 +398,7 @@ void CtrlDisAsmView::paintEvent(QPaintEvent *)
 	{
 		painter.setPen(branches[i].conditional ? condPen : currentPen);
 		int x=280+(branches[i].srcAddr%9)*8;
-		QPoint curPos = QPoint(x-2,branches[i].src);
+		QPoint curPos(x-2,branches[i].src);
 
 		if (branches[i].dst<rect().bottom()+200 && branches[i].dst>-200)
 		{

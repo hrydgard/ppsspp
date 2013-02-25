@@ -44,7 +44,7 @@
      <x>0</x>
      <y>0</y>
      <width>800</width>
-     <height>23</height>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menu_File">
@@ -52,7 +52,7 @@
      <string>&amp;File</string>
     </property>
     <addaction name="action_FileLoad"/>
-    <addaction name="action_EmulationStop"/>
+    <addaction name="action_FileClose"/>
     <addaction name="separator"/>
     <addaction name="action_FileQuickloadState"/>
     <addaction name="action_FileQuickSaveState"/>
@@ -169,6 +169,7 @@
      <addaction name="action_OptionsVertexCache"/>
      <addaction name="action_OptionsWireframe"/>
      <addaction name="action_OptionsDisplayRawFramebuffer"/>
+     <addaction name="actionFrameskip"/>
     </widget>
     <widget class="QMenu" name="menuControls">
      <property name="title">
@@ -220,7 +221,7 @@
     <string>&amp;Open...</string>
    </property>
   </action>
-  <action name="action_EmulationStop">
+  <action name="action_FileClose">
    <property name="text">
     <string>&amp;Close</string>
    </property>
@@ -693,6 +694,14 @@
    </property>
    <property name="text">
     <string>&amp;Sound emulation</string>
+   </property>
+  </action>
+  <action name="actionFrameskip">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Frameskip</string>
    </property>
   </action>
  </widget>
