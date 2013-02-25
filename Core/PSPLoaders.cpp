@@ -86,13 +86,26 @@ bool Load_PSP_ISO(const char *filename, std::string *error_string)
 
 	std::string bootpath("disc0:/PSP_GAME/SYSDIR/EBOOT.BIN");
 	// bypass patchers
-	if (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/SYSDIR/EBOOT.OLD").exists) {
+	if (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/SYSDIR/EBOOT.OLD").exists&&!hasEncrypted(bootpath)) {
 		bootpath = "disc0:/PSP_GAME/SYSDIR/EBOOT.OLD";
 	}
 	// bypass another patchers
-	if (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/SYSDIR/EBOOT.DAT").exists) {
+	if (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/SYSDIR/EBOOT.DAT").exists&&!hasEncrypted(bootpath)) {
 		bootpath = "disc0:/PSP_GAME/SYSDIR/EBOOT.DAT";
 	}
+	
+	if (!hasEncrypted(bootpath))
+	{
+		// try unencrypted BOOT.BIN
+		bootpath = "disc0:/PSP_GAME/SYSDIR/BOOT.BIN";
+	}
+
+	INFO_LOG(LOADER,"Loading %s...", bootpath.c_str());
+	return __KernelLoadExec(bootpath.c_str(), 0, error_string);
+}
+
+bool hasEncrypted(std::string bootpath)
+{
 	bool hasEncrypted = false;
 	u32 fd;
 	if ((fd = pspFileSystem.OpenFile(bootpath, FILEACCESS_READ)) != 0)
@@ -104,14 +117,7 @@ bool Load_PSP_ISO(const char *filename, std::string *error_string)
 		}
 		pspFileSystem.CloseFile(fd);
 	}
-	if (!hasEncrypted)
-	{
-		// try unencrypted BOOT.BIN
-		bootpath = "disc0:/PSP_GAME/SYSDIR/BOOT.BIN";
-	}
-
-	INFO_LOG(LOADER,"Loading %s...", bootpath.c_str());
-	return __KernelLoadExec(bootpath.c_str(), 0, error_string);
+	return hasEncrypted;
 }
 
 bool Load_PSP_ELF_PBP(const char *filename, std::string *error_string)
