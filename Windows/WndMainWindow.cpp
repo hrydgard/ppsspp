@@ -533,14 +533,6 @@ namespace MainWindow
 				UpdateMenus();
 				ResizeDisplay(true);
 				break;
-			case ID_OPTIONS_DISABLEG3DLOG:
-				g_Config.bDisableG3DLog = !g_Config.bDisableG3DLog;
-				if (!g_Config.bDisableG3DLog )
-					LogManager::GetInstance()->SetEnable(LogTypes::G3D, true);
-				else 
-					LogManager::GetInstance()->SetEnable(LogTypes::G3D, false);
-				UpdateMenus();
-				break;
 			case ID_OPTIONS_CONTROLS:
 				DialogManager::EnableAll(FALSE);
 				DialogBox(hInst, (LPCTSTR)IDD_CONTROLS, hWnd, (DLGPROC)Controls);
@@ -687,7 +679,6 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_STRETCHDISPLAY, g_Config.bStretchToDisplay);
 		CHECKITEM(ID_EMULATION_RUNONLOAD, g_Config.bAutoRun);
 		CHECKITEM(ID_OPTIONS_USEVBO, g_Config.bUseVBO);
-		CHECKITEM(ID_OPTIONS_DISABLEG3DLOG, g_Config.bDisableG3DLog);
 		CHECKITEM(ID_OPTIONS_VERTEXCACHE, g_Config.bVertexCache);
 		CHECKITEM(ID_OPTIONS_SHOWFPS, g_Config.bShowFPSCounter);
 		CHECKITEM(ID_OPTIONS_FRAMESKIP, g_Config.iFrameSkip != 0);
