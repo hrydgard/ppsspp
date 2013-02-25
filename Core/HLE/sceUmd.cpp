@@ -24,6 +24,8 @@
 
 const int PSP_ERROR_UMD_INVALID_PARAM = 0x80010016;
 
+const u64 MICRO_DELAY_ACTIVATE = 4000;
+
 #define UMD_NOT_PRESENT 0x01
 #define UMD_PRESENT		 0x02
 #define UMD_CHANGED		 0x04
@@ -31,12 +33,27 @@ const int PSP_ERROR_UMD_INVALID_PARAM = 0x80010016;
 #define UMD_READY			 0x10
 #define UMD_READABLE		0x20
 
+struct UmdWaitingThread
+{
+	SceUID threadID;
+	u32 stat;
+
+	inline static UmdWaitingThread Make(SceUID threadID, u32 stat)
+	{
+		UmdWaitingThread th;
+		th.threadID = threadID;
+		th.stat = stat;
+		return th;
+	}
+};
 
 static u8 umdActivated = 1;
 static u32 umdStatus = 0;
 static u32 umdErrorStat = 0;
 static int driveCBId = -1;
-static int umdStatTimer = -1;
+static int umdStatTimeoutEvent = -1;
+static int umdStatChangeEvent = -1;
+static std::vector<UmdWaitingThread> umdWaitingThreads;
 
 
 #define PSP_UMD_TYPE_GAME 0x10
@@ -49,10 +66,12 @@ struct PspUmdInfo {
 };
 
 void __UmdStatTimeout(u64 userdata, int cyclesLate);
+void __UmdStatChange(u64 userdata, int cyclesLate);
 
 void __UmdInit()
 {
-	umdStatTimer = CoreTiming::RegisterEvent("UmdTimeout", __UmdStatTimeout);
+	umdStatTimeoutEvent = CoreTiming::RegisterEvent("UmdTimeout", __UmdStatTimeout);
+	umdStatChangeEvent = CoreTiming::RegisterEvent("UmdChange", __UmdStatChange);
 	umdActivated = 1;
 	umdStatus = 0;
 	umdErrorStat = 0;
@@ -65,8 +84,11 @@ void __UmdDoState(PointerWrap &p)
 	p.Do(umdStatus);
 	p.Do(umdErrorStat);
 	p.Do(driveCBId);
-	p.Do(umdStatTimer);
-	CoreTiming::RestoreRegisterEvent(umdStatTimer, "UmdTimeout", __UmdStatTimeout);
+	p.Do(umdStatTimeoutEvent);
+	CoreTiming::RestoreRegisterEvent(umdStatTimeoutEvent, "UmdTimeout", __UmdStatTimeout);
+	p.Do(umdStatChangeEvent);
+	CoreTiming::RestoreRegisterEvent(umdStatChangeEvent, "UmdChange", __UmdStatChange);
+	p.Do(umdWaitingThreads);
 	p.DoMarker("sceUmd");
 }
 
@@ -83,24 +105,55 @@ u8 __KernelUmdGetState()
 	return state;
 }
 
+void __UmdStatChange(u64 userdata, int cyclesLate)
+{
+	// TODO: Why not a bool anyway?
+	umdActivated = userdata & 0xFF;
+
+	// Wake anyone waiting on this.
+	for (size_t i = 0; i < umdWaitingThreads.size(); ++i)
+	{
+		UmdWaitingThread &info = umdWaitingThreads[i];
+
+		u32 error;
+		SceUID waitID = __KernelGetWaitID(info.threadID, WAITTYPE_UMD, error);
+		bool keep = false;
+		if (waitID == 1)
+		{
+			if ((info.stat & __KernelUmdGetState()) != 0)
+				__KernelResumeThreadFromWait(info.threadID, 0);
+			// Only if they are still waiting do we keep them in the list.
+			else
+				keep = true;
+		}
+
+		if (!keep)
+			umdWaitingThreads.erase(umdWaitingThreads.begin() + i--);
+	}
+}
+
 void __KernelUmdActivate()
 {
-	umdActivated = 1;
+	u32 notifyArg = UMD_PRESENT | UMD_READABLE;
+	__KernelNotifyCallbackType(THREAD_CALLBACK_UMD, -1, notifyArg);
+
+	// Don't activate immediately, take time to "spin up."
+	CoreTiming::RemoveAllEvents(umdStatChangeEvent);
+	CoreTiming::ScheduleEvent(usToCycles(MICRO_DELAY_ACTIVATE), umdStatChangeEvent, 1);
 }
 
 void __KernelUmdDeactivate()
 {
-	umdActivated = 0;
+	u32 notifyArg = UMD_PRESENT | UMD_READY;
+	__KernelNotifyCallbackType(THREAD_CALLBACK_UMD, -1, notifyArg);
+
+	CoreTiming::RemoveAllEvents(umdStatChangeEvent);
+	__UmdStatChange(0, 0);
 }
 
-// typedef int (*UmdCallback)(int unknown, int event);
-
-
-//int sceUmdCheckMedium(int a);
 int sceUmdCheckMedium()
 {
-	DEBUG_LOG(HLE,"1=sceUmdCheckMedium(?)");
-	//ignore PARAM(0)	
+	DEBUG_LOG(HLE, "1=sceUmdCheckMedium()");
 	return 1; //non-zero: disc in drive
 }
 	
@@ -139,9 +192,6 @@ int sceUmdActivate(u32 unknown, const char *name)
 		ERROR_LOG(HLE, "UNTESTED 0=sceUmdActivate(%d, %s)", unknown, name);
 	}
 
-	u32 notifyArg = UMD_PRESENT | UMD_READABLE;
-	__KernelNotifyCallbackType(THREAD_CALLBACK_UMD, -1, notifyArg);
-
 	return 0;
 }
 
@@ -161,9 +211,6 @@ int sceUmdDeactivate(u32 unknown, const char *name)
 	{
 		ERROR_LOG(HLE, "UNTESTED 0=sceUmdDeactivate(%d, %s)", unknown, name);
 	}
-
-	u32 notifyArg = UMD_PRESENT | UMD_READY;
-	__KernelNotifyCallbackType(THREAD_CALLBACK_UMD, -1, notifyArg);
 
 	return 0;
 }
@@ -223,6 +270,12 @@ void __UmdStatTimeout(u64 userdata, int cyclesLate)
 	// Assuming it's still waiting.
 	if (waitID == 1)
 		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
+
+	for (size_t i = 0; i < umdWaitingThreads.size(); ++i)
+	{
+		if (umdWaitingThreads[i].threadID = threadID)
+			umdWaitingThreads.erase(umdWaitingThreads.begin() + i--);
+	}
 }
 
 void __UmdWaitStat(u32 timeout)
@@ -233,7 +286,7 @@ void __UmdWaitStat(u32 timeout)
 	else if (timeout <= 215)
 		timeout = 250;
 
-	CoreTiming::ScheduleEvent(usToCycles((int) timeout), umdStatTimer, __KernelGetCurThread());
+	CoreTiming::ScheduleEvent(usToCycles((int) timeout), umdStatTimeoutEvent, __KernelGetCurThread());
 }
 
 /** 
@@ -248,7 +301,10 @@ int sceUmdWaitDriveStat(u32 stat)
 	DEBUG_LOG(HLE,"0=sceUmdWaitDriveStat(stat = %08x)", stat);
 
 	if ((stat & __KernelUmdGetState()) == 0)
+	{
+		umdWaitingThreads.push_back(UmdWaitingThread::Make(__KernelGetCurThread(), stat));
 		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, 0, "umd stat waited");
+	}
 
 	return 0;
 }
@@ -260,7 +316,8 @@ int sceUmdWaitDriveStatWithTimer(u32 stat, u32 timeout)
 	if ((stat & __KernelUmdGetState()) == 0)
 	{
 		__UmdWaitStat(timeout);
-		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, 0, "umd stat waited");
+		umdWaitingThreads.push_back(UmdWaitingThread::Make(__KernelGetCurThread(), stat));
+		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, 0, "umd stat waited with timer");
 	}
 	else
 		hleReSchedule("umd stat waited with timer");
@@ -270,14 +327,7 @@ int sceUmdWaitDriveStatWithTimer(u32 stat, u32 timeout)
 
 int sceUmdWaitDriveStatCB(u32 stat, u32 timeout)
 {
-	if (driveCBId != -1)
-	{
-		DEBUG_LOG(HLE,"0=sceUmdWaitDriveStatCB(stat = %08x, timeout = %d)", stat, timeout);
-	}
-	else
-	{
-		WARN_LOG(HLE, "0=sceUmdWaitDriveStatCB(stat = %08x, timeout = %d) without callback", stat, timeout);
-	}
+	DEBUG_LOG(HLE,"0=sceUmdWaitDriveStatCB(stat = %08x, timeout = %d)", stat, timeout);
 
 	hleCheckCurrentCallbacks();
 	if ((stat & __KernelUmdGetState()) == 0)
@@ -286,6 +336,7 @@ int sceUmdWaitDriveStatCB(u32 stat, u32 timeout)
 			timeout = 8000;
 
 		__UmdWaitStat(timeout);
+		umdWaitingThreads.push_back(UmdWaitingThread::Make(__KernelGetCurThread(), stat));
 		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, true, "umd stat waited");
 	}
 	else
@@ -321,8 +372,6 @@ u32 sceUmdReplacePermit()
 	DEBUG_LOG(HLE,"sceUmdReplacePermit()");
 	return 0;
 }
-
-
 
 const HLEFunction sceUmdUser[] = 
 {
