@@ -110,9 +110,6 @@ void __UmdStatChange(u64 userdata, int cyclesLate)
 	// TODO: Why not a bool anyway?
 	umdActivated = userdata & 0xFF;
 
-	u32 notifyArg = UMD_PRESENT | (umdActivated ? UMD_READABLE : UMD_READY);
-	__KernelNotifyCallbackType(THREAD_CALLBACK_UMD, -1, notifyArg);
-
 	// Wake anyone waiting on this.
 	for (size_t i = 0; i < umdWaitingThreads.size(); ++i)
 	{
@@ -137,6 +134,9 @@ void __UmdStatChange(u64 userdata, int cyclesLate)
 
 void __KernelUmdActivate()
 {
+	u32 notifyArg = UMD_PRESENT | UMD_READABLE;
+	__KernelNotifyCallbackType(THREAD_CALLBACK_UMD, -1, notifyArg);
+
 	// Don't activate immediately, take time to "spin up."
 	CoreTiming::RemoveAllEvents(umdStatChangeEvent);
 	CoreTiming::ScheduleEvent(usToCycles(MICRO_DELAY_ACTIVATE), umdStatChangeEvent, 1);
@@ -144,6 +144,9 @@ void __KernelUmdActivate()
 
 void __KernelUmdDeactivate()
 {
+	u32 notifyArg = UMD_PRESENT | UMD_READY;
+	__KernelNotifyCallbackType(THREAD_CALLBACK_UMD, -1, notifyArg);
+
 	CoreTiming::RemoveAllEvents(umdStatChangeEvent);
 	__UmdStatChange(0, 0);
 }
