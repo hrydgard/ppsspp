@@ -84,6 +84,12 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		gstate_c.textureChanged = false;
 	}
 
+	// Set cull
+	bool wantCull = !gstate.isModeClear() && !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
+	glstate.cullFace.set(wantCull);
+	if (wantCull) 
+		glstate.cullFaceMode.set(cullingMode[gstate.getCullMode()]);
+
 	// TODO: The top bit of the alpha channel should be written to the stencil bit somehow. This appears to require very expensive multipass rendering :( Alternatively, one could do a
 	// single fullscreen pass that converts alpha to stencil (or 2 passes, to set both the 0 and 1 values) very easily.
 
@@ -159,10 +165,10 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		}
 	}
 
-	// Dither
+	// Set Dither
 	glstate.dither.set(gstate.ditherEnable & 1);
-	// Set cull
 
+	// Set ColorMask/Stencil/Depth
 	if (gstate.isModeClear()) {
 		bool colorMask = (gstate.clearmode >> 8) & 1;
 		bool alphaMask = (gstate.clearmode >> 9) & 1;
@@ -177,12 +183,8 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		glstate.depthTest.enable();
 		glstate.depthFunc.set(GL_ALWAYS);
 		glstate.depthWrite.set(depthMask ? GL_TRUE : GL_FALSE);
-	} else {
-		u8 cullMode = gstate.getCullMode();
-		bool wantCull = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
-		glstate.cullFace.set(wantCull);
-		glstate.cullFaceMode.set(cullingMode[cullMode]);
 
+	} else {	
 		if (gstate.isDepthTestEnabled()) {
 			glstate.depthTest.enable();
 			glstate.depthFunc.set(ztests[gstate.getDepthTestFunc()]);
