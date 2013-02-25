@@ -264,15 +264,17 @@ namespace MIPSComp
 */
 	void Jit::Comp_ShiftType(u32 op)
 	{
+		int rs = _RS;
+		int fd = _FD;
 		// WARNIGN : ROTR
 		switch (op & 0x3f)
 		{
 		case 0: CompShiftImm(op, ST_LSL); break;
-		case 2: CompShiftImm(op, ST_LSR); break;	// srl
+		case 2: CompShiftImm(op, rs == 1 ? ST_ROR : ST_LSR); break;	// srl
 		case 3: CompShiftImm(op, ST_ASR); break;	// sra
 		
 	 // case 4: CompShiftVar(op, &XEmitter::SHL); break;	// R(rd) = R(rt) << R(rs);				break; //sllv
-	//	case 6: CompShiftVar(op, &XEmitter::SHR); break;	// R(rd) = R(rt) >> R(rs);				break; //srlv
+	//	case 6: CompShiftVar(op, fd == 1 ? &XEmitter::ROR : &XEmitter::SHR); break;	// R(rd) = R(rt) >> R(rs);				break; //srlv
 	//	case 7: CompShiftVar(op, &XEmitter::SAR); break;	// R(rd) = ((s32)R(rt)) >> R(rs); break; //srav
 		
 		default:
