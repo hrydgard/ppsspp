@@ -6,6 +6,310 @@
 #include "../MIPS/MIPS.h"
 #include "ChunkFile.h"
 
+
+/******************************************************************************/
+
+static int get_value(int bpe, u8 *buf, int *pos)
+{
+	int i, v;
+
+	v = 0;
+	for(i=0; i<bpe; i++){
+		v += ( ( buf[(*pos)/8] >> ((*pos)%8) ) &1 ) << i;
+		(*pos)++;
+	}
+
+	return v;
+}
+
+static int read_table(u8 *buf, int *table, int num, int bpe)
+{
+	int i, p, len;
+
+	len = ((num*bpe+31)/32)*4;
+
+	p = 0;
+	for(i=0; i<num; i++){
+		table[i] = get_value(bpe, buf, &p);
+	}
+
+	return len;
+}
+
+static u32 ptr2ucs(PGF_FONT *pgft, int ptr)
+{
+	PGF_HEADER *ph;
+	int i, n_charmap;
+
+	ph = (PGF_HEADER*)pgft->buf;
+	n_charmap = ph->charmap_len;
+
+	for(i=0; i<n_charmap; i++){
+		if(pgft->charmap[i]==ptr){
+			return i+ph->charmap_min;
+		}
+	}
+
+	return 0xffff;
+}
+
+static int have_shadow(PGF_FONT *pgft, u32 ucs)
+{
+	PGF_HEADER *ph;
+	int i, n_shadowmap;
+
+	ph = (PGF_HEADER*)pgft->buf;
+	n_shadowmap = ph->shadowmap_len;
+
+	for(i=0; i<n_shadowmap; i++){
+		if(pgft->shadowmap[i]==ucs){
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
+static void get_bitmap(PGF_GLYPH *glyph)
+{
+	int i, j, p, nb, data, len;
+	u8 *bmp, temp_buf[64*64];
+
+	i = 0;
+	p = 0;
+	len = glyph->width * glyph->height;
+	if((glyph->flag&3)==2){
+		bmp = temp_buf;
+	}else{
+		bmp = glyph->bmp;
+	}
+
+	while(i<len){
+		nb = get_value(4, glyph->data, &p);
+		if(nb<8){
+			data = get_value(4, glyph->data, &p);
+			for(j=0; j<nb+1; j++){
+				bmp[i] = data;
+				i++;
+			}
+		}else{
+			for(j=0; j<(16-nb); j++){
+				data = get_value(4, glyph->data, &p);
+				bmp[i] = data;
+				i++;
+			}
+		}
+	}
+
+	if((glyph->flag&3)==2){
+		int h, v;
+
+		i = 0;
+		for(h=0; h<glyph->width; h++){
+			for(v=0; v<glyph->height; v++){
+				glyph->bmp[v*glyph->width+h] = bmp[i];
+				i++;
+			}
+		}
+	}
+
+}
+
+static void load_shadow_glyph(u8 *ptr, PGF_GLYPH *glyph)
+{
+	int pos;
+
+	pos = 0;
+
+	glyph->size   = get_value(14, ptr, &pos);
+	glyph->width  = get_value(7, ptr, &pos);
+	glyph->height = get_value(7, ptr, &pos);
+	glyph->left   = get_value(7, ptr, &pos);
+	glyph->top    = get_value(7, ptr, &pos);
+	glyph->flag   = get_value(6, ptr, &pos);
+
+	if(glyph->left>63) glyph->left |= 0xffffff80;
+	if(glyph->top >63) glyph->top  |= 0xffffff80;
+
+	glyph->data = ptr+(pos/8);
+	glyph->bmp = (u8*)malloc(glyph->width*glyph->height);
+	get_bitmap(glyph);
+}
+
+static void load_char_glyph(PGF_FONT *pgft, int index, PGF_GLYPH *glyph)
+{
+	int id, pos;
+	u8 *ptr;
+
+	ptr = pgft->glyphdata + pgft->charptr[index];
+	pos = 0;
+
+	glyph->index = index;
+	glyph->have_shadow = have_shadow(pgft, glyph->ucs);
+
+	glyph->size   = get_value(14, ptr, &pos);
+	glyph->width  = get_value( 7, ptr, &pos);
+	glyph->height = get_value( 7, ptr, &pos);
+	glyph->left   = get_value( 7, ptr, &pos);
+	glyph->top    = get_value( 7, ptr, &pos);
+	glyph->flag   = get_value( 6, ptr, &pos);
+
+	if(glyph->left>63) glyph->left |= 0xffffff80;
+	if(glyph->top >63) glyph->top  |= 0xffffff80;
+
+	/* read extension info */
+	glyph->shadow_flag = get_value(7, ptr, &pos);
+	glyph->shadow_id   = get_value(9, ptr, &pos);
+	if(glyph->flag&0x04){
+		id = get_value(8, ptr, &pos);
+		glyph->dimension.h = pgft->dimension[id].h;
+		glyph->dimension.v = pgft->dimension[id].v;
+	}else{
+		glyph->dimension.h = get_value(32, ptr, &pos);
+		glyph->dimension.v = get_value(32, ptr, &pos);
+	}
+	if(glyph->flag&0x08){
+		id = get_value(8, ptr, &pos);
+		glyph->bearingX.h = pgft->bearingX[id].h;
+		glyph->bearingX.v = pgft->bearingX[id].v;
+	}else{
+		glyph->bearingX.h = get_value(32, ptr, &pos);
+		glyph->bearingX.v = get_value(32, ptr, &pos);
+	}
+	if(glyph->flag&0x10){
+		id = get_value(8, ptr, &pos);
+		glyph->bearingY.h = pgft->bearingY[id].h;
+		glyph->bearingY.v = pgft->bearingY[id].v;
+	}else{
+		glyph->bearingY.h = get_value(32, ptr, &pos);
+		glyph->bearingY.v = get_value(32, ptr, &pos);
+	}
+	if(glyph->flag&0x20){
+		id = get_value(8, ptr, &pos);
+		glyph->advance.h = pgft->advance[id].h;
+		glyph->advance.v = pgft->advance[id].v;
+	}else{
+		glyph->advance.h = get_value(32, ptr, &pos);
+		glyph->advance.v = get_value(32, ptr, &pos);
+	}
+
+	glyph->data = ptr+(pos/8);
+	glyph->bmp = (u8*)malloc(glyph->width*glyph->height);
+	get_bitmap(glyph);
+
+	if(glyph->have_shadow){
+		id = glyph->shadow_id;
+		pgft->shadow_glyph[id] = (PGF_GLYPH*)malloc(sizeof(PGF_GLYPH));
+		memset(pgft->shadow_glyph[id], 0, sizeof(PGF_GLYPH));
+		load_shadow_glyph(ptr+glyph->size, pgft->shadow_glyph[id]);
+	}
+
+}
+
+
+int load_all_glyph(PGF_FONT *pgft)
+{
+	PGF_GLYPH *glyph;
+	PGF_HEADER *ph;
+	int i, n_chars, ucs;
+
+	ph = (PGF_HEADER*)pgft->buf;
+	n_chars = ph->charptr_len;
+
+	for(i=0; i<n_chars; i++){
+		glyph = (PGF_GLYPH*)malloc(sizeof(PGF_GLYPH));
+		memset(glyph, 0, sizeof(PGF_GLYPH));
+		ucs = ptr2ucs(pgft, i);
+		glyph->ucs = ucs;
+		pgft->char_glyph[ucs] = glyph;
+		load_char_glyph(pgft, i, glyph);
+	}
+
+	return 0;
+}
+
+
+PGF_FONT *load_pgf_from_buf(u8 *buf, int length)
+{
+	PGF_FONT *pgft;
+	PGF_HEADER *ph;
+	int i;
+
+	pgft = (PGF_FONT*)malloc(sizeof(PGF_FONT));
+	memset(pgft, 0, sizeof(PGF_FONT));
+
+	pgft->buf = buf;
+
+	/* pgf header */
+	ph = (PGF_HEADER*)buf;
+	buf += ph->header_len;
+
+	/* dimension table */
+	pgft->dimension = (F26_PAIRS*)buf;
+	buf += (ph->dimension_len*8);
+
+	/* left bearing table */
+	pgft->bearingX = (F26_PAIRS*)buf;
+	buf += (ph->bearingX_len*8);
+
+	/* top bearing table */
+	pgft->bearingY = (F26_PAIRS*)buf;
+	buf += (ph->bearingY_len*8);
+
+	/* advance table */
+	pgft->advance = (F26_PAIRS*)buf;
+	buf += (ph->advance_len*8);
+
+	/* read shadowmap table */
+	if(ph->shadowmap_len){
+		pgft->shadowmap = (int*)malloc(ph->shadowmap_len*4);
+		buf += read_table(buf, pgft->shadowmap, ph->shadowmap_len, ph->shadowmap_bpe);
+	}
+
+	/* read charmap table */
+	pgft->charmap = (int*)malloc(ph->charmap_len*4);
+	buf += read_table(buf, pgft->charmap, ph->charmap_len, ph->charmap_bpe);
+
+	/* read charptr table */
+	pgft->charptr = (int*)malloc(ph->charptr_len*4);
+	buf += read_table(buf, pgft->charptr, ph->charptr_len, ph->charptr_bpe);
+	for(i=0; i<ph->charptr_len; i++){
+		pgft->charptr[i] *= ph->charptr_scale;
+	}
+
+	/* font glyph data */
+	pgft->glyphdata = buf;
+
+	load_all_glyph(pgft);
+
+	return pgft;
+}
+
+PGF_GLYPH *get_glyph(PGF_FONT *pgft, int ucs)
+{
+	return pgft->char_glyph[ucs];
+}
+
+void free_glyph(PGF_FONT *pgft, PGF_GLYPH *glyph)
+{
+	int ucs;
+
+	ucs = glyph->ucs;
+	free(glyph->bmp);
+	free(glyph);
+	pgft->char_glyph[ucs] = 0;
+}
+
+void free_pgf_font(PGF_FONT *pgft)
+{
+
+
+}
+
+
+
+/******************************************************************************/
+
 typedef u32 FontLibraryHandle;
 typedef u32 FontHandle;
 
