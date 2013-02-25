@@ -1184,6 +1184,7 @@ u32 sceIoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 ou
 		if (Memory::IsValidAddress(indataPtr) && inlen == 16) {
 			u8 keybuf[16];
 			u8 pgd_header[0x90];
+			INFO_LOG(HLE, "Decrypting PGD DRM files");
 			memcpy(keybuf, Memory::GetPointer(indataPtr), 16);
 			pspFileSystem.ReadFile(f->handle, pgd_header, 0x90);
 			f->pgdInfo = pgd_open(pgd_header, 2, keybuf);
