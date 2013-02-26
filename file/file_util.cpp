@@ -167,6 +167,13 @@ bool getFileInfo(const char *path, FileInfo *fileInfo)
 	fileInfo->fullName = path;
 
 #ifdef _WIN32
+	fileInfo->size = 0;
+	FILE *f = fopen(path, "rb");
+	if (f) {
+		fseek(f, 0, SEEK_END);
+		fileInfo->size = ftell(f);
+		fclose(f);
+	}
 	DWORD attributes = GetFileAttributes(path);
 	fileInfo->isDirectory = (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
 	fileInfo->isWritable = (attributes & FILE_ATTRIBUTE_READONLY) == 0;
@@ -185,6 +192,7 @@ bool getFileInfo(const char *path, FileInfo *fileInfo)
 
 	fileInfo->isDirectory = S_ISDIR(file_info.st_mode);
 	fileInfo->isWritable = false;
+	fileInfo->size = file_info.st_size;
 	// HACK: approximation
 	if (file_info.st_mode & 0200)
 		fileInfo->isWritable = true;

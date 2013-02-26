@@ -77,7 +77,7 @@ ZipAssetReader::~ZipAssetReader() {
 }
 
 uint8_t *ZipAssetReader::ReadAsset(const char *path, size_t *size) {
-	char temp_path[256];
+	char temp_path[1024];
 	strcpy(temp_path, in_zip_path_);
 	strcat(temp_path, path);
 	return ReadFromZip(zip_file_, temp_path, size);
@@ -142,10 +142,24 @@ bool ZipAssetReader::GetFileListing(const char *path, std::vector<FileInfo> *lis
 
 bool ZipAssetReader::GetFileInfo(const char *path, FileInfo *info) 
 {
+	struct zip_stat zstat;
+	char temp_path[1024];
+	strcpy(temp_path, in_zip_path_);
+	strcat(temp_path, path);
+	if (0 != zip_stat(zip_file_, temp_path, ZIP_FL_NOCASE, &zstat))
+	{
+		ELOG("Failed doing zip_stat on %s, bailing", path);
+		info->exists = false;
+		info->size = 0;
+		return false;
+	}
+
 	info->fullName = path;
 	info->exists = true; // TODO
 	info->isWritable = false;
 	info->isDirectory = false;    // TODO
+	info->size = zstat.size;
+	return true;
 }
 
 #endif

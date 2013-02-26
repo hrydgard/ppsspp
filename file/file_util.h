@@ -19,6 +19,7 @@ struct FileInfo
 	bool exists;
 	bool isDirectory;
 	bool isWritable;
+	size_t size;
 
 	bool operator <(const FileInfo &other) const {
 		if (isDirectory && !other.isDirectory)
