@@ -95,3 +95,41 @@ private:
 	bool FixPathCase(std::string &path, FixPathCaseBehavior behavior);
 #endif
 };
+
+// VFSFileSystem: Ability to map in Android APK paths as well! Does not support all features, only meant for fonts.
+// Very inefficient - always load the whole file on open.
+class VFSFileSystem : public IFileSystem {
+public:
+	VFSFileSystem(IHandleAllocator *_hAlloc, std::string _basePath);
+	~VFSFileSystem();
+
+	void DoState(PointerWrap &p);
+	std::vector<PSPFileInfo> GetDirListing(std::string path);
+	u32      OpenFile(std::string filename, FileAccess access);
+	void     CloseFile(u32 handle);
+	size_t   ReadFile(u32 handle, u8 *pointer, s64 size);
+	size_t   WriteFile(u32 handle, const u8 *pointer, s64 size);
+	size_t   SeekFile(u32 handle, s32 position, FileMove type);
+	PSPFileInfo GetFileInfo(std::string filename);
+	bool     OwnsHandle(u32 handle);
+
+	bool MkDir(const std::string &dirname);
+	bool RmDir(const std::string &dirname);
+	bool RenameFile(const std::string &from, const std::string &to);
+	bool RemoveFile(const std::string &filename);
+	bool GetHostPath(const std::string &inpath, std::string &outpath);
+
+private:
+	struct OpenFileEntry {
+		u8 *fileData;
+		size_t size;
+		size_t seekPos;
+	};
+
+	typedef std::map<u32, OpenFileEntry> EntryMap;
+	EntryMap entries;
+	std::string basePath;
+	IHandleAllocator *hAlloc;
+
+	std::string GetLocalPath(std::string localpath);
+};
