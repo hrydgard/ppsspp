@@ -220,13 +220,15 @@ void __IoInit() {
 
 
 	DirectoryFileSystem *memstick = new DirectoryFileSystem(&pspFileSystem, memstickpath);
+#ifdef ANDROID
+	VFSFileSystem *flash0 = new VFSFileSystem(&pspFileSystem, "flash0");
+#else
 	DirectoryFileSystem *flash0 = new DirectoryFileSystem(&pspFileSystem, flash0path);
-	DirectoryFileSystem *flash1 = new DirectoryFileSystem(&pspFileSystem, flash0path);
+#endif
 	pspFileSystem.Mount("ms0:", memstick);
 	pspFileSystem.Mount("fatms0:", memstick);
 	pspFileSystem.Mount("fatms:", memstick);
 	pspFileSystem.Mount("flash0:", flash0);
-	pspFileSystem.Mount("flash1:", flash1);
 	
 	__KernelListenThreadEnd(&TellFsThreadEnded);
 }

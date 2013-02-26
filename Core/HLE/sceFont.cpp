@@ -178,6 +178,13 @@ private:
 
 class FontLib;
 
+// These should not need to be state saved.
+static std::vector<Font *> internalFonts;
+// However, these we must save - but we could take a shortcut
+// for LoadedFonts that point to internal fonts.
+static std::map<u32, LoadedFont *> fontMap;
+static std::map<u32, FontLib *> fontLibMap;
+
 class PostAllocCallback : public Action {
 public:
 	PostAllocCallback() {}
@@ -222,8 +229,17 @@ public:
 	}
 
 	void Done() {
+		for (size_t i = 0; i < fonts_.size(); i++) {
+			if (Memory::Read_U32(fonts_[i]) == FONT_IS_OPEN) {
+				fontMap[fonts_[i]]->Close();
+				delete fontMap[fonts_[i]];
+				fontMap.erase(fonts_[i]);
+			}
+		}
 		u32 args[1] = { handle_ };
 		__KernelDirectMipsCall(params_.freeFuncAddr, 0, args, 1, false);
+		handle_ = 0;
+		fonts_.clear();
 	}
 
 	void AllocDone(u32 allocatedAddr) {
@@ -274,6 +290,7 @@ public:
 		for (size_t i = 0; i < fonts_.size(); i++) {
 			if (fonts_[i] == font->Handle()) {
 				Memory::Write_U32(FONT_IS_CLOSED, font->Handle());
+
 			}
 		}
 		font->Close();
@@ -296,7 +313,7 @@ public:
 	u32 GetAltCharCode() const { return altCharCode_; }
 
 private:
-	std::vector<int> fonts_;
+	std::vector<u32> fonts_;
 
 	FontNewLibParams params_;
 	float fontHRes_;
@@ -308,18 +325,13 @@ private:
 };
 
 
-// These should not need to be state saved.
-static std::vector<Font *> internalFonts;
-// However, these we must save - but we could take a shortcut
-// for LoadedFonts that point to internal fonts.
-static std::map<u32, LoadedFont *> fontMap;
-static std::map<u32, FontLib *> fontLibMap;
-
 void PostAllocCallback::run(MipsCall &call) {
+	INFO_LOG(HLE, "Entering PostAllocCallback::run");
 	u32 v0 = currentMIPS->r[0];
 	fontLib_->AllocDone(call.savedV0);
 	fontLibMap[fontLib_->handle()] = fontLib_;
 	call.setReturnValue(fontLib_->handle());
+	INFO_LOG(HLE, "Leaving PostAllocCallback::run");
 }
 
 void PostOpenCallback::run(MipsCall &call) {
@@ -357,8 +369,14 @@ void __LoadInternalFonts() {
 		std::string fontFilename = fontPath + entry.fileName;
 		PSPFileInfo info = pspFileSystem.GetFileInfo(fontFilename);
 		if (info.exists) {
+			INFO_LOG(HLE, "Loading font %s (%i bytes)", fontFilename.c_str(), (int)info.size);
 			u8 *buffer = new u8[(size_t)info.size];
 			u32 handle = pspFileSystem.OpenFile(fontFilename, FILEACCESS_READ);
+			if (!handle) {
+				ERROR_LOG(HLE, "Failed opening font");
+				delete [] buffer;
+				continue;
+			}
 			pspFileSystem.ReadFile(handle, buffer, info.size);
 			pspFileSystem.CloseFile(handle);
 			
