@@ -390,6 +390,14 @@ void sceKernelReferFplStatus()
 //////////////////////////////////////////////////////////////////////////
 //00:49:12 <TyRaNiD> ector, well the partitions are 1 = kernel, 2 = user, 3 = me, 4 = kernel mirror :)
 
+enum MemblockType
+{
+	PSP_SMEM_Low = 0,
+	PSP_SMEM_High = 1,
+	PSP_SMEM_Addr = 2,
+	PSP_SMEM_LowAligned = 3,
+	PSP_SMEM_HighAligned = 4,
+};
 
 class PartitionMemoryBlock : public KernelObject
 {
@@ -404,14 +412,20 @@ public:
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_MPPID; }	/// ????
 	int GetIDType() const { return PPSSPP_KERNEL_TMID_PMB; }
 
-	PartitionMemoryBlock(BlockAllocator *_alloc, u32 size, bool fromEnd)
+	PartitionMemoryBlock(BlockAllocator *_alloc, u32 size, MemblockType type, u32 alignment)
 	{
 		alloc = _alloc;
 
 		// 0 is used for save states to wake up.
 		if (size != 0)
 		{
-			address = alloc->Alloc(size, fromEnd, "PMB");
+			if (type == PSP_SMEM_Addr)
+				address = alloc->AllocAt(alignment, size, "PMB");
+			// TODO: Check if size is upaligned?
+			else if (type == PSP_SMEM_LowAligned || type == PSP_SMEM_HighAligned)
+				address = alloc->AllocAligned(size, alignment, type == PSP_SMEM_HighAligned, "PMB");
+			else
+				address = alloc->Alloc(size, type == PSP_SMEM_High, "PMB");
 			alloc->ListBlocks();
 		}
 	}
@@ -478,7 +492,7 @@ int sceKernelAllocPartitionMemory(int partition, const char *name, int type, u32
 		return SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCKTYPE;
 	}
 
-	PartitionMemoryBlock *block = new PartitionMemoryBlock(&userMemory, size, type == 1 || type == 4);
+	PartitionMemoryBlock *block = new PartitionMemoryBlock(&userMemory, size, (MemblockType)type, addr);
 	if (!block->IsValid())
 	{
 		ERROR_LOG(HLE, "ARGH! sceKernelAllocPartitionMemory failed");
@@ -740,7 +754,7 @@ KernelObject *__KernelMemoryVPLObject()
 KernelObject *__KernelMemoryPMBObject()
 {
 	// TODO: We could theoretically handle kernelMemory too, but we don't support that now anyway.
-	return new PartitionMemoryBlock(&userMemory, 0, true);
+	return new PartitionMemoryBlock(&userMemory, 0, PSP_SMEM_Low, 0);
 }
 
 // VPL = variable length memory pool
