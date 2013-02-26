@@ -449,29 +449,50 @@ void sceKernelTotalFreeMemSize()
 	RETURN(retVal);
 }
 
-void sceKernelAllocPartitionMemory()
+int sceKernelAllocPartitionMemory(int partition, const char *name, int type, u32 size, u32 addr)
 {
-	int partid = PARAM(0);
-	const char *name = Memory::GetCharPointer(PARAM(1));
-	int type = PARAM(2);
-	u32 size = PARAM(3);
-	int addr = PARAM(4); //only if type includes ADDR 
+	if (name == NULL)
+	{
+		WARN_LOG(HLE, "%08x=sceKernelAllocPartitionMemory(): invalid name", SCE_KERNEL_ERROR_ERROR);
+		return SCE_KERNEL_ERROR_ERROR;
+	}
+	if (size == 0)
+	{
+		WARN_LOG(HLE, "%08x=sceKernelAllocPartitionMemory(): invalid size %x", SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED, size);
+		return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
+	}
+	if (partition < 1 || partition > 9 || partition == 7)
+	{
+		WARN_LOG(HLE, "%08x=sceKernelAllocPartitionMemory(): invalid partition %x", SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, partition);
+		return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
+	}
+	// We only support user right now.
+	if (partition != 2 && partition != 5 && partition != 6)
+	{
+		WARN_LOG(HLE, "%08x=sceKernelAllocPartitionMemory(): invalid partition %x", SCE_KERNEL_ERROR_ILLEGAL_PARTITION, partition);
+		return SCE_KERNEL_ERROR_ILLEGAL_PARTITION;
+	}
+	if (type < 0 || type > 4)
+	{
+		WARN_LOG(HLE, "%08x=sceKernelAllocPartitionMemory(): invalid type %x", SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCKTYPE, type);
+		return SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCKTYPE;
+	}
 
-	PartitionMemoryBlock *block = new PartitionMemoryBlock(&userMemory, size, type==1);
+	PartitionMemoryBlock *block = new PartitionMemoryBlock(&userMemory, size, type == 1 || type == 4);
 	if (!block->IsValid())
 	{
 		ERROR_LOG(HLE, "ARGH! sceKernelAllocPartitionMemory failed");
-		RETURN(-1);
+		return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
 	}
 	SceUID uid = kernelObjects.Create(block);
 	strncpy(block->name, name, 32);
 
 	DEBUG_LOG(HLE,"%i = sceKernelAllocPartitionMemory(partition = %i, %s, type= %i, size= %i, addr= %08x)",
-		uid, partid,name,type,size,addr);
+		uid, partition, name, type, size, addr);
 	if (type == 2)
 		ERROR_LOG(HLE, "ARGH! sceKernelAllocPartitionMemory wants a specific address");
 
-	RETURN(uid); //for now
+	return uid;
 }
 
 void sceKernelFreePartitionMemory()
@@ -1135,7 +1156,7 @@ const HLEFunction SysMemUserForUser[] = {
 	{0xA291F107,sceKernelMaxFreeMemSize,"sceKernelMaxFreeMemSize"},
 	{0xF919F628,sceKernelTotalFreeMemSize,"sceKernelTotalFreeMemSize"},
 	{0x3FC9AE6A,WrapU_V<sceKernelDevkitVersion>,"sceKernelDevkitVersion"},
-	{0x237DBD4F,sceKernelAllocPartitionMemory,"sceKernelAllocPartitionMemory"},	//(int size) ?
+	{0x237DBD4F,WrapI_ICIUU<sceKernelAllocPartitionMemory>,"sceKernelAllocPartitionMemory"},	//(int size) ?
 	{0xB6D61D02,sceKernelFreePartitionMemory,"sceKernelFreePartitionMemory"},	 //(void *ptr) ?
 	{0x9D9A5BA1,sceKernelGetBlockHeadAddr,"sceKernelGetBlockHeadAddr"},			//(void *ptr) ?
 	{0x13a5abef,sceKernelPrintf,"sceKernelPrintf 0x13a5abef"},
