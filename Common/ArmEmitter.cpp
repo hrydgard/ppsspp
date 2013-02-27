@@ -542,10 +542,19 @@ void ARMXEmitter::WriteStoreOp(u32 op, ARMReg dest, ARMReg src, Operand2 op2)
 		Write32(condition | (op << 20) | (3 << 23) | (dest << 16) | (src << 12) | op2.Imm12()); 
 }
 void ARMXEmitter::STR (ARMReg dest, ARMReg src, Operand2 op) { WriteStoreOp(0x40, dest, src, op);}
+void ARMXEmitter::STRH(ARMReg dest, ARMReg src, Operand2 op)
+{
+	u8 Imm = op.Imm8();
+	Write32(condition | (0x04 << 20) | (src << 16) | (dest << 12) | ((Imm >> 4) << 8) | (0xB << 4) | (Imm & 0x0F));
+}
 void ARMXEmitter::STRB(ARMReg dest, ARMReg src, Operand2 op) { WriteStoreOp(0x44, dest, src, op);}
 void ARMXEmitter::STR (ARMReg dest, ARMReg base, ARMReg offset, bool Index, bool Add)
 {
 	Write32(condition | (0x60 << 20) | (Index << 24) | (Add << 23) | (dest << 16) | (base << 12) | offset);
+}
+void ARMXEmitter::STRB (ARMReg dest, ARMReg base, ARMReg offset, bool Index, bool Add)
+{
+	Write32(condition | (0x64 << 20) | (Index << 24) | (Add << 23) | (dest << 16) | (base << 12) | offset);
 }
 void ARMXEmitter::LDREX(ARMReg dest, ARMReg base)
 {
@@ -576,6 +585,10 @@ void ARMXEmitter::LDRB(ARMReg dest, ARMReg src, Operand2 op) { WriteStoreOp(0x45
 void ARMXEmitter::LDR (ARMReg dest, ARMReg base, ARMReg offset, bool Index, bool Add)
 {
 	Write32(condition | (0x61 << 20) | (Index << 24) | (Add << 23) | (base << 16) | (dest << 12) | offset);
+}
+void ARMXEmitter::LDRB (ARMReg dest, ARMReg base, ARMReg offset, bool Index, bool Add)
+{
+	Write32(condition | (0x65 << 20) | (Index << 24) | (Add << 23) | (base << 16) | (dest << 12) | offset);
 }
 void ARMXEmitter::WriteRegStoreOp(u32 op, ARMReg dest, bool WriteBack, u16 RegList)
 {
