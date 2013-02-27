@@ -7,10 +7,137 @@ void Register_sceFont();
 void __FontInit();
 void __FontDoState(PointerWrap &p);
 
+typedef u32 FontLibraryHandle;
+typedef u32 FontHandle;
 
-typedef unsigned int   u32;
-typedef unsigned short u16;
-typedef unsigned char  u8;
+struct FontNewLibParams {
+	u32 userDataAddr;
+	u32 numFonts;
+	u32 cacheDataAddr;
+
+	// Driver callbacks.
+	u32 allocFuncAddr;
+	u32 freeFuncAddr;
+	u32 openFuncAddr;
+	u32 closeFuncAddr;
+	u32 readFuncAddr;
+	u32 seekFuncAddr;
+	u32 errorFuncAddr;
+	u32 ioFinishFuncAddr;
+};
+
+typedef enum Family {
+	FONT_FAMILY_SANS_SERIF = 1,
+	FONT_FAMILY_SERIF      = 2,
+};
+
+typedef enum Style {
+	FONT_STYLE_REGULAR     = 1,
+	FONT_STYLE_ITALIC      = 2,
+	FONT_STYLE_BOLD        = 5,
+	FONT_STYLE_BOLD_ITALIC = 6,
+	FONT_STYLE_DB          = 103, // Demi-Bold / semi-bold
+};
+
+typedef enum Language {
+	FONT_LANGUAGE_JAPANESE = 1,
+	FONT_LANGUAGE_LATIN    = 2,
+	FONT_LANGUAGE_KOREAN   = 3,
+};
+
+struct FontStyle {
+	float  fontH;
+	float  fontV;
+	float  fontHRes;
+	float  fontVRes;
+	float  fontWeight;
+	u16    fontFamily;
+	u16    fontStyle;
+	// Check.
+	u16    fontStyleSub;
+	u16    fontLanguage;
+	u16    fontRegion;
+	u16    fontCountry;
+	char   fontName[64];
+	char   fontFileName[64];
+	u32    fontAttributes;
+	u32    fontExpire;
+};
+
+struct iMerticsInfo{
+	// Glyph metrics (in 26.6 signed fixed-point).
+	u32 width;
+	u32 height;
+	u32 ascender;
+	u32 descender;
+	u32 h_bearingX;
+	u32 h_bearingY;
+	u32 v_bearingX;
+	u32 v_bearingY;
+	u32 h_advance;
+	u32 v_advance;
+};
+
+struct fMerticsInfo{
+	// Glyph metrics (in 26.6 signed fixed-point).
+	float width;
+	float height;
+	float ascender;
+	float descender;
+	float h_bearingX;
+	float h_bearingY;
+	float v_bearingX;
+	float v_bearingY;
+	float h_advance;
+	float v_advance;
+};
+
+struct FontInfo {
+	struct iMerticsInfo maxInfoI;
+	struct fMerticsInfo maxInfoF;
+
+	// Bitmap dimensions.
+	short maxGlyphWidth;
+	short maxGlyphHeight;
+	u32  charMapLength;   // Number of elements in the font's charmap.
+	u32  shadowMapLength; // Number of elements in the font's shadow charmap.
+
+	// Font style (used by font comparison functions).
+	FontStyle fontStyle;
+
+	u8 BPP; // Font's BPP.
+	u8 pad[3];
+};
+
+struct CharInfo {
+	u32 bitmapWidth;
+	u32 bitmapHeight;
+	u32 bitmapLeft;
+	u32 bitmapTop;
+	// Glyph metrics (in 26.6 signed fixed-point).
+	struct iMerticsInfo info;
+	u8 pad[4];
+};
+
+enum FontPixelFormat {
+	PSP_FONT_PIXELFORMAT_4 = 0,
+	PSP_FONT_PIXELFORMAT_4_REV = 1,
+	PSP_FONT_PIXELFORMAT_8 = 2,
+	PSP_FONT_PIXELFORMAT_24 = 3,
+	PSP_FONT_PIXELFORMAT_32 = 4
+};
+
+struct GlyphImage {
+	FontPixelFormat pixelFormat;
+	s32 xPos64;
+	s32 yPos64;
+	u16 bufWidth;
+	u16 bufHeight;
+	u16 bytesPerLine;
+	u16 pad;
+	u32 bufferPtr;
+};
+
 
 typedef struct f26_pairs {
 	int h;
