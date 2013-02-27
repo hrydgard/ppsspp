@@ -580,7 +580,17 @@ void ARMXEmitter::LDRH(ARMReg dest, ARMReg src, Operand2 op)
 	u8 Imm = op.Imm8();
 	Write32(condition | (0x05 << 20) | (src << 16) | (dest << 12) | ((Imm >> 4) << 8) | (0xB << 4) | (Imm & 0x0F));
 }
+void ARMXEmitter::LDRSH(ARMReg dest, ARMReg src, Operand2 op)
+{
+	u8 Imm = op.Imm8();
+	Write32(condition | (0x05 << 20) | (src << 16) | (dest << 12) | ((Imm >> 4) << 8) | (0xF << 4) | (Imm & 0x0F));
+}
 void ARMXEmitter::LDRB(ARMReg dest, ARMReg src, Operand2 op) { WriteStoreOp(0x45, src, dest, op);}
+void ARMXEmitter::LDRSB(ARMReg dest, ARMReg src, Operand2 op)
+{
+	u8 Imm = op.Imm8();
+	Write32(condition | (0x05 << 20) | (src << 16) | (dest << 12) | ((Imm >> 4) << 8) | (0xD << 4) | (Imm & 0x0F));
+}
 
 void ARMXEmitter::LDR (ARMReg dest, ARMReg base, ARMReg offset, bool Index, bool Add)
 {
