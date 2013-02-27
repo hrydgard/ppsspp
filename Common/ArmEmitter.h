@@ -467,20 +467,24 @@ public:
 	void MRS  (ARMReg dest);
 
 	// Memory load/store operations
-	void LDR (ARMReg dest, ARMReg src, Operand2 op2 = 0);
-	void LDRH(ARMReg dest, ARMReg src, Operand2 op2 = 0);
+	void LDR  (ARMReg dest, ARMReg src, Operand2 op2 = 0);
+	void LDRH (ARMReg dest, ARMReg src, Operand2 op2 = 0);
 	void LDRSH(ARMReg dest, ARMReg src, Operand2 op2 = 0);
-	void LDRB(ARMReg dest, ARMReg src, Operand2 op2 = 0);
-	void LDRBH(ARMReg dest, ARMReg src, Operand2 op2 = 0);
+	void LDRB (ARMReg dest, ARMReg src, Operand2 op2 = 0);
+	void LDRSB(ARMReg dest, ARMReg src, Operand2 op2 = 0);
 	// Offset adds to the base register in LDR
-	void LDR (ARMReg dest, ARMReg base, ARMReg offset, bool Index, bool Add);
+	void LDR  (ARMReg dest, ARMReg base, ARMReg offset, bool Index, bool Add);
+	void LDRH (ARMReg dest, ARMReg base, ARMReg offset, bool Index, bool Add);
+	void LDRSH(ARMReg dest, ARMReg base, ARMReg offset, bool Index, bool Add);
 	void LDRB (ARMReg dest, ARMReg base, ARMReg offset, bool Index, bool Add);
+	void LDRSB(ARMReg dest, ARMReg base, ARMReg offset, bool Index, bool Add);
 
-	void STR (ARMReg dest, ARMReg src, Operand2 op2 = 0);
-	void STRH(ARMReg dest, ARMReg src, Operand2 op2 = 0);
-	void STRB(ARMReg dest, ARMReg src, Operand2 op2 = 0);
+	void STR  (ARMReg dest, ARMReg src, Operand2 op2 = 0);
+	void STRH (ARMReg dest, ARMReg src, Operand2 op2 = 0);
+	void STRB (ARMReg dest, ARMReg src, Operand2 op2 = 0);
 	// Offset adds on to the destination register in STR
-	void STR (ARMReg dest, ARMReg base, ARMReg offset, bool Index, bool Add);
+	void STR  (ARMReg dest, ARMReg base, ARMReg offset, bool Index, bool Add);
+	void STRH (ARMReg dest, ARMReg base, ARMReg offset, bool Index, bool Add);
 	void STRB (ARMReg dest, ARMReg base, ARMReg offset, bool Index, bool Add);
 
 	void STMFD(ARMReg dest, bool WriteBack, const int Regnum, ...);
