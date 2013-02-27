@@ -94,12 +94,11 @@ namespace MIPSComp
 		}
 		switch (o)
 		{
-		case 37: //R(rt) = ReadMem16(addr); break; //lhu
-			Comp_Generic(op);
-			return;
-
-		case 35: //R(rt) = ReadMem32(addr); //lw
+		case 32: //R(rt) = (u32)(s32)(s8) ReadMem8 (addr); break; //lb
+		case 33: //R(rt) = (u32)(s32)(s16)ReadMem16(addr); break; //lh
+		case 35: //R(rt) = ReadMem32(addr); break; //lw
 		case 36: //R(rt) = ReadMem8 (addr); break; //lbu
+		case 37: //R(rt) = ReadMem16(addr); break; //lhu
 			if (g_Config.bFastMemory) {
 				if (gpr.IsImm(rs)) {
 					// We can compute the full address at compile time. Kickass.
@@ -111,10 +110,21 @@ namespace MIPSComp
 					SetR0ToEffectiveAddress(rs, offset);
 				}
 				if (o == 35) {
+					// 32-bit
 					LDR(gpr.R(rt), R11, R0, true, true);
-				} else if (o == 36) {
+				} else if (o == 37) {
+					// 16-bit
 					ADD(R0, R0, R11);   // TODO: Merge with next instruction
-					LDRB(gpr.R(rt), R0);
+					LDRH(gpr.R(rt), R0);
+				} else if (o == 33) {
+					ADD(R0, R0, R11);   // TODO: Merge with next instruction
+					LDRSH(gpr.R(rt), R0);
+				} else if (o == 36) {
+					// 8-bit
+					LDRB(gpr.R(rt), R11, R0, true, true);
+				} else if (o == 32) {
+					ADD(R0, R0, R11);   // TODO: Merge with next instruction
+					LDRSB(gpr.R(rt), R0);
 				}
 			} else {
 				Comp_Generic(op);
@@ -122,11 +132,8 @@ namespace MIPSComp
 			}
 			break;
 
+		case 40: //WriteMem8 (addr, R(rt)); break; //sb
 		case 41: //WriteMem16(addr, R(rt)); break; //sh
-			Comp_Generic(op);
-			return;
-
-		case 40: //sb
 		case 43: //WriteMem32(addr, R(rt)); break; //sw
 			if (g_Config.bFastMemory) {
 				if (gpr.IsImm(rs)) {
@@ -141,15 +148,16 @@ namespace MIPSComp
 				if (o == 43) {
 					STR(R0, gpr.R(rt), R11, true, true);
 				} else if (o == 40) {
-					ADD(R0, R0, R11);
-					STRB(R0, gpr.R(rt));
+					STRB(R0, gpr.R(rt), R11, true, true);
+				} else if (o == 41) {
+					ADD(R0, R0, R11);  // TODO: Merge with next instruction
+					STRH(gpr.R(rt), R0);
 				}
 			} else {
 				Comp_Generic(op);
 				return;
 			}
 			break;
-			// break;
 			/*
 		case 34: //lwl
 			{
