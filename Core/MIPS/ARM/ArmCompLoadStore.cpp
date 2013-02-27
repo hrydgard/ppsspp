@@ -85,6 +85,7 @@ namespace MIPSComp
 	void Jit::Comp_ITypeMem(u32 op)
 	{
 		int offset = (signed short)(op&0xFFFF);
+		bool load = false;
 		int rt = _RT;
 		int rs = _RS;
 		int o = op>>26;
@@ -94,63 +95,38 @@ namespace MIPSComp
 		}
 		switch (o)
 		{
-		case 32: //R(rt) = (u32)(s32)(s8) ReadMem8 (addr); break; //lb
-		case 33: //R(rt) = (u32)(s32)(s16)ReadMem16(addr); break; //lh
-		case 35: //R(rt) = ReadMem32(addr); break; //lw
-		case 36: //R(rt) = ReadMem8 (addr); break; //lbu
-		case 37: //R(rt) = ReadMem16(addr); break; //lhu
+		case 32: //lb
+		case 33: //lh
+		case 35: //lw
+		case 36: //lbu
+		case 37: //lhu
+			load = true;
+		case 40: //sb
+		case 41: //sh
+		case 43: //sw
 			if (g_Config.bFastMemory) {
 				if (gpr.IsImm(rs)) {
 					// We can compute the full address at compile time. Kickass.
 					u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
-					gpr.MapReg(rt, MAP_NOINIT | MAP_DIRTY);  // must be OK even if rs == rt since we have the value from imm already.
+					// Must be OK even if rs == rt since we have the value from imm already.
+					gpr.MapReg(rt, load ? MAP_NOINIT | MAP_DIRTY : 0);
 					MOVI2R(R0, addr);
 				} else {
-					gpr.MapDirtyIn(rt, rs);
+					load ? gpr.MapDirtyIn(rt, rs) : gpr.MapInIn(rt, rs);
 					SetR0ToEffectiveAddress(rs, offset);
 				}
-				if (o == 35) {
-					// 32-bit
-					LDR(gpr.R(rt), R11, R0, true, true);
-				} else if (o == 37) {
-					// 16-bit
-					LDRH(gpr.R(rt), R11, R0, true, true);
-				} else if (o == 33) {
-					LDRSH(gpr.R(rt), R11, R0, true, true);
-				} else if (o == 36) {
-					// 8-bit
-					LDRB(gpr.R(rt), R11, R0, true, true);
-				} else if (o == 32) {
-					LDRSB(gpr.R(rt), R11, R0, true, true);
-				}
-			} else {
-				Comp_Generic(op);
-				return;
-			}
-			break;
-
-		case 40: //WriteMem8 (addr, R(rt)); break; //sb
-		case 41: //WriteMem16(addr, R(rt)); break; //sh
-		case 43: //WriteMem32(addr, R(rt)); break; //sw
-			if (g_Config.bFastMemory) {
-				if (gpr.IsImm(rs)) {
-					// We can compute the full address at compile time. Kickass.
-					u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
-					gpr.MapReg(rt);
-					MOVI2R(R0, addr);
-				} else {
-					gpr.MapInIn(rt, rs);
-					SetR0ToEffectiveAddress(rs, offset);
-				}
-				if (o == 43) {
-					// 32-bit
-					STR(R0, gpr.R(rt), R11, true, true);
-				} else if (o == 41) {
-					// 16-bit
-					STRH(R0, gpr.R(rt), R11, true, true);
-				} else if (o == 40) {
-					// 8-bit
-					STRB(R0, gpr.R(rt), R11, true, true);
+				switch (o)
+				{
+				// Load
+				case 35: LDR  (gpr.R(rt), R11, R0, true, true); break;
+				case 37: LDRH (gpr.R(rt), R11, R0, true, true); break;
+				case 33: LDRSH(gpr.R(rt), R11, R0, true, true); break;
+				case 36: LDRB (gpr.R(rt), R11, R0, true, true); break;
+				case 32: LDRSB(gpr.R(rt), R11, R0, true, true); break;
+				// Store
+				case 43: STR  (R0, gpr.R(rt), R11, true, true); break;
+				case 41: STRH (R0, gpr.R(rt), R11, true, true); break;
+				case 40: STRB (R0, gpr.R(rt), R11, true, true); break;
 				}
 			} else {
 				Comp_Generic(op);
