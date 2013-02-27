@@ -161,36 +161,23 @@ void Jit::Comp_FPU2op(u32 op)
 
 	switch (op & 0x3f) 
 	{
-		/*	
-	case 5:	//F(fd)	= fabsf(F(fs)); break; //abs
-		fpr.Lock(fd, fs);
-		fpr.BindToRegister(fd, fd == fs, true);
-		MOVSS(fpr.R(fd), fpr.R(fs));
-		PAND(fpr.R(fd), M((void *)ssNoSignMask));
-		fpr.UnlockAll();
-		break;
-		*/
-
 	case 4:	//F(fd)	= sqrtf(F(fs)); break; //sqrt
 		fpr.MapDirtyIn(fd, fs);
 		VSQRT(fpr.R(fd), fpr.R(fs));
-		return;
-
-
-	case 6:	//F(fd)	= F(fs);				break; //mov
+		break;
+	case 5:	//F(fd)	= fabsf(F(fs)); break; //abs
+		fpr.MapDirtyIn(fd, fs);
+		VABS(fpr.R(fd), fpr.R(fs));
+		break;
+	case 6:	//F(fd)	= F(fs);        break; //mov
 		fpr.MapDirtyIn(fd, fs);
 		VMOV(fpr.R(fd), fpr.R(fs));
 		break;
-
-		/*
-	case 7:	//F(fd)	= -F(fs);			 break; //neg
-		fpr.Lock(fd, fs);
-		fpr.BindToRegister(fd, fd == fs, true);
-		MOVSS(fpr.R(fd), fpr.R(fs));
-		PXOR(fpr.R(fd), M((void *)ssSignBits2));
-		fpr.UnlockAll();
+	case 7:	//F(fd)	= -F(fs);       break; //neg
+		fpr.MapDirtyIn(fd, fs);
+		VNEG(fpr.R(fd), fpr.R(fs));
 		break;
-
+		/*
 	case 12: //FsI(fd) = (int)floorf(F(fs)+0.5f); break; //round.w.s
 
 	case 13: //FsI(fd) = F(fs)>=0 ? (int)floorf(F(fs)) : (int)ceilf(F(fs)); break;//trunc.w.s
