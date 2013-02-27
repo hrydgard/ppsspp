@@ -469,7 +469,9 @@ public:
 	// Memory load/store operations
 	void LDR (ARMReg dest, ARMReg src, Operand2 op2 = 0);
 	void LDRH(ARMReg dest, ARMReg src, Operand2 op2 = 0);
+	void LDRSH(ARMReg dest, ARMReg src, Operand2 op2 = 0);
 	void LDRB(ARMReg dest, ARMReg src, Operand2 op2 = 0);
+	void LDRBH(ARMReg dest, ARMReg src, Operand2 op2 = 0);
 	// Offset adds to the base register in LDR
 	void LDR (ARMReg dest, ARMReg base, ARMReg offset, bool Index, bool Add);
 	void LDRB (ARMReg dest, ARMReg base, ARMReg offset, bool Index, bool Add);
