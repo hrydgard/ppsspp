@@ -94,7 +94,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	// single fullscreen pass that converts alpha to stencil (or 2 passes, to set both the 0 and 1 values) very easily.
 
 	// Set blend
-	bool wantBlend = !gstate.isModeClear() && (gstate.alphaBlendEnable & 1);
+	bool wantBlend = !gstate.isModeClear() && gstate.isAlphaBlendEnabled();
 	glstate.blend.set(wantBlend);
 	if (wantBlend) {
 		// This can't be done exactly as there are several PSP blend modes that are impossible to do on OpenGL ES 2.0, and some even on regular OpenGL for desktop.
@@ -166,7 +166,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	}
 
 	// Set Dither
-	glstate.dither.set(gstate.ditherEnable & 1);
+	glstate.dither.set(gstate.isDitherEnabled());
 
 	// Set ColorMask/Stencil/Depth
 	if (gstate.isModeClear()) {
