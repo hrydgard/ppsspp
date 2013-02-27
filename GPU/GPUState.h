@@ -209,6 +209,8 @@ struct GPUgstate
 	int getDepthTestFunc() const { return ztestfunc & 0x7; }
 	bool isFogEnabled() const { return fogEnable & 1; }
 	bool isStencilTestEnabled() const { return stencilTestEnable & 1; }
+	bool isAlphaBlendEnabled() const { return alphaBlendEnable & 1; }
+	bool isDitherEnabled() const { return ditherEnable & 1; }
 
 	// UV gen
 	int getUVGenMode() const { return texmapmode & 3;}   // 2 bits
