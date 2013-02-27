@@ -114,17 +114,14 @@ namespace MIPSComp
 					LDR(gpr.R(rt), R11, R0, true, true);
 				} else if (o == 37) {
 					// 16-bit
-					ADD(R0, R0, R11);   // TODO: Merge with next instruction
-					LDRH(gpr.R(rt), R0);
+					LDRH(gpr.R(rt), R11, R0, true, true);
 				} else if (o == 33) {
-					ADD(R0, R0, R11);   // TODO: Merge with next instruction
-					LDRSH(gpr.R(rt), R0);
+					LDRSH(gpr.R(rt), R11, R0, true, true);
 				} else if (o == 36) {
 					// 8-bit
 					LDRB(gpr.R(rt), R11, R0, true, true);
 				} else if (o == 32) {
-					ADD(R0, R0, R11);   // TODO: Merge with next instruction
-					LDRSB(gpr.R(rt), R0);
+					LDRSB(gpr.R(rt), R11, R0, true, true);
 				}
 			} else {
 				Comp_Generic(op);
@@ -146,12 +143,14 @@ namespace MIPSComp
 					SetR0ToEffectiveAddress(rs, offset);
 				}
 				if (o == 43) {
+					// 32-bit
 					STR(R0, gpr.R(rt), R11, true, true);
-				} else if (o == 40) {
-					STRB(R0, gpr.R(rt), R11, true, true);
 				} else if (o == 41) {
-					ADD(R0, R0, R11);  // TODO: Merge with next instruction
-					STRH(gpr.R(rt), R0);
+					// 16-bit
+					STRH(R0, gpr.R(rt), R11, true, true);
+				} else if (o == 40) {
+					// 8-bit
+					STRB(R0, gpr.R(rt), R11, true, true);
 				}
 			} else {
 				Comp_Generic(op);
