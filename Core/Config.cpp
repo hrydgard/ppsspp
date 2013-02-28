@@ -57,7 +57,8 @@ void CConfig::Load(const char *iniFileName)
 
 	IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 	cpu->Get("Jit", &bJit, true);
-	cpu->Get("FastMemory", &bFastMemory, true);
+	//FastMemory Default set back to True when solve UNIMPL _sceAtracGetContextAddress making game crash
+	cpu->Get("FastMemory", &bFastMemory, false);
 
 	IniFile::Section *graphics = iniFile.GetOrCreateSection("Graphics");
 	graphics->Get("ShowFPSCounter", &bShowFPSCounter, false);
@@ -74,10 +75,10 @@ void CConfig::Load(const char *iniFileName)
 #else
 	graphics->Get("AnisotropyLevel", &iAnisotropyLevel, 8);
 #endif
-	graphics->Get("DisableG3DLog", &bDisableG3DLog, false);
 	graphics->Get("VertexCache", &bVertexCache, true);
 	graphics->Get("FullScreen", &bFullScreen, false);	
 	graphics->Get("StretchToDisplay", &bStretchToDisplay, false);
+	graphics->Get("TrueColor", &bTrueColor, true);
 
 	IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 	sound->Get("Enable", &bEnableSound, true);
@@ -134,10 +135,10 @@ void CConfig::Save()
 		graphics->Set("VBO", bUseVBO);
 		graphics->Set("FrameSkip", iFrameSkip);
 		graphics->Set("AnisotropyLevel", iAnisotropyLevel);
-		graphics->Set("DisableG3DLog", bDisableG3DLog);
 		graphics->Set("VertexCache", bVertexCache);
 		graphics->Set("FullScreen", bFullScreen);
 		graphics->Set("StretchToDisplay", bStretchToDisplay);
+		graphics->Set("TrueColor", bTrueColor);
 
 		IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 		sound->Set("Enable", bEnableSound);

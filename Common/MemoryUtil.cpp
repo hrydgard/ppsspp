@@ -62,6 +62,7 @@ void* AllocateExecutableMemory(size_t size, bool low)
 #elif defined(__SYMBIAN32__)
     //This function may be called more than once, and we want to create only one big
     //memory chunk for all the executable code for the JIT
+	void* ptr;
     if( g_code_chunk == NULL && g_code_heap == NULL)
     {
         TInt minsize = SYMBIAN_CODECHUNK_SIZE;
@@ -69,8 +70,10 @@ void* AllocateExecutableMemory(size_t size, bool low)
         g_code_chunk = new RChunk();
         g_code_chunk->CreateLocalCode(minsize, maxsize);
         g_code_heap = UserHeap::ChunkHeap(*g_code_chunk, minsize, 1, maxsize);
+		ptr = (void*) g_code_heap->Alloc( size );
     }
-    void* ptr = (void*) g_code_heap->Alloc( size );
+	else
+		ptr = g_code_heap->Base();
 #else
 	static char *map_hint = 0;
 #if defined(__x86_64__) && !defined(MAP_32BIT)
@@ -114,11 +117,6 @@ void* AllocateExecutableMemory(size_t size, bool low)
 			// printf("Next map will (hopefully) be at %p\n", map_hint);
 		}
 	}
-#endif
-
-#if defined(_M_X64)
-	if ((u64)ptr >= 0x80000000 && low == true)
-		PanicAlert("Executable memory ended up above 2GB!");
 #endif
 
 	return ptr;

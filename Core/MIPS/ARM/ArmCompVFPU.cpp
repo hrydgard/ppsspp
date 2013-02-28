@@ -483,7 +483,7 @@ namespace MIPSComp
 
 		fpr.ReleaseSpillLocks();
 	}
-
+	
 	void Jit::Comp_Mftv(u32 op)
 	{
 		// DISABLE;

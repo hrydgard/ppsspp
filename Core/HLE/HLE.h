@@ -53,11 +53,12 @@ struct Syscall
 };
 
 #define PARAM(n) currentMIPS->r[4+n]
+#define PARAMF(n) currentMIPS->f[12+n]
 #define RETURN(n) currentMIPS->r[2]=n
 #define RETURNF(fl) currentMIPS->f[0]=fl
 
 #ifndef ARRAY_SIZE
-#define ARRAY_SIZE(a) sizeof(a) / sizeof(a[0])
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 #endif
 
 #include "FunctionWrappers.h"

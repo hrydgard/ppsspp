@@ -12,7 +12,6 @@ class CtrlDisAsmView : public QWidget
 	Q_OBJECT
 public:
 	explicit CtrlDisAsmView(QWidget *parent = 0);
-	
 
 	void redraw();
 	void setAlign(int l)
@@ -73,7 +72,6 @@ protected:
 	void mousePressEvent(QMouseEvent *e);
 	void keyPressEvent(QKeyEvent *);
 	void wheelEvent(QWheelEvent *e);
-signals:
 	
 public slots:
 	void CopyAddress();

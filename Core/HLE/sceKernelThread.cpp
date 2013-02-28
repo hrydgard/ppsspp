@@ -795,7 +795,7 @@ void __KernelIdle()
 	CoreTiming::Idle();
 	// Advance must happen between Idle and Reschedule, so that threads that were waiting for something
 	// that was triggered at the end of the Idle period must get a chance to be scheduled.
-	CoreTiming::Advance();
+	CoreTiming::AdvanceQuick();
 
 	// We must've exited a callback?
 	if (__KernelInCallback())
@@ -1034,6 +1034,9 @@ void __KernelLoadContext(ThreadContext *ctx)
 	currentMIPS->fcr0 = ctx->fcr0;
 	currentMIPS->fcr31 = ctx->fcr31;
 	currentMIPS->fpcond = ctx->fpcond;
+
+	// Reset the llBit, the other thread may have touched memory.
+	currentMIPS->llBit = 0;
 }
 
 u32 __KernelResumeThreadFromWait(SceUID threadID)
@@ -1213,7 +1216,7 @@ u32 __KernelDeleteThread(SceUID threadID, int exitStatus, const char *reason, bo
 	{
 		// TODO: Unless they should be run before deletion?
 		for (int i = 0; i < THREAD_CALLBACK_NUM_TYPES; i++)
-			readyCallbacksCount -= t->readyCallbacks[i].size();
+			readyCallbacksCount -= (int)t->readyCallbacks[i].size();
 	}
 
 	return kernelObjects.Destroy<Thread>(threadID);
@@ -1260,7 +1263,7 @@ void __KernelReSchedule(const char *reason)
 	}
 
 	// Execute any pending events while we're doing scheduling.
-	CoreTiming::Advance();
+	CoreTiming::AdvanceQuick();
 	if (__IsInInterrupt() || __KernelInCallback())
 	{
 		reason = "In Interrupt Or Callback";

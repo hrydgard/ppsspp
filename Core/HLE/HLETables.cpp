@@ -54,6 +54,7 @@
 #include "sceVaudio.h"
 #include "sceUsb.h"
 #include "sceChnnlsv.h"
+#include "scePspNpDrm_user.h"
 
 #define N(s) s
 

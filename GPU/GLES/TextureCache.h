@@ -21,6 +21,8 @@
 #include "gfx_es2/fbo.h"
 #include "GPU/GPUState.h"
 
+struct VirtualFramebuffer;
+
 class TextureCache 
 {
 public:
@@ -36,16 +38,16 @@ public:
 
 	// FramebufferManager keeps TextureCache updated about what regions of memory
 	// are being rendered to. This is barebones so far.
-	void NotifyFramebuffer(u32 address, FBO *fbo);
-	void NotifyFramebufferDestroyed(u32 address, FBO *fbo);
+	void NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer);
+	void NotifyFramebufferDestroyed(u32 address, VirtualFramebuffer *framebuffer);
 
 	size_t NumLoadedTextures() const {
 		return cache.size();
 	}
 
 	bool DecodeTexture(u8 *output, GPUgstate state);
+
 private:
-	
 	struct TexCacheEntry {
 		// After marking STATUS_UNRELIABLE, if it stays the same this many frames we'll trust it again.
 		const static int FRAMES_REGAIN_TRUST = 1000;
@@ -60,7 +62,7 @@ private:
 		int status;
 		u32 addr;
 		u32 hash;
-		FBO *fbo;  // if null, not sourced from an FBO.
+		VirtualFramebuffer *framebuffer;  // if null, not sourced from an FBO.
 		u32 sizeInRAM;
 		int lastFrame;
 		int numFrames;

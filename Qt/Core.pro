@@ -18,6 +18,11 @@ x86 {
 	HEADERS += ../Core/MIPS/x86/*.h
 }
 
+win32 {
+	SOURCES += ../Windows/OpenGLBase.cpp
+	HEADERS += ../Windows/OpenGLBase.h
+}
+
 SOURCES += ../Core/CPU.cpp \ # Core
 	../Core/Config.cpp \
 	../Core/Core.cpp \
@@ -34,6 +39,7 @@ SOURCES += ../Core/CPU.cpp \ # Core
 	../Core/Dialog/*.cpp \
 	../Core/ELF/*.cpp \
 	../Core/FileSystems/*.cpp \
+	../Core/Font/*.cpp \
 	../Core/HLE/*.cpp \
 	../Core/HW/*.cpp \
 	../Core/MIPS/*.cpp \
@@ -63,6 +69,7 @@ HEADERS += ../Core/CPU.h \
 	../Core/Dialog/*.h \
 	../Core/ELF/*.h \
 	../Core/FileSystems/*.h \
+	../Core/Font/*.h \
 	../Core/HLE/*.h \
 	../Core/HW/*.h \
 	../Core/MIPS/*.h \

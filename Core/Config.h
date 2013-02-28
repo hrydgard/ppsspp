@@ -63,10 +63,10 @@ public:
 
 	int iWindowZoom;  // for Windows
 	bool SSAntiAliasing; //for Windows, too
-	bool bDisableG3DLog;
 	bool bVertexCache;
 	bool bFullScreen;
 	int iAnisotropyLevel;
+	bool bTrueColor;
 
 	// Sound
 	bool bEnableSound;

@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
-<TS version="2.0" language="cn_ZH">
+<TS version="2.0" language="zh_CN">
 <context>
     <name>Controls</name>
     <message>
         <location filename="../controls.ui" line="20"/>
         <source>Controls</source>
         <comment>Controls window title</comment>
-        <translation type="unfinished">控制器</translation>
+        <translation>控制器</translation>
     </message>
 </context>
 <context>
@@ -65,7 +65,7 @@
     <message>
         <location filename="../ctrldisasmview.cpp" line="241"/>
         <source>New function name:</source>
-        <translation type="unfinished"></translation>
+        <translation>新函数名称：</translation>
     </message>
 </context>
 <context>
@@ -116,7 +116,7 @@
     <message>
         <location filename="../ctrlregisterlist.cpp" line="353"/>
         <source>Set new value:</source>
-        <translation type="unfinished"></translation>
+        <translation>设置新值：</translation>
     </message>
 </context>
 <context>
@@ -125,7 +125,7 @@
         <location filename="../debugger_disasm.ui" line="17"/>
         <source>Disassembler</source>
         <comment>Window title</comment>
-        <translation type="unfinished"></translation>
+        <translation>反汇编器</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="30"/>
@@ -330,7 +330,7 @@
     <message>
         <location filename="../debugger_memory.cpp" line="15"/>
         <source>Memory Viewer - %1</source>
-        <translation type="unfinished"></translation>
+        <translation>内存查看器 - %1</translation>
     </message>
 </context>
 <context>
@@ -338,7 +338,7 @@
     <message>
         <location filename="../debugger_vfpu.ui" line="14"/>
         <source>VFPU</source>
-        <translation type="unfinished"></translation>
+        <translation>VFPU</translation>
     </message>
     <message>
         <location filename="../debugger_vfpu.ui" line="23"/>
@@ -527,37 +527,37 @@
     <message>
         <location filename="../mainwindow.ui" line="95"/>
         <source>Lo&amp;g Levels</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;G)日志级别</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="131"/>
         <source>&amp;Language</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;L)语言选择</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="136"/>
         <source>&amp;Video</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;V)视频</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="140"/>
         <source>&amp;Anisotropic filtering</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;A)各向异性过滤</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="150"/>
         <source>&amp;Zoom</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;Z)缩放</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="173"/>
         <source>Co&amp;ntrols</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;N)控制</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="180"/>
         <source>&amp;Core</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;C)核心</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="204"/>
@@ -702,47 +702,47 @@
     <message>
         <location filename="../mainwindow.ui" line="361"/>
         <source>&amp;Keyboard</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;K)键盘</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="366"/>
         <source>&amp;Toggle fullscreen</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;T)全屏</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="423"/>
         <source>Show &amp;debug statistics</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;D)显示调试信息</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="483"/>
         <source>I&amp;gnore illegal reads/writes</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;G)忽略非法读写</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="602"/>
         <source>&amp;Gamepad</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;G)手柄</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="607"/>
         <source>Run on loa&amp;d</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;D)载入时运行</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="681"/>
         <source>Show &amp;FPS counter</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;F)显示帧率计数器</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="689"/>
         <source>S&amp;tretch to display</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;T)拉伸显示</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="697"/>
         <source>&amp;Sound emulation</source>
-        <translation type="unfinished"></translation>
+        <translation>(&amp;S)模拟声音</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="369"/>
@@ -895,27 +895,27 @@
     <message>
         <location filename="../mainwindow.ui" line="641"/>
         <source>Off</source>
-        <translation type="unfinished"></translation>
+        <translation>关闭</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="649"/>
         <source>2x</source>
-        <translation type="unfinished"></translation>
+        <translation>2x</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="657"/>
         <source>4x</source>
-        <translation type="unfinished"></translation>
+        <translation>4x</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="665"/>
         <source>8x</source>
-        <translation type="unfinished"></translation>
+        <translation>8x</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="673"/>
         <source>16x</source>
-        <translation type="unfinished"></translation>
+        <translation>16x</translation>
     </message>
     <message>
         <location filename="../mainwindow.cpp" line="865"/>

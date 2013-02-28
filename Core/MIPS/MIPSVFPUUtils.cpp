@@ -246,6 +246,7 @@ MatrixSize GetMtxSize(u32 op)
 	a += (b<<1);
 	switch (a)
 	{
+	case 0: ERROR_LOG(CPU, "Unexpected matrix size 1x1."); return M_2x2;
 	case 1: return M_2x2;
 	case 2: return M_3x3;
 	case 3: return M_4x4;

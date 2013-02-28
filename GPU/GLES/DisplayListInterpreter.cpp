@@ -48,9 +48,11 @@ static const u8 flushOnChangedBeforeCommandList[] = {
 	GE_CMD_TEXSCALEU,
 	GE_CMD_TEXSCALEV,
 	GE_CMD_CULLFACEENABLE,
+	GE_CMD_CULL,
 	GE_CMD_TEXTUREMAPENABLE,
 	GE_CMD_LIGHTINGENABLE,
 	GE_CMD_FOGENABLE,
+	GE_CMD_DITHERENABLE,
 	GE_CMD_ALPHABLENDENABLE,
 	GE_CMD_ALPHATESTENABLE,
 	GE_CMD_ALPHATEST,
@@ -97,9 +99,7 @@ static const u8 flushOnChangedBeforeCommandList[] = {
 	GE_CMD_VIEWPORTX2,GE_CMD_VIEWPORTY2,
 	GE_CMD_VIEWPORTZ1,GE_CMD_VIEWPORTZ2,
 	GE_CMD_LIGHTENABLE0,GE_CMD_LIGHTENABLE1,GE_CMD_LIGHTENABLE2,GE_CMD_LIGHTENABLE3,
-	GE_CMD_CULL,
 	GE_CMD_PATCHDIVISION,
-	GE_CMD_MATERIALUPDATE,
 	GE_CMD_CLEARMODE,
 	GE_CMD_TEXMAPMODE,
 	GE_CMD_TEXSHADELS,
@@ -119,6 +119,7 @@ static const u8 flushOnChangedBeforeCommandList[] = {
 	GE_CMD_MASKALPHA,
 	GE_CMD_TEXBUFWIDTH0,
 	GE_CMD_CLUTADDR,
+	GE_CMD_CLUTADDRUPPER,
 	GE_CMD_LOADCLUT,
 	GE_CMD_CLUTFORMAT,
 	GE_CMD_TEXADDR0,GE_CMD_TEXADDR1,GE_CMD_TEXADDR2,GE_CMD_TEXADDR3,
@@ -202,8 +203,9 @@ void GLES_GPU::DeviceLost() {
 
 void GLES_GPU::InitClear() {
 	if (!g_Config.bBufferedRendering) {
+		glstate.depthWrite.set(GL_TRUE);
+		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 		glClearColor(0,0,0,1);
-		//	glClearColor(1,0,1,1);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 	}
 	glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
@@ -278,26 +280,6 @@ void GLES_GPU::Continue() {
 
 void GLES_GPU::Break() {
 
-}
-
-static void EnterClearMode(u32 data) {
-	bool colMask = (data >> 8) & 1;
-	bool alphaMask = (data >> 9) & 1;
-	bool updateZ = (data >> 10) & 1;
-	glstate.colorMask.set(colMask, colMask, colMask, alphaMask);
-	glstate.depthWrite.set(updateZ ? GL_TRUE : GL_FALSE);
-}
-
-static void LeaveClearMode() {
-	// We have to reset the following state as per the state of the command registers:
-	// Back face culling
-	// Texture map enable	(meh)
-	// Fogging
-	// Antialiasing
-	// Alpha test
-	glstate.colorMask.set(1,1,1,1);
-	glstate.depthWrite.set(!(gstate.zmsk & 1) ? GL_TRUE : GL_FALSE);
-	// dirtyshader?
 }
 
 void GLES_GPU::PreExecuteOp(u32 op, u32 diff) {
@@ -542,6 +524,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_CULLFACEENABLE:
+	case GE_CMD_CULL:
 		break;
 
 	case GE_CMD_TEXTUREMAPENABLE:
@@ -642,16 +625,13 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_CLUTADDR:
 	case GE_CMD_CLUTADDRUPPER:
 	case GE_CMD_LOADCLUT:
+	case GE_CMD_CLUTFORMAT:
 		gstate_c.textureChanged = true;
 		// This could be used to "dirty" textures with clut.
 		break;
 
 	case GE_CMD_TEXMAPMODE:
 	case GE_CMD_TEXSHADELS:
-		break;
-
-	case GE_CMD_CLUTFORMAT:
-		gstate_c.textureChanged = true;
 		break;
 
 	case GE_CMD_TRANSFERSRC:
@@ -807,9 +787,6 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_LIGHTENABLE3:
 		break;
 
-	case GE_CMD_CULL:
-		break;
-
 	case GE_CMD_SHADEMODE:
 		break;
 
@@ -826,13 +803,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	//	CLEARING
 	//////////////////////////////////////////////////////////////////
 	case GE_CMD_CLEARMODE:
-		// If it becomes a performance problem, check diff&1
-		if (data & 1)
-			EnterClearMode(data);
-		else
-			LeaveClearMode();
 		break;
-
 
 	//////////////////////////////////////////////////////////////////
 	//	ALPHA BLENDING
@@ -845,7 +816,12 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_ALPHATESTENABLE:
 	case GE_CMD_COLORTESTENABLE:
-		// This is done in the shader.
+		// They are done in the fragment shader.
+		break;
+
+	case GE_CMD_COLORTEST:
+	case GE_CMD_COLORTESTMASK:
+		shaderManager_->DirtyUniform(DIRTY_COLORMASK);
 		break;
 
 	case GE_CMD_COLORREF:
@@ -992,8 +968,8 @@ void GLES_GPU::UpdateStats() {
 	gpuStats.numVertexShaders = shaderManager_->NumVertexShaders();
 	gpuStats.numFragmentShaders = shaderManager_->NumFragmentShaders();
 	gpuStats.numShaders = shaderManager_->NumPrograms();
-	gpuStats.numTextures = textureCache_.NumLoadedTextures();
-	gpuStats.numFBOs = framebufferManager_.NumVFBs();
+	gpuStats.numTextures = (int)textureCache_.NumLoadedTextures();
+	gpuStats.numFBOs = (int)framebufferManager_.NumVFBs();
 }
 
 void GLES_GPU::DoBlockTransfer() {

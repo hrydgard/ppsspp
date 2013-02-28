@@ -640,7 +640,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		transformed[index].fog = fogCoef;
 		memcpy(&transformed[index].u, uv, 2 * sizeof(float));
 		if (gstate_c.flipTexture)
-			transformed[index].v = 1.0f - transformed[index].v * 2.0f;
+			transformed[index].v = 1.0f - transformed[index].v; //(float)gstate_c.actualTextureHeight / gstate_c.curTextureHeight - transformed[index].v;
 		for (int i = 0; i < 4; i++) {
 			transformed[index].color0[i] = c0[i] * 255.0f;
 		}
@@ -660,10 +660,6 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		numTrans = vertexCount;
 		drawIndexed = true;
 	} else {
-		// Temporary storage for RECTANGLES emulation
-		float v2[3] = {0};
-		float uv2[2] = {0};
-
 		numTrans = 0;
 		drawBuffer = transformedExpanded;
 		TransformedVertex *trans = &transformedExpanded[0];
@@ -930,7 +926,7 @@ void TransformDrawEngine::Flush() {
 
 	gpuStats.numFlushes++;
 	
-	gpuStats.numTrackedVertexArrays = vai_.size();
+	gpuStats.numTrackedVertexArrays = (int)vai_.size();
 
 	// TODO: This should not be done on every drawcall, we should collect vertex data
 	// until critical state changes. That's when we draw (flush).

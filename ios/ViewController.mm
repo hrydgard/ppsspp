@@ -13,10 +13,9 @@
 #include "file/zip_read.h"
 #include "input/input_state.h"
 #include "net/resolve.h"
-#include "ui_atlas.h"
 #include "ui/screen.h"
 
-#include "Config.h"
+#include "Core/Config.h"
 #include "gfx_es2/fbo.h"
 
 #define IS_IPAD() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad)
@@ -34,6 +33,8 @@ InputState input_state;
 
 extern std::string ram_temp_file;
 
+ViewController* sharedViewController;
+
 @interface ViewController ()
 
 @property (strong, nonatomic) EAGLContext *context;
@@ -50,17 +51,18 @@ extern std::string ram_temp_file;
 {
 	self = [super init];
 	if (self) {
+		sharedViewController = self;
 		self.touches = [[[NSMutableArray alloc] init] autorelease];
 
 		self.documentsPath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0];
-		self.bundlePath = [[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/"];
+		self.bundlePath = [[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/assets/"];
 
 		memset(&input_state, 0, sizeof(input_state));
 
 		net::Init();
 
 		ram_temp_file = [[NSTemporaryDirectory() stringByAppendingPathComponent:@"ram_tmp.file"] fileSystemRepresentation];
-		NativeInit(0, NULL, [self.bundlePath UTF8String], [self.documentsPath UTF8String], NULL);
+		NativeInit(0, NULL, [self.documentsPath UTF8String], [self.bundlePath UTF8String], NULL);
 		
 	}
 	return self;
@@ -230,9 +232,19 @@ extern std::string ram_temp_file;
 	}
 }
 
+- (void)bindDefaultFBO
+{
+	[(GLKView*)self.view bindDrawable];
+}
+
 void LaunchBrowser(char const* url)
 {
 	[[UIApplication sharedApplication] openURL:[NSURL URLWithString:[NSString stringWithCString:url encoding:NSStringEncodingConversionAllowLossy]]];
+}
+
+void bindDefaultFBO()
+{
+	[sharedViewController bindDefaultFBO];
 }
 
 void EnableFZ(){};

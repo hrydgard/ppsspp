@@ -73,7 +73,8 @@ namespace MainWindow
 
 	void Init(HINSTANCE hInstance)
 	{
-#ifdef THEMES		WTL::CTheme::IsThemingSupported();
+#ifdef THEMES
+		WTL::CTheme::IsThemingSupported();
 #endif
 		//Register classes
 		WNDCLASSEX wcex;
@@ -307,7 +308,7 @@ namespace MainWindow
 					if (disasmWindow[i])
 						SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
 
-				Sleep(100);//UGLY wait for event instead
+				Core_WaitInactive();
 
 				for (int i=0; i<numCPUs; i++)
 					if (disasmWindow[i])
@@ -327,7 +328,7 @@ namespace MainWindow
 					if (disasmWindow[i])
 						SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
 
-				Sleep(100);//UGLY wait for event instead
+				Core_WaitInactive();
 
 				for (int i=0; i<numCPUs; i++)
 					if (disasmWindow[i])
@@ -353,13 +354,6 @@ namespace MainWindow
 				break;
 
 			case ID_FILE_LOADSTATEFILE:
-				if (g_State.bEmuThreadStarted)
-				{
-					nextState = Core_IsStepping() ? CORE_STEPPING : CORE_RUNNING;
-					for (int i=0; i<numCPUs; i++)
-						if (disasmWindow[i])
-							SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
-				}
 				if (W32Util::BrowseForFileName(true, hWnd, "Load state",0,"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0","ppst",fn))
 				{
 					SetCursor(LoadCursor(0,IDC_WAIT));
@@ -368,13 +362,6 @@ namespace MainWindow
 				break;
 
 			case ID_FILE_SAVESTATEFILE:
-				if (g_State.bEmuThreadStarted)
-				{
-					nextState = Core_IsStepping() ? CORE_STEPPING : CORE_RUNNING;
-					for (int i=0; i<numCPUs; i++)
-						if (disasmWindow[i])
-							SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
-				}
 				if (W32Util::BrowseForFileName(false, hWnd, "Save state",0,"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0","ppst",fn))
 				{
 					SetCursor(LoadCursor(0,IDC_WAIT));
@@ -385,25 +372,11 @@ namespace MainWindow
 			// TODO: Add UI for multiple slots
 
 			case ID_FILE_QUICKLOADSTATE:
-				if (g_State.bEmuThreadStarted)
-				{
-					nextState = Core_IsStepping() ? CORE_STEPPING : CORE_RUNNING;
-					for (int i=0; i<numCPUs; i++)
-						if (disasmWindow[i])
-							SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
-				}
 				SetCursor(LoadCursor(0,IDC_WAIT));
 				SaveState::LoadSlot(0, SaveStateActionFinished);
 				break;
 
 			case ID_FILE_QUICKSAVESTATE:
-				if (g_State.bEmuThreadStarted)
-				{
-					nextState = Core_IsStepping() ? CORE_STEPPING : CORE_RUNNING;
-					for (int i=0; i<numCPUs; i++)
-						if (disasmWindow[i])
-							SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
-				}
 				SetCursor(LoadCursor(0,IDC_WAIT));
 				SaveState::SaveSlot(0, SaveStateActionFinished);
 				break;
@@ -560,14 +533,6 @@ namespace MainWindow
 				UpdateMenus();
 				ResizeDisplay(true);
 				break;
-			case ID_OPTIONS_DISABLEG3DLOG:
-				g_Config.bDisableG3DLog = !g_Config.bDisableG3DLog;
-				if (!g_Config.bDisableG3DLog )
-					LogManager::GetInstance()->SetEnable(LogTypes::G3D, true);
-				else 
-					LogManager::GetInstance()->SetEnable(LogTypes::G3D, false);
-				UpdateMenus();
-				break;
 			case ID_OPTIONS_CONTROLS:
 				DialogManager::EnableAll(FALSE);
 				DialogBox(hInst, (LPCTSTR)IDD_CONTROLS, hWnd, (DLGPROC)Controls);
@@ -642,7 +607,8 @@ namespace MainWindow
 			break;
 
 		case WM_CLOSE:
-			Sleep(100);//UGLY wait for event instead
+			Core_Stop();
+			Core_WaitInactive(200);
 			EmuThread_Stop();
 
 			/*
@@ -713,7 +679,6 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_STRETCHDISPLAY, g_Config.bStretchToDisplay);
 		CHECKITEM(ID_EMULATION_RUNONLOAD, g_Config.bAutoRun);
 		CHECKITEM(ID_OPTIONS_USEVBO, g_Config.bUseVBO);
-		CHECKITEM(ID_OPTIONS_DISABLEG3DLOG, g_Config.bDisableG3DLog);
 		CHECKITEM(ID_OPTIONS_VERTEXCACHE, g_Config.bVertexCache);
 		CHECKITEM(ID_OPTIONS_SHOWFPS, g_Config.bShowFPSCounter);
 		CHECKITEM(ID_OPTIONS_FRAMESKIP, g_Config.iFrameSkip != 0);
@@ -895,13 +860,6 @@ namespace MainWindow
 		if (!result)
 			MessageBox(0, "Savestate failure.  Please try again later.", "Sorry", MB_OK);
 		SetCursor(LoadCursor(0, IDC_ARROW));
-
-		if (g_State.bEmuThreadStarted && nextState == CORE_RUNNING)
-		{
-			for (int i=0; i<numCPUs; i++)
-				if (disasmWindow[i])
-					SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_GO, 0);
-		}
 	}
 
 	void SetNextState(CoreState state)

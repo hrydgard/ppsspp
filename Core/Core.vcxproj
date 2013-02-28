@@ -144,6 +144,7 @@
     <ClCompile Include="FileSystems\DirectoryFileSystem.cpp" />
     <ClCompile Include="FileSystems\ISOFileSystem.cpp" />
     <ClCompile Include="FileSystems\MetaFileSystem.cpp" />
+    <ClCompile Include="Font\PGF.cpp" />
     <ClCompile Include="HLE\HLE.cpp" />
     <ClCompile Include="HLE\HLETables.cpp" />
     <ClCompile Include="HLE\sceAtrac.cpp" />
@@ -312,6 +313,7 @@
     <ClInclude Include="FileSystems\FileSystem.h" />
     <ClInclude Include="FileSystems\ISOFileSystem.h" />
     <ClInclude Include="FileSystems\MetaFileSystem.h" />
+    <ClInclude Include="Font\PGF.h" />
     <ClInclude Include="HLE\FunctionWrappers.h" />
     <ClInclude Include="HLE\HLE.h" />
     <ClInclude Include="HLE\HLETables.h" />
@@ -412,7 +414,6 @@
     <ClInclude Include="SaveState.h" />
     <ClInclude Include="System.h" />
     <ClInclude Include="Util\BlockAllocator.h" />
-    <ClInclude Include="Util\Pool.h" />
     <ClInclude Include="Util\PPGeDraw.h" />
     <ClInclude Include="Util\ppge_atlas.h" />
   </ItemGroup>

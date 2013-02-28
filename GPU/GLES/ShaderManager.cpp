@@ -89,6 +89,7 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs)
 	u_fogcolor = glGetUniformLocation(program, "u_fogcolor");
 	u_fogcoef = glGetUniformLocation(program, "u_fogcoef");
 	u_alphacolorref = glGetUniformLocation(program, "u_alphacolorref");
+	u_colormask = glGetUniformLocation(program, "u_colormask");
 
 	// Transform
 	u_view = glGetUniformLocation(program, "u_view");
@@ -243,7 +244,7 @@ void LinkedShader::updateUniforms() {
 	if (u_proj_through != -1 && (dirtyUniforms & DIRTY_PROJTHROUGHMATRIX))
 	{
 		Matrix4x4 proj_through;
-		proj_through.setOrtho(0.0f, 480, 272, 0, -1, 0);	// TODO: Store this somewhere instead of regenerating! And not in each LinkedShader object!
+		proj_through.setOrtho(0.0f, 480, 272, 0, 0, 1);
 		glUniformMatrix4fv(u_proj_through, 1, GL_FALSE, proj_through.getReadPtr());
 	}
 	if (u_texenv != -1 && (dirtyUniforms & DIRTY_TEXENV)) {
@@ -251,6 +252,9 @@ void LinkedShader::updateUniforms() {
 	}
 	if (u_alphacolorref != -1 && (dirtyUniforms & DIRTY_ALPHACOLORREF)) {
 		SetColorUniform3Alpha(u_alphacolorref, gstate.colorref, (gstate.alphatest >> 8) & 0xFF);
+	}
+	if (u_colormask != -1 && (dirtyUniforms & DIRTY_COLORMASK)) {
+		SetColorUniform3(u_colormask, gstate.colormask);
 	}
 	if (u_fogcolor != -1 && (dirtyUniforms & DIRTY_FOGCOLOR)) {
 		SetColorUniform3(u_fogcolor, gstate.fogcolor);

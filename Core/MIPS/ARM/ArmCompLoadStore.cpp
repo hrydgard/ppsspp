@@ -84,6 +84,7 @@ namespace MIPSComp
 	void Jit::Comp_ITypeMem(u32 op)
 	{
 		int offset = (signed short)(op&0xFFFF);
+		bool load = false;
 		int rt = _RT;
 		int rs = _RS;
 		int o = op>>26;
@@ -93,62 +94,44 @@ namespace MIPSComp
 		}
 		switch (o)
 		{
-		case 37: //R(rt) = ReadMem16(addr); break; //lhu
-			Comp_Generic(op);
-			return;
-
-		case 35: //R(rt) = ReadMem32(addr); //lw
-		case 36: //R(rt) = ReadMem8 (addr); break; //lbu
-			if (g_Config.bFastMemory) {
-				if (gpr.IsImm(rs)) {
-					// We can compute the full address at compile time. Kickass.
-					u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
-					gpr.MapReg(rt, MAP_NOINIT | MAP_DIRTY);  // must be OK even if rs == rt since we have the value from imm already.
-					MOVI2R(R0, addr);
-				} else {
-					gpr.MapDirtyIn(rt, rs);
-					SetR0ToEffectiveAddress(rs, offset);
-				}
-				if (o == 35) {
-					LDR(gpr.R(rt), R11, R0, true, true);
-				} else if (o == 36) {
-					ADD(R0, R0, R11);   // TODO: Merge with next instruction
-					LDRB(gpr.R(rt), R0);
-				}
-			} else {
-				Comp_Generic(op);
-				return;
-			}
-			break;
-
-		case 41: //WriteMem16(addr, R(rt)); break; //sh
-			Comp_Generic(op);
-			return;
-
+		case 32: //lb
+		case 33: //lh
+		case 35: //lw
+		case 36: //lbu
+		case 37: //lhu
+			load = true;
 		case 40: //sb
-		case 43: //WriteMem32(addr, R(rt)); break; //sw
+		case 41: //sh
+		case 43: //sw
 			if (g_Config.bFastMemory) {
 				if (gpr.IsImm(rs)) {
 					// We can compute the full address at compile time. Kickass.
 					u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
-					gpr.MapReg(rt);
+					// Must be OK even if rs == rt since we have the value from imm already.
+					gpr.MapReg(rt, load ? MAP_NOINIT | MAP_DIRTY : 0);
 					MOVI2R(R0, addr);
 				} else {
-					gpr.MapInIn(rt, rs);
+					load ? gpr.MapDirtyIn(rt, rs) : gpr.MapInIn(rt, rs);
 					SetR0ToEffectiveAddress(rs, offset);
 				}
-				if (o == 43) {
-					STR(R0, gpr.R(rt), R11, true, true);
-				} else if (o == 40) {
-					ADD(R0, R0, R11);
-					STRB(R0, gpr.R(rt));
+				switch (o)
+				{
+				// Load
+				case 35: LDR  (gpr.R(rt), R11, R0, true, true); break;
+				case 37: LDRH (gpr.R(rt), R11, R0, true, true); break;
+				case 33: LDRSH(gpr.R(rt), R11, R0, true, true); break;
+				case 36: LDRB (gpr.R(rt), R11, R0, true, true); break;
+				case 32: LDRSB(gpr.R(rt), R11, R0, true, true); break;
+				// Store
+				case 43: STR  (R0, gpr.R(rt), R11, true, true); break;
+				case 41: STRH (R0, gpr.R(rt), R11, true, true); break;
+				case 40: STRB (R0, gpr.R(rt), R11, true, true); break;
 				}
 			} else {
 				Comp_Generic(op);
 				return;
 			}
 			break;
-			// break;
 			/*
 		case 34: //lwl
 			{

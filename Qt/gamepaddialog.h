@@ -21,23 +21,16 @@ public:
 	~GamePadDialog();
 	
 	void SetViewMode();
-	void SetCalibMode();
-	void CalibNextButton();
 protected:
 	void showEvent(QShowEvent *);
 	void changeEvent(QEvent *);
 private slots:
 	void releaseLock();
 	void on_refreshListBtn_clicked();
-
 	void on_SelectPadBtn_clicked();
-
 	void pollJoystick();
-
 	void on_AssignBtn_clicked();
-
 	void on_buttonBox_accepted();
-
 private:
 	int GetIntFromMapping(int inputId, int type, int sign);
 	void GetMappingFromInt(int value, int &inputId, int &type, int &sign);

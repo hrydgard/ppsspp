@@ -457,6 +457,9 @@ public:
 	void UMULL(ARMReg destLo, ARMReg destHi, ARMReg rn, ARMReg rm);
 	void SMULL(ARMReg destLo, ARMReg destHi, ARMReg rn, ARMReg rm);
 
+	void UMLAL(ARMReg destLo, ARMReg destHi, ARMReg rn, ARMReg rm);
+	void SMLAL(ARMReg destLo, ARMReg destHi, ARMReg rn, ARMReg rm);
+
 	void SXTB(ARMReg dest, ARMReg op2);
 	void SXTH(ARMReg dest, ARMReg op2, u8 rotation = 0);
 	void SXTAH(ARMReg dest, ARMReg src, ARMReg op2, u8 rotation = 0);
@@ -467,16 +470,26 @@ public:
 	void MRS  (ARMReg dest);
 
 	// Memory load/store operations
-	void LDR (ARMReg dest, ARMReg src, Operand2 op2 = 0);
+	void LDR  (ARMReg dest, ARMReg src, Operand2 op2 = 0);
+	void LDRH (ARMReg dest, ARMReg src, Operand2 op2 = 0);
+	void LDRSH(ARMReg dest, ARMReg src, Operand2 op2 = 0);
+	void LDRB (ARMReg dest, ARMReg src, Operand2 op2 = 0);
+	void LDRSB(ARMReg dest, ARMReg src, Operand2 op2 = 0);
 	// Offset adds to the base register in LDR
-	void LDR (ARMReg dest, ARMReg base, ARMReg offset, bool Index, bool Add);
-	void LDRH(ARMReg dest, ARMReg src, Operand2 op = 0); 
-	void LDRB(ARMReg dest, ARMReg src, Operand2 op2 = 0);
-	void STR (ARMReg dest, ARMReg src, Operand2 op2 = 0);
-	// Offset adds on to the destination register in STR
-	void STR (ARMReg dest, ARMReg base, ARMReg offset, bool Index, bool Add);
+	void LDR  (ARMReg dest, ARMReg base, ARMReg offset, bool Index, bool Add);
+	void LDRH (ARMReg dest, ARMReg base, ARMReg offset, bool Index, bool Add);
+	void LDRSH(ARMReg dest, ARMReg base, ARMReg offset, bool Index, bool Add);
+	void LDRB (ARMReg dest, ARMReg base, ARMReg offset, bool Index, bool Add);
+	void LDRSB(ARMReg dest, ARMReg base, ARMReg offset, bool Index, bool Add);
 
-	void STRB(ARMReg dest, ARMReg src, Operand2 op2 = 0);
+	void STR  (ARMReg dest, ARMReg src, Operand2 op2 = 0);
+	void STRH (ARMReg dest, ARMReg src, Operand2 op2 = 0);
+	void STRB (ARMReg dest, ARMReg src, Operand2 op2 = 0);
+	// Offset adds on to the destination register in STR
+	void STR  (ARMReg dest, ARMReg base, ARMReg offset, bool Index, bool Add);
+	void STRH (ARMReg dest, ARMReg base, ARMReg offset, bool Index, bool Add);
+	void STRB (ARMReg dest, ARMReg base, ARMReg offset, bool Index, bool Add);
+
 	void STMFD(ARMReg dest, bool WriteBack, const int Regnum, ...);
 	void LDMFD(ARMReg dest, bool WriteBack, const int Regnum, ...);
 	
@@ -556,7 +569,9 @@ public:
 	// Call this when shutting down. Don't rely on the destructor, even though it'll do the job.
 	void FreeCodeSpace()
 	{
+#ifndef __SYMBIAN32__
 		FreeMemoryPages(region, region_size);
+#endif
 		region = NULL;
 		region_size = 0;
 	}

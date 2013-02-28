@@ -203,7 +203,6 @@ void ISOFileSystem::ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root)
 
 			bool isFile = (dir.flags & 2) ? false : true;
 			bool relative;
-			int fnLength = dir.identifierLength;
 
 			TreeEntry *e = new TreeEntry();
 			if (dir.identifierLength == 1 && (dir.firstIdChar == '\x00' || dir.firstIdChar == '.'))

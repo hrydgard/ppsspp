@@ -63,12 +63,12 @@ else()
 endif()
 
 #find_package(Qt5Widgets)
-if(USING_GLES2)
+if(USING_GLES2 AND NOT IOS)
 	set(OPENGL_LIBRARIES GLESv2)
-else()
+elseif(NOT IOS)
 	include(FindOpenGL REQUIRED)
 endif()
-if (NOT BLACKBERRY AND NOT ANDROID)
+if (NOT BLACKBERRY AND NOT ANDROID AND NOT IOS)
 	include(FindSDL)
 endif()
 include(FindThreads)
@@ -119,9 +119,8 @@ if(NOT MSVC)
 		add_definitions(-D_XOPEN_SOURCE=600 -D_XOPEN_SOURCE_EXTENDED -D__BSD_VISIBLE=1)
 		add_definitions(-D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64)
 	endif()
-
-	if(APPLE)
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
+	if(IOS)
+		add_definitions(-DGL_ETC1_RGB8_OES=0)
 	endif()
 
 	if(BLACKBERRY)
@@ -133,6 +132,11 @@ if(NOT MSVC)
 		add_definitions(-msse2)
 	endif()
 
+	if(IOS)
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libstdc++")
+	elseif(APPLE)
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
+	endif()
 	if(CMAKE_COMPILER_IS_GNUCXX AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.7.0)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
 	else()
@@ -415,9 +419,8 @@ elseif(IOS)
 		ios/AppDelegate.h
 		ios/ViewController.mm
 		ios/ViewController.h)
-	set(CMAKE_EXE_LINKER_FLAGS "-framework Foundation -framework CoreGraphics -framework QuartzCore -framework OpenGLES -framework UIKit")
-	# No target
-	# set(TargetBin PPSSPP)
+	set(nativeExtraLibs ${nativeExtraLibs} "-framework Foundation -framework AudioToolbox -framework CoreGraphics -framework QuartzCore -framework OpenGLES -framework UIKit -framework GLKit")
+	set(TargetBin PPSSPP)
 elseif(USING_QT_UI)
 	# Currently unused
 	find_package(Qt4 COMPONENTS QtMultimedia QtOpenGL QtGui QtCore)
@@ -589,6 +592,8 @@ endif()
 add_library(kirk STATIC
 	ext/libkirk/AES.c
 	ext/libkirk/AES.h
+	ext/libkirk/amctrl.c
+	ext/libkirk/amctrl.h
 	ext/libkirk/SHA1.c
 	ext/libkirk/SHA1.h
 	ext/libkirk/bn.c
@@ -679,6 +684,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/FileSystems/ISOFileSystem.h
 	Core/FileSystems/MetaFileSystem.cpp
 	Core/FileSystems/MetaFileSystem.h
+	Core/Font/PGF.cpp
+	Core/Font/PGF.h
 	Core/HLE/FunctionWrappers.h
 	Core/HLE/HLE.cpp
 	Core/HLE/HLE.h
@@ -764,6 +771,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceUtility.h
 	Core/HLE/sceVaudio.cpp
 	Core/HLE/sceVaudio.h
+	Core/HLE/scePspNpDrm_user.cpp
+	Core/HLE/scePspNpDrm_user.h
 	Core/HW/MediaEngine.cpp
 	Core/HW/MediaEngine.h
 	Core/HW/MemoryStick.cpp
@@ -811,7 +820,6 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Util/BlockAllocator.h
 	Core/Util/PPGeDraw.cpp
 	Core/Util/PPGeDraw.h
-	Core/Util/Pool.h
 	Core/Util/ppge_atlas.cpp
 	Core/Util/ppge_atlas.h
 	$<TARGET_OBJECTS:GPU>
@@ -950,15 +958,26 @@ set(NativeAssets
 set(LinkCommon ${CoreLibName} ${CMAKE_THREAD_LIBS_INIT} ${nativeExtraLibs})
 
 if (TargetBin)
-	add_executable(${TargetBin} ${NativeAppSource})
+	if (IOS)
+		add_executable(${TargetBin} MACOSX_BUNDLE ${NativeAppSource})
+	else()
+		add_executable(${TargetBin} ${NativeAppSource})
+	endif()
 	target_link_libraries(${TargetBin} ${LinkCommon})
 endif()
 
+# installs
 file(INSTALL ${NativeAssets} DESTINATION assets)
 
-# code signing
+# packaging and code signing
 if (IOS)
-	set_target_properties(${NAME} PROPERTIES MACOSX_BUNDLE_INFO_PLIST PPSSPP-Info.plist XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "iPhone Developer: My Name")
+	set(RSRC_XIB_FILES assets/Icon@2x.png)
+	SET_SOURCE_FILES_PROPERTIES(${RSRC_XIB_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+	set(APP_DIR_NAME \${TARGET_BUILD_DIR}/\${FULL_PRODUCT_NAME})
+	add_custom_command(TARGET PPSSPP POST_BUILD
+		COMMAND tar -c -C . --exclude .DS_Store --exclude .git -H `find assets` | tar -x -C ${APP_DIR_NAME}
+	)
+	set_target_properties(${TargetBin} PROPERTIES MACOSX_BUNDLE_INFO_PLIST "../ios/PPSSPP-Info.plist" XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "iPhone Developer: My Name")
 endif()
 
 #include(CPack)

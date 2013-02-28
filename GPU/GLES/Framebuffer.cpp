@@ -125,7 +125,9 @@ FramebufferManager::FramebufferManager() :
 
 	// And an initial clear. We don't clear per frame as the games are supposed to handle that
 	// by themselves.
-	glClearColor(0, 0, 0, 0);
+	glstate.depthWrite.set(GL_TRUE);
+	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+	glClearColor(0,0,0,1);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
 	convBuf = new u8[480 * 272 * 4];
@@ -235,7 +237,7 @@ void FramebufferManager::DrawActiveTexture(float x, float y, float w, float h, b
 	glsl_unbind();
 }
 
-FramebufferManager::VirtualFramebuffer *FramebufferManager::GetDisplayFBO() {
+VirtualFramebuffer *FramebufferManager::GetDisplayFBO() {
 	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
 		VirtualFramebuffer *v = *iter;
 		if (MaskedEqual(v->fb_address, displayFramebufPtr_) && v->format == displayFormat_) {
@@ -325,6 +327,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		vfb->renderWidth = (u16)(drawing_width * renderWidthFactor);
 		vfb->renderHeight = (u16)(drawing_height * renderHeightFactor);
 		vfb->format = fmt;
+		vfb->usageFlags = FB_USAGE_RENDERTARGET;
 
 		switch (fmt) {
 		case GE_FORMAT_4444: vfb->colorDepth = FBO_4444; break;
@@ -333,12 +336,16 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		case GE_FORMAT_8888: vfb->colorDepth = FBO_8888; break;
 		default: vfb->colorDepth = FBO_8888; break;
 		}
+		
+		if (g_Config.bTrueColor) 
+			vfb->colorDepth = FBO_8888;
+			
 		//#ifdef ANDROID
 		//	vfb->colorDepth = FBO_8888;
 		//#endif
 
 		vfb->fbo = fbo_create(vfb->renderWidth, vfb->renderHeight, 1, true, vfb->colorDepth);
-		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb->fbo);
+		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb);
 
 		vfb->last_frame_used = gpuStats.numFrames;
 		vfbs_.push_back(vfb);
@@ -347,6 +354,9 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		glEnable(GL_DITHER);
 		glstate.viewport.set(0, 0, vfb->renderWidth, vfb->renderHeight);
 		currentRenderVfb_ = vfb;
+		glstate.depthWrite.set(GL_TRUE);
+		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+		glClearColor(0,0,0,1);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 		INFO_LOG(HLE, "Creating FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 		return;
@@ -363,15 +373,22 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		vfb->last_frame_used = gpuStats.numFrames;
 		
 		fbo_bind_as_render_target(vfb->fbo);
+
+		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb);
+
 #ifdef USING_GLES2
 		// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
 		// to it. This broke stuff before, so now it only clears on the first use of an
 		// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
 		// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
 		if (vfb->last_frame_used != gpuStats.numFrames)
+		{
+			glstate.depthWrite.set(GL_TRUE);
+			glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+			glClearColor(0,0,0,1);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+		}
 #endif
-		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb->fbo);
 		glstate.viewport.set(0, 0, vfb->renderWidth, vfb->renderHeight);
 		currentRenderVfb_ = vfb;
 	}
@@ -385,6 +402,8 @@ void FramebufferManager::CopyDisplayToOutput() {
 	if (!vfb) {
 		DEBUG_LOG(HLE, "Found no FBO! displayFBPtr = %08x", displayFramebufPtr_);
 		// No framebuffer to display! Clear to black.
+		glstate.depthWrite.set(GL_TRUE);
+		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 		glClearColor(0,0,0,1);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 		return;
@@ -403,10 +422,13 @@ void FramebufferManager::CopyDisplayToOutput() {
 	glstate.cullFace.disable();
 	glstate.depthTest.disable();
 	glstate.scissorTest.disable();
-
+	glstate.stencilTest.disable();
+	
 	fbo_bind_color_as_texture(vfb->fbo, 0);
 
 	if (resized_) {
+		glstate.depthWrite.set(GL_TRUE);
+		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 		glClearColor(0,0,0,1);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 	}
@@ -431,6 +453,8 @@ void FramebufferManager::BeginFrame() {
 		glstate.cullFace.disable();
 		glstate.depthTest.disable();
 		glstate.blend.disable();
+		glstate.scissorTest.disable();
+		glstate.stencilTest.disable();
 		DrawPixels(pspframebuf, displayFormat_, displayStride_);
 		// TODO: restore state?
 	}
@@ -477,7 +501,7 @@ void FramebufferManager::DecimateFBOs() {
 		}
 		if ((*iter)->last_frame_used + FBO_OLD_AGE < gpuStats.numFrames) {
 			INFO_LOG(HLE, "Destroying FBO for %08x (%i x %i x %i)", vfb->fb_address, vfb->width, vfb->height, vfb->format)
-			textureCache_->NotifyFramebufferDestroyed(vfb->fb_address, vfb->fbo);
+			textureCache_->NotifyFramebufferDestroyed(vfb->fb_address, vfb);
 			fbo_destroy(vfb->fbo);
 			delete vfb;
 			vfbs_.erase(iter++);
@@ -490,7 +514,7 @@ void FramebufferManager::DecimateFBOs() {
 void FramebufferManager::DestroyAllFBOs() {
 	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
 		VirtualFramebuffer *vfb = *iter;
-		textureCache_->NotifyFramebufferDestroyed(vfb->fb_address, vfb->fbo);
+		textureCache_->NotifyFramebufferDestroyed(vfb->fb_address, vfb);
 		fbo_destroy(vfb->fbo);
 		delete vfb;
 	}

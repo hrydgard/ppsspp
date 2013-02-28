@@ -5,15 +5,15 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>${PRODUCT_NAME}</string>
+	<string>PPSSPP</string>
 	<key>CFBundleExecutable</key>
-	<string>${EXECUTABLE_NAME}</string>
+	<string>PPSSPP</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.rock88dev.${PRODUCT_NAME:rfc1034identifier}</string>
+	<string>com.rock88dev.PPSSPP</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>${PRODUCT_NAME}</string>
+	<string>PPSSPP</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -37,10 +37,15 @@
 	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>CFBundleIconFiles</key>
+	<array>
+		<string>assets/Icon-72.png</string>
+		<string>assets/Icon-72@2x.png</string>
+		<string>assets/Icon.png</string>
+		<string>assets/Icon@2x.png</string>
 	</array>
 </dict>
 </plist>
