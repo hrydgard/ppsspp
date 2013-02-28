@@ -364,6 +364,9 @@ LoadedFont *GetLoadedFont(u32 handle, bool allowClosed) {
 
 void __LoadInternalFonts() {
 	std::string fontPath = "flash0:/font/";
+	if (!pspFileSystem.GetFileInfo(fontPath).exists) {
+		pspFileSystem.MkDir(fontPath);
+	}
 	for (size_t i = 0; i < ARRAY_SIZE(fontRegistry); i++) {
 		const FontRegistryEntry &entry = fontRegistry[i];
 		std::string fontFilename = fontPath + entry.fileName;
