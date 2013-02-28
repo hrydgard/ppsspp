@@ -1032,4 +1032,12 @@ void ARMXEmitter::VMOV(ARMReg Dest, ARMReg Src)
 	}
 }
 
+void ARMXEmitter::VCVT(bool to_integer, bool is_signed, ARMReg Sd, ARMReg Sm)
+{
+	Sd = SubBase(Sd);
+	Sm = SubBase(Sm);
+	Write32(NO_COND | (0x1D << 23) | ((Sd & 0x1) << 22) | (0x7 << 19) | (to_integer << 18) | (is_signed << 16) \
+		| ((Sd & 0x1E) << 11) | (0x2B << 6) | ((Sm & 0x1) << 5) | (Sm >> 1));
+}
+
 }

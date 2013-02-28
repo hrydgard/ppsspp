@@ -161,21 +161,33 @@ void Jit::Comp_FPU2op(u32 op)
 
 	switch (op & 0x3f) 
 	{
-	case 4:	//F(fd)	= sqrtf(F(fs)); break; //sqrt
+	case 4:	//F(fd)	   = sqrtf(F(fs));            break; //sqrt
 		fpr.MapDirtyIn(fd, fs);
 		VSQRT(fpr.R(fd), fpr.R(fs));
 		break;
-	case 5:	//F(fd)	= fabsf(F(fs)); break; //abs
+	case 5:	//F(fd)    = fabsf(F(fs));            break; //abs
 		fpr.MapDirtyIn(fd, fs);
 		VABS(fpr.R(fd), fpr.R(fs));
 		break;
-	case 6:	//F(fd)	= F(fs);        break; //mov
+	case 6:	//F(fd)	   = F(fs);                   break; //mov
 		fpr.MapDirtyIn(fd, fs);
 		VMOV(fpr.R(fd), fpr.R(fs));
 		break;
-	case 7:	//F(fd)	= -F(fs);       break; //neg
+	case 7:	//F(fd)	   = -F(fs);                  break; //neg
 		fpr.MapDirtyIn(fd, fs);
 		VNEG(fpr.R(fd), fpr.R(fs));
+		break;
+	case 13: //FsI(fd) = Rto0(F(fs)));            break; //trunc.w.s
+		fpr.MapDirtyIn(fd, fs);
+		VCVT(true, true, fpr.R(fd), fpr.R(fs));
+		break;
+	case 32: //F(fd)   = (float)FsI(fs);          break; //cvt.s.w
+		fpr.MapDirtyIn(fd, fs);
+		VCVT(false, false, fpr.R(fd), fpr.R(fs));
+		break;
+	case 36: //FsI(fd) = (int)	F(fs);			  break; //cvt.w.s
+		fpr.MapDirtyIn(fd, fs);
+		VCVT(true, false, fpr.R(fd), fpr.R(fs));
 		break;
 		/*
 	case 12: //FsI(fd) = (int)floorf(F(fs)+0.5f); break; //round.w.s
@@ -190,8 +202,6 @@ void Jit::Comp_FPU2op(u32 op)
 
 	case 14: //FsI(fd) = (int)ceilf (F(fs)); break; //ceil.w.s
 	case 15: //FsI(fd) = (int)floorf(F(fs)); break; //floor.w.s
-	case 32: //F(fd)	= (float)FsI(fs);			break; //cvt.s.w
-	case 36: //FsI(fd) = (int)	F(fs);			 break; //cvt.w.s
 	*/
 	default:
 		DISABLE;
