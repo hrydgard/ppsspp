@@ -135,16 +135,16 @@ void ArmRegCache::MapInIn(MIPSReg rd, MIPSReg rs) {
 
 void ArmRegCache::MapDirtyIn(MIPSReg rd, MIPSReg rs, bool avoidLoad) {
 	SpillLock(rd, rs);
-	bool overlap = avoidLoad && rd == rs;
-	MapReg(rd, MAP_DIRTY | (overlap ? 0 : MAP_NOINIT));
+	bool load = !avoidLoad || rd == rs;
+	MapReg(rd, MAP_DIRTY | (load ? 0 : MAP_NOINIT));
 	MapReg(rs);
 	ReleaseSpillLocks();
 }
 
 void ArmRegCache::MapDirtyInIn(MIPSReg rd, MIPSReg rs, MIPSReg rt, bool avoidLoad) {
 	SpillLock(rd, rs, rt);
-	bool overlap = avoidLoad && (rd == rs || rd == rt);
-	MapReg(rd, MAP_DIRTY | (overlap ? 0 : MAP_NOINIT));
+	bool load = !avoidLoad || (rd == rs || rd == rt);
+	MapReg(rd, MAP_DIRTY | (load ? 0 : MAP_NOINIT));
 	MapReg(rt);
 	MapReg(rs);
 	ReleaseSpillLocks();
@@ -152,10 +152,10 @@ void ArmRegCache::MapDirtyInIn(MIPSReg rd, MIPSReg rs, MIPSReg rt, bool avoidLoa
 
 void ArmRegCache::MapDirtyDirtyInIn(MIPSReg rd1, MIPSReg rd2, MIPSReg rs, MIPSReg rt, bool avoidLoad) {
 	SpillLock(rd1, rd2, rs, rt);
-	bool overlap1 = avoidLoad && (rd1 == rs || rd1 == rt);
-	bool overlap2 = avoidLoad && (rd2 == rs || rd2 == rt);
-	MapReg(rd1, MAP_DIRTY | (overlap1 ? 0 : MAP_NOINIT));
-	MapReg(rd2, MAP_DIRTY | (overlap2 ? 0 : MAP_NOINIT));
+	bool load1 = !avoidLoad || (rd1 == rs || rd1 == rt);
+	bool load2 = !avoidLoad || (rd2 == rs || rd2 == rt);
+	MapReg(rd1, MAP_DIRTY | (load1 ? 0 : MAP_NOINIT));
+	MapReg(rd2, MAP_DIRTY | (load2 ? 0 : MAP_NOINIT));
 	MapReg(rt);
 	MapReg(rs);
 	ReleaseSpillLocks();
