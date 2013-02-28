@@ -128,6 +128,8 @@ void __KernelShutdown()
 	INFO_LOG(HLE, "Shutting down kernel - %i kernel objects alive", kernelObjects.GetCount());
 	kernelObjects.Clear();
 
+	__FontShutdown();
+
 	__MpegShutdown();
 	__PsmfShutdown();
 	__PPGeShutdown();
