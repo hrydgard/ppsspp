@@ -20,6 +20,10 @@
 #include "../HLE/sceCtrl.h"
 #include "ChunkFile.h"
 
+#ifndef _WIN32
+#include <ctype.h>
+#endif
+
 #define NUMKEYROWS 4
 #define KEYSPERROW 12
 #define NUMBEROFVALIDCHARS (KEYSPERROW * NUMKEYROWS)
