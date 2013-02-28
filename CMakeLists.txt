@@ -684,6 +684,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/FileSystems/ISOFileSystem.h
 	Core/FileSystems/MetaFileSystem.cpp
 	Core/FileSystems/MetaFileSystem.h
+	Core/Font/PGF.cpp
+	Core/Font/PGF.h
 	Core/HLE/FunctionWrappers.h
 	Core/HLE/HLE.cpp
 	Core/HLE/HLE.h
