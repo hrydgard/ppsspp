@@ -506,6 +506,7 @@ int sceKernelAllocPartitionMemory(int partition, const char *name, int type, u32
 	PartitionMemoryBlock *block = new PartitionMemoryBlock(&userMemory, name, size, (MemblockType)type, addr);
 	if (!block->IsValid())
 	{
+		delete block;
 		ERROR_LOG(HLE, "ARGH! sceKernelAllocPartitionMemory failed");
 		return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
 	}
