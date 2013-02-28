@@ -292,29 +292,44 @@ namespace MIPSComp
 
 	void Jit::Comp_Allegrex(u32 op)
 	{
-		DISABLE
 		int rt = _RT;
 		int rd = _RD;
 		switch ((op >> 6) & 31)
 		{
+		/*
 		case 16: // seb	// R(rd) = (u32)(s32)(s8)(u8)R(rt);
-			/*
 			gpr.Lock(rd, rt);
 			gpr.BindToRegister(rd, true, true);
 			MOV(32, R(EAX), gpr.R(rt));	// work around the byte-register addressing problem
 			MOVSX(32, 8, gpr.RX(rd), R(EAX));
-			gpr.UnlockAll();*/
+			gpr.UnlockAll();
 			break;
 
 		case 24: // seh
-			/*
 			gpr.Lock(rd, rt);
 			gpr.BindToRegister(rd, true, true);
 			MOVSX(32, 16, gpr.RX(rd), gpr.R(rt));
-			gpr.UnlockAll();*/
+			gpr.UnlockAll();
 			break;
-
+		*/
 		case 20: //bitrev
+			if (gpr.IsImm(rt))
+			{
+				// http://graphics.stanford.edu/~seander/bithacks.html#ReverseParallel
+				u32 v = gpr.GetImm(rt);
+				// swap odd and even bits
+				v = ((v >> 1) & 0x55555555) | ((v & 0x55555555) << 1);
+				// swap consecutive pairs
+				v = ((v >> 2) & 0x33333333) | ((v & 0x33333333) << 2);
+				// swap nibbles ...
+				v = ((v >> 4) & 0x0F0F0F0F) | ((v & 0x0F0F0F0F) << 4);
+				// swap bytes
+				v = ((v >> 8) & 0x00FF00FF) | ((v & 0x00FF00FF) << 8);
+				// swap 2-byte long pairs
+				v = ( v >> 16             ) | ( v               << 16);
+				gpr.SetImm(rd,v);
+				break;
+			}
 		default:
 			Comp_Generic(op);
 			return;
@@ -358,6 +373,17 @@ namespace MIPSComp
 		case 25: //multu (2nd) lo,hi  = unsigned mul (rs * rt)
 			gpr.MapDirtyDirtyInIn(MIPSREG_LO, MIPSREG_HI, rs, rt);
 			UMULL(gpr.R(MIPSREG_LO), gpr.R(MIPSREG_HI), gpr.R(rs), gpr.R(rt));
+			break;
+
+		case 28: //madd
+			gpr.MapDirtyDirtyInIn(MIPSREG_LO, MIPSREG_HI, rs, rt);
+			SMLAL(gpr.R(MIPSREG_LO), gpr.R(MIPSREG_HI), gpr.R(rs), gpr.R(rt));
+			break;
+
+		case 29: //maddu
+			gpr.MapDirtyDirtyInIn(MIPSREG_LO, MIPSREG_HI, rs, rt);
+			UMLAL(gpr.R(MIPSREG_LO), gpr.R(MIPSREG_HI), gpr.R(rs), gpr.R(rt));
+			break;
 
 		default:
 			DISABLE;
