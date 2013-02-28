@@ -457,6 +457,9 @@ public:
 	void UMULL(ARMReg destLo, ARMReg destHi, ARMReg rn, ARMReg rm);
 	void SMULL(ARMReg destLo, ARMReg destHi, ARMReg rn, ARMReg rm);
 
+	void UMLAL(ARMReg destLo, ARMReg destHi, ARMReg rn, ARMReg rm);
+	void SMLAL(ARMReg destLo, ARMReg destHi, ARMReg rn, ARMReg rm);
+
 	void SXTB(ARMReg dest, ARMReg op2);
 	void SXTH(ARMReg dest, ARMReg op2, u8 rotation = 0);
 	void SXTAH(ARMReg dest, ARMReg src, ARMReg op2, u8 rotation = 0);
