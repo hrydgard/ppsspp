@@ -636,7 +636,7 @@ int sceFontGetFontInfo(u32 fontHandle, u32 fontInfoPtr) {
 	if (!Memory::IsValidAddress(fontInfoPtr))
 		return 0;
 
-	LoadedFont * font = GetLoadedFont(fontHandle, true);
+	LoadedFont *font = GetLoadedFont(fontHandle, true);
 	if (!font)
 		return 0;
 	PGF *pgf = font->GetFont()->GetPGF();
