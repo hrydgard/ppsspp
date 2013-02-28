@@ -375,6 +375,7 @@
     <ClCompile Include="MIPS\ARM\ArmRegCacheFPU.cpp">
       <Filter>MIPS\ARM</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\sceChnnlsv.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -695,6 +696,7 @@
     <ClInclude Include="MIPS\ARM\ArmRegCacheFPU.h">
       <Filter>MIPS\ARM</Filter>
     </ClInclude>
+    <ClInclude Include="HLE\sceChnnlsv.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />
