@@ -409,7 +409,7 @@ public:
 		int sz = alloc->GetBlockSizeFromAddress(address);
 		sprintf(ptr, "MemPart: %08x - %08x	size: %08x", address, address + sz, sz);
 	}
-	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_MPPID; }	/// ????
+	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_UID; }
 	int GetIDType() const { return PPSSPP_KERNEL_TMID_PMB; }
 
 	PartitionMemoryBlock(BlockAllocator *_alloc, u32 size, MemblockType type, u32 alignment)
@@ -420,8 +420,10 @@ public:
 		if (size != 0)
 		{
 			if (type == PSP_SMEM_Addr)
+			{
+				alignment &= ~0xFF;
 				address = alloc->AllocAt(alignment, size, "PMB");
-			// TODO: Check if size is upaligned?
+			}
 			else if (type == PSP_SMEM_LowAligned || type == PSP_SMEM_HighAligned)
 				address = alloc->AllocAligned(size, alignment, type == PSP_SMEM_HighAligned, "PMB");
 			else
@@ -431,7 +433,8 @@ public:
 	}
 	~PartitionMemoryBlock()
 	{
-		alloc->Free(address);
+		if (address != (u32)-1)
+			alloc->Free(address);
 	}
 	bool IsValid() {return address != (u32)-1;}
 	BlockAllocator *alloc;
@@ -491,6 +494,12 @@ int sceKernelAllocPartitionMemory(int partition, const char *name, int type, u32
 		WARN_LOG(HLE, "%08x=sceKernelAllocPartitionMemory(): invalid type %x", SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCKTYPE, type);
 		return SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCKTYPE;
 	}
+	// Alignment is only allowed for powers of 2.
+	if ((type == 3 || type == 4) && ((addr & (addr - 1)) != 0 || addr == 0))
+	{
+		WARN_LOG(HLE, "%08x=sceKernelAllocPartitionMemory(): invalid alignment %x", SCE_ERROR_KERNEL_ILLEGAL_ALIGNMENT_SIZE, addr);
+		return SCE_ERROR_KERNEL_ILLEGAL_ALIGNMENT_SIZE;
+	}
 
 	PartitionMemoryBlock *block = new PartitionMemoryBlock(&userMemory, size, (MemblockType)type, addr);
 	if (!block->IsValid())
@@ -509,29 +518,26 @@ int sceKernelAllocPartitionMemory(int partition, const char *name, int type, u32
 	return uid;
 }
 
-void sceKernelFreePartitionMemory()
+int sceKernelFreePartitionMemory(SceUID id)
 {
-	SceUID id = PARAM(0);
 	DEBUG_LOG(HLE,"sceKernelFreePartitionMemory(%d)",id);
 
-	RETURN(kernelObjects.Destroy<PartitionMemoryBlock>(id));
+	return kernelObjects.Destroy<PartitionMemoryBlock>(id);
 }
 
-void sceKernelGetBlockHeadAddr()
+u32 sceKernelGetBlockHeadAddr(SceUID id)
 {
-	SceUID id = PARAM(0);
-
 	u32 error;
 	PartitionMemoryBlock *block = kernelObjects.Get<PartitionMemoryBlock>(id, error);
 	if (block)
 	{
 		DEBUG_LOG(HLE,"%08x = sceKernelGetBlockHeadAddr(%i)", block->address, id);
-		RETURN(block->address);
+		return block->address;
 	}
 	else
 	{
 		ERROR_LOG(HLE,"sceKernelGetBlockHeadAddr failed(%i)", id);
-		RETURN(error);
+		return 0;
 	}
 }
 
@@ -1171,8 +1177,8 @@ const HLEFunction SysMemUserForUser[] = {
 	{0xF919F628,sceKernelTotalFreeMemSize,"sceKernelTotalFreeMemSize"},
 	{0x3FC9AE6A,WrapU_V<sceKernelDevkitVersion>,"sceKernelDevkitVersion"},
 	{0x237DBD4F,WrapI_ICIUU<sceKernelAllocPartitionMemory>,"sceKernelAllocPartitionMemory"},	//(int size) ?
-	{0xB6D61D02,sceKernelFreePartitionMemory,"sceKernelFreePartitionMemory"},	 //(void *ptr) ?
-	{0x9D9A5BA1,sceKernelGetBlockHeadAddr,"sceKernelGetBlockHeadAddr"},			//(void *ptr) ?
+	{0xB6D61D02,WrapI_I<sceKernelFreePartitionMemory>,"sceKernelFreePartitionMemory"},	 //(void *ptr) ?
+	{0x9D9A5BA1,WrapU_I<sceKernelGetBlockHeadAddr>,"sceKernelGetBlockHeadAddr"},			//(void *ptr) ?
 	{0x13a5abef,sceKernelPrintf,"sceKernelPrintf 0x13a5abef"},
 	{0x7591c7db,&WrapV_I<sceKernelSetCompiledSdkVersion>,"sceKernelSetCompiledSdkVersion"},
 	{0x342061E5,&WrapV_I<sceKernelSetCompiledSdkVersion370>,"sceKernelSetCompiledSdkVersion370"},
