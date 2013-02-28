@@ -318,6 +318,11 @@ template<int func(int, int, int, int)> void WrapI_IIII() {
 	RETURN(retval);
 }
 
+template<int func(int, const char *, int, u32, u32)> void WrapI_ICIUU() {
+	int retval = func(PARAM(0), Memory::GetCharPointer(PARAM(1)), PARAM(2), PARAM(3), PARAM(4));
+	RETURN(retval);
+}
+
 template<int func(int, int, u32)> void WrapI_IIU() {
 	int retval = func(PARAM(0), PARAM(1), PARAM(2));
 	RETURN(retval);
