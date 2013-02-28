@@ -364,6 +364,9 @@ LoadedFont *GetLoadedFont(u32 handle, bool allowClosed) {
 
 void __LoadInternalFonts() {
 	std::string fontPath = "flash0:/font/";
+	if (!pspFileSystem.GetFileInfo(fontPath).exists) {
+		pspFileSystem.MkDir(fontPath);
+	}
 	for (size_t i = 0; i < ARRAY_SIZE(fontRegistry); i++) {
 		const FontRegistryEntry &entry = fontRegistry[i];
 		std::string fontFilename = fontPath + entry.fileName;
@@ -633,7 +636,7 @@ int sceFontGetFontInfo(u32 fontHandle, u32 fontInfoPtr) {
 	if (!Memory::IsValidAddress(fontInfoPtr))
 		return 0;
 
-	LoadedFont * font = GetLoadedFont(fontHandle, true);
+	LoadedFont *font = GetLoadedFont(fontHandle, true);
 	if (!font)
 		return 0;
 	PGF *pgf = font->GetFont()->GetPGF();
@@ -709,6 +712,10 @@ int sceFontGetCharGlyphImage(u32 fontHandle, u32 charCode, u32 glyphImagePtr) {
 	int buffer = Memory::Read_U32(glyphImagePtr+20);
 
 	LoadedFont *font = GetLoadedFont(fontHandle, false);
+	if (!font) {
+		ERROR_LOG(HLE, "%08x is not a valid font handle!", fontHandle);
+		return 0;
+	}
 	int altCharCode = font->GetFontLib()->GetAltCharCode();
 	font->GetFont()->GetPGF()->DrawCharacter(buffer, bytesPerLine, bufWidth, bufHeight, xPos64 >> 6, yPos64 >> 6, 0, 0, 8192, 8192, pixelFormat, charCode, altCharCode, FONT_PGF_CHARGLYPH);
 	return 0;
