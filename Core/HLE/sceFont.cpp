@@ -443,7 +443,9 @@ void __FontInit() {
 
 void __FontShutdown() {
 	for (auto iter = fontMap.begin(); iter != fontMap.end(); iter++) {
-		iter->second->GetFontLib()->CloseFont(iter->second);
+		FontLib *fontLib = iter->second->GetFontLib();
+		if (fontLib)
+			fontLib->CloseFont(iter->second);
 	}
 	fontMap.clear();
 	for (auto iter = fontLibMap.begin(); iter != fontLibMap.end(); iter++) {
