@@ -412,9 +412,11 @@ public:
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_UID; }
 	int GetIDType() const { return PPSSPP_KERNEL_TMID_PMB; }
 
-	PartitionMemoryBlock(BlockAllocator *_alloc, u32 size, MemblockType type, u32 alignment)
+	PartitionMemoryBlock(BlockAllocator *_alloc, const char *_name, u32 size, MemblockType type, u32 alignment)
 	{
 		alloc = _alloc;
+		strncpy(name, _name, 32);
+		name[31] = '\0';
 
 		// 0 is used for save states to wake up.
 		if (size != 0)
@@ -422,12 +424,12 @@ public:
 			if (type == PSP_SMEM_Addr)
 			{
 				alignment &= ~0xFF;
-				address = alloc->AllocAt(alignment, size, "PMB");
+				address = alloc->AllocAt(alignment, size, name);
 			}
 			else if (type == PSP_SMEM_LowAligned || type == PSP_SMEM_HighAligned)
-				address = alloc->AllocAligned(size, alignment, type == PSP_SMEM_HighAligned, "PMB");
+				address = alloc->AllocAligned(size, alignment, type == PSP_SMEM_HighAligned, name);
 			else
-				address = alloc->Alloc(size, type == PSP_SMEM_High, "PMB");
+				address = alloc->Alloc(size, type == PSP_SMEM_High, name);
 			alloc->ListBlocks();
 		}
 	}
@@ -501,7 +503,7 @@ int sceKernelAllocPartitionMemory(int partition, const char *name, int type, u32
 		return SCE_ERROR_KERNEL_ILLEGAL_ALIGNMENT_SIZE;
 	}
 
-	PartitionMemoryBlock *block = new PartitionMemoryBlock(&userMemory, size, (MemblockType)type, addr);
+	PartitionMemoryBlock *block = new PartitionMemoryBlock(&userMemory, name, size, (MemblockType)type, addr);
 	if (!block->IsValid())
 	{
 		ERROR_LOG(HLE, "ARGH! sceKernelAllocPartitionMemory failed");
@@ -760,7 +762,7 @@ KernelObject *__KernelMemoryVPLObject()
 KernelObject *__KernelMemoryPMBObject()
 {
 	// TODO: We could theoretically handle kernelMemory too, but we don't support that now anyway.
-	return new PartitionMemoryBlock(&userMemory, 0, PSP_SMEM_Low, 0);
+	return new PartitionMemoryBlock(&userMemory, "", 0, PSP_SMEM_Low, 0);
 }
 
 // VPL = variable length memory pool
