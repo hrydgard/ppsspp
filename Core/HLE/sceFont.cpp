@@ -577,10 +577,16 @@ u32 sceFontOpenUserFile(u32 libHandle, const char *fileName, u32 mode, u32 error
 }
 
 int sceFontClose(u32 fontHandle) {
-	INFO_LOG(HLE, "sceFontClose(%x)", fontHandle);
 	LoadedFont *font = GetLoadedFont(fontHandle, false);
-	FontLib *fontLib = font->GetFontLib();
-	fontLib->CloseFont(font);
+	if (font)
+	{
+		INFO_LOG(HLE, "sceFontClose(%x)", fontHandle);
+		FontLib *fontLib = font->GetFontLib();
+		if (fontLib)
+			fontLib->CloseFont(font);
+	}
+	else
+		ERROR_LOG(HLE, "sceFontClose(%x) - font not open?", fontHandle);
 	return 0;
 }
 
