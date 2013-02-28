@@ -39,6 +39,7 @@ SOURCES += ../Core/CPU.cpp \ # Core
 	../Core/Dialog/*.cpp \
 	../Core/ELF/*.cpp \
 	../Core/FileSystems/*.cpp \
+	../Core/Font/*.cpp \
 	../Core/HLE/*.cpp \
 	../Core/HW/*.cpp \
 	../Core/MIPS/*.cpp \
@@ -68,6 +69,7 @@ HEADERS += ../Core/CPU.h \
 	../Core/Dialog/*.h \
 	../Core/ELF/*.h \
 	../Core/FileSystems/*.h \
+	../Core/Font/*.h \
 	../Core/HLE/*.h \
 	../Core/HW/*.h \
 	../Core/MIPS/*.h \
