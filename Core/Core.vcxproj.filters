@@ -49,6 +49,9 @@
     <Filter Include="Ext\Snappy">
       <UniqueIdentifier>{0b77054f-7fc7-4c33-ada3-762aecde69e5}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Font">
+      <UniqueIdentifier>{1c79e88d-1c48-450b-8af6-f22ce7d40c66}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ELF\ElfReader.cpp">
@@ -375,6 +378,10 @@
     <ClCompile Include="MIPS\ARM\ArmRegCacheFPU.cpp">
       <Filter>MIPS\ARM</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\sceChnnlsv.cpp" />
+    <ClCompile Include="Font\PGF.cpp">
+      <Filter>Font</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -531,9 +538,6 @@
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="Util\BlockAllocator.h">
-      <Filter>Util</Filter>
-    </ClInclude>
-    <ClInclude Include="Util\Pool.h">
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Debugger\Breakpoints.h">
@@ -694,6 +698,10 @@
     </ClInclude>
     <ClInclude Include="MIPS\ARM\ArmRegCacheFPU.h">
       <Filter>MIPS\ARM</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceChnnlsv.h" />
+    <ClInclude Include="Font\PGF.h">
+      <Filter>Font</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
