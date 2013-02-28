@@ -162,6 +162,7 @@ tests_next = [
   "io/iodrv/iodrv",
   "modules/loadexec/loader",
   "rtc/rtc",
+  "sysmem/partition",
   "sysmem/sysmem",
   "umd/io/umd_io",
   "umd/raw_access/raw_access",
