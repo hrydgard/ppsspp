@@ -2,6 +2,8 @@
 
 #include "base/timeutil.h"
 
+#include <cmath>
+
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
 #include "ChunkFile.h"
@@ -217,7 +219,7 @@ public:
 		Memory::ReadStruct(paramPtr, &params_);
 
 		// We use the same strange scheme that JPCSP uses.
-		int allocSize = 4 + 4 * params_.numFonts;
+		u32 allocSize = 4 + 4 * params_.numFonts;
 		PostAllocCallback *action = (PostAllocCallback*) __KernelCreateAction(actionPostAllocCallback);
 		action->SetFontLib(this);
 		u32 args[1] = { allocSize };
@@ -236,7 +238,7 @@ public:
 				fontMap.erase(fonts_[i]);
 			}
 		}
-		u32 args[1] = { handle_ };
+		u32 args[1] = { (u32)handle_ };
 		__KernelDirectMipsCall(params_.freeFuncAddr, 0, args, 1, false);
 		handle_ = 0;
 		fonts_.clear();
