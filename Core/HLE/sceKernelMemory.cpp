@@ -511,7 +511,6 @@ int sceKernelAllocPartitionMemory(int partition, const char *name, int type, u32
 		return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
 	}
 	SceUID uid = kernelObjects.Create(block);
-	strncpy(block->name, name, 32);
 
 	DEBUG_LOG(HLE,"%i = sceKernelAllocPartitionMemory(partition = %i, %s, type= %i, size= %i, addr= %08x)",
 		uid, partition, name, type, size, addr);
