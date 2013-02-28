@@ -273,7 +273,7 @@ void __UmdStatTimeout(u64 userdata, int cyclesLate)
 
 	for (size_t i = 0; i < umdWaitingThreads.size(); ++i)
 	{
-		if (umdWaitingThreads[i].threadID = threadID)
+		if (umdWaitingThreads[i].threadID == threadID)
 			umdWaitingThreads.erase(umdWaitingThreads.begin() + i--);
 	}
 }
