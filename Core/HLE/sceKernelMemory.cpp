@@ -491,13 +491,13 @@ int sceKernelAllocPartitionMemory(int partition, const char *name, int type, u32
 		WARN_LOG(HLE, "%08x=sceKernelAllocPartitionMemory(): invalid partition %x", SCE_KERNEL_ERROR_ILLEGAL_PARTITION, partition);
 		return SCE_KERNEL_ERROR_ILLEGAL_PARTITION;
 	}
-	if (type < 0 || type > 4)
+	if (type < PSP_SMEM_Low || type > PSP_SMEM_HighAligned)
 	{
 		WARN_LOG(HLE, "%08x=sceKernelAllocPartitionMemory(): invalid type %x", SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCKTYPE, type);
 		return SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCKTYPE;
 	}
 	// Alignment is only allowed for powers of 2.
-	if ((type == 3 || type == 4) && ((addr & (addr - 1)) != 0 || addr == 0))
+	if ((type == PSP_SMEM_LowAligned || type == PSP_SMEM_HighAligned) && ((addr & (addr - 1)) != 0 || addr == 0))
 	{
 		WARN_LOG(HLE, "%08x=sceKernelAllocPartitionMemory(): invalid alignment %x", SCE_ERROR_KERNEL_ILLEGAL_ALIGNMENT_SIZE, addr);
 		return SCE_ERROR_KERNEL_ILLEGAL_ALIGNMENT_SIZE;
