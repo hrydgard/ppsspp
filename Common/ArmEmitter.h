@@ -501,9 +501,9 @@ public:
 	// VFP Only
 	void VLDR(ARMReg Dest, ARMReg Base, u16 offset);
 	void VSTR(ARMReg Src,  ARMReg Base, u16 offset);
-	void VCMP(ARMReg Vd, ARMReg Vm);
+	void VCMP(ARMReg Vd, ARMReg Vm, bool E);
 	// Compares against zero
-	void VCMP(ARMReg Vd);
+	void VCMP(ARMReg Vd, bool E);
 	void VDIV(ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VSQRT(ARMReg Vd, ARMReg Vm);
 	
@@ -515,7 +515,7 @@ public:
 	void VMUL(ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VMOV(ARMReg Dest, ARMReg Src, bool high);
 	void VMOV(ARMReg Dest, ARMReg Src);
-	void VCVT(ARMReg Sd, ARMReg Sm, bool to_integer, bool is_signed, bool round_to_zero);
+	void VCVT(ARMReg Sd, ARMReg Sm, bool to_integer, bool is_signed, bool round_to_zero = false);
 
 	void QuickCallFunction(ARMReg scratchreg, void *func);
 	// Utility functions

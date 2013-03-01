@@ -138,7 +138,16 @@ void Jit::Comp_FPUComp(u32 op) {
 
 	case 6: //ole
 	case 14: //le
-		// CompFPComp(fs, ft, CMPLESS);
+		// This VCMP crashes on ARM11 with an exception.
+		/*
+		fpr.MapInIn(fpr.R(fs), fpr.R(ft));
+		VCMP(fpr.R(fs), fpr.R(ft));
+		MOVI2R(R0, (u32)&currentMIPS->fpcond);
+		SetCC(CC_LT);
+		// TODO: Should set R0 to 0 or 1
+		VSTR(fpr.R(fs), R0, 0);
+		SetCC(CC_AL);
+		*/
 		break;
 
 	case 7: //ule
