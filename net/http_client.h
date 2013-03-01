@@ -59,6 +59,7 @@ public:
 	void GET(const char *resource, Buffer *output);
 
 	// Return value is the HTTP return code.
+	int POST(const char *resource, const std::string &data, const std::string &mime, Buffer *output);
 	int POST(const char *resource, const std::string &data, Buffer *output);
 
 	// HEAD, PUT, DELETE aren't implemented yet.

@@ -39,7 +39,14 @@ bool Connection::Resolve(const char *host, int port) {
 	host_ = host;
 	port_ = port;
 
-	const char *ip = net::DNSResolve(host);
+	const char *err;
+	const char *ip = net::DNSResolveTry(host, &err);
+	if (ip == NULL) {
+		ELOG("Failed to resolve host %s", host);
+		// So that future calls fail.
+		port_ = 0;
+		return false;
+	}
 	// VLOG(1) << "Resolved " << host << " to " << ip;
 	remote_.sin_family = AF_INET;
 	int tmpres = inet_pton(AF_INET, ip, (void *)(&(remote_.sin_addr.s_addr)));
@@ -95,7 +102,7 @@ Client::~Client() {
 
 void Client::GET(const char *resource, Buffer *output) {
 	Buffer buffer;
-	const char *tpl = "GET %s HTTP/1.0\r\nHost: %s\r\n\r\n";
+	const char *tpl = "GET %s HTTP/1.0\r\nHost: %s\r\nUser-Agent: " USERAGENT "\r\n\r\n";
 	buffer.Printf(tpl, resource, host_.c_str());
 	CHECK(buffer.FlushSocket(sock()));
 
@@ -109,12 +116,16 @@ void Client::GET(const char *resource, Buffer *output) {
 	// output now contains the rest of the reply.
 }
 
-int Client::POST(const char *resource, const std::string &data, Buffer *output) {
+int Client::POST(const char *resource, const std::string &data, const std::string &mime, Buffer *output) {
 	Buffer buffer;
-	const char *tpl = "POST %s HTTP/1.0\r\nContent-Length: %d\r\n\r\n";
-	buffer.Printf(tpl, resource, (int)data.size());
+	const char *tpl = "POST %s HTTP/1.0\r\nHost: %s\r\nUser-Agent: " USERAGENT "\r\nContent-Length: %d\r\n";
+	buffer.Printf(tpl, resource, host_.c_str(), (int)data.size());
+	if (!mime.empty()) {
+		buffer.Printf("Content-Type: %s\r\n", mime.c_str());
+	}
+	buffer.Append("\r\n");
 	buffer.Append(data);
-	CHECK(buffer.Flush(sock()));
+	CHECK(buffer.FlushSocket(sock()));
 
 	// I guess we could add a deadline here.
 	output->ReadAll(sock());
@@ -143,6 +154,10 @@ int Client::POST(const char *resource, const std::string &data, Buffer *output) 
 	}
 	output->PeekAll(&debug_data);
 	return code;
+}
+
+int Client::POST(const char *resource, const std::string &data, Buffer *output) {
+	return POST(resource, data, "", output);
 }
 
 }	// http

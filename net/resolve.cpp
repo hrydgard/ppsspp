@@ -34,20 +34,32 @@ void Shutdown()
 #endif
 }
 
-char *DNSResolve(const char *host)
+char *DNSResolveTry(const char *host, const char **err)
 {
 	struct hostent *hent;
 	if((hent = gethostbyname(host)) == NULL)
 	{
-		perror("Can't get IP");
-		exit(1);
+		*err = "Can't get IP";
+		return NULL;
 	}
 	int iplen = 15; //XXX.XXX.XXX.XXX
 	char *ip = (char *)malloc(iplen+1);
 	memset(ip, 0, iplen+1);
 	if(inet_ntop(AF_INET, (void *)hent->h_addr_list[0], ip, iplen) == NULL)
 	{
-		perror("Can't resolve host");
+		*err = "Can't resolve host";
+		return NULL;
+	}
+	return ip;
+}
+
+char *DNSResolve(const char *host)
+{
+	const char *err;
+	char *ip = DNSResolveTry(host, &err);
+	if (ip == NULL)
+	{
+		perror(err);
 		exit(1);
 	}
 	return ip;

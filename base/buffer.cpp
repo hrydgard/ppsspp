@@ -109,16 +109,26 @@ bool Buffer::Flush(int fd) {
 }
 
 bool Buffer::FlushSocket(uintptr_t sock) {
-  // TODO: send may need retries!
-  size_t sent = send(sock, &data_[0], data_.size(), 0);
-  // bool success = fd_util::WriteLine(fd, data_.data(), data_.size());
-  if (sent == data_.size()) {
-    data_.resize(0);
-    return true;
-  } else {
-    ELOG("FlushSocket failed");
-    return false;
+  for (size_t pos = 0, end = data_.size(); pos < end; ) {
+    size_t sent = send(sock, &data_[pos], end - pos, 0);
+    if (sent < 0) {
+      ELOG("FlushSocket failed");
+      return false;
+    }
+    pos += sent;
+
+    // Buffer full, don't spin.
+    if (sent == 0) {
+#ifdef _WIN32
+      Sleep(1);
+#else
+      sleep(1);
+#endif
+    }
   }
+
+  data_.resize(0);
+  return true;
 }
 
 void Buffer::ReadAll(int fd) {
