@@ -111,10 +111,10 @@ void Client::GET(const char *resource, Buffer *output) {
 
 int Client::POST(const char *resource, const std::string &data, Buffer *output) {
 	Buffer buffer;
-	const char *tpl = "POST %s HTTP/1.0\r\nContent-Length: %d\r\n\r\n";
-	buffer.Printf(tpl, resource, (int)data.size());
+	const char *tpl = "POST %s HTTP/1.0\r\nHost: %s\r\nContent-Length: %d\r\n\r\n";
+	buffer.Printf(tpl, resource, host_.c_str(), (int)data.size());
 	buffer.Append(data);
-	CHECK(buffer.Flush(sock()));
+	CHECK(buffer.FlushSocket(sock()));
 
 	// I guess we could add a deadline here.
 	output->ReadAll(sock());
