@@ -49,6 +49,7 @@ public:
 	bool bIgnoreBadMemAccess;
 	bool bFastMemory;
 	bool bJit;
+	std::string sReportHost;
 
 	// GFX
 	bool bDisplayFramebuffer;
