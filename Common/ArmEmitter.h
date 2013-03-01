@@ -515,7 +515,7 @@ public:
 	void VMUL(ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VMOV(ARMReg Dest, ARMReg Src, bool high);
 	void VMOV(ARMReg Dest, ARMReg Src);
-	void VCVT(bool to_integer, bool is_signed, bool round_to_zero, ARMReg Sd, ARMReg Sm);
+	void VCVT(ARMReg Sd, ARMReg Sm, bool to_integer, bool is_signed, bool round_to_zero);
 
 	void QuickCallFunction(ARMReg scratchreg, void *func);
 	// Utility functions
