@@ -65,7 +65,7 @@ u32 BlockAllocator::AllocAligned(u32 &size, u32 grain, bool fromTop, const char 
 		//Allocate from bottom of mem
 		for (std::list<Block>::iterator iter = blocks.begin(); iter != blocks.end(); iter++)
 		{
-			BlockAllocator::Block &b = *iter;
+			Block &b = *iter;
 			u32 offset = b.start % grain;
 			if (offset != 0)
 				offset = grain - offset;
@@ -94,8 +94,7 @@ u32 BlockAllocator::AllocAligned(u32 &size, u32 grain, bool fromTop, const char 
 		// Allocate from top of mem.
 		for (std::list<Block>::reverse_iterator iter = blocks.rbegin(); iter != blocks.rend(); ++iter)
 		{
-			std::list<Block>::reverse_iterator hey = iter;
-			BlockAllocator::Block &b = *((++hey).base()); //yes, confusing syntax. reverse_iterators are confusing
+			Block &b = *iter;
 			u32 offset = (b.start + b.size - size) % grain;
 			u32 needed = offset + size;
 			if (b.taken == false && b.size >= needed)
@@ -108,7 +107,8 @@ u32 BlockAllocator::AllocAligned(u32 &size, u32 grain, bool fromTop, const char 
 				}
 				else
 				{
-					blocks.insert(hey.base(), Block(b.start, b.size - needed, false));
+					std::list<Block>::iterator pos = iter.base();
+					blocks.insert(--pos, Block(b.start, b.size - needed, false));
 					b.taken = true;
 					b.start += b.size - needed;
 					b.size = needed;
