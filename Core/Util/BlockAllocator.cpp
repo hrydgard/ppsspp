@@ -67,6 +67,8 @@ u32 BlockAllocator::AllocAligned(u32 &size, u32 grain, bool fromTop, const char 
 		{
 			BlockAllocator::Block &b = *iter;
 			u32 offset = b.start % grain;
+			if (offset != 0)
+				offset = grain - offset;
 			u32 needed = offset + size;
 			if (b.taken == false && b.size >= needed)
 			{
@@ -94,7 +96,7 @@ u32 BlockAllocator::AllocAligned(u32 &size, u32 grain, bool fromTop, const char 
 		{
 			std::list<Block>::reverse_iterator hey = iter;
 			BlockAllocator::Block &b = *((++hey).base()); //yes, confusing syntax. reverse_iterators are confusing
-			u32 offset = b.start % grain;
+			u32 offset = (b.start + b.size - size) % grain;
 			u32 needed = offset + size;
 			if (b.taken == false && b.size >= needed)
 			{
@@ -102,7 +104,7 @@ u32 BlockAllocator::AllocAligned(u32 &size, u32 grain, bool fromTop, const char 
 				{
 					b.taken = true;
 					b.SetTag(tag);
-					return b.start + offset;
+					return b.start;
 				}
 				else
 				{
@@ -111,7 +113,7 @@ u32 BlockAllocator::AllocAligned(u32 &size, u32 grain, bool fromTop, const char 
 					b.start += b.size - needed;
 					b.size = needed;
 					b.SetTag(tag);
-					return b.start + offset;
+					return b.start;
 				}
 			}
 		}
