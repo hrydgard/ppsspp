@@ -383,6 +383,9 @@
       <Filter>Font</Filter>
     </ClCompile>
     <ClCompile Include="..\git-version.cpp" />
+    <ClCompile Include="Reporting.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -703,6 +706,9 @@
     <ClInclude Include="HLE\sceChnnlsv.h" />
     <ClInclude Include="Font\PGF.h">
       <Filter>Font</Filter>
+    </ClInclude>
+    <ClInclude Include="Reporting.h">
+      <Filter>Core</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
