@@ -90,18 +90,20 @@ namespace Reporting
 
 		// TODO: Use a thread, enable on non-Windows.
 #ifdef _MSC_VER
-		char temp[32768];
+		const int MESSAGE_BUFFER_SIZE = 32768;
+		char temp[MESSAGE_BUFFER_SIZE];
 		char *tempPos = &temp[0];
 
-		// TODO: application/x-www-urlencoded?  Need to escape.
+		// TODO: Need to escape these values.
 		tempPos += sprintf(tempPos, "version=%s&game=%s_%s&message=",
 			PPSSPP_GIT_VERSION,
 			g_paramSFO.GetValueString("DISC_ID").c_str(),
 			g_paramSFO.GetValueString("DISC_VERSION").c_str());
 
+		// TODO: And escape this, plus it can't be done on thread.
 		va_list args;
 		va_start(args, message);
-		vsprintf(tempPos, message, args);
+		vsnprintf(tempPos, temp + MESSAGE_BUFFER_SIZE - tempPos, message, args);
 		va_end(args);
 
 		Buffer output;
@@ -110,7 +112,7 @@ namespace Reporting
 		if (http.Resolve(ServerHostname(), ServerPort()))
 		{
 			http.Connect();
-			http.POST("/report/message", temp, &output);
+			http.POST("/report/message", temp, "application/x-www-urlencoded", &output);
 			http.Disconnect();
 		}
 		net::Shutdown();
