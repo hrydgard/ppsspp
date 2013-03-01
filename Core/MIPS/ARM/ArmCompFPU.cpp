@@ -108,7 +108,8 @@ void Jit::Comp_FPUComp(u32 op) {
 	switch (op & 0xf) 	{
 	case 0: //f
 	case 8: //sf
-		// MOV(32, M((void *) &currentMIPS->fpcond), Imm32(0));
+		/*MOVI2R(R0, (u32)&currentMIPS->fpcond);
+		MOV(R0, Operand2(0));*/
 		break;
 
 	case 1: //un
@@ -210,7 +211,7 @@ void Jit::Comp_FPU2op(u32 op)
 		break;
 	case 32: //F(fd)   = (float)FsI(fs);          break; //cvt.s.w
 		fpr.MapDirtyIn(fd, fs);
-		VCVT(fpr.R(fd), fpr.R(fs), false, false);
+		VCVT(fpr.R(fd), fpr.R(fs), false, true);
 		break;
 	case 36: //FsI(fd) = (int)  F(fs);            break; //cvt.w.s
 		fpr.MapDirtyIn(fd, fs);
