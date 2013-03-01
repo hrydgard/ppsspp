@@ -95,7 +95,7 @@ Client::~Client() {
 
 void Client::GET(const char *resource, Buffer *output) {
 	Buffer buffer;
-	const char *tpl = "GET %s HTTP/1.0\r\nHost: %s\r\n\r\n";
+	const char *tpl = "GET %s HTTP/1.0\r\nHost: %s\r\nUser-Agent: " USERAGENT "\r\n\r\n";
 	buffer.Printf(tpl, resource, host_.c_str());
 	CHECK(buffer.FlushSocket(sock()));
 
@@ -111,7 +111,7 @@ void Client::GET(const char *resource, Buffer *output) {
 
 int Client::POST(const char *resource, const std::string &data, Buffer *output) {
 	Buffer buffer;
-	const char *tpl = "POST %s HTTP/1.0\r\nHost: %s\r\nContent-Length: %d\r\n\r\n";
+	const char *tpl = "POST %s HTTP/1.0\r\nHost: %s\r\nUser-Agent: " USERAGENT "\r\nContent-Length: %d\r\n\r\n";
 	buffer.Printf(tpl, resource, host_.c_str(), (int)data.size());
 	buffer.Append(data);
 	CHECK(buffer.FlushSocket(sock()));
