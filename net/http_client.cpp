@@ -39,7 +39,14 @@ bool Connection::Resolve(const char *host, int port) {
 	host_ = host;
 	port_ = port;
 
-	const char *ip = net::DNSResolve(host);
+	const char *err;
+	const char *ip = net::DNSResolveTry(host, &err);
+	if (ip == NULL) {
+		ELOG("Failed to resolve host %s", host);
+		// So that future calls fail.
+		port_ = 0;
+		return false;
+	}
 	// VLOG(1) << "Resolved " << host << " to " << ip;
 	remote_.sin_family = AF_INET;
 	int tmpres = inet_pton(AF_INET, ip, (void *)(&(remote_.sin_addr.s_addr)));
