@@ -28,6 +28,12 @@
 namespace Reporting
 {
 	const int DEFAULT_PORT = 80;
+	const int SPAM_LIMIT = 100;
+
+	// Internal limiter on number of requests per instance.
+	static u32 spamProtectionCount = 0;
+	// Temporarily stores a reference to the hostname.
+	static std::string lastHostname;
 
 	static size_t ServerHostnameLength()
 	{
@@ -46,7 +52,6 @@ namespace Reporting
 			return g_Config.sReportHost.find(':');
 	}
 
-	static std::string lastHostname;
 	static const char *ServerHostname()
 	{
 		if (g_Config.sReportHost.empty())
@@ -80,9 +85,37 @@ namespace Reporting
 		return atoi(port.c_str());
 	}
 
+	// Should only be called once per request.
+	bool CheckSpamLimited()
+	{
+		return ++spamProtectionCount >= SPAM_LIMIT;
+	}
+
+	bool SendReportRequest(const char *uri, const std::string &data, Buffer *output = NULL)
+	{
+		bool result = false;
+		http::Client http;
+		Buffer theVoid;
+
+		if (output == NULL)
+			output = &theVoid;
+
+		net::Init();
+		if (http.Resolve(ServerHostname(), ServerPort()))
+		{
+			http.Connect();
+			http.POST("/report/message", data, "application/x-www-urlencoded", output);
+			http.Disconnect();
+			result = true;
+		}
+		net::Shutdown();
+
+		return result;
+	}
+
 	void ReportMessage(const char *message, ...)
 	{
-		if (g_Config.sReportHost.empty())
+		if (g_Config.sReportHost.empty() || CheckSpamLimited())
 			return;
 		// Disabled by default for now.
 		if (g_Config.sReportHost.compare("default") == 0)
@@ -106,16 +139,7 @@ namespace Reporting
 		vsnprintf(tempPos, temp + MESSAGE_BUFFER_SIZE - tempPos, message, args);
 		va_end(args);
 
-		Buffer output;
-		http::Client http;
-		net::Init();
-		if (http.Resolve(ServerHostname(), ServerPort()))
-		{
-			http.Connect();
-			http.POST("/report/message", temp, "application/x-www-urlencoded", &output);
-			http.Disconnect();
-		}
-		net::Shutdown();
+		SendReportRequest("/report/message", temp);
 #endif
 	}
 
