@@ -93,6 +93,29 @@ bool Load_PSP_ISO(const char *filename, std::string *error_string)
 	if (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/SYSDIR/EBOOT.DAT").exists) {
 		bootpath = "disc0:/PSP_GAME/SYSDIR/EBOOT.DAT";
 	}
+	// bypass more patchers
+	if (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/SYSDIR/EBOOT.BI").exists) {
+		bootpath = "disc0:/PSP_GAME/SYSDIR/EBOOT.BI";
+	}
+	if (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/SYSDIR/EBOOT.LLD").exists) {
+		bootpath = "disc0:/PSP_GAME/SYSDIR/EBOOT.LLD";
+	}
+	if (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/SYSDIR/OLD_EBOOT.BIN").exists) {
+		bootpath = "disc0:/PSP_GAME/SYSDIR/OLD_EBOOT.BIN";
+	}
+	if (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/SYSDIR/EBOOT.123").exists) {
+		bootpath = "disc0:/PSP_GAME/SYSDIR/EBOOT.123";
+	}
+	if (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/SYSDIR/EBOOT_LRC_CH.BIN").exists) {
+		bootpath = "disc0:/PSP_GAME/SYSDIR/EBOOT_LRC_CH.BIN";
+	}
+	if (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/SYSDIR/BOOT0.OLD").exists) {
+		bootpath = "disc0:/PSP_GAME/SYSDIR/BOOT0.OLD";
+	}
+	if (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/SYSDIR/BOOT1.OLD").exists) {
+		bootpath = "disc0:/PSP_GAME/SYSDIR/BOOT1.OLD";
+	}
+
 	bool hasEncrypted = false;
 	u32 fd;
 	if ((fd = pspFileSystem.OpenFile(bootpath, FILEACCESS_READ)) != 0)
