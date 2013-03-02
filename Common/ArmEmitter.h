@@ -32,6 +32,12 @@
 #undef _LR
 #undef _PC
 
+// VCVT flags
+#define TO_FLOAT      0
+#define TO_INT        1 << 0
+#define IS_SIGNED     1 << 1
+#define ROUND_TO_ZERO 1 << 2
+
 namespace ArmGen
 {
 enum ARMReg
@@ -466,7 +472,7 @@ public:
 	// Using just MSR here messes with our defines on the PPC side of stuff (when this code was in dolphin...)
 	// Just need to put an underscore here, bit annoying.
 	void _MSR (bool nzcvq, bool g, Operand2 op2);
-	void _MSR (bool nzcvq, bool g, ARMReg src	   );
+	void _MSR (bool nzcvq, bool g, ARMReg src);
 	void MRS  (ARMReg dest);
 
 	// Memory load/store operations
@@ -528,7 +534,7 @@ public:
 	void VMUL(ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VMOV(ARMReg Dest, ARMReg Src, bool high);
 	void VMOV(ARMReg Dest, ARMReg Src);
-	void VCVT(ARMReg Sd, ARMReg Sm, bool to_integer, bool is_signed, bool round_to_zero = false);
+	void VCVT(ARMReg Sd, ARMReg Sm, int flags);
 
 	void QuickCallFunction(ARMReg scratchreg, void *func);
 	// Utility functions
