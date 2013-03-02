@@ -508,7 +508,7 @@ static char *credits[] =
 void CreditsScreen::render() {
 	// TODO: This is kinda ugly, done on every frame...
 	char temp[256];
-	snprinf(temp, 256, "PPSSPP %s", PPSSPP_GIT_VERSION);
+	snprintf(temp, 256, "PPSSPP %s", PPSSPP_GIT_VERSION);
 	credits[0] = temp;
 
 	UIShader_Prepare();
