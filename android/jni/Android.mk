@@ -187,7 +187,8 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/MIPS/ARM/ArmRegCacheFPU.cpp \
   $(SRC)/Core/Util/BlockAllocator.cpp \
   $(SRC)/Core/Util/ppge_atlas.cpp \
-  $(SRC)/Core/Util/PPGeDraw.cpp
+  $(SRC)/Core/Util/PPGeDraw.cpp \
+  $(SRC)/git-version.cpp
 
 
 include $(BUILD_SHARED_LIBRARY)
