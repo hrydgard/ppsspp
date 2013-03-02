@@ -120,7 +120,7 @@ namespace MIPSComp
 	}
 
 	void Jit::GetVectorRegsPrefixD(u8 *regs, VectorSize sz, int vectorReg) {
-		_assert_(js.prefixDFlag & JitState::PREFIX_KNOWN);
+		_assert_(js.prefixDFlag & ArmJitState::PREFIX_KNOWN);
 
 		GetVectorRegs(regs, sz, vectorReg);
 		if (js.prefixD == 0)
@@ -136,7 +136,7 @@ namespace MIPSComp
 	}
 
 	void Jit::ApplyPrefixD(const u8 *vregs, VectorSize sz) {
-		_assert_(js.prefixDFlag & JitState::PREFIX_KNOWN);
+		_assert_(js.prefixDFlag & ArmJitState::PREFIX_KNOWN);
 		if (!js.prefixD) return;
 
 		int n = GetNumVectorElements(sz);

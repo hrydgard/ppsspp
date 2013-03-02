@@ -382,6 +382,7 @@
     <ClCompile Include="Font\PGF.cpp">
       <Filter>Font</Filter>
     </ClCompile>
+    <ClCompile Include="..\git-version.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
