@@ -136,6 +136,7 @@ if(NOT MSVC)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libstdc++")
 	elseif(APPLE)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
+		set(CMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY "libc++")
 	endif()
 	if(CMAKE_COMPILER_IS_GNUCXX AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.7.0)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
@@ -823,10 +824,22 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Util/ppge_atlas.cpp
 	Core/Util/ppge_atlas.h
 	$<TARGET_OBJECTS:GPU>
-	Globals.h)
+	Globals.h
+	git-version.cpp)
 target_link_libraries(${CoreLibName} Common native kirk cityhash
 	${GLEW_LIBRARIES} ${OPENGL_LIBRARIES})
 setup_target_project(${CoreLibName} Core)
+
+# Generate git-version.cpp at build time.
+add_custom_target(GitVersion ALL
+	DEPENDS something_that_never_exists)
+add_custom_command(OUTPUT something_that_never_exists
+	COMMAND ${CMAKE_COMMAND} -DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
+		-P ${CMAKE_CURRENT_SOURCE_DIR}/git-version.cmake)
+
+set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/git-version.cpp
+	PROPERTIES GENERATED TRUE)
+add_dependencies(${CoreLibName} GitVersion)
 
 add_library(GPU OBJECT
 	GPU/GLES/DisplayListInterpreter.cpp

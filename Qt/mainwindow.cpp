@@ -884,7 +884,7 @@ void MainWindow::SetZoom(float zoom) {
 
 void MainWindow::SetGameTitle(QString text)
 {
-	QString title = "PPSSPP " + QString(PPSSPP_VERSION_STR);
+	QString title = "PPSSPP " + QString(PPSSPP_GIT_VERSION);
 	if (text != "")
 		title += QString(" - %1").arg(text);
 
