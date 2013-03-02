@@ -394,6 +394,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	// to blit the framebuffer, in order to support half-framerate games that otherwise wouldn't have
 	// anything to draw here.
 	gstate_c.skipDrawReason &= ~SKIPDRAW_SKIPFRAME;
+	glstate.colorMask.set(true,true,true,true);
 
 	bool throttle, skipFrame, skipFlip;
 	
