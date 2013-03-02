@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/StdThread.h"
 #include "Core/Config.h"
 #include "Core/System.h"
 
@@ -24,16 +25,12 @@
 
 #include <stdlib.h>
 #include <string>
-
-// TODO: Probably this works on non-Windows/Qt too.
-#ifdef _MSC_VER
-#include "Common/StdThread.h"
-#endif
+#include <cstdarg>
 
 namespace Reporting
 {
 	const int DEFAULT_PORT = 80;
-	const int SPAM_LIMIT = 100;
+	const u32 SPAM_LIMIT = 100;
 	const int PAYLOAD_BUFFER_SIZE = 100;
 
 	// Internal limiter on number of requests per instance.
@@ -168,8 +165,6 @@ namespace Reporting
 		if (g_Config.sReportHost.compare("default") == 0)
 			return;
 
-		// TODO: Enable on non-Windows.
-#ifdef _MSC_VER
 		const int MESSAGE_BUFFER_SIZE = 32768;
 		char temp[MESSAGE_BUFFER_SIZE];
 
@@ -186,7 +181,6 @@ namespace Reporting
 
 		std::thread th(Process, pos);
 		th.detach();
-#endif
 	}
 
 }
