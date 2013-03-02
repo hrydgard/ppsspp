@@ -358,6 +358,8 @@ u32 sceKernelStopVTimer(u32 uid) {
 		__stopVTimer(vt);
 		return 1;
 	}
+
+	return error;
 }
 
 u32 sceKernelSetVTimerHandler(u32 uid, u32 scheduleAddr, u32 handlerFuncAddr, u32 commonAddr) {
