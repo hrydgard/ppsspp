@@ -803,6 +803,11 @@ void ARMXEmitter::VCMP(ARMReg Vd, bool E)
 			| (E << 7) | (0x2C << 6)); 
 	}
 }
+
+void ARMXEmitter::VMRS_APSR() {
+	Write32(0xEEF10A10 | (15 << 12));
+}
+
 void ARMXEmitter::VDIV(ARMReg Vd, ARMReg Vn, ARMReg Vm)
 {
 	_assert_msg_(DYNA_REC, Vd < Q0, "Pased invalid dest register to VSQRT");

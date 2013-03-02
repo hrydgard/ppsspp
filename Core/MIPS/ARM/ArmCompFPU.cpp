@@ -101,59 +101,70 @@ void Jit::Comp_FPULS(u32 op)
 }
 
 void Jit::Comp_FPUComp(u32 op) {
-	DISABLE;
 	int fs = _FS;
 	int ft = _FT;
+
+	// See http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0204j/Chdhcfbc.html
+	// for the flags after VCMP.
+	// Also, need to copy the flags from FPSCR to the APSR through VMRS.
 
 	switch (op & 0xf) 	{
 	case 0: //f
 	case 8: //sf
-		/*MOVI2R(R0, (u32)&currentMIPS->fpcond);
-		MOV(R0, Operand2(0));*/
+		MOVI2R(R0, 0);
+		STR(CTXREG, R0, offsetof(MIPSState, fpcond));
 		break;
 
 	case 1: //un
 	case 9: //ngle
 		// CompFPComp(fs, ft, CMPUNORDSS);
+		DISABLE;
 		break;
 
 	case 2: //eq
 	case 10: //seq
 		// CompFPComp(fs, ft, CMPEQSS);
+		DISABLE;
 		break;
 
 	case 3: //ueq
 	case 11: //ngl
 		// CompFPComp(fs, ft, CMPEQSS, true);
+		DISABLE;
 		break;
 
 	case 4: //olt
 	case 12: //lt
 		// CompFPComp(fs, ft, CMPLTSS);
+		DISABLE;
 		break;
 
 	case 5: //ult
 	case 13: //nge
 		// CompFPComp(ft, fs, CMPNLESS);
+		DISABLE;
 		break;
 
 	case 6: //ole
 	case 14: //le
-		// This VCMP crashes on ARM11 with an exception.
-		/*
-		fpr.MapInIn(fpr.R(fs), fpr.R(ft));
+		DISABLE;
+		// ?? This VCMP crashes on ARM11 with an exception.
+		// Also, this doesn't actually work correctly yet. I'm not sure why.
+		fpr.MapInIn(fs, ft);
 		VCMP(fpr.R(fs), fpr.R(ft));
-		MOVI2R(R0, (u32)&currentMIPS->fpcond);
-		SetCC(CC_LT);
-		// TODO: Should set R0 to 0 or 1
-		VSTR(fpr.R(fs), R0, 0);
+		VMRS_APSR();  // Move FP flags from FPSCR to APSR (regular flags).
+		SetCC(CC_GT);
+		MOVI2R(R0, 0);
+		SetCC(CC_LE);
+		MOVI2R(R0, 1);
 		SetCC(CC_AL);
-		*/
+		STR(CTXREG, R0, offsetof(MIPSState, fpcond));
 		break;
 
 	case 7: //ule
 	case 15: //ngt
 		// CompFPComp(ft, fs, CMPNLTSS);
+		DISABLE;
 		break;
 
 	default:

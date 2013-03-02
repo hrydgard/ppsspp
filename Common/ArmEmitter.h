@@ -536,6 +536,8 @@ public:
 	void VMOV(ARMReg Dest, ARMReg Src);
 	void VCVT(ARMReg Sd, ARMReg Sm, int flags);
 
+	void VMRS_APSR();
+
 	void QuickCallFunction(ARMReg scratchreg, void *func);
 	// Utility functions
 	void MOVI2R(ARMReg reg, u32 val, bool optimize = true);
