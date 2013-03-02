@@ -111,7 +111,7 @@ bool Buffer::Flush(int fd) {
 
 bool Buffer::FlushSocket(uintptr_t sock) {
   for (size_t pos = 0, end = data_.size(); pos < end; ) {
-    size_t sent = send(sock, &data_[pos], end - pos, 0);
+    int sent = send(sock, &data_[pos], end - pos, 0);
     if (sent < 0) {
       ELOG("FlushSocket failed");
       return false;
