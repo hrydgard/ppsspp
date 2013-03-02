@@ -455,14 +455,9 @@ u32 sceDisplaySetMode(u32 unknown, u32 xres, u32 yres) {
 	return 0;
 }
 
-u32 sceDisplaySetFramebuf() {
-	u32 topaddr = PARAM(0);
-	int linesize = PARAM(1);
-	int pixelformat = PARAM(2);
-	int sync = PARAM(3);
-
+u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) {
 	FrameBufferState fbstate;
-	DEBUG_LOG(HLE,"sceDisplaySetFramebuf(topaddr=%08x,linesize=%d,pixelsize=%d,sync=%d)",topaddr,linesize,pixelformat,sync);
+	DEBUG_LOG(HLE,"sceDisplaySetFramebuf(topaddr=%08x,linesize=%d,pixelsize=%d,sync=%d)", topaddr, linesize, pixelformat, sync);
 	if (topaddr == 0) {
 		DEBUG_LOG(HLE,"- screen off");
 	} else {
@@ -502,8 +497,7 @@ bool __DisplayGetFramebuf(u8 **topaddr, u32 *linesize, u32 *pixelFormat, int mod
 
 u32 sceDisplayGetFramebuf(u32 topaddrPtr, u32 linesizePtr, u32 pixelFormatPtr, int mode) {
 	const FrameBufferState &fbState = mode == 1 ? latchedFramebuf : framebuf;
-	DEBUG_LOG(HLE,"sceDisplayGetFramebuf(*%08x = %08x, *%08x = %08x, *%08x = %08x, %i)",
-		topaddrPtr, fbState.topaddr, linesizePtr, fbState.pspFramebufLinesize, pixelFormatPtr, fbState.pspFramebufFormat, mode);
+	DEBUG_LOG(HLE,"sceDisplayGetFramebuf(*%08x = %08x, *%08x = %08x, *%08x = %08x, %i)", topaddrPtr, fbState.topaddr, linesizePtr, fbState.pspFramebufLinesize, pixelFormatPtr, fbState.pspFramebufFormat, mode);
 
 	if (Memory::IsValidAddress(topaddrPtr))
 		Memory::Write_U32(fbState.topaddr, topaddrPtr);
@@ -599,7 +593,7 @@ float sceDisplayGetFramePerSec() {
 
 const HLEFunction sceDisplay[] = {
 	{0x0E20F177,WrapU_UUU<sceDisplaySetMode>, "sceDisplaySetMode"},
-	{0x289D82FE,WrapU_V<sceDisplaySetFramebuf>, "sceDisplaySetFramebuf"},
+	{0x289D82FE,WrapU_UIII<sceDisplaySetFramebuf>, "sceDisplaySetFramebuf"},
 	{0xEEDA2E54,WrapU_UUUI<sceDisplayGetFramebuf>,"sceDisplayGetFrameBuf"},
 	{0x36CDFADE,WrapU_V<sceDisplayWaitVblank>, "sceDisplayWaitVblank"},
 	{0x984C27E7,WrapU_V<sceDisplayWaitVblankStart>, "sceDisplayWaitVblankStart"},
