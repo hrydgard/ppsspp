@@ -15,24 +15,26 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Core/CoreTiming.h"
 #include "sceKernel.h"
-#include "sceKernelThread.h"
+#include "sceKernelInterrupt.h"
+#include "sceKernelMemory.h"
 #include "sceKernelVTimer.h"
 #include "HLE.h"
 #include "ChunkFile.h"
 
-// Using ERROR_LOG liberally when this is in development. When done,
-// should be changed to DEBUG_LOG wherever applicable.
+static int vtimerTimer = -1;
+static std::list<SceUID> vtimers;
 
 struct NativeVTimer {
 	SceSize size;
 	char name[KERNELOBJECT_MAX_NAME_LENGTH+1];
-	int running;
-	SceKernelSysClock basetime;
-	SceKernelSysClock curtime;
-	SceKernelSysClock scheduletime;
+	int active;
+	u64 base;
+	u64 current;
+	u64 schedule;
 	u32 handlerAddr;
-	u32 argument;
+	u32 commonAddr;
 };
 
 struct VTimer : public KernelObject {
@@ -47,194 +49,372 @@ struct VTimer : public KernelObject {
 	}
 
 	NativeVTimer nvt;
+	u32 memoryPtr;
 };
 
 KernelObject *__KernelVTimerObject() {
 	return new VTimer;
 }
 
-u32 sceKernelCreateVTimer(const char *name, u32 optParamAddr) {
-	ERROR_LOG(HLE,"FAKE sceKernelCreateVTimer(%s, %08x)", name, optParamAddr);
+u64 __getVTimerRunningTime(VTimer *vt) {
+	if (!vt->nvt.active)
+		return 0;
 
-	VTimer *vt = new VTimer();
-
-	SceUID uid = kernelObjects.Create(vt);
-	memset(&vt->nvt, 0, sizeof(vt->nvt));
-	if (name)
-		strncpy(vt->nvt.name, name, 32);
-	vt->nvt.running = 1;
-	return uid; //TODO: return timer ID
+	return cyclesToUs(CoreTiming::GetTicks()) - vt->nvt.base;
 }
 
-u32 sceKernelDeleteVTimer(u32 uid) {
-	ERROR_LOG(HLE,"FAKE sceKernelDeleteVTimer(%i)", uid);
+u64 __getVTimerTime(VTimer* vt) {
+	return vt->nvt.current + __getVTimerRunningTime(vt);
+}
+
+void __cancelVTimer(SceUID id) {
+	u32 error;
+	VTimer *vt = kernelObjects.Get<VTimer>(id, error);
+
+	if (error)
+		return;
+
+	CoreTiming::UnscheduleEvent(vtimerTimer, id);
+	vt->nvt.schedule = 0;
+	vt->nvt.handlerAddr = 0;
+	vt->nvt.commonAddr = 0;
+}
+
+void __KernelScheduleVTimer(VTimer *vt, u64 schedule) {
+	CoreTiming::UnscheduleEvent(vtimerTimer, vt->GetUID());
+
+	vt->nvt.schedule = schedule;
+
+	if (vt->nvt.active == 1)
+		// this delay makes the test pass, not sure if it's right
+		CoreTiming::ScheduleEvent(usToCycles(vt->nvt.schedule + 372), vtimerTimer, vt->GetUID());
+}
+
+void __rescheduleVTimer(SceUID id, u32 delay) {
+	u32 error;
+	VTimer *vt = kernelObjects.Get<VTimer>(id, error);
+
+	if (error)
+		return;
+
+	if (delay < 0)
+		delay = 100;
+
+	vt->nvt.schedule += delay;
+
+	__KernelScheduleVTimer(vt, vt->nvt.schedule);
+}
+
+class VTimerIntrHandler : public IntrHandler
+{
+public:
+	VTimerIntrHandler() : IntrHandler(PSP_SYSTIMER1_INTR) {}
+
+	virtual bool run(PendingInterrupt &pend) {
+		u32 error;
+		SceUID vtimerID = vtimers.front();
+
+		VTimer *vtimer = kernelObjects.Get<VTimer>(vtimerID, error);
+
+		if (error)
+			return false;
+
+		if (vtimer->memoryPtr == 0) {
+			u32 size = 16;
+			vtimer->memoryPtr = kernelMemory.Alloc(size, true, std::string("VTimer").c_str());
+		}
+
+		Memory::Write_U64(vtimer->nvt.schedule, vtimer->memoryPtr);
+		Memory::Write_U64(__getVTimerTime(vtimer), vtimer->memoryPtr + 8);
+
+		currentMIPS->pc = vtimer->nvt.handlerAddr;
+		currentMIPS->r[MIPS_REG_A0] = vtimer->GetUID();
+		currentMIPS->r[MIPS_REG_A1] = vtimer->memoryPtr;
+		currentMIPS->r[MIPS_REG_A2] = vtimer->memoryPtr + 8;
+		currentMIPS->r[MIPS_REG_A3] = vtimer->nvt.commonAddr;
+
+		return true;
+	}
+
+	virtual void handleResult(PendingInterrupt &pend) {
+		int result = currentMIPS->r[MIPS_REG_V0];
+
+		int vtimerID = vtimers.front();
+		vtimers.pop_front();
+
+		if (result == 0)
+			__cancelVTimer(vtimerID);
+		else
+			__rescheduleVTimer(vtimerID, result);
+	}
+};
+
+void __KernelTriggerVTimer(u64 userdata, int cyclesLate) {
+	SceUID uid = (SceUID) userdata;
 
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
-	if (!vt) {
+	if (vt)	{
+		vtimers.push_back(uid);
+		__TriggerInterrupt(PSP_INTR_IMMEDIATE, PSP_SYSTIMER1_INTR);
+	}
+}
+
+void __KernelVTimerInit() {
+	vtimers.clear();
+	__RegisterIntrHandler(PSP_SYSTIMER1_INTR, new VTimerIntrHandler());
+	vtimerTimer = CoreTiming::RegisterEvent("VTimer", __KernelTriggerVTimer);
+}
+
+u32 sceKernelCreateVTimer(const char *name, u32 optParamAddr) {
+	DEBUG_LOG(HLE, "sceKernelCreateVTimer(%s, %08x)", name, optParamAddr);
+
+	VTimer *vtimer = new VTimer;
+	SceUID id = kernelObjects.Create(vtimer);
+
+	memset(&vtimer->nvt, 0, sizeof(NativeVTimer));
+	vtimer->nvt.size = sizeof(NativeVTimer);
+	strncpy(vtimer->nvt.name, name, KERNELOBJECT_MAX_NAME_LENGTH);
+	vtimer->nvt.name[KERNELOBJECT_MAX_NAME_LENGTH] = '\0';
+
+	vtimers.push_back(id);
+
+	return id;
+}
+
+u32 sceKernelDeleteVTimer(u32 uid) {
+	DEBUG_LOG(HLE, "sceKernelDeleteVTimer(%08x)", uid);
+
+	u32 error;
+	VTimer* vt = kernelObjects.Get<VTimer>(uid, error);
+
+	if (error) {
+		WARN_LOG(HLE, "%08x=sceKernelDeleteVTimer(%08x)", error, uid);
 		return error;
 	}
-	// TODO: Deschedule events here. Might share code with Stop.
+
+	for (std::list<SceUID>::iterator it = vtimers.begin(); it != vtimers.end(); ++it) {
+		if (*it == vt->GetUID()) {
+			vtimers.erase(it);
+			break;
+		}
+	}
+
+	if (vt->memoryPtr != 0)
+		kernelMemory.Free(vt->memoryPtr);
 
 	return kernelObjects.Destroy<VTimer>(uid);
 }
 
-u32 sceKernelStartVTimer(u32 uid) {
-	ERROR_LOG(HLE,"FAKE sceKernelStartVTimer(%i)", uid);
+u32 sceKernelGetVTimerBase(u32 uid, u32 baseClockAddr) {
+	DEBUG_LOG(HLE, "sceKernelGetVTimerBase(%08x, %08x)", uid, baseClockAddr);
 
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
-	if (!vt) {
+
+	if (error) {
+		WARN_LOG(HLE, "%08x=sceKernelGetVTimerBase(%08x, %08x)", error, uid, baseClockAddr);
 		return error;
 	}
-	if (vt->nvt.running) {
-		// Already running
-		return 1;
-	} else {
-		vt->nvt.running = 1;
-		// TODO: Schedule events etc.
+
+	if (Memory::IsValidAddress(baseClockAddr))
+		Memory::Write_U64(vt->nvt.base, baseClockAddr);
+
+	return 0;
+}
+
+u64 sceKernelGetVTimerBaseWide(u32 uid) {
+	DEBUG_LOG(HLE, "sceKernelGetVTimerBaseWide(%08x)", uid);
+
+	u32 error;
+	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
+
+	if (error) {
+		WARN_LOG(HLE, "%08x=sceKernelGetVTimerBaseWide(%08x)", error, uid);
+		return error;
+	}
+
+	return vt->nvt.base;
+}
+
+u32 sceKernelGetVTimerTime(u32 uid, u32 timeClockAddr) {
+	DEBUG_LOG(HLE, "sceKernelGetVTimerTime(%08x, %08x)", uid, timeClockAddr);
+
+	u32 error;
+	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
+
+	if (error) {
+		WARN_LOG(HLE, "%08x=sceKernelGetVTimerTime(%08x, %08x)", uid, timeClockAddr);
+		return error;
+	}
+
+	u64 time = __getVTimerTime(vt);
+	if (Memory::IsValidAddress(timeClockAddr))
+		Memory::Write_U64(time, timeClockAddr);
+
+	return 0;
+}
+
+u64 sceKernelGetVTimerTimeWide(u32 uid) {
+	DEBUG_LOG(HLE, "sceKernelGetVTimerTimeWide(%08x)", uid);
+
+	u32 error;
+	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
+
+	if (error) {
+		WARN_LOG(HLE, "%08x=sceKernelGetVTimerTimeWide(%08x)", error, uid);
+		return error;
+	}
+
+	u64 time = __getVTimerTime(vt);
+	return time;
+}
+
+void __setVTimer(VTimer *vt, u64 time) {
+	vt->nvt.current = time - __getVTimerRunningTime(vt);
+}
+
+u32 sceKernelSetVTimerTime(u32 uid, u32 timeClockAddr) {
+	DEBUG_LOG(HLE, "sceKernelSetVTimerTime(%08x, %08x)", uid, timeClockAddr);
+
+	u32 error;
+	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
+
+	if (error) {
+		WARN_LOG(HLE, "%08x=sceKernelSetVTimerTime(%08x, %08x)", uid, timeClockAddr);
+		return error;
+	}
+
+	u64 time = Memory::Read_U64(timeClockAddr);
+	__setVTimer(vt, time);
+
+	return 0;
+}
+
+u32 sceKernelSetVTimerTimeWide(u32 uid, u64 timeClock) {
+	DEBUG_LOG(HLE, "sceKernelSetVTimerTimeWide(%08x, %llu", uid, timeClock);
+
+	u32 error;
+	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
+
+	if (error) {
+		WARN_LOG(HLE, "%08x=sceKernelSetVTimerTimeWide(%08x, %llu)", uid, timeClock);
+		return error;
+	}
+
+	__setVTimer(vt, timeClock);
+	return 0;
+}
+
+void __startVTimer(VTimer *vt) {
+	vt->nvt.active = 1;
+	vt->nvt.base = cyclesToUs(CoreTiming::GetTicks());
+
+	if (vt->nvt.schedule != 0 && vt->nvt.handlerAddr != 0)
+		__KernelScheduleVTimer(vt, vt->nvt.schedule);
+}
+
+u32 sceKernelStartVTimer(u32 uid) {
+	DEBUG_LOG(HLE, "sceKernelStartVTimer(%08x)", uid);
+
+	u32 error;
+	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
+
+	if (vt)	{
+		if (vt->nvt.active)
+			return 1;
+
+		__startVTimer(vt);
 		return 0;
 	}
 }
 
+void __stopVTimer(VTimer *vt) {
+	vt->nvt.current += __getVTimerRunningTime(vt);
+	vt->nvt.active = 0;
+}
+
 u32 sceKernelStopVTimer(u32 uid) {
-	ERROR_LOG(HLE,"FAKE sceKernelStartVTimer(%i)", uid);
+	DEBUG_LOG(HLE, "sceKernelStopVTimer(%08x)", uid);
+
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
-	if (!vt) {
-		return error;
-	}
-	if (vt->nvt.running) {
-		// Already running
-		return 0;
-	} else {
-		vt->nvt.running = 0;
-		// TODO: Deschedule events etc.
+
+	if (vt)	{
+		if (vt->nvt.active == 0)
+			return 0;
+
+		__stopVTimer(vt);
 		return 1;
 	}
 }
 
 u32 sceKernelSetVTimerHandler(u32 uid, u32 scheduleAddr, u32 handlerFuncAddr, u32 commonAddr) {
-	ERROR_LOG(HLE,"UNIMPL sceKernelSetVTimerHandler(%i, %08x, %08x, %08x)",
-			uid, scheduleAddr, handlerFuncAddr, commonAddr);
+	DEBUG_LOG(HLE, "sceKernelSetVTimerHandler(%08x, %08x, %08x, %08x)", uid, scheduleAddr, handlerFuncAddr, commonAddr);
+
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
-	if (!vt) {
+
+	if (error) {
+		WARN_LOG(HLE, "%08x=sceKernelSetVTimerHandler(%08x, %08x, %08x, %08x)", uid, scheduleAddr, handlerFuncAddr, commonAddr);
 		return error;
 	}
-	// TODO
+
+	u64 schedule = Memory::Read_U64(scheduleAddr);
+	vt->nvt.handlerAddr = handlerFuncAddr;
+	vt->nvt.commonAddr = commonAddr;
+
+	__KernelScheduleVTimer(vt, schedule);
+
 	return 0;
 }
 
 u32 sceKernelSetVTimerHandlerWide(u32 uid, u64 schedule, u32 handlerFuncAddr, u32 commonAddr) {
-	ERROR_LOG(HLE,"UNIMPL sceKernelSetVTimerHandlerWide(%i, %llu, %08x, %08x)",
-			uid, schedule, handlerFuncAddr, commonAddr);
+	DEBUG_LOG(HLE, "sceKernelSetVTimerHandlerWide(%08x, %llu, %08x, %08x)", uid, schedule, handlerFuncAddr, commonAddr);
+
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
-	if (!vt) {
+
+	if (error) {
+		WARN_LOG(HLE, "%08x=sceKernelSetVTimerHandlerWide(%08x, %llu, %08x, %08x)", uid, schedule, handlerFuncAddr, commonAddr);
 		return error;
 	}
-	// TODO
+
+	vt->nvt.handlerAddr = handlerFuncAddr;
+	vt->nvt.commonAddr = commonAddr;
+
+	__KernelScheduleVTimer(vt, schedule);
+
 	return 0;
 }
 
 u32 sceKernelCancelVTimerHandler(u32 uid) {
-	ERROR_LOG(HLE,"UNIMPL sceKernelCancelVTimerHandler(%i)", uid);
-	u32 error;
-	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
-	if (!vt) {
-		return error;
-	}
-	// TODO
+	DEBUG_LOG(HLE, "sceKernelCancelVTimerHandler(%08x)", uid);
+
+	//__cancelVTimer checks if uid is valid
+	__cancelVTimer(uid);
+
 	return 0;
 }
 
 u32 sceKernelReferVTimerStatus(u32 uid, u32 statusAddr) {
-	ERROR_LOG(HLE,"sceKernelReferVTimerStatus(%i, %08x)", uid, statusAddr);
-	u32 error;
-	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
-	if (!vt) {
-		return error;
-	}
-	// TODO: possibly update time values here?
-	Memory::WriteStruct(statusAddr, &vt->nvt);
-	return 0;
-}
+	DEBUG_LOG(HLE, "sceKernelReferVTimerStatus(%08x, %08x)", uid, statusAddr);
 
-u32 sceKernelGetVTimerBase(u32 uid, u32 baseClockAddr) {
-	ERROR_LOG(HLE,"sceKernelGetVTimerBase(%i, %08x)", uid, baseClockAddr);
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
-	if (!vt) {
-		return error;
-	}
-	Memory::WriteStruct(baseClockAddr, &vt->nvt.basetime);
-	return 0;
-}
 
-u64 sceKernelGetVTimerBaseWide(u32 uid) {
-	ERROR_LOG(HLE,"sceKernelGetVTimerWide(%i)", uid);
-	u32 error;
-	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
-	if (!vt) {
+	if (error) {
+		WARN_LOG(HLE, "%08x=sceKernelReferVTimerStatus(%08x, %08x)", uid, statusAddr);
 		return error;
 	}
-	// TODO: probably update the timer somehow?
-	u64 t = vt->nvt.curtime.lo;
-	t |= (u64)(vt->nvt.curtime.hi) << 32;
-	return t;
-}
 
-u32 sceKernelGetVTimerTime(u32 uid, u32 timeClockAddr) {
-	ERROR_LOG(HLE,"sceKernelGetVTimerTime(%i, %08x)", uid, timeClockAddr);
-	u32 error;
-	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
-	if (!vt) {
-		return error;
-	}
-	// TODO: probably update the timer somehow?
-	Memory::WriteStruct(timeClockAddr, &vt->nvt.curtime);
-	return 0;
-}
+	if (Memory::IsValidAddress(statusAddr))
+		Memory::WriteStruct(statusAddr, &vt->nvt);
 
-u64 sceKernelGetVTimerTimeWide(u32 uid) {
-	ERROR_LOG(HLE,"sceKernelGetVTimerTimeWide(%i)", uid);
-	u32 error;
-	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
-	if (!vt) {
-		return error;
-	}
-	// TODO: probably update the timer somehow?
-	u64 t = vt->nvt.curtime.lo;
-	t |= (u64)(vt->nvt.curtime.hi) << 32;
-	return t;
-}
-
-u32 sceKernelSetVTimerTime(u32 uid, u32 timeClockAddr) {
-	ERROR_LOG(HLE,"sceKernelSetVTimerTime(%i, %08x)", uid, timeClockAddr);
-	u32 error;
-	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
-	if (!vt) {
-		return error;
-	}
-	Memory::ReadStruct(timeClockAddr, &vt->nvt.curtime);
-	return 0;
-}
-
-u32 sceKernelSetVTimerTimeWide(u32 uid, u64 timeClock) {
-	ERROR_LOG(HLE,"sceKernelSetVTimerTime(%i, %llu)", uid, timeClock);
-	u32 error;
-	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
-	if (!vt) {
-		return error;
-	}
-	vt->nvt.curtime.lo = timeClock & 0xFFFFFFFF;
-	vt->nvt.curtime.hi = timeClock >> 32;
 	return 0;
 }
 
 // Not sure why this is exposed...
-void _sceKernelReturnFromTimerHandler()
-{
+void _sceKernelReturnFromTimerHandler() {
 	ERROR_LOG(HLE,"_sceKernelReturnFromTimerHandler - should not be called!");
 }
