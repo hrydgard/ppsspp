@@ -10,6 +10,7 @@
 #undef max
 #else
 #include <sys/socket.h>
+#include <unistd.h>
 #endif
 
 #include "base/logging.h"
