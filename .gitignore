@@ -40,7 +40,7 @@ gen
 libs
 obj
 build*/
-/git-version.c
+/git-version.cpp
 
 .pspsh.hist
 __testoutput.txt
