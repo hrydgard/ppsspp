@@ -134,14 +134,7 @@ void ARMXEmitter::MOVI2R(ARMReg reg, u32 val, bool optimize)
 		}
 	}
 }
-// Moves IMM to memory location
-void ARMXEmitter::ARMABI_MOVI2M(Operand2 op, Operand2 val)
-{
-	// This moves imm to a memory location
-	MOVW(R14, val); MOVT(R14, val, true);
-	MOVW(R12, op); MOVT(R12, op, true);
-	STR(R12, R14); // R10 is what we want to store
-}
+
 void ARMXEmitter::QuickCallFunction(ARMReg reg, void *func) {
 	MOVI2R(reg, (u32)(func));
 	BL(reg);
