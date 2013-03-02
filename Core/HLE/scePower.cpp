@@ -217,11 +217,12 @@ int sceKernelVolatileMemLock(int type, int paddr, int psize) {
 }
 
 
-void scePowerSetClockFrequency(u32 pllfreq, u32 cpufreq, u32 busfreq) {
+u32 scePowerSetClockFrequency(u32 pllfreq, u32 cpufreq, u32 busfreq) {
 	CoreTiming::SetClockFrequencyMHz(cpufreq);
 	pllFreq = pllfreq;
 	busFreq = busfreq;
 	INFO_LOG(HLE,"scePowerSetClockFrequency(%i,%i,%i)", pllfreq, cpufreq, busfreq);
+	return 0;
 }
 
 u32 scePowerSetCpuClockFrequency(u32 cpufreq) {
@@ -302,11 +303,11 @@ static const HLEFunction scePower[] = {
 	{0xBD681969,WrapU_V<scePowerGetBusClockFrequencyInt>,"scePowerGetBusClockFrequencyInt"},
 	{0xB1A52C83,0,"scePowerGetCpuClockFrequencyFloat"},
 	{0x9BADB3EB,0,"scePowerGetBusClockFrequencyFloat"},
-	{0x737486F2,WrapV_UUU<scePowerSetClockFrequency>,"scePowerSetClockFrequency"},
+	{0x737486F2,WrapU_UUU<scePowerSetClockFrequency>,"scePowerSetClockFrequency"},
 	{0x34f9c463,WrapU_V<scePowerGetPllClockFrequencyInt>,"scePowerGetPllClockFrequencyInt"},
 	{0xea382a27,0,"scePowerGetPllClockFrequencyFloat"},
-	{0xebd177d6,WrapV_UUU<scePowerSetClockFrequency>,"scePower_driver_EBD177D6"}, //TODO: used in a few places, jpcsp says is the same as scePowerSetClockFrequency
-	{0x469989ad,WrapV_UUU<scePowerSetClockFrequency>,"scePower_469989ad"},  // This is also the same as SetClockFrequency
+	{0xebd177d6,WrapU_UUU<scePowerSetClockFrequency>,"scePower_driver_EBD177D6"}, //TODO: used in a few places, jpcsp says is the same as scePowerSetClockFrequency
+	{0x469989ad,WrapU_UUU<scePowerSetClockFrequency>,"scePower_469989ad"},  // This is also the same as SetClockFrequency
 	{0xa85880d0,WrapU_V<IsPSPNonFat>,"scePower_a85880d0_IsPSPNonFat"},
 };
 
