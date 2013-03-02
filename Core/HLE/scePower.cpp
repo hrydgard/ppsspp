@@ -43,6 +43,10 @@ const int numberOfCBPowerSlotsPrivate = 32;
 static bool volatileMemLocked;
 static int powerCbSlots[numberOfCBPowerSlots];
 
+// this should belong here on in CoreTiming?
+static int pllFreq = 222;
+static int busFreq = 111;
+
 void __PowerInit() {
 	memset(powerCbSlots, 0, sizeof(powerCbSlots));
 	volatileMemLocked = false;
@@ -213,9 +217,11 @@ int sceKernelVolatileMemLock(int type, int paddr, int psize) {
 }
 
 
-void scePowerSetClockFrequency(u32 cpufreq, u32 busfreq, u32 gpufreq) {
+void scePowerSetClockFrequency(u32 pllfreq, u32 cpufreq, u32 busfreq) {
 	CoreTiming::SetClockFrequencyMHz(cpufreq);
-	INFO_LOG(HLE,"scePowerSetClockFrequency(%i,%i,%i)", cpufreq, busfreq, gpufreq);
+	pllFreq = pllfreq;
+	busFreq = busfreq;
+	INFO_LOG(HLE,"scePowerSetClockFrequency(%i,%i,%i)", pllfreq, cpufreq, busfreq);
 }
 
 u32 scePowerSetCpuClockFrequency(u32 cpufreq) {
@@ -225,6 +231,7 @@ u32 scePowerSetCpuClockFrequency(u32 cpufreq) {
 }
 
 u32 scePowerSetBusClockFrequency(u32 busfreq) {
+	busFreq = busfreq;
 	DEBUG_LOG(HLE,"scePowerSetBusClockFrequency(%i)", busfreq);
 	return 0;
 }
@@ -236,15 +243,13 @@ u32 scePowerGetCpuClockFrequencyInt() {
 }
 
 u32 scePowerGetPllClockFrequencyInt() {
-	int freq = CoreTiming::GetClockFrequencyMHz() / 2;
-	INFO_LOG(HLE,"%i=scePowerGetPllClockFrequencyInt()", freq);
-	return freq;
+	INFO_LOG(HLE,"%i=scePowerGetPllClockFrequencyInt()", pllFreq);
+	return pllFreq;
 }
 
 u32 scePowerGetBusClockFrequencyInt() {
-	int freq = CoreTiming::GetClockFrequencyMHz() / 2;
-	INFO_LOG(HLE,"%i=scePowerGetBusClockFrequencyInt()", freq);
-	return freq;
+	INFO_LOG(HLE,"%i=scePowerGetBusClockFrequencyInt()", busFreq);
+	return busFreq;
 }
 
 // a85880d0, unknown name
