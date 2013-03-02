@@ -25,15 +25,34 @@
 #include <stdlib.h>
 #include <string>
 
+// TODO: Probably this works on non-Windows/Qt too.
+#ifdef _MSC_VER
+#include "Common/StdThread.h"
+#endif
+
 namespace Reporting
 {
 	const int DEFAULT_PORT = 80;
 	const int SPAM_LIMIT = 100;
+	const int PAYLOAD_BUFFER_SIZE = 100;
 
 	// Internal limiter on number of requests per instance.
 	static u32 spamProtectionCount = 0;
 	// Temporarily stores a reference to the hostname.
 	static std::string lastHostname;
+
+	enum RequestType
+	{
+		MESSAGE,
+	};
+
+	struct Payload
+	{
+		RequestType type;
+		std::string data;
+	};
+	static Payload payloadBuffer[PAYLOAD_BUFFER_SIZE];
+	static int payloadBufferPos = 0;
 
 	static size_t ServerHostnameLength()
 	{
@@ -113,6 +132,34 @@ namespace Reporting
 		return result;
 	}
 
+	int Process(int pos)
+	{
+		Payload &payload = payloadBuffer[pos];
+
+		const int PARAM_BUFFER_SIZE = 4096;
+		char temp[PARAM_BUFFER_SIZE];
+
+		// TODO: Need to escape these values, add more.
+		snprintf(temp, PARAM_BUFFER_SIZE - 1, "version=%s&game=%s_%s",
+			PPSSPP_GIT_VERSION,
+			g_paramSFO.GetValueString("DISC_ID").c_str(),
+			g_paramSFO.GetValueString("DISC_VERSION").c_str());
+
+		std::string data;
+		switch (payload.type)
+		{
+		case MESSAGE:
+			// TODO: Escape.
+			data = std::string(temp) + "&message=" + payload.data;
+			payload.data.clear();
+
+			SendReportRequest("/report/message", data);
+			break;
+		}
+
+		return 0;
+	}
+
 	void ReportMessage(const char *message, ...)
 	{
 		if (g_Config.sReportHost.empty() || CheckSpamLimited())
@@ -121,25 +168,24 @@ namespace Reporting
 		if (g_Config.sReportHost.compare("default") == 0)
 			return;
 
-		// TODO: Use a thread, enable on non-Windows.
+		// TODO: Enable on non-Windows.
 #ifdef _MSC_VER
 		const int MESSAGE_BUFFER_SIZE = 32768;
 		char temp[MESSAGE_BUFFER_SIZE];
-		char *tempPos = &temp[0];
 
-		// TODO: Need to escape these values.
-		tempPos += sprintf(tempPos, "version=%s&game=%s_%s&message=",
-			PPSSPP_GIT_VERSION,
-			g_paramSFO.GetValueString("DISC_ID").c_str(),
-			g_paramSFO.GetValueString("DISC_VERSION").c_str());
-
-		// TODO: And escape this, plus it can't be done on thread.
 		va_list args;
 		va_start(args, message);
-		vsnprintf(tempPos, temp + MESSAGE_BUFFER_SIZE - tempPos, message, args);
+		vsnprintf(temp, MESSAGE_BUFFER_SIZE - 1, message, args);
+		temp[MESSAGE_BUFFER_SIZE - 1] = '\0';
 		va_end(args);
 
-		SendReportRequest("/report/message", temp);
+		int pos = payloadBufferPos++ % PAYLOAD_BUFFER_SIZE;
+		Payload &payload = payloadBuffer[pos];
+		payload.type = MESSAGE;
+		payload.data = temp;
+
+		std::thread th(Process, pos);
+		th.detach();
 #endif
 	}
 
