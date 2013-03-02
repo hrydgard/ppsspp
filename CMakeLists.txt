@@ -825,19 +825,19 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Util/ppge_atlas.h
 	$<TARGET_OBJECTS:GPU>
 	Globals.h
-	git-version.c)
+	git-version.cpp)
 target_link_libraries(${CoreLibName} Common native kirk cityhash
 	${GLEW_LIBRARIES} ${OPENGL_LIBRARIES})
 setup_target_project(${CoreLibName} Core)
 
-# Generate git-version.c at build time.
+# Generate git-version.cpp at build time.
 add_custom_target(GitVersion ALL
 	DEPENDS something_that_never_exists)
 add_custom_command(OUTPUT something_that_never_exists
 	COMMAND ${CMAKE_COMMAND} -DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
 		-P ${CMAKE_CURRENT_SOURCE_DIR}/git-version.cmake)
 
-set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/git-version.c
+set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/git-version.cpp
 	PROPERTIES GENERATED TRUE)
 add_dependencies(${CoreLibName} GitVersion)
 

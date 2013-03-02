@@ -76,7 +76,7 @@
     </Link>
     <PreBuildEvent>
       <Command>../Windows/git-version-gen.cmd</Command>
-      <Message>Updating git-version.c</Message>
+      <Message>Updating git-version.cpp</Message>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -93,7 +93,7 @@
     </Link>
     <PreBuildEvent>
       <Command>../Windows/git-version-gen.cmd</Command>
-      <Message>Updating git-version.c</Message>
+      <Message>Updating git-version.cpp</Message>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -115,7 +115,7 @@
     <CustomBuildStep />
     <PreBuildEvent>
       <Command>../Windows/git-version-gen.cmd</Command>
-      <Message>Updating git-version.c</Message>
+      <Message>Updating git-version.cpp</Message>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -135,14 +135,14 @@
     </Link>
     <PreBuildEvent>
       <Command>../Windows/git-version-gen.cmd</Command>
-      <Message>Updating git-version.c</Message>
+      <Message>Updating git-version.cpp</Message>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\ext\disarm.cpp" />
     <ClCompile Include="..\ext\snappy\snappy-c.cpp" />
     <ClCompile Include="..\ext\snappy\snappy.cpp" />
-    <ClCompile Include="..\git-version.c" />
+    <ClCompile Include="..\git-version.cpp" />
     <ClCompile Include="Config.cpp" />
     <ClCompile Include="Core.cpp" />
     <ClCompile Include="CoreTiming.cpp" />

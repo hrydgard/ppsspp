@@ -18,7 +18,7 @@ rem // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 setlocal
 
-set GIT_VERSION_FILE=%~p0..\git-version.c
+set GIT_VERSION_FILE=%~p0..\git-version.cpp
 if "%GIT%" == "" (
 	set GIT=git
 )
@@ -33,7 +33,7 @@ if exist "%GIT_VERSION_FILE%" (
 
 "%GIT%" describe --always > NUL 2> NUL
 if errorlevel 1 (
-	echo Unable to update git-version.c, %GIT% not on path.
+	echo Unable to update git-version.cpp, %GIT% not on path.
 
 	echo // This is a generated file. > "%GIT_VERSION_FILE%"
 	echo. >> "%GIT_VERSION_FILE%"

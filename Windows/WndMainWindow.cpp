@@ -844,14 +844,13 @@ namespace MainWindow
 
 	void SetPlaying(const char *text)
 	{
+		char temp[256];
 		if (text == 0)
-			SetWindowText(hwndMain, "PPSSPP " PPSSPP_VERSION_STR);
+			snprintf(temp, 256, "PPSSPP %s", PPSSPP_GIT_VERSION);
 		else
-		{
-			char temp[256];
-			sprintf(temp, "%s - %s", text, "PPSSPP " PPSSPP_VERSION_STR);
-			SetWindowText(hwndMain,temp);
-		}
+			snprintf(temp, 256, "%s - PPSSPP %s", text, PPSSPP_GIT_VERSION);
+		temp[255] = '\0';
+		SetWindowText(hwndMain, temp);
 	}
 
 	void SaveStateActionFinished(bool result, void *userdata)

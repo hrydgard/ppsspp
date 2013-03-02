@@ -20,8 +20,7 @@
 #include <string>
 #include <map>
 
-#define PPSSPP_VERSION_STR "0.6.1"
-
+extern const char *PPSSPP_GIT_VERSION;
 
 struct SState
 {

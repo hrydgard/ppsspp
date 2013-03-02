@@ -43,7 +43,7 @@ void QtHost::ShutdownGL()
 
 void QtHost::SetWindowTitle(const char *message)
 {
-	QString title = "PPSSPP " + QString(PPSSPP_VERSION_STR) + " - " + QString::fromUtf8(message);
+	QString title = "PPSSPP " + QString(PPSSPP_GIT_VERSION) + " - " + QString::fromUtf8(message);
 
 	mainWindow->setWindowTitle(title);
 }

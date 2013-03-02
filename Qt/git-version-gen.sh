@@ -16,7 +16,7 @@
 ## Official git repository and contact information can be found at
 ## https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-GIT_VERSION_FILE=$(dirname $0)/../git-version.c
+GIT_VERSION_FILE=$(dirname $0)/../git-version.cpp
 
 if [ -e "$GIT_VERSION_FILE" ]; then
 	# Skip updating the file if PPSSPP_GIT_VERSION_NO_UPDATE is 1.
@@ -28,7 +28,7 @@ fi
 
 GIT_VERSION=$(git describe --always)
 if [ "$GIT_VERSION" == "" ]; then
-	echo "Unable to update git-version.c, git not on path." 1>&2
+	echo "Unable to update git-version.cpp, git not on path." 1>&2
 
 	echo "// This is a generated file." > "$GIT_VERSION_FILE"
 	echo >> "$GIT_VERSION_FILE"

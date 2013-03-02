@@ -1,4 +1,4 @@
-set(GIT_VERSION_FILE "${SOURCE_DIR}/git-version.c")
+set(GIT_VERSION_FILE "${SOURCE_DIR}/git-version.cpp")
 set(GIT_VERSION "unknown")
 set(GIT_VERSION_UPDATE "1")
 
