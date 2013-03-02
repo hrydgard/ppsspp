@@ -100,7 +100,7 @@ static void EndVertexDataAndDraw(int prim) {
 static u32 __PPGeDoAlloc(u32 &size, bool fromTop, const char *name) {
 	u32 ptr = kernelMemory.Alloc(size, fromTop, name);
 	// Didn't get it.
-	if (ptr == -1)
+	if (ptr == (u32)-1)
 		return 0;
 	return ptr;
 }

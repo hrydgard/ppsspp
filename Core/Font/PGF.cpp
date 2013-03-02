@@ -68,7 +68,7 @@ void PGF::DoState(PointerWrap &p) {
 void PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 	const u8 *const startPtr = ptr;
 
-	INFO_LOG(HLE, "Reading %d bytes of PGF header", sizeof(header));
+	INFO_LOG(HLE, "Reading %d bytes of PGF header", (int)sizeof(header));
 	memcpy(&header, ptr, sizeof(header));
 	ptr += sizeof(header);
 

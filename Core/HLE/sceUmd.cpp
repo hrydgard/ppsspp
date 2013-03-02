@@ -236,9 +236,9 @@ u32 sceUmdRegisterUMDCallBack(u32 cbId)
 	return retVal;
 }
 
-u32 sceUmdUnRegisterUMDCallBack(u32 cbId)
+int sceUmdUnRegisterUMDCallBack(int cbId)
 {
-	u32 retVal;
+	int retVal;
 
 	if (cbId != driveCBId)
 		retVal = PSP_ERROR_UMD_INVALID_PARAM;
@@ -387,7 +387,7 @@ const HLEFunction sceUmdUser[] =
 	{0x20628E6F,&WrapU_V<sceUmdGetErrorStat>,"sceUmdGetErrorStat"},
 	{0x340B7686,WrapU_U<sceUmdGetDiscInfo>,"sceUmdGetDiscInfo"},
 	{0xAEE7404D,&WrapU_U<sceUmdRegisterUMDCallBack>,"sceUmdRegisterUMDCallBack"},
-	{0xBD2BDE07,&WrapU_U<sceUmdUnRegisterUMDCallBack>,"sceUmdUnRegisterUMDCallBack"},
+	{0xBD2BDE07,&WrapI_I<sceUmdUnRegisterUMDCallBack>,"sceUmdUnRegisterUMDCallBack"},
 	{0x87533940,WrapU_V<sceUmdReplaceProhibit>,"sceUmdReplaceProhibit"},
 	{0x87533940,WrapU_V<sceUmdReplacePermit>,"sceUmdReplacePermit"},
 };
