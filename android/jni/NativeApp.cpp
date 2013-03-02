@@ -154,7 +154,9 @@ void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, boo
 	*app_dir_name = "ppsspp";
 	*landscape = true;
 
+#if defined(ARM)
 	ArmEmitterTest();
+#endif
 }
 
 void NativeInit(int argc, const char *argv[], const char *savegame_directory, const char *external_directory, const char *installID)
