@@ -23,6 +23,9 @@ Release
 Windows/x64
 Windows/ipch
 
+# For Mac
+.DS_Store
+
 # For ppsspp.ini, etc.
 *.ini
 
