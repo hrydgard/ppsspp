@@ -4,6 +4,14 @@ TARGET = Core
 TEMPLATE = lib
 CONFIG += staticlib
 
+version.target = ../git-version.c
+version.commands = $$PWD/git-version-gen.sh
+version.depends = ../.git
+
+QMAKE_EXTRA_TARGETS += version
+PRE_TARGETDEPS += ../git-version.c
+SOURCES += ../git-version.c
+
 include(Settings.pri)
 
 INCLUDEPATH += ../native ../Core/MIPS ../
