@@ -823,10 +823,22 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Util/ppge_atlas.cpp
 	Core/Util/ppge_atlas.h
 	$<TARGET_OBJECTS:GPU>
-	Globals.h)
+	Globals.h
+	git-version.c)
 target_link_libraries(${CoreLibName} Common native kirk cityhash
 	${GLEW_LIBRARIES} ${OPENGL_LIBRARIES})
 setup_target_project(${CoreLibName} Core)
+
+# Generate git-version.c at build time.
+add_custom_target(GitVersion ALL
+	DEPENDS something_that_never_exists)
+add_custom_command(OUTPUT something_that_never_exists
+	COMMAND ${CMAKE_COMMAND} -DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
+		-P ${CMAKE_CURRENT_SOURCE_DIR}/git-version.cmake)
+
+set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/git-version.c
+	PROPERTIES GENERATED TRUE)
+add_dependencies(${CoreLibName} GitVersion)
 
 add_library(GPU OBJECT
 	GPU/GLES/DisplayListInterpreter.cpp
