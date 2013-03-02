@@ -37,13 +37,14 @@ enum  	PspAudioFrequencies { PSP_AUDIO_FREQ_44K = 44100, PSP_AUDIO_FREQ_48K = 48
 #define SCE_ERROR_AUDIO_INVALID_FORMAT                          0x80260007
 #define SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED                    0x80260008
 #define SCE_ERROR_AUDIO_NOT_OUTPUT                              0x80260009
+#define SCE_ERROR_AUDIO_INVALID_FREQUENCY			0x80260010
 
 #define PSP_AUDIO_CHANNEL_MAX 8
 
 struct AudioChannel
 {
 	AudioChannel() {
-		clear();
+		release();
 	}
 
 	// PSP side
@@ -67,7 +68,7 @@ struct AudioChannel
 
 	void DoState(PointerWrap &p);
 
-	void clear() {
+	void release() {
 		reserved = false;
 		waitingThread = 0;
 		leftVolume = 0;

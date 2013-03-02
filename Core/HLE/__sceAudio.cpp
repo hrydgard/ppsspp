@@ -71,7 +71,7 @@ void __AudioInit()
 	CoreTiming::ScheduleEvent(usToCycles(audioIntervalUs), eventAudioUpdate, 0);
 	CoreTiming::ScheduleEvent(usToCycles(audioHostIntervalUs), eventHostAudioUpdate, 0);
 	for (int i = 0; i < 8; i++)
-		chans[i].clear();
+		chans[i].release();
 }
 
 void __AudioDoState(PointerWrap &p)
@@ -104,7 +104,7 @@ void __AudioDoState(PointerWrap &p)
 void __AudioShutdown()
 {
 	for (int i = 0; i < 8; i++)
-		chans[i].clear();
+		chans[i].release();
 }
 
 u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking)
