@@ -37,6 +37,7 @@ gen
 libs
 obj
 build*/
+/git-version.c
 
 .pspsh.hist
 __testoutput.txt
