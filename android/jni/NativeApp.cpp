@@ -154,7 +154,7 @@ void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, boo
 	*app_dir_name = "ppsspp";
 	*landscape = true;
 
-#if defined(ARM)
+#if defined(ANDROID)
 	ArmEmitterTest();
 #endif
 }
