@@ -88,6 +88,7 @@ void __KernelInit()
 	__KernelMemoryInit();
 	__KernelThreadingInit();
 	__KernelAlarmInit();
+	__KernelVTimerInit();
 	__KernelEventFlagInit();
 	__KernelMbxInit();
 	__KernelMutexInit();
