@@ -59,7 +59,8 @@ extern void DisassembleArm(const u8 *data, int size);
 
 void ArmEmitterTest()
 {
-	// return;
+	// Disabled for now.
+	return;
 	ILOG("Running ARM emitter test!");
 	TestCode gen;
 	gen.ReserveCodeSpace(0x1000);
