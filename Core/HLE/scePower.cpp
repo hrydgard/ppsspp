@@ -45,7 +45,6 @@ static int powerCbSlots[numberOfCBPowerSlots];
 
 // this should belong here on in CoreTiming?
 static int pllFreq = 222;
-static int cpuFreq = 222;
 static int busFreq = 111;
 
 void __PowerInit() {
@@ -219,15 +218,15 @@ int sceKernelVolatileMemLock(int type, int paddr, int psize) {
 
 
 u32 scePowerSetClockFrequency(u32 pllfreq, u32 cpufreq, u32 busfreq) {
+	CoreTiming::SetClockFrequencyMHz(cpufreq);
 	pllFreq = pllfreq;
 	busFreq = busfreq;
-	cpuFreq = cpufreq;
 	INFO_LOG(HLE,"scePowerSetClockFrequency(%i,%i,%i)", pllfreq, cpufreq, busfreq);
 	return 0;
 }
 
 u32 scePowerSetCpuClockFrequency(u32 cpufreq) {
-	cpuFreq = cpufreq;
+	CoreTiming::SetClockFrequencyMHz(cpufreq);
 	DEBUG_LOG(HLE,"scePowerSetCpuClockFrequency(%i)", cpufreq);
 	return 0;
 }
@@ -239,8 +238,9 @@ u32 scePowerSetBusClockFrequency(u32 busfreq) {
 }
 
 u32 scePowerGetCpuClockFrequencyInt() {
-	DEBUG_LOG(HLE,"%i=scePowerGetCpuClockFrequencyInt()", cpuFreq);
-	return cpuFreq;
+	int freq = CoreTiming::GetClockFrequencyMHz();
+	DEBUG_LOG(HLE,"%i=scePowerGetCpuClockFrequencyInt()", freq);
+	return freq;
 }
 
 u32 scePowerGetPllClockFrequencyInt() {
