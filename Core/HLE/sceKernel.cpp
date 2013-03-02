@@ -165,6 +165,7 @@ void __KernelDoState(PointerWrap &p)
 	__KernelMemoryDoState(p);
 	__KernelThreadingDoState(p);
 	__KernelAlarmDoState(p);
+	__KernelVTimerDoState(p);
 	__KernelEventFlagDoState(p);
 	__KernelMbxDoState(p);
 	__KernelModuleDoState(p);

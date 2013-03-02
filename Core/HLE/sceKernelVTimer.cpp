@@ -45,6 +45,7 @@ struct VTimer : public KernelObject {
 
 	virtual void DoState(PointerWrap &p) {
 		p.Do(nvt);
+		p.Do(memoryPtr);
 		p.DoMarker("VTimer");
 	}
 
@@ -121,7 +122,7 @@ public:
 
 		if (vtimer->memoryPtr == 0) {
 			u32 size = 16;
-			vtimer->memoryPtr = kernelMemory.Alloc(size, true, std::string("VTimer").c_str());
+			vtimer->memoryPtr = kernelMemory.Alloc(size, true, "VTimer");
 		}
 
 		Memory::Write_U64(vtimer->nvt.schedule, vtimer->memoryPtr);
@@ -160,6 +161,13 @@ void __KernelTriggerVTimer(u64 userdata, int cyclesLate) {
 	}
 }
 
+void __KernelVTimerDoState(PointerWrap &p) {
+	p.Do(vtimerTimer);
+	p.Do(vtimers);
+	CoreTiming::RestoreRegisterEvent(vtimerTimer, "VTimer", __KernelTriggerVTimer);
+	p.DoMarker("sceKernelVTimer");
+}
+
 void __KernelVTimerInit() {
 	vtimers.clear();
 	__RegisterIntrHandler(PSP_SYSTIMER1_INTR, new VTimerIntrHandler());
@@ -168,6 +176,8 @@ void __KernelVTimerInit() {
 
 u32 sceKernelCreateVTimer(const char *name, u32 optParamAddr) {
 	DEBUG_LOG(HLE, "sceKernelCreateVTimer(%s, %08x)", name, optParamAddr);
+	if (optParamAddr != 0)
+		WARN_LOG(HLE, "sceKernelCreateVTimer: unsupported options parameter %08x", optParamAddr);
 
 	VTimer *vtimer = new VTimer;
 	SceUID id = kernelObjects.Create(vtimer);
@@ -176,8 +186,7 @@ u32 sceKernelCreateVTimer(const char *name, u32 optParamAddr) {
 	vtimer->nvt.size = sizeof(NativeVTimer);
 	strncpy(vtimer->nvt.name, name, KERNELOBJECT_MAX_NAME_LENGTH);
 	vtimer->nvt.name[KERNELOBJECT_MAX_NAME_LENGTH] = '\0';
-
-	vtimers.push_back(id);
+	vtimer->memoryPtr = 0;
 
 	return id;
 }
@@ -327,6 +336,8 @@ u32 sceKernelStartVTimer(u32 uid) {
 		__startVTimer(vt);
 		return 0;
 	}
+
+	return error;
 }
 
 void __stopVTimer(VTimer *vt) {
