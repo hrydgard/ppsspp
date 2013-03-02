@@ -196,7 +196,7 @@ void MenuScreen::render() {
 	}
 
 	if (UIButton(GEN_ID, vlinear, w, "Settings", ALIGN_RIGHT)) {
-		screenManager()->switchScreen(new SettingsScreen());
+		screenManager()->push(new SettingsScreen(), 0);
 		UIReset();
 	}
 
@@ -273,13 +273,18 @@ void InGameMenuScreen::render() {
 	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH, "Continue", ALIGN_RIGHT)) {
 		screenManager()->finishDialog(this, DR_CANCEL);
 	}
+	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH, "Settings", ALIGN_RIGHT)) {
+		screenManager()->push(new SettingsScreen(), 0);
+	}
 	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH, "Return to Menu", ALIGN_RIGHT)) {
 		screenManager()->finishDialog(this, DR_OK);
 	}
-	
+
+	/*
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH*2, "Debug: Dump Next Frame", ALIGN_BOTTOMRIGHT)) {
 		gpu->DumpNextFrame();
 	}
+	*/
 
 	DrawWatermark();
 	UIEnd();
@@ -291,7 +296,7 @@ void InGameMenuScreen::render() {
 void SettingsScreen::update(InputState &input) {
 	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
 		g_Config.Save();
-		screenManager()->switchScreen(new MenuScreen());
+		screenManager()->finishDialog(this, DR_OK);
 	}
 }
 
@@ -331,7 +336,7 @@ void SettingsScreen::render() {
 	// UICheckBox(GEN_ID, x, y += stride, "Draw raw framebuffer (for some homebrew)", ALIGN_TOPLEFT, &g_Config.bDisplayFramebuffer);
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres-10), LARGE_BUTTON_WIDTH, "Back", ALIGN_RIGHT | ALIGN_BOTTOM)) {
-		screenManager()->switchScreen(new MenuScreen());
+		screenManager()->finishDialog(this, DR_OK);
 	}
 
 	UIEnd();
