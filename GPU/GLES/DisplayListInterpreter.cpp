@@ -252,6 +252,7 @@ void GLES_GPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, int format) {
 }
 
 void GLES_GPU::CopyDisplayToOutput() {
+	glstate.colorMask.set(true, true, true, true);
 	transformDraw_.Flush();
 	if (!g_Config.bBufferedRendering)
 		return;
