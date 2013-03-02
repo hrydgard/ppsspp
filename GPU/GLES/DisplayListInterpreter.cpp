@@ -282,6 +282,12 @@ void GLES_GPU::Break() {
 
 }
 
+static void ClearMode() {
+	glstate.colorMask.set(GL_TRUE,GL_TRUE,GL_TRUE,GL_TRUE); //Reset ColorMask
+	glstate.cullFaceMode.set(GL_BACK); //Reset Back face cullMode
+	glstate.depthWrite.set(!(gstate.zmsk & 1) ? GL_TRUE : GL_FALSE); //Reset DepthWrite 
+}
+
 void GLES_GPU::PreExecuteOp(u32 op, u32 diff) {
 	u32 cmd = op >> 24;
 	if (flushBeforeCommand_[cmd] == 1 || (diff && flushBeforeCommand_[cmd] == 2))
@@ -803,6 +809,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	//	CLEARING
 	//////////////////////////////////////////////////////////////////
 	case GE_CMD_CLEARMODE:
+		ClearMode();
 		break;
 
 	//////////////////////////////////////////////////////////////////
