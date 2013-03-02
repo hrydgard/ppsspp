@@ -101,75 +101,66 @@ void Jit::Comp_FPULS(u32 op)
 }
 
 void Jit::Comp_FPUComp(u32 op) {
+	int opc = op & 0xF;
+	if (opc >= 8) opc -= 8; // alias
+	if (opc == 0)//f, sf (signalling false)
+	{
+		MOVI2R(R0, 0);
+		STR(CTXREG, R0, offsetof(MIPSState, fpcond));
+		return;
+	}
+
 	int fs = _FS;
 	int ft = _FT;
-
-	// See http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0204j/Chdhcfbc.html
-	// for the flags after VCMP.
-	// Also, need to copy the flags from FPSCR to the APSR through VMRS.
-
-	switch (op & 0xf) 	{
-	case 0: //f
-	case 8: //sf
+	fpr.MapInIn(fs, ft);
+	VCMP(fpr.R(fs), fpr.R(ft), false);
+	VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
+	switch(opc)
+	{
+	case 1:      // un,  ngle (unordered)
+		SetCC(CC_VS);
+		MOVI2R(R0, 1);
+		SetCC(CC_VC);
+		break;
+	case 2:      // eq,  seq (equal, ordered)
+		SetCC(CC_EQ);
+		MOVI2R(R0, 1);
+		SetCC(CC_NEQ);
+		break;
+	case 3:      // ueq, ngl (equal, unordered)
+		SetCC(CC_EQ);
+		MOVI2R(R0, 1);
+		SetCC(CC_NEQ);
 		MOVI2R(R0, 0);
-		STR(CTXREG, R0, offsetof(MIPSState, fpcond));
+		SetCC(CC_VC);
 		break;
-
-	case 1: //un
-	case 9: //ngle
-		// CompFPComp(fs, ft, CMPUNORDSS);
-		DISABLE;
+	case 4:      // olt, lt (less than, ordered)
+		SetCC(CC_LO);
+		MOVI2R(R0, 1);
+		SetCC(CC_HS);
 		break;
-
-	case 2: //eq
-	case 10: //seq
-		// CompFPComp(fs, ft, CMPEQSS);
-		DISABLE;
+	case 5:      // ult, nge (less than, unordered)
+		SetCC(CC_LT);
+		MOVI2R(R0, 1);
+		SetCC(CC_GE);
 		break;
-
-	case 3: //ueq
-	case 11: //ngl
-		// CompFPComp(fs, ft, CMPEQSS, true);
-		DISABLE;
+	case 6:      // ole, le (less equal, ordered)
+		SetCC(CC_LS);
+		MOVI2R(R0, 1);
+		SetCC(CC_HI);
 		break;
-
-	case 4: //olt
-	case 12: //lt
-		// CompFPComp(fs, ft, CMPLTSS);
-		DISABLE;
-		break;
-
-	case 5: //ult
-	case 13: //nge
-		// CompFPComp(ft, fs, CMPNLESS);
-		DISABLE;
-		break;
-
-	case 6: //ole
-	case 14: //le
-		DISABLE;
-		// ?? This VCMP crashes on ARM11 with an exception.
-		// Also, this doesn't actually work correctly yet. I'm not sure why.
-		fpr.MapInIn(fs, ft);
-		VCMP(fpr.R(fs), fpr.R(ft));
-		VMRS_APSR();  // Move FP flags from FPSCR to APSR (regular flags).
-		SetCC(CC_GT);
-		MOVI2R(R0, 0);
+	case 7:      // ule, ngt (less equal, unordered)
 		SetCC(CC_LE);
 		MOVI2R(R0, 1);
-		SetCC(CC_AL);
-		STR(CTXREG, R0, offsetof(MIPSState, fpcond));
+		SetCC(CC_GT);
 		break;
-
-	case 7: //ule
-	case 15: //ngt
-		// CompFPComp(ft, fs, CMPNLTSS);
-		DISABLE;
-		break;
-
 	default:
-		DISABLE;
+		Comp_Generic(op);
+		return;
 	}
+	MOVI2R(R0, 0);
+	SetCC(CC_AL);
+	STR(CTXREG, R0, offsetof(MIPSState, fpcond));
 }
 
 void Jit::Comp_FPU2op(u32 op)
