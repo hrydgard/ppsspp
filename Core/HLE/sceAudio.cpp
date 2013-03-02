@@ -143,18 +143,10 @@ int sceAudioGetChannelRestLength(u32 chan) {
 	return (int)chans[chan].sampleQueue.size() / 2;
 }
 
-static u32 GetFreeChannel() {
-	for (u32 i = 0; i < PSP_AUDIO_CHANNEL_MAX ; i++)
-		if (!chans[i].reserved)
-			return i;
-	return -1;
-}
-
 u32 sceAudioChReserve(u32 chan, u32 sampleCount, u32 format) {
-	if (chan == (u32)-1) {
-		chan = GetFreeChannel();
-	} 
-	if (chan >= PSP_AUDIO_CHANNEL_MAX)	{
+	DEBUG_LOG(HLE, "sceAudioChReserve(%08x, %08x, %08x)", chan, sampleCount, format);
+
+	if (chan < 0 || chan >= PSP_AUDIO_CHANNEL_MAX)	{
 		ERROR_LOG(HLE ,"sceAudioChReserve(%08x, %08x, %08x) - bad channel", chan, sampleCount, format);
 		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
 	}
@@ -162,14 +154,30 @@ u32 sceAudioChReserve(u32 chan, u32 sampleCount, u32 format) {
 		ERROR_LOG(HLE, "sceAudioChReserve(%08x, %08x, %08x) - invalid format", chan, sampleCount, format);
 		return SCE_ERROR_AUDIO_INVALID_FORMAT;
 	}
-	if (chans[chan].reserved) {
-		ERROR_LOG(HLE,"sceAudioChReserve - reserve channel failed");
-		return SCE_ERROR_AUDIO_NO_CHANNELS_AVAILABLE;
+
+	if (sampleCount <= 0 || sampleCount > 0xFFC0 || (sampleCount & 0x3F) != 0)
+		return SCE_ERROR_AUDIO_OUTPUT_SAMPLE_DATA_SIZE_NOT_ALIGNED;
+
+	if (chan != -1) {
+		chans[chan].format = format;
+		chans[chan].sampleCount = sampleCount;
+		chans[chan].reserved = true;
+	} else {
+		for (u32 i = 0; i < PSP_AUDIO_CHANNEL_MAX ; i++) {
+			if (!chans[i].reserved) {
+				chan = i;
+				break;
+			}
+		}
+
+		if ( chan == -1 ) {
+			if (chans[chan].reserved) {
+				ERROR_LOG(HLE,"sceAudioChReserve - reserve channel failed");
+				return SCE_ERROR_AUDIO_NO_CHANNELS_AVAILABLE;
+			}
+		}
 	}
 
-	DEBUG_LOG(HLE, "sceAudioChReserve(%08x, %08x, %08x)", chan, sampleCount, format);
-	chans[chan].sampleCount = sampleCount;
-	chans[chan].reserved = true;
 	return chan; 
 }
 
@@ -184,6 +192,7 @@ u32 sceAudioChRelease(u32 chan) {
 		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
 	}
 	DEBUG_LOG(HLE, "sceAudioChRelease(%i)", chan);
+	chans[chan].release();
 	chans[chan].reserved = false;
 	return 1;
 }
@@ -260,6 +269,10 @@ u32 sceAudioOutput2OutputBlocking(u32 vol, u32 dataPtr){
 
 u32 sceAudioOutput2ChangeLength(u32 sampleCount){
 	DEBUG_LOG(HLE,"sceAudioOutput2ChangeLength(%08x)", sampleCount);
+	if (sampleCount < 17 || sampleCount >= 4095 + 17)
+		return SCE_ERROR_AUDIO_OUTPUT_SAMPLE_DATA_SIZE_NOT_ALIGNED;
+	if (!chans[0].reserved)
+		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
 	chans[0].sampleCount = sampleCount;
 	return 0;
 }
@@ -271,19 +284,18 @@ u32 sceAudioOutput2GetRestSample(){
 
 u32 sceAudioOutput2Release(){
 	DEBUG_LOG(HLE,"sceAudioOutput2Release()");
+	chans[0].release();
 	chans[0].reserved = false;
 	return 0;
 }
 
 u32 sceAudioSetFrequency(u32 freq) {
-	if (freq == 44100 || freq == 48000) {
-		INFO_LOG(HLE, "sceAudioSetFrequency(%08x)", freq);
-		__AudioSetOutputFrequency(freq);
-		return 0;
-	} else {
-		ERROR_LOG(HLE, "sceAudioSetFrequency(%08x) - invalid frequency (must be 44.1 or 48 khz)", freq);
-		return -1;
-	}
+	DEBUG_LOG(HLE,"sceAudioSetFrequency(%08x)", freq);
+	if (freq != 44100 && freq != 48000) {
+		return SCE_ERROR_AUDIO_INVALID_FREQUENCY;
+	} 
+	__AudioSetOutputFrequency(freq);
+	return 0;
 }
 
 u32 sceAudioSetVolumeOffset() {
@@ -302,6 +314,7 @@ u32 sceAudioSRCChReserve(u32 sampleCount, u32 freq, u32 format) {
 
 u32 sceAudioSRCChRelease() {
 	DEBUG_LOG(HLE, "sceAudioSRCChRelease()");
+	chans[src].release();
 	chans[src].reserved = false;
 	return 0;
 }
