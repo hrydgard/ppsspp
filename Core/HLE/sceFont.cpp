@@ -607,6 +607,7 @@ int sceFontFindOptimumFont(u32 libHandlePtr, u32 fontStylePtr, u32 errorCodePtr)
 	for (size_t i = 0; i < internalFonts.size(); i++) {
 		if (internalFonts[i]->MatchesStyle(requestedStyle, true)) {
 			optimumFont = GetOptimumFont(requestedStyle, optimumFont, internalFonts[i]);
+			break;
 		}
 	}
 	if (optimumFont) {
