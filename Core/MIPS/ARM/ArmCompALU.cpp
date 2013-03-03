@@ -314,8 +314,9 @@ namespace MIPSComp
 	{
 		CONDITIONAL_DISABLE;
 		
+		DISABLE;
+
 		if (!cpu_info.bArmV7) {
-			DISABLE;
 		}
 
 		int rs = _RS;

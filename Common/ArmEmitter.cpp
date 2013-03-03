@@ -974,9 +974,9 @@ void ARMXEmitter::VMUL(ARMReg Vd, ARMReg Vn, ARMReg Vm)
 
 void ARMXEmitter::VMLA(ARMReg Vd, ARMReg Vn, ARMReg Vm)
 {
-	_assert_msg_(DYNA_REC, Vd >= S0, "Passed invalid dest register to VADD");
-	_assert_msg_(DYNA_REC, Vn >= S0, "Passed invalid Vn to VADD");
-	_assert_msg_(DYNA_REC, Vm >= S0, "Passed invalid Vm to VADD");
+	_assert_msg_(DYNA_REC, Vd >= S0, "Passed invalid dest register to VMLA");
+	_assert_msg_(DYNA_REC, Vn >= S0, "Passed invalid Vn to VMLA");
+	_assert_msg_(DYNA_REC, Vm >= S0, "Passed invalid Vm to VMLA");
 	bool single_reg = Vd < D0;
 	bool double_reg = Vd < Q0;
 
