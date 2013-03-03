@@ -19,7 +19,7 @@ rem // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 setlocal ENABLEDELAYEDEXPANSION
 
 set GIT_VERSION_FILE=%~p0..\git-version.cpp
-if "%GIT%" == "" (
+if not defined GIT (
 	set GIT="git"
 )
 
