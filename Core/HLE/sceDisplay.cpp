@@ -189,7 +189,7 @@ void __DisplayFireVblank() {
 	}
 }
 
-float calculateFPS()
+void CalculateFPS()
 {
 	static double highestFps = 0.0;
 	static int lastFpsFrame = 0;
@@ -208,7 +208,22 @@ float calculateFPS()
 		lastFpsFrame = gpuStats.numFrames;	
 		lastFpsTime = now;
 	}
-	return fps;
+
+	char stats[50];
+	sprintf(stats, "%0.1f", fps);
+
+	#ifdef USING_GLES2
+		float zoom = 0.7f; /// g_Config.iWindowZoom;
+		float soff = 0.7f;
+	#else
+		float zoom = 0.5f; /// g_Config.iWindowZoom;
+		float soff = 0.5f;
+	#endif
+	PPGeBegin();
+	PPGeDrawText(stats, 476 + soff, 4 + soff, PPGE_ALIGN_RIGHT, zoom, 0xCC000000);
+	PPGeDrawText(stats, 476 + -soff, 4 -soff, PPGE_ALIGN_RIGHT, zoom, 0xCC000000);
+	PPGeDrawText(stats, 476, 4, PPGE_ALIGN_RIGHT, zoom, 0xFF30FF30);
+	PPGeEnd();
 }
 
 void DebugStats()
@@ -371,22 +386,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	}
 
 	if (g_Config.bShowFPSCounter) {
-		char stats[50];
-
-		sprintf(stats, "%0.1f", calculateFPS());
-
-		#ifdef USING_GLES2
-			float zoom = 0.7f; /// g_Config.iWindowZoom;
-			float soff = 0.7f;
-		#else
-			float zoom = 0.5f; /// g_Config.iWindowZoom;
-			float soff = 0.5f;
-		#endif
-		PPGeBegin();
-		PPGeDrawText(stats, 476 + soff, 4 + soff, PPGE_ALIGN_RIGHT, zoom, 0xCC000000);
-		PPGeDrawText(stats, 476 + -soff, 4 -soff, PPGE_ALIGN_RIGHT, zoom, 0xCC000000);
-		PPGeDrawText(stats, 476, 4, PPGE_ALIGN_RIGHT, zoom, 0xFF30FF30);
-		PPGeEnd();
+		CalculateFPS();
 	}
 
 	// Draw screen overlays before blitting. Saves and restores the Ge context.

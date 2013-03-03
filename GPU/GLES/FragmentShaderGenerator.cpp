@@ -88,6 +88,7 @@ void GenerateFragmentShader(char *buffer)
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
 	bool enableAlphaTest = (gstate.alphaTestEnable & 1) && !gstate.isModeClear();
 	bool enableColorTest = (gstate.colorTestEnable & 1) && !gstate.isModeClear();
+	bool enableColorDoubling = gstate.texfunc & 0x10000;
 
 
 	if (doTexture)
@@ -170,8 +171,8 @@ void GenerateFragmentShader(char *buffer)
 			// No texture mapping
 			WRITE(p, "  vec4 v = v_color0 %s;\n", secondary);
 		}
-		// Color doubling
-		if (gstate.texfunc & 0x10000) {
+
+		if (enableColorDoubling) {
 			WRITE(p, "  v = v * 2.0;\n");
 		}
 
@@ -191,7 +192,8 @@ void GenerateFragmentShader(char *buffer)
 			int colorTestMask = gstate.colormask;
 			if (colorTestFuncs[colorTestFunc][0] != '#')
 				WRITE(p, "if (!(v.rgb %s (u_alphacolorref.rgb & u_colormask.rgb)) discard;\n", colorTestFuncs[colorTestFunc]);
-		}*/		
+		}*/	
+
 		if (enableFog) {
 			WRITE(p, "  float fogCoef = clamp(v_fogdepth, 0.0, 1.0);\n");
 			WRITE(p, "  gl_FragColor = mix(vec4(u_fogcolor, v.a), v, fogCoef);\n");

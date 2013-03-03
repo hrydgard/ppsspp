@@ -209,7 +209,7 @@ void __IoInit() {
 	_splitpath_s(path_buffer, drive, dir, file, ext );
 
 	// Mount a couple of filesystems
-	sprintf(memstickpath, "%s%sMemStick\\", drive, dir);
+	sprintf(memstickpath, "%s%smemstick\\", drive, dir);
 	sprintf(flash0path, "%s%sflash0\\", drive, dir);
 
 #else
