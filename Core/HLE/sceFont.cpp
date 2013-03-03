@@ -217,13 +217,23 @@ class FontLib {
 public:
 	FontLib(u32 paramPtr) :	fontHRes_(128.0f), fontVRes_(128.0f) {
 		Memory::ReadStruct(paramPtr, &params_);
-
+		fakeAlloc_ = 0x13370;
 		// We use the same strange scheme that JPCSP uses.
 		u32 allocSize = 4 + 4 * params_.numFonts;
 		PostAllocCallback *action = (PostAllocCallback*) __KernelCreateAction(actionPostAllocCallback);
 		action->SetFontLib(this);
-		u32 args[1] = { allocSize };
-		__KernelDirectMipsCall(params_.allocFuncAddr, action, args, 1, false);
+
+		if (false) {
+			// This fails in dissidia. The function at 088ff320 (params_.allocFuncAddr) calls some malloc function, the second one returns 0 which causes
+			// bad stores later. So we just ignore this with if (false) and fake it.
+			u32 args[1] = { allocSize };
+			__KernelDirectMipsCall(params_.allocFuncAddr, action, args, 1, false);
+		} else {
+			AllocDone(fakeAlloc_);
+			fakeAlloc_ += allocSize;
+			fontLibMap[handle()] = this;
+			INFO_LOG(HLE, "Leaving PostAllocCallback::run");
+		}
 	}
 
 	void Close() {
@@ -232,7 +242,7 @@ public:
 
 	void Done() {
 		for (size_t i = 0; i < fonts_.size(); i++) {
-			if (Memory::Read_U32(fonts_[i]) == FONT_IS_OPEN) {
+			if (isfontopen_[i] == FONT_IS_OPEN) {
 				fontMap[fonts_[i]]->Close();
 				delete fontMap[fonts_[i]];
 				fontMap.erase(fonts_[i]);
@@ -326,6 +336,8 @@ private:
 	int fileFontHandle_;
 	int handle_;
 	int altCharCode_;
+
+	u32 fakeAlloc_;
 	DISALLOW_COPY_AND_ASSIGN(FontLib);
 };
 
@@ -479,8 +491,9 @@ u32 sceFontNewLib(u32 paramPtr, u32 errorCodePtr) {
 		
 		FontLib *newLib = new FontLib(paramPtr);
 		// The game should never see this value, the return value is replaced
-		// by the action.
-		return 0xDEADDEAD;
+		// by the action. Except if we disable the alloc, in this case we return
+		// the handle correctly here.
+		return newLib->handle();
 	}
 
 	return 0;
