@@ -591,6 +591,11 @@ float sceDisplayGetFramePerSec() {
 	return fps;	// (9MHz * 1)/(525 * 286)
 }
 
+u32 sceDisplayIsForeground() {
+  ERROR_LOG(HLE,"UNIMPL sceDisplayIsForeground()");
+  return 1;   // return value according to JPCSP comment
+}
+
 const HLEFunction sceDisplay[] = {
 	{0x0E20F177,WrapU_UUU<sceDisplaySetMode>, "sceDisplaySetMode"},
 	{0x289D82FE,WrapU_UIII<sceDisplaySetFramebuf>, "sceDisplaySetFramebuf"},
@@ -610,7 +615,7 @@ const HLEFunction sceDisplay[] = {
 	{0x7ED59BC4,0,"sceDisplaySetHoldMode"},
 	{0xA544C486,0,"sceDisplaySetResumeMode"},
 	{0xBF79F646,0,"sceDisplayGetResumeMode"},
-	{0xB4F378FA,0,"sceDisplayIsForeground"},
+	{0xB4F378FA,WrapU_V<sceDisplayIsForeground>,"sceDisplayIsForeground"},
 	{0x31C4BAA8,0,"sceDisplayGetBrightness"},
 	{0x4D4E10EC,sceDisplayIsVblank,"sceDisplayIsVblank"},
 	{0x21038913,0,"sceDisplayIsVsync"},
