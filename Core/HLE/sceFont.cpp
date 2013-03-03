@@ -242,14 +242,16 @@ public:
 		__KernelDirectMipsCall(params_.freeFuncAddr, 0, args, 1, false);
 		handle_ = 0;
 		fonts_.clear();
+		isfontopen_.clear();
 	}
 
 	void AllocDone(u32 allocatedAddr) {
 		handle_ = allocatedAddr;
 		fonts_.resize(params_.numFonts);
+		isfontopen_.resize(params_.numFonts);
 		for (size_t i = 0; i < fonts_.size(); i++) {
 			u32 addr = allocatedAddr + 4 + i * 4;
-			Memory::Write_U32(FONT_IS_CLOSED, addr);
+			isfontopen_[i] = 0;
 			fonts_[i] = addr;
 		}
 	}
@@ -274,7 +276,7 @@ public:
 	LoadedFont *OpenFont(Font *font) {
 		int freeFontIndex = -1;
 		for (size_t i = 0; i < fonts_.size(); i++) {
-			if (Memory::Read_U32(fonts_[i]) == FONT_IS_CLOSED) {
+			if (isfontopen_[i] == 0) {
 				freeFontIndex = (int)i;
 				break;
 			}
@@ -284,14 +286,14 @@ public:
 			return 0;
 		}
 		LoadedFont *loadedFont = new LoadedFont(font, this, fonts_[freeFontIndex]);
-		Memory::Write_U32(FONT_IS_OPEN, fonts_[freeFontIndex]);
+		isfontopen_[freeFontIndex] = 1;
 		return loadedFont;
 	}
 
 	void CloseFont(LoadedFont *font) {
 		for (size_t i = 0; i < fonts_.size(); i++) {
 			if (fonts_[i] == font->Handle()) {
-				Memory::Write_U32(FONT_IS_CLOSED, font->Handle());
+				isfontopen_[i] = 0;
 
 			}
 		}
@@ -316,6 +318,7 @@ public:
 
 private:
 	std::vector<u32> fonts_;
+	std::vector<u32> isfontopen_;
 
 	FontNewLibParams params_;
 	float fontHRes_;
@@ -607,6 +610,7 @@ int sceFontFindOptimumFont(u32 libHandlePtr, u32 fontStylePtr, u32 errorCodePtr)
 	for (size_t i = 0; i < internalFonts.size(); i++) {
 		if (internalFonts[i]->MatchesStyle(requestedStyle, true)) {
 			optimumFont = GetOptimumFont(requestedStyle, optimumFont, internalFonts[i]);
+			break;
 		}
 	}
 	if (optimumFont) {

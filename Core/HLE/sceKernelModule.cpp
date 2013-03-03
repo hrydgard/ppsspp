@@ -559,6 +559,10 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	}
 
 	module->nm.entry_addr = reader.GetEntryPoint();
+	
+	// use module_start_func instead of entry_addr if entry_addr is 0
+	if (module->nm.entry_addr == 0)
+		module->nm.entry_addr = module->nm.module_start_func;
 
 	if (newptr)
 	{
