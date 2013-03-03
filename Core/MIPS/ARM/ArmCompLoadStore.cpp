@@ -52,7 +52,12 @@
 #define _POS	((op>>6 ) & 0x1F)
 #define _SIZE ((op>>11 ) & 0x1F)
 
-#define DISABLE Comp_Generic(op); return;
+// All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
+// Currently known non working ones should have DISABLE.
+
+// #define CONDITIONAL_DISABLE { Comp_Generic(op); return; }
+#define CONDITIONAL_DISABLE ;
+#define DISABLE { Comp_Generic(op); return; }
 
 namespace MIPSComp
 {
@@ -83,6 +88,7 @@ namespace MIPSComp
 	
 	void Jit::Comp_ITypeMem(u32 op)
 	{
+		CONDITIONAL_DISABLE;
 		int offset = (signed short)(op&0xFFFF);
 		bool load = false;
 		int rt = _RT;
