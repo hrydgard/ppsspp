@@ -926,6 +926,7 @@ namespace MIPSInt
 			break;
 		default:
 			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			oz = V_Single;
 			break;
 		}
 		ApplyPrefixD((float*)d,oz);

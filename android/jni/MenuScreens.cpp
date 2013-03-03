@@ -444,7 +444,7 @@ void CreditsScreen::update(InputState &input_state) {
 	frames_++;
 }
 
-static char *credits[] =
+const static char *credits[] =
 {
 	"PPSSPP",
 	"",
@@ -509,7 +509,7 @@ void CreditsScreen::render() {
 	// TODO: This is kinda ugly, done on every frame...
 	char temp[256];
 	snprintf(temp, 256, "PPSSPP %s", PPSSPP_GIT_VERSION);
-	credits[0] = temp;
+	credits[0] = (const char *)temp;
 
 	UIShader_Prepare();
 	UIBegin();

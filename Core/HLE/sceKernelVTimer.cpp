@@ -253,7 +253,7 @@ u32 sceKernelGetVTimerTime(u32 uid, u32 timeClockAddr) {
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
 
 	if (error) {
-		WARN_LOG(HLE, "%08x=sceKernelGetVTimerTime(%08x, %08x)", uid, timeClockAddr);
+		WARN_LOG(HLE, "%08x=sceKernelGetVTimerTime(%08x, %08x)", error, uid, timeClockAddr);
 		return error;
 	}
 
@@ -290,7 +290,7 @@ u32 sceKernelSetVTimerTime(u32 uid, u32 timeClockAddr) {
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
 
 	if (error) {
-		WARN_LOG(HLE, "%08x=sceKernelSetVTimerTime(%08x, %08x)", uid, timeClockAddr);
+		WARN_LOG(HLE, "%08x=sceKernelSetVTimerTime(%08x, %08x)", error, uid, timeClockAddr);
 		return error;
 	}
 
@@ -307,7 +307,7 @@ u32 sceKernelSetVTimerTimeWide(u32 uid, u64 timeClock) {
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
 
 	if (error) {
-		WARN_LOG(HLE, "%08x=sceKernelSetVTimerTimeWide(%08x, %llu)", uid, timeClock);
+		WARN_LOG(HLE, "%08x=sceKernelSetVTimerTimeWide(%08x, %llu)", error, uid, timeClock);
 		return error;
 	}
 
@@ -369,7 +369,7 @@ u32 sceKernelSetVTimerHandler(u32 uid, u32 scheduleAddr, u32 handlerFuncAddr, u3
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
 
 	if (error) {
-		WARN_LOG(HLE, "%08x=sceKernelSetVTimerHandler(%08x, %08x, %08x, %08x)", uid, scheduleAddr, handlerFuncAddr, commonAddr);
+		WARN_LOG(HLE, "%08x=sceKernelSetVTimerHandler(%08x, %08x, %08x, %08x)", error, uid, scheduleAddr, handlerFuncAddr, commonAddr);
 		return error;
 	}
 
@@ -389,7 +389,7 @@ u32 sceKernelSetVTimerHandlerWide(u32 uid, u64 schedule, u32 handlerFuncAddr, u3
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
 
 	if (error) {
-		WARN_LOG(HLE, "%08x=sceKernelSetVTimerHandlerWide(%08x, %llu, %08x, %08x)", uid, schedule, handlerFuncAddr, commonAddr);
+		WARN_LOG(HLE, "%08x=sceKernelSetVTimerHandlerWide(%08x, %llu, %08x, %08x)", error, uid, schedule, handlerFuncAddr, commonAddr);
 		return error;
 	}
 
@@ -417,7 +417,7 @@ u32 sceKernelReferVTimerStatus(u32 uid, u32 statusAddr) {
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
 
 	if (error) {
-		WARN_LOG(HLE, "%08x=sceKernelReferVTimerStatus(%08x, %08x)", uid, statusAddr);
+		WARN_LOG(HLE, "%08x=sceKernelReferVTimerStatus(%08x, %08x)", error, uid, statusAddr);
 		return error;
 	}
 
