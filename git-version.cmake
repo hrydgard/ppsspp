@@ -5,6 +5,7 @@ set(GIT_VERSION_UPDATE "1")
 find_package(Git)
 if(GIT_FOUND)
 	execute_process(COMMAND ${GIT_EXECUTABLE} describe --always
+		WORKING_DIRECTORY ${SOURCE_DIR}
 		RESULT_VARIABLE exit_code
 		OUTPUT_VARIABLE GIT_VERSION)
 	if(NOT ${exit_code} EQUAL 0)
