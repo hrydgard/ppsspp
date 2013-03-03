@@ -91,6 +91,33 @@ void ARMXEmitter::MOVI2F(ARMReg dest, float val, ARMReg tempReg)
 	VMOV(dest, tempReg);
 }
 
+void ARMXEmitter::ANDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
+{
+	Operand2 op2;
+	bool inverse;
+	if (TryMakeOperand2_AllowInverse(val, op2, &inverse)) {
+		if (!inverse) {
+			AND(rd, rs, op2);
+		} else {
+			BIC(rd, rs, op2);
+		}
+	} else {
+		MOVI2R(scratch, val);
+		AND(rd, rs, scratch);
+	}
+}
+
+void ARMXEmitter::ORI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
+{
+	Operand2 op2;
+	if (TryMakeOperand2(val, op2)) {
+		ORR(rd, rs, op2);
+	} else {
+		MOVI2R(scratch, val);
+		AND(rd, rs, scratch);
+	}
+}
+
 void ARMXEmitter::MOVI2R(ARMReg reg, u32 val, bool optimize)
 {
 	Operand2 op2;

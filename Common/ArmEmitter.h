@@ -547,6 +547,11 @@ public:
 	// Wrapper around MOVT/MOVW with fallbacks.
 	void MOVI2R(ARMReg reg, u32 val, bool optimize = true);
 	void MOVI2F(ARMReg dest, float val, ARMReg tempReg);
+
+	void ANDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch);
+	void ORI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch);
+
+
 };  // class ARMXEmitter
 
 

@@ -314,9 +314,10 @@ namespace MIPSComp
 	{
 		CONDITIONAL_DISABLE;
 		
-		DISABLE;
+		bool useUBFXandBFI = false;
 
 		if (!cpu_info.bArmV7) {
+			// useUBFXandBFI = true;
 		}
 
 		int rs = _RS;
@@ -338,23 +339,47 @@ namespace MIPSComp
 				gpr.SetImm(rt, (gpr.GetImm(rs) >> pos) & mask);
 				return;
 			}
-			// TODO: Make fallback for when UBFX isn't available
+
 			gpr.MapDirtyIn(rt, rs, false);
-			UBFX(gpr.R(rt), gpr.R(rs), pos, size);
+			if (useUBFXandBFI) {
+				UBFX(gpr.R(rt), gpr.R(rs), pos, size);
+			} else {
+				MOV(gpr.R(rt), Operand2(pos, ST_LSR, gpr.R(rs)));
+				ANDI2R(gpr.R(rt), gpr.R(rt), mask, R0);
+			}
 			break;
 
 		case 0x4: //ins
-			if (gpr.IsImm(rs) && gpr.IsImm(rt))
 			{
 				u32 sourcemask = mask >> pos;
 				u32 destmask = ~(sourcemask << pos);
-				u32 inserted = (gpr.GetImm(rs) & sourcemask) << pos;
-				gpr.SetImm(rt, (gpr.GetImm(rt) & destmask) | inserted);
-				return;
+				if (gpr.IsImm(rs))
+				{
+					u32 inserted = (gpr.GetImm(rs) & sourcemask) << pos;
+					if (gpr.IsImm(rt))
+					{
+						gpr.SetImm(rt, (gpr.GetImm(rt) & destmask) | inserted);
+						return;
+					}
+
+					gpr.MapReg(rt);
+					ANDI2R(gpr.R(rt), gpr.R(rt), destmask, R0);
+					ORI2R(gpr.R(rt), gpr.R(rt), inserted, R0);
+				}
+				else
+				{
+					if (useUBFXandBFI) {
+						gpr.MapDirtyIn(rt, rs, false);
+						BFI(gpr.R(rt), gpr.R(rs), pos, size);
+					} else {
+						gpr.MapDirtyIn(rt, rs, false);
+						ANDI2R(R0, gpr.R(rs), sourcemask, R1);
+						MOV(R0, Operand2(pos, ST_LSL, gpr.R(rs)));
+						ANDI2R(gpr.R(rt), gpr.R(rt), destmask, R1);
+						ORR(gpr.R(rt), gpr.R(rt), R0);
+					}
+				}
 			}
-			gpr.MapDirtyIn(rt, rs, false);
-			// TODO: Make fallback for when BFI isn't available
-			BFI(gpr.R(rt), gpr.R(rs), pos, size);
 			break;
 		}
 	}
