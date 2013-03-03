@@ -28,7 +28,12 @@ using namespace MIPSAnalyst;
 #define _POS	((op>>6 ) & 0x1F)
 #define _SIZE ((op>>11 ) & 0x1F)
 
-#define DISABLE Comp_Generic(op); return;
+// All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
+// Currently known non working ones should have DISABLE.
+
+//#define CONDITIONAL_DISABLE { Comp_Generic(op); return; }
+#define CONDITIONAL_DISABLE ;
+#define DISABLE { Comp_Generic(op); return; }
 
 namespace MIPSComp
 {
@@ -55,6 +60,7 @@ namespace MIPSComp
 
 	void Jit::Comp_IType(u32 op)
 	{
+		CONDITIONAL_DISABLE;
 		s32 simm = (s32)(s16)(op & 0xFFFF);  // sign extension
 		u32 uimm = op & 0xFFFF;
 		u32 suimm = (u32)(s32)simm;
@@ -153,6 +159,7 @@ namespace MIPSComp
 
 	void Jit::Comp_RType3(u32 op)
 	{
+		CONDITIONAL_DISABLE;
 		int rt = _RT;
 		int rs = _RS;
 		int rd = _RD;
@@ -282,6 +289,7 @@ namespace MIPSComp
 */
 	void Jit::Comp_ShiftType(u32 op)
 	{
+		CONDITIONAL_DISABLE;
 		int rs = _RS;
 		int fd = _FD;
 		// WARNIGN : ROTR
@@ -297,7 +305,6 @@ namespace MIPSComp
 		
 		default:
 			Comp_Generic(op);
-			//_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
 			break;
 		}
 	}
@@ -310,6 +317,7 @@ namespace MIPSComp
 
 	void Jit::Comp_Allegrex(u32 op)
 	{
+		CONDITIONAL_DISABLE;
 		int rt = _RT;
 		int rd = _RD;
 		switch ((op >> 6) & 31)
@@ -348,6 +356,7 @@ namespace MIPSComp
 				gpr.SetImm(rd,v);
 				break;
 			}
+			// Intentional fall-through.
 		default:
 			Comp_Generic(op);
 			return;
@@ -356,7 +365,7 @@ namespace MIPSComp
 
 	void Jit::Comp_MulDivType(u32 op)
 	{
-		// DISABLE;
+		CONDITIONAL_DISABLE;
 		int rt = _RT;
 		int rs = _RS;
 		int rd = _RD;
