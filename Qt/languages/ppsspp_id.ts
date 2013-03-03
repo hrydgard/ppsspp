@@ -1007,7 +1007,7 @@
     <message>
         <location filename="../gamepaddialog.cpp" line="38"/>
         <source>Stick bottom</source>
-        <translation>Stick bottom</translation>
+        <translation>Stick bawah</translation>
     </message>
 </context>
 </TS>
