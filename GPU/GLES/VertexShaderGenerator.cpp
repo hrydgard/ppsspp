@@ -133,6 +133,13 @@ void GenerateVertexShader(int prim, char *buffer) {
 	WRITE(p, "precision highp float;\n");
 #elif !defined(FORCE_OPENGL_2_0)
 	WRITE(p, "#version 110\n");
+	// Remove lowp/mediump in non-mobile implementations
+	WRITE(p, "#define lowp\n");
+	WRITE(p, "#define mediump\n");
+#else
+	// Need to remove lowp/mediump for Mac
+	WRITE(p, "#define lowp\n");
+	WRITE(p, "#define mediump\n");
 #endif
 
 	int lmode = (gstate.lmode & 1) && (gstate.lightingEnable & 1);
@@ -169,13 +176,13 @@ void GenerateVertexShader(int prim, char *buffer) {
 
 	if (doTexture) WRITE(p, "attribute vec2 a_texcoord;\n");
 	if (hasColor) {
-		WRITE(p, "attribute vec4 a_color0;\n");
+		WRITE(p, "attribute lowp vec4 a_color0;\n");
 		if (lmode && !hwXForm)  // only software transform supplies color1 as vertex data
-			WRITE(p, "attribute vec3 a_color1;\n");
+			WRITE(p, "attribute lowp vec3 a_color1;\n");
 	}
 
 	if (hwXForm && hasNormal)
-		WRITE(p, "attribute vec3 a_normal;\n");
+		WRITE(p, "attribute mediump vec3 a_normal;\n");
 
 	if (gstate.isModeThrough())	{
 		WRITE(p, "uniform mat4 u_proj_through;\n");
@@ -185,7 +192,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 	}
 
 	if (hwXForm || !hasColor)
-		WRITE(p, "uniform vec4 u_matambientalpha;\n");  // matambient + matalpha
+		WRITE(p, "uniform lowp vec4 u_matambientalpha;\n");  // matambient + matalpha
 
 	if (enableFog) {
 		WRITE(p, "uniform vec2 u_fogcoef;\n");
@@ -206,12 +213,12 @@ void GenerateVertexShader(int prim, char *buffer) {
 			}
 		}
 		if (gstate.lightingEnable & 1) {
-			WRITE(p, "uniform vec4 u_ambient;\n");
+			WRITE(p, "uniform lowp vec4 u_ambient;\n");
 			if ((gstate.materialupdate & 2) == 0)
-				WRITE(p, "uniform vec3 u_matdiffuse;\n");
+				WRITE(p, "uniform lowp vec3 u_matdiffuse;\n");
 			// if ((gstate.materialupdate & 4) == 0)
-			WRITE(p, "uniform vec4 u_matspecular;\n");  // Specular coef is contained in alpha
-			WRITE(p, "uniform vec3 u_matemissive;\n");
+			WRITE(p, "uniform lowp vec4 u_matspecular;\n");  // Specular coef is contained in alpha
+			WRITE(p, "uniform lowp vec3 u_matemissive;\n");
 		}
 		for (int i = 0; i < 4; i++) {
 			if (doLight[i] != LIGHT_OFF) {
@@ -222,15 +229,15 @@ void GenerateVertexShader(int prim, char *buffer) {
 			}
 			if (doLight[i] == LIGHT_FULL) {
 				// These are needed for the full thing
-				WRITE(p, "uniform vec3 u_lightambient%i;\n", i);
-				WRITE(p, "uniform vec3 u_lightdiffuse%i;\n", i);
-				WRITE(p, "uniform vec3 u_lightspecular%i;\n", i);
+				WRITE(p, "uniform lowp vec3 u_lightambient%i;\n", i);
+				WRITE(p, "uniform lowp vec3 u_lightdiffuse%i;\n", i);
+				WRITE(p, "uniform lowp vec3 u_lightspecular%i;\n", i);
 			}
 		}
 	}
 
-	WRITE(p, "varying vec4 v_color0;\n");
-	if (lmode) WRITE(p, "varying vec3 v_color1;\n");
+	WRITE(p, "varying lowp vec4 v_color0;\n");
+	if (lmode) WRITE(p, "varying lowp vec3 v_color1;\n");
 	if (doTexture) WRITE(p, "varying vec2 v_texcoord;\n");
 	if (enableFog) WRITE(p, "varying float v_fogdepth;\n");
 
@@ -290,9 +297,9 @@ void GenerateVertexShader(int prim, char *buffer) {
 
 		// Step 2: Color/Lighting
 		if (hasColor) {
-			WRITE(p, "  vec3 unlitColor = a_color0.rgb;\n");
+			WRITE(p, "  lowp vec3 unlitColor = a_color0.rgb;\n");
 		} else {
-			WRITE(p, "  vec3 unlitColor = vec3(1.0, 1.0, 1.0);\n");
+			WRITE(p, "  lowp vec3 unlitColor = vec3(1.0, 1.0, 1.0);\n");
 		}
 		// TODO: Declare variables for dots for shade mapping if needed.
 
@@ -301,8 +308,8 @@ void GenerateVertexShader(int prim, char *buffer) {
 		const char *specular = (gstate.materialupdate & 4) ? "unlitColor" : "u_matspecular.rgb";
 
 		if (gstate.lightingEnable & 1) {
-			WRITE(p, "  vec4 lightSum0 = u_ambient * %s + vec4(u_matemissive, 0.0);\n", ambient);
-			WRITE(p, "  vec3 lightSum1 = vec3(0.0);\n");
+			WRITE(p, "  lowp vec4 lightSum0 = u_ambient * %s + vec4(u_matemissive, 0.0);\n", ambient);
+			WRITE(p, "  lowp vec3 lightSum1 = vec3(0.0);\n");
 		}
 
 		// Calculate lights if needed. If shade mapping is enabled, lights may need to be
