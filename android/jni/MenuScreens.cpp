@@ -315,12 +315,14 @@ void SettingsScreen::render() {
 	int stride = 40;
 	UICheckBox(GEN_ID, x, y += stride, "Sound Emulation", ALIGN_TOPLEFT, &g_Config.bEnableSound);
 	if (UICheckBox(GEN_ID, x, y += stride, "Buffered Rendering", ALIGN_TOPLEFT, &g_Config.bBufferedRendering)) {
-		gpu->Resized();
+		if (gpu)
+			gpu->Resized();
 	}
 	if (g_Config.bBufferedRendering) {
 		bool doubleRes = g_Config.iWindowZoom == 2;
 		if (UICheckBox(GEN_ID, x + 50, y += stride, "2x Render Resolution", ALIGN_TOPLEFT, &doubleRes)) {
-			gpu->Resized();
+			if (gpu)
+				gpu->Resized();
 		}
 		g_Config.iWindowZoom = doubleRes ? 2 : 1;
 	}
