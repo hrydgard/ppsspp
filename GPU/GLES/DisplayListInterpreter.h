@@ -63,6 +63,7 @@ public:
 	{
 		return textureCache_.DecodeTexture(dest, state);
 	}
+	virtual bool FramebufferDirty();
 
 	std::vector<FramebufferInfo> GetFramebufferList();
 

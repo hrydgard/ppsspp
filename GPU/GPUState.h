@@ -229,6 +229,8 @@ struct GPUgstate
 
 enum SkipDrawReasonFlags {
 	SKIPDRAW_SKIPFRAME = 1,
+	SKIPDRAW_NON_DISPLAYED_FB = 2,   // Skip drawing to FBO:s that have not been displayed.
+	SKIPDRAW_BAD_FB_TEXTURE = 4,
 };
 
 // The rest is cached simplified/converted data for fast access.

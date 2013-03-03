@@ -314,10 +314,14 @@ void SettingsScreen::render() {
 	int y = 30;
 	int stride = 40;
 	UICheckBox(GEN_ID, x, y += stride, "Sound Emulation", ALIGN_TOPLEFT, &g_Config.bEnableSound);
-	UICheckBox(GEN_ID, x, y += stride, "Buffered Rendering", ALIGN_TOPLEFT, &g_Config.bBufferedRendering);
+	if (UICheckBox(GEN_ID, x, y += stride, "Buffered Rendering", ALIGN_TOPLEFT, &g_Config.bBufferedRendering)) {
+		gpu->Resized();
+	}
 	if (g_Config.bBufferedRendering) {
 		bool doubleRes = g_Config.iWindowZoom == 2;
-		UICheckBox(GEN_ID, x + 50, y += stride, "2x Render Resolution", ALIGN_TOPLEFT, &doubleRes);
+		if (UICheckBox(GEN_ID, x + 50, y += stride, "2x Render Resolution", ALIGN_TOPLEFT, &doubleRes)) {
+			gpu->Resized();
+		}
 		g_Config.iWindowZoom = doubleRes ? 2 : 1;
 	}
 	UICheckBox(GEN_ID, x, y += stride, "Hardware Transform", ALIGN_TOPLEFT, &g_Config.bHardwareTransform);
@@ -444,8 +448,7 @@ void CreditsScreen::update(InputState &input_state) {
 	frames_++;
 }
 
-const static char *credits[] =
-{
+static const char * credits[] = {
 	"PPSSPP",
 	"",
 	"",

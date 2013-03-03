@@ -138,7 +138,7 @@ void TextureCache::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffe
 	if (entry) {
 		DEBUG_LOG(HLE, "Render to texture detected at %08x!", address);
 		if (!entry->framebuffer)
-			entry->framebuffer= framebuffer;
+			entry->framebuffer = framebuffer;
 		// TODO: Delete the original non-fbo texture too.
 	}
 }
@@ -695,12 +695,22 @@ void TextureCache::SetTexture() {
 	TexCache::iterator iter = cache.find(cachekey);
 	TexCacheEntry *entry = NULL;
 	gstate_c.flipTexture = false;
+	gstate_c.skipDrawReason &= ~SKIPDRAW_BAD_FB_TEXTURE;
 
 	if (iter != cache.end()) {
 		entry = &iter->second;
 		// Check for FBO - slow!
 		if (entry->framebuffer) {
-			fbo_bind_color_as_texture(entry->framebuffer->fbo, 0);
+			entry->framebuffer->usageFlags |= FB_USAGE_TEXTURE;
+			if (entry->framebuffer->fbo)
+			{
+				fbo_bind_color_as_texture(entry->framebuffer->fbo, 0);
+			}
+			else {
+				glBindTexture(GL_TEXTURE_2D, 0);
+				gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
+			}
+
 			UpdateSamplingParams(*entry, false);
 
 			// This isn't right.

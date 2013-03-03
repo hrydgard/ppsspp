@@ -376,8 +376,7 @@ void ShaderManager::DirtyShader()
 }
 
 
-LinkedShader *ShaderManager::ApplyShader(int prim)
-{
+LinkedShader *ShaderManager::ApplyShader(int prim) {
 	if (globalDirty) {
 		if (lastShader)
 			lastShader->dirtyUniforms |= globalDirty;

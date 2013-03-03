@@ -23,6 +23,7 @@ public:
 	virtual u32  EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head);
 	virtual int  listStatus(int listid);
 	virtual void DoState(PointerWrap &p);
+	virtual bool FramebufferDirty() { return true; }
 
 protected:
 	typedef std::deque<DisplayList> DisplayListQueue;

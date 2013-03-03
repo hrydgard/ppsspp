@@ -251,15 +251,23 @@ void GLES_GPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, int format) {
 	framebufferManager_.SetDisplayFramebuffer(framebuf, stride, format);
 }
 
+bool GLES_GPU::FramebufferDirty() {
+	if (!g_Config.bBufferedRendering) {
+		VirtualFramebuffer *vfb = framebufferManager_.GetDisplayFBO();
+		if (vfb)
+			return vfb->dirtyAfterDisplay;
+	}
+	return true;
+}
+
 void GLES_GPU::CopyDisplayToOutput() {
 	glstate.colorMask.set(true, true, true, true);
 	transformDraw_.Flush();
-	if (!g_Config.bBufferedRendering)
-		return;
 
 	EndDebugDraw();
 
 	framebufferManager_.CopyDisplayToOutput();
+	framebufferManager_.EndFrame();
 
 	shaderManager_->DirtyShader();
 	shaderManager_->DirtyUniform(DIRTY_ALL);
@@ -313,10 +321,16 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_PRIM:
 		{
-			if (gstate_c.skipDrawReason)
-				return;
+			// This drives all drawing. All other state we just buffer up, then we apply it only
+			// when it's time to draw. As most PSP games set state redundantly ALL THE TIME, this is a huge optimization.
 
+			// This also make skipping drawing very effective.
+
+			if (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME)
+				return;
 			framebufferManager_.SetRenderFrameBuffer();
+			if (gstate_c.skipDrawReason & SKIPDRAW_NON_DISPLAYED_FB)
+				return;
 
 			u32 count = data & 0xFFFF;
 			u32 type = data >> 16;
@@ -650,6 +664,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		{
 			// TODO: Here we should check if the transfer overlaps a framebuffer or any textures,
 			// and take appropriate action. This is a block transfer between RAM and VRAM, or vice versa.
+			// Can we skip this on SkipDraw?
 			DoBlockTransfer();
 			break;
 		}

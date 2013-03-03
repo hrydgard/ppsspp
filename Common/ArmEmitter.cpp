@@ -1085,8 +1085,8 @@ void ARMXEmitter::VMOV(ARMReg Dest, ARMReg Src)
 
 void ARMXEmitter::VCVT(ARMReg Sd, ARMReg Sm, int flags)
 {
-	bool op  = (flags & TO_INT) ? (flags & ROUND_TO_ZERO) : (flags & IS_SIGNED);
-	bool op2 = (flags & TO_INT) ? (flags & IS_SIGNED) : 0;
+	int op  = ((flags & TO_INT) ? (flags & ROUND_TO_ZERO) : (flags & IS_SIGNED)) ? 1 : 0;
+	int op2 = ((flags & TO_INT) ? (flags & IS_SIGNED) : 0) ? 1 : 0;
 	Sd = SubBase(Sd);
 	Sm = SubBase(Sm);
 

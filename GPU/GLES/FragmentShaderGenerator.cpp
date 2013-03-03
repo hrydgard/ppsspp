@@ -88,7 +88,7 @@ void GenerateFragmentShader(char *buffer)
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
 	bool enableAlphaTest = (gstate.alphaTestEnable & 1) && !gstate.isModeClear();
 	bool enableColorTest = (gstate.colorTestEnable & 1) && !gstate.isModeClear();
-	bool enableColorDoubling = gstate.texfunc & 0x10000;
+	bool enableColorDoubling = (gstate.texfunc & 0x10000) != 0;
 
 
 	if (doTexture)

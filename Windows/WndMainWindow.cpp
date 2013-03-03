@@ -401,6 +401,8 @@ namespace MainWindow
 			case ID_OPTIONS_BUFFEREDRENDERING:
 				g_Config.bBufferedRendering = !g_Config.bBufferedRendering;
 				UpdateMenus();
+				if (gpu)
+					gpu->Resized();  // easy way to force a clear...
 				break;
 
 			case ID_OPTIONS_SHOWDEBUGSTATISTICS:
@@ -416,7 +418,8 @@ namespace MainWindow
 			case ID_OPTIONS_STRETCHDISPLAY:
 				g_Config.bStretchToDisplay = !g_Config.bStretchToDisplay;
 				UpdateMenus();
-				gpu->Resized();  // easy way to force a clear...
+				if (gpu)
+					gpu->Resized();  // easy way to force a clear...
 				break;
 
 			case ID_OPTIONS_FRAMESKIP:
@@ -443,12 +446,12 @@ namespace MainWindow
 				break;
 
 			case ID_DEBUG_DUMPNEXTFRAME:
-				gpu->DumpNextFrame();
+				if (gpu)
+					gpu->DumpNextFrame();
 				break;
 
 			case ID_DEBUG_LOADMAPFILE:
-				if (W32Util::BrowseForFileName(true, hWnd, "Load .MAP",0,"Maps\0*.map\0All files\0*.*\0\0","map",fn))
-				{
+				if (W32Util::BrowseForFileName(true, hWnd, "Load .MAP",0,"Maps\0*.map\0All files\0*.*\0\0","map",fn)) {
 					symbolMap.LoadSymbolMap(fn.c_str());
 //					HLE_PatchFunctions();
 					for (int i=0; i<numCPUs; i++)

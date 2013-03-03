@@ -39,8 +39,9 @@ enum PspDisplayPixelFormat {
 };
 
 enum {
-	FB_USAGE_RENDERTARGET = 1,
-	FB_USAGE_TEXTURE = 2,
+	FB_USAGE_DISPLAYED_FRAMEBUFFER = 1,
+	FB_USAGE_RENDERTARGET = 2,
+	FB_USAGE_TEXTURE = 4,
 };
 
 
@@ -63,6 +64,8 @@ struct VirtualFramebuffer {
 	int format;  // virtual, right now they are all RGBA8888
 	FBOColorDepth colorDepth;
 	FBO *fbo;
+
+	bool dirtyAfterDisplay;
 };
 
 
@@ -82,6 +85,7 @@ public:
 	void DecimateFBOs();
 
 	void BeginFrame();
+	void EndFrame();
 	void Resized();
 	void CopyDisplayToOutput();
 	void SetRenderFrameBuffer();  // Uses parameters computed from gstate

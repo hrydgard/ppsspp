@@ -210,7 +210,7 @@ void CalculateFPS()
 	}
 
 	char stats[50];
-	sprintf(stats, "%0.1f", fps);
+	sprintf(stats, "VPS: %0.1f", fps);
 
 	#ifdef USING_GLES2
 		float zoom = 0.7f; /// g_Config.iWindowZoom;
@@ -285,13 +285,12 @@ void DebugStats()
 }
 
 // Let's collect all the throttling and frameskipping logic here.
-void DoFrameTiming(bool &throttle, bool &skipFrame, bool &skipFlip) {
+void DoFrameTiming(bool &throttle, bool &skipFrame) {
 #ifdef _WIN32
 	throttle = !GetAsyncKeyState(VK_TAB);
 #else
-	throttle = false;
+	throttle = true;
 #endif
-	skipFlip = false;
 	skipFrame = false;
 	if (PSP_CoreParameter().headLess)
 		throttle = false;
@@ -311,7 +310,6 @@ void DoFrameTiming(bool &throttle, bool &skipFrame, bool &skipFlip) {
 	if (curFrameTime > nextFrameTime && doFrameSkip) {
 		// Argh, we are falling behind! Let's skip a frame and see if we catch up.
 		skipFrame = true;
-		skipFlip = true;
 		INFO_LOG(HLE,"FRAMESKIP %i", numSkippedFrames);
 	}
 	
@@ -339,10 +337,10 @@ void DoFrameTiming(bool &throttle, bool &skipFrame, bool &skipFlip) {
 		nextFrameTime = nextFrameTime + 1.0 / 60.0;
 	}
 
-	// Max 6 skipped frames in a row - 10 fps is really the bare minimum for playability.
-	if (numSkippedFrames >= 4) {
+	// Max 4 skipped frames in a row - 15 fps is really the bare minimum for playability.
+	// We check for 3 here so it's 3 skipped frames, 1 non skipped, 3 skipped, etc.
+	if (numSkippedFrames >= 3) {
 		skipFrame = false;
-		skipFlip = false;
 	}
 }
 
@@ -389,17 +387,23 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 		CalculateFPS();
 	}
 
+	bool skipFlip = false;
+
+	// This frame was skipped, so no need to flip.
+	if (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) {
+		skipFlip = true;
+	}
+
 	// Draw screen overlays before blitting. Saves and restores the Ge context.
 	// Yeah, this has to be the right moment to end the frame. Give the graphics backend opportunity
 	// to blit the framebuffer, in order to support half-framerate games that otherwise wouldn't have
 	// anything to draw here.
 	gstate_c.skipDrawReason &= ~SKIPDRAW_SKIPFRAME;
 
-	bool throttle, skipFrame, skipFlip;
+	bool throttle, skipFrame;
 	
-	DoFrameTiming(throttle, skipFrame, skipFlip);
+	DoFrameTiming(throttle, skipFrame);
 
-	// Setting CORE_NEXTFRAME causes a swap.
 	if (skipFrame) {
 		gstate_c.skipDrawReason |= SKIPDRAW_SKIPFRAME;
 		numSkippedFrames++;
@@ -408,11 +412,11 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	}
 
 	if (!skipFlip) {
-		// Might've just quit / been paused.
-		if (coreState == CORE_RUNNING) {
+		// Setting CORE_NEXTFRAME causes a swap.
+		// Check first though, might've just quit / been paused.
+		if (coreState == CORE_RUNNING && gpu->FramebufferDirty()) {
 			coreState = CORE_NEXTFRAME;
 		}
-		CoreTiming::ScheduleEvent(0 - cyclesLate, afterFlipEvent, 0);
 
 		gpu->CopyDisplayToOutput();
 	}
@@ -420,6 +424,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	// Returning here with coreState == CORE_NEXTFRAME causes a buffer flip to happen (next frame).
 	// Right after, we regain control for a little bit in hleAfterFlip. I think that's a great
 	// place to do housekeeping.
+	CoreTiming::ScheduleEvent(0 - cyclesLate, afterFlipEvent, 0);
 }
 
 void hleAfterFlip(u64 userdata, int cyclesLate)

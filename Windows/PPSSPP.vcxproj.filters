@@ -215,6 +215,7 @@
     <None Include="..\CMakeLists.txt">
       <Filter>Windows</Filter>
     </None>
+    <None Include="git-version-gen.cmd" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="ppsspp.rc">
