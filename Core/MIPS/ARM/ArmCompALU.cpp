@@ -362,7 +362,7 @@ namespace MIPSComp
 						return;
 					}
 
-					gpr.MapReg(rt);
+					gpr.MapReg(rt, MAP_DIRTY);
 					ANDI2R(gpr.R(rt), gpr.R(rt), destmask, R0);
 					ORI2R(gpr.R(rt), gpr.R(rt), inserted, R0);
 				}
