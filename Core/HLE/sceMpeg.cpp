@@ -23,6 +23,7 @@
 #include "sceKernelThread.h"
 #include "HLE.h"
 #include "../HW/MediaEngine.h"
+#include "../../Core/Config.h"
 
 static bool useMediaEngine;
 
@@ -519,6 +520,10 @@ int sceMpegAvcDecodeMode(u32 mpeg, u32 modeAddr)
 
 int sceMpegQueryStreamOffset(u32 mpeg, u32 bufferAddr, u32 offsetAddr)
 {
+	if (g_Config.bUseMediaEngine == false){
+		WARN_LOG(HLE, "Media Engine disabled");
+		return -1;
+	}
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
 		WARN_LOG(HLE, "sceMpegQueryStreamOffset(%08x, %08x, %08x): bad mpeg handle", mpeg, bufferAddr, offsetAddr);
