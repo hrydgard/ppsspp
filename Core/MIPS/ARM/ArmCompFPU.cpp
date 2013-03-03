@@ -105,6 +105,7 @@ void Jit::Comp_FPULS(u32 op)
 }
 
 void Jit::Comp_FPUComp(u32 op) {
+	CONDITIONAL_DISABLE;
 	int opc = op & 0xF;
 	if (opc >= 8) opc -= 8; // alias
 	if (opc == 0)//f, sf (signalling false)
