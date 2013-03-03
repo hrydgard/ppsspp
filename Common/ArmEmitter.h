@@ -25,6 +25,7 @@
 #if defined(__SYMBIAN32__) || defined(PANDORA)
 #include <signal.h>
 #endif
+#include <vector>
 
 #undef _IP
 #undef R0
@@ -333,6 +334,14 @@ struct FixupBranch
 	int type; //0 = B 1 = BL
 };
 
+struct LiteralPool
+{
+    int i;
+    u32 ldr_address;
+    u32 val;
+    ArmGen::ARMReg reg;
+};
+
 typedef const u8* JumpTarget;
 
 class ARMXEmitter
@@ -342,6 +351,8 @@ private:
 	u8 *code, *startcode;
 	u8 *lastCacheFlushEnd;
 	u32 condition;
+	int pool_size;
+	std::vector<LiteralPool> currentLitPool;
 
 	void WriteStoreOp(u32 op, ARMReg dest, ARMReg src, Operand2 op2);
 	void WriteRegStoreOp(u32 op, ARMReg dest, bool WriteBack, u16 RegList);
@@ -359,7 +370,7 @@ protected:
 	inline void Write32(u32 value) {*(u32*)code = value; code+=4;}
 
 public:
-	ARMXEmitter() : code(0), startcode(0), lastCacheFlushEnd(0) {
+	ARMXEmitter() : code(0), startcode(0), lastCacheFlushEnd(0), pool_size(0) {
 		condition = CC_AL << 28;
 	}
 	ARMXEmitter(u8 *code_ptr) {
@@ -367,6 +378,7 @@ public:
 		lastCacheFlushEnd = code_ptr;
 		startcode = code_ptr;
 		condition = CC_AL << 28;
+		pool_size = 0;
 	}
 	virtual ~ARMXEmitter() {}
 
@@ -378,6 +390,9 @@ public:
 	void FlushIcache();
 	void FlushIcacheSection(u8 *start, u8 *end);
 	u8 *GetWritableCodePtr();
+
+	void FlushLitPool();
+	void AddNewLit(ArmGen::ARMReg reg, u32 val);
 
 	void SetCC(CCFlags cond = CC_AL);
 
@@ -490,6 +505,7 @@ public:
 	void LDRSH(ARMReg dest, ARMReg base, ARMReg offset, bool Index, bool Add);
 	void LDRB (ARMReg dest, ARMReg base, ARMReg offset, bool Index, bool Add);
 	void LDRSB(ARMReg dest, ARMReg base, ARMReg offset, bool Index, bool Add);
+	void LDRLIT(ARMReg dest, u32 offset, bool Add);
 
 	void STR  (ARMReg dest, ARMReg src, Operand2 op2 = 0);
 	void STRH (ARMReg dest, ARMReg src, Operand2 op2 = 0);

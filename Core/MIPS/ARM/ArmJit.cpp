@@ -219,6 +219,7 @@ const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 		js.compilerPC += 4;
 		numInstructions++;
 	}
+	FlushLitPool();
 #ifdef LOGASM
 	if (logBlocks > 0 && dontLogBlocks == 0) {
 		for (u32 cpc = em_address; cpc != js.compilerPC + 4; cpc += 4) {

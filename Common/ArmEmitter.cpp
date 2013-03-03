@@ -118,6 +118,36 @@ void ARMXEmitter::ORI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
 	}
 }
 
+void ARMXEmitter::FlushLitPool()
+{
+	for(std::vector<LiteralPool>::iterator it = currentLitPool.begin(); it != currentLitPool.end(); ++it) {
+		LiteralPool item = *it;
+		// Write the constant to Literal Pool
+		Write32(item.val);
+		s32 offset = (s32)code - (s32)item.ldr_address;
+		// Backpatch the LDR
+		code -= offset;
+		LDRLIT(item.reg, abs(offset - 8), offset - 8 > 0);
+		code += offset - 4;
+	}
+	// TODO: Save a copy of previous pools in case they are still in range.
+	currentLitPool.clear();
+	pool_size = 0;
+}
+
+void ARMXEmitter::AddNewLit(ArmGen::ARMReg reg, u32 val)
+{
+	// TODO: Look up current constants,
+	// return that value instead of generating a new one.
+	int index = pool_size++;
+	currentLitPool.push_back();
+	currentLitPool[index].i = pool_size;
+	currentLitPool[index].val = val;
+	currentLitPool[index].reg = reg;
+	currentLitPool[index].ldr_address = (u32)code;
+	Write32(0); // To be backpatched later
+}
+
 void ARMXEmitter::MOVI2R(ARMReg reg, u32 val, bool optimize)
 {
 	Operand2 op2;
@@ -149,23 +179,7 @@ void ARMXEmitter::MOVI2R(ARMReg reg, u32 val, bool optimize)
 				MOVT(reg, val, true);
 		} else {
 			// ARMv6 - fallback sequence.
-			// TODO: Optimize further. Can for example choose negation etc.
-			// Literal pools is another way to do this but much more complicated
-			// so I can't really be bothered for an outdated CPU architecture like ARMv6.
-			bool first = true;
-			int shift = 16;
-			for (int i = 0; i < 4; i++) {
-				if (val & 0xFF) {
-					if (first) {
-						MOV(reg, Operand2((u8)val, (u8)(shift & 0xF)));
-						first = false;
-					} else {
-						ORR(reg, reg, Operand2((u8)val, (u8)(shift & 0xF)));
-					}
-				}
-				shift -= 4;
-				val >>= 8;
-			}
+			AddNewLit(reg, val);
 		}
 	}
 }
@@ -667,6 +681,8 @@ void ARMXEmitter::LDRSB(ARMReg dest, ARMReg base, ARMReg offset, bool Index, boo
 {
 	Write32(condition | (0x01 << 20) | (Index << 24) | (Add << 23) | (base << 16) | (dest << 12) | (0xD << 4) | offset);
 }
+void ARMXEmitter::LDRLIT (ARMReg dest, u32 offset, bool Add) { Write32(condition | 0x05 << 24 | Add << 23 | 0x1F << 16 | dest << 12 | offset);}
+
 void ARMXEmitter::WriteRegStoreOp(u32 op, ARMReg dest, bool WriteBack, u16 RegList)
 {
 	Write32(condition | (op << 20) | (WriteBack << 21) | (dest << 16) | RegList);
