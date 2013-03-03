@@ -619,6 +619,8 @@ if(ARM)
 		Core/MIPS/ARM/ArmJitCache.h
 		Core/MIPS/ARM/ArmRegCache.cpp
 		Core/MIPS/ARM/ArmRegCache.h
+		Core/MIPS/ARM/ArmRegCacheFPU.cpp
+		Core/MIPS/ARM/ArmRegCacheFPU.h
 		ext/disarm.cpp)
 elseif(X86)
 	set(CoreExtra ${CoreExtra}
