@@ -452,9 +452,9 @@ void hleLeaveVblank(u64 userdata, int cyclesLate) {
 	CoreTiming::ScheduleEvent(msToCycles(frameMs - vblankMs) - cyclesLate, enterVblankEvent, userdata);
 }
 
-void sceDisplayIsVblank() {
-	DEBUG_LOG(HLE,"sceDisplayIsVblank()",isVblank);
-	RETURN(isVblank);
+u32 sceDisplayIsVblank() {
+	DEBUG_LOG(HLE,"%i=sceDisplayIsVblank()",isVblank);
+	return isVblank;
 }
 
 u32 sceDisplaySetMode(int displayMode, int displayWidth, int displayHeight) {
@@ -593,12 +593,12 @@ u32 sceDisplayGetVcount() {
 }
 
 u32 sceDisplayGetCurrentHcount() {
-	DEBUG_LOG(HLE,"sceDisplayGetCurrentHcount()");
+	ERROR_LOG(HLE,"sceDisplayGetCurrentHcount()");
 	return hCount++;
 }
 
 u32 sceDisplayAdjustAccumulatedHcount() {
-	DEBUG_LOG(HLE,"sceDisplayAdjustAccumulatedHcount()");
+	ERROR_LOG(HLE,"sceDisplayAdjustAccumulatedHcount()");
 	return 0;
 }
 
@@ -611,7 +611,7 @@ u32 sceDisplayGetAccumulatedHcount() {
 
 float sceDisplayGetFramePerSec() {
 	float fps = 59.9400599f;
-	DEBUG_LOG(HLE,"sceDisplayGetFramePerSec()", fps);
+	DEBUG_LOG(HLE,"%f=sceDisplayGetFramePerSec()", fps);
 	return fps;	// (9MHz * 1)/(525 * 286)
 }
 
@@ -647,7 +647,7 @@ const HLEFunction sceDisplay[] = {
 	{0xBF79F646,0,"sceDisplayGetResumeMode"},
 	{0xB4F378FA,0,"sceDisplayIsForeground"},
 	{0x31C4BAA8,0,"sceDisplayGetBrightness"},
-	{0x4D4E10EC,sceDisplayIsVblank,"sceDisplayIsVblank"},
+	{0x4D4E10EC,WrapU_V<sceDisplayIsVblank>,"sceDisplayIsVblank"},
 	{0x21038913,0,"sceDisplayIsVsync"},
 };
 
