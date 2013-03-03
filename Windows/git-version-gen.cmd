@@ -23,6 +23,17 @@ if "%GIT%" == "" (
 	set GIT=git
 )
 
+"%GIT%" describe > NUL 2> NUL
+if errorlevel 1 (
+	echo Git not on path, trying default Msysgit paths
+	set GIT=C:\Program Files ^(x86^)\Git\bin\git.exe
+	"%GIT%" describe > NUL 2> NUL
+	if errorlevel 1 (
+		set GIT=C:\Program Files\Git\bin\git.exe
+	)
+)
+goto done
+
 if exist "%GIT_VERSION_FILE%" (
 	rem // Skip updating the file if PPSSPP_GIT_VERSION_NO_UPDATE is 1.
 	findstr /B /C:"#define PPSSPP_GIT_VERSION_NO_UPDATE 1" "%GIT_VERSION_FILE%" > NUL
@@ -33,7 +44,7 @@ if exist "%GIT_VERSION_FILE%" (
 
 "%GIT%" describe --always > NUL 2> NUL
 if errorlevel 1 (
-	echo Unable to update git-version.cpp, %GIT% not on path.
+	echo Unable to update git-version.cpp, git not found.
 
 	echo // This is a generated file. > "%GIT_VERSION_FILE%"
 	echo. >> "%GIT_VERSION_FILE%"
