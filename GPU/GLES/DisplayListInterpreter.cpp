@@ -326,10 +326,8 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 
 			// This also make skipping drawing very effective.
 
-			if (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME)
-				return;
 			framebufferManager_.SetRenderFrameBuffer();
-			if (gstate_c.skipDrawReason & SKIPDRAW_NON_DISPLAYED_FB)
+			if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))
 				return;
 
 			u32 count = data & 0xFFFF;

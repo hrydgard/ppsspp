@@ -310,7 +310,7 @@ void DoFrameTiming(bool &throttle, bool &skipFrame) {
 	if (curFrameTime > nextFrameTime && doFrameSkip) {
 		// Argh, we are falling behind! Let's skip a frame and see if we catch up.
 		skipFrame = true;
-		INFO_LOG(HLE,"FRAMESKIP %i", numSkippedFrames);
+		// INFO_LOG(HLE,"FRAMESKIP %i", numSkippedFrames);
 	}
 	
 	if (curFrameTime < nextFrameTime && throttle)
