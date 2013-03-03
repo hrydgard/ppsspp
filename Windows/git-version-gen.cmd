@@ -44,6 +44,7 @@ if exist "%GIT_VERSION_FILE%" (
 %GIT% describe --always > NUL 2> NUL
 if errorlevel 1 (
 	echo Unable to update git-version.cpp, git not found.
+	echo If you don't want to add it to your path, set the GIT environment variable.
 
 	echo // This is a generated file. > "%GIT_VERSION_FILE%"
 	echo. >> "%GIT_VERSION_FILE%"
