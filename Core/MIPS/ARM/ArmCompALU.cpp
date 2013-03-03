@@ -311,8 +311,34 @@ namespace MIPSComp
 
 	void Jit::Comp_Special3(u32 op)
 	{
-		// ext, ins
-		DISABLE;
+		CONDITIONAL_DISABLE;
+		int rs = _RS;
+		int rt = _RT;
+		int pos = _POS;
+
+		int size = _SIZE + 1;
+		u32 mask = 0xFFFFFFFFUL >> (32 - size);
+
+		// Don't change $zr.
+		if (rt == 0)
+			return;
+
+		switch (op & 0x3f)
+		{
+		case 0x0: //ext
+			if (gpr.IsImm(rs))
+			{
+				gpr.SetImm(rt, (gpr.GetImm(rs) >> pos) & mask);
+				return;
+			}
+			DISABLE;
+			// TODO. There's an NEON ARM instruction for this, VEXT - worth using?
+			break;
+
+		case 0x4: //ins
+			DISABLE;
+			break;
+		}
 	}
 
 	void Jit::Comp_Allegrex(u32 op)
@@ -320,24 +346,32 @@ namespace MIPSComp
 		CONDITIONAL_DISABLE;
 		int rt = _RT;
 		int rd = _RD;
+		// Don't change $zr.
+		if (rd == 0)
+			return;
+
 		switch ((op >> 6) & 31)
 		{
-		/*
 		case 16: // seb	// R(rd) = (u32)(s32)(s8)(u8)R(rt);
-			gpr.Lock(rd, rt);
-			gpr.BindToRegister(rd, true, true);
-			MOV(32, R(EAX), gpr.R(rt));	// work around the byte-register addressing problem
-			MOVSX(32, 8, gpr.RX(rd), R(EAX));
-			gpr.UnlockAll();
+			if (gpr.IsImm(rt))
+			{
+				gpr.SetImm(rd, (s32)(s8)(u8)gpr.GetImm(rt));
+				return;
+			}
+			gpr.MapDirtyIn(rd, rt);
+			SXTB(gpr.R(rd), gpr.R(rt));
 			break;
 
 		case 24: // seh
-			gpr.Lock(rd, rt);
-			gpr.BindToRegister(rd, true, true);
-			MOVSX(32, 16, gpr.RX(rd), gpr.R(rt));
-			gpr.UnlockAll();
+			if (gpr.IsImm(rt))
+			{
+				gpr.SetImm(rd, (s32)(s16)(u16)gpr.GetImm(rt));
+				return;
+			}
+			gpr.MapDirtyIn(rd, rt);
+			SXTH(gpr.R(rd), gpr.R(rt));
 			break;
-		*/
+		
 		case 20: //bitrev
 			if (gpr.IsImm(rt))
 			{
@@ -353,7 +387,7 @@ namespace MIPSComp
 				v = ((v >> 8) & 0x00FF00FF) | ((v & 0x00FF00FF) << 8);
 				// swap 2-byte long pairs
 				v = ( v >> 16             ) | ( v               << 16);
-				gpr.SetImm(rd,v);
+				gpr.SetImm(rd, v);
 				break;
 			}
 			// Intentional fall-through.
