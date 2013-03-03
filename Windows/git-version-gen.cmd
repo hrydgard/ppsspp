@@ -16,23 +16,22 @@ rem // If not, see http://www.gnu.org/licenses/
 rem // Official git repository and contact information can be found at
 rem // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-setlocal
+setlocal ENABLEDELAYEDEXPANSION
 
 set GIT_VERSION_FILE=%~p0..\git-version.cpp
-if "%GIT%" == "" (
-	set GIT=git
+if not defined GIT (
+	set GIT="git"
 )
 
-"%GIT%" describe > NUL 2> NUL
+%GIT% describe > NUL 2> NUL
 if errorlevel 1 (
 	echo Git not on path, trying default Msysgit paths
-	set GIT=C:\Program Files ^(x86^)\Git\bin\git.exe
-	"%GIT%" describe > NUL 2> NUL
+	set GIT="%ProgramFiles(x86)%\Git\bin\git.exe"
+	!GIT! describe > NUL 2> NUL
 	if errorlevel 1 (
-		set GIT=C:\Program Files\Git\bin\git.exe
+		set GIT="%ProgramFiles%\Git\bin\git.exe"
 	)
 )
-goto done
 
 if exist "%GIT_VERSION_FILE%" (
 	rem // Skip updating the file if PPSSPP_GIT_VERSION_NO_UPDATE is 1.
@@ -42,9 +41,10 @@ if exist "%GIT_VERSION_FILE%" (
 	)
 )
 
-"%GIT%" describe --always > NUL 2> NUL
+%GIT% describe --always > NUL 2> NUL
 if errorlevel 1 (
 	echo Unable to update git-version.cpp, git not found.
+	echo If you don't want to add it to your path, set the GIT environment variable.
 
 	echo // This is a generated file. > "%GIT_VERSION_FILE%"
 	echo. >> "%GIT_VERSION_FILE%"
@@ -52,7 +52,7 @@ if errorlevel 1 (
 	goto done
 )
 
-for /F %%I IN ('"%GIT%" describe --always') do set GIT_VERSION=%%I
+for /F %%I IN ('%GIT% describe --always') do set GIT_VERSION=%%I
 
 rem // Don't modify the file if it already has the current version.
 if exist "%GIT_VERSION_FILE%" (
