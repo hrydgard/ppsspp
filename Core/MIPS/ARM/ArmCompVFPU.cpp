@@ -126,8 +126,8 @@ namespace MIPSComp
 					VMOV(fpr.V(vregs[i]), fpr.V(origV[regnum]));
 				}
 			} else {
-				MOVI2R(R0, (u32)(constantArray[regnum + (abs<<2)]));
-				VMOV(fpr.V(vregs[i]), R0);
+				// TODO: There is VMOV s, imm on ARM, that can generate some of these constants. Not 1/3 or 1/6 though.
+				MOVI2F(fpr.V(vregs[i]), constantArray[regnum + (abs<<2)], R0);
 			}
 
 			// TODO: This can be integrated into the VABS / VMOV above, and also the constants.
@@ -147,8 +147,7 @@ namespace MIPSComp
 			return;
 
 		int n = GetNumVectorElements(sz);
-		for (int i = 0; i < n; i++)
-		{
+		for (int i = 0; i < n; i++) {
 			// Hopefully this is rare, we'll just write it into a reg we drop.
 			if (js.VfpuWriteMask(i))
 				regs[i] = fpr.GetTempV();
@@ -160,26 +159,45 @@ namespace MIPSComp
 		if (!js.prefixD) return;
 
 		int n = GetNumVectorElements(sz);
-		for (int i = 0; i < n; i++)
-		{
+		for (int i = 0; i < n; i++) 	{
 			if (js.VfpuWriteMask(i))
 				continue;
 
 			int sat = (js.prefixD >> (i * 2)) & 3;
-			if (sat == 1)
-			{
+			if (sat == 1) {
 				fpr.MapRegV(vregs[i], MAP_DIRTY);
 				// ARGH this is a pain - no MIN/MAX in non-NEON VFP!
-				// TODO
-
-				//MAXSS(fpr.VX(vregs[i]), M((void *)&zero));
-				//MINSS(fpr.VX(vregs[i]), M((void *)&one));
-			}
-			else if (sat == 3)
-			{
+				// NEON does have min/max though so this should only be a fallback.
+				MOVI2F(S0, 0.0, R0);
+				MOVI2F(S1, 1.0, R0);
+				VCMP(fpr.V(vregs[i]), S1);
+				VMRS_APSR();
+				SetCC(CC_GE);
+				VMOV(fpr.V(vregs[i]), S1);
+				FixupBranch skip = B();
+				SetCC(CC_AL);
+				VCMP(fpr.V(vregs[i]), S0);
+				VMRS_APSR();
+				SetCC(CC_LE);
+				VMOV(fpr.V(vregs[i]), S0);
+				SetCC(CC_AL);
+				SetJumpTarget(skip);
+			} else if (sat == 3) {
 				fpr.MapRegV(vregs[i], MAP_DIRTY);
-				//MAXSS(fpr.VX(vregs[i]), M((void *)&minus_one));
-				//MINSS(fpr.VX(vregs[i]), M((void *)&one));
+				MOVI2F(S0, -1.0, R0);
+				MOVI2F(S1, 1.0, R0);
+				VCMP(fpr.V(vregs[i]), S1);
+				VMRS_APSR();
+				SetCC(CC_GE);
+				VMOV(fpr.V(vregs[i]), S1);
+				FixupBranch skip = B();
+				SetCC(CC_AL);
+				VCMP(fpr.V(vregs[i]), S0);
+				VMRS_APSR();
+				SetCC(CC_LE);
+				VMOV(fpr.V(vregs[i]), S0);
+				SetCC(CC_AL);
+				SetJumpTarget(skip);
 			}
 		}
 	}
@@ -299,8 +317,7 @@ namespace MIPSComp
 		VMUL(S0, fpr.V(sregs[0]), fpr.V(tregs[0]));
 
 		int n = GetNumVectorElements(sz);
-		for (int i = 1; i < n; i++)
-		{
+		for (int i = 1; i < n; i++) {
 			// sum += s[i]*t[i];
 			VMUL(S1, fpr.V(sregs[i]), fpr.V(tregs[i]));
 			VADD(S0, S0, S1);
@@ -506,7 +523,6 @@ namespace MIPSComp
 	
 	void Jit::Comp_Mftv(u32 op)
 	{
-		// DISABLE;
 		CONDITIONAL_DISABLE;
 
 		int imm = op & 0xFF;

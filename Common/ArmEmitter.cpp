@@ -83,6 +83,14 @@ bool TryMakeOperand2_AllowNegation(s32 imm, Operand2 &op2, bool *negated)
 	}
 }
 
+void ARMXEmitter::MOVI2F(ARMReg dest, float val, ARMReg tempReg)
+{
+	union {float f; u32 u;} conv;
+	conv.f = val;
+	MOVI2R(tempReg, conv.u);
+	VMOV(dest, R0);
+}
+
 void ARMXEmitter::MOVI2R(ARMReg reg, u32 val, bool optimize)
 {
 	Operand2 op2;
@@ -501,10 +509,23 @@ void ARMXEmitter::SMLAL(ARMReg destLo, ARMReg destHi, ARMReg rm, ARMReg rn)
 	Write4OpMultiply(0xE, destLo, destHi, rn, rm);
 }
 
+void ARMXEmitter::UBFX(ARMReg dest, ARMReg rn, u8 lsb, u8 width)
+{
+	Write32(condition | (0x7E0 << 16) | ((width - 1) << 16) | (dest << 12) | (lsb << 7) | (5 << 4) | rn);
+}
+
+void ARMXEmitter::BFI(ARMReg rd, ARMReg rn, u8 lsb, u8 width)
+{
+	u32 msb = (lsb + width - 1);
+	if (msb > 31) msb = 31;
+	Write32(condition | (0x7C0 << 16) | (msb << 16) | (rd << 12) | (lsb << 7) | (1 << 4) | rn);
+}
+
 void ARMXEmitter::SXTB (ARMReg dest, ARMReg op2)
 {
 	Write32(condition | (0x6AF << 16) | (dest << 12) | (7 << 4) | op2);
 }
+
 void ARMXEmitter::SXTH (ARMReg dest, ARMReg op2, u8 rotation)
 {
 	SXTAH(dest, (ARMReg)15, op2, rotation);

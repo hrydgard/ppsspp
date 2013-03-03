@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ArmJit.h"
+#include "Common/CPUDetect.h"
 
 using namespace MIPSAnalyst;
 #define _RS ((op>>21) & 0x1F)
@@ -312,10 +313,15 @@ namespace MIPSComp
 	void Jit::Comp_Special3(u32 op)
 	{
 		CONDITIONAL_DISABLE;
+		
+		if (!cpu_info.bArmV7) {
+			DISABLE;
+		}
+
 		int rs = _RS;
 		int rt = _RT;
-		int pos = _POS;
 
+		int pos = _POS;
 		int size = _SIZE + 1;
 		u32 mask = 0xFFFFFFFFUL >> (32 - size);
 
@@ -331,12 +337,23 @@ namespace MIPSComp
 				gpr.SetImm(rt, (gpr.GetImm(rs) >> pos) & mask);
 				return;
 			}
-			DISABLE;
-			// TODO. There's an NEON ARM instruction for this, VEXT - worth using?
+			// TODO: Make fallback for when UBFX isn't available
+			gpr.MapDirtyIn(rt, rs, false);
+			UBFX(gpr.R(rt), gpr.R(rs), pos, size);
 			break;
 
 		case 0x4: //ins
-			DISABLE;
+			if (gpr.IsImm(rs) && gpr.IsImm(rt))
+			{
+				u32 sourcemask = mask >> pos;
+				u32 destmask = ~(sourcemask << pos);
+				u32 inserted = (gpr.GetImm(rs) & sourcemask) << pos;
+				gpr.SetImm(rt, (gpr.GetImm(rt) & destmask) | inserted);
+				return;
+			}
+			gpr.MapDirtyIn(rt, rs, false);
+			// TODO: Make fallback for when BFI isn't available
+			BFI(gpr.R(rt), gpr.R(rs), pos, size);
 			break;
 		}
 	}

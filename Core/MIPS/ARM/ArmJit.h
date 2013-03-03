@@ -235,8 +235,7 @@ private:
 	}
 	void GetVectorRegsPrefixD(u8 *regs, VectorSize sz, int vectorReg);
 
-
-		/*
+	/*
 	void CompImmLogic(u32 op, void (ARMXEmitter::*arith)(int, const OpArg &, const OpArg &));
 	void CompTriArith(u32 op, void (ARMXEmitter::*arith)(int, const OpArg &, const OpArg &));
 	void CompShiftImm(u32 op, void (ARMXEmitter::*shift)(int, OpArg, OpArg));
