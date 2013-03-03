@@ -535,6 +535,7 @@ public:
 	void VABS(ARMReg Vd, ARMReg Vm);
 	void VNEG(ARMReg Vd, ARMReg Vm);
 	void VMUL(ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VMLA(ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VMOV(ARMReg Dest, ARMReg Src, bool high);
 	void VMOV(ARMReg Dest, ARMReg Src);
 	void VCVT(ARMReg Sd, ARMReg Sm, int flags);

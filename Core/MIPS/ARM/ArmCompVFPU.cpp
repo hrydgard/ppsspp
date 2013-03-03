@@ -287,7 +287,40 @@ namespace MIPSComp
 
 	void Jit::Comp_VVectorInit(u32 op)
 	{
-		DISABLE;
+		CONDITIONAL_DISABLE;
+
+		// WARNING: No prefix support!
+		if (js.MayHavePrefix()) {
+			Comp_Generic(op);
+			js.EatPrefix();
+			return;
+		}
+
+		switch ((op >> 16) & 0xF)
+		{
+		case 6: // v=zeros; break;  //vzero
+			MOVI2F(S0, 0.0f, R0);
+			break;
+		case 7: // v=ones; break;   //vone
+			MOVI2F(S0, 1.0f, R0);
+			break;
+		default:
+			DISABLE;
+			break;
+		}
+
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+
+		u8 dregs[4];
+		GetVectorRegsPrefixD(dregs, sz, _VD);
+		fpr.MapRegsV(dregs, sz, MAP_NOINIT | MAP_DIRTY);
+
+		for (int i = 0; i < n; ++i)
+			VMOV(fpr.V(dregs[i]), S0);
+
+		ApplyPrefixD(dregs, sz);
+		fpr.ReleaseSpillLocks();
 	}
 
 	void Jit::Comp_VDot(u32 op)
@@ -319,8 +352,7 @@ namespace MIPSComp
 		int n = GetNumVectorElements(sz);
 		for (int i = 1; i < n; i++) {
 			// sum += s[i]*t[i];
-			VMUL(S1, fpr.V(sregs[i]), fpr.V(tregs[i]));
-			VADD(S0, S0, S1);
+			VMLA(S0, fpr.V(sregs[i]), fpr.V(tregs[i]));
 		}
 		fpr.ReleaseSpillLocks();
 

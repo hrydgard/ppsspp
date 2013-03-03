@@ -88,7 +88,7 @@ void ARMXEmitter::MOVI2F(ARMReg dest, float val, ARMReg tempReg)
 	union {float f; u32 u;} conv;
 	conv.f = val;
 	MOVI2R(tempReg, conv.u);
-	VMOV(dest, R0);
+	VMOV(dest, tempReg);
 }
 
 void ARMXEmitter::MOVI2R(ARMReg reg, u32 val, bool optimize)
@@ -969,6 +969,30 @@ void ARMXEmitter::VMUL(ARMReg Vd, ARMReg Vn, ARMReg Vm)
 		{
 			_assert_msg_(DYNA_REC, cpu_info.bNEON, "Trying to use VMUL with Quad Reg without support!");
 		}
+	}
+}
+
+void ARMXEmitter::VMLA(ARMReg Vd, ARMReg Vn, ARMReg Vm)
+{
+	_assert_msg_(DYNA_REC, Vd >= S0, "Passed invalid dest register to VADD");
+	_assert_msg_(DYNA_REC, Vn >= S0, "Passed invalid Vn to VADD");
+	_assert_msg_(DYNA_REC, Vm >= S0, "Passed invalid Vm to VADD");
+	bool single_reg = Vd < D0;
+	bool double_reg = Vd < Q0;
+
+	Vd = SubBase(Vd);
+	Vn = SubBase(Vn);
+	Vm = SubBase(Vm);
+
+	if (single_reg)
+	{
+		Write32(NO_COND | (0x1C << 23) | ((Vd & 0x1) << 22) | (0x0 << 20) \
+			| ((Vn & 0x1E) << 15) | ((Vd & 0x1E) << 11) | (0x5 << 9) \
+			| ((Vn & 0x1) << 7) | ((Vm & 0x1) << 5) | (Vm >> 1));
+	}
+	else 
+	{
+		_assert_msg_(DYNA_REC, false, "VMLA: Please implement!");
 	}
 }
 

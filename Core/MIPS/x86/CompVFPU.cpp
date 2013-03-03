@@ -342,22 +342,33 @@ void Jit::Comp_VVectorInit(u32 op) {
 	if (js.HasUnknownPrefix())
 		DISABLE;
 
+	switch ((op >> 16) & 0xF)
+	{
+	case 6: // v=zeros; break;  //vzero
+		MOVSS(XMM0, M((void *) &zero));
+		break;
+	case 7: // v=ones; break;   //vone
+		MOVSS(XMM0, M((void *) &one));
+		break;
+	default:
+		DISABLE;
+		break;
+	}
+
 	VectorSize sz = GetVecSize(op);
 	int n = GetNumVectorElements(sz);
-
 	u8 dregs[4];
 	GetVectorRegsPrefixD(dregs, sz, _VD);
 	fpr.MapRegsV(dregs, sz, MAP_NOINIT | MAP_DIRTY);
-
 	for (int i = 0; i < n; ++i)
 	{
 		switch ((op >> 16) & 0xF)
 		{
 		case 6: // v=zeros; break;  //vzero
-			MOVSS(fpr.VX(dregs[i]), M((void *) &zero));
+			MOVSS(fpr.VX(dregs[i]), R(XMM0));
 			break;
 		case 7: // v=ones; break;   //vone
-			MOVSS(fpr.VX(dregs[i]), M((void *) &one));
+			MOVSS(fpr.VX(dregs[i]), R(XMM0));
 			break;
 		default:
 			DISABLE;
