@@ -158,7 +158,7 @@ private:
 class LoadedFont {
 public:
 	LoadedFont(Font *font, FontLib *fontLib, u32 handle) 
-		: font_(font), fontLib_(fontLib), handle_(handle) {}
+		: fontLib_(fontLib), font_(font), handle_(handle) {}
 
 	Font *GetFont() { return font_; }
 	FontLib *GetFontLib() { return fontLib_; }
@@ -501,7 +501,7 @@ u32 sceFontOpen(u32 libHandle, u32 index, u32 mode, u32 errorCodePtr) {
 	}
 
 	FontLib *fontLib = GetFontLib(libHandle);
-	if (index < 0 || index >= internalFonts.size()) {
+	if (index >= internalFonts.size()) {
 		Memory::Write_U32(ERROR_FONT_INVALID_PARAMETER, errorCodePtr);
 		return 0;
 	}

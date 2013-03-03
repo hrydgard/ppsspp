@@ -68,7 +68,7 @@ void PGF::DoState(PointerWrap &p) {
 void PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 	const u8 *const startPtr = ptr;
 
-	INFO_LOG(HLE, "Reading %i bytes of PGF header", sizeof(header));
+	INFO_LOG(HLE, "Reading %d bytes of PGF header", (int)sizeof(header));
 	memcpy(&header, ptr, sizeof(header));
 	ptr += sizeof(header);
 
@@ -183,9 +183,9 @@ void PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 	// And shadow glyphs.
 	for (size_t i = 0; i < shadowGlyphs.size(); i++) {
 		size_t shadowId = glyphs[i].shadowID;
-		if (shadowId >= 0 && shadowId < shadowMap.size()) {
+		if (shadowId < shadowMap.size()) {
 			size_t charId = shadowMap[shadowId];
-			if (charId >= 0 && charId < glyphs.size()) {
+			if (charId < glyphs.size()) {
 				// TODO: check for pre existing shadow glyph
 				GetGlyph(fontData, charPointers[charId] * 4 * 8  /* ??? */, FONT_PGF_SHADOWGLYPH, shadowGlyphs[i]);
 			}
@@ -211,7 +211,7 @@ bool PGF::GetCharInfo(int charCode, PGFCharInfo *charInfo) {
 		// Character not in font, return zeroed charInfo as on real PSP.
 		return false;
 	}
-	memset(charInfo, 0, sizeof(charInfo));
+	memset(charInfo, 0, sizeof(*charInfo));
 
 	charInfo->bitmapWidth = glyph.w;
 	charInfo->bitmapHeight = glyph.h;

@@ -280,7 +280,7 @@ void __CtrlInit()
 	ctrlCurrent.analog[0] = 128;
 	ctrlCurrent.analog[1] = 128;
 
-	for (int i = 0; i < NUM_CTRL_BUFFERS; i++)
+	for (u32 i = 0; i < NUM_CTRL_BUFFERS; i++)
 		memcpy(&ctrlBufs[i], &ctrlCurrent, sizeof(_ctrl_data));
 }
 
