@@ -60,6 +60,7 @@ public:
 	bool bUseVBO;
 	bool bStretchToDisplay;
 	int iFrameSkip;  // 0 = off;  1 = auto;  (future:  2 = skip every 2nd frame;  3 = skip every 3rd frame etc).
+	bool bUseMediaEngine;
 
 	int iWindowZoom;  // for Windows
 	bool SSAntiAliasing; //for Windows, too
