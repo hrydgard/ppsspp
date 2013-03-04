@@ -559,7 +559,7 @@ std::vector<PSPFileInfo> ISOFileSystem::GetDirListing(std::string path)
 		x.size = e->size;
 		x.type = e->isDirectory ? FILETYPE_DIRECTORY : FILETYPE_NORMAL;
 		x.isOnSectorSystem = true;
-		x.startSector = entry->startingPosition/2048;
+		x.startSector = e->startingPosition/2048;
 		myVector.push_back(x);
 	}
 	return myVector;
