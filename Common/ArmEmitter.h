@@ -337,9 +337,8 @@ struct FixupBranch
 struct LiteralPool
 {
     int i;
-    u32 ldr_address;
+    u8* ldr_address;
     u32 val;
-    ArmGen::ARMReg reg;
 };
 
 typedef const u8* JumpTarget;
@@ -351,7 +350,6 @@ private:
 	u8 *code, *startcode;
 	u8 *lastCacheFlushEnd;
 	u32 condition;
-	int pool_size;
 	std::vector<LiteralPool> currentLitPool;
 
 	void WriteStoreOp(u32 op, ARMReg dest, ARMReg src, Operand2 op2);
@@ -370,7 +368,7 @@ protected:
 	inline void Write32(u32 value) {*(u32*)code = value; code+=4;}
 
 public:
-	ARMXEmitter() : code(0), startcode(0), lastCacheFlushEnd(0), pool_size(0) {
+	ARMXEmitter() : code(0), startcode(0), lastCacheFlushEnd(0) {
 		condition = CC_AL << 28;
 	}
 	ARMXEmitter(u8 *code_ptr) {
@@ -378,7 +376,6 @@ public:
 		lastCacheFlushEnd = code_ptr;
 		startcode = code_ptr;
 		condition = CC_AL << 28;
-		pool_size = 0;
 	}
 	virtual ~ARMXEmitter() {}
 
@@ -392,7 +389,7 @@ public:
 	u8 *GetWritableCodePtr();
 
 	void FlushLitPool();
-	void AddNewLit(ArmGen::ARMReg reg, u32 val);
+	void AddNewLit(u32 val);
 
 	void SetCC(CCFlags cond = CC_AL);
 

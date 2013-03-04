@@ -198,6 +198,7 @@ void Jit::GenerateFixedCode()
 
 	// Don't forget to zap the instruction cache!
 	FlushIcache();
+	FlushLitPool();
 }
 
 }  // namespace

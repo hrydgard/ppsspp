@@ -123,63 +123,43 @@ void ARMXEmitter::FlushLitPool()
 	for(std::vector<LiteralPool>::iterator it = currentLitPool.begin(); it != currentLitPool.end(); ++it) {
 		LiteralPool item = *it;
 		// Write the constant to Literal Pool
+		s32 offset = (s32)code - (s32)item.ldr_address - 8;
 		Write32(item.val);
-		s32 offset = (s32)code - (s32)item.ldr_address;
 		// Backpatch the LDR
-		code -= offset;
-		LDRLIT(item.reg, abs(offset - 8), offset - 8 > 0);
-		code += offset - 4;
+		*(u32*)item.ldr_address |= (offset >= 0) << 23 | abs(offset);
 	}
 	// TODO: Save a copy of previous pools in case they are still in range.
 	currentLitPool.clear();
-	pool_size = 0;
 }
 
-void ARMXEmitter::AddNewLit(ArmGen::ARMReg reg, u32 val)
+void ARMXEmitter::AddNewLit(u32 val)
 {
 	// TODO: Look up current constants,
 	// return that value instead of generating a new one.
-	int index = pool_size++;
-	currentLitPool.push_back();
-	currentLitPool[index].i = pool_size;
-	currentLitPool[index].val = val;
-	currentLitPool[index].reg = reg;
-	currentLitPool[index].ldr_address = (u32)code;
-	Write32(0); // To be backpatched later
+	LiteralPool pool_item;
+	pool_item.i = currentLitPool.size();
+	pool_item.val = val;
+	pool_item.ldr_address = code;
+	currentLitPool.push_back(pool_item);
 }
 
-void ARMXEmitter::MOVI2R(ARMReg reg, u32 val, bool optimize)
+void ARMXEmitter::MOVI2R(ARMReg reg, u32 val)
 {
 	Operand2 op2;
 	bool inverse;
-	if (!optimize)
-	{
-		// Only used in backpatch atm
-		// Only support ARMv7 right now
-		if (cpu_info.bArmV7) {
-			MOVW(reg, val & 0xFFFF);
-			MOVT(reg, val, true);
-		}
-		else
-		{
-			// ARMv6 version won't use backpatch for now
-			// Run again with optimizations
-			MOVI2R(reg, val);
-		}
-	} else if (TryMakeOperand2_AllowInverse(val, op2, &inverse)) {
-		if (!inverse)
-			MOV(reg, op2);
-		else
-			MVN(reg, op2);
+	if (TryMakeOperand2_AllowInverse(val, op2, &inverse)) {
+		inverse ? MVN(reg, op2) : MOV(reg, op2);
 	} else {
-		if (cpu_info.bArmV7) {
-			// ARMv7 - can use MOVT/MOVW, best choice
+		if (cpu_info.bArmV7)
+		{
+			// Wse MOVW+MOVT for ARMv7+
 			MOVW(reg, val & 0xFFFF);
 			if(val & 0xFFFF0000)
 				MOVT(reg, val, true);
 		} else {
-			// ARMv6 - fallback sequence.
-			AddNewLit(reg, val);
+			// Use literal pool for ARMv6.
+			AddNewLit(val);
+			LDRLIT(reg, 0, 0); // To be backpatched later
 		}
 	}
 }
