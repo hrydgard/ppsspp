@@ -118,54 +118,55 @@ void ARMXEmitter::ORI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
 	}
 }
 
+void ARMXEmitter::FlushLitPool()
+{
+	for(std::vector<LiteralPool>::iterator it = currentLitPool.begin(); it != currentLitPool.end(); ++it) {
+		LiteralPool item = *it;
+		// Write the constant to Literal Pool
+		s32 offset = (s32)code - (s32)item.ldr_address - 8;
+		Write32(item.val);
+		// Backpatch the LDR
+		*(u32*)item.ldr_address |= (offset >= 0) << 23 | abs(offset);
+	}
+	// TODO: Save a copy of previous pools in case they are still in range.
+	currentLitPool.clear();
+}
+
+void ARMXEmitter::AddNewLit(u32 val)
+{
+	// TODO: Look up current constants,
+	// return that value instead of generating a new one.
+	LiteralPool pool_item;
+	pool_item.i = currentLitPool.size();
+	pool_item.val = val;
+	pool_item.ldr_address = code;
+	currentLitPool.push_back(pool_item);
+}
+
 void ARMXEmitter::MOVI2R(ARMReg reg, u32 val, bool optimize)
 {
 	Operand2 op2;
 	bool inverse;
-	if (!optimize)
+	
+	if (cpu_info.bArmV7 && !optimize)
 	{
-		// Only used in backpatch atm
-		// Only support ARMv7 right now
-		if (cpu_info.bArmV7) {
-			MOVW(reg, val & 0xFFFF);
-			MOVT(reg, val, true);
-		}
-		else
-		{
-			// ARMv6 version won't use backpatch for now
-			// Run again with optimizations
-			MOVI2R(reg, val);
-		}
-	} else if (TryMakeOperand2_AllowInverse(val, op2, &inverse)) {
-		if (!inverse)
-			MOV(reg, op2);
-		else
-			MVN(reg, op2);
+		// For backpatching on ARMv7
+		MOVW(reg, val & 0xFFFF);
+		MOVT(reg, val, true);
+	}
+	else if (TryMakeOperand2_AllowInverse(val, op2, &inverse)) {
+		inverse ? MVN(reg, op2) : MOV(reg, op2);
 	} else {
-		if (cpu_info.bArmV7) {
-			// ARMv7 - can use MOVT/MOVW, best choice
+		if (cpu_info.bArmV7)
+		{
+			// Use MOVW+MOVT for ARMv7+
 			MOVW(reg, val & 0xFFFF);
 			if(val & 0xFFFF0000)
 				MOVT(reg, val, true);
 		} else {
-			// ARMv6 - fallback sequence.
-			// TODO: Optimize further. Can for example choose negation etc.
-			// Literal pools is another way to do this but much more complicated
-			// so I can't really be bothered for an outdated CPU architecture like ARMv6.
-			bool first = true;
-			int shift = 16;
-			for (int i = 0; i < 4; i++) {
-				if (val & 0xFF) {
-					if (first) {
-						MOV(reg, Operand2((u8)val, (u8)(shift & 0xF)));
-						first = false;
-					} else {
-						ORR(reg, reg, Operand2((u8)val, (u8)(shift & 0xF)));
-					}
-				}
-				shift -= 4;
-				val >>= 8;
-			}
+			// Use literal pool for ARMv6.
+			AddNewLit(val);
+			LDRLIT(reg, 0, 0); // To be backpatched later
 		}
 	}
 }
@@ -667,6 +668,8 @@ void ARMXEmitter::LDRSB(ARMReg dest, ARMReg base, ARMReg offset, bool Index, boo
 {
 	Write32(condition | (0x01 << 20) | (Index << 24) | (Add << 23) | (base << 16) | (dest << 12) | (0xD << 4) | offset);
 }
+void ARMXEmitter::LDRLIT (ARMReg dest, u32 offset, bool Add) { Write32(condition | 0x05 << 24 | Add << 23 | 0x1F << 16 | dest << 12 | offset);}
+
 void ARMXEmitter::WriteRegStoreOp(u32 op, ARMReg dest, bool WriteBack, u16 RegList)
 {
 	Write32(condition | (op << 20) | (WriteBack << 21) | (dest << 16) | RegList);

@@ -25,6 +25,7 @@
 
 #include "ArmRegCache.h"
 #include "ArmJit.h"
+#include "CPUDetect.h"
 
 #include "../../../ext/disarm.h"
 
@@ -218,7 +219,18 @@ const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 	
 		js.compilerPC += 4;
 		numInstructions++;
+		if (!cpu_info.bArmV7 && GetCodePtr() - b->checkedEntry >= 4088)
+		{
+			// We need to prematurely flush as we are out of range
+			CCFlags old_cc = GetCC();
+			SetCC(CC_AL);
+			FixupBranch skip = B();
+			FlushLitPool();
+			SetJumpTarget(skip);
+			SetCC(old_cc);
+		}
 	}
+	FlushLitPool();
 #ifdef LOGASM
 	if (logBlocks > 0 && dontLogBlocks == 0) {
 		for (u32 cpc = em_address; cpc != js.compilerPC + 4; cpc += 4) {
@@ -345,7 +357,7 @@ void Jit::Comp_DoNothing(u32 op) { }
 #define _FS ((op>>11) & 0x1F)
 #define _FT ((op>>16) & 0x1F)
 #define _FD ((op>>6) & 0x1F)
-#define _POS	((op>>6) & 0x1F)
+#define _POS((op>>6) & 0x1F)
 #define _SIZE ((op>>11) & 0x1F)
 
 //memory regions:
