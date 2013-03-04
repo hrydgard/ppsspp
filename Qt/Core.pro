@@ -5,7 +5,8 @@ TEMPLATE = lib
 CONFIG += staticlib
 
 version.target = ../git-version.cpp
-version.commands = $$PWD/git-version-gen.sh
+contains(QMAKE_HOST.os, "Windows") { version.commands = $$PWD/../Windows/git-version-gen.cmd }
+else { version.commands = $$PWD/git-version-gen.sh }
 version.depends = ../.git
 
 QMAKE_EXTRA_TARGETS += version
