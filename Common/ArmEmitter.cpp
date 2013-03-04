@@ -564,9 +564,13 @@ void ARMXEmitter::SXTAH(ARMReg dest, ARMReg src, ARMReg op2, u8 rotation)
 	// information
 	Write32(condition | (0x6B << 20) | (src << 16) | (dest << 12) | (rotation << 10) | (7 << 4) | op2);
 }
-void ARMXEmitter::REV (ARMReg dest, ARMReg src				) 
+void ARMXEmitter::RBIT(ARMReg dest, ARMReg src)
 {
-	Write32(condition | (107 << 20) | (15 << 16) | (dest << 12) | (243 << 4) | src);
+	Write32(condition | (0x6F << 20) | (0xF << 16) | (dest << 12) | (0xF3 << 4) | src);
+}
+void ARMXEmitter::REV (ARMReg dest, ARMReg src) 
+{
+	Write32(condition | (0x6B << 20) | (0xF << 16) | (dest << 12) | (0xF3 << 4) | src);
 }
 void ARMXEmitter::REV16(ARMReg dest, ARMReg src)
 {

@@ -446,6 +446,7 @@ public:
 	void LSLS(ARMReg dest, ARMReg src, ARMReg op2);
 	void SBC (ARMReg dest, ARMReg src, Operand2 op2);
 	void SBCS(ARMReg dest, ARMReg src, Operand2 op2);
+	void RBIT(ARMReg dest, ARMReg src);
 	void REV (ARMReg dest, ARMReg src);
 	void REV16 (ARMReg dest, ARMReg src);
 	void RSC (ARMReg dest, ARMReg src, Operand2 op2);
