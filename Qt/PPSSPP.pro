@@ -61,7 +61,7 @@ mobile_platform {
 # Packaging
 symbian {
 	deploy.pkg_prerules = "$${LITERAL_HASH}{\"PPSSPP\"}, (0xE0095B1D), 0, 6, 1, TYPE=SA" "%{\"Qtness\"}" ":\"Qtness\""
-	assets.sources = ../android/assets/ui_atlas.zim ../assets/ppge_atlas.zim
+	assets.sources = ../android/assets/ui_atlas.zim ../assets/ppge_atlas.zim ../assets/flash
 	assets.path = E:/PPSSPP
 	DEPLOYMENT += deploy assets
 	ICON = ../assets/icon.svg

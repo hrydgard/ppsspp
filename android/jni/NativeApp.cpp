@@ -104,7 +104,7 @@ public:
 	virtual void ShutdownGL() {}
 
 	virtual void InitSound(PMixer *mixer);
-	virtual void UpdateSound() {};
+	virtual void UpdateSound() {}
 	virtual void ShutdownSound();
 
 	// this is sent from EMU thread! Make sure that Host handles it properly!
