@@ -143,16 +143,23 @@ void ARMXEmitter::AddNewLit(u32 val)
 	currentLitPool.push_back(pool_item);
 }
 
-void ARMXEmitter::MOVI2R(ARMReg reg, u32 val)
+void ARMXEmitter::MOVI2R(ARMReg reg, u32 val, bool optimize)
 {
 	Operand2 op2;
 	bool inverse;
-	if (TryMakeOperand2_AllowInverse(val, op2, &inverse)) {
+	
+	if (cpu_info.bArmV7 && !optimize)
+	{
+		// For backpatching on ARMv7
+		MOVW(reg, val & 0xFFFF);
+		MOVT(reg, val, true);
+	}
+	else if (TryMakeOperand2_AllowInverse(val, op2, &inverse)) {
 		inverse ? MVN(reg, op2) : MOV(reg, op2);
 	} else {
 		if (cpu_info.bArmV7)
 		{
-			// Wse MOVW+MOVT for ARMv7+
+			// Use MOVW+MOVT for ARMv7+
 			MOVW(reg, val & 0xFFFF);
 			if(val & 0xFFFF0000)
 				MOVT(reg, val, true);

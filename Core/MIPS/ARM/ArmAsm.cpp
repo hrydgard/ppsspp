@@ -197,8 +197,8 @@ void Jit::GenerateFixedCode()
 	// INFO_LOG(HLE, "END OF THE DISASM ========================");
 
 	// Don't forget to zap the instruction cache!
-	FlushIcache();
 	FlushLitPool();
+	FlushIcache();
 }
 
 }  // namespace
