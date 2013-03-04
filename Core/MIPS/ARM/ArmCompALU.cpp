@@ -351,6 +351,7 @@ namespace MIPSComp
 
 		case 0x4: //ins
 			{
+				DISABLE;
 				u32 sourcemask = mask >> pos;
 				u32 destmask = ~(sourcemask << pos);
 				if (gpr.IsImm(rs))
@@ -374,7 +375,7 @@ namespace MIPSComp
 					} else {
 						gpr.MapDirtyIn(rt, rs, false);
 						ANDI2R(R0, gpr.R(rs), sourcemask, R1);
-						MOV(R0, Operand2(pos, ST_LSL, gpr.R(rs)));
+						MOV(R0, Operand2(pos, ST_LSL, R0));
 						ANDI2R(gpr.R(rt), gpr.R(rt), destmask, R1);
 						ORR(gpr.R(rt), gpr.R(rt), R0);
 					}

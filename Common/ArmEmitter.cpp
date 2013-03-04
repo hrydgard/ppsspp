@@ -114,7 +114,7 @@ void ARMXEmitter::ORI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
 		ORR(rd, rs, op2);
 	} else {
 		MOVI2R(scratch, val);
-		AND(rd, rs, scratch);
+		ORR(rd, rs, scratch);
 	}
 }
 
