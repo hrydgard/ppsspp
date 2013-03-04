@@ -65,4 +65,6 @@ const HLEFunction sceNpDrm[] =
 void Register_sceNpDrm()
 {
 	RegisterModule("sceNpDrm", ARRAY_SIZE(sceNpDrm), sceNpDrm);
+	RegisterModule("scePspNpDrm_user", ARRAY_SIZE(sceNpDrm), sceNpDrm);
 }
+ 

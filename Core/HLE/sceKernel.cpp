@@ -109,6 +109,7 @@ void __KernelInit()
 	__ImposeInit();
 	__UsbInit();
 	__FontInit();
+	
 	SaveState::Init();  // Must be after IO, as it may create a directory
 
 	// "Internal" PSP libraries

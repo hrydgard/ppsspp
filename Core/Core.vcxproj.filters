@@ -386,6 +386,9 @@
     <ClCompile Include="Reporting.cpp">
       <Filter>Core</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\scePspNpDrm_user.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -709,6 +712,9 @@
     </ClInclude>
     <ClInclude Include="Reporting.h">
       <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\scePspNpDrm_user.h">
+      <Filter>HLE\Libraries</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -41,7 +41,6 @@
 
 namespace MIPSComp
 {
-
 	// Vector regs can overlap in all sorts of swizzled ways.
 	// This does allow a single overlap in sregs[i].
 	bool IsOverlapSafeAllowS(int dreg, int di, int sn, u8 sregs[], int tn = 0, u8 tregs[] = NULL)
@@ -370,8 +369,8 @@ namespace MIPSComp
 
 	void Jit::Comp_VecDo3(u32 op)
 	{
-		DISABLE;  // Still buggy
-
+		CONDITIONAL_DISABLE;
+		DISABLE;
 		// WARNING: No prefix support!
 		if (js.MayHavePrefix())
 		{
@@ -383,12 +382,6 @@ namespace MIPSComp
 		int vd = _VD;
 		int vs = _VS;
 		int vt = _VT;
-		VectorSize sz = GetVecSize(op);
-
-		u8 sregs[4], tregs[4], dregs[4];
-		GetVectorRegs(sregs, sz, vs);
-		GetVectorRegs(tregs, sz, vt);
-		GetVectorRegs(dregs, sz, vd);
 
 		void (ARMXEmitter::*triop)(ARMReg, ARMReg, ARMReg) = NULL;
 		switch (op >> 26)
@@ -417,30 +410,48 @@ namespace MIPSComp
 			break;
 		}
 
-		if (triop == NULL)
-		{
-			Comp_Generic(op);
-			js.EatPrefix();
-			return;
+		if (!triop) {
+			DISABLE;
 		}
 
+		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
-		fpr.MapRegsV(sregs, sz, 0);
-		fpr.MapRegsV(tregs, sz, 0);
 
-		for (int i = 0; i < n; ++i) {
-			fpr.MapReg(TEMP0 + i);
-			(this->*triop)(fpr.R(TEMP0 + i), fpr.V(sregs[i]), fpr.V(tregs[i]));
-			fpr.ReleaseSpillLock(sregs[i]);
-			fpr.ReleaseSpillLock(tregs[i]);
-		}
-		fpr.MapRegsV(dregs, sz, MAP_DIRTY | MAP_NOINIT);
-		// TODO: Can avoid this when no overlap
+		u8 sregs[4], tregs[4], dregs[4];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixT(tregs, sz, _VT);
+		GetVectorRegsPrefixD(dregs, sz, _VD);
+
+		MIPSReg tempregs[4];
 		for (int i = 0; i < n; i++) {
-			VMOV(fpr.V(dregs[i]), fpr.R(TEMP0 + i));
+			if (!IsOverlapSafeAllowS(dregs[i], i, n, sregs, n, tregs)) {
+				tempregs[i] = fpr.GetTempV();
+			} else {
+				fpr.MapRegV(dregs[i], (dregs[i] == sregs[i] || dregs[i] == tregs[i] ? 0 : MAP_NOINIT) | MAP_DIRTY);
+				tempregs[i] = dregs[i];
+			}
 		}
-		fpr.ReleaseSpillLocks();
 
+		for (int i = 0; i < n; i++) {
+			fpr.SpillLockV(sregs[i]);
+			fpr.SpillLockV(tregs[i]);
+			fpr.MapRegV(sregs[i]);
+			fpr.MapRegV(tregs[i]);
+			fpr.MapRegV(tempregs[i]);
+			(this->*triop)(fpr.V(tempregs[i]), fpr.V(sregs[i]), fpr.V(tregs[i]));
+			fpr.ReleaseSpillLockV(sregs[i]);
+			fpr.ReleaseSpillLockV(tregs[i]);
+		}
+
+		fpr.MapRegsV(dregs, sz, MAP_DIRTY);
+		for (int i = 0; i < n; i++) {
+			if (dregs[i] != tempregs[i])
+				VMOV(fpr.V(dregs[i]), fpr.V(tempregs[i]));
+		}
+		ApplyPrefixD(dregs, sz);
+		
+		fpr.ReleaseSpillLocks();
+		
 		js.EatPrefix();
 	}
 

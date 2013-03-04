@@ -197,6 +197,7 @@
     <ClCompile Include="HLE\sceParseUri.cpp" />
     <ClCompile Include="HLE\scePower.cpp" />
     <ClCompile Include="HLE\scePsmf.cpp" />
+    <ClCompile Include="HLE\scePspNpDrm_user.cpp" />
     <ClCompile Include="HLE\sceRtc.cpp" />
     <ClCompile Include="HLE\sceSas.cpp" />
     <ClCompile Include="HLE\sceSsl.cpp" />
@@ -367,6 +368,7 @@
     <ClInclude Include="HLE\sceParseUri.h" />
     <ClInclude Include="HLE\scePower.h" />
     <ClInclude Include="HLE\scePsmf.h" />
+    <ClInclude Include="HLE\scePspNpDrm_user.h" />
     <ClInclude Include="HLE\sceRtc.h" />
     <ClInclude Include="HLE\sceSas.h" />
     <ClInclude Include="HLE\sceSsl.h" />
