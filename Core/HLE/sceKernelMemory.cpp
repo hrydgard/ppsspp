@@ -427,7 +427,7 @@ public:
 				address = alloc->AllocAt(alignment, size, name);
 			}
 			else if (type == PSP_SMEM_LowAligned || type == PSP_SMEM_HighAligned)
-				address = alloc->AllocAligned(size, alignment, type == PSP_SMEM_HighAligned, name);
+				address = alloc->AllocAligned(size, 0x100, alignment, type == PSP_SMEM_HighAligned, name);
 			else
 				address = alloc->Alloc(size, type == PSP_SMEM_High, name);
 			alloc->ListBlocks();
