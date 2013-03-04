@@ -45,7 +45,7 @@ void BlockAllocator::Shutdown()
 	blocks.clear();
 }
 
-u32 BlockAllocator::AllocAligned(u32 &size, u32 grain, bool fromTop, const char *tag)
+u32 BlockAllocator::AllocAligned(u32 &size, u32 sizeGrain, u32 grain, bool fromTop, const char *tag)
 {
 	// Sanity check
 	if (size == 0 || size > rangeSize_) {
@@ -56,17 +56,21 @@ u32 BlockAllocator::AllocAligned(u32 &size, u32 grain, bool fromTop, const char 
 	// It could be off step, but the grain should generally be a power of 2.
 	if (grain < grain_)
 		grain = grain_;
+	if (sizeGrain < grain_)
+		sizeGrain = grain_;
 
 	// upalign size to grain
-	size = (size + grain - 1) & ~(grain - 1);
+	size = (size + sizeGrain - 1) & ~(sizeGrain - 1);
 
 	if (!fromTop)
 	{
 		//Allocate from bottom of mem
 		for (std::list<Block>::iterator iter = blocks.begin(); iter != blocks.end(); iter++)
 		{
-			BlockAllocator::Block &b = *iter;
+			Block &b = *iter;
 			u32 offset = b.start % grain;
+			if (offset != 0)
+				offset = grain - offset;
 			u32 needed = offset + size;
 			if (b.taken == false && b.size >= needed)
 			{
@@ -92,9 +96,8 @@ u32 BlockAllocator::AllocAligned(u32 &size, u32 grain, bool fromTop, const char 
 		// Allocate from top of mem.
 		for (std::list<Block>::reverse_iterator iter = blocks.rbegin(); iter != blocks.rend(); ++iter)
 		{
-			std::list<Block>::reverse_iterator hey = iter;
-			BlockAllocator::Block &b = *((++hey).base()); //yes, confusing syntax. reverse_iterators are confusing
-			u32 offset = b.start % grain;
+			Block &b = *iter;
+			u32 offset = (b.start + b.size - size) % grain;
 			u32 needed = offset + size;
 			if (b.taken == false && b.size >= needed)
 			{
@@ -102,16 +105,17 @@ u32 BlockAllocator::AllocAligned(u32 &size, u32 grain, bool fromTop, const char 
 				{
 					b.taken = true;
 					b.SetTag(tag);
-					return b.start + offset;
+					return b.start;
 				}
 				else
 				{
-					blocks.insert(hey.base(), Block(b.start, b.size - needed, false));
+					std::list<Block>::iterator pos = iter.base();
+					blocks.insert(--pos, Block(b.start, b.size - needed, false));
 					b.taken = true;
 					b.start += b.size - needed;
 					b.size = needed;
 					b.SetTag(tag);
-					return b.start + offset;
+					return b.start;
 				}
 			}
 		}
@@ -126,7 +130,7 @@ u32 BlockAllocator::AllocAligned(u32 &size, u32 grain, bool fromTop, const char 
 u32 BlockAllocator::Alloc(u32 &size, bool fromTop, const char *tag)
 {
 	// We want to make sure it's aligned in case AllocAt() was used.
-	return AllocAligned(size, grain_, fromTop, tag);
+	return AllocAligned(size, grain_, grain_, fromTop, tag);
 }
 
 u32 BlockAllocator::AllocAt(u32 position, u32 size, const char *tag)
