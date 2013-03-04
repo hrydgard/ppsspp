@@ -296,7 +296,7 @@ void GLES_GPU::PreExecuteOp(u32 op, u32 diff) {
 	if (flushBeforeCommand_[cmd] == 1 || (diff && flushBeforeCommand_[cmd] == 2))
 	{
 		if (dumpThisFrame_) {
-			NOTICE_LOG(G3D, "================ FLUSH ================");
+			NOTICE_LOG(HLE, "================ FLUSH ================");
 		}
 		transformDraw_.Flush();
 	}

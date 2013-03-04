@@ -524,20 +524,26 @@ struct SystemStatus {
 	SceUInt perfcounter3;
 };
 
-u32 sceKernelReferSystemStatus(u32 statusPtr)
-{
+int sceKernelReferSystemStatus(u32 statusPtr) {
 	DEBUG_LOG(HLE, "sceKernelReferSystemStatus(%08x)", statusPtr);
 	if (Memory::IsValidAddress(statusPtr)) {
 		SystemStatus status;
 		memset(&status, 0, sizeof(SystemStatus));
 		status.size = sizeof(SystemStatus);
+		// TODO: Fill in the struct!
 		Memory::WriteStruct(statusPtr, &status);
 	}
 	return 0;
 }
 
-u32 sceKernelReferGlobalProfiler(u32 statusPtr) {
-	DEBUG_LOG(HLE, "sceKernelReferGlobalProfiler(%08x)", statusPtr);
+int sceKernelReferThreadProfiler(u32 statusPtr) {
+	ERROR_LOG(HLE, "UNIMPL sceKernelReferThreadProfiler(%08x)", statusPtr);
+	// Ignore for now
+	return 0;
+}
+
+int sceKernelReferGlobalProfiler(u32 statusPtr) {
+	DEBUG_LOG(HLE, "UNIMPL sceKernelReferGlobalProfiler(%08x)", statusPtr);
 	// Ignore for now
 	return 0;
 }
@@ -615,9 +621,9 @@ const HLEFunction ThreadManForUser[] =
 	{0xdb738f35,WrapI_U<sceKernelGetSystemTime>,"sceKernelGetSystemTime"},
 	{0x369ed59d,WrapU_V<sceKernelGetSystemTimeLow>,"sceKernelGetSystemTimeLow"},
 
-	{0x8218B4DD,&WrapU_U<sceKernelReferGlobalProfiler>,"sceKernelReferGlobalProfiler"},
-	{0x627E6F3A,&WrapU_U<sceKernelReferSystemStatus>,"sceKernelReferSystemStatus"},
-	{0x64D4540E,0,"sceKernelReferThreadProfiler"},
+	{0x8218B4DD,WrapI_U<sceKernelReferGlobalProfiler>,"sceKernelReferGlobalProfiler"},
+	{0x627E6F3A,WrapI_U<sceKernelReferSystemStatus>,"sceKernelReferSystemStatus"},
+	{0x64D4540E,WrapI_U<sceKernelReferThreadProfiler>,"sceKernelReferThreadProfiler"},
 
 	//Fifa Street 2 uses alarms
 	{0x6652b8ca,WrapI_UUU<sceKernelSetAlarm>,"sceKernelSetAlarm"},
