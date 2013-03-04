@@ -45,7 +45,7 @@ void BlockAllocator::Shutdown()
 	blocks.clear();
 }
 
-u32 BlockAllocator::AllocAligned(u32 &size, u32 grain, bool fromTop, const char *tag)
+u32 BlockAllocator::AllocAligned(u32 &size, u32 sizeGrain, u32 grain, bool fromTop, const char *tag)
 {
 	// Sanity check
 	if (size == 0 || size > rangeSize_) {
@@ -56,9 +56,11 @@ u32 BlockAllocator::AllocAligned(u32 &size, u32 grain, bool fromTop, const char 
 	// It could be off step, but the grain should generally be a power of 2.
 	if (grain < grain_)
 		grain = grain_;
+	if (sizeGrain < grain_)
+		sizeGrain = grain_;
 
 	// upalign size to grain
-	size = (size + grain - 1) & ~(grain - 1);
+	size = (size + sizeGrain - 1) & ~(sizeGrain - 1);
 
 	if (!fromTop)
 	{
@@ -128,7 +130,7 @@ u32 BlockAllocator::AllocAligned(u32 &size, u32 grain, bool fromTop, const char 
 u32 BlockAllocator::Alloc(u32 &size, bool fromTop, const char *tag)
 {
 	// We want to make sure it's aligned in case AllocAt() was used.
-	return AllocAligned(size, grain_, fromTop, tag);
+	return AllocAligned(size, grain_, grain_, fromTop, tag);
 }
 
 u32 BlockAllocator::AllocAt(u32 position, u32 size, const char *tag)
