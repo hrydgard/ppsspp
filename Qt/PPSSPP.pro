@@ -29,8 +29,6 @@ linux:!mobile_platform {
 	}
 }
 
-TRANSLATIONS = $$files(languages/ppsspp_*.ts)
-
 # Main
 SOURCES += ../native/base/QtMain.cpp
 HEADERS += ../native/base/QtMain.h
@@ -57,6 +55,17 @@ mobile_platform {
 	RESOURCES += resources.qrc
 	INCLUDEPATH += ../Qt
 }
+
+# Translations
+TRANSLATIONS = $$files(languages/ppsspp_*.ts)
+
+lang.name = lrelease ${QMAKE_FILE_IN}
+lang.input = TRANSLATIONS
+lang.output = ${QMAKE_FILE_PATH}/${QMAKE_FILE_BASE}.qm
+lang.commands = $$[QT_INSTALL_BINS]/lrelease ${QMAKE_FILE_IN}
+lang.CONFIG = no_link
+QMAKE_EXTRA_COMPILERS += lang
+PRE_TARGETDEPS += compiler_lang_make_all
 
 # Packaging
 symbian {
