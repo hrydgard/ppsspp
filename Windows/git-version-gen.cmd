@@ -22,12 +22,11 @@ set GIT_VERSION_FILE=%~p0..\git-version.cpp
 if not defined GIT (
 	set GIT="git"
 )
-
-%GIT% describe > NUL 2> NUL
+call %GIT% describe > NUL 2> NUL
 if errorlevel 1 (
 	echo Git not on path, trying default Msysgit paths
 	set GIT="%ProgramFiles(x86)%\Git\bin\git.exe"
-	!GIT! describe > NUL 2> NUL
+	call !GIT! describe > NUL 2> NUL
 	if errorlevel 1 (
 		set GIT="%ProgramFiles%\Git\bin\git.exe"
 	)
@@ -41,7 +40,7 @@ if exist "%GIT_VERSION_FILE%" (
 	)
 )
 
-%GIT% describe --always > NUL 2> NUL
+call %GIT% describe --always > NUL 2> NUL
 if errorlevel 1 (
 	echo Unable to update git-version.cpp, git not found.
 	echo If you don't want to add it to your path, set the GIT environment variable.
@@ -52,7 +51,7 @@ if errorlevel 1 (
 	goto done
 )
 
-for /F %%I IN ('%GIT% describe --always') do set GIT_VERSION=%%I
+for /F %%I IN ('call %GIT% describe --always') do set GIT_VERSION=%%I
 
 rem // Don't modify the file if it already has the current version.
 if exist "%GIT_VERSION_FILE%" (
