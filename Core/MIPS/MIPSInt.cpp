@@ -23,6 +23,7 @@
 #include "MIPS.h"
 #include "MIPSInt.h"
 #include "MIPSTables.h"
+#include "Core/Reporting.h"
 
 #include "../HLE/HLE.h"
 #include "../System.h"
@@ -186,6 +187,7 @@ namespace MIPSInt
 
 	void Int_Break(u32 op)
 	{
+		Reporting::ReportMessage("BREAK instruction hit");
 		ERROR_LOG(CPU, "BREAK!");
 		Core_UpdateState(CORE_STEPPING);
 		PC += 4;
@@ -960,6 +962,7 @@ namespace MIPSInt
 		{
 		case 0:
 			if (!reported) {
+				Reporting::ReportMessage("INTERRUPT instruction hit");
 				WARN_LOG(CPU,"Disable/Enable Interrupt CPU instruction");
 				reported = 1;
 			}

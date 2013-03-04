@@ -17,6 +17,7 @@
 
 #include "../../MemMap.h"
 #include "../MIPSAnalyst.h"
+#include "Core/Reporting.h"
 
 #include "ArmJit.h"
 #include "ArmRegCache.h"
@@ -117,6 +118,7 @@ namespace MIPSComp
 				// TODO: But some ops seem to use const 0 instead?
 				if (regnum >= n) {
 					ERROR_LOG(CPU, "Invalid VFPU swizzle: %08x / %d", prefix, sz);
+					Reporting::ReportMessage("Invalid VFPU swizzle: %08x / %d", prefix, sz);
 					regnum = 0;
 				}
 				
