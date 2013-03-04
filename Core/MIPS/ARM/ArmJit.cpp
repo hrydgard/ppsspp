@@ -357,7 +357,7 @@ void Jit::Comp_DoNothing(u32 op) { }
 #define _FS ((op>>11) & 0x1F)
 #define _FT ((op>>16) & 0x1F)
 #define _FD ((op>>6) & 0x1F)
-#define _POS((op>>6) & 0x1F)
+#define _POS ((op>>6) & 0x1F)
 #define _SIZE ((op>>11) & 0x1F)
 
 //memory regions:

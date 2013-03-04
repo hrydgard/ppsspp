@@ -42,6 +42,7 @@ SOURCES += ../Core/CPU.cpp \ # Core
 	../Core/MemMapFunctions.cpp \
 	../Core/PSPLoaders.cpp \
 	../Core/PSPMixer.cpp \
+	../Core/Reporting.cpp \
 	../Core/SaveState.cpp \
 	../Core/System.cpp \
 	../Core/Debugger/*.cpp \
@@ -72,6 +73,7 @@ HEADERS += ../Core/CPU.h \
 	../Core/MemMap.h \
 	../Core/PSPLoaders.h \
 	../Core/PSPMixer.h \
+	../Core/Reporting.h \
 	../Core/SaveState.h \
 	../Core/System.h \
 	../Core/Debugger/*.h \

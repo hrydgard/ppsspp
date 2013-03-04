@@ -815,6 +815,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/PSPLoaders.h
 	Core/PSPMixer.cpp
 	Core/PSPMixer.h
+	Core/Reporting.cpp
+	Core/Reporting.h
 	Core/SaveState.cpp
 	Core/SaveState.h
 	Core/System.cpp
