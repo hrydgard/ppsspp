@@ -18,6 +18,7 @@
 #include "../../MemMap.h"
 #include "../../Config.h"
 #include "../MIPSAnalyst.h"
+#include "Core/Reporting.h"
 
 #include "Jit.h"
 #include "../MIPSVFPUUtils.h"
@@ -105,6 +106,7 @@ void Jit::ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz) {
 			// TODO: But some ops seem to use const 0 instead?
 			if (regnum >= n) {
 				ERROR_LOG(CPU, "Invalid VFPU swizzle: %08x / %d", prefix, sz);
+				Reporting::ReportMessage("Invalid VFPU swizzle: %08x / %d", prefix, sz);
 				regnum = 0;
 			}
 			MOVSS(fpr.VX(vregs[i]), fpr.V(origV[regnum]));

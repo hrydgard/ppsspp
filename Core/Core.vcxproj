@@ -295,6 +295,7 @@
     <ClCompile Include="MIPS\x86\RegCache.cpp" />
     <ClCompile Include="PSPLoaders.cpp" />
     <ClCompile Include="PSPMixer.cpp" />
+    <ClCompile Include="Reporting.cpp" />
     <ClCompile Include="SaveState.cpp" />
     <ClCompile Include="System.cpp" />
     <ClCompile Include="Util\BlockAllocator.cpp" />
@@ -429,6 +430,7 @@
     <ClInclude Include="MIPS\x86\RegCache.h" />
     <ClInclude Include="PSPLoaders.h" />
     <ClInclude Include="PSPMixer.h" />
+    <ClInclude Include="Reporting.h" />
     <ClInclude Include="SaveState.h" />
     <ClInclude Include="System.h" />
     <ClInclude Include="Util\BlockAllocator.h" />

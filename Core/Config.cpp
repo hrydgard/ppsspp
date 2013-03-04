@@ -54,6 +54,8 @@ void CConfig::Load(const char *iniFileName)
 	general->Get("IgnoreBadMemAccess", &bIgnoreBadMemAccess, true);
 	general->Get("CurrentDirectory", &currentDirectory, "");
 	general->Get("ShowDebuggerOnLoad", &bShowDebuggerOnLoad, false);
+	// "default" means let emulator decide, "" means disable.
+	general->Get("ReportHost", &sReportHost, "default");
 
 	IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 	cpu->Get("Jit", &bJit, true);
@@ -120,6 +122,8 @@ void CConfig::Save()
 		general->Set("IgnoreBadMemAccess", bIgnoreBadMemAccess);
 		general->Set("CurrentDirectory", currentDirectory);
 		general->Set("ShowDebuggerOnLoad", bShowDebuggerOnLoad);
+		general->Set("ReportHost", sReportHost);
+
 		IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 		cpu->Set("Jit", bJit);
 		cpu->Set("FastMemory", bFastMemory);
