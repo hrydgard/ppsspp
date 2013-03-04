@@ -1,9 +1,5 @@
 #include "net/http_client.h"
 
-// for inet_pton
-#undef _WIN32_WINNT
-#define _WIN32_WINNT 0x600
-
 #ifndef _WIN32
 #include <arpa/inet.h>
 #include <sys/socket.h>
@@ -49,7 +45,7 @@ bool Connection::Resolve(const char *host, int port) {
 	}
 	// VLOG(1) << "Resolved " << host << " to " << ip;
 	remote_.sin_family = AF_INET;
-	int tmpres = inet_pton(AF_INET, ip, (void *)(&(remote_.sin_addr.s_addr)));
+	int tmpres = net::inet_pton(AF_INET, ip, (void *)(&(remote_.sin_addr.s_addr)));
 	CHECK_GE(tmpres, 0);	// << "inet_pton failed";
 	CHECK_NE(0, tmpres);	// << ip << " not a valid IP address";
 	remote_.sin_port = htons(port);
