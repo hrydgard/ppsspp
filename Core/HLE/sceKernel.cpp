@@ -536,9 +536,39 @@ int sceKernelReferSystemStatus(u32 statusPtr) {
 	return 0;
 }
 
-int sceKernelReferThreadProfiler(u32 statusPtr) {
-	ERROR_LOG(HLE, "UNIMPL sceKernelReferThreadProfiler(%08x)", statusPtr);
-	// Ignore for now
+struct DebugProfilerRegs {
+	u32 enable;
+	u32 systemck;
+	u32 cpuck;
+	u32 internal;
+	u32 memory;
+	u32 copz;
+	u32 vfpu;
+	u32 sleep;
+	u32 bus_access;
+	u32 uncached_load;
+	u32 uncached_store;
+	u32 cached_load;
+	u32 cached_store;
+	u32 i_miss;
+	u32 d_miss;
+	u32 d_writeback;
+	u32 cop0_inst;
+	u32 fpu_inst;
+	u32 vfpu_inst;
+	u32 local_bus;
+};
+
+u32 sceKernelReferThreadProfiler() {
+	ERROR_LOG(HLE, "FAKE sceKernelReferThreadProfiler()");
+
+	u32 size = sizeof(DebugProfilerRegs);
+	u32 ptr = kernelMemory.Alloc(size, true);
+	if (ptr) {
+		Memory::Memset(ptr, (u8)0, sizeof(DebugProfilerRegs));
+		return ptr;
+	}
+
 	return 0;
 }
 
@@ -623,7 +653,7 @@ const HLEFunction ThreadManForUser[] =
 
 	{0x8218B4DD,WrapI_U<sceKernelReferGlobalProfiler>,"sceKernelReferGlobalProfiler"},
 	{0x627E6F3A,WrapI_U<sceKernelReferSystemStatus>,"sceKernelReferSystemStatus"},
-	{0x64D4540E,WrapI_U<sceKernelReferThreadProfiler>,"sceKernelReferThreadProfiler"},
+	{0x64D4540E,WrapU_V<sceKernelReferThreadProfiler>,"sceKernelReferThreadProfiler"},
 
 	//Fifa Street 2 uses alarms
 	{0x6652b8ca,WrapI_UUU<sceKernelSetAlarm>,"sceKernelSetAlarm"},
