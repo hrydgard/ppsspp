@@ -46,7 +46,8 @@ namespace Reporting
 	struct Payload
 	{
 		RequestType type;
-		std::string data;
+		std::string string1;
+		std::string string2;
 	};
 	static Payload payloadBuffer[PAYLOAD_BUFFER_SIZE];
 	static int payloadBufferPos = 0;
@@ -147,8 +148,9 @@ namespace Reporting
 		{
 		case MESSAGE:
 			// TODO: Escape.
-			data = std::string(temp) + "&message=" + payload.data;
-			payload.data.clear();
+			data = std::string(temp) + "&message=" + payload.string1 + "&value=" + payload.string2;
+			payload.string1.clear();
+			payload.string2.clear();
 
 			SendReportRequest("/report/message", data);
 			break;
@@ -177,7 +179,8 @@ namespace Reporting
 		int pos = payloadBufferPos++ % PAYLOAD_BUFFER_SIZE;
 		Payload &payload = payloadBuffer[pos];
 		payload.type = MESSAGE;
-		payload.data = temp;
+		payload.string1 = message;
+		payload.string2 = temp;
 
 		std::thread th(Process, pos);
 		th.detach();
