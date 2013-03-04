@@ -3,6 +3,9 @@
 #include "base/timeutil.h"
 
 #include <cmath>
+#include <vector>
+#include <map>
+#include <algorithm>
 
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
@@ -107,12 +110,28 @@ static const FontRegistryEntry fontRegistry[] = {
 
 static const float pointDPI = 72.f;
 
+class LoadedFont;
 class FontLib;
+class Font;
+int GetInternalFontIndex(Font *font);
+
+// These should not need to be state saved.
+static std::vector<Font *> internalFonts;
+// However, these we must save - but we could take a shortcut
+// for LoadedFonts that point to internal fonts.
+static std::map<u32, LoadedFont *> fontMap;
+static std::map<u32, u32> fontLibMap;
+// We keep this list to avoid ptr references, even before alloc is called.
+static std::vector<FontLib *> fontLibList;
 
 // TODO: Merge this class with PGF? That'd make it harder to support .bwfon
 // fonts though, unless that's added directly to PGF.
 class Font {
 public:
+	// For savestates only.
+	Font() {
+	}
+
 	Font(const u8 *data, size_t dataSize) {
 		pgf_.ReadPtr(data, dataSize);
 		style_.fontH = pgf_.header.hSize / 64.0f;
@@ -149,6 +168,12 @@ public:
 
 	PGF *GetPGF() { return &pgf_; }
 
+	void DoState(PointerWrap &p) {
+		p.Do(pgf_);
+		p.Do(style_);
+		p.DoMarker("Font");
+	}
+
 private:
 	PGF pgf_;
 	PGFFontStyle style_;
@@ -157,71 +182,90 @@ private:
 
 class LoadedFont {
 public:
-	LoadedFont(Font *font, FontLib *fontLib, u32 handle) 
-		: fontLib_(fontLib), font_(font), handle_(handle) {}
+	// For savestates only.
+	LoadedFont() {
+	}
+
+	LoadedFont(Font *font, u32 fontLibID, u32 handle)
+		: fontLibID_(fontLibID), font_(font), handle_(handle) {}
 
 	Font *GetFont() { return font_; }
-	FontLib *GetFontLib() { return fontLib_; }
+	FontLib *GetFontLib() { return fontLibList[fontLibID_]; }
 	u32 Handle() const { return handle_; }
 
-	bool IsOpen() const { return fontLib_ != 0; }
+	bool IsOpen() const { return fontLibID_ != (u32)-1; }
 	void Close() {
-		fontLib_ = 0;
+		fontLibID_ = (u32)-1;
 		// We keep the rest around until deleted, as some queries are allowed
 		// on closed fonts (which is rather strange).
 	}
 
+	void DoState(PointerWrap &p) {
+		int numInternalFonts = (int)internalFonts.size();
+		p.Do(numInternalFonts);
+		if (numInternalFonts != (int)internalFonts.size()) {
+			ERROR_LOG(HLE, "Unable to load state: different internal font count.");
+			return;
+		}
+
+		p.Do(fontLibID_);
+		int internalFont = GetInternalFontIndex(font_);
+		p.Do(internalFont);
+		if (internalFont == -1) {
+			p.Do(font_);
+		} else if (p.mode == p.MODE_READ) {
+			font_ = internalFonts[internalFont];
+		}
+		p.Do(handle_);
+		p.DoMarker("LoadedFont");
+	}
+
 private:
-	FontLib *fontLib_;
+	u32 fontLibID_;
 	Font *font_;
 	u32 handle_;
 	DISALLOW_COPY_AND_ASSIGN(LoadedFont);
 };
 
-class FontLib;
-
-// These should not need to be state saved.
-static std::vector<Font *> internalFonts;
-// However, these we must save - but we could take a shortcut
-// for LoadedFonts that point to internal fonts.
-static std::map<u32, LoadedFont *> fontMap;
-static std::map<u32, FontLib *> fontLibMap;
-
 class PostAllocCallback : public Action {
 public:
 	PostAllocCallback() {}
 	static Action *Create() { return new PostAllocCallback(); }
-	void DoState(PointerWrap &p) { /*TODO*/ p.DoMarker("PostAllocCallback"); }
+	void DoState(PointerWrap &p) { p.Do(fontLibID_); p.DoMarker("PostAllocCallback"); }
 	void run(MipsCall &call);
-	void SetFontLib(FontLib *fontLib) { fontLib_ = fontLib; }
+	void SetFontLib(u32 fontLibID) { fontLibID_ = fontLibID; }
 
 private:
-	FontLib *fontLib_;
+	u32 fontLibID_;
 };
 
 class PostOpenCallback : public Action {
 public:
 	PostOpenCallback() {}
 	static Action *Create() { return new PostOpenCallback(); }
-	void DoState(PointerWrap &p) { /*TODO*/ p.DoMarker("PostOpenCallback"); }
+	void DoState(PointerWrap &p) { p.Do(fontLibID_); p.DoMarker("PostOpenCallback"); }
 	void run(MipsCall &call);
-	void SetFontLib(FontLib *fontLib) { fontLib_ = fontLib; }
+	void SetFontLib(u32 fontLibID) { fontLibID_ = fontLibID; }
 
 private:
-	FontLib *fontLib_;
+	u32 fontLibID_;
 };
 
 // A "fontLib" is a container of loaded fonts.
 // One can open either "internal" fonts or custom fonts into a fontlib.
 class FontLib {
 public:
+	FontLib() {
+		// For save states only.
+	}
+
 	FontLib(u32 paramPtr) :	fontHRes_(128.0f), fontVRes_(128.0f) {
 		Memory::ReadStruct(paramPtr, &params_);
 		fakeAlloc_ = 0x13370;
 		// We use the same strange scheme that JPCSP uses.
 		u32 allocSize = 4 + 4 * params_.numFonts;
 		PostAllocCallback *action = (PostAllocCallback*) __KernelCreateAction(actionPostAllocCallback);
-		action->SetFontLib(this);
+		action->SetFontLib(GetListID());
 
 		if (false) {
 			// This fails in dissidia. The function at 088ff320 (params_.allocFuncAddr) calls some malloc function, the second one returns 0 which causes
@@ -231,9 +275,13 @@ public:
 		} else {
 			AllocDone(fakeAlloc_);
 			fakeAlloc_ += allocSize;
-			fontLibMap[handle()] = this;
+			fontLibMap[handle()] = GetListID();
 			INFO_LOG(HLE, "Leaving PostAllocCallback::run");
 		}
+	}
+
+	u32 GetListID() {
+		return (u32)(std::find(fontLibList.begin(), fontLibList.end(), this) - fontLibList.begin());
 	}
 
 	void Close() {
@@ -295,7 +343,7 @@ public:
 			ERROR_LOG(HLE, "Too many fonts opened in FontLib");
 			return 0;
 		}
-		LoadedFont *loadedFont = new LoadedFont(font, this, fonts_[freeFontIndex]);
+		LoadedFont *loadedFont = new LoadedFont(font, GetListID(), fonts_[freeFontIndex]);
 		isfontopen_[freeFontIndex] = 1;
 		return loadedFont;
 	}
@@ -312,12 +360,15 @@ public:
 
 	void DoState(PointerWrap &p) {
 		p.Do(fonts_);
+		p.Do(isfontopen_);
 		p.Do(params_);
 		p.Do(fontHRes_);
 		p.Do(fontVRes_);
 		p.Do(fileFontHandle_);
 		p.Do(handle_);
 		p.Do(altCharCode_);
+		p.Do(fakeAlloc_);
+		p.DoMarker("FontLib");
 	}
 
 	void SetFileFontHandle(u32 handle) {
@@ -345,19 +396,21 @@ private:
 void PostAllocCallback::run(MipsCall &call) {
 	INFO_LOG(HLE, "Entering PostAllocCallback::run");
 	u32 v0 = currentMIPS->r[0];
-	fontLib_->AllocDone(call.savedV0);
-	fontLibMap[fontLib_->handle()] = fontLib_;
-	call.setReturnValue(fontLib_->handle());
+	FontLib *fontLib = fontLibList[fontLibID_];
+	fontLib->AllocDone(call.savedV0);
+	fontLibMap[fontLib->handle()] = fontLibID_;
+	call.setReturnValue(fontLib->handle());
 	INFO_LOG(HLE, "Leaving PostAllocCallback::run");
 }
 
 void PostOpenCallback::run(MipsCall &call) {
-	fontLib_->SetFileFontHandle(call.savedV0);
+	FontLib *fontLib = fontLibList[fontLibID_];
+	fontLib->SetFileFontHandle(call.savedV0);
 }
 
 FontLib *GetFontLib(u32 handle) {
 	if (fontLibMap.find(handle) != fontLibMap.end()) {
-		return fontLibMap[handle];
+		return fontLibList[fontLibMap[handle]];
 	} else {
 		ERROR_LOG(HLE, "No fontlib with handle %08x", handle);
 		return 0;
@@ -447,7 +500,7 @@ int GetInternalFontIndex(Font *font) {
 		if (internalFonts[i] == font)
 			return i;
 	}
-	return 0;
+	return -1;
 }
 
 void __FontInit() {
@@ -463,9 +516,10 @@ void __FontShutdown() {
 			fontLib->CloseFont(iter->second);
 	}
 	fontMap.clear();
-	for (auto iter = fontLibMap.begin(); iter != fontLibMap.end(); iter++) {
-		delete iter->second;
+	for (auto iter = fontLibList.begin(); iter != fontLibList.end(); iter++) {
+		delete *iter;
 	}
+	fontLibList.clear();
 	fontLibMap.clear();
 	for (auto iter = internalFonts.begin(); iter != internalFonts.end(); ++iter) {
 		delete *iter;
@@ -474,7 +528,9 @@ void __FontShutdown() {
 }
 
 void __FontDoState(PointerWrap &p) {
-	// TODO: Needs much work.
+	p.Do(fontLibList);
+	p.Do(fontLibMap);
+	p.Do(fontMap);
 
 	p.Do(actionPostAllocCallback);
 	__KernelRestoreActionType(actionPostAllocCallback, PostAllocCallback::Create);
@@ -490,6 +546,7 @@ u32 sceFontNewLib(u32 paramPtr, u32 errorCodePtr) {
 		Memory::Write_U32(0, errorCodePtr);
 		
 		FontLib *newLib = new FontLib(paramPtr);
+		fontLibList.push_back(newLib);
 		// The game should never see this value, the return value is replaced
 		// by the action. Except if we disable the alloc, in this case we return
 		// the handle correctly here.
