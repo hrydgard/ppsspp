@@ -10,5 +10,7 @@ void Shutdown();
 // use free() to free the returned string.
 char *DNSResolveTry(const char *host, const char **err);
 char *DNSResolve(const char *host);
+
+int inet_pton(int af, const char* src, void* dst);
 }  // namespace net
 #endif
