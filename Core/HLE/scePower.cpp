@@ -248,6 +248,11 @@ u32 scePowerGetPllClockFrequencyInt() {
 	return pllFreq;
 }
 
+float scePowerGetPllClockFrequencyFloat() {
+	INFO_LOG(HLE, "%f=scePowerGetPllClockFrequencyFloat()", (float)pllFreq);
+	return (float) pllFreq;
+}
+
 u32 scePowerGetBusClockFrequencyInt() {
 	INFO_LOG(HLE,"%i=scePowerGetBusClockFrequencyInt()", busFreq);
 	return busFreq;
@@ -305,7 +310,7 @@ static const HLEFunction scePower[] = {
 	{0x9BADB3EB,0,"scePowerGetBusClockFrequencyFloat"},
 	{0x737486F2,WrapU_UUU<scePowerSetClockFrequency>,"scePowerSetClockFrequency"},
 	{0x34f9c463,WrapU_V<scePowerGetPllClockFrequencyInt>,"scePowerGetPllClockFrequencyInt"},
-	{0xea382a27,0,"scePowerGetPllClockFrequencyFloat"},
+	{0xea382a27,WrapF_V<scePowerGetPllClockFrequencyFloat>,"scePowerGetPllClockFrequencyFloat"},
 	{0xebd177d6,WrapU_UUU<scePowerSetClockFrequency>,"scePower_driver_EBD177D6"}, //TODO: used in a few places, jpcsp says is the same as scePowerSetClockFrequency
 	{0x469989ad,WrapU_UUU<scePowerSetClockFrequency>,"scePower_469989ad"},  // This is also the same as SetClockFrequency
 	{0xa85880d0,WrapU_V<IsPSPNonFat>,"scePower_a85880d0_IsPSPNonFat"},
