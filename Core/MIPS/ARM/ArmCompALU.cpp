@@ -432,7 +432,7 @@ namespace MIPSComp
 
 			if (cpu_info.bArmV7) {
 				gpr.MapDirtyIn(rd, rt);
-				RBIT(rd, rt);
+				RBIT(gpr.R(rd), gpr.R(rt));
 			} else {
 				Comp_Generic(op);
 			}
