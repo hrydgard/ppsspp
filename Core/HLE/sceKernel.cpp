@@ -560,16 +560,17 @@ struct DebugProfilerRegs {
 	u32 local_bus;
 };
 
-u32 sceKernelReferThreadProfiler() {
+u32 sceKernelReferThreadProfiler(u32 statusPtr) {
 	ERROR_LOG(HLE, "FAKE sceKernelReferThreadProfiler()");
 
-	u32 size = sizeof(DebugProfilerRegs);
-	u32 ptr = kernelMemory.Alloc(size, true);
-	if (ptr) {
-		Memory::Memset(ptr, (u8)0, sizeof(DebugProfilerRegs));
-		return ptr;
-	}
-
+	// Can we confirm that the struct above is the right struct?
+	// If so, re-enable this code.
+	//DebugProfilerRegs regs;
+	//memset(&regs, 0, sizeof(regs));
+	// TODO: fill the struct.
+	//if (Memory::IsValidAddress(statusPtr)) {
+	//	Memory::WriteStruct(statusPtr, &regs);
+	//}
 	return 0;
 }
 
@@ -654,7 +655,7 @@ const HLEFunction ThreadManForUser[] =
 
 	{0x8218B4DD,WrapI_U<sceKernelReferGlobalProfiler>,"sceKernelReferGlobalProfiler"},
 	{0x627E6F3A,WrapI_U<sceKernelReferSystemStatus>,"sceKernelReferSystemStatus"},
-	{0x64D4540E,WrapU_V<sceKernelReferThreadProfiler>,"sceKernelReferThreadProfiler"},
+	{0x64D4540E,WrapU_U<sceKernelReferThreadProfiler>,"sceKernelReferThreadProfiler"},
 
 	//Fifa Street 2 uses alarms
 	{0x6652b8ca,WrapI_UUU<sceKernelSetAlarm>,"sceKernelSetAlarm"},
