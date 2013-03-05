@@ -358,6 +358,11 @@ u32 scePowerSetClockFrequency(u32 pllfreq, u32 cpufreq, u32 busfreq) {
 		INFO_LOG(HLE,"scePowerSetClockFrequency(%i,%i,%i): locked by user config at %i, %i, %i", pllfreq, cpufreq, busfreq, g_Config.iLockedCPUSpeed, g_Config.iLockedCPUSpeed, busFreq);
 	}
 	else {
+		if (cpufreq == 0 || cpufreq > 333) {
+			WARN_LOG(HLE,"scePowerSetClockFrequency(%i,%i,%i): invalid frequency", pllfreq, cpufreq, busfreq);
+			return SCE_KERNEL_ERROR_INVALID_VALUE;
+		}
+		// TODO: More restrictions.
 		CoreTiming::SetClockFrequencyMHz(cpufreq);
 		pllFreq = pllfreq;
 		busFreq = busfreq;
@@ -371,6 +376,10 @@ u32 scePowerSetCpuClockFrequency(u32 cpufreq) {
 		DEBUG_LOG(HLE,"scePowerSetCpuClockFrequency(%i): locked by user config at %i", cpufreq, g_Config.iLockedCPUSpeed);
 	}
 	else {
+		if (cpufreq == 0 || cpufreq > 333) {
+			WARN_LOG(HLE,"scePowerSetCpuClockFrequency(%i): invalid frequency", cpufreq);
+			return SCE_KERNEL_ERROR_INVALID_VALUE;
+		}
 		CoreTiming::SetClockFrequencyMHz(cpufreq);
 		DEBUG_LOG(HLE,"scePowerSetCpuClockFrequency(%i)", cpufreq);
 	}
@@ -382,6 +391,11 @@ u32 scePowerSetBusClockFrequency(u32 busfreq) {
 		DEBUG_LOG(HLE,"scePowerSetBusClockFrequency(%i): locked by user config at %i", busfreq, busFreq);
 	}
 	else {
+		if (busfreq == 0 || busfreq > 111) {
+			WARN_LOG(HLE,"scePowerSetBusClockFrequency(%i): invalid frequency", busfreq);
+			return SCE_KERNEL_ERROR_INVALID_VALUE;
+		}
+		// TODO: It seems related to other frequencies, though.
 		busFreq = busfreq;
 		DEBUG_LOG(HLE,"scePowerSetBusClockFrequency(%i)", busfreq);
 	}
