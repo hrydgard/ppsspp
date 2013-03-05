@@ -88,6 +88,9 @@ static int vCount;
 static int isVblank;
 static int numSkippedFrames;
 static bool hasSetMode;
+static int mode;
+static int width;
+static int height;
 // Don't include this in the state, time increases regardless of state.
 static double curFrameTime;
 static double nextFrameTime;
@@ -115,6 +118,9 @@ void hleAfterFlip(u64 userdata, int cyclesLate);
 void __DisplayInit() {
 	gpuStats.reset();
 	hasSetMode = false;
+	mode = 0;
+	width = 480;
+	height = 272;
 	numSkippedFrames = 0;
 	framebufIsLatched = false;
 	framebuf.topaddr = 0x04000000;
@@ -145,6 +151,9 @@ void __DisplayDoState(PointerWrap &p) {
 	p.Do(vCount);
 	p.Do(isVblank);
 	p.Do(hasSetMode);
+	p.Do(mode);
+	p.Do(width);
+	p.Do(height);
 	WaitVBlankInfo wvi(0);
 	p.Do(vblankWaitingThreads, wvi);
 
@@ -272,8 +281,13 @@ void DebugStats()
 		gpuStats.numShaders
 		);
 
-	float zoom = 0.3f; /// g_Config.iWindowZoom;
-	float soff = 0.3f;
+	#ifdef USING_GLES2
+		float zoom = 0.5f; /// g_Config.iWindowZoom;
+		float soff = 0.5f;
+	#else
+		float zoom = 0.3f; /// g_Config.iWindowZoom;
+		float soff = 0.3f;
+	#endif
 	PPGeBegin();
 	PPGeDrawText(stats, soff, soff, 0, zoom, 0xCC000000);
 	PPGeDrawText(stats, -soff, -soff, 0, zoom, 0xCC000000);
@@ -443,20 +457,22 @@ void hleLeaveVblank(u64 userdata, int cyclesLate) {
 	CoreTiming::ScheduleEvent(msToCycles(frameMs - vblankMs) - cyclesLate, enterVblankEvent, userdata);
 }
 
-void sceDisplayIsVblank() {
+u32 sceDisplayIsVblank() {
 	DEBUG_LOG(HLE,"%i=sceDisplayIsVblank()",isVblank);
-	RETURN(isVblank);
+	return isVblank;
 }
 
-u32 sceDisplaySetMode(u32 unknown, u32 xres, u32 yres) {
-	DEBUG_LOG(HLE,"sceDisplaySetMode(%d,%d,%d)",unknown,xres,yres);
+u32 sceDisplaySetMode(int displayMode, int displayWidth, int displayHeight) {
+	DEBUG_LOG(HLE,"sceDisplaySetMode(%i, %i, %i)", displayMode, displayWidth, displayHeight);
 	host->BeginFrame();
 
 	if (!hasSetMode) {
 		gpu->InitClear();
 		hasSetMode = true;
 	}
-
+	mode = displayMode;
+	width = displayWidth;
+	height = displayHeight;
 	return 0;
 }
 
@@ -579,15 +595,21 @@ u32 sceDisplayGetVcount() {
 	return vCount;
 }
 
-void sceDisplayGetCurrentHcount() {
-	RETURN(hCount++);
+u32 sceDisplayGetCurrentHcount() {
+	ERROR_LOG(HLE,"sceDisplayGetCurrentHcount()");
+	return hCount++;
 }
 
-void sceDisplayGetAccumulatedHcount() {
+u32 sceDisplayAdjustAccumulatedHcount() {
+	ERROR_LOG(HLE,"UNIMPL sceDisplayAdjustAccumulatedHcount()");
+	return 0;
+}
+
+u32 sceDisplayGetAccumulatedHcount() {
 	// Just do an estimate
 	u32 accumHCount = CoreTiming::GetTicks() / (CoreTiming::GetClockFrequencyMHz() * 1000000 / 60 / 272);
 	DEBUG_LOG(HLE,"%i=sceDisplayGetAccumulatedHcount()", accumHCount);
-	RETURN(accumHCount);
+	return accumHCount;
 }
 
 float sceDisplayGetFramePerSec() {
@@ -597,12 +619,23 @@ float sceDisplayGetFramePerSec() {
 }
 
 u32 sceDisplayIsForeground() {
-  ERROR_LOG(HLE,"UNIMPL sceDisplayIsForeground()");
-  return 1;   // return value according to JPCSP comment
+  	ERROR_LOG(HLE,"UNIMPL sceDisplayIsForeground()");
+  	return 1;   // return value according to JPCSP comment
+}
+
+u32 sceDisplayGetMode(u32 modeAddr, u32 widthAddr, u32 heightAddr) {
+	DEBUG_LOG(HLE,"sceDisplayGetMode()", modeAddr, widthAddr, heightAddr);
+	if (Memory::IsValidAddress(modeAddr))
+		Memory::Write_U32(mode, modeAddr);
+	if (Memory::IsValidAddress(widthAddr))
+		Memory::Write_U32(width, widthAddr);
+	if (Memory::IsValidAddress(heightAddr))
+		Memory::Write_U32(height, heightAddr);
+	return 0;
 }
 
 const HLEFunction sceDisplay[] = {
-	{0x0E20F177,WrapU_UUU<sceDisplaySetMode>, "sceDisplaySetMode"},
+	{0x0E20F177,WrapU_III<sceDisplaySetMode>, "sceDisplaySetMode"},
 	{0x289D82FE,WrapU_UIII<sceDisplaySetFramebuf>, "sceDisplaySetFramebuf"},
 	{0xEEDA2E54,WrapU_UUUI<sceDisplayGetFramebuf>,"sceDisplayGetFrameBuf"},
 	{0x36CDFADE,WrapU_V<sceDisplayWaitVblank>, "sceDisplayWaitVblank"},
@@ -612,17 +645,17 @@ const HLEFunction sceDisplay[] = {
 	{0x46F186C3,WrapU_V<sceDisplayWaitVblankStartCB>, "sceDisplayWaitVblankStartCB"},
 	{0x77ed8b3a,WrapU_I<sceDisplayWaitVblankStartMultiCB>,"sceDisplayWaitVblankStartMultiCB"},
 	{0xdba6c4c4,WrapF_V<sceDisplayGetFramePerSec>,"sceDisplayGetFramePerSec"},
-	{0x773dd3a3,sceDisplayGetCurrentHcount,"sceDisplayGetCurrentHcount"},
-	{0x210eab3a,sceDisplayGetAccumulatedHcount,"sceDisplayGetAccumulatedHcount"},
-	{0xA83EF139,0,"sceDisplayAdjustAccumulatedHcount"},
+	{0x773dd3a3,WrapU_V<sceDisplayGetCurrentHcount>,"sceDisplayGetCurrentHcount"},
+	{0x210eab3a,WrapU_V<sceDisplayGetAccumulatedHcount>,"sceDisplayGetAccumulatedHcount"},
+	{0xA83EF139,WrapU_V<sceDisplayAdjustAccumulatedHcount>,"sceDisplayAdjustAccumulatedHcount"},
 	{0x9C6EAAD7,WrapU_V<sceDisplayGetVcount>,"sceDisplayGetVcount"},
-	{0xDEA197D4,0,"sceDisplayGetMode"},
+	{0xDEA197D4,WrapU_UUU<sceDisplayGetMode>,"sceDisplayGetMode"},
 	{0x7ED59BC4,0,"sceDisplaySetHoldMode"},
 	{0xA544C486,0,"sceDisplaySetResumeMode"},
 	{0xBF79F646,0,"sceDisplayGetResumeMode"},
 	{0xB4F378FA,WrapU_V<sceDisplayIsForeground>,"sceDisplayIsForeground"},
 	{0x31C4BAA8,0,"sceDisplayGetBrightness"},
-	{0x4D4E10EC,sceDisplayIsVblank,"sceDisplayIsVblank"},
+	{0x4D4E10EC,WrapU_V<sceDisplayIsVblank>,"sceDisplayIsVblank"},
 	{0x21038913,0,"sceDisplayIsVsync"},
 };
 
