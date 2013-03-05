@@ -482,6 +482,46 @@ namespace MIPSComp
 			UMULL(gpr.R(MIPSREG_LO), gpr.R(MIPSREG_HI), gpr.R(rs), gpr.R(rt));
 			break;
 
+		case 26: //div
+			DISABLE;
+			gpr.MapDirtyDirtyInIn(MIPSREG_LO, MIPSREG_HI, rs, rt);
+			if (cpu_info.bIDIVa)
+			{
+				SDIV(gpr.R(MIPSREG_LO), gpr.R(rs), gpr.R(rt));
+				MUL(gpr.R(rt), gpr.R(rt), gpr.R(MIPSREG_LO));
+				SUB(gpr.R(MIPSREG_HI), gpr.R(rs), Operand2(gpr.R(rt)));
+			} else {
+				VMOV(S0, gpr.R(rs));
+				VMOV(S1, gpr.R(rt));
+				VCVT(D0, S0, TO_FLOAT | IS_SIGNED);
+				VCVT(D1, S1, TO_FLOAT | IS_SIGNED);
+				VDIV(D0, D0, D1);
+				VCVT(gpr.R(MIPSREG_LO), D0, TO_INT | IS_SIGNED);
+				MUL(gpr.R(rt), gpr.R(rt), gpr.R(MIPSREG_LO));
+				SUB(gpr.R(MIPSREG_HI), gpr.R(rs), Operand2(gpr.R(rt)));
+			}
+			break;
+
+		case 27: //divu
+			DISABLE;
+			gpr.MapDirtyDirtyInIn(MIPSREG_LO, MIPSREG_HI, rs, rt);
+			if (cpu_info.bIDIVa)
+			{
+				UDIV(gpr.R(MIPSREG_LO), gpr.R(rs), gpr.R(rt));
+				MUL(gpr.R(rt), gpr.R(rt), gpr.R(MIPSREG_LO));
+				SUB(gpr.R(MIPSREG_HI), gpr.R(rs), Operand2(gpr.R(rt)));
+			} else {
+				VMOV(S0, gpr.R(rs));
+				VMOV(S1, gpr.R(rt));
+				VCVT(D0, S0, TO_FLOAT);
+				VCVT(D1, S1, TO_FLOAT);
+				VDIV(D0, D0, D1);
+				VCVT(gpr.R(MIPSREG_LO), D0, TO_INT);
+				MUL(gpr.R(rt), gpr.R(rt), gpr.R(MIPSREG_LO));
+				SUB(gpr.R(MIPSREG_HI), gpr.R(rs), Operand2(gpr.R(rt)));
+			}
+			break;
+
 		case 28: //madd
 			gpr.MapDirtyDirtyInIn(MIPSREG_LO, MIPSREG_HI, rs, rt, false);
 			SMLAL(gpr.R(MIPSREG_LO), gpr.R(MIPSREG_HI), gpr.R(rs), gpr.R(rt));
@@ -490,6 +530,16 @@ namespace MIPSComp
 		case 29: //maddu
 			gpr.MapDirtyDirtyInIn(MIPSREG_LO, MIPSREG_HI, rs, rt, false);
 			UMLAL(gpr.R(MIPSREG_LO), gpr.R(MIPSREG_HI), gpr.R(rs), gpr.R(rt));
+			break;
+
+		case 46: // msub
+			DISABLE;
+			gpr.MapDirtyDirtyInIn(MIPSREG_LO, MIPSREG_HI, rs, rt, false);
+			break;
+
+		case 47: // msubu
+			DISABLE;
+			gpr.MapDirtyDirtyInIn(MIPSREG_LO, MIPSREG_HI, rs, rt, false);
 			break;
 
 		default:

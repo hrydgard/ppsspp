@@ -553,7 +553,7 @@ public:
 	void VMLA(ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VMOV(ARMReg Dest, ARMReg Src, bool high);
 	void VMOV(ARMReg Dest, ARMReg Src);
-	void VCVT(ARMReg Sd, ARMReg Sm, int flags);
+	void VCVT(ARMReg Dest, ARMReg Src, int flags);
 
 	void VMRS_APSR();
 

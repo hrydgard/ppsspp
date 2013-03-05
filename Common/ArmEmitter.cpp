@@ -1162,15 +1162,22 @@ void ARMXEmitter::VMOV(ARMReg Dest, ARMReg Src)
 	}
 }
 
-void ARMXEmitter::VCVT(ARMReg Sd, ARMReg Sm, int flags)
+void ARMXEmitter::VCVT(ARMReg Dest, ARMReg Source, int flags)
 {
+	bool single_reg = (Dest < D0) && (Source < D0);
 	int op  = ((flags & TO_INT) ? (flags & ROUND_TO_ZERO) : (flags & IS_SIGNED)) ? 1 : 0;
 	int op2 = ((flags & TO_INT) ? (flags & IS_SIGNED) : 0) ? 1 : 0;
-	Sd = SubBase(Sd);
-	Sm = SubBase(Sm);
+	Dest = SubBase(Dest);
+	Source = SubBase(Source);
 
-	Write32(NO_COND | (0x1D << 23) | ((Sd & 0x1) << 22) | (0x7 << 19) | ((flags & TO_INT) << 18) | (op2 << 16) \
-		| ((Sd & 0x1E) << 11) | (op << 7) | (0x29 << 6) | ((Sm & 0x1) << 5) | (Sm >> 1));
+	if (single_reg)
+	{
+		Write32(NO_COND | (0x1D << 23) | ((Dest & 0x1) << 22) | (0x7 << 19) | ((flags & TO_INT) << 18) | (op2 << 16) \
+			| ((Dest & 0x1E) << 11) | (op << 7) | (0x29 << 6) | ((Source & 0x1) << 5) | (Source >> 1));
+	} else {
+		Write32(NO_COND | (0x1D << 23) | ((Dest & 0x10) << 18) | (0x7 << 19) | ((flags & TO_INT) << 18) | (op2 << 16) \
+			| ((Dest & 0xF) << 12) | (1 << 8) | (op << 7) | (0x29 << 6) | ((Source & 0x10) << 1) | (Source & 0xF));
+	}
 }
 
 }
