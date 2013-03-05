@@ -7,7 +7,7 @@
         <location filename="../controls.ui" line="20"/>
         <source>Controls</source>
         <comment>Controls window title</comment>
-        <translation>Τίτλος παραθύρου χειρισμών</translation>
+        <translation>Ξ¤Ξ―Ο„Ξ»ΞΏΟ‚ Ο€Ξ±ΟΞ±ΞΈΟΟΞΏΟ… Ο‡ΞµΞΉΟΞΉΟƒΞΌΟΞ½</translation>
     </message>
 </context>
 <context>
@@ -15,27 +15,27 @@
     <message>
         <location filename="../ctrldisasmview.cpp" line="106"/>
         <source>Copy &amp;address</source>
-        <translation>Αντιγραφή &amp;address</translation>
+        <translation>Ξ‘Ξ½Ο„ΞΉΞ³ΟΞ±Ο†Ξ® &amp;address</translation>
     </message>
     <message>
         <location filename="../ctrldisasmview.cpp" line="110"/>
         <source>Copy instruction (&amp;hex)</source>
-        <translation>Αντιγραφή οδηγίας (&amp;hex)</translation>
+        <translation>Ξ‘Ξ½Ο„ΞΉΞ³ΟΞ±Ο†Ξ® ΞΏΞ΄Ξ·Ξ³Ξ―Ξ±Ο‚ (&amp;hex)</translation>
     </message>
     <message>
         <location filename="../ctrldisasmview.cpp" line="114"/>
         <source>Copy instruction (&amp;disasm)</source>
-        <translation>Αντιγραφή οδηγίας (&amp;disasm)</translation>
+        <translation>Ξ‘Ξ½Ο„ΞΉΞ³ΟΞ±Ο†Ξ® ΞΏΞ΄Ξ·Ξ³Ξ―Ξ±Ο‚ (&amp;disasm)</translation>
     </message>
     <message>
         <location filename="../ctrldisasmview.cpp" line="120"/>
         <source>&amp;Run to here</source>
-        <translation>&amp;Τρέξιμο ως εδώ</translation>
+        <translation>&amp;Ξ¤ΟΞ­ΞΎΞΉΞΌΞΏ Ο‰Ο‚ ΞµΞ΄Ο</translation>
     </message>
     <message>
         <location filename="../ctrldisasmview.cpp" line="124"/>
         <source>&amp;Set Next Statement</source>
-        <translation>&amp;Ορισμός Επόμενη Κατάστασης</translation>
+        <translation>&amp;ΞΟΞΉΟƒΞΌΟΟ‚ Ξ•Ο€ΟΞΌΞµΞ½Ξ· ΞΞ±Ο„Ξ¬ΟƒΟ„Ξ±ΟƒΞ·Ο‚</translation>
     </message>
     <message>
         <location filename="../ctrldisasmview.cpp" line="128"/>
@@ -45,27 +45,27 @@
     <message>
         <location filename="../ctrldisasmview.cpp" line="132"/>
         <source>&amp;Follow branch</source>
-        <translation>&amp;Ακολούθηση κλάδου</translation>
+        <translation>&amp;Ξ‘ΞΊΞΏΞ»ΞΏΟΞΈΞ·ΟƒΞ· ΞΊΞ»Ξ¬Ξ΄ΞΏΟ…</translation>
     </message>
     <message>
         <location filename="../ctrldisasmview.cpp" line="142"/>
         <source>Go to in &amp;Memory View</source>
-        <translation>Μετάβαση σε &amp;Προβολέα Μνήμης</translation>
+        <translation>ΞΞµΟ„Ξ¬Ξ²Ξ±ΟƒΞ· ΟƒΞµ &amp;Ξ ΟΞΏΞ²ΞΏΞ»Ξ­Ξ± ΞΞ½Ξ®ΞΌΞ·Ο‚</translation>
     </message>
     <message>
         <location filename="../ctrldisasmview.cpp" line="152"/>
         <source>&amp;Rename function...</source>
-        <translation>&amp;Μετονομασία λειτουργίας...</translation>
+        <translation>&amp;ΞΞµΟ„ΞΏΞ½ΞΏΞΌΞ±ΟƒΞ―Ξ± Ξ»ΞµΞΉΟ„ΞΏΟ…ΟΞ³Ξ―Ξ±Ο‚...</translation>
     </message>
     <message>
         <location filename="../ctrldisasmview.cpp" line="240"/>
         <source>New function name</source>
-        <translation>Νέο όνομα λειτουργίας</translation>
+        <translation>ΞΞ­ΞΏ ΟΞ½ΞΏΞΌΞ± Ξ»ΞµΞΉΟ„ΞΏΟ…ΟΞ³Ξ―Ξ±Ο‚</translation>
     </message>
     <message>
         <location filename="../ctrldisasmview.cpp" line="241"/>
         <source>New function name:</source>
-        <translation>Νέο όνομα λειτουργίας:</translation>
+        <translation>ΞΞ­ΞΏ ΟΞ½ΞΏΞΌΞ± Ξ»ΞµΞΉΟ„ΞΏΟ…ΟΞ³Ξ―Ξ±Ο‚:</translation>
     </message>
 </context>
 <context>
@@ -73,17 +73,17 @@
     <message>
         <location filename="../ctrlmemview.cpp" line="215"/>
         <source>Go to in &amp;disasm</source>
-        <translation">Μετάβαση σε &amp;disasm</translation>
+        <translation>ΞΞµΟ„Ξ¬Ξ²Ξ±ΟƒΞ· ΟƒΞµ &amp;disasm</translation>
     </message>
     <message>
         <location filename="../ctrlmemview.cpp" line="221"/>
         <source>&amp;Copy value</source>
-        <translation>&amp;Αντιγραφή τιμής</translation>
+        <translation>&amp;Ξ‘Ξ½Ο„ΞΉΞ³ΟΞ±Ο†Ξ® Ο„ΞΉΞΌΞ®Ο‚</translation>
     </message>
     <message>
         <location filename="../ctrlmemview.cpp" line="225"/>
         <source>Dump...</source>
-        <translation>Αποτύπωση...</translation>
+        <translation>Ξ‘Ο€ΞΏΟ„ΟΟ€Ο‰ΟƒΞ·...</translation>
     </message>
 </context>
 <context>
@@ -91,32 +91,32 @@
     <message>
         <location filename="../ctrlregisterlist.cpp" line="274"/>
         <source>Go to in &amp;memory view</source>
-        <translation>Μετάβαση σε &amp;προβολής μνήμης</translation>
+        <translation>ΞΞµΟ„Ξ¬Ξ²Ξ±ΟƒΞ· ΟƒΞµ &amp;Ο€ΟΞΏΞ²ΞΏΞ»Ξ®Ο‚ ΞΌΞ½Ξ®ΞΌΞ·Ο‚</translation>
     </message>
     <message>
         <location filename="../ctrlregisterlist.cpp" line="278"/>
         <source>Go to in &amp;disasm</source>
-        <translation">Μετάβαση σε &amp;disasm</translation>
+        <translation>ΞΞµΟ„Ξ¬Ξ²Ξ±ΟƒΞ· ΟƒΞµ &amp;disasm</translation>
     </message>
     <message>
         <location filename="../ctrlregisterlist.cpp" line="284"/>
         <source>&amp;Copy value</source>
-        <translation>&amp;Αντιγραφή τιμής</translation>
+        <translation>&amp;Ξ‘Ξ½Ο„ΞΉΞ³ΟΞ±Ο†Ξ® Ο„ΞΉΞΌΞ®Ο‚</translation>
     </message>
     <message>
         <location filename="../ctrlregisterlist.cpp" line="288"/>
         <source>C&amp;hange...</source>
-        <translation>Α&amp;λλαγή...</translation>
+        <translation>Ξ‘&amp;Ξ»Ξ»Ξ±Ξ³Ξ®...</translation>
     </message>
     <message>
         <location filename="../ctrlregisterlist.cpp" line="352"/>
         <source>Set new value</source>
-        <translation>Ορισμός νέας τιμής</translation>
+        <translation>ΞΟΞΉΟƒΞΌΟΟ‚ Ξ½Ξ­Ξ±Ο‚ Ο„ΞΉΞΌΞ®Ο‚</translation>
     </message>
     <message>
         <location filename="../ctrlregisterlist.cpp" line="353"/>
         <source>Set new value:</source>
-        <translation>Ορισμός νέας τιμής:</translation>
+        <translation>ΞΟΞΉΟƒΞΌΟΟ‚ Ξ½Ξ­Ξ±Ο‚ Ο„ΞΉΞΌΞ®Ο‚:</translation>
     </message>
 </context>
 <context>
@@ -125,7 +125,7 @@
         <location filename="../debugger_disasm.ui" line="17"/>
         <source>Disassembler</source>
         <comment>Window title</comment>
-        <translation>Τίτλος παραθύρου</translation>
+        <translation>Ξ¤Ξ―Ο„Ξ»ΞΏΟ‚ Ο€Ξ±ΟΞ±ΞΈΟΟΞΏΟ…</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="30"/>
@@ -135,7 +135,7 @@
     <message>
         <location filename="../debugger_disasm.ui" line="43"/>
         <source>&amp;Go to</source>
-        <translation>&amp;Μετάβαση σε</translation>
+        <translation>&amp;ΞΞµΟ„Ξ¬Ξ²Ξ±ΟƒΞ· ΟƒΞµ</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="78"/>
@@ -150,7 +150,7 @@
     <message>
         <location filename="../debugger_disasm.ui" line="128"/>
         <source>Show VFPU</source>
-        <translation>Εμφάνιση VFPU</translation>
+        <translation>Ξ•ΞΌΟ†Ξ¬Ξ½ΞΉΟƒΞ· VFPU</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="147"/>
@@ -165,32 +165,32 @@
     <message>
         <location filename="../debugger_disasm.ui" line="223"/>
         <source>&amp;Go</source>
-        <translation>&amp;Ξεκίνημα</translation>
+        <translation>&amp;ΞΞµΞΊΞ―Ξ½Ξ·ΞΌΞ±</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="236"/>
         <source>Stop</source>
-        <translation>Σταμάτημα</translation>
+        <translation>Ξ£Ο„Ξ±ΞΌΞ¬Ο„Ξ·ΞΌΞ±</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="249"/>
         <source>Step &amp;Into</source>
-        <translation>Μεταπήδηση &amp;σε</translation>
+        <translation>ΞΞµΟ„Ξ±Ο€Ξ®Ξ΄Ξ·ΟƒΞ· &amp;ΟƒΞµ</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="265"/>
         <source>Step &amp;Over</source>
-        <translation>Μεταπήδηση &amp;Πάνω από</translation>
+        <translation>ΞΞµΟ„Ξ±Ο€Ξ®Ξ΄Ξ·ΟƒΞ· &amp;Ξ Ξ¬Ξ½Ο‰ Ξ±Ο€Ο</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="278"/>
         <source>S&amp;kip</source>
-        <translation>Α&amp;γνόηση</translation>
+        <translation>Ξ‘&amp;Ξ³Ξ½ΟΞ·ΟƒΞ·</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="291"/>
         <source>Next &amp;HLE</source>
-        <translation>Επόμενο &amp;ΕΥΕ (HLE)</translation>
+        <translation>Ξ•Ο€ΟΞΌΞµΞ½ΞΏ &amp;Ξ•Ξ¥Ξ• (HLE)</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="320"/>
@@ -200,12 +200,12 @@
     <message>
         <location filename="../debugger_disasm.ui" line="339"/>
         <source>Address</source>
-        <translation>Διεύθυνση</translation>
+        <translation>Ξ”ΞΉΞµΟΞΈΟ…Ξ½ΟƒΞ·</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="362"/>
         <source>Clear All</source>
-        <translation>Εκκαθάριση Όλων</translation>
+        <translation>Ξ•ΞΊΞΊΞ±ΞΈΞ¬ΟΞΉΟƒΞ· ΞΞ»Ο‰Ξ½</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="372"/>
@@ -215,7 +215,7 @@
     <message>
         <location filename="../debugger_disasm.ui" line="382"/>
         <source>Display Lists</source>
-        <translation>Λίστες Απεικόνισης</translation>
+        <translation>Ξ›Ξ―ΟƒΟ„ΞµΟ‚ Ξ‘Ο€ΞµΞΉΞΊΟΞ½ΞΉΟƒΞ·Ο‚</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="408"/>
@@ -227,77 +227,77 @@
         <location filename="../debugger_disasm.ui" line="413"/>
         <location filename="../debugger_disasm.ui" line="529"/>
         <source>Status</source>
-        <translation>Κατάσταση</translation>
+        <translation>ΞΞ±Ο„Ξ¬ΟƒΟ„Ξ±ΟƒΞ·</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="418"/>
         <source>Start Address</source>
-        <translation>Αρχική Διεύθυνση</translation>
+        <translation>Ξ‘ΟΟ‡ΞΉΞΊΞ® Ξ”ΞΉΞµΟΞΈΟ…Ξ½ΟƒΞ·</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="423"/>
         <source>Current Address</source>
-        <translation>Τρέχουσα Διεύθυνση</translation>
+        <translation>Ξ¤ΟΞ­Ο‡ΞΏΟ…ΟƒΞ± Ξ”ΞΉΞµΟΞΈΟ…Ξ½ΟƒΞ·</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="476"/>
         <source>Run</source>
-        <translation>Εκκίνηση</translation>
+        <translation>Ξ•ΞΊΞΊΞ―Ξ½Ξ·ΟƒΞ·</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="483"/>
         <source>Step</source>
-        <translation>Βήμα</translation>
+        <translation>Ξ’Ξ®ΞΌΞ±</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="497"/>
         <source>Threads</source>
-        <translation>Νήματα</translation>
+        <translation>ΞΞ®ΞΌΞ±Ο„Ξ±</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="524"/>
         <source>Name</source>
-        <translation>Όνομα</translation>
+        <translation>ΞΞ½ΞΏΞΌΞ±</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="534"/>
         <source>Current PC</source>
-        <translation>Τρέχον PC</translation>
+        <translation>Ξ¤ΟΞ­Ο‡ΞΏΞ½ PC</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="539"/>
         <source>Entry point</source>
-        <translation>Σημείο έναρξης</translation>
+        <translation>Ξ£Ξ·ΞΌΞµΞ―ΞΏ Ξ­Ξ½Ξ±ΟΞΎΞ·Ο‚</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.cpp" line="401"/>
         <source>Remove breakpoint</source>
-        <translation>Αφαίρεση σημείου διακοπής</translation>
+        <translation>Ξ‘Ο†Ξ±Ξ―ΟΞµΟƒΞ· ΟƒΞ·ΞΌΞµΞ―ΞΏΟ… Ξ΄ΞΉΞ±ΞΊΞΏΟ€Ξ®Ο‚</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.cpp" line="480"/>
         <source>Go to entry point</source>
-        <translation>Μετάβαση στο σημείο εισόδου</translation>
+        <translation>ΞΞµΟ„Ξ¬Ξ²Ξ±ΟƒΞ· ΟƒΟ„ΞΏ ΟƒΞ·ΞΌΞµΞ―ΞΏ ΞµΞΉΟƒΟΞ΄ΞΏΟ…</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.cpp" line="486"/>
         <source>Running</source>
-        <translation>Σε λειτουργία</translation>
+        <translation>Ξ£Ξµ Ξ»ΞµΞΉΟ„ΞΏΟ…ΟΞ³Ξ―Ξ±</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.cpp" line="490"/>
         <source>Wait</source>
-        <translation>Αναμονή</translation>
+        <translation>Ξ‘Ξ½Ξ±ΞΌΞΏΞ½Ξ®</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.cpp" line="494"/>
         <source>Suspend</source>
-        <translation>Αναστολή</translation>
+        <translation>Ξ‘Ξ½Ξ±ΟƒΟ„ΞΏΞ»Ξ®</translation>
     </message>
     <message>
         <location filename="../debugger_disasm.cpp" line="626"/>
         <source>Show code</source>
-        <translation>Εμφάνιση κώδικα</translation>
+        <translation>Ξ•ΞΌΟ†Ξ¬Ξ½ΞΉΟƒΞ· ΞΊΟΞ΄ΞΉΞΊΞ±</translation>
     </message>
 </context>
 <context>
@@ -305,32 +305,32 @@
     <message>
         <location filename="../debugger_memory.ui" line="14"/>
         <source>Dialog</source>
-        <translation>Διάλογος</translation>
+        <translation>Ξ”ΞΉΞ¬Ξ»ΞΏΞ³ΞΏΟ‚</translation>
     </message>
     <message>
         <location filename="../debugger_memory.ui" line="22"/>
         <source>Goto:</source>
-        <translation>Μετάβαση σε:</translation>
+        <translation>ΞΞµΟ„Ξ¬Ξ²Ξ±ΟƒΞ· ΟƒΞµ:</translation>
     </message>
     <message>
         <location filename="../debugger_memory.ui" line="35"/>
         <source>Mode</source>
-        <translation>Λειτουργία</translation>
+        <translation>Ξ›ΞµΞΉΟ„ΞΏΟ…ΟΞ³Ξ―Ξ±</translation>
     </message>
     <message>
         <location filename="../debugger_memory.ui" line="41"/>
         <source>Normal</source>
-        <translation>Κανονικό</translation>
+        <translation>ΞΞ±Ξ½ΞΏΞ½ΞΉΞΊΟ</translation>
     </message>
     <message>
         <location filename="../debugger_memory.ui" line="48"/>
         <source>Symbols</source>
-        <translation>Σύμβολα</translation>
+        <translation>Ξ£ΟΞΌΞ²ΞΏΞ»Ξ±</translation>
     </message>
     <message>
         <location filename="../debugger_memory.cpp" line="15"/>
         <source>Memory Viewer - %1</source>
-        <translation>Προβολέας Μνήμης - %1</translation>
+        <translation>Ξ ΟΞΏΞ²ΞΏΞ»Ξ­Ξ±Ο‚ ΞΞ½Ξ®ΞΌΞ·Ο‚ - %1</translation>
     </message>
 </context>
 <context>
@@ -353,7 +353,7 @@
     <message>
         <location filename="../debugger_vfpu.ui" line="33"/>
         <source>Hex</source>
-        <translation>Δεκαεξαδικό</translation>
+        <translation>Ξ”ΞµΞΊΞ±ΞµΞΎΞ±Ξ΄ΞΉΞΊΟ</translation>
     </message>
     <message>
         <location filename="../debugger_vfpu.ui" line="38"/>
@@ -376,27 +376,27 @@
     <message>
         <location filename="../gamepaddialog.ui" line="14"/>
         <source>Gamepad Configuration</source>
-        <translation>Διαμόρφωση Χειριστηρίου</translation>
+        <translation>Ξ”ΞΉΞ±ΞΌΟΟΟ†Ο‰ΟƒΞ· Ξ§ΞµΞΉΟΞΉΟƒΟ„Ξ·ΟΞ―ΞΏΟ…</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.ui" line="22"/>
         <source>GamePad List</source>
-        <translation>Λίστα Χειριστηρίων</translation>
+        <translation>Ξ›Ξ―ΟƒΟ„Ξ± Ξ§ΞµΞΉΟΞΉΟƒΟ„Ξ·ΟΞ―Ο‰Ξ½</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.ui" line="46"/>
         <source>Refresh</source>
-        <translation>Ανανέωση</translation>
+        <translation>Ξ‘Ξ½Ξ±Ξ½Ξ­Ο‰ΟƒΞ·</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.ui" line="53"/>
         <source>Select</source>
-        <translation>Επιλογή</translation>
+        <translation>Ξ•Ο€ΞΉΞ»ΞΏΞ³Ξ®</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.ui" line="62"/>
         <source>Gamepad Values :</source>
-        <translation>Τιμές Χειριστηρίου :</translation>
+        <translation>Ξ¤ΞΉΞΌΞ­Ο‚ Ξ§ΞµΞΉΟΞΉΟƒΟ„Ξ·ΟΞ―ΞΏΟ… :</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.ui" line="86"/>
@@ -406,79 +406,79 @@
     <message>
         <location filename="../gamepaddialog.ui" line="98"/>
         <source>Assign Gamepad input</source>
-        <translation>Εκχώρηση εισόδου χειριστηρίου</translation>
+        <translation>Ξ•ΞΊΟ‡ΟΟΞ·ΟƒΞ· ΞµΞΉΟƒΟΞ΄ΞΏΟ… Ο‡ΞµΞΉΟΞΉΟƒΟ„Ξ·ΟΞ―ΞΏΟ…</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.ui" line="108"/>
         <source> to PSP button/axis</source>
-        <translation> στο κουμί/άξονα PSP</translation>
+        <translation> ΟƒΟ„ΞΏ ΞΊΞΏΟ…ΞΌΞ―/Ξ¬ΞΎΞΏΞ½Ξ± PSP</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.ui" line="118"/>
         <source>Assign</source>
-        <translation>Εκχώρηση</translation>
+        <translation>Ξ•ΞΊΟ‡ΟΟΞ·ΟƒΞ·</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.ui" line="127"/>
         <source>Press buttons on your gamePad to verify mapping :</source>
-        <translation>Πατήστε τα κουμπιά στο χειριστήριο σας για να επιβεβαιώσετε την αντιστοίχιση:</translation>
+        <translation>Ξ Ξ±Ο„Ξ®ΟƒΟ„Ξµ Ο„Ξ± ΞΊΞΏΟ…ΞΌΟ€ΞΉΞ¬ ΟƒΟ„ΞΏ Ο‡ΞµΞΉΟΞΉΟƒΟ„Ξ®ΟΞΉΞΏ ΟƒΞ±Ο‚ Ξ³ΞΉΞ± Ξ½Ξ± ΞµΟ€ΞΉΞ²ΞµΞ²Ξ±ΞΉΟΟƒΞµΟ„Ξµ Ο„Ξ·Ξ½ Ξ±Ξ½Ο„ΞΉΟƒΟ„ΞΏΞ―Ο‡ΞΉΟƒΞ·:</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="134"/>
         <location filename="../gamepaddialog.cpp" line="366"/>
         <source>&lt;b&gt;No gamepad&lt;/b&gt;</source>
-        <translation>&lt;b&gt;Κανένα χειριστήριο&lt;/b&gt;</translation>
+        <translation>&lt;b&gt;ΞΞ±Ξ½Ξ­Ξ½Ξ± Ο‡ΞµΞΉΟΞΉΟƒΟ„Ξ®ΟΞΉΞΏ&lt;/b&gt;</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="146"/>
         <source>&lt;b&gt;Unknown gamepad&lt;/b&gt;</source>
-        <translation>&lt;b&gt;Άγνωστο χειριστήριο&lt;/b&gt;</translation>
+        <translation>&lt;b&gt;β€™Ξ³Ξ½Ο‰ΟƒΟ„ΞΏ Ο‡ΞµΞΉΟΞΉΟƒΟ„Ξ®ΟΞΉΞΏ&lt;/b&gt;</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="287"/>
         <source>Buttons</source>
-        <translation>Πλήκτρα</translation>
+        <translation>Ξ Ξ»Ξ®ΞΊΟ„ΟΞ±</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="301"/>
         <location filename="../gamepaddialog.cpp" line="344"/>
         <source>Button %1</source>
-        <translation>Πλήκτρο %1</translation>
+        <translation>Ξ Ξ»Ξ®ΞΊΟ„ΟΞΏ %1</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="304"/>
         <source>Axes</source>
-        <translation>Άξονες</translation>
+        <translation>β€™ΞΎΞΏΞ½ΞµΟ‚</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="310"/>
         <source>%1 Neg</source>
-        <translation>%1 Αρν.</translation>
+        <translation>%1 Ξ‘ΟΞ½.</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="317"/>
         <source>Axes %1 Neg</source>
-        <translation>Άξονες %1 Αρν.</translation>
+        <translation>β€™ΞΎΞΏΞ½ΞµΟ‚ %1 Ξ‘ΟΞ½.</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="320"/>
         <source>%1 Pos</source>
-        <translation>%1 Θετ.</translation>
+        <translation>%1 ΞΞµΟ„.</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="327"/>
         <source>Axes %1 Pos</source>
-        <translation>Άξονες %1 Θετ.</translation>
+        <translation>β€™ΞΎΞΏΞ½ΞµΟ‚ %1 ΞΞµΟ„.</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="331"/>
         <source>Hats</source>
-        <translation>Μοχλοί</translation>
+        <translation>ΞΞΏΟ‡Ξ»ΞΏΞ―</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="368"/>
         <source>&lt;b&gt;Current gamepad: %1&lt;/b&gt;</source>
-        <translation>&lt;b&gt;Τρέχον χειριστήριο: %1&lt;/b&gt;</translation>
+        <translation>&lt;b&gt;Ξ¤ΟΞ­Ο‡ΞΏΞ½ Ο‡ΞµΞΉΟΞΉΟƒΟ„Ξ®ΟΞΉΞΏ: %1&lt;/b&gt;</translation>
     </message>
 </context>
 <context>
@@ -491,22 +491,22 @@
     <message>
         <location filename="../mainwindow.ui" line="52"/>
         <source>&amp;File</source>
-        <translation>&amp;Αρχείο</translation>
+        <translation>&amp;Ξ‘ΟΟ‡ΞµΞ―ΞΏ</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="66"/>
         <source>&amp;Emulation</source>
-        <translation>&amp;Εξομοίωση</translation>
+        <translation>&amp;Ξ•ΞΎΞΏΞΌΞΏΞ―Ο‰ΟƒΞ·</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="77"/>
         <source>Debu&amp;g</source>
-        <translation>Αποσφαλμάτωσ&amp;η</translation>
+        <translation>Ξ‘Ο€ΞΏΟƒΟ†Ξ±Ξ»ΞΌΞ¬Ο„Ο‰Οƒ&amp;Ξ·</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="91"/>
         <source>&amp;Options</source>
-        <translation>&amp;Επιλογές</translation>
+        <translation>&amp;Ξ•Ο€ΞΉΞ»ΞΏΞ³Ξ­Ο‚</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="99"/>
@@ -516,62 +516,62 @@
     <message>
         <location filename="../mainwindow.ui" line="108"/>
         <source>HLE</source>
-        <translation>ΕΥΕ(HLE)</translation>
+        <translation>Ξ•Ξ¥Ξ•(HLE)</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="117"/>
         <source>Default</source>
-        <translation>Προεπιλογή</translation>
+        <translation>Ξ ΟΞΏΞµΟ€ΞΉΞ»ΞΏΞ³Ξ®</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="95"/>
         <source>Lo&amp;g Levels</source>
-        <translation>Επ&amp;ίπεδα Καταγραφικού</translation>
+        <translation>Ξ•Ο€&amp;Ξ―Ο€ΞµΞ΄Ξ± ΞΞ±Ο„Ξ±Ξ³ΟΞ±Ο†ΞΉΞΊΞΏΟ</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="131"/>
         <source>&amp;Language</source>
-        <translation>&amp;Γλώσσα</translation>
+        <translation>&amp;Ξ“Ξ»ΟΟƒΟƒΞ±</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="136"/>
         <source>&amp;Video</source>
-        <translation>&amp;Βίντεο</translation>
+        <translation>&amp;Ξ’Ξ―Ξ½Ο„ΞµΞΏ</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="140"/>
         <source>&amp;Anisotropic filtering</source>
-        <translation>&amp;Ανισοτροπικό φιτράρισμα</translation>
+        <translation>&amp;Ξ‘Ξ½ΞΉΟƒΞΏΟ„ΟΞΏΟ€ΞΉΞΊΟ Ο†ΞΉΟ„ΟΞ¬ΟΞΉΟƒΞΌΞ±</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="150"/>
         <source>&amp;Zoom</source>
-        <translation>&amp;Μεγένθυση</translation>
+        <translation>&amp;ΞΞµΞ³Ξ­Ξ½ΞΈΟ…ΟƒΞ·</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="173"/>
         <source>Co&amp;ntrols</source>
-        <translation>Χε&amp;ιριστήρια</translation>
+        <translation>Ξ§Ξµ&amp;ΞΉΟΞΉΟƒΟ„Ξ®ΟΞΉΞ±</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="180"/>
         <source>&amp;Core</source>
-        <translation>&amp;Πυρήνας</translation>
+        <translation>&amp;Ξ Ο…ΟΞ®Ξ½Ξ±Ο‚</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="204"/>
         <source>&amp;Help</source>
-        <translation>&amp;Βοήθεια</translation>
+        <translation>&amp;Ξ’ΞΏΞ®ΞΈΞµΞΉΞ±</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="219"/>
         <source>&amp;Open...</source>
-        <translation>&amp;Άνοιγμα...</translation>
+        <translation>&amp;β€™Ξ½ΞΏΞΉΞ³ΞΌΞ±...</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="224"/>
         <source>&amp;Close</source>
-        <translation>&amp;Κλείσιμο</translation>
+        <translation>&amp;ΞΞ»ΞµΞ―ΟƒΞΉΞΌΞΏ</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="229"/>
@@ -581,7 +581,7 @@
     <message>
         <location filename="../mainwindow.ui" line="234"/>
         <source>Quickload state</source>
-        <translation>Γρήγορη Φόρτωση</translation>
+        <translation>Ξ“ΟΞ®Ξ³ΞΏΟΞ· Ξ¦ΟΟΟ„Ο‰ΟƒΞ·</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="237"/>
@@ -591,7 +591,7 @@
     <message>
         <location filename="../mainwindow.ui" line="242"/>
         <source>Quicksave state</source>
-        <translation>Γρήγορη Αποθήκευση</translation>
+        <translation>Ξ“ΟΞ®Ξ³ΞΏΟΞ· Ξ‘Ο€ΞΏΞΈΞ®ΞΊΞµΟ…ΟƒΞ·</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="245"/>
@@ -601,22 +601,22 @@
     <message>
         <location filename="../mainwindow.ui" line="250"/>
         <source>&amp;Load State File...</source>
-        <translation>&amp;Φόρτωση Σημείου Αποθήκευσης...</translation>
+        <translation>&amp;Ξ¦ΟΟΟ„Ο‰ΟƒΞ· Ξ£Ξ·ΞΌΞµΞ―ΞΏΟ… Ξ‘Ο€ΞΏΞΈΞ®ΞΊΞµΟ…ΟƒΞ·Ο‚...</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="255"/>
         <source>&amp;Save State File...</source>
-        <translation>&amp;Αποθήκευση Σημείου Αποθήκευσης...</translation>
+        <translation>&amp;Ξ‘Ο€ΞΏΞΈΞ®ΞΊΞµΟ…ΟƒΞ· Ξ£Ξ·ΞΌΞµΞ―ΞΏΟ… Ξ‘Ο€ΞΏΞΈΞ®ΞΊΞµΟ…ΟƒΞ·Ο‚...</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="260"/>
         <source>E&amp;xit</source>
-        <translation>Έ&amp;ξοδος</translation>
+        <translation>Ξ&amp;ΞΎΞΏΞ΄ΞΏΟ‚</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="265"/>
         <source>&amp;Run</source>
-        <translation>&amp;Εκκίνηση</translation>
+        <translation>&amp;Ξ•ΞΊΞΊΞ―Ξ½Ξ·ΟƒΞ·</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="268"/>
@@ -626,7 +626,7 @@
     <message>
         <location filename="../mainwindow.ui" line="273"/>
         <source>&amp;Pause</source>
-        <translation>&amp;Παύση</translation>
+        <translation>&amp;Ξ Ξ±ΟΟƒΞ·</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="276"/>
@@ -636,7 +636,7 @@
     <message>
         <location filename="../mainwindow.ui" line="281"/>
         <source>R&amp;eset</source>
-        <translation>Ε&amp;πανεκκίνηση</translation>
+        <translation>Ξ•&amp;Ο€Ξ±Ξ½ΞµΞΊΞΊΞ―Ξ½Ξ·ΟƒΞ·</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="289"/>
@@ -646,7 +646,7 @@
     <message>
         <location filename="../mainwindow.ui" line="297"/>
         <source>&amp;Slightly Faster Interpreter</source>
-        <translation>&amp;Ελαφρώς Γρηγορότερος Interpreter</translation>
+        <translation>&amp;Ξ•Ξ»Ξ±Ο†ΟΟΟ‚ Ξ“ΟΞ·Ξ³ΞΏΟΟΟ„ΞµΟΞΏΟ‚ Interpreter</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="305"/>
@@ -656,22 +656,22 @@
     <message>
         <location filename="../mainwindow.ui" line="313"/>
         <source>Load &amp;Map File...</source>
-        <translation>Φόρτωση &amp;Αρχείου Χάρτη...</translation>
+        <translation>Ξ¦ΟΟΟ„Ο‰ΟƒΞ· &amp;Ξ‘ΟΟ‡ΞµΞ―ΞΏΟ… Ξ§Ξ¬ΟΟ„Ξ·...</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="321"/>
         <source>&amp;Save Map File...</source>
-        <translation>&amp;Αποθήκευση Αρχείου Χάρτη...</translation>
+        <translation>&amp;Ξ‘Ο€ΞΏΞΈΞ®ΞΊΞµΟ…ΟƒΞ· Ξ‘ΟΟ‡ΞµΞ―ΞΏΟ… Ξ§Ξ¬ΟΟ„Ξ·...</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="329"/>
         <source>&amp;Reset Symbol Table</source>
-        <translation>&amp;Επαναφορά Πίνακα Συμβόλων</translation>
+        <translation>&amp;Ξ•Ο€Ξ±Ξ½Ξ±Ο†ΞΏΟΞ¬ Ξ Ξ―Ξ½Ξ±ΞΊΞ± Ξ£Ο…ΞΌΞ²ΟΞ»Ο‰Ξ½</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="334"/>
         <source>&amp;Disassembly</source>
-        <translation>&amp;Αποσυναρμολόγηση</translation>
+        <translation>&amp;Ξ‘Ο€ΞΏΟƒΟ…Ξ½Ξ±ΟΞΌΞΏΞ»ΟΞ³Ξ·ΟƒΞ·</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="337"/>
@@ -681,7 +681,7 @@
     <message>
         <location filename="../mainwindow.ui" line="345"/>
         <source>&amp;Log Console</source>
-        <translation>&amp;Κονσόλα Καταγραφέα</translation>
+        <translation>&amp;ΞΞΏΞ½ΟƒΟΞ»Ξ± ΞΞ±Ο„Ξ±Ξ³ΟΞ±Ο†Ξ­Ξ±</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="348"/>
@@ -691,7 +691,7 @@
     <message>
         <location filename="../mainwindow.ui" line="353"/>
         <source>Memory &amp;View...</source>
-        <translation>Εμφάνιση &amp;Μνήμης...</translation>
+        <translation>Ξ•ΞΌΟ†Ξ¬Ξ½ΞΉΟƒΞ· &amp;ΞΞ½Ξ®ΞΌΞ·Ο‚...</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="356"/>
@@ -701,47 +701,47 @@
     <message>
         <location filename="../mainwindow.ui" line="361"/>
         <source>&amp;Keyboard</source>
-        <translation>&amp;Πληκτρολόγιο</translation>
+        <translation>&amp;Ξ Ξ»Ξ·ΞΊΟ„ΟΞΏΞ»ΟΞ³ΞΉΞΏ</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="366"/>
         <source>&amp;Toggle fullscreen</source>
-        <translation>&amp;Μετάβαση σε πλήρη οθόνη</translation>
+        <translation>&amp;ΞΞµΟ„Ξ¬Ξ²Ξ±ΟƒΞ· ΟƒΞµ Ο€Ξ»Ξ®ΟΞ· ΞΏΞΈΟΞ½Ξ·</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="423"/>
         <source>Show &amp;debug statistics</source>
-        <translation>Εμφάνιση &amp;στατιστικών αποσφαλμάτωσης</translation>
+        <translation>Ξ•ΞΌΟ†Ξ¬Ξ½ΞΉΟƒΞ· &amp;ΟƒΟ„Ξ±Ο„ΞΉΟƒΟ„ΞΉΞΊΟΞ½ Ξ±Ο€ΞΏΟƒΟ†Ξ±Ξ»ΞΌΞ¬Ο„Ο‰ΟƒΞ·Ο‚</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="483"/>
         <source>I&amp;gnore illegal reads/writes</source>
-        <translation>Α&amp;γνόηση αθέμιτων αναγνώσεων</translation>
+        <translation>Ξ‘&amp;Ξ³Ξ½ΟΞ·ΟƒΞ· Ξ±ΞΈΞ­ΞΌΞΉΟ„Ο‰Ξ½ Ξ±Ξ½Ξ±Ξ³Ξ½ΟΟƒΞµΟ‰Ξ½</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="602"/>
         <source>&amp;Gamepad</source>
-        <translation>&amp;Χειριστήριο</translation>
+        <translation>&amp;Ξ§ΞµΞΉΟΞΉΟƒΟ„Ξ®ΟΞΉΞΏ</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="607"/>
         <source>Run on loa&amp;d</source>
-        <translation>Εκκίνηση στην έναρξ&amp;η<</translation>
+        <translation>Ξ•ΞΊΞΊΞ―Ξ½Ξ·ΟƒΞ· ΟƒΟ„Ξ·Ξ½ Ξ­Ξ½Ξ±ΟΞΎ&amp;Ξ·</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="681"/>
         <source>Show &amp;FPS counter</source>
-        <translation>Εμφάνιση μετρητή &amp;FPS</translation>
+        <translation>Ξ•ΞΌΟ†Ξ¬Ξ½ΞΉΟƒΞ· ΞΌΞµΟ„ΟΞ·Ο„Ξ® &amp;FPS</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="689"/>
         <source>S&amp;tretch to display</source>
-        <translation>Ε&amp;πέκταση στην οθόνη</translation>
+        <translation>Ξ•&amp;Ο€Ξ­ΞΊΟ„Ξ±ΟƒΞ· ΟƒΟ„Ξ·Ξ½ ΞΏΞΈΟΞ½Ξ·</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="697"/>
         <source>&amp;Sound emulation</source>
-        <translation>&amp;Εξομοίωση ήχου</translation>
+        <translation>&amp;Ξ•ΞΎΞΏΞΌΞΏΞ―Ο‰ΟƒΞ· Ξ®Ο‡ΞΏΟ…</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="369"/>
@@ -751,7 +751,7 @@
     <message>
         <location filename="../mainwindow.ui" line="377"/>
         <source>&amp;Buffered Rendering</source>
-        <translation>&amp;Buffered Απεικόνιση</translation>
+        <translation>&amp;Buffered Ξ‘Ο€ΞµΞΉΞΊΟΞ½ΞΉΟƒΞ·</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="380"/>
@@ -761,7 +761,7 @@
     <message>
         <location filename="../mainwindow.ui" line="388"/>
         <source>&amp;Hardware Transform</source>
-        <translation>Hardware Μετασχηματισμός</translation>
+        <translation>Hardware ΞΞµΟ„Ξ±ΟƒΟ‡Ξ·ΞΌΞ±Ο„ΞΉΟƒΞΌΟΟ‚</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="391"/>
@@ -771,22 +771,22 @@
     <message>
         <location filename="../mainwindow.ui" line="399"/>
         <source>&amp;Linear Filtering</source>
-        <translation>Γραμμικό φιλτράρισμα</translation>
+        <translation>Ξ“ΟΞ±ΞΌΞΌΞΉΞΊΟ Ο†ΞΉΞ»Ο„ΟΞ¬ΟΞΉΟƒΞΌΞ±</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="407"/>
         <source>&amp;Wireframe (experimental)</source>
-        <translation>Γράφημα Πλέγματος</translation>
+        <translation>Ξ“ΟΞ¬Ο†Ξ·ΞΌΞ± Ξ Ξ»Ξ­Ξ³ΞΌΞ±Ο„ΞΏΟ‚</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="415"/>
         <source>&amp;Display Raw Framebuffer</source>
-        <translation>&amp;Εμφάνιση Ακατέργαστου Framebuffer</translation>
+        <translation>&amp;Ξ•ΞΌΟ†Ξ¬Ξ½ΞΉΟƒΞ· Ξ‘ΞΊΞ±Ο„Ξ­ΟΞ³Ξ±ΟƒΟ„ΞΏΟ… Framebuffer</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="431"/>
         <source>Screen &amp;1x</source>
-        <translation>Οθόνη &amp;1x</translation>
+        <translation>ΞΞΈΟΞ½Ξ· &amp;1x</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="434"/>
@@ -796,7 +796,7 @@
     <message>
         <location filename="../mainwindow.ui" line="442"/>
         <source>Screen &amp;2x</source>
-        <translation>Οθόνη &amp;2x</translation>
+        <translation>ΞΞΈΟΞ½Ξ· &amp;2x</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="445"/>
@@ -806,7 +806,7 @@
     <message>
         <location filename="../mainwindow.ui" line="453"/>
         <source>Screen &amp;3x</source>
-        <translation>Οθόνη &amp;3x</translation>
+        <translation>ΞΞΈΟΞ½Ξ· &amp;3x</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="456"/>
@@ -816,7 +816,7 @@
     <message>
         <location filename="../mainwindow.ui" line="464"/>
         <source>Screen &amp;4x</source>
-        <translation>Οθόνη &amp;4x</translation>
+        <translation>ΞΞΈΟΞ½Ξ· &amp;4x</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="467"/>
@@ -826,70 +826,70 @@
     <message>
         <location filename="../mainwindow.ui" line="475"/>
         <source>&amp;Fast Memory (dynarec, unstable)</source>
-        <translation>&amp;Γρήγορη Μνήμη (dynarec, ασταθής)</translation>
+        <translation>&amp;Ξ“ΟΞ®Ξ³ΞΏΟΞ· ΞΞ½Ξ®ΞΌΞ· (dynarec, Ξ±ΟƒΟ„Ξ±ΞΈΞ®Ο‚)</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="488"/>
         <source>&amp;Go to http://www.ppsspp.org/</source>
-        <translation>&amp;Μετάβαση σε http://www.ppsspp.org/</translation>
+        <translation>&amp;ΞΞµΟ„Ξ¬Ξ²Ξ±ΟƒΞ· ΟƒΞµ http://www.ppsspp.org/</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="493"/>
         <source>&amp;About PPSSPP...</source>
-        <translation>&amp;Περί του PPSSPP...</translation>
+        <translation>&amp;Ξ ΞµΟΞ― Ο„ΞΏΟ… PPSSPP...</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="501"/>
         <source>&amp;Use VBO</source>
-        <translation>&amp;Χρήση VBO</translation>
+        <translation>&amp;Ξ§ΟΞ®ΟƒΞ· VBO</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="509"/>
         <location filename="../mainwindow.ui" line="541"/>
         <location filename="../mainwindow.ui" line="573"/>
         <source>Debug</source>
-        <translation>Αποσφαλμάτωση</translation>
+        <translation>Ξ‘Ο€ΞΏΟƒΟ†Ξ±Ξ»ΞΌΞ¬Ο„Ο‰ΟƒΞ·</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="517"/>
         <location filename="../mainwindow.ui" line="549"/>
         <location filename="../mainwindow.ui" line="581"/>
         <source>Warning</source>
-        <translation>Προειδοποίηση</translation>
+        <translation>Ξ ΟΞΏΞµΞΉΞ΄ΞΏΟ€ΞΏΞ―Ξ·ΟƒΞ·</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="525"/>
         <location filename="../mainwindow.ui" line="565"/>
         <location filename="../mainwindow.ui" line="597"/>
         <source>Error</source>
-        <translation>Σφάλμα</translation>
+        <translation>Ξ£Ο†Ξ¬Ξ»ΞΌΞ±</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="533"/>
         <location filename="../mainwindow.ui" line="557"/>
         <location filename="../mainwindow.ui" line="589"/>
         <source>Info</source>
-        <translation>Πληροφορίες</translation>
+        <translation>Ξ Ξ»Ξ·ΟΞΏΟ†ΞΏΟΞ―ΞµΟ‚</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="612"/>
         <source>D&amp;ump next frame to log</source>
-        <translation>Ε&amp;ξαγωγή επόμενου καρέ στον καταγραφέα</translation>
+        <translation>Ξ•&amp;ΞΎΞ±Ξ³Ο‰Ξ³Ξ® ΞµΟ€ΟΞΌΞµΞ½ΞΏΟ… ΞΊΞ±ΟΞ­ ΟƒΟ„ΞΏΞ½ ΞΊΞ±Ο„Ξ±Ξ³ΟΞ±Ο†Ξ­Ξ±</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="620"/>
         <source>&amp;Vertex Cache</source>
-        <translation>&amp;Προσορηνή Μνήμη Κορυφών</translation>
+        <translation>&amp;Ξ ΟΞΏΟƒΞΏΟΞ·Ξ½Ξ® ΞΞ½Ξ®ΞΌΞ· ΞΞΏΟΟ…Ο†ΟΞ½</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="625"/>
         <source>Memory View Texture...</source>
-        <translation>Προβολή Μνήμης Υφών...</translation>
+        <translation>Ξ ΟΞΏΞ²ΞΏΞ»Ξ® ΞΞ½Ξ®ΞΌΞ·Ο‚ Ξ¥Ο†ΟΞ½...</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="633"/>
         <source>Simple 2xAA</source>
-        <translation>Απλό 2xAA</translation>
+        <translation>Ξ‘Ο€Ξ»Ο 2xAA</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="641"/>
@@ -919,7 +919,7 @@
     <message>
         <location filename="../mainwindow.cpp" line="865"/>
         <source>No translations</source>
-        <translation>Καμία Μετάφραση</translation>
+        <translation>ΞΞ±ΞΌΞ―Ξ± ΞΞµΟ„Ξ¬Ο†ΟΞ±ΟƒΞ·</translation>
     </message>
 </context>
 <context>
@@ -927,32 +927,32 @@
     <message>
         <location filename="../gamepaddialog.cpp" line="19"/>
         <source>Cross</source>
-        <translation>Χί</translation>
+        <translation>Ξ§Ξ―</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="20"/>
         <source>Circle</source>
-        <translation>Κύκλος</translation>
+        <translation>ΞΟΞΊΞ»ΞΏΟ‚</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="21"/>
         <source>Square</source>
-        <translation>Τετράγωνο</translation>
+        <translation>Ξ¤ΞµΟ„ΟΞ¬Ξ³Ο‰Ξ½ΞΏ</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="22"/>
         <source>Triangle</source>
-        <translation>Τρίγωνο</translation>
+        <translation>Ξ¤ΟΞ―Ξ³Ο‰Ξ½ΞΏ</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="23"/>
         <source>Left Trigger</source>
-        <translation>Αριστερή σκανδάλη</translation>
+        <translation>Ξ‘ΟΞΉΟƒΟ„ΞµΟΞ® ΟƒΞΊΞ±Ξ½Ξ΄Ξ¬Ξ»Ξ·</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="24"/>
         <source>Right Trigger</source>
-        <translation>Δεξιά σκανδάλη</translation>
+        <translation>Ξ”ΞµΞΎΞΉΞ¬ ΟƒΞΊΞ±Ξ½Ξ΄Ξ¬Ξ»Ξ·</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="25"/>
@@ -967,22 +967,22 @@
     <message>
         <location filename="../gamepaddialog.cpp" line="27"/>
         <source>Up</source>
-        <translation>Πάνω</translation>
+        <translation>Ξ Ξ¬Ξ½Ο‰</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="28"/>
         <source>Down</source>
-        <translation>Κάτω</translation>
+        <translation>ΞΞ¬Ο„Ο‰</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="29"/>
         <source>Left</source>
-        <translation>Αριστερά</translation>
+        <translation>Ξ‘ΟΞΉΟƒΟ„ΞµΟΞ¬</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="30"/>
         <source>Right</source>
-        <translation>Δεξιά</translation>
+        <translation>Ξ”ΞµΞΎΞΉΞ¬</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="32"/>
@@ -992,22 +992,22 @@
     <message>
         <location filename="../gamepaddialog.cpp" line="35"/>
         <source>Stick left</source>
-        <translation>Αναλογικό αριστερά</translation>
+        <translation>Ξ‘Ξ½Ξ±Ξ»ΞΏΞ³ΞΉΞΊΟ Ξ±ΟΞΉΟƒΟ„ΞµΟΞ¬</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="36"/>
         <source>Stick right</source>
-        <translation>Αναλογικό δεξιά</translation>
+        <translation>Ξ‘Ξ½Ξ±Ξ»ΞΏΞ³ΞΉΞΊΟ Ξ΄ΞµΞΎΞΉΞ¬</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="37"/>
         <source>Stick up</source>
-        <translation>Αναλογικό πάνω</translation>
+        <translation>Ξ‘Ξ½Ξ±Ξ»ΞΏΞ³ΞΉΞΊΟ Ο€Ξ¬Ξ½Ο‰</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="38"/>
         <source>Stick bottom</source>
-        <translation>Αναλογικό κάτω</translation>
+        <translation>Ξ‘Ξ½Ξ±Ξ»ΞΏΞ³ΞΉΞΊΟ ΞΊΞ¬Ο„Ο‰</translation>
     </message>
 </context>
 </TS>
