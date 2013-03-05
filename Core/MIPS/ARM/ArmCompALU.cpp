@@ -289,14 +289,13 @@ namespace MIPSComp
 
 	void Jit::CompShiftVar(u32 op, ArmGen::ShiftType shiftType)
 	{
-		// Breaks Wipeout Pure
-		DISABLE;
 		int rd = _RD;
 		int rt = _RT;
 		int rs = _RS;
 		if (gpr.IsImm(rs))
 		{
-			int sa = gpr.GetImm(rs);
+			gpr.MapDirtyIn(rd, rt);
+			int sa = gpr.GetImm(rs) & 0x1F;
 			MOV(gpr.R(rd), Operand2(sa, shiftType, gpr.R(rt)));
 			return;
 		}
