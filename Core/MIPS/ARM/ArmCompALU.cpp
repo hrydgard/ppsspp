@@ -155,8 +155,26 @@ namespace MIPSComp
 
 	void Jit::Comp_RType2(u32 op)
 	{
-		DISABLE;
-	}
+		CONDITIONAL_DISABLE;
+		int rs = _RS;
+		int rd = _RD;
+
+		// Don't change $zr.
+		if (rd == 0)
+			return;
+
+		switch (op & 63)
+		{
+		case 22: //clz
+			gpr.MapDirtyIn(rd, rs);
+			CLZ(gpr.R(rd), gpr.R(rs));
+			break;
+		case 23: //clo
+			DISABLE;
+			break;
+		default:
+			DISABLE;
+    }
 
 	void Jit::Comp_RType3(u32 op)
 	{
@@ -271,6 +289,8 @@ namespace MIPSComp
 
 	void Jit::CompShiftVar(u32 op, ArmGen::ShiftType shiftType)
 	{
+		// Breaks Wipeout Pure
+		DISABLE;
 		int rd = _RD;
 		int rt = _RT;
 		int rs = _RS;
