@@ -90,7 +90,7 @@ namespace MIPSComp
 	{
 		CONDITIONAL_DISABLE;
 		int offset = (signed short)(op&0xFFFF);
-		bool load = false;
+		bool shifter = false, load = false;
 		int rt = _RT;
 		int rs = _RS;
 		int o = op>>26;
@@ -119,6 +119,7 @@ namespace MIPSComp
 				Comp_ITypeMem(nextOp);
 				return;
 			}
+			shifter = true;
 		}
 		default:
 			break;
@@ -128,14 +129,25 @@ namespace MIPSComp
 		{
 		case 32: //lb
 		case 33: //lh
+		case 34: //lwl
 		case 35: //lw
 		case 36: //lbu
 		case 37: //lhu
+		case 38: //lwr
 			load = true;
 		case 40: //sb
 		case 41: //sh
+		case 42: //swl
 		case 43: //sw
+		case 46: //swr
 			if (g_Config.bFastMemory) {
+				int shift = 0;
+				if (o == 38) DISABLE; // Crashes, so disable for now.
+				if (shifter)
+				{
+					shift = (offset & 3) << 3;
+					offset &= 0xfffffffc;
+				}
 				if (gpr.IsImm(rs)) {
 					// We can compute the full address at compile time. Kickass.
 					u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
@@ -149,12 +161,35 @@ namespace MIPSComp
 				switch (o)
 				{
 				// Load
+				case 34:
+					AND(gpr.R(rt), gpr.R(rt), 0x00ffffff >> shift);
+					LDR(R0, R11, R0, true, true, 24 - shift, ST_LSL);
+					ORR(gpr.R(rt), gpr.R(rt), R0);
+					break;
+				case 38:
+					AND(gpr.R(rt), gpr.R(rt), 0xffffff00 << (24 - shift));
+					// Current this shifted LDR crashes, so it has been disabled
+					LDR(R0, R11, R0, true, true, shift, ST_LSR);
+					ORR(gpr.R(rt), gpr.R(rt), R0);
+					break;
 				case 35: LDR  (gpr.R(rt), R11, R0, true, true); break;
 				case 37: LDRH (gpr.R(rt), R11, R0, true, true); break;
 				case 33: LDRSH(gpr.R(rt), R11, R0, true, true); break;
 				case 36: LDRB (gpr.R(rt), R11, R0, true, true); break;
 				case 32: LDRSB(gpr.R(rt), R11, R0, true, true); break;
 				// Store
+				case 42:
+					LSR(gpr.R(rt), gpr.R(rt), 24-shift);
+					STR(R0, gpr.R(rt), R11, true, true);
+					AND(R0, R0, 0xffffff00 << shift);
+					ORR(R0, R0, gpr.R(rt));
+					break;
+				case 46:
+					LSL(gpr.R(rt), gpr.R(rt), shift);
+					STR(R0, gpr.R(rt), R11, true, true);
+					AND(R0, R0, 0x00ffffff >> (24 - shift));
+					ORR(R0, R0, gpr.R(rt));
+					break;
 				case 43: STR  (R0, gpr.R(rt), R11, true, true); break;
 				case 41: STRH (R0, gpr.R(rt), R11, true, true); break;
 				case 40: STRB (R0, gpr.R(rt), R11, true, true); break;
