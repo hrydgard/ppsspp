@@ -429,6 +429,7 @@ u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr, u32 f
 	}
 
 	SceMpegRingBuffer ringbuffer;
+	if(ringbufferAddr != 0){
 	Memory::ReadStruct(ringbufferAddr, &ringbuffer);
 	if (ringbuffer.packetSize == 0) {
 		ringbuffer.packetsFree = 0;
@@ -437,6 +438,7 @@ u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr, u32 f
 	}
 	ringbuffer.mpeg = mpegAddr;
 	Memory::WriteStruct(ringbufferAddr, &ringbuffer);
+	}
 
 	// Generate, and write mpeg handle into mpeg data, for some reason
 	int mpegHandle = dataPtr + 0x30;
