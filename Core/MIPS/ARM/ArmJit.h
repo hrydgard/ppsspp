@@ -218,6 +218,7 @@ private:
 	// Utilities to reduce duplicated code
 	void CompImmLogic(int rs, int rt, u32 uimm, void (ARMXEmitter::*arith)(ARMReg dst, ARMReg src, Operand2 op2), u32 (*eval)(u32 a, u32 b));
 	void CompShiftImm(u32 op, ArmGen::ShiftType shiftType);
+	void CompShiftVar(u32 op, ArmGen::ShiftType shiftType);
 
 	void LogBlockNumber();
 	

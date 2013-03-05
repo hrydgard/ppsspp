@@ -269,40 +269,36 @@ namespace MIPSComp
 		MOV(gpr.R(rd), Operand2(sa, shiftType, gpr.R(rt)));
 	}
 
-	// "over-shifts" work the same as on x86 - only bottom 5 bits are used to get the shift value
-	/*
-	void Jit::CompShiftVar(u32 op, void (XEmitter::*shift)(int, OpArg, OpArg))
+	void Jit::CompShiftVar(u32 op, ArmGen::ShiftType shiftType)
 	{
 		int rd = _RD;
 		int rt = _RT;
 		int rs = _RS;
-		gpr.FlushLockX(ECX);
-		gpr.Lock(rd, rt, rs);
-		gpr.BindToRegister(rd, true, true);
-		if (rd != rt)
-			MOV(32, gpr.R(rd), gpr.R(rt));
-		MOV(32, R(ECX), gpr.R(rs));	// Only ECX can be used for variable shifts.
-		AND(32, R(ECX), Imm32(0x1f));
-		(this->*shift)(32, gpr.R(rd), R(ECX));
-		gpr.UnlockAll();
-		gpr.UnlockAllX();
+		if (gpr.IsImm(rs))
+		{
+			int sa = gpr.GetImm(rs);
+			MOV(gpr.R(rd), Operand2(sa, shiftType, gpr.R(rt)));
+			return;
+		}
+		gpr.MapDirtyInIn(rd, rs, rt);
+		AND(R0, gpr.R(rs), Operand2(0x1F));
+		MOV(gpr.R(rd), Operand2(gpr.R(rt), shiftType, R0));
 	}
-*/
+
 	void Jit::Comp_ShiftType(u32 op)
 	{
 		CONDITIONAL_DISABLE;
 		int rs = _RS;
 		int fd = _FD;
-		// WARNIGN : ROTR
+		// WARNING : ROTR
 		switch (op & 0x3f)
 		{
-		case 0: CompShiftImm(op, ST_LSL); break;
-		case 2: CompShiftImm(op, rs == 1 ? ST_ROR : ST_LSR); break;	// srl
-		case 3: CompShiftImm(op, ST_ASR); break;	// sra
-		
-	 // case 4: CompShiftVar(op, &XEmitter::SHL); break;	// R(rd) = R(rt) << R(rs);				break; //sllv
-	//	case 6: CompShiftVar(op, fd == 1 ? &XEmitter::ROR : &XEmitter::SHR); break;	// R(rd) = R(rt) >> R(rs);				break; //srlv
-	//	case 7: CompShiftVar(op, &XEmitter::SAR); break;	// R(rd) = ((s32)R(rt)) >> R(rs); break; //srav
+		case 0: CompShiftImm(op, ST_LSL); break; //sll
+		case 2: CompShiftImm(op, rs == 1 ? ST_ROR : ST_LSR); break;	//srl
+		case 3: CompShiftImm(op, ST_ASR); break; //sra
+		case 4: CompShiftVar(op, ST_LSL); break; //sllv
+		case 6: CompShiftVar(op, rs == 1 ? ST_ROR : ST_LSR); break; //srlv
+		case 7: CompShiftVar(op, ST_ASR); break; //srav
 		
 		default:
 			Comp_Generic(op);
