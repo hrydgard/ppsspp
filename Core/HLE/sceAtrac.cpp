@@ -173,7 +173,7 @@ u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd)
 
 u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishFlagAddr, u32 remainAddr)
 {
-	ERROR_LOG(HLE, "FAKE sceAtracDecodeData(%i, %08x, %08x, %08x, %08x)", atracID, outAddr, numSamplesAddr, finishFlagAddr, remainAddr);
+	DEBUG_LOG(HLE, "FAKE sceAtracDecodeData(%i, %08x, %08x, %08x, %08x)", atracID, outAddr, numSamplesAddr, finishFlagAddr, remainAddr);
 	Atrac *atrac = getAtrac(atracID);
 
 	u32 ret = 0;
