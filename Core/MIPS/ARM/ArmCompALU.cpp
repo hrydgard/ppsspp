@@ -172,10 +172,11 @@ namespace MIPSComp
 		case 23: //clo
 			gpr.MapDirtyIn(rd, rs);
 			RSB(R0, gpr.R(rs), Operand2(0));
-			CLZ(gpr.R(rd), R0)
+			CLZ(gpr.R(rd), R0);
 			break;
 		default:
 			DISABLE;
+		}
     }
 
 	void Jit::Comp_RType3(u32 op)
