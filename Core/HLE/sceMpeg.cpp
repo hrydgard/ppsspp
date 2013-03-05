@@ -1334,6 +1334,7 @@ u32 sceMpegAvcResourceGetAvcDecTopAddr(u32 mpeg)
 
 u32 sceMpegAvcResourceFinish(u32 mpeg)
 {
+	DEBUG_LOG(HLE,"sceMpegAvcResourceFinish(%08x)", mpeg);
 	return 0;
 }
 
