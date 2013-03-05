@@ -428,6 +428,7 @@ u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr, u32 f
 	}
 
 	SceMpegRingBuffer ringbuffer;
+	if(ringbufferAddr != 0){
 	Memory::ReadStruct(ringbufferAddr, &ringbuffer);
 	if (ringbuffer.packetSize == 0) {
 		ringbuffer.packetsFree = 0;
@@ -436,6 +437,7 @@ u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr, u32 f
 	}
 	ringbuffer.mpeg = mpegAddr;
 	Memory::WriteStruct(ringbufferAddr, &ringbuffer);
+	}
 
 	// Generate, and write mpeg handle into mpeg data, for some reason
 	int mpegHandle = dataPtr + 0x30;
@@ -1324,6 +1326,33 @@ u32 sceMpegQueryUserdataEsSize(u32 mpeg, u32 esSizeAddr, u32 outSizeAddr)
 	return -1;
 }
 
+u32 sceMpegAvcResourceGetAvcDecTopAddr(u32 mpeg)
+{
+	ERROR_LOG(HLE, "UNIMPL sceMpegAvcResourceGetAvcDecTopAddr(%08x)", mpeg);
+// it's just a random address
+	return 0x12345678;
+}
+
+u32 sceMpegAvcResourceFinish(u32 mpeg)
+{
+	DEBUG_LOG(HLE,"sceMpegAvcResourceFinish(%08x)", mpeg);
+	return 0;
+}
+
+u32 sceMpegAvcResourceGetAvcEsBuf(u32 mpeg)
+{
+	ERROR_LOG(HLE, "UNIMPL sceMpegAvcResourceGetAvcEsBuf(%08x)", mpeg);
+	return 0;
+}
+
+u32 sceMpegAvcResourceInit(u32 mpeg)
+{
+	ERROR_LOG(HLE, "UNIMPL sceMpegAvcResourceInit(%08x)", mpeg);
+    if (mpeg != 1) {
+      	return ERROR_MPEG_INVALID_VALUE;
+	}
+	return 0;
+}
 
 /* MP3 */
 int sceMp3Decode(u32 mp3, u32 outPcmPtr)
@@ -1695,6 +1724,10 @@ const HLEFunction sceMpeg[] =
 	{0xC02CF6B5,WrapI_UUU<sceMpegQueryPcmEsSize>,"sceMpegQueryPcmEsSize"},
 	{0xC45C99CC,WrapU_UUU<sceMpegQueryUserdataEsSize>,"sceMpegQueryUserdataEsSize"},
 	{0x234586AE,WrapU_UUI<sceMpegChangeGetAvcAuMode>,"sceMpegChangeGetAvcAuMode"},
+	{0x63B9536A,WrapU_U<sceMpegAvcResourceGetAvcDecTopAddr>,"sceMpegAvcResourceGetAvcDecTopAddr"},
+	{0x8160a2fe,WrapU_U<sceMpegAvcResourceFinish>,"sceMpegAvcResourceFinish"},
+	{0xaf26bb01,WrapU_U<sceMpegAvcResourceGetAvcEsBuf>,"sceMpegAvcResourceGetAvcEsBuf"},
+	{0xfcbdb5ad,WrapU_U<sceMpegAvcResourceInit>,"sceMpegAvcResourceInit"},
 };
 
 const HLEFunction sceMp3[] =
