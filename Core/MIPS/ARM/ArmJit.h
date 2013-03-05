@@ -147,6 +147,7 @@ public:
 
 	void CompileDelaySlot(int flags);
 	void CompileAt(u32 addr);
+	void EatInstruction(u32 op);
 	void Comp_RunBlock(u32 op);
 
 	// Ops

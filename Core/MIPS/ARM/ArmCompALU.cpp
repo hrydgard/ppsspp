@@ -177,7 +177,7 @@ namespace MIPSComp
 		default:
 			DISABLE;
 		}
-    }
+	}
 
 	void Jit::Comp_RType3(u32 op)
 	{

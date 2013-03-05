@@ -124,6 +124,16 @@ void Jit::CompileAt(u32 addr)
 	MIPSCompileOp(op);
 }
 
+void Jit::EatInstruction(u32 op)
+{
+	u32 info = MIPSGetInfo(op);
+	_dbg_assert_msg_(JIT, !(info & DELAYSLOT), "Never eat a branch op.");
+	_dbg_assert_msg_(JIT, !js.inDelaySlot, "Never eat an instruction inside a delayslot.");
+
+	js.compilerPC += 4;
+	js.downcountAmount += MIPSGetInstructionCycleEstimate(op);
+}
+
 void Jit::CompileDelaySlot(int flags)
 {
 	// preserve flag around the delay slot! Maybe this is not always necessary on ARM where 

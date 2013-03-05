@@ -98,6 +98,32 @@ namespace MIPSComp
 			// Don't load anything into $zr
 			return;
 		}
+
+		// Optimisation: Combine to single unaligned load/store
+		switch(o)
+		{
+		case 34: //lwl
+		case 38: //lwr
+			load = true;
+		case 42: //swl
+		case 46: //swr
+		{
+			int left = (o == 34 || o == 42) ? 1 : -1;
+			u32 nextOp = Memory::Read_Instruction(js.compilerPC + 4);
+			// Find a matching shift in opposite direction with opposite offset.
+			u32 desiredOp = ((op + left* (4 << 26)) & 0xFFFF0000) + (offset - left*3);
+			if (!js.inDelaySlot && nextOp == desiredOp)
+			{
+				EatInstruction(nextOp);
+				nextOp = ((load ? 35 : 43) << 26) | (nextOp & 0x3FFFFFF); //lw, sw
+				Comp_ITypeMem(nextOp);
+				return;
+			}
+		}
+		default:
+			break;
+		}
+
 		switch (o)
 		{
 		case 32: //lb
@@ -138,45 +164,6 @@ namespace MIPSComp
 				return;
 			}
 			break;
-			/*
-		case 34: //lwl
-			{
-				Crash();
-				//u32 shift = (addr & 3) << 3;
-				//u32 mem = ReadMem32(addr & 0xfffffffc);
-				//R(rt) = ( u32(R(rt)) & (0x00ffffff >> shift) ) | ( mem << (24 - shift) );
-			}
-			break;
-
-		case 38: //lwr
-			{
-				Crash();
-				//u32 shift = (addr & 3) << 3;
-				//u32 mem = ReadMem32(addr & 0xfffffffc);
-
-				//R(rt) = ( u32(rt) & (0xffffff00 << (24 - shift)) ) | ( mem	>> shift );
-			}
-			break;
- 
-		case 42: //swl
-			{
-				Crash();
-				//u32 shift = (addr & 3) << 3;
-				//u32 mem = ReadMem32(addr & 0xfffffffc);
-				//WriteMem32((addr & 0xfffffffc),	( ( u32(R(rt)) >>	(24 - shift) ) ) |
-				//	(	mem & (0xffffff00 << shift) ));
-			}
-			break;
-		case 46: //swr
-			{
-				Crash();
-				//	u32 shift = (addr & 3) << 3;
-			//	u32 mem = ReadMem32(addr & 0xfffffffc);
-//
-//				WriteMem32((addr & 0xfffffffc), ( ( u32(R(rt)) << shift ) |
-//					(mem	& (0x00ffffff >> (24 - shift)) ) ) );
-			}
-			break;*/
 		default:
 			Comp_Generic(op);
 			return ;
