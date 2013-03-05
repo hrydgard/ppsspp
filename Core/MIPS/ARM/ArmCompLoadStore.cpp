@@ -98,7 +98,7 @@ namespace MIPSComp
 			// Don't load anything into $zr
 			return;
 		}
-
+		/*
 		// Optimisation: Combine to single unaligned load/store
 		switch(o)
 		{
@@ -123,23 +123,23 @@ namespace MIPSComp
 		}
 		default:
 			break;
-		}
+		}*/
 
 		switch (o)
 		{
 		case 32: //lb
 		case 33: //lh
-		case 34: //lwl
+		//case 34: //lwl
 		case 35: //lw
 		case 36: //lbu
 		case 37: //lhu
-		case 38: //lwr
+		//case 38: //lwr
 			load = true;
 		case 40: //sb
 		case 41: //sh
-		case 42: //swl
+		//case 42: //swl
 		case 43: //sw
-		case 46: //swr
+		//case 46: //swr
 			if (g_Config.bFastMemory) {
 				int shift = 0;
 				if (shifter)
@@ -178,15 +178,15 @@ namespace MIPSComp
 				// Store
 				case 42:
 					LSR(gpr.R(rt), gpr.R(rt), 24-shift);
-					STR(R0, gpr.R(rt), R11, true, true);
 					AND(R0, R0, 0xffffff00 << shift);
 					ORR(R0, R0, gpr.R(rt));
+					STR(R0, gpr.R(rt), R11, true, true);
 					break;
 				case 46:
 					LSL(gpr.R(rt), gpr.R(rt), shift);
-					STR(R0, gpr.R(rt), R11, true, true);
 					AND(R0, R0, 0x00ffffff >> (24 - shift));
 					ORR(R0, R0, gpr.R(rt));
+					STR(R0, gpr.R(rt), R11, true, true);
 					break;
 				case 43: STR  (R0, gpr.R(rt), R11, true, true); break;
 				case 41: STRH (R0, gpr.R(rt), R11, true, true); break;
