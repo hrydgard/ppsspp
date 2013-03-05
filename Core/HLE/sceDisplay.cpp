@@ -457,9 +457,9 @@ void hleLeaveVblank(u64 userdata, int cyclesLate) {
 	CoreTiming::ScheduleEvent(msToCycles(frameMs - vblankMs) - cyclesLate, enterVblankEvent, userdata);
 }
 
-void sceDisplayIsVblank() {
+u32 sceDisplayIsVblank() {
 	DEBUG_LOG(HLE,"%i=sceDisplayIsVblank()",isVblank);
-	RETURN(isVblank);
+	return isVblank;
 }
 
 u32 sceDisplaySetMode(int displayMode, int displayWidth, int displayHeight) {
@@ -655,7 +655,7 @@ const HLEFunction sceDisplay[] = {
 	{0xBF79F646,0,"sceDisplayGetResumeMode"},
 	{0xB4F378FA,WrapU_V<sceDisplayIsForeground>,"sceDisplayIsForeground"},
 	{0x31C4BAA8,0,"sceDisplayGetBrightness"},
-	{0x4D4E10EC,sceDisplayIsVblank,"sceDisplayIsVblank"},
+	{0x4D4E10EC,WrapU_V<sceDisplayIsVblank>,"sceDisplayIsVblank"},
 	{0x21038913,0,"sceDisplayIsVsync"},
 };
 
