@@ -1328,6 +1328,7 @@ u32 sceMpegQueryUserdataEsSize(u32 mpeg, u32 esSizeAddr, u32 outSizeAddr)
 u32 sceMpegAvcResourceGetAvcDecTopAddr(u32 mpeg)
 {
 	ERROR_LOG(HLE, "UNIMPL sceMpegAvcResourceGetAvcDecTopAddr(%08x)", mpeg);
+// it's just a random address
 	return 0x12345678;
 }
 
