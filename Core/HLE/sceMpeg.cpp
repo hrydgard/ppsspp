@@ -77,7 +77,6 @@ static const int MPEG_HEADER_BUFFER_MINIMUM_SIZE = 2048;
 static const int NUM_ES_BUFFERS = 2;
 
 static const int PSP_ERROR_MPEG_NO_DATA = 0x80618001;
-static const int PSP_ERROR_MPEG_INVALID_VALUE = 0x806101fe;
 
 static const int TPSM_PIXEL_STORAGE_MODE_16BIT_BGR5650 = 0X00;
 static const int TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888 = 0X03;
