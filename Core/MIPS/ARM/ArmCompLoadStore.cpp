@@ -142,7 +142,6 @@ namespace MIPSComp
 		case 46: //swr
 			if (g_Config.bFastMemory) {
 				int shift = 0;
-				if (o == 38) DISABLE; // Crashes, so disable for now.
 				if (shifter)
 				{
 					shift = (offset & 3) << 3;
@@ -163,14 +162,13 @@ namespace MIPSComp
 				// Load
 				case 34:
 					AND(gpr.R(rt), gpr.R(rt), 0x00ffffff >> shift);
-					LDR(R0, R11, R0, true, true, 24 - shift, ST_LSL);
-					ORR(gpr.R(rt), gpr.R(rt), R0);
+					LDR(R0, R11, R0, true, true);
+					ORR(gpr.R(rt), gpr.R(rt), Operand2(24 - shift, ST_LSL, R0));
 					break;
 				case 38:
 					AND(gpr.R(rt), gpr.R(rt), 0xffffff00 << (24 - shift));
-					// Current this shifted LDR crashes, so it has been disabled
-					LDR(R0, R11, R0, true, true, shift, ST_LSR);
-					ORR(gpr.R(rt), gpr.R(rt), R0);
+					LDR(R0, R11, R0, true, true);
+					ORR(gpr.R(rt), gpr.R(rt), Operand2(shift, ST_LSR, R0));
 					break;
 				case 35: LDR  (gpr.R(rt), R11, R0, true, true); break;
 				case 37: LDRH (gpr.R(rt), R11, R0, true, true); break;
