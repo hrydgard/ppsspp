@@ -71,7 +71,7 @@ int inet_pton(int af, const char* src, void* dst)
 {
 	if (af == AF_INET)
 	{
-		BYTE *ip = (BYTE *)dst;
+		unsigned char *ip = (unsigned char *)dst;
 		int k = 0, x = 0;
 		char ch;
 		for (int i = 0; (ch = src[i]) != 0; i++)
