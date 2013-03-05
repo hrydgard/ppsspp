@@ -23,6 +23,7 @@
 #include "MIPS.h"
 #include "MIPSInt.h"
 #include "MIPSTables.h"
+#include "Core/Reporting.h"
 
 #include "../HLE/HLE.h"
 #include "../System.h"
@@ -149,6 +150,10 @@ namespace MIPSInt
 
 		// It appears that a cache line is 0x40 (64) bytes.
 		switch (func) {
+		case 24:
+			// "Create Dirty Exclusive" - for avoiding a cacheline fill before writing to it.
+			// Will cause garbage on the real machine so we just ignore it, the app will overwrite the cacheline.
+			break;
 		case 25:  // Hit Invalidate - zaps the line if present in cache. Should not writeback???? scary.
 			// No need to do anything.
 			break;
@@ -186,8 +191,9 @@ namespace MIPSInt
 
 	void Int_Break(u32 op)
 	{
+		Reporting::ReportMessage("BREAK instruction hit");
 		ERROR_LOG(CPU, "BREAK!");
-		coreState = CORE_STEPPING;
+		Core_UpdateState(CORE_STEPPING);
 		PC += 4;
 	}
 
@@ -304,7 +310,6 @@ namespace MIPSInt
 			_dbg_assert_msg_(CPU,0,"Jump in delay slot :(");
 		}
 
-
 		int rs = (op>>21)&0x1f;
 		u32 addr = R(rs);
 		switch (op & 0x3f) 
@@ -362,14 +367,18 @@ namespace MIPSInt
 		switch (op >> 26)
 		{
 		case 48: // ll
-			R(rt) = Memory::Read_U32(addr);
+			if (rt != 0) {
+				R(rt) = Memory::Read_U32(addr);
+			}
 			currentMIPS->llBit = 1;
 			break;
 		case 56: // sc
 			if (currentMIPS->llBit) {
 				Memory::Write_U32(R(rt), addr);
-				R(rt) = 1;
-			} else {
+				if (rt != 0) {
+					R(rt) = 1;
+				}
+			} else if (rt != 0) {
 				R(rt) = 0;
 			}
 			break;
@@ -387,6 +396,13 @@ namespace MIPSInt
 		int rs = _RS;
 		int rd = _RD;
 		static bool has_warned = false;
+
+		// Don't change $zr.
+		if (rd == 0)
+		{
+			PC += 4;
+			return;
+		}
 
 		switch (op & 63) 
 		{
@@ -495,7 +511,7 @@ namespace MIPSInt
 	void Int_FPULS(u32 op)
 	{
 		s32 offset = (s16)(op&0xFFFF);
-		int ft = ((op>>16)&0x1f);
+		int ft = _FT;
 		int rs = _RS;
 		u32 addr = R(rs) + offset;
 
@@ -533,6 +549,14 @@ namespace MIPSInt
 	{
 		int rs = _RS;
 		int rd = _RD;
+
+		// Don't change $zr.
+		if (rd == 0)
+		{
+			PC += 4;
+			return;
+		}
+
 		switch (op & 63)
 		{
 		case 22:	//clz
@@ -675,6 +699,13 @@ namespace MIPSInt
 		int rs = _RS;
 		int rd = _RD;
 		int sa = _FD;
+
+		// Don't change $zr.
+		if (rd == 0)
+		{
+			PC += 4;
+			return;
+		}
 		
 		switch (op & 0x3f)
 		{
@@ -720,6 +751,14 @@ namespace MIPSInt
 	{
 		int rt = _RT;
 		int rd = _RD;
+
+		// Don't change $zr.
+		if (rd == 0)
+		{
+			PC += 4;
+			return;
+		}
+
 		switch((op>>6)&31)
 		{
 		case 16: // seb
@@ -756,6 +795,13 @@ namespace MIPSInt
 		int rt = _RT;
 		int rd = _RD;
 
+		// Don't change $zr.
+		if (rd == 0)
+		{
+			PC += 4;
+			return;
+		}
+
 		switch (op & 0x3ff)
 		{
 		case 0xA0: //wsbh
@@ -777,6 +823,13 @@ namespace MIPSInt
 		int rt = _RT;
 		int pos = _POS;
 
+		// Don't change $zr.
+		if (rt == 0)
+		{
+			PC += 4;
+			return;
+		}
+
 		switch (op & 0x3f)
 		{
 		case 0x0: //ext
@@ -785,7 +838,7 @@ namespace MIPSInt
 				R(rt) = (R(rs) >> pos) & ((1<<size) - 1);
 			}
 			break;
-		case 0x4: // ins
+		case 0x4: //ins
 			{
 				int size = (_SIZE + 1) - pos;
 				int sourcemask = (1 << size) - 1;
@@ -913,6 +966,7 @@ namespace MIPSInt
 		{
 		case 0:
 			if (!reported) {
+				Reporting::ReportMessage("INTERRUPT instruction hit");
 				WARN_LOG(CPU,"Disable/Enable Interrupt CPU instruction");
 				reported = 1;
 			}

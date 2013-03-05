@@ -76,7 +76,7 @@ namespace MIPSDis
 		int ft = _FT;
 		int rs = _RS;
 		const char *name = MIPSGetName(op);
-		sprintf(out, "%s\t%s, %d(%s)",name,FN(ft),offset,RN(rs));
+		sprintf(out, "%s\t%s, 0x%X(%s)",name,FN(ft),offset,RN(rs));
 	}
 	void Dis_FPUComp(u32 op, char *out)
 	{
@@ -151,7 +151,7 @@ namespace MIPSDis
 		int rt = _RT;
 		int rs = _RS;
 		const char *name = MIPSGetName(op);
-		sprintf(out, "%s\t%s, %s, %i",name,RN(rt),RN(rs),imm);
+		sprintf(out, "%s\t%s, %s, 0x%X",name,RN(rt),RN(rs),imm);
 	}
 	void Dis_ori(u32 op, char *out)
 	{
@@ -160,9 +160,9 @@ namespace MIPSDis
 		int rs = _RS;
 		const char *name = MIPSGetName(op);
 		if (rs == 0)
-			sprintf(out, "li\t%s, %i",RN(rt),imm);
+			sprintf(out, "li\t%s, 0x%X",RN(rt),imm);
 		else
-			sprintf(out, "%s\t%s, %s, %i",name,RN(rt),RN(rs),imm);
+			sprintf(out, "%s\t%s, %s, 0x%X",name,RN(rt),RN(rs),imm);
 	}
 
 	void Dis_IType1(u32 op, char *out)
@@ -170,7 +170,7 @@ namespace MIPSDis
 		int imm = (signed short)(op&0xFFFF);
 		int rt = _RT;
 		const char *name = MIPSGetName(op);
-		sprintf(out, "%s\t%s, %i",name,RN(rt),imm);
+		sprintf(out, "%s\t%s, 0x%X",name,RN(rt),imm);
 	}
 
 	void Dis_addi(u32 op, char *out)
@@ -179,7 +179,7 @@ namespace MIPSDis
 		int rt = _RT;
 		int rs = _RS;
 		if (rs == 0)
-			sprintf(out, "li\t%s, %i",RN(rt),imm);
+			sprintf(out, "li\t%s, 0x%X",RN(rt),imm);
 		else
 			Dis_IType(op,out);
 	}
@@ -190,7 +190,7 @@ namespace MIPSDis
 		int rt = _RT;
 		int rs = _RS;
 		const char *name = MIPSGetName(op);
-		sprintf(out, "%s\t%s, %i(%s)",name,RN(rt),imm,RN(rs));
+		sprintf(out, "%s\t%s, 0x%X(%s)",name,RN(rt),imm,RN(rs));
 	}
 
 	void Dis_RType2(u32 op, char *out)
@@ -237,7 +237,7 @@ namespace MIPSDis
 			name = "rotr";
 		if (((op & 0x3f) == 6) && sa == 1)
 			name = "rotrv";
-		sprintf(out, "%s\t%s, %s, %d",name,RN(rd),RN(rt),sa);
+		sprintf(out, "%s\t%s, %s, 0x%X",name,RN(rd),RN(rt),sa);
 	}
 
 	void Dis_VarShiftType(u32 op, char *out)
@@ -271,13 +271,13 @@ namespace MIPSDis
 		case 0x0: //ext
 			{
 				int size = _SIZE + 1;
-				sprintf(out,"%s\t%s, %s, %i, %i",name,RN(Rt),RN(rs),pos,size);
+				sprintf(out,"%s\t%s, %s, 0x%X, 0x%X",name,RN(Rt),RN(rs),pos,size);
 			}
 			break;
 		case 0x4: // ins
 			{
 				int size = (_SIZE + 1) - pos;
-				sprintf(out,"%s\t%s, %s, %i, %i",name,RN(Rt),RN(rs),pos,size);
+				sprintf(out,"%s\t%s, %s, 0x%X, 0x%X",name,RN(Rt),RN(rs),pos,size);
 			}
 			break;
 		}

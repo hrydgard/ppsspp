@@ -103,8 +103,6 @@ other than Microsoft's, but `NMake Makefiles` works fine.
 Building for iOS
 ----------------
 
-Note: This does not work yet.
-
 Create a `build-ios` directory and inside it run:
 
     cmake -DCMAKE_TOOLCHAIN_FILE=../ios/ios.toolchain.cmake -GXcode ..

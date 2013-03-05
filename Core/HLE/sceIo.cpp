@@ -31,6 +31,10 @@
 #include "../FileSystems/ISOFileSystem.h"
 #include "../FileSystems/DirectoryFileSystem.h"
 
+extern "C" {
+#include "ext/libkirk/amctrl.h"
+};
+
 #include "sceIo.h"
 #include "sceRtc.h"
 #include "sceKernel.h"
@@ -76,6 +80,7 @@ umd01: block access - umd
 #define O_CREAT			0x0200
 #define O_TRUNC			0x0400
 #define O_NOWAIT		0x8000
+#define O_NPDRM         0x40000000
 
 
 typedef s32 SceMode;
@@ -128,7 +133,7 @@ struct dirent {
 
 class FileNode : public KernelObject {
 public:
-	FileNode() : callbackID(0), callbackArg(0), asyncResult(0), closePending(false), pendingAsyncResult(false), sectorBlockMode(false) {}
+	FileNode() : callbackID(0), callbackArg(0), asyncResult(0), pendingAsyncResult(false), sectorBlockMode(false), closePending(false), npdrm(0), pgdInfo(NULL) {}
 	~FileNode() {
 		pspFileSystem.CloseFile(handle);
 	}
@@ -151,6 +156,9 @@ public:
 		p.Do(closePending);
 		p.Do(info);
 		p.Do(openMode);
+
+		// TODO: Savestate PGD files?
+
 		p.DoMarker("File");
 	}
 
@@ -168,7 +176,16 @@ public:
 
 	PSPFileInfo info;
 	u32 openMode;
+
+	u32 npdrm;
+	PGD_DESC *pgdInfo;
 };
+
+/******************************************************************************/
+
+
+
+/******************************************************************************/
 
 static void TellFsThreadEnded (SceUID threadID) {
 	pspFileSystem.ThreadEnded(threadID);
@@ -183,7 +200,7 @@ void __IoInit() {
 
 	char path_buffer[_MAX_PATH], drive[_MAX_DRIVE] ,dir[_MAX_DIR], file[_MAX_FNAME], ext[_MAX_EXT];
 	char memstickpath[_MAX_PATH];
-	char flashpath[_MAX_PATH];
+	char flash0path[_MAX_PATH];
 
 	GetModuleFileName(NULL,path_buffer,sizeof(path_buffer));
 
@@ -195,25 +212,26 @@ void __IoInit() {
 	_splitpath_s(path_buffer, drive, dir, file, ext );
 
 	// Mount a couple of filesystems
-	sprintf(memstickpath, "%s%sMemStick\\", drive, dir);
-	sprintf(flashpath, "%s%sFlash\\", drive, dir);
+	sprintf(memstickpath, "%s%smemstick\\", drive, dir);
+	sprintf(flash0path, "%s%sflash0\\", drive, dir);
 
 #else
 	// TODO
 	std::string memstickpath = g_Config.memCardDirectory;
-	std::string flashpath = g_Config.flashDirectory;
+	std::string flash0path = g_Config.flashDirectory;
 #endif
 
-	DirectoryFileSystem *memstick;
-	DirectoryFileSystem *flash;
 
-	memstick = new DirectoryFileSystem(&pspFileSystem, memstickpath);
-	flash = new DirectoryFileSystem(&pspFileSystem, flashpath);
+	DirectoryFileSystem *memstick = new DirectoryFileSystem(&pspFileSystem, memstickpath);
+#ifdef ANDROID
+	VFSFileSystem *flash0 = new VFSFileSystem(&pspFileSystem, "flash0");
+#else
+	DirectoryFileSystem *flash0 = new DirectoryFileSystem(&pspFileSystem, flash0path);
+#endif
 	pspFileSystem.Mount("ms0:", memstick);
 	pspFileSystem.Mount("fatms0:", memstick);
 	pspFileSystem.Mount("fatms:", memstick);
-	pspFileSystem.Mount("flash0:", flash);
-	pspFileSystem.Mount("flash1:", flash);
+	pspFileSystem.Mount("flash0:", flash0);
 	
 	__KernelListenThreadEnd(&TellFsThreadEnded);
 }
@@ -255,7 +273,7 @@ u32 sceIoAssign(u32 alias_addr, u32 physical_addr, u32 filesystem_addr, int mode
 			perm = "IOASSIGN_RDONLY";
 			break;
 		default:
-			perm = "unhandled " + mode;
+			perm = "unhandled";
 			break;
 	}
 	DEBUG_LOG(HLE, "sceIoAssign(%s, %s, %s, %s, %08x, %i)", alias.c_str(), physical_dev.c_str(), filesystem_dev.c_str(), perm.c_str(), arg_addr, argSize);
@@ -342,6 +360,42 @@ u32 sceIoGetstat(const char *filename, u32 addr) {
 	}
 }
 
+u32 npdrmRead(FileNode *f, u8 *data, int size) {
+	PGD_DESC *pgd = f->pgdInfo;
+	u32 block, offset;
+	u32 remain_size, copy_size;
+
+	block  = pgd->file_offset/pgd->block_size;
+	offset = pgd->file_offset%pgd->block_size;
+
+	remain_size = size;
+
+	while(remain_size){
+	
+		if(pgd->current_block!=block){
+			pspFileSystem.ReadFile(f->handle, pgd->block_buf, pgd->block_size);
+			pgd_decrypt_block(pgd, block);
+			pgd->current_block = block;
+		}
+
+		if(offset+remain_size>pgd->block_size){
+			copy_size = pgd->block_size-offset;
+			block += 1;
+			offset = 0;
+		}else{
+			copy_size = remain_size;
+		}
+
+		memcpy(data, pgd->block_buf+offset, copy_size);
+
+		data += copy_size;
+		remain_size -= copy_size;
+		pgd->file_offset += copy_size;
+	}
+
+	return size;
+}
+
 //Not sure about wrapping it or not, since the log seems to take the address of the data var
 u32 sceIoRead(int id, u32 data_addr, int size) {
 	if (id == 3) {
@@ -358,7 +412,11 @@ u32 sceIoRead(int id, u32 data_addr, int size) {
 		}
 		else if (Memory::IsValidAddress(data_addr)) {
 			u8 *data = (u8*) Memory::GetPointer(data_addr);
-			f->asyncResult = (u32) pspFileSystem.ReadFile(f->handle, data, size);
+			if(f->npdrm){
+				f->asyncResult = (u32) npdrmRead(f, data, size);
+			}else{
+				f->asyncResult = (u32) pspFileSystem.ReadFile(f->handle, data, size);
+			}
 			DEBUG_LOG(HLE, "%i=sceIoRead(%d, %08x , %i)", f->asyncResult, id, data_addr, size);
 			return f->asyncResult;
 		} else {
@@ -445,6 +503,26 @@ u32 sceIoCancel(int id)
 	return error;
 }
 
+u32 npdrmLseek(FileNode *f, s32 where, FileMove whence)
+{
+	u32 newPos;
+
+	if(whence==FILEMOVE_BEGIN){
+		newPos = where;
+	}else if(whence==FILEMOVE_CURRENT){
+		newPos = f->pgdInfo->file_offset+where;
+	}else{
+		newPos = f->pgdInfo->data_size+where;
+	}
+
+	if(newPos<0 || newPos>f->pgdInfo->data_size){
+		return -EINVAL;
+	}
+
+	f->pgdInfo->file_offset = newPos;
+	return newPos;
+}
+
 s64 sceIoLseek(int id, s64 offset, int whence) {
 	u32 error;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
@@ -468,7 +546,11 @@ s64 sceIoLseek(int id, s64 offset, int whence) {
 		if(newPos < 0)
 			return -1;
 
-		f->asyncResult = (u32) pspFileSystem.SeekFile(f->handle, (s32) offset, seek);
+		if(f->npdrm){
+			f->asyncResult = npdrmLseek(f, (s32)offset, seek);
+		}else{
+			f->asyncResult = (u32) pspFileSystem.SeekFile(f->handle, (s32) offset, seek);
+		}
 		DEBUG_LOG(HLE, "%i = sceIoLseek(%d,%i,%i)", f->asyncResult, id, (int) offset, whence);
 		return f->asyncResult;
 	} else {
@@ -500,7 +582,11 @@ u32 sceIoLseek32(int id, int offset, int whence) {
 		if(newPos < 0)
 			return -1;
 
-		f->asyncResult = (u32) pspFileSystem.SeekFile(f->handle, (s32) offset, seek);
+		if(f->npdrm){
+			f->asyncResult = npdrmLseek(f, (s32)offset, seek);
+		}else{
+			f->asyncResult = (u32) pspFileSystem.SeekFile(f->handle, (s32) offset, seek);
+		}
 		DEBUG_LOG(HLE, "%i = sceIoLseek32(%d,%i,%i)", f->asyncResult, id, (int) offset, whence);
 		return f->asyncResult;
 	} else {
@@ -537,12 +623,20 @@ u32 sceIoOpen(const char* filename, int flags, int mode) {
 	f->asyncResult = id;
 	f->info = info;
 	f->openMode = access;
+
+	f->npdrm = (flags & O_NPDRM)? true: false;
+
 	DEBUG_LOG(HLE, "%i=sceIoOpen(%s, %08x, %08x)", id, filename, flags, mode);
 	return id;
 }
 
 u32 sceIoClose(int id) {
+	u32 error;
 	DEBUG_LOG(HLE, "sceIoClose(%d)", id);
+	FileNode *f = kernelObjects.Get < FileNode > (id, error);
+	if(f && f->npdrm){
+		pgd_close(f->pgdInfo);
+	}
 	return kernelObjects.Destroy < FileNode > (id);
 }
 
@@ -1091,8 +1185,17 @@ u32 sceIoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 ou
 	case 0x04100001:  
 		if (Memory::IsValidAddress(indataPtr) && inlen == 16) {
 			u8 keybuf[16];
+			u8 pgd_header[0x90];
+			INFO_LOG(HLE, "Decrypting PGD DRM files");
 			memcpy(keybuf, Memory::GetPointer(indataPtr), 16);
-			ERROR_LOG(HLE, "PGD DRM not yet supported, sorry.");
+			pspFileSystem.ReadFile(f->handle, pgd_header, 0x90);
+			f->pgdInfo = pgd_open(pgd_header, 2, keybuf);
+			if(f->pgdInfo==NULL){
+				DEBUG_LOG(HLE, "Not a valid PGD file. Open as normal file.");
+				f->npdrm = false;
+				pspFileSystem.SeekFile(f->handle, (s32)0, FILEMOVE_BEGIN);
+			}
+			f->asyncResult = 0;
 		}
 		break;
 

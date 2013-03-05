@@ -10,7 +10,14 @@ include(Settings.pri)
 # Libs
 symbian: LIBS += -lCore.lib -lCommon.lib -lNative.lib -lcone -leikcore -lavkon -lezlib
 blackberry: LIBS += -L. -lCore -lCommon -lNative -lscreen -lsocket -lstdc++
-win32: LIBS += -L$$OUT_PWD/release -lCore -lCommon -lNative -lwinmm -lws2_32 -lkernel32 -luser32 -lgdi32 -lshell32 -lcomctl32 -ldsound -lxinput
+win32 {
+	CONFIG(release, debug|release) {
+		LIBS += -L$$OUT_PWD/release
+	} else {
+		LIBS += -L$$OUT_PWD/debug
+    }
+	LIBS += -lCore -lCommon -lNative -lwinmm -lws2_32 -lkernel32 -luser32 -lgdi32 -lshell32 -lcomctl32 -ldsound -lxinput
+}
 linux: LIBS += -L. -lCore -lCommon -lNative
 
 linux:!mobile_platform {
@@ -21,8 +28,6 @@ linux:!mobile_platform {
 		PKGCONFIG += sdl
 	}
 }
-
-TRANSLATIONS = $$files(languages/ppsspp_*.ts)
 
 # Main
 SOURCES += ../native/base/QtMain.cpp
@@ -51,10 +56,21 @@ mobile_platform {
 	INCLUDEPATH += ../Qt
 }
 
+# Translations
+TRANSLATIONS = $$files(languages/ppsspp_*.ts)
+
+lang.name = lrelease ${QMAKE_FILE_IN}
+lang.input = TRANSLATIONS
+lang.output = ${QMAKE_FILE_PATH}/${QMAKE_FILE_BASE}.qm
+lang.commands = $$[QT_INSTALL_BINS]/lrelease ${QMAKE_FILE_IN}
+lang.CONFIG = no_link
+QMAKE_EXTRA_COMPILERS += lang
+PRE_TARGETDEPS += compiler_lang_make_all
+
 # Packaging
 symbian {
 	deploy.pkg_prerules = "$${LITERAL_HASH}{\"PPSSPP\"}, (0xE0095B1D), 0, 6, 1, TYPE=SA" "%{\"Qtness\"}" ":\"Qtness\""
-	assets.sources = ../android/assets/ui_atlas.zim ../assets/ppge_atlas.zim
+	assets.sources = ../android/assets/ui_atlas.zim ../assets/ppge_atlas.zim ../assets/flash
 	assets.path = E:/PPSSPP
 	DEPLOYMENT += deploy assets
 	ICON = ../assets/icon.svg

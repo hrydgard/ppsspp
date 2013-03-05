@@ -559,6 +559,10 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	}
 
 	module->nm.entry_addr = reader.GetEntryPoint();
+	
+	// use module_start_func instead of entry_addr if entry_addr is 0
+	if (module->nm.entry_addr == 0)
+		module->nm.entry_addr = module->nm.module_start_func;
 
 	if (newptr)
 	{
@@ -644,7 +648,7 @@ Module *__KernelLoadModule(u8 *fileptr, SceKernelLMOption *options, std::string 
 
 void __KernelStartModule(Module *m, int args, const char *argp, SceKernelSMOption *options)
 {
-	if (m->nm.module_start_func != 0 && m->nm.module_start_func != -1)
+	if (m->nm.module_start_func != 0 && m->nm.module_start_func != (u32)-1)
 	{
 		if (m->nm.module_start_func != m->nm.entry_addr)
 			WARN_LOG(LOADER, "Main module has start func (%08x) different from entry (%08x)?", m->nm.module_start_func, m->nm.entry_addr);
@@ -837,9 +841,9 @@ void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValu
 		moduleId,argsize,argAddr,returnValueAddr,optionAddr);
 
 		u32 entryAddr = module->nm.entry_addr;
-		if (entryAddr == -1 || entryAddr == module->memoryBlockAddr - 1) {
+		if (entryAddr == (u32)-1 || entryAddr == module->memoryBlockAddr - 1) {
 			// TODO: Do these always take effect, or do they not override optionAddr?
-			if (module->nm.module_start_func != 0 && module->nm.module_start_func != -1) {
+			if (module->nm.module_start_func != 0 && module->nm.module_start_func != (u32)-1) {
 				entryAddr = module->nm.module_start_func;
 				priority = module->nm.module_start_thread_priority;
 				attr = module->nm.module_start_thread_attr;
@@ -924,7 +928,7 @@ u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr)
 {
 	u32 error;
 	u32 handle = __IoGetFileHandleFromId(id, error);
-	if (handle == -1) {
+	if (handle == (u32)-1) {
 		ERROR_LOG(HLE,"sceKernelLoadModuleByID(%08x, %08x, %08x): could not open file id",id,flags,lmoptionPtr);
 		return error;
 	}

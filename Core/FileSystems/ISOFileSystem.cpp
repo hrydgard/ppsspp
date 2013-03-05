@@ -203,7 +203,6 @@ void ISOFileSystem::ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root)
 
 			bool isFile = (dir.flags & 2) ? false : true;
 			bool relative;
-			int fnLength = dir.identifierLength;
 
 			TreeEntry *e = new TreeEntry();
 			if (dir.identifierLength == 1 && (dir.firstIdChar == '\x00' || dir.firstIdChar == '.'))
@@ -560,7 +559,7 @@ std::vector<PSPFileInfo> ISOFileSystem::GetDirListing(std::string path)
 		x.size = e->size;
 		x.type = e->isDirectory ? FILETYPE_DIRECTORY : FILETYPE_NORMAL;
 		x.isOnSectorSystem = true;
-		x.startSector = entry->startingPosition/2048;
+		x.startSector = e->startingPosition/2048;
 		myVector.push_back(x);
 	}
 	return myVector;

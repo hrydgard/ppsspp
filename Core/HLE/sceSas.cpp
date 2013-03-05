@@ -28,6 +28,7 @@
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
 #include "../HW/SasAudio.h"
+#include "Core/Reporting.h"
 
 #include "sceSas.h"
 #include "sceKernel.h"
@@ -143,6 +144,7 @@ u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop) {
 u32 sceSasSetVoicePCM(u32 core, int voiceNum, u32 pcmAddr, int size, int loop)
 {
 	INFO_LOG(HLE,"PLEASE REPORT issue #505 sceSasSetVoicePCM(%08x, %i, %08x, %i, %i)", core, voiceNum, pcmAddr, size, loop);
+	Reporting::ReportMessage("sceSasSetVoicePCM(%x, %i)", core, voiceNum);
 
 	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
 		WARN_LOG(HLE, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
@@ -430,7 +432,7 @@ u32 __sceSasSetVoiceATRAC3(u32 core, int voice, int atrac3Context) {
 }
 
 u32 __sceSasConcatenateATRAC3(u32 core, int voice, u32 atrac3DataAddr, int atrac3DataLength) {
-	ERROR_LOG(HLE,"UNIMPL __sceSasConcatenateATRAC3(%08x, %i, %i)", core, voice, atrac3DataAddr, atrac3DataLength);
+	ERROR_LOG(HLE,"UNIMPL __sceSasConcatenateATRAC3(%08x, %i, %08x, %i)", core, voice, atrac3DataAddr, atrac3DataLength);
 	return 0;
 }
 

@@ -220,7 +220,7 @@ u32 sceGeDrawSync(u32 mode)
 
 int sceGeContinue()
 {
-	ERROR_LOG(HLE, "UNIMPL sceGeContinue");
+	DEBUG_LOG(HLE, "UNIMPL sceGeContinue");
 	// no arguments
 	return 0;
 }
@@ -228,7 +228,7 @@ int sceGeContinue()
 int sceGeBreak(u32 mode)
 {
 	//mode => 0 : current dlist 1: all drawing
-	ERROR_LOG(HLE, "UNIMPL sceGeBreak(mode=%d)", mode);
+	DEBUG_LOG(HLE, "UNIMPL sceGeBreak(mode=%d)", mode);
 	return 0;
 }
 
@@ -237,10 +237,10 @@ u32 sceGeSetCallback(u32 structAddr)
 	DEBUG_LOG(HLE, "sceGeSetCallback(struct=%08x)", structAddr);
 
 	int cbID = -1;
-	for (int i = 0; i < ARRAY_SIZE(ge_used_callbacks); ++i)
+	for (size_t i = 0; i < ARRAY_SIZE(ge_used_callbacks); ++i)
 		if (!ge_used_callbacks[i])
 		{
-			cbID = i;
+			cbID = (int) i;
 			break;
 		}
 

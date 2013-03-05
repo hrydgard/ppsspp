@@ -209,10 +209,13 @@
     <None Include="..\android\atlasscript.txt">
       <Filter>Android</Filter>
     </None>
-    <None Include="..\CMakeLists.txt" />
     <None Include="..\android\jni\Application.mk">
       <Filter>Android</Filter>
     </None>
+    <None Include="..\CMakeLists.txt">
+      <Filter>Windows</Filter>
+    </None>
+    <None Include="git-version-gen.cmd" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="ppsspp.rc">

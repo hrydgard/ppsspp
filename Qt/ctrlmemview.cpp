@@ -6,6 +6,7 @@
 #include <QMessageBox>
 #include <QApplication>
 #include <QClipboard>
+#include <QInputDialog>
 
 #include "EmuThread.h"
 #include "Core/MemMap.h"
@@ -14,7 +15,6 @@
 CtrlMemView::CtrlMemView(QWidget *parent) :
 	QWidget(parent)
 {
-
 	curAddress=0;
 	rowHeight=14;
 	align=4;
@@ -31,44 +31,30 @@ void CtrlMemView::redraw()
 	update();
 }
 
-
 void CtrlMemView::wheelEvent(QWheelEvent* e)
 {
 	int numDegrees = e->delta() / 8;
 	int numSteps = numDegrees / 15;
-	if (e->orientation() == Qt::Horizontal) {
-	 } else {
+	if (e->orientation() == Qt::Vertical)
+	{
 		 curAddress -= numSteps*align*alignMul;
-		 e->accept();
 		 redraw();
-	 }
+	}
 }
-
 
 void CtrlMemView::keyPressEvent(QKeyEvent *e)
 {
 	int page=(rect().bottom()/rowHeight)/2-1;
 
-	if(e->key() == Qt::Key_Up)
+	switch (e->key())
 	{
-		curAddress-=align*alignMul;
-		e->accept();
+	case Qt::Key_Up: curAddress -= align*alignMul; break;
+	case Qt::Key_Down: curAddress += align*alignMul; break;
+	case Qt::Key_PageUp: curAddress -= page*align*alignMul; break;
+	case Qt::Key_PageDown: curAddress += page*align*alignMul; break;
+	default: QWidget::keyPressEvent(e); break;
 	}
-	else if(e->key() == Qt::Key_Down)
-	{
-		curAddress+=align*alignMul;
-		e->accept();
-	}
-	else if(e->key() == Qt::Key_PageUp)
-	{
-		curAddress-=page*align*alignMul;
-		e->accept();
-	}
-	else if(e->key() == Qt::Key_PageDown)
-	{
-		curAddress+=page*align*alignMul;
-		e->accept();
-	}
+
 	redraw();
 }
 
@@ -85,17 +71,17 @@ void CtrlMemView::paintEvent(QPaintEvent *)
 	int width = rect().width();
 	int numRows=(rect().bottom()/rowHeight)/2+1;
 
-	QPen nullPen=QPen(0xFFFFFF);
-	QPen currentPen=QPen(0xFF000000);
-	QPen selPen=QPen(0x808080);
-	QBrush lbr = QBrush(0xFFFFFF);
-	QBrush nullBrush=QBrush(0xFFFFFF);
-	QBrush currentBrush=QBrush(0xFFEfE8);
-	QBrush pcBrush=QBrush(0x70FF70);
+	QPen nullPen(0xFFFFFF);
+	QPen currentPen(0xFF000000);
+	QPen selPen(0x808080);
+	QBrush lbr(0xFFFFFF);
+	QBrush nullBrush(0xFFFFFF);
+	QBrush currentBrush(0xFFEFE8);
+	QBrush pcBrush(0x70FF70);
 	QPen textPen;
 
-	QFont normalFont = QFont("Arial", 10);
-	QFont alignedFont = QFont("Monospace", 10);
+	QFont normalFont("Arial", 10);
+	QFont alignedFont("Monospace", 10);
 	painter.setFont(normalFont);
 
 	int i;
@@ -111,7 +97,7 @@ void CtrlMemView::paintEvent(QPaintEvent *)
 
 		painter.setBrush(currentBrush);
 
-		if (selecting && address == selection)
+		if (selecting && address == (unsigned int)selection)
 		  painter.setPen(selPen);
 		else
 		  painter.setPen(i==0 ? currentPen : nullPen);
@@ -187,6 +173,7 @@ void CtrlMemView::paintEvent(QPaintEvent *)
 					painter.drawText(85,rowY1 - 2 + rowHeight, temp);
 					break;
 				}
+			case MV_MAX: break;
 			}
 		}
 	}
@@ -221,6 +208,10 @@ void CtrlMemView::contextMenu(const QPoint &pos)
 	connect(copyValue, SIGNAL(triggered()), this, SLOT(CopyValue()));
 	menu.addAction(copyValue);
 
+	QAction *changeValue = new QAction(tr("C&hange value"), this);
+	connect(changeValue, SIGNAL(triggered()), this, SLOT(Change()));
+	menu.addAction(changeValue);
+
 	QAction *dump = new QAction(tr("Dump..."), this);
 	connect(dump, SIGNAL(triggered()), this, SLOT(Dump()));
 	menu.addAction(dump);
@@ -230,13 +221,36 @@ void CtrlMemView::contextMenu(const QPoint &pos)
 
 void CtrlMemView::CopyValue()
 {
+	EmuThread_LockDraw(true);
 	QApplication::clipboard()->setText(QString("%1").arg(Memory::ReadUnchecked_U32(selection),8,16,QChar('0')));
+	EmuThread_LockDraw(false);
 }
 
 void CtrlMemView::Dump()
 {
 	QMessageBox::information(this,"Sorry","This feature has not been implemented.",QMessageBox::Ok);
 }
+
+
+void CtrlMemView::Change()
+{
+	EmuThread_LockDraw(true);
+	QString curVal = QString("%1").arg(Memory::ReadUnchecked_U32(selection),8,16,QChar('0'));
+	EmuThread_LockDraw(false);
+
+	bool ok;
+	QString text = QInputDialog::getText(this, tr("Set new value"),
+								tr("Set new value:"), QLineEdit::Normal,
+								curVal, &ok);
+	if (ok && !text.isEmpty())
+	{
+		EmuThread_LockDraw(true);
+		Memory::WriteUnchecked_U32(text.toUInt(0,16),selection);
+		EmuThread_LockDraw(false);
+		redraw();
+	}
+}
+
 
 int CtrlMemView::yToAddress(int y)
 {

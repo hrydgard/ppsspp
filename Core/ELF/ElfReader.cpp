@@ -217,7 +217,7 @@ bool ElfReader::LoadInto(u32 loadAddress)
 		vaddr = userMemory.Alloc(totalSize, false, "ELF");
 	}
 
-	if (vaddr == -1) {
+	if (vaddr == (u32)-1) {
 		ERROR_LOG(LOADER, "Failed to allocate memory for ELF!");
 		return false;
 	}

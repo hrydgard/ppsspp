@@ -30,6 +30,9 @@
     <ClCompile Include="SHA1.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="amctrl.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AES.h">
@@ -39,6 +42,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="SHA1.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="amctrl.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

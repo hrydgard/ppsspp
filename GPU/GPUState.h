@@ -209,6 +209,8 @@ struct GPUgstate
 	int getDepthTestFunc() const { return ztestfunc & 0x7; }
 	bool isFogEnabled() const { return fogEnable & 1; }
 	bool isStencilTestEnabled() const { return stencilTestEnable & 1; }
+	bool isAlphaBlendEnabled() const { return alphaBlendEnable & 1; }
+	bool isDitherEnabled() const { return ditherEnable & 1; }
 
 	// UV gen
 	int getUVGenMode() const { return texmapmode & 3;}   // 2 bits
@@ -224,7 +226,13 @@ struct GPUgstate
 
 // Real data in the context ends here
 };
-	
+
+enum SkipDrawReasonFlags {
+	SKIPDRAW_SKIPFRAME = 1,
+	SKIPDRAW_NON_DISPLAYED_FB = 2,   // Skip drawing to FBO:s that have not been displayed.
+	SKIPDRAW_BAD_FB_TEXTURE = 4,
+};
+
 // The rest is cached simplified/converted data for fast access.
 // Does not need to be saved when saving/restoring context.
 struct GPUStateCache
@@ -235,6 +243,8 @@ struct GPUStateCache
 	u32 offsetAddr;
 
 	bool textureChanged;
+
+	int skipDrawReason;
 
 	float uScale,vScale;
 	float uOff,vOff;
@@ -249,6 +259,7 @@ struct GPUStateCache
 
 	u32 curTextureWidth;
 	u32 curTextureHeight;
+	u32 actualTextureHeight;
 
 	float vpWidth;
 	float vpHeight;

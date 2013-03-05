@@ -38,9 +38,7 @@ void WindowsHost::ShutdownGL()
 
 void WindowsHost::SetWindowTitle(const char *message)
 {
-	// Really need a better way to deal with versions.
-	std::string title = "PPSSPP " PPSSPP_VERSION_STR " - ";
-	title += message;
+	std::string title = std::string("PPSSPP ") + PPSSPP_GIT_VERSION + " - " + message;
 
 	int size = MultiByteToWideChar(CP_UTF8, 0, message, (int) title.size(), NULL, 0);
 	if (size > 0)
@@ -117,11 +115,6 @@ void WindowsHost::BeginFrame()
 	for (auto iter = this->input.begin(); iter != this->input.end(); iter++)
 		if ((*iter)->UpdateState() == 0)
 			break; // *iter is std::shared_ptr, **iter is InputDevice
-	GL_BeginFrame();
-}
-void WindowsHost::EndFrame()
-{
-	GL_EndFrame();
 }
 
 void WindowsHost::BootDone()

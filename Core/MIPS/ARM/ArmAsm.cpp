@@ -117,6 +117,9 @@ void Jit::GenerateFixedCode()
 	MOVI2R(R10, (u32)mips_);
 	MOVI2R(R9, (u32)GetBlockCache()->GetCodePointers());
 
+	MovFromPC(R0);
+	outerLoopPCInR0 = GetCodePtr();
+	MovToPC(R0);
 	outerLoop = GetCodePtr();
 		QuickCallFunction(R0, (void *)&CoreTiming::Advance);
 		FixupBranch skipToRealDispatch = B(); //skip the sync and compare first time
@@ -132,6 +135,9 @@ void Jit::GenerateFixedCode()
 		CMP(R0, 0);
 		FixupBranch badCoreState = B_CC(CC_NEQ);
 		FixupBranch skipToRealDispatch2 = B(); //skip the sync and compare first time
+
+		dispatcherPCInR0 = GetCodePtr();
+		MovToPC(R0);
 
 		// At this point : flags = EQ. Fine for the next check, no need to jump over it.
 		dispatcher = GetCodePtr();
@@ -149,7 +155,7 @@ void Jit::GenerateFixedCode()
 			// MOV(R0, R13);
 			// QuickCallFunction(R1, (void *)&ShowPC);
 
-			LDR(R0, R10, offsetof(MIPSState, pc));
+			LDR(R0, CTXREG, offsetof(MIPSState, pc));
 			BIC(R0, R0, Operand2(0xC0, 4));   // &= 0x3FFFFFFF
 			LDR(R0, R11, R0, true, true);
 			AND(R1, R0, Operand2(0xFC, 4));   // rotation is to the right, in 2-bit increments.
@@ -158,7 +164,7 @@ void Jit::GenerateFixedCode()
 			SetCC(CC_EQ);
 				// IDEA - we have 26 bits, why not just use offsets from base of code?
 				// Another idea: Shift the bloc number left by two in the op, this would let us do
-				// LDR(R0, R9, R0, true, true); here, replacing the two next instructions.
+				// LDR(R0, R9, R0, true, true); here, replacing the next instructions.
 				ADD(R0, R9, Operand2(2, ST_LSL, R0));
 				LDR(R0, R0);
 				B(R0);
@@ -191,6 +197,7 @@ void Jit::GenerateFixedCode()
 	// INFO_LOG(HLE, "END OF THE DISASM ========================");
 
 	// Don't forget to zap the instruction cache!
+	FlushLitPool();
 	FlushIcache();
 }
 

@@ -60,6 +60,7 @@
 #include "scePsmf.h"
 #include "sceImpose.h"
 #include "sceUsb.h"
+#include "scePspNpDrm_user.h"
 
 #include "../Util/PPGeDraw.h"
 
@@ -87,6 +88,7 @@ void __KernelInit()
 	__KernelMemoryInit();
 	__KernelThreadingInit();
 	__KernelAlarmInit();
+	__KernelVTimerInit();
 	__KernelEventFlagInit();
 	__KernelMbxInit();
 	__KernelMutexInit();
@@ -107,6 +109,7 @@ void __KernelInit()
 	__ImposeInit();
 	__UsbInit();
 	__FontInit();
+	
 	SaveState::Init();  // Must be after IO, as it may create a directory
 
 	// "Internal" PSP libraries
@@ -126,6 +129,8 @@ void __KernelShutdown()
 	kernelObjects.List();
 	INFO_LOG(HLE, "Shutting down kernel - %i kernel objects alive", kernelObjects.GetCount());
 	kernelObjects.Clear();
+
+	__FontShutdown();
 
 	__MpegShutdown();
 	__PsmfShutdown();
@@ -161,6 +166,7 @@ void __KernelDoState(PointerWrap &p)
 	__KernelMemoryDoState(p);
 	__KernelThreadingDoState(p);
 	__KernelAlarmDoState(p);
+	__KernelVTimerDoState(p);
 	__KernelEventFlagDoState(p);
 	__KernelMbxDoState(p);
 	__KernelModuleDoState(p);
@@ -519,55 +525,94 @@ struct SystemStatus {
 	SceUInt perfcounter3;
 };
 
-u32 sceKernelReferSystemStatus(u32 statusPtr)
-{
+int sceKernelReferSystemStatus(u32 statusPtr) {
 	DEBUG_LOG(HLE, "sceKernelReferSystemStatus(%08x)", statusPtr);
 	if (Memory::IsValidAddress(statusPtr)) {
 		SystemStatus status;
 		memset(&status, 0, sizeof(SystemStatus));
 		status.size = sizeof(SystemStatus);
+		// TODO: Fill in the struct!
 		Memory::WriteStruct(statusPtr, &status);
 	}
 	return 0;
 }
 
-u32 sceKernelReferGlobalProfiler(u32 statusPtr) {
-	DEBUG_LOG(HLE, "sceKernelReferGlobalProfiler(%08x)", statusPtr);
+struct DebugProfilerRegs {
+	u32 enable;
+	u32 systemck;
+	u32 cpuck;
+	u32 internal;
+	u32 memory;
+	u32 copz;
+	u32 vfpu;
+	u32 sleep;
+	u32 bus_access;
+	u32 uncached_load;
+	u32 uncached_store;
+	u32 cached_load;
+	u32 cached_store;
+	u32 i_miss;
+	u32 d_miss;
+	u32 d_writeback;
+	u32 cop0_inst;
+	u32 fpu_inst;
+	u32 vfpu_inst;
+	u32 local_bus;
+};
+
+u32 sceKernelReferThreadProfiler(u32 statusPtr) {
+	ERROR_LOG(HLE, "FAKE sceKernelReferThreadProfiler()");
+
+	// Can we confirm that the struct above is the right struct?
+	// If so, re-enable this code.
+	//DebugProfilerRegs regs;
+	//memset(&regs, 0, sizeof(regs));
+	// TODO: fill the struct.
+	//if (Memory::IsValidAddress(statusPtr)) {
+	//	Memory::WriteStruct(statusPtr, &regs);
+	//}
+	return 0;
+}
+
+int sceKernelReferGlobalProfiler(u32 statusPtr) {
+	DEBUG_LOG(HLE, "UNIMPL sceKernelReferGlobalProfiler(%08x)", statusPtr);
 	// Ignore for now
 	return 0;
 }
 
 const HLEFunction ThreadManForUser[] =
 {
-	{0x55C20A00,&WrapI_CUUU<sceKernelCreateEventFlag>,    "sceKernelCreateEventFlag"},
-	{0x812346E4,&WrapU_IU<sceKernelClearEventFlag>,       "sceKernelClearEventFlag"},
-	{0xEF9E4C70,&WrapU_I<sceKernelDeleteEventFlag>,       "sceKernelDeleteEventFlag"},
-	{0x1fb15a32,&WrapU_IU<sceKernelSetEventFlag>,         "sceKernelSetEventFlag"},
-	{0x402FCF22,&WrapI_IUUUU<sceKernelWaitEventFlag>,     "sceKernelWaitEventFlag"},
-	{0x328C546A,&WrapI_IUUUU<sceKernelWaitEventFlagCB>,   "sceKernelWaitEventFlagCB"},
-	{0x30FD48F0,&WrapI_IUUUU<sceKernelPollEventFlag>,     "sceKernelPollEventFlag"},
-	{0xCD203292,&WrapU_IUU<sceKernelCancelEventFlag>,       "sceKernelCancelEventFlag"},
-	{0xA66B0120,&WrapU_IU<sceKernelReferEventFlagStatus>, "sceKernelReferEventFlagStatus"},
+	{0x55C20A00,&WrapI_CUUU<sceKernelCreateEventFlag>,         "sceKernelCreateEventFlag"},
+	{0x812346E4,&WrapU_IU<sceKernelClearEventFlag>,            "sceKernelClearEventFlag"},
+	{0xEF9E4C70,&WrapU_I<sceKernelDeleteEventFlag>,            "sceKernelDeleteEventFlag"},
+	{0x1fb15a32,&WrapU_IU<sceKernelSetEventFlag>,              "sceKernelSetEventFlag"},
+	{0x402FCF22,&WrapI_IUUUU<sceKernelWaitEventFlag>,          "sceKernelWaitEventFlag"},
+	{0x328C546A,&WrapI_IUUUU<sceKernelWaitEventFlagCB>,        "sceKernelWaitEventFlagCB"},
+	{0x30FD48F0,&WrapI_IUUUU<sceKernelPollEventFlag>,          "sceKernelPollEventFlag"},
+	{0xCD203292,&WrapU_IUU<sceKernelCancelEventFlag>,          "sceKernelCancelEventFlag"},
+	{0xA66B0120,&WrapU_IU<sceKernelReferEventFlagStatus>,      "sceKernelReferEventFlagStatus"},
 
-	{0x8FFDF9A2,&WrapI_IIU<sceKernelCancelSema>,          "sceKernelCancelSema"},
-	{0xD6DA4BA1,&WrapI_CUIIU<sceKernelCreateSema>,        "sceKernelCreateSema"},
-	{0x28b6489c,&WrapI_I<sceKernelDeleteSema>,            "sceKernelDeleteSema"},
-	{0x58b1f937,&WrapI_II<sceKernelPollSema>,             "sceKernelPollSema"},
-	{0xBC6FEBC5,&WrapI_IU<sceKernelReferSemaStatus>,      "sceKernelReferSemaStatus"},
-	{0x3F53E640,&WrapI_II<sceKernelSignalSema>,           "sceKernelSignalSema"},
-	{0x4E3A1105,&WrapI_IIU<sceKernelWaitSema>,            "sceKernelWaitSema"},
-	{0x6d212bac,&WrapI_IIU<sceKernelWaitSemaCB>,          "sceKernelWaitSemaCB"},
+	{0x8FFDF9A2,&WrapI_IIU<sceKernelCancelSema>,               "sceKernelCancelSema"},
+	{0xD6DA4BA1,&WrapI_CUIIU<sceKernelCreateSema>,             "sceKernelCreateSema"},
+	{0x28b6489c,&WrapI_I<sceKernelDeleteSema>,                 "sceKernelDeleteSema"},
+	{0x58b1f937,&WrapI_II<sceKernelPollSema>,                  "sceKernelPollSema"},
+	{0xBC6FEBC5,&WrapI_IU<sceKernelReferSemaStatus>,           "sceKernelReferSemaStatus"},
+	{0x3F53E640,&WrapI_II<sceKernelSignalSema>,                "sceKernelSignalSema"},
+	{0x4E3A1105,&WrapI_IIU<sceKernelWaitSema>,                 "sceKernelWaitSema"},
+	{0x6d212bac,&WrapI_IIU<sceKernelWaitSemaCB>,               "sceKernelWaitSemaCB"},
 
-	{0x60107536,&WrapI_U<sceKernelDeleteLwMutex>,         "sceKernelDeleteLwMutex"},
-	{0x19CFF145,&WrapI_UCUIU<sceKernelCreateLwMutex>,     "sceKernelCreateLwMutex"},
-	{0xf8170fbe,&WrapI_I<sceKernelDeleteMutex>,           "sceKernelDeleteMutex"},
-	{0xB011B11F,&WrapI_IIU<sceKernelLockMutex>,           "sceKernelLockMutex"},
-	{0x5bf4dd27,&WrapI_IIU<sceKernelLockMutexCB>,         "sceKernelLockMutexCB"},
-	{0x6b30100f,&WrapI_II<sceKernelUnlockMutex>,          "sceKernelUnlockMutex"},
-	{0xb7d098c6,&WrapI_CUIU<sceKernelCreateMutex>,        "sceKernelCreateMutex"},
-	{0x0DDCD2C9,&WrapI_II<sceKernelTryLockMutex>,         "sceKernelTryLockMutex"},
-	{0xA9C2CB9A,&WrapI_IU<sceKernelReferMutexStatus>,     "sceKernelReferMutexStatus"},
-	// NOTE: LockLwMutex and UnlockLwMutex are in Kernel_Library, see sceKernelInterrupt.cpp.
+	{0x60107536,&WrapI_U<sceKernelDeleteLwMutex>,              "sceKernelDeleteLwMutex"},
+	{0x19CFF145,&WrapI_UCUIU<sceKernelCreateLwMutex>,          "sceKernelCreateLwMutex"},
+	{0x4C145944,&WrapI_IU<sceKernelReferLwMutexStatusByID>,    "sceKernelReferLwMutexStatusByID"},
+	// NOTE: LockLwMutex, UnlockLwMutex, and ReferLwMutexStatus are in Kernel_Library, see sceKernelInterrupt.cpp.
+
+	{0xf8170fbe,&WrapI_I<sceKernelDeleteMutex>,                "sceKernelDeleteMutex"},
+	{0xB011B11F,&WrapI_IIU<sceKernelLockMutex>,                "sceKernelLockMutex"},
+	{0x5bf4dd27,&WrapI_IIU<sceKernelLockMutexCB>,              "sceKernelLockMutexCB"},
+	{0x6b30100f,&WrapI_II<sceKernelUnlockMutex>,               "sceKernelUnlockMutex"},
+	{0xb7d098c6,&WrapI_CUIU<sceKernelCreateMutex>,             "sceKernelCreateMutex"},
+	{0x0DDCD2C9,&WrapI_II<sceKernelTryLockMutex>,              "sceKernelTryLockMutex"},
+	{0xA9C2CB9A,&WrapI_IU<sceKernelReferMutexStatus>,          "sceKernelReferMutexStatus"},
 
 	{0xFCCFAD26,sceKernelCancelWakeupThread,"sceKernelCancelWakeupThread"},
 	{0xea748e31,sceKernelChangeCurrentThreadAttr,"sceKernelChangeCurrentThreadAttr"},
@@ -595,7 +640,7 @@ const HLEFunction ThreadManForUser[] =
 	{0x82826f70,sceKernelSleepThreadCB,"sceKernelSleepThreadCB"},
 	{0xF475845D,&WrapI_IUU<sceKernelStartThread>,"sceKernelStartThread"},
 	{0x9944f31f,sceKernelSuspendThread,"sceKernelSuspendThread"},
-	{0x616403ba,WrapI_U<sceKernelTerminateThread>,"sceKernelTerminateThread"},
+	{0x616403ba,WrapI_I<sceKernelTerminateThread>,"sceKernelTerminateThread"},
 	{0x383f7bcc,WrapI_I<sceKernelTerminateDeleteThread>,"sceKernelTerminateDeleteThread"},
 	{0x840E8133,WrapI_IU<sceKernelWaitThreadEndCB>,"sceKernelWaitThreadEndCB"},
 	{0xd13bde95,sceKernelCheckThreadStack,"sceKernelCheckThreadStack"},
@@ -608,9 +653,9 @@ const HLEFunction ThreadManForUser[] =
 	{0xdb738f35,WrapI_U<sceKernelGetSystemTime>,"sceKernelGetSystemTime"},
 	{0x369ed59d,WrapU_V<sceKernelGetSystemTimeLow>,"sceKernelGetSystemTimeLow"},
 
-	{0x8218B4DD,&WrapU_U<sceKernelReferGlobalProfiler>,"sceKernelReferGlobalProfiler"},
-	{0x627E6F3A,&WrapU_U<sceKernelReferSystemStatus>,"sceKernelReferSystemStatus"},
-	{0x64D4540E,0,"sceKernelReferThreadProfiler"},
+	{0x8218B4DD,WrapI_U<sceKernelReferGlobalProfiler>,"sceKernelReferGlobalProfiler"},
+	{0x627E6F3A,WrapI_U<sceKernelReferSystemStatus>,"sceKernelReferSystemStatus"},
+	{0x64D4540E,WrapU_U<sceKernelReferThreadProfiler>,"sceKernelReferThreadProfiler"},
 
 	//Fifa Street 2 uses alarms
 	{0x6652b8ca,WrapI_UUU<sceKernelSetAlarm>,"sceKernelSetAlarm"},

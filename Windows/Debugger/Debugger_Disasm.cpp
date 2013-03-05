@@ -66,11 +66,11 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 	tcItem.mask			= TCIF_TEXT;
 	tcItem.dwState		= 0;
 	tcItem.pszText		= "Regs";
-	tcItem.cchTextMax	= strlen(tcItem.pszText)+1;
+	tcItem.cchTextMax	= (int)strlen(tcItem.pszText)+1;
 	tcItem.iImage		= 0;
 	int result1 = TabCtrl_InsertItem(tabs, TabCtrl_GetItemCount(tabs),&tcItem);
 	tcItem.pszText		= "Funcs";
-	tcItem.cchTextMax	= strlen(tcItem.pszText)+1;
+	tcItem.cchTextMax	= (int)strlen(tcItem.pszText)+1;
 	int result2 = TabCtrl_InsertItem(tabs, TabCtrl_GetItemCount(tabs),&tcItem);
 	ShowWindow(GetDlgItem(m_hDlg, IDC_REGLIST), SW_NORMAL);
 	ShowWindow(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST), SW_HIDE);

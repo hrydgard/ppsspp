@@ -32,6 +32,7 @@
 #include "HLE/sceKernel.h"
 #include "HLE/sceKernelMemory.h"
 #include "HLE/sceAudio.h"
+#include "Config.h"
 #include "Core.h"
 #include "CoreTiming.h"
 #include "CoreParameter.h"
@@ -47,6 +48,8 @@ static PSPMixer *mixer;
 
 bool PSP_Init(const CoreParameter &coreParam, std::string *error_string)
 {
+	INFO_LOG(HLE, "PPSSPP %s", PPSSPP_GIT_VERSION);
+
 	coreParameter = coreParam;
 	currentCPU = &mipsr4k;
 	numCPUs = 1;

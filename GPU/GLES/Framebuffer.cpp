@@ -125,7 +125,9 @@ FramebufferManager::FramebufferManager() :
 
 	// And an initial clear. We don't clear per frame as the games are supposed to handle that
 	// by themselves.
-	glClearColor(0, 0, 0, 0);
+	glstate.depthWrite.set(GL_TRUE);
+	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+	glClearColor(0,0,0,1);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
 	convBuf = new u8[480 * 272 * 4];
@@ -235,7 +237,7 @@ void FramebufferManager::DrawActiveTexture(float x, float y, float w, float h, b
 	glsl_unbind();
 }
 
-FramebufferManager::VirtualFramebuffer *FramebufferManager::GetDisplayFBO() {
+VirtualFramebuffer *FramebufferManager::GetDisplayFBO() {
 	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
 		VirtualFramebuffer *v = *iter;
 		if (MaskedEqual(v->fb_address, displayFramebufPtr_) && v->format == displayFormat_) {
@@ -264,8 +266,6 @@ void GetViewportDimensions(int *w, int *h) {
 }
 
 void FramebufferManager::SetRenderFrameBuffer() {
-	if (!g_Config.bBufferedRendering)
-		return;
 	// Get parameters
 	u32 fb_address = (gstate.fbptr & 0xFFE000) | ((gstate.fbwidth & 0xFF0000) << 8);
 	int fb_stride = gstate.fbwidth & 0x3C0;
@@ -325,59 +325,104 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		vfb->renderWidth = (u16)(drawing_width * renderWidthFactor);
 		vfb->renderHeight = (u16)(drawing_height * renderHeightFactor);
 		vfb->format = fmt;
+		vfb->usageFlags = FB_USAGE_RENDERTARGET;
+		vfb->dirtyAfterDisplay = true;
 
-		vfb->colorDepth = FBO_8888;
 		switch (fmt) {
-		case GE_FORMAT_4444: vfb->colorDepth = FBO_4444;
-		case GE_FORMAT_5551: vfb->colorDepth = FBO_5551;
-		case GE_FORMAT_565: vfb->colorDepth = FBO_565;
-		case GE_FORMAT_8888: vfb->colorDepth = FBO_8888;
+		case GE_FORMAT_4444: vfb->colorDepth = FBO_4444; break;
+		case GE_FORMAT_5551: vfb->colorDepth = FBO_5551; break;
+		case GE_FORMAT_565: vfb->colorDepth = FBO_565; break;
+		case GE_FORMAT_8888: vfb->colorDepth = FBO_8888; break;
+		default: vfb->colorDepth = FBO_8888; break;
 		}
+		
+		if (g_Config.bTrueColor) 
+			vfb->colorDepth = FBO_8888;
+			
 		//#ifdef ANDROID
 		//	vfb->colorDepth = FBO_8888;
 		//#endif
 
-		vfb->fbo = fbo_create(vfb->renderWidth, vfb->renderHeight, 1, true, vfb->colorDepth);
-		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb->fbo);
+		if (g_Config.bBufferedRendering)
+		{
+			vfb->fbo = fbo_create(vfb->renderWidth, vfb->renderHeight, 1, true, vfb->colorDepth);
+		}
+		else
+			vfb->fbo = 0;
+
+		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb);
 
 		vfb->last_frame_used = gpuStats.numFrames;
 		vfbs_.push_back(vfb);
 
-		fbo_bind_as_render_target(vfb->fbo);
+		if (g_Config.bBufferedRendering) {
+			fbo_bind_as_render_target(vfb->fbo);
+		} else {
+			fbo_unbind();
+			// Let's ignore rendering to targets that have not (yet) been displayed.
+			gstate_c.skipDrawReason |= SKIPDRAW_NON_DISPLAYED_FB;
+		}
+
 		glEnable(GL_DITHER);
 		glstate.viewport.set(0, 0, vfb->renderWidth, vfb->renderHeight);
 		currentRenderVfb_ = vfb;
+		glstate.depthWrite.set(GL_TRUE);
+		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+		glClearColor(0,0,0,1);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 		INFO_LOG(HLE, "Creating FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
-		return;
-	}
 
-	if (vfb != currentRenderVfb_) {
+	// We already have it!
+	} else if (vfb != currentRenderVfb_) {
 		// Use it as a render target.
 		DEBUG_LOG(HLE, "Switching render target to FBO for %08x", vfb->fb_address);
+		vfb->usageFlags |= FB_USAGE_RENDERTARGET;
 		gstate_c.textureChanged = true;
 		if (vfb->last_frame_used != gpuStats.numFrames) {
 			// Android optimization
 			//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 		}
 		vfb->last_frame_used = gpuStats.numFrames;
-		
-		fbo_bind_as_render_target(vfb->fbo);
+		vfb->dirtyAfterDisplay = true;
 
-		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb->fbo);
+		if (g_Config.bBufferedRendering && vfb->fbo) {
+			fbo_bind_as_render_target(vfb->fbo);
+		} else {
+			fbo_unbind();
+
+			// Let's ignore rendering to targets that have not (yet) been displayed.
+			if (vfb->usageFlags & FB_USAGE_DISPLAYED_FRAMEBUFFER)
+				gstate_c.skipDrawReason &= ~SKIPDRAW_NON_DISPLAYED_FB;
+			else
+				gstate_c.skipDrawReason |= SKIPDRAW_NON_DISPLAYED_FB;
+
+			/*
+			if (drawing_width == 480 && drawing_height == 272) {
+				gstate_c.skipDrawReason &= ~SKIPDRAW_SKIPNONFB;
+				// OK!
+			} else {
+				gstate_c.skipDrawReason |= ~SKIPDRAW_SKIPNONFB;
+			}*/
+		}
+		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb);
+
 #ifdef USING_GLES2
 		// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
 		// to it. This broke stuff before, so now it only clears on the first use of an
 		// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
 		// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
 		if (vfb->last_frame_used != gpuStats.numFrames)
+		{
+			glstate.depthWrite.set(GL_TRUE);
+			glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+			glClearColor(0,0,0,1);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+		}
 #endif
 		glstate.viewport.set(0, 0, vfb->renderWidth, vfb->renderHeight);
 		currentRenderVfb_ = vfb;
 	}
 }
-
 
 void FramebufferManager::CopyDisplayToOutput() {
 	fbo_unbind();
@@ -386,36 +431,48 @@ void FramebufferManager::CopyDisplayToOutput() {
 	if (!vfb) {
 		DEBUG_LOG(HLE, "Found no FBO! displayFBPtr = %08x", displayFramebufPtr_);
 		// No framebuffer to display! Clear to black.
+		glstate.depthWrite.set(GL_TRUE);
+		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 		glClearColor(0,0,0,1);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 		return;
 	}
 
+	vfb->usageFlags |= FB_USAGE_DISPLAYED_FRAMEBUFFER;
+	vfb->dirtyAfterDisplay = false;
+
 	prevPrevDisplayFramebuf_ = prevDisplayFramebuf_;
 	prevDisplayFramebuf_ = displayFramebuf_;
 	displayFramebuf_ = vfb;
 
-	glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
-
 	currentRenderVfb_ = 0;
 
-	DEBUG_LOG(HLE, "Displaying FBO %08x", vfb->fb_address);
-	glstate.blend.disable();
-	glstate.cullFace.disable();
-	glstate.depthTest.disable();
-	glstate.scissorTest.disable();
+	if (vfb->fbo)	{
+		glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+		DEBUG_LOG(HLE, "Displaying FBO %08x", vfb->fb_address);
+		glstate.blend.disable();
+		glstate.cullFace.disable();
+		glstate.depthTest.disable();
+		glstate.scissorTest.disable();
+		glstate.stencilTest.disable();
 
-	fbo_bind_color_as_texture(vfb->fbo, 0);
+		fbo_bind_color_as_texture(vfb->fbo, 0);
+	
+	// These are in the output display coordinates
+		float x, y, w, h;
+		CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
+		DrawActiveTexture(x, y, w, h, true);
+	}
 
 	if (resized_) {
+		glstate.depthWrite.set(GL_TRUE);
+		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 		glClearColor(0,0,0,1);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 	}
-	// These are in the output display coordinates
-	float x, y, w, h;
-	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
-	DrawActiveTexture(x, y, w, h, true);
+}
 
+void FramebufferManager::EndFrame() {
 	if (resized_) {
 		DestroyAllFBOs();
 		glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
@@ -432,6 +489,8 @@ void FramebufferManager::BeginFrame() {
 		glstate.cullFace.disable();
 		glstate.depthTest.disable();
 		glstate.blend.disable();
+		glstate.scissorTest.disable();
+		glstate.stencilTest.disable();
 		DrawPixels(pspframebuf, displayFormat_, displayStride_);
 		// TODO: restore state?
 	}
@@ -449,8 +508,7 @@ void FramebufferManager::SetDisplayFramebuffer(u32 framebuf, u32 stride, int for
 	}
 }
 
-std::vector<FramebufferInfo> FramebufferManager::GetFramebufferList()
-{
+std::vector<FramebufferInfo> FramebufferManager::GetFramebufferList() {
 	std::vector<FramebufferInfo> list;
 
 	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
@@ -478,8 +536,11 @@ void FramebufferManager::DecimateFBOs() {
 		}
 		if ((*iter)->last_frame_used + FBO_OLD_AGE < gpuStats.numFrames) {
 			INFO_LOG(HLE, "Destroying FBO for %08x (%i x %i x %i)", vfb->fb_address, vfb->width, vfb->height, vfb->format)
-			textureCache_->NotifyFramebufferDestroyed(vfb->fb_address, vfb->fbo);
-			fbo_destroy(vfb->fbo);
+			if (vfb->fbo) {
+				textureCache_->NotifyFramebufferDestroyed(vfb->fb_address, vfb);
+				fbo_destroy(vfb->fbo);
+				vfb->fbo = 0;
+			}
 			delete vfb;
 			vfbs_.erase(iter++);
 		}
@@ -491,8 +552,9 @@ void FramebufferManager::DecimateFBOs() {
 void FramebufferManager::DestroyAllFBOs() {
 	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
 		VirtualFramebuffer *vfb = *iter;
-		textureCache_->NotifyFramebufferDestroyed(vfb->fb_address, vfb->fbo);
-		fbo_destroy(vfb->fbo);
+		textureCache_->NotifyFramebufferDestroyed(vfb->fb_address, vfb);
+		if (vfb->fbo)
+			fbo_destroy(vfb->fbo);
 		delete vfb;
 	}
 	vfbs_.clear();

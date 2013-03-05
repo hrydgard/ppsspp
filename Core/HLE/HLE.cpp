@@ -21,6 +21,7 @@
 #include <vector>
 #include "../MemMap.h"
 #include "../Config.h"
+#include "Core/Reporting.h"
 
 #include "HLETables.h"
 #include "../System.h"
@@ -64,7 +65,7 @@ void HLEInit()
 
 void HLEDoState(PointerWrap &p)
 {
-	Syscall sc = {0};
+	Syscall sc = {""};
 	p.Do(unresolvedSyscalls, sc);
 	p.Do(exportedCalls, sc);
 	p.DoMarker("HLE");
@@ -164,6 +165,7 @@ u32 GetSyscallOp(const char *moduleName, u32 nib)
 		else
 		{
 			INFO_LOG(HLE, "Syscall (%s, %08x) unknown", moduleName, nib);
+			Reporting::ReportMessage("Unknown syscall in known module: %s 0x%08x", moduleName, nib);
 			return (0x0003FFCC | (modindex<<18));  // invalid syscall
 		}
 	}
@@ -297,7 +299,7 @@ bool hleExecuteDebugBreak(const HLEFunction &func)
 
 	// Never break on these, they're noise.
 	u32 blacklistedNIDs[] = {NID_SUSPEND_INTR, NID_RESUME_INTR, NID_IDLE};
-	for (int i = 0; i < ARRAY_SIZE(blacklistedNIDs); ++i)
+	for (size_t i = 0; i < ARRAY_SIZE(blacklistedNIDs); ++i)
 	{
 		if (func.ID == blacklistedNIDs[i])
 			return false;

@@ -28,6 +28,7 @@ recursive_mutex m_hGPUStepMutex;
 QtHost::QtHost(MainWindow *mainWindow_)
     : mainWindow(mainWindow_)
 	, m_GPUStep(false)
+	, m_GPUFlag(0)
 {
 	QObject::connect(this,SIGNAL(BootDoneSignal()),mainWindow,SLOT(Boot()));
 }
@@ -42,7 +43,7 @@ void QtHost::ShutdownGL()
 
 void QtHost::SetWindowTitle(const char *message)
 {
-	QString title = "PPSSPP " + QString(PPSSPP_VERSION_STR) + " - " + QString::fromUtf8(message);
+	QString title = "PPSSPP " + QString(PPSSPP_GIT_VERSION) + " - " + QString::fromUtf8(message);
 
 	mainWindow->setWindowTitle(title);
 }
@@ -162,7 +163,7 @@ void QtHost::SendGPUStart()
 	EmuThread_LockDraw(true);
 }
 
-void QtHost::SendGPUWait(u32 cmd)
+void QtHost::SendGPUWait(u32 cmd, u32 addr, void *data)
 {
 	EmuThread_LockDraw(false);
 
@@ -173,19 +174,36 @@ void QtHost::SendGPUWait(u32 cmd)
 	}
 	else if(m_GPUFlag == 0)
 	{
-
 		mainWindow->GetDialogDisasm()->UpdateDisplayList();
 		mainWindow->GetDialogDisplaylist()->Update();
 		m_hGPUStepEvent.wait(m_hGPUStepMutex);
+	}
+	else if(m_GPUFlag == 2 && addr == m_GPUData)
+	{
+		mainWindow->GetDialogDisasm()->UpdateDisplayList();
+		mainWindow->GetDialogDisplaylist()->Update();
+		m_hGPUStepEvent.wait(m_hGPUStepMutex);
+	}
+	else if(m_GPUFlag == 3 && (cmd == GE_CMD_PRIM || cmd == GE_CMD_BEZIER || cmd == GE_CMD_SPLINE))
+	{
+		GPUgstate *state = (GPUgstate*)data;
+		u32 texAddr = (state->texaddr[0] & 0xFFFFF0) | ((state->texbufwidth[0]<<8) & 0x0F000000);
+		if(texAddr == m_GPUData)
+		{
+			mainWindow->GetDialogDisasm()->UpdateDisplayList();
+			mainWindow->GetDialogDisplaylist()->Update();
+			m_hGPUStepEvent.wait(m_hGPUStepMutex);
+		}
 	}
 
 	EmuThread_LockDraw(true);
 }
 
-void QtHost::SetGPUStep(bool value, int flag)
+void QtHost::SetGPUStep(bool value, int flag, int data)
 {
 	m_GPUStep = value;
 	m_GPUFlag = flag;
+	m_GPUData = data;
 }
 
 void QtHost::NextGPUStep()

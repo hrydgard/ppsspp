@@ -4,18 +4,19 @@
 
 #include <stdio.h>
 
-#include "../Core/Config.h"
-#include "../Core/Core.h"
-#include "../Core/CoreTiming.h"
-#include "../Core/System.h"
-#include "../Core/MIPS/MIPS.h"
-#include "../Core/Host.h"
+#include "Core/Config.h"
+#include "Core/Core.h"
+#include "Core/CoreTiming.h"
+#include "Core/System.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/Host.h"
 #include "Log.h"
 #include "LogManager.h"
 
 #include "Compare.h"
 #include "StubHost.h"
 #ifdef _WIN32
+#include "Windows/OpenGLBase.h"
 #include "WindowsHeadlessHost.h"
 #endif
 
@@ -46,6 +47,9 @@ public:
 	}
 };
 
+// Temporary hack around annoying linking error.
+void GL_SwapBuffers() { }
+
 void printUsage(const char *progname, const char *reason)
 {
 	if (reason != NULL)
@@ -74,7 +78,7 @@ void printUsage(const char *progname, const char *reason)
 int main(int argc, const char* argv[])
 {
 	bool fullLog = false;
-	bool useJit = false;
+	bool useJit = true;
 	bool autoCompare = false;
 	bool useGraphics = false;
 	
@@ -192,8 +196,10 @@ int main(int argc, const char* argv[])
 		mipsr4k.RunLoopUntil(nowTicks + frameTicks);
 
 		// If we were rendering, this might be a nice time to do something about it.
-		if (coreState == CORE_NEXTFRAME)
+		if (coreState == CORE_NEXTFRAME) {
 			coreState = CORE_RUNNING;
+			headlessHost->SwapBuffers();
+		}
 	}
 
 	host->ShutdownGL();

@@ -2,6 +2,7 @@
 
 #include <QTimer>
 #include <set>
+#include <QMenu>
 
 #include "Core/CPU.h"
 #include "ui_debugger_displaylist.h"
@@ -12,7 +13,6 @@
 #include "base/display.h"
 #include "mainwindow.h"
 #include "GPU/GLES/VertexDecoder.h"
-#include <QDebug>
 
 
 Debugger_DisplayList::Debugger_DisplayList(DebugInterface *_cpu, MainWindow* mainWindow_, QWidget *parent) :
@@ -30,6 +30,7 @@ Debugger_DisplayList::Debugger_DisplayList(DebugInterface *_cpu, MainWindow* mai
 
 	QObject::connect(this, SIGNAL(updateDisplayList_()), this, SLOT(UpdateDisplayListGUI()));
 	QObject::connect(this, SIGNAL(updateRenderBufferList_()), this, SLOT(UpdateRenderBufferListGUI()));
+	QObject::connect(this, SIGNAL(updateRenderBuffer_()), this, SLOT(UpdateRenderBufferGUI()));
 
 }
 
@@ -76,39 +77,8 @@ void Debugger_DisplayList::UpdateDisplayListGUI()
 	EmuThread_LockDraw(true);
 	const std::deque<DisplayList>& dlQueue = gpu->GetDisplayLists();
 
-	DisplayList* dl = gpu->GetCurrentDisplayList();
-	if(dl)
-	{
-		QTreeWidgetItem* item = new QTreeWidgetItem();
-		item->setText(0,QString::number(dl->id));
-		item->setData(0, Qt::UserRole, dl->id);
-		switch(dl->status)
-		{
-		case PSP_GE_LIST_DONE:	item->setText(1,"Done"); break;
-		case PSP_GE_LIST_QUEUED:	item->setText(1,"Queued"); break;
-		case PSP_GE_LIST_DRAWING:	item->setText(1,"Drawing"); break;
-		case PSP_GE_LIST_STALL_REACHED:	item->setText(1,"Stall Reached"); break;
-		case PSP_GE_LIST_END_REACHED:	item->setText(1,"End Reached"); break;
-		case PSP_GE_LIST_CANCEL_DONE:	item->setText(1,"Cancel Done"); break;
-		default: break;
-		}
-		item->setText(2,QString("%1").arg(dl->startpc,8,16,QChar('0')));
-		item->setData(2, Qt::UserRole, dl->startpc);
-		item->setText(3,QString("%1").arg(dl->pc,8,16,QChar('0')));
-		item->setData(3, Qt::UserRole, dl->pc);
-		ui->displayList->addTopLevelItem(item);
-		if(curDlId == dl->id)
-		{
-			ui->displayList->setCurrentItem(item);
-			displayListRowSelected = item;
-			ShowDLCode();
-		}
-	}
-
 	for(auto it = dlQueue.begin(); it != dlQueue.end(); ++it)
 	{
-		if(dl && it->id == dl->id)
-			continue;
 		QTreeWidgetItem* item = new QTreeWidgetItem();
 		item->setText(0,QString::number(it->id));
 		item->setData(0, Qt::UserRole, it->id);
@@ -127,7 +97,7 @@ void Debugger_DisplayList::UpdateDisplayListGUI()
 		item->setText(3,QString("%1").arg(it->pc,8,16,QChar('0')));
 		item->setData(3, Qt::UserRole, it->pc);
 		ui->displayList->addTopLevelItem(item);
-		if(curDlId == it->id)
+		if(curDlId == (u32)it->id)
 		{
 			ui->displayList->setCurrentItem(item);
 			displayListRowSelected = item;
@@ -136,6 +106,14 @@ void Debugger_DisplayList::UpdateDisplayListGUI()
 	}
 	for(int i = 0; i < ui->displayList->columnCount(); i++)
 		ui->displayList->resizeColumnToContents(i);
+
+	if (ui->displayList->selectedItems().size() == 0 && ui->displayList->topLevelItemCount() != 0)
+	{
+		ui->displayList->setCurrentItem(ui->displayList->topLevelItem(0));
+		displayListRowSelected = ui->displayList->topLevelItem(0);
+		ShowDLCode();
+	}
+
 	EmuThread_LockDraw(false);
 }
 
@@ -169,7 +147,7 @@ void Debugger_DisplayList::ShowDLCode()
 		item->setText(1,QString("%1").arg(it->second.cmd,2,16,QChar('0')));
 		item->setText(2,QString("%1").arg(it->second.data,6,16,QChar('0')));
 		item->setText(3,it->second.comment);
-		if(curPc == it->first)
+		if(curPc == (u32)it->first)
 		{
 			curTexAddr = it->second.texAddr;
 			curVtxAddr = it->second.vtxAddr;
@@ -185,7 +163,7 @@ void Debugger_DisplayList::ShowDLCode()
 		}
 		ui->displayListData->addTopLevelItem(item);
 
-		if(curPc == it->first)
+		if(curPc == (u32)it->first)
 		{
 			ui->displayListData->setCurrentItem(item);
 		}
@@ -207,7 +185,7 @@ void Debugger_DisplayList::ShowDLCode()
 		// Textures
 		QTreeWidgetItem* item = new QTreeWidgetItem();
 		u32 texaddr = (drawGPUState[i].texaddr[0] & 0xFFFFF0) | ((drawGPUState[i].texbufwidth[0]<<8) & 0x0F000000);
-		if(!(usedTexAddr.find(texaddr) != usedTexAddr.end() || !Memory::IsValidAddress(texaddr)))
+		if(usedTexAddr.find(texaddr) == usedTexAddr.end() && Memory::IsValidAddress(texaddr))
 		{
 			u32 format = drawGPUState[i].texformat & 0xF;
 			int w = 1 << (drawGPUState[i].texsize[0] & 0xf);
@@ -232,7 +210,7 @@ void Debugger_DisplayList::ShowDLCode()
 		QTreeWidgetItem* vertexItem = new QTreeWidgetItem();
 		u32 baseExtended = ((drawGPUState[i].base & 0x0F0000) << 8) | (drawGPUState[i].vaddr & 0xFFFFFF);
 		u32 vaddr = ((drawGPUState[i].offsetAddr & 0xFFFFFF) + baseExtended) & 0x0FFFFFFF;
-		if(!((drawGPUState[i].vaddr)  == 0 || !Memory::IsValidAddress(vaddr) || usedVtxAddr.find(vaddr) != usedVtxAddr.end()))
+		if(drawGPUState[i].vaddr != 0 && Memory::IsValidAddress(vaddr) && usedVtxAddr.find(vaddr) == usedVtxAddr.end())
 		{
 			vertexItem->setText(0, QString("%1").arg(vaddr,8,16,QChar('0')));
 			vertexItem->setData(0,Qt::UserRole, i);
@@ -294,7 +272,7 @@ void Debugger_DisplayList::ShowDLCode()
 		QTreeWidgetItem* indexItem = new QTreeWidgetItem();
 		baseExtended = ((drawGPUState[i].base & 0x0F0000) << 8) | (drawGPUState[i].iaddr & 0xFFFFFF);
 		u32 iaddr = ((drawGPUState[i].offsetAddr & 0xFFFFFF) + baseExtended) & 0x0FFFFFFF;
-		if(!((drawGPUState[i].iaddr & 0xFFFFFF) == 0 || !Memory::IsValidAddress(iaddr) || usedIdxAddr.find(iaddr) != usedIdxAddr.end()))
+		if((drawGPUState[i].iaddr & 0xFFFFFF) != 0 && Memory::IsValidAddress(iaddr) && usedIdxAddr.find(iaddr) == usedIdxAddr.end())
 		{
 			indexItem->setText(0, QString("%1").arg(iaddr,8,16,QChar('0')));
 			indexItem->setData(0,Qt::UserRole, i);
@@ -308,14 +286,15 @@ void Debugger_DisplayList::ShowDLCode()
 			}
 			usedIdxAddr.insert(iaddr);
 		}
-
-		for(int i = 0; i < ui->texturesList->columnCount(); i++)
-			ui->texturesList->resizeColumnToContents(i);
-		for(int i = 0; i < ui->vertexList->columnCount(); i++)
-			ui->vertexList->resizeColumnToContents(i);
-		for(int i = 0; i < ui->indexList->columnCount(); i++)
-			ui->indexList->resizeColumnToContents(i);
 	}
+
+
+	for(int i = 0; i < ui->texturesList->columnCount(); i++)
+		ui->texturesList->resizeColumnToContents(i);
+	for(int i = 0; i < ui->vertexList->columnCount(); i++)
+		ui->vertexList->resizeColumnToContents(i);
+	for(int i = 0; i < ui->indexList->columnCount(); i++)
+		ui->indexList->resizeColumnToContents(i);
 
 	UpdateVertexInfo();
 	UpdateIndexInfo();
@@ -371,7 +350,7 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 		{
 			int bz_ucount = data & 0xFF;
 			int bz_vcount = (data >> 8) & 0xFF;
-			return QString("DRAW BEZIER: %1 x %2").arg(bz_ucount).arg(bz_vcount);
+			return QString("DRAW BEZIER: U=%1 x V=%2").arg(bz_ucount).arg(bz_vcount);
 		}
 		break;
 
@@ -379,9 +358,15 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 		{
 			int sp_ucount = data & 0xFF;
 			int sp_vcount = (data >> 8) & 0xFF;
+			static const char* type[4] = {
+				"Close/Close",
+				"Open/Close",
+				"Close/Open",
+				"Open/Open"
+			};
 			int sp_utype = (data >> 16) & 0x3;
 			int sp_vtype = (data >> 18) & 0x3;
-			return QString("DRAW SPLINE: %1 x %2, %3 x %4").arg(sp_ucount).arg(sp_vcount).arg(sp_utype).arg(sp_vtype);
+			return QString("DRAW SPLINE: U=%1 x V=%2, U Type = %3 , V Type = %4").arg(sp_ucount).arg(sp_vcount).arg(type[sp_utype]).arg(type[sp_vtype]);
 		}
 		break;
 
@@ -458,13 +443,15 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 		break;
 
 	case GE_CMD_BJUMP:
+	{
 		// bounding box jump. Let's just not jump, for now.
-		return QString("BBOX JUMP - unimplemented");
+		u32 target = (((state.base & 0x00FF0000) << 8) | (op & 0xFFFFFC)) & 0x0FFFFFFF;
+		return QString("BBOX JUMP - %1 to %2").arg(pc,8,16,QChar('0')).arg(target,8,16,QChar('0'));
 		break;
-
+	}
 	case GE_CMD_BOUNDINGBOX:
 		// bounding box test. Let's do nothing.
-		return QString("BBOX TEST - unimplemented");
+		return QString("BBOX TEST - number : %1").arg(data & 0xFFFF,4,16,QChar('0'));
 		break;
 
 	case GE_CMD_ORIGIN:
@@ -472,9 +459,57 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 		break;
 
 	case GE_CMD_VERTEXTYPE:
-		return QString("SetVertexType: %1").arg(data,6,16,QChar('0'));
-		break;
+	{
+		const char* format[4] =
+		{
+			"No",
+			"8 Bits fixed",
+			"16 Bits fixed",
+			"Float"
+		};
+		const char* colFormat[8] =
+		{
+			"No",
+			"",
+			"",
+			"",
+			"16-bit BGR-5650",
+			"16-bit ABGR-5551",
+			"16-bit ABGR-4444",
+			"32-bit ABGR-8888"
+		};
+		QString retString = "SetVertexType:";
 
+		u32 transform = data & GE_VTYPE_THROUGH_MASK;
+		retString += QString(" Transform : %1").arg(transform==0?"Transformed":"Raw");
+
+		u32 numVertMorph = (data & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT;
+		retString += QString(", Num Vtx Morph : %1").arg(numVertMorph);
+
+		u32 numWeight = (data & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT;
+		retString += QString(", Num Weights : %1").arg(numWeight);
+
+		u32 indexFmt = (data & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT;
+		retString += QString(", Index Format : %1").arg(format[indexFmt]);
+
+		u32 weightFmt = (data & GE_VTYPE_WEIGHT_MASK) >> GE_VTYPE_WEIGHT_SHIFT;
+		retString += QString(", Weight Format : %1").arg(format[weightFmt]);
+
+		u32 posFmt = (data & GE_VTYPE_POS_MASK) >> GE_VTYPE_POS_SHIFT;
+		retString += QString(", Position Format : %1").arg(format[posFmt]);
+
+		u32 nrmFmt = (data & GE_VTYPE_NRM_MASK) >> GE_VTYPE_NRM_SHIFT;
+		retString += QString(", Normal Format : %1").arg(format[nrmFmt]);
+
+		u32 colFmt = (data & GE_VTYPE_COL_MASK) >> GE_VTYPE_COL_SHIFT;
+		retString += QString(", Color Format : %1").arg(colFormat[colFmt]);
+
+		u32 tcFmt = (data & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT;
+		retString += QString(", Texture UV Format : %1").arg(format[tcFmt]);
+
+		return retString;
+		break;
+	}
 	case GE_CMD_OFFSETADDR:
 		return QString("OffsetAddr: %1").arg(data,6,16,QChar('0'));
 		break;
@@ -587,9 +622,17 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 		break;
 
 	case GE_CMD_FRAMEBUFPIXFORMAT:
-		return QString("FramebufPixeFormat: %1").arg(data);
+	{
+		const char* fmt[4] =
+		{
+			"16-bit BGR 5650",
+			"16-bit ABGR 5551",
+			"16-bit ABGR 4444",
+			"32-bit ABGR 8888"
+		};
+		return QString("FramebufPixeFormat: %1").arg(fmt[data]);
 		break;
-
+	}
 	case GE_CMD_TEXADDR0:
 	case GE_CMD_TEXADDR1:
 	case GE_CMD_TEXADDR2:
@@ -609,7 +652,7 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 	case GE_CMD_TEXBUFWIDTH5:
 	case GE_CMD_TEXBUFWIDTH6:
 	case GE_CMD_TEXBUFWIDTH7:
-		return QString("Texture BUFWIDTHess %1: %2").arg(cmd-GE_CMD_TEXBUFWIDTH0).arg(data,6,16,QChar('0'));
+		return QString("Texture BUFWIDTHess %1: %2 width : %3").arg(cmd-GE_CMD_TEXBUFWIDTH0).arg(data,6,16,QChar('0')).arg(data & 0xFFFF);
 		break;
 
 	case GE_CMD_CLUTADDR:
@@ -622,20 +665,41 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 
 	case GE_CMD_LOADCLUT:
 		// This could be used to "dirty" textures with clut.
-		return QString("Clut load");
+		return QString("Clut load, numColor : %1").arg(data*8);
 		break;
 
 	case GE_CMD_TEXMAPMODE:
-		return QString("Tex map mode: %1").arg(data,6,16,QChar('0'));
+	{
+		const char* texMapMode[3] =
+		{
+			"Texture Coordinates (UV)",
+			"Texture Matrix",
+			"Environment Map"
+		};
+		const char* texProjMode[4] =
+		{
+			"Position",
+			"Texture Coordinates",
+			"Normalized Normal",
+			"Normal"
+		};
+		return QString("Tex map mode: Map mode : %1, Proj Mode : %2").arg(texMapMode[data & 0x3]).arg(texProjMode[(data >> 8) & 0x3]);
 		break;
-
+	}
 	case GE_CMD_TEXSHADELS:
 		return QString("Tex shade light sources: %1").arg(data,6,16,QChar('0'));
 		break;
 
 	case GE_CMD_CLUTFORMAT:
 		{
-			return QString("Clut format: %1").arg(data,6,16,QChar('0'));
+		const char* fmt[4] =
+		{
+			"16-bit BGR 5650",
+			"16-bit ABGR 5551",
+			"16-bit ABGR 4444",
+			"32-bit ABGR 8888"
+		};
+		return QString("Clut format: %1 , Fmt : %2").arg(data,6,16,QChar('0')).arg(fmt[data & 0x3]);
 		}
 		break;
 
@@ -695,7 +759,7 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 
 	case GE_CMD_TRANSFERSTART:  // Orphis calls this TRXKICK
 		{
-			return QString("Block Transfer Start");
+		return QString("Block Transfer Start : %1").arg(data ? "32-bit texel size" : "16-bit texel size");
 			break;
 		}
 
@@ -771,9 +835,22 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 	case GE_CMD_LIGHTTYPE1:
 	case GE_CMD_LIGHTTYPE2:
 	case GE_CMD_LIGHTTYPE3:
-		return QString("Light %1 type: %2").arg(cmd-GE_CMD_LIGHTTYPE0).arg(data,6,16,QChar('0'));
+	{
+		const char* lightType[3] =
+		{
+			"Directional Light",
+			"Point Light",
+			"Spot Light"
+		};
+		const char* lightComp[3] =
+		{
+			"Ambient & Diffuse",
+			"Diffuse & Specular",
+			"Unknown (diffuse color, affected by specular power)"
+		};
+		return QString("Light %1 type: %2 %3").arg(cmd-GE_CMD_LIGHTTYPE0).arg(lightType[(data) >> 8 & 0x3]).arg(lightComp[data & 0x3]);
 		break;
-
+	}
 	case GE_CMD_LX0:case GE_CMD_LY0:case GE_CMD_LZ0:
 	case GE_CMD_LX1:case GE_CMD_LY1:case GE_CMD_LZ1:
 	case GE_CMD_LX2:case GE_CMD_LY2:case GE_CMD_LZ2:
@@ -854,42 +931,78 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 		break;
 
 	case GE_CMD_CULL:
-		return QString("cull: %1").arg(data,6,16,QChar('0'));
+	{
+		const char* cull[2] =
+		{
+			"Clockwise visible",
+			"Counter-clockwise visible"
+		};
+		return QString("cull: %1").arg(cull[data & 0x1]);
 		break;
-
+	}
 	case GE_CMD_PATCHDIVISION:
 		{
 			int patch_div_s = data & 0xFF;
 			int patch_div_t = (data >> 8) & 0xFF;
-			return QString("Patch subdivision: %1 x %2").arg(patch_div_s).arg(patch_div_t);
+			return QString("Patch subdivision: S=%1 x T=%2").arg(patch_div_s).arg(patch_div_t);
 		}
 		break;
 
 	case GE_CMD_PATCHPRIMITIVE:
-		return QString("Patch Primitive: %1").arg(data);
+	{
+		const char* type[3] =
+		{
+			"Triangles",
+			"Lines",
+			"Points"
+		};
+		return QString("Patch Primitive: %1").arg(type[data]);
 		break;
-
+	}
 	case GE_CMD_PATCHFACING:
-		return QString( "Patch Facing: %1").arg(data);
+	{
+		const char* val[2] =
+		{
+			"Clockwise",
+			"Counter-Clockwise"
+		};
+		return QString( "Patch Facing: %1").arg(val[data]);
 		break;
-
+	}
 	case GE_CMD_REVERSENORMAL:
 		return QString("Reverse normal: %1").arg(data);
 		break;
 
 	case GE_CMD_MATERIALUPDATE:
-		return QString("Material Update: %1").arg(data);
+	{
+		QString txt = "";
+		if(data & 1) txt += " Ambient";
+		if(data & 2) txt += " Diffuse";
+		if(data & 4) txt += " Specular";
+		return QString("Material Update: %1").arg(txt);
 		break;
-
+	}
 
 	//////////////////////////////////////////////////////////////////
 	//	CLEARING
 	//////////////////////////////////////////////////////////////////
 	case GE_CMD_CLEARMODE:
+	{
 		// If it becomes a performance problem, check diff&1
-		return QString("Clear mode: %1").arg(data,6,16,QChar('0'));
+		const char* clearMode[8] =
+		{
+			"",
+			"Clear Color Buffer",
+			"Clear Stencil/Alpha Buffer",
+			"",
+			"Clear Depth Buffer",
+			"",
+			"",
+			""
+		};
+		return QString("Clear mode: %1, enabled : %2").arg(clearMode[(data >> 8) & 0xF]).arg(data & 0x1);
 		break;
-
+	}
 
 	//////////////////////////////////////////////////////////////////
 	//	ALPHA BLENDING
@@ -899,9 +1012,31 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 		break;
 
 	case GE_CMD_BLENDMODE:
-		return QString("Blend mode: %1").arg(data,6,16,QChar('0'));
+	{
+		const char* func[9] =
+		{
+			"Source Color",
+			"One Minus Source Color",
+			"Source Alpha",
+			"One Minus Source Alpha",
+			"Destination Color",
+			"One Minus Destination Color",
+			"Destination Alpha",
+			"One Minus Destination Alpha",
+			"Fix"
+		};
+		const char* op[6] =
+		{
+			"Add",
+			"Subtract",
+			"Reverse Subtract",
+			"Minimum Value",
+			"Maximum Value",
+			"Absolute Value"
+		};
+		return QString("Blend mode: Src : %1, Dest : %2, Op : %3").arg(func[(data >> 4) & 0xF]).arg(func[(data >> 8) & 0xF]).arg(op[(data) & 0x7]);
 		break;
-
+	}
 	case GE_CMD_BLENDFIXEDA:
 		return QString("Blend fix A: %1").arg(data,6,16,QChar('0'));
 		break;
@@ -915,9 +1050,21 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 		break;
 
 	case GE_CMD_ALPHATEST:
-		return QString("Alpha test settings");
+	{
+		const char* testFunc[8] =
+		{
+			"Never pass pixel",
+			"Always pass pixel",
+			"Pass pixel if match",
+			"Pass pixel if difference",
+			"Pass pixel if less",
+			"Pass pixel if less or equal",
+			"Pass pixel if greater",
+			"Pass pixel if greater or equal"
+		};
+		return QString("Alpha test settings, Mask : %1, Ref : %2, Test : %3").arg((data >> 8) & 0xFF).arg((data >> 16) & 0xFF).arg(testFunc[data & 0x7]);
 		break;
-
+	}
 	case GE_CMD_ANTIALIASENABLE:
 		return QString("Antialias enable: %1").arg(data);
 		break;
@@ -927,22 +1074,71 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 		break;
 
 	case GE_CMD_COLORTESTENABLE:
-		return QString("Color Test enable: %1").arg(data);
+	{
+		const char* colorTest[4] =
+		{
+			"Never pass pixel",
+			"Always pass pixel",
+			"Pass pixel if color matches",
+			"Pass pixel if color differs"
+		};
+		return QString("Color Test enable: %1").arg(colorTest[data]);
 		break;
-
+	}
 	case GE_CMD_LOGICOPENABLE:
-		return QString("Logic op enable: %1").arg(data);
+	{
+		const char* logicOp[16] =
+		{
+			"Clear",
+			"And",
+			"Reverse And",
+			"Copy",
+			"Inverted And",
+			"No Operation",
+			"Exclusive Or",
+			"Or",
+			"Negated Or",
+			"Equivalence",
+			"Inverted",
+			"Reverse Or",
+			"Inverted Copy",
+			"Inverted Or",
+			"Negated And",
+			"Set"
+		};
+		return QString("Logic op enable: %1").arg(logicOp[data]);
 		break;
-
+	}
 	case GE_CMD_TEXFUNC:
-		return QString("TexFunc %1").arg(data&7);
+	{
+		const char* effect[8] =
+		{
+			"Modulate",
+			"Decal",
+			"Blend",
+			"Replace",
+			"Add",
+			"","",""
+		};
+		return QString("TexFunc %1 / %2 / %3").arg((data&0x100)?"Texture alpha is read":"Texture alpha is ignored").arg((data & 0x10000)?"Fragment color is doubled":"Fragment color is untouched").arg(effect[data & 0x7]);
 		break;
-
+	}
 	case GE_CMD_TEXFILTER:
 		{
-			int min = data & 7;
-			int mag = (data >> 8) & 1;
-			return QString("TexFilter min: %1 mag: %2").arg( min).arg(mag);
+		const char* filter[8]=
+		{
+			"Nearest",
+			"Linear",
+			"",
+			"",
+			"Nearest; Mipmap Nearest",
+			"Linear; Mipmap Nearest",
+			"Nearest; Mipmap Linear",
+			"Linear; Mipmap Linear"
+		};
+			int min = data & 0x7;
+			int mag = (data >> 8) & 0x7;
+			return QString("TexFilter min: %1 mag: %2").arg(filter[min]).arg(filter[mag]);
 		}
 		break;
 
@@ -951,13 +1147,30 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 		break;
 
 	case GE_CMD_TEXMODE:
-		return QString("TexMode %1").arg(data,8,16,QChar('0'));
+	{
+		u32 maxMipMap = (data >> 16) & 0xF;
+		return QString("TexMode MaxmipMap : %1, Swizzle : %2").arg(maxMipMap).arg(data & 0x1);
 		break;
-
+	}
 	case GE_CMD_TEXFORMAT:
-		return QString("TexFormat %1").arg(data,8,16,QChar('0'));
+	{
+		const char* texFmt[11] =
+		{
+			"16-bit BGR 5650",
+			"16-bit ABGR 5551",
+			"16-bit ABGR 4444",
+			"32-bit ABGR 8888",
+			"4-bit indexed",
+			"8-bit indexed",
+			"16-bit indexed",
+			"32-bit indexed",
+			"DXT1",
+			"DXT3",
+			"DXT5"
+		};
+		return QString("TexFormat %1").arg(texFmt[data]);
 		break;
-
+	}
 	case GE_CMD_TEXFLUSH:
 		return QString("TexFlush");
 		break;
@@ -967,9 +1180,15 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 		break;
 
 	case GE_CMD_TEXWRAP:
-		return QString("TexWrap %1").arg(data,8,16,QChar('0'));
+	{
+		const char* wrapMode[2] =
+		{
+			"Repeat",
+			"Clamp"
+		};
+		return QString("TexWrap U : %1, V : %2").arg(wrapMode[data & 0x1]).arg(wrapMode[(data >> 8) & 0x1]);
 		break;
-
+	}
 	case GE_CMD_TEXLEVEL:
 		return QString("TexWrap Mode: %1 Offset: %2").arg(data&3).arg(data >> 16);
 		break;
@@ -999,21 +1218,57 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 		break;
 
 	case GE_CMD_STENCILOP:
-		return QString("Stencil op: %1").arg(data,6,16,QChar('0'));
+	{
+		const char* stencilOp[8] =
+		{
+			"Keep stencil value",
+			"Zero stencil value",
+			"Replace stencil value",
+			"Invert stencil value",
+			"Increment stencil value",
+			"Decrement stencil value",
+			"",""
+		};
+		return QString("Stencil op: ZFail : %1, Fail : %2, Pass : %3").arg(stencilOp[(data >> 16) & 0x7]).arg(stencilOp[(data >> 8) & 0x7]).arg(stencilOp[(data) & 0x7]);
 		break;
-
+	}
 	case GE_CMD_STENCILTEST:
-		return QString("Stencil test: %1").arg(data,6,16,QChar('0'));
+	{
+		const char* testFunc[8] =
+		{
+			"Never pass stencil pixel",
+			"Always pass stencil pixel",
+			"Pass test if match",
+			"Pass test if difference",
+			"Pass test if less",
+			"Pass test if less or equal",
+			"Pass test if greater",
+			"Pass test if greater or equal"
+		};
+		return QString("Stencil test, Mask : %1, Ref : %2, Test : %3").arg((data >> 8) & 0xFF).arg((data >> 16) & 0xFF).arg(testFunc[data & 0x7]);
 		break;
+	}
 
 	case GE_CMD_STENCILTESTENABLE:
 		return QString("Stencil test enable: %1").arg(data);
 		break;
 
 	case GE_CMD_ZTEST:
-		return QString("Z test mode: %1").arg(data);
+	{
+		const char* testFunc[8] =
+		{
+			"Never pass stencil pixel",
+			"Always pass stencil pixel",
+			"Pass pixel if match",
+			"Pass pixel if difference",
+			"Pass pixel if less",
+			"Pass pixel if less or equal",
+			"Pass pixel if greater",
+			"Pass pixel if greater or equal"
+		};
+		return QString("Z test mode: %1").arg(testFunc[data & 0x7]);
 		break;
-
+	}
 	case GE_CMD_MORPHWEIGHT0:
 	case GE_CMD_MORPHWEIGHT1:
 	case GE_CMD_MORPHWEIGHT2:
@@ -1188,6 +1443,8 @@ void Debugger_DisplayList::FillDisplayListCmd(std::map<int,DListLine>& data, u32
 
 void Debugger_DisplayList::Update()
 {
+	if(!isVisible())
+		return;
 	UpdateRenderBuffer();
 	UpdateRenderBufferList();
 	UpdateDisplayList();
@@ -1220,6 +1477,11 @@ void Debugger_DisplayList::on_stopBtn_clicked()
 }
 
 void Debugger_DisplayList::UpdateRenderBuffer()
+{
+	emit updateRenderBuffer_();
+}
+
+void Debugger_DisplayList::UpdateRenderBufferGUI()
 {
 	EmuThread_LockDraw(true);
 
@@ -1287,7 +1549,7 @@ void Debugger_DisplayList::on_gotoPCBtn_clicked()
 
 	for(int i = 0; i < ui->displayListData->topLevelItemCount(); i++)
 	{
-		if(ui->displayListData->topLevelItem(i)->data(0, Qt::UserRole).toInt() == currentPC)
+		if((u32)ui->displayListData->topLevelItem(i)->data(0, Qt::UserRole).toInt() == currentPC)
 		{
 			ui->displayListData->setCurrentItem(ui->displayListData->topLevelItem(i));
 		}
@@ -1302,7 +1564,7 @@ void Debugger_DisplayList::on_texturesList_itemDoubleClicked(QTreeWidgetItem *it
 void Debugger_DisplayList::on_comboBox_currentIndexChanged(int index)
 {
 	currentRenderFrameDisplay = index;
-	UpdateRenderBuffer();
+	UpdateRenderBufferGUI();
 }
 
 void Debugger_DisplayList::UpdateRenderBufferList()
@@ -1324,7 +1586,7 @@ void Debugger_DisplayList::UpdateRenderBufferListGUI()
 
 	std::vector<FramebufferInfo> fboList = gpu->GetFramebufferList();
 
-	for(int i = 0; i < fboList.size(); i++)
+	for(size_t i = 0; i < fboList.size(); i++)
 	{
 		QTreeWidgetItem* item = new QTreeWidgetItem();
 		item->setText(0,QString("%1").arg(fboList[i].fb_address,8,16,QChar('0')));
@@ -1344,7 +1606,7 @@ void Debugger_DisplayList::on_fboList_itemClicked(QTreeWidgetItem *item, int col
 	u64 addr = item->data(0,Qt::UserRole).toULongLong();
 	FBO* fbo = (FBO*)addr;
 	currentTextureDisplay = fbo;
-	UpdateRenderBuffer();
+	UpdateRenderBufferGUI();
 }
 
 void Debugger_DisplayList::on_nextDLBtn_clicked()
@@ -1357,7 +1619,7 @@ void Debugger_DisplayList::setCurrentFBO(u32 addr)
 {
 	for(int i = 0; i < ui->fboList->topLevelItemCount(); i++)
 	{
-		if(ui->fboList->topLevelItem(i)->data(0,Qt::UserRole+1).toInt() == addr)
+		if((u32)ui->fboList->topLevelItem(i)->data(0,Qt::UserRole+1).toInt() == addr)
 		{
 			for(int j = 0; j < ui->fboList->colorCount(); j++)
 				ui->fboList->topLevelItem(i)->setTextColor(j,Qt::green);
@@ -1402,7 +1664,7 @@ void Debugger_DisplayList::UpdateVertexInfo()
 
 	VertexDecoder vtcDec;
 	vtcDec.SetVertexType(state.vertType);
-	u8 tmp[20*vtcDec.GetDecVtxFmt().stride];
+	u8* tmp = new u8[20*vtcDec.GetDecVtxFmt().stride];
 	vtcDec.DecodeVerts(tmp,Memory::GetPointer(vaddr),0,0,0,0,19);
 	VertexReader vtxRead(tmp,vtcDec.GetDecVtxFmt(),state.vertType);
 
@@ -1454,6 +1716,7 @@ void Debugger_DisplayList::UpdateVertexInfo()
 		item->setText(2,QString("X: %1, Y: %2, Z: %3").arg(pos[0]).arg(pos[1]).arg(pos[2]));
 		itemTop->addChild(item);
 	}
+	delete [] tmp;
 	for(int i = 0; i < ui->vertexData->columnCount(); i++)
 	{
 		ui->vertexData->resizeColumnToContents(i);
@@ -1517,4 +1780,50 @@ void Debugger_DisplayList::on_nextIdx_clicked()
 void Debugger_DisplayList::on_indexList_itemClicked(QTreeWidgetItem *item, int column)
 {
 	UpdateIndexInfo();
+}
+
+void Debugger_DisplayList::on_displayListData_customContextMenuRequested(const QPoint &pos)
+{
+	QTreeWidgetItem* item = ui->displayListData->itemAt(pos);
+	if(!item)
+		return;
+	displayListDataSelected = item;
+
+	QMenu menu(this);
+
+	QAction *runToHere = new QAction(tr("Run to here"), this);
+	connect(runToHere, SIGNAL(triggered()), this, SLOT(RunToDLPC()));
+	menu.addAction(runToHere);
+
+	menu.exec( ui->displayListData->mapToGlobal(pos));
+}
+
+void Debugger_DisplayList::RunToDLPC()
+{
+	u32 addr = displayListDataSelected->text(0).toUInt(0,16);
+	host->SetGPUStep(true, 2, addr);
+	host->NextGPUStep();
+}
+
+void Debugger_DisplayList::on_texturesList_customContextMenuRequested(const QPoint &pos)
+{
+	QTreeWidgetItem* item = ui->texturesList->itemAt(pos);
+	if(!item)
+		return;
+	textureDataSelected = item;
+
+	QMenu menu(this);
+
+	QAction *runToDraw = new QAction(tr("Run to draw using this texture"), this);
+	connect(runToDraw, SIGNAL(triggered()), this, SLOT(RunToDrawTex()));
+	menu.addAction(runToDraw);
+
+	menu.exec( ui->texturesList->mapToGlobal(pos));
+}
+
+void Debugger_DisplayList::RunToDrawTex()
+{
+	u32 addr = textureDataSelected->text(0).toUInt(0,16);
+	host->SetGPUStep(true, 3, addr);
+	host->NextGPUStep();
 }

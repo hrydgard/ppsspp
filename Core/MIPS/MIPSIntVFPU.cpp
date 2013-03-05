@@ -36,6 +36,7 @@
 // sv.s
 
 #include "../Core.h"
+#include "Core/Reporting.h"
 
 #include <cmath>
 
@@ -84,7 +85,34 @@
 
 #ifdef __APPLE__
 using std::isnan;
+using std::isinf;
 #endif
+#ifdef _MSC_VER
+#define isnan _isnan
+#define isinf(x) (!_finite(x) && !_isnan(x))
+#endif
+#ifdef ANDROID
+using __captured::isinf;
+#endif
+
+// Preserves NaN in first param, takes sign of equal second param.
+// Technically, std::max may do this but it's undefined.
+inline float nanmax(float f, float cst)
+{
+	return f <= cst ? cst : f;
+}
+
+// Preserves NaN in first param, takes sign of equal second param.
+inline float nanmin(float f, float cst)
+{
+	return f >= cst ? cst : f;
+}
+
+// Preserves NaN in first param, takes sign of equal value in others.
+inline float nanclamp(float f, float lower, float upper)
+{
+	return nanmin(nanmax(f, lower), upper);
+}
 
 void ApplyPrefixST(float *v, u32 data, VectorSize size)
 {
@@ -115,6 +143,7 @@ void ApplyPrefixST(float *v, u32 data, VectorSize size)
 			if (regnum >= n)
 			{
 				ERROR_LOG(CPU, "Invalid VFPU swizzle: %08x / %d", data, size);
+				Reporting::ReportMessage("Invalid VFPU swizzle: %08x / %d", data, size);
 				regnum = 0;
 			}
 
@@ -145,27 +174,22 @@ inline void ApplySwizzleT(float *v, VectorSize size)
 void ApplyPrefixD(float *v, VectorSize size, bool onlyWriteMask = false)
 {
 	u32 data = currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX];
-	if (!data)
+	if (!data || onlyWriteMask)
 		return;
 	int n = GetNumVectorElements(size);
-	bool writeMask[4];
 	for (int i = 0; i < n; i++)
 	{
-		int mask = (data >> (8 + i)) & 1;
-		writeMask[i] = mask ? true : false;
-		if (!onlyWriteMask) {
-			int sat = (data >> (i * 2)) & 3;
-			if (sat == 1)
-			{
-				if (v[i] > 1.0f) v[i] = 1.0f;
-				// This includes -0.0f -> +0.0f.
-				if (v[i] <= 0.0f) v[i] = 0.0f;
-			}
-			else if (sat == 3)
-			{
-				if (v[i] > 1.0f)  v[i] = 1.0f;
-				if (v[i] < -1.0f) v[i] = -1.0f;
-			}
+		int sat = (data >> (i * 2)) & 3;
+		if (sat == 1)
+		{
+			if (v[i] > 1.0f) v[i] = 1.0f;
+			// This includes -0.0f -> +0.0f.
+			if (v[i] <= 0.0f) v[i] = 0.0f;
+		}
+		else if (sat == 3)
+		{
+			if (v[i] > 1.0f)  v[i] = 1.0f;
+			if (v[i] < -1.0f) v[i] = -1.0f;
 		}
 	}
 }
@@ -491,15 +515,16 @@ namespace MIPSInt
 			case 0: d[i] = s[i]; break; //vmov
 			case 1: d[i] = fabsf(s[i]); break; //vabs
 			case 2: d[i] = -s[i]; break; //vneg
-			case 4: if (s[i] < 0) d[i] = 0; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;    // vsat0
+			// vsat0 changes -0.0 to +0.0.
+			case 4: if (s[i] <= 0) d[i] = 0; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;    // vsat0
 			case 5: if (s[i] < -1.0f) d[i] = -1.0f; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;  // vsat1
 			case 16: d[i] = 1.0f / s[i]; break; //vrcp
 			case 17: d[i] = 1.0f / sqrtf(s[i]); break; //vrsq
 			case 18: d[i] = sinf((float)M_PI_2 * s[i]); break; //vsin
 			case 19: d[i] = cosf((float)M_PI_2 * s[i]); break; //vcos
-			case 20: d[i] = powf(2.0f, s[i]); break;
-			case 21: d[i] = logf(s[i])/log(2.0f); break;
-			case 22: d[i] = sqrtf(s[i]); break; //vsqrt
+			case 20: d[i] = powf(2.0f, s[i]); break; //vexp2
+			case 21: d[i] = logf(s[i])/log(2.0f); break; //vlog2
+			case 22: d[i] = fabsf(sqrtf(s[i])); break; //vsqrt
 			case 23: d[i] = asinf(s[i] * (float)M_2_PI); break; //vasin
 			case 24: d[i] = -1.0f / s[i]; break; // vnrcp
 			case 26: d[i] = -sinf((float)M_PI_2 * s[i]); break; // vnsin
@@ -524,7 +549,8 @@ namespace MIPSInt
 		ReadVector(s, sz, vs);
 		for (int i = 0; i < GetNumVectorElements(sz); i++)
 		{
-			d[i] = 1.0f - s[i];
+			// Always positive NaN.
+			d[i] = isnan(s[i]) ? fabsf(s[i]) : 1.0f - s[i];
 		}
 		ApplyPrefixD(d, sz);
 		WriteVector(d, sz, vd);
@@ -541,13 +567,13 @@ namespace MIPSInt
 		ReadVector(s, sz, vs);
 		int n = GetNumVectorElements(sz);
 		float x = s[0];
-		d[0] = std::min(std::max(0.0f, 1.0f - x), 1.0f);
-		d[1] = std::min(std::max(0.0f, x), 1.0f);
+		d[0] = nanclamp(1.0f - x, 0.0f, 1.0f);
+		d[1] = nanclamp(x, 0.0f, 1.0f);
 		VectorSize outSize = V_Pair;
 		if (n > 1) {
 			float y = s[1];
-			d[2] = std::min(std::max(0.0f, 1.0f - y), 1.0f);
-			d[3] = std::min(std::max(0.0f, y), 1.0f);
+			d[2] = nanclamp(1.0f - y, 0.0f, 1.0f);
+			d[3] = nanclamp(y, 0.0f, 1.0f);
 			outSize = V_Quad;
 		} 
 		WriteVector(d, outSize, vd);
@@ -621,8 +647,8 @@ namespace MIPSInt
 		int imm = (op >> 16) & 0x1f;
 		float mult = 1.0f/(float)(1 << imm);
 		VectorSize sz = GetVecSize(op);
-		ReadVector((float*)&s, sz, vs);
-		ApplySwizzleS((float*)&s, sz); //TODO: and the mask to kill everything but swizzle
+		ReadVector((float*)&s[0], sz, vs);
+		ApplySwizzleS((float*)&s[0], sz); //TODO: and the mask to kill everything but swizzle
 		for (int i = 0; i < GetNumVectorElements(sz); i++)
 		{
 			d[i] = (float)s[i] * mult;
@@ -643,6 +669,7 @@ namespace MIPSInt
 	};
 
 	// magic code from ryg: http://fgiesen.wordpress.com/2012/03/28/half-to-float-done-quic/
+	// See also SSE2 version: https://gist.github.com/rygorous/2144712
 	static FP32 half_to_float_fast5(FP16 h)
 	{
 		static const FP32 magic = { (127 + (127 - 15)) << 23 };
@@ -663,6 +690,42 @@ namespace MIPSInt
 		return fp.f;
 	}
 
+	// More magic code: https://gist.github.com/rygorous/2156668
+	static FP16 float_to_half_fast3(FP32 f)
+	{
+		static const FP32 f32infty = { 255 << 23 };
+		static const FP32 f16infty = { 31 << 23 };
+		static const FP32 magic = { 15 << 23 };
+		static const u32 sign_mask = 0x80000000u;
+		static const u32 round_mask = ~0xfffu;
+		FP16 o = { 0 };
+
+		u32 sign = f.u & sign_mask;
+		f.u ^= sign;
+
+		if (f.u >= f32infty.u) // Inf or NaN (all exponent bits set)
+			 o.u = (f.u > f32infty.u) ? 0x7e00 : 0x7c00; // NaN->qNaN and Inf->Inf
+		else // (De)normalized number or zero
+		{
+			f.u &= round_mask;
+			f.f *= magic.f;
+			f.u -= round_mask;
+			if (f.u > f16infty.u) f.u = f16infty.u; // Clamp to signed infinity if overflowed
+
+			 o.u = f.u >> 13; // Take the bits!
+		}
+
+		o.u |= sign >> 16;
+		return o;
+	}
+
+	static u16 ShrinkToHalf(float full) {
+		FP32 fp32;
+		fp32.f = full;
+		FP16 fp = float_to_half_fast3(fp32);
+		return fp.u;
+	}
+
 	void Int_Vh2f(u32 op)
 	{
 		u32 s[4];
@@ -670,7 +733,8 @@ namespace MIPSInt
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
-		ReadVector((float*)&s, sz, vs);
+		ReadVector((float*)&s[0], sz, vs);
+		ApplySwizzleS((float*)&s[0], sz);
 		
 		VectorSize outsize = V_Pair;
 		switch (sz) {
@@ -691,35 +755,40 @@ namespace MIPSInt
 			_dbg_assert_msg_(CPU, 0, "Trying to interpret Int_Vh2f instruction that can't be interpreted");
 			break;
 		}
-		ApplyPrefixD(d, sz); //TODO: and the mask to kill everything but mask
-		WriteVector(d, sz, vd);
+		ApplyPrefixD(d, outsize);
+		WriteVector(d, outsize, vd);
 		PC += 4;
 		EatPrefixes();
 	}
 
 	void Int_Vf2h(u32 op)
 	{
-		_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
-		// See http://stackoverflow.com/questions/1659440/32-bit-to-16-bit-floating-point-conversion
-
-		/*
-		int s[4];
-		float d[4];
+		float s[4];
+		u32 d[4];
 		int vd = _VD;
 		int vs = _VS;
-		int imm = (op >> 16) & 0x1f;
-		float mult = 1.0f/(float)(1 << imm);
 		VectorSize sz = GetVecSize(op);
-		ReadVector((float*)&s, sz, vs);
-		ApplySwizzleS((float*)&s, sz); //TODO: and the mask to kill everything but swizzle
+		ReadVector(s, sz, vs);
+		ApplySwizzleS(s, sz);
 		
-		for (int i = 0; i < GetNumVectorElements(sz); i++)
-		{
-			d[i] = (float)s[i] * mult;
+		VectorSize outsize = V_Single;
+		switch (sz) {
+		case V_Pair:
+			outsize = V_Single;
+			d[0] = ShrinkToHalf(s[0]) | ((u32)ShrinkToHalf(s[1]) << 16);
+			break;
+		case V_Quad:
+			outsize = V_Pair;
+			d[0] = ShrinkToHalf(s[0]) | ((u32)ShrinkToHalf(s[1]) << 16);
+			d[1] = ShrinkToHalf(s[2]) | ((u32)ShrinkToHalf(s[3]) << 16);
+			break;
+		case V_Single:
+		case V_Triple:
+			_dbg_assert_msg_(CPU, 0, "Trying to interpret Int_Vf2h instruction that can't be interpreted");
+			break;
 		}
-		ApplyPrefixD(d, sz); //TODO: and the mask to kill everything but mask
-		WriteVector(d, sz, vd);
-		*/
+		ApplyPrefixD((float*)&d[0], outsize);
+		WriteVector((float*)&d[0], outsize, vd);
 		PC += 4;
 		EatPrefixes();
 	}
@@ -727,7 +796,7 @@ namespace MIPSInt
 	void Int_Vx2i(u32 op)
 	{
 		int s[4];
-    u32 d[4] = {0};
+		u32 d[4] = {0};
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
@@ -859,9 +928,10 @@ namespace MIPSInt
 			break;
 		default:
 			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			oz = V_Single;
 			break;
 		}
-		ApplyPrefixD((float*)d,oz,true);
+		ApplyPrefixD((float*)d,oz);
 		WriteVector((float*)d,oz,vd);
 		PC += 4;
 		EatPrefixes();
@@ -936,8 +1006,7 @@ namespace MIPSInt
 		}
 		d = sum;
 		ApplyPrefixD(&d,V_Single);
-		// TODO: Shouldn't this respect the mask?
-		V(vd) = d;
+		WriteVector(&d, V_Single, vd);
 		PC += 4;
 		EatPrefixes();
 	}
@@ -960,7 +1029,7 @@ namespace MIPSInt
 		{
 			sum += (i == n - 1) ? t[i] : s[i]*t[i];
 		}
-		d = sum;
+		d = isnan(sum) ? fabsf(sum) : sum;
 		ApplyPrefixD(&d,V_Single);
 		V(vd) = d;
 		PC += 4;
@@ -1191,7 +1260,7 @@ namespace MIPSInt
 		float scale = V(vt);
 		if (currentMIPS->vfpuCtrl[VFPU_CTRL_TPREFIX] != 0xE4)
 		{
-			WARN_LOG(CPU, "Broken T prefix used with VScl: %08x / %08x", currentMIPS->vfpuCtrl[VFPU_CTRL_TPREFIX], op);
+			// WARN_LOG(CPU, "Broken T prefix used with VScl: %08x / %08x", currentMIPS->vfpuCtrl[VFPU_CTRL_TPREFIX], op);
 			ApplySwizzleT(&scale, V_Single);
 		}
 		int n = GetNumVectorElements(sz);
@@ -1211,6 +1280,7 @@ namespace MIPSInt
 		int seed = VI(vd);
 		currentMIPS->rng.Init(seed);
 		PC += 4;
+		EatPrefixes();
 	}
 
 	void Int_VrndX(u32 op)
@@ -1457,10 +1527,6 @@ namespace MIPSInt
 		VC_NS
 	};
 
-#ifdef _MSC_VER
-#define isnan _isnan
-#endif
-
 	void Int_Vcmp(u32 op)
 	{
 		int vs = _VS;
@@ -1496,16 +1562,18 @@ namespace MIPSInt
 
 			case VC_EZ: c = s[i] == 0.0f || s[i] == -0.0f; break;
 			case VC_EN: c = isnan(s[i]); break;
-			case VC_EI: c = 0; break;
-			case VC_ES: c = (s[i] != s[i]) || (s[i] == std::numeric_limits<float>::infinity()); break;   // Tekken Dark Resurrection
+			case VC_EI: c = isinf(s[i]); break;
+			case VC_ES: c = isnan(s[i]) || isinf(s[i]); break;   // Tekken Dark Resurrection
 
 			case VC_NZ: c = s[i] != 0; break;
-			case VC_NN: c = s[i] != 0; break;
-			case VC_NI: c = s[i] != 0; break;
-			case VC_NS: c = s[i] != 0; break;
+			case VC_NN: c = !isnan(s[i]); break;
+			case VC_NI: c = !isinf(s[i]); break;
+			case VC_NS: c = !isnan(s[i]) && !isinf(s[i]); break;
+
 			default:
 				_dbg_assert_msg_(CPU,0,"Unsupported vcmp condition code %d", cond);
 				PC += 4;
+				EatPrefixes();
 				return;
 			}
 			cc |= (c<<i);
@@ -1539,11 +1607,11 @@ namespace MIPSInt
 		// negative NAN seems different? TODO
 		switch ((op >> 23) & 3) {
 		case 2: // vmin
-			for (int i = 0; i < GetNumVectorElements(sz); i++)
+			for (int i = 0; i < numElements; i++)
 				d[i] = isnan(t[i]) ? s[i] : (isnan(s[i]) ? t[i] : std::min(s[i], t[i]));
 			break;
 		case 3: // vmax
-			for (int i = 0; i < GetNumVectorElements(sz); i++)
+			for (int i = 0; i < numElements; i++)
 				d[i] = isnan(t[i]) ? t[i] : (isnan(s[i]) ? s[i] : std::max(s[i], t[i]));
 			break;
 		default:
@@ -1756,22 +1824,26 @@ bad:
 	void Int_Vlgb(u32 op)
 	{
 		// S & D valid
+		Reporting::ReportMessage("vlgb not implemented");
 		_dbg_assert_msg_(CPU,0,"vlgb not implemented");
 	}
 
 	void Int_Vwbn(u32 op)
 	{
 		// S & D valid
+		Reporting::ReportMessage("vwbn not implemented");
 		_dbg_assert_msg_(CPU,0,"vwbn not implemented");
 	}
 
 	void Int_Vsbn(u32 op)
 	{
+		Reporting::ReportMessage("vsbn not implemented");
 		_dbg_assert_msg_(CPU,0,"vsbn not implemented");
 	}
 
 	void Int_Vsbz(u32 op)
 	{
+		Reporting::ReportMessage("vsbz not implemented");
 		_dbg_assert_msg_(CPU,0,"vsbz not implemented");
 	}
 }

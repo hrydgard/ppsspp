@@ -54,6 +54,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/native/android/app-android.cpp \
   $(SRC)/ext/disarm.cpp \
   $(SRC)/ext/libkirk/AES.c \
+  $(SRC)/ext/libkirk/amctrl.c \
   $(SRC)/ext/libkirk/SHA1.c \
   $(SRC)/ext/libkirk/bn.c \
   $(SRC)/ext/libkirk/ec.c \
@@ -104,6 +105,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/PSPLoaders.cpp \
   $(SRC)/Core/MemMap.cpp \
   $(SRC)/Core/MemMapFunctions.cpp \
+  $(SRC)/Core/Reporting.cpp \
   $(SRC)/Core/SaveState.cpp \
   $(SRC)/Core/System.cpp \
   $(SRC)/Core/PSPMixer.cpp \
@@ -115,6 +117,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/Dialog/PSPPlaceholderDialog.cpp \
   $(SRC)/Core/Dialog/PSPSaveDialog.cpp \
   $(SRC)/Core/Dialog/SavedataParam.cpp \
+  $(SRC)/Core/Font/PGF.cpp \
   $(SRC)/Core/HLE/HLETables.cpp \
   $(SRC)/Core/HLE/HLE.cpp \
   $(SRC)/Core/HLE/sceAtrac.cpp \
@@ -157,6 +160,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/HLE/sceUsb.cpp \
   $(SRC)/Core/HLE/sceUtility.cpp \
   $(SRC)/Core/HLE/sceVaudio.cpp \
+  $(SRC)/Core/HLE/scePspNpDrm_user.cpp \
   $(SRC)/Core/FileSystems/BlockDevices.cpp \
   $(SRC)/Core/FileSystems/ISOFileSystem.cpp \
   $(SRC)/Core/FileSystems/MetaFileSystem.cpp \
@@ -184,10 +188,14 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/MIPS/ARM/ArmRegCacheFPU.cpp \
   $(SRC)/Core/Util/BlockAllocator.cpp \
   $(SRC)/Core/Util/ppge_atlas.cpp \
-  $(SRC)/Core/Util/PPGeDraw.cpp
+  $(SRC)/Core/Util/PPGeDraw.cpp \
+  $(SRC)/git-version.cpp
 
 
 include $(BUILD_SHARED_LIBRARY)
 
 $(call import-module,libzip)
 $(call import-module,native)
+
+jni/$(SRC)/git-version.cpp:
+	./git-version-gen.sh

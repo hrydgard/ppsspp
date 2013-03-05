@@ -38,6 +38,37 @@ enum PspDisplayPixelFormat {
 	PSP_DISPLAY_PIXEL_FORMAT_8888 = 3,
 };
 
+enum {
+	FB_USAGE_DISPLAYED_FRAMEBUFFER = 1,
+	FB_USAGE_RENDERTARGET = 2,
+	FB_USAGE_TEXTURE = 4,
+};
+
+
+struct VirtualFramebuffer {
+	int last_frame_used;
+
+	u32 fb_address;
+	u32 z_address;
+	int fb_stride;
+	int z_stride;
+
+	// There's also a top left of the drawing region, but meh...
+	u16 width;
+	u16 height;
+	u16 renderWidth;
+	u16 renderHeight;
+
+	u16 usageFlags;
+
+	int format;  // virtual, right now they are all RGBA8888
+	FBOColorDepth colorDepth;
+	FBO *fbo;
+
+	bool dirtyAfterDisplay;
+};
+
+
 class FramebufferManager {
 public:
 	FramebufferManager();
@@ -47,25 +78,6 @@ public:
 		textureCache_ = tc;
 	}
 
-	struct VirtualFramebuffer {
-		int last_frame_used;
-
-		u32 fb_address;
-		u32 z_address;
-		int fb_stride;
-		int z_stride;
-
-		// There's also a top left of the drawing region, but meh...
-		u16 width;
-		u16 height;
-		u16 renderWidth;
-		u16 renderHeight;
-
-		int format;  // virtual, right now they are all RGBA8888
-		FBOColorDepth colorDepth;
-		FBO *fbo;
-	};
-
 	void DrawPixels(const u8 *framebuf, int pixelFormat, int linesize);
 	void DrawActiveTexture(float x, float y, float w, float h, bool flip = false);
 
@@ -73,6 +85,7 @@ public:
 	void DecimateFBOs();
 
 	void BeginFrame();
+	void EndFrame();
 	void Resized();
 	void CopyDisplayToOutput();
 	void SetRenderFrameBuffer();  // Uses parameters computed from gstate

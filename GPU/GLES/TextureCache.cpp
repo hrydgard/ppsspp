@@ -18,11 +18,12 @@
 #include <map>
 #include <algorithm>
 
-#include "../../Core/MemMap.h"
-#include "../ge_constants.h"
-#include "../GPUState.h"
-#include "TextureCache.h"
-#include "../Core/Config.h"
+#include "Core/MemMap.h"
+#include "GPU/ge_constants.h"
+#include "GPU/GPUState.h"
+#include "GPU/GLES/TextureCache.h"
+#include "GPU/GLES/Framebuffer.h"
+#include "Core/Config.h"
 
 // If a texture hasn't been seen for this many frames, get rid of it.
 #define TEXTURE_KILL_AGE 200
@@ -79,7 +80,7 @@ void TextureCache::Clear(bool delete_them) {
 // Removes old textures.
 void TextureCache::Decimate() {
 	glBindTexture(GL_TEXTURE_2D, 0);
-	for (TexCache::iterator iter = cache.begin(), end = cache.end(); iter != end; ) {
+	for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ) {
 		if (iter->second.lastFrame + TEXTURE_KILL_AGE < gpuStats.numFrames) {
 			glDeleteTextures(1, &iter->second.texture);
 			cache.erase(iter++);
@@ -131,21 +132,21 @@ TextureCache::TexCacheEntry *TextureCache::GetEntryAt(u32 texaddr) {
 		return 0;
 }
 
-void TextureCache::NotifyFramebuffer(u32 address, FBO *fbo) {
+void TextureCache::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer) {
 	// Must be in VRAM so | 0x04000000 it is.
 	TexCacheEntry *entry = GetEntryAt(address | 0x04000000);
 	if (entry) {
 		DEBUG_LOG(HLE, "Render to texture detected at %08x!", address);
-		if (!entry->fbo)
-			entry->fbo = fbo;
+		if (!entry->framebuffer)
+			entry->framebuffer = framebuffer;
 		// TODO: Delete the original non-fbo texture too.
 	}
 }
 
-void TextureCache::NotifyFramebufferDestroyed(u32 address, FBO *fbo) {
+void TextureCache::NotifyFramebufferDestroyed(u32 address, VirtualFramebuffer *fbo) {
 	TexCacheEntry *entry = GetEntryAt(address | 0x04000000);
-	if (entry && entry->fbo) {
-		entry->fbo = 0;
+	if (entry && entry->framebuffer) {
+		entry->framebuffer = 0;
 	}
 }
 
@@ -676,7 +677,6 @@ void TextureCache::SetTexture() {
 	}
 	bool hasClut = formatUsesClut[format];
 
-	const u8 *texptr = Memory::GetPointer(texaddr);
 	u64 cachekey = texaddr;
 
 	u32 clutformat, clutaddr;
@@ -684,6 +684,8 @@ void TextureCache::SetTexture() {
 		clutformat = gstate.clutformat & 3;
 		clutaddr = GetClutAddr(clutformat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2);
 		cachekey |= (u64)clutaddr << 32;
+	} else {
+		clutaddr = 0;
 	}
 
 	int maxLevel = ((gstate.texmode >> 16) & 0x7);
@@ -693,23 +695,29 @@ void TextureCache::SetTexture() {
 	TexCache::iterator iter = cache.find(cachekey);
 	TexCacheEntry *entry = NULL;
 	gstate_c.flipTexture = false;
+	gstate_c.skipDrawReason &= ~SKIPDRAW_BAD_FB_TEXTURE;
 
 	if (iter != cache.end()) {
 		entry = &iter->second;
 		// Check for FBO - slow!
-		if (entry->fbo) {
-			int w = 1 << (gstate.texsize[0] & 0xf);
-			int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
-			
-			fbo_bind_color_as_texture(entry->fbo, 0);
+		if (entry->framebuffer) {
+			entry->framebuffer->usageFlags |= FB_USAGE_TEXTURE;
+			if (entry->framebuffer->fbo)
+			{
+				fbo_bind_color_as_texture(entry->framebuffer->fbo, 0);
+			}
+			else {
+				glBindTexture(GL_TEXTURE_2D, 0);
+				gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
+			}
+
 			UpdateSamplingParams(*entry, false);
 
-			int fbow, fboh;
-			fbo_get_dimensions(entry->fbo, &fbow, &fboh);
-
 			// This isn't right.
-			gstate_c.curTextureWidth = w; //w;  //RoundUpToPowerOf2(fbow);
-			gstate_c.curTextureHeight = h;  // RoundUpToPowerOf2(fboh);
+			gstate_c.curTextureWidth = entry->framebuffer->width;
+			gstate_c.curTextureHeight = entry->framebuffer->height;
+			int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
+			gstate_c.actualTextureHeight = h;
 			gstate_c.flipTexture = true;
 			entry->lastFrame = gpuStats.numFrames;
 			return;
@@ -725,7 +733,7 @@ void TextureCache::SetTexture() {
 			entry->hash != texhash ||
 			entry->format != format ||
 			entry->maxLevel != maxLevel ||
-			((format >= GE_TFMT_CLUT4 && format <= GE_TFMT_CLUT32) &&
+			(hasClut &&
 			(entry->clutformat != clutformat ||
 				entry->clutaddr != clutaddr ||
 				entry->cluthash != Memory::Read_U32(entry->clutaddr)))) 
@@ -805,14 +813,14 @@ void TextureCache::SetTexture() {
 	entry->hash = texhash;
 	entry->format = format;
 	entry->lastFrame = gpuStats.numFrames;
-	entry->fbo = 0;
+	entry->framebuffer = 0;
 	entry->maxLevel = maxLevel;
 	entry->lodBias = 0.0f;
 
 
-	if (format >= GE_TFMT_CLUT4 && format <= GE_TFMT_CLUT32) {
+	if (hasClut) {
 		entry->clutformat = clutformat;
-		entry->clutaddr = GetClutAddr(clutformat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2);
+		entry->clutaddr = clutaddr;
 		entry->cluthash = Memory::Read_U32(entry->clutaddr);
 	} else {
 		entry->clutaddr = 0;
@@ -1151,14 +1159,8 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 	}
 
 	u32 clutformat = gstate.clutformat & 3;
-	u32 clutaddr = GetClutAddr(clutformat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2);
 
 	const u8 *texptr = Memory::GetPointer(texaddr);
-	u32 texhash = texptr ? MiniHash((const u32*)texptr) : 0;
-
-	u64 cachekey = texaddr ^ texhash;
-	if (formatUsesClut[format])
-		cachekey |= (u64) clutaddr << 32;
 
 	int bufw = gstate.texbufwidth[0] & 0x3ff;
 
@@ -1172,8 +1174,6 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 	void *finalBuf = NULL;
 
 	// TODO: Look into using BGRA for 32-bit textures when the GL_EXT_texture_format_BGRA8888 extension is available, as it's faster than RGBA on some chips.
-
-	// TODO: Actually decode the mipmaps.
 
 	switch (format)
 	{

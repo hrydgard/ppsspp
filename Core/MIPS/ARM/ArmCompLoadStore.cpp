@@ -52,11 +52,15 @@
 #define _POS	((op>>6 ) & 0x1F)
 #define _SIZE ((op>>11 ) & 0x1F)
 
-#define DISABLE Comp_Generic(op); return;
+// All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
+// Currently known non working ones should have DISABLE.
+
+// #define CONDITIONAL_DISABLE { Comp_Generic(op); return; }
+#define CONDITIONAL_DISABLE ;
+#define DISABLE { Comp_Generic(op); return; }
 
 namespace MIPSComp
 {
-	
 	void Jit::SetR0ToEffectiveAddress(int rs, s16 offset) {
 		Operand2 op2;
 		if (offset) {
@@ -84,7 +88,9 @@ namespace MIPSComp
 	
 	void Jit::Comp_ITypeMem(u32 op)
 	{
+		CONDITIONAL_DISABLE;
 		int offset = (signed short)(op&0xFFFF);
+		bool shifter = false, load = false;
 		int rt = _RT;
 		int rs = _RS;
 		int o = op>>26;
@@ -92,103 +98,105 @@ namespace MIPSComp
 			// Don't load anything into $zr
 			return;
 		}
+
+		// Optimisation: Combine to single unaligned load/store
+		switch(o)
+		{
+		case 34: //lwl
+		case 38: //lwr
+			load = true;
+		case 42: //swl
+		case 46: //swr
+		{
+			int left = (o == 34 || o == 42) ? 1 : -1;
+			u32 nextOp = Memory::Read_Instruction(js.compilerPC + 4);
+			// Find a matching shift in opposite direction with opposite offset.
+			u32 desiredOp = ((op + left* (4 << 26)) & 0xFFFF0000) + (offset - left*3);
+			if (!js.inDelaySlot && nextOp == desiredOp)
+			{
+				EatInstruction(nextOp);
+				nextOp = ((load ? 35 : 43) << 26) | (nextOp & 0x3FFFFFF); //lw, sw
+				Comp_ITypeMem(nextOp);
+				return;
+			}
+			shifter = true;
+		}
+		default:
+			break;
+		}
+
 		switch (o)
 		{
-		case 37: //R(rt) = ReadMem16(addr); break; //lhu
-			Comp_Generic(op);
-			return;
-
-		case 35: //R(rt) = ReadMem32(addr); //lw
-		case 36: //R(rt) = ReadMem8 (addr); break; //lbu
-			if (g_Config.bFastMemory) {
-				if (gpr.IsImm(rs)) {
-					// We can compute the full address at compile time. Kickass.
-					u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
-					gpr.MapReg(rt, MAP_NOINIT | MAP_DIRTY);  // must be OK even if rs == rt since we have the value from imm already.
-					MOVI2R(R0, addr);
-				} else {
-					gpr.MapDirtyIn(rt, rs);
-					SetR0ToEffectiveAddress(rs, offset);
-				}
-				if (o == 35) {
-					LDR(gpr.R(rt), R11, R0, true, true);
-				} else if (o == 36) {
-					ADD(R0, R0, R11);   // TODO: Merge with next instruction
-					LDRB(gpr.R(rt), R0);
-				}
-			} else {
-				Comp_Generic(op);
-				return;
-			}
-			break;
-
-		case 41: //WriteMem16(addr, R(rt)); break; //sh
-			Comp_Generic(op);
-			return;
-
-		case 40: //sb
-		case 43: //WriteMem32(addr, R(rt)); break; //sw
-			if (g_Config.bFastMemory) {
-				if (gpr.IsImm(rs)) {
-					// We can compute the full address at compile time. Kickass.
-					u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
-					gpr.MapReg(rt);
-					MOVI2R(R0, addr);
-				} else {
-					gpr.MapInIn(rt, rs);
-					SetR0ToEffectiveAddress(rs, offset);
-				}
-				if (o == 43) {
-					STR(R0, gpr.R(rt), R11, true, true);
-				} else if (o == 40) {
-					ADD(R0, R0, R11);
-					STRB(R0, gpr.R(rt));
-				}
-			} else {
-				Comp_Generic(op);
-				return;
-			}
-			break;
-			// break;
-			/*
+		case 32: //lb
+		case 33: //lh
 		case 34: //lwl
-			{
-				Crash();
-				//u32 shift = (addr & 3) << 3;
-				//u32 mem = ReadMem32(addr & 0xfffffffc);
-				//R(rt) = ( u32(R(rt)) & (0x00ffffff >> shift) ) | ( mem << (24 - shift) );
-			}
-			break;
-
+		case 35: //lw
+		case 36: //lbu
+		case 37: //lhu
 		case 38: //lwr
-			{
-				Crash();
-				//u32 shift = (addr & 3) << 3;
-				//u32 mem = ReadMem32(addr & 0xfffffffc);
-
-				//R(rt) = ( u32(rt) & (0xffffff00 << (24 - shift)) ) | ( mem	>> shift );
-			}
-			break;
- 
+			load = true;
+		case 40: //sb
+		case 41: //sh
 		case 42: //swl
-			{
-				Crash();
-				//u32 shift = (addr & 3) << 3;
-				//u32 mem = ReadMem32(addr & 0xfffffffc);
-				//WriteMem32((addr & 0xfffffffc),	( ( u32(R(rt)) >>	(24 - shift) ) ) |
-				//	(	mem & (0xffffff00 << shift) ));
+		case 43: //sw
+		case 46: //swr
+			if (g_Config.bFastMemory) {
+				int shift = 0;
+				if (shifter)
+				{
+					shift = (offset & 3) << 3;
+					offset &= 0xfffffffc;
+				}
+				if (gpr.IsImm(rs)) {
+					// We can compute the full address at compile time. Kickass.
+					u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
+					// Must be OK even if rs == rt since we have the value from imm already.
+					gpr.MapReg(rt, load ? MAP_NOINIT | MAP_DIRTY : 0);
+					MOVI2R(R0, addr);
+				} else {
+					load ? gpr.MapDirtyIn(rt, rs) : gpr.MapInIn(rt, rs);
+					SetR0ToEffectiveAddress(rs, offset);
+				}
+				switch (o)
+				{
+				// Load
+				case 34:
+					AND(gpr.R(rt), gpr.R(rt), 0x00ffffff >> shift);
+					LDR(R0, R11, R0, true, true);
+					ORR(gpr.R(rt), gpr.R(rt), Operand2(24 - shift, ST_LSL, R0));
+					break;
+				case 38:
+					AND(gpr.R(rt), gpr.R(rt), 0xffffff00 << (24 - shift));
+					LDR(R0, R11, R0, true, true);
+					ORR(gpr.R(rt), gpr.R(rt), Operand2(shift, ST_LSR, R0));
+					break;
+				case 35: LDR  (gpr.R(rt), R11, R0, true, true); break;
+				case 37: LDRH (gpr.R(rt), R11, R0, true, true); break;
+				case 33: LDRSH(gpr.R(rt), R11, R0, true, true); break;
+				case 36: LDRB (gpr.R(rt), R11, R0, true, true); break;
+				case 32: LDRSB(gpr.R(rt), R11, R0, true, true); break;
+				// Store
+				case 42:
+					LSR(gpr.R(rt), gpr.R(rt), 24-shift);
+					STR(R0, gpr.R(rt), R11, true, true);
+					AND(R0, R0, 0xffffff00 << shift);
+					ORR(R0, R0, gpr.R(rt));
+					break;
+				case 46:
+					LSL(gpr.R(rt), gpr.R(rt), shift);
+					STR(R0, gpr.R(rt), R11, true, true);
+					AND(R0, R0, 0x00ffffff >> (24 - shift));
+					ORR(R0, R0, gpr.R(rt));
+					break;
+				case 43: STR  (R0, gpr.R(rt), R11, true, true); break;
+				case 41: STRH (R0, gpr.R(rt), R11, true, true); break;
+				case 40: STRB (R0, gpr.R(rt), R11, true, true); break;
+				}
+			} else {
+				Comp_Generic(op);
+				return;
 			}
 			break;
-		case 46: //swr
-			{
-				Crash();
-				//	u32 shift = (addr & 3) << 3;
-			//	u32 mem = ReadMem32(addr & 0xfffffffc);
-//
-//				WriteMem32((addr & 0xfffffffc), ( ( u32(R(rt)) << shift ) |
-//					(mem	& (0x00ffffff >> (24 - shift)) ) ) );
-			}
-			break;*/
 		default:
 			Comp_Generic(op);
 			return ;

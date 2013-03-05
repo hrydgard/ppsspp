@@ -24,6 +24,7 @@
 #include "base/timeutil.h"
 #include "base/NativeApp.h"
 #include "gfx_es2/glsl_program.h"
+#include "gfx_es2/gl_state.h"
 #include "input/input_state.h"
 #include "math/curves.h"
 #include "ui/ui.h"
@@ -83,6 +84,8 @@ static void DrawBackground(float alpha) {
 			ybase[i] = rng.F() * dp_yres;
 		}
 	}
+	glstate.depthWrite.set(GL_TRUE);
+	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	glClearColor(0.1f,0.2f,0.43f,1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 	ui_draw2d.DrawImageStretch(I_BG, 0, 0, dp_xres, dp_yres);
@@ -165,7 +168,7 @@ void MenuScreen::render() {
 
 	ui_draw2d.DrawTextShadow(UBUNTU48, "PPSSPP", dp_xres + xoff - w/2, 80, 0xFFFFFFFF, ALIGN_HCENTER | ALIGN_BOTTOM);
 	ui_draw2d.SetFontScale(0.7f, 0.7f);
-	ui_draw2d.DrawTextShadow(UBUNTU24, PPSSPP_VERSION_STR, dp_xres + xoff, 80, 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_BOTTOM);
+	ui_draw2d.DrawTextShadow(UBUNTU24, PPSSPP_GIT_VERSION, dp_xres + xoff, 80, 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_BOTTOM);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 	VLinear vlinear(dp_xres + xoff, 95, 20);
 
@@ -193,7 +196,7 @@ void MenuScreen::render() {
 	}
 
 	if (UIButton(GEN_ID, vlinear, w, "Settings", ALIGN_RIGHT)) {
-		screenManager()->switchScreen(new SettingsScreen());
+		screenManager()->push(new SettingsScreen(), 0);
 		UIReset();
 	}
 
@@ -251,15 +254,17 @@ void InGameMenuScreen::render() {
 	UICheckBox(GEN_ID, x, y += 50, "Stretch to display", ALIGN_TOPLEFT, &g_Config.bStretchToDisplay);
 
 	UICheckBox(GEN_ID, x, y += 50, "Hardware Transform", ALIGN_TOPLEFT, &g_Config.bHardwareTransform);
+	bool fs = g_Config.iFrameSkip == 1;
+	UICheckBox(GEN_ID, x, y += 50, "Frameskip", ALIGN_TOPLEFT, &fs);
+	g_Config.iFrameSkip = fs ? 1 : 0;
 
 	// TODO: Add UI for more than one slot.
-	VLinear vlinear1(x, y + 80, 20);
-	UIText(UBUNTU24, vlinear1, "Save states are experimental (and large)", 0xFFFFFFFF);
-	if (UIButton(GEN_ID, vlinear1, LARGE_BUTTON_WIDTH, "Save State", ALIGN_LEFT)) {
+	HLinear hlinear1(x, y + 80, 20);
+	if (UIButton(GEN_ID, hlinear1, LARGE_BUTTON_WIDTH, "Save State", ALIGN_LEFT)) {
 		SaveState::SaveSlot(0, 0, 0);
 		screenManager()->finishDialog(this, DR_CANCEL);
 	}
-	if (UIButton(GEN_ID, vlinear1, LARGE_BUTTON_WIDTH, "Load State", ALIGN_LEFT)) {
+	if (UIButton(GEN_ID, hlinear1, LARGE_BUTTON_WIDTH, "Load State", ALIGN_LEFT)) {
 		SaveState::LoadSlot(0, 0, 0);
 		screenManager()->finishDialog(this, DR_CANCEL);
 	}
@@ -268,13 +273,18 @@ void InGameMenuScreen::render() {
 	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH, "Continue", ALIGN_RIGHT)) {
 		screenManager()->finishDialog(this, DR_CANCEL);
 	}
+	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH, "Settings", ALIGN_RIGHT)) {
+		screenManager()->push(new SettingsScreen(), 0);
+	}
 	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH, "Return to Menu", ALIGN_RIGHT)) {
 		screenManager()->finishDialog(this, DR_OK);
 	}
-	
+
+	/*
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH*2, "Debug: Dump Next Frame", ALIGN_BOTTOMRIGHT)) {
 		gpu->DumpNextFrame();
 	}
+	*/
 
 	DrawWatermark();
 	UIEnd();
@@ -286,7 +296,7 @@ void InGameMenuScreen::render() {
 void SettingsScreen::update(InputState &input) {
 	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
 		g_Config.Save();
-		screenManager()->switchScreen(new MenuScreen());
+		screenManager()->finishDialog(this, DR_OK);
 	}
 }
 
@@ -304,10 +314,16 @@ void SettingsScreen::render() {
 	int y = 30;
 	int stride = 40;
 	UICheckBox(GEN_ID, x, y += stride, "Sound Emulation", ALIGN_TOPLEFT, &g_Config.bEnableSound);
-	UICheckBox(GEN_ID, x, y += stride, "Buffered Rendering", ALIGN_TOPLEFT, &g_Config.bBufferedRendering);
+	if (UICheckBox(GEN_ID, x, y += stride, "Buffered Rendering", ALIGN_TOPLEFT, &g_Config.bBufferedRendering)) {
+		if (gpu)
+			gpu->Resized();
+	}
 	if (g_Config.bBufferedRendering) {
 		bool doubleRes = g_Config.iWindowZoom == 2;
-		UICheckBox(GEN_ID, x + 50, y += stride, "2x Render Resolution", ALIGN_TOPLEFT, &doubleRes);
+		if (UICheckBox(GEN_ID, x + 50, y += stride, "2x Render Resolution", ALIGN_TOPLEFT, &doubleRes)) {
+			if (gpu)
+				gpu->Resized();
+		}
 		g_Config.iWindowZoom = doubleRes ? 2 : 1;
 	}
 	UICheckBox(GEN_ID, x, y += stride, "Hardware Transform", ALIGN_TOPLEFT, &g_Config.bHardwareTransform);
@@ -326,7 +342,7 @@ void SettingsScreen::render() {
 	// UICheckBox(GEN_ID, x, y += stride, "Draw raw framebuffer (for some homebrew)", ALIGN_TOPLEFT, &g_Config.bDisplayFramebuffer);
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres-10), LARGE_BUTTON_WIDTH, "Back", ALIGN_RIGHT | ALIGN_BOTTOM)) {
-		screenManager()->switchScreen(new MenuScreen());
+		screenManager()->finishDialog(this, DR_OK);
 	}
 
 	UIEnd();
@@ -434,9 +450,8 @@ void CreditsScreen::update(InputState &input_state) {
 	frames_++;
 }
 
-static const char *credits[] =
-{
-	"PPSSPP " PPSSPP_VERSION_STR,
+static const char * credits[] = {
+	"PPSSPP",
 	"",
 	"",
 	"A fast and portable PSP emulator",
@@ -496,6 +511,11 @@ static const char *credits[] =
 };
 
 void CreditsScreen::render() {
+	// TODO: This is kinda ugly, done on every frame...
+	char temp[256];
+	snprintf(temp, 256, "PPSSPP %s", PPSSPP_GIT_VERSION);
+	credits[0] = (const char *)temp;
+
 	UIShader_Prepare();
 	UIBegin();
 	DrawBackground(1.0f);

@@ -68,26 +68,15 @@ void CtrlRegisterList::scrollChanged(int action)
 
 void CtrlRegisterList::keyPressEvent(QKeyEvent *e)
 {
-	if(e->key() == Qt::Key_Down)
+	switch (e->key())
 	{
-		selection += 1;
-		e->accept();
+	case Qt::Key_Down: selection += 1; break;
+	case Qt::Key_Up: selection -= 1; break;
+	case Qt::Key_PageDown: selection += 4; break;
+	case Qt::Key_PageUp: selection -= 4; break;
+	default: QWidget::keyPressEvent(e); break;
 	}
-	else if(e->key() == Qt::Key_Up)
-	{
-		selection -= 1;
-		e->accept();
-	}
-	else if(e->key() == Qt::Key_PageDown)
-	{
-		selection += 4;
-		e->accept();
-	}
-	else if(e->key() == Qt::Key_PageUp)
-	{
-		selection -= 4;
-		e->accept();
-	}
+
 	int maxRowsDisplay =rect().bottom()/rowHeight - 1;
 	curVertOffset = std::min(std::max(curVertOffset, selection-maxRowsDisplay),selection);
 	update();
@@ -127,19 +116,17 @@ void CtrlRegisterList::mousePressEvent(QMouseEvent *e)
 	{
 		redraw();
 	}
-	e->accept();
 }
 
 void CtrlRegisterList::wheelEvent(QWheelEvent* e)
 {
 	int numDegrees = e->delta() / 8;
 	int numSteps = numDegrees / 15;
-	if (e->orientation() == Qt::Horizontal) {
-	 } else {
+	if (e->orientation() == Qt::Vertical)
+	{
 		 curVertOffset -= numSteps;
-		 e->accept();
 		 update();
-	 }
+	}
 }
 
 
@@ -175,17 +162,17 @@ void CtrlRegisterList::paintEvent(QPaintEvent *)
 
 	int width = rect().width();
 
-	QColor bgColor = QColor(0xffffff);
-	QPen nullPen=QPen(bgColor);
-	QPen currentPen=QPen(QColor(0xFF000000));
-	QPen selPen=QPen(0x808080);
+	QColor bgColor(0xffffff);
+	QPen nullPen(bgColor);
+	QPen currentPen(QColor(0xFF000000));
+	QPen selPen(0x808080);
 	QPen textPen;
 
 	QBrush lbr;
 	lbr.setColor(bgColor);
-	QBrush nullBrush=QBrush(bgColor);
-	QBrush currentBrush=QBrush(0xFFEfE8);
-	QBrush pcBrush=QBrush(0x70FF70);
+	QBrush nullBrush(bgColor);
+	QBrush currentBrush(0xFFEfE8);
+	QBrush pcBrush(0x70FF70);
 
 	int nc = cpu->GetNumCategories();
 	for (int i=0; i<nc; i++)
@@ -216,7 +203,7 @@ void CtrlRegisterList::paintEvent(QPaintEvent *)
 		else
 			painter.setPen(nullPen);
 
-		QBrush mojsBrush=QBrush(lbr.color());
+		QBrush mojsBrush(lbr.color());
 		painter.setBrush(mojsBrush);
 
 		painter.drawRect(16,rowY1,width-16-1,rowY2-rowY1);

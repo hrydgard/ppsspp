@@ -88,6 +88,11 @@ void VagDecoder::GetSamples(s16 *outSamples, int numSamples) {
 		return;
 	}
 	u8 *readp = Memory::GetPointer(read_);
+	if (!readp)
+	{
+		WARN_LOG(HLE, "Bad VAG samples address?");
+		return;
+	}
 	u8 *origp = readp;
 	for (int i = 0; i < numSamples; i++) {
 		if (curSample == 28) {
@@ -548,8 +553,8 @@ static int getExpCurveAt(int index, int duration) {
 }
 
 ADSREnvelope::ADSREnvelope()
-	: steps_(0),
-		state_(STATE_OFF),
+	: state_(STATE_OFF),
+		steps_(0),
 		height_(0) {
 	memset(this, 0, sizeof(*this));
 }

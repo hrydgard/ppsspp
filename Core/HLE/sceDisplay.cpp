@@ -80,14 +80,20 @@ static bool framebufIsLatched;
 
 static int enterVblankEvent = -1;
 static int leaveVblankEvent = -1;
+static int afterFlipEvent = -1;
 
 static int hCount;
 static int hCountTotal; //unused
 static int vCount;
 static int isVblank;
+static int numSkippedFrames;
 static bool hasSetMode;
+static int mode;
+static int width;
+static int height;
 // Don't include this in the state, time increases regardless of state.
-static double lastFrameTime;
+static double curFrameTime;
+static double nextFrameTime;
 
 std::vector<WaitVBlankInfo> vblankWaitingThreads;
 
@@ -107,10 +113,15 @@ enum {
 
 void hleEnterVblank(u64 userdata, int cyclesLate);
 void hleLeaveVblank(u64 userdata, int cyclesLate);
+void hleAfterFlip(u64 userdata, int cyclesLate);
 
 void __DisplayInit() {
 	gpuStats.reset();
 	hasSetMode = false;
+	mode = 0;
+	width = 480;
+	height = 272;
+	numSkippedFrames = 0;
 	framebufIsLatched = false;
 	framebuf.topaddr = 0x04000000;
 	framebuf.pspFramebufFormat = PSP_DISPLAY_PIXEL_FORMAT_8888;
@@ -118,13 +129,15 @@ void __DisplayInit() {
 
 	enterVblankEvent = CoreTiming::RegisterEvent("EnterVBlank", &hleEnterVblank);
 	leaveVblankEvent = CoreTiming::RegisterEvent("LeaveVBlank", &hleLeaveVblank);
+	afterFlipEvent = CoreTiming::RegisterEvent("AfterFlip", &hleAfterFlip);
 
 	CoreTiming::ScheduleEvent(msToCycles(frameMs - vblankMs), enterVblankEvent, 0);
 	isVblank = 0;
 	vCount = 0;
 	hCount = 0;
 	hCountTotal = 0;
-	lastFrameTime = 0;
+	curFrameTime = 0.0;
+	nextFrameTime = 0.0;
 
 	InitGfxState();
 }
@@ -138,6 +151,9 @@ void __DisplayDoState(PointerWrap &p) {
 	p.Do(vCount);
 	p.Do(isVblank);
 	p.Do(hasSetMode);
+	p.Do(mode);
+	p.Do(width);
+	p.Do(height);
 	WaitVBlankInfo wvi(0);
 	p.Do(vblankWaitingThreads, wvi);
 
@@ -145,6 +161,8 @@ void __DisplayDoState(PointerWrap &p) {
 	CoreTiming::RestoreRegisterEvent(enterVblankEvent, "EnterVBlank", &hleEnterVblank);
 	p.Do(leaveVblankEvent);
 	CoreTiming::RestoreRegisterEvent(leaveVblankEvent, "LeaveVBlank", &hleLeaveVblank);
+	p.Do(afterFlipEvent);
+	CoreTiming::RestoreRegisterEvent(afterFlipEvent, "AfterFlipEVent", &hleAfterFlip);
 
 	p.Do(gstate);
 	p.Do(gstate_c);
@@ -180,13 +198,13 @@ void __DisplayFireVblank() {
 	}
 }
 
-float calculateFPS()
+void CalculateFPS()
 {
 	static double highestFps = 0.0;
 	static int lastFpsFrame = 0;
 	static double lastFpsTime = 0.0;
 	static double fps = 0.0;
-        
+
 	time_update();
 	double now = time_now_d();
 
@@ -199,8 +217,147 @@ float calculateFPS()
 		lastFpsFrame = gpuStats.numFrames;	
 		lastFpsTime = now;
 	}
-	return fps;
+
+	char stats[50];
+	sprintf(stats, "VPS: %0.1f", fps);
+
+	#ifdef USING_GLES2
+		float zoom = 0.7f; /// g_Config.iWindowZoom;
+		float soff = 0.7f;
+	#else
+		float zoom = 0.5f; /// g_Config.iWindowZoom;
+		float soff = 0.5f;
+	#endif
+	PPGeBegin();
+	PPGeDrawText(stats, 476 + soff, 4 + soff, PPGE_ALIGN_RIGHT, zoom, 0xCC000000);
+	PPGeDrawText(stats, 476 + -soff, 4 -soff, PPGE_ALIGN_RIGHT, zoom, 0xCC000000);
+	PPGeDrawText(stats, 476, 4, PPGE_ALIGN_RIGHT, zoom, 0xFF30FF30);
+	PPGeEnd();
 }
+
+void DebugStats()
+{
+	gpu->UpdateStats();
+	char stats[2048];
+
+	sprintf(stats,
+		"Frames: %i\n"
+		"DL processing time: %0.2f ms\n"
+		"Kernel processing time: %0.2f ms\n"
+		"Slowest syscall: %s : %0.2f ms\n"
+		"Most active syscall: %s : %0.2f ms\n"
+		"Draw calls: %i, flushes %i\n"
+		"Cached Draw calls: %i\n"
+		"Num Tracked Vertex Arrays: %i\n"
+		"Vertices Submitted: %i\n"
+		"Cached Vertices Drawn: %i\n"
+		"Uncached Vertices Drawn: %i\n"
+		"FBOs active: %i\n"
+		"Textures active: %i, decoded: %i\n"
+		"Texture invalidations: %i\n"
+		"Vertex shaders loaded: %i\n"
+		"Fragment shaders loaded: %i\n"
+		"Combined shaders loaded: %i\n",
+		gpuStats.numFrames,
+		gpuStats.msProcessingDisplayLists * 1000.0f,
+		kernelStats.msInSyscalls * 1000.0f,
+		kernelStats.slowestSyscallName ? kernelStats.slowestSyscallName : "(none)",
+		kernelStats.slowestSyscallTime * 1000.0f,
+		kernelStats.summedSlowestSyscallName ? kernelStats.summedSlowestSyscallName : "(none)",
+		kernelStats.summedSlowestSyscallTime * 1000.0f,
+		gpuStats.numDrawCalls,
+		gpuStats.numFlushes,
+		gpuStats.numCachedDrawCalls,
+		gpuStats.numTrackedVertexArrays,
+		gpuStats.numVertsSubmitted,
+		gpuStats.numCachedVertsDrawn,
+		gpuStats.numUncachedVertsDrawn,
+		gpuStats.numFBOs,
+		gpuStats.numTextures,
+		gpuStats.numTexturesDecoded,
+		gpuStats.numTextureInvalidations,
+		gpuStats.numVertexShaders,
+		gpuStats.numFragmentShaders,
+		gpuStats.numShaders
+		);
+
+	#ifdef USING_GLES2
+		float zoom = 0.5f; /// g_Config.iWindowZoom;
+		float soff = 0.5f;
+	#else
+		float zoom = 0.3f; /// g_Config.iWindowZoom;
+		float soff = 0.3f;
+	#endif
+	PPGeBegin();
+	PPGeDrawText(stats, soff, soff, 0, zoom, 0xCC000000);
+	PPGeDrawText(stats, -soff, -soff, 0, zoom, 0xCC000000);
+	PPGeDrawText(stats, 0, 0, 0, zoom, 0xFFFFFFFF);
+	PPGeEnd();
+
+	gpuStats.resetFrame();
+	kernelStats.ResetFrame();
+}
+
+// Let's collect all the throttling and frameskipping logic here.
+void DoFrameTiming(bool &throttle, bool &skipFrame) {
+#ifdef _WIN32
+	throttle = !GetAsyncKeyState(VK_TAB);
+#else
+	throttle = true;
+#endif
+	skipFrame = false;
+	if (PSP_CoreParameter().headLess)
+		throttle = false;
+
+	// Check if the frameskipping code should be enabled. If neither throttling or frameskipping is on,
+	// we have nothing to do here.
+	bool doFrameSkip = g_Config.iFrameSkip == 1;
+	if (!throttle && !doFrameSkip)
+		return;
+	
+	time_update();
+	
+	curFrameTime = time_now_d();
+	if (nextFrameTime == 0.0)
+		nextFrameTime = time_now_d() + 1.0 / 60.0;
+	
+	if (curFrameTime > nextFrameTime && doFrameSkip) {
+		// Argh, we are falling behind! Let's skip a frame and see if we catch up.
+		skipFrame = true;
+		// INFO_LOG(HLE,"FRAMESKIP %i", numSkippedFrames);
+	}
+	
+	if (curFrameTime < nextFrameTime && throttle)
+	{
+		// If time gap is huge just jump (somebody unthrottled)
+		if (nextFrameTime - curFrameTime > 1.0 / 30.0) {
+			nextFrameTime = curFrameTime + 1.0 / 60.0;
+		} else {
+			// Wait until we've catched up.
+			while (time_now_d() < nextFrameTime) {
+				Common::SleepCurrentThread(1);
+				time_update();
+			}
+		}
+		curFrameTime = time_now_d();
+	}
+	// Advance lastFrameTime by a constant amount each frame,
+	// but don't let it get too far behind as things can get very jumpy.
+	const double maxFallBehindFrames = 5.5;
+
+	if (throttle || doFrameSkip) {
+		nextFrameTime = std::max(nextFrameTime + 1.0 / 60.0, time_now_d() - maxFallBehindFrames / 60.0);
+	} else {
+		nextFrameTime = nextFrameTime + 1.0 / 60.0;
+	}
+
+	// Max 4 skipped frames in a row - 15 fps is really the bare minimum for playability.
+	// We check for 3 here so it's 3 skipped frames, 1 non skipped, 3 skipped, etc.
+	if (numSkippedFrames >= 3) {
+		skipFrame = false;
+	}
+}
+
 
 void hleEnterVblank(u64 userdata, int cyclesLate) {
 	int vbCount = userdata;
@@ -223,7 +380,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	// Trigger VBlank interrupt handlers.
 	__TriggerInterrupt(PSP_INTR_IMMEDIATE | PSP_INTR_ONLY_IF_ENABLED | PSP_INTR_ALWAYS_RESCHED, PSP_VBLANK_INTR, PSP_INTR_SUB_ALL);
 
-	CoreTiming::ScheduleEvent(msToCycles(vblankMs) - cyclesLate, leaveVblankEvent, vbCount+1);
+	CoreTiming::ScheduleEvent(msToCycles(vblankMs) - cyclesLate, leaveVblankEvent, vbCount + 1);
 
 	// TODO: Should this be done here or in hleLeaveVblank?
 	if (framebufIsLatched) {
@@ -233,121 +390,63 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 		gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
 	}
 
-	// Draw screen overlays before blitting. Saves and restores the Ge context.
 	gpuStats.numFrames++;
 
 	// Now we can subvert the Ge engine in order to draw custom overlays like stat counters etc.
 	if (g_Config.bShowDebugStats && gpuStats.numDrawCalls) {
-		gpu->UpdateStats();
-		char stats[2048];
-		
-		sprintf(stats,
-			"Frames: %i\n"
-			"DL processing time: %0.2f ms\n"
-			"Kernel processing time: %0.2f ms\n"
-			"Slowest syscall: %s : %0.2f ms\n"
-			"Most active syscall: %s : %0.2f ms\n"
-			"Draw calls: %i, flushes %i\n"
-			"Cached Draw calls: %i\n"
-			"Num Tracked Vertex Arrays: %i\n"
-			"Vertices Submitted: %i\n"
-			"Cached Vertices Drawn: %i\n"
-			"Uncached Vertices Drawn: %i\n"
-			"FBOs active: %i\n"
-			"Textures active: %i, decoded: %i\n"
-			"Texture invalidations: %i\n"
-			"Vertex shaders loaded: %i\n"
-			"Fragment shaders loaded: %i\n"
-			"Combined shaders loaded: %i\n",
-			gpuStats.numFrames,
-			gpuStats.msProcessingDisplayLists * 1000.0f,
-			kernelStats.msInSyscalls * 1000.0f,
-			kernelStats.slowestSyscallName ? kernelStats.slowestSyscallName : "(none)",
-			kernelStats.slowestSyscallTime * 1000.0f,
-			kernelStats.summedSlowestSyscallName ? kernelStats.summedSlowestSyscallName : "(none)",
-			kernelStats.summedSlowestSyscallTime * 1000.0f,
-			gpuStats.numDrawCalls,
-			gpuStats.numFlushes,
-			gpuStats.numCachedDrawCalls,
-			gpuStats.numTrackedVertexArrays,
-			gpuStats.numVertsSubmitted,
-			gpuStats.numCachedVertsDrawn,
-			gpuStats.numUncachedVertsDrawn,
-			gpuStats.numFBOs,
-			gpuStats.numTextures,
-			gpuStats.numTexturesDecoded,
-			gpuStats.numTextureInvalidations,
-			gpuStats.numVertexShaders,
-			gpuStats.numFragmentShaders,
-			gpuStats.numShaders
-			);
-
-		float zoom = 0.3f; /// g_Config.iWindowZoom;
-		float soff = 0.3f;
-		PPGeBegin();
-		PPGeDrawText(stats, soff, soff, 0, zoom, 0xCC000000);
-		PPGeDrawText(stats, -soff, -soff, 0, zoom, 0xCC000000);
-		PPGeDrawText(stats, 0, 0, 0, zoom, 0xFFFFFFFF);
-		PPGeEnd();
-
-		gpuStats.resetFrame();
-		kernelStats.ResetFrame();
+		DebugStats();
 	}
 
 	if (g_Config.bShowFPSCounter) {
-		char stats[50];
-
-		sprintf(stats, "%0.1f", calculateFPS());
-
-		#ifdef USING_GLES2
-			float zoom = 0.7f; /// g_Config.iWindowZoom;
-			float soff = 0.7f;
-		#else
-			float zoom = 0.5f; /// g_Config.iWindowZoom;
-			float soff = 0.5f;
-		#endif
-		PPGeBegin();
-		PPGeDrawText(stats, 476 + soff, 4 + soff, PPGE_ALIGN_RIGHT, zoom, 0xCC000000);
-		PPGeDrawText(stats, 476 + -soff, 4 -soff, PPGE_ALIGN_RIGHT, zoom, 0xCC000000);
-		PPGeDrawText(stats, 476, 4, PPGE_ALIGN_RIGHT, zoom, 0xFF30FF30);
-		PPGeEnd();
+		CalculateFPS();
 	}
 
+	bool skipFlip = false;
+
+	// This frame was skipped, so no need to flip.
+	if (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) {
+		skipFlip = true;
+	}
+
+	// Draw screen overlays before blitting. Saves and restores the Ge context.
 	// Yeah, this has to be the right moment to end the frame. Give the graphics backend opportunity
 	// to blit the framebuffer, in order to support half-framerate games that otherwise wouldn't have
 	// anything to draw here.
-	gpu->CopyDisplayToOutput();
+	gstate_c.skipDrawReason &= ~SKIPDRAW_SKIPFRAME;
 
-	host->EndFrame();
+	bool throttle, skipFrame;
+	
+	DoFrameTiming(throttle, skipFrame);
 
-#ifdef _WIN32
-	// Best place to throttle the frame rate on non vsynced platforms is probably here. Let's try it.
-	time_update();
-	if (lastFrameTime == 0.0)
-		lastFrameTime = time_now_d();
-	if (!GetAsyncKeyState(VK_TAB) && !PSP_CoreParameter().headLess) {
-		while (time_now_d() < lastFrameTime + 1.0 / 60.0) {
-			Common::SleepCurrentThread(1);
-			time_update();
-		}
-		// Advance lastFrameTime by a constant amount each frame,
-		// but don't let it get too far behind.
-		lastFrameTime = std::max(lastFrameTime + 1.0 / 60.0, time_now_d() - 1.5 / 60.0);
+	if (skipFrame) {
+		gstate_c.skipDrawReason |= SKIPDRAW_SKIPFRAME;
+		numSkippedFrames++;
+	} else {
+		numSkippedFrames = 0;
 	}
 
-	// We are going to have to do something about audio timing for platforms that
-	// are vsynced to something that's not exactly 60fps..
+	if (!skipFlip) {
+		// Setting CORE_NEXTFRAME causes a swap.
+		// Check first though, might've just quit / been paused.
+		if (coreState == CORE_RUNNING && gpu->FramebufferDirty()) {
+			coreState = CORE_NEXTFRAME;
+		}
 
-#endif
+		gpu->CopyDisplayToOutput();
+	}
 
+	// Returning here with coreState == CORE_NEXTFRAME causes a buffer flip to happen (next frame).
+	// Right after, we regain control for a little bit in hleAfterFlip. I think that's a great
+	// place to do housekeeping.
+	CoreTiming::ScheduleEvent(0 - cyclesLate, afterFlipEvent, 0);
+}
+
+void hleAfterFlip(u64 userdata, int cyclesLate)
+{
+	// This checks input on PC. Fine to do even if not calling BeginFrame.
 	host->BeginFrame();
-	gpu->BeginFrame();
 
-	// Tell the emu core that it's time to stop emulating
-	// Win32 doesn't need this.
-#ifndef _WIN32
-	coreState = CORE_NEXTFRAME;
-#endif
+	gpu->BeginFrame();  // doesn't really matter if begin or end of frame.
 }
 
 void hleLeaveVblank(u64 userdata, int cyclesLate) {
@@ -358,31 +457,28 @@ void hleLeaveVblank(u64 userdata, int cyclesLate) {
 	CoreTiming::ScheduleEvent(msToCycles(frameMs - vblankMs) - cyclesLate, enterVblankEvent, userdata);
 }
 
-void sceDisplayIsVblank() {
+u32 sceDisplayIsVblank() {
 	DEBUG_LOG(HLE,"%i=sceDisplayIsVblank()",isVblank);
-	RETURN(isVblank);
+	return isVblank;
 }
 
-u32 sceDisplaySetMode(u32 unknown, u32 xres, u32 yres) {
-	DEBUG_LOG(HLE,"sceDisplaySetMode(%d,%d,%d)",unknown,xres,yres);
+u32 sceDisplaySetMode(int displayMode, int displayWidth, int displayHeight) {
+	DEBUG_LOG(HLE,"sceDisplaySetMode(%i, %i, %i)", displayMode, displayWidth, displayHeight);
 	host->BeginFrame();
 
 	if (!hasSetMode) {
 		gpu->InitClear();
 		hasSetMode = true;
 	}
-
+	mode = displayMode;
+	width = displayWidth;
+	height = displayHeight;
 	return 0;
 }
 
-u32 sceDisplaySetFramebuf() {
-	u32 topaddr = PARAM(0);
-	int linesize = PARAM(1);
-	int pixelformat = PARAM(2);
-	int sync = PARAM(3);
-
+u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) {
 	FrameBufferState fbstate;
-	DEBUG_LOG(HLE,"sceDisplaySetFramebuf(topaddr=%08x,linesize=%d,pixelsize=%d,sync=%d)",topaddr,linesize,pixelformat,sync);
+	DEBUG_LOG(HLE,"sceDisplaySetFramebuf(topaddr=%08x,linesize=%d,pixelsize=%d,sync=%d)", topaddr, linesize, pixelformat, sync);
 	if (topaddr == 0) {
 		DEBUG_LOG(HLE,"- screen off");
 	} else {
@@ -422,8 +518,7 @@ bool __DisplayGetFramebuf(u8 **topaddr, u32 *linesize, u32 *pixelFormat, int mod
 
 u32 sceDisplayGetFramebuf(u32 topaddrPtr, u32 linesizePtr, u32 pixelFormatPtr, int mode) {
 	const FrameBufferState &fbState = mode == 1 ? latchedFramebuf : framebuf;
-	DEBUG_LOG(HLE,"sceDisplayGetFramebuf(*%08x = %08x, *%08x = %08x, *%08x = %08x, %i)",
-		topaddrPtr, fbState.topaddr, linesizePtr, fbState.pspFramebufLinesize, pixelFormatPtr, fbState.pspFramebufFormat, mode);
+	DEBUG_LOG(HLE,"sceDisplayGetFramebuf(*%08x = %08x, *%08x = %08x, *%08x = %08x, %i)", topaddrPtr, fbState.topaddr, linesizePtr, fbState.pspFramebufLinesize, pixelFormatPtr, fbState.pspFramebufFormat, mode);
 
 	if (Memory::IsValidAddress(topaddrPtr))
 		Memory::Write_U32(fbState.topaddr, topaddrPtr);
@@ -500,15 +595,21 @@ u32 sceDisplayGetVcount() {
 	return vCount;
 }
 
-void sceDisplayGetCurrentHcount() {
-	RETURN(hCount++);
+u32 sceDisplayGetCurrentHcount() {
+	ERROR_LOG(HLE,"sceDisplayGetCurrentHcount()");
+	return hCount++;
 }
 
-void sceDisplayGetAccumulatedHcount() {
+u32 sceDisplayAdjustAccumulatedHcount() {
+	ERROR_LOG(HLE,"UNIMPL sceDisplayAdjustAccumulatedHcount()");
+	return 0;
+}
+
+u32 sceDisplayGetAccumulatedHcount() {
 	// Just do an estimate
 	u32 accumHCount = CoreTiming::GetTicks() / (CoreTiming::GetClockFrequencyMHz() * 1000000 / 60 / 272);
 	DEBUG_LOG(HLE,"%i=sceDisplayGetAccumulatedHcount()", accumHCount);
-	RETURN(accumHCount);
+	return accumHCount;
 }
 
 float sceDisplayGetFramePerSec() {
@@ -517,9 +618,25 @@ float sceDisplayGetFramePerSec() {
 	return fps;	// (9MHz * 1)/(525 * 286)
 }
 
+u32 sceDisplayIsForeground() {
+  	ERROR_LOG(HLE,"UNIMPL sceDisplayIsForeground()");
+  	return 1;   // return value according to JPCSP comment
+}
+
+u32 sceDisplayGetMode(u32 modeAddr, u32 widthAddr, u32 heightAddr) {
+	DEBUG_LOG(HLE,"sceDisplayGetMode()", modeAddr, widthAddr, heightAddr);
+	if (Memory::IsValidAddress(modeAddr))
+		Memory::Write_U32(mode, modeAddr);
+	if (Memory::IsValidAddress(widthAddr))
+		Memory::Write_U32(width, widthAddr);
+	if (Memory::IsValidAddress(heightAddr))
+		Memory::Write_U32(height, heightAddr);
+	return 0;
+}
+
 const HLEFunction sceDisplay[] = {
-	{0x0E20F177,WrapU_UUU<sceDisplaySetMode>, "sceDisplaySetMode"},
-	{0x289D82FE,WrapU_V<sceDisplaySetFramebuf>, "sceDisplaySetFramebuf"},
+	{0x0E20F177,WrapU_III<sceDisplaySetMode>, "sceDisplaySetMode"},
+	{0x289D82FE,WrapU_UIII<sceDisplaySetFramebuf>, "sceDisplaySetFramebuf"},
 	{0xEEDA2E54,WrapU_UUUI<sceDisplayGetFramebuf>,"sceDisplayGetFrameBuf"},
 	{0x36CDFADE,WrapU_V<sceDisplayWaitVblank>, "sceDisplayWaitVblank"},
 	{0x984C27E7,WrapU_V<sceDisplayWaitVblankStart>, "sceDisplayWaitVblankStart"},
@@ -528,17 +645,17 @@ const HLEFunction sceDisplay[] = {
 	{0x46F186C3,WrapU_V<sceDisplayWaitVblankStartCB>, "sceDisplayWaitVblankStartCB"},
 	{0x77ed8b3a,WrapU_I<sceDisplayWaitVblankStartMultiCB>,"sceDisplayWaitVblankStartMultiCB"},
 	{0xdba6c4c4,WrapF_V<sceDisplayGetFramePerSec>,"sceDisplayGetFramePerSec"},
-	{0x773dd3a3,sceDisplayGetCurrentHcount,"sceDisplayGetCurrentHcount"},
-	{0x210eab3a,sceDisplayGetAccumulatedHcount,"sceDisplayGetAccumulatedHcount"},
-	{0xA83EF139,0,"sceDisplayAdjustAccumulatedHcount"},
+	{0x773dd3a3,WrapU_V<sceDisplayGetCurrentHcount>,"sceDisplayGetCurrentHcount"},
+	{0x210eab3a,WrapU_V<sceDisplayGetAccumulatedHcount>,"sceDisplayGetAccumulatedHcount"},
+	{0xA83EF139,WrapU_V<sceDisplayAdjustAccumulatedHcount>,"sceDisplayAdjustAccumulatedHcount"},
 	{0x9C6EAAD7,WrapU_V<sceDisplayGetVcount>,"sceDisplayGetVcount"},
-	{0xDEA197D4,0,"sceDisplayGetMode"},
+	{0xDEA197D4,WrapU_UUU<sceDisplayGetMode>,"sceDisplayGetMode"},
 	{0x7ED59BC4,0,"sceDisplaySetHoldMode"},
 	{0xA544C486,0,"sceDisplaySetResumeMode"},
 	{0xBF79F646,0,"sceDisplayGetResumeMode"},
-	{0xB4F378FA,0,"sceDisplayIsForeground"},
+	{0xB4F378FA,WrapU_V<sceDisplayIsForeground>,"sceDisplayIsForeground"},
 	{0x31C4BAA8,0,"sceDisplayGetBrightness"},
-	{0x4D4E10EC,sceDisplayIsVblank,"sceDisplayIsVblank"},
+	{0x4D4E10EC,WrapU_V<sceDisplayIsVblank>,"sceDisplayIsVblank"},
 	{0x21038913,0,"sceDisplayIsVsync"},
 };
 

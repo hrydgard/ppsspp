@@ -98,7 +98,7 @@ bool GPUCommon::InterpretList(DisplayList &list)
 #if defined(USING_QT_UI)
 		if(host->GpuStep())
 		{
-			host->SendGPUWait(cmd);
+			host->SendGPUWait(cmd, list.pc, &gstate);
 		}
 #endif
 		u32 diff = op ^ gstate.cmdmem[cmd];
@@ -107,7 +107,7 @@ bool GPUCommon::InterpretList(DisplayList &list)
 		if (dumpThisFrame_) {
 			char temp[256];
 			GeDisassembleOp(list.pc, op, prev, temp);
-			NOTICE_LOG(G3D, "%s", temp);
+			NOTICE_LOG(HLE, "%s", temp);
 		}
 		gstate.cmdmem[cmd] = op;	 // crashes if I try to put the whole op there??
 		

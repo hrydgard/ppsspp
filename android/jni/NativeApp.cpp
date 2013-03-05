@@ -101,11 +101,10 @@ public:
 
 	virtual void InitGL() {}
 	virtual void BeginFrame() {}
-	virtual void EndFrame() {}
 	virtual void ShutdownGL() {}
 
 	virtual void InitSound(PMixer *mixer);
-	virtual void UpdateSound() {};
+	virtual void UpdateSound() {}
 	virtual void ShutdownSound();
 
 	// this is sent from EMU thread! Make sure that Host handles it properly!
@@ -155,7 +154,9 @@ void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, boo
 	*app_dir_name = "ppsspp";
 	*landscape = true;
 
-	// ArmEmitterTest();
+#if defined(ANDROID)
+	ArmEmitterTest();
+#endif
 }
 
 void NativeInit(int argc, const char *argv[], const char *savegame_directory, const char *external_directory, const char *installID)
@@ -167,6 +168,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 #ifdef BLACKBERRY
 	// Packed assets are included in app/native/ dir
 	VFSRegister("", new DirectoryAssetReader("app/native/assets/"));
+#elif defined(IOS)
+	VFSRegister("", new DirectoryAssetReader(external_directory));
 #else
 	VFSRegister("", new DirectoryAssetReader("assets/"));
 #endif
@@ -180,7 +183,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	LogManager *logman = LogManager::GetInstance();
 	ILOG("Logman: %p", logman);
 
-	config_filename = user_data_path + "ppsspp.ini";
+	config_filename = user_data_path + "/ppsspp.ini";
 
 	g_Config.Load(config_filename.c_str());
 
@@ -232,8 +235,10 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 		LogManager::GetInstance()->ChangeFileLog(fileToLog);
 
 	if (g_Config.currentDirectory == "") {
-#if defined(ANDROID) || defined(BLACKBERRY) || defined(__SYMBIAN32__)
+#if defined(ANDROID)
 		g_Config.currentDirectory = external_directory;
+#elif defined(BLACKBERRY) || defined(__SYMBIAN32__) || defined(IOS)
+		g_Config.currentDirectory = savegame_directory;
 #else
 		g_Config.currentDirectory = getenv("HOME");
 #endif
@@ -245,7 +250,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	// most sense.
 	g_Config.memCardDirectory = std::string(external_directory) + "/";
 	g_Config.flashDirectory = std::string(external_directory)+"/flash/";
-#elif defined(BLACKBERRY) || defined(__SYMBIAN32__)
+#elif defined(BLACKBERRY) || defined(__SYMBIAN32__) || defined(IOS)
 	g_Config.memCardDirectory = user_data_path;
 	g_Config.flashDirectory = user_data_path+"/flash/";
 #else
@@ -317,6 +322,9 @@ void NativeInitGraphics()
 void NativeRender()
 {
 	EnableFZ();
+	glstate.depthWrite.set(GL_TRUE);
+	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
 	// Clearing the screen at the start of the frame is an optimization for tiled mobile GPUs, as it then doesn't need to keep it around between frames.
 	glClearColor(0,0,0,1);
 	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);

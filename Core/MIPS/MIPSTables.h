@@ -19,31 +19,34 @@
 
 #include "../../Globals.h"
 
-#define IS_CONDBRANCH 0x100
-#define IS_JUMP 0x200
-#define IS_VFPU 0x80000000
-#define LIKELY 0x80
-#define UNCONDITIONAL 0x40
-#define BAD_INSTRUCTION 0x20
-#define DELAYSLOT 0x10
+#define DELAYSLOT       0x00000010
+#define BAD_INSTRUCTION 0x00000020
+#define UNCONDITIONAL   0x00000040
+#define LIKELY          0x00000080
+#define IS_CONDBRANCH   0x00000100
+#define IS_JUMP         0x00000200
 
-#define IN_RS_ADDR   0x800
-#define IN_RS_SHIFT  0x400
-#define IN_RS   0x1000
-#define IN_RT   0x2000
-#define IN_SA   0x4000
-#define IN_IMM16 0x8000
-#define IN_IMM26 0x10000
-#define IN_MEM   0x20000
-#define IN_OTHER 0x40000
-#define IN_FPUFLAG 0x80000
+#define IN_RS_SHIFT     0x00000400
+#define IN_RS_ADDR      0x00000800
+#define IN_RS           0x00001000
+#define IN_RT           0x00002000
+#define IN_SA           0x00004000
+#define IN_IMM16        0x00008000
+#define IN_IMM26        0x00010000
+#define IN_MEM          0x00020000
+#define IN_OTHER        0x00040000
+#define IN_FPUFLAG      0x00080000
 
-#define OUT_RT  0x100000
-#define OUT_RD  0x200000
-#define OUT_RA  0x400000
-#define OUT_MEM 0x800000
-#define OUT_OTHER 0x1000000
-#define OUT_FPUFLAG 0x2000000
+#define OUT_RT          0x00100000
+#define OUT_RD          0x00200000
+#define OUT_RA          0x00400000
+#define OUT_MEM         0x00800000
+#define OUT_OTHER       0x01000000
+#define OUT_FPUFLAG     0x02000000
+#define OUT_EAT_PREFIX  0x04000000
+
+#define VFPU_NO_PREFIX  0x08000000
+#define IS_VFPU         0x80000000
 
 #ifndef CDECL
 #define CDECL

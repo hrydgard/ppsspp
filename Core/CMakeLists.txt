@@ -21,6 +21,7 @@ set(SRCS
   ELF/ElfReader.cpp
   ELF/ParamSFO.cpp
   ELF/PrxDecrypter.cpp
+  Font/PGF.cpp
   HLE/HLE.cpp
   HLE/HLETables.cpp
   HLE/sceAtrac.cpp
@@ -84,6 +85,7 @@ set(SRCS
   PSPMixer.cpp
   System.cpp
   Core.cpp
+  ../git-version.cpp
 )
 
 if(ARM)
@@ -113,6 +115,17 @@ set(SRCS ${SRCS})
 add_library(core STATIC ${SRCS})
 target_link_libraries(core general common)
 target_link_libraries(core general base)
+
+# Generate git-version.cpp at build time.
+add_custom_target(GitVersion ALL
+	DEPENDS something_that_never_exists)
+add_custom_command(OUTPUT something_that_never_exists
+	COMMAND ${CMAKE_COMMAND} -DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/..
+		-P ${CMAKE_CURRENT_SOURCE_DIR}/../git-version.cmake)
+
+set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/../git-version.cpp
+	PROPERTIES GENERATED TRUE)
+add_dependencies(core GitVersion)
 
 if(UNIX)
   add_definitions(-fPIC)

@@ -100,7 +100,7 @@ static void EndVertexDataAndDraw(int prim) {
 static u32 __PPGeDoAlloc(u32 &size, bool fromTop, const char *name) {
 	u32 ptr = kernelMemory.Alloc(size, fromTop, name);
 	// Didn't get it.
-	if (ptr == -1)
+	if (ptr == (u32)-1)
 		return 0;
 	return ptr;
 }
@@ -199,15 +199,19 @@ void PPGeBegin()
 	dataWritePtr = dataPtr;
 
 	// Set up the correct states for UI drawing
+	WriteCmd(GE_CMD_OFFSETADDR, 0);
 	WriteCmd(GE_CMD_ALPHABLENDENABLE, 1);
 	WriteCmd(GE_CMD_BLENDMODE, 2 | (3 << 4));
 	WriteCmd(GE_CMD_ALPHATESTENABLE, 0);
 	WriteCmd(GE_CMD_COLORTESTENABLE, 0); 
 	WriteCmd(GE_CMD_ZTESTENABLE, 0);
+	WriteCmd(GE_CMD_LIGHTINGENABLE, 0);
 	WriteCmd(GE_CMD_FOGENABLE, 0);
 	WriteCmd(GE_CMD_STENCILTESTENABLE, 0);
 	WriteCmd(GE_CMD_CULLFACEENABLE, 0);
 	WriteCmd(GE_CMD_CLEARMODE, 0);  // Normal mode
+	WriteCmd(GE_CMD_MASKRGB, 0);
+	WriteCmd(GE_CMD_MASKALPHA, 0);
 
 	PPGeSetDefaultTexture();
 

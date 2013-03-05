@@ -155,11 +155,12 @@ void CPUInfo::Detect()
 #ifdef __SYMBIAN32__
 	bThumbEE = false;
 	bNEON = false;
+	bVFPv3 = false;
 #else
 	bThumbEE = true;
 	bNEON = true;
-#endif
 	bVFPv3 = true;
+#endif
 	bTLS = true;
 	bVFPv4 = false;
 	bIDIVa = false;

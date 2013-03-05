@@ -30,9 +30,10 @@ class WindowsHeadlessHost : public HeadlessHost
 public:
 	virtual void InitGL();
 	virtual void BeginFrame();
-	virtual void EndFrame();
 	virtual void ShutdownGL();
 	virtual bool isGLWorking() { return glOkay; }
+
+	virtual void SwapBuffers();
 
 	virtual void SendDebugOutput(const std::string &output);
 	virtual void SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h);

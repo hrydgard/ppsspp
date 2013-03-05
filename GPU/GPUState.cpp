@@ -64,6 +64,9 @@ void InitGfxState()
 	case GPU_GLES:
 		gpu = new GLES_GPU();
 		break;
+	case GPU_SOFTWARE:
+		gpu = new NullGPU();
+		break;
 	}
 }
 

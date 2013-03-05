@@ -213,7 +213,7 @@ void __InterruptsInit()
 {
 	interruptsEnabled = 1;
 	inInterrupt = false;
-	for(int i = 0; i < ARRAY_SIZE(intrHandlers); ++i)
+	for (int i = 0; i < (int)ARRAY_SIZE(intrHandlers); ++i)
 		intrHandlers[i] = new IntrHandler(i);
 	intState.clear();
 }
@@ -246,11 +246,11 @@ void __InterruptsDoStateLate(PointerWrap &p)
 
 void __InterruptsShutdown()
 {
-	for (int i = 0; i < ARRAY_SIZE(intrHandlers); ++i)
+	for (size_t i = 0; i < ARRAY_SIZE(intrHandlers); ++i)
 		intrHandlers[i]->clear();
-	for(int i = 0; i < ARRAY_SIZE(intrHandlers); ++i)
+	for (size_t i = 0; i < ARRAY_SIZE(intrHandlers); ++i)
 	{
-		if(intrHandlers[i])
+		if (intrHandlers[i])
 		{
 			delete intrHandlers[i];
 			intrHandlers[i] = 0;
@@ -411,7 +411,7 @@ SubIntrHandler *__RegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 
 	return subIntrHandler;
 }
 
-u32 __ReleaseSubIntrHandler(u32 intrNumber, u32 subIntrNumber)
+int __ReleaseSubIntrHandler(int intrNumber, int subIntrNumber)
 {
 	if (!intrHandlers[intrNumber]->has(subIntrNumber))
 		return -1;
@@ -446,9 +446,9 @@ u32 sceKernelRegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 handl
 	return error;
 }
 
-u32 sceKernelReleaseSubIntrHandler(u32 intrNumber, u32 subIntrNumber)
+int sceKernelReleaseSubIntrHandler(int intrNumber, int subIntrNumber)
 {
-	DEBUG_LOG(HLE,"sceKernelReleaseSubIntrHandler(%i, %i)", PARAM(0), PARAM(1));
+	DEBUG_LOG(HLE, "sceKernelReleaseSubIntrHandler(%i, %i)", intrNumber, subIntrNumber);
 
 	if (intrNumber >= PSP_NUMBER_INTERRUPTS)
 		return -1;
@@ -553,6 +553,7 @@ const HLEFunction Kernel_Library[] =
 	{0xbea46419,WrapI_UIU<sceKernelLockLwMutex>, "sceKernelLockLwMutex"},
 	{0x1FC64E09,WrapI_UIU<sceKernelLockLwMutexCB>, "sceKernelLockLwMutexCB"},
 	{0x15b6446b,WrapI_UI<sceKernelUnlockLwMutex>, "sceKernelUnlockLwMutex"},
+	{0xc1734599,WrapI_UU<sceKernelReferLwMutexStatus>, "sceKernelReferLwMutexStatus"},
 	{0x293b45b8,sceKernelGetThreadId, "sceKernelGetThreadId"},
 	{0x1839852A,WrapU_UUU<sceKernelMemcpy>,"sce_paf_private_memcpy"},
 };
@@ -566,7 +567,7 @@ void Register_Kernel_Library()
 const HLEFunction InterruptManager[] =
 {
 	{0xCA04A2B9, WrapU_UUUU<sceKernelRegisterSubIntrHandler>, "sceKernelRegisterSubIntrHandler"},
-	{0xD61E6961, WrapU_UU<sceKernelReleaseSubIntrHandler>, "sceKernelReleaseSubIntrHandler"},
+	{0xD61E6961, WrapI_II<sceKernelReleaseSubIntrHandler>, "sceKernelReleaseSubIntrHandler"},
 	{0xFB8E22EC, WrapU_UU<sceKernelEnableSubIntr>, "sceKernelEnableSubIntr"},
 	{0x8A389411, WrapU_UU<sceKernelDisableSubIntr>, "sceKernelDisableSubIntr"},
 	{0x5CB5A78B, 0, "sceKernelSuspendSubIntr"},

@@ -96,6 +96,11 @@ template<float func()> void WrapF_V() {
 	RETURNF(func());
 }
 
+// TODO: Not sure about the floating point parameter passing
+template<float func(int, float, u32)> void WrapF_IFU() {
+	RETURNF(func(PARAM(0), PARAMF(0), PARAM(1)));
+}
+
 template<u32 func(u32)> void WrapU_U() {
 	u32 retval = func(PARAM(0));
 	RETURN(retval);
@@ -133,7 +138,7 @@ template<int func(u32, u32)> void WrapI_UU() {
 
 template<int func(u32, float, float)> void WrapI_UFF() {
 	// Not sure about the float arguments.
-	int retval = func(PARAM(0), currentMIPS->f[0], currentMIPS->f[1]);
+	int retval = func(PARAM(0), currentMIPS->f[12], currentMIPS->f[13]);
 	RETURN(retval);
 }
 
@@ -313,6 +318,11 @@ template<int func(int, int, int, int)> void WrapI_IIII() {
 	RETURN(retval);
 }
 
+template<int func(int, const char *, int, u32, u32)> void WrapI_ICIUU() {
+	int retval = func(PARAM(0), Memory::GetCharPointer(PARAM(1)), PARAM(2), PARAM(3), PARAM(4));
+	RETURN(retval);
+}
+
 template<int func(int, int, u32)> void WrapI_IIU() {
 	int retval = func(PARAM(0), PARAM(1), PARAM(2));
 	RETURN(retval);
@@ -478,6 +488,11 @@ template<int func(const char *, u32, int, int, u32)> void WrapI_CUIIU() {
 
 template<u32 func(u32, u32, u32, u32)> void WrapU_UUUU() {
 	u32 retval = func(PARAM(0), PARAM(1), PARAM(2), PARAM(3));
+	RETURN(retval);
+}
+
+template<u32 func(u32, const char *, u32, u32)> void WrapU_UCUU() {
+	u32 retval = func(PARAM(0), Memory::GetCharPointer(PARAM(1)), PARAM(2), PARAM(3));
 	RETURN(retval);
 }
 

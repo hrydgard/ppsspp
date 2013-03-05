@@ -38,7 +38,7 @@ static const int allocationOrder[] =
 #endif
 };
 
-GPRRegCache::GPRRegCache() : emit(0), mips(0) {
+GPRRegCache::GPRRegCache() : mips(0), emit(0) {
 	memset(regs, 0, sizeof(regs));
 	memset(xregs, 0, sizeof(xregs));
 }
