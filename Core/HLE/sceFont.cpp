@@ -531,6 +531,8 @@ void __FontShutdown() {
 }
 
 void __FontDoState(PointerWrap &p) {
+	__LoadInternalFonts();
+
 	p.Do(fontLibList);
 	p.Do(fontLibMap);
 	p.Do(fontMap);
