@@ -90,7 +90,7 @@ namespace MIPSComp
 	{
 		CONDITIONAL_DISABLE;
 		int offset = (signed short)(op&0xFFFF);
-		bool shifter = false, load = false;
+		bool load = false;
 		int rt = _RT;
 		int rs = _RS;
 		int o = op>>26;
@@ -98,15 +98,54 @@ namespace MIPSComp
 			// Don't load anything into $zr
 			return;
 		}
-		// Optimisation: Combine to single unaligned load/store
-		switch(o)
+
+		switch (o)
 		{
+		case 32: //lb
+		case 33: //lh
+		case 35: //lw
+		case 36: //lbu
+		case 37: //lhu
+			load = true;
+		case 40: //sb
+		case 41: //sh
+		case 43: //sw
+			if (g_Config.bFastMemory) {
+				if (gpr.IsImm(rs)) {
+					// We can compute the full address at compile time. Kickass.
+					u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
+					// Must be OK even if rs == rt since we have the value from imm already.
+					gpr.MapReg(rt, load ? MAP_NOINIT | MAP_DIRTY : 0);
+					MOVI2R(R0, addr);
+				} else {
+					load ? gpr.MapDirtyIn(rt, rs) : gpr.MapInIn(rt, rs);
+					SetR0ToEffectiveAddress(rs, offset);
+				}
+				switch (o)
+				{
+				// Load
+				case 35: LDR  (gpr.R(rt), R11, R0, true, true); break;
+				case 37: LDRH (gpr.R(rt), R11, R0, true, true); break;
+				case 33: LDRSH(gpr.R(rt), R11, R0, true, true); break;
+				case 36: LDRB (gpr.R(rt), R11, R0, true, true); break;
+				case 32: LDRSB(gpr.R(rt), R11, R0, true, true); break;
+				// Store
+				case 43: STR  (gpr.R(rt), R11, R0, true, true); break;
+				case 41: STRH (gpr.R(rt), R11, R0, true, true); break;
+				case 40: STRB (gpr.R(rt), R11, R0, true, true); break;
+				}
+			} else {
+				Comp_Generic(op);
+				return;
+			}
+			break;
 		case 34: //lwl
 		case 38: //lwr
 			load = true;
 		case 42: //swl
 		case 46: //swr
 		{
+			// Optimisation: Combine to single unaligned load/store
 			int left = (o == 34 || o == 42) ? 1 : -1;
 			u32 nextOp = Memory::Read_Instruction(js.compilerPC + 4);
 			// Find a matching shift in opposite direction with opposite offset.
@@ -114,52 +153,21 @@ namespace MIPSComp
 			if (!js.inDelaySlot && nextOp == desiredOp)
 			{
 				EatInstruction(nextOp);
-				nextOp = ((load ? 35 : 43) << 26) | ((left ? nextOp : op) & 0x3FFFFFF); //lw, sw
+				nextOp = ((load ? 35 : 43) << 26) | (((left == 1) ? nextOp : op) & 0x3FFFFFF); //lw, sw
 				Comp_ITypeMem(nextOp);
 				return;
 			}
-			shifter = true;
-		}
-		default:
-			break;
-		}
+			DISABLE; // Disabled until crashes are resolved.
 
-		switch (o)
-		{
-		case 32: //lb
-		case 33: //lh
-		//case 34: //lwl
-		case 35: //lw
-		case 36: //lbu
-		case 37: //lhu
-		//case 38: //lwr
-			load = true;
-		case 40: //sb
-		case 41: //sh
-		//case 42: //swl
-		case 43: //sw
-		//case 46: //swr
 			if (g_Config.bFastMemory) {
-				int shift = 0;
-				if (shifter)
-				{
-					shift = (offset & 3) << 3;
-					offset &= 0xfffffffc;
-				}
+				int shift = (offset & 3) << 3;
+				offset &= 0xfffffffc;
 				if (gpr.IsImm(rs)) {
-					// We can compute the full address at compile time. Kickass.
 					u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
-					// Must be OK even if rs == rt since we have the value from imm already.
-					if (shifter && !load)
-						gpr.MapReg(rt, MAP_DIRTY);
-					else
-						gpr.MapReg(rt, load ? ( MAP_NOINIT | MAP_DIRTY) : 0);
+					load ? gpr.MapReg(rt, MAP_DIRTY) : gpr.MapReg(rt, 0);
 					MOVI2R(R0, addr);
 				} else {
-					if (shifter && !load)
-						gpr.MapDirtyIn(rt, rs, false);
-					else
-						load ? gpr.MapDirtyIn(rt, rs) : gpr.MapInIn(rt, rs);
+					load ? gpr.MapDirtyIn(rt, rs, false) : gpr.MapInIn(rt, rs);
 					SetR0ToEffectiveAddress(rs, offset);
 				}
 				switch (o)
@@ -175,11 +183,6 @@ namespace MIPSComp
 					LDR(R0, R11, R0, true, true);
 					ORR(gpr.R(rt), gpr.R(rt), Operand2(R0, ST_LSR, shift));
 					break;
-				case 35: LDR  (gpr.R(rt), R11, R0, true, true); break;
-				case 37: LDRH (gpr.R(rt), R11, R0, true, true); break;
-				case 33: LDRSH(gpr.R(rt), R11, R0, true, true); break;
-				case 36: LDRB (gpr.R(rt), R11, R0, true, true); break;
-				case 32: LDRSB(gpr.R(rt), R11, R0, true, true); break;
 				// Store
 				case 42:
 					LDR(R1, R11, R0, true, true);
@@ -193,15 +196,13 @@ namespace MIPSComp
 					ORR(R1, R1, Operand2(gpr.R(rt), ST_LSL, shift));
 					STR(R1, R11, R0, true, true);
 					break;
-				case 43: STR  (gpr.R(rt), R11, R0, true, true); break;
-				case 41: STRH (gpr.R(rt), R11, R0, true, true); break;
-				case 40: STRB (gpr.R(rt), R11, R0, true, true); break;
 				}
 			} else {
 				Comp_Generic(op);
 				return;
 			}
 			break;
+		}
 		default:
 			Comp_Generic(op);
 			return ;
