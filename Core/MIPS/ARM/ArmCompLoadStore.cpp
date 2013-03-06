@@ -98,7 +98,6 @@ namespace MIPSComp
 			// Don't load anything into $zr
 			return;
 		}
-		/*
 		// Optimisation: Combine to single unaligned load/store
 		switch(o)
 		{
@@ -115,7 +114,7 @@ namespace MIPSComp
 			if (!js.inDelaySlot && nextOp == desiredOp)
 			{
 				EatInstruction(nextOp);
-				nextOp = ((load ? 35 : 43) << 26) | (nextOp & 0x3FFFFFF); //lw, sw
+				nextOp = ((load ? 35 : 43) << 26) | ((left ? nextOp : op) & 0x3FFFFFF); //lw, sw
 				Comp_ITypeMem(nextOp);
 				return;
 			}
@@ -123,7 +122,7 @@ namespace MIPSComp
 		}
 		default:
 			break;
-		}*/
+		}
 
 		switch (o)
 		{
