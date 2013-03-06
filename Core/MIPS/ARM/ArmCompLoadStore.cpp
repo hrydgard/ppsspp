@@ -150,10 +150,16 @@ namespace MIPSComp
 					// We can compute the full address at compile time. Kickass.
 					u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
 					// Must be OK even if rs == rt since we have the value from imm already.
-					gpr.MapReg(rt, load ? MAP_NOINIT | MAP_DIRTY : 0);
+					if (shifter && !load)
+						gpr.MapReg(rt, MAP_DIRTY);
+					else
+						gpr.MapReg(rt, load ? ( MAP_NOINIT | MAP_DIRTY) : 0);
 					MOVI2R(R0, addr);
 				} else {
-					load ? gpr.MapDirtyIn(rt, rs) : gpr.MapInIn(rt, rs);
+					if (shifter && !load)
+						gpr.MapDirtyIn(rt, rs, false);
+					else
+						load ? gpr.MapDirtyIn(rt, rs) : gpr.MapInIn(rt, rs);
 					SetR0ToEffectiveAddress(rs, offset);
 				}
 				switch (o)
@@ -162,12 +168,12 @@ namespace MIPSComp
 				case 34:
 					AND(gpr.R(rt), gpr.R(rt), 0x00ffffff >> shift);
 					LDR(R0, R11, R0, true, true);
-					ORR(gpr.R(rt), gpr.R(rt), Operand2(24 - shift, ST_LSL, R0));
+					ORR(gpr.R(rt), gpr.R(rt), Operand2(R0, ST_LSL, 24 - shift));
 					break;
 				case 38:
 					AND(gpr.R(rt), gpr.R(rt), 0xffffff00 << (24 - shift));
 					LDR(R0, R11, R0, true, true);
-					ORR(gpr.R(rt), gpr.R(rt), Operand2(shift, ST_LSR, R0));
+					ORR(gpr.R(rt), gpr.R(rt), Operand2(R0, ST_LSR, shift));
 					break;
 				case 35: LDR  (gpr.R(rt), R11, R0, true, true); break;
 				case 37: LDRH (gpr.R(rt), R11, R0, true, true); break;
@@ -176,16 +182,16 @@ namespace MIPSComp
 				case 32: LDRSB(gpr.R(rt), R11, R0, true, true); break;
 				// Store
 				case 42:
-					LSR(gpr.R(rt), gpr.R(rt), 24-shift);
-					AND(R0, R0, 0xffffff00 << shift);
-					ORR(R0, R0, gpr.R(rt));
-					STR(gpr.R(rt), R11, R0, true, true);
+					LDR(R1, R11, R0, true, true);
+					AND(R1, R1, 0xffffff00 << shift);
+					ORR(R1, R1, Operand2(gpr.R(rt), ST_LSR, 24 - shift));
+					STR(R1, R11, R0, true, true);
 					break;
 				case 46:
-					LSL(gpr.R(rt), gpr.R(rt), shift);
-					AND(R0, R0, 0x00ffffff >> (24 - shift));
-					ORR(R0, R0, gpr.R(rt));
-					STR(gpr.R(rt), R11, R0, true, true);
+					LDR(R1, R11, R0, true, true);
+					AND(R1, R1, 0x00ffffff >> (24 - shift));
+					ORR(R1, R1, Operand2(gpr.R(rt), ST_LSL, shift));
+					STR(R1, R11, R0, true, true);
 					break;
 				case 43: STR  (gpr.R(rt), R11, R0, true, true); break;
 				case 41: STRH (gpr.R(rt), R11, R0, true, true); break;

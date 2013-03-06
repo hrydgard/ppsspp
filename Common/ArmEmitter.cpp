@@ -596,20 +596,20 @@ void ARMXEmitter::MRS (ARMReg dest)
 	Write32(condition | (16 << 20) | (15 << 16) | (dest << 12));
 }
 
-void ARMXEmitter::WriteStoreOp(u32 op, ARMReg result, ARMReg base, Operand2 op2)
+void ARMXEmitter::WriteStoreOp(u32 op, ARMReg src, ARMReg dest, Operand2 op2)
 {
 	if (op2.GetData() == 0) // set the preindex bit, but not the W bit!
-		Write32(condition | 0x01800000 | (op << 20) | (base << 16) | (result << 12) | op2.Imm12());
+		Write32(condition | 0x01800000 | (op << 20) | (src << 16) | (dest << 12) | op2.Imm12());
 	else
-		Write32(condition | (op << 20) | (3 << 23) | (base << 16) | (result << 12) | op2.Imm12()); 
+		Write32(condition | (op << 20) | (3 << 23) | (src << 16) | (dest << 12) | op2.Imm12()); 
 }
-void ARMXEmitter::STR  (ARMReg result, ARMReg base, Operand2 op) { WriteStoreOp(0x40, result, base, op);}
+void ARMXEmitter::STR  (ARMReg result, ARMReg base, Operand2 op) { WriteStoreOp(0x40, base, result, op);}
 void ARMXEmitter::STRH (ARMReg result, ARMReg base, Operand2 op)
 {
 	u8 Imm = op.Imm8();
 	Write32(condition | (0x04 << 20) | (base << 16) | (result << 12) | ((Imm >> 4) << 8) | (0xB << 4) | (Imm & 0x0F));
 }
-void ARMXEmitter::STRB (ARMReg result, ARMReg base, Operand2 op) { WriteStoreOp(0x44, result, base, op);}
+void ARMXEmitter::STRB (ARMReg result, ARMReg base, Operand2 op) { WriteStoreOp(0x44, base, result, op);}
 void ARMXEmitter::STR  (ARMReg result, ARMReg base, Operand2 op2, bool Index, bool Add)
 {
 	Write32(condition | (0x60 << 20) | (Index << 24) | (Add << 23) | (base << 16) | (result << 12) | op2.IMMSR());

@@ -192,7 +192,7 @@ void ArmRegCacheFPU::FlushArmReg(ARMReg r) {
 		if (ar[reg].isDirty && mr[ar[reg].mipsReg].loc == ML_ARMREG)
 		{
 			//INFO_LOG(HLE, "Flushing ARM reg %i", reg);
-			emit->VSTR(CTXREG, r, GetMipsRegOffset(ar[reg].mipsReg));
+			emit->VSTR(r, CTXREG, GetMipsRegOffset(ar[reg].mipsReg));
 		}
 		// IMMs won't be in an ARM reg.
 		mr[ar[reg].mipsReg].loc = ML_MEM;
@@ -218,7 +218,7 @@ void ArmRegCacheFPU::FlushR(MIPSReg r) {
 		}
 		if (ar[mr[r].reg].isDirty) {
 			//INFO_LOG(HLE, "Flushing dirty reg %i", mr[r].reg);
-			emit->VSTR(CTXREG, (ARMReg)(mr[r].reg + S0), GetMipsRegOffset(r));
+			emit->VSTR((ARMReg)(mr[r].reg + S0), CTXREG, GetMipsRegOffset(r));
 			ar[mr[r].reg].isDirty = false;
 		}
 		ar[mr[r].reg].mipsReg = -1;

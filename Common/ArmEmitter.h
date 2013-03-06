@@ -178,7 +178,7 @@ public:
 		Value = base;
 	}
 
-	Operand2(u8 shift, ShiftType type, ARMReg base)// For IMM shifted register
+	Operand2(ARMReg base, ShiftType type, u8 shift)// For IMM shifted register
 	{
 		if(shift == 32) shift = 0;
 		switch (type)
@@ -352,7 +352,7 @@ private:
 	u32 condition;
 	std::vector<LiteralPool> currentLitPool;
 
-	void WriteStoreOp(u32 op, ARMReg dest, ARMReg src, Operand2 op2);
+	void WriteStoreOp(u32 op, ARMReg src, ARMReg dest, Operand2 op2);
 	void WriteRegStoreOp(u32 op, ARMReg dest, bool WriteBack, u16 RegList);
 	void WriteShiftedDataOp(u32 op, bool SetFlags, ARMReg dest, ARMReg src, ARMReg op2);
 	void WriteShiftedDataOp(u32 op, bool SetFlags, ARMReg dest, ARMReg src, Operand2 op2);

@@ -165,7 +165,7 @@ void Jit::GenerateFixedCode()
 				// IDEA - we have 26 bits, why not just use offsets from base of code?
 				// Another idea: Shift the bloc number left by two in the op, this would let us do
 				// LDR(R0, R9, R0, true, true); here, replacing the next instructions.
-				ADD(R0, R9, Operand2(2, ST_LSL, R0));
+				ADD(R0, R9, Operand2(R0, ST_LSL, 2));
 				LDR(R0, R0);
 				B(R0);
 			SetCC(CC_AL);

@@ -287,7 +287,7 @@ namespace MIPSComp
 		int sa = _SA;
 		
 		gpr.MapDirtyIn(rd, rt);
-		MOV(gpr.R(rd), Operand2(sa, shiftType, gpr.R(rt)));
+		MOV(gpr.R(rd), Operand2(gpr.R(rt), shiftType, sa));
 	}
 
 	void Jit::CompShiftVar(u32 op, ArmGen::ShiftType shiftType)
@@ -299,7 +299,7 @@ namespace MIPSComp
 		{
 			gpr.MapDirtyIn(rd, rt);
 			int sa = gpr.GetImm(rs) & 0x1F;
-			MOV(gpr.R(rd), Operand2(sa, shiftType, gpr.R(rt)));
+			MOV(gpr.R(rd), Operand2(gpr.R(rt), shiftType, sa));
 			return;
 		}
 		gpr.MapDirtyInIn(rd, rs, rt);
@@ -362,7 +362,7 @@ namespace MIPSComp
 			if (useUBFXandBFI) {
 				UBFX(gpr.R(rt), gpr.R(rs), pos, size);
 			} else {
-				MOV(gpr.R(rt), Operand2(pos, ST_LSR, gpr.R(rs)));
+				MOV(gpr.R(rt), Operand2(gpr.R(rs), ST_LSR, pos));
 				ANDI2R(gpr.R(rt), gpr.R(rt), mask, R0);
 			}
 			break;
@@ -393,7 +393,7 @@ namespace MIPSComp
 					} else {
 						gpr.MapDirtyIn(rt, rs, false);
 						ANDI2R(R0, gpr.R(rs), sourcemask, R1);
-						MOV(R0, Operand2(pos, ST_LSL, R0));
+						MOV(R0, Operand2(R0, ST_LSL, pos));
 						ANDI2R(gpr.R(rt), gpr.R(rt), destmask, R1);
 						ORR(gpr.R(rt), gpr.R(rt), R0);
 					}
