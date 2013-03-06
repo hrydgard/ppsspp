@@ -122,8 +122,8 @@ void RunTests()
 				o = o.substr(0, o.size() - 1);  // For some reason we get some extra character
 			if (e != o) {
 				ELOG("DIFF on line %i!", line);
-				ILOG("O: %s", e.c_str());
-				ILOG("E: %s", o.c_str());
+				ILOG("O: %s", o.c_str());
+				ILOG("E: %s", e.c_str());
 			}
 			if (expected.eof()) {
 				break;
