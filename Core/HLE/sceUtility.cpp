@@ -105,7 +105,8 @@ u32 sceUtilityUnloadAvModule(u32 module)
 u32 sceUtilityLoadModule(u32 module)
 {
 	DEBUG_LOG(HLE,"sceUtilityLoadModule(%i)", module);
-	hleReSchedule("utilityloadmodule");
+	sceKernelDelayThread(500);
+	//hleReSchedule("utilityloadmodule");
 	return 0;
 }
 
