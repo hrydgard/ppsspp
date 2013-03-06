@@ -144,30 +144,34 @@ namespace MIPSComp
 			load = true;
 		case 42: //swl
 		case 46: //swr
-		{
-			// Optimisation: Combine to single unaligned load/store
-			int left = (o == 34 || o == 42) ? 1 : -1;
-			u32 nextOp = Memory::Read_Instruction(js.compilerPC + 4);
-			// Find a matching shift in opposite direction with opposite offset.
-			u32 desiredOp = ((op + left* (4 << 26)) & 0xFFFF0000) + (offset - left*3);
-			if (!js.inDelaySlot && nextOp == desiredOp)
-			{
-				EatInstruction(nextOp);
-				nextOp = ((load ? 35 : 43) << 26) | (((left == 1) ? nextOp : op) & 0x3FFFFFF); //lw, sw
-				Comp_ITypeMem(nextOp);
-				return;
+			if (!js.inDelaySlot) {
+				// Optimisation: Combine to single unaligned load/store
+				bool isLeft = (o == 34 || o == 42);
+				u32 nextOp = Memory::Read_Instruction(js.compilerPC + 4);
+				// Find a matching shift in opposite direction with opposite offset.
+				if (nextOp == (isLeft ? (op + (4<<26) - 3)
+				                      : (op - (4<<26) + 3)))
+				{
+					EatInstruction(nextOp);
+					nextOp = ((load ? 35 : 43) << 26) | ((isLeft ? nextOp : op) & 0x3FFFFFF); //lw, sw
+					Comp_ITypeMem(nextOp);
+					return;
+				}
 			}
-			DISABLE; // Disabled until crashes are resolved.
 
+			DISABLE; // Disabled until crashes are resolved.
 			if (g_Config.bFastMemory) {
-				int shift = (offset & 3) << 3;
-				offset &= 0xfffffffc;
+				int shift;
 				if (gpr.IsImm(rs)) {
 					u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
+					shift = (addr & 3) << 3;
+					addr &= 0xfffffffc;
 					load ? gpr.MapReg(rt, MAP_DIRTY) : gpr.MapReg(rt, 0);
 					MOVI2R(R0, addr);
 				} else {
 					load ? gpr.MapDirtyIn(rt, rs, false) : gpr.MapInIn(rt, rs);
+					shift = (offset & 3) << 3; // Should be addr. Difficult as we don't know it yet.
+					offset &= 0xfffffffc;
 					SetR0ToEffectiveAddress(rs, offset);
 				}
 				switch (o)
@@ -202,7 +206,6 @@ namespace MIPSComp
 				return;
 			}
 			break;
-		}
 		default:
 			Comp_Generic(op);
 			return ;
