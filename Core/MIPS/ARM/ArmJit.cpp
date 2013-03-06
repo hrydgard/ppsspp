@@ -215,7 +215,7 @@ const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 	if (logBlocks > 0) logBlocks--;
 	if (dontLogBlocks > 0) dontLogBlocks--;
 
-#define LOGASM
+// #define LOGASM
 #ifdef LOGASM
 	char temp[256];
 #endif

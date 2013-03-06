@@ -26,7 +26,9 @@
 #include <iostream>
 
 #include "base/basictypes.h"
+#include "base/display.h"
 #include "base/logging.h"
+#include "gfx_es2/gl_state.h"
 
 #include "Core/Core.h"
 #include "Core/System.h"
@@ -71,8 +73,8 @@ void RunTests()
 
 	for (int i = 0; i < ARRAY_SIZE(testsToRun); i++) {
 		const char *testName = testsToRun[i];
-		coreParam.fileToStart = g_Config.memCardDirectory + "/pspautotests/tests/" + testName + ".prx";
-		std::string expectedFile =  g_Config.memCardDirectory + "/pspautotests/tests/" + testName + ".expected";
+		coreParam.fileToStart = g_Config.memCardDirectory + "pspautotests/tests/" + testName + ".prx";
+		std::string expectedFile =  g_Config.memCardDirectory + "pspautotests/tests/" + testName + ".expected";
 
 		ILOG("Preparing to execute %s", testName)
 		std::string error_string;
@@ -111,7 +113,11 @@ void RunTests()
 			std::string e, o;
 			std::getline(expected, e);
 			std::getline(logoutput, o);
-			e = e.substr(0, e.size() - 1);  // For some reason we get some extra character
+			// Remove stray returns
+			while (e[e.size()-1] == 10 || e[e.size()-1] == 13)
+				e = e.substr(0, e.size() - 1);  // For some reason we get some extra character
+			while (o[o.size()-1] == 10 || o[o.size()-1] == 13)
+				o = o.substr(0, o.size() - 1);  // For some reason we get some extra character
 			if (e != o) {
 				ELOG("DIFF! %i vs %i, %s vs %s", (int)e.size(), (int)o.size(), e.c_str(), o.c_str());
 			}
@@ -122,8 +128,8 @@ void RunTests()
 				break;
 			}
 		}
-
-		ILOG("Test executed.");
-		return;
+		PSP_Shutdown();
 	}
+	glstate.Restore();
+	glstate.viewport.set(0,0,pixel_xres,pixel_yres);
 }
