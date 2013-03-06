@@ -302,7 +302,7 @@ namespace MIPSComp
 			MOV(gpr.R(rd), Operand2(gpr.R(rt), shiftType, sa));
 			return;
 		}
-		gpr.MapDirtyInIn(rd, rs, rt);
+		gpr.MapDirtyInIn(rd, rs, rt, false);
 		AND(R0, gpr.R(rs), Operand2(0x1F));
 		MOV(gpr.R(rd), Operand2(gpr.R(rt), shiftType, R0));
 	}
