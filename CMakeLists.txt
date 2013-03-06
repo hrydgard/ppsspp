@@ -962,6 +962,7 @@ endif()
 set(NativeAppSource
 	android/jni/NativeApp.cpp
 	android/jni/EmuScreen.cpp
+	android/jni/TestRunner.cpp
 	android/jni/MenuScreens.cpp
 	android/jni/GamepadEmu.cpp
 	android/jni/UIShader.cpp

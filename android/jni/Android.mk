@@ -50,6 +50,7 @@ LOCAL_SRC_FILES := \
   UIShader.cpp \
   GamepadEmu.cpp \
   ArmEmitterTest.cpp \
+  TestRunner.cpp \
   ui_atlas.cpp \
   $(SRC)/native/android/app-android.cpp \
   $(SRC)/ext/disarm.cpp \

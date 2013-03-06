@@ -42,6 +42,7 @@
 
 #include "MenuScreens.h"
 #include "EmuScreen.h"
+#include "TestRunner.h"
 
 #ifdef USING_QT_UI
 #include <QFileDialog>
@@ -343,6 +344,44 @@ void SettingsScreen::render() {
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres-10), LARGE_BUTTON_WIDTH, "Back", ALIGN_RIGHT | ALIGN_BOTTOM)) {
 		screenManager()->finishDialog(this, DR_OK);
+	}
+	if (UIButton(GEN_ID, Pos(10, dp_yres-10), LARGE_BUTTON_WIDTH, "Developer Menu", ALIGN_BOTTOMLEFT)) {
+		screenManager()->push(new DeveloperScreen());
+	}
+
+	UIEnd();
+
+	glsl_bind(UIShader_Get());
+	ui_draw2d.Flush(UIShader_Get());
+}
+
+void DeveloperScreen::update(InputState &input) {
+	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
+		g_Config.Save();
+		screenManager()->finishDialog(this, DR_OK);
+	}
+}
+
+void DeveloperScreen::render() {
+	UIShader_Prepare();
+	UIBegin();
+	DrawBackground(1.0f);
+
+	ui_draw2d.DrawText(UBUNTU48, "Developer Tools", dp_xres / 2, 20, 0xFFFFFFFF, ALIGN_HCENTER);
+
+	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres-10), LARGE_BUTTON_WIDTH, "Back", ALIGN_RIGHT | ALIGN_BOTTOM)) {
+		screenManager()->finishDialog(this, DR_OK);
+	}
+
+	if (UIButton(GEN_ID, Pos(dp_xres / 2, 100), LARGE_BUTTON_WIDTH, "Run CPU tests", ALIGN_CENTER | ALIGN_TOP)) {
+		// TODO: Run tests
+		RunTests();
+		// screenManager()->push(new EmuScreen())
+	}
+
+
+	if (UIButton(GEN_ID, Pos(10, dp_yres-10), LARGE_BUTTON_WIDTH, "Dump frame to log", ALIGN_BOTTOMLEFT)) {
+		gpu->DumpNextFrame();
 	}
 
 	UIEnd();

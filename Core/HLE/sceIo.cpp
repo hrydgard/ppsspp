@@ -864,9 +864,9 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 				{
 					host->SendDebugOutput(data.c_str());
 				}
-				else
+				if (PSP_CoreParameter().collectEmuLog)
 				{
-					DEBUG_LOG(HLE, "%s", data.c_str());
+					*PSP_CoreParameter().collectEmuLog += data;
 				}
 				return 0;
 			}
