@@ -86,21 +86,21 @@ void Jit::FlushPrefixV()
 	if ((js.prefixSFlag & ArmJitState::PREFIX_DIRTY) != 0)
 	{
 		MOVI2R(R0, js.prefixS);
-		STR(CTXREG, R0, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_SPREFIX]));
+		STR(R0, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_SPREFIX]));
 		js.prefixSFlag = (ArmJitState::PrefixState) (js.prefixSFlag & ~ArmJitState::PREFIX_DIRTY);
 	}
 
 	if ((js.prefixTFlag & ArmJitState::PREFIX_DIRTY) != 0)
 	{
 		MOVI2R(R0, js.prefixT);
-		STR(CTXREG, R0, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_TPREFIX]));
+		STR(R0, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_TPREFIX]));
 		js.prefixTFlag = (ArmJitState::PrefixState) (js.prefixTFlag & ~ArmJitState::PREFIX_DIRTY);
 	}
 
 	if ((js.prefixDFlag & ArmJitState::PREFIX_DIRTY) != 0)
 	{
 		MOVI2R(R0, js.prefixD);
-		STR(CTXREG, R0, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_DPREFIX]));
+		STR(R0, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_DPREFIX]));
 		js.prefixDFlag = (ArmJitState::PrefixState) (js.prefixDFlag & ~ArmJitState::PREFIX_DIRTY);
 	}
 }
@@ -211,6 +211,7 @@ const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 
 	int numInstructions = 0;
 	int cycles = 0;
+	int partialFlushOffset = 0;
 	if (logBlocks > 0) logBlocks--;
 	if (dontLogBlocks > 0) dontLogBlocks--;
 
@@ -229,15 +230,13 @@ const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 	
 		js.compilerPC += 4;
 		numInstructions++;
-		if (!cpu_info.bArmV7 && GetCodePtr() - b->checkedEntry >= 4088)
+		if (!cpu_info.bArmV7 && (GetCodePtr() - b->checkedEntry - partialFlushOffset) > 4020)
 		{
 			// We need to prematurely flush as we are out of range
-			CCFlags old_cc = GetCC();
-			SetCC(CC_AL);
-			FixupBranch skip = B();
+			FixupBranch skip = B_CC(CC_AL);
 			FlushLitPool();
 			SetJumpTarget(skip);
-			SetCC(old_cc);
+			partialFlushOffset = GetCodePtr() - b->checkedEntry;
 		}
 	}
 	FlushLitPool();
@@ -295,7 +294,7 @@ void Jit::MovFromPC(ARMReg r) {
 }
 
 void Jit::MovToPC(ARMReg r) {
-	STR(R10, r, offsetof(MIPSState, pc));
+	STR(r, R10, offsetof(MIPSState, pc));
 }
 
 void Jit::WriteDownCount(int offset)
@@ -306,13 +305,13 @@ void Jit::WriteDownCount(int offset)
 	if (TryMakeOperand2(theDowncount, op2)) // We can enlarge this if we used rotations
 	{
 		SUBS(R1, R1, op2);
-		STR(R10, R1, offsetof(MIPSState, downcount));
+		STR(R1, R10, offsetof(MIPSState, downcount));
 	} else {
 		// Should be fine to use R2 here, flushed the regcache anyway.
 		// If js.downcountAmount can be expressed as an Imm8, we don't need this anyway.
 		MOVI2R(R2, theDowncount);
 		SUBS(R1, R1, R2);
-		STR(R10, R1, offsetof(MIPSState, downcount));
+		STR(R1, R10, offsetof(MIPSState, downcount));
 	}
 }
 

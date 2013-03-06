@@ -168,7 +168,7 @@ void ArmRegCache::FlushArmReg(ARMReg r) {
 	}
 	if (ar[r].mipsReg != -1) {
 		if (ar[r].isDirty && mr[ar[r].mipsReg].loc == ML_ARMREG)
-			emit->STR(CTXREG, r, GetMipsRegOffset(ar[r].mipsReg));
+			emit->STR(r, CTXREG, GetMipsRegOffset(ar[r].mipsReg));
 		// IMMs won't be in an ARM reg.
 		mr[ar[r].mipsReg].loc = ML_MEM;
 		mr[ar[r].mipsReg].reg = INVALID_REG;
@@ -185,7 +185,7 @@ void ArmRegCache::FlushR(MIPSReg r) {
 	case ML_IMM:
 		// IMM is always "dirty".
 		emit->MOVI2R(R0, mr[r].imm);
-		emit->STR(CTXREG, R0, GetMipsRegOffset(r));
+		emit->STR(R0, CTXREG, GetMipsRegOffset(r));
 		break;
 
 	case ML_ARMREG:
@@ -193,7 +193,7 @@ void ArmRegCache::FlushR(MIPSReg r) {
 			ERROR_LOG(HLE, "FlushMipsReg: MipsReg had bad ArmReg");
 		}
 		if (ar[mr[r].reg].isDirty) {
-			emit->STR(CTXREG, (ARMReg)mr[r].reg, GetMipsRegOffset(r));
+			emit->STR((ARMReg)mr[r].reg, CTXREG, GetMipsRegOffset(r));
 			ar[mr[r].reg].isDirty = false;
 		}
 		ar[mr[r].reg].mipsReg = -1;
