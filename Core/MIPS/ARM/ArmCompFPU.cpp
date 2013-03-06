@@ -111,7 +111,7 @@ void Jit::Comp_FPUComp(u32 op) {
 	if (opc == 0)//f, sf (signalling false)
 	{
 		MOVI2R(R0, 0);
-		STR(CTXREG, R0, offsetof(MIPSState, fpcond));
+		STR(R0, CTXREG, offsetof(MIPSState, fpcond));
 		return;
 	}
 
@@ -165,7 +165,7 @@ void Jit::Comp_FPUComp(u32 op) {
 	}
 	MOVI2R(R0, 0);
 	SetCC(CC_AL);
-	STR(CTXREG, R0, offsetof(MIPSState, fpcond));
+	STR(R0, CTXREG, offsetof(MIPSState, fpcond));
 }
 
 void Jit::Comp_FPU2op(u32 op)

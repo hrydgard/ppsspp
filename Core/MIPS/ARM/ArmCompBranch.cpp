@@ -147,7 +147,7 @@ void Jit::BranchRSZeroComp(u32 op, ArmGen::CCFlags cc, bool andLink, bool likely
 	if (andLink)
 	{
 		MOVI2R(R0, js.compilerPC + 8);
-		STR(CTXREG, R0, MIPS_REG_RA * 4);
+		STR(R0, CTXREG, MIPS_REG_RA * 4);
 	}
 
 	WriteExit(targetAddr, 0);
@@ -340,7 +340,7 @@ void Jit::Comp_Jump(u32 op)
 
 	case 3: //jal
 		MOVI2R(R0, js.compilerPC + 8);
-		STR(CTXREG, R0, MIPS_REG_RA * 4);
+		STR(R0, CTXREG, MIPS_REG_RA * 4);
 		WriteExit(targetAddr, 0);
 		break;
 
@@ -388,7 +388,7 @@ void Jit::Comp_JumpReg(u32 op)
 		break;
 	case 9: //jalr
 		MOVI2R(R0, js.compilerPC + 8);
-		STR(CTXREG, R0, MIPS_REG_RA * 4);
+		STR(R0, CTXREG, MIPS_REG_RA * 4);
 		break;
 	default:
 		_dbg_assert_msg_(CPU,0,"Trying to compile instruction that can't be compiled");

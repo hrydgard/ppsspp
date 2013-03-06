@@ -355,7 +355,7 @@ void ArmJitBlockCache::DestroyBlock(int block_num, bool invalidate)
 	// checkedEntry is the only "linked" entrance so it's enough to overwrite that.
 	ARMXEmitter emit((u8 *)b.checkedEntry);
 	emit.MOVI2R(R0, b.originalAddress);
-	emit.STR(CTXREG, R0, offsetof(MIPSState, pc));
+	emit.STR(R0, CTXREG, offsetof(MIPSState, pc));
 	emit.B(MIPSComp::jit->dispatcher);
 	emit.FlushIcache();
 }

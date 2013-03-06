@@ -179,17 +179,17 @@ namespace MIPSComp
 					LSR(gpr.R(rt), gpr.R(rt), 24-shift);
 					AND(R0, R0, 0xffffff00 << shift);
 					ORR(R0, R0, gpr.R(rt));
-					STR(R0, gpr.R(rt), R11, true, true);
+					STR(gpr.R(rt), R11, R0, true, true);
 					break;
 				case 46:
 					LSL(gpr.R(rt), gpr.R(rt), shift);
 					AND(R0, R0, 0x00ffffff >> (24 - shift));
 					ORR(R0, R0, gpr.R(rt));
-					STR(R0, gpr.R(rt), R11, true, true);
+					STR(gpr.R(rt), R11, R0, true, true);
 					break;
-				case 43: STR  (R0, gpr.R(rt), R11, true, true); break;
-				case 41: STRH (R0, gpr.R(rt), R11, true, true); break;
-				case 40: STRB (R0, gpr.R(rt), R11, true, true); break;
+				case 43: STR  (gpr.R(rt), R11, R0, true, true); break;
+				case 41: STRH (gpr.R(rt), R11, R0, true, true); break;
+				case 40: STRB (gpr.R(rt), R11, R0, true, true); break;
 				}
 			} else {
 				Comp_Generic(op);
