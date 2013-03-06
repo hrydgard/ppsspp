@@ -211,6 +211,7 @@ const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 
 	int numInstructions = 0;
 	int cycles = 0;
+	int partialFlushOffset = 0;
 	if (logBlocks > 0) logBlocks--;
 	if (dontLogBlocks > 0) dontLogBlocks--;
 
@@ -229,15 +230,13 @@ const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 	
 		js.compilerPC += 4;
 		numInstructions++;
-		if (!cpu_info.bArmV7 && GetCodePtr() - b->checkedEntry >= 4088)
+		if (!cpu_info.bArmV7 && (GetCodePtr() - b->checkedEntry - partialFlushOffset) > 4020)
 		{
 			// We need to prematurely flush as we are out of range
-			CCFlags old_cc = GetCC();
-			SetCC(CC_AL);
-			FixupBranch skip = B();
+			FixupBranch skip = B_CC(CC_AL);
 			FlushLitPool();
 			SetJumpTarget(skip);
-			SetCC(old_cc);
+			partialFlushOffset = GetCodePtr() - b->checkedEntry;
 		}
 	}
 	FlushLitPool();
