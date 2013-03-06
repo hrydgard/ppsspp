@@ -401,7 +401,7 @@
     <message>
         <location filename="../gamepaddialog.ui" line="86"/>
         <source>TextLabel</source>
-        <translation></translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../gamepaddialog.ui" line="98"/>
@@ -606,7 +606,7 @@
     <message>
         <location filename="../mainwindow.ui" line="255"/>
         <source>&amp;Save State File...</source>
-        <translation>&amp;Salvar estado do arquivo...</translation>
+        <translation>&amp;Salvar estado no arquivo...</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="260"/>
@@ -656,7 +656,7 @@
     <message>
         <location filename="../mainwindow.ui" line="313"/>
         <source>Load &amp;Map File...</source>
-        <translation>Carregar &amp;mapa no arquivo...</translation>
+        <translation>Carregar &amp;mapa do arquivo...</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="321"/>
@@ -726,7 +726,7 @@
     <message>
         <location filename="../mainwindow.ui" line="607"/>
         <source>Run on loa&amp;d</source>
-        <translation>Rodar ao &amp;carregar</translation>
+        <translation>Rodar ao &amp;abrir</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="681"/>
@@ -786,7 +786,7 @@
     <message>
         <location filename="../mainwindow.ui" line="431"/>
         <source>Screen &amp;1x</source>
-        <translation>&amp;1x Tela&apos;</translation>
+        <translation>&amp;1x Tela</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="434"/>
@@ -879,7 +879,7 @@
     <message>
         <location filename="../mainwindow.ui" line="620"/>
         <source>&amp;Vertex Cache</source>
-        <translation>Cache do &amp;Vertex</translation>
+        <translation>Cache de &amp;Vértices</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="625"/>
