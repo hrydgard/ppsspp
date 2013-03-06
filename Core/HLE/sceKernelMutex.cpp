@@ -233,11 +233,6 @@ std::vector<SceUID>::iterator __KernelMutexFindPriority(std::vector<SceUID> &wai
 
 int sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optionsPtr)
 {
-	if (!name)
-	{
-		WARN_LOG(HLE, "%08x=sceKernelCreateMutex(): invalid name", SCE_KERNEL_ERROR_ERROR);
-		return SCE_KERNEL_ERROR_ERROR;
-	}
 	if (attr >= 0xC00)
 	{
 		WARN_LOG(HLE, "%08x=sceKernelCreateMutex(): invalid attr parameter: %08x", SCE_KERNEL_ERROR_ILLEGAL_ATTR, attr);
@@ -253,7 +248,10 @@ int sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optio
 	SceUID id = kernelObjects.Create(mutex);
 
 	mutex->nm.size = sizeof(mutex->nm);
-	strncpy(mutex->nm.name, name, KERNELOBJECT_MAX_NAME_LENGTH);
+	if (name)
+		strncpy(mutex->nm.name, name, KERNELOBJECT_MAX_NAME_LENGTH);
+	else
+		strncpy(mutex->nm.name, "anonymous", KERNELOBJECT_MAX_NAME_LENGTH);
 	mutex->nm.name[KERNELOBJECT_MAX_NAME_LENGTH] = 0;
 	mutex->nm.attr = attr;
 	mutex->nm.initialCount = initialCount;
