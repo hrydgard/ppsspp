@@ -171,7 +171,8 @@ namespace MIPSComp
 			break;
 		case 23: //clo
 			gpr.MapDirtyIn(rd, rs);
-			RSB(R0, gpr.R(rs), Operand2(0));
+			MOVI2R(R0, 0xFFFFFFFF);
+			EOR(R0, R0, gpr.R(rs));
 			CLZ(gpr.R(rd), R0);
 			break;
 		default:
@@ -346,7 +347,7 @@ namespace MIPSComp
 			MOV(gpr.R(rd), Operand2(gpr.R(rt), shiftType, sa));
 			return;
 		}
-		gpr.MapDirtyInIn(rd, rs, rt, false);
+		gpr.MapDirtyInIn(rd, rs, rt);
 		AND(R0, gpr.R(rs), Operand2(0x1F));
 		MOV(gpr.R(rd), Operand2(gpr.R(rt), shiftType, R0));
 	}
@@ -363,7 +364,7 @@ namespace MIPSComp
 		case 2: CompShiftImm(op, rs == 1 ? ST_ROR : ST_LSR); break;	//srl
 		case 3: CompShiftImm(op, ST_ASR); break; //sra
 		case 4: CompShiftVar(op, ST_LSL); break; //sllv
-		case 6: CompShiftVar(op, rs == 1 ? ST_ROR : ST_LSR); break; //srlv
+		case 6: CompShiftVar(op, fd == 1 ? ST_ROR : ST_LSR); break; //srlv
 		case 7: CompShiftVar(op, ST_ASR); break; //srav
 		
 		default:

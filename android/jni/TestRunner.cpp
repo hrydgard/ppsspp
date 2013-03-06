@@ -109,7 +109,9 @@ void RunTests()
 
 		std::istringstream logoutput(output);
 
+		int line = 0;
 		while (true) {
+			++line;
 			std::string e, o;
 			std::getline(expected, e);
 			std::getline(logoutput, o);
@@ -119,7 +121,9 @@ void RunTests()
 			while (o[o.size()-1] == 10 || o[o.size()-1] == 13)
 				o = o.substr(0, o.size() - 1);  // For some reason we get some extra character
 			if (e != o) {
-				ELOG("DIFF! %i vs %i, %s vs %s", (int)e.size(), (int)o.size(), e.c_str(), o.c_str());
+				ELOG("DIFF on line %i!", line);
+				ILOG("O: %s", e.c_str());
+				ILOG("E: %s", o.c_str());
 			}
 			if (expected.eof()) {
 				break;
