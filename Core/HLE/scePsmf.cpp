@@ -726,6 +726,11 @@ int scePsmfPlayerReleasePsmf(u32 psmfPlayer)
 int scePsmfPlayerGetCurrentStatus(u32 psmfPlayer) 
 {
 	ERROR_LOG(HLE, "scePsmfPlayerGetCurrentStatus(%08x)", psmfPlayer);
+	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
+	if (!psmfplayer) {
+		ERROR_LOG(HLE, "scePsmfPlayerUpdate - invalid psmf");
+		return ERROR_PSMF_NOT_FOUND;
+	}
 	return psmfPlayerStatus;
 }
 
