@@ -90,7 +90,7 @@ namespace MIPSComp
 	{
 		CONDITIONAL_DISABLE;
 		int offset = (signed short)(op&0xFFFF);
-		bool shifter = false, load = false;
+		bool load = false;
 		int rt = _RT;
 		int rs = _RS;
 		int o = op>>26;
@@ -98,55 +98,19 @@ namespace MIPSComp
 			// Don't load anything into $zr
 			return;
 		}
-		/*
-		// Optimisation: Combine to single unaligned load/store
-		switch(o)
-		{
-		case 34: //lwl
-		case 38: //lwr
-			load = true;
-		case 42: //swl
-		case 46: //swr
-		{
-			int left = (o == 34 || o == 42) ? 1 : -1;
-			u32 nextOp = Memory::Read_Instruction(js.compilerPC + 4);
-			// Find a matching shift in opposite direction with opposite offset.
-			u32 desiredOp = ((op + left* (4 << 26)) & 0xFFFF0000) + (offset - left*3);
-			if (!js.inDelaySlot && nextOp == desiredOp)
-			{
-				EatInstruction(nextOp);
-				nextOp = ((load ? 35 : 43) << 26) | (nextOp & 0x3FFFFFF); //lw, sw
-				Comp_ITypeMem(nextOp);
-				return;
-			}
-			shifter = true;
-		}
-		default:
-			break;
-		}*/
 
 		switch (o)
 		{
 		case 32: //lb
 		case 33: //lh
-		//case 34: //lwl
 		case 35: //lw
 		case 36: //lbu
 		case 37: //lhu
-		//case 38: //lwr
 			load = true;
 		case 40: //sb
 		case 41: //sh
-		//case 42: //swl
 		case 43: //sw
-		//case 46: //swr
 			if (g_Config.bFastMemory) {
-				int shift = 0;
-				if (shifter)
-				{
-					shift = (offset & 3) << 3;
-					offset &= 0xfffffffc;
-				}
 				if (gpr.IsImm(rs)) {
 					// We can compute the full address at compile time. Kickass.
 					u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
@@ -160,37 +124,82 @@ namespace MIPSComp
 				switch (o)
 				{
 				// Load
-				case 34:
-					AND(gpr.R(rt), gpr.R(rt), 0x00ffffff >> shift);
-					LDR(R0, R11, R0, true, true);
-					ORR(gpr.R(rt), gpr.R(rt), Operand2(24 - shift, ST_LSL, R0));
-					break;
-				case 38:
-					AND(gpr.R(rt), gpr.R(rt), 0xffffff00 << (24 - shift));
-					LDR(R0, R11, R0, true, true);
-					ORR(gpr.R(rt), gpr.R(rt), Operand2(shift, ST_LSR, R0));
-					break;
 				case 35: LDR  (gpr.R(rt), R11, R0, true, true); break;
 				case 37: LDRH (gpr.R(rt), R11, R0, true, true); break;
 				case 33: LDRSH(gpr.R(rt), R11, R0, true, true); break;
 				case 36: LDRB (gpr.R(rt), R11, R0, true, true); break;
 				case 32: LDRSB(gpr.R(rt), R11, R0, true, true); break;
 				// Store
+				case 43: STR  (gpr.R(rt), R11, R0, true, true); break;
+				case 41: STRH (gpr.R(rt), R11, R0, true, true); break;
+				case 40: STRB (gpr.R(rt), R11, R0, true, true); break;
+				}
+			} else {
+				Comp_Generic(op);
+				return;
+			}
+			break;
+		case 34: //lwl
+		case 38: //lwr
+			load = true;
+		case 42: //swl
+		case 46: //swr
+			if (!js.inDelaySlot) {
+				// Optimisation: Combine to single unaligned load/store
+				bool isLeft = (o == 34 || o == 42);
+				u32 nextOp = Memory::Read_Instruction(js.compilerPC + 4);
+				// Find a matching shift in opposite direction with opposite offset.
+				if (nextOp == (isLeft ? (op + (4<<26) - 3)
+				                      : (op - (4<<26) + 3)))
+				{
+					EatInstruction(nextOp);
+					nextOp = ((load ? 35 : 43) << 26) | ((isLeft ? nextOp : op) & 0x3FFFFFF); //lw, sw
+					Comp_ITypeMem(nextOp);
+					return;
+				}
+			}
+
+			DISABLE; // Disabled until crashes are resolved.
+			if (g_Config.bFastMemory) {
+				int shift;
+				if (gpr.IsImm(rs)) {
+					u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
+					shift = (addr & 3) << 3;
+					addr &= 0xfffffffc;
+					load ? gpr.MapReg(rt, MAP_DIRTY) : gpr.MapReg(rt, 0);
+					MOVI2R(R0, addr);
+				} else {
+					load ? gpr.MapDirtyIn(rt, rs, false) : gpr.MapInIn(rt, rs);
+					shift = (offset & 3) << 3; // Should be addr. Difficult as we don't know it yet.
+					offset &= 0xfffffffc;
+					SetR0ToEffectiveAddress(rs, offset);
+				}
+				switch (o)
+				{
+				// Load
+				case 34:
+					AND(gpr.R(rt), gpr.R(rt), 0x00ffffff >> shift);
+					LDR(R0, R11, R0, true, true);
+					ORR(gpr.R(rt), gpr.R(rt), Operand2(R0, ST_LSL, 24 - shift));
+					break;
+				case 38:
+					AND(gpr.R(rt), gpr.R(rt), 0xffffff00 << (24 - shift));
+					LDR(R0, R11, R0, true, true);
+					ORR(gpr.R(rt), gpr.R(rt), Operand2(R0, ST_LSR, shift));
+					break;
+				// Store
 				case 42:
-					LSR(gpr.R(rt), gpr.R(rt), 24-shift);
-					AND(R0, R0, 0xffffff00 << shift);
-					ORR(R0, R0, gpr.R(rt));
-					STR(R0, gpr.R(rt), R11, true, true);
+					LDR(R1, R11, R0, true, true);
+					AND(R1, R1, 0xffffff00 << shift);
+					ORR(R1, R1, Operand2(gpr.R(rt), ST_LSR, 24 - shift));
+					STR(R1, R11, R0, true, true);
 					break;
 				case 46:
-					LSL(gpr.R(rt), gpr.R(rt), shift);
-					AND(R0, R0, 0x00ffffff >> (24 - shift));
-					ORR(R0, R0, gpr.R(rt));
-					STR(R0, gpr.R(rt), R11, true, true);
+					LDR(R1, R11, R0, true, true);
+					AND(R1, R1, 0x00ffffff >> (24 - shift));
+					ORR(R1, R1, Operand2(gpr.R(rt), ST_LSL, shift));
+					STR(R1, R11, R0, true, true);
 					break;
-				case 43: STR  (R0, gpr.R(rt), R11, true, true); break;
-				case 41: STRH (R0, gpr.R(rt), R11, true, true); break;
-				case 40: STRB (R0, gpr.R(rt), R11, true, true); break;
 				}
 			} else {
 				Comp_Generic(op);

@@ -178,7 +178,7 @@ public:
 		Value = base;
 	}
 
-	Operand2(u8 shift, ShiftType type, ARMReg base)// For IMM shifted register
+	Operand2(ARMReg base, ShiftType type, u8 shift)// For IMM shifted register
 	{
 		if(shift == 32) shift = 0;
 		switch (type)
@@ -352,7 +352,7 @@ private:
 	u32 condition;
 	std::vector<LiteralPool> currentLitPool;
 
-	void WriteStoreOp(u32 op, ARMReg dest, ARMReg src, Operand2 op2);
+	void WriteStoreOp(u32 op, ARMReg src, ARMReg dest, Operand2 op2);
 	void WriteRegStoreOp(u32 op, ARMReg dest, bool WriteBack, u16 RegList);
 	void WriteShiftedDataOp(u32 op, bool SetFlags, ARMReg dest, ARMReg src, ARMReg op2);
 	void WriteShiftedDataOp(u32 op, bool SetFlags, ARMReg dest, ARMReg src, Operand2 op2);
@@ -509,22 +509,22 @@ public:
 	void LDRSB(ARMReg dest, ARMReg base, ARMReg offset, bool Index, bool Add);
 	void LDRLIT(ARMReg dest, u32 offset, bool Add);
 
-	void STR  (ARMReg dest, ARMReg src, Operand2 op2 = 0);
-	void STRH (ARMReg dest, ARMReg src, Operand2 op2 = 0);
-	void STRB (ARMReg dest, ARMReg src, Operand2 op2 = 0);
+	void STR  (ARMReg result, ARMReg base, Operand2 op2 = 0);
+	void STRH (ARMReg result, ARMReg base, Operand2 op2 = 0);
+	void STRB (ARMReg result, ARMReg base, Operand2 op2 = 0);
 	// Offset adds on to the destination register in STR
-	void STR  (ARMReg dest, ARMReg base, Operand2 op2, bool Index, bool Add);
-	void STR  (ARMReg dest, ARMReg base, ARMReg offset, bool Index, bool Add);
-	void STRH (ARMReg dest, ARMReg base, ARMReg offset, bool Index, bool Add);
-	void STRB (ARMReg dest, ARMReg base, ARMReg offset, bool Index, bool Add);
+	void STR  (ARMReg result, ARMReg base, Operand2 op2, bool Index, bool Add);
+	void STR  (ARMReg result, ARMReg base, ARMReg offset, bool Index, bool Add);
+	void STRH (ARMReg result, ARMReg base, ARMReg offset, bool Index, bool Add);
+	void STRB (ARMReg result, ARMReg base, ARMReg offset, bool Index, bool Add);
 
 	void STMFD(ARMReg dest, bool WriteBack, const int Regnum, ...);
 	void LDMFD(ARMReg dest, bool WriteBack, const int Regnum, ...);
 	
 	// Exclusive Access operations
 	void LDREX(ARMReg dest, ARMReg base);
-	// dest contains the result if the instruction managed to store the value
-	void STREX(ARMReg dest, ARMReg base, ARMReg op);
+	// result contains the result if the instruction managed to store the value
+	void STREX(ARMReg result, ARMReg base, ARMReg op);
 	void DMB ();
 	void SVC(Operand2 op);
 
