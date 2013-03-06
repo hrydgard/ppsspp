@@ -164,6 +164,7 @@ public:
 
 	SceMpegAu psmfPlayerAtracAu;
 	SceMpegAu psmfPlayerAvcAu;
+	PsmfPlayerStatus status;
 };
 
 class PsmfStream {
@@ -260,6 +261,7 @@ PsmfPlayer::PsmfPlayer(u32 data) {
 	playMode = Memory::Read_U32(data+ 16);
 	playSpeed = Memory::Read_U32(data + 20);
 	psmfPlayerLastTimestamp = bswap32(Memory::Read_U32(data + PSMF_LAST_TIMESTAMP_OFFSET)) ;
+	status = PSMF_PLAYER_STATUS_INIT;
 }
 
 void Psmf::DoState(PointerWrap &p) {
@@ -310,8 +312,6 @@ void PsmfPlayer::DoState(PointerWrap &p) {
 
 static std::map<u32, Psmf *> psmfMap;
 static std::map<u32, PsmfPlayer *> psmfPlayerMap;
-// TODO: Should have a map.
-static PsmfPlayerStatus psmfPlayerStatus = PSMF_PLAYER_STATUS_NONE;
 
 Psmf *getPsmf(u32 psmf)
 {
@@ -333,7 +333,6 @@ PsmfPlayer *getPsmfPlayer(u32 psmfplayer)
 
 void __PsmfInit()
 {
-	psmfPlayerStatus = PSMF_PLAYER_STATUS_NONE;
 }
 
 void __PsmfDoState(PointerWrap &p)
@@ -347,9 +346,6 @@ void __PsmfPlayerDoState(PointerWrap &p)
 {
 	p.Do(psmfPlayerMap);
 
-	// TODO: Actually load this from a map.
-	psmfPlayerStatus = PSMF_PLAYER_STATUS_NONE;
-
 	p.DoMarker("scePsmfPlayer");
 }
 
@@ -357,7 +353,10 @@ void __PsmfShutdown()
 {
 	for (auto it = psmfMap.begin(), end = psmfMap.end(); it != end; ++it)
 		delete it->second;
+	for (auto it = psmfPlayerMap.begin(), end = psmfPlayerMap.end(); it != end; ++it)
+		delete it->second;
 	psmfMap.clear();
+	psmfPlayerMap.clear();
 }
 
 u32 scePsmfSetPsmf(u32 psmfStruct, u32 psmfData)
@@ -623,35 +622,43 @@ int scePsmfPlayerCreate(u32 psmfPlayer, u32 psmfPlayerDataAddr)
 	}
 
 	psmfplayer->psmfMaxAheadTimestamp = getMaxAheadTimestamp(581);
-	psmfPlayerStatus = PSMF_PLAYER_STATUS_INIT;
+	psmfplayer->status = PSMF_PLAYER_STATUS_INIT;
 	return 0;
 }
 
 int scePsmfPlayerStop(u32 psmfPlayer) 
 {
 	ERROR_LOG(HLE, "UNIMPL scePsmfPlayerStop(%08x)", psmfPlayer);
-	psmfPlayerStatus = PSMF_PLAYER_STATUS_STANDBY;
+	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
+	if (psmfplayer)
+		psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
 	return 0;
 }
 
 int scePsmfPlayerBreak(u32 psmfPlayer) 
 {
 	ERROR_LOG(HLE, "UNIMPL scePsmfPlayerBreak(%08x)", psmfPlayer);
-	psmfPlayerStatus = PSMF_PLAYER_STATUS_STANDBY;
+	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
+	if (psmfplayer)
+		psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
 	return 0;
 }
 
 int scePsmfPlayerSetPsmf(u32 psmfPlayer, const char *filename) 
 {
 	ERROR_LOG(HLE, "UNIMPL scePsmfPlayerSetPsmf(%08x, %s)", psmfPlayer, filename);
-	psmfPlayerStatus = PSMF_PLAYER_STATUS_STANDBY;
+	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
+	if (psmfplayer)
+		psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
 	return 0;
 }
 
 int scePsmfPlayerSetPsmfCB(u32 psmfPlayer, const char *filename) 
 {
 	ERROR_LOG(HLE, "UNIMPL scePsmfPlayerSetPsmfCB(%08x, %s)", psmfPlayer, filename);
-	psmfPlayerStatus = PSMF_PLAYER_STATUS_STANDBY;
+	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
+	if (psmfplayer)
+		psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
 	return 0;
 }
 
@@ -686,14 +693,16 @@ int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 	psmfplayer->psmfPlayerAvcAu.dts = initPts;
 	psmfplayer->psmfPlayerAvcAu.pts = initPts;
 
-	psmfPlayerStatus = PSMF_PLAYER_STATUS_PLAYING;
+	psmfplayer->status = PSMF_PLAYER_STATUS_PLAYING;
 	return 0;
 }
 
 int scePsmfPlayerDelete(u32 psmfPlayer) 
 {
 	ERROR_LOG(HLE, "UNIMPL scePsmfPlayerDelete(%08x)", psmfPlayer);
-	psmfPlayerStatus = PSMF_PLAYER_STATUS_NONE;
+	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
+	if (psmfplayer)
+		psmfplayer->status = PSMF_PLAYER_STATUS_NONE;
 	return 0;
 }
 
@@ -708,25 +717,32 @@ int scePsmfPlayerUpdate(u32 psmfPlayer)
 
 	if (psmfplayer->psmfPlayerAvcAu.pts > 0) {
 		if (psmfplayer->psmfPlayerAvcAu.pts > psmfplayer->psmfPlayerLastTimestamp) {
-			psmfPlayerStatus = PSMF_PLAYER_STATUS_PLAYING_FINISHED;
+			psmfplayer->status = PSMF_PLAYER_STATUS_PLAYING_FINISHED;
 		}
 	}
 	// TODO: Once we start increasing pts somewhere, and actually know the last timestamp, do this better.
-	psmfPlayerStatus = PSMF_PLAYER_STATUS_PLAYING_FINISHED;
+	psmfplayer->status = PSMF_PLAYER_STATUS_PLAYING_FINISHED;
 	return 0;
 }
 
 int scePsmfPlayerReleasePsmf(u32 psmfPlayer) 
 {
 	ERROR_LOG(HLE, "UNIMPL scePsmfPlayerReleasePsmf(%08x)", psmfPlayer);
-	psmfPlayerStatus = PSMF_PLAYER_STATUS_INIT;
+	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
+	if (psmfplayer)
+		psmfplayer->status = PSMF_PLAYER_STATUS_INIT;
 	return 0;
 }
 
 int scePsmfPlayerGetCurrentStatus(u32 psmfPlayer) 
 {
 	ERROR_LOG(HLE, "scePsmfPlayerGetCurrentStatus(%08x)", psmfPlayer);
-	return psmfPlayerStatus;
+	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
+	if (!psmfplayer) {
+		ERROR_LOG(HLE, "scePsmfPlayerUpdate - invalid psmf");
+		return ERROR_PSMF_NOT_FOUND;
+	}
+	return psmfplayer->status;
 }
 
 u32 scePsmfPlayerGetCurrentPts(u32 psmfPlayer, u32 currentPtsAddr) 
@@ -737,7 +753,7 @@ u32 scePsmfPlayerGetCurrentPts(u32 psmfPlayer, u32 currentPtsAddr)
 		ERROR_LOG(HLE, "scePsmfPlayerGetCurrentPts - invalid psmf");
 		return ERROR_PSMF_NOT_FOUND;
 	}
-	if (psmfPlayerStatus < PSMF_PLAYER_STATUS_STANDBY) {
+	if (psmfplayer->status < PSMF_PLAYER_STATUS_STANDBY) {
 		return ERROR_PSMFPLAYER_NOT_INITIALIZED;
 	}
 
@@ -759,7 +775,7 @@ u32 scePsmfPlayerGetPsmfInfo(u32 psmfPlayer, u32 psmfInfoAddr)
 		ERROR_LOG(HLE, "scePsmfPlayerGetPsmfInfo - invalid psmf");
 		return ERROR_PSMF_NOT_FOUND;
 	}
-	if (psmfPlayerStatus < PSMF_PLAYER_STATUS_STANDBY) {
+	if (psmfplayer->status < PSMF_PLAYER_STATUS_STANDBY) {
 		return ERROR_PSMFPLAYER_NOT_INITIALIZED;
 	}
 
@@ -823,7 +839,9 @@ u32 scePsmfPlayerGetCurrentAudioStream(u32 psmfPlayer, u32 audioCodecAddr, u32 a
 int scePsmfPlayerSetTempBuf(u32 psmfPlayer) 
 {
 	ERROR_LOG(HLE, "UNIMPL scePsmfPlayerSetTempBuf(%08x)", psmfPlayer);
-	psmfPlayerStatus = PSMF_PLAYER_STATUS_INIT;
+	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
+	if (psmfplayer)
+		psmfplayer->status = PSMF_PLAYER_STATUS_INIT;
 	return 0;
 }
 
