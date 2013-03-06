@@ -865,7 +865,7 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 				}	else {
 					if (PSP_CoreParameter().collectEmuLog) {
 						*PSP_CoreParameter().collectEmuLog += data;
-					} else if (PSP_CoreParameter().collectEmuLog) {
+					} else {
 						DEBUG_LOG(HLE, "%s", data.c_str());
 					}
 				}

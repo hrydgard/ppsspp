@@ -171,8 +171,7 @@ namespace MIPSComp
 			break;
 		case 23: //clo
 			gpr.MapDirtyIn(rd, rs);
-			MOVI2R(R0, 0xFFFFFFFF);
-			EOR(R0, R0, gpr.R(rs));
+			MVN(R0, gpr.R(rs));
 			CLZ(gpr.R(rd), R0);
 			break;
 		default:
