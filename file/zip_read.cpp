@@ -54,7 +54,6 @@ uint8_t *ReadLocalFile(const char *filename, size_t *size) {
 #ifdef ANDROID
 
 ZipAssetReader::ZipAssetReader(const char *zip_file, const char *in_zip_path) {
-	ELOG("ZIP File %s", zip_file);
 	zip_file_ = zip_open(zip_file, 0, NULL);
 	strcpy(in_zip_path_, in_zip_path);
 	if (!zip_file_) {
@@ -140,15 +139,14 @@ bool ZipAssetReader::GetFileListing(const char *path, std::vector<FileInfo> *lis
 	return true;
 }
 
-bool ZipAssetReader::GetFileInfo(const char *path, FileInfo *info) 
-{
+bool ZipAssetReader::GetFileInfo(const char *path, FileInfo *info) {
 	struct zip_stat zstat;
 	char temp_path[1024];
 	strcpy(temp_path, in_zip_path_);
 	strcat(temp_path, path);
-	if (0 != zip_stat(zip_file_, temp_path, ZIP_FL_NOCASE, &zstat))
-	{
-		ELOG("Failed doing zip_stat on %s, bailing", path);
+	if (0 != zip_stat(zip_file_, temp_path, ZIP_FL_NOCASE, &zstat)) {
+		// ZIP files do not have real directories, so we'll end up here if we
+		// try to stat one. For now that's fine.
 		info->exists = false;
 		info->size = 0;
 		return false;
