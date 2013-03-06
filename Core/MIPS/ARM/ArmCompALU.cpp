@@ -188,8 +188,52 @@ namespace MIPSComp
 
 		switch (op & 63) 
 		{
-		//case 10: if (!R(rt)) R(rd) = R(rs);       break; //movz
-		//case 11: if (R(rt)) R(rd) = R(rs);        break; //movn
+		case 10: //if (!R(rt)) R(rd) = R(rs);       break; //movz
+			if (rd == rs)
+				break;
+			if (!gpr.IsImm(rt))
+			{
+				gpr.MapDirtyInIn(rd, rt, rs, false);
+				CMP(gpr.R(rt), Operand2(0));
+				SetCC(CC_EQ);
+				MOV(gpr.R(rd), Operand2(gpr.R(rs)));
+				SetCC(CC_AL);
+			}
+			else if (gpr.GetImm(rt) == 0)
+			{
+				// Yes, this actually happens.
+				if (gpr.IsImm(rs))
+					gpr.SetImm(rd, gpr.GetImm(rs));
+				else
+				{
+					gpr.MapDirtyIn(rd, rs);
+					MOV(gpr.R(rd), Operand2(gpr.R(rs)));
+				}
+			}
+			break;
+		case 11:// if (R(rt)) R(rd) = R(rs);		break; //movn
+			if (rd == rs)
+				break;
+			if (!gpr.IsImm(rt))
+			{
+				gpr.MapDirtyInIn(rd, rt, rs, false);
+				CMP(gpr.R(rt), Operand2(0));
+				SetCC(CC_NEQ);
+				MOV(gpr.R(rd), Operand2(gpr.R(rs)));
+				SetCC(CC_AL);
+			}
+			else if (gpr.GetImm(rt) != 0)
+			{
+				// Yes, this actually happens.
+				if (gpr.IsImm(rs))
+					gpr.SetImm(rd, gpr.GetImm(rs));
+				else
+				{
+					gpr.MapDirtyIn(rd, rs);
+					MOV(gpr.R(rd), Operand2(gpr.R(rs)));
+				}
+			}
+			break;
 			
 		// case 32: //R(rd) = R(rs) + R(rt);        break; //add
 		case 33: //R(rd) = R(rs) + R(rt);           break; //addu
