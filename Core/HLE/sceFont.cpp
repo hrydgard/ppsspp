@@ -433,6 +433,10 @@ LoadedFont *GetLoadedFont(u32 handle, bool allowClosed) {
 }
 
 void __LoadInternalFonts() {
+	if (internalFonts.size()) {
+		// Fonts already loaded.
+		return;
+	}
 	std::string fontPath = "flash0:/font/";
 	if (!pspFileSystem.GetFileInfo(fontPath).exists) {
 		pspFileSystem.MkDir(fontPath);
@@ -504,7 +508,6 @@ int GetInternalFontIndex(Font *font) {
 }
 
 void __FontInit() {
-	__LoadInternalFonts();
 	actionPostAllocCallback = __KernelRegisterActionType(PostAllocCallback::Create);
 	actionPostOpenCallback = __KernelRegisterActionType(PostOpenCallback::Create);
 }
@@ -540,6 +543,8 @@ void __FontDoState(PointerWrap &p) {
 }
 
 u32 sceFontNewLib(u32 paramPtr, u32 errorCodePtr) {
+	// Lazy load internal fonts, only when font library first inited.
+	__LoadInternalFonts();
 	INFO_LOG(HLE, "sceFontNewLib(%08x, %08x)", paramPtr, errorCodePtr);
 
 	if (Memory::IsValidAddress(paramPtr) && Memory::IsValidAddress(errorCodePtr)) {
