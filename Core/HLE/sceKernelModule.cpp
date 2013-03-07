@@ -759,7 +759,7 @@ int sceKernelLoadExec(const char *filename, u32 paramPtr)
 	return 0;
 }
 
-u32 sceKernelLoadModule(const char *name, u32 flags)
+u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
 {
 	if(!name)
 		return 0;
@@ -783,8 +783,8 @@ u32 sceKernelLoadModule(const char *name, u32 flags)
 	SceKernelLMOption *lmoption = 0;
 	int position = 0;
 	// TODO: Use position to decide whether to load high or low
-	if (PARAM(2)) {
-		lmoption = (SceKernelLMOption *)Memory::GetPointer(PARAM(2));
+	if (optionAddr) {
+		lmoption = (SceKernelLMOption *)Memory::GetPointer(optionAddr);
 	}
 
 	Module *module = 0;
@@ -1000,7 +1000,7 @@ u32 sceKernelQueryModuleInfo(u32 uid, u32 infoAddr)
 
 const HLEFunction ModuleMgrForUser[] = 
 {
-	{0x977DE386,&WrapU_CU<sceKernelLoadModule>,"sceKernelLoadModule"},
+	{0x977DE386,&WrapU_CUU<sceKernelLoadModule>,"sceKernelLoadModule"},
 	{0xb7f46618,&WrapU_UUU<sceKernelLoadModuleByID>,"sceKernelLoadModuleByID"},
 	{0x50F0C1EC,&WrapV_UUUUU<sceKernelStartModule>,"sceKernelStartModule"},
 	{0xD675EBB8,&sceKernelExitGame,"sceKernelSelfStopUnloadModule"}, //HACK
