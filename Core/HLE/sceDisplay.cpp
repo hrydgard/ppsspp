@@ -605,7 +605,7 @@ u32 sceDisplayAdjustAccumulatedHcount() {
 
 u32 sceDisplayGetAccumulatedHcount() {
 	float hCountPerVblank = 285.72f; // insprired by jpcsp
-	u32 currentHCount = (CoreTiming::GetTicks() - frameStartTicks) / ((u64)CoreTiming::GetClockFrequencyMHz() * 1000000 / 60 / 272)
+	u32 currentHCount = (CoreTiming::GetTicks() - frameStartTicks) / ((u64)CoreTiming::GetClockFrequencyMHz() * 1000000 / 60 / 272);
 	u32 accumHCount = currentHCount + (u32) (vCount * hCountPerVblank);
 	DEBUG_LOG(HLE,"%i=sceDisplayGetAccumulatedHcount()", accumHCount);
 	return accumHCount;
