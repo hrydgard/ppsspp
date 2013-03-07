@@ -413,6 +413,9 @@ namespace MIPSComp
 				return;
 			}
 
+			// Reported to break Disgaea.
+			DISABLE;
+
 			gpr.MapDirtyIn(rt, rs);
 			if (useUBFXandBFI) {
 				UBFX(gpr.R(rt), gpr.R(rs), pos, size);
