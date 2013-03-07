@@ -48,7 +48,7 @@ static const ARMReg *GetMIPSAllocationOrder(int &count) {
 	// R8 is used to preserve flags in nasty branches.
 	// R9 and upwards are reserved for jit basics.
 	static const ARMReg allocationOrder[] = {
-		R12, R1, R2, R3, R4, R5, R6, R7, 
+		R2, R3, R4, R5, R6, R7, R12,
 	};
 	count = sizeof(allocationOrder) / sizeof(const int);
 	return allocationOrder;
