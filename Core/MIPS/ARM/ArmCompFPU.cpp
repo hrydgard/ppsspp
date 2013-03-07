@@ -137,8 +137,11 @@ void Jit::Comp_FPUComp(u32 op) {
 		MOVI2R(R0, 1);
 		SetCC(CC_NEQ);
 		MOVI2R(R0, 0);
-		SetCC(CC_VC);
-		break;
+		SetCC(CC_VS);
+		MOVI2R(R0, 1);
+		SetCC(CC_AL);
+		STR(R0, CTXREG, offsetof(MIPSState, fpcond));
+		return;
 	case 4:      // olt, lt (less than, ordered)
 		SetCC(CC_LO);
 		MOVI2R(R0, 1);
@@ -199,20 +202,22 @@ void Jit::Comp_FPU2op(u32 op)
 		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED);
 		break;
 	case 13: //FsI(fd) = Rto0(F(fs)));            break; //trunc.w.s
+		DISABLE;
+		// Seems to round wrong in hardware
 		fpr.MapDirtyIn(fd, fs);
 		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED | ROUND_TO_ZERO);
 		break;
 	case 14: //FsI(fd) = (int)ceilf (F(fs));      break; //ceil.w.s
+		DISABLE;
+		// Seems to round wrong in hardware
 		fpr.MapDirtyIn(fd, fs);
-		MOVI2R(R0, 0x3F000000); // 0.5f
-		VMOV(S0, R0);
+		MOVI2F(S0, 0.5f, R0);
 		VADD(S0,fpr.R(fs),S0);
 		VCVT(fpr.R(fd), S0,        TO_INT | IS_SIGNED);
 		break;
 	case 15: //FsI(fd) = (int)floorf(F(fs));      break; //floor.w.s
 		fpr.MapDirtyIn(fd, fs);
-		MOVI2R(R0, 0x3F000000); // 0.5f
-		VMOV(S0, R0);
+		MOVI2F(S0, 0.5f, R0);
 		VSUB(S0,fpr.R(fs),S0);
 		VCVT(fpr.R(fd), S0,        TO_INT | IS_SIGNED);
 		break;
