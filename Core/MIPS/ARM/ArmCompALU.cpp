@@ -69,6 +69,10 @@ namespace MIPSComp
 		int rt = _RT;
 		int rs = _RS;
 
+		// noop, won't write to ZERO.
+		if (rt == 0)
+			return;
+
 		switch (op >> 26) 
 		{
 		case 8:	// same as addiu?
@@ -76,8 +80,6 @@ namespace MIPSComp
 			{
 				if (gpr.IsImm(rs)) {
 					gpr.SetImm(rt, gpr.GetImm(rs) + simm);
-				} else if (rs == 0) {  // add to zero register = immediate
-					gpr.SetImm(rt, (u32)simm);
 				} else {
 					gpr.MapDirtyIn(rt, rs);
 					Operand2 op2;
@@ -186,6 +188,10 @@ namespace MIPSComp
 		int rs = _RS;
 		int rd = _RD;
 
+		// noop, won't write to ZERO.
+		if (rd == 0)
+			return;
+
 		switch (op & 63) 
 		{
 		case 10: //if (!R(rt)) R(rd) = R(rs);       break; //movz
@@ -235,13 +241,13 @@ namespace MIPSComp
 			}
 			break;
 			
-		// case 32: //R(rd) = R(rs) + R(rt);        break; //add
+		case 32: //R(rd) = R(rs) + R(rt);           break; //add
 		case 33: //R(rd) = R(rs) + R(rt);           break; //addu
 			// Some optimized special cases
-			if (rs == 0) {
+			if (gpr.IsImm(rs) && gpr.GetImm(rs) == 0) {
 				gpr.MapDirtyIn(rd, rt);
 				MOV(gpr.R(rd), gpr.R(rt));
-			} else if (rt == 0) {
+			} else if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0) {
 				gpr.MapDirtyIn(rd, rs);
 				MOV(gpr.R(rd), gpr.R(rs));
 			} else {
@@ -269,7 +275,7 @@ namespace MIPSComp
 
 		case 39: // R(rd) = ~(R(rs) | R(rt));       break; //nor
 			gpr.MapDirtyInIn(rd, rs, rt);
-			if (rt == 0) {
+			if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0) {
 				MVN(gpr.R(rd), gpr.R(rs));
 			} else {
 				ORR(gpr.R(rd), gpr.R(rs), gpr.R(rt));
@@ -318,7 +324,6 @@ namespace MIPSComp
 			break;
 
 		default:
-			// gpr.UnlockAll();
 			Comp_Generic(op);
 			break;
 		}
@@ -355,7 +360,13 @@ namespace MIPSComp
 	{
 		CONDITIONAL_DISABLE;
 		int rs = _RS;
+		int rd = _RD;
 		int fd = _FD;
+
+		// noop, won't write to ZERO.
+		if (rd == 0)
+			return;
+
 		// WARNING : ROTR
 		switch (op & 0x3f)
 		{
@@ -402,7 +413,7 @@ namespace MIPSComp
 				return;
 			}
 
-			gpr.MapDirtyIn(rt, rs, false);
+			gpr.MapDirtyIn(rt, rs);
 			if (useUBFXandBFI) {
 				UBFX(gpr.R(rt), gpr.R(rs), pos, size);
 			} else {

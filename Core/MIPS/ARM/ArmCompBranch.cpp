@@ -220,8 +220,8 @@ void Jit::BranchFPFlag(u32 op, ArmGen::CCFlags cc, bool likely)
 
 	FlushAll();
 
-	LDR(R0, R10, offsetof(MIPSState, fpcond));
-  TST(R0, Operand2(1, TYPE_IMM));
+	LDR(R0, CTXREG, offsetof(MIPSState, fpcond));
+	TST(R0, Operand2(1, TYPE_IMM));
 
   ArmGen::FixupBranch ptr;
   if (!likely)

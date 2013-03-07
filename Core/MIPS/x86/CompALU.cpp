@@ -55,8 +55,9 @@ namespace MIPSComp
 	void Jit::Comp_IType(u32 op)
 	{
 		CONDITIONAL_DISABLE;
-		s32 simm = (s16)(op & 0xFFFF);
-		u32 uimm = (u16)(op & 0xFFFF);
+		s32 simm = (s32)(s16)(op & 0xFFFF);  // sign extension
+		u32 uimm = op & 0xFFFF;
+		u32 suimm = (u32)(s32)simm;
 
 		int rt = _RT;
 		int rs = _RS;
@@ -68,7 +69,7 @@ namespace MIPSComp
 		switch (op >> 26) 
 		{
 		case 8:	// same as addiu?
-		case 9:	//R(rt) = R(rs) + simm; break;	//addiu
+		case 9:	// R(rt) = R(rs) + simm; break; //addiu
 			{
 				if (gpr.IsImmediate(rs))
 				{
@@ -508,8 +509,14 @@ namespace MIPSComp
 	{
 		CONDITIONAL_DISABLE;
 		int rs = _RS;
+		int rd = _RD;
 		int fd = _FD;
-		// WARNIGN : ROTR
+
+		// noop, won't write to ZERO.
+		if (rd == 0)
+			return;
+
+		// WARNING : ROTR
 		switch (op & 0x3f)
 		{
 		case 0: CompShiftImm(op, &XEmitter::SHL, &ShiftType_ImmLogicalLeft); break;
@@ -522,7 +529,6 @@ namespace MIPSComp
 
 		default:
 			Comp_Generic(op);
-			//_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
 			break;
 		}
 	}
@@ -532,8 +538,8 @@ namespace MIPSComp
 		CONDITIONAL_DISABLE;
 		int rs = _RS;
 		int rt = _RT;
-		int pos = _POS;
 
+		int pos = _POS;
 		int size = _SIZE + 1;
 		u32 mask = 0xFFFFFFFFUL >> (32 - size);
 
@@ -600,6 +606,10 @@ namespace MIPSComp
 		CONDITIONAL_DISABLE
 		int rt = _RT;
 		int rd = _RD;
+		// Don't change $zr.
+		if (rd == 0)
+			return;
+
 		switch ((op >> 6) & 31)
 		{
 		case 16: // seb  // R(rd) = (u32)(s32)(s8)(u8)R(rt);
