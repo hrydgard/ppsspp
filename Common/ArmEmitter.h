@@ -560,6 +560,8 @@ public:
 	void VCVT(ARMReg Dest, ARMReg Src, int flags);
 
 	void VMRS_APSR();
+	void VMRS(ARMReg Rt);
+	void VMSR(ARMReg Rt);
 
 	void QuickCallFunction(ARMReg scratchreg, void *func);
 

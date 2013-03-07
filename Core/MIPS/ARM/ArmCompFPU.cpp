@@ -223,9 +223,9 @@ void Jit::Comp_FPU2op(u32 op)
 		break;
 	case 36: //FsI(fd) = (int)  F(fs);            break; //cvt.w.s
 		DISABLE;
-		// Seems to round wrong in hardware
+		// Requires correct floating mode set
 		fpr.MapDirtyIn(fd, fs);
-		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | ROUND_TO_ZERO);
+		VCVT(fpr.R(fd), fpr.R(fs), TO_INT);
 		break;
 	default:
 		DISABLE;
@@ -260,6 +260,32 @@ void Jit::Comp_mxc1(u32 op)
 		return;
 
 	case 6: //currentMIPS->WriteFCR(fs, R(rt)); break; //ctc1
+		// Rounding isn't right.
+		/*if (fs == 31)
+		{
+			fpr.MapReg(rt, 0);
+			AND(R0, gpr.R(rt), Operand2(3));
+			// MIPS Rounding Mode <-> ARM Rounding Mode
+			//         0, 1, 2, 3 <->  0, 3, 1, 2
+			CMP(R0, Operand2(1));
+			SetCC(CC_EQ);
+			SUB(R0, R0, Operand2(1));
+			SetCC(CC_GT);
+			ADD(R0, R0, Operand2(2));
+			SetCC(CC_AL);
+
+			// Load and Store RM to FPSCR
+			VMRS(R1);
+			BIC(R1, R1, Operand2(0x3 << 22));
+			ORR(R1, R1, Operand2(R0, ST_LSL, 22));
+			VMSR(R1);
+
+			// For interpreter (currently doesn't replace properly)
+			STR(gpr.R(rt), CTXREG, offsetof(MIPSState, fcr31));
+			MOV(R0, Operand2(gpr.R(rt), ST_LSR, 23));
+			AND(R0, R0, Operand2(1));
+			STR(R0, CTXREG, offsetof(MIPSState, fpcond));
+		}*/
 		Comp_Generic(op);
 		return;
 	}

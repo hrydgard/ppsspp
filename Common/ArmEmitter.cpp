@@ -877,7 +877,13 @@ void ARMXEmitter::VCMP(ARMReg Vd, bool E)
 }
 
 void ARMXEmitter::VMRS_APSR() {
-	Write32(0xEEF10A10 | (15 << 12));
+	Write32(NO_COND | 0xEF10A10 | (15 << 12));
+}
+void ARMXEmitter::VMRS(ARMReg Rt) {
+	Write32(NO_COND | (0xEF << 20) | (1 << 16) | (Rt << 12) | 0xA10);
+}
+void ARMXEmitter::VMSR(ARMReg Rt) {
+	Write32(NO_COND | (0xEE << 20) | (1 << 16) | (Rt << 12) | 0xA10);
 }
 
 void ARMXEmitter::VDIV(ARMReg Vd, ARMReg Vn, ARMReg Vm)
