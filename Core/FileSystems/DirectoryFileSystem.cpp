@@ -517,6 +517,19 @@ bool DirectoryFileSystem::GetHostPath(const std::string &inpath, std::string &ou
 	return true;
 }
 
+#ifdef _WIN32
+#define FILETIME_FROM_UNIX_EPOCH_US 11644473600000000ULL
+
+void tmFromFiletime(tm &dest, FILETIME &src)
+{
+	u64 from_1601_us = (((u64) src.dwHighDateTime << 32ULL) + (u64) src.dwLowDateTime) / 10ULL;
+	u64 from_1970_us = from_1601_us - FILETIME_FROM_UNIX_EPOCH_US;
+
+	time_t t = (time_t) (from_1970_us / 1000000UL);
+	localtime_r(&t, &dest);
+}
+#endif
+
 std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 	std::vector<PSPFileInfo> myVector;
 #ifdef _WIN32
@@ -537,6 +550,9 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 			entry.type = FILETYPE_DIRECTORY;
 		else
 			entry.type = FILETYPE_NORMAL;
+
+		// TODO: Make this more correct?
+		entry.access = entry.type == FILETYPE_NORMAL ? 0666 : 0777;
 		// TODO: is this just for .. or all subdirectories? Need to add a directory to the test
 		// to find out. Also why so different than the old test results?
 		if (!strcmp(findData.cFileName, "..") )
@@ -544,6 +560,9 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 		else
 			entry.size = findData.nFileSizeLow | ((u64)findData.nFileSizeHigh<<32);
 		entry.name = findData.cFileName;
+		tmFromFiletime(entry.atime, findData.ftLastAccessTime);
+		tmFromFiletime(entry.ctime, findData.ftCreationTime);
+		tmFromFiletime(entry.mtime, findData.ftLastWriteTime);
 		myVector.push_back(entry);
 
 		int retval = FindNextFile(hFind, &findData);
