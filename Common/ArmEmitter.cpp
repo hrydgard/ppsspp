@@ -89,6 +89,8 @@ void ARMXEmitter::MOVI2F(ARMReg dest, float val, ARMReg tempReg)
 	conv.f = val;
 	MOVI2R(tempReg, conv.u);
 	VMOV(dest, tempReg);
+	// TODO: VMOV an IMM directly if possible
+	// Otherwise, use a literal pool and VLDR directly (+- 1020)
 }
 
 void ARMXEmitter::ANDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
@@ -130,7 +132,7 @@ void ARMXEmitter::FlushLitPool()
 		// Write the constant to Literal Pool
 		if (!(*it).loc)
 		{
-    		(*it).loc = (s32)code;
+			(*it).loc = (s32)code;
 			Write32((*it).val);
 		}
 		s32 offset = (*it).loc - (s32)(*it).ldr_address - 8;
