@@ -202,8 +202,6 @@ void Jit::Comp_FPU2op(u32 op)
 		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED);
 		break;
 	case 13: //FsI(fd) = Rto0(F(fs)));            break; //trunc.w.s
-		DISABLE;
-		// Seems to round wrong in hardware
 		fpr.MapDirtyIn(fd, fs);
 		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED | ROUND_TO_ZERO);
 		break;
@@ -226,6 +224,8 @@ void Jit::Comp_FPU2op(u32 op)
 		VCVT(fpr.R(fd), fpr.R(fs), TO_FLOAT | IS_SIGNED);
 		break;
 	case 36: //FsI(fd) = (int)  F(fs);            break; //cvt.w.s
+		DISABLE;
+		// Seems to round wrong in hardware
 		fpr.MapDirtyIn(fd, fs);
 		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | ROUND_TO_ZERO);
 		break;
