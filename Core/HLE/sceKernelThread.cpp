@@ -1225,7 +1225,7 @@ Thread *__KernelNextThread() {
 	// If the current thread is running, it's a valid candidate.
 	Thread *cur = __GetCurrentThread();
 	if (cur && cur->isRunning())
-		__KernelChangeReadyState(cur, currentThread, true);
+		__KernelChangeReadyState(cur, currentThread, false);
 
 	SceUID bestThread = -1;
 	// This goes in priority order.
