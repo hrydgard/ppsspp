@@ -137,7 +137,10 @@ void Jit::Comp_FPUComp(u32 op) {
 		MOVI2R(R0, 1);
 		SetCC(CC_NEQ);
 		MOVI2R(R0, 0);
-		SetCC(CC_VC);
+		SetCC(CC_VS);
+		MOVI2R(R0, 1);
+		SetCC(CC_AL);
+		STR(R0, CTXREG, offsetof(MIPSState, fpcond));
 		break;
 	case 4:      // olt, lt (less than, ordered)
 		SetCC(CC_LO);
