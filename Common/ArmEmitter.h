@@ -336,7 +336,7 @@ struct FixupBranch
 
 struct LiteralPool
 {
-    int i;
+    s32 loc;
     u8* ldr_address;
     u32 val;
 };
