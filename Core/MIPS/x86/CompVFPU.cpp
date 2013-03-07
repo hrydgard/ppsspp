@@ -363,21 +363,7 @@ void Jit::Comp_VVectorInit(u32 op) {
 	GetVectorRegsPrefixD(dregs, sz, _VD);
 	fpr.MapRegsV(dregs, sz, MAP_NOINIT | MAP_DIRTY);
 	for (int i = 0; i < n; ++i)
-	{
-		switch ((op >> 16) & 0xF)
-		{
-		case 6: // v=zeros; break;  //vzero
-			MOVSS(fpr.VX(dregs[i]), R(XMM0));
-			break;
-		case 7: // v=ones; break;   //vone
-			MOVSS(fpr.VX(dregs[i]), R(XMM0));
-			break;
-		default:
-			DISABLE;
-			break;
-		}
-	}
-
+		MOVSS(fpr.VX(dregs[i]), R(XMM0));
 	ApplyPrefixD(dregs, sz);
 
 	fpr.ReleaseSpillLocks();
