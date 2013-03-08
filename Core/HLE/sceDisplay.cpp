@@ -410,6 +410,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 
 	isVblank = 1;
 	vCount++; // // vCount increases at each VBLANK.
+	frameStartTicks = CoreTiming::GetTicks();
 
 	// Fire the vblank listeners before we wake threads.
 	__DisplayFireVblank();
@@ -492,7 +493,6 @@ void hleAfterFlip(u64 userdata, int cyclesLate)
 void hleLeaveVblank(u64 userdata, int cyclesLate) {
 	isVblank = 0;
 	DEBUG_LOG(HLE,"Leave VBlank %i", (int)userdata - 1);
-	frameStartTicks = CoreTiming::GetTicks();
 	CoreTiming::ScheduleEvent(msToCycles(frameMs - vblankMs) - cyclesLate, enterVblankEvent, userdata);
 }
 
