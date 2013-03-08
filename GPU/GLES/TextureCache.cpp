@@ -700,13 +700,11 @@ void TextureCache::SetTexture() {
 	if (iter != cache.end()) {
 		entry = &iter->second;
 		// Check for FBO - slow!
-		if (entry->framebuffer) {
+		if (g_Config.bBufferedRendering && entry->framebuffer) {
 			entry->framebuffer->usageFlags |= FB_USAGE_TEXTURE;
-			if (entry->framebuffer->fbo)
-			{
+			if (entry->framebuffer->fbo){
 				fbo_bind_color_as_texture(entry->framebuffer->fbo, 0);
-			}
-			else {
+			} else {
 				glBindTexture(GL_TEXTURE_2D, 0);
 				gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
 			}
