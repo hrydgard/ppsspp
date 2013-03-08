@@ -206,8 +206,6 @@ void Jit::Comp_FPU2op(u32 op)
 		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED | ROUND_TO_ZERO);
 		break;
 	case 14: //FsI(fd) = (int)ceilf (F(fs));      break; //ceil.w.s
-		DISABLE;
-		// Seems to round wrong in hardware
 		fpr.MapDirtyIn(fd, fs);
 		MOVI2F(S0, 0.5f, R0);
 		VADD(S0,fpr.R(fs),S0);

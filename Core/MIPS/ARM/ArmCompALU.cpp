@@ -427,7 +427,6 @@ namespace MIPSComp
 
 		case 0x4: //ins
 			{
-				DISABLE;
 				u32 sourcemask = mask >> pos;
 				u32 destmask = ~(sourcemask << pos);
 				if (gpr.IsImm(rs))

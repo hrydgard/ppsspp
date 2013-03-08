@@ -37,6 +37,7 @@ HEADERS += ../native/base/QtMain.h
 SOURCES += ../android/jni/EmuScreen.cpp \
 	../android/jni/MenuScreens.cpp \
 	../android/jni/GamepadEmu.cpp \
+	../android/jni/TestRunner.cpp \
 	../android/jni/UIShader.cpp \
 	../android/jni/ui_atlas.cpp
 
