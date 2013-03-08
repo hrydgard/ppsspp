@@ -29,6 +29,8 @@
 #include "../Dialog/PSPPlaceholderDialog.h"
 #include "../Dialog/PSPOskDialog.h"
 
+const int SCE_ERROR_MODULE_BAD_ID = 0x80111101;
+
 PSPSaveDialog saveDialog;
 PSPMsgDialog msgDialog;
 PSPOskDialog oskDialog;
@@ -104,15 +106,39 @@ u32 sceUtilityUnloadAvModule(u32 module)
 
 u32 sceUtilityLoadModule(u32 module)
 {
-	DEBUG_LOG(HLE,"sceUtilityLoadModule(%i)", module);
-	hleReSchedule("utilityloadmodule");
+	// TODO: Not all modules between 0x100 and 0x601 are valid.
+	if (module < 0x100 || module > 0x601)
+	{
+		ERROR_LOG(HLE, "sceUtilityLoadModule(%i): invalid module id", module);
+		return SCE_ERROR_MODULE_BAD_ID;
+	}
+
+	DEBUG_LOG(HLE, "sceUtilityLoadModule(%i)", module);
+	// TODO: Each module has its own timing, technically, but this is a low-end.
+	// Note: Some modules have dependencies, but they still resched.
+	if (module == 0x3FF)
+		sceKernelDelayThread(130);
+	else
+		sceKernelDelayThread(25000);
 	return 0;
 }
 
 u32 sceUtilityUnloadModule(u32 module)
 {
-	DEBUG_LOG(HLE,"sceUtilityUnloadModule(%i)", module);
-	hleReSchedule("utilityunloadmodule");
+	// TODO: Not all modules between 0x100 and 0x601 are valid.
+	if (module < 0x100 || module > 0x601)
+	{
+		ERROR_LOG(HLE, "sceUtilityUnloadModule(%i): invalid module id", module);
+		return SCE_ERROR_MODULE_BAD_ID;
+	}
+
+	DEBUG_LOG(HLE, "sceUtilityUnloadModule(%i)", module);
+	// TODO: Each module has its own timing, technically, but this is a low-end.
+	// Note: If not loaded, it should not reschedule actually...
+	if (module == 0x3FF)
+		sceKernelDelayThread(110);
+	else
+		sceKernelDelayThread(400);
 	return 0;
 }
 
