@@ -13,108 +13,133 @@
 <context>
     <name>CtrlDisAsmView</name>
     <message>
-        <location filename="../ctrldisasmview.cpp" line="106"/>
+        <location filename="../ctrldisasmview.cpp" line="91"/>
         <source>Copy &amp;address</source>
         <translation>Copiar &amp;endereço</translation>
     </message>
     <message>
-        <location filename="../ctrldisasmview.cpp" line="110"/>
+        <location filename="../ctrldisasmview.cpp" line="95"/>
         <source>Copy instruction (&amp;hex)</source>
         <translation>Copiar instrução (&amp;hex)</translation>
     </message>
     <message>
-        <location filename="../ctrldisasmview.cpp" line="114"/>
+        <location filename="../ctrldisasmview.cpp" line="99"/>
         <source>Copy instruction (&amp;disasm)</source>
         <translation>Copiar instrução (&amp;disam)</translation>
     </message>
     <message>
-        <location filename="../ctrldisasmview.cpp" line="120"/>
+        <location filename="../ctrldisasmview.cpp" line="105"/>
         <source>&amp;Run to here</source>
         <translation>&amp;Rodar aqui</translation>
     </message>
     <message>
-        <location filename="../ctrldisasmview.cpp" line="124"/>
+        <location filename="../ctrldisasmview.cpp" line="109"/>
         <source>&amp;Set Next Statement</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../ctrldisasmview.cpp" line="128"/>
+        <location filename="../ctrldisasmview.cpp" line="113"/>
         <source>&amp;Toggle breakpoint</source>
         <translation>&amp;Ativar breakpoint</translation>
     </message>
     <message>
-        <location filename="../ctrldisasmview.cpp" line="132"/>
+        <location filename="../ctrldisasmview.cpp" line="117"/>
         <source>&amp;Follow branch</source>
         <translation>&amp;Seguir caminho</translation>
     </message>
     <message>
-        <location filename="../ctrldisasmview.cpp" line="142"/>
+        <location filename="../ctrldisasmview.cpp" line="127"/>
         <source>Go to in &amp;Memory View</source>
         <translation>Vá para o Visualizador de &amp;Memória</translation>
     </message>
     <message>
-        <location filename="../ctrldisasmview.cpp" line="152"/>
+        <location filename="../ctrldisasmview.cpp" line="137"/>
         <source>&amp;Rename function...</source>
         <translation>&amp;Renomear função...</translation>
     </message>
     <message>
-        <location filename="../ctrldisasmview.cpp" line="240"/>
+        <location filename="../ctrldisasmview.cpp" line="220"/>
         <source>New function name</source>
         <translation>Novo nome de função</translation>
     </message>
     <message>
-        <location filename="../ctrldisasmview.cpp" line="241"/>
+        <location filename="../ctrldisasmview.cpp" line="221"/>
         <source>New function name:</source>
         <translation>Novo nome de função:</translation>
+    </message>
+    <message>
+        <location filename="../ctrldisasmview.cpp" line="232"/>
+        <source>Warning</source>
+        <translation type="unfinished">Atenção</translation>
+    </message>
+    <message>
+        <location filename="../ctrldisasmview.cpp" line="232"/>
+        <source>No symbol selected</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
     <name>CtrlMemView</name>
     <message>
-        <location filename="../ctrlmemview.cpp" line="215"/>
+        <location filename="../ctrlmemview.cpp" line="201"/>
         <source>Go to in &amp;disasm</source>
         <translation>Vá para &amp;disasm</translation>
     </message>
     <message>
-        <location filename="../ctrlmemview.cpp" line="221"/>
+        <location filename="../ctrlmemview.cpp" line="207"/>
         <source>&amp;Copy value</source>
         <translation>&amp;Copiar valor</translation>
     </message>
     <message>
-        <location filename="../ctrlmemview.cpp" line="225"/>
+        <location filename="../ctrlmemview.cpp" line="211"/>
+        <source>C&amp;hange value</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../ctrlmemview.cpp" line="215"/>
         <source>Dump...</source>
         <translation>Despejar...</translation>
+    </message>
+    <message>
+        <location filename="../ctrlmemview.cpp" line="242"/>
+        <source>Set new value</source>
+        <translation type="unfinished">Setar novo valor</translation>
+    </message>
+    <message>
+        <location filename="../ctrlmemview.cpp" line="243"/>
+        <source>Set new value:</source>
+        <translation type="unfinished">Setar novo valor:</translation>
     </message>
 </context>
 <context>
     <name>CtrlRegisterList</name>
     <message>
-        <location filename="../ctrlregisterlist.cpp" line="274"/>
+        <location filename="../ctrlregisterlist.cpp" line="261"/>
         <source>Go to in &amp;memory view</source>
         <translation>Vá para o visualizador de &amp;memória</translation>
     </message>
     <message>
-        <location filename="../ctrlregisterlist.cpp" line="278"/>
+        <location filename="../ctrlregisterlist.cpp" line="265"/>
         <source>Go to in &amp;disasm</source>
         <translation>Vá para o &amp;disasm</translation>
     </message>
     <message>
-        <location filename="../ctrlregisterlist.cpp" line="284"/>
+        <location filename="../ctrlregisterlist.cpp" line="271"/>
         <source>&amp;Copy value</source>
         <translation>&amp;Copiar valor</translation>
     </message>
     <message>
-        <location filename="../ctrlregisterlist.cpp" line="288"/>
+        <location filename="../ctrlregisterlist.cpp" line="275"/>
         <source>C&amp;hange...</source>
         <translation>&amp;Trocar...</translation>
     </message>
     <message>
-        <location filename="../ctrlregisterlist.cpp" line="352"/>
+        <location filename="../ctrlregisterlist.cpp" line="336"/>
         <source>Set new value</source>
         <translation>Setar novo valor</translation>
     </message>
     <message>
-        <location filename="../ctrlregisterlist.cpp" line="353"/>
+        <location filename="../ctrlregisterlist.cpp" line="337"/>
         <source>Set new value:</source>
         <translation>Setar novo valor:</translation>
     </message>
@@ -219,13 +244,13 @@
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="408"/>
-        <location filename="../debugger_disasm.ui" line="519"/>
+        <location filename="../debugger_disasm.ui" line="455"/>
         <source>Id</source>
         <translation></translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="413"/>
-        <location filename="../debugger_disasm.ui" line="529"/>
+        <location filename="../debugger_disasm.ui" line="465"/>
         <source>Status</source>
         <translation>Estado</translation>
     </message>
@@ -240,32 +265,30 @@
         <translation>Endereço atual</translation>
     </message>
     <message>
-        <location filename="../debugger_disasm.ui" line="476"/>
         <source>Run</source>
-        <translation>Rodar</translation>
+        <translation type="obsolete">Rodar</translation>
     </message>
     <message>
-        <location filename="../debugger_disasm.ui" line="483"/>
         <source>Step</source>
-        <translation>Passo</translation>
+        <translation type="obsolete">Passo</translation>
     </message>
     <message>
-        <location filename="../debugger_disasm.ui" line="497"/>
+        <location filename="../debugger_disasm.ui" line="433"/>
         <source>Threads</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../debugger_disasm.ui" line="524"/>
+        <location filename="../debugger_disasm.ui" line="460"/>
         <source>Name</source>
         <translation>Nome</translation>
     </message>
     <message>
-        <location filename="../debugger_disasm.ui" line="534"/>
+        <location filename="../debugger_disasm.ui" line="470"/>
         <source>Current PC</source>
         <translation>PC corrente</translation>
     </message>
     <message>
-        <location filename="../debugger_disasm.ui" line="539"/>
+        <location filename="../debugger_disasm.ui" line="475"/>
         <source>Entry point</source>
         <translation>Ponto de entrada</translation>
     </message>
@@ -275,29 +298,246 @@
         <translation>Remover breakpoint</translation>
     </message>
     <message>
-        <location filename="../debugger_disasm.cpp" line="480"/>
+        <location filename="../debugger_disasm.cpp" line="479"/>
         <source>Go to entry point</source>
         <translation>Ir para ponto de entrada</translation>
     </message>
     <message>
-        <location filename="../debugger_disasm.cpp" line="486"/>
+        <location filename="../debugger_disasm.cpp" line="483"/>
+        <source>Change status</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_disasm.cpp" line="485"/>
         <source>Running</source>
         <translation>Rodando</translation>
     </message>
     <message>
-        <location filename="../debugger_disasm.cpp" line="490"/>
+        <location filename="../debugger_disasm.cpp" line="489"/>
         <source>Wait</source>
         <translation>Esperando</translation>
     </message>
     <message>
-        <location filename="../debugger_disasm.cpp" line="494"/>
+        <location filename="../debugger_disasm.cpp" line="493"/>
         <source>Suspend</source>
         <translation>Suspenso</translation>
     </message>
     <message>
-        <location filename="../debugger_disasm.cpp" line="626"/>
         <source>Show code</source>
-        <translation>Mostrar código</translation>
+        <translation type="obsolete">Mostrar código</translation>
+    </message>
+</context>
+<context>
+    <name>Debugger_DisplayList</name>
+    <message>
+        <location filename="../debugger_displaylist.ui" line="14"/>
+        <source>Dialog</source>
+        <translation type="unfinished">Diálogo</translation>
+    </message>
+    <message>
+        <location filename="../debugger_displaylist.ui" line="28"/>
+        <source>DisplayList</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_displaylist.ui" line="50"/>
+        <source>Id</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_displaylist.ui" line="55"/>
+        <source>Status</source>
+        <translation type="unfinished">Estado</translation>
+    </message>
+    <message>
+        <location filename="../debugger_displaylist.ui" line="60"/>
+        <source>Start Address</source>
+        <translation type="unfinished">Endereço inicial</translation>
+    </message>
+    <message>
+        <location filename="../debugger_displaylist.ui" line="65"/>
+        <source>Current Address</source>
+        <translation type="unfinished">Endereço atual</translation>
+    </message>
+    <message>
+        <location filename="../debugger_displaylist.ui" line="75"/>
+        <source>Run</source>
+        <translation type="unfinished">Rodar</translation>
+    </message>
+    <message>
+        <location filename="../debugger_displaylist.ui" line="82"/>
+        <source>Stop</source>
+        <translation type="unfinished">Parar</translation>
+    </message>
+    <message>
+        <location filename="../debugger_displaylist.ui" line="89"/>
+        <source>Next DL</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_displaylist.ui" line="116"/>
+        <source>Commands</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_displaylist.ui" line="156"/>
+        <source>Step</source>
+        <translation type="unfinished">Passo</translation>
+    </message>
+    <message>
+        <location filename="../debugger_displaylist.ui" line="163"/>
+        <source>Next Draw</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_displaylist.ui" line="170"/>
+        <source>Goto PC</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_displaylist.ui" line="193"/>
+        <source>Textures</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_displaylist.ui" line="203"/>
+        <location filename="../debugger_displaylist.ui" line="294"/>
+        <source>Address</source>
+        <translation type="unfinished">Endereços</translation>
+    </message>
+    <message>
+        <location filename="../debugger_displaylist.ui" line="208"/>
+        <location filename="../debugger_displaylist.ui" line="421"/>
+        <source>Width</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_displaylist.ui" line="213"/>
+        <location filename="../debugger_displaylist.ui" line="426"/>
+        <source>Height</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_displaylist.ui" line="218"/>
+        <location filename="../debugger_displaylist.ui" line="431"/>
+        <source>Format</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_displaylist.ui" line="227"/>
+        <source>Vertex Buffer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_displaylist.ui" line="242"/>
+        <source>Coord Type</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_displaylist.ui" line="247"/>
+        <source>Number Morph</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_displaylist.ui" line="252"/>
+        <source>Number Weights</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_displaylist.ui" line="257"/>
+        <source>Has Weight</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_displaylist.ui" line="262"/>
+        <source>Has Position</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_displaylist.ui" line="267"/>
+        <source>Has Normal</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_displaylist.ui" line="272"/>
+        <source>Has Color</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_displaylist.ui" line="277"/>
+        <source>Has UV</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_displaylist.ui" line="299"/>
+        <source>Values</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_displaylist.ui" line="309"/>
+        <location filename="../debugger_displaylist.ui" line="374"/>
+        <source>Next 20</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_displaylist.ui" line="332"/>
+        <source>Index Buffer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_displaylist.ui" line="353"/>
+        <source>Idx</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_displaylist.ui" line="363"/>
+        <source>Value</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_displaylist.ui" line="399"/>
+        <source>Framebuffer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_displaylist.ui" line="416"/>
+        <source>VAddress</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_displaylist.ui" line="478"/>
+        <source>Display : </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_displaylist.ui" line="486"/>
+        <source>Color</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_displaylist.ui" line="491"/>
+        <source>Depth</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_displaylist.ui" line="512"/>
+        <source>Zoom-</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_displaylist.ui" line="519"/>
+        <source>Zoom+</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_displaylist.cpp" line="1794"/>
+        <source>Run to here</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_displaylist.cpp" line="1817"/>
+        <source>Run to draw using this texture</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -331,6 +571,64 @@
         <location filename="../debugger_memory.cpp" line="15"/>
         <source>Memory Viewer - %1</source>
         <translation>Visualizador de Memória - %1</translation>
+    </message>
+</context>
+<context>
+    <name>Debugger_MemoryTex</name>
+    <message>
+        <location filename="../debugger_memorytex.ui" line="14"/>
+        <source>Dialog</source>
+        <translation type="unfinished">Diálogo</translation>
+    </message>
+    <message>
+        <location filename="../debugger_memorytex.ui" line="29"/>
+        <source>TexAddr</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_memorytex.ui" line="36"/>
+        <source>TexBufWidth0</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_memorytex.ui" line="43"/>
+        <source>TexFormat</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_memorytex.ui" line="50"/>
+        <source>TexSize</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_memorytex.ui" line="57"/>
+        <source>ClutFormat</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_memorytex.ui" line="64"/>
+        <source>ClutAddr</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_memorytex.ui" line="71"/>
+        <source>ClutAddrUpper</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_memorytex.ui" line="78"/>
+        <source>LoadClut</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_memorytex.ui" line="109"/>
+        <source>TexMode</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../debugger_memorytex.ui" line="123"/>
+        <source>Read</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -424,59 +722,59 @@
         <translation>Pressione botões no seu Gamepad para verificar o mapeamento :</translation>
     </message>
     <message>
-        <location filename="../gamepaddialog.cpp" line="134"/>
-        <location filename="../gamepaddialog.cpp" line="366"/>
+        <location filename="../gamepaddialog.cpp" line="129"/>
+        <location filename="../gamepaddialog.cpp" line="361"/>
         <source>&lt;b&gt;No gamepad&lt;/b&gt;</source>
         <translation>Sem Gamepad</translation>
     </message>
     <message>
-        <location filename="../gamepaddialog.cpp" line="146"/>
+        <location filename="../gamepaddialog.cpp" line="141"/>
         <source>&lt;b&gt;Unknown gamepad&lt;/b&gt;</source>
         <translation>Gamepad desconhecido</translation>
     </message>
     <message>
-        <location filename="../gamepaddialog.cpp" line="287"/>
+        <location filename="../gamepaddialog.cpp" line="282"/>
         <source>Buttons</source>
         <translation>Botões</translation>
     </message>
     <message>
-        <location filename="../gamepaddialog.cpp" line="301"/>
-        <location filename="../gamepaddialog.cpp" line="344"/>
+        <location filename="../gamepaddialog.cpp" line="296"/>
+        <location filename="../gamepaddialog.cpp" line="339"/>
         <source>Button %1</source>
         <translation>Botões %1</translation>
     </message>
     <message>
-        <location filename="../gamepaddialog.cpp" line="304"/>
+        <location filename="../gamepaddialog.cpp" line="299"/>
         <source>Axes</source>
         <translation>Eixos</translation>
     </message>
     <message>
-        <location filename="../gamepaddialog.cpp" line="310"/>
+        <location filename="../gamepaddialog.cpp" line="305"/>
         <source>%1 Neg</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../gamepaddialog.cpp" line="317"/>
+        <location filename="../gamepaddialog.cpp" line="312"/>
         <source>Axes %1 Neg</source>
         <translation>Eixos %1 Neg</translation>
     </message>
     <message>
-        <location filename="../gamepaddialog.cpp" line="320"/>
+        <location filename="../gamepaddialog.cpp" line="315"/>
         <source>%1 Pos</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../gamepaddialog.cpp" line="327"/>
+        <location filename="../gamepaddialog.cpp" line="322"/>
         <source>Axes %1 Pos</source>
         <translation>Eixos %1 Pos</translation>
     </message>
     <message>
-        <location filename="../gamepaddialog.cpp" line="331"/>
+        <location filename="../gamepaddialog.cpp" line="326"/>
         <source>Hats</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../gamepaddialog.cpp" line="368"/>
+        <location filename="../gamepaddialog.cpp" line="363"/>
         <source>&lt;b&gt;Current gamepad: %1&lt;/b&gt;</source>
         <translation>&lt;b&gt;Gamepad atual: %1&lt;/b&gt;</translation>
     </message>
@@ -504,420 +802,439 @@
         <translation></translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="91"/>
+        <location filename="../mainwindow.ui" line="93"/>
         <source>&amp;Options</source>
         <translation>&amp;Opções</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="99"/>
+        <location filename="../mainwindow.ui" line="101"/>
         <source>G3D</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="108"/>
+        <location filename="../mainwindow.ui" line="110"/>
         <source>HLE</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="117"/>
+        <location filename="../mainwindow.ui" line="119"/>
         <source>Default</source>
         <translation>Padrão</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="95"/>
+        <location filename="../mainwindow.ui" line="97"/>
         <source>Lo&amp;g Levels</source>
         <translation>Nível de Lo&amp;g</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="131"/>
+        <location filename="../mainwindow.ui" line="133"/>
         <source>&amp;Language</source>
         <translation>&amp;Linguagem</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="136"/>
+        <location filename="../mainwindow.ui" line="138"/>
         <source>&amp;Video</source>
         <translation>&amp;Vídeo</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="140"/>
+        <location filename="../mainwindow.ui" line="142"/>
         <source>&amp;Anisotropic filtering</source>
         <translation>Filtragem &amp;Anisotrópica</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="150"/>
+        <location filename="../mainwindow.ui" line="152"/>
         <source>&amp;Zoom</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="173"/>
+        <location filename="../mainwindow.ui" line="176"/>
         <source>Co&amp;ntrols</source>
         <translation>Co&amp;ntroles</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="180"/>
+        <location filename="../mainwindow.ui" line="183"/>
         <source>&amp;Core</source>
         <translation>&amp;Núcleo</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="204"/>
+        <location filename="../mainwindow.ui" line="206"/>
         <source>&amp;Help</source>
         <translation>Aj&amp;uda</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="219"/>
+        <location filename="../mainwindow.ui" line="221"/>
         <source>&amp;Open...</source>
         <translation>&amp;Abrir...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="224"/>
+        <location filename="../mainwindow.ui" line="226"/>
         <source>&amp;Close</source>
         <translation>&amp;Fechar</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="229"/>
+        <location filename="../mainwindow.ui" line="231"/>
         <source>-</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="234"/>
+        <location filename="../mainwindow.ui" line="236"/>
         <source>Quickload state</source>
         <translation>Carregar estado rápido</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="237"/>
+        <location filename="../mainwindow.ui" line="239"/>
         <source>F4</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="242"/>
+        <location filename="../mainwindow.ui" line="244"/>
         <source>Quicksave state</source>
         <translation>Salvar estado rápido</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="245"/>
+        <location filename="../mainwindow.ui" line="247"/>
         <source>F2</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="250"/>
+        <location filename="../mainwindow.ui" line="252"/>
         <source>&amp;Load State File...</source>
         <translation>&amp;Carregar estado do arquivo...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="255"/>
+        <location filename="../mainwindow.ui" line="257"/>
         <source>&amp;Save State File...</source>
         <translation>&amp;Salvar estado no arquivo...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="260"/>
+        <location filename="../mainwindow.ui" line="262"/>
         <source>E&amp;xit</source>
         <translation>Sai&amp;r</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="265"/>
+        <location filename="../mainwindow.ui" line="267"/>
         <source>&amp;Run</source>
         <translation>&amp;Rodar</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="268"/>
+        <location filename="../mainwindow.ui" line="270"/>
         <source>F7</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="273"/>
+        <location filename="../mainwindow.ui" line="275"/>
         <source>&amp;Pause</source>
         <translation>&amp;Pausar</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="276"/>
+        <location filename="../mainwindow.ui" line="278"/>
         <source>F8</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="281"/>
+        <location filename="../mainwindow.ui" line="283"/>
         <source>R&amp;eset</source>
         <translation>R&amp;esetar</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="289"/>
+        <location filename="../mainwindow.ui" line="291"/>
         <source>&amp;Interpreter</source>
         <translation>&amp;Interpretador</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="297"/>
         <source>&amp;Slightly Faster Interpreter</source>
-        <translation>Interpretador um &amp;pouco mais rápido</translation>
+        <translation type="obsolete">Interpretador um &amp;pouco mais rápido</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="305"/>
+        <location filename="../mainwindow.ui" line="299"/>
         <source>&amp;Dynarec</source>
         <translation>Recompilador &amp;dinâmico</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="313"/>
+        <location filename="../mainwindow.ui" line="307"/>
         <source>Load &amp;Map File...</source>
         <translation>Carregar &amp;mapa do arquivo...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="321"/>
+        <location filename="../mainwindow.ui" line="315"/>
         <source>&amp;Save Map File...</source>
         <translation>&amp;Salvar mapa no arquivo...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="329"/>
+        <location filename="../mainwindow.ui" line="323"/>
         <source>&amp;Reset Symbol Table</source>
         <translation>&amp;Reiniciar tabela de símbolos</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="334"/>
+        <location filename="../mainwindow.ui" line="328"/>
         <source>&amp;Disassembly</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="337"/>
+        <location filename="../mainwindow.ui" line="331"/>
         <source>Ctrl+D</source>
         <translation>L</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="345"/>
+        <location filename="../mainwindow.ui" line="339"/>
         <source>&amp;Log Console</source>
         <translation>Console de &amp;Logs</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="348"/>
+        <location filename="../mainwindow.ui" line="342"/>
         <source>Ctrl+L</source>
         <translation>L</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="353"/>
+        <location filename="../mainwindow.ui" line="347"/>
         <source>Memory &amp;View...</source>
         <translation>&amp;Visualizador de Memória...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="356"/>
+        <location filename="../mainwindow.ui" line="350"/>
         <source>Ctrl+M</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="361"/>
+        <location filename="../mainwindow.ui" line="355"/>
         <source>&amp;Keyboard</source>
         <translation>&amp;Teclado</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="366"/>
+        <location filename="../mainwindow.ui" line="360"/>
         <source>&amp;Toggle fullscreen</source>
         <translation>Tela &amp;cheia</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="423"/>
+        <location filename="../mainwindow.ui" line="417"/>
         <source>Show &amp;debug statistics</source>
         <translation>Mostrar estatísticas de &amp;debug</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="483"/>
+        <location filename="../mainwindow.ui" line="477"/>
         <source>I&amp;gnore illegal reads/writes</source>
         <translation>I&amp;gnorar leituras/escritas ilegais</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="602"/>
+        <location filename="../mainwindow.ui" line="596"/>
         <source>&amp;Gamepad</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="607"/>
+        <location filename="../mainwindow.ui" line="601"/>
         <source>Run on loa&amp;d</source>
         <translation>Rodar ao &amp;abrir</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="681"/>
+        <location filename="../mainwindow.ui" line="680"/>
         <source>Show &amp;FPS counter</source>
         <translation>Mostrar contador de &amp;FPS</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="689"/>
+        <location filename="../mainwindow.ui" line="688"/>
         <source>S&amp;tretch to display</source>
         <translation>Es&amp;ticar tela</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="697"/>
+        <location filename="../mainwindow.ui" line="696"/>
         <source>&amp;Sound emulation</source>
         <translation>Emular &amp;som</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="369"/>
+        <location filename="../mainwindow.ui" line="363"/>
         <source>F12</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="377"/>
+        <location filename="../mainwindow.ui" line="371"/>
         <source>&amp;Buffered Rendering</source>
         <translation>Renderização com &amp;buffer</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="380"/>
+        <location filename="../mainwindow.ui" line="374"/>
         <source>F5</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="388"/>
+        <location filename="../mainwindow.ui" line="382"/>
         <source>&amp;Hardware Transform</source>
         <translation>Transformação em &amp;Hardware</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="391"/>
+        <location filename="../mainwindow.ui" line="385"/>
         <source>F6</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="399"/>
+        <location filename="../mainwindow.ui" line="393"/>
         <source>&amp;Linear Filtering</source>
         <translation>Filtragem &amp;Linear</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="407"/>
+        <location filename="../mainwindow.ui" line="401"/>
         <source>&amp;Wireframe (experimental)</source>
         <translation>&amp;Wireframe (experimental)</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="415"/>
+        <location filename="../mainwindow.ui" line="409"/>
         <source>&amp;Display Raw Framebuffer</source>
         <translation>Mostrar framebuffer &amp;bruto</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="431"/>
+        <location filename="../mainwindow.ui" line="425"/>
         <source>Screen &amp;1x</source>
         <translation>&amp;1x Tela</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="434"/>
+        <location filename="../mainwindow.ui" line="428"/>
         <source>Ctrl+1</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="442"/>
+        <location filename="../mainwindow.ui" line="436"/>
         <source>Screen &amp;2x</source>
         <translation>&amp;2x Tela</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="445"/>
+        <location filename="../mainwindow.ui" line="439"/>
         <source>Ctrl+2</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="453"/>
+        <location filename="../mainwindow.ui" line="447"/>
         <source>Screen &amp;3x</source>
         <translation>&amp;3x Tela</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="456"/>
+        <location filename="../mainwindow.ui" line="450"/>
         <source>Ctrl+3</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="464"/>
+        <location filename="../mainwindow.ui" line="458"/>
         <source>Screen &amp;4x</source>
         <translation>&amp;4x Tela</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="467"/>
+        <location filename="../mainwindow.ui" line="461"/>
         <source>Ctrl+4</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="475"/>
+        <location filename="../mainwindow.ui" line="469"/>
         <source>&amp;Fast Memory (dynarec, unstable)</source>
         <translation>Memória &amp;rápida (recompilador dinâmico, instável)</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="488"/>
+        <location filename="../mainwindow.ui" line="482"/>
         <source>&amp;Go to http://www.ppsspp.org/</source>
         <translation>&amp;Ir para http://www.ppsspp.org/</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="493"/>
+        <location filename="../mainwindow.ui" line="487"/>
         <source>&amp;About PPSSPP...</source>
         <translation>&amp;Sobre o PPSSPP...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="501"/>
+        <location filename="../mainwindow.ui" line="495"/>
         <source>&amp;Use VBO</source>
         <translation>&amp;Usar VBO</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="509"/>
-        <location filename="../mainwindow.ui" line="541"/>
-        <location filename="../mainwindow.ui" line="573"/>
+        <location filename="../mainwindow.ui" line="503"/>
+        <location filename="../mainwindow.ui" line="535"/>
+        <location filename="../mainwindow.ui" line="567"/>
         <source>Debug</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="517"/>
-        <location filename="../mainwindow.ui" line="549"/>
-        <location filename="../mainwindow.ui" line="581"/>
+        <location filename="../mainwindow.ui" line="511"/>
+        <location filename="../mainwindow.ui" line="543"/>
+        <location filename="../mainwindow.ui" line="575"/>
         <source>Warning</source>
         <translation>Atenção</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="525"/>
-        <location filename="../mainwindow.ui" line="565"/>
-        <location filename="../mainwindow.ui" line="597"/>
+        <location filename="../mainwindow.ui" line="519"/>
+        <location filename="../mainwindow.ui" line="559"/>
+        <location filename="../mainwindow.ui" line="591"/>
         <source>Error</source>
         <translation>Erro</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="533"/>
-        <location filename="../mainwindow.ui" line="557"/>
-        <location filename="../mainwindow.ui" line="589"/>
+        <location filename="../mainwindow.ui" line="527"/>
+        <location filename="../mainwindow.ui" line="551"/>
+        <location filename="../mainwindow.ui" line="583"/>
         <source>Info</source>
         <translation>Informação</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="612"/>
+        <location filename="../mainwindow.ui" line="606"/>
         <source>D&amp;ump next frame to log</source>
         <translation>D&amp;espejar o próximo frame no log</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="620"/>
+        <location filename="../mainwindow.ui" line="614"/>
         <source>&amp;Vertex Cache</source>
         <translation>Cache de &amp;Vértices</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="625"/>
+        <location filename="../mainwindow.ui" line="619"/>
         <source>Memory View Texture...</source>
         <translation>Ver texturas na memória...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="633"/>
+        <location filename="../mainwindow.ui" line="624"/>
+        <source>DisplayList...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="632"/>
         <source>Simple 2xAA</source>
         <translation>Simples 2xAA</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="641"/>
+        <location filename="../mainwindow.ui" line="640"/>
         <source>Off</source>
         <translation>Desligar</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="649"/>
+        <location filename="../mainwindow.ui" line="648"/>
         <source>2x</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="657"/>
+        <location filename="../mainwindow.ui" line="656"/>
         <source>4x</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="665"/>
+        <location filename="../mainwindow.ui" line="664"/>
         <source>8x</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="673"/>
+        <location filename="../mainwindow.ui" line="672"/>
         <source>16x</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="865"/>
+        <location filename="../mainwindow.ui" line="704"/>
+        <source>Frameskip</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="571"/>
+        <source>Gamepad</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="571"/>
+        <source>You need to compile with SDL to have Gamepad support.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="923"/>
         <source>No translations</source>
         <translation>Sem tradução</translation>
     </message>
