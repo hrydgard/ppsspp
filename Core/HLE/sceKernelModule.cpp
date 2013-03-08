@@ -29,6 +29,7 @@
 #include "../FileSystems/FileSystem.h"
 #include "../FileSystems/MetaFileSystem.h"
 #include "../Util/BlockAllocator.h"
+#include "../CoreTiming.h"
 #include "../PSPLoaders.h"
 #include "../System.h"
 #include "../MemMap.h"
@@ -229,13 +230,24 @@ struct SceKernelSMOption {
 //////////////////////////////////////////////////////////////////////////
 // STATE BEGIN
 static int actionAfterModule;
+static int eventLoadModule = -1;
 static SceUID mainModuleID;	// hack
 // STATE END
 //////////////////////////////////////////////////////////////////////////
 
+void __KernelModuleLoaded(u64 userdata, int cycleslate)
+{
+	u32 error;
+	SceUID threadID = userdata & 0xFFFFFFFF;
+	SceUID moduleID = __KernelGetWaitValue(threadID, error);
+	if (error == 0 && moduleID != 0)
+		__KernelResumeThreadFromWait(threadID, moduleID);
+}
+
 void __KernelModuleInit()
 {
 	actionAfterModule = __KernelRegisterActionType(AfterModuleEntryCall::Create);
+	eventLoadModule = CoreTiming::RegisterEvent("LoadModule", __KernelModuleLoaded);
 }
 
 void __KernelModuleDoState(PointerWrap &p)
@@ -243,6 +255,8 @@ void __KernelModuleDoState(PointerWrap &p)
 	p.Do(mainModuleID);
 	p.Do(actionAfterModule);
 	__KernelRestoreActionType(actionAfterModule, AfterModuleEntryCall::Create);
+	p.Do(eventLoadModule);
+	CoreTiming::RestoreRegisterEvent(eventLoadModule, "LoadModule", __KernelModuleLoaded);
 	p.DoMarker("sceKernelModule");
 }
 
@@ -761,8 +775,10 @@ int sceKernelLoadExec(const char *filename, u32 paramPtr)
 
 u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
 {
-	if(!name)
-		return 0;
+	if (!name) {
+		ERROR_LOG(LOADER, "sceKernelLoadModule(NULL, %08x): Bad name", flags);
+		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+	}
 
 	PSPFileInfo info = pspFileSystem.GetFileInfo(name);
 	std::string error_string;
@@ -810,6 +826,9 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
 		INFO_LOG(HLE,"%i=sceKernelLoadModule(name=%s,flag=%08x,(...))", module->GetUID(), name, flags);
 	}
 
+	// TODO: This is not the right timing and probably not the right wait type, just an approximation.
+	CoreTiming::ScheduleEvent(usToCycles(500), eventLoadModule, __KernelGetCurThread());
+	__KernelWaitCurThread(WAITTYPE_SEMA, -1, module->GetUID(), 0, false, "module loaded");
 	return module->GetUID();
 }
 
