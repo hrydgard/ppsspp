@@ -363,6 +363,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	DEBUG_LOG(HLE, "Enter VBlank %i", vbCount);
 
 	isVblank = 1;
+	vCount++; // // vCount increases at each VBLANK.
 
 	// Fire the vblank listeners before we wake threads.
 	__DisplayFireVblank();
@@ -450,7 +451,6 @@ void hleAfterFlip(u64 userdata, int cyclesLate)
 void hleLeaveVblank(u64 userdata, int cyclesLate) {
 	isVblank = 0;
 	DEBUG_LOG(HLE,"Leave VBlank %i", (int)userdata - 1);
-	vCount++;
 	frameStartTicks = CoreTiming::GetTicks();
 	CoreTiming::ScheduleEvent(msToCycles(frameMs - vblankMs) - cyclesLate, enterVblankEvent, userdata);
 }
@@ -594,8 +594,9 @@ u32 sceDisplayGetVcount() {
 }
 
 u32 sceDisplayGetCurrentHcount() {
-	DEBUG_LOG(HLE,"sceDisplayGetCurrentHcount()");
-	return (CoreTiming::GetTicks() - frameStartTicks) / ((u64)CoreTiming::GetClockFrequencyMHz() * 1000000 / 60 / 272);
+	u32 currentHCount = (CoreTiming::GetTicks() - frameStartTicks) / ((u64)CoreTiming::GetClockFrequencyMHz() * 1000000 / 60 / 272);
+	DEBUG_LOG(HLE,"sceDisplayGetCurrentHcount(%08x)", currentHCount);
+	return currentHCount;
 }
 
 u32 sceDisplayAdjustAccumulatedHcount() {
@@ -607,7 +608,7 @@ u32 sceDisplayGetAccumulatedHcount() {
 	float hCountPerVblank = 285.72f; // insprired by jpcsp
 	u32 currentHCount = (CoreTiming::GetTicks() - frameStartTicks) / ((u64)CoreTiming::GetClockFrequencyMHz() * 1000000 / 60 / 272);
 	u32 accumHCount = currentHCount + (u32) (vCount * hCountPerVblank);
-	DEBUG_LOG(HLE,"%i=sceDisplayGetAccumulatedHcount()", accumHCount);
+	DEBUG_LOG(HLE,"%i=sceDisplayGetAccumulatedHcount(%08x)", accumHCount);
 	return accumHCount;
 }
 
