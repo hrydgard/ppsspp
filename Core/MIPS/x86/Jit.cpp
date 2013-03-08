@@ -115,6 +115,14 @@ void Jit::DoState(PointerWrap &p)
 	p.DoMarker("Jit");
 }
 
+// This is here so the savestate matches between jit and non-jit.
+void Jit::DoDummyState(PointerWrap &p)
+{
+	bool dummy = false;
+	p.Do(dummy);
+	p.DoMarker("Jit");
+}
+
 void Jit::FlushAll()
 {
 	gpr.Flush();

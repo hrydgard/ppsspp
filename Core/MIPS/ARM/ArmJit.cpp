@@ -71,7 +71,14 @@ void Jit::DoState(PointerWrap &p)
 {
 	p.Do(js.startDefaultPrefix);
 	p.DoMarker("Jit");
-	FlushPrefixV();
+}
+
+// This is here so the savestate matches between jit and non-jit.
+void Jit::DoDummyState(PointerWrap &p)
+{
+	bool dummy = false;
+	p.Do(dummy);
+	p.DoMarker("Jit");
 }
 
 void Jit::FlushAll()
