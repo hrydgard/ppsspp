@@ -287,6 +287,13 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	int drawing_width, drawing_height;
 	GetViewportDimensions(&drawing_width, &drawing_height);
 
+	// HACK for first frame where some games don't init things right
+	
+	if (drawing_width <= 1 && drawing_height <= 1) {
+		drawing_width = 480;
+		drawing_height = 272;
+	}
+
 	int fmt = gstate.framebufpixformat & 3;
 
 	// Find a matching framebuffer
