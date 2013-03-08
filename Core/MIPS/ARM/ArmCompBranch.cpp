@@ -63,14 +63,12 @@ void Jit::BranchRSRTComp(u32 op, ArmGen::CCFlags cc, bool likely)
 	if (!likely && delaySlotIsNice)
 		CompileDelaySlot(DELAYSLOT_NICE);
 	
-	// The delay slot being nice doesn't really matter though...
-	
-	if (rt == 0)
-  {
+	if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0)
+	{
 		gpr.MapReg(rs);
 		CMP(gpr.R(rs), Operand2(0, TYPE_IMM));
-  }
-	else if (rs == 0 && (cc == CC_EQ || cc == CC_NEQ))  // only these are easily 'flippable'
+	}
+	else if (gpr.IsImm(rs) && gpr.GetImm(rs) == 0 && (cc == CC_EQ || cc == CC_NEQ))  // only these are easily 'flippable'
 	{
 		gpr.MapReg(rt);
 		CMP(gpr.R(rt), Operand2(0, TYPE_IMM));
@@ -79,32 +77,32 @@ void Jit::BranchRSRTComp(u32 op, ArmGen::CCFlags cc, bool likely)
 	{
 		gpr.MapInIn(rs, rt);
 		CMP(gpr.R(rs), gpr.R(rt));
-  }
+	}
 
-  ArmGen::FixupBranch ptr;
-  if (!likely)
-  {
+	ArmGen::FixupBranch ptr;
+	if (!likely)
+	{
 		if (!delaySlotIsNice)
 			CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
 		else
 			FlushAll();
-    ptr = B_CC(cc);
-  }
-  else
-  {
+		ptr = B_CC(cc);
+	}
+	else
+	{
 		FlushAll();
 		ptr = B_CC(cc);
 		CompileDelaySlot(DELAYSLOT_FLUSH);
-  }
+	}
 
-  // Take the branch
-  WriteExit(targetAddr, 0);
+	// Take the branch
+	WriteExit(targetAddr, 0);
 
-  SetJumpTarget(ptr);
-  // Not taken
-  WriteExit(js.compilerPC+8, 1);
+	SetJumpTarget(ptr);
+	// Not taken
+	WriteExit(js.compilerPC+8, 1);
 
-  js.compiling = false;
+	js.compiling = false;
 }
 
 
@@ -125,23 +123,23 @@ void Jit::BranchRSZeroComp(u32 op, ArmGen::CCFlags cc, bool andLink, bool likely
 		CompileDelaySlot(DELAYSLOT_NICE);
 
 	gpr.MapReg(rs);
-  CMP(gpr.R(rs), Operand2(0, TYPE_IMM));
+	CMP(gpr.R(rs), Operand2(0, TYPE_IMM));
 
 	ArmGen::FixupBranch ptr;
 	if (!likely)
-  {
+	{
 		if (!delaySlotIsNice)
 			CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
 		else
 			FlushAll();
 		ptr = B_CC(cc);
-  }
-  else
-  {
+	}
+	else
+	{
 		FlushAll();
 		ptr = B_CC(cc);
 		CompileDelaySlot(DELAYSLOT_FLUSH);
-  }
+	}
 
 	// Take the branch
 	if (andLink)
@@ -209,10 +207,10 @@ void Jit::BranchFPFlag(u32 op, ArmGen::CCFlags cc, bool likely)
 		ERROR_LOG(JIT, "Branch in delay slot at %08x", js.compilerPC);
 		return;
 	}
-  int offset = (signed short)(op & 0xFFFF) << 2;
-  u32 targetAddr = js.compilerPC + offset + 4;
+	int offset = (signed short)(op & 0xFFFF) << 2;
+	u32 targetAddr = js.compilerPC + offset + 4;
 
-  u32 delaySlotOp = Memory::ReadUnchecked_U32(js.compilerPC + 4);
+	u32 delaySlotOp = Memory::ReadUnchecked_U32(js.compilerPC + 4);
 	bool delaySlotIsNice = IsDelaySlotNiceFPU(op, delaySlotOp);
 	CONDITIONAL_NICE_DELAYSLOT;
 	if (!likely && delaySlotIsNice)
@@ -220,29 +218,29 @@ void Jit::BranchFPFlag(u32 op, ArmGen::CCFlags cc, bool likely)
 
 	FlushAll();
 
-	LDR(R0, R10, offsetof(MIPSState, fpcond));
-  TST(R0, Operand2(1, TYPE_IMM));
+	LDR(R0, CTXREG, offsetof(MIPSState, fpcond));
+	TST(R0, Operand2(1, TYPE_IMM));
 
-  ArmGen::FixupBranch ptr;
-  if (!likely)
-  {
+	ArmGen::FixupBranch ptr;
+	if (!likely)
+	{
 		if (!delaySlotIsNice)
 			CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
-    ptr = B_CC(cc);
-  }
-  else
-  {
-    ptr = B_CC(cc);
+		ptr = B_CC(cc);
+	}
+	else
+	{
+		ptr = B_CC(cc);
 		CompileDelaySlot(DELAYSLOT_FLUSH);
-  }
+	}
 
-  // Take the branch
-  WriteExit(targetAddr, 0);
+	// Take the branch
+	WriteExit(targetAddr, 0);
 
-  SetJumpTarget(ptr);
-  // Not taken
-  WriteExit(js.compilerPC + 8, 1);
-  js.compiling = false;
+	SetJumpTarget(ptr);
+	// Not taken
+	WriteExit(js.compilerPC + 8, 1);
+	js.compiling = false;
 }
 
 void Jit::Comp_FPUBranch(u32 op)
@@ -307,18 +305,14 @@ void Jit::BranchVFPUFlag(u32 op, ArmGen::CCFlags cc, bool likely)
 
 void Jit::Comp_VBranch(u32 op)
 {
-  switch ((op >> 16) & 3)
-  {
+	switch ((op >> 16) & 3)
+	{
 	case 0:	BranchVFPUFlag(op, CC_NEQ, false); break;  // bvf
 	case 1: BranchVFPUFlag(op, CC_EQ,  false); break;  // bvt
 	case 2: BranchVFPUFlag(op, CC_NEQ, true);  break;  // bvfl
 	case 3: BranchVFPUFlag(op, CC_EQ,  true);  break;  // bvtl
 	}
 	js.compiling = false;
-}
-
-void PrintAtExit() {
-	INFO_LOG(HLE, "at jump");
 }
 
 void Jit::Comp_Jump(u32 op)
@@ -335,8 +329,8 @@ void Jit::Comp_Jump(u32 op)
 	switch (op >> 26) 
 	{
 	case 2: //j
-    WriteExit(targetAddr, 0);
-    break; 
+		WriteExit(targetAddr, 0);
+		break;
 
 	case 3: //jal
 		MOVI2R(R0, js.compilerPC + 8);
@@ -395,7 +389,7 @@ void Jit::Comp_JumpReg(u32 op)
 		break;
 	}
 
-  WriteExitDestInR(R8);
+	WriteExitDestInR(R8);
 	js.compiling = false;
 }
 
