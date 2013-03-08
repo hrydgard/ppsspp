@@ -143,6 +143,7 @@ class Jit : public Gen::XCodeBlock
 public:
 	Jit(MIPSState *mips);
 	void DoState(PointerWrap &p);
+	static void DoDummyState(PointerWrap &p);
 
 	// Compiled ops should ignore delay slots
 	// the compiler will take care of them by itself
