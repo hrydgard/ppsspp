@@ -594,8 +594,9 @@ u32 sceDisplayGetVcount() {
 }
 
 u32 sceDisplayGetCurrentHcount() {
-	DEBUG_LOG(HLE,"sceDisplayGetCurrentHcount()");
-	return (CoreTiming::GetTicks() - frameStartTicks) / ((u64)CoreTiming::GetClockFrequencyMHz() * 1000000 / 60 / 272);
+	u32 currentHCount = (CoreTiming::GetTicks() - frameStartTicks) / ((u64)CoreTiming::GetClockFrequencyMHz() * 1000000 / 60 / 272);
+	DEBUG_LOG(HLE,"sceDisplayGetCurrentHcount(%08x)", currentHCount);
+	return currentHCount;
 }
 
 u32 sceDisplayAdjustAccumulatedHcount() {
@@ -604,10 +605,11 @@ u32 sceDisplayAdjustAccumulatedHcount() {
 }
 
 u32 sceDisplayGetAccumulatedHcount() {
-	float hCountPerVblank = 285.72f; // insprired by jpcsp
-	u32 currentHCount = (CoreTiming::GetTicks() - frameStartTicks) / ((u64)CoreTiming::GetClockFrequencyMHz() * 1000000 / 60 / 272);
-	u32 accumHCount = currentHCount + (u32) (vCount * hCountPerVblank);
-	DEBUG_LOG(HLE,"%i=sceDisplayGetAccumulatedHcount()", accumHCount);
+	u32 accumHCount = CoreTiming::GetTicks() / ((u64)CoreTiming::GetClockFrequencyMHz() * 1000000 / 60 / 272);
+	//float hCountPerVblank = 285.72f; // insprired by jpcsp
+	//u32 currentHCount = (CoreTiming::GetTicks() - frameStartTicks) / ((u64)CoreTiming::GetClockFrequencyMHz() * 1000000 / 60 / 272);
+	//u32 accumHCount = currentHCount + (u32) (vCount * hCountPerVblank);
+	DEBUG_LOG(HLE,"%i=sceDisplayGetAccumulatedHcount(%08x)", accumHCount);
 	return accumHCount;
 }
 
