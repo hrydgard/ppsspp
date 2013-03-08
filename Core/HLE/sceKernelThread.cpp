@@ -1852,26 +1852,26 @@ void sceKernelChangeThreadPriority()
 	}
 }
 
-void sceKernelDelayThreadCB()
+int sceKernelDelayThreadCB(u32 usec)
 {
-	u32 usec = PARAM(0);
 	if (usec < 200) usec = 200;
 	DEBUG_LOG(HLE,"sceKernelDelayThreadCB(%i usec)",usec);
 
 	SceUID curThread = __KernelGetCurThread();
 	__KernelScheduleWakeup(curThread, usec);
 	__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, true, "thread delayed");
+	return 0;
 }
 
-void sceKernelDelayThread()
+int sceKernelDelayThread(u32 usec)
 {
-	u32 usec = PARAM(0);
 	if (usec < 200) usec = 200;
 	DEBUG_LOG(HLE,"sceKernelDelayThread(%i usec)",usec);
 
 	SceUID curThread = __KernelGetCurThread();
 	__KernelScheduleWakeup(curThread, usec);
 	__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, false, "thread delayed");
+	return 0;
 }
 
 void sceKernelDelaySysClockThreadCB()
