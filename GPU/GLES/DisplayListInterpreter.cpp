@@ -261,7 +261,7 @@ bool GLES_GPU::FramebufferDirty() {
 }
 
 void GLES_GPU::CopyDisplayToOutput() {
-	glstate.colorMask.set(true, true, true, true);
+	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	transformDraw_.Flush();
 
 	EndDebugDraw();

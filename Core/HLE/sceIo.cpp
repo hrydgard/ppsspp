@@ -860,13 +860,14 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 		case 2:	// EMULATOR_DEVCTL__SEND_OUTPUT
 			{
 				std::string data(Memory::GetCharPointer(argAddr), argLen);
-				if (PSP_CoreParameter().printfEmuLog)
-				{
+				if (PSP_CoreParameter().printfEmuLog)	{
 					host->SendDebugOutput(data.c_str());
-				}
-				else
-				{
-					DEBUG_LOG(HLE, "%s", data.c_str());
+				}	else {
+					if (PSP_CoreParameter().collectEmuLog) {
+						*PSP_CoreParameter().collectEmuLog += data;
+					} else {
+						DEBUG_LOG(HLE, "%s", data.c_str());
+					}
 				}
 				return 0;
 			}

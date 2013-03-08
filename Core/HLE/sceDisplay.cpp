@@ -82,8 +82,7 @@ static int enterVblankEvent = -1;
 static int leaveVblankEvent = -1;
 static int afterFlipEvent = -1;
 
-static int hCount;
-static int hCountTotal; //unused
+// hCount is computed now.
 static int vCount;
 static int isVblank;
 static int numSkippedFrames;
@@ -94,6 +93,8 @@ static int height;
 // Don't include this in the state, time increases regardless of state.
 static double curFrameTime;
 static double nextFrameTime;
+
+static u64 frameStartTicks;
 
 std::vector<WaitVBlankInfo> vblankWaitingThreads;
 
@@ -134,8 +135,6 @@ void __DisplayInit() {
 	CoreTiming::ScheduleEvent(msToCycles(frameMs - vblankMs), enterVblankEvent, 0);
 	isVblank = 0;
 	vCount = 0;
-	hCount = 0;
-	hCountTotal = 0;
 	curFrameTime = 0.0;
 	nextFrameTime = 0.0;
 
@@ -146,8 +145,7 @@ void __DisplayDoState(PointerWrap &p) {
 	p.Do(framebuf);
 	p.Do(latchedFramebuf);
 	p.Do(framebufIsLatched);
-	p.Do(hCount);
-	p.Do(hCountTotal);
+	p.Do(frameStartTicks);
 	p.Do(vCount);
 	p.Do(isVblank);
 	p.Do(hasSetMode);
@@ -365,6 +363,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	DEBUG_LOG(HLE, "Enter VBlank %i", vbCount);
 
 	isVblank = 1;
+	vCount++; // // vCount increases at each VBLANK.
 
 	// Fire the vblank listeners before we wake threads.
 	__DisplayFireVblank();
@@ -452,8 +451,7 @@ void hleAfterFlip(u64 userdata, int cyclesLate)
 void hleLeaveVblank(u64 userdata, int cyclesLate) {
 	isVblank = 0;
 	DEBUG_LOG(HLE,"Leave VBlank %i", (int)userdata - 1);
-	vCount++;
-	hCount = 0;
+	frameStartTicks = CoreTiming::GetTicks();
 	CoreTiming::ScheduleEvent(msToCycles(frameMs - vblankMs) - cyclesLate, enterVblankEvent, userdata);
 }
 
@@ -596,8 +594,9 @@ u32 sceDisplayGetVcount() {
 }
 
 u32 sceDisplayGetCurrentHcount() {
-	ERROR_LOG(HLE,"sceDisplayGetCurrentHcount()");
-	return hCount++;
+	u32 currentHCount = (CoreTiming::GetTicks() - frameStartTicks) / ((u64)CoreTiming::GetClockFrequencyMHz() * 1000000 / 60 / 272);
+	DEBUG_LOG(HLE,"%i=sceDisplayGetCurrentHcount()", currentHCount);
+	return currentHCount;
 }
 
 u32 sceDisplayAdjustAccumulatedHcount() {
@@ -606,8 +605,9 @@ u32 sceDisplayAdjustAccumulatedHcount() {
 }
 
 u32 sceDisplayGetAccumulatedHcount() {
-	// Just do an estimate
-	u32 accumHCount = CoreTiming::GetTicks() / (CoreTiming::GetClockFrequencyMHz() * 1000000 / 60 / 272);
+	float hCountPerVblank = 285.72f; // insprired by jpcsp
+	u32 currentHCount = (CoreTiming::GetTicks() - frameStartTicks) / ((u64)CoreTiming::GetClockFrequencyMHz() * 1000000 / 60 / 272);
+	u32 accumHCount = currentHCount + (u32) (vCount * hCountPerVblank);
 	DEBUG_LOG(HLE,"%i=sceDisplayGetAccumulatedHcount()", accumHCount);
 	return accumHCount;
 }

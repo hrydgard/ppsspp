@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "base/logging.h"
+
 #include "gfx_es2/glsl_program.h"
 #include "gfx_es2/gl_state.h"
 #include "gfx_es2/fbo.h"
@@ -167,7 +169,13 @@ void EmuScreen::render()
 	if (coreState == CORE_NEXTFRAME) {
 		// set back to running for the next frame
 		coreState = CORE_RUNNING;
+	} else if (coreState == CORE_POWERDOWN)	{
+		ILOG("SELF-POWERDOWN!");
+		screenManager()->switchScreen(new MenuScreen());
 	}
+
+	if (invalid_)
+		return;
 
 	if (g_Config.bBufferedRendering)
 		fbo_unbind();
@@ -202,5 +210,6 @@ void EmuScreen::render()
 
 void EmuScreen::deviceLost()
 {
+	ILOG("EmuScreen::deviceLost()");
 	gpu->DeviceLost();
 }

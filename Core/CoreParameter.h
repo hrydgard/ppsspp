@@ -33,6 +33,7 @@ enum GPUCore {
 
 struct CoreParameter
 {
+	CoreParameter() : collectEmuLog(0) {}
 	// 0 = Interpreter
 	// 1 = Jit
 	// 2 = JitIL
@@ -47,6 +48,7 @@ struct CoreParameter
 	bool disableG3Dlog;
 	bool enableDebugging;  // enables breakpoints and other time-consuming debugger features
 	bool printfEmuLog;  // writes "emulator:" logging to stdout
+	std::string *collectEmuLog;
 	bool headLess;   // Try to avoid messageboxes etc
 	bool useMediaEngine;
 

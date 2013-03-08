@@ -89,6 +89,8 @@ void ARMXEmitter::MOVI2F(ARMReg dest, float val, ARMReg tempReg)
 	conv.f = val;
 	MOVI2R(tempReg, conv.u);
 	VMOV(dest, tempReg);
+	// TODO: VMOV an IMM directly if possible
+	// Otherwise, use a literal pool and VLDR directly (+- 1020)
 }
 
 void ARMXEmitter::ANDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
@@ -121,12 +123,22 @@ void ARMXEmitter::ORI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
 void ARMXEmitter::FlushLitPool()
 {
 	for(std::vector<LiteralPool>::iterator it = currentLitPool.begin(); it != currentLitPool.end(); ++it) {
-		LiteralPool item = *it;
+		// Search for duplicates
+		for(std::vector<LiteralPool>::iterator old_it = currentLitPool.begin(); old_it != it; ++old_it) {
+			if ((*old_it).val == (*it).val)
+				(*it).loc = (*old_it).loc;
+		}
+
 		// Write the constant to Literal Pool
-		s32 offset = (s32)code - (s32)item.ldr_address - 8;
-		Write32(item.val);
+		if (!(*it).loc)
+		{
+			(*it).loc = (s32)code;
+			Write32((*it).val);
+		}
+		s32 offset = (*it).loc - (s32)(*it).ldr_address - 8;
+
 		// Backpatch the LDR
-		*(u32*)item.ldr_address |= (offset >= 0) << 23 | abs(offset);
+		*(u32*)(*it).ldr_address |= (offset >= 0) << 23 | abs(offset);
 	}
 	// TODO: Save a copy of previous pools in case they are still in range.
 	currentLitPool.clear();
@@ -134,10 +146,8 @@ void ARMXEmitter::FlushLitPool()
 
 void ARMXEmitter::AddNewLit(u32 val)
 {
-	// TODO: Look up current constants,
-	// return that value instead of generating a new one.
 	LiteralPool pool_item;
-	pool_item.i = currentLitPool.size();
+	pool_item.loc = 0;
 	pool_item.val = val;
 	pool_item.ldr_address = code;
 	currentLitPool.push_back(pool_item);
@@ -596,44 +606,44 @@ void ARMXEmitter::MRS (ARMReg dest)
 	Write32(condition | (16 << 20) | (15 << 16) | (dest << 12));
 }
 
-void ARMXEmitter::WriteStoreOp(u32 op, ARMReg dest, ARMReg src, Operand2 op2)
+void ARMXEmitter::WriteStoreOp(u32 op, ARMReg src, ARMReg dest, Operand2 op2)
 {
 	if (op2.GetData() == 0) // set the preindex bit, but not the W bit!
-		Write32(condition | 0x01800000 | (op << 20) | (dest << 16) | (src << 12) | op2.Imm12());
+		Write32(condition | 0x01800000 | (op << 20) | (src << 16) | (dest << 12) | op2.Imm12());
 	else
-		Write32(condition | (op << 20) | (3 << 23) | (dest << 16) | (src << 12) | op2.Imm12()); 
+		Write32(condition | (op << 20) | (3 << 23) | (src << 16) | (dest << 12) | op2.Imm12()); 
 }
-void ARMXEmitter::STR  (ARMReg dest, ARMReg src, Operand2 op) { WriteStoreOp(0x40, dest, src, op);}
-void ARMXEmitter::STRH (ARMReg dest, ARMReg src, Operand2 op)
+void ARMXEmitter::STR  (ARMReg result, ARMReg base, Operand2 op) { WriteStoreOp(0x40, base, result, op);}
+void ARMXEmitter::STRH (ARMReg result, ARMReg base, Operand2 op)
 {
 	u8 Imm = op.Imm8();
-	Write32(condition | (0x04 << 20) | (src << 16) | (dest << 12) | ((Imm >> 4) << 8) | (0xB << 4) | (Imm & 0x0F));
+	Write32(condition | (0x04 << 20) | (base << 16) | (result << 12) | ((Imm >> 4) << 8) | (0xB << 4) | (Imm & 0x0F));
 }
-void ARMXEmitter::STRB (ARMReg dest, ARMReg src, Operand2 op) { WriteStoreOp(0x44, dest, src, op);}
-void ARMXEmitter::STR  (ARMReg dest, ARMReg base, Operand2 op2, bool Index, bool Add)
+void ARMXEmitter::STRB (ARMReg result, ARMReg base, Operand2 op) { WriteStoreOp(0x44, base, result, op);}
+void ARMXEmitter::STR  (ARMReg result, ARMReg base, Operand2 op2, bool Index, bool Add)
 {
-	Write32(condition | (0x60 << 20) | (Index << 24) | (Add << 23) | (dest << 16) | (base << 12) | op2.IMMSR());
+	Write32(condition | (0x60 << 20) | (Index << 24) | (Add << 23) | (base << 16) | (result << 12) | op2.IMMSR());
 }
-void ARMXEmitter::STR  (ARMReg dest, ARMReg base, ARMReg offset, bool Index, bool Add)
+void ARMXEmitter::STR  (ARMReg result, ARMReg base, ARMReg offset, bool Index, bool Add)
 {
-	Write32(condition | (0x60 << 20) | (Index << 24) | (Add << 23) | (dest << 16) | (base << 12) | offset);
+	Write32(condition | (0x60 << 20) | (Index << 24) | (Add << 23) | (base << 16) | (result << 12) | offset);
 }
-void ARMXEmitter::STRH (ARMReg dest, ARMReg base, ARMReg offset, bool Index, bool Add)
+void ARMXEmitter::STRH (ARMReg result, ARMReg base, ARMReg offset, bool Index, bool Add)
 {
-	Write32(condition | (0x00 << 20) | (Index << 24) | (Add << 23) | (dest << 16) | (base << 12) | (0xB << 4) | offset);
+	Write32(condition | (0x00 << 20) | (Index << 24) | (Add << 23) | (base << 16) | (result << 12) | (0xB << 4) | offset);
 }
-void ARMXEmitter::STRB (ARMReg dest, ARMReg base, ARMReg offset, bool Index, bool Add)
+void ARMXEmitter::STRB (ARMReg result, ARMReg base, ARMReg offset, bool Index, bool Add)
 {
-	Write32(condition | (0x64 << 20) | (Index << 24) | (Add << 23) | (dest << 16) | (base << 12) | offset);
+	Write32(condition | (0x64 << 20) | (Index << 24) | (Add << 23) | (base << 16) | (result << 12) | offset);
 }
 void ARMXEmitter::LDREX(ARMReg dest, ARMReg base)
 {
 	Write32(condition | (25 << 20) | (base << 16) | (dest << 12) | 0xF9F);
 }
-void ARMXEmitter::STREX(ARMReg dest, ARMReg base, ARMReg op)
+void ARMXEmitter::STREX(ARMReg result, ARMReg base, ARMReg op)
 {
-	_assert_msg_(DYNA_REC, (dest != base && dest != op), "STREX dest can't be other two registers");
-	Write32(condition | (24 << 20) | (base << 16) | (dest << 12) | (0xF9 << 4) | op);
+	_assert_msg_(DYNA_REC, (result != base && result != op), "STREX dest can't be other two registers");
+	Write32(condition | (24 << 20) | (base << 16) | (result << 12) | (0xF9 << 4) | op);
 }
 void ARMXEmitter::DMB ()
 {

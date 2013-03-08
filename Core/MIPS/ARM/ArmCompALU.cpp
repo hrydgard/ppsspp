@@ -69,6 +69,10 @@ namespace MIPSComp
 		int rt = _RT;
 		int rs = _RS;
 
+		// noop, won't write to ZERO.
+		if (rt == 0)
+			return;
+
 		switch (op >> 26) 
 		{
 		case 8:	// same as addiu?
@@ -76,8 +80,6 @@ namespace MIPSComp
 			{
 				if (gpr.IsImm(rs)) {
 					gpr.SetImm(rt, gpr.GetImm(rs) + simm);
-				} else if (rs == 0) {  // add to zero register = immediate
-					gpr.SetImm(rt, (u32)simm);
 				} else {
 					gpr.MapDirtyIn(rt, rs);
 					Operand2 op2;
@@ -171,7 +173,7 @@ namespace MIPSComp
 			break;
 		case 23: //clo
 			gpr.MapDirtyIn(rd, rs);
-			RSB(R0, gpr.R(rs), Operand2(0));
+			MVN(R0, gpr.R(rs));
 			CLZ(gpr.R(rd), R0);
 			break;
 		default:
@@ -186,18 +188,66 @@ namespace MIPSComp
 		int rs = _RS;
 		int rd = _RD;
 
+		// noop, won't write to ZERO.
+		if (rd == 0)
+			return;
+
 		switch (op & 63) 
 		{
-		//case 10: if (!R(rt)) R(rd) = R(rs);       break; //movz
-		//case 11: if (R(rt)) R(rd) = R(rs);        break; //movn
+		case 10: //if (!R(rt)) R(rd) = R(rs);       break; //movz
+			if (rd == rs)
+				break;
+			if (!gpr.IsImm(rt))
+			{
+				gpr.MapDirtyInIn(rd, rt, rs, false);
+				CMP(gpr.R(rt), Operand2(0));
+				SetCC(CC_EQ);
+				MOV(gpr.R(rd), Operand2(gpr.R(rs)));
+				SetCC(CC_AL);
+			}
+			else if (gpr.GetImm(rt) == 0)
+			{
+				// Yes, this actually happens.
+				if (gpr.IsImm(rs))
+					gpr.SetImm(rd, gpr.GetImm(rs));
+				else
+				{
+					gpr.MapDirtyIn(rd, rs);
+					MOV(gpr.R(rd), Operand2(gpr.R(rs)));
+				}
+			}
+			break;
+		case 11:// if (R(rt)) R(rd) = R(rs);		break; //movn
+			if (rd == rs)
+				break;
+			if (!gpr.IsImm(rt))
+			{
+				gpr.MapDirtyInIn(rd, rt, rs, false);
+				CMP(gpr.R(rt), Operand2(0));
+				SetCC(CC_NEQ);
+				MOV(gpr.R(rd), Operand2(gpr.R(rs)));
+				SetCC(CC_AL);
+			}
+			else if (gpr.GetImm(rt) != 0)
+			{
+				// Yes, this actually happens.
+				if (gpr.IsImm(rs))
+					gpr.SetImm(rd, gpr.GetImm(rs));
+				else
+				{
+					gpr.MapDirtyIn(rd, rs);
+					MOV(gpr.R(rd), Operand2(gpr.R(rs)));
+				}
+			}
+			break;
 			
-		// case 32: //R(rd) = R(rs) + R(rt);        break; //add
+		case 32: //R(rd) = R(rs) + R(rt);           break; //add
 		case 33: //R(rd) = R(rs) + R(rt);           break; //addu
 			// Some optimized special cases
-			if (rs == 0) {
+			if (gpr.IsImm(rs) && gpr.GetImm(rs) == 0) {
 				gpr.MapDirtyIn(rd, rt);
 				MOV(gpr.R(rd), gpr.R(rt));
-			} else if (rt == 0) {
+			} else if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0) {
 				gpr.MapDirtyIn(rd, rs);
 				MOV(gpr.R(rd), gpr.R(rs));
 			} else {
@@ -225,7 +275,7 @@ namespace MIPSComp
 
 		case 39: // R(rd) = ~(R(rs) | R(rt));       break; //nor
 			gpr.MapDirtyInIn(rd, rs, rt);
-			if (rt == 0) {
+			if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0) {
 				MVN(gpr.R(rd), gpr.R(rs));
 			} else {
 				ORR(gpr.R(rd), gpr.R(rs), gpr.R(rt));
@@ -274,7 +324,6 @@ namespace MIPSComp
 			break;
 
 		default:
-			// gpr.UnlockAll();
 			Comp_Generic(op);
 			break;
 		}
@@ -287,7 +336,7 @@ namespace MIPSComp
 		int sa = _SA;
 		
 		gpr.MapDirtyIn(rd, rt);
-		MOV(gpr.R(rd), Operand2(sa, shiftType, gpr.R(rt)));
+		MOV(gpr.R(rd), Operand2(gpr.R(rt), shiftType, sa));
 	}
 
 	void Jit::CompShiftVar(u32 op, ArmGen::ShiftType shiftType)
@@ -299,7 +348,7 @@ namespace MIPSComp
 		{
 			gpr.MapDirtyIn(rd, rt);
 			int sa = gpr.GetImm(rs) & 0x1F;
-			MOV(gpr.R(rd), Operand2(sa, shiftType, gpr.R(rt)));
+			MOV(gpr.R(rd), Operand2(gpr.R(rt), shiftType, sa));
 			return;
 		}
 		gpr.MapDirtyInIn(rd, rs, rt);
@@ -311,7 +360,13 @@ namespace MIPSComp
 	{
 		CONDITIONAL_DISABLE;
 		int rs = _RS;
+		int rd = _RD;
 		int fd = _FD;
+
+		// noop, won't write to ZERO.
+		if (rd == 0)
+			return;
+
 		// WARNING : ROTR
 		switch (op & 0x3f)
 		{
@@ -319,7 +374,7 @@ namespace MIPSComp
 		case 2: CompShiftImm(op, rs == 1 ? ST_ROR : ST_LSR); break;	//srl
 		case 3: CompShiftImm(op, ST_ASR); break; //sra
 		case 4: CompShiftVar(op, ST_LSL); break; //sllv
-		case 6: CompShiftVar(op, rs == 1 ? ST_ROR : ST_LSR); break; //srlv
+		case 6: CompShiftVar(op, fd == 1 ? ST_ROR : ST_LSR); break; //srlv
 		case 7: CompShiftVar(op, ST_ASR); break; //srav
 		
 		default:
@@ -358,18 +413,20 @@ namespace MIPSComp
 				return;
 			}
 
-			gpr.MapDirtyIn(rt, rs, false);
+			// Reported to break Disgaea.
+			DISABLE;
+
+			gpr.MapDirtyIn(rt, rs);
 			if (useUBFXandBFI) {
 				UBFX(gpr.R(rt), gpr.R(rs), pos, size);
 			} else {
-				MOV(gpr.R(rt), Operand2(pos, ST_LSR, gpr.R(rs)));
+				MOV(gpr.R(rt), Operand2(gpr.R(rs), ST_LSR, pos));
 				ANDI2R(gpr.R(rt), gpr.R(rt), mask, R0);
 			}
 			break;
 
 		case 0x4: //ins
 			{
-				DISABLE;
 				u32 sourcemask = mask >> pos;
 				u32 destmask = ~(sourcemask << pos);
 				if (gpr.IsImm(rs))
@@ -393,7 +450,7 @@ namespace MIPSComp
 					} else {
 						gpr.MapDirtyIn(rt, rs, false);
 						ANDI2R(R0, gpr.R(rs), sourcemask, R1);
-						MOV(R0, Operand2(pos, ST_LSL, R0));
+						MOV(R0, Operand2(R0, ST_LSL, pos));
 						ANDI2R(gpr.R(rt), gpr.R(rt), destmask, R1);
 						ORR(gpr.R(rt), gpr.R(rt), R0);
 					}

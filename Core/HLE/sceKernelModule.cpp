@@ -29,6 +29,7 @@
 #include "../FileSystems/FileSystem.h"
 #include "../FileSystems/MetaFileSystem.h"
 #include "../Util/BlockAllocator.h"
+#include "../CoreTiming.h"
 #include "../PSPLoaders.h"
 #include "../System.h"
 #include "../MemMap.h"
@@ -229,13 +230,24 @@ struct SceKernelSMOption {
 //////////////////////////////////////////////////////////////////////////
 // STATE BEGIN
 static int actionAfterModule;
+static int eventLoadModule = -1;
 static SceUID mainModuleID;	// hack
 // STATE END
 //////////////////////////////////////////////////////////////////////////
 
+void __KernelModuleLoaded(u64 userdata, int cycleslate)
+{
+	u32 error;
+	SceUID threadID = userdata & 0xFFFFFFFF;
+	SceUID moduleID = __KernelGetWaitValue(threadID, error);
+	if (error == 0 && moduleID != 0)
+		__KernelResumeThreadFromWait(threadID, moduleID);
+}
+
 void __KernelModuleInit()
 {
 	actionAfterModule = __KernelRegisterActionType(AfterModuleEntryCall::Create);
+	eventLoadModule = CoreTiming::RegisterEvent("LoadModule", __KernelModuleLoaded);
 }
 
 void __KernelModuleDoState(PointerWrap &p)
@@ -243,6 +255,8 @@ void __KernelModuleDoState(PointerWrap &p)
 	p.Do(mainModuleID);
 	p.Do(actionAfterModule);
 	__KernelRestoreActionType(actionAfterModule, AfterModuleEntryCall::Create);
+	p.Do(eventLoadModule);
+	CoreTiming::RestoreRegisterEvent(eventLoadModule, "LoadModule", __KernelModuleLoaded);
 	p.DoMarker("sceKernelModule");
 }
 
@@ -759,10 +773,12 @@ int sceKernelLoadExec(const char *filename, u32 paramPtr)
 	return 0;
 }
 
-u32 sceKernelLoadModule(const char *name, u32 flags)
+u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
 {
-	if(!name)
-		return 0;
+	if (!name) {
+		ERROR_LOG(LOADER, "sceKernelLoadModule(NULL, %08x): Bad name", flags);
+		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+	}
 
 	PSPFileInfo info = pspFileSystem.GetFileInfo(name);
 	std::string error_string;
@@ -783,8 +799,8 @@ u32 sceKernelLoadModule(const char *name, u32 flags)
 	SceKernelLMOption *lmoption = 0;
 	int position = 0;
 	// TODO: Use position to decide whether to load high or low
-	if (PARAM(2)) {
-		lmoption = (SceKernelLMOption *)Memory::GetPointer(PARAM(2));
+	if (optionAddr) {
+		lmoption = (SceKernelLMOption *)Memory::GetPointer(optionAddr);
 	}
 
 	Module *module = 0;
@@ -810,6 +826,9 @@ u32 sceKernelLoadModule(const char *name, u32 flags)
 		INFO_LOG(HLE,"%i=sceKernelLoadModule(name=%s,flag=%08x,(...))", module->GetUID(), name, flags);
 	}
 
+	// TODO: This is not the right timing and probably not the right wait type, just an approximation.
+	CoreTiming::ScheduleEvent(usToCycles(500), eventLoadModule, __KernelGetCurThread());
+	__KernelWaitCurThread(WAITTYPE_SEMA, -1, module->GetUID(), 0, false, "module loaded");
 	return module->GetUID();
 }
 
@@ -865,13 +884,12 @@ void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValu
 	RETURN(moduleId);
 }
 
-void sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 returnValueAddr, u32 optionAddr)
+u32 sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 returnValueAddr, u32 optionAddr)
 {
-	ERROR_LOG(HLE,"UNIMPL sceKernelStopModule(%i, %i, %08x, %08x, %08x)",
-		moduleId, argSize, argAddr, returnValueAddr, optionAddr);
+	ERROR_LOG(HLE,"UNIMPL sceKernelStopModule(%08x, %08x, %08x, %08x, %08x)", moduleId, argSize, argAddr, returnValueAddr, optionAddr);
 
 	// We should call the "stop" entry point and return the value in returnValueAddr. See StartModule.
-	RETURN(0);
+	return 0;
 }
 
 u32 sceKernelUnloadModule(u32 moduleId)
@@ -894,7 +912,7 @@ u32 sceKernelStopUnloadSelfModuleWithStatus(u32 moduleId, u32 argSize, u32 argp,
 
 u32 sceKernelGetModuleIdByAddress(u32 moduleAddr)
 {
-	ERROR_LOG(HLE,"HACKIMPL sceKernelGetModuleIdByAddress(%08x)", PARAM(0));
+	ERROR_LOG(HLE,"HACKIMPL sceKernelGetModuleIdByAddress(%08x)", moduleAddr);
 
 	if ((moduleAddr & 0xFFFF0000) == 0x08800000)
 	{
@@ -1001,11 +1019,11 @@ u32 sceKernelQueryModuleInfo(u32 uid, u32 infoAddr)
 
 const HLEFunction ModuleMgrForUser[] = 
 {
-	{0x977DE386,&WrapU_CU<sceKernelLoadModule>,"sceKernelLoadModule"},
+	{0x977DE386,&WrapU_CUU<sceKernelLoadModule>,"sceKernelLoadModule"},
 	{0xb7f46618,&WrapU_UUU<sceKernelLoadModuleByID>,"sceKernelLoadModuleByID"},
 	{0x50F0C1EC,&WrapV_UUUUU<sceKernelStartModule>,"sceKernelStartModule"},
 	{0xD675EBB8,&sceKernelExitGame,"sceKernelSelfStopUnloadModule"}, //HACK
-	{0xd1ff982a,&WrapV_UUUUU<sceKernelStopModule>,"sceKernelStopModule"},
+	{0xd1ff982a,&WrapU_UUUUU<sceKernelStopModule>,"sceKernelStopModule"},
 	{0x2e0911aa,WrapU_U<sceKernelUnloadModule>,"sceKernelUnloadModule"},
 	{0x710F61B5,0,"sceKernelLoadModuleMs"},
 	{0xF9275D98,0,"sceKernelLoadModuleBufferUsbWlan"}, ///???

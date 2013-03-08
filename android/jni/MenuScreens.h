@@ -67,6 +67,14 @@ public:
 };
 
 
+class DeveloperScreen : public Screen
+{
+public:
+	void update(InputState &input);
+	void render();
+};
+
+
 struct FileSelectScreenOptions {
 	const char* filter;  // Enforced extension filter. Case insensitive, extensions separated by ":".
 	bool allowChooseDirectory;

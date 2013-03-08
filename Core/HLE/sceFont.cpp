@@ -433,6 +433,10 @@ LoadedFont *GetLoadedFont(u32 handle, bool allowClosed) {
 }
 
 void __LoadInternalFonts() {
+	if (internalFonts.size()) {
+		// Fonts already loaded.
+		return;
+	}
 	std::string fontPath = "flash0:/font/";
 	if (!pspFileSystem.GetFileInfo(fontPath).exists) {
 		pspFileSystem.MkDir(fontPath);
@@ -504,7 +508,6 @@ int GetInternalFontIndex(Font *font) {
 }
 
 void __FontInit() {
-	__LoadInternalFonts();
 	actionPostAllocCallback = __KernelRegisterActionType(PostAllocCallback::Create);
 	actionPostOpenCallback = __KernelRegisterActionType(PostOpenCallback::Create);
 }
@@ -528,6 +531,8 @@ void __FontShutdown() {
 }
 
 void __FontDoState(PointerWrap &p) {
+	__LoadInternalFonts();
+
 	p.Do(fontLibList);
 	p.Do(fontLibMap);
 	p.Do(fontMap);
@@ -540,6 +545,8 @@ void __FontDoState(PointerWrap &p) {
 }
 
 u32 sceFontNewLib(u32 paramPtr, u32 errorCodePtr) {
+	// Lazy load internal fonts, only when font library first inited.
+	__LoadInternalFonts();
 	INFO_LOG(HLE, "sceFontNewLib(%08x, %08x)", paramPtr, errorCodePtr);
 
 	if (Memory::IsValidAddress(paramPtr) && Memory::IsValidAddress(errorCodePtr)) {
@@ -763,7 +770,7 @@ int sceFontGetShadowInfo(u32 fontHandle, u32 charCode, u32 shadowCharInfoPtr) {
 }
 
 int sceFontGetCharImageRect(u32 fontHandle, u32 charCode, u32 charRectPtr) {
-	ERROR_LOG(HLE, "HACK sceFontGetCharImageRect(%08x, %i, %08x) (char: %c)", fontHandle, charCode, charRectPtr, (char)charCode);
+	ERROR_LOG(HLE, "HACK sceFontGetCharImageRect(%08x, %i, %08x)", fontHandle, charCode, charRectPtr);
 	if (!Memory::IsValidAddress(charRectPtr))
 		return -1;
 
@@ -785,7 +792,7 @@ int sceFontGetShadowImageRect(u32 fontHandle, u32 charCode, u32 charRectPtr) {
 }
 
 int sceFontGetCharGlyphImage(u32 fontHandle, u32 charCode, u32 glyphImagePtr) {
-	ERROR_LOG(HLE, "HACK sceFontGetCharGlyphImage(%x, %x, %x) (char: %c)", fontHandle, charCode, glyphImagePtr, (char)charCode);
+	ERROR_LOG(HLE, "HACK sceFontGetCharGlyphImage(%x, %x, %x)", fontHandle, charCode, glyphImagePtr);
 
 	int pixelFormat = Memory::Read_U32(glyphImagePtr);
 	int xPos64 = Memory::Read_U32(glyphImagePtr+4);
@@ -806,7 +813,7 @@ int sceFontGetCharGlyphImage(u32 fontHandle, u32 charCode, u32 glyphImagePtr) {
 }
 
 int sceFontGetCharGlyphImage_Clip(u32 fontHandle, u32 charCode, u32 glyphImagePtr, int clipXPos, int clipYPos, int clipWidth, int clipHeight) {
-	ERROR_LOG(HLE, "sceFontGetCharGlyphImage_Clip(%08x, %i, %08x, %i, %i, %i, %i) (%c)", fontHandle, charCode, glyphImagePtr, clipXPos, clipYPos, clipWidth, clipHeight, charCode);
+	ERROR_LOG(HLE, "sceFontGetCharGlyphImage_Clip(%08x, %i, %08x, %i, %i, %i, %i)", fontHandle, charCode, glyphImagePtr, clipXPos, clipYPos, clipWidth, clipHeight);
 
 	int pixelFormat = Memory::Read_U32(glyphImagePtr);
 	int xPos64 = Memory::Read_U32(glyphImagePtr+4);
@@ -827,7 +834,7 @@ int sceFontGetCharGlyphImage_Clip(u32 fontHandle, u32 charCode, u32 glyphImagePt
 }
 
 int sceFontSetAltCharacterCode(u32 fontLibHandle, u32 charCode) {
-	INFO_LOG(HLE, "sceFontSetAltCharacterCode(%08x) (%c)", fontLibHandle, charCode);
+	INFO_LOG(HLE, "sceFontSetAltCharacterCode(%08x) (%08x)", fontLibHandle, charCode);
 	FontLib *fl = GetFontLib(fontLibHandle);
 	if (fl) {
 		fl->SetAltCharCode(charCode);
