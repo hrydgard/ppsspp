@@ -2696,6 +2696,14 @@ bool __KernelCheckCallbacks() {
 
 bool __KernelForceCallbacks()
 {
+	// Let's not check every thread all the time, callbacks are fairly uncommon.
+	if (readyCallbacksCount == 0) {
+		return false;
+	}
+	if (readyCallbacksCount < 0) {
+		ERROR_LOG(HLE, "readyCallbacksCount became negative: %i", readyCallbacksCount);
+	}
+
 	Thread *curThread = __GetCurrentThread();	
 
 	bool callbacksProcessed = __KernelCheckThreadCallbacks(curThread, true);
