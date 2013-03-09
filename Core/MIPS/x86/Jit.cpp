@@ -632,10 +632,12 @@ void Jit::JitSafeMem::NextSlowRead(void *safeFunc, int suboffset)
 
 void Jit::JitSafeMem::Finish()
 {
-	if (needsCheck_)
+	// Memory::Read_U32/etc. may have tripped coreState.
+	if (needsCheck_ && !g_Config.bIgnoreBadMemAccess)
 	{
-		// Memory::Read_U32/etc. may have tripped coreState.
-		if (!g_Config.bIgnoreBadMemAccess)
+		if (jit_->js.inDelaySlot)
+			jit_->js.needCheckCoreState = true;
+		else
 		{
 			jit_->CMP(32, M((void*)&coreState), Imm32(0));
 			FixupBranch skipCheck = jit_->J_CC(CC_E);
