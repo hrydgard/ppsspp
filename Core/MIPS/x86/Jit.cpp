@@ -659,12 +659,11 @@ void Jit::JitSafeMem::Finish()
 		jit_->SetJumpTarget(skipCheck_);
 }
 
-void JitMemCheck(u32 addr, int size)
+void JitMemCheck(u32 addr, int size, int isWrite)
 {
 	MemCheck *check = CBreakPoints::GetMemCheck(addr, size);
-	// TODO: Value, hmm... also need to do read/write...
 	if (check)
-		check->Action(0, addr, false, size, currentMIPS->pc);
+		check->Action(addr, isWrite == 1, size, currentMIPS->pc);
 }
 
 void Jit::JitSafeMem::MemCheckImm(ReadType type)
@@ -672,8 +671,13 @@ void Jit::JitSafeMem::MemCheckImm(ReadType type)
 	MemCheck *check = CBreakPoints::GetMemCheck(iaddr_, size_);
 	if (check)
 	{
+		if (!check->bOnRead && type == MEM_READ)
+			return;
+		if (!check->bOnWrite && type == MEM_WRITE)
+			return;
+
 		jit_->MOV(32, M(&jit_->mips_->pc), Imm32(jit_->js.compilerPC));
-		jit_->ABI_CallFunctionCC(jit_->thunks.ProtectFunction((void *)&JitMemCheck, 2), iaddr_, size_);
+		jit_->ABI_CallFunctionCCC(jit_->thunks.ProtectFunction((void *)&JitMemCheck, 3), iaddr_, size_, type == MEM_WRITE ? 1 : 0);
 
 		jit_->CMP(32, M((void*)&coreState), Imm32(0));
 		if (!jit_->js.inDelaySlot)
@@ -696,6 +700,11 @@ void Jit::JitSafeMem::MemCheckAsm(ReadType type)
 {
 	for (auto it = CBreakPoints::MemChecks.begin(), end = CBreakPoints::MemChecks.end(); it != end; ++it)
 	{
+		if (!it->bOnRead && type == MEM_READ)
+			continue;
+		if (!it->bOnWrite && type == MEM_WRITE)
+			continue;
+
 		FixupBranch skipNext, skipNextRange;
 		if (it->bRange)
 		{
@@ -712,7 +721,7 @@ void Jit::JitSafeMem::MemCheckAsm(ReadType type)
 
 		jit_->PUSH(xaddr_);
 		jit_->MOV(32, M(&jit_->mips_->pc), Imm32(jit_->js.compilerPC));
-		jit_->ABI_CallFunctionAC(jit_->thunks.ProtectFunction((void *)&JitMemCheck, 2), R(xaddr_), size_);
+		jit_->ABI_CallFunctionACC(jit_->thunks.ProtectFunction((void *)&JitMemCheck, 3), R(xaddr_), size_, type == MEM_WRITE ? 1 : 0);
 		jit_->POP(xaddr_);
 
 		jit_->CMP(32, M((void*)&coreState), Imm32(0));

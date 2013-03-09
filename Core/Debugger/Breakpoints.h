@@ -47,7 +47,7 @@ struct MemCheck
 
 	u32 numHits;
 
-	void Action(u32 _iValue, u32 addr, bool write, int size, u32 pc);
+	void Action(u32 addr, bool write, int size, u32 pc);
 };
 
 class CBreakPoints

@@ -34,18 +34,14 @@ MemCheck::MemCheck(void)
 	numHits=0;
 }
 
-void MemCheck::Action(u32 iValue, u32 addr, bool write, int size, u32 pc)
+void MemCheck::Action(u32 addr, bool write, int size, u32 pc)
 {
 	if ((write && bOnWrite) || (!write && bOnRead))
 	{
 		++numHits;
 
 		if (bLog)
-		{
-			char temp[256];
-			sprintf(temp,"CHK %08x %s%i at %08x (%s), PC=%08x (%s)",iValue,write?"Write":"Read",size*8,addr,symbolMap.GetDescription(addr),pc,symbolMap.GetDescription(pc));
-			ERROR_LOG(MEMMAP,"%s",temp);
-		}
+			NOTICE_LOG(MEMMAP, "CHK %s%i at %08x (%s), PC=%08x (%s)", write ? "Write" : "Read", size * 8, addr, symbolMap.GetDescription(addr), pc, symbolMap.GetDescription(pc));
 		if (bBreak)
 			Core_Pause();
 	}
