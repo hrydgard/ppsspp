@@ -60,13 +60,14 @@ private:
 	static u32	m_iBreakOnCount;
 
 public:
+	// WARNING: Not used in interpreter or HLE, only jit CPU memory access.
 	static std::vector<MemCheck> MemChecks;
 
 	// is address breakpoint
 	static bool IsAddressBreakPoint(u32 _iAddress);
 
-	//memory breakpoint
-	static MemCheck *GetMemCheck(u32 address);
+	// WARNING: Not used in interpreter or HLE, only jit CPU memory access.
+	static MemCheck *GetMemCheck(u32 address, int size);
 
 	// is break on count
 	static bool IsBreakOnCount(u32 _iAddress);

@@ -415,7 +415,7 @@ Jit::JitSafeMem::JitSafeMem(Jit *jit, int raddr, s32 offset)
 	: jit_(jit), raddr_(raddr), offset_(offset), needsCheck_(false), needsSkip_(false), needsSkipCheck_(false)
 {
 	// This makes it more instructions, so let's play it safe and say we need a far jump.
-	far_ = !g_Config.bIgnoreBadMemAccess;
+	far_ = !g_Config.bIgnoreBadMemAccess || !CBreakPoints::MemChecks.empty();
 	if (jit_->gpr.IsImmediate(raddr_))
 		iaddr_ = jit_->gpr.GetImmediate32(raddr_) + offset_;
 	else
@@ -661,7 +661,7 @@ void Jit::JitSafeMem::Finish()
 
 void JitMemCheck(u32 addr, int size)
 {
-	MemCheck *check = CBreakPoints::GetMemCheck(addr);
+	MemCheck *check = CBreakPoints::GetMemCheck(addr, size);
 	// TODO: Value, hmm... also need to do read/write...
 	if (check)
 		check->Action(0, addr, false, size, currentMIPS->pc);
@@ -669,7 +669,7 @@ void JitMemCheck(u32 addr, int size)
 
 void Jit::JitSafeMem::MemCheckImm(ReadType type)
 {
-	MemCheck *check = CBreakPoints::GetMemCheck(iaddr_);
+	MemCheck *check = CBreakPoints::GetMemCheck(iaddr_, size_);
 	if (check)
 	{
 		jit_->MOV(32, M(&jit_->mips_->pc), Imm32(jit_->js.compilerPC));
@@ -694,7 +694,46 @@ void Jit::JitSafeMem::MemCheckImm(ReadType type)
 
 void Jit::JitSafeMem::MemCheckAsm(ReadType type)
 {
-	// TODO
+	for (auto it = CBreakPoints::MemChecks.begin(), end = CBreakPoints::MemChecks.end(); it != end; ++it)
+	{
+		FixupBranch skipNext, skipNextRange;
+		if (it->bRange)
+		{
+			jit_->CMP(32, R(xaddr_), Imm32(it->iStartAddress));
+			skipNext = jit_->J_CC(CC_B);
+			jit_->CMP(32, R(xaddr_), Imm32(it->iEndAddress - size_));
+			skipNextRange = jit_->J_CC(CC_AE);
+		}
+		else
+		{
+			jit_->CMP(32, R(xaddr_), Imm32(it->iStartAddress));
+			skipNext = jit_->J_CC(CC_NE);
+		}
+
+		jit_->PUSH(xaddr_);
+		jit_->MOV(32, M(&jit_->mips_->pc), Imm32(jit_->js.compilerPC));
+		jit_->ABI_CallFunctionAC(jit_->thunks.ProtectFunction((void *)&JitMemCheck, 2), R(xaddr_), size_);
+		jit_->POP(xaddr_);
+
+		jit_->CMP(32, M((void*)&coreState), Imm32(0));
+		if (!jit_->js.inDelaySlot)
+		{
+			FixupBranch skipCheck = jit_->J_CC(CC_E);
+			jit_->WriteSyscallExit();
+			jit_->SetJumpTarget(skipCheck);
+		}
+		else
+		{
+			// Skip the actual memory access if coreState tripped.
+			skipCheck_ = jit_->J_CC(CC_NE);
+			needsSkipCheck_ = true;
+			jit_->js.needCheckCoreState = true;
+		}
+
+		jit_->SetJumpTarget(skipNext);
+		if (it->bRange)
+			jit_->SetJumpTarget(skipNextRange);
+	}
 }
 
 void Jit::Comp_DoNothing(u32 op) { }

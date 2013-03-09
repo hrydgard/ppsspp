@@ -38,6 +38,8 @@ void MemCheck::Action(u32 iValue, u32 addr, bool write, int size, u32 pc)
 {
 	if ((write && bOnWrite) || (!write && bOnRead))
 	{
+		++numHits;
+
 		if (bLog)
 		{
 			char temp[256];
@@ -86,20 +88,21 @@ void CBreakPoints::ClearAllBreakPoints()
 	InvalidateJit();
 }
 
-MemCheck *CBreakPoints::GetMemCheck(u32 address)
+MemCheck *CBreakPoints::GetMemCheck(u32 address, int size)
 {
 	std::vector<MemCheck>::iterator iter;
 	for (iter = MemChecks.begin(); iter != MemChecks.end(); ++iter)
 	{
-		if ((*iter).bRange)
+		MemCheck &check = *iter;
+		if (check.bRange)
 		{
-			if (address >= (*iter).iStartAddress && address <= (*iter).iEndAddress)
-				return &(*iter);
+			if (address >= check.iStartAddress && address + size < check.iEndAddress)
+				return &check;
 		}
 		else
 		{
-			if ((*iter).iStartAddress==address)
-				return &(*iter);
+			if (check.iStartAddress==address)
+				return &check;
 		}
 	}
 
