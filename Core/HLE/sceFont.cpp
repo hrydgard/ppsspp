@@ -190,7 +190,7 @@ public:
 		: fontLibID_(fontLibID), font_(font), handle_(handle) {}
 
 	Font *GetFont() { return font_; }
-	FontLib *GetFontLib() { return fontLibList[fontLibID_]; }
+	FontLib *GetFontLib() { if (!IsOpen()) return NULL; return fontLibList[fontLibID_]; }
 	u32 Handle() const { return handle_; }
 
 	bool IsOpen() const { return fontLibID_ != (u32)-1; }
@@ -270,8 +270,8 @@ public:
 		if (false) {
 			// This fails in dissidia. The function at 088ff320 (params_.allocFuncAddr) calls some malloc function, the second one returns 0 which causes
 			// bad stores later. So we just ignore this with if (false) and fake it.
-			u32 args[1] = { allocSize };
-			__KernelDirectMipsCall(params_.allocFuncAddr, action, args, 1, false);
+			u32 args[2] = { params_.userDataAddr, allocSize };
+			__KernelDirectMipsCall(params_.allocFuncAddr, action, args, 2, false);
 		} else {
 			AllocDone(fakeAlloc_);
 			fakeAlloc_ += allocSize;
@@ -296,8 +296,8 @@ public:
 				fontMap.erase(fonts_[i]);
 			}
 		}
-		u32 args[1] = { (u32)handle_ };
-		__KernelDirectMipsCall(params_.freeFuncAddr, 0, args, 1, false);
+		u32 args[2] = { params_.userDataAddr, (u32)handle_ };
+		__KernelDirectMipsCall(params_.freeFuncAddr, 0, args, 2, false);
 		handle_ = 0;
 		fonts_.clear();
 		isfontopen_.clear();
