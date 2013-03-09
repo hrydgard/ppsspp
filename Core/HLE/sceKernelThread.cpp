@@ -2383,7 +2383,7 @@ void __KernelSwitchContext(Thread *target, const char *reason)
 	target->nt.waitType = WAITTYPE_NONE;
 	target->nt.waitID = 0;
 
-	__KernelExecutePendingMipsCalls(true);
+	__KernelExecutePendingMipsCalls(target, true);
 }
 
 void __KernelChangeThreadState(Thread *thread, ThreadStatus newStatus) {
@@ -2552,7 +2552,7 @@ void __KernelReturnFromMipsCall()
 	currentCallbackThreadID = 0;
 
 	// yeah! back in the real world, let's keep going. Should we process more callbacks?
-	if (!__KernelExecutePendingMipsCalls(call->reschedAfter))
+	if (!__KernelExecutePendingMipsCalls(cur, call->reschedAfter))
 	{
 		// Sometimes, we want to stay on the thread.
 		int threadReady = cur->nt.status & (THREADSTATUS_READY | THREADSTATUS_RUNNING);
@@ -2563,9 +2563,10 @@ void __KernelReturnFromMipsCall()
 	delete call;
 }
 
-bool __KernelExecutePendingMipsCalls(bool reschedAfter)
+// First arg must be current thread, passed to avoid perf cost of a lookup.
+bool __KernelExecutePendingMipsCalls(Thread *thread, bool reschedAfter)
 {
-	Thread *thread = __GetCurrentThread();
+	_dbg_assert_msg_(HLE, thread->GetUID() == __KernelGetCurThread(), "__KernelExecutePendingMipsCalls() should be called only with the current thread.");
 
 	if (thread->pendingMipsCalls.empty()) {
 		// Nothing to do
@@ -2690,17 +2691,25 @@ bool __KernelCheckCallbacks() {
 	// } while (processed && currentThread == __KernelGetCurThread());
 
 	if (processed)
-		return __KernelExecutePendingMipsCalls(true);
+		return __KernelExecutePendingMipsCalls(__GetCurrentThread(), true);
 	return processed;
 }
 
 bool __KernelForceCallbacks()
 {
+	// Let's not check every thread all the time, callbacks are fairly uncommon.
+	if (readyCallbacksCount == 0) {
+		return false;
+	}
+	if (readyCallbacksCount < 0) {
+		ERROR_LOG(HLE, "readyCallbacksCount became negative: %i", readyCallbacksCount);
+	}
+
 	Thread *curThread = __GetCurrentThread();	
 
 	bool callbacksProcessed = __KernelCheckThreadCallbacks(curThread, true);
 	if (callbacksProcessed)
-		__KernelExecutePendingMipsCalls(false);
+		__KernelExecutePendingMipsCalls(curThread, false);
 
 	return callbacksProcessed;
 }
