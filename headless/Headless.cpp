@@ -166,6 +166,8 @@ int main(int argc, const char* argv[])
 	g_Config.bEnableSound = false;
 	g_Config.bFirstRun = false;
 	g_Config.bIgnoreBadMemAccess = true;
+	// Never report from tests.
+	g_Config.sReportHost = "";
 
 #if defined(ANDROID)
 #elif defined(BLACKBERRY) || defined(__SYMBIAN32__)

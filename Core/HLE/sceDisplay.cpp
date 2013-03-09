@@ -543,6 +543,7 @@ u32 sceDisplayWaitVblank() {
 		return 0;
 	} else {
 		DEBUG_LOG(HLE,"sceDisplayWaitVblank() - not waiting since in vBlank");
+		hleEatMicro(5);
 		return 1;
 	}
 }
@@ -562,6 +563,7 @@ u32 sceDisplayWaitVblankCB() {
 		return 0;
 	} else {
 		DEBUG_LOG(HLE,"sceDisplayWaitVblank() - not waiting since in vBlank");
+		hleEatMicro(5);
 		return 1;
 	}
 }
@@ -584,12 +586,7 @@ u32 sceDisplayGetVcount() {
 	// Too spammy
 	// DEBUG_LOG(HLE,"%i=sceDisplayGetVcount()", vCount);
 
-	// Puyo Puyo Fever polls this as a substitute for waiting for vblank.
-	// As a result, the game never gets to reschedule so it doesn't mix audio and things break.
-	// Need to find a better hack as this breaks games like Project Diva.
-	// hleReSchedule("sceDisplayGetVcount hack");  // Puyo puyo hack?
-
-	CoreTiming::Idle(1000000);
+	hleEatMicro(2);
 	return vCount;
 }
 

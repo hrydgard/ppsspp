@@ -21,6 +21,7 @@
 #include <vector>
 #include "../MemMap.h"
 #include "../Config.h"
+#include "Core/CoreTiming.h"
 #include "Core/Reporting.h"
 
 #include "HLETables.h"
@@ -55,12 +56,27 @@ enum
 static std::vector<HLEModule> moduleDB;
 static std::vector<Syscall> unresolvedSyscalls;
 static std::vector<Syscall> exportedCalls;
+static int delayedResultEvent = -1;
 static int hleAfterSyscall = HLE_AFTER_NOTHING;
 static const char *hleAfterSyscallReschedReason;
+
+void hleDelayResultFinish(u64 userdata, int cycleslate)
+{
+	u32 error;
+	SceUID threadID = (SceUID) userdata;
+	SceUID verify = __KernelGetWaitID(threadID, WAITTYPE_DELAY, error);
+	SceUID result = __KernelGetWaitValue(threadID, error);
+
+	if (error == 0 && verify == 1)
+		__KernelResumeThreadFromWait(threadID, result);
+	else
+		WARN_LOG(HLE, "Someone else woke up HLE-blocked thread?");
+}
 
 void HLEInit()
 {
 	RegisterAllModules();
+	delayedResultEvent = CoreTiming::RegisterEvent("HLEDelayedResult", hleDelayResultFinish);
 }
 
 void HLEDoState(PointerWrap &p)
@@ -68,6 +84,8 @@ void HLEDoState(PointerWrap &p)
 	Syscall sc = {""};
 	p.Do(unresolvedSyscalls, sc);
 	p.Do(exportedCalls, sc);
+	p.Do(delayedResultEvent);
+	CoreTiming::RestoreRegisterEvent(delayedResultEvent, "HLEDelayedResult", hleDelayResultFinish);
 	p.DoMarker("HLE");
 }
 
@@ -308,6 +326,19 @@ bool hleExecuteDebugBreak(const HLEFunction &func)
 	Core_EnableStepping(true);
 	host->SetDebugMode(true);
 	return true;
+}
+
+u32 hleDelayResult(u32 result, const char *reason, int usec)
+{
+	CoreTiming::ScheduleEvent(usToCycles(usec), delayedResultEvent, __KernelGetCurThread());
+	__KernelWaitCurThread(WAITTYPE_DELAY, 1, result, 0, false, reason);
+	return result;
+}
+
+void hleEatMicro(int usec)
+{
+	// Maybe this should Idle, at least for larger delays?  Could that cause issues?
+	currentMIPS->downcount -= (int) usToCycles(usec);
 }
 
 inline void hleFinishSyscall(int modulenum, int funcnum)

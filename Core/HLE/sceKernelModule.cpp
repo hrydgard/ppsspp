@@ -230,24 +230,13 @@ struct SceKernelSMOption {
 //////////////////////////////////////////////////////////////////////////
 // STATE BEGIN
 static int actionAfterModule;
-static int eventLoadModule = -1;
 static SceUID mainModuleID;	// hack
 // STATE END
 //////////////////////////////////////////////////////////////////////////
 
-void __KernelModuleLoaded(u64 userdata, int cycleslate)
-{
-	u32 error;
-	SceUID threadID = userdata & 0xFFFFFFFF;
-	SceUID moduleID = __KernelGetWaitValue(threadID, error);
-	if (error == 0 && moduleID != 0)
-		__KernelResumeThreadFromWait(threadID, moduleID);
-}
-
 void __KernelModuleInit()
 {
 	actionAfterModule = __KernelRegisterActionType(AfterModuleEntryCall::Create);
-	eventLoadModule = CoreTiming::RegisterEvent("LoadModule", __KernelModuleLoaded);
 }
 
 void __KernelModuleDoState(PointerWrap &p)
@@ -255,8 +244,6 @@ void __KernelModuleDoState(PointerWrap &p)
 	p.Do(mainModuleID);
 	p.Do(actionAfterModule);
 	__KernelRestoreActionType(actionAfterModule, AfterModuleEntryCall::Create);
-	p.Do(eventLoadModule);
-	CoreTiming::RestoreRegisterEvent(eventLoadModule, "LoadModule", __KernelModuleLoaded);
 	p.DoMarker("sceKernelModule");
 }
 
@@ -827,9 +814,7 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
 	}
 
 	// TODO: This is not the right timing and probably not the right wait type, just an approximation.
-	CoreTiming::ScheduleEvent(usToCycles(500), eventLoadModule, __KernelGetCurThread());
-	__KernelWaitCurThread(WAITTYPE_SEMA, -1, module->GetUID(), 0, false, "module loaded");
-	return module->GetUID();
+	return hleDelayResult(module->GetUID(), "module loaded", 500);
 }
 
 void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, u32 optionAddr)
