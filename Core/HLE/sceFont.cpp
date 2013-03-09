@@ -190,7 +190,7 @@ public:
 		: fontLibID_(fontLibID), font_(font), handle_(handle) {}
 
 	Font *GetFont() { return font_; }
-	FontLib *GetFontLib() { return fontLibList[fontLibID_]; }
+	FontLib *GetFontLib() { if (!IsOpen()) return NULL; return fontLibList[fontLibID_]; }
 	u32 Handle() const { return handle_; }
 
 	bool IsOpen() const { return fontLibID_ != (u32)-1; }
