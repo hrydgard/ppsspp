@@ -274,10 +274,11 @@ namespace MIPSComp
 			break;
 
 		case 39: // R(rd) = ~(R(rs) | R(rt));       break; //nor
-			gpr.MapDirtyInIn(rd, rs, rt);
 			if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0) {
+				gpr.MapDirtyIn(rd, rs);
 				MVN(gpr.R(rd), gpr.R(rs));
 			} else {
+				gpr.MapDirtyInIn(rd, rs, rt);
 				ORR(gpr.R(rd), gpr.R(rs), gpr.R(rt));
 				MVN(gpr.R(rd), gpr.R(rd));
 			}
