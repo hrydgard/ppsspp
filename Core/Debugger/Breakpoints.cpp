@@ -19,6 +19,7 @@
 #include "Breakpoints.h"
 #include "SymbolMap.h"
 #include "FixedSizeUnorderedSet.h"
+#include "Core/Host.h"
 #include "../MIPS/JitCommon/JitCommon.h"
 #include <cstdio>
 
@@ -43,7 +44,10 @@ void MemCheck::Action(u32 addr, bool write, int size, u32 pc)
 		if (bLog)
 			NOTICE_LOG(MEMMAP, "CHK %s%i at %08x (%s), PC=%08x (%s)", write ? "Write" : "Read", size * 8, addr, symbolMap.GetDescription(addr), pc, symbolMap.GetDescription(pc));
 		if (bBreak)
+		{
 			Core_Pause();
+			host->SetDebugMode(true);
+		}
 	}
 }
 
