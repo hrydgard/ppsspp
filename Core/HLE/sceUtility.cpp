@@ -117,10 +117,9 @@ u32 sceUtilityLoadModule(u32 module)
 	// TODO: Each module has its own timing, technically, but this is a low-end.
 	// Note: Some modules have dependencies, but they still resched.
 	if (module == 0x3FF)
-		sceKernelDelayThread(130);
+		return hleDelayResult(0, "utility module loaded", 130);
 	else
-		sceKernelDelayThread(25000);
-	return 0;
+		return hleDelayResult(0, "utility module loaded", 25000);
 }
 
 u32 sceUtilityUnloadModule(u32 module)
@@ -136,10 +135,9 @@ u32 sceUtilityUnloadModule(u32 module)
 	// TODO: Each module has its own timing, technically, but this is a low-end.
 	// Note: If not loaded, it should not reschedule actually...
 	if (module == 0x3FF)
-		sceKernelDelayThread(110);
+		return hleDelayResult(0, "utility module unloaded", 110);
 	else
-		sceKernelDelayThread(400);
-	return 0;
+		return hleDelayResult(0, "utility module unloaded", 400);
 }
 
 int sceUtilityMsgDialogInitStart(u32 structAddr)
