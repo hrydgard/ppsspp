@@ -722,19 +722,20 @@ void Jit::JitSafeMem::MemCheckAsm(ReadType type)
 		FixupBranch skipNext, skipNextRange;
 		if (it->bRange)
 		{
-			jit_->CMP(32, R(xaddr_), Imm32(it->iStartAddress));
+			jit_->CMP(32, R(xaddr_), Imm32(it->iStartAddress - offset_));
 			skipNext = jit_->J_CC(CC_B);
-			jit_->CMP(32, R(xaddr_), Imm32(it->iEndAddress - size_));
+			jit_->CMP(32, R(xaddr_), Imm32(it->iEndAddress - offset_ - size_));
 			skipNextRange = jit_->J_CC(CC_AE);
 		}
 		else
 		{
-			jit_->CMP(32, R(xaddr_), Imm32(it->iStartAddress));
+			jit_->CMP(32, R(xaddr_), Imm32(it->iStartAddress - offset_));
 			skipNext = jit_->J_CC(CC_NE);
 		}
 
 		jit_->PUSH(xaddr_);
 		jit_->MOV(32, M(&jit_->mips_->pc), Imm32(jit_->js.compilerPC));
+		jit_->ADD(32, R(xaddr_), Imm32(offset_));
 		jit_->ABI_CallFunctionACC(jit_->thunks.ProtectFunction((void *)&JitMemCheck, 3), R(xaddr_), size_, type == MEM_WRITE ? 1 : 0);
 		jit_->POP(xaddr_);
 
