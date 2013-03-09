@@ -60,6 +60,7 @@ struct JitState
 	u32 blockStart;
 	bool cancel;
 	bool inDelaySlot;
+	bool needCheckCoreState;
 	int downcountAmount;
 	int numInstructions;
 	bool compiling;	// TODO: get rid of this in favor of using analysis results to determine end of block
@@ -269,14 +270,14 @@ private:
 		JitSafeMem(Jit *jit, int raddr, s32 offset);
 
 		// Emit code necessary for a memory write, returns true if MOV to dest is needed.
-		bool PrepareWrite(OpArg &dest);
+		bool PrepareWrite(OpArg &dest, int size);
 		// Emit code proceeding a slow write call, returns true if slow write is needed.
 		bool PrepareSlowWrite();
 		// Emit a slow write from src.
 		void DoSlowWrite(void *safeFunc, const OpArg src, int suboffset = 0);
 
 		// Emit code necessary for a memory read, returns true if MOV from src is needed.
-		bool PrepareRead(OpArg &src);
+		bool PrepareRead(OpArg &src, int size);
 		// Emit code for a slow read call, and returns true if result is in EAX.
 		bool PrepareSlowRead(void *safeFunc);
 		
@@ -291,8 +292,16 @@ private:
 		void NextSlowRead(void *safeFunc, int suboffset);
 
 	private:
-		OpArg PrepareMemoryOpArg();
+		enum ReadType
+		{
+			MEM_READ,
+			MEM_WRITE,
+		};
+
+		OpArg PrepareMemoryOpArg(ReadType type, int size);
 		void PrepareSlowAccess();
+		void MemCheckImm(ReadType type, int size);
+		void MemCheckAsm(ReadType type, int size);
 
 		Jit *jit_;
 		int raddr_;

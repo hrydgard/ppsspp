@@ -248,6 +248,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	js.curBlock = b;
 	js.compiling = true;
 	js.inDelaySlot = false;
+	js.needCheckCoreState = false;
 	js.PrefixStart();
 
 	// We add a check before the block, used when entering from a linked block.
@@ -331,7 +332,10 @@ void Jit::WriteExit(u32 destination, int exit_num)
 
 	// Link opportunity!
 	int block = blocks.GetBlockNumberFromStartAddress(destination);
-	if (block >= 0 && jo.enableBlocklink) {
+	if (js.needCheckCoreState) {
+		MOV(32, M(&mips_->pc), Imm32(destination));
+		JMP(asm_.dispatcherCheckCoreState, true);
+	} else if (block >= 0 && jo.enableBlocklink) {
 		// It exists! Joy of joy!
 		JMP(blocks.GetBlock(block)->checkedEntry, true);
 		b->linkStatus[exit_num] = true;
@@ -378,6 +382,8 @@ void Jit::WriteExitDestInEAX()
 		SUB(32, M(&currentMIPS->downcount), Imm32(0));
 		J_CC(CC_NE, asm_.dispatcher, true);
 	}
+	else if (js.needCheckCoreState)
+		JMP(asm_.dispatcherCheckCoreState, true);
 	else
 		JMP(asm_.dispatcher, true);
 }
@@ -422,13 +428,15 @@ void Jit::JitSafeMem::SetFar()
 	far_ = true;
 }
 
-bool Jit::JitSafeMem::PrepareWrite(OpArg &dest)
+bool Jit::JitSafeMem::PrepareWrite(OpArg &dest, int size)
 {
 	// If it's an immediate, we can do the write if valid.
 	if (iaddr_ != (u32) -1)
 	{
 		if (Memory::IsValidAddress(iaddr_))
 		{
+			MemCheckImm(MEM_WRITE, size);
+
 #ifdef _M_IX86
 			dest = M(Memory::base + (iaddr_ & Memory::MEMVIEW32_MASK));
 #else
@@ -441,16 +449,18 @@ bool Jit::JitSafeMem::PrepareWrite(OpArg &dest)
 	}
 	// Otherwise, we always can do the write (conditionally.)
 	else
-		dest = PrepareMemoryOpArg();
+		dest = PrepareMemoryOpArg(MEM_WRITE, size);
 	return true;
 }
 
-bool Jit::JitSafeMem::PrepareRead(OpArg &src)
+bool Jit::JitSafeMem::PrepareRead(OpArg &src, int size)
 {
 	if (iaddr_ != (u32) -1)
 	{
 		if (Memory::IsValidAddress(iaddr_))
 		{
+			MemCheckImm(MEM_READ, size);
+
 #ifdef _M_IX86
 			src = M(Memory::base + (iaddr_ & Memory::MEMVIEW32_MASK));
 #else
@@ -462,7 +472,7 @@ bool Jit::JitSafeMem::PrepareRead(OpArg &src)
 			return false;
 	}
 	else
-		src = PrepareMemoryOpArg();
+		src = PrepareMemoryOpArg(MEM_READ, size);
 	return true;
 }
 
@@ -486,7 +496,7 @@ OpArg Jit::JitSafeMem::NextFastAddress(int suboffset)
 #endif
 }
 
-OpArg Jit::JitSafeMem::PrepareMemoryOpArg()
+OpArg Jit::JitSafeMem::PrepareMemoryOpArg(ReadType type, int size)
 {
 	// We may not even need to move into EAX as a temporary.
 	// TODO: Except on x86 in fastmem mode.
@@ -500,6 +510,8 @@ OpArg Jit::JitSafeMem::PrepareMemoryOpArg()
 		jit_->MOV(32, R(EAX), jit_->gpr.R(raddr_));
 		xaddr_ = EAX;
 	}
+
+	MemCheckAsm(type, size);
 
 	if (!g_Config.bFastMemory)
 	{
@@ -634,6 +646,16 @@ void Jit::JitSafeMem::Finish()
 	}
 	if (needsSkip_)
 		jit_->SetJumpTarget(skip_);
+}
+
+void Jit::JitSafeMem::MemCheckImm(ReadType type, int size)
+{
+	// TODO
+}
+
+void Jit::JitSafeMem::MemCheckAsm(ReadType type, int size)
+{
+	// TODO
 }
 
 void Jit::Comp_DoNothing(u32 op) { }
