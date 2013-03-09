@@ -87,6 +87,10 @@ void hleRunInterrupts();
 // Pause emulation after the syscall finishes.
 void hleDebugBreak();
 
+// Delays the result for usec microseconds, allowing other threads to run during this time.
+u32 hleDelayResult(u32 result, const char *reason, int usec);
+void hleEatMicro(int usec);
+
 void HLEInit();
 void HLEDoState(PointerWrap &p);
 void HLEShutdown();
