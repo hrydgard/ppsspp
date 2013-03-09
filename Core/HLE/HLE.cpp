@@ -335,6 +335,12 @@ u32 hleDelayResult(u32 result, const char *reason, int usec)
 	return result;
 }
 
+void hleEatMicro(int usec)
+{
+	// Maybe this should Idle, at least for larger delays?  Could that cause issues?
+	currentMIPS->downcount -= (int) usToCycles(usec);
+}
+
 inline void hleFinishSyscall(int modulenum, int funcnum)
 {
 	if ((hleAfterSyscall & HLE_AFTER_CURRENT_CALLBACKS) != 0)
