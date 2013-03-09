@@ -328,34 +328,34 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		vfb->usageFlags = FB_USAGE_RENDERTARGET;
 		vfb->dirtyAfterDisplay = true;
 
-		switch (fmt) {
-		case GE_FORMAT_4444: vfb->colorDepth = FBO_4444; break;
-		case GE_FORMAT_5551: vfb->colorDepth = FBO_5551; break;
-		case GE_FORMAT_565: vfb->colorDepth = FBO_565; break;
-		case GE_FORMAT_8888: vfb->colorDepth = FBO_8888; break;
-		default: vfb->colorDepth = FBO_8888; break;
-		}
-		
-		if (g_Config.bTrueColor) 
+		if (g_Config.bTrueColor) {
 			vfb->colorDepth = FBO_8888;
+		} else { 
+			switch (fmt) {
+				case GE_FORMAT_4444: 
+					vfb->colorDepth = FBO_4444; 
+					break;
+				case GE_FORMAT_5551: 
+					vfb->colorDepth = FBO_5551; 
+					break;
+				case GE_FORMAT_565: 
+					vfb->colorDepth = FBO_565; 
+					break;
+				case GE_FORMAT_8888: 
+					vfb->colorDepth = FBO_8888; 
+					break;
+				default: 
+					vfb->colorDepth = FBO_8888; 
+					break;
+			}
+		}
 			
 		//#ifdef ANDROID
 		//	vfb->colorDepth = FBO_8888;
 		//#endif
 
-		if (g_Config.bBufferedRendering)
-		{
-			vfb->fbo = fbo_create(vfb->renderWidth, vfb->renderHeight, 1, true, vfb->colorDepth);
-		}
-		else
-			vfb->fbo = 0;
-
-		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb);
-
-		vfb->last_frame_used = gpuStats.numFrames;
-		vfbs_.push_back(vfb);
-
 		if (g_Config.bBufferedRendering) {
+			vfb->fbo = fbo_create(vfb->renderWidth, vfb->renderHeight, 1, true, vfb->colorDepth);
 			fbo_bind_as_render_target(vfb->fbo);
 		} else {
 			fbo_unbind();
@@ -363,13 +363,18 @@ void FramebufferManager::SetRenderFrameBuffer() {
 			gstate_c.skipDrawReason |= SKIPDRAW_NON_DISPLAYED_FB;
 		}
 
-		glEnable(GL_DITHER);
-		glstate.viewport.set(0, 0, vfb->renderWidth, vfb->renderHeight);
-		currentRenderVfb_ = vfb;
+		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb);
+
+		vfb->last_frame_used = gpuStats.numFrames;
+		vfbs_.push_back(vfb);
 		glstate.depthWrite.set(GL_TRUE);
 		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 		glClearColor(0,0,0,1);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+		glEnable(GL_DITHER);
+		glstate.viewport.set(0, 0, vfb->renderWidth, vfb->renderHeight);
+		currentRenderVfb_ = vfb;
+
 		INFO_LOG(HLE, "Creating FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 
 	// We already have it!
@@ -378,10 +383,6 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		DEBUG_LOG(HLE, "Switching render target to FBO for %08x", vfb->fb_address);
 		vfb->usageFlags |= FB_USAGE_RENDERTARGET;
 		gstate_c.textureChanged = true;
-		if (vfb->last_frame_used != gpuStats.numFrames) {
-			// Android optimization
-			//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-		}
 		vfb->last_frame_used = gpuStats.numFrames;
 		vfb->dirtyAfterDisplay = true;
 
@@ -411,8 +412,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		// to it. This broke stuff before, so now it only clears on the first use of an
 		// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
 		// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
-		if (vfb->last_frame_used != gpuStats.numFrames)
-		{
+		if (vfb->last_frame_used != gpuStats.numFrames)	{
 			glstate.depthWrite.set(GL_TRUE);
 			glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 			glClearColor(0,0,0,1);
@@ -447,7 +447,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 
 	currentRenderVfb_ = 0;
 
-	if (vfb->fbo)	{
+	if (vfb->fbo) {
 		glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 		DEBUG_LOG(HLE, "Displaying FBO %08x", vfb->fb_address);
 		glstate.blend.disable();
