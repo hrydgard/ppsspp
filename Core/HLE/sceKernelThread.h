@@ -194,7 +194,7 @@ bool __KernelCheckCallbacks();
 bool __KernelForceCallbacks();
 class Thread;
 void __KernelSwitchContext(Thread *target, const char *reason);
-bool __KernelExecutePendingMipsCalls(bool reschedAfter);
+bool __KernelExecutePendingMipsCalls(Thread *currentThread, bool reschedAfter);
 void __KernelNotifyCallback(RegisteredCallbackType type, SceUID cbId, int notifyArg);
 
 // Switch to an idle / non-user thread, if not already on one.
