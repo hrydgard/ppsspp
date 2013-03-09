@@ -44,6 +44,7 @@ public:
 	bool bConfirmOnQuit;
 	bool bAutoRun;  // start immediately
 	bool bBrowse;
+	bool bUseGamePGFFont;
 
 	// Core
 	bool bIgnoreBadMemAccess;
