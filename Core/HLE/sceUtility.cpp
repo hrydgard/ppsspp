@@ -17,6 +17,7 @@
 
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
+#include "Core/Reporting.h"
 
 #include "sceKernel.h"
 #include "sceKernelThread.h"
@@ -30,6 +31,7 @@
 #include "../Dialog/PSPOskDialog.h"
 
 const int SCE_ERROR_MODULE_BAD_ID = 0x80111101;
+const int SCE_ERROR_AV_MODULE_BAD_ID = 0x80110F01;
 
 PSPSaveDialog saveDialog;
 PSPMsgDialog msgDialog;
@@ -92,16 +94,21 @@ int sceUtilitySavedataUpdate(int animSpeed)
 
 u32 sceUtilityLoadAvModule(u32 module)
 {
+	if (module > 7)
+	{
+		ERROR_LOG(HLE, "sceUtilityLoadAvModule(%i): invalid module id", module);
+		Reporting::ReportMessage("sceUtilityLoadAvModule(%i): invalid module id", module);
+		return SCE_ERROR_AV_MODULE_BAD_ID;
+	}
+
 	DEBUG_LOG(HLE,"sceUtilityLoadAvModule(%i)", module);
-	hleReSchedule("utilityloadavmodule");
-	return 0;
+	return hleDelayResult(0, "utility av module loaded", 25000);
 }
 
 u32 sceUtilityUnloadAvModule(u32 module)
 {
 	DEBUG_LOG(HLE,"sceUtilityUnloadAvModule(%i)", module);
-	hleReSchedule("utilityunloadavmodule");
-	return 0;
+	return hleDelayResult(0, "utility av module unloaded", 800);
 }
 
 u32 sceUtilityLoadModule(u32 module)
@@ -110,6 +117,7 @@ u32 sceUtilityLoadModule(u32 module)
 	if (module < 0x100 || module > 0x601)
 	{
 		ERROR_LOG(HLE, "sceUtilityLoadModule(%i): invalid module id", module);
+		Reporting::ReportMessage("sceUtilityLoadModule(%i): invalid module id", module);
 		return SCE_ERROR_MODULE_BAD_ID;
 	}
 
@@ -128,6 +136,7 @@ u32 sceUtilityUnloadModule(u32 module)
 	if (module < 0x100 || module > 0x601)
 	{
 		ERROR_LOG(HLE, "sceUtilityUnloadModule(%i): invalid module id", module);
+		Reporting::ReportMessage("sceUtilityUnloadModule(%i): invalid module id", module);
 		return SCE_ERROR_MODULE_BAD_ID;
 	}
 

@@ -71,6 +71,10 @@ void RunTests()
 	coreParam.useMediaEngine = false;
 	coreParam.collectEmuLog = &output;
 
+	// Never report from tests.
+	std::string savedReportHost = g_Config.sReportHost;
+	g_Config.sReportHost = "";
+
 	for (int i = 0; i < ARRAY_SIZE(testsToRun); i++) {
 		const char *testName = testsToRun[i];
 		coreParam.fileToStart = g_Config.memCardDirectory + "pspautotests/tests/" + testName + ".prx";
@@ -136,4 +140,6 @@ void RunTests()
 	}
 	glstate.Restore();
 	glstate.viewport.set(0,0,pixel_xres,pixel_yres);
+
+	g_Config.sReportHost = savedReportHost;
 }
