@@ -210,7 +210,7 @@ void Jit::Comp_SV(u32 op) {
 			JitSafeMem safe(this, rs, imm);
 			safe.SetFar();
 			OpArg src;
-			if (safe.PrepareRead(src))
+			if (safe.PrepareRead(src, 4))
 			{
 				MOVSS(fpr.VX(vt), safe.NextFastAddress(0));
 			}
@@ -236,7 +236,7 @@ void Jit::Comp_SV(u32 op) {
 			JitSafeMem safe(this, rs, imm);
 			safe.SetFar();
 			OpArg dest;
-			if (safe.PrepareWrite(dest))
+			if (safe.PrepareWrite(dest, 4))
 			{
 				MOVSS(safe.NextFastAddress(0), fpr.VX(vt));
 			}
@@ -278,7 +278,7 @@ void Jit::Comp_SVQ(u32 op)
 			JitSafeMem safe(this, rs, imm);
 			safe.SetFar();
 			OpArg src;
-			if (safe.PrepareRead(src))
+			if (safe.PrepareRead(src, 16))
 			{
 				// Just copy 4 words the easiest way while not wasting registers.
 				for (int i = 0; i < 4; i++)
@@ -312,7 +312,7 @@ void Jit::Comp_SVQ(u32 op)
 			JitSafeMem safe(this, rs, imm);
 			safe.SetFar();
 			OpArg dest;
-			if (safe.PrepareWrite(dest))
+			if (safe.PrepareWrite(dest, 16))
 			{
 				for (int i = 0; i < 4; i++)
 					MOVSS(safe.NextFastAddress(i * 4), fpr.VX(vregs[i]));

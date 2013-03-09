@@ -19,6 +19,7 @@
 #include "Breakpoints.h"
 #include "SymbolMap.h"
 #include "FixedSizeUnorderedSet.h"
+#include "Core/Host.h"
 #include "../MIPS/JitCommon/JitCommon.h"
 #include <cstdio>
 
@@ -34,18 +35,19 @@ MemCheck::MemCheck(void)
 	numHits=0;
 }
 
-void MemCheck::Action(u32 iValue, u32 addr, bool write, int size, u32 pc)
+void MemCheck::Action(u32 addr, bool write, int size, u32 pc)
 {
 	if ((write && bOnWrite) || (!write && bOnRead))
 	{
+		++numHits;
+
 		if (bLog)
-		{
-			char temp[256];
-			sprintf(temp,"CHK %08x %s%i at %08x (%s), PC=%08x (%s)",iValue,write?"Write":"Read",size*8,addr,symbolMap.GetDescription(addr),pc,symbolMap.GetDescription(pc));
-			ERROR_LOG(MEMMAP,"%s",temp);
-		}
+			NOTICE_LOG(MEMMAP, "CHK %s%i at %08x (%s), PC=%08x (%s)", write ? "Write" : "Read", size * 8, addr, symbolMap.GetDescription(addr), pc, symbolMap.GetDescription(pc));
 		if (bBreak)
+		{
 			Core_Pause();
+			host->SetDebugMode(true);
+		}
 	}
 }
 
@@ -86,20 +88,21 @@ void CBreakPoints::ClearAllBreakPoints()
 	InvalidateJit();
 }
 
-MemCheck *CBreakPoints::GetMemCheck(u32 address)
+MemCheck *CBreakPoints::GetMemCheck(u32 address, int size)
 {
 	std::vector<MemCheck>::iterator iter;
 	for (iter = MemChecks.begin(); iter != MemChecks.end(); ++iter)
 	{
-		if ((*iter).bRange)
+		MemCheck &check = *iter;
+		if (check.bRange)
 		{
-			if (address >= (*iter).iStartAddress && address <= (*iter).iEndAddress)
-				return &(*iter);
+			if (address >= check.iStartAddress && address + size < check.iEndAddress)
+				return &check;
 		}
 		else
 		{
-			if ((*iter).iStartAddress==address)
-				return &(*iter);
+			if (check.iStartAddress==address)
+				return &check;
 		}
 	}
 
