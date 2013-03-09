@@ -412,7 +412,7 @@ bool Jit::CheckJitBreakpoint(u32 addr, int downcountOffset)
 }
 
 Jit::JitSafeMem::JitSafeMem(Jit *jit, int raddr, s32 offset)
-	: jit_(jit), raddr_(raddr), offset_(offset), needsCheck_(false), needsSkip_(false)
+	: jit_(jit), raddr_(raddr), offset_(offset), needsCheck_(false), needsSkip_(false), needsSkipCheck_(false)
 {
 	// This makes it more instructions, so let's play it safe and say we need a far jump.
 	far_ = !g_Config.bIgnoreBadMemAccess;
@@ -655,11 +655,41 @@ void Jit::JitSafeMem::Finish()
 	}
 	if (needsSkip_)
 		jit_->SetJumpTarget(skip_);
+	if (needsSkipCheck_)
+		jit_->SetJumpTarget(skipCheck_);
+}
+
+void JitMemCheck(u32 addr, int size)
+{
+	MemCheck *check = CBreakPoints::GetMemCheck(addr);
+	// TODO: Value, hmm... also need to do read/write...
+	if (check)
+		check->Action(0, addr, false, size, currentMIPS->pc);
 }
 
 void Jit::JitSafeMem::MemCheckImm(ReadType type)
 {
-	// TODO
+	MemCheck *check = CBreakPoints::GetMemCheck(iaddr_);
+	if (check)
+	{
+		jit_->MOV(32, M(&jit_->mips_->pc), Imm32(jit_->js.compilerPC));
+		jit_->ABI_CallFunctionCC(jit_->thunks.ProtectFunction((void *)&JitMemCheck, 2), iaddr_, size_);
+
+		jit_->CMP(32, M((void*)&coreState), Imm32(0));
+		if (!jit_->js.inDelaySlot)
+		{
+			FixupBranch skipCheck = jit_->J_CC(CC_E);
+			jit_->WriteSyscallExit();
+			jit_->SetJumpTarget(skipCheck);
+		}
+		else
+		{
+			// Skip the actual memory access if coreState tripped.
+			skipCheck_ = jit_->J_CC(CC_NE);
+			needsSkipCheck_ = true;
+			jit_->js.needCheckCoreState = true;
+		}
+	}
 }
 
 void Jit::JitSafeMem::MemCheckAsm(ReadType type)

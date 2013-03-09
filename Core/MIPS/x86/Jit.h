@@ -309,11 +309,11 @@ private:
 		s32 offset_;
 		int size_;
 		bool needsCheck_;
-		bool needsSkip_;
+		bool needsSkip_, needsSkipCheck_;
 		bool far_;
 		u32 iaddr_;
 		X64Reg xaddr_;
-		FixupBranch tooLow_, tooHigh_, skip_;
+		FixupBranch tooLow_, tooHigh_, skip_, skipCheck_;
 		const u8 *safe_;
 	};
 	friend class JitSafeMem;
