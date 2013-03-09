@@ -347,8 +347,8 @@ namespace MIPSComp
 		int rs = _RS;
 		if (gpr.IsImm(rs))
 		{
-			gpr.MapDirtyIn(rd, rt);
 			int sa = gpr.GetImm(rs) & 0x1F;
+			gpr.MapDirtyIn(rd, rt);
 			MOV(gpr.R(rd), Operand2(gpr.R(rt), shiftType, sa));
 			return;
 		}
