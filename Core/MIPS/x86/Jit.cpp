@@ -430,12 +430,13 @@ void Jit::JitSafeMem::SetFar()
 
 bool Jit::JitSafeMem::PrepareWrite(OpArg &dest, int size)
 {
+	size_ = size;
 	// If it's an immediate, we can do the write if valid.
 	if (iaddr_ != (u32) -1)
 	{
-		if (Memory::IsValidAddress(iaddr_))
+		if (ImmValid())
 		{
-			MemCheckImm(MEM_WRITE, size);
+			MemCheckImm(MEM_WRITE);
 
 #ifdef _M_IX86
 			dest = M(Memory::base + (iaddr_ & Memory::MEMVIEW32_MASK));
@@ -449,17 +450,18 @@ bool Jit::JitSafeMem::PrepareWrite(OpArg &dest, int size)
 	}
 	// Otherwise, we always can do the write (conditionally.)
 	else
-		dest = PrepareMemoryOpArg(MEM_WRITE, size);
+		dest = PrepareMemoryOpArg(MEM_WRITE);
 	return true;
 }
 
 bool Jit::JitSafeMem::PrepareRead(OpArg &src, int size)
 {
+	size_ = size;
 	if (iaddr_ != (u32) -1)
 	{
-		if (Memory::IsValidAddress(iaddr_))
+		if (ImmValid())
 		{
-			MemCheckImm(MEM_READ, size);
+			MemCheckImm(MEM_READ);
 
 #ifdef _M_IX86
 			src = M(Memory::base + (iaddr_ & Memory::MEMVIEW32_MASK));
@@ -472,7 +474,7 @@ bool Jit::JitSafeMem::PrepareRead(OpArg &src, int size)
 			return false;
 	}
 	else
-		src = PrepareMemoryOpArg(MEM_READ, size);
+		src = PrepareMemoryOpArg(MEM_READ);
 	return true;
 }
 
@@ -496,7 +498,7 @@ OpArg Jit::JitSafeMem::NextFastAddress(int suboffset)
 #endif
 }
 
-OpArg Jit::JitSafeMem::PrepareMemoryOpArg(ReadType type, int size)
+OpArg Jit::JitSafeMem::PrepareMemoryOpArg(ReadType type)
 {
 	// We may not even need to move into EAX as a temporary.
 	// TODO: Except on x86 in fastmem mode.
@@ -511,14 +513,14 @@ OpArg Jit::JitSafeMem::PrepareMemoryOpArg(ReadType type, int size)
 		xaddr_ = EAX;
 	}
 
-	MemCheckAsm(type, size);
+	MemCheckAsm(type);
 
 	if (!g_Config.bFastMemory)
 	{
 		// Is it in physical ram?
 		jit_->CMP(32, R(xaddr_), Imm32(PSP_GetKernelMemoryBase() - offset_));
 		tooLow_ = jit_->J_CC(CC_L);
-		jit_->CMP(32, R(xaddr_), Imm32(PSP_GetUserMemoryEnd() - offset_));
+		jit_->CMP(32, R(xaddr_), Imm32(PSP_GetUserMemoryEnd() - offset_ - (size_ - 1)));
 		tooHigh_ = jit_->J_CC(CC_GE);
 
 		// We may need to jump back up here.
@@ -553,7 +555,7 @@ void Jit::JitSafeMem::PrepareSlowAccess()
 	// Might also be the scratchpad.
 	jit_->CMP(32, R(xaddr_), Imm32(PSP_GetScratchpadMemoryBase() - offset_));
 	FixupBranch tooLow = jit_->J_CC(CC_L);
-	jit_->CMP(32, R(xaddr_), Imm32(PSP_GetScratchpadMemoryEnd() - offset_));
+	jit_->CMP(32, R(xaddr_), Imm32(PSP_GetScratchpadMemoryEnd() - offset_ - (size_ - 1)));
 	jit_->J_CC(CC_L, safe_);
 	jit_->SetJumpTarget(tooLow);
 }
@@ -562,7 +564,7 @@ bool Jit::JitSafeMem::PrepareSlowWrite()
 {
 	// If it's immediate, we only need a slow write on invalid.
 	if (iaddr_ != (u32) -1)
-		return !g_Config.bFastMemory && !Memory::IsValidAddress(iaddr_);
+		return !g_Config.bFastMemory && !ImmValid();
 
 	if (!g_Config.bFastMemory)
 	{
@@ -591,7 +593,7 @@ bool Jit::JitSafeMem::PrepareSlowRead(void *safeFunc)
 		if (iaddr_ != (u32) -1)
 		{
 			// No slow read necessary.
-			if (Memory::IsValidAddress(iaddr_))
+			if (ImmValid())
 				return false;
 			jit_->MOV(32, R(EAX), Imm32(iaddr_));
 		}
@@ -619,7 +621,7 @@ void Jit::JitSafeMem::NextSlowRead(void *safeFunc, int suboffset)
 
 	if (jit_->gpr.IsImmediate(raddr_))
 	{
-		_dbg_assert_msg_(JIT, !Memory::IsValidAddress(iaddr_), "NextSlowRead() for a valid immediate address?");
+		_dbg_assert_msg_(JIT, !Memory::IsValidAddress(iaddr_ + suboffset), "NextSlowRead() for a valid immediate address?");
 
 		jit_->MOV(32, R(EAX), Imm32(iaddr_ + suboffset));
 	}
@@ -628,6 +630,11 @@ void Jit::JitSafeMem::NextSlowRead(void *safeFunc, int suboffset)
 		jit_->LEA(32, EAX, MDisp(xaddr_, offset_ + suboffset));
 
 	jit_->ABI_CallFunctionA(jit_->thunks.ProtectFunction(safeFunc, 1), R(EAX));
+}
+
+bool Jit::JitSafeMem::ImmValid()
+{
+	return iaddr_ != (u32) -1 && Memory::IsValidAddress(iaddr_) && Memory::IsValidAddress(iaddr_ + size_ - 1);
 }
 
 void Jit::JitSafeMem::Finish()
@@ -650,12 +657,12 @@ void Jit::JitSafeMem::Finish()
 		jit_->SetJumpTarget(skip_);
 }
 
-void Jit::JitSafeMem::MemCheckImm(ReadType type, int size)
+void Jit::JitSafeMem::MemCheckImm(ReadType type)
 {
 	// TODO
 }
 
-void Jit::JitSafeMem::MemCheckAsm(ReadType type, int size)
+void Jit::JitSafeMem::MemCheckAsm(ReadType type)
 {
 	// TODO
 }

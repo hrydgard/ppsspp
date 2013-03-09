@@ -298,14 +298,16 @@ private:
 			MEM_WRITE,
 		};
 
-		OpArg PrepareMemoryOpArg(ReadType type, int size);
+		OpArg PrepareMemoryOpArg(ReadType type);
 		void PrepareSlowAccess();
-		void MemCheckImm(ReadType type, int size);
-		void MemCheckAsm(ReadType type, int size);
+		void MemCheckImm(ReadType type);
+		void MemCheckAsm(ReadType type);
+		bool ImmValid();
 
 		Jit *jit_;
 		int raddr_;
 		s32 offset_;
+		int size_;
 		bool needsCheck_;
 		bool needsSkip_;
 		bool far_;
