@@ -456,7 +456,7 @@ u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr, u32 f
 	ctx->videoFrameCount = 0;
 	ctx->audioFrameCount = 0;
 	// TODO: What's the actual default?
-	ctx->videoPixelMode = 0;
+	ctx->videoPixelMode = TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888;
 	ctx->avcRegistered = false;
 	ctx->atracRegistered = false;
 	ctx->pcmRegistered = false;
