@@ -126,9 +126,9 @@ struct Mp3Context {
 		p.DoMarker("Mp3Context");
 	}
 
-	int mp3StreamStart;
-	int mp3StreamEnd;
-	int mp3StreamPosition;
+	u64 mp3StreamStart;
+	u64 mp3StreamEnd;
+	u64 mp3StreamPosition;
 	u32 mp3Buf;
 	int mp3BufSize;
 	int mp3BufPendingSize;
@@ -400,8 +400,8 @@ void __MpegShutdown() {
 u32 sceMpegInit()
 {
 	if (!g_Config.bUseMediaEngine) {
-		WARN_LOG(HLE, "sceMpegInit() : Media Engine disabled");
-		return -1;
+		WARN_LOG(HLE, "sceMpegInit() : Media Engine Disabled");
+		 return -1;
 	}
 
 	WARN_LOG(HLE, "sceMpegInit() : Media Engine Enabled");
@@ -1647,7 +1647,7 @@ int sceMp3GetInfoToAddStreamData(u32 mp3, u32 dstPtr, u32 towritePtr, u32 srcpos
 	if(Memory::IsValidAddress(towritePtr))
 		Memory::Write_U32(ctx->mp3BufSize, towritePtr);
 	if(Memory::IsValidAddress(srcposPtr))
-		Memory::Write_U32(ctx->mp3StreamPosition, srcposPtr);
+		Memory::Write_U64(ctx->mp3StreamPosition, srcposPtr);
 
 	return 0;
 }
