@@ -137,7 +137,9 @@ int main(int argc, const char* argv[])
 
 	HeadlessHost *headlessHost = useGraphics ? new HEADLESSHOST_CLASS() : new HeadlessHost();
 	host = headlessHost;
-	host->InitGL();
+
+	std::string error_string;
+	host->InitGL(&error_string);
 
 	LogManager::Init();
 	LogManager *logman = LogManager::GetInstance();
@@ -176,7 +178,6 @@ int main(int argc, const char* argv[])
 	g_Config.flashDirectory = g_Config.memCardDirectory+"/flash/";
 #endif
 
-	std::string error_string;
 
 	if (!PSP_Init(coreParameter, &error_string)) {
 		fprintf(stderr, "Failed to start %s. Error: %s\n", coreParameter.fileToStart.c_str(), error_string.c_str());

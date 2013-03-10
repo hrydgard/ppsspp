@@ -2,6 +2,7 @@
 
 #include "base/threadutil.h"
 #include "Log.h"
+#include "StringUtil.h"
 #include "../Globals.h"
 #include "EmuThread.h"
 #include "../Core/MemMap.h"
@@ -53,18 +54,25 @@ char *GetCurrentFilename()
 	return fileToStart;
 }
 
-DWORD TheThread(LPVOID x)
-{
+DWORD TheThread(LPVOID x) {
 	setCurrentThreadName("EmuThread");
 
 	g_State.bEmuThreadStarted = true;
 
+	CoreParameter coreParameter;
+
 	host->UpdateUI();
-	host->InitGL();
+	
+	std::string error_string;
+	if (!host->InitGL(&error_string)) {
+		std::string full_error = StringFromFormat( "Failed initializing OpenGL. Try upgrading your graphics drivers.\n\nError message:\n\n%s", error_string.c_str());
+		MessageBoxA(0, full_error.c_str(), "OpenGL Error", MB_OK | MB_ICONERROR);
+		ERROR_LOG(BOOT, full_error.c_str());
+		goto shutdown;
+	}
 
 	INFO_LOG(BOOT, "Starting up hardware.");
 
-	CoreParameter coreParameter;
 	coreParameter.fileToStart = fileToStart;
 	coreParameter.enableSound = true;
 	coreParameter.gpuCore = GPU_GLES;
@@ -81,7 +89,7 @@ DWORD TheThread(LPVOID x)
 	coreParameter.startPaused = !g_Config.bAutoRun;
 	coreParameter.useMediaEngine = false;
 
-	std::string error_string;
+	error_string = "";
 	if (!PSP_Init(coreParameter, &error_string))
 	{
 		ERROR_LOG(BOOT, "Error loading: %s", error_string.c_str());

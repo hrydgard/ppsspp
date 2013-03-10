@@ -21,7 +21,6 @@
 #include <string>
 #include "../Globals.h"
 
-
 class PMixer
 {
 public:
@@ -29,8 +28,6 @@ public:
 	virtual ~PMixer() {}
 	virtual int Mix(short *stereoout, int numSamples) {memset(stereoout,0,numSamples*2*sizeof(short)); return numSamples;}
 };
-
-
 
 class Host
 {
@@ -44,7 +41,7 @@ public:
 
 	virtual void SetDebugMode(bool mode) { }
 
-	virtual void InitGL() = 0;
+	virtual bool InitGL(std::string *error_string) = 0;
 	virtual void BeginFrame() {}
 	virtual void ShutdownGL() = 0;
 

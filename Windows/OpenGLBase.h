@@ -5,7 +5,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-bool GL_Init(HWND window);
+bool GL_Init(HWND window, std::string *error_message);
 void GL_Shutdown();
 void GL_Resized();
 void GL_SwapBuffers();
