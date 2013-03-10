@@ -801,13 +801,13 @@ void ARMXEmitter::VLDR(ARMReg Dest, ARMReg Base, u16 offset)
 
 	if (single_reg)
 	{
-		Write32(NO_COND | (0x1B << 23) | ((Dest & 0x1) << 22) | (1 << 20) | (Base << 16) \
+		Write32(condition | (0x1B << 23) | ((Dest & 0x1) << 22) | (1 << 20) | (Base << 16) \
 			| ((Dest & 0x1E) << 11) | (10 << 8) | (offset >> 2));	
 
 	}
 	else
 	{
-		Write32(NO_COND | (0x1B << 23) | ((Dest & 0x10) << 18) | (1 << 20) | (Base << 16) \
+		Write32(condition | (0x1B << 23) | ((Dest & 0x10) << 18) | (1 << 20) | (Base << 16) \
 			| ((Dest & 0xF) << 12) | (11 << 8) | (offset >> 2));	
 	}
 }
@@ -828,13 +828,13 @@ void ARMXEmitter::VSTR(ARMReg Src, ARMReg Base, u16 offset)
 
 	if (single_reg)
 	{
-		Write32(NO_COND | (0x1B << 23) | ((Src & 0x1) << 22) | (Base << 16) \
+		Write32(condition | (0x1B << 23) | ((Src & 0x1) << 22) | (Base << 16) \
 			| ((Src & 0x1E) << 11) | (10 << 8) | (offset >> 2));	
 
 	}
 	else
 	{
-		Write32(NO_COND | (0x1B << 23) | ((Src & 0x10) << 18) | (Base << 16) \
+		Write32(condition | (0x1B << 23) | ((Src & 0x10) << 18) | (Base << 16) \
 			| ((Src & 0xF) << 12) | (11 << 8) | (offset >> 2));	
 	}
 }
@@ -848,12 +848,12 @@ void ARMXEmitter::VCMP(ARMReg Vd, ARMReg Vm, bool E)
 
 	if (single_reg)
 	{
-		Write32(NO_COND | (0x1D << 23) | ((Vd & 0x1) << 22) | (0x34 << 16) | ((Vd & 0x1E) << 11) \
+		Write32(condition | (0x1D << 23) | ((Vd & 0x1) << 22) | (0x34 << 16) | ((Vd & 0x1E) << 11) \
 			| (E << 7) | (0x29 << 6) | ((Vm & 0x1) << 5) | (Vm >> 1));
 	}
 	else
 	{
-		Write32(NO_COND | (0x1D << 23) | ((Vd & 0x10) << 18) | (0x34 << 16) | ((Vd & 0xF) << 12) \
+		Write32(condition | (0x1D << 23) | ((Vd & 0x10) << 18) | (0x34 << 16) | ((Vd & 0xF) << 12) \
 			| (E << 7) | (0x2C << 6) | ((Vm & 0x10) << 1) | (Vm & 0xF));
 	}
 }
@@ -866,18 +866,24 @@ void ARMXEmitter::VCMP(ARMReg Vd, bool E)
 
 	if (single_reg)
 	{
-		Write32(NO_COND | (0x1D << 23) | ((Vd & 0x1) << 22) | (0x35 << 16) | ((Vd & 0x1E) << 11) \
+		Write32(condition | (0x1D << 23) | ((Vd & 0x1) << 22) | (0x35 << 16) | ((Vd & 0x1E) << 11) \
 			| (E << 7) | (0x29 << 6));
 	}
 	else
 	{
-		Write32(NO_COND | (0x1D << 23) | ((Vd & 0x10) << 18) | (0x35 << 16) | ((Vd & 0xF) << 12) \
+		Write32(condition | (0x1D << 23) | ((Vd & 0x10) << 18) | (0x35 << 16) | ((Vd & 0xF) << 12) \
 			| (E << 7) | (0x2C << 6)); 
 	}
 }
 
 void ARMXEmitter::VMRS_APSR() {
-	Write32(0xEEF10A10 | (15 << 12));
+	Write32(condition | 0xEF10A10 | (15 << 12));
+}
+void ARMXEmitter::VMRS(ARMReg Rt) {
+	Write32(condition | (0xEF << 20) | (1 << 16) | (Rt << 12) | 0xA10);
+}
+void ARMXEmitter::VMSR(ARMReg Rt) {
+	Write32(condition | (0xEE << 20) | (1 << 16) | (Rt << 12) | 0xA10);
 }
 
 void ARMXEmitter::VDIV(ARMReg Vd, ARMReg Vn, ARMReg Vm)
@@ -893,13 +899,13 @@ void ARMXEmitter::VDIV(ARMReg Vd, ARMReg Vn, ARMReg Vm)
 
 	if (single_reg)
 	{
-		Write32(NO_COND | (0x1D << 23) | ((Vd & 0x1) << 22) | ((Vn & 0x1E) << 15) \
+		Write32(condition | (0x1D << 23) | ((Vd & 0x1) << 22) | ((Vn & 0x1E) << 15) \
 			| ((Vd & 0x1E) << 11) | (0xA << 8) | ((Vn & 0x1) << 7) | ((Vm & 0x1) << 5) \
 			| (Vm >> 1));
 	}
 	else
 	{
-		Write32(NO_COND | (0x1D << 23) | ((Vd & 0x10) << 18) | ((Vn & 0xF) << 16) \
+		Write32(condition | (0x1D << 23) | ((Vd & 0x10) << 18) | ((Vn & 0xF) << 16) \
 			| ((Vd & 0xF) << 12) | (0xB << 8) | ((Vn & 0x10) << 3) | ((Vm & 0x10) << 2) \
 			| (Vm & 0xF));
 	}
@@ -915,12 +921,12 @@ void ARMXEmitter::VSQRT(ARMReg Vd, ARMReg Vm)
 
 	if (single_reg)
 	{
-		Write32(NO_COND | (0x1D << 23) | ((Vd & 0x1) << 22) | (0x31 << 16) \
+		Write32(condition | (0x1D << 23) | ((Vd & 0x1) << 22) | (0x31 << 16) \
 			| ((Vd & 0x1E) << 11) | (0x2B << 6) | ((Vm & 0x1) << 5) | (Vm >> 1));
 	}
 	else
 	{
-		Write32(NO_COND | (0x1D << 23) | ((Vd & 0x10) << 18) | (0x31 << 16) \
+		Write32(condition | (0x1D << 23) | ((Vd & 0x10) << 18) | (0x31 << 16) \
 			| ((Vd & 0xF) << 12) | (0x2F << 6) | ((Vm & 0x10) << 2) | (Vm & 0xF));
 	}
 }
@@ -940,7 +946,7 @@ void ARMXEmitter::VADD(ARMReg Vd, ARMReg Vn, ARMReg Vm)
 
 	if (single_reg)
 	{
-		Write32(NO_COND | (0x1C << 23) | ((Vd & 0x1) << 22) | (0x3 << 20) \
+		Write32(condition | (0x1C << 23) | ((Vd & 0x1) << 22) | (0x3 << 20) \
 			| ((Vn & 0x1E) << 15) | ((Vd & 0x1E) << 11) | (0x5 << 9) \
 			| ((Vn & 0x1) << 7) | ((Vm & 0x1) << 5) | (Vm >> 1));
 	}
@@ -948,7 +954,7 @@ void ARMXEmitter::VADD(ARMReg Vd, ARMReg Vn, ARMReg Vm)
 	{
 		if (double_reg)
 		{
-			Write32(NO_COND | (0x1C << 23) | ((Vd & 0x10) << 18) | (0x3 << 20) \
+			Write32(condition | (0x1C << 23) | ((Vd & 0x10) << 18) | (0x3 << 20) \
 				| ((Vn & 0xF) << 16) | ((Vd & 0xF) << 12) | (0xB << 8) \
 				| ((Vn & 0x10) << 3) | ((Vm & 0x10) << 2) | (Vm & 0xF));
 		}
@@ -975,7 +981,7 @@ void ARMXEmitter::VSUB(ARMReg Vd, ARMReg Vn, ARMReg Vm)
 
 	if (single_reg)
 	{
-		Write32(NO_COND | (0x1C << 23) | ((Vd & 0x1) << 22) | (0x3 << 20) \
+		Write32(condition | (0x1C << 23) | ((Vd & 0x1) << 22) | (0x3 << 20) \
 			| ((Vn & 0x1E) << 15) | ((Vd & 0x1E) << 11) | (0x5 << 9) \
 			| ((Vn & 0x1) << 7) | (1 << 6) | ((Vm & 0x1) << 5) | (Vm >> 1));
 	}
@@ -983,7 +989,7 @@ void ARMXEmitter::VSUB(ARMReg Vd, ARMReg Vn, ARMReg Vm)
 	{
 		if (double_reg)
 		{
-			Write32(NO_COND | (0x1C << 23) | ((Vd & 0x10) << 18) | (0x3 << 20) \
+			Write32(condition | (0x1C << 23) | ((Vd & 0x10) << 18) | (0x3 << 20) \
 				| ((Vn & 0xF) << 16) | ((Vd & 0xF) << 12) | (0xB << 8) \
 				| ((Vn & 0x10) << 3) | (1 << 6) | ((Vm & 0x10) << 2) | (Vm & 0xF));
 		}
@@ -1011,7 +1017,7 @@ void ARMXEmitter::VMUL(ARMReg Vd, ARMReg Vn, ARMReg Vm)
 
 	if (single_reg)
 	{
-		Write32(NO_COND | (0x1C << 23) | ((Vd & 0x1) << 22) | (0x2 << 20) \
+		Write32(condition | (0x1C << 23) | ((Vd & 0x1) << 22) | (0x2 << 20) \
 			| ((Vn & 0x1E) << 15) | ((Vd & 0x1E) << 11) | (0x5 << 9) \
 			| ((Vn & 0x1) << 7) | ((Vm & 0x1) << 5) | (Vm >> 1));
 	}
@@ -1019,7 +1025,7 @@ void ARMXEmitter::VMUL(ARMReg Vd, ARMReg Vn, ARMReg Vm)
 	{
 		if (double_reg)
 		{
-			Write32(NO_COND | (0x1C << 23) | ((Vd & 0x10) << 18) | (0x2 << 20) \
+			Write32(condition | (0x1C << 23) | ((Vd & 0x10) << 18) | (0x2 << 20) \
 				| ((Vn & 0xF) << 16) | ((Vd & 0xF) << 12) | (0xB << 8) \
 				| ((Vn & 0x10) << 3) | ((Vm & 0x10) << 2) | (Vm & 0xF));
 		}
@@ -1044,7 +1050,7 @@ void ARMXEmitter::VMLA(ARMReg Vd, ARMReg Vn, ARMReg Vm)
 
 	if (single_reg)
 	{
-		Write32(NO_COND | (0x1C << 23) | ((Vd & 0x1) << 22) | (0x0 << 20) \
+		Write32(condition | (0x1C << 23) | ((Vd & 0x1) << 22) | (0x0 << 20) \
 			| ((Vn & 0x1E) << 15) | ((Vd & 0x1E) << 11) | (0x5 << 9) \
 			| ((Vn & 0x1) << 7) | ((Vm & 0x1) << 5) | (Vm >> 1));
 	}
@@ -1063,12 +1069,12 @@ void ARMXEmitter::VABS(ARMReg Vd, ARMReg Vm)
 
 	if (single_reg)
 	{
-		Write32(NO_COND | (0x1D << 23) | ((Vd & 0x1) << 22) | (0x30 << 16) \
+		Write32(condition | (0x1D << 23) | ((Vd & 0x1) << 22) | (0x30 << 16) \
 			| ((Vd & 0x1E) << 11) | (0x2B << 6) | ((Vm & 0x1) << 5) | (Vm >> 1));
 	}
 	else
 	{
-		Write32(NO_COND | (0x1D << 23) | ((Vd & 0x10) << 18) | (0x30 << 16) \
+		Write32(condition | (0x1D << 23) | ((Vd & 0x10) << 18) | (0x30 << 16) \
 			| ((Vd & 0xF) << 12) | (0x2F << 6) | ((Vm & 0x10) << 2) | (Vm & 0xF));
 	}
 }
@@ -1082,12 +1088,12 @@ void ARMXEmitter::VNEG(ARMReg Vd, ARMReg Vm)
 
 	if (single_reg)
 	{
-		Write32(NO_COND | (0x1D << 23) | ((Vd & 0x1) << 22) | (0x31 << 16) \
+		Write32(condition | (0x1D << 23) | ((Vd & 0x1) << 22) | (0x31 << 16) \
 			| ((Vd & 0x1E) << 11) | (0x29 << 6) | ((Vm & 0x1) << 5) | (Vm >> 1));
 	}
 	else
 	{
-		Write32(NO_COND | (0x1D << 23) | ((Vd & 0x10) << 18) | (0x31 << 16) \
+		Write32(condition | (0x1D << 23) | ((Vd & 0x10) << 18) | (0x31 << 16) \
 			| ((Vd & 0xF) << 12) | (0x2D << 6) | ((Vm & 0x10) << 2) | (Vm & 0xF));
 	}
 }
@@ -1099,7 +1105,7 @@ void ARMXEmitter::VMOV(ARMReg Dest, ARMReg Src, bool high)
 
 	Dest = SubBase(Dest);
 
-	Write32(NO_COND | (0xE << 24) | (high << 21) | ((Dest & 0xF) << 16) | (Src << 12) \
+	Write32(condition | (0xE << 24) | (high << 21) | ((Dest & 0xF) << 16) | (Src << 12) \
 		| (11 << 8) | ((Dest & 0x10) << 3) | (1 << 4));
 }
 
@@ -1113,7 +1119,7 @@ void ARMXEmitter::VMOV(ARMReg Dest, ARMReg Src)
 			{
 				// Moving to a Neon register FROM ARM Reg
 				Dest = (ARMReg)(Dest - S0); 
-				Write32(NO_COND | (0xE0 << 20) | ((Dest & 0x1E) << 15) | (Src << 12) \
+				Write32(condition | (0xE0 << 20) | ((Dest & 0x1E) << 15) | (Src << 12) \
 						| (0xA << 8) | ((Dest & 0x1) << 7) | (1 << 4));
 				return;
 			}
@@ -1133,7 +1139,7 @@ void ARMXEmitter::VMOV(ARMReg Dest, ARMReg Src)
 			{
 				// Moving to ARM Reg from Neon Register
 				Src = (ARMReg)(Src - S0);
-				Write32(NO_COND | (0xE1 << 20) | ((Src & 0x1E) << 15) | (Dest << 12) \
+				Write32(condition | (0xE1 << 20) | ((Src & 0x1E) << 15) | (Dest << 12) \
 						| (0xA << 8) | ((Src & 0x1) << 7) | (1 << 4));
 				return;
 			}
@@ -1163,7 +1169,7 @@ void ARMXEmitter::VMOV(ARMReg Dest, ARMReg Src)
 
 	if (Single)
 	{
-		Write32(NO_COND | (0x1D << 23) | ((Dest & 0x1) << 22) | (0x3 << 20) | ((Dest & 0x1E) << 11) \
+		Write32(condition | (0x1D << 23) | ((Dest & 0x1) << 22) | (0x3 << 20) | ((Dest & 0x1E) << 11) \
 				| (0x5 << 9) | (1 << 6) | ((Src & 0x1) << 5) | ((Src & 0x1E) >> 1));
 	}
 	else
@@ -1180,7 +1186,7 @@ void ARMXEmitter::VMOV(ARMReg Dest, ARMReg Src)
 		}
 		else
 		{
-			Write32(NO_COND | (0x1D << 23) | ((Dest & 0x10) << 18) | (0x3 << 20) | ((Dest & 0xF) << 12) \
+			Write32(condition | (0x1D << 23) | ((Dest & 0x10) << 18) | (0x3 << 20) | ((Dest & 0xF) << 12) \
 				| (0x2D << 6) | ((Src & 0x10) << 1) | (Src & 0xF));
 		}
 	}
@@ -1196,10 +1202,10 @@ void ARMXEmitter::VCVT(ARMReg Dest, ARMReg Source, int flags)
 
 	if (single_reg)
 	{
-		Write32(NO_COND | (0x1D << 23) | ((Dest & 0x1) << 22) | (0x7 << 19) | ((flags & TO_INT) << 18) | (op2 << 16) \
+		Write32(condition | (0x1D << 23) | ((Dest & 0x1) << 22) | (0x7 << 19) | ((flags & TO_INT) << 18) | (op2 << 16) \
 			| ((Dest & 0x1E) << 11) | (op << 7) | (0x29 << 6) | ((Source & 0x1) << 5) | (Source >> 1));
 	} else {
-		Write32(NO_COND | (0x1D << 23) | ((Dest & 0x10) << 18) | (0x7 << 19) | ((flags & TO_INT) << 18) | (op2 << 16) \
+		Write32(condition | (0x1D << 23) | ((Dest & 0x10) << 18) | (0x7 << 19) | ((flags & TO_INT) << 18) | (op2 << 16) \
 			| ((Dest & 0xF) << 12) | (1 << 8) | (op << 7) | (0x29 << 6) | ((Source & 0x10) << 1) | (Source & 0xF));
 	}
 }
