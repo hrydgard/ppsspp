@@ -627,7 +627,8 @@ s64 sceIoLseek(int id, s64 offset, int whence) {
 	s64 result = __IoLseek(id, offset, whence);
 	if (result >= 0) {
 		DEBUG_LOG(HLE, "%lli = sceIoLseek(%d, %llx, %i)", result, id, offset, whence);
-		return result;
+		// Educated guess at timing.
+		return hleDelayResult(result, "io seek", 100);
 	} else {
 		ERROR_LOG(HLE, "sceIoLseek(%d, %llx, %i) - ERROR: invalid file", id, offset, whence);
 		return result;
@@ -638,7 +639,8 @@ u32 sceIoLseek32(int id, int offset, int whence) {
 	s32 result = (s32) __IoLseek(id, offset, whence);
 	if (result >= 0) {
 		DEBUG_LOG(HLE, "%lli = sceIoLseek(%d, %x, %i)", result, id, offset, whence);
-		return result;
+		// Educated guess at timing.
+		return hleDelayResult(result, "io seek", 100);
 	} else {
 		ERROR_LOG(HLE, "sceIoLseek(%d, %x, %i) - ERROR: invalid file", id, offset, whence);
 		return result;
