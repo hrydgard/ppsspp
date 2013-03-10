@@ -22,7 +22,7 @@ inline void Crash() { __asm { int 3 }; }
 
 #else
 
-#if defined(ARM)
+#if defined(ARM) || defined(MIPS)
 inline void Crash() {
   char *p = (char *)1337;
   *p = 1;
