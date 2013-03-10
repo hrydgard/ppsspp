@@ -415,7 +415,7 @@ u32 npdrmRead(FileNode *f, u8 *data, int size) {
 }
 
 //Not sure about wrapping it or not, since the log seems to take the address of the data var
-u32 sceIoRead(int id, u32 data_addr, int size) {
+int __IoRead(int id, u32 data_addr, int size) {
 	if (id == 3) {
 		DEBUG_LOG(HLE, "sceIoRead STDIN");
 		return 0; //stdin
@@ -431,18 +431,44 @@ u32 sceIoRead(int id, u32 data_addr, int size) {
 		else if (Memory::IsValidAddress(data_addr)) {
 			u8 *data = (u8*) Memory::GetPointer(data_addr);
 			if(f->npdrm){
-				f->asyncResult = npdrmRead(f, data, size);
+				return npdrmRead(f, data, size);
 			}else{
-				f->asyncResult = pspFileSystem.ReadFile(f->handle, data, size);
+				return pspFileSystem.ReadFile(f->handle, data, size);
 			}
-			DEBUG_LOG(HLE, "%i=sceIoRead(%d, %08x , %i)", f->asyncResult, id, data_addr, size);
-			return (u32) f->asyncResult;
 		} else {
 			ERROR_LOG(HLE, "sceIoRead Reading into bad pointer %08x", data_addr);
 			return -1;
 		}
 	} else {
 		ERROR_LOG(HLE, "sceIoRead ERROR: no file open");
+		return error;
+	}
+}
+
+u32 sceIoRead(int id, u32 data_addr, int size) {
+	int result = __IoRead(id, data_addr, size);
+	if (result >= 0)
+	{
+		DEBUG_LOG(HLE, "%x=sceIoRead(%d, %08x, %x)", result, id, data_addr, size);
+		// TODO: Timing is probably not very accurate, low estimate.
+		return hleDelayResult(result, "io read", result / 100);
+	}
+	else
+		return result;
+}
+
+u32 sceIoReadAsync(int id, u32 data_addr, int size)
+{
+	u32 error;
+	FileNode *f = kernelObjects.Get < FileNode > (id, error);
+	if (f) {
+		f->asyncResult = __IoRead(id, data_addr, size);
+		// TODO: Not sure what the correct delay is (and technically we shouldn't read into the buffer yet...)
+		CoreTiming::ScheduleEvent(usToCycles(size / 100), asyncNotifyEvent, id);
+		DEBUG_LOG(HLE, "%llx=sceIoReadAsync(%d, %08x, %x)", f->asyncResult, id, data_addr, size);
+		return 0;
+	} else {
+		ERROR_LOG(HLE, "sceIoReadAsync: bad file %d", id);
 		return error;
 	}
 }
@@ -1026,14 +1052,6 @@ u32 sceIoOpenAsync(const char *filename, int flags, int mode)
 	CoreTiming::ScheduleEvent(usToCycles(100), asyncNotifyEvent, fd);
 
 	return fd;
-}
-
-u32 sceIoReadAsync(int id, u32 data_addr, int size)
-{
-	DEBUG_LOG(HLE, "sceIoReadAsync(%d)", id);
-	sceIoRead(id, data_addr, size);
-	__IoCompleteAsyncIO(id);
-	return 0;
 }
 
 u32 sceIoGetAsyncStat(int id, u32 poll, u32 address)
