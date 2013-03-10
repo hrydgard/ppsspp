@@ -20,6 +20,7 @@
     <asset path="PPSSPPBlackberry" entry="true" type="Qnx/Elf">PPSSPPBlackberry</asset>
     <asset path="../assets/icon-114.png">icon-114.png</asset>
     <asset path="../android/assets">assets</asset>
+    <asset path="../flash0">assets/flash</asset>
     
     <category>core.games</category>
     <icon>
