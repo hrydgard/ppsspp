@@ -1354,6 +1354,13 @@ u32 sceMpegAvcResourceInit(u32 mpeg)
 	return 0;
 }
 
+
+int sceMpegAvcConvertToYuv420(u32 mpeg, u32 bufferOutput, u32 unknown1, int unknown2)
+ {
+ ERROR_LOG(HLE, "UNIMPL sceMpegAvcConvertToYuv420(%08x, %08x, %08x, %08x)", mpeg, bufferOutput, unknown1, unknown2);
+ return 0;
+ }
+
 /* MP3 */
 int sceMp3Decode(u32 mp3, u32 outPcmPtr)
 {
@@ -1728,6 +1735,7 @@ const HLEFunction sceMpeg[] =
 	{0x8160a2fe,WrapU_U<sceMpegAvcResourceFinish>,"sceMpegAvcResourceFinish"},
 	{0xaf26bb01,WrapU_U<sceMpegAvcResourceGetAvcEsBuf>,"sceMpegAvcResourceGetAvcEsBuf"},
 	{0xfcbdb5ad,WrapU_U<sceMpegAvcResourceInit>,"sceMpegAvcResourceInit"},
+	{0xF5E7EA31,WrapI_UUUI<sceMpegAvcConvertToYuv420>,"sceMpegAvcConvertToYuv420"},
 };
 
 const HLEFunction sceMp3[] =
