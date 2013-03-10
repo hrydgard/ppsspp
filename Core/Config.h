@@ -79,6 +79,7 @@ public:
 	bool bShowFPSCounter;
 	bool bShowDebugStats;
 	bool bLargeControls;
+	bool bAccelerometerToAnalogHoriz;
 
 	// Control
 	std::map<int,int> iMappingMap; // Can be used differently depending on systems

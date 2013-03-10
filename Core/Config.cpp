@@ -96,6 +96,7 @@ void CConfig::Load(const char *iniFileName)
 #endif
 	control->Get("LargeControls", &bLargeControls, false);
 	control->Get("KeyMapping",iMappingMap);
+	control->Get("AccelerometerToAnalogHoriz", &bAccelerometerToAnalogHoriz, false);
 
 	IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
 	pspConfig->Get("Language", &ilanguage, PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
@@ -154,6 +155,7 @@ void CConfig::Save()
 		control->Set("ShowTouchControls", bShowTouchControls);
 		control->Set("LargeControls", bLargeControls);
 		control->Set("KeyMapping",iMappingMap);
+		control->Set("AccelerometerToAnalogHoriz", bAccelerometerToAnalogHoriz);
 
 		IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
 		pspConfig->Set("Language", ilanguage);
