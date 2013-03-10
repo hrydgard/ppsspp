@@ -374,9 +374,11 @@ void __IoGetStat(SceIoStat *stat, PSPFileInfo &info) {
 	stat->st_private[0] = info.startSector;
 }
 
-void __IoSchedAsync(SceUID fd, int usec) {
+void __IoSchedAsync(FileNode *f, SceUID fd, int usec) {
 	u64 param = ((u64)__KernelGetCurThread()) << 32 | fd;
 	CoreTiming::ScheduleEvent(usToCycles(usec), asyncNotifyEvent, param);
+
+	f->pendingAsyncResult = true;
 }
 
 u32 sceIoGetstat(const char *filename, u32 addr) {
@@ -483,9 +485,8 @@ u32 sceIoReadAsync(int id, u32 data_addr, int size) {
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
 	if (f) {
 		f->asyncResult = __IoRead(id, data_addr, size);
-		f->pendingAsyncResult = true;
 		// TODO: Not sure what the correct delay is (and technically we shouldn't read into the buffer yet...)
-		__IoSchedAsync(id, size / 100);
+		__IoSchedAsync(f, id, size / 100);
 		DEBUG_LOG(HLE, "%llx=sceIoReadAsync(%d, %08x, %x)", f->asyncResult, id, data_addr, size);
 		return 0;
 	} else {
@@ -588,12 +589,12 @@ u32 npdrmLseek(FileNode *f, s32 where, FileMove whence)
 	return newPos;
 }
 
-s64 sceIoLseek(int id, s64 offset, int whence) {
+s64 __IoLseek(SceUID id, s64 offset, int whence) {
 	u32 error;
-	FileNode *f = kernelObjects.Get < FileNode > (id, error);
+	FileNode *f = kernelObjects.Get<FileNode>(id, error);
 	if (f) {
 		FileMove seek = FILEMOVE_BEGIN;
-		bool outOfBound = false;
+
 		s64 newPos = 0;
 		switch (whence) {
 		case 0:
@@ -608,56 +609,72 @@ s64 sceIoLseek(int id, s64 offset, int whence) {
 			seek = FILEMOVE_END;
 			break;
 		}
-		if(newPos < 0)
+		// Yes, -1 is the correct return code for this case.
+		if (newPos < 0)
 			return -1;
 
 		if(f->npdrm){
-			f->asyncResult = npdrmLseek(f, (s32)offset, seek);
+			return npdrmLseek(f, (s32)offset, seek);
 		}else{
-			f->asyncResult = pspFileSystem.SeekFile(f->handle, (s32) offset, seek);
+			return pspFileSystem.SeekFile(f->handle, (s32) offset, seek);
 		}
-		DEBUG_LOG(HLE, "%i = sceIoLseek(%d,%i,%i)", (u32) f->asyncResult, id, (int) offset, whence);
-		return (u32) f->asyncResult;
 	} else {
-		ERROR_LOG(HLE, "sceIoLseek(%d, %i, %i) - ERROR: invalid file", id, (int) offset, whence);
 		return (s32) error;
 	}
 }
 
-u32 sceIoLseek32(int id, int offset, int whence) {
-	u32 error;
-	FileNode *f = kernelObjects.Get < FileNode > (id, error);
-	if (f) {
-		FileMove seek = FILEMOVE_BEGIN;
-		bool outOfBound = false;
-		s64 newPos = 0;
-		switch (whence) {
-		case 0:
-			newPos = offset;
-			break;
-		case 1:
-			newPos = pspFileSystem.GetSeekPos(f->handle) + offset;
-			seek = FILEMOVE_CURRENT;
-			break;
-		case 2:
-			newPos = f->info.size + offset;
-			seek = FILEMOVE_END;
-			break;
-		}
-		if(newPos < 0)
-			return -1;
-
-		if(f->npdrm){
-			f->asyncResult = npdrmLseek(f, (s32)offset, seek);
-		}else{
-			f->asyncResult = pspFileSystem.SeekFile(f->handle, (s32) offset, seek);
-		}
-		DEBUG_LOG(HLE, "%i = sceIoLseek32(%d,%i,%i)", (u32) f->asyncResult, id, (int) offset, whence);
-		return (u32) f->asyncResult;
+s64 sceIoLseek(int id, s64 offset, int whence) {
+	s64 result = __IoLseek(id, offset, whence);
+	if (result >= 0) {
+		DEBUG_LOG(HLE, "%lli = sceIoLseek(%d, %llx, %i)", result, id, offset, whence);
+		return result;
 	} else {
-		ERROR_LOG(HLE, "sceIoLseek32(%d, %i, %i) - ERROR: invalid file", id, (int) offset, whence);
+		ERROR_LOG(HLE, "sceIoLseek(%d, %llx, %i) - ERROR: invalid file", id, offset, whence);
+		return result;
+	}
+}
+
+u32 sceIoLseek32(int id, int offset, int whence) {
+	s32 result = (s32) __IoLseek(id, offset, whence);
+	if (result >= 0) {
+		DEBUG_LOG(HLE, "%lli = sceIoLseek(%d, %x, %i)", result, id, offset, whence);
+		return result;
+	} else {
+		ERROR_LOG(HLE, "sceIoLseek(%d, %x, %i) - ERROR: invalid file", id, offset, whence);
+		return result;
+	}
+}
+
+u32 sceIoLseekAsync(int id, s64 offset, int whence) {
+	u32 error;
+	FileNode *f = kernelObjects.Get<FileNode>(id, error);
+	if (f) {
+		f->asyncResult = __IoLseek(id, offset, whence);
+		// Educated guess at timing.
+		__IoSchedAsync(f, id, 100);
+		DEBUG_LOG(HLE, "%lli = sceIoLseekAsync(%d, %llx, %i)", f->asyncResult, id, offset, whence);
+		return 0;
+	} else {
+		ERROR_LOG(HLE, "sceIoLseekAsync(%d, %llx, %i) - ERROR: invalid file", id, offset, whence);
 		return error;
 	}
+	return 0;
+}
+
+u32 sceIoLseek32Async(int id, int offset, int whence) {
+	u32 error;
+	FileNode *f = kernelObjects.Get<FileNode>(id, error);
+	if (f) {
+		f->asyncResult = __IoLseek(id, offset, whence);
+		// Educated guess at timing.
+		__IoSchedAsync(f, id, 100);
+		DEBUG_LOG(HLE, "%lli = sceIoLseek32Async(%d, %x, %i)", f->asyncResult, id, offset, whence);
+		return 0;
+	} else {
+		ERROR_LOG(HLE, "sceIoLseek32Async(%d, %x, %i) - ERROR: invalid file", id, offset, whence);
+		return error;
+	}
+	return 0;
 }
 
 FileNode *__IoOpen(const char* filename, int flags, int mode) {
@@ -1019,21 +1036,12 @@ int sceIoCloseAsync(int id)
 	{
 		f->closePending = true;
 		f->asyncResult = 0;
-		f->pendingAsyncResult = true;
 		// TODO: Rough estimate.
-		__IoSchedAsync(id, 100);
+		__IoSchedAsync(f, id, 100);
 		return 0;
 	}
 	else
 		return error;
-}
-
-u32 sceIoLseekAsync(int id, s64 offset, int whence)
-{
-	DEBUG_LOG(HLE, "sceIoLseekAsync(%d) sorta implemented", id);
-	sceIoLseek(id, offset, whence);
-	__IoCompleteAsyncIO(id);
-	return 0;
 }
 
 u32 sceIoSetAsyncCallback(int id, u32 clbckId, u32 clbckArg)
@@ -1053,14 +1061,6 @@ u32 sceIoSetAsyncCallback(int id, u32 clbckId, u32 clbckArg)
 	{
 		return error;
 	}
-}
-
-u32 sceIoLseek32Async(int id, int offset, int whence)
-{
-	DEBUG_LOG(HLE, "sceIoLseek32Async(%d) sorta implemented", id);
-	sceIoLseek32(id, offset, whence);
-	__IoCompleteAsyncIO(id);
-	return 0;
 }
 
 u32 sceIoOpenAsync(const char *filename, int flags, int mode)
@@ -1086,10 +1086,9 @@ u32 sceIoOpenAsync(const char *filename, int flags, int mode)
 		DEBUG_LOG(HLE, "%x=sceIoOpenAsync(%s, %08x, %08x)", fd, filename, flags, mode);
 	}
 
-	f->pendingAsyncResult = true;
 	// TODO: Timing is very inconsistent.  From ms0, 10ms - 20ms depending on filesize/dir depth?  From umd, can take > 1s.
 	// For now let's aim low.
-	__IoSchedAsync(fd, 100);
+	__IoSchedAsync(f, fd, 100);
 
 	return fd;
 }
