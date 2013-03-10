@@ -45,7 +45,7 @@ extern "C" {
 // For headless screenshots.
 #include "sceDisplay.h"
 
-#define ERROR_ERRNO_FILE_NOT_FOUND               0x80010002
+const int ERROR_ERRNO_FILE_NOT_FOUND = 0x80010002;
 
 #define ERROR_MEMSTICK_DEVCTL_BAD_PARAMS         0x80220081
 #define ERROR_MEMSTICK_DEVCTL_TOO_MANY_CALLBACKS 0x80220082
@@ -88,9 +88,6 @@ typedef s32 SceMode;
 typedef s64 SceOff;
 typedef u64 SceIores;
 
-typedef u32 (*DeferredAction)(SceUID id, int param);
-DeferredAction defAction = 0;
-u32 defParam = 0;
 int asyncNotifyEvent = -1;
 
 #define SCE_STM_FDIR 0x1000
@@ -171,9 +168,10 @@ public:
 	u32 callbackArg;
 
 	s64 asyncResult;
-
 	bool pendingAsyncResult;
+
 	bool sectorBlockMode;
+	// TODO: Use an enum instead?
 	bool closePending;
 
 	PSPFileInfo info;
@@ -204,6 +202,9 @@ static void TellFsThreadEnded (SceUID threadID) {
 // 6. At this point, the fd is STILL not usable.
 // 7. One must call sceIoWaitAsync / sceIoWaitAsyncCB / sceIoPollAsync / possibly sceIoGetAsyncStat.
 // 8. Finally, the fd is usable (or closed via sceIoCloseAsync.)  Presumably the io thread has joined now.
+
+// TODO: Closed files are a bit special: until the fd is reused (?), the async result is still available.
+// Clearly a buffer is used, it doesn't seem like they are actually kernel objects.
 
 // TODO: We don't do any of that yet.
 // For now, let's at least delay the callback mnotification.
@@ -259,19 +260,11 @@ void __IoInit() {
 }
 
 void __IoDoState(PointerWrap &p) {
-	// TODO: defAction is hard to save, and not the right way anyway.
-	// Should probbly be an enum and on the FileNode anyway.
-	if (defAction != NULL) {
-		WARN_LOG(HLE, "FIXME: Savestate failure: deferred IO not saved yet.");
-	}
-
 	p.Do(asyncNotifyEvent);
 	CoreTiming::RestoreRegisterEvent(asyncNotifyEvent, "IoAsyncNotify", __IoAsyncNotify);
 }
 
 void __IoShutdown() {
-	defAction = 0;
-	defParam = 0;
 }
 
 u32 __IoGetFileHandleFromId(u32 id, u32 &outError)
@@ -519,7 +512,7 @@ u32 sceIoCancel(int id)
 	u32 error;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
 	if (f) {
-		f->closePending = true;
+		// TODO: Cancel the async operation if possible?
 	} else {
 		ERROR_LOG(HLE, "sceIoCancel: unknown id %d", id);
 		error = ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
@@ -965,11 +958,16 @@ u32 __IoClose(SceUID actedFd, int closedFd)
 int sceIoCloseAsync(int id)
 {
 	DEBUG_LOG(HLE, "sceIoCloseAsync(%d)", id);
-	//sceIoClose();
-	// TODO: Not sure this is a good solution.  Seems like you can defer one per fd.
-	defAction = &__IoClose;
-	defParam = id;
-	return 0;
+	u32 error;
+	FileNode *f = kernelObjects.Get<FileNode>(id, error);
+	if (f)
+	{
+		f->closePending = true;
+		CoreTiming::ScheduleEvent(usToCycles(100), asyncNotifyEvent, id);
+		return 0;
+	}
+	else
+		return error;
 }
 
 u32 sceIoLseekAsync(int id, s64 offset, int whence)
@@ -1020,7 +1018,7 @@ u32 sceIoOpenAsync(const char *filename, int flags, int mode)
 		fd = kernelObjects.Create(f);
 		f->handle = fd;
 		f->fullpath = filename;
-		f->asyncResult = (s32) ERROR_ERRNO_FILE_NOT_FOUND;
+		f->asyncResult = ERROR_ERRNO_FILE_NOT_FOUND;
 	}
 
 	// TODO: Timing is very inconsistent.  From ms0, 10ms - 20ms depending on filesize/dir depth?  From umd, can take > 1s.
@@ -1062,9 +1060,8 @@ int sceIoWaitAsync(int id, u32 address) {
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
 	if (f) {
 		u64 res = f->asyncResult;
-		if (defAction) {
-			res = defAction(id, defParam);
-			defAction = 0;
+		if (f->closePending) {
+			kernelObjects.Destroy<FileNode>(id);
 		}
 		Memory::Write_U64(res, address);
 		DEBUG_LOG(HLE, "%i = sceIoWaitAsync(%i, %08x) (HACK)", (u32) res, id, address);
@@ -1082,9 +1079,9 @@ int sceIoWaitAsyncCB(int id, u32 address) {
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
 	if (f) {
 		u64 res = f->asyncResult;
-		if (defAction) {
-			res = defAction(id, defParam);
-			defAction = 0;
+		// TODO: Is the close before or after executing the callback?
+		if (f->closePending) {
+			kernelObjects.Destroy<FileNode>(id);
 		}
 		Memory::Write_U64(res, address);
 		DEBUG_LOG(HLE, "%i = sceIoWaitAsyncCB(%i, %08x) (HACK)", (u32) res, id,	address);
@@ -1102,9 +1099,8 @@ u32 sceIoPollAsync(int id, u32 address) {
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
 	if (f) {
 		u64 res = f->asyncResult;
-		if (defAction) {
-			res = defAction(id, defParam);
-			defAction = 0;
+		if (f->closePending) {
+			kernelObjects.Destroy<FileNode>(id);
 		}
 		Memory::Write_U64(res, address);
 		DEBUG_LOG(HLE, "%i = sceIoPollAsync(%i, %08x) (HACK)", (u32) res, id, address);
