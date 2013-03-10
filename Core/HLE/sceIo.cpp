@@ -780,22 +780,23 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 	// UMD checks
 	switch (cmd) {
 	case 0x01F20001:  // Get Disc Type.
-		if (Memory::IsValidAddress(outPtr)) {
-			Memory::Write_U32(0x10, outPtr);  // Game disc
+		if (Memory::IsValidAddress(outPtr + 4)) {
+			Memory::Write_U32(0x10, outPtr + 4);  // Game disc
 			return 0;
-		} else {
-			return -1;
 		}
-		break;
-	case 0x01F20002:  // Get current LBA.
+		return -1;
+	case 0x01F20002:  // Get last sector number.
+	case 0x01F20003:  // Seems identical?
 		if (Memory::IsValidAddress(outPtr)) {
-			Memory::Write_U32(0, outPtr);  // Game disc
+			PSPFileInfo info = pspFileSystem.GetFileInfo("umd1:");
+			Memory::Write_U32((u32) (info.size / 2048) - 1, outPtr);
 			return 0;
-		} else {
-			return -1;
 		}
-		break;
+		return -1;
 	case 0x01F100A3:  // Seek
+		// Timing is just a rough guess, probably takes longer.
+		return hleDelayResult(0, "dev seek", 100);
+	case 0x01F100A4:  // Cache
 		return 0;
 	}
 
