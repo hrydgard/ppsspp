@@ -280,6 +280,7 @@ void StringVectorListAdapter::drawItem(int item, int x, int y, int w, int h, boo
 
 UIList::UIList()
 	: scrollY(0.0f), startDragY(0.0f), dragFinger(-1), selected(-1) {
+	movedDistanceX = 0.0f;
 	movedDistanceY = 0.0f;
 	scrolling = false;
 	inertiaY = 0.0f;
@@ -292,14 +293,17 @@ void UIList::pointerDown(int pointer, float x, float y) {
 
 	startScrollY = scrollY;
 	startDragY = y;
+	movedDistanceX = 0.0f;
 	movedDistanceY = 0.0f;
 }
 
 const int holdFrames = 6;
 
 void UIList::pointerMove(int pointer, float x, float y, bool inside) {
+	float deltaX = x - lastX;
 	float deltaY = y - lastY;
 	movedDistanceY += fabsf(deltaY);
+	movedDistanceX += fabsf(deltaX);
 
 	if (inertiaY <= 0.0f && deltaY > 0.0f) {
 		inertiaY = -deltaY;
@@ -309,7 +313,7 @@ void UIList::pointerMove(int pointer, float x, float y, bool inside) {
 		inertiaY = 0.8 * inertiaY + 0.2 * -deltaY;
 	}
 
-	if (inside && movedDistanceY > 10 && !scrolling && uistate.mouseframesdown[0] > holdFrames) {
+	if (inside && movedDistanceY > 35 && movedDistanceY > movedDistanceX && !scrolling && uistate.mouseframesdown[0] > holdFrames) {
 		scrolling = true;
 	}
 }

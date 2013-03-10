@@ -220,6 +220,7 @@ public:
 	float lastX;
 	float lastY;
 	float startDragY;
+	float movedDistanceX;
 	float movedDistanceY;
 	float inertiaY;
 
