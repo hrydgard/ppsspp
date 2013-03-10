@@ -297,7 +297,7 @@ u32 convertTimestampToDate(u32 ts) {
 
 void AnalyzeMpeg(u32 buffer_addr, MpegContext *ctx) {
 	ctx->mpegStreamAddr = buffer_addr;
-	ctx->mpegMagic = Memory::Read_U32(buffer_addr);
+	ctx->mpegMagic = Memory::Read_U32(buffer_addr + PSMF_MAGIC_OFFSET);
 	ctx->mpegRawVersion = Memory::Read_U32(buffer_addr + PSMF_STREAM_VERSION_OFFSET);
 	switch (ctx->mpegRawVersion) {
 	case PSMF_VERSION_0012:
@@ -322,8 +322,8 @@ void AnalyzeMpeg(u32 buffer_addr, MpegContext *ctx) {
 	ctx->mpegLastTimestamp = bswap32(Memory::Read_U32(buffer_addr + PSMF_LAST_TIMESTAMP_OFFSET));
 	ctx->mpegFirstDate = convertTimestampToDate(ctx->mpegFirstTimestamp);
 	ctx->mpegLastDate = convertTimestampToDate(ctx->mpegLastTimestamp);
-	ctx->avc.avcDetailFrameWidth = (Memory::Read_U8(buffer_addr + 142) * 0x10);
-	ctx->avc.avcDetailFrameHeight = (Memory::Read_U8(buffer_addr + 143) * 0x10);
+	ctx->avc.avcDetailFrameWidth = (Memory::Read_U8(buffer_addr + PSMF_FRAME_WIDTH_OFFSET) * 0x10);
+	ctx->avc.avcDetailFrameHeight = (Memory::Read_U8(buffer_addr + PSMF_FRAME_HEIGHT_OFFSET) * 0x10);
 	ctx->avc.avcDecodeResult = MPEG_AVC_DECODE_SUCCESS;
 	ctx->avc.avcFrameStatus = 0;
 
@@ -522,10 +522,6 @@ int sceMpegAvcDecodeMode(u32 mpeg, u32 modeAddr)
 
 int sceMpegQueryStreamOffset(u32 mpeg, u32 bufferAddr, u32 offsetAddr)
 {
-	if (!g_Config.bUseMediaEngine){
-		WARN_LOG(HLE, "Media Engine disabled");
-		return -1;
-	}
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
 		WARN_LOG(HLE, "sceMpegQueryStreamOffset(%08x, %08x, %08x): bad mpeg handle", mpeg, bufferAddr, offsetAddr);
@@ -1300,12 +1296,12 @@ u32 sceMpegRingbufferDestruct(u32 ringbufferAddr)
 u32 sceMpegAvcInitYCbCr(u32 mpeg, int mode, int width, int height, u32 ycbcr_addr)
 {
 	ERROR_LOG(HLE, "UNIMPL sceMpegAvcInitYCbCr(%08x, %i, %i, %i, %08x)", mpeg, mode, width, height, ycbcr_addr);
-	return 0;
+	return -1;
 }
 
 int sceMpegAvcQueryYCbCrSize(u32 mpeg, u32 mode, u32 width, u32 height, u32 resultAddr)
 {
-	if ((width & 15) != 0 || (height & 15) != 0 || height > 272 || width > 480)
+	if ((width & 15) != 0 || (height & 15) != 0 || height > 272 || width > 480) 
 	{
 		ERROR_LOG(HLE, "sceMpegAvcQueryYCbCrSize: bad w/h %i x %i", width, height);
 		return ERROR_MPEG_INVALID_VALUE;
