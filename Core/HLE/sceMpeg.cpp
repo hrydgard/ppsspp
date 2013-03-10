@@ -399,7 +399,12 @@ void __MpegShutdown() {
 
 u32 sceMpegInit()
 {
-	WARN_LOG(HLE, "sceMpegInit()");
+	if (!g_Config.bUseMediaEngine) {
+		WARN_LOG(HLE, "sceMpegInit() : Media Engine disabled");
+		return -1;
+	}
+
+	WARN_LOG(HLE, "sceMpegInit() : Media Engine Enabled");
 	return 0;
 }
 
