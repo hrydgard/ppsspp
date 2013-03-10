@@ -375,7 +375,7 @@ int main(int argc, char *argv[]) {
 	float dpi_scale = 213.6f / dpi;
 	dp_xres = (int)(pixel_xres * dpi_scale); dp_yres = (int)(pixel_yres * dpi_scale);
 
-	NativeInit(argc, (const char **)argv, "data/", "/accounts/1000/shared", "BADCOFFEE");
+	NativeInit(argc, (const char **)argv, "/accounts/1000/shared/documents/PPSSPP/", "data/", "BADCOFFEE");
 	NativeInitGraphics();
 	screen_request_events(screen_cxt);
 	navigator_request_events(0);
