@@ -522,7 +522,7 @@ int sceMpegAvcDecodeMode(u32 mpeg, u32 modeAddr)
 
 int sceMpegQueryStreamOffset(u32 mpeg, u32 bufferAddr, u32 offsetAddr)
 {
-	if (g_Config.bUseMediaEngine == false){
+	if (!g_Config.bUseMediaEngine){
 		WARN_LOG(HLE, "Media Engine disabled");
 		return -1;
 	}
@@ -539,14 +539,18 @@ int sceMpegQueryStreamOffset(u32 mpeg, u32 bufferAddr, u32 offsetAddr)
 
 	if (ctx->mpegMagic != PSMF_MAGIC) {
 		ERROR_LOG(HLE, "sceMpegQueryStreamOffset: Bad PSMF magic");
+		Memory::Write_U32(0, offsetAddr);
 		return ERROR_MPEG_INVALID_VALUE;
 	} else if (ctx->mpegVersion < 0) {
 		ERROR_LOG(HLE, "sceMpegQueryStreamOffset: Bad version");
+		Memory::Write_U32(0, offsetAddr);
 		return ERROR_MPEG_BAD_VERSION;
 	} else if ((ctx->mpegOffset & 2047) != 0 || ctx->mpegOffset == 0) {
 		ERROR_LOG(HLE, "sceMpegQueryStreamOffset: Bad offset");
+		Memory::Write_U32(0, offsetAddr);
 		return ERROR_MPEG_INVALID_VALUE;
 	}
+
 	Memory::Write_U32(ctx->mpegOffset, offsetAddr);
 	return 0;
 }
@@ -555,22 +559,22 @@ u32 sceMpegQueryStreamSize(u32 bufferAddr, u32 sizeAddr)
 {
 	DEBUG_LOG(HLE, "sceMpegQueryStreamSize(%08x, %08x)", bufferAddr, sizeAddr);
 
-	MpegContext temp;
-	temp.mediaengine = new MediaEngine();
+	MpegContext ctx;
+	ctx.mediaengine = new MediaEngine();
 
-	AnalyzeMpeg(bufferAddr, &temp);
+	AnalyzeMpeg(bufferAddr, &ctx);
 
-	if (temp.mpegMagic != PSMF_MAGIC) {
+	if (ctx.mpegMagic != PSMF_MAGIC) {
 		ERROR_LOG(HLE, "sceMpegQueryStreamOffset: Bad PSMF magic");
+		Memory::Write_U32(0, sizeAddr);
 		return ERROR_MPEG_INVALID_VALUE;
-	} else if (temp.mpegVersion < 0) {
-		ERROR_LOG(HLE, "sceMpegQueryStreamOffset: Bad version");
-		return ERROR_MPEG_BAD_VERSION;
-	} else if ((temp.mpegOffset & 2047) != 0 || temp.mpegOffset == 0) {
+	} else if ((ctx.mpegOffset & 2047) != 0 ) {
 		ERROR_LOG(HLE, "sceMpegQueryStreamOffset: Bad offset");
+		Memory::Write_U32(0, sizeAddr);
 		return ERROR_MPEG_INVALID_VALUE;
 	}
-	Memory::Write_U32(temp.mpegStreamSize, sizeAddr);
+
+	Memory::Write_U32(ctx.mpegStreamSize, sizeAddr);
 	return 0;
 }
 
