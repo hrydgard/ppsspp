@@ -219,6 +219,8 @@ private:
 
 	// Utilities to reduce duplicated code
 	void CompImmLogic(int rs, int rt, u32 uimm, void (ARMXEmitter::*arith)(ARMReg dst, ARMReg src, Operand2 op2), u32 (*eval)(u32 a, u32 b));
+	void CompType3(int rd, int rs, int rt, void (ARMXEmitter::*arithOp2)(ARMReg dst, ARMReg rm, Operand2 rn), u32 (*eval)(u32 a, u32 b), bool isSub = false);
+
 	void CompShiftImm(u32 op, ArmGen::ShiftType shiftType);
 	void CompShiftVar(u32 op, ArmGen::ShiftType shiftType);
 
