@@ -354,6 +354,7 @@ void NativeDeviceLost()
 {
 	screenManager->deviceLost();
 	gl_lost();
+	glstate.Restore();
 	// Should dirty EVERYTHING
 }
 
