@@ -170,7 +170,7 @@ public:
 	u32 callbackID;
 	u32 callbackArg;
 
-	u32 asyncResult;
+	s64 asyncResult;
 
 	bool pendingAsyncResult;
 	bool sectorBlockMode;
@@ -438,12 +438,12 @@ u32 sceIoRead(int id, u32 data_addr, int size) {
 		else if (Memory::IsValidAddress(data_addr)) {
 			u8 *data = (u8*) Memory::GetPointer(data_addr);
 			if(f->npdrm){
-				f->asyncResult = (u32) npdrmRead(f, data, size);
+				f->asyncResult = npdrmRead(f, data, size);
 			}else{
-				f->asyncResult = (u32) pspFileSystem.ReadFile(f->handle, data, size);
+				f->asyncResult = pspFileSystem.ReadFile(f->handle, data, size);
 			}
 			DEBUG_LOG(HLE, "%i=sceIoRead(%d, %08x , %i)", f->asyncResult, id, data_addr, size);
-			return f->asyncResult;
+			return (u32) f->asyncResult;
 		} else {
 			ERROR_LOG(HLE, "sceIoRead Reading into bad pointer %08x", data_addr);
 			return -1;
@@ -480,8 +480,8 @@ u32 sceIoWrite(int id, void *data_ptr, int size)
 		else
 		{
 			u8 *data = (u8*) data_ptr;
-			f->asyncResult = (u32) pspFileSystem.WriteFile(f->handle, data, size);
-			return f->asyncResult;
+			f->asyncResult = pspFileSystem.WriteFile(f->handle, data, size);
+			return (u32) f->asyncResult;
 		}
 	} else {
 		ERROR_LOG(HLE, "sceIoWrite ERROR: no file open");
@@ -574,10 +574,10 @@ s64 sceIoLseek(int id, s64 offset, int whence) {
 		if(f->npdrm){
 			f->asyncResult = npdrmLseek(f, (s32)offset, seek);
 		}else{
-			f->asyncResult = (u32) pspFileSystem.SeekFile(f->handle, (s32) offset, seek);
+			f->asyncResult = pspFileSystem.SeekFile(f->handle, (s32) offset, seek);
 		}
-		DEBUG_LOG(HLE, "%i = sceIoLseek(%d,%i,%i)", f->asyncResult, id, (int) offset, whence);
-		return f->asyncResult;
+		DEBUG_LOG(HLE, "%i = sceIoLseek(%d,%i,%i)", (u32) f->asyncResult, id, (int) offset, whence);
+		return (u32) f->asyncResult;
 	} else {
 		ERROR_LOG(HLE, "sceIoLseek(%d, %i, %i) - ERROR: invalid file", id, (int) offset, whence);
 		return error;
@@ -610,10 +610,10 @@ u32 sceIoLseek32(int id, int offset, int whence) {
 		if(f->npdrm){
 			f->asyncResult = npdrmLseek(f, (s32)offset, seek);
 		}else{
-			f->asyncResult = (u32) pspFileSystem.SeekFile(f->handle, (s32) offset, seek);
+			f->asyncResult = pspFileSystem.SeekFile(f->handle, (s32) offset, seek);
 		}
-		DEBUG_LOG(HLE, "%i = sceIoLseek32(%d,%i,%i)", f->asyncResult, id, (int) offset, whence);
-		return f->asyncResult;
+		DEBUG_LOG(HLE, "%i = sceIoLseek32(%d,%i,%i)", (u32) f->asyncResult, id, (int) offset, whence);
+		return (u32) f->asyncResult;
 	} else {
 		ERROR_LOG(HLE, "sceIoLseek32(%d, %i, %i) - ERROR: invalid file", id, (int) offset, whence);
 		return error;
@@ -1012,19 +1012,20 @@ u32 sceIoOpenAsync(const char *filename, int flags, int mode)
 	DEBUG_LOG(HLE, "sceIoOpenAsync() sorta implemented");
 	u32 fd = sceIoOpen(filename, flags, mode);
 
-	// TODO: Timing is very inconsistent.  From ms0, 10ms - 20ms depending on filesize/dir depth?  From umd, can take > 1s.
-	// For now let's aim low.
-	CoreTiming::ScheduleEvent(usToCycles(100), asyncNotifyEvent, fd);
-
 	// We have to return an fd here, which may have been destroyed when we reach Wait if it failed.
 	if (fd == ERROR_ERRNO_FILE_NOT_FOUND)
 	{
+		// TODO: Should close/delete after waitasync/etc.
 		FileNode *f = new FileNode();
 		fd = kernelObjects.Create(f);
-		f->handle = 0;
+		f->handle = fd;
 		f->fullpath = filename;
-		f->asyncResult = ERROR_ERRNO_FILE_NOT_FOUND;
+		f->asyncResult = (s32) ERROR_ERRNO_FILE_NOT_FOUND;
 	}
+
+	// TODO: Timing is very inconsistent.  From ms0, 10ms - 20ms depending on filesize/dir depth?  From umd, can take > 1s.
+	// For now let's aim low.
+	CoreTiming::ScheduleEvent(usToCycles(100), asyncNotifyEvent, fd);
 
 	return fd;
 }
@@ -1043,8 +1044,8 @@ u32 sceIoGetAsyncStat(int id, u32 poll, u32 address)
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
 	if (f)
 	{
-		Memory::Write_U64(f->asyncResult, address);
-		DEBUG_LOG(HLE, "%i = sceIoGetAsyncStat(%i, %i, %08x) (HACK)", (u32) f->asyncResult, id, poll, address);
+		Memory::Write_U64((u64) f->asyncResult, address);
+		DEBUG_LOG(HLE, "%lli = sceIoGetAsyncStat(%i, %i, %08x) (HACK)", f->asyncResult, id, poll, address);
 		if (!poll)
 			hleReSchedule("io waited");
 		return 0; //completed
