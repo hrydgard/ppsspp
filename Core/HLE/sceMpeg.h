@@ -48,11 +48,14 @@ static const int PSMF_VERSION_0012 = 0x32313030;
 static const int PSMF_VERSION_0013 = 0x33313030;
 static const int PSMF_VERSION_0014 = 0x34313030;
 static const int PSMF_VERSION_0015 = 0x35313030;
+static const int PSMF_MAGIC_OFFSET = 0x0;
 static const int PSMF_STREAM_VERSION_OFFSET = 0x4;
 static const int PSMF_STREAM_OFFSET_OFFSET = 0x8;
 static const int PSMF_STREAM_SIZE_OFFSET = 0xC;
 static const int PSMF_FIRST_TIMESTAMP_OFFSET = 0x56;
 static const int PSMF_LAST_TIMESTAMP_OFFSET = 0x5C;
+static const int PSMF_FRAME_WIDTH_OFFSET = 0x8E;
+static const int PSMF_FRAME_HEIGHT_OFFSET = 0x8F;
 
 struct SceMpegAu {
 	s64 pts;  // presentation time stamp
