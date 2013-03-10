@@ -222,10 +222,24 @@ void Jit::Comp_FPU2op(u32 op)
 		VCVT(fpr.R(fd), fpr.R(fs), TO_FLOAT | IS_SIGNED);
 		break;
 	case 36: //FsI(fd) = (int)  F(fs);            break; //cvt.w.s
-		DISABLE;
-		// Seems to round wrong in hardware
 		fpr.MapDirtyIn(fd, fs);
-		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | ROUND_TO_ZERO);
+		LDR(R0, CTXREG, offsetof(MIPSState, fcr31));
+		AND(R0, R0, Operand2(3));
+		// MIPS Rounding Mode:
+		//	 0: Round nearest
+		//	 1: Round to zero
+		//	 2: Round up (ceil)
+		//	 3: Round down (floor)
+		CMP(R0, Operand2(2));
+		SetCC(CC_GE); MOVI2F(S0, 0.5f, R1);
+		SetCC(CC_GT); VSUB(S0,fpr.R(fs),S0);
+		SetCC(CC_EQ); VADD(S0,fpr.R(fs),S0);
+		SetCC(CC_GE); VCVT(fpr.R(fd), S0, TO_INT | IS_SIGNED); /* 2,3 */
+		SetCC(CC_AL);
+		CMP(R0, Operand2(1));
+		SetCC(CC_EQ); VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED | ROUND_TO_ZERO); /* 1 */
+		SetCC(CC_LT); VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED); /* 0 */
+		SetCC(CC_AL);
 		break;
 	default:
 		DISABLE;
@@ -248,8 +262,21 @@ void Jit::Comp_mxc1(u32 op)
 		LDR(gpr.R(rt), CTXREG, fpr.GetMipsRegOffset(fs));
 		return;
 
-	case 2: // R(rt) = currentMIPS->ReadFCR(fs); break; //cfc1
-		Comp_Generic(op);
+	case 2: //cfc1
+		if (fs == 31)
+		{
+			gpr.MapReg(rt, MAP_DIRTY | MAP_NOINIT);
+			LDR(R0, CTXREG, offsetof(MIPSState, fpcond));
+			AND(R0,R0, Operand2(1)); // Just in case
+			LDR(gpr.R(rt), CTXREG, offsetof(MIPSState, fcr31));
+			BIC(gpr.R(rt), gpr.R(rt), Operand2(0x1 << 23));
+			ORR(gpr.R(rt), gpr.R(rt), Operand2(R0, ST_LSL, 23));
+		}
+		else if (fs == 0)
+		{
+			gpr.MapReg(rt, MAP_DIRTY | MAP_NOINIT);
+			LDR(gpr.R(rt), CTXREG, offsetof(MIPSState, fcr0));
+		}
 		return;
 
 	case 4: //FI(fs) = R(rt);	break; //mtc1
@@ -259,8 +286,33 @@ void Jit::Comp_mxc1(u32 op)
 		VLDR(fpr.R(fs), CTXREG, gpr.GetMipsRegOffset(rt));
 		return;
 
-	case 6: //currentMIPS->WriteFCR(fs, R(rt)); break; //ctc1
-		Comp_Generic(op);
+	case 6: //ctc1
+		if (fs == 31)
+		{
+			gpr.MapReg(rt, 0);
+			// Hardware rounding method.
+			// Left here in case it is faster than conditional method.
+			/*
+			AND(R0, gpr.R(rt), Operand2(3));
+			// MIPS Rounding Mode <-> ARM Rounding Mode
+			//         0, 1, 2, 3 <->  0, 3, 1, 2
+			CMP(R0, Operand2(1));
+			SetCC(CC_EQ); ADD(R0, R0, Operand2(2));
+			SetCC(CC_GT); SUB(R0, R0, Operand2(1));
+			SetCC(CC_AL);
+
+			// Load and Store RM to FPSCR
+			VMRS(R1);
+			BIC(R1, R1, Operand2(0x3 << 22));
+			ORR(R1, R1, Operand2(R0, ST_LSL, 22));
+			VMSR(R1);
+			*/
+			// Update MIPS state
+			STR(gpr.R(rt), CTXREG, offsetof(MIPSState, fcr31));
+			MOV(R0, Operand2(gpr.R(rt), ST_LSR, 23));
+			AND(R0, R0, Operand2(1));
+			STR(R0, CTXREG, offsetof(MIPSState, fpcond));
+		}
 		return;
 	}
 }
