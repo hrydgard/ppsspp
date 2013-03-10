@@ -178,9 +178,9 @@ void GenerateFragmentShader(char *buffer)
 
 		if (enableAlphaTest) {
 			int alphaTestFunc = gstate.alphatest & 7;
-			const char *alphaTestFuncs[] = { "#", "#", " == ", " != ", " < ", " <= ", " > ", " >= " };	// never/always don't make sense
+			const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };	// never/always don't make sense
 			if (alphaTestFuncs[alphaTestFunc][0] != '#')
-				WRITE(p, "  if (!(v.a %s u_alphacolorref.a)) discard;\n", alphaTestFuncs[alphaTestFunc]);
+				WRITE(p, "  if (v.a %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
 		}
 
 		// Disabled for now until we actually find a need for it.
