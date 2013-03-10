@@ -26,6 +26,7 @@
 #include "../MIPS/MIPS.h"
 #include "../HW/MemoryStick.h"
 #include "Core/CoreTiming.h"
+#include "Core/Reporting.h"
 
 #include "../FileSystems/FileSystem.h"
 #include "../FileSystems/MetaFileSystem.h"
@@ -1272,11 +1273,12 @@ u32 sceIoDclose(int id) {
 	return kernelObjects.Destroy<DirListing>(id);
 }
 
-u32 sceIoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen) 
+int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen) 
 {
 	u32 error;
 	FileNode *f = kernelObjects.Get<FileNode>(id, error);
 	if (error) {
+		ERROR_LOG(HLE, "UNIMPL %08x=sceIoIoctl id: %08x, cmd %08x, bad file", error, id, cmd);
 		return error;
 	}
 
@@ -1302,7 +1304,6 @@ u32 sceIoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 ou
 				f->npdrm = false;
 				pspFileSystem.SeekFile(f->handle, (s32)0, FILEMOVE_BEGIN);
 			}
-			f->asyncResult = 0;
 		}
 		break;
 
@@ -1339,19 +1340,34 @@ u32 sceIoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 ou
 		break;
 
 	default:
+		Reporting::ReportMessage("sceIoIoctl(%s, %08x, %x, %08x, %x)", f->fullpath.c_str(), indataPtr, inlen, outdataPtr, outlen);
 		ERROR_LOG(HLE, "UNIMPL 0=sceIoIoctl id: %08x, cmd %08x, indataPtr %08x, inlen %08x, outdataPtr %08x, outLen %08x", id,cmd,indataPtr,inlen,outdataPtr,outlen);
 		break;
 	}
 
-  return 0;
+	return 0;
+}
+
+u32 sceIoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen) 
+{
+	int result = __IoIoctl(id, cmd, indataPtr, inlen, outdataPtr, outlen);
+	// Just a low estimate on timing.
+	return hleDelayResult(0, "io ctrl command", 100);
 }
 
 u32 sceIoIoctlAsync(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen)
 {
-	DEBUG_LOG(HLE, "sceIoIoctlAsync(%08x, %08x, %08x, %08x, %08x, %08x)", id, cmd, indataPtr, inlen, outdataPtr, outlen);
-	sceIoIoctl(id, cmd, indataPtr, inlen, outdataPtr, outlen);
-	__IoCompleteAsyncIO(id);
-	return 0;
+	u32 error;
+	FileNode *f = kernelObjects.Get < FileNode > (id, error);
+	if (f) {
+		DEBUG_LOG(HLE, "sceIoIoctlAsync(%08x, %08x, %08x, %08x, %08x, %08x)", id, cmd, indataPtr, inlen, outdataPtr, outlen);
+		f->asyncResult = __IoIoctl(id, cmd, indataPtr, inlen, outdataPtr, outlen);
+		__IoSchedAsync(f, id, 100);
+		return 0;
+	} else {
+		ERROR_LOG(HLE, "UNIMPL %08x=sceIoIoctl id: %08x, cmd %08x, bad file", error, id, cmd);
+		return error;
+	}
 }
 
 KernelObject *__KernelFileNodeObject() {
