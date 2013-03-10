@@ -16,6 +16,10 @@ if(BLACKBERRY)
 	set(ARM ON)
 endif()
 
+if(LOONGSON)
+    set(MIPS ON) # MIPS + x86 for now
+endif()
+
 if(ARM)
 	set(USING_GLES2 ON)
 else() # Assume x86
@@ -30,6 +34,7 @@ endif()
 
 # User-editable options (go into CMakeCache.txt)
 option(ARM "Set to ON if targeting an ARM processor" ${ARM})
+option(MIPS "Set to ON if targeting a MIPS processor" ${MIPS})
 option(X86 "Set to ON if targeting an X86 processor" ${X86})
 option(ANDROID "Set to ON if targeting an Android device" ${ANDROID})
 option(BLACKBERRY "Set to ON if targeting a Blackberry device" ${BLACKBERRY})
@@ -105,6 +110,10 @@ if(USING_GLES2)
 	add_definitions(-DUSING_GLES2)
 endif()
 
+if(MIPS)
+	add_definitions(-DMIPS)
+endif()
+
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -D_DEBUG")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -D_NDEBUG")
 
@@ -127,7 +136,7 @@ if(NOT MSVC)
 		add_definitions(-D_QNX_SOURCE=1 -D_C99=1)
 	endif()
 
-	if(X86)
+	if(X86 AND NOT MIPS)
 		# enable sse2 code generation
 		add_definitions(-msse2)
 	endif()

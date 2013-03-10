@@ -20,7 +20,7 @@
 
 #include "Common.h"
 
-#ifndef ARM
+#if !defined(ARM) && !defined(MIPS)
 #define USE_SSE
 #endif
 

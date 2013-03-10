@@ -29,14 +29,14 @@
 #undef _interlockedbittestandreset64
 #else
 
-#ifndef _M_GENERIC
+#if !defined(_M_GENERIC) && !defined(MIPS)
 #include <xmmintrin.h>
 #endif
 
 #if defined __FreeBSD__
 #include <sys/types.h>
 #include <machine/cpufunc.h>
-#else
+#elif !defined(MIPS)
 static inline void do_cpuid(unsigned int *eax, unsigned int *ebx,
 						    unsigned int *ecx, unsigned int *edx)
 {

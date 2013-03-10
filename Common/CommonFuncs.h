@@ -24,7 +24,7 @@
 #define SLEEP(x) usleep(x*1000)
 #endif
 
-#ifdef IOS
+#if defined(IOS) || defined(MIPS)
 #include <signal.h>
 #endif
 
@@ -51,8 +51,8 @@ template<> struct CompileTimeAssert<true> {};
 #ifdef GEKKO
 	#define Crash()
 #else
-// Assume !ARM = x86
-#if !defined(ARM)
+// Assume !ARM && !MIPS = x86
+#if !defined(ARM) && !defined(MIPS)
 	#define Crash() {asm ("int $3");}
 #else
   #define Crash() {kill( getpid(), SIGINT ) ; }
