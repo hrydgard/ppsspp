@@ -573,7 +573,7 @@ s64 sceIoLseek(int id, s64 offset, int whence) {
 		return (u32) f->asyncResult;
 	} else {
 		ERROR_LOG(HLE, "sceIoLseek(%d, %i, %i) - ERROR: invalid file", id, (int) offset, whence);
-		return error;
+		return (s32) error;
 	}
 }
 
