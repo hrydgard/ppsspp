@@ -15,6 +15,7 @@
 #include "Core/HLE/sceKernel.h"
 #include "Core/Font/PGF.h"
 #include "Core/HLE/sceKernelThread.h"
+#include "Core/Config.h"
 
 enum {
 	ERROR_FONT_INVALID_LIBID                            = 0x80460002,
@@ -432,10 +433,50 @@ LoadedFont *GetLoadedFont(u32 handle, bool allowClosed) {
 	}
 }
 
+void LoadInternalFontByEntry(std::string fontFilename, const FontRegistryEntry &entry)
+{
+	PSPFileInfo info = pspFileSystem.GetFileInfo(fontFilename);
+	if (info.exists) {
+		INFO_LOG(HLE, "Loading font %s (%i bytes)", fontFilename.c_str(), (int)info.size);
+		u8 *buffer = new u8[(size_t)info.size];
+		u32 handle = pspFileSystem.OpenFile(fontFilename, FILEACCESS_READ);
+		if (!handle) {
+			ERROR_LOG(HLE, "Failed opening font");
+			delete [] buffer;
+			return;
+		}
+		pspFileSystem.ReadFile(handle, buffer, info.size);
+		pspFileSystem.CloseFile(handle);
+			
+		internalFonts.push_back(new Font(buffer, (size_t)info.size, entry));
+
+		delete [] buffer;
+		INFO_LOG(HLE, "Loaded font %s", fontFilename.c_str());
+	} else {
+		INFO_LOG(HLE, "Font file not found: %s", fontFilename.c_str());
+	}
+}
+
 void __LoadInternalFonts() {
 	if (internalFonts.size()) {
 		// Fonts already loaded.
 		return;
+	}
+	if (g_Config.bUseGamePGFFont)
+	{
+		std::string findPath("disc0:/PSP_GAME/USRDIR/");
+		auto list=pspFileSystem.GetDirListing(findPath);
+		for (auto iter=list.begin();iter!=list.end();iter++)
+		{
+			if ((iter->name.find(".pgf") != std::string::npos)||
+				(iter->name.find(".PGF") != std::string::npos))
+			{
+				FontRegistryEntry entry = fontRegistry[0];
+				entry.fileName = iter->name.c_str();
+				std::string fontFilename = findPath + entry.fileName;
+				LoadInternalFontByEntry(fontFilename, entry);
+			}
+		}
 	}
 	std::string fontPath = "flash0:/font/";
 	if (!pspFileSystem.GetFileInfo(fontPath).exists) {
@@ -444,26 +485,7 @@ void __LoadInternalFonts() {
 	for (size_t i = 0; i < ARRAY_SIZE(fontRegistry); i++) {
 		const FontRegistryEntry &entry = fontRegistry[i];
 		std::string fontFilename = fontPath + entry.fileName;
-		PSPFileInfo info = pspFileSystem.GetFileInfo(fontFilename);
-		if (info.exists) {
-			INFO_LOG(HLE, "Loading font %s (%i bytes)", fontFilename.c_str(), (int)info.size);
-			u8 *buffer = new u8[(size_t)info.size];
-			u32 handle = pspFileSystem.OpenFile(fontFilename, FILEACCESS_READ);
-			if (!handle) {
-				ERROR_LOG(HLE, "Failed opening font");
-				delete [] buffer;
-				continue;
-			}
-			pspFileSystem.ReadFile(handle, buffer, info.size);
-			pspFileSystem.CloseFile(handle);
-			
-			internalFonts.push_back(new Font(buffer, (size_t)info.size, entry));
-
-			delete [] buffer;
-			INFO_LOG(HLE, "Loaded font %s", fontFilename.c_str());
-		} else {
-			INFO_LOG(HLE, "Font file not found: %s", fontFilename.c_str());
-		}
+		LoadInternalFontByEntry(fontFilename, entry);
 	}
 }
 
