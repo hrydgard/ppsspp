@@ -25,6 +25,7 @@
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
 #include "../HW/MemoryStick.h"
+#include "Core/CoreTiming.h"
 
 #include "../FileSystems/FileSystem.h"
 #include "../FileSystems/MetaFileSystem.h"
@@ -90,6 +91,7 @@ typedef u64 SceIores;
 typedef u32 (*DeferredAction)(SceUID id, int param);
 DeferredAction defAction = 0;
 u32 defParam = 0;
+int asyncNotifyEvent = -1;
 
 #define SCE_STM_FDIR 0x1000
 #define SCE_STM_FREG 0x2000
@@ -187,14 +189,34 @@ public:
 
 /******************************************************************************/
 
+void __IoCompleteAsyncIO(SceUID id);
+
 static void TellFsThreadEnded (SceUID threadID) {
 	pspFileSystem.ThreadEnded(threadID);
+}
+
+// Async IO seems to work roughly like this:
+// 1. Game calls SceIo*Async() to start the process.
+// 2. This runs a thread with a customizable priority.
+// 3. The operation runs, which takes an inconsistent amount of time from UMD.
+// 4. Once done (regardless of other syscalls), the fd-registered callback is notified.
+// 5. The game can find out via *CB() or sceKernelCheckCallback().
+// 6. At this point, the fd is STILL not usable.
+// 7. One must call sceIoWaitAsync / sceIoWaitAsyncCB / sceIoPollAsync / possibly sceIoGetAsyncStat.
+// 8. Finally, the fd is usable (or closed via sceIoCloseAsync.)  Presumably the io thread has joined now.
+
+// TODO: We don't do any of that yet.
+// For now, let's at least delay the callback mnotification.
+void __IoAsyncNotify(u64 userdata, int cyclesLate) {
+	__IoCompleteAsyncIO((SceUID) userdata);
 }
 
 void __IoInit() {
 	INFO_LOG(HLE, "Starting up I/O...");
 
 	MemoryStick_SetFatState(PSP_FAT_MEMORYSTICK_STATE_ASSIGNED);
+
+	asyncNotifyEvent = CoreTiming::RegisterEvent("IoAsyncNotify", __IoAsyncNotify);
 
 #ifdef _WIN32
 
@@ -242,6 +264,9 @@ void __IoDoState(PointerWrap &p) {
 	if (defAction != NULL) {
 		WARN_LOG(HLE, "FIXME: Savestate failure: deferred IO not saved yet.");
 	}
+
+	p.Do(asyncNotifyEvent);
+	CoreTiming::RestoreRegisterEvent(asyncNotifyEvent, "IoAsyncNotify", __IoAsyncNotify);
 }
 
 void __IoShutdown() {
@@ -987,8 +1012,9 @@ u32 sceIoOpenAsync(const char *filename, int flags, int mode)
 	DEBUG_LOG(HLE, "sceIoOpenAsync() sorta implemented");
 	u32 fd = sceIoOpen(filename, flags, mode);
 
-	// TODO: This can't actually have a callback yet, but if it's set before waiting, it should be called.
-	__IoCompleteAsyncIO(fd);
+	// TODO: Timing is very inconsistent.  From ms0, 10ms - 20ms depending on filesize/dir depth?  From umd, can take > 1s.
+	// For now let's aim low.
+	CoreTiming::ScheduleEvent(usToCycles(100), asyncNotifyEvent, fd);
 
 	// We have to return an fd here, which may have been destroyed when we reach Wait if it failed.
 	if (fd == ERROR_ERRNO_FILE_NOT_FOUND)
