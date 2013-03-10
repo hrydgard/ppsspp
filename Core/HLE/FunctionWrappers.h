@@ -147,8 +147,8 @@ template<int func(u32, u32, u32)> void WrapI_UUU() {
 	RETURN(retval);
 }
 
-template<int func(int, u32, u32, u32, int)> void WrapI_UUUI() {
-	int retval = func(PARAM(0), PARAM(1), PARAM(2), PARAM(3), PARAM(4));
+template<int func(u32, u32, u32, int)> void WrapI_UUUI() {
+	int retval = func(PARAM(0), PARAM(1), PARAM(2), PARAM(3));
 	RETURN(retval);
 }
 
