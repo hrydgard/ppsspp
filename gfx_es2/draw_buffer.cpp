@@ -32,12 +32,13 @@ DrawBuffer::~DrawBuffer() {
 	delete [] verts_;
 }
 
-void DrawBuffer::Init() {
+void DrawBuffer::Init(bool registerAsHolder) {
 	if (inited_)
 		return;
 	inited_ = true;
 	glGenBuffers(1, (GLuint *)&vbo_);
-	register_gl_resource_holder(this);
+	if (registerAsHolder)
+		register_gl_resource_holder(this);
 }
 
 void DrawBuffer::Shutdown() {
@@ -49,7 +50,7 @@ void DrawBuffer::Shutdown() {
 
 void DrawBuffer::GLLost() {
 	inited_ = false;
-	Init();
+	Init(false);
 }
 
 void DrawBuffer::Begin(DrawBufferMode dbmode) {

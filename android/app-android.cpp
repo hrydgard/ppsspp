@@ -46,6 +46,8 @@ static JNIEnv *jniEnvUI;
 std::string frameCommand;
 std::string frameCommandParam;
 
+const bool extraLog = true;
+
 static uint32_t pad_buttons_async_set;
 static uint32_t pad_buttons_async_clear;
 
@@ -120,6 +122,9 @@ extern "C" jboolean Java_com_henrikrydgard_libnative_NativeApp_isLandscape(JNIEn
 
 // For the Back button to work right.
 extern "C" jboolean Java_com_henrikrydgard_libnative_NativeApp_isAtTopLevel(JNIEnv *env, jclass) {
+	if (extraLog) {
+		ILOG("isAtTopLevel");
+	}
 	return NativeIsAtTopLevel();
 }
 
@@ -127,6 +132,8 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
 	(JNIEnv *env, jclass, jint xxres, jint yyres, jint dpi, jstring japkpath,
 	 jstring jdataDir, jstring jexternalDir, jstring jlibraryDir, jstring jinstallID, jboolean juseNativeAudio) {
 	jniEnvUI = env;
+
+	ILOG("NativeApp.init() -- begin");
 
 	memset(&input_state, 0, sizeof(input_state));
 	renderer_inited = false;
@@ -136,7 +143,7 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
 	pad_buttons_async_clear = 0;
 
 	std::string apkPath = GetJavaString(env, japkpath);
-	ILOG("APK path: %s", apkPath.c_str());
+	ILOG("NativeApp::Init: APK path: %s", apkPath.c_str());
 	VFSRegister("", new ZipAssetReader(apkPath.c_str(), "assets/"));
 
 	std::string externalDir = GetJavaString(env, jexternalDir);
@@ -144,7 +151,7 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
 	std::string library_path = GetJavaString(env, jlibraryDir) + "/";
 	std::string installID = GetJavaString(env, jinstallID);
 
-	ILOG("External storage path: %s", externalDir.c_str());
+	ILOG("NativeApp.init(): External storage path: %s", externalDir.c_str());
 
 	std::string app_name;
 	std::string app_nice_name;
@@ -167,24 +174,25 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
 	if (use_native_audio) {
 		AndroidAudio_Init(&NativeMix, library_path);
 	}
+	ILOG("NativeApp.init() -- end");
 }	
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_resume(JNIEnv *, jclass) {
-	ILOG("NativeResume");
+	ILOG("NativeApp.resume() - resuming audio");
 	if (use_native_audio) {
 		AndroidAudio_Resume();
 	}
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_pause(JNIEnv *, jclass) {
-	ILOG("NativePause");
+	ILOG("NativeApp.pause() - pausing audio");
 	if (use_native_audio) {
 		AndroidAudio_Pause();
 	}
 }
  
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_shutdown(JNIEnv *, jclass) {
-	ILOG("NativeShutdown.");
+	ILOG("NativeApp.shutdown() -- begin");
  	if (use_native_audio) {
 		AndroidAudio_Shutdown();
 	}
@@ -196,21 +204,21 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_shutdown(JNIEnv *, jc
 	ILOG("VFSShutdown.");
 	VFSShutdown();
 	net::Shutdown();
+	ILOG("NativeApp.shutdown() -- end");
 }
 
 static jmethodID postCommand;
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayInit(JNIEnv * env, jobject obj) {
-	ILOG("displayInit()");
+	ILOG("NativeApp.displayInit()");
 	if (!renderer_inited) {
-
 		// We default to 240 dpi and all UI code is written to assume it. (DENSITY_HIGH, like Nexus S).
 		// Note that we don't compute dp_xscale and dp_yscale until later! This is so that NativeGetAppInfo
 		// can change the dp resolution if it feels like it.
 		dp_xres = pixel_xres * g_dpi_scale;
 		dp_yres = pixel_yres * g_dpi_scale;
 
-		ILOG("Calling NativeInitGraphics();	dpi = %i, dp_xres = %i, dp_yres = %i", g_dpi, dp_xres, dp_yres);
+		ILOG("Calling NativeInitGraphics(): dpi = %i, dp_xres = %i, dp_yres = %i", g_dpi, dp_xres, dp_yres);
 		NativeInitGraphics();
 
 		dp_xscale = (float)dp_xres / pixel_xres;
@@ -219,18 +227,24 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayInit(JNIE
 	} else {
 		ILOG("Calling NativeDeviceLost();");
 		NativeDeviceLost();
+		ILOG("NativeDeviceLost completed.;");
 	}
+	ILOG("(Re)-fetching method ID to postCommand...");
 	jclass cls = env->GetObjectClass(obj);
 	postCommand = env->GetMethodID(cls, "postCommand", "(Ljava/lang/String;Ljava/lang/String;)V");
 	ILOG("MethodID: %i", (int)postCommand);
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayResize(JNIEnv *, jobject clazz, jint w, jint h) {
-	ILOG("displayResize (%i, %i)!", w, h);
+	ILOG("NativeApp.displayResize(%i, %i)", w, h);
+	// TODO: Move some of the logic from displayInit here?
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayRender(JNIEnv *env, jobject obj) {
+	// Too spammy
+	// ILOG("NativeApp.displayRender()");
 	if (renderer_inited) {
+		// TODO: Look into if these locks are a perf loss
 		{
 			lock_guard guard(input_state.lock);
 			input_state.pad_buttons |= pad_buttons_async_set;
@@ -247,11 +261,12 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayRender(JN
 			lock_guard guard(input_state.lock);
 			EndInputState(&input_state);
 		}
+
 		NativeRender();
 		time_update();
 	} else {
-		ELOG("Ended up in nativeRender even though app has quit.%s", "");
-		// Shouldn't really get here.
+		ELOG("BAD: Ended up in nativeRender even though app has quit.%s", "");
+		// Shouldn't really get here. Let's draw magenta.
 		glstate.depthWrite.set(GL_TRUE);
 		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 		glClearColor(1.0, 0.0, 1.0f, 1.0f);
@@ -271,6 +286,9 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayRender(JN
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_audioRender(JNIEnv*	env, jclass clazz, jshortArray array) {
+	// Too spammy
+	// ILOG("NativeApp.audioRender");
+
 	// The audio thread can pretty safely enable Flush-to-Zero mode on the FPU.
 	EnableFZ();
 

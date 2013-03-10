@@ -29,6 +29,7 @@ void Texture::Destroy() {
 void Texture::GLLost() {
 	ILOG("Reloading lost texture %s", filename_.c_str());
 	Load(filename_.c_str());
+	ILOG("Reloaded lost texture %s", filename_.c_str());
 }
 
 Texture::~Texture() {
@@ -87,8 +88,9 @@ bool Texture::Load(const char *filename) {
 	// They shouldn't really hurt anything else very much though.
 
 	int len = strlen(filename);
-	char fn[256];
-	strcpy(fn, filename);
+	char fn[1024];
+	strncpy(fn, filename, sizeof(fn));
+	fn[1023] = 0;
 	bool zim = false;
 	if (!strcmp("dds", &filename[len-3])) {
 		strcpy(&fn[len-3], "zim");
@@ -119,11 +121,11 @@ bool Texture::Load(const char *filename) {
 	} else
 #endif
 	if (!strcmp("zim", &name[len-3])) {
-		if (!LoadZIM(name)) {
+		if (LoadZIM(name)) {
+			return true;
+		} else {
 			LoadXOR();
 			return false;
-		} else {
-			return true;
 		}
 	}
 	LoadXOR();
@@ -197,7 +199,10 @@ bool Texture::LoadZIM(const char *filename) {
 
 	int flags;
 	int num_levels = ::LoadZIM(filename, &width[0], &height[0], &flags, &image_data[0]);
+	ILOG("ZIM loaded: %i levels", num_levels);
 	if (!num_levels)
+		return false;
+	if (num_levels >= ZIM_MAX_MIP_LEVELS)
 		return false;
 	width_ = width[0];
 	height_ = height[0];
@@ -223,6 +228,9 @@ bool Texture::LoadZIM(const char *filename) {
 	}
 
 	GL_CHECK();
+
+
+	ILOG("Gen-binding texture");
 	glGenTextures(1, &id_);
 	glBindTexture(GL_TEXTURE_2D, id_);
 	SetTextureParameters(flags);

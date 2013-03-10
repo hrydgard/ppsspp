@@ -51,7 +51,7 @@ public:
 	void End();
 
 	// TODO: Enforce these. Now Init is autocalled and shutdown not called.
-	void Init();
+	void Init(bool registerAsHolder = true);
 	void Shutdown();
 	virtual void GLLost();
 

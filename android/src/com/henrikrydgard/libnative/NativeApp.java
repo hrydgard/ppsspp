@@ -10,7 +10,7 @@ public class NativeApp {
 	
 	// These have Android semantics: Resume is always called on bootup, after init
 	public static native void pause();
-	public static native void resume();	
+	public static native void resume();
 	
 	public static native void shutdown();
 	 
