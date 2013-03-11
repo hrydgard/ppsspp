@@ -34,7 +34,7 @@ public:
 
 	void AddSymbol(std::string name, u32 addr, u32 size, int type);
 
-	void InitGL();
+	bool InitGL(std::string *error_string);
 	void BeginFrame();
 	void EndFrame();
 	void ShutdownGL();
