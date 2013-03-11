@@ -27,14 +27,15 @@
 #include "display.h"
 
 // Blackberry specific
-#include <bps/bps.h>			// Blackberry Platform Services
-#include <bps/screen.h>			// Blackberry Window Manager
-#include <bps/navigator.h>		// Invoke Service
+#include <bps/bps.h>            // Blackberry Platform Services
+#include <bps/screen.h>	        // Blackberry Window Manager
+#include <bps/navigator.h>      // Invoke Service
 #include <bps/virtualkeyboard.h>// Keyboard Service
+#include <bps/accelerometer.h>  // Accelerometer
 #include <sys/keycodes.h>
-#include <bps/dialog.h> 		// Dialog Service (Toast=BB10)
+#include <bps/dialog.h>         // Dialog Service (Toast=BB10)
 #ifdef BLACKBERRY10
-#include <bps/vibration.h>		// Vibrate Service (BB10)
+#include <bps/vibration.h>      // Vibrate Service (BB10)
 #endif
 
 EGLDisplay egl_disp;
@@ -355,6 +356,8 @@ int main(int argc, char *argv[]) {
 	screen_create_context(&screen_cxt, 0);
 	//Initialise Blackberry Platform Services
 	bps_initialize();
+	// TODO: Enable/disable based on setting
+	accelerometer_set_update_frequency(FREQ_40_HZ);
 
 	net::Init();
 	init_GLES2(screen_cxt);
@@ -464,6 +467,10 @@ int main(int argc, char *argv[]) {
 				}
 			}
 		}
+		// Handle accelerometer
+		double x, y, z;
+		accelerometer_read_forces(&x, &y, &z);
+		input_state.acc.x = x; input_state.acc.y = y; input_state.acc.z = z;
 		UpdateInputState(&input_state);
 		NativeUpdate(input_state);
 		EndInputState(&input_state);
