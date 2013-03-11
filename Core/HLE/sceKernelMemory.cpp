@@ -946,7 +946,7 @@ bool __KernelAllocateVpl(SceUID uid, u32 size, u32 addrPtr, u32 &error, const ch
 			return false;
 		}
 
-		DEBUG_LOG(HLE, "%s(vpl=%i, size=%i, ptrout=%08x)", funcname, uid, size, addrPtr);
+		VERBOSE_LOG(HLE, "%s(vpl=%i, size=%i, ptrout=%08x)", funcname, uid, size, addrPtr);
 		// Padding (normally used to track the allocation.)
 		u32 allocSize = size + 8;
 		u32 addr = vpl->alloc.Alloc(allocSize, true);
@@ -1073,7 +1073,7 @@ int sceKernelFreeVpl(SceUID uid, u32 addr)
 		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
 	}
 
-	DEBUG_LOG(HLE, "sceKernelFreeVpl(%i, %08x)", uid, addr);
+	VERBOSE_LOG(HLE, "sceKernelFreeVpl(%i, %08x)", uid, addr);
 	u32 error;
 	VPL *vpl = kernelObjects.Get<VPL>(uid, error);
 	if (vpl)

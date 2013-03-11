@@ -554,8 +554,10 @@ void FramebufferManager::DestroyAllFBOs() {
 	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
 		VirtualFramebuffer *vfb = *iter;
 		textureCache_->NotifyFramebufferDestroyed(vfb->fb_address, vfb);
-		if (vfb->fbo)
+		if (vfb->fbo) {
 			fbo_destroy(vfb->fbo);
+			vfb->fbo = 0;
+		}
 		delete vfb;
 	}
 	vfbs_.clear();

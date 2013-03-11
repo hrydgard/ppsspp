@@ -67,7 +67,7 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		// We only need one clear shader, so let's ignore the rest of the bits.
 		id->d[0] = 1;
 	} else {
-		bool enableAlphaTest = (gstate.alphaBlendEnable & 1) && !IsAlphaTestTriviallyTrue();
+		bool enableAlphaTest = (gstate.alphaTestEnable & 1) && !IsAlphaTestTriviallyTrue();
 		bool enableColorTest = (gstate.colorTestEnable & 1);
 		// id->d[0] |= (gstate.clearmode & 1);
 		if (gstate.textureMapEnable & 1) {
@@ -105,7 +105,7 @@ void GenerateFragmentShader(char *buffer) {
 
 	int doTexture = (gstate.textureMapEnable & 1) && !(gstate.clearmode & 1);
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
-	bool enableAlphaTest = (gstate.alphaBlendEnable & 1) && !gstate.isModeClear() && !IsAlphaTestTriviallyTrue();
+	bool enableAlphaTest = (gstate.alphaTestEnable & 1) && !gstate.isModeClear() && !IsAlphaTestTriviallyTrue();
 	bool enableColorTest = (gstate.colorTestEnable & 1) && !gstate.isModeClear();
 	bool enableColorDoubling = (gstate.texfunc & 0x10000) != 0;
 
