@@ -150,7 +150,7 @@ void EmuThread::run()
 	setCurrentThreadName("EmuThread");
 
 	host->UpdateUI();
-	host->InitGL();
+	host->InitGL(0);
 
 	EmuThread_LockDraw(true);
 
