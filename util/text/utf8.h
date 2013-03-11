@@ -35,4 +35,6 @@ private:
 	int index_;
 };
 
+int UTF8StringNonASCIICount(const char *utf8string);
+
 bool UTF8StringHasNonASCII(const char *utf8string);

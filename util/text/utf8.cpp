@@ -394,12 +394,17 @@ int u8_is_locale_utf8(const char *locale)
   return 0;
 }
 
-bool UTF8StringHasNonASCII(const char *utf8string) {
+int UTF8StringNonASCIICount(const char *utf8string) {
 	UTF8 utf(utf8string);
+	int count = 0;
 	while (!utf.end()) {
 		int c = utf.next();
 		if (c > 127)
-			return true;
+			++count;
 	}
-	return false;
+	return count;
+}
+
+bool UTF8StringHasNonASCII(const char *utf8string) {
+	return UTF8StringNonASCIICount(utf8string) > 0;
 }
