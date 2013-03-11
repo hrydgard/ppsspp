@@ -353,6 +353,10 @@ void SettingsScreen::render() {
 		y += stride;
 	}
 	UICheckBox(GEN_ID, x, y, "Tilt to Analog (horizontal)", ALIGN_TOPLEFT, &g_Config.bAccelerometerToAnalogHoriz);
+	
+
+	ui_draw2d.DrawText(UBUNTU24, "Some settings may require a restart to apply.", dp_xres/2, y += stride + 20, 0xFFFFFFFF, ALIGN_HCENTER);
+
 	// UICheckBox(GEN_ID, x, y += stride, "Draw raw framebuffer (for some homebrew)", ALIGN_TOPLEFT, &g_Config.bDisplayFramebuffer);
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres-10), LARGE_BUTTON_WIDTH, "Back", ALIGN_RIGHT | ALIGN_BOTTOM)) {
