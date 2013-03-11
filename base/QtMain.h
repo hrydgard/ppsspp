@@ -8,6 +8,10 @@
 
 #include <QAudioOutput>
 #include <QAudioFormat>
+#ifdef __SYMBIAN32__
+#include <QAccelerometer>
+QTM_USE_NAMESPACE
+#endif
 
 #include "base/display.h"
 #include "base/logging.h"
@@ -50,8 +54,15 @@ public:
 		QGLWidget(parent), dpi_scale(scale)
 	{
 		setAttribute(Qt::WA_AcceptTouchEvents);
+#ifdef __SYMBIAN32__
+		acc = new QAccelerometer(this);
+		acc->start();
+#endif
 	}
 	~MainUI() {
+#ifdef __SYMBIAN32__
+		delete acc;
+#endif
 		NativeShutdownGraphics();
 	}
 
@@ -126,6 +137,7 @@ protected:
 	void paintGL()
 	{
 		SimulateGamepad(&input_state);
+		updateAccelerometer();
 		UpdateInputState(&input_state);
 		NativeUpdate(input_state);
 		EndInputState(&input_state);
@@ -134,8 +146,24 @@ protected:
 		update();
 	}
 
+	void updateAccelerometer()
+	{
+#ifdef __SYMBIAN32__
+		// TODO: Toggle it depending on whether it is enabled
+		QAccelerometerReading *reading = acc->reading();
+		if (reading) {
+			input_state.acc.x = reading->x();
+			input_state.acc.y = reading->y();
+			input_state.acc.z = reading->z();
+		}
+#endif
+	}
+
 private:
 	InputState input_state;
+#ifdef __SYMBIAN32__
+	QAccelerometer* acc;
+#endif
 	float dpi_scale;
 };
 
