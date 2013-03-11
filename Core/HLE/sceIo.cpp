@@ -47,6 +47,7 @@ extern "C" {
 #include "sceDisplay.h"
 
 const int ERROR_ERRNO_FILE_NOT_FOUND               = 0x80010002;
+const int ERROR_ERRNO_FILE_ALREADY_EXISTS          = 0x80010011;
 const int ERROR_MEMSTICK_DEVCTL_BAD_PARAMS         = 0x80220081;
 const int ERROR_MEMSTICK_DEVCTL_TOO_MANY_CALLBACKS = 0x80220082;
 const int ERROR_KERNEL_BAD_FILE_DESCRIPTOR		   = 0x80020323;
@@ -751,27 +752,30 @@ u32 sceIoClose(int id) {
 u32 sceIoRemove(const char *filename) {
 	DEBUG_LOG(HLE, "sceIoRemove(%s)", filename);
 
+	// TODO: This timing isn't necessarily accurate, low end for now.
 	if(!pspFileSystem.GetFileInfo(filename).exists)
-		return ERROR_ERRNO_FILE_NOT_FOUND;
+		return hleDelayResult(ERROR_ERRNO_FILE_NOT_FOUND, "file removed", 100);
 
 	pspFileSystem.RemoveFile(filename);
-	return 0;
+	return hleDelayResult(0, "file removed", 100);
 }
 
 u32 sceIoMkdir(const char *dirname, int mode) {
 	DEBUG_LOG(HLE, "sceIoMkdir(%s, %i)", dirname, mode);
+	// TODO: Improve timing.
 	if (pspFileSystem.MkDir(dirname))
-		return 0;
+		return hleDelayResult(0, "mkdir", 1000);
 	else
-		return -1;
+		return hleDelayResult(ERROR_ERRNO_FILE_ALREADY_EXISTS, "mkdir", 1000);
 }
 
 u32 sceIoRmdir(const char *dirname) {
 	DEBUG_LOG(HLE, "sceIoRmdir(%s)", dirname);
+	// TODO: Improve timing.
 	if (pspFileSystem.RmDir(dirname))
-		return 0;
+		return hleDelayResult(0, "rmdir", 1000);
 	else
-		return -1;
+		return hleDelayResult(ERROR_ERRNO_FILE_NOT_FOUND, "rmdir", 1000);
 }
 
 u32 sceIoSync(const char *devicename, int flag) {
@@ -1053,12 +1057,13 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 u32 sceIoRename(const char *from, const char *to) {
 	DEBUG_LOG(HLE, "sceIoRename(%s, %s)", from, to);
 
-	if(!pspFileSystem.GetFileInfo(from).exists)
-		return ERROR_ERRNO_FILE_NOT_FOUND;
+	// TODO: Timing isn't terribly accurate.
+	if (!pspFileSystem.GetFileInfo(from).exists)
+		return hleDelayResult(ERROR_ERRNO_FILE_NOT_FOUND, "file renamed", 1000);
 
-	if(!pspFileSystem.RenameFile(from, to))
-		WARN_LOG(HLE, "Could not move %s to %s\n",from, to);
-	return 0;
+	if (!pspFileSystem.RenameFile(from, to))
+		WARN_LOG(HLE, "Could not move %s to %s", from, to);
+	return hleDelayResult(0, "file renamed", 1000);
 }
 
 u32 sceIoChdir(const char *dirname) {
@@ -1098,7 +1103,6 @@ u32 sceIoSetAsyncCallback(int id, u32 clbckId, u32 clbckArg)
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
 	if (f)
 	{
-		// TODO: Check replacing / updating?
 		f->callbackID = clbckId;
 		f->callbackArg = clbckArg;
 		return 0;
