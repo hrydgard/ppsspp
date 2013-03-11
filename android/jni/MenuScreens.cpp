@@ -167,11 +167,11 @@ void MenuScreen::render() {
 
 	int w = LARGE_BUTTON_WIDTH + 40;
 
-	ui_draw2d.DrawTextShadow(UBUNTU48, "PPSSPP", dp_xres + xoff - w/2, 80, 0xFFFFFFFF, ALIGN_HCENTER | ALIGN_BOTTOM);
+	ui_draw2d.DrawTextShadow(UBUNTU48, "PPSSPP", dp_xres + xoff - w/2, 75, 0xFFFFFFFF, ALIGN_HCENTER | ALIGN_BOTTOM);
 	ui_draw2d.SetFontScale(0.7f, 0.7f);
-	ui_draw2d.DrawTextShadow(UBUNTU24, PPSSPP_GIT_VERSION, dp_xres + xoff, 80, 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_BOTTOM);
+	ui_draw2d.DrawTextShadow(UBUNTU24, PPSSPP_GIT_VERSION, dp_xres + xoff, 85, 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_BOTTOM);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
-	VLinear vlinear(dp_xres + xoff, 95, 20);
+	VLinear vlinear(dp_xres + xoff, 100, 20);
 
 	if (UIButton(GEN_ID, vlinear, w, "Load...", ALIGN_RIGHT)) {
 #if defined(USING_QT_UI)
@@ -255,6 +255,7 @@ void InGameMenuScreen::render() {
 	UICheckBox(GEN_ID, x, y += 50, "Stretch to display", ALIGN_TOPLEFT, &g_Config.bStretchToDisplay);
 
 	UICheckBox(GEN_ID, x, y += 50, "Hardware Transform", ALIGN_TOPLEFT, &g_Config.bHardwareTransform);
+	UICheckBox(GEN_ID, x, y += 50, "Buffered Rendering", ALIGN_TOPLEFT, &g_Config.bBufferedRendering);
 	bool fs = g_Config.iFrameSkip == 1;
 	UICheckBox(GEN_ID, x, y += 50, "Frameskip", ALIGN_TOPLEFT, &fs);
 	g_Config.iFrameSkip = fs ? 1 : 0;
@@ -314,6 +315,7 @@ void SettingsScreen::render() {
 	int x = 30;
 	int y = 30;
 	int stride = 40;
+	int columnw = 420;
 	UICheckBox(GEN_ID, x, y += stride, "Sound Emulation", ALIGN_TOPLEFT, &g_Config.bEnableSound);
 	if (UICheckBox(GEN_ID, x, y += stride, "Buffered Rendering", ALIGN_TOPLEFT, &g_Config.bBufferedRendering)) {
 		if (gpu)
@@ -321,7 +323,7 @@ void SettingsScreen::render() {
 	}
 	if (g_Config.bBufferedRendering) {
 		bool doubleRes = g_Config.iWindowZoom == 2;
-		if (UICheckBox(GEN_ID, x + 50, y += stride, "2x Render Resolution", ALIGN_TOPLEFT, &doubleRes)) {
+		if (UICheckBox(GEN_ID, x + columnw, y, "2x Render Resolution", ALIGN_TOPLEFT, &doubleRes)) {
 			if (gpu)
 				gpu->Resized();
 		}
@@ -329,20 +331,22 @@ void SettingsScreen::render() {
 	}
 #ifndef __SYMBIAN32__
 	UICheckBox(GEN_ID, x, y += stride, "Hardware Transform", ALIGN_TOPLEFT, &g_Config.bHardwareTransform);
-	UICheckBox(GEN_ID, x, y += stride, "Draw using Stream VBO", ALIGN_TOPLEFT, &g_Config.bUseVBO);
+	UICheckBox(GEN_ID, x + columnw, y, "Draw using Stream VBO", ALIGN_TOPLEFT, &g_Config.bUseVBO);
 #endif
 	UICheckBox(GEN_ID, x, y += stride, "Vertex Cache", ALIGN_TOPLEFT, &g_Config.bVertexCache);
 
 	UICheckBox(GEN_ID, x, y += stride, "JIT (Dynarec)", ALIGN_TOPLEFT, &g_Config.bJit);
 	if (g_Config.bJit)
-		UICheckBox(GEN_ID, x + 450, y, "Fastmem (may be unstable)", ALIGN_TOPLEFT, &g_Config.bFastMemory);
+		UICheckBox(GEN_ID, x + columnw, y, "Fastmem (may be unstable)", ALIGN_TOPLEFT, &g_Config.bFastMemory);
 
 	UICheckBox(GEN_ID, x, y += stride, "On-screen Touch Controls", ALIGN_TOPLEFT, &g_Config.bShowTouchControls);
 	if (g_Config.bShowTouchControls) {
-		UICheckBox(GEN_ID, x + 450, y, "Large Controls", ALIGN_TOPLEFT, &g_Config.bLargeControls);
-		UICheckBox(GEN_ID, x + 50, y += stride, "Show Analog Stick", ALIGN_TOPLEFT, &g_Config.bShowAnalogStick);
+		UICheckBox(GEN_ID, x + columnw, y, "Large Controls", ALIGN_TOPLEFT, &g_Config.bLargeControls);
+		UICheckBox(GEN_ID, x + columnw, y += stride, "Show Analog Stick", ALIGN_TOPLEFT, &g_Config.bShowAnalogStick);
+	} else {
+		y += stride;
 	}
-	UICheckBox(GEN_ID, x, y += 50, "Tilt to Analog (horizontal)", ALIGN_TOPLEFT, &g_Config.bAccelerometerToAnalogHoriz);
+	UICheckBox(GEN_ID, x, y, "Tilt to Analog (horizontal)", ALIGN_TOPLEFT, &g_Config.bAccelerometerToAnalogHoriz);
 	// UICheckBox(GEN_ID, x, y += stride, "Draw raw framebuffer (for some homebrew)", ALIGN_TOPLEFT, &g_Config.bDisplayFramebuffer);
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres-10), LARGE_BUTTON_WIDTH, "Back", ALIGN_RIGHT | ALIGN_BOTTOM)) {
@@ -497,7 +501,6 @@ static const char * credits[] = {
 	"",
 	"",
 	"A fast and portable PSP emulator",
-	"(well, an early prototype of that)",
 	"",
 	"Created by Henrik Rydgard",
 	"",
