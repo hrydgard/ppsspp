@@ -527,7 +527,7 @@ void Idle(int maxIdle)
 		}
 	}
 
-	DEBUG_LOG(CPU, "Idle for %i cycles! (%f ms)", cyclesDown, cyclesDown / (float)(CPU_HZ * 0.001f));
+	VERBOSE_LOG(CPU, "Idle for %i cycles! (%f ms)", cyclesDown, cyclesDown / (float)(CPU_HZ * 0.001f));
 
 	idledCycles += cyclesDown;
 	currentMIPS->downcount -= cyclesDown;

@@ -66,7 +66,7 @@ static bool inInterrupt;
 
 void sceKernelCpuSuspendIntr()
 {
-	//LOG(HLE,"sceKernelCpuSuspendIntr");	// very spammy
+	VERBOSE_LOG(HLE, "sceKernelCpuSuspendIntr");
 	int returnValue;
 	if (__InterruptsEnabled())
 	{
@@ -82,7 +82,7 @@ void sceKernelCpuSuspendIntr()
 
 void sceKernelCpuResumeIntr(u32 enable)
 {
-	//LOG(HLE,"sceKernelCpuResumeIntr(%i)", enable);	// very spammy
+	VERBOSE_LOG(HLE, "sceKernelCpuResumeIntr(%i)", enable);
 	if (enable)
 	{
 		__EnableInterrupts();

@@ -30,6 +30,7 @@
 #define	MAX_MESSAGES 8000   
 #define MAX_MSGLEN  1024
 
+extern const char *hleCurrentThreadName;
 
 // pure virtual interface
 class LogListener

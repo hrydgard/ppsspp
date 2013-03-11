@@ -22,6 +22,7 @@
 #define	WARNING_LEVEL 3  // Something is suspicious.
 #define	INFO_LEVEL    4  // General information.
 #define	DEBUG_LEVEL   5  // Detailed debugging - might make things slow.
+#define	VERBOSE_LEVEL 6  // Noisy debugging - sometimes needed but usually unimportant.
 
 #if !defined(_WIN32) && !defined(PANDORA)
 #include <signal.h>
@@ -64,6 +65,7 @@ enum LOG_LEVELS {
 	LWARNING = WARNING_LEVEL,
 	LINFO = INFO_LEVEL,
 	LDEBUG = DEBUG_LEVEL,
+	LVERBOSE = VERBOSE_LEVEL,
 };
 
 #define LOGTYPES_LEVELS LogTypes::LOG_LEVELS
@@ -92,11 +94,12 @@ void GenericLog(LOGTYPES_LEVELS level, LOGTYPES_TYPE type,
 		GenericLog(v, t, __FILE__, __LINE__, __VA_ARGS__); \
 	}
 
-#define ERROR_LOG(t,...)  { GENERIC_LOG(LogTypes::t, LogTypes::LERROR, __VA_ARGS__) }
-#define WARN_LOG(t,...)   { GENERIC_LOG(LogTypes::t, LogTypes::LWARNING, __VA_ARGS__) }
-#define NOTICE_LOG(t,...) { GENERIC_LOG(LogTypes::t, LogTypes::LNOTICE, __VA_ARGS__) }
-#define INFO_LOG(t,...)   { GENERIC_LOG(LogTypes::t, LogTypes::LINFO, __VA_ARGS__) }
-#define DEBUG_LOG(t,...)  { GENERIC_LOG(LogTypes::t, LogTypes::LDEBUG, __VA_ARGS__) }
+#define ERROR_LOG(t,...)   { GENERIC_LOG(LogTypes::t, LogTypes::LERROR, __VA_ARGS__) }
+#define WARN_LOG(t,...)    { GENERIC_LOG(LogTypes::t, LogTypes::LWARNING, __VA_ARGS__) }
+#define NOTICE_LOG(t,...)  { GENERIC_LOG(LogTypes::t, LogTypes::LNOTICE, __VA_ARGS__) }
+#define INFO_LOG(t,...)    { GENERIC_LOG(LogTypes::t, LogTypes::LINFO, __VA_ARGS__) }
+#define DEBUG_LOG(t,...)   { GENERIC_LOG(LogTypes::t, LogTypes::LDEBUG, __VA_ARGS__) }
+#define VERBOSE_LOG(t,...) { GENERIC_LOG(LogTypes::t, LogTypes::LVERBOSE, __VA_ARGS__) }
 
 #if MAX_LOGLEVEL >= DEBUG_LEVEL
 #define _dbg_assert_(_t_, _a_) \

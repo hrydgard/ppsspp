@@ -65,6 +65,7 @@ public:
 	{
 		switch (level)
 		{
+		case LogTypes::LVERBOSE:
 		case LogTypes::LDEBUG:
 		case LogTypes::LINFO:
 			ILOG("%s", msg);
