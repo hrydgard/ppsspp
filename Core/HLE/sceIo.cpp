@@ -383,6 +383,9 @@ void __IoSchedAsync(FileNode *f, SceUID fd, int usec) {
 }
 
 u32 sceIoGetstat(const char *filename, u32 addr) {
+	// TODO: Improve timing (although this seems normally slow..)
+	int usec = 1000;
+
 	SceIoStat stat;
 	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
 	if (info.exists) {
@@ -390,14 +393,14 @@ u32 sceIoGetstat(const char *filename, u32 addr) {
 		if (Memory::IsValidAddress(addr)) {
 			Memory::WriteStruct(addr, &stat);
 			DEBUG_LOG(HLE, "sceIoGetstat(%s, %08x) : sector = %08x", filename, addr, info.startSector);
-			return 0;
+			return hleDelayResult(0, "io getstat", usec);
 		} else {
 			ERROR_LOG(HLE, "sceIoGetstat(%s, %08x) : bad address", filename, addr);
-			return -1;
+			return hleDelayResult(-1, "io getstat", usec);
 		}
 	} else {
 		DEBUG_LOG(HLE, "sceIoGetstat(%s, %08x) : FILE NOT FOUND", filename, addr);
-		return ERROR_ERRNO_FILE_NOT_FOUND;
+		return hleDelayResult(ERROR_ERRNO_FILE_NOT_FOUND, "io getstat", usec);
 	}
 }
 
@@ -715,22 +718,25 @@ u32 sceIoOpen(const char* filename, int flags, int mode) {
 	FileNode *f = __IoOpen(filename, flags, mode);
 	if (f == NULL) {
 		ERROR_LOG(HLE, "ERROR_ERRNO_FILE_NOT_FOUND=sceIoOpen(%s, %08x, %08x) - file not found", filename, flags, mode);
-		return ERROR_ERRNO_FILE_NOT_FOUND;
+		// Timing is not accurate, aiming low for now.
+		return hleDelayResult(ERROR_ERRNO_FILE_NOT_FOUND, "file opened", 100);
 	}
 
 	SceUID id = f->GetUID();
 	DEBUG_LOG(HLE, "%i=sceIoOpen(%s, %08x, %08x)", id, filename, flags, mode);
-	return id;
+	// Timing is not accurate, aiming low for now.
+	return hleDelayResult(id, "file opened", 100);
 }
 
 u32 sceIoClose(int id) {
 	u32 error;
 	DEBUG_LOG(HLE, "sceIoClose(%d)", id);
-	FileNode *f = kernelObjects.Get < FileNode > (id, error);
+	FileNode *f = kernelObjects.Get<FileNode>(id, error);
 	if(f && f->npdrm){
 		pgd_close(f->pgdInfo);
 	}
-	return kernelObjects.Destroy < FileNode > (id);
+	// Timing is not accurate, aiming low for now.
+	return hleDelayResult(kernelObjects.Destroy<FileNode>(id), "file closed", 100);
 }
 
 u32 sceIoRemove(const char *filename) {
@@ -1056,13 +1062,6 @@ int sceIoChangeAsyncPriority(int id, int priority)
 {
 	ERROR_LOG(HLE, "UNIMPL sceIoChangeAsyncPriority(%d, %d)", id, priority);
 	return 0;
-}
-
-u32 __IoClose(SceUID actedFd, int closedFd)
-{
-	DEBUG_LOG(HLE, "Deferred IoClose(%d, %d)", actedFd, closedFd);
-	__IoCompleteAsyncIO(closedFd);
-	return kernelObjects.Destroy < FileNode > (closedFd);
 }
 
 int sceIoCloseAsync(int id)
