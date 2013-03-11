@@ -410,6 +410,11 @@ u32 scePsmfSpecifyStreamWithStreamTypeNumber(u32 psmfStruct, u32 streamType, u32
 	return 0;
 }
 
+u32 scePsmfSpecifyStream(u32 psmfStruct, u32 streamNum) {
+	ERROR_LOG(HLE, "UNIMPL scePsmfSpecifyStream(%08x, %08x)", psmfStruct, streamNum);
+	return 0;
+}
+
 u32 scePsmfGetVideoInfo(u32 psmfStruct, u32 videoInfoAddr) {
 	INFO_LOG(HLE, "scePsmfGetVideoInfo(%08x, %08x)", psmfStruct, videoInfoAddr);
 	Psmf *psmf = getPsmf(psmfStruct);
@@ -935,7 +940,7 @@ const HLEFunction scePsmf[] = {
 	{0x28240568, WrapU_U<scePsmfGetCurrentStreamNumber>, "scePsmfGetCurrentStreamNumber"},
 	{0x1E6D9013, WrapU_UUU<scePsmfSpecifyStreamWithStreamType>, "scePsmfSpecifyStreamWithStreamType"},
 	{0x0C120E1D, WrapU_UUU<scePsmfSpecifyStreamWithStreamTypeNumber>, "scePsmfSpecifyStreamWithStreamTypeNumber"},
-	{0x4BC9BDE0, 0, "scePsmfSpecifyStream"},
+	{0x4BC9BDE0, WrapU_UU<scePsmfSpecifyStream>, "scePsmfSpecifyStream"},
 	{0x76D3AEBA, WrapU_UU<scePsmfGetPresentationStartTime>, "scePsmfGetPresentationStartTime"},
 	{0xBD8AE0D8, WrapU_UU<scePsmfGetPresentationEndTime>, "scePsmfGetPresentationEndTime"},
 	{0xEAED89CD, WrapU_U<scePsmfGetNumberOfStreams>, "scePsmfGetNumberOfStreams"},
