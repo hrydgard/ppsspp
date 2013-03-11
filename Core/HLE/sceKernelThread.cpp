@@ -1989,11 +1989,12 @@ static void __KernelSleepThread(bool doCallbacks) {
 		return;
 	}
 
-	DEBUG_LOG(HLE,"sceKernelSleepThread() - wakeupCount decremented to %i", thread->nt.wakeupCount);
 	if (thread->nt.wakeupCount > 0) {
 		thread->nt.wakeupCount--;
+		DEBUG_LOG(HLE, "sceKernelSleepThread() - wakeupCount decremented to %i", thread->nt.wakeupCount);
 		RETURN(0);
 	} else {
+		VERBOSE_LOG(HLE, "sceKernelSleepThread()", thread->nt.wakeupCount);
 		RETURN(0);
 		__KernelWaitCurThread(WAITTYPE_SLEEP, 0, 0, 0, doCallbacks, "thread slept");
 	}
@@ -2007,7 +2008,7 @@ void sceKernelSleepThread()
 //the homebrew PollCallbacks
 void sceKernelSleepThreadCB()
 {
-	DEBUG_LOG(HLE, "sceKernelSleepThreadCB()");
+	VERBOSE_LOG(HLE, "sceKernelSleepThreadCB()");
 	__KernelSleepThread(true);
 	__KernelCheckCallbacks();
 }
