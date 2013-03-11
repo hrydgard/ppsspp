@@ -238,7 +238,8 @@ void InGameMenuScreen::render() {
 	DrawBackground(1.0f);
 
 	const char *title;
-	if (UTF8StringHasNonASCII(game_title.c_str())) {
+	// Try to ignore (tm) etc.
+	if (UTF8StringNonASCIICount(game_title.c_str()) > 2) {
 		title = "(can't display japanese title)";
 	} else {
 		title = game_title.c_str();
