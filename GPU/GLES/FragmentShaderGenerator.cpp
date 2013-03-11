@@ -46,10 +46,8 @@ static bool IsAlphaTestTriviallyTrue() {
 	case GE_COMP_ALWAYS:
 		return true;
 	case GE_COMP_GEQUAL:
-	case GE_COMP_GREATER:
 		if (alphaTestRef == 0)
 			return true;
-	case GE_COMP_LESS:
 	case GE_COMP_LEQUAL:
 		if (alphaTestRef == 255)
 			return true;
