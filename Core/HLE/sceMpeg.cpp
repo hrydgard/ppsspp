@@ -373,6 +373,7 @@ void __MpegInit(bool useMediaEngine_) {
 	streamIdGen = 1;
 	fakeMode = !useMediaEngine_;
 	isCurrentMpegAnalyzed = false;
+	useMediaEngine = useMediaEngine_;
 	actionPostPut = __KernelRegisterActionType(PostPutAction::Create);
 }
 
@@ -399,8 +400,13 @@ void __MpegShutdown() {
 
 u32 sceMpegInit()
 {
-	WARN_LOG(HLE, "sceMpegInit()");
-	return 0;
+	if (useMediaEngine){
+		WARN_LOG(HLE, "sceMpegInit() : Media Engine Enabled");
+		return 0;
+	} else {
+		WARN_LOG(HLE, "sceMpegInit() : Media Engine Disabled");
+		return -1;
+	}
 }
 
 u32 sceMpegRingbufferQueryMemSize(int packets)
@@ -522,10 +528,6 @@ int sceMpegAvcDecodeMode(u32 mpeg, u32 modeAddr)
 
 int sceMpegQueryStreamOffset(u32 mpeg, u32 bufferAddr, u32 offsetAddr)
 {
-	if (!g_Config.bUseMediaEngine){
-		WARN_LOG(HLE, "Media Engine disabled");
-		return -1;
-	}
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
 		WARN_LOG(HLE, "sceMpegQueryStreamOffset(%08x, %08x, %08x): bad mpeg handle", mpeg, bufferAddr, offsetAddr);
