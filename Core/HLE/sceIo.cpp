@@ -46,11 +46,10 @@ extern "C" {
 // For headless screenshots.
 #include "sceDisplay.h"
 
-const int ERROR_ERRNO_FILE_NOT_FOUND = 0x80010002;
-
-#define ERROR_MEMSTICK_DEVCTL_BAD_PARAMS         0x80220081
-#define ERROR_MEMSTICK_DEVCTL_TOO_MANY_CALLBACKS 0x80220082
-#define ERROR_KERNEL_BAD_FILE_DESCRIPTOR		 0x80020323
+const int ERROR_ERRNO_FILE_NOT_FOUND               = 0x80010002;
+const int ERROR_MEMSTICK_DEVCTL_BAD_PARAMS         = 0x80220081;
+const int ERROR_MEMSTICK_DEVCTL_TOO_MANY_CALLBACKS = 0x80220082;
+const int ERROR_KERNEL_BAD_FILE_DESCRIPTOR		   = 0x80020323;
 
 #define PSP_DEV_TYPE_ALIAS 0x20
 
@@ -440,7 +439,6 @@ u32 npdrmRead(FileNode *f, u8 *data, int size) {
 	return size;
 }
 
-//Not sure about wrapping it or not, since the log seems to take the address of the data var
 int __IoRead(int id, u32 data_addr, int size) {
 	if (id == 3) {
 		DEBUG_LOG(HLE, "sceIoRead STDIN");
@@ -459,7 +457,7 @@ int __IoRead(int id, u32 data_addr, int size) {
 			if(f->npdrm){
 				return npdrmRead(f, data, size);
 			}else{
-				return pspFileSystem.ReadFile(f->handle, data, size);
+				return (int) pspFileSystem.ReadFile(f->handle, data, size);
 			}
 		} else {
 			ERROR_LOG(HLE, "sceIoRead Reading into bad pointer %08x", data_addr);
@@ -499,8 +497,7 @@ u32 sceIoReadAsync(int id, u32 data_addr, int size) {
 	}
 }
 
-u32 sceIoWrite(int id, void *data_ptr, int size) 
-{
+int __IoWrite(int id, void *data_ptr, int size) {
 	if (id == 2) {
 		//stderr!
 		const char *str = (const char*) data_ptr;
@@ -518,28 +515,40 @@ u32 sceIoWrite(int id, void *data_ptr, int size)
 	u32 error;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
 	if (f) {
-		if(!(f->openMode & FILEACCESS_WRITE))
-		{
+		if(!(f->openMode & FILEACCESS_WRITE)) {
 			return ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
 		}
-		else
-		{
-			u8 *data = (u8*) data_ptr;
-			f->asyncResult = pspFileSystem.WriteFile(f->handle, data, size);
-			return (u32) f->asyncResult;
-		}
+		return (int) pspFileSystem.WriteFile(f->handle, (u8*) data_ptr, size);
 	} else {
 		ERROR_LOG(HLE, "sceIoWrite ERROR: no file open");
-		return error;
+		return (s32) error;
 	}
 }
 
-u32 sceIoWriteAsync(int id, void *data_ptr, int size) 
-{
-	DEBUG_LOG(HLE, "sceIoWriteAsync(%d)", id);
-	sceIoWrite(id, data_ptr, size);
-	__IoCompleteAsyncIO(id);
-	return 0;
+u32 sceIoWrite(int id, u32 data_addr, int size) {
+	int result = __IoWrite(id, Memory::GetPointer(data_addr), size);
+	if (result >= 0) {
+		DEBUG_LOG(HLE, "%x=sceIoWrite(%d, %08x, %x)", result, id, data_addr, size);
+		// TODO: Timing is probably not very accurate, low estimate.
+		return hleDelayResult(result, "io write", result / 100);
+	}
+	else
+		return result;
+}
+
+u32 sceIoWriteAsync(int id, u32 data_addr, int size) {
+	u32 error;
+	FileNode *f = kernelObjects.Get < FileNode > (id, error);
+	if (f) {
+		f->asyncResult = __IoWrite(id, Memory::GetPointer(data_addr), size);
+		// TODO: Not sure what the correct delay is (and technically we shouldn't read into the buffer yet...)
+		__IoSchedAsync(f, id, size / 100);
+		DEBUG_LOG(HLE, "%llx=sceIoWriteAsync(%d, %08x, %x)", f->asyncResult, id, data_addr, size);
+		return 0;
+	} else {
+		ERROR_LOG(HLE, "sceIoWriteAsync: bad file %d", id);
+		return error;
+	}
 }
 
 u32 sceIoGetDevType(int id) 
@@ -1445,8 +1454,8 @@ const HLEFunction IoFileMgrForUser[] = {
 	{ 0xA12A0514, &WrapU_IUU<sceIoSetAsyncCallback>, "sceIoSetAsyncCallback" },
 	{ 0xab96437f, &WrapU_CI<sceIoSync>, "sceIoSync" },
 	{ 0x6d08a871, &WrapU_C<sceIoUnassign>, "sceIoUnassign" },
-	{ 0x42EC03AC, &WrapU_IVI<sceIoWrite>, "sceIoWrite" }, //(int fd, void *data, int size);
-	{ 0x0facab19, &WrapU_IVI<sceIoWriteAsync>, "sceIoWriteAsync" },
+	{ 0x42EC03AC, &WrapU_IUI<sceIoWrite>, "sceIoWrite" }, //(int fd, void *data, int size);
+	{ 0x0facab19, &WrapU_IUI<sceIoWriteAsync>, "sceIoWriteAsync" },
 	{ 0x35dbd746, &WrapI_IU<sceIoWaitAsyncCB>, "sceIoWaitAsyncCB" },
 	{ 0xe23eec33, &WrapI_IU<sceIoWaitAsync>, "sceIoWaitAsync" },
 };
