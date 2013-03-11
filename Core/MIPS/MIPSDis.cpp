@@ -40,6 +40,22 @@ u32 disPC;
 
 namespace MIPSDis
 {
+	// One shot, not re-entrant.
+	const char *SignedHex(int i)
+	{
+		static char temp[32];
+		int offset = 0;
+		if (i < 0)
+		{
+			temp[0] = '-';
+			offset = 1;
+			i = -i;
+		}
+
+		sprintf(&temp[offset], "0x%X", i);
+		return temp;
+	}
+
 	void Dis_Generic(u32 op, char *out)
 	{
 		sprintf(out, "%s\t --- unknown ---", MIPSGetName(op));
@@ -76,7 +92,7 @@ namespace MIPSDis
 		int ft = _FT;
 		int rs = _RS;
 		const char *name = MIPSGetName(op);
-		sprintf(out, "%s\t%s, 0x%X(%s)",name,FN(ft),offset,RN(rs));
+		sprintf(out, "%s\t%s, %s(%s)",name,FN(ft),SignedHex(offset),RN(rs));
 	}
 	void Dis_FPUComp(u32 op, char *out)
 	{
@@ -151,7 +167,20 @@ namespace MIPSDis
 		int rt = _RT;
 		int rs = _RS;
 		const char *name = MIPSGetName(op);
-		sprintf(out, "%s\t%s, %s, 0x%X",name,RN(rt),RN(rs),imm);
+		switch (op >> 26)
+		{
+		case 8: //addi
+		case 9: //addiu
+		case 10: //slti
+			sprintf(out, "%s\t%s, %s, %s",name,RN(rt),RN(rs),SignedHex(imm));
+			break;
+		case 11: //sltiu
+			sprintf(out, "%s\t%s, %s, 0x%X",name,RN(rt),RN(rs),(u32)imm);
+			break;
+		default:
+			sprintf(out, "%s\t%s, %s, 0x%X",name,RN(rt),RN(rs),(u32)imm);
+			break;
+		}
 	}
 	void Dis_ori(u32 op, char *out)
 	{
@@ -160,9 +189,9 @@ namespace MIPSDis
 		int rs = _RS;
 		const char *name = MIPSGetName(op);
 		if (rs == 0)
-			sprintf(out, "li\t%s, 0x%X",RN(rt),imm);
+			sprintf(out, "li\t%s, %s",RN(rt),SignedHex(imm));
 		else
-			sprintf(out, "%s\t%s, %s, 0x%X",name,RN(rt),RN(rs),imm);
+			sprintf(out, "%s\t%s, %s, %s",name,RN(rt),RN(rs),SignedHex(imm));
 	}
 
 	void Dis_IType1(u32 op, char *out)
@@ -170,7 +199,7 @@ namespace MIPSDis
 		int imm = (signed short)(op&0xFFFF);
 		int rt = _RT;
 		const char *name = MIPSGetName(op);
-		sprintf(out, "%s\t%s, 0x%X",name,RN(rt),imm);
+		sprintf(out, "%s\t%s, %s",name,RN(rt),SignedHex(imm));
 	}
 
 	void Dis_addi(u32 op, char *out)
@@ -179,7 +208,7 @@ namespace MIPSDis
 		int rt = _RT;
 		int rs = _RS;
 		if (rs == 0)
-			sprintf(out, "li\t%s, 0x%X",RN(rt),imm);
+			sprintf(out, "li\t%s, %s",RN(rt),SignedHex(imm));
 		else
 			Dis_IType(op,out);
 	}
@@ -190,7 +219,7 @@ namespace MIPSDis
 		int rt = _RT;
 		int rs = _RS;
 		const char *name = MIPSGetName(op);
-		sprintf(out, "%s\t%s, 0x%X(%s)",name,RN(rt),imm,RN(rs));
+		sprintf(out, "%s\t%s, %s(%s)",name,RN(rt),SignedHex(imm),RN(rs));
 	}
 
 	void Dis_RType2(u32 op, char *out)
@@ -237,7 +266,7 @@ namespace MIPSDis
 			name = "rotr";
 		if (((op & 0x3f) == 6) && sa == 1)
 			name = "rotrv";
-		sprintf(out, "%s\t%s, %s, 0x%X",name,RN(rd),RN(rt),sa);
+		sprintf(out, "%s\t%s, %s, %s",name,RN(rd),RN(rt),SignedHex(sa));
 	}
 
 	void Dis_VarShiftType(u32 op, char *out)
@@ -271,13 +300,13 @@ namespace MIPSDis
 		case 0x0: //ext
 			{
 				int size = _SIZE + 1;
-				sprintf(out,"%s\t%s, %s, 0x%X, 0x%X",name,RN(Rt),RN(rs),pos,size);
+				sprintf(out,"%s\t%s, %s, %s, %s",name,RN(Rt),RN(rs),SignedHex(pos),SignedHex(size));
 			}
 			break;
 		case 0x4: // ins
 			{
 				int size = (_SIZE + 1) - pos;
-				sprintf(out,"%s\t%s, %s, 0x%X, 0x%X",name,RN(Rt),RN(rs),pos,size);
+				sprintf(out,"%s\t%s, %s, %s, %s",name,RN(Rt),RN(rs),SignedHex(pos),SignedHex(size));
 			}
 			break;
 		}
