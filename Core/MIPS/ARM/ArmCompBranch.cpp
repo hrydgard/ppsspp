@@ -324,26 +324,19 @@ void Jit::Comp_Jump(u32 op)
 	u32 off = ((op & 0x03FFFFFF) << 2);
 	u32 targetAddr = (js.compilerPC & 0xF0000000) | off;
 
-	u32 delaySlotOp = Memory::ReadUnchecked_U32(js.compilerPC + 4);
-	bool delaySlotIsNice = (op >> 26) == 2 || IsDelaySlotNiceReg(op, delaySlotOp, MIPS_REG_RA);
-	CONDITIONAL_NICE_DELAYSLOT;
-	if (!likely && delaySlotIsNice)
-		CompileDelaySlot(DELAYSLOT_NICE);
-	FlushAll();
-
 	switch (op >> 26) 
 	{
 	case 2: //j
-		if (!delaySlotIsNice)
-			CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
+		CompileDelaySlot(DELAYSLOT_NICE);
+		FlushAll();
 		WriteExit(targetAddr, 0);
 		break;
 
 	case 3: //jal
-		MOVI2R(R0, js.compilerPC + 8);
-		STR(R0, CTXREG, MIPS_REG_RA * 4);
-		if (!delaySlotIsNice)
-			CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
+		gpr.MapReg(MIPS_REG_RA, MAP_NOINIT | MAP_DIRTY);
+		MOVI2R(gpr.R(MIPS_REG_RA), js.compilerPC + 8);
+		CompileDelaySlot(DELAYSLOT_NICE);
+		FlushAll();
 		WriteExit(targetAddr, 0);
 		break;
 
