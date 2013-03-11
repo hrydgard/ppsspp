@@ -38,10 +38,30 @@
 
 // GL_NV_shader_framebuffer_fetch looks interesting....
 
+static bool IsAlphaTestTriviallyTrue() {
+	int alphaTestFunc = gstate.alphatest & 7;
+	int alphaTestRef = (gstate.alphatest >> 8) & 0xFF;
+	
+	switch (alphaTestFunc) {
+	case GE_COMP_ALWAYS:
+		return true;
+	case GE_COMP_GEQUAL:
+	case GE_COMP_GREATER:
+		if (alphaTestRef == 0)
+			return true;
+	case GE_COMP_LESS:
+	case GE_COMP_LEQUAL:
+		if (alphaTestRef == 255)
+			return true;
+	default:
+		return false;
+	}
+}
+
+
 // Here we must take all the bits of the gstate that determine what the fragment shader will
 // look like, and concatenate them together into an ID.
-void ComputeFragmentShaderID(FragmentShaderID *id)
-{
+void ComputeFragmentShaderID(FragmentShaderID *id) {
 	memset(&id->d[0], 0, sizeof(id->d));
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
 	int lmode = (gstate.lmode & 1) && (gstate.lightingEnable & 1);
@@ -49,6 +69,8 @@ void ComputeFragmentShaderID(FragmentShaderID *id)
 		// We only need one clear shader, so let's ignore the rest of the bits.
 		id->d[0] = 1;
 	} else {
+		bool enableAlphaTest = (gstate.alphaBlendEnable & 1) && !IsAlphaTestTriviallyTrue();
+		bool enableColorTest = (gstate.colorTestEnable & 1);
 		// id->d[0] |= (gstate.clearmode & 1);
 		if (gstate.textureMapEnable & 1) {
 			id->d[0] |= 1 << 1;
@@ -58,11 +80,11 @@ void ComputeFragmentShaderID(FragmentShaderID *id)
 		}
 		id->d[0] |= (lmode & 1) << 7;
 		id->d[0] |= (gstate.alphaTestEnable & 1) << 8;
-		if (gstate.alphaTestEnable & 1)
+		if (enableAlphaTest)
 			id->d[0] |= (gstate.alphatest & 0x7) << 9;	 // alpha test func
 		id->d[0] |= (gstate.colorTestEnable & 1) << 12;
-		if (gstate.colorTestEnable & 1)
-			id->d[0] |= (gstate.colortest & 0x3) << 13;	 // alpha test func
+		if (enableColorTest)
+			id->d[0] |= (gstate.colortest & 0x3) << 13;	 // color test func
 		id->d[0] |= (enableFog & 1) << 15;
 	}
 }
@@ -71,8 +93,7 @@ void ComputeFragmentShaderID(FragmentShaderID *id)
 // Also, logic ops etc, of course. Urgh.
 // We could do all this with booleans, but I don't trust the shader compilers on
 // Android devices to be anything but stupid.
-void GenerateFragmentShader(char *buffer)
-{
+void GenerateFragmentShader(char *buffer) {
 	char *p = buffer;
 
 
@@ -86,7 +107,7 @@ void GenerateFragmentShader(char *buffer)
 
 	int doTexture = (gstate.textureMapEnable & 1) && !(gstate.clearmode & 1);
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
-	bool enableAlphaTest = (gstate.alphaTestEnable & 1) && !gstate.isModeClear();
+	bool enableAlphaTest = (gstate.alphaBlendEnable & 1) && !gstate.isModeClear() && !IsAlphaTestTriviallyTrue();
 	bool enableColorTest = (gstate.colorTestEnable & 1) && !gstate.isModeClear();
 	bool enableColorDoubling = (gstate.texfunc & 0x10000) != 0;
 
