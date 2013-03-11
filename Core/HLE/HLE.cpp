@@ -65,7 +65,9 @@ void hleDelayResultFinish(u64 userdata, int cycleslate)
 	u32 error;
 	SceUID threadID = (SceUID) userdata;
 	SceUID verify = __KernelGetWaitID(threadID, WAITTYPE_DELAY, error);
-	SceUID result = __KernelGetWaitValue(threadID, error);
+	// The top 32 bits of userdata are the top 32 bits of the 64 bit result.
+	// We can't just put it all in userdata because we need to know the threadID...
+	u64 result = (userdata & 0xFFFFFFFF00000000ULL) | __KernelGetWaitValue(threadID, error);
 
 	if (error == 0 && verify == 1)
 		__KernelResumeThreadFromWait(threadID, result);
@@ -332,6 +334,14 @@ u32 hleDelayResult(u32 result, const char *reason, int usec)
 {
 	CoreTiming::ScheduleEvent(usToCycles(usec), delayedResultEvent, __KernelGetCurThread());
 	__KernelWaitCurThread(WAITTYPE_DELAY, 1, result, 0, false, reason);
+	return result;
+}
+
+u64 hleDelayResult(u64 result, const char *reason, int usec)
+{
+	u64 param = (result & 0xFFFFFFFF00000000) | __KernelGetCurThread();
+	CoreTiming::ScheduleEvent(usToCycles(usec), delayedResultEvent, param);
+	__KernelWaitCurThread(WAITTYPE_DELAY, 1, (u32) result, 0, false, reason);
 	return result;
 }
 
