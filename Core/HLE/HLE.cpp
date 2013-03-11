@@ -65,7 +65,9 @@ void hleDelayResultFinish(u64 userdata, int cycleslate)
 	u32 error;
 	SceUID threadID = (SceUID) userdata;
 	SceUID verify = __KernelGetWaitID(threadID, WAITTYPE_DELAY, error);
-	u64 result = (userdata ^ threadID) | __KernelGetWaitValue(threadID, error);
+	// The top 32 bits of userdata are the top 32 bits of the 64 bit result.
+	// We can't just put it all in userdata because we need to know the threadID...
+	u64 result = (userdata & 0xFFFFFFFF00000000ULL) | __KernelGetWaitValue(threadID, error);
 
 	if (error == 0 && verify == 1)
 		__KernelResumeThreadFromWait(threadID, result);
