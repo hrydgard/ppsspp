@@ -27,8 +27,9 @@
 #include "sceKernel.h"
 #include "sceUtility.h"
 
-#define ATRAC_ERROR_API_FAIL		0x80630002
-#define ATRAC_ERROR_ALL_DATA_DECODED	0x80630024
+#define ATRAC_ERROR_API_FAIL                 0x80630002
+#define ATRAC_ERROR_ALL_DATA_DECODED         0x80630024
+#define ATRAC_ERROR_SECOND_BUFFER_NOT_NEEDED 0x80630022
 
 #define AT3_MAGIC		0x0270
 #define AT3_PLUS_MAGIC		0xFFFE
@@ -371,9 +372,10 @@ u32 sceAtracGetSecondBufferInfo(int atracID, u32 outposAddr, u32 outBytesAddr)
 	if (!atrac) {
 		//return -1;
 	}
-	Memory::Write_U32(0, outposAddr); // outpos
-	Memory::Write_U32(0x10000, outBytesAddr); // outBytes
-	return 0;
+	Memory::Write_U32(0, outposAddr);
+	Memory::Write_U32(0x10000, outBytesAddr);
+	// TODO: Maybe don't write the above?
+	return ATRAC_ERROR_SECOND_BUFFER_NOT_NEEDED;
 }
 
 u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoopStartSampleAddr, u32 outLoopEndSampleAddr)
