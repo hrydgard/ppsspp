@@ -409,18 +409,21 @@ void Jit::Comp_Jump(u32 op)
 	}
 	u32 off = ((op & 0x3FFFFFF) << 2);
 	u32 targetAddr = (js.compilerPC & 0xF0000000) | off;
-	CompileDelaySlot(DELAYSLOT_NICE);
-	FlushAll();
 
 	switch (op >> 26) 
 	{
 	case 2: //j
+		CompileDelaySlot(DELAYSLOT_NICE);
+		FlushAll();
 		CONDITIONAL_LOG_EXIT(targetAddr);
 		WriteExit(targetAddr, 0);
-		break; 
+		break;
 
 	case 3: //jal
-		MOV(32, M(&mips_->r[MIPS_REG_RA]), Imm32(js.compilerPC + 8));	// Save return address
+		gpr.BindToRegister(MIPS_REG_RA, false, true);
+		MOV(32, gpr.R(MIPS_REG_RA), Imm32(js.compilerPC + 8));	// Save return address
+		CompileDelaySlot(DELAYSLOT_NICE);
+		FlushAll();
 		CONDITIONAL_LOG_EXIT(targetAddr);
 		WriteExit(targetAddr, 0);
 		break;
