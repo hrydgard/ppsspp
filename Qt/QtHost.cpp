@@ -33,7 +33,7 @@ QtHost::QtHost(MainWindow *mainWindow_)
 	QObject::connect(this,SIGNAL(BootDoneSignal()),mainWindow,SLOT(Boot()));
 }
 
-void QtHost::InitGL()
+bool QtHost::InitGL(std::string *error_string)
 {
 }
 
