@@ -87,7 +87,7 @@ DWORD TheThread(LPVOID x) {
 	coreParameter.pixelWidth = 480 * g_Config.iWindowZoom;
 	coreParameter.pixelHeight = 272 * g_Config.iWindowZoom;
 	coreParameter.startPaused = !g_Config.bAutoRun;
-	coreParameter.useMediaEngine = false;
+	coreParameter.useMediaEngine = g_Config.bUseMediaEngine;
 
 	error_string = "";
 	if (!PSP_Init(coreParameter, &error_string))
