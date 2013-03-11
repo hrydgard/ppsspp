@@ -883,6 +883,16 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 				ERROR_LOG(HLE, "memstick size query: bad params");
 				return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
 			}
+
+		case 0x02425824:  // Check if write protected
+			if (Memory::IsValidAddress(outPtr) && outLen == 4) {
+				Memory::Write_U32(0, outPtr);
+				hleDebugBreak();
+				return 0;
+			} else {
+				ERROR_LOG(HLE, "Failed 0x02425824 fat");
+				return -1;
+			}
 		}
 	}
 
@@ -928,6 +938,16 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 				return 0;
 			} else {
 				ERROR_LOG(HLE, "Failed 0x02425823 fat");
+				return -1;
+			}
+			break;
+
+		case 0x02425824:  // Check if write protected
+			if (Memory::IsValidAddress(outPtr) && outLen == 4) {
+				Memory::Write_U32(0, outPtr);
+				return 0;
+			} else {
+				ERROR_LOG(HLE, "Failed 0x02425824 fat");
 				return -1;
 			}
 			break;
