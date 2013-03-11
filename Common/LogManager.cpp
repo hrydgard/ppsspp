@@ -168,7 +168,7 @@ void LogManager::Log(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const 
 	if (!log || !log->IsEnabled() || level > log->GetLevel() || ! log->HasListeners())
 		return;
 
-	static const char level_to_char[7] = "-NEWID";
+	static const char level_to_char[8] = "-NEWIDV";
 	char formattedTime[13];
 	Common::Timer::GetTimeFormatted(formattedTime);
 
