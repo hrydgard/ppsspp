@@ -172,13 +172,21 @@ void LogManager::Log(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const 
 	char formattedTime[13];
 	Common::Timer::GetTimeFormatted(formattedTime);
 
+#ifdef _DEBUG
 #ifdef _WIN32
-	const char *fileshort = strrchr(file, '\\');
+	static const char sep = '\\';
 #else
-	const char *fileshort = strrchr(file, '/');
+	static const char sep = '/';
 #endif
-	if (fileshort != NULL)
-		file = fileshort + 1;
+	const char *fileshort = strrchr(file, sep);
+	if (fileshort != NULL) {
+		do
+			--fileshort;
+		while (fileshort > file && *fileshort != sep);
+		if (fileshort != file)
+			file = fileshort + 1;
+	}
+#endif
 
 	char *msgPos = msg;
 	if (hleCurrentThreadName != NULL)
