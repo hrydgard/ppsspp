@@ -700,7 +700,7 @@ void TextureCache::SetTexture() {
 	if (iter != cache.end()) {
 		entry = &iter->second;
 		// Check for FBO - slow!
-		if (g_Config.bBufferedRendering && entry->framebuffer) {
+		if (entry->framebuffer) {
 			entry->framebuffer->usageFlags |= FB_USAGE_TEXTURE;
 			if (entry->framebuffer->fbo){
 				fbo_bind_color_as_texture(entry->framebuffer->fbo, 0);
