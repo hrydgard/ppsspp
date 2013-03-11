@@ -27,6 +27,9 @@ public:
 	{
 		switch (level)
 		{
+		case LogTypes::LVERBOSE:
+			fprintf(stderr, "V %s", msg);
+			break;
 		case LogTypes::LDEBUG:
 			fprintf(stderr, "D %s", msg);
 			break;

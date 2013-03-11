@@ -26,6 +26,9 @@
 #include <e32debug.h>
 #endif
 
+// Don't need to savestate this.
+const char *hleCurrentThreadName = NULL;
+
 // Unfortunately this is quite slow.
 #define LOG_MSC_OUTPUTDEBUG false
 // #define LOG_MSC_OUTPUTDEBUG true
@@ -165,15 +168,34 @@ void LogManager::Log(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const 
 	if (!log || !log->IsEnabled() || level > log->GetLevel() || ! log->HasListeners())
 		return;
 
-	static const char level_to_char[7] = "-NEWID";
+	static const char level_to_char[8] = "-NEWIDV";
 	char formattedTime[13];
 	Common::Timer::GetTimeFormatted(formattedTime);
 
+#ifdef _WIN32
+	const char *fileshort = strrchr(file, '\\');
+#else
+	const char *fileshort = strrchr(file, '/');
+#endif
+	if (fileshort != NULL)
+		file = fileshort + 1;
+
 	char *msgPos = msg;
-	msgPos += sprintf(msgPos, "%s %s:%d %c[%s]: ",
-		formattedTime,
-		file, line, level_to_char[(int)level],
-		log->GetShortName());
+	if (hleCurrentThreadName != NULL)
+	{
+		msgPos += sprintf(msgPos, "%s %-12.12s %c[%s]: %s:%d ",
+			formattedTime,
+			hleCurrentThreadName, level_to_char[(int)level],
+			log->GetShortName(),
+			file, line);
+	}
+	else
+	{
+		msgPos += sprintf(msgPos, "%s %s:%d %c[%s]: ",
+			formattedTime,
+			file, line, level_to_char[(int)level],
+			log->GetShortName());
+	}
 
 	msgPos += vsnprintf(msgPos, MAX_MSGLEN, format, args);
 	// This will include the null terminator.

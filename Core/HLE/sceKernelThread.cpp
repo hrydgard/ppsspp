@@ -20,6 +20,7 @@
 #include <queue>
 #include <algorithm>
 
+#include "Common/LogManager.h"
 #include "HLE.h"
 #include "HLETables.h"
 #include "../MIPS/MIPSInt.h"
@@ -684,6 +685,8 @@ void __KernelThreadingDoState(PointerWrap &p)
 	p.Do(actionAfterCallback);
 	__KernelRestoreActionType(actionAfterCallback, ActionAfterCallback::Create);
 
+	hleCurrentThreadName = __KernelGetThreadName(currentThread);
+
 	p.DoMarker("sceKernelThread");
 }
 
@@ -833,6 +836,7 @@ void __KernelThreadingShutdown()
 	currentThread = 0;
 	intReturnHackAddr = 0;
 	curModule = 0;
+	hleCurrentThreadName = NULL;
 }
 
 const char *__KernelGetThreadName(SceUID threadID)
@@ -1202,7 +1206,10 @@ u32 __KernelDeleteThread(SceUID threadID, int exitStatus, const char *reason, bo
 	__KernelTriggerWait(WAITTYPE_THREADEND, threadID, exitStatus, reason, dontSwitch);
 
 	if (currentThread == threadID)
+	{
 		currentThread = 0;
+		hleCurrentThreadName = NULL;
+	}
 	if (currentCallbackThreadID == threadID)
 	{
 		currentCallbackThreadID = 0;
@@ -1426,6 +1433,7 @@ void __KernelSetupRootThread(SceUID moduleID, int args, const char *argp, int pr
 	if (prevThread && prevThread->isRunning())
 		__KernelChangeReadyState(currentThread, true);
 	currentThread = id;
+	hleCurrentThreadName = "root";
 	thread->nt.status = THREADSTATUS_RUNNING; // do not schedule
 
 	strcpy(thread->nt.name, "root");
@@ -1981,11 +1989,12 @@ static void __KernelSleepThread(bool doCallbacks) {
 		return;
 	}
 
-	DEBUG_LOG(HLE,"sceKernelSleepThread() - wakeupCount decremented to %i", thread->nt.wakeupCount);
 	if (thread->nt.wakeupCount > 0) {
 		thread->nt.wakeupCount--;
+		DEBUG_LOG(HLE, "sceKernelSleepThread() - wakeupCount decremented to %i", thread->nt.wakeupCount);
 		RETURN(0);
 	} else {
+		VERBOSE_LOG(HLE, "sceKernelSleepThread()", thread->nt.wakeupCount);
 		RETURN(0);
 		__KernelWaitCurThread(WAITTYPE_SLEEP, 0, 0, 0, doCallbacks, "thread slept");
 	}
@@ -1999,7 +2008,7 @@ void sceKernelSleepThread()
 //the homebrew PollCallbacks
 void sceKernelSleepThreadCB()
 {
-	DEBUG_LOG(HLE, "sceKernelSleepThreadCB()");
+	VERBOSE_LOG(HLE, "sceKernelSleepThreadCB()");
 	__KernelSleepThread(true);
 	__KernelCheckCallbacks();
 }
@@ -2360,11 +2369,17 @@ void __KernelSwitchContext(Thread *target, const char *reason)
 			__KernelChangeReadyState(cur, oldUID, true);
 	}
 
-	currentThread = target->GetUID();
 	if (target)
 	{
+		currentThread = target->GetUID();
+		hleCurrentThreadName = target->nt.name;
 		__KernelChangeReadyState(target, currentThread, false);
 		target->nt.status = (target->nt.status | THREADSTATUS_RUNNING) & ~THREADSTATUS_READY;
+	}
+	else
+	{
+		currentThread = 0;
+		hleCurrentThreadName = NULL;
 	}
 
 	__KernelLoadContext(&target->context);
@@ -2374,7 +2389,7 @@ void __KernelSwitchContext(Thread *target, const char *reason)
 	if (!(fromIdle && toIdle))
 	{
 		DEBUG_LOG(HLE,"Context switched: %s -> %s (%s) (%i - pc: %08x -> %i - pc: %08x)",
-			oldName, target->GetName(),
+			oldName, hleCurrentThreadName,
 			reason,
 			oldUID, oldPC, currentThread, currentMIPS->pc);
 	}

@@ -839,7 +839,7 @@ int sceKernelTryLockLwMutex_600(u32 workareaPtr, int count)
 
 int sceKernelLockLwMutex(u32 workareaPtr, int count, u32 timeoutPtr)
 {
-	DEBUG_LOG(HLE, "sceKernelLockLwMutex(%08x, %i, %08x)", workareaPtr, count, timeoutPtr);
+	VERBOSE_LOG(HLE, "sceKernelLockLwMutex(%08x, %i, %08x)", workareaPtr, count, timeoutPtr);
 
 	NativeLwMutexWorkarea workarea;
 	Memory::ReadStruct(workareaPtr, &workarea);
@@ -874,7 +874,7 @@ int sceKernelLockLwMutex(u32 workareaPtr, int count, u32 timeoutPtr)
 
 int sceKernelLockLwMutexCB(u32 workareaPtr, int count, u32 timeoutPtr)
 {
-	DEBUG_LOG(HLE, "sceKernelLockLwMutexCB(%08x, %i, %08x)", workareaPtr, count, timeoutPtr);
+	VERBOSE_LOG(HLE, "sceKernelLockLwMutexCB(%08x, %i, %08x)", workareaPtr, count, timeoutPtr);
 
 	NativeLwMutexWorkarea workarea;
 	Memory::ReadStruct(workareaPtr, &workarea);
@@ -898,7 +898,7 @@ int sceKernelLockLwMutexCB(u32 workareaPtr, int count, u32 timeoutPtr)
 			if (std::find(mutex->waitingThreads.begin(), mutex->waitingThreads.end(), threadID) == mutex->waitingThreads.end())
 				mutex->waitingThreads.push_back(threadID);
 			__KernelWaitLwMutex(mutex, timeoutPtr);
-			__KernelWaitCurThread(WAITTYPE_LWMUTEX, workarea.uid, count, timeoutPtr, true, "lwmutex waited");
+			__KernelWaitCurThread(WAITTYPE_LWMUTEX, workarea.uid, count, timeoutPtr, true, "lwmutex cb waited");
 
 			// Return value will be overwritten by wait.
 			return 0;
@@ -910,7 +910,7 @@ int sceKernelLockLwMutexCB(u32 workareaPtr, int count, u32 timeoutPtr)
 
 int sceKernelUnlockLwMutex(u32 workareaPtr, int count)
 {
-	DEBUG_LOG(HLE, "sceKernelUnlockLwMutex(%08x, %i)", workareaPtr, count);
+	VERBOSE_LOG(HLE, "sceKernelUnlockLwMutex(%08x, %i)", workareaPtr, count);
 
 	NativeLwMutexWorkarea workarea;
 	Memory::ReadStruct(workareaPtr, &workarea);

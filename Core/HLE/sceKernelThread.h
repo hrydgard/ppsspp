@@ -24,7 +24,6 @@
 #include "sceKernelModule.h"
 #include "HLE.h"
 
-
 void sceKernelChangeThreadPriority();
 int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr);
 int sceKernelCreateThread(const char *threadName, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr);
@@ -116,6 +115,7 @@ KernelObject *__KernelCallbackObject();
 
 void __KernelScheduleWakeup(int threadnumber, s64 usFromNow);
 SceUID __KernelGetCurThread();
+const char *__KernelGetThreadName(SceUID threadID);
 
 void __KernelSaveContext(ThreadContext *ctx);
 void __KernelLoadContext(ThreadContext *ctx);
