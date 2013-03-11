@@ -3,6 +3,7 @@ TARGET = PPSSPPQt
 QT += core gui opengl
 CONFIG += mobility
 MOBILITY += multimedia
+symbian: MOBILITY += sensors
 win32: QT += multimedia
 
 include(Settings.pri)

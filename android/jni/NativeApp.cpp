@@ -270,7 +270,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 #ifdef __SYMBIAN32__
 	g_Config.bHardwareTransform = true;
 	g_Config.bUseVBO = false;
-	g_Config.bVertexCache = false;
 #endif
 	// Special hack for G3D as it's very spammy. Need to make a flag for this.
 	if (!gfxLog)
