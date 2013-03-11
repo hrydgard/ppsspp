@@ -1271,7 +1271,6 @@ public:
 u32 sceIoDopen(const char *path) {
 	DEBUG_LOG(HLE, "sceIoDopen(\"%s\")", path);
 
-
 	if(!pspFileSystem.GetFileInfo(path).exists)
 	{
 		return ERROR_ERRNO_FILE_NOT_FOUND;
@@ -1284,6 +1283,7 @@ u32 sceIoDopen(const char *path) {
 	dir->index = 0;
 	dir->name = std::string(path);
 
+	// TODO: The result is delayed only from the memstick, it seems.
 	return id;
 }
 
@@ -1307,7 +1307,10 @@ u32 sceIoDread(int id, u32 dirent_addr) {
 		entry->d_private = 0xC0DEBABE;
 		DEBUG_LOG(HLE, "sceIoDread( %d %08x ) = %s", id, dirent_addr, entry->d_name);
 
-		dir->index++;
+		// TODO: Improve timing.  Only happens on the *first* entry read, ms and umd.
+		if (dir->index++ == 0) {
+			return hleDelayResult(1, "readdir", 1000);
+		}
 		return 1;
 	} else {
 		DEBUG_LOG(HLE, "sceIoDread - invalid listing %i, error %08x", id, error);
