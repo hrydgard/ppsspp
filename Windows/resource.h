@@ -118,6 +118,7 @@
 #define IDC_REGISTERS                   1007
 #define IDC_BREAKPOINTS                 1008
 #define IDC_STEP                        1009
+#define IDC_VERSION                     1010
 #define IDC_UP                          1014
 #define IDC_DIRTREE                     1014
 #define IDC_DOWN                        1015

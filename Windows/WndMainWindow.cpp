@@ -2,34 +2,34 @@
 
 #include <windows.h>
 #include <tchar.h>
-#include "../globals.h"
+#include "Globals.h"
 
 #include "shellapi.h"
 #include "commctrl.h"
 
-#include "../Core/Debugger/SymbolMap.h"
-#include "OpenGLBase.h"
-#include "Debugger/Debugger_Disasm.h"
-#include "Debugger/Debugger_MemoryDlg.h"
+#include "Core/Debugger/SymbolMap.h"
+#include "Windows/OpenGLBase.h"
+#include "Windows/Debugger/Debugger_Disasm.h"
+#include "Windows/Debugger/Debugger_MemoryDlg.h"
 #include "main.h"
 
-#include "../Core/Core.h"
-#include "../Core/MemMap.h"
-#include "../Core/SaveState.h"
-#include "../Core/System.h"
-#include "EmuThread.h"
+#include "Core/Core.h"
+#include "Core/MemMap.h"
+#include "Core/SaveState.h"
+#include "Core/System.h"
+#include "Core/Config.h"
+#include "Windows/EmuThread.h"
 
 #include "resource.h"
 
-#include "WndMainWindow.h"
-#include "LogManager.h"
-#include "ConsoleListener.h"
-#include "W32Util/DialogManager.h"
-#include "W32Util/ShellUtil.h"
-#include "W32Util/Misc.h"
-#include "../Core/Config.h"
-#include "../GPU/GPUInterface.h"
-#include "../GPU/GPUState.h"
+#include "Windows/WndMainWindow.h"
+#include "Common/LogManager.h"
+#include "Common/ConsoleListener.h"
+#include "Windows/W32Util/DialogManager.h"
+#include "Windows/W32Util/ShellUtil.h"
+#include "Windows/W32Util/Misc.h"
+#include "GPU/GPUInterface.h"
+#include "GPU/GPUState.h"
 
 #ifdef THEMES
 #include "XPTheme.h"
@@ -724,6 +724,12 @@ namespace MainWindow
 		{
 		case WM_INITDIALOG:
 			W32Util::CenterWindow(hDlg);
+			{
+				HWND versionBox = GetDlgItem(hDlg, IDC_VERSION);
+				char temp[256];
+				sprintf(temp, "PPSSPP %s", PPSSPP_GIT_VERSION);
+				SetWindowText(versionBox, temp);
+			}
 			return TRUE;
 
 		case WM_COMMAND:
