@@ -372,6 +372,7 @@ public:
 
 	ActionAfterMipsCall *getRunningCallbackAction();
 	void setReturnValue(u32 retval);
+	void setReturnValue(u64 retval);
 	void resumeFromWait();
 	bool isWaitingFor(WaitType type, int id);
 	int getWaitID(WaitType type);
@@ -586,6 +587,12 @@ void MipsCall::DoState(PointerWrap &p)
 void MipsCall::setReturnValue(u32 value)
 {
 	savedV0 = value;
+}
+
+void MipsCall::setReturnValue(u64 value)
+{
+	savedV0 = value & 0xFFFFFFFF;
+	savedV1 = (value >> 32) & 0xFFFFFFFF;
 }
 
 // TODO: Should move to this wrapper so we can keep the current thread as a SceUID instead
@@ -1058,7 +1065,24 @@ u32 __KernelResumeThreadFromWait(SceUID threadID)
 	}
 }
 
-u32 __KernelResumeThreadFromWait(SceUID threadID, int retval)
+u32 __KernelResumeThreadFromWait(SceUID threadID, u32 retval)
+{
+	u32 error;
+	Thread *t = kernelObjects.Get<Thread>(threadID, error);
+	if (t)
+	{
+		t->resumeFromWait();
+		t->setReturnValue(retval);
+		return 0;
+	}
+	else
+	{
+		ERROR_LOG(HLE, "__KernelResumeThreadFromWait(%d): bad thread: %08x", threadID, error);
+		return error;
+	}
+}
+
+u32 __KernelResumeThreadFromWait(SceUID threadID, u64 retval)
 {
 	u32 error;
 	Thread *t = kernelObjects.Get<Thread>(threadID, error);
@@ -1091,7 +1115,7 @@ bool __KernelTriggerWait(WaitType type, int id, bool useRetVal, int retVal, cons
 			// This thread was waiting for the triggered object.
 			t->resumeFromWait();
 			if (useRetVal)
-				t->setReturnValue(retVal);
+				t->setReturnValue((u32)retVal);
 			doneAnything = true;
 		}
 	}
@@ -2276,6 +2300,27 @@ void Thread::setReturnValue(u32 retval)
 		}
 	} else {
 		context.r[2] = retval;
+	}
+}
+
+void Thread::setReturnValue(u64 retval)
+{
+	if (this->GetUID() == currentThread) {
+		if (g_inCbCount) {
+			u32 callId = this->currentCallbackId;
+			MipsCall *call = mipsCalls.get(callId);
+			if (call) {
+				call->setReturnValue(retval);
+			} else {
+				ERROR_LOG(HLE, "Failed to inject return value %08llx in thread", retval);
+			}
+		} else {
+			currentMIPS->r[2] = retval & 0xFFFFFFFF;
+			currentMIPS->r[3] = (retval >> 32) & 0xFFFFFFFF;
+		}
+	} else {
+		context.r[2] = retval & 0xFFFFFFFF;
+		context.r[3] = (retval >> 32) & 0xFFFFFFFF;
 	}
 }
 
