@@ -463,6 +463,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 		float x, y, w, h;
 		CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
 		DrawActiveTexture(x, y, w, h, true);
+		glBindTexture(GL_TEXTURE_2D, 0);
 	}
 
 	if (resized_) {
@@ -529,6 +530,7 @@ std::vector<FramebufferInfo> FramebufferManager::GetFramebufferList() {
 }
 
 void FramebufferManager::DecimateFBOs() {
+	fbo_unbind();
 	for (auto iter = vfbs_.begin(); iter != vfbs_.end();) {
 		VirtualFramebuffer *vfb = *iter;
 		if (vfb == displayFramebuf_ || vfb == prevDisplayFramebuf_ || vfb == prevPrevDisplayFramebuf_) {
@@ -551,6 +553,7 @@ void FramebufferManager::DecimateFBOs() {
 }
 
 void FramebufferManager::DestroyAllFBOs() {
+	fbo_unbind();
 	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
 		VirtualFramebuffer *vfb = *iter;
 		textureCache_->NotifyFramebufferDestroyed(vfb->fb_address, vfb);
