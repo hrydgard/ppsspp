@@ -798,6 +798,20 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 		return hleDelayResult(0, "dev seek", 100);
 	case 0x01F100A4:  // Cache
 		return 0;
+	case 0x01F300A5:  // Cache + status
+		if (Memory::IsValidAddress(outPtr)) {
+			Memory::Write_U32(1, outPtr);
+			return 0;
+		}
+		return -1;
+	// TODO: What does these do?  Seem to require a u32 in, no output.
+	case 0x01F100A6:
+	case 0x01F100A8:
+	case 0x01F100A9:
+	case 0x01F300A7:
+		Reporting::ReportMessage("sceIoDevctl(\"%s\", %08x, %08x, %i, %08x, %i)", name, cmd, argAddr, argLen, outPtr, outLen);
+		ERROR_LOG(HLE, "UNIMPL sceIoDevctl(\"%s\", %08x, %08x, %i, %08x, %i)", name, cmd, argAddr, argLen, outPtr, outLen);
+		return 0;
 	}
 
 	// This should really send it on to a FileSystem implementation instead.
