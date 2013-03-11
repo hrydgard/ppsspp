@@ -128,6 +128,7 @@ void __KernelShutdown()
 	}
 	kernelObjects.List();
 	INFO_LOG(HLE, "Shutting down kernel - %i kernel objects alive", kernelObjects.GetCount());
+	hleCurrentThreadName = NULL;
 	kernelObjects.Clear();
 
 	__FontShutdown();
