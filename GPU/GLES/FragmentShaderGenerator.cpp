@@ -48,6 +48,12 @@ static bool IsAlphaTestTriviallyTrue() {
 	case GE_COMP_GEQUAL:
 		if (alphaTestRef == 0)
 			return true;
+
+	// This breaks the trees in MotoGP, for example.
+	// case GE_COMP_GREATER:
+	//if (alphaTestRef == 0 && (gstate.alphaBlendEnable & 1) && gstate.getBlendFuncA() == GE_SRCBLEND_SRCALPHA && gstate.getBlendFuncB() == GE_SRCBLEND_INVSRCALPHA)
+	//	return true;
+
 	case GE_COMP_LEQUAL:
 		if (alphaTestRef == 255)
 			return true;
