@@ -206,8 +206,8 @@ u32 sceSasSetVolume(u32 core, int voiceNum, int leftVol, int rightVol, int effec
 	}
 
 	SasVoice &v = sas->voices[voiceNum];
-	v.volumeLeft = (leftVol << 3);
-	v.volumeRight = (rightVol << 3);
+	v.volumeLeft = leftVol;
+	v.volumeRight = rightVol;
 	v.effectLeft = effectLeftVol;
 	v.effectRight = effectRightVol;
 	return 0;
