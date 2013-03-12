@@ -836,9 +836,9 @@ u32 scePsmfPlayerGetCurrentAudioStream(u32 psmfPlayer, u32 audioCodecAddr, u32 a
 	return 0;
 }
 
-int scePsmfPlayerSetTempBuf(u32 psmfPlayer) 
+int scePsmfPlayerSetTempBuf(u32 psmfPlayer, u32 tempBufAddr, u32 tempBufSize) 
 {
-	ERROR_LOG(HLE, "UNIMPL scePsmfPlayerSetTempBuf(%08x)", psmfPlayer);
+	ERROR_LOG(HLE, "UNIMPL scePsmfPlayerSetTempBuf(%08x, %08x, %08x)", psmfPlayer, tempBufAddr, tempBufSiz);
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (psmfplayer)
 		psmfplayer->status = PSMF_PLAYER_STATUS_INIT;
