@@ -143,7 +143,7 @@ u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop) {
 
 u32 sceSasSetVoicePCM(u32 core, int voiceNum, u32 pcmAddr, int size, int loop)
 {
-	INFO_LOG(HLE,"PLEASE REPORT issue #505 sceSasSetVoicePCM(%08x, %i, %08x, %i, %i)", core, voiceNum, pcmAddr, size, loop);
+	INFO_LOG(HLE,"sceSasSetVoicePCM(%08x, %i, %08x, %i, %i)", core, voiceNum, pcmAddr, size, loop);
 	Reporting::ReportMessage("sceSasSetVoicePCM(%x, %i)", core, voiceNum);
 
 	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
@@ -162,12 +162,13 @@ u32 sceSasSetVoicePCM(u32 core, int voiceNum, u32 pcmAddr, int size, int loop)
 	}
 
 	SasVoice &v = sas->voices[voiceNum];
+	u32 prevPcmAddr = v.pcmAddr;
 	v.type = VOICETYPE_PCM;
 	v.pcmAddr = pcmAddr;
 	v.pcmSize = size;
 	v.loop = loop ? false : true;
 	v.playing = true;
-	v.ChangedParams(true);
+	v.ChangedParams(pcmAddr == prevPcmAddr);
 	return 0;
 }
 
