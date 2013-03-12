@@ -263,6 +263,7 @@
 #define ID_OPTIONS_STRETCHDISPLAY       40138
 #define ID_OPTIONS_FRAMESKIP            40139
 #define IDC_MEMCHECK                    40140
+#define ID_OPTIONS_USEMEDIAENGINE       40141
 #define IDC_STATIC                      -1
 
 // Next default values for new objects
