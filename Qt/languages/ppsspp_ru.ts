@@ -956,7 +956,7 @@
     <message>
         <location filename="../mainwindow.ui" line="328"/>
         <source>&amp;Disassembly</source>
-        <translation>&amp;Disassembly</translation>
+        <translation>&amp;Деасэмблинг</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="331"/>
