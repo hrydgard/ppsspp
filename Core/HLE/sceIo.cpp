@@ -1349,7 +1349,7 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 			pspFileSystem.ReadFile(f->handle, pgd_header, 0x90);
 			f->pgdInfo = pgd_open(pgd_header, 2, keybuf);
 			if(f->pgdInfo==NULL){
-				DEBUG_LOG(HLE, "Not a valid PGD file. Open as normal file.");
+				ERROR_LOG(HLE, "Not a valid PGD file. Open as normal file.");
 				f->npdrm = false;
 				pspFileSystem.SeekFile(f->handle, (s32)0, FILEMOVE_BEGIN);
 			}
