@@ -57,12 +57,13 @@ void WindowsHost::SetWindowTitle(const char *message)
 {
 	std::string title = std::string("PPSSPP ") + PPSSPP_GIT_VERSION + " - " + message;
 
-	int size = MultiByteToWideChar(CP_UTF8, 0, message, (int) title.size(), NULL, 0);
+	int size = MultiByteToWideChar(CP_UTF8, 0, title.c_str(), (int) title.size(), NULL, 0);
 	if (size > 0)
 	{
-		wchar_t *utf16_title = new wchar_t[size + 1];
+		// VC++6.0 any more?
+		wchar_t *utf16_title = new(std::nothrow) wchar_t[size + 1];
 		if (utf16_title)
-			size = MultiByteToWideChar(CP_UTF8, 0, message, (int) title.size(), utf16_title, size);
+			size = MultiByteToWideChar(CP_UTF8, 0, title.c_str(), (int) title.size(), utf16_title, size);
 		else
 			size = 0;
 
