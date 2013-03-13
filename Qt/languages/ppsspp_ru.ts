@@ -1056,12 +1056,12 @@
     <message>
         <location filename="../mainwindow.ui" line="393"/>
         <source>&amp;Linear Filtering</source>
-        <translation>&amp;Вертикальная фильтрация</translation>
+        <translation>&amp;Линейная фильтрация</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="401"/>
         <source>&amp;Wireframe (experimental)</source>
-        <translation>&amp;Скелет (эксперементально)</translation>
+        <translation>&amp;Отображать каркас (эксперементально)</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="409"/>
@@ -1111,7 +1111,7 @@
     <message>
         <location filename="../mainwindow.ui" line="469"/>
         <source>&amp;Fast Memory (dynarec, unstable)</source>
-        <translation>&amp;Быстрая память (dynarec, unstable)</translation>
+        <translation>&amp;Быстрая память (dynarec, нестабильно)</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="482"/>
@@ -1164,7 +1164,7 @@
     <message>
         <location filename="../mainwindow.ui" line="614"/>
         <source>&amp;Vertex Cache</source>
-        <translation>&amp;Вертикальный кэш</translation>
+        <translation>&amp;Vertex кэш</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="619"/>
@@ -1179,7 +1179,7 @@
     <message>
         <location filename="../mainwindow.ui" line="632"/>
         <source>Simple 2xAA</source>
-        <translation>Простой 2xAA</translation>
+        <translation>Простое 2x сглаживание</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="640"/>
