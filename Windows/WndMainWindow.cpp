@@ -705,11 +705,8 @@ namespace MainWindow
 		EnableMenuItem(menu,ID_FILE_QUICKLOADSTATE,!enable);
 		EnableMenuItem(menu,ID_CPU_DYNAREC,enable);
 		EnableMenuItem(menu,ID_CPU_INTERPRETER,enable);
-		EnableMenuItem(menu,ID_DVD_INSERTISO,enable);
-		EnableMenuItem(menu,ID_FILE_BOOTBIOS,enable);
 		EnableMenuItem(menu,ID_EMULATION_STOP,!enable);
-		EnableMenuItem(menu,ID_OPTIONS_SETTINGS,enable);
-		EnableMenuItem(menu,ID_PLUGINS_CHOOSEPLUGINS,enable);
+		EnableMenuItem(menu,ID_OPTIONS_USEMEDIAENGINE,enable);
 
 		const int zoomitems[4] = {
 			ID_OPTIONS_SCREEN1X,
