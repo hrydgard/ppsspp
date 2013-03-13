@@ -713,12 +713,12 @@
         <location filename="../gamepaddialog.cpp" line="129"/>
         <location filename="../gamepaddialog.cpp" line="361"/>
         <source>&lt;b&gt;No gamepad&lt;/b&gt;</source>
-        <translation></translation>
+        <translation>&lt;b&gt;Геймпад не найден&lt;/b&gt;</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="141"/>
         <source>&lt;b&gt;Unknown gamepad&lt;/b&gt;</source>
-        <translation></translation>
+        <translation>&lt;b&gt;Неизвестный геймпад&lt;/b&gt;</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="282"/>
@@ -729,32 +729,32 @@
         <location filename="../gamepaddialog.cpp" line="296"/>
         <location filename="../gamepaddialog.cpp" line="339"/>
         <source>Button %1</source>
-        <translation></translation>
+        <translation>Кнопка %1</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="299"/>
         <source>Axes</source>
-        <translation></translation>
+        <translation>Оси</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="305"/>
         <source>%1 Neg</source>
-        <translation></translation>
+        <translation>%1 отрицательно</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="312"/>
         <source>Axes %1 Neg</source>
-        <translation></translation>
+        <translation>Ось %1 отрицательна</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="315"/>
         <source>%1 Pos</source>
-        <translation></translation>
+        <translation>%1 положительно</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="322"/>
         <source>Axes %1 Pos</source>
-        <translation></translation>
+        <translation>Ось %1 положительна</translation>
     </message>
     <message>
         <location filename="../gamepaddialog.cpp" line="326"/>
@@ -764,7 +764,7 @@
     <message>
         <location filename="../gamepaddialog.cpp" line="363"/>
         <source>&lt;b&gt;Current gamepad: %1&lt;/b&gt;</source>
-        <translation></translation>
+        <translation>&lt;b&gt;Текущий геймпад: %1&lt;/b&gt;</translation>
     </message>
 </context>
 <context>
