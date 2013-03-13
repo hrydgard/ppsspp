@@ -927,7 +927,7 @@
     <message>
         <location filename="../mainwindow.ui" line="291"/>
         <source>&amp;Interpreter</source>
-        <translation>&amp;Интерпритатор</translation>
+        <translation>&amp;Интерпретатор</translation>
     </message>
     <message>
         <source>&amp;Slightly Faster Interpreter</source>
@@ -1061,7 +1061,7 @@
     <message>
         <location filename="../mainwindow.ui" line="401"/>
         <source>&amp;Wireframe (experimental)</source>
-        <translation>&amp;Отображать каркас (эксперементально)</translation>
+        <translation>&amp;Отображать каркас (экспериментально)</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="409"/>
