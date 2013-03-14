@@ -236,8 +236,7 @@ void ARMXEmitter::FlushIcacheSection(u8 *start, u8 *end)
 #elif defined(BLACKBERRY)
 	msync(start, end - start, MS_SYNC | MS_INVALIDATE_ICACHE);
 #elif defined(IOS)
-	if (start != NULL)
-		sys_cache_control(kCacheFunctionPrepareForExecution, start, end - start);
+	sys_cache_control(kCacheFunctionPrepareForExecution, start, end - start);
 #elif !defined(_WIN32)
 	__builtin___clear_cache(start, end);
 #endif

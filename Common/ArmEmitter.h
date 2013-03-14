@@ -611,7 +611,11 @@ public:
 	// Start over if you need to change the code (call FreeCodeSpace(), AllocCodeSpace()).
 	void WriteProtect()
 	{
-		WriteProtectMemory(region, region_size, true);		
+		WriteProtectMemory(region, region_size, true);
+	}
+	void UnWriteProtect()
+	{
+		UnWriteProtectMemory(region, region_size, false);
 	}
 
 	void ResetCodePtr()
