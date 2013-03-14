@@ -70,7 +70,7 @@
     <message>
         <location filename="../ctrldisasmview.cpp" line="232"/>
         <source>Warning</source>
-        <translation type="unfinished">Предупреждение</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../ctrldisasmview.cpp" line="232"/>
@@ -195,7 +195,7 @@
     <message>
         <location filename="../debugger_disasm.ui" line="236"/>
         <source>Stop</source>
-        <translation type="unfinished">Stop</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../debugger_disasm.ui" line="249"/>
@@ -350,12 +350,12 @@
     <message>
         <location filename="../debugger_displaylist.ui" line="75"/>
         <source>Run</source>
-        <translation>Start</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../debugger_displaylist.ui" line="82"/>
         <source>Stop</source>
-        <translation>Stop</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../debugger_displaylist.ui" line="89"/>
@@ -397,13 +397,13 @@
         <location filename="../debugger_displaylist.ui" line="208"/>
         <location filename="../debugger_displaylist.ui" line="421"/>
         <source>Width</source>
-        <translation>Weite</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../debugger_displaylist.ui" line="213"/>
         <location filename="../debugger_displaylist.ui" line="426"/>
         <source>Height</source>
-        <translation>Höhe</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../debugger_displaylist.ui" line="218"/>
@@ -459,7 +459,7 @@
     <message>
         <location filename="../debugger_displaylist.ui" line="299"/>
         <source>Values</source>
-        <translation>Werte</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../debugger_displaylist.ui" line="309"/>
@@ -538,22 +538,22 @@
     <message>
         <location filename="../debugger_memory.ui" line="22"/>
         <source>Goto:</source>
-        <translation>Gehe zu:</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../debugger_memory.ui" line="35"/>
         <source>Mode</source>
-        <translation>Modus</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../debugger_memory.ui" line="41"/>
         <source>Normal</source>
-        <translation>Normal</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../debugger_memory.ui" line="48"/>
         <source>Symbols</source>
-        <translation>Symbole</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../debugger_memory.cpp" line="15"/>
@@ -616,7 +616,7 @@
     <message>
         <location filename="../debugger_memorytex.ui" line="123"/>
         <source>Read</source>
-        <translation>Lesen</translation>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -927,7 +927,7 @@
     <message>
         <location filename="../mainwindow.ui" line="291"/>
         <source>&amp;Interpreter</source>
-        <translation>&amp;Интерпритатор</translation>
+        <translation>&amp;Интерпретатор</translation>
     </message>
     <message>
         <source>&amp;Slightly Faster Interpreter</source>
@@ -956,7 +956,7 @@
     <message>
         <location filename="../mainwindow.ui" line="328"/>
         <source>&amp;Disassembly</source>
-        <translation>&amp;Disassembly</translation>
+        <translation>&amp;Деасэмблинг</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="331"/>
@@ -1056,12 +1056,12 @@
     <message>
         <location filename="../mainwindow.ui" line="393"/>
         <source>&amp;Linear Filtering</source>
-        <translation>&amp;Вертикальная фильтрация</translation>
+        <translation>&amp;Линейная фильтрация</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="401"/>
         <source>&amp;Wireframe (experimental)</source>
-        <translation>&amp;Скелет (эксперементально)</translation>
+        <translation>&amp;Отображать каркас (экспериментально)</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="409"/>
@@ -1111,7 +1111,7 @@
     <message>
         <location filename="../mainwindow.ui" line="469"/>
         <source>&amp;Fast Memory (dynarec, unstable)</source>
-        <translation>&amp;Быстрая память (dynarec, unstable)</translation>
+        <translation>&amp;Быстрая память (dynarec, нестабильно)</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="482"/>
@@ -1164,7 +1164,7 @@
     <message>
         <location filename="../mainwindow.ui" line="614"/>
         <source>&amp;Vertex Cache</source>
-        <translation>&amp;Вертикальный кэш</translation>
+        <translation>&amp;Vertex кэш</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="619"/>
@@ -1179,7 +1179,7 @@
     <message>
         <location filename="../mainwindow.ui" line="632"/>
         <source>Simple 2xAA</source>
-        <translation>Простой 2xAA</translation>
+        <translation>Простое 2x сглаживание</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="640"/>

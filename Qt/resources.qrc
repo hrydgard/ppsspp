@@ -26,5 +26,6 @@
         <file>languages/ppsspp_tc.qm</file>
         <file>languages/ppsspp_pt-br.qm</file>
         <file>languages/ppsspp_id.qm</file>
+        <file>languages/ppsspp_ru.qm</file>
     </qresource>
 </RCC>
