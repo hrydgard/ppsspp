@@ -265,9 +265,6 @@ const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 		}
 	}
 #endif
-#ifdef IOS
-	WriteProtect();
-#endif
 
 	b->codeSize = GetCodePtr() - b->normalEntry;
 
@@ -278,6 +275,9 @@ const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 	}
 #endif
 	AlignCode16();
+#ifdef IOS
+	WriteProtect();
+#endif
 
 	// Don't forget to zap the instruction cache!
 	FlushIcache();

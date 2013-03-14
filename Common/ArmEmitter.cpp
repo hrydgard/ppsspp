@@ -190,9 +190,7 @@ void ARMXEmitter::SetCodePtr(u8 *ptr)
 {
 	code = ptr;
 	startcode = code;
-#ifdef IOS
 	lastCacheFlushEnd = ptr;
-#endif
 }
 
 const u8 *ARMXEmitter::GetCodePtr() const
@@ -236,6 +234,7 @@ void ARMXEmitter::FlushIcacheSection(u8 *start, u8 *end)
 #elif defined(BLACKBERRY)
 	msync(start, end - start, MS_SYNC | MS_INVALIDATE_ICACHE);
 #elif defined(IOS)
+	// Header file says this is equivalent to: sys_icache_invalidate(start, end - start);
 	sys_cache_control(kCacheFunctionPrepareForExecution, start, end - start);
 #elif !defined(_WIN32)
 	__builtin___clear_cache(start, end);
