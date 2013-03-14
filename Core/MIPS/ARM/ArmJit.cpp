@@ -62,13 +62,7 @@ Jit::Jit(MIPSState *mips) : blocks(mips), gpr(mips), fpr(mips),	 mips_(mips)
 	gpr.SetEmitter(this);
 	fpr.SetEmitter(this);
 	AllocCodeSpace(1024 * 1024 * 16);  // 32MB is the absolute max because that's what an ARM branch instruction can reach, backwards and forwards.
-#ifdef IOS
-	UnWriteProtect();
-#endif
 	GenerateFixedCode();
-#ifdef IOS
-	WriteProtect();
-#endif
 
 	js.startDefaultPrefix = true;
 }
@@ -207,10 +201,6 @@ const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 	js.inDelaySlot = false;
 	js.PrefixStart();
 
-#ifdef IOS
-	UnWriteProtect();
-#endif
-
 	// We add a check before the block, used when entering from a linked block.
 	b->checkedEntry = GetCodePtr();
 	// Downcount flag check. The last block decremented downcounter, and the flag should still be available.
@@ -275,9 +265,6 @@ const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
 	}
 #endif
 	AlignCode16();
-#ifdef IOS
-	WriteProtect();
-#endif
 
 	// Don't forget to zap the instruction cache!
 	FlushIcache();
