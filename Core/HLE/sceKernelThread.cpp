@@ -1144,6 +1144,12 @@ bool __KernelTriggerWait(WaitType type, int id, int retVal, const char *reason, 
 // makes the current thread wait for an event
 void __KernelWaitCurThread(WaitType type, SceUID waitID, u32 waitValue, u32 timeoutPtr, bool processCallbacks, const char *reason)
 {
+	if (!dispatchEnabled)
+	{
+		WARN_LOG(HLE, "Ignoring wait, dispatching disabled... right thing to do?");
+		return;
+	}
+
 	// TODO: Need to defer if in callback?
 	if (g_inCbCount > 0)
 		WARN_LOG(HLE, "UNTESTED - waiting within a callback, probably bad mojo.");
@@ -1699,6 +1705,7 @@ u32 sceKernelResumeDispatchThread(u32 suspended)
 	u32 oldDispatchSuspended = !dispatchEnabled;
 	dispatchEnabled = !suspended;
 	DEBUG_LOG(HLE,"%i=sceKernelResumeDispatchThread(%i)", oldDispatchSuspended, suspended);
+	hleReSchedule("dispatch resumed");
 	return oldDispatchSuspended;
 }
 
