@@ -124,15 +124,15 @@ namespace MIPSComp
 				switch (o)
 				{
 				// Load
-				case 35: LDR  (gpr.R(rt), R11, R0, true, true); break;
-				case 37: LDRH (gpr.R(rt), R11, R0, true, true); break;
-				case 33: LDRSH(gpr.R(rt), R11, R0, true, true); break;
-				case 36: LDRB (gpr.R(rt), R11, R0, true, true); break;
-				case 32: LDRSB(gpr.R(rt), R11, R0, true, true); break;
+				case 35: LDR  (gpr.R(rt), R11, R0); break;
+				case 37: LDRH (gpr.R(rt), R11, R0); break;
+				case 33: LDRSH(gpr.R(rt), R11, R0); break;
+				case 36: LDRB (gpr.R(rt), R11, R0); break;
+				case 32: LDRSB(gpr.R(rt), R11, R0); break;
 				// Store
-				case 43: STR  (gpr.R(rt), R11, R0, true, true); break;
-				case 41: STRH (gpr.R(rt), R11, R0, true, true); break;
-				case 40: STRB (gpr.R(rt), R11, R0, true, true); break;
+				case 43: STR  (gpr.R(rt), R11, R0); break;
+				case 41: STRH (gpr.R(rt), R11, R0); break;
+				case 40: STRB (gpr.R(rt), R11, R0); break;
 				}
 			} else {
 				Comp_Generic(op);
@@ -179,26 +179,26 @@ namespace MIPSComp
 				// Load
 				case 34:
 					AND(gpr.R(rt), gpr.R(rt), 0x00ffffff >> shift);
-					LDR(R0, R11, R0, true, true);
+					LDR(R0, R11, R0);
 					ORR(gpr.R(rt), gpr.R(rt), Operand2(R0, ST_LSL, 24 - shift));
 					break;
 				case 38:
 					AND(gpr.R(rt), gpr.R(rt), 0xffffff00 << (24 - shift));
-					LDR(R0, R11, R0, true, true);
+					LDR(R0, R11, R0);
 					ORR(gpr.R(rt), gpr.R(rt), Operand2(R0, ST_LSR, shift));
 					break;
 				// Store
 				case 42:
-					LDR(R1, R11, R0, true, true);
+					LDR(R1, R11, R0);
 					AND(R1, R1, 0xffffff00 << shift);
 					ORR(R1, R1, Operand2(gpr.R(rt), ST_LSR, 24 - shift));
-					STR(R1, R11, R0, true, true);
+					STR(R1, R11, R0);
 					break;
 				case 46:
-					LDR(R1, R11, R0, true, true);
+					LDR(R1, R11, R0);
 					AND(R1, R1, 0x00ffffff >> (24 - shift));
 					ORR(R1, R1, Operand2(gpr.R(rt), ST_LSL, shift));
-					STR(R1, R11, R0, true, true);
+					STR(R1, R11, R0);
 					break;
 				}
 			} else {
