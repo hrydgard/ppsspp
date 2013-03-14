@@ -30,7 +30,16 @@
     <property name="spacing">
      <number>0</number>
     </property>
-    <property name="margin">
+    <property name="leftMargin">
+     <number>0</number>
+    </property>
+    <property name="topMargin">
+     <number>0</number>
+    </property>
+    <property name="rightMargin">
+     <number>0</number>
+    </property>
+    <property name="bottomMargin">
      <number>0</number>
     </property>
     <item>
@@ -187,6 +196,8 @@
      <addaction name="separator"/>
      <addaction name="action_OptionsFastMemory"/>
      <addaction name="action_OptionsIgnoreIllegalReadsWrites"/>
+     <addaction name="separator"/>
+     <addaction name="actionUse_MediaEngine"/>
     </widget>
     <addaction name="menuCore"/>
     <addaction name="menuControls"/>
@@ -702,6 +713,14 @@
    </property>
    <property name="text">
     <string>Frameskip</string>
+   </property>
+  </action>
+  <action name="actionUse_MediaEngine">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Use MediaEngine</string>
    </property>
   </action>
  </widget>

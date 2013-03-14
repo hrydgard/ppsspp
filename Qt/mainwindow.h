@@ -79,6 +79,7 @@ private slots:
 	void on_action_CPUInterpreter_triggered();
 	void on_action_OptionsFastMemory_triggered();
 	void on_action_OptionsIgnoreIllegalReadsWrites_triggered();
+	void on_actionUse_MediaEngine_triggered();
 
 	// Controls
 	void on_action_OptionsControls_triggered();
