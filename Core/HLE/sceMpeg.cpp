@@ -1039,15 +1039,14 @@ void PostPutAction::run(MipsCall &call) {
 u32 sceMpegRingbufferPut(u32 ringbufferAddr, u32 numPackets, u32 available)
 {
 	DEBUG_LOG(HLE, "sceMpegRingbufferPut(%08x, %i, %i)", ringbufferAddr, numPackets, available);
-	if (numPackets < 0) {
+	numPackets = std::min(numPackets, available);
+	if (numPackets <= 0) {
 		ERROR_LOG(HLE, "sub-zero number of packets put");
 		return 0;
 	}
 
 	SceMpegRingBuffer ringbuffer;
 	Memory::ReadStruct(ringbufferAddr, &ringbuffer);
-
-	numPackets = std::min(numPackets, available);
 
 	MpegContext *ctx = getMpegCtx(ringbuffer.mpeg);
 	if (!ctx) {
