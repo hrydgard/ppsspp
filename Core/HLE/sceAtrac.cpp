@@ -133,6 +133,11 @@ void Atrac::Analyze()
 		ERROR_LOG(HLE, "Atrac buffer very small: %d", first.size);
 		return;
 	}
+	if (!Memory::IsValidAddress(first.addr))
+	{
+		WARN_LOG(HLE, "Atrac buffer at invalid address: %08x-%08x", first.addr, first.size);
+		return;
+	}
 
 	// TODO: Validate stuff.
 
@@ -142,6 +147,12 @@ void Atrac::Analyze()
 	u32 offset = 12;
 	while (first.size > offset + 8)
 	{
+		if (!Memory::IsValidAddress(first.addr + offset))
+		{
+			ERROR_LOG(HLE, "Atrac buffer %08x-%08x not valid at %08x", first.addr, first.addr + first.size, first.addr + offset);
+			return;
+		}
+
 		u32 magic = Memory::Read_U32(first.addr + offset);
 		u32 size = Memory::Read_U32(first.addr + offset + 4);
 		offset += 8;
