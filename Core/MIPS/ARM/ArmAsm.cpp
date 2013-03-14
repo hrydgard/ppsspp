@@ -165,6 +165,10 @@ void Jit::GenerateFixedCode()
 				// IDEA - we have 26 bits, why not just use offsets from base of code?
 				// Another idea: Shift the bloc number left by two in the op, this would let us do
 				// LDR(R0, R9, R0); here, replacing the next instructions.
+#ifdef IOS
+				// TODO: Fix me, I'm ugly.
+				MOVI2R(R9, (u32)GetBlockCache()->GetCodePointers());
+#endif
 				ADD(R0, R9, Operand2(R0, ST_LSL, 2));
 				LDR(R0, R0);
 				B(R0);
