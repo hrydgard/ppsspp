@@ -2709,7 +2709,7 @@ void ActionAfterCallback::run(MipsCall &call) {
 // Returns true if any callbacks were processed on the current thread.
 bool __KernelCheckThreadCallbacks(Thread *thread, bool force)
 {
-	if (!thread->isProcessingCallbacks && !force)
+	if (!thread || (!thread->isProcessingCallbacks && !force))
 		return false;
 
 	for (int i = 0; i < THREAD_CALLBACK_NUM_TYPES; i++) {
