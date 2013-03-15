@@ -705,8 +705,8 @@ void ARMXEmitter::WriteStoreOp(u32 Op, ARMReg Rt, ARMReg Rn, Operand2 Rm, bool R
 			{
 				Data = Rm.GetData();
 				Add = RegAdd;
-				break;
 			}
+			break;
 		default:
 			// RSR not supported for any of these
 			// We already have the warning above

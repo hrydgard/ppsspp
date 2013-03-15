@@ -139,8 +139,10 @@ void CPUInfo::Detect()
 	bVFPv3 = CheckCPUFeature("vfpv3");
 	bTLS = CheckCPUFeature("tls");
 	bVFPv4 = CheckCPUFeature("vfpv4");
-	bIDIVa = CheckCPUFeature("idiva");
-	bIDIVt = CheckCPUFeature("idivt");
+	// On some buggy kernels(Qualcomm) they show that they support VFPv4 but not IDIVa
+	// All VFPv4 CPUs will support IDIVa
+	bIDIVa = bVFPv4 || CheckCPUFeature("idiva");
+	bIDIVt = bVFPv4 || CheckCPUFeature("idivt");
 	// These two require ARMv8 or higher
 	bFP = CheckCPUFeature("fp");
 	bASIMD = CheckCPUFeature("asimd");
@@ -200,10 +202,8 @@ std::string CPUInfo::Summarize()
 	if (bVFPv3) sum += ", VFPv3";
 	if (bTLS) sum += ", TLS";
 	if (bVFPv4) sum += ", VFPv4";
-	// On some buggy kernels(Qualcomm) they show that they support VFPv4 but not IDIVa
-	// All VFPv4 CPUs will support IDIVa
-	if (bIDIVa || bVFPv4) sum += ", IDIVa";
-	if (bIDIVt || bVFPv4) sum += ", IDIVt";
+	if (bIDIVa) sum += ", IDIVa";
+	if (bIDIVt) sum += ", IDIVt";
 
 	return sum;
 }
