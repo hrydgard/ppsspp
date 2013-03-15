@@ -297,7 +297,8 @@ void UIList::pointerDown(int pointer, float x, float y) {
 	movedDistanceY = 0.0f;
 }
 
-const int holdFrames = 6;
+const int holdFramesClick = 3;
+const int holdFramesScroll = 10;
 
 void UIList::pointerMove(int pointer, float x, float y, bool inside) {
 	float deltaX = x - lastX;
@@ -313,7 +314,8 @@ void UIList::pointerMove(int pointer, float x, float y, bool inside) {
 		inertiaY = 0.8 * inertiaY + 0.2 * -deltaY;
 	}
 
-	if (inside && movedDistanceY > 35 && movedDistanceY > movedDistanceX && !scrolling && uistate.mouseframesdown[0] > holdFrames) {
+	const int deadzone = 30 * holdFramesScroll;
+	if (inside && movedDistanceY * uistate.mouseframesdown[0] > deadzone && !scrolling) {
 		scrolling = true;
 	}
 }
@@ -407,7 +409,7 @@ int UIList::Do(int id, int x, int y, int w, int h, UIListAdapter *adapter) {
 		if (item_y >= y - itemHeight && item_y <= y + h) {
 			for (int k = 0; k < 1; k++) {  // MAX_POINTERS if we add back multitouch
 				if (uistate.mousedown[k] &&
-						uistate.mouseframesdown[k] >= holdFrames &&
+						uistate.mouseframesdown[k] >= holdFramesClick &&
 						adapter->itemEnabled(i) &&
 						!scrolling &&
 						selected == -1 &&
