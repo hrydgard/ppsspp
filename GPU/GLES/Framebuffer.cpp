@@ -64,8 +64,8 @@ static bool MaskedEqual(u32 addr1, u32 addr2) {
 	return (addr1 & 0x3FFFFFF) == (addr2 & 0x3FFFFFF);
 }
 
-static void CenterRect(float *x, float *y, float *w, float *h,
-	                     float origW, float origH, float frameW, float frameH)
+void CenterRect(float *x, float *y, float *w, float *h,
+                float origW, float origH, float frameW, float frameH)
 {
 	if (g_Config.bStretchToDisplay)
 	{

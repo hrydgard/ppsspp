@@ -68,6 +68,8 @@ struct VirtualFramebuffer {
 	bool dirtyAfterDisplay;
 };
 
+void CenterRect(float *x, float *y, float *w, float *h,
+								float origW, float origH, float frameW, float frameH);
 
 class FramebufferManager {
 public:

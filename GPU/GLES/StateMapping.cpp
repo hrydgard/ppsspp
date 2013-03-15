@@ -1,3 +1,20 @@
+// Copyright (c) 2012- PPSSPP Project.
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, version 2.0 or later versions.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License 2.0 for more details.
+
+// A copy of the GPL 2.0 should have been included with the program.
+// If not, see http://www.gnu.org/licenses/
+
+// Official git repository and contact information can be found at
+// https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
+
 #include "StateMapping.h"
 #include "native/gfx_es2/gl_state.h"
 
@@ -9,8 +26,9 @@
 #include "DisplayListInterpreter.h"
 #include "ShaderManager.h"
 #include "TextureCache.h"
+#include "FrameBuffer.h"
 
-const GLint aLookup[11] = {
+static const GLushort aLookup[11] = {
 	GL_DST_COLOR,
 	GL_ONE_MINUS_DST_COLOR,
 	GL_SRC_ALPHA,
@@ -24,7 +42,7 @@ const GLint aLookup[11] = {
 	GL_CONSTANT_COLOR,	// FIXA
 };
 
-const GLint bLookup[11] = {
+static const GLushort bLookup[11] = {
 	GL_SRC_COLOR,
 	GL_ONE_MINUS_SRC_COLOR,
 	GL_SRC_ALPHA,
@@ -38,7 +56,7 @@ const GLint bLookup[11] = {
 	GL_CONSTANT_COLOR,	// FIXB
 };
 
-const GLint eqLookup[] = {
+static const GLushort eqLookup[] = {
 	GL_FUNC_ADD,
 	GL_FUNC_SUBTRACT,
 	GL_FUNC_REVERSE_SUBTRACT,
@@ -52,18 +70,17 @@ const GLint eqLookup[] = {
 	GL_FUNC_ADD, // should be abs(diff)
 };
 
-const GLint cullingMode[] = {
+static const GLushort cullingMode[] = {
 	GL_BACK,
 	GL_FRONT,
 };
 
-const GLuint ztests[] = 
-{
+static const GLushort ztests[] = {
 	GL_NEVER, GL_ALWAYS, GL_EQUAL, GL_NOTEQUAL, 
 	GL_LESS, GL_LEQUAL, GL_GREATER, GL_GEQUAL,
 };
 
-const GLuint stencilOps[] = {
+static const GLushort stencilOps[] = {
 	GL_KEEP,
 	GL_ZERO,
 	GL_REPLACE,
@@ -216,31 +233,46 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 }
 
 void TransformDrawEngine::UpdateViewportAndProjection() {
-	int renderWidth, renderHeight;
+	float renderWidthFactor, renderHeightFactor;
+	float renderWidth, renderHeight;
+	float renderX, renderY;
 	if (g_Config.bBufferedRendering) {
+		renderX = 0;
+		renderY = 0;
 	  renderWidth = framebufferManager_->GetRenderWidth();
 	  renderHeight = framebufferManager_->GetRenderHeight();
+		renderWidthFactor = (float)renderWidth / framebufferManager_->GetTargetWidth();
+		renderHeightFactor = (float)renderHeight / framebufferManager_->GetTargetHeight();
 	} else {
 		// TODO: Aspect-ratio aware and centered
-		renderWidth = PSP_CoreParameter().pixelWidth;
-		renderHeight = PSP_CoreParameter().pixelHeight;
+		float pixelW = PSP_CoreParameter().pixelWidth;
+		float pixelH = PSP_CoreParameter().pixelHeight;
+		CenterRect(&renderX, &renderY, &renderWidth, &renderHeight, 480, 272, pixelW, pixelH);
+		renderWidthFactor = renderWidth / 480.f;
+		renderHeightFactor = renderHeight / 272.f;
 	}
-	float renderWidthFactor = (float)renderWidth / framebufferManager_->GetTargetWidth();
-	float renderHeightFactor = (float)renderHeight / framebufferManager_->GetTargetHeight();
+
 	bool throughmode = (gstate.vertType & GE_VTYPE_THROUGH_MASK) != 0;
 
 	// We can probably use these to simply set scissors? Maybe we need to offset by regionX1/Y1
+	
+	/*
 	int regionX1 = gstate.region1 & 0x3FF;
 	int regionY1 = (gstate.region1 >> 10) & 0x3FF;
 	int regionX2 = (gstate.region2 & 0x3FF) + 1;
 	int regionY2 = ((gstate.region2 >> 10) & 0x3FF) + 1;
+	*/
+	int regionX1 = 0;
+	int regionY1 = 0;
+	int regionX2 = 480;
+	int regionY2 = 272;
 
 	float offsetX = (float)(gstate.offsetx & 0xFFFF) / 16.0f;
 	float offsetY = (float)(gstate.offsety & 0xFFFF) / 16.0f;
 
 	if (throughmode) {
 		// No viewport transform here. Let's experiment with using region.
-		glstate.viewport.set((0 + regionX1) * renderWidthFactor, (0 - regionY1) * renderHeightFactor, (regionX2 - regionX1) * renderWidthFactor, (regionY2 - regionY1) * renderHeightFactor);
+		glstate.viewport.set(renderX + (0 + regionX1) * renderWidthFactor, renderY + (0 - regionY1) * renderHeightFactor, (regionX2 - regionX1) * renderWidthFactor, (regionY2 - regionY1) * renderHeightFactor);
 		glstate.depthRange.set(0.0f, 1.0f);
 	} else {
 		// These we can turn into a glViewport call, offset by offsetX and offsetY. Math after.
@@ -270,7 +302,7 @@ void TransformDrawEngine::UpdateViewportAndProjection() {
 
 		// Flip vpY0 to match the OpenGL coordinate system.
 		vpY0 = renderHeight - (vpY0 + vpHeight);
-		glstate.viewport.set(vpX0, vpY0, vpWidth, vpHeight);
+		glstate.viewport.set(vpX0 + renderX, vpY0 + renderY, vpWidth, vpHeight);
 		// Sadly, as glViewport takes integers, we will not be able to support sub pixel offsets this way. But meh.
 		// shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
 
