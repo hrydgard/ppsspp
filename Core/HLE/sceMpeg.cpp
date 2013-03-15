@@ -1403,7 +1403,7 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr)
 	// TODO: Actually decode the data
 #ifdef _DEBUG
 	char fileName[256];
-	sprintf(fileName, "%i.mp3", ctx->mp3StreamPosition);
+	sprintf(fileName, "%lli.mp3", ctx->mp3StreamPosition);
 
 	FILE * file = fopen(fileName, "wb");
 	if(file) {
