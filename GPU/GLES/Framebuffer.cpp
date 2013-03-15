@@ -430,7 +430,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 
 	VirtualFramebuffer *vfb = GetDisplayFBO();
 	if (!vfb) {
-		DEBUG_LOG(HLE, "Found no FBO! displayFBPtr = %08x", displayFramebufPtr_);
+		DEBUG_LOG(HLE, "Found no FBO to display! displayFBPtr = %08x", displayFramebufPtr_);
 		// No framebuffer to display! Clear to black.
 		glstate.depthWrite.set(GL_TRUE);
 		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
@@ -558,6 +558,7 @@ void FramebufferManager::DestroyAllFBOs() {
 		VirtualFramebuffer *vfb = *iter;
 		textureCache_->NotifyFramebufferDestroyed(vfb->fb_address, vfb);
 		if (vfb->fbo) {
+			INFO_LOG(HLE, "Destroying FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 			fbo_destroy(vfb->fbo);
 			vfb->fbo = 0;
 		}

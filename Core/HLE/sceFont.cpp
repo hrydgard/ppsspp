@@ -739,7 +739,7 @@ int sceFontGetFontInfo(u32 fontHandle, u32 fontInfoPtr) {
 }
 
 int sceFontGetFontInfoByIndexNumber(u32 libHandle, u32 fontInfoPtr, u32 unknown, u32 fontIndex) {
-	ERROR_LOG(HLE, "HACK sceFontGetFontInfoByIndexNumber(%x, %x, %i, %i)", libHandle, fontInfoPtr, unknown, fontIndex);
+	INFO_LOG(HLE, "sceFontGetFontInfoByIndexNumber(%x, %x, %i, %i)", libHandle, fontInfoPtr, unknown, fontIndex);
 	FontLib *fl = GetFontLib(libHandle);
 	u32 fontHandle = fl->GetFontHandle(fontIndex);
 	return sceFontGetFontInfo(fontHandle, fontInfoPtr);
@@ -770,7 +770,7 @@ int sceFontGetShadowInfo(u32 fontHandle, u32 charCode, u32 shadowCharInfoPtr) {
 }
 
 int sceFontGetCharImageRect(u32 fontHandle, u32 charCode, u32 charRectPtr) {
-	ERROR_LOG(HLE, "HACK sceFontGetCharImageRect(%08x, %i, %08x)", fontHandle, charCode, charRectPtr);
+	INFO_LOG(HLE, "sceFontGetCharImageRect(%08x, %i, %08x)", fontHandle, charCode, charRectPtr);
 	if (!Memory::IsValidAddress(charRectPtr))
 		return -1;
 
@@ -792,7 +792,7 @@ int sceFontGetShadowImageRect(u32 fontHandle, u32 charCode, u32 charRectPtr) {
 }
 
 int sceFontGetCharGlyphImage(u32 fontHandle, u32 charCode, u32 glyphImagePtr) {
-	ERROR_LOG(HLE, "HACK sceFontGetCharGlyphImage(%x, %x, %x)", fontHandle, charCode, glyphImagePtr);
+	INFO_LOG(HLE, "sceFontGetCharGlyphImage(%x, %x, %x)", fontHandle, charCode, glyphImagePtr);
 
 	int pixelFormat = Memory::Read_U32(glyphImagePtr);
 	int xPos64 = Memory::Read_U32(glyphImagePtr+4);
@@ -813,7 +813,7 @@ int sceFontGetCharGlyphImage(u32 fontHandle, u32 charCode, u32 glyphImagePtr) {
 }
 
 int sceFontGetCharGlyphImage_Clip(u32 fontHandle, u32 charCode, u32 glyphImagePtr, int clipXPos, int clipYPos, int clipWidth, int clipHeight) {
-	ERROR_LOG(HLE, "sceFontGetCharGlyphImage_Clip(%08x, %i, %08x, %i, %i, %i, %i)", fontHandle, charCode, glyphImagePtr, clipXPos, clipYPos, clipWidth, clipHeight);
+	INFO_LOG(HLE, "sceFontGetCharGlyphImage_Clip(%08x, %i, %08x, %i, %i, %i, %i)", fontHandle, charCode, glyphImagePtr, clipXPos, clipYPos, clipWidth, clipHeight);
 
 	int pixelFormat = Memory::Read_U32(glyphImagePtr);
 	int xPos64 = Memory::Read_U32(glyphImagePtr+4);
