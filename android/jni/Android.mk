@@ -150,6 +150,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/HLE/sceMpeg.cpp \
   $(SRC)/Core/HLE/sceNet.cpp \
   $(SRC)/Core/HLE/sceOpenPSID.cpp \
+  $(SRC)/Core/HLE/sceP3da.cpp \
   $(SRC)/Core/HLE/sceParseHttp.cpp \
   $(SRC)/Core/HLE/sceParseUri.cpp \
   $(SRC)/Core/HLE/scePower.cpp \

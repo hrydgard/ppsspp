@@ -761,6 +761,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceNet.h
 	Core/HLE/sceOpenPSID.cpp
 	Core/HLE/sceOpenPSID.h
+	Core/HLE/sceP3da.cpp
+	Core/HLE/sceP3da.h
 	Core/HLE/sceParseHttp.cpp
 	Core/HLE/sceParseHttp.h
 	Core/HLE/sceParseUri.cpp
