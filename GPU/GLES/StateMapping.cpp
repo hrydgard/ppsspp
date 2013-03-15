@@ -26,7 +26,7 @@
 #include "DisplayListInterpreter.h"
 #include "ShaderManager.h"
 #include "TextureCache.h"
-#include "FrameBuffer.h"
+#include "Framebuffer.h"
 
 static const GLushort aLookup[11] = {
 	GL_DST_COLOR,
