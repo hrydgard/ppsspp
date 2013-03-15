@@ -458,6 +458,17 @@ int __IoRead(int id, u32 data_addr, int size) {
 			return ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
 		}
 		else if (Memory::IsValidAddress(data_addr)) {
+#ifdef _WIN32
+			if (f->fullpath.find(".AT3") != std::string::npos ||
+				f->fullpath.find(".at3") != std::string::npos ||
+				f->fullpath.find(".PMF") != std::string::npos ||
+				f->fullpath.find(".pmf") != std::string::npos
+				)
+			{
+				strcpy(Memory::lastestAccessFile.filename, f->fullpath.c_str());
+				Memory::lastestAccessFile.data_addr = data_addr;
+			}
+#endif // _WIN32
 			u8 *data = (u8*) Memory::GetPointer(data_addr);
 			if(f->npdrm){
 				return npdrmRead(f, data, size);
@@ -615,7 +626,7 @@ u32 npdrmLseek(FileNode *f, s32 where, FileMove whence)
 
 s64 __IoLseek(SceUID id, s64 offset, int whence) {
 	u32 error;
-	FileNode *f = kernelObjects.Get < FileNode > (id, error);
+	FileNode *f = kernelObjects.Get<FileNode>(id, error);
 	if (f) {
 		FileMove seek = FILEMOVE_BEGIN;
 

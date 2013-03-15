@@ -115,6 +115,13 @@ enum
 #endif
 };
 
+#ifdef _WIN32
+extern struct LASTESTACCESSFILE{
+	char filename[256];
+	u32 data_addr;
+} lastestAccessFile;
+#endif // _WIN32
+
 // Init and Shutdown
 void Init();
 void Shutdown();

@@ -212,6 +212,10 @@
     <ClCompile Include="HLE\sceVaudio.cpp" />
     <ClCompile Include="HLE\__sceAudio.cpp" />
     <ClCompile Include="Host.cpp" />
+    <ClCompile Include="HW\audioPlayer.cpp" />
+    <ClCompile Include="HW\mediaPlayer.cpp" />
+    <ClCompile Include="HW\MpegDemux.cpp" />
+    <ClCompile Include="HW\OMAConvert.cpp" />
     <ClCompile Include="HW\MediaEngine.cpp" />
     <ClCompile Include="HW\MemoryStick.cpp" />
     <ClCompile Include="HW\SasAudio.cpp" />
@@ -388,6 +392,10 @@
     <ClInclude Include="HLE\sceVaudio.h" />
     <ClInclude Include="HLE\__sceAudio.h" />
     <ClInclude Include="Host.h" />
+    <ClInclude Include="HW\audioPlayer.h" />
+    <ClInclude Include="HW\mediaPlayer.h" />
+    <ClInclude Include="HW\MpegDemux.h" />
+    <ClInclude Include="HW\OMAConvert.h" />
     <ClInclude Include="HW\MediaEngine.h" />
     <ClInclude Include="HW\SasAudio.h" />
     <ClInclude Include="HW\MemoryStick.h" />
