@@ -71,6 +71,8 @@ struct VirtualFramebuffer {
 void CenterRect(float *x, float *y, float *w, float *h,
 								float origW, float origH, float frameW, float frameH);
 
+class ShaderManager;
+
 class FramebufferManager {
 public:
 	FramebufferManager();
@@ -78,6 +80,9 @@ public:
 
 	void SetTextureCache(TextureCache *tc) {
 		textureCache_ = tc;
+	}
+	void SetShaderManager(ShaderManager *sm) {
+		shaderManager_ = sm;
 	}
 
 	void DrawPixels(const u8 *framebuf, int pixelFormat, int linesize);
@@ -126,6 +131,7 @@ private:
 
 
 	TextureCache *textureCache_;
+	ShaderManager *shaderManager_;
 
 	bool resized_;
 };

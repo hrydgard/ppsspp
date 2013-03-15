@@ -279,8 +279,8 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	*/
 	int regionX1 = 0;
 	int regionY1 = 0;
-	int regionX2 = 480;
-	int regionY2 = 272;
+	int regionX2 = gstate_c.curRTWidth;
+	int regionY2 = gstate_c.curRTHeight;
 
 	float offsetX = (float)(gstate.offsetx & 0xFFFF) / 16.0f;
 	float offsetY = (float)(gstate.offsety & 0xFFFF) / 16.0f;

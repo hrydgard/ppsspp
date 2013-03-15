@@ -244,7 +244,7 @@ void LinkedShader::updateUniforms() {
 	if (u_proj_through != -1 && (dirtyUniforms & DIRTY_PROJTHROUGHMATRIX))
 	{
 		Matrix4x4 proj_through;
-		proj_through.setOrtho(0.0f, 480, 272, 0, 0, 1);
+		proj_through.setOrtho(0.0f, gstate_c.curRTWidth, gstate_c.curRTHeight, 0, 0, 1);
 		glUniformMatrix4fv(u_proj_through, 1, GL_FALSE, proj_through.getReadPtr());
 	}
 	if (u_texenv != -1 && (dirtyUniforms & DIRTY_TEXENV)) {

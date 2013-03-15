@@ -172,6 +172,7 @@ GLES_GPU::GLES_GPU()
 	transformDraw_.SetTextureCache(&textureCache_);
 	transformDraw_.SetFramebufferManager(&framebufferManager_);
 	framebufferManager_.SetTextureCache(&textureCache_);
+	framebufferManager_.SetShaderManager(shaderManager_);
 
 	// Sanity check gstate
 	if ((int *)&gstate.transferstart - (int *)&gstate != 0xEA) {
@@ -327,7 +328,6 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 			// when it's time to draw. As most PSP games set state redundantly ALL THE TIME, this is a huge optimization.
 
 			// This also make skipping drawing very effective.
-
 			framebufferManager_.SetRenderFrameBuffer();
 			if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))
 				return;

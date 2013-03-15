@@ -218,6 +218,11 @@ struct GPUgstate
 	int getUVLS0() const { return texshade & 0x3; }  // 2 bits
 	int getUVLS1() const { return (texshade >> 8) & 0x3; }  // 2 bits
 
+	int getScissorX1() const { return scissor1 & 0x3FF; }
+	int getScissorY1() const { return (scissor1 >> 10) & 0x3FF; }
+	int getScissorX2() const { return scissor2 & 0x3FF; }
+	int getScissorY2() const { return (scissor2 >> 10) & 0x3FF; }
+
 	// Vertex type
 	bool isModeThrough() const { return (vertType & GE_VTYPE_THROUGH) != 0; }
 	int getNumBoneWeights() const {
@@ -263,6 +268,9 @@ struct GPUStateCache
 
 	float vpWidth;
 	float vpHeight;
+
+	u32 curRTWidth;
+	u32 curRTHeight;
 
 	u32 getRelativeAddress(u32 data) const;
 };

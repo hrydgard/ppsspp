@@ -30,6 +30,7 @@
 
 #include "GPU/GLES/Framebuffer.h"
 #include "GPU/GLES/TextureCache.h"
+#include "GPU/GLES/ShaderManager.h"
 
 static const char tex_fs[] =
 	"#ifdef GL_ES\n"
@@ -258,11 +259,29 @@ VirtualFramebuffer *FramebufferManager::GetDisplayFBO() {
 	return 0;
 }
 
-void GetViewportDimensions(int *w, int *h) {
+void GetViewportDimensions(int &w, int &h) {
 	float vpXa = getFloat24(gstate.viewportx1);
 	float vpYa = getFloat24(gstate.viewporty1);
-	*w = (int)fabsf(vpXa * 2);
-	*h = (int)fabsf(vpYa * 2);
+	w = (int)fabsf(vpXa * 2);
+	h = (int)fabsf(vpYa * 2);
+}
+
+// Heuristics to figure out the size of FBO to create.
+void GuessDrawingSize(int &drawing_width, int &drawing_height) {
+	GetViewportDimensions(drawing_width, drawing_height);
+
+	// HACK for first frame where some games don't init things right
+	if (drawing_width <= 1 && drawing_height <= 1) {
+		drawing_width = 480;
+		drawing_height = 272;
+	}
+
+	// Now, cap using scissor. Hm, no, this doesn't work so well.
+	/*
+	if (drawing_width > gstate.getScissorX2() + 1)
+		drawing_width = gstate.getScissorX2() + 1;
+	if (drawing_height > gstate.getScissorY2() + 1)
+		drawing_height = gstate.getScissorY2() + 1;*/
 }
 
 void FramebufferManager::SetRenderFrameBuffer() {
@@ -280,17 +299,10 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	// As there are no clear "framebuffer width" and "framebuffer height" registers,
 	// we need to infer the size of the current framebuffer somehow. Let's try the viewport.
 	
-	int drawing_width, drawing_height;
-	GetViewportDimensions(&drawing_width, &drawing_height);
-
-	// HACK for first frame where some games don't init things right
-	
-	if (drawing_width <= 1 && drawing_height <= 1) {
-		drawing_width = 480;
-		drawing_height = 272;
-	}
-
 	int fmt = gstate.framebufpixformat & 3;
+
+	int drawing_width, drawing_height;
+	GuessDrawingSize(drawing_width, drawing_height);
 
 	// Find a matching framebuffer
 	VirtualFramebuffer *vfb = 0;
@@ -369,7 +381,6 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		glClearColor(0,0,0,1);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 		glEnable(GL_DITHER);
-		glstate.viewport.set(0, 0, vfb->renderWidth, vfb->renderHeight);
 		currentRenderVfb_ = vfb;
 
 		INFO_LOG(HLE, "Creating FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
@@ -416,8 +427,16 @@ void FramebufferManager::SetRenderFrameBuffer() {
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 		}
 #endif
-		glstate.viewport.set(0, 0, vfb->renderWidth, vfb->renderHeight);
 		currentRenderVfb_ = vfb;
+	} else {
+		vfb->last_frame_used = gpuStats.numFrames;
+	}
+
+	// ugly...
+	if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) {
+		shaderManager_->DirtyUniform(DIRTY_PROJTHROUGHMATRIX);
+		gstate_c.curRTWidth = vfb->width;
+		gstate_c.curRTHeight = vfb->height;
 	}
 }
 
@@ -537,8 +556,9 @@ void FramebufferManager::DecimateFBOs() {
 			++iter;
 			continue;
 		}
-		if ((*iter)->last_frame_used + FBO_OLD_AGE < gpuStats.numFrames) {
-			INFO_LOG(HLE, "Destroying FBO for %08x (%i x %i x %i)", vfb->fb_address, vfb->width, vfb->height, vfb->format)
+		int age = gpuStats.numFrames - (*iter)->last_frame_used;
+		if (age > FBO_OLD_AGE) {
+			INFO_LOG(HLE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format)
 			if (vfb->fbo) {
 				textureCache_->NotifyFramebufferDestroyed(vfb->fb_address, vfb);
 				fbo_destroy(vfb->fbo);
