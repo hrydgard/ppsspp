@@ -23,6 +23,11 @@
 #include "../MIPS/MIPS.h"
 #include "../CoreTiming.h"
 #include "ChunkFile.h"
+#include "../Core/System.h"
+
+#ifdef _WIN32
+#include "../HW/audioPlayer.h"
+#endif // _WIN32
 
 #include "sceKernel.h"
 #include "sceUtility.h"
@@ -93,6 +98,9 @@ void __AtracShutdown() {
 		delete it->second;
 	}
 	atracMap.clear();
+#ifdef _WIN32
+	shutdownEngine();
+#endif //_WIN32
 }
 
 Atrac *getAtrac(int atracID) {
@@ -188,6 +196,13 @@ u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd)
 u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishFlagAddr, u32 remainAddr)
 {
 	DEBUG_LOG(HLE, "FAKE sceAtracDecodeData(%i, %08x, %08x, %08x, %08x)", atracID, outAddr, numSamplesAddr, finishFlagAddr, remainAddr);
+#ifdef _WIN32
+	audioEngine *engine = getaudioEngineByID(atracID);
+	if (engine != NULL)
+	{
+		engine->play();
+	}
+#endif // _WIN32
 	Atrac *atrac = getAtrac(atracID);
 
 	u32 ret = 0;
@@ -421,6 +436,9 @@ u32 sceAtracGetStreamDataInfo(int atracID, u32 writeAddr, u32 writableBytesAddr,
 u32 sceAtracReleaseAtracID(int atracID)
 {
 	ERROR_LOG(HLE, "UNIMPL sceAtracReleaseAtracID(%i)", atracID);
+#ifdef _WIN32
+	deleteAtrac3Audio(atracID);
+#endif //_WIN32
 	deleteAtrac(atracID);
 	return 0;
 }
@@ -471,6 +489,23 @@ u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize)
 		atrac->first.addr = buffer;
 		atrac->first.size = bufferSize;
 		atrac->Analyze();
+#ifdef _WIN32
+		if (Memory::lastestAccessFile.data_addr == buffer)
+		{
+			PSPFileInfo info = pspFileSystem.GetFileInfo(Memory::lastestAccessFile.filename);
+			int size =(int)info.size;
+			u8* buf = new u8[size];
+			u32 h = pspFileSystem.OpenFile(Memory::lastestAccessFile.filename, (FileAccess) FILEACCESS_READ);
+			if (pspFileSystem.ReadFile(h, buf, size) == size)
+			{
+				addAtrac3Audio(buf, bufferSize, atracID);
+			}
+			pspFileSystem.CloseFile(h);
+			delete [] buf;
+		}
+		else
+			addAtrac3Audio(Memory::GetPointer(buffer), bufferSize, atracID);
+#endif // _WIN32
 	}
 	return 0;
 } 
@@ -484,7 +519,25 @@ int sceAtracSetDataAndGetID(u32 buffer, u32 bufferSize)
 	atrac->first.addr = buffer;
 	atrac->first.size = bufferSize;
 	atrac->Analyze();
-	return createAtrac(atrac);
+	int atracID = createAtrac(atrac);
+#ifdef _WIN32
+	if (Memory::lastestAccessFile.data_addr == buffer)
+	{
+		PSPFileInfo info = pspFileSystem.GetFileInfo(Memory::lastestAccessFile.filename);
+		int size =(int)info.size;
+		u8* buf = new u8[size];
+		u32 h = pspFileSystem.OpenFile(Memory::lastestAccessFile.filename, (FileAccess) FILEACCESS_READ);
+		if (pspFileSystem.ReadFile(h, buf, size) == size)
+		{
+			addAtrac3Audio(buf, bufferSize, atracID);
+		}
+		pspFileSystem.CloseFile(h);
+		delete [] buf;
+	}
+	else
+		addAtrac3Audio(Memory::GetPointer(buffer), bufferSize, atracID);
+#endif // _WIN32
+	return atracID;
 }
 
 int sceAtracSetHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBufferSize)

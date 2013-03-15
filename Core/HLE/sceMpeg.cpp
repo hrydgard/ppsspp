@@ -24,6 +24,7 @@
 #include "HLE.h"
 #include "../HW/MediaEngine.h"
 #include "../../Core/Config.h"
+#include "../HW/mediaPlayer.h"
 
 static bool useMediaEngine;
 
@@ -396,6 +397,9 @@ void __MpegShutdown() {
 		delete it->second;
 	}
 	mpegMap.clear();
+#ifdef _WIN32
+	deletePMFStream();
+#endif // _WIN32
 }
 
 u32 sceMpegInit()
@@ -441,6 +445,7 @@ u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr, u32 f
 	SceMpegRingBuffer ringbuffer;
 	if(ringbufferAddr != 0){
 	Memory::ReadStruct(ringbufferAddr, &ringbuffer);
+
 	if (ringbuffer.packetSize == 0) {
 		ringbuffer.packetsFree = 0;
 	} else {
@@ -497,11 +502,13 @@ int sceMpegDelete(u32 mpeg)
 		return -1;
 	}
 
-	DEBUG_LOG(HLE, "sceMpegDelete(%08x)", mpeg);
+	INFO_LOG(HLE, "sceMpegDelete(%08x)", mpeg);
 
 	delete ctx;
 	mpegMap.erase(Memory::Read_U32(mpeg));
-
+#ifdef _WIN32
+	deletePMFStream();
+#endif // _WIN32
 	return 0;
 }
 
@@ -533,6 +540,17 @@ int sceMpegAvcDecodeMode(u32 mpeg, u32 modeAddr)
 
 int sceMpegQueryStreamOffset(u32 mpeg, u32 bufferAddr, u32 offsetAddr)
 {
+	if (!g_Config.bUseMediaEngine){
+		WARN_LOG(HLE, "Media Engine disabled");
+		return -1;
+	}
+#ifdef _WIN32
+	if (bufferAddr == Memory::lastestAccessFile.data_addr)
+	{
+		loadPMFPSFFile(Memory::lastestAccessFile.filename);
+		Memory::lastestAccessFile.data_addr = 0;
+	}
+#endif // _WIN32
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
 		WARN_LOG(HLE, "sceMpegQueryStreamOffset(%08x, %08x, %08x): bad mpeg handle", mpeg, bufferAddr, offsetAddr);
@@ -573,8 +591,6 @@ u32 sceMpegQueryStreamSize(u32 bufferAddr, u32 sizeAddr)
 
 	if (ctx.mpegMagic != PSMF_MAGIC) {
 		ERROR_LOG(HLE, "sceMpegQueryStreamSize: Bad PSMF magic");
-		Memory::Write_U32(0, sizeAddr);
-		return ERROR_MPEG_INVALID_VALUE;
 	} else if ((ctx.mpegOffset & 2047) != 0 ) {
 		ERROR_LOG(HLE, "sceMpegQueryStreamSize: Bad offset");
 		Memory::Write_U32(0, sizeAddr);
@@ -709,6 +725,8 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 	const int width = std::min((int)frameWidth, 480);
 	const int height = ctx->avc.avcDetailFrameHeight;
 
+	int iresult = 0;
+
 	int packetsInRingBuffer = ringbuffer.packets - ringbuffer.packetsFree;
 	int processedPackets = ringbuffer.packetsRead - packetsInRingBuffer;
 	int processedSize = processedPackets * ringbuffer.packetSize;
@@ -729,7 +747,17 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 	}
 
 	if (ctx->mediaengine->stepVideo()) {
+#ifdef _WIN32
+		//getPMFPlayer()->writeVideoImage(Memory::GetPointer(buffer), frameWidth, ctx->videoPixelMode);
+		if (!playPMFVideo())
+		{
+			iresult = -1;
+			ctx->endOfAudioReached = true;
+			ctx->endOfVideoReached = true;
+		}
+#else
 		ctx->mediaengine->writeVideoImage(buffer, frameWidth, ctx->videoPixelMode);
+#endif // _WIN32
 		packetsConsumed += ctx->mediaengine->readLength() / ringbuffer.packetSize;
 
 		// The MediaEngine is already consuming all the remaining
@@ -764,11 +792,11 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 	avcAu.write(auAddr);
 	Memory::WriteStruct(ctx->mpegRingbufferAddr, &ringbuffer);
 
-	Memory::Write_U32(ctx->avc.avcFrameStatus, initAddr);  // 1 = showing, 0 = not showing
+	Memory::Write_U32(ctx->avc.avcDecodeResult, initAddr);  // 1 = showing, 0 = not showing
 
 	DEBUG_LOG(HLE, "sceMpegAvcDecode(%08x, %08x, %i, %08x, %08x)", mpeg, auAddr, frameWidth, bufferAddr, initAddr);
 
-	return 0;
+	return iresult;
 }
 
 u32 sceMpegAvcDecodeStop(u32 mpeg, u32 frameWidth, u32 bufferAddr, u32 statusAddr)
@@ -1436,7 +1464,7 @@ int sceMpegGetUserdataAu(u32 mpeg, u32 streamUid, u32 auAddr, u32 resultAddr)
 /* MP3 */
 int sceMp3Decode(u32 mp3, u32 outPcmPtr)
 {
-	DEBUG_LOG(HLE, "sceMp3Decode(%08x,%08x)", mp3, outPcmPtr);
+	INFO_LOG(HLE, "sceMp3Decode(%08x,%08x)", mp3, outPcmPtr);
 
 	Mp3Context *ctx = getMp3Ctx(mp3);
 	if (!ctx)
@@ -1553,7 +1581,7 @@ int sceMp3TermResource()
 
 int sceMp3Init(u32 mp3)
 {
-	DEBUG_LOG(HLE, "sceMp3Init(%08x)", mp3);
+	INFO_LOG(HLE, "sceMp3Init(%08x)", mp3);
 
 	Mp3Context *ctx = getMp3Ctx(mp3);
 	if (!ctx)
