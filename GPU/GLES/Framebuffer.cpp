@@ -426,12 +426,17 @@ void FramebufferManager::CopyDisplayToOutput() {
 
 	VirtualFramebuffer *vfb = GetDisplayFBO();
 	if (!vfb) {
-		DEBUG_LOG(HLE, "Found no FBO to display! displayFBPtr = %08x", displayFramebufPtr_);
-		// No framebuffer to display! Clear to black.
-		glstate.depthWrite.set(GL_TRUE);
-		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-		glClearColor(0,0,0,1);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+		if (Memory::IsValidAddress(displayFramebufPtr_)) {
+			// The game is displaying something directly from RAM. In GTA, it's decoded video.
+			DrawPixels(Memory::GetPointer(displayFramebufPtr_), displayFormat_, displayStride_);
+		} else {
+			DEBUG_LOG(HLE, "Found no FBO to display! displayFBPtr = %08x", displayFramebufPtr_);
+			// No framebuffer to display! Clear to black.
+			glstate.depthWrite.set(GL_TRUE);
+			glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+			glClearColor(0,0,0,1);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+		}
 		return;
 	}
 
@@ -496,13 +501,12 @@ void FramebufferManager::BeginFrame() {
 }
 
 void FramebufferManager::SetDisplayFramebuffer(u32 framebuf, u32 stride, int format) {
-	if (framebuf & 0x04000000) {
-		//DEBUG_LOG(G3D, "Switch display framebuffer %08x", framebuf);
-		displayFramebufPtr_ = framebuf;
-		displayStride_ = stride;
-		displayFormat_ = format;
-	} else {
-		ERROR_LOG(HLE, "Bogus framebuffer address: %08x", framebuf);
+	displayFramebufPtr_ = framebuf;
+	displayStride_ = stride;
+	displayFormat_ = format;
+
+	if ((framebuf & 0x04000000) == 0) {
+		DEBUG_LOG(HLE, "Non-VRAM display framebuffer address set: %08x", framebuf);
 	}
 }
 
