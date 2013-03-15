@@ -620,7 +620,7 @@ u32 sceDisplayIsForeground() {
 }
 
 u32 sceDisplayGetMode(u32 modeAddr, u32 widthAddr, u32 heightAddr) {
-	DEBUG_LOG(HLE,"sceDisplayGetMode()", modeAddr, widthAddr, heightAddr);
+	DEBUG_LOG(HLE,"sceDisplayGetMode(%08x, %08x, %08x)", modeAddr, widthAddr, heightAddr);
 	if (Memory::IsValidAddress(modeAddr))
 		Memory::Write_U32(mode, modeAddr);
 	if (Memory::IsValidAddress(widthAddr))
