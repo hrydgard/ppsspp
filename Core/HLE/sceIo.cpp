@@ -652,7 +652,7 @@ s64 sceIoLseek(int id, s64 offset, int whence) {
 u32 sceIoLseek32(int id, int offset, int whence) {
 	s32 result = (s32) __IoLseek(id, offset, whence);
 	if (result >= 0) {
-		DEBUG_LOG(HLE, "%lli = sceIoLseek(%d, %x, %i)", result, id, offset, whence);
+		DEBUG_LOG(HLE, "%i = sceIoLseek(%d, %x, %i)", result, id, offset, whence);
 		// Educated guess at timing.
 		return hleDelayResult(result, "io seek", 100);
 	} else {

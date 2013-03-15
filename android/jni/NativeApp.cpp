@@ -100,7 +100,7 @@ public:
 
 	virtual void SetDebugMode(bool mode) { }
 
-	virtual bool InitGL(std::string *error_message) {}
+	virtual bool InitGL(std::string *error_message) { return true; }
 	virtual void BeginFrame() {}
 	virtual void ShutdownGL() {}
 

@@ -2025,7 +2025,7 @@ static void __KernelSleepThread(bool doCallbacks) {
 		DEBUG_LOG(HLE, "sceKernelSleepThread() - wakeupCount decremented to %i", thread->nt.wakeupCount);
 		RETURN(0);
 	} else {
-		VERBOSE_LOG(HLE, "sceKernelSleepThread()", thread->nt.wakeupCount);
+		VERBOSE_LOG(HLE, "sceKernelSleepThread()");
 		RETURN(0);
 		__KernelWaitCurThread(WAITTYPE_SLEEP, 0, 0, 0, doCallbacks, "thread slept");
 	}

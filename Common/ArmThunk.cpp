@@ -52,4 +52,6 @@ void ThunkManager::Shutdown()
 
 void *ThunkManager::ProtectFunction(void *function, int num_params)
 {
+	_dbg_assert_msg_(JIT, false, "Arm ThunkManager not implemented?  Will crash.");
+	return NULL;
 }
