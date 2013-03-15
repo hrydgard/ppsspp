@@ -273,10 +273,6 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	u32 z_address = (gstate.zbptr & 0xFFE000) | ((gstate.zbwidth & 0xFF0000) << 8);
 	int z_stride = gstate.zbwidth & 0x3C0;
 
-	// We guess that the viewport size during the first draw call is an appropriate
-	// size for a render target.
-	//UpdateViewportAndProjection();
-
 	// Yeah this is not completely right. but it'll do for now.
 	//int drawing_width = ((gstate.region2) & 0x3FF) + 1;
 	//int drawing_height = ((gstate.region2 >> 10) & 0x3FF) + 1;

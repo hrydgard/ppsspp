@@ -937,7 +937,6 @@ void TransformDrawEngine::Flush() {
 
 	int prim = prevPrim_;
 	ApplyDrawState(prim);
-	UpdateViewportAndProjection();
 
 	LinkedShader *program = shaderManager_->ApplyShader(prim);
 

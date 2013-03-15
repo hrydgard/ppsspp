@@ -185,6 +185,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	// Set Dither
 	glstate.dither.set(gstate.isDitherEnabled());
 
+
 	// Set ColorMask/Stencil/Depth
 	if (gstate.isModeClear()) {
 		bool colorMask = (gstate.clearmode >> 8) & 1;
@@ -230,9 +231,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			glstate.stencilTest.disable();
 		}
 	}
-}
 
-void TransformDrawEngine::UpdateViewportAndProjection() {
 	float renderWidthFactor, renderHeightFactor;
 	float renderWidth, renderHeight;
 	float renderX, renderY;
@@ -254,8 +253,24 @@ void TransformDrawEngine::UpdateViewportAndProjection() {
 
 	bool throughmode = (gstate.vertType & GE_VTYPE_THROUGH_MASK) != 0;
 
-	// We can probably use these to simply set scissors? Maybe we need to offset by regionX1/Y1
-	
+	// Scissor
+	int scissorX1 = gstate.scissor1 & 0x3FF;
+	int scissorY1 = (gstate.scissor1 >> 10) & 0x3FF;
+	int scissorX2 = gstate.scissor2 & 0x3FF;
+	int scissorY2 = (gstate.scissor2 >> 10) & 0x3FF;
+
+	// This is a bit of a hack as the render buffer isn't always that size
+	if (scissorX1 == 0 && scissorY1 == 0 && scissorX2 == 480 && scissorY2 == 272) {
+		glstate.scissorTest.disable();
+	} else {
+		glstate.scissorTest.enable();
+		glstate.scissorRect.set(
+			renderX + scissorX1 * renderWidthFactor,
+			renderY + renderHeight - (scissorY2 * renderHeightFactor),
+			(scissorX2 - scissorX1) * renderWidthFactor,
+			(scissorY2 - scissorY1) * renderHeightFactor);
+	}
+
 	/*
 	int regionX1 = gstate.region1 & 0x3FF;
 	int regionY1 = (gstate.region1 >> 10) & 0x3FF;
@@ -272,7 +287,11 @@ void TransformDrawEngine::UpdateViewportAndProjection() {
 
 	if (throughmode) {
 		// No viewport transform here. Let's experiment with using region.
-		glstate.viewport.set(renderX + (0 + regionX1) * renderWidthFactor, renderY + (0 - regionY1) * renderHeightFactor, (regionX2 - regionX1) * renderWidthFactor, (regionY2 - regionY1) * renderHeightFactor);
+		glstate.viewport.set(
+			renderX + (0 + regionX1) * renderWidthFactor, 
+			renderY + (0 - regionY1) * renderHeightFactor,
+			(regionX2 - regionX1) * renderWidthFactor,
+			(regionY2 - regionY1) * renderHeightFactor);
 		glstate.depthRange.set(0.0f, 1.0f);
 	} else {
 		// These we can turn into a glViewport call, offset by offsetX and offsetY. Math after.
