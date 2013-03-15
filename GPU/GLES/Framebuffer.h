@@ -136,3 +136,9 @@ private:
 
 	bool resized_;
 };
+
+#ifdef _WIN32
+extern bool g_FramebufferMoviePlaying;
+extern u8* g_FramebufferMoviePlayingbuf;
+extern int g_FramebufferMoviePlayinglinesize;
+#endif // _WIN32
