@@ -255,6 +255,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	g_Config.memCardDirectory = user_data_path;
 #ifdef BLACKBERRY
 	g_Config.flashDirectory = "app/native/assets/flash/";
+#elif IOS
+	g_Config.flashDirectory = std::string(external_directory) + "flash0/";
 #else
 	g_Config.flashDirectory = user_data_path+"/flash/";
 #endif
