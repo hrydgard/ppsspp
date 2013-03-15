@@ -656,7 +656,7 @@ void ARMXEmitter::WriteStoreOp(u32 Op, ARMReg Rt, ARMReg Rn, Operand2 Rm, bool R
 	bool Index = true;
 	bool Add = false;
 
-	// Special Encoding     
+	// Special Encoding (misc addressing mode)
 	bool SpecialOp = false;
 	bool Half = false;
 	bool SignedLoad = false;
@@ -700,13 +700,17 @@ void ARMXEmitter::WriteStoreOp(u32 Op, ARMReg Rt, ARMReg Rn, Operand2 Rm, bool R
 		}
 		break;
 		case TYPE_REG:
+			Data = Rm.GetData();
+			Add = RegAdd;
+			break;
 		case TYPE_IMMSREG:
 			if (!SpecialOp)
 			{
 				Data = Rm.GetData();
 				Add = RegAdd;
+				break;
 			}
-			break;
+			// Intentional fallthrough: TYPE_IMMSREG not supported for misc addressing.
 		default:
 			// RSR not supported for any of these
 			// We already have the warning above
@@ -717,7 +721,7 @@ void ARMXEmitter::WriteStoreOp(u32 Op, ARMReg Rt, ARMReg Rn, Operand2 Rm, bool R
 	if (SpecialOp)
 	{
 		// Add SpecialOp things
-		Data = (0x5 << 4) | (SignedLoad << 6) | (Half << 5) | Data;
+		Data = (0x9 << 4) | (SignedLoad << 6) | (Half << 5) | Data;
 	}
 	Write32(condition | (op << 20) | (Index << 24) | (Add << 23) | (Rn << 16) | (Rt << 12) | Data);
 }
