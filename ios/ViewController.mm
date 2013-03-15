@@ -80,6 +80,7 @@ ViewController* sharedViewController;
 	view.context = self.context;
 	view.drawableDepthFormat = GLKViewDrawableDepthFormat24;
 	[EAGLContext setCurrentContext:self.context];
+	self.preferredFramesPerSecond = 60;
 
 	float scale = [UIScreen mainScreen].scale;
 	CGSize size = [[UIApplication sharedApplication].delegate window].frame.size;
