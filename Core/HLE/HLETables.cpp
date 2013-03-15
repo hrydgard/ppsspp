@@ -55,6 +55,7 @@
 #include "sceUsb.h"
 #include "sceChnnlsv.h"
 #include "scePspNpDrm_user.h"
+#include "sceP3da.h"
 
 #define N(s) s
 
@@ -248,6 +249,7 @@ void RegisterAllModules() {
 	Register_sceUsb();
 	Register_sceChnnlsv();
 	Register_sceNpDrm();
+	Register_sceP3da();
 
 	for (int i = 0; i < numModules; i++)
 	{
