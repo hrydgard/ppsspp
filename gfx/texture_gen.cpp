@@ -47,6 +47,8 @@ uint8_t *generateTexture(const char *filename, int &bpp, int &w, int &h, bool &c
 				data[y*w + x] = val * 255;
 			}
 		}
+	} else {
+		data = NULL;
 	}
 
 	return data;

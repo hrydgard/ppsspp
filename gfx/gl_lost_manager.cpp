@@ -46,7 +46,7 @@ void gl_lost() {
 	}
 	ILOG("gl_lost() restoring %i items:", (int)holders->size());
 	for (size_t i = 0; i < holders->size(); i++) {
-		ILOG("GLLost(%i, %p)", i, holders->size(), (*holders)[i]);
+		ILOG("GLLost(%i / %i, %p)", (int) i, (int) holders->size(), (*holders)[i]);
 		(*holders)[i]->GLLost();
 	}
 	ILOG("gl_lost() completed restoring %i items:", (int)holders->size());
