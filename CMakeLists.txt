@@ -1002,9 +1002,9 @@ if (IOS)
 	SET_SOURCE_FILES_PROPERTIES(${RSRC_XIB_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
 	set(APP_DIR_NAME \${TARGET_BUILD_DIR}/\${FULL_PRODUCT_NAME})
 	add_custom_command(TARGET PPSSPP POST_BUILD
-		COMMAND tar -c -C . --exclude .DS_Store --exclude .git -H `find assets` | tar -x -C ${APP_DIR_NAME}
+		COMMAND tar -c -C . --exclude .DS_Store --exclude .git -H `find assets` | tar -x -C '${APP_DIR_NAME}'
 	)
-	set_target_properties(${TargetBin} PROPERTIES MACOSX_BUNDLE_INFO_PLIST "../ios/PPSSPP-Info.plist" XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "iPhone Developer: My Name")
+	set_target_properties(${TargetBin} PROPERTIES MACOSX_BUNDLE_INFO_PLIST "../ios/PPSSPP-Info.plist")
 endif()
 
 #include(CPack)
