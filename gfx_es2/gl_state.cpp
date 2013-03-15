@@ -22,6 +22,7 @@ void OpenGLState::Restore() {
 	blendColor.restore(); count++;
 
 	scissorTest.restore(); count++;
+	scissorRect.restore(); count++;
 
 	cullFace.restore(); count++;
 	cullFaceMode.restore(); count++;
