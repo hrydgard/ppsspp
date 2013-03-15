@@ -376,13 +376,13 @@ u32 npdrmRead(FileNode *f, u8 *data, int size) {
 
 		if(offset+remain_size>pgd->block_size){
 			copy_size = pgd->block_size-offset;
+			memcpy(data, pgd->block_buf+offset, copy_size);
 			block += 1;
 			offset = 0;
 		}else{
 			copy_size = remain_size;
+			memcpy(data, pgd->block_buf+offset, copy_size);
 		}
-
-		memcpy(data, pgd->block_buf+offset, copy_size);
 
 		data += copy_size;
 		remain_size -= copy_size;
@@ -516,6 +516,8 @@ u32 npdrmLseek(FileNode *f, s32 where, FileMove whence)
 	}
 
 	f->pgdInfo->file_offset = newPos;
+	pspFileSystem.SeekFile(f->handle, (s32)f->pgdInfo->data_offset+newPos, whence);
+
 	return newPos;
 }
 
@@ -602,8 +604,6 @@ u32 sceIoOpen(const char* filename, int flags, int mode) {
 		access |= FILEACCESS_APPEND;
 	if (flags & O_CREAT)
 		access |= FILEACCESS_CREATE;
-	if (flags & O_NPDRM)
-
 
 	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
 	u32 h = pspFileSystem.OpenFile(filename, (FileAccess) access);
@@ -1184,15 +1184,27 @@ u32 sceIoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 ou
 		if (Memory::IsValidAddress(indataPtr) && inlen == 16) {
 			u8 keybuf[16];
 			u8 pgd_header[0x90];
+			u8 pgd_magic[4] = {0x00, 0x50, 0x47, 0x44};
 			memcpy(keybuf, Memory::GetPointer(indataPtr), 16);
 			pspFileSystem.ReadFile(f->handle, pgd_header, 0x90);
+
 			f->pgdInfo = pgd_open(pgd_header, 2, keybuf);
 			if(f->pgdInfo==NULL){
 				DEBUG_LOG(HLE, "Not a valid PGD file. Open as normal file.");
 				f->npdrm = false;
 				pspFileSystem.SeekFile(f->handle, (s32)0, FILEMOVE_BEGIN);
+				if(memcmp(pgd_header, pgd_magic, 4)==0){
+					// File is PGD file, but key mismatch
+					f->asyncResult = 0x80510204;
+				}else{
+					// File is decrypted.
+					f->asyncResult = 0;
+				}
+			}else{
+				// Everthing OK.
+				f->npdrm = true;
+				f->asyncResult = 0;
 			}
-			f->asyncResult = 0;
 		}
 		break;
 

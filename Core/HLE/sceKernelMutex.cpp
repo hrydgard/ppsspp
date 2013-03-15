@@ -839,7 +839,7 @@ int sceKernelTryLockLwMutex_600(u32 workareaPtr, int count)
 
 int sceKernelLockLwMutex(u32 workareaPtr, int count, u32 timeoutPtr)
 {
-	DEBUG_LOG(HLE, "sceKernelLockLwMutex(%08x, %i, %08x)", workareaPtr, count, timeoutPtr);
+	//DEBUG_LOG(HLE, "sceKernelLockLwMutex(%08x, %i, %08x)", workareaPtr, count, timeoutPtr);
 
 	NativeLwMutexWorkarea workarea;
 	Memory::ReadStruct(workareaPtr, &workarea);
@@ -910,7 +910,7 @@ int sceKernelLockLwMutexCB(u32 workareaPtr, int count, u32 timeoutPtr)
 
 int sceKernelUnlockLwMutex(u32 workareaPtr, int count)
 {
-	DEBUG_LOG(HLE, "sceKernelUnlockLwMutex(%08x, %i)", workareaPtr, count);
+	//DEBUG_LOG(HLE, "sceKernelUnlockLwMutex(%08x, %i)", workareaPtr, count);
 
 	NativeLwMutexWorkarea workarea;
 	Memory::ReadStruct(workareaPtr, &workarea);
