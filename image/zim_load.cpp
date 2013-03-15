@@ -100,6 +100,12 @@ int LoadZIMPtr(uint8_t *zim, int datasize, int *width, int *height, int *flags, 
 		total_data_size += image_data_size[i];
 	}
 
+	if (total_data_size == 0)
+	{
+		ELOG("Invalid ZIM data size 0");
+		return 0;
+	}
+
 	image[0] = (uint8 *)malloc(total_data_size);
 	for (int i = 1; i < num_levels; i++) {
 		image[i] = image[i-1] + image_data_size[i-1];
