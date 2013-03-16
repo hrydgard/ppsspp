@@ -99,6 +99,9 @@ namespace MIPSComp
 			return;
 		}
 
+		u32 iaddr = gpr.IsImm(rs) ? offset + gpr.GetImm(rs) : 0xFFFFFFFF;
+		bool doFast = false;
+
 		switch (o)
 		{
 		case 32: //lb
@@ -110,17 +113,20 @@ namespace MIPSComp
 		case 40: //sb
 		case 41: //sh
 		case 43: //sw
-			if (g_Config.bFastMemory) {
-				if (gpr.IsImm(rs)) {
-					// We can compute the full address at compile time. Kickass.
-					u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
-					// Must be OK even if rs == rt since we have the value from imm already.
-					gpr.MapReg(rt, load ? MAP_NOINIT | MAP_DIRTY : 0);
-					MOVI2R(R0, addr);
-				} else {
-					load ? gpr.MapDirtyIn(rt, rs) : gpr.MapInIn(rt, rs);
-					SetR0ToEffectiveAddress(rs, offset);
-				}
+			if (gpr.IsImm(rs) && Memory::IsValidAddress(iaddr)) {
+				doFast = true;
+				// We can compute the full address at compile time. Kickass.
+				u32 addr = iaddr & 0x3FFFFFFF;
+				// Must be OK even if rs == rt since we have the value from imm already.
+				gpr.MapReg(rt, load ? MAP_NOINIT | MAP_DIRTY : 0);
+				MOVI2R(R0, addr);
+			} else if (g_Config.bFastMemory) {
+				_dbg_assert_msg_(JIT, !gpr.IsImm(rs), "Invalid immediate address?  CPU bug?");
+				doFast = true;
+				load ? gpr.MapDirtyIn(rt, rs) : gpr.MapInIn(rt, rs);
+				SetR0ToEffectiveAddress(rs, offset);
+			}
+			if (doFast) {
 				switch (o)
 				{
 				// Load
