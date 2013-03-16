@@ -85,7 +85,42 @@ namespace MIPSComp
 			BIC(R0, gpr.R(rs), Operand2(0xC0, 4));   // &= 0x3FFFFFFF
 		}
 	}
-	
+
+	void Jit::SetCCAndR0ForSafeAddress(int rs, s16 offset, ARMReg tempReg) {
+		SetR0ToEffectiveAddress(rs, offset);
+
+		// There are three valid ranges.  Each one gets a bit.
+		MOVI2R(tempReg, 7);
+
+		CMP(R0, AssumeMakeOperand2(PSP_GetScratchpadMemoryBase()));
+		SetCC(CC_LO);
+		BIC(tempReg, tempReg, 1);
+		SetCC(CC_HS);
+		CMP(R0, AssumeMakeOperand2(PSP_GetScratchpadMemoryEnd()));
+		BIC(tempReg, tempReg, 1);
+		SetCC(CC_AL);
+
+		CMP(R0, AssumeMakeOperand2(PSP_GetKernelMemoryBase()));
+		SetCC(CC_LO);
+		BIC(tempReg, tempReg, 2);
+		SetCC(CC_HS);
+		CMP(R0, AssumeMakeOperand2(PSP_GetUserMemoryEnd()));
+		BIC(tempReg, tempReg, 2);
+		SetCC(CC_AL);
+
+		CMP(R0, AssumeMakeOperand2(PSP_GetVidMemBase()));
+		SetCC(CC_LO);
+		BIC(tempReg, tempReg, 2);
+		SetCC(CC_HS);
+		CMP(R0, AssumeMakeOperand2(PSP_GetVidMemEnd()));
+		BIC(tempReg, tempReg, 2);
+		SetCC(CC_AL);
+
+		// If we left any bit set, the address is OK.
+		CMP(tempReg, 0);
+		SetCC(CC_GT);
+	}
+
 	void Jit::Comp_ITypeMem(u32 op)
 	{
 		CONDITIONAL_DISABLE;
@@ -122,40 +157,12 @@ namespace MIPSComp
 			} else {
 				_dbg_assert_msg_(JIT, !gpr.IsImm(rs), "Invalid immediate address?  CPU bug?");
 				load ? gpr.MapDirtyIn(rt, rs) : gpr.MapInIn(rt, rs);
-				SetR0ToEffectiveAddress(rs, offset);
 
 				if (!g_Config.bFastMemory) {
-					// There are three valid ranges.  Each one gets a bit.
-					MOVI2R(R1, 7);
-
-					CMP(R0, AssumeMakeOperand2(PSP_GetScratchpadMemoryBase()));
-					SetCC(CC_LO);
-					BIC(R1, R1, 1);
-					SetCC(CC_HS);
-					CMP(R0, AssumeMakeOperand2(PSP_GetScratchpadMemoryEnd()));
-					BIC(R1, R1, 1);
-					SetCC(CC_AL);
-
-					CMP(R0, AssumeMakeOperand2(PSP_GetKernelMemoryBase()));
-					SetCC(CC_LO);
-					BIC(R1, R1, 2);
-					SetCC(CC_HS);
-					CMP(R0, AssumeMakeOperand2(PSP_GetUserMemoryEnd()));
-					BIC(R1, R1, 2);
-					SetCC(CC_AL);
-
-					CMP(R0, AssumeMakeOperand2(PSP_GetVidMemBase()));
-					SetCC(CC_LO);
-					BIC(R1, R1, 2);
-					SetCC(CC_HS);
-					CMP(R0, AssumeMakeOperand2(PSP_GetVidMemEnd()));
-					BIC(R1, R1, 2);
-					SetCC(CC_AL);
-
-					// If we left any bit set, the address is OK.
-					CMP(R1, 0);
-					SetCC(CC_GT);
+					SetCCAndR0ForSafeAddress(rs, offset, R1);
 					doCheck = true;
+				} else {
+					SetR0ToEffectiveAddress(rs, offset);
 				}
 			}
 			switch (o)
