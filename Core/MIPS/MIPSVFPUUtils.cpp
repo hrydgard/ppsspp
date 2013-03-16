@@ -180,7 +180,6 @@ void WriteMatrix(const float *rd, MatrixSize size, int reg) {
 	}
 
 	int transpose = (reg>>5)&1;
-
 	if (currentMIPS->VfpuWriteMask() != 0) {
 		ERROR_LOG(CPU, "Write mask used with vfpu matrix instruction.");
 	}

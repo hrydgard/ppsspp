@@ -4,6 +4,15 @@ TARGET = Core
 TEMPLATE = lib
 CONFIG += staticlib
 
+version.target = ../git-version.cpp
+contains(QMAKE_HOST.os, "Windows") { version.commands = $$PWD/../Windows/git-version-gen.cmd }
+else { version.commands = $$PWD/git-version-gen.sh }
+version.depends = ../.git
+
+QMAKE_EXTRA_TARGETS += version
+PRE_TARGETDEPS += ../git-version.cpp
+SOURCES += ../git-version.cpp
+
 include(Settings.pri)
 
 INCLUDEPATH += ../native ../Core/MIPS ../
@@ -33,12 +42,14 @@ SOURCES += ../Core/CPU.cpp \ # Core
 	../Core/MemMapFunctions.cpp \
 	../Core/PSPLoaders.cpp \
 	../Core/PSPMixer.cpp \
+	../Core/Reporting.cpp \
 	../Core/SaveState.cpp \
 	../Core/System.cpp \
 	../Core/Debugger/*.cpp \
 	../Core/Dialog/*.cpp \
 	../Core/ELF/*.cpp \
 	../Core/FileSystems/*.cpp \
+	../Core/Font/*.cpp \
 	../Core/HLE/*.cpp \
 	../Core/HW/*.cpp \
 	../Core/MIPS/*.cpp \
@@ -62,12 +73,14 @@ HEADERS += ../Core/CPU.h \
 	../Core/MemMap.h \
 	../Core/PSPLoaders.h \
 	../Core/PSPMixer.h \
+	../Core/Reporting.h \
 	../Core/SaveState.h \
 	../Core/System.h \
 	../Core/Debugger/*.h \
 	../Core/Dialog/*.h \
 	../Core/ELF/*.h \
 	../Core/FileSystems/*.h \
+	../Core/Font/*.h \
 	../Core/HLE/*.h \
 	../Core/HW/*.h \
 	../Core/MIPS/*.h \

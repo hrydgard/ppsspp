@@ -5,6 +5,7 @@ class PointerWrap;
 void Register_sceFont();
 
 void __FontInit();
+void __FontShutdown();
 void __FontDoState(PointerWrap &p);
 
 typedef u32 FontLibraryHandle;

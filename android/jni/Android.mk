@@ -50,6 +50,7 @@ LOCAL_SRC_FILES := \
   UIShader.cpp \
   GamepadEmu.cpp \
   ArmEmitterTest.cpp \
+  TestRunner.cpp \
   ui_atlas.cpp \
   $(SRC)/native/android/app-android.cpp \
   $(SRC)/ext/disarm.cpp \
@@ -105,6 +106,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/PSPLoaders.cpp \
   $(SRC)/Core/MemMap.cpp \
   $(SRC)/Core/MemMapFunctions.cpp \
+  $(SRC)/Core/Reporting.cpp \
   $(SRC)/Core/SaveState.cpp \
   $(SRC)/Core/System.cpp \
   $(SRC)/Core/PSPMixer.cpp \
@@ -116,6 +118,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/Dialog/PSPPlaceholderDialog.cpp \
   $(SRC)/Core/Dialog/PSPSaveDialog.cpp \
   $(SRC)/Core/Dialog/SavedataParam.cpp \
+  $(SRC)/Core/Font/PGF.cpp \
   $(SRC)/Core/HLE/HLETables.cpp \
   $(SRC)/Core/HLE/HLE.cpp \
   $(SRC)/Core/HLE/sceAtrac.cpp \
@@ -147,6 +150,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/HLE/sceMpeg.cpp \
   $(SRC)/Core/HLE/sceNet.cpp \
   $(SRC)/Core/HLE/sceOpenPSID.cpp \
+  $(SRC)/Core/HLE/sceP3da.cpp \
   $(SRC)/Core/HLE/sceParseHttp.cpp \
   $(SRC)/Core/HLE/sceParseUri.cpp \
   $(SRC)/Core/HLE/scePower.cpp \
@@ -186,10 +190,17 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/MIPS/ARM/ArmRegCacheFPU.cpp \
   $(SRC)/Core/Util/BlockAllocator.cpp \
   $(SRC)/Core/Util/ppge_atlas.cpp \
-  $(SRC)/Core/Util/PPGeDraw.cpp
+  $(SRC)/Core/Util/PPGeDraw.cpp \
+  $(SRC)/git-version.cpp
 
 
 include $(BUILD_SHARED_LIBRARY)
 
 $(call import-module,libzip)
 $(call import-module,native)
+
+jni/$(SRC)/git-version.cpp:
+	-./git-version-gen.sh
+	-..\Windows\git-version-gen.cmd
+
+.PHONY: jni/$(SRC)/git-version.cpp

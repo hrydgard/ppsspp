@@ -23,6 +23,7 @@
 #include "MIPS.h"
 #include "MIPSInt.h"
 #include "MIPSTables.h"
+#include "Core/Reporting.h"
 
 #include "../HLE/HLE.h"
 #include "../System.h"
@@ -149,6 +150,10 @@ namespace MIPSInt
 
 		// It appears that a cache line is 0x40 (64) bytes.
 		switch (func) {
+		case 24:
+			// "Create Dirty Exclusive" - for avoiding a cacheline fill before writing to it.
+			// Will cause garbage on the real machine so we just ignore it, the app will overwrite the cacheline.
+			break;
 		case 25:  // Hit Invalidate - zaps the line if present in cache. Should not writeback???? scary.
 			// No need to do anything.
 			break;
@@ -186,6 +191,7 @@ namespace MIPSInt
 
 	void Int_Break(u32 op)
 	{
+		Reporting::ReportMessage("BREAK instruction hit");
 		ERROR_LOG(CPU, "BREAK!");
 		Core_UpdateState(CORE_STEPPING);
 		PC += 4;
@@ -505,7 +511,7 @@ namespace MIPSInt
 	void Int_FPULS(u32 op)
 	{
 		s32 offset = (s16)(op&0xFFFF);
-		int ft = ((op>>16)&0x1f);
+		int ft = _FT;
 		int rs = _RS;
 		u32 addr = R(rs) + offset;
 
@@ -960,6 +966,7 @@ namespace MIPSInt
 		{
 		case 0:
 			if (!reported) {
+				Reporting::ReportMessage("INTERRUPT instruction hit");
 				WARN_LOG(CPU,"Disable/Enable Interrupt CPU instruction");
 				reported = 1;
 			}

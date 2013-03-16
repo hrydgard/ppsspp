@@ -1,394 +1,72 @@
-
+#include "sceFont.h"
 
 #include "base/timeutil.h"
 
-#include "../Config.h"
-#include "../Host.h"
-#include "../SaveState.h"
+#include <cmath>
+#include <vector>
+#include <map>
+#include <algorithm>
+
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
-
-#include "../FileSystems/FileSystem.h"
-#include "../FileSystems/MetaFileSystem.h"
-#include "../System.h"
-
-
-
-#include "sceFont.h"
-
-/******************************************************************************/
-
-static int get_value(int bpe, u8 *buf, int *pos)
-{
-	int i, v;
-
-	v = 0;
-	for(i=0; i<bpe; i++){
-		v += ( ( buf[(*pos)/8] >> ((*pos)%8) ) &1 ) << i;
-		(*pos)++;
-	}
-
-	return v;
-}
-
-static int read_table(u8 *buf, int *table, int num, int bpe)
-{
-	int i, p, len;
-
-	len = ((num*bpe+31)/32)*4;
-
-	p = 0;
-	for(i=0; i<num; i++){
-		table[i] = get_value(bpe, buf, &p);
-	}
-
-	return len;
-}
-
-static u32 ptr2ucs(PGF_FONT *pgft, int ptr)
-{
-	PGF_HEADER *ph;
-	int i, n_charmap;
-
-	ph = (PGF_HEADER*)pgft->buf;
-	n_charmap = ph->charmap_len;
-
-	for(i=0; i<n_charmap; i++){
-		if(pgft->charmap[i]==ptr){
-			return i+ph->charmap_min;
-		}
-	}
-
-	return 0xffff;
-}
-
-static u32 ucs2ptr(PGF_FONT *pgft, int ucs)
-{
-	PGF_HEADER *ph;
-	int ptr;
-
-	ph = (PGF_HEADER*)pgft->buf;
-	ucs -= ph->charmap_min;
-	ptr = pgft->charmap[ucs];
-
-	return ptr;
-}
-
-static int have_shadow(PGF_FONT *pgft, u32 ucs)
-{
-	PGF_HEADER *ph;
-	int i, n_shadowmap;
-
-	ph = (PGF_HEADER*)pgft->buf;
-	n_shadowmap = ph->shadowmap_len;
-
-	for(i=0; i<n_shadowmap; i++){
-		if(pgft->shadowmap[i]==ucs){
-			return 1;
-		}
-	}
-
-	return 0;
-}
-
-static void get_bitmap(PGF_GLYPH *glyph)
-{
-	int i, j, p, nb, data, len;
-	u8 *bmp, temp_buf[64*64];
-
-	i = 0;
-	p = 0;
-	len = glyph->width * glyph->height;
-	if((glyph->flag&3)==2){
-		bmp = temp_buf;
-	}else{
-		bmp = glyph->bmp;
-	}
-
-	while(i<len){
-		nb = get_value(4, glyph->data, &p);
-		if(nb<8){
-			data = get_value(4, glyph->data, &p);
-			for(j=0; j<nb+1; j++){
-				bmp[i] = data;
-				i++;
-			}
-		}else{
-			for(j=0; j<(16-nb); j++){
-				data = get_value(4, glyph->data, &p);
-				bmp[i] = data;
-				i++;
-			}
-		}
-	}
-
-	if((glyph->flag&3)==2){
-		int h, v;
-
-		i = 0;
-		for(h=0; h<glyph->width; h++){
-			for(v=0; v<glyph->height; v++){
-				glyph->bmp[v*glyph->width+h] = bmp[i];
-				i++;
-			}
-		}
-	}
-
-}
-
-static void load_shadow_glyph(u8 *ptr, PGF_GLYPH *glyph)
-{
-	int pos;
-
-	pos = 0;
-
-	glyph->size   = get_value(14, ptr, &pos);
-	glyph->width  = get_value(7, ptr, &pos);
-	glyph->height = get_value(7, ptr, &pos);
-	glyph->left   = get_value(7, ptr, &pos);
-	glyph->top    = get_value(7, ptr, &pos);
-	glyph->flag   = get_value(6, ptr, &pos);
-
-	if(glyph->left>63) glyph->left |= 0xffffff80;
-	if(glyph->top >63) glyph->top  |= 0xffffff80;
-
-	glyph->data = ptr+(pos/8);
-	glyph->bmp = (u8*)malloc(glyph->width*glyph->height);
-	get_bitmap(glyph);
-}
-
-static void load_char_glyph(PGF_FONT *pgft, int index, PGF_GLYPH *glyph)
-{
-	int id, pos;
-	u8 *ptr;
-
-	ptr = pgft->glyphdata + pgft->charptr[index];
-	pos = 0;
-
-	glyph->index = index;
-	glyph->have_shadow = have_shadow(pgft, glyph->ucs);
-
-	glyph->size   = get_value(14, ptr, &pos);
-	glyph->width  = get_value( 7, ptr, &pos);
-	glyph->height = get_value( 7, ptr, &pos);
-	glyph->left   = get_value( 7, ptr, &pos);
-	glyph->top    = get_value( 7, ptr, &pos);
-	glyph->flag   = get_value( 6, ptr, &pos);
-
-	if(glyph->left>63) glyph->left |= 0xffffff80;
-	if(glyph->top >63) glyph->top  |= 0xffffff80;
-
-	/* read extension info */
-	glyph->shadow_flag = get_value(7, ptr, &pos);
-	glyph->shadow_id   = get_value(9, ptr, &pos);
-	if(glyph->flag&0x04){
-		id = get_value(8, ptr, &pos);
-		glyph->dimension.h = pgft->dimension[id].h;
-		glyph->dimension.v = pgft->dimension[id].v;
-	}else{
-		glyph->dimension.h = get_value(32, ptr, &pos);
-		glyph->dimension.v = get_value(32, ptr, &pos);
-	}
-	if(glyph->flag&0x08){
-		id = get_value(8, ptr, &pos);
-		glyph->bearingX.h = pgft->bearingX[id].h;
-		glyph->bearingX.v = pgft->bearingX[id].v;
-	}else{
-		glyph->bearingX.h = get_value(32, ptr, &pos);
-		glyph->bearingX.v = get_value(32, ptr, &pos);
-	}
-	if(glyph->flag&0x10){
-		id = get_value(8, ptr, &pos);
-		glyph->bearingY.h = pgft->bearingY[id].h;
-		glyph->bearingY.v = pgft->bearingY[id].v;
-	}else{
-		glyph->bearingY.h = get_value(32, ptr, &pos);
-		glyph->bearingY.v = get_value(32, ptr, &pos);
-	}
-	if(glyph->flag&0x20){
-		id = get_value(8, ptr, &pos);
-		glyph->advance.h = pgft->advance[id].h;
-		glyph->advance.v = pgft->advance[id].v;
-	}else{
-		glyph->advance.h = get_value(32, ptr, &pos);
-		glyph->advance.v = get_value(32, ptr, &pos);
-	}
-
-	glyph->data = ptr+(pos/8);
-	glyph->bmp = (u8*)malloc(glyph->width*glyph->height);
-	get_bitmap(glyph);
-
-	if(glyph->have_shadow){
-		id = glyph->shadow_id;
-		pgft->shadow_glyph[id] = (PGF_GLYPH*)malloc(sizeof(PGF_GLYPH));
-		memset(pgft->shadow_glyph[id], 0, sizeof(PGF_GLYPH));
-		load_shadow_glyph(ptr+glyph->size, pgft->shadow_glyph[id]);
-	}
-
-}
-
-
-int load_all_glyph(PGF_FONT *pgft)
-{
-	PGF_GLYPH *glyph;
-	PGF_HEADER *ph;
-	int i, n_chars, ucs;
-
-	ph = (PGF_HEADER*)pgft->buf;
-	n_chars = ph->charptr_len;
-
-	for(i=0; i<n_chars; i++){
-		glyph = (PGF_GLYPH*)malloc(sizeof(PGF_GLYPH));
-		memset(glyph, 0, sizeof(PGF_GLYPH));
-		ucs = ptr2ucs(pgft, i);
-		glyph->ucs = ucs;
-		pgft->char_glyph[ucs] = glyph;
-		load_char_glyph(pgft, i, glyph);
-	}
-
-	return 0;
-}
-
-
-
-PGF_FONT *load_pgf_from_buf(u8 *buf, int length)
-{
-	PGF_FONT *pgft;
-	PGF_HEADER *ph;
-	int i;
-
-	pgft = (PGF_FONT*)malloc(sizeof(PGF_FONT));
-	memset(pgft, 0, sizeof(PGF_FONT));
-
-	pgft->buf = buf;
-
-	/* pgf header */
-	ph = (PGF_HEADER*)buf;
-	buf += ph->header_len;
-
-	/* dimension table */
-	pgft->dimension = (F26_PAIRS*)buf;
-	buf += (ph->dimension_len*8);
-
-	/* left bearing table */
-  	pgft->bearingX = (F26_PAIRS*)buf;
-	buf += (ph->bearingX_len*8);
-
-	/* top bearing table */
-	pgft->bearingY = (F26_PAIRS*)buf;
-	buf += (ph->bearingY_len*8);
-
-	/* advance table */
-	pgft->advance = (F26_PAIRS*)buf;
-	buf += (ph->advance_len*8);
-
-	/* read shadowmap table */
-	if(ph->shadowmap_len){
-		pgft->shadowmap = (int*)malloc(ph->shadowmap_len*4);
-		buf += read_table(buf, pgft->shadowmap, ph->shadowmap_len, ph->shadowmap_bpe);
-	}
-
-	/* read charmap table */
-	pgft->charmap = (int*)malloc(ph->charmap_len*4);
-	buf += read_table(buf, pgft->charmap, ph->charmap_len, ph->charmap_bpe);
-
-	/* read charptr table */
-	pgft->charptr = (int*)malloc(ph->charptr_len*4);
-	buf += read_table(buf, pgft->charptr, ph->charptr_len, ph->charptr_bpe);
-	for(i=0; i<ph->charptr_len; i++){
-		pgft->charptr[i] *= ph->charptr_scale;
-	}
-
-	/* font glyph data */
-	pgft->glyphdata = buf;
-
-	//load_all_glyph(pgft);
-
-	return pgft;
-}
-
-PGF_FONT *load_pgf_from_file(const char *filename)
-{
-	u32 h = pspFileSystem.OpenFile(filename, FILEACCESS_READ);
-	if (h == 0){
-		ERROR_LOG(HLE, "load_pgf_from_file: %s not found", filename);
-		return NULL;
-	}
-
-	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
-	u8 *buf = (u8*)malloc((size_t)info.size);
-	pspFileSystem.ReadFile(h, buf, info.size);
-	pspFileSystem.CloseFile(h);
-
-	PGF_FONT *pgft = load_pgf_from_buf(buf, (int)info.size);
-
-	return pgft;
-}
-
-PGF_GLYPH *get_glyph(PGF_FONT *pgft, u32 ucs)
-{
-	PGF_GLYPH *gh;
-	PGF_HEADER *ph;
-	int ptr;
-
-	ph = (PGF_HEADER*)pgft->buf;
-
-	gh = pgft->char_glyph[ucs];
-	if(gh==NULL){
-		ptr = ucs2ptr(pgft, ucs);
-		if(ptr>ph->charptr_len)
-			ptr = ucs2ptr(pgft, '?');
-
-		gh = (PGF_GLYPH*)malloc(sizeof(PGF_GLYPH));
-		memset(gh, 0, sizeof(PGF_GLYPH));
-		gh->ucs = ucs;
-		pgft->char_glyph[ucs] = gh;
-		load_char_glyph(pgft, ptr, gh);
-	}
-
-	return gh;
-}
-
-void free_glyph(PGF_FONT *pgft, PGF_GLYPH *glyph)
-{
-	int ucs;
-
-	ucs = glyph->ucs;
-	free(glyph->bmp);
-	free(glyph);
-	pgft->char_glyph[ucs] = 0;
-}
-
-void free_pgf_font(PGF_FONT *pgft)
-{
-	PGF_HEADER *ph;
-	int i;
-
-	ph = (PGF_HEADER*)pgft->buf;
-
-	for(i=0; i<65536; i++){
-		if(pgft->char_glyph[i])
-			free_glyph(pgft, pgft->char_glyph[i]);
-	}
-
-	for(i=0; i<512; i++){
-		if(pgft->shadow_glyph[i]){
-			free(pgft->shadow_glyph[i]->bmp);
-			free(pgft->shadow_glyph[i]);
-		}
-	}
-
-	if(ph->shadowmap_len){
-		free(pgft->shadowmap);
-	}
-	free(pgft->charmap);
-	free(pgft->charptr);
-
-	free(pgft->buf);
-	free(pgft);
-}
-
-/******************************************************************************/
+#include "ChunkFile.h"
+#include "Core/FileSystems/FileSystem.h"
+#include "Core/System.h"
+#include "Core/HLE/sceKernel.h"
+#include "Core/Font/PGF.h"
+#include "Core/HLE/sceKernelThread.h"
+
+enum {
+	ERROR_FONT_INVALID_LIBID                            = 0x80460002,
+	ERROR_FONT_INVALID_PARAMETER                        = 0x80460003,
+	ERROR_FONT_TOO_MANY_OPEN_FONTS                      = 0x80460009,
+};
+
+enum {
+	FONT_IS_CLOSED = 0,
+	FONT_IS_OPEN = 1,
+};
+
+// Actions
+static int actionPostAllocCallback;
+static int actionPostOpenCallback;
+
+// Monster Hunter sequence:
+// 36:46:998 c:\dev\ppsspp\core\hle\scefont.cpp:469 E[HLE]: sceFontNewLib 89ad4a0, 9fff5cc
+// 36:46:998 c:\dev\ppsspp\core\hle\scefont.cpp:699 E[HLE]: UNIMPL sceFontGetNumFontList 1, 9fff5cc
+// 36:46:998 c:\dev\ppsspp\core\hle\scefont.cpp:526 E[HLE]: sceFontFindOptimumFont 1, 9fff524, 9fff5cc
+// 36:46:999 c:\dev\ppsspp\core\hle\scefont.cpp:490 E[HLE]: sceFontOpenFont 1, 1, 0, 9fff5cc
+// 36:46:999 c:\dev\ppsspp\core\hle\scefont.cpp:542 E[HLE]: sceFontGetFontInfo 1, 997140c
+
+typedef u32 FontLibraryHandle;
+typedef u32 FontHandle;
+
+struct FontNewLibParams {
+	u32 userDataAddr;
+	u32 numFonts;
+	u32 cacheDataAddr;
+
+	// Driver callbacks.
+	u32 allocFuncAddr;
+	u32 freeFuncAddr;
+	u32 openFuncAddr;
+	u32 closeFuncAddr;
+	u32 readFuncAddr;
+	u32 seekFuncAddr;
+	u32 errorFuncAddr;
+	u32 ioFinishFuncAddr;
+};
+
+struct GlyphImage {
+	FontPixelFormat pixelFormat;
+	s32 xPos64;
+	s32 yPos64;
+	u16 bufWidth;
+	u16 bufHeight;
+	u16 bytesPerLine;
+	u16 pad;
+	u32 bufferPtr;
+};
 
 struct FontRegistryEntry {
 	int hSize;
@@ -410,518 +88,837 @@ struct FontRegistryEntry {
 };
 
 static const FontRegistryEntry fontRegistry[] = {
-	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_DB,          0, FONT_LANGUAGE_JAPANESE, 0, 1, "jpn0.pgf", "FTT-NewRodin Pro DB", 0, 0},
-	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_REGULAR,     0, FONT_LANGUAGE_LATIN,    0, 1, "ltn0.pgf", "FTT-NewRodin Pro Latin", 0, 0},
-	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF,      FONT_STYLE_REGULAR,     0, FONT_LANGUAGE_LATIN,    0, 1, "ltn1.pgf", "FTT-Matisse Pro Latin", 0, 0},
-	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_ITALIC,      0, FONT_LANGUAGE_LATIN,    0, 1, "ltn2.pgf", "FTT-NewRodin Pro Latin", 0, 0},
-	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF,      FONT_STYLE_ITALIC,      0, FONT_LANGUAGE_LATIN,    0, 1, "ltn3.pgf", "FTT-Matisse Pro Latin", 0, 0},
-	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_BOLD,        0, FONT_LANGUAGE_LATIN,    0, 1, "ltn4.pgf", "FTT-NewRodin Pro Latin", 0, 0},
-	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF,      FONT_STYLE_BOLD,        0, FONT_LANGUAGE_LATIN,    0, 1, "ltn5.pgf", "FTT-Matisse Pro Latin", 0, 0},
-	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_BOLD_ITALIC, 0, FONT_LANGUAGE_LATIN,    0, 1, "ltn6.pgf", "FTT-NewRodin Pro Latin", 0, 0},
-	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF,      FONT_STYLE_BOLD_ITALIC, 0, FONT_LANGUAGE_LATIN,    0, 1, "ltn7.pgf", "FTT-Matisse Pro Latin", 0, 0},
-	{0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_REGULAR,     0, FONT_LANGUAGE_LATIN,    0, 1, "ltn8.pgf", "FTT-NewRodin Pro Latin", 0, 0},
-	{0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF,      FONT_STYLE_REGULAR,     0, FONT_LANGUAGE_LATIN,    0, 1, "ltn9.pgf", "FTT-Matisse Pro Latin", 0, 0},
-	{0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_ITALIC,      0, FONT_LANGUAGE_LATIN,    0, 1, "ltn10.pgf", "FTT-NewRodin Pro Latin", 0, 0},
-	{0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF,      FONT_STYLE_ITALIC,      0, FONT_LANGUAGE_LATIN,    0, 1, "ltn11.pgf", "FTT-Matisse Pro Latin", 0, 0},
-	{0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_BOLD,        0, FONT_LANGUAGE_LATIN,    0, 1, "ltn12.pgf", "FTT-NewRodin Pro Latin", 0, 0},
-	{0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF,      FONT_STYLE_BOLD,        0, FONT_LANGUAGE_LATIN,    0, 1, "ltn13.pgf", "FTT-Matisse Pro Latin", 0, 0},
-	{0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_BOLD_ITALIC, 0, FONT_LANGUAGE_LATIN,    0, 1, "ltn14.pgf", "FTT-NewRodin Pro Latin", 0, 0},
-	{0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF,      FONT_STYLE_BOLD_ITALIC, 0, FONT_LANGUAGE_LATIN,    0, 1, "ltn15.pgf", "FTT-Matisse Pro Latin", 0, 0},
-	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_REGULAR,     0, FONT_LANGUAGE_KOREAN,   0, 3, "kr0.pgf", "AsiaNHH(512Johab)", 0, 0},
+	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_DB, 0, FONT_LANGUAGE_JAPANESE, 0, 1, "jpn0.pgf", "FTT-NewRodin Pro DB", 0, 0},
+	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_REGULAR, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn0.pgf", "FTT-NewRodin Pro Latin", 0, 0},
+	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_REGULAR, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn1.pgf", "FTT-Matisse Pro Latin", 0, 0},
+	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn2.pgf", "FTT-NewRodin Pro Latin", 0, 0},
+	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn3.pgf", "FTT-Matisse Pro Latin", 0, 0},
+	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_BOLD, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn4.pgf", "FTT-NewRodin Pro Latin", 0, 0},
+	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_BOLD, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn5.pgf", "FTT-Matisse Pro Latin", 0, 0},
+	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_BOLD_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn6.pgf", "FTT-NewRodin Pro Latin", 0, 0},
+	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_BOLD_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn7.pgf", "FTT-Matisse Pro Latin", 0, 0},
+	{0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_REGULAR, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn8.pgf", "FTT-NewRodin Pro Latin", 0, 0},
+	{0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_REGULAR, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn9.pgf", "FTT-Matisse Pro Latin", 0, 0},
+	{0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn10.pgf", "FTT-NewRodin Pro Latin", 0, 0},
+	{0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn11.pgf", "FTT-Matisse Pro Latin", 0, 0},
+	{0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_BOLD, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn12.pgf", "FTT-NewRodin Pro Latin", 0, 0},
+	{0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_BOLD, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn13.pgf", "FTT-Matisse Pro Latin", 0, 0},
+	{0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_BOLD_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn14.pgf", "FTT-NewRodin Pro Latin", 0, 0},
+	{0x1c0, 0x1c0, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SERIF, FONT_STYLE_BOLD_ITALIC, 0, FONT_LANGUAGE_LATIN, 0, 1, "ltn15.pgf", "FTT-Matisse Pro Latin", 0, 0},
+	{0x288, 0x288, 0x2000, 0x2000, 0, 0, FONT_FAMILY_SANS_SERIF, FONT_STYLE_REGULAR, 0, FONT_LANGUAGE_KOREAN, 0, 3, "kr0.pgf", "AsiaNHH(512Johab)", 0, 0},
 };
 
-static const char *font_list[18] = {
-	"flash0:/font/jpn0.pgf",
-	"flash0:/font/ltn0.pgf",
-	"flash0:/font/ltn1.pgf",
-	"flash0:/font/ltn2.pgf",
-	"flash0:/font/ltn3.pgf",
-	"flash0:/font/ltn4.pgf",
-	"flash0:/font/ltn5.pgf",
-	"flash0:/font/ltn6.pgf",
-	"flash0:/font/ltn7.pgf",
-	"flash0:/font/ltn8.pgf",
-	"flash0:/font/ltn9.pgf",
-	"flash0:/font/ltn10.pgf",
-	"flash0:/font/ltn11.pgf",
-	"flash0:/font/ltn12.pgf",
-	"flash0:/font/ltn13.pgf",
-	"flash0:/font/ltn14.pgf",
-	"flash0:/font/ltn15.pgf",
-	"flash0:/font/kr0.pgf",
-};
-static int font_num = 18;
+static const float pointDPI = 72.f;
 
-static PGF_FONT *font_slot[8] = {NULL, };
+class LoadedFont;
+class FontLib;
+class Font;
+int GetInternalFontIndex(Font *font);
 
-static int get_font_slot(void)
-{
-	int i;
+// These should not need to be state saved.
+static std::vector<Font *> internalFonts;
+// However, these we must save - but we could take a shortcut
+// for LoadedFonts that point to internal fonts.
+static std::map<u32, LoadedFont *> fontMap;
+static std::map<u32, u32> fontLibMap;
+// We keep this list to avoid ptr references, even before alloc is called.
+static std::vector<FontLib *> fontLibList;
 
-	for(i=0; i<8; i++){
-		if(font_slot[i]==NULL)
-			return i;
+// TODO: Merge this class with PGF? That'd make it harder to support .bwfon
+// fonts though, unless that's added directly to PGF.
+class Font {
+public:
+	// For savestates only.
+	Font() {
 	}
 
-	return -1;
-}
+	Font(const u8 *data, size_t dataSize) {
+		pgf_.ReadPtr(data, dataSize);
+		style_.fontH = pgf_.header.hSize / 64.0f;
+		style_.fontV = pgf_.header.vSize / 64.0f;
+		style_.fontHRes = pgf_.header.hResolution / 64.0f;
+		style_.fontVRes = pgf_.header.vResolution / 64.0f;
+	}
 
-static float f26_float(int value)
-{
-	float f, t;
+	Font(const u8 *data, size_t dataSize, const FontRegistryEntry &entry) {
+		pgf_.ReadPtr(data, dataSize);
+		style_.fontH = entry.hSize / 64.f;
+		style_.fontV = entry.vSize / 64.f;
+		style_.fontHRes = entry.hResolution / 64.f;
+		style_.fontVRes = entry.vResolution / 64.f;
+		style_.fontWeight = (float)entry.weight;
+		style_.fontFamily = (u16)entry.familyCode;
+		style_.fontStyle = (u16)entry.style;
+		style_.fontStyleSub = (u16)entry.styleSub;
+		style_.fontLanguage = (u16)entry.languageCode;
+		style_.fontRegion = (u16)entry.regionCode;
+		style_.fontCountry = (u16)entry.countryCode;
+		strncpy(style_.fontName, entry.fontName, sizeof(style_.fontName));
+		strncpy(style_.fontFileName, entry.fileName, sizeof(style_.fontFileName));
+		style_.fontAttributes = entry.extraAttributes;
+		style_.fontExpire = entry.expireDate;
+	}
 
-	f = (float)(value>>6);
-	t = (float)(value&0x3f);
-	f += t/64;
+	const PGFFontStyle &GetFontStyle() const { return style_; }
 
-	return f;
-}
+	bool MatchesStyle(const PGFFontStyle &style, bool optimum) const {
+		// TODO
+		return true;
+	}
 
-void show_style_info(struct FontStyle *s)
-{
-	INFO_LOG(HLE, "FontStyle: H=%f V=%f Hres=%f Vres=%f Weight=%f", s->fontH, s->fontV, s->fontHRes, s->fontVRes, s->fontWeight);
-	INFO_LOG(HLE, "FontStyle: family=%d style=%d substyle=%d", s->fontFamily, s->fontStyle, s->fontStyleSub);
-	INFO_LOG(HLE, "FontStyle: language=%d region=%d country=%d", s->fontLanguage, s->fontRegion, s->fontCountry);
-	INFO_LOG(HLE, "FontStyle: fontname=%s filename=%s", s->fontName, s->fontFileName);
-}
+	PGF *GetPGF() { return &pgf_; }
 
-int match_font(struct FontStyle *s)
-{
-	int i;
-	int score, max_score, font_index;
+	void DoState(PointerWrap &p) {
+		p.Do(pgf_);
+		p.Do(style_);
+		p.DoMarker("Font");
+	}
 
-	max_score = -1;
-	for(i=0; i<font_num; i++){
-		score = 0;
+private:
+	PGF pgf_;
+	PGFFontStyle style_;
+	DISALLOW_COPY_AND_ASSIGN(Font);
+};
 
-		if(fontRegistry[i].languageCode==s->fontLanguage)
-			score += 0x01000000;
-		if(fontRegistry[i].familyCode==s->fontFamily)
-			score += 0x00100000;
-		if(fontRegistry[i].style==s->fontStyle)
-			score += 0x00010000;
-		if(fontRegistry[i].hSize==s->fontH)
-			score += 0x00001000;
+class LoadedFont {
+public:
+	// For savestates only.
+	LoadedFont() {
+	}
 
-		if(score>max_score){
-			max_score = score;
-			font_index = i;
+	LoadedFont(Font *font, u32 fontLibID, u32 handle)
+		: fontLibID_(fontLibID), font_(font), handle_(handle) {}
+
+	Font *GetFont() { return font_; }
+	FontLib *GetFontLib() { if (!IsOpen()) return NULL; return fontLibList[fontLibID_]; }
+	u32 Handle() const { return handle_; }
+
+	bool IsOpen() const { return fontLibID_ != (u32)-1; }
+	void Close() {
+		fontLibID_ = (u32)-1;
+		// We keep the rest around until deleted, as some queries are allowed
+		// on closed fonts (which is rather strange).
+	}
+
+	void DoState(PointerWrap &p) {
+		int numInternalFonts = (int)internalFonts.size();
+		p.Do(numInternalFonts);
+		if (numInternalFonts != (int)internalFonts.size()) {
+			ERROR_LOG(HLE, "Unable to load state: different internal font count.");
+			return;
+		}
+
+		p.Do(fontLibID_);
+		int internalFont = GetInternalFontIndex(font_);
+		p.Do(internalFont);
+		if (internalFont == -1) {
+			p.Do(font_);
+		} else if (p.mode == p.MODE_READ) {
+			font_ = internalFonts[internalFont];
+		}
+		p.Do(handle_);
+		p.DoMarker("LoadedFont");
+	}
+
+private:
+	u32 fontLibID_;
+	Font *font_;
+	u32 handle_;
+	DISALLOW_COPY_AND_ASSIGN(LoadedFont);
+};
+
+class PostAllocCallback : public Action {
+public:
+	PostAllocCallback() {}
+	static Action *Create() { return new PostAllocCallback(); }
+	void DoState(PointerWrap &p) { p.Do(fontLibID_); p.DoMarker("PostAllocCallback"); }
+	void run(MipsCall &call);
+	void SetFontLib(u32 fontLibID) { fontLibID_ = fontLibID; }
+
+private:
+	u32 fontLibID_;
+};
+
+class PostOpenCallback : public Action {
+public:
+	PostOpenCallback() {}
+	static Action *Create() { return new PostOpenCallback(); }
+	void DoState(PointerWrap &p) { p.Do(fontLibID_); p.DoMarker("PostOpenCallback"); }
+	void run(MipsCall &call);
+	void SetFontLib(u32 fontLibID) { fontLibID_ = fontLibID; }
+
+private:
+	u32 fontLibID_;
+};
+
+// A "fontLib" is a container of loaded fonts.
+// One can open either "internal" fonts or custom fonts into a fontlib.
+class FontLib {
+public:
+	FontLib() {
+		// For save states only.
+	}
+
+	FontLib(u32 paramPtr) :	fontHRes_(128.0f), fontVRes_(128.0f) {
+		Memory::ReadStruct(paramPtr, &params_);
+		fakeAlloc_ = 0x13370;
+		// We use the same strange scheme that JPCSP uses.
+		u32 allocSize = 4 + 4 * params_.numFonts;
+		PostAllocCallback *action = (PostAllocCallback*) __KernelCreateAction(actionPostAllocCallback);
+		action->SetFontLib(GetListID());
+
+		if (false) {
+			// This fails in dissidia. The function at 088ff320 (params_.allocFuncAddr) calls some malloc function, the second one returns 0 which causes
+			// bad stores later. So we just ignore this with if (false) and fake it.
+			u32 args[2] = { params_.userDataAddr, allocSize };
+			__KernelDirectMipsCall(params_.allocFuncAddr, action, args, 2, false);
+		} else {
+			AllocDone(fakeAlloc_);
+			fakeAlloc_ += allocSize;
+			fontLibMap[handle()] = GetListID();
+			INFO_LOG(HLE, "Leaving PostAllocCallback::run");
 		}
 	}
 
-	return font_index;
+	u32 GetListID() {
+		return (u32)(std::find(fontLibList.begin(), fontLibList.end(), this) - fontLibList.begin());
+	}
+
+	void Close() {
+		__KernelDirectMipsCall(params_.closeFuncAddr, 0, 0, 0, false);
+	}
+
+	void Done() {
+		for (size_t i = 0; i < fonts_.size(); i++) {
+			if (isfontopen_[i] == FONT_IS_OPEN) {
+				fontMap[fonts_[i]]->Close();
+				delete fontMap[fonts_[i]];
+				fontMap.erase(fonts_[i]);
+			}
+		}
+		u32 args[2] = { params_.userDataAddr, (u32)handle_ };
+		__KernelDirectMipsCall(params_.freeFuncAddr, 0, args, 2, false);
+		handle_ = 0;
+		fonts_.clear();
+		isfontopen_.clear();
+	}
+
+	void AllocDone(u32 allocatedAddr) {
+		handle_ = allocatedAddr;
+		fonts_.resize(params_.numFonts);
+		isfontopen_.resize(params_.numFonts);
+		for (size_t i = 0; i < fonts_.size(); i++) {
+			u32 addr = allocatedAddr + 4 + i * 4;
+			isfontopen_[i] = 0;
+			fonts_[i] = addr;
+		}
+	}
+
+	u32 handle() const { return handle_; }
+	int numFonts() const { return params_.numFonts; }
+
+	void SetResolution(float hres, float vres) {
+		fontHRes_ = hres;
+		fontVRes_ = vres;
+	}
+
+	float FontHRes() const { return fontHRes_; }
+	float FontVRes() const { return fontVRes_; }
+
+	void SetAltCharCode(int charCode) { altCharCode_ = charCode; }
+
+	int GetFontHandle(int index) {
+		return fonts_[index];
+	}
+
+	LoadedFont *OpenFont(Font *font) {
+		int freeFontIndex = -1;
+		for (size_t i = 0; i < fonts_.size(); i++) {
+			if (isfontopen_[i] == 0) {
+				freeFontIndex = (int)i;
+				break;
+			}
+		}
+		if (freeFontIndex < 0) {
+			ERROR_LOG(HLE, "Too many fonts opened in FontLib");
+			return 0;
+		}
+		LoadedFont *loadedFont = new LoadedFont(font, GetListID(), fonts_[freeFontIndex]);
+		isfontopen_[freeFontIndex] = 1;
+		return loadedFont;
+	}
+
+	void CloseFont(LoadedFont *font) {
+		for (size_t i = 0; i < fonts_.size(); i++) {
+			if (fonts_[i] == font->Handle()) {
+				isfontopen_[i] = 0;
+
+			}
+		}
+		font->Close();
+	}
+
+	void DoState(PointerWrap &p) {
+		p.Do(fonts_);
+		p.Do(isfontopen_);
+		p.Do(params_);
+		p.Do(fontHRes_);
+		p.Do(fontVRes_);
+		p.Do(fileFontHandle_);
+		p.Do(handle_);
+		p.Do(altCharCode_);
+		p.Do(fakeAlloc_);
+		p.DoMarker("FontLib");
+	}
+
+	void SetFileFontHandle(u32 handle) {
+		fileFontHandle_ = handle;
+	}
+
+	u32 GetAltCharCode() const { return altCharCode_; }
+
+private:
+	std::vector<u32> fonts_;
+	std::vector<u32> isfontopen_;
+
+	FontNewLibParams params_;
+	float fontHRes_;
+	float fontVRes_;
+	int fileFontHandle_;
+	int handle_;
+	int altCharCode_;
+
+	u32 fakeAlloc_;
+	DISALLOW_COPY_AND_ASSIGN(FontLib);
+};
+
+
+void PostAllocCallback::run(MipsCall &call) {
+	INFO_LOG(HLE, "Entering PostAllocCallback::run");
+	u32 v0 = currentMIPS->r[0];
+	FontLib *fontLib = fontLibList[fontLibID_];
+	fontLib->AllocDone(call.savedV0);
+	fontLibMap[fontLib->handle()] = fontLibID_;
+	call.setReturnValue(fontLib->handle());
+	INFO_LOG(HLE, "Leaving PostAllocCallback::run");
 }
 
-/******************************************************************************/
-
-
-FontNewLibParams fontLib;
-
-void __FontInit()
-{
-	memset(&fontLib, 0, sizeof(fontLib));
+void PostOpenCallback::run(MipsCall &call) {
+	FontLib *fontLib = fontLibList[fontLibID_];
+	fontLib->SetFileFontHandle(call.savedV0);
 }
 
-void __FontDoState(PointerWrap &p)
-{
-	p.Do(fontLib);
+FontLib *GetFontLib(u32 handle) {
+	if (fontLibMap.find(handle) != fontLibMap.end()) {
+		return fontLibList[fontLibMap[handle]];
+	} else {
+		ERROR_LOG(HLE, "No fontlib with handle %08x", handle);
+		return 0;
+	}
+}
+
+LoadedFont *GetLoadedFont(u32 handle, bool allowClosed) {
+	auto iter = fontMap.find(handle);
+	if (iter != fontMap.end()) {
+		if (iter->second->IsOpen() || allowClosed) {
+			return fontMap[handle];
+		} else {
+			ERROR_LOG(HLE, "Font exists but is closed, which was not allowed in this call.");
+			return 0;
+		}
+	} else {
+		ERROR_LOG(HLE, "No font with handle %08x", handle);
+		return 0;
+	}
+}
+
+void __LoadInternalFonts() {
+	if (internalFonts.size()) {
+		// Fonts already loaded.
+		return;
+	}
+	std::string fontPath = "flash0:/font/";
+	if (!pspFileSystem.GetFileInfo(fontPath).exists) {
+		pspFileSystem.MkDir(fontPath);
+	}
+	for (size_t i = 0; i < ARRAY_SIZE(fontRegistry); i++) {
+		const FontRegistryEntry &entry = fontRegistry[i];
+		std::string fontFilename = fontPath + entry.fileName;
+		PSPFileInfo info = pspFileSystem.GetFileInfo(fontFilename);
+		if (info.exists) {
+			INFO_LOG(HLE, "Loading font %s (%i bytes)", fontFilename.c_str(), (int)info.size);
+			u8 *buffer = new u8[(size_t)info.size];
+			u32 handle = pspFileSystem.OpenFile(fontFilename, FILEACCESS_READ);
+			if (!handle) {
+				ERROR_LOG(HLE, "Failed opening font");
+				delete [] buffer;
+				continue;
+			}
+			pspFileSystem.ReadFile(handle, buffer, info.size);
+			pspFileSystem.CloseFile(handle);
+			
+			internalFonts.push_back(new Font(buffer, (size_t)info.size, entry));
+
+			delete [] buffer;
+			INFO_LOG(HLE, "Loaded font %s", fontFilename.c_str());
+		} else {
+			INFO_LOG(HLE, "Font file not found: %s", fontFilename.c_str());
+		}
+	}
+}
+
+Style FontStyleFromString(const std::string &str) {
+	if (str == "Regular")
+		return FONT_STYLE_REGULAR;
+	else if (str == "Italic")
+		return FONT_STYLE_ITALIC;
+	else if (str == "Bold")
+		return FONT_STYLE_BOLD;
+	else if (str == "Bold Italic")
+		return FONT_STYLE_BOLD_ITALIC;
+	return FONT_STYLE_REGULAR;
+}
+
+Font *GetOptimumFont(const PGFFontStyle &requestedStyle, Font *optimumFont, Font *candidateFont) {
+	if (!optimumFont)
+		return candidateFont;
+	PGFFontStyle optimumStyle = optimumFont->GetFontStyle();
+	PGFFontStyle candidateStyle = candidateFont->GetFontStyle();
+
+	bool testH = requestedStyle.fontH != 0.0f || requestedStyle.fontV == 0.0f;
+	if (testH && fabsf(requestedStyle.fontH - optimumStyle.fontH) > fabsf(requestedStyle.fontH - candidateStyle.fontH)) {
+		return candidateFont;
+	}
+
+	// Check the fontV if it is specified or both fontH and fontV are unspecified
+	bool testV = requestedStyle.fontV != 0.f || requestedStyle.fontH == 0.f;
+	if (testV && fabsf(requestedStyle.fontV - optimumStyle.fontV) > fabsf(requestedStyle.fontV - candidateStyle.fontV)) {
+		return candidateFont;
+	}
+
+	return optimumFont;
+}
+
+int GetInternalFontIndex(Font *font) {
+	for (size_t i = 0; i < internalFonts.size(); i++) {
+		if (internalFonts[i] == font)
+			return i;
+	}
+	return -1;
+}
+
+void __FontInit() {
+	actionPostAllocCallback = __KernelRegisterActionType(PostAllocCallback::Create);
+	actionPostOpenCallback = __KernelRegisterActionType(PostOpenCallback::Create);
+}
+
+void __FontShutdown() {
+	for (auto iter = fontMap.begin(); iter != fontMap.end(); iter++) {
+		FontLib *fontLib = iter->second->GetFontLib();
+		if (fontLib)
+			fontLib->CloseFont(iter->second);
+	}
+	fontMap.clear();
+	for (auto iter = fontLibList.begin(); iter != fontLibList.end(); iter++) {
+		delete *iter;
+	}
+	fontLibList.clear();
+	fontLibMap.clear();
+	for (auto iter = internalFonts.begin(); iter != internalFonts.end(); ++iter) {
+		delete *iter;
+	}
+	internalFonts.clear();
+}
+
+void __FontDoState(PointerWrap &p) {
+	__LoadInternalFonts();
+
+	p.Do(fontLibList);
+	p.Do(fontLibMap);
+	p.Do(fontMap);
+
+	p.Do(actionPostAllocCallback);
+	__KernelRestoreActionType(actionPostAllocCallback, PostAllocCallback::Create);
+	p.Do(actionPostOpenCallback);
+	__KernelRestoreActionType(actionPostOpenCallback, PostOpenCallback::Create);
 	p.DoMarker("sceFont");
 }
 
-u32 sceFontNewLib(u32 FontNewLibParamsPtr, u32 errorCodePtr)
-{
-	DEBUG_LOG(HLE, "sceFontNewLib %x, %x", FontNewLibParamsPtr, errorCodePtr);
+u32 sceFontNewLib(u32 paramPtr, u32 errorCodePtr) {
+	// Lazy load internal fonts, only when font library first inited.
+	__LoadInternalFonts();
+	INFO_LOG(HLE, "sceFontNewLib(%08x, %08x)", paramPtr, errorCodePtr);
 
-	if (Memory::IsValidAddress(FontNewLibParamsPtr)&&Memory::IsValidAddress(errorCodePtr))
+	if (Memory::IsValidAddress(paramPtr) && Memory::IsValidAddress(errorCodePtr)) {
+		Memory::Write_U32(0, errorCodePtr);
+		
+		FontLib *newLib = new FontLib(paramPtr);
+		fontLibList.push_back(newLib);
+		// The game should never see this value, the return value is replaced
+		// by the action. Except if we disable the alloc, in this case we return
+		// the handle correctly here.
+		return newLib->handle();
+	}
+
+	return 0;
+}
+
+int sceFontDoneLib(u32 fontLibHandle) {
+	INFO_LOG(HLE, "sceFontDoneLib(%08x)", fontLibHandle);
+	FontLib *fl = GetFontLib(fontLibHandle);
+	if (fl) {
+		fl->Done();
+	}
+	return 0;
+}
+
+// Open internal font into a FontLib
+u32 sceFontOpen(u32 libHandle, u32 index, u32 mode, u32 errorCodePtr) {
+	INFO_LOG(HLE, "sceFontOpen(%x, %x, %x, %x)", libHandle, index, mode, errorCodePtr);
+	if (!Memory::IsValidAddress(errorCodePtr)) {
+		Memory::Write_U32(ERROR_FONT_INVALID_PARAMETER, errorCodePtr);
+		return 0;
+	}
+
+	FontLib *fontLib = GetFontLib(libHandle);
+	if (index >= internalFonts.size()) {
+		Memory::Write_U32(ERROR_FONT_INVALID_PARAMETER, errorCodePtr);
+		return 0;
+	}
+
+	LoadedFont *font = fontLib->OpenFont(internalFonts[index]);
+	if (font) {
+		fontMap[font->Handle()] = font;
+		Memory::Write_U32(0, errorCodePtr);
+		return font->Handle();
+	} else {
+		Memory::Write_U32(ERROR_FONT_TOO_MANY_OPEN_FONTS, errorCodePtr);
+		return 0;
+	}
+}
+
+// Open a user font in RAM into a FontLib
+u32 sceFontOpenUserMemory(u32 libHandle, u32 memoryFontAddrPtr, u32 memoryFontLength, u32 errorCodePtr) {
+	ERROR_LOG(HLE, "sceFontOpenUserMemory %x, %x, %x, %x", libHandle, memoryFontAddrPtr, memoryFontLength, errorCodePtr);
+	if (!Memory::IsValidAddress(errorCodePtr) || !Memory::IsValidAddress(memoryFontAddrPtr)) {
+		Memory::Write_U32(ERROR_FONT_INVALID_PARAMETER, errorCodePtr);
+		return 0;
+	}
+
+	FontLib *fontLib = GetFontLib(libHandle);
+	if (!fontLib) {
+		Memory::Write_U32(ERROR_FONT_INVALID_PARAMETER, errorCodePtr);
+		return 0;
+	}
+
+	const u8 *fontData = Memory::GetPointer(memoryFontAddrPtr);
+	LoadedFont *font = fontLib->OpenFont(new Font(fontData, memoryFontLength));
+	if (font) {
+		fontMap[font->Handle()] = font;
+		Memory::Write_U32(0, errorCodePtr);
+		return font->Handle();
+	} else {
+		Memory::Write_U32(ERROR_FONT_TOO_MANY_OPEN_FONTS, errorCodePtr);
+		return 0;
+	}
+}
+
+// Open a user font in a file into a FontLib
+u32 sceFontOpenUserFile(u32 libHandle, const char *fileName, u32 mode, u32 errorCodePtr) {
+	ERROR_LOG(HLE, "sceFontOpenUserFile(%08x, %s, %08x, %08x)", libHandle, fileName, mode, errorCodePtr);
+	if (!Memory::IsValidAddress(errorCodePtr))
+		return ERROR_FONT_INVALID_PARAMETER;
+
+	PSPFileInfo info = pspFileSystem.GetFileInfo(fileName);
+	if (!info.exists) {
+		Memory::Write_U32(ERROR_FONT_INVALID_PARAMETER, errorCodePtr);
+		return 0;
+	}
+
+	FontLib *fontLib = GetFontLib(libHandle);
+	if (!fontLib) {
+		Memory::Write_U32(ERROR_FONT_INVALID_PARAMETER, errorCodePtr);
+		return 0;
+	}
+
+	u8 *buffer = new u8[(size_t)info.size];
+
+	u32 fileHandle = pspFileSystem.OpenFile(fileName, FILEACCESS_READ);
+	pspFileSystem.ReadFile(fileHandle, buffer, info.size);
+	pspFileSystem.CloseFile(fileHandle);
+
+	LoadedFont *font = fontLib->OpenFont(new Font(buffer, (size_t)info.size));
+	if (font) {
+		fontMap[font->Handle()] = font;
+		Memory::Write_U32(0, errorCodePtr);
+		return font->Handle();
+	} else {
+		Memory::Write_U32(ERROR_FONT_TOO_MANY_OPEN_FONTS, errorCodePtr);
+		return 0;
+	}
+}
+
+int sceFontClose(u32 fontHandle) {
+	LoadedFont *font = GetLoadedFont(fontHandle, false);
+	if (font)
 	{
-		Memory::Write_U32(0, errorCodePtr);
-		Memory::ReadStruct(FontNewLibParamsPtr, &fontLib);
+		INFO_LOG(HLE, "sceFontClose(%x)", fontHandle);
+		FontLib *fontLib = font->GetFontLib();
+		if (fontLib)
+			fontLib->CloseFont(font);
 	}
-
-	return 1;
-}
-
-int sceFontDoneLib(u32 FontLibraryHandlePtr)
-{
-	DEBUG_LOG(HLE, "sceFontDoneLib %x", FontLibraryHandlePtr);
+	else
+		ERROR_LOG(HLE, "sceFontClose(%x) - font not open?", fontHandle);
 	return 0;
 }
 
-
-u32 sceFontOpen(u32 libHandle, u32 index, u32 mode, u32 errorCodePtr)
- {
-	int slot;
-
-	INFO_LOG(HLE, "sceFontOpen %x, %x, %x, %x", libHandle, index, mode, errorCodePtr);
-
-	slot = get_font_slot();
-	if(slot==-1){
-		if (Memory::IsValidAddress(errorCodePtr))
-			Memory::Write_U32(-1, errorCodePtr);
+int sceFontFindOptimumFont(u32 libHandlePtr, u32 fontStylePtr, u32 errorCodePtr) {
+	ERROR_LOG(HLE, "sceFontFindOptimumFont(%08x, %08x, %08x)", libHandlePtr, fontStylePtr, errorCodePtr);
+	if (!fontStylePtr)
 		return 0;
-	}
 
-	index -= 1;
-
-	font_slot[slot] = load_pgf_from_file(font_list[index]);
-	if(font_slot[slot]==NULL){
-		if (Memory::IsValidAddress(errorCodePtr))
-			Memory::Write_U32(-1, errorCodePtr);
-	}
-
-	if (Memory::IsValidAddress(errorCodePtr))
-		Memory::Write_U32(0, errorCodePtr);
-
-	return slot+1;
-}
-
-u32 sceFontOpenUserMemory(u32 libHandle, u32 memoryFontAddrPtr, u32 memoryFontLength, u32 errorCodePtr)
-{
-	int retv, slot;
-	u8 *buf;
-
-	INFO_LOG(HLE, "sceFontOpenUserMemory %x, %x, %x, %x", libHandle, memoryFontAddrPtr, memoryFontLength, errorCodePtr);
-
-	retv = 0;
-	slot = get_font_slot();
-	if(slot==-1){
-		if (Memory::IsValidAddress(errorCodePtr))
-			Memory::Write_U32(-1, errorCodePtr);
-		return 0;
-	}
-
-	if (!Memory::IsValidAddress(memoryFontAddrPtr)){
-		if (Memory::IsValidAddress(errorCodePtr))
-			Memory::Write_U32(-1, errorCodePtr);
-		return 0;
-	}
-	buf = (u8*) Memory::GetPointer(memoryFontAddrPtr);
-
-	font_slot[slot] = load_pgf_from_buf(buf, memoryFontLength);
-
-	if (Memory::IsValidAddress(errorCodePtr))
-		Memory::Write_U32(0, errorCodePtr);
-
-	return slot+1;
-}
-
-u32 sceFontOpenUserFile(u32 libHandle, u32 fileNamePtr, u32 mode, u32 errorCodePtr)
-{
-	int slot;
-	char *filename;
-
-	INFO_LOG(HLE, "sceFontOpenUserFile %x, %x, %x, %x", libHandle, fileNamePtr, mode, errorCodePtr);
-
-	slot = get_font_slot();
-	if(slot==-1){
-		if (Memory::IsValidAddress(errorCodePtr))
-			Memory::Write_U32(-1, errorCodePtr);
-		return 0;
-	}
-
-	if (!Memory::IsValidAddress(fileNamePtr)){
-		if (Memory::IsValidAddress(errorCodePtr))
-			Memory::Write_U32(-1, errorCodePtr);
-		return 0;
-	}
-	filename = (char*) Memory::GetPointer(fileNamePtr);
-
-	font_slot[slot] = load_pgf_from_file(filename);
-	if(font_slot[slot]==NULL){
-		if (Memory::IsValidAddress(errorCodePtr))
-			Memory::Write_U32(-1, errorCodePtr);
-	}
-
-	if (Memory::IsValidAddress(errorCodePtr))
-		Memory::Write_U32(0, errorCodePtr);
-
-	return slot+1;
-}
-
-int sceFontClose(u32 fontHandle)
-{
-	int slot;
-
-	INFO_LOG(HLE, "sceFontClose %x", fontHandle);
-
-	slot = fontHandle-1;
-	free_pgf_font(font_slot[slot]);
-	font_slot[slot] = NULL;
-
-	return 0;
-}
-
-int sceFontFindOptimumFont(u32 libHandlePtr, u32 fontStylePtr, u32 errorCodePtr)
-{
-	int font_index;
-
-	INFO_LOG(HLE, "sceFontFindOptimumFont %x, %x, %x", libHandlePtr, fontStylePtr, errorCodePtr);
-
-	FontStyle s;
+	if (!Memory::IsValidAddress(errorCodePtr))
+		return SCE_KERNEL_ERROR_INVALID_ARGUMENT;
 	
-	Memory::ReadStruct(fontStylePtr, &s);
-	show_style_info(&s);
+	PGFFontStyle requestedStyle;
+	Memory::ReadStruct(fontStylePtr, &requestedStyle);
 
-	font_index = match_font(&s);
-	INFO_LOG(HLE, "sceFontFindOptimumFont: match %s", font_list[font_index]);
-	
-	if (Memory::IsValidAddress(errorCodePtr)){
-		Memory::Write_U32(0, errorCodePtr);
-	}
-	
-	return font_index+1;
-}
-
-int sceFontFindFont(u32 libHandlePtr, u32 fontStylePtr, u32 errorCodePtr)
-{
-	INFO_LOG(HLE, "sceFontFindFont %x, %x, %x", libHandlePtr, fontStylePtr, errorCodePtr);
-	if (Memory::IsValidAddress(errorCodePtr)){
-		Memory::Write_U32(0, errorCodePtr);
-	}
-	return 1;
-}
-
-int sceFontGetFontInfo(u32 fontHandle, u32 fontInfoPtr)
-{
-	PGF_FONT *pgft;
-	PGF_HEADER *ph;
-	int slot;
-
-	INFO_LOG(HLE, "sceFontGetFontInfo %x, %x", fontHandle, fontInfoPtr);
-
-	slot = fontHandle-1;
-	pgft = font_slot[slot];
-	ph = (PGF_HEADER*)pgft->buf;
-
-	FontInfo fi;
-	memset (&fi, 0, sizeof(fi));
-	if (Memory::IsValidAddress(fontInfoPtr))
-	{
-		fi.BPP = 4;
-		fi.charMapLength = ph->charmap_len;
-		fi.shadowMapLength = ph->shadowmap_len;
-
-		fi.maxInfoI.width      = ph->max_glyph_w<<6;
-		fi.maxInfoI.height     = ph->max_glyph_h<<6;
-		fi.maxInfoI.ascender   = ph->ascender;
-		fi.maxInfoI.descender  = ph->descender;
-		fi.maxInfoI.h_bearingX = ph->max_h_bearingX;
-		fi.maxInfoI.h_bearingY = ph->max_h_bearingY;
-		fi.maxInfoI.v_bearingX = ph->min_v_bearingX;
-		fi.maxInfoI.v_bearingY = ph->max_v_bearingY;
-		fi.maxInfoI.h_advance  = ph->max_h_advance;
-		fi.maxInfoI.v_advance  = ph->max_v_advance;
-
-		fi.maxInfoF.width      = (float)(ph->max_glyph_w);
-		fi.maxInfoF.height     = (float)(ph->max_glyph_h);
-		fi.maxInfoF.ascender   = f26_float(ph->ascender);
-		fi.maxInfoF.descender  = f26_float(ph->descender);
-		fi.maxInfoF.h_bearingX = f26_float(ph->max_h_bearingX);
-		fi.maxInfoF.h_bearingY = f26_float(ph->max_h_bearingY);
-		fi.maxInfoF.v_bearingX = f26_float(ph->min_v_bearingX);
-		fi.maxInfoF.v_bearingY = f26_float(ph->max_v_bearingY);
-		fi.maxInfoF.h_advance  = f26_float(ph->max_h_advance);
-		fi.maxInfoF.v_advance  = f26_float(ph->max_v_advance);
-
-		fi.maxGlyphHeight      = ph->max_glyph_h;
-		fi.maxGlyphWidth       = ph->max_glyph_w;
-
-		fi.fontStyle.fontAttributes = 1;
-		fi.fontStyle.fontCountry    = 1;
-		fi.fontStyle.fontExpire     = 1;
-		fi.fontStyle.fontFamily     = 1;
-		fi.fontStyle.fontH          = f26_float(ph->h_size);
-		fi.fontStyle.fontHRes       = f26_float(ph->h_res);
-		fi.fontStyle.fontLanguage   = 1;
-		fi.fontStyle.fontRegion     = 9;
-		fi.fontStyle.fontV          = f26_float(ph->v_size);
-		fi.fontStyle.fontVRes       = f26_float(ph->v_res);
-		fi.fontStyle.fontWeight     = 32;
-		strcpy(fi.fontStyle.fontFileName, font_list[slot]);
-		strcpy(fi.fontStyle.fontName,     (const char*)ph->font_name);
-
-		Memory::WriteStruct(fontInfoPtr, &fi);
-	}
-
-	return 0;
-}
-
-int sceFontGetFontInfoByIndexNumber(u32 libHandle, u32 fontInfoPtr, u32 fontIndex)
-{
-	ERROR_LOG(HLE, "HACK sceFontGetFontInfoByIndexNumber %x, %x, %x", libHandle, fontInfoPtr, fontIndex);
-	// clearly wrong..
-	return -1;
-
-}
-
-int sceFontGetCharInfo(u32 fontHandle, u32 charCode, u32 charInfoPtr)
-{
-	PGF_FONT *pgft;
-	PGF_HEADER *ph;
-	PGF_GLYPH *gh;
-	int slot;
-
-	INFO_LOG(HLE, "HACK sceFontGetCharInfo %x, %x, %x", fontHandle, charCode, charInfoPtr);
-
-	slot = fontHandle-1;
-	pgft = font_slot[slot];
-	if(pgft==NULL)
-		return -1;
-
-	ph = (PGF_HEADER*)pgft->buf;
-	gh = get_glyph(pgft, charCode);
-
-	if (Memory::IsValidAddress(charInfoPtr)) {
-		CharInfo pspCharInfo;
-		memset(&pspCharInfo, 0, sizeof(pspCharInfo));
-
-		pspCharInfo.bitmapWidth  = gh->width;
-		pspCharInfo.bitmapHeight = gh->height;
-		pspCharInfo.bitmapLeft   = gh->left;
-		pspCharInfo.bitmapTop    = gh->top;
-
-		pspCharInfo.info.width      = gh->dimension.h;
-		pspCharInfo.info.height     = gh->dimension.v;
-		pspCharInfo.info.ascender   = ph->ascender;
-		pspCharInfo.info.descender  = ph->descender;
-		pspCharInfo.info.h_bearingX = gh->bearingX.h;
-		pspCharInfo.info.h_bearingY = gh->bearingY.h;
-		pspCharInfo.info.v_bearingX = gh->bearingX.v;
-		pspCharInfo.info.v_bearingY = gh->bearingY.v;
-		pspCharInfo.info.h_advance  = gh->advance.h;
-		pspCharInfo.info.v_advance  = gh->advance.v;
-
-		Memory::WriteStruct(charInfoPtr, &pspCharInfo);
-	}
-	return 0;
-}
-
-int sceFontGetCharImageRect(u32 fontHandle, u32 charCode, u32 charRectPtr)
-{
-	PGF_FONT *pgft;
-	PGF_GLYPH *gh;
-	int slot;
-
-	INFO_LOG(HLE, "HACK sceFontGetCharImageRect %x, %x (%c)", fontHandle, charRectPtr, charCode);
-
-	slot = fontHandle-1;
-	pgft = font_slot[slot];
-	if(pgft==NULL)
-		return -1;
-
-	gh = get_glyph(pgft, charCode);
-
-	if (Memory::IsValidAddress(charRectPtr)) {
-		Memory::Write_U16(gh->width, charRectPtr);    // character bitmap width in pixels
-		Memory::Write_U16(gh->width, charRectPtr+2);  // character bitmap height in pixels
-	}
-
-	return 0;
-}
-
-int sceFontGetCharGlyphImage(u32 fontHandle, u32 charCode, u32 glyphImagePtr)
-{
-	PGF_FONT *pgft;
-	PGF_GLYPH *gh;
-	int slot;
-	u8 line_buf[512];
-
-	INFO_LOG(HLE, "HACK sceFontGetCharGlyphImage %x, %x, %x (%c)", fontHandle, charCode, glyphImagePtr, charCode);
-
-	slot = fontHandle-1;
-	pgft = font_slot[slot];
-	if(pgft==NULL)
-		return -1;
-
-	gh = get_glyph(pgft, charCode);
-
-	int pixelFormat  = Memory::Read_U32(glyphImagePtr);
-	int xPos64       = Memory::Read_U32(glyphImagePtr+4);
-	int yPos64       = Memory::Read_U32(glyphImagePtr+8);
-	int bufWidth     = Memory::Read_U16(glyphImagePtr+12);
-	int bufHeight    = Memory::Read_U16(glyphImagePtr+14);
-	int bytesPerLine = Memory::Read_U16(glyphImagePtr+16);
-	int buffer       = Memory::Read_U32(glyphImagePtr+20);
-
-	xPos64 = (xPos64+32)>>6;
-	yPos64 = (yPos64+32)>>6;
-
-	int line = buffer + yPos64*bytesPerLine;
-	u8 *src = gh->bmp;
-
-	for (int y=0; y<gh->height; y++) {
-		Memory::Memcpy(line_buf, line, bytesPerLine);
-		int xp = xPos64;
-		for (int x=0; x<gh->width; x++) {
-			if(xp&1){
-				line_buf[xp/2] &= 0x0f; 
-				line_buf[xp/2] |= (*src)<<4; 
-			}else{
-				line_buf[xp/2] &= 0xf0; 
-				line_buf[xp/2] |= (*src); 
-			}
-			xp += 1;
-			src += 1;
+	Font *optimumFont = 0;
+	for (size_t i = 0; i < internalFonts.size(); i++) {
+		if (internalFonts[i]->MatchesStyle(requestedStyle, true)) {
+			optimumFont = GetOptimumFont(requestedStyle, optimumFont, internalFonts[i]);
+			break;
 		}
-		Memory::Memcpy(line, line_buf, bytesPerLine);
-		line += bytesPerLine;
+	}
+	if (optimumFont) {
+		Memory::Write_U32(0, errorCodePtr);
+		return GetInternalFontIndex(optimumFont);
+	} else {
+		Memory::Write_U32(0, errorCodePtr);
+		return 0;
+	}
+}
+
+// Returns the font index, not handle
+int sceFontFindFont(u32 libHandlePtr, u32 fontStylePtr, u32 errorCodePtr) {
+	ERROR_LOG(HLE, "sceFontFindFont(%x, %x, %x)", libHandlePtr, fontStylePtr, errorCodePtr);
+	if (!Memory::IsValidAddress(errorCodePtr)) {
+		Memory::Write_U32(ERROR_FONT_INVALID_PARAMETER, errorCodePtr);
+		return 0;
 	}
 
+	PGFFontStyle style;
+	Memory::ReadStruct(fontStylePtr, &style);
+
+	for (size_t i = 0; i < internalFonts.size(); i++) {
+		if (internalFonts[i]->MatchesStyle(style, false)) {
+			Memory::Write_U32(0, errorCodePtr);
+			return i;
+		}
+	}
+	return -1;
+}
+
+int sceFontGetFontInfo(u32 fontHandle, u32 fontInfoPtr) {
+	ERROR_LOG(HLE, "sceFontGetFontInfo(%x, %x)", fontHandle, fontInfoPtr);
+
+	PGFFontInfo fi;
+	memset (&fi, 0, sizeof(fi));
+	if (!Memory::IsValidAddress(fontInfoPtr))
+		return 0;
+
+	LoadedFont *font = GetLoadedFont(fontHandle, true);
+	if (!font)
+		return 0;
+	PGF *pgf = font->GetFont()->GetPGF();
+	pgf->GetFontInfo(&fi);
+	fi.fontStyle = font->GetFont()->GetFontStyle();
+
+	Memory::WriteStruct(fontInfoPtr, &fi);
 	return 0;
 }
 
-int sceFontGetCharGlyphImage_Clip(u32 libHandler, u32 charCode, u32 glyphImagePtr, int clipXPos, int clipYPos, int clipWidth, int clipHeight)
-{
-	INFO_LOG(HLE, "sceFontGetCharGlyphImage_Clip %x, %x, %x (%c)", libHandler, charCode, glyphImagePtr, charCode);
-	return sceFontGetCharGlyphImage(libHandler, charCode, glyphImagePtr);
+int sceFontGetFontInfoByIndexNumber(u32 libHandle, u32 fontInfoPtr, u32 unknown, u32 fontIndex) {
+	INFO_LOG(HLE, "sceFontGetFontInfoByIndexNumber(%x, %x, %i, %i)", libHandle, fontInfoPtr, unknown, fontIndex);
+	FontLib *fl = GetFontLib(libHandle);
+	u32 fontHandle = fl->GetFontHandle(fontIndex);
+	return sceFontGetFontInfo(fontHandle, fontInfoPtr);
 }
 
-int sceFontSetAltCharacterCode(u32 libHandle, u32 charCode)
-{
-	DEBUG_LOG(HLE, "sceFontSetAltCharacterCode %x (%c)", libHandle, charCode);
+int sceFontGetCharInfo(u32 fontHandle, u32 charCode, u32 charInfoPtr) {
+	INFO_LOG(HLE, "sceFontGetCharInfo(%08x, %i, %08x)", fontHandle, charCode, charInfoPtr);
+	if (!Memory::IsValidAddress(charInfoPtr))
+		return -1;
+
+	PGFCharInfo charInfo;
+	memset(&charInfo, 0, sizeof(charInfo));		
+	LoadedFont *font = GetLoadedFont(fontHandle, false);
+	if (font) {
+		font->GetFont()->GetPGF()->GetCharInfo(charCode, &charInfo);
+	} else {
+		ERROR_LOG(HLE, "sceFontGetCharInfo - invalid font");
+	}
+	Memory::WriteStruct(charInfoPtr, &charInfo);
 	return 0;
 }
 
-int sceFontFlush(u32 fontHandle)
-{
+// Not sure about the arguments.
+int sceFontGetShadowInfo(u32 fontHandle, u32 charCode, u32 shadowCharInfoPtr) {
+	ERROR_LOG(HLE, "UNIMPL sceFontGetShadowInfo(%08x, %i, %08x)", fontHandle, charCode, shadowCharInfoPtr);
+	// TODO
+	return 0;
+}
+
+int sceFontGetCharImageRect(u32 fontHandle, u32 charCode, u32 charRectPtr) {
+	INFO_LOG(HLE, "sceFontGetCharImageRect(%08x, %i, %08x)", fontHandle, charCode, charRectPtr);
+	if (!Memory::IsValidAddress(charRectPtr))
+		return -1;
+
+	PGFCharInfo charInfo;
+	LoadedFont *font = GetLoadedFont(fontHandle, false);
+	if (font) {
+		font->GetFont()->GetPGF()->GetCharInfo(charCode, &charInfo);
+		Memory::Write_U16(charInfo.bitmapWidth, charRectPtr);      // character bitmap width in pixels
+		Memory::Write_U16(charInfo.bitmapHeight, charRectPtr + 2);  // character bitmap height in pixels
+	} else {
+		ERROR_LOG(HLE, "sceFontGetCharImageRect - invalid font");
+	}
+	return 0;
+}
+
+int sceFontGetShadowImageRect(u32 fontHandle, u32 charCode, u32 charRectPtr) {
+	ERROR_LOG(HLE, "UNIMPL sceFontGetShadowImageRect()");
+	return 0;
+}
+
+int sceFontGetCharGlyphImage(u32 fontHandle, u32 charCode, u32 glyphImagePtr) {
+	INFO_LOG(HLE, "sceFontGetCharGlyphImage(%x, %x, %x)", fontHandle, charCode, glyphImagePtr);
+
+	int pixelFormat = Memory::Read_U32(glyphImagePtr);
+	int xPos64 = Memory::Read_U32(glyphImagePtr+4);
+	int yPos64 = Memory::Read_U32(glyphImagePtr+8);
+	int bufWidth = Memory::Read_U16(glyphImagePtr+12);
+	int bufHeight = Memory::Read_U16(glyphImagePtr+14);
+	int bytesPerLine = Memory::Read_U16(glyphImagePtr+16);
+	int buffer = Memory::Read_U32(glyphImagePtr+20);
+
+	LoadedFont *font = GetLoadedFont(fontHandle, false);
+	if (!font) {
+		ERROR_LOG(HLE, "%08x is not a valid font handle!", fontHandle);
+		return 0;
+	}
+	int altCharCode = font->GetFontLib()->GetAltCharCode();
+	font->GetFont()->GetPGF()->DrawCharacter(buffer, bytesPerLine, bufWidth, bufHeight, xPos64 >> 6, yPos64 >> 6, 0, 0, 8192, 8192, pixelFormat, charCode, altCharCode, FONT_PGF_CHARGLYPH);
+	return 0;
+}
+
+int sceFontGetCharGlyphImage_Clip(u32 fontHandle, u32 charCode, u32 glyphImagePtr, int clipXPos, int clipYPos, int clipWidth, int clipHeight) {
+	INFO_LOG(HLE, "sceFontGetCharGlyphImage_Clip(%08x, %i, %08x, %i, %i, %i, %i)", fontHandle, charCode, glyphImagePtr, clipXPos, clipYPos, clipWidth, clipHeight);
+
+	int pixelFormat = Memory::Read_U32(glyphImagePtr);
+	int xPos64 = Memory::Read_U32(glyphImagePtr+4);
+	int yPos64 = Memory::Read_U32(glyphImagePtr+8);
+	int bufWidth = Memory::Read_U16(glyphImagePtr+12);
+	int bufHeight = Memory::Read_U16(glyphImagePtr+14);
+	int bytesPerLine = Memory::Read_U16(glyphImagePtr+16);
+	int buffer = Memory::Read_U32(glyphImagePtr+20);
+
+	LoadedFont *font = GetLoadedFont(fontHandle, false);
+	if (!font) {
+		ERROR_LOG(HLE, "%08x is not a valid font handle!", fontHandle);
+		return 0;
+	}
+	int altCharCode = font->GetFontLib()->GetAltCharCode();
+	font->GetFont()->GetPGF()->DrawCharacter(buffer, bytesPerLine, bufWidth, bufHeight, xPos64 >> 6, yPos64 >> 6, clipXPos, clipYPos, clipXPos + clipWidth, clipYPos + clipHeight, pixelFormat, charCode, altCharCode, FONT_PGF_CHARGLYPH);
+	return 0;
+}
+
+int sceFontSetAltCharacterCode(u32 fontLibHandle, u32 charCode) {
+	INFO_LOG(HLE, "sceFontSetAltCharacterCode(%08x) (%08x)", fontLibHandle, charCode);
+	FontLib *fl = GetFontLib(fontLibHandle);
+	if (fl) {
+		fl->SetAltCharCode(charCode);
+	}
+	return 0;
+}
+
+int sceFontFlush(u32 fontHandle) {
 	INFO_LOG(HLE, "sceFontFlush(%i)", fontHandle);
+	// Probably don't need to do anything here.
 	return 0;
 }
 
-int sceFontGetFontList(u32 fontLibHandle, u32 fontStylePtr, u32 numFonts)
-{
-	DEBUG_LOG(HLE, "sceFontGetFontList %x, %x, %x", fontLibHandle, fontStylePtr, numFonts);
-
-	FontStyle style;
-	memset(&style, 0, sizeof (style));
-
-	style.fontH = 20 / 64.f;
-	style.fontV = 20 / 64.f;
-	style.fontHRes = 20 / 64.f;
-	style.fontVRes = 20 / 64.f;
-	style.fontStyle = 1;
-	//style.fontFamily
-
+// One would think that this should loop through the fonts loaded in the fontLibHandle,
+// but it seems not.
+int sceFontGetFontList(u32 fontLibHandle, u32 fontStylePtr, u32 numFonts) {
+	ERROR_LOG(HLE, "sceFontGetFontList(%08x, %08x, %i)", fontLibHandle, fontStylePtr, numFonts);
+	numFonts = std::min(numFonts, (u32)internalFonts.size());
 	for (u32 i = 0; i < numFonts; i++)
 	{
-		Memory::WriteStruct(fontStylePtr + (sizeof(style)) * i, &style);
+		PGFFontStyle style = internalFonts[i]->GetFontStyle();
+		Memory::WriteStruct(fontStylePtr, &style);
+		fontStylePtr += sizeof(style);
 	}
 	return 0;
 }
 
-int sceFontGetNumFontList(u32 libHandle, u32 errorCodePtr)
-{	
-	DEBUG_LOG(HLE, "UNIMPL sceFontGetNumFontList %x, %x", libHandle, errorCodePtr);
+int sceFontGetNumFontList(u32 fontLibHandle, u32 errorCodePtr) {	
+	INFO_LOG(HLE, "sceFontGetNumFontList(%08x, %08x)", fontLibHandle, errorCodePtr);
 	if (Memory::IsValidAddress(errorCodePtr))
-	{
 		Memory::Write_U32(0, errorCodePtr);
-	}
-	return font_num;
+	return internalFonts.size();
 }
 
-int sceFontSetResolution(u32 fontLibHandle, float hRes, float vRes) 
-{
-	ERROR_LOG(HLE, "UNIMPL sceFontSetResolution(%i, %f, %f)", fontLibHandle, hRes, vRes);
+int sceFontSetResolution(u32 fontLibHandle, float hRes, float vRes) {
+	INFO_LOG(HLE, "sceFontSetResolution(%08x, %f, %f)", fontLibHandle, hRes, vRes);
+	FontLib *fl = GetFontLib(fontLibHandle);
+	if (fl) {
+		fl->SetResolution(hRes, vRes);
+	}
+	return 0;
+}
+
+float sceFontPixelToPointH(int fontLibHandle, float fontPixelsH, u32 errorCodePtr) {
+	INFO_LOG(HLE, "sceFontPixelToPointH(%08x, %f, %08x)", fontLibHandle, fontPixelsH, errorCodePtr);
+	if (Memory::IsValidAddress(errorCodePtr))
+		Memory::Write_U32(0, errorCodePtr);
+	FontLib *fl = GetFontLib(fontLibHandle);
+	if (fl) {
+		return fontPixelsH * pointDPI / fl->FontHRes();
+	}
+	return 0;
+}
+
+float sceFontPixelToPointV(int fontLibHandle, float fontPixelsV, u32 errorCodePtr) {
+	INFO_LOG(HLE, "UNIMPL sceFontPixelToPointV(%08x, %f, %08x)", fontLibHandle, fontPixelsV, errorCodePtr);
+	if (Memory::IsValidAddress(errorCodePtr))
+		Memory::Write_U32(0, errorCodePtr);
+	FontLib *fl = GetFontLib(fontLibHandle);
+	if (fl) {
+		return fontPixelsV * pointDPI / fl->FontVRes();
+	}
+	return 0;
+}
+
+float sceFontPointToPixelH(int fontLibHandle, float fontPointsH, u32 errorCodePtr) {
+	INFO_LOG(HLE, "UNIMPL sceFontPointToPixelH(%08x, %f, %08x)", fontLibHandle, fontPointsH, errorCodePtr);
+	if (Memory::IsValidAddress(errorCodePtr))
+		Memory::Write_U32(0, errorCodePtr);
+	FontLib *fl = GetFontLib(fontLibHandle);
+	if (fl) {
+		return fontPointsH * fl->FontHRes() / pointDPI;
+	}
+	return 0;
+}
+
+float sceFontPointToPixelV(int fontLibHandle, float fontPointsV, u32 errorCodePtr) {
+	INFO_LOG(HLE, "UNIMPL sceFontPointToPixelV(%08x, %f, %08x)", fontLibHandle, fontPointsV, errorCodePtr);
+	if (Memory::IsValidAddress(errorCodePtr))
+		Memory::Write_U32(0, errorCodePtr);
+	FontLib *fl = GetFontLib(fontLibHandle);
+	if (fl) {
+		return fontPointsV * fl->FontVRes() / pointDPI;
+	}
 	return 0;
 }
 
@@ -930,10 +927,17 @@ int sceFontCalcMemorySize() {
 	return 0;
 }
 
+int sceFontGetShadowGlyphImage() {
+	ERROR_LOG(HLE, "UNIMPL sceFontGetShadowGlyphImage()");
+	return 0;
+}
 
+int sceFontGetShadowGlyphImage_Clip() {
+	ERROR_LOG(HLE, "UNIMPL sceFontGetShadowGlyphImage_Clip()");
+	return 0;
+}
 
-const HLEFunction sceLibFont[] = 
-{
+const HLEFunction sceLibFont[] = {
 	{0x67f17ed7, WrapU_UU<sceFontNewLib>, "sceFontNewLib"},	
 	{0x574b6fbc, WrapI_U<sceFontDoneLib>, "sceFontDoneLib"},
 	{0x48293280, WrapI_UFF<sceFontSetResolution>, "sceFontSetResolution"},	
@@ -942,30 +946,29 @@ const HLEFunction sceLibFont[] =
 	{0x099ef33c, WrapI_UUU<sceFontFindOptimumFont>, "sceFontFindOptimumFont"},	
 	{0x681e61a7, WrapI_UUU<sceFontFindFont>, "sceFontFindFont"},	
 	{0x2f67356a, WrapI_V<sceFontCalcMemorySize>, "sceFontCalcMemorySize"},	
-	{0x5333322d, WrapI_UUU<sceFontGetFontInfoByIndexNumber>, "sceFontGetFontInfoByIndexNumber"},
+	{0x5333322d, WrapI_UUUU<sceFontGetFontInfoByIndexNumber>, "sceFontGetFontInfoByIndexNumber"},
 	{0xa834319d, WrapU_UUUU<sceFontOpen>, "sceFontOpen"},	
-	{0x57fcb733, WrapU_UUUU<sceFontOpenUserFile>, "sceFontOpenUserFile"},	
+	{0x57fcb733, WrapU_UCUU<sceFontOpenUserFile>, "sceFontOpenUserFile"},	
 	{0xbb8e7fe6, WrapU_UUUU<sceFontOpenUserMemory>, "sceFontOpenUserMemory"},	
 	{0x3aea8cb6, WrapI_U<sceFontClose>, "sceFontClose"},	
 	{0x0da7535e, WrapI_UU<sceFontGetFontInfo>, "sceFontGetFontInfo"},	
 	{0xdcc80c2f, WrapI_UUU<sceFontGetCharInfo>, "sceFontGetCharInfo"},	
+	{0xaa3de7b5, WrapI_UUU<sceFontGetShadowInfo>, "sceFontGetShadowInfo"}, 	 
 	{0x5c3e4a9e, WrapI_UUU<sceFontGetCharImageRect>, "sceFontGetCharImageRect"},	
+	{0x48b06520, WrapI_UUU<sceFontGetShadowImageRect>, "sceFontGetShadowImageRect"},
 	{0x980f4895, WrapI_UUU<sceFontGetCharGlyphImage>, "sceFontGetCharGlyphImage"},	
 	{0xca1e6945, WrapI_UUUIIII<sceFontGetCharGlyphImage_Clip>, "sceFontGetCharGlyphImage_Clip"},
-	{0x74b21701, 0, "sceFontPixelToPointH"},	
-	{0xf8f0752e, 0, "sceFontPixelToPointV"},	
-	{0x472694cd, 0, "sceFontPointToPixelH"},	
-	{0x3c4b7e82, 0, "sceFontPointToPixelV"},	
+	{0x74b21701, WrapF_IFU<sceFontPixelToPointH>, "sceFontPixelToPointH"},	
+	{0xf8f0752e, WrapF_IFU<sceFontPixelToPointV>, "sceFontPixelToPointV"},	
+	{0x472694cd, WrapF_IFU<sceFontPointToPixelH>, "sceFontPointToPixelH"},	
+	{0x3c4b7e82, WrapF_IFU<sceFontPointToPixelV>, "sceFontPointToPixelV"},	
 	{0xee232411, WrapI_UU<sceFontSetAltCharacterCode>, "sceFontSetAltCharacterCode"},
-	{0xaa3de7b5, 0, "sceFontGetShadowInfo"}, 	 
-	{0x48b06520, 0, "sceFontGetShadowImageRect"},
-	{0x568be516, 0, "sceFontGetShadowGlyphImage"},
-	{0x5dcf6858, 0, "sceFontGetShadowGlyphImage_Clip"},
+	{0x568be516, WrapI_V<sceFontGetShadowGlyphImage>, "sceFontGetShadowGlyphImage"},
+	{0x5dcf6858, WrapI_V<sceFontGetShadowGlyphImage_Clip>, "sceFontGetShadowGlyphImage_Clip"},
 	{0x02d7f94b, WrapI_U<sceFontFlush>, "sceFontFlush"},
-
 };
-void Register_sceFont()
-{
+
+void Register_sceFont() {
 	RegisterModule("sceLibFont", ARRAY_SIZE(sceLibFont), sceLibFont);
 }
 

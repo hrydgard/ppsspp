@@ -19,6 +19,7 @@
 #include "../Util/PPGeDraw.h"
 #include "../HLE/sceCtrl.h"
 #include "../Core/MemMap.h"
+#include "Core/Reporting.h"
 #include "ChunkFile.h"
 
 PSPMsgDialog::PSPMsgDialog()
@@ -53,6 +54,7 @@ int PSPMsgDialog::Init(unsigned int paramAddr)
 	if(optionsNotCoded)
 	{
 		ERROR_LOG(HLE,"PSPMsgDialog options not coded : 0x%08x",optionsNotCoded);
+		Reporting::ReportMessage("PSPMsgDialog options not coded: 0x%08x", optionsNotCoded);
 	}
 
 	flag = 0;

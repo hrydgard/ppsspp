@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="ELF">
@@ -48,6 +48,9 @@
     </Filter>
     <Filter Include="Ext\Snappy">
       <UniqueIdentifier>{0b77054f-7fc7-4c33-ada3-762aecde69e5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Font">
+      <UniqueIdentifier>{1c79e88d-1c48-450b-8af6-f22ce7d40c66}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -187,6 +190,9 @@
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
     <ClCompile Include="HLE\sceMpeg.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\sceP3da.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
     <ClCompile Include="HLE\sceNet.cpp">
@@ -376,6 +382,16 @@
       <Filter>MIPS\ARM</Filter>
     </ClCompile>
     <ClCompile Include="HLE\sceChnnlsv.cpp" />
+    <ClCompile Include="Font\PGF.cpp">
+      <Filter>Font</Filter>
+    </ClCompile>
+    <ClCompile Include="..\git-version.cpp" />
+    <ClCompile Include="Reporting.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\scePspNpDrm_user.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -510,6 +526,9 @@
     <ClInclude Include="HLE\sceMpeg.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
+    <ClInclude Include="HLE\sceP3da.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
     <ClInclude Include="HLE\sceNet.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
@@ -532,9 +551,6 @@
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="Util\BlockAllocator.h">
-      <Filter>Util</Filter>
-    </ClInclude>
-    <ClInclude Include="Util\Pool.h">
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Debugger\Breakpoints.h">
@@ -697,6 +713,15 @@
       <Filter>MIPS\ARM</Filter>
     </ClInclude>
     <ClInclude Include="HLE\sceChnnlsv.h" />
+    <ClInclude Include="Font\PGF.h">
+      <Filter>Font</Filter>
+    </ClInclude>
+    <ClInclude Include="Reporting.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\scePspNpDrm_user.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />

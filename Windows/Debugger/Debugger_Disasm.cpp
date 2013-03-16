@@ -2,6 +2,7 @@
 
 #include "../../Core/MemMap.h"
 #include "../Resource.h"
+#include "../InputBox.h"
 
 #include "../../Core/Debugger/Breakpoints.h"
 #include "../../Core/Debugger/SymbolMap.h"
@@ -231,6 +232,37 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					Sleep(1);
 					ptr->gotoPC();
 					UpdateDialog();
+				}
+				break;
+
+			case IDC_MEMCHECK:
+				{
+					bool isRunning = !Core_IsInactive();
+					if (isRunning)
+					{
+						SetDebugMode(true);
+						Core_EnableStepping(true);
+						Core_WaitInactive(200);
+					}
+
+					MemCheck check;
+					if (InputBox_GetHex(GetModuleHandle(NULL), m_hDlg, "JIT (and not HLE) only for now, no delete", 0, check.iStartAddress))
+					{
+						check.bBreak = true;
+						check.bLog = true;
+						check.bOnRead = true;
+						check.bOnWrite = true;
+						check.bRange = false;
+						CBreakPoints::MemChecks.push_back(check);
+						CBreakPoints::InvalidateJit();
+					}
+
+					if (isRunning)
+					{
+						SetDebugMode(false);
+						Core_EnableStepping(false);
+						MainWindow::UpdateMenus();
+					}
 				}
 				break;
 

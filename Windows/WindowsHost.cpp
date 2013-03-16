@@ -1,3 +1,20 @@
+// Copyright (c) 2012- PPSSPP Project.
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, version 2.0 or later versions.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License 2.0 for more details.
+
+// A copy of the GPL 2.0 should have been included with the program.
+// If not, see http://www.gnu.org/licenses/
+
+// Official git repository and contact information can be found at
+// https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
+
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "EmuThread.h"
@@ -26,9 +43,9 @@ int MyMix(short *buffer, int numSamples, int bits, int rate, int channels)
 	}
 }
 
-void WindowsHost::InitGL()
+bool WindowsHost::InitGL(std::string *error_message)
 {
-	GL_Init(MainWindow::GetDisplayHWND());
+	return GL_Init(MainWindow::GetDisplayHWND(), error_message);
 }
 
 void WindowsHost::ShutdownGL()
@@ -38,16 +55,15 @@ void WindowsHost::ShutdownGL()
 
 void WindowsHost::SetWindowTitle(const char *message)
 {
-	// Really need a better way to deal with versions.
-	std::string title = "PPSSPP " PPSSPP_VERSION_STR " - ";
-	title += message;
+	std::string title = std::string("PPSSPP ") + PPSSPP_GIT_VERSION + " - " + message;
 
-	int size = MultiByteToWideChar(CP_UTF8, 0, message, (int) title.size(), NULL, 0);
+	int size = MultiByteToWideChar(CP_UTF8, 0, title.c_str(), (int) title.size(), NULL, 0);
 	if (size > 0)
 	{
-		wchar_t *utf16_title = new wchar_t[size + 1];
+		// VC++6.0 any more?
+		wchar_t *utf16_title = new(std::nothrow) wchar_t[size + 1];
 		if (utf16_title)
-			size = MultiByteToWideChar(CP_UTF8, 0, message, (int) title.size(), utf16_title, size);
+			size = MultiByteToWideChar(CP_UTF8, 0, title.c_str(), (int) title.size(), utf16_title, size);
 		else
 			size = 0;
 
@@ -143,7 +159,8 @@ bool WindowsHost::AttemptLoadSymbolMap()
 
 void WindowsHost::PrepareShutdown()
 {
-	symbolMap.SaveSymbolMap(SymbolMapFilename(GetCurrentFilename()).c_str());
+	// Autosaving symbolmap is no longer very useful.
+	// symbolMap.SaveSymbolMap(SymbolMapFilename(GetCurrentFilename()).c_str());
 }
 
 void WindowsHost::AddSymbol(std::string name, u32 addr, u32 size, int type=0) 

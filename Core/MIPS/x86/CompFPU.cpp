@@ -106,7 +106,7 @@ void Jit::Comp_FPULS(u32 op)
 
 			JitSafeMem safe(this, rs, offset);
 			OpArg src;
-			if (safe.PrepareRead(src))
+			if (safe.PrepareRead(src, 4))
 				MOVSS(fpr.RX(ft), src);
 			if (safe.PrepareSlowRead((void *) &Memory::Read_U32))
 			{
@@ -127,7 +127,7 @@ void Jit::Comp_FPULS(u32 op)
 
 			JitSafeMem safe(this, rs, offset);
 			OpArg dest;
-			if (safe.PrepareWrite(dest))
+			if (safe.PrepareWrite(dest, 4))
 				MOVSS(dest, fpr.RX(ft));
 			if (safe.PrepareSlowWrite())
 			{
@@ -147,6 +147,7 @@ void Jit::Comp_FPULS(u32 op)
 	}
 }
 
+static const u64 GC_ALIGNED16(ssOneBits[2])	= {0x0000000100000001ULL, 0x0000000100000001ULL};
 static const u64 GC_ALIGNED16(ssSignBits2[2])	= {0x8000000080000000ULL, 0x8000000080000000ULL};
 static const u64 GC_ALIGNED16(ssNoSignMask[2]) = {0x7FFFFFFF7FFFFFFFULL, 0x7FFFFFFF7FFFFFFFULL};
 

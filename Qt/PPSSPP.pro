@@ -3,6 +3,7 @@ TARGET = PPSSPPQt
 QT += core gui opengl
 CONFIG += mobility
 MOBILITY += multimedia
+symbian: MOBILITY += sensors
 win32: QT += multimedia
 
 include(Settings.pri)
@@ -29,8 +30,6 @@ linux:!mobile_platform {
 	}
 }
 
-TRANSLATIONS = $$files(languages/ppsspp_*.ts)
-
 # Main
 SOURCES += ../native/base/QtMain.cpp
 HEADERS += ../native/base/QtMain.h
@@ -39,6 +38,7 @@ HEADERS += ../native/base/QtMain.h
 SOURCES += ../android/jni/EmuScreen.cpp \
 	../android/jni/MenuScreens.cpp \
 	../android/jni/GamepadEmu.cpp \
+	../android/jni/TestRunner.cpp \
 	../android/jni/UIShader.cpp \
 	../android/jni/ui_atlas.cpp
 
@@ -58,10 +58,21 @@ mobile_platform {
 	INCLUDEPATH += ../Qt
 }
 
+# Translations
+TRANSLATIONS = $$files(languages/ppsspp_*.ts)
+
+lang.name = lrelease ${QMAKE_FILE_IN}
+lang.input = TRANSLATIONS
+lang.output = ${QMAKE_FILE_PATH}/${QMAKE_FILE_BASE}.qm
+lang.commands = $$[QT_INSTALL_BINS]/lrelease ${QMAKE_FILE_IN}
+lang.CONFIG = no_link
+QMAKE_EXTRA_COMPILERS += lang
+PRE_TARGETDEPS += compiler_lang_make_all
+
 # Packaging
 symbian {
-	deploy.pkg_prerules = "$${LITERAL_HASH}{\"PPSSPP\"}, (0xE0095B1D), 0, 6, 1, TYPE=SA" "%{\"Qtness\"}" ":\"Qtness\""
-	assets.sources = ../android/assets/ui_atlas.zim ../assets/ppge_atlas.zim
+	deploy.pkg_prerules = "$${LITERAL_HASH}{\"PPSSPP\"}, (0xE0095B1D), 0, 7, 0, TYPE=SA" "%{\"Qtness\"}" ":\"Qtness\""
+	assets.sources = ../android/assets/ui_atlas.zim ../assets/ppge_atlas.zim ../assets/flash
 	assets.path = E:/PPSSPP
 	DEPLOYMENT += deploy assets
 	ICON = ../assets/icon.svg

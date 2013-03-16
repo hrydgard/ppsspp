@@ -20,15 +20,19 @@
 #include "../HLE/sceCtrl.h"
 #include "ChunkFile.h"
 
+#ifndef _WIN32
+#include <ctype.h>
+#endif
+
 #define NUMKEYROWS 4
 #define KEYSPERROW 12
 #define NUMBEROFVALIDCHARS (KEYSPERROW * NUMKEYROWS)
 const char oskKeys[NUMKEYROWS][KEYSPERROW + 1] =
 {
 	{'1','2','3','4','5','6','7','8','9','0','-','+','\0'}, 
-	{'Q','W','E','R','T','Y','U','I','O','P','[',']','\0'},
-	{'A','S','D','F','G','H','J','K','L',';','@','~','\0'},
-	{'Z','X','C','V','B','N','M',',','.','/','?','\\','\0'},
+	{'q','w','e','r','t','y','u','i','o','p','[',']','\0'},
+	{'a','s','d','f','g','h','j','k','l',';','@','~','\0'},
+	{'z','x','c','v','b','n','m',',','.','/','?','\\','\0'},
 };
 
 
@@ -109,8 +113,8 @@ void PSPOskDialog::RenderKeyboard()
 		limit = 16;
 
 	const float keyboardLeftSide = (480.0f - (24.0f * KEYSPERROW)) / 2.0f;
-	float previewLeftSide = (480.0f - (16.0f * limit)) / 2.0f;
-	float title = (480.0f - limit) / 2.0f;
+	float previewLeftSide = (480.0f - (12.0f * limit)) / 2.0f;
+	float title = (480.0f - (0.5f * limit)) / 2.0f;
 
 	PPGeDrawText(oskDesc.c_str(), title , 20, PPGE_ALIGN_CENTER, 0.5f, CalcFadedColor(0xFFFFFFFF));
 	for (u32 i = 0; i < limit; ++i)
@@ -126,7 +130,7 @@ void PSPOskDialog::RenderKeyboard()
 		else
 			temp[0] = '_';
 
-		PPGeDrawText(temp, previewLeftSide + (i * 16.0f), 40.0f, 0, 0.5f, color);
+		PPGeDrawText(temp, previewLeftSide + (i * 12.0f), 40.0f, 0, 0.5f, color);
 	}
 	for (int row = 0; row < NUMKEYROWS; ++row)
 	{
@@ -167,15 +171,19 @@ int PSPOskDialog::Update()
 
 		StartDraw();
 		RenderKeyboard();
-		PPGeDrawImage(I_CROSS, 100, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText("Select", 130, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawImage(I_CROSS, 30, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText("Select", 60, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 
-		PPGeDrawImage(I_CIRCLE, 200, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText("Delete", 230, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawImage(I_CIRCLE, 130, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText("Delete", 160, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 
-		PPGeDrawImage(I_BUTTON, 290, 220, 50, 20, 0, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText("Start", 305, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText("Finish", 350, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawImage(I_BUTTON, 230, 220, 50, 20, 0, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText("Start", 245, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText("Finish", 290, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+
+		PPGeDrawImage(I_BUTTON, 350, 220, 55, 20, 0, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText("Select", 365, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText("Caps", 410, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 
 		if (IsButtonPressed(CTRL_UP))
 		{
@@ -203,7 +211,12 @@ int PSPOskDialog::Update()
 		if (IsButtonPressed(CTRL_CROSS))
 		{
 			if (inputChars.size() < limit)
-				inputChars += oskKeys[selectedRow][selectedExtra];
+					inputChars += oskKeys[selectedRow][selectedExtra];
+		}
+		else if (IsButtonPressed(CTRL_SELECT))
+		{
+			if (inputChars.size() < limit)
+					inputChars += toupper(oskKeys[selectedRow][selectedExtra]);
 		}
 		else if (IsButtonPressed(CTRL_CIRCLE))
 		{

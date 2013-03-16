@@ -66,7 +66,7 @@ static bool inInterrupt;
 
 void sceKernelCpuSuspendIntr()
 {
-	//LOG(HLE,"sceKernelCpuSuspendIntr");	// very spammy
+	VERBOSE_LOG(HLE, "sceKernelCpuSuspendIntr");
 	int returnValue;
 	if (__InterruptsEnabled())
 	{
@@ -82,7 +82,7 @@ void sceKernelCpuSuspendIntr()
 
 void sceKernelCpuResumeIntr(u32 enable)
 {
-	//LOG(HLE,"sceKernelCpuResumeIntr(%i)", enable);	// very spammy
+	VERBOSE_LOG(HLE, "sceKernelCpuResumeIntr(%i)", enable);
 	if (enable)
 	{
 		__EnableInterrupts();
@@ -411,7 +411,7 @@ SubIntrHandler *__RegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 
 	return subIntrHandler;
 }
 
-u32 __ReleaseSubIntrHandler(u32 intrNumber, u32 subIntrNumber)
+int __ReleaseSubIntrHandler(int intrNumber, int subIntrNumber)
 {
 	if (!intrHandlers[intrNumber]->has(subIntrNumber))
 		return -1;
@@ -446,9 +446,9 @@ u32 sceKernelRegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 handl
 	return error;
 }
 
-u32 sceKernelReleaseSubIntrHandler(u32 intrNumber, u32 subIntrNumber)
+int sceKernelReleaseSubIntrHandler(int intrNumber, int subIntrNumber)
 {
-	DEBUG_LOG(HLE,"sceKernelReleaseSubIntrHandler(%i, %i)", PARAM(0), PARAM(1));
+	DEBUG_LOG(HLE, "sceKernelReleaseSubIntrHandler(%i, %i)", intrNumber, subIntrNumber);
 
 	if (intrNumber >= PSP_NUMBER_INTERRUPTS)
 		return -1;
@@ -567,7 +567,7 @@ void Register_Kernel_Library()
 const HLEFunction InterruptManager[] =
 {
 	{0xCA04A2B9, WrapU_UUUU<sceKernelRegisterSubIntrHandler>, "sceKernelRegisterSubIntrHandler"},
-	{0xD61E6961, WrapU_UU<sceKernelReleaseSubIntrHandler>, "sceKernelReleaseSubIntrHandler"},
+	{0xD61E6961, WrapI_II<sceKernelReleaseSubIntrHandler>, "sceKernelReleaseSubIntrHandler"},
 	{0xFB8E22EC, WrapU_UU<sceKernelEnableSubIntr>, "sceKernelEnableSubIntr"},
 	{0x8A389411, WrapU_UU<sceKernelDisableSubIntr>, "sceKernelDisableSubIntr"},
 	{0x5CB5A78B, 0, "sceKernelSuspendSubIntr"},

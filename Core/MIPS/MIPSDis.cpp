@@ -40,6 +40,22 @@ u32 disPC;
 
 namespace MIPSDis
 {
+	// One shot, not re-entrant.
+	const char *SignedHex(int i)
+	{
+		static char temp[32];
+		int offset = 0;
+		if (i < 0)
+		{
+			temp[0] = '-';
+			offset = 1;
+			i = -i;
+		}
+
+		sprintf(&temp[offset], "0x%X", i);
+		return temp;
+	}
+
 	void Dis_Generic(u32 op, char *out)
 	{
 		sprintf(out, "%s\t --- unknown ---", MIPSGetName(op));
@@ -76,7 +92,7 @@ namespace MIPSDis
 		int ft = _FT;
 		int rs = _RS;
 		const char *name = MIPSGetName(op);
-		sprintf(out, "%s\t%s, 0x%X(%s)",name,FN(ft),offset,RN(rs));
+		sprintf(out, "%s\t%s, %s(%s)",name,FN(ft),SignedHex(offset),RN(rs));
 	}
 	void Dis_FPUComp(u32 op, char *out)
 	{
@@ -147,30 +163,47 @@ namespace MIPSDis
 
 	void Dis_IType(u32 op, char *out)
 	{
-		int imm = (signed short)(op&0xFFFF);
+		s32 simm = (s32)(s16)(op & 0xFFFF);
+		u32 uimm = (u32)(u16)(op & 0xFFFF);
+		u32 suimm = (u32)simm;
+
 		int rt = _RT;
 		int rs = _RS;
 		const char *name = MIPSGetName(op);
-		sprintf(out, "%s\t%s, %s, 0x%X",name,RN(rt),RN(rs),imm);
+		switch (op >> 26)
+		{
+		case 8: //addi
+		case 9: //addiu
+		case 10: //slti
+			sprintf(out, "%s\t%s, %s, %s",name,RN(rt),RN(rs),SignedHex(simm));
+			break;
+		case 11: //sltiu
+			sprintf(out, "%s\t%s, %s, 0x%X",name,RN(rt),RN(rs),suimm);
+			break;
+		default:
+			sprintf(out, "%s\t%s, %s, 0x%X",name,RN(rt),RN(rs),uimm);
+			break;
+		}
 	}
 	void Dis_ori(u32 op, char *out)
 	{
-		int imm = (signed short)(op&0xFFFF);
+		s32 simm = (s32)(s16)(op & 0xFFFF);
+		u32 uimm = (u32)(u16)(op & 0xFFFF);
 		int rt = _RT;
 		int rs = _RS;
 		const char *name = MIPSGetName(op);
 		if (rs == 0)
-			sprintf(out, "li\t%s, 0x%X",RN(rt),imm);
+			sprintf(out, "li\t%s, 0x%X",RN(rt),uimm);
 		else
-			sprintf(out, "%s\t%s, %s, 0x%X",name,RN(rt),RN(rs),imm);
+			sprintf(out, "%s\t%s, %s, 0x%X",name,RN(rt),RN(rs),uimm);
 	}
 
 	void Dis_IType1(u32 op, char *out)
 	{
-		int imm = (signed short)(op&0xFFFF);
+		u32 uimm = (u32)(u16)(op & 0xFFFF);
 		int rt = _RT;
 		const char *name = MIPSGetName(op);
-		sprintf(out, "%s\t%s, 0x%X",name,RN(rt),imm);
+		sprintf(out, "%s\t%s, 0x%X",name,RN(rt),uimm);
 	}
 
 	void Dis_addi(u32 op, char *out)
@@ -179,7 +212,7 @@ namespace MIPSDis
 		int rt = _RT;
 		int rs = _RS;
 		if (rs == 0)
-			sprintf(out, "li\t%s, 0x%X",RN(rt),imm);
+			sprintf(out, "li\t%s, %s",RN(rt),SignedHex(imm));
 		else
 			Dis_IType(op,out);
 	}
@@ -190,7 +223,7 @@ namespace MIPSDis
 		int rt = _RT;
 		int rs = _RS;
 		const char *name = MIPSGetName(op);
-		sprintf(out, "%s\t%s, 0x%X(%s)",name,RN(rt),imm,RN(rs));
+		sprintf(out, "%s\t%s, %s(%s)",name,RN(rt),SignedHex(imm),RN(rs));
 	}
 
 	void Dis_RType2(u32 op, char *out)

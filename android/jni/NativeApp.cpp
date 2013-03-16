@@ -65,6 +65,7 @@ public:
 	{
 		switch (level)
 		{
+		case LogTypes::LVERBOSE:
 		case LogTypes::LDEBUG:
 		case LogTypes::LINFO:
 			ILOG("%s", msg);
@@ -99,12 +100,12 @@ public:
 
 	virtual void SetDebugMode(bool mode) { }
 
-	virtual void InitGL() {}
+	virtual bool InitGL(std::string *error_message) { return true; }
 	virtual void BeginFrame() {}
 	virtual void ShutdownGL() {}
 
 	virtual void InitSound(PMixer *mixer);
-	virtual void UpdateSound() {};
+	virtual void UpdateSound() {}
 	virtual void ShutdownSound();
 
 	// this is sent from EMU thread! Make sure that Host handles it properly!
@@ -154,7 +155,9 @@ void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, boo
 	*app_dir_name = "ppsspp";
 	*landscape = true;
 
-	// ArmEmitterTest();
+#if defined(ANDROID)
+	ArmEmitterTest();
+#endif
 }
 
 void NativeInit(int argc, const char *argv[], const char *savegame_directory, const char *external_directory, const char *installID)
@@ -250,7 +253,13 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	g_Config.flashDirectory = std::string(external_directory)+"/flash/";
 #elif defined(BLACKBERRY) || defined(__SYMBIAN32__) || defined(IOS)
 	g_Config.memCardDirectory = user_data_path;
+#ifdef BLACKBERRY
+	g_Config.flashDirectory = "app/native/assets/flash/";
+#elif IOS
+	g_Config.flashDirectory = std::string(external_directory) + "flash0/";
+#else
 	g_Config.flashDirectory = user_data_path+"/flash/";
+#endif
 #else
 	g_Config.memCardDirectory = std::string(getenv("HOME"))+"/.ppsspp/";
 	g_Config.flashDirectory = g_Config.memCardDirectory+"/flash/";
@@ -265,6 +274,10 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 		logman->AddListener(type, logger);
 #endif
 	}
+#ifdef __SYMBIAN32__
+	g_Config.bHardwareTransform = true;
+	g_Config.bUseVBO = false;
+#endif
 	// Special hack for G3D as it's very spammy. Need to make a flag for this.
 	if (!gfxLog)
 		logman->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
@@ -347,6 +360,7 @@ void NativeDeviceLost()
 {
 	screenManager->deviceLost();
 	gl_lost();
+	glstate.Restore();
 	// Should dirty EVERYTHING
 }
 

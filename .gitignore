@@ -23,6 +23,9 @@ Release
 Windows/x64
 Windows/ipch
 
+# For Mac
+.DS_Store
+
 # For ppsspp.ini, etc.
 *.ini
 
@@ -37,6 +40,7 @@ gen
 libs
 obj
 build*/
+/git-version.cpp
 
 .pspsh.hist
 __testoutput.txt
@@ -46,5 +50,6 @@ __testfailure.bmp
 GameLogNotes.txt
 
 android/ui_atlas.zim
+android/assets/flash0
 ppge_atlas.zim.png
 local.properties

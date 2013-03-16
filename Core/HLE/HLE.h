@@ -53,6 +53,7 @@ struct Syscall
 };
 
 #define PARAM(n) currentMIPS->r[4+n]
+#define PARAMF(n) currentMIPS->f[12+n]
 #define RETURN(n) currentMIPS->r[2]=n
 #define RETURNF(fl) currentMIPS->f[0]=fl
 
@@ -85,6 +86,21 @@ void hleReSchedule(bool callbacks, const char *reason);
 void hleRunInterrupts();
 // Pause emulation after the syscall finishes.
 void hleDebugBreak();
+
+// Delays the result for usec microseconds, allowing other threads to run during this time.
+u32 hleDelayResult(u32 result, const char *reason, int usec);
+u64 hleDelayResult(u64 result, const char *reason, int usec);
+void hleEatMicro(int usec);
+
+inline int hleDelayResult(int result, const char *reason, int usec)
+{
+	return hleDelayResult((u32) result, reason, usec);
+}
+
+inline s64 hleDelayResult(s64 result, const char *reason, int usec)
+{
+	return hleDelayResult((u64) result, reason, usec);
+}
 
 void HLEInit();
 void HLEDoState(PointerWrap &p);

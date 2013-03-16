@@ -204,6 +204,7 @@ void MainWindow::UpdateMenus()
 	ui->action_FileQuickSaveState->setEnabled(!enable);
 	ui->action_CPUDynarec->setEnabled(enable);
 	ui->action_CPUInterpreter->setEnabled(enable);
+	ui->actionUse_MediaEngine->setEnabled(enable);
 	ui->action_DebugDumpFrame->setEnabled(!enable);
 	ui->action_DebugDisassembly->setEnabled(!enable);
 	ui->action_DebugMemoryView->setEnabled(!enable);
@@ -222,6 +223,7 @@ void MainWindow::UpdateMenus()
 	ui->action_CPUDynarec->setChecked(g_Config.bJit);
 	ui->action_OptionsFastMemory->setChecked(g_Config.bFastMemory);
 	ui->action_OptionsIgnoreIllegalReadsWrites->setChecked(g_Config.bIgnoreBadMemAccess);
+	ui->actionUse_MediaEngine->setChecked(g_Config.bUseMediaEngine);
 
 	ui->action_AFOff->setChecked(g_Config.iAnisotropyLevel == 0);
 	ui->action_AF2x->setChecked(g_Config.iAnisotropyLevel == 2);
@@ -244,7 +246,7 @@ void MainWindow::UpdateMenus()
 	ui->action_OptionsVertexCache->setChecked(g_Config.bVertexCache);
 	ui->action_OptionsWireframe->setChecked(g_Config.bDrawWireframe);
 	ui->action_OptionsDisplayRawFramebuffer->setChecked(g_Config.bDisplayFramebuffer);
-//	ui->actionFrameskip->setChecked(g_Config.iFrameSkip != 0);
+	ui->actionFrameskip->setChecked(g_Config.iFrameSkip != 0);
 
 	ui->action_Sound->setChecked(g_Config.bEnableSound);
 
@@ -558,6 +560,12 @@ void MainWindow::on_action_OptionsIgnoreIllegalReadsWrites_triggered()
 	UpdateMenus();
 }
 
+void MainWindow::on_actionUse_MediaEngine_triggered()
+{
+	g_Config.bUseMediaEngine = !g_Config.bUseMediaEngine;
+	UpdateMenus();
+}
+
 void MainWindow::on_action_OptionsControls_triggered()
 {
 	controls->show();
@@ -684,7 +692,7 @@ void MainWindow::on_action_OptionsDisplayRawFramebuffer_triggered()
 
 void MainWindow::on_actionFrameskip_triggered()
 {
-//	g_Config.iFrameSkip = !g_Config.iFrameSkip;
+	g_Config.iFrameSkip = !g_Config.iFrameSkip;
 	UpdateMenus();
 }
 
@@ -884,7 +892,7 @@ void MainWindow::SetZoom(float zoom) {
 
 void MainWindow::SetGameTitle(QString text)
 {
-	QString title = "PPSSPP " + QString(PPSSPP_VERSION_STR);
+	QString title = "PPSSPP " + QString(PPSSPP_GIT_VERSION);
 	if (text != "")
 		title += QString(" - %1").arg(text);
 

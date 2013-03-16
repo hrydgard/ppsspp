@@ -54,6 +54,8 @@ void CConfig::Load(const char *iniFileName)
 	general->Get("IgnoreBadMemAccess", &bIgnoreBadMemAccess, true);
 	general->Get("CurrentDirectory", &currentDirectory, "");
 	general->Get("ShowDebuggerOnLoad", &bShowDebuggerOnLoad, false);
+	// "default" means let emulator decide, "" means disable.
+	general->Get("ReportHost", &sReportHost, "default");
 
 	IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 	cpu->Get("Jit", &bJit, true);
@@ -70,12 +72,12 @@ void CConfig::Load(const char *iniFileName)
 	graphics->Get("SSAA", &SSAntiAliasing, 0);
 	graphics->Get("VBO", &bUseVBO, false);
 	graphics->Get("FrameSkip", &iFrameSkip, 0);
+	graphics->Get("UseMediaEngine", &bUseMediaEngine, true);
 #ifdef USING_GLES2
 	graphics->Get("AnisotropyLevel", &iAnisotropyLevel, 0);
 #else
 	graphics->Get("AnisotropyLevel", &iAnisotropyLevel, 8);
 #endif
-	graphics->Get("DisableG3DLog", &bDisableG3DLog, false);
 	graphics->Get("VertexCache", &bVertexCache, true);
 	graphics->Get("FullScreen", &bFullScreen, false);	
 	graphics->Get("StretchToDisplay", &bStretchToDisplay, false);
@@ -94,6 +96,7 @@ void CConfig::Load(const char *iniFileName)
 #endif
 	control->Get("LargeControls", &bLargeControls, false);
 	control->Get("KeyMapping",iMappingMap);
+	control->Get("AccelerometerToAnalogHoriz", &bAccelerometerToAnalogHoriz, false);
 
 	IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
 	pspConfig->Get("Language", &ilanguage, PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
@@ -121,6 +124,8 @@ void CConfig::Save()
 		general->Set("IgnoreBadMemAccess", bIgnoreBadMemAccess);
 		general->Set("CurrentDirectory", currentDirectory);
 		general->Set("ShowDebuggerOnLoad", bShowDebuggerOnLoad);
+		general->Set("ReportHost", sReportHost);
+
 		IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 		cpu->Set("Jit", bJit);
 		cpu->Set("FastMemory", bFastMemory);
@@ -135,8 +140,8 @@ void CConfig::Save()
 		graphics->Set("SSAA", SSAntiAliasing);
 		graphics->Set("VBO", bUseVBO);
 		graphics->Set("FrameSkip", iFrameSkip);
+		graphics->Set("UseMediaEngine", bUseMediaEngine);	
 		graphics->Set("AnisotropyLevel", iAnisotropyLevel);
-		graphics->Set("DisableG3DLog", bDisableG3DLog);
 		graphics->Set("VertexCache", bVertexCache);
 		graphics->Set("FullScreen", bFullScreen);
 		graphics->Set("StretchToDisplay", bStretchToDisplay);
@@ -150,6 +155,7 @@ void CConfig::Save()
 		control->Set("ShowTouchControls", bShowTouchControls);
 		control->Set("LargeControls", bLargeControls);
 		control->Set("KeyMapping",iMappingMap);
+		control->Set("AccelerometerToAnalogHoriz", bAccelerometerToAnalogHoriz);
 
 		IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
 		pspConfig->Set("Language", ilanguage);

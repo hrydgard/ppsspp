@@ -21,6 +21,7 @@
 
 #include "ArmJitCache.h"
 #include "ArmRegCache.h"
+#include "ArmRegCacheFPU.h"
 #include "ArmAsm.h"
 
 namespace MIPSComp
@@ -38,6 +39,14 @@ struct ArmJitOptions
 
 struct ArmJitState
 {
+	enum PrefixState
+	{
+		PREFIX_UNKNOWN = 0x00,
+		PREFIX_KNOWN = 0x01,
+		PREFIX_DIRTY = 0x10,
+		PREFIX_KNOWN_DIRTY = 0x11,
+	};
+
 	u32 compilerPC;
 	u32 blockStart;
 	bool cancel;
@@ -45,6 +54,66 @@ struct ArmJitState
 	int downcountAmount;
 	bool compiling;	// TODO: get rid of this in favor of using analysis results to determine end of block
 	ArmJitBlock *curBlock;
+
+	// VFPU prefix magic
+	bool startDefaultPrefix;
+	u32 prefixS;
+	u32 prefixT;
+	u32 prefixD;
+	PrefixState prefixSFlag;
+	PrefixState prefixTFlag;
+	PrefixState prefixDFlag;
+	void PrefixStart() {
+		if (startDefaultPrefix) {
+			EatPrefix();
+		} else {
+			PrefixUnknown();
+		}
+	}
+	void PrefixUnknown() {
+		prefixSFlag = PREFIX_UNKNOWN;
+		prefixTFlag = PREFIX_UNKNOWN;
+		prefixDFlag = PREFIX_UNKNOWN;
+	}
+	bool MayHavePrefix() const {
+		if (HasUnknownPrefix()) {
+			return true;
+		} else if (prefixS != 0xE4 || prefixT != 0xE4 || prefixD != 0) {
+			return true;
+		} else if (VfpuWriteMask() != 0) {
+			return true;
+		}
+
+		return false;
+	}
+	bool HasUnknownPrefix() const {
+		if (!(prefixSFlag & PREFIX_KNOWN) || !(prefixTFlag & PREFIX_KNOWN) || !(prefixDFlag & PREFIX_KNOWN)) {
+			return true;
+		}
+		return false;
+	}
+	void EatPrefix() {
+		if ((prefixSFlag & PREFIX_KNOWN) == 0 || prefixS != 0xE4) {
+			prefixSFlag = PREFIX_KNOWN_DIRTY;
+			prefixS = 0xE4;
+		}
+		if ((prefixTFlag & PREFIX_KNOWN) == 0 || prefixT != 0xE4) {
+			prefixTFlag = PREFIX_KNOWN_DIRTY;
+			prefixT = 0xE4;
+		}
+		if ((prefixDFlag & PREFIX_KNOWN) == 0 || prefixD != 0x0 || VfpuWriteMask() != 0) {
+			prefixDFlag = PREFIX_KNOWN_DIRTY;
+			prefixD = 0x0;
+		}
+	}
+	u8 VfpuWriteMask() const {
+		_assert_(prefixDFlag & PREFIX_KNOWN);
+		return (prefixD >> 8) & 0xF;
+	}
+	bool VfpuWriteMask(int i) const {
+		_assert_(prefixDFlag & PREFIX_KNOWN);
+		return (prefixD >> (8 + i)) & 1;
+	}
 };
 
 
@@ -65,6 +134,7 @@ class Jit : public ArmGen::ARMXCodeBlock
 public:
 	Jit(MIPSState *mips);
 	void DoState(PointerWrap &p);
+	static void DoDummyState(PointerWrap &p);
 
 	// Compiled ops should ignore delay slots
 	// the compiler will take care of them by itself
@@ -78,6 +148,7 @@ public:
 
 	void CompileDelaySlot(int flags);
 	void CompileAt(u32 addr);
+	void EatInstruction(u32 op);
 	void Comp_RunBlock(u32 op);
 
 	// Ops
@@ -130,6 +201,7 @@ public:
 private:
 	void GenerateFixedCode();
 	void FlushAll();
+	void FlushPrefixV();
 
 	void WriteDownCount(int offset = 0);
 	void MovFromPC(ARMReg r);
@@ -147,16 +219,32 @@ private:
 
 	// Utilities to reduce duplicated code
 	void CompImmLogic(int rs, int rt, u32 uimm, void (ARMXEmitter::*arith)(ARMReg dst, ARMReg src, Operand2 op2), u32 (*eval)(u32 a, u32 b));
+	void CompType3(int rd, int rs, int rt, void (ARMXEmitter::*arithOp2)(ARMReg dst, ARMReg rm, Operand2 rn), u32 (*eval)(u32 a, u32 b), bool isSub = false);
+
 	void CompShiftImm(u32 op, ArmGen::ShiftType shiftType);
+	void CompShiftVar(u32 op, ArmGen::ShiftType shiftType);
 
 	void LogBlockNumber();
-		/*
+	
+	void ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz);
+	void ApplyPrefixD(const u8 *vregs, VectorSize sz);
+	void GetVectorRegsPrefixS(u8 *regs, VectorSize sz, int vectorReg) {
+		_assert_(js.prefixSFlag & ArmJitState::PREFIX_KNOWN);
+		GetVectorRegs(regs, sz, vectorReg);
+		ApplyPrefixST(regs, js.prefixS, sz);
+	}
+	void GetVectorRegsPrefixT(u8 *regs, VectorSize sz, int vectorReg) {
+		_assert_(js.prefixTFlag & ArmJitState::PREFIX_KNOWN);
+		GetVectorRegs(regs, sz, vectorReg);
+		ApplyPrefixST(regs, js.prefixT, sz);
+	}
+	void GetVectorRegsPrefixD(u8 *regs, VectorSize sz, int vectorReg);
+
+	/*
 	void CompImmLogic(u32 op, void (ARMXEmitter::*arith)(int, const OpArg &, const OpArg &));
 	void CompTriArith(u32 op, void (ARMXEmitter::*arith)(int, const OpArg &, const OpArg &));
 	void CompShiftImm(u32 op, void (ARMXEmitter::*shift)(int, OpArg, OpArg));
 	void CompShiftVar(u32 op, void (XEmitter::*shift)(int, OpArg, OpArg));
-
-	void CompFPTriArith(u32 op, void (XEmitter::*arith)(X64Reg reg, OpArg), bool orderMatters);
 	*/
 
 	// Utils
@@ -167,7 +255,7 @@ private:
 	ArmJitState js;
 
 	ArmRegCache gpr;
-	// FPURegCache fpr;
+	ArmRegCacheFPU fpr;
 
 	MIPSState *mips_;
 
@@ -176,7 +264,9 @@ public:
 	const u8 *enterCode;
 
 	const u8 *outerLoop;
+	const u8 *outerLoopPCInR0;
 	const u8 *dispatcherCheckCoreState;
+	const u8 *dispatcherPCInR0;
 	const u8 *dispatcher;
 	const u8 *dispatcherNoCheck;
 

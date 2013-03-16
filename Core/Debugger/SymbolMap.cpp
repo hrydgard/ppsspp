@@ -208,22 +208,13 @@ void SymbolMap::SaveSymbolMap(const char *filename)
 
 int SymbolMap::GetSymbolNum(unsigned int address, SymbolType symmask)
 {
-	size_t start=0;
-
-	for (size_t i = 0; i < entries.size(); i++)
+	for (size_t i = 0, n = entries.size(); i < n; i++)
 	{
-		if (address >= entries[i].vaddress)
-			start = i;
-		else
-			break;
-	}
-
-	for (size_t i = 0; i < entries.size(); i++)
-	{
-		unsigned int addr = entries[i].vaddress;
-		if ((address >= addr))
+		MapEntry &entry = entries[i];
+		unsigned int addr = entry.vaddress;
+		if (address >= addr)
 		{
-			if (address < addr+entries[i].size)
+			if (address < addr + entry.size)
 			{
 				if (entries[i].type & symmask)
 					return (int) i;

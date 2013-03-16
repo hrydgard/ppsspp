@@ -52,11 +52,15 @@
 #define _POS	((op>>6 ) & 0x1F)
 #define _SIZE ((op>>11 ) & 0x1F)
 
-#define DISABLE Comp_Generic(op); return;
+// All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
+// Currently known non working ones should have DISABLE.
+
+// #define CONDITIONAL_DISABLE { Comp_Generic(op); return; }
+#define CONDITIONAL_DISABLE ;
+#define DISABLE { Comp_Generic(op); return; }
 
 namespace MIPSComp
 {
-	
 	void Jit::SetR0ToEffectiveAddress(int rs, s16 offset) {
 		Operand2 op2;
 		if (offset) {
@@ -84,7 +88,9 @@ namespace MIPSComp
 	
 	void Jit::Comp_ITypeMem(u32 op)
 	{
+		CONDITIONAL_DISABLE;
 		int offset = (signed short)(op&0xFFFF);
+		bool load = false;
 		int rt = _RT;
 		int rs = _RS;
 		int o = op>>26;
@@ -92,103 +98,114 @@ namespace MIPSComp
 			// Don't load anything into $zr
 			return;
 		}
+
 		switch (o)
 		{
-		case 37: //R(rt) = ReadMem16(addr); break; //lhu
-			Comp_Generic(op);
-			return;
-
-		case 35: //R(rt) = ReadMem32(addr); //lw
-		case 36: //R(rt) = ReadMem8 (addr); break; //lbu
-			if (g_Config.bFastMemory) {
-				if (gpr.IsImm(rs)) {
-					// We can compute the full address at compile time. Kickass.
-					u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
-					gpr.MapReg(rt, MAP_NOINIT | MAP_DIRTY);  // must be OK even if rs == rt since we have the value from imm already.
-					MOVI2R(R0, addr);
-				} else {
-					gpr.MapDirtyIn(rt, rs);
-					SetR0ToEffectiveAddress(rs, offset);
-				}
-				if (o == 35) {
-					LDR(gpr.R(rt), R11, R0, true, true);
-				} else if (o == 36) {
-					ADD(R0, R0, R11);   // TODO: Merge with next instruction
-					LDRB(gpr.R(rt), R0);
-				}
-			} else {
-				Comp_Generic(op);
-				return;
-			}
-			break;
-
-		case 41: //WriteMem16(addr, R(rt)); break; //sh
-			Comp_Generic(op);
-			return;
-
+		case 32: //lb
+		case 33: //lh
+		case 35: //lw
+		case 36: //lbu
+		case 37: //lhu
+			load = true;
 		case 40: //sb
-		case 43: //WriteMem32(addr, R(rt)); break; //sw
+		case 41: //sh
+		case 43: //sw
 			if (g_Config.bFastMemory) {
 				if (gpr.IsImm(rs)) {
 					// We can compute the full address at compile time. Kickass.
 					u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
-					gpr.MapReg(rt);
+					// Must be OK even if rs == rt since we have the value from imm already.
+					gpr.MapReg(rt, load ? MAP_NOINIT | MAP_DIRTY : 0);
 					MOVI2R(R0, addr);
 				} else {
-					gpr.MapInIn(rt, rs);
+					load ? gpr.MapDirtyIn(rt, rs) : gpr.MapInIn(rt, rs);
 					SetR0ToEffectiveAddress(rs, offset);
 				}
-				if (o == 43) {
-					STR(R0, gpr.R(rt), R11, true, true);
-				} else if (o == 40) {
-					ADD(R0, R0, R11);
-					STRB(R0, gpr.R(rt));
+				switch (o)
+				{
+				// Load
+				case 35: LDR  (gpr.R(rt), R11, R0); break;
+				case 37: LDRH (gpr.R(rt), R11, R0); break;
+				case 33: LDRSH(gpr.R(rt), R11, R0); break;
+				case 36: LDRB (gpr.R(rt), R11, R0); break;
+				case 32: LDRSB(gpr.R(rt), R11, R0); break;
+				// Store
+				case 43: STR  (gpr.R(rt), R11, R0); break;
+				case 41: STRH (gpr.R(rt), R11, R0); break;
+				case 40: STRB (gpr.R(rt), R11, R0); break;
 				}
 			} else {
 				Comp_Generic(op);
 				return;
 			}
 			break;
-			// break;
-			/*
 		case 34: //lwl
-			{
-				Crash();
-				//u32 shift = (addr & 3) << 3;
-				//u32 mem = ReadMem32(addr & 0xfffffffc);
-				//R(rt) = ( u32(R(rt)) & (0x00ffffff >> shift) ) | ( mem << (24 - shift) );
-			}
-			break;
-
 		case 38: //lwr
-			{
-				Crash();
-				//u32 shift = (addr & 3) << 3;
-				//u32 mem = ReadMem32(addr & 0xfffffffc);
-
-				//R(rt) = ( u32(rt) & (0xffffff00 << (24 - shift)) ) | ( mem	>> shift );
-			}
-			break;
- 
+			load = true;
 		case 42: //swl
-			{
-				Crash();
-				//u32 shift = (addr & 3) << 3;
-				//u32 mem = ReadMem32(addr & 0xfffffffc);
-				//WriteMem32((addr & 0xfffffffc),	( ( u32(R(rt)) >>	(24 - shift) ) ) |
-				//	(	mem & (0xffffff00 << shift) ));
+		case 46: //swr
+			if (!js.inDelaySlot) {
+				// Optimisation: Combine to single unaligned load/store
+				bool isLeft = (o == 34 || o == 42);
+				u32 nextOp = Memory::Read_Instruction(js.compilerPC + 4);
+				// Find a matching shift in opposite direction with opposite offset.
+				if (nextOp == (isLeft ? (op + (4<<26) - 3)
+				                      : (op - (4<<26) + 3)))
+				{
+					EatInstruction(nextOp);
+					nextOp = ((load ? 35 : 43) << 26) | ((isLeft ? nextOp : op) & 0x3FFFFFF); //lw, sw
+					Comp_ITypeMem(nextOp);
+					return;
+				}
+			}
+
+			DISABLE; // Disabled until crashes are resolved.
+			if (g_Config.bFastMemory) {
+				int shift;
+				if (gpr.IsImm(rs)) {
+					u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
+					shift = (addr & 3) << 3;
+					addr &= 0xfffffffc;
+					load ? gpr.MapReg(rt, MAP_DIRTY) : gpr.MapReg(rt, 0);
+					MOVI2R(R0, addr);
+				} else {
+					load ? gpr.MapDirtyIn(rt, rs, false) : gpr.MapInIn(rt, rs);
+					shift = (offset & 3) << 3; // Should be addr. Difficult as we don't know it yet.
+					offset &= 0xfffffffc;
+					SetR0ToEffectiveAddress(rs, offset);
+				}
+				switch (o)
+				{
+				// Load
+				case 34:
+					AND(gpr.R(rt), gpr.R(rt), 0x00ffffff >> shift);
+					LDR(R0, R11, R0);
+					ORR(gpr.R(rt), gpr.R(rt), Operand2(R0, ST_LSL, 24 - shift));
+					break;
+				case 38:
+					AND(gpr.R(rt), gpr.R(rt), 0xffffff00 << (24 - shift));
+					LDR(R0, R11, R0);
+					ORR(gpr.R(rt), gpr.R(rt), Operand2(R0, ST_LSR, shift));
+					break;
+				// Store
+				case 42:
+					LDR(R1, R11, R0);
+					AND(R1, R1, 0xffffff00 << shift);
+					ORR(R1, R1, Operand2(gpr.R(rt), ST_LSR, 24 - shift));
+					STR(R1, R11, R0);
+					break;
+				case 46:
+					LDR(R1, R11, R0);
+					AND(R1, R1, 0x00ffffff >> (24 - shift));
+					ORR(R1, R1, Operand2(gpr.R(rt), ST_LSL, shift));
+					STR(R1, R11, R0);
+					break;
+				}
+			} else {
+				Comp_Generic(op);
+				return;
 			}
 			break;
-		case 46: //swr
-			{
-				Crash();
-				//	u32 shift = (addr & 3) << 3;
-			//	u32 mem = ReadMem32(addr & 0xfffffffc);
-//
-//				WriteMem32((addr & 0xfffffffc), ( ( u32(R(rt)) << shift ) |
-//					(mem	& (0x00ffffff >> (24 - shift)) ) ) );
-			}
-			break;*/
 		default:
 			Comp_Generic(op);
 			return ;

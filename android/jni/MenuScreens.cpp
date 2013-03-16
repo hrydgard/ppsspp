@@ -42,6 +42,7 @@
 
 #include "MenuScreens.h"
 #include "EmuScreen.h"
+#include "TestRunner.h"
 
 #ifdef USING_QT_UI
 #include <QFileDialog>
@@ -166,11 +167,11 @@ void MenuScreen::render() {
 
 	int w = LARGE_BUTTON_WIDTH + 40;
 
-	ui_draw2d.DrawTextShadow(UBUNTU48, "PPSSPP", dp_xres + xoff - w/2, 80, 0xFFFFFFFF, ALIGN_HCENTER | ALIGN_BOTTOM);
+	ui_draw2d.DrawTextShadow(UBUNTU48, "PPSSPP", dp_xres + xoff - w/2, 75, 0xFFFFFFFF, ALIGN_HCENTER | ALIGN_BOTTOM);
 	ui_draw2d.SetFontScale(0.7f, 0.7f);
-	ui_draw2d.DrawTextShadow(UBUNTU24, PPSSPP_VERSION_STR, dp_xres + xoff, 80, 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_BOTTOM);
+	ui_draw2d.DrawTextShadow(UBUNTU24, PPSSPP_GIT_VERSION, dp_xres + xoff, 85, 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_BOTTOM);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
-	VLinear vlinear(dp_xres + xoff, 95, 20);
+	VLinear vlinear(dp_xres + xoff, 100, 20);
 
 	if (UIButton(GEN_ID, vlinear, w, "Load...", ALIGN_RIGHT)) {
 #if defined(USING_QT_UI)
@@ -196,7 +197,7 @@ void MenuScreen::render() {
 	}
 
 	if (UIButton(GEN_ID, vlinear, w, "Settings", ALIGN_RIGHT)) {
-		screenManager()->switchScreen(new SettingsScreen());
+		screenManager()->push(new SettingsScreen(), 0);
 		UIReset();
 	}
 
@@ -237,7 +238,8 @@ void InGameMenuScreen::render() {
 	DrawBackground(1.0f);
 
 	const char *title;
-	if (UTF8StringHasNonASCII(game_title.c_str())) {
+	// Try to ignore (tm) etc.
+	if (UTF8StringNonASCIICount(game_title.c_str()) > 2) {
 		title = "(can't display japanese title)";
 	} else {
 		title = game_title.c_str();
@@ -247,15 +249,21 @@ void InGameMenuScreen::render() {
 
 	int x = 30;
 	int y = 50;
-	UICheckBox(GEN_ID, x, y += 50, "Show Debug Statistics", ALIGN_TOPLEFT, &g_Config.bShowDebugStats);
-	UICheckBox(GEN_ID, x, y += 50, "Show FPS", ALIGN_TOPLEFT, &g_Config.bShowFPSCounter);
+	int stride = 40;
+	int columnw = 420;
+	UICheckBox(GEN_ID, x, y += stride, "Show Debug Statistics", ALIGN_TOPLEFT, &g_Config.bShowDebugStats);
+	UICheckBox(GEN_ID, x + columnw, y, "Show FPS", ALIGN_TOPLEFT, &g_Config.bShowFPSCounter);
 
 	// TODO: Maybe shouldn't show this if the screen ratios are very close...
-	UICheckBox(GEN_ID, x, y += 50, "Stretch to display", ALIGN_TOPLEFT, &g_Config.bStretchToDisplay);
+	UICheckBox(GEN_ID, x, y += stride, "Stretch to display", ALIGN_TOPLEFT, &g_Config.bStretchToDisplay);
 
-	UICheckBox(GEN_ID, x, y += 50, "Hardware Transform", ALIGN_TOPLEFT, &g_Config.bHardwareTransform);
+	UICheckBox(GEN_ID, x, y += stride, "Hardware Transform", ALIGN_TOPLEFT, &g_Config.bHardwareTransform);
+	if (UICheckBox(GEN_ID, x, y += stride, "Buffered Rendering", ALIGN_TOPLEFT, &g_Config.bBufferedRendering)) {
+		if (gpu)
+			gpu->Resized();
+	}
 	bool fs = g_Config.iFrameSkip == 1;
-	UICheckBox(GEN_ID, x, y += 50, "Frameskip", ALIGN_TOPLEFT, &fs);
+	UICheckBox(GEN_ID, x, y += stride, "Frameskip (beta)", ALIGN_TOPLEFT, &fs);
 	g_Config.iFrameSkip = fs ? 1 : 0;
 
 	// TODO: Add UI for more than one slot.
@@ -273,13 +281,18 @@ void InGameMenuScreen::render() {
 	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH, "Continue", ALIGN_RIGHT)) {
 		screenManager()->finishDialog(this, DR_CANCEL);
 	}
+	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH, "Settings", ALIGN_RIGHT)) {
+		screenManager()->push(new SettingsScreen(), 0);
+	}
 	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH, "Return to Menu", ALIGN_RIGHT)) {
 		screenManager()->finishDialog(this, DR_OK);
 	}
-	
+
+	/*
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH*2, "Debug: Dump Next Frame", ALIGN_BOTTOMRIGHT)) {
 		gpu->DumpNextFrame();
 	}
+	*/
 
 	DrawWatermark();
 	UIEnd();
@@ -291,7 +304,7 @@ void InGameMenuScreen::render() {
 void SettingsScreen::update(InputState &input) {
 	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
 		g_Config.Save();
-		screenManager()->switchScreen(new MenuScreen());
+		screenManager()->finishDialog(this, DR_OK);
 	}
 }
 
@@ -308,30 +321,86 @@ void SettingsScreen::render() {
 	int x = 30;
 	int y = 30;
 	int stride = 40;
+	int columnw = 420;
 	UICheckBox(GEN_ID, x, y += stride, "Sound Emulation", ALIGN_TOPLEFT, &g_Config.bEnableSound);
-	UICheckBox(GEN_ID, x, y += stride, "Buffered Rendering", ALIGN_TOPLEFT, &g_Config.bBufferedRendering);
+	UICheckBox(GEN_ID, x + columnw, y, "Linear Filtering", ALIGN_TOPLEFT, &g_Config.bLinearFiltering);
+	if (UICheckBox(GEN_ID, x, y += stride, "Buffered Rendering", ALIGN_TOPLEFT, &g_Config.bBufferedRendering)) {
+		if (gpu)
+			gpu->Resized();
+	}
 	if (g_Config.bBufferedRendering) {
 		bool doubleRes = g_Config.iWindowZoom == 2;
-		UICheckBox(GEN_ID, x + 50, y += stride, "2x Render Resolution", ALIGN_TOPLEFT, &doubleRes);
+		if (UICheckBox(GEN_ID, x + columnw, y, "2x Render Resolution", ALIGN_TOPLEFT, &doubleRes)) {
+			if (gpu)
+				gpu->Resized();
+		}
 		g_Config.iWindowZoom = doubleRes ? 2 : 1;
 	}
+#ifndef __SYMBIAN32__
 	UICheckBox(GEN_ID, x, y += stride, "Hardware Transform", ALIGN_TOPLEFT, &g_Config.bHardwareTransform);
-	UICheckBox(GEN_ID, x, y += stride, "Draw using Stream VBO", ALIGN_TOPLEFT, &g_Config.bUseVBO);
+	UICheckBox(GEN_ID, x + columnw, y, "Draw using Stream VBO", ALIGN_TOPLEFT, &g_Config.bUseVBO);
+#endif
 	UICheckBox(GEN_ID, x, y += stride, "Vertex Cache", ALIGN_TOPLEFT, &g_Config.bVertexCache);
+	UICheckBox(GEN_ID, x + columnw, y, "Use Media Engine", ALIGN_TOPLEFT, &g_Config.bUseMediaEngine);
 
 	UICheckBox(GEN_ID, x, y += stride, "JIT (Dynarec)", ALIGN_TOPLEFT, &g_Config.bJit);
 	if (g_Config.bJit)
-		UICheckBox(GEN_ID, x + 450, y, "Fastmem (may be unstable)", ALIGN_TOPLEFT, &g_Config.bFastMemory);
-	// ui_draw2d.DrawText(UBUNTU48, "much faster JIT coming later", x, y+=50, 0xcFFFFFFF, ALIGN_LEFT);
+		UICheckBox(GEN_ID, x + columnw, y, "Fastmem (may be unstable)", ALIGN_TOPLEFT, &g_Config.bFastMemory);
+
 	UICheckBox(GEN_ID, x, y += stride, "On-screen Touch Controls", ALIGN_TOPLEFT, &g_Config.bShowTouchControls);
 	if (g_Config.bShowTouchControls) {
-		UICheckBox(GEN_ID, x + 450, y, "Large Controls", ALIGN_TOPLEFT, &g_Config.bLargeControls);
-		UICheckBox(GEN_ID, x + 50, y += stride, "Show Analog Stick", ALIGN_TOPLEFT, &g_Config.bShowAnalogStick);
+		UICheckBox(GEN_ID, x + columnw, y, "Large Controls", ALIGN_TOPLEFT, &g_Config.bLargeControls);
+		UICheckBox(GEN_ID, x + columnw, y += stride, "Show Analog Stick", ALIGN_TOPLEFT, &g_Config.bShowAnalogStick);
+	} else {
+		y += stride;
 	}
+	UICheckBox(GEN_ID, x, y, "Tilt to Analog (horizontal)", ALIGN_TOPLEFT, &g_Config.bAccelerometerToAnalogHoriz);
+	
+
+	ui_draw2d.DrawText(UBUNTU24, "Some settings may require a restart to apply.", dp_xres/2, y += stride + 20, 0xFFFFFFFF, ALIGN_HCENTER);
+
 	// UICheckBox(GEN_ID, x, y += stride, "Draw raw framebuffer (for some homebrew)", ALIGN_TOPLEFT, &g_Config.bDisplayFramebuffer);
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres-10), LARGE_BUTTON_WIDTH, "Back", ALIGN_RIGHT | ALIGN_BOTTOM)) {
-		screenManager()->switchScreen(new MenuScreen());
+		screenManager()->finishDialog(this, DR_OK);
+	}
+	if (UIButton(GEN_ID, Pos(10, dp_yres-10), LARGE_BUTTON_WIDTH, "Developer Menu", ALIGN_BOTTOMLEFT)) {
+		screenManager()->push(new DeveloperScreen());
+	}
+
+	UIEnd();
+
+	glsl_bind(UIShader_Get());
+	ui_draw2d.Flush(UIShader_Get());
+}
+
+void DeveloperScreen::update(InputState &input) {
+	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
+		g_Config.Save();
+		screenManager()->finishDialog(this, DR_OK);
+	}
+}
+
+void DeveloperScreen::render() {
+	UIShader_Prepare();
+	UIBegin();
+	DrawBackground(1.0f);
+
+	ui_draw2d.DrawText(UBUNTU48, "Developer Tools", dp_xres / 2, 20, 0xFFFFFFFF, ALIGN_HCENTER);
+
+	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres-10), LARGE_BUTTON_WIDTH, "Back", ALIGN_RIGHT | ALIGN_BOTTOM)) {
+		screenManager()->finishDialog(this, DR_OK);
+	}
+
+	if (UIButton(GEN_ID, Pos(dp_xres / 2, 100), LARGE_BUTTON_WIDTH, "Run CPU tests", ALIGN_CENTER | ALIGN_TOP)) {
+		// TODO: Run tests
+		RunTests();
+		// screenManager()->push(new EmuScreen())
+	}
+
+
+	if (UIButton(GEN_ID, Pos(10, dp_yres-10), LARGE_BUTTON_WIDTH, "Dump frame to log", ALIGN_BOTTOMLEFT)) {
+		gpu->DumpNextFrame();
 	}
 
 	UIEnd();
@@ -439,13 +508,11 @@ void CreditsScreen::update(InputState &input_state) {
 	frames_++;
 }
 
-static const char *credits[] =
-{
-	"PPSSPP " PPSSPP_VERSION_STR,
+static const char * credits[] = {
+	"PPSSPP",
 	"",
 	"",
 	"A fast and portable PSP emulator",
-	"(well, an early prototype of that)",
 	"",
 	"Created by Henrik Rydgard",
 	"",
@@ -501,6 +568,11 @@ static const char *credits[] =
 };
 
 void CreditsScreen::render() {
+	// TODO: This is kinda ugly, done on every frame...
+	char temp[256];
+	snprintf(temp, 256, "PPSSPP %s", PPSSPP_GIT_VERSION);
+	credits[0] = (const char *)temp;
+
 	UIShader_Prepare();
 	UIBegin();
 	DrawBackground(1.0f);

@@ -112,6 +112,8 @@ void MIPSState::DoState(PointerWrap &p)
 		Reset();
 	if (MIPSComp::jit)
 		MIPSComp::jit->DoState(p);
+	else
+		MIPSComp::Jit::DoDummyState(p);
 
 	p.DoArray(r, sizeof(r) / sizeof(r[0]));
 	p.DoArray(f, sizeof(f) / sizeof(f[0]));

@@ -313,10 +313,10 @@ void SasInstance::Mix(u32 outAddr) {
 				// We mix into this 32-bit temp buffer and clip in a second loop
 				// Ideally, the shift right should be there too but for now I'm concerned about
 				// not overflowing.
-				mixBuffer[i * 2] += sample * voice.volumeLeft >> 15;
-				mixBuffer[i * 2 + 1] += sample * voice.volumeRight >> 15;
-				sendBuffer[i * 2] += sample * voice.volumeLeftSend >> 15;
-				sendBuffer[i * 2 + 1] += sample * voice.volumeRightSend >> 15;
+				mixBuffer[i * 2] += sample * voice.volumeLeft >> 12;
+				mixBuffer[i * 2 + 1] += sample * voice.volumeRight >> 12;
+				sendBuffer[i * 2] += sample * voice.volumeLeftSend >> 12;
+				sendBuffer[i * 2 + 1] += sample * voice.volumeRightSend >> 12;
 				voice.envelope.Step();
 			}
 			voice.sampleFrac = sampleFrac;
@@ -330,7 +330,34 @@ void SasInstance::Mix(u32 outAddr) {
 			}
 		}
 		else if (voice.type == VOICETYPE_PCM && voice.pcmAddr != 0) {
-			// PCM mixing should be easy, can share code with VAG
+			resampleBuffer[0] = voice.resampleHist[0];
+			resampleBuffer[1] = voice.resampleHist[1];
+			u32 numSamples = voice.sampleFrac + grainSize ;
+			if ((int)numSamples > grainSize * 4) {
+				ERROR_LOG(SAS, "numSamples too large, clamping: %i vs %i", numSamples, grainSize * 4);
+				numSamples = grainSize * 4;
+			}
+			resampleBuffer[2 + numSamples] = resampleBuffer[2 + numSamples - 1];
+			voice.resampleHist[0] = resampleBuffer[2 + numSamples - 2];
+			voice.resampleHist[1] = resampleBuffer[2 + numSamples - 1];
+			u32 sampleFrac = voice.sampleFrac;
+			for (int i = 0; i < grainSize; i++) {
+				int sample = resampleBuffer[sampleFrac + 2];
+				int envelopeValue = voice.envelope.GetHeight();
+				envelopeValue = ((envelopeValue >> 15) + 1) >> 1;
+				sample = sample * envelopeValue >> 15;
+				mixBuffer[i * 2] += sample * voice.volumeLeft >> 15;
+				mixBuffer[i * 2 + 1] += sample * voice.volumeRight >> 15;
+				sendBuffer[i * 2] += sample * voice.volumeLeftSend >> 15;
+				sendBuffer[i * 2 + 1] += sample * voice.volumeRightSend >> 15;
+				voice.envelope.Step();
+			}
+			voice.sampleFrac = sampleFrac;
+			voice.sampleFrac -= numSamples ;
+			if (voice.envelope.HasEnded()) {
+				NOTICE_LOG(SAS, "Hit end of envelope");
+				voice.playing = false;
+			}
 		}
 		else if (voice.type == VOICETYPE_NOISE && voice.noiseFreq != 0) {
 			// Generate noise?

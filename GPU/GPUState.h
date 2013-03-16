@@ -209,12 +209,19 @@ struct GPUgstate
 	int getDepthTestFunc() const { return ztestfunc & 0x7; }
 	bool isFogEnabled() const { return fogEnable & 1; }
 	bool isStencilTestEnabled() const { return stencilTestEnable & 1; }
+	bool isAlphaBlendEnabled() const { return alphaBlendEnable & 1; }
+	bool isDitherEnabled() const { return ditherEnable & 1; }
 
 	// UV gen
 	int getUVGenMode() const { return texmapmode & 3;}   // 2 bits
 	int getUVProjMode() const { return (texmapmode >> 8) & 3;}   // 2 bits
 	int getUVLS0() const { return texshade & 0x3; }  // 2 bits
 	int getUVLS1() const { return (texshade >> 8) & 0x3; }  // 2 bits
+
+	int getScissorX1() const { return scissor1 & 0x3FF; }
+	int getScissorY1() const { return (scissor1 >> 10) & 0x3FF; }
+	int getScissorX2() const { return scissor2 & 0x3FF; }
+	int getScissorY2() const { return (scissor2 >> 10) & 0x3FF; }
 
 	// Vertex type
 	bool isModeThrough() const { return (vertType & GE_VTYPE_THROUGH) != 0; }
@@ -227,6 +234,8 @@ struct GPUgstate
 
 enum SkipDrawReasonFlags {
 	SKIPDRAW_SKIPFRAME = 1,
+	SKIPDRAW_NON_DISPLAYED_FB = 2,   // Skip drawing to FBO:s that have not been displayed.
+	SKIPDRAW_BAD_FB_TEXTURE = 4,
 };
 
 // The rest is cached simplified/converted data for fast access.
@@ -259,6 +268,9 @@ struct GPUStateCache
 
 	float vpWidth;
 	float vpHeight;
+
+	u32 curRTWidth;
+	u32 curRTHeight;
 
 	u32 getRelativeAddress(u32 data) const;
 };

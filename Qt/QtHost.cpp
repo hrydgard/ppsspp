@@ -33,7 +33,7 @@ QtHost::QtHost(MainWindow *mainWindow_)
 	QObject::connect(this,SIGNAL(BootDoneSignal()),mainWindow,SLOT(Boot()));
 }
 
-void QtHost::InitGL()
+bool QtHost::InitGL(std::string *error_string)
 {
 }
 
@@ -43,7 +43,7 @@ void QtHost::ShutdownGL()
 
 void QtHost::SetWindowTitle(const char *message)
 {
-	QString title = "PPSSPP " + QString(PPSSPP_VERSION_STR) + " - " + QString::fromUtf8(message);
+	QString title = "PPSSPP " + QString(PPSSPP_GIT_VERSION) + " - " + QString::fromUtf8(message);
 
 	mainWindow->setWindowTitle(title);
 }

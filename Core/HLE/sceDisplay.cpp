@@ -82,15 +82,19 @@ static int enterVblankEvent = -1;
 static int leaveVblankEvent = -1;
 static int afterFlipEvent = -1;
 
-static int hCount;
-static int hCountTotal; //unused
+// hCount is computed now.
 static int vCount;
 static int isVblank;
 static int numSkippedFrames;
 static bool hasSetMode;
+static int mode;
+static int width;
+static int height;
 // Don't include this in the state, time increases regardless of state.
 static double curFrameTime;
 static double nextFrameTime;
+
+static u64 frameStartTicks;
 
 std::vector<WaitVBlankInfo> vblankWaitingThreads;
 
@@ -115,6 +119,9 @@ void hleAfterFlip(u64 userdata, int cyclesLate);
 void __DisplayInit() {
 	gpuStats.reset();
 	hasSetMode = false;
+	mode = 0;
+	width = 480;
+	height = 272;
 	numSkippedFrames = 0;
 	framebufIsLatched = false;
 	framebuf.topaddr = 0x04000000;
@@ -128,8 +135,6 @@ void __DisplayInit() {
 	CoreTiming::ScheduleEvent(msToCycles(frameMs - vblankMs), enterVblankEvent, 0);
 	isVblank = 0;
 	vCount = 0;
-	hCount = 0;
-	hCountTotal = 0;
 	curFrameTime = 0.0;
 	nextFrameTime = 0.0;
 
@@ -140,11 +145,13 @@ void __DisplayDoState(PointerWrap &p) {
 	p.Do(framebuf);
 	p.Do(latchedFramebuf);
 	p.Do(framebufIsLatched);
-	p.Do(hCount);
-	p.Do(hCountTotal);
+	p.Do(frameStartTicks);
 	p.Do(vCount);
 	p.Do(isVblank);
 	p.Do(hasSetMode);
+	p.Do(mode);
+	p.Do(width);
+	p.Do(height);
 	WaitVBlankInfo wvi(0);
 	p.Do(vblankWaitingThreads, wvi);
 
@@ -189,7 +196,7 @@ void __DisplayFireVblank() {
 	}
 }
 
-float calculateFPS()
+void CalculateFPS()
 {
 	static double highestFps = 0.0;
 	static int lastFpsFrame = 0;
@@ -208,7 +215,22 @@ float calculateFPS()
 		lastFpsFrame = gpuStats.numFrames;	
 		lastFpsTime = now;
 	}
-	return fps;
+
+	char stats[50];
+	sprintf(stats, "VPS: %0.1f", fps);
+
+	#ifdef USING_GLES2
+		float zoom = 0.7f; /// g_Config.iWindowZoom;
+		float soff = 0.7f;
+	#else
+		float zoom = 0.5f; /// g_Config.iWindowZoom;
+		float soff = 0.5f;
+	#endif
+	PPGeBegin();
+	PPGeDrawText(stats, 476 + soff, 4 + soff, PPGE_ALIGN_RIGHT, zoom, 0xCC000000);
+	PPGeDrawText(stats, 476 + -soff, 4 -soff, PPGE_ALIGN_RIGHT, zoom, 0xCC000000);
+	PPGeDrawText(stats, 476, 4, PPGE_ALIGN_RIGHT, zoom, 0xFF30FF30);
+	PPGeEnd();
 }
 
 void DebugStats()
@@ -257,8 +279,13 @@ void DebugStats()
 		gpuStats.numShaders
 		);
 
-	float zoom = 0.3f; /// g_Config.iWindowZoom;
-	float soff = 0.3f;
+	#ifdef USING_GLES2
+		float zoom = 0.5f; /// g_Config.iWindowZoom;
+		float soff = 0.5f;
+	#else
+		float zoom = 0.3f; /// g_Config.iWindowZoom;
+		float soff = 0.3f;
+	#endif
 	PPGeBegin();
 	PPGeDrawText(stats, soff, soff, 0, zoom, 0xCC000000);
 	PPGeDrawText(stats, -soff, -soff, 0, zoom, 0xCC000000);
@@ -270,13 +297,12 @@ void DebugStats()
 }
 
 // Let's collect all the throttling and frameskipping logic here.
-void DoFrameTiming(bool &throttle, bool &skipFrame, bool &skipFlip) {
+void DoFrameTiming(bool &throttle, bool &skipFrame) {
 #ifdef _WIN32
 	throttle = !GetAsyncKeyState(VK_TAB);
 #else
-	throttle = false;
+	throttle = true;
 #endif
-	skipFlip = false;
 	skipFrame = false;
 	if (PSP_CoreParameter().headLess)
 		throttle = false;
@@ -296,8 +322,7 @@ void DoFrameTiming(bool &throttle, bool &skipFrame, bool &skipFlip) {
 	if (curFrameTime > nextFrameTime && doFrameSkip) {
 		// Argh, we are falling behind! Let's skip a frame and see if we catch up.
 		skipFrame = true;
-		skipFlip = true;
-		INFO_LOG(HLE,"FRAMESKIP %i", numSkippedFrames);
+		// INFO_LOG(HLE,"FRAMESKIP %i", numSkippedFrames);
 	}
 	
 	if (curFrameTime < nextFrameTime && throttle)
@@ -324,10 +349,10 @@ void DoFrameTiming(bool &throttle, bool &skipFrame, bool &skipFlip) {
 		nextFrameTime = nextFrameTime + 1.0 / 60.0;
 	}
 
-	// Max 6 skipped frames in a row - 10 fps is really the bare minimum for playability.
-	if (numSkippedFrames >= 4) {
+	// Max 4 skipped frames in a row - 15 fps is really the bare minimum for playability.
+	// We check for 3 here so it's 3 skipped frames, 1 non skipped, 3 skipped, etc.
+	if (numSkippedFrames >= 3) {
 		skipFrame = false;
-		skipFlip = false;
 	}
 }
 
@@ -338,6 +363,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	DEBUG_LOG(HLE, "Enter VBlank %i", vbCount);
 
 	isVblank = 1;
+	vCount++; // // vCount increases at each VBLANK.
 
 	// Fire the vblank listeners before we wake threads.
 	__DisplayFireVblank();
@@ -371,22 +397,14 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	}
 
 	if (g_Config.bShowFPSCounter) {
-		char stats[50];
+		CalculateFPS();
+	}
 
-		sprintf(stats, "%0.1f", calculateFPS());
+	bool skipFlip = false;
 
-		#ifdef USING_GLES2
-			float zoom = 0.7f; /// g_Config.iWindowZoom;
-			float soff = 0.7f;
-		#else
-			float zoom = 0.5f; /// g_Config.iWindowZoom;
-			float soff = 0.5f;
-		#endif
-		PPGeBegin();
-		PPGeDrawText(stats, 476 + soff, 4 + soff, PPGE_ALIGN_RIGHT, zoom, 0xCC000000);
-		PPGeDrawText(stats, 476 + -soff, 4 -soff, PPGE_ALIGN_RIGHT, zoom, 0xCC000000);
-		PPGeDrawText(stats, 476, 4, PPGE_ALIGN_RIGHT, zoom, 0xFF30FF30);
-		PPGeEnd();
+	// This frame was skipped, so no need to flip.
+	if (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) {
+		skipFlip = true;
 	}
 
 	// Draw screen overlays before blitting. Saves and restores the Ge context.
@@ -395,11 +413,10 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	// anything to draw here.
 	gstate_c.skipDrawReason &= ~SKIPDRAW_SKIPFRAME;
 
-	bool throttle, skipFrame, skipFlip;
+	bool throttle, skipFrame;
 	
-	DoFrameTiming(throttle, skipFrame, skipFlip);
+	DoFrameTiming(throttle, skipFrame);
 
-	// Setting CORE_NEXTFRAME causes a swap.
 	if (skipFrame) {
 		gstate_c.skipDrawReason |= SKIPDRAW_SKIPFRAME;
 		numSkippedFrames++;
@@ -408,11 +425,11 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	}
 
 	if (!skipFlip) {
-		// Might've just quit / been paused.
-		if (coreState == CORE_RUNNING) {
+		// Setting CORE_NEXTFRAME causes a swap.
+		// Check first though, might've just quit / been paused.
+		if (coreState == CORE_RUNNING && gpu->FramebufferDirty()) {
 			coreState = CORE_NEXTFRAME;
 		}
-		CoreTiming::ScheduleEvent(0 - cyclesLate, afterFlipEvent, 0);
 
 		gpu->CopyDisplayToOutput();
 	}
@@ -420,6 +437,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	// Returning here with coreState == CORE_NEXTFRAME causes a buffer flip to happen (next frame).
 	// Right after, we regain control for a little bit in hleAfterFlip. I think that's a great
 	// place to do housekeeping.
+	CoreTiming::ScheduleEvent(0 - cyclesLate, afterFlipEvent, 0);
 }
 
 void hleAfterFlip(u64 userdata, int cyclesLate)
@@ -433,36 +451,32 @@ void hleAfterFlip(u64 userdata, int cyclesLate)
 void hleLeaveVblank(u64 userdata, int cyclesLate) {
 	isVblank = 0;
 	DEBUG_LOG(HLE,"Leave VBlank %i", (int)userdata - 1);
-	vCount++;
-	hCount = 0;
+	frameStartTicks = CoreTiming::GetTicks();
 	CoreTiming::ScheduleEvent(msToCycles(frameMs - vblankMs) - cyclesLate, enterVblankEvent, userdata);
 }
 
-void sceDisplayIsVblank() {
+u32 sceDisplayIsVblank() {
 	DEBUG_LOG(HLE,"%i=sceDisplayIsVblank()",isVblank);
-	RETURN(isVblank);
+	return isVblank;
 }
 
-u32 sceDisplaySetMode(u32 unknown, u32 xres, u32 yres) {
-	DEBUG_LOG(HLE,"sceDisplaySetMode(%d,%d,%d)",unknown,xres,yres);
+u32 sceDisplaySetMode(int displayMode, int displayWidth, int displayHeight) {
+	DEBUG_LOG(HLE,"sceDisplaySetMode(%i, %i, %i)", displayMode, displayWidth, displayHeight);
 	host->BeginFrame();
 
 	if (!hasSetMode) {
 		gpu->InitClear();
 		hasSetMode = true;
 	}
-
+	mode = displayMode;
+	width = displayWidth;
+	height = displayHeight;
 	return 0;
 }
 
-u32 sceDisplaySetFramebuf() {
-	u32 topaddr = PARAM(0);
-	int linesize = PARAM(1);
-	int pixelformat = PARAM(2);
-	int sync = PARAM(3);
-
+u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) {
 	FrameBufferState fbstate;
-	DEBUG_LOG(HLE,"sceDisplaySetFramebuf(topaddr=%08x,linesize=%d,pixelsize=%d,sync=%d)",topaddr,linesize,pixelformat,sync);
+	DEBUG_LOG(HLE,"sceDisplaySetFramebuf(topaddr=%08x,linesize=%d,pixelsize=%d,sync=%d)", topaddr, linesize, pixelformat, sync);
 	if (topaddr == 0) {
 		DEBUG_LOG(HLE,"- screen off");
 	} else {
@@ -502,8 +516,7 @@ bool __DisplayGetFramebuf(u8 **topaddr, u32 *linesize, u32 *pixelFormat, int mod
 
 u32 sceDisplayGetFramebuf(u32 topaddrPtr, u32 linesizePtr, u32 pixelFormatPtr, int mode) {
 	const FrameBufferState &fbState = mode == 1 ? latchedFramebuf : framebuf;
-	DEBUG_LOG(HLE,"sceDisplayGetFramebuf(*%08x = %08x, *%08x = %08x, *%08x = %08x, %i)",
-		topaddrPtr, fbState.topaddr, linesizePtr, fbState.pspFramebufLinesize, pixelFormatPtr, fbState.pspFramebufFormat, mode);
+	DEBUG_LOG(HLE,"sceDisplayGetFramebuf(*%08x = %08x, *%08x = %08x, *%08x = %08x, %i)", topaddrPtr, fbState.topaddr, linesizePtr, fbState.pspFramebufLinesize, pixelFormatPtr, fbState.pspFramebufFormat, mode);
 
 	if (Memory::IsValidAddress(topaddrPtr))
 		Memory::Write_U32(fbState.topaddr, topaddrPtr);
@@ -516,7 +529,7 @@ u32 sceDisplayGetFramebuf(u32 topaddrPtr, u32 linesizePtr, u32 pixelFormatPtr, i
 }
 
 u32 sceDisplayWaitVblankStart() {
-	DEBUG_LOG(HLE,"sceDisplayWaitVblankStart()");
+	VERBOSE_LOG(HLE,"sceDisplayWaitVblankStart()");
 	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread()));
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, false, "vblank start waited");
 	return 0;
@@ -524,18 +537,19 @@ u32 sceDisplayWaitVblankStart() {
 
 u32 sceDisplayWaitVblank() {
 	if (!isVblank) {
-		DEBUG_LOG(HLE,"sceDisplayWaitVblank()");
+		VERBOSE_LOG(HLE,"sceDisplayWaitVblank()");
 		vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread()));
 		__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, false, "vblank waited");
 		return 0;
 	} else {
 		DEBUG_LOG(HLE,"sceDisplayWaitVblank() - not waiting since in vBlank");
+		hleEatMicro(5);
 		return 1;
 	}
 }
 
 u32 sceDisplayWaitVblankStartMulti(int vblanks) {
-	DEBUG_LOG(HLE,"sceDisplayWaitVblankStartMulti()");
+	VERBOSE_LOG(HLE,"sceDisplayWaitVblankStartMulti()");
 	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread(), vblanks));
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, false, "vblank start multi waited");
 	return 0;
@@ -543,52 +557,55 @@ u32 sceDisplayWaitVblankStartMulti(int vblanks) {
 
 u32 sceDisplayWaitVblankCB() {
 	if (!isVblank) {
-		DEBUG_LOG(HLE,"sceDisplayWaitVblankCB()");
+		VERBOSE_LOG(HLE,"sceDisplayWaitVblankCB()");
 		vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread()));
 		__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, true, "vblank waited");
 		return 0;
 	} else {
 		DEBUG_LOG(HLE,"sceDisplayWaitVblank() - not waiting since in vBlank");
+		hleEatMicro(5);
 		return 1;
 	}
 }
 
 u32 sceDisplayWaitVblankStartCB() {
-	DEBUG_LOG(HLE,"sceDisplayWaitVblankStartCB()");
+	VERBOSE_LOG(HLE,"sceDisplayWaitVblankStartCB()");
 	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread()));
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, true, "vblank start waited");
 	return 0;
 }
 
 u32 sceDisplayWaitVblankStartMultiCB(int vblanks) {
-	DEBUG_LOG(HLE,"sceDisplayWaitVblankStartMultiCB()");
+	VERBOSE_LOG(HLE,"sceDisplayWaitVblankStartMultiCB()");
 	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread(), vblanks));
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, true, "vblank start multi waited");
 	return 0;
 }
 
 u32 sceDisplayGetVcount() {
-	// Too spammy
-	// DEBUG_LOG(HLE,"%i=sceDisplayGetVcount()", vCount);
+	VERBOSE_LOG(HLE,"%i=sceDisplayGetVcount()", vCount);
 
-	// Puyo Puyo Fever polls this as a substitute for waiting for vblank.
-	// As a result, the game never gets to reschedule so it doesn't mix audio and things break.
-	// Need to find a better hack as this breaks games like Project Diva.
-	// hleReSchedule("sceDisplayGetVcount hack");  // Puyo puyo hack?
-
-	CoreTiming::Idle(1000000);
+	hleEatMicro(2);
 	return vCount;
 }
 
-void sceDisplayGetCurrentHcount() {
-	RETURN(hCount++);
+u32 sceDisplayGetCurrentHcount() {
+	u32 currentHCount = (CoreTiming::GetTicks() - frameStartTicks) / ((u64)CoreTiming::GetClockFrequencyMHz() * 1000000 / 60 / 272);
+	DEBUG_LOG(HLE,"%i=sceDisplayGetCurrentHcount()", currentHCount);
+	return currentHCount;
 }
 
-void sceDisplayGetAccumulatedHcount() {
-	// Just do an estimate
-	u32 accumHCount = CoreTiming::GetTicks() / (CoreTiming::GetClockFrequencyMHz() * 1000000 / 60 / 272);
+u32 sceDisplayAdjustAccumulatedHcount() {
+	ERROR_LOG(HLE,"UNIMPL sceDisplayAdjustAccumulatedHcount()");
+	return 0;
+}
+
+u32 sceDisplayGetAccumulatedHcount() {
+	float hCountPerVblank = 285.72f; // insprired by jpcsp
+	u32 currentHCount = (CoreTiming::GetTicks() - frameStartTicks) / ((u64)CoreTiming::GetClockFrequencyMHz() * 1000000 / 60 / 272);
+	u32 accumHCount = currentHCount + (u32) (vCount * hCountPerVblank);
 	DEBUG_LOG(HLE,"%i=sceDisplayGetAccumulatedHcount()", accumHCount);
-	RETURN(accumHCount);
+	return accumHCount;
 }
 
 float sceDisplayGetFramePerSec() {
@@ -597,9 +614,25 @@ float sceDisplayGetFramePerSec() {
 	return fps;	// (9MHz * 1)/(525 * 286)
 }
 
+u32 sceDisplayIsForeground() {
+  	ERROR_LOG(HLE,"UNIMPL sceDisplayIsForeground()");
+  	return 1;   // return value according to JPCSP comment
+}
+
+u32 sceDisplayGetMode(u32 modeAddr, u32 widthAddr, u32 heightAddr) {
+	DEBUG_LOG(HLE,"sceDisplayGetMode(%08x, %08x, %08x)", modeAddr, widthAddr, heightAddr);
+	if (Memory::IsValidAddress(modeAddr))
+		Memory::Write_U32(mode, modeAddr);
+	if (Memory::IsValidAddress(widthAddr))
+		Memory::Write_U32(width, widthAddr);
+	if (Memory::IsValidAddress(heightAddr))
+		Memory::Write_U32(height, heightAddr);
+	return 0;
+}
+
 const HLEFunction sceDisplay[] = {
-	{0x0E20F177,WrapU_UUU<sceDisplaySetMode>, "sceDisplaySetMode"},
-	{0x289D82FE,WrapU_V<sceDisplaySetFramebuf>, "sceDisplaySetFramebuf"},
+	{0x0E20F177,WrapU_III<sceDisplaySetMode>, "sceDisplaySetMode"},
+	{0x289D82FE,WrapU_UIII<sceDisplaySetFramebuf>, "sceDisplaySetFramebuf"},
 	{0xEEDA2E54,WrapU_UUUI<sceDisplayGetFramebuf>,"sceDisplayGetFrameBuf"},
 	{0x36CDFADE,WrapU_V<sceDisplayWaitVblank>, "sceDisplayWaitVblank"},
 	{0x984C27E7,WrapU_V<sceDisplayWaitVblankStart>, "sceDisplayWaitVblankStart"},
@@ -608,17 +641,17 @@ const HLEFunction sceDisplay[] = {
 	{0x46F186C3,WrapU_V<sceDisplayWaitVblankStartCB>, "sceDisplayWaitVblankStartCB"},
 	{0x77ed8b3a,WrapU_I<sceDisplayWaitVblankStartMultiCB>,"sceDisplayWaitVblankStartMultiCB"},
 	{0xdba6c4c4,WrapF_V<sceDisplayGetFramePerSec>,"sceDisplayGetFramePerSec"},
-	{0x773dd3a3,sceDisplayGetCurrentHcount,"sceDisplayGetCurrentHcount"},
-	{0x210eab3a,sceDisplayGetAccumulatedHcount,"sceDisplayGetAccumulatedHcount"},
-	{0xA83EF139,0,"sceDisplayAdjustAccumulatedHcount"},
+	{0x773dd3a3,WrapU_V<sceDisplayGetCurrentHcount>,"sceDisplayGetCurrentHcount"},
+	{0x210eab3a,WrapU_V<sceDisplayGetAccumulatedHcount>,"sceDisplayGetAccumulatedHcount"},
+	{0xA83EF139,WrapU_V<sceDisplayAdjustAccumulatedHcount>,"sceDisplayAdjustAccumulatedHcount"},
 	{0x9C6EAAD7,WrapU_V<sceDisplayGetVcount>,"sceDisplayGetVcount"},
-	{0xDEA197D4,0,"sceDisplayGetMode"},
+	{0xDEA197D4,WrapU_UUU<sceDisplayGetMode>,"sceDisplayGetMode"},
 	{0x7ED59BC4,0,"sceDisplaySetHoldMode"},
 	{0xA544C486,0,"sceDisplaySetResumeMode"},
 	{0xBF79F646,0,"sceDisplayGetResumeMode"},
-	{0xB4F378FA,0,"sceDisplayIsForeground"},
+	{0xB4F378FA,WrapU_V<sceDisplayIsForeground>,"sceDisplayIsForeground"},
 	{0x31C4BAA8,0,"sceDisplayGetBrightness"},
-	{0x4D4E10EC,sceDisplayIsVblank,"sceDisplayIsVblank"},
+	{0x4D4E10EC,WrapU_V<sceDisplayIsVblank>,"sceDisplayIsVblank"},
 	{0x21038913,0,"sceDisplayIsVsync"},
 };
 

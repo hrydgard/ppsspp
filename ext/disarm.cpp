@@ -308,8 +308,8 @@ instr_disassemble(word instr, address addr, pDisOptions opts) {
 
   fpn = ((instr>>15)&1) + ((instr>>21)&2);
 
-  result.undefined =
-  result.badbits =
+  result.undefined = 0;
+  result.badbits = 0;
   result.oddbits = 0;
   result.is_SWI = 0;
   result.target_type = target_None;

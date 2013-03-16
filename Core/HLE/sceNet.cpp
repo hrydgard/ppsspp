@@ -96,9 +96,14 @@ const HLEFunction sceNetAdhoc[] =
 	{0x7a662d6b, 0, "sceNetAdhocPollSocket"},
 };							
 
+int sceNetAdhocMatchingInit(u32 memsize) {
+	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingInit(%08x)", memsize);
+	return 0;
+}
+
 const HLEFunction sceNetAdhocMatching[] = 
 {
-	{0x2a2a1e07, 0, "sceNetAdhocMatchingInit"},
+	{0x2a2a1e07, WrapI_U<sceNetAdhocMatchingInit>, "sceNetAdhocMatchingInit"},
 	{0x7945ecda, 0, "sceNetAdhocMatchingTerm"},
 	{0xca5eda6f, 0, "sceNetAdhocMatchingCreate"},
 	{0x93ef3843, 0, "sceNetAdhocMatchingStart"},

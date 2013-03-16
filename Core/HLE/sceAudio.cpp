@@ -184,6 +184,7 @@ u32 sceAudioChRelease(u32 chan) {
 		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
 	}
 	DEBUG_LOG(HLE, "sceAudioChRelease(%i)", chan);
+	chans[chan].clear();
 	chans[chan].reserved = false;
 	return 1;
 }
@@ -271,6 +272,7 @@ u32 sceAudioOutput2GetRestSample(){
 
 u32 sceAudioOutput2Release(){
 	DEBUG_LOG(HLE,"sceAudioOutput2Release()");
+	chans[0].clear();
 	chans[0].reserved = false;
 	return 0;
 }
@@ -302,6 +304,7 @@ u32 sceAudioSRCChReserve(u32 sampleCount, u32 freq, u32 format) {
 
 u32 sceAudioSRCChRelease() {
 	DEBUG_LOG(HLE, "sceAudioSRCChRelease()");
+	chans[src].clear();
 	chans[src].reserved = false;
 	return 0;
 }

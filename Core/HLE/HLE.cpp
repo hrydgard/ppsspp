@@ -21,6 +21,8 @@
 #include <vector>
 #include "../MemMap.h"
 #include "../Config.h"
+#include "Core/CoreTiming.h"
+#include "Core/Reporting.h"
 
 #include "HLETables.h"
 #include "../System.h"
@@ -54,12 +56,29 @@ enum
 static std::vector<HLEModule> moduleDB;
 static std::vector<Syscall> unresolvedSyscalls;
 static std::vector<Syscall> exportedCalls;
+static int delayedResultEvent = -1;
 static int hleAfterSyscall = HLE_AFTER_NOTHING;
 static const char *hleAfterSyscallReschedReason;
+
+void hleDelayResultFinish(u64 userdata, int cycleslate)
+{
+	u32 error;
+	SceUID threadID = (SceUID) userdata;
+	SceUID verify = __KernelGetWaitID(threadID, WAITTYPE_DELAY, error);
+	// The top 32 bits of userdata are the top 32 bits of the 64 bit result.
+	// We can't just put it all in userdata because we need to know the threadID...
+	u64 result = (userdata & 0xFFFFFFFF00000000ULL) | __KernelGetWaitValue(threadID, error);
+
+	if (error == 0 && verify == 1)
+		__KernelResumeThreadFromWait(threadID, result);
+	else
+		WARN_LOG(HLE, "Someone else woke up HLE-blocked thread?");
+}
 
 void HLEInit()
 {
 	RegisterAllModules();
+	delayedResultEvent = CoreTiming::RegisterEvent("HLEDelayedResult", hleDelayResultFinish);
 }
 
 void HLEDoState(PointerWrap &p)
@@ -67,6 +86,8 @@ void HLEDoState(PointerWrap &p)
 	Syscall sc = {""};
 	p.Do(unresolvedSyscalls, sc);
 	p.Do(exportedCalls, sc);
+	p.Do(delayedResultEvent);
+	CoreTiming::RestoreRegisterEvent(delayedResultEvent, "HLEDelayedResult", hleDelayResultFinish);
 	p.DoMarker("HLE");
 }
 
@@ -164,6 +185,7 @@ u32 GetSyscallOp(const char *moduleName, u32 nib)
 		else
 		{
 			INFO_LOG(HLE, "Syscall (%s, %08x) unknown", moduleName, nib);
+			Reporting::ReportMessage("Unknown syscall in known module: %s 0x%08x", moduleName, nib);
 			return (0x0003FFCC | (modindex<<18));  // invalid syscall
 		}
 	}
@@ -306,6 +328,27 @@ bool hleExecuteDebugBreak(const HLEFunction &func)
 	Core_EnableStepping(true);
 	host->SetDebugMode(true);
 	return true;
+}
+
+u32 hleDelayResult(u32 result, const char *reason, int usec)
+{
+	CoreTiming::ScheduleEvent(usToCycles(usec), delayedResultEvent, __KernelGetCurThread());
+	__KernelWaitCurThread(WAITTYPE_DELAY, 1, result, 0, false, reason);
+	return result;
+}
+
+u64 hleDelayResult(u64 result, const char *reason, int usec)
+{
+	u64 param = (result & 0xFFFFFFFF00000000) | __KernelGetCurThread();
+	CoreTiming::ScheduleEvent(usToCycles(usec), delayedResultEvent, param);
+	__KernelWaitCurThread(WAITTYPE_DELAY, 1, (u32) result, 0, false, reason);
+	return result;
+}
+
+void hleEatMicro(int usec)
+{
+	// Maybe this should Idle, at least for larger delays?  Could that cause issues?
+	currentMIPS->downcount -= (int) usToCycles(usec);
 }
 
 inline void hleFinishSyscall(int modulenum, int funcnum)

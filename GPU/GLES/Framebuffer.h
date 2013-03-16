@@ -39,8 +39,9 @@ enum PspDisplayPixelFormat {
 };
 
 enum {
-	FB_USAGE_RENDERTARGET = 1,
-	FB_USAGE_TEXTURE = 2,
+	FB_USAGE_DISPLAYED_FRAMEBUFFER = 1,
+	FB_USAGE_RENDERTARGET = 2,
+	FB_USAGE_TEXTURE = 4,
 };
 
 
@@ -63,8 +64,14 @@ struct VirtualFramebuffer {
 	int format;  // virtual, right now they are all RGBA8888
 	FBOColorDepth colorDepth;
 	FBO *fbo;
+
+	bool dirtyAfterDisplay;
 };
 
+void CenterRect(float *x, float *y, float *w, float *h,
+								float origW, float origH, float frameW, float frameH);
+
+class ShaderManager;
 
 class FramebufferManager {
 public:
@@ -74,6 +81,9 @@ public:
 	void SetTextureCache(TextureCache *tc) {
 		textureCache_ = tc;
 	}
+	void SetShaderManager(ShaderManager *sm) {
+		shaderManager_ = sm;
+	}
 
 	void DrawPixels(const u8 *framebuf, int pixelFormat, int linesize);
 	void DrawActiveTexture(float x, float y, float w, float h, bool flip = false);
@@ -82,6 +92,7 @@ public:
 	void DecimateFBOs();
 
 	void BeginFrame();
+	void EndFrame();
 	void Resized();
 	void CopyDisplayToOutput();
 	void SetRenderFrameBuffer();  // Uses parameters computed from gstate
@@ -120,6 +131,7 @@ private:
 
 
 	TextureCache *textureCache_;
+	ShaderManager *shaderManager_;
 
 	bool resized_;
 };

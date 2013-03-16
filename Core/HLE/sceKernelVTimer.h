@@ -35,4 +35,6 @@ u32 sceKernelSetVTimerTimeWide(u32 uid, u64 timeClock);
 // TODO
 void _sceKernelReturnFromTimerHandler();
 
+void __KernelVTimerInit();
+void __KernelVTimerDoState(PointerWrap &p);
 KernelObject *__KernelVTimerObject();

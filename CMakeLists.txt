@@ -16,6 +16,10 @@ if(BLACKBERRY)
 	set(ARM ON)
 endif()
 
+if(LOONGSON)
+    set(MIPS ON) # MIPS + x86 for now
+endif()
+
 if(ARM)
 	set(USING_GLES2 ON)
 else() # Assume x86
@@ -30,6 +34,7 @@ endif()
 
 # User-editable options (go into CMakeCache.txt)
 option(ARM "Set to ON if targeting an ARM processor" ${ARM})
+option(MIPS "Set to ON if targeting a MIPS processor" ${MIPS})
 option(X86 "Set to ON if targeting an X86 processor" ${X86})
 option(ANDROID "Set to ON if targeting an Android device" ${ANDROID})
 option(BLACKBERRY "Set to ON if targeting a Blackberry device" ${BLACKBERRY})
@@ -105,6 +110,10 @@ if(USING_GLES2)
 	add_definitions(-DUSING_GLES2)
 endif()
 
+if(MIPS)
+	add_definitions(-DMIPS)
+endif()
+
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -D_DEBUG")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -D_NDEBUG")
 
@@ -127,7 +136,7 @@ if(NOT MSVC)
 		add_definitions(-D_QNX_SOURCE=1 -D_C99=1)
 	endif()
 
-	if(X86)
+	if(X86 AND NOT MIPS)
 		# enable sse2 code generation
 		add_definitions(-msse2)
 	endif()
@@ -136,6 +145,7 @@ if(NOT MSVC)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libstdc++")
 	elseif(APPLE)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
+		set(CMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY "libc++")
 	endif()
 	if(CMAKE_COMPILER_IS_GNUCXX AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.7.0)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
@@ -618,6 +628,8 @@ if(ARM)
 		Core/MIPS/ARM/ArmJitCache.h
 		Core/MIPS/ARM/ArmRegCache.cpp
 		Core/MIPS/ARM/ArmRegCache.h
+		Core/MIPS/ARM/ArmRegCacheFPU.cpp
+		Core/MIPS/ARM/ArmRegCacheFPU.h
 		ext/disarm.cpp)
 elseif(X86)
 	set(CoreExtra ${CoreExtra}
@@ -684,6 +696,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/FileSystems/ISOFileSystem.h
 	Core/FileSystems/MetaFileSystem.cpp
 	Core/FileSystems/MetaFileSystem.h
+	Core/Font/PGF.cpp
+	Core/Font/PGF.h
 	Core/HLE/FunctionWrappers.h
 	Core/HLE/HLE.cpp
 	Core/HLE/HLE.h
@@ -747,6 +761,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceNet.h
 	Core/HLE/sceOpenPSID.cpp
 	Core/HLE/sceOpenPSID.h
+	Core/HLE/sceP3da.cpp
+	Core/HLE/sceP3da.h
 	Core/HLE/sceParseHttp.cpp
 	Core/HLE/sceParseHttp.h
 	Core/HLE/sceParseUri.cpp
@@ -810,6 +826,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/PSPLoaders.h
 	Core/PSPMixer.cpp
 	Core/PSPMixer.h
+	Core/Reporting.cpp
+	Core/Reporting.h
 	Core/SaveState.cpp
 	Core/SaveState.h
 	Core/System.cpp
@@ -818,14 +836,25 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Util/BlockAllocator.h
 	Core/Util/PPGeDraw.cpp
 	Core/Util/PPGeDraw.h
-	Core/Util/Pool.h
 	Core/Util/ppge_atlas.cpp
 	Core/Util/ppge_atlas.h
 	$<TARGET_OBJECTS:GPU>
-	Globals.h)
+	Globals.h
+	git-version.cpp)
 target_link_libraries(${CoreLibName} Common native kirk cityhash
 	${GLEW_LIBRARIES} ${OPENGL_LIBRARIES})
 setup_target_project(${CoreLibName} Core)
+
+# Generate git-version.cpp at build time.
+add_custom_target(GitVersion ALL
+	DEPENDS something_that_never_exists)
+add_custom_command(OUTPUT something_that_never_exists
+	COMMAND ${CMAKE_COMMAND} -DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
+		-P ${CMAKE_CURRENT_SOURCE_DIR}/git-version.cmake)
+
+set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/git-version.cpp
+	PROPERTIES GENERATED TRUE)
+add_dependencies(${CoreLibName} GitVersion)
 
 add_library(GPU OBJECT
 	GPU/GLES/DisplayListInterpreter.cpp
@@ -944,6 +973,7 @@ endif()
 set(NativeAppSource
 	android/jni/NativeApp.cpp
 	android/jni/EmuScreen.cpp
+	android/jni/TestRunner.cpp
 	android/jni/MenuScreens.cpp
 	android/jni/GamepadEmu.cpp
 	android/jni/UIShader.cpp
@@ -970,13 +1000,21 @@ file(INSTALL ${NativeAssets} DESTINATION assets)
 
 # packaging and code signing
 if (IOS)
+	file(GLOB IOSAssets ios/assets/*.png)
+	file(INSTALL
+		${IOSAssets}
+		DESTINATION assets)
+	file(INSTALL flash0 DESTINATION assets)
 	set(RSRC_XIB_FILES assets/Icon@2x.png)
 	SET_SOURCE_FILES_PROPERTIES(${RSRC_XIB_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
 	set(APP_DIR_NAME \${TARGET_BUILD_DIR}/\${FULL_PRODUCT_NAME})
 	add_custom_command(TARGET PPSSPP POST_BUILD
-		COMMAND tar -c -C . --exclude .DS_Store --exclude .git -H `find assets` | tar -x -C ${APP_DIR_NAME}
+		COMMAND tar -c -C . --exclude .DS_Store --exclude .git -H `find assets` | tar -x -C '${APP_DIR_NAME}'
 	)
-	set_target_properties(${TargetBin} PROPERTIES MACOSX_BUNDLE_INFO_PLIST "../ios/PPSSPP-Info.plist" XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "iPhone Developer: My Name")
+	set_target_properties(${TargetBin} PROPERTIES
+		MACOSX_BUNDLE_INFO_PLIST "../ios/PPSSPP-Info.plist"
+		XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "iPhone/iPad"
+	)
 endif()
 
 #include(CPack)

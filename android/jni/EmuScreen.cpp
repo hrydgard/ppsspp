@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "base/logging.h"
+
 #include "gfx_es2/glsl_program.h"
 #include "gfx_es2/gl_state.h"
 #include "gfx_es2/fbo.h"
@@ -95,6 +97,24 @@ void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	}
 }
 
+inline float curve1(float x) {
+	const float deadzone = 0.15f;
+	const float factor = 1.0f / (1.0f - deadzone);
+	if (x > deadzone) {
+		return (x - deadzone) * (x - deadzone) * factor;
+	} else if (x < -0.1f) {
+		return -(x + deadzone) * (x + deadzone) * factor;
+	} else {
+		return 0.0f;
+	}
+}
+
+inline float clamp1(float x) {
+	if (x > 1.0f) return 1.0f;
+	if (x < -1.0f) return -1.0f;
+	return x;
+}
+
 void EmuScreen::update(InputState &input)
 {
 	if (errorMessage_.size()) {
@@ -108,12 +128,11 @@ void EmuScreen::update(InputState &input)
 	if (invalid_)
 		return;
 
-	// First translate touches into pad input.
+	// First translate touches into native pad input.
 	UpdateGamepad(input);
 	UpdateInputState(&input);
 
-	// Then translate pad input into PSP pad input.
-
+	// Then translate pad input into PSP pad input. Also, add in tilt.
 	static const int mapping[12][2] = {
 		{PAD_BUTTON_A, CTRL_CROSS},
 		{PAD_BUTTON_B, CTRL_CIRCLE},
@@ -137,7 +156,17 @@ void EmuScreen::update(InputState &input)
 			__CtrlButtonUp(mapping[i][1]);
 		}
 	}
-	__CtrlSetAnalog(input.pad_lstick_x, input.pad_lstick_y);
+
+	float stick_x = input.pad_lstick_x;
+	float stick_y = input.pad_lstick_y;
+	// Apply tilt
+	if (g_Config.bAccelerometerToAnalogHoriz) {
+		// TODO: Deadzone, etc.
+		stick_x += clamp1(curve1(input.acc.y) * 2.0f);
+		stick_x = clamp1(stick_x);
+	}
+
+	__CtrlSetAnalog(stick_x, stick_y);
 
 	if (input.pad_buttons_down & (PAD_BUTTON_MENU | PAD_BUTTON_BACK)) {
 		if (g_Config.bBufferedRendering)
@@ -167,7 +196,13 @@ void EmuScreen::render()
 	if (coreState == CORE_NEXTFRAME) {
 		// set back to running for the next frame
 		coreState = CORE_RUNNING;
+	} else if (coreState == CORE_POWERDOWN)	{
+		ILOG("SELF-POWERDOWN!");
+		screenManager()->switchScreen(new MenuScreen());
 	}
+
+	if (invalid_)
+		return;
 
 	if (g_Config.bBufferedRendering)
 		fbo_unbind();
@@ -202,5 +237,6 @@ void EmuScreen::render()
 
 void EmuScreen::deviceLost()
 {
+	ILOG("EmuScreen::deviceLost()");
 	gpu->DeviceLost();
 }

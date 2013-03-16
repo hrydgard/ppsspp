@@ -23,6 +23,8 @@
 
 using namespace ArmGen;
 
+#define CTXREG (R10)
+
 // R2 to R8: mapped MIPS regs
 // R9 = code pointers
 // R10 = MIPS context
@@ -53,7 +55,7 @@ struct RegMIPS {
 	RegMIPSLoc loc;
 	// Data (only one of these is used, depending on loc. Could make a union).
 	u32 imm;
-	ARMReg reg;
+	ARMReg reg;  // reg index
 	bool spillLock;  // if true, this register cannot be spilled.
 	// If loc == ML_MEM, it's back in its location in the CPU context struct.
 };
@@ -91,7 +93,7 @@ public:
 	void MapDirtyInIn(MIPSReg rd, MIPSReg rs, MIPSReg rt, bool avoidLoad = true);
 	void MapDirtyDirtyInIn(MIPSReg rd1, MIPSReg rd2, MIPSReg rs, MIPSReg rt, bool avoidLoad = true);
 	void FlushArmReg(ARMReg r);
-	void FlushMipsReg(MIPSReg r);
+	void FlushR(MIPSReg r);
 
 	void FlushAll();
 
@@ -102,8 +104,9 @@ public:
 	// For better log output only.
 	void SetCompilerPC(u32 compilerPC) { compilerPC_ = compilerPC; }
 
-private:
 	int GetMipsRegOffset(MIPSReg r);
+
+private:
 	MIPSState *mips_;
 	ARMXEmitter *emit;
 	u32 compilerPC_;

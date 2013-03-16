@@ -55,7 +55,7 @@ ViewController* sharedViewController;
 		self.touches = [[[NSMutableArray alloc] init] autorelease];
 
 		self.documentsPath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0];
-		self.bundlePath = [[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/assets"];
+		self.bundlePath = [[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/assets/"];
 
 		memset(&input_state, 0, sizeof(input_state));
 
@@ -80,6 +80,7 @@ ViewController* sharedViewController;
 	view.context = self.context;
 	view.drawableDepthFormat = GLKViewDrawableDepthFormat24;
 	[EAGLContext setCurrentContext:self.context];
+	self.preferredFramesPerSecond = 60;
 
 	float scale = [UIScreen mainScreen].scale;
 	CGSize size = [[UIApplication sharedApplication].delegate window].frame.size;

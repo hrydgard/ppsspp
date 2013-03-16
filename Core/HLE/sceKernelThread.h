@@ -24,12 +24,11 @@
 #include "sceKernelModule.h"
 #include "HLE.h"
 
-
 void sceKernelChangeThreadPriority();
 int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr);
 int sceKernelCreateThread(const char *threadName, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr);
-void sceKernelDelayThread();
-void sceKernelDelayThreadCB();
+int sceKernelDelayThread(u32 usec);
+int sceKernelDelayThreadCB(u32 usec);
 void sceKernelDelaySysClockThread();
 void sceKernelDelaySysClockThreadCB();
 int sceKernelDeleteThread(int threadHandle);
@@ -53,7 +52,7 @@ void sceKernelResumeThread();
 void sceKernelWakeupThread();
 void sceKernelCancelWakeupThread();
 int sceKernelTerminateDeleteThread(int threadno);
-int sceKernelTerminateThread(u32 threadID);
+int sceKernelTerminateThread(SceUID threadID);
 int sceKernelWaitThreadEndCB(SceUID threadID, u32 timeoutPtr);
 void sceKernelGetThreadExitStatus();
 u32 sceKernelGetThreadmanIdType(u32);
@@ -84,6 +83,7 @@ enum WaitType //probably not the real values
 	WAITTYPE_MUTEX = 13,
 	WAITTYPE_LWMUTEX = 14,
 	WAITTYPE_CTRL = 15,
+	WAITTYPE_IO = 16,
 };
 
 
@@ -116,6 +116,7 @@ KernelObject *__KernelCallbackObject();
 
 void __KernelScheduleWakeup(int threadnumber, s64 usFromNow);
 SceUID __KernelGetCurThread();
+const char *__KernelGetThreadName(SceUID threadID);
 
 void __KernelSaveContext(ThreadContext *ctx);
 void __KernelLoadContext(ThreadContext *ctx);
@@ -126,7 +127,18 @@ void __KernelLoadContext(ThreadContext *ctx);
 bool __KernelTriggerWait(WaitType type, int id, const char *reason, bool dontSwitch = false);
 bool __KernelTriggerWait(WaitType type, int id, int retVal, const char *reason, bool dontSwitch);
 u32 __KernelResumeThreadFromWait(SceUID threadID); // can return an error value
-u32 __KernelResumeThreadFromWait(SceUID threadID, int retval);
+u32 __KernelResumeThreadFromWait(SceUID threadID, u32 retval);
+u32 __KernelResumeThreadFromWait(SceUID threadID, u64 retval);
+
+inline u32 __KernelResumeThreadFromWait(SceUID threadID, int retval)
+{
+	return __KernelResumeThreadFromWait(threadID, (u32)retval);
+}
+
+inline u32 __KernelResumeThreadFromWait(SceUID threadID, s64 retval)
+{
+	return __KernelResumeThreadFromWait(threadID, (u64)retval);
+}
 
 u32 __KernelGetWaitValue(SceUID threadID, u32 &error);
 u32 __KernelGetWaitTimeoutPtr(SceUID threadID, u32 &error);
@@ -194,7 +206,7 @@ bool __KernelCheckCallbacks();
 bool __KernelForceCallbacks();
 class Thread;
 void __KernelSwitchContext(Thread *target, const char *reason);
-bool __KernelExecutePendingMipsCalls(bool reschedAfter);
+bool __KernelExecutePendingMipsCalls(Thread *currentThread, bool reschedAfter);
 void __KernelNotifyCallback(RegisteredCallbackType type, SceUID cbId, int notifyArg);
 
 // Switch to an idle / non-user thread, if not already on one.
@@ -230,6 +242,15 @@ struct MipsCall {
 
 	void DoState(PointerWrap &p);
 	void setReturnValue(u32 value);
+	void setReturnValue(u64 value);
+	inline void setReturnValue(int value)
+	{
+		setReturnValue((u32)value);
+	}
+	inline void setReturnValue(s64 value)
+	{
+		setReturnValue((u64)value);
+	}
 };
 
 class Action

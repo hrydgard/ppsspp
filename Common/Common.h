@@ -25,6 +25,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifdef _MSC_VER
+#pragma warning (disable:4100)
+#endif
+
 #if defined(ARM)
 #define _M_ARM32
 #endif
@@ -77,7 +81,9 @@ private:
 		#error needs at least version 1000 of MSC
 	#endif
 
+#ifndef NOMINMAX
 	#define NOMINMAX
+#endif
 
 // Memory leak checks
 	#define CHECK_HEAP_INTEGRITY()

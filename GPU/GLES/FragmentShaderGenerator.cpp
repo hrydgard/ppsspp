@@ -38,10 +38,34 @@
 
 // GL_NV_shader_framebuffer_fetch looks interesting....
 
+static bool IsAlphaTestTriviallyTrue() {
+	int alphaTestFunc = gstate.alphatest & 7;
+	int alphaTestRef = (gstate.alphatest >> 8) & 0xFF;
+	
+	switch (alphaTestFunc) {
+	case GE_COMP_ALWAYS:
+		return true;
+	case GE_COMP_GEQUAL:
+		if (alphaTestRef == 0)
+			return true;
+
+	// This breaks the trees in MotoGP, for example.
+	// case GE_COMP_GREATER:
+	//if (alphaTestRef == 0 && (gstate.alphaBlendEnable & 1) && gstate.getBlendFuncA() == GE_SRCBLEND_SRCALPHA && gstate.getBlendFuncB() == GE_SRCBLEND_INVSRCALPHA)
+	//	return true;
+
+	case GE_COMP_LEQUAL:
+		if (alphaTestRef == 255)
+			return true;
+	default:
+		return false;
+	}
+}
+
+
 // Here we must take all the bits of the gstate that determine what the fragment shader will
 // look like, and concatenate them together into an ID.
-void ComputeFragmentShaderID(FragmentShaderID *id)
-{
+void ComputeFragmentShaderID(FragmentShaderID *id) {
 	memset(&id->d[0], 0, sizeof(id->d));
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
 	int lmode = (gstate.lmode & 1) && (gstate.lightingEnable & 1);
@@ -49,6 +73,8 @@ void ComputeFragmentShaderID(FragmentShaderID *id)
 		// We only need one clear shader, so let's ignore the rest of the bits.
 		id->d[0] = 1;
 	} else {
+		bool enableAlphaTest = (gstate.alphaTestEnable & 1) && !IsAlphaTestTriviallyTrue();
+		bool enableColorTest = (gstate.colorTestEnable & 1);
 		// id->d[0] |= (gstate.clearmode & 1);
 		if (gstate.textureMapEnable & 1) {
 			id->d[0] |= 1 << 1;
@@ -58,11 +84,11 @@ void ComputeFragmentShaderID(FragmentShaderID *id)
 		}
 		id->d[0] |= (lmode & 1) << 7;
 		id->d[0] |= (gstate.alphaTestEnable & 1) << 8;
-		if (gstate.alphaTestEnable & 1)
+		if (enableAlphaTest)
 			id->d[0] |= (gstate.alphatest & 0x7) << 9;	 // alpha test func
 		id->d[0] |= (gstate.colorTestEnable & 1) << 12;
-		if (gstate.colorTestEnable & 1)
-			id->d[0] |= (gstate.colortest & 0x3) << 13;	 // alpha test func
+		if (enableColorTest)
+			id->d[0] |= (gstate.colortest & 0x3) << 13;	 // color test func
 		id->d[0] |= (enableFog & 1) << 15;
 	}
 }
@@ -71,8 +97,7 @@ void ComputeFragmentShaderID(FragmentShaderID *id)
 // Also, logic ops etc, of course. Urgh.
 // We could do all this with booleans, but I don't trust the shader compilers on
 // Android devices to be anything but stupid.
-void GenerateFragmentShader(char *buffer)
-{
+void GenerateFragmentShader(char *buffer) {
 	char *p = buffer;
 
 
@@ -86,8 +111,9 @@ void GenerateFragmentShader(char *buffer)
 
 	int doTexture = (gstate.textureMapEnable & 1) && !(gstate.clearmode & 1);
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
-	bool enableAlphaTest = (gstate.alphaTestEnable & 1) && !gstate.isModeClear();
+	bool enableAlphaTest = (gstate.alphaTestEnable & 1) && !gstate.isModeClear() && !IsAlphaTestTriviallyTrue();
 	bool enableColorTest = (gstate.colorTestEnable & 1) && !gstate.isModeClear();
+	bool enableColorDoubling = (gstate.texfunc & 0x10000) != 0;
 
 
 	if (doTexture)
@@ -170,16 +196,16 @@ void GenerateFragmentShader(char *buffer)
 			// No texture mapping
 			WRITE(p, "  vec4 v = v_color0 %s;\n", secondary);
 		}
-		// Color doubling
-		if (gstate.texfunc & 0x10000) {
+
+		if (enableColorDoubling) {
 			WRITE(p, "  v = v * 2.0;\n");
 		}
 
 		if (enableAlphaTest) {
 			int alphaTestFunc = gstate.alphatest & 7;
-			const char *alphaTestFuncs[] = { "#", "#", " == ", " != ", " < ", " <= ", " > ", " >= " };	// never/always don't make sense
+			const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };	// never/always don't make sense
 			if (alphaTestFuncs[alphaTestFunc][0] != '#')
-				WRITE(p, "  if (!(v.a %s u_alphacolorref.a)) discard;\n", alphaTestFuncs[alphaTestFunc]);
+				WRITE(p, "  if (v.a %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
 		}
 
 		// Disabled for now until we actually find a need for it.
@@ -191,7 +217,8 @@ void GenerateFragmentShader(char *buffer)
 			int colorTestMask = gstate.colormask;
 			if (colorTestFuncs[colorTestFunc][0] != '#')
 				WRITE(p, "if (!(v.rgb %s (u_alphacolorref.rgb & u_colormask.rgb)) discard;\n", colorTestFuncs[colorTestFunc]);
-		}*/		
+		}*/	
+
 		if (enableFog) {
 			WRITE(p, "  float fogCoef = clamp(v_fogdepth, 0.0, 1.0);\n");
 			WRITE(p, "  gl_FragColor = mix(vec4(u_fogcolor, v.a), v, fogCoef);\n");

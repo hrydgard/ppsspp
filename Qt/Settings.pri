@@ -1,5 +1,4 @@
 DEFINES += USING_QT_UI
-blackberry|symbian|contains(MEEGO_EDITION,harmattan): CONFIG += mobile_platform
 unix:!blackberry:!symbian:!macx: CONFIG += linux
 
 # Global specific
@@ -17,7 +16,8 @@ win32-msvc* {
 }
 
 # Arch specific
-contains(QT_ARCH, i686)|contains(QT_ARCH, x86)|contains(QT_ARCH, x86_64)|contains(QT_ARCH, windows): {
+xarch = $$find(QT_ARCH, "86")
+contains(QT_ARCH, windows)|count(xarch, 1) {
 	!win32-msvc*: QMAKE_CXXFLAGS += -msse2
 	CONFIG += x86
 }
@@ -25,8 +25,13 @@ else { # Assume ARM
 	DEFINES += ARM
 	CONFIG += arm
 }
-mobile_platform: DEFINES += USING_GLES2
 
+gleslib = $$lower($$QMAKE_LIBS_OPENGL)
+gleslib = $$find(gleslib, "gles")
+!count(gleslib,0) {
+	DEFINES += USING_GLES2
+	CONFIG += mobile_platform
+}
 
 # Platform specific
 contains(MEEGO_EDITION,harmattan): DEFINES += MEEGO_EDITION_HARMATTAN "_SYS_UCONTEXT_H=1"

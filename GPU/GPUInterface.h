@@ -102,6 +102,7 @@ public:
 
 	// Called by the window system if the window size changed. This will be reflected in PSPCoreParam.pixel*.
 	virtual void Resized() = 0;
+	virtual bool FramebufferDirty() = 0;
 
 	// Debugging
 	virtual void DumpNextFrame() = 0;

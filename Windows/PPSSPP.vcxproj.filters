@@ -107,6 +107,9 @@
     <ClCompile Include="..\android\jni\ArmEmitterTest.cpp">
       <Filter>Android</Filter>
     </ClCompile>
+    <ClCompile Include="..\android\jni\TestRunner.cpp">
+      <Filter>Android</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Debugger\CtrlDisAsmView.h">
@@ -188,6 +191,9 @@
     <ClInclude Include="..\android\jni\ARMEmitterTest.h">
       <Filter>Android</Filter>
     </ClInclude>
+    <ClInclude Include="..\android\jni\TestRunner.h">
+      <Filter>Android</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="icon1.ico">
@@ -215,6 +221,7 @@
     <None Include="..\CMakeLists.txt">
       <Filter>Windows</Filter>
     </None>
+    <None Include="git-version-gen.cmd" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="ppsspp.rc">

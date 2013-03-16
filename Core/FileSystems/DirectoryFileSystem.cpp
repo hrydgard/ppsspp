@@ -18,7 +18,7 @@
 #include "ChunkFile.h"
 #include "FileUtil.h"
 #include "DirectoryFileSystem.h"
-
+#include "file/zip_read.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -517,6 +517,19 @@ bool DirectoryFileSystem::GetHostPath(const std::string &inpath, std::string &ou
 	return true;
 }
 
+#ifdef _WIN32
+#define FILETIME_FROM_UNIX_EPOCH_US 11644473600000000ULL
+
+void tmFromFiletime(tm &dest, FILETIME &src)
+{
+	u64 from_1601_us = (((u64) src.dwHighDateTime << 32ULL) + (u64) src.dwLowDateTime) / 10ULL;
+	u64 from_1970_us = from_1601_us - FILETIME_FROM_UNIX_EPOCH_US;
+
+	time_t t = (time_t) (from_1970_us / 1000000UL);
+	localtime_r(&t, &dest);
+}
+#endif
+
 std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 	std::vector<PSPFileInfo> myVector;
 #ifdef _WIN32
@@ -537,6 +550,9 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 			entry.type = FILETYPE_DIRECTORY;
 		else
 			entry.type = FILETYPE_NORMAL;
+
+		// TODO: Make this more correct?
+		entry.access = entry.type == FILETYPE_NORMAL ? 0666 : 0777;
 		// TODO: is this just for .. or all subdirectories? Need to add a directory to the test
 		// to find out. Also why so different than the old test results?
 		if (!strcmp(findData.cFileName, "..") )
@@ -544,6 +560,9 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 		else
 			entry.size = findData.nFileSizeLow | ((u64)findData.nFileSizeHigh<<32);
 		entry.name = findData.cFileName;
+		tmFromFiletime(entry.atime, findData.ftLastAccessTime);
+		tmFromFiletime(entry.ctime, findData.ftCreationTime);
+		tmFromFiletime(entry.mtime, findData.ftLastWriteTime);
 		myVector.push_back(entry);
 
 		int retval = FindNextFile(hFind, &findData);
@@ -591,6 +610,156 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 }
 
 void DirectoryFileSystem::DoState(PointerWrap &p) {
+	if (!entries.empty()) {
+		ERROR_LOG(FILESYS, "FIXME: Open files during savestate, could go badly.");
+	}
+}
+
+
+VFSFileSystem::VFSFileSystem(IHandleAllocator *_hAlloc, std::string _basePath) : basePath(_basePath) {
+	INFO_LOG(HLE, "Creating VFS file system");
+	hAlloc = _hAlloc;
+}
+
+VFSFileSystem::~VFSFileSystem() {
+	for (auto iter = entries.begin(); iter != entries.end(); ++iter) {
+		delete [] iter->second.fileData;
+	}
+	entries.clear();
+}
+
+std::string VFSFileSystem::GetLocalPath(std::string localPath) {
+	return basePath + localPath;
+}
+
+bool VFSFileSystem::MkDir(const std::string &dirname) {
+	// NOT SUPPORTED - READ ONLY
+	return false;
+}
+
+bool VFSFileSystem::RmDir(const std::string &dirname) {
+	// NOT SUPPORTED - READ ONLY
+	return false;
+}
+
+bool VFSFileSystem::RenameFile(const std::string &from, const std::string &to) {
+	// NOT SUPPORTED - READ ONLY
+	return false;
+}
+
+bool VFSFileSystem::RemoveFile(const std::string &filename) {
+	// NOT SUPPORTED - READ ONLY
+	return false;
+}
+
+u32 VFSFileSystem::OpenFile(std::string filename, FileAccess access) {
+	if (access != FILEACCESS_READ) {
+		ERROR_LOG(HLE, "VFSFileSystem only supports plain reading");
+		return 0;
+	}
+
+	std::string fullName = GetLocalPath(filename);
+	const char *fullNameC = fullName.c_str();
+	INFO_LOG(HLE,"VFSFileSystem actually opening %s (%s)", fullNameC, filename.c_str());
+
+	size_t size;
+	u8 *data = VFSReadFile(fullNameC, &size);
+	if (!data) {
+		ERROR_LOG(HLE, "VFSFileSystem failed to open %s", filename.c_str());
+		return 0;
+	}
+
+	OpenFileEntry entry;
+	entry.fileData = data;
+	entry.size = size;
+	entry.seekPos = 0;
+	u32 newHandle = hAlloc->GetNewHandle();
+	entries[newHandle] = entry;
+	return newHandle;
+}
+
+PSPFileInfo VFSFileSystem::GetFileInfo(std::string filename) {
+	PSPFileInfo x;
+	x.name = filename;
+
+	std::string fullName = GetLocalPath(filename);
+	INFO_LOG(HLE,"Getting VFS file info %s (%s)", fullName.c_str(), filename.c_str());
+	FileInfo fo;
+	VFSGetFileInfo(fullName.c_str(), &fo);
+	x.exists = fo.exists;
+	if (x.exists) {
+		x.size = fo.size;
+		x.type = fo.isDirectory ? FILETYPE_DIRECTORY : FILETYPE_NORMAL;
+	}
+	INFO_LOG(HLE,"Got VFS file info: size = %i", (int)x.size);
+	return x;
+}
+
+void VFSFileSystem::CloseFile(u32 handle) {
+	EntryMap::iterator iter = entries.find(handle);
+	if (iter != entries.end()) {
+		delete [] iter->second.fileData;
+		entries.erase(iter);
+	} else {
+		//This shouldn't happen...
+		ERROR_LOG(HLE,"Cannot close file that hasn't been opened: %08x", handle);
+	}
+}
+
+bool VFSFileSystem::OwnsHandle(u32 handle) {
+	EntryMap::iterator iter = entries.find(handle);
+	return (iter != entries.end());
+}
+
+size_t VFSFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
+	INFO_LOG(HLE,"VFSFileSystem::ReadFile %08x %p %i", handle, pointer, (u32)size);
+	EntryMap::iterator iter = entries.find(handle);
+	if (iter != entries.end())
+	{
+		size_t bytesRead = size;
+		memcpy(pointer, iter->second.fileData + iter->second.seekPos, size);
+		iter->second.seekPos += size;
+		return bytesRead;
+	} else {
+		ERROR_LOG(HLE,"Cannot read file that hasn't been opened: %08x", handle);
+		return 0;
+	}
+}
+
+size_t VFSFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size) {
+	// NOT SUPPORTED - READ ONLY
+	return 0;
+}
+
+size_t VFSFileSystem::SeekFile(u32 handle, s32 position, FileMove type) {
+	EntryMap::iterator iter = entries.find(handle);
+	if (iter != entries.end()) {
+		switch (type) {
+		case FILEMOVE_BEGIN:    iter->second.seekPos = position; break;
+		case FILEMOVE_CURRENT:  iter->second.seekPos += position;  break;
+		case FILEMOVE_END:      iter->second.seekPos = iter->second.size + position; break;
+		}
+		return iter->second.seekPos;
+	} else {
+		//This shouldn't happen...
+		ERROR_LOG(HLE,"Cannot seek in file that hasn't been opened: %08x", handle);
+		return 0;
+	}
+}
+
+
+bool VFSFileSystem::GetHostPath(const std::string &inpath, std::string &outpath) {
+	// NOT SUPPORTED
+	return false;
+}
+
+std::vector<PSPFileInfo> VFSFileSystem::GetDirListing(std::string path) {
+	std::vector<PSPFileInfo> myVector;
+	// TODO
+	return myVector;
+}
+
+void VFSFileSystem::DoState(PointerWrap &p) {
 	if (!entries.empty()) {
 		ERROR_LOG(FILESYS, "FIXME: Open files during savestate, could go badly.");
 	}

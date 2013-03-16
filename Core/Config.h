@@ -20,8 +20,7 @@
 #include <string>
 #include <map>
 
-#define PPSSPP_VERSION_STR "0.6.1"
-
+extern const char *PPSSPP_GIT_VERSION;
 
 struct SState
 {
@@ -50,6 +49,7 @@ public:
 	bool bIgnoreBadMemAccess;
 	bool bFastMemory;
 	bool bJit;
+	std::string sReportHost;
 
 	// GFX
 	bool bDisplayFramebuffer;
@@ -60,10 +60,10 @@ public:
 	bool bUseVBO;
 	bool bStretchToDisplay;
 	int iFrameSkip;  // 0 = off;  1 = auto;  (future:  2 = skip every 2nd frame;  3 = skip every 3rd frame etc).
+	bool bUseMediaEngine;
 
 	int iWindowZoom;  // for Windows
 	bool SSAntiAliasing; //for Windows, too
-	bool bDisableG3DLog;
 	bool bVertexCache;
 	bool bFullScreen;
 	int iAnisotropyLevel;
@@ -79,6 +79,7 @@ public:
 	bool bShowFPSCounter;
 	bool bShowDebugStats;
 	bool bLargeControls;
+	bool bAccelerometerToAnalogHoriz;
 
 	// Control
 	std::map<int,int> iMappingMap; // Can be used differently depending on systems

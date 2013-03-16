@@ -80,7 +80,7 @@ void TextureCache::Clear(bool delete_them) {
 // Removes old textures.
 void TextureCache::Decimate() {
 	glBindTexture(GL_TEXTURE_2D, 0);
-	for (TexCache::iterator iter = cache.begin(), end = cache.end(); iter != end; ) {
+	for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ) {
 		if (iter->second.lastFrame + TEXTURE_KILL_AGE < gpuStats.numFrames) {
 			glDeleteTextures(1, &iter->second.texture);
 			cache.erase(iter++);
@@ -138,16 +138,15 @@ void TextureCache::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffe
 	if (entry) {
 		DEBUG_LOG(HLE, "Render to texture detected at %08x!", address);
 		if (!entry->framebuffer)
-			entry->framebuffer= framebuffer;
+			entry->framebuffer = framebuffer;
 		// TODO: Delete the original non-fbo texture too.
 	}
 }
 
 void TextureCache::NotifyFramebufferDestroyed(u32 address, VirtualFramebuffer *fbo) {
 	TexCacheEntry *entry = GetEntryAt(address | 0x04000000);
-	if (entry && entry->framebuffer) {
+	if (entry)
 		entry->framebuffer = 0;
-	}
 }
 
 static u32 GetClutAddr(u32 clutEntrySize) {
@@ -695,13 +694,25 @@ void TextureCache::SetTexture() {
 	TexCache::iterator iter = cache.find(cachekey);
 	TexCacheEntry *entry = NULL;
 	gstate_c.flipTexture = false;
+	gstate_c.skipDrawReason &= ~SKIPDRAW_BAD_FB_TEXTURE;
 
 	if (iter != cache.end()) {
 		entry = &iter->second;
 		// Check for FBO - slow!
 		if (entry->framebuffer) {
-			fbo_bind_color_as_texture(entry->framebuffer->fbo, 0);
-			UpdateSamplingParams(*entry, false);
+			entry->framebuffer->usageFlags |= FB_USAGE_TEXTURE;
+			if (!g_Config.bBufferedRendering) {
+				glBindTexture(GL_TEXTURE_2D, 0);
+				entry->lastFrame = gpuStats.numFrames;
+			} else {
+				if (entry->framebuffer->fbo) {
+					fbo_bind_color_as_texture(entry->framebuffer->fbo, 0);
+				} else {
+					glBindTexture(GL_TEXTURE_2D, 0);
+					gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
+				}
+				UpdateSamplingParams(*entry, false);
+			}
 
 			// This isn't right.
 			gstate_c.curTextureWidth = entry->framebuffer->width;

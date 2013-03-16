@@ -56,10 +56,19 @@ struct JitState
 		PREFIX_KNOWN_DIRTY = 0x11,
 	};
 
+	enum AfterOp
+	{
+		AFTER_NONE = 0x00,
+		AFTER_CORE_STATE = 0x01,
+		AFTER_REWIND_PC_BAD_STATE = 0x02,
+	};
+
 	u32 compilerPC;
 	u32 blockStart;
 	bool cancel;
 	bool inDelaySlot;
+	// See JitState::AfterOp for values.
+	int afterOp;
 	int downcountAmount;
 	int numInstructions;
 	bool compiling;	// TODO: get rid of this in favor of using analysis results to determine end of block
@@ -143,6 +152,7 @@ class Jit : public Gen::XCodeBlock
 public:
 	Jit(MIPSState *mips);
 	void DoState(PointerWrap &p);
+	static void DoDummyState(PointerWrap &p);
 
 	// Compiled ops should ignore delay slots
 	// the compiler will take care of them by itself
@@ -268,14 +278,14 @@ private:
 		JitSafeMem(Jit *jit, int raddr, s32 offset);
 
 		// Emit code necessary for a memory write, returns true if MOV to dest is needed.
-		bool PrepareWrite(OpArg &dest);
+		bool PrepareWrite(OpArg &dest, int size);
 		// Emit code proceeding a slow write call, returns true if slow write is needed.
 		bool PrepareSlowWrite();
 		// Emit a slow write from src.
 		void DoSlowWrite(void *safeFunc, const OpArg src, int suboffset = 0);
 
 		// Emit code necessary for a memory read, returns true if MOV from src is needed.
-		bool PrepareRead(OpArg &src);
+		bool PrepareRead(OpArg &src, int size);
 		// Emit code for a slow read call, and returns true if result is in EAX.
 		bool PrepareSlowRead(void *safeFunc);
 		
@@ -290,18 +300,29 @@ private:
 		void NextSlowRead(void *safeFunc, int suboffset);
 
 	private:
-		OpArg PrepareMemoryOpArg();
+		enum ReadType
+		{
+			MEM_READ,
+			MEM_WRITE,
+		};
+
+		OpArg PrepareMemoryOpArg(ReadType type);
 		void PrepareSlowAccess();
+		void MemCheckImm(ReadType type);
+		void MemCheckAsm(ReadType type);
+		bool ImmValid();
 
 		Jit *jit_;
 		int raddr_;
 		s32 offset_;
+		int size_;
 		bool needsCheck_;
 		bool needsSkip_;
 		bool far_;
 		u32 iaddr_;
 		X64Reg xaddr_;
 		FixupBranch tooLow_, tooHigh_, skip_;
+		std::vector<FixupBranch> skipChecks_;
 		const u8 *safe_;
 	};
 	friend class JitSafeMem;

@@ -18,12 +18,13 @@
 #include "../../MemMap.h"
 #include "../../Config.h"
 #include "../MIPSAnalyst.h"
+#include "Core/Reporting.h"
 
 #include "Jit.h"
 #include "../MIPSVFPUUtils.h"
 #include "RegCache.h"
 
-// VERY UNFINISHED
+// VERY UNFINISHED!
 
 // All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
 // Currently known non working ones should have DISABLE.
@@ -105,6 +106,7 @@ void Jit::ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz) {
 			// TODO: But some ops seem to use const 0 instead?
 			if (regnum >= n) {
 				ERROR_LOG(CPU, "Invalid VFPU swizzle: %08x / %d", prefix, sz);
+				Reporting::ReportMessage("Invalid VFPU swizzle: %08x / %d", prefix, sz);
 				regnum = 0;
 			}
 			MOVSS(fpr.VX(vregs[i]), fpr.V(origV[regnum]));
@@ -208,7 +210,7 @@ void Jit::Comp_SV(u32 op) {
 			JitSafeMem safe(this, rs, imm);
 			safe.SetFar();
 			OpArg src;
-			if (safe.PrepareRead(src))
+			if (safe.PrepareRead(src, 4))
 			{
 				MOVSS(fpr.VX(vt), safe.NextFastAddress(0));
 			}
@@ -234,7 +236,7 @@ void Jit::Comp_SV(u32 op) {
 			JitSafeMem safe(this, rs, imm);
 			safe.SetFar();
 			OpArg dest;
-			if (safe.PrepareWrite(dest))
+			if (safe.PrepareWrite(dest, 4))
 			{
 				MOVSS(safe.NextFastAddress(0), fpr.VX(vt));
 			}
@@ -276,7 +278,7 @@ void Jit::Comp_SVQ(u32 op)
 			JitSafeMem safe(this, rs, imm);
 			safe.SetFar();
 			OpArg src;
-			if (safe.PrepareRead(src))
+			if (safe.PrepareRead(src, 16))
 			{
 				// Just copy 4 words the easiest way while not wasting registers.
 				for (int i = 0; i < 4; i++)
@@ -310,7 +312,7 @@ void Jit::Comp_SVQ(u32 op)
 			JitSafeMem safe(this, rs, imm);
 			safe.SetFar();
 			OpArg dest;
-			if (safe.PrepareWrite(dest))
+			if (safe.PrepareWrite(dest, 16))
 			{
 				for (int i = 0; i < 4; i++)
 					MOVSS(safe.NextFastAddress(i * 4), fpr.VX(vregs[i]));
@@ -342,29 +344,26 @@ void Jit::Comp_VVectorInit(u32 op) {
 	if (js.HasUnknownPrefix())
 		DISABLE;
 
+	switch ((op >> 16) & 0xF)
+	{
+	case 6: // v=zeros; break;  //vzero
+		MOVSS(XMM0, M((void *) &zero));
+		break;
+	case 7: // v=ones; break;   //vone
+		MOVSS(XMM0, M((void *) &one));
+		break;
+	default:
+		DISABLE;
+		break;
+	}
+
 	VectorSize sz = GetVecSize(op);
 	int n = GetNumVectorElements(sz);
-
 	u8 dregs[4];
 	GetVectorRegsPrefixD(dregs, sz, _VD);
 	fpr.MapRegsV(dregs, sz, MAP_NOINIT | MAP_DIRTY);
-
 	for (int i = 0; i < n; ++i)
-	{
-		switch ((op >> 16) & 0xF)
-		{
-		case 6: // v=zeros; break;  //vzero
-			MOVSS(fpr.VX(dregs[i]), M((void *) &zero));
-			break;
-		case 7: // v=ones; break;   //vone
-			MOVSS(fpr.VX(dregs[i]), M((void *) &one));
-			break;
-		default:
-			DISABLE;
-			break;
-		}
-	}
-
+		MOVSS(fpr.VX(dregs[i]), R(XMM0));
 	ApplyPrefixD(dregs, sz);
 
 	fpr.ReleaseSpillLocks();
