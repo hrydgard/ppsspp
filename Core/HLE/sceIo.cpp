@@ -424,13 +424,13 @@ u32 npdrmRead(FileNode *f, u8 *data, int size) {
 
 		if(offset+remain_size>pgd->block_size){
 			copy_size = pgd->block_size-offset;
+			memcpy(data, pgd->block_buf+offset, copy_size);
 			block += 1;
 			offset = 0;
 		}else{
 			copy_size = remain_size;
+			memcpy(data, pgd->block_buf+offset, copy_size);
 		}
-
-		memcpy(data, pgd->block_buf+offset, copy_size);
 
 		data += copy_size;
 		remain_size -= copy_size;
@@ -600,12 +600,14 @@ u32 npdrmLseek(FileNode *f, s32 where, FileMove whence)
 	}
 
 	f->pgdInfo->file_offset = newPos;
+	pspFileSystem.SeekFile(f->handle, (s32)f->pgdInfo->data_offset+newPos, whence);
+
 	return newPos;
 }
 
 s64 __IoLseek(SceUID id, s64 offset, int whence) {
 	u32 error;
-	FileNode *f = kernelObjects.Get<FileNode>(id, error);
+	FileNode *f = kernelObjects.Get < FileNode > (id, error);
 	if (f) {
 		FileMove seek = FILEMOVE_BEGIN;
 
@@ -1344,6 +1346,7 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 		if (Memory::IsValidAddress(indataPtr) && inlen == 16) {
 			u8 keybuf[16];
 			u8 pgd_header[0x90];
+			u8 pgd_magic[4] = {0x00, 0x50, 0x47, 0x44};
 			INFO_LOG(HLE, "Decrypting PGD DRM files");
 			memcpy(keybuf, Memory::GetPointer(indataPtr), 16);
 			pspFileSystem.ReadFile(f->handle, pgd_header, 0x90);
@@ -1352,6 +1355,17 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 				ERROR_LOG(HLE, "Not a valid PGD file. Open as normal file.");
 				f->npdrm = false;
 				pspFileSystem.SeekFile(f->handle, (s32)0, FILEMOVE_BEGIN);
+				if(memcmp(pgd_header, pgd_magic, 4)==0){
+					// File is PGD file, but key mismatch
+					return 0x80510204;
+				}else{
+					// File is decrypted.
+					return 0;
+				}
+			}else{
+				// Everthing OK.
+				f->npdrm = true;
+				return 0;
 			}
 		}
 		break;
