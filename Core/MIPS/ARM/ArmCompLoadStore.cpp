@@ -173,8 +173,6 @@ namespace MIPSComp
 			}
 			if (doCheck) {
 				if (load) {
-					// Loads/stores affect flags, so we have to check again.
-					CMP(R1, 0);
 					SetCC(CC_EQ);
 					MOVI2R(gpr.R(rt), 0);
 				}
