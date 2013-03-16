@@ -171,6 +171,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	VFSRegister("", new DirectoryAssetReader("app/native/assets/"));
 #elif defined(IOS)
 	VFSRegister("", new DirectoryAssetReader(external_directory));
+	user_data_path += "/";
 #else
 	VFSRegister("", new DirectoryAssetReader("assets/"));
 #endif
