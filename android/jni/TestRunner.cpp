@@ -71,14 +71,20 @@ void RunTests()
 	coreParam.useMediaEngine = false;
 	coreParam.collectEmuLog = &output;
 
+#ifdef IOS
+	std::string baseDirectory = g_Config.flashDirectory + "../";
+#else
+	std::string baseDirectory = g_Config.memCardDirectory;
+#endif
+
 	// Never report from tests.
 	std::string savedReportHost = g_Config.sReportHost;
 	g_Config.sReportHost = "";
 
 	for (int i = 0; i < ARRAY_SIZE(testsToRun); i++) {
 		const char *testName = testsToRun[i];
-		coreParam.fileToStart = g_Config.memCardDirectory + "pspautotests/tests/" + testName + ".prx";
-		std::string expectedFile =  g_Config.memCardDirectory + "pspautotests/tests/" + testName + ".expected";
+		coreParam.fileToStart = baseDirectory + "pspautotests/tests/" + testName + ".prx";
+		std::string expectedFile = baseDirectory + "pspautotests/tests/" + testName + ".expected";
 
 		ILOG("Preparing to execute %s", testName)
 		std::string error_string;
