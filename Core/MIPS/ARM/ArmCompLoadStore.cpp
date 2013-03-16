@@ -90,33 +90,33 @@ namespace MIPSComp
 		SetR0ToEffectiveAddress(rs, offset);
 
 		// There are three valid ranges.  Each one gets a bit.
-		MOVI2R(tempReg, 7);
+		const u32 BIT_SCRATCH = 1, BIT_RAM = 2, BIT_VRAM = 4;
+		MOVI2R(tempReg, BIT_SCRATCH | BIT_RAM | BIT_VRAM);
 
 		CMP(R0, AssumeMakeOperand2(PSP_GetScratchpadMemoryBase()));
 		SetCC(CC_LO);
-		BIC(tempReg, tempReg, 1);
+		BIC(tempReg, tempReg, BIT_SCRATCH);
 		SetCC(CC_HS);
 		CMP(R0, AssumeMakeOperand2(PSP_GetScratchpadMemoryEnd()));
-		BIC(tempReg, tempReg, 1);
-		SetCC(CC_AL);
+		BIC(tempReg, tempReg, BIT_SCRATCH);
 
+		// If it was in that range, later compares don't matter.
 		CMP(R0, AssumeMakeOperand2(PSP_GetKernelMemoryBase()));
 		SetCC(CC_LO);
-		BIC(tempReg, tempReg, 2);
+		BIC(tempReg, tempReg, BIT_RAM);
 		SetCC(CC_HS);
 		CMP(R0, AssumeMakeOperand2(PSP_GetUserMemoryEnd()));
-		BIC(tempReg, tempReg, 2);
-		SetCC(CC_AL);
+		BIC(tempReg, tempReg, BIT_RAM);
 
 		CMP(R0, AssumeMakeOperand2(PSP_GetVidMemBase()));
 		SetCC(CC_LO);
-		BIC(tempReg, tempReg, 2);
+		BIC(tempReg, tempReg, BIT_VRAM);
 		SetCC(CC_HS);
 		CMP(R0, AssumeMakeOperand2(PSP_GetVidMemEnd()));
-		BIC(tempReg, tempReg, 2);
-		SetCC(CC_AL);
+		BIC(tempReg, tempReg, BIT_VRAM);
 
 		// If we left any bit set, the address is OK.
+		SetCC(CC_AL);
 		CMP(tempReg, 0);
 		SetCC(CC_GT);
 	}
