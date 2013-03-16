@@ -420,9 +420,12 @@ inline void updateSyscallStats(int modulenum, int funcnum, double total)
 
 void CallSyscall(u32 op)
 {
+	double start;
 	if (g_Config.bShowDebugStats)
+	{
 		time_update();
-	double start = time_now_d();
+		start = time_now_d();
+	}
 	u32 callno = (op >> 6) & 0xFFFFF; //20 bits
 	int funcnum = callno & 0xFFF;
 	int modulenum = (callno & 0xFF000) >> 12;
