@@ -238,8 +238,8 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	if (g_Config.bBufferedRendering) {
 		renderX = 0;
 		renderY = 0;
-	  renderWidth = framebufferManager_->GetRenderWidth();
-	  renderHeight = framebufferManager_->GetRenderHeight();
+	  	renderWidth = framebufferManager_->GetRenderWidth();
+	  	renderHeight = framebufferManager_->GetRenderHeight();
 		renderWidthFactor = (float)renderWidth / framebufferManager_->GetTargetWidth();
 		renderHeightFactor = (float)renderHeight / framebufferManager_->GetTargetHeight();
 	} else {
@@ -261,8 +261,8 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 
 	// This is a bit of a hack as the render buffer isn't always that size
 	if (scissorX1 == 0 && scissorY1 == 0 &&
-		  scissorX2 >= gstate_c.curRTWidth - 1 &&
-			scissorY2 >= gstate_c.curRTHeight - 1) {
+		scissorX2 >= gstate_c.curRTWidth - 1 &&
+		scissorY2 >= gstate_c.curRTHeight - 1) {
 		glstate.scissorTest.disable();
 	} else {
 		glstate.scissorTest.enable();
