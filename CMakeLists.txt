@@ -1014,6 +1014,8 @@ if (IOS)
 	set_target_properties(cityhash PROPERTIES COMPILE_FLAGS "-O3")
 	set_target_properties(zlib PROPERTIES COMPILE_FLAGS "-O3")
 
+	add_dependencies(PPSSPP ${CoreLibName} GPU Common native)
+
 	file(GLOB IOSAssets ios/assets/*.png)
 	file(INSTALL ${IOSAssets} DESTINATION assets)
 	file(INSTALL flash0 DESTINATION assets)
@@ -1027,6 +1029,11 @@ if (IOS)
 	set(APP_DIR_NAME \${TARGET_BUILD_DIR}/\${FULL_PRODUCT_NAME})
 	add_custom_command(TARGET PPSSPP POST_BUILD
 		COMMAND tar -c -C . --exclude .DS_Store --exclude .git -H assets | tar -x -C '${APP_DIR_NAME}'
+	)
+	# Force Xcode to relink the binary.
+	add_custom_command(TARGET Core PRE_BUILD
+		WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+		COMMAND rm -f PPSSPP.build/{Debug,Release,MinSizeRel,RelWithDebInfo}-iphoneos/PPSSPP.build/Objects-normal/*/PPSSPP {Debug,Release,MinSizeRel,RelWithDebInfo}-iphoneos/PPSSPP.app/PPSSPP
 	)
 	set_target_properties(${TargetBin} PROPERTIES
 		MACOSX_BUNDLE_INFO_PLIST "../ios/PPSSPP-Info.plist"
