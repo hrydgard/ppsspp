@@ -6,6 +6,7 @@
 //
 
 #import "ViewController.h"
+#import "AudioEngine.h"
 #import <GLKit/GLKit.h>
 
 #include "base/display.h"
@@ -41,11 +42,12 @@ ViewController* sharedViewController;
 @property (nonatomic,retain) NSString* documentsPath;
 @property (nonatomic,retain) NSString* bundlePath;
 @property (nonatomic,retain) NSMutableArray* touches;
+@property (nonatomic,retain) AudioEngine* audioEngine;
 
 @end
 
 @implementation ViewController
-@synthesize documentsPath,bundlePath,touches;
+@synthesize documentsPath,bundlePath,touches,audioEngine;
 
 - (id)init
 {
@@ -104,7 +106,9 @@ ViewController* sharedViewController;
 
 	dp_xscale = (float)dp_xres / (float)pixel_xres;
 	dp_yscale = (float)dp_yres / (float)pixel_yres;
-
+    
+    if (g_Config.bEnableSound)
+        self.audioEngine = [[[AudioEngine alloc] init] autorelease];
 /*
 	UISwipeGestureRecognizer* gesture = [[[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(swipeGesture:)] autorelease];
 	[self.view addGestureRecognizer:gesture];
@@ -129,7 +133,8 @@ ViewController* sharedViewController;
 - (void)dealloc
 {
 	[self viewDidUnload];
-
+    
+    self.audioEngine = nil;
 	self.touches = nil;
 	self.documentsPath = nil;
 	self.bundlePath = nil;
