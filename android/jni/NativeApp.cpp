@@ -149,6 +149,13 @@ void NativeMix(short *audio, int num_samples)
 	}
 }
 
+int NativeMixCount(short *audio, int num_samples)
+{
+	if (g_mixer)
+		return g_mixer->Mix(audio, num_samples);
+	return 0;
+}
+
 void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, bool *landscape)
 {
 	*app_nice_name = "PPSSPP";
