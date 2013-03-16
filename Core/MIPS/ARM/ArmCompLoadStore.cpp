@@ -100,7 +100,7 @@ namespace MIPSComp
 		}
 
 		u32 iaddr = gpr.IsImm(rs) ? offset + gpr.GetImm(rs) : 0xFFFFFFFF;
-		bool doFast = false;
+		bool doCheck = false;
 
 		switch (o)
 		{
@@ -114,35 +114,71 @@ namespace MIPSComp
 		case 41: //sh
 		case 43: //sw
 			if (gpr.IsImm(rs) && Memory::IsValidAddress(iaddr)) {
-				doFast = true;
 				// We can compute the full address at compile time. Kickass.
 				u32 addr = iaddr & 0x3FFFFFFF;
 				// Must be OK even if rs == rt since we have the value from imm already.
 				gpr.MapReg(rt, load ? MAP_NOINIT | MAP_DIRTY : 0);
 				MOVI2R(R0, addr);
-			} else if (g_Config.bFastMemory) {
+			} else {
 				_dbg_assert_msg_(JIT, !gpr.IsImm(rs), "Invalid immediate address?  CPU bug?");
-				doFast = true;
 				load ? gpr.MapDirtyIn(rt, rs) : gpr.MapInIn(rt, rs);
 				SetR0ToEffectiveAddress(rs, offset);
-			}
-			if (doFast) {
-				switch (o)
-				{
-				// Load
-				case 35: LDR  (gpr.R(rt), R11, R0); break;
-				case 37: LDRH (gpr.R(rt), R11, R0); break;
-				case 33: LDRSH(gpr.R(rt), R11, R0); break;
-				case 36: LDRB (gpr.R(rt), R11, R0); break;
-				case 32: LDRSB(gpr.R(rt), R11, R0); break;
-				// Store
-				case 43: STR  (gpr.R(rt), R11, R0); break;
-				case 41: STRH (gpr.R(rt), R11, R0); break;
-				case 40: STRB (gpr.R(rt), R11, R0); break;
+
+				if (!g_Config.bFastMemory) {
+					// There are three valid ranges.  Each one gets a bit.
+					MOVI2R(R1, 7);
+
+					CMP(R0, AssumeMakeOperand2(PSP_GetScratchpadMemoryBase()));
+					SetCC(CC_LO);
+					BIC(R1, R1, 1);
+					SetCC(CC_HS);
+					CMP(R0, AssumeMakeOperand2(PSP_GetScratchpadMemoryEnd()));
+					BIC(R1, R1, 1);
+					SetCC(CC_AL);
+
+					CMP(R0, AssumeMakeOperand2(PSP_GetKernelMemoryBase()));
+					SetCC(CC_LO);
+					BIC(R1, R1, 2);
+					SetCC(CC_HS);
+					CMP(R0, AssumeMakeOperand2(PSP_GetUserMemoryEnd()));
+					BIC(R1, R1, 2);
+					SetCC(CC_AL);
+
+					CMP(R0, AssumeMakeOperand2(PSP_GetVidMemBase()));
+					SetCC(CC_LO);
+					BIC(R1, R1, 2);
+					SetCC(CC_HS);
+					CMP(R0, AssumeMakeOperand2(PSP_GetVidMemEnd()));
+					BIC(R1, R1, 2);
+					SetCC(CC_AL);
+
+					// If we left any bit set, the address is OK.
+					CMP(R1, 0);
+					SetCC(CC_GT);
+					doCheck = true;
 				}
-			} else {
-				Comp_Generic(op);
-				return;
+			}
+			switch (o)
+			{
+			// Load
+			case 35: LDR  (gpr.R(rt), R11, R0); break;
+			case 37: LDRH (gpr.R(rt), R11, R0); break;
+			case 33: LDRSH(gpr.R(rt), R11, R0); break;
+			case 36: LDRB (gpr.R(rt), R11, R0); break;
+			case 32: LDRSB(gpr.R(rt), R11, R0); break;
+			// Store
+			case 43: STR  (gpr.R(rt), R11, R0); break;
+			case 41: STRH (gpr.R(rt), R11, R0); break;
+			case 40: STRB (gpr.R(rt), R11, R0); break;
+			}
+			if (doCheck) {
+				if (load) {
+					// Loads/stores affect flags, so we have to check again.
+					CMP(R1, 0);
+					SetCC(CC_EQ);
+					MOVI2R(gpr.R(rt), 0);
+				}
+				SetCC(CC_AL);
 			}
 			break;
 		case 34: //lwl

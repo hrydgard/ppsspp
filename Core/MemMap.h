@@ -69,6 +69,7 @@ inline u32 PSP_GetUserMemoryEnd()  { return 0x0A000000;}
 inline u32 PSP_GetDefaultLoadAddress() { return 0x08804000;}
 //inline u32 PSP_GetDefaultLoadAddress() { return 0x0898dab0;}
 inline u32 PSP_GetVidMemBase() { return 0x04000000;}
+inline u32 PSP_GetVidMemEnd() { return 0x04800000;}
 
 namespace Memory
 {
