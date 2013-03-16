@@ -43,10 +43,10 @@ const char *testsToRun[] = {
 	"cpu/fpu/fpu",
 	"cpu/icache/icache",
 	"cpu/lsu/lsu",
-	"cpu/vfpu/base/vfpu",
+	"cpu/vfpu/base",
 	"cpu/vfpu/colors/vfpu_colors",
 	"cpu/vfpu/convert/vfpu_convert",
-	"cpu/vfpu/prefixes/vfpu_prefixes",
+	"cpu/vfpu/prefixes",
 };
 
 void RunTests()
