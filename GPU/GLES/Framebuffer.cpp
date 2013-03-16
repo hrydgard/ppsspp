@@ -558,7 +558,7 @@ void FramebufferManager::DecimateFBOs() {
 		}
 		int age = gpuStats.numFrames - (*iter)->last_frame_used;
 		if (age > FBO_OLD_AGE) {
-			INFO_LOG(HLE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format)
+			INFO_LOG(HLE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age)
 			if (vfb->fbo) {
 				textureCache_->NotifyFramebufferDestroyed(vfb->fb_address, vfb);
 				fbo_destroy(vfb->fbo);
