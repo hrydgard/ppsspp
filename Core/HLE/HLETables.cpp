@@ -96,7 +96,7 @@ const HLEFunction UtilsForUser[] =
 	{0xB435DEC5, WrapI_V<sceKernelDcacheWritebackInvalidateAll>, "sceKernelDcacheWritebackInvalidateAll"},
 	{0x3EE30821, WrapI_UI<sceKernelDcacheWritebackRange>, "sceKernelDcacheWritebackRange"},
 	{0x34B9FA9E, WrapI_UI<sceKernelDcacheWritebackInvalidateRange>, "sceKernelDcacheWritebackInvalidateRange"},
-	{0xC2DF770E, 0, "sceKernelIcacheInvalidateRange"},
+	{0xC2DF770E, WrapI_UI<sceKernelIcacheInvalidateRange>, "sceKernelIcacheInvalidateRange"},
 	{0x80001C4C, 0, "sceKernelDcacheProbe"},
 	{0x16641D70, 0, "sceKernelDcacheReadTag"},
 	{0x4FD31C9D, 0, "sceKernelIcacheProbe"},

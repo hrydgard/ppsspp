@@ -307,6 +307,7 @@ int sceKernelDcacheWritebackInvalidateAll();
 void sceKernelGetThreadStackFreeSize();
 u32 sceKernelIcacheInvalidateAll();
 u32 sceKernelIcacheClearAll();
+int sceKernelIcacheInvalidateRange(u32 addr, int size);
 
 #define KERNELOBJECT_MAX_NAME_LENGTH 31
 

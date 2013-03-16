@@ -84,6 +84,14 @@ umd01: block access - umd
 #define O_NOWAIT		0x8000
 #define O_NPDRM         0x40000000
 
+// chstat
+#define SCE_CST_MODE    0x0001
+#define SCE_CST_ATTR    0x0002
+#define SCE_CST_SIZE    0x0004
+#define SCE_CST_CT      0x0008
+#define SCE_CST_AT      0x0010
+#define SCE_CST_MT      0x0020
+#define SCE_CST_PRVT    0x0040
 
 typedef s32 SceMode;
 typedef s64 SceOff;
@@ -402,6 +410,25 @@ u32 sceIoGetstat(const char *filename, u32 addr) {
 		DEBUG_LOG(HLE, "sceIoGetstat(%s, %08x) : FILE NOT FOUND", filename, addr);
 		return hleDelayResult(ERROR_ERRNO_FILE_NOT_FOUND, "io getstat", usec);
 	}
+}
+
+u32 sceIoChstat(const char *filename, u32 iostatptr, u32 changebits) {
+	ERROR_LOG(HLE, "UNIMPL sceIoChstat(%s, %08x, %08x)", filename, iostatptr, changebits);
+	if (changebits & SCE_CST_MODE)
+		ERROR_LOG(HLE, "sceIoChstat: change mode requested");
+	if (changebits & SCE_CST_ATTR)
+		ERROR_LOG(HLE, "sceIoChstat: change attr requested");
+	if (changebits & SCE_CST_SIZE)
+		ERROR_LOG(HLE, "sceIoChstat: change size requested");
+	if (changebits & SCE_CST_CT)
+		ERROR_LOG(HLE, "sceIoChstat: change creation time requested");
+	if (changebits & SCE_CST_AT)
+		ERROR_LOG(HLE, "sceIoChstat: change access time requested");
+	if (changebits & SCE_CST_MT)
+		ERROR_LOG(HLE, "sceIoChstat: change modification time requested");
+	if (changebits & SCE_CST_PRVT)
+		ERROR_LOG(HLE, "sceIoChstat: change private data requested");
+	return 0;
 }
 
 u32 npdrmRead(FileNode *f, u8 *data, int size) {
@@ -1448,7 +1475,7 @@ const HLEFunction IoFileMgrForUser[] = {
 	{ 0xe95a012b, &WrapU_UUUUUU<sceIoIoctlAsync>, "sceIoIoctlAsync" },
 	{ 0x63632449, &WrapU_UUUUUU<sceIoIoctl>, "sceIoIoctl" },
 	{ 0xace946e8, &WrapU_CU<sceIoGetstat>, "sceIoGetstat" },
-	{ 0xb8a740f4, 0, "sceIoChstat" },
+	{ 0xb8a740f4, &WrapU_CUU<sceIoChstat>, "sceIoChstat" },
 	{ 0x55f4717d, &WrapU_C<sceIoChdir>, "sceIoChdir" },
 	{ 0x08bd7374, &WrapU_I<sceIoGetDevType>, "sceIoGetDevType" },
 	{ 0xB2A628C1, &WrapU_UUUIUI<sceIoAssign>, "sceIoAssign" },

@@ -287,6 +287,13 @@ int sceKernelDcacheInvalidateRange(u32 addr, int size)
 	}
 	return 0;
 }
+
+int sceKernelIcacheInvalidateRange(u32 addr, int size) {
+	DEBUG_LOG(HLE,"sceKernelIcacheInvalidateRange(%08x, %i)", addr, size);
+	// TODO: Make the JIT hash and compare the touched blocks.
+	return 0;
+}
+
 int sceKernelDcacheWritebackAll()
 {
 #ifdef LOG_CACHE
@@ -297,6 +304,7 @@ int sceKernelDcacheWritebackAll()
 	gpu->InvalidateCacheHint(0, -1);
 	return 0;
 }
+
 int sceKernelDcacheWritebackRange(u32 addr, int size)
 {
 #ifdef LOG_CACHE
