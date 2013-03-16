@@ -1357,15 +1357,15 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 				pspFileSystem.SeekFile(f->handle, (s32)0, FILEMOVE_BEGIN);
 				if(memcmp(pgd_header, pgd_magic, 4)==0){
 					// File is PGD file, but key mismatch
-					f->asyncResult = 0x80510204;
+					return 0x80510204;
 				}else{
 					// File is decrypted.
-					f->asyncResult = 0;
+					return 0;
 				}
 			}else{
 				// Everthing OK.
 				f->npdrm = true;
-				f->asyncResult = 0;
+				return 0;
 			}
 		}
 		break;
