@@ -138,9 +138,16 @@ ViewController* sharedViewController;
 	[super dealloc];
 }
 
+// For iOS before 6.0
 - (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation
 {
-	return YES;
+	return UIInterfaceOrientationIsLandscape(toInterfaceOrientation);
+}
+
+// For iOS 6.0 and up
+- (NSUInteger)supportedInterfaceOrientations
+{
+	return UIInterfaceOrientationMaskLandscape;
 }
 
 //static BOOL menuDown = NO;
