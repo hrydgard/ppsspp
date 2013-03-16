@@ -257,6 +257,14 @@ void SasInstance::SetGrainSize(int newGrainSize) {
 	resampleBuffer = new s16[grainSize * 4 + 2];
 }
 
+static inline s16 clamp_s16(int i) {
+	if (i > 32767)
+		return 32767;
+	if (i < -32768)
+		return -32768;
+	return i;
+}
+
 void SasInstance::Mix(u32 outAddr) {
 	int voicesPlayingCount = 0;
 	for (int v = 0; v < PSP_SAS_VOICES_MAX; v++) {
@@ -371,23 +379,17 @@ void SasInstance::Mix(u32 outAddr) {
 	// TODO
 
 	// Alright, all voices mixed. Let's convert and clip, and at the same time, wipe mixBuffer for next time. Could also dither.
-	for (int i = 0; i < grainSize; i++) {
-		int sampleL = mixBuffer[i * 2] + sendBuffer[i * 2];
-		int sampleR = mixBuffer[i * 2 + 1] + sendBuffer[i * 2 + 1];
-		mixBuffer[i * 2] = 0;
-		mixBuffer[i * 2 + 1] = 0;
-		sendBuffer[i * 2] = 0;
-		sendBuffer[i * 2 + 1] = 0;
-		s16 outL, outR;
-		if (sampleL > 32767) outL = 32767;
-		else if (sampleL < -32768) outL = -32768;
-		else outL = sampleL;
-		if (sampleR > 32767) outR = 32767;
-		else if (sampleR < -32768) outR = -32768;
-		else outR = sampleR;
-		Memory::WriteUnchecked_U16(outL, outAddr + i * 2 * 2);
-		Memory::WriteUnchecked_U16(outR, outAddr + i * 2 * 2 + 2);
+	s16 *outp = (s16 *)Memory::GetPointer(outAddr);
+	for (int i = 0; i < grainSize * 2; i += 2) {
+		int sampleL = mixBuffer[i] + sendBuffer[i];
+		*outp++ = clamp_s16(sampleL);
+
+		int sampleR = mixBuffer[i + 1] + sendBuffer[i + 1];
+		*outp++ = clamp_s16(sampleR);
 	}
+	memset(mixBuffer, 0, grainSize * sizeof(int) * 2);
+	memset(sendBuffer, 0, grainSize * sizeof(int) * 2);
+
 #ifdef AUDIO_TO_FILE
 	fwrite(Memory::GetPointer(outAddr), 1, grainSize * 2 * 2, audioDump);
 #endif

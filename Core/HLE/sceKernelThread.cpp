@@ -595,12 +595,9 @@ void MipsCall::setReturnValue(u64 value)
 	savedV1 = (value >> 32) & 0xFFFFFFFF;
 }
 
-// TODO: Should move to this wrapper so we can keep the current thread as a SceUID instead
-// of a dangerous raw pointer.
 Thread *__GetCurrentThread() {
-	u32 error;
 	if (currentThread != 0)
-		return kernelObjects.Get<Thread>(currentThread, error);
+		return kernelObjects.GetFast<Thread>(currentThread);
 	else
 		return NULL;
 }
@@ -784,9 +781,8 @@ bool __KernelSwitchOffThread(const char *reason)
 		if (current && current->isRunning())
 			__KernelChangeReadyState(current, threadID, true);
 
-		u32 error;
 		// Idle 0 chosen entirely arbitrarily.
-		Thread *t = kernelObjects.Get<Thread>(threadIdleID[0], error);
+		Thread *t = kernelObjects.GetFast<Thread>(threadIdleID[0]);
 		if (t)
 		{
 			__KernelSwitchContext(t, reason);
@@ -1275,9 +1271,9 @@ Thread *__KernelNextThread() {
 		}
 	}
 
-	u32 error;
+	// Assume threadReadyQueue has not become corrupt.
 	if (bestThread != -1)
-		return kernelObjects.Get<Thread>(bestThread, error);
+		return kernelObjects.GetFast<Thread>(bestThread);
 	else
 		return 0;
 }

@@ -383,10 +383,23 @@ public:
 		}
 	}
 
+	// ONLY use this when you know the handle is valid.
+	template <class T>
+	T *GetFast(SceUID handle)
+	{
+		const SceUID realHandle = handle - handleOffset;
+		if (realHandle < 0 || realHandle >= maxCount || !occupied[realHandle])
+		{
+			ERROR_LOG(HLE, "Kernel: Bad fast object handle %i (%08x)", handle, handle);
+			return 0;
+		}
+		return static_cast<T *>(pool[realHandle]);
+	}
+
 	template <class T>
 	T* GetByModuleByEntryAddr(u32 entryAddr)
 	{
-		for (int i=0; i <4096; i++)
+		for (int i = 0; i < maxCount; ++i)
 		{
 			T* t = dynamic_cast<T*>(pool[i]);
 
