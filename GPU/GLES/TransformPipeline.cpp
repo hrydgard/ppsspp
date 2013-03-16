@@ -649,9 +649,6 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			transformed[index].color0[i] = c0[i] * 255.0f;
 		}
 		for (int i = 0; i < 4; i++) {
-			transformed[index].color0[i] = c0[i] * 255.0f;
-		}
-		for (int i = 0; i < 4; i++) {
 			transformed[index].color1[i] = c1[i] * 255.0f;
 		}
 	}
