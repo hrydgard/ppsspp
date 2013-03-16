@@ -1000,16 +1000,33 @@ file(INSTALL ${NativeAssets} DESTINATION assets)
 
 # packaging and code signing
 if (IOS)
+	# Fix CMake breaking optimization settings.
+	set(CMAKE_CXX_FLAGS_DEBUG "-g")
+	set(CMAKE_CXX_FLAGS_MINSIZEREL "-Os")
+	set(CMAKE_CXX_FLAGS_RELEASE "-O2")
+	set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g")
+	set(CMAKE_C_FLAGS_DEBUG "-g")
+	set(CMAKE_C_FLAGS_MINSIZEREL "-Os")
+	set(CMAKE_C_FLAGS_RELEASE "-O2")
+	set(CMAKE_C_FLAGS_RELWITHDEBINFO "-O2 -g")
+
+	# These can be fast.
+	set_target_properties(cityhash PROPERTIES COMPILE_FLAGS "-O3")
+	set_target_properties(zlib PROPERTIES COMPILE_FLAGS "-O3")
+
 	file(GLOB IOSAssets ios/assets/*.png)
-	file(INSTALL
-		${IOSAssets}
-		DESTINATION assets)
+	file(INSTALL ${IOSAssets} DESTINATION assets)
 	file(INSTALL flash0 DESTINATION assets)
+	if (IOS_DEBUG)
+		file(INSTALL pspautotests DESTINATION assets)
+	endif()
 	set(RSRC_XIB_FILES assets/Icon@2x.png)
-	SET_SOURCE_FILES_PROPERTIES(${RSRC_XIB_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+	set_source_files_properties(${RSRC_XIB_FILES}
+		PROPERTIES MACOSX_PACKAGE_LOCATION Resources
+	)
 	set(APP_DIR_NAME \${TARGET_BUILD_DIR}/\${FULL_PRODUCT_NAME})
 	add_custom_command(TARGET PPSSPP POST_BUILD
-		COMMAND tar -c -C . --exclude .DS_Store --exclude .git -H `find assets` | tar -x -C '${APP_DIR_NAME}'
+		COMMAND tar -c -C . --exclude .DS_Store --exclude .git -H assets | tar -x -C '${APP_DIR_NAME}'
 	)
 	set_target_properties(${TargetBin} PROPERTIES
 		MACOSX_BUNDLE_INFO_PLIST "../ios/PPSSPP-Info.plist"
