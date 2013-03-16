@@ -408,7 +408,10 @@ void GenerateVertexShader(int prim, char *buffer) {
 				break;
 			}
 			if (flipV)
-				WRITE(p, "  v_texcoord.y = 1.0 - v_texcoord.y * 2.0;\n");
+				if (gstate.isModeThrough())	
+					WRITE(p, "  v_texcoord.y = 1.0 - v_texcoord.y;\n");
+				else
+					WRITE(p, "  v_texcoord.y = 1.0 - v_texcoord.y * 2.0;\n");
 		}
 
 		// Compute fogdepth
