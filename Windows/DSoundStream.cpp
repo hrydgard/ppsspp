@@ -133,7 +133,8 @@ namespace DSound
 			{
 				int numBytesRendered = 4 * (*callback)(realtimeBuffer,numBytesToRender>>2,16,44100,2);
 
-				writeDataToBuffer(lastPos,(char *)realtimeBuffer,numBytesRendered);
+				if (numBytesRendered != 0)
+					writeDataToBuffer(lastPos,(char *)realtimeBuffer,numBytesRendered);
 
 				currentPos = ModBufferSize(lastPos + numBytesRendered);
 				totalRenderedBytes += numBytesRendered;
