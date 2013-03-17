@@ -41,11 +41,11 @@ namespace Memory
 
 u8 *GetPointer(const u32 address)
 {
-	if ((address & 0x0E000000) == 0x08000000)
+	if ((address & 0x3E000000) == 0x08000000)
 	{
 		return m_pRAM + (address & RAM_MASK);
 	}
-	else if ((address & 0x0F800000) == 0x04000000)
+	else if ((address & 0x3F800000) == 0x04000000)
 	{
 		return m_pVRAM + (address & VRAM_MASK);
 	}
@@ -72,11 +72,11 @@ inline void ReadFromHardware(T &var, const u32 address)
 
 	// Could just do a base-relative read, too.... TODO
 
-	if ((address & 0x0E000000) == 0x08000000)
+	if ((address & 0x3E000000) == 0x08000000)
 	{
 		var = *((const T*)&m_pRAM[address & RAM_MASK]);
 	}
-	else if ((address & 0x0F800000) == 0x04000000)
+	else if ((address & 0x3F800000) == 0x04000000)
 	{
 		var = *((const T*)&m_pVRAM[address & VRAM_MASK]);
 	}
@@ -105,11 +105,11 @@ inline void WriteToHardware(u32 address, const T data)
 {
 	// Could just do a base-relative write, too.... TODO
 
-	if ((address & 0x0E000000) == 0x08000000)
+	if ((address & 0x3E000000) == 0x08000000)
 	{
 		*(T*)&m_pRAM[address & RAM_MASK] = data;
 	}
-	else if ((address & 0x0F800000) == 0x04000000)
+	else if ((address & 0x3F800000) == 0x04000000)
 	{
 		*(T*)&m_pVRAM[address & VRAM_MASK] = data;
 	}
@@ -135,11 +135,11 @@ inline void WriteToHardware(u32 address, const T data)
 
 bool IsValidAddress(const u32 address)
 {
-	if ((address & 0x0E000000) == 0x08000000)
+	if ((address & 0x3E000000) == 0x08000000)
 	{
 		return true;
 	}
-	else if ((address & 0x0F800000) == 0x04000000)
+	else if ((address & 0x3F800000) == 0x04000000)
 	{
 		return true;
 	}
@@ -149,18 +149,6 @@ bool IsValidAddress(const u32 address)
 	}
 	else
 		return false;
-}
-
-u32 Read_Opcode(u32 _Address)
-{
-	if (_Address == 0x00000000)
-	{
-		// FIXME use assert?
-		PanicAlert("Program tried to read an opcode from [00000000]. It has crashed.");
-		return 0x00000000;
-	}
-
-	return Read_Instruction(_Address);
 }
 
 u8 Read_U8(const u32 _Address)
