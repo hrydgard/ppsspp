@@ -99,14 +99,14 @@ extern u8 *m_pUncachedVRAM;
 // TODO: Later PSP models got more RAM.
 enum
 {
-	RAM_SIZE		= 0x2000000,  // 32 MB - although only the upper 24 are available for the user.
-	RAM_MASK		= RAM_SIZE - 1,
+	RAM_SIZE        = 0x2000000,  // 32 MB - although only the upper 24 are available for the user.
+	RAM_MASK        = RAM_SIZE - 1,
 
-	VRAM_SIZE   = 0x200000,
-	VRAM_MASK	  = VRAM_SIZE - 1,
+	VRAM_SIZE       = 0x200000,
+	VRAM_MASK       = VRAM_SIZE - 1,
 
-	SCRATCHPAD_SIZE	= 0x4000,
-  SCRATCHPAD_MASK = SCRATCHPAD_SIZE - 1,
+	SCRATCHPAD_SIZE = 0x4000,
+	SCRATCHPAD_MASK = SCRATCHPAD_SIZE - 1,
 
 #if defined(_M_IX86) || defined(_M_ARM32)
   // This wraparound should work for PSP too.
@@ -118,14 +118,8 @@ enum
 void Init();
 void Shutdown();
 void DoState(PointerWrap &p);
-
 void Clear();
-bool AreMemoryBreakpointsActivated();
 
-inline u8* GetMainRAMPtr() {return m_pRAM;}
-
-// used by interpreter to read instructions, uses iCache
-u32 Read_Opcode(const u32 _Address);
 // used by JIT to read instructions
 u32 Read_Opcode_JIT(const u32 _Address);
 // used by JIT. uses iCacheJIT. Reads in the "Locked cache" mode
@@ -136,11 +130,6 @@ u32 Read_Instruction(const u32 _Address);
 
 
 // For use by emulator
-
-// Read and write functions
-#define NUMHWMEMFUN 64
-#define HWSHIFT 10
-#define HW_MASK 0x3FF
 
 u8  Read_U8(const u32 _Address);
 u16 Read_U16(const u32 _Address);
@@ -212,7 +201,6 @@ inline void WriteUnchecked_U8(u8 data, u32 address) {
 
 #endif
 
-
 inline float Read_Float(u32 address) 
 {
   u32 ifloat = Read_U32(address);
@@ -225,19 +213,10 @@ inline float Read_Float(u32 address)
 u32 Read_U8_ZX(const u32 address);
 u32 Read_U16_ZX(const u32 address);
 
-// used by JIT (Jit64::lXz)
-u32 EFB_Read(const u32 addr);
-
 void Write_U8(const u8 data, const u32 address);
 void Write_U16(const u16 data, const u32 address);
 void Write_U32(const u32 data, const u32 address);
 void Write_U64(const u64 data, const u32 address);
-
-void Write_U16_Swap(const u16 data, const u32 address);
-void Write_U32_Swap(const u32 data, const u32 address);
-void Write_U64_Swap(const u64 data, const u32 address);
-
-void WriteHW_U32(const u32 data, const u32 address);
 
 inline void Write_Float(float f, u32 address)
 {
@@ -263,14 +242,14 @@ template<class T>
 void ReadStruct(u32 address, T *ptr)
 {
 	size_t sz = sizeof(*ptr);
-  memcpy(ptr, GetPointer(address), sz);
+	memcpy(ptr, GetPointer(address), sz);
 }
 
 template<class T>
 void WriteStruct(u32 address, T *ptr)
 {
 	size_t sz = sizeof(*ptr);
-  memcpy(GetPointer(address), ptr, sz);
+	memcpy(GetPointer(address), ptr, sz);
 }
 
 const char *GetAddressName(u32 address);

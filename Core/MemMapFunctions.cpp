@@ -151,18 +151,6 @@ bool IsValidAddress(const u32 address)
 		return false;
 }
 
-u32 Read_Opcode(u32 _Address)
-{
-	if (_Address == 0x00000000)
-	{
-		// FIXME use assert?
-		PanicAlert("Program tried to read an opcode from [00000000]. It has crashed.");
-		return 0x00000000;
-	}
-
-	return Read_Instruction(_Address);
-}
-
 u8 Read_U8(const u32 _Address)
 {		
 	u8 _var = 0;
