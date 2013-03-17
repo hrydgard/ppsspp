@@ -320,6 +320,9 @@ bool TryMakeOperand2(u32 imm, Operand2 &op2);
 bool TryMakeOperand2_AllowInverse(u32 imm, Operand2 &op2, bool *inverse);
 bool TryMakeOperand2_AllowNegation(s32 imm, Operand2 &op2, bool *negated);
 
+// Use this only when you know imm can be made into an Operand2.
+Operand2 AssumeMakeOperand2(u32 imm);
+
 inline Operand2 R(ARMReg Reg)	{ return Operand2(Reg, TYPE_REG); }
 inline Operand2 IMM(u32 Imm)	{ return Operand2(Imm, TYPE_IMM); }
 inline Operand2 Mem(void *ptr)	{ return Operand2((u32)ptr, TYPE_IMM); }

@@ -83,6 +83,13 @@ bool TryMakeOperand2_AllowNegation(s32 imm, Operand2 &op2, bool *negated)
 	}
 }
 
+Operand2 AssumeMakeOperand2(u32 imm) {
+	Operand2 op2;
+	bool result = TryMakeOperand2(imm, op2);
+	_dbg_assert_msg_(JIT, result, "Could not make assumed Operand2.");
+	return op2;
+}
+
 void ARMXEmitter::MOVI2F(ARMReg dest, float val, ARMReg tempReg)
 {
 	union {float f; u32 u;} conv;
