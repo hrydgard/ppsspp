@@ -262,10 +262,12 @@ bool loadPMFStream(u8* pmf, int pmfsize)
 	return bResult;
 }
 
-bool loadPMFPSFFile(const char *filename)
+bool loadPMFPSFFile(const char *filename, int mpegsize)
 {
 	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
 	s64 infosize = info.size;
+	if ((mpegsize >= 0) && (abs(((int)infosize) - mpegsize) > 0x2000))
+		return false;
 	u8* buf = new u8[infosize];
 	u32 h = pspFileSystem.OpenFile(filename, (FileAccess) FILEACCESS_READ);
 	pspFileSystem.ReadFile(h, buf, infosize);

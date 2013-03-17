@@ -23,7 +23,7 @@ private:
 };
 
 bool loadPMFStream(u8* pmf, int pmfsize);
-bool loadPMFPSFFile(const char *filename);
+bool loadPMFPSFFile(const char *filename, int mpegsize = -1);
 bool deletePMFStream();
 mediaPlayer* getPMFPlayer();
 bool playPMFVideo();

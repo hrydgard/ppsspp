@@ -544,13 +544,6 @@ int sceMpegQueryStreamOffset(u32 mpeg, u32 bufferAddr, u32 offsetAddr)
 		WARN_LOG(HLE, "Media Engine disabled");
 		return -1;
 	}
-#ifdef _WIN32
-	if (bufferAddr == Memory::lastestAccessFile.data_addr)
-	{
-		loadPMFPSFFile(Memory::lastestAccessFile.filename);
-		Memory::lastestAccessFile.data_addr = 0;
-	}
-#endif // _WIN32
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
 		WARN_LOG(HLE, "sceMpegQueryStreamOffset(%08x, %08x, %08x): bad mpeg handle", mpeg, bufferAddr, offsetAddr);
@@ -561,6 +554,20 @@ int sceMpegQueryStreamOffset(u32 mpeg, u32 bufferAddr, u32 offsetAddr)
 
 	// Kinda destructive, no?
 	AnalyzeMpeg(bufferAddr, ctx);
+
+#ifdef _WIN32
+	DEBUG_LOG(HLE, "last loaded file: %s", Memory::lastestAccessFile.filename);
+	if (Memory::lastestAccessFile.data_addr != 0)
+	{
+		if (bufferAddr == Memory::lastestAccessFile.data_addr)
+		{
+			loadPMFPSFFile(Memory::lastestAccessFile.filename, -1);
+		}
+		else
+			loadPMFPSFFile(Memory::lastestAccessFile.filename, ctx->mpegStreamSize);
+		Memory::lastestAccessFile.data_addr = 0;
+	}
+#endif // _WIN32
 
 	if (ctx->mpegMagic != PSMF_MAGIC) {
 		ERROR_LOG(HLE, "sceMpegQueryStreamOffset: Bad PSMF magic");
@@ -752,8 +759,6 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 		if (!playPMFVideo())
 		{
 			iresult = -1;
-			ctx->endOfAudioReached = true;
-			ctx->endOfVideoReached = true;
 		}
 #else
 		ctx->mediaengine->writeVideoImage(buffer, frameWidth, ctx->videoPixelMode);
