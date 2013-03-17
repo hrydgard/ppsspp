@@ -55,7 +55,7 @@ namespace MainWindow
 	TCHAR *szWindowClass = TEXT("PPSSPPWnd");
 	TCHAR *szDisplayClass = TEXT("PPSSPPDisplay");
 
-	// Foward declarations of functions included in this code module:
+	// Forward declarations of functions included in this code module:
 	LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 	LRESULT CALLBACK DisplayProc(HWND, UINT, WPARAM, LPARAM);
 	LRESULT CALLBACK About(HWND, UINT, WPARAM, LPARAM);
