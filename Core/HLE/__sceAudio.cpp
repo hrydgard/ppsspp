@@ -273,5 +273,5 @@ int __AudioMix(short *outstereo, int numFrames)
 		// DEBUG_LOG(HLE, "No underrun, mixed %i samples fine", numFrames);
 	}
 	section.unlock();
-	return numFrames;
+	return underrun >= 0 ? underrun : numFrames;
 }
