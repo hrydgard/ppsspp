@@ -14,7 +14,8 @@
 
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
-#include "../MIPS.h"
+#include "Core/Config.h"
+#include "Core/MIPS/MIPS.h"
 
 #include "ArmJit.h"
 #include "ArmRegCache.h"
@@ -70,6 +71,7 @@ void Jit::Comp_FPULS(u32 op)
 	int rs = _RS;
 	// u32 addr = R(rs) + offset;
 	// logBlocks = 1;
+	bool doCheck = false;
 	switch(op >> 26)
 	{
 	case 49: //FI(ft) = Memory::Read_U32(addr); break; //lwc1
@@ -79,10 +81,21 @@ void Jit::Comp_FPULS(u32 op)
 			MOVI2R(R0, addr + (u32)Memory::base);
 		} else {
 			gpr.MapReg(rs);
-			SetR0ToEffectiveAddress(rs, offset);
+			if (g_Config.bFastMemory) {
+				SetR0ToEffectiveAddress(rs, offset);
+			} else {
+				SetCCAndR0ForSafeAddress(rs, offset, R1);
+				doCheck = true;
+			}
 			ADD(R0, R0, R11);
 		}
 		VLDR(fpr.R(ft), R0, 0);
+		if (doCheck) {
+			SetCC(CC_EQ);
+			MOVI2R(R0, 0);
+			VMOV(fpr.R(ft), R0);
+			SetCC(CC_AL);
+		}
 		break;
 
 	case 57: //Memory::Write_U32(FI(ft), addr); break; //swc1
@@ -92,10 +105,18 @@ void Jit::Comp_FPULS(u32 op)
 			MOVI2R(R0, addr + (u32)Memory::base);
 		} else {
 			gpr.MapReg(rs);
-			SetR0ToEffectiveAddress(rs, offset);
+			if (g_Config.bFastMemory) {
+				SetR0ToEffectiveAddress(rs, offset);
+			} else {
+				SetCCAndR0ForSafeAddress(rs, offset, R1);
+				doCheck = true;
+			}
 			ADD(R0, R0, R11);
 		}
 		VSTR(fpr.R(ft), R0, 0);
+		if (doCheck) {
+			SetCC(CC_AL);
+		}
 		break;
 
 	default:
