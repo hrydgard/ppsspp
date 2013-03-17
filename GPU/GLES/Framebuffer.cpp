@@ -549,7 +549,7 @@ void FramebufferManager::BeginFrame() {
 #endif // _WIN32
 	// NOTE - this is all wrong. At the beginning of the frame is a TERRIBLE time to draw the fb.
 	if (g_Config.bDisplayFramebuffer && displayFramebufPtr_) {
-		//INFO_LOG(HLE, "Drawing the framebuffer");
+		INFO_LOG(HLE, "Drawing the framebuffer");
 		const u8 *pspframebuf = Memory::GetPointer((0x44000000) | (displayFramebufPtr_ & 0x1FFFFF));	// TODO - check
 		glstate.cullFace.disable();
 		glstate.depthTest.disable();
