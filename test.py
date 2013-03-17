@@ -40,10 +40,12 @@ class Command(object):
 # These have worked and should keep working always - regression tests.
 tests_good = [
   "cpu/cpu_alu/cpu_alu",
-  "cpu/vfpu/base",
-  "cpu/vfpu/convert/vfpu_convert",
+  "cpu/vfpu/vector",
+  "cpu/vfpu/matrix",
+  "cpu/vfpu/convert",
   "cpu/vfpu/prefixes",
-  "cpu/vfpu/colors/vfpu_colors",
+  "cpu/vfpu/colors",
+  "cpu/vfpu/gum",
   "cpu/icache/icache",
   "cpu/lsu/lsu",
   "cpu/fpu/fpu",

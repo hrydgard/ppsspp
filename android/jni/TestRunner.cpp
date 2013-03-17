@@ -38,15 +38,17 @@
 #include "TestRunner.h"
 
 
-const char *testsToRun[] = {
+static const char * const testsToRun[] = {
 	"cpu/cpu_alu/cpu_alu",
 	"cpu/fpu/fpu",
 	"cpu/icache/icache",
 	"cpu/lsu/lsu",
-	"cpu/vfpu/base",
-	"cpu/vfpu/colors/vfpu_colors",
-	"cpu/vfpu/convert/vfpu_convert",
+	"cpu/vfpu/vector",
+	"cpu/vfpu/matrix",
+	"cpu/vfpu/convert",
+	"cpu/vfpu/colors",
 	"cpu/vfpu/prefixes",
+	"cpu/vfpu/gum",
 };
 
 void RunTests()
