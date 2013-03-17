@@ -528,7 +528,7 @@ namespace MIPSInt
 			case 23: d[i] = asinf(s[i] * (float)M_2_PI); break; //vasin
 			case 24: d[i] = -1.0f / s[i]; break; // vnrcp
 			case 26: d[i] = -sinf((float)M_PI_2 * s[i]); break; // vnsin
-			case 28: d[i] = 1.0f / expf(s[i] * (float)M_LOG2E); break; // vrexp2
+			case 28: d[i] = 1.0f / powf(2.0, s[i]); break; // vrexp2
 			default:
 				_dbg_assert_msg_(CPU,0,"Trying to interpret VV2Op instruction that can't be interpreted");
 				break;
@@ -1031,7 +1031,7 @@ namespace MIPSInt
 		}
 		d = isnan(sum) ? fabsf(sum) : sum;
 		ApplyPrefixD(&d,V_Single);
-		V(vd) = d;
+		WriteVector(&d, V_Single, vd);
 		PC += 4;
 		EatPrefixes();
 	}
@@ -1195,10 +1195,11 @@ namespace MIPSInt
 		if (sz != V_Pair)
 			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
 		ReadVector(s, sz, vs);
+		ApplySwizzleS(s, sz);
 		ReadVector(t, sz, vt);
 		d[0] = s[0] * t[1] - s[1] * t[0];
 		ApplyPrefixD(d, sz);
-		WriteVector(d, sz, vd);
+		WriteVector(d, V_Single, vd);
 		PC += 4;
 		EatPrefixes();
 	}
