@@ -147,16 +147,18 @@ bool audioEngine::loadRIFFStream(u8* stream, int streamsize, int atracID)
 	int omasize = OMAConvert::convertRIFFtoOMA(stream, streamsize, &oma);
 	if (omasize <= 0)
 		return false;
-	else if (omasize <= 70*1024) {
+	/*else if (omasize <= 70*1024) {
 		OMAConvert::releaseStream(&oma);
 		return false;
-	}
+	}*/
 	m_ID = atracID;
 	sprintf(m_filename, "tmp\\%d.oma", m_ID);
 	FILE *wfp = fopen(m_filename, "wb");
 	fwrite(oma, 1, omasize, wfp);
 	fclose(wfp);
 	OMAConvert::releaseStream(&oma);
+
+	m_iloop = 0;
 
 	return load(m_filename);
 }
@@ -168,6 +170,21 @@ bool audioEngine::closeStream()
 		DeleteFileA(m_filename);
 	m_ID = -1;
 	return bResult;
+}
+
+void audioEngine::setLoop(int iloop)
+{
+	m_iloop = iloop;
+}
+
+void audioEngine::decLoopcount()
+{
+	if (m_iloop > 0) m_iloop--;
+}
+
+bool audioEngine::isneedLoop()
+{
+	return (m_iloop != 0);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -193,8 +210,9 @@ UINT WINAPI loopAtrac3Audio(LPVOID)
 		}
 		for (auto it = audioMap.begin(), end = audioMap.end(); it != end; ++it) {
 			audioEngine *temp = it->second;
-			if (temp->isEnd())
+			if (temp->isneedLoop() && temp->isEnd())
 			{
+				temp->decLoopcount();
 				temp->setPlayPos(0);
 				temp->play();
 			}

@@ -566,6 +566,11 @@ u32 sceAtracSetLoopNum(int atracID, int loopNum)
 	Atrac *atrac = getAtrac(atracID);
 	if (atrac) {
 		atrac->loopNum = loopNum;
+#ifdef _WIN32
+		audioEngine *engine = getaudioEngineByID(atracID);
+		if (engine)
+			engine->setLoop(loopNum);
+#endif // _WIN32
 	}
 	return 0;
 }

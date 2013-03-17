@@ -31,9 +31,13 @@ public:
 	~audioEngine(void){ closeStream();}
 	bool loadRIFFStream(u8* stream, int streamsize, int atracID);
 	bool closeStream();
+	void setLoop(int iloop);
+	void decLoopcount();
+	bool isneedLoop();
 private:
 	int m_ID;
 	char m_filename[256];
+	int m_iloop;
 };
 
 void addAtrac3Audio(u8* stream, int streamsize, int atracID);

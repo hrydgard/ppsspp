@@ -7,6 +7,8 @@ const u8 OMA_CODECID_ATRAC3P = 1;
 const int OMAHeaderSize = 96;
 const int FMT_CHUNK_MAGIC = 0x20746D66;
 const int DATA_CHUNK_MAGIC = 0x61746164;
+const int AT3_MAGIC = 0x0270;
+const int AT3_PLUS_MAGIC = 0xFFFE;
 
 template <typename T> void BigEndianWriteBuf(u8* buf, T x, int &pos)
 {
@@ -38,7 +40,7 @@ bool isHeader(u8* audioStream, int offset)
 }
 
 // header set to the headerbuf, and return it's size
-int getOmaHeader(u8 codecId, u8 headerCode1, u8 headerCode2, u8* headerbuf)
+int getOmaHeader(u8 codecId, u8 headerCode0, u8 headerCode1, u8 headerCode2, u8* headerbuf)
 {
 	int pos = 0;
 	BigEndianWriteBuf(headerbuf, (u32)OMA_EA3_MAGIC, pos);
@@ -54,7 +56,7 @@ int getOmaHeader(u8 codecId, u8 headerCode1, u8 headerCode2, u8* headerbuf)
 	BigEndianWriteBuf(headerbuf, (u32)0x2480451c, pos);
 
 	BigEndianWriteBuf(headerbuf, (u8)codecId, pos);
-	BigEndianWriteBuf(headerbuf, (u8)0, pos);
+	BigEndianWriteBuf(headerbuf, (u8)headerCode0, pos);
 	BigEndianWriteBuf(headerbuf, (u8)headerCode1, pos);
 	BigEndianWriteBuf(headerbuf, (u8)headerCode2, pos);
 
@@ -107,7 +109,7 @@ int convertStreamtoOMA(u8* audioStream, int audioSize, u8** outputStream)
 	int omapos = 0;
 	int audiopos = 0;
 
-	omapos += getOmaHeader(OMA_CODECID_ATRAC3P, headerCode1, headerCode2, oma);
+	omapos += getOmaHeader(OMA_CODECID_ATRAC3P, 0, headerCode1, headerCode2, oma);
 	while (audioSize - audiopos > 8) {
 		// Skip 8 bytes frame header
 		audiopos += 8;
@@ -147,8 +149,24 @@ int convertRIFFtoOMA(u8* riff, int riffSize, u8** outputStream)
 		return 0;
 	}
 	u8 codecId = getBufValue(riff, fmtChunkOffset + 0x30);
+	u8 headerCode0 = getBufValue(riff, fmtChunkOffset + 0x31);
 	u8 headerCode1 = getBufValue(riff, fmtChunkOffset + 0x32);
 	u8 headerCode2 = getBufValue(riff, fmtChunkOffset + 0x33);
+
+	u16 magic = getBufValue((u16*)riff, fmtChunkOffset + 0x08);
+	if (magic == AT3_MAGIC)
+	{
+		// 66kpbs
+		codecId = 0;
+		headerCode0 = 0x02;
+		headerCode1 = 0x20;
+		headerCode2 = 0x18;
+		// 132kpbs
+		//codecId = 0;
+		//headerCode0 = 0x00;
+		//headerCode1 = 0x20;
+		//headerCode2 = 0x30;
+	}
 
 	int dataChunkOffset = getChunkOffset(riff, riffSize, DATA_CHUNK_MAGIC, firstChunkOffset);
 	if (dataChunkOffset < 0) {
@@ -161,7 +179,7 @@ int convertRIFFtoOMA(u8* riff, int riffSize, u8** outputStream)
 	u8* oma = new u8[OMAHeaderSize + dataSize];
 	int omapos = 0;
 
-	omapos += getOmaHeader(codecId, headerCode1, headerCode2, oma);
+	omapos += getOmaHeader(codecId, headerCode0, headerCode1, headerCode2, oma);
 	WriteBuf(oma, omapos, riff + datapos, dataSize);
 
 	*outputStream = oma;
