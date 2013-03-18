@@ -101,19 +101,19 @@ namespace MIPSComp
 		BIC(tempReg, tempReg, BIT_SCRATCH);
 
 		// If it was in that range, later compares don't matter.
-		CMP(R0, AssumeMakeOperand2(PSP_GetKernelMemoryBase()));
-		SetCC(CC_LO);
-		BIC(tempReg, tempReg, BIT_RAM);
-		SetCC(CC_HS);
-		CMP(R0, AssumeMakeOperand2(PSP_GetUserMemoryEnd()));
-		BIC(tempReg, tempReg, BIT_RAM);
-
 		CMP(R0, AssumeMakeOperand2(PSP_GetVidMemBase()));
 		SetCC(CC_LO);
 		BIC(tempReg, tempReg, BIT_VRAM);
 		SetCC(CC_HS);
 		CMP(R0, AssumeMakeOperand2(PSP_GetVidMemEnd()));
 		BIC(tempReg, tempReg, BIT_VRAM);
+
+		CMP(R0, AssumeMakeOperand2(PSP_GetKernelMemoryBase()));
+		SetCC(CC_LO);
+		BIC(tempReg, tempReg, BIT_RAM);
+		SetCC(CC_HS);
+		CMP(R0, AssumeMakeOperand2(PSP_GetUserMemoryEnd()));
+		BIC(tempReg, tempReg, BIT_RAM);
 
 		// If we left any bit set, the address is OK.
 		SetCC(CC_AL);
