@@ -49,5 +49,7 @@
 	</array>
 	<key>UILaunchImageFile</key>
 	<string>assets/Default.png</string>
+	<key>UIFileSharingEnabled</key>
+	<true/>
 </dict>
 </plist>
