@@ -74,13 +74,15 @@ int sceUtilitySavedataShutdownStart()
 
 int sceUtilitySavedataGetStatus()
 {
-	return saveDialog.GetStatus();
+	int status = saveDialog.GetStatus();
+	DEBUG_LOG(HLE,"%08x=sceUtilitySavedataGetStatus()", status);
+	return status;
 }
 
 int sceUtilitySavedataUpdate(int animSpeed)
 {
 	DEBUG_LOG(HLE,"sceUtilitySavedataUpdate(%d)", animSpeed);
-	return saveDialog.Update();
+	return hleDelayResult(saveDialog.Update(), "savedata update", 300);
 }
 
 #define PSP_AV_MODULE_AVCODEC		0
