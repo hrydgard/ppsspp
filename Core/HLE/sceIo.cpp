@@ -52,6 +52,8 @@ const int ERROR_MEMSTICK_DEVCTL_BAD_PARAMS         = 0x80220081;
 const int ERROR_MEMSTICK_DEVCTL_TOO_MANY_CALLBACKS = 0x80220082;
 const int ERROR_KERNEL_BAD_FILE_DESCRIPTOR		   = 0x80020323;
 
+const int ERROR_PGD_INVALID_HEADER				   = 0x80510204;
+
 #define PSP_DEV_TYPE_ALIAS 0x20
 
 /*
@@ -1384,7 +1386,7 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 				pspFileSystem.SeekFile(f->handle, (s32)0, FILEMOVE_BEGIN);
 				if(memcmp(pgd_header, pgd_magic, 4)==0){
 					// File is PGD file, but key mismatch
-					return 0x80510204;
+					return ERROR_PGD_INVALID_HEADER;
 				}else{
 					// File is decrypted.
 					return 0;
