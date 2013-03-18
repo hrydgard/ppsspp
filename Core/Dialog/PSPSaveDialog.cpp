@@ -21,6 +21,7 @@
 #include "../Core/MemMap.h"
 #include "../Config.h"
 #include "Core/Reporting.h"
+#include "Core/HW/MemoryStick.h"
 
 PSPSaveDialog::PSPSaveDialog()
 	: PSPDialog()
@@ -91,6 +92,7 @@ int PSPSaveDialog::Init(int paramAddr)
 		case SCE_UTILITY_SAVEDATA_TYPE_WRITEDATASECURE:
 		case SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE:
 		case SCE_UTILITY_SAVEDATA_TYPE_SINGLEDELETE:
+		case SCE_UTILITY_SAVEDATA_TYPE_DELETEDATA:
 			display = DS_NONE;
 			break;
 		case SCE_UTILITY_SAVEDATA_TYPE_DELETE: // This run on PSP display a list of all save on the PSP. Weird. (Not really, it's to let you free up space)
@@ -729,14 +731,23 @@ int PSPSaveDialog::Update()
 					status = SCE_UTILITY_STATUS_FINISHED;
 				break;
 				case SCE_UTILITY_SAVEDATA_TYPE_GETSIZE:
-					if(param.GetSize(param.GetPspParam()))
 					{
-						param.GetPspParam()->result = 0;
+						bool result = param.GetSize(param.GetPspParam());
+						// TODO: According to JPCSP, should test/verify this part but seems edge casey.
+						if (MemoryStick_State() != PSP_MEMORYSTICK_STATE_DRIVER_READY)
+							param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_MEMSTICK;
+						else if (result)
+							param.GetPspParam()->result = 0;
+						else
+							param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
+						status = SCE_UTILITY_STATUS_FINISHED;
 					}
-					else
-					{
-						param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
-					}
+				break;
+				case SCE_UTILITY_SAVEDATA_TYPE_DELETEDATA:
+					// TODO: This should probably actually delete something.
+					// For now, since MAKEDATA doesn't work anyway, always say it couldn't be deleted.
+					WARN_LOG(HLE, "FAKE sceUtilitySavedata DELETEDATA: %s", param.GetPspParam()->saveName);
+					param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_RW_BAD_STATUS;
 					status = SCE_UTILITY_STATUS_FINISHED;
 				break;
 				case SCE_UTILITY_SAVEDATA_TYPE_SINGLEDELETE:

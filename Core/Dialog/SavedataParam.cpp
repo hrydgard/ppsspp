@@ -905,9 +905,36 @@ bool SavedataParam::GetSize(SceUtilitySavedataParam *param)
 		return false;
 	}
 
-	// TODO code this
+	std::string saveDir = savePath + GetGameName(param) + GetSaveName(param);
+	PSPFileInfo info = pspFileSystem.GetFileInfo(saveDir);
+	bool exists = info.exists;
 
-	return false;
+	if (Memory::IsValidAddress(param->sizeAddr))
+	{
+		PspUtilitySavedataSizeInfo sizeInfo;
+		Memory::ReadStruct(param->sizeAddr, &sizeInfo);
+
+		// TODO: Read the entries and count up the size vs. existing size?
+
+		sizeInfo.sectorSize = (int)MemoryStick_SectorSize();
+		sizeInfo.freeSectors = (int)(MemoryStick_FreeSpace() / MemoryStick_SectorSize());
+
+		// TODO: Is this after the specified files?  Before?
+		sizeInfo.freeKB = (int)(MemoryStick_FreeSpace() / 1024);
+		std::string spaceTxt = SavedataParam::GetSpaceText((int)MemoryStick_FreeSpace());
+		strncpy(sizeInfo.freeString, spaceTxt.c_str(), 8);
+		sizeInfo.freeString[7] = '\0';
+
+		// TODO.
+		sizeInfo.neededKB = 0;
+		strcpy(sizeInfo.neededString, "0 KB");
+		sizeInfo.overwriteKB = 0;
+		strcpy(sizeInfo.overwriteString, "0 KB");
+
+		Memory::WriteStruct(param->sizeAddr, &sizeInfo);
+	}
+
+	return exists;
 }
 
 void SavedataParam::Clear()
