@@ -124,7 +124,10 @@ int sceUtilitySavedataUpdate(int animSpeed)
 	}
 
 	DEBUG_LOG(HLE,"sceUtilitySavedataUpdate(%d)", animSpeed);
-	return hleDelayResult(saveDialog.Update(), "savedata update", 300);
+	int result = saveDialog.Update();
+	if (result >= 0)
+		return hleDelayResult(result, "savedata update", 300);
+	return result;
 }
 
 #define PSP_AV_MODULE_AVCODEC		0
