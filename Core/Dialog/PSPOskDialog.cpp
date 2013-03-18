@@ -65,7 +65,7 @@ int PSPOskDialog::Init(u32 oskPtr)
 	// Ignore if already running
 	if (status != SCE_UTILITY_STATUS_NONE && status != SCE_UTILITY_STATUS_SHUTDOWN)
 	{
-		return -1;
+		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 	status = SCE_UTILITY_STATUS_INITIALIZE;
 

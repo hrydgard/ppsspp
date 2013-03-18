@@ -40,7 +40,7 @@ int PSPSaveDialog::Init(int paramAddr)
 	if (status != SCE_UTILITY_STATUS_NONE && status != SCE_UTILITY_STATUS_SHUTDOWN)
 	{
 		ERROR_LOG(HLE,"A save request is already running !");
-		return 0;
+		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 
 	int size = Memory::Read_U32(paramAddr);
