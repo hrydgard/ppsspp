@@ -37,8 +37,8 @@ const int PSP_POWER_CB_BATTERY_FULL = 0x00000064;
 
 const int POWER_CB_AUTO = -1;
 
-const int MODEL_PSP_FAT	= 0;
-const int MODEL_PSP_SLIM = 1;
+const int PSP_MODEL_FAT	= 0;
+const int PSP_MODEL_SLIM = 1;
 
 const int numberOfCBPowerSlots = 16;
 const int numberOfCBPowerSlotsPrivate = 32;
@@ -285,7 +285,7 @@ float scePowerGetBusClockFrequencyFloat() {
 
 
 u32 IsPSPNonFat() {
-	return MODEL_PSP_SLIM;  
+	return PSP_MODEL_FAT;  
 }
 
 static const HLEFunction scePower[] = {
