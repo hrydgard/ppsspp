@@ -631,7 +631,7 @@ u32 npdrmLseek(FileNode *f, s32 where, FileMove whence)
 
 s64 __IoLseek(SceUID id, s64 offset, int whence) {
 	u32 error;
-	FileNode *f = kernelObjects.Get<FileNode>(id, error);
+	FileNode *f = kernelObjects.Get < FileNode > (id, error);
 	if (f) {
 		FileMove seek = FILEMOVE_BEGIN;
 
@@ -678,7 +678,7 @@ s64 sceIoLseek(int id, s64 offset, int whence) {
 u32 sceIoLseek32(int id, int offset, int whence) {
 	s32 result = (s32) __IoLseek(id, offset, whence);
 	if (result >= 0) {
-		DEBUG_LOG(HLE, "%lli = sceIoLseek(%d, %x, %i)", result, id, offset, whence);
+		DEBUG_LOG(HLE, "%i = sceIoLseek(%d, %x, %i)", result, id, offset, whence);
 		// Educated guess at timing.
 		return hleDelayResult(result, "io seek", 100);
 	} else {
@@ -934,7 +934,6 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 		case 0x02425824:  // Check if write protected
 			if (Memory::IsValidAddress(outPtr) && outLen == 4) {
 				Memory::Write_U32(0, outPtr);
-				hleDebugBreak();
 				return 0;
 			} else {
 				ERROR_LOG(HLE, "Failed 0x02425824 fat");
@@ -1387,7 +1386,7 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 			pspFileSystem.ReadFile(f->handle, pgd_header, 0x90);
 			f->pgdInfo = pgd_open(pgd_header, 2, keybuf);
 			if(f->pgdInfo==NULL){
-				DEBUG_LOG(HLE, "Not a valid PGD file. Open as normal file.");
+				ERROR_LOG(HLE, "Not a valid PGD file. Open as normal file.");
 				f->npdrm = false;
 				pspFileSystem.SeekFile(f->handle, (s32)0, FILEMOVE_BEGIN);
 				if(memcmp(pgd_header, pgd_magic, 4)==0){
