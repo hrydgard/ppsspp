@@ -543,7 +543,7 @@ u32 sceDisplayWaitVblank() {
 		return 0;
 	} else {
 		DEBUG_LOG(HLE,"sceDisplayWaitVblank() - not waiting since in vBlank");
-		hleEatMicro(5);
+		hleEatCycles(5 * 222);
 		return 1;
 	}
 }
@@ -563,7 +563,7 @@ u32 sceDisplayWaitVblankCB() {
 		return 0;
 	} else {
 		DEBUG_LOG(HLE,"sceDisplayWaitVblank() - not waiting since in vBlank");
-		hleEatMicro(5);
+		hleEatCycles(5 * 222);
 		return 1;
 	}
 }
@@ -585,7 +585,7 @@ u32 sceDisplayWaitVblankStartMultiCB(int vblanks) {
 u32 sceDisplayGetVcount() {
 	VERBOSE_LOG(HLE,"%i=sceDisplayGetVcount()", vCount);
 
-	hleEatMicro(2);
+	hleEatCycles(2 * 222);
 	return vCount;
 }
 

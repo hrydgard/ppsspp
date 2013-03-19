@@ -64,6 +64,7 @@ int sceKernelGetSystemTime(u32 sysclockPtr)
 	u64 t = CoreTiming::GetTicks() / CoreTiming::GetClockFrequencyMHz();
 	Memory::Write_U64(t, sysclockPtr);
 	DEBUG_LOG(HLE, "sceKernelGetSystemTime(out:%16llx)", t);
+	hleEatCycles(2 * 222);
 	return 0;
 }
 
@@ -107,6 +108,7 @@ int sceKernelSysClock2USec(u32 sysclockPtr, u32 highPtr, u32 lowPtr)
 		Memory::Write_U32(highResult, highPtr);
 	if (Memory::IsValidAddress(lowPtr))
 		Memory::Write_U32(lowResult, lowPtr);
+	hleEatCycles(2 * 222);
 	return 0;
 }
 
