@@ -345,10 +345,15 @@ u64 hleDelayResult(u64 result, const char *reason, int usec)
 	return result;
 }
 
-void hleEatMicro(int usec)
+void hleEatCycles(int cycles)
 {
 	// Maybe this should Idle, at least for larger delays?  Could that cause issues?
-	currentMIPS->downcount -= (int) usToCycles(usec);
+	currentMIPS->downcount -= cycles;
+}
+
+void hleEatMicro(int usec)
+{
+	hleEatCycles((int) usToCycles(usec));
 }
 
 inline void hleFinishSyscall(int modulenum, int funcnum)
