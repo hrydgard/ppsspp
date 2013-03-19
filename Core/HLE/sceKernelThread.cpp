@@ -431,30 +431,38 @@ public:
 	u32 stackBlock;
 };
 
-// std::vector<SceUID> with push_front(), remove(), etc.
 struct ThreadList
 {
+	static const int START_PAD = 0x10;
+	size_t start;
 	std::vector<SceUID> list;
+
+	ThreadList() : start(START_PAD)
+	{
+		list.resize(START_PAD);
+	}
 
 	inline bool empty() const
 	{
-		return list.empty();
+		return start == list.size();
 	}
 
 	inline size_t size() const
 	{
-		return list.size();
+		return list.size() - start;
 	}
 
 	inline SceUID &front()
 	{
-		return list.front();
+		return list[start];
 	}
 
 	inline void push_front(const SceUID threadID)
 	{
 		if (empty())
 			push_back(threadID);
+		else if (start > 0)
+			list[--start] = threadID;
 		else
 		{
 			size_t oldSize = list.size();
@@ -471,24 +479,52 @@ struct ThreadList
 
 	inline void pop_front()
 	{
-		size_t newSize = list.size() - 1;
-		list.resize(newSize);
-		if (newSize > 0)
-			memmove(&list[0], &list[1], newSize * sizeof(SceUID));
+		if (start < START_PAD)
+			++start;
+		else
+		{
+			size_t newSize = list.size() - 1;
+			list.resize(newSize);
+			if (newSize > 0)
+				memmove(&list[0], &list[1], newSize * sizeof(SceUID));
+		}
 	}
 
 	inline void pop_back()
 	{
-		list.pop_back();
+		if (list.size() > START_PAD)
+			list.pop_back();
+		else
+			start = START_PAD;
 	}
 
 	inline void remove(const SceUID threadID)
 	{
-		list.erase(std::remove(list.begin(), list.end(), threadID), list.end());
+		if (empty())
+			return;
+		if (front() == threadID)
+		{
+			++start;
+			return;
+		}
+
+		auto new_end = std::remove(list.begin(), list.end(), threadID);
+		if (new_end - list.begin() >= START_PAD)
+			list.erase(new_end, list.end());
+		// TODO: Probably not efficient, but probably won't hit often hopefully?
+		else if (new_end != list.end())
+		{
+			++start;
+			size_t oldSize = list.size();
+			list.resize(START_PAD);
+			if (oldSize > 0)
+				memmove(&list[0], &list[1], oldSize * sizeof(SceUID));
+		}
 	}
 
 	void DoState(PointerWrap &p)
 	{
+		p.Do(start);
 		p.Do(list);
 	}
 };
