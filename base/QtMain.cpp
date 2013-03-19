@@ -75,7 +75,7 @@ int main(int argc, char *argv[])
 #endif
 	NativeInit(argc, (const char **)argv, savegame_dir, QDir::tempPath().toStdString().c_str(), "BADCOFFEE");
 
-#if defined(USING_GLES2)
+#ifndef Q_WS_X11
 	MainUI w(dpi_scale);
 	w.setAttribute(Qt::WA_LockLandscapeOrientation);
 	w.resize(pixel_xres, pixel_yres);
