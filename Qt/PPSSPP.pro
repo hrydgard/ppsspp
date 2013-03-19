@@ -10,14 +10,14 @@ include(Settings.pri)
 
 # Libs
 symbian: LIBS += -lCore.lib -lCommon.lib -lNative.lib
-blackberry: LIBS += -L. -lCore -lCommon -lNative -lscreen -lsocket -lstdc++
+qnx: LIBS += -L. -lCore -lCommon -lNative -lscreen -lz
 win32 {
 	CONFIG(release, debug|release) {
 		LIBS += -L$$OUT_PWD/release
 	} else {
 		LIBS += -L$$OUT_PWD/debug
     }
-	LIBS += -lCore -lCommon -lNative -lwinmm -lws2_32 -lkernel32 -luser32 -lgdi32 -lshell32 -lcomctl32 -ldsound -lxinput
+	LIBS += -lCore -lCommon -lNative -lwinmm -lws2_32
 }
 linux: LIBS += -L. -lCore -lCommon -lNative
 

@@ -1,5 +1,5 @@
 DEFINES += USING_QT_UI
-unix:!blackberry:!symbian:!macx: CONFIG += linux
+unix:!qnx:!symbian:!macx: CONFIG += linux
 
 # Global specific
 DEFINES -= UNICODE
@@ -35,15 +35,12 @@ gleslib = $$find(gleslib, "gles")
 
 # Platform specific
 contains(MEEGO_EDITION,harmattan): DEFINES += MEEGO_EDITION_HARMATTAN "_SYS_UCONTEXT_H=1"
-blackberry: {
-# They try to force QCC with all mkspecs
-# QCC is 4.4.1, we need 4.6.3
-	QMAKE_CC = ntoarmv7-gcc
-	QMAKE_CXX = ntoarmv7-g++
+qnx {
+	# Use mkspec: unsupported/qws/qnx-armv7-g++
 	DEFINES += BLACKBERRY BLACKBERRY10 "_QNX_SOURCE=1" "_C99=1"
 }
-symbian: {
-# Does not seem to be a way to change to armv6 compile so just override in variants.xml (see README)
+symbian {
+	# Does not seem to be a way to change to armv6 compile so just override in variants.xml (see README)
 	MMP_RULES -= "ARMFPU softvfp+vfpv2"
 	MMP_RULES += "ARMFPU vfpv2"
 	QMAKE_CXXFLAGS += -marm -Wno-parentheses -Wno-comment
