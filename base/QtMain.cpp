@@ -12,7 +12,7 @@
 #include <QDesktopServices>
 
 #ifdef __SYMBIAN32__
-#include <AknAppUi.h>
+#include <e32std.h>
 #endif
 #include "QtMain.h"
 
@@ -41,7 +41,7 @@ float CalculateDPIScale()
 {
 	// Sane default for Symbian, Blackberry and Meego
 #ifdef __SYMBIAN32__
-	return 1.3f;
+	return 1.4f;
 #else
 	return 1.2f;
 #endif
@@ -54,8 +54,6 @@ int main(int argc, char *argv[])
 #endif
 	QApplication a(argc, argv);
 #ifdef __SYMBIAN32__
-	// Lock orientation to landscape on Symbian
-	QT_TRAP_THROWING(dynamic_cast<CAknAppUi*>(CEikonEnv::Static()->AppUi())->SetOrientationL(CAknAppUi::EAppUiOrientationLandscape));
 	// Set RunFast hardware mode for VFPv2. Denormalised values are treated as 0. NaN used for all NaN situations.
 	User::SetFloatingPointMode(EFpModeRunFast);
 #endif
@@ -79,6 +77,7 @@ int main(int argc, char *argv[])
 
 #if defined(USING_GLES2)
 	MainUI w(dpi_scale);
+	w.setAttribute(Qt::WA_LockLandscapeOrientation);
 	w.resize(pixel_xres, pixel_yres);
 	w.showFullScreen();
 #endif
