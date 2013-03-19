@@ -16,5 +16,6 @@ namespace OMAConvert {
 
 	int getOMANumberAudioChannels(u8* oma);
 
+	int getRIFFSize(u8* riff, int bufsize);
 } // namespace OMAConvert
 

@@ -24,6 +24,7 @@ private:
 
 bool loadPMFStream(u8* pmf, int pmfsize);
 bool loadPMFPSFFile(const char *filename, int mpegsize = -1);
+bool loadPMFPackageFile(const char* package, u32 startpos, int mpegsize, u8* buffer);
 bool deletePMFStream();
 mediaPlayer* getPMFPlayer();
 bool playPMFVideo();

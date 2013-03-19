@@ -194,4 +194,15 @@ int getOMANumberAudioChannels(u8* oma)
 	return channels;
 }
 
+int getRIFFSize(u8* riff, int bufsize)
+{
+	const int firstChunkOffset = 12;
+	int fmtChunkOffset = getChunkOffset(riff, bufsize, FMT_CHUNK_MAGIC, firstChunkOffset);
+	int dataChunkOffset = getChunkOffset(riff, bufsize, DATA_CHUNK_MAGIC, firstChunkOffset);
+	if (fmtChunkOffset < 0 || dataChunkOffset < 0)
+		return 0;
+	int dataSize = getBufValue((int*)riff, dataChunkOffset + 4);
+	return dataSize + dataChunkOffset + 8;
+}
+
 } // namespace OMAConvert

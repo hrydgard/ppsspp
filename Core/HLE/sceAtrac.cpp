@@ -503,8 +503,14 @@ u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize)
 			pspFileSystem.CloseFile(h);
 			delete [] buf;
 		}
-		else
+		else if (!addAtrac3AudioByPackage(Memory::lastestAccessFile.packagefile, 
+			           Memory::lastestAccessFile.start_pos, atrac->first.filesize, 
+					   Memory::GetPointer(buffer), atracID))
+		{
+			ERROR_LOG(HLE, "failed to find audio stream from package: %s", Memory::lastestAccessFile.packagefile);
 			addAtrac3Audio(Memory::GetPointer(buffer), bufferSize, atracID);
+		}
+			
 #endif // _WIN32
 	}
 	return 0;
@@ -534,8 +540,13 @@ int sceAtracSetDataAndGetID(u32 buffer, u32 bufferSize)
 		pspFileSystem.CloseFile(h);
 		delete [] buf;
 	}
-	else
+	else if (!addAtrac3AudioByPackage(Memory::lastestAccessFile.packagefile, 
+			     Memory::lastestAccessFile.start_pos, atrac->first.filesize, 
+				 Memory::GetPointer(buffer), atracID))
+	{
+		ERROR_LOG(HLE, "failed to find audio stream from package: %s", Memory::lastestAccessFile.packagefile);
 		addAtrac3Audio(Memory::GetPointer(buffer), bufferSize, atracID);
+	}
 #endif // _WIN32
 	return atracID;
 }

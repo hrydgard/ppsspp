@@ -41,6 +41,8 @@ private:
 };
 
 void addAtrac3Audio(u8* stream, int streamsize, int atracID);
+bool addAtrac3AudioByPackage(const char* package, u32 startpos, int audiosize, 
+	                        u8* buffer, int atracID);
 audioEngine* getaudioEngineByID(int atracID);
 void deleteAtrac3Audio(int atracID);
 void shutdownEngine();

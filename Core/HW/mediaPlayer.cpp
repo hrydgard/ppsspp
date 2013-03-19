@@ -99,14 +99,17 @@ bool mediaPlayer::load(const char* filename)
 	// Allocate video frame
 	m_pFrame = avcodec_alloc_frame();
 
+	// make the image size the same as PSP window
+	int desWidth = 480;
+	int desHeight = 272;
 	m_sws_ctx = (void*)
     sws_getContext
     (
         pCodecCtx->width,
         pCodecCtx->height,
         pCodecCtx->pix_fmt,
-        pCodecCtx->width,
-        pCodecCtx->height,
+        desWidth,
+        desHeight,
         PIX_FMT_RGB24,
         SWS_BILINEAR,
         NULL,
@@ -116,11 +119,11 @@ bool mediaPlayer::load(const char* filename)
 
 	// Allocate video frame for RGB24
 	m_pFrameRGB = avcodec_alloc_frame();
-	int numBytes = avpicture_get_size(PIX_FMT_RGB24, pCodecCtx->width, pCodecCtx->height);  
+	int numBytes = avpicture_get_size(PIX_FMT_RGB24, desWidth, desHeight);  
     m_buffer = (u8 *)av_malloc(numBytes*sizeof(uint8_t));
   
     // Assign appropriate parts of buffer to image planes in pFrameRGB   
-    avpicture_fill((AVPicture *)m_pFrameRGB, m_buffer, PIX_FMT_RGB24, pCodecCtx->width, pCodecCtx->height);  
+    avpicture_fill((AVPicture *)m_pFrameRGB, m_buffer, PIX_FMT_RGB24, desWidth, desHeight);  
 
 	return true;
 }
@@ -165,8 +168,9 @@ bool mediaPlayer::writeVideoImage(u8* buffer, int frameWidth, int videoPixelMode
 			if(frameFinished) {
 				sws_scale((SwsContext*)m_sws_ctx, pFrame->data, pFrame->linesize, 0, 
 					pCodecCtx->height, pFrameRGB->data, pFrameRGB->linesize);
-				int height = pCodecCtx->height;
-				int width = pCodecCtx->width;
+				// lock the image size
+				int height = 272;
+				int width = 480;
 				u8* imgbuf = buffer;
 				u8* data = pFrameRGB->data[0];
 				if (videoPixelMode == 3)
@@ -279,6 +283,29 @@ bool loadPMFPSFFile(const char *filename, int mpegsize)
 	return bResult;
 }
 
+bool loadPMFPackageFile(const char* package, u32 startpos, int mpegsize, u8* buffer)
+{
+	if (strlen(package) < 10)
+		return false;
+	u32 h = pspFileSystem.OpenFile(package, (FileAccess) FILEACCESS_READ);
+	if (h == 0) 
+		return false;
+	int filesize = mpegsize + 0x2000;
+	u8* buf = new u8[filesize];
+	pspFileSystem.SeekFile(h, startpos, FILEMOVE_BEGIN);
+	filesize = pspFileSystem.ReadFile(h, buf, filesize);
+	pspFileSystem.CloseFile(h);
+
+	bool bResult;
+	if (memcmp(buffer, buf , 0x20) == 0)
+		bResult = loadPMFStream(buf, filesize);
+	else
+		bResult = false;
+	delete [] buf;
+
+	return bResult;
+}
+
 bool deletePMFStream()
 {
 	if (!bPlaying)
@@ -312,6 +339,7 @@ UINT WINAPI loopPlaying(LPVOID lpvoid)
 		if (!g_pmfPlayer.writeVideoImage(g_FramebufferMoviePlayingbuf, 
 			g_FramebufferMoviePlayinglinesize, 3))
 		{
+			g_FramebufferMoviePlaying = false;
 			bStop = true;
 			return 0;
 		}

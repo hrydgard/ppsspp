@@ -117,8 +117,12 @@ enum
 
 #ifdef _WIN32
 extern struct LASTESTACCESSFILE{
+// media file
 	char filename[256];
 	u32 data_addr;
+// package file
+	char packagefile[256];
+	u32 start_pos;
 } lastestAccessFile;
 #endif // _WIN32
 

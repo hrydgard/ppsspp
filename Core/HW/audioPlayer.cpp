@@ -9,6 +9,8 @@
 #include <map>
 #include <process.h>
 
+#include "../Core/System.h"
+
 #define JIF(x) if (FAILED(hr=(x))) \
     {return false;}
 #define KIF(x) if (FAILED(hr=(x))) \
@@ -242,6 +244,31 @@ void addAtrac3Audio(u8* stream, int streamsize, int atracID)
 	audioMap[atracID] = temp;
 	if (!bResult)
 		temp->closeMedia();
+}
+
+bool addAtrac3AudioByPackage(const char* package, u32 startpos, int audiosize, 
+	u8* buffer, int atracID)
+{
+	if (strlen(package) < 10)
+		return false;
+	u32 h = pspFileSystem.OpenFile(package, (FileAccess) FILEACCESS_READ);
+	if (h == 0) 
+		return false;
+	int filesize = OMAConvert::getRIFFSize(buffer, 0x2000) + 0x2000;
+	if (filesize == 0x2000)
+		return false;
+	u8* buf = new u8[filesize];
+	pspFileSystem.SeekFile(h, startpos, FILEMOVE_BEGIN);
+	filesize = pspFileSystem.ReadFile(h, buf, filesize);
+	pspFileSystem.CloseFile(h);
+
+	bool bResult = true;
+	if (memcmp(buffer, buf , 0x20) == 0)
+		addAtrac3Audio(buf, filesize, atracID);
+	else
+		bResult = false;
+	delete [] buf;
+	return bResult;
 }
 
 audioEngine* getaudioEngineByID(int atracID)
