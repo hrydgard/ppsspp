@@ -90,6 +90,7 @@ void hleDebugBreak();
 // Delays the result for usec microseconds, allowing other threads to run during this time.
 u32 hleDelayResult(u32 result, const char *reason, int usec);
 u64 hleDelayResult(u64 result, const char *reason, int usec);
+void hleEatCycles(int cycles);
 void hleEatMicro(int usec);
 
 inline int hleDelayResult(int result, const char *reason, int usec)
