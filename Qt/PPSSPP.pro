@@ -9,7 +9,7 @@ win32: QT += multimedia
 include(Settings.pri)
 
 # Libs
-symbian: LIBS += -lCore.lib -lCommon.lib -lNative.lib -lcone -leikcore -lavkon -lezlib
+symbian: LIBS += -lCore.lib -lCommon.lib -lNative.lib
 blackberry: LIBS += -L. -lCore -lCommon -lNative -lscreen -lsocket -lstdc++
 win32 {
 	CONFIG(release, debug|release) {
