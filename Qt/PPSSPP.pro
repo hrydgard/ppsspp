@@ -45,9 +45,7 @@ SOURCES += ../android/jni/EmuScreen.cpp \
 INCLUDEPATH += .. ../Common ../native
 
 # Temporarily only use new UI for Linux desktop
-mobile_platform {
-	SOURCES += ../android/jni/NativeApp.cpp
-} else {
+linux:!mobile_platform {
 	MOC_DIR = moc
 	UI_DIR = ui
 	RCC_DIR = rcc
@@ -56,6 +54,8 @@ mobile_platform {
 	FORMS += *.ui
 	RESOURCES += resources.qrc
 	INCLUDEPATH += ../Qt
+} else {
+	SOURCES += ../android/jni/NativeApp.cpp
 }
 
 # Translations
