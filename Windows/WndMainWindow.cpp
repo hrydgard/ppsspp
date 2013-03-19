@@ -249,9 +249,6 @@ namespace MainWindow
 //			Update();
 			break;
 
-		case WM_LBUTTONDBLCLK:
-			MessageBox(0,"Fullscreen isn't implemented yet","Sorry",0);
-			break;
 		case WM_PAINT:
 			return DefWindowProc(hWnd, message, wParam, lParam);
 		default:
@@ -747,6 +744,7 @@ namespace MainWindow
 	}
 
 	const char *controllist[] = {
+		"TURBO MODE\tHold TAB",
 		"Start\tSpace",
 		"Select\tV",
 		"Square\tA",

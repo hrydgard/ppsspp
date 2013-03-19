@@ -223,7 +223,7 @@ BEGIN
         MENUITEM "&Run on load",                ID_EMULATION_RUNONLOAD
         MENUITEM SEPARATOR
         MENUITEM "&Interpreter",                ID_CPU_INTERPRETER
-        MENUITEM "&Dynarec",                    ID_CPU_DYNAREC, CHECKED
+        MENUITEM "&Dynarec (JIT)",                    ID_CPU_DYNAREC, CHECKED
     END
     POPUP "Debu&g"
     BEGIN
