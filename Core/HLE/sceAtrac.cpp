@@ -25,9 +25,9 @@
 #include "ChunkFile.h"
 #include "../Core/System.h"
 
-#ifdef _WIN32
+#ifdef _USE_DSHOW_
 #include "../HW/audioPlayer.h"
-#endif // _WIN32
+#endif // _USE_DSHOW_
 
 #include "sceKernel.h"
 #include "sceUtility.h"
@@ -98,9 +98,9 @@ void __AtracShutdown() {
 		delete it->second;
 	}
 	atracMap.clear();
-#ifdef _WIN32
+#ifdef _USE_DSHOW_
 	shutdownEngine();
-#endif //_WIN32
+#endif // _USE_DSHOW_
 }
 
 Atrac *getAtrac(int atracID) {
@@ -196,13 +196,13 @@ u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd)
 u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishFlagAddr, u32 remainAddr)
 {
 	DEBUG_LOG(HLE, "FAKE sceAtracDecodeData(%i, %08x, %08x, %08x, %08x)", atracID, outAddr, numSamplesAddr, finishFlagAddr, remainAddr);
-#ifdef _WIN32
+#ifdef _USE_DSHOW_
 	audioEngine *engine = getaudioEngineByID(atracID);
 	if (engine != NULL)
 	{
 		engine->play();
 	}
-#endif // _WIN32
+#endif // _USE_DSHOW_
 	Atrac *atrac = getAtrac(atracID);
 
 	u32 ret = 0;
@@ -436,9 +436,9 @@ u32 sceAtracGetStreamDataInfo(int atracID, u32 writeAddr, u32 writableBytesAddr,
 u32 sceAtracReleaseAtracID(int atracID)
 {
 	ERROR_LOG(HLE, "UNIMPL sceAtracReleaseAtracID(%i)", atracID);
-#ifdef _WIN32
+#ifdef _USE_DSHOW_
 	deleteAtrac3Audio(atracID);
-#endif //_WIN32
+#endif // _USE_DSHOW_
 	deleteAtrac(atracID);
 	return 0;
 }
@@ -489,7 +489,7 @@ u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize)
 		atrac->first.addr = buffer;
 		atrac->first.size = bufferSize;
 		atrac->Analyze();
-#ifdef _WIN32
+#ifdef _USE_DSHOW_
 		if (Memory::lastestAccessFile.data_addr == buffer)
 		{
 			PSPFileInfo info = pspFileSystem.GetFileInfo(Memory::lastestAccessFile.filename);
@@ -511,7 +511,7 @@ u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize)
 			addAtrac3Audio(Memory::GetPointer(buffer), bufferSize, atracID);
 		}
 			
-#endif // _WIN32
+#endif // _USE_DSHOW_
 	}
 	return 0;
 } 
@@ -526,7 +526,7 @@ int sceAtracSetDataAndGetID(u32 buffer, u32 bufferSize)
 	atrac->first.size = bufferSize;
 	atrac->Analyze();
 	int atracID = createAtrac(atrac);
-#ifdef _WIN32
+#ifdef _USE_DSHOW_
 	if (Memory::lastestAccessFile.data_addr == buffer)
 	{
 		PSPFileInfo info = pspFileSystem.GetFileInfo(Memory::lastestAccessFile.filename);
@@ -547,7 +547,7 @@ int sceAtracSetDataAndGetID(u32 buffer, u32 bufferSize)
 		ERROR_LOG(HLE, "failed to find audio stream from package: %s", Memory::lastestAccessFile.packagefile);
 		addAtrac3Audio(Memory::GetPointer(buffer), bufferSize, atracID);
 	}
-#endif // _WIN32
+#endif // _USE_DSHOW_
 	return atracID;
 }
 
@@ -577,11 +577,11 @@ u32 sceAtracSetLoopNum(int atracID, int loopNum)
 	Atrac *atrac = getAtrac(atracID);
 	if (atrac) {
 		atrac->loopNum = loopNum;
-#ifdef _WIN32
+#ifdef _USE_DSHOW_
 		audioEngine *engine = getaudioEngineByID(atracID);
 		if (engine)
 			engine->setLoop(loopNum);
-#endif // _WIN32
+#endif // _USE_DSHOW_
 	}
 	return 0;
 }

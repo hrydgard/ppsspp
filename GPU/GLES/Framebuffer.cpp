@@ -32,11 +32,9 @@
 #include "GPU/GLES/TextureCache.h"
 #include "GPU/GLES/ShaderManager.h"
 
-#ifdef _WIN32
 bool g_FramebufferMoviePlaying = false;
 u8* g_FramebufferMoviePlayingbuf = 0;
 int g_FramebufferMoviePlayinglinesize = 512;
-#endif // _WIN32
 
 static const char tex_fs[] =
 	"#ifdef GL_ES\n"
@@ -537,7 +535,6 @@ void FramebufferManager::EndFrame() {
 
 void FramebufferManager::BeginFrame() {
 	DecimateFBOs();
-#ifdef _WIN32
 	if (g_FramebufferMoviePlaying && g_FramebufferMoviePlayingbuf) {
 		glstate.cullFace.disable();
 		glstate.depthTest.disable();
@@ -546,7 +543,6 @@ void FramebufferManager::BeginFrame() {
 		glstate.stencilTest.disable();
 		DrawPixels(g_FramebufferMoviePlayingbuf, PSP_DISPLAY_PIXEL_FORMAT_8888, g_FramebufferMoviePlayinglinesize);
 	}
-#endif // _WIN32
 	// NOTE - this is all wrong. At the beginning of the frame is a TERRIBLE time to draw the fb.
 	if (g_Config.bDisplayFramebuffer && displayFramebufPtr_) {
 		INFO_LOG(HLE, "Drawing the framebuffer");

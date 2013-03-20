@@ -55,9 +55,9 @@ u8 *m_pKernelRAM;	// RAM mirrored up to "kernel space". Fully accessible at all 
 u8 *m_pPhysicalVRAM;
 u8 *m_pUncachedVRAM;
 
-#ifdef _WIN32
+#ifdef _USE_FFMPEG_
 struct LASTESTACCESSFILE lastestAccessFile;
-#endif // _WIN32
+#endif // _USE_FFMPEG_
 
 // We don't declare the IO region in here since its handled by other means.
 static const MemoryView views[] =

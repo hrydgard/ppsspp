@@ -1,9 +1,12 @@
-#ifdef _WIN32
+#ifdef _USE_FFMPEG_
 
 #include "mediaPlayer.h"
 #include "OMAConvert.h"
+
+#ifdef _USE_DSHOW_
 #include "MpegDemux.h"
 #include "audioPlayer.h"
+#endif // _USE_DSHOW_
 
 #include "../../GPU/GLES/Framebuffer.h"
 #include "../Core/System.h"
@@ -330,6 +333,8 @@ static bool bFirst = true;
 static volatile bool bPlaying = false;
 static volatile bool bStop = true;
 static mediaPlayer g_pmfPlayer;
+
+#ifdef _USE_DSHOW_
 static audioPlayer *g_pmfaudioPlayer = 0;
 
 bool loadPMFaudioStream(u8* audioStream, int audioSize)
@@ -356,9 +361,11 @@ bool loadPMFaudioStream(u8* audioStream, int audioSize)
 		g_pmfaudioPlayer->closeMedia();
 	return bResult;
 }
+#endif // _USE_DSHOW_
 
 bool loadPMFStream(u8* pmf, int pmfsize)
 {
+#ifdef _USE_DSHOW_
 	MpegDemux *demux = new MpegDemux(pmf, pmfsize, 0);
 	demux->demux(-1);
 	u8 *audioStream;
@@ -368,6 +375,7 @@ bool loadPMFStream(u8* pmf, int pmfsize)
 		loadPMFaudioStream(audioStream, audioSize);
 	}
 	delete demux;
+#endif // _USE_DSHOW_
 
 	bool bResult = g_pmfPlayer.loadStream(pmf, pmfsize);
 	if (!bResult)
@@ -424,11 +432,14 @@ bool deletePMFStream()
 	bPlaying = false;
 	g_FramebufferMoviePlaying = false;
 
-	if (g_pmfaudioPlayer) delete g_pmfaudioPlayer;
-	g_pmfaudioPlayer = 0;
 	g_pmfPlayer.closeMedia();
 
+#ifdef _USE_DSHOW_
+	if (g_pmfaudioPlayer) delete g_pmfaudioPlayer;
+	g_pmfaudioPlayer = 0;
 	DeleteFileA("tmp\\movie.oma");
+#endif // _USE_DSHOW_
+
 	return true;
 }
 
@@ -439,8 +450,10 @@ mediaPlayer* getPMFPlayer()
 
 UINT WINAPI loopPlaying(LPVOID lpvoid)
 {
+#ifdef _USE_DSHOW_
 	if (g_pmfaudioPlayer) 
 		g_pmfaudioPlayer->play();
+#endif // _USE_DSHOW_
 
 	while (bPlaying)
 	{
@@ -477,4 +490,4 @@ bool playPMFVideo()
 	return true;
 }
 
-#endif // _WIN32
+#endif // _USE_FFMPEG_

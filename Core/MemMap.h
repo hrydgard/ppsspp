@@ -115,7 +115,7 @@ enum
 #endif
 };
 
-#ifdef _WIN32
+#ifdef _USE_FFMPEG_
 extern struct LASTESTACCESSFILE{
 // media file
 	char filename[256];
@@ -124,7 +124,7 @@ extern struct LASTESTACCESSFILE{
 	char packagefile[256];
 	u32 start_pos;
 } lastestAccessFile;
-#endif // _WIN32
+#endif // _USE_FFMPEG_
 
 // Init and Shutdown
 void Init();

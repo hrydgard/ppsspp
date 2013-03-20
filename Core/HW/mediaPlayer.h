@@ -1,6 +1,6 @@
 #pragma once
 
-#ifdef _WIN32
+#ifdef _USE_FFMPEG_
 #include "../../Globals.h"
 
 class mediaPlayer
@@ -33,4 +33,4 @@ bool deletePMFStream();
 mediaPlayer* getPMFPlayer();
 bool playPMFVideo();
 
-#endif // WIN32
+#endif // _USE_FFMPEG_

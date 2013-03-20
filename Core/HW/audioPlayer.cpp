@@ -1,4 +1,4 @@
-#ifdef _WIN32
+#ifdef _USE_DSHOW_
 
 #include "audioPlayer.h"
 #include <dshow.h>
@@ -295,4 +295,4 @@ void shutdownEngine()
 	audioMap.clear();
 }
 
-#endif // _WIN32
+#endif // _USE_DSHOW_

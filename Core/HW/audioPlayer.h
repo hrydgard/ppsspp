@@ -1,6 +1,6 @@
 #pragma once
 
-#ifdef _WIN32
+#ifdef _USE_DSHOW_
 
 #include "../../Globals.h"
 
@@ -47,4 +47,4 @@ audioEngine* getaudioEngineByID(int atracID);
 void deleteAtrac3Audio(int atracID);
 void shutdownEngine();
 
-#endif // _WIN32
+#endif // _USE_DSHOW_

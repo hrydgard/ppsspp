@@ -458,7 +458,7 @@ int __IoRead(int id, u32 data_addr, int size) {
 			return ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
 		}
 		else if (Memory::IsValidAddress(data_addr)) {
-#ifdef _WIN32
+#ifdef _USE_FFMPEG_
 			if (f->fullpath.find(".AT3") != std::string::npos ||
 				f->fullpath.find(".at3") != std::string::npos ||
 				f->fullpath.find(".PMF") != std::string::npos ||
@@ -473,7 +473,7 @@ int __IoRead(int id, u32 data_addr, int size) {
 				strcpy(Memory::lastestAccessFile.packagefile, f->fullpath.c_str());
 				Memory::lastestAccessFile.start_pos = pspFileSystem.GetSeekPos(f->handle);
 			}
-#endif // _WIN32
+#endif // _USE_FFMPEG_
 			u8 *data = (u8*) Memory::GetPointer(data_addr);
 			if(f->npdrm){
 				return npdrmRead(f, data, size);
