@@ -431,37 +431,39 @@ public:
 	u32 stackBlock;
 };
 
-// std::vector<SceUID> with push_front(), remove(), etc.
 struct ThreadList
 {
+	static const int START_PAD = 0x10;
+	static const int MIN_PAD = 0x04;
+	size_t start;
 	std::vector<SceUID> list;
+
+	ThreadList() : start(START_PAD)
+	{
+		list.resize(START_PAD);
+	}
 
 	inline bool empty() const
 	{
-		return list.empty();
+		return start == list.size();
 	}
 
 	inline size_t size() const
 	{
-		return list.size();
+		return list.size() - start;
 	}
 
 	inline SceUID &front()
 	{
-		return list.front();
+		return list[start];
 	}
 
 	inline void push_front(const SceUID threadID)
 	{
-		if (empty())
-			push_back(threadID);
+		if (start > 0)
+			list[--start] = threadID;
 		else
-		{
-			size_t oldSize = list.size();
-			list.resize(oldSize + 1);
-			memmove(&list[1], &list[0], oldSize * sizeof(SceUID));
-			list[0] = threadID;
-		}
+			list.insert(list.begin(), threadID);
 	}
 
 	inline void push_back(const SceUID threadID)
@@ -471,24 +473,46 @@ struct ThreadList
 
 	inline void pop_front()
 	{
-		size_t newSize = list.size() - 1;
-		list.resize(newSize);
-		if (newSize > 0)
-			memmove(&list[0], &list[1], newSize * sizeof(SceUID));
+		++start;
 	}
 
 	inline void pop_back()
 	{
 		list.pop_back();
+		rebalance();
 	}
 
 	inline void remove(const SceUID threadID)
 	{
-		list.erase(std::remove(list.begin(), list.end(), threadID), list.end());
+		if (empty())
+			return;
+		if (front() == threadID)
+		{
+			++start;
+			return;
+		}
+
+		auto new_end = std::remove(list.begin(), list.end(), threadID);
+		if (new_end == list.end())
+			return;
+
+		list.erase(new_end, list.end());
+		rebalance();
+	}
+
+	inline void rebalance()
+	{
+		if (list.size() < MIN_PAD)
+		{
+			size_t diff = START_PAD - list.size();
+			start += diff;
+			list.insert(list.begin(), diff, 0);
+		}
 	}
 
 	void DoState(PointerWrap &p)
 	{
+		p.Do(start);
 		p.Do(list);
 	}
 };
@@ -1718,20 +1742,21 @@ int sceKernelRotateThreadReadyQueue(int priority)
 	if (priority <= 0x07 || priority > 0x77)
 		return SCE_KERNEL_ERROR_ILLEGAL_PRIORITY;
 
-	if (!threadReadyQueue[priority].empty())
+	auto &queue = threadReadyQueue[priority];
+	if (!queue.empty())
 	{
 		// In other words, yield to everyone else.
 		if (cur->nt.currentPriority == priority)
 		{
-			threadReadyQueue[priority].push_back(currentThread);
+			queue.push_back(currentThread);
 			cur->nt.status = THREADSTATUS_READY;
 		}
 		// Yield the next thread of this priority to all other threads of same priority.
 		else if (threadReadyQueue[priority].size() > 1)
 		{
 			SceUID first = threadReadyQueue[priority].front();
-			threadReadyQueue[priority].pop_front();
-			threadReadyQueue[priority].push_back(first);
+			queue.pop_front();
+			queue.push_back(first);
 		}
 
 		hleReSchedule("rotatethreadreadyqueue");
