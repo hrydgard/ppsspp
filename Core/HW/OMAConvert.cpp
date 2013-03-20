@@ -140,6 +140,19 @@ int getChunkOffset(u8* riff, int limit, int chunkMagic, int offset) {
 	return -1;
 }
 
+// atrac3plus radio
+// 352kbps 0xff
+// 320kbps 0xe8
+// 256kbps 0xb9
+// 192kbps 0x8b
+// 160kbps 0x74
+// 128kbps 0x5c
+//  96kbps 0x45
+//  64kbps 0x2e
+//  48kbps 0x22
+const u8 atrac3plusradio[] = {0xff, 0xe8, 0xb9, 0x8b, 0x74, 0x5c, 0x45, 0x2e, 0x22};
+const int atrac3plusradiosize = sizeof(atrac3plusradio);
+
 int convertRIFFtoOMA(u8* riff, int riffSize, u8** outputStream)
 {
 	const int firstChunkOffset = 12;
@@ -166,6 +179,28 @@ int convertRIFFtoOMA(u8* riff, int riffSize, u8** outputStream)
 		//headerCode0 = 0x00;
 		//headerCode1 = 0x20;
 		//headerCode2 = 0x30;
+	}
+	else if (magic == AT3_PLUS_MAGIC && headerCode0 == 0x00 
+		&& headerCode1 == 0x28)
+	{
+		bool bsupported = false;
+		for (int i = 0; i < atrac3plusradiosize; i++) {
+			if (atrac3plusradio[i] == headerCode2)
+			{
+				bsupported = true;
+				break;
+			}
+		}
+		if (bsupported == false)
+		{
+			*outputStream = 0;
+			return 0;
+		}
+	}
+	else
+	{
+		*outputStream = 0;
+		return 0;
 	}
 
 	int dataChunkOffset = getChunkOffset(riff, riffSize, DATA_CHUNK_MAGIC, firstChunkOffset);
