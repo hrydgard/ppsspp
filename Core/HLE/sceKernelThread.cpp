@@ -1728,9 +1728,9 @@ int sceKernelRotateThreadReadyQueue(int priority)
 			cur->nt.status = THREADSTATUS_READY;
 		}
 		// Yield the next thread of this priority to all other threads of same priority.
-		else if (threadReadyQueue[priority].size() > 1)
+		else if (queue.size() > 1)
 		{
-			SceUID first = threadReadyQueue[priority].front();
+			SceUID first = queue.front();
 			queue.pop_front();
 			queue.push_back(first);
 		}
