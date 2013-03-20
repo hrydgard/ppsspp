@@ -434,6 +434,7 @@ public:
 struct ThreadList
 {
 	static const int START_PAD = 0x10;
+	static const int MIN_PAD = 0x04;
 	size_t start;
 	std::vector<SceUID> list;
 
@@ -459,17 +460,10 @@ struct ThreadList
 
 	inline void push_front(const SceUID threadID)
 	{
-		if (empty())
-			push_back(threadID);
-		else if (start > 0)
+		if (start > 0)
 			list[--start] = threadID;
 		else
-		{
-			size_t oldSize = list.size();
-			list.resize(oldSize + 1);
-			memmove(&list[1], &list[0], oldSize * sizeof(SceUID));
-			list[0] = threadID;
-		}
+			list.insert(list.begin(), threadID);
 	}
 
 	inline void push_back(const SceUID threadID)
@@ -479,23 +473,13 @@ struct ThreadList
 
 	inline void pop_front()
 	{
-		if (start < START_PAD)
-			++start;
-		else
-		{
-			size_t newSize = list.size() - 1;
-			list.resize(newSize);
-			if (newSize > 0)
-				memmove(&list[0], &list[1], newSize * sizeof(SceUID));
-		}
+		++start;
 	}
 
 	inline void pop_back()
 	{
-		if (list.size() > START_PAD)
-			list.pop_back();
-		else
-			start = START_PAD;
+		list.pop_back();
+		rebalance();
 	}
 
 	inline void remove(const SceUID threadID)
@@ -509,16 +493,20 @@ struct ThreadList
 		}
 
 		auto new_end = std::remove(list.begin(), list.end(), threadID);
-		if (new_end - list.begin() >= START_PAD)
-			list.erase(new_end, list.end());
-		// TODO: Probably not efficient, but probably won't hit often hopefully?
-		else if (new_end != list.end())
+		if (new_end == list.end())
+			return;
+
+		list.erase(new_end, list.end());
+		rebalance();
+	}
+
+	inline void rebalance()
+	{
+		if (list.size() < MIN_PAD)
 		{
-			++start;
-			size_t oldSize = list.size();
-			list.resize(START_PAD);
-			if (oldSize > 0)
-				memmove(&list[0], &list[1], oldSize * sizeof(SceUID));
+			size_t diff = START_PAD - list.size();
+			start += diff;
+			list.insert(list.begin(), diff, 0);
 		}
 	}
 
