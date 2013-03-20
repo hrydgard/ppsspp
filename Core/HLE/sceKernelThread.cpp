@@ -1754,20 +1754,21 @@ int sceKernelRotateThreadReadyQueue(int priority)
 	if (priority <= 0x07 || priority > 0x77)
 		return SCE_KERNEL_ERROR_ILLEGAL_PRIORITY;
 
-	if (!threadReadyQueue[priority].empty())
+	auto &queue = threadReadyQueue[priority];
+	if (!queue.empty())
 	{
 		// In other words, yield to everyone else.
 		if (cur->nt.currentPriority == priority)
 		{
-			threadReadyQueue[priority].push_back(currentThread);
+			queue.push_back(currentThread);
 			cur->nt.status = THREADSTATUS_READY;
 		}
 		// Yield the next thread of this priority to all other threads of same priority.
 		else if (threadReadyQueue[priority].size() > 1)
 		{
 			SceUID first = threadReadyQueue[priority].front();
-			threadReadyQueue[priority].pop_front();
-			threadReadyQueue[priority].push_back(first);
+			queue.pop_front();
+			queue.push_back(first);
 		}
 
 		hleReSchedule("rotatethreadreadyqueue");
