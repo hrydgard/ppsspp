@@ -431,39 +431,37 @@ public:
 	u32 stackBlock;
 };
 
+// std::vector<SceUID> with push_front(), remove(), etc.
 struct ThreadList
 {
-	static const int START_PAD = 0x10;
-	static const int MIN_PAD = 0x04;
-	size_t start;
 	std::vector<SceUID> list;
-
-	ThreadList() : start(START_PAD)
-	{
-		list.resize(START_PAD);
-	}
 
 	inline bool empty() const
 	{
-		return start == list.size();
+		return list.empty();
 	}
 
 	inline size_t size() const
 	{
-		return list.size() - start;
+		return list.size();
 	}
 
 	inline SceUID &front()
 	{
-		return list[start];
+		return list.front();
 	}
 
 	inline void push_front(const SceUID threadID)
 	{
-		if (start > 0)
-			list[--start] = threadID;
+		if (empty())
+			push_back(threadID);
 		else
-			list.insert(list.begin(), threadID);
+		{
+			size_t oldSize = list.size();
+			list.resize(oldSize + 1);
+			memmove(&list[1], &list[0], oldSize * sizeof(SceUID));
+			list[0] = threadID;
+		}
 	}
 
 	inline void push_back(const SceUID threadID)
@@ -473,46 +471,24 @@ struct ThreadList
 
 	inline void pop_front()
 	{
-		++start;
+		size_t newSize = list.size() - 1;
+		list.resize(newSize);
+		if (newSize > 0)
+			memmove(&list[0], &list[1], newSize * sizeof(SceUID));
 	}
 
 	inline void pop_back()
 	{
 		list.pop_back();
-		rebalance();
 	}
 
 	inline void remove(const SceUID threadID)
 	{
-		if (empty())
-			return;
-		if (front() == threadID)
-		{
-			++start;
-			return;
-		}
-
-		auto new_end = std::remove(list.begin(), list.end(), threadID);
-		if (new_end == list.end())
-			return;
-
-		list.erase(new_end, list.end());
-		rebalance();
-	}
-
-	inline void rebalance()
-	{
-		if (list.size() < MIN_PAD)
-		{
-			size_t diff = START_PAD - list.size();
-			start += diff;
-			list.insert(list.begin(), diff, 0);
-		}
+		list.erase(std::remove(list.begin(), list.end(), threadID), list.end());
 	}
 
 	void DoState(PointerWrap &p)
 	{
-		p.Do(start);
 		p.Do(list);
 	}
 };
