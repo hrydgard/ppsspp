@@ -25,6 +25,12 @@ extern "C" {
 //#pragma comment(lib, "swscale.lib")
 //#pragma comment(lib, "avutil.lib")
 
+struct StreamBuffer{
+	unsigned char* buf;
+	int pos;
+	int size;
+};
+
 inline void YUV444toRGB888(u8 ypos, u8 upos, u8 vpos, u8 &r, u8 &g, u8 &b)
 {
 	u8 u = upos - 128;
@@ -44,8 +50,13 @@ mediaPlayer::mediaPlayer(void)
 	m_pCodecCtx = 0;
 	m_pFrame = 0;
 	m_pFrameRGB = 0;
+	m_pIOContext = 0;
 	m_videoStream = -1;
 	m_buffer = 0;
+	m_videobuf = new StreamBuffer;
+	((StreamBuffer *)m_videobuf)->buf = 0;
+	m_tempbuf = new u8[8192];
+
 	if (!g_FramebufferMoviePlayingbuf)
 		g_FramebufferMoviePlayingbuf = new u8[g_FramebufferMoviePlayinglinesize*280*4];
 }
@@ -54,6 +65,10 @@ mediaPlayer::mediaPlayer(void)
 mediaPlayer::~mediaPlayer(void)
 {
 	closeMedia();
+	if (m_tempbuf)
+		delete [] m_tempbuf;
+	if (m_videobuf)
+		delete m_videobuf;
 	if (g_FramebufferMoviePlayingbuf)
 		delete [] g_FramebufferMoviePlayingbuf;
 	g_FramebufferMoviePlayingbuf = 0;
@@ -128,6 +143,99 @@ bool mediaPlayer::load(const char* filename)
 	return true;
 }
 
+static int read_buffer(void *opaque, uint8_t *buf, int buf_size)
+{
+	StreamBuffer *vstream = (StreamBuffer*)opaque;
+	int size = (vstream->size - vstream->pos > buf_size? buf_size: vstream->size - vstream->pos);
+	memcpy(buf, vstream->buf + vstream->pos, size);
+	vstream->pos += size;
+    return size;
+}
+
+bool mediaPlayer::loadStream(u8* buffer, int size, bool bAutofreebuffer)
+{
+	// Register all formats and codecs
+	av_register_all();
+
+	StreamBuffer *vstream = (StreamBuffer*)m_videobuf;
+	vstream->size = size;
+	vstream->pos = 0;
+	if (bAutofreebuffer)
+		vstream->buf = buffer;
+	else
+	{
+		vstream->buf = new u8[size];
+		memcpy(vstream->buf, buffer, size);
+	}
+
+	AVFormatContext *pFormatCtx = avformat_alloc_context();
+	m_pFormatCtx = (void*)pFormatCtx;
+	m_pIOContext = (void*)avio_alloc_context(m_tempbuf, 8192, 0, (void*)vstream, read_buffer, NULL, NULL);
+	pFormatCtx->pb = (AVIOContext*)m_pIOContext;
+  
+	// Open video file
+	if(avformat_open_input((AVFormatContext**)&m_pFormatCtx, "stream", NULL, NULL) != 0)
+		return false;
+
+	if(avformat_find_stream_info(pFormatCtx, NULL) < 0)
+		return false;
+
+	// Find the first video stream
+	for(int i = 0; i < pFormatCtx->nb_streams; i++) {
+		if(pFormatCtx->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO) {
+			m_videoStream = i;
+			break;
+		}
+	}
+	if(m_videoStream == -1)
+		return false;
+
+	// Get a pointer to the codec context for the video stream
+	m_pCodecCtx = (void*)pFormatCtx->streams[m_videoStream]->codec;
+	AVCodecContext *pCodecCtx = (AVCodecContext*)m_pCodecCtx;
+  
+	// Find the decoder for the video stream
+	AVCodec *pCodec = avcodec_find_decoder(pCodecCtx->codec_id);
+	if(pCodec == NULL)
+		return false;
+  
+	// Open codec
+	AVDictionary *optionsDict = 0;
+	if(avcodec_open2(pCodecCtx, pCodec, &optionsDict)<0)
+		return false; // Could not open codec
+  
+	// Allocate video frame
+	m_pFrame = avcodec_alloc_frame();
+
+	// make the image size the same as PSP window
+	int desWidth = 480;
+	int desHeight = 272;
+	m_sws_ctx = (void*)
+    sws_getContext
+    (
+        pCodecCtx->width,
+        pCodecCtx->height,
+        pCodecCtx->pix_fmt,
+        desWidth,
+        desHeight,
+        PIX_FMT_RGB24,
+        SWS_BILINEAR,
+        NULL,
+        NULL,
+        NULL
+    );
+
+	// Allocate video frame for RGB24
+	m_pFrameRGB = avcodec_alloc_frame();
+	int numBytes = avpicture_get_size(PIX_FMT_RGB24, desWidth, desHeight);  
+    m_buffer = (u8 *)av_malloc(numBytes*sizeof(uint8_t));
+  
+    // Assign appropriate parts of buffer to image planes in pFrameRGB   
+    avpicture_fill((AVPicture *)m_pFrameRGB, m_buffer, PIX_FMT_RGB24, desWidth, desHeight);  
+
+	return true;
+}
+
 bool mediaPlayer::closeMedia()
 {
 	if (m_buffer)
@@ -136,13 +244,21 @@ bool mediaPlayer::closeMedia()
 		av_free(m_pFrameRGB);
 	if (m_pFrame)
 		av_free(m_pFrame);
+	if (m_pIOContext)
+		av_free(m_pIOContext);
 	if (m_pCodecCtx)
 		avcodec_close((AVCodecContext*)m_pCodecCtx);
 	if (m_pFormatCtx)
 		avformat_close_input((AVFormatContext**)&m_pFormatCtx);
+	if (((StreamBuffer *)m_videobuf)->buf)
+	{
+		delete [] (((StreamBuffer *)m_videobuf)->buf);
+		((StreamBuffer *)m_videobuf)->buf = 0;
+	}
 	m_buffer = 0;
 	m_pFrame = 0;
 	m_pFrameRGB = 0;
+	m_pIOContext = 0;
 	m_pCodecCtx = 0;
 	m_pFormatCtx = 0;
 	m_videoStream = -1;
@@ -218,6 +334,11 @@ static audioPlayer *g_pmfaudioPlayer = 0;
 
 bool loadPMFaudioStream(u8* audioStream, int audioSize)
 {
+	if (bFirst)
+	{
+		CreateDirectory("tmp", NULL);
+		bFirst = false;
+	}
 	u8 *oma = 0;
 	int omasize = OMAConvert::convertStreamtoOMA(audioStream, audioSize, &oma);
 	if (omasize <= 0)
@@ -238,15 +359,6 @@ bool loadPMFaudioStream(u8* audioStream, int audioSize)
 
 bool loadPMFStream(u8* pmf, int pmfsize)
 {
-	if (bFirst)
-	{
-		CreateDirectory("tmp", NULL);
-		bFirst = false;
-	}
-	FILE *wfp = fopen("tmp\\movie.pmf", "wb");
-	fwrite(pmf, 1, pmfsize, wfp);
-	fclose(wfp);
-
 	MpegDemux *demux = new MpegDemux(pmf, pmfsize, 0);
 	demux->demux(-1);
 	u8 *audioStream;
@@ -257,7 +369,7 @@ bool loadPMFStream(u8* pmf, int pmfsize)
 	}
 	delete demux;
 
-	bool bResult = g_pmfPlayer.load("tmp\\movie.pmf");
+	bool bResult = g_pmfPlayer.loadStream(pmf, pmfsize);
 	if (!bResult)
 		g_pmfPlayer.closeMedia();
 	else
@@ -278,7 +390,6 @@ bool loadPMFPSFFile(const char *filename, int mpegsize)
 	pspFileSystem.CloseFile(h);
 
 	bool bResult = loadPMFStream(buf, infosize);
-	delete [] buf;
 
 	return bResult;
 }
@@ -301,7 +412,6 @@ bool loadPMFPackageFile(const char* package, u32 startpos, int mpegsize, u8* buf
 		bResult = loadPMFStream(buf, filesize);
 	else
 		bResult = false;
-	delete [] buf;
 
 	return bResult;
 }
@@ -318,7 +428,6 @@ bool deletePMFStream()
 	g_pmfaudioPlayer = 0;
 	g_pmfPlayer.closeMedia();
 
-	DeleteFileA("tmp\\movie.pmf");
 	DeleteFileA("tmp\\movie.oma");
 	return true;
 }

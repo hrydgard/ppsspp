@@ -10,6 +10,7 @@ public:
 	~mediaPlayer(void);
 
 	bool load(const char* filename);
+	bool loadStream(u8* buffer, int size, bool bAutofreebuffer = true);
 	bool closeMedia();
 	bool writeVideoImage(u8* buffer, int frameWidth, int videoPixelMode);
 private:
@@ -17,9 +18,12 @@ private:
 	void *m_pCodecCtx;
 	void *m_pFrame;
     void *m_pFrameRGB;
+	void *m_pIOContext;
 	int  m_videoStream;
     void *m_sws_ctx;
     u8* m_buffer;
+	void *m_videobuf;
+	u8* m_tempbuf;
 };
 
 bool loadPMFStream(u8* pmf, int pmfsize);
@@ -29,4 +33,4 @@ bool deletePMFStream();
 mediaPlayer* getPMFPlayer();
 bool playPMFVideo();
 
-#endif
+#endif // WIN32
