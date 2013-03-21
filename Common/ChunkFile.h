@@ -84,7 +84,7 @@ class PointerWrap
 		static void DoArray(PointerWrap *p, T *x, int count)
 		{
 			for (int i = 0; i < count; ++i)
-				p->DoClass(x[i]);
+				p->Do(x[i]);
 		}
 
 		static void Do(PointerWrap *p, T &x)

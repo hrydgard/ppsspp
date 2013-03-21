@@ -183,7 +183,7 @@ private:
 class LoadedFont {
 public:
 	// For savestates only.
-	LoadedFont() {
+	LoadedFont() : font_(NULL) {
 	}
 
 	LoadedFont(Font *font, u32 fontLibID, u32 handle)

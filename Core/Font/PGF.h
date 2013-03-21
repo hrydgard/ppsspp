@@ -91,8 +91,7 @@ struct PGFFontStyle {
 };
 
 
-class Glyph {
-public:
+struct Glyph {
 	int x;
 	int y;
 	int w;
@@ -275,10 +274,6 @@ private:
 	// Unused
 	std::vector<int> charmapCompressionTable1[2];
 	std::vector<int> charmapCompressionTable2[2];
-
-	u8 *charMap;
-	u8 *shadowCharMap;
-	u8 *charPointerTable;
 
 	std::vector<int> charmap_compr;
 	std::vector<int> charmap;
