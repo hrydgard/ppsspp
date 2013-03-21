@@ -95,6 +95,8 @@ static double curFrameTime;
 static double nextFrameTime;
 
 static u64 frameStartTicks;
+const float hCountPerVblank = 285.72f; // insprired by jpcsp
+
 
 std::vector<WaitVBlankInfo> vblankWaitingThreads;
 
@@ -590,7 +592,7 @@ u32 sceDisplayGetVcount() {
 }
 
 u32 sceDisplayGetCurrentHcount() {
-	u32 currentHCount = (CoreTiming::GetTicks() - frameStartTicks) / ((u64)CoreTiming::GetClockFrequencyMHz() * 1000000 / 60 / 272);
+	u32 currentHCount = (CoreTiming::GetTicks() - frameStartTicks) / ((u64)CoreTiming::GetClockFrequencyMHz() * 1000000 / 60 / hCountPerVblank);
 	DEBUG_LOG(HLE,"%i=sceDisplayGetCurrentHcount()", currentHCount);
 	return currentHCount;
 }
@@ -601,8 +603,7 @@ u32 sceDisplayAdjustAccumulatedHcount() {
 }
 
 u32 sceDisplayGetAccumulatedHcount() {
-	float hCountPerVblank = 285.72f; // insprired by jpcsp
-	u32 currentHCount = (CoreTiming::GetTicks() - frameStartTicks) / ((u64)CoreTiming::GetClockFrequencyMHz() * 1000000 / 60 / 272);
+	u32 currentHCount = (CoreTiming::GetTicks() - frameStartTicks) / ((u64)CoreTiming::GetClockFrequencyMHz() * 1000000 / 60 / hCountPerVblank);
 	u32 accumHCount = currentHCount + (u32) (vCount * hCountPerVblank);
 	DEBUG_LOG(HLE,"%i=sceDisplayGetAccumulatedHcount()", accumHCount);
 	return accumHCount;
