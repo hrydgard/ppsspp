@@ -4,7 +4,6 @@
 // It calls a set of methods defined in NativeApp.h. These should be implemented
 // by your game or app.
 
-
 #include <jni.h>
 #include <android/log.h>
 #include <stdlib.h>
@@ -27,9 +26,11 @@
 
 // For Xperia Play support
 enum AndroidKeyCodes {
-	KEYCODE_BUTTON_CROSS = 23,  // trackpad or X button(Xperia Play) is pressed
+	KEYCODE_BUTTON_CROSS = 23, // trackpad or X button(Xperia Play) is pressed
+	KEYCODE_BUTTON_CROSS_PS3 = 96, // PS3 X button is pressed
 	KEYCODE_BUTTON_CIRCLE = 1004, // Special custom keycode generated from 'O' button by our java code. Or 'O' button if Alt is pressed (TODO)
-	KEYCODE_BUTTON_SQUARE = 99,  // Square button(Xperia Play) is pressed
+	KEYCODE_BUTTON_CIRCLE_PS3 = 97, // PS3 O button is pressed
+	KEYCODE_BUTTON_SQUARE = 99, // Square button(Xperia Play) is pressed
 	KEYCODE_BUTTON_TRIANGLE = 100, // 'Triangle button(Xperia Play) is pressed
 	KEYCODE_DPAD_LEFT = 21,
 	KEYCODE_DPAD_UP = 19,
@@ -50,6 +51,8 @@ const bool extraLog = true;
 
 static uint32_t pad_buttons_async_set;
 static uint32_t pad_buttons_async_clear;
+static float left_joystick_x_async;
+static float left_joystick_y_async;
 
 // Android implementation of callbacks to the Java part of the app
 void SystemToast(const char *text) {
@@ -254,6 +257,8 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayRender(JN
 
 		{
 			lock_guard guard(input_state.lock);
+			input_state.pad_lstick_x = left_joystick_x_async;
+			input_state.pad_lstick_y = left_joystick_y_async;
 			NativeUpdate(input_state);
 		}
 
@@ -337,50 +342,65 @@ static void AsyncUp(int padbutton) {
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_keyDown(JNIEnv *, jclass, jint key) {
 	switch (key) {
-		case 1: AsyncDown(PAD_BUTTON_BACK); break; 	// Back
-		case 2:	AsyncDown(PAD_BUTTON_MENU); break;  // Menu
-		case 3:	AsyncDown(PAD_BUTTON_A); break; // Search
-		case KEYCODE_BUTTON_CROSS: AsyncDown(PAD_BUTTON_A); break;
-		case KEYCODE_BUTTON_CIRCLE: AsyncDown(PAD_BUTTON_B); break;
-		case KEYCODE_BUTTON_SQUARE: AsyncDown(PAD_BUTTON_X); break;
-		case KEYCODE_BUTTON_TRIANGLE: AsyncDown(PAD_BUTTON_Y); break;
-		case KEYCODE_DPAD_LEFT: AsyncDown(PAD_BUTTON_LEFT); break;
-		case KEYCODE_DPAD_UP: AsyncDown(PAD_BUTTON_UP); break;
-		case KEYCODE_DPAD_RIGHT: AsyncDown(PAD_BUTTON_RIGHT); break;
-		case KEYCODE_DPAD_DOWN: AsyncDown(PAD_BUTTON_DOWN); break;
-		case KEYCODE_BUTTON_L1: AsyncDown(PAD_BUTTON_LBUMPER); break;
-		case KEYCODE_BUTTON_R1: AsyncDown(PAD_BUTTON_RBUMPER); break;
-		case KEYCODE_BUTTON_START: AsyncDown(PAD_BUTTON_START); break;
-		case KEYCODE_BUTTON_SELECT: AsyncDown(PAD_BUTTON_SELECT); break;
-		default:
-			break;
+	case 1: AsyncDown (PAD_BUTTON_BACK); break; // Back
+	case 2: AsyncDown (PAD_BUTTON_MENU); break; // Menu
+	case 3: AsyncDown (PAD_BUTTON_A); break; // Search
+	case KEYCODE_BUTTON_CROSS:
+	case KEYCODE_BUTTON_CROSS_PS3:
+		AsyncDown(PAD_BUTTON_A);
+		break;
+	case KEYCODE_BUTTON_CIRCLE:
+	case KEYCODE_BUTTON_CIRCLE_PS3:
+		AsyncDown (PAD_BUTTON_B);
+		break;
+	case KEYCODE_BUTTON_SQUARE: AsyncDown (PAD_BUTTON_X); break;
+	case KEYCODE_BUTTON_TRIANGLE: AsyncDown (PAD_BUTTON_Y); break;
+	case KEYCODE_DPAD_LEFT: AsyncDown (PAD_BUTTON_LEFT); break;
+	case KEYCODE_DPAD_UP: AsyncDown (PAD_BUTTON_UP); break;
+	case KEYCODE_DPAD_RIGHT: AsyncDown (PAD_BUTTON_RIGHT); break;
+	case KEYCODE_DPAD_DOWN: AsyncDown (PAD_BUTTON_DOWN); break;
+	case KEYCODE_BUTTON_L1: AsyncDown (PAD_BUTTON_LBUMPER); break;
+	case KEYCODE_BUTTON_R1: AsyncDown (PAD_BUTTON_RBUMPER); break;
+	case KEYCODE_BUTTON_START: AsyncDown (PAD_BUTTON_START); break;
+	case KEYCODE_BUTTON_SELECT: AsyncDown (PAD_BUTTON_SELECT); break;
+	default: break;
 	}
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_keyUp(JNIEnv *, jclass, jint key) {
 	switch (key) {
-		case 1: AsyncUp(PAD_BUTTON_BACK); break; 	// Back
-		case 2:	AsyncUp(PAD_BUTTON_MENU); break;  // Menu
-		case 3:	AsyncUp(PAD_BUTTON_A); break; // Search
-		case KEYCODE_BUTTON_CROSS: AsyncUp(PAD_BUTTON_A); break;
-		case KEYCODE_BUTTON_CIRCLE: AsyncUp(PAD_BUTTON_B); break;
-		case KEYCODE_BUTTON_SQUARE: AsyncUp(PAD_BUTTON_X); break;
-		case KEYCODE_BUTTON_TRIANGLE: AsyncUp(PAD_BUTTON_Y); break;
-		case KEYCODE_DPAD_LEFT: AsyncUp(PAD_BUTTON_LEFT); break;
-		case KEYCODE_DPAD_UP: AsyncUp(PAD_BUTTON_UP); break;
-		case KEYCODE_DPAD_RIGHT: AsyncUp(PAD_BUTTON_RIGHT); break;
-		case KEYCODE_DPAD_DOWN: AsyncUp(PAD_BUTTON_DOWN); break;
-		case KEYCODE_BUTTON_L1: AsyncUp(PAD_BUTTON_LBUMPER); break;
-		case KEYCODE_BUTTON_R1: AsyncUp(PAD_BUTTON_RBUMPER); break;
-		case KEYCODE_BUTTON_START: AsyncUp(PAD_BUTTON_START); break;
-		case KEYCODE_BUTTON_SELECT: AsyncUp(PAD_BUTTON_SELECT); break;
-		default:
-			break;
+	case 1: AsyncUp (PAD_BUTTON_BACK); break; // Back
+	case 2: AsyncUp (PAD_BUTTON_MENU); break; // Menu
+	case 3: AsyncUp (PAD_BUTTON_A); break; // Search
+	case KEYCODE_BUTTON_CROSS:
+	case KEYCODE_BUTTON_CROSS_PS3:
+		AsyncUp(PAD_BUTTON_A);
+		break;
+	case KEYCODE_BUTTON_CIRCLE:
+	case KEYCODE_BUTTON_CIRCLE_PS3:
+		AsyncUp (PAD_BUTTON_B);
+		break;
+	case KEYCODE_BUTTON_SQUARE: AsyncUp (PAD_BUTTON_X); break;
+	case KEYCODE_BUTTON_TRIANGLE: AsyncUp (PAD_BUTTON_Y); break;
+	case KEYCODE_DPAD_LEFT: AsyncUp (PAD_BUTTON_LEFT); break;
+	case KEYCODE_DPAD_UP: AsyncUp (PAD_BUTTON_UP); break;
+	case KEYCODE_DPAD_RIGHT: AsyncUp (PAD_BUTTON_RIGHT); break;
+	case KEYCODE_DPAD_DOWN: AsyncUp (PAD_BUTTON_DOWN); break;
+	case KEYCODE_BUTTON_L1: AsyncUp (PAD_BUTTON_LBUMPER); break;
+	case KEYCODE_BUTTON_R1: AsyncUp (PAD_BUTTON_RBUMPER); break;
+	case KEYCODE_BUTTON_START: AsyncUp (PAD_BUTTON_START); break;
+	case KEYCODE_BUTTON_SELECT: AsyncUp (PAD_BUTTON_SELECT); break;
+	default: break;
 	}
 }
 
-extern "C" void JNICALL Java_com_henrikrydgard_libnative_NativeApp_accelerometer
-	(JNIEnv *, jclass, float x, float y, float z) {
+extern "C" void Java_com_henrikrydgard_libnative_NativeApp_joystickEvent(
+		JNIEnv *env, jclass, jfloat x, jfloat y) {
+	left_joystick_x_async = x;
+	left_joystick_y_async = y;
+}
+
+extern "C" void JNICALL Java_com_henrikrydgard_libnative_NativeApp_accelerometer(JNIEnv *, jclass, float x, float y, float z) {
 	// Theoretically this needs locking but I doubt it matters. Worst case, the X
 	// from one "sensor frame" will be used together with Y from the next.
 	// Should look into quantization though, for compressed movement storage.
@@ -390,13 +410,11 @@ extern "C" void JNICALL Java_com_henrikrydgard_libnative_NativeApp_accelerometer
 	input_state.acc.z = z;
 }
 
-extern "C" void Java_com_henrikrydgard_libnative_NativeApp_sendMessage
-	(JNIEnv *env, jclass, jstring message, jstring param) {
+extern "C" void Java_com_henrikrydgard_libnative_NativeApp_sendMessage(JNIEnv *env, jclass, jstring message, jstring param) {
 	jboolean isCopy;
 	std::string msg = GetJavaString(env, message);
 	std::string prm = GetJavaString(env, param);
 	ILOG("Message received: %s %s", msg.c_str(), prm.c_str());
 	NativeMessageReceived(msg.c_str(), prm.c_str());
 }
-
 

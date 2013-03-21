@@ -1,4 +1,5 @@
 package com.henrikrydgard.libnative;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -7,6 +8,7 @@ import java.lang.reflect.Field;
 import java.util.UUID;
 
 import android.annotation.SuppressLint;
+import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.AlertDialog;
@@ -29,8 +31,9 @@ import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
 import android.view.Gravity;
+import android.view.InputDevice;
 import android.view.KeyEvent;
-import android.view.View;
+import android.view.MotionEvent;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.EditText;
@@ -135,12 +138,13 @@ public class NativeActivity extends Activity {
 		String libraryDir = getApplicationLibraryDir(appInfo);
 	    File sdcard = Environment.getExternalStorageDirectory();
         Display display = ((WindowManager)this.getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay();
+		@SuppressWarnings("deprecation")
         int scrPixelFormat = display.getPixelFormat();
         @SuppressWarnings("deprecation")
         int scrWidth = display.getWidth(); 
         @SuppressWarnings("deprecation")
 		int scrHeight = display.getHeight();
-        float scrRefreshRate = (float)display.getRefreshRate();
+        float scrRefreshRate = display.getRefreshRate();
 	    String externalStorageDir = sdcard.getAbsolutePath(); 
 	    String dataDir = this.getFilesDir().getAbsolutePath();
 		String apkFilePath = appInfo.sourceDir; 
@@ -236,69 +240,6 @@ public class NativeActivity extends Activity {
 	public boolean overrideKeys() {
 		return true;
 	}
-	
-    @Override 
-    public boolean onKeyDown(int keyCode, KeyEvent event) {
-    	// Eat these keys, to avoid accidental exits / other screwups.
-    	// Maybe there's even more we need to eat on tablets?
-        switch (keyCode) {
-        case KeyEvent.KEYCODE_BACK:
-        	if (event.isAltPressed()) {
-        		NativeApp.keyDown(1004); // special custom keycode
-        	} else {
-	        	NativeApp.keyDown(1);
-        	}
-        	return true;
-        case KeyEvent.KEYCODE_MENU:
-        	NativeApp.keyDown(2);  
-        	return true;
-        case KeyEvent.KEYCODE_SEARCH:
-        	NativeApp.keyDown(3);
-        	return true;
-        case KeyEvent.KEYCODE_VOLUME_DOWN:
-        case KeyEvent.KEYCODE_VOLUME_UP:
-        	return false;
-        default:
-        	// send the rest of the keys through.
-        	// TODO: get rid of the three special cases above by adjusting the native side of the code.
-        	NativeApp.keyDown(keyCode);
-            return true;
-        } 
-    } 
-    
-    @Override
-    public boolean onKeyUp(int keyCode, KeyEvent event) {
-    	// Eat these keys, to avoid accidental exits / other screwups.
-    	// Maybe there's even more we need to eat on tablets?
-        switch (keyCode) {
-        case KeyEvent.KEYCODE_BACK:
-        	if (event.isAltPressed()) {
-        		NativeApp.keyUp(1004); // special custom keycode
-        	}
-        	else if (NativeApp.isAtTopLevel()) {
-        		return false;
-        	} else {
-        		NativeApp.keyUp(1);
-        	}
-        	return true;
-        case KeyEvent.KEYCODE_MENU:
-        	// Menu should be ignored from SDK 11 forwards. We send it to the app.
-        	NativeApp.keyUp(2);  
-        	return true;
-        case KeyEvent.KEYCODE_SEARCH:
-        	// Search probably should also be ignored. We send it to the app.
-        	NativeApp.keyUp(3);
-        	return true;
-        case KeyEvent.KEYCODE_VOLUME_DOWN:
-        case KeyEvent.KEYCODE_VOLUME_UP:
-        	return false;
-        default:
-        	// send the rest of the keys through.
-        	// TODO: get rid of the three special cases above by adjusting the native side of the code.
-        	NativeApp.keyUp(keyCode);
-        	return true;
-        } 
-    }  
    
     // Prevent destroying and recreating the main activity when the device rotates etc,
     // since this would stop the sound.
@@ -309,14 +250,107 @@ public class NativeActivity extends Activity {
     } 
     
     public static boolean inputBoxCancelled;
-    @SuppressWarnings("deprecation")
+
+	@SuppressLint("NewApi")
+	@Override
+	public boolean onKeyDown(int keyCode, KeyEvent event) {
+		// Eat these keys, to avoid accidental exits / other screwups.
+		// Maybe there's even more we need to eat on tablets?
+		switch (keyCode) {
+		case KeyEvent.KEYCODE_BACK:
+			if (event.isAltPressed()) {
+				NativeApp.keyDown(1004); // special custom keycode
+			} else {
+				NativeApp.keyDown(1);
+			}
+			return true;
+		case KeyEvent.KEYCODE_MENU:
+			NativeApp.keyDown(2);
+			return true;
+		case KeyEvent.KEYCODE_SEARCH:
+			NativeApp.keyDown(3);
+			return true;
+		case KeyEvent.KEYCODE_VOLUME_DOWN:
+		case KeyEvent.KEYCODE_VOLUME_UP:
+			return false;
+		case KeyEvent.KEYCODE_DPAD_UP:
+		case KeyEvent.KEYCODE_DPAD_DOWN:
+		case KeyEvent.KEYCODE_DPAD_LEFT:
+		case KeyEvent.KEYCODE_DPAD_RIGHT:
+			// Joysticks are supported in Honeycomb MR1 and later via the onGenericMotionEvent method.
+			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR1 && event.getSource() == InputDevice.SOURCE_JOYSTICK) {
+				return false;
+			}
+		default:
+			// send the rest of the keys through.
+			// TODO: get rid of the three special cases above by adjusting the native side of the code.
+			Log.d("JAMIE", "Key code: " + keyCode + ", KeyEvent: " + event);
+			NativeApp.keyDown(keyCode);
+			return true;
+		}
+	}
+
+	@Override
+	@TargetApi(12)
+	public boolean onGenericMotionEvent(MotionEvent event) {
+		Log.d("JAMIE", "onGenericMotionEvent: " + event);
+		if (event.getSource() == InputDevice.SOURCE_JOYSTICK) {
+			float leftJoystickX = event.getAxisValue(MotionEvent.AXIS_X) * 1f;
+			float leftJoystickY = event.getAxisValue(MotionEvent.AXIS_Y) * -1f;
+			NativeApp.joystickEvent(leftJoystickX, leftJoystickY);
+		}
+		return false;
+	}
+
+	@SuppressLint("NewApi")
+	@Override
+	public boolean onKeyUp(int keyCode, KeyEvent event) {
+		// Eat these keys, to avoid accidental exits / other screwups.
+		// Maybe there's even more we need to eat on tablets?
+		Log.d("JAMIE", "KeyEvent: " + event);
+		switch (keyCode) {
+		case KeyEvent.KEYCODE_BACK:
+			if (event.isAltPressed()) {
+				NativeApp.keyUp(1004); // special custom keycode
+			} else if (NativeApp.isAtTopLevel()) {
+				return false;
+			} else {
+				NativeApp.keyUp(1);
+			}
+			return true;
+		case KeyEvent.KEYCODE_MENU:
+			// Menu should be ignored from SDK 11 forwards. We send it to the app.
+			NativeApp.keyUp(2);
+			return true;
+		case KeyEvent.KEYCODE_SEARCH:
+			// Search probably should also be ignored. We send it to the app.
+			NativeApp.keyUp(3);
+			return true;
+		case KeyEvent.KEYCODE_VOLUME_DOWN:
+		case KeyEvent.KEYCODE_VOLUME_UP:
+			return false;
+		case KeyEvent.KEYCODE_DPAD_UP:
+		case KeyEvent.KEYCODE_DPAD_DOWN:
+		case KeyEvent.KEYCODE_DPAD_LEFT:
+		case KeyEvent.KEYCODE_DPAD_RIGHT:
+			// Joysticks are supported in Honeycomb MR1 and later via the onGenericMotionEvent method.
+			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR1 && event.getSource() == InputDevice.SOURCE_JOYSTICK) {
+				return false;
+			}
+		default:
+			// send the rest of the keys through.
+			// TODO: get rid of the three special cases above by adjusting the native side of the code.
+			NativeApp.keyUp(keyCode);
+			return true;
+		}
+	}
 	public String inputBox(String title, String defaultText, String defaultAction) {
     	final FrameLayout fl = new FrameLayout(this);
     	final EditText input = new EditText(this);
     	input.setGravity(Gravity.CENTER);
 
     	inputBoxCancelled = false;
-    	FrameLayout.LayoutParams editBoxLayout = new FrameLayout.LayoutParams(FrameLayout.LayoutParams.FILL_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT);
+		FrameLayout.LayoutParams editBoxLayout = new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT);
     	editBoxLayout.setMargins(2, 20, 2, 20);
     	fl.addView(input, editBoxLayout);
 
@@ -327,11 +361,13 @@ public class NativeActivity extends Activity {
     		.setView(fl)
     		.setTitle(title)
     		.setPositiveButton(defaultAction, new DialogInterface.OnClickListener(){
+			@Override
     			public void onClick(DialogInterface d, int which) {
     				d.dismiss();
     			}
     		})
     		.setNegativeButton("Cancel", new DialogInterface.OnClickListener(){
+			@Override
     			public void onClick(DialogInterface d, int which) {
     				d.cancel();
         	    	NativeActivity.inputBoxCancelled = false;
