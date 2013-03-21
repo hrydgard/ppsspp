@@ -17,6 +17,11 @@
 
 #include <cmath>
 #include <string>
+#include <cstdio>
+
+#ifdef _MSC_VER
+#define snprintf _snprintf
+#endif
 
 #include "base/display.h"
 #include "base/logging.h"
@@ -570,7 +575,7 @@ static const char * credits[] = {
 void CreditsScreen::render() {
 	// TODO: This is kinda ugly, done on every frame...
 	char temp[256];
-	snprintf(temp, 256, "PPSSPP %s", PPSSPP_GIT_VERSION);
+	sprintf(temp, "PPSSPP %s", PPSSPP_GIT_VERSION);
 	credits[0] = (const char *)temp;
 
 	UIShader_Prepare();
