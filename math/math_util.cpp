@@ -17,7 +17,7 @@ unsigned int GenerateRandomNumber() {
 
 #include <math.h>
 
-#if defined(ARM)
+#if defined(ARMV7)
 
 void EnableFZ()
 {
@@ -42,12 +42,12 @@ void DisableFZ( )
 
 void EnableFZ()
 {
-
-
+	// TODO
 }
+
 void DisableFZ()
 {
-
+	// TODO
 }
 
 #endif

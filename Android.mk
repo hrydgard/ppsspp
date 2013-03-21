@@ -29,6 +29,7 @@ LOCAL_SRC_FILES :=\
     file/file_util.cpp \
     file/zip_read.cpp \
     json/json_writer.cpp \
+    math/math_util.cpp \
     math/curves.cpp \
     math/lin/aabb.cpp.arm \
     math/lin/plane.cpp.arm \
