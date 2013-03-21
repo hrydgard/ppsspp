@@ -214,9 +214,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 		}
 		if (gstate.lightingEnable & 1) {
 			WRITE(p, "uniform lowp vec4 u_ambient;\n");
-			if ((gstate.materialupdate & 2) == 0)
-				WRITE(p, "uniform lowp vec3 u_matdiffuse;\n");
-			// if ((gstate.materialupdate & 4) == 0)
+			WRITE(p, "uniform lowp vec3 u_matdiffuse;\n");
 			WRITE(p, "uniform lowp vec4 u_matspecular;\n");  // Specular coef is contained in alpha
 			WRITE(p, "uniform lowp vec3 u_matemissive;\n");
 		}
@@ -254,7 +252,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 		} else {
 			WRITE(p, "  v_color0 = u_matambientalpha;\n");
 			if (lmode)
-				WRITE(p, "  v_color1 = vec3(0.0, 0.0, 0.0);\n");
+				WRITE(p, "  v_color1 = vec3(0.0);\n");
 		}
 		if (enableFog) {
 			WRITE(p, "  v_fogdepth = a_position.w;\n");
@@ -272,9 +270,9 @@ void GenerateVertexShader(int prim, char *buffer) {
 			if (hasNormal)
 				WRITE(p, "  vec3 worldnormal = (u_world * vec4(a_normal, 0.0)).xyz;\n");
 		} else {
-			WRITE(p, "  vec3 worldpos = vec3(0.0, 0.0, 0.0);\n");
+			WRITE(p, "  vec3 worldpos = vec3(0.0);\n");
 			if (hasNormal)
-				WRITE(p, "  vec3 worldnormal = vec3(0.0, 0.0, 0.0);\n");
+				WRITE(p, "  vec3 worldnormal = vec3(0.0);\n");
 			int numWeights = 1 + ((gstate.vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT);
 			for (int i = 0; i < numWeights; i++) {
 				const char *weightAttr = boneWeightAttr[i];
@@ -299,13 +297,13 @@ void GenerateVertexShader(int prim, char *buffer) {
 		if (hasColor) {
 			WRITE(p, "  lowp vec3 unlitColor = a_color0.rgb;\n");
 		} else {
-			WRITE(p, "  lowp vec3 unlitColor = vec3(1.0, 1.0, 1.0);\n");
+			WRITE(p, "  lowp vec3 unlitColor = vec3(1.0);\n");
 		}
 		// TODO: Declare variables for dots for shade mapping if needed.
 
 		const char *ambient = (gstate.materialupdate & 1) ? (hasColor ? "a_color0" : "u_matambientalpha") : "u_matambientalpha";
 		const char *diffuse = (gstate.materialupdate & 2) ? "unlitColor" : "u_matdiffuse";
-		const char *specular = (gstate.materialupdate & 4) ? "unlitColor" : "u_matspecular.rgb";
+		const char *specular = (gstate.materialupdate & 4) ? "unlitColor" : "u_matspecular";
 
 		if (gstate.lightingEnable & 1) {
 			WRITE(p, "  lowp vec4 lightSum0 = u_ambient * %s + vec4(u_matemissive, 0.0);\n", ambient);
@@ -346,7 +344,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 			}
 			WRITE(p, "  vec3 diffuse%i = (u_lightdiffuse%i * %s) * (max(dot%i, 0.0) * lightScale%i);\n", i, i, diffuse, i, i);
 			if (doSpecular) {
-				WRITE(p, "  vec3 halfVec%i = normalize(normalize(toLight%i) + vec3(0, 0, 1));\n", i, i);
+				WRITE(p, "  vec3 halfVec%i = normalize(normalize(toLight%i) + vec3(0.0, 0.0, 1.0));\n", i, i);
 				WRITE(p, "  dot%i = dot(halfVec%i, worldnormal);\n", i, i);
 				WRITE(p, "  if (dot%i > 0.0)\n", i);
 				WRITE(p, "    lightSum1 += u_lightspecular%i * %s * (pow(dot%i, u_matspecular.a) * (dot%i * lightScale%i));\n", i, specular, i, i, i);
@@ -370,7 +368,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 				WRITE(p, "  v_color0 = u_matambientalpha;\n");
 			}
 			if (lmode)
-				WRITE(p, "  v_color1 = vec3(0.0, 0.0, 0.0);\n");
+				WRITE(p, "  v_color1 = vec3(0.0);\n");
 		}
 
 		// Step 3: UV generation
