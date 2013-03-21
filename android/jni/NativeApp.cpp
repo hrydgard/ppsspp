@@ -50,7 +50,9 @@
 #include "MenuScreens.h"
 #include "UIShader.h"
 
+#ifdef ARM
 #include "ArmEmitterTest.h"
+#endif
 
 Texture *uiTexture;
 
@@ -162,7 +164,7 @@ void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, boo
 	*app_dir_name = "ppsspp";
 	*landscape = true;
 
-#if defined(ANDROID)
+#if defined(ARM) && defined(ANDROID)
 	ArmEmitterTest();
 #endif
 }

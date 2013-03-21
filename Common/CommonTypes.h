@@ -23,6 +23,12 @@
 #ifndef _COMMONTYPES_H_
 #define _COMMONTYPES_H_
 
+#ifdef __arm__
+#if !defined(ARM)
+#define ARM
+#endif
+#endif
+
 #ifdef _WIN32
 
 typedef unsigned __int8 u8;

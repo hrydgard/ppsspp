@@ -37,53 +37,37 @@
 #include <sys/types.h>
 #include <machine/cpufunc.h>
 #elif !defined(MIPS)
-static inline void do_cpuid(unsigned int *eax, unsigned int *ebx,
-						    unsigned int *ecx, unsigned int *edx)
+void __cpuid(int regs[4], int cpuid_leaf)
 {
-#if defined _M_GENERIC
-	(*eax) = (*ebx) = (*ecx) = (*edx) = 0;
-#elif defined _LP64
-	// Note: EBX is reserved on Mac OS X and in PIC on Linux, so it has to
-	// restored at the end of the asm block.
-	__asm__ (
-		"cpuid;"
-		"movl  %%ebx,%1;"
-		: "=a" (*eax),
-		  "=S" (*ebx),
-		  "=c" (*ecx),
-		  "=d" (*edx)
-		: "a"  (*eax)
-		: "rbx"
-		);
-#else
-	__asm__ (
-		"cpuid;"
-		"movl  %%ebx,%1;"
-		: "=a" (*eax),
-		  "=S" (*ebx),
-		  "=c" (*ecx),
-		  "=d" (*edx)
-		: "a"  (*eax)
-		: "ebx"
-		);
+	int eax, ebx, ecx, edx;
+	asm volatile (
+#if defined(__i386__)
+		"pushl %%ebx;\n\t"
 #endif
-}
-#endif /* defined __FreeBSD__ */
+		"movl %4, %%eax;\n\t"
+		"cpuid;\n\t"
+		"movl %%eax, %0;\n\t"
+		"movl %%ebx, %1;\n\t"
+		"movl %%ecx, %2;\n\t"
+		"movl %%edx, %3;\n\t"
+#if defined(__i386__)
+		"popl %%ebx;\n\t"
+#endif
+		:"=m" (eax), "=m" (ebx), "=m" (ecx), "=m" (edx)
+		:"r" (cpuid_leaf)
+		:"%eax",
+#if !defined(__i386__)
+		"%ebx",
+#endif
+		"%ecx", "%edx");
 
-static void __cpuid(int info[4], int x)
-{
-#if defined __FreeBSD__
-    do_cpuid((unsigned int)x, (unsigned int*)info);
-#else
-	unsigned int eax = x, ebx = 0, ecx = 0, edx = 0;
-	do_cpuid(&eax, &ebx, &ecx, &edx);
-	info[0] = eax;
-	info[1] = ebx;
-	info[2] = ecx;
-	info[3] = edx;
-#endif
+	regs[0] = eax;
+	regs[1] = ebx;
+	regs[2] = ecx;
+	regs[3] = edx;
 }
 
+#endif
 #endif
 
 #include "Common.h"

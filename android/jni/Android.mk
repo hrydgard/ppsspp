@@ -26,7 +26,7 @@ LOCAL_MODULE := ppsspp_jni
 NATIVE := ../../native
 SRC := ../..
 
-LOCAL_CFLAGS := -DUSE_PROFILER -DARM -DGL_GLEXT_PROTOTYPES -DUSING_GLES2 -O2 -fsigned-char -Wall -Wno-multichar -Wno-psabi -Wno-unused-variable -fno-strict-aliasing -ffast-math
+LOCAL_CFLAGS := -DUSE_PROFILER -DGL_GLEXT_PROTOTYPES -DUSING_GLES2 -O2 -fsigned-char -Wall -Wno-multichar -Wno-psabi -Wno-unused-variable -fno-strict-aliasing -ffast-math
 # yes, it's really CPPFLAGS for C++
 LOCAL_CPPFLAGS := -std=gnu++0x 
 LOCAL_C_INCLUDES := \
@@ -43,13 +43,81 @@ LOCAL_LDLIBS := -lz -lGLESv2 -ldl -llog
 
 #  $(SRC)/Core/EmuThread.cpp \
 
+# http://software.intel.com/en-us/articles/getting-started-on-optimizing-ndk-project-for-multiple-cpu-architectures
+
+
+ifeq ($(TARGET_ARCH_ABI),x86) 
+
+LOCAL_CFLAGS := $(LOCAL_CFLAGS) -D_M_IX86
+
+ARCH_FILES := \
+  $(SRC)/Common/ABI.cpp \
+  $(SRC)/Common/x64Emitter.cpp \
+  $(SRC)/Common/CPUDetect.cpp \
+  $(SRC)/Common/Thunk.cpp \
+  $(SRC)/Core/MIPS/x86/JitCache.cpp \
+  $(SRC)/Core/MIPS/x86/CompALU.cpp \
+  $(SRC)/Core/MIPS/x86/CompBranch.cpp \
+  $(SRC)/Core/MIPS/x86/CompFPU.cpp \
+  $(SRC)/Core/MIPS/x86/CompLoadStore.cpp \
+  $(SRC)/Core/MIPS/x86/CompVFPU.cpp \
+  $(SRC)/Core/MIPS/x86/Asm.cpp \
+  $(SRC)/Core/MIPS/x86/Jit.cpp \
+  $(SRC)/Core/MIPS/x86/RegCache.cpp \
+  $(SRC)/Core/MIPS/x86/RegCacheFPU.cpp
+endif
+
+ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
+
+LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM -DARMV7
+
+ARCH_FILES := \
+  $(SRC)/Common/ArmEmitter.cpp \
+  $(SRC)/Common/ArmCPUDetect.cpp \
+  $(SRC)/Common/ArmThunk.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmJitCache.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmCompALU.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmCompBranch.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmCompFPU.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmCompLoadStore.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmCompVFPU.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmAsm.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmJit.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmRegCache.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmRegCacheFPU.cpp \
+  ArmEmitterTest.cpp \
+
+endif
+
+ifeq ($(TARGET_ARCH_ABI),armeabi)
+
+LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM
+
+ARCH_FILES := \
+  $(SRC)/Common/ArmEmitter.cpp \
+  $(SRC)/Common/ArmCPUDetect.cpp \
+  $(SRC)/Common/ArmThunk.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmJitCache.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmCompALU.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmCompBranch.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmCompFPU.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmCompLoadStore.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmCompVFPU.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmAsm.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmJit.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmRegCache.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmRegCacheFPU.cpp \
+  ArmEmitterTest.cpp \
+
+endif
+
 LOCAL_SRC_FILES := \
+  $(ARCH_FILES) \
   NativeApp.cpp \
   EmuScreen.cpp \
   MenuScreens.cpp \
   UIShader.cpp \
   GamepadEmu.cpp \
-  ArmEmitterTest.cpp \
   TestRunner.cpp \
   ui_atlas.cpp \
   $(SRC)/native/android/app-android.cpp \
@@ -62,9 +130,6 @@ LOCAL_SRC_FILES := \
   $(SRC)/ext/libkirk/kirk_engine.c \
   $(SRC)/ext/snappy/snappy-c.cpp \
   $(SRC)/ext/snappy/snappy.cpp \
-  $(SRC)/Common/ArmEmitter.cpp \
-  $(SRC)/Common/ArmCPUDetect.cpp \
-  $(SRC)/Common/ArmThunk.cpp \
   $(SRC)/Common/LogManager.cpp \
   $(SRC)/Common/MemArena.cpp \
   $(SRC)/Common/MemoryUtil.cpp \
@@ -179,16 +244,6 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/MIPS/MIPSCodeUtils.cpp \
   $(SRC)/Core/MIPS/MIPSDebugInterface.cpp \
   $(SRC)/Core/MIPS/JitCommon/JitCommon.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmJitCache.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompALU.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompBranch.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompFPU.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompLoadStore.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompVFPU.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmAsm.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmJit.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmRegCache.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmRegCacheFPU.cpp \
   $(SRC)/Core/Util/BlockAllocator.cpp \
   $(SRC)/Core/Util/ppge_atlas.cpp \
   $(SRC)/Core/Util/PPGeDraw.cpp \

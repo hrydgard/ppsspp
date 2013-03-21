@@ -19,6 +19,7 @@
 
 #include <cmath>
 
+#include "Common/Common.h"
 #include "../Core.h"
 #include "MIPS.h"
 #include "MIPSInt.h"
