@@ -3,7 +3,6 @@
 #ifndef _WIN32
 #include <arpa/inet.h>
 #include <sys/socket.h>
-#include <sys/endian.h>
 #include <unistd.h>
 #define closesocket close
 #else
