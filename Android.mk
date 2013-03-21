@@ -59,17 +59,23 @@ LOCAL_SRC_FILES :=\
     util/random/perlin.cpp \
     util/text/utf8.cpp
 
-LOCAL_CFLAGS := -O2 -DGL_GLEXT_PROTOTYPES -DARM -DUSING_GLES2 -fsigned-char -fno-strict-aliasing
+LOCAL_CFLAGS := -O3 -DGL_GLEXT_PROTOTYPES -DUSING_GLES2 -fsigned-char -fno-strict-aliasing
 LOCAL_CPPFLAGS := -fno-exceptions -fno-rtti -std=gnu++0x
 LOCAL_LDLIBS := -lz
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/ext/libzip
 
 #Portable native and separate code on android in future is easy you needs add files 
 #by ($(target_arch_ABI),arquitecture (armeabi-v7a , armeabi , x86 , MIPS)
+
 ifeq ($(TARGET_ARCH_ABI), armeabi-v7a)
 LOCAL_SRC_FILES += math/math_util.cpp 
+LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM
 else ifeq ($(TARGET_ARCH_ABI),armeabi)
 LOCAL_SRC_FILES += math/math_utilarmv6.cpp 
+LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM
+else ifeq ($(TARGET_ARCH_ABI),x86)
+LOCAL_SRC_FILES += math/math_util.cpp 
+LOCAL_CFLAGS := $(LOCAL_CFLAGS) -D_M_IX86
 endif
 
 include $(BUILD_STATIC_LIBRARY)
