@@ -31,6 +31,13 @@ Connection::~Connection() {
 	Disconnect();
 }
 
+// For whatever crazy reason, htons isn't available on android x86 on the build server. so here we go.
+
+// TODO: Fix for big-endian
+inline unsigned short myhtons(unsigned short x) {
+	return (x >> 8) | (x << 8);
+}
+
 bool Connection::Resolve(const char *host, int port) {
 	CHECK_EQ(-1, (intptr_t)sock_);
 	host_ = host;
@@ -49,7 +56,7 @@ bool Connection::Resolve(const char *host, int port) {
 	int tmpres = net::inet_pton(AF_INET, ip, (void *)(&(remote_.sin_addr.s_addr)));
 	CHECK_GE(tmpres, 0);	// << "inet_pton failed";
 	CHECK_NE(0, tmpres);	// << ip << " not a valid IP address";
-	remote_.sin_port = htons(port);
+	remote_.sin_port = myhtons(port);
 	free((void *)ip);
 	return true;
 }
