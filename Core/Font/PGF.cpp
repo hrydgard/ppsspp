@@ -23,6 +23,7 @@
 #include "Common/CommonTypes.h"
 #include "Core/MemMap.h"
 #include "Core/Font/PGF.h"
+#include "Core/HLE/HLE.h"
 
 // These fonts, created by ttf2pgf, don't have complete glyph info and need to be identified.
 static bool isJPCSPFont(const char *fontName) {
@@ -50,19 +51,48 @@ static std::vector<int> getTable(const u8 *buf, int bpe, int length) {
 }
 
 PGF::PGF()
-	: fontData(0), charMap(0), shadowCharMap(0), charPointerTable(0) {
+	: fontData(0) {
 
 }
 
 PGF::~PGF() {
-	delete [] fontData;
-	delete [] charMap;
-	delete [] shadowCharMap;
-	delete [] charPointerTable;
+	if (fontData) {
+		delete [] fontData;
+	}
 }
 
 void PGF::DoState(PointerWrap &p) {
-	// TODO!
+	p.Do(header);
+	p.Do(rev3extra);
+
+	p.Do(fontDataSize);
+	if (p.mode == p.MODE_READ) {
+		if (fontData) {
+			delete [] fontData;
+		}
+		if (fontDataSize) {
+			fontData = new u8[fontDataSize];
+			p.DoArray(fontData, fontDataSize);
+		}
+	} else if (fontDataSize) {
+		p.DoArray(fontData, fontDataSize);
+	}
+	p.Do(fileName);
+
+	p.DoArray(dimensionTable, ARRAY_SIZE(dimensionTable));
+	p.DoArray(xAdjustTable, ARRAY_SIZE(xAdjustTable));
+	p.DoArray(yAdjustTable, ARRAY_SIZE(yAdjustTable));
+	p.DoArray(advanceTable, ARRAY_SIZE(advanceTable));
+	p.DoArray(charmapCompressionTable1, ARRAY_SIZE(charmapCompressionTable1));
+	p.DoArray(charmapCompressionTable2, ARRAY_SIZE(charmapCompressionTable2));
+
+	p.Do(charmap_compr);
+	p.Do(charmap);
+	p.Do(glyphs);
+	p.Do(shadowGlyphs);
+	p.Do(firstGlyph);
+
+	p.DoMarker("PGF");
 }
 
 void PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
@@ -111,7 +141,7 @@ void PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 	const u8 *uptr = (const u8 *)wptr;
 
 	int shadowCharMapSize = ((header.shadowMapLength * header.shadowMapBpe + 31) & ~31) / 8;
-	shadowCharMap = new u8[shadowCharMapSize];
+	u8 *shadowCharMap = new u8[shadowCharMapSize];
 	for (int i = 0; i < shadowCharMapSize; i++) {
 		shadowCharMap[i] = *uptr++;
 	}
@@ -137,13 +167,13 @@ void PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 
 	int charMapSize = ((header.charMapLength * header.charMapBpe + 31) & ~31) / 8;
 
-	charMap = new u8[charMapSize];
+	u8 *charMap = new u8[charMapSize];
 	for (int i = 0; i < charMapSize; i++) {
 		charMap[i] = *uptr++;
 	}
 
 	int charPointerSize = (((header.charPointerLength * header.charPointerBpe + 31) & ~31) / 8);
-	charPointerTable = new u8[charPointerSize];
+	u8 *charPointerTable = new u8[charPointerSize];
 	for (int i = 0; i < charPointerSize; i++) {
 		charPointerTable[i] = *uptr++;
 	}
@@ -174,6 +204,10 @@ void PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 
 	std::vector<int> charPointers = getTable(charPointerTable, header.charPointerBpe, glyphs.size());
 	std::vector<int> shadowMap = getTable(shadowCharMap, header.shadowMapBpe, shadowGlyphs.size());
+
+	delete [] charMap;
+	delete [] shadowCharMap;
+	delete [] charPointerTable;
 
 	// Pregenerate glyphs.
 	for (size_t i = 0; i < glyphs.size(); i++) {
