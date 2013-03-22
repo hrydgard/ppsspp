@@ -546,9 +546,12 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 				unlitColor[2] = ((gstate.materialambient >> 16) & 0xFF) / 255.f;
 				unlitColor[3] = (gstate.materialalpha & 0xFF) / 255.f;
 			}
-			float litColor0[4];
-			float litColor1[4];
+			float litColor0[4] = {0,0,0,0};
+			float litColor1[4] = {0,0,0,0};
 			lighter.Light(litColor0, litColor1, unlitColor, out, norm, dots);
+
+			if (reader.hasColor0()) 
+				reader.ReadColor0(litColor0);
 
 			if (gstate.lightingEnable & 1) {
 				// Don't ignore gstate.lmode - we should send two colors in that case
@@ -576,7 +579,6 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 					c0[1] = ((gstate.materialambient >> 8) & 0xFF) / 255.f;
 					c0[2] = ((gstate.materialambient >> 16)& 0xFF) / 255.f;
 					c0[3] = (gstate.materialalpha & 0xFF) / 255.f;
-					memset(c1, 0, sizeof(c1));
 				}
 			}
 
