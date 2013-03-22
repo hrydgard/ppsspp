@@ -287,6 +287,8 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 
 		float distanceToLight = toLight.Length();
 		float dot = 0.0f;
+		Vec3 norm(0,0,0);
+		
 		if (distanceToLight > 0.0f)
 		{
 			toLight /= distanceToLight;
