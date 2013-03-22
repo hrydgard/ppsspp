@@ -74,19 +74,20 @@ struct Atrac {
 };
 
 std::map<int, Atrac *> atracMap;
+u8 nextAtracID;
 
-void __AtracInit()
-{
+void __AtracInit() {
+	nextAtracID = 0;
 }
 
 void __AtracDoState(PointerWrap &p) {
 	p.Do(atracMap);
+	p.Do(nextAtracID);
 
 	p.DoMarker("sceAtrac");
 }
 
-void __AtracShutdown()
-{
+void __AtracShutdown() {
 	for (auto it = atracMap.begin(), end = atracMap.end(); it != end; ++it) {
 		delete it->second;
 	}
@@ -101,7 +102,7 @@ Atrac *getAtrac(int atracID) {
 }
 
 int createAtrac(Atrac *atrac) {
-	int id = (int) atracMap.size();
+	int id = nextAtracID++;
 	atracMap[id] = atrac;
 	return id;
 }
