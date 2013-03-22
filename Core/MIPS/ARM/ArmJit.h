@@ -24,6 +24,10 @@
 #include "ArmRegCacheFPU.h"
 #include "ArmAsm.h"
 
+#if defined(MAEMO)
+#include "stddef.h"
+#endif
+
 namespace MIPSComp
 {
 

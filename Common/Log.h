@@ -31,6 +31,10 @@
 #define	VERBOSE_LEVEL 6  // Noisy debugging - sometimes needed but usually unimportant.
 
 #if !defined(_WIN32) && !defined(PANDORA)
+#if defined(MAEMO)
+       //ucontext.h will be then skipped
+       #define _SYS_UCONTEXT_H 1
+#endif
 #include <signal.h>
 #endif
 
