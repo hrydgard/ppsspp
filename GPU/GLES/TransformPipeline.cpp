@@ -243,7 +243,8 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		return;
 	}
 
-	Vec3 norm = normal.Normalized();
+	bool hasNormal = (gstate.vertType & GE_VTYPE_NRM_MASK) != 0;
+
 	Color4 in(colorIn);
 
 	const Color4 *ambient;
@@ -287,6 +288,11 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 
 		float distanceToLight = toLight.Length();
 		float dot = 0.0f;
+		Vec3 norm(0,0,0);
+
+		if (hasNormal)
+			norm = normal.Normalized();
+
 		if (distanceToLight > 0.0f)
 		{
 			toLight /= distanceToLight;
