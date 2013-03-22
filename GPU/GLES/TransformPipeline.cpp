@@ -276,8 +276,10 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 
 		GELightComputation comp = (GELightComputation)(gstate.ltype[l] & 3);
 		GELightType type = (GELightType)((gstate.ltype[l] >> 8) & 3);
-		Vec3 toLight;
-
+		
+		Vec3 toLight(0,0,0);
+		Vec3 norm(0,0,0);
+		
 		if (type == GE_LIGHTTYPE_DIRECTIONAL)
 			toLight = Vec3(gstate_c.lightpos[l]);  // lightdir is for spotlights
 		else
@@ -285,10 +287,10 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 
 		bool doSpecular = (comp != GE_LIGHTCOMP_ONLYDIFFUSE);
 		bool poweredDiffuse = comp == GE_LIGHTCOMP_BOTHWITHPOWDIFFUSE;
-
+		bool hasNormal = (gstate.vertType & GE_VTYPE_NRM_MASK) != 0;
+		
 		float distanceToLight = toLight.Length();
 		float dot = 0.0f;
-		Vec3 norm(0,0,0);
 
 		if (hasNormal)
 			norm = normal.Normalized();
