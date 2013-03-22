@@ -18,6 +18,10 @@
 #include "ArmRegCache.h"
 #include "ArmEmitter.h"
 
+#if defined(MAEMO)
+#include "stddef.h"
+#endif
+
 using namespace ArmGen;
 
 ArmRegCache::ArmRegCache(MIPSState *mips) : mips_(mips) {
