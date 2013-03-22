@@ -437,7 +437,7 @@ void PGF::DrawCharacter(u32 base, int bpl, int bufWidth, int bufHeight, int x, i
 		bitPtr += 4;
 
 		int count;
-		int value;
+		int value = 0;
 		if (nibble < 8) {
 			value = getBits(4, fontData, bitPtr);
 			bitPtr += 4;
