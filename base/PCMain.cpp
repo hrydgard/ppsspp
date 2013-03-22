@@ -33,8 +33,16 @@
 #include "base/NativeApp.h"
 #include "net/resolve.h"
 
+
+#ifdef MAEMO
+#define EGL
+#endif
+
 #ifdef PANDORA
-// EGL2SDL for Pandora
+#define EGL
+#endif
+
+#ifdef EGL
 #include "EGL/egl.h"
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
@@ -91,25 +99,30 @@ int8_t EGL_Open() {
 }
 
 int8_t EGL_Init() {
-	EGLConfig g_eglConfig[1] = {NULL};
+	EGLConfig g_eglConfig; //[1] = {NULL};
 	EGLint g_numConfigs = 0;
 	EGLint attrib_list[]= {
+#ifdef PANDORA
 		EGL_RED_SIZE,        5,
 		EGL_GREEN_SIZE,      6,
 		EGL_BLUE_SIZE,       5,
+#endif
 		EGL_DEPTH_SIZE,      16,
 		EGL_SURFACE_TYPE,    EGL_WINDOW_BIT,
 		EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
 		EGL_SAMPLE_BUFFERS,  0,
 		EGL_SAMPLES,         0,
+#ifdef MAEMO
+		EGL_BUFFER_SIZE, 16,
+#endif
 		EGL_NONE};
 
 	const EGLint attributes[] = { EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE };
 
-	EGLBoolean result = eglChooseConfig(g_eglDisplay, attrib_list, g_eglConfig[0], 1, &g_numConfigs);
+	EGLBoolean result = eglChooseConfig(g_eglDisplay, attrib_list, &g_eglConfig, 1, &g_numConfigs);
 	if (result != EGL_TRUE || g_numConfigs == 0) EGL_ERROR("Unable to query for available configs.", true);
 
-	g_eglContext = eglCreateContext(g_eglDisplay, g_eglConfig[0], NULL, attributes);
+	g_eglContext = eglCreateContext(g_eglDisplay, g_eglConfig, NULL, attributes );
 	if (g_eglContext == EGL_NO_CONTEXT) EGL_ERROR("Unable to create GLES context!", true);
 
 	// Get the SDL window handle
@@ -355,7 +368,7 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr, "Unable to initialize SDL: %s\n", SDL_GetError());
 		return 1;
 	}
-#ifdef PANDORA
+#ifdef EGL
 	if (EGL_Open())
 		return 1;
 #endif
@@ -380,7 +393,7 @@ int main(int argc, char *argv[]) {
 		SDL_Quit();
 		return(2);
 	}
-#ifdef PANDORA
+#ifdef EGL
 	EGL_Init();
 #endif
 
@@ -525,7 +538,7 @@ int main(int argc, char *argv[]) {
 			// glsl_refresh(); // auto-reloads modified GLSL shaders once per second.
 		}
 
-#ifdef PANDORA
+#ifdef EGL
 		eglSwapBuffers(g_eglDisplay, g_eglSurface);
 #else
 		if (!keys[SDLK_TAB] || t - lastT >= 1.0/60.0)
@@ -553,7 +566,7 @@ int main(int argc, char *argv[]) {
 	SDL_PauseAudio(1);
 	SDL_CloseAudio();
 	NativeShutdown();
-#ifdef PANDORA
+#ifdef EGL
 	EGL_Close();
 #endif
 	SDL_Quit();
