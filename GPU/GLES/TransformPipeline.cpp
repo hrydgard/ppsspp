@@ -214,12 +214,7 @@ private:
 };
 
 Lighter::Lighter() {
-	disabled_ = false;
 	doShadeMapping_ = (gstate.texmapmode & 0x3) == 2;
-	if (!doShadeMapping_ && !(gstate.lightEnable[0]&1) && !(gstate.lightEnable[1]&1) && !(gstate.lightEnable[2]&1) && !(gstate.lightEnable[3]&1))
-	{
-		disabled_ = true;
-	}
 	materialEmissive.GetFromRGB(gstate.materialemissive);
 	materialEmissive.a = 0.0f;
 	globalAmbient.GetFromRGB(gstate.ambientcolor);
@@ -237,11 +232,6 @@ Lighter::Lighter() {
 
 void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[4], Vec3 pos, Vec3 normal, float dots[4])
 {
-	if (disabled_) {
-		memcpy(colorOut0, colorIn, sizeof(float) * 4);
-		memset(colorOut1, 0, sizeof(float) * 4);
-	}
-
 	Vec3 norm = normal.Normalized();
 	Color4 in(colorIn);
 
