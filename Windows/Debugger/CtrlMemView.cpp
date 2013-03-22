@@ -358,11 +358,11 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 			}
 			else
 			{
-				outputfile = fopen("Ram.dump","w");		// Could also dump Vram, but not useful for now.
+				outputfile = fopen("Ram.dump","wb");		// Could also dump Vram, but not useful for now.
 				fwrite(Memory::GetPointer(0x08800000), 1, 0x1800000, outputfile); 
 				fclose(outputfile);
 				break;
-            }
+			}
 
 		case ID_MEMVIEW_COPYVALUE:
 			{
