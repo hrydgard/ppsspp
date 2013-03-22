@@ -346,11 +346,23 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 		//popup menu?
 		POINT pt;
 		GetCursorPos(&pt);
+		FILE* outputfile;
 		switch (TrackPopupMenuEx(GetSubMenu(g_hPopupMenus,0),TPM_RIGHTBUTTON|TPM_RETURNCMD,pt.x,pt.y,wnd,0))
 		{
 		case ID_MEMVIEW_DUMP:
-			MessageBox(wnd,"This feature has not been implemented.","Sorry",0);
-			break;
+     
+			if (!Core_IsStepping()) // If emulator isn't paused
+			{
+				MessageBox(wnd,"You have to pause the emulator first","Sorry",0);
+				break;
+			}
+			else
+			{
+				outputfile = fopen("Ram.dump","wb");		// Could also dump Vram, but not useful for now.
+				fwrite(Memory::GetPointer(0x08800000), 1, 0x1800000, outputfile); 
+				fclose(outputfile);
+				break;
+			}
 
 		case ID_MEMVIEW_COPYVALUE:
 			{
