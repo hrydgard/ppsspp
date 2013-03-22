@@ -240,7 +240,6 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 	if (disabled_) {
 		memcpy(colorOut0, colorIn, sizeof(float) * 4);
 		memset(colorOut1, 0, sizeof(float) * 4);
-		return;
 	}
 
 	bool hasNormal = (gstate.vertType & GE_VTYPE_NRM_MASK) != 0;
