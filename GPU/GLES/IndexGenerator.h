@@ -44,6 +44,9 @@ public:
 	// Rectangles
 	void AddRectangles(int numVerts);
 
+	void TranslatePrim(int prim, int numInds, const u8 *inds, int indexLowerBound, int indexUpperBound);
+	void TranslatePrim(int prim, int numInds, const u16 *inds, int indexLowerBound, int indexUpperBound);
+
 	void TranslatePoints(int numVerts, const u8 *inds, int indexLowerBound, int indexUpperBound);	
 	void TranslatePoints(int numVerts, const u16 *inds, int indexLowerBound, int indexUpperBound);
 	// Translates already indexed lists
@@ -61,6 +64,10 @@ public:
 	void TranslateStrip(int numVerts, const u16 *inds, int indexLowerBound, int indexUpperBound);
 	void TranslateFan(int numVerts, const u8 *inds, int indexLowerBound, int indexUpperBound);
 	void TranslateFan(int numVerts, const u16 *inds, int indexLowerBound, int indexUpperBound);
+
+	void Advance(int numVerts) {
+		index_ += numVerts;
+	}
 
 	int MaxIndex() const { return index_; }
 	int VertexCount() const { return count_; }
