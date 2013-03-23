@@ -138,9 +138,10 @@ reswitch:
 
 		// We should never get here on Android.
 		case CORE_STEPPING:
-			if (coreStatePending)
+			if (coreStatePending) {
+				coreStatePending = false;
 				m_hInactiveEvent.notify_one();
-			coreStatePending = false;
+			}
 
 			//1: wait for step command..
 #if defined(USING_QT_UI) || defined(_DEBUG)
@@ -175,9 +176,11 @@ reswitch:
 		case CORE_POWERDOWN:
 		case CORE_ERROR:
 			//1: Exit loop!!
-			if (coreStatePending)
+			if (coreStatePending) {
+				coreStatePending = false;
 				m_hInactiveEvent.notify_one();
-			coreStatePending = false;
+			}
+
 			return;
 
 		case CORE_NEXTFRAME:
