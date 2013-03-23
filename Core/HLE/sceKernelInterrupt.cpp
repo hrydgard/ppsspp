@@ -540,13 +540,6 @@ u32 sceKernelMemcpy(u32 dst, u32 src, u32 size)
 	return dst;
 }
 
-// Returns the stack size of the current thread.
-u32 sceKernelCheckThreadStack() {
-	int stackSize = __KernelGetCurThreadStack() - currentMIPS->r[MIPS_REG_SP];
-	DEBUG_LOG(HLE, "%i = sceKernelCheckThreadStack()", stackSize);
-	return stackSize;
-}
-
 const HLEFunction Kernel_Library[] =
 {
 	{0x092968F4,sceKernelCpuSuspendIntr,"sceKernelCpuSuspendIntr"},
@@ -562,7 +555,7 @@ const HLEFunction Kernel_Library[] =
 	{0x15b6446b,WrapI_UI<sceKernelUnlockLwMutex>, "sceKernelUnlockLwMutex"},
 	{0xc1734599,WrapI_UU<sceKernelReferLwMutexStatus>, "sceKernelReferLwMutexStatus"},
 	{0x293b45b8,sceKernelGetThreadId, "sceKernelGetThreadId"},
-	{0xD13BDE95,WrapU_V<sceKernelCheckThreadStack>, "sceKernelCheckThreadStack"},
+	{0xD13BDE95,WrapI_V<sceKernelCheckThreadStack>, "sceKernelCheckThreadStack"},
 	{0x1839852A,WrapU_UUU<sceKernelMemcpy>,"sce_paf_private_memcpy"},
 };
 
