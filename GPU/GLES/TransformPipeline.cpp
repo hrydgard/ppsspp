@@ -571,54 +571,54 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 				}
 			}
 
-			if (reader.hasUV()) {
-				float ruv[2];
+			float ruv[2] = {0.0f, 0.0f};
+			if (reader.hasUV())
 				reader.ReadUV(ruv);
-				// Perform texture coordinate generation after the transform and lighting - one style of UV depends on lights.
-				switch (gstate.getUVGenMode())
-				{
-				case 0:	// UV mapping
-					// Texture scale/offset is only performed in this mode.
-					uv[0] = uscale * (ruv[0]*gstate_c.uScale + gstate_c.uOff);
-					uv[1] = vscale * (ruv[1]*gstate_c.vScale + gstate_c.vOff);
-					break;
-				case 1:
-					{
-						// Projection mapping
-						Vec3 source;
-						switch (gstate.getUVProjMode())
-						{
-						case 0: // Use model space XYZ as source
-							source = pos;
-							break;
-						case 1: // Use unscaled UV as source
-							source = Vec3(ruv[0], ruv[1], 0.0f);
-							break;
-						case 2: // Use normalized normal as source
-							source = Vec3(norm).Normalized();
-							break;
-						case 3: // Use non-normalized normal as source!
-							source = Vec3(norm);
-							break;
-						}
 
-						float uvw[3];
-						Vec3ByMatrix43(uvw, &source.x, gstate.tgenMatrix);
-						uv[0] = uvw[0];
-						uv[1] = uvw[1];
-					}
-					break;
-				case 2:
-					// Shade mapping - use dot products from light sources to generate U and V.
+			// Perform texture coordinate generation after the transform and lighting - one style of UV depends on lights.
+			switch (gstate.getUVGenMode())
+			{
+			case 0:	// UV mapping
+				// Texture scale/offset is only performed in this mode.
+				uv[0] = uscale * (ruv[0]*gstate_c.uScale + gstate_c.uOff);
+				uv[1] = vscale * (ruv[1]*gstate_c.vScale + gstate_c.vOff);
+				break;
+			case 1:
+				{
+					// Projection mapping
+					Vec3 source;
+					switch (gstate.getUVProjMode())
 					{
-						uv[0] = dots[gstate.getUVLS0()];
-						uv[1] = dots[gstate.getUVLS1()];
+					case 0: // Use model space XYZ as source
+						source = pos;
+						break;
+					case 1: // Use unscaled UV as source
+						source = Vec3(ruv[0], ruv[1], 0.0f);
+						break;
+					case 2: // Use normalized normal as source
+						source = Vec3(norm).Normalized();
+						break;
+					case 3: // Use non-normalized normal as source!
+						source = Vec3(norm);
+						break;
 					}
-					break;
-				case 3:
-					// Illegal
-					break;
+
+					float uvw[3];
+					Vec3ByMatrix43(uvw, &source.x, gstate.tgenMatrix);
+					uv[0] = uvw[0];
+					uv[1] = uvw[1];
 				}
+				break;
+			case 2:
+				// Shade mapping - use dot products from light sources to generate U and V.
+				{
+					uv[0] = dots[gstate.getUVLS0()];
+					uv[1] = dots[gstate.getUVLS1()];
+				}
+				break;
+			case 3:
+				// Illegal
+				break;
 			}
 
 			// Transform the coord by the view matrix.
