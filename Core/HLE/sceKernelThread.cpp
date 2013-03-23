@@ -333,6 +333,7 @@ public:
 		// Fill the stack.
 		Memory::Memset(stackBlock, 0xFF, stackSize);
 		context.r[MIPS_REG_SP] = stackBlock + stackSize;
+		stackEnd = context.r[MIPS_REG_SP];
 		nt.initialStack = stackBlock;
 		nt.stackSize = stackSize;
 		// What's this 512?
@@ -429,6 +430,7 @@ public:
 	std::list<u32> pendingMipsCalls;
 
 	u32 stackBlock;
+	u32 stackEnd;
 };
 
 // std::vector<SceUID> with push_front(), remove(), etc.
@@ -1829,6 +1831,14 @@ SceUID __KernelGetCurThreadModuleId()
 	Thread *t = __GetCurrentThread();
 	if (t)
 		return t->moduleId;
+	return 0;
+}
+
+u32 __KernelGetCurThreadStack()
+{
+	Thread *t = __GetCurrentThread();
+	if (t)
+		return t->stackEnd;
 	return 0;
 }
 
