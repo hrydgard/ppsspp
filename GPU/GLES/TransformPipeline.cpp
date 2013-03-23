@@ -807,7 +807,7 @@ void TransformDrawEngine::DecodeVerts() {
 		if (indexType == GE_VTYPE_IDX_NONE >> GE_VTYPE_IDX_SHIFT) {
 			// Decode the verts and apply morphing. Simple.
 			dec.DecodeVerts(decoded + collectedVerts * (int)dec.GetDecVtxFmt().stride,
-				dc.verts, dc.prim, indexLowerBound, indexUpperBound);
+				dc.verts, indexLowerBound, indexUpperBound);
 			collectedVerts += indexUpperBound - indexLowerBound + 1;
 			switch (dc.prim) {
 			case GE_PRIM_POINTS: indexGen.AddPoints(dc.vertexCount); break;
@@ -841,22 +841,22 @@ void TransformDrawEngine::DecodeVerts() {
 			for (j = i; j <= lastMatch; j++) {
 				switch (indexType) {
 				case GE_VTYPE_IDX_8BIT >> GE_VTYPE_IDX_SHIFT:
-					indexGen.TranslatePrim(dc.prim, drawCalls[j].vertexCount, (const u8 *)drawCalls[j].inds, indexLowerBound, indexUpperBound);
+					indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u8 *)drawCalls[j].inds, indexLowerBound);
 					break;
 				case GE_VTYPE_IDX_16BIT >> GE_VTYPE_IDX_SHIFT:
-					indexGen.TranslatePrim(dc.prim, drawCalls[j].vertexCount, (const u16 *)drawCalls[j].inds, indexLowerBound, indexUpperBound);
+					indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u16 *)drawCalls[j].inds, indexLowerBound);
 					break;
 				}
 			}
 
 			// 3. Decode that range of vertex data.
 			dec.DecodeVerts(decoded + collectedVerts * (int)dec.GetDecVtxFmt().stride,
-				dc.verts, dc.prim, indexLowerBound, indexUpperBound);
+				dc.verts, indexLowerBound, indexUpperBound);
 			collectedVerts += indexUpperBound - indexLowerBound + 1;
 
 			// 4. Advance indexgen vertex counter.
 			indexGen.Advance(indexUpperBound - indexLowerBound + 1);
-			i = j;
+			i = lastMatch;
 		}
 	}
 }

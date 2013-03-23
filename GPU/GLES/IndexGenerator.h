@@ -44,26 +44,26 @@ public:
 	// Rectangles
 	void AddRectangles(int numVerts);
 
-	void TranslatePrim(int prim, int numInds, const u8 *inds, int indexLowerBound, int indexUpperBound);
-	void TranslatePrim(int prim, int numInds, const u16 *inds, int indexLowerBound, int indexUpperBound);
+	void TranslatePrim(int prim, int numInds, const u8 *inds, int indexOffset);
+	void TranslatePrim(int prim, int numInds, const u16 *inds, int indexOffset);
 
-	void TranslatePoints(int numVerts, const u8 *inds, int indexLowerBound, int indexUpperBound);	
-	void TranslatePoints(int numVerts, const u16 *inds, int indexLowerBound, int indexUpperBound);
+	void TranslatePoints(int numVerts, const u8 *inds, int indexOffset);	
+	void TranslatePoints(int numVerts, const u16 *inds, int indexOffset);
 	// Translates already indexed lists
-	void TranslateLineList(int numVerts, const u8 *inds, int indexLowerBound, int indexUpperBound);
-	void TranslateLineList(int numVerts, const u16 *inds, int indexLowerBound, int indexUpperBound);
-	void TranslateLineStrip(int numVerts, const u8 *inds, int indexLowerBound, int indexUpperBound);
-	void TranslateLineStrip(int numVerts, const u16 *inds, int indexLowerBound, int indexUpperBound);
+	void TranslateLineList(int numVerts, const u8 *inds, int indexOffset);
+	void TranslateLineList(int numVerts, const u16 *inds, int indexOffset);
+	void TranslateLineStrip(int numVerts, const u8 *inds, int indexOffset);
+	void TranslateLineStrip(int numVerts, const u16 *inds, int indexOffset);
 
-	void TranslateRectangles(int numVerts, const u8 *inds, int indexLowerBound, int indexUpperBound);
-	void TranslateRectangles(int numVerts, const u16 *inds, int indexLowerBound, int indexUpperBound);
+	void TranslateRectangles(int numVerts, const u8 *inds, int indexOffset);
+	void TranslateRectangles(int numVerts, const u16 *inds, int indexOffset);
 
-	void TranslateList(int numVerts, const u8 *inds, int indexLowerBound, int indexUpperBound);
-	void TranslateList(int numVerts, const u16 *inds, int indexLowerBound, int indexUpperBound);
-	void TranslateStrip(int numVerts, const u8 *inds, int indexLowerBound, int indexUpperBound);
-	void TranslateStrip(int numVerts, const u16 *inds, int indexLowerBound, int indexUpperBound);
-	void TranslateFan(int numVerts, const u8 *inds, int indexLowerBound, int indexUpperBound);
-	void TranslateFan(int numVerts, const u16 *inds, int indexLowerBound, int indexUpperBound);
+	void TranslateList(int numVerts, const u8 *inds, int indexOffset);
+	void TranslateList(int numVerts, const u16 *inds, int indexOffset);
+	void TranslateStrip(int numVerts, const u8 *inds, int indexOffset);
+	void TranslateStrip(int numVerts, const u16 *inds, int indexOffset);
+	void TranslateFan(int numVerts, const u8 *inds, int indexOffset);
+	void TranslateFan(int numVerts, const u16 *inds, int indexOffset);
 
 	void Advance(int numVerts) {
 		index_ += numVerts;

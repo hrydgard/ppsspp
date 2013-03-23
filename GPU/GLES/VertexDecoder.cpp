@@ -717,7 +717,7 @@ void GetIndexBounds(void *inds, int count, u32 vertType, u16 *indexLowerBound, u
 	*indexUpperBound = (u16)upperBound;
 }
 
-void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, int prim, int indexLowerBound, int indexUpperBound) const {
+void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, int indexLowerBound, int indexUpperBound) const {
 	// Decode the vertices within the found bounds, once each
 	decoded_ = decodedptr;  // + lowerBound * decFmt.stride;
 	ptr_ = (const u8*)verts + indexLowerBound * size;
