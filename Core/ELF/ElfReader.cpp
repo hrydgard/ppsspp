@@ -294,18 +294,25 @@ bool ElfReader::LoadInto(u32 loadAddress)
 			//We have a relocation table!
 			int sectionToModify = s->sh_info;
 
-			if (!(sections[sectionToModify].sh_flags & SHF_ALLOC))
+			if (sectionToModify >= 0)
 			{
-				ERROR_LOG(LOADER,"Trying to relocate non-loaded section %s",GetSectionName(sectionToModify));
-				continue;
+				if (!(sections[sectionToModify].sh_flags & SHF_ALLOC))
+				{
+					ERROR_LOG(LOADER,"Trying to relocate non-loaded section %s",GetSectionName(sectionToModify));
+					continue;
+				}
+
+				int numRelocs = s->sh_size / sizeof(Elf32_Rel);
+
+				Elf32_Rel *rels = (Elf32_Rel *)GetSectionDataPtr(i);
+
+				DEBUG_LOG(LOADER,"%s: Performing %i relocations on %s",name,numRelocs,GetSectionName(sectionToModify));
+				LoadRelocations(rels, numRelocs);
 			}
-			
-			int numRelocs = s->sh_size / sizeof(Elf32_Rel);
-
-			Elf32_Rel *rels = (Elf32_Rel *)GetSectionDataPtr(i);
-
-			DEBUG_LOG(LOADER,"%s: Performing %i relocations on %s",name,numRelocs,GetSectionName(sectionToModify));
-			LoadRelocations(rels, numRelocs);
+			else
+			{
+				WARN_LOG(LOADER, "sectionToModify = %i - ignoring PSP relocation sector %i", sectionToModify, i);
+			}
 		}
 		else if (s->sh_type == SHT_REL)
 		{
@@ -318,10 +325,17 @@ bool ElfReader::LoadInto(u32 loadAddress)
 			{
 				//We have a relocation table!
 				int sectionToModify = s->sh_info;
-				if (!(sections[sectionToModify].sh_flags & SHF_ALLOC))
+				if (sectionToModify >= 0)
 				{
-					ERROR_LOG(LOADER,"Trying to relocate non-loaded section %s, ignoring",GetSectionName(sectionToModify));
-					continue;
+					if (!(sections[sectionToModify].sh_flags & SHF_ALLOC))
+					{
+						ERROR_LOG(LOADER,"Trying to relocate non-loaded section %s, ignoring",GetSectionName(sectionToModify));
+						continue;
+					}
+				}
+				else
+				{
+					WARN_LOG(LOADER, "sectionToModify = %i - ignoring relocation sector %i", sectionToModify, i);
 				}
 				ERROR_LOG(LOADER,"Traditional relocations unsupported.");
 			}
