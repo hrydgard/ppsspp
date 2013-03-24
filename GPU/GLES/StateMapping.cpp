@@ -260,9 +260,9 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	int scissorY2 = (gstate.scissor2 >> 10) & 0x3FF;
 
 	// This is a bit of a hack as the render buffer isn't always that size
-	if (scissorX1 == 0 && scissorY1 == 0 &&
-		scissorX2 >= gstate_c.curRTWidth - 1 &&
-		scissorY2 >= gstate_c.curRTHeight - 1) {
+	if (scissorX1 == 0 && scissorY1 == 0 
+		&& scissorX2 >= (int) (gstate_c.curRTWidth - 1) 
+		&& scissorY2 >= (int) (gstate_c.curRTHeight - 1)) {
 		glstate.scissorTest.disable();
 	} else {
 		glstate.scissorTest.enable();
