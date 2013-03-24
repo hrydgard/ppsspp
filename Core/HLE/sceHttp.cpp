@@ -25,8 +25,7 @@
 0x19155a2f sceSircsEnd
 0x71eef62d sceSircsSend
 	*/
-const HLEFunction sceHttp[] =
-{
+const HLEFunction sceHttp[] = {
 	{0xd70d4847,0,"sceHttpGetProxy"},
 	{0x4cc7d78f,0,"sceHttpGetStatusCode"},
 	{0xedeeb999,0,"sceHttpReadData"},
@@ -75,6 +74,10 @@ const HLEFunction sceHttp[] =
 	{0xDB266CCF,0,"sceHttpGetAllHeader"},
 	{0x68AB0F86,0,"sceHttpsInitWithPath"},
 	{0xB3FAF831,0,"sceHttpsDisableOption"},
+	{0x2255551E,0,"sceHttpGetNetworkPspError"},
+	{0xAB1540D5,0,"sceHttpsGetSslError"},
+	{0xA4496DE5,0,"sceHttpSetRedirectCallback"},
+	{0x0282A3BD,0,"sceHttpGetContentLength"},
 };				
 
 void Register_sceHttp()

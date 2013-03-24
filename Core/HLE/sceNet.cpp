@@ -239,7 +239,9 @@ const HLEFunction sceNetInet[] =
 	{0xfaabb1dd, 0, "sceNetInetPoll"},
 	{0x1BDF5D13, 0, "sceNetInetInetAton"},
 	{0x80A21ABD, 0, "sceNetInetSocketAbort"},
+	{0x805502DD, 0, "sceNetInetCloseWithRST"},
 };
+
 const HLEFunction sceNetApctl[] = 
 {
 	{0xCFB957C6, 0, "sceNetApctlConnect"},

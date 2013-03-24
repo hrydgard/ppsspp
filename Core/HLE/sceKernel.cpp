@@ -52,6 +52,7 @@
 #include "sceKernelVTimer.h"
 #include "sceKernelTime.h"
 #include "sceMpeg.h"
+#include "sceNet.h"
 #include "scePower.h"
 #include "sceUtility.h"
 #include "sceUmd.h"
@@ -109,6 +110,7 @@ void __KernelInit()
 	__ImposeInit();
 	__UsbInit();
 	__FontInit();
+	__NetInit();
 	
 	SaveState::Init();  // Must be after IO, as it may create a directory
 
@@ -131,6 +133,7 @@ void __KernelShutdown()
 	hleCurrentThreadName = NULL;
 	kernelObjects.Clear();
 
+	__NetShutdown();
 	__FontShutdown();
 
 	__MpegShutdown();
@@ -194,6 +197,9 @@ void __KernelDoState(PointerWrap &p)
 	__UsbDoState(p);
 
 	__PPGeDoState(p);
+	
+	// Didn't feel like breaking save states right now for this. Next time you have to change something, uncomment.
+	// __NetDoState(p);
 
 	__InterruptsDoStateLate(p);
 	__KernelThreadingDoStateLate(p);

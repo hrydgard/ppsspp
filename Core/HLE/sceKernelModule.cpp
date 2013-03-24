@@ -19,6 +19,7 @@
 #include <algorithm>
 
 #include "HLE.h"
+#include "Core/Reporting.h"
 #include "Common/FileUtil.h"
 #include "../Host.h"
 #include "../MIPS/MIPS.h"
@@ -272,8 +273,9 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		newptr = new u8[head->elf_size + head->psp_size];
 		ptr = newptr;
 		int ret = pspDecryptPRX(in, (u8*)ptr, head->psp_size);
-		if (ret == MISSING_KEY)
-		{
+		if (ret == MISSING_KEY) {
+			// This should happen for all "kernel" modules so disabling.
+			// Reporting::ReportMessage("Missing PRX decryption key!");
 			*error_string = "Missing key";
 			delete [] newptr;
 			module->isFake = true;
@@ -285,6 +287,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		else if (ret <= 0)
 		{
 			ERROR_LOG(HLE, "Failed decrypting PRX! That's not normal!\n");
+			Reporting::ReportMessage("Failed decrypting the PRX (size = %i, psp_size = %i)!", head->elf_size, head->psp_size);
 		}
 	}
 
@@ -292,8 +295,8 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	{
 		ERROR_LOG(HLE, "Wrong magic number %08x",*(u32*)ptr);
 		*error_string = "File corrupt";
-		if (newptr)
-		{
+		Reporting::ReportMessage("Wrong ELF magic number %08x", *(u32*)ptr);
+		if (newptr) {
 			delete [] newptr;
 		}
 		kernelObjects.Destroy<Module>(module->GetUID());
