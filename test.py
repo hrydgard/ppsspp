@@ -2,7 +2,6 @@
 # Automated script to run the pspautotests test suite in PPSSPP.
 
 import sys
-import io
 import os
 import subprocess
 import threading
@@ -31,7 +30,7 @@ class Command(object):
     thread.start()
 
     thread.join(timeout)
-    if thread.is_alive():
+    if thread.isAlive():
       self.timeout = True
       self.process.terminate()
       thread.join()
