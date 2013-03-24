@@ -782,6 +782,7 @@ void TransformDrawEngine::SubmitPrim(void *verts, void *inds, int prim, int vert
 	if (!indexGen.Empty()) {
 		gpuStats.numJoins++;
 	}
+
 	gpuStats.numDrawCalls++;
 	gpuStats.numVertsSubmitted += vertexCount;
 
@@ -814,15 +815,7 @@ void TransformDrawEngine::DecodeVerts() {
 			dec.DecodeVerts(decoded + collectedVerts * (int)dec.GetDecVtxFmt().stride,
 				dc.verts, indexLowerBound, indexUpperBound);
 			collectedVerts += indexUpperBound - indexLowerBound + 1;
-			switch (dc.prim) {
-			case GE_PRIM_POINTS: indexGen.AddPoints(dc.vertexCount); break;
-			case GE_PRIM_LINES: indexGen.AddLineList(dc.vertexCount); break;
-			case GE_PRIM_LINE_STRIP: indexGen.AddLineStrip(dc.vertexCount); break;
-			case GE_PRIM_TRIANGLES: indexGen.AddList(dc.vertexCount); break;
-			case GE_PRIM_TRIANGLE_STRIP: indexGen.AddStrip(dc.vertexCount); break;
-			case GE_PRIM_TRIANGLE_FAN: indexGen.AddFan(dc.vertexCount); break;
-			case GE_PRIM_RECTANGLES: indexGen.AddRectangles(dc.vertexCount); break;  // Same
-			}
+			indexGen.AddPrim(dc.prim, dc.vertexCount);
 		} else {
 			// It's fairly common that games issue long sequences of PRIM calls, with differing
 			// inds pointer but the same base vertex pointer. We'd like to reuse vertices between

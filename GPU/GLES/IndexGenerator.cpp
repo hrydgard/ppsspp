@@ -53,6 +53,18 @@ void IndexGenerator::Setup(u16 *inds) {
 	Reset();
 }
 
+void IndexGenerator::AddPrim(int prim, int vertexCount) {
+	switch (prim) {
+	case GE_PRIM_POINTS: AddPoints(vertexCount); break;
+	case GE_PRIM_LINES: AddLineList(vertexCount); break;
+	case GE_PRIM_LINE_STRIP: AddLineStrip(vertexCount); break;
+	case GE_PRIM_TRIANGLES: AddList(vertexCount); break;
+	case GE_PRIM_TRIANGLE_STRIP: AddStrip(vertexCount); break;
+	case GE_PRIM_TRIANGLE_FAN: AddFan(vertexCount); break;
+	case GE_PRIM_RECTANGLES: AddRectangles(vertexCount); break;  // Same
+	}
+}
+
 void IndexGenerator::AddPoints(int numVerts) {
 	for (int i = 0; i < numVerts; i++)
 		*inds_++ = index_ + i;
