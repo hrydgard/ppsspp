@@ -83,6 +83,9 @@ TransformDrawEngine::~TransformDrawEngine() {
 	FreeMemoryPages(transformed, TRANSFORMED_VERTEX_BUFFER_SIZE);
 	FreeMemoryPages(transformedExpanded, 3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
 	unregister_gl_resource_holder(this);
+	for (auto iter = decoderMap_.begin(); iter != decoderMap_.end(); iter++) {
+		delete iter->second;
+	}
 }
 
 void TransformDrawEngine::InitDeviceObjects() {
