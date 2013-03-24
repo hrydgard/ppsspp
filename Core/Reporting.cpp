@@ -121,7 +121,7 @@ namespace Reporting
 		if (http.Resolve(ServerHostname(), ServerPort()))
 		{
 			http.Connect();
-			http.POST("/report/message", data, "application/x-www-urlencoded", output);
+			http.POST("/report/message", data, "application/x-www-form-urlencoded", output);
 			http.Disconnect();
 			result = true;
 		}
@@ -138,10 +138,11 @@ namespace Reporting
 		char temp[PARAM_BUFFER_SIZE];
 
 		// TODO: Need to escape these values, add more.
-		snprintf(temp, PARAM_BUFFER_SIZE - 1, "version=%s&game=%s_%s",
+		snprintf(temp, PARAM_BUFFER_SIZE - 1, "version=%s&game=%s_%s&game_title=%s",
 			PPSSPP_GIT_VERSION,
 			g_paramSFO.GetValueString("DISC_ID").c_str(),
-			g_paramSFO.GetValueString("DISC_VERSION").c_str());
+			g_paramSFO.GetValueString("DISC_VERSION").c_str(),
+			g_paramSFO.GetValueString("TITLE").c_str());
 
 		std::string data;
 		switch (payload.type)
