@@ -114,6 +114,14 @@ inline float nanclamp(float f, float lower, float upper)
 	return nanmin(nanmax(f, lower), upper);
 }
 
+#ifdef _MSC_VER
+#define isnan _isnan
+#endif
+
+double rint(double x){
+return floor(x+.5);
+}
+
 void ApplyPrefixST(float *v, u32 data, VectorSize size)
 {
   // Possible optimization shortcut:
@@ -621,16 +629,18 @@ namespace MIPSInt
 		for (int i = 0; i < GetNumVectorElements(sz); i++)
 		{
 			float sv = s[i] * mult;
+			int dsv;
 			// Cap/floor it to 0x7fffffff / 0x80000000
 			if (sv > 0x7fffffff) sv = 0x7fffffff;
 			if (sv < (int)0x80000000) sv = (int)0x80000000;
 			switch ((op >> 21) & 0x1f)
 			{
-			case 16: d[i] = (int)round_ieee_754(sv); break; //n
-			case 17: d[i] = s[i]>=0 ? (int)floor(sv) : (int)ceil(sv); break; //z
-			case 18: d[i] = (int)ceil(sv); break; //u
-			case 19: d[i] = (int)floor(sv); break; //d
+			case 16: dsv = (int)rint(sv); break; //n
+			case 17: dsv = s[i]>=0 ? (int)floor(sv) : (int)ceil(sv); break; //z
+			case 18: dsv = (int)ceil(sv); break; //u
+			case 19: dsv = (int)floor(sv); break; //d
 			}
+			if (isnan(dsv)) d[i] = 0x7FFFFFFF; else d[i] = (int) dsv;
 		}
 		ApplyPrefixD((float*)d, sz, true);
 		WriteVector((float*)d, sz, vd);
@@ -1662,11 +1672,12 @@ namespace MIPSInt
 		ApplySwizzleS(s, sz);
 		ReadVector(t, sz, vt);
 		ApplySwizzleT(t, sz);
-		// positive NAN always loses, unlike SSE
-		// negative NAN seems different? TODO
-		for (int i = 0; i < GetNumVectorElements(sz); i++)
-			d[i] = s[i] >= t[i] ? 1.0f : 0.0f;
-
+		for (int i = 0; i < GetNumVectorElements(sz); i++) {
+			if ( isnan(s[i]) || isnan(t[i]) )
+				d[i] = 0.0f;
+			else
+				d[i] = s[i] >= t[i] ? 1.0f : 0.0f;
+		}
 		ApplyPrefixD(d, sz);
 		WriteVector(d, sz, vd);
 		PC += 4;
@@ -1687,11 +1698,12 @@ namespace MIPSInt
 		ApplySwizzleS(s, sz);
 		ReadVector(t, sz, vt);
 		ApplySwizzleT(t, sz);
-		// positive NAN always loses, unlike SSE
-		// negative NAN seems different? TODO
-		for (int i = 0; i < GetNumVectorElements(sz); i++)
-			d[i] = s[i] < t[i] ? 1.0f : 0.0f;
-
+		for (int i = 0; i < GetNumVectorElements(sz); i++) {
+			if ( isnan(s[i]) || isnan(t[i]) )
+				d[i] = 0.0f;
+			else
+				d[i] = s[i] < t[i] ? 1.0f : 0.0f;
+		}
 		ApplyPrefixD(d, sz);
 		WriteVector(d, sz, vd);
 		PC += 4;
