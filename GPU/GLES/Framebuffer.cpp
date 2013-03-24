@@ -282,6 +282,10 @@ void GuessDrawingSize(int &drawing_width, int &drawing_height) {
 		drawing_width = gstate.getScissorX2() + 1;
 	if (drawing_height > gstate.getScissorY2() + 1)
 		drawing_height = gstate.getScissorY2() + 1;*/
+	
+	// Cap at maximum texture size for now. Don't see much point in drawing bigger.
+	drawing_width = std::min(drawing_width, 512);
+	drawing_height = std::min(drawing_height, 512);
 }
 
 void FramebufferManager::SetRenderFrameBuffer() {
