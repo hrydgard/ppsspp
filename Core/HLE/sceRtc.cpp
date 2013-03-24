@@ -193,7 +193,7 @@ u32 sceRtcGetCurrentTick(u32 tickPtr)
 	u64 curTick = __RtcGetCurrentTick();
 	if (Memory::IsValidAddress(tickPtr))
 		Memory::Write_U64(curTick, tickPtr);
-
+	hleEatCycles(222);
 	return 0;
 }
 
