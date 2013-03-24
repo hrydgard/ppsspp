@@ -481,71 +481,75 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 
 		INFO_LOG(HLE,"Exporting ent %d named %s, %d funcs, %d vars, resident %08x", m, name, ent->fcount, ent->vcount, ent->resident);
 		
-		u32 *residentPtr = (u32*)Memory::GetPointer(ent->resident);
-
-		for (u32 j = 0; j < ent->fcount; j++)
+		// Seen 0x00060005 in God Eater Burst
+		if (Memory::IsValidAddress(ent->resident)) 
 		{
-			u32 nid = residentPtr[j];
-			u32 exportAddr = residentPtr[ent->fcount + ent->vcount + j];
+			u32 *residentPtr = (u32*)Memory::GetPointer(ent->resident);
 
-			switch (nid)
+			for (u32 j = 0; j < ent->fcount; j++)
 			{
-			case NID_MODULE_START:
-				module->nm.module_start_func = exportAddr;
-				break;
-			case NID_MODULE_STOP:
-				module->nm.module_stop_func = exportAddr;
-				break;
-			case NID_MODULE_REBOOT_BEFORE:
-				module->nm.module_reboot_before_func = exportAddr;
-				break;
-			case NID_MODULE_REBOOT_PHASE:
-				module->nm.module_reboot_phase_func = exportAddr;
-				break;
-			case NID_MODULE_BOOTSTART:
-				module->nm.module_bootstart_func = exportAddr;
-				break;
-			default:
-				ResolveSyscall(name, nid, exportAddr);
+				u32 nid = residentPtr[j];
+				u32 exportAddr = residentPtr[ent->fcount + ent->vcount + j];
+
+				switch (nid)
+				{
+				case NID_MODULE_START:
+					module->nm.module_start_func = exportAddr;
+					break;
+				case NID_MODULE_STOP:
+					module->nm.module_stop_func = exportAddr;
+					break;
+				case NID_MODULE_REBOOT_BEFORE:
+					module->nm.module_reboot_before_func = exportAddr;
+					break;
+				case NID_MODULE_REBOOT_PHASE:
+					module->nm.module_reboot_phase_func = exportAddr;
+					break;
+				case NID_MODULE_BOOTSTART:
+					module->nm.module_bootstart_func = exportAddr;
+					break;
+				default:
+					ResolveSyscall(name, nid, exportAddr);
+				}
 			}
-		}
 
-		for (u32 j = 0; j < ent->vcount; j++)
-		{
-			u32 nid = residentPtr[ent->fcount + j];
-			u32 exportAddr = residentPtr[ent->fcount + ent->vcount + ent->fcount + j];
-
-			switch (nid)
+			for (u32 j = 0; j < ent->vcount; j++)
 			{
-			case NID_MODULE_INFO:
-				break;
-			case NID_MODULE_START_THREAD_PARAMETER:
-				if (Memory::Read_U32(exportAddr) != 3)
-					WARN_LOG(LOADER, "Strange value at module_start_thread_parameter export: %08x", Memory::Read_U32(exportAddr));
-				module->nm.module_start_thread_priority = Memory::Read_U32(exportAddr + 4);
-				module->nm.module_start_thread_stacksize = Memory::Read_U32(exportAddr + 8);
-				module->nm.module_start_thread_attr = Memory::Read_U32(exportAddr + 12);
-				break;
-			case NID_MODULE_STOP_THREAD_PARAMETER:
-				if (Memory::Read_U32(exportAddr) != 3)
-					WARN_LOG(LOADER, "Strange value at module_stop_thread_parameter export: %08x", Memory::Read_U32(exportAddr));
-				module->nm.module_stop_thread_priority = Memory::Read_U32(exportAddr + 4);
-				module->nm.module_stop_thread_stacksize = Memory::Read_U32(exportAddr + 8);
-				module->nm.module_stop_thread_attr = Memory::Read_U32(exportAddr + 12);
-				break;
-			case NID_MODULE_REBOOT_BEFORE_THREAD_PARAMETER:
-				if (Memory::Read_U32(exportAddr) != 3)
-					WARN_LOG(LOADER, "Strange value at module_reboot_before_thread_parameter export: %08x", Memory::Read_U32(exportAddr));
-				module->nm.module_reboot_before_thread_priority = Memory::Read_U32(exportAddr + 4);
-				module->nm.module_reboot_before_thread_stacksize = Memory::Read_U32(exportAddr + 8);
-				module->nm.module_reboot_before_thread_attr = Memory::Read_U32(exportAddr + 12);
-				break;
-			case NID_MODULE_SDK_VERSION:
-				DEBUG_LOG(LOADER, "Module SDK: %08x", Memory::Read_U32(exportAddr));
-				break;
-			default:
-				DEBUG_LOG(LOADER, "Unexpected variable with nid: %08x", nid);
-				break;
+				u32 nid = residentPtr[ent->fcount + j];
+				u32 exportAddr = residentPtr[ent->fcount + ent->vcount + ent->fcount + j];
+
+				switch (nid)
+				{
+				case NID_MODULE_INFO:
+					break;
+				case NID_MODULE_START_THREAD_PARAMETER:
+					if (Memory::Read_U32(exportAddr) != 3)
+						WARN_LOG(LOADER, "Strange value at module_start_thread_parameter export: %08x", Memory::Read_U32(exportAddr));
+					module->nm.module_start_thread_priority = Memory::Read_U32(exportAddr + 4);
+					module->nm.module_start_thread_stacksize = Memory::Read_U32(exportAddr + 8);
+					module->nm.module_start_thread_attr = Memory::Read_U32(exportAddr + 12);
+					break;
+				case NID_MODULE_STOP_THREAD_PARAMETER:
+					if (Memory::Read_U32(exportAddr) != 3)
+						WARN_LOG(LOADER, "Strange value at module_stop_thread_parameter export: %08x", Memory::Read_U32(exportAddr));
+					module->nm.module_stop_thread_priority = Memory::Read_U32(exportAddr + 4);
+					module->nm.module_stop_thread_stacksize = Memory::Read_U32(exportAddr + 8);
+					module->nm.module_stop_thread_attr = Memory::Read_U32(exportAddr + 12);
+					break;
+				case NID_MODULE_REBOOT_BEFORE_THREAD_PARAMETER:
+					if (Memory::Read_U32(exportAddr) != 3)
+						WARN_LOG(LOADER, "Strange value at module_reboot_before_thread_parameter export: %08x", Memory::Read_U32(exportAddr));
+					module->nm.module_reboot_before_thread_priority = Memory::Read_U32(exportAddr + 4);
+					module->nm.module_reboot_before_thread_stacksize = Memory::Read_U32(exportAddr + 8);
+					module->nm.module_reboot_before_thread_attr = Memory::Read_U32(exportAddr + 12);
+					break;
+				case NID_MODULE_SDK_VERSION:
+					DEBUG_LOG(LOADER, "Module SDK: %08x", Memory::Read_U32(exportAddr));
+					break;
+				default:
+					DEBUG_LOG(LOADER, "Unexpected variable with nid: %08x", nid);
+					break;
+				}
 			}
 		}
 
