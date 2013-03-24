@@ -21,17 +21,17 @@
 #include "HLE/sceUtility.h"
 
 SState g_State;
-CConfig g_Config;
+Config g_Config;
 
-CConfig::CConfig()
+Config::Config()
 {
 }
 
-CConfig::~CConfig()
+Config::~Config()
 {
 }
 
-void CConfig::Load(const char *iniFileName)
+void Config::Load(const char *iniFileName)
 {
 	iniFilename_ = iniFileName;
 	INFO_LOG(LOADER, "Loading config: %s", iniFileName);
@@ -56,6 +56,7 @@ void CConfig::Load(const char *iniFileName)
 	general->Get("ShowDebuggerOnLoad", &bShowDebuggerOnLoad, false);
 	// "default" means let emulator decide, "" means disable.
 	general->Get("ReportHost", &sReportHost, "default");
+	general->Get("Recent", recentIsos);
 
 	IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 	cpu->Get("Jit", &bJit, true);
@@ -107,7 +108,7 @@ void CConfig::Load(const char *iniFileName)
 	bDrawWireframe = false;
 }
 
-void CConfig::Save()
+void Config::Save()
 {
 	if (iniFilename_.size() && g_Config.bSaveSettings) {
 		IniFile iniFile;
@@ -125,6 +126,7 @@ void CConfig::Save()
 		general->Set("CurrentDirectory", currentDirectory);
 		general->Set("ShowDebuggerOnLoad", bShowDebuggerOnLoad);
 		general->Set("ReportHost", sReportHost);
+		general->Set("Recent", recentIsos);
 
 		IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 		cpu->Set("Jit", bJit);
@@ -170,4 +172,17 @@ void CConfig::Save()
 	} else {
 		INFO_LOG(LOADER, "Not saving config");
 	}
+}
+
+void Config::AddRecent(const std::string &file) {
+	for (auto str = recentIsos.begin(); str != recentIsos.end(); str++) {
+		if (*str == file) {
+			recentIsos.erase(str);
+			recentIsos.insert(recentIsos.begin(), file);
+			return;
+		}
+	}
+	recentIsos.insert(recentIsos.begin(), file);
+	if (recentIsos.size() > 4)
+		recentIsos.resize(4);
 }

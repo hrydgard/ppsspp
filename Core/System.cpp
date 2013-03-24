@@ -87,6 +87,7 @@ bool PSP_Init(const CoreParameter &coreParam, std::string *error_string)
 		return false;
 	}
 
+	g_Config.AddRecent(coreParameter.fileToStart);
 	// Setup JIT here.
 	if (coreParameter.startPaused)
 		coreState = CORE_STEPPING;

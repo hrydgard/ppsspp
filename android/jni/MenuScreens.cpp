@@ -38,6 +38,7 @@
 #include "util/text/utf8.h"
 #include "UIShader.h"
 
+#include "Common/StringUtil.h"
 #include "../../GPU/ge_constants.h"
 #include "../../GPU/GPUState.h"
 #include "../../GPU/GPUInterface.h"
@@ -177,6 +178,7 @@ void MenuScreen::render() {
 	ui_draw2d.DrawTextShadow(UBUNTU24, PPSSPP_GIT_VERSION, dp_xres + xoff, 85, 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_BOTTOM);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 	VLinear vlinear(dp_xres + xoff, 100, 20);
+	VLinear vlinear2(-xoff, 100, 20);
 
 	if (UIButton(GEN_ID, vlinear, w, "Load...", ALIGN_RIGHT)) {
 #if defined(USING_QT_UI)
@@ -222,6 +224,17 @@ void MenuScreen::render() {
 		LaunchBrowser("http://www.ppsspp.org/");
 	}
 
+	int recentW = 350;
+	if (g_Config.recentIsos.size()) {
+		ui_draw2d.DrawText(UBUNTU24, "Recent", -xoff, 80, 0xFFFFFFFF, ALIGN_BOTTOMLEFT);
+	}
+	for (size_t i = 0; i < g_Config.recentIsos.size(); i++) {
+		std::string filename;
+		SplitPath(g_Config.recentIsos[i], nullptr, &filename, nullptr);
+		if (UIButton(GEN_ID_LOOP(i), vlinear2, recentW, filename.c_str(), ALIGN_LEFT)) {
+			screenManager()->switchScreen(new EmuScreen(g_Config.recentIsos[i]));
+		}
+	}
 	DrawWatermark();
 
 	UIEnd();

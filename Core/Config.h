@@ -18,6 +18,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 #include <map>
 
 extern const char *PPSSPP_GIT_VERSION;
@@ -28,11 +29,11 @@ struct SState
 	bool bBooted;
 };
 
-struct CConfig
+struct Config
 {
 public:
-	CConfig();
-	~CConfig();
+	Config();
+	~Config();
 
 	// Whether to save the config on close.
 	bool bSaveSettings;
@@ -50,6 +51,7 @@ public:
 	bool bFastMemory;
 	bool bJit;
 	std::string sReportHost;
+	std::vector<std::string> recentIsos;
 
 	// GFX
 	bool bDisplayFramebuffer;
@@ -95,9 +97,13 @@ public:
 
 	void Load(const char *iniFileName = "ppsspp.ini");
 	void Save();
+
+	// Utility functions for "recent" management
+	void AddRecent(const std::string &file);
+
 private:
 	std::string iniFilename_;
 };
 
 extern SState g_State;
-extern CConfig g_Config;
+extern Config g_Config;
