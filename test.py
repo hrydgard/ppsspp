@@ -2,13 +2,12 @@
 # Automated script to run the pspautotests test suite in PPSSPP.
 
 import sys
-import io
 import os
 import subprocess
 import threading
 
 
-PPSSPP_EXECUTABLES = [ "Windows\\Release\\PPSSPPHeadless.exe", "build/PPSSPPHeadless" ]
+PPSSPP_EXECUTABLES = [ "Windows\\Release\\PPSSPPHeadless.exe", "build/PPSSPPHeadless","./PPSSPPHeadless" ]
 PPSSPP_EXE = None
 TEST_ROOT = "pspautotests/tests/"
 teamcity_mode = False
@@ -31,8 +30,12 @@ class Command(object):
     thread.start()
 
     thread.join(timeout)
-    if thread.is_alive():
+    if thread.isAlive():
       self.timeout = True
+      if sys.version_info < (2, 6):
+        os.kill(process.pid, signal.SIGKILL)
+      else:
+        process.terminate()
       self.process.terminate()
       thread.join()
 
