@@ -76,6 +76,11 @@ typedef void (VertexDecoder::*StepFunction)() const;
 
 void GetIndexBounds(void *inds, int count, u32 vertType, u16 *indexLowerBound, u16 *indexUpperBound);
 
+enum {
+	STAT_VERTSSUBMITTED = 0,
+	NUM_VERTEX_DECODER_STATS = 1
+};
+
 // Right now
 //   - only contains computed information
 //   - does decoding in nasty branchfilled loops
@@ -147,6 +152,18 @@ public:
 	void Step_PosS16Through() const;
 	void Step_PosFloatThrough() const;
 
+	void ResetStats() {
+		memset(stats_, 0, sizeof(stats_));
+	}
+
+	void IncrementStat(int stat, int amount) {
+		stats_[stat] += amount;
+	}
+
+	// output must be big for safety.
+	// Returns number of chars written.
+	// Ugly for speed.
+	int ToString(char *output) const;
 
 	// Mutable decoder state
 	mutable u8 *decoded_;
@@ -180,6 +197,8 @@ public:
 	int idx;
 	int morphcount;
 	int nweights;
+
+	int stats_[NUM_VERTEX_DECODER_STATS];
 };
 
 // Reads decoded vertex formats in a convenient way. For software transform and debugging.

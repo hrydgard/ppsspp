@@ -282,7 +282,6 @@ struct GPUStatistics
 		memset(this, 0, sizeof(*this));
 	}
 	void resetFrame() {
-		numJoins = 0;
 		numDrawCalls = 0;
 		numCachedDrawCalls = 0;
 		numVertsSubmitted = 0;
@@ -298,7 +297,6 @@ struct GPUStatistics
 	}
 
 	// Per frame statistics
-	int numJoins;
 	int numDrawCalls;
 	int numCachedDrawCalls;
 	int numFlushes;

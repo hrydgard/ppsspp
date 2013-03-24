@@ -52,7 +52,10 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 				"TRIANGLE_FAN",
 				"RECTANGLES",
 			};
-			sprintf(buffer, "DrawPrim type: %s count: %i vaddr= %08x, iaddr= %08x", type < 7 ? types[type] : "INVALID", count, gstate_c.vertexAddr, gstate_c.indexAddr);
+			if (gstate.vertType & GE_VTYPE_IDX_MASK)
+				sprintf(buffer, "DrawPrim indexed type: %s count: %i vaddr= %08x, iaddr= %08x", type < 7 ? types[type] : "INVALID", count, gstate_c.vertexAddr, gstate_c.indexAddr);
+			else
+				sprintf(buffer, "DrawPrim type: %s count: %i vaddr= %08x", type < 7 ? types[type] : "INVALID", count, gstate_c.vertexAddr);
 		}
 		break;
 
