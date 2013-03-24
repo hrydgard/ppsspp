@@ -441,67 +441,209 @@ public:
 
 struct ThreadQueueList
 {
-	static const int NUM_PRIORITIES = 128;
-	std::vector<SceUID> queues[NUM_PRIORITIES];
+	// Number of queues (number of priority levels starting at 0.)
+	static const int NUM_QUEUES = 128;
+	// Maximum number of threads a single queue can handle.
+	static const int MAX_THREADS = 2048;
+
+	struct Queue
+	{
+		// Next ever-been-used queue (worse priority.)
+		Queue *next;
+		// First valid item in data.
+		int first;
+		// One after last valid item in data.
+		int end;
+		// A fixed size array.
+		SceUID *data;
+	};
+
+	ThreadQueueList()
+	{
+		for (int i = 0; i < NUM_QUEUES; ++i)
+		{
+			queues[i].next = NULL;
+			queues[i].first = MAX_THREADS / 2;
+			queues[i].end = MAX_THREADS / 2;
+			queues[i].data = NULL;
+		}
+		first = invalid();
+	}
+
+	~ThreadQueueList()
+	{
+		for (int i = 0; i < NUM_QUEUES; ++i)
+		{
+			if (queues[i].data != NULL)
+				delete [] queues[i].data;
+		}
+	}
 
 	inline SceUID pop_first()
 	{
-		for (int i = 0; i < NUM_PRIORITIES; ++i)
+		Queue *cur = first;
+		while (cur != invalid())
 		{
-			if (!queues[i].empty())
-			{
-				SceUID value = queues[i].front();
-				queues[i].erase(queues[i].begin());
-				return value;
-			}
+			if (cur->end - cur->first > 0)
+				return cur->data[cur->first++];
+			cur = cur->next;
 		}
 
-		return -1;
+		_dbg_assert_msg_(HLE, false, "ThreadQueueList should not be empty.");
+		return 0;
 	}
 
 	inline void push_front(u32 priority, const SceUID threadID)
 	{
-		queues[priority].insert(queues[priority].begin(), threadID);
+		Queue *cur = &queues[priority];
+		if (cur->next == NULL)
+			link(priority);
+		cur->data[--cur->first] = threadID;
+		if (cur->first == 0)
+			rebalance(priority);
 	}
 
 	inline void push_back(u32 priority, const SceUID threadID)
 	{
-		queues[priority].push_back(threadID);
+		Queue *cur = &queues[priority];
+		if (cur->next == NULL)
+			link(priority);
+		cur->data[cur->end++] = threadID;
+		if (cur->end == MAX_THREADS)
+			rebalance(priority);
 	}
 
 	inline void remove(u32 priority, const SceUID threadID)
 	{
-		std::vector<SceUID> &queue = queues[priority];
-		queue.erase(std::remove(queue.begin(), queue.end(), threadID), queue.end());
+		Queue *cur = &queues[priority];
+		_dbg_assert_msg_(HLE, cur->next != NULL, "ThreadQueueList::Queue should already be linked up.");
+
+		for (int i = cur->first; i < cur->end; ++i)
+		{
+			if (cur->data[i] == threadID)
+			{
+				int remaining = --cur->end - i;
+				if (remaining > 0)
+					memmove(&cur->data[i], &cur->data[i + 1], remaining * sizeof(SceUID));
+				return;
+			}
+		}
+
+		// Wasn't there.
 	}
 
 	inline void rotate(u32 priority)
 	{
-		std::vector<SceUID> &queue = queues[priority];
-		if (queue.size() > 1)
+		Queue *cur = &queues[priority];
+		_dbg_assert_msg_(HLE, cur->next != NULL, "ThreadQueueList::Queue should already be linked up.");
+
+		if (cur->end - cur->first > 1)
 		{
-			SceUID threadID = queue.front();
-			queue.erase(queue.begin());
-			queue.push_back(threadID);
+			cur->data[cur->end++] = cur->data[cur->first++];
+			if (cur->end == MAX_THREADS)
+				rebalance(priority);
 		}
 	}
 
 	inline void clear()
 	{
-		for (int i = 0; i < NUM_PRIORITIES; ++i)
-			queues[i].clear();
+		for (int i = 0; i < NUM_QUEUES; ++i)
+		{
+			queues[i].next = NULL;
+			queues[i].first = MAX_THREADS / 2;
+			queues[i].end = MAX_THREADS / 2;
+			if (queues[i].data != NULL)
+			{
+				delete [] queues[i].data;
+				queues[i].data = NULL;
+			}
+		}
+		first = invalid();
 	}
 
 	inline bool empty(u32 priority) const
 	{
-		return queues[priority].empty();
+		const Queue *cur = &queues[priority];
+		return cur->first == cur->end;
 	}
 
 	void DoState(PointerWrap &p)
 	{
-		for (int i = 0; i < NUM_PRIORITIES; ++i)
-			p.Do(queues[i]);
+		int numQueues = NUM_QUEUES;
+		p.Do(numQueues);
+		if (numQueues != NUM_QUEUES)
+		{
+			ERROR_LOG(HLE, "Savestate loading error: invalid data");
+			return;
+		}
+
+		if (p.mode == p.MODE_READ)
+			clear();
+
+		for (int i = 0; i < NUM_QUEUES; ++i)
+		{
+			Queue *cur = &queues[i];
+			int size = cur->end - cur->first;
+			p.Do(size);
+
+			if (size == 0)
+				continue;
+
+			if (p.mode == p.MODE_READ)
+			{
+				link(i);
+				cur->first = (MAX_THREADS - size) / 2;
+				cur->end = cur->first + size;
+			}
+
+			p.DoArray(&cur->data[cur->first], size);
+		}
+
+		p.DoMarker("ThreadQueueList");
 	}
+
+private:
+	Queue *invalid() const
+	{
+		return (Queue *) -1;
+	}
+
+	void link(u32 priority)
+	{
+		_dbg_assert_msg_(HLE, queues[priority].data == NULL, "ThreadQueueList::Queue should only be initialized once.");
+		queues[priority].data = new SceUID[MAX_THREADS];
+
+		for (int i = (int) priority - 1; i >= 0; --i)
+		{
+			if (queues[i].next != NULL)
+			{
+				queues[priority].next = queues[i].next;
+				queues[i].next = &queues[priority];
+				return;
+			}
+		}
+
+		queues[priority].next = first;
+		first = &queues[priority];
+	}
+
+	void rebalance(u32 priority)
+	{
+		Queue *cur = &queues[priority];
+		int size = cur->end - cur->first;
+		if (size >= MAX_THREADS / 2)
+			ERROR_LOG(HLE, "Using way more threads than expected, may crash.");
+
+		int newFirst = (MAX_THREADS - size) / 2;
+		memmove(&cur->data[newFirst], &cur->data[cur->first], size * sizeof(SceUID));
+		cur->first = newFirst;
+		cur->end = newFirst + size;
+	}
+
+	// The first queue that's ever been used.
+	Queue *first;
+	// The priority level queues of thread ids.
+	Queue queues[NUM_QUEUES];
 };
 
 struct WaitTypeFuncs
