@@ -439,65 +439,68 @@ public:
 	u32 stackEnd;
 };
 
-// std::vector<SceUID> with push_front(), remove(), etc.
-struct ThreadList
+struct ThreadQueueList
 {
-	std::vector<SceUID> list;
+	static const int NUM_PRIORITIES = 128;
+	std::vector<SceUID> queues[NUM_PRIORITIES];
 
-	inline bool empty() const
+	inline SceUID pop_first()
 	{
-		return list.empty();
-	}
-
-	inline size_t size() const
-	{
-		return list.size();
-	}
-
-	inline SceUID &front()
-	{
-		return list.front();
-	}
-
-	inline void push_front(const SceUID threadID)
-	{
-		if (empty())
-			push_back(threadID);
-		else
+		for (int i = 0; i < NUM_PRIORITIES; ++i)
 		{
-			size_t oldSize = list.size();
-			list.resize(oldSize + 1);
-			memmove(&list[1], &list[0], oldSize * sizeof(SceUID));
-			list[0] = threadID;
+			if (!queues[i].empty())
+			{
+				SceUID value = queues[i].front();
+				queues[i].erase(queues[i].begin());
+				return value;
+			}
+		}
+
+		return -1;
+	}
+
+	inline void push_front(u32 priority, const SceUID threadID)
+	{
+		queues[priority].insert(queues[priority].begin(), threadID);
+	}
+
+	inline void push_back(u32 priority, const SceUID threadID)
+	{
+		queues[priority].push_back(threadID);
+	}
+
+	inline void remove(u32 priority, const SceUID threadID)
+	{
+		std::vector<SceUID> &queue = queues[priority];
+		queue.erase(std::remove(queue.begin(), queue.end(), threadID), queue.end());
+	}
+
+	inline void rotate(u32 priority)
+	{
+		std::vector<SceUID> &queue = queues[priority];
+		if (queue.size() > 1)
+		{
+			SceUID threadID = queue.front();
+			queue.erase(queue.begin());
+			queue.push_back(threadID);
 		}
 	}
 
-	inline void push_back(const SceUID threadID)
+	inline void clear()
 	{
-		list.push_back(threadID);
+		for (int i = 0; i < NUM_PRIORITIES; ++i)
+			queues[i].clear();
 	}
 
-	inline void pop_front()
+	inline bool empty(u32 priority) const
 	{
-		size_t newSize = list.size() - 1;
-		list.resize(newSize);
-		if (newSize > 0)
-			memmove(&list[0], &list[1], newSize * sizeof(SceUID));
-	}
-
-	inline void pop_back()
-	{
-		list.pop_back();
-	}
-
-	inline void remove(const SceUID threadID)
-	{
-		list.erase(std::remove(list.begin(), list.end(), threadID), list.end());
+		return queues[priority].empty();
 	}
 
 	void DoState(PointerWrap &p)
 	{
-		p.Do(list);
+		for (int i = 0; i < NUM_PRIORITIES; ++i)
+			p.Do(queues[i]);
 	}
 };
 
@@ -533,7 +536,7 @@ std::vector<ThreadCallback> threadEndListeners;
 std::vector<SceUID> threadqueue;
 
 // Lists only ready thread ids.
-std::map<u32, ThreadList> threadReadyQueue;
+ThreadQueueList threadReadyQueue;
 
 SceUID threadIdleID[2];
 
@@ -750,14 +753,14 @@ void __KernelChangeReadyState(Thread *thread, SceUID threadID, bool ready)
 	if (thread->isReady())
 	{
 		if (!ready)
-			threadReadyQueue[prio].remove(threadID);
+			threadReadyQueue.remove(prio, threadID);
 	}
 	else if (ready)
 	{
 		if (thread->isRunning())
-			threadReadyQueue[prio].push_front(threadID);
+			threadReadyQueue.push_front(prio, threadID);
 		else
-			threadReadyQueue[prio].push_back(threadID);
+			threadReadyQueue.push_back(prio, threadID);
 		thread->nt.status = THREADSTATUS_READY;
 	}
 }
@@ -1302,7 +1305,7 @@ void __KernelRemoveFromThreadQueue(SceUID threadID)
 {
 	int prio = __KernelGetThreadPrio(threadID);
 	if (prio != 0)
-		threadReadyQueue[prio].remove(threadID);
+		threadReadyQueue.remove(prio, threadID);
 
 	threadqueue.erase(std::remove(threadqueue.begin(), threadqueue.end(), threadID), threadqueue.end());
 }
@@ -1342,18 +1345,8 @@ Thread *__KernelNextThread() {
 	if (cur && cur->isRunning())
 		__KernelChangeReadyState(cur, currentThread, true);
 
-	SceUID bestThread = -1;
-	// This goes in priority order.
-	for (auto it = threadReadyQueue.begin(), end = threadReadyQueue.end(); it != end; ++it)
-	{
-		if (!it->second.empty())
-		{
-			bestThread = it->second.front();
-			break;
-		}
-	}
-
 	// Assume threadReadyQueue has not become corrupt.
+	SceUID bestThread = threadReadyQueue.pop_first();
 	if (bestThread != -1)
 		return kernelObjects.GetFast<Thread>(bestThread);
 	else
@@ -1822,22 +1815,17 @@ int sceKernelRotateThreadReadyQueue(int priority)
 	if (priority <= 0x07 || priority > 0x77)
 		return SCE_KERNEL_ERROR_ILLEGAL_PRIORITY;
 
-	auto &queue = threadReadyQueue[priority];
-	if (!queue.empty())
+	if (!threadReadyQueue.empty(priority))
 	{
 		// In other words, yield to everyone else.
 		if (cur->nt.currentPriority == priority)
 		{
-			queue.push_back(currentThread);
+			threadReadyQueue.push_back(priority, currentThread);
 			cur->nt.status = THREADSTATUS_READY;
 		}
 		// Yield the next thread of this priority to all other threads of same priority.
-		else if (queue.size() > 1)
-		{
-			SceUID first = queue.front();
-			queue.pop_front();
-			queue.push_back(first);
-		}
+		else
+			threadReadyQueue.rotate(priority);
 
 		hleReSchedule("rotatethreadreadyqueue");
 	}
@@ -1984,12 +1972,12 @@ void sceKernelChangeThreadPriority()
 		DEBUG_LOG(HLE,"sceKernelChangeThreadPriority(%i, %i)", id, PARAM(1));
 
 		int prio = thread->nt.currentPriority;
-		threadReadyQueue[prio].remove(id);
+		threadReadyQueue.remove(prio, id);
 
 		thread->nt.currentPriority = PARAM(1);
 
 		if (thread->isReady())
-			threadReadyQueue[thread->nt.currentPriority].push_back(id);
+			threadReadyQueue.push_back(thread->nt.currentPriority, id);
 
 		RETURN(0);
 	}
