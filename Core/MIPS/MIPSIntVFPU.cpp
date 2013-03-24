@@ -628,6 +628,10 @@ namespace MIPSInt
 		ApplySwizzleS(s, sz); //TODO: and the mask to kill everything but swizzle
 		for (int i = 0; i < GetNumVectorElements(sz); i++)
 		{
+			if (isnan(s[i])) {
+				d[i] = 0x7FFFFFFF;
+				continue;
+			}
 			float sv = s[i] * mult;
 			int dsv;
 			// Cap/floor it to 0x7fffffff / 0x80000000
@@ -640,7 +644,7 @@ namespace MIPSInt
 			case 18: dsv = (int)ceil(sv); break; //u
 			case 19: dsv = (int)floor(sv); break; //d
 			}
-			if (isnan(dsv)) d[i] = 0x7FFFFFFF; else d[i] = (int) dsv;
+			d[i] = (int) dsv;
 		}
 		ApplyPrefixD((float*)d, sz, true);
 		WriteVector((float*)d, sz, vd);
@@ -1657,7 +1661,7 @@ namespace MIPSInt
 		PC += 4;
 		EatPrefixes();
 	}
-	
+
 	void Int_Vsge(u32 op) {
 		int vt = _VT;
 		int vs = _VS;
@@ -1714,7 +1718,7 @@ namespace MIPSInt
 	void Int_Vcmov(u32 op)
 	{
 		int vs = _VS;
-		int vd = _VD; 
+		int vd = _VD;
 		int tf = (op >> 19) & 1;
 		int imm3 = (op >> 16) & 7;
 		VectorSize sz = GetVecSize(op);
@@ -1743,7 +1747,7 @@ namespace MIPSInt
 					d[i] = s[i];
 			}
 		}
-		else 
+		else
 		{
 			_dbg_assert_msg_(CPU,0,"Bad Imm3 in cmov");
 		}
