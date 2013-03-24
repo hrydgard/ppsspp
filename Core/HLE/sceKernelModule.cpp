@@ -465,18 +465,17 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	{
 		const char *name;
 		if (ent->size == 0)
-		{
 			continue;
-		}
 
-		if (ent->name == 0)
-		{
+		if (ent->name == 0) {
 			// ?
 			name = module->nm.name;
 		}
-		else
-		{
+		else if (Memory::IsValidAddress(ent->name)) {
 			name = (const char*)Memory::GetPointer(ent->name);
+		}
+		else {
+			name = "invalid?";  // God Eater Burst
 		}
 
 		INFO_LOG(HLE,"Exporting ent %d named %s, %d funcs, %d vars, resident %08x", m, name, ent->fcount, ent->vcount, ent->resident);
