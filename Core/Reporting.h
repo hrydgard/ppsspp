@@ -19,5 +19,6 @@
 
 namespace Reporting
 {
+	bool IsEnabled();
 	void ReportMessage(const char *message, ...);
 }
