@@ -421,9 +421,17 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	PspLibStubEntry *entry = (PspLibStubEntry *)Memory::GetPointer(modinfo->libstub);
 
 	int numSyms=0;
-	for (int m = 0; m < numModules; m++)
-	{
-		const char *modulename = (const char*)Memory::GetPointer(entry[m].name);
+	for (int m = 0; m < numModules; m++) {
+		const char *modulename;
+		if (Memory::IsValidAddress(entry[m].name))
+			modulename = (const char*)Memory::GetPointer(entry[m].name);
+		else
+			modulename = "(invalidname)";
+
+		if (!Memory::IsValidAddress(entry[m].nidData)) {
+			ERROR_LOG(LOADER, "Crazy niddata address %08x, skipping entire module", entry[m].nidData);
+			continue;
+		}
 		u32 *nidDataPtr = (u32*)Memory::GetPointer(entry[m].nidData);
 		// u32 *stubs = (u32*)Memory::GetPointer(entry[m].firstSymAddr);
 
@@ -434,7 +442,8 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			u32 addrToWriteSyscall = entry[m].firstSymAddr+i*8;
 			DEBUG_LOG(LOADER,"%s : %08x",GetFuncName(modulename, nidDataPtr[i]), addrToWriteSyscall);
 			//write a syscall here
-			WriteSyscall(modulename, nidDataPtr[i], addrToWriteSyscall);
+			if (Memory::IsValidAddress(addrToWriteSyscall))
+				WriteSyscall(modulename, nidDataPtr[i], addrToWriteSyscall);
 			if (!dontadd)
 			{
 				char temp[256];

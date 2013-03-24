@@ -17,5 +17,11 @@
 
 #pragma once
 
+#include "Common/ChunkFile.h"
+
 void Register_sceNet();
 void Register_sceWlanDrv();
+
+void __NetInit();
+void __NetShutdown();
+void __NetDoState(PointerWrap &p);
