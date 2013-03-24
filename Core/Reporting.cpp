@@ -52,53 +52,57 @@ namespace Reporting
 	static Payload payloadBuffer[PAYLOAD_BUFFER_SIZE];
 	static int payloadBufferPos = 0;
 
+	inline std::string ServerHost()
+	{
+		if (g_Config.sReportHost.compare("default") == 0)
+			return "";
+		return g_Config.sReportHost;
+	}
+
 	static size_t ServerHostnameLength()
 	{
-		if (g_Config.sReportHost.empty())
+		if (!IsEnabled())
 			return g_Config.sReportHost.npos;
 
 		// IPv6 literal?
-		if (g_Config.sReportHost[0] == '[')
+		std::string host = ServerHost();
+		if (host[0] == '[')
 		{
-			size_t length = g_Config.sReportHost.find("]:");
-			if (length != g_Config.sReportHost.npos)
+			size_t length = host.find("]:");
+			if (length != host.npos)
 				++length;
 			return length;
 		}
 		else
-			return g_Config.sReportHost.find(':');
+			return host.find(':');
 	}
 
 	static const char *ServerHostname()
 	{
-		if (g_Config.sReportHost.empty())
-			return NULL;
-		// Disabled by default for now.
-		if (g_Config.sReportHost.compare("default") == 0)
+		if (!IsEnabled())
 			return NULL;
 
+		std::string host = ServerHost();
 		size_t length = ServerHostnameLength();
-		if (length == g_Config.sReportHost.npos)
-			return g_Config.sReportHost.c_str();
+		if (length == host.npos)
+			return host.c_str();
 
-		lastHostname = g_Config.sReportHost.substr(0, length);
+		lastHostname = host.substr(0, length);
 		return lastHostname.c_str();
 	}
 
 	static int ServerPort()
 	{
-		if (g_Config.sReportHost.empty())
-			return 0;
-		// Disabled by default for now.
-		if (g_Config.sReportHost.compare("default") == 0)
+		if (!IsEnabled())
 			return 0;
 
+		std::string host = ServerHost();
 		size_t offset = ServerHostnameLength();
-		if (offset == g_Config.sReportHost.npos)
+		if (offset == host.npos)
 			return DEFAULT_PORT;
 
 		// Skip the colon.
-		std::string port = g_Config.sReportHost.substr(offset + 1);
+		std::string port = host.substr(offset + 1);
 		return atoi(port.c_str());
 	}
 
@@ -121,7 +125,7 @@ namespace Reporting
 		if (http.Resolve(ServerHostname(), ServerPort()))
 		{
 			http.Connect();
-			http.POST("/report/message", data, "application/x-www-urlencoded", output);
+			http.POST("/report/message", data, "application/x-www-form-urlencoded", output);
 			http.Disconnect();
 			result = true;
 		}
@@ -138,10 +142,11 @@ namespace Reporting
 		char temp[PARAM_BUFFER_SIZE];
 
 		// TODO: Need to escape these values, add more.
-		snprintf(temp, PARAM_BUFFER_SIZE - 1, "version=%s&game=%s_%s",
+		snprintf(temp, PARAM_BUFFER_SIZE - 1, "version=%s&game=%s_%s&game_title=%s",
 			PPSSPP_GIT_VERSION,
 			g_paramSFO.GetValueString("DISC_ID").c_str(),
-			g_paramSFO.GetValueString("DISC_VERSION").c_str());
+			g_paramSFO.GetValueString("DISC_VERSION").c_str(),
+			g_paramSFO.GetValueString("TITLE").c_str());
 
 		std::string data;
 		switch (payload.type)
@@ -159,12 +164,19 @@ namespace Reporting
 		return 0;
 	}
 
-	void ReportMessage(const char *message, ...)
+	bool IsEnabled()
 	{
-		if (g_Config.sReportHost.empty() || CheckSpamLimited())
-			return;
+		if (g_Config.sReportHost.empty())
+			return false;
 		// Disabled by default for now.
 		if (g_Config.sReportHost.compare("default") == 0)
+			return false;
+		return true;
+	}
+
+	void ReportMessage(const char *message, ...)
+	{
+		if (!IsEnabled() || CheckSpamLimited())
 			return;
 
 		const int MESSAGE_BUFFER_SIZE = 32768;

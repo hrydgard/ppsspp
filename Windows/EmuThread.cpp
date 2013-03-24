@@ -5,6 +5,7 @@
 #include "StringUtil.h"
 #include "../Globals.h"
 #include "EmuThread.h"
+#include "../Core/Reporting.h"
 #include "../Core/MemMap.h"
 #include "../Core/Core.h"
 #include "../Core/Host.h"
@@ -65,6 +66,7 @@ DWORD TheThread(LPVOID x) {
 	
 	std::string error_string;
 	if (!host->InitGL(&error_string)) {
+		Reporting::ReportMessage("OpenGL init error: %s", error_string.c_str());
 		std::string full_error = StringFromFormat( "Failed initializing OpenGL. Try upgrading your graphics drivers.\n\nError message:\n\n%s", error_string.c_str());
 		MessageBoxA(0, full_error.c_str(), "OpenGL Error", MB_OK | MB_ICONERROR);
 		ERROR_LOG(BOOT, full_error.c_str());

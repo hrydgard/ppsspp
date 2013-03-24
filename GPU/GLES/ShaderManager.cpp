@@ -28,6 +28,7 @@
 
 #include "math/lin/matrix4x4.h"
 
+#include "Core/Reporting.h"
 #include "../GPUState.h"
 #include "../ge_constants.h"
 #include "ShaderManager.h"
@@ -52,6 +53,7 @@ Shader::Shader(const char *code, uint32_t shaderType) {
 		ERROR_LOG(G3D, "Error in shader compilation!\n");
 		ERROR_LOG(G3D, "Info log: %s\n", infoLog);
 		ERROR_LOG(G3D, "Shader source:\n%s\n", (const char *)code);
+		Reporting::ReportMessage("Error in shader compilation: info: %s / code: %s", infoLog, (const char *)code);
 	} else {
 		DEBUG_LOG(G3D, "Compiled shader:\n%s\n", (const char *)code);
 	}

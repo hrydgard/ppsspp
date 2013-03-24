@@ -21,6 +21,7 @@
 #include "../../Core/MemMap.h"
 #include "../../Core/Host.h"
 #include "../../Core/System.h"
+#include "../../Core/Reporting.h"
 #include "../../native/gfx_es2/gl_state.h"
 #include "../../native/ext/cityhash/city.h"
 
@@ -117,6 +118,8 @@ void TransformDrawEngine::GLLost() {
 void TransformDrawEngine::DrawBezier(int ucount, int vcount) {
 	u16 indices[3 * 3 * 6];
 
+	Reporting::ReportMessage("Unsupported bezier curve");
+
 	// Generate indices for a rectangular mesh.
 	int c = 0;
 	for (int y = 0; y < 3; y++) {
@@ -159,6 +162,8 @@ void TransformDrawEngine::DrawBezier(int ucount, int vcount) {
 // Copy code from bezier. This is not right, but allow to display something.
 void TransformDrawEngine::DrawSpline(int ucount, int vcount, int utype, int vtype) {
 	u16 indices[3 * 3 * 6];
+
+	Reporting::ReportMessage("Unsupported spline curve");
 
 	// Generate indices for a rectangular mesh.
 	int c = 0;
