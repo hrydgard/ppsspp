@@ -430,6 +430,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		int prim, u8 *decoded, LinkedShader *program, int vertexCount, u32 vertType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex) {
 
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
+	bool lmode = (gstate.lmode & 1) && (gstate.lightingEnable & 1);
 
 	// TODO: Split up into multiple draw calls for GLES 2.0 where you can't guarantee support for more than 0x10000 verts.
 
@@ -543,31 +544,35 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 
 			if (gstate.lightingEnable & 1) {
 				// Don't ignore gstate.lmode - we should send two colors in that case
-				if (gstate.lmode & 1) {
+				for (int j = 0; j < 4; j++) {
+					c0[j] = litColor0[j];
+				}
+				if (lmode) {
 					// Separate colors
 					for (int j = 0; j < 4; j++) {
-						c0[j] = litColor0[j];
 						c1[j] = litColor1[j];
 					}
 				} else {
 					// Summed color into c0
 					for (int j = 0; j < 4; j++) {
-						c0[j] = litColor0[j] + litColor1[j];
-						c1[j] = 0.0f;
+						c0[j] = c0[j] + litColor1[j];
 					}
 				}
 			} else {
 				if (reader.hasColor0()) {
 					for (int j = 0; j < 4; j++) {
 						c0[j] = unlitColor[j];
-						c1[j] = 0.0f;
 					}
 				} else {
 					c0[0] = (gstate.materialambient & 0xFF) / 255.f;
 					c0[1] = ((gstate.materialambient >> 8) & 0xFF) / 255.f;
 					c0[2] = ((gstate.materialambient >> 16)& 0xFF) / 255.f;
 					c0[3] = (gstate.materialalpha & 0xFF) / 255.f;
-					memset(c1, 0, sizeof(c1));
+				}
+				if (lmode) {
+					for (int j = 0; j < 4; j++) {
+						c1[j] = 0.0f;
+					}
 				}
 			}
 
