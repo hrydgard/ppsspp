@@ -286,8 +286,8 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		}
 		else if (ret <= 0)
 		{
-			ERROR_LOG(HLE, "Failed decrypting PRX! That's not normal!\n");
-			Reporting::ReportMessage("Failed decrypting the PRX (size = %i, psp_size = %i)!", head->elf_size, head->psp_size);
+			ERROR_LOG(HLE, "Failed decrypting PRX! That's not normal! ret = %i\n", ret);
+			Reporting::ReportMessage("Failed decrypting the PRX (ret = %i, size = %i, psp_size = %i)!", ret, head->elf_size, head->psp_size);
 		}
 	}
 
