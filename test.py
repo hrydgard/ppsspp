@@ -18,7 +18,7 @@ PPSSPP_EXECUTABLES = [
   "build*/Debug/PPSSPPHeadless",
   "build*/Release/PPSSPPHeadless",
   "build*/RelWithDebInfo/PPSSPPHeadless",
-  "build*/MinSizeRel}/PPSSPPHeadless",
+  "build*/MinSizeRel/PPSSPPHeadless",
   # Linux
   "build*/PPSSPPHeadless",
   "./PPSSPPHeadless"
