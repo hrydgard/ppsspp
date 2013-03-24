@@ -1462,6 +1462,22 @@ u32 sceIoIoctlAsync(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u
 	}
 }
 
+u32 sceIoGetFdList(u32 outAddr, int outSize, u32 fdNumAddr) {
+	ERROR_LOG(HLE, "UNIMPL sceIoGetFdList(%08x, %i, %08x)", outAddr, outSize, fdNumAddr);
+	return 0;
+}
+
+// Presumably lets you hook up stderr to a MsgPipe.
+u32 sceKernelRegisterStderrPipe(u32 msgPipeUID) {
+	ERROR_LOG(HLE, "UNIMPL sceKernelRegisterStderrPipe(%08x)", msgPipeUID);
+	return 0;
+}
+
+u32 sceKernelRegisterStdoutPipe(u32 msgPipeUID) {
+	ERROR_LOG(HLE, "UNIMPL sceKernelRegisterStdoutPipe(%08x)", msgPipeUID);
+	return 0;
+}
+
 KernelObject *__KernelFileNodeObject() {
 	return new FileNode;
 }
@@ -1507,6 +1523,7 @@ const HLEFunction IoFileMgrForUser[] = {
 	{ 0x0facab19, &WrapU_IUI<sceIoWriteAsync>, "sceIoWriteAsync" },
 	{ 0x35dbd746, &WrapI_IU<sceIoWaitAsyncCB>, "sceIoWaitAsyncCB" },
 	{ 0xe23eec33, &WrapI_IU<sceIoWaitAsync>, "sceIoWaitAsync" },
+	{ 0x5C2BE2CC, &WrapU_UIU<sceIoGetFdList>, "sceIoGetFdList"},
 };
 
 void Register_IoFileMgrForUser() {
@@ -1518,6 +1535,8 @@ const HLEFunction StdioForUser[] = {
 	{ 0x172D316E, &WrapU_V<sceKernelStdin>, "sceKernelStdin" },
 	{ 0xA6BAB2E9, &WrapU_V<sceKernelStdout>, "sceKernelStdout" },
 	{ 0xF78BA90A, &WrapU_V<sceKernelStderr>, "sceKernelStderr" }, 
+	{ 0x432D8F5C, &WrapU_U<sceKernelRegisterStdoutPipe>, "sceKernelRegisterStdoutPipe" },
+	{ 0x6F797E03, &WrapU_U<sceKernelRegisterStderrPipe>, "sceKernelRegisterStderrPipe" },
 };
 
 void Register_StdioForUser() {
