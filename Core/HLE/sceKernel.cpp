@@ -616,8 +616,8 @@ const HLEFunction ThreadManForUser[] =
 	{0x58b1f937,&WrapI_II<sceKernelPollSema>,                  "sceKernelPollSema"},
 	{0xBC6FEBC5,&WrapI_IU<sceKernelReferSemaStatus>,           "sceKernelReferSemaStatus"},
 	{0x3F53E640,&WrapI_II<sceKernelSignalSema>,                "sceKernelSignalSema"},
-	{0x4E3A1105,&WrapI_IIU<sceKernelWaitSema>,                 "sceKernelWaitSema"},
-	{0x6d212bac,&WrapI_IIU<sceKernelWaitSemaCB>,               "sceKernelWaitSemaCB"},
+	{0x4E3A1105,&WrapI_IIU<sceKernelWaitSema>,                 "sceKernelWaitSema", HLE_NOT_DISPATCH_SUSPENDED},
+	{0x6d212bac,&WrapI_IIU<sceKernelWaitSemaCB>,               "sceKernelWaitSemaCB", HLE_NOT_DISPATCH_SUSPENDED},
 
 	{0x60107536,&WrapI_U<sceKernelDeleteLwMutex>,              "sceKernelDeleteLwMutex"},
 	{0x19CFF145,&WrapI_UCUIU<sceKernelCreateLwMutex>,          "sceKernelCreateLwMutex"},
@@ -625,8 +625,8 @@ const HLEFunction ThreadManForUser[] =
 	// NOTE: LockLwMutex, UnlockLwMutex, and ReferLwMutexStatus are in Kernel_Library, see sceKernelInterrupt.cpp.
 
 	{0xf8170fbe,&WrapI_I<sceKernelDeleteMutex>,                "sceKernelDeleteMutex"},
-	{0xB011B11F,&WrapI_IIU<sceKernelLockMutex>,                "sceKernelLockMutex"},
-	{0x5bf4dd27,&WrapI_IIU<sceKernelLockMutexCB>,              "sceKernelLockMutexCB"},
+	{0xB011B11F,&WrapI_IIU<sceKernelLockMutex>,                "sceKernelLockMutex", HLE_NOT_DISPATCH_SUSPENDED},
+	{0x5bf4dd27,&WrapI_IIU<sceKernelLockMutexCB>,              "sceKernelLockMutexCB", HLE_NOT_DISPATCH_SUSPENDED},
 	{0x6b30100f,&WrapI_II<sceKernelUnlockMutex>,               "sceKernelUnlockMutex"},
 	{0xb7d098c6,&WrapI_CUIU<sceKernelCreateMutex>,             "sceKernelCreateMutex"},
 	{0x0DDCD2C9,&WrapI_II<sceKernelTryLockMutex>,              "sceKernelTryLockMutex"},

@@ -443,7 +443,17 @@ void CallSyscall(u32 op)
 	HLEFunc func = moduleDB[modulenum].funcTable[funcnum].func;
 	if (func)
 	{
-		func();
+		// TODO: Move to jit/interp.
+		u32 flags = moduleDB[modulenum].funcTable[funcnum].flags;
+		if (flags & HLE_NOT_DISPATCH_SUSPENDED)
+		{
+			if (!__KernelIsDispatchEnabled())
+				RETURN(SCE_KERNEL_ERROR_CAN_NOT_WAIT);
+			else
+				func();
+		}
+		else
+			func();
 
 		if (hleAfterSyscall != HLE_AFTER_NOTHING)
 			hleFinishSyscall(modulenum, funcnum);
