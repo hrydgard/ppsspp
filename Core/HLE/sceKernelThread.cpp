@@ -26,8 +26,9 @@
 #include "../MIPS/MIPSInt.h"
 #include "../MIPS/MIPSCodeUtils.h"
 #include "../MIPS/MIPS.h"
-#include "../../Core/CoreTiming.h"
-#include "../../Core/MemMap.h"
+#include "Core/CoreTiming.h"
+#include "Core/MemMap.h"
+#include "Core/Reporting.h"
 #include "ChunkFile.h"
 
 #include "sceAudio.h"
@@ -1565,8 +1566,17 @@ int sceKernelStartThread(SceUID threadToStartID, u32 argSize, u32 argBlockPtr)
 		// Smaller is better for priority.  Only switch if the new thread is better.
 		if (cur && cur->nt.currentPriority > startThread->nt.currentPriority)
 		{
+			// Starting a thread automatically resumes the dispatch thread.
+			// TODO: Maybe this happens even for worse-priority started threads?
+			dispatchEnabled = true;
+
 			__KernelChangeReadyState(currentThread, true);
 			hleReSchedule("thread started");
+		}
+		else if (!dispatchEnabled)
+		{
+			WARN_LOG(HLE, "UNTESTED Dispatch disabled while starting worse-priority thread");
+			Reporting::ReportMessage("UNTESTED Dispatch disabled while starting worse-priority thread");
 		}
 		__KernelChangeReadyState(startThread, threadToStartID, true);
 		return 0;
