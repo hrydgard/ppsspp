@@ -128,6 +128,7 @@ private:
 	std::map<int, SubIntrHandler> subIntrHandlers;
 };
 
+bool __InterruptsEnabled();
 bool __IsInInterrupt();
 void __InterruptsInit();
 void __InterruptsDoState(PointerWrap &p);

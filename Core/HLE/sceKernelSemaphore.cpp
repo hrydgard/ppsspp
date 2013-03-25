@@ -298,9 +298,9 @@ void __KernelSemaTimeout(u64 userdata, int cycleslate)
 		// actually running, it will get a DELETE result instead of a TIMEOUT.
 		// So, we need to remember it or we won't be able to mark it DELETE instead later.
 		s->ns.numWaitThreads--;
-	}
 
-	__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
+		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
+	}
 }
 
 void __KernelSetSemaTimeout(Semaphore *s, u32 timeoutPtr)
@@ -329,7 +329,7 @@ int __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, const char *bad
 		if (wantedCount > s->ns.maxCount || wantedCount <= 0)
 			return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
 
-		if (s->ns.currentCount >= wantedCount)
+		if (s->ns.currentCount >= wantedCount && s->ns.numWaitThreads == 0)
 		{
 			s->ns.currentCount -= wantedCount;
 			if (processCallbacks)
@@ -382,7 +382,7 @@ int sceKernelPollSema(SceUID id, int wantedCount)
 	Semaphore *s = kernelObjects.Get<Semaphore>(id, error);
 	if (s)
 	{
-		if (s->ns.currentCount >= wantedCount)
+		if (s->ns.currentCount >= wantedCount && s->ns.numWaitThreads == 0)
 		{
 			s->ns.currentCount -= wantedCount;
 			return 0;

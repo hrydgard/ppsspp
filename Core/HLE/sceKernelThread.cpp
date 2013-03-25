@@ -26,8 +26,9 @@
 #include "../MIPS/MIPSInt.h"
 #include "../MIPS/MIPSCodeUtils.h"
 #include "../MIPS/MIPS.h"
-#include "../../Core/CoreTiming.h"
-#include "../../Core/MemMap.h"
+#include "Core/CoreTiming.h"
+#include "Core/MemMap.h"
+#include "Core/Reporting.h"
 #include "ChunkFile.h"
 
 #include "sceAudio.h"
@@ -1283,7 +1284,7 @@ Thread *__KernelNextThread() {
 void __KernelReSchedule(const char *reason)
 {
 	// cancel rescheduling when in interrupt or callback, otherwise everything will be fucked up
-	if (__IsInInterrupt() || __KernelInCallback())
+	if (__IsInInterrupt() || __KernelInCallback() || !__KernelIsDispatchEnabled())
 	{
 		reason = "In Interrupt Or Callback";
 		return;
@@ -1298,7 +1299,7 @@ void __KernelReSchedule(const char *reason)
 
 	// Execute any pending events while we're doing scheduling.
 	CoreTiming::AdvanceQuick();
-	if (__IsInInterrupt() || __KernelInCallback())
+	if (__IsInInterrupt() || __KernelInCallback() || !__KernelIsDispatchEnabled())
 	{
 		reason = "In Interrupt Or Callback";
 		return;
@@ -1565,8 +1566,17 @@ int sceKernelStartThread(SceUID threadToStartID, u32 argSize, u32 argBlockPtr)
 		// Smaller is better for priority.  Only switch if the new thread is better.
 		if (cur && cur->nt.currentPriority > startThread->nt.currentPriority)
 		{
+			// Starting a thread automatically resumes the dispatch thread.
+			// TODO: Maybe this happens even for worse-priority started threads?
+			dispatchEnabled = true;
+
 			__KernelChangeReadyState(currentThread, true);
 			hleReSchedule("thread started");
+		}
+		else if (!dispatchEnabled)
+		{
+			WARN_LOG(HLE, "UNTESTED Dispatch disabled while starting worse-priority thread");
+			Reporting::ReportMessage("UNTESTED Dispatch disabled while starting worse-priority thread");
 		}
 		__KernelChangeReadyState(startThread, threadToStartID, true);
 		return 0;
@@ -1692,19 +1702,25 @@ void sceKernelExitDeleteThread()
 
 u32 sceKernelSuspendDispatchThread()
 {
-	u32 oldDispatchSuspended = !dispatchEnabled;
+	u32 oldDispatchEnabled = dispatchEnabled;
 	dispatchEnabled = false;
-	DEBUG_LOG(HLE,"%i=sceKernelSuspendDispatchThread()", oldDispatchSuspended);
-	return oldDispatchSuspended;
+	DEBUG_LOG(HLE, "%i=sceKernelSuspendDispatchThread()", oldDispatchEnabled);
+	return oldDispatchEnabled;
 }
 
-u32 sceKernelResumeDispatchThread(u32 suspended)
+u32 sceKernelResumeDispatchThread(u32 enabled)
 {
-	u32 oldDispatchSuspended = !dispatchEnabled;
-	dispatchEnabled = !suspended;
-	DEBUG_LOG(HLE,"%i=sceKernelResumeDispatchThread(%i)", oldDispatchSuspended, suspended);
+	u32 oldDispatchEnabled = dispatchEnabled;
+	dispatchEnabled = enabled != 0;
+	DEBUG_LOG(HLE, "sceKernelResumeDispatchThread(%i) - from %i", enabled, oldDispatchEnabled);
 	hleReSchedule("dispatch resumed");
-	return oldDispatchSuspended;
+	return 0;
+}
+
+bool __KernelIsDispatchEnabled()
+{
+	// Dispatch can never be enabled when interrupts are disabled.
+	return dispatchEnabled && __InterruptsEnabled();
 }
 
 int sceKernelRotateThreadReadyQueue(int priority)

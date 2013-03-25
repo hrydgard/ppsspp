@@ -232,9 +232,8 @@ void __KernelMbxTimeout(u64 userdata, int cyclesLate)
 		// So, we need to remember it or we won't be able to mark it DELETE instead later.
 
 		// TODO: Should numWaitThreads be decreased yet?
+		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
 	}
-
-	__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
 }
 
 void __KernelWaitMbx(Mbx *m, u32 timeoutPtr)
