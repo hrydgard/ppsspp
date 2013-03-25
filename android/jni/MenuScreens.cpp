@@ -268,7 +268,7 @@ void InGameMenuScreen::render() {
 	int x = 30;
 	int y = 50;
 	int stride = 40;
-	int columnw = 420;
+	int columnw = 400;
 	UICheckBox(GEN_ID, x, y += stride, "Show Debug Statistics", ALIGN_TOPLEFT, &g_Config.bShowDebugStats);
 	UICheckBox(GEN_ID, x + columnw, y, "Show FPS", ALIGN_TOPLEFT, &g_Config.bShowFPSCounter);
 
