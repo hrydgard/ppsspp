@@ -982,9 +982,9 @@ void __KernelVplTimeout(u64 userdata, int cyclesLate)
 		// actually running, it will get a DELETE result instead of a TIMEOUT.
 		// So, we need to remember it or we won't be able to mark it DELETE instead later.
 		vpl->nv.numWaitThreads--;
-	}
 
-	__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
+		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
+	}
 }
 
 void __KernelSetVplTimeout(u32 timeoutPtr)

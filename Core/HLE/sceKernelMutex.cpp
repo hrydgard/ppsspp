@@ -400,7 +400,9 @@ void __KernelMutexTimeout(u64 userdata, int cyclesLate)
 	if (timeoutPtr != 0)
 		Memory::Write_U32(0, timeoutPtr);
 
-	__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
+	SceUID mutexID = __KernelGetWaitID(threadID, WAITTYPE_MUTEX, error);
+	if (mutexID != 0)
+		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
 
 	// We intentionally don't remove from waitingThreads here yet.
 	// The reason is, if it times out, but what it was waiting on is DELETED prior to it
@@ -773,7 +775,9 @@ void __KernelLwMutexTimeout(u64 userdata, int cyclesLate)
 	if (timeoutPtr != 0)
 		Memory::Write_U32(0, timeoutPtr);
 
-	__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
+	SceUID mutexID = __KernelGetWaitID(threadID, WAITTYPE_LWMUTEX, error);
+	if (mutexID != 0)
+		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
 
 	// We intentionally don't remove from waitingThreads here yet.
 	// The reason is, if it times out, but what it was waiting on is DELETED prior to it
