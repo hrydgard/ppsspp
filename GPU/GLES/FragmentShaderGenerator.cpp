@@ -209,15 +209,15 @@ void GenerateFragmentShader(char *buffer) {
 		}
 
 		// Disabled for now until we actually find a need for it.
-		/*
+		
 		if (enableColorTest) {
 			// TODO: There are some colortestmasks we could handle.
 			int colorTestFunc = gstate.colortest & 3;
-			const char *colorTestFuncs[] = { "#", "#", " == ", " != " };	// never/always don't make sense}
+			const char *colorTestFuncs[] = { "#", "#", " != ", " == " };	// never/always don't make sense}
 			int colorTestMask = gstate.colormask;
 			if (colorTestFuncs[colorTestFunc][0] != '#')
-				WRITE(p, "if (!(v.rgb %s (u_alphacolorref.rgb & u_colormask.rgb)) discard;\n", colorTestFuncs[colorTestFunc]);
-		}*/	
+				WRITE(p, "if (v.rgb %s u_alphacolorref.rgb) discard;\n", colorTestFuncs[colorTestFunc]);
+		}
 
 		if (enableFog) {
 			WRITE(p, "  float fogCoef = clamp(v_fogdepth, 0.0, 1.0);\n");
