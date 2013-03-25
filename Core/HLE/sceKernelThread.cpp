@@ -1142,6 +1142,9 @@ bool __KernelTriggerWait(WaitType type, int id, bool useRetVal, int retVal, cons
 			if (useRetVal)
 				t->setReturnValue((u32)retVal);
 			doneAnything = true;
+
+			if (type == WAITTYPE_THREADEND)
+				__KernelCancelThreadEndTimeout(*iter);
 		}
 	}
 
@@ -1240,11 +1243,10 @@ void __KernelCancelWakeup(SceUID threadID)
 void hleThreadEndTimeout(u64 userdata, int cyclesLate)
 {
 	SceUID threadID = (SceUID) userdata;
-	SceUID waitID = (SceUID) (userdata >> 32);
 
 	u32 error;
 	// Just in case it was woken on its own.
-	if (__KernelGetWaitID(threadID, WAITTYPE_THREADEND, error) == waitID)
+	if (__KernelGetWaitID(threadID, WAITTYPE_THREADEND, error) != 0)
 	{
 		u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
 		if (Memory::IsValidAddress(timeoutPtr))
@@ -1254,10 +1256,10 @@ void hleThreadEndTimeout(u64 userdata, int cyclesLate)
 	}
 }
 
-void __KernelScheduleThreadEndTimeout(SceUID threadID, SceUID waitID, s64 usFromNow)
+void __KernelScheduleThreadEndTimeout(SceUID threadID, SceUID waitForID, s64 usFromNow)
 {
 	s64 cycles = usToCycles(usFromNow);
-	CoreTiming::ScheduleEvent(cycles, eventThreadEndTimeout, (u64) threadID | ((u64) waitID << 32));
+	CoreTiming::ScheduleEvent(cycles, eventThreadEndTimeout, threadID);
 }
 
 void __KernelCancelThreadEndTimeout(SceUID threadID)
