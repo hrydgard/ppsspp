@@ -1283,7 +1283,7 @@ Thread *__KernelNextThread() {
 void __KernelReSchedule(const char *reason)
 {
 	// cancel rescheduling when in interrupt or callback, otherwise everything will be fucked up
-	if (__IsInInterrupt() || __KernelInCallback())
+	if (__IsInInterrupt() || __KernelInCallback() || !__InterruptsEnabled())
 	{
 		reason = "In Interrupt Or Callback";
 		return;
@@ -1298,7 +1298,7 @@ void __KernelReSchedule(const char *reason)
 
 	// Execute any pending events while we're doing scheduling.
 	CoreTiming::AdvanceQuick();
-	if (__IsInInterrupt() || __KernelInCallback())
+	if (__IsInInterrupt() || __KernelInCallback() || !__InterruptsEnabled())
 	{
 		reason = "In Interrupt Or Callback";
 		return;
