@@ -1284,7 +1284,7 @@ Thread *__KernelNextThread() {
 void __KernelReSchedule(const char *reason)
 {
 	// cancel rescheduling when in interrupt or callback, otherwise everything will be fucked up
-	if (__IsInInterrupt() || __KernelInCallback() || !__InterruptsEnabled())
+	if (__IsInInterrupt() || __KernelInCallback() || !__KernelIsDispatchEnabled())
 	{
 		reason = "In Interrupt Or Callback";
 		return;
@@ -1299,7 +1299,7 @@ void __KernelReSchedule(const char *reason)
 
 	// Execute any pending events while we're doing scheduling.
 	CoreTiming::AdvanceQuick();
-	if (__IsInInterrupt() || __KernelInCallback() || !__InterruptsEnabled())
+	if (__IsInInterrupt() || __KernelInCallback() || !__KernelIsDispatchEnabled())
 	{
 		reason = "In Interrupt Or Callback";
 		return;
@@ -1715,6 +1715,12 @@ u32 sceKernelResumeDispatchThread(u32 enabled)
 	DEBUG_LOG(HLE, "sceKernelResumeDispatchThread(%i) - from %i", enabled, oldDispatchEnabled);
 	hleReSchedule("dispatch resumed");
 	return 0;
+}
+
+bool __KernelIsDispatchEnabled()
+{
+	// Dispatch can never be enabled when interrupts are disabled.
+	return dispatchEnabled && __InterruptsEnabled();
 }
 
 int sceKernelRotateThreadReadyQueue(int priority)
