@@ -108,8 +108,8 @@ void GenerateFragmentShader(char *buffer) {
 #endif
 
 	int lmode = (gstate.lmode & 1) && (gstate.lightingEnable & 1);
-
 	int doTexture = (gstate.textureMapEnable & 1) && !(gstate.clearmode & 1);
+
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
 	bool enableAlphaTest = (gstate.alphaTestEnable & 1) && !gstate.isModeClear() && !IsAlphaTestTriviallyTrue();
 	bool enableColorTest = (gstate.colorTestEnable & 1) && !gstate.isModeClear();
@@ -118,13 +118,14 @@ void GenerateFragmentShader(char *buffer) {
 
 	if (doTexture)
 		WRITE(p, "uniform sampler2D tex;\n");
+
 	if (enableAlphaTest || enableColorTest) {
 		WRITE(p, "uniform vec4 u_alphacolorref;\n");
 		WRITE(p, "uniform vec4 u_colormask;\n");
 	}
-	if (gstate.textureMapEnable & 1) {
+	if (gstate.textureMapEnable & 1) 
 		WRITE(p, "uniform vec3 u_texenv;\n");
-	}
+	
 	WRITE(p, "varying vec4 v_color0;\n");
 	if (lmode)
 		WRITE(p, "varying vec3 v_color1;\n");
@@ -207,17 +208,15 @@ void GenerateFragmentShader(char *buffer) {
 			if (alphaTestFuncs[alphaTestFunc][0] != '#')
 				WRITE(p, "  if (v.a %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
 		}
-
-		// Disabled for now until we actually find a need for it.
-		/*
+		
 		if (enableColorTest) {
 			// TODO: There are some colortestmasks we could handle.
 			int colorTestFunc = gstate.colortest & 3;
-			const char *colorTestFuncs[] = { "#", "#", " == ", " != " };	// never/always don't make sense}
+			const char *colorTestFuncs[] = { "#", "#", " != ", " == " };	// never/always don't make sense
 			int colorTestMask = gstate.colormask;
 			if (colorTestFuncs[colorTestFunc][0] != '#')
-				WRITE(p, "if (!(v.rgb %s (u_alphacolorref.rgb & u_colormask.rgb)) discard;\n", colorTestFuncs[colorTestFunc]);
-		}*/	
+				WRITE(p, "if (v.rgb %s u_alphacolorref.rgb) discard;\n", colorTestFuncs[colorTestFunc]);
+		}
 
 		if (enableFog) {
 			WRITE(p, "  float fogCoef = clamp(v_fogdepth, 0.0, 1.0);\n");
