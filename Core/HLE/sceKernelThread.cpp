@@ -1692,19 +1692,19 @@ void sceKernelExitDeleteThread()
 
 u32 sceKernelSuspendDispatchThread()
 {
-	u32 oldDispatchSuspended = !dispatchEnabled;
+	u32 oldDispatchEnabled = dispatchEnabled;
 	dispatchEnabled = false;
-	DEBUG_LOG(HLE,"%i=sceKernelSuspendDispatchThread()", oldDispatchSuspended);
-	return oldDispatchSuspended;
+	DEBUG_LOG(HLE,"%i=sceKernelSuspendDispatchThread()", oldDispatchEnabled);
+	return oldDispatchEnabled;
 }
 
-u32 sceKernelResumeDispatchThread(u32 suspended)
+u32 sceKernelResumeDispatchThread(u32 enabled)
 {
-	u32 oldDispatchSuspended = !dispatchEnabled;
-	dispatchEnabled = !suspended;
-	DEBUG_LOG(HLE,"%i=sceKernelResumeDispatchThread(%i)", oldDispatchSuspended, suspended);
+	u32 oldDispatchEnabled = dispatchEnabled;
+	dispatchEnabled = enabled != 0;
+	DEBUG_LOG(HLE,"%i=sceKernelResumeDispatchThread(%i)", oldDispatchEnabled, enabled);
 	hleReSchedule("dispatch resumed");
-	return oldDispatchSuspended;
+	return oldDispatchEnabled;
 }
 
 int sceKernelRotateThreadReadyQueue(int priority)
