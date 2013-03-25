@@ -1704,7 +1704,7 @@ u32 sceKernelSuspendDispatchThread()
 {
 	u32 oldDispatchEnabled = dispatchEnabled;
 	dispatchEnabled = false;
-	DEBUG_LOG(HLE,"%i=sceKernelSuspendDispatchThread()", oldDispatchEnabled);
+	DEBUG_LOG(HLE, "%i=sceKernelSuspendDispatchThread()", oldDispatchEnabled);
 	return oldDispatchEnabled;
 }
 
@@ -1712,9 +1712,9 @@ u32 sceKernelResumeDispatchThread(u32 enabled)
 {
 	u32 oldDispatchEnabled = dispatchEnabled;
 	dispatchEnabled = enabled != 0;
-	DEBUG_LOG(HLE,"%i=sceKernelResumeDispatchThread(%i)", oldDispatchEnabled, enabled);
+	DEBUG_LOG(HLE, "sceKernelResumeDispatchThread(%i) - from %i", enabled, oldDispatchEnabled);
 	hleReSchedule("dispatch resumed");
-	return oldDispatchEnabled;
+	return 0;
 }
 
 int sceKernelRotateThreadReadyQueue(int priority)
