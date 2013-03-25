@@ -11,8 +11,10 @@
 #include "../../GPU/GLES/Framebuffer.h"
 #include "../Core/System.h"
 
+#ifdef _WIN32
 #include <Windows.h>
 #include <process.h>
+#endif //_WIN32
 
 extern "C" {
 
@@ -31,7 +33,8 @@ extern "C" {
 struct StreamBuffer{
 	unsigned char* buf;
 	int pos;
-	int size;
+	int streamsize;
+	int bufsize;
 };
 
 inline void YUV444toRGB888(u8 ypos, u8 upos, u8 vpos, u8 &r, u8 &g, u8 &b)
@@ -56,9 +59,9 @@ mediaPlayer::mediaPlayer(void)
 	m_pIOContext = 0;
 	m_videoStream = -1;
 	m_buffer = 0;
-	m_videobuf = new StreamBuffer;
+	m_videobuf = (void *)new StreamBuffer;
 	((StreamBuffer *)m_videobuf)->buf = 0;
-	m_tempbuf = new u8[8192];
+	((StreamBuffer *)m_videobuf)->bufsize = 0x2000;
 
 	if (!g_FramebufferMoviePlayingbuf)
 		g_FramebufferMoviePlayingbuf = new u8[g_FramebufferMoviePlayinglinesize*280*4];
@@ -68,8 +71,6 @@ mediaPlayer::mediaPlayer(void)
 mediaPlayer::~mediaPlayer(void)
 {
 	closeMedia();
-	if (m_tempbuf)
-		delete [] m_tempbuf;
 	if (m_videobuf)
 		delete m_videobuf;
 	if (g_FramebufferMoviePlayingbuf)
@@ -146,10 +147,11 @@ bool mediaPlayer::load(const char* filename)
 	return true;
 }
 
-static int read_buffer(void *opaque, uint8_t *buf, int buf_size)
+int read_buffer(void *opaque, uint8_t *buf, int buf_size)
 {
 	StreamBuffer *vstream = (StreamBuffer*)opaque;
-	int size = (vstream->size - vstream->pos > buf_size? buf_size: vstream->size - vstream->pos);
+	int size = std::min(buf_size, vstream->bufsize);
+	size = std::min(vstream->streamsize - vstream->pos, size);
 	memcpy(buf, vstream->buf + vstream->pos, size);
 	vstream->pos += size;
     return size;
@@ -161,7 +163,7 @@ bool mediaPlayer::loadStream(u8* buffer, int size, bool bAutofreebuffer)
 	av_register_all();
 
 	StreamBuffer *vstream = (StreamBuffer*)m_videobuf;
-	vstream->size = size;
+	vstream->streamsize = size;
 	vstream->pos = 0;
 	if (bAutofreebuffer)
 		vstream->buf = buffer;
@@ -170,14 +172,15 @@ bool mediaPlayer::loadStream(u8* buffer, int size, bool bAutofreebuffer)
 		vstream->buf = new u8[size];
 		memcpy(vstream->buf, buffer, size);
 	}
+	u8* tempbuf = (u8*)av_malloc(vstream->bufsize);
 
 	AVFormatContext *pFormatCtx = avformat_alloc_context();
 	m_pFormatCtx = (void*)pFormatCtx;
-	m_pIOContext = (void*)avio_alloc_context(m_tempbuf, 8192, 0, (void*)vstream, read_buffer, NULL, NULL);
+	m_pIOContext = (void*)avio_alloc_context(tempbuf, vstream->bufsize, 0, (void*)vstream, read_buffer, NULL, NULL);
 	pFormatCtx->pb = (AVIOContext*)m_pIOContext;
   
 	// Open video file
-	if(avformat_open_input((AVFormatContext**)&m_pFormatCtx, "stream", NULL, NULL) != 0)
+	if(avformat_open_input((AVFormatContext**)&m_pFormatCtx, NULL, NULL, NULL) != 0)
 		return false;
 
 	if(avformat_find_stream_info(pFormatCtx, NULL) < 0)
@@ -377,7 +380,7 @@ bool loadPMFStream(u8* pmf, int pmfsize)
 	delete demux;
 #endif // _USE_DSHOW_
 
-	bool bResult = g_pmfPlayer.loadStream(pmf, pmfsize);
+	bool bResult = g_pmfPlayer.loadStream(pmf, pmfsize, true);
 	if (!bResult)
 		g_pmfPlayer.closeMedia();
 	else
@@ -482,10 +485,12 @@ bool playPMFVideo()
 	if (!bPlaying)
 	{
 		bPlaying = true;
+#ifdef _WIN32
 		UINT uiThread;
 		HANDLE hThread=(HANDLE)::_beginthreadex(NULL, 0, loopPlaying,
 			                                   0, 0, &uiThread);
 		CloseHandle(hThread);
+#endif // _WIN32
 	}
 	return true;
 }

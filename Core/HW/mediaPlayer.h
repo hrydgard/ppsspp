@@ -23,7 +23,6 @@ private:
     void *m_sws_ctx;
     u8* m_buffer;
 	void *m_videobuf;
-	u8* m_tempbuf;
 };
 
 bool loadPMFStream(u8* pmf, int pmfsize);
