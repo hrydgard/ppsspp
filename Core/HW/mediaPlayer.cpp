@@ -407,15 +407,16 @@ bool loadPMFPSFFile(const char *filename, int mpegsize)
 
 bool loadPMFPackageFile(const char* package, u32 startpos, int mpegsize, u8* buffer)
 {
-	if (strlen(package) < 10)
-		return false;
 	u32 h = pspFileSystem.OpenFile(package, (FileAccess) FILEACCESS_READ);
 	if (h == 0) 
 		return false;
 	int filesize = mpegsize + 0x2000;
 	u8* buf = new u8[filesize];
 	pspFileSystem.SeekFile(h, startpos, FILEMOVE_BEGIN);
-	filesize = pspFileSystem.ReadFile(h, buf, filesize);
+	if (strlen(package) >= 10)
+		filesize = pspFileSystem.ReadFile(h, buf, filesize);
+	else
+		pspFileSystem.ReadFile(h, buf, filesize / 2048);
 	pspFileSystem.CloseFile(h);
 
 	bool bResult;

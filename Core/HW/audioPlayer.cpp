@@ -154,6 +154,12 @@ bool audioEngine::loadRIFFStream(u8* stream, int streamsize, int atracID)
 		return false;
 	}*/
 	m_ID = atracID;
+	/*{
+	sprintf(m_filename, "tmp\\%d.at3", m_ID);
+	FILE *wfp = fopen(m_filename, "wb");
+	fwrite(stream, 1, streamsize, wfp);
+	fclose(wfp);
+	}*/
 	sprintf(m_filename, "tmp\\%d.oma", m_ID);
 	FILE *wfp = fopen(m_filename, "wb");
 	fwrite(oma, 1, omasize, wfp);
@@ -249,8 +255,6 @@ void addAtrac3Audio(u8* stream, int streamsize, int atracID)
 bool addAtrac3AudioByPackage(const char* package, u32 startpos, int audiosize, 
 	u8* buffer, int atracID)
 {
-	if (strlen(package) < 10)
-		return false;
 	u32 h = pspFileSystem.OpenFile(package, (FileAccess) FILEACCESS_READ);
 	if (h == 0) 
 		return false;
@@ -259,7 +263,10 @@ bool addAtrac3AudioByPackage(const char* package, u32 startpos, int audiosize,
 		return false;
 	u8* buf = new u8[filesize];
 	pspFileSystem.SeekFile(h, startpos, FILEMOVE_BEGIN);
-	filesize = pspFileSystem.ReadFile(h, buf, filesize);
+	if (strlen(package) >= 10)
+		filesize = pspFileSystem.ReadFile(h, buf, filesize);
+	else
+		pspFileSystem.ReadFile(h, buf, filesize / 2048);
 	pspFileSystem.CloseFile(h);
 
 	bool bResult = true;

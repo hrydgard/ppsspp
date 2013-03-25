@@ -468,7 +468,7 @@ int __IoRead(int id, u32 data_addr, int size) {
 				strcpy(Memory::lastestAccessFile.filename, f->fullpath.c_str());
 				Memory::lastestAccessFile.data_addr = data_addr;
 			}
-			if (size > 0x20)
+			if (f->info.size > 0x19000)
 			{
 				strcpy(Memory::lastestAccessFile.packagefile, f->fullpath.c_str());
 				Memory::lastestAccessFile.start_pos = pspFileSystem.GetSeekPos(f->handle);
