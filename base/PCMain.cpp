@@ -398,6 +398,10 @@ int main(int argc, char *argv[]) {
 #endif
 
 	SDL_WM_SetCaption(app_name_nice.c_str(), NULL);
+#ifdef MAEMO
+	SDL_ShowCursor(SDL_DISABLE);
+#endif
+
 
 #ifndef USING_GLES2
 	if (GLEW_OK != glewInit()) {
