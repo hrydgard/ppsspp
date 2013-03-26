@@ -412,7 +412,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 				if (gstate.isModeThrough())	
 					WRITE(p, "  v_texcoord.y = 1.0 - v_texcoord.y;\n");
 				else
-					WRITE(p, "  v_texcoord.y = 1.0 - v_texcoord.y * 2.0;\n");
+					WRITE(p, "  v_texcoord.y = 1.1 - v_texcoord.y * 2.0;\n");
 			}
 		}
 
