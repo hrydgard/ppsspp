@@ -150,8 +150,7 @@ void ApplyPrefixST(float *v, u32 data, VectorSize size)
 			// TODO: But some ops seem to use const 0 instead?
 			if (regnum >= n)
 			{
-				ERROR_LOG(CPU, "Invalid VFPU swizzle: %08x / %d", data, size);
-				Reporting::ReportMessage("Invalid VFPU swizzle: %08x / %d", data, size);
+				ERROR_LOG_REPORT(CPU, "Invalid VFPU swizzle: %08x / %d", data, size);
 				regnum = 0;
 			}
 

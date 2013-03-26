@@ -293,9 +293,8 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 
 	if (*(u32*)ptr != 0x464c457f)
 	{
-		ERROR_LOG(HLE, "Wrong magic number %08x",*(u32*)ptr);
+		ERROR_LOG_REPORT(HLE, "Wrong magic number %08x", *(u32*)ptr);
 		*error_string = "File corrupt";
-		Reporting::ReportMessage("Wrong ELF magic number %08x", *(u32*)ptr);
 		if (newptr) {
 			delete [] newptr;
 		}
@@ -535,21 +534,21 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 					break;
 				case NID_MODULE_START_THREAD_PARAMETER:
 					if (Memory::Read_U32(exportAddr) != 3)
-						WARN_LOG(LOADER, "Strange value at module_start_thread_parameter export: %08x", Memory::Read_U32(exportAddr));
+						WARN_LOG_REPORT(LOADER, "Strange value at module_start_thread_parameter export: %08x", Memory::Read_U32(exportAddr));
 					module->nm.module_start_thread_priority = Memory::Read_U32(exportAddr + 4);
 					module->nm.module_start_thread_stacksize = Memory::Read_U32(exportAddr + 8);
 					module->nm.module_start_thread_attr = Memory::Read_U32(exportAddr + 12);
 					break;
 				case NID_MODULE_STOP_THREAD_PARAMETER:
 					if (Memory::Read_U32(exportAddr) != 3)
-						WARN_LOG(LOADER, "Strange value at module_stop_thread_parameter export: %08x", Memory::Read_U32(exportAddr));
+						WARN_LOG_REPORT(LOADER, "Strange value at module_stop_thread_parameter export: %08x", Memory::Read_U32(exportAddr));
 					module->nm.module_stop_thread_priority = Memory::Read_U32(exportAddr + 4);
 					module->nm.module_stop_thread_stacksize = Memory::Read_U32(exportAddr + 8);
 					module->nm.module_stop_thread_attr = Memory::Read_U32(exportAddr + 12);
 					break;
 				case NID_MODULE_REBOOT_BEFORE_THREAD_PARAMETER:
 					if (Memory::Read_U32(exportAddr) != 3)
-						WARN_LOG(LOADER, "Strange value at module_reboot_before_thread_parameter export: %08x", Memory::Read_U32(exportAddr));
+						WARN_LOG_REPORT(LOADER, "Strange value at module_reboot_before_thread_parameter export: %08x", Memory::Read_U32(exportAddr));
 					module->nm.module_reboot_before_thread_priority = Memory::Read_U32(exportAddr + 4);
 					module->nm.module_reboot_before_thread_stacksize = Memory::Read_U32(exportAddr + 8);
 					module->nm.module_reboot_before_thread_attr = Memory::Read_U32(exportAddr + 12);
@@ -667,7 +666,7 @@ void __KernelStartModule(Module *m, int args, const char *argp, SceKernelSMOptio
 	if (m->nm.module_start_func != 0 && m->nm.module_start_func != (u32)-1)
 	{
 		if (m->nm.module_start_func != m->nm.entry_addr)
-			WARN_LOG(LOADER, "Main module has start func (%08x) different from entry (%08x)?", m->nm.module_start_func, m->nm.entry_addr);
+			WARN_LOG_REPORT(LOADER, "Main module has start func (%08x) different from entry (%08x)?", m->nm.module_start_func, m->nm.entry_addr);
 	}
 
 	__KernelSetupRootThread(m->GetUID(), args, argp, options->priority, options->stacksize, options->attribute);

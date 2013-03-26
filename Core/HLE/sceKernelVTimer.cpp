@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Core/CoreTiming.h"
+#include "Core/Reporting.h"
 #include "sceKernel.h"
 #include "sceKernelInterrupt.h"
 #include "sceKernelMemory.h"
@@ -177,7 +178,7 @@ void __KernelVTimerInit() {
 u32 sceKernelCreateVTimer(const char *name, u32 optParamAddr) {
 	DEBUG_LOG(HLE, "sceKernelCreateVTimer(%s, %08x)", name, optParamAddr);
 	if (optParamAddr != 0)
-		WARN_LOG(HLE, "sceKernelCreateVTimer: unsupported options parameter %08x", optParamAddr);
+		WARN_LOG_REPORT(HLE, "sceKernelCreateVTimer: unsupported options parameter %08x", optParamAddr);
 
 	VTimer *vtimer = new VTimer;
 	SceUID id = kernelObjects.Create(vtimer);

@@ -19,6 +19,7 @@
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
 #include "Core/CoreTiming.h"
+#include "Core/Reporting.h"
 #include "ChunkFile.h"
 #include "sceKernel.h"
 #include "sceKernelThread.h"
@@ -172,12 +173,12 @@ int sceKernelCreateSema(const char* name, u32 attr, int initVal, int maxVal, u32
 {
 	if (!name)
 	{
-		WARN_LOG(HLE, "%08x=sceKernelCreateSema(): invalid name", SCE_KERNEL_ERROR_ERROR);
+		WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateSema(): invalid name", SCE_KERNEL_ERROR_ERROR);
 		return SCE_KERNEL_ERROR_ERROR;
 	}
 	if (attr >= 0x200)
 	{
-		WARN_LOG(HLE, "%08x=sceKernelCreateSema(): invalid attr parameter: %08x", SCE_KERNEL_ERROR_ILLEGAL_ATTR, attr);
+		WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateSema(): invalid attr parameter: %08x", SCE_KERNEL_ERROR_ILLEGAL_ATTR, attr);
 		return SCE_KERNEL_ERROR_ILLEGAL_ATTR;
 	}
 
@@ -196,9 +197,9 @@ int sceKernelCreateSema(const char* name, u32 attr, int initVal, int maxVal, u32
 	DEBUG_LOG(HLE, "%i=sceKernelCreateSema(%s, %08x, %i, %i, %08x)", id, s->ns.name, s->ns.attr, s->ns.initCount, s->ns.maxCount, optionPtr);
 
 	if (optionPtr != 0)
-		WARN_LOG(HLE, "sceKernelCreateSema(%s) unsupported options parameter: %08x", name, optionPtr);
+		WARN_LOG_REPORT(HLE, "sceKernelCreateSema(%s) unsupported options parameter: %08x", name, optionPtr);
 	if ((attr & ~PSP_SEMA_ATTR_PRIORITY) != 0)
-		WARN_LOG(HLE, "sceKernelCreateSema(%s) unsupported attr parameter: %08x", name, attr);
+		WARN_LOG_REPORT(HLE, "sceKernelCreateSema(%s) unsupported attr parameter: %08x", name, attr);
 
 	return id;
 }

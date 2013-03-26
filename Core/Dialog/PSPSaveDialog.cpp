@@ -100,8 +100,7 @@ int PSPSaveDialog::Init(int paramAddr)
 			break;
 		default:
 		{
-			ERROR_LOG(HLE, "Load/Save function %d not coded. Title: %s Save: %s File: %s", param.GetPspParam()->mode, param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
-			Reporting::ReportMessage("Load/Save function %d not coded. Title: %s Save: %s File: %s", param.GetPspParam()->mode, param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
+			ERROR_LOG_REPORT(HLE, "Load/Save function %d not coded. Title: %s Save: %s File: %s", param.GetPspParam()->mode, param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
 			param.GetPspParam()->result = 0;
 			status = SCE_UTILITY_STATUS_INITIALIZE;
 			display = DS_NONE;

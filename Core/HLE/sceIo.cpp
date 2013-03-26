@@ -859,8 +859,7 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 	case 0x01F100A8:
 	case 0x01F100A9:
 	case 0x01F300A7:
-		Reporting::ReportMessage("sceIoDevctl(\"%s\", %08x, %08x, %i, %08x, %i)", name, cmd, argAddr, argLen, outPtr, outLen);
-		ERROR_LOG(HLE, "UNIMPL sceIoDevctl(\"%s\", %08x, %08x, %i, %08x, %i)", name, cmd, argAddr, argLen, outPtr, outLen);
+		ERROR_LOG_REPORT(HLE, "UNIMPL sceIoDevctl(\"%s\", %08x, %08x, %i, %08x, %i)", name, cmd, argAddr, argLen, outPtr, outLen);
 		return 0;
 	}
 
@@ -930,7 +929,7 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 				DEBUG_LOG(HLE, "Returned memstick size: maxSectors=%i", deviceSize.maxSectors);
 				return 0;
 			} else {
-				ERROR_LOG(HLE, "memstick size query: bad params");
+				ERROR_LOG_REPORT(HLE, "memstick size query: bad params");
 				return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
 			}
 
