@@ -1493,12 +1493,19 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 	if (stacksize < 0x200 || stacksize >= 0x20000000)
 	{
 		WARN_LOG(HLE, "sceKernelCreateThread(name=\"%s\"): bogus stack size %08x, using 0x4000", threadName, stacksize);
+		Reporting::ReportMessage("sceKernelCreateThread(name=\"%s\"): bogus stack size %08x, using 0x4000", threadName, stacksize);
 		stacksize = 0x4000;
 	}
 	if (prio < 0x08 || prio > 0x77)
+	{
 		WARN_LOG(HLE, "sceKernelCreateThread(name=\"%s\"): bogus priority %08x", threadName, prio);
+		Reporting::ReportMessage("sceKernelCreateThread(name=\"%s\"): bogus priority %08x", threadName, prio);
+	}
 	if (!Memory::IsValidAddress(entry))
+	{
 		WARN_LOG(HLE, "sceKernelCreateThread(name=\"%s\"): invalid entry %08x", threadName, entry);
+		Reporting::ReportMessage("sceKernelCreateThread(name=\"%s\"): invalid entry %08x", threadName, entry);
+	}
 
 	// We're assuming all threads created are user threads.
 	if ((attr & PSP_THREAD_ATTR_KERNEL) == 0)
@@ -1508,7 +1515,10 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 	__KernelCreateThread(id, moduleID, threadName, entry, prio, stacksize, attr);
 	INFO_LOG(HLE, "%i = sceKernelCreateThread(name=\"%s\", entry=%08x, prio=%x, stacksize=%i)", id, threadName, entry, prio, stacksize);
 	if (optionAddr != 0)
+	{
 		WARN_LOG(HLE, "sceKernelCreateThread(name=\"%s\"): unsupported options parameter %08x", threadName, optionAddr);
+		Reporting::ReportMessage("sceKernelCreateThread(name=\"%s\"): unsupported options parameter %08x", threadName, optionAddr);
+	}
 	return id;
 }
 
