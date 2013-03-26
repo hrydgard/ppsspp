@@ -183,8 +183,11 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	}
 
 	// Set Dither
-	glstate.dither.set(gstate.isDitherEnabled());
-
+	if (gstate.isDitherEnabled()) {
+		glstate.dither.enable();
+		glstate.dither.set(GL_TRUE);
+	} else
+		glstate.dither.disable();
 
 	// Set ColorMask/Stencil/Depth
 	if (gstate.isModeClear()) {
