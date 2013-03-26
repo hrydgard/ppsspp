@@ -86,10 +86,10 @@ namespace Reporting
 
 		std::string host = ServerHost();
 		size_t length = ServerHostnameLength();
-		if (length == host.npos)
-			return host.c_str();
 
 		lastHostname = host.substr(0, length);
+		if (length == lastHostname.npos)
+			return lastHostname.c_str();
 		return lastHostname.c_str();
 	}
 

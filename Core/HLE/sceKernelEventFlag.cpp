@@ -20,6 +20,7 @@
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
 #include "Core/CoreTiming.h"
+#include "Core/Reporting.h"
 #include "ChunkFile.h"
 
 #include "sceKernel.h"
@@ -190,14 +191,14 @@ int sceKernelCreateEventFlag(const char *name, u32 flag_attr, u32 flag_initPatte
 {
 	if (!name)
 	{
-		WARN_LOG(HLE, "%08x=sceKernelCreateEventFlag(): invalid name", SCE_KERNEL_ERROR_ERROR);
+		WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateEventFlag(): invalid name", SCE_KERNEL_ERROR_ERROR);
 		return SCE_KERNEL_ERROR_ERROR;
 	}
 
 	// These attributes aren't valid.
 	if ((flag_attr & 0x100) != 0 || flag_attr >= 0x300)
 	{
-		WARN_LOG(HLE, "%08x=sceKernelCreateEventFlag(): invalid attr parameter: %08x", SCE_KERNEL_ERROR_ILLEGAL_ATTR, flag_attr);
+		WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateEventFlag(): invalid attr parameter: %08x", SCE_KERNEL_ERROR_ILLEGAL_ATTR, flag_attr);
 		return SCE_KERNEL_ERROR_ILLEGAL_ATTR;
 	}
 
@@ -215,9 +216,9 @@ int sceKernelCreateEventFlag(const char *name, u32 flag_attr, u32 flag_initPatte
 	DEBUG_LOG(HLE, "%i=sceKernelCreateEventFlag(\"%s\", %08x, %08x, %08x)", id, e->nef.name, e->nef.attr, e->nef.currentPattern, optPtr);
 
 	if (optPtr != 0)
-		WARN_LOG(HLE, "sceKernelCreateEventFlag(%s) unsupported options parameter: %08x", name, optPtr);
+		WARN_LOG_REPORT(HLE, "sceKernelCreateEventFlag(%s) unsupported options parameter: %08x", name, optPtr);
 	if ((flag_attr & ~PSP_EVENT_WAITMULTIPLE) != 0)
-		WARN_LOG(HLE, "sceKernelCreateEventFlag(%s) unsupported attr parameter: %08x", name, flag_attr);
+		WARN_LOG_REPORT(HLE, "sceKernelCreateEventFlag(%s) unsupported attr parameter: %08x", name, flag_attr);
 
 	return id;
 }
@@ -382,7 +383,7 @@ int sceKernelWaitEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 ti
 
 	if ((wait & ~PSP_EVENT_WAITKNOWN) != 0)
 	{
-		WARN_LOG(HLE, "sceKernelWaitEventFlag(%i) invalid mode parameter: %08x", id, wait);
+		WARN_LOG_REPORT(HLE, "sceKernelWaitEventFlag(%i) invalid mode parameter: %08x", id, wait);
 		return SCE_KERNEL_ERROR_ILLEGAL_MODE;
 	}
 	// Can't wait on 0, that's guaranteed to wait forever.
@@ -435,7 +436,7 @@ int sceKernelWaitEventFlagCB(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 
 
 	if ((wait & ~PSP_EVENT_WAITKNOWN) != 0)
 	{
-		WARN_LOG(HLE, "sceKernelWaitEventFlagCB(%i) invalid mode parameter: %08x", id, wait);
+		WARN_LOG_REPORT(HLE, "sceKernelWaitEventFlagCB(%i) invalid mode parameter: %08x", id, wait);
 		return SCE_KERNEL_ERROR_ILLEGAL_MODE;
 	}
 	// Can't wait on 0, that's guaranteed to wait forever.
@@ -490,13 +491,13 @@ int sceKernelPollEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 ti
 
 	if ((wait & ~PSP_EVENT_WAITKNOWN) != 0)
 	{
-		WARN_LOG(HLE, "sceKernelPollEventFlag(%i) invalid mode parameter: %08x", id, wait);
+		WARN_LOG_REPORT(HLE, "sceKernelPollEventFlag(%i) invalid mode parameter: %08x", id, wait);
 		return SCE_KERNEL_ERROR_ILLEGAL_MODE;
 	}
 	// Poll seems to also fail when CLEAR and CLEARALL are used together, but not wait.
 	if ((wait & PSP_EVENT_WAITCLEAR) != 0 && (wait & PSP_EVENT_WAITCLEARALL) != 0)
 	{
-		WARN_LOG(HLE, "sceKernelPollEventFlag(%i) invalid mode parameter: %08x", id, wait);
+		WARN_LOG_REPORT(HLE, "sceKernelPollEventFlag(%i) invalid mode parameter: %08x", id, wait);
 		return SCE_KERNEL_ERROR_ILLEGAL_MODE;
 	}
 	// Can't wait on 0, it never matches.

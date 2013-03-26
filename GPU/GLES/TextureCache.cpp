@@ -672,8 +672,7 @@ void TextureCache::SetTexture() {
 
 	u32 format = gstate.texformat & 0xF;
 	if (format >= 11) {
-		Reporting::ReportMessage("Unknown texture format %i", format);
-		ERROR_LOG(G3D, "Unknown texture format %i", format);
+		ERROR_LOG_REPORT(G3D, "Unknown texture format %i", format);
 		format = 0;
 	}
 	bool hasClut = formatUsesClut[format];
@@ -1089,8 +1088,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 		break;
 
 	default:
-		Reporting::ReportMessage("Unknown texture format %i", entry.format);
-		ERROR_LOG(G3D, "Unknown Texture Format %d!!!", entry.format);
+		ERROR_LOG_REPORT(G3D, "Unknown Texture Format %d!!!", entry.format);
 		finalBuf = tmpTexBuf32;
 		return;
 	}
