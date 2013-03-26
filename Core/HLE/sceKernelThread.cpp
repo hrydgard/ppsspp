@@ -819,6 +819,7 @@ void __KernelIdle()
 		else
 		{
 			WARN_LOG(HLE, "UNTESTED - Callback thread deleted during interrupt?");
+			Reporting::ReportMessage("Callback thread deleted during interrupt?");
 			g_inCbCount = 0;
 			currentCallbackThreadID = 0;
 		}
@@ -1146,12 +1147,16 @@ void __KernelWaitCurThread(WaitType type, SceUID waitID, u32 waitValue, u32 time
 	if (!dispatchEnabled)
 	{
 		WARN_LOG(HLE, "Ignoring wait, dispatching disabled... right thing to do?");
+		Reporting::ReportMessage("Ignoring wait, dispatching disabled");
 		return;
 	}
 
 	// TODO: Need to defer if in callback?
 	if (g_inCbCount > 0)
+	{
 		WARN_LOG(HLE, "UNTESTED - waiting within a callback, probably bad mojo.");
+		Reporting::ReportMessage("Waiting within callback");
+	}
 
 	Thread *thread = __GetCurrentThread();
 	thread->nt.waitID = waitID;
@@ -2124,7 +2129,10 @@ int sceKernelReleaseWaitThread(SceUID threadID)
 {
 	DEBUG_LOG(HLE, "sceKernelReleaseWaitThread(%i)", threadID);
 	if (__KernelInCallback())
+	{
 		WARN_LOG(HLE, "UNTESTED sceKernelReleaseWaitThread() might not do the right thing in a callback");
+		Reporting::ReportMessage("sceKernelReleaseWaitThread() might not do the right thing in a callback");
+	}
 
 	if (threadID == 0 || threadID == currentThread)
 		return SCE_KERNEL_ERROR_ILLEGAL_THID;
