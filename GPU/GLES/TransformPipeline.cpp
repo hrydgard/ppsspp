@@ -53,6 +53,10 @@ enum {
 	TRANSFORMED_VERTEX_BUFFER_SIZE = 65536 * sizeof(TransformedVertex)
 };
 
+inline float clamp(float in, float min, float max) {
+    return in < min ? min : (in > max ? max : in);
+}
+
 TransformDrawEngine::TransformDrawEngine()
 	: collectedVerts(0),
 		prevPrim_(-1),
@@ -648,9 +652,9 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		memcpy(&transformed[index].u, uv, 2 * sizeof(float));
 		if (gstate_c.flipTexture) {
 			if (throughmode)
-				transformed[index].v = 1.0f - transformed[index].v;
+				transformed[index].v = 1.0f - clamp(transformed[index].v, 0.0f, 1.0f);
 			else 
-				transformed[index].v = 1.0f - transformed[index].v * 2.0f;
+				transformed[index].v = 1.0f - clamp(transformed[index].v * 2.0f, 0.0f, 1.0f);
 		}
 		for (int i = 0; i < 4; i++) {
 			transformed[index].color0[i] = c0[i] * 255.0f;
