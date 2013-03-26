@@ -100,6 +100,21 @@ void ARMXEmitter::MOVI2F(ARMReg dest, float val, ARMReg tempReg)
 	// Otherwise, use a literal pool and VLDR directly (+- 1020)
 }
 
+void ARMXEmitter::ADDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
+{
+	Operand2 op2;
+	bool negated;
+	if (TryMakeOperand2_AllowNegation(val, op2, &negated)) {
+		if (!negated)
+			ADD(rd, rs, op2);
+		else
+			SUB(rd, rs, op2);
+	} else {
+		MOVI2R(scratch, val);
+		ADD(rd, rs, scratch);
+	}
+}
+
 void ARMXEmitter::ANDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
 {
 	Operand2 op2;
@@ -113,6 +128,21 @@ void ARMXEmitter::ANDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
 	} else {
 		MOVI2R(scratch, val);
 		AND(rd, rs, scratch);
+	}
+}
+
+void ARMXEmitter::CMPI2R(ARMReg rs, u32 val, ARMReg scratch)
+{
+	Operand2 op2;
+	bool negated;
+	if (TryMakeOperand2_AllowNegation(val, op2, &negated)) {
+		if (!negated)
+			CMP(rs, op2);
+		else
+			CMN(rs, op2);
+	} else {
+		MOVI2R(scratch, val);
+		CMP(rs, scratch);
 	}
 }
 
