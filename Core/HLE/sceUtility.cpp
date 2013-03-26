@@ -98,8 +98,7 @@ u32 sceUtilityLoadAvModule(u32 module)
 {
 	if (module > 7)
 	{
-		ERROR_LOG(HLE, "sceUtilityLoadAvModule(%i): invalid module id", module);
-		Reporting::ReportMessage("sceUtilityLoadAvModule(%i): invalid module id", module);
+		ERROR_LOG_REPORT(HLE, "sceUtilityLoadAvModule(%i): invalid module id", module);
 		return SCE_ERROR_AV_MODULE_BAD_ID;
 	}
 
@@ -118,8 +117,7 @@ u32 sceUtilityLoadModule(u32 module)
 	// TODO: Not all modules between 0x100 and 0x601 are valid.
 	if (module < 0x100 || module > 0x601)
 	{
-		ERROR_LOG(HLE, "sceUtilityLoadModule(%i): invalid module id", module);
-		Reporting::ReportMessage("sceUtilityLoadModule(%i): invalid module id", module);
+		ERROR_LOG_REPORT(HLE, "sceUtilityLoadModule(%i): invalid module id", module);
 		return SCE_ERROR_MODULE_BAD_ID;
 	}
 
@@ -137,8 +135,7 @@ u32 sceUtilityUnloadModule(u32 module)
 	// TODO: Not all modules between 0x100 and 0x601 are valid.
 	if (module < 0x100 || module > 0x601)
 	{
-		ERROR_LOG(HLE, "sceUtilityUnloadModule(%i): invalid module id", module);
-		Reporting::ReportMessage("sceUtilityUnloadModule(%i): invalid module id", module);
+		ERROR_LOG_REPORT(HLE, "sceUtilityUnloadModule(%i): invalid module id", module);
 		return SCE_ERROR_MODULE_BAD_ID;
 	}
 

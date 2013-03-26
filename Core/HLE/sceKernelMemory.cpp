@@ -20,7 +20,8 @@
 #include "../System.h"
 #include "../MIPS/MIPS.h"
 #include "../MemMap.h"
-#include "../../Core/CoreTiming.h"
+#include "Core/CoreTiming.h"
+#include "Core/Reporting.h"
 
 #include "sceKernel.h"
 #include "sceKernelThread.h"
@@ -472,34 +473,34 @@ int sceKernelAllocPartitionMemory(int partition, const char *name, int type, u32
 {
 	if (name == NULL)
 	{
-		WARN_LOG(HLE, "%08x=sceKernelAllocPartitionMemory(): invalid name", SCE_KERNEL_ERROR_ERROR);
+		WARN_LOG_REPORT(HLE, "%08x=sceKernelAllocPartitionMemory(): invalid name", SCE_KERNEL_ERROR_ERROR);
 		return SCE_KERNEL_ERROR_ERROR;
 	}
 	if (size == 0)
 	{
-		WARN_LOG(HLE, "%08x=sceKernelAllocPartitionMemory(): invalid size %x", SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED, size);
+		WARN_LOG_REPORT(HLE, "%08x=sceKernelAllocPartitionMemory(): invalid size %x", SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED, size);
 		return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
 	}
 	if (partition < 1 || partition > 9 || partition == 7)
 	{
-		WARN_LOG(HLE, "%08x=sceKernelAllocPartitionMemory(): invalid partition %x", SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, partition);
+		WARN_LOG_REPORT(HLE, "%08x=sceKernelAllocPartitionMemory(): invalid partition %x", SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, partition);
 		return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
 	}
 	// We only support user right now.
 	if (partition != 2 && partition != 5 && partition != 6)
 	{
-		WARN_LOG(HLE, "%08x=sceKernelAllocPartitionMemory(): invalid partition %x", SCE_KERNEL_ERROR_ILLEGAL_PARTITION, partition);
+		WARN_LOG_REPORT(HLE, "%08x=sceKernelAllocPartitionMemory(): invalid partition %x", SCE_KERNEL_ERROR_ILLEGAL_PARTITION, partition);
 		return SCE_KERNEL_ERROR_ILLEGAL_PARTITION;
 	}
 	if (type < PSP_SMEM_Low || type > PSP_SMEM_HighAligned)
 	{
-		WARN_LOG(HLE, "%08x=sceKernelAllocPartitionMemory(): invalid type %x", SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCKTYPE, type);
+		WARN_LOG_REPORT(HLE, "%08x=sceKernelAllocPartitionMemory(): invalid type %x", SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCKTYPE, type);
 		return SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCKTYPE;
 	}
 	// Alignment is only allowed for powers of 2.
 	if ((type == PSP_SMEM_LowAligned || type == PSP_SMEM_HighAligned) && ((addr & (addr - 1)) != 0 || addr == 0))
 	{
-		WARN_LOG(HLE, "%08x=sceKernelAllocPartitionMemory(): invalid alignment %x", SCE_ERROR_KERNEL_ILLEGAL_ALIGNMENT_SIZE, addr);
+		WARN_LOG_REPORT(HLE, "%08x=sceKernelAllocPartitionMemory(): invalid alignment %x", SCE_ERROR_KERNEL_ILLEGAL_ALIGNMENT_SIZE, addr);
 		return SCE_ERROR_KERNEL_ILLEGAL_ALIGNMENT_SIZE;
 	}
 
@@ -514,8 +515,6 @@ int sceKernelAllocPartitionMemory(int partition, const char *name, int type, u32
 
 	DEBUG_LOG(HLE,"%i = sceKernelAllocPartitionMemory(partition = %i, %s, type= %i, size= %i, addr= %08x)",
 		uid, partition, name, type, size, addr);
-	if (type == 2)
-		ERROR_LOG(HLE, "ARGH! sceKernelAllocPartitionMemory wants a specific address");
 
 	return uid;
 }
@@ -847,34 +846,34 @@ SceUID sceKernelCreateVpl(const char *name, int partition, u32 attr, u32 vplSize
 {
 	if (!name)
 	{
-		WARN_LOG(HLE, "%08x=sceKernelCreateVpl(): invalid name", SCE_KERNEL_ERROR_ERROR);
+		WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateVpl(): invalid name", SCE_KERNEL_ERROR_ERROR);
 		return SCE_KERNEL_ERROR_ERROR;
 	}
 	if (partition < 1 || partition > 9 || partition == 7)
 	{
-		WARN_LOG(HLE, "%08x=sceKernelCreateVpl(): invalid partition %d", SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, partition);
+		WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateVpl(): invalid partition %d", SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, partition);
 		return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
 	}
 	// We only support user right now.
 	if (partition != 2 && partition != 6)
 	{
-		WARN_LOG(HLE, "%08x=sceKernelCreateVpl(): invalid partition %d", SCE_KERNEL_ERROR_ILLEGAL_PERM, partition);
+		WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateVpl(): invalid partition %d", SCE_KERNEL_ERROR_ILLEGAL_PERM, partition);
 		return SCE_KERNEL_ERROR_ILLEGAL_PERM;
 	}
 	if (((attr & ~PSP_VPL_ATTR_KNOWN) & ~0xFF) != 0)
 	{
-		WARN_LOG(HLE, "%08x=sceKernelCreateVpl(): invalid attr parameter: %08x", SCE_KERNEL_ERROR_ILLEGAL_ATTR, attr);
+		WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateVpl(): invalid attr parameter: %08x", SCE_KERNEL_ERROR_ILLEGAL_ATTR, attr);
 		return SCE_KERNEL_ERROR_ILLEGAL_ATTR;
 	}
 	if (vplSize == 0)
 	{
-		WARN_LOG(HLE, "%08x=sceKernelCreateVpl(): invalid size", SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE);
+		WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateVpl(): invalid size", SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE);
 		return SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE;
 	}
 	// Block Allocator seems to A-OK this, let's stop it here.
 	if (vplSize >= 0x80000000)
 	{
-		WARN_LOG(HLE, "%08x=sceKernelCreateVpl(): way too big size", SCE_KERNEL_ERROR_NO_MEMORY);
+		WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateVpl(): way too big size", SCE_KERNEL_ERROR_NO_MEMORY);
 		return SCE_KERNEL_ERROR_NO_MEMORY;
 	}
 

@@ -53,8 +53,7 @@ int PSPMsgDialog::Init(unsigned int paramAddr)
 	int optionsNotCoded = ((messageDialog.options | SCE_UTILITY_MSGDIALOG_DEBUG_OPTION_CODED) ^ SCE_UTILITY_MSGDIALOG_DEBUG_OPTION_CODED);
 	if(optionsNotCoded)
 	{
-		ERROR_LOG(HLE,"PSPMsgDialog options not coded : 0x%08x",optionsNotCoded);
-		Reporting::ReportMessage("PSPMsgDialog options not coded: 0x%08x", optionsNotCoded);
+		ERROR_LOG_REPORT(HLE, "PSPMsgDialog options not coded : 0x%08x", optionsNotCoded);
 	}
 
 	flag = 0;
