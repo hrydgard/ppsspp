@@ -211,6 +211,10 @@ struct GPUgstate
 	bool isStencilTestEnabled() const { return stencilTestEnable & 1; }
 	bool isAlphaBlendEnabled() const { return alphaBlendEnable & 1; }
 	bool isDitherEnabled() const { return ditherEnable & 1; }
+	bool isAlphaTestEnabled() const { return alphaTestEnable & 1; }
+	bool isColorTestEnabled() const { return colorTestEnable & 1; }
+	bool isLightingEnabled() const { return lightingEnable & 1; }
+	bool isTextureMapEnabled() const { return textureMapEnable & 1; }
 
 	// UV gen
 	int getUVGenMode() const { return texmapmode & 3;}   // 2 bits

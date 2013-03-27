@@ -441,7 +441,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		int prim, u8 *decoded, LinkedShader *program, int vertexCount, u32 vertType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex) {
 
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
-	bool lmode = (gstate.lmode & 1) && (gstate.lightingEnable & 1);
+	bool lmode = (gstate.lmode & 1) && gstate.isLightingEnabled();
 
 	// TODO: Split up into multiple draw calls for GLES 2.0 where you can't guarantee support for more than 0x10000 verts.
 
@@ -553,7 +553,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			float litColor1[4];
 			lighter.Light(litColor0, litColor1, unlitColor, out, normal, dots);
 
-			if (gstate.lightingEnable & 1) {
+			if (gstate.isLightingEnabled()) {
 				// Don't ignore gstate.lmode - we should send two colors in that case
 				for (int j = 0; j < 4; j++) {
 					c0[j] = litColor0[j];
