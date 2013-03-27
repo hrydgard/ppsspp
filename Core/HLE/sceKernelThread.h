@@ -65,7 +65,8 @@ struct SceKernelSysClock {
 };
 
 
-enum WaitType //probably not the real values
+// TODO: Map these to PSP wait types.
+enum WaitType
 {
 	WAITTYPE_NONE = 0,
 	WAITTYPE_SLEEP = 1,
@@ -84,8 +85,16 @@ enum WaitType //probably not the real values
 	WAITTYPE_LWMUTEX = 14,
 	WAITTYPE_CTRL = 15,
 	WAITTYPE_IO = 16,
+
+	NUM_WAITTYPES
 };
 
+// Suspend wait and timeout while a thread enters a callback.
+typedef void (* WaitBeginCallbackFunc)(SceUID threadID, SceUID prevCallbackId);
+// Resume wait and timeout as a thread exits a callback.
+typedef void (* WaitEndCallbackFunc)(SceUID threadID, SceUID prevCallbackId, u32 &returnValue);
+
+void __KernelRegisterWaitTypeFuncs(WaitType type, WaitBeginCallbackFunc beginFunc, WaitEndCallbackFunc endFunc);
 
 struct ThreadContext
 {
@@ -144,6 +153,7 @@ inline u32 __KernelResumeThreadFromWait(SceUID threadID, s64 retval)
 u32 __KernelGetWaitValue(SceUID threadID, u32 &error);
 u32 __KernelGetWaitTimeoutPtr(SceUID threadID, u32 &error);
 SceUID __KernelGetWaitID(SceUID threadID, WaitType type, u32 &error);
+SceUID __KernelGetCurrentCallbackID(SceUID threadID, u32 &error);
 void __KernelWaitCurThread(WaitType type, SceUID waitId, u32 waitValue, u32 timeoutPtr, bool processCallbacks, const char *reason);
 void __KernelReSchedule(const char *reason = "no reason");
 void __KernelReSchedule(bool doCallbacks, const char *reason);
