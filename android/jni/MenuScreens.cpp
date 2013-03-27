@@ -270,12 +270,13 @@ void InGameMenuScreen::render() {
 	int stride = 40;
 	int columnw = 400;
 	UICheckBox(GEN_ID, x, y += stride, "Show Debug Statistics", ALIGN_TOPLEFT, &g_Config.bShowDebugStats);
-	UICheckBox(GEN_ID, x + columnw, y, "Show FPS", ALIGN_TOPLEFT, &g_Config.bShowFPSCounter);
+	UICheckBox(GEN_ID, x, y += stride, "Show FPS", ALIGN_TOPLEFT, &g_Config.bShowFPSCounter);
 
 	// TODO: Maybe shouldn't show this if the screen ratios are very close...
 	UICheckBox(GEN_ID, x, y += stride, "Stretch to display", ALIGN_TOPLEFT, &g_Config.bStretchToDisplay);
 
 	UICheckBox(GEN_ID, x, y += stride, "Hardware Transform", ALIGN_TOPLEFT, &g_Config.bHardwareTransform);
+	UICheckBox(GEN_ID, x, y += stride, "Linear Filtering", ALIGN_TOPLEFT, &g_Config.bLinearFiltering);
 	if (UICheckBox(GEN_ID, x, y += stride, "Buffered Rendering", ALIGN_TOPLEFT, &g_Config.bBufferedRendering)) {
 		if (gpu)
 			gpu->Resized();
@@ -339,9 +340,9 @@ void SettingsScreen::render() {
 	int x = 30;
 	int y = 30;
 	int stride = 40;
-	int columnw = 420;
+	int columnw = 400;
 	UICheckBox(GEN_ID, x, y += stride, "Sound Emulation", ALIGN_TOPLEFT, &g_Config.bEnableSound);
-	UICheckBox(GEN_ID, x + columnw, y, "Linear Filtering", ALIGN_TOPLEFT, &g_Config.bLinearFiltering);
+	UICheckBox(GEN_ID, x + columnw, y, "True Color", ALIGN_TOPLEFT, &g_Config.bTrueColor);
 	if (UICheckBox(GEN_ID, x, y += stride, "Buffered Rendering", ALIGN_TOPLEFT, &g_Config.bBufferedRendering)) {
 		if (gpu)
 			gpu->Resized();
