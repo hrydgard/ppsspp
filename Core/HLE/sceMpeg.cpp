@@ -1755,6 +1755,7 @@ const HLEFunction sceMpeg[] =
 	{0xaf26bb01,WrapU_U<sceMpegAvcResourceGetAvcEsBuf>,"sceMpegAvcResourceGetAvcEsBuf"},
 	{0xfcbdb5ad,WrapU_U<sceMpegAvcResourceInit>,"sceMpegAvcResourceInit"},
 	{0xF5E7EA31,WrapI_UUUI<sceMpegAvcConvertToYuv420>,"sceMpegAvcConvertToYuv420"},
+	{0x01977054,0,"sceMpegQueryUserdataEsSize"},
 };
 
 const HLEFunction sceMp3[] =
