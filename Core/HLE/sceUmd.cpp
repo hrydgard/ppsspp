@@ -390,7 +390,6 @@ const HLEFunction sceUmdUser[] =
 	{0xBD2BDE07,&WrapI_I<sceUmdUnRegisterUMDCallBack>,"sceUmdUnRegisterUMDCallBack"},
 	{0x87533940,WrapU_V<sceUmdReplaceProhibit>,"sceUmdReplaceProhibit"},
 	{0xCBE9F02A,WrapU_V<sceUmdReplacePermit>,"sceUmdReplacePermit"},
-	{0x20628E6F, 0, "sceUmdGetErrorStatFunction"},
 };
 
 void Register_sceUmdUser()
