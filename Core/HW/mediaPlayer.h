@@ -30,6 +30,9 @@ bool loadPMFPSFFile(const char *filename, int mpegsize = -1);
 bool loadPMFPackageFile(const char* package, u32 startpos, int mpegsize, u8* buffer);
 bool deletePMFStream();
 mediaPlayer* getPMFPlayer();
-bool playPMFVideo();
-
+bool playPMFVideo(u8* buffer = 0, int frameWidth = 512, int videoPixelMode = 3);
+bool writePMFVideoImage(u8* buffer = 0, int frameWidth = 512, int videoPixelMode = 3);
+bool writePMFVideoImageWithRange(u8* buffer, int frameWidth, int videoPixelMode, 
+	                             int xpos, int ypos, int width, int height);
+bool isPMFVideoEnd();
 #endif // _USE_FFMPEG_

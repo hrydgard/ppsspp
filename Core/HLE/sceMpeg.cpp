@@ -567,7 +567,7 @@ int sceMpegQueryStreamOffset(u32 mpeg, u32 bufferAddr, u32 offsetAddr)
 			loadPMFPSFFile(Memory::lastestAccessFile.filename, -1);
 		}
 		else
-			loadPMFPSFFile(Memory::lastestAccessFile.filename, ctx->mpegStreamSize);
+			loadPMFPSFFile(Memory::lastestAccessFile.filename, ctx->mpegStreamSize + ctx->mpegOffset);
 		//Memory::lastestAccessFile.data_addr = 0;
 	}
 	else
@@ -575,7 +575,7 @@ int sceMpegQueryStreamOffset(u32 mpeg, u32 bufferAddr, u32 offsetAddr)
 		DEBUG_LOG(HLE, "package file: %s, start pos: %08x, buffer addr: %08x", Memory::lastestAccessFile.packagefile, Memory::lastestAccessFile.start_pos, bufferAddr);
 		loadPMFPackageFile(Memory::lastestAccessFile.packagefile, 
 			Memory::lastestAccessFile.start_pos, 
-			ctx->mpegStreamSize, Memory::GetPointer(bufferAddr));
+			ctx->mpegStreamSize + ctx->mpegOffset, Memory::GetPointer(bufferAddr));
 	}
 #endif // _USE_FFMPEG_
 
@@ -766,7 +766,7 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 	if (ctx->mediaengine->stepVideo()) {
 #ifdef _USE_FFMPEG_
 		//getPMFPlayer()->writeVideoImage(Memory::GetPointer(buffer), frameWidth, ctx->videoPixelMode);
-		if (!playPMFVideo())
+		if (!writePMFVideoImage(Memory::GetPointer(buffer), frameWidth, ctx->videoPixelMode))
 		{
 			iresult = -1;
 		}
@@ -953,14 +953,11 @@ int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initAddr)
 
 	if (ctx->mediaengine->stepVideo()) {
 #ifdef _USE_FFMPEG_
-		//getPMFPlayer()->writeVideoImage(Memory::GetPointer(buffer), frameWidth, ctx->videoPixelMode);
-		if (!playPMFVideo())
+		if (isPMFVideoEnd())
 		{
 			iresult = -1;
 		}
-#else
-		//ctx->mediaengine->writeVideoImage(buffer, frameWidth, ctx->videoPixelMode);
-#endif // _USE_FFMPEG_
+#endif // _USE_FFMPEG
 		// TODO: Write it somewhere or buffer it or something?
 		packetsConsumed += ctx->mediaengine->readLength() / ringbuffer.packetSize;
 
@@ -1392,6 +1389,20 @@ u32 sceMpegAtracDecode(u32 mpeg, u32 auAddr, u32 bufferAddr, int init)
 u32 sceMpegAvcCsc(u32 mpeg, u32 sourceAddr, u32 rangeAddr, int frameWidth, u32 destAddr)
 {
 	ERROR_LOG(HLE, "UNIMPL sceMpegAvcCsc(%08x, %08x, %08x, %i, %08x)", mpeg, sourceAddr, rangeAddr, frameWidth, destAddr);
+	MpegContext *ctx = getMpegCtx(mpeg);
+	if (!ctx)
+		return -1;
+	if ((!Memory::IsValidAddress(rangeAddr)) || (!Memory::IsValidAddress(destAddr)))
+		return -1;
+	int x  = Memory::Read_U32(rangeAddr);
+	int y = Memory::Read_U32(rangeAddr + 4);
+	int width    = Memory::Read_U32(rangeAddr + 8);
+	int height   = Memory::Read_U32(rangeAddr + 12);
+#ifdef _USE_FFMPEG_
+		//getPMFPlayer()->writeVideoImage(Memory::GetPointer(buffer), frameWidth, ctx->videoPixelMode);
+	writePMFVideoImageWithRange(Memory::GetPointer(destAddr), frameWidth, ctx->videoPixelMode, 
+		                        x, y, width, height);
+#endif // _USE_FFMPEG_
 	return 0;
 }
 
