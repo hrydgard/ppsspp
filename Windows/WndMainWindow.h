@@ -1,6 +1,7 @@
 #pragma once
 
 #include <windows.h>
+#include <string>
 #include <Core/Core.h>
 
 namespace MainWindow
@@ -15,7 +16,7 @@ namespace MainWindow
 	HINSTANCE GetHInstance();
 	HWND GetDisplayHWND();
 	void SetPlaying(const char*text);
-	void BrowseAndBoot();
+	void BrowseAndBoot(std::string defaultPath);
 	void SetNextState(CoreState state);
 	void SaveStateActionFinished(bool result, void *userdata);
 	void _ViewFullScreen(HWND hWnd);

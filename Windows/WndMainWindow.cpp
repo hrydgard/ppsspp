@@ -197,9 +197,9 @@ namespace MainWindow
 		return TRUE;
 	}
 
-	void BrowseAndBoot(void)
+	void BrowseAndBoot(std::string defaultPath)
 	{
-		std::string fn;
+		std::string fn = defaultPath;
 		std::string filter = "";
 
 		filter += "PSP";
@@ -282,7 +282,16 @@ namespace MainWindow
 			switch (wmId)
 			{
 			case ID_FILE_LOAD:
-				BrowseAndBoot();
+				BrowseAndBoot("");
+				break;
+
+			case ID_FILE_LOAD_MEMSTICK:
+				{
+					std::string memStickDir, flash0dir;
+					GetSysDirectories(memStickDir, flash0dir);
+					memStickDir += "PSP\\GAME";
+					BrowseAndBoot(memStickDir);
+				}
 				break;
 
 			case ID_FILE_REFRESHGAMELIST:
