@@ -7,6 +7,7 @@ const u8 OMA_CODECID_ATRAC3P = 1;
 const int OMAHeaderSize = 96;
 const int FMT_CHUNK_MAGIC = 0x20746D66;
 const int DATA_CHUNK_MAGIC = 0x61746164;
+const int SMPL_CHUNK_MAGIC = 0x6C706D73;
 const int AT3_MAGIC = 0x0270;
 const int AT3_PLUS_MAGIC = 0xFFFE;
 
@@ -87,6 +88,19 @@ void releaseStream(u8** stream)
 	*stream = 0;
 }
 
+// atrac3plus radio
+// 352kbps 0xff
+// 320kbps 0xe8
+// 256kbps 0xb9
+// 192kbps 0x8b
+// 160kbps 0x74
+// 128kbps 0x5c
+//  96kbps 0x45
+//  64kbps 0x2e
+//  48kbps 0x22
+const u8 atrac3plusradio[] = {0xff, 0xe8, 0xb9, 0x8b, 0x74, 0x5c, 0x45, 0x2e, 0x22};
+const int atrac3plusradiosize = sizeof(atrac3plusradio);
+
 int convertStreamtoOMA(u8* audioStream, int audioSize, u8** outputStream)
 {
 	if (!isHeader(audioStream, 0))
@@ -96,6 +110,28 @@ int convertStreamtoOMA(u8* audioStream, int audioSize, u8** outputStream)
 	}
 	u8 headerCode1 = audioStream[2];
 	u8 headerCode2 = audioStream[3];
+
+	if (headerCode1 == 0x28)
+	{
+		bool bsupported = false;
+		for (int i = 0; i < atrac3plusradiosize; i++) {
+			if (atrac3plusradio[i] == headerCode2)
+			{
+				bsupported = true;
+				break;
+			}
+		}
+		if (bsupported == false)
+		{
+			*outputStream = 0;
+			return 0;
+		}
+	}
+	else
+	{
+		*outputStream = 0;
+		return 0;
+	}
 
 	int frameSize = ((headerCode1 & 0x03) << 8) | (headerCode2 & 0xFF) * 8 + 0x10;
 	int numCompleteFrames = audioSize / (frameSize + 8);
@@ -129,7 +165,7 @@ int convertStreamtoOMA(u8* audioStream, int audioSize, u8** outputStream)
 }
 
 int getChunkOffset(u8* riff, int limit, int chunkMagic, int offset) {
-	for (int i = offset; i <= limit - 4;) {
+	for (int i = offset; i <= limit - 8;) {
 		if (getBufValue((int*)riff, i) == chunkMagic)
 			return i;
 		// Move to next chunk
@@ -139,19 +175,6 @@ int getChunkOffset(u8* riff, int limit, int chunkMagic, int offset) {
 
 	return -1;
 }
-
-// atrac3plus radio
-// 352kbps 0xff
-// 320kbps 0xe8
-// 256kbps 0xb9
-// 192kbps 0x8b
-// 160kbps 0x74
-// 128kbps 0x5c
-//  96kbps 0x45
-//  64kbps 0x2e
-//  48kbps 0x22
-const u8 atrac3plusradio[] = {0xff, 0xe8, 0xb9, 0x8b, 0x74, 0x5c, 0x45, 0x2e, 0x22};
-const int atrac3plusradiosize = sizeof(atrac3plusradio);
 
 int convertRIFFtoOMA(u8* riff, int riffSize, u8** outputStream)
 {
@@ -169,16 +192,37 @@ int convertRIFFtoOMA(u8* riff, int riffSize, u8** outputStream)
 	u16 magic = getBufValue((u16*)riff, fmtChunkOffset + 0x08);
 	if (magic == AT3_MAGIC)
 	{
-		// 66kpbs
-		codecId = 0;
-		headerCode0 = 0x02;
-		headerCode1 = 0x20;
-		headerCode2 = 0x18;
-		// 132kpbs
-		//codecId = 0;
-		//headerCode0 = 0x00;
-		//headerCode1 = 0x20;
-		//headerCode2 = 0x30;
+		u8 key = getBufValue((u8*)riff, fmtChunkOffset + 0x11);
+		switch (key)
+		{
+		case 0x20:
+			{
+				// 66kpbs
+				codecId = 0;
+				headerCode0 = 0x02;
+				headerCode1 = 0x20;
+				headerCode2 = 0x18;
+			}
+			break;
+		case 0x40:
+			{
+				// 132kpbs
+				codecId = 0;
+				headerCode0 = 0x00;
+				headerCode1 = 0x20;
+				headerCode2 = 0x30;
+			}
+			break;
+		default:
+			{
+			// 105kpbs
+			codecId = 0;
+			headerCode0 = 0x00;
+			headerCode1 = 0x20;
+			headerCode2 = 0x26;
+			}
+			break;
+		}
 	}
 	else if (magic == AT3_PLUS_MAGIC && headerCode0 == 0x00 
 		&& headerCode1 == 0x28)
@@ -238,6 +282,25 @@ int getRIFFSize(u8* riff, int bufsize)
 		return 0;
 	int dataSize = getBufValue((int*)riff, dataChunkOffset + 4);
 	return dataSize + dataChunkOffset + 8;
+}
+
+int getRIFFLoopNum(u8* riff, int bufsize)
+{
+	const int firstChunkOffset = 12;
+	int dataChunkOffset = getChunkOffset(riff, bufsize, DATA_CHUNK_MAGIC, firstChunkOffset);
+	if (dataChunkOffset < 0)
+		return 0;
+	int smplChunkOffset = getChunkOffset(riff, dataChunkOffset, SMPL_CHUNK_MAGIC, firstChunkOffset);
+	if (smplChunkOffset < 0)
+		return 0;
+	int smplChunkSize = getBufValue((int*)riff, smplChunkOffset + 4);
+	int checkNumLoops = getBufValue((int*)riff, smplChunkOffset + 36);
+	if (smplChunkSize >= 36 + checkNumLoops * 24)
+	{
+		// find loop info, simple return -1 now for endless loop
+		return -1;
+	}
+	return 0;
 }
 
 } // namespace OMAConvert

@@ -11,6 +11,7 @@ public:
 	~audioPlayer(void);
 	bool load(const char* filename);
 	bool play();
+	bool pause();
 	bool stop();
 	bool closeMedia();
     bool setVolume(int volume);
@@ -20,7 +21,7 @@ private:
 	void *m_pGB;
 	void *m_pMC;
 	void *m_pMS;
-	// 0 for stop, 1 for playing
+	// 0 for stop, 1 for playing, 2 for pause, -1 for not loaded files
 	int m_playmode;
     int m_volume;
 };
@@ -46,5 +47,6 @@ bool addAtrac3AudioByPackage(const char* package, u32 startpos, int audiosize,
 audioEngine* getaudioEngineByID(int atracID);
 void deleteAtrac3Audio(int atracID);
 void shutdownEngine();
+void stopAllAtrac3Audio();
 
 #endif // _USE_DSHOW_

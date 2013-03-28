@@ -71,6 +71,17 @@ bool audioPlayer::play()
 	return true;
 }
 
+bool audioPlayer::pause()
+{
+	if ((!m_pMC) || (m_playmode == -1))
+		return false;
+	IMediaControl *pMC = (IMediaControl*)m_pMC;
+	HRESULT hr;
+	JIF(pMC->Pause());
+	m_playmode = 2;
+	return true;
+}
+
 bool audioPlayer::stop()
 {
 	if ((!m_pMC) || (m_playmode <= 0))
@@ -166,7 +177,7 @@ bool audioEngine::loadRIFFStream(u8* stream, int streamsize, int atracID)
 	fclose(wfp);
 	OMAConvert::releaseStream(&oma);
 
-	m_iloop = 0;
+	m_iloop = OMAConvert::getRIFFLoopNum(stream, streamsize);
 
 	return load(m_filename);
 }
@@ -216,7 +227,7 @@ UINT WINAPI loopAtrac3Audio(LPVOID)
 			g_volume++;
 			bChangeVolume = true;
 		}
-		for (auto it = audioMap.begin(), end = audioMap.end(); it != end; ++it) {
+		for (auto it = audioMap.begin(); it != audioMap.end(); ++it) {
 			audioEngine *temp = it->second;
 			if (temp->isneedLoop() && temp->isEnd())
 			{
@@ -296,10 +307,19 @@ void deleteAtrac3Audio(int atracID)
 
 void shutdownEngine()
 {
-	for (auto it = audioMap.begin(), end = audioMap.end(); it != end; ++it) {
+	for (auto it = audioMap.begin(); it != audioMap.end(); ++it) {
 		delete it->second;
 	}
 	audioMap.clear();
+}
+
+void stopAllAtrac3Audio()
+{
+	for (auto it = audioMap.begin(); it != audioMap.end(); ++it) {
+		audioEngine *temp = it->second;
+		temp->stop();
+		temp->setPlayPos(0);
+	}
 }
 
 #endif // _USE_DSHOW_
