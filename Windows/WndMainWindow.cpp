@@ -288,6 +288,14 @@ namespace MainWindow
 			case ID_FILE_REFRESHGAMELIST:
 				break;
 
+			case ID_FILE_MEMSTICK:
+				{
+					std::string memStickDir, flash0dir;
+					GetSysDirectories(memStickDir, flash0dir);
+					ShellExecuteA(NULL, "open", memStickDir.c_str(), 0, 0, SW_SHOW);
+				}
+				break;
+
 			case ID_EMULATION_RUN:
 				if (g_State.bEmuThreadStarted)
 				{

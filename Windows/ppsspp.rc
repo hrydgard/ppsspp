@@ -206,6 +206,8 @@ BEGIN
         MENUITEM "&Open...",                    ID_FILE_LOAD
         MENUITEM "&Close",                      ID_EMULATION_STOP
         MENUITEM SEPARATOR
+        MENUITEM "Open &Memory Stick",          ID_FILE_MEMSTICK
+        MENUITEM SEPARATOR
         MENUITEM "Quickload state\tF4",         ID_FILE_QUICKLOADSTATE
         MENUITEM "Quicksave state\tF2",         ID_FILE_QUICKSAVESTATE
         MENUITEM "&Load State File...",         ID_FILE_LOADSTATEFILE

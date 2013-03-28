@@ -31,4 +31,7 @@ bool PSP_IsInited();
 void PSP_Shutdown();
 void PSP_HWAdvance(int cycles);
 void PSP_SWI();
+
+void GetSysDirectories(std::string &memstickpath, std::string &flash0path);
+
 CoreParameter &PSP_CoreParameter();

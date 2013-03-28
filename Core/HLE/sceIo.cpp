@@ -15,16 +15,13 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#ifdef _WIN32
-#include <windows.h>
-#endif
-
-#include "../Config.h"
-#include "../Host.h"
-#include "../SaveState.h"
+#include "Core/Config.h"
+#include "Core/System.h"
+#include "Core/Host.h"
+#include "Core/SaveState.h"
 #include "HLE.h"
-#include "../MIPS/MIPS.h"
-#include "../HW/MemoryStick.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/HW/MemoryStick.h"
 #include "Core/CoreTiming.h"
 #include "Core/Reporting.h"
 
@@ -244,31 +241,9 @@ void __IoInit() {
 
 	asyncNotifyEvent = CoreTiming::RegisterEvent("IoAsyncNotify", __IoAsyncNotify);
 
-#ifdef _WIN32
-
-	char path_buffer[_MAX_PATH], drive[_MAX_DRIVE] ,dir[_MAX_DIR], file[_MAX_FNAME], ext[_MAX_EXT];
-	char memstickpath[_MAX_PATH];
-	char flash0path[_MAX_PATH];
-
-	GetModuleFileName(NULL,path_buffer,sizeof(path_buffer));
-
-	char *winpos = strstr(path_buffer, "Windows");
-	if (winpos)
-	*winpos = 0;
-	strcat(path_buffer, "dummy.txt");
-
-	_splitpath_s(path_buffer, drive, dir, file, ext );
-
-	// Mount a couple of filesystems
-	sprintf(memstickpath, "%s%smemstick\\", drive, dir);
-	sprintf(flash0path, "%s%sflash0\\", drive, dir);
-
-#else
-	// TODO
-	std::string memstickpath = g_Config.memCardDirectory;
-	std::string flash0path = g_Config.flashDirectory;
-#endif
-
+	std::string memstickpath;
+	std::string flash0path;
+	GetSysDirectories(memstickpath, flash0path);
 
 	DirectoryFileSystem *memstick = new DirectoryFileSystem(&pspFileSystem, memstickpath);
 #ifdef ANDROID

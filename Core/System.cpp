@@ -15,6 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#ifdef _WIN32
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+#endif
+
 #include "MemMap.h"
 
 #include "MIPS/MIPS.h"
@@ -121,4 +127,33 @@ void PSP_Shutdown()
 CoreParameter &PSP_CoreParameter()
 {
 	return coreParameter;
+}
+
+
+void GetSysDirectories(std::string &memstickpath, std::string &flash0path) {
+#ifdef _WIN32
+	char path_buffer[_MAX_PATH], drive[_MAX_DRIVE] ,dir[_MAX_DIR], file[_MAX_FNAME], ext[_MAX_EXT];
+	char memstickpath_buf[_MAX_PATH];
+	char flash0path_buf[_MAX_PATH];
+
+	GetModuleFileName(NULL,path_buffer,sizeof(path_buffer));
+
+	char *winpos = strstr(path_buffer, "Windows");
+	if (winpos)
+	*winpos = 0;
+	strcat(path_buffer, "dummy.txt");
+
+	_splitpath_s(path_buffer, drive, dir, file, ext );
+
+	// Mount a couple of filesystems
+	sprintf(memstickpath_buf, "%s%smemstick\\", drive, dir);
+	sprintf(flash0path_buf, "%s%sflash0\\", drive, dir);
+
+	memstickpath = memstickpath_buf;
+	flash0path = flash0path_buf;
+#else
+	// TODO
+	memstickpath = g_Config.memCardDirectory;
+	flash0path = g_Config.flashDirectory;
+#endif
 }

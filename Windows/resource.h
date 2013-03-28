@@ -264,6 +264,7 @@
 #define ID_OPTIONS_FRAMESKIP            40139
 #define IDC_MEMCHECK                    40140
 #define ID_OPTIONS_USEMEDIAENGINE       40141
+#define ID_FILE_MEMSTICK                40142
 #define IDC_STATIC                      -1
 
 // Next default values for new objects
@@ -271,7 +272,7 @@
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        233
-#define _APS_NEXT_COMMAND_VALUE         40141
+#define _APS_NEXT_COMMAND_VALUE         40143
 #define _APS_NEXT_CONTROL_VALUE         1163
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
