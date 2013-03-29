@@ -500,12 +500,10 @@ namespace MainWindow
 				if (W32Util::BrowseForFileName(true, hWnd, "Load .MAP",0,"Maps\0*.map\0All files\0*.*\0\0","map",fn)) {
 					symbolMap.LoadSymbolMap(fn.c_str());
 //					HLE_PatchFunctions();
-					for (int i=0; i<numCPUs; i++)
-						if (disasmWindow[i])
-							disasmWindow[i]->NotifyMapLoaded();
-					for (int i=0; i<numCPUs; i++)
-						if (memoryWindow[i])
-							memoryWindow[i]->NotifyMapLoaded();
+					if (disasmWindow[0])
+						disasmWindow[0]->NotifyMapLoaded();
+					if (memoryWindow[0])
+						memoryWindow[0]->NotifyMapLoaded();
 				}
 				break;
 			case ID_DEBUG_SAVEMAPFILE:
@@ -695,6 +693,8 @@ namespace MainWindow
 				PostMessage(hwndMain, WM_COMMAND, ID_EMULATION_RUN, 0);
 			UpdateMenus();
 			break;
+
+
 		case WM_MENUSELECT:
 			UpdateMenus();
 			break;

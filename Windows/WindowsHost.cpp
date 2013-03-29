@@ -138,7 +138,7 @@ void WindowsHost::BeginFrame()
 void WindowsHost::BootDone()
 {
 	symbolMap.SortSymbols();
-	SendMessage(MainWindow::GetHWND(), WM_USER+1, 0,0);
+	PostMessage(MainWindow::GetHWND(), WM_USER+1, 0,0);
 }
 
 static std::string SymbolMapFilename(const char *currentFilename)

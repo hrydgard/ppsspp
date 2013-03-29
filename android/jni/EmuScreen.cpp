@@ -79,6 +79,13 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true)
 		return;
 	}
 
+	host->BootDone();
+	if (g_Config.bAutoRun) {
+		Core_EnableStepping(false);
+	} else {
+		Core_EnableStepping(true);
+	}
+
 	LayoutGamepad(dp_xres, dp_yres);
 
 	NOTICE_LOG(BOOT, "Loading %s...", fileToStart.c_str());
