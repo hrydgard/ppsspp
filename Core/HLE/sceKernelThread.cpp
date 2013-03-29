@@ -2765,6 +2765,20 @@ void ActionAfterCallback::run(MipsCall &call) {
 	}
 }
 
+bool __KernelCurHasReadyCallbacks() {
+	if (readyCallbacksCount == 0)
+		return false;
+
+	Thread *thread = __GetCurrentThread();
+	for (int i = 0; i < THREAD_CALLBACK_NUM_TYPES; i++) {
+		if (thread->readyCallbacks[i].size()) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
 // Check callbacks on the current thread only.
 // Returns true if any callbacks were processed on the current thread.
 bool __KernelCheckThreadCallbacks(Thread *thread, bool force)

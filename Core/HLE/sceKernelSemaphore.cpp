@@ -188,6 +188,8 @@ void __KernelSemaEndCallback(SceUID threadID, SceUID prevCallbackId, u32 &return
 	s->pausedWaitTimeouts.erase(pauseKey);
 	s->ns.numWaitThreads++;
 
+	// TODO: Don't wake up if __KernelCurHasReadyCallbacks()?
+
 	bool wokeThreads;
 	// Attempt to unlock.
 	if (__KernelUnlockSemaForThread(s, threadID, error, 0, wokeThreads))
@@ -419,7 +421,9 @@ int __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, const char *bad
 		if (wantedCount > s->ns.maxCount || wantedCount <= 0)
 			return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
 
-		if (s->ns.currentCount >= wantedCount && s->ns.numWaitThreads == 0)
+		// If there are any callbacks, we always wait, and wake after the callbacks.
+		bool hasCallbacks = processCallbacks && __KernelCurHasReadyCallbacks();
+		if (s->ns.currentCount >= wantedCount && s->ns.numWaitThreads == 0 && !hasCallbacks)
 		{
 			s->ns.currentCount -= wantedCount;
 			if (processCallbacks)
