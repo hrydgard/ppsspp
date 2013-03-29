@@ -701,8 +701,11 @@ int scePsmfPlayerDelete(u32 psmfPlayer)
 {
 	ERROR_LOG(HLE, "UNIMPL scePsmfPlayerDelete(%08x)", psmfPlayer);
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
-	if (psmfplayer)
+	if (psmfplayer) {
 		psmfplayer->status = PSMF_PLAYER_STATUS_NONE;
+		delete psmfplayer;
+		psmfPlayerMap.erase(psmfPlayer);
+	}
 	return 0;
 }
 
@@ -731,6 +734,33 @@ int scePsmfPlayerReleasePsmf(u32 psmfPlayer)
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (psmfplayer)
 		psmfplayer->status = PSMF_PLAYER_STATUS_INIT;
+	return 0;
+}
+
+int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
+{
+	ERROR_LOG(HLE, "UNIMPL scePsmfPlayerGetVideoData(%08x, %08x)", psmfPlayer, videoDataAddr);
+	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
+	if (!psmfplayer) {
+		ERROR_LOG(HLE, "scePsmfPlayerGetVideoData - invalid psmf");
+		return ERROR_PSMF_NOT_FOUND;
+	}
+
+	// TODO: Once we start increasing pts somewhere, and actually know the last timestamp, do this better.
+	psmfplayer->status = PSMF_PLAYER_STATUS_PLAYING_FINISHED;
+	return 0;
+}
+
+int scePsmfPlayerGetAudioData(u32 psmfPlayer, u32 audioDataAddr)
+{
+	ERROR_LOG(HLE, "UNIMPL scePsmfPlayerGetAudioData(%08x, %08x)", psmfPlayer, audioDataAddr);
+	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
+	if (!psmfplayer) {
+		ERROR_LOG(HLE, "scePsmfPlayerGetAudioData - invalid psmf");
+		return ERROR_PSMF_NOT_FOUND;
+	}
+
+	Memory::Memset(audioDataAddr, 0, audioSamplesBytes);
 	return 0;
 }
 
@@ -970,7 +1000,7 @@ const HLEFunction scePsmfPlayer[] =
 	{0x58B83577, WrapI_UC<scePsmfPlayerSetPsmfCB>, "scePsmfPlayerSetPsmfCB"},
 	{0x3ea82a4b, WrapI_U<scePsmfPlayerGetAudioOutSize>, "scePsmfPlayerGetAudioOutSize"},
 	{0x3ed62233, WrapU_UU<scePsmfPlayerGetCurrentPts>, "scePsmfPlayerGetCurrentPts"},
-	{0x46f61f8b, 0, "scePsmfPlayerGetVideoData"},
+	{0x46f61f8b, WrapI_UU<scePsmfPlayerGetVideoData>, "scePsmfPlayerGetVideoData"},
 	{0x68f07175, WrapU_UUU<scePsmfPlayerGetCurrentAudioStream>, "scePsmfPlayerGetCurrentAudioStream"},
 	{0x75f03fa2, WrapU_UII<scePsmfPlayerSelectSpecificVideo>, "scePsmfPlayerSelectSpecificVideo"},
 	{0x85461eff, WrapU_UII<scePsmfPlayerSelectSpecificAudio>, "scePsmfPlayerSelectSpecificAudio"},
@@ -981,7 +1011,7 @@ const HLEFunction scePsmfPlayer[] =
 	{0xa0b8ca55, WrapI_U<scePsmfPlayerUpdate>, "scePsmfPlayerUpdate"},
 	{0xa3d81169, WrapU_UII<scePsmfPlayerChangePlayMode>, "scePsmfPlayerChangePlayMode"},
 	{0xb8d10c56, WrapU_U<scePsmfPlayerSelectAudio>, "scePsmfPlayerSelectAudio"},
-	{0xb9848a74, 0, "scePsmfPlayerGetAudioData"},
+	{0xb9848a74, WrapI_UU<scePsmfPlayerGetAudioData>, "scePsmfPlayerGetAudioData"},
 	{0xdf089680, WrapU_UU<scePsmfPlayerGetPsmfInfo>, "scePsmfPlayerGetPsmfInfo"},
 	{0xe792cd94, WrapI_U<scePsmfPlayerReleasePsmf>, "scePsmfPlayerReleasePsmf"},
 	{0xf3efaa91, WrapU_UUU<scePsmfPlayerGetCurrentPlayMode>, "scePsmfPlayerGetCurrentPlayMode"},
