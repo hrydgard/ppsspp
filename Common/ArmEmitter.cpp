@@ -90,6 +90,33 @@ Operand2 AssumeMakeOperand2(u32 imm) {
 	return op2;
 }
 
+bool ARMXEmitter::TrySetValue_TwoOp(ARMReg reg, u32 val)
+{
+	int ops = 0;
+	for (int i = 0; i < 16; i++)
+	{
+		if ((val >> (i*2)) & 0x3)
+		{
+			ops++;
+			i+=3;
+		}
+	}
+	if (ops > 2)
+		return false;
+	
+	bool first = true;
+	for (int i = 0; i < 16; i++, val >>=2) {
+		if (val & 0x3) {
+			first ? MOV(reg, Operand2((u8)val, (u8)((16-i) & 0xF)))
+				  : ORR(reg, reg, Operand2((u8)val, (u8)((16-i) & 0xF)));
+			first = false;
+			i+=3;
+			val >>= 6;
+		}
+	}
+	return true;
+}
+
 void ARMXEmitter::MOVI2F(ARMReg dest, float val, ARMReg tempReg)
 {
 	union {float f; u32 u;} conv;
@@ -210,7 +237,7 @@ void ARMXEmitter::MOVI2R(ARMReg reg, u32 val, bool optimize)
 			MOVW(reg, val & 0xFFFF);
 			if(val & 0xFFFF0000)
 				MOVT(reg, val, true);
-		} else {
+		} else if (!TrySetValue_TwoOp(reg,val) {
 			// Use literal pool for ARMv6.
 			AddNewLit(val);
 			LDR(reg, _PC); // To be backpatched later
