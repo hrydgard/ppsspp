@@ -49,10 +49,9 @@ class Command(object):
     if thread.isAlive():
       self.timeout = True
       if sys.version_info < (2, 6):
-        os.kill(process.pid, signal.SIGKILL)
+        os.kill(self.process.pid, signal.SIGKILL)
       else:
-        process.terminate()
-      self.process.terminate()
+        self.process.terminate()
       thread.join()
 
 # Test names are the C files without the .c extension.
