@@ -46,7 +46,7 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, F
 	fbo->colorDepth = colorDepth;
 
 	// Color texture is same everywhere
-	glGenFramebuffers(1, &fbo->handle);
+	glGenFramebuffersEXT(1, &fbo->handle);
 	glGenTextures(1, &fbo->color_texture);
 
 	// Create the surfaces.
@@ -117,26 +117,30 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, F
 	fbo->stencil_buffer = 0;
 	fbo->z_buffer = 0;
 	// 24-bit Z, 8-bit stencil
-	glGenRenderbuffers(1, &fbo->z_stencil_buffer);
-	glBindRenderbuffer(GL_RENDERBUFFER, fbo->z_stencil_buffer);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+	glGenRenderbuffersEXT(1, &fbo->z_stencil_buffer);
+	glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, fbo->z_stencil_buffer);
+	glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT, GL_DEPTH_COMPONENT24, width, height);
+	//glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT, GL_DEPTH24_STENCIL8, width, height);
 
 	// Bind it all together
-	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo->handle);
-	glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbo->color_texture, 0);
-	glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
-	glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
+	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fbo->handle);
+	glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, fbo->color_texture, 0);
+	glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, fbo->z_stencil_buffer);
+	//glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_STENCIL_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, fbo->z_stencil_buffer);
+
+	// When enable STENCIL, glCheckFramebufferStatusEXT will return GL_FRAMEBUFFER_UNSUPPORTED on GMA4500.
+
 #endif
 
-	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	GLenum status = glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
 	switch(status) {
-	case GL_FRAMEBUFFER_COMPLETE:
+	case GL_FRAMEBUFFER_COMPLETE_EXT:
 		// ILOG("Framebuffer verified complete.");
 		break;
-	case GL_FRAMEBUFFER_UNSUPPORTED:
+	case GL_FRAMEBUFFER_UNSUPPORTED_EXT:
 		ELOG("GL_FRAMEBUFFER_UNSUPPORTED");
 		break;
-	case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT:
+	case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT_EXT:
 		ELOG("GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT ");
 		break;
 	default:
@@ -144,24 +148,24 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, F
 		break;
 	}
 	// Unbind state we don't need
-	glBindRenderbuffer(GL_RENDERBUFFER, 0);
+	glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, 0);
 	glBindTexture(GL_TEXTURE_2D, 0);
 	return fbo;
 }
 
 void fbo_unbind() {
-	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
 #ifdef IOS
 	bindDefaultFBO();
 #endif
 }
 
 void fbo_bind_as_render_target(FBO *fbo) {
-	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo->handle);
+	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fbo->handle);
 }
 
 void fbo_bind_for_read(FBO *fbo) {
-	glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo->handle);
+	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fbo->handle);
 }
 
 void fbo_bind_color_as_texture(FBO *fbo, int color) {
@@ -169,13 +173,13 @@ void fbo_bind_color_as_texture(FBO *fbo, int color) {
 }
 
 void fbo_destroy(FBO *fbo) {
-	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo->handle);
-	glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
-	glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, 0);
-	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-	glDeleteFramebuffers(1, &fbo->handle);
+	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fbo->handle);
+	glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
+	glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER_EXT, 0);
+	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+	glDeleteFramebuffersEXT(1, &fbo->handle);
 	glDeleteTextures(1, &fbo->color_texture);
-	glDeleteRenderbuffers(1, &fbo->z_stencil_buffer);
+	glDeleteRenderbuffersEXT(1, &fbo->z_stencil_buffer);
 	delete fbo;
 }
 
