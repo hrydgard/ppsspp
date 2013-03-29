@@ -43,7 +43,6 @@ public:
 
 	// this is sent from EMU thread! Make sure that Host handles it properly
 	virtual void BootDone() {}
-	virtual void PrepareShutdown() {}
 
 	virtual bool IsDebuggingEnabled() {return false;}
 	virtual bool AttemptLoadSymbolMap() {return false;}

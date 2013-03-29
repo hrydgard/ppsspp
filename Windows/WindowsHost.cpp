@@ -17,6 +17,7 @@
 
 #include "Core/Core.h"
 #include "Core/Config.h"
+#include "Core/CoreParameter.h"
 #include "EmuThread.h"
 #include "DSoundStream.h"
 #include "WindowsHost.h"
@@ -138,7 +139,7 @@ void WindowsHost::BeginFrame()
 void WindowsHost::BootDone()
 {
 	symbolMap.SortSymbols();
-	SendMessage(MainWindow::GetHWND(), WM_USER+1, 0,0);
+	PostMessage(MainWindow::GetHWND(), WM_USER+1, 0,0);
 }
 
 static std::string SymbolMapFilename(const char *currentFilename)
@@ -154,13 +155,7 @@ static std::string SymbolMapFilename(const char *currentFilename)
 
 bool WindowsHost::AttemptLoadSymbolMap()
 {
-	return symbolMap.LoadSymbolMap(SymbolMapFilename(GetCurrentFilename()).c_str());
-}
-
-void WindowsHost::PrepareShutdown()
-{
-	// Autosaving symbolmap is no longer very useful.
-	// symbolMap.SaveSymbolMap(SymbolMapFilename(GetCurrentFilename()).c_str());
+	return symbolMap.LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str()).c_str());
 }
 
 void WindowsHost::AddSymbol(std::string name, u32 addr, u32 size, int type=0) 

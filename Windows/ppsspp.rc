@@ -205,7 +205,6 @@ BEGIN
     BEGIN
         MENUITEM "&Open...",                    ID_FILE_LOAD
         MENUITEM "&Open from MS:/PSP/GAME...",  ID_FILE_LOAD_MEMSTICK
-        MENUITEM "&Close",                      ID_EMULATION_STOP
         MENUITEM SEPARATOR
         MENUITEM "Open &Memory Stick",          ID_FILE_MEMSTICK
         MENUITEM SEPARATOR
@@ -220,6 +219,7 @@ BEGIN
     BEGIN
         MENUITEM "&Run\tF7",                    ID_EMULATION_RUN
         MENUITEM "&Pause\tF8",                  ID_EMULATION_PAUSE
+        MENUITEM "&Stop",                       ID_EMULATION_STOP
         MENUITEM SEPARATOR
         MENUITEM "R&eset",                      ID_EMULATION_RESET
         MENUITEM SEPARATOR
@@ -413,7 +413,7 @@ BEGIN
             VALUE "FileDescription", "PPSSPP"
             VALUE "FileVersion", "1, 0, 5, 0"
             VALUE "InternalName", "s"
-            VALUE "LegalCopyright", "Copyright (C) 2006-2012 by Henrik Rydgård"
+            VALUE "LegalCopyright", "Copyright (C) 2006-2013 by Henrik Rydgård"
             VALUE "LegalTrademarks", "All product names are trademarks of their respective owners."
             VALUE "OriginalFilename", "PPSSPP.exe"
             VALUE "ProductName", "PPSSPP"
@@ -424,25 +424,6 @@ BEGIN
     BEGIN
         VALUE "Translation", 0x409, 1200
     END
-END
-
-
-/////////////////////////////////////////////////////////////////////////////
-//
-// String Table
-//
-
-STRINGTABLE
-BEGIN
-    IDS_GAMELISTPATH        "Path"
-    IDS_UNIMPLEMENTED       "Unimplemented"
-END
-
-STRINGTABLE
-BEGIN
-    IDS_GAMELISTGENRE       "Genre"
-    IDS_APPNAME             "Potemkin"
-    IDS_GAMELISTTYPE        "Type"
 END
 
 #endif    // Neutral (Default) resources

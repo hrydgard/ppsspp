@@ -161,9 +161,11 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 		MainWindow::SetPlaying(fileToStart);
 		MainWindow::Update();
 		MainWindow::UpdateMenus();
-
-		EmuThread_Start(fileToStart);
 	}
+
+	// Emu thread is always running!
+	EmuThread_Start();
+
 	if (g_Config.bBrowse)
 		MainWindow::BrowseAndBoot("");
 

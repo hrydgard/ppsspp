@@ -19,6 +19,12 @@
 #include <string>
 #include <cstdio>
 
+#ifdef _WIN32
+namespace MainWindow {
+	void BrowseAndBoot(std::string defaultPath);
+}
+#endif
+
 #ifdef _MSC_VER
 #define snprintf _snprintf
 #endif
@@ -39,12 +45,13 @@
 #include "UIShader.h"
 
 #include "Common/StringUtil.h"
-#include "../../GPU/ge_constants.h"
-#include "../../GPU/GPUState.h"
-#include "../../GPU/GPUInterface.h"
-#include "../../Core/Config.h"
-#include "../../Core/CoreParameter.h"
-#include "../../Core/SaveState.h"
+#include "Core/System.h"
+#include "GPU/ge_constants.h"
+#include "GPU/GPUState.h"
+#include "GPU/GPUInterface.h"
+#include "Core/Config.h"
+#include "Core/CoreParameter.h"
+#include "Core/SaveState.h"
 
 #include "MenuScreens.h"
 #include "EmuScreen.h"
@@ -157,7 +164,14 @@ void LogoScreen::render() {
 // ==================
 
 void MenuScreen::update(InputState &input_state) {
+	globalUIState = UISTATE_MENU;
 	frames_++;
+}
+
+void MenuScreen::sendMessage(const char *message, const char *value) {
+	if (!strcmp(message, "boot")) {
+		screenManager()->switchScreen(new EmuScreen(value));
+	}
 }
 
 void MenuScreen::render() {
@@ -189,6 +203,8 @@ void MenuScreen::render() {
 			g_Config.Save();
 			screenManager()->switchScreen(new EmuScreen(fileName.toStdString()));
 		}
+#elif _WIN32
+		MainWindow::BrowseAndBoot("");
 #else
 		FileSelectScreenOptions options;
 		options.allowChooseDirectory = true;
@@ -203,22 +219,26 @@ void MenuScreen::render() {
 		UIReset();
 	}
 
+#ifndef _WIN32
 	if (UIButton(GEN_ID, vlinear, w, "Settings", ALIGN_RIGHT)) {
 		screenManager()->push(new SettingsScreen(), 0);
 		UIReset();
 	}
+#endif
 
 	if (UIButton(GEN_ID, vlinear, w, "Credits", ALIGN_RIGHT)) {
 		screenManager()->switchScreen(new CreditsScreen());
 		UIReset();
 	}
 
+#ifndef _WIN32
 	if (UIButton(GEN_ID, vlinear, w, "Exit", ALIGN_RIGHT)) {
 		// TODO: Save when setting changes, rather than when we quit
 		NativeShutdown();
 		// TODO: Need a more elegant way to quit
 		exit(0);
 	}
+#endif
 
 	if (UIButton(GEN_ID, vlinear, w, "www.ppsspp.org", ALIGN_RIGHT)) {
 		LaunchBrowser("http://www.ppsspp.org/");
@@ -230,7 +250,10 @@ void MenuScreen::render() {
 	}
 	for (size_t i = 0; i < g_Config.recentIsos.size(); i++) {
 		std::string filename;
-		SplitPath(g_Config.recentIsos[i], nullptr, &filename, nullptr);
+		std::string rec = g_Config.recentIsos[i];
+		for (size_t j = 0; j < rec.size(); j++)
+			if (rec[j] == '\\') rec[j] = '/';
+		SplitPath(rec, nullptr, &filename, nullptr);
 		if (UIButton(GEN_ID_LOOP(i), vlinear2, recentW, filename.c_str(), ALIGN_LEFT)) {
 			screenManager()->switchScreen(new EmuScreen(g_Config.recentIsos[i]));
 		}
@@ -244,13 +267,20 @@ void MenuScreen::render() {
 }
 
 
-void InGameMenuScreen::update(InputState &input) {
+void PauseScreen::update(InputState &input) {
+	globalUIState = UISTATE_PAUSEMENU;
 	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
 		screenManager()->finishDialog(this, DR_CANCEL);
 	}
 }
 
-void InGameMenuScreen::render() {
+void PauseScreen::sendMessage(const char *msg, const char *value) {
+	if (!strcmp(msg, "run")) {
+		screenManager()->finishDialog(this, DR_CANCEL);
+	}
+}
+
+void PauseScreen::render() {
 	UIShader_Prepare();
 	UIBegin();
 	DrawBackground(1.0f);
@@ -300,9 +330,11 @@ void InGameMenuScreen::render() {
 	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH, "Continue", ALIGN_RIGHT)) {
 		screenManager()->finishDialog(this, DR_CANCEL);
 	}
+#ifndef _WIN32
 	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH, "Settings", ALIGN_RIGHT)) {
 		screenManager()->push(new SettingsScreen(), 0);
 	}
+#endif
 	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH, "Return to Menu", ALIGN_RIGHT)) {
 		screenManager()->finishDialog(this, DR_OK);
 	}
@@ -321,6 +353,7 @@ void InGameMenuScreen::render() {
 }
 
 void SettingsScreen::update(InputState &input) {
+	globalUIState = UISTATE_MENU;
 	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
 		g_Config.Save();
 		screenManager()->finishDialog(this, DR_OK);
@@ -521,6 +554,7 @@ void FileSelectScreen::render() {
 }
 
 void CreditsScreen::update(InputState &input_state) {
+	globalUIState = UISTATE_MENU;
 	if (input_state.pad_buttons_down & PAD_BUTTON_BACK) {
 		screenManager()->switchScreen(new MenuScreen());
 	}

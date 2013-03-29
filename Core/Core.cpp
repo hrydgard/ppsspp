@@ -15,47 +15,41 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "base/NativeApp.h"
+#include "base/display.h"
 #include "base/mutex.h"
 #include "base/timeutil.h"
+#include "input/input_state.h"
 
-#include "../Globals.h"
-#include "Core.h"
-#include "MemMap.h"
-#include "MIPS/MIPS.h"
+#include "Globals.h"
+#include "Core/Core.h"
+#include "Core/Config.h"
+#include "Core/MemMap.h"
+#include "Core/System.h"
+#include "Core/MIPS/MIPS.h"
 #ifdef _WIN32
 #include "Windows/OpenGLBase.h"
+#include "Windows/InputDevice.h"
 #endif
 
 #include "Host.h"
 
-#include "Debugger/Breakpoints.h"
+#include "Core/Debugger/Breakpoints.h"
 
-// HANDLE m_hStepEvent;
 event m_hStepEvent;
 recursive_mutex m_hStepMutex;
 event m_hInactiveEvent;
 recursive_mutex m_hInactiveMutex;
 
-// This can be read and written from ANYWHERE.
-volatile CoreState coreState = CORE_STEPPING;
-// Note: intentionally not used for CORE_NEXTFRAME.
-volatile bool coreStatePending = false;
-
-void Core_UpdateState(CoreState newState)
-{
-	if ((coreState == CORE_RUNNING || coreState == CORE_NEXTFRAME) && newState != CORE_RUNNING)
-		coreStatePending = true;
-	coreState = newState;
-}
+#ifdef _WIN32
+InputState input_state;
+#else
+extern InputState input_state;
+#endif
 
 void Core_ErrorPause()
 {
 	Core_UpdateState(CORE_ERROR);
-}
-
-void Core_Pause()
-{
-	Core_EnableStepping(true);
 }
 
 void Core_Halt(const char *msg) 
@@ -93,17 +87,42 @@ void Core_WaitInactive(int milliseconds)
 		m_hInactiveEvent.wait_for(m_hInactiveMutex, milliseconds);
 }
 
+void UpdateScreenScale() {
+	dp_xres = PSP_CoreParameter().pixelWidth;
+	dp_yres = PSP_CoreParameter().pixelHeight;
+	pixel_xres = PSP_CoreParameter().pixelWidth;
+	pixel_yres = PSP_CoreParameter().pixelHeight;
+	g_dpi = 72;
+	g_dpi_scale = 1.0f;
+	pixel_in_dps = (float)pixel_xres / dp_xres;
+}
+
 void Core_RunLoop()
 {
 	while (!coreState) {
-		currentMIPS->RunLoopUntil(0xFFFFFFFFFFFFFFFULL);
-		if (coreState == CORE_NEXTFRAME)
+		time_update();
+		UpdateScreenScale();
 		{
+			{
+				lock_guard guard(input_state.lock);
 #ifdef _WIN32
-			coreState = CORE_RUNNING;
-			GL_SwapBuffers();
+				// Temporary hack.
+				if (GetAsyncKeyState(VK_ESCAPE)) {
+					input_state.pad_buttons |= PAD_BUTTON_MENU;
+				} else {
+					input_state.pad_buttons &= ~PAD_BUTTON_MENU;
+				}
 #endif
+			}
+			NativeUpdate(input_state);
 		}
+		NativeRender();
+		// Simple throttling to not burn the GPU in the menu.
+#ifdef _WIN32
+		if (globalUIState != UISTATE_INGAME)
+			Sleep(15);
+		GL_SwapBuffers();
+#endif
 	}
 }
 
@@ -189,6 +208,7 @@ reswitch:
 	}
 
 }
+
 
 void Core_EnableStepping(bool step)
 {

@@ -45,17 +45,19 @@ public:
 	MenuScreen() : frames_(0) {}
 	void update(InputState &input);
 	void render();
+	void sendMessage(const char *message, const char *value);
 
 private:
 	int frames_;
 };
 
 // Dialog box, meant to be pushed
-class InGameMenuScreen : public Screen
+class PauseScreen : public Screen
 {
 public:
 	void update(InputState &input);
 	void render();
+	virtual void sendMessage(const char *msg, const char *value);
 };
 
 

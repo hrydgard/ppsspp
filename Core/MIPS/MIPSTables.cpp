@@ -15,16 +15,16 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "MIPSTables.h"
-
-#include "MIPS.h"
-#include "MIPSDis.h"
-#include "MIPSDisVFPU.h"
-#include "MIPSInt.h"
-#include "MIPSIntVFPU.h"
-#include "MIPSCodeUtils.h"
-#include "../../Core/CoreTiming.h"
-#include "../Debugger/Breakpoints.h"
+#include "Core/System.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSDis.h"
+#include "Core/MIPS/MIPSDisVFPU.h"
+#include "Core/MIPS/MIPSInt.h"
+#include "Core/MIPS/MIPSIntVFPU.h"
+#include "Core/MIPS/MIPSCodeUtils.h"
+#include "Core/MIPS/MIPSTables.h"
+#include "Core/CoreTiming.h"
+#include "Core/Debugger/Breakpoints.h"
 
 #include "JitCommon/JitCommon.h"
 

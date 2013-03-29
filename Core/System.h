@@ -26,6 +26,17 @@
 extern MetaFileSystem pspFileSystem;
 extern ParamSFOData g_paramSFO;
 
+
+// To synchronize the two UIs, we need to know which state we're in.
+enum GlobalUIState {
+	UISTATE_MENU,
+	UISTATE_PAUSEMENU,
+	UISTATE_INGAME,
+};
+
+
+extern GlobalUIState globalUIState;
+
 bool PSP_Init(const CoreParameter &coreParam, std::string *error_string);
 bool PSP_IsInited();
 void PSP_Shutdown();
@@ -33,5 +44,19 @@ void PSP_HWAdvance(int cycles);
 void PSP_SWI();
 
 void GetSysDirectories(std::string &memstickpath, std::string &flash0path);
+
+// RUNNING must be at 0.
+enum CoreState
+{
+	CORE_RUNNING = 0,
+	CORE_STEPPING,
+	CORE_POWERDOWN,
+	CORE_ERROR,
+	CORE_NEXTFRAME,
+};
+
+extern volatile CoreState coreState;
+extern volatile bool coreStatePending;
+void Core_UpdateState(CoreState newState);
 
 CoreParameter &PSP_CoreParameter();

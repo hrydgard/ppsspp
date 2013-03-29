@@ -46,7 +46,6 @@ public:
 
 	bool IsDebuggingEnabled();
 	void BootDone();
-	void PrepareShutdown();
 	bool AttemptLoadSymbolMap();
 	void SetWindowTitle(const char *message);
 
