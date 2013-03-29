@@ -508,12 +508,12 @@ void FileSelectScreen::render() {
 		updateListing();
 	}
 	ui_draw2d.DrawTextShadow(UBUNTU24, currentDirectory_.c_str(), 20 + SMALL_BUTTON_WIDTH, 10 + 25, 0xFFFFFFFF, ALIGN_LEFT | ALIGN_VCENTER);
-
-	/*
+#ifndef ANDROID
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, 10), SMALL_BUTTON_WIDTH, "Back", ALIGN_RIGHT)) {
 		g_Config.Save();
 		screenManager()->switchScreen(new MenuScreen());
-	}*/
+	}
+#endif
 	UIEnd();
 
 	glsl_bind(UIShader_Get());
