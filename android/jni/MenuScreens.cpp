@@ -231,12 +231,14 @@ void MenuScreen::render() {
 		UIReset();
 	}
 
+#ifndef _WIN32
 	if (UIButton(GEN_ID, vlinear, w, "Exit", ALIGN_RIGHT)) {
 		// TODO: Save when setting changes, rather than when we quit
 		NativeShutdown();
 		// TODO: Need a more elegant way to quit
 		exit(0);
 	}
+#endif
 
 	if (UIButton(GEN_ID, vlinear, w, "www.ppsspp.org", ALIGN_RIGHT)) {
 		LaunchBrowser("http://www.ppsspp.org/");
@@ -248,7 +250,10 @@ void MenuScreen::render() {
 	}
 	for (size_t i = 0; i < g_Config.recentIsos.size(); i++) {
 		std::string filename;
-		SplitPath(g_Config.recentIsos[i], nullptr, &filename, nullptr);
+		std::string rec = g_Config.recentIsos[i];
+		for (size_t j = 0; j < rec.size(); j++)
+			if (rec[j] == '\\') rec[j] = '/';
+		SplitPath(rec, nullptr, &filename, nullptr);
 		if (UIButton(GEN_ID_LOOP(i), vlinear2, recentW, filename.c_str(), ALIGN_LEFT)) {
 			screenManager()->switchScreen(new EmuScreen(g_Config.recentIsos[i]));
 		}

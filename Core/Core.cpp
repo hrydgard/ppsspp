@@ -124,7 +124,6 @@ void Core_RunLoop()
 		GL_SwapBuffers();
 	}
 }
-#endif
 
 void Core_DoSingleStep()
 {
@@ -208,6 +207,9 @@ reswitch:
 	}
 
 }
+
+#endif
+
 
 void Core_EnableStepping(bool step)
 {

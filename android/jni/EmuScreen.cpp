@@ -42,8 +42,7 @@
 #include "MenuScreens.h"
 #include "EmuScreen.h"
 
-EmuScreen::EmuScreen(const std::string &filename) : invalid_(true)
-{
+EmuScreen::EmuScreen(const std::string &filename) : invalid_(true) {
 	CheckGLExtensions();
 	std::string fileToStart = filename;
 	// This is probably where we should start up the emulated PSP.
@@ -97,8 +96,7 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true)
 	NOTICE_LOG(BOOT, "Loading %s...", fileToStart.c_str());
 }
 
-EmuScreen::~EmuScreen()
-{
+EmuScreen::~EmuScreen() {
 	if (!invalid_) {
 		// If we were invalid, it would already be shutdown.
 
@@ -113,8 +111,7 @@ void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	}
 }
 
-void EmuScreen::sendMessage(const char *message, const char *value)
-{
+void EmuScreen::sendMessage(const char *message, const char *value) {
 	// External commands, like from the Windows UI.
 	if (!strcmp(message, "pause")) {
 		screenManager()->push(new PauseScreen());
@@ -124,7 +121,7 @@ void EmuScreen::sendMessage(const char *message, const char *value)
 		PSP_Shutdown();
 		std::string resetError;
 		if (!PSP_Init(PSP_CoreParameter(), &resetError)) {
-			ELOG("Error resetting: %s", resetError);
+			ELOG("Error resetting: %s", resetError.c_str());
 			screenManager()->switchScreen(new MenuScreen());
 			return;
 		}
@@ -158,8 +155,7 @@ inline float clamp1(float x) {
 	return x;
 }
 
-void EmuScreen::update(InputState &input)
-{
+void EmuScreen::update(InputState &input) {
 	globalUIState = UISTATE_INGAME;
 	if (errorMessage_.size()) {
 		screenManager()->push(new ErrorScreen(
@@ -219,8 +215,7 @@ void EmuScreen::update(InputState &input)
 	}
 }
 
-void EmuScreen::render()
-{
+void EmuScreen::render() {
 	if (invalid_)
 		return;
 
@@ -279,8 +274,7 @@ void EmuScreen::render()
 #endif
 }
 
-void EmuScreen::deviceLost()
-{
+void EmuScreen::deviceLost() {
 	ILOG("EmuScreen::deviceLost()");
 	gpu->DeviceLost();
 }

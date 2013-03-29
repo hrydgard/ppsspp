@@ -38,8 +38,8 @@
 #include "XPTheme.h"
 #endif
 
-BOOL g_bFullScreen = FALSE;
-RECT g_normalRC = {0};
+static BOOL g_bFullScreen = FALSE;
+static RECT g_normalRC = {0};
 
 extern InputState input_state;
 
@@ -48,17 +48,16 @@ namespace MainWindow
 	HWND hwndMain;
 	HWND hwndDisplay;
 	HWND hwndGameList;
-	HMENU menu;
-	BOOL skinMode = FALSE;
-	CoreState nextState = CORE_POWERDOWN;
+	static HMENU menu;
+	static CoreState nextState = CORE_POWERDOWN;
 
-	HINSTANCE hInst;
+	static HINSTANCE hInst;
 
 	//W32Util::LayeredWindow *layer;
 #define MAX_LOADSTRING 100
-	TCHAR *szTitle = TEXT("PPSSPP");
-	TCHAR *szWindowClass = TEXT("PPSSPPWnd");
-	TCHAR *szDisplayClass = TEXT("PPSSPPDisplay");
+	const TCHAR *szTitle = TEXT("PPSSPP");
+	const TCHAR *szWindowClass = TEXT("PPSSPPWnd");
+	const TCHAR *szDisplayClass = TEXT("PPSSPPDisplay");
 
 	// Forward declarations of functions included in this code module:
 	LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
@@ -164,7 +163,7 @@ namespace MainWindow
 		RECT rc,rcOrig;
 		GetWindowRectAtZoom(zoom, rcOrig, rc);
 
-		u32 style = skinMode ? WS_POPUP : WS_OVERLAPPEDWINDOW;
+		u32 style = WS_OVERLAPPEDWINDOW;
 
 		hwndMain = CreateWindowEx(0,szWindowClass, "", style,
 			rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top, NULL, NULL, hInstance, NULL);
@@ -195,7 +194,6 @@ namespace MainWindow
 		ShowWindow(hwndMain, nCmdShow);
 		//accept dragged files
 		DragAcceptFiles(hwndMain, TRUE);
-		UpdateMenus();
 
 		SetFocus(hwndMain);
 
@@ -336,39 +334,29 @@ namespace MainWindow
 				} else {
 					NativeMessageReceived("run", "");
 				}
-				for (int i=0; i<numCPUs; i++)
-					if (disasmWindow[i])
-						SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
-				for (int i=0; i<numCPUs; i++)
-					if (disasmWindow[i])
-						SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_GO, 0);
+				if (disasmWindow[0])
+					SendMessage(disasmWindow[0]->GetDlgHandle(), WM_COMMAND, IDC_GO, 0);
 				break;
 
 			case ID_EMULATION_STOP:
-				for (int i=0; i<numCPUs; i++)
-					if (disasmWindow[i])
-						SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
-
-				for (int i=0; i<numCPUs; i++)
-					if (disasmWindow[i])
-						SendMessage(disasmWindow[i]->GetDlgHandle(), WM_CLOSE, 0, 0);
-				for (int i=0; i<numCPUs; i++)
-					if (memoryWindow[i])
-						SendMessage(memoryWindow[i]->GetDlgHandle(), WM_CLOSE, 0, 0);
+				if (disasmWindow[0])
+					SendMessage(disasmWindow[0]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
+				if (memoryWindow[0])
+					SendMessage(memoryWindow[0]->GetDlgHandle(), WM_CLOSE, 0, 0);
 
 				NativeMessageReceived("stop", "");
 
 				SetPlaying(0);
 				Update();
-				UpdateMenus();
 				break;
 
 			case ID_EMULATION_PAUSE:
 				if (disasmWindow[0])
 				{
 					SendMessage(disasmWindow[0]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
+				} else if (globalUIState == UISTATE_INGAME) {
+					Core_EnableStepping(true);
 				}
-				NativeMessageReceived("pause", "");
 				break;
 
 			case ID_EMULATION_RESET:
@@ -377,7 +365,6 @@ namespace MainWindow
 
 			case ID_EMULATION_SPEEDLIMIT:
 				g_Config.bSpeedLimit = !g_Config.bSpeedLimit;
-				UpdateMenus();
 				break;
 
 			case ID_FILE_LOADSTATEFILE:
@@ -410,53 +397,43 @@ namespace MainWindow
 
 			case ID_OPTIONS_SCREEN1X:
 				SetZoom(1);
-				UpdateMenus();
 				break;
 			case ID_OPTIONS_SCREEN2X:
 				SetZoom(2);
-				UpdateMenus();
 				break;
 			case ID_OPTIONS_SCREEN3X:
 				SetZoom(3);
-				UpdateMenus();
 				break;
 			case ID_OPTIONS_SCREEN4X:
 				SetZoom(4);
-				UpdateMenus();
 				break;
 
 			case ID_OPTIONS_BUFFEREDRENDERING:
 				g_Config.bBufferedRendering = !g_Config.bBufferedRendering;
-				UpdateMenus();
 				if (gpu)
 					gpu->Resized();  // easy way to force a clear...
 				break;
 
 			case ID_OPTIONS_SHOWDEBUGSTATISTICS:
 				g_Config.bShowDebugStats = !g_Config.bShowDebugStats;
-				UpdateMenus();
 				break;
 
 			case ID_OPTIONS_HARDWARETRANSFORM:
 				g_Config.bHardwareTransform = !g_Config.bHardwareTransform;
-				UpdateMenus();
 				break;
 
 			case ID_OPTIONS_STRETCHDISPLAY:
 				g_Config.bStretchToDisplay = !g_Config.bStretchToDisplay;
-				UpdateMenus();
 				if (gpu)
 					gpu->Resized();  // easy way to force a clear...
 				break;
 
 			case ID_OPTIONS_FRAMESKIP:
 				g_Config.iFrameSkip = !g_Config.iFrameSkip;
-				UpdateMenus();
 				break;
 
 			case ID_OPTIONS_USEMEDIAENGINE:
 				g_Config.bUseMediaEngine = !g_Config.bUseMediaEngine;
-				UpdateMenus();
 				break;
 
 			case ID_FILE_EXIT:
@@ -465,16 +442,14 @@ namespace MainWindow
 
 			case ID_CPU_DYNAREC:
 				g_Config.bJit = true;
-				UpdateMenus();
-				break;			
+				break;	
+
 			case ID_CPU_INTERPRETER:
 				g_Config.bJit = false;
-				UpdateMenus();
 				break;
 
 			case ID_EMULATION_RUNONLOAD:
 				g_Config.bAutoRun = !g_Config.bAutoRun;
-				UpdateMenus();
 				break;
 
 			case ID_DEBUG_DUMPNEXTFRAME:
@@ -520,7 +495,6 @@ namespace MainWindow
 
 			case ID_OPTIONS_IGNOREILLEGALREADS:
 				g_Config.bIgnoreBadMemAccess = !g_Config.bIgnoreBadMemAccess;
-				UpdateMenus();
 				break;
 
 			case ID_OPTIONS_FULLSCREEN:
@@ -530,40 +504,31 @@ namespace MainWindow
 				} else {
 					_ViewFullScreen(hWnd);
 				}
-				UpdateMenus();
 				break;
 
 			case ID_OPTIONS_WIREFRAME:
 				g_Config.bDrawWireframe = !g_Config.bDrawWireframe;
-				UpdateMenus();
 				break;
 			case ID_OPTIONS_VERTEXCACHE:
 				g_Config.bVertexCache = !g_Config.bVertexCache;
-				UpdateMenus();
 				break;
 			case ID_OPTIONS_SHOWFPS:
 				g_Config.bShowFPSCounter = !g_Config.bShowFPSCounter;
-				UpdateMenus();
 				break;
 			case ID_OPTIONS_DISPLAYRAWFRAMEBUFFER:
 				g_Config.bDisplayFramebuffer = !g_Config.bDisplayFramebuffer;
-				UpdateMenus();
 				break;
 			case ID_OPTIONS_FASTMEMORY:
 				g_Config.bFastMemory = !g_Config.bFastMemory;
-				UpdateMenus();
 				break;
 			case ID_OPTIONS_USEVBO:
 				g_Config.bUseVBO = !g_Config.bUseVBO;
-				UpdateMenus();
 				break;
 			case ID_OPTIONS_LINEARFILTERING:
 				g_Config.bLinearFiltering = !g_Config.bLinearFiltering;
-				UpdateMenus();
 				break;
 			case ID_OPTIONS_SIMPLE2XSSAA:
 				g_Config.SSAntiAliasing = !g_Config.SSAntiAliasing;
-				UpdateMenus();
 				ResizeDisplay(true);
 				break;
 			case ID_OPTIONS_CONTROLS:
@@ -609,27 +574,11 @@ namespace MainWindow
 					TCHAR filename[512];
 					DragQueryFile(hdrop,0,filename,512);
 					TCHAR *type = filename+_tcslen(filename)-3;
-/*
-					TBootFileType t;
-					if (strcmp(type,"bin")==0)
-						t=BOOT_BIN;
-					else if (strcmp(type,"elf")==0)
-						t=BOOT_ELF;
-					else if (strcmp(type,"dol")==0)
-						t=BOOT_DOL;
-					else
-					{
-						MessageBox(hwndMain,"Not a runnable Gamecube file","Error",MB_ICONERROR);
-						break;
-					}
-					CCore::Start(0,filename,t);
-					*/
 
 					SendMessage(hWnd, WM_COMMAND, ID_EMULATION_STOP, 0);
 					
 					MainWindow::SetPlaying(filename);
 					MainWindow::Update();
-					MainWindow::UpdateMenus();
 
 					NativeMessageReceived("run", filename);
 				}
@@ -657,11 +606,6 @@ namespace MainWindow
 		case WM_DESTROY:
 			PostQuitMessage(0);
 			break;
-		case WM_NCHITTEST:
-			if (skinMode)
-				return HTCAPTION;
-			else
-				return DefWindowProc(hWnd,message,wParam,lParam);
 
 		case WM_USER+1:
 			disasmWindow[0] = new CDisasm(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
@@ -677,11 +621,12 @@ namespace MainWindow
 
 			if (nextState == CORE_RUNNING)
 				PostMessage(hwndMain, WM_COMMAND, ID_EMULATION_RUN, 0);
-			UpdateMenus();
 			break;
 
 
 		case WM_MENUSELECT:
+			// This happens when a menu drops down, so this is the only place
+			// we need to call UpdateMenus.
 			UpdateMenus();
 			break;
 
@@ -772,7 +717,7 @@ namespace MainWindow
 		return FALSE;
 	}
 
-	const char *controllist[] = {
+	static const char *controllist[] = {
 		"TURBO MODE\tHold TAB",
 		"Start\tSpace",
 		"Select\tV",
@@ -792,6 +737,7 @@ namespace MainWindow
 		"Analog Right\tL",
 		"Rapid Fire\tShift",
 	};
+
 	// Message handler for about box.
 	LRESULT CALLBACK Controls(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 	{
@@ -832,6 +778,7 @@ namespace MainWindow
 	{
 		InvalidateRect(hwndDisplay,0,0);
 	}
+
 	void _ViewNormal(HWND hWnd)
 	{
 		// put caption and border styles back
