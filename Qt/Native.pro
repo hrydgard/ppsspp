@@ -17,7 +17,7 @@ x86:!mobile_platform: {
 	HEADERS += ../native/base/backtrace.h
 }
 
-# EtcPack
+# RG_ETC
 
 SOURCES += ../native/ext/rg_etc1/rg_etc1.cpp
 HEADERS += ../native/ext/rg_etc1/rg_etc1.h

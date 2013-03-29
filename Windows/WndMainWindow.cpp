@@ -560,7 +560,7 @@ namespace MainWindow
 				mojs ^= 1;
 				//SetSkinMode(mojs);
 			}
-			break;
+			return 0;
 		case WM_DROPFILES:
 			{
 				HDROP hdrop = (HDROP)wParam;

@@ -313,14 +313,10 @@ add_library(snappy STATIC
 )
 include_directories(ext/snappy)
 
-add_library(etcpack STATIC
-	native/ext/etcpack/etcdec.cpp
-	native/ext/etcpack/etcdec.h
-	native/ext/etcpack/etcpack.cpp
-	native/ext/etcpack/etcpack.h
-	native/ext/etcpack/image.cpp
-	native/ext/etcpack/image.h)
-include_directories(native/ext/etcpack)
+add_library(rg_etc STATIC
+	native/ext/rg_etc1/rg_etc1.cpp
+	native/ext/rg_etc1/rg_etc1.h)
+include_directories(native/ext/rg_etc1)
 
 add_library(cityhash STATIC
   native/ext/cityhash/city.cpp
@@ -602,7 +598,7 @@ add_library(native STATIC
 include_directories(native)
 # rapidxml is headers only so we can't make a lib specific for it
 include_directories(native/ext/rapidxml)
-target_link_libraries(native ${LIBZIP} etcpack sha1 stb_image stb_vorbis #vjson
+target_link_libraries(native ${LIBZIP} rg_etc sha1 stb_image stb_vorbis #vjson
 	zlib snappy ${GLEW_LIBRARIES})
 if(ANDROID)
 	target_link_libraries(native log)
