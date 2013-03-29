@@ -9,7 +9,7 @@ Features
 * JSON read/write (two libraries that should be made more similar)
 * basic OpenGL utility code, like compressed texture loading
 * 2D texture atlases and drawing code
-* ETC1 texture loading support
+* ETC1 texture save/load support
 * basic logging
 * Really simple audio mixer with OGG sample support
 * RIFF file read/write
@@ -29,7 +29,7 @@ Licenses
 This library, for my convenience, incorporates code from a variety of public domain or similarly-licensed code. This is the list:
 
 * glew (GL extension wrangler), MIT license. TODO: should just use a submodule.
-* etcpack by Ericsson, in a cleaned up form. Has strange license but not very limiting - you can only use the code for making textures for hardware supporting ETC1, or something like that. Don't think it affects the rest of the code in any way.
+* rg_etc1. ZLIB license.
 * sha1, public domain implementation by Dominik Reichl
 * vjson in a heavily modified form, originally by Ivan Vashchaev (TODO: break out into its own repo?)
 * libzip with attribution "Copyright (C) 1999-2007 Dieter Baron and Thomas Klausner"

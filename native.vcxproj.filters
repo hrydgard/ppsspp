@@ -53,9 +53,6 @@
     <ClInclude Include="gfx_es2\glsl_program.h">
       <Filter>gfx</Filter>
     </ClInclude>
-    <ClInclude Include="ext\etcpack\etcdec.h">
-      <Filter>ext</Filter>
-    </ClInclude>
     <ClInclude Include="audio\wav_read.h">
       <Filter>audio</Filter>
     </ClInclude>
@@ -97,9 +94,6 @@
     </ClInclude>
     <ClInclude Include="math\math_util.h">
       <Filter>math</Filter>
-    </ClInclude>
-    <ClInclude Include="ext\etcpack\etcpack.h">
-      <Filter>ext</Filter>
     </ClInclude>
     <ClInclude Include="base\timeutil.h">
       <Filter>base</Filter>
@@ -242,6 +236,9 @@
     <ClInclude Include="ext\cityhash\citycrc.h">
       <Filter>ext</Filter>
     </ClInclude>
+    <ClInclude Include="ext\rg_etc1\rg_etc1.h">
+      <Filter>ext</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -274,9 +271,6 @@
     <ClCompile Include="gfx_es2\glsl_program.cpp">
       <Filter>gfx</Filter>
     </ClCompile>
-    <ClCompile Include="ext\etcpack\etcdec.cpp">
-      <Filter>ext</Filter>
-    </ClCompile>
     <ClCompile Include="audio\wav_read.cpp">
       <Filter>audio</Filter>
     </ClCompile>
@@ -300,9 +294,6 @@
     </ClCompile>
     <ClCompile Include="gfx\texture_atlas.cpp">
       <Filter>gfx</Filter>
-    </ClCompile>
-    <ClCompile Include="ext\etcpack\etcpack.cpp">
-      <Filter>ext</Filter>
     </ClCompile>
     <ClCompile Include="base\timeutil.cpp">
       <Filter>base</Filter>
@@ -427,6 +418,9 @@
       <Filter>util</Filter>
     </ClCompile>
     <ClCompile Include="ext\cityhash\city.cpp">
+      <Filter>ext</Filter>
+    </ClCompile>
+    <ClCompile Include="ext\rg_etc1\rg_etc1.cpp">
       <Filter>ext</Filter>
     </ClCompile>
   </ItemGroup>

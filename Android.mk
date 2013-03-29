@@ -16,6 +16,7 @@ LOCAL_SRC_FILES :=\
     base/colorutil.cpp \
     base/error_context.cpp \
     base/stringutil.cpp \
+    ext/rg_etc1/rg_etc1.cpp \
     ext/cityhash/city.cpp \
     ext/sha1/sha1.cpp \
     ext/stb_image/stb_image.c \
@@ -51,6 +52,7 @@ LOCAL_SRC_FILES :=\
     gfx/texture_atlas.cpp \
     gfx/texture_gen.cpp \
     image/zim_load.cpp \
+    image/zim_save.cpp \
     image/png_load.cpp \
     ui/ui.cpp \
     ui/ui_context.cpp \

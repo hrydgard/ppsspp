@@ -4,7 +4,7 @@
 
 #if !defined(USING_GLES2)
 #include "image/png_load.h"
-#include "ext/etcpack/etcdec.h"
+#include "ext/rg_etc1/rg_etc1.h"
 #endif
 
 #include "image/zim_load.h"
@@ -183,8 +183,8 @@ uint8_t *ETC1ToRGBA(uint8_t *etc1, int width, int height) {
 	memset(rgba, 0xFF, width * height * 4);
 	for (int y = 0; y < height; y += 4) {
 		for (int x = 0; x < width; x += 4) {
-			DecompressBlock(etc1 + ((y / 4) * width/4 + (x / 4)) * 8,
-				rgba + (y * width + x) * 4, width, 255);
+			rg_etc1::unpack_etc1_block(etc1 + ((y / 4) * width/4 + (x / 4)) * 8,
+				(uint32_t *)rgba + (y * width + x), width, false);
 		}
 	}
 	return rgba;

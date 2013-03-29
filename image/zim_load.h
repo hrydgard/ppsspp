@@ -33,6 +33,10 @@ enum {
 	ZIM_DITHER = 64,	// If set, dithers during save if color reduction is necessary.
 	ZIM_CLAMP = 128,	// Texture should default to clamp instead of wrap.
 	ZIM_ZLIB_COMPRESSED = 256,
+	ZIM_ETC1_LOW = 512,
+	ZIM_ETC1_MEDIUM = 1024,
+	ZIM_ETC1_HIGH = 0, // default
+	ZIM_ETC1_DITHER = 2048,
 };
 
 // ZIM will only ever support up to 12 levels (4096x4096 max).

@@ -2,7 +2,7 @@
 #include <string.h>
 #include <math.h>
 #include "base/logging.h"
-#include "ext/etcpack/etcpack.h"
+#include "ext/rg_etc1/rg_etc1.h"
 #include "image/zim_save.h"
 #include "zlib.h"
 
@@ -101,6 +101,17 @@ void Convert(const uint8_t *image_data, int width, int height, int pitch, int fl
 				break;
 			}
 		case ZIM_ETC1: {
+			rg_etc1::pack_etc1_block_init();
+			rg_etc1::etc1_pack_params params;
+			params.m_dithering = false; //(flags & ZIM_ETC1_DITHER) != 0;
+			if (flags & ZIM_ETC1_LOW) {
+				params.m_quality = rg_etc1::cLowQuality;
+			} else if (flags & ZIM_ETC1_MEDIUM) {
+				params.m_quality = rg_etc1::cMediumQuality;
+			} else {
+				params.m_quality = rg_etc1::cHighQuality;
+			}
+
 			// Check for power of 2
 			if (!ispowerof2(width) || !ispowerof2(height)) {
 				FLOG("Image must have power of 2 dimensions, %ix%i just isn't that.", width, height);
@@ -113,8 +124,11 @@ void Convert(const uint8_t *image_data, int width, int height, int pitch, int fl
 #pragma omp parallel for 
 			for (int y = 0; y < blockh; y++) {
 				for (int x = 0; x < blockw; x++) {
-					CompressBlock(image_data + ((y * 4) * (pitch/4) + x * 4) * 4, width,
-						(*data) + (blockw * y + x) * 8, 1);
+					uint32_t block[16];
+					for (int iy = 0; iy < 4; iy++) {
+						memcpy(block + 4 * iy, image_data + ((y * 4 + iy) * (pitch/4) + x * 4) * 4, 16);
+					}
+					rg_etc1::pack_etc1_block((*data) + (blockw * y + x) * 8, block, params);
 				}
 			}
 			width = blockw * 4;

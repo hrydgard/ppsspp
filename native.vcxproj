@@ -201,8 +201,7 @@
     <ClInclude Include="data\listable.h" />
     <ClInclude Include="ext\cityhash\city.h" />
     <ClInclude Include="ext\cityhash\citycrc.h" />
-    <ClInclude Include="ext\etcpack\etcdec.h" />
-    <ClInclude Include="ext\etcpack\etcpack.h" />
+    <ClInclude Include="ext\rg_etc1\rg_etc1.h" />
     <ClInclude Include="ext\sha1\sha1.h" />
     <ClInclude Include="ext\stb_image\stb_image.h" />
     <ClInclude Include="ext\stb_vorbis\stb_vorbis.h" />
@@ -294,8 +293,7 @@
     <ClCompile Include="base\threadutil.cpp" />
     <ClCompile Include="base\timeutil.cpp" />
     <ClCompile Include="ext\cityhash\city.cpp" />
-    <ClCompile Include="ext\etcpack\etcdec.cpp" />
-    <ClCompile Include="ext\etcpack\etcpack.cpp" />
+    <ClCompile Include="ext\rg_etc1\rg_etc1.cpp" />
     <ClCompile Include="ext\sha1\sha1.cpp" />
     <ClCompile Include="ext\stb_image\stb_image.c" />
     <ClCompile Include="ext\stb_vorbis\stb_vorbis.c" />

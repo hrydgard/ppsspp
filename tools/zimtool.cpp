@@ -70,6 +70,8 @@ int main(int argc, char **argv) {
         break;
     }
   }
+	// TODO: make setting?
+	flags |= ZIM_ETC1_MEDIUM;
   if ((flags & ZIM_FORMAT_MASK) == ZIM_ETC1) {
     if (flags & ZIM_GEN_MIPS) {
       fprintf(stderr, "WARNING: Cannot generate ETC1 mips at runtime\n");
