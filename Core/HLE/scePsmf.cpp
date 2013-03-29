@@ -471,6 +471,24 @@ u32 scePsmfGetStreamSize(u32 psmfStruct, u32 sizeAddr)
 	return 0;
 }
 
+u32 scePsmfQueryStreamOffset(u32 bufferAddr, u32 offsetAddr)
+{
+	ERROR_LOG(HLE, "UNIMPL scePsmfQueryStreamOffset(%08x, %08x)", bufferAddr, offsetAddr);
+	if (Memory::IsValidAddress(offsetAddr)) {
+		Memory::Write_U32(0, offsetAddr);
+	}
+	return 0;
+}
+
+u32 scePsmfQueryStreamSize(u32 bufferAddr, u32 sizeAddr)
+{
+	ERROR_LOG(HLE, "UNIMPL scePsmfQueryStreamSize(%08x, %08x)", bufferAddr, sizeAddr);
+	if (Memory::IsValidAddress(sizeAddr)) {
+		Memory::Write_U32(1, sizeAddr);
+	}
+	return 0;
+}
+
 u32 scePsmfGetHeaderSize(u32 psmfStruct, u32 sizeAddr)
 {
 	DEBUG_LOG(HLE, "scePsmfGetHeaderSize(%08x, %08x)", psmfStruct, sizeAddr);
@@ -979,8 +997,8 @@ const HLEFunction scePsmf[] = {
 	{0xA83F7113, WrapU_UU<scePsmfGetAudioInfo>, "scePsmfGetAudioInfo"},
 	{0x971A3A90, 0, "scePsmfCheckEPmap"},
 	{0x68d42328, WrapU_UU<scePsmfGetNumberOfSpecificStreams>, "scePsmfGetNumberOfSpecificStreams"},
-	{0x5b70fcc1, 0, "scePsmfQueryStreamOffset"},
-	{0x9553cc91, 0, "scePsmfQueryStreamSize"},
+	{0x5b70fcc1, WrapU_UU<scePsmfQueryStreamOffset>, "scePsmfQueryStreamOffset"},
+	{0x9553cc91, WrapU_UU<scePsmfQueryStreamSize>, "scePsmfQueryStreamSize"},
 	{0xB78EB9E9, WrapU_UU<scePsmfGetHeaderSize>, "scePsmfGetHeaderSize"},
 	{0xA5EBFE81, WrapU_UU<scePsmfGetStreamSize>, "scePsmfGetStreamSize"},
 	{0xE1283895, WrapU_U<scePsmfGetPsmfVersion>, "scePsmfGetPsmfVersion"},
