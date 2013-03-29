@@ -237,7 +237,7 @@ void ARMXEmitter::MOVI2R(ARMReg reg, u32 val, bool optimize)
 			MOVW(reg, val & 0xFFFF);
 			if(val & 0xFFFF0000)
 				MOVT(reg, val, true);
-		} else if (!TrySetValue_TwoOp(reg,val) {
+		} else if (!TrySetValue_TwoOp(reg,val)) {
 			// Use literal pool for ARMv6.
 			AddNewLit(val);
 			LDR(reg, _PC); // To be backpatched later
