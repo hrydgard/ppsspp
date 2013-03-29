@@ -17,6 +17,11 @@
 
 #include <windows.h>
 
+void LaunchBrowser(const char *url)
+{
+	ShellExecute(NULL, "open", url, NULL, NULL, SW_SHOWNORMAL);
+}
+
 #include "file/vfs.h"
 #include "file/zip_read.h"
 
