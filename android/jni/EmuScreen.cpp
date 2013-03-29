@@ -24,16 +24,17 @@
 #include "input/input_state.h"
 #include "ui/ui.h"
 
-#include "../../Core/Config.h"
-#include "../../Core/CoreTiming.h"
-#include "../../Core/CoreParameter.h"
-#include "../../Core/Core.h"
-#include "../../Core/Host.h"
-#include "../../Core/System.h"
-#include "../../Core/MIPS/MIPS.h"
-#include "../../GPU/GPUState.h"
-#include "../../GPU/GPUInterface.h"
-#include "../../Core/HLE/sceCtrl.h"
+#include "Core/Config.h"
+#include "Core/CoreTiming.h"
+#include "Core/CoreParameter.h"
+#include "Core/Core.h"
+#include "Core/Host.h"
+#include "Core/System.h"
+#include "Core/MIPS/MIPS.h"
+#include "GPU/GPUState.h"
+#include "GPU/GPUInterface.h"
+#include "Core/HLE/sceCtrl.h"
+#include "Core/Debugger/SymbolMap.h"
 
 #include "GamepadEmu.h"
 #include "UIShader.h"
@@ -80,11 +81,16 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true)
 	}
 
 	host->BootDone();
+	host->AttemptLoadSymbolMap();
+	host->UpdateDisassembly();
+
+#ifdef _WIN32
 	if (g_Config.bAutoRun) {
 		Core_EnableStepping(false);
 	} else {
 		Core_EnableStepping(true);
 	}
+#endif
 
 	LayoutGamepad(dp_xres, dp_yres);
 
@@ -95,6 +101,8 @@ EmuScreen::~EmuScreen()
 {
 	if (!invalid_) {
 		// If we were invalid, it would already be shutdown.
+
+		// symbolMap.SaveSymbolMap(SymbolMapFilename(coreParam.fileToStart).c_str());
 		PSP_Shutdown();
 	}
 }
@@ -112,6 +120,23 @@ void EmuScreen::sendMessage(const char *message, const char *value)
 		screenManager()->push(new PauseScreen());
 	} else if (!strcmp(message, "stop")) {
 		screenManager()->switchScreen(new MenuScreen());
+	} else if (!strcmp(message, "reset")) {
+		PSP_Shutdown();
+		std::string resetError;
+		if (!PSP_Init(PSP_CoreParameter(), &resetError)) {
+			ELOG("Error resetting: %s", resetError);
+			screenManager()->switchScreen(new MenuScreen());
+			return;
+		}
+		host->BootDone();
+		host->UpdateDisassembly();
+#ifdef _WIN32
+		if (g_Config.bAutoRun) {
+			Core_EnableStepping(false);
+		} else {
+			Core_EnableStepping(true);
+		}
+#endif
 	}
 }
 

@@ -45,4 +45,18 @@ void PSP_SWI();
 
 void GetSysDirectories(std::string &memstickpath, std::string &flash0path);
 
+// RUNNING must be at 0.
+enum CoreState
+{
+	CORE_RUNNING = 0,
+	CORE_STEPPING,
+	CORE_POWERDOWN,
+	CORE_ERROR,
+	CORE_NEXTFRAME,
+};
+
+extern volatile CoreState coreState;
+extern volatile bool coreStatePending;
+void Core_UpdateState(CoreState newState);
+
 CoreParameter &PSP_CoreParameter();

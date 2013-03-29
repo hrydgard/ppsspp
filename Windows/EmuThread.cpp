@@ -55,11 +55,9 @@ DWORD TheThread(LPVOID x) {
 	Host *oldHost = host;
 	UpdateScreenScale();
 
-	NativeInit(0, 0, memstick.c_str(), "C:\\", "1234");
+	NativeInit(0, 0, memstick.c_str(), memstick.c_str(), "1234");
 	Host *nativeHost = host;
 	host = oldHost;
-
-	CoreParameter coreParameter;
 
 	host->UpdateUI();
 	
@@ -78,7 +76,6 @@ DWORD TheThread(LPVOID x) {
 	_dbg_update_();
 
 	Core_EnableStepping(FALSE);
-
 	Core_Run();
 
 shutdown:

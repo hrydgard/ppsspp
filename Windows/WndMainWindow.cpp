@@ -357,8 +357,7 @@ namespace MainWindow
 						SendMessage(memoryWindow[i]->GetDlgHandle(), WM_CLOSE, 0, 0);
 
 				NativeMessageReceived("stop", "");
-				
-				// EmuThread_Stop();
+
 				SetPlaying(0);
 				Update();
 				UpdateMenus();
@@ -373,25 +372,7 @@ namespace MainWindow
 				break;
 
 			case ID_EMULATION_RESET:
-				/*
-				for (int i=0; i<numCPUs; i++)
-					if (disasmWindow[i])
-						SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
-
-				Core_WaitInactive();
-
-				for (int i=0; i<numCPUs; i++)
-					if (disasmWindow[i])
-						SendMessage(disasmWindow[i]->GetDlgHandle(), WM_CLOSE, 0, 0);
-				for (int i=0; i<numCPUs; i++)
-					if (memoryWindow[i])
-						SendMessage(memoryWindow[i]->GetDlgHandle(), WM_CLOSE, 0, 0);
-
-				
-				EmuThread_Stop();
-
-				EmuThread_Start(GetCurrentFilename());*/
-
+				NativeMessageReceived("reset", "");
 				break;
 
 			case ID_EMULATION_SPEEDLIMIT:
@@ -710,7 +691,6 @@ namespace MainWindow
 		return 0;
 	}
 
-
 	void UpdateMenus()
 	{
 		HMENU menu = GetMenu(GetHWND());
@@ -741,7 +721,7 @@ namespace MainWindow
 		EnableMenuItem(menu,ID_EMULATION_RUN, (Core_IsStepping() || globalUIState == UISTATE_PAUSEMENU) ? MF_ENABLED : MF_GRAYED);
 		EnableMenuItem(menu,ID_EMULATION_PAUSE, globalUIState == UISTATE_INGAME ? MF_ENABLED : MF_GRAYED);
 		EnableMenuItem(menu,ID_EMULATION_STOP, globalUIState == UISTATE_INGAME ? MF_ENABLED : MF_GRAYED);
-		EnableMenuItem(menu,ID_EMULATION_RESET, MF_GRAYED); //pspRunning ? MF_ENABLED : MF_GRAYED);
+		EnableMenuItem(menu,ID_EMULATION_RESET, globalUIState == UISTATE_INGAME ? MF_ENABLED : MF_GRAYED);
 
 		UINT enable = globalUIState == UISTATE_MENU ? MF_ENABLED : MF_GRAYED;
 		EnableMenuItem(menu,ID_FILE_LOAD,enable);

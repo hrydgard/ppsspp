@@ -36,6 +36,7 @@
 #include "ui/screen.h"
 #include "ui/ui.h"
 
+#include "base/mutex.h"
 #include "FileUtil.h"
 #include "LogManager.h"
 #include "../../Core/PSPMixer.h"
@@ -59,6 +60,12 @@ Texture *uiTexture;
 ScreenManager *screenManager;
 std::string config_filename;
 std::string game_title;
+
+recursive_mutex pendingMutex;
+static bool isMessagePending;
+static std::string pendingMessage;
+static std::string pendingValue;
+
 
 class AndroidLogger : public LogListener
 {
@@ -149,7 +156,7 @@ int NativeMix(short *audio, int num_samples)
 	else
 	{
 		//memset(audio, 0, numSamples * 2);
-		return num_samples;
+		return 0;
 	}
 }
 
@@ -168,7 +175,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 {
 	EnableFZ();
 	std::string user_data_path = savegame_directory;
-
+	isMessagePending = false;
 	// We want this to be FIRST.
 #ifdef BLACKBERRY
 	// Packed assets are included in app/native/ dir
@@ -362,6 +369,14 @@ void NativeRender()
 
 void NativeUpdate(InputState &input)
 {
+	{
+		lock_guard lock(pendingMutex);
+		if (isMessagePending) {
+			screenManager->sendMessage(pendingMessage.c_str(), pendingValue.c_str());
+			isMessagePending = false;
+		}
+	}
+
 	UIUpdateMouse(0, input.pointer_x[0], input.pointer_y[0], input.pointer_down[0]);
 	screenManager->update(input);
 } 
@@ -394,7 +409,13 @@ void NativeTouch(int finger, float x, float y, double time, TouchEvent event)
 
 void NativeMessageReceived(const char *message, const char *value)
 {
-	screenManager->sendMessage(message, value);
+	// We can only have one message queued.
+	lock_guard lock(pendingMutex);
+	if (!isMessagePending) {
+		pendingMessage = message;
+		pendingValue = value;
+		isMessagePending = true;
+	}
 }
 
 void NativeShutdownGraphics()

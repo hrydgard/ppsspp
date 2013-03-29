@@ -20,11 +20,12 @@
 
 #include "../../MemMap.h"
 
-#include "../MIPS.h"
-#include "../../CoreTiming.h"
-#include "MemoryUtil.h"
+#include "Core/Core.h"
+#include "Core/System.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/CoreTiming.h"
+#include "Common/MemoryUtil.h"
 
-#include "ABI.h"
 #include "Jit.h"
 #include "../JitCommon/JitCommon.h"
 #include "../../Core.h"

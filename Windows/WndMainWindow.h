@@ -2,7 +2,8 @@
 
 #include <windows.h>
 #include <string>
-#include <Core/Core.h>
+
+#include "Core/System.h"
 
 namespace MainWindow
 {

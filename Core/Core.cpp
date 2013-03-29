@@ -29,6 +29,7 @@
 #include "Core/MIPS/MIPS.h"
 #ifdef _WIN32
 #include "Windows/OpenGLBase.h"
+#include "Windows/InputDevice.h"
 #endif
 
 #include "Host.h"
@@ -39,19 +40,10 @@ event m_hStepEvent;
 recursive_mutex m_hStepMutex;
 event m_hInactiveEvent;
 recursive_mutex m_hInactiveMutex;
+
+#ifdef _WIN32
 InputState input_state;
-
-// This can be read and written from ANYWHERE.
-volatile CoreState coreState = CORE_STEPPING;
-// Note: intentionally not used for CORE_NEXTFRAME.
-volatile bool coreStatePending = false;
-
-void Core_UpdateState(CoreState newState)
-{
-	if ((coreState == CORE_RUNNING || coreState == CORE_NEXTFRAME) && newState != CORE_RUNNING)
-		coreStatePending = true;
-	coreState = newState;
-}
+#endif
 
 void Core_ErrorPause()
 {
@@ -108,17 +100,20 @@ void UpdateScreenScale() {
 	pixel_in_dps = (float)pixel_xres / dp_xres;
 }
 
+#ifdef _WIN32
 void Core_RunLoop()
 {
 	while (!coreState) {
 		time_update();
 		UpdateScreenScale();
 		{
-			lock_guard guard(input_state.lock);
-			if (GetAsyncKeyState(VK_ESCAPE)) {
-				input_state.pad_buttons |= PAD_BUTTON_MENU;
-			} else {
-				input_state.pad_buttons &= ~PAD_BUTTON_MENU;
+			{
+				lock_guard guard(input_state.lock);
+				if (GetAsyncKeyState(VK_ESCAPE)) {
+					input_state.pad_buttons |= PAD_BUTTON_MENU;
+				} else {
+					input_state.pad_buttons &= ~PAD_BUTTON_MENU;
+				}
 			}
 			NativeUpdate(input_state);
 		}
@@ -129,6 +124,7 @@ void Core_RunLoop()
 		GL_SwapBuffers();
 	}
 }
+#endif
 
 void Core_DoSingleStep()
 {
