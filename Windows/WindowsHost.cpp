@@ -17,6 +17,7 @@
 
 #include "Core/Core.h"
 #include "Core/Config.h"
+#include "Core/CoreParameter.h"
 #include "EmuThread.h"
 #include "DSoundStream.h"
 #include "WindowsHost.h"
@@ -154,8 +155,7 @@ static std::string SymbolMapFilename(const char *currentFilename)
 
 bool WindowsHost::AttemptLoadSymbolMap()
 {
-	return false;
-	//return symbolMap.LoadSymbolMap(SymbolMapFilename(GetCurrentFilename()).c_str());
+	return symbolMap.LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str()).c_str());
 }
 
 void WindowsHost::AddSymbol(std::string name, u32 addr, u32 size, int type=0) 

@@ -43,16 +43,13 @@ recursive_mutex m_hInactiveMutex;
 
 #ifdef _WIN32
 InputState input_state;
+#else
+extern InputState input_state;
 #endif
 
 void Core_ErrorPause()
 {
 	Core_UpdateState(CORE_ERROR);
-}
-
-void Core_Pause()
-{
-	Core_EnableStepping(true);
 }
 
 void Core_Halt(const char *msg) 
@@ -100,7 +97,6 @@ void UpdateScreenScale() {
 	pixel_in_dps = (float)pixel_xres / dp_xres;
 }
 
-#ifdef _WIN32
 void Core_RunLoop()
 {
 	while (!coreState) {
@@ -109,19 +105,24 @@ void Core_RunLoop()
 		{
 			{
 				lock_guard guard(input_state.lock);
+#ifdef _WIN32
+				// Temporary hack.
 				if (GetAsyncKeyState(VK_ESCAPE)) {
 					input_state.pad_buttons |= PAD_BUTTON_MENU;
 				} else {
 					input_state.pad_buttons &= ~PAD_BUTTON_MENU;
 				}
+#endif
 			}
 			NativeUpdate(input_state);
 		}
 		NativeRender();
 		// Simple throttling to not burn the GPU in the menu.
+#ifdef _WIN32
 		if (globalUIState != UISTATE_INGAME)
 			Sleep(15);
 		GL_SwapBuffers();
+#endif
 	}
 }
 
@@ -207,8 +208,6 @@ reswitch:
 	}
 
 }
-
-#endif
 
 
 void Core_EnableStepping(bool step)
