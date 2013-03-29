@@ -393,6 +393,7 @@ public:
 
 	void FlushLitPool();
 	void AddNewLit(u32 val);
+	bool TrySetValue_TwoOp(ARMReg reg, u32 val);
 
 	CCFlags GetCC() { return CCFlags(condition >> 28); }
 	void SetCC(CCFlags cond = CC_AL);
