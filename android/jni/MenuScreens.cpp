@@ -244,13 +244,19 @@ void MenuScreen::render() {
 }
 
 
-void InGameMenuScreen::update(InputState &input) {
+void PauseScreen::update(InputState &input) {
 	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
 		screenManager()->finishDialog(this, DR_CANCEL);
 	}
 }
 
-void InGameMenuScreen::render() {
+void PauseScreen::sendMessage(const char *msg, const char *value) {
+	if (!strcmp(msg, "run")) {
+		screenManager()->finishDialog(this, DR_CANCEL);
+	}
+}
+
+void PauseScreen::render() {
 	UIShader_Prepare();
 	UIBegin();
 	DrawBackground(1.0f);

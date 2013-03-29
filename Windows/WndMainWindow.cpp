@@ -2,11 +2,14 @@
 
 #include <windows.h>
 #include <tchar.h>
+
+#include "base/NativeApp.h"
 #include "Globals.h"
 
 #include "shellapi.h"
 #include "commctrl.h"
 
+#include "input/input_state.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Windows/OpenGLBase.h"
 #include "Windows/Debugger/Debugger_Disasm.h"
@@ -37,6 +40,8 @@
 
 BOOL g_bFullScreen = FALSE;
 RECT g_normalRC = {0};
+
+extern InputState input_state;
 
 namespace MainWindow
 {
@@ -223,11 +228,8 @@ namespace MainWindow
 			char ext[MAX_PATH];
 			_splitpath(fullpath.c_str(), drive, dir, fname, ext);
 
-			// generate the mapfilename
 			std::string executable = std::string(drive) + std::string(dir) + std::string(fname) + std::string(ext);
-			std::string mapfile = std::string(drive) + std::string(dir) + std::string(fname) + std::string(".map");
-
-			EmuThread_Start(executable.c_str());
+			NativeMessageReceived("run", executable.c_str());
 		}
 	}
 
@@ -246,8 +248,32 @@ namespace MainWindow
 	  	return DefWindowProc(hWnd, message, wParam, lParam);
   
 		case WM_LBUTTONDOWN:
-//			Update();
+			{
+				lock_guard guard(input_state.lock);
+				input_state.mouse_valid = true;
+				input_state.pointer_down[0] = true;
+				input_state.pointer_x[0] = GET_X_LPARAM(lParam); 
+				input_state.pointer_y[0] = GET_Y_LPARAM(lParam);
+			}
 			break;
+
+		case WM_MOUSEMOVE:
+			{
+				lock_guard guard(input_state.lock);
+				input_state.pointer_x[0] = GET_X_LPARAM(lParam); 
+				input_state.pointer_y[0] = GET_Y_LPARAM(lParam);
+			}
+			break;
+
+		case WM_LBUTTONUP:
+			{
+				lock_guard guard(input_state.lock);
+				input_state.pointer_down[0] = false;
+				input_state.pointer_x[0] = GET_X_LPARAM(lParam); 
+				input_state.pointer_y[0] = GET_Y_LPARAM(lParam);
+			}
+			break;
+
 
 		case WM_PAINT:
 			return DefWindowProc(hWnd, message, wParam, lParam);
@@ -306,15 +332,12 @@ namespace MainWindow
 				break;
 
 			case ID_EMULATION_RUN:
-				if (g_State.bEmuThreadStarted)
-				{
-					for (int i=0; i<numCPUs; i++)
-						if (disasmWindow[i])
-							SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
-					for (int i=0; i<numCPUs; i++)
-						if (disasmWindow[i])
-							SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_GO, 0);
-				}
+				for (int i=0; i<numCPUs; i++)
+					if (disasmWindow[i])
+						SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
+				for (int i=0; i<numCPUs; i++)
+					if (disasmWindow[i])
+						SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_GO, 0);
 				break;
 
 			case ID_EMULATION_STOP:
@@ -322,8 +345,6 @@ namespace MainWindow
 					if (disasmWindow[i])
 						SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
 
-				Core_WaitInactive();
-
 				for (int i=0; i<numCPUs; i++)
 					if (disasmWindow[i])
 						SendMessage(disasmWindow[i]->GetDlgHandle(), WM_CLOSE, 0, 0);
@@ -331,13 +352,16 @@ namespace MainWindow
 					if (memoryWindow[i])
 						SendMessage(memoryWindow[i]->GetDlgHandle(), WM_CLOSE, 0, 0);
 
-				EmuThread_Stop();
+				NativeMessageReceived("stop", "");
+				
+				// EmuThread_Stop();
 				SetPlaying(0);
 				Update();
 				UpdateMenus();
 				break;
 
 			case ID_EMULATION_RESET:
+				/*
 				for (int i=0; i<numCPUs; i++)
 					if (disasmWindow[i])
 						SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
@@ -351,15 +375,18 @@ namespace MainWindow
 					if (memoryWindow[i])
 						SendMessage(memoryWindow[i]->GetDlgHandle(), WM_CLOSE, 0, 0);
 
+				
 				EmuThread_Stop();
 
-				EmuThread_Start(GetCurrentFilename());
+				EmuThread_Start(GetCurrentFilename());*/
+
 				break;
 
 			case ID_EMULATION_PAUSE:
 				for (int i=0; i<numCPUs; i++)
 					if (disasmWindow[i])
 						SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
+				NativeMessageReceived("pause", "");
 				break;
 
 			case ID_EMULATION_SPEEDLIMIT:
@@ -614,16 +641,13 @@ namespace MainWindow
 					CCore::Start(0,filename,t);
 					*/
 
-					if (g_State.bEmuThreadStarted)
-					{
-						SendMessage(hWnd, WM_COMMAND, ID_EMULATION_STOP, 0);
-					}
+					SendMessage(hWnd, WM_COMMAND, ID_EMULATION_STOP, 0);
 					
 					MainWindow::SetPlaying(filename);
 					MainWindow::Update();
 					MainWindow::UpdateMenus();
 
-					EmuThread_Start(filename);
+					NativeMessageReceived("run", filename);
 				}
 			}
 			break;
@@ -707,11 +731,14 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_USEMEDIAENGINE, g_Config.bUseMediaEngine);
 
 		UINT enable = !Core_IsStepping() ? MF_GRAYED : MF_ENABLED;
-		EnableMenuItem(menu,ID_EMULATION_RUN, g_State.bEmuThreadStarted ? enable : MF_GRAYED);
-		EnableMenuItem(menu,ID_EMULATION_PAUSE, g_State.bEmuThreadStarted ? !enable : MF_GRAYED);
-		EnableMenuItem(menu,ID_EMULATION_RESET, g_State.bEmuThreadStarted ? MF_ENABLED : MF_GRAYED);
 
-		enable = g_State.bEmuThreadStarted ? MF_GRAYED : MF_ENABLED;
+		bool pspRunning = PSP_CoreParameter().fileToStart.size() != 0;
+
+		EnableMenuItem(menu,ID_EMULATION_RUN, pspRunning ? enable : MF_GRAYED);
+		EnableMenuItem(menu,ID_EMULATION_PAUSE, pspRunning ? !enable : MF_GRAYED);
+		EnableMenuItem(menu,ID_EMULATION_RESET, FALSE); //pspRunning ? MF_ENABLED : MF_GRAYED);
+
+		enable = pspRunning ? MF_GRAYED : MF_ENABLED;
 		EnableMenuItem(menu,ID_FILE_LOAD,enable);
 		EnableMenuItem(menu,ID_FILE_SAVESTATEFILE,!enable);
 		EnableMenuItem(menu,ID_FILE_LOADSTATEFILE,!enable);

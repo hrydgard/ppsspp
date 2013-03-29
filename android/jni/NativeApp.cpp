@@ -112,7 +112,6 @@ public:
 
 	// this is sent from EMU thread! Make sure that Host handles it properly!
 	virtual void BootDone() {}
-	virtual void PrepareShutdown() {}
 
 	virtual bool IsDebuggingEnabled() {return false;}
 	virtual bool AttemptLoadSymbolMap() {return false;}
@@ -139,23 +138,17 @@ void NativeHost::ShutdownSound()
 	g_mixer = 0;
 }
 
-void NativeMix(short *audio, int num_samples)
+int NativeMix(short *audio, int num_samples)
 {
 	if (g_mixer)
 	{
-		g_mixer->Mix(audio, num_samples);
+		return g_mixer->Mix(audio, num_samples);
 	}
 	else
 	{
 		//memset(audio, 0, numSamples * 2);
+		return num_samples;
 	}
-}
-
-int NativeMixCount(short *audio, int num_samples)
-{
-	if (g_mixer)
-		return g_mixer->Mix(audio, num_samples);
-	return 0;
 }
 
 void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, bool *landscape)
@@ -350,8 +343,9 @@ void NativeRender()
 	glClearColor(0,0,0,1);
 	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
+	glstate.viewport.set(0, 0, pixel_xres, pixel_yres);
 	glstate.Restore();
-	glViewport(0, 0, pixel_xres, pixel_yres);
+
 	Matrix4x4 ortho;
 	ortho.setOrtho(0.0f, dp_xres, dp_yres, 0.0f, -1.0f, 1.0f);
 	glsl_bind(UIShader_Get());
@@ -364,7 +358,7 @@ void NativeUpdate(InputState &input)
 {
 	UIUpdateMouse(0, input.pointer_x[0], input.pointer_y[0], input.pointer_down[0]);
 	screenManager->update(input);
-}
+} 
 
 void NativeDeviceLost()
 {
@@ -394,7 +388,7 @@ void NativeTouch(int finger, float x, float y, double time, TouchEvent event)
 
 void NativeMessageReceived(const char *message, const char *value)
 {
-	// Unused
+	screenManager->sendMessage(message, value);
 }
 
 void NativeShutdownGraphics()

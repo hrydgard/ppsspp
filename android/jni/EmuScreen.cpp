@@ -86,13 +86,22 @@ EmuScreen::~EmuScreen()
 {
 	if (!invalid_) {
 		// If we were invalid, it would already be shutdown.
-		host->PrepareShutdown();
 		PSP_Shutdown();
 	}
 }
 
 void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	if (result == DR_OK) {
+		screenManager()->switchScreen(new MenuScreen());
+	}
+}
+
+void EmuScreen::sendMessage(const char *message, const char *value)
+{
+	// External commands, like from the Windows UI.
+	if (!strcmp(message, "pause")) {
+		screenManager()->push(new PauseScreen());
+	} else if (!strcmp(message, "stop")) {
 		screenManager()->switchScreen(new MenuScreen());
 	}
 }
@@ -171,7 +180,7 @@ void EmuScreen::update(InputState &input)
 	if (input.pad_buttons_down & (PAD_BUTTON_MENU | PAD_BUTTON_BACK)) {
 		if (g_Config.bBufferedRendering)
 			fbo_unbind();
-		screenManager()->push(new InGameMenuScreen());
+		screenManager()->push(new PauseScreen());
 	}
 }
 

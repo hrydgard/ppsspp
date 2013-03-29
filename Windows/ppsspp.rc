@@ -205,7 +205,6 @@ BEGIN
     BEGIN
         MENUITEM "&Open...",                    ID_FILE_LOAD
         MENUITEM "&Open from MS:/PSP/GAME...",  ID_FILE_LOAD_MEMSTICK
-        MENUITEM "&Close",                      ID_EMULATION_STOP
         MENUITEM SEPARATOR
         MENUITEM "Open &Memory Stick",          ID_FILE_MEMSTICK
         MENUITEM SEPARATOR
@@ -220,6 +219,7 @@ BEGIN
     BEGIN
         MENUITEM "&Run\tF7",                    ID_EMULATION_RUN
         MENUITEM "&Pause\tF8",                  ID_EMULATION_PAUSE
+        MENUITEM "&Stop",                       ID_EMULATION_STOP
         MENUITEM SEPARATOR
         MENUITEM "R&eset",                      ID_EMULATION_RESET
         MENUITEM SEPARATOR

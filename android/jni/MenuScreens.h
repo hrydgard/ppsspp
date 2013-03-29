@@ -51,11 +51,12 @@ private:
 };
 
 // Dialog box, meant to be pushed
-class InGameMenuScreen : public Screen
+class PauseScreen : public Screen
 {
 public:
 	void update(InputState &input);
 	void render();
+	virtual void sendMessage(const char *msg, const char *value);
 };
 
 

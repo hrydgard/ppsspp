@@ -23,12 +23,6 @@
 
 extern const char *PPSSPP_GIT_VERSION;
 
-struct SState
-{
-	bool bEmuThreadStarted;	// is anything loaded into the emulator?
-	bool bBooted;
-};
-
 struct Config
 {
 public:
@@ -105,5 +99,4 @@ private:
 	std::string iniFilename_;
 };
 
-extern SState g_State;
 extern Config g_Config;

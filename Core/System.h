@@ -26,6 +26,16 @@
 extern MetaFileSystem pspFileSystem;
 extern ParamSFOData g_paramSFO;
 
+
+// To synchronize the two UIs, we need to know which state we're in.
+enum UIState {
+	UISTATE_MENU,
+	UISTATE_PAUSEMENU,
+	UISTATE_INGAME,
+};
+
+
+
 bool PSP_Init(const CoreParameter &coreParam, std::string *error_string);
 bool PSP_IsInited();
 void PSP_Shutdown();

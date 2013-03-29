@@ -154,13 +154,8 @@ static std::string SymbolMapFilename(const char *currentFilename)
 
 bool WindowsHost::AttemptLoadSymbolMap()
 {
-	return symbolMap.LoadSymbolMap(SymbolMapFilename(GetCurrentFilename()).c_str());
-}
-
-void WindowsHost::PrepareShutdown()
-{
-	// Autosaving symbolmap is no longer very useful.
-	// symbolMap.SaveSymbolMap(SymbolMapFilename(GetCurrentFilename()).c_str());
+	return false;
+	//return symbolMap.LoadSymbolMap(SymbolMapFilename(GetCurrentFilename()).c_str());
 }
 
 void WindowsHost::AddSymbol(std::string name, u32 addr, u32 size, int type=0) 

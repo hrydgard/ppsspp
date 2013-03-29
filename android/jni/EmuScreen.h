@@ -31,6 +31,7 @@ public:
 	virtual void render();
 	virtual void deviceLost();
 	virtual void dialogFinished(const Screen *dialog, DialogResult result);
+	virtual void sendMessage(const char *msg, const char *value);
 
 private:
 	// Something invalid was loaded, don't try to emulate

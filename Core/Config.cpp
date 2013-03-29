@@ -20,8 +20,9 @@
 #include "IniFile.h"
 #include "HLE/sceUtility.h"
 
-SState g_State;
 Config g_Config;
+
+#define MAX_RECENT 4
 
 Config::Config()
 {
@@ -57,6 +58,8 @@ void Config::Load(const char *iniFileName)
 	// "default" means let emulator decide, "" means disable.
 	general->Get("ReportHost", &sReportHost, "default");
 	general->Get("Recent", recentIsos);
+	if (recentIsos.size() > MAX_RECENT)
+		recentIsos.resize(MAX_RECENT);
 
 	IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 	cpu->Get("Jit", &bJit, true);
@@ -179,10 +182,12 @@ void Config::AddRecent(const std::string &file) {
 		if (*str == file) {
 			recentIsos.erase(str);
 			recentIsos.insert(recentIsos.begin(), file);
+			if (recentIsos.size() > MAX_RECENT)
+				recentIsos.resize(MAX_RECENT);
 			return;
 		}
 	}
 	recentIsos.insert(recentIsos.begin(), file);
-	if (recentIsos.size() > 4)
-		recentIsos.resize(4);
+	if (recentIsos.size() > MAX_RECENT)
+		recentIsos.resize(MAX_RECENT);
 }
