@@ -331,7 +331,11 @@ namespace MainWindow
 				break;
 
 			case ID_EMULATION_RUN:
-				NativeMessageReceived("run", "");
+				if (Core_IsStepping()) {
+					Core_EnableStepping(false);
+				} else {
+					NativeMessageReceived("run", "");
+				}
 				for (int i=0; i<numCPUs; i++)
 					if (disasmWindow[i])
 						SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
@@ -360,6 +364,14 @@ namespace MainWindow
 				UpdateMenus();
 				break;
 
+			case ID_EMULATION_PAUSE:
+				if (disasmWindow[0])
+				{
+					SendMessage(disasmWindow[0]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
+				}
+				NativeMessageReceived("pause", "");
+				break;
+
 			case ID_EMULATION_RESET:
 				/*
 				for (int i=0; i<numCPUs; i++)
@@ -380,13 +392,6 @@ namespace MainWindow
 
 				EmuThread_Start(GetCurrentFilename());*/
 
-				break;
-
-			case ID_EMULATION_PAUSE:
-				for (int i=0; i<numCPUs; i++)
-					if (disasmWindow[i])
-						SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
-				NativeMessageReceived("pause", "");
 				break;
 
 			case ID_EMULATION_SPEEDLIMIT:
@@ -733,19 +738,12 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_FRAMESKIP, g_Config.iFrameSkip != 0);
 		CHECKITEM(ID_OPTIONS_USEMEDIAENGINE, g_Config.bUseMediaEngine);
 
-
-		bool paused = !Core_IsStepping();
-
-		UINT enable = paused ? MF_GRAYED : MF_ENABLED;
-
-		bool pspRunning = PSP_CoreParameter().fileToStart.size() != 0;
-
-		EnableMenuItem(menu,ID_EMULATION_RUN, globalUIState == UISTATE_PAUSEMENU ? MF_ENABLED : MF_GRAYED);
+		EnableMenuItem(menu,ID_EMULATION_RUN, (Core_IsStepping() || globalUIState == UISTATE_PAUSEMENU) ? MF_ENABLED : MF_GRAYED);
 		EnableMenuItem(menu,ID_EMULATION_PAUSE, globalUIState == UISTATE_INGAME ? MF_ENABLED : MF_GRAYED);
 		EnableMenuItem(menu,ID_EMULATION_STOP, globalUIState == UISTATE_INGAME ? MF_ENABLED : MF_GRAYED);
 		EnableMenuItem(menu,ID_EMULATION_RESET, MF_GRAYED); //pspRunning ? MF_ENABLED : MF_GRAYED);
 
-		enable = globalUIState == UISTATE_MENU ? MF_ENABLED : MF_GRAYED;
+		UINT enable = globalUIState == UISTATE_MENU ? MF_ENABLED : MF_GRAYED;
 		EnableMenuItem(menu,ID_FILE_LOAD,enable);
 		EnableMenuItem(menu,ID_FILE_LOAD_MEMSTICK,enable);
 		EnableMenuItem(menu,ID_FILE_SAVESTATEFILE,!enable);
@@ -755,9 +753,8 @@ namespace MainWindow
 		EnableMenuItem(menu,ID_CPU_DYNAREC,enable);
 		EnableMenuItem(menu,ID_CPU_INTERPRETER,enable);
 		EnableMenuItem(menu,ID_EMULATION_STOP,!enable);
-		// EnableMenuItem(menu,ID_OPTIONS_USEMEDIAENGINE,enable);
 
-		const int zoomitems[4] = {
+		static const int zoomitems[4] = {
 			ID_OPTIONS_SCREEN1X,
 			ID_OPTIONS_SCREEN2X,
 			ID_OPTIONS_SCREEN3X,

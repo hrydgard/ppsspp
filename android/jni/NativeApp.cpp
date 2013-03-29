@@ -124,7 +124,9 @@ public:
 
 // globals
 static PMixer *g_mixer = 0;
+#ifndef _WIN32
 static AndroidLogger *logger = 0;
+#endif
 
 std::string boot_filename = "";
 
@@ -181,6 +183,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 
 	host = new NativeHost();
 
+#ifndef _WIN32
 	logger = new AndroidLogger();
 
 	LogManager::Init();
@@ -188,8 +191,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	ILOG("Logman: %p", logman);
 
 	config_filename = user_data_path + "/ppsspp.ini";
-
 	g_Config.Load(config_filename.c_str());
+
 
 	const char *fileToLog = 0;
 
@@ -247,6 +250,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 		g_Config.currentDirectory = getenv("HOME");
 #endif
 	}
+#endif
 
 #if defined(ANDROID)
 	// Maybe there should be an option to use internal memory instead, but I think
@@ -268,6 +272,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	g_Config.flashDirectory = g_Config.memCardDirectory+"/flash/";
 #endif
 
+#ifndef _WIN32
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++)
 	{
 		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
@@ -285,6 +290,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	if (!gfxLog)
 		logman->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
 	INFO_LOG(BOOT, "Logger inited.");
+#endif	
 }
 
 void NativeInitGraphics()
