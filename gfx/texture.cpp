@@ -113,6 +113,7 @@ bool Texture::Load(const char *filename) {
 	if (!strcmp("png", &name[len-3]) ||
 		!strcmp("PNG", &name[len-3])) {
 			if (!LoadPNG(fn)) {
+				WLOG("WARNING: Failed to load .png %s, falling back to ugly gray XOR pattern!", fn);
 				LoadXOR();
 				return false;
 			} else {
@@ -124,6 +125,7 @@ bool Texture::Load(const char *filename) {
 		if (LoadZIM(name)) {
 			return true;
 		} else {
+			WLOG("WARNING: Failed to load .zim texture %s, falling back to ugly gray XOR pattern!", fn);
 			LoadXOR();
 			return false;
 		}

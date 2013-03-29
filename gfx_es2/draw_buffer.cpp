@@ -120,6 +120,13 @@ void DrawBuffer::Flush(const GLSLProgram *program, bool set_blend_state) {
 }
 
 void DrawBuffer::V(float x, float y, float z, uint32 color, float u, float v) {
+#ifdef _DEBUG
+	if (count_ >= MAX_VERTS) {
+		FLOG("Overflowed the DrawBuffer");
+		return;
+	}
+#endif
+
 	Vertex *vert = &verts_[count_++];
 	vert->x = x;
 	vert->y = y;
