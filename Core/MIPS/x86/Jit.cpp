@@ -18,13 +18,14 @@
 #include <algorithm>
 #include <iterator>
 #include "Common/ChunkFile.h"
-#include "../../Core.h"
-#include "../../CoreTiming.h"
-#include "../../Config.h"
-#include "../MIPS.h"
-#include "../MIPSCodeUtils.h"
-#include "../MIPSInt.h"
-#include "../MIPSTables.h"
+#include "Core/Core.h"
+#include "Core/System.h"
+#include "Core/CoreTiming.h"
+#include "Core/Config.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSCodeUtils.h"
+#include "Core/MIPS/MIPSInt.h"
+#include "Core/MIPS/MIPSTables.h"
 
 #include "RegCache.h"
 #include "Jit.h"

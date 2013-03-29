@@ -36,6 +36,7 @@
 #include "ui/screen.h"
 #include "ui/ui.h"
 
+#include "base/mutex.h"
 #include "FileUtil.h"
 #include "LogManager.h"
 #include "../../Core/PSPMixer.h"
@@ -59,6 +60,12 @@ Texture *uiTexture;
 ScreenManager *screenManager;
 std::string config_filename;
 std::string game_title;
+
+recursive_mutex pendingMutex;
+static bool isMessagePending;
+static std::string pendingMessage;
+static std::string pendingValue;
+
 
 class AndroidLogger : public LogListener
 {
@@ -112,7 +119,6 @@ public:
 
 	// this is sent from EMU thread! Make sure that Host handles it properly!
 	virtual void BootDone() {}
-	virtual void PrepareShutdown() {}
 
 	virtual bool IsDebuggingEnabled() {return false;}
 	virtual bool AttemptLoadSymbolMap() {return false;}
@@ -125,7 +131,9 @@ public:
 
 // globals
 static PMixer *g_mixer = 0;
+#ifndef _WIN32
 static AndroidLogger *logger = 0;
+#endif
 
 std::string boot_filename = "";
 
@@ -139,23 +147,17 @@ void NativeHost::ShutdownSound()
 	g_mixer = 0;
 }
 
-void NativeMix(short *audio, int num_samples)
+int NativeMix(short *audio, int num_samples)
 {
 	if (g_mixer)
 	{
-		g_mixer->Mix(audio, num_samples);
+		return g_mixer->Mix(audio, num_samples);
 	}
 	else
 	{
 		//memset(audio, 0, numSamples * 2);
+		return 0;
 	}
-}
-
-int NativeMixCount(short *audio, int num_samples)
-{
-	if (g_mixer)
-		return g_mixer->Mix(audio, num_samples);
-	return 0;
 }
 
 void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, bool *landscape)
@@ -173,7 +175,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 {
 	EnableFZ();
 	std::string user_data_path = savegame_directory;
-
+	isMessagePending = false;
 	// We want this to be FIRST.
 #ifdef BLACKBERRY
 	// Packed assets are included in app/native/ dir
@@ -188,6 +190,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 
 	host = new NativeHost();
 
+#ifndef _WIN32
 	logger = new AndroidLogger();
 
 	LogManager::Init();
@@ -195,8 +198,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	ILOG("Logman: %p", logman);
 
 	config_filename = user_data_path + "/ppsspp.ini";
-
 	g_Config.Load(config_filename.c_str());
+
 
 	const char *fileToLog = 0;
 
@@ -254,6 +257,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 		g_Config.currentDirectory = getenv("HOME");
 #endif
 	}
+#endif
 
 #if defined(ANDROID)
 	// Maybe there should be an option to use internal memory instead, but I think
@@ -275,6 +279,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	g_Config.flashDirectory = g_Config.memCardDirectory+"/flash/";
 #endif
 
+#ifndef _WIN32
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++)
 	{
 		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
@@ -292,6 +297,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	if (!gfxLog)
 		logman->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
 	INFO_LOG(BOOT, "Logger inited.");
+#endif	
 }
 
 void NativeInitGraphics()
@@ -350,8 +356,9 @@ void NativeRender()
 	glClearColor(0,0,0,1);
 	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
+	glstate.viewport.set(0, 0, pixel_xres, pixel_yres);
 	glstate.Restore();
-	glViewport(0, 0, pixel_xres, pixel_yres);
+
 	Matrix4x4 ortho;
 	ortho.setOrtho(0.0f, dp_xres, dp_yres, 0.0f, -1.0f, 1.0f);
 	glsl_bind(UIShader_Get());
@@ -362,9 +369,17 @@ void NativeRender()
 
 void NativeUpdate(InputState &input)
 {
+	{
+		lock_guard lock(pendingMutex);
+		if (isMessagePending) {
+			screenManager->sendMessage(pendingMessage.c_str(), pendingValue.c_str());
+			isMessagePending = false;
+		}
+	}
+
 	UIUpdateMouse(0, input.pointer_x[0], input.pointer_y[0], input.pointer_down[0]);
 	screenManager->update(input);
-}
+} 
 
 void NativeDeviceLost()
 {
@@ -394,7 +409,13 @@ void NativeTouch(int finger, float x, float y, double time, TouchEvent event)
 
 void NativeMessageReceived(const char *message, const char *value)
 {
-	// Unused
+	// We can only have one message queued.
+	lock_guard lock(pendingMutex);
+	if (!isMessagePending) {
+		pendingMessage = message;
+		pendingValue = value;
+		isMessagePending = true;
+	}
 }
 
 void NativeShutdownGraphics()
@@ -419,7 +440,9 @@ void NativeShutdown()
 	delete host;
 	host = 0;
 	g_Config.Save();
+#ifndef _WIN32
 	LogManager::Shutdown();
+#endif
 	// This means that the activity has been completely destroyed. PPSSPP does not
 	// boot up correctly with "dirty" global variables currently, so we hack around that
 	// by simply exiting.

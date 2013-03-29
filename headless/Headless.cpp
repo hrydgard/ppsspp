@@ -50,8 +50,11 @@ public:
 	}
 };
 
+struct InputState;
 // Temporary hack around annoying linking error.
 void GL_SwapBuffers() { }
+void NativeUpdate(InputState &input_state) { }
+void NativeRender() { }
 
 void printUsage(const char *progname, const char *reason)
 {
