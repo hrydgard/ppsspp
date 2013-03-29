@@ -61,7 +61,9 @@ void NativeRender();
 // of num_samples.
 // This function may be called from a totally separate thread from
 // the rest of the game, so be careful with synchronization.
-void NativeMix(short *audio, int num_samples);
+// Returns the number of samples actually output. The app should do everything it can
+// to fill the buffer completely.
+int NativeMix(short *audio, int num_samples);
 void NativeSetMixer(void* mixer);
 
 // Called when it's time to shutdown. After this has been called,
