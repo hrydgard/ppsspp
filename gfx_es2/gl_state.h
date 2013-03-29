@@ -202,6 +202,8 @@ struct GLExtensions {
 	bool OES_packed_depth_stencil;
 	bool OES_depth_texture;
 	bool EXT_discard_framebuffer;
+	bool FBO_ARB;
+	bool FBO_EXT;
 };
 
 extern GLExtensions gl_extensions;

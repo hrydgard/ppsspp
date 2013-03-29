@@ -59,4 +59,6 @@ void CheckGLExtensions() {
 	gl_extensions.OES_depth24 = strstr(extString, "GL_OES_depth24") != 0;
 	gl_extensions.OES_depth_texture = strstr(extString, "GL_OES_depth_texture") != 0;
 	gl_extensions.EXT_discard_framebuffer = strstr(extString, "GL_EXT_discard_framebuffer") != 0;
+	gl_extensions.FBO_ARB = strstr(extString, "GL_ARB_framebuffer_object") != 0;
+	gl_extensions.FBO_EXT = strstr(extString, "GL_EXT_framebuffer_object") != 0;
 }
