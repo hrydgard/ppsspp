@@ -111,14 +111,20 @@ void UpdateScreenScale() {
 void Core_RunLoop()
 {
 	while (!coreState) {
+		time_update();
 		UpdateScreenScale();
 		{
 			lock_guard guard(input_state.lock);
+			if (GetAsyncKeyState(VK_ESCAPE)) {
+				input_state.pad_buttons |= PAD_BUTTON_MENU;
+			} else {
+				input_state.pad_buttons &= ~PAD_BUTTON_MENU;
+			}
 			NativeUpdate(input_state);
 		}
 		NativeRender();
 		// Simple throttling to not burn the GPU in the menu.
-		if (!PSP_CoreParameter().fileToStart.size())
+		if (globalUIState != UISTATE_INGAME)
 			Sleep(15);
 		GL_SwapBuffers();
 	}

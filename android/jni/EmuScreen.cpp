@@ -58,8 +58,10 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true)
 	coreParam.enableDebugging = false;
 	coreParam.printfEmuLog = false;
 	coreParam.headLess = false;
+#ifndef _WIN32
 	if (g_Config.iWindowZoom < 1 || g_Config.iWindowZoom > 2)
 		g_Config.iWindowZoom = 1;
+#endif
 	coreParam.renderWidth = 480 * g_Config.iWindowZoom;
 	coreParam.renderHeight = 272 * g_Config.iWindowZoom;
 	coreParam.outputWidth = dp_xres;
@@ -126,6 +128,7 @@ inline float clamp1(float x) {
 
 void EmuScreen::update(InputState &input)
 {
+	globalUIState = UISTATE_INGAME;
 	if (errorMessage_.size()) {
 		screenManager()->push(new ErrorScreen(
 			"Error loading file",

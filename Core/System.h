@@ -28,13 +28,14 @@ extern ParamSFOData g_paramSFO;
 
 
 // To synchronize the two UIs, we need to know which state we're in.
-enum UIState {
+enum GlobalUIState {
 	UISTATE_MENU,
 	UISTATE_PAUSEMENU,
 	UISTATE_INGAME,
 };
 
 
+extern GlobalUIState globalUIState;
 
 bool PSP_Init(const CoreParameter &coreParam, std::string *error_string);
 bool PSP_IsInited();

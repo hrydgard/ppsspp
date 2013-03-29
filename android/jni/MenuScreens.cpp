@@ -19,6 +19,12 @@
 #include <string>
 #include <cstdio>
 
+#ifdef _WIN32
+namespace MainWindow {
+	void BrowseAndBoot(std::string defaultPath);
+}
+#endif
+
 #ifdef _MSC_VER
 #define snprintf _snprintf
 #endif
@@ -39,12 +45,13 @@
 #include "UIShader.h"
 
 #include "Common/StringUtil.h"
-#include "../../GPU/ge_constants.h"
-#include "../../GPU/GPUState.h"
-#include "../../GPU/GPUInterface.h"
-#include "../../Core/Config.h"
-#include "../../Core/CoreParameter.h"
-#include "../../Core/SaveState.h"
+#include "Core/System.h"
+#include "GPU/ge_constants.h"
+#include "GPU/GPUState.h"
+#include "GPU/GPUInterface.h"
+#include "Core/Config.h"
+#include "Core/CoreParameter.h"
+#include "Core/SaveState.h"
 
 #include "MenuScreens.h"
 #include "EmuScreen.h"
@@ -157,7 +164,14 @@ void LogoScreen::render() {
 // ==================
 
 void MenuScreen::update(InputState &input_state) {
+	globalUIState = UISTATE_MENU;
 	frames_++;
+}
+
+void MenuScreen::sendMessage(const char *message, const char *value) {
+	if (!strcmp(message, "boot")) {
+		screenManager()->switchScreen(new EmuScreen(value));
+	}
 }
 
 void MenuScreen::render() {
@@ -189,6 +203,8 @@ void MenuScreen::render() {
 			g_Config.Save();
 			screenManager()->switchScreen(new EmuScreen(fileName.toStdString()));
 		}
+#elif _WIN32
+		MainWindow::BrowseAndBoot("");
 #else
 		FileSelectScreenOptions options;
 		options.allowChooseDirectory = true;
@@ -203,10 +219,12 @@ void MenuScreen::render() {
 		UIReset();
 	}
 
+#ifndef _WIN32
 	if (UIButton(GEN_ID, vlinear, w, "Settings", ALIGN_RIGHT)) {
 		screenManager()->push(new SettingsScreen(), 0);
 		UIReset();
 	}
+#endif
 
 	if (UIButton(GEN_ID, vlinear, w, "Credits", ALIGN_RIGHT)) {
 		screenManager()->switchScreen(new CreditsScreen());
@@ -245,6 +263,7 @@ void MenuScreen::render() {
 
 
 void PauseScreen::update(InputState &input) {
+	globalUIState = UISTATE_PAUSEMENU;
 	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
 		screenManager()->finishDialog(this, DR_CANCEL);
 	}
@@ -306,9 +325,11 @@ void PauseScreen::render() {
 	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH, "Continue", ALIGN_RIGHT)) {
 		screenManager()->finishDialog(this, DR_CANCEL);
 	}
+#ifndef _WIN32
 	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH, "Settings", ALIGN_RIGHT)) {
 		screenManager()->push(new SettingsScreen(), 0);
 	}
+#endif
 	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH, "Return to Menu", ALIGN_RIGHT)) {
 		screenManager()->finishDialog(this, DR_OK);
 	}
@@ -327,6 +348,7 @@ void PauseScreen::render() {
 }
 
 void SettingsScreen::update(InputState &input) {
+	globalUIState = UISTATE_MENU;
 	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
 		g_Config.Save();
 		screenManager()->finishDialog(this, DR_OK);
@@ -527,6 +549,7 @@ void FileSelectScreen::render() {
 }
 
 void CreditsScreen::update(InputState &input_state) {
+	globalUIState = UISTATE_MENU;
 	if (input_state.pad_buttons_down & PAD_BUTTON_BACK) {
 		screenManager()->switchScreen(new MenuScreen());
 	}

@@ -49,6 +49,7 @@
 
 MetaFileSystem pspFileSystem;
 ParamSFOData g_paramSFO;
+GlobalUIState globalUIState;
 static CoreParameter coreParameter;
 static PSPMixer *mixer;
 

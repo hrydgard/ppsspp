@@ -218,7 +218,7 @@ namespace MainWindow
 				filter[i] = '\0';
 		}
 
-		if (W32Util::BrowseForFileName(true, GetHWND(), "Load File",defaultPath.size() ? defaultPath.c_str() : 0, filter.c_str(),"*.pbp;*.elf;*.iso;*.cso;",fn))
+		if (W32Util::BrowseForFileName(true, GetHWND(), "Load File", defaultPath.size() ? defaultPath.c_str() : 0, filter.c_str(),"*.pbp;*.elf;*.iso;*.cso;",fn))
 		{
 			// decode the filename with fullpath
 			std::string fullpath = fn;
@@ -229,7 +229,7 @@ namespace MainWindow
 			_splitpath(fullpath.c_str(), drive, dir, fname, ext);
 
 			std::string executable = std::string(drive) + std::string(dir) + std::string(fname) + std::string(ext);
-			NativeMessageReceived("run", executable.c_str());
+			NativeMessageReceived("boot", executable.c_str());
 		}
 	}
 
@@ -243,10 +243,10 @@ namespace MainWindow
 			break;
 		case WM_SIZE:
 			break;
-			
+
 		case WM_ERASEBKGND:
 	  	return DefWindowProc(hWnd, message, wParam, lParam);
-  
+
 		case WM_LBUTTONDOWN:
 			{
 				lock_guard guard(input_state.lock);
@@ -273,7 +273,6 @@ namespace MainWindow
 				input_state.pointer_y[0] = GET_Y_LPARAM(lParam);
 			}
 			break;
-
 
 		case WM_PAINT:
 			return DefWindowProc(hWnd, message, wParam, lParam);
@@ -332,6 +331,7 @@ namespace MainWindow
 				break;
 
 			case ID_EMULATION_RUN:
+				NativeMessageReceived("run", "");
 				for (int i=0; i<numCPUs; i++)
 					if (disasmWindow[i])
 						SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
@@ -695,6 +695,9 @@ namespace MainWindow
 				PostMessage(hwndMain, WM_COMMAND, ID_EMULATION_RUN, 0);
 			UpdateMenus();
 			break;
+		case WM_MENUSELECT:
+			UpdateMenus();
+			break;
 
 		default:
 			return DefWindowProc(hWnd, message, wParam, lParam);
@@ -730,16 +733,21 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_FRAMESKIP, g_Config.iFrameSkip != 0);
 		CHECKITEM(ID_OPTIONS_USEMEDIAENGINE, g_Config.bUseMediaEngine);
 
-		UINT enable = !Core_IsStepping() ? MF_GRAYED : MF_ENABLED;
+
+		bool paused = !Core_IsStepping();
+
+		UINT enable = paused ? MF_GRAYED : MF_ENABLED;
 
 		bool pspRunning = PSP_CoreParameter().fileToStart.size() != 0;
 
-		EnableMenuItem(menu,ID_EMULATION_RUN, pspRunning ? enable : MF_GRAYED);
-		EnableMenuItem(menu,ID_EMULATION_PAUSE, pspRunning ? !enable : MF_GRAYED);
-		EnableMenuItem(menu,ID_EMULATION_RESET, FALSE); //pspRunning ? MF_ENABLED : MF_GRAYED);
+		EnableMenuItem(menu,ID_EMULATION_RUN, globalUIState == UISTATE_PAUSEMENU ? MF_ENABLED : MF_GRAYED);
+		EnableMenuItem(menu,ID_EMULATION_PAUSE, globalUIState == UISTATE_INGAME ? MF_ENABLED : MF_GRAYED);
+		EnableMenuItem(menu,ID_EMULATION_STOP, globalUIState == UISTATE_INGAME ? MF_ENABLED : MF_GRAYED);
+		EnableMenuItem(menu,ID_EMULATION_RESET, MF_GRAYED); //pspRunning ? MF_ENABLED : MF_GRAYED);
 
-		enable = pspRunning ? MF_GRAYED : MF_ENABLED;
+		enable = globalUIState == UISTATE_MENU ? MF_ENABLED : MF_GRAYED;
 		EnableMenuItem(menu,ID_FILE_LOAD,enable);
+		EnableMenuItem(menu,ID_FILE_LOAD_MEMSTICK,enable);
 		EnableMenuItem(menu,ID_FILE_SAVESTATEFILE,!enable);
 		EnableMenuItem(menu,ID_FILE_LOADSTATEFILE,!enable);
 		EnableMenuItem(menu,ID_FILE_QUICKSAVESTATE,!enable);
