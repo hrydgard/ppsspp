@@ -440,7 +440,9 @@ void NativeShutdown()
 	delete host;
 	host = 0;
 	g_Config.Save();
+#ifndef _WIN32
 	LogManager::Shutdown();
+#endif
 	// This means that the activity has been completely destroyed. PPSSPP does not
 	// boot up correctly with "dirty" global variables currently, so we hack around that
 	// by simply exiting.
