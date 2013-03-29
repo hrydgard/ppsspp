@@ -543,17 +543,17 @@ static void decodeDXT5Block(u32 *dst, const DXT5Block *src, int pitch) {
 	alpha[0] = src->alpha1;
 	alpha[1] = src->alpha2;
 	if (alpha[0] > alpha[1]) {
-		alpha[2] = lerp8(src, 6);
-		alpha[3] = lerp8(src, 5);
-		alpha[4] = lerp8(src, 4);
-		alpha[5] = lerp8(src, 3);
-		alpha[6] = lerp8(src, 2);
-		alpha[7] = lerp8(src, 1);
+		alpha[2] = lerp8(src, 1);
+		alpha[3] = lerp8(src, 2);
+		alpha[4] = lerp8(src, 3);
+		alpha[5] = lerp8(src, 4);
+		alpha[6] = lerp8(src, 5);
+		alpha[7] = lerp8(src, 6);
 	} else {
-		alpha[2] = lerp6(src, 4);
-		alpha[3] = lerp6(src, 3);
-		alpha[4] = lerp6(src, 2);
-		alpha[5] = lerp6(src, 1);
+		alpha[2] = lerp6(src, 1);
+		alpha[3] = lerp6(src, 2);
+		alpha[4] = lerp6(src, 3);
+		alpha[5] = lerp6(src, 4);
 		alpha[6] = 0;
 		alpha[7] = 255;
 	}
