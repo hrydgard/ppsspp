@@ -28,6 +28,7 @@ float dp_yscale = 1.0f;
 
 static uint32_t pad_buttons_async_set = 0;
 static uint32_t pad_buttons_async_clear = 0;
+static uint32_t pad_buttons_down = 0;
 
 extern ScreenManager *screenManager;
 InputState input_state;
@@ -60,6 +61,9 @@ ViewController* sharedViewController;
 		self.bundlePath = [[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/assets/"];
 
 		memset(&input_state, 0, sizeof(input_state));
+		pad_buttons_async_clear = 0;
+		pad_buttons_async_set = 0;
+		pad_buttons_down = 0;
 
 		net::Init();
 
@@ -160,8 +164,9 @@ ViewController* sharedViewController;
 - (void)glkView:(GLKView *)view drawInRect:(CGRect)rect
 {
 	lock_guard guard(input_state.lock);
-	input_state.pad_buttons |= pad_buttons_async_set;
-	input_state.pad_buttons &= ~pad_buttons_async_clear;
+	pad_buttons_down |= pad_buttons_async_set;
+	pad_buttons_down &= ~pad_buttons_async_clear;
+	input_state.pad_buttons = pad_buttons_down;
 	UpdateInputState(&input_state);
 
 	{
