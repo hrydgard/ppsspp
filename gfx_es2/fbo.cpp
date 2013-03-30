@@ -38,6 +38,7 @@ struct FBO {
 // On PC, we always use GL_DEPTH24_STENCIL8. 
 // On Android, we try to use what's available.
 
+#ifndef USING_GLES2
 FBO *fbo_ext_create(int width, int height, int num_color_textures, bool z_stencil, FBOColorDepth colorDepth) {
 	FBO *fbo = new FBO();
 	fbo->width = width;
@@ -110,11 +111,15 @@ FBO *fbo_ext_create(int width, int height, int num_color_textures, bool z_stenci
 	glBindTexture(GL_TEXTURE_2D, 0);
 	return fbo;
 }
+#endif
 
 FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, FBOColorDepth colorDepth) {
 	CheckGLExtensions();
-	if(gl_extensions.FBO_ARB==false)
+
+#ifndef USING_GLES2
+	if(!gl_extensions.FBO_ARB)
 		return fbo_ext_create(width, height, num_color_textures, z_stencil, colorDepth);
+#endif
 
 	FBO *fbo = new FBO();
 	fbo->width = width;
@@ -231,7 +236,9 @@ void fbo_unbind() {
 	if(gl_extensions.FBO_ARB){
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 	}else{
+#ifndef USING_GLES2
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+#endif
 	}
 #ifdef IOS
 	bindDefaultFBO();
@@ -242,7 +249,9 @@ void fbo_bind_as_render_target(FBO *fbo) {
 	if(gl_extensions.FBO_ARB){
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo->handle);
 	}else{
+#ifndef USING_GLES2
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fbo->handle);
+#endif
 	}
 }
 
@@ -250,7 +259,9 @@ void fbo_bind_for_read(FBO *fbo) {
 	if(gl_extensions.FBO_ARB){
 		glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo->handle);
 	}else{
+#ifndef USING_GLES2
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fbo->handle);
+#endif
 	}
 }
 
@@ -267,12 +278,14 @@ void fbo_destroy(FBO *fbo) {
 		glDeleteFramebuffers(1, &fbo->handle);
 		glDeleteRenderbuffers(1, &fbo->z_stencil_buffer);
 	}else{
+#ifndef USING_GLES2
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fbo->handle);
 		glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
 		glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER_EXT, 0);
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
 		glDeleteFramebuffersEXT(1, &fbo->handle);
 		glDeleteRenderbuffersEXT(1, &fbo->z_stencil_buffer);
+#endif
 	}
 
 	glDeleteTextures(1, &fbo->color_texture);
