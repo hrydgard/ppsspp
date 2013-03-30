@@ -971,6 +971,17 @@ if(WIN32)
 	setup_target_project(PPSSPPWindows Windows)
 endif()
 
+if(HEADLESS)
+	add_executable(PPSSPPHeadless
+		headless/Headless.cpp
+		headless/StubHost.h
+		headless/Compare.cpp
+		headless/Compare.h)
+	target_link_libraries(PPSSPPHeadless ${CoreLibName}
+		${COCOA_LIBRARY} ${CMAKE_THREAD_LIBS_INIT})
+	setup_target_project(PPSSPPHeadless headless)
+endif()
+
 set(NativeAppSource
 	android/jni/NativeApp.cpp
 	android/jni/EmuScreen.cpp
@@ -986,16 +997,6 @@ set(NativeAssets
 	android/assets/ui_atlas.zim
 	assets/ppge_atlas.zim)
 set(LinkCommon ${CoreLibName} ${CMAKE_THREAD_LIBS_INIT} ${nativeExtraLibs})
-
-if(HEADLESS)
-	add_executable(PPSSPPHeadless ${NativeAppSource}
-		headless/Headless.cpp
-		headless/StubHost.h
-		headless/Compare.cpp
-		headless/Compare.h)
-	target_link_libraries(PPSSPPHeadless ${LinkCommon})
-	setup_target_project(PPSSPPHeadless headless)
-endif()
 
 if (TargetBin)
 	if (IOS)
