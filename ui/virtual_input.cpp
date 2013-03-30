@@ -59,8 +59,6 @@ void TouchCrossPad::update(InputState &input_state)
 	const float deadzone = 0.17f;
 	bool all_up = true;
 
-	input_state.pad_buttons &= ~(PAD_BUTTON_LEFT | PAD_BUTTON_RIGHT | PAD_BUTTON_UP | PAD_BUTTON_DOWN);
-
 	for (int i = 0; i < MAX_POINTERS; i++) {
 		if (input_state.pointer_down[i]) {
 			float dx = (input_state.pointer_x[i] - x_) * inv_stick_size;
@@ -76,6 +74,7 @@ void TouchCrossPad::update(InputState &input_state)
 
 			int direction = (int)(floorf((atan2f(dy, dx) / (2 * M_PI) * 8) + 0.5f)) & 7;
 	
+			input_state.pad_buttons &= ~(PAD_BUTTON_LEFT | PAD_BUTTON_RIGHT | PAD_BUTTON_UP | PAD_BUTTON_DOWN);
 			switch (direction) {
 			case 0: input_state.pad_buttons |= PAD_BUTTON_RIGHT; break;
 			case 1: input_state.pad_buttons |= PAD_BUTTON_RIGHT | PAD_BUTTON_DOWN; break;
