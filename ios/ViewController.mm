@@ -112,7 +112,7 @@ ViewController* sharedViewController;
 	dp_yscale = (float)dp_yres / (float)pixel_yres;
     
     if (g_Config.bEnableSound)
-        self.audioEngine = [[[AudioEngine alloc] init] autorelease];
+		self.audioEngine = [[[AudioEngine alloc] init] autorelease];
 /*
 	UISwipeGestureRecognizer* gesture = [[[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(swipeGesture:)] autorelease];
 	[self.view addGestureRecognizer:gesture];
@@ -138,7 +138,7 @@ ViewController* sharedViewController;
 {
 	[self viewDidUnload];
     
-    self.audioEngine = nil;
+	self.audioEngine = nil;
 	self.touches = nil;
 	self.documentsPath = nil;
 	self.bundlePath = nil;
@@ -224,12 +224,36 @@ ViewController* sharedViewController;
 	input_state.mouse_valid = true;
 }
 
+- (NSDictionary*)touchDictBy:(UITouch*)touch
+{
+    for (NSDictionary* dict in self.touches) {
+        if ([dict objectForKey:@"touch"] == touch)
+            return dict;
+    }
+    return nil;
+}
+
+- (int)freeTouchIndex
+{
+    int index = 0;
+
+    for (NSDictionary* dict in self.touches)
+    {
+        int i = [[dict objectForKey:@"index"] intValue];
+        if (index == i)
+            index = i+1;
+    }
+
+    return index;
+}
+
 - (void)touchesBegan:(NSSet *)_touches withEvent:(UIEvent *)event
 {
 	for(UITouch* touch in _touches) {
-		[self.touches addObject:touch];
+		NSDictionary* dict = @{@"touch":touch,@"index":@([self freeTouchIndex])};
+		[self.touches addObject:dict];
 		CGPoint point = [touch locationInView:self.view];
-		[self touchX:point.x y:point.y code:1 pointerId:[self.touches indexOfObject:touch]];
+		[self touchX:point.x y:point.y code:1 pointerId:[[dict objectForKey:@"index"] intValue]];
 	}
 }
 
@@ -237,7 +261,8 @@ ViewController* sharedViewController;
 {
 	for(UITouch* touch in _touches) {
 		CGPoint point = [touch locationInView:self.view];
-		[self touchX:point.x y:point.y code:0 pointerId:[self.touches indexOfObject:touch]];
+		NSDictionary* dict = [self touchDictBy:touch];
+		[self touchX:point.x y:point.y code:0 pointerId:[[dict objectForKey:@"index"] intValue]];
 	}
 }
 
@@ -245,8 +270,9 @@ ViewController* sharedViewController;
 {
 	for(UITouch* touch in _touches) {
 		CGPoint point = [touch locationInView:self.view];
-		[self touchX:point.x y:point.y code:2 pointerId:[self.touches indexOfObject:touch]];
-		[self.touches removeObject:touch];
+		NSDictionary* dict = [self touchDictBy:touch];
+		[self touchX:point.x y:point.y code:2 pointerId:[[dict objectForKey:@"index"] intValue]];
+		[self.touches removeObject:dict];
 	}
 }
 
