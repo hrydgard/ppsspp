@@ -282,8 +282,10 @@ void __KernelMutexBeginCallback(SceUID threadID, SceUID prevCallbackId)
 	Mutex *mutex = mutexID == 0 ? NULL : kernelObjects.Get<Mutex>(mutexID, error);
 	if (mutex)
 	{
+		// This means two callbacks in a row.  PSP crashes if the same callback runs inside itself.
+		// TODO: Handle this better?
 		if (mutex->pausedWaitTimeouts.find(pauseKey) != mutex->pausedWaitTimeouts.end())
-			WARN_LOG_REPORT(HLE, "sceKernelLockMutexCB: Callback %08x triggered within itself, should not happen (PSP crashes.)", prevCallbackId);
+			return;
 
 		if (timeoutPtr != 0 && mutexWaitTimer != -1)
 		{
@@ -923,8 +925,10 @@ void __KernelLwMutexBeginCallback(SceUID threadID, SceUID prevCallbackId)
 	LwMutex *mutex = mutexID == 0 ? NULL : kernelObjects.Get<LwMutex>(mutexID, error);
 	if (mutex)
 	{
+		// This means two callbacks in a row.  PSP crashes if the same callback runs inside itself.
+		// TODO: Handle this better?
 		if (mutex->pausedWaitTimeouts.find(pauseKey) != mutex->pausedWaitTimeouts.end())
-			WARN_LOG_REPORT(HLE, "sceKernelLockLwMutexCB: Callback %08x triggered within itself, should not happen (PSP crashes.)", prevCallbackId);
+			return;
 
 		if (timeoutPtr != 0 && lwMutexWaitTimer != -1)
 		{

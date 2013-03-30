@@ -142,8 +142,10 @@ void __KernelSemaBeginCallback(SceUID threadID, SceUID prevCallbackId)
 	Semaphore *s = semaID == 0 ? NULL : kernelObjects.Get<Semaphore>(semaID, error);
 	if (s)
 	{
+		// This means two callbacks in a row.  PSP crashes if the same callback runs inside itself.
+		// TODO: Handle this better?
 		if (s->pausedWaitTimeouts.find(pauseKey) != s->pausedWaitTimeouts.end())
-			WARN_LOG_REPORT(HLE, "sceKernelWaitSemaCB: Callback %08x triggered within itself, should not happen (PSP crashes.)", prevCallbackId);
+			return;
 
 		if (timeoutPtr != 0 && semaWaitTimer != -1)
 		{
