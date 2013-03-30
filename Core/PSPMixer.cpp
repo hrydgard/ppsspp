@@ -26,5 +26,13 @@
 
 int PSPMixer::Mix(short *stereoout, int numSamples)
 {
-	return __AudioMix(stereoout, numSamples);
+	int numFrames = __AudioMix(stereoout, numSamples);
+#ifdef _WIN32
+	if (numFrames < numSamples) {
+		// Our dsound backend will not stop playing, let's just feed it zeroes if we miss data.
+		memset(stereoout + 2 * 2 * numFrames, 0, 2 * 2 * (numSamples - numFrames));
+		numFrames = numSamples;
+	}
+#endif
+	return numFrames;
 }
