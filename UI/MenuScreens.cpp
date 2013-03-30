@@ -39,6 +39,7 @@ namespace MainWindow {
 #include "input/input_state.h"
 #include "math/curves.h"
 #include "ui/ui.h"
+#include "ui/ui_context.h"
 #include "ui_atlas.h"
 #include "util/random/rng.h"
 #include "util/text/utf8.h"
@@ -464,13 +465,15 @@ void DeveloperScreen::render() {
 
 class FileListAdapter : public UIListAdapter {
 public:
-	FileListAdapter(const FileSelectScreenOptions &options, const std::vector<FileInfo> *items) : options_(options), items_(items) {}
+	FileListAdapter(const FileSelectScreenOptions &options, const std::vector<FileInfo> *items, UIContext *ctx) 
+		: options_(options), items_(items), ctx_(ctx) {}
 	virtual size_t getCount() const { return items_->size(); }
 	virtual void drawItem(int item, int x, int y, int w, int h, bool active) const;
 
 private:
 	const FileSelectScreenOptions &options_;
 	const std::vector<FileInfo> *items_;
+	const UIContext *ctx_;
 };
 
 void FileListAdapter::drawItem(int item, int x, int y, int w, int h, bool selected) const
@@ -484,16 +487,40 @@ void FileListAdapter::drawItem(int item, int x, int y, int w, int h, bool select
 		if (iter != options_.iconMapping.end())
 			icon = iter->second;
 	}
+
 	int iconSpace = this->itemHeight(item);
 	ui_draw2d.DrawImage2GridH(selected ? I_BUTTON_SELECTED: I_BUTTON, x, y, x + w);
 	ui_draw2d.DrawTextShadow(UBUNTU24, (*items_)[item].name.c_str(), x + UI_SPACE + iconSpace, y + 25, 0xFFFFFFFF, ALIGN_LEFT | ALIGN_VCENTER);
+
+#if 0
+	// This might create a texture so we must flush first.
+	UIFlush();
+	GameInfo *ginfo = 0;
+	if (!(*items_)[item].isDirectory)
+		ginfo = g_gameInfoCache.GetInfo((*items_)[item].fullName, false);
+	if (ginfo && ginfo->iconTexture) {
+		float scaled_w = h * (144.f / 80.f);
+		UIFlush();
+		ginfo->iconTexture->Bind(0);
+		ui_draw2d.DrawTexRect(x + 10, y, x + 10 + scaled_w, y + h, 0, 0, 1, 1, 0xFFFFFFFF);
+		ui_draw2d.Flush();
+		ctx_->RebindTexture();
+	} else {
+		if (icon != -1)
+			ui_draw2d.DrawImage(icon, x + UI_SPACE, y + 25, 1.0f, 0xFFFFFFFF, ALIGN_VCENTER | ALIGN_LEFT);
+	}
+#else
 	if (icon != -1)
 		ui_draw2d.DrawImage(icon, x + UI_SPACE, y + 25, 1.0f, 0xFFFFFFFF, ALIGN_VCENTER | ALIGN_LEFT);
+#endif
 }
-
 
 FileSelectScreen::FileSelectScreen(const FileSelectScreenOptions &options) : options_(options) {
 	currentDirectory_ = g_Config.currentDirectory;
+#ifdef _WIN32
+	// HACK
+	// currentDirectory_ = "E:/PSP ISO/";
+#endif
 	updateListing();
 }
 
@@ -512,7 +539,7 @@ void FileSelectScreen::update(InputState &input_state) {
 }
 
 void FileSelectScreen::render() {
-	FileListAdapter adapter(options_, &listing_);
+	FileListAdapter adapter(options_, &listing_, screenManager()->getUIContext());
 
 	UIShader_Prepare();
 	UIBegin(UIShader_Get());

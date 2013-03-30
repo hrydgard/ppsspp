@@ -24,10 +24,11 @@ extern "C"
 #include <cstdio>
 #include <cstring>
 
-
 BlockDevice *constructBlockDevice(const char *filename) {
 	// Check for CISO
 	FILE *f = fopen(filename, "rb");
+	if (!f)
+		return 0;
 	char buffer[4];
 	auto size = fread(buffer, 1, 4, f); //size_t
 	fclose(f);

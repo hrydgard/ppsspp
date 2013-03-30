@@ -25,7 +25,6 @@
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/FileSystems/DirectoryFileSystem.h"
 
-
 GameInfoCache g_gameInfoCache;
 
 GameInfoCache::~GameInfoCache()
@@ -82,14 +81,14 @@ GameInfo *GameInfoCache::GetInfo(const std::string &gamePath, bool wantBG) {
 			info->iconTexture = new Texture();
 			// TODO: We could actually do the PNG decoding as well on the async thread.
 			// We'd have to split up Texture->LoadPNG though, creating some intermediate Image class maybe.
-			if (info->iconTexture->LoadPNG((const u8 *)info->iconTextureData.data(), info->iconTextureData.size())) {
+			if (info->iconTexture->LoadPNG((const u8 *)info->iconTextureData.data(), info->iconTextureData.size(), false)) {
 				info->timeIconWasLoaded = time_now_d();
 			}
 			info->iconTextureData.clear();
 		}
 		if (info->bgTextureData.size()) {
 			info->bgTexture = new Texture();
-			if (info->bgTexture->LoadPNG((const u8 *)info->bgTextureData.data(), info->bgTextureData.size())) {
+			if (info->bgTexture->LoadPNG((const u8 *)info->bgTextureData.data(), info->bgTextureData.size(), false)) {
 				info->timeBgWasLoaded = time_now_d();
 			}
 			info->bgTextureData.clear();
@@ -97,8 +96,6 @@ GameInfo *GameInfoCache::GetInfo(const std::string &gamePath, bool wantBG) {
 		iter->second->lastAccessedTime = time_now_d();
 		return iter->second;
 	}
-
-	GameInfo *info = new GameInfo();
 
 	// return info;
 
@@ -109,12 +106,17 @@ GameInfo *GameInfoCache::GetInfo(const std::string &gamePath, bool wantBG) {
 	if (startsWith(gamePath, "ms0:/PSP/GAME")) {
 		return 0;
 	} else {
-		info_[gamePath] = info;
 		SequentialHandleAllocator handles;
 		// Let's assume it's an ISO.
 		// TODO: This will currently read in the whole directory tree. Not really necessary for just a
 		// few files.
-		ISOFileSystem umd(&handles, constructBlockDevice(gamePath.c_str()));
+		BlockDevice *bd = constructBlockDevice(gamePath.c_str());
+		if (!bd)
+			return 0;  // nothing to do here..
+		ISOFileSystem umd(&handles, bd);
+
+		GameInfo *info = new GameInfo();
+
 
 		// Alright, let's fetch the PARAM.SFO.
 		std::string paramSFOcontents;
@@ -128,7 +130,9 @@ GameInfo *GameInfoCache::GetInfo(const std::string &gamePath, bool wantBG) {
 		if (wantBG) {
 			ReadFileToString(&umd, "/PSP_GAME/PIC1.PNG", &info->bgTextureData);
 		}
+		info_[gamePath] = info;
+		return info;
 	}
 
-	return info;
+	return 0;
 }
