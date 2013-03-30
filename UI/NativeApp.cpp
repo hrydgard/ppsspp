@@ -53,7 +53,7 @@
 #include "UIShader.h"
 
 #ifdef ARM
-#include "ArmEmitterTest.h"
+#include "../../android/jni/ArmEmitterTest.h"
 #endif
 
 Texture *uiTexture;
