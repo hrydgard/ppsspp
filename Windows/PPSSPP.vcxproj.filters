@@ -77,21 +77,6 @@
       <Filter>Windows</Filter>
     </ClCompile>
     <ClCompile Include="..\native\ext\glew\glew.c" />
-    <ClCompile Include="..\android\jni\NativeApp.cpp">
-      <Filter>Android</Filter>
-    </ClCompile>
-    <ClCompile Include="..\android\jni\GamepadEmu.cpp">
-      <Filter>Android</Filter>
-    </ClCompile>
-    <ClCompile Include="..\android\jni\MenuScreens.cpp">
-      <Filter>Android</Filter>
-    </ClCompile>
-    <ClCompile Include="..\android\jni\EmuScreen.cpp">
-      <Filter>Android</Filter>
-    </ClCompile>
-    <ClCompile Include="..\android\jni\UIShader.cpp">
-      <Filter>Android</Filter>
-    </ClCompile>
     <ClCompile Include="XinputDevice.cpp">
       <Filter>Windows\Input</Filter>
     </ClCompile>
@@ -108,9 +93,6 @@
       <Filter>Android</Filter>
     </ClCompile>
     <ClCompile Include="..\android\jni\TestRunner.cpp">
-      <Filter>Android</Filter>
-    </ClCompile>
-    <ClCompile Include="..\android\jni\ui_atlas.cpp">
       <Filter>Android</Filter>
     </ClCompile>
   </ItemGroup>
@@ -169,18 +151,6 @@
     <ClInclude Include="EmuThread.h">
       <Filter>Windows</Filter>
     </ClInclude>
-    <ClInclude Include="..\android\jni\MenuScreens.h">
-      <Filter>Android</Filter>
-    </ClInclude>
-    <ClInclude Include="..\android\jni\GamepadEmu.h">
-      <Filter>Android</Filter>
-    </ClInclude>
-    <ClInclude Include="..\android\jni\EmuScreen.h">
-      <Filter>Android</Filter>
-    </ClInclude>
-    <ClInclude Include="..\android\jni\UIShader.h">
-      <Filter>Android</Filter>
-    </ClInclude>
     <ClInclude Include="InputDevice.h">
       <Filter>Windows\Input</Filter>
     </ClInclude>
@@ -195,9 +165,6 @@
       <Filter>Android</Filter>
     </ClInclude>
     <ClInclude Include="..\android\jni\TestRunner.h">
-      <Filter>Android</Filter>
-    </ClInclude>
-    <ClInclude Include="..\android\jni\ui_atlas.h">
       <Filter>Android</Filter>
     </ClInclude>
   </ItemGroup>

@@ -44,12 +44,20 @@ enum FileType
 };
 
 
-class IHandleAllocator
-{
+class IHandleAllocator {
 public:
 	virtual ~IHandleAllocator() {}
 	virtual u32 GetNewHandle() = 0;
 	virtual void FreeHandle(u32 handle) = 0;
+};
+
+class SequentialHandleAllocator : public IHandleAllocator {
+public:
+	SequentialHandleAllocator() : handle_(1) {}
+	virtual u32 GetNewHandle() { return handle_++; }
+	virtual void FreeHandle(u32 handle) {}
+private:
+	int handle_;
 };
 
 struct PSPFileInfo

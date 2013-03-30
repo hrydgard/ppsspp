@@ -67,3 +67,6 @@ private:
 	FILE *f;
 	size_t filesize;
 };
+
+
+BlockDevice *constructBlockDevice(const char *filename);

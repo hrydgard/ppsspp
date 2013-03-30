@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="ELF">
@@ -384,7 +384,6 @@
     <ClCompile Include="MIPS\ARM\ArmRegCacheFPU.cpp">
       <Filter>MIPS\ARM</Filter>
     </ClCompile>
-    <ClCompile Include="HLE\sceChnnlsv.cpp" />
     <ClCompile Include="Font\PGF.cpp">
       <Filter>Font</Filter>
     </ClCompile>
@@ -393,6 +392,9 @@
       <Filter>Core</Filter>
     </ClCompile>
     <ClCompile Include="HLE\scePspNpDrm_user.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\sceChnnlsv.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
   </ItemGroup>
@@ -718,7 +720,6 @@
     <ClInclude Include="MIPS\ARM\ArmRegCacheFPU.h">
       <Filter>MIPS\ARM</Filter>
     </ClInclude>
-    <ClInclude Include="HLE\sceChnnlsv.h" />
     <ClInclude Include="Font\PGF.h">
       <Filter>Font</Filter>
     </ClInclude>
@@ -726,6 +727,9 @@
       <Filter>Core</Filter>
     </ClInclude>
     <ClInclude Include="HLE\scePspNpDrm_user.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceChnnlsv.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
   </ItemGroup>

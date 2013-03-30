@@ -17,6 +17,7 @@
 
 #include "ELF/ElfReader.h"
 
+#include "FileSystems/BlockDevices.h"
 #include "FileSystems/DirectoryFileSystem.h"
 #include "FileSystems/ISOFileSystem.h"
 
@@ -38,20 +39,6 @@
 #include "HLE/sceKernelModule.h"
 #include "HLE/sceKernelMemory.h"
 #include "ELF/ParamSFO.h"
-
-BlockDevice *constructBlockDevice(const char *filename)
-{
-	// Check for CISO
-	FILE *f = fopen(filename, "rb");
-	char buffer[4];
-	auto size = fread(buffer, 1, 4, f); //size_t
-	fclose(f);
-	if (!memcmp(buffer, "CISO", 4) && size == 4)
-		return new CISOFileBlockDevice(filename);
-	else
-		return new FileBlockDevice(filename);
-}
-
 
 bool Load_PSP_ISO(const char *filename, std::string *error_string)
 {

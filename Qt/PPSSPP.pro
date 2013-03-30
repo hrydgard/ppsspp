@@ -35,12 +35,12 @@ SOURCES += ../native/base/QtMain.cpp
 HEADERS += ../native/base/QtMain.h
 
 # Native
-SOURCES += ../android/jni/EmuScreen.cpp \
-	../android/jni/MenuScreens.cpp \
-	../android/jni/GamepadEmu.cpp \
+SOURCES += ../UI/EmuScreen.cpp \
+	../UI/MenuScreens.cpp \
+	../UI/GamepadEmu.cpp \
 	../android/jni/TestRunner.cpp \
-	../android/jni/UIShader.cpp \
-	../android/jni/ui_atlas.cpp
+	../UI/UIShader.cpp \
+	../UI/ui_atlas.cpp
 
 INCLUDEPATH += .. ../Common ../native
 

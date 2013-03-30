@@ -113,13 +113,13 @@ endif
 
 LOCAL_SRC_FILES := \
   $(ARCH_FILES) \
-  NativeApp.cpp \
-  EmuScreen.cpp \
-  MenuScreens.cpp \
-  UIShader.cpp \
-  GamepadEmu.cpp \
   TestRunner.cpp \
-  ui_atlas.cpp \
+  $(SRC)/UI/ui_atlas.cpp \
+  $(SRC)/UI/NativeApp.cpp \
+  $(SRC)/UI/EmuScreen.cpp \
+  $(SRC)/UI/MenuScreens.cpp \
+  $(SRC)/UI/UIShader.cpp \
+  $(SRC)/UI/GamepadEmu.cpp \
   $(SRC)/native/android/app-android.cpp \
   $(SRC)/ext/disarm.cpp \
   $(SRC)/ext/libkirk/AES.c \

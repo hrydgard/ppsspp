@@ -983,13 +983,13 @@ if(HEADLESS)
 endif()
 
 set(NativeAppSource
-	android/jni/NativeApp.cpp
-	android/jni/EmuScreen.cpp
-	android/jni/TestRunner.cpp
-	android/jni/MenuScreens.cpp
-	android/jni/GamepadEmu.cpp
-	android/jni/UIShader.cpp
-	android/jni/ui_atlas.cpp)
+	UI/NativeApp.cpp
+	UI/EmuScreen.cpp
+	UI/TestRunner.cpp
+	UI/MenuScreens.cpp
+	UI/GamepadEmu.cpp
+	UI/UIShader.cpp
+	UI/ui_atlas.cpp)
 if(ANDROID)
 	set(NativeAppSource ${NativeAppSource} android/jni/ArmEmitterTest.cpp)
 endif()

@@ -225,13 +225,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="..\android\jni\EmuScreen.cpp" />
-    <ClCompile Include="..\android\jni\GamepadEmu.cpp" />
-    <ClCompile Include="..\android\jni\MenuScreens.cpp" />
-    <ClCompile Include="..\android\jni\NativeApp.cpp" />
     <ClCompile Include="..\android\jni\TestRunner.cpp" />
-    <ClCompile Include="..\android\jni\UIShader.cpp" />
-    <ClCompile Include="..\android\jni\ui_atlas.cpp" />
     <ClCompile Include="..\native\ext\glew\glew.c">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -281,12 +275,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\android\jni\ARMEmitterTest.h" />
-    <ClInclude Include="..\android\jni\EmuScreen.h" />
-    <ClInclude Include="..\android\jni\GamepadEmu.h" />
-    <ClInclude Include="..\android\jni\MenuScreens.h" />
     <ClInclude Include="..\android\jni\TestRunner.h" />
-    <ClInclude Include="..\android\jni\UIShader.h" />
-    <ClInclude Include="..\android\jni\ui_atlas.h" />
     <ClInclude Include="Debugger\CtrlDisAsmView.h" />
     <ClInclude Include="Debugger\CtrlMemView.h" />
     <ClInclude Include="Debugger\CtrlRegisterList.h" />
@@ -345,6 +334,9 @@
     </ProjectReference>
     <ProjectReference Include="..\ext\zlib\zlib.vcxproj">
       <Project>{f761046e-6c38-4428-a5f1-38391a37bb34}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\UI\UI.vcxproj">
+      <Project>{004b8d11-2be3-4bd9-ab40-2be04cf2096f}</Project>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

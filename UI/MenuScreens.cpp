@@ -55,7 +55,7 @@ namespace MainWindow {
 
 #include "MenuScreens.h"
 #include "EmuScreen.h"
-#include "TestRunner.h"
+#include "android/jni/TestRunner.h"
 
 #ifdef USING_QT_UI
 #include <QFileDialog>
@@ -91,12 +91,16 @@ static const uint32_t colors[4] = {
 static void DrawBackground(float alpha) {
 	static float xbase[100] = {0};
 	static float ybase[100] = {0};
-	if (xbase[0] == 0.0f) {
+	static int last_dp_xres = 0;
+	static int last_dp_yres = 0;
+	if (xbase[0] == 0.0f || last_dp_xres != dp_xres || last_dp_yres != dp_yres) {
 		GMRng rng;
 		for (int i = 0; i < 100; i++) {
 			xbase[i] = rng.F() * dp_xres;
 			ybase[i] = rng.F() * dp_yres;
 		}
+		last_dp_xres = dp_xres;
+		last_dp_yres = dp_yres;
 	}
 	glstate.depthWrite.set(GL_TRUE);
 	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
