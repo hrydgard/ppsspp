@@ -54,6 +54,8 @@ static uint32_t pad_buttons_async_clear;
 static float left_joystick_x_async;
 static float left_joystick_y_async;
 
+static uint32_t pad_buttons_down;
+
 // Android implementation of callbacks to the Java part of the app
 void SystemToast(const char *text) {
 	frameCommand = "toast";
@@ -142,6 +144,7 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
 	renderer_inited = false;
 	first_lost = true;
 
+	pad_buttons_down = 0;
 	pad_buttons_async_set = 0;
 	pad_buttons_async_clear = 0;
 
@@ -250,8 +253,9 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayRender(JN
 		// TODO: Look into if these locks are a perf loss
 		{
 			lock_guard guard(input_state.lock);
-			input_state.pad_buttons |= pad_buttons_async_set;
-			input_state.pad_buttons &= ~pad_buttons_async_clear;
+			pad_buttons_down |= pad_buttons_async_set;
+			pad_buttons_down &= ~pad_buttons_async_clear;
+			input_state.pad_buttons = pad_buttons_down;
 			UpdateInputState(&input_state);
 		}
 
