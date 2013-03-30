@@ -112,13 +112,13 @@ void Core_RunLoop()
 				// Temporary hack.
 				if (GetAsyncKeyState(VK_ESCAPE)) {
 					input_state.pad_buttons |= PAD_BUTTON_MENU;
-				} else {
-					input_state.pad_buttons &= ~PAD_BUTTON_MENU;
 				}
 				host->PollControllers(input_state);
+				UpdateInputState(&input_state);
 #endif
 			}
 			NativeUpdate(input_state);
+			EndInputState(&input_state);
 		}
 		NativeRender();
 		// Simple throttling to not burn the GPU in the menu.

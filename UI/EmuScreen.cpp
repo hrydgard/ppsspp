@@ -169,7 +169,9 @@ void EmuScreen::update(InputState &input) {
 		return;
 
 	// First translate touches into native pad input.
-	UpdateGamepad(input);
+	if (g_Config.bShowTouchControls)
+		UpdateGamepad(input);
+
 	UpdateInputState(&input);
 
 	// Then translate pad input into PSP pad input. Also, add in tilt.
