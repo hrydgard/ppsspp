@@ -334,7 +334,8 @@ void NativeInitGraphics()
 	uiTexture = new Texture();
 	if (!uiTexture->Load("ui_atlas.zim"))
 	{
-		ELOG("Failed to load texture");
+		PanicAlert("Failed to load ui_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.");
+		ELOG("Failed to load ui_atlas.zim");
 	}
 	uiTexture->Bind(0);
 

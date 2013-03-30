@@ -69,7 +69,11 @@ void Config::Load(const char *iniFileName)
 	IniFile::Section *graphics = iniFile.GetOrCreateSection("Graphics");
 	graphics->Get("ShowFPSCounter", &bShowFPSCounter, false);
 	graphics->Get("DisplayFramebuffer", &bDisplayFramebuffer, false);
+#ifdef _WIN32
+	graphics->Get("WindowZoom", &iWindowZoom, 2);
+#else
 	graphics->Get("WindowZoom", &iWindowZoom, 1);
+#endif
 	graphics->Get("BufferedRendering", &bBufferedRendering, true);
 	graphics->Get("HardwareTransform", &bHardwareTransform, true);
 	graphics->Get("LinearFiltering", &bLinearFiltering, false);

@@ -119,9 +119,12 @@ void Core_RunLoop()
 		NativeRender();
 		// Simple throttling to not burn the GPU in the menu.
 #ifdef _WIN32
-		if (globalUIState != UISTATE_INGAME)
+		if (globalUIState != UISTATE_INGAME) {
 			Sleep(15);
-		GL_SwapBuffers();
+			GL_SwapBuffers();
+		} else if (!Core_IsStepping()) {
+			GL_SwapBuffers();
+		}
 #endif
 	}
 }
