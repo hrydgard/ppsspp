@@ -24,7 +24,7 @@ static GLSLProgram *glslPlain;
 
 static const char modulate_fs[] =
 	"#ifdef GL_ES\n"
-	"precision mediump float;\n"
+	"precision lowp float;\n"
 	"#endif\n"
 	"uniform sampler2D sampler0;\n"
 	"varying vec2 v_texcoord0;\n"
@@ -48,7 +48,7 @@ static const char modulate_vs[] =
 
 static const char plain_fs[] =
 	"#ifdef GL_ES\n"
-	"precision mediump float;\n"
+	"precision lowp float;\n"
 	"#endif\n"
 	"varying vec4 v_color;\n"
 	"void main() {\n"
