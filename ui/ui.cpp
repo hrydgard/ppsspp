@@ -6,6 +6,8 @@
 #include <cstring>
 
 #include "ui/ui.h"
+#include "ui/ui_context.h"
+#include "gfx/texture.h"
 #include "gfx/texture_atlas.h"
 #include "gfx_es2/draw_buffer.h"
 
@@ -74,12 +76,18 @@ bool UIRegionHit(int i, int x, int y, int w, int h, int margin) {
 	}
 }
 
-void UIBegin() {
+void UIBegin(const GLSLProgram *shader) {
 	for (int i = 0; i < MAX_POINTERS; i++)
 		uistate.hotitem[i] = 0;
-	ui_draw2d.Begin();
-	ui_draw2d_front.Begin();
+	ui_draw2d.Begin(shader);
+	ui_draw2d_front.Begin(shader);
 }
+
+void UIFlush() {
+	ui_draw2d.Flush();
+	ui_draw2d_front.Flush();
+}
+
 
 void UIEnd() {
 	for (int i = 0; i < MAX_POINTERS; i++) {
@@ -96,6 +104,8 @@ void UIEnd() {
 
 	if (uistate.ui_tick > 0)
 		uistate.ui_tick--;
+	ui_draw2d.Flush();
+	ui_draw2d_front.Flush();
 }
 
 void UIText(int x, int y, const char *text, uint32_t color, float scale, int align) {
@@ -199,7 +209,7 @@ int UIImageButton(int id, const LayoutManager &layout, float w, int image, int b
 				// Button is merely 'hot'
 			}
 		} else {
-			// button is not hot, but it may be active§
+			// button is not hot, but it may be active
 		}
 
 		// If button is hot and active, but mouse button is not
@@ -215,6 +225,61 @@ int UIImageButton(int id, const LayoutManager &layout, float w, int image, int b
 
 	ui_draw2d.DrawImage2GridH(theme.buttonImage, x, y, x + w);
 	ui_draw2d.DrawImage(image, x + w/2, y + h/2 + txOffset, 1.0f, 0xFFFFFFFF, ALIGN_HCENTER | ALIGN_VCENTER);
+
+	uistate.lastwidget = id;
+	return clicked;
+}
+
+int UITextureButton(UIContext *ctx, int id, const LayoutManager &layout, float w, float h, Texture *texture, int button_align)	// uses current UI atlas for fetching images.
+{
+	float x, y;
+	layout.GetPos(&w, &h, &x, &y);
+
+	if (button_align & ALIGN_HCENTER) x -= w / 2;
+	if (button_align & ALIGN_VCENTER) y -= h / 2;
+	if (button_align & ALIGN_RIGHT) x -= w;
+	if (button_align & ALIGN_BOTTOMRIGHT) y -= h;
+
+	int txOffset = 0;
+	int clicked = 0;
+	for (int i = 0; i < MAX_POINTERS; i++) {
+		// Check whether the button should be hot, use a generous margin for touch ease
+		if (UIRegionHit(i, x, y, w, h, 8)) {
+			uistate.hotitem[i] = id;
+			if (uistate.activeitem[i] == 0 && uistate.mousedown[i])
+				uistate.activeitem[i] = id;
+		}
+
+		if (uistate.hotitem[i] == id) {
+			if (uistate.activeitem[i] == id) {
+				// Button is both 'hot' and 'active'
+				txOffset = 2;
+			} else {
+				// Button is merely 'hot'
+			}
+		} else {
+			// button is not hot, but it may be active
+		}
+
+		// If button is hot and active, but mouse button is not
+		// down, the user must have clicked the button.
+		if (uistate.mousedown[i] == 0 &&
+			uistate.hotitem[i] == id &&
+			uistate.activeitem[i] == id) {
+				clicked = 1;
+		}
+	}
+
+	// Render button
+
+	ui_draw2d.DrawImage2GridH(theme.buttonImage, x, y, x + w);
+	ui_draw2d.Flush();
+
+	texture->Bind(0);
+
+	ui_draw2d.DrawTexRect(x, y, x+w, y+h, 0, 0, 1, 1, 0xFFFFFFFF);
+	ui_draw2d.Flush();
+	ctx->RebindTexture();
 
 	uistate.lastwidget = id;
 	return clicked;
@@ -367,7 +432,7 @@ int UIList::Do(int id, int x, int y, int w, int h, UIListAdapter *adapter) {
 	}
 
 	int itemHeight = adapter->itemHeight(0);
-	int numItems = adapter->getCount();
+	int numItems = (int)adapter->getCount();
 
 	// Cap total inertia
 	if (inertiaY > 20) inertiaY = 20;

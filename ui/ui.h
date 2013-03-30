@@ -16,8 +16,8 @@
 // Simple ID generators. Absolutely no guarantee of collision avoidance if you implement
 // multiple parts of a single screen of UI over multiple files unless you use IMGUI_SRC_ID.
 #ifdef IMGUI_SRC_ID
-#define GEN_ID ((IMGUI_SRC_ID) + (__LINE__))
-#define GEN_ID_LOOP(i) ((IMGUI_SRC_ID) + (__LINE__) + (i) * 13612)
+#define GEN_ID (int)((IMGUI_SRC_ID) + (__LINE__))
+#define GEN_ID_LOOP(i) (int)((IMGUI_SRC_ID) + (__LINE__) + (i) * 13612)
 #else
 #define GEN_ID (__LINE__)
 #define GEN_ID_LOOP(i) ((__LINE__) + (i) * 13612)
@@ -28,6 +28,8 @@
 #include <string>
 #include <vector>
 
+class Texture;
+class UIContext;
 
 class LayoutManager {
 public:
@@ -78,6 +80,7 @@ private:
 	mutable float y_;
 	float spacing_;
 };
+
 
 #ifndef MAX_POINTERS
 #define MAX_POINTERS 8
@@ -180,7 +183,12 @@ private:
 bool UIRegionHit(int pointerId, int x, int y, int w, int h, int margin);
 
 // Call at start of frame
-void UIBegin();
+void UIBegin(const GLSLProgram *shader);
+
+// Call at end of frame.
+
+void UIEnd();
+void UIFlush();
 
 void UIUpdateMouse(int i, float x, float y, bool down);
 
@@ -190,6 +198,7 @@ void UIReset();
 // Returns 1 if clicked
 int UIButton(int id, const LayoutManager &layout, float w, const char *text, int button_align);
 int UIImageButton(int id, const LayoutManager &layout, float w, int image_id, int button_align);	// uses current UI atlas for fetching images.
+int UITextureButton(UIContext *ctx, int id, const LayoutManager &layout, float w, float h, Texture *texture, int button_align);	// uses current UI atlas for fetching images.
 
 // Returns 1 if clicked, puts the value in *value (where it also gets the current state).
 int UICheckBox(int id, int x, int y, const char *text, int align, bool *value);
@@ -244,11 +253,3 @@ private:
 	DISALLOW_COPY_AND_ASSIGN(UIList);
 };
 
-// Call at end of frame.
-// Do this afterwards (or similar):
-
-// ShaderManager::SetUIProgram();
-// ui_draw2d.Flush(ShaderManager::Program());
-// ui_draw2d_front.Flush(ShaderManager::Program());
-
-void UIEnd();

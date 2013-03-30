@@ -47,7 +47,7 @@ public:
 	DrawBuffer();
 	~DrawBuffer();
 
-	void Begin(DrawBufferMode mode = DBMODE_NORMAL);
+	void Begin(const GLSLProgram *program, DrawBufferMode mode = DBMODE_NORMAL);
 	void End();
 
 	// TODO: Enforce these. Now Init is autocalled and shutdown not called.
@@ -57,7 +57,7 @@ public:
 
 	int Count() const { return count_; }
 
-	void Flush(const GLSLProgram *program, bool set_blend_state=true);
+	void Flush(bool set_blend_state=true);
 
 	void Rect(float x, float y, float w, float h, uint32 color, int align = ALIGN_TOPLEFT);
 	void hLine(float x1, float y, float x2, uint32 color) { Rect(x1, y, x2 - x1, pixel_in_dps, color); }
@@ -133,6 +133,8 @@ private:
 		uint32_t rgba;
 		float u, v;
 	};
+
+	const GLSLProgram *program_;
 
 	int vbo_;
 	Vertex *verts_;

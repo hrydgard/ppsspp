@@ -16,13 +16,33 @@ void UIContext::Begin()
 	if (uitexture_)
 		uitexture_->Bind(0);
 
-	UIBegin();
+	UIBegin(uishader_);
 	/*
 	if (uidrawbuffer_ && uishader_)
 		uidrawbuffer_->Begin();
 	if (uidrawbufferTop_ && uishader_)
 		uidrawbufferTop_->Begin();*/
 }
+
+void UIContext::BeginNoTex()
+{
+	glstate.blend.enable();
+	glstate.blendFunc.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glstate.cullFace.disable();
+	glstate.depthTest.disable();
+	if (uishader_)
+		glsl_bind(uishader_);
+	if (uitexture_)
+		uitexture_->Bind(0);
+
+	UIBegin(uishadernotex_);
+	/*
+	if (uidrawbuffer_ && uishader_)
+		uidrawbuffer_->Begin();
+	if (uidrawbufferTop_ && uishader_)
+		uidrawbufferTop_->Begin();*/
+}
+
 
 void UIContext::RebindTexture()
 {
@@ -35,38 +55,12 @@ void UIContext::Flush()
 	if (uidrawbuffer_)
 	{
 		uidrawbuffer_->End();
-		if (uishader_) {
-			glsl_bind(uishader_);
-			uidrawbuffer_->Flush(uishader_);
-		}
+		uidrawbuffer_->Flush();
 	}
 	if (uidrawbufferTop_)
 	{
 		uidrawbufferTop_->End();
-		if (uishader_) {
-			glsl_bind(uishader_);
-			uidrawbufferTop_->Flush(uishader_);
-		}
-	}
-}
-
-void UIContext::FlushNoTex()
-{
-	if (uidrawbuffer_)
-	{
-		uidrawbuffer_->End();
-		if (uishadernotex_) {
-			glsl_bind(uishadernotex_);
-			uidrawbuffer_->Flush(uishadernotex_);
-		}
-	}
-	if (uidrawbufferTop_)
-	{
-		uidrawbufferTop_->End();
-		if (uishadernotex_) {
-			glsl_bind(uishadernotex_);
-			uidrawbufferTop_->Flush(uishadernotex_);
-		}
+		uidrawbufferTop_->Flush();
 	}
 }
 

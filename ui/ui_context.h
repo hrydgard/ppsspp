@@ -7,6 +7,7 @@ struct GLSLProgram;
 class Texture;
 class DrawBuffer;
 
+// Who should own this? Really not sure.
 class UIContext {
 public:
 	UIContext() : uishader_(0), uitexture_(0), uidrawbuffer_(0), uidrawbufferTop_(0) {}
@@ -20,9 +21,10 @@ public:
 	}
 
 	void Begin();
+	void BeginNoTex();
 	void Flush();
-	void FlushNoTex();
 	void End();
+
 	void RebindTexture();
 
 private:
