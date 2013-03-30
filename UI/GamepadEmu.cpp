@@ -28,10 +28,7 @@ TouchButton buttonSelect(&ui_atlas, I_RECT, I_SELECT, PAD_BUTTON_SELECT);
 TouchButton buttonStart(&ui_atlas, I_RECT, I_START, PAD_BUTTON_START);
 TouchButton buttonLShoulder(&ui_atlas, I_SHOULDER, I_L, PAD_BUTTON_LBUMPER);
 TouchButton buttonRShoulder(&ui_atlas, I_SHOULDER, I_R, PAD_BUTTON_RBUMPER, 0, true);
-TouchButton buttonLeft(&ui_atlas, I_DIR, I_ARROW, PAD_BUTTON_LEFT, 0);
-TouchButton buttonUp(&ui_atlas, I_DIR, I_ARROW, PAD_BUTTON_UP, 90);
-TouchButton buttonRight(&ui_atlas, I_DIR, I_ARROW, PAD_BUTTON_RIGHT, 180);
-TouchButton buttonDown(&ui_atlas, I_DIR, I_ARROW, PAD_BUTTON_DOWN, 270);
+TouchCrossPad crossPad(&ui_atlas, I_DIR, I_ARROW);
 #if defined(__SYMBIAN32__) || defined(IOS)
 TouchButton buttonPause(&ui_atlas, I_RECT, I_ARROW, PAD_BUTTON_BACK, 90);
 #endif
@@ -40,7 +37,7 @@ TouchStick leftStick(&ui_atlas, I_STICKBG, I_STICK, 0);
 
 void LayoutGamepad(int w, int h)
 {
-	float controlScale = g_Config.bLargeControls ? 1.6 : 1.15;
+	float controlScale = true||g_Config.bLargeControls ? 1.6 : 1.15;
 
 	const int button_spacing = 50 * controlScale;
 	const int arrow_spacing = 40 * controlScale;
@@ -65,10 +62,7 @@ void LayoutGamepad(int w, int h)
 	buttonTri.setPos(circleX - button_spacing, circleY - button_spacing, controlScale);
 	buttonSq.setPos(circleX - button_spacing * 2, circleY, controlScale);
 
-	buttonLeft.setPos(leftX, leftY, controlScale);
-	buttonUp.setPos(leftX + arrow_spacing, leftY - arrow_spacing, controlScale);
-	buttonDown.setPos(leftX + arrow_spacing, leftY + arrow_spacing, controlScale);
-	buttonRight.setPos(leftX + arrow_spacing * 2, leftY, controlScale);
+	crossPad.setPos(leftX + arrow_spacing, leftY, 40, controlScale);
 
 	buttonSelect.setPos(halfW - button_spacing, h - 20 * controlScale, controlScale);
 	buttonStart.setPos(halfW + button_spacing, h - 20 * controlScale, controlScale);
@@ -91,10 +85,7 @@ void UpdateGamepad(InputState &input_state)
 	buttonTri.update(input_state);
 	buttonSq.update(input_state);
 
-	buttonLeft.update(input_state);
-	buttonUp.update(input_state);
-	buttonDown.update(input_state);
-	buttonRight.update(input_state);
+	crossPad.update(input_state);
 
 	buttonSelect.update(input_state);
 	buttonStart.update(input_state);
@@ -118,10 +109,7 @@ void DrawGamepad(DrawBuffer &db)
 	buttonTri.draw(db, color, colorOverlay);
 	buttonSq.draw(db, color, colorOverlay);
 
-	buttonLeft.draw(db, color, colorOverlay);
-	buttonUp.draw(db, color, colorOverlay);
-	buttonDown.draw(db, color, colorOverlay);
-	buttonRight.draw(db, color, colorOverlay);
+	crossPad.draw(db, color, colorOverlay);
 
 	buttonSelect.draw(db, color, colorOverlay);
 	buttonStart.draw(db, color, colorOverlay);
