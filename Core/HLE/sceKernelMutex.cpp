@@ -132,11 +132,14 @@ struct LwMutex : public KernelObject
 		p.Do(nm);
 		SceUID dv = 0;
 		p.Do(waitingThreads, dv);
+		p.Do(pausedWaitTimeouts);
 		p.DoMarker("LwMutex");
 	}
 
 	NativeLwMutex nm;
 	std::vector<SceUID> waitingThreads;
+	// Key is the callback id it was for, or if no callback, the thread id.
+	std::map<SceUID, u64> pausedWaitTimeouts;
 };
 
 static int mutexWaitTimer = -1;
@@ -147,6 +150,8 @@ static MutexMap mutexHeldLocks;
 
 void __KernelMutexBeginCallback(SceUID threadID, SceUID prevCallbackId);
 void __KernelMutexEndCallback(SceUID threadID, SceUID prevCallbackId, u32 &returnValue);
+void __KernelLwMutexBeginCallback(SceUID threadID, SceUID prevCallbackId);
+void __KernelLwMutexEndCallback(SceUID threadID, SceUID prevCallbackId, u32 &returnValue);
 
 void __KernelMutexInit()
 {
@@ -155,6 +160,7 @@ void __KernelMutexInit()
 
 	__KernelListenThreadEnd(&__KernelMutexThreadEnd);
 	__KernelRegisterWaitTypeFuncs(WAITTYPE_MUTEX, __KernelMutexBeginCallback, __KernelMutexEndCallback);
+	__KernelRegisterWaitTypeFuncs(WAITTYPE_LWMUTEX, __KernelLwMutexBeginCallback, __KernelLwMutexEndCallback);
 }
 
 void __KernelMutexDoState(PointerWrap &p)
@@ -907,6 +913,87 @@ void __KernelWaitLwMutex(LwMutex *mutex, u32 timeoutPtr)
 	CoreTiming::ScheduleEvent(usToCycles(micro), lwMutexWaitTimer, __KernelGetCurThread());
 }
 
+void __KernelLwMutexBeginCallback(SceUID threadID, SceUID prevCallbackId)
+{
+	SceUID pauseKey = prevCallbackId == 0 ? threadID : prevCallbackId;
+
+	u32 error;
+	SceUID mutexID = __KernelGetWaitID(threadID, WAITTYPE_LWMUTEX, error);
+	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
+	LwMutex *mutex = mutexID == 0 ? NULL : kernelObjects.Get<LwMutex>(mutexID, error);
+	if (mutex)
+	{
+		if (mutex->pausedWaitTimeouts.find(pauseKey) != mutex->pausedWaitTimeouts.end())
+			WARN_LOG_REPORT(HLE, "sceKernelLockLwMutexCB: Callback %08x triggered within itself, should not happen (PSP crashes.)", prevCallbackId);
+
+		if (timeoutPtr != 0 && lwMutexWaitTimer != -1)
+		{
+			u64 cyclesLeft = CoreTiming::UnscheduleEvent(lwMutexWaitTimer, threadID);
+			mutex->pausedWaitTimeouts[pauseKey] = CoreTiming::GetTicks() + cyclesLeft;
+		}
+		else
+			mutex->pausedWaitTimeouts[pauseKey] = 0;
+
+		// TODO: Hmm, what about priority/fifo order?  Does it lose its place in line?
+		mutex->waitingThreads.erase(std::remove(mutex->waitingThreads.begin(), mutex->waitingThreads.end(), threadID), mutex->waitingThreads.end());
+
+		DEBUG_LOG(HLE, "sceKernelLockLwMutexCB: Suspending lock wait for callback");
+	}
+	else
+		WARN_LOG_REPORT(HLE, "sceKernelLockLwMutexCB: beginning callback with bad wait id?");
+}
+
+void __KernelLwMutexEndCallback(SceUID threadID, SceUID prevCallbackId, u32 &returnValue)
+{
+	SceUID pauseKey = prevCallbackId == 0 ? threadID : prevCallbackId;
+
+	u32 error;
+	SceUID mutexID = __KernelGetWaitID(threadID, WAITTYPE_LWMUTEX, error);
+	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
+	LwMutex *mutex = mutexID == 0 ? NULL : kernelObjects.Get<LwMutex>(mutexID, error);
+	if (!mutex || mutex->pausedWaitTimeouts.find(pauseKey) == mutex->pausedWaitTimeouts.end())
+	{
+		// TODO: Since it was deleted, we don't know how long was actually left.
+		// For now, we just say the full time was taken.
+		if (timeoutPtr != 0 && lwMutexWaitTimer != -1)
+			Memory::Write_U32(0, timeoutPtr);
+
+		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_DELETE);
+		return;
+	}
+
+	u64 waitDeadline = mutex->pausedWaitTimeouts[pauseKey];
+	mutex->pausedWaitTimeouts.erase(pauseKey);
+
+	// TODO: Don't wake up if __KernelCurHasReadyCallbacks()?
+
+	// Attempt to unlock.
+	NativeLwMutexWorkarea workarea;
+	Memory::ReadStruct(mutex->nm.workareaPtr, &workarea);
+	if (mutex->nm.lockThread == -1 && __KernelUnlockLwMutexForThread(mutex, workarea, threadID, error, 0))
+	{
+		Memory::WriteStruct(mutex->nm.workareaPtr, &workarea);
+		return;
+	}
+
+	// We only check if it timed out if it couldn't unlock.
+	s64 cyclesLeft = waitDeadline - CoreTiming::GetTicks();
+	if (cyclesLeft < 0 && waitDeadline != 0)
+	{
+		if (timeoutPtr != 0 && lwMutexWaitTimer != -1)
+			Memory::Write_U32(0, timeoutPtr);
+
+		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
+	}
+	else
+	{
+		// TODO: Should this not go at the end?
+		mutex->waitingThreads.push_back(threadID);
+
+		DEBUG_LOG(HLE, "sceKernelLockLwMutexCB: Resuming lock wait for callback");
+	}
+}
+
 int sceKernelTryLockLwMutex(u32 workareaPtr, int count)
 {
 	DEBUG_LOG(HLE, "sceKernelTryLockLwMutex(%08x, %i)", workareaPtr, count);
@@ -992,7 +1079,6 @@ int sceKernelLockLwMutexCB(u32 workareaPtr, int count, u32 timeoutPtr)
 	if (__KernelLockLwMutex(workarea, count, error))
 	{
 		Memory::WriteStruct(workareaPtr, &workarea);
-		hleCheckCurrentCallbacks();
 		return 0;
 	}
 	else if (error)
