@@ -986,6 +986,7 @@ set(NativeAppSource
 	UI/NativeApp.cpp
 	UI/EmuScreen.cpp
 	android/jni/TestRunner.cpp
+    UI/GameInfoCache.cpp
 	UI/MenuScreens.cpp
 	UI/GamepadEmu.cpp
 	UI/UIShader.cpp
