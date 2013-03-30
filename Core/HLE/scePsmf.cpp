@@ -902,8 +902,8 @@ u32 scePsmfPlayerChangePlayMode(u32 psmfPlayer, int playMode, int playSpeed)
 		return ERROR_PSMF_NOT_FOUND;
 	}
 
-	playMode = psmfplayer->playMode;
-	playSpeed = psmfplayer->playSpeed;
+	psmfplayer->playMode = playMode;
+	psmfplayer->playSpeed = playSpeed;
 	return 0;
 }
 
@@ -940,8 +940,8 @@ u32 scePsmfPlayerSelectSpecificVideo(u32 psmfPlayer, int videoCodec, int videoSt
 		return ERROR_PSMF_NOT_FOUND;
 	}
 
-	videoCodec = psmfplayer->videoCodec;
-	videoStreamNum = psmfplayer->videoStreamNum;
+	psmfplayer->videoCodec = videoCodec;
+	psmfplayer->videoStreamNum = videoStreamNum;
 	return 0;
 }
 
@@ -954,8 +954,8 @@ u32 scePsmfPlayerSelectSpecificAudio(u32 psmfPlayer, int audioCodec, int audioSt
 		return ERROR_PSMF_NOT_FOUND;
 	}
 
-	audioCodec = psmfplayer->audioCodec;
-	audioStreamNum = psmfplayer->audioStreamNum;
+	psmfplayer->audioCodec = audioCodec;
+	psmfplayer->audioStreamNum = audioStreamNum;
 	return 0;
 }
 
