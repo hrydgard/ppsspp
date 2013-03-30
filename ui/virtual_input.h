@@ -1,5 +1,6 @@
 #pragma once
 
+#include "math/math_util.h"
 #include "gfx/texture_atlas.h"
 
 class DrawBuffer;
@@ -45,6 +46,35 @@ private:
 
 	// TODO: simplify into flags.
 	bool pointerDown[MAX_POINTERS];
+};
+
+// 4-in-one directional pad, with support for single touch diagonals.
+class TouchCrossPad
+{
+public:
+	TouchCrossPad(const Atlas *atlas, int arrowIndex, int overlayIndex);
+
+	void update(InputState &input_state);
+	void draw(DrawBuffer &db, uint32_t color, uint32_t colorOverlay);
+
+	void setPos(float x, float y, float radius, float scale = 1.0f) {
+		x_ = x;
+		y_ = y;
+		radius_ = radius;
+		scale_ = scale;
+	}
+
+private:
+	const Atlas *atlas_;
+
+	float x_;
+	float y_;
+	float radius_;
+	float scale_;
+
+	int arrowIndex_;
+	int overlayIndex_;
+	int down_;
 };
 
 

@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "base/logging.h"
 #include "gfx_es2/draw_buffer.h"
 #include "gfx/texture_atlas.h"
 #include "input/input_state.h"
@@ -43,6 +44,67 @@ void TouchButton::draw(DrawBuffer &db, uint32_t color, uint32_t colorOverlay)
 	db.DrawImageRotated(imageIndex_, x_ + w_*scale_/2, y_ + h_*scale_/2, scale, rotationAngle_, color, mirror_h_);
 	if (overlayImageIndex_ != -1)
 		db.DrawImageRotated(overlayImageIndex_, x_ + w_*scale_/2, y_ + h_*scale_/2, scale, rotationAngle_, colorOverlay);
+}
+
+TouchCrossPad::TouchCrossPad(const Atlas *atlas, int arrowIndex, int overlayIndex)
+	: atlas_(atlas), arrowIndex_(arrowIndex), overlayIndex_(overlayIndex)
+{
+
+}
+
+void TouchCrossPad::update(InputState &input_state)
+{
+	float stick_size_ = radius_ * 2;
+	float inv_stick_size = 1.0f / (stick_size_ * scale_);
+	const float deadzone = 0.17f;
+	bool all_up = true;
+
+	input_state.pad_buttons &= ~(PAD_BUTTON_LEFT | PAD_BUTTON_RIGHT | PAD_BUTTON_UP | PAD_BUTTON_DOWN);
+
+	for (int i = 0; i < MAX_POINTERS; i++) {
+		if (input_state.pointer_down[i]) {
+			float dx = (input_state.pointer_x[i] - x_) * inv_stick_size;
+			float dy = (input_state.pointer_y[i] - y_) * inv_stick_size;
+			float rad = sqrtf(dx*dx+dy*dy);
+			if (rad < deadzone || rad > 1.0f)
+				continue;
+
+			all_up = false;
+
+			if (dx == 0 && dy == 0)
+				continue;
+
+			int direction = (int)(floorf((atan2f(dy, dx) / (2 * M_PI) * 8) + 0.5f)) & 7;
+	
+			switch (direction) {
+			case 0: input_state.pad_buttons |= PAD_BUTTON_RIGHT; break;
+			case 1: input_state.pad_buttons |= PAD_BUTTON_RIGHT | PAD_BUTTON_DOWN; break;
+			case 2: input_state.pad_buttons |= PAD_BUTTON_DOWN; break;
+			case 3: input_state.pad_buttons |= PAD_BUTTON_DOWN | PAD_BUTTON_LEFT; break;
+			case 4: input_state.pad_buttons |= PAD_BUTTON_LEFT; break;
+			case 5: input_state.pad_buttons |= PAD_BUTTON_UP | PAD_BUTTON_LEFT; break;
+			case 6: input_state.pad_buttons |= PAD_BUTTON_UP; break;
+			case 7: input_state.pad_buttons |= PAD_BUTTON_UP | PAD_BUTTON_RIGHT; break;
+			}
+		}
+	}
+	down_ = input_state.pad_buttons & (PAD_BUTTON_LEFT | PAD_BUTTON_RIGHT | PAD_BUTTON_UP | PAD_BUTTON_DOWN);
+}
+
+void TouchCrossPad::draw(DrawBuffer &db, uint32_t color, uint32_t colorOverlay)
+{
+	static const float xoff[4] = {1, 0, -1, 0};
+	static const float yoff[4] = {0, 1, 0, -1};
+	static const int dir[4] = {PAD_BUTTON_RIGHT, PAD_BUTTON_DOWN, PAD_BUTTON_LEFT, PAD_BUTTON_UP};
+	for (int i = 0; i < 4; i++) {
+		float x = x_ + xoff[i] * scale_ * radius_;
+		float y = y_ + yoff[i] * scale_ * radius_;
+		float angle = i * M_PI / 2;
+		float imgScale = (down_ & dir[i]) ? scale_ * 2 : scale_;
+		db.DrawImageRotated(arrowIndex_, x, y, imgScale, angle + PI, color, false);
+		if (overlayIndex_ != -1)
+			db.DrawImageRotated(overlayIndex_, x, y, imgScale, angle + PI, colorOverlay);
+	}
 }
 
 TouchStick::TouchStick(const Atlas *atlas, int bgImageIndex, int stickImageIndex, int stick)
