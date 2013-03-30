@@ -24,11 +24,8 @@ void TouchButton::update(InputState &input_state)
 			isDown_ = true;
 	}
 
-	if (isDown_) {
+	if (isDown_)
 		input_state.pad_buttons |= button_;
-	} else if (oldIsDown && !isDown_) {
-		input_state.pad_buttons &= ~button_;
-	}
 }
 
 void TouchButton::draw(DrawBuffer &db, uint32_t color, uint32_t colorOverlay)
