@@ -94,6 +94,8 @@ void LaunchEmail(const char *email_address)
 	navigator_invoke((std::string("mailto:") + email_address).c_str(), &error);
 }
 
+InputState input_state;
+
 // Input
 const int buttonMappings[18] = {
 	KEYCODE_X,          //A
@@ -387,7 +389,6 @@ int main(int argc, char *argv[]) {
 	vibration_request_events(0);
 #endif
 	BlackberryAudio* audio = new BlackberryAudio();
-	InputState input_state;
 	bool running = true;
 	while (running) {
 		input_state.mouse_valid = false;

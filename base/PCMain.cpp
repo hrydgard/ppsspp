@@ -222,6 +222,8 @@ void LaunchEmail(const char *email_address)
 
 
 
+InputState input_state;
+
 const int buttonMappings[14] = {
 #ifdef PANDORA
 	SDLK_PAGEDOWN,  //X => cross
@@ -484,7 +486,6 @@ int main(int argc, char *argv[]) {
 		}
 #endif
 
-	InputState input_state;
 	int framecount = 0;
 	bool nextFrameMD = 0;
 	float t = 0, lastT = 0;
