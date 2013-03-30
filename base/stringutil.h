@@ -23,6 +23,10 @@ public:
 
 // Other simple string utilities.
 
+inline bool startsWith(const std::string &str, const std::string &what) {
+	return str.substr(0, what.size()) == what;
+}
+
 inline bool endsWith(const std::string &str, const std::string &what) {
   return str.substr(str.size() - what.size()) == what;
 }

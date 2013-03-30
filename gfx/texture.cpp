@@ -2,11 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#if !defined(USING_GLES2)
-#include "image/png_load.h"
 #include "ext/rg_etc1/rg_etc1.h"
-#endif
-
+#include "image/png_load.h"
 #include "image/zim_load.h"
 #include "base/logging.h"
 #include "gfx/texture.h"
@@ -65,7 +62,6 @@ bool Texture::Load(const char *filename) {
 		glGenTextures(1, &id_);
 		glBindTexture(GL_TEXTURE_2D, id_);
 		if (bpp == 1) {
-
 #if defined(USING_GLES2)
 			glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, w, h, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, data);
 #else
@@ -109,7 +105,6 @@ bool Texture::Load(const char *filename) {
 	const char *name = fn;
 	if (zim && 0==memcmp(name, "Media/textures/", strlen("Media/textures"))) name += strlen("Media/textures/");
 	len = strlen(name);
-#if !defined(USING_GLES2)
 	if (!strcmp("png", &name[len-3]) ||
 		!strcmp("PNG", &name[len-3])) {
 			if (!LoadPNG(fn)) {
@@ -119,9 +114,7 @@ bool Texture::Load(const char *filename) {
 			} else {
 				return true;
 			}
-	} else
-#endif
-	if (!strcmp("zim", &name[len-3])) {
+	} else if (!strcmp("zim", &name[len-3])) {
 		if (LoadZIM(name)) {
 			return true;
 		} else {
@@ -134,7 +127,6 @@ bool Texture::Load(const char *filename) {
 	return false;
 }
 
-#if !defined(USING_GLES2)
 bool Texture::LoadPNG(const char *filename) {
 	unsigned char *image_data;
 	if (1 != pngLoad(filename, &width_, &height_, &image_data, false)) {
@@ -151,7 +143,23 @@ bool Texture::LoadPNG(const char *filename) {
 	free(image_data);
 	return true;
 }
-#endif
+
+bool Texture::LoadPNG(const uint8_t *data, size_t size) {
+	unsigned char *image_data;
+	if (1 != pngLoadPtr(data, size, &width_, &height_, &image_data, false)) {
+		return false;
+	}
+	GL_CHECK();
+	glGenTextures(1, &id_);
+	glBindTexture(GL_TEXTURE_2D, id_);
+	SetTextureParameters(ZIM_GEN_MIPS);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width_, height_, 0, 
+		GL_RGBA, GL_UNSIGNED_BYTE, image_data);
+	glGenerateMipmap(GL_TEXTURE_2D);
+	GL_CHECK();
+	free(image_data);
+	return true;
+}
 
 bool Texture::LoadXOR() {
 	width_ = height_ = 256;
@@ -248,6 +256,7 @@ bool Texture::LoadZIM(const char *filename) {
 			glCompressedTexImage2D(GL_TEXTURE_2D, l, GL_ETC1_RGB8_OES, width[l], height[l], 0, compressed_image_bytes, image_data[l]);
 			GL_CHECK();
 #else
+			// TODO: OpenGL 4.3+ accepts ETC1 so we should not have to do this anymore on those cards.
 			image_data[l] = ETC1ToRGBA(image_data[l], data_w, data_h);
 			glTexImage2D(GL_TEXTURE_2D, l, GL_RGBA, width[l], height[l], 0,
 				GL_RGBA, GL_UNSIGNED_BYTE, image_data[l]);

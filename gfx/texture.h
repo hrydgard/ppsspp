@@ -1,10 +1,11 @@
-#ifndef _TEXTURE_H
-#define _TEXTURE_H
+#pragma once
 
-// Load and manage OpenGL textures easily. Supports ETC1 compressed texture with mipmaps.
+// Load and manage OpenGL textures easily. Supports ETC1 compressed texture with mipmaps
+// in the custom ZIM format.
 
 #include <string>
 
+#include "base/basictypes.h"
 #include "gfx/gl_lost_manager.h"
 
 class Texture : public GfxResourceHolder {
@@ -15,9 +16,16 @@ public:
 	// Deduces format from the filename.
 	// If loading fails, will load a 256x256 XOR texture.
 	// If filename begins with "gen:", will defer to texture_gen.cpp/h.
+	// When format is known, it's fine to use LoadZIM etc directly.
+	// Those will NOT auto-fall back to xor texture however!
 	bool Load(const char *filename);
 	void Bind(int stage = -1);
 	void Destroy();
+
+	// PNG from memory buffer
+	bool LoadPNG(const uint8_t *data, size_t size);
+	bool LoadZIM(const char *filename);
+	bool LoadPNG(const char *filename);
 
 	unsigned int Handle() const {
 		return id_;
@@ -27,10 +35,6 @@ public:
 	std::string filename() const { return filename_; }
 
 private:
-	bool LoadZIM(const char *filename);
-#if !defined(USING_GLES2)
-	bool LoadPNG(const char *filename);
-#endif
 	bool LoadXOR();	// Loads a placeholder texture.
 
 	std::string filename_;
@@ -40,5 +44,3 @@ private:
 	unsigned int id_;
 	int width_, height_;
 };
-
-#endif
