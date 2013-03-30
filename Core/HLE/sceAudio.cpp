@@ -261,12 +261,20 @@ u32 sceAudioOutput2OutputBlocking(u32 vol, u32 dataPtr){
 
 u32 sceAudioOutput2ChangeLength(u32 sampleCount){
 	DEBUG_LOG(HLE,"sceAudioOutput2ChangeLength(%08x)", sampleCount);
+	if (!chans[0].reserved) {
+		DEBUG_LOG(HLE,"sceAudioOutput2ChangeLength(%08x) - channel not reserved ", sampleCount);
+		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
+	}
 	chans[0].sampleCount = sampleCount;
 	return 0;
 }
 
 u32 sceAudioOutput2GetRestSample(){
 	DEBUG_LOG(HLE,"sceAudioOutput2GetRestSample()");
+	if (!chans[0].reserved) {
+		DEBUG_LOG(HLE,"sceAudioOutput2GetRestSample() - channel not reserved ");
+		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
+	}
 	return (u32) chans[0].sampleQueue.size() * 2;
 }
 
@@ -284,7 +292,7 @@ u32 sceAudioSetFrequency(u32 freq) {
 		return 0;
 	} else {
 		ERROR_LOG(HLE, "sceAudioSetFrequency(%08x) - invalid frequency (must be 44.1 or 48 khz)", freq);
-		return -1;
+		return SCE_ERROR_AUDIO_INVALID_FREQUENCY;
 	}
 }
 
@@ -294,16 +302,25 @@ u32 sceAudioSetVolumeOffset() {
 }
 
 u32 sceAudioSRCChReserve(u32 sampleCount, u32 freq, u32 format) {
-	DEBUG_LOG(HLE, "sceAudioSRCChReserve(%08x, %08x, %08x)", sampleCount, freq, format);
-	chans[src].reserved = true;
-	chans[src].sampleCount = sampleCount;
-	chans[src].format = format;
-	__AudioSetOutputFrequency(freq);
+	if (chans[src].reserved) {
+		DEBUG_LOG(HLE, "sceAudioSRCChReserve(%08x, %08x, %08x) - channel already reserved ", sampleCount, freq, format);
+		return SCE_ERROR_AUDIO_CHANNEL_ALREADY_RESERVED;
+	} else {
+		DEBUG_LOG(HLE, "sceAudioSRCChReserve(%08x, %08x, %08x)", sampleCount, freq, format);
+		chans[src].reserved = true;
+		chans[src].sampleCount = sampleCount;
+		chans[src].format = format;
+		__AudioSetOutputFrequency(freq);
+	}
 	return 0;
 }
 
 u32 sceAudioSRCChRelease() {
 	DEBUG_LOG(HLE, "sceAudioSRCChRelease()");
+	if (!chans[src].reserved) {
+		DEBUG_LOG(HLE, "sceAudioSRCChRelease() - channel already reserved ");
+		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
+	}
 	chans[src].clear();
 	chans[src].reserved = false;
 	return 0;
