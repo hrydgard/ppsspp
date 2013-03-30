@@ -577,6 +577,8 @@ add_library(native STATIC
 	native/ui/screen.h
 	native/ui/ui.cpp
 	native/ui/ui.h
+	native/ui/ui_context.cpp
+	native/ui/ui_context.h
 	native/ui/virtual_input.cpp
 	native/ui/virtual_input.h
 	native/util/bits/bits.cpp
