@@ -144,7 +144,7 @@ bool Texture::LoadPNG(const char *filename) {
 	return true;
 }
 
-bool Texture::LoadPNG(const uint8_t *data, size_t size) {
+bool Texture::LoadPNG(const uint8_t *data, size_t size, bool genMips) {
 	unsigned char *image_data;
 	if (1 != pngLoadPtr(data, size, &width_, &height_, &image_data, false)) {
 		return false;
@@ -152,7 +152,7 @@ bool Texture::LoadPNG(const uint8_t *data, size_t size) {
 	GL_CHECK();
 	glGenTextures(1, &id_);
 	glBindTexture(GL_TEXTURE_2D, id_);
-	SetTextureParameters(ZIM_GEN_MIPS);
+	SetTextureParameters(genMips ? ZIM_GEN_MIPS : 0);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width_, height_, 0, 
 		GL_RGBA, GL_UNSIGNED_BYTE, image_data);
 	glGenerateMipmap(GL_TEXTURE_2D);

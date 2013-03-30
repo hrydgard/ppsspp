@@ -23,7 +23,7 @@ public:
 	void Destroy();
 
 	// PNG from memory buffer
-	bool LoadPNG(const uint8_t *data, size_t size);
+	bool LoadPNG(const uint8_t *data, size_t size, bool genMips = true);
 	bool LoadZIM(const char *filename);
 	bool LoadPNG(const char *filename);
 

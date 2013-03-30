@@ -25,7 +25,7 @@ public:
 	void Flush();
 	void End();
 
-	void RebindTexture();
+	void RebindTexture() const;
 
 private:
 	// TODO: Collect these into a UIContext

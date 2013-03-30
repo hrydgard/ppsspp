@@ -44,7 +44,7 @@ void UIContext::BeginNoTex()
 }
 
 
-void UIContext::RebindTexture()
+void UIContext::RebindTexture() const
 {
 	if (uitexture_)
 		uitexture_->Bind(0);
