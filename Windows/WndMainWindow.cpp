@@ -108,14 +108,25 @@ namespace MainWindow
 
 	void GetWindowRectAtZoom(int zoom, RECT &rcInner, RECT &rcOuter) {
 		// GetWindowRect(hwndMain, &rcInner);
-		rcInner.left = 20;
-		rcInner.top = 120;
+		rcInner.left = g_Config.iWindowX;
+		rcInner.top = g_Config.iWindowY;
 
 		rcInner.right=480*zoom + rcInner.left;//+client edge
 		rcInner.bottom=272*zoom + rcInner.top; //+client edge
 
 		rcOuter=rcInner;
 		AdjustWindowRect(&rcOuter, WS_OVERLAPPEDWINDOW, TRUE);
+	}
+
+	void SavePosition() {
+		WINDOWPLACEMENT placement;
+		GetWindowPlacement(hwndMain, &placement);
+		if (placement.showCmd == SW_SHOWNORMAL) {
+			RECT rc;
+			GetWindowRect(hwndMain, &rc);
+			g_Config.iWindowX = rc.left;
+			g_Config.iWindowY = rc.top;
+		}
 	}
 
 	void ResizeDisplay(bool noWindowMovement = false) {
@@ -291,10 +302,12 @@ namespace MainWindow
 			break;
 
 		case WM_MOVE:
+			SavePosition();
 			ResizeDisplay();
 			break;
 
 		case WM_SIZE:
+			SavePosition();
 			ResizeDisplay();
 			break;
 

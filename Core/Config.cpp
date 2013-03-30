@@ -58,6 +58,9 @@ void Config::Load(const char *iniFileName)
 	// "default" means let emulator decide, "" means disable.
 	general->Get("ReportHost", &sReportHost, "default");
 	general->Get("Recent", recentIsos);
+	general->Get("WindowX", &iWindowX, 40);
+	general->Get("WindowY", &iWindowY, 100);
+
 	if (recentIsos.size() > MAX_RECENT)
 		recentIsos.resize(MAX_RECENT);
 
@@ -134,6 +137,8 @@ void Config::Save()
 		general->Set("ShowDebuggerOnLoad", bShowDebuggerOnLoad);
 		general->Set("ReportHost", sReportHost);
 		general->Set("Recent", recentIsos);
+		general->Set("WindowX", iWindowX);
+		general->Set("WindowY", iWindowY);
 
 		IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 		cpu->Set("Jit", bJit);
