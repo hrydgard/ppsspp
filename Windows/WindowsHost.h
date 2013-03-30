@@ -37,7 +37,7 @@ public:
 	void AddSymbol(std::string name, u32 addr, u32 size, int type);
 
 	bool InitGL(std::string *error_message);
-	void BeginFrame();
+	void PollControllers(InputState &input_state);
 	void ShutdownGL();
 
 	void InitSound(PMixer *mixer);

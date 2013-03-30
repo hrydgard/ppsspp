@@ -104,14 +104,18 @@ void Core_RunLoop()
 		UpdateScreenScale();
 		{
 			{
-				lock_guard guard(input_state.lock);
 #ifdef _WIN32
+				lock_guard guard(input_state.lock);
+				input_state.pad_buttons = 0;
+				input_state.pad_lstick_x = 0;
+				input_state.pad_lstick_y = 0;
 				// Temporary hack.
 				if (GetAsyncKeyState(VK_ESCAPE)) {
 					input_state.pad_buttons |= PAD_BUTTON_MENU;
 				} else {
 					input_state.pad_buttons &= ~PAD_BUTTON_MENU;
 				}
+				host->PollControllers(input_state);
 #endif
 			}
 			NativeUpdate(input_state);

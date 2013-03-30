@@ -444,9 +444,6 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 
 void hleAfterFlip(u64 userdata, int cyclesLate)
 {
-	// This checks input on PC. Fine to do even if not calling BeginFrame.
-	host->BeginFrame();
-
 	gpu->BeginFrame();  // doesn't really matter if begin or end of frame.
 }
 

@@ -213,11 +213,6 @@ bool WindowsHeadlessHost::ResizeGL()
 	return true;
 }
 
-void WindowsHeadlessHost::BeginFrame()
-{
-
-}
-
 void WindowsHeadlessHost::SwapBuffers()
 {
 	::SwapBuffers(hDC);

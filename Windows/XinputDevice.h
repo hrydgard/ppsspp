@@ -7,7 +7,7 @@ class XinputDevice :
 {
 public:
 	XinputDevice();
-	virtual int UpdateState();
+	virtual int UpdateState(InputState &input_state);
 private:
 	void ApplyDiff(XINPUT_STATE &state);
 	int gamepad_idx;

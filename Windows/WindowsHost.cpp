@@ -129,10 +129,10 @@ void WindowsHost::SetDebugMode(bool mode)
 }
 
 
-void WindowsHost::BeginFrame()
+void WindowsHost::PollControllers(InputState &input_state)
 {
 	for (auto iter = this->input.begin(); iter != this->input.end(); iter++)
-		if ((*iter)->UpdateState() == 0)
+		if ((*iter)->UpdateState(input_state) == 0)
 			break; // *iter is std::shared_ptr, **iter is InputDevice
 }
 
