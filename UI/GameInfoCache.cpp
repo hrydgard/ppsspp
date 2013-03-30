@@ -25,6 +25,9 @@
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/FileSystems/DirectoryFileSystem.h"
 
+
+GameInfoCache g_gameInfoCache;
+
 GameInfoCache::~GameInfoCache()
 {
 	for (auto iter = info_.begin(); iter != info_.end(); iter++) {
@@ -74,12 +77,28 @@ void GameInfoCache::FlushBGs()
 GameInfo *GameInfoCache::GetInfo(const std::string &gamePath, bool wantBG) {
 	auto iter = info_.find(gamePath);
 	if (iter != info_.end()) {
+		GameInfo *info = iter->second;
+		if (info->iconTextureData.size()) {
+			info->iconTexture = new Texture();
+			// TODO: We could actually do the PNG decoding as well on the async thread.
+			// We'd have to split up Texture->LoadPNG though, creating some intermediate Image class maybe.
+			if (info->iconTexture->LoadPNG((const u8 *)info->iconTextureData.data(), info->iconTextureData.size())) {
+				info->timeIconWasLoaded = time_now_d();
+			}
+			info->iconTextureData.clear();
+		}
+		if (info->bgTextureData.size()) {
+			info->bgTexture = new Texture();
+			if (info->bgTexture->LoadPNG((const u8 *)info->bgTextureData.data(), info->bgTextureData.size())) {
+				info->timeBgWasLoaded = time_now_d();
+			}
+			info->bgTextureData.clear();
+		}
 		iter->second->lastAccessedTime = time_now_d();
 		return iter->second;
 	}
 
 	GameInfo *info = new GameInfo();
-	info_[gamePath] = info;
 
 	// return info;
 
@@ -88,8 +107,9 @@ GameInfo *GameInfoCache::GetInfo(const std::string &gamePath, bool wantBG) {
 
 	// A game can be either an UMD or a directory under ms0:/PSP/GAME .
 	if (startsWith(gamePath, "ms0:/PSP/GAME")) {
-		
+		return 0;
 	} else {
+		info_[gamePath] = info;
 		SequentialHandleAllocator handles;
 		// Let's assume it's an ISO.
 		// TODO: This will currently read in the whole directory tree. Not really necessary for just a
@@ -104,27 +124,11 @@ GameInfo *GameInfoCache::GetInfo(const std::string &gamePath, bool wantBG) {
 			info->title = info->paramSFO.GetValueString("TITLE");
 		}
 
-		std::string imgContents;
-		if (ReadFileToString(&umd, "/PSP_GAME/ICON0.PNG", &imgContents)) {
-			lock_guard lock(info->lock);
-			info->iconTexture = new Texture();
-			if (info->iconTexture->LoadPNG((const u8 *)imgContents.data(), imgContents.size())) {
-				info->timeIconWasLoaded = time_now_d();
-			}
-		}
-
+		ReadFileToString(&umd, "/PSP_GAME/ICON0.PNG", &info->iconTextureData);
 		if (wantBG) {
-			if (ReadFileToString(&umd, "/PSP_GAME/PIC1.PNG", &imgContents)) {
-				lock_guard lock(info->lock);
-				info->bgTexture = new Texture();
-				info->bgTexture->LoadPNG((const u8 *)imgContents.data(), imgContents.size());
-				if (info->bgTexture->LoadPNG((const u8 *)imgContents.data(), imgContents.size())) {
-					info->timeBGWasLoaded = time_now_d();
-				}
-			}
+			ReadFileToString(&umd, "/PSP_GAME/PIC1.PNG", &info->bgTextureData);
 		}
 	}
 
-	info_[gamePath] = info;
 	return info;
 }

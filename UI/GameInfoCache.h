@@ -35,8 +35,10 @@ struct GameInfo {
 	std::string title;  // for easy access, also available in paramSFO.
 	ParamSFOData paramSFO;
 
-	// For display.
+	// Pre read the data, create a texture the next time (GL thread..)
+	std::string iconTextureData;
 	Texture *iconTexture;
+	std::string bgTextureData;
 	Texture *bgTexture;
 
 	double lastAccessedTime;
@@ -44,7 +46,7 @@ struct GameInfo {
 	// The time at which the Icon and the BG were loaded.
 	// Can be useful to fade them in smoothly once they appear.
 	double timeIconWasLoaded;
-	double timeBGWasLoaded;
+	double timeBgWasLoaded;
 };
 
 class GameInfoCache {
@@ -67,3 +69,6 @@ private:
 	// Maps ISO path to info.
 	std::map<std::string, GameInfo *> info_;
 };
+
+// This one can be global, no good reason not to.
+extern GameInfoCache g_gameInfoCache;

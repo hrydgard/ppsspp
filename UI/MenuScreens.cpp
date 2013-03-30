@@ -55,6 +55,7 @@ namespace MainWindow {
 
 #include "MenuScreens.h"
 #include "EmuScreen.h"
+#include "GameInfoCache.h"
 #include "android/jni/TestRunner.h"
 
 #ifdef USING_QT_UI
@@ -63,10 +64,8 @@ namespace MainWindow {
 #include <QDir>
 #endif
 
-
 // Ugly communication with NativeApp
 extern std::string game_title;
-
 
 static const int symbols[4] = {
 	I_CROSS,
@@ -142,7 +141,7 @@ void LogoScreen::render() {
 	if (t > 2.0f) alphaText = 3.0f - t;
 
 	UIShader_Prepare();
-	UIBegin();
+	UIBegin(UIShader_Get());
 	DrawBackground(alpha);
 
 	ui_draw2d.SetFontScale(1.5f, 1.5f);
@@ -157,9 +156,6 @@ void LogoScreen::render() {
 
 	DrawWatermark();
 	UIEnd();
-
-	glsl_bind(UIShader_Get());
-	ui_draw2d.Flush(UIShader_Get());
 }
 
 
@@ -180,7 +176,7 @@ void MenuScreen::sendMessage(const char *message, const char *value) {
 
 void MenuScreen::render() {
 	UIShader_Prepare();
-	UIBegin();
+	UIBegin(UIShader_Get());
 	DrawBackground(1.0f);
 
 	double xoff = 150 - frames_ * frames_ * 0.4f;
@@ -258,16 +254,25 @@ void MenuScreen::render() {
 		for (size_t j = 0; j < rec.size(); j++)
 			if (rec[j] == '\\') rec[j] = '/';
 		SplitPath(rec, nullptr, &filename, nullptr);
-		if (UIButton(GEN_ID_LOOP(i), vlinear2, recentW, filename.c_str(), ALIGN_LEFT)) {
-			screenManager()->switchScreen(new EmuScreen(g_Config.recentIsos[i]));
+
+		UIContext *ctx = screenManager()->getUIContext();
+		// This might create a texture so we must flush first.
+		UIFlush();
+		GameInfo *ginfo = g_gameInfoCache.GetInfo(g_Config.recentIsos[i], false);
+
+		if (ginfo) {
+			if (UITextureButton(ctx, GEN_ID_LOOP(i), vlinear2, 144, 80, ginfo->iconTexture, ALIGN_LEFT)) {
+				screenManager()->switchScreen(new EmuScreen(g_Config.recentIsos[i]));
+			}
+		} else {
+			if (UIButton(GEN_ID_LOOP(i), vlinear2, recentW, filename.c_str(), ALIGN_LEFT)) {
+				screenManager()->switchScreen(new EmuScreen(g_Config.recentIsos[i]));
+			}
 		}
 	}
 	DrawWatermark();
 
 	UIEnd();
-
-	glsl_bind(UIShader_Get());
-	ui_draw2d.Flush(UIShader_Get());
 }
 
 
@@ -286,7 +291,7 @@ void PauseScreen::sendMessage(const char *msg, const char *value) {
 
 void PauseScreen::render() {
 	UIShader_Prepare();
-	UIBegin();
+	UIBegin(UIShader_Get());
 	DrawBackground(1.0f);
 
 	const char *title;
@@ -351,9 +356,6 @@ void PauseScreen::render() {
 
 	DrawWatermark();
 	UIEnd();
-
-	glsl_bind(UIShader_Get());
-	ui_draw2d.Flush(UIShader_Get());
 }
 
 void SettingsScreen::update(InputState &input) {
@@ -366,7 +368,7 @@ void SettingsScreen::update(InputState &input) {
 
 void SettingsScreen::render() {
 	UIShader_Prepare();
-	UIBegin();
+	UIBegin(UIShader_Get());
 	DrawBackground(1.0f);
 
 	ui_draw2d.DrawText(UBUNTU48, "Settings", dp_xres / 2, 20, 0xFFFFFFFF, ALIGN_HCENTER);
@@ -425,9 +427,6 @@ void SettingsScreen::render() {
 	}
 
 	UIEnd();
-
-	glsl_bind(UIShader_Get());
-	ui_draw2d.Flush(UIShader_Get());
 }
 
 void DeveloperScreen::update(InputState &input) {
@@ -439,7 +438,7 @@ void DeveloperScreen::update(InputState &input) {
 
 void DeveloperScreen::render() {
 	UIShader_Prepare();
-	UIBegin();
+	UIBegin(UIShader_Get());
 	DrawBackground(1.0f);
 
 	ui_draw2d.DrawText(UBUNTU48, "Developer Tools", dp_xres / 2, 20, 0xFFFFFFFF, ALIGN_HCENTER);
@@ -460,9 +459,6 @@ void DeveloperScreen::render() {
 	}
 
 	UIEnd();
-
-	glsl_bind(UIShader_Get());
-	ui_draw2d.Flush(UIShader_Get());
 }
 
 
@@ -519,7 +515,7 @@ void FileSelectScreen::render() {
 	FileListAdapter adapter(options_, &listing_);
 
 	UIShader_Prepare();
-	UIBegin();
+	UIBegin(UIShader_Get());
 	DrawBackground(1.0f);
 
 	if (list_.Do(GEN_ID, 10, BUTTON_HEIGHT + 20, dp_xres-20, dp_yres - BUTTON_HEIGHT - 30, &adapter)) {
@@ -552,9 +548,6 @@ void FileSelectScreen::render() {
 	}
 #endif
 	UIEnd();
-
-	glsl_bind(UIShader_Get());
-	ui_draw2d.Flush(UIShader_Get());
 }
 
 void CreditsScreen::update(InputState &input_state) {
@@ -631,7 +624,7 @@ void CreditsScreen::render() {
 	credits[0] = (const char *)temp;
 
 	UIShader_Prepare();
-	UIBegin();
+	UIBegin(UIShader_Get());
 	DrawBackground(1.0f);
 
 	const int numItems = ARRAY_SIZE(credits);
@@ -651,9 +644,6 @@ void CreditsScreen::render() {
 	}
 
 	UIEnd();
-
-	glsl_bind(UIShader_Get());
-	ui_draw2d.Flush(UIShader_Get());
 }
 
 void ErrorScreen::update(InputState &input_state) {
@@ -665,7 +655,7 @@ void ErrorScreen::update(InputState &input_state) {
 void ErrorScreen::render()
 {
 	UIShader_Prepare();
-	UIBegin();
+	UIBegin(UIShader_Get());
 	DrawBackground(1.0f);
 
 	ui_draw2d.DrawText(UBUNTU48, errorTitle_.c_str(), dp_xres / 2, 30, 0xFFFFFFFF, ALIGN_HCENTER);
@@ -676,7 +666,4 @@ void ErrorScreen::render()
 	}
 
 	UIEnd();
-
-	glsl_bind(UIShader_Get());
-	ui_draw2d.Flush(UIShader_Get());
 }

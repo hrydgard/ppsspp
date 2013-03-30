@@ -76,6 +76,12 @@ GLSLProgram *UIShader_Get()
 	return glslModulate;
 }
 
+
+GLSLProgram *UIShader_GetPlain()
+{
+	return glslPlain;
+}
+
 void UIShader_Shutdown()
 {
 	glsl_destroy(glslModulate);

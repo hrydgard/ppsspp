@@ -253,7 +253,7 @@ void EmuScreen::render() {
 	glstate.viewport.set(0, 0, pixel_xres, pixel_yres);
 	glstate.viewport.restore();
 
-	ui_draw2d.Begin(DBMODE_NORMAL);
+	ui_draw2d.Begin(UIShader_Get(), DBMODE_NORMAL);
 
 	if (g_Config.bShowTouchControls)
 		DrawGamepad(ui_draw2d);
@@ -262,7 +262,7 @@ void EmuScreen::render() {
 
 	glsl_bind(UIShader_Get());
 	ui_draw2d.End();
-	ui_draw2d.Flush(UIShader_Get());
+	ui_draw2d.Flush();
 
 
 	// Tiled renderers like PowerVR should benefit greatly from this. However - seems I can't call it?

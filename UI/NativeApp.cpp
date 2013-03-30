@@ -35,6 +35,7 @@
 #include "math/lin/matrix4x4.h"
 #include "ui/screen.h"
 #include "ui/ui.h"
+#include "ui/ui_context.h"
 
 #include "base/mutex.h"
 #include "FileUtil.h"
@@ -65,6 +66,7 @@ recursive_mutex pendingMutex;
 static bool isMessagePending;
 static std::string pendingMessage;
 static std::string pendingValue;
+static UIContext *uiContext;
 
 
 class AndroidLogger : public LogListener
@@ -338,6 +340,11 @@ void NativeInitGraphics()
 		ELOG("Failed to load ui_atlas.zim");
 	}
 	uiTexture->Bind(0);
+
+	uiContext = new UIContext();
+	uiContext->Init(UIShader_Get(), UIShader_GetPlain(), uiTexture, &ui_draw2d, &ui_draw2d_front);
+
+	screenManager->setUIContext(uiContext);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
