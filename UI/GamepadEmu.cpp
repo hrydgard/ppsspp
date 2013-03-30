@@ -37,7 +37,7 @@ TouchStick leftStick(&ui_atlas, I_STICKBG, I_STICK, 0);
 
 void LayoutGamepad(int w, int h)
 {
-	float controlScale = true||g_Config.bLargeControls ? 1.6 : 1.15;
+	float controlScale = g_Config.bLargeControls ? 1.6 : 1.15;
 
 	const int button_spacing = 50 * controlScale;
 	const int arrow_spacing = 40 * controlScale;
