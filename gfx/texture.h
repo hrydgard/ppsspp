@@ -34,6 +34,8 @@ public:
 	virtual void GLLost();
 	std::string filename() const { return filename_; }
 
+	static void Unbind(int stage = -1);
+
 private:
 	bool LoadXOR();	// Loads a placeholder texture.
 

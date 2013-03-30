@@ -83,7 +83,7 @@ bool Texture::Load(const char *filename) {
 	// Currently here are a bunch of project-specific workarounds.
 	// They shouldn't really hurt anything else very much though.
 
-	int len = strlen(filename);
+	size_t len = strlen(filename);
 	char fn[1024];
 	strncpy(fn, filename, sizeof(fn));
 	fn[1023] = 0;
@@ -288,5 +288,13 @@ void Texture::Bind(int stage) {
 	if (stage != -1)
 		glActiveTexture(GL_TEXTURE0 + stage);
 	glBindTexture(GL_TEXTURE_2D, id_);
+	GL_CHECK();
+}
+
+void Texture::Unbind(int stage) {
+	GL_CHECK();
+	if (stage != -1)
+		glActiveTexture(GL_TEXTURE0 + stage);
+	glBindTexture(GL_TEXTURE_2D, 0);
 	GL_CHECK();
 }

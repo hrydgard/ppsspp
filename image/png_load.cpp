@@ -36,7 +36,7 @@ int pngLoad(const char *file, int *pwidth, int *pheight, unsigned char **image_d
 	return 1;
 }
 
-int pngLoadPtr(const unsigned char *input_ptr, const int input_len, int *pwidth, int *pheight, unsigned char **image_data_ptr,
+int pngLoadPtr(const unsigned char *input_ptr, size_t input_len, int *pwidth, int *pheight, unsigned char **image_data_ptr,
 	bool flip) {
 	if (flip)
 	{
@@ -44,7 +44,7 @@ int pngLoadPtr(const unsigned char *input_ptr, const int input_len, int *pwidth,
 	}
 
 	int x,y,n;
-	unsigned char *data = stbi_load_from_memory(input_ptr,input_len, &x, &y, &n, 4);	// 4 = force RGBA
+	unsigned char *data = stbi_load_from_memory(input_ptr,(int)input_len, &x, &y, &n, 4);	// 4 = force RGBA
 	if (!data)
 		return 0;
 

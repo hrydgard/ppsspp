@@ -6,7 +6,7 @@
 int pngLoad(const char *file, int *pwidth, 
             int *pheight, unsigned char **image_data_ptr, bool flip);
 
-int pngLoadPtr(const unsigned  char *input_ptr, const int input_len, int *pwidth,
+int pngLoadPtr(const unsigned  char *input_ptr, size_t input_len, int *pwidth,
             int *pheight, unsigned char **image_data_ptr, bool flip);
 
 #endif  // _PNG_LOAD_H
