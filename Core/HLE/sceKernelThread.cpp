@@ -1195,6 +1195,26 @@ void __KernelWaitCurThread(WaitType type, SceUID waitID, u32 waitValue, u32 time
 	// TODO: Remove thread from Ready queue?
 }
 
+void __KernelWaitCallbacksCurThread(WaitType type, SceUID waitID, u32 waitValue, u32 timeoutPtr)
+{
+	if (!dispatchEnabled)
+	{
+		WARN_LOG_REPORT(HLE, "Ignoring wait, dispatching disabled... right thing to do?");
+		return;
+	}
+
+	Thread *thread = __GetCurrentThread();
+	thread->nt.waitID = waitID;
+	thread->nt.waitType = type;
+	__KernelChangeThreadState(thread, THREADSTATUS_WAIT);
+	// TODO: Probably not...?
+	thread->nt.numReleases++;
+	thread->waitInfo.waitValue = waitValue;
+	thread->waitInfo.timeoutPtr = timeoutPtr;
+
+	__KernelForceCallbacks();
+}
+
 void hleScheduledWakeup(u64 userdata, int cyclesLate)
 {
 	SceUID threadID = (SceUID)userdata;

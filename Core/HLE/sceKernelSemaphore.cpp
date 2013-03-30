@@ -425,9 +425,18 @@ int __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, const char *bad
 		bool hasCallbacks = processCallbacks && __KernelCurHasReadyCallbacks();
 		if (s->ns.currentCount >= wantedCount && s->ns.numWaitThreads == 0 && !hasCallbacks)
 		{
-			s->ns.currentCount -= wantedCount;
-			if (processCallbacks)
-				hleCheckCurrentCallbacks();
+			if (hasCallbacks)
+			{
+				// __KernelSemaBeginCallback() will decrement this, so increment it here.
+				// TODO: Clean this up a bit better.
+				s->ns.numWaitThreads++;
+
+				// Might actually end up having to wait, so set the timeout.
+				__KernelSetSemaTimeout(s, timeoutPtr);
+				__KernelWaitCallbacksCurThread(WAITTYPE_SEMA, id, wantedCount, timeoutPtr);
+			}
+			else
+				s->ns.currentCount -= wantedCount;
 		}
 		else
 		{
