@@ -104,7 +104,7 @@ bool LoadFile(const char *filename, std::string *error_string)
 		pspFileSystem.SetStartingDirectory("disc0:/PSP_GAME/USRDIR");
 		return Load_PSP_ISO(filename, error_string);
 	case FILETYPE_ERROR:
-		ERROR_LOG(LOADER, "Could not file");
+		ERROR_LOG(LOADER, "Could not read file");
 		*error_string = "Error reading file";
 		break;
 	case FILETYPE_UNKNOWN_BIN:
