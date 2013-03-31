@@ -28,6 +28,7 @@ public:
 		mainWindow_ = mainWindow;
 		displayWindow_ = displayWindow;
 		input = getInputDevices();
+		loadedSymbolMap_ = false;
 	}
 	void UpdateMemView();
 	void UpdateDisassembly();
@@ -47,10 +48,12 @@ public:
 	bool IsDebuggingEnabled();
 	void BootDone();
 	bool AttemptLoadSymbolMap();
+	void SaveSymbolMap();
 	void SetWindowTitle(const char *message);
 
 private:
 	HWND displayWindow_;
 	HWND mainWindow_;
 	std::list<std::shared_ptr<InputDevice>> input;
+	bool loadedSymbolMap_;
 };

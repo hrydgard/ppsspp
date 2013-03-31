@@ -80,7 +80,6 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true) {
 	}
 
 	host->BootDone();
-	host->AttemptLoadSymbolMap();
 	host->UpdateDisassembly();
 
 #ifdef _WIN32
@@ -99,8 +98,6 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true) {
 EmuScreen::~EmuScreen() {
 	if (!invalid_) {
 		// If we were invalid, it would already be shutdown.
-
-		// symbolMap.SaveSymbolMap(SymbolMapFilename(coreParam.fileToStart).c_str());
 		PSP_Shutdown();
 	}
 }
