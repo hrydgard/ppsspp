@@ -163,7 +163,10 @@ public:
 		return id;
 	}
 	MipsCall *get(u32 id) {
-		return calls_[id];
+		auto iter = calls_.find(id);
+		if (iter == calls_.end())
+			return NULL;
+		return iter->second;
 	}
 	MipsCall *pop(u32 id) {
 		MipsCall *temp = calls_[id];
@@ -1614,7 +1617,9 @@ int sceKernelStartThread(SceUID threadToStartID, u32 argSize, u32 argBlockPtr)
 			// TODO: Maybe this happens even for worse-priority started threads?
 			dispatchEnabled = true;
 
-			__KernelChangeReadyState(currentThread, true);
+			if (cur && cur->isRunning())
+				cur->nt.status &= ~THREADSTATUS_RUNNING;
+			__KernelChangeReadyState(cur, currentThread, true);
 			hleReSchedule("thread started");
 		}
 		else if (!dispatchEnabled)
