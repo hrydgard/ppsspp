@@ -17,15 +17,16 @@ TouchButton::TouchButton(const Atlas *atlas, int imageIndex, int overlayImageInd
 
 void TouchButton::update(InputState &input_state)
 {
-	bool oldIsDown = isDown_;
-	isDown_ = false;
+	bool down = false;
 	for (int i = 0; i < MAX_POINTERS; i++) {
 		if (input_state.pointer_down[i] && isInside(input_state.pointer_x[i], input_state.pointer_y[i]))
-			isDown_ = true;
+			down = true;
 	}
 
-	if (isDown_)
+	if (down)
 		input_state.pad_buttons |= button_;
+
+	isDown_ = (input_state.pad_buttons & button_) != 0;
 }
 
 void TouchButton::draw(DrawBuffer &db, uint32_t color, uint32_t colorOverlay)
@@ -123,8 +124,7 @@ void TouchStick::update(InputState &input_state)
 			// Ignore outside box
 			if (!dragging_[i] && (fabsf(dx) > 1.4f || fabsf(dy) > 1.4f))
 				goto skip;
-			if (!lastPointerDown_[i] && (fabsf(dx) < 1.4f && fabsf(dy) < 1.4f))
-			{
+			if (!lastPointerDown_[i] && (fabsf(dx) < 1.4f && fabsf(dy) < 1.4f)) {
 				dragging_[i] = true;
 			}
 			if (!dragging_[i])
@@ -136,8 +136,6 @@ void TouchStick::update(InputState &input_state)
 				dx /= len;
 				dy /= len;
 			}
-			stick_delta_x_ = dx;
-			stick_delta_y_ = dy;
 			if (stick_ == 0) {
 				input_state.pad_lstick_x = dx;
 				input_state.pad_lstick_y = -dy;
@@ -151,17 +149,9 @@ void TouchStick::update(InputState &input_state)
 skip:
 		lastPointerDown_[i] = input_state.pointer_down[i];
 	}
-	if (all_up) {
-		stick_delta_x_ = 0.0f;
-		stick_delta_y_ = 0.0f;
-		if (stick_ == 0) {
-			input_state.pad_lstick_x = 0.0f;
-			input_state.pad_lstick_y = 0.0f;
-		} else if (stick_ == 1) {
-			input_state.pad_rstick_x = 0.0f;
-			input_state.pad_rstick_y = 0.0f;
-		}
-	}
+
+	stick_delta_x_ = input_state.pad_lstick_x;
+	stick_delta_y_ = -input_state.pad_lstick_y;
 }
 
 void TouchStick::draw(DrawBuffer &db, uint32_t color)

@@ -26,6 +26,9 @@ enum {
 	PAD_BUTTON_JOY_DOWN = 1<<15,
 	PAD_BUTTON_JOY_LEFT = 1<<16,
 	PAD_BUTTON_JOY_RIGHT = 1<<17,
+
+	PAD_BUTTON_LEFT_THUMB = 1 << 18,   // Click left thumb stick on X360
+	PAD_BUTTON_RIGHT_THUMB = 1 << 19,   // Click right thumb stick on X360
 };
 
 #ifndef MAX_POINTERS
