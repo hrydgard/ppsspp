@@ -356,8 +356,6 @@ namespace MainWindow
 				break;
 
 			case ID_EMULATION_STOP:
-				if (disasmWindow[0])
-					SendMessage(disasmWindow[0]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
 				if (memoryWindow[0])
 					SendMessage(memoryWindow[0]->GetDlgHandle(), WM_CLOSE, 0, 0);
 
