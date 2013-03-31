@@ -253,6 +253,13 @@ void WriteStruct(u32 address, T *ptr)
 	memcpy(GetPointer(address), ptr, sz);
 }
 
+// Expect this to be some form of auto class on big endian.
+template<class T>
+T *GetStruct(u32 address)
+{
+	return (T *)GetPointer(address);
+}
+
 const char *GetAddressName(u32 address);
 
 };

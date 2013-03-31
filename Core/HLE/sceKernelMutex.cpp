@@ -719,17 +719,15 @@ int sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int init
 	mutex->nm.uid = id;
 	mutex->nm.workareaPtr = workareaPtr;
 	mutex->nm.initialCount = initialCount;
-	NativeLwMutexWorkarea workarea;
-	workarea.init();
-	workarea.lockLevel = initialCount;
+	auto workarea = Memory::GetStruct<NativeLwMutexWorkarea>(workareaPtr);
+	workarea->init();
+	workarea->lockLevel = initialCount;
 	if (initialCount == 0)
-		workarea.lockThread = 0;
+		workarea->lockThread = 0;
 	else
-		workarea.lockThread = __KernelGetCurThread();
-	workarea.attr = attr;
-	workarea.uid = id;
-
-	Memory::WriteStruct(workareaPtr, &workarea);
+		workarea->lockThread = __KernelGetCurThread();
+	workarea->attr = attr;
+	workarea->uid = id;
 
 	DEBUG_LOG(HLE, "sceKernelCreateLwMutex(%08x, %s, %08x, %d, %08x)", workareaPtr, name, attr, initialCount, optionsPtr);
 
@@ -741,7 +739,8 @@ int sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int init
 	return 0;
 }
 
-bool __KernelUnlockLwMutexForThread(LwMutex *mutex, NativeLwMutexWorkarea &workarea, SceUID threadID, u32 &error, int result)
+template <typename T>
+bool __KernelUnlockLwMutexForThread(LwMutex *mutex, T workarea, SceUID threadID, u32 &error, int result)
 {
 	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_LWMUTEX, error);
 	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
@@ -753,8 +752,8 @@ bool __KernelUnlockLwMutexForThread(LwMutex *mutex, NativeLwMutexWorkarea &worka
 	// If result is an error code, we're just letting it go.
 	if (result == 0)
 	{
-		workarea.lockLevel = (int) __KernelGetWaitValue(threadID, error);
-		workarea.lockThread = threadID;
+		workarea->lockLevel = (int) __KernelGetWaitValue(threadID, error);
+		workarea->lockThread = threadID;
 	}
 
 	if (timeoutPtr != 0 && lwMutexWaitTimer != -1)
@@ -775,11 +774,10 @@ int sceKernelDeleteLwMutex(u32 workareaPtr)
 	if (!workareaPtr || !Memory::IsValidAddress(workareaPtr))
 		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
 
-	NativeLwMutexWorkarea workarea;
-	Memory::ReadStruct(workareaPtr, &workarea);
+	auto workarea = Memory::GetStruct<NativeLwMutexWorkarea>(workareaPtr);
 
 	u32 error;
-	LwMutex *mutex = kernelObjects.Get<LwMutex>(workarea.uid, error);
+	LwMutex *mutex = kernelObjects.Get<LwMutex>(workarea->uid, error);
 	if (mutex)
 	{
 		bool wokeThreads = false;
@@ -788,8 +786,7 @@ int sceKernelDeleteLwMutex(u32 workareaPtr)
 			wokeThreads |= __KernelUnlockLwMutexForThread(mutex, workarea, *iter, error, SCE_KERNEL_ERROR_WAIT_DELETE);
 		mutex->waitingThreads.clear();
 
-		workarea.clear();
-		Memory::WriteStruct(workareaPtr, &workarea);
+		workarea->clear();
 
 		if (wokeThreads)
 			hleReSchedule("lwmutex deleted");
@@ -800,45 +797,46 @@ int sceKernelDeleteLwMutex(u32 workareaPtr)
 		return error;
 }
 
-bool __KernelLockLwMutex(NativeLwMutexWorkarea &workarea, int count, u32 &error)
+template <typename T>
+bool __KernelLockLwMutex(T workarea, int count, u32 &error)
 {
 	if (!error)
 	{
 		if (count <= 0)
 			error = SCE_KERNEL_ERROR_ILLEGAL_COUNT;
-		else if (count > 1 && !(workarea.attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE))
+		else if (count > 1 && !(workarea->attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE))
 			error = SCE_KERNEL_ERROR_ILLEGAL_COUNT;
 		// Two positive ints will always overflow to negative.
-		else if (count + workarea.lockLevel < 0)
+		else if (count + workarea->lockLevel < 0)
 			error = PSP_LWMUTEX_ERROR_LOCK_OVERFLOW;
-		else if (workarea.uid == -1)
+		else if (workarea->uid == -1)
 			error = PSP_LWMUTEX_ERROR_NO_SUCH_LWMUTEX;
 	}
 
 	if (error)
 		return false;
 
-	if (workarea.lockLevel == 0)
+	if (workarea->lockLevel == 0)
 	{
-		if (workarea.lockThread != 0)
+		if (workarea->lockThread != 0)
 		{
 			// Validate that it actually exists so we can return an error if not.
-			kernelObjects.Get<LwMutex>(workarea.uid, error);
+			kernelObjects.Get<LwMutex>(workarea->uid, error);
 			if (error)
 				return false;
 		}
 
-		workarea.lockLevel = count;
-		workarea.lockThread = __KernelGetCurThread();
+		workarea->lockLevel = count;
+		workarea->lockThread = __KernelGetCurThread();
 		return true;
 	}
 
-	if (workarea.lockThread == __KernelGetCurThread())
+	if (workarea->lockThread == __KernelGetCurThread())
 	{
 		// Recursive mutex, let's just increase the lock count and keep going
-		if (workarea.attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE)
+		if (workarea->attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE)
 		{
-			workarea.lockLevel += count;
+			workarea->lockLevel += count;
 			return true;
 		}
 		else
@@ -851,12 +849,13 @@ bool __KernelLockLwMutex(NativeLwMutexWorkarea &workarea, int count, u32 &error)
 	return false;
 }
 
-bool __KernelUnlockLwMutex(NativeLwMutexWorkarea &workarea, u32 &error)
+template <typename T>
+bool __KernelUnlockLwMutex(T workarea, u32 &error)
 {
-	LwMutex *mutex = kernelObjects.Get<LwMutex>(workarea.uid, error);
+	LwMutex *mutex = kernelObjects.Get<LwMutex>(workarea->uid, error);
 	if (error)
 	{
-		workarea.lockThread = 0;
+		workarea->lockThread = 0;
 		return false;
 	}
 
@@ -874,7 +873,7 @@ bool __KernelUnlockLwMutex(NativeLwMutexWorkarea &workarea, u32 &error)
 	}
 
 	if (!wokeThreads)
-		workarea.lockThread = 0;
+		workarea->lockThread = 0;
 
 	return wokeThreads;
 }
@@ -972,13 +971,9 @@ void __KernelLwMutexEndCallback(SceUID threadID, SceUID prevCallbackId, u32 &ret
 	// TODO: Don't wake up if __KernelCurHasReadyCallbacks()?
 
 	// Attempt to unlock.
-	NativeLwMutexWorkarea workarea;
-	Memory::ReadStruct(mutex->nm.workareaPtr, &workarea);
+	auto workarea = Memory::GetStruct<NativeLwMutexWorkarea>(mutex->nm.workareaPtr);
 	if (mutex->nm.lockThread == -1 && __KernelUnlockLwMutexForThread(mutex, workarea, threadID, error, 0))
-	{
-		Memory::WriteStruct(mutex->nm.workareaPtr, &workarea);
 		return;
-	}
 
 	// We only check if it timed out if it couldn't unlock.
 	s64 cyclesLeft = waitDeadline - CoreTiming::GetTicks();
@@ -1002,15 +997,11 @@ int sceKernelTryLockLwMutex(u32 workareaPtr, int count)
 {
 	DEBUG_LOG(HLE, "sceKernelTryLockLwMutex(%08x, %i)", workareaPtr, count);
 
-	NativeLwMutexWorkarea workarea;
-	Memory::ReadStruct(workareaPtr, &workarea);
+	auto workarea = Memory::GetStruct<NativeLwMutexWorkarea>(workareaPtr);
 
 	u32 error = 0;
 	if (__KernelLockLwMutex(workarea, count, error))
-	{
-		Memory::WriteStruct(workareaPtr, &workarea);
 		return 0;
-	}
 	// Unlike sceKernelTryLockLwMutex_600, this always returns the same error.
 	else if (error)
 		return PSP_MUTEX_ERROR_TRYLOCK_FAILED;
@@ -1022,15 +1013,11 @@ int sceKernelTryLockLwMutex_600(u32 workareaPtr, int count)
 {
 	DEBUG_LOG(HLE, "sceKernelTryLockLwMutex_600(%08x, %i)", workareaPtr, count);
 
-	NativeLwMutexWorkarea workarea;
-	Memory::ReadStruct(workareaPtr, &workarea);
+	auto workarea = Memory::GetStruct<NativeLwMutexWorkarea>(workareaPtr);
 
 	u32 error = 0;
 	if (__KernelLockLwMutex(workarea, count, error))
-	{
-		Memory::WriteStruct(workareaPtr, &workarea);
 		return 0;
-	}
 	else if (error)
 		return error;
 	else
@@ -1041,20 +1028,16 @@ int sceKernelLockLwMutex(u32 workareaPtr, int count, u32 timeoutPtr)
 {
 	VERBOSE_LOG(HLE, "sceKernelLockLwMutex(%08x, %i, %08x)", workareaPtr, count, timeoutPtr);
 
-	NativeLwMutexWorkarea workarea;
-	Memory::ReadStruct(workareaPtr, &workarea);
+	auto workarea = Memory::GetStruct<NativeLwMutexWorkarea>(workareaPtr);
 
 	u32 error = 0;
 	if (__KernelLockLwMutex(workarea, count, error))
-	{
-		Memory::WriteStruct(workareaPtr, &workarea);
 		return 0;
-	}
 	else if (error)
 		return error;
 	else
 	{
-		LwMutex *mutex = kernelObjects.Get<LwMutex>(workarea.uid, error);
+		LwMutex *mutex = kernelObjects.Get<LwMutex>(workarea->uid, error);
 		if (mutex)
 		{
 			SceUID threadID = __KernelGetCurThread();
@@ -1062,7 +1045,7 @@ int sceKernelLockLwMutex(u32 workareaPtr, int count, u32 timeoutPtr)
 			if (std::find(mutex->waitingThreads.begin(), mutex->waitingThreads.end(), threadID) == mutex->waitingThreads.end())
 				mutex->waitingThreads.push_back(threadID);
 			__KernelWaitLwMutex(mutex, timeoutPtr);
-			__KernelWaitCurThread(WAITTYPE_LWMUTEX, workarea.uid, count, timeoutPtr, false, "lwmutex waited");
+			__KernelWaitCurThread(WAITTYPE_LWMUTEX, workarea->uid, count, timeoutPtr, false, "lwmutex waited");
 
 			// Return value will be overwritten by wait.
 			return 0;
@@ -1076,20 +1059,16 @@ int sceKernelLockLwMutexCB(u32 workareaPtr, int count, u32 timeoutPtr)
 {
 	VERBOSE_LOG(HLE, "sceKernelLockLwMutexCB(%08x, %i, %08x)", workareaPtr, count, timeoutPtr);
 
-	NativeLwMutexWorkarea workarea;
-	Memory::ReadStruct(workareaPtr, &workarea);
+	auto workarea = Memory::GetStruct<NativeLwMutexWorkarea>(workareaPtr);
 
 	u32 error = 0;
 	if (__KernelLockLwMutex(workarea, count, error))
-	{
-		Memory::WriteStruct(workareaPtr, &workarea);
 		return 0;
-	}
 	else if (error)
 		return error;
 	else
 	{
-		LwMutex *mutex = kernelObjects.Get<LwMutex>(workarea.uid, error);
+		LwMutex *mutex = kernelObjects.Get<LwMutex>(workarea->uid, error);
 		if (mutex)
 		{
 			SceUID threadID = __KernelGetCurThread();
@@ -1097,7 +1076,7 @@ int sceKernelLockLwMutexCB(u32 workareaPtr, int count, u32 timeoutPtr)
 			if (std::find(mutex->waitingThreads.begin(), mutex->waitingThreads.end(), threadID) == mutex->waitingThreads.end())
 				mutex->waitingThreads.push_back(threadID);
 			__KernelWaitLwMutex(mutex, timeoutPtr);
-			__KernelWaitCurThread(WAITTYPE_LWMUTEX, workarea.uid, count, timeoutPtr, true, "lwmutex cb waited");
+			__KernelWaitCurThread(WAITTYPE_LWMUTEX, workarea->uid, count, timeoutPtr, true, "lwmutex cb waited");
 
 			// Return value will be overwritten by wait.
 			return 0;
@@ -1111,31 +1090,27 @@ int sceKernelUnlockLwMutex(u32 workareaPtr, int count)
 {
 	VERBOSE_LOG(HLE, "sceKernelUnlockLwMutex(%08x, %i)", workareaPtr, count);
 
-	NativeLwMutexWorkarea workarea;
-	Memory::ReadStruct(workareaPtr, &workarea);
+	auto workarea = Memory::GetStruct<NativeLwMutexWorkarea>(workareaPtr);
 
-	if (workarea.uid == -1)
+	if (workarea->uid == -1)
 		return PSP_LWMUTEX_ERROR_NO_SUCH_LWMUTEX;
 	else if (count <= 0)
 		return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
-	else if ((workarea.attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE) == 0 && count > 1)
+	else if ((workarea->attr & PSP_MUTEX_ATTR_ALLOW_RECURSIVE) == 0 && count > 1)
 		return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
-	else if (workarea.lockLevel == 0 || workarea.lockThread != __KernelGetCurThread())
+	else if (workarea->lockLevel == 0 || workarea->lockThread != __KernelGetCurThread())
 		return PSP_LWMUTEX_ERROR_NOT_LOCKED;
-	else if (workarea.lockLevel < count)
+	else if (workarea->lockLevel < count)
 		return PSP_LWMUTEX_ERROR_UNLOCK_UNDERFLOW;
 
-	workarea.lockLevel -= count;
+	workarea->lockLevel -= count;
 
-	if (workarea.lockLevel == 0)
+	if (workarea->lockLevel == 0)
 	{
 		u32 error;
 		if (__KernelUnlockLwMutex(workarea, error))
 			hleReSchedule("lwmutex unlocked");
-		Memory::WriteStruct(workareaPtr, &workarea);
 	}
-	else
-		Memory::WriteStruct(workareaPtr, &workarea);
 
 	return 0;
 }
@@ -1153,12 +1128,11 @@ int __KernelReferLwMutexStatus(SceUID uid, u32 infoPtr)
 
 	if (Memory::Read_U32(infoPtr) != 0)
 	{
-		NativeLwMutexWorkarea workarea;
-		Memory::ReadStruct(m->nm.workareaPtr, &workarea);
+		auto workarea = Memory::GetStruct<NativeLwMutexWorkarea>(m->nm.workareaPtr);
 
 		// Refresh and write
-		m->nm.currentCount = workarea.lockLevel;
-		m->nm.lockThread = workarea.lockThread == 0 ? -1 : workarea.lockThread;
+		m->nm.currentCount = workarea->lockLevel;
+		m->nm.lockThread = workarea->lockThread == 0 ? -1 : workarea->lockThread;
 		m->nm.numWaitThreads = m->waitingThreads.size();
 		Memory::WriteStruct(infoPtr, &m->nm);
 	}
@@ -1185,10 +1159,9 @@ int sceKernelReferLwMutexStatus(u32 workareaPtr, u32 infoPtr)
 	if (!Memory::IsValidAddress(workareaPtr))
 		return -1;
 
-	NativeLwMutexWorkarea workarea;
-	Memory::ReadStruct(workareaPtr, &workarea);
+	auto workarea = Memory::GetStruct<NativeLwMutexWorkarea>(workareaPtr);
 
-	int error = __KernelReferLwMutexStatus(workarea.uid, infoPtr);
+	int error = __KernelReferLwMutexStatus(workarea->uid, infoPtr);
 	if (error >= 0)
 	{
 		DEBUG_LOG(HLE, "sceKernelReferLwMutexStatus(%08x, %08x)", workareaPtr, infoPtr);
