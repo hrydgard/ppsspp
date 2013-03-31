@@ -324,7 +324,7 @@ void PauseScreen::render() {
 		ctx->RebindTexture();
 	}
 
-	ui_draw2d.DrawText(UBUNTU48, title, dp_xres / 2, 30, 0xFFFFFFFF, ALIGN_HCENTER);
+	ui_draw2d.DrawText(UBUNTU48, title, 10+144+10, 30, 0xFFFFFFFF, ALIGN_LEFT);
 
 	int x = 30;
 	int y = 50;
