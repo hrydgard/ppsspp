@@ -378,12 +378,12 @@ u32 scePsmfSetPsmf(u32 psmfStruct, u32 psmfData)
 
 u32 scePsmfGetNumberOfStreams(u32 psmfStruct)
 {
-	DEBUG_LOG(HLE, "scePsmfGetNumberOfSpecificStreams(%08x)", psmfStruct);
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
 		ERROR_LOG(HLE, "scePsmfGetNumberOfStreams - invalid psmf");
 		return ERROR_PSMF_NOT_FOUND;
 	}
+	DEBUG_LOG(HLE, "scePsmfGetNumberOfStreams(%08x)", psmfStruct);
 	return psmf->numStreams;
 }
 
