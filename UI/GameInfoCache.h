@@ -41,6 +41,8 @@ struct GameInfo {
 	std::string bgTextureData;
 	Texture *bgTexture;
 
+	bool wantBG;
+
 	double lastAccessedTime;
 
 	// The time at which the Icon and the BG were loaded.

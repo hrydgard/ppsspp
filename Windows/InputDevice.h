@@ -4,7 +4,6 @@
 #include <memory>
 
 #include "../Common/CommonTypes.h"
-#include "../Core/HLE/sceCtrl.h"
 
 struct InputState;
 
