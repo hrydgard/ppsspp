@@ -21,6 +21,8 @@
 #include <string>
 #include "../Globals.h"
 
+struct InputState;
+
 class PMixer
 {
 public:
@@ -48,12 +50,14 @@ public:
 	virtual void InitSound(PMixer *mixer) = 0;
 	virtual void UpdateSound() {}
 	virtual void ShutdownSound() = 0;
+	virtual void PollControllers(InputState &input_state) {}
 
 	//this is sent from EMU thread! Make sure that Host handles it properly!
 	virtual void BootDone() {}
 
 	virtual bool IsDebuggingEnabled() {return true;}
 	virtual bool AttemptLoadSymbolMap() {return false;}
+	virtual void SaveSymbolMap() {}
 	virtual void SetWindowTitle(const char *message) {}
 
 	virtual void SendCoreWait(bool) {}

@@ -230,6 +230,12 @@ int PSPMsgDialog::Update()
 	return 0;
 }
 
+int PSPMsgDialog::Abort()
+{
+	// TODO: Probably not exactly the same?
+	return PSPDialog::Shutdown();
+}
+
 int PSPMsgDialog::Shutdown()
 {
 	return PSPDialog::Shutdown();

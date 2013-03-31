@@ -47,6 +47,7 @@ namespace MainWindow {
 
 #include "Common/StringUtil.h"
 #include "Core/System.h"
+#include "Core/CoreParameter.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
@@ -303,7 +304,27 @@ void PauseScreen::render() {
 		title = game_title.c_str();
 	}
 
-	ui_draw2d.DrawText(UBUNTU48, title, dp_xres / 2, 30, 0xFFFFFFFF, ALIGN_HCENTER);
+
+	UIContext *ctx = screenManager()->getUIContext();
+	// This might create a texture so we must flush first.
+	UIFlush();
+	GameInfo *ginfo = g_gameInfoCache.GetInfo(PSP_CoreParameter().fileToStart, true);
+
+	if (ginfo && ginfo->bgTexture) {
+		ginfo->bgTexture->Bind(0);
+		ui_draw2d.DrawTexRect(0,0,dp_xres, dp_yres, 0,0,1,1,0xFFc0c0c0);
+		ui_draw2d.Flush();
+		ctx->RebindTexture();
+	}
+
+	if (ginfo && ginfo->iconTexture) {
+		ginfo->iconTexture->Bind(0);
+		ui_draw2d.DrawTexRect(10,10,10+144, 10+80, 0,0,1,1,0xFFFFFFFF);
+		ui_draw2d.Flush();
+		ctx->RebindTexture();
+	}
+
+	ui_draw2d.DrawText(UBUNTU48, title, 10+144+10, 30, 0xFFFFFFFF, ALIGN_LEFT);
 
 	int x = 30;
 	int y = 50;

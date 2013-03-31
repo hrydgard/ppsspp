@@ -77,6 +77,11 @@ GameInfo *GameInfoCache::GetInfo(const std::string &gamePath, bool wantBG) {
 	auto iter = info_.find(gamePath);
 	if (iter != info_.end()) {
 		GameInfo *info = iter->second;
+		if (!info->wantBG && wantBG) {
+			// Need to start over.
+			delete info;
+			goto again;
+		}
 		if (info->iconTextureData.size()) {
 			info->iconTexture = new Texture();
 			// TODO: We could actually do the PNG decoding as well on the async thread.
@@ -97,6 +102,8 @@ GameInfo *GameInfoCache::GetInfo(const std::string &gamePath, bool wantBG) {
 		return iter->second;
 	}
 
+again:
+
 	// return info;
 
 	// TODO: Everything below here should be asynchronous and run on a thread,
@@ -116,7 +123,7 @@ GameInfo *GameInfoCache::GetInfo(const std::string &gamePath, bool wantBG) {
 		ISOFileSystem umd(&handles, bd);
 
 		GameInfo *info = new GameInfo();
-
+		info->wantBG = wantBG;
 
 		// Alright, let's fetch the PARAM.SFO.
 		std::string paramSFOcontents;

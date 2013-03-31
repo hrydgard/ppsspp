@@ -129,11 +129,10 @@ void WindowsHost::SetDebugMode(bool mode)
 }
 
 
-void WindowsHost::BeginFrame()
+void WindowsHost::PollControllers(InputState &input_state)
 {
 	for (auto iter = this->input.begin(); iter != this->input.end(); iter++)
-		if ((*iter)->UpdateState() == 0)
-			break; // *iter is std::shared_ptr, **iter is InputDevice
+		(*iter)->UpdateState(input_state);
 }
 
 void WindowsHost::BootDone()
@@ -155,7 +154,16 @@ static std::string SymbolMapFilename(const char *currentFilename)
 
 bool WindowsHost::AttemptLoadSymbolMap()
 {
-	return symbolMap.LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str()).c_str());
+	if (loadedSymbolMap_)
+		return true;
+	loadedSymbolMap_ = symbolMap.LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str()).c_str());
+	return loadedSymbolMap_;
+}
+
+void WindowsHost::SaveSymbolMap()
+{
+	symbolMap.SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str()).c_str());
+	loadedSymbolMap_ = false;
 }
 
 void WindowsHost::AddSymbol(std::string name, u32 addr, u32 size, int type=0) 

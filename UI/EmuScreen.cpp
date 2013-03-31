@@ -80,7 +80,6 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true) {
 	}
 
 	host->BootDone();
-	host->AttemptLoadSymbolMap();
 	host->UpdateDisassembly();
 
 #ifdef _WIN32
@@ -99,8 +98,6 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true) {
 EmuScreen::~EmuScreen() {
 	if (!invalid_) {
 		// If we were invalid, it would already be shutdown.
-
-		// symbolMap.SaveSymbolMap(SymbolMapFilename(coreParam.fileToStart).c_str());
 		PSP_Shutdown();
 	}
 }
@@ -169,7 +166,9 @@ void EmuScreen::update(InputState &input) {
 		return;
 
 	// First translate touches into native pad input.
-	UpdateGamepad(input);
+	if (g_Config.bShowTouchControls)
+		UpdateGamepad(input);
+
 	UpdateInputState(&input);
 
 	// Then translate pad input into PSP pad input. Also, add in tilt.
@@ -208,7 +207,13 @@ void EmuScreen::update(InputState &input) {
 
 	__CtrlSetAnalog(stick_x, stick_y);
 
-	if (input.pad_buttons_down & (PAD_BUTTON_MENU | PAD_BUTTON_BACK)) {
+	if (input.pad_buttons & PAD_BUTTON_LEFT_THUMB) {
+		PSP_CoreParameter().unthrottle = true;
+	} else {
+		PSP_CoreParameter().unthrottle = false;
+	}
+
+	if (input.pad_buttons_down & (PAD_BUTTON_MENU | PAD_BUTTON_BACK | PAD_BUTTON_RIGHT_THUMB)) {
 		if (g_Config.bBufferedRendering)
 			fbo_unbind();
 		screenManager()->push(new PauseScreen());

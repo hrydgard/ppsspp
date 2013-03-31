@@ -1013,22 +1013,26 @@ endif()
 # installs
 file(INSTALL ${NativeAssets} DESTINATION assets)
 
-# packaging and code signing
-if (IOS)
+# Fix CMake some Xcode settings.
+if(APPLE)
 	# Fix CMake breaking optimization settings.
 	set(CMAKE_CXX_FLAGS_DEBUG "-g -D_DEBUG")
 	set(CMAKE_CXX_FLAGS_MINSIZEREL "-Os -D_NDEBUG")
-	set(CMAKE_CXX_FLAGS_RELEASE "-O2 -D_NDEBUG")
+	set(CMAKE_CXX_FLAGS_RELEASE "-O3 -D_NDEBUG")
 	set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g -D_NDEBUG")
 	set(CMAKE_C_FLAGS_DEBUG "-g -D_DEBUG")
 	set(CMAKE_C_FLAGS_MINSIZEREL "-Os -D_NDEBUG")
-	set(CMAKE_C_FLAGS_RELEASE "-O2 -D_NDEBUG")
+	set(CMAKE_C_FLAGS_RELEASE "-O3 -D_NDEBUG")
 	set(CMAKE_C_FLAGS_RELWITHDEBINFO "-O2 -g -D_NDEBUG")
 
-	# These can be fast.
+	# These can be fast even for debug.
 	set_target_properties(cityhash PROPERTIES COMPILE_FLAGS "-O3")
+	set_target_properties(snappy PROPERTIES COMPILE_FLAGS "-O3")
 	set_target_properties(zlib PROPERTIES COMPILE_FLAGS "-O3")
+endif()
 
+# packaging and code signing
+if(IOS)
 	add_dependencies(PPSSPP ${CoreLibName} GPU Common native)
 
 	file(GLOB IOSAssets ios/assets/*.png)

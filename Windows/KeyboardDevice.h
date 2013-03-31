@@ -3,5 +3,5 @@
 
 class KeyboardDevice : public InputDevice {
 public:
-	virtual int UpdateState();
+	virtual int UpdateState(InputState &input_state);
 };

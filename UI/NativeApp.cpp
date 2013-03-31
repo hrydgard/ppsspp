@@ -112,7 +112,6 @@ public:
 	virtual void SetDebugMode(bool mode) { }
 
 	virtual bool InitGL(std::string *error_message) { return true; }
-	virtual void BeginFrame() {}
 	virtual void ShutdownGL() {}
 
 	virtual void InitSound(PMixer *mixer);
@@ -304,7 +303,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 
 void NativeInitGraphics()
 {
-	INFO_LOG(BOOT, "NativeInitGraphics - should only be called once!");
 	gl_lost_manager_init();
 	ui_draw2d.SetAtlas(&ui_atlas);
 

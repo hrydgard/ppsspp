@@ -29,7 +29,6 @@ class WindowsHeadlessHost : public HeadlessHost
 {
 public:
 	virtual void InitGL();
-	virtual void BeginFrame();
 	virtual void ShutdownGL();
 	virtual bool isGLWorking() { return glOkay; }
 

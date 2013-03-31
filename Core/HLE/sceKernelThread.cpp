@@ -234,6 +234,7 @@ public:
 		p.Do(waitID);
 		p.Do(waitInfo);
 		p.Do(isProcessingCallbacks);
+		p.Do(currentCallbackId);
 
 		p.DoMarker("ActionAfterMipsCall");
 
@@ -258,6 +259,7 @@ public:
 	int waitID;
 	ThreadWaitInfo waitInfo;
 	bool isProcessingCallbacks;
+	SceUID currentCallbackId;
 
 	Action *chainedAction;
 };
@@ -391,9 +393,9 @@ public:
 	{
 		p.Do(nt);
 		p.Do(waitInfo);
-		p.Do(sleeping);
 		p.Do(moduleId);
 		p.Do(isProcessingCallbacks);
+		p.Do(currentMipscallId);
 		p.Do(currentCallbackId);
 		p.Do(context);
 
@@ -417,11 +419,11 @@ public:
 	NativeThread nt;
 
 	ThreadWaitInfo waitInfo;
-	bool sleeping;
 	SceUID moduleId;
 
 	bool isProcessingCallbacks;
-	u32 currentCallbackId;
+	u32 currentMipscallId;
+	SceUID currentCallbackId;
 
 	ThreadContext context;
 
@@ -496,8 +498,13 @@ struct ThreadList
 	}
 };
 
-void __KernelExecuteMipsCallOnCurrentThread(u32 callId, bool reschedAfter);
+struct WaitTypeFuncs
+{
+	WaitBeginCallbackFunc beginFunc;
+	WaitEndCallbackFunc endFunc;
+};
 
+void __KernelExecuteMipsCallOnCurrentThread(u32 callId, bool reschedAfter);
 
 Thread *__KernelCreateThread(SceUID &id, SceUID moduleID, const char *name, u32 entryPoint, u32 priority, int stacksize, u32 attr);
 void __KernelResetThread(Thread *t);
@@ -538,6 +545,9 @@ int actionAfterMipsCall;
 
 // This seems nasty
 SceUID curModule;
+
+// Doesn't need state saving.
+WaitTypeFuncs waitTypeFuncs[NUM_WAITTYPES];
 
 //////////////////////////////////////////////////////////////////////////
 //STATE END
@@ -623,6 +633,7 @@ void __KernelThreadingInit()
 	u32 blockSize = 4 * 4 + 4 * 2 * 3;  // One 16-byte thread plus 3 8-byte "hacks"
 
 	dispatchEnabled = true;
+	memset(waitTypeFuncs, 0, sizeof(waitTypeFuncs));
 
 	currentThread = 0;
 	g_inCbCount = 0;
@@ -892,6 +903,18 @@ SceUID __KernelGetWaitID(SceUID threadID, WaitType type, u32 &error)
 	else
 	{
 		ERROR_LOG(HLE, "__KernelGetWaitID ERROR: thread %i", threadID);
+		return 0;
+	}
+}
+
+SceUID __KernelGetCurrentCallbackID(SceUID threadID, u32 &error)
+{
+	Thread *t = kernelObjects.Get<Thread>(threadID, error);
+	if (t)
+		return t->currentCallbackId;
+	else
+	{
+		ERROR_LOG(HLE, "__KernelGetCurrentCallbackID ERROR: thread %i", threadID);
 		return 0;
 	}
 }
@@ -1172,6 +1195,26 @@ void __KernelWaitCurThread(WaitType type, SceUID waitID, u32 waitValue, u32 time
 	// TODO: Remove thread from Ready queue?
 }
 
+void __KernelWaitCallbacksCurThread(WaitType type, SceUID waitID, u32 waitValue, u32 timeoutPtr)
+{
+	if (!dispatchEnabled)
+	{
+		WARN_LOG_REPORT(HLE, "Ignoring wait, dispatching disabled... right thing to do?");
+		return;
+	}
+
+	Thread *thread = __GetCurrentThread();
+	thread->nt.waitID = waitID;
+	thread->nt.waitType = type;
+	__KernelChangeThreadState(thread, THREADSTATUS_WAIT);
+	// TODO: Probably not...?
+	thread->nt.numReleases++;
+	thread->waitInfo.waitValue = waitValue;
+	thread->waitInfo.timeoutPtr = timeoutPtr;
+
+	__KernelForceCallbacks();
+}
+
 void hleScheduledWakeup(u64 userdata, int cyclesLate)
 {
 	SceUID threadID = (SceUID)userdata;
@@ -1405,7 +1448,8 @@ void __KernelResetThread(Thread *t)
 
 	t->nt.exitStatus = SCE_KERNEL_ERROR_NOT_DORMANT;
 	t->isProcessingCallbacks = false;
-	// TODO: Is this correct?
+	t->currentCallbackId = 0;
+	t->currentMipscallId = 0;
 	t->pendingMipsCalls.clear();
 
 	t->context.r[MIPS_REG_RA] = threadReturnHackAddr; //hack! TODO fix
@@ -2283,6 +2327,7 @@ void ActionAfterMipsCall::run(MipsCall &call) {
 		thread->nt.waitID = waitID;
 		thread->waitInfo = waitInfo;
 		thread->isProcessingCallbacks = isProcessingCallbacks;
+		thread->currentCallbackId = currentCallbackId;
 	}
 
 	if (chainedAction) {
@@ -2295,7 +2340,7 @@ ActionAfterMipsCall *Thread::getRunningCallbackAction()
 {
 	if (this->GetUID() == currentThread && g_inCbCount > 0)
 	{
-		MipsCall *call = mipsCalls.get(this->currentCallbackId);
+		MipsCall *call = mipsCalls.get(this->currentMipscallId);
 		ActionAfterMipsCall *action = 0;
 		if (call)
 			action = dynamic_cast<ActionAfterMipsCall *>(call->doAfter);
@@ -2316,7 +2361,7 @@ void Thread::setReturnValue(u32 retval)
 {
 	if (this->GetUID() == currentThread) {
 		if (g_inCbCount) {
-			u32 callId = this->currentCallbackId;
+			u32 callId = this->currentMipscallId;
 			MipsCall *call = mipsCalls.get(callId);
 			if (call) {
 				call->setReturnValue(retval);
@@ -2335,7 +2380,7 @@ void Thread::setReturnValue(u64 retval)
 {
 	if (this->GetUID() == currentThread) {
 		if (g_inCbCount) {
-			u32 callId = this->currentCallbackId;
+			u32 callId = this->currentMipscallId;
 			MipsCall *call = mipsCalls.get(callId);
 			if (call) {
 				call->setReturnValue(retval);
@@ -2516,11 +2561,19 @@ void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, co
 		after->waitID = thread->nt.waitID;
 		after->waitInfo = thread->waitInfo;
 		after->isProcessingCallbacks = thread->isProcessingCallbacks;
+		after->currentCallbackId = thread->currentCallbackId;
 
 		afterAction = after;
 
-		// Release thread from waiting
-		thread->nt.waitType = WAITTYPE_NONE;
+		if (thread->nt.waitType != WAITTYPE_NONE) {
+			// If it's a callback, tell the wait to stop.
+			if (waitTypeFuncs[thread->nt.waitType].beginFunc != NULL && cbId > 0) {
+				waitTypeFuncs[thread->nt.waitType].beginFunc(after->threadID, thread->currentCallbackId);
+			}
+
+			// Release thread from waiting
+			thread->nt.waitType = WAITTYPE_NONE;
+		}
 
 		__KernelChangeThreadState(thread, THREADSTATUS_READY);
 	}
@@ -2583,7 +2636,7 @@ void __KernelExecuteMipsCallOnCurrentThread(u32 callId, bool reschedAfter)
 	call->savedV0 = currentMIPS->r[MIPS_REG_V0];
 	call->savedV1 = currentMIPS->r[MIPS_REG_V1];
 	call->savedIdRegister = currentMIPS->r[MIPS_REG_CALL_ID];
-	call->savedId = cur->currentCallbackId;
+	call->savedId = cur->currentMipscallId;
 	call->reschedAfter = reschedAfter;
 
 	// Set up the new state
@@ -2592,7 +2645,7 @@ void __KernelExecuteMipsCallOnCurrentThread(u32 callId, bool reschedAfter)
 	// We put this two places in case the game overwrites it.
 	// We may want it later to "inject" return values.
 	currentMIPS->r[MIPS_REG_CALL_ID] = callId;
-	cur->currentCallbackId = callId;
+	cur->currentMipscallId = callId;
 	for (int i = 0; i < call->numArgs; i++) {
 		currentMIPS->r[MIPS_REG_A0 + i] = call->args[i];
 	}
@@ -2611,7 +2664,7 @@ void __KernelReturnFromMipsCall()
 		return;
 	}
 
-	u32 callId = cur->currentCallbackId;
+	u32 callId = cur->currentMipscallId;
 	if (currentMIPS->r[MIPS_REG_CALL_ID] != callId)
 		WARN_LOG_REPORT(HLE, "__KernelReturnFromMipsCall(): s0 is %08x != %08x", currentMIPS->r[MIPS_REG_CALL_ID], callId);
 
@@ -2633,11 +2686,17 @@ void __KernelReturnFromMipsCall()
 	currentMIPS->r[MIPS_REG_V0] = call->savedV0;
 	currentMIPS->r[MIPS_REG_V1] = call->savedV1;
 	currentMIPS->r[MIPS_REG_CALL_ID] = call->savedIdRegister;
-	cur->currentCallbackId = call->savedId;
+	cur->currentMipscallId = call->savedId;
 
 	if (call->cbId != 0)
 		g_inCbCount--;
 	currentCallbackThreadID = 0;
+
+	if (cur->nt.waitType != WAITTYPE_NONE)
+	{
+		if (waitTypeFuncs[cur->nt.waitType].endFunc != NULL && call->cbId > 0)
+			waitTypeFuncs[cur->nt.waitType].endFunc(cur->GetUID(), cur->currentCallbackId, currentMIPS->r[MIPS_REG_V0]);
+	}
 
 	// yeah! back in the real world, let's keep going. Should we process more callbacks?
 	if (!__KernelExecutePendingMipsCalls(cur, call->reschedAfter))
@@ -2724,6 +2783,20 @@ void ActionAfterCallback::run(MipsCall &call) {
 			}
 		}
 	}
+}
+
+bool __KernelCurHasReadyCallbacks() {
+	if (readyCallbacksCount == 0)
+		return false;
+
+	Thread *thread = __GetCurrentThread();
+	for (int i = 0; i < THREAD_CALLBACK_NUM_TYPES; i++) {
+		if (thread->readyCallbacks[i].size()) {
+			return true;
+		}
+	}
+
+	return false;
 }
 
 // Check callbacks on the current thread only.
@@ -2885,6 +2958,12 @@ u32 __KernelNotifyCallbackType(RegisteredCallbackType type, SceUID cbId, int not
 
 	// checkCallbacks on other threads?
 	return 0;
+}
+
+void __KernelRegisterWaitTypeFuncs(WaitType type, WaitBeginCallbackFunc beginFunc, WaitEndCallbackFunc endFunc)
+{
+	waitTypeFuncs[type].beginFunc = beginFunc;
+	waitTypeFuncs[type].endFunc = endFunc;
 }
 
 std::vector<DebugThreadInfo> GetThreadsInfo()

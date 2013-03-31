@@ -738,8 +738,8 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 		if (ringbuffer.packetsFree + packetsConsumed >= ringbuffer.packets) {
 			// Having not yet reached the last timestamp?
 			if (ctx->mpegLastTimestamp > 0 && avcAu.pts < ctx->mpegLastTimestamp) {
-				// Do not yet consume all the remaining packets.
-				packetsConsumed = 0;
+				// Do not yet consume all the remaining packets, leave 2 packets
+				packetsConsumed = ringbuffer.packets - ringbuffer.packetsFree - 2;
 			}
 		}
 		ctx->mediaengine->setReadLength(ctx->mediaengine->readLength() - packetsConsumed * ringbuffer.packetSize);
@@ -911,8 +911,8 @@ int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initAddr)
 		if (ringbuffer.packetsFree + packetsConsumed >= ringbuffer.packets) {
 			// Having not yet reached the last timestamp?
 			if (ctx->mpegLastTimestamp > 0 && avcAu.pts < ctx->mpegLastTimestamp) {
-				// Do not yet consume all the remaining packets.
-				packetsConsumed = 0;
+				// Do not yet consume all the remaining packets, leave 2 packets
+				packetsConsumed = ringbuffer.packets - ringbuffer.packetsFree - 2;
 			}
 		}
 		ctx->mediaengine->setReadLength(ctx->mediaengine->readLength() - packetsConsumed * ringbuffer.packetSize);

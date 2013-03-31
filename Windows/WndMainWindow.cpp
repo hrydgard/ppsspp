@@ -108,14 +108,18 @@ namespace MainWindow
 
 	void GetWindowRectAtZoom(int zoom, RECT &rcInner, RECT &rcOuter) {
 		// GetWindowRect(hwndMain, &rcInner);
-		rcInner.left = g_Config.iWindowX;
-		rcInner.top = g_Config.iWindowY;
+		rcInner.left = 0;
+		rcInner.top = 0;
 
-		rcInner.right=480*zoom + rcInner.left;//+client edge
-		rcInner.bottom=272*zoom + rcInner.top; //+client edge
+		rcInner.right=480*zoom;//+client edge
+		rcInner.bottom=272*zoom; //+client edge
 
 		rcOuter=rcInner;
 		AdjustWindowRect(&rcOuter, WS_OVERLAPPEDWINDOW, TRUE);
+		rcOuter.right += g_Config.iWindowX - rcOuter.left;
+		rcOuter.bottom += g_Config.iWindowY - rcOuter.top;
+		rcOuter.left = g_Config.iWindowX;
+		rcOuter.top = g_Config.iWindowY;
 	}
 
 	void SavePosition() {
@@ -352,8 +356,6 @@ namespace MainWindow
 				break;
 
 			case ID_EMULATION_STOP:
-				if (disasmWindow[0])
-					SendMessage(disasmWindow[0]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
 				if (memoryWindow[0])
 					SendMessage(memoryWindow[0]->GetDlgHandle(), WM_CLOSE, 0, 0);
 

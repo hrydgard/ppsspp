@@ -28,6 +28,7 @@ float dp_yscale = 1.0f;
 
 static uint32_t pad_buttons_async_set = 0;
 static uint32_t pad_buttons_async_clear = 0;
+static uint32_t pad_buttons_down = 0;
 
 extern ScreenManager *screenManager;
 InputState input_state;
@@ -60,6 +61,9 @@ ViewController* sharedViewController;
 		self.bundlePath = [[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/assets/"];
 
 		memset(&input_state, 0, sizeof(input_state));
+		pad_buttons_async_clear = 0;
+		pad_buttons_async_set = 0;
+		pad_buttons_down = 0;
 
 		net::Init();
 
@@ -108,7 +112,7 @@ ViewController* sharedViewController;
 	dp_yscale = (float)dp_yres / (float)pixel_yres;
     
     if (g_Config.bEnableSound)
-        self.audioEngine = [[[AudioEngine alloc] init] autorelease];
+		self.audioEngine = [[[AudioEngine alloc] init] autorelease];
 /*
 	UISwipeGestureRecognizer* gesture = [[[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(swipeGesture:)] autorelease];
 	[self.view addGestureRecognizer:gesture];
@@ -134,7 +138,7 @@ ViewController* sharedViewController;
 {
 	[self viewDidUnload];
     
-    self.audioEngine = nil;
+	self.audioEngine = nil;
 	self.touches = nil;
 	self.documentsPath = nil;
 	self.bundlePath = nil;
@@ -159,10 +163,17 @@ ViewController* sharedViewController;
 
 - (void)glkView:(GLKView *)view drawInRect:(CGRect)rect
 {
-	lock_guard guard(input_state.lock);
-	input_state.pad_buttons |= pad_buttons_async_set;
-	input_state.pad_buttons &= ~pad_buttons_async_clear;
-	UpdateInputState(&input_state);
+	{
+		lock_guard guard(input_state.lock);
+		pad_buttons_down |= pad_buttons_async_set;
+		pad_buttons_down &= ~pad_buttons_async_clear;
+		input_state.pad_lstick_x = 0;
+		input_state.pad_lstick_y = 0;
+		input_state.pad_rstick_x = 0;
+		input_state.pad_rstick_y = 0;
+		input_state.pad_buttons = pad_buttons_down;
+		UpdateInputState(&input_state);
+	}
 
 	{
 		lock_guard guard(input_state.lock);
@@ -219,12 +230,36 @@ ViewController* sharedViewController;
 	input_state.mouse_valid = true;
 }
 
+- (NSDictionary*)touchDictBy:(UITouch*)touch
+{
+    for (NSDictionary* dict in self.touches) {
+        if ([dict objectForKey:@"touch"] == touch)
+            return dict;
+    }
+    return nil;
+}
+
+- (int)freeTouchIndex
+{
+    int index = 0;
+
+    for (NSDictionary* dict in self.touches)
+    {
+        int i = [[dict objectForKey:@"index"] intValue];
+        if (index == i)
+            index = i+1;
+    }
+
+    return index;
+}
+
 - (void)touchesBegan:(NSSet *)_touches withEvent:(UIEvent *)event
 {
 	for(UITouch* touch in _touches) {
-		[self.touches addObject:touch];
+		NSDictionary* dict = @{@"touch":touch,@"index":@([self freeTouchIndex])};
+		[self.touches addObject:dict];
 		CGPoint point = [touch locationInView:self.view];
-		[self touchX:point.x y:point.y code:1 pointerId:[self.touches indexOfObject:touch]];
+		[self touchX:point.x y:point.y code:1 pointerId:[[dict objectForKey:@"index"] intValue]];
 	}
 }
 
@@ -232,7 +267,8 @@ ViewController* sharedViewController;
 {
 	for(UITouch* touch in _touches) {
 		CGPoint point = [touch locationInView:self.view];
-		[self touchX:point.x y:point.y code:0 pointerId:[self.touches indexOfObject:touch]];
+		NSDictionary* dict = [self touchDictBy:touch];
+		[self touchX:point.x y:point.y code:0 pointerId:[[dict objectForKey:@"index"] intValue]];
 	}
 }
 
@@ -240,8 +276,9 @@ ViewController* sharedViewController;
 {
 	for(UITouch* touch in _touches) {
 		CGPoint point = [touch locationInView:self.view];
-		[self touchX:point.x y:point.y code:2 pointerId:[self.touches indexOfObject:touch]];
-		[self.touches removeObject:touch];
+		NSDictionary* dict = [self touchDictBy:touch];
+		[self touchX:point.x y:point.y code:2 pointerId:[[dict objectForKey:@"index"] intValue]];
+		[self.touches removeObject:dict];
 	}
 }
 

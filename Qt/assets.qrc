@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/">
+        <file>assets/ui_atlas.zim</file>
+        <file>assets/ppge_atlas.zim</file>
+    </qresource>
+</RCC>
