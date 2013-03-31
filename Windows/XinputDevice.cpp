@@ -85,7 +85,9 @@ static Stick NormalizedDeadzoneFilter(short x, short y) {
 	return left;
 }
 
-static const unsigned short xinput_ctrl_map[] = {
+// Yes, this maps more than the PSP has, but that's fine as this lets us
+// map buttons to extra functionality like speedup.
+static const unsigned int xinput_ctrl_map[] = {
 	XINPUT_GAMEPAD_DPAD_UP,        PAD_BUTTON_UP,
 	XINPUT_GAMEPAD_DPAD_DOWN,      PAD_BUTTON_DOWN,
 	XINPUT_GAMEPAD_DPAD_LEFT,      PAD_BUTTON_LEFT,
@@ -98,7 +100,10 @@ static const unsigned short xinput_ctrl_map[] = {
 	XINPUT_GAMEPAD_B,              PAD_BUTTON_B,
 	XINPUT_GAMEPAD_X,              PAD_BUTTON_X,
 	XINPUT_GAMEPAD_Y,              PAD_BUTTON_Y,
+	XINPUT_GAMEPAD_LEFT_THUMB,     PAD_BUTTON_LEFT_THUMB,
+	XINPUT_GAMEPAD_RIGHT_THUMB,    PAD_BUTTON_RIGHT_THUMB,
 };
+
 static inline u32 CtrlForXinput(int xinput) {
 	for (int i = 0; i < sizeof(xinput_ctrl_map)/sizeof(xinput_ctrl_map[0]); i += 2)
 		if (xinput_ctrl_map[i] == xinput) return (u32) xinput_ctrl_map[i+1];
@@ -106,11 +111,8 @@ static inline u32 CtrlForXinput(int xinput) {
 }
 
 void XinputDevice::ApplyDiff(XINPUT_STATE &state, InputState &input_state) {
-	unsigned short pressed  =  state.Gamepad.wButtons & ~this->prevState.Gamepad.wButtons;
-	unsigned short released = ~state.Gamepad.wButtons &  this->prevState.Gamepad.wButtons;
-
 	for (int i = 1; i < USHRT_MAX; i <<= 1) {
-		if (pressed & i)
+		if (state.Gamepad.wButtons & i)
 			input_state.pad_buttons |= CtrlForXinput(i);
 	}
 }

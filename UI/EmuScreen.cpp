@@ -207,7 +207,13 @@ void EmuScreen::update(InputState &input) {
 
 	__CtrlSetAnalog(stick_x, stick_y);
 
-	if (input.pad_buttons_down & (PAD_BUTTON_MENU | PAD_BUTTON_BACK)) {
+	if (input.pad_buttons & PAD_BUTTON_LEFT_THUMB) {
+		PSP_CoreParameter().unthrottle = true;
+	} else {
+		PSP_CoreParameter().unthrottle = false;
+	}
+
+	if (input.pad_buttons_down & (PAD_BUTTON_MENU | PAD_BUTTON_BACK | PAD_BUTTON_RIGHT_THUMB)) {
 		if (g_Config.bBufferedRendering)
 			fbo_unbind();
 		screenManager()->push(new PauseScreen());

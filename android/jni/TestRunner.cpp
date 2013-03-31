@@ -70,6 +70,7 @@ void RunTests()
 	coreParam.pixelHeight = 272;
 	coreParam.useMediaEngine = false;
 	coreParam.collectEmuLog = &output;
+	coreParam.unthrottle = true;
 
 #ifdef IOS
 	std::string baseDirectory = g_Config.flashDirectory + "../";

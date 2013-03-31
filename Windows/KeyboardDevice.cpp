@@ -4,22 +4,8 @@
 #include "../Core/HLE/sceCtrl.h"
 #include "WinUser.h"
 
-static const unsigned short key_ctrl_map[] = {
-	VK_SPACE, CTRL_START,
-	'V',      CTRL_SELECT,
-	'A',      CTRL_SQUARE,
-	'S',      CTRL_TRIANGLE,
-	'X',      CTRL_CIRCLE,
-	'Z',      CTRL_CROSS,
-	'Q',      CTRL_LTRIGGER,
-	'W',      CTRL_RTRIGGER,
-	VK_UP,    CTRL_UP,
-	VK_DOWN,  CTRL_DOWN,
-	VK_LEFT,  CTRL_LEFT,
-	VK_RIGHT, CTRL_RIGHT,
-};
-
-static const unsigned short key_pad_map[] = {
+static const unsigned int key_pad_map[] = {
+	VK_TAB,   PAD_BUTTON_LEFT_THUMB,
 	VK_SPACE, PAD_BUTTON_START,
 	'V',      PAD_BUTTON_SELECT,
 	'A',      PAD_BUTTON_X,
@@ -46,7 +32,7 @@ int KeyboardDevice::UpdateState(InputState &input_state) {
 	static u32 alternator = 0;
 	bool doAlternate = alternate && (alternator++ % 10) < 5;
 
-	for (int i = 0; i < sizeof(key_ctrl_map)/sizeof(key_ctrl_map[0]); i += 2) {
+	for (int i = 0; i < sizeof(key_pad_map)/sizeof(key_pad_map[0]); i += 2) {
 		if (GetAsyncKeyState(key_pad_map[i]) && !doAlternate) {
 			input_state.pad_buttons |= key_pad_map[i+1];
 		}

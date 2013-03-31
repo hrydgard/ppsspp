@@ -16,4 +16,4 @@ public class PpssppActivity extends NativeActivity {
 		return false;
 	}  
 }                                     
- 
+   

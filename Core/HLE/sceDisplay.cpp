@@ -300,11 +300,8 @@ void DebugStats()
 
 // Let's collect all the throttling and frameskipping logic here.
 void DoFrameTiming(bool &throttle, bool &skipFrame) {
-#ifdef _WIN32
-	throttle = !GetAsyncKeyState(VK_TAB);
-#else
-	throttle = true;
-#endif
+	throttle = !PSP_CoreParameter().unthrottle;
+
 	skipFrame = false;
 	if (PSP_CoreParameter().headLess)
 		throttle = false;
