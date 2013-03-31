@@ -245,6 +245,19 @@ int sceUtilityMsgDialogGetStatus()
 	return status;
 }
 
+int sceUtilityMsgDialogAbort()
+{
+	if (currentDialogType != UTILITY_DIALOG_MSG)
+	{
+		WARN_LOG(HLE, "sceUtilityMsgDialogShutdownStart(): wrong dialog type");
+		return SCE_ERROR_UTILITY_WRONG_TYPE;
+	}
+	currentDialogActive = false;
+
+	DEBUG_LOG(HLE, "sceUtilityMsgDialogAbort()");
+	return msgDialog.Abort();
+}
+
 
 // On screen keyboard
 
@@ -504,7 +517,7 @@ const HLEFunction sceUtility[] =
 	{0x2ad8e239, &WrapI_U<sceUtilityMsgDialogInitStart>, "sceUtilityMsgDialogInitStart"},
 	{0x95fc253b, &WrapI_I<sceUtilityMsgDialogUpdate>, "sceUtilityMsgDialogUpdate"},
 	{0x9a1c91d7, &WrapI_V<sceUtilityMsgDialogGetStatus>, "sceUtilityMsgDialogGetStatus"},
-	{0x4928bd96, 0, "sceUtilityMsgDialogAbort"},
+	{0x4928bd96, &WrapI_V<sceUtilityMsgDialogAbort>, "sceUtilityMsgDialogAbort"},
 
 	{0x9790b33c, &WrapI_V<sceUtilitySavedataShutdownStart>, "sceUtilitySavedataShutdownStart"},
 	{0x50c4cd57, &WrapI_U<sceUtilitySavedataInitStart>, "sceUtilitySavedataInitStart"},
@@ -556,7 +569,7 @@ const HLEFunction sceUtility[] =
 	{0x32E32DCB, 0, "sceUtilityGamedataInstallShutdownStart"},
 	{0x4AECD179, 0, "sceUtilityGamedataInstallUpdate"},
 	{0xB57E95D9, &WrapI_V<sceUtilityGamedataInstallGetStatus>, "sceUtilityGamedataInstallGetStatus"},
-	{0x180F7B62, 0, "sceUtilityGamedataInstallAbortFunction"},
+	{0x180F7B62, 0, "sceUtilityGamedataInstallAbort"},
 
 	{0x16D02AF0, 0, "sceUtilityNpSigninInitStart"},
 	{0xE19C97D6, 0, "sceUtilityNpSigninShutdownStart"},
