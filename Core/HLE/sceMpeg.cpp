@@ -571,11 +571,11 @@ u32 sceMpegQueryStreamSize(u32 bufferAddr, u32 sizeAddr)
 	AnalyzeMpeg(bufferAddr, &ctx);
 
 	if (ctx.mpegMagic != PSMF_MAGIC) {
-		ERROR_LOG(HLE, "sceMpegQueryStreamOffset: Bad PSMF magic");
+		ERROR_LOG(HLE, "sceMpegQueryStreamSize: Bad PSMF magic");
 		Memory::Write_U32(0, sizeAddr);
 		return ERROR_MPEG_INVALID_VALUE;
 	} else if ((ctx.mpegOffset & 2047) != 0 ) {
-		ERROR_LOG(HLE, "sceMpegQueryStreamOffset: Bad offset");
+		ERROR_LOG(HLE, "sceMpegQueryStreamSize: Bad offset");
 		Memory::Write_U32(0, sizeAddr);
 		return ERROR_MPEG_INVALID_VALUE;
 	}
