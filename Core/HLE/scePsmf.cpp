@@ -392,10 +392,16 @@ u32 scePsmfGetNumberOfSpecificStreams(u32 psmfStruct, u32 streamType)
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
 		ERROR_LOG(HLE, "UNIMPL scePsmfGetNumberOfSpecificStreams - invalid psmf");
-		return ERROR_PSMF_NOT_FOUND;
-	}
+		//Hack for Puella Magi Madoka Magica Portable - ULJS00430
+		//The game works best in v0.7-289-g4617988
+		return 0;
+		//return ERROR_PSMF_NOT_FOUND;
+	}	
 	INFO_LOG(HLE, "scePsmfGetNumberOfSpecificStreams(%08x, %08x)", psmfStruct, streamType);
-	return 1;
+	//Hack for Puella Magi Madoka Magica Portable - ULJS00430
+	//The game works best in v0.7-289-g4617988
+	return 0;
+	//return 1;
 }
 
 u32 scePsmfSpecifyStreamWithStreamType(u32 psmfStruct, u32 streamType, u32 channel)
