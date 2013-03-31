@@ -1270,10 +1270,29 @@ u32 sceMpegRingbufferQueryPackNum(int memorySize)
 u32 sceMpegFlushAllStream(u32 mpeg)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
-	ERROR_LOG(HLE, "UNIMPL sceMpegFlushAllStream(%08x)", mpeg);
-	if ( ctx->videoFrameCount > 0 || ctx->audioFrameCount > 0) {
-		//__MpegFinish();
+	if (!ctx) {
+		WARN_LOG(HLE, "sceMpegFlushAllStream(%08x): bad mpeg handle", mpeg);
+		return -1;
 	}
+	WARN_LOG(HLE, "UNIMPL sceMpegFlushAllStream(%08x)", mpeg);
+
+	ctx->avcRegistered = false;
+	ctx->atracRegistered = false;
+	ctx->pcmRegistered = false;
+	ctx->dataRegistered = false;
+
+	ctx->streamMap.clear();
+	ctx->isAnalyzed = false;
+
+	if (Memory::IsValidAddress(ctx->mpegRingbufferAddr))
+	{
+		auto ringbuffer = Memory::GetStruct<SceMpegRingBuffer>(ctx->mpegRingbufferAddr);
+
+		ringbuffer->packetsFree = ringbuffer->packets;
+		ringbuffer->packetsRead = 0;
+		ringbuffer->packetsWritten = 0;
+	}
+
 	return 0;
 }
 
@@ -1308,7 +1327,15 @@ u32 sceMpegAvcCsc(u32 mpeg, u32 sourceAddr, u32 rangeAddr, int frameWidth, u32 d
 u32 sceMpegRingbufferDestruct(u32 ringbufferAddr)
 {
 	DEBUG_LOG(HLE, "sceMpegRingbufferDestruct(%08x)", ringbufferAddr);
-	// Don't need to do anything here
+
+	if (Memory::IsValidAddress(ringbufferAddr))
+	{
+		auto ringbuffer = Memory::GetStruct<SceMpegRingBuffer>(ringbufferAddr);
+
+		ringbuffer->packetsFree = ringbuffer->packets;
+		ringbuffer->packetsRead = 0;
+		ringbuffer->packetsWritten = 0;
+	}
 	return 0;
 }
 
