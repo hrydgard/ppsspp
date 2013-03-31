@@ -391,6 +391,10 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			dontadd = true;
 		}
 	}
+	else if (host->AttemptLoadSymbolMap())
+	{
+		dontadd = true;
+	}
 
 	INFO_LOG(LOADER,"Module %s: %08x %08x %08x", modinfo->name, modinfo->gp, modinfo->libent,modinfo->libstub);
 

@@ -83,8 +83,7 @@ void Core_WaitInactive()
 
 void Core_WaitInactive(int milliseconds)
 {
-	while (!Core_IsInactive())
-		m_hInactiveEvent.wait_for(m_hInactiveMutex, milliseconds);
+	m_hInactiveEvent.wait_for(m_hInactiveMutex, milliseconds);
 }
 
 void UpdateScreenScale() {

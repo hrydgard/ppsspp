@@ -60,6 +60,7 @@ void Config::Load(const char *iniFileName)
 	general->Get("Recent", recentIsos);
 	general->Get("WindowX", &iWindowX, 40);
 	general->Get("WindowY", &iWindowY, 100);
+	general->Get("AutoSaveSymbolMap", &bAutoSaveSymbolMap, false);
 
 	if (recentIsos.size() > MAX_RECENT)
 		recentIsos.resize(MAX_RECENT);
@@ -139,6 +140,7 @@ void Config::Save()
 		general->Set("Recent", recentIsos);
 		general->Set("WindowX", iWindowX);
 		general->Set("WindowY", iWindowY);
+		general->Set("AutoSaveSymbolMap", bAutoSaveSymbolMap);
 
 		IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 		cpu->Set("Jit", bJit);
