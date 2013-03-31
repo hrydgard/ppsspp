@@ -534,7 +534,7 @@ UINT loopPlaying(void * lpvoid)
 		{
 			long curtime = clock();
 			long reftime = 1000 - (curtime - counttime) * 1000 / CLOCKS_PER_SEC;
-			if (reftime) {
+			if (reftime > 0) {
 				Common::SleepCurrentThread(reftime);
 			}
 			counttime += CLOCKS_PER_SEC;
