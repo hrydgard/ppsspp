@@ -150,12 +150,14 @@ bool Texture::LoadPNG(const uint8_t *data, size_t size, bool genMips) {
 		return false;
 	}
 	GL_CHECK();
+	// TODO: should check for power of 2 tex size and disallow genMips when not.
 	glGenTextures(1, &id_);
 	glBindTexture(GL_TEXTURE_2D, id_);
-	SetTextureParameters(genMips ? ZIM_GEN_MIPS : 0);
+	SetTextureParameters(genMips ? ZIM_GEN_MIPS : ZIM_CLAMP);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width_, height_, 0, 
 		GL_RGBA, GL_UNSIGNED_BYTE, image_data);
-	glGenerateMipmap(GL_TEXTURE_2D);
+	if (genMips) 
+		glGenerateMipmap(GL_TEXTURE_2D);
 	GL_CHECK();
 	free(image_data);
 	return true;
