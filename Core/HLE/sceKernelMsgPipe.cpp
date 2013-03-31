@@ -74,9 +74,11 @@ struct MsgPipe : public KernelObject
 				if (__KernelGetThreadPrio(id) >= __KernelGetThreadPrio((*it).id))
 				{
 					list.insert(it, thread);
-					break;
+					return;
 				}
 			}
+
+			list.push_back(thread);
 		}
 		else
 		{
@@ -396,7 +398,7 @@ void sceKernelTrySendMsgPipe()
 		return;
 	}
 
-	DEBUG_LOG(HLE, "sceKernelTrySendMsgPipeCB(id=%i, addr=%08x, size=%i, mode=%i, result=%08x)", uid, sendBufAddr, sendSize, waitMode, resultAddr);
+	DEBUG_LOG(HLE, "sceKernelTrySendMsgPipe(id=%i, addr=%08x, size=%i, mode=%i, result=%08x)", uid, sendBufAddr, sendSize, waitMode, resultAddr);
 	__KernelSendMsgPipe(m, sendBufAddr, sendSize, waitMode, resultAddr, 0, false, true);
 }
 
