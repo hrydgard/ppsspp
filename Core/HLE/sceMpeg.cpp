@@ -1081,7 +1081,6 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		WARN_LOG(HLE, "sceMpegGetAvcAu(%08x, %08x, %08x, %08x): bad mpeg handle", mpeg, streamId, auAddr, attrAddr);
 		return -1;
 	}
-	DEBUG_LOG(HLE, "sceMpegGetAvcAu(%08x, %08x, %08x, %08x)", mpeg, streamId, auAddr, attrAddr);
 
 	SceMpegRingBuffer mpegRingbuffer;
 	Memory::ReadStruct(ctx->mpegRingbufferAddr, &mpegRingbuffer);
@@ -1089,8 +1088,9 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	SceMpegAu sceAu;
 	sceAu.read(auAddr);
 
-	if (mpegRingbuffer.packetsRead == 0) {
+	if (mpegRingbuffer.packetsRead == 0 || mpegRingbuffer.packetsFree == mpegRingbuffer.packets) {
 		// delayThread(mpegErrorDecodeDelay)
+		DEBUG_LOG(HLE, "PSP_ERROR_MPEG_NO_DATA=sceMpegGetAvcAu(%08x, %08x, %08x, %08x)", mpeg, streamId, auAddr, attrAddr);
 		return PSP_ERROR_MPEG_NO_DATA;
 	}
 
@@ -1135,6 +1135,7 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		Memory::Write_U32(1, attrAddr);
 	}
 
+	DEBUG_LOG(HLE, "%x=sceMpegGetAvcAu(%08x, %08x, %08x, %08x)", result, mpeg, streamId, auAddr, attrAddr);
 	return result;
 }
 
@@ -1158,7 +1159,6 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		WARN_LOG(HLE, "sceMpegGetAtracAu(%08x, %08x, %08x, %08x): bad mpeg handle", mpeg, streamId, auAddr, attrAddr);
 		return -1;
 	}
-	DEBUG_LOG(HLE, "sceMpegGetAtracAu(%08x, %08x, %08x, %08x)", mpeg, streamId, auAddr, attrAddr);
 
 	SceMpegRingBuffer mpegRingbuffer;
 	Memory::ReadStruct(ctx->mpegRingbufferAddr, &mpegRingbuffer);
@@ -1167,6 +1167,11 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	sceAu.read(auAddr);
 
 	int result = 0;
+
+	if (mpegRingbuffer.packetsFree == mpegRingbuffer.packets) {
+		DEBUG_LOG(HLE, "PSP_ERROR_MPEG_NO_DATA=sceMpegGetAtracAu(%08x, %08x, %08x, %08x)", mpeg, streamId, auAddr, attrAddr);
+		return PSP_ERROR_MPEG_NO_DATA;
+	}
 
 	//...
 	// TODO: Just faking it.
@@ -1186,6 +1191,7 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		Memory::Write_U32(0, attrAddr);
 	}
 
+	DEBUG_LOG(HLE, "%x=sceMpegGetAtracAu(%08x, %08x, %08x, %08x)", result, mpeg, streamId, auAddr, attrAddr);
 	return result;
 }
 
