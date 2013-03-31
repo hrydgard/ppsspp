@@ -33,7 +33,10 @@ int KeyboardDevice::UpdateState(InputState &input_state) {
 	bool doAlternate = alternate && (alternator++ % 10) < 5;
 
 	for (int i = 0; i < sizeof(key_pad_map)/sizeof(key_pad_map[0]); i += 2) {
-		if (GetAsyncKeyState(key_pad_map[i]) && !doAlternate) {
+		if (!GetAsyncKeyState(key_pad_map[i])) {
+			continue;
+		}
+		if (!doAlternate || key_pad_map[i + 1] > PAD_BUTTON_SELECT) {
 			input_state.pad_buttons |= key_pad_map[i+1];
 		}
 	}
