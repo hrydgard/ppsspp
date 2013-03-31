@@ -453,7 +453,6 @@ u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFirstBuf,
 		// TODO: Not sure what this means?
 		atrac->decodePos = sample;
 	}
-
 	return 0;
 }
 
@@ -504,12 +503,15 @@ u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize)
 			pspFileSystem.CloseFile(h);
 			delete [] buf;
 		}
-		else if (!addAtrac3AudioByPackage(Memory::lastestAccessFile.packagefile, 
-			           Memory::lastestAccessFile.start_pos, atrac->first.filesize, 
-					   Memory::GetPointer(buffer), atracID))
-		{
-			ERROR_LOG(HLE, "failed to find audio stream from package: %s", Memory::lastestAccessFile.packagefile);
-			addAtrac3Audio(Memory::GetPointer(buffer), bufferSize, atracID);
+		else {
+			Memory::LASTESTFILECACHE *cache = Memory::lastestAccessFile.findmatchcache(Memory::GetPointer(buffer));
+			if (cache) {
+				addAtrac3AudioByPackage(cache->packagefile, cache->start_pos, atrac->first.filesize,
+				                        Memory::GetPointer(buffer), atracID);
+			} else {
+				ERROR_LOG(HLE, "Atrac3 file not cache");
+				addAtrac3Audio(Memory::GetPointer(buffer), bufferSize, atracID);
+			}
 		}
 			
 #endif // _USE_DSHOW_
@@ -541,12 +543,15 @@ int sceAtracSetDataAndGetID(u32 buffer, u32 bufferSize)
 		pspFileSystem.CloseFile(h);
 		delete [] buf;
 	}
-	else if (!addAtrac3AudioByPackage(Memory::lastestAccessFile.packagefile, 
-			     Memory::lastestAccessFile.start_pos, atrac->first.filesize, 
-				 Memory::GetPointer(buffer), atracID))
-	{
-		ERROR_LOG(HLE, "failed to find audio stream from package: %s", Memory::lastestAccessFile.packagefile);
-		addAtrac3Audio(Memory::GetPointer(buffer), bufferSize, atracID);
+	else {
+		Memory::LASTESTFILECACHE *cache = Memory::lastestAccessFile.findmatchcache(Memory::GetPointer(buffer));
+		if (cache) {
+			addAtrac3AudioByPackage(cache->packagefile, cache->start_pos, atrac->first.filesize,
+			                        Memory::GetPointer(buffer), atracID);
+		} else {
+			ERROR_LOG(HLE, "Atrac3 file not cache");
+			addAtrac3Audio(Memory::GetPointer(buffer), bufferSize, atracID);
+		}
 	}
 #endif // _USE_DSHOW_
 	return atracID;

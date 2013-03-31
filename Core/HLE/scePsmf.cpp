@@ -784,13 +784,14 @@ int scePsmfPlayerReleasePsmf(u32 psmfPlayer)
 
 int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 {
-	DEBUG_LOG(HLE, "UNIMPL scePsmfPlayerGetVideoData(%08x, %08x)", psmfPlayer, videoDataAddr);
+	ERROR_LOG(HLE, "UNIMPL scePsmfPlayerGetVideoData(%08x, %08x)", psmfPlayer, videoDataAddr);
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
 		ERROR_LOG(HLE, "scePsmfPlayerGetVideoData - invalid psmf");
 		return ERROR_PSMF_NOT_FOUND;
 	}
 
+	// TODO: Once we start increasing pts somewhere, and actually know the last timestamp, do this better.
 #ifdef _USE_FFMPEG_
 	if (!playPMFVideo())
 	{
@@ -799,13 +800,12 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 #else
 	psmfplayer->status = PSMF_PLAYER_STATUS_PLAYING_FINISHED;
 #endif // _USE_FFMPEG_
-
 	return 0;
 }
 
 int scePsmfPlayerGetAudioData(u32 psmfPlayer, u32 audioDataAddr)
 {
-	DEBUG_LOG(HLE, "UNIMPL scePsmfPlayerGetAudioData(%08x, %08x)", psmfPlayer, audioDataAddr);
+	ERROR_LOG(HLE, "UNIMPL scePsmfPlayerGetAudioData(%08x, %08x)", psmfPlayer, audioDataAddr);
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
 		ERROR_LOG(HLE, "scePsmfPlayerGetAudioData - invalid psmf");

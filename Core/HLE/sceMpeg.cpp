@@ -24,6 +24,7 @@
 #include "HLE.h"
 #include "../HW/MediaEngine.h"
 #include "../../Core/Config.h"
+
 #ifdef _USE_FFMPEG_
 #include "../HW/mediaPlayer.h"
 #endif // _USE_FFMPEG_
@@ -447,7 +448,6 @@ u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr, u32 f
 	SceMpegRingBuffer ringbuffer;
 	if(ringbufferAddr != 0){
 	Memory::ReadStruct(ringbufferAddr, &ringbuffer);
-
 	if (ringbuffer.packetSize == 0) {
 		ringbuffer.packetsFree = 0;
 	} else {
@@ -504,7 +504,7 @@ int sceMpegDelete(u32 mpeg)
 		return -1;
 	}
 
-	INFO_LOG(HLE, "sceMpegDelete(%08x)", mpeg);
+	DEBUG_LOG(HLE, "sceMpegDelete(%08x)", mpeg);
 
 	delete ctx;
 	mpegMap.erase(Memory::Read_U32(mpeg));
@@ -542,10 +542,6 @@ int sceMpegAvcDecodeMode(u32 mpeg, u32 modeAddr)
 
 int sceMpegQueryStreamOffset(u32 mpeg, u32 bufferAddr, u32 offsetAddr)
 {
-	if (!g_Config.bUseMediaEngine){
-		WARN_LOG(HLE, "Media Engine disabled");
-		return -1;
-	}
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
 		WARN_LOG(HLE, "sceMpegQueryStreamOffset(%08x, %08x, %08x): bad mpeg handle", mpeg, bufferAddr, offsetAddr);
@@ -572,10 +568,12 @@ int sceMpegQueryStreamOffset(u32 mpeg, u32 bufferAddr, u32 offsetAddr)
 	}
 	else
 	{
-		DEBUG_LOG(HLE, "package file: %s, start pos: %08x, buffer addr: %08x", Memory::lastestAccessFile.packagefile, Memory::lastestAccessFile.start_pos, bufferAddr);
-		loadPMFPackageFile(Memory::lastestAccessFile.packagefile, 
-			Memory::lastestAccessFile.start_pos, 
-			ctx->mpegStreamSize + ctx->mpegOffset, Memory::GetPointer(bufferAddr));
+		Memory::LASTESTFILECACHE *cache = Memory::lastestAccessFile.findmatchcache(Memory::GetPointer(bufferAddr));
+		if (cache)
+		{
+			DEBUG_LOG(HLE, "package file: %s, start pos: %08x, buffer addr: %08x", cache->packagefile, cache->start_pos, bufferAddr);
+			loadPMFPackageFile(cache->packagefile, cache->start_pos, ctx->mpegStreamSize + ctx->mpegOffset, Memory::GetPointer(bufferAddr));
+		}
 	}
 #endif // _USE_FFMPEG_
 
@@ -765,7 +763,7 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 
 	if (ctx->mediaengine->stepVideo()) {
 #ifdef _USE_FFMPEG_
-		//getPMFPlayer()->writeVideoImage(Memory::GetPointer(buffer), frameWidth, ctx->videoPixelMode);
+		//if (!playPMFVideo())
 		if (!writePMFVideoImage(Memory::GetPointer(buffer), frameWidth, ctx->videoPixelMode))
 		{
 			iresult = -1;
@@ -807,7 +805,7 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 	avcAu.write(auAddr);
 	Memory::WriteStruct(ctx->mpegRingbufferAddr, &ringbuffer);
 
-	Memory::Write_U32(ctx->avc.avcDecodeResult, initAddr);  // 1 = showing, 0 = not showing
+	Memory::Write_U32(ctx->avc.avcFrameStatus, initAddr);  // 1 = showing, 0 = not showing
 
 	DEBUG_LOG(HLE, "sceMpegAvcDecode(%08x, %08x, %i, %08x, %08x)", mpeg, auAddr, frameWidth, bufferAddr, initAddr);
 
@@ -1399,7 +1397,7 @@ u32 sceMpegAvcCsc(u32 mpeg, u32 sourceAddr, u32 rangeAddr, int frameWidth, u32 d
 	int width    = Memory::Read_U32(rangeAddr + 8);
 	int height   = Memory::Read_U32(rangeAddr + 12);
 #ifdef _USE_FFMPEG_
-		//getPMFPlayer()->writeVideoImage(Memory::GetPointer(buffer), frameWidth, ctx->videoPixelMode);
+	//playPMFVideo();
 	writePMFVideoImageWithRange(Memory::GetPointer(destAddr), frameWidth, ctx->videoPixelMode, 
 		                        x, y, width, height);
 #endif // _USE_FFMPEG_
@@ -1501,7 +1499,7 @@ int sceMpegGetUserdataAu(u32 mpeg, u32 streamUid, u32 auAddr, u32 resultAddr)
 /* MP3 */
 int sceMp3Decode(u32 mp3, u32 outPcmPtr)
 {
-	INFO_LOG(HLE, "sceMp3Decode(%08x,%08x)", mp3, outPcmPtr);
+	DEBUG_LOG(HLE, "sceMp3Decode(%08x,%08x)", mp3, outPcmPtr);
 
 	Mp3Context *ctx = getMp3Ctx(mp3);
 	if (!ctx)
@@ -1618,7 +1616,7 @@ int sceMp3TermResource()
 
 int sceMp3Init(u32 mp3)
 {
-	INFO_LOG(HLE, "sceMp3Init(%08x)", mp3);
+	DEBUG_LOG(HLE, "sceMp3Init(%08x)", mp3);
 
 	Mp3Context *ctx = getMp3Ctx(mp3);
 	if (!ctx)

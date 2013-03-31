@@ -459,6 +459,7 @@ int __IoRead(int id, u32 data_addr, int size) {
 		}
 		else if (Memory::IsValidAddress(data_addr)) {
 #ifdef _USE_FFMPEG_
+			u8* idbuf = 0;
 			if (f->fullpath.find(".AT3") != std::string::npos ||
 				f->fullpath.find(".at3") != std::string::npos ||
 				f->fullpath.find(".PMF") != std::string::npos ||
@@ -470,16 +471,28 @@ int __IoRead(int id, u32 data_addr, int size) {
 			}
 			if (f->info.size > 0x19000)
 			{
-				strcpy(Memory::lastestAccessFile.packagefile, f->fullpath.c_str());
-				Memory::lastestAccessFile.start_pos = pspFileSystem.GetSeekPos(f->handle);
+				if (size >= 0x20 || strlen(f->fullpath.c_str()) < 10)
+				{
+					int pos = Memory::lastestAccessFile.cachepos;
+					strcpy(Memory::lastestAccessFile.cache[pos].packagefile, f->fullpath.c_str());
+					Memory::lastestAccessFile.cache[pos].start_pos = pspFileSystem.GetSeekPos(f->handle);
+					idbuf = Memory::lastestAccessFile.cache[pos].idbuf;
+					Memory::lastestAccessFile.cachepos++;
+				}
 			}
 #endif // _USE_FFMPEG_
 			u8 *data = (u8*) Memory::GetPointer(data_addr);
+			int result;
 			if(f->npdrm){
-				return npdrmRead(f, data, size);
+				result = npdrmRead(f, data, size);
 			}else{
-				return (int) pspFileSystem.ReadFile(f->handle, data, size);
+				result = (int) pspFileSystem.ReadFile(f->handle, data, size);
 			}
+#ifdef _USE_FFMPEG_
+			if (idbuf)
+				memcpy(idbuf, data, 0x20);
+			return result;
+#endif // _USE_FFMPEG_
 		} else {
 			ERROR_LOG(HLE, "sceIoRead Reading into bad pointer %08x", data_addr);
 			// TODO: Returning 0 because it wasn't being sign-extended in async result before.

@@ -116,13 +116,32 @@ enum
 };
 
 #ifdef _USE_FFMPEG_
-extern struct LASTESTACCESSFILE{
+struct LASTESTFILECACHE {
+	char packagefile[256];
+	u32  start_pos;
+	u8   idbuf[0x20];
+};
+
+extern struct LASTESTACCESSFILE {
 // media file
 	char filename[256];
 	u32 data_addr;
 // package file
-	char packagefile[256];
-	u32 start_pos;
+	LASTESTFILECACHE cache[256];
+	u8  cachepos;
+	LASTESTFILECACHE* findmatchcache(u8* buffer)
+	{
+		if (!buffer)
+			return 0;
+		for (int i = 0; i < 256; i++) {
+			int pos = (256 + cachepos - i) & 0xFF;
+			if (memcmp(buffer, cache[pos].idbuf, 0x20) == 0)
+			{
+				return &cache[pos];
+			}
+		}
+		return 0;
+	}
 } lastestAccessFile;
 #endif // _USE_FFMPEG_
 

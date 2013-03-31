@@ -496,7 +496,7 @@ mediaPlayer* getPMFPlayer()
 	return &g_pmfPlayer;
 }
 
-UINT loopPlaying(void * lpvoid)
+u32 loopPlaying(void * lpvoid)
 {
 	int count = 0;
 	long counttime = clock();
@@ -526,7 +526,10 @@ UINT loopPlaying(void * lpvoid)
 				return 0;
 			}
 			movieInfo.iPlayVideo--;
+			g_FramebufferMoviePlaying = true;
 		}
+		else
+			g_FramebufferMoviePlaying = false;
 		clock_t endtime = clock();
 		// keep the movie frames 30FPS
 		count = (count + 1) % 30;

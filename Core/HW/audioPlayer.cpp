@@ -157,25 +157,32 @@ bool audioPlayer::setPlayPos(long ms)
 bool audioEngine::loadRIFFStream(u8* stream, int streamsize, int atracID)
 {
 	u8 *oma = 0;
-	int omasize = OMAConvert::convertRIFFtoOMA(stream, streamsize, &oma);
-	if (omasize <= 0)
-		return false;
-	/*else if (omasize <= 70*1024) {
-		OMAConvert::releaseStream(&oma);
-		return false;
-	}*/
 	m_ID = atracID;
-	/*{
-	sprintf(m_filename, "tmp\\%d.at3", m_ID);
-	FILE *wfp = fopen(m_filename, "wb");
-	fwrite(stream, 1, streamsize, wfp);
-	fclose(wfp);
-	}*/
-	sprintf(m_filename, "tmp\\%d.oma", m_ID);
-	FILE *wfp = fopen(m_filename, "wb");
-	fwrite(oma, 1, omasize, wfp);
-	fclose(wfp);
-	OMAConvert::releaseStream(&oma);
+	int omasize = OMAConvert::convertRIFFtoOMA(stream, streamsize, &oma);
+	if (omasize <= 0) {
+		char strtemp[260];
+		sprintf(m_filename, "tmp\\%d.at3", m_ID);
+		FILE *wfp = fopen(m_filename, "wb");
+		fwrite(stream, 1, streamsize, wfp);
+		fclose(wfp);
+		sprintf(strtemp, "at3tool\\at3tool.exe -d tmp\\%d.at3 tmp\\%d.wav", m_ID, m_ID);
+		system(strtemp);
+		DeleteFileA(m_filename);
+
+		sprintf(m_filename, "tmp\\%d.wav", m_ID);
+		wfp = fopen(m_filename, "rb");
+		if (!wfp) {
+			m_ID = -1;
+			return false;
+		}
+		fclose(wfp);
+	} else {
+		sprintf(m_filename, "tmp\\%d.oma", m_ID);
+		FILE *wfp = fopen(m_filename, "wb");
+		fwrite(oma, 1, omasize, wfp);
+		fclose(wfp);
+		OMAConvert::releaseStream(&oma);
+	}
 
 	m_iloop = OMAConvert::getRIFFLoopNum(stream, streamsize);
 

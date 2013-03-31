@@ -189,10 +189,12 @@ int convertRIFFtoOMA(u8* riff, int riffSize, u8** outputStream)
 	u8 headerCode1 = getBufValue(riff, fmtChunkOffset + 0x32);
 	u8 headerCode2 = getBufValue(riff, fmtChunkOffset + 0x33);
 
+	bool bsupported = false;
 	u16 magic = getBufValue((u16*)riff, fmtChunkOffset + 0x08);
 	if (magic == AT3_MAGIC)
 	{
 		u8 key = getBufValue((u8*)riff, fmtChunkOffset + 0x11);
+		u8 channel = getBufValue((u8*)riff, fmtChunkOffset + 0x0a);
 		switch (key)
 		{
 		case 0x20:
@@ -223,11 +225,14 @@ int convertRIFFtoOMA(u8* riff, int riffSize, u8** outputStream)
 			}
 			break;
 		}
+		if (channel == 2)
+			bsupported = true;
+		else 
+			bsupported = false;
 	}
 	else if (magic == AT3_PLUS_MAGIC && headerCode0 == 0x00 
 		&& headerCode1 == 0x28)
 	{
-		bool bsupported = false;
 		for (int i = 0; i < atrac3plusradiosize; i++) {
 			if (atrac3plusradio[i] == headerCode2)
 			{
@@ -235,13 +240,9 @@ int convertRIFFtoOMA(u8* riff, int riffSize, u8** outputStream)
 				break;
 			}
 		}
-		if (bsupported == false)
-		{
-			*outputStream = 0;
-			return 0;
-		}
 	}
-	else
+
+	if (bsupported == false)
 	{
 		*outputStream = 0;
 		return 0;
