@@ -163,7 +163,10 @@ public:
 		return id;
 	}
 	MipsCall *get(u32 id) {
-		return calls_[id];
+		auto iter = calls_.find(id);
+		if (iter == calls_.end())
+			return NULL;
+		return iter->second;
 	}
 	MipsCall *pop(u32 id) {
 		MipsCall *temp = calls_[id];
