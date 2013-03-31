@@ -571,11 +571,11 @@ u32 sceMpegQueryStreamSize(u32 bufferAddr, u32 sizeAddr)
 	AnalyzeMpeg(bufferAddr, &ctx);
 
 	if (ctx.mpegMagic != PSMF_MAGIC) {
-		ERROR_LOG(HLE, "sceMpegQueryStreamOffset: Bad PSMF magic");
+		ERROR_LOG(HLE, "sceMpegQueryStreamSize: Bad PSMF magic");
 		Memory::Write_U32(0, sizeAddr);
 		return ERROR_MPEG_INVALID_VALUE;
 	} else if ((ctx.mpegOffset & 2047) != 0 ) {
-		ERROR_LOG(HLE, "sceMpegQueryStreamOffset: Bad offset");
+		ERROR_LOG(HLE, "sceMpegQueryStreamSize: Bad offset");
 		Memory::Write_U32(0, sizeAddr);
 		return ERROR_MPEG_INVALID_VALUE;
 	}
@@ -1081,7 +1081,6 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		WARN_LOG(HLE, "sceMpegGetAvcAu(%08x, %08x, %08x, %08x): bad mpeg handle", mpeg, streamId, auAddr, attrAddr);
 		return -1;
 	}
-	DEBUG_LOG(HLE, "sceMpegGetAvcAu(%08x, %08x, %08x, %08x)", mpeg, streamId, auAddr, attrAddr);
 
 	SceMpegRingBuffer mpegRingbuffer;
 	Memory::ReadStruct(ctx->mpegRingbufferAddr, &mpegRingbuffer);
@@ -1089,8 +1088,9 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	SceMpegAu sceAu;
 	sceAu.read(auAddr);
 
-	if (mpegRingbuffer.packetsRead == 0) {
+	if (mpegRingbuffer.packetsRead == 0 || mpegRingbuffer.packetsFree == mpegRingbuffer.packets) {
 		// delayThread(mpegErrorDecodeDelay)
+		DEBUG_LOG(HLE, "PSP_ERROR_MPEG_NO_DATA=sceMpegGetAvcAu(%08x, %08x, %08x, %08x)", mpeg, streamId, auAddr, attrAddr);
 		return PSP_ERROR_MPEG_NO_DATA;
 	}
 
@@ -1135,6 +1135,7 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		Memory::Write_U32(1, attrAddr);
 	}
 
+	DEBUG_LOG(HLE, "%x=sceMpegGetAvcAu(%08x, %08x, %08x, %08x)", result, mpeg, streamId, auAddr, attrAddr);
 	return result;
 }
 
@@ -1158,7 +1159,6 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		WARN_LOG(HLE, "sceMpegGetAtracAu(%08x, %08x, %08x, %08x): bad mpeg handle", mpeg, streamId, auAddr, attrAddr);
 		return -1;
 	}
-	DEBUG_LOG(HLE, "sceMpegGetAtracAu(%08x, %08x, %08x, %08x)", mpeg, streamId, auAddr, attrAddr);
 
 	SceMpegRingBuffer mpegRingbuffer;
 	Memory::ReadStruct(ctx->mpegRingbufferAddr, &mpegRingbuffer);
@@ -1167,6 +1167,11 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	sceAu.read(auAddr);
 
 	int result = 0;
+
+	if (mpegRingbuffer.packetsFree == mpegRingbuffer.packets) {
+		DEBUG_LOG(HLE, "PSP_ERROR_MPEG_NO_DATA=sceMpegGetAtracAu(%08x, %08x, %08x, %08x)", mpeg, streamId, auAddr, attrAddr);
+		return PSP_ERROR_MPEG_NO_DATA;
+	}
 
 	//...
 	// TODO: Just faking it.
@@ -1186,6 +1191,7 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		Memory::Write_U32(0, attrAddr);
 	}
 
+	DEBUG_LOG(HLE, "%x=sceMpegGetAtracAu(%08x, %08x, %08x, %08x)", result, mpeg, streamId, auAddr, attrAddr);
 	return result;
 }
 
@@ -1270,10 +1276,29 @@ u32 sceMpegRingbufferQueryPackNum(int memorySize)
 u32 sceMpegFlushAllStream(u32 mpeg)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
-	ERROR_LOG(HLE, "UNIMPL sceMpegFlushAllStream(%08x)", mpeg);
-	if ( ctx->videoFrameCount > 0 || ctx->audioFrameCount > 0) {
-		//__MpegFinish();
+	if (!ctx) {
+		WARN_LOG(HLE, "sceMpegFlushAllStream(%08x): bad mpeg handle", mpeg);
+		return -1;
 	}
+	WARN_LOG(HLE, "UNIMPL sceMpegFlushAllStream(%08x)", mpeg);
+
+	ctx->avcRegistered = false;
+	ctx->atracRegistered = false;
+	ctx->pcmRegistered = false;
+	ctx->dataRegistered = false;
+
+	ctx->streamMap.clear();
+	ctx->isAnalyzed = false;
+
+	if (Memory::IsValidAddress(ctx->mpegRingbufferAddr))
+	{
+		auto ringbuffer = Memory::GetStruct<SceMpegRingBuffer>(ctx->mpegRingbufferAddr);
+
+		ringbuffer->packetsFree = ringbuffer->packets;
+		ringbuffer->packetsRead = 0;
+		ringbuffer->packetsWritten = 0;
+	}
+
 	return 0;
 }
 
@@ -1308,7 +1333,15 @@ u32 sceMpegAvcCsc(u32 mpeg, u32 sourceAddr, u32 rangeAddr, int frameWidth, u32 d
 u32 sceMpegRingbufferDestruct(u32 ringbufferAddr)
 {
 	DEBUG_LOG(HLE, "sceMpegRingbufferDestruct(%08x)", ringbufferAddr);
-	// Don't need to do anything here
+
+	if (Memory::IsValidAddress(ringbufferAddr))
+	{
+		auto ringbuffer = Memory::GetStruct<SceMpegRingBuffer>(ringbufferAddr);
+
+		ringbuffer->packetsFree = ringbuffer->packets;
+		ringbuffer->packetsRead = 0;
+		ringbuffer->packetsWritten = 0;
+	}
 	return 0;
 }
 
