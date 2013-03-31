@@ -300,7 +300,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 		if (hasColor) {
 			WRITE(p, "  lowp vec3 unlitColor = a_color0.rgb;\n");
 		} else {
-			WRITE(p, "  lowp vec3 unlitColor = vec3(1.0);\n");
+			WRITE(p, "  lowp vec3 unlitColor = u_matambientalpha;\n");
 		}
 		// TODO: Declare variables for dots for shade mapping if needed.
 
