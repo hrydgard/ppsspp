@@ -76,6 +76,8 @@ bool PSP_Init(const CoreParameter &coreParam, std::string *error_string)
 	mipsr4k.Reset();
 	mipsr4k.pc = 0;
 
+	host->AttemptLoadSymbolMap();
+
 	if (coreParameter.enableSound)
 	{
 		mixer = new PSPMixer();
@@ -125,6 +127,9 @@ void PSP_Shutdown()
 	pspFileSystem.Shutdown();
 
 	CoreTiming::Shutdown();
+
+	if (g_Config.bAutoSaveSymbolMap)
+		host->SaveSymbolMap();
 
 	if (coreParameter.enableSound)
 	{

@@ -57,6 +57,7 @@ public:
 
 	virtual bool IsDebuggingEnabled() {return true;}
 	virtual bool AttemptLoadSymbolMap() {return false;}
+	virtual void SaveSymbolMap() {}
 	virtual void SetWindowTitle(const char *message) {}
 
 	virtual void SendCoreWait(bool) {}
