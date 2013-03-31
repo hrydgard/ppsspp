@@ -853,7 +853,7 @@ void TextureCache::SetTexture() {
 			break;
 		}
 	}
-
+	if (g_Config.bMipMap) {
 #ifdef USING_GLES2
 	// GLES2 doesn't have support for a "Max lod" which is critical as PSP games often
 	// don't specify mips all the way down. As a result, we either need to manually generate
@@ -863,16 +863,18 @@ void TextureCache::SetTexture() {
 	// For now, I choose to use autogen mips on GLES2 and the game's own on other platforms.
 	// As is usual, GLES3 will solve this problem nicely but wide distribution of that is
 	// years away.
-	LoadTextureLevel(*entry, 0);
-	if (maxLevel > 0)
-		glGenerateMipmap(GL_TEXTURE_2D);
+		LoadTextureLevel(*entry, 0);
+		if (maxLevel > 0)
+			glGenerateMipmap(GL_TEXTURE_2D);
 #else
-	for (int i = 0; i <= maxLevel; i++) {
-		LoadTextureLevel(*entry, i);
-	}
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, maxLevel);
+		for (int i = 0; i <= maxLevel; i++) {
+			LoadTextureLevel(*entry, i);
+		}
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, maxLevel);
 #endif
-	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)maxLevel);
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)maxLevel);
+	}
+
 	float anisotropyLevel = (float) g_Config.iAnisotropyLevel > maxAnisotropyLevel ? maxAnisotropyLevel : (float) g_Config.iAnisotropyLevel;
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, anisotropyLevel);
 	// NOTICE_LOG(G3D,"AnisotropyLevel = %0.1f , MaxAnisotropyLevel = %0.1f ", anisotropyLevel, maxAnisotropyLevel );
