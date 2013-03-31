@@ -163,11 +163,13 @@ ViewController* sharedViewController;
 
 - (void)glkView:(GLKView *)view drawInRect:(CGRect)rect
 {
-	lock_guard guard(input_state.lock);
-	pad_buttons_down |= pad_buttons_async_set;
-	pad_buttons_down &= ~pad_buttons_async_clear;
-	input_state.pad_buttons = pad_buttons_down;
-	UpdateInputState(&input_state);
+	{
+		lock_guard guard(input_state.lock);
+		pad_buttons_down |= pad_buttons_async_set;
+		pad_buttons_down &= ~pad_buttons_async_clear;
+		input_state.pad_buttons = pad_buttons_down;
+		UpdateInputState(&input_state);
+	}
 
 	{
 		lock_guard guard(input_state.lock);
