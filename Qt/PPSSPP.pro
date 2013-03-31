@@ -38,6 +38,7 @@ HEADERS += ../native/base/QtMain.h
 SOURCES += ../UI/EmuScreen.cpp \
 	../UI/MenuScreens.cpp \
 	../UI/GamepadEmu.cpp \
+	../UI/GameInfoCache.cpp \
 	../android/jni/TestRunner.cpp \
 	../UI/UIShader.cpp \
 	../UI/ui_atlas.cpp
@@ -55,8 +56,9 @@ linux:!mobile_platform {
 	RESOURCES += resources.qrc
 	INCLUDEPATH += ../Qt
 } else {
-	SOURCES += ../android/jni/NativeApp.cpp
+	SOURCES += ../UI/NativeApp.cpp
 }
+RESOURCES += assets.qrc
 
 # Translations
 TRANSLATIONS = $$files(languages/ppsspp_*.ts)
@@ -72,7 +74,7 @@ PRE_TARGETDEPS += compiler_lang_make_all
 # Packaging
 symbian {
 	deploy.pkg_prerules = "$${LITERAL_HASH}{\"PPSSPP\"}, (0xE0095B1D), 0, 7, 0, TYPE=SA" "%{\"Qtness\"}" ":\"Qtness\""
-	assets.sources = ../android/assets/ui_atlas.zim ../assets/ppge_atlas.zim ../assets/flash
+	assets.sources = ../assets/flash
 	assets.path = E:/PPSSPP
 	DEPLOYMENT += deploy assets
 	ICON = ../assets/icon.svg

@@ -41,7 +41,7 @@ recursive_mutex m_hStepMutex;
 event m_hInactiveEvent;
 recursive_mutex m_hInactiveMutex;
 
-#ifdef _WIN32
+#ifndef ANDROID
 InputState input_state;
 #else
 extern InputState input_state;

@@ -18,7 +18,7 @@
 #pragma once
 
 #include "Globals.h"
-#include "Core/Core.h"
+#include "Core/System.h"
 #include "Core/CoreParameter.h"
 
 // called from emu thread
