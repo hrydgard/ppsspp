@@ -623,6 +623,11 @@ namespace MainWindow
 			break;
 
 		case WM_USER+1:
+			if (disasmWindow[0])
+				SendMessage(disasmWindow[0]->GetDlgHandle(), WM_CLOSE, 0, 0);
+			if (memoryWindow[0])
+				SendMessage(memoryWindow[0]->GetDlgHandle(), WM_CLOSE, 0, 0); 
+
 			disasmWindow[0] = new CDisasm(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
 			DialogManager::AddDlg(disasmWindow[0]);
 			disasmWindow[0]->Show(g_Config.bShowDebuggerOnLoad);

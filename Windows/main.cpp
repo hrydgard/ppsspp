@@ -51,8 +51,8 @@ void LaunchBrowser(const char *url)
 #include "Windows/WindowsHost.h"
 #include "Windows/main.h"
 
-CDisasm *disasmWindow[MAX_CPUCOUNT];
-CMemoryDlg *memoryWindow[MAX_CPUCOUNT];
+CDisasm *disasmWindow[MAX_CPUCOUNT] = {0};
+CMemoryDlg *memoryWindow[MAX_CPUCOUNT] = {0};
 
 int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLine, int iCmdShow)
 {
