@@ -316,9 +316,19 @@ void PauseScreen::render() {
 	UIFlush();
 	GameInfo *ginfo = g_gameInfoCache.GetInfo(PSP_CoreParameter().fileToStart, true);
 
-	if (ginfo && ginfo->bgTexture) {
-		ginfo->bgTexture->Bind(0);
+	if (ginfo && ginfo->pic1Texture) {
+		ginfo->pic1Texture->Bind(0);
 		ui_draw2d.DrawTexRect(0,0,dp_xres, dp_yres, 0,0,1,1,0xFFc0c0c0);
+		ui_draw2d.Flush();
+		ctx->RebindTexture();
+	}
+
+	if (ginfo && ginfo->pic0Texture) {
+		ginfo->pic0Texture->Bind(0);
+		// Pic0 is drawn in the bottom right corner, overlaying pic1.
+		float sizeX = dp_xres / 480 * ginfo->pic0Texture->Width();
+		float sizeY = dp_yres / 272 * ginfo->pic0Texture->Height();
+		ui_draw2d.DrawTexRect(dp_xres - sizeX, dp_yres - sizeY, dp_xres, dp_yres, 0,0,1,1,0xFFc0c0c0);
 		ui_draw2d.Flush();
 		ctx->RebindTexture();
 	}

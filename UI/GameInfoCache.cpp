@@ -37,12 +37,16 @@ GameInfoCache::~GameInfoCache()
 static bool ReadFileToString(IFileSystem *fs, const char *filename, std::string *contents)
 {
 	PSPFileInfo info = fs->GetFileInfo(filename);
-	if (!info.exists)
+	if (!info.exists) {
+		contents->clear();
 		return false;
+	}
 
 	int handle = fs->OpenFile(filename, FILEACCESS_READ);
-	if (!handle)
+	if (!handle) {
+		contents->clear();
 		return false;
+	}
 
 	contents->resize(info.size);
 	fs->ReadFile(handle, (u8 *)contents->data(), info.size);
@@ -55,19 +59,32 @@ void GameInfoCache::Save()
 	// TODO
 }
 
-void GameInfoCache::Load()
-{
+void GameInfoCache::Load() {
 	// TODO
 }
 
-void GameInfoCache::Decimate()
-{
+void GameInfoCache::Decimate() {
 	// TODO
 }
 
-void GameInfoCache::FlushBGs()
-{
-	// TODO
+void GameInfoCache::FlushBGs() {
+	for (auto iter = info_.begin(); iter != info_.end(); iter++) {
+		lock_guard lock(iter->second->lock);
+		if (!iter->second->pic0TextureData.empty()) {
+			iter->second->pic0TextureData.clear();
+		}
+		if (iter->second->pic0Texture) {
+			delete iter->second->pic0Texture;
+			iter->second->pic0Texture = 0;
+		}
+		if (!iter->second->pic1TextureData.empty()) {
+			iter->second->pic1TextureData.clear();
+		}
+		if (iter->second->pic1Texture) {
+			delete iter->second->pic1Texture;
+			iter->second->pic1Texture = 0;
+		}
+	}
 }
 
 // This may run off-main-thread and we thus can't use the global
@@ -91,12 +108,19 @@ GameInfo *GameInfoCache::GetInfo(const std::string &gamePath, bool wantBG) {
 			}
 			info->iconTextureData.clear();
 		}
-		if (info->bgTextureData.size()) {
-			info->bgTexture = new Texture();
-			if (info->bgTexture->LoadPNG((const u8 *)info->bgTextureData.data(), info->bgTextureData.size(), false)) {
-				info->timeBgWasLoaded = time_now_d();
+		if (info->pic0TextureData.size()) {
+			info->pic0Texture = new Texture();
+			if (info->pic0Texture->LoadPNG((const u8 *)info->pic0TextureData.data(), info->pic0TextureData.size(), false)) {
+				info->timePic0WasLoaded = time_now_d();
 			}
-			info->bgTextureData.clear();
+			info->pic0TextureData.clear();
+		}
+		if (info->pic1TextureData.size()) {
+			info->pic1Texture = new Texture();
+			if (info->pic1Texture->LoadPNG((const u8 *)info->pic1TextureData.data(), info->pic1TextureData.size(), false)) {
+				info->timePic1WasLoaded = time_now_d();
+			}
+			info->pic1TextureData.clear();
 		}
 		iter->second->lastAccessedTime = time_now_d();
 		return iter->second;
@@ -138,7 +162,14 @@ again:
 
 		ReadFileToString(&umd, "/PSP_GAME/ICON0.PNG", &info->iconTextureData);
 		if (wantBG) {
-			ReadFileToString(&umd, "/PSP_GAME/PIC1.PNG", &info->bgTextureData);
+			{
+				lock_guard lock(info->lock);
+				ReadFileToString(&umd, "/PSP_GAME/PIC0.PNG", &info->pic0TextureData);
+			}
+			{
+				lock_guard lock(info->lock);
+				ReadFileToString(&umd, "/PSP_GAME/PIC1.PNG", &info->pic1TextureData);
+			}
 		}
 		info_[gamePath] = info;
 		return info;

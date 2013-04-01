@@ -45,6 +45,11 @@ int XinputDevice::UpdateState(InputState &input_state) {
 		input_state.pad_lstick_y += left.y;
 		input_state.pad_rstick_x += right.x;
 		input_state.pad_rstick_y += right.y;
+
+		// Also convert the analog triggers.
+		input_state.pad_ltrigger = state.Gamepad.bLeftTrigger / 255.0f;
+		input_state.pad_rtrigger = state.Gamepad.bRightTrigger / 255.0f;
+
 		this->prevState = state;
 		this->check_delay = 0;
 		return 0;

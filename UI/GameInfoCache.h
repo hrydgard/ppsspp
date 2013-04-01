@@ -25,7 +25,7 @@
 #include "Core/ELF/ParamSFO.h"
 
 struct GameInfo {
-	GameInfo() : iconTexture(NULL), bgTexture(NULL) {}
+	GameInfo() : iconTexture(NULL), pic0Texture(NULL), pic1Texture(NULL) {}
 	// Hold this when reading or writing from the GameInfo.
 	// Don't need to hold it when just passing around the pointer,
 	// and obviously also not when creating it and holding the only pointer
@@ -38,8 +38,10 @@ struct GameInfo {
 	// Pre read the data, create a texture the next time (GL thread..)
 	std::string iconTextureData;
 	Texture *iconTexture;
-	std::string bgTextureData;
-	Texture *bgTexture;
+	std::string pic0TextureData;
+	Texture *pic0Texture;
+	std::string pic1TextureData;
+	Texture *pic1Texture;
 
 	bool wantBG;
 
@@ -48,7 +50,8 @@ struct GameInfo {
 	// The time at which the Icon and the BG were loaded.
 	// Can be useful to fade them in smoothly once they appear.
 	double timeIconWasLoaded;
-	double timeBgWasLoaded;
+	double timePic0WasLoaded;
+	double timePic1WasLoaded;
 };
 
 class GameInfoCache {
