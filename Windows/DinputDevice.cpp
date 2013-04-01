@@ -94,7 +94,7 @@ int DinputDevice::UpdateState(InputState &input_state)
 	}
 
 	if(FAILED(pJoystick->GetDeviceState(sizeof(DIJOYSTATE2), &js)))
-        return -1;
+    return -1;
 
 	switch (js.rgdwPOV[0])
 	{

@@ -10,6 +10,7 @@ struct InputState;
 class InputDevice
 {
 public:
+	enum { UPDATESTATE_SKIP_NEXT = 0x1234};
 	virtual int UpdateState(InputState &input_state) = 0;
 };
 

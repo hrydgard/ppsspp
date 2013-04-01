@@ -132,7 +132,8 @@ void WindowsHost::SetDebugMode(bool mode)
 void WindowsHost::PollControllers(InputState &input_state)
 {
 	for (auto iter = this->input.begin(); iter != this->input.end(); iter++)
-		(*iter)->UpdateState(input_state);
+		if ((*iter)->UpdateState(input_state) == InputDevice::UPDATESTATE_SKIP_NEXT)
+			break;
 }
 
 void WindowsHost::BootDone()
