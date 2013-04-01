@@ -15,8 +15,17 @@ void init() {
 	dlIdGenerator = 1;
 }
 
-int GPUCommon::listStatus(int listid)
+u32 GPUCommon::DrawSync(int mode) {
+	return 0;
+}
+
+int GPUCommon::ListSync(int listid, int mode)
 {
+	// TODO
+	if (mode != 1)
+		return 0;
+
+	return 0;
 	for(DisplayListQueue::iterator it(dlQueue.begin()); it != dlQueue.end(); ++it)
 	{
 		if(it->id == listid)
@@ -44,7 +53,13 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head)
 	return dl.id;
 }
 
-void GPUCommon::UpdateStall(int listid, u32 newstall)
+u32 GPUCommon::DequeueList(int listid)
+{
+	// TODO
+	return 0;
+}
+
+u32 GPUCommon::UpdateStall(int listid, u32 newstall)
 {
 	for (auto iter = dlQueue.begin(); iter != dlQueue.end(); ++iter)
 	{
@@ -56,6 +71,20 @@ void GPUCommon::UpdateStall(int listid, u32 newstall)
 	}
 	
 	ProcessDLQueue();
+
+	return 0;
+}
+
+u32 GPUCommon::Continue()
+{
+	// TODO
+	return 0;
+}
+
+u32 GPUCommon::Break(int mode)
+{
+	// TODO
+	return 0;
 }
 
 bool GPUCommon::InterpretList(DisplayList &list)

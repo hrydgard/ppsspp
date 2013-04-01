@@ -32,17 +32,14 @@ NullGPU::~NullGPU()
 {
 }
 
-void NullGPU::DrawSync(int mode)
+u32 NullGPU::DrawSync(int mode)
 {
 	if (mode == 0)  // Wait for completion
 	{
 		__RunOnePendingInterrupt();
 	}
-}
 
-void NullGPU::Continue()
-{
-
+	return GPUCommon::DrawSync(mode);
 }
 
 void NullGPU::ExecuteOp(u32 op, u32 diff)

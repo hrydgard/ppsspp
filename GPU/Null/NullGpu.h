@@ -28,11 +28,7 @@ public:
 	~NullGPU();
 	virtual void InitClear() {}
 	virtual void ExecuteOp(u32 op, u32 diff);
-	virtual void Continue();
-	virtual void DrawSync(int mode);
-	virtual void EnableInterrupts(bool enable) {
-		interruptsEnabled_ = enable;
-	}
+	virtual u32  DrawSync(int mode);
 
 	virtual void BeginFrame() {}
 	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, int format) {}
@@ -46,7 +42,4 @@ public:
 	virtual void DumpNextFrame() {}
 
 	virtual void Resized() {}
-
-private:
-	bool interruptsEnabled_;
 };

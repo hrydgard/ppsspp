@@ -279,17 +279,10 @@ void GLES_GPU::CopyDisplayToOutput() {
 
 // Render queue
 
-void GLES_GPU::DrawSync(int mode)
+u32 GLES_GPU::DrawSync(int mode)
 {
 	transformDraw_.Flush();
-}
-
-void GLES_GPU::Continue() {
-
-}
-
-void GLES_GPU::Break() {
-
+	return GPUCommon::DrawSync(mode);
 }
 
 void GLES_GPU::PreExecuteOp(u32 op, u32 diff) {

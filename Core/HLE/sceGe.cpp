@@ -188,48 +188,39 @@ u32 sceGeListEnQueueHead(u32 listAddress, u32 stallAddress, int callbackId,
 int sceGeListDeQueue(u32 listID)
 {
 	ERROR_LOG(HLE, "UNIMPL sceGeListDeQueue(%08x)", listID);
-	return 0;
+	return gpu->DequeueList(listID);
 }
 
 int sceGeListUpdateStallAddr(u32 displayListID, u32 stallAddress)
 {
-	DEBUG_LOG(HLE, "sceGeListUpdateStallAddr(dlid=%i,stalladdr=%08x)",
-			displayListID, stallAddress);
-
-	gpu->UpdateStall(displayListID, stallAddress);
-	return 0;
+	DEBUG_LOG(HLE, "sceGeListUpdateStallAddr(dlid=%i,stalladdr=%08x)", displayListID, stallAddress);
+	return gpu->UpdateStall(displayListID, stallAddress);
 }
 
 int sceGeListSync(u32 displayListID, u32 mode) //0 : wait for completion		1:check and return
 {
 	DEBUG_LOG(HLE, "sceGeListSync(dlid=%08x, mode=%08x)", displayListID, mode);
-	if(mode == 1) {
-		return gpu->listStatus(displayListID);
-	}
-	return 0;
+	return gpu->ListSync(displayListID, mode);
 }
 
 u32 sceGeDrawSync(u32 mode)
 {
 	//wait/check entire drawing state
-	DEBUG_LOG(HLE, "FAKE sceGeDrawSync(mode=%d)  (0=wait for completion)",
-			mode);
-	gpu->DrawSync(mode);
-	return 0;
+	DEBUG_LOG(HLE, "FAKE sceGeDrawSync(mode=%d)  (0=wait for completion)", mode);
+	return gpu->DrawSync(mode);
 }
 
 int sceGeContinue()
 {
 	DEBUG_LOG(HLE, "UNIMPL sceGeContinue");
-	// no arguments
-	return 0;
+	return gpu->Continue();
 }
 
 int sceGeBreak(u32 mode)
 {
 	//mode => 0 : current dlist 1: all drawing
 	DEBUG_LOG(HLE, "UNIMPL sceGeBreak(mode=%d)", mode);
-	return 0;
+	return gpu->Break(mode);
 }
 
 u32 sceGeSetCallback(u32 structAddr)
