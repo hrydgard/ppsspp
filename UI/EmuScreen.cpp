@@ -78,7 +78,8 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true) {
 		ERROR_LOG(BOOT, "%s", errorMessage_.c_str());
 		return;
 	}
-
+	
+	globalUIState = UISTATE_INGAME;
 	host->BootDone();
 	host->UpdateDisassembly();
 

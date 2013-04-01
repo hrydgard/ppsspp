@@ -32,6 +32,7 @@ public:
 		: bootFilename_(bootFilename), frames_(0) {}
 	void update(InputState &input);
 	void render();
+	void sendMessage(const char *message, const char *value);
 
 private:
 	std::string bootFilename_;

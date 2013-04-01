@@ -45,6 +45,7 @@
 #include "../../Core/Config.h"
 #include "../../Core/HLE/sceCtrl.h"
 #include "../../Core/Host.h"
+#include "../../Core/SaveState.h"
 #include "../../Common/MemArena.h"
 
 #include "ui_atlas.h"
@@ -200,9 +201,10 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 
 	config_filename = user_data_path + "/ppsspp.ini";
 	g_Config.Load(config_filename.c_str());
-
+#endif
 
 	const char *fileToLog = 0;
+	const char *stateToLoad = 0;
 
 	bool gfxLog = false;
 	// Parse command line
@@ -229,6 +231,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 			case '-':
 				if (!strncmp(argv[i], "--log=", strlen("--log=")) && strlen(argv[i]) > strlen("--log="))
 					fileToLog = argv[i] + strlen("--log=");
+				if (!strncmp(__argv[i], "--state=", strlen("--state=")) && strlen(__argv[i]) > strlen("--state="))
+					stateToLoad = __argv[i] + strlen("--state=");
 				break;
 			}
 		} else {
@@ -249,6 +253,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	if (fileToLog != NULL)
 		LogManager::GetInstance()->ChangeFileLog(fileToLog);
 
+#ifndef _WIN32
 	if (g_Config.currentDirectory == "") {
 #if defined(ANDROID)
 		g_Config.currentDirectory = external_directory;
@@ -258,7 +263,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 		g_Config.currentDirectory = getenv("HOME");
 #endif
 	}
-#endif
 
 #if defined(ANDROID)
 	// Maybe there should be an option to use internal memory instead, but I think
@@ -280,7 +284,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	g_Config.flashDirectory = g_Config.memCardDirectory+"/flash/";
 #endif
 
-#ifndef _WIN32
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++)
 	{
 		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
@@ -299,6 +302,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 		logman->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
 	INFO_LOG(BOOT, "Logger inited.");
 #endif	
+
+	if (!boot_filename.empty() && stateToLoad != NULL)
+		SaveState::Load(stateToLoad);
 }
 
 void NativeInitGraphics()
