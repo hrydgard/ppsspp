@@ -10,12 +10,17 @@ public:
 		currentList(NULL),
 		stackptr(0),
 		dumpNextFrame_(false),
-		dumpThisFrame_(false)
+		dumpThisFrame_(false),
+		interruptsEnabled_(true)
 	{}
 
 	virtual void InterruptStart();
 	virtual void InterruptEnd();
+	virtual void EnableInterrupts(bool enable) {
+		interruptsEnabled_ = enable;
+	}
 
+	virtual void ExecuteOp(u32 op, u32 diff);
 	virtual void PreExecuteOp(u32 op, u32 diff);
 	virtual bool InterpretList(DisplayList &list);
 	virtual bool ProcessDLQueue();
@@ -40,7 +45,7 @@ protected:
 
 	bool dumpNextFrame_;
 	bool dumpThisFrame_;
-
+	bool interruptsEnabled_;
 
 public:
 	virtual DisplayList* getList(int listid)

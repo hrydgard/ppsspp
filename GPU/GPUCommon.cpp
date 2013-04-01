@@ -1,12 +1,13 @@
 #include "base/timeutil.h"
-#include "../Core/MemMap.h"
 #include "GeDisasm.h"
 #include "GPUCommon.h"
 #include "GPUState.h"
 #include "ChunkFile.h"
-#if defined(USING_QT_UI)
+#include "Core/MemMap.h"
 #include "Core/Host.h"
-#endif
+#include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/HLE/sceGe.h"
 
 static int dlIdGenerator = 1;
 
@@ -145,6 +146,135 @@ bool GPUCommon::ProcessDLQueue()
 
 void GPUCommon::PreExecuteOp(u32 op, u32 diff) {
 	// Nothing to do
+}
+
+void GPUCommon::ExecuteOp(u32 op, u32 diff) {
+	u32 cmd = op >> 24;
+	u32 data = op & 0xFFFFFF;
+
+	// Handle control and drawing commands here directly. The others we delegate.
+	switch (cmd) {
+	case GE_CMD_NOP:
+		break;
+
+	case GE_CMD_OFFSETADDR:
+		gstate_c.offsetAddr = data << 8;
+		// ???
+		break;
+
+	case GE_CMD_ORIGIN:
+		gstate_c.offsetAddr = currentList->pc;
+		break;
+
+	case GE_CMD_JUMP:
+		{
+			u32 target = gstate_c.getRelativeAddress(data);
+			if (Memory::IsValidAddress(target)) {
+				currentList->pc = target - 4; // pc will be increased after we return, counteract that
+			} else {
+				ERROR_LOG(G3D, "JUMP to illegal address %08x - ignoring! data=%06x", target, data);
+			}
+		}
+		break;
+
+	case GE_CMD_CALL:
+		{
+			// Saint Seiya needs correct support for relative calls.
+			u32 retval = currentList->pc + 4;
+			u32 target = gstate_c.getRelativeAddress(data);
+			if (stackptr == ARRAY_SIZE(stack)) {
+				ERROR_LOG(G3D, "CALL: Stack full!");
+			} else if (!Memory::IsValidAddress(target)) {
+				ERROR_LOG(G3D, "CALL to illegal address %08x - ignoring! data=%06x", target, data);
+			} else {
+				stack[stackptr++] = retval;
+				currentList->pc = target - 4;	// pc will be increased after we return, counteract that
+			}
+		}
+		break;
+
+	case GE_CMD_RET:
+		{
+			if (stackptr == 0) {
+				ERROR_LOG(G3D, "RET: Stack empty!");
+			} else {
+				u32 target = (currentList->pc & 0xF0000000) | (stack[--stackptr] & 0x0FFFFFFF);
+				//target = (target + gstate_c.originAddr) & 0xFFFFFFF;
+				currentList->pc = target - 4;
+				if (!Memory::IsValidAddress(currentList->pc)) {
+					ERROR_LOG(G3D, "Invalid DL PC %08x on return", currentList->pc);
+					finished = true;
+				}
+			}
+		}
+		break;
+
+	case GE_CMD_SIGNAL:
+		{
+			// Processed in GE_END. Has data.
+			currentList->subIntrToken = data & 0xFFFF;
+		}
+		break;
+
+	case GE_CMD_FINISH:
+		currentList->subIntrToken = data & 0xFFFF;
+		// TODO: Should this run while interrupts are suspended?
+		if (interruptsEnabled_)
+			__GeTriggerInterrupt(currentList->id, currentList->pc, currentList->subIntrBase, currentList->subIntrToken);
+		break;
+
+	case GE_CMD_END:
+		switch (prev >> 24) {
+		case GE_CMD_SIGNAL:
+			{
+				currentList->status = PSP_GE_LIST_END_REACHED;
+				// TODO: see http://code.google.com/p/jpcsp/source/detail?r=2935#
+				int behaviour = (prev >> 16) & 0xFF;
+				int signal = prev & 0xFFFF;
+				int enddata = data & 0xFFFF;
+				// We should probably defer to sceGe here, no sense in implementing this stuff in every GPU
+				switch (behaviour) {
+				case 1:  // Signal with Wait
+					ERROR_LOG(G3D, "Signal with Wait UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
+					break;
+				case 2:
+					ERROR_LOG(G3D, "Signal without wait. signal/end: %04x %04x", signal, enddata);
+					break;
+				case 3:
+					ERROR_LOG(G3D, "Signal with Pause UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
+					break;
+				case 0x10:
+					ERROR_LOG(G3D, "Signal with Jump UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
+					break;
+				case 0x11:
+					ERROR_LOG(G3D, "Signal with Call UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
+					break;
+				case 0x12:
+					ERROR_LOG(G3D, "Signal with Return UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
+					break;
+				default:
+					ERROR_LOG(G3D, "UNKNOWN Signal UNIMPLEMENTED %i ! signal/end: %04x %04x", behaviour, signal, enddata);
+					break;
+				}
+				// TODO: Should this run while interrupts are suspended?
+				if (interruptsEnabled_)
+					__GeTriggerInterrupt(currentList->id, currentList->pc, currentList->subIntrBase, currentList->subIntrToken);
+			}
+			break;
+		case GE_CMD_FINISH:
+			currentList->status = PSP_GE_LIST_DONE;
+			finished = true;
+			break;
+		default:
+			DEBUG_LOG(G3D,"Ah, not finished: %06x", prev & 0xFFFFFF);
+			break;
+		}
+		break;
+
+	default:
+		DEBUG_LOG(G3D,"DL Unknown: %08x @ %08x", op, currentList == NULL ? 0 : currentList->pc);
+		break;
+	}
 }
 
 void GPUCommon::DoState(PointerWrap &p) {
