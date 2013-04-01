@@ -625,7 +625,7 @@ bool writePMFVideoImage(u8* buffer, int frameWidth, int videoPixelMode)
 	}
 	if (buffer)
 	{
-		memcpy(buffer, g_MoviePlayingbuf, frameWidth * 272 * modeBpp[videoPixelMode]);
+		memcpy(buffer, g_MoviePlayingbuf, frameWidth * g_pmfPlayer.getDesHeight() * modeBpp[videoPixelMode]);
 	}
 	return true;
 }

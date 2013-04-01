@@ -14,6 +14,8 @@ public:
 	bool closeMedia();
 	bool writeVideoImage(u8* buffer, int frameWidth, int videoPixelMode);
 	bool setVideoSize(int width = 0, int height = 0);
+	int getDesHeight() { return m_desHeight;}
+	int getDesWidth()  { return m_desWidth; }
 private:
 	void *m_pFormatCtx;
 	void *m_pCodecCtx;
