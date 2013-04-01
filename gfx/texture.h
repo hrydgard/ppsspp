@@ -36,6 +36,9 @@ public:
 
 	static void Unbind(int stage = -1);
 
+	int Width() const { return width_; }
+	int Height() const { return height_; }
+
 private:
 	bool LoadXOR();	// Loads a placeholder texture.
 
