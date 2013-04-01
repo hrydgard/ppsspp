@@ -95,6 +95,9 @@
     <ClCompile Include="..\android\jni\TestRunner.cpp">
       <Filter>Android</Filter>
     </ClCompile>
+    <ClCompile Include="DinputDevice.cpp">
+      <Filter>Windows\Input</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Debugger\CtrlDisAsmView.h">
@@ -166,6 +169,9 @@
     </ClInclude>
     <ClInclude Include="..\android\jni\TestRunner.h">
       <Filter>Android</Filter>
+    </ClInclude>
+    <ClInclude Include="DinputDevice.h">
+      <Filter>Windows\Input</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
