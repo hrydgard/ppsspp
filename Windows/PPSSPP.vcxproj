@@ -252,6 +252,7 @@
     <ClCompile Include="Debugger\Debugger_Disasm.cpp" />
     <ClCompile Include="Debugger\Debugger_MemoryDlg.cpp" />
     <ClCompile Include="Debugger\Debugger_VFPUDlg.cpp" />
+    <ClCompile Include="DinputDevice.cpp" />
     <ClCompile Include="EmuThread.cpp" />
     <ClCompile Include="InputDevice.cpp" />
     <ClCompile Include="KeyboardDevice.cpp" />
@@ -288,6 +289,7 @@
     <ClInclude Include="Debugger\Debugger_Disasm.h" />
     <ClInclude Include="Debugger\Debugger_MemoryDlg.h" />
     <ClInclude Include="Debugger\Debugger_VFPUDlg.h" />
+    <ClInclude Include="DinputDevice.h" />
     <ClInclude Include="EmuThread.h" />
     <ClInclude Include="InputDevice.h" />
     <ClInclude Include="KeyboardDevice.h" />
