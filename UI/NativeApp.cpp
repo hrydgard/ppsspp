@@ -201,6 +201,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 
 	config_filename = user_data_path + "/ppsspp.ini";
 	g_Config.Load(config_filename.c_str());
+#endif
 
 	const char *fileToLog = 0;
 	const char *stateToLoad = 0;
@@ -252,6 +253,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	if (fileToLog != NULL)
 		LogManager::GetInstance()->ChangeFileLog(fileToLog);
 
+#ifndef _WIN32
 	if (g_Config.currentDirectory == "") {
 #if defined(ANDROID)
 		g_Config.currentDirectory = external_directory;
@@ -261,7 +263,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 		g_Config.currentDirectory = getenv("HOME");
 #endif
 	}
-#endif
 
 #if defined(ANDROID)
 	// Maybe there should be an option to use internal memory instead, but I think
@@ -283,7 +284,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	g_Config.flashDirectory = g_Config.memCardDirectory+"/flash/";
 #endif
 
-#ifndef _WIN32
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++)
 	{
 		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
