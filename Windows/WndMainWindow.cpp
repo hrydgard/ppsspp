@@ -636,6 +636,8 @@ namespace MainWindow
 
 			if (nextState == CORE_RUNNING)
 				PostMessage(hwndMain, WM_COMMAND, ID_EMULATION_RUN, 0);
+
+			SetForegroundWindow(hwndMain);
 			break;
 
 
