@@ -178,8 +178,6 @@ void EmuThread::run()
 			EmuThread_LockDraw(true);
 			if(needInitGame)
 			{
-				g_State.bEmuThreadStarted = true;
-
 				CoreParameter coreParameter;
 				coreParameter.fileToStart = fileToStart.toStdString();
 				coreParameter.enableSound = true;
@@ -211,7 +209,6 @@ void EmuThread::run()
 				host->UpdateDisassembly();
 				Core_EnableStepping(coreParameter.startPaused ? TRUE : FALSE);
 
-				g_State.bBooted = true;
 			#ifdef _DEBUG
 				host->UpdateMemView();
 			#endif
@@ -255,14 +252,14 @@ void EmuThread::run()
 
 			glViewport(0, 0, pixel_xres, pixel_yres);
 
-			ui_draw2d.Begin(DBMODE_NORMAL);
+			ui_draw2d.Begin(UIShader_Get(), DBMODE_NORMAL);
 
 			//if (g_Config.bShowTouchControls)
 			//	DrawGamepad(ui_draw2d);
 
 			glsl_bind(UIShader_Get());
 			ui_draw2d.End();
-			ui_draw2d.Flush(UIShader_Get());
+			ui_draw2d.Flush();
 
 
 			// Tiled renderers like PowerVR should benefit greatly from this. However - seems I can't call it?
@@ -302,7 +299,7 @@ void EmuThread::run()
 
 			UIShader_Prepare();
 			glViewport(0, 0, pixel_xres, pixel_yres);
-			UIBegin();
+			UIBegin(UIShader_Get());
 			DrawBackground(alpha);
 
 			ui_draw2d.SetFontScale(1.5f, 1.5f);
@@ -315,7 +312,7 @@ void EmuThread::run()
 			UIEnd();
 
 			glsl_bind(UIShader_Get());
-			ui_draw2d.Flush(UIShader_Get());
+			ui_draw2d.Flush();
 
 			glWindow->swapBuffers();
 			EmuThread_LockDraw(false);
@@ -339,7 +336,6 @@ void EmuThread::run()
 
 void EmuThread::Shutdown()
 {
-	host->PrepareShutdown();
 	FinalShutdown();
 }
 void EmuThread::FinalShutdown()
@@ -384,7 +380,6 @@ void EmuThread::stopGame()
 	// TODO
 	//The CPU should return when a game is stopped and cleanup should be done here,
 	//so we can restart the plugins (or load new ones) for the next game
-	g_State.bEmuThreadStarted = false;
 	frames_ = 0;
 
 	gameMutex->unlock();

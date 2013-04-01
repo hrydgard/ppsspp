@@ -8,10 +8,10 @@
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Config.h"
 #include "base/NativeApp.h"
-#include "android/jni/MenuScreens.h"
-#include "android/jni/EmuScreen.h"
-#include "android/jni/UIShader.h"
-#include "android/jni/ui_atlas.h"
+#include "UI/MenuScreens.h"
+#include "UI/EmuScreen.h"
+#include "UI/UIShader.h"
+#include "UI/ui_atlas.h"
 #include "GPU/ge_constants.h"
 #include "EmuThread.h"
 
@@ -211,10 +211,12 @@ void QtHost::NextGPUStep()
 	m_hGPUStepEvent.notify_one();
 }
 
-void NativeMix(short *audio, int num_samples)
+int NativeMix(short *audio, int num_samples)
 {
 	if (g_mixer)
-		g_mixer->Mix(audio, num_samples);
+		return g_mixer->Mix(audio, num_samples);
+	else
+		return 0;
 }
 
 void NativeInitGraphics()
