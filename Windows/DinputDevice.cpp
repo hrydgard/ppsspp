@@ -19,6 +19,7 @@
 #include "DinputDevice.h"
 #include "input/input_state.h"
 #include "Core/Reporting.h"
+#include "Xinput.h"
 #pragma comment(lib,"dxguid.lib")
 #pragma comment(lib,"dinput8.lib")
 
@@ -32,6 +33,26 @@ static const unsigned int dinput_ctrl_map[] = {
 	0,		PAD_BUTTON_X,
 	3,		PAD_BUTTON_Y,
 };
+
+struct XINPUT_DEVICE_NODE
+{
+    DWORD dwVidPid;
+    XINPUT_DEVICE_NODE* pNext;
+};
+XINPUT_DEVICE_NODE*     g_pXInputDeviceList = NULL;
+
+bool IsXInputDevice( const GUID* pGuidProductFromDirectInput )
+{
+    XINPUT_DEVICE_NODE* pNode = g_pXInputDeviceList;
+    while( pNode )
+    {
+        if( pNode->dwVidPid == pGuidProductFromDirectInput->Data1 )
+            return true;
+        pNode = pNode->pNext;
+    }
+
+    return false;
+}
 
 DinputDevice::DinputDevice()
 {
@@ -53,6 +74,17 @@ DinputDevice::DinputDevice()
 		pJoystick->Release();
 		pJoystick = NULL;
 		return;
+	}
+
+	// ignore if device suppert XInput
+	DIDEVICEINSTANCE dinfo = {0};
+	pJoystick->GetDeviceInfo(&dinfo);
+	if (IsXInputDevice(&dinfo.guidProduct))
+	{
+		pDI->Release();
+		pDI = NULL;
+		pJoystick->Release();
+		pJoystick = NULL;
 	}
 
 	DIPROPRANGE diprg; 
