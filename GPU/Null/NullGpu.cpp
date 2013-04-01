@@ -25,7 +25,6 @@
 
 NullGPU::NullGPU()
 {
-	interruptsEnabled_ = true;
 }
 
 NullGPU::~NullGPU()

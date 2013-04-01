@@ -16,13 +16,19 @@ void init() {
 }
 
 u32 GPUCommon::DrawSync(int mode) {
+	if (mode < 0 || mode > 1)
+		return SCE_KERNEL_ERROR_INVALID_MODE;
+
 	return 0;
 }
 
 int GPUCommon::ListSync(int listid, int mode)
 {
+	if (mode < 0 || mode > 1)
+		return SCE_KERNEL_ERROR_INVALID_MODE;
+
 	// TODO
-	if (mode != 1)
+	if (mode == 0)
 		return 0;
 
 	return 0;
@@ -84,6 +90,9 @@ u32 GPUCommon::Continue()
 
 u32 GPUCommon::Break(int mode)
 {
+	if (mode < 0 || mode > 1)
+		return SCE_KERNEL_ERROR_INVALID_MODE;
+
 	// TODO
 	return 0;
 }

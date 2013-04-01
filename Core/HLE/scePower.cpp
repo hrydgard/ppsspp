@@ -29,7 +29,6 @@ const int PSP_POWER_ERROR_PRIVATE_SLOT = 0x80000023;
 const int PSP_POWER_ERROR_EMPTY_SLOT = 0x80000025;
 const int PSP_POWER_ERROR_INVALID_CB = 0x80000100;
 const int PSP_POWER_ERROR_INVALID_SLOT = 0x80000102;
-const int PSP_POWER_ERROR_INVALID_TYPE = 0x80000107;
 
 const int PSP_POWER_CB_AC_POWER = 0x00001000;
 const int PSP_POWER_CB_BATTERY_EXIST = 0x00000080;
@@ -167,7 +166,7 @@ int sceKernelPowerLock(int lockType) {
 	if (lockType == 0) {
 		return 0;
 	} else {
-		return PSP_POWER_ERROR_INVALID_TYPE;
+		return SCE_KERNEL_ERROR_INVALID_MODE;
 	}
 }
 
@@ -176,7 +175,7 @@ int sceKernelPowerUnlock(int lockType) {
 	if (lockType == 0) {
 		return 0;
 	} else {
-		return PSP_POWER_ERROR_INVALID_TYPE;
+		return SCE_KERNEL_ERROR_INVALID_MODE;
 	}
 }
 
