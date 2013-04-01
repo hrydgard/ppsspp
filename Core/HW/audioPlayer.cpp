@@ -270,8 +270,10 @@ void addAtrac3Audio(u8* stream, int streamsize, int atracID)
 		temp->closeMedia();
 }
 
+extern u32 npdrmRead(void* pgd_info, u32 handle, u8 *data, int size);
+
 bool addAtrac3AudioByPackage(const char* package, u32 startpos, int audiosize, 
-	u8* buffer, int atracID)
+	u8* buffer, int atracID, void* pgd_info)
 {
 	u32 h = pspFileSystem.OpenFile(package, (FileAccess) FILEACCESS_READ);
 	if (h == 0) 
@@ -281,10 +283,19 @@ bool addAtrac3AudioByPackage(const char* package, u32 startpos, int audiosize,
 		return false;
 	u8* buf = new u8[filesize];
 	pspFileSystem.SeekFile(h, startpos, FILEMOVE_BEGIN);
-	if (strlen(package) >= 10)
-		filesize = pspFileSystem.ReadFile(h, buf, filesize);
-	else
-		pspFileSystem.ReadFile(h, buf, filesize / 2048);
+
+	if (strlen(package) >= 10) {
+		if (pgd_info)
+			filesize = npdrmRead(pgd_info, h, buf, filesize);
+		else
+			filesize = pspFileSystem.ReadFile(h, buf, filesize);
+	}
+	else {
+		if (pgd_info)
+			npdrmRead(pgd_info, h, buf, filesize / 2048);
+		else
+			pspFileSystem.ReadFile(h, buf, filesize / 2048);
+	}
 	pspFileSystem.CloseFile(h);
 
 	bool bResult = true;

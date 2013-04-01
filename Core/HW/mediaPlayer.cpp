@@ -467,7 +467,9 @@ bool loadPMFPSFFile(const char *filename, int mpegsize)
 	return bResult;
 }
 
-bool loadPMFPackageFile(const char* package, u32 startpos, int mpegsize, u8* buffer)
+extern u32 npdrmRead(void* pgd_info, u32 handle, u8 *data, int size);
+
+bool loadPMFPackageFile(const char* package, u32 startpos, int mpegsize, u8* buffer, void* pgd_info)
 {
 	u32 h = pspFileSystem.OpenFile(package, (FileAccess) FILEACCESS_READ);
 	if (h == 0) 
@@ -475,10 +477,18 @@ bool loadPMFPackageFile(const char* package, u32 startpos, int mpegsize, u8* buf
 	int filesize = mpegsize;
 	u8* buf = new u8[filesize];
 	pspFileSystem.SeekFile(h, startpos, FILEMOVE_BEGIN);
-	if (strlen(package) >= 10)
-		filesize = pspFileSystem.ReadFile(h, buf, filesize);
-	else
-		pspFileSystem.ReadFile(h, buf, filesize / 2048);
+	if (strlen(package) >= 10) {
+		if (pgd_info)
+			filesize = npdrmRead(pgd_info, h, buf, filesize);
+		else
+			filesize = pspFileSystem.ReadFile(h, buf, filesize);
+	}
+	else {
+		if (pgd_info)
+			npdrmRead(pgd_info, h, buf, filesize / 2048);
+		else
+			pspFileSystem.ReadFile(h, buf, filesize / 2048);
+	}
 	pspFileSystem.CloseFile(h);
 
 	bool bResult;

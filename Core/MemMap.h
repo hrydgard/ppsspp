@@ -23,6 +23,12 @@
 #include "Common.h"
 #include "CommonTypes.h"
 
+#ifdef _USE_FFMPEG_
+extern "C" {
+#include "ext/libkirk/amctrl.h"
+};
+#endif // _USE_FFMPEG_
+
 // Enable memory checks in the Debug/DebugFast builds, but NOT in release
 #if defined(_DEBUG) || defined(DEBUGFAST)
 #define ENABLE_MEM_CHECK
@@ -116,10 +122,13 @@ enum
 };
 
 #ifdef _USE_FFMPEG_
+
 struct LASTESTFILECACHE {
 	char packagefile[256];
 	u32  start_pos;
 	u8   idbuf[0x20];
+	bool npdrm;
+	PGD_DESC pgd_info;
 };
 
 extern struct LASTESTACCESSFILE {

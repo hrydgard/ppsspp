@@ -234,7 +234,21 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 
 			Memory::Memset(outAddr, 0, numSamples * sizeof(s16) * 2);
 			Memory::Write_U32(numSamples, numSamplesAddr);
+#ifdef _USE_DSHOW_
+			if (engine) {
+				if (engine->isEnd() && !engine->isneedLoop())
+				{
+					atrac->decodePos = atrac->decodeEnd;
+					atrac->loopNum = 0;
+				}
+			}
+			else {
+				atrac->decodePos = atrac->decodeEnd;
+				atrac->loopNum = 0;
+			}
+#else
 			atrac->decodePos += ATRAC_MAX_SAMPLES;
+#endif // _USE_DSHOW_
 
 			if (numSamples < ATRAC_MAX_SAMPLES) {
 				Memory::Write_U32(1, finishFlagAddr);
@@ -506,8 +520,9 @@ u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize)
 		else {
 			Memory::LASTESTFILECACHE *cache = Memory::lastestAccessFile.findmatchcache(Memory::GetPointer(buffer));
 			if (cache) {
+				PGD_DESC pgdinfo = cache->pgd_info;
 				addAtrac3AudioByPackage(cache->packagefile, cache->start_pos, atrac->first.filesize,
-				                        Memory::GetPointer(buffer), atracID);
+					Memory::GetPointer(buffer), atracID, cache->npdrm ? &pgdinfo : 0);
 			} else {
 				ERROR_LOG(HLE, "Atrac3 file not cache");
 				addAtrac3Audio(Memory::GetPointer(buffer), bufferSize, atracID);
@@ -546,8 +561,9 @@ int sceAtracSetDataAndGetID(u32 buffer, u32 bufferSize)
 	else {
 		Memory::LASTESTFILECACHE *cache = Memory::lastestAccessFile.findmatchcache(Memory::GetPointer(buffer));
 		if (cache) {
+			PGD_DESC pgdinfo = cache->pgd_info;
 			addAtrac3AudioByPackage(cache->packagefile, cache->start_pos, atrac->first.filesize,
-			                        Memory::GetPointer(buffer), atracID);
+			                        Memory::GetPointer(buffer), atracID, cache->npdrm ? &pgdinfo : 0);
 		} else {
 			ERROR_LOG(HLE, "Atrac3 file not cache");
 			addAtrac3Audio(Memory::GetPointer(buffer), bufferSize, atracID);

@@ -572,7 +572,9 @@ int sceMpegQueryStreamOffset(u32 mpeg, u32 bufferAddr, u32 offsetAddr)
 		if (cache)
 		{
 			DEBUG_LOG(HLE, "package file: %s, start pos: %08x, buffer addr: %08x", cache->packagefile, cache->start_pos, bufferAddr);
-			loadPMFPackageFile(cache->packagefile, cache->start_pos, ctx->mpegStreamSize + ctx->mpegOffset, Memory::GetPointer(bufferAddr));
+			PGD_DESC pgdinfo = cache->pgd_info;
+			loadPMFPackageFile(cache->packagefile, cache->start_pos, ctx->mpegStreamSize + ctx->mpegOffset, 
+				               Memory::GetPointer(bufferAddr), cache->npdrm ? &pgdinfo : 0);
 		}
 	}
 #endif // _USE_FFMPEG_
@@ -763,8 +765,8 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 
 	if (ctx->mediaengine->stepVideo()) {
 #ifdef _USE_FFMPEG_
-		//if (!playPMFVideo())
-		if (!writePMFVideoImage(Memory::GetPointer(buffer), frameWidth, ctx->videoPixelMode))
+		if (!playPMFVideo())
+		//if (!writePMFVideoImage(Memory::GetPointer(buffer), frameWidth, ctx->videoPixelMode))
 		{
 			iresult = -1;
 		}
@@ -1405,9 +1407,9 @@ u32 sceMpegAvcCsc(u32 mpeg, u32 sourceAddr, u32 rangeAddr, int frameWidth, u32 d
 	int width    = Memory::Read_U32(rangeAddr + 8);
 	int height   = Memory::Read_U32(rangeAddr + 12);
 #ifdef _USE_FFMPEG_
-	//playPMFVideo();
-	writePMFVideoImageWithRange(Memory::GetPointer(destAddr), frameWidth, ctx->videoPixelMode, 
-		                        x, y, width, height);
+	playPMFVideo();
+	//writePMFVideoImageWithRange(Memory::GetPointer(destAddr), frameWidth, ctx->videoPixelMode, 
+		//                        x, y, width, height);
 #endif // _USE_FFMPEG_
 	return 0;
 }
