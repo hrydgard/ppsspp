@@ -57,6 +57,10 @@
 #include "../../android/jni/ArmEmitterTest.h"
 #endif
 
+#if defined(__APPLE__) && !defined(IOS)
+#include <mach-o/dyld.h>
+#endif
+
 Texture *uiTexture;
 
 ScreenManager *screenManager;
@@ -185,6 +189,15 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 #elif defined(IOS)
 	VFSRegister("", new DirectoryAssetReader(external_directory));
 	user_data_path += "/";
+#elif defined(__APPLE__)
+    char program_path[4090];
+    uint32_t program_path_size = sizeof(program_path);
+    _NSGetExecutablePath(program_path,&program_path_size);
+    *(strrchr(program_path, '/')+1) = '\0';
+    char assets_path[4096];
+    sprintf(assets_path,"%sassets/",program_path);
+    VFSRegister("", new DirectoryAssetReader(assets_path));
+    VFSRegister("", new DirectoryAssetReader("assets/"));
 #else
 	VFSRegister("", new DirectoryAssetReader("assets/"));
 #endif
