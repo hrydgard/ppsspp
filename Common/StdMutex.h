@@ -7,7 +7,7 @@
 
 #if (GCC_VERSION >= GCC_VER(4,4,0) && __GXX_EXPERIMENTAL_CXX0X__ || defined(__APPLE__)) \
 /* GCC 4.4 provides <mutex>, except on these platforms: */ \
-	&& !defined(ANDROID) && !defined(__SYMBIAN32__) && !defined(IOS)
+	&& !defined(ANDROID) && !defined(__SYMBIAN32__) && !defined(IOS) && !defined(__MAC_10_6)
 #include <mutex>
 #else
 
