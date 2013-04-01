@@ -45,6 +45,7 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head)
 	dl.stall = stall & 0xFFFFFFF;
 	dl.status = PSP_GE_LIST_QUEUED;
 	dl.subIntrBase = subIntrBase;
+	dl.stackptr = 0;
 	if(head)
 		dlQueue.push_front(dl);
     else
@@ -92,8 +93,6 @@ bool GPUCommon::InterpretList(DisplayList &list)
 	time_update();
 	double start = time_now_d();
 	currentList = &list;
-	// Reset stackptr for safety
-	stackptr = 0;
 	u32 op = 0;
 	prev = 0;
 	finished = false;
@@ -211,12 +210,12 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 			// Saint Seiya needs correct support for relative calls.
 			u32 retval = currentList->pc + 4;
 			u32 target = gstate_c.getRelativeAddress(data);
-			if (stackptr == ARRAY_SIZE(stack)) {
+			if (currentList->stackptr == ARRAY_SIZE(currentList->stack)) {
 				ERROR_LOG(G3D, "CALL: Stack full!");
 			} else if (!Memory::IsValidAddress(target)) {
 				ERROR_LOG(G3D, "CALL to illegal address %08x - ignoring! data=%06x", target, data);
 			} else {
-				stack[stackptr++] = retval;
+				currentList->stack[currentList->stackptr++] = retval;
 				currentList->pc = target - 4;	// pc will be increased after we return, counteract that
 			}
 		}
@@ -224,10 +223,10 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_RET:
 		{
-			if (stackptr == 0) {
+			if (currentList->stackptr == 0) {
 				ERROR_LOG(G3D, "RET: Stack empty!");
 			} else {
-				u32 target = (currentList->pc & 0xF0000000) | (stack[--stackptr] & 0x0FFFFFFF);
+				u32 target = (currentList->pc & 0xF0000000) | (currentList->stack[--currentList->stackptr] & 0x0FFFFFFF);
 				//target = (target + gstate_c.originAddr) & 0xFFFFFFF;
 				currentList->pc = target - 4;
 				if (!Memory::IsValidAddress(currentList->pc)) {
@@ -323,8 +322,6 @@ void GPUCommon::DoState(PointerWrap &p) {
 	}
 	p.Do(interruptRunning);
 	p.Do(prev);
-	p.Do(stack);
-	p.Do(stackptr);
 	p.Do(finished);
 	p.DoMarker("GPUCommon");
 }

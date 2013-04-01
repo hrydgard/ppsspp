@@ -54,6 +54,8 @@ struct DisplayList
 	DisplayListStatus status;
 	int subIntrBase;
 	u16 subIntrToken;
+	u32 stack[32];
+	int stackptr;
 };
 
 class GPUInterface

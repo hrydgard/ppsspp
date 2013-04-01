@@ -8,7 +8,6 @@ public:
 	GPUCommon() :
 		dlIdGenerator(1),
 		currentList(NULL),
-		stackptr(0),
 		dumpNextFrame_(false),
 		dumpThisFrame_(false),
 		interruptsEnabled_(true)
@@ -43,8 +42,6 @@ protected:
 
 	bool interruptRunning;
 	u32 prev;
-	u32 stack[2];
-	u32 stackptr;
 	bool finished;
 
 	bool dumpNextFrame_;
