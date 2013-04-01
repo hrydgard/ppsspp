@@ -1008,6 +1008,14 @@ int sceMpegRingbufferAvailableSize(u32 ringbufferAddr)
 	SceMpegRingBuffer ringbuffer;
 	Memory::ReadStruct(ringbufferAddr, &ringbuffer);
 	DEBUG_LOG(HLE, "%i=sceMpegRingbufferAvailableSize(%08x)", ringbuffer.packetsFree, ringbufferAddr);
+
+	static int c = 0;
+	if (ringbuffer.packetsFree == 0)
+		c++;
+	else
+		c = 0;
+	//if (c > 1000)
+		//hleDebugBreak();
 	return ringbuffer.packetsFree;
 }
 
@@ -1282,12 +1290,6 @@ u32 sceMpegFlushAllStream(u32 mpeg)
 	}
 	WARN_LOG(HLE, "UNIMPL sceMpegFlushAllStream(%08x)", mpeg);
 
-	ctx->avcRegistered = false;
-	ctx->atracRegistered = false;
-	ctx->pcmRegistered = false;
-	ctx->dataRegistered = false;
-
-	ctx->streamMap.clear();
 	ctx->isAnalyzed = false;
 
 	if (Memory::IsValidAddress(ctx->mpegRingbufferAddr))
