@@ -1,5 +1,6 @@
 #include "InputDevice.h"
 #include "XinputDevice.h"
+#include "DinputDevice.h"
 #include "KeyboardDevice.h"
 #include <list>
 #include <memory>
@@ -8,6 +9,7 @@
 std::list<std::shared_ptr<InputDevice>> getInputDevices() {
 	std::list<std::shared_ptr<InputDevice>> list;
 	PUSH_BACK(XinputDevice);
+	PUSH_BACK(DinputDevice);
 	PUSH_BACK(KeyboardDevice);
 	return list;
 }
