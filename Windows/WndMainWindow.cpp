@@ -267,6 +267,12 @@ namespace MainWindow
 				input_state.pointer_down[0] = true;
 				input_state.pointer_x[0] = GET_X_LPARAM(lParam); 
 				input_state.pointer_y[0] = GET_Y_LPARAM(lParam);
+
+				if (g_Config.iWindowZoom == 1)
+				{
+					input_state.pointer_x[0] *= 2;
+					input_state.pointer_y[0] *= 2;
+				}
 			}
 			break;
 
@@ -275,6 +281,12 @@ namespace MainWindow
 				lock_guard guard(input_state.lock);
 				input_state.pointer_x[0] = GET_X_LPARAM(lParam); 
 				input_state.pointer_y[0] = GET_Y_LPARAM(lParam);
+
+				if (g_Config.iWindowZoom == 1)
+				{
+					input_state.pointer_x[0] *= 2;
+					input_state.pointer_y[0] *= 2;
+				}
 			}
 			break;
 
@@ -284,6 +296,12 @@ namespace MainWindow
 				input_state.pointer_down[0] = false;
 				input_state.pointer_x[0] = GET_X_LPARAM(lParam); 
 				input_state.pointer_y[0] = GET_Y_LPARAM(lParam);
+
+				if (g_Config.iWindowZoom == 1)
+				{
+					input_state.pointer_x[0] *= 2;
+					input_state.pointer_y[0] *= 2;
+				}
 			}
 			break;
 
