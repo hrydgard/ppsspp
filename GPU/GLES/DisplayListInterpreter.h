@@ -38,12 +38,7 @@ public:
 	virtual void InitClear();
 	virtual void PreExecuteOp(u32 op, u32 diff);
 	virtual void ExecuteOp(u32 op, u32 diff);
-	virtual void DrawSync(int mode);
-	virtual void Continue();
-	virtual void Break();
-	virtual void EnableInterrupts(bool enable) {
-		interruptsEnabled_ = enable;
-	}
+	virtual u32  DrawSync(int mode);
 
 	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, int format);
 	virtual void CopyDisplayToOutput();
@@ -81,6 +76,5 @@ private:
 	ShaderManager *shaderManager_;
 
 	u8 *flushBeforeCommand_;
-	bool interruptsEnabled_;
 	bool resized_;
 };
