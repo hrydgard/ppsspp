@@ -231,8 +231,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 			case '-':
 				if (!strncmp(argv[i], "--log=", strlen("--log=")) && strlen(argv[i]) > strlen("--log="))
 					fileToLog = argv[i] + strlen("--log=");
-				if (!strncmp(__argv[i], "--state=", strlen("--state=")) && strlen(__argv[i]) > strlen("--state="))
-					stateToLoad = __argv[i] + strlen("--state=");
+				if (!strncmp(argv[i], "--state=", strlen("--state=")) && strlen(argv[i]) > strlen("--state="))
+					stateToLoad = argv[i] + strlen("--state=");
 				break;
 			}
 		} else {
