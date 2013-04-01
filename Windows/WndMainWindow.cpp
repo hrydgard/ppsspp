@@ -641,6 +641,11 @@ namespace MainWindow
 
 			if (nextState == CORE_RUNNING)
 				PostMessage(hwndMain, WM_COMMAND, ID_EMULATION_RUN, 0);
+			else if (globalUIState == UISTATE_INGAME)
+			{
+				if (disasmWindow[0])
+					SendMessage(disasmWindow[0]->GetDlgHandle(), WM_COMMAND, IDC_GO, 0);
+			}
 
 			SetForegroundWindow(hwndMain);
 			break;
