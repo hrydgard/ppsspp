@@ -8,22 +8,30 @@ public:
 	GPUCommon() :
 		dlIdGenerator(1),
 		currentList(NULL),
-		stackptr(0),
 		dumpNextFrame_(false),
-		dumpThisFrame_(false)
+		dumpThisFrame_(false),
+		interruptsEnabled_(true)
 	{}
 
 	virtual void InterruptStart();
 	virtual void InterruptEnd();
+	virtual void EnableInterrupts(bool enable) {
+		interruptsEnabled_ = enable;
+	}
 
+	virtual void ExecuteOp(u32 op, u32 diff);
 	virtual void PreExecuteOp(u32 op, u32 diff);
 	virtual bool InterpretList(DisplayList &list);
 	virtual bool ProcessDLQueue();
-	virtual void UpdateStall(int listid, u32 newstall);
+	virtual u32  UpdateStall(int listid, u32 newstall);
 	virtual u32  EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head);
-	virtual int  listStatus(int listid);
+	virtual u32  DequeueList(int listid);
+	virtual int  ListSync(int listid, int mode);
+	virtual u32  DrawSync(int mode);
 	virtual void DoState(PointerWrap &p);
 	virtual bool FramebufferDirty() { return true; }
+	virtual u32  Continue();
+	virtual u32  Break(int mode);
 
 protected:
 	typedef std::deque<DisplayList> DisplayListQueue;
@@ -34,13 +42,11 @@ protected:
 
 	bool interruptRunning;
 	u32 prev;
-	u32 stack[2];
-	u32 stackptr;
 	bool finished;
 
 	bool dumpNextFrame_;
 	bool dumpThisFrame_;
-
+	bool interruptsEnabled_;
 
 public:
 	virtual DisplayList* getList(int listid)

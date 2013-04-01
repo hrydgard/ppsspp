@@ -32,7 +32,6 @@
 #define CTRL_MODE_DIGITAL   0
 #define CTRL_MODE_ANALOG    1
 
-const int PSP_CTRL_ERROR_INVALID_MODE = 0x80000107;
 const int PSP_CTRL_ERROR_INVALID_IDLE_PTR = 0x80000023;
 
 const u32 NUM_CTRL_BUFFERS = 64;
@@ -351,7 +350,7 @@ u32 sceCtrlSetSamplingMode(u32 mode)
 
 	DEBUG_LOG(HLE, "sceCtrlSetSamplingMode(%i)", mode);
 	if (mode > 1)
-		return PSP_CTRL_ERROR_INVALID_MODE;
+		return SCE_KERNEL_ERROR_INVALID_MODE;
 
 	retVal = analogEnabled == true ? CTRL_MODE_ANALOG : CTRL_MODE_DIGITAL;
 	analogEnabled = mode == CTRL_MODE_ANALOG ? true : false;
