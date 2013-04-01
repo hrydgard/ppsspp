@@ -1060,6 +1060,14 @@ int sceMpegRingbufferAvailableSize(u32 ringbufferAddr)
 	SceMpegRingBuffer ringbuffer;
 	Memory::ReadStruct(ringbufferAddr, &ringbuffer);
 	DEBUG_LOG(HLE, "%i=sceMpegRingbufferAvailableSize(%08x)", ringbuffer.packetsFree, ringbufferAddr);
+
+	static int c = 0;
+	if (ringbuffer.packetsFree == 0)
+		c++;
+	else
+		c = 0;
+	//if (c > 1000)
+		//hleDebugBreak();
 	return ringbuffer.packetsFree;
 }
 

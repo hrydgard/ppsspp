@@ -13,6 +13,7 @@ public:
 	bool loadStream(u8* buffer, int size, bool bAutofreebuffer = true);
 	bool closeMedia();
 	bool writeVideoImage(u8* buffer, int frameWidth, int videoPixelMode);
+	bool setVideoSize(int width = 0, int height = 0);
 private:
 	void *m_pFormatCtx;
 	void *m_pCodecCtx;
@@ -23,6 +24,8 @@ private:
     void *m_sws_ctx;
     u8* m_buffer;
 	void *m_videobuf;
+	int  m_desWidth;
+	int  m_desHeight;
 };
 
 bool loadPMFStream(u8* pmf, int pmfsize);

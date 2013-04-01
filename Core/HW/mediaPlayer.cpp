@@ -239,21 +239,39 @@ bool mediaPlayer::loadStream(u8* buffer, int size, bool bAutofreebuffer)
 	AVDictionary *optionsDict = 0;
 	if(avcodec_open2(pCodecCtx, pCodec, &optionsDict)<0)
 		return false; // Could not open codec
-  
+
+	return true;
+}
+
+bool mediaPlayer::setVideoSize(int width, int height)
+{
+	if (!m_pCodecCtx)
+		return false;
+
+	AVCodecContext *pCodecCtx = (AVCodecContext*)m_pCodecCtx;
+	if (width == 0 && height == 0)
+	{
+		// use the orignal video size
+		m_desWidth = pCodecCtx->width;
+		m_desHeight = pCodecCtx->height;
+	}
+	else
+	{
+		m_desWidth = width;
+		m_desHeight = height;
+	}
+
 	// Allocate video frame
 	m_pFrame = avcodec_alloc_frame();
-
-	// make the image size the same as PSP window
-	int desWidth = 480;
-	int desHeight = 272;
+	
 	m_sws_ctx = (void*)
     sws_getContext
     (
         pCodecCtx->width,
         pCodecCtx->height,
         pCodecCtx->pix_fmt,
-        desWidth,
-        desHeight,
+        m_desWidth,
+        m_desHeight,
         PIX_FMT_RGB24,
         SWS_BILINEAR,
         NULL,
@@ -263,11 +281,11 @@ bool mediaPlayer::loadStream(u8* buffer, int size, bool bAutofreebuffer)
 
 	// Allocate video frame for RGB24
 	m_pFrameRGB = avcodec_alloc_frame();
-	int numBytes = avpicture_get_size(PIX_FMT_RGB24, desWidth, desHeight);  
+	int numBytes = avpicture_get_size(PIX_FMT_RGB24, m_desWidth, m_desHeight);  
     m_buffer = (u8 *)av_malloc(numBytes*sizeof(uint8_t));
   
     // Assign appropriate parts of buffer to image planes in pFrameRGB   
-    avpicture_fill((AVPicture *)m_pFrameRGB, m_buffer, PIX_FMT_RGB24, desWidth, desHeight);  
+    avpicture_fill((AVPicture *)m_pFrameRGB, m_buffer, PIX_FMT_RGB24, m_desWidth, m_desHeight);  
 
 	return true;
 }
@@ -321,8 +339,8 @@ bool mediaPlayer::writeVideoImage(u8* buffer, int frameWidth, int videoPixelMode
 				sws_scale((SwsContext*)m_sws_ctx, pFrame->data, pFrame->linesize, 0, 
 					pCodecCtx->height, pFrameRGB->data, pFrameRGB->linesize);
 				// lock the image size
-				int height = 272;
-				int width = 480;
+				int height = m_desHeight;
+				int width = m_desWidth;
 				u8* imgbuf = buffer;
 				u8* data = pFrameRGB->data[0];
 				if (videoPixelMode == TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888)
@@ -568,10 +586,14 @@ bool playPMFVideo(u8* buffer, int frameWidth, int videoPixelMode)
 		if (!buffer) {
 			movieInfo.movieBuf = g_MoviePlayingbuf;
 			g_FramebufferMoviePlayingbuf = g_MoviePlayingbuf;
+			// use the same size as PSP window
+			g_pmfPlayer.setVideoSize(480, 272);
 		}
 		else {
 			movieInfo.movieBuf = g_MoviePlayingbuf;
 			g_FramebufferMoviePlayingbuf = 0;
+			// use the orginal video size
+			g_pmfPlayer.setVideoSize(0, 0);
 		}
 		movieInfo.frameWidth = frameWidth;
 		movieInfo.videoPixelMode = videoPixelMode;
@@ -610,7 +632,7 @@ bool writePMFVideoImageWithRange(u8* buffer, int frameWidth, int videoPixelMode,
 		u8* imgbuf = buffer;
 		for (int y = 0; y < height; y++){
 			memcpy(imgbuf, data, width * bpp);
-			imgbuf += width * bpp;
+			imgbuf += frameWidth * bpp;
 			data += frameWidth * bpp;
 		}
 	}

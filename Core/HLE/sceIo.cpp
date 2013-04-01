@@ -469,16 +469,12 @@ int __IoRead(int id, u32 data_addr, int size) {
 				strcpy(Memory::lastestAccessFile.filename, f->fullpath.c_str());
 				Memory::lastestAccessFile.data_addr = data_addr;
 			}
-			if (f->info.size > 0x19000)
+			if (size >= 0x20 || strlen(f->fullpath.c_str()) < 10)
 			{
-				if (size >= 0x20 || strlen(f->fullpath.c_str()) < 10)
-				{
-					int pos = Memory::lastestAccessFile.cachepos;
-					strcpy(Memory::lastestAccessFile.cache[pos].packagefile, f->fullpath.c_str());
-					Memory::lastestAccessFile.cache[pos].start_pos = pspFileSystem.GetSeekPos(f->handle);
-					idbuf = Memory::lastestAccessFile.cache[pos].idbuf;
-					Memory::lastestAccessFile.cachepos++;
-				}
+				int pos = Memory::lastestAccessFile.cachepos;
+				strcpy(Memory::lastestAccessFile.cache[pos].packagefile, f->fullpath.c_str());
+				Memory::lastestAccessFile.cache[pos].start_pos = pspFileSystem.GetSeekPos(f->handle);
+				idbuf = Memory::lastestAccessFile.cache[pos].idbuf;
 			}
 #endif // _USE_FFMPEG_
 			u8 *data = (u8*) Memory::GetPointer(data_addr);
@@ -489,10 +485,12 @@ int __IoRead(int id, u32 data_addr, int size) {
 				result = (int) pspFileSystem.ReadFile(f->handle, data, size);
 			}
 #ifdef _USE_FFMPEG_
-			if (idbuf)
+			if (idbuf && (memcmp(data, "RIFF", 4) == 0 || memcmp(data, "PSMF", 4) == 0)) {
 				memcpy(idbuf, data, 0x20);
-			return result;
+				Memory::lastestAccessFile.cachepos++;
+			}
 #endif // _USE_FFMPEG_
+			return result;
 		} else {
 			ERROR_LOG(HLE, "sceIoRead Reading into bad pointer %08x", data_addr);
 			// TODO: Returning 0 because it wasn't being sign-extended in async result before.
