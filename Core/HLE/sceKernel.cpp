@@ -368,12 +368,16 @@ u32 sceKernelIcacheClearAll()
 KernelObjectPool::KernelObjectPool()
 {
 	memset(occupied, 0, sizeof(bool)*maxCount);
+	nextID = 16;
 }
 
 SceUID KernelObjectPool::Create(KernelObject *obj, int rangeBottom, int rangeTop)
 {
 	if (rangeTop > maxCount)
 		rangeTop = maxCount;
+	if (nextID >= rangeBottom && nextID < rangeTop)
+		rangeBottom = nextID++;
+
 	for (int i = rangeBottom; i < rangeTop; i++)
 	{
 		if (!occupied[i])
@@ -462,6 +466,7 @@ void KernelObjectPool::DoState(PointerWrap &p)
 		kernelObjects.Clear();
 	}
 
+	p.Do(nextID);
 	p.DoArray(occupied, maxCount);
 	for (int i = 0; i < maxCount; ++i)
 	{

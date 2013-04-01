@@ -435,6 +435,7 @@ private:
 	};
 	KernelObject *pool[maxCount];
 	bool occupied[maxCount];
+	int nextID;
 };
 
 extern KernelObjectPool kernelObjects;
