@@ -16,6 +16,8 @@
 #endif
 #include "QtMain.h"
 
+InputState* input_state;
+
 void LaunchBrowser(const char *url)
 {
 	QDesktopServices::openUrl(QUrl(url));
