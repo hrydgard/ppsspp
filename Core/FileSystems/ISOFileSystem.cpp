@@ -131,6 +131,8 @@ struct VolDescriptor
 
 #pragma pack(pop)
 
+std::list<ISOFileSystem::TreeEntry *> ISOFileSystem::entryFreeList;
+
 ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevice) 
 {
 	blockDevice = _blockDevice;
@@ -156,7 +158,7 @@ ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevic
 		ERROR_LOG(FILESYS, "ISO looks bogus? trying anyway...");
 	}
 
-	treeroot = new TreeEntry;
+	treeroot = GetTreeEntry();
 	treeroot->isDirectory = true;
 	treeroot->startingPosition = 0;
 	treeroot->size = 0;
@@ -173,7 +175,7 @@ ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevic
 ISOFileSystem::~ISOFileSystem()
 {
 	delete blockDevice;
-	delete treeroot;
+	ReleaseTreeEntry(treeroot);
 }
 
 void ISOFileSystem::ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root)
@@ -204,7 +206,7 @@ void ISOFileSystem::ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root)
 			bool isFile = (dir.flags & 2) ? false : true;
 			bool relative;
 
-			TreeEntry *e = new TreeEntry();
+			TreeEntry *e = GetTreeEntry();
 			if (dir.identifierLength == 1 && (dir.firstIdChar == '\x00' || dir.firstIdChar == '.'))
 			{
 				e->name = ".";
@@ -589,6 +591,25 @@ std::string ISOFileSystem::EntryFullPath(TreeEntry *e)
 	}
 
 	return path;
+}
+
+ISOFileSystem::TreeEntry *ISOFileSystem::GetTreeEntry()
+{
+	if (entryFreeList.empty())
+		return new TreeEntry();
+	else
+	{
+		TreeEntry *entry = entryFreeList.back();
+		entryFreeList.pop_back();
+		return entry;
+	}
+}
+
+void ISOFileSystem::ReleaseTreeEntry(ISOFileSystem::TreeEntry *entry)
+{
+	entry->name.clear();
+	entry->children.clear();
+	entryFreeList.push_back(entry);
 }
 
 void ISOFileSystem::DoState(PointerWrap &p)
