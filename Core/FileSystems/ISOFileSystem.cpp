@@ -138,7 +138,7 @@ ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevic
 	if (!_restrictPath.empty())
 	{
 		size_t pos = _restrictPath.find_first_not_of('/');
-		while (!_restrictPath.empty())
+		while (pos != _restrictPath.npos)
 		{
 			size_t endPos = _restrictPath.find_first_of('/', pos);
 			if (pos != endPos)
