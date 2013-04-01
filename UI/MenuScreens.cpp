@@ -134,6 +134,12 @@ void LogoScreen::update(InputState &input_state) {
 	}
 }
 
+void LogoScreen::sendMessage(const char *message, const char *value) {
+	if (!strcmp(message, "boot")) {
+		screenManager()->switchScreen(new EmuScreen(value));
+	}
+}
+
 void LogoScreen::render() {
 	float t = (float)frames_ / 60.0f;
 
