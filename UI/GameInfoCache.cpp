@@ -120,7 +120,7 @@ again:
 		BlockDevice *bd = constructBlockDevice(gamePath.c_str());
 		if (!bd)
 			return 0;  // nothing to do here..
-		ISOFileSystem umd(&handles, bd);
+		ISOFileSystem umd(&handles, bd, "/PSP_GAME");
 
 		GameInfo *info = new GameInfo();
 		info->wantBG = wantBG;

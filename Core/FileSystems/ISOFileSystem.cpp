@@ -133,8 +133,21 @@ struct VolDescriptor
 
 std::list<ISOFileSystem::TreeEntry *> ISOFileSystem::entryFreeList;
 
-ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevice) 
+ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevice, std::string _restrictPath) 
 {
+	if (!_restrictPath.empty())
+	{
+		size_t pos = _restrictPath.find_first_not_of('/');
+		while (!_restrictPath.empty())
+		{
+			size_t endPos = _restrictPath.find_first_of('/', pos);
+			if (pos != endPos)
+				restrictTree.push_back(_restrictPath.substr(pos, endPos));
+			pos = _restrictPath.find_first_not_of('/', endPos);
+			_restrictPath.erase(0, pos);
+		}
+	}
+
 	blockDevice = _blockDevice;
 	hAlloc = _hAlloc;
 
@@ -169,7 +182,7 @@ ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevic
 	u32 rootSector = desc.root.firstDataSectorLE;
 	u32 rootSize = desc.root.dataLengthLE;
 
-	ReadDirectory(rootSector, rootSize, treeroot);
+	ReadDirectory(rootSector, rootSize, treeroot, 0);
 }
 
 ISOFileSystem::~ISOFileSystem()
@@ -178,7 +191,7 @@ ISOFileSystem::~ISOFileSystem()
 	ReleaseTreeEntry(treeroot);
 }
 
-void ISOFileSystem::ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root)
+void ISOFileSystem::ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root, size_t level)
 {
 	for (u32 secnum = startsector, endsector = dirsize/2048 + startsector; secnum < endsector; ++secnum)
 	{
@@ -198,7 +211,7 @@ void ISOFileSystem::ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root)
 			if (offset + IDENTIFIER_OFFSET + dir.identifierLength > 2048)
 			{
 				ERROR_LOG(FILESYS, "Directory entry crosses sectors, corrupt iso?");
-				break;
+				return;
 			}
 
 			offset += dir.size;
@@ -241,7 +254,14 @@ void ISOFileSystem::ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root)
 				}
 				else
 				{
-					ReadDirectory(dir.firstDataSectorLE, dir.dataLengthLE, e);
+					bool doRecurse = true;
+					if (!restrictTree.empty())
+						doRecurse = level < restrictTree.size() && restrictTree[level] == e->name;
+
+					if (doRecurse)
+						ReadDirectory(dir.firstDataSectorLE, dir.dataLengthLE, e, level + 1);
+					else
+						continue;
 				}
 			}
 			root->children.push_back(e);
