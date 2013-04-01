@@ -112,6 +112,9 @@ again:
 	// A game can be either an UMD or a directory under ms0:/PSP/GAME .
 	if (startsWith(gamePath, "ms0:/PSP/GAME")) {
 		return 0;
+	// TODO: The case of these extensions is not perfect.
+	} else if (endsWith(gamePath, ".PBP") || endsWith(gamePath, ".elf")) {
+		return 0;
 	} else {
 		SequentialHandleAllocator handles;
 		// Let's assume it's an ISO.

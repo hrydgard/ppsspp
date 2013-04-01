@@ -55,7 +55,7 @@ DWORD TheThread(LPVOID x) {
 	Host *oldHost = host;
 	UpdateScreenScale();
 
-	NativeInit(0, 0, memstick.c_str(), memstick.c_str(), "1234");
+	NativeInit(__argc, (const char **)__argv, memstick.c_str(), memstick.c_str(), "1234");
 	Host *nativeHost = host;
 	host = oldHost;
 

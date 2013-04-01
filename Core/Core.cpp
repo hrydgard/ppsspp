@@ -89,6 +89,13 @@ void Core_WaitInactive(int milliseconds)
 void UpdateScreenScale() {
 	dp_xres = PSP_CoreParameter().pixelWidth;
 	dp_yres = PSP_CoreParameter().pixelHeight;
+#ifdef _WIN32
+	if (g_Config.iWindowZoom == 1)
+	{
+		dp_xres *= 2;
+		dp_yres *= 2;
+	}
+#endif
 	pixel_xres = PSP_CoreParameter().pixelWidth;
 	pixel_yres = PSP_CoreParameter().pixelHeight;
 	g_dpi = 72;
