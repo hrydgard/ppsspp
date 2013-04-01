@@ -194,8 +194,7 @@ void MainWindow::Update()
 
 void MainWindow::UpdateMenus()
 {
-	// enabling
-	bool enable = g_State.bEmuThreadStarted ? false : true;
+	bool enable = false;
 	ui->action_FileLoad->setEnabled(enable);
 	ui->action_FileClose->setEnabled(!enable);
 	ui->action_FileSaveStateFile->setEnabled(!enable);
@@ -212,9 +211,9 @@ void MainWindow::UpdateMenus()
 	ui->action_DebugDisplayList->setEnabled(!enable);
 
 	enable = !Core_IsStepping() ? false : true;
-	ui->action_EmulationRun->setEnabled(g_State.bEmuThreadStarted ? enable : false);
-	ui->action_EmulationPause->setEnabled(g_State.bEmuThreadStarted ? !enable : false);
-	ui->action_EmulationReset->setEnabled(g_State.bEmuThreadStarted ? true : false);
+	ui->action_EmulationRun->setEnabled(false);
+	ui->action_EmulationPause->setEnabled(true);
+	ui->action_EmulationReset->setEnabled(true);
 
 	// checking
 	ui->action_EmulationRunLoad->setChecked(g_Config.bAutoRun);
@@ -419,13 +418,10 @@ void MainWindow::on_action_FileExit_triggered()
 
 void MainWindow::on_action_EmulationRun_triggered()
 {
-	if (g_State.bEmuThreadStarted)
+	if(dialogDisasm)
 	{
-		if(dialogDisasm)
-		{
-			dialogDisasm->Stop();
-			dialogDisasm->Go();
-		}
+		dialogDisasm->Stop();
+		dialogDisasm->Go();
 	}
 }
 
