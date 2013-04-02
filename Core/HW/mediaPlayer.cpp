@@ -144,35 +144,6 @@ bool mediaPlayer::load(const char* filename)
 	AVDictionary *optionsDict = 0;
 	if(avcodec_open2(pCodecCtx, pCodec, &optionsDict)<0)
 		return false; // Could not open codec
-  
-	// Allocate video frame
-	m_pFrame = avcodec_alloc_frame();
-
-	// make the image size the same as PSP window
-	int desWidth = 480;
-	int desHeight = 272;
-	m_sws_ctx = (void*)
-    sws_getContext
-    (
-        pCodecCtx->width,
-        pCodecCtx->height,
-        pCodecCtx->pix_fmt,
-        desWidth,
-        desHeight,
-        PIX_FMT_RGB24,
-        SWS_BILINEAR,
-        NULL,
-        NULL,
-        NULL
-    );
-
-	// Allocate video frame for RGB24
-	m_pFrameRGB = avcodec_alloc_frame();
-	int numBytes = avpicture_get_size(PIX_FMT_RGB24, desWidth, desHeight);  
-    m_buffer = (u8 *)av_malloc(numBytes*sizeof(uint8_t));
-  
-    // Assign appropriate parts of buffer to image planes in pFrameRGB   
-    avpicture_fill((AVPicture *)m_pFrameRGB, m_buffer, PIX_FMT_RGB24, desWidth, desHeight);  
 
 	return true;
 }

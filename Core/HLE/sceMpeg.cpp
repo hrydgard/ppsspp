@@ -765,8 +765,8 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 
 	if (ctx->mediaengine->stepVideo()) {
 #ifdef _USE_FFMPEG_
-		if (!playPMFVideo())
-		//if (!writePMFVideoImage(Memory::GetPointer(buffer), frameWidth, ctx->videoPixelMode))
+		//if (!playPMFVideo())
+		if (!writePMFVideoImage(Memory::GetPointer(buffer), frameWidth, ctx->videoPixelMode))
 		{
 			iresult = -1;
 		}
@@ -1062,14 +1062,6 @@ int sceMpegRingbufferAvailableSize(u32 ringbufferAddr)
 	SceMpegRingBuffer ringbuffer;
 	Memory::ReadStruct(ringbufferAddr, &ringbuffer);
 	DEBUG_LOG(HLE, "%i=sceMpegRingbufferAvailableSize(%08x)", ringbuffer.packetsFree, ringbufferAddr);
-
-	static int c = 0;
-	if (ringbuffer.packetsFree == 0)
-		c++;
-	else
-		c = 0;
-	//if (c > 1000)
-		//hleDebugBreak();
 	return ringbuffer.packetsFree;
 }
 
@@ -1407,9 +1399,9 @@ u32 sceMpegAvcCsc(u32 mpeg, u32 sourceAddr, u32 rangeAddr, int frameWidth, u32 d
 	int width    = Memory::Read_U32(rangeAddr + 8);
 	int height   = Memory::Read_U32(rangeAddr + 12);
 #ifdef _USE_FFMPEG_
-	playPMFVideo();
-	//writePMFVideoImageWithRange(Memory::GetPointer(destAddr), frameWidth, ctx->videoPixelMode, 
-		//                        x, y, width, height);
+	//playPMFVideo();
+	writePMFVideoImageWithRange(Memory::GetPointer(destAddr), frameWidth, ctx->videoPixelMode, 
+		                        x, y, width, height);
 #endif // _USE_FFMPEG_
 	return 0;
 }
