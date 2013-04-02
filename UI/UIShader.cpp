@@ -100,7 +100,8 @@ void UIShader_Prepare()
 	glstate.blend.enable();
 	glstate.blendFunc.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	glstate.colorMask.set(true, true, true, true);
+	glstate.depthWrite.set(GL_TRUE);
+	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	glstate.Restore();
 
 	uiTexture->Bind(0);
