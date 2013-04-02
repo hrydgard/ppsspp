@@ -209,7 +209,7 @@ void TransformDrawEngine::DrawSpline(int ucount, int vcount, int utype, int vtyp
 class Lighter {
 public:
 	Lighter();
-	void Light(float colorOut0[4], float colorOut1[4], const float colorIn[4], Vec3 pos, Vec3 normal, float dots[4]);
+	void Light(float colorOut0[4], float colorOut1[4], const float colorIn[4], Vec3 pos, Vec3 normal);
 
 private:
 	bool disabled_;
@@ -241,7 +241,7 @@ Lighter::Lighter() {
 	materialUpdate_ = gstate.materialupdate & 7;
 }
 
-void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[4], Vec3 pos, Vec3 norm, float dots[4])
+void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[4], Vec3 pos, Vec3 norm)
 {
 	Color4 in(colorIn);
 
@@ -269,7 +269,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 	for (int l = 0; l < 4; l++)
 	{
 		// can we skip this light?
-		if ((gstate.lightEnable[l] & 1) == 0 && !doShadeMapping_)
+		if ((gstate.lightEnable[l] & 1) == 0)
 			continue;
 
 		GELightComputation comp = (GELightComputation)(gstate.ltype[l] & 3);
@@ -326,7 +326,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 				lightSum1 += (lightSpec * *specular * (powf(dot, specCoef_) * (dot * lightScale)));
 			}
 		}
-		dots[l] = dot;
+
 		if (gstate.lightEnable[l] & 1)
 		{
 			Color4 lightAmbient(gstate_c.lightColor[0][l], 0.0f);
@@ -539,7 +539,6 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			}
 
 			// Perform lighting here if enabled. don't need to check through, it's checked above.
-			float dots[4] = {0,0,0,0};
 			float unlitColor[4] = {1, 1, 1, 1};
 			if (reader.hasColor0()) {
 				reader.ReadColor0(unlitColor);
@@ -551,7 +550,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			}
 			float litColor0[4];
 			float litColor1[4];
-			lighter.Light(litColor0, litColor1, unlitColor, out, normal, dots);
+			lighter.Light(litColor0, litColor1, unlitColor, out, normal);
 
 			if (gstate.isLightingEnabled()) {
 				// Don't ignore gstate.lmode - we should send two colors in that case
@@ -626,10 +625,13 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 				}
 				break;
 			case 2:
-				// Shade mapping - use dot products from light sources to generate U and V.
+				// Shade mapping - use two light sources to generate U and V.
 				{
-					uv[0] = dots[gstate.getUVLS0()];
-					uv[1] = dots[gstate.getUVLS1()];
+					Vec3 lightpos0 = Vec3(gstate_c.lightpos[gstate.getUVLS0()]).Normalized();
+					Vec3 lightpos1 = Vec3(gstate_c.lightpos[gstate.getUVLS1()]).Normalized();
+
+					uv[0] = (1.0f + (lightpos0 * normal))/2.0f;
+					uv[1] = (1.0f - (lightpos1 * normal))/2.0f;
 				}
 				break;
 			case 3:

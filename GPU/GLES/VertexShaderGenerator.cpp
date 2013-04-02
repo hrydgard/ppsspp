@@ -123,7 +123,7 @@ const char *boneWeightAttr[8] = {
 
 enum DoLightComputation {
 	LIGHT_OFF,
-	LIGHT_DOTONLY,
+	LIGHT_SHADE,
 	LIGHT_FULL,
 };
 
@@ -160,7 +160,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 			if (!hasNormal)
 				continue;
 			if (i == shadeLight0 || i == shadeLight1)
-				doLight[i] = LIGHT_DOTONLY;
+				doLight[i] = LIGHT_SHADE;
 			if ((gstate.lightingEnable & 1) && (gstate.lightEnable[i] & 1))
 				doLight[i] = LIGHT_FULL;
 		}
@@ -223,13 +223,14 @@ void GenerateVertexShader(int prim, char *buffer) {
 		}
 		for (int i = 0; i < 4; i++) {
 			if (doLight[i] != LIGHT_OFF) {
-				// These are needed for dot product only (for shade mapping)
+				// This is needed for shade mapping
 				WRITE(p, "uniform vec3 u_lightpos%i;\n", i);
-				WRITE(p, "uniform vec3 u_lightdir%i;\n", i);
-				WRITE(p, "uniform vec3 u_lightatt%i;\n", i);
 			}
 			if (doLight[i] == LIGHT_FULL) {
 				// These are needed for the full thing
+				WRITE(p, "uniform vec3 u_lightdir%i;\n", i);
+				WRITE(p, "uniform vec3 u_lightatt%i;\n", i);
+
 				WRITE(p, "uniform lowp vec3 u_lightambient%i;\n", i);
 				WRITE(p, "uniform lowp vec3 u_lightdiffuse%i;\n", i);
 				WRITE(p, "uniform lowp vec3 u_lightspecular%i;\n", i);
@@ -300,7 +301,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 		if (hasColor) {
 			WRITE(p, "  lowp vec3 unlitColor = a_color0.rgb;\n");
 		} else {
-			WRITE(p, "  lowp vec3 unlitColor = vec3(1.0);\n");
+			WRITE(p, "  lowp vec3 unlitColor = u_matambientalpha;\n");
 		}
 		// TODO: Declare variables for dots for shade mapping if needed.
 
@@ -316,7 +317,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 		// Calculate lights if needed. If shade mapping is enabled, lights may need to be
 		// at least partially calculated.
 		for (int i = 0; i < 4; i++) {
-			if (doLight[i] == LIGHT_OFF)
+			if (doLight[i] != LIGHT_FULL)
 				continue;
 
 			GELightComputation comp = (GELightComputation)(gstate.ltype[i] & 3);
@@ -334,9 +335,6 @@ void GenerateVertexShader(int prim, char *buffer) {
 			if (poweredDiffuse) {
 				WRITE(p, "  dot%i = pow(dot%i, u_matspecular.a);\n", i, i);
 			}
-
-			if (doLight[i] == LIGHT_DOTONLY)
-				continue;  // TODO: Actually, might want specular dot.... TODO
 
 			WRITE(p, "  float lightScale%i = 1.0;\n", i);
 			if (type != GE_LIGHTTYPE_DIRECTIONAL) {
@@ -401,7 +399,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 				break;
 
 			case 2:  // Shade mapping - use dots from light sources.
-				WRITE(p, "  v_texcoord = vec2(dot%i, dot%i);\n", gstate.getUVLS0(), gstate.getUVLS1());
+				WRITE(p, "  v_texcoord = vec2(1.0 + dot(normalize(u_lightpos%i), worldnormal), 1.0 - dot(normalize(u_lightpos%i), worldnormal)) * 0.5;\n", gstate.getUVLS0(), gstate.getUVLS1());
 				break;
 
 			case 3:
