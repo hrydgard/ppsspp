@@ -94,6 +94,7 @@ void Config::Load(const char *iniFileName)
 	graphics->Get("FullScreen", &bFullScreen, false);	
 	graphics->Get("StretchToDisplay", &bStretchToDisplay, false);
 	graphics->Get("TrueColor", &bTrueColor, true);
+	graphics->Get("MipMap", &bMipMap, false);
 
 	IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 	sound->Get("Enable", &bEnableSound, true);
@@ -162,6 +163,7 @@ void Config::Save()
 		graphics->Set("FullScreen", bFullScreen);
 		graphics->Set("StretchToDisplay", bStretchToDisplay);
 		graphics->Set("TrueColor", bTrueColor);
+		graphics->Set("MipMap", bMipMap);
 
 		IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 		sound->Set("Enable", bEnableSound);
