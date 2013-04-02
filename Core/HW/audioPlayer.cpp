@@ -298,11 +298,14 @@ bool addAtrac3AudioByPackage(const char* package, u32 startpos, int audiosize,
 	}
 	pspFileSystem.CloseFile(h);
 
-	bool bResult = true;
-	if (memcmp(buffer, buf , 0x20) == 0)
-		addAtrac3Audio(buf, filesize, atracID);
-	else
-		bResult = false;
+	bool bResult = false;
+	for (int i = 0; i < 0x100; i++) {
+		if (memcmp(buffer, buf + i , 0x20) == 0) {
+			addAtrac3Audio(buf + i, filesize, atracID);
+			bResult = true;
+			break;
+		}
+	}
 	delete [] buf;
 	return bResult;
 }

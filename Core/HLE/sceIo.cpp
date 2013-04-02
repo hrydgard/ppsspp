@@ -496,10 +496,23 @@ int __IoRead(int id, u32 data_addr, int size) {
 				result = (int) pspFileSystem.ReadFile(f->handle, data, size);
 			}
 #ifdef _USE_FFMPEG_
-			if (idbuf && (memcmp(data, "RIFF", 4) == 0 || memcmp(data, "riff", 4) == 0 
-				|| memcmp(data, "PSMF", 4) == 0)) {
-				memcpy(idbuf, data, 0x20);
-				Memory::lastestAccessFile.cachepos++;
+			if (idbuf) {
+				if (memcmp(data, "PSMF", 4) == 0) {
+					memcpy(idbuf, data, 0x20);
+					Memory::lastestAccessFile.cachepos++;
+				}
+#ifdef _USE_DSHOW_
+				else {
+					int end = std::max(std::min(size - 8, 0x100), 1);
+					for (int i = 0; i < end; i++) {
+						if (memcmp(data + i, "RIFF", 4) == 0) {
+							memcpy(idbuf, data + i, 0x20);
+							Memory::lastestAccessFile.cachepos++;
+							break;
+						}
+					}
+				}
+#endif // _USE_DSHOW_
 			}
 #endif // _USE_FFMPEG_
 			return result;
