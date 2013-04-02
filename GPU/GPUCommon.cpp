@@ -1,3 +1,4 @@
+#include <algorithm>
 #include "base/timeutil.h"
 #include "GeDisasm.h"
 #include "GPUCommon.h"
@@ -50,8 +51,9 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head)
 	dl.pc = listpc & 0xFFFFFFF;
 	dl.stall = stall & 0xFFFFFFF;
 	dl.status = PSP_GE_LIST_QUEUED;
-	dl.subIntrBase = subIntrBase;
+	dl.subIntrBase = std::max(subIntrBase, -1);
 	dl.stackptr = 0;
+	dl.signal = PSP_GE_SIGNAL_NONE;
 	if(head)
 		dlQueue.push_front(dl);
     else
@@ -247,15 +249,11 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_SIGNAL:
-		{
-			// Processed in GE_END. Has data.
-			currentList->subIntrToken = data & 0xFFFF;
-		}
+		// Processed in GE_END.
 		break;
 
 	case GE_CMD_FINISH:
 		currentList->subIntrToken = data & 0xFFFF;
-		// TODO: Should this run while interrupts are suspended?
 		if (interruptsEnabled_)
 			__GeTriggerInterrupt(currentList->id, currentList->pc, currentList->subIntrBase, currentList->subIntrToken);
 		break;
@@ -269,32 +267,35 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 				int behaviour = (prev >> 16) & 0xFF;
 				int signal = prev & 0xFFFF;
 				int enddata = data & 0xFFFF;
-				// We should probably defer to sceGe here, no sense in implementing this stuff in every GPU
+				currentList->subIntrToken = signal;
+
 				switch (behaviour) {
-				case 1:  // Signal with Wait
+				case PSP_GE_SIGNAL_HANDLER_SUSPEND:
 					ERROR_LOG(G3D, "Signal with Wait UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
 					break;
-				case 2:
+				case PSP_GE_SIGNAL_HANDLER_CONTINUE:
 					ERROR_LOG(G3D, "Signal without wait. signal/end: %04x %04x", signal, enddata);
 					break;
-				case 3:
+				case PSP_GE_SIGNAL_HANDLER_PAUSE:
 					ERROR_LOG(G3D, "Signal with Pause UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
 					break;
-				case 0x10:
+				case PSP_GE_SIGNAL_SYNC:
+					ERROR_LOG(G3D, "Signal with Sync UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
+					break;
+				case PSP_GE_SIGNAL_JUMP:
 					ERROR_LOG(G3D, "Signal with Jump UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
 					break;
-				case 0x11:
+				case PSP_GE_SIGNAL_CALL:
 					ERROR_LOG(G3D, "Signal with Call UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
 					break;
-				case 0x12:
+				case PSP_GE_SIGNAL_RET:
 					ERROR_LOG(G3D, "Signal with Return UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
 					break;
 				default:
 					ERROR_LOG(G3D, "UNKNOWN Signal UNIMPLEMENTED %i ! signal/end: %04x %04x", behaviour, signal, enddata);
 					break;
 				}
-				// TODO: Should this run while interrupts are suspended?
-				if (interruptsEnabled_)
+				if (currentList->subIntrBase >= 0 && interruptsEnabled_)
 					__GeTriggerInterrupt(currentList->id, currentList->pc, currentList->subIntrBase, currentList->subIntrToken);
 			}
 			break;
