@@ -8,6 +8,7 @@ const int OMAHeaderSize = 96;
 const int FMT_CHUNK_MAGIC = 0x20746D66;
 const int DATA_CHUNK_MAGIC = 0x61746164;
 const int SMPL_CHUNK_MAGIC = 0x6C706D73;
+const int FACT_CHUNK_MAGIC = 0x74636166;
 const int AT3_MAGIC = 0x0270;
 const int AT3_PLUS_MAGIC = 0xFFFE;
 
@@ -285,7 +286,7 @@ int getRIFFSize(u8* riff, int bufsize)
 	return dataSize + dataChunkOffset + 8;
 }
 
-int getRIFFLoopNum(u8* riff, int bufsize)
+int getRIFFLoopNum(u8* riff, int bufsize, int *startsample, int *endsample)
 {
 	const int firstChunkOffset = 12;
 	int dataChunkOffset = getChunkOffset(riff, bufsize, DATA_CHUNK_MAGIC, firstChunkOffset);
@@ -294,14 +295,52 @@ int getRIFFLoopNum(u8* riff, int bufsize)
 	int smplChunkOffset = getChunkOffset(riff, dataChunkOffset, SMPL_CHUNK_MAGIC, firstChunkOffset);
 	if (smplChunkOffset < 0)
 		return 0;
+	int factChunkOffset = getChunkOffset(riff, dataChunkOffset, FACT_CHUNK_MAGIC, firstChunkOffset);
+	int atracSampleOffset = 0;
+	if (factChunkOffset >= 0) {
+		int factChunkSize = getBufValue((int*)riff, factChunkOffset + 4);
+		if (factChunkSize >= 8) {
+			atracSampleOffset = getBufValue((int*)riff, factChunkOffset + 12);
+		}
+	}
 	int smplChunkSize = getBufValue((int*)riff, smplChunkOffset + 4);
 	int checkNumLoops = getBufValue((int*)riff, smplChunkOffset + 36);
 	if (smplChunkSize >= 36 + checkNumLoops * 24)
 	{
 		// find loop info, simple return -1 now for endless loop
-		return -1;
+		int numLoops = checkNumLoops;
+		int loopInfoAddr = smplChunkOffset + 44;
+		int loopcounts = (numLoops > 1) ? -1 : 0;
+		for (int i = 0; i < 1; i++) {
+			if (startsample)
+				*startsample = getBufValue((int*)riff, loopInfoAddr + 8) - atracSampleOffset;
+			if (endsample)
+				*endsample = getBufValue((int*)riff, loopInfoAddr + 12) - atracSampleOffset;
+			int playcount = getBufValue((int*)riff, loopInfoAddr + 20);
+			if (playcount != 1)
+				loopcounts = -1;
+			loopInfoAddr += 24;
+		}
+		return loopcounts;
 	}
 	return 0;
+}
+
+int getRIFFendSample(u8* riff, int bufsize)
+{
+	const int firstChunkOffset = 12;
+	int dataChunkOffset = getChunkOffset(riff, bufsize, DATA_CHUNK_MAGIC, firstChunkOffset);
+	if (dataChunkOffset < 0)
+		return -1;
+	int factChunkOffset = getChunkOffset(riff, dataChunkOffset, FACT_CHUNK_MAGIC, firstChunkOffset);
+	if (factChunkOffset >= 0) {
+		int factChunkSize = getBufValue((int*)riff, factChunkOffset + 4);
+		if (factChunkSize >= 8) {
+			int endSample = getBufValue((int*)riff, factChunkOffset + 8);
+			return endSample;
+		}
+	}
+	return -1;
 }
 
 } // namespace OMAConvert

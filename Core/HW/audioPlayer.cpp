@@ -57,6 +57,9 @@ bool audioPlayer::load(const char* filename)
 	setVolume(m_volume);
 	m_playmode = 0;
 
+	IMediaSeeking *pMS=(IMediaSeeking*)m_pMS;
+	m_startpos = 0;
+	JIF(pMS->GetStopPosition(&m_endpos));
 	return true;
 }
 
@@ -125,17 +128,18 @@ bool audioPlayer::setVolume(int volume)
 	return true;
 }
 
-bool audioPlayer::isEnd()
+bool audioPlayer::isEnd(long *mstimetoend)
 {
 	if (!m_pMS)
 		return false;
 	IMediaSeeking *pMS=(IMediaSeeking*)m_pMS;
-	LONGLONG stoppos, curpos;
+	LONGLONG curpos;
 	HRESULT hr;
-	JIF(pMS->GetStopPosition(&stoppos));
 	JIF(pMS->GetCurrentPosition(&curpos));
-	if (curpos >= stoppos)
+	if (curpos >= m_endpos)
 		return true;
+	if (mstimetoend)
+		*mstimetoend = (m_endpos - curpos) / 10000;
 	return false;
 }
 
@@ -184,9 +188,18 @@ bool audioEngine::loadRIFFStream(u8* stream, int streamsize, int atracID)
 		OMAConvert::releaseStream(&oma);
 	}
 
-	m_iloop = OMAConvert::getRIFFLoopNum(stream, streamsize);
+	m_iloop = 0;
 
-	return load(m_filename);
+	bool bResult = load(m_filename);
+	if (bResult) {
+		int startsample, endsample;
+		m_iloop = OMAConvert::getRIFFLoopNum(stream, streamsize, &startsample, &endsample);
+		if (m_iloop != 0) {
+			setLoopStart(startsample);
+			setLoopEnd(endsample);
+		}
+	}
+	return bResult;
 }
 
 bool audioEngine::closeStream()
@@ -213,6 +226,29 @@ bool audioEngine::isneedLoop()
 	return (m_iloop != 0);
 }
 
+bool audioEngine::setLoopStart(int sample)
+{
+	m_startpos = ((s64)sample) * 1000 * 10000 / 44100;
+	return true;
+}
+
+bool audioEngine::setLoopEnd(int sample)
+{
+	m_endpos = ((s64)sample) * 1000 * 10000 / 44100;
+	return true;
+}
+
+bool audioEngine::replayLoopPart()
+{
+	setPlayPos(m_startpos / 10000);
+	return play();
+}
+
+bool audioEngine::setPlaySample(int sample)
+{
+	return setPlayPos(((s64)sample) * 1000 / 44100);
+}
+
 //////////////////////////////////////////////////////////////////////////////
 //
 
@@ -224,6 +260,7 @@ UINT WINAPI loopAtrac3Audio(LPVOID)
 	while (1)
 	{
 		bool bChangeVolume = false;
+		int sleeptime = 300;
 		if (GetAsyncKeyState('1') < 0 && g_volume > 0)
 		{
 			g_volume--;
@@ -236,16 +273,19 @@ UINT WINAPI loopAtrac3Audio(LPVOID)
 		}
 		for (auto it = audioMap.begin(); it != audioMap.end(); ++it) {
 			audioEngine *temp = it->second;
-			if (temp->isneedLoop() && temp->isEnd())
-			{
-				temp->decLoopcount();
-				temp->setPlayPos(0);
-				temp->play();
+			if (temp->isneedLoop()) {
+				long timetoend;
+				bool bEnd = temp->isEnd(&timetoend);
+				if (bEnd || timetoend < 5) {
+					temp->decLoopcount();
+					temp->replayLoopPart();
+				} else if (timetoend < sleeptime)
+					sleeptime = timetoend;
 			}
 			if (bChangeVolume)
 				temp->setVolume(g_volume);
 		}
-		Sleep(300);
+		Sleep(sleeptime);
 	}
 	return 0;
 }

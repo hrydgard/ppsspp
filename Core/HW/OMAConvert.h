@@ -18,6 +18,8 @@ namespace OMAConvert {
 
 	int getRIFFSize(u8* riff, int bufsize);
 
-	int getRIFFLoopNum(u8* riff, int bufsize);
+	int getRIFFLoopNum(u8* riff, int bufsize, int *startsample = 0, int *endsample = 0);
+
+	int getRIFFendSample(u8* riff, int bufsize);
 } // namespace OMAConvert
 

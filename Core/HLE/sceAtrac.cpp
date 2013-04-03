@@ -477,6 +477,13 @@ u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFirstBuf,
 		// TODO: Not sure what this means?
 		atrac->decodePos = sample;
 	}
+#ifdef _USE_DSHOW_
+	audioEngine *engine = getaudioEngineByID(atracID);
+	if (engine != NULL)
+	{
+		engine->setPlaySample(sample);
+	}
+#endif // _USE_DSHOW_
 	return 0;
 }
 

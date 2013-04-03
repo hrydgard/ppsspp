@@ -15,7 +15,7 @@ public:
 	bool stop();
 	bool closeMedia();
     bool setVolume(int volume);
-    bool isEnd();
+    bool isEnd(long *mstimetoend = 0);
     bool setPlayPos(long ms);
 private:
 	void *m_pGB;
@@ -24,6 +24,9 @@ private:
 	// 0 for stop, 1 for playing, 2 for pause, -1 for not loaded files
 	int m_playmode;
     int m_volume;
+protected:
+	s64 m_startpos;
+	s64 m_endpos;
 };
 
 class audioEngine: public audioPlayer{
@@ -35,6 +38,10 @@ public:
 	void setLoop(int iloop);
 	void decLoopcount();
 	bool isneedLoop();
+	bool setLoopStart(int sample);
+	bool setLoopEnd(int sample);
+	bool setPlaySample(int sample);
+	bool replayLoopPart();
 private:
 	int m_ID;
 	char m_filename[256];
