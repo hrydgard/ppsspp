@@ -263,6 +263,9 @@ bool GLES_GPU::FramebufferDirty() {
 }
 
 void GLES_GPU::CopyDisplayToOutput() {
+	glstate.depthWrite.set(GL_TRUE);
+	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
 	transformDraw_.Flush();
 
 	EndDebugDraw();
