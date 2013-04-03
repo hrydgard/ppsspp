@@ -141,8 +141,10 @@ ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevic
 		while (pos != _restrictPath.npos)
 		{
 			size_t endPos = _restrictPath.find_first_of('/', pos);
+			if (endPos == _restrictPath.npos)
+				endPos = _restrictPath.length();
 			if (pos != endPos)
-				restrictTree.push_back(_restrictPath.substr(pos, endPos));
+				restrictTree.push_back(_restrictPath.substr(pos, endPos - pos));
 			pos = _restrictPath.find_first_not_of('/', endPos);
 		}
 	}
