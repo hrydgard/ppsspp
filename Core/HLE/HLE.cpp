@@ -332,16 +332,26 @@ bool hleExecuteDebugBreak(const HLEFunction &func)
 
 u32 hleDelayResult(u32 result, const char *reason, int usec)
 {
-	CoreTiming::ScheduleEvent(usToCycles(usec), delayedResultEvent, __KernelGetCurThread());
-	__KernelWaitCurThread(WAITTYPE_DELAY, 1, result, 0, false, reason);
+	if (__KernelIsDispatchEnabled())
+	{
+		CoreTiming::ScheduleEvent(usToCycles(usec), delayedResultEvent, __KernelGetCurThread());
+		__KernelWaitCurThread(WAITTYPE_DELAY, 1, result, 0, false, reason);
+	}
+	else
+		WARN_LOG(HLE, "Dispatch disabled, not delaying HLE result (right thing to do?)");
 	return result;
 }
 
 u64 hleDelayResult(u64 result, const char *reason, int usec)
 {
-	u64 param = (result & 0xFFFFFFFF00000000) | __KernelGetCurThread();
-	CoreTiming::ScheduleEvent(usToCycles(usec), delayedResultEvent, param);
-	__KernelWaitCurThread(WAITTYPE_DELAY, 1, (u32) result, 0, false, reason);
+	if (__KernelIsDispatchEnabled())
+	{
+		u64 param = (result & 0xFFFFFFFF00000000) | __KernelGetCurThread();
+		CoreTiming::ScheduleEvent(usToCycles(usec), delayedResultEvent, param);
+		__KernelWaitCurThread(WAITTYPE_DELAY, 1, (u32) result, 0, false, reason);
+	}
+	else
+		WARN_LOG(HLE, "Dispatch disabled, not delaying HLE result (right thing to do?)");
 	return result;
 }
 
