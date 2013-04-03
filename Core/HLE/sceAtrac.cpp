@@ -29,6 +29,8 @@
 #include "../HW/audioPlayer.h"
 #endif // _USE_DSHOW_
 
+#include "../HW/OMAConvert.h"
+
 #include "sceKernel.h"
 #include "sceUtility.h"
 
@@ -44,6 +46,7 @@
 
 
 const u32 ATRAC_MAX_SAMPLES = 1024;
+const u32 ATRAC_SAMPLES_PERSEC = 44100;
 
 struct InputBuffer {
 	u32 addr;
@@ -135,8 +138,7 @@ int getCodecType(int addr) {
 
 void Atrac::Analyze()
 {
-	// This is an ugly approximation of song length, in case we can't do better.
-	this->decodeEnd = first.size * 3;
+	this->decodeEnd = 0;
 
 	if (first.size < 0x100)
 	{
@@ -170,8 +172,14 @@ void Atrac::Analyze()
 		if (magic == *(u32 *) "fmt " && size > 14 && first.size > offset + 14)
 		{
 			u16 bytesPerFrame = Memory::Read_U16(first.addr + offset + 12);
-			// TODO: This is probably still wrong?
-			this->decodeEnd = (first.filesize / bytesPerFrame) * ATRAC_MAX_SAMPLES;
+			// get the correct end sample
+			int endSample = OMAConvert::getRIFFendSample(Memory::GetPointer(first.addr), first.size);
+			if (endSample >= 0)
+				this->decodeEnd = endSample;
+			else {
+				// if there is no correct endsample, try to guess it
+				this->decodeEnd = (first.filesize / bytesPerFrame) * ATRAC_MAX_SAMPLES;
+			}
 		}
 	}
 }
@@ -246,7 +254,7 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 				}
 				else {
 					atrac->decodePos += ATRAC_MAX_SAMPLES;
-					if (atrac->decodePos >= atrac->decodeEnd && atrac->decodeEnd < ATRAC_MAX_SAMPLES * 60 * 3)
+					if (atrac->decodePos >= atrac->decodeEnd && atrac->decodeEnd < ATRAC_SAMPLES_PERSEC * 10)
 						Memory::Write_U32(1, finishFlagAddr);
 				}
 			}
@@ -437,7 +445,7 @@ u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoopStartSa
 	if (!atrac) {
 		//return -1;
 	}
-	Memory::Write_U32(0x10000, outEndSampleAddr); // outEndSample
+	Memory::Write_U32(atrac->decodeEnd, outEndSampleAddr); // outEndSample
 	Memory::Write_U32(-1, outLoopStartSampleAddr); // outLoopStartSample
 	Memory::Write_U32(-1, outLoopEndSampleAddr); // outLoopEndSample
 	return 0;
