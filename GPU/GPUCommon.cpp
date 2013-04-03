@@ -267,14 +267,8 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_SIGNAL:
-		// Processed in GE_END.
-		break;
-
 	case GE_CMD_FINISH:
-		currentList->subIntrToken = data & 0xFFFF;
-		UpdateCycles(currentList->pc);
-		if (interruptsEnabled_)
-			__GeTriggerInterrupt(currentList->id, currentList->pc, currentList->subIntrBase, currentList->subIntrToken);
+		// Processed in GE_END.
 		break;
 
 	case GE_CMD_END:
@@ -322,6 +316,9 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 		case GE_CMD_FINISH:
 			currentList->status = PSP_GE_LIST_DONE;
 			finished = true;
+			currentList->subIntrToken = prev & 0xFFFF;
+			if (interruptsEnabled_)
+				__GeTriggerInterrupt(currentList->id, currentList->pc, currentList->subIntrBase, currentList->subIntrToken);
 			break;
 		default:
 			DEBUG_LOG(G3D,"Ah, not finished: %06x", prev & 0xFFFFFF);
