@@ -34,6 +34,8 @@ public:
 	virtual u32  Break(int mode);
 
 protected:
+	void UpdateCycles(u32 pc, u32 newPC = 0);
+
 	typedef std::deque<DisplayList> DisplayListQueue;
 
 	int dlIdGenerator;
@@ -43,6 +45,10 @@ protected:
 	bool interruptRunning;
 	u32 prev;
 	bool finished;
+
+	u64 startingTicks;
+	u32 cycleLastPC;
+	int cyclesExecuted;
 
 	bool dumpNextFrame_;
 	bool dumpThisFrame_;

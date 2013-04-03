@@ -4,6 +4,7 @@
 #include "GPUCommon.h"
 #include "GPUState.h"
 #include "ChunkFile.h"
+#include "Core/CoreTiming.h"
 #include "Core/MemMap.h"
 #include "Core/Host.h"
 #include "Core/HLE/sceKernelThread.h"
@@ -123,6 +124,8 @@ bool GPUCommon::InterpretList(DisplayList &list)
 		}
 #endif
 
+	cycleLastPC = list.pc;
+
 	while (!finished)
 	{
 		list.status = PSP_GE_LIST_DRAWING;
@@ -156,13 +159,25 @@ bool GPUCommon::InterpretList(DisplayList &list)
 		list.pc += 4;
 		prev = op;
 	}
+
+	UpdateCycles(list.pc);
+
 	time_update();
 	gpuStats.msProcessingDisplayLists += time_now_d() - start;
 	return true;
 }
 
+inline void GPUCommon::UpdateCycles(u32 pc, u32 newPC)
+{
+	cyclesExecuted += (pc - cycleLastPC) / 4;
+	cycleLastPC = newPC == 0 ? pc : newPC;
+}
+
 bool GPUCommon::ProcessDLQueue()
 {
+	startingTicks = CoreTiming::GetTicks();
+	cyclesExecuted = 0;
+
 	DisplayListQueue::iterator iter = dlQueue.begin();
 	while (iter != dlQueue.end())
 	{
@@ -209,6 +224,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 		{
 			u32 target = gstate_c.getRelativeAddress(data);
 			if (Memory::IsValidAddress(target)) {
+				UpdateCycles(currentList->pc, target - 4);
 				currentList->pc = target - 4; // pc will be increased after we return, counteract that
 			} else {
 				ERROR_LOG(G3D, "JUMP to illegal address %08x - ignoring! data=%06x", target, data);
@@ -227,6 +243,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 				ERROR_LOG(G3D, "CALL to illegal address %08x - ignoring! data=%06x", target, data);
 			} else {
 				currentList->stack[currentList->stackptr++] = retval;
+				UpdateCycles(currentList->pc, target - 4);
 				currentList->pc = target - 4;	// pc will be increased after we return, counteract that
 			}
 		}
@@ -239,6 +256,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 			} else {
 				u32 target = (currentList->pc & 0xF0000000) | (currentList->stack[--currentList->stackptr] & 0x0FFFFFFF);
 				//target = (target + gstate_c.originAddr) & 0xFFFFFFF;
+				UpdateCycles(currentList->pc, target - 4);
 				currentList->pc = target - 4;
 				if (!Memory::IsValidAddress(currentList->pc)) {
 					ERROR_LOG(G3D, "Invalid DL PC %08x on return", currentList->pc);
@@ -254,11 +272,13 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_FINISH:
 		currentList->subIntrToken = data & 0xFFFF;
+		UpdateCycles(currentList->pc);
 		if (interruptsEnabled_)
 			__GeTriggerInterrupt(currentList->id, currentList->pc, currentList->subIntrBase, currentList->subIntrToken);
 		break;
 
 	case GE_CMD_END:
+		UpdateCycles(currentList->pc);
 		switch (prev >> 24) {
 		case GE_CMD_SIGNAL:
 			{
