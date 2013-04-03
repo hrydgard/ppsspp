@@ -6,6 +6,7 @@
 
 static const unsigned int key_pad_map[] = {
 	VK_TAB,   PAD_BUTTON_LEFT_THUMB,
+	VK_SHIFT, PAD_BUTTON_BACK,
 	VK_SPACE, PAD_BUTTON_START,
 	'V',      PAD_BUTTON_SELECT,
 	'A',      PAD_BUTTON_X,

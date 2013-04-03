@@ -377,11 +377,9 @@ void PauseScreen::render() {
 	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH, "Continue", ALIGN_RIGHT)) {
 		screenManager()->finishDialog(this, DR_CANCEL);
 	}
-#ifndef _WIN32
 	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH, "Settings", ALIGN_RIGHT)) {
 		screenManager()->push(new SettingsScreen(), 0);
 	}
-#endif
 	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH, "Return to Menu", ALIGN_RIGHT)) {
 		screenManager()->finishDialog(this, DR_OK);
 	}
@@ -408,6 +406,28 @@ void SettingsScreen::render() {
 	UIShader_Prepare();
 	UIBegin(UIShader_Get());
 	DrawBackground(1.0f);
+
+	UIContext *ctx = screenManager()->getUIContext();
+	// This might create a texture so we must flush first.
+	UIFlush();
+	GameInfo *ginfo = g_gameInfoCache.GetInfo(PSP_CoreParameter().fileToStart, true);
+
+	if (ginfo && ginfo->pic1Texture) {
+		ginfo->pic1Texture->Bind(0);
+		ui_draw2d.DrawTexRect(0,0,dp_xres, dp_yres, 0,0,1,1,0xFFc0c0c0);
+		ui_draw2d.Flush();
+		ctx->RebindTexture();
+	}
+
+	if (ginfo && ginfo->pic0Texture) {
+		ginfo->pic0Texture->Bind(0);
+		// Pic0 is drawn in the bottom right corner, overlaying pic1.
+		float sizeX = dp_xres / 480 * ginfo->pic0Texture->Width();
+		float sizeY = dp_yres / 272 * ginfo->pic0Texture->Height();
+		ui_draw2d.DrawTexRect(dp_xres - sizeX, dp_yres - sizeY, dp_xres, dp_yres, 0,0,1,1,0xFFc0c0c0);
+		ui_draw2d.Flush();
+		ctx->RebindTexture();
+	}
 
 	ui_draw2d.DrawText(UBUNTU48, "Settings", dp_xres / 2, 20, 0xFFFFFFFF, ALIGN_HCENTER);
 
