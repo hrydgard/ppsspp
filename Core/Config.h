@@ -67,6 +67,7 @@ public:
 	bool bFullScreen;
 	int iAnisotropyLevel;
 	bool bTrueColor;
+	bool bMipMap;
 
 	// Sound
 	bool bEnableSound;
