@@ -29,19 +29,40 @@ int GPUCommon::ListSync(int listid, int mode)
 	if (mode < 0 || mode > 1)
 		return SCE_KERNEL_ERROR_INVALID_MODE;
 
-	// TODO
-	if (mode == 0)
-		return 0;
+	if (mode == 1) {
+		DisplayList *dl = NULL;
+		for (DisplayListQueue::iterator it(dlQueue.begin()); it != dlQueue.end(); ++it) {
+			if (it->id == listid) {
+				dl = &*it;
+			}
+		}
 
-	return 0;
-	for(DisplayListQueue::iterator it(dlQueue.begin()); it != dlQueue.end(); ++it)
-	{
-		if(it->id == listid)
-		{
-			return it->status;
+		if (!dl)
+			return SCE_KERNEL_ERROR_INVALID_ID;
+
+		switch (dl->state) {
+		case PSP_GE_DL_STATE_QUEUED:
+			// TODO: interrupted -> return PSP_GE_LIST_PAUSED;
+			return PSP_GE_LIST_QUEUED;
+
+		case PSP_GE_DL_STATE_RUNNING:
+			if (dl->pc == dl->stall)
+				return PSP_GE_LIST_STALLING;
+			return PSP_GE_LIST_DRAWING;
+
+		case PSP_GE_DL_STATE_COMPLETED:
+			return PSP_GE_LIST_COMPLETED;
+
+		case PSP_GE_DL_STATE_PAUSED:
+			return PSP_GE_LIST_PAUSED;
+
+		default:
+			return SCE_KERNEL_ERROR_INVALID_ID;
 		}
 	}
-	return 0x80000100; // INVALID_ID
+
+	// TODO: Wait here for mode == 0.
+	return PSP_GE_LIST_COMPLETED;
 }
 
 u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head)
@@ -51,7 +72,7 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head)
 	dl.startpc = listpc & 0xFFFFFFF;
 	dl.pc = listpc & 0xFFFFFFF;
 	dl.stall = stall & 0xFFFFFFF;
-	dl.status = PSP_GE_LIST_QUEUED;
+	dl.state = PSP_GE_DL_STATE_QUEUED;
 	dl.subIntrBase = std::max(subIntrBase, -1);
 	dl.stackptr = 0;
 	dl.signal = PSP_GE_SIGNAL_NONE;
@@ -125,15 +146,12 @@ bool GPUCommon::InterpretList(DisplayList &list)
 #endif
 
 	cycleLastPC = list.pc;
+	list.state = PSP_GE_DL_STATE_RUNNING;
 
 	while (!finished)
 	{
-		list.status = PSP_GE_LIST_DRAWING;
 		if (list.pc == list.stall)
-		{
-			list.status = PSP_GE_LIST_STALL_REACHED;
 			return false;
-		}
 
 		op = Memory::ReadUnchecked_U32(list.pc); //read from memory
 		u32 cmd = op >> 24;
@@ -276,7 +294,6 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 		switch (prev >> 24) {
 		case GE_CMD_SIGNAL:
 			{
-				currentList->status = PSP_GE_LIST_END_REACHED;
 				// TODO: see http://code.google.com/p/jpcsp/source/detail?r=2935#
 				int behaviour = (prev >> 16) & 0xFF;
 				int signal = prev & 0xFFFF;
@@ -314,7 +331,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 			}
 			break;
 		case GE_CMD_FINISH:
-			currentList->status = PSP_GE_LIST_DONE;
+			currentList->state = PSP_GE_DL_STATE_COMPLETED;
 			finished = true;
 			currentList->subIntrToken = prev & 0xFFFF;
 			if (interruptsEnabled_)

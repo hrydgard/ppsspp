@@ -25,12 +25,30 @@ class PointerWrap;
 
 enum DisplayListStatus
 {
-	PSP_GE_LIST_DONE          = 0, // reached finish+end
-	PSP_GE_LIST_QUEUED        = 1, // in queue, not stalled
-	PSP_GE_LIST_DRAWING       = 2, // drawing
-	PSP_GE_LIST_STALL_REACHED = 3, // stalled
-	PSP_GE_LIST_END_REACHED   = 4, // reached signal+end, in jpcsp but not in pspsdk?
-	PSP_GE_LIST_CANCEL_DONE   = 5, // canceled?
+    /** The list has been completed */
+    PSP_GE_LIST_COMPLETED = 0,
+    /** The list is queued but not executed yet */
+    PSP_GE_LIST_QUEUED = 1,
+    /** The list is currently being executed */
+    PSP_GE_LIST_DRAWING = 2,
+    /** The list was stopped because it encountered stall address */
+    PSP_GE_LIST_STALLING = 3,
+    /** The list is paused because of a signal or sceGeBreak */
+    PSP_GE_LIST_PAUSED = 4,
+};
+
+enum DisplayListState
+{
+    /** No state assigned, the list is empty */
+    PSP_GE_DL_STATE_NONE = 0,
+    /** The list has been queued */
+    PSP_GE_DL_STATE_QUEUED = 1,
+    /** The list is being executed */
+    PSP_GE_DL_STATE_RUNNING = 2,
+    /** The list was completed and will be removed */
+    PSP_GE_DL_STATE_COMPLETED = 3,
+    /** The list has been paused by a signal */
+    PSP_GE_DL_STATE_PAUSED = 4,
 };
 
 enum SignalBehavior
@@ -88,7 +106,7 @@ struct DisplayList
 	u32 startpc;
 	u32 pc;
 	u32 stall;
-	DisplayListStatus status;
+	DisplayListState state;
 	SignalBehavior signal;
 	int subIntrBase;
 	u16 subIntrToken;
