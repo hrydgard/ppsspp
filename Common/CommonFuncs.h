@@ -60,24 +60,24 @@ template<> struct CompileTimeAssert<true> {};
 #endif
 #define ARRAYSIZE(A) (sizeof(A)/sizeof((A)[0]))
 
-inline u32 _rotl(u32 x, int shift) {
+inline u32 __rotl(u32 x, int shift) {
     shift &= 31;
     if (!shift) return x;
     return (x << shift) | (x >> (32 - shift));
 }
 
-inline u64 _rotl64(u64 x, unsigned int shift){
+inline u64 __rotl64(u64 x, unsigned int shift){
 	unsigned int n = shift % 64;
 	return (x << n) | (x >> (64 - n));
 }
 
-inline u32 _rotr(u32 x, int shift) {
+inline u32 __rotr(u32 x, int shift) {
     shift &= 31;
     if (!shift) return x;
     return (x >> shift) | (x << (32 - shift));
 }
 
-inline u64 _rotr64(u64 x, unsigned int shift){
+inline u64 __rotr64(u64 x, unsigned int shift){
 	unsigned int n = shift % 64;
 	return (x >> n) | (x << (64 - n));
 }
