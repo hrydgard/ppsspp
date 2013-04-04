@@ -451,7 +451,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 					ERROR_LOG(G3D, "UNKNOWN Signal UNIMPLEMENTED %i ! signal/end: %04x %04x", behaviour, signal, enddata);
 					break;
 				}
-				if (currentList->subIntrBase >= 0 && interruptsEnabled_)
+				if (interruptsEnabled_)
 					__GeTriggerInterrupt(currentList->id, currentList->pc, currentList->subIntrBase, currentList->subIntrToken);
 			}
 			break;
