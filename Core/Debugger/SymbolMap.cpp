@@ -37,7 +37,7 @@ SymbolMap symbolMap;
 //need improvement
 static u32 hasher(u32 last, u32 value)
 {
-	return _rotl(last,3) ^ value;
+	return __rotl(last,3) ^ value;
 }
 
 //#define BWLINKS

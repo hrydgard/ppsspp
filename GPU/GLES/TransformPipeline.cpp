@@ -903,13 +903,13 @@ u32 TransformDrawEngine::ComputeFastDCID() {
 	u32 hash = 0;
 	for (int i = 0; i < numDrawCalls; i++) {
 		hash ^= *(u32*)&drawCalls[i].verts;
-		hash = _rotl(hash, 13);
+		hash = __rotl(hash, 13);
 		hash ^= *(u32*)&drawCalls[i].inds;
-		hash = _rotl(hash, 13);
+		hash = __rotl(hash, 13);
 		hash ^= (u32)drawCalls[i].vertType;
-		hash = _rotl(hash, 13);
+		hash = __rotl(hash, 13);
 		hash ^= (u32)drawCalls[i].vertexCount;
-		hash = _rotl(hash, 13);
+		hash = __rotl(hash, 13);
 		hash ^= (u32)drawCalls[i].prim;
 	}
 	return hash;
