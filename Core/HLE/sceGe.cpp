@@ -212,14 +212,14 @@ u32 sceGeDrawSync(u32 mode)
 
 int sceGeContinue()
 {
-	DEBUG_LOG(HLE, "UNIMPL sceGeContinue");
+	DEBUG_LOG(HLE, "sceGeContinue");
 	return gpu->Continue();
 }
 
 int sceGeBreak(u32 mode)
 {
 	//mode => 0 : current dlist 1: all drawing
-	DEBUG_LOG(HLE, "UNIMPL sceGeBreak(mode=%d)", mode);
+	DEBUG_LOG(HLE, "sceGeBreak(mode=%d)", mode);
 	return gpu->Break(mode);
 }
 

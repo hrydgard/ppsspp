@@ -112,6 +112,7 @@ struct DisplayList
 	u16 subIntrToken;
 	u32 stack[32];
 	int stackptr;
+	bool interrupted;
 };
 
 class GPUInterface

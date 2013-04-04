@@ -7,8 +7,9 @@
 #include "Core/CoreTiming.h"
 #include "Core/MemMap.h"
 #include "Core/Host.h"
-#include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/HLE/sceKernelMemory.h"
+#include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceGe.h"
 
 static int dlIdGenerator = 1;
@@ -53,7 +54,8 @@ int GPUCommon::ListSync(int listid, int mode)
 
 		switch (dl->state) {
 		case PSP_GE_DL_STATE_QUEUED:
-			// TODO: interrupted -> return PSP_GE_LIST_PAUSED;
+			if (dl->interrupted)
+				return PSP_GE_LIST_PAUSED;
 			return PSP_GE_LIST_QUEUED;
 
 		case PSP_GE_DL_STATE_RUNNING:
@@ -94,6 +96,7 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head)
 	dl.subIntrBase = std::max(subIntrBase, -1);
 	dl.stackptr = 0;
 	dl.signal = PSP_GE_SIGNAL_NONE;
+	dl.interrupted = false;
 	if (head) {
 		if (currentList) {
 			if (currentList->state != PSP_GE_DL_STATE_PAUSED)
@@ -143,7 +146,39 @@ u32 GPUCommon::UpdateStall(int listid, u32 newstall)
 
 u32 GPUCommon::Continue()
 {
-	// TODO
+	if (!currentList)
+		return 0;
+
+	if (currentList->state == PSP_GE_DL_STATE_PAUSED)
+	{
+		if (!isbreak)
+		{
+			if (currentList->signal == PSP_GE_SIGNAL_HANDLER_PAUSE)
+				return 0x80000021;
+
+			currentList->state = PSP_GE_DL_STATE_RUNNING;
+			currentList->signal = PSP_GE_SIGNAL_NONE;
+
+			// TODO Restore context of DL is necessary
+			// TODO Restore BASE
+		}
+		else
+			currentList->state = PSP_GE_DL_STATE_QUEUED;
+	}
+	else if (currentList->state == PSP_GE_DL_STATE_RUNNING)
+	{
+		if (sceKernelGetCompiledSdkVersion() >= 0x02000000)
+			return 0x80000020;
+		return -1;
+	}
+	else
+	{
+		if (sceKernelGetCompiledSdkVersion() >= 0x02000000)
+			return 0x80000004;
+		return -1;
+	}
+
+	ProcessDLQueue();
 	return 0;
 }
 
@@ -152,8 +187,56 @@ u32 GPUCommon::Break(int mode)
 	if (mode < 0 || mode > 1)
 		return SCE_KERNEL_ERROR_INVALID_MODE;
 
-	// TODO
-	return 0;
+	if (!currentList)
+		return 0x80000020;
+
+	if(mode == 1)
+	{
+		currentList = NULL;
+		dlQueue.clear();
+		return 0;
+	}
+
+	if (currentList->state == PSP_GE_DL_STATE_NONE || currentList->state == PSP_GE_DL_STATE_COMPLETED)
+	{
+		if (sceKernelGetCompiledSdkVersion() >= 0x02000000)
+			return 0x80000004;
+		return -1;
+	}
+
+	if (currentList->state == PSP_GE_DL_STATE_PAUSED)
+	{
+		if (sceKernelGetCompiledSdkVersion() > 0x02000010)
+		{
+			if (currentList->signal == PSP_GE_SIGNAL_HANDLER_PAUSE)
+			{
+				ERROR_LOG(G3D, "sceGeBreak: can't break signal-pausing list");
+			}
+			else
+				return 0x80000020;
+		}
+		return 0x80000021;
+	}
+
+	if (currentList->state == PSP_GE_DL_STATE_QUEUED)
+	{
+		currentList->state = PSP_GE_DL_STATE_PAUSED;
+		return currentList->id;
+	}
+
+	// TODO Save BASE
+	// TODO Adjust pc to be just before SIGNAL/END
+
+	// TODO: Is this right?
+	if (currentList->signal == PSP_GE_SIGNAL_SYNC)
+		currentList->pc += 8;
+
+	currentList->interrupted = true;
+	currentList->state = PSP_GE_DL_STATE_PAUSED;
+	currentList->signal = PSP_GE_SIGNAL_HANDLER_SUSPEND;
+	isbreak = true;
+
+	return currentList->id;
 }
 
 bool GPUCommon::InterpretList(DisplayList &list)
@@ -182,6 +265,7 @@ bool GPUCommon::InterpretList(DisplayList &list)
 
 	cycleLastPC = list.pc;
 	list.state = PSP_GE_DL_STATE_RUNNING;
+	list.interrupted = false;
 
 	while (!finished)
 	{
@@ -331,16 +415,18 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 		case GE_CMD_SIGNAL:
 			{
 				// TODO: see http://code.google.com/p/jpcsp/source/detail?r=2935#
-				int behaviour = (prev >> 16) & 0xFF;
+				SignalBehavior behaviour = static_cast<SignalBehavior>((prev >> 16) & 0xFF);
 				int signal = prev & 0xFFFF;
 				int enddata = data & 0xFFFF;
 				currentList->subIntrToken = signal;
 
 				switch (behaviour) {
 				case PSP_GE_SIGNAL_HANDLER_SUSPEND:
+					currentList->signal = behaviour;
 					ERROR_LOG(G3D, "Signal with Wait UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
 					break;
 				case PSP_GE_SIGNAL_HANDLER_CONTINUE:
+					currentList->signal = behaviour;
 					ERROR_LOG(G3D, "Signal without wait. signal/end: %04x %04x", signal, enddata);
 					break;
 				case PSP_GE_SIGNAL_HANDLER_PAUSE:
@@ -403,6 +489,7 @@ void GPUCommon::DoState(PointerWrap &p) {
 	p.Do(interruptRunning);
 	p.Do(prev);
 	p.Do(finished);
+	p.Do(isbreak);
 	p.DoMarker("GPUCommon");
 }
 
@@ -413,5 +500,6 @@ void GPUCommon::InterruptStart()
 void GPUCommon::InterruptEnd()
 {
 	interruptRunning = false;
+	isbreak = false;
 	ProcessDLQueue();
 }

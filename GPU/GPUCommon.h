@@ -8,6 +8,7 @@ public:
 	GPUCommon() :
 		dlIdGenerator(1),
 		currentList(NULL),
+		isbreak(false),
 		dumpNextFrame_(false),
 		dumpThisFrame_(false),
 		interruptsEnabled_(true)
@@ -45,6 +46,7 @@ protected:
 	bool interruptRunning;
 	u32 prev;
 	bool finished;
+	bool isbreak;
 
 	u64 startingTicks;
 	u32 cycleLastPC;
