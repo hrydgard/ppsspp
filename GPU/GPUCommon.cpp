@@ -21,7 +21,18 @@ u32 GPUCommon::DrawSync(int mode) {
 	if (mode < 0 || mode > 1)
 		return SCE_KERNEL_ERROR_INVALID_MODE;
 
-	return 0;
+	if (mode == 0) {
+		// TODO: Wait.
+		return 0;
+	}
+
+	if (!currentList)
+		return PSP_GE_LIST_COMPLETED;
+
+	if (currentList->pc == currentList->stall)
+		return PSP_GE_LIST_STALLING;
+
+	return PSP_GE_LIST_DRAWING;
 }
 
 int GPUCommon::ListSync(int listid, int mode)
@@ -213,6 +224,7 @@ bool GPUCommon::ProcessDLQueue()
 			iter = dlQueue.begin();
 		}
 	}
+	currentList = NULL;
 	return true; //no more lists!
 }
 
