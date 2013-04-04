@@ -45,7 +45,7 @@ protected:
 
 	bool interruptRunning;
 	u32 prev;
-	bool finished;
+	GPUState gpuState;
 	bool isbreak;
 
 	u64 startingTicks;

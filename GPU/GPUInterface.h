@@ -88,6 +88,14 @@ enum SignalBehavior
 	PSP_GE_SIGNAL_BREAK2           = 0xFF,
 };
 
+enum GPUState
+{
+	GPUSTATE_RUNNING = 0,
+	GPUSTATE_DONE = 1,
+	GPUSTATE_STALL = 2,
+	GPUSTATE_INTERRUPT = 3,
+	GPUSTATE_ERROR = 4,
+};
 
 // Used for debug
 struct FramebufferInfo

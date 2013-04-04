@@ -246,7 +246,7 @@ bool GPUCommon::InterpretList(DisplayList &list)
 	currentList = &list;
 	u32 op = 0;
 	prev = 0;
-	finished = false;
+	gpuState = GPUSTATE_RUNNING;
 
 	// I don't know if this is the correct place to zero this, but something
 	// need to do it. See Sol Trigger title screen.
@@ -267,10 +267,13 @@ bool GPUCommon::InterpretList(DisplayList &list)
 	list.state = PSP_GE_DL_STATE_RUNNING;
 	list.interrupted = false;
 
-	while (!finished)
+	while (gpuState == GPUSTATE_RUNNING)
 	{
 		if (list.pc == list.stall)
-			return false;
+		{
+			gpuState = GPUSTATE_STALL;
+			break;
+		}
 
 		op = Memory::ReadUnchecked_U32(list.pc); //read from memory
 		u32 cmd = op >> 24;
@@ -289,7 +292,7 @@ bool GPUCommon::InterpretList(DisplayList &list)
 			GeDisassembleOp(list.pc, op, prev, temp);
 			NOTICE_LOG(HLE, "%s", temp);
 		}
-		gstate.cmdmem[cmd] = op;	 // crashes if I try to put the whole op there??
+		gstate.cmdmem[cmd] = op;
 		
 		ExecuteOp(op, diff);
 		
@@ -301,7 +304,7 @@ bool GPUCommon::InterpretList(DisplayList &list)
 
 	time_update();
 	gpuStats.msProcessingDisplayLists += time_now_d() - start;
-	return true;
+	return gpuState == GPUSTATE_DONE || gpuState == GPUSTATE_ERROR;
 }
 
 inline void GPUCommon::UpdateCycles(u32 pc, u32 newPC)
@@ -398,7 +401,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 				currentList->pc = target - 4;
 				if (!Memory::IsValidAddress(currentList->pc)) {
 					ERROR_LOG(G3D, "Invalid DL PC %08x on return", currentList->pc);
-					finished = true;
+					gpuState = GPUSTATE_ERROR;
 				}
 			}
 		}
@@ -454,7 +457,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 			break;
 		case GE_CMD_FINISH:
 			currentList->state = PSP_GE_DL_STATE_COMPLETED;
-			finished = true;
+			gpuState = GPUSTATE_DONE;
 			currentList->subIntrToken = prev & 0xFFFF;
 			if (interruptsEnabled_)
 				__GeTriggerInterrupt(currentList->id, currentList->pc, currentList->subIntrBase, currentList->subIntrToken);
@@ -488,7 +491,7 @@ void GPUCommon::DoState(PointerWrap &p) {
 	}
 	p.Do(interruptRunning);
 	p.Do(prev);
-	p.Do(finished);
+	p.Do(gpuState);
 	p.Do(isbreak);
 	p.DoMarker("GPUCommon");
 }
