@@ -110,7 +110,7 @@ void PSPOskDialog::RenderKeyboard()
 	u32 limit = oskData.outtextlimit;
 	// TODO: Test more thoroughly.  Encountered a game where this was 0.
 	if (limit <= 0)
-		limit = 16;
+		limit = 14;
 
 	const float keyboardLeftSide = (480.0f - (24.0f * KEYSPERROW)) / 2.0f;
 	float previewLeftSide = (480.0f - (12.0f * limit)) / 2.0f;
@@ -159,7 +159,7 @@ int PSPOskDialog::Update()
 	u32 limit = oskData.outtextlimit;
 	// TODO: Test more thoroughly.  Encountered a game where this was 0.
 	if (limit <= 0)
-		limit = 16;
+		limit = 14;
 
 	if (status == SCE_UTILITY_STATUS_INITIALIZE)
 	{
