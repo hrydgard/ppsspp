@@ -138,8 +138,19 @@ int DinputDevice::UpdateState(InputState &input_state)
 
 	if (analog)
 	{
-		input_state.pad_lstick_x = (float)js.lX / 10000.f;
-		input_state.pad_lstick_y = -((float)js.lY / 10000.f);
+		float analogx = (float)js.lX / 10000.f;
+		float analogy = -((float)js.lY / 10000.f);
+		if (analogy == 1) input_state.pad_buttons |= PAD_BUTTON_UP;
+		else if (analogy == -1) input_state.pad_buttons |= PAD_BUTTON_DOWN;	
+		if (analogx == -1) input_state.pad_buttons |= PAD_BUTTON_LEFT;
+		else if (analogx == 1) input_state.pad_buttons |= PAD_BUTTON_RIGHT;	
+		//input_state.pad_lstick_x = (float)js.lX / 10000.f;
+		//input_state.pad_lstick_y = -((float)js.lY / 10000.f);
+		//float analogy = input_state.pad_lstick_y = -((float)js.lY / 10000.f);
+		//if (input_state.pad_lstick_y == 1) input_state.pad_buttons |= PAD_BUTTON_UP;
+		//else if (input_state.pad_lstick_y == -1) input_state.pad_buttons |= PAD_BUTTON_DOWN;	
+		//if (input_state.pad_lstick_x == -1) input_state.pad_buttons |= PAD_BUTTON_LEFT;
+		//else if (input_state.pad_lstick_x == 1) input_state.pad_buttons |= PAD_BUTTON_RIGHT;			
 	}
 
 	for (u8 i = 0; i < sizeof(dinput_ctrl_map)/sizeof(dinput_ctrl_map[0]); i += 2)
