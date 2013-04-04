@@ -78,6 +78,13 @@ int GPUCommon::ListSync(int listid, int mode)
 
 u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head)
 {
+	// TODO Check the stack values in missing arg and ajust the stack depth
+
+	// Check alignment
+	// TODO Check the context and stack alignement too
+	if (((listpc | stall) & 3) != 0)
+		return 0x80000103;
+
 	DisplayList dl;
 	dl.id = dlIdGenerator++;
 	dl.startpc = listpc & 0xFFFFFFF;
@@ -87,11 +94,28 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head)
 	dl.subIntrBase = std::max(subIntrBase, -1);
 	dl.stackptr = 0;
 	dl.signal = PSP_GE_SIGNAL_NONE;
-	if(head)
+	if (head) {
+		if (currentList) {
+			if (currentList->state != PSP_GE_DL_STATE_PAUSED)
+				return SCE_KERNEL_ERROR_INVALID_VALUE;
+			currentList->state = PSP_GE_DL_STATE_QUEUED;
+		}
+
+		dl.state = PSP_GE_DL_STATE_PAUSED;
 		dlQueue.push_front(dl);
-    else
+		currentList = &dlQueue.front();
+	} else if (currentList) {
+		dl.state = PSP_GE_DL_STATE_QUEUED;
 		dlQueue.push_back(dl);
-	ProcessDLQueue();
+	} else {
+		dl.state = PSP_GE_DL_STATE_RUNNING;
+		dlQueue.push_back(dl);
+		currentList = &dlQueue.front();
+
+		// TODO save context when starting the list if param is set
+		ProcessDLQueue();
+	}
+
 	return dl.id;
 }
 
