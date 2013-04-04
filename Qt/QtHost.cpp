@@ -12,6 +12,7 @@
 #include "UI/EmuScreen.h"
 #include "UI/UIShader.h"
 #include "UI/ui_atlas.h"
+#include "ui/ui_context.h"
 #include "GPU/ge_constants.h"
 #include "EmuThread.h"
 
@@ -221,7 +222,6 @@ int NativeMix(short *audio, int num_samples)
 
 void NativeInitGraphics()
 {
-	INFO_LOG(BOOT, "NativeInitGraphics - should only be called once!");
 	gl_lost_manager_init();
 	ui_draw2d.SetAtlas(&ui_atlas);
 
@@ -245,6 +245,9 @@ void NativeInitGraphics()
 	theme.checkOn = I_CHECKEDBOX;
 	theme.checkOff = I_SQUARE;
 
+	ui_draw2d.Init();
+	ui_draw2d_front.Init();
+
 	UIInit(&ui_atlas, theme);
 
 	uiTexture = new Texture();
@@ -253,6 +256,9 @@ void NativeInitGraphics()
 		qDebug() << "Failed to load texture";
 	}
 	uiTexture->Bind(0);
+
+	uiContext = new UIContext();
+	uiContext->Init(UIShader_Get(), UIShader_GetPlain(), uiTexture, &ui_draw2d, &ui_draw2d_front);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
@@ -293,6 +299,9 @@ void NativeShutdownGraphics()
 	screenManager->shutdown();
 	delete screenManager;
 	screenManager = 0;
+
+	ui_draw2d.Shutdown();
+	ui_draw2d_front.Shutdown();
 
 	UIShader_Shutdown();
 
