@@ -8,6 +8,7 @@ public:
 	GPUCommon() :
 		dlIdGenerator(1),
 		currentList(NULL),
+		isbreak(false),
 		dumpNextFrame_(false),
 		dumpThisFrame_(false),
 		interruptsEnabled_(true)
@@ -34,6 +35,8 @@ public:
 	virtual u32  Break(int mode);
 
 protected:
+	void UpdateCycles(u32 pc, u32 newPC = 0);
+
 	typedef std::deque<DisplayList> DisplayListQueue;
 
 	int dlIdGenerator;
@@ -43,6 +46,11 @@ protected:
 	bool interruptRunning;
 	u32 prev;
 	bool finished;
+	bool isbreak;
+
+	u64 startingTicks;
+	u32 cycleLastPC;
+	int cyclesExecuted;
 
 	bool dumpNextFrame_;
 	bool dumpThisFrame_;

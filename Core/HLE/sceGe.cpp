@@ -58,7 +58,7 @@ public:
 
 		gpu->InterruptStart();
 
-		u32 cmd = Memory::ReadUnchecked_U32(intrdata.pc) >> 24;
+		u32 cmd = Memory::ReadUnchecked_U32(intrdata.pc - 4) >> 24;
 		int subintr = intrdata.subIntrBase | (cmd == GE_CMD_FINISH ? PSP_GE_SUBINTR_FINISH : PSP_GE_SUBINTR_SIGNAL);
 		SubIntrHandler* handler = get(subintr);
 
@@ -212,14 +212,14 @@ u32 sceGeDrawSync(u32 mode)
 
 int sceGeContinue()
 {
-	DEBUG_LOG(HLE, "UNIMPL sceGeContinue");
+	DEBUG_LOG(HLE, "sceGeContinue");
 	return gpu->Continue();
 }
 
 int sceGeBreak(u32 mode)
 {
 	//mode => 0 : current dlist 1: all drawing
-	DEBUG_LOG(HLE, "UNIMPL sceGeBreak(mode=%d)", mode);
+	DEBUG_LOG(HLE, "sceGeBreak(mode=%d)", mode);
 	return gpu->Break(mode);
 }
 
