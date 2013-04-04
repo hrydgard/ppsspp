@@ -5,9 +5,6 @@
 #ifdef ANDROID
 #include <zip.h>
 #endif
-#ifdef USING_QT_UI
-#include <QFile>
-#endif
 
 #include "base/basictypes.h"
 #include "base/logging.h"
@@ -227,25 +224,13 @@ void VFSShutdown() {
 }
 
 uint8_t *VFSReadFile(const char *filename, size_t *size) {
-	uint8_t *data;
-#ifdef USING_QT_UI
-	// File should be in the binary
-	QFile asset(QString(":/assets/") + filename);
-	if (asset.exists())
-	{
-		*size = asset.size();
-		data = (uint8_t*)asset.readAll().data();
-		return data;
-	}
-	// Otherwise, fallback
-#endif
 	int fn_len = strlen(filename);
 	for (int i = 0; i < num_entries; i++) {
 		int prefix_len = strlen(entries[i].prefix);
 		if (prefix_len >= fn_len) continue;
 		if (0 == memcmp(filename, entries[i].prefix, prefix_len)) {
 			ILOG("Prefix match: %s (%s) -> %s", entries[i].prefix, filename, filename + prefix_len);
-			data = entries[i].reader->ReadAsset(filename + prefix_len, size);
+			uint8_t *data = entries[i].reader->ReadAsset(filename + prefix_len, size);
 			if (data)
 				return data;
 			else
