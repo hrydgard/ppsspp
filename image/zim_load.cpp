@@ -140,7 +140,6 @@ int LoadZIM(const char *filename, int *width, int *height, int *format, uint8_t 
 	if (!asset.open(QIODevice::ReadOnly))
 		return 0;
 	int retval = LoadZIMPtr((uint8_t*)asset.readAll().data(), asset.size(), width, height, format, image);
-	size = asset.size();
 	asset.close();
 #else
 	size_t size;
