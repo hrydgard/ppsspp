@@ -89,8 +89,10 @@ inline u64 __rotr64(u64 x, unsigned int shift){
 	#define unlink _unlink
 	#define snprintf _snprintf
 	#define vscprintf _vscprintf
-	#define __rotr _rotr
 	#define __rotl _rotl
+	#define __rotl64 _rotl64
+	#define __rotr _rotr
+	#define __rotr64 _rotr64
 
 // 64 bit offsets for windows
 	#define fseeko _fseeki64
