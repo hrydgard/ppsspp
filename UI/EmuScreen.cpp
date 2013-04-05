@@ -83,14 +83,6 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true) {
 	host->BootDone();
 	host->UpdateDisassembly();
 
-#ifdef _WIN32
-	if (g_Config.bAutoRun) {
-		Core_EnableStepping(false);
-	} else {
-		Core_EnableStepping(true);
-	}
-#endif
-
 	LayoutGamepad(dp_xres, dp_yres);
 
 	NOTICE_LOG(BOOT, "Loading %s...", fileToStart.c_str());

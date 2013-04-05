@@ -49,7 +49,6 @@ namespace MainWindow
 	HWND hwndDisplay;
 	HWND hwndGameList;
 	static HMENU menu;
-	static CoreState nextState = CORE_POWERDOWN;
 
 	static HINSTANCE hInst;
 
@@ -657,14 +656,6 @@ namespace MainWindow
 			if (memoryWindow[0])
 				memoryWindow[0]->NotifyMapLoaded();
 
-			if (nextState == CORE_RUNNING)
-				PostMessage(hwndMain, WM_COMMAND, ID_EMULATION_RUN, 0);
-			else if (globalUIState == UISTATE_INGAME)
-			{
-				if (disasmWindow[0])
-					SendMessage(disasmWindow[0]->GetDlgHandle(), WM_COMMAND, IDC_GO, 0);
-			}
-
 			SetForegroundWindow(hwndMain);
 			break;
 
@@ -890,11 +881,6 @@ namespace MainWindow
 		if (!result)
 			MessageBox(0, "Savestate failure.  Please try again later.", "Sorry", MB_OK);
 		SetCursor(LoadCursor(0, IDC_ARROW));
-	}
-
-	void SetNextState(CoreState state)
-	{
-		nextState = state;
 	}
 
 	HINSTANCE GetHInstance()
