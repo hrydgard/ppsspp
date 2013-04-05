@@ -209,6 +209,7 @@ void EmuThread::run()
 				host->UpdateDisassembly();
 				Core_EnableStepping(coreParameter.startPaused ? TRUE : FALSE);
 
+				globalUIState = coreParameter.startPaused ? UISTATE_PAUSEMENU : UISTATE_INGAME;
 			#ifdef _DEBUG
 				host->UpdateMemView();
 			#endif
@@ -310,6 +311,7 @@ void EmuThread::run()
 			ui_draw2d.DrawText(UBUNTU24, "www.ppsspp.org", dp_xres / 2, dp_yres / 2 + 130, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 
 			UIEnd();
+			globalUIState = UISTATE_MENU;
 
 			glsl_bind(UIShader_Get());
 			ui_draw2d.Flush();

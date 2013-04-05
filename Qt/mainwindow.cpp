@@ -179,6 +179,7 @@ void MainWindow::ShowMemory(u32 addr)
 
 void MainWindow::Update()
 {
+	globalUIState = UISTATE_INGAME;
 	UpdateInputState(&input_state);
 
 	for (int i = 0; i < controllistCount; i++)
