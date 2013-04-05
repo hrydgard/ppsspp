@@ -7,6 +7,7 @@
 #include "Core/CoreTiming.h"
 #include "Core/MemMap.h"
 #include "Core/Host.h"
+#include "Core/Reporting.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceKernelThread.h"
@@ -147,7 +148,7 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head)
 	}
 	if (id < 0)
 	{
-		ERROR_LOG(G3D, "No DL ID available to enqueue");
+		ERROR_LOG_REPORT(G3D, "No DL ID available to enqueue");
 		for(auto it = dlQueue.begin(); it != dlQueue.end(); ++it) {
 			DisplayList &dl = dls[*it];
 			DEBUG_LOG(G3D, "DisplayList %d status %d pc %08x stall %08x", *it, dl.state, dl.pc, dl.stall);
@@ -299,7 +300,7 @@ u32 GPUCommon::Break(int mode)
 		{
 			if (currentList->signal == PSP_GE_SIGNAL_HANDLER_PAUSE)
 			{
-				ERROR_LOG(G3D, "sceGeBreak: can't break signal-pausing list");
+				ERROR_LOG_REPORT(G3D, "sceGeBreak: can't break signal-pausing list");
 			}
 			else
 				return 0x80000020;
@@ -342,14 +343,14 @@ bool GPUCommon::InterpretList(DisplayList &list)
 	gstate_c.offsetAddr = 0;
 
 	if (!Memory::IsValidAddress(list.pc)) {
-		ERROR_LOG(G3D, "DL PC = %08x WTF!!!!", list.pc);
+		ERROR_LOG_REPORT(G3D, "DL PC = %08x WTF!!!!", list.pc);
 		return true;
 	}
 #if defined(USING_QT_UI)
-		if(host->GpuStep())
-		{
-			host->SendGPUStart();
-		}
+	if(host->GpuStep())
+	{
+		host->SendGPUStart();
+	}
 #endif
 
 	cycleLastPC = list.pc;
@@ -457,7 +458,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 				UpdateCycles(currentList->pc, target - 4);
 				currentList->pc = target - 4; // pc will be increased after we return, counteract that
 			} else {
-				ERROR_LOG(G3D, "JUMP to illegal address %08x - ignoring! data=%06x", target, data);
+				ERROR_LOG_REPORT(G3D, "JUMP to illegal address %08x - ignoring! data=%06x", target, data);
 			}
 		}
 		break;
@@ -468,9 +469,9 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 			u32 retval = currentList->pc + 4;
 			u32 target = gstate_c.getRelativeAddress(data);
 			if (currentList->stackptr == ARRAY_SIZE(currentList->stack)) {
-				ERROR_LOG(G3D, "CALL: Stack full!");
+				ERROR_LOG_REPORT(G3D, "CALL: Stack full!");
 			} else if (!Memory::IsValidAddress(target)) {
-				ERROR_LOG(G3D, "CALL to illegal address %08x - ignoring! data=%06x", target, data);
+				ERROR_LOG_REPORT(G3D, "CALL to illegal address %08x - ignoring! data=%06x", target, data);
 			} else {
 				currentList->stack[currentList->stackptr++] = retval;
 				UpdateCycles(currentList->pc, target - 4);
@@ -482,14 +483,14 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_RET:
 		{
 			if (currentList->stackptr == 0) {
-				ERROR_LOG(G3D, "RET: Stack empty!");
+				ERROR_LOG_REPORT(G3D, "RET: Stack empty!");
 			} else {
 				u32 target = (currentList->pc & 0xF0000000) | (currentList->stack[--currentList->stackptr] & 0x0FFFFFFF);
 				//target = (target + gstate_c.originAddr) & 0xFFFFFFF;
 				UpdateCycles(currentList->pc, target - 4);
 				currentList->pc = target - 4;
 				if (!Memory::IsValidAddress(currentList->pc)) {
-					ERROR_LOG(G3D, "Invalid DL PC %08x on return", currentList->pc);
+					ERROR_LOG_REPORT(G3D, "Invalid DL PC %08x on return", currentList->pc);
 					gpuState = GPUSTATE_ERROR;
 				}
 			}
@@ -530,16 +531,16 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 					ERROR_LOG(G3D, "Signal with Sync UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
 					break;
 				case PSP_GE_SIGNAL_JUMP:
-					ERROR_LOG(G3D, "Signal with Jump UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
+					ERROR_LOG_REPORT(G3D, "Signal with Jump UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
 					break;
 				case PSP_GE_SIGNAL_CALL:
-					ERROR_LOG(G3D, "Signal with Call UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
+					ERROR_LOG_REPORT(G3D, "Signal with Call UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
 					break;
 				case PSP_GE_SIGNAL_RET:
-					ERROR_LOG(G3D, "Signal with Return UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
+					ERROR_LOG_REPORT(G3D, "Signal with Return UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
 					break;
 				default:
-					ERROR_LOG(G3D, "UNKNOWN Signal UNIMPLEMENTED %i ! signal/end: %04x %04x", behaviour, signal, enddata);
+					ERROR_LOG_REPORT(G3D, "UNKNOWN Signal UNIMPLEMENTED %i ! signal/end: %04x %04x", behaviour, signal, enddata);
 					break;
 				}
 				if (interruptsEnabled_) {
