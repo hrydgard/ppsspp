@@ -542,8 +542,10 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 					ERROR_LOG(G3D, "UNKNOWN Signal UNIMPLEMENTED %i ! signal/end: %04x %04x", behaviour, signal, enddata);
 					break;
 				}
-				if (interruptsEnabled_)
-					__GeTriggerInterrupt(currentList->id, currentList->pc, currentList->subIntrBase, currentList->subIntrToken);
+				if (interruptsEnabled_) {
+					gpuState = GPUSTATE_INTERRUPT;
+					__GeTriggerInterrupt(currentList->id, currentList->pc);
+				}
 			}
 			break;
 		case GE_CMD_FINISH:
@@ -551,7 +553,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 			gpuState = GPUSTATE_DONE;
 			currentList->subIntrToken = prev & 0xFFFF;
 			if (interruptsEnabled_)
-				__GeTriggerInterrupt(currentList->id, currentList->pc, currentList->subIntrBase, currentList->subIntrToken);
+				__GeTriggerInterrupt(currentList->id, currentList->pc);
 			break;
 		default:
 			DEBUG_LOG(G3D,"Ah, not finished: %06x", prev & 0xFFFFFF);
