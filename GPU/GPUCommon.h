@@ -5,14 +5,8 @@
 class GPUCommon : public GPUInterface
 {
 public:
-	GPUCommon() :
-		dlIdGenerator(1),
-		currentList(NULL),
-		isbreak(false),
-		dumpNextFrame_(false),
-		dumpThisFrame_(false),
-		interruptsEnabled_(true)
-	{}
+	GPUCommon();
+	virtual ~GPUCommon() {}
 
 	virtual void InterruptStart();
 	virtual void InterruptEnd();
@@ -36,16 +30,18 @@ public:
 
 protected:
 	void UpdateCycles(u32 pc, u32 newPC = 0);
+	void PopDLQueue();
+	void CheckDrawSync();
 
-	typedef std::deque<DisplayList> DisplayListQueue;
+	typedef std::list<int> DisplayListQueue;
 
-	int dlIdGenerator;
+	DisplayList dls[DisplayListMaxCount];
 	DisplayList *currentList;
 	DisplayListQueue dlQueue;
 
 	bool interruptRunning;
 	u32 prev;
-	bool finished;
+	GPUState gpuState;
 	bool isbreak;
 
 	u64 startingTicks;
@@ -59,17 +55,10 @@ protected:
 public:
 	virtual DisplayList* getList(int listid)
 	{
-		if (currentList && currentList->id == listid)
-			return currentList;
-		for(auto it = dlQueue.begin(); it != dlQueue.end(); ++it)
-		{
-			if(it->id == listid)
-				return &*it;
-		}
-		return NULL;
+		return &dls[listid];
 	}
 
-	const std::deque<DisplayList>& GetDisplayLists()
+	const std::list<int>& GetDisplayLists()
 	{
 		return dlQueue;
 	}
