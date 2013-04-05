@@ -19,6 +19,7 @@
 #include "../MIPS/MIPS.h"
 #include "../System.h"
 #include "../CoreParameter.h"
+#include "../Reporting.h"
 #include "sceGe.h"
 #include "sceKernelMemory.h"
 #include "sceKernelThread.h"
@@ -33,8 +34,6 @@ struct GeInterruptData
 {
 	int listid;
 	u32 pc;
-	u32 subIntrBase;
-	u16 subIntrToken;
 };
 
 static std::list<GeInterruptData> ge_pending_cb;
@@ -52,21 +51,20 @@ public:
 		if (dl == NULL)
 		{
 			WARN_LOG(HLE, "Unable to run GE interrupt: list doesn't exist: %d", intrdata.listid);
-			// TODO: Use dl instead of just saving everything instead?
-			//return false;
+			return false;
 		}
 
 		gpu->InterruptStart();
 
 		u32 cmd = Memory::ReadUnchecked_U32(intrdata.pc - 4) >> 24;
-		int subintr = intrdata.subIntrBase | (cmd == GE_CMD_FINISH ? PSP_GE_SUBINTR_FINISH : PSP_GE_SUBINTR_SIGNAL);
+		int subintr = dl->subIntrBase | (cmd == GE_CMD_FINISH ? PSP_GE_SUBINTR_FINISH : PSP_GE_SUBINTR_SIGNAL);
 		SubIntrHandler* handler = get(subintr);
 
 		if(handler != NULL)
 		{
 			DEBUG_LOG(CPU, "Entering interrupt handler %08x", handler->handlerAddress);
 			currentMIPS->pc = handler->handlerAddress;
-			u32 data = intrdata.subIntrToken;
+			u32 data = dl->subIntrToken;
 			currentMIPS->r[MIPS_REG_A0] = data & 0xFFFF;
 			currentMIPS->r[MIPS_REG_A1] = handler->handlerArg;
 			currentMIPS->r[MIPS_REG_A2] = sceKernelGetCompiledSdkVersion() <= 0x02000010 ? 0 : intrdata.pc + 4;
@@ -86,6 +84,30 @@ public:
 	{
 		GeInterruptData intrdata = ge_pending_cb.front();
 		ge_pending_cb.pop_front();
+
+		DisplayList* dl = gpu->getList(intrdata.listid);
+
+		switch (dl->signal)
+		{
+		case PSP_GE_SIGNAL_HANDLER_SUSPEND:
+			if (sceKernelGetCompiledSdkVersion() <= 0x02000010)
+			{
+				// uofw says dl->state = endCmd & 0xFF;
+				DisplayListState newState = static_cast<DisplayListState>(Memory::ReadUnchecked_U32(intrdata.pc - 4) & 0xFF);
+				//dl->status = static_cast<DisplayListStatus>(Memory::ReadUnchecked_U32(intrdata.pc) & 0xFF);
+				//if(dl->status < 0 || dl->status > PSP_GE_LIST_PAUSED)
+				//	ERROR_LOG(HLE, "Weird DL status after signal suspend %x", dl->status);
+				if (newState != PSP_GE_DL_STATE_RUNNING)
+					WARN_LOG_REPORT(HLE, "GE Interrupt: newState might be %d", newState);
+
+				dl->state = PSP_GE_DL_STATE_RUNNING;
+			}
+			break;
+		default:
+			break;
+		}
+
+		dl->signal = PSP_GE_SIGNAL_NONE;
 
 		gpu->InterruptEnd();
 	}
@@ -112,18 +134,17 @@ void __GeShutdown()
 
 }
 
-void __GeTriggerInterrupt(int listid, u32 pc, int subIntrBase, u16 subIntrToken)
+void __GeTriggerInterrupt(int listid, u32 pc)
 {
 	// ClaDun X2 does not expect sceGeListEnqueue to reschedule (which it does not on the PSP.)
-	// Once PPSSPP's GPU is multithreaded, we can remove this check.
-	if (subIntrBase < 0)
+	// Once PPSSPP's GPU uses cycles, we can remove this check.
+	DisplayList* dl = gpu->getList(listid);
+	if (dl != NULL && dl->subIntrBase < 0)
 		return;
 
 	GeInterruptData intrdata;
 	intrdata.listid = listid;
 	intrdata.pc     = pc;
-	intrdata.subIntrBase = subIntrBase;
-	intrdata.subIntrToken = subIntrToken;
 	ge_pending_cb.push_back(intrdata);
 	__TriggerInterrupt(PSP_INTR_HLE, PSP_GE_INTR, PSP_INTR_SUB_NONE);
 }

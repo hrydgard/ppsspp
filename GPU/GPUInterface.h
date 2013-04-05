@@ -19,7 +19,7 @@
 
 #include "../Globals.h"
 #include "GPUState.h"
-#include <deque>
+#include <list>
 
 class PointerWrap;
 
@@ -88,6 +88,14 @@ enum SignalBehavior
 	PSP_GE_SIGNAL_BREAK2           = 0xFF,
 };
 
+enum GPUState
+{
+	GPUSTATE_RUNNING = 0,
+	GPUSTATE_DONE = 1,
+	GPUSTATE_STALL = 2,
+	GPUSTATE_INTERRUPT = 3,
+	GPUSTATE_ERROR = 4,
+};
 
 // Used for debug
 struct FramebufferInfo
@@ -120,16 +128,19 @@ class GPUInterface
 public:
 	virtual ~GPUInterface() {}
 
+	static const int DisplayListMaxCount = 64;
+
 	// Initialization
 	virtual void InitClear() = 0;
 
 	// Draw queue management
 	virtual DisplayList* getList(int listid) = 0;
 	// TODO: Much of this should probably be shared between the different GPU implementations.
-	virtual u32 EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head) = 0;
-	virtual u32  UpdateStall(int listid, u32 newstall) = 0;
+	virtual u32  EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head) = 0;
 	virtual u32  DequeueList(int listid) = 0;
+	virtual u32  UpdateStall(int listid, u32 newstall) = 0;
 	virtual u32  DrawSync(int mode) = 0;
+	virtual int  ListSync(int listid, int mode) = 0;
 	virtual u32  Continue() = 0;
 	virtual u32  Break(int mode) = 0;
 
@@ -139,7 +150,6 @@ public:
 	virtual void PreExecuteOp(u32 op, u32 diff) = 0;
 	virtual void ExecuteOp(u32 op, u32 diff) = 0;
 	virtual bool InterpretList(DisplayList& list) = 0;
-	virtual int  ListSync(int listid, int mode) = 0;
 
 	// Framebuffer management
 	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, int format) = 0;
@@ -167,7 +177,7 @@ public:
 
 	// Debugging
 	virtual void DumpNextFrame() = 0;
-	virtual const std::deque<DisplayList>& GetDisplayLists() = 0;
+	virtual const std::list<int>& GetDisplayLists() = 0;
 	virtual DisplayList* GetCurrentDisplayList() = 0;
 	virtual bool DecodeTexture(u8* dest, GPUgstate state) = 0;
 	virtual std::vector<FramebufferInfo> GetFramebufferList() = 0;
