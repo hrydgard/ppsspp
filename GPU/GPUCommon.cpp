@@ -425,6 +425,8 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 
 				switch (behaviour) {
 				case PSP_GE_SIGNAL_HANDLER_SUSPEND:
+					if (sceKernelGetCompiledSdkVersion() <= 0x02000010)
+						currentList->state = PSP_GE_DL_STATE_PAUSED;
 					currentList->signal = behaviour;
 					ERROR_LOG(G3D, "Signal with Wait UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
 					break;
