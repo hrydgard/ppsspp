@@ -103,7 +103,6 @@ void WindowsHost::ShutdownSound()
 void WindowsHost::UpdateUI()
 {
 	MainWindow::Update();
-	MainWindow::UpdateMenus();
 }
 
 
