@@ -115,7 +115,7 @@ void __GeShutdown()
 void __GeTriggerInterrupt(int listid, u32 pc, int subIntrBase, u16 subIntrToken)
 {
 	// ClaDun X2 does not expect sceGeListEnqueue to reschedule (which it does not on the PSP.)
-	// Once PPSSPP's GPU is multithreaded, we can remove this check.
+	// Once PPSSPP's GPU uses cycles, we can remove this check.
 	if (subIntrBase < 0)
 		return;
 

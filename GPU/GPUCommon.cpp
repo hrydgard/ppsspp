@@ -12,15 +12,39 @@
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceGe.h"
 
-static int dlIdGenerator = 1;
+GPUCommon::GPUCommon() :
+	currentList(NULL),
+	isbreak(false),
+	dumpNextFrame_(false),
+	dumpThisFrame_(false),
+	interruptsEnabled_(true)
+{
+	for (int i = 0; i < DisplayListMaxCount; ++i)
+		dls[i].state = PSP_GE_DL_STATE_NONE;
+}
 
-void init() {
-	dlIdGenerator = 1;
+void GPUCommon::PopDLQueue() {
+	if(!dlQueue.empty()) {
+		dlQueue.pop_front();
+		if(!dlQueue.empty()) {
+			bool running = currentList->state == PSP_GE_DL_STATE_RUNNING;
+			currentList = &dls[dlQueue.front()];
+			if (running)
+				currentList->state = PSP_GE_DL_STATE_RUNNING;
+		} else {
+			currentList = NULL;
+		}
+	}
 }
 
 u32 GPUCommon::DrawSync(int mode) {
 	if (mode < 0 || mode > 1)
 		return SCE_KERNEL_ERROR_INVALID_MODE;
+
+	while (currentList != NULL && currentList->state == PSP_GE_DL_STATE_COMPLETED)
+		PopDLQueue();
+
+	CheckDrawSync();
 
 	if (mode == 0) {
 		// TODO: Wait.
@@ -36,30 +60,33 @@ u32 GPUCommon::DrawSync(int mode) {
 	return PSP_GE_LIST_DRAWING;
 }
 
+void GPUCommon::CheckDrawSync()
+{
+	if (dlQueue.empty()) {
+		for (int i = 0; i < DisplayListMaxCount; ++i)
+			dls[i].state = PSP_GE_DL_STATE_NONE;
+	}
+}
+
 int GPUCommon::ListSync(int listid, int mode)
 {
+	if (listid < 0 || listid >= DisplayListMaxCount)
+		return SCE_KERNEL_ERROR_INVALID_ID;
+
 	if (mode < 0 || mode > 1)
 		return SCE_KERNEL_ERROR_INVALID_MODE;
 
 	if (mode == 1) {
-		DisplayList *dl = NULL;
-		for (DisplayListQueue::iterator it(dlQueue.begin()); it != dlQueue.end(); ++it) {
-			if (it->id == listid) {
-				dl = &*it;
-			}
-		}
+		DisplayList& dl = dls[listid];
 
-		if (!dl)
-			return SCE_KERNEL_ERROR_INVALID_ID;
-
-		switch (dl->state) {
+		switch (dl.state) {
 		case PSP_GE_DL_STATE_QUEUED:
-			if (dl->interrupted)
+			if (dl.interrupted)
 				return PSP_GE_LIST_PAUSED;
 			return PSP_GE_LIST_QUEUED;
 
 		case PSP_GE_DL_STATE_RUNNING:
-			if (dl->pc == dl->stall)
+			if (dl.pc == dl.stall)
 				return PSP_GE_LIST_STALLING;
 			return PSP_GE_LIST_DRAWING;
 
@@ -87,8 +114,49 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head)
 	if (((listpc | stall) & 3) != 0)
 		return 0x80000103;
 
-	DisplayList dl;
-	dl.id = dlIdGenerator++;
+	int id = -1;
+	bool oldCompatibility = true;
+	if (sceKernelGetCompiledSdkVersion() > 0x01FFFFFF) {
+		//numStacks = 0;
+		//stack = NULL;
+		oldCompatibility = false;
+	}
+
+	for (int i = 0; i < DisplayListMaxCount; ++i)
+	{
+		if (dls[i].state != PSP_GE_DL_STATE_NONE && dls[i].state != PSP_GE_DL_STATE_COMPLETED) {
+			if (dls[i].pc == listpc && !oldCompatibility) {
+				ERROR_LOG(G3D, "sceGeListEnqueue: can't enqueue, list address %08X already used", listpc);
+				return 0x80000021;
+			}
+			//if(dls[i].stack == stack) {
+			//	ERROR_LOG(G3D, "sceGeListEnqueue: can't enqueue, list stack %08X already used", context);
+			//	return 0x80000021;
+			//}
+		}
+		if (dls[i].state == PSP_GE_DL_STATE_NONE)
+		{
+			// Prefer a list that isn't used
+			id = i;
+			break;
+		}
+		if (id < 0 && dls[i].state == PSP_GE_DL_STATE_COMPLETED)
+		{
+			id = i;
+		}
+	}
+	if (id < 0)
+	{
+		ERROR_LOG(G3D, "No DL ID available to enqueue");
+		for(auto it = dlQueue.begin(); it != dlQueue.end(); ++it) {
+			DisplayList &dl = dls[*it];
+			DEBUG_LOG(G3D, "DisplayList %d status %d pc %08x stall %08x", *it, dl.state, dl.pc, dl.stall);
+		}
+		return SCE_KERNEL_ERROR_OUT_OF_MEMORY;
+	}
+
+	DisplayList &dl = dls[id];
+	dl.id = id;
 	dl.startpc = listpc & 0xFFFFFFF;
 	dl.pc = listpc & 0xFFFFFFF;
 	dl.stall = stall & 0xFFFFFFF;
@@ -97,6 +165,7 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head)
 	dl.stackptr = 0;
 	dl.signal = PSP_GE_SIGNAL_NONE;
 	dl.interrupted = false;
+
 	if (head) {
 		if (currentList) {
 			if (currentList->state != PSP_GE_DL_STATE_PAUSED)
@@ -105,21 +174,22 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head)
 		}
 
 		dl.state = PSP_GE_DL_STATE_PAUSED;
-		dlQueue.push_front(dl);
-		currentList = &dlQueue.front();
+
+		currentList = &dl;
+		dlQueue.push_front(id);
 	} else if (currentList) {
 		dl.state = PSP_GE_DL_STATE_QUEUED;
-		dlQueue.push_back(dl);
+		dlQueue.push_back(id);
 	} else {
 		dl.state = PSP_GE_DL_STATE_RUNNING;
-		dlQueue.push_back(dl);
-		currentList = &dlQueue.front();
+		currentList = &dl;
+		dlQueue.push_front(id);
 
 		// TODO save context when starting the list if param is set
 		ProcessDLQueue();
 	}
 
-	return dl.id;
+	return id;
 }
 
 u32 GPUCommon::DequeueList(int listid)
@@ -130,14 +200,10 @@ u32 GPUCommon::DequeueList(int listid)
 
 u32 GPUCommon::UpdateStall(int listid, u32 newstall)
 {
-	for (auto iter = dlQueue.begin(); iter != dlQueue.end(); ++iter)
-	{
-		DisplayList &cur = *iter;
-		if (cur.id == listid)
-		{
-			cur.stall = newstall & 0xFFFFFFF;
-		}
-	}
+	if (listid < 0 || listid >= DisplayListMaxCount || dls[listid].state == PSP_GE_DL_STATE_NONE)
+		return 0x80000100;
+
+	dls[listid].stall = newstall & 0xFFFFFFF;
 	
 	ProcessDLQueue();
 
@@ -190,10 +256,17 @@ u32 GPUCommon::Break(int mode)
 	if (!currentList)
 		return 0x80000020;
 
-	if(mode == 1)
+	if (mode == 1)
 	{
-		currentList = NULL;
+		// Clear the queue
 		dlQueue.clear();
+		for (int i = 0; i < DisplayListMaxCount; ++i)
+		{
+			dls[i].state = PSP_GE_DL_STATE_NONE;
+			dls[i].signal = PSP_GE_SIGNAL_NONE;
+		}
+
+		currentList = NULL;
 		return 0;
 	}
 
@@ -321,7 +394,7 @@ bool GPUCommon::ProcessDLQueue()
 	DisplayListQueue::iterator iter = dlQueue.begin();
 	while (iter != dlQueue.end())
 	{
-		DisplayList &l = *iter;
+		DisplayList &l = dls[*iter];
 		DEBUG_LOG(G3D,"Okay, starting DL execution at %08x - stall = %08x", l.pc, l.stall);
 		if (!InterpretList(l))
 		{
@@ -477,19 +550,18 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 }
 
 void GPUCommon::DoState(PointerWrap &p) {
-	p.Do(dlIdGenerator);
-	p.Do<DisplayList>(dlQueue);
-	int currentID = currentList == NULL ? 0 : currentList->id;
+	p.Do<int>(dlQueue);
+	p.DoArray(dls, ARRAY_SIZE(dls));
+	int currentID = 0;
+	if (currentList != NULL) {
+		ptrdiff_t off = currentList - &dls[0];
+		currentID = off / sizeof(DisplayList);
+	}
 	p.Do(currentID);
 	if (currentID == 0) {
-		currentList = 0;
+		currentList = NULL;
 	} else {
-		for (auto it = dlQueue.begin(), end = dlQueue.end(); it != end; ++it) {
-			if (it->id == currentID) {
-				currentList = &*it;
-				break;
-			}
-		}
+		currentList = &dls[currentID];
 	}
 	p.Do(interruptRunning);
 	p.Do(prev);
