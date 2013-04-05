@@ -194,14 +194,30 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head)
 
 u32 GPUCommon::DequeueList(int listid)
 {
-	// TODO
+	if (listid < 0 || listid >= DisplayListMaxCount || dls[listid].state == PSP_GE_DL_STATE_NONE)
+		return SCE_KERNEL_ERROR_INVALID_ID;
+
+	if (dls[listid].state == PSP_GE_DL_STATE_RUNNING || dls[listid].state == PSP_GE_DL_STATE_PAUSED)
+		return 0x80000021;
+
+	dls[listid].state = PSP_GE_DL_STATE_NONE;
+
+	if (listid == dlQueue.front())
+		PopDLQueue();
+	else
+		dlQueue.remove(listid);
+
+	// TODO: Release any list wait.
+
+	CheckDrawSync();
+
 	return 0;
 }
 
 u32 GPUCommon::UpdateStall(int listid, u32 newstall)
 {
 	if (listid < 0 || listid >= DisplayListMaxCount || dls[listid].state == PSP_GE_DL_STATE_NONE)
-		return 0x80000100;
+		return SCE_KERNEL_ERROR_INVALID_ID;
 
 	dls[listid].stall = newstall & 0xFFFFFFF;
 	
