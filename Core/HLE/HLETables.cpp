@@ -57,6 +57,7 @@
 #include "scePspNpDrm_user.h"
 #include "sceP3da.h"
 #include "sceGameUpdate.h"
+#include "sceDeflt.h"
 
 #define N(s) s
 
@@ -252,6 +253,7 @@ void RegisterAllModules() {
 	Register_sceNpDrm();
 	Register_sceP3da();
 	Register_sceGameUpdate();
+	Register_sceDeflt();
 
 	for (int i = 0; i < numModules; i++)
 	{

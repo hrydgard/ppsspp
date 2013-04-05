@@ -397,6 +397,9 @@
     <ClCompile Include="HLE\sceChnnlsv.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\sceDeflt.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -730,6 +733,9 @@
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="HLE\sceChnnlsv.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceDeflt.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
   </ItemGroup>
