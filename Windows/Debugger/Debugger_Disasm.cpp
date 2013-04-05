@@ -28,11 +28,6 @@
 #include <windowsx.h>
 #include <commctrl.h>
 
-namespace MainWindow
-{
-	void UpdateMenus();
-}
-
 CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Dialog((LPCSTR)IDD_DISASM, _hInstance, _hParent)
 {
 	cpu = _cpu;
@@ -175,7 +170,6 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				{
 					SetDebugMode(false);
 					Core_EnableStepping(false);
-					MainWindow::UpdateMenus();
 				}
 				break;
 
@@ -196,7 +190,6 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					CBreakPoints::AddBreakPoint(cpu->GetPC()+cpu->getInstructionSize(0),true);
 					_dbg_update_();
 					Core_EnableStepping(false);
-					MainWindow::UpdateMenus();
 					Sleep(1);
 					ptr->gotoPC();
 					UpdateDialog();
@@ -209,7 +202,6 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					SetDebugMode(false);
 					_dbg_update_();
 					Core_EnableStepping(false);
-					MainWindow::UpdateMenus();
 				}
 				break;
 
@@ -218,7 +210,6 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					SetDebugMode(true);
 					Core_EnableStepping(true);
 					_dbg_update_();
-					MainWindow::UpdateMenus();
 					Sleep(1); //let cpu catch up
 					ptr->gotoPC();
 					UpdateDialog();
@@ -261,7 +252,6 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					{
 						SetDebugMode(false);
 						Core_EnableStepping(false);
-						MainWindow::UpdateMenus();
 					}
 				}
 				break;

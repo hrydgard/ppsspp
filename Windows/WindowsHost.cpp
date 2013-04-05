@@ -103,7 +103,6 @@ void WindowsHost::ShutdownSound()
 void WindowsHost::UpdateUI()
 {
 	MainWindow::Update();
-	MainWindow::UpdateMenus();
 }
 
 
@@ -139,7 +138,10 @@ void WindowsHost::PollControllers(InputState &input_state)
 void WindowsHost::BootDone()
 {
 	symbolMap.SortSymbols();
-	PostMessage(MainWindow::GetHWND(), WM_USER+1, 0,0);
+	SendMessage(MainWindow::GetHWND(), WM_USER+1, 0,0);
+
+	SetDebugMode(!g_Config.bAutoRun);
+	Core_EnableStepping(!g_Config.bAutoRun);
 }
 
 static std::string SymbolMapFilename(const char *currentFilename)
