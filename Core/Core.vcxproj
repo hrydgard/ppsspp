@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -170,6 +170,7 @@
     <ClCompile Include="HLE\sceAudio.cpp" />
     <ClCompile Include="HLE\sceChnnlsv.cpp" />
     <ClCompile Include="HLE\sceCtrl.cpp" />
+    <ClCompile Include="HLE\sceDeflt.cpp" />
     <ClCompile Include="HLE\sceDisplay.cpp" />
     <ClCompile Include="HLE\sceDmac.cpp" />
     <ClCompile Include="HLE\sceFont.cpp" />
@@ -344,6 +345,7 @@
     <ClInclude Include="HLE\sceAudio.h" />
     <ClInclude Include="HLE\sceCtrl.h" />
     <ClInclude Include="HLE\sceChnnlsv.h" />
+    <ClInclude Include="HLE\sceDeflt.h" />
     <ClInclude Include="HLE\sceDisplay.h" />
     <ClInclude Include="HLE\sceDmac.h" />
     <ClInclude Include="HLE\sceFont.h" />
