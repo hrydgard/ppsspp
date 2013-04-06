@@ -41,10 +41,10 @@ static int getBits(int numBits, const u8 *buf, size_t pos) {
 	return v;
 }
 
-static std::vector<int> getTable(const u8 *buf, int bpe, int length) {
+static std::vector<int> getTable(const u8 *buf, int bpe, size_t length) {
 	std::vector<int> vec;
 	vec.resize(length);
-	for (int i = 0; i < length; i++) {
+	for (size_t i = 0; i < length; i++) {
 		vec[i] = getBits(bpe, buf, bpe * i);
 	}
 	return vec;
@@ -72,10 +72,10 @@ void PGF::DoState(PointerWrap &p) {
 		}
 		if (fontDataSize) {
 			fontData = new u8[fontDataSize];
-			p.DoArray(fontData, fontDataSize);
+			p.DoArray(fontData, (int)fontDataSize);
 		}
 	} else if (fontDataSize) {
-		p.DoArray(fontData, fontDataSize);
+		p.DoArray(fontData, (int)fontDataSize);
 	}
 	p.Do(fileName);
 
@@ -179,7 +179,7 @@ void PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 	}
 
 	// PGF Fontdata.
-	u32 fontDataOffset = uptr - startPtr;
+	u32 fontDataOffset = (u32)(uptr - startPtr);
 
 	fontDataSize = dataSize - fontDataOffset;
 	fontData = new u8[fontDataSize];

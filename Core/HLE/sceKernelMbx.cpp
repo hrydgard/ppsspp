@@ -205,7 +205,7 @@ bool __KernelUnlockMbxForThread(Mbx *m, MbxWaitingThread &th, u32 &error, int re
 	if (timeoutPtr != 0 && mbxWaitTimer != -1)
 	{
 		// Remove any event for this thread.
-		u64 cyclesLeft = CoreTiming::UnscheduleEvent(mbxWaitTimer, th.first);
+		s64 cyclesLeft = CoreTiming::UnscheduleEvent(mbxWaitTimer, th.first);
 		Memory::Write_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
 	}
 

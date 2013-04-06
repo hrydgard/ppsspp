@@ -271,9 +271,9 @@ void ScheduleEvent(s64 cyclesIntoFuture, int event_type, u64 userdata)
 }
 
 // Returns cycles left in timer.
-u64 UnscheduleEvent(int event_type, u64 userdata)
+s64 UnscheduleEvent(int event_type, u64 userdata)
 {
-	u64 result = 0;
+	s64 result = 0;
 	if (!first)
 		return result;
 	while(first)

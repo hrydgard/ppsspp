@@ -191,7 +191,7 @@ void CtrlRegisterList::onPaint(WPARAM wParam, LPARAM lParam)
 		SelectObject(hdc,i==category?pcBrush:nullBrush);
 		Rectangle(hdc,width*i/nc,0,width*(i+1)/nc,rowHeight);
 		const TCHAR *name = cpu->GetCategoryName(i);
-		TextOut(hdc,width*i/nc,1,name,strlen(name));
+		TextOut(hdc,width*i/nc,1,name,(int)strlen(name));
 	}
 
 	int numRows=rect.bottom/rowHeight;
@@ -238,9 +238,9 @@ void CtrlRegisterList::onPaint(WPARAM wParam, LPARAM lParam)
 		if (i<cpu->GetNumRegsInCategory(category))
 		{
 			char temp[256];
-			sprintf(temp,"%s",cpu->GetRegName(category,i));
+			int temp_len = sprintf(temp,"%s",cpu->GetRegName(category,i));
 			SetTextColor(hdc,0x600000);
-			TextOut(hdc,17,rowY1,temp,strlen(temp));
+			TextOut(hdc,17,rowY1,temp,temp_len);
 			SetTextColor(hdc,0x000000);
 
 			cpu->PrintRegValue(category,i,temp);
@@ -248,7 +248,7 @@ void CtrlRegisterList::onPaint(WPARAM wParam, LPARAM lParam)
 				SetTextColor(hdc, 0x0000FF);
 			else
 				SetTextColor(hdc,0x004000);
-			TextOut(hdc,77,rowY1,temp,strlen(temp));
+			TextOut(hdc,77,rowY1,temp,(int)strlen(temp));
 		}
 
 
