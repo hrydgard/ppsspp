@@ -60,14 +60,27 @@ public:
 		int subintr = -1;
 		if (dl->subIntrBase >= 0)
 		{
-			if (dl->signal == PSP_GE_SIGNAL_SYNC)
-				subintr = -1;
-			else if (cmd == GE_CMD_FINISH && dl->signal == PSP_GE_SIGNAL_HANDLER_PAUSE)
-				subintr = dl->subIntrBase | PSP_GE_SUBINTR_SIGNAL;
-			else if (cmd == GE_CMD_SIGNAL && dl->signal != PSP_GE_SIGNAL_HANDLER_PAUSE)
-				subintr = dl->subIntrBase | PSP_GE_SUBINTR_SIGNAL;
-			else if (cmd == GE_CMD_FINISH)
-				subintr = dl->subIntrBase | PSP_GE_SUBINTR_FINISH;
+			switch (dl->signal)
+			{
+			case PSP_GE_SIGNAL_SYNC:
+			case PSP_GE_SIGNAL_JUMP:
+			case PSP_GE_SIGNAL_CALL:
+			case PSP_GE_SIGNAL_RET:
+				// Do nothing.
+				break;
+
+			case PSP_GE_SIGNAL_HANDLER_PAUSE:
+				if (cmd == GE_CMD_FINISH)
+					subintr = dl->subIntrBase | PSP_GE_SUBINTR_SIGNAL;
+				break;
+
+			default:
+				if (cmd == GE_CMD_SIGNAL)
+					subintr = dl->subIntrBase | PSP_GE_SUBINTR_SIGNAL;
+				else
+					subintr = dl->subIntrBase | PSP_GE_SUBINTR_FINISH;
+				break;
+			}
 		}
 
 		SubIntrHandler* handler = get(subintr);

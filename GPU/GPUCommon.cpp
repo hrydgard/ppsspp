@@ -548,6 +548,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 				SignalBehavior behaviour = static_cast<SignalBehavior>((prev >> 16) & 0xFF);
 				int signal = prev & 0xFFFF;
 				int enddata = data & 0xFFFF;
+				bool trigger = true;
 				currentList->subIntrToken = signal;
 
 				switch (behaviour) {
@@ -571,19 +572,56 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 					DEBUG_LOG(G3D, "Signal with Sync. signal/end: %04x %04x", signal, enddata);
 					break;
 				case PSP_GE_SIGNAL_JUMP:
-					ERROR_LOG_REPORT(G3D, "Signal with Jump UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
+					{
+						trigger = false;
+						currentList->signal = behaviour;
+						// pc will be increased after we return, counteract that.
+						u32 target = ((signal << 16) | enddata) - 4;
+						if (!Memory::IsValidAddress(target)) {
+							ERROR_LOG_REPORT(G3D, "Signal with Jump: bad address. signal/end: %04x %04x", signal, enddata);
+						} else {
+							currentList->pc = target;
+							DEBUG_LOG(G3D, "Signal with Jump. signal/end: %04x %04x", signal, enddata);
+						}
+					}
 					break;
 				case PSP_GE_SIGNAL_CALL:
-					ERROR_LOG_REPORT(G3D, "Signal with Call UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
+					{
+						trigger = false;
+						currentList->signal = behaviour;
+						// pc will be increased after we return, counteract that.
+						u32 target = ((signal << 16) | enddata) - 4;
+						if (currentList->stackptr == ARRAY_SIZE(currentList->stack)) {
+							ERROR_LOG_REPORT(G3D, "Signal with Call: stack full. signal/end: %04x %04x", signal, enddata);
+						} else if (!Memory::IsValidAddress(target)) {
+							ERROR_LOG_REPORT(G3D, "Signal with Call: bad address. signal/end: %04x %04x", signal, enddata);
+						} else {
+							// TODO: This might save/restore other state...
+							currentList->stack[currentList->stackptr++] = currentList->pc;
+							currentList->pc = target;
+							DEBUG_LOG(G3D, "Signal with Call. signal/end: %04x %04x", signal, enddata);
+						}
+					}
 					break;
 				case PSP_GE_SIGNAL_RET:
-					ERROR_LOG_REPORT(G3D, "Signal with Return UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
+					{
+						trigger = false;
+						currentList->signal = behaviour;
+						if (currentList->stackptr == 0) {
+							ERROR_LOG_REPORT(G3D, "Signal with Return: stack empty. signal/end: %04x %04x", signal, enddata);
+						} else {
+							// TODO: This might save/restore other state...
+							currentList->pc = currentList->stack[--currentList->stackptr];
+							DEBUG_LOG(G3D, "Signal with Return. signal/end: %04x %04x", signal, enddata);
+						}
+					}
 					break;
 				default:
 					ERROR_LOG_REPORT(G3D, "UNKNOWN Signal UNIMPLEMENTED %i ! signal/end: %04x %04x", behaviour, signal, enddata);
 					break;
 				}
-				if (interruptsEnabled_) {
+				// TODO: Technically, jump/call/ret should generate an interrupt, but before the pc change maybe?
+				if (interruptsEnabled_ && trigger) {
 					if (__GeTriggerInterrupt(currentList->id, currentList->pc))
 						gpuState = GPUSTATE_INTERRUPT;
 				}
