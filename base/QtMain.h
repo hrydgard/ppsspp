@@ -54,6 +54,8 @@ public:
 		QGLWidget(parent), dpi_scale(scale)
 	{
 		setAttribute(Qt::WA_AcceptTouchEvents);
+		setAttribute(Qt::WA_LockLandscapeOrientation);
+		pad_buttons = 0;
 #ifdef __SYMBIAN32__
 		acc = new QAccelerometer(this);
 		acc->start();
@@ -108,15 +110,15 @@ protected:
 			input_state.pointer_y[0] = ((QMouseEvent*)e)->pos().y() * dpi_scale;
 		break;
 		case QEvent::KeyPress:
-			for (int b = 0; b < 14; b++) {
+			for (int b = 0; b < 18; b++) {
 				if (((QKeyEvent*)e)->key() == buttonMappings[b])
-					input_state.pad_buttons |= (1<<b);
+					pad_buttons |= (1<<b);
 			}
 		break;
 		case QEvent::KeyRelease:
-			for (int b = 0; b < 14; b++) {
+			for (int b = 0; b < 18; b++) {
 				if (((QKeyEvent*)e)->key() == buttonMappings[b])
-					input_state.pad_buttons &= ~(1<<b);
+					pad_buttons &= ~(1<<b);
 			}
 		break;
 		default:
@@ -136,6 +138,7 @@ protected:
 
 	void paintGL()
 	{
+		input_state.pad_buttons = pad_buttons;
 		SimulateGamepad(&input_state);
 		updateAccelerometer();
 		UpdateInputState(&input_state);
@@ -160,6 +163,7 @@ protected:
 	}
 
 private:
+	int pad_buttons;
 	InputState input_state;
 #ifdef __SYMBIAN32__
 	QAccelerometer* acc;

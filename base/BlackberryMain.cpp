@@ -388,6 +388,7 @@ int main(int argc, char *argv[]) {
 #ifdef BLACKBERRY10
 	vibration_request_events(0);
 #endif
+	static int pad_buttons = 0;
 	BlackberryAudio* audio = new BlackberryAudio();
 	bool running = true;
 	while (running) {
@@ -444,13 +445,13 @@ int main(int argc, char *argv[]) {
 					if (flags & (KEY_DOWN | KEY_SYM_VALID)) {
 						for (int b = 0; b < 14; b++) {
 							if (value == buttonMappings[b])
-								input_state.pad_buttons |= (1<<b);
+								pad_buttons |= (1<<b);
 						}
 					}
 					else {
 						for (int b = 0; b < 14; b++) {
 							if (value == buttonMappings[b])
-								input_state.pad_buttons &= ~(1<<b);
+								pad_buttons &= ~(1<<b);
 						}
 					}
 					break;
@@ -460,7 +461,7 @@ int main(int argc, char *argv[]) {
 				{
 				case NAVIGATOR_BACK:
 				case NAVIGATOR_SWIPE_DOWN:
-					input_state.pad_buttons |= PAD_BUTTON_MENU;
+					pad_buttons |= PAD_BUTTON_MENU;
 					break;
 				case NAVIGATOR_EXIT:
 					running = false;
@@ -468,6 +469,7 @@ int main(int argc, char *argv[]) {
 				}
 			}
 		}
+		input_state.pad_buttons = pad_buttons;
 		// Handle accelerometer
 		double x, y, z;
 		accelerometer_read_forces(&x, &y, &z);
@@ -477,6 +479,8 @@ int main(int argc, char *argv[]) {
 		EndInputState(&input_state);
 		NativeRender();
 		time_update();
+		// TODO: For gestures, clear this where it is handled
+		pad_buttons &= ~PAD_BUTTON_MENU;
 		// On Blackberry, this handles VSync for us
 		eglSwapBuffers(egl_disp, egl_surf);
 	}

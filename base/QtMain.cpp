@@ -2,8 +2,8 @@
  * Copyright (c) 2012 Sacha Refshauge
  *
  */
-// Qt implementation of the framework.
-// Currently supports: Symbian, Blackberry, Linux
+// Qt 4.7 implementation of the framework.
+// Currently supports: Symbian, Blackberry, Meego, Linux, Windows
 
 #include <QtGui/QApplication>
 #include <QUrl>
@@ -41,7 +41,7 @@ void SimulateGamepad(InputState *input) {
 
 float CalculateDPIScale()
 {
-	// Sane default for Symbian, Blackberry and Meego
+	// Sane default rather than check DPI
 #ifdef __SYMBIAN32__
 	return 1.4f;
 #else
@@ -79,7 +79,6 @@ int main(int argc, char *argv[])
 
 #ifndef Q_WS_X11
 	MainUI w(dpi_scale);
-	w.setAttribute(Qt::WA_LockLandscapeOrientation);
 	w.resize(pixel_xres, pixel_yres);
 	w.showFullScreen();
 #endif

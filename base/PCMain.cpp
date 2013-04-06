@@ -1,4 +1,6 @@
-// PC implementation of the framework.
+// SDL/EGL implementation of the framework.
+// This is quite messy due to platform-specific implementations and #ifdef's.
+// It is suggested to use the Qt implementation instead.
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
