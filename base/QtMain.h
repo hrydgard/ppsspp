@@ -8,7 +8,7 @@
 
 #include <QAudioOutput>
 #include <QAudioFormat>
-#ifdef __SYMBIAN32__
+#ifdef USING_GLES2
 #include <QAccelerometer>
 QTM_USE_NAMESPACE
 #endif
@@ -56,13 +56,13 @@ public:
 		setAttribute(Qt::WA_AcceptTouchEvents);
 		setAttribute(Qt::WA_LockLandscapeOrientation);
 		pad_buttons = 0;
-#ifdef __SYMBIAN32__
+#ifdef USING_GLES2
 		acc = new QAccelerometer(this);
 		acc->start();
 #endif
 	}
 	~MainUI() {
-#ifdef __SYMBIAN32__
+#ifdef USING_GLES2
 		delete acc;
 #endif
 		NativeShutdownGraphics();
@@ -151,7 +151,7 @@ protected:
 
 	void updateAccelerometer()
 	{
-#ifdef __SYMBIAN32__
+#ifdef USING_GLES2
 		// TODO: Toggle it depending on whether it is enabled
 		QAccelerometerReading *reading = acc->reading();
 		if (reading) {
@@ -165,7 +165,7 @@ protected:
 private:
 	int pad_buttons;
 	InputState input_state;
-#ifdef __SYMBIAN32__
+#ifdef USING_GLES2
 	QAccelerometer* acc;
 #endif
 	float dpi_scale;
