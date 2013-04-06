@@ -143,13 +143,10 @@ void GenerateFragmentShader(char *buffer) {
 
 	WRITE(p, "void main() {\n");
 
-	if (gstate.clearmode & 1)
-	{
+	if (gstate.clearmode & 1) {
 		// Clear mode does not allow any fancy shading.
 		WRITE(p, "  gl_FragColor = v_color0;\n");
-	}
-	else
-	{
+	} else {
 		const char *secondary = "";
 		// Secondary color for specular on top of texture
 		if (lmode) {
