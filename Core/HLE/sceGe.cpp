@@ -227,7 +227,7 @@ int sceGeListSync(u32 displayListID, u32 mode) //0 : wait for completion		1:chec
 u32 sceGeDrawSync(u32 mode)
 {
 	//wait/check entire drawing state
-	DEBUG_LOG(HLE, "FAKE sceGeDrawSync(mode=%d)  (0=wait for completion)", mode);
+	DEBUG_LOG(HLE, "sceGeDrawSync(mode=%d)  (0=wait for completion, 1=peek)", mode);
 	return gpu->DrawSync(mode);
 }
 

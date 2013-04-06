@@ -16,6 +16,7 @@
 GPUCommon::GPUCommon() :
 	currentList(NULL),
 	isbreak(false),
+	drawComplete(true),
 	dumpNextFrame_(false),
 	dumpThisFrame_(false),
 	interruptsEnabled_(true)
@@ -42,17 +43,29 @@ u32 GPUCommon::DrawSync(int mode) {
 	if (mode < 0 || mode > 1)
 		return SCE_KERNEL_ERROR_INVALID_MODE;
 
-	while (currentList != NULL && currentList->state == PSP_GE_DL_STATE_COMPLETED)
-		PopDLQueue();
-
-	CheckDrawSync();
-
 	if (mode == 0) {
-		// TODO: Wait.
+		// TODO: What if dispatch / interrupts disabled?
+		if (!drawComplete) {
+			__KernelWaitCurThread(WAITTYPE_GEDRAWSYNC, 1, 0, 0, false, "GeDrawSync");
+		} else {
+			for (int i = 0; i < DisplayListMaxCount; ++i) {
+				if (dls[i].state == PSP_GE_DL_STATE_COMPLETED) {
+					dls[i].state = PSP_GE_DL_STATE_NONE;
+				}
+			}
+		}
 		return 0;
 	}
 
-	if (!currentList)
+	// If there's no current list, it must be complete.
+	DisplayList *top = NULL;
+	for (auto it = dlQueue.begin(), end = dlQueue.end(); it != end; ++it) {
+		if (dls[*it].state != PSP_GE_DL_STATE_COMPLETED) {
+			top = &dls[*it];
+			break;
+		}
+	}
+	if (!top || top->state == PSP_GE_DL_STATE_COMPLETED)
 		return PSP_GE_LIST_COMPLETED;
 
 	if (currentList->pc == currentList->stall)
@@ -161,7 +174,6 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head)
 	dl.startpc = listpc & 0xFFFFFFF;
 	dl.pc = listpc & 0xFFFFFFF;
 	dl.stall = stall & 0xFFFFFFF;
-	dl.state = PSP_GE_DL_STATE_QUEUED;
 	dl.subIntrBase = std::max(subIntrBase, -1);
 	dl.stackptr = 0;
 	dl.signal = PSP_GE_SIGNAL_NONE;
@@ -185,6 +197,8 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head)
 		dl.state = PSP_GE_DL_STATE_RUNNING;
 		currentList = &dl;
 		dlQueue.push_front(id);
+
+		drawComplete = false;
 
 		// TODO save context when starting the list if param is set
 		ProcessDLQueue();
@@ -244,6 +258,9 @@ u32 GPUCommon::Continue()
 
 			// TODO Restore context of DL is necessary
 			// TODO Restore BASE
+
+			// We have a list now, so it's not complete.
+			drawComplete = false;
 		}
 		else
 			currentList->state = PSP_GE_DL_STATE_QUEUED;
@@ -426,6 +443,17 @@ bool GPUCommon::ProcessDLQueue()
 		}
 	}
 	currentList = NULL;
+
+	drawComplete = true;
+	if (__KernelTriggerWait(WAITTYPE_GEDRAWSYNC, 1, 0, "GeDrawSync"))
+	{
+		for (int i = 0; i < DisplayListMaxCount; ++i) {
+			if (dls[i].state == PSP_GE_DL_STATE_COMPLETED) {
+				dls[i].state = PSP_GE_DL_STATE_NONE;
+			}
+		}
+	}
+
 	return true; //no more lists!
 }
 
@@ -586,6 +614,7 @@ void GPUCommon::DoState(PointerWrap &p) {
 	p.Do(prev);
 	p.Do(gpuState);
 	p.Do(isbreak);
+	p.Do(drawComplete);
 	p.DoMarker("GPUCommon");
 }
 
