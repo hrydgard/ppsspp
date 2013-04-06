@@ -567,7 +567,8 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 					ERROR_LOG_REPORT(G3D, "Signal with Pause UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
 					break;
 				case PSP_GE_SIGNAL_SYNC:
-					ERROR_LOG_REPORT(G3D, "Signal with Sync UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
+					currentList->signal = behaviour;
+					DEBUG_LOG(G3D, "Signal with Sync. signal/end: %04x %04x", signal, enddata);
 					break;
 				case PSP_GE_SIGNAL_JUMP:
 					ERROR_LOG_REPORT(G3D, "Signal with Jump UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
@@ -595,6 +596,11 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 					if (__GeTriggerInterrupt(currentList->id, currentList->pc))
 						gpuState = GPUSTATE_INTERRUPT;
 				}
+				break;
+
+			case PSP_GE_SIGNAL_SYNC:
+				currentList->signal = PSP_GE_SIGNAL_NONE;
+				// TODO: Technically this should still cause an interrupt.  Probably for memory sync.
 				break;
 
 			default:

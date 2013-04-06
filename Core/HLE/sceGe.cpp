@@ -60,7 +60,9 @@ public:
 		int subintr = -1;
 		if (dl->subIntrBase >= 0)
 		{
-			if (cmd == GE_CMD_FINISH && dl->signal == PSP_GE_SIGNAL_HANDLER_PAUSE)
+			if (dl->signal == PSP_GE_SIGNAL_SYNC)
+				subintr = -1;
+			else if (cmd == GE_CMD_FINISH && dl->signal == PSP_GE_SIGNAL_HANDLER_PAUSE)
 				subintr = dl->subIntrBase | PSP_GE_SUBINTR_SIGNAL;
 			else if (cmd == GE_CMD_SIGNAL && dl->signal != PSP_GE_SIGNAL_HANDLER_PAUSE)
 				subintr = dl->subIntrBase | PSP_GE_SUBINTR_SIGNAL;
