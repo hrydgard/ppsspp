@@ -264,7 +264,7 @@ bool __KernelUnlockMutexForThread(Mutex *mutex, SceUID threadID, u32 &error, int
 	if (timeoutPtr != 0 && mutexWaitTimer != -1)
 	{
 		// Remove any event for this thread.
-		u64 cyclesLeft = CoreTiming::UnscheduleEvent(mutexWaitTimer, threadID);
+		s64 cyclesLeft = CoreTiming::UnscheduleEvent(mutexWaitTimer, threadID);
 		Memory::Write_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
 	}
 
@@ -289,7 +289,7 @@ void __KernelMutexBeginCallback(SceUID threadID, SceUID prevCallbackId)
 
 		if (timeoutPtr != 0 && mutexWaitTimer != -1)
 		{
-			u64 cyclesLeft = CoreTiming::UnscheduleEvent(mutexWaitTimer, threadID);
+			s64 cyclesLeft = CoreTiming::UnscheduleEvent(mutexWaitTimer, threadID);
 			mutex->pausedWaitTimeouts[pauseKey] = CoreTiming::GetTicks() + cyclesLeft;
 		}
 		else
@@ -759,7 +759,7 @@ bool __KernelUnlockLwMutexForThread(LwMutex *mutex, T workarea, SceUID threadID,
 	if (timeoutPtr != 0 && lwMutexWaitTimer != -1)
 	{
 		// Remove any event for this thread.
-		u64 cyclesLeft = CoreTiming::UnscheduleEvent(lwMutexWaitTimer, threadID);
+		s64 cyclesLeft = CoreTiming::UnscheduleEvent(lwMutexWaitTimer, threadID);
 		Memory::Write_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
 	}
 
@@ -931,7 +931,7 @@ void __KernelLwMutexBeginCallback(SceUID threadID, SceUID prevCallbackId)
 
 		if (timeoutPtr != 0 && lwMutexWaitTimer != -1)
 		{
-			u64 cyclesLeft = CoreTiming::UnscheduleEvent(lwMutexWaitTimer, threadID);
+			s64 cyclesLeft = CoreTiming::UnscheduleEvent(lwMutexWaitTimer, threadID);
 			mutex->pausedWaitTimeouts[pauseKey] = CoreTiming::GetTicks() + cyclesLeft;
 		}
 		else

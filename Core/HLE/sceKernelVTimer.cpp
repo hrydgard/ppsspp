@@ -92,7 +92,7 @@ void __KernelScheduleVTimer(VTimer *vt, u64 schedule) {
 		CoreTiming::ScheduleEvent(usToCycles(vt->nvt.schedule + 372), vtimerTimer, vt->GetUID());
 }
 
-void __rescheduleVTimer(SceUID id, u32 delay) {
+void __rescheduleVTimer(SceUID id, int delay) {
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(id, error);
 
