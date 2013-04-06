@@ -121,6 +121,7 @@ struct DisplayList
 	u32 stack[32];
 	int stackptr;
 	bool interrupted;
+	bool shouldWait;
 };
 
 class GPUInterface
