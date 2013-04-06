@@ -249,6 +249,12 @@ bool audioEngine::setPlaySample(int sample)
 	return setPlayPos(((s64)sample) * 1000 / 44100);
 }
 
+bool audioEngine::play()
+{
+	m_lenstoplay = 2;
+	return audioPlayer::play();
+}
+
 //////////////////////////////////////////////////////////////////////////////
 //
 
@@ -273,6 +279,11 @@ UINT WINAPI loopAtrac3Audio(LPVOID)
 		}
 		for (auto it = audioMap.begin(); it != audioMap.end(); ++it) {
 			audioEngine *temp = it->second;
+			if (temp->m_lenstoplay == 0)
+				temp->pause();
+			else {
+				temp->m_lenstoplay--;
+			}
 			if (temp->isneedLoop()) {
 				long timetoend;
 				bool bEnd = temp->isEnd(&timetoend);
@@ -318,8 +329,8 @@ bool addAtrac3AudioByPackage(const char* package, u32 startpos, int audiosize,
 	u32 h = pspFileSystem.OpenFile(package, (FileAccess) FILEACCESS_READ);
 	if (h == 0) 
 		return false;
-	int filesize = OMAConvert::getRIFFSize(buffer, 0x2000) + 0x2000;
-	if (filesize == 0x2000)
+	int filesize = OMAConvert::getRIFFSize(buffer, 0x2000);
+	if (filesize <= 0)
 		return false;
 	u8* buf = new u8[filesize];
 	pspFileSystem.SeekFile(h, startpos, FILEMOVE_BEGIN);

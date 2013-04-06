@@ -256,6 +256,8 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 					atrac->decodePos += ATRAC_MAX_SAMPLES;
 					if (atrac->decodePos >= atrac->decodeEnd && atrac->decodeEnd < ATRAC_SAMPLES_PERSEC * 10)
 						Memory::Write_U32(1, finishFlagAddr);
+					if (atrac->decodePos >= atrac->decodeEnd)
+						atrac->decodePos = 0;
 				}
 			}
 			else {
@@ -392,7 +394,7 @@ u32  sceAtracGetNextDecodePosition(int atracID, u32 outposAddr)
 
 u32 sceAtracGetNextSample(int atracID, u32 outNAddr)
 {
-	ERROR_LOG(HLE, "FAKE sceAtracGetNextSample(%i, %08x)", atracID, outNAddr);
+	DEBUG_LOG(HLE, "FAKE sceAtracGetNextSample(%i, %08x)", atracID, outNAddr);
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
 		//return -1;
@@ -413,7 +415,7 @@ u32 sceAtracGetNextSample(int atracID, u32 outNAddr)
 
 u32 sceAtracGetRemainFrame(int atracID, u32 remainAddr)
 {
-	ERROR_LOG(HLE, "sceAtracGetRemainFrame(%i, %08x)", atracID, remainAddr);
+	DEBUG_LOG(HLE, "sceAtracGetRemainFrame(%i, %08x)", atracID, remainAddr);
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
 		//return -1;
@@ -427,7 +429,7 @@ u32 sceAtracGetRemainFrame(int atracID, u32 remainAddr)
 
 u32 sceAtracGetSecondBufferInfo(int atracID, u32 outposAddr, u32 outBytesAddr)
 {
-	ERROR_LOG(HLE, "sceAtracGetSecondBufferInfo(%i, %08x, %08x)", atracID, outposAddr, outBytesAddr);
+	DEBUG_LOG(HLE, "sceAtracGetSecondBufferInfo(%i, %08x, %08x)", atracID, outposAddr, outBytesAddr);
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
 		//return -1;
@@ -440,7 +442,7 @@ u32 sceAtracGetSecondBufferInfo(int atracID, u32 outposAddr, u32 outBytesAddr)
 
 u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoopStartSampleAddr, u32 outLoopEndSampleAddr)
 {
-	ERROR_LOG(HLE, "UNIMPL sceAtracGetSoundSample(%i, %08x, %08x, %08x)", atracID, outEndSampleAddr, outLoopStartSampleAddr, outLoopEndSampleAddr);
+	DEBUG_LOG(HLE, "UNIMPL sceAtracGetSoundSample(%i, %08x, %08x, %08x)", atracID, outEndSampleAddr, outLoopStartSampleAddr, outLoopEndSampleAddr);
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
 		//return -1;
@@ -453,7 +455,7 @@ u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoopStartSa
 
 u32 sceAtracGetStreamDataInfo(int atracID, u32 writeAddr, u32 writableBytesAddr, u32 readOffsetAddr)
 {
-	ERROR_LOG(HLE, "FAKE sceAtracGetStreamDataInfo(%i, %08x, %08x, %08x)", atracID, writeAddr, writableBytesAddr, readOffsetAddr);
+	DEBUG_LOG(HLE, "FAKE sceAtracGetStreamDataInfo(%i, %08x, %08x, %08x)", atracID, writeAddr, writableBytesAddr, readOffsetAddr);
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
 		//return -1;

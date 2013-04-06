@@ -31,7 +31,7 @@ protected:
 
 class audioEngine: public audioPlayer{
 public:
-	audioEngine(void):audioPlayer(), m_ID(-1){}
+	audioEngine(void):audioPlayer(), m_ID(-1), m_lenstoplay(0){}
 	~audioEngine(void){ closeStream();}
 	bool loadRIFFStream(u8* stream, int streamsize, int atracID);
 	bool closeStream();
@@ -42,10 +42,13 @@ public:
 	bool setLoopEnd(int sample);
 	bool setPlaySample(int sample);
 	bool replayLoopPart();
+	bool play();
 private:
 	int m_ID;
 	char m_filename[256];
 	int m_iloop;
+public:
+	int m_lenstoplay;
 };
 
 void addAtrac3Audio(u8* stream, int streamsize, int atracID);
