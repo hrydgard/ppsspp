@@ -441,9 +441,6 @@ bool GPUCommon::ProcessDLQueue()
 		}
 		else
 		{
-			l.shouldWait = false;
-			__KernelTriggerWait(WAITTYPE_GELISTSYNC, *iter, 0, "GeListSync");
-
 			//At the end, we can remove it from the queue and continue
 			dlQueue.erase(iter);
 			//this invalidated the iterator, let's fix it
@@ -589,8 +586,10 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 			currentList->state = PSP_GE_DL_STATE_COMPLETED;
 			gpuState = GPUSTATE_DONE;
 			currentList->subIntrToken = prev & 0xFFFF;
-			if (interruptsEnabled_)
-				__GeTriggerInterrupt(currentList->id, currentList->pc);
+			if (!interruptsEnabled_ || !__GeTriggerInterrupt(currentList->id, currentList->pc)) {
+				currentList->shouldWait = false;
+				__KernelTriggerWait(WAITTYPE_GELISTSYNC, currentList->id, 0, "GeListSync", true);
+			}
 			break;
 		default:
 			DEBUG_LOG(G3D,"Ah, not finished: %06x", prev & 0xFFFFFF);
@@ -626,13 +625,21 @@ void GPUCommon::DoState(PointerWrap &p) {
 	p.DoMarker("GPUCommon");
 }
 
-void GPUCommon::InterruptStart()
+void GPUCommon::InterruptStart(int listid)
 {
 	interruptRunning = true;
 }
-void GPUCommon::InterruptEnd()
+void GPUCommon::InterruptEnd(int listid)
 {
 	interruptRunning = false;
 	isbreak = false;
+
+	DisplayList &dl = dls[listid];
+	// TODO: Unless the signal handler could change it?
+	if (dl.state == PSP_GE_DL_STATE_COMPLETED) {
+		dl.shouldWait = false;
+		__KernelTriggerWait(WAITTYPE_GELISTSYNC, listid, 0, "GeListSync", true);
+	}
+
 	ProcessDLQueue();
 }

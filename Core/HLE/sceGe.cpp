@@ -54,7 +54,7 @@ public:
 			return false;
 		}
 
-		gpu->InterruptStart();
+		gpu->InterruptStart(intrdata.listid);
 
 		u32 cmd = Memory::ReadUnchecked_U32(intrdata.pc - 4) >> 24;
 		int subintr = dl->subIntrBase | (cmd == GE_CMD_FINISH ? PSP_GE_SUBINTR_FINISH : PSP_GE_SUBINTR_SIGNAL);
@@ -74,7 +74,7 @@ public:
 		}
 
 		ge_pending_cb.pop_front();
-		gpu->InterruptEnd();
+		gpu->InterruptEnd(intrdata.listid);
 
 		WARN_LOG(HLE, "Ignoring interrupt for display list %d, already been released.", intrdata.listid);
 		return false;
@@ -109,7 +109,7 @@ public:
 
 		dl->signal = PSP_GE_SIGNAL_NONE;
 
-		gpu->InterruptEnd();
+		gpu->InterruptEnd(intrdata.listid);
 	}
 };
 
