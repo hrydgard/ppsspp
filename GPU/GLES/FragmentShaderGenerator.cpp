@@ -168,7 +168,7 @@ void GenerateFragmentShader(char *buffer) {
 				case GE_TEXFUNC_MODULATE:
 					WRITE(p, "  vec4 v = t * p%s;\n", secondary); break;
 				case GE_TEXFUNC_DECAL:
-					WRITE(p, "  vec4 v = vec4(1.0 - t.a * p.rgb + t.a * u_texenv.rgb, p.a)%s;\n", secondary); break;
+					WRITE(p, "  vec4 v = vec4((1.0 - t.a) * p.rgb + t.a * u_texenv.rgb, p.a)%s;\n", secondary); break;
 				case GE_TEXFUNC_BLEND:
 					WRITE(p, "  vec4 v = vec4((1.0 - t.rgb) * p.rgb + t.rgb * u_texenv.rgb, p.a * t.a)%s;\n", secondary); break;
 				case GE_TEXFUNC_REPLACE:
@@ -185,7 +185,7 @@ void GenerateFragmentShader(char *buffer) {
 				case GE_TEXFUNC_DECAL:
 					WRITE(p, "  vec4 v = vec4(t.rgb, p.a)%s;\n", secondary); break;
 				case GE_TEXFUNC_BLEND:
-					WRITE(p, "  vec4 v = vec4(1.0 - t.rgb) * p.rgb + t.rgb * u_texenv.rgb, p.a)%s;\n", secondary); break;
+					WRITE(p, "  vec4 v = vec4((1.0 - t.rgb) * p.rgb + t.rgb * u_texenv.rgb, p.a)%s;\n", secondary); break;
 				case GE_TEXFUNC_REPLACE:
 					WRITE(p, "  vec4 v = vec4(t.rgb, p.a)%s;\n", secondary); break;
 				case GE_TEXFUNC_ADD:
