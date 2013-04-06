@@ -134,19 +134,20 @@ void __GeShutdown()
 
 }
 
-void __GeTriggerInterrupt(int listid, u32 pc)
+bool __GeTriggerInterrupt(int listid, u32 pc)
 {
 	// ClaDun X2 does not expect sceGeListEnqueue to reschedule (which it does not on the PSP.)
 	// Once PPSSPP's GPU uses cycles, we can remove this check.
 	DisplayList* dl = gpu->getList(listid);
 	if (dl != NULL && dl->subIntrBase < 0)
-		return;
+		return false;
 
 	GeInterruptData intrdata;
 	intrdata.listid = listid;
 	intrdata.pc     = pc;
 	ge_pending_cb.push_back(intrdata);
 	__TriggerInterrupt(PSP_INTR_HLE, PSP_GE_INTR, PSP_INTR_SUB_NONE);
+	return true;
 }
 
 bool __GeHasPendingInterrupt()

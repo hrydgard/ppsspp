@@ -572,8 +572,8 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 					break;
 				}
 				if (interruptsEnabled_) {
-					gpuState = GPUSTATE_INTERRUPT;
-					__GeTriggerInterrupt(currentList->id, currentList->pc);
+					if (__GeTriggerInterrupt(currentList->id, currentList->pc))
+						gpuState = GPUSTATE_INTERRUPT;
 				}
 			}
 			break;
