@@ -54,13 +54,37 @@ public:
 			return false;
 		}
 
-		gpu->InterruptStart();
+		gpu->InterruptStart(intrdata.listid);
 
 		u32 cmd = Memory::ReadUnchecked_U32(intrdata.pc - 4) >> 24;
-		int subintr = dl->subIntrBase | (cmd == GE_CMD_FINISH ? PSP_GE_SUBINTR_FINISH : PSP_GE_SUBINTR_SIGNAL);
-		SubIntrHandler* handler = get(subintr);
+		int subintr = -1;
+		if (dl->subIntrBase >= 0)
+		{
+			switch (dl->signal)
+			{
+			case PSP_GE_SIGNAL_SYNC:
+			case PSP_GE_SIGNAL_JUMP:
+			case PSP_GE_SIGNAL_CALL:
+			case PSP_GE_SIGNAL_RET:
+				// Do nothing.
+				break;
 
-		if(handler != NULL)
+			case PSP_GE_SIGNAL_HANDLER_PAUSE:
+				if (cmd == GE_CMD_FINISH)
+					subintr = dl->subIntrBase | PSP_GE_SUBINTR_SIGNAL;
+				break;
+
+			default:
+				if (cmd == GE_CMD_SIGNAL)
+					subintr = dl->subIntrBase | PSP_GE_SUBINTR_SIGNAL;
+				else
+					subintr = dl->subIntrBase | PSP_GE_SUBINTR_FINISH;
+				break;
+			}
+		}
+
+		SubIntrHandler* handler = get(subintr);
+		if (handler != NULL)
 		{
 			DEBUG_LOG(CPU, "Entering interrupt handler %08x", handler->handlerAddress);
 			currentMIPS->pc = handler->handlerAddress;
@@ -74,7 +98,7 @@ public:
 		}
 
 		ge_pending_cb.pop_front();
-		gpu->InterruptEnd();
+		gpu->InterruptEnd(intrdata.listid);
 
 		WARN_LOG(HLE, "Ignoring interrupt for display list %d, already been released.", intrdata.listid);
 		return false;
@@ -109,7 +133,7 @@ public:
 
 		dl->signal = PSP_GE_SIGNAL_NONE;
 
-		gpu->InterruptEnd();
+		gpu->InterruptEnd(intrdata.listid);
 	}
 };
 
