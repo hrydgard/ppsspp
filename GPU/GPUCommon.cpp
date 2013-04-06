@@ -21,8 +21,10 @@ GPUCommon::GPUCommon() :
 	dumpThisFrame_(false),
 	interruptsEnabled_(true)
 {
-	for (int i = 0; i < DisplayListMaxCount; ++i)
+	for (int i = 0; i < DisplayListMaxCount; ++i) {
 		dls[i].state = PSP_GE_DL_STATE_NONE;
+		dls[i].shouldWait = false;
+	}
 }
 
 void GPUCommon::PopDLQueue() {
@@ -90,9 +92,8 @@ int GPUCommon::ListSync(int listid, int mode)
 	if (mode < 0 || mode > 1)
 		return SCE_KERNEL_ERROR_INVALID_MODE;
 
+	DisplayList& dl = dls[listid];
 	if (mode == 1) {
-		DisplayList& dl = dls[listid];
-
 		switch (dl.state) {
 		case PSP_GE_DL_STATE_QUEUED:
 			if (dl.interrupted)
@@ -115,7 +116,9 @@ int GPUCommon::ListSync(int listid, int mode)
 		}
 	}
 
-	// TODO: Wait here for mode == 0.
+	if (dl.shouldWait) {
+		__KernelWaitCurThread(WAITTYPE_GELISTSYNC, listid, 0, 0, false, "GeListSync");
+	}
 	return PSP_GE_LIST_COMPLETED;
 }
 
@@ -178,6 +181,7 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head)
 	dl.stackptr = 0;
 	dl.signal = PSP_GE_SIGNAL_NONE;
 	dl.interrupted = false;
+	dl.shouldWait = true;
 
 	if (head) {
 		if (currentList) {
@@ -222,7 +226,8 @@ u32 GPUCommon::DequeueList(int listid)
 	else
 		dlQueue.remove(listid);
 
-	// TODO: Release any list wait.
+	dls[listid].shouldWait = false;
+	__KernelTriggerWait(WAITTYPE_GELISTSYNC, listid, 0, "GeListSync");
 
 	CheckDrawSync();
 
@@ -436,6 +441,9 @@ bool GPUCommon::ProcessDLQueue()
 		}
 		else
 		{
+			l.shouldWait = false;
+			__KernelTriggerWait(WAITTYPE_GELISTSYNC, *iter, 0, "GeListSync");
+
 			//At the end, we can remove it from the queue and continue
 			dlQueue.erase(iter);
 			//this invalidated the iterator, let's fix it
