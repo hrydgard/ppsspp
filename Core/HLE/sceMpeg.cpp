@@ -1700,7 +1700,7 @@ int sceMp3GetInfoToAddStreamData(u32 mp3, u32 dstPtr, u32 towritePtr, u32 srcpos
 	if(Memory::IsValidAddress(towritePtr))
 		Memory::Write_U32(ctx->mp3BufSize, towritePtr);
 	if(Memory::IsValidAddress(srcposPtr))
-		Memory::Write_U32(ctx->mp3StreamPosition, srcposPtr);
+		Memory::Write_U32((u32)ctx->mp3StreamPosition, srcposPtr);
 
 	return 0;
 }

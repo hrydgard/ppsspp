@@ -574,7 +574,7 @@ void GPUCommon::DoState(PointerWrap &p) {
 	int currentID = 0;
 	if (currentList != NULL) {
 		ptrdiff_t off = currentList - &dls[0];
-		currentID = off / sizeof(DisplayList);
+		currentID = (int) (off / sizeof(DisplayList));
 	}
 	p.Do(currentID);
 	if (currentID == 0) {

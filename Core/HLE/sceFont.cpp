@@ -308,7 +308,7 @@ public:
 		fonts_.resize(params_.numFonts);
 		isfontopen_.resize(params_.numFonts);
 		for (size_t i = 0; i < fonts_.size(); i++) {
-			u32 addr = allocatedAddr + 4 + i * 4;
+			u32 addr = allocatedAddr + 4 + (u32)i * 4;
 			isfontopen_[i] = 0;
 			fonts_[i] = addr;
 		}
@@ -502,7 +502,7 @@ Font *GetOptimumFont(const PGFFontStyle &requestedStyle, Font *optimumFont, Font
 int GetInternalFontIndex(Font *font) {
 	for (size_t i = 0; i < internalFonts.size(); i++) {
 		if (internalFonts[i] == font)
-			return i;
+			return (int)i;
 	}
 	return -1;
 }
@@ -713,7 +713,7 @@ int sceFontFindFont(u32 libHandlePtr, u32 fontStylePtr, u32 errorCodePtr) {
 	for (size_t i = 0; i < internalFonts.size(); i++) {
 		if (internalFonts[i]->MatchesStyle(style, false)) {
 			Memory::Write_U32(0, errorCodePtr);
-			return i;
+			return (int)i;
 		}
 	}
 	return -1;
@@ -866,7 +866,7 @@ int sceFontGetNumFontList(u32 fontLibHandle, u32 errorCodePtr) {
 	INFO_LOG(HLE, "sceFontGetNumFontList(%08x, %08x)", fontLibHandle, errorCodePtr);
 	if (Memory::IsValidAddress(errorCodePtr))
 		Memory::Write_U32(0, errorCodePtr);
-	return internalFonts.size();
+	return (int)internalFonts.size();
 }
 
 int sceFontSetResolution(u32 fontLibHandle, float hRes, float vRes) {
