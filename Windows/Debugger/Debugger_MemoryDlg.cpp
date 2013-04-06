@@ -82,11 +82,11 @@ BOOL CMemoryDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				case LBN_DBLCLK:
 				case LBN_SELCHANGE: 
 					{
-						HWND lb =GetDlgItem(m_hDlg,LOWORD(wParam));
-						int n =ComboBox_GetCurSel(lb);
+						HWND lb = GetDlgItem(m_hDlg,LOWORD(wParam));
+						int n = ComboBox_GetCurSel(lb);
 						if (n!=-1)
 						{
-							LONG_PTR addr = ComboBox_GetItemData(lb,n);
+							unsigned int addr = (unsigned int)ComboBox_GetItemData(lb,n);
 							mv->gotoAddr(addr);
 						}
 					}
@@ -100,8 +100,8 @@ BOOL CMemoryDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				case LBN_SELCHANGE: 
 					{
 
-						HWND lb =GetDlgItem(m_hDlg,LOWORD(wParam));
-						int n =ListBox_GetCurSel(lb);
+						HWND lb = GetDlgItem(m_hDlg,LOWORD(wParam));
+						int n = ListBox_GetCurSel(lb);
 						if (n!=-1)
 						{
 							unsigned int addr = (unsigned int)ListBox_GetItemData(lb,n);
