@@ -8,8 +8,8 @@ public:
 	GPUCommon();
 	virtual ~GPUCommon() {}
 
-	virtual void InterruptStart();
-	virtual void InterruptEnd();
+	virtual void InterruptStart(int listid);
+	virtual void InterruptEnd(int listid);
 	virtual void EnableInterrupts(bool enable) {
 		interruptsEnabled_ = enable;
 	}

@@ -353,6 +353,10 @@ u32 GPUCommon::Break(int mode)
 
 bool GPUCommon::InterpretList(DisplayList &list)
 {
+	// TODO: This has to be right... but it freezes right now?
+	//if (list.state == PSP_GE_DL_STATE_PAUSED)
+	//	return false;
+
 	time_update();
 	double start = time_now_d();
 	currentList = &list;
@@ -441,9 +445,6 @@ bool GPUCommon::ProcessDLQueue()
 		}
 		else
 		{
-			l.shouldWait = false;
-			__KernelTriggerWait(WAITTYPE_GELISTSYNC, *iter, 0, "GeListSync");
-
 			//At the end, we can remove it from the queue and continue
 			dlQueue.erase(iter);
 			//this invalidated the iterator, let's fix it
@@ -547,6 +548,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 				SignalBehavior behaviour = static_cast<SignalBehavior>((prev >> 16) & 0xFF);
 				int signal = prev & 0xFFFF;
 				int enddata = data & 0xFFFF;
+				bool trigger = true;
 				currentList->subIntrToken = signal;
 
 				switch (behaviour) {
@@ -561,36 +563,94 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 					ERROR_LOG(G3D, "Signal without wait. signal/end: %04x %04x", signal, enddata);
 					break;
 				case PSP_GE_SIGNAL_HANDLER_PAUSE:
-					ERROR_LOG(G3D, "Signal with Pause UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
+					currentList->state = PSP_GE_DL_STATE_PAUSED;
+					currentList->signal = behaviour;
+					ERROR_LOG_REPORT(G3D, "Signal with Pause UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
 					break;
 				case PSP_GE_SIGNAL_SYNC:
-					ERROR_LOG(G3D, "Signal with Sync UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
+					currentList->signal = behaviour;
+					DEBUG_LOG(G3D, "Signal with Sync. signal/end: %04x %04x", signal, enddata);
 					break;
 				case PSP_GE_SIGNAL_JUMP:
-					ERROR_LOG_REPORT(G3D, "Signal with Jump UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
+					{
+						trigger = false;
+						currentList->signal = behaviour;
+						// pc will be increased after we return, counteract that.
+						u32 target = ((signal << 16) | enddata) - 4;
+						if (!Memory::IsValidAddress(target)) {
+							ERROR_LOG_REPORT(G3D, "Signal with Jump: bad address. signal/end: %04x %04x", signal, enddata);
+						} else {
+							currentList->pc = target;
+							DEBUG_LOG(G3D, "Signal with Jump. signal/end: %04x %04x", signal, enddata);
+						}
+					}
 					break;
 				case PSP_GE_SIGNAL_CALL:
-					ERROR_LOG_REPORT(G3D, "Signal with Call UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
+					{
+						trigger = false;
+						currentList->signal = behaviour;
+						// pc will be increased after we return, counteract that.
+						u32 target = ((signal << 16) | enddata) - 4;
+						if (currentList->stackptr == ARRAY_SIZE(currentList->stack)) {
+							ERROR_LOG_REPORT(G3D, "Signal with Call: stack full. signal/end: %04x %04x", signal, enddata);
+						} else if (!Memory::IsValidAddress(target)) {
+							ERROR_LOG_REPORT(G3D, "Signal with Call: bad address. signal/end: %04x %04x", signal, enddata);
+						} else {
+							// TODO: This might save/restore other state...
+							currentList->stack[currentList->stackptr++] = currentList->pc;
+							currentList->pc = target;
+							DEBUG_LOG(G3D, "Signal with Call. signal/end: %04x %04x", signal, enddata);
+						}
+					}
 					break;
 				case PSP_GE_SIGNAL_RET:
-					ERROR_LOG_REPORT(G3D, "Signal with Return UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
+					{
+						trigger = false;
+						currentList->signal = behaviour;
+						if (currentList->stackptr == 0) {
+							ERROR_LOG_REPORT(G3D, "Signal with Return: stack empty. signal/end: %04x %04x", signal, enddata);
+						} else {
+							// TODO: This might save/restore other state...
+							currentList->pc = currentList->stack[--currentList->stackptr];
+							DEBUG_LOG(G3D, "Signal with Return. signal/end: %04x %04x", signal, enddata);
+						}
+					}
 					break;
 				default:
 					ERROR_LOG_REPORT(G3D, "UNKNOWN Signal UNIMPLEMENTED %i ! signal/end: %04x %04x", behaviour, signal, enddata);
 					break;
 				}
-				if (interruptsEnabled_) {
+				// TODO: Technically, jump/call/ret should generate an interrupt, but before the pc change maybe?
+				if (interruptsEnabled_ && trigger) {
 					if (__GeTriggerInterrupt(currentList->id, currentList->pc))
 						gpuState = GPUSTATE_INTERRUPT;
 				}
 			}
 			break;
 		case GE_CMD_FINISH:
-			currentList->state = PSP_GE_DL_STATE_COMPLETED;
-			gpuState = GPUSTATE_DONE;
-			currentList->subIntrToken = prev & 0xFFFF;
-			if (interruptsEnabled_)
-				__GeTriggerInterrupt(currentList->id, currentList->pc);
+			switch (currentList->signal) {
+			case PSP_GE_SIGNAL_HANDLER_PAUSE:
+				if (interruptsEnabled_) {
+					if (__GeTriggerInterrupt(currentList->id, currentList->pc))
+						gpuState = GPUSTATE_INTERRUPT;
+				}
+				break;
+
+			case PSP_GE_SIGNAL_SYNC:
+				currentList->signal = PSP_GE_SIGNAL_NONE;
+				// TODO: Technically this should still cause an interrupt.  Probably for memory sync.
+				break;
+
+			default:
+				currentList->subIntrToken = prev & 0xFFFF;
+				currentList->state = PSP_GE_DL_STATE_COMPLETED;
+				gpuState = GPUSTATE_DONE;
+				if (!interruptsEnabled_ || !__GeTriggerInterrupt(currentList->id, currentList->pc)) {
+					currentList->shouldWait = false;
+					__KernelTriggerWait(WAITTYPE_GELISTSYNC, currentList->id, 0, "GeListSync", true);
+				}
+				break;
+			}
 			break;
 		default:
 			DEBUG_LOG(G3D,"Ah, not finished: %06x", prev & 0xFFFFFF);
@@ -626,13 +686,21 @@ void GPUCommon::DoState(PointerWrap &p) {
 	p.DoMarker("GPUCommon");
 }
 
-void GPUCommon::InterruptStart()
+void GPUCommon::InterruptStart(int listid)
 {
 	interruptRunning = true;
 }
-void GPUCommon::InterruptEnd()
+void GPUCommon::InterruptEnd(int listid)
 {
 	interruptRunning = false;
 	isbreak = false;
+
+	DisplayList &dl = dls[listid];
+	// TODO: Unless the signal handler could change it?
+	if (dl.state == PSP_GE_DL_STATE_COMPLETED) {
+		dl.shouldWait = false;
+		__KernelTriggerWait(WAITTYPE_GELISTSYNC, listid, 0, "GeListSync", true);
+	}
+
 	ProcessDLQueue();
 }

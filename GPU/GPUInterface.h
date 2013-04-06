@@ -145,8 +145,8 @@ public:
 	virtual u32  Continue() = 0;
 	virtual u32  Break(int mode) = 0;
 
-	virtual void InterruptStart() = 0;
-	virtual void InterruptEnd() = 0;
+	virtual void InterruptStart(int listid) = 0;
+	virtual void InterruptEnd(int listid) = 0;
 
 	virtual void PreExecuteOp(u32 op, u32 diff) = 0;
 	virtual void ExecuteOp(u32 op, u32 diff) = 0;
