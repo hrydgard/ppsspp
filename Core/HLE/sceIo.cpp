@@ -477,6 +477,10 @@ int __IoRead(int id, u32 data_addr, int size) {
 }
 
 u32 sceIoRead(int id, u32 data_addr, int size) {
+	// TODO: Check id is valid first?
+	if (!__KernelIsDispatchEnabled() && id > 2)
+		return -1;
+
 	int result = __IoRead(id, data_addr, size);
 	if (result >= 0) {
 		DEBUG_LOG(HLE, "%x=sceIoRead(%d, %08x, %x)", result, id, data_addr, size);
@@ -531,11 +535,18 @@ int __IoWrite(int id, void *data_ptr, int size) {
 }
 
 u32 sceIoWrite(int id, u32 data_addr, int size) {
+	// TODO: Check id is valid first?
+	if (!__KernelIsDispatchEnabled() && id > 2)
+		return -1;
+
 	int result = __IoWrite(id, Memory::GetPointer(data_addr), size);
 	if (result >= 0) {
 		DEBUG_LOG(HLE, "%x=sceIoWrite(%d, %08x, %x)", result, id, data_addr, size);
 		// TODO: Timing is probably not very accurate, low estimate.
-		return hleDelayResult(result, "io write", result / 100);
+		if (__KernelIsDispatchEnabled())
+			return hleDelayResult(result, "io write", result / 100);
+		else
+			return result;
 	}
 	else
 		return result;
