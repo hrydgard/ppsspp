@@ -197,10 +197,10 @@ static int getSustainLevel(int bitfield1) {
 }
 
 void ADSREnvelope::SetSimpleEnvelope(u32 ADSREnv1, u32 ADSREnv2) {
-	attackRate 	= getAttackRate(ADSREnv1);
-	attackType 	= getAttackType(ADSREnv1);
-	decayRate 	= getDecayRate(ADSREnv1);
-	decayType 	= PSP_SAS_ADSR_CURVE_MODE_EXPONENT_DECREASE;
+	attackRate 		= getAttackRate(ADSREnv1);
+	attackType 		= getAttackType(ADSREnv1);
+	decayRate 		= getDecayRate(ADSREnv1);
+	decayType 		= PSP_SAS_ADSR_CURVE_MODE_EXPONENT_DECREASE;
 	sustainRate 	= getSustainRate(ADSREnv2);
 	sustainType 	= getSustainType(ADSREnv2);
 	releaseRate 	= getReleaseRate(ADSREnv2);
@@ -582,7 +582,16 @@ static int getExpCurveAt(int index, int duration) {
 }
 
 ADSREnvelope::ADSREnvelope()
-	: state_(STATE_OFF),
+	: 	attackRate(0),
+		attackType(PSP_SAS_ADSR_CURVE_MODE_LINEAR_INCREASE),
+		decayRate(0),
+		decayType(PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE),
+		sustainRate(0),
+		sustainType(PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE),
+		releaseRate(0),
+		releaseType(PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE),
+		sustainLevel(0),
+		state_(STATE_OFF),
 		steps_(0),
 		height_(0) {
 	memset(this, 0, sizeof(*this));
