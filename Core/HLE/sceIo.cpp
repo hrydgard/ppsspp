@@ -731,6 +731,9 @@ FileNode *__IoOpen(const char* filename, int flags, int mode) {
 }
 
 u32 sceIoOpen(const char* filename, int flags, int mode) {
+	if (!__KernelIsDispatchEnabled())
+		return -1;
+
 	FileNode *f = __IoOpen(filename, flags, mode);
 	if (f == NULL) {
 		ERROR_LOG(HLE, "ERROR_ERRNO_FILE_NOT_FOUND=sceIoOpen(%s, %08x, %08x) - file not found", filename, flags, mode);
@@ -1119,6 +1122,11 @@ u32 sceIoSetAsyncCallback(int id, u32 clbckId, u32 clbckArg)
 
 u32 sceIoOpenAsync(const char *filename, int flags, int mode)
 {
+	// TOOD: Use an internal method so as not to pollute the log?
+	// Intentionally does not work when interrupts disabled.
+	if (!__KernelIsDispatchEnabled())
+		sceKernelResumeDispatchThread(1);
+
 	FileNode *f = __IoOpen(filename, flags, mode);
 	SceUID fd;
 
