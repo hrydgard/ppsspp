@@ -122,7 +122,7 @@ void SymbolMap::AddSymbol(const char *symbolname, unsigned int vaddress, size_t 
 	strncpy(e.name, symbolname, 127);
 	e.name[127] = '\0';
 	e.vaddress = vaddress;
-	e.size = size;
+	e.size = (u32)size;
 	e.type = st;
 	entries.push_back(e);
 }

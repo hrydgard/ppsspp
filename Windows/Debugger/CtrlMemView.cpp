@@ -180,7 +180,7 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam)
 		Rectangle(hdc,16,rowY1,width,rowY2);
 		SelectObject(hdc,nullBrush);
 		SetTextColor(hdc,0x600000);
-		TextOut(hdc,17,rowY1,temp,strlen(temp));
+		TextOut(hdc,17,rowY1,temp,(int)strlen(temp));
 		SetTextColor(hdc,0x000000);
 		if (debugger->isAlive())
 		{
@@ -188,9 +188,9 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam)
 			switch(mode) {
 			case MV_NORMAL:
 				{
-          const char *m = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
-          if (Memory::IsValidAddress(address))
-          {
+					const char *m = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
+					if (Memory::IsValidAddress(address))
+					{
 					  u32 memory[4] = {
 						  debugger->readMemory(address),
 						  debugger->readMemory(address+4),
@@ -200,7 +200,7 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam)
 					  m = (const char*)memory;
 					  sprintf(temp, "%08x %08x %08x %08x  ................", 
 						  memory[0],memory[1],memory[2],memory[3]);
-          }
+					}
 					for (int i=0; i<16; i++)
 					{
 						int c = (unsigned char)m[i];
@@ -211,7 +211,7 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam)
 //				if (align == 16)
 //				else
 //					sprintf(temp, "%04x %04x %04x %04x", ReadMem16Unchecked(address),ReadMem16Unchecked(address+2), ReadMem16Unchecked(address+4), ReadMem16Unchecked(address+6))
-				TextOut(hdc,80,rowY1,temp,strlen(temp));
+				TextOut(hdc,80,rowY1,temp,(int)strlen(temp));
 				break;
 
 			case MV_SYMBOLS:
@@ -224,7 +224,7 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam)
 					}
 					else
                         sprintf(temp, "%s (0x%x b)", symbolMap.GetSymbolName(fn),symbolMap.GetSymbolSize(fn));
-					TextOut(hdc,200,rowY1,temp,strlen(temp));
+					TextOut(hdc,200,rowY1,temp,(int)strlen(temp));
 
 					SetTextColor(hdc,0x0000000);
 					
@@ -239,7 +239,7 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam)
 						sprintf(temp, "%04x [%s]", value, symbolMap.GetSymbolName(symbolMap.GetSymbolNum(value)));
 					}
 
-					TextOut(hdc,70,rowY1,temp,strlen(temp));
+					TextOut(hdc,70,rowY1,temp,(int)strlen(temp));
 					break;
 				}
 			}

@@ -269,11 +269,11 @@ void MenuScreen::render() {
 		GameInfo *ginfo = g_gameInfoCache.GetInfo(g_Config.recentIsos[i], false);
 
 		if (ginfo) {
-			if (UITextureButton(ctx, GEN_ID_LOOP(i), vlinear2, 144, 80, ginfo->iconTexture, ALIGN_LEFT)) {
+			if (UITextureButton(ctx, (int)GEN_ID_LOOP(i), vlinear2, 144, 80, ginfo->iconTexture, ALIGN_LEFT)) {
 				screenManager()->switchScreen(new EmuScreen(g_Config.recentIsos[i]));
 			}
 		} else {
-			if (UIButton(GEN_ID_LOOP(i), vlinear2, recentW, filename.c_str(), ALIGN_LEFT)) {
+			if (UIButton((int)GEN_ID_LOOP(i), vlinear2, recentW, filename.c_str(), ALIGN_LEFT)) {
 				screenManager()->switchScreen(new EmuScreen(g_Config.recentIsos[i]));
 			}
 		}

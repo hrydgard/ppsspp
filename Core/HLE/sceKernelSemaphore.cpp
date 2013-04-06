@@ -121,7 +121,7 @@ bool __KernelUnlockSemaForThread(Semaphore *s, SceUID threadID, u32 &error, int 
 	if (timeoutPtr != 0 && semaWaitTimer != -1)
 	{
 		// Remove any event for this thread.
-		u64 cyclesLeft = CoreTiming::UnscheduleEvent(semaWaitTimer, threadID);
+		s64 cyclesLeft = CoreTiming::UnscheduleEvent(semaWaitTimer, threadID);
 		if (cyclesLeft < 0)
 			cyclesLeft = 0;
 		Memory::Write_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
@@ -149,7 +149,7 @@ void __KernelSemaBeginCallback(SceUID threadID, SceUID prevCallbackId)
 
 		if (timeoutPtr != 0 && semaWaitTimer != -1)
 		{
-			u64 cyclesLeft = CoreTiming::UnscheduleEvent(semaWaitTimer, threadID);
+			s64 cyclesLeft = CoreTiming::UnscheduleEvent(semaWaitTimer, threadID);
 			s->pausedWaitTimeouts[pauseKey] = CoreTiming::GetTicks() + cyclesLeft;
 		}
 		else

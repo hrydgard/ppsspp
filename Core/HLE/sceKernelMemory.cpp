@@ -804,7 +804,7 @@ bool __KernelUnlockVplForThread(VPL *vpl, VplWaitingThread &threadInfo, u32 &err
 	if (timeoutPtr != 0 && vplWaitTimer != -1)
 	{
 		// Remove any event for this thread.
-		u64 cyclesLeft = CoreTiming::UnscheduleEvent(vplWaitTimer, threadID);
+		s64 cyclesLeft = CoreTiming::UnscheduleEvent(vplWaitTimer, threadID);
 		Memory::Write_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
 	}
 
