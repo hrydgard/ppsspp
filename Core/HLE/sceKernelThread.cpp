@@ -1153,7 +1153,7 @@ bool __KernelTriggerWait(WaitType type, int id, bool useRetVal, int retVal, cons
 			hleReSchedule(reason);
 		}
 	}
-	return true;
+	return doneAnything;
 }
 
 bool __KernelTriggerWait(WaitType type, int id, const char *reason, bool dontSwitch)

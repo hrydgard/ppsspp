@@ -43,6 +43,7 @@ protected:
 	u32 prev;
 	GPUState gpuState;
 	bool isbreak;
+	bool drawComplete;
 
 	u64 startingTicks;
 	u32 cycleLastPC;
