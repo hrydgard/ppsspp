@@ -82,7 +82,7 @@ void RunTests()
 	std::string savedReportHost = g_Config.sReportHost;
 	g_Config.sReportHost = "";
 
-	for (int i = 0; i < ARRAY_SIZE(testsToRun); i++) {
+	for (size_t i = 0; i < ARRAY_SIZE(testsToRun); i++) {
 		const char *testName = testsToRun[i];
 		coreParam.fileToStart = baseDirectory + "pspautotests/tests/" + testName + ".prx";
 		std::string expectedFile = baseDirectory + "pspautotests/tests/" + testName + ".expected";
