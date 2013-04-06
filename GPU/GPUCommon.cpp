@@ -353,6 +353,10 @@ u32 GPUCommon::Break(int mode)
 
 bool GPUCommon::InterpretList(DisplayList &list)
 {
+	// TODO: This has to be right... but it freezes right now?
+	//if (list.state == PSP_GE_DL_STATE_PAUSED)
+	//	return false;
+
 	time_update();
 	double start = time_now_d();
 	currentList = &list;
@@ -558,6 +562,8 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 					ERROR_LOG(G3D, "Signal without wait. signal/end: %04x %04x", signal, enddata);
 					break;
 				case PSP_GE_SIGNAL_HANDLER_PAUSE:
+					currentList->state = PSP_GE_DL_STATE_PAUSED;
+					currentList->signal = behaviour;
 					ERROR_LOG_REPORT(G3D, "Signal with Pause UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
 					break;
 				case PSP_GE_SIGNAL_SYNC:
@@ -583,12 +589,23 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 			}
 			break;
 		case GE_CMD_FINISH:
-			currentList->state = PSP_GE_DL_STATE_COMPLETED;
-			gpuState = GPUSTATE_DONE;
-			currentList->subIntrToken = prev & 0xFFFF;
-			if (!interruptsEnabled_ || !__GeTriggerInterrupt(currentList->id, currentList->pc)) {
-				currentList->shouldWait = false;
-				__KernelTriggerWait(WAITTYPE_GELISTSYNC, currentList->id, 0, "GeListSync", true);
+			switch (currentList->signal) {
+			case PSP_GE_SIGNAL_HANDLER_PAUSE:
+				if (interruptsEnabled_) {
+					if (__GeTriggerInterrupt(currentList->id, currentList->pc))
+						gpuState = GPUSTATE_INTERRUPT;
+				}
+				break;
+
+			default:
+				currentList->subIntrToken = prev & 0xFFFF;
+				currentList->state = PSP_GE_DL_STATE_COMPLETED;
+				gpuState = GPUSTATE_DONE;
+				if (!interruptsEnabled_ || !__GeTriggerInterrupt(currentList->id, currentList->pc)) {
+					currentList->shouldWait = false;
+					__KernelTriggerWait(WAITTYPE_GELISTSYNC, currentList->id, 0, "GeListSync", true);
+				}
+				break;
 			}
 			break;
 		default:
