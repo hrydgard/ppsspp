@@ -18,6 +18,7 @@
 
 std::string boot_filename = "";
 Texture *uiTexture;
+UIContext *uiContext;
 
 ScreenManager *screenManager;
 std::string config_filename;
