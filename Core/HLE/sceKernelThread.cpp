@@ -579,18 +579,21 @@ struct ThreadQueueList
 			Queue *cur = &queues[i];
 			int size = cur->end - cur->first;
 			p.Do(size);
+			int capacity = cur->capacity;
+			p.Do(capacity);
 
-			if (size == 0)
+			if (capacity == 0)
 				continue;
 
 			if (p.mode == p.MODE_READ)
 			{
-				link(i, size);
+				link(i, capacity);
 				cur->first = (cur->capacity - size) / 2;
 				cur->end = cur->first + size;
 			}
 
-			p.DoArray(&cur->data[cur->first], size);
+			if (size != 0)
+				p.DoArray(&cur->data[cur->first], size);
 		}
 
 		p.DoMarker("ThreadQueueList");
