@@ -489,6 +489,20 @@ struct ThreadQueueList
 		return 0;
 	}
 
+	inline SceUID pop_first_better(u32 priority)
+	{
+		Queue *cur = first;
+		Queue *stop = &queues[priority];
+		while (cur < stop)
+		{
+			if (cur->end - cur->first > 0)
+				return cur->data[cur->first++];
+			cur = cur->next;
+		}
+
+		return 0;
+	}
+
 	inline void push_front(u32 priority, const SceUID threadID)
 	{
 		Queue *cur = &queues[priority];
@@ -1499,15 +1513,23 @@ u32 __KernelDeleteThread(SceUID threadID, int exitStatus, const char *reason, bo
 	return kernelObjects.Destroy<Thread>(threadID);
 }
 
+// Returns NULL if the current thread is fine.
 Thread *__KernelNextThread() {
+	SceUID bestThread;
+
 	// If the current thread is running, it's a valid candidate.
 	Thread *cur = __GetCurrentThread();
 	if (cur && cur->isRunning())
-		__KernelChangeReadyState(cur, currentThread, true);
+	{
+		bestThread = threadReadyQueue.pop_first_better(cur->nt.currentPriority);
+		if (bestThread != 0)
+			__KernelChangeReadyState(cur, currentThread, true);
+	}
+	else
+		bestThread = threadReadyQueue.pop_first();
 
 	// Assume threadReadyQueue has not become corrupt.
-	SceUID bestThread = threadReadyQueue.pop_first();
-	if (bestThread != -1)
+	if (bestThread != 0)
 		return kernelObjects.GetFast<Thread>(bestThread);
 	else
 		return 0;
@@ -1537,21 +1559,10 @@ void __KernelReSchedule(const char *reason)
 		return;
 	}
 
-retry:
 	Thread *nextThread = __KernelNextThread();
-
 	if (nextThread)
-	{
 		__KernelSwitchContext(nextThread, reason);
-		return;
-	}
-	else
-	{
-		// This shouldn't happen anymore now that we have idle threads.
-		_dbg_assert_msg_(HLE,0,"No threads available to schedule! There should be at least one idle thread available.");
-		CoreTiming::Idle();
-		goto retry;
-	}
+	// Otherwise, no need to switch.
 }
 
 void __KernelReSchedule(bool doCallbacks, const char *reason)
