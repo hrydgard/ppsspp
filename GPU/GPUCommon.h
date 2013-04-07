@@ -10,6 +10,7 @@ public:
 
 	virtual void InterruptStart(int listid);
 	virtual void InterruptEnd(int listid);
+	virtual void SyncEnd(WaitType waitType, int listid, bool wokeThreads);
 	virtual void EnableInterrupts(bool enable) {
 		interruptsEnabled_ = enable;
 	}
@@ -43,7 +44,7 @@ protected:
 	u32 prev;
 	GPUState gpuState;
 	bool isbreak;
-	bool drawComplete;
+	u64 drawCompleteTicks;
 
 	u64 startingTicks;
 	u32 cycleLastPC;
