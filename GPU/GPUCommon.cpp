@@ -426,7 +426,8 @@ bool GPUCommon::InterpretList(DisplayList &list)
 
 inline void GPUCommon::UpdateCycles(u32 pc, u32 newPC)
 {
-	cyclesExecuted += (pc - cycleLastPC) / 4;
+	// Rough estimate, 2 CPU ticks (it's double the clock rate) per GPU instruction.
+	cyclesExecuted += 2 * (pc - cycleLastPC) / 4;
 	cycleLastPC = newPC == 0 ? pc : newPC;
 }
 
