@@ -44,8 +44,6 @@
 #include "../../GPU/GLES/TextureCache.h"
 #include "../../GPU/GPUState.h"
 #include "../../GPU/GPUInterface.h"
-// Internal drawing library
-#include "../Util/PPGeDraw.h"
 
 #ifdef _WIN32
 // Windows defines min/max which conflict with std::min/std::max.
@@ -198,13 +196,17 @@ void __DisplayFireVblank() {
 	}
 }
 
+static double highestFps = 0.0;
+static int lastFpsFrame = 0;
+static double lastFpsTime = 0.0;
+static double fps = 0.0;
+
+void __DisplayGetFPS(float *out_vps, float *out_fps) {
+	*out_vps = *out_fps = fps;
+}
+
 void CalculateFPS()
 {
-	static double highestFps = 0.0;
-	static int lastFpsFrame = 0;
-	static double lastFpsTime = 0.0;
-	static double fps = 0.0;
-
 	time_update();
 	double now = time_now_d();
 
@@ -217,28 +219,11 @@ void CalculateFPS()
 		lastFpsFrame = gpuStats.numFrames;	
 		lastFpsTime = now;
 	}
-
-	char stats[50];
-	sprintf(stats, "VPS: %0.1f", fps);
-
-	#ifdef USING_GLES2
-		float zoom = 0.7f; /// g_Config.iWindowZoom;
-		float soff = 0.7f;
-	#else
-		float zoom = 0.5f; /// g_Config.iWindowZoom;
-		float soff = 0.5f;
-	#endif
-	PPGeBegin();
-	PPGeDrawText(stats, 476 + soff, 4 + soff, PPGE_ALIGN_RIGHT, zoom, 0xCC000000);
-	PPGeDrawText(stats, 476 + -soff, 4 -soff, PPGE_ALIGN_RIGHT, zoom, 0xCC000000);
-	PPGeDrawText(stats, 476, 4, PPGE_ALIGN_RIGHT, zoom, 0xFF30FF30);
-	PPGeEnd();
 }
 
-void DebugStats()
+void __DisplayGetDebugStats(char stats[2048])
 {
 	gpu->UpdateStats();
-	char stats[2048];
 
 	sprintf(stats,
 		"Frames: %i\n"
@@ -280,19 +265,6 @@ void DebugStats()
 		gpuStats.numFragmentShaders,
 		gpuStats.numShaders
 		);
-
-	#ifdef USING_GLES2
-		float zoom = 0.5f; /// g_Config.iWindowZoom;
-		float soff = 0.5f;
-	#else
-		float zoom = 0.3f; /// g_Config.iWindowZoom;
-		float soff = 0.3f;
-	#endif
-	PPGeBegin();
-	PPGeDrawText(stats, soff, soff, 0, zoom, 0xCC000000);
-	PPGeDrawText(stats, -soff, -soff, 0, zoom, 0xCC000000);
-	PPGeDrawText(stats, 0, 0, 0, zoom, 0xFFFFFFFF);
-	PPGeEnd();
 
 	gpuStats.resetFrame();
 	kernelStats.ResetFrame();
@@ -389,11 +361,6 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	}
 
 	gpuStats.numFrames++;
-
-	// Now we can subvert the Ge engine in order to draw custom overlays like stat counters etc.
-	if (g_Config.bShowDebugStats && gpuStats.numDrawCalls) {
-		DebugStats();
-	}
 
 	if (g_Config.bShowFPSCounter) {
 		CalculateFPS();

@@ -34,13 +34,15 @@
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
 #include "Core/HLE/sceCtrl.h"
+#include "Core/HLE/sceDisplay.h"
 #include "Core/Debugger/SymbolMap.h"
 
-#include "GamepadEmu.h"
-#include "UIShader.h"
+#include "UI/ui_atlas.h"
+#include "UI/GamepadEmu.h"
+#include "UI/UIShader.h"
 
-#include "MenuScreens.h"
-#include "EmuScreen.h"
+#include "UI/MenuScreens.h"
+#include "UI/EmuScreen.h"
 
 EmuScreen::EmuScreen(const std::string &filename) : invalid_(true) {
 	CheckGLExtensions();
@@ -257,6 +259,23 @@ void EmuScreen::render() {
 		DrawGamepad(ui_draw2d);
 
 	DrawWatermark();
+
+	if (g_Config.bShowDebugStats) {
+		char statbuf[2048];
+		__DisplayGetDebugStats(statbuf);
+		ui_draw2d.SetFontScale(.7f, .7f);
+		ui_draw2d.DrawText(UBUNTU24, statbuf, 10, 10, 0xFFFFFFFF);
+		ui_draw2d.SetFontScale(1.0f, 1.0f);
+	}
+
+	if (g_Config.bShowFPSCounter) {
+		float vps, fps;
+		__DisplayGetFPS(&vps, &fps);
+		char fpsbuf[256];
+		sprintf(fpsbuf, "VPS: %0.1f", vps);
+		ui_draw2d.DrawText(UBUNTU24, fpsbuf, dp_xres - 10, 10, 0xFF3fFF3f, ALIGN_TOPRIGHT);
+	}
+	
 
 	glsl_bind(UIShader_Get());
 	ui_draw2d.End();
