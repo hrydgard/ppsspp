@@ -812,6 +812,37 @@ bool __KernelSwitchOffThread(const char *reason)
 	return false;
 }
 
+bool __KernelSwitchToThread(SceUID threadID, const char *reason)
+{
+	if (!reason)
+		reason = "switch to thread";
+
+	if (currentThread != threadIdleID[0] && currentThread != threadIdleID[1])
+	{
+		ERROR_LOG(HLE, "__KernelSwitchToThread used when already on a thread.");
+		return false;
+	}
+
+	if (currentThread == threadID)
+		return false;
+
+	u32 error;
+	Thread *t = kernelObjects.Get<Thread>(threadID, error);
+	if (!t)
+		ERROR_LOG(HLE, "__KernelSwitchToThread: %x doesn't exist", threadID)
+	else
+	{
+		Thread *current = __GetCurrentThread();
+		if (current && current->isRunning())
+			__KernelChangeReadyState(current, threadID, true);
+
+		__KernelSwitchContext(t, reason);
+		return true;
+	}
+
+	return false;
+}
+
 void __KernelIdle()
 {
 	CoreTiming::Idle();

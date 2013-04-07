@@ -62,6 +62,7 @@ std::list<PendingInterrupt> pendingInterrupts;
 // Yeah, this bit is a bit silly.
 static int interruptsEnabled = 1;
 static bool inInterrupt;
+static SceUID threadBeforeInterrupt;
 
 
 void sceKernelCpuSuspendIntr()
@@ -216,6 +217,7 @@ void __InterruptsInit()
 	for (int i = 0; i < (int)ARRAY_SIZE(intrHandlers); ++i)
 		intrHandlers[i] = new IntrHandler(i);
 	intState.clear();
+	threadBeforeInterrupt = 0;
 }
 
 void __InterruptsDoState(PointerWrap &p)
@@ -233,6 +235,7 @@ void __InterruptsDoState(PointerWrap &p)
 	p.Do(pendingInterrupts, pi);
 	p.Do(interruptsEnabled);
 	p.Do(inInterrupt);
+	p.Do(threadBeforeInterrupt);
 	p.DoMarker("sceKernelInterrupt");
 }
 
@@ -317,7 +320,9 @@ retry:
 	{
 		// If we came from CoreTiming::Advance(), we might've come from a waiting thread's callback.
 		// To avoid "injecting" return values into our saved state, we context switch here.
-		__KernelSwitchOffThread("interrupt");
+		SceUID savedThread = __KernelGetCurThread();
+		if (__KernelSwitchOffThread("interrupt"))
+			threadBeforeInterrupt = savedThread;
 
 		PendingInterrupt pend = pendingInterrupts.front();
 
@@ -357,8 +362,13 @@ void __TriggerRunInterrupts(int type)
 			hleRunInterrupts();
 		else if ((type & PSP_INTR_ALWAYS_RESCHED) != 0)
 		{
-			if (!__RunOnePendingInterrupt())
-				__KernelSwitchOffThread("interrupt");
+			// "Always" only means if dispatch is enabled.
+			if (!__RunOnePendingInterrupt() && __KernelIsDispatchEnabled())
+			{
+				SceUID savedThread = __KernelGetCurThread();
+				if (__KernelSwitchOffThread("interrupt"))
+					threadBeforeInterrupt = savedThread;
+			}
 		}
 		else
 			__RunOnePendingInterrupt();
@@ -392,7 +402,13 @@ void __KernelReturnFromInterrupt()
 
 	// Alright, let's see if there's any more interrupts queued...
 	if (!__RunOnePendingInterrupt())
-		__KernelReSchedule("return from interrupt");
+	{
+		// Otherwise, we reschedule when dispatch was enabled, or switch back otherwise.
+		if (__KernelIsDispatchEnabled())
+			__KernelReSchedule("return from interrupt");
+		else
+			__KernelSwitchToThread(threadBeforeInterrupt, "return from interrupt");
+	}
 }
 
 void __RegisterIntrHandler(u32 intrNumber, IntrHandler* handler)
