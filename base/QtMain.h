@@ -28,8 +28,8 @@ const int buttonMappings[18] = {
 	Qt::Key_S + 0x20,   //B
 	Qt::Key_Z + 0x20,   //X
 	Qt::Key_A + 0x20,   //Y
-	Qt::Key_W + 0x20,   //LBUMPER
-	Qt::Key_Q + 0x20,   //RBUMPER
+	Qt::Key_Q + 0x20,   //LBUMPER
+	Qt::Key_W + 0x20,   //RBUMPER
 	Qt::Key_1,          //START
 	Qt::Key_2,          //SELECT
 	Qt::Key_Up,         //UP
