@@ -158,7 +158,7 @@ void __GeExecuteInterrupt(u64 userdata, int cyclesLate)
 	intrdata.listid = listid;
 	intrdata.pc     = pc;
 	ge_pending_cb.push_back(intrdata);
-	__TriggerInterrupt(PSP_INTR_HLE, PSP_GE_INTR, PSP_INTR_SUB_NONE);
+	__TriggerInterrupt(PSP_INTR_IMMEDIATE, PSP_GE_INTR, PSP_INTR_SUB_NONE);
 }
 
 void __GeInit()

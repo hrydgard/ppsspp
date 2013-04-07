@@ -139,6 +139,7 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head)
 		oldCompatibility = false;
 	}
 
+	u64 currentTicks = CoreTiming::GetTicks();
 	for (int i = 0; i < DisplayListMaxCount; ++i)
 	{
 		if (dls[i].state != PSP_GE_DL_STATE_NONE && dls[i].state != PSP_GE_DL_STATE_COMPLETED) {
@@ -157,7 +158,7 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head)
 			id = i;
 			break;
 		}
-		if (id < 0 && dls[i].state == PSP_GE_DL_STATE_COMPLETED)
+		if (id < 0 && dls[i].state == PSP_GE_DL_STATE_COMPLETED && dls[i].waitTicks < currentTicks)
 		{
 			id = i;
 		}
@@ -690,7 +691,7 @@ void GPUCommon::InterruptEnd(int listid)
 
 	DisplayList &dl = dls[listid];
 	// TODO: Unless the signal handler could change it?
-	if (dl.state == PSP_GE_DL_STATE_COMPLETED) {
+	if (dl.state == PSP_GE_DL_STATE_COMPLETED || dl.state == PSP_GE_DL_STATE_NONE) {
 		dl.waitTicks = 0;
 		__KernelTriggerWait(WAITTYPE_GELISTSYNC, listid, 0, "GeListSync", true);
 	}
