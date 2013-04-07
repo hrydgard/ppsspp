@@ -137,7 +137,7 @@ again:
 	if (startsWith(gamePath, "ms0:/PSP/GAME")) {
 		return 0;
 	// TODO: The case of these extensions is not perfect.
-	} else if (endsWith(gamePath, ".PBP") || endsWith(gamePath, ".elf")) {
+	} else if (endsWith(gamePath, ".PBP") || endsWith(gamePath, ".elf") || endsWith(gamePath, ".prx")) {
 		return 0;
 	} else {
 		SequentialHandleAllocator handles;
