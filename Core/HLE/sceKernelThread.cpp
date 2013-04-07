@@ -1244,14 +1244,16 @@ u32 sceKernelGetThreadmanIdList(u32 type, u32 readBufPtr, u32 readBufSize, u32 i
 }
 
 // Saves the current CPU context
-void __KernelSaveContext(ThreadContext *ctx)
+void __KernelSaveContext(ThreadContext *ctx, bool vfpuEnabled)
 {
 	memcpy(ctx->r, currentMIPS->r, sizeof(ctx->r));
 	memcpy(ctx->f, currentMIPS->f, sizeof(ctx->f));
 
-	// TODO: Make VFPU saving optional/delayed, only necessary between VFPU-attr-marked threads
-	memcpy(ctx->v, currentMIPS->v, sizeof(ctx->v));
-	memcpy(ctx->vfpuCtrl, currentMIPS->vfpuCtrl, sizeof(ctx->vfpuCtrl));
+	if (vfpuEnabled)
+	{
+		memcpy(ctx->v, currentMIPS->v, sizeof(ctx->v));
+		memcpy(ctx->vfpuCtrl, currentMIPS->vfpuCtrl, sizeof(ctx->vfpuCtrl));
+	}
 
 	ctx->pc = currentMIPS->pc;
 	ctx->hi = currentMIPS->hi;
@@ -1262,14 +1264,16 @@ void __KernelSaveContext(ThreadContext *ctx)
 }
 
 // Loads a CPU context
-void __KernelLoadContext(ThreadContext *ctx)
+void __KernelLoadContext(ThreadContext *ctx, bool vfpuEnabled)
 {
 	memcpy(currentMIPS->r, ctx->r, sizeof(ctx->r));
 	memcpy(currentMIPS->f, ctx->f, sizeof(ctx->f));
 
-	// TODO: Make VFPU saving optional/delayed, only necessary between VFPU-attr-marked threads
-	memcpy(currentMIPS->v, ctx->v, sizeof(ctx->v));
-	memcpy(currentMIPS->vfpuCtrl, ctx->vfpuCtrl, sizeof(ctx->vfpuCtrl));
+	if (vfpuEnabled)
+	{
+		memcpy(currentMIPS->v, ctx->v, sizeof(ctx->v));
+		memcpy(currentMIPS->vfpuCtrl, ctx->vfpuCtrl, sizeof(ctx->vfpuCtrl));
+	}
 
 	currentMIPS->pc = ctx->pc;
 	currentMIPS->hi = ctx->hi;
@@ -1712,7 +1716,7 @@ void __KernelSetupRootThread(SceUID moduleID, int args, const char *argp, int pr
 
 	strcpy(thread->nt.name, "root");
 
-	__KernelLoadContext(&thread->context);
+	__KernelLoadContext(&thread->context, (attr & PSP_THREAD_ATTR_VFPU) != 0);
 	mipsr4k.r[MIPS_REG_A0] = args;
 	mipsr4k.r[MIPS_REG_SP] -= 256;
 	u32 location = mipsr4k.r[MIPS_REG_SP];
@@ -2679,7 +2683,7 @@ void __KernelSwitchContext(Thread *target, const char *reason)
 	Thread *cur = __GetCurrentThread();
 	if (cur)  // It might just have been deleted.
 	{
-		__KernelSaveContext(&cur->context);
+		__KernelSaveContext(&cur->context, (cur->nt.attr & PSP_THREAD_ATTR_VFPU) != 0);
 		oldPC = currentMIPS->pc;
 		oldUID = cur->GetUID();
 
@@ -2705,7 +2709,7 @@ void __KernelSwitchContext(Thread *target, const char *reason)
 		hleCurrentThreadName = NULL;
 	}
 
-	__KernelLoadContext(&target->context);
+	__KernelLoadContext(&target->context, (target->nt.attr & PSP_THREAD_ATTR_VFPU) != 0);
 
 	bool fromIdle = oldUID == threadIdleID[0] || oldUID == threadIdleID[1];
 	bool toIdle = currentThread == threadIdleID[0] || currentThread == threadIdleID[1];

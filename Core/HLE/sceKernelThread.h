@@ -130,8 +130,8 @@ SceUID __KernelGetCurThread();
 u32 __KernelGetCurThreadStack();
 const char *__KernelGetThreadName(SceUID threadID);
 
-void __KernelSaveContext(ThreadContext *ctx);
-void __KernelLoadContext(ThreadContext *ctx);
+void __KernelSaveContext(ThreadContext *ctx, bool vfpuEnabled);
+void __KernelLoadContext(ThreadContext *ctx, bool vfpuEnabled);
 
 // TODO: Replace this with __KernelResumeThreadFromWait over time as it's misguided.
 // It's better that each subsystem keeps track of the list of waiting threads
