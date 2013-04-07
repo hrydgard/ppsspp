@@ -608,11 +608,13 @@ namespace MainWindow
 					TCHAR *type = filename+_tcslen(filename)-3;
 
 					SendMessage(hWnd, WM_COMMAND, ID_EMULATION_STOP, 0);
+					// Ugly, need to wait for the stop message to process in the EmuThread.
+					Sleep(20);
 					
 					MainWindow::SetPlaying(filename);
 					MainWindow::Update();
 
-					NativeMessageReceived("run", filename);
+					NativeMessageReceived("boot", filename);
 				}
 			}
 			break;
