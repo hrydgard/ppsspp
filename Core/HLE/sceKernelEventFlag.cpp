@@ -390,6 +390,9 @@ int sceKernelWaitEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 ti
 	if (bits == 0)
 		return SCE_KERNEL_ERROR_EVF_ILPAT;
 
+	if (!__KernelIsDispatchEnabled())
+		return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+
 	u32 error;
 	EventFlag *e = kernelObjects.Get<EventFlag>(id, error);
 	if (e)
@@ -442,6 +445,9 @@ int sceKernelWaitEventFlagCB(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 
 	// Can't wait on 0, that's guaranteed to wait forever.
 	if (bits == 0)
 		return SCE_KERNEL_ERROR_EVF_ILPAT;
+
+	if (!__KernelIsDispatchEnabled())
+		return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
 
 	u32 error;
 	EventFlag *e = kernelObjects.Get<EventFlag>(id, error);

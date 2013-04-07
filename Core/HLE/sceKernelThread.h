@@ -228,6 +228,7 @@ void __KernelNotifyCallback(RegisteredCallbackType type, SceUID cbId, int notify
 // Switch to an idle / non-user thread, if not already on one.
 // Returns whether a switch occurred.
 bool __KernelSwitchOffThread(const char *reason);
+bool __KernelSwitchToThread(SceUID threadID, const char *reason);
 
 // A call into game code. These can be pending on a thread.
 // Similar to Callback-s (NOT CallbackInfos) in JPCSP.
