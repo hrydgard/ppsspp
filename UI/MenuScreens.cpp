@@ -239,14 +239,12 @@ void MenuScreen::render() {
 		UIReset();
 	}
 
-#ifndef _WIN32
 	if (UIButton(GEN_ID, vlinear, w, "Exit", ALIGN_RIGHT)) {
 		// TODO: Save when setting changes, rather than when we quit
 		NativeShutdown();
 		// TODO: Need a more elegant way to quit
 		exit(0);
 	}
-#endif
 
 	if (UIButton(GEN_ID, vlinear, w, "www.ppsspp.org", ALIGN_RIGHT)) {
 		LaunchBrowser("http://www.ppsspp.org/");
