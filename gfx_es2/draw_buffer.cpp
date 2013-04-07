@@ -17,7 +17,7 @@
 
 enum {
 	// Enough?
-	MAX_VERTS = 15000,
+	MAX_VERTS = 65536,
 };
 
 // #define USE_VBO
@@ -366,7 +366,7 @@ void DrawBuffer::DoAlign(int flags, float *x, float *y, float *w, float *h) {
 // ROTATE_* doesn't yet work right.
 void DrawBuffer::DrawText(int font, const char *text, float x, float y, Color color, int flags) {
 	const AtlasFont &atlasfont = *atlas->fonts[font];
-	unsigned char cval;
+	unsigned int cval;
 	float w, h;
 	MeasureText(font, text, &w, &h);
 	if (flags) {
