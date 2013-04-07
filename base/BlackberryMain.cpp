@@ -102,8 +102,8 @@ const int buttonMappings[18] = {
 	KEYCODE_S,          //B
 	KEYCODE_Z,          //X
 	KEYCODE_A,          //Y
-	KEYCODE_W,          //LBUMPER
-	KEYCODE_Q,          //RBUMPER
+	KEYCODE_Q,          //LBUMPER
+	KEYCODE_W,          //RBUMPER
 	KEYCODE_ONE,        //START
 	KEYCODE_TWO,        //SELECT
 	KEYCODE_UP,         //UP

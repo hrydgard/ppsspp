@@ -241,8 +241,8 @@ const int buttonMappings[14] = {
 	SDLK_x,         //B
 	SDLK_a,         //X
 	SDLK_s,	        //Y
-	SDLK_w,         //LBUMPER
-	SDLK_q,         //RBUMPER
+	SDLK_q,         //LBUMPER
+	SDLK_w,         //RBUMPER
 	SDLK_SPACE,     //START
 	SDLK_v,	        //SELECT
 #endif
