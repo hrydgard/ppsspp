@@ -289,12 +289,12 @@ bool __CanExecuteInterrupt()
 
 void InterruptState::save()
 {
-	__KernelSaveContext(&savedCpu);
+	__KernelSaveContext(&savedCpu, true);
 }
 
 void InterruptState::restore()
 {
-	__KernelLoadContext(&savedCpu);
+	__KernelLoadContext(&savedCpu, true);
 }
 
 void InterruptState::clear()
