@@ -489,6 +489,20 @@ struct ThreadQueueList
 		return 0;
 	}
 
+	inline SceUID pop_first_better(u32 priority)
+	{
+		Queue *cur = first;
+		Queue *stop = &queues[priority];
+		while (cur < stop)
+		{
+			if (cur->end - cur->first > 0)
+				return cur->data[cur->first++];
+			cur = cur->next;
+		}
+
+		return 0;
+	}
+
 	inline void push_front(u32 priority, const SceUID threadID)
 	{
 		Queue *cur = &queues[priority];
@@ -1230,14 +1244,16 @@ u32 sceKernelGetThreadmanIdList(u32 type, u32 readBufPtr, u32 readBufSize, u32 i
 }
 
 // Saves the current CPU context
-void __KernelSaveContext(ThreadContext *ctx)
+void __KernelSaveContext(ThreadContext *ctx, bool vfpuEnabled)
 {
 	memcpy(ctx->r, currentMIPS->r, sizeof(ctx->r));
 	memcpy(ctx->f, currentMIPS->f, sizeof(ctx->f));
 
-	// TODO: Make VFPU saving optional/delayed, only necessary between VFPU-attr-marked threads
-	memcpy(ctx->v, currentMIPS->v, sizeof(ctx->v));
-	memcpy(ctx->vfpuCtrl, currentMIPS->vfpuCtrl, sizeof(ctx->vfpuCtrl));
+	if (vfpuEnabled)
+	{
+		memcpy(ctx->v, currentMIPS->v, sizeof(ctx->v));
+		memcpy(ctx->vfpuCtrl, currentMIPS->vfpuCtrl, sizeof(ctx->vfpuCtrl));
+	}
 
 	ctx->pc = currentMIPS->pc;
 	ctx->hi = currentMIPS->hi;
@@ -1248,14 +1264,16 @@ void __KernelSaveContext(ThreadContext *ctx)
 }
 
 // Loads a CPU context
-void __KernelLoadContext(ThreadContext *ctx)
+void __KernelLoadContext(ThreadContext *ctx, bool vfpuEnabled)
 {
 	memcpy(currentMIPS->r, ctx->r, sizeof(ctx->r));
 	memcpy(currentMIPS->f, ctx->f, sizeof(ctx->f));
 
-	// TODO: Make VFPU saving optional/delayed, only necessary between VFPU-attr-marked threads
-	memcpy(currentMIPS->v, ctx->v, sizeof(ctx->v));
-	memcpy(currentMIPS->vfpuCtrl, ctx->vfpuCtrl, sizeof(ctx->vfpuCtrl));
+	if (vfpuEnabled)
+	{
+		memcpy(currentMIPS->v, ctx->v, sizeof(ctx->v));
+		memcpy(currentMIPS->vfpuCtrl, ctx->vfpuCtrl, sizeof(ctx->vfpuCtrl));
+	}
 
 	currentMIPS->pc = ctx->pc;
 	currentMIPS->hi = ctx->hi;
@@ -1499,15 +1517,23 @@ u32 __KernelDeleteThread(SceUID threadID, int exitStatus, const char *reason, bo
 	return kernelObjects.Destroy<Thread>(threadID);
 }
 
+// Returns NULL if the current thread is fine.
 Thread *__KernelNextThread() {
+	SceUID bestThread;
+
 	// If the current thread is running, it's a valid candidate.
 	Thread *cur = __GetCurrentThread();
 	if (cur && cur->isRunning())
-		__KernelChangeReadyState(cur, currentThread, true);
+	{
+		bestThread = threadReadyQueue.pop_first_better(cur->nt.currentPriority);
+		if (bestThread != 0)
+			__KernelChangeReadyState(cur, currentThread, true);
+	}
+	else
+		bestThread = threadReadyQueue.pop_first();
 
 	// Assume threadReadyQueue has not become corrupt.
-	SceUID bestThread = threadReadyQueue.pop_first();
-	if (bestThread != -1)
+	if (bestThread != 0)
 		return kernelObjects.GetFast<Thread>(bestThread);
 	else
 		return 0;
@@ -1537,21 +1563,10 @@ void __KernelReSchedule(const char *reason)
 		return;
 	}
 
-retry:
 	Thread *nextThread = __KernelNextThread();
-
 	if (nextThread)
-	{
 		__KernelSwitchContext(nextThread, reason);
-		return;
-	}
-	else
-	{
-		// This shouldn't happen anymore now that we have idle threads.
-		_dbg_assert_msg_(HLE,0,"No threads available to schedule! There should be at least one idle thread available.");
-		CoreTiming::Idle();
-		goto retry;
-	}
+	// Otherwise, no need to switch.
 }
 
 void __KernelReSchedule(bool doCallbacks, const char *reason)
@@ -1701,7 +1716,7 @@ void __KernelSetupRootThread(SceUID moduleID, int args, const char *argp, int pr
 
 	strcpy(thread->nt.name, "root");
 
-	__KernelLoadContext(&thread->context);
+	__KernelLoadContext(&thread->context, (attr & PSP_THREAD_ATTR_VFPU) != 0);
 	mipsr4k.r[MIPS_REG_A0] = args;
 	mipsr4k.r[MIPS_REG_SP] -= 256;
 	u32 location = mipsr4k.r[MIPS_REG_SP];
@@ -2668,7 +2683,7 @@ void __KernelSwitchContext(Thread *target, const char *reason)
 	Thread *cur = __GetCurrentThread();
 	if (cur)  // It might just have been deleted.
 	{
-		__KernelSaveContext(&cur->context);
+		__KernelSaveContext(&cur->context, (cur->nt.attr & PSP_THREAD_ATTR_VFPU) != 0);
 		oldPC = currentMIPS->pc;
 		oldUID = cur->GetUID();
 
@@ -2694,7 +2709,7 @@ void __KernelSwitchContext(Thread *target, const char *reason)
 		hleCurrentThreadName = NULL;
 	}
 
-	__KernelLoadContext(&target->context);
+	__KernelLoadContext(&target->context, (target->nt.attr & PSP_THREAD_ATTR_VFPU) != 0);
 
 	bool fromIdle = oldUID == threadIdleID[0] || oldUID == threadIdleID[1];
 	bool toIdle = currentThread == threadIdleID[0] || currentThread == threadIdleID[1];
