@@ -81,6 +81,52 @@ private:
 	float spacing_;
 };
 
+class HGrid : public LayoutManager {
+public:
+	HGrid(float x, float y, float xMax, float xSpacing = 2.0f, float ySpacing = 2.0f)
+		: x_(x), y_(y), xInit_(x), xMax_(xMax), xSpacing_(xSpacing), ySpacing_(ySpacing) {}
+	virtual void GetPos(float *w, float *h, float *x, float *y) const {
+		*x = x_;
+		*y = y_;
+		x_ += *w + xSpacing_;
+		if (x_ >= xMax_) {
+			x_ = xInit_;
+			y_ += *h + ySpacing_;
+		}
+	}
+
+private:
+	mutable float x_;
+	mutable float y_;
+	float xInit_;
+	float xMax_;
+	float xSpacing_;
+	float ySpacing_;
+};
+
+class VGrid : public LayoutManager {
+public:
+	VGrid(float x, float y, float yMax, float xSpacing = 2.0f, float ySpacing = 2.0f)
+		: x_(x), y_(y), yInit_(y), yMax_(yMax), xSpacing_(xSpacing), ySpacing_(ySpacing) {}
+	virtual void GetPos(float *w, float *h, float *x, float *y) const {
+		*x = x_;
+		*y = y_;
+		y_ += *h + ySpacing_;
+		if (y_ >= yMax_) {
+			x_ += *w + xSpacing_;
+			y_ = yInit_;
+		}
+	}
+
+private:
+	mutable float x_;
+	mutable float y_;
+	float yInit_;
+	float yMax_;
+	float xSpacing_;
+	float ySpacing_;
+};
+
 
 #ifndef MAX_POINTERS
 #define MAX_POINTERS 8
