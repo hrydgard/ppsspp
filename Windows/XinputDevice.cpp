@@ -55,7 +55,9 @@ int XinputDevice::UpdateState(InputState &input_state) {
 
 		// If there's an XInput pad, skip following pads. This prevents DInput and XInput
 		// from colliding.
-		return UPDATESTATE_SKIP_NEXT;
+		if (left.x != 0.0f || left.y != 0.0f)
+			return UPDATESTATE_SKIP_NEXT;
+		return 0;
 	} else {
 		// wait check_delay frames before polling the controller again
 		this->gamepad_idx = -1;
