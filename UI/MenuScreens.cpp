@@ -200,7 +200,7 @@ void MenuScreen::render() {
 	ui_draw2d.DrawTextShadow(UBUNTU24, PPSSPP_GIT_VERSION, dp_xres + xoff, 85, 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_BOTTOM);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 	VLinear vlinear(dp_xres + xoff, 100, 20);
-	VLinear vlinear2(-xoff, 100, 20);
+	VGrid vgrid_recent(-xoff + 40, 100, 480, 40, 20);
 
 	if (UIButton(GEN_ID, vlinear, w, "Load...", ALIGN_RIGHT)) {
 #if defined(USING_QT_UI)
@@ -239,14 +239,12 @@ void MenuScreen::render() {
 		UIReset();
 	}
 
-#ifndef _WIN32
 	if (UIButton(GEN_ID, vlinear, w, "Exit", ALIGN_RIGHT)) {
 		// TODO: Save when setting changes, rather than when we quit
 		NativeShutdown();
 		// TODO: Need a more elegant way to quit
 		exit(0);
 	}
-#endif
 
 	if (UIButton(GEN_ID, vlinear, w, "www.ppsspp.org", ALIGN_RIGHT)) {
 		LaunchBrowser("http://www.ppsspp.org/");
@@ -254,7 +252,7 @@ void MenuScreen::render() {
 
 	int recentW = 350;
 	if (g_Config.recentIsos.size()) {
-		ui_draw2d.DrawText(UBUNTU24, "Recent", -xoff, 80, 0xFFFFFFFF, ALIGN_BOTTOMLEFT);
+		ui_draw2d.DrawText(UBUNTU24, "Recent", -xoff + 20, 80, 0xFFFFFFFF, ALIGN_BOTTOMLEFT);
 	}
 	for (size_t i = 0; i < g_Config.recentIsos.size(); i++) {
 		std::string filename;
@@ -269,11 +267,11 @@ void MenuScreen::render() {
 		GameInfo *ginfo = g_gameInfoCache.GetInfo(g_Config.recentIsos[i], false);
 
 		if (ginfo) {
-			if (UITextureButton(ctx, (int)GEN_ID_LOOP(i), vlinear2, 144, 80, ginfo->iconTexture, ALIGN_LEFT)) {
+			if (UITextureButton(ctx, (int)GEN_ID_LOOP(i), vgrid_recent, 144, 80, ginfo->iconTexture, ALIGN_LEFT)) {
 				screenManager()->switchScreen(new EmuScreen(g_Config.recentIsos[i]));
 			}
 		} else {
-			if (UIButton((int)GEN_ID_LOOP(i), vlinear2, recentW, filename.c_str(), ALIGN_LEFT)) {
+			if (UIButton((int)GEN_ID_LOOP(i), vgrid_recent, recentW, filename.c_str(), ALIGN_LEFT)) {
 				screenManager()->switchScreen(new EmuScreen(g_Config.recentIsos[i]));
 			}
 		}
