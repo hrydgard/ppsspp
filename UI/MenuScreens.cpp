@@ -200,7 +200,7 @@ void MenuScreen::render() {
 	ui_draw2d.DrawTextShadow(UBUNTU24, PPSSPP_GIT_VERSION, dp_xres + xoff, 85, 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_BOTTOM);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 	VLinear vlinear(dp_xres + xoff, 100, 20);
-	VLinear vlinear2(-xoff, 100, 20);
+	VGrid vgrid_recent(-xoff, 100, 480, 20, 20);
 
 	if (UIButton(GEN_ID, vlinear, w, "Load...", ALIGN_RIGHT)) {
 #if defined(USING_QT_UI)
@@ -267,11 +267,11 @@ void MenuScreen::render() {
 		GameInfo *ginfo = g_gameInfoCache.GetInfo(g_Config.recentIsos[i], false);
 
 		if (ginfo) {
-			if (UITextureButton(ctx, (int)GEN_ID_LOOP(i), vlinear2, 144, 80, ginfo->iconTexture, ALIGN_LEFT)) {
+			if (UITextureButton(ctx, (int)GEN_ID_LOOP(i), vgrid_recent, 144, 80, ginfo->iconTexture, ALIGN_LEFT)) {
 				screenManager()->switchScreen(new EmuScreen(g_Config.recentIsos[i]));
 			}
 		} else {
-			if (UIButton((int)GEN_ID_LOOP(i), vlinear2, recentW, filename.c_str(), ALIGN_LEFT)) {
+			if (UIButton((int)GEN_ID_LOOP(i), vgrid_recent, recentW, filename.c_str(), ALIGN_LEFT)) {
 				screenManager()->switchScreen(new EmuScreen(g_Config.recentIsos[i]));
 			}
 		}
