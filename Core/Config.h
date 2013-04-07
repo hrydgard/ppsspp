@@ -42,6 +42,7 @@ public:
 
 	// Core
 	bool bIgnoreBadMemAccess;
+	bool bIgnoreMipsError;
 	bool bFastMemory;
 	bool bJit;
 	bool bAutoSaveSymbolMap;

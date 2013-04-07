@@ -57,6 +57,7 @@ void Config::Load(const char *iniFileName)
 	general->Get("Browse", &bBrowse, false);
 	general->Get("ConfirmOnQuit", &bConfirmOnQuit, false);
 	general->Get("IgnoreBadMemAccess", &bIgnoreBadMemAccess, true);
+	general->Get("IgnoreMipsError", &bIgnoreMipsError, true);
 	general->Get("CurrentDirectory", &currentDirectory, "");
 	general->Get("ShowDebuggerOnLoad", &bShowDebuggerOnLoad, false);
 	// "default" means let emulator decide, "" means disable.
@@ -139,6 +140,7 @@ void Config::Save()
 		general->Set("Browse", bBrowse);
 		general->Set("ConfirmOnQuit", bConfirmOnQuit);
 		general->Set("IgnoreBadMemAccess", bIgnoreBadMemAccess);
+		general->Set("IgnoreMipsError", bIgnoreMipsError);
 		general->Set("CurrentDirectory", currentDirectory);
 		general->Set("ShowDebuggerOnLoad", bShowDebuggerOnLoad);
 		general->Set("ReportHost", sReportHost);

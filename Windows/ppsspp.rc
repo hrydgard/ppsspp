@@ -267,6 +267,8 @@ BEGIN
         MENUITEM SEPARATOR
         MENUITEM "&Fast Memory (dynarec, unstable)", ID_OPTIONS_FASTMEMORY
         MENUITEM "&Ignore illegal reads/writes", ID_OPTIONS_IGNOREILLEGALREADS
+        MENUITEM "&Ignore MIPS error", ID_OPTIONS_IGNOREMIPSERROR
+
     END
     POPUP "&Help"
     BEGIN
