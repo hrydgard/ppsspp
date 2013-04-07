@@ -439,66 +439,228 @@ public:
 	u32 stackEnd;
 };
 
-// std::vector<SceUID> with push_front(), remove(), etc.
-struct ThreadList
+struct ThreadQueueList
 {
-	std::vector<SceUID> list;
+	// Number of queues (number of priority levels starting at 0.)
+	static const int NUM_QUEUES = 128;
+	// Initial number of threads a single queue can handle.
+	static const int INITIAL_CAPACITY = 32;
 
-	inline bool empty() const
+	struct Queue
 	{
-		return list.empty();
+		// Next ever-been-used queue (worse priority.)
+		Queue *next;
+		// First valid item in data.
+		int first;
+		// One after last valid item in data.
+		int end;
+		// A too-large array with room on the front and end.
+		SceUID *data;
+		// Size of data array.
+		int capacity;
+	};
+
+	ThreadQueueList()
+	{
+		memset(queues, 0, sizeof(queues));
+		first = invalid();
 	}
 
-	inline size_t size() const
+	~ThreadQueueList()
 	{
-		return list.size();
-	}
-
-	inline SceUID &front()
-	{
-		return list.front();
-	}
-
-	inline void push_front(const SceUID threadID)
-	{
-		if (empty())
-			push_back(threadID);
-		else
+		for (int i = 0; i < NUM_QUEUES; ++i)
 		{
-			size_t oldSize = list.size();
-			list.resize(oldSize + 1);
-			memmove(&list[1], &list[0], oldSize * sizeof(SceUID));
-			list[0] = threadID;
+			if (queues[i].data != NULL)
+				free(queues[i].data);
 		}
 	}
 
-	inline void push_back(const SceUID threadID)
+	inline SceUID pop_first()
 	{
-		list.push_back(threadID);
+		Queue *cur = first;
+		while (cur != invalid())
+		{
+			if (cur->end - cur->first > 0)
+				return cur->data[cur->first++];
+			cur = cur->next;
+		}
+
+		_dbg_assert_msg_(HLE, false, "ThreadQueueList should not be empty.");
+		return 0;
 	}
 
-	inline void pop_front()
+	inline void push_front(u32 priority, const SceUID threadID)
 	{
-		size_t newSize = list.size() - 1;
-		list.resize(newSize);
-		if (newSize > 0)
-			memmove(&list[0], &list[1], newSize * sizeof(SceUID));
+		Queue *cur = &queues[priority];
+		cur->data[--cur->first] = threadID;
+		if (cur->first == 0)
+			rebalance(priority);
 	}
 
-	inline void pop_back()
+	inline void push_back(u32 priority, const SceUID threadID)
 	{
-		list.pop_back();
+		Queue *cur = &queues[priority];
+		cur->data[cur->end++] = threadID;
+		if (cur->end == cur->capacity)
+			rebalance(priority);
 	}
 
-	inline void remove(const SceUID threadID)
+	inline void remove(u32 priority, const SceUID threadID)
 	{
-		list.erase(std::remove(list.begin(), list.end(), threadID), list.end());
+		Queue *cur = &queues[priority];
+		_dbg_assert_msg_(HLE, cur->next != NULL, "ThreadQueueList::Queue should already be linked up.");
+
+		for (int i = cur->first; i < cur->end; ++i)
+		{
+			if (cur->data[i] == threadID)
+			{
+				int remaining = --cur->end - i;
+				if (remaining > 0)
+					memmove(&cur->data[i], &cur->data[i + 1], remaining * sizeof(SceUID));
+				return;
+			}
+		}
+
+		// Wasn't there.
+	}
+
+	inline void rotate(u32 priority)
+	{
+		Queue *cur = &queues[priority];
+		_dbg_assert_msg_(HLE, cur->next != NULL, "ThreadQueueList::Queue should already be linked up.");
+
+		if (cur->end - cur->first > 1)
+		{
+			cur->data[cur->end++] = cur->data[cur->first++];
+			if (cur->end == cur->capacity)
+				rebalance(priority);
+		}
+	}
+
+	inline void clear()
+	{
+		for (int i = 0; i < NUM_QUEUES; ++i)
+		{
+			if (queues[i].data != NULL)
+				free(queues[i].data);
+		}
+		memset(queues, 0, sizeof(queues));
+		first = invalid();
+	}
+
+	inline bool empty(u32 priority) const
+	{
+		const Queue *cur = &queues[priority];
+		return cur->first == cur->end;
+	}
+
+	inline void prepare(u32 priority)
+	{
+		Queue *cur = &queues[priority];
+		if (cur->next == NULL)
+			link(priority, INITIAL_CAPACITY);
 	}
 
 	void DoState(PointerWrap &p)
 	{
-		p.Do(list);
+		int numQueues = NUM_QUEUES;
+		p.Do(numQueues);
+		if (numQueues != NUM_QUEUES)
+		{
+			ERROR_LOG(HLE, "Savestate loading error: invalid data");
+			return;
+		}
+
+		if (p.mode == p.MODE_READ)
+			clear();
+
+		for (int i = 0; i < NUM_QUEUES; ++i)
+		{
+			Queue *cur = &queues[i];
+			int size = cur->end - cur->first;
+			p.Do(size);
+			int capacity = cur->capacity;
+			p.Do(capacity);
+
+			if (capacity == 0)
+				continue;
+
+			if (p.mode == p.MODE_READ)
+			{
+				link(i, capacity);
+				cur->first = (cur->capacity - size) / 2;
+				cur->end = cur->first + size;
+			}
+
+			if (size != 0)
+				p.DoArray(&cur->data[cur->first], size);
+		}
+
+		p.DoMarker("ThreadQueueList");
 	}
+
+private:
+	Queue *invalid() const
+	{
+		return (Queue *) -1;
+	}
+
+	void link(u32 priority, int size)
+	{
+		_dbg_assert_msg_(HLE, queues[priority].data == NULL, "ThreadQueueList::Queue should only be initialized once.");
+
+		if (size <= INITIAL_CAPACITY)
+			size = INITIAL_CAPACITY;
+		else
+		{
+			int goal = size;
+			size = INITIAL_CAPACITY;
+			while (size < goal)
+				size *= 2;
+		}
+		Queue *cur = &queues[priority];
+		cur->data = (SceUID *) malloc(sizeof(SceUID) * size);
+		cur->capacity = size;
+		cur->first = size / 2;
+		cur->end = size / 2;
+
+		for (int i = (int) priority - 1; i >= 0; --i)
+		{
+			if (queues[i].next != NULL)
+			{
+				cur->next = queues[i].next;
+				queues[i].next = cur;
+				return;
+			}
+		}
+
+		cur->next = first;
+		first = cur;
+	}
+
+	void rebalance(u32 priority)
+	{
+		Queue *cur = &queues[priority];
+		int size = cur->end - cur->first;
+		if (size >= cur->capacity - 2)
+		{
+			cur->capacity *= 2;
+			cur->data = (SceUID *)realloc(cur->data, cur->capacity * sizeof(SceUID));
+		}
+
+		int newFirst = (cur->capacity - size) / 2;
+		if (newFirst != cur->first)
+		{
+			memmove(&cur->data[newFirst], &cur->data[cur->first], size * sizeof(SceUID));
+			cur->first = newFirst;
+			cur->end = newFirst + size;
+		}
+	}
+
+	// The first queue that's ever been used.
+	Queue *first;
+	// The priority level queues of thread ids.
+	Queue queues[NUM_QUEUES];
 };
 
 struct WaitTypeFuncs
@@ -533,7 +695,7 @@ std::vector<ThreadCallback> threadEndListeners;
 std::vector<SceUID> threadqueue;
 
 // Lists only ready thread ids.
-std::map<u32, ThreadList> threadReadyQueue;
+ThreadQueueList threadReadyQueue;
 
 SceUID threadIdleID[2];
 
@@ -750,14 +912,14 @@ void __KernelChangeReadyState(Thread *thread, SceUID threadID, bool ready)
 	if (thread->isReady())
 	{
 		if (!ready)
-			threadReadyQueue[prio].remove(threadID);
+			threadReadyQueue.remove(prio, threadID);
 	}
 	else if (ready)
 	{
 		if (thread->isRunning())
-			threadReadyQueue[prio].push_front(threadID);
+			threadReadyQueue.push_front(prio, threadID);
 		else
-			threadReadyQueue[prio].push_back(threadID);
+			threadReadyQueue.push_back(prio, threadID);
 		thread->nt.status = THREADSTATUS_READY;
 	}
 }
@@ -781,6 +943,7 @@ void __KernelStartIdleThreads()
 		t->nt.gpreg = __KernelGetModuleGP(curModule);
 		t->context.r[MIPS_REG_GP] = t->nt.gpreg;
 		//t->context.pc += 4;	// ADJUSTPC
+		threadReadyQueue.prepare(t->nt.currentPriority);
 		__KernelChangeReadyState(t, threadIdleID[i], true);
 	}
 }
@@ -1302,7 +1465,7 @@ void __KernelRemoveFromThreadQueue(SceUID threadID)
 {
 	int prio = __KernelGetThreadPrio(threadID);
 	if (prio != 0)
-		threadReadyQueue[prio].remove(threadID);
+		threadReadyQueue.remove(prio, threadID);
 
 	threadqueue.erase(std::remove(threadqueue.begin(), threadqueue.end(), threadID), threadqueue.end());
 }
@@ -1342,18 +1505,8 @@ Thread *__KernelNextThread() {
 	if (cur && cur->isRunning())
 		__KernelChangeReadyState(cur, currentThread, true);
 
-	SceUID bestThread = -1;
-	// This goes in priority order.
-	for (auto it = threadReadyQueue.begin(), end = threadReadyQueue.end(); it != end; ++it)
-	{
-		if (!it->second.empty())
-		{
-			bestThread = it->second.front();
-			break;
-		}
-	}
-
 	// Assume threadReadyQueue has not become corrupt.
+	SceUID bestThread = threadReadyQueue.pop_first();
 	if (bestThread != -1)
 		return kernelObjects.GetFast<Thread>(bestThread);
 	else
@@ -1498,6 +1651,7 @@ Thread *__KernelCreateThread(SceUID &id, SceUID moduleId, const char *name, u32 
 	id = kernelObjects.Create(t);
 
 	threadqueue.push_back(id);
+	threadReadyQueue.prepare(priority);
 
 	memset(&t->nt, 0xCD, sizeof(t->nt));
 
@@ -1822,22 +1976,17 @@ int sceKernelRotateThreadReadyQueue(int priority)
 	if (priority <= 0x07 || priority > 0x77)
 		return SCE_KERNEL_ERROR_ILLEGAL_PRIORITY;
 
-	auto &queue = threadReadyQueue[priority];
-	if (!queue.empty())
+	if (!threadReadyQueue.empty(priority))
 	{
 		// In other words, yield to everyone else.
 		if (cur->nt.currentPriority == priority)
 		{
-			queue.push_back(currentThread);
+			threadReadyQueue.push_back(priority, currentThread);
 			cur->nt.status = THREADSTATUS_READY;
 		}
 		// Yield the next thread of this priority to all other threads of same priority.
-		else if (queue.size() > 1)
-		{
-			SceUID first = queue.front();
-			queue.pop_front();
-			queue.push_back(first);
-		}
+		else
+			threadReadyQueue.rotate(priority);
 
 		hleReSchedule("rotatethreadreadyqueue");
 	}
@@ -1984,12 +2133,13 @@ void sceKernelChangeThreadPriority()
 		DEBUG_LOG(HLE,"sceKernelChangeThreadPriority(%i, %i)", id, PARAM(1));
 
 		int prio = thread->nt.currentPriority;
-		threadReadyQueue[prio].remove(id);
+		threadReadyQueue.remove(prio, id);
 
 		thread->nt.currentPriority = PARAM(1);
 
+		threadReadyQueue.prepare(thread->nt.currentPriority);
 		if (thread->isReady())
-			threadReadyQueue[thread->nt.currentPriority].push_back(id);
+			threadReadyQueue.push_back(thread->nt.currentPriority, id);
 
 		RETURN(0);
 	}
