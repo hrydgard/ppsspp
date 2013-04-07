@@ -272,12 +272,21 @@ int UITextureButton(UIContext *ctx, int id, const LayoutManager &layout, float w
 
 	// Render button
 
-	ui_draw2d.DrawImage2GridH(theme.buttonImage, x, y, x + w);
-	ui_draw2d.Flush();
-
 	if (texture) {
 		texture->Bind(0);
+
+		float tw = texture->Width();
+		float th = texture->Height();
+
+		// Adjust position so we don't stretch the image vertically or horizontally.
+		// TODO: Add a param to specify fit?  The below assumes it's never too wide.
+		float nw = h * tw / th;
+		x += (w - nw) / 2.0f;
+		w = nw;
 	} else {
+		ui_draw2d.DrawImage2GridH(theme.buttonImage, x, y, x + w);
+		ui_draw2d.Flush();
+
 		Texture::Unbind();
 	}
 
