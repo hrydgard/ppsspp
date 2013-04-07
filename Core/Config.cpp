@@ -25,7 +25,7 @@ Config g_Config;
 #ifdef _WIN32
 #define MAX_RECENT 12
 #else
-#define MAX_RECENT 4
+#define MAX_RECENT 8
 #endif
 
 Config::Config()
