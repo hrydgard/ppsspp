@@ -812,6 +812,37 @@ bool __KernelSwitchOffThread(const char *reason)
 	return false;
 }
 
+bool __KernelSwitchToThread(SceUID threadID, const char *reason)
+{
+	if (!reason)
+		reason = "switch to thread";
+
+	if (currentThread != threadIdleID[0] && currentThread != threadIdleID[1])
+	{
+		ERROR_LOG(HLE, "__KernelSwitchToThread used when already on a thread.");
+		return false;
+	}
+
+	if (currentThread == threadID)
+		return false;
+
+	u32 error;
+	Thread *t = kernelObjects.Get<Thread>(threadID, error);
+	if (!t)
+		ERROR_LOG(HLE, "__KernelSwitchToThread: %x doesn't exist", threadID)
+	else
+	{
+		Thread *current = __GetCurrentThread();
+		if (current && current->isRunning())
+			__KernelChangeReadyState(current, threadID, true);
+
+		__KernelSwitchContext(t, reason);
+		return true;
+	}
+
+	return false;
+}
+
 void __KernelIdle()
 {
 	CoreTiming::Idle();
@@ -1142,6 +1173,9 @@ bool __KernelTriggerWait(WaitType type, int id, bool useRetVal, int retVal, cons
 			if (useRetVal)
 				t->setReturnValue((u32)retVal);
 			doneAnything = true;
+
+			if (type == WAITTYPE_THREADEND)
+				__KernelCancelThreadEndTimeout(*iter);
 		}
 	}
 
@@ -1240,11 +1274,10 @@ void __KernelCancelWakeup(SceUID threadID)
 void hleThreadEndTimeout(u64 userdata, int cyclesLate)
 {
 	SceUID threadID = (SceUID) userdata;
-	SceUID waitID = (SceUID) (userdata >> 32);
 
 	u32 error;
 	// Just in case it was woken on its own.
-	if (__KernelGetWaitID(threadID, WAITTYPE_THREADEND, error) == waitID)
+	if (__KernelGetWaitID(threadID, WAITTYPE_THREADEND, error) != 0)
 	{
 		u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
 		if (Memory::IsValidAddress(timeoutPtr))
@@ -1254,10 +1287,10 @@ void hleThreadEndTimeout(u64 userdata, int cyclesLate)
 	}
 }
 
-void __KernelScheduleThreadEndTimeout(SceUID threadID, SceUID waitID, s64 usFromNow)
+void __KernelScheduleThreadEndTimeout(SceUID threadID, SceUID waitForID, s64 usFromNow)
 {
 	s64 cycles = usToCycles(usFromNow);
-	CoreTiming::ScheduleEvent(cycles, eventThreadEndTimeout, (u64) threadID | ((u64) waitID << 32));
+	CoreTiming::ScheduleEvent(cycles, eventThreadEndTimeout, threadID);
 }
 
 void __KernelCancelThreadEndTimeout(SceUID threadID)
@@ -1749,6 +1782,9 @@ void sceKernelExitDeleteThread()
 
 u32 sceKernelSuspendDispatchThread()
 {
+	if (!__InterruptsEnabled())
+		return SCE_KERNEL_ERROR_CPUDI;
+
 	u32 oldDispatchEnabled = dispatchEnabled;
 	dispatchEnabled = false;
 	DEBUG_LOG(HLE, "%i=sceKernelSuspendDispatchThread()", oldDispatchEnabled);
@@ -1757,6 +1793,9 @@ u32 sceKernelSuspendDispatchThread()
 
 u32 sceKernelResumeDispatchThread(u32 enabled)
 {
+	if (!__InterruptsEnabled())
+		return SCE_KERNEL_ERROR_CPUDI;
+
 	u32 oldDispatchEnabled = dispatchEnabled;
 	dispatchEnabled = enabled != 0;
 	DEBUG_LOG(HLE, "sceKernelResumeDispatchThread(%i) - from %i", enabled, oldDispatchEnabled);
