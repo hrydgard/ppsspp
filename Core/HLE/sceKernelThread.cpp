@@ -443,8 +443,8 @@ struct ThreadQueueList
 {
 	// Number of queues (number of priority levels starting at 0.)
 	static const int NUM_QUEUES = 128;
-	// Maximum number of threads a single queue can handle.
-	static const int MAX_THREADS = 2048;
+	// Initial number of threads a single queue can handle.
+	static const int INITIAL_CAPACITY = 32;
 
 	struct Queue
 	{
@@ -454,19 +454,15 @@ struct ThreadQueueList
 		int first;
 		// One after last valid item in data.
 		int end;
-		// A fixed size array.
+		// A too-large array with room on the front and end.
 		SceUID *data;
+		// Size of data array.
+		int capacity;
 	};
 
 	ThreadQueueList()
 	{
-		for (int i = 0; i < NUM_QUEUES; ++i)
-		{
-			queues[i].next = NULL;
-			queues[i].first = MAX_THREADS / 2;
-			queues[i].end = MAX_THREADS / 2;
-			queues[i].data = NULL;
-		}
+		memset(queues, 0, sizeof(queues));
 		first = invalid();
 	}
 
@@ -475,7 +471,7 @@ struct ThreadQueueList
 		for (int i = 0; i < NUM_QUEUES; ++i)
 		{
 			if (queues[i].data != NULL)
-				delete [] queues[i].data;
+				free(queues[i].data);
 		}
 	}
 
@@ -496,8 +492,6 @@ struct ThreadQueueList
 	inline void push_front(u32 priority, const SceUID threadID)
 	{
 		Queue *cur = &queues[priority];
-		if (cur->next == NULL)
-			link(priority);
 		cur->data[--cur->first] = threadID;
 		if (cur->first == 0)
 			rebalance(priority);
@@ -506,10 +500,8 @@ struct ThreadQueueList
 	inline void push_back(u32 priority, const SceUID threadID)
 	{
 		Queue *cur = &queues[priority];
-		if (cur->next == NULL)
-			link(priority);
 		cur->data[cur->end++] = threadID;
-		if (cur->end == MAX_THREADS)
+		if (cur->end == cur->capacity)
 			rebalance(priority);
 	}
 
@@ -540,7 +532,7 @@ struct ThreadQueueList
 		if (cur->end - cur->first > 1)
 		{
 			cur->data[cur->end++] = cur->data[cur->first++];
-			if (cur->end == MAX_THREADS)
+			if (cur->end == cur->capacity)
 				rebalance(priority);
 		}
 	}
@@ -549,15 +541,10 @@ struct ThreadQueueList
 	{
 		for (int i = 0; i < NUM_QUEUES; ++i)
 		{
-			queues[i].next = NULL;
-			queues[i].first = MAX_THREADS / 2;
-			queues[i].end = MAX_THREADS / 2;
 			if (queues[i].data != NULL)
-			{
-				delete [] queues[i].data;
-				queues[i].data = NULL;
-			}
+				free(queues[i].data);
 		}
+		memset(queues, 0, sizeof(queues));
 		first = invalid();
 	}
 
@@ -565,6 +552,13 @@ struct ThreadQueueList
 	{
 		const Queue *cur = &queues[priority];
 		return cur->first == cur->end;
+	}
+
+	inline void prepare(u32 priority)
+	{
+		Queue *cur = &queues[priority];
+		if (cur->next == NULL)
+			link(priority, INITIAL_CAPACITY);
 	}
 
 	void DoState(PointerWrap &p)
@@ -591,8 +585,8 @@ struct ThreadQueueList
 
 			if (p.mode == p.MODE_READ)
 			{
-				link(i);
-				cur->first = (MAX_THREADS - size) / 2;
+				link(i, size);
+				cur->first = (cur->capacity - size) / 2;
 				cur->end = cur->first + size;
 			}
 
@@ -608,36 +602,56 @@ private:
 		return (Queue *) -1;
 	}
 
-	void link(u32 priority)
+	void link(u32 priority, int size)
 	{
 		_dbg_assert_msg_(HLE, queues[priority].data == NULL, "ThreadQueueList::Queue should only be initialized once.");
-		queues[priority].data = new SceUID[MAX_THREADS];
+
+		if (size <= INITIAL_CAPACITY)
+			size = INITIAL_CAPACITY;
+		else
+		{
+			int goal = size;
+			size = INITIAL_CAPACITY;
+			while (size < goal)
+				size *= 2;
+		}
+		Queue *cur = &queues[priority];
+		cur->data = (SceUID *) malloc(sizeof(SceUID) * size);
+		cur->capacity = size;
+		cur->first = size / 2;
+		cur->end = size / 2;
 
 		for (int i = (int) priority - 1; i >= 0; --i)
 		{
 			if (queues[i].next != NULL)
 			{
-				queues[priority].next = queues[i].next;
-				queues[i].next = &queues[priority];
+				cur->next = queues[i].next;
+				queues[i].next = cur;
 				return;
 			}
 		}
 
-		queues[priority].next = first;
-		first = &queues[priority];
+		cur->next = first;
+		first = cur;
 	}
 
 	void rebalance(u32 priority)
 	{
 		Queue *cur = &queues[priority];
 		int size = cur->end - cur->first;
-		if (size >= MAX_THREADS / 2)
-			ERROR_LOG(HLE, "Using way more threads than expected, may crash.");
+		if (size >= cur->capacity - 2)
+		{
+			cur->capacity *= 2;
+			cur->data = (SceUID *)realloc(cur->data, cur->capacity * sizeof(SceUID));
+		}
 
-		int newFirst = (MAX_THREADS - size) / 2;
-		memmove(&cur->data[newFirst], &cur->data[cur->first], size * sizeof(SceUID));
-		cur->first = newFirst;
-		cur->end = newFirst + size;
+		int newFirst = (cur->capacity - size) / 2;
+		if (newFirst != cur->first)
+		{
+			memmove(&cur->data[newFirst], &cur->data[cur->first], size * sizeof(SceUID));
+			cur->first = newFirst;
+			cur->end = newFirst + size;
+		}
 	}
 
 	// The first queue that's ever been used.
@@ -926,6 +940,7 @@ void __KernelStartIdleThreads()
 		t->nt.gpreg = __KernelGetModuleGP(curModule);
 		t->context.r[MIPS_REG_GP] = t->nt.gpreg;
 		//t->context.pc += 4;	// ADJUSTPC
+		threadReadyQueue.prepare(t->nt.currentPriority);
 		__KernelChangeReadyState(t, threadIdleID[i], true);
 	}
 }
@@ -1633,6 +1648,7 @@ Thread *__KernelCreateThread(SceUID &id, SceUID moduleId, const char *name, u32 
 	id = kernelObjects.Create(t);
 
 	threadqueue.push_back(id);
+	threadReadyQueue.prepare(priority);
 
 	memset(&t->nt, 0xCD, sizeof(t->nt));
 
@@ -2118,6 +2134,7 @@ void sceKernelChangeThreadPriority()
 
 		thread->nt.currentPriority = PARAM(1);
 
+		threadReadyQueue.prepare(thread->nt.currentPriority);
 		if (thread->isReady())
 			threadReadyQueue.push_back(thread->nt.currentPriority, id);
 
