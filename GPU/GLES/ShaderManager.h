@@ -141,6 +141,7 @@ public:
 	LinkedShader *ApplyShader(int prim);
 	void DirtyShader();
 	void DirtyUniform(u32 what);
+	void EndFrame();  // disables vertex arrays
 
 	int NumVertexShaders() const { return (int)vsCache.size(); }
 	int NumFragmentShaders() const { return (int)fsCache.size(); }

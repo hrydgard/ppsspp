@@ -377,6 +377,13 @@ void ShaderManager::DirtyShader()
 	lastShader = 0;
 }
 
+void ShaderManager::EndFrame()  // disables vertex arrays
+{
+	if (lastShader)
+		lastShader->stop();
+	lastShader = 0;
+}
+
 
 LinkedShader *ShaderManager::ApplyShader(int prim) {
 	if (globalDirty) {

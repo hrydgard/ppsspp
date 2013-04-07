@@ -273,8 +273,8 @@ void GLES_GPU::CopyDisplayToOutput() {
 	framebufferManager_.CopyDisplayToOutput();
 	framebufferManager_.EndFrame();
 
-	shaderManager_->DirtyShader();
-	shaderManager_->DirtyUniform(DIRTY_ALL);
+	shaderManager_->EndFrame();
+
 	gstate_c.textureChanged = true;
 
 	BeginDebugDraw();
