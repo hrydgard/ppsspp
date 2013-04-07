@@ -261,8 +261,10 @@ void EmuScreen::render() {
 	DrawWatermark();
 
 	if (g_Config.bShowDebugStats) {
-		char statbuf[2048];
+		char statbuf[4096] = {0};
 		__DisplayGetDebugStats(statbuf);
+		if (statbuf[4095])
+			ERROR_LOG(HLE, "Statbuf too big");
 		ui_draw2d.SetFontScale(.7f, .7f);
 		ui_draw2d.DrawText(UBUNTU24, statbuf, 10, 10, 0xFFFFFFFF);
 		ui_draw2d.SetFontScale(1.0f, 1.0f);
