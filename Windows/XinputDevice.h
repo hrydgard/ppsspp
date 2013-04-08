@@ -8,6 +8,7 @@ class XinputDevice :
 public:
 	XinputDevice();
 	virtual int UpdateState(InputState &input_state);
+	virtual bool IsPad() { return true; }
 private:
 	void ApplyDiff(XINPUT_STATE &state, InputState &input_state);
 	int gamepad_idx;

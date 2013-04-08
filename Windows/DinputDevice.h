@@ -27,6 +27,7 @@ public:
 	DinputDevice();
 	~DinputDevice();
 	virtual int UpdateState(InputState &input_state);
+	virtual bool IsPad() { return true; }
 private:
 	LPDIRECTINPUT8			pDI;
 	LPDIRECTINPUTDEVICE8    pJoystick;
