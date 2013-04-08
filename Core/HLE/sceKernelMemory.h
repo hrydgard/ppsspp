@@ -56,4 +56,8 @@ void sceKernelReferFplStatus();
 
 int sceKernelGetCompiledSdkVersion();
 
+SceUID ThreadManForUser_8DAFF657(const char *name, u32 partitionid, u32 attr, u32 size, u32 count, u32 optionsPtr);
+int ThreadManForUser_32BF938E(SceUID uid);
+int Kernel_Library_FA835CDE(SceUID uid);
+
 void Register_SysMemUserForUser();
