@@ -26,6 +26,7 @@
 #include "sceKernel.h"
 #include "sceKernelThread.h"
 #include "sceKernelInterrupt.h"
+#include "sceKernelMemory.h"
 #include "sceKernelMutex.h"
 
 void __DisableInterrupts();
@@ -558,7 +559,7 @@ u32 sceKernelMemcpy(u32 dst, u32 src, u32 size)
 
 const HLEFunction Kernel_Library[] =
 {
-	{0x092968F4,sceKernelCpuSuspendIntr,"sceKernelCpuSuspendIntr"},
+	{0x092968F4,sceKernelCpuSuspendIntr, "sceKernelCpuSuspendIntr"},
 	{0x5F10D406,WrapV_U<sceKernelCpuResumeIntr>, "sceKernelCpuResumeIntr"}, //int oldstat
 	{0x3b84732d,WrapV_U<sceKernelCpuResumeIntrWithSync>, "sceKernelCpuResumeIntrWithSync"},
 	{0x47a0b729,sceKernelIsCpuIntrSuspended, "sceKernelIsCpuIntrSuspended"}, //flags
@@ -572,7 +573,8 @@ const HLEFunction Kernel_Library[] =
 	{0xc1734599,WrapI_UU<sceKernelReferLwMutexStatus>, "sceKernelReferLwMutexStatus"},
 	{0x293b45b8,sceKernelGetThreadId, "sceKernelGetThreadId"},
 	{0xD13BDE95,WrapI_V<sceKernelCheckThreadStack>, "sceKernelCheckThreadStack"},
-	{0x1839852A,WrapU_UUU<sceKernelMemcpy>,"sce_paf_private_memcpy"},
+	{0x1839852A,WrapU_UUU<sceKernelMemcpy>, "sce_paf_private_memcpy"},
+	{0xfa835cde,WrapI_I<Kernel_Library_FA835CDE>, "Kernel_Library_FA835CDE"},
 };
 
 void Register_Kernel_Library()

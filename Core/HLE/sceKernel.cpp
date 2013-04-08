@@ -759,6 +759,9 @@ const HLEFunction ThreadManForUser[] =
 	{0xd8b299ae,WrapU_UUUU<sceKernelSetVTimerHandler>,"sceKernelSetVTimerHandler"},
 	{0x53B00E9A,WrapU_UU64UU<sceKernelSetVTimerHandlerWide>,"sceKernelSetVTimerHandlerWide"},
 
+	{0x8daff657,WrapI_CUUUUU<ThreadManForUser_8DAFF657>,"ThreadManForUser_8DAFF657"},
+	{0x32bf938e,WrapI_I<ThreadManForUser_32BF938E>,"ThreadManForUser_32BF938E"},
+
 	// Not sure if these should be hooked up. See below.
 	{0x0E927AED, _sceKernelReturnFromTimerHandler, "_sceKernelReturnFromTimerHandler"},
 	{0x532A522E, _sceKernelExitThread,"_sceKernelExitThread"},
