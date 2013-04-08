@@ -20,7 +20,6 @@
 #include "input/input_state.h"
 #include "Core/Reporting.h"
 #include "Xinput.h"
-#pragma comment(lib,"dxguid.lib")
 #pragma comment(lib,"dinput8.lib")
 
 static const unsigned int dinput_ctrl_map[] = {
