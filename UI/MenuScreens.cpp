@@ -440,7 +440,7 @@ void SettingsScreen::render() {
 
 	UICheckBox(GEN_ID, x, y += stride, "JIT (Dynarec)", ALIGN_TOPLEFT, &g_Config.bJit);
 	if (g_Config.bJit)
-		UICheckBox(GEN_ID, x + columnw, y, "Fast Memory", ALIGN_TOPLEFT, &g_Config.bFastMemory);
+		UICheckBox(GEN_ID, x + columnw, y, "Fast Memory (unstable)", ALIGN_TOPLEFT, &g_Config.bFastMemory);
 
 	UICheckBox(GEN_ID, x, y += stride, "On-screen Touch Controls", ALIGN_TOPLEFT, &g_Config.bShowTouchControls);
 	if (g_Config.bShowTouchControls) {
