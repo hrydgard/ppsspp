@@ -195,6 +195,8 @@ void __GeShutdown()
 bool __GeTriggerSync(WaitType waitType, int id, u64 atTicks)
 {
 	u64 userdata = (u64)id << 32 | (u64) waitType;
+	if (waitType == WAITTYPE_GEDRAWSYNC)
+		CoreTiming::UnscheduleThreadsafeEvent(geSyncEvent, userdata);
 	CoreTiming::ScheduleEvent_Threadsafe(atTicks - CoreTiming::GetTicks(), geSyncEvent, userdata);
 	return true;
 }
