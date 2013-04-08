@@ -21,6 +21,7 @@
 #include "GPUState.h"
 #include <list>
 
+enum WaitType;
 class PointerWrap;
 
 enum DisplayListStatus
@@ -121,7 +122,7 @@ struct DisplayList
 	u32 stack[32];
 	int stackptr;
 	bool interrupted;
-	bool shouldWait;
+	u64 waitTicks;
 };
 
 class GPUInterface
@@ -147,6 +148,7 @@ public:
 
 	virtual void InterruptStart(int listid) = 0;
 	virtual void InterruptEnd(int listid) = 0;
+	virtual void SyncEnd(WaitType waitType, int listid, bool wokeThreads) = 0;
 
 	virtual void PreExecuteOp(u32 op, u32 diff) = 0;
 	virtual void ExecuteOp(u32 op, u32 diff) = 0;

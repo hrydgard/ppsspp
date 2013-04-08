@@ -94,6 +94,7 @@ namespace CoreTiming
 	void ScheduleEvent_Threadsafe(s64 cyclesIntoFuture, int event_type, u64 userdata=0);
 	void ScheduleEvent_Threadsafe_Immediate(int event_type, u64 userdata=0);
 	s64 UnscheduleEvent(int event_type, u64 userdata);
+	s64 UnscheduleThreadsafeEvent(int event_type, u64 userdata);
 
 	void RemoveEvent(int event_type);
 	void RemoveThreadsafeEvent(int event_type);
