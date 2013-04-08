@@ -89,7 +89,7 @@ public:
 	void DrawActiveTexture(float x, float y, float w, float h, bool flip = false);
 
 	void DestroyAllFBOs();
-	void DecimateFBOs();
+	void DecimateFBOs(bool force = false);
 
 	void BeginFrame();
 	void EndFrame();
