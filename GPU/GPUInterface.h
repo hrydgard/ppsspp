@@ -19,9 +19,9 @@
 
 #include "../Globals.h"
 #include "GPUState.h"
+#include "Core/HLE/sceKernelThread.h"
 #include <list>
 
-enum WaitType;
 class PointerWrap;
 
 enum DisplayListStatus
