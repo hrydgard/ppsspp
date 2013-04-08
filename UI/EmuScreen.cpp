@@ -266,6 +266,7 @@ void EmuScreen::render() {
 		if (statbuf[4095])
 			ERROR_LOG(HLE, "Statbuf too big");
 		ui_draw2d.SetFontScale(.7f, .7f);
+		ui_draw2d.DrawText(UBUNTU24, statbuf, 11, 11, 0xc0000000);
 		ui_draw2d.DrawText(UBUNTU24, statbuf, 10, 10, 0xFFFFFFFF);
 		ui_draw2d.SetFontScale(1.0f, 1.0f);
 	}
@@ -275,6 +276,7 @@ void EmuScreen::render() {
 		__DisplayGetFPS(&vps, &fps);
 		char fpsbuf[256];
 		sprintf(fpsbuf, "VPS: %0.1f", vps);
+		ui_draw2d.DrawText(UBUNTU24, fpsbuf, dp_xres - 8, 12, 0xc0000000, ALIGN_TOPRIGHT);
 		ui_draw2d.DrawText(UBUNTU24, fpsbuf, dp_xres - 10, 10, 0xFF3fFF3f, ALIGN_TOPRIGHT);
 	}
 	

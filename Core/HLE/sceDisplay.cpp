@@ -425,7 +425,6 @@ u32 sceDisplayIsVblank() {
 
 u32 sceDisplaySetMode(int displayMode, int displayWidth, int displayHeight) {
 	DEBUG_LOG(HLE,"sceDisplaySetMode(%i, %i, %i)", displayMode, displayWidth, displayHeight);
-	host->BeginFrame();
 
 	if (!hasSetMode) {
 		gpu->InitClear();
@@ -450,13 +449,12 @@ u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) 
 
 	if (sync == PSP_DISPLAY_SETBUF_IMMEDIATE) {
 		// Write immediately to the current framebuffer parameters
-		if (topaddr != 0)
-		{
+		if (topaddr != 0) {
 			framebuf = fbstate;
 			gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
-		}
-		else
+		} else {
 			WARN_LOG(HLE, "%s: PSP_DISPLAY_SETBUF_IMMEDIATE without topaddr?", __FUNCTION__);
+		}
 	} else if (topaddr != 0) {
 		// Delay the write until vblank
 		latchedFramebuf = fbstate;

@@ -36,6 +36,11 @@
 #include <string>
 #include <vector>
 
+// Just too many warnings...
+#ifdef _MSC_VER
+#pragma warning(disable:4267)
+#pragma warning(disable:4018)
+#endif
 
 namespace snappy {
 
