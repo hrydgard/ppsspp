@@ -195,9 +195,14 @@ void __GeShutdown()
 bool __GeTriggerSync(WaitType waitType, int id, u64 atTicks)
 {
 	u64 userdata = (u64)id << 32 | (u64) waitType;
+	s64 future = atTicks - CoreTiming::GetTicks();
 	if (waitType == WAITTYPE_GEDRAWSYNC)
-		CoreTiming::UnscheduleThreadsafeEvent(geSyncEvent, userdata);
-	CoreTiming::ScheduleEvent_Threadsafe(atTicks - CoreTiming::GetTicks(), geSyncEvent, userdata);
+	{
+		s64 left = CoreTiming::UnscheduleEvent(geSyncEvent, userdata);
+		if (left > future)
+			future = left;
+	}
+	CoreTiming::ScheduleEvent(future, geSyncEvent, userdata);
 	return true;
 }
 
@@ -205,7 +210,7 @@ bool __GeTriggerSync(WaitType waitType, int id, u64 atTicks)
 bool __GeTriggerInterrupt(int listid, u32 pc, u64 atTicks)
 {
 	u64 userdata = (u64)listid << 32 | (u64) pc;
-	CoreTiming::ScheduleEvent_Threadsafe(atTicks - CoreTiming::GetTicks(), geInterruptEvent, userdata);
+	CoreTiming::ScheduleEvent(atTicks - CoreTiming::GetTicks(), geInterruptEvent, userdata);
 	return true;
 }
 
