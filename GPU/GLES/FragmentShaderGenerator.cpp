@@ -163,18 +163,19 @@ void GenerateFragmentShader(char *buffer) {
 			if (gstate.texfunc & 0x100) { // texfmt == RGBA
 				switch (gstate.texfunc & 0x7) {
 				case GE_TEXFUNC_MODULATE:
-					WRITE(p, "  vec4 v = t * p%s;\n", secondary); break;
+					WRITE(p, "  vec4 v = p * t%s;\n", secondary); break;
 				case GE_TEXFUNC_DECAL:
-					WRITE(p, "  vec4 v = vec4((1.0 - t.a) * p.rgb + t.rgb * t.a, p.a)%s;\n", secondary); break;
+					WRITE(p, "  vec4 v = vec4(mix(p.rgb, t.rgb, t.a), p.a)%s;\n", secondary); break;
 				case GE_TEXFUNC_BLEND:
-					WRITE(p, "  vec4 v = vec4((1.0 - t.rgb) * p.rgb + t.rgb * u_texenv.rgb, p.a * t.a)%s;\n", secondary); break;
+					WRITE(p, "  vec4 v = vec4(mix(p.rgb, u_texenv.rgb, t.rgb), p.a * t.a)%s;\n", secondary); break;
 				case GE_TEXFUNC_REPLACE:
 					WRITE(p, "  vec4 v = t%s;\n", secondary); break;
 				case GE_TEXFUNC_ADD:
-					WRITE(p, "  vec4 v = vec4(t.rgb + p.rgb, p.a * t.a)%s;\n", secondary); break;
+					WRITE(p, "  vec4 v = vec4(p.rgb + t.rgb, p.a * t.a)%s;\n", secondary); break;
 				default:
 					WRITE(p, "  vec4 v = p;\n"); break;
 				}
+
 			} else {	// texfmt == RGB
 				switch (gstate.texfunc & 0x7) {
 				case GE_TEXFUNC_MODULATE:
@@ -182,11 +183,11 @@ void GenerateFragmentShader(char *buffer) {
 				case GE_TEXFUNC_DECAL:
 					WRITE(p, "  vec4 v = vec4(t.rgb, p.a)%s;\n", secondary); break;
 				case GE_TEXFUNC_BLEND:
-					WRITE(p, "  vec4 v = vec4((1.0 - t.rgb) * p.rgb + t.rgb * u_texenv.rgb, p.a)%s;\n", secondary); break;
+					WRITE(p, "  vec4 v = vec4(mix(p.rgb, u_texenv.rgb, t.rgb), p.a)%s;\n", secondary); break;
 				case GE_TEXFUNC_REPLACE:
 					WRITE(p, "  vec4 v = vec4(t.rgb, p.a)%s;\n", secondary); break;
 				case GE_TEXFUNC_ADD:
-					WRITE(p, "  vec4 v = vec4(t.rgb + p.rgb, p.a)%s;\n", secondary); break;
+					WRITE(p, "  vec4 v = vec4(p.rgb + t.rgb, p.a)%s;\n", secondary); break;
 				default:
 					WRITE(p, "  vec4 v = p;\n"); break;
 				}
