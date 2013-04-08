@@ -130,9 +130,15 @@ void WindowsHost::SetDebugMode(bool mode)
 
 void WindowsHost::PollControllers(InputState &input_state)
 {
+	bool doPad = true;
 	for (auto iter = this->input.begin(); iter != this->input.end(); iter++)
-		if ((*iter)->UpdateState(input_state) == InputDevice::UPDATESTATE_SKIP_NEXT)
-			break;
+	{
+		auto device = *iter;
+		if (!doPad && device->IsPad())
+			continue;
+		if (device->UpdateState(input_state) == InputDevice::UPDATESTATE_SKIP_PAD)
+			doPad = false;
+	}
 }
 
 void WindowsHost::BootDone()

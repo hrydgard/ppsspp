@@ -150,8 +150,6 @@ int DinputDevice::UpdateState(InputState &input_state)
 		}
 	}
 
-	if (js.lX != 0.0f || js.lY != 0.0f)
-		return UPDATESTATE_SKIP_NEXT;
-	return 0;
+	return UPDATESTATE_SKIP_PAD;
 }
 
