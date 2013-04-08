@@ -59,7 +59,7 @@ static const char basic_vs[] =
 // Aggressively delete unused FBO:s to save gpu memory.
 enum {
 	FBO_OLD_AGE = 10,
-	FBO_OLD_FORCE_AGE = 3,
+	FBO_OLD_FORCE_AGE = 5,
 	FBO_OLD_FORCE_RETAIN_FRAMES = 6,
 };
 
