@@ -1419,10 +1419,19 @@ u32 sceMpegAvcResourceInit(u32 mpeg)
 
 
 int sceMpegAvcConvertToYuv420(u32 mpeg, u32 bufferOutput, u32 unknown1, int unknown2)
- {
- ERROR_LOG(HLE, "UNIMPL sceMpegAvcConvertToYuv420(%08x, %08x, %08x, %08x)", mpeg, bufferOutput, unknown1, unknown2);
- return 0;
- }
+{
+	ERROR_LOG(HLE, "UNIMPL sceMpegAvcConvertToYuv420(%08x, %08x, %08x, %08x)", mpeg, bufferOutput, unknown1, unknown2);
+	return 0;
+}
+
+int sceMpegGetUserdataAu(u32 mpeg, u32 streamUid, u32 auAddr, u32 resultAddr)
+{
+	ERROR_LOG(HLE, "UNIMPL sceMpegGetUserdataAu(%08x, %08x, %08x, %08x)", mpeg, streamUid, auAddr, resultAddr);
+	// TODO: Are these at all right?  Seen in Phantasy Star Portable 2.
+	Memory::Write_U32(0, resultAddr);
+	Memory::Write_U32(0, resultAddr + 4);
+	return 0;
+}
 
 /* MP3 */
 int sceMp3Decode(u32 mp3, u32 outPcmPtr)
@@ -1799,7 +1808,7 @@ const HLEFunction sceMpeg[] =
 	{0xaf26bb01,WrapU_U<sceMpegAvcResourceGetAvcEsBuf>,"sceMpegAvcResourceGetAvcEsBuf"},
 	{0xfcbdb5ad,WrapU_U<sceMpegAvcResourceInit>,"sceMpegAvcResourceInit"},
 	{0xF5E7EA31,WrapI_UUUI<sceMpegAvcConvertToYuv420>,"sceMpegAvcConvertToYuv420"},
-	{0x01977054,0,"sceMpegQueryUserdataEsSize"},
+	{0x01977054,WrapI_UUUU<sceMpegGetUserdataAu>,"sceMpegGetUserdataAu"},
 };
 
 const HLEFunction sceMp3[] =
