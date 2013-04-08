@@ -1173,6 +1173,30 @@ u32 GetMemoryBlockPtr(u32 uid, u32 addr) {
 	return 0;
 }
 
+// These aren't really in sysmem, but they are memory related?
+
+SceUID ThreadManForUser_8DAFF657(const char *name, u32 partitionid, u32 attr, u32 size, u32 count, u32 optionsPtr)
+{
+	u32 totalSize = size * count;
+	u32 blockPtr = userMemory.Alloc(totalSize, (attr & 0x4000) != 0, name);
+	userMemory.ListBlocks();
+	ERROR_LOG(HLE, "UNIMPL %08x=ThreadManForUser_8DAFF657(%s, %d, %08x, %d, %d, %08x)", blockPtr, name, partitionid, attr, size, count, optionsPtr);
+	return blockPtr;
+}
+
+int ThreadManForUser_32BF938E(SceUID uid)
+{
+	ERROR_LOG(HLE, "UNIMPL ThreadManForUser_32BF938E(%08x)", uid);
+	userMemory.Free(uid);
+	return 0;
+}
+
+int Kernel_Library_FA835CDE(SceUID uid)
+{
+	ERROR_LOG(HLE, "UNIMPL Kernel_Library_FA835CDE(%08x)", uid);
+	return uid;
+}
+
 const HLEFunction SysMemUserForUser[] = {
 	{0xA291F107,sceKernelMaxFreeMemSize,"sceKernelMaxFreeMemSize"},
 	{0xF919F628,sceKernelTotalFreeMemSize,"sceKernelTotalFreeMemSize"},
