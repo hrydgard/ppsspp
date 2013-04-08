@@ -58,7 +58,9 @@ static const char basic_vs[] =
 
 // Aggressively delete unused FBO:s to save gpu memory.
 enum {
-	FBO_OLD_AGE = 5
+	FBO_OLD_AGE = 10,
+	FBO_OLD_FORCE_AGE = 5,
+	FBO_OLD_FORCE_RETAIN_FRAMES = 6,
 };
 
 static bool MaskedEqual(u32 addr1, u32 addr2) {
@@ -388,6 +390,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		currentRenderVfb_ = vfb;
 
 		INFO_LOG(HLE, "Creating FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
+		DecimateFBOs(true);
 
 	// We already have it!
 	} else if (vfb != currentRenderVfb_) {
@@ -552,7 +555,17 @@ std::vector<FramebufferInfo> FramebufferManager::GetFramebufferList() {
 	return list;
 }
 
-void FramebufferManager::DecimateFBOs() {
+void FramebufferManager::DecimateFBOs(bool force) {
+	static int retainForce = 0;
+	if (force)
+		retainForce = FBO_OLD_FORCE_RETAIN_FRAMES;
+
+	int oldAge = FBO_OLD_AGE;
+	if (retainForce) {
+		--retainForce;
+		oldAge = FBO_OLD_FORCE_AGE;
+	}
+
 	fbo_unbind();
 	for (auto iter = vfbs_.begin(); iter != vfbs_.end();) {
 		VirtualFramebuffer *vfb = *iter;
@@ -561,7 +574,7 @@ void FramebufferManager::DecimateFBOs() {
 			continue;
 		}
 		int age = gpuStats.numFrames - (*iter)->last_frame_used;
-		if (age > FBO_OLD_AGE) {
+		if (age > oldAge) {
 			INFO_LOG(HLE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age)
 			if (vfb->fbo) {
 				textureCache_->NotifyFramebufferDestroyed(vfb->fb_address, vfb);
