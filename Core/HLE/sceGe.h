@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "Core/HLE/sceKernelThread.h"
+
 #define SCE_GE_LIST_COMPLETED		0
 #define SCE_GE_LIST_QUEUED			1
 #define SCE_GE_LIST_DRAWING			2
@@ -39,7 +41,8 @@ void Register_sceGe_user();
 void __GeInit();
 void __GeDoState(PointerWrap &p);
 void __GeShutdown();
-bool __GeTriggerInterrupt(int listid, u32 pc);
+bool __GeTriggerSync(WaitType waitType, int id, u64 atTicks);
+bool __GeTriggerInterrupt(int listid, u32 pc, u64 atTicks);
 bool __GeHasPendingInterrupt();
 
 

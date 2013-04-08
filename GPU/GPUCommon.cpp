@@ -16,14 +16,14 @@
 GPUCommon::GPUCommon() :
 	currentList(NULL),
 	isbreak(false),
-	drawComplete(true),
+	drawCompleteTicks(0),
 	dumpNextFrame_(false),
 	dumpThisFrame_(false),
 	interruptsEnabled_(true)
 {
 	for (int i = 0; i < DisplayListMaxCount; ++i) {
 		dls[i].state = PSP_GE_DL_STATE_NONE;
-		dls[i].shouldWait = false;
+		dls[i].waitTicks = 0;
 	}
 }
 
@@ -47,7 +47,7 @@ u32 GPUCommon::DrawSync(int mode) {
 
 	if (mode == 0) {
 		// TODO: What if dispatch / interrupts disabled?
-		if (!drawComplete) {
+		if (drawCompleteTicks > CoreTiming::GetTicks()) {
 			__KernelWaitCurThread(WAITTYPE_GEDRAWSYNC, 1, 0, 0, false, "GeDrawSync");
 		} else {
 			for (int i = 0; i < DisplayListMaxCount; ++i) {
@@ -116,7 +116,7 @@ int GPUCommon::ListSync(int listid, int mode)
 		}
 	}
 
-	if (dl.shouldWait) {
+	if (dl.waitTicks > CoreTiming::GetTicks()) {
 		__KernelWaitCurThread(WAITTYPE_GELISTSYNC, listid, 0, 0, false, "GeListSync");
 	}
 	return PSP_GE_LIST_COMPLETED;
@@ -139,6 +139,7 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head)
 		oldCompatibility = false;
 	}
 
+	u64 currentTicks = CoreTiming::GetTicks();
 	for (int i = 0; i < DisplayListMaxCount; ++i)
 	{
 		if (dls[i].state != PSP_GE_DL_STATE_NONE && dls[i].state != PSP_GE_DL_STATE_COMPLETED) {
@@ -157,7 +158,7 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head)
 			id = i;
 			break;
 		}
-		if (id < 0 && dls[i].state == PSP_GE_DL_STATE_COMPLETED)
+		if (id < 0 && dls[i].state == PSP_GE_DL_STATE_COMPLETED && dls[i].waitTicks < currentTicks)
 		{
 			id = i;
 		}
@@ -181,7 +182,7 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head)
 	dl.stackptr = 0;
 	dl.signal = PSP_GE_SIGNAL_NONE;
 	dl.interrupted = false;
-	dl.shouldWait = true;
+	dl.waitTicks = (u64)-1;
 
 	if (head) {
 		if (currentList) {
@@ -202,7 +203,7 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head)
 		currentList = &dl;
 		dlQueue.push_front(id);
 
-		drawComplete = false;
+		drawCompleteTicks = (u64)-1;
 
 		// TODO save context when starting the list if param is set
 		ProcessDLQueue();
@@ -226,7 +227,7 @@ u32 GPUCommon::DequeueList(int listid)
 	else
 		dlQueue.remove(listid);
 
-	dls[listid].shouldWait = false;
+	dls[listid].waitTicks = 0;
 	__KernelTriggerWait(WAITTYPE_GELISTSYNC, listid, 0, "GeListSync");
 
 	CheckDrawSync();
@@ -265,7 +266,7 @@ u32 GPUCommon::Continue()
 			// TODO Restore BASE
 
 			// We have a list now, so it's not complete.
-			drawComplete = false;
+			drawCompleteTicks = (u64)-1;
 		}
 		else
 			currentList->state = PSP_GE_DL_STATE_QUEUED;
@@ -425,7 +426,8 @@ bool GPUCommon::InterpretList(DisplayList &list)
 
 inline void GPUCommon::UpdateCycles(u32 pc, u32 newPC)
 {
-	cyclesExecuted += (pc - cycleLastPC) / 4;
+	// Rough estimate, 2 CPU ticks (it's double the clock rate) per GPU instruction.
+	cyclesExecuted += 2 * (pc - cycleLastPC) / 4;
 	cycleLastPC = newPC == 0 ? pc : newPC;
 }
 
@@ -453,15 +455,8 @@ bool GPUCommon::ProcessDLQueue()
 	}
 	currentList = NULL;
 
-	drawComplete = true;
-	if (__KernelTriggerWait(WAITTYPE_GEDRAWSYNC, 1, 0, "GeDrawSync"))
-	{
-		for (int i = 0; i < DisplayListMaxCount; ++i) {
-			if (dls[i].state == PSP_GE_DL_STATE_COMPLETED) {
-				dls[i].state = PSP_GE_DL_STATE_NONE;
-			}
-		}
-	}
+	drawCompleteTicks = startingTicks + cyclesExecuted;
+	__GeTriggerSync(WAITTYPE_GEDRAWSYNC, 1, drawCompleteTicks);
 
 	return true; //no more lists!
 }
@@ -622,7 +617,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 				}
 				// TODO: Technically, jump/call/ret should generate an interrupt, but before the pc change maybe?
 				if (interruptsEnabled_ && trigger) {
-					if (__GeTriggerInterrupt(currentList->id, currentList->pc))
+					if (__GeTriggerInterrupt(currentList->id, currentList->pc, startingTicks + cyclesExecuted))
 						gpuState = GPUSTATE_INTERRUPT;
 				}
 			}
@@ -631,7 +626,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 			switch (currentList->signal) {
 			case PSP_GE_SIGNAL_HANDLER_PAUSE:
 				if (interruptsEnabled_) {
-					if (__GeTriggerInterrupt(currentList->id, currentList->pc))
+					if (__GeTriggerInterrupt(currentList->id, currentList->pc, startingTicks + cyclesExecuted))
 						gpuState = GPUSTATE_INTERRUPT;
 				}
 				break;
@@ -645,9 +640,9 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 				currentList->subIntrToken = prev & 0xFFFF;
 				currentList->state = PSP_GE_DL_STATE_COMPLETED;
 				gpuState = GPUSTATE_DONE;
-				if (!interruptsEnabled_ || !__GeTriggerInterrupt(currentList->id, currentList->pc)) {
-					currentList->shouldWait = false;
-					__KernelTriggerWait(WAITTYPE_GELISTSYNC, currentList->id, 0, "GeListSync", true);
+				if (!interruptsEnabled_ || !__GeTriggerInterrupt(currentList->id, currentList->pc, startingTicks + cyclesExecuted)) {
+					currentList->waitTicks = startingTicks + cyclesExecuted;
+					__GeTriggerSync(WAITTYPE_GELISTSYNC, currentList->id, currentList->waitTicks);
 				}
 				break;
 			}
@@ -682,7 +677,7 @@ void GPUCommon::DoState(PointerWrap &p) {
 	p.Do(prev);
 	p.Do(gpuState);
 	p.Do(isbreak);
-	p.Do(drawComplete);
+	p.Do(drawCompleteTicks);
 	p.DoMarker("GPUCommon");
 }
 
@@ -697,10 +692,23 @@ void GPUCommon::InterruptEnd(int listid)
 
 	DisplayList &dl = dls[listid];
 	// TODO: Unless the signal handler could change it?
-	if (dl.state == PSP_GE_DL_STATE_COMPLETED) {
-		dl.shouldWait = false;
+	if (dl.state == PSP_GE_DL_STATE_COMPLETED || dl.state == PSP_GE_DL_STATE_NONE) {
+		dl.waitTicks = 0;
 		__KernelTriggerWait(WAITTYPE_GELISTSYNC, listid, 0, "GeListSync", true);
 	}
 
 	ProcessDLQueue();
+}
+
+// TODO: Maybe cleaner to keep this in GE and trigger the clear directly?
+void GPUCommon::SyncEnd(WaitType waitType, int listid, bool wokeThreads)
+{
+	if (waitType == WAITTYPE_GEDRAWSYNC && wokeThreads)
+	{
+		for (int i = 0; i < DisplayListMaxCount; ++i) {
+			if (dls[i].state == PSP_GE_DL_STATE_COMPLETED) {
+				dls[i].state = PSP_GE_DL_STATE_NONE;
+			}
+		}
+	}
 }

@@ -19,6 +19,7 @@
 #include "../MIPS/MIPS.h"
 #include "../System.h"
 #include "../CoreParameter.h"
+#include "../CoreTiming.h"
 #include "../Reporting.h"
 #include "sceGe.h"
 #include "sceKernelMemory.h"
@@ -37,6 +38,8 @@ struct GeInterruptData
 };
 
 static std::list<GeInterruptData> ge_pending_cb;
+static int geSyncEvent;
+static int geInterruptEvent;
 
 class GeIntrHandler : public IntrHandler
 {
@@ -100,7 +103,8 @@ public:
 		ge_pending_cb.pop_front();
 		gpu->InterruptEnd(intrdata.listid);
 
-		WARN_LOG(HLE, "Ignoring interrupt for display list %d, already been released.", intrdata.listid);
+		if (subintr >= 0)
+			WARN_LOG(HLE, "Ignoring interrupt for display list %d, already been released.", intrdata.listid);
 		return false;
 	}
 
@@ -137,11 +141,34 @@ public:
 	}
 };
 
+void __GeExecuteSync(u64 userdata, int cyclesLate)
+{
+	int listid = userdata >> 32;
+	WaitType waitType = (WaitType) (userdata & 0xFFFFFFFF);
+	bool wokeThreads = __KernelTriggerWait(waitType, listid, 0, "GeSync", true);
+	gpu->SyncEnd(waitType, listid, wokeThreads);
+}
+
+void __GeExecuteInterrupt(u64 userdata, int cyclesLate)
+{
+	int listid = userdata >> 32;
+	u32 pc = userdata & 0xFFFFFFFF;
+
+	GeInterruptData intrdata;
+	intrdata.listid = listid;
+	intrdata.pc     = pc;
+	ge_pending_cb.push_back(intrdata);
+	__TriggerInterrupt(PSP_INTR_IMMEDIATE, PSP_GE_INTR, PSP_INTR_SUB_NONE);
+}
+
 void __GeInit()
 {
 	memset(&ge_used_callbacks, 0, sizeof(ge_used_callbacks));
 	ge_pending_cb.clear();
 	__RegisterIntrHandler(PSP_GE_INTR, new GeIntrHandler());
+
+	geSyncEvent = CoreTiming::RegisterEvent("GeSyncEvent", &__GeExecuteSync);
+	geInterruptEvent = CoreTiming::RegisterEvent("GeInterruptEvent", &__GeExecuteInterrupt);
 }
 
 void __GeDoState(PointerWrap &p)
@@ -149,6 +176,12 @@ void __GeDoState(PointerWrap &p)
 	p.DoArray(ge_callback_data, ARRAY_SIZE(ge_callback_data));
 	p.DoArray(ge_used_callbacks, ARRAY_SIZE(ge_used_callbacks));
 	p.Do(ge_pending_cb);
+
+	p.Do(geSyncEvent);
+	CoreTiming::RestoreRegisterEvent(geSyncEvent, "GeSyncEvent", &__GeExecuteSync);
+	p.Do(geInterruptEvent);
+	CoreTiming::RestoreRegisterEvent(geInterruptEvent, "GeInterruptEvent", &__GeExecuteInterrupt);
+
 	// Everything else is done in sceDisplay.
 	p.DoMarker("sceGe");
 }
@@ -158,19 +191,26 @@ void __GeShutdown()
 
 }
 
-bool __GeTriggerInterrupt(int listid, u32 pc)
+// Warning: may be called from the GPU thread.
+bool __GeTriggerSync(WaitType waitType, int id, u64 atTicks)
 {
-	// ClaDun X2 does not expect sceGeListEnqueue to reschedule (which it does not on the PSP.)
-	// Once PPSSPP's GPU uses cycles, we can remove this check.
-	DisplayList* dl = gpu->getList(listid);
-	if (dl != NULL && dl->subIntrBase < 0)
-		return false;
+	u64 userdata = (u64)id << 32 | (u64) waitType;
+	s64 future = atTicks - CoreTiming::GetTicks();
+	if (waitType == WAITTYPE_GEDRAWSYNC)
+	{
+		s64 left = CoreTiming::UnscheduleEvent(geSyncEvent, userdata);
+		if (left > future)
+			future = left;
+	}
+	CoreTiming::ScheduleEvent(future, geSyncEvent, userdata);
+	return true;
+}
 
-	GeInterruptData intrdata;
-	intrdata.listid = listid;
-	intrdata.pc     = pc;
-	ge_pending_cb.push_back(intrdata);
-	__TriggerInterrupt(PSP_INTR_HLE, PSP_GE_INTR, PSP_INTR_SUB_NONE);
+// Warning: may be called from the GPU thread.
+bool __GeTriggerInterrupt(int listid, u32 pc, u64 atTicks)
+{
+	u64 userdata = (u64)listid << 32 | (u64) pc;
+	CoreTiming::ScheduleEvent(atTicks - CoreTiming::GetTicks(), geInterruptEvent, userdata);
 	return true;
 }
 
