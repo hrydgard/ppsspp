@@ -22,19 +22,20 @@
 #include "Core/Reporting.h"
 #include "Common/FileUtil.h"
 #include "../Host.h"
-#include "../MIPS/MIPS.h"
-#include "../MIPS/MIPSAnalyst.h"
-#include "../ELF/ElfReader.h"
-#include "../ELF/PrxDecrypter.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSAnalyst.h"
+#include "Core/ELF/ElfReader.h"
+#include "Core/ELF/PBPReader.h"
+#include "Core/ELF/PrxDecrypter.h"
 #include "../Debugger/SymbolMap.h"
 #include "../FileSystems/FileSystem.h"
 #include "../FileSystems/MetaFileSystem.h"
 #include "../Util/BlockAllocator.h"
-#include "../CoreTiming.h"
-#include "../PSPLoaders.h"
-#include "../System.h"
-#include "../MemMap.h"
-#include "../Debugger/SymbolMap.h"
+#include "Core/CoreTiming.h"
+#include "Core/PSPLoaders.h"
+#include "Core/System.h"
+#include "Core/MemMap.h"
+#include "Core/Debugger/SymbolMap.h"
 
 #include "sceKernel.h"
 #include "sceKernelModule.h"
@@ -598,43 +599,22 @@ bool __KernelLoadPBP(const char *filename, std::string *error_string)
 		"PIC1.PNG", "SND0.AT3", "UNKNOWN.PSP", "UNKNOWN.PSAR"
 	};
 
-	std::ifstream in(filename, std::ios::binary);
-
-	char temp[4];
-	in.read(temp,4);
-
-	if (memcmp(temp,"\0PBP",4) != 0)
-	{
-		//This is not a valid file!
+	PBPReader pbp(filename);
+	if (!pbp.IsValid()) {
 		ERROR_LOG(LOADER,"%s is not a valid homebrew PSP1.0 PBP",filename);
 		*error_string = "Not a valid homebrew PBP";
 		return false;
 	}
 
-	u32 version, offset0, offsets[16];
-	int numfiles;
-
-	in.read((char*)&version,4);
-
-	in.read((char*)&offset0,4);
-	numfiles = (offset0 - 8) / 4;
-	offsets[0] = offset0;
-	for (int i = 1; i < numfiles; i++)
-		in.read((char*)&offsets[i], 4);
-
-	// The 6th is always the executable?
-	in.seekg(offsets[5]);
-	//in.read((char*)&id,4);
-	{
-		u8 *elftemp = new u8[1024*1024*8];
-		in.read((char*)elftemp, 1024*1024*8);
-		Module *module = __KernelLoadELFFromPtr(elftemp, PSP_GetDefaultLoadAddress(), error_string);
-		if (!module)
-			return false;
-		mipsr4k.pc = module->nm.entry_addr;
-		delete [] elftemp;
+	size_t elfSize;
+	u8 *elfData = pbp.GetSubFile(PBP_EXECUTABLE_PSP, &elfSize);
+	Module *module = __KernelLoadELFFromPtr(elfData, PSP_GetDefaultLoadAddress(), error_string);
+	if (!module) {
+		delete [] elfData;
+		return false;
 	}
-	in.close();
+	mipsr4k.pc = module->nm.entry_addr;
+	delete [] elfData;
 	return true;
 }
 

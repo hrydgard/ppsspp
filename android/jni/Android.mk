@@ -158,6 +158,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/GPU/GLES/FragmentShaderGenerator.cpp \
   $(SRC)/GPU/Null/NullGpu.cpp \
   $(SRC)/Core/ELF/ElfReader.cpp \
+  $(SRC)/Core/ELF/PBPReader.cpp \
   $(SRC)/Core/ELF/PrxDecrypter.cpp \
   $(SRC)/Core/ELF/ParamSFO.cpp \
   $(SRC)/Core/HW/MemoryStick.cpp \

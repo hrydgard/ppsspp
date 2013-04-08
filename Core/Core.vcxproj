@@ -158,6 +158,7 @@
     <ClCompile Include="Dialog\SavedataParam.cpp" />
     <ClCompile Include="ELF\ElfReader.cpp" />
     <ClCompile Include="ELF\ParamSFO.cpp" />
+    <ClCompile Include="ELF\PBPReader.cpp" />
     <ClCompile Include="ELF\PrxDecrypter.cpp" />
     <ClCompile Include="FileSystems\BlockDevices.cpp" />
     <ClCompile Include="FileSystems\DirectoryFileSystem.cpp" />
@@ -331,6 +332,7 @@
     <ClInclude Include="ELF\ElfReader.h" />
     <ClInclude Include="ELF\ElfTypes.h" />
     <ClInclude Include="ELF\ParamSFO.h" />
+    <ClInclude Include="ELF\PBPReader.h" />
     <ClInclude Include="ELF\PrxDecrypter.h" />
     <ClInclude Include="FileSystems\BlockDevices.h" />
     <ClInclude Include="FileSystems\DirectoryFileSystem.h" />

@@ -24,6 +24,7 @@
 #include "GameInfoCache.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/FileSystems/DirectoryFileSystem.h"
+#include "Core/ELF/PBPReader.h"
 
 GameInfoCache g_gameInfoCache;
 
@@ -137,7 +138,44 @@ again:
 	if (startsWith(gamePath, "ms0:/PSP/GAME")) {
 		return 0;
 	// TODO: The case of these extensions is not perfect.
-	} else if (endsWith(gamePath, ".PBP") || endsWith(gamePath, ".elf") || endsWith(gamePath, ".prx")) {
+	} else if (endsWith(gamePath, ".PBP")) {
+		PBPReader pbp(gamePath.c_str());
+		if (!pbp.IsValid())
+			return 0;
+		GameInfo *info = new GameInfo();
+		info->wantBG = wantBG;
+
+		// First, PARAM.SFO.
+		size_t sfoSize;
+		u8 *sfoData = pbp.GetSubFile(PBP_PARAM_SFO, &sfoSize);
+		{
+			lock_guard lock(info->lock);
+			info->paramSFO.ReadSFO(sfoData, sfoSize);
+			info->title = info->paramSFO.GetValueString("TITLE");
+		}
+		delete [] sfoData;
+
+		// Then, ICON0.PNG.
+		{
+			lock_guard lock(info->lock);
+			if (pbp.GetSubFileSize(PBP_ICON0_PNG) > 0) {
+				pbp.GetSubFileAsString(PBP_ICON0_PNG, &info->iconTextureData);
+			} else {
+				// We should load a default image here.
+			}
+		}
+
+		if (info->wantBG) {
+			{
+				lock_guard lock(info->lock);
+				if (pbp.GetSubFileSize(PBP_PIC1_PNG) > 0)
+					pbp.GetSubFileAsString(PBP_PIC1_PNG, &info->pic1TextureData);
+			}
+		}
+		info_[gamePath] = info;
+		return info;
+
+	} else if (endsWith(gamePath, ".elf") || endsWith(gamePath, ".prx")) {
 		return 0;
 	} else {
 		SequentialHandleAllocator handles;

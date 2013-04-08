@@ -695,6 +695,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/ELF/ElfReader.cpp
 	Core/ELF/ElfReader.h
 	Core/ELF/ElfTypes.h
+	Core/ELF/PBPReader.cpp
+	Core/ELF/PBPReader.h
 	Core/ELF/PrxDecrypter.cpp
 	Core/ELF/PrxDecrypter.h
 	Core/ELF/ParamSFO.cpp
