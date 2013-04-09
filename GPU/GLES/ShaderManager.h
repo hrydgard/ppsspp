@@ -74,6 +74,8 @@ public:
 	int u_lightpos[4];
 	int u_lightdir[4];
 	int u_lightatt[4];  // attenuation
+	int u_lightangle[4]; // spotlight cone angle (cosine)
+	int u_lightspotCoef[4]; // spotlight dropoff
 	int u_lightdiffuse[4];  // each light consist of vec4[3]
 	int u_lightspecular[4];  // attenuation
 	int u_lightambient[4];  // attenuation

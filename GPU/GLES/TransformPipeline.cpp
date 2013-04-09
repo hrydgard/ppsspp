@@ -288,8 +288,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		float distanceToLight = toLight.Length();
 		float dot = 0.0f;
 
-		if (distanceToLight > 0.0f)
-		{
+		if (distanceToLight > 0.0f) {
 			toLight /= distanceToLight;
 			dot = toLight * norm;
 		}
@@ -300,10 +299,19 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 			dot = powf(dot, specCoef_);
 
 		float lightScale = 1.0f;
-		if (type != GE_LIGHTTYPE_DIRECTIONAL)
-		{
+		if (type != GE_LIGHTTYPE_DIRECTIONAL) {
 			lightScale = 1.0f / (gstate_c.lightatt[l][0] + gstate_c.lightatt[l][1]*distanceToLight + gstate_c.lightatt[l][2]*distanceToLight*distanceToLight);
 			if (lightScale > 1.0f) lightScale = 1.0f;
+		}
+
+		if (type == GE_LIGHTTYPE_SPOT) {
+			Vec3 lightDir = gstate_c.lightdir[l];
+			lightDir.Normalize();
+			float angle = toLight * lightDir;
+			if (angle < gstate_c.lightangle[l])
+				lightScale = 0.0f;
+			else
+				lightScale *= powf(angle, gstate_c.lightspotCoef[l]);
 		}
 
 		Color4 lightDiff(gstate_c.lightColor[1][l], 0.0f);
