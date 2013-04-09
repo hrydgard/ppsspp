@@ -46,7 +46,7 @@ bool CanUseHardwareTransform(int prim)
 // prim so we can special case for RECTANGLES :(
 void ComputeVertexShaderID(VertexShaderID *id, int prim)
 {
-	int doTexture = (gstate.textureMapEnable & 1) && !(gstate.isModeClear());
+	int doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
 
 	bool hasColor = (gstate.vertType & GE_VTYPE_COL_MASK) != 0;
 	bool hasNormal = (gstate.vertType & GE_VTYPE_NRM_MASK) != 0;
@@ -142,8 +142,8 @@ void GenerateVertexShader(int prim, char *buffer) {
 	WRITE(p, "#define mediump\n");
 #endif
 
-	int lmode = (gstate.lmode & 1) && (gstate.lightingEnable & 1);
-	int doTexture = (gstate.textureMapEnable & 1) && !(gstate.clearmode & 1);
+	int lmode = (gstate.lmode & 1) && gstate.isLightingEnabled();
+	int doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
 
 	bool hwXForm = CanUseHardwareTransform(prim);
 	bool hasColor = (gstate.vertType & GE_VTYPE_COL_MASK) != 0 || !hwXForm;
@@ -340,8 +340,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 			if (type != GE_LIGHTTYPE_DIRECTIONAL) {
 				// Attenuation
 				WRITE(p, "  float distance%i = length(toLight%i);\n", i, i);
-				WRITE(p, "  lightScale%i = 1.0 / dot(u_lightatt%i, vec3(1.0, distance%i, distance%i*distance%i));\n", i, i, i, i, i);
-				WRITE(p, "  if (lightScale%i > 1.0) lightScale%i = 1.0;\n", i, i);
+				WRITE(p, "  lightScale%i = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance%i, distance%i*distance%i)), 0.0, 1.0);\n", i, i, i, i, i);
 			}
 			WRITE(p, "  vec3 diffuse%i = (u_lightdiffuse%i * %s) * (max(dot%i, 0.0) * lightScale%i);\n", i, i, diffuse, i, i);
 			if (doSpecular) {
