@@ -404,6 +404,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		if (g_Config.bBufferedRendering && vfb->fbo) {
 			fbo_bind_as_render_target(vfb->fbo);
 		} else {
+			vfb->fbo = 0;
 			fbo_unbind();
 
 			// Let's ignore rendering to targets that have not (yet) been displayed.
