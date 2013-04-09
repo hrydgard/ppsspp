@@ -17,6 +17,7 @@ GPUCommon::GPUCommon() :
 	currentList(NULL),
 	isbreak(false),
 	drawCompleteTicks(0),
+	busyTicks(0),
 	dumpNextFrame_(false),
 	dumpThisFrame_(false),
 	interruptsEnabled_(true)
@@ -417,7 +418,7 @@ bool GPUCommon::InterpretList(DisplayList &list)
 		prev = op;
 	}
 
-	UpdateCycles(list.pc);
+	UpdateCycles(list.pc - 4, list.pc);
 
 	time_update();
 	gpuStats.msProcessingDisplayLists += time_now_d() - start;
@@ -435,6 +436,12 @@ bool GPUCommon::ProcessDLQueue()
 {
 	startingTicks = CoreTiming::GetTicks();
 	cyclesExecuted = 0;
+
+	if (startingTicks < busyTicks)
+	{
+		DEBUG_LOG(HLE, "Can't execute a list yet, still busy for %lld ticks", busyTicks - startingTicks);
+		return false;
+	}
 
 	DisplayListQueue::iterator iter = dlQueue.begin();
 	while (iter != dlQueue.end())
@@ -456,6 +463,7 @@ bool GPUCommon::ProcessDLQueue()
 	currentList = NULL;
 
 	drawCompleteTicks = startingTicks + cyclesExecuted;
+	busyTicks = std::max(busyTicks, drawCompleteTicks);
 	__GeTriggerSync(WAITTYPE_GEDRAWSYNC, 1, drawCompleteTicks);
 
 	return true; //no more lists!
@@ -642,6 +650,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 				gpuState = GPUSTATE_DONE;
 				if (!interruptsEnabled_ || !__GeTriggerInterrupt(currentList->id, currentList->pc, startingTicks + cyclesExecuted)) {
 					currentList->waitTicks = startingTicks + cyclesExecuted;
+					busyTicks = std::max(busyTicks, currentList->waitTicks);
 					__GeTriggerSync(WAITTYPE_GELISTSYNC, currentList->id, currentList->waitTicks);
 				}
 				break;
@@ -678,6 +687,8 @@ void GPUCommon::DoState(PointerWrap &p) {
 	p.Do(gpuState);
 	p.Do(isbreak);
 	p.Do(drawCompleteTicks);
+	// TODO
+	//p.Do(busyTicks);
 	p.DoMarker("GPUCommon");
 }
 

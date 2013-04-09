@@ -45,6 +45,7 @@ protected:
 	GPUState gpuState;
 	bool isbreak;
 	u64 drawCompleteTicks;
+	u64 busyTicks;
 
 	u64 startingTicks;
 	u32 cycleLastPC;
