@@ -21,7 +21,7 @@
 #include "Common/Log.h"
 #include "Core/ELF/PBPReader.h"
 
-PBPReader::PBPReader(const char *filename) {
+PBPReader::PBPReader(const char *filename) : header_() {
 	file_ = fopen(filename, "rb");
 	if (!file_) {
 		return;
