@@ -687,8 +687,7 @@ void GPUCommon::DoState(PointerWrap &p) {
 	p.Do(gpuState);
 	p.Do(isbreak);
 	p.Do(drawCompleteTicks);
-	// TODO
-	//p.Do(busyTicks);
+	p.Do(busyTicks);
 	p.DoMarker("GPUCommon");
 }
 

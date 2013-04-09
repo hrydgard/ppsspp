@@ -187,6 +187,7 @@ void __KernelDoState(PointerWrap &p)
 	__ImposeDoState(p);
 	__IoDoState(p);
 	__MpegDoState(p);
+	__NetDoState(p);
 	__PowerDoState(p);
 	__PsmfDoState(p);
 	__PsmfPlayerDoState(p);
@@ -197,9 +198,6 @@ void __KernelDoState(PointerWrap &p)
 	__UsbDoState(p);
 
 	__PPGeDoState(p);
-	
-	// Didn't feel like breaking save states right now for this. Next time you have to change something, uncomment.
-	// __NetDoState(p);
 
 	__InterruptsDoStateLate(p);
 	__KernelThreadingDoStateLate(p);
