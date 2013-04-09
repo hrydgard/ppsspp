@@ -45,21 +45,15 @@ TextureCache::TextureCache() {
 	lastBoundTexture = -1;
 	// TODO: Switch to aligned allocations for alignment. AllocateMemoryPages would do the trick.
 	// This is 5MB of temporary storage. Might be possible to shrink it.
-	tmpTexBuf32 = new u32[1024 * 512];  // 2MB
-	tmpTexBuf16 = new u16[1024 * 512];  // 1MB
-	tmpTexBufRearrange = new u32[1024 * 512];   // 2MB
+	tmpTexBuf32.resize(1024 * 512);  // 2MB
+	tmpTexBuf16.resize(1024 * 512);  // 1MB
+	tmpTexBufRearrange.resize(1024 * 512);   // 2MB
 	clutBuf32 = new u32[4096];  // 4K
 	clutBuf16 = new u16[4096];  // 4K
 	glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropyLevel);
 }
 
 TextureCache::~TextureCache() {
-	delete [] tmpTexBuf32;
-	tmpTexBuf32 = 0;
-	delete [] tmpTexBuf16;
-	tmpTexBuf16 = 0;
-	delete [] tmpTexBufRearrange;
-	tmpTexBufRearrange = 0;
 	delete [] clutBuf32;
 	delete [] clutBuf16;
 }
@@ -231,7 +225,7 @@ void *TextureCache::UnswizzleFromMem(u32 texaddr, u32 bytesPerPixel, u32 level) 
 			}
 		}
 	}
-	return tmpTexBuf32;
+	return tmpTexBuf32.data();
 }
 
 void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex) {
@@ -242,6 +236,8 @@ void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex) {
 	case GE_CMODE_16BIT_ABGR5551:
 	case GE_CMODE_16BIT_ABGR4444:
 		{
+		tmpTexBuf16.resize(length);
+		tmpTexBufRearrange.resize(length);
 		ReadClut16(clutBuf16);
 		const u16 *clut = clutBuf16;
 		if (!(gstate.texmode & 1)) {
@@ -297,7 +293,7 @@ void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex) {
 				break;
 			}
 		}
-		buf = tmpTexBuf16;
+		buf = tmpTexBuf16.data();
 		}
 		break;
 
@@ -358,7 +354,7 @@ void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex) {
 				break;
 			}
 		}
-		buf = tmpTexBuf32;
+		buf = tmpTexBuf32.data();
 		}
 		break;
 
@@ -929,6 +925,8 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 		case GE_CMODE_16BIT_ABGR5551:
 		case GE_CMODE_16BIT_ABGR4444:
 			{
+			tmpTexBuf16.resize(bufw * h);
+			tmpTexBufRearrange.resize(bufw * h);
 			ReadClut16(clutBuf16);
 			const u16 *clut = clutBuf16;
 			u32 clutSharingOffset = 0; //(gstate.mipmapShareClut & 1) ? 0 : level * 16;
@@ -953,7 +951,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 					}
 				}
 			}
-			finalBuf = tmpTexBuf16;
+			finalBuf = tmpTexBuf16.data();
 			}
 			break;
 
@@ -981,7 +979,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 					}
 				}
 			}
-			finalBuf = tmpTexBuf32;
+			finalBuf = tmpTexBuf32.data();
 			}
 			break;
 
@@ -1022,9 +1020,11 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 
 		if (!(gstate.texmode & 1)) {
 			int len = std::max(bufw, w) * h;
+			tmpTexBuf16.resize(len);
+			tmpTexBufRearrange.resize(len);
 			for (int i = 0; i < len; i++)
 				tmpTexBuf16[i] = Memory::ReadUnchecked_U16(texaddr + i * 2);
-			finalBuf = tmpTexBuf16;
+			finalBuf = tmpTexBuf16.data();
 		}
 		else
 			finalBuf = UnswizzleFromMem(texaddr, 2, level);
@@ -1036,7 +1036,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 			int len = bufw * h;
 			for (int i = 0; i < len; i++)
 				tmpTexBuf32[i] = Memory::ReadUnchecked_U32(texaddr + i * 4);
-			finalBuf = tmpTexBuf32;
+			finalBuf = tmpTexBuf32.data();
 		}
 		else
 			finalBuf = UnswizzleFromMem(texaddr, 4, level);
@@ -1045,7 +1045,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 	case GE_TFMT_DXT1:
 		dstFmt = GL_UNSIGNED_BYTE;
 		{
-			u32 *dst = tmpTexBuf32;
+			u32 *dst = tmpTexBuf32.data();
 			DXT1Block *src = (DXT1Block*)texptr;
 
 			for (int y = 0; y < h; y += 4) {
@@ -1055,7 +1055,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 					blockIndex++;
 				}
 			}
-			finalBuf = tmpTexBuf32;
+			finalBuf = tmpTexBuf32.data();
 			w = (w + 3) & ~3;
 		}
 		break;
@@ -1063,7 +1063,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 	case GE_TFMT_DXT3:
 		dstFmt = GL_UNSIGNED_BYTE;
 		{
-			u32 *dst = tmpTexBuf32;
+			u32 *dst = tmpTexBuf32.data();
 			DXT3Block *src = (DXT3Block*)texptr;
 
 			// Alpha is off
@@ -1075,7 +1075,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 				}
 			}
 			w = (w + 3) & ~3;
-			finalBuf = tmpTexBuf32;
+			finalBuf = tmpTexBuf32.data();
 		}
 		break;
 
@@ -1083,7 +1083,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 		ERROR_LOG(G3D, "Unhandled compressed texture, format %i! swizzle=%i", entry.format, gstate.texmode & 1);
 		dstFmt = GL_UNSIGNED_BYTE;
 		{
-			u32 *dst = tmpTexBuf32;
+			u32 *dst = tmpTexBuf32.data();
 			DXT5Block *src = (DXT5Block*)texptr;
 
 			// Alpha is almost right
@@ -1095,13 +1095,13 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 				}
 			}
 			w = (w + 3) & ~3;
-			finalBuf = tmpTexBuf32;
+			finalBuf = tmpTexBuf32.data();
 		}
 		break;
 
 	default:
 		ERROR_LOG_REPORT(G3D, "Unknown Texture Format %d!!!", entry.format);
-		finalBuf = tmpTexBuf32;
+		finalBuf = tmpTexBuf32.data();
 		return;
 	}
 
@@ -1129,8 +1129,8 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 		const u8 *read = (const u8 *)finalBuf;
 		u8 *write = 0;
 		if (w > bufw) {
-			write = (u8 *)tmpTexBufRearrange;
-			finalBuf = tmpTexBufRearrange;
+			write = (u8 *)tmpTexBufRearrange.data();
+			finalBuf = tmpTexBufRearrange.data();
 		} else {
 			write = (u8 *)finalBuf;
 		}
@@ -1199,6 +1199,8 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 		case GE_CMODE_16BIT_ABGR5551:
 		case GE_CMODE_16BIT_ABGR4444:
 			{
+			tmpTexBuf16.resize(bufw * h);
+			tmpTexBufRearrange.resize(bufw * h);
 			ReadClut16(clutBuf16);
 			const u16 *clut = clutBuf16;
 			u32 clutSharingOff = 0;//gstate.mipmapShareClut ? 0 : level * 16;
@@ -1223,7 +1225,7 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 					}
 				}
 			}
-			finalBuf = tmpTexBuf16;
+			finalBuf = tmpTexBuf16.data();
 			}
 			break;
 
@@ -1251,7 +1253,7 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 					}
 				}
 			}
-			finalBuf = tmpTexBuf32;
+			finalBuf = tmpTexBuf32.data();
 			}
 			break;
 
@@ -1292,9 +1294,11 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 
 		if (!(gstate.texmode & 1)) {
 			int len = std::max(bufw, w) * h;
+			tmpTexBuf16.resize(len);
+			tmpTexBufRearrange.resize(len);
 			for (int i = 0; i < len; i++)
 				tmpTexBuf16[i] = Memory::ReadUnchecked_U16(texaddr + i * 2);
-			finalBuf = tmpTexBuf16;
+			finalBuf = tmpTexBuf16.data();
 		}
 		else
 			finalBuf = UnswizzleFromMem(texaddr, 2, level);
@@ -1306,7 +1310,7 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 			int len = bufw * h;
 			for (int i = 0; i < len; i++)
 				tmpTexBuf32[i] = Memory::ReadUnchecked_U32(texaddr + i * 4);
-			finalBuf = tmpTexBuf32;
+			finalBuf = tmpTexBuf32.data();
 		}
 		else
 			finalBuf = UnswizzleFromMem(texaddr, 4, level);
@@ -1315,7 +1319,7 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 	case GE_TFMT_DXT1:
 		dstFmt = GL_UNSIGNED_BYTE;
 		{
-			u32 *dst = tmpTexBuf32;
+			u32 *dst = tmpTexBuf32.data();
 			DXT1Block *src = (DXT1Block*)texptr;
 
 			for (int y = 0; y < h; y += 4) {
@@ -1325,7 +1329,7 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 					blockIndex++;
 				}
 			}
-			finalBuf = tmpTexBuf32;
+			finalBuf = tmpTexBuf32.data();
 			w = (w + 3) & ~3;
 		}
 		break;
@@ -1333,7 +1337,7 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 	case GE_TFMT_DXT3:
 		dstFmt = GL_UNSIGNED_BYTE;
 		{
-			u32 *dst = tmpTexBuf32;
+			u32 *dst = tmpTexBuf32.data();
 			DXT3Block *src = (DXT3Block*)texptr;
 
 			// Alpha is off
@@ -1345,7 +1349,7 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 				}
 			}
 			w = (w + 3) & ~3;
-			finalBuf = tmpTexBuf32;
+			finalBuf = tmpTexBuf32.data();
 		}
 		break;
 
@@ -1353,7 +1357,7 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 		ERROR_LOG(G3D, "Unhandled compressed texture, format %i! swizzle=%i", format, gstate.texmode & 1);
 		dstFmt = GL_UNSIGNED_BYTE;
 		{
-			u32 *dst = tmpTexBuf32;
+			u32 *dst = tmpTexBuf32.data();
 			DXT5Block *src = (DXT5Block*)texptr;
 
 			// Alpha is almost right
@@ -1365,13 +1369,13 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 				}
 			}
 			w = (w + 3) & ~3;
-			finalBuf = tmpTexBuf32;
+			finalBuf = tmpTexBuf32.data();
 		}
 		break;
 
 	default:
 		ERROR_LOG(G3D, "Unknown Texture Format %d!!!", format);
-		finalBuf = tmpTexBuf32;
+		finalBuf = tmpTexBuf32.data();
 		return false;
 	}
 
