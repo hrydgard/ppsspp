@@ -17,6 +17,7 @@
 
 #include <fstream>
 #include <string>
+#include <cstring>
 
 #include "Common/Log.h"
 #include "Core/ELF/PBPReader.h"
