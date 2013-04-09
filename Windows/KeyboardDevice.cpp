@@ -7,24 +7,24 @@
 static const unsigned int key_pad_map[] = {
 	VK_TAB,   PAD_BUTTON_LEFT_THUMB,
 	VK_SPACE, PAD_BUTTON_START,
-	'V',      PAD_BUTTON_SELECT,
-	'A',      PAD_BUTTON_X,
-	'S',      PAD_BUTTON_Y,
-	'X',      PAD_BUTTON_B,
-	'Z',      PAD_BUTTON_A,
-	'Q',      PAD_BUTTON_LBUMPER,
-	'W',      PAD_BUTTON_RBUMPER,
-	VK_UP,    PAD_BUTTON_UP,
-	VK_DOWN,  PAD_BUTTON_DOWN,
-	VK_LEFT,  PAD_BUTTON_LEFT,
-	VK_RIGHT, PAD_BUTTON_RIGHT,
+	VK_ENTER,      PAD_BUTTON_SELECT,
+	'L',      PAD_BUTTON_X,
+	'P',      PAD_BUTTON_Y,
+	';',      PAD_BUTTON_B,
+	'',      PAD_BUTTON_A,
+	'O',      PAD_BUTTON_LBUMPER,
+	'[',      PAD_BUTTON_RBUMPER,
+	'W',    PAD_BUTTON_UP,
+	'S',  PAD_BUTTON_DOWN,
+	'A',  PAD_BUTTON_LEFT,
+	'D', PAD_BUTTON_RIGHT,
 };
 
 static const unsigned short analog_ctrl_map[] = {
-	'I', CTRL_UP,
-	'K', CTRL_DOWN,
-	'J', CTRL_LEFT,
-	'L', CTRL_RIGHT,
+	'T', CTRL_UP,
+	'G', CTRL_DOWN,
+	'F', CTRL_LEFT,
+	'H', CTRL_RIGHT,
 };
 
 int KeyboardDevice::UpdateState(InputState &input_state) {
