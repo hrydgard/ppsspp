@@ -43,7 +43,6 @@ u32 RoundUpToPowerOf2(u32 v)
 
 TextureCache::TextureCache() {
 	lastBoundTexture = -1;
-	// TODO: Switch to aligned allocations for alignment. AllocateMemoryPages would do the trick.
 	// This is 5MB of temporary storage. Might be possible to shrink it.
 	tmpTexBuf32.resize(1024 * 512);  // 2MB
 	tmpTexBuf16.resize(1024 * 512);  // 1MB

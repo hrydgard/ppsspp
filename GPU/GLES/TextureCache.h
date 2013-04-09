@@ -18,6 +18,7 @@
 #pragma once
 
 #include "../Globals.h"
+#include "Common/MemoryUtil.h"
 #include "gfx_es2/fbo.h"
 #include "GPU/GPUState.h"
 
@@ -108,7 +109,7 @@ private:
 
 		~SimpleBuf() {
 			if (buf_ != NULL) {
-				delete [] buf_;
+				FreeMemoryPages(buf_, size_ * sizeof(T));
 			}
 		}
 
@@ -120,9 +121,9 @@ private:
 		void resize(size_t size) {
 			if (size_ < size) {
 				if (buf_ != NULL) {
-					delete [] buf_;
+					FreeMemoryPages(buf_, size_ * sizeof(T));
 				}
-				buf_ = new T[size];
+				buf_ = (T *)AllocateMemoryPages(size * sizeof(T));
 				size_ = size;
 			}
 		}
