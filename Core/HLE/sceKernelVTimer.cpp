@@ -65,7 +65,7 @@ u64 __getVTimerRunningTime(VTimer *vt) {
 	return cyclesToUs(CoreTiming::GetTicks()) - vt->nvt.base;
 }
 
-u64 __getVTimerTime(VTimer* vt) {
+u64 __getVTimerCurrentTime(VTimer* vt) {
 	return vt->nvt.current + __getVTimerRunningTime(vt);
 }
 
@@ -87,7 +87,7 @@ void __KernelScheduleVTimer(VTimer *vt, u64 schedule) {
 
 	vt->nvt.schedule = schedule;
 
-	if (vt->nvt.active == 1)
+	if (vt->nvt.active == 1 && vt->nvt.handlerAddr != 0)
 		// this delay makes the test pass, not sure if it's right
 		CoreTiming::ScheduleEvent(usToCycles(vt->nvt.schedule + 372), vtimerTimer, vt->GetUID());
 }
@@ -102,9 +102,9 @@ void __rescheduleVTimer(SceUID id, int delay) {
 	if (delay < 0)
 		delay = 100;
 
-	vt->nvt.schedule += delay;
+	u64 schedule = vt->nvt.schedule + delay;
 
-	__KernelScheduleVTimer(vt, vt->nvt.schedule);
+	__KernelScheduleVTimer(vt, schedule);
 }
 
 class VTimerIntrHandler : public IntrHandler
@@ -127,7 +127,7 @@ public:
 		}
 
 		Memory::Write_U64(vtimer->nvt.schedule, vtimer->memoryPtr);
-		Memory::Write_U64(__getVTimerTime(vtimer), vtimer->memoryPtr + 8);
+		Memory::Write_U64(__getVTimerCurrentTime(vtimer), vtimer->memoryPtr + 8);
 
 		currentMIPS->pc = vtimer->nvt.handlerAddr;
 		currentMIPS->r[MIPS_REG_A0] = vtimer->GetUID();
@@ -258,7 +258,7 @@ u32 sceKernelGetVTimerTime(u32 uid, u32 timeClockAddr) {
 		return error;
 	}
 
-	u64 time = __getVTimerTime(vt);
+	u64 time = __getVTimerCurrentTime(vt);
 	if (Memory::IsValidAddress(timeClockAddr))
 		Memory::Write_U64(time, timeClockAddr);
 
@@ -276,12 +276,16 @@ u64 sceKernelGetVTimerTimeWide(u32 uid) {
 		return error;
 	}
 
-	u64 time = __getVTimerTime(vt);
+	u64 time = __getVTimerCurrentTime(vt);
 	return time;
 }
 
-void __setVTimer(VTimer *vt, u64 time) {
-	vt->nvt.current = time - __getVTimerRunningTime(vt);
+u64 __setVTimer(VTimer *vt, u64 time) {
+	u64 current = __getVTimerCurrentTime(vt);
+	vt->nvt.base = vt->nvt.base + __getVTimerCurrentTime(vt) - time;
+	vt->nvt.current = 0;
+
+	return current;
 }
 
 u32 sceKernelSetVTimerTime(u32 uid, u32 timeClockAddr) {
@@ -296,7 +300,8 @@ u32 sceKernelSetVTimerTime(u32 uid, u32 timeClockAddr) {
 	}
 
 	u64 time = Memory::Read_U64(timeClockAddr);
-	__setVTimer(vt, time);
+	if (Memory::IsValidAddress(timeClockAddr))
+		Memory::Write_U64(__setVTimer(vt, time), timeClockAddr);
 
 	return 0;
 }
@@ -312,8 +317,11 @@ u32 sceKernelSetVTimerTimeWide(u32 uid, u64 timeClock) {
 		return error;
 	}
 
-	__setVTimer(vt, timeClock);
-	return 0;
+	if (vt == NULL) {
+		return -1;
+	}
+
+	return __setVTimer(vt, timeClock);
 }
 
 void __startVTimer(VTimer *vt) {
@@ -342,8 +350,9 @@ u32 sceKernelStartVTimer(u32 uid) {
 }
 
 void __stopVTimer(VTimer *vt) {
-	vt->nvt.current += __getVTimerRunningTime(vt);
+	vt->nvt.current += __getVTimerCurrentTime(vt);
 	vt->nvt.active = 0;
+	vt->nvt.base = 0;
 }
 
 u32 sceKernelStopVTimer(u32 uid) {
