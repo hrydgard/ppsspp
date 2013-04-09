@@ -477,9 +477,9 @@ int sceAtracSetDataAndGetID(u32 buffer, u32 bufferSize)
 	return createAtrac(atrac);
 }
 
-int sceAtracSetHalfwayBufferAndGetID(int atracID, u32 halfBuffer, u32 readSize, u32 halfBufferSize)
+int sceAtracSetHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBufferSize)
 {
-	ERROR_LOG(HLE, "UNIMPL sceAtracSetHalfwayBufferAndGetID(%i, %08x, %08x, %08x)", atracID, halfBuffer, readSize, halfBufferSize);
+	ERROR_LOG(HLE, "UNIMPL sceAtracSetHalfwayBufferAndGetID(%08x, %08x, %08x)", halfBuffer, readSize, halfBufferSize);
 	int codecType = getCodecType(halfBuffer);
 
 	Atrac *atrac = new Atrac();
@@ -601,7 +601,7 @@ const HLEFunction sceAtrac3plus[] =
 	{0x868120b5,WrapU_II<sceAtracSetLoopNum>,"sceAtracSetLoopNum"},
 	{0x132f1eca,WrapI_V<sceAtracReinit>,"sceAtracReinit"},
 	{0xeca32a99,WrapI_I<sceAtracIsSecondBufferNeeded>,"sceAtracIsSecondBufferNeeded"},
-	{0x0fae370e,WrapI_IUUU<sceAtracSetHalfwayBufferAndGetID>,"sceAtracSetHalfwayBufferAndGetID"},
+	{0x0fae370e,WrapI_UUU<sceAtracSetHalfwayBufferAndGetID>,"sceAtracSetHalfwayBufferAndGetID"},
 	{0x2DD3E298,WrapU_IIU<sceAtracGetBufferInfoForReseting>,"sceAtracGetBufferInfoForResetting"},
 	{0x5CF9D852,WrapI_IUII<sceAtracSetMOutHalfwayBuffer>,"sceAtracSetMOutHalfwayBuffer"},
 	{0xB3B5D042,WrapI_IU<sceAtracGetOutputChannel>,"sceAtracGetOutputChannel"},
