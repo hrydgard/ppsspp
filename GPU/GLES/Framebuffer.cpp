@@ -330,6 +330,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	if (!vfb) {
 		gstate_c.textureChanged = true;
 		vfb = new VirtualFramebuffer();
+		vfb->fbo = 0;
 		vfb->fb_address = fb_address;
 		vfb->fb_stride = fb_stride;
 		vfb->z_address = z_address;
@@ -372,7 +373,6 @@ void FramebufferManager::SetRenderFrameBuffer() {
 			vfb->fbo = fbo_create(vfb->renderWidth, vfb->renderHeight, 1, true, vfb->colorDepth);
 			fbo_bind_as_render_target(vfb->fbo);
 		} else {
-			vfb->fbo = 0;
 			fbo_unbind();
 			// Let's ignore rendering to targets that have not (yet) been displayed.
 			gstate_c.skipDrawReason |= SKIPDRAW_NON_DISPLAYED_FB;
@@ -401,9 +401,20 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		vfb->last_frame_used = gpuStats.numFrames;
 		vfb->dirtyAfterDisplay = true;
 
-		if (g_Config.bBufferedRendering && vfb->fbo) {
-			fbo_bind_as_render_target(vfb->fbo);
+		if (g_Config.bBufferedRendering) {
+			if (vfb->fbo) {
+				fbo_bind_as_render_target(vfb->fbo);
+			} else {
+				// wtf? This should only happen very briefly when toggling bBufferedRendering
+				fbo_unbind();
+			}
 		} else {
+			if (vfb->fbo) {
+				// wtf? This should only happen very briefly when toggling bBufferedRendering
+				textureCache_->NotifyFramebufferDestroyed(vfb->fb_address, vfb);
+				fbo_destroy(vfb->fbo);
+				vfb->fbo = 0;
+			}
 			fbo_unbind();
 
 			// Let's ignore rendering to targets that have not (yet) been displayed.

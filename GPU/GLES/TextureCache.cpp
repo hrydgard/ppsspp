@@ -1060,6 +1060,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 		break;
 
 	case GE_TFMT_DXT3:
+		ERROR_LOG(G3D, "Warning: DXT3 textures not well supported");
 		dstFmt = GL_UNSIGNED_BYTE;
 		{
 			u32 *dst = tmpTexBuf32.data();
@@ -1078,14 +1079,11 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 		}
 		break;
 
-	case GE_TFMT_DXT5:
-		ERROR_LOG(G3D, "Unhandled compressed texture, format %i! swizzle=%i", entry.format, gstate.texmode & 1);
+	case GE_TFMT_DXT5:  // These work fine now
 		dstFmt = GL_UNSIGNED_BYTE;
 		{
 			u32 *dst = tmpTexBuf32.data();
 			DXT5Block *src = (DXT5Block*)texptr;
-
-			// Alpha is almost right
 			for (int y = 0; y < h; y += 4) {
 				u32 blockIndex = (y / 4) * (bufw / 4);
 				for (int x = 0; x < std::min(bufw, w); x += 4) {
