@@ -119,6 +119,10 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs)
 		u_lightdir[i] = glGetUniformLocation(program, temp);
 		sprintf(temp, "u_lightatt%i", i);
 		u_lightatt[i] = glGetUniformLocation(program, temp);
+		sprintf(temp, "u_lightangle%i", i);
+		u_lightangle[i] = glGetUniformLocation(program, temp);
+		sprintf(temp, "u_lightspotCoef%i", i);
+		u_lightspotCoef[i] = glGetUniformLocation(program, temp);
 		sprintf(temp, "u_lightambient%i", i);
 		u_lightambient[i] = glGetUniformLocation(program, temp);
 		sprintf(temp, "u_lightdiffuse%i", i);
@@ -324,6 +328,8 @@ void LinkedShader::updateUniforms() {
 			if (u_lightpos[i] != -1) glUniform3fv(u_lightpos[i], 1, gstate_c.lightpos[i]);
 			if (u_lightdir[i] != -1) glUniform3fv(u_lightdir[i], 1, gstate_c.lightdir[i]);
 			if (u_lightatt[i] != -1) glUniform3fv(u_lightatt[i], 1, gstate_c.lightatt[i]);
+			if (u_lightangle[i] != -1) glUniform1f(u_lightangle[i], gstate_c.lightangle[i]);
+			if (u_lightspotCoef[i] != -1) glUniform1f(u_lightspotCoef[i], gstate_c.lightspotCoef[i]);
 			if (u_lightambient[i] != -1) glUniform3fv(u_lightambient[i], 1, gstate_c.lightColor[0][i]);
 			if (u_lightdiffuse[i] != -1) glUniform3fv(u_lightdiffuse[i], 1, gstate_c.lightColor[1][i]);
 			if (u_lightspecular[i] != -1) glUniform3fv(u_lightspecular[i], 1, gstate_c.lightColor[2][i]);

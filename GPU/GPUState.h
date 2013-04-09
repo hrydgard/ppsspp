@@ -264,6 +264,8 @@ struct GPUStateCache
 	float lightdir[4][3];
 	float lightatt[4][3];
 	float lightColor[3][4][3];  // Ambient Diffuse Specular
+	float lightangle[4]; // spotlight cone angle (cosine)
+	float lightspotCoef[4]; // spotlight dropoff
 	float morphWeights[8];
 
 	u32 curTextureWidth;
