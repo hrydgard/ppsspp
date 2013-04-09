@@ -654,6 +654,29 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		}
 		break;
 
+	case GE_CMD_LKS0:
+	case GE_CMD_LKS1:
+	case GE_CMD_LKS2:
+	case GE_CMD_LKS3:
+		{
+			int l = cmd - GE_CMD_LKS0;
+			gstate_c.lightspotCoef[l] = getFloat24(data);
+			if (diff)
+				shaderManager_->DirtyUniform(DIRTY_LIGHT0 << l);
+		}
+		break;
+
+	case GE_CMD_LKO0:
+	case GE_CMD_LKO1:
+	case GE_CMD_LKO2:
+	case GE_CMD_LKO3:
+		{
+			int l = cmd - GE_CMD_LKO0;
+			gstate_c.lightangle[l] = getFloat24(data);
+			if (diff)
+				shaderManager_->DirtyUniform(DIRTY_LIGHT0 << l);
+		}
+		break;
 
 	case GE_CMD_LAC0:case GE_CMD_LAC1:case GE_CMD_LAC2:case GE_CMD_LAC3:
 	case GE_CMD_LDC0:case GE_CMD_LDC1:case GE_CMD_LDC2:case GE_CMD_LDC3:
