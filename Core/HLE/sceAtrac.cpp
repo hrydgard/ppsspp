@@ -129,7 +129,7 @@ struct Atrac {
 
 	void Analyze();
 	u32 getDecodePosBySample(int sample) {
-		return firstSampleoffset + (decodeEnd - firstSampleoffset) * sample / endSample;
+		return (u32)(firstSampleoffset + sample / ATRAC_MAX_SAMPLES * atracBytesPerFrame );
 	}
 	int getRemainFrames() {
 		int remainFrame;
@@ -634,7 +634,6 @@ u32 sceAtracGetNextSample(int atracID, u32 outNAddr)
 		if (atrac->currentSample >= atrac->endSample) {
 			Memory::Write_U32(0, outNAddr);
 		} else {
-			// TODO: This is not correct.
 			u32 numSamples = atrac->endSample - atrac->currentSample;
 			if (numSamples > ATRAC_MAX_SAMPLES)
 				numSamples = ATRAC_MAX_SAMPLES;
@@ -672,7 +671,7 @@ u32 sceAtracGetSecondBufferInfo(int atracID, u32 outposAddr, u32 outBytesAddr)
 
 u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoopStartSampleAddr, u32 outLoopEndSampleAddr)
 {
-	DEBUG_LOG(HLE, "UNIMPL sceAtracGetSoundSample(%i, %08x, %08x, %08x)", atracID, outEndSampleAddr, outLoopStartSampleAddr, outLoopEndSampleAddr);
+	DEBUG_LOG(HLE, "sceAtracGetSoundSample(%i, %08x, %08x, %08x)", atracID, outEndSampleAddr, outLoopStartSampleAddr, outLoopEndSampleAddr);
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
 		//return -1;
@@ -685,7 +684,7 @@ u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoopStartSa
 
 u32 sceAtracGetStreamDataInfo(int atracID, u32 writeAddr, u32 writableBytesAddr, u32 readOffsetAddr)
 {
-	ERROR_LOG(HLE, "FAKE sceAtracGetStreamDataInfo(%i, %08x, %08x, %08x)", atracID, writeAddr, writableBytesAddr, readOffsetAddr);
+	DEBUG_LOG(HLE, "sceAtracGetStreamDataInfo(%i, %08x, %08x, %08x)", atracID, writeAddr, writableBytesAddr, readOffsetAddr);
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
 		//return -1;
@@ -790,6 +789,7 @@ int _AtracSetData(int atracID, u32 buffer, u32 bufferSize)
 
 	if (atrac->data_buf) 
 			delete [] atrac->data_buf;
+	atrac->data_buf = 0;
 	if (Memory::lastestAccessFile.data_addr == buffer)
 	{
 		PSPFileInfo info = pspFileSystem.GetFileInfo(Memory::lastestAccessFile.filename);
@@ -810,12 +810,20 @@ int _AtracSetData(int atracID, u32 buffer, u32 bufferSize)
 			addAtrac3AudioByPackage(cache->packagefile, cache->start_pos, atrac->first.filesize,
 			                        Memory::GetPointer(buffer), atracID, cache->npdrm ? &pgdinfo : 0);
 		} else {
-			ERROR_LOG(HLE, "Atrac3/Atrac3plus file not cache");
-			atrac->data_buf = new u8[atrac->first.filesize];
-			Memory::Memcpy(atrac->data_buf, buffer, std::min(bufferSize, atrac->first.filesize));
 			if (atrac->first.size >= atrac->first.filesize)
-				addAtrac3Audio(atrac->data_buf, atrac->first.filesize, atracID);
+				addAtrac3Audio(Memory::GetPointer(buffer), atrac->first.filesize, atracID);
+			else {
+				ERROR_LOG(HLE, "Atrac3/Atrac3plus file not cache");
+				atrac->data_buf = new u8[atrac->first.filesize];
+				Memory::Memcpy(atrac->data_buf, buffer, std::min(bufferSize, atrac->first.filesize));
+			}
 		}
+	}
+	if (atrac->data_buf == 0) {
+		// already load all data, and no need for more data
+		atrac->first.size = atrac->first.filesize;
+		atrac->first.fileoffset = atrac->first.size;
+		atrac->first.writableBytes = 0;
 	}
 	return 0;
 #endif // _USE_DSHOW_
@@ -900,17 +908,18 @@ int _AtracSetData(int atracID, u32 buffer, u32 bufferSize)
 
 u32 sceAtracSetHalfwayBuffer(int atracID, u32 halfBuffer, u32 readSize, u32 halfBufferSize)
 {
-	ERROR_LOG(HLE, "UNIMPL sceAtracSetHalfwayBuffer(%i, %08x, %8x, %8x)", atracID, halfBuffer, readSize, halfBufferSize);
+	INFO_LOG(HLE, "sceAtracSetHalfwayBuffer(%i, %08x, %8x, %8x)", atracID, halfBuffer, readSize, halfBufferSize);
 	if (readSize > halfBufferSize)
 		return ATRAC_ERROR_INCORRECT_READ_SIZE;
 
 	Atrac *atrac = getAtrac(atracID);
-	if (atrac) {
+	int ret = 0;
+	if (atrac != NULL) {
 		atrac->first.addr = halfBuffer;
-		atrac->first.size = halfBufferSize;
+		atrac->first.size = readSize;
 		atrac->Analyze();
+		ret = _AtracSetData(atracID, halfBuffer, halfBufferSize);
 	}
-	int ret = _AtracSetData(atracID, halfBuffer, halfBufferSize);
 	return ret;
 }
 
@@ -956,14 +965,14 @@ int sceAtracSetDataAndGetID(u32 buffer, u32 bufferSize)
 
 int sceAtracSetHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBufferSize)
 {
-	ERROR_LOG(HLE, "UNIMPL sceAtracSetHalfwayBufferAndGetID(%08x, %08x, %08x)", halfBuffer, readSize, halfBufferSize);
+	INFO_LOG(HLE, "sceAtracSetHalfwayBufferAndGetID(%i, %08x, %08x, %08x)", atracID, halfBuffer, readSize, halfBufferSize);
 	if (readSize > halfBufferSize)
 		return ATRAC_ERROR_INCORRECT_READ_SIZE;
 	int codecType = getCodecType(halfBuffer);
 
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = halfBuffer;
-	atrac->first.size = halfBufferSize;
+	atrac->first.size = readSize;
 	atrac->Analyze();
 	int newatracID = createAtrac(atrac);
 	int ret = _AtracSetData(newatracID, halfBuffer, halfBufferSize);
