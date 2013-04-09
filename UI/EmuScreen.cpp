@@ -161,8 +161,9 @@ void EmuScreen::update(InputState &input) {
 		return;
 
 	// First translate touches into native pad input.
-	if (g_Config.bShowTouchControls)
-		UpdateGamepad(input);
+	// Do this no matter the value of g_Config.bShowTouchControls, some people
+	// like to use invisible controls...
+	UpdateGamepad(input);
 
 	UpdateInputState(&input);
 
