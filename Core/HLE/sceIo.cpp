@@ -507,18 +507,11 @@ u32 sceIoReadAsync(int id, u32 data_addr, int size) {
 }
 
 int __IoWrite(int id, void *data_ptr, int size) {
-	if (id == 2) {
-		//stderr!
-		const char *str = (const char*) data_ptr;
-		INFO_LOG(HLE, "stderr: %s", str);
-		return size;
-	} else if (id == 1) {
-		//stdout!
-		char *str = (char *) data_ptr;
-		char temp = str[size];
-		str[size] = 0;
-		INFO_LOG(HLE, "stdout: %s", str);
-		str[size] = temp;
+	// Let's handle stdout/stderr specially.
+	if (id == 1 || id == 2) {
+		const char *str = (const char *) data_ptr;
+		const int str_size = size == 0 ? 0 : (str[size - 1] == '\n' ? size - 1 : size);
+		INFO_LOG(HLE, "%s: %.*s", id == 1 ? "stdout" : "stderr", str_size, str);
 		return size;
 	}
 	u32 error;
