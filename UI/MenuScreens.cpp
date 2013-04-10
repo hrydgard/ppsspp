@@ -199,7 +199,7 @@ void MenuScreen::render() {
 	ui_draw2d.DrawTextShadow(UBUNTU24, PPSSPP_GIT_VERSION, dp_xres + xoff, 85, 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_BOTTOM);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 	VLinear vlinear(dp_xres + xoff, 100, 20);
-	VGrid vgrid_recent(-xoff + 40, 100, 480, 40, 20);
+	VGrid vgrid_recent(-xoff + 20, 100, 480, 40, 20);
 
 	if (UIButton(GEN_ID, vlinear, w, "Load...", ALIGN_RIGHT)) {
 #if defined(USING_QT_UI)
@@ -458,7 +458,7 @@ void SettingsScreen::render() {
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres-10), LARGE_BUTTON_WIDTH, "Back", ALIGN_RIGHT | ALIGN_BOTTOM)) {
 		screenManager()->finishDialog(this, DR_OK);
 	}
-	if (UIButton(GEN_ID, Pos(10, dp_yres-10), LARGE_BUTTON_WIDTH, "Developer Menu", ALIGN_BOTTOMLEFT)) {
+	if (UIButton(GEN_ID, Pos(10, dp_yres-10), LARGE_BUTTON_WIDTH + 20, "Developer Menu", ALIGN_BOTTOMLEFT)) {
 		screenManager()->push(new DeveloperScreen());
 	}
 
@@ -490,7 +490,7 @@ void DeveloperScreen::render() {
 	}
 
 
-	if (UIButton(GEN_ID, Pos(10, dp_yres-10), LARGE_BUTTON_WIDTH, "Dump frame to log", ALIGN_BOTTOMLEFT)) {
+	if (UIButton(GEN_ID, Pos(10, dp_yres-10), LARGE_BUTTON_WIDTH + 40, "Dump frame to log", ALIGN_BOTTOMLEFT)) {
 		gpu->DumpNextFrame();
 	}
 
