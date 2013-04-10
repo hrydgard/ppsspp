@@ -65,6 +65,10 @@ namespace MainWindow {
 #include <QDir>
 #endif
 
+#if !defined(nullptr)
+#define nullptr NULL
+#endif
+
 // Ugly communication with NativeApp
 extern std::string game_title;
 

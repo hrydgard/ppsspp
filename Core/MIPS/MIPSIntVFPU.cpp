@@ -118,9 +118,11 @@ inline float nanclamp(float f, float lower, float upper)
 #define isnan _isnan
 #endif
 
+#ifndef BLACKBERRY
 double rint(double x){
 return floor(x+.5);
 }
+#endif
 
 void ApplyPrefixST(float *v, u32 data, VectorSize size)
 {
