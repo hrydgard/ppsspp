@@ -132,10 +132,18 @@ struct Atrac {
 		return (u32)(firstSampleoffset + sample / ATRAC_MAX_SAMPLES * atracBytesPerFrame );
 	}
 	int getRemainFrames() {
+		// many games request to add atrac data when remainFrames = 0
+		// However, some other games request to add atrac data 
+		// when remainFrames = PSP_ATRAC_ALLDATA_IS_ON_MEMORY .
+		// Still need to find out how getRemainFrames() should work.
+
 		int remainFrame;
 		if (first.fileoffset >= first.filesize || currentSample >= endSample)
 			remainFrame = PSP_ATRAC_ALLDATA_IS_ON_MEMORY;
-		else {
+		else if (decodePos >= first.fileoffset) {
+			// require more data
+			remainFrame = PSP_ATRAC_ALLDATA_IS_ON_MEMORY;
+		} else {
 			// This is the correct one
 			//remainFrame = (first.size - decodePos) / atracBytesPerFrame;
 
@@ -267,6 +275,16 @@ int getCodecType(int addr) {
 
 void Atrac::Analyze()
 {
+	// reset some values
+	currentSample = 0;
+	endSample = -1;
+	loopNum = 0;
+	loopinfoNum = 0;
+	loopinfo.clear();
+	loopStartSample = -1;
+	loopEndSample = -1;
+	decodePos = 0;
+
 	if (first.size < 0x100)
 	{
 		ERROR_LOG(HLE, "Atrac buffer very small: %d", first.size);
@@ -400,7 +418,7 @@ u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd)
 
 u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishFlagAddr, u32 remainAddr)
 {
-	DEBUG_LOG(HLE, "FAKE sceAtracDecodeData(%i, %08x, %08x, %08x, %08x)", atracID, outAddr, numSamplesAddr, finishFlagAddr, remainAddr);
+	DEBUG_LOG(HLE, "sceAtracDecodeData(%i, %08x, %08x, %08x, %08x)", atracID, outAddr, numSamplesAddr, finishFlagAddr, remainAddr);
 	Atrac *atrac = getAtrac(atracID);
 #ifdef _USE_DSHOW_
 	audioEngine *engine = getaudioEngineByID(atracID);
@@ -484,7 +502,11 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 				}
 			} else
 #endif // _USE_DSHOW_
+
+			// update current sample and decodePos
 			atrac->currentSample += numSamples;
+			atrac->decodePos = atrac->getDecodePosBySample(atrac->currentSample);
+			
 			int finishFlag = 0;
 			if (atrac->loopEndSample >= 0 && (atrac->currentSample >= atrac->loopEndSample)) {
 				atrac->currentSample = atrac->loopStartSample;
@@ -777,15 +799,16 @@ int _AtracSetData(int atracID, u32 buffer, u32 bufferSize)
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac)
 		return -1;
+	atrac->atracBufSize = bufferSize;
 	if (atrac->first.size > atrac->first.filesize)
 		atrac->first.size = atrac->first.filesize;
 	atrac->first.fileoffset = atrac->first.size;
 	atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->atracBufSize);
-	atrac->atracBufSize = bufferSize;
 
 #ifdef _USE_DSHOW_
+	// some games may reuse an atracID for playing sound
 	if (getaudioEngineByID(atracID))
-		return -1;
+		deleteAtrac3Audio(atracID);
 
 	if (atrac->data_buf) 
 			delete [] atrac->data_buf;
@@ -831,6 +854,10 @@ int _AtracSetData(int atracID, u32 buffer, u32 bufferSize)
 #ifdef _USE_FFMPEG_
 	if (atrac->codeType == PSP_MODE_AT_3) {
 		INFO_LOG(HLE, "This is an atrac3 audio");
+
+		// some games may reuse an atracID for playing sound
+		atrac->ReleaseFFMPEGContext();
+
 		if (atrac->data_buf) 
 			delete [] atrac->data_buf;
 
@@ -965,7 +992,7 @@ int sceAtracSetDataAndGetID(u32 buffer, u32 bufferSize)
 
 int sceAtracSetHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBufferSize)
 {
-	INFO_LOG(HLE, "sceAtracSetHalfwayBufferAndGetID(%i, %08x, %08x, %08x)", atracID, halfBuffer, readSize, halfBufferSize);
+	INFO_LOG(HLE, "sceAtracSetHalfwayBufferAndGetID(%08x, %08x, %08x)", halfBuffer, readSize, halfBufferSize);
 	if (readSize > halfBufferSize)
 		return ATRAC_ERROR_INCORRECT_READ_SIZE;
 	int codecType = getCodecType(halfBuffer);
@@ -974,11 +1001,11 @@ int sceAtracSetHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBuffe
 	atrac->first.addr = halfBuffer;
 	atrac->first.size = readSize;
 	atrac->Analyze();
-	int newatracID = createAtrac(atrac);
-	int ret = _AtracSetData(newatracID, halfBuffer, halfBufferSize);
+	int atracID = createAtrac(atrac);
+	int ret = _AtracSetData(atracID, halfBuffer, halfBufferSize);
 	if (ret < 0)
 		return ret;
-	return newatracID;
+	return atracID;
 }
 
 u32 sceAtracStartEntry()
