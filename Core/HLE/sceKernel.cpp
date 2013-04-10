@@ -644,10 +644,10 @@ const HLEFunction ThreadManForUser[] =
 	{0x1181E963,sceKernelDelaySysClockThreadCB,"sceKernelDelaySysClockThreadCB"},
 	{0xceadeb47,WrapI_U<sceKernelDelayThread>,"sceKernelDelayThread"},
 	{0x68da9e36,WrapI_U<sceKernelDelayThreadCB>,"sceKernelDelayThreadCB"},
-	{0xaa73c935,sceKernelExitThread,"sceKernelExitThread"},
-	{0x809ce29b,sceKernelExitDeleteThread,"sceKernelExitDeleteThread"},
+	{0xaa73c935,WrapV_I<sceKernelExitThread>,"sceKernelExitThread"},
+	{0x809ce29b,WrapV_I<sceKernelExitDeleteThread>,"sceKernelExitDeleteThread"},
 	{0x94aa61ee,sceKernelGetThreadCurrentPriority,"sceKernelGetThreadCurrentPriority"},
-	{0x293b45b8,sceKernelGetThreadId,"sceKernelGetThreadId"},
+	{0x293b45b8,WrapI_V<sceKernelGetThreadId>,"sceKernelGetThreadId"},
 	{0x3B183E26,sceKernelGetThreadExitStatus,"sceKernelGetThreadExitStatus"},
 	{0x52089CA1,sceKernelGetThreadStackFreeSize,"sceKernelGetThreadStackFreeSize"},
 	{0xFFC36A14,WrapU_UU<sceKernelReferThreadRunStatus>,"sceKernelReferThreadRunStatus"},
@@ -762,7 +762,7 @@ const HLEFunction ThreadManForUser[] =
 
 	// Not sure if these should be hooked up. See below.
 	{0x0E927AED, _sceKernelReturnFromTimerHandler, "_sceKernelReturnFromTimerHandler"},
-	{0x532A522E, _sceKernelExitThread,"_sceKernelExitThread"},
+	{0x532A522E, WrapV_I<_sceKernelExitThread>,"_sceKernelExitThread"},
 
 
 	// Shouldn't hook this up. No games should import this function manually and call it.
