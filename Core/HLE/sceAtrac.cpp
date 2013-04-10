@@ -140,7 +140,7 @@ struct Atrac {
 		int remainFrame;
 		if (first.fileoffset >= first.filesize || currentSample >= endSample)
 			remainFrame = PSP_ATRAC_ALLDATA_IS_ON_MEMORY;
-		else if (decodePos >= first.fileoffset) {
+		else if (decodePos >= first.fileoffset - atracBytesPerFrame ) {
 			// require more data
 			remainFrame = PSP_ATRAC_ALLDATA_IS_ON_MEMORY;
 		} else {
