@@ -106,7 +106,7 @@ int sceUtilitySavedataGetStatus()
 {
 	if (currentDialogType != UTILITY_DIALOG_SAVEDATA)
 	{
-		WARN_LOG(HLE, "sceUtilitySavedataGetStatus(): wrong dialog type");
+		DEBUG_LOG(HLE, "sceUtilitySavedataGetStatus(): wrong dialog type");
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 
@@ -236,7 +236,7 @@ int sceUtilityMsgDialogGetStatus()
 {
 	if (currentDialogType != UTILITY_DIALOG_MSG)
 	{
-		WARN_LOG(HLE, "sceUtilityMsgDialogGetStatus(): wrong dialog type");
+		DEBUG_LOG(HLE, "sceUtilityMsgDialogGetStatus(): wrong dialog type");
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 
@@ -304,7 +304,7 @@ int sceUtilityOskGetStatus()
 {
 	if (currentDialogType != UTILITY_DIALOG_OSK)
 	{
-		WARN_LOG(HLE, "sceUtilityOskGetStatus(): wrong dialog type");
+		DEBUG_LOG(HLE, "sceUtilityOskGetStatus(): wrong dialog type");
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 
