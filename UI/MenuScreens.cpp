@@ -206,7 +206,7 @@ void MenuScreen::render() {
 	VGrid vgrid_recent(-xoff + 20, 100, 480, 40, 20);
 
 	if (UIButton(GEN_ID, vlinear, w, "Load...", ALIGN_RIGHT)) {
-#if defined(USING_QT_UI)
+#if defined(USING_QT_UI) && !defined(MEEGO_EDITION_HARMATTAN)
 		QString fileName = QFileDialog::getOpenFileName(NULL, "Load ROM", g_Config.currentDirectory.c_str(), "PSP ROMs (*.iso *.cso *.pbp *.elf)");
 		if (QFile::exists(fileName)) {
 			QDir newPath;

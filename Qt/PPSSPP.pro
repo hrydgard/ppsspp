@@ -87,7 +87,7 @@ symbian {
 contains(MEEGO_EDITION,harmattan) {
     target.path = /opt/PPSSPP/bin
     assets.sources = ../assets/flash
-    assets.path = /opt/PPSSPP/flash
+    assets.path = /home/user/MyDocs/PPSSPP
     INSTALLS += target assets
 }
 
