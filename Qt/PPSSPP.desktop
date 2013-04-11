@@ -1,0 +1,11 @@
+[Desktop Entry]
+Encoding=UTF-8
+Version=0.7.5
+Type=Application
+Terminal=false
+Name=PPSSPP
+Exec=/opt/PPSSPP/bin/PPSSPPQt
+Icon=/usr/share/icons/hicolor/114x114/apps/icon-114.png
+X-Window-Icon=
+X-HildonDesk-ShowInToolbar=true
+X-Osso-Type=application/x-executable

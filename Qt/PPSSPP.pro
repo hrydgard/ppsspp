@@ -85,9 +85,14 @@ symbian {
 }
 
 contains(MEEGO_EDITION,harmattan) {
-    target.path = /opt/PPSSPP/bin
-    assets.sources = ../assets/flash
-    assets.path = /home/user/MyDocs/PPSSPP
-    INSTALLS += target assets
+	target.path = /opt/PPSSPP/bin
+	assets.files = ../assets/flash
+	assets.path = /opt/PPSSPP
+	desktopfile.files = PPSSPP.desktop
+	desktopfile.path = /usr/share/applications
+	icon.files = ../assets/icon-114.png
+	icon.path = /usr/share/icons/hicolor/114x114/apps
+	INSTALLS += target assets desktopfile icon
+	ICON = ../assets/icon-114.png
 }
 
