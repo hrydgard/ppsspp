@@ -902,7 +902,6 @@ struct GetModuleIdByAddressArg
 bool __GetModuleIdByAddressIterator(Module *module, GetModuleIdByAddressArg *state)
 {
 	const u32 start = module->memoryBlockAddr, size = module->memoryBlockSize;
-	printf("%08x - %08x ? %08x\n", start, start + size, state->addr);
 	if (start <= state->addr && start + size > state->addr)
 	{
 		state->result = module->GetUID();
