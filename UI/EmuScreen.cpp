@@ -71,6 +71,10 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true) {
 	coreParam.pixelWidth = pixel_xres;
 	coreParam.pixelHeight = pixel_yres;
 	coreParam.useMediaEngine = false;
+	if (g_Config.SSAntiAliasing) {
+		coreParam.renderWidth *= 2;
+		coreParam.renderHeight *= 2;
+	}
 	std::string error_string;
 	if (PSP_Init(coreParam, &error_string)) {
 		invalid_ = false;
@@ -286,12 +290,12 @@ void EmuScreen::render() {
 	ui_draw2d.End();
 	ui_draw2d.Flush();
 
-
 	// Tiled renderers like PowerVR should benefit greatly from this. However - seems I can't call it?
 #if defined(USING_GLES2)
-	bool hasDiscard = false;  // TODO
+	bool hasDiscard = gl_extensions.EXT_discard_framebuffer;  // TODO
 	if (hasDiscard) {
-		//glDiscardFramebuffer(GL_COLOR_EXT | GL_DEPTH_EXT | GL_STENCIL_EXT);
+		//const GLenum targets[3] = { GL_COLOR_EXT, GL_DEPTH_EXT, GL_STENCIL_EXT };
+		//glDiscardFramebufferEXT(GL_FRAMEBUFFER, 3, targets);
 	}
 #endif
 }
