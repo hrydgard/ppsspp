@@ -28,7 +28,7 @@ else { # Assume ARM
 
 gleslib = $$lower($$QMAKE_LIBS_OPENGL)
 gleslib = $$find(gleslib, "gles")
-!count(gleslib,0) {
+contains(MEEGO_EDITION,harmattan)|!count(gleslib,0) {
 	DEFINES += USING_GLES2
 	CONFIG += mobile_platform
 }
