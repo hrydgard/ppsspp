@@ -78,6 +78,8 @@ void WindowsHeadlessHost::LoadNativeAssets()
 	VFSRegister("", new DirectoryAssetReader("assets/"));
 	VFSRegister("", new DirectoryAssetReader(""));
 	VFSRegister("", new DirectoryAssetReader("../"));
+	VFSRegister("", new DirectoryAssetReader("../Windows/assets/"));
+	VFSRegister("", new DirectoryAssetReader("../Windows/"));
 
 	gl_lost_manager_init();
 
@@ -138,9 +140,8 @@ void WindowsHeadlessHost::SetComparisonScreenshot(const std::string &filename)
 	comparisonScreenshot = filename;
 }
 
-void WindowsHeadlessHost::InitGL()
+bool WindowsHeadlessHost::InitGL(std::string *error_message)
 {
-	glOkay = false;
 	hWnd = CreateHiddenWindow();
 
 	if (WINDOW_VISIBLE)
@@ -160,7 +161,7 @@ void WindowsHeadlessHost::InitGL()
 	pfd.cDepthBits = 16;
 	pfd.iLayerType = PFD_MAIN_PLANE;
 
-#define ENFORCE(x, msg) { if (!(x)) { fprintf(stderr, msg); return; } }
+#define ENFORCE(x, msg) { if (!(x)) { fprintf(stderr, msg); *error_message = msg; return false; } }
 
 	ENFORCE(hDC = GetDC(hWnd), "Unable to create DC.");
 	ENFORCE(pixelFormat = ChoosePixelFormat(hDC, &pfd), "Unable to match pixel format.");
@@ -175,8 +176,7 @@ void WindowsHeadlessHost::InitGL()
 
 	LoadNativeAssets();
 
-	if (ResizeGL())
-		glOkay = true;
+	return ResizeGL();
 }
 
 void WindowsHeadlessHost::ShutdownGL()

@@ -33,7 +33,7 @@ public:
 
 	virtual void SetDebugMode(bool mode) { }
 
-	virtual bool InitGL(std::string *error_message) {return true;}
+	virtual bool InitGL(std::string *error_message) {return false;}
 	virtual void ShutdownGL() {}
 
 	virtual void InitSound(PMixer *mixer) {}
@@ -48,8 +48,6 @@ public:
 
 	virtual void SendDebugOutput(const std::string &output) { printf("%s", output.c_str()); }
 	virtual void SetComparisonScreenshot(const std::string &filename) {}
-
-	virtual bool isGLWorking() { return false; }
 
 
 	// Unique for HeadlessHost

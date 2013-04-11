@@ -150,7 +150,7 @@ int main(int argc, const char* argv[])
 	host = headlessHost;
 
 	std::string error_string;
-	host->InitGL(&error_string);
+	bool glWorking = host->InitGL(&error_string);
 
 	LogManager::Init();
 	LogManager *logman = LogManager::GetInstance();
@@ -170,7 +170,7 @@ int main(int argc, const char* argv[])
 	coreParameter.mountIso = mountIso ? mountIso : "";
 	coreParameter.startPaused = false;
 	coreParameter.cpuCore = useJit ? CPU_JIT : CPU_INTERPRETER;
-	coreParameter.gpuCore = headlessHost->isGLWorking() ? GPU_GLES : GPU_NULL;
+	coreParameter.gpuCore = glWorking ? GPU_GLES : GPU_NULL;
 	coreParameter.enableSound = false;
 	coreParameter.headLess = true;
 	coreParameter.printfEmuLog = true;
