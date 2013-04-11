@@ -8,6 +8,7 @@
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/System.h"
+#include "Core/HLE/sceUtility.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Host.h"
 #include "Log.h"
@@ -150,7 +151,7 @@ int main(int argc, const char* argv[])
 	host = headlessHost;
 
 	std::string error_string;
-	host->InitGL(&error_string);
+	bool glWorking = host->InitGL(&error_string);
 
 	LogManager::Init();
 	LogManager *logman = LogManager::GetInstance();
@@ -166,14 +167,21 @@ int main(int argc, const char* argv[])
 	}
 
 	CoreParameter coreParameter;
+	coreParameter.cpuCore = useJit ? CPU_JIT : CPU_INTERPRETER;
+	coreParameter.gpuCore = glWorking ? GPU_GLES : GPU_NULL;
+	coreParameter.enableSound = false;
 	coreParameter.fileToStart = bootFilename;
 	coreParameter.mountIso = mountIso ? mountIso : "";
 	coreParameter.startPaused = false;
-	coreParameter.cpuCore = useJit ? CPU_JIT : CPU_INTERPRETER;
-	coreParameter.gpuCore = headlessHost->isGLWorking() ? GPU_GLES : GPU_NULL;
-	coreParameter.enableSound = false;
-	coreParameter.headLess = true;
+	coreParameter.enableDebugging = false;
 	coreParameter.printfEmuLog = true;
+	coreParameter.headLess = true;
+	coreParameter.renderWidth = 480;
+	coreParameter.renderHeight = 272;
+	coreParameter.outputWidth = 480;
+	coreParameter.outputHeight = 272;
+	coreParameter.pixelWidth = 480;
+	coreParameter.pixelHeight = 272;
 	coreParameter.useMediaEngine = false;
 
 	g_Config.bEnableSound = false;
@@ -181,6 +189,20 @@ int main(int argc, const char* argv[])
 	g_Config.bIgnoreBadMemAccess = true;
 	// Never report from tests.
 	g_Config.sReportHost = "";
+	g_Config.bAutoSaveSymbolMap = false;
+	g_Config.bBufferedRendering = true;
+	g_Config.bHardwareTransform = true;
+	g_Config.bUseMediaEngine = true;
+#ifdef USING_GLES2
+	g_Config.iAnisotropyLevel = 0;
+#else
+	g_Config.iAnisotropyLevel = 8;
+#endif
+	g_Config.bVertexCache = true;
+	g_Config.bTrueColor = true;
+	g_Config.ilanguage = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
+	g_Config.itimeformat = PSP_SYSTEMPARAM_TIME_FORMAT_24HR;
+	g_Config.bEncryptSave = true;
 
 #if defined(ANDROID)
 #elif defined(BLACKBERRY) || defined(__SYMBIAN32__)
@@ -188,7 +210,6 @@ int main(int argc, const char* argv[])
 	g_Config.memCardDirectory = std::string(getenv("HOME"))+"/.ppsspp/";
 	g_Config.flashDirectory = g_Config.memCardDirectory+"/flash/";
 #endif
-
 
 	if (!PSP_Init(coreParameter, &error_string)) {
 		fprintf(stderr, "Failed to start %s. Error: %s\n", coreParameter.fileToStart.c_str(), error_string.c_str());
