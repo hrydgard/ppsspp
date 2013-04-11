@@ -234,7 +234,6 @@ struct SceKernelSMOption {
 //////////////////////////////////////////////////////////////////////////
 // STATE BEGIN
 static int actionAfterModule;
-static SceUID mainModuleID;	// hack
 // STATE END
 //////////////////////////////////////////////////////////////////////////
 
@@ -245,7 +244,6 @@ void __KernelModuleInit()
 
 void __KernelModuleDoState(PointerWrap &p)
 {
-	p.Do(mainModuleID);
 	p.Do(actionAfterModule);
 	__KernelRestoreActionType(actionAfterModule, AfterModuleEntryCall::Create);
 	p.DoMarker("sceKernelModule");
@@ -657,7 +655,6 @@ void __KernelStartModule(Module *m, int args, const char *argp, SceKernelSMOptio
 	}
 
 	__KernelSetupRootThread(m->GetUID(), args, argp, options->priority, options->stacksize, options->attribute);
-	mainModuleID = m->GetUID();
 	//TODO: if current thread, put it in wait state, waiting for the new thread
 }
 
@@ -725,7 +722,7 @@ bool __KernelLoadExec(const char *filename, SceKernelLoadExecParam *param, std::
 
 	__KernelStartModule(module, (u32)strlen(filename) + 1, filename, &option);
 
-	__KernelStartIdleThreads();
+	__KernelStartIdleThreads(module->GetUID());
 	return true;
 }
 
