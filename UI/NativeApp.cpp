@@ -183,6 +183,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	std::string user_data_path = savegame_directory;
 	isMessagePending = false;
 	// We want this to be FIRST.
+#ifndef USING_QT_UI
 #ifdef BLACKBERRY
 	// Packed assets are included in app/native/ dir
 	VFSRegister("", new DirectoryAssetReader("app/native/assets/"));
@@ -202,6 +203,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	VFSRegister("", new DirectoryAssetReader("assets/"));
 #endif
 	VFSRegister("", new DirectoryAssetReader(user_data_path.c_str()));
+#endif
 
 	host = new NativeHost();
 
