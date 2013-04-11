@@ -111,6 +111,11 @@ public:
 		return vaddr;
 	}
 
+	u32 GetTotalSize()
+	{
+		return totalSize;
+	}
+
 	// More indepth stuff:)
 	bool LoadInto(u32 vaddr);
 	bool LoadSymbols();
@@ -127,6 +132,7 @@ private:
 	u32 *sectionAddrs;
 	bool bRelocate;
 	u32 entryPoint;
+	u32 totalSize;
 	u32 vaddr;
 	u32 segmentVAddr[32];
 };

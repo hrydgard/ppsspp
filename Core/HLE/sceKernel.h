@@ -397,22 +397,20 @@ public:
 		return static_cast<T *>(pool[realHandle]);
 	}
 
-	template <class T>
-	T* GetByModuleByEntryAddr(u32 entryAddr)
+	template <class T, typename ArgT>
+	void Iterate(bool func(T *, ArgT), ArgT arg)
 	{
-		for (int i = 0; i < maxCount; ++i)
+		for (int i = 0; i < maxCount; i++)
 		{
-			T* t = dynamic_cast<T*>(pool[i]);
-
+			if (!occupied[i])
+				continue;
+			T *t = dynamic_cast<T *>(pool[i]);
 			if (t)
 			{
-				if (t->nm.entry_addr == entryAddr)
-				{
-					return t;
-				}
+				if (!func(t, arg))
+					break;
 			}
 		}
-		return 0;
 	}
 
 	static u32 GetMissingErrorCode() { return -1; }	// TODO

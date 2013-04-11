@@ -722,9 +722,6 @@ MipsCallManager mipsCalls;
 int actionAfterCallback;
 int actionAfterMipsCall;
 
-// This seems nasty
-SceUID curModule;
-
 // Doesn't need state saving.
 WaitTypeFuncs waitTypeFuncs[NUM_WAITTYPES];
 
@@ -869,7 +866,6 @@ void __KernelThreadingDoState(PointerWrap &p)
 	p.Do(threadqueue, dv);
 	p.DoArray(threadIdleID, ARRAY_SIZE(threadIdleID));
 	p.Do(dispatchEnabled);
-	p.Do(curModule);
 
 	p.Do(threadReadyQueue);
 
@@ -948,13 +944,13 @@ void __KernelChangeReadyState(SceUID threadID, bool ready)
 		WARN_LOG(HLE, "Trying to change the ready state of an unknown thread?");
 }
 
-void __KernelStartIdleThreads()
+void __KernelStartIdleThreads(SceUID moduleId)
 {
 	for (int i = 0; i < 2; i++)
 	{
 		u32 error;
 		Thread *t = kernelObjects.Get<Thread>(threadIdleID[i], error);
-		t->nt.gpreg = __KernelGetModuleGP(curModule);
+		t->nt.gpreg = __KernelGetModuleGP(moduleId);
 		t->context.r[MIPS_REG_GP] = t->nt.gpreg;
 		//t->context.pc += 4;	// ADJUSTPC
 		threadReadyQueue.prepare(t->nt.currentPriority);
@@ -1063,7 +1059,6 @@ void __KernelThreadingShutdown()
 	cbReturnHackAddr = 0;
 	currentThread = 0;
 	intReturnHackAddr = 0;
-	curModule = 0;
 	hleCurrentThreadName = NULL;
 }
 
@@ -1701,7 +1696,6 @@ Thread *__KernelCreateThread(SceUID &id, SceUID moduleId, const char *name, u32 
 
 void __KernelSetupRootThread(SceUID moduleID, int args, const char *argp, int prio, int stacksize, int attr) 
 {
-	curModule = moduleID;
 	//grab mips regs
 	SceUID id;
 	Thread *thread = __KernelCreateThread(id, moduleID, "root", currentMIPS->pc, prio, stacksize, attr);
@@ -1758,10 +1752,7 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 
 int sceKernelCreateThread(const char *threadName, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr)
 {
-	SceUID moduleId = curModule;
-	if (__GetCurrentThread())
-		moduleId = __GetCurrentThread()->moduleId;
-	return __KernelCreateThread(threadName, moduleId, entry, prio, stacksize, attr, optionAddr);
+	return __KernelCreateThread(threadName, __KernelGetCurThreadModuleId(), entry, prio, stacksize, attr, optionAddr);
 }
 
 
