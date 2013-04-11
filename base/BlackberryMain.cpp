@@ -473,7 +473,15 @@ int main(int argc, char *argv[]) {
 		// Handle accelerometer
 		double x, y, z;
 		accelerometer_read_forces(&x, &y, &z);
-		input_state.acc.x = x; input_state.acc.y = y; input_state.acc.z = z;
+		if (pixel_xres == 1024) // Playbook has this reversed
+		{
+			input_state.acc.x = y;
+			input_state.acc.y = x;
+		} else {
+			input_state.acc.x = x;
+			input_state.acc.y = y;
+		}
+		input_state.acc.z = z;
 		UpdateInputState(&input_state);
 		NativeUpdate(input_state);
 		EndInputState(&input_state);
