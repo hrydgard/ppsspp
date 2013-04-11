@@ -72,12 +72,14 @@ int main(int argc, char *argv[])
 	char* savegame_dir = "E:/PPSSPP/";
 #elif defined(BLACKBERRY)
 	char* savegame_dir = "data/";
+#elif defined(MEEGO_EDITION_HARMATTAN)
+	char* savegame_dir = "/home/user/MyDocs/PPSSPP/";
 #else
 	char* savegame_dir = "./";
 #endif
 	NativeInit(argc, (const char **)argv, savegame_dir, QDir::tempPath().toStdString().c_str(), "BADCOFFEE");
 
-#ifndef Q_WS_X11
+#if !defined(Q_WS_X11) || defined(ARM)
 	MainUI w(dpi_scale);
 	w.resize(pixel_xres, pixel_yres);
 	w.showFullScreen();
