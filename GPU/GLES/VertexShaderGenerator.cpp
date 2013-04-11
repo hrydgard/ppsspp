@@ -334,6 +334,10 @@ void GenerateVertexShader(int prim, char *buffer) {
 			bool poweredDiffuse = comp == GE_LIGHTCOMP_BOTHWITHPOWDIFFUSE;
 
 			WRITE(p, "  float dot%i = dot(normalize(toLight%i), worldnormal);\n", i, i);
+			WRITE(p, "  float distance%i = length(toLight%i);\n", i, i);
+			WRITE(p, "  float lightScale%i = 0.0;\n", i);
+			WRITE(p, "  float angle%i = 0.0;\n", i);
+
 			if (poweredDiffuse) {
 				WRITE(p, "  dot%i = pow(dot%i, u_matspecular.a);\n", i, i);
 			}
@@ -341,17 +345,14 @@ void GenerateVertexShader(int prim, char *buffer) {
 			// Attenuation
 			switch (type) {
 			case GE_LIGHTTYPE_DIRECTIONAL:
-				WRITE(p, "  float lightScale%i = 1.0;\n", i);
+				WRITE(p, "  lightScale%i = 1.0;\n", i);
 				break;
 			case GE_LIGHTTYPE_POINT:
-				WRITE(p, "  float distance%i = length(toLight%i);\n", i, i);
-				WRITE(p, "  float lightScale%i = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance%i, distance%i*distance%i)), 0.0, 1.0);\n", i, i, i, i, i);
+				WRITE(p, "  lightScale%i = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance%i, distance%i*distance%i)), 0.0, 1.0);\n", i, i, i, i, i);
 				break;
 			case GE_LIGHTTYPE_SPOT:
-				WRITE(p, "  float lightScale%i = 0.0;\n", i);
-				WRITE(p, "  float angle%i = dot(normalize(u_lightdir%i), normalize(toLight%i));\n", i, i, i);
+				WRITE(p, "  angle%i = dot(normalize(u_lightdir%i), normalize(toLight%i));\n", i, i, i);
 				WRITE(p, "  if (angle%i >= u_lightangle%i) {\n", i, i);
-				WRITE(p, "    float distance%i = length(toLight%i);\n", i, i);
 				WRITE(p, "    lightScale%i = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance%i, distance%i*distance%i)), 0.0, 1.0) * pow(angle%i, u_lightspotCoef%i);\n", i, i, i, i, i, i, i);
 				WRITE(p, "  }\n");
 				break;
