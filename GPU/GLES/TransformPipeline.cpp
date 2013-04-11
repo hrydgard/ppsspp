@@ -53,6 +53,10 @@ enum {
 	TRANSFORMED_VERTEX_BUFFER_SIZE = 65536 * sizeof(TransformedVertex)
 };
 
+inline float clamp(float in, float min, float max) { 
+	return in < min ? min : (in > max ? max : in); 
+}
+
 TransformDrawEngine::TransformDrawEngine()
 	: collectedVerts(0),
 		prevPrim_(-1),
@@ -276,6 +280,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		GELightType type = (GELightType)((gstate.ltype[l] >> 8) & 3);
 		
 		Vec3 toLight(0,0,0);
+		Vec3 lightDir(0,0,0);
 		
 		if (type == GE_LIGHTTYPE_DIRECTIONAL)
 			toLight = Vec3(gstate_c.lightpos[l]);  // lightdir is for spotlights
@@ -287,7 +292,9 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		
 		float distanceToLight = toLight.Length();
 		float dot = 0.0f;
-
+		float angle = 0.0f;
+		float lightScale = 0.0f;
+		
 		if (distanceToLight > 0.0f) {
 			toLight /= distanceToLight;
 			dot = toLight * norm;
@@ -298,20 +305,23 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		if (poweredDiffuse)
 			dot = powf(dot, specCoef_);
 
-		float lightScale = 1.0f;
-		if (type != GE_LIGHTTYPE_DIRECTIONAL) {
-			lightScale = 1.0f / (gstate_c.lightatt[l][0] + gstate_c.lightatt[l][1]*distanceToLight + gstate_c.lightatt[l][2]*distanceToLight*distanceToLight);
-			if (lightScale > 1.0f) lightScale = 1.0f;
-		}
-
-		if (type == GE_LIGHTTYPE_SPOT) {
-			Vec3 lightDir = gstate_c.lightdir[l];
-			lightDir.Normalize();
-			float angle = toLight * lightDir;
-			if (angle < gstate_c.lightangle[l])
-				lightScale = 0.0f;
-			else
-				lightScale *= powf(angle, gstate_c.lightspotCoef[l]);
+		// Attenuation
+		switch (type) {
+		case GE_LIGHTTYPE_DIRECTIONAL:
+			lightScale = 1.0f;
+			break;
+		case GE_LIGHTTYPE_POINT:
+			lightScale = clamp(1.0f / (gstate_c.lightatt[l][0] + gstate_c.lightatt[l][1]*distanceToLight + gstate_c.lightatt[l][2]*distanceToLight*distanceToLight), 0.0f, 1.0f);
+			break;
+		case GE_LIGHTTYPE_SPOT:
+			lightDir = gstate_c.lightdir[l];
+			angle = toLight.Normalize() * lightDir.Normalize();
+			if (angle >= gstate_c.lightangle[l])
+				lightScale = clamp(1.0f / (gstate_c.lightatt[l][0] + gstate_c.lightatt[l][1]*distanceToLight + gstate_c.lightatt[l][2]*distanceToLight*distanceToLight), 0.0f, 1.0f) * powf(angle, gstate_c.lightspotCoef[l]);
+			break;
+		default:
+			// ILLEGAL
+			break;
 		}
 
 		Color4 lightDiff(gstate_c.lightColor[1][l], 0.0f);

@@ -98,18 +98,20 @@ void Config::Load(const char *iniFileName)
 	graphics->Get("FullScreen", &bFullScreen, false);	
 	graphics->Get("StretchToDisplay", &bStretchToDisplay, false);
 	graphics->Get("TrueColor", &bTrueColor, true);
+#ifdef USING_GLES2
+	graphics->Get("MipMap", &bMipMap, true);
+#else
 	graphics->Get("MipMap", &bMipMap, false);
-
+#endif
 	IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 	sound->Get("Enable", &bEnableSound, true);
 
 	IniFile::Section *control = iniFile.GetOrCreateSection("Control");
 	control->Get("ShowStick", &bShowAnalogStick, false);
-	control->Get("ShowTouchControls", &bShowTouchControls,
 #ifdef USING_GLES2
-		true);
+	control->Get("ShowTouchControls", &bShowTouchControls, true);
 #else
-		false);
+	control->Get("ShowTouchControls", &bShowTouchControls,false);
 #endif
 	control->Get("LargeControls", &bLargeControls, false);
 	control->Get("KeyMapping",iMappingMap);
