@@ -200,7 +200,7 @@ bool ElfReader::LoadInto(u32 loadAddress)
 				totalEnd = p->p_vaddr + p->p_memsz;
 		}
 	}
-	u32 totalSize = totalEnd - totalStart;
+	totalSize = totalEnd - totalStart;
 	if (!bRelocate)
 	{
 		// Binary is prerelocated, load it where the first segment starts

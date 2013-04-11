@@ -165,12 +165,14 @@ public:
 	{
 		p.Do(nm);
 		p.Do(memoryBlockAddr);
+		p.Do(memoryBlockSize);
 		p.DoMarker("Module");
 	}
 
 	NativeModule nm;
 
 	u32 memoryBlockAddr;
+	u32 memoryBlockSize;
 	bool isFake;
 };
 
@@ -316,6 +318,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		return 0;
 	}
 	module->memoryBlockAddr = reader.GetVaddr();
+	module->memoryBlockSize = reader.GetTotalSize();
 
 	struct libent
 	{
@@ -893,24 +896,36 @@ u32 sceKernelStopUnloadSelfModuleWithStatus(u32 moduleId, u32 argSize, u32 argp,
 	return 0;
 }
 
+struct GetModuleIdByAddressArg
+{
+	u32 addr;
+	SceUID result;
+};
+
+bool __GetModuleIdByAddressIterator(Module *module, GetModuleIdByAddressArg *state)
+{
+	const u32 start = module->memoryBlockAddr, size = module->memoryBlockSize;
+	printf("%08x - %08x ? %08x\n", start, start + size, state->addr);
+	if (start <= state->addr && start + size > state->addr)
+	{
+		state->result = module->GetUID();
+		return false;
+	}
+	return true;
+}
+
 u32 sceKernelGetModuleIdByAddress(u32 moduleAddr)
 {
-	ERROR_LOG(HLE,"HACKIMPL sceKernelGetModuleIdByAddress(%08x)", moduleAddr);
+	GetModuleIdByAddressArg state;
+	state.addr = moduleAddr;
+	state.result = SCE_KERNEL_ERROR_UNKNOWN_MODULE;
 
-	if ((moduleAddr & 0xFFFF0000) == 0x08800000)
-	{
-		return mainModuleID;
-	}
+	kernelObjects.Iterate(&__GetModuleIdByAddressIterator, &state);
+	if (state.result == SCE_KERNEL_ERROR_UNKNOWN_MODULE)
+		ERROR_LOG(HLE, "sceKernelGetModuleIdByAddress(%08x): module not found", moduleAddr)
 	else
-	{
-		Module* foundMod= kernelObjects.GetByModuleByEntryAddr<Module>(moduleAddr);
-
-		if(foundMod)
-		{
-			return foundMod->GetUID();
-		}
-	}
-	return 0;
+		DEBUG_LOG(HLE, "%x=sceKernelGetModuleIdByAddress(%08x)", state.result, moduleAddr);
+	return state.result;
 }
 
 u32 sceKernelGetModuleId()
