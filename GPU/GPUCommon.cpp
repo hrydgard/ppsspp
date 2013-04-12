@@ -583,6 +583,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 						if (!Memory::IsValidAddress(target)) {
 							ERROR_LOG_REPORT(G3D, "Signal with Jump: bad address. signal/end: %04x %04x", signal, enddata);
 						} else {
+							UpdateCycles(currentList->pc, target);
 							currentList->pc = target;
 							DEBUG_LOG(G3D, "Signal with Jump. signal/end: %04x %04x", signal, enddata);
 						}
@@ -601,6 +602,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 						} else {
 							// TODO: This might save/restore other state...
 							currentList->stack[currentList->stackptr++] = currentList->pc;
+							UpdateCycles(currentList->pc, target);
 							currentList->pc = target;
 							DEBUG_LOG(G3D, "Signal with Call. signal/end: %04x %04x", signal, enddata);
 						}
@@ -614,7 +616,9 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 							ERROR_LOG_REPORT(G3D, "Signal with Return: stack empty. signal/end: %04x %04x", signal, enddata);
 						} else {
 							// TODO: This might save/restore other state...
-							currentList->pc = currentList->stack[--currentList->stackptr];
+							u32 target = currentList->stack[--currentList->stackptr];
+							UpdateCycles(currentList->pc, target);
+							currentList->pc = target;
 							DEBUG_LOG(G3D, "Signal with Return. signal/end: %04x %04x", signal, enddata);
 						}
 					}
