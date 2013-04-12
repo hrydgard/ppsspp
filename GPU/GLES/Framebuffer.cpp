@@ -58,9 +58,7 @@ static const char basic_vs[] =
 
 // Aggressively delete unused FBO:s to save gpu memory.
 enum {
-	FBO_OLD_AGE = 10,
-	FBO_OLD_FORCE_AGE = 5,
-	FBO_OLD_FORCE_RETAIN_FRAMES = 6,
+	FBO_OLD_AGE = 5,
 };
 
 static bool MaskedEqual(u32 addr1, u32 addr2) {
@@ -106,6 +104,7 @@ FramebufferManager::FramebufferManager() :
 	displayFramebufPtr_(0),
 	prevDisplayFramebuf_(0),
 	prevPrevDisplayFramebuf_(0),
+	frameLastFramebufUsed(0),
 	currentRenderVfb_(0)
 {
 	glGenTextures(1, &backbufTex);
@@ -381,6 +380,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb);
 
 		vfb->last_frame_used = gpuStats.numFrames;
+		frameLastFramebufUsed = gpuStats.numFrames;
 		vfbs_.push_back(vfb);
 		glstate.depthWrite.set(GL_TRUE);
 		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
@@ -390,7 +390,6 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		currentRenderVfb_ = vfb;
 
 		INFO_LOG(HLE, "Creating FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
-		DecimateFBOs(true);
 
 	// We already have it!
 	} else if (vfb != currentRenderVfb_) {
@@ -399,6 +398,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		vfb->usageFlags |= FB_USAGE_RENDERTARGET;
 		gstate_c.textureChanged = true;
 		vfb->last_frame_used = gpuStats.numFrames;
+		frameLastFramebufUsed = gpuStats.numFrames;
 		vfb->dirtyAfterDisplay = true;
 
 		if (g_Config.bBufferedRendering) {
@@ -448,6 +448,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		currentRenderVfb_ = vfb;
 	} else {
 		vfb->last_frame_used = gpuStats.numFrames;
+		frameLastFramebufUsed = gpuStats.numFrames;
 	}
 
 	// ugly...
@@ -480,8 +481,12 @@ void FramebufferManager::CopyDisplayToOutput() {
 	vfb->usageFlags |= FB_USAGE_DISPLAYED_FRAMEBUFFER;
 	vfb->dirtyAfterDisplay = false;
 
-	prevPrevDisplayFramebuf_ = prevDisplayFramebuf_;
-	prevDisplayFramebuf_ = displayFramebuf_;
+	if (prevDisplayFramebuf_ != displayFramebuf_) {
+		prevPrevDisplayFramebuf_ = prevDisplayFramebuf_;
+	}
+	if (displayFramebuf_ != vfb) {
+		prevDisplayFramebuf_ = displayFramebuf_;
+	}
 	displayFramebuf_ = vfb;
 
 	currentRenderVfb_ = 0;
@@ -566,17 +571,7 @@ std::vector<FramebufferInfo> FramebufferManager::GetFramebufferList() {
 	return list;
 }
 
-void FramebufferManager::DecimateFBOs(bool force) {
-	static int retainForce = 0;
-	if (force)
-		retainForce = FBO_OLD_FORCE_RETAIN_FRAMES;
-
-	int oldAge = FBO_OLD_AGE;
-	if (retainForce) {
-		--retainForce;
-		oldAge = FBO_OLD_FORCE_AGE;
-	}
-
+void FramebufferManager::DecimateFBOs() {
 	fbo_unbind();
 	for (auto iter = vfbs_.begin(); iter != vfbs_.end();) {
 		VirtualFramebuffer *vfb = *iter;
@@ -584,8 +579,8 @@ void FramebufferManager::DecimateFBOs(bool force) {
 			++iter;
 			continue;
 		}
-		int age = gpuStats.numFrames - (*iter)->last_frame_used;
-		if (age > oldAge) {
+		int age = frameLastFramebufUsed - (*iter)->last_frame_used;
+		if (age > FBO_OLD_AGE) {
 			INFO_LOG(HLE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age)
 			if (vfb->fbo) {
 				textureCache_->NotifyFramebufferDestroyed(vfb->fb_address, vfb);
