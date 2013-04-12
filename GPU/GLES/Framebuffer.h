@@ -89,7 +89,7 @@ public:
 	void DrawActiveTexture(float x, float y, float w, float h, bool flip = false);
 
 	void DestroyAllFBOs();
-	void DecimateFBOs(bool force = false);
+	void DecimateFBOs();
 
 	void BeginFrame();
 	void EndFrame();
@@ -118,6 +118,7 @@ private:
 	VirtualFramebuffer *displayFramebuf_;
 	VirtualFramebuffer *prevDisplayFramebuf_;
 	VirtualFramebuffer *prevPrevDisplayFramebuf_;
+	int frameLastFramebufUsed;
 
 	std::list<VirtualFramebuffer *> vfbs_;
 
