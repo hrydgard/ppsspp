@@ -481,8 +481,12 @@ void FramebufferManager::CopyDisplayToOutput() {
 	vfb->usageFlags |= FB_USAGE_DISPLAYED_FRAMEBUFFER;
 	vfb->dirtyAfterDisplay = false;
 
-	prevPrevDisplayFramebuf_ = prevDisplayFramebuf_;
-	prevDisplayFramebuf_ = displayFramebuf_;
+	if (prevDisplayFramebuf_ != displayFramebuf_) {
+		prevPrevDisplayFramebuf_ = prevDisplayFramebuf_;
+	}
+	if (displayFramebuf_ != vfb) {
+		prevDisplayFramebuf_ = displayFramebuf_;
+	}
 	displayFramebuf_ = vfb;
 
 	currentRenderVfb_ = 0;
