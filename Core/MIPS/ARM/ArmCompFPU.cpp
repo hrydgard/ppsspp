@@ -139,7 +139,7 @@ void Jit::Comp_FPUComp(u32 op) {
 	int fs = _FS;
 	int ft = _FT;
 	fpr.MapInIn(fs, ft);
-	VCMP(fpr.R(fs), fpr.R(ft), false);
+	VCMP(fpr.R(fs), fpr.R(ft));
 	VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
 	switch(opc)
 	{
