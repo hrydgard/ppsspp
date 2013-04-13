@@ -24,10 +24,12 @@
 #include "thread/prioritizedworkqueue.h"
 #include "gfx/texture.h"
 #include "Core/ELF/ParamSFO.h"
+#include "Core/Loaders.h"
+
 
 class GameInfo {
 public:
-	GameInfo() : iconTexture(NULL), pic0Texture(NULL), pic1Texture(NULL) {}
+	GameInfo() : fileType(FILETYPE_UNKNOWN), iconTexture(NULL), pic0Texture(NULL), pic1Texture(NULL) {}
 	// Hold this when reading or writing from the GameInfo.
 	// Don't need to hold it when just passing around the pointer,
 	// and obviously also not when creating it and holding the only pointer
@@ -35,8 +37,9 @@ public:
 	recursive_mutex lock;
 
 	std::string title;  // for easy access, also available in paramSFO.
+	EmuFileType fileType;
 	ParamSFOData paramSFO;
-
+	
 	// Pre read the data, create a texture the next time (GL thread..)
 	std::string iconTextureData;
 	Texture *iconTexture;

@@ -69,7 +69,7 @@ public:
 			PBPReader pbp(gamePath_.c_str());
 			if (!pbp.IsValid())
 				return;
-
+			info_->fileType = FILETYPE_PSP_PBP;
 			// First, PARAM.SFO.
 			size_t sfoSize;
 			u8 *sfoData = pbp.GetSubFile(PBP_PARAM_SFO, &sfoSize);
@@ -100,8 +100,10 @@ public:
 				}
 			}
 		} else if (endsWith(gamePath_, ".elf") || endsWith(gamePath_, ".prx")) {
+			info_->fileType = FILETYPE_PSP_ELF;
 			return;
 		} else {
+			info_->fileType = FILETYPE_PSP_ISO;
 			SequentialHandleAllocator handles;
 			// Let's assume it's an ISO.
 			// TODO: This will currently read in the whole directory tree. Not really necessary for just a
