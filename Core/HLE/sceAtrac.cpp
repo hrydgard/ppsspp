@@ -442,6 +442,7 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 			u32 numSamples = 0;
 #ifdef _USE_FFMPEG_
 			if (atrac->codeType == PSP_MODE_AT_3 && atrac->pCodecCtx) {
+				atrac->SeekToSample(0);
 				atrac->SeekToSample(atrac->currentSample);
 				AVPacket packet;
 				int got_frame, ret;
@@ -451,6 +452,7 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 						ret = avcodec_decode_audio4(atrac->pCodecCtx, atrac->pFrame, &got_frame, &packet);
 						if (ret < 0) {
 							ERROR_LOG(HLE, "avcodec_decode_audio4: Error decoding audio %d", ret);
+							av_free_packet(&packet);
 							break;
 						}
 
@@ -508,12 +510,12 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 			atrac->decodePos = atrac->getDecodePosBySample(atrac->currentSample);
 			
 			int finishFlag = 0;
-			if (atrac->loopEndSample >= 0 && (atrac->currentSample >= atrac->loopEndSample)) {
+			if (atrac->loopEndSample >= 0 && (atrac->currentSample >= atrac->loopEndSample || numSamples == 0)) {
 				atrac->currentSample = atrac->loopStartSample;
 				atrac->endSample = atrac->loopEndSample;
 				if (atrac->loopNum > 0)
 					atrac->loopNum --;
-			} else if (atrac->currentSample >= atrac->endSample)
+			} else if (atrac->currentSample >= atrac->endSample || numSamples == 0)
 				finishFlag = 1;
 
 			Memory::Write_U32(finishFlag, finishFlagAddr);
