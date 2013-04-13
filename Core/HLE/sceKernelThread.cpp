@@ -2238,11 +2238,12 @@ void sceKernelWakeupThread()
 	Thread *t = kernelObjects.Get<Thread>(uid, error);
 	if (t)
 	{
-		if (t->nt.waitType != WAITTYPE_SLEEP) {
+		if (!t->isWaitingFor(WAITTYPE_SLEEP, 1)) {
 			t->nt.wakeupCount++;
 			DEBUG_LOG(HLE,"sceKernelWakeupThread(%i) - wakeupCount incremented to %i", uid, t->nt.wakeupCount);
 			RETURN(0);
 		} else {
+			VERBOSE_LOG(HLE,"sceKernelWakeupThread(%i) - woke thread at %i", uid, t->nt.wakeupCount);
 			__KernelResumeThreadFromWait(uid);
 		}
 	} 
@@ -2286,7 +2287,7 @@ static void __KernelSleepThread(bool doCallbacks) {
 	} else {
 		VERBOSE_LOG(HLE, "sceKernelSleepThread()");
 		RETURN(0);
-		__KernelWaitCurThread(WAITTYPE_SLEEP, 0, 0, 0, doCallbacks, "thread slept");
+		__KernelWaitCurThread(WAITTYPE_SLEEP, 1, 0, 0, doCallbacks, "thread slept");
 	}
 }
 
