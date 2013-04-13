@@ -91,7 +91,8 @@ inline bool my_isnan(float f) {
 		uint32_t u;
 	} f2u;
 	f2u.f = f;
-	return (f2u.u & 0x7F800000) == 0x7F800000;
+	// NaNs have non-zero mantissa
+	return ((f2u.u & 0x7F800000) == 0x7F800000) && (f2u.u & 0x7FFFFF);
 }
 
 // FPU control.
