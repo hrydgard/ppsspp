@@ -81,6 +81,7 @@ u64 sceKernelGetSystemTimeWide()
 {
 	u64 t = CoreTiming::GetTicks() / CoreTiming::GetClockFrequencyMHz();
 	DEBUG_LOG(HLE,"%i=sceKernelGetSystemTimeWide()",(u32)t);
+	hleEatCycles(1 * 222);
 	return t;
 }
 
