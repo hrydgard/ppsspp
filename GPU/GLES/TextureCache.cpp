@@ -227,6 +227,23 @@ void *TextureCache::UnswizzleFromMem(u32 texaddr, u32 bytesPerPixel, u32 level) 
 	return tmpTexBuf32.data();
 }
 
+template <typename IndexT, typename ClutT>
+inline void DeIndexTextureNoSwizzle(ClutT *dest, const u32 texaddr, int length, const ClutT *clut) {
+	// Usually, there is no special offset, mask, or shift.
+	const bool nakedIndex = (gstate.clutformat & ~3) == 0xC500FF00;
+	const IndexT *indexed = (const IndexT *) Memory::GetPointer(texaddr);
+
+	if (nakedIndex) {
+		for (int i = 0; i < length; ++i) {
+			*dest++ = clut[*indexed++];
+		}
+	} else {
+		for (int i = 0; i < length; ++i) {
+			*dest++ = clut[GetClutIndex(*indexed++)];
+		}
+	}
+}
+
 void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex) {
 	int length = (gstate.texbufwidth[level] & 0x3FF) * (1 << ((gstate.texsize[level] >> 8) & 0xf));
 	void *buf = NULL;
@@ -238,31 +255,22 @@ void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex) {
 		tmpTexBuf16.resize(length);
 		tmpTexBufRearrange.resize(length);
 		ReadClut16(clutBuf16);
-		const u16 *clut = clutBuf16;
 		if (!(gstate.texmode & 1)) {
 			switch (bytesPerIndex) {
 			case 1:
-				for (int i = 0; i < length; i++) {
-					u8 index = Memory::ReadUnchecked_U8(texaddr + i);
-					tmpTexBuf16[i] = clut[GetClutIndex(index)];
-				}
+				DeIndexTextureNoSwizzle<u8>(tmpTexBuf16.data(), texaddr, length, clutBuf16);
 				break;
 
 			case 2:
-				for (int i = 0; i < length; i++) {
-					u16 index = Memory::ReadUnchecked_U16(texaddr + i * 2);
-					tmpTexBuf16[i] = clut[GetClutIndex(index)];
-				}
+				DeIndexTextureNoSwizzle<u16>(tmpTexBuf16.data(), texaddr, length, clutBuf16);
 				break;
 
 			case 4:
-				for (int i = 0; i < length; i++) {
-					u32 index = Memory::ReadUnchecked_U32(texaddr + i * 4);
-					tmpTexBuf16[i] = clut[GetClutIndex(index)];
-				}
+				DeIndexTextureNoSwizzle<u32>(tmpTexBuf16.data(), texaddr, length, clutBuf16);
 				break;
 			}
 		} else {
+			const u16 *clut = clutBuf16;
 			UnswizzleFromMem(texaddr, bytesPerIndex, level);
 			switch (bytesPerIndex) {
 			case 1:
@@ -298,32 +306,25 @@ void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex) {
 
 	case GE_CMODE_32BIT_ABGR8888:
 		{
+		tmpTexBuf32.resize(length);
+		tmpTexBufRearrange.resize(length);
 		ReadClut32(clutBuf32);
-		const u32 *clut = clutBuf32;
 		if (!(gstate.texmode & 1)) {
 			switch (bytesPerIndex) {
 			case 1:
-				for (int i = 0; i < length; i++) {
-					u8 index = Memory::ReadUnchecked_U8(texaddr + i);
-					tmpTexBuf32[i] = clut[GetClutIndex(index)];
-				}
+				DeIndexTextureNoSwizzle<u8>(tmpTexBuf32.data(), texaddr, length, clutBuf32);
 				break;
 
 			case 2:
-				for (int i = 0; i < length; i++) {
-					u16 index = Memory::ReadUnchecked_U16(texaddr + i * 2);
-					tmpTexBuf32[i] = clut[GetClutIndex(index)];
-				}
+				DeIndexTextureNoSwizzle<u16>(tmpTexBuf32.data(), texaddr, length, clutBuf32);
 				break;
 
 			case 4:
-				for (int i = 0; i < length; i++) {
-					u32 index = Memory::ReadUnchecked_U32(texaddr + i * 4);
-					tmpTexBuf32[i] = clut[GetClutIndex(index)];
-				}
+				DeIndexTextureNoSwizzle<u32>(tmpTexBuf32.data(), texaddr, length, clutBuf32);
 				break;
 			}
 		} else {
+			const u32 *clut = clutBuf32;
 			UnswizzleFromMem(texaddr, bytesPerIndex, level);
 			switch (bytesPerIndex) {
 			case 1:
