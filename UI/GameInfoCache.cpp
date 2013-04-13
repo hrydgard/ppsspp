@@ -95,8 +95,6 @@ public:
 					lock_guard lock(info_->lock);
 					if (pbp.GetSubFileSize(PBP_PIC1_PNG) > 0)
 						pbp.GetSubFileAsString(PBP_PIC1_PNG, &info_->pic1TextureData);
-					if (pbp.GetSubFileSize(PBP_PIC1_PNG) > 0)
-						pbp.GetSubFileAsString(PBP_PIC1_PNG, &info_->pic1TextureData);
 				}
 			}
 		} else if (endsWith(gamePath_, ".elf") || endsWith(gamePath_, ".prx")) {
