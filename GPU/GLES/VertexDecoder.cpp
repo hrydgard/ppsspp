@@ -230,7 +230,7 @@ void VertexDecoder::Step_Color565Morph() const
 	for (int i = 0; i < 3; i++) {
 		c[i] = (u8)(col[i] * 255.0f);
 	}
-	c[3] = 255.0f;
+	c[3] = 255;
 }
 
 void VertexDecoder::Step_Color5551Morph() const
