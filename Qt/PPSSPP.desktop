@@ -4,7 +4,7 @@ Version=0.7.5
 Type=Application
 Terminal=false
 Name=PPSSPP
-Exec=/opt/PPSSPP/bin/PPSSPPQt
+Exec=/usr/bin/invoker --type=d -s /opt/PPSSPP/bin/PPSSPPQt
 Icon=/usr/share/icons/hicolor/114x114/apps/icon-114.png
 X-Window-Icon=
 X-HildonDesk-ShowInToolbar=true

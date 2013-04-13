@@ -636,7 +636,7 @@ static const char * credits[] = {
 	"unknownbrackets",
 	"xsacha",
 	"raven02",
-	"oioittf",
+	"oioitff",
 	"tpunix",
 	"orphis",
 	"sum2012",
