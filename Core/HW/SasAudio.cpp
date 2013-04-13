@@ -275,7 +275,14 @@ void SasInstance::Mix(u32 outAddr) {
 
 		// TODO: Special case no-resample case for speed
 
-		if (voice.type == VOICETYPE_VAG && voice.vagAddr != 0) {
+		switch (voice.type) {
+		case VOICETYPE_VAG:
+			if (voice.type == VOICETYPE_VAG && !voice.vagAddr)
+				break;
+		case VOICETYPE_PCM:
+			if (voice.type == VOICETYPE_PCM && !voice.pcmAddr)
+				break;
+		default: 
 			// Load resample history (so we can use a wide filter)
 			resampleBuffer[0] = voice.resampleHist[0];
 			resampleBuffer[1] = voice.resampleHist[1];
@@ -291,14 +298,33 @@ void SasInstance::Mix(u32 outAddr) {
 			}
 
 			// Read N samples into the resample buffer. Could do either PCM or VAG here.
-			voice.vag.GetSamples(resampleBuffer + 2, numSamples);
+			switch (voice.type) {
+			case VOICETYPE_VAG:
+				{
+					voice.vag.GetSamples(resampleBuffer + 2, numSamples);
+					if (voice.vag.End()) {
+						// NOTICE_LOG(SAS, "Hit end of VAG audio");
+						voice.playing = false;
+						voice.on = false;  // ??
+					}
+				}
+				break;
+			case VOICETYPE_PCM:
+				{
+					int size = std::min(voice.pcmSize, (int)(numSamples * sizeof(s16)));
+					Memory::Memcpy(resampleBuffer + 2, voice.pcmAddr, size);
+					if (numSamples * sizeof(s16) > size)
+						memset(resampleBuffer + 2 + voice.pcmSize, 0, numSamples * sizeof(s16) - size);
+				}
+				break;
+			default:
+				{
+					memset(resampleBuffer + 2, 0, numSamples * sizeof(s16));
+				}
+				break;
+			}
 			// Smoothness HACKERY
 			resampleBuffer[2 + numSamples] = resampleBuffer[2 + numSamples - 1];
-			if (voice.vag.End()) {
-				// NOTICE_LOG(SAS, "Hit end of VAG audio");
-				voice.playing = false;
-				voice.on = false;  // ??
-			}
 
 			// Save resample history
 			voice.resampleHist[0] = resampleBuffer[2 + numSamples - 2];
@@ -337,39 +363,6 @@ void SasInstance::Mix(u32 outAddr) {
 				voice.playing = false;
 			}
 		}
-		else if (voice.type == VOICETYPE_PCM && voice.pcmAddr != 0) {
-			resampleBuffer[0] = voice.resampleHist[0];
-			resampleBuffer[1] = voice.resampleHist[1];
-			u32 numSamples = voice.sampleFrac + grainSize ;
-			if ((int)numSamples > grainSize * 4) {
-				ERROR_LOG(SAS, "numSamples too large, clamping: %i vs %i", numSamples, grainSize * 4);
-				numSamples = grainSize * 4;
-			}
-			resampleBuffer[2 + numSamples] = resampleBuffer[2 + numSamples - 1];
-			voice.resampleHist[0] = resampleBuffer[2 + numSamples - 2];
-			voice.resampleHist[1] = resampleBuffer[2 + numSamples - 1];
-			u32 sampleFrac = voice.sampleFrac;
-			for (int i = 0; i < grainSize; i++) {
-				int sample = resampleBuffer[sampleFrac + 2];
-				int envelopeValue = voice.envelope.GetHeight();
-				envelopeValue = ((envelopeValue >> 15) + 1) >> 1;
-				sample = sample * envelopeValue >> 15;
-				mixBuffer[i * 2] += sample * voice.volumeLeft >> 15;
-				mixBuffer[i * 2 + 1] += sample * voice.volumeRight >> 15;
-				sendBuffer[i * 2] += sample * voice.volumeLeftSend >> 15;
-				sendBuffer[i * 2 + 1] += sample * voice.volumeRightSend >> 15;
-				voice.envelope.Step();
-			}
-			voice.sampleFrac = sampleFrac;
-			voice.sampleFrac -= numSamples ;
-			if (voice.envelope.HasEnded()) {
-				NOTICE_LOG(SAS, "Hit end of envelope");
-				voice.playing = false;
-			}
-		}
-		else if (voice.type == VOICETYPE_NOISE && voice.noiseFreq != 0) {
-			// Generate noise?
-		}
 	}
 
 	//if (voicesPlayingCount)
@@ -383,9 +376,11 @@ void SasInstance::Mix(u32 outAddr) {
 	for (int i = 0; i < grainSize * 2; i += 2) {
 		int sampleL = mixBuffer[i] + sendBuffer[i];
 		*outp++ = clamp_s16(sampleL);
-
-		int sampleR = mixBuffer[i + 1] + sendBuffer[i + 1];
-		*outp++ = clamp_s16(sampleR);
+		if (outputMode == 0) {
+			// stereo
+			int sampleR = mixBuffer[i + 1] + sendBuffer[i + 1];
+			*outp++ = clamp_s16(sampleR);
+		}
 	}
 	memset(mixBuffer, 0, grainSize * sizeof(int) * 2);
 	memset(sendBuffer, 0, grainSize * sizeof(int) * 2);
