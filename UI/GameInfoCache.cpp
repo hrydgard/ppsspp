@@ -30,21 +30,25 @@
 GameInfoCache g_gameInfoCache;
 
 
-static bool ReadFileToString(IFileSystem *fs, const char *filename, std::string *contents) {
+static bool ReadFileToString(IFileSystem *fs, const char *filename, std::string *contents, recursive_mutex *mtx) {
 	PSPFileInfo info = fs->GetFileInfo(filename);
 	if (!info.exists) {
-		contents->clear();
 		return false;
 	}
 
 	int handle = fs->OpenFile(filename, FILEACCESS_READ);
 	if (!handle) {
-		contents->clear();
 		return false;
 	}
 
-	contents->resize(info.size);
-	fs->ReadFile(handle, (u8 *)contents->data(), info.size);
+	if (mtx) {
+		lock_guard lock(*mtx);
+		contents->resize(info.size);
+		fs->ReadFile(handle, (u8 *)contents->data(), info.size);
+	} else {
+		contents->resize(info.size);
+		fs->ReadFile(handle, (u8 *)contents->data(), info.size);
+	}
 	fs->CloseFile(handle);
 	return true;
 }
@@ -91,6 +95,8 @@ public:
 					lock_guard lock(info_->lock);
 					if (pbp.GetSubFileSize(PBP_PIC1_PNG) > 0)
 						pbp.GetSubFileAsString(PBP_PIC1_PNG, &info_->pic1TextureData);
+					if (pbp.GetSubFileSize(PBP_PIC1_PNG) > 0)
+						pbp.GetSubFileAsString(PBP_PIC1_PNG, &info_->pic1TextureData);
 				}
 			}
 		} else if (endsWith(gamePath_, ".elf") || endsWith(gamePath_, ".prx")) {
@@ -107,21 +113,22 @@ public:
 
 			// Alright, let's fetch the PARAM.SFO.
 			std::string paramSFOcontents;
-			if (ReadFileToString(&umd, "/PSP_GAME/PARAM.SFO", &paramSFOcontents)) {
+			if (ReadFileToString(&umd, "/PSP_GAME/PARAM.SFO", &paramSFOcontents, 0)) {
 				lock_guard lock(info_->lock);
 				info_->paramSFO.ReadSFO((const u8 *)paramSFOcontents.data(), paramSFOcontents.size());
 				info_->title = info_->paramSFO.GetValueString("TITLE");
 			}
 
-			ReadFileToString(&umd, "/PSP_GAME/ICON0.PNG", &info_->iconTextureData);
+			{
+				ReadFileToString(&umd, "/PSP_GAME/ICON0.PNG", &info_->iconTextureData, &info_->lock);
+			}
+
 			if (info_->wantBG) {
 				{
-					lock_guard lock(info_->lock);
-					ReadFileToString(&umd, "/PSP_GAME/PIC0.PNG", &info_->pic0TextureData);
+					ReadFileToString(&umd, "/PSP_GAME/PIC0.PNG", &info_->pic0TextureData, &info_->lock);
 				}
 				{
-					lock_guard lock(info_->lock);
-					ReadFileToString(&umd, "/PSP_GAME/PIC1.PNG", &info_->pic1TextureData);
+					ReadFileToString(&umd, "/PSP_GAME/PIC1.PNG", &info_->pic1TextureData, &info_->lock);
 				}
 			}
 		}
@@ -199,32 +206,41 @@ GameInfo *GameInfoCache::GetInfo(const std::string &gamePath, bool wantBG) {
 	if (iter != info_.end()) {
 		GameInfo *info = iter->second;
 		if (!info->wantBG && wantBG) {
-			// Need to start over.
-			delete info;
+			// Need to start over. We'll just add a new work item.
+			delete info;  // Hm, how dangerous is this? There might be a race condition here.
 			goto again;
 		}
-		if (info->iconTextureData.size()) {
-			info->iconTexture = new Texture();
-			// TODO: We could actually do the PNG decoding as well on the async thread.
-			// We'd have to split up Texture->LoadPNG though, creating some intermediate Image class maybe.
-			if (info->iconTexture->LoadPNG((const u8 *)info->iconTextureData.data(), info->iconTextureData.size(), false)) {
-				info->timeIconWasLoaded = time_now_d();
+		{
+			lock_guard lock(info->lock);
+			if (info->iconTextureData.size()) {
+				info->iconTexture = new Texture();
+				// TODO: We could actually do the PNG decoding as well on the async thread.
+				// We'd have to split up Texture->LoadPNG though, creating some intermediate Image class maybe.
+				if (info->iconTexture->LoadPNG((const u8 *)info->iconTextureData.data(), info->iconTextureData.size(), false)) {
+					info->timeIconWasLoaded = time_now_d();
+				}
+				info->iconTextureData.clear();
 			}
-			info->iconTextureData.clear();
 		}
-		if (info->pic0TextureData.size()) {
-			info->pic0Texture = new Texture();
-			if (info->pic0Texture->LoadPNG((const u8 *)info->pic0TextureData.data(), info->pic0TextureData.size(), false)) {
-				info->timePic0WasLoaded = time_now_d();
+		{
+			lock_guard lock(info->lock);
+			if (info->pic0TextureData.size()) {
+				info->pic0Texture = new Texture();
+				if (info->pic0Texture->LoadPNG((const u8 *)info->pic0TextureData.data(), info->pic0TextureData.size(), false)) {
+					info->timePic0WasLoaded = time_now_d();
+				}
+				info->pic0TextureData.clear();
 			}
-			info->pic0TextureData.clear();
 		}
-		if (info->pic1TextureData.size()) {
-			info->pic1Texture = new Texture();
-			if (info->pic1Texture->LoadPNG((const u8 *)info->pic1TextureData.data(), info->pic1TextureData.size(), false)) {
-				info->timePic1WasLoaded = time_now_d();
+		{
+			lock_guard lock(info->lock);
+			if (info->pic1TextureData.size()) {
+				info->pic1Texture = new Texture();
+				if (info->pic1Texture->LoadPNG((const u8 *)info->pic1TextureData.data(), info->pic1TextureData.size(), false)) {
+					info->timePic1WasLoaded = time_now_d();
+				}
+				info->pic1TextureData.clear();
 			}
-			info->pic1TextureData.clear();
 		}
 		iter->second->lastAccessedTime = time_now_d();
 		return iter->second;
