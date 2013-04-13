@@ -19,6 +19,8 @@
 
 #include <cmath>
 
+#include "math/math_util.h"
+
 #include "Common/Common.h"
 #include "../Core.h"
 #include "MIPS.h"
@@ -29,13 +31,6 @@
 
 #include "../HLE/HLE.h"
 #include "../System.h"
-
-#ifdef __APPLE__
-using std::isnan;
-#endif
-#ifdef _MSC_VER
-#define isnan _isnan
-#endif
 
 #define R(i) (currentMIPS->r[i])
 #define RF(i) (*(float*)(&(currentMIPS->r[i])))
@@ -901,7 +896,7 @@ namespace MIPSInt
 
 		case 1: //un
 		case 9: //ngle
-			cond = isnan(F(fs)) || isnan(F(ft));
+			cond = my_isnan(F(fs)) || my_isnan(F(ft));
 			break;
 
 		case 2: //eq
@@ -911,7 +906,7 @@ namespace MIPSInt
 
 		case 3: //ueq
 		case 11: //ngl
-			cond = (F(fs) == F(ft)) || isnan(F(fs)) || isnan(F(ft));
+			cond = (F(fs) == F(ft)) || my_isnan(F(fs)) || my_isnan(F(ft));
 			break;
 
 		case 4: //olt
@@ -921,7 +916,7 @@ namespace MIPSInt
 
 		case 5: //ult
 		case 13: //nge
-			cond = (F(fs) < F(ft)) || isnan(F(fs)) || isnan(F(ft));
+			cond = (F(fs) < F(ft)) || my_isnan(F(fs)) || my_isnan(F(ft));
 			break;
 
 		case 6: //ole
@@ -931,7 +926,7 @@ namespace MIPSInt
 
 		case 7: //ule
 		case 15: //ngt
-			cond = (F(fs) <= F(ft)) || isnan(F(fs)) || isnan(F(ft));
+			cond = (F(fs) <= F(ft)) || my_isnan(F(fs)) || my_isnan(F(ft));
 			break;
 
 		default:

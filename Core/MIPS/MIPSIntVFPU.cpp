@@ -39,6 +39,7 @@
 
 #include "../Core.h"
 #include "Core/Reporting.h"
+#include "math/math_util.h"
 
 #include <cmath>
 
@@ -85,18 +86,6 @@
 #define M_SQRT1_2  0.707106781186547524401f
 #endif
 
-#ifdef __APPLE__
-using std::isnan;
-using std::isinf;
-#endif
-#ifdef _MSC_VER
-#define isnan _isnan
-#define isinf(x) (!_finite(x) && !_isnan(x))
-#endif
-#ifdef ANDROID
-using std::isinf;
-#endif
-
 // Preserves NaN in first param, takes sign of equal second param.
 // Technically, std::max may do this but it's undefined.
 inline float nanmax(float f, float cst)
@@ -116,9 +105,6 @@ inline float nanclamp(float f, float lower, float upper)
 	return nanmin(nanmax(f, lower), upper);
 }
 
-#ifdef _MSC_VER
-#define isnan _isnan
-#endif
 
 #ifndef BLACKBERRY
 double rint(double x){
@@ -561,7 +547,7 @@ namespace MIPSInt
 		for (int i = 0; i < GetNumVectorElements(sz); i++)
 		{
 			// Always positive NaN.
-			d[i] = isnan(s[i]) ? fabsf(s[i]) : 1.0f - s[i];
+			d[i] = my_isnan(s[i]) ? fabsf(s[i]) : 1.0f - s[i];
 		}
 		ApplyPrefixD(d, sz);
 		WriteVector(d, sz, vd);
@@ -631,7 +617,7 @@ namespace MIPSInt
 		ApplySwizzleS(s, sz); //TODO: and the mask to kill everything but swizzle
 		for (int i = 0; i < GetNumVectorElements(sz); i++)
 		{
-			if (isnan(s[i])) {
+			if (my_isnan(s[i])) {
 				d[i] = 0x7FFFFFFF;
 				continue;
 			}
@@ -1046,7 +1032,7 @@ namespace MIPSInt
 		{
 			sum += (i == n - 1) ? t[i] : s[i]*t[i];
 		}
-		d = isnan(sum) ? fabsf(sum) : sum;
+		d = my_isnan(sum) ? fabsf(sum) : sum;
 		ApplyPrefixD(&d,V_Single);
 		WriteVector(&d, V_Single, vd);
 		PC += 4;
@@ -1579,14 +1565,14 @@ namespace MIPSInt
 			case VC_GT: c = s[i] > t[i]; break;
 
 			case VC_EZ: c = s[i] == 0.0f || s[i] == -0.0f; break;
-			case VC_EN: c = isnan(s[i]); break;
-			case VC_EI: c = isinf(s[i]); break;
-			case VC_ES: c = isnan(s[i]) || isinf(s[i]); break;   // Tekken Dark Resurrection
+			case VC_EN: c = my_isnan(s[i]); break;
+			case VC_EI: c = my_isinf(s[i]); break;
+			case VC_ES: c = my_isnan(s[i]) || my_isinf(s[i]); break;   // Tekken Dark Resurrection
 
 			case VC_NZ: c = s[i] != 0; break;
-			case VC_NN: c = !isnan(s[i]); break;
-			case VC_NI: c = !isinf(s[i]); break;
-			case VC_NS: c = !isnan(s[i]) && !isinf(s[i]); break;
+			case VC_NN: c = !my_isnan(s[i]); break;
+			case VC_NI: c = !my_isinf(s[i]); break;
+			case VC_NS: c = !my_isnan(s[i]) && !my_isinf(s[i]); break;
 
 			default:
 				_dbg_assert_msg_(CPU,0,"Unsupported vcmp condition code %d", cond);
@@ -1626,11 +1612,11 @@ namespace MIPSInt
 		switch ((op >> 23) & 3) {
 		case 2: // vmin
 			for (int i = 0; i < numElements; i++)
-				d[i] = isnan(t[i]) ? s[i] : (isnan(s[i]) ? t[i] : std::min(s[i], t[i]));
+				d[i] = my_isnan(t[i]) ? s[i] : (my_isnan(s[i]) ? t[i] : std::min(s[i], t[i]));
 			break;
 		case 3: // vmax
 			for (int i = 0; i < numElements; i++)
-				d[i] = isnan(t[i]) ? t[i] : (isnan(s[i]) ? s[i] : std::max(s[i], t[i]));
+				d[i] = my_isnan(t[i]) ? t[i] : (my_isnan(s[i]) ? s[i] : std::max(s[i], t[i]));
 			break;
 		default:
 			_dbg_assert_msg_(CPU,0,"unknown min/max op %d", cond);
@@ -1680,7 +1666,7 @@ namespace MIPSInt
 		ReadVector(t, sz, vt);
 		ApplySwizzleT(t, sz);
 		for (int i = 0; i < GetNumVectorElements(sz); i++) {
-			if ( isnan(s[i]) || isnan(t[i]) )
+			if ( my_isnan(s[i]) || my_isnan(t[i]) )
 				d[i] = 0.0f;
 			else
 				d[i] = s[i] >= t[i] ? 1.0f : 0.0f;
@@ -1706,7 +1692,7 @@ namespace MIPSInt
 		ReadVector(t, sz, vt);
 		ApplySwizzleT(t, sz);
 		for (int i = 0; i < GetNumVectorElements(sz); i++) {
-			if ( isnan(s[i]) || isnan(t[i]) )
+			if ( my_isnan(s[i]) || my_isnan(t[i]) )
 				d[i] = 0.0f;
 			else
 				d[i] = s[i] < t[i] ? 1.0f : 0.0f;
