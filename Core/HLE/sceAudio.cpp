@@ -169,6 +169,7 @@ u32 sceAudioChReserve(u32 chan, u32 sampleCount, u32 format) {
 
 	DEBUG_LOG(HLE, "sceAudioChReserve(%08x, %08x, %08x)", chan, sampleCount, format);
 	chans[chan].sampleCount = sampleCount;
+	chans[chan].format = format;
 	chans[chan].reserved = true;
 	return chan; 
 }
