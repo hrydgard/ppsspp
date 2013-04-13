@@ -4,6 +4,8 @@
 #include <cmath>
 #include <cstring>
 
+#include "base/basictypes.h"
+
 inline float sqr(float f)	{return f*f;}
 inline float sqr_signed(float f) {return f<0 ? -f*f : f*f;}
 
@@ -73,6 +75,24 @@ inline float dB2lin(float dB) {
 	return expf(dB * DB_2_LOG);
 }
 
+inline bool my_isinf(float f) {
+	union {
+		float f;
+		uint32_t u;
+	} f2u;
+	f2u.f = f;
+	return f2u.u == 0x7f800000 ||
+		f2u.u == 0xff800000;
+}
+
+inline bool my_isnan(float f) {
+	union {
+		float f;
+		uint32_t u;
+	} f2u;
+	f2u.f = f;
+	return (f2u.u & 0x7F800000) == 0x7F800000;
+}
 
 // FPU control.
 void EnableFZ();
