@@ -242,7 +242,7 @@ void UIUpdateMouse(int i, float x, float y, bool down);
 void UIReset();
 
 // Returns 1 if clicked
-int UIButton(int id, const LayoutManager &layout, float w, const char *text, int button_align);
+int UIButton(int id, const LayoutManager &layout, float w, float h, const char *text, int button_align);
 int UIImageButton(int id, const LayoutManager &layout, float w, int image_id, int button_align);	// uses current UI atlas for fetching images.
 int UITextureButton(UIContext *ctx, int id, const LayoutManager &layout, float w, float h, Texture *texture, int button_align);	// uses current UI atlas for fetching images.
 

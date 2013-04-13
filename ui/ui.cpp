@@ -129,8 +129,9 @@ void UIText(int font, const LayoutManager &layout, const char *text, uint32_t co
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 }
 
-int UIButton(int id, const LayoutManager &layout, float w, const char *text, int button_align) {
-	float h = themeAtlas->images[theme.buttonImage].h;
+int UIButton(int id, const LayoutManager &layout, float w, float h, const char *text, int button_align) {
+	if (h == 0.0f)
+		h = themeAtlas->images[theme.buttonImage].h;
 
 	float x, y;
 	layout.GetPos(&w, &h, &x, &y);
@@ -174,7 +175,10 @@ int UIButton(int id, const LayoutManager &layout, float w, const char *text, int
 
 	// Render button
 
-	ui_draw2d.DrawImage2GridH((txOffset && theme.buttonSelected) ? theme.buttonSelected : theme.buttonImage, x, y, x + w);
+	if (h == themeAtlas->images[theme.buttonImage].h)
+		ui_draw2d.DrawImage2GridH((txOffset && theme.buttonSelected) ? theme.buttonSelected : theme.buttonImage, x, y, x + w);
+	else
+		ui_draw2d.DrawImage4Grid((txOffset && theme.buttonSelected) ? theme.buttonSelected : theme.buttonImage, x, y, x + w, y + h);
 	ui_draw2d.DrawTextShadow(theme.uiFont, text, x + w/2, y + h/2 + txOffset, 0xFFFFFFFF, ALIGN_HCENTER | ALIGN_VCENTER);
 
 	uistate.lastwidget = id;
