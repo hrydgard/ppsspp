@@ -187,7 +187,7 @@ void VertexDecoder::Step_Color565() const
 	c[0] = Convert5To8(cdata & 0x1f);
 	c[1] = Convert6To8((cdata>>5) & 0x3f);
 	c[2] = Convert5To8((cdata>>11) & 0x1f);
-	c[3] = 1.0f;
+	c[3] = 255;
 }
 
 void VertexDecoder::Step_Color5551() const
@@ -197,7 +197,7 @@ void VertexDecoder::Step_Color5551() const
 	c[0] = Convert5To8(cdata & 0x1f);
 	c[1] = Convert5To8((cdata>>5) & 0x1f);
 	c[2] = Convert5To8((cdata>>10) & 0x1f);
-	c[3] = (cdata>>15) ? 255.0f : 0.0f;
+	c[3] = (cdata >> 15) ? 255 : 0;
 }
 
 void VertexDecoder::Step_Color4444() const
