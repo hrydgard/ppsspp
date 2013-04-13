@@ -441,6 +441,15 @@ u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFirstBuf,
 u32 sceAtracSetHalfwayBuffer(int atracID, u32 halfBuffer, u32 readSize, u32 halfBufferSize)
 {
 	ERROR_LOG(HLE, "UNIMPL sceAtracSetHalfwayBuffer(%i, %08x, %8x, %8x)", atracID, halfBuffer, readSize, halfBufferSize);
+	if (readSize > halfBufferSize)
+		return ATRAC_ERROR_INCORRECT_READ_SIZE;
+
+	Atrac *atrac = getAtrac(atracID);
+	if (atrac) {
+		atrac->first.addr = halfBuffer;
+		atrac->first.size = halfBufferSize;
+		atrac->Analyze();
+	}
 	return 0;
 }
 
