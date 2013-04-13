@@ -54,8 +54,8 @@ private:
 		TreeEntry(){}
 		~TreeEntry()
 		{
-			for (unsigned int i=0; i<children.size(); i++)
-				ISOFileSystem::ReleaseTreeEntry(children[i]);
+			for (size_t i = 0; i < children.size(); ++i)
+				delete children[i];
 			children.clear();
 		}
 
@@ -94,8 +94,4 @@ private:
 	void ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root, size_t level);
 	TreeEntry *GetFromPath(std::string path, bool catchError=true);
 	std::string EntryFullPath(TreeEntry *e);
-
-	static std::list<ISOFileSystem::TreeEntry *> entryFreeList;
-	static TreeEntry *GetTreeEntry();
-	static void ReleaseTreeEntry(TreeEntry *entry);
 };
