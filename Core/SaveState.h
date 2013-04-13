@@ -24,14 +24,14 @@ namespace SaveState
 	typedef void (*Callback)(bool status, void *cbUserData);
 
 	// TODO: Better place for this?
-	const int REVISION = 1;
+	const int REVISION = 2;
 	const int SAVESTATESLOTS = 4;
 
 	void Init();
 
 	void SaveSlot(int slot, Callback callback, void *cbUserData = 0);
 	void LoadSlot(int slot, Callback callback, void *cbUserData = 0);
-	void HasSaveInSlot(int slot);
+	bool HasSaveInSlot(int slot);
 	int GetNewestSlot();
 
 	// Load the specified file into the current state (async.)
