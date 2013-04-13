@@ -422,6 +422,7 @@ void MetaFileSystem::DoState(PointerWrap &p)
 	p.Do(n);
 	if (n != (u32) fileSystems.size())
 	{
+		p.SetError(p.ERROR_FAILURE);
 		ERROR_LOG(FILESYS, "Savestate failure: number of filesystems doesn't match.");
 		return;
 	}

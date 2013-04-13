@@ -227,6 +227,7 @@ void __InterruptsDoState(PointerWrap &p)
 	p.Do(numInterrupts);
 	if (numInterrupts != PSP_NUMBER_INTERRUPTS)
 	{
+		p.SetError(p.ERROR_FAILURE);
 		ERROR_LOG(HLE, "Savestate failure: wrong number of interrupts, can't load.");
 		return;
 	}

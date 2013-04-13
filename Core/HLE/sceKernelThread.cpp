@@ -405,7 +405,11 @@ public:
 		u32 numCallbacks = THREAD_CALLBACK_NUM_TYPES;
 		p.Do(numCallbacks);
 		if (numCallbacks != THREAD_CALLBACK_NUM_TYPES)
-			ERROR_LOG(HLE, "Unable to load state: different kernel object storage.");
+		{
+			p.SetError(p.ERROR_FAILURE);
+			ERROR_LOG(HLE, "Unable to load state: different thread callback storage.");
+			return;
+		}
 
 		for (size_t i = 0; i < THREAD_CALLBACK_NUM_TYPES; ++i)
 		{
@@ -581,6 +585,7 @@ struct ThreadQueueList
 		p.Do(numQueues);
 		if (numQueues != NUM_QUEUES)
 		{
+			p.SetError(p.ERROR_FAILURE);
 			ERROR_LOG(HLE, "Savestate loading error: invalid data");
 			return;
 		}
