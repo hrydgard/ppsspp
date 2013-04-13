@@ -111,6 +111,11 @@ namespace SaveState
 		Enqueue(Operation(SAVESTATE_SAVE, filename, callback, cbUserData));
 	}
 
+	void Verify(Callback callback, void *cbUserData)
+	{
+		Enqueue(Operation(SAVESTATE_VERIFY, std::string(""), callback, cbUserData));
+	}
+
 
 	// Slot utilities
 
@@ -148,9 +153,10 @@ namespace SaveState
 			(*callback)(false, cbUserData);
 	}
 
-	void HasSaveInSlot(int slot)
+	bool HasSaveInSlot(int slot)
 	{
 		std::string fn = GenerateSaveSlotFilename(slot);
+		return File::Exists(fn);
 	}
 
 	bool operator < (const tm &t1, const tm &t2) {
@@ -185,11 +191,6 @@ namespace SaveState
 		return newestSlot;
 	}
 
-
-	void Verify(Callback callback, void *cbUserData)
-	{
-		Enqueue(Operation(SAVESTATE_VERIFY, std::string(""), callback, cbUserData));
-	}
 
 	std::vector<Operation> Flush()
 	{

@@ -879,9 +879,8 @@ namespace MainWindow
 
 	void SaveStateActionFinished(bool result, void *userdata)
 	{
-		// TODO: Improve messaging?
 		if (!result)
-			MessageBox(0, "Savestate failure.  Please try again later.", "Sorry", MB_OK);
+			MessageBox(0, "Savestate failure.  Using savestates between different PPSSPP versions is not supported.", "Sorry", MB_OK);
 		SetCursor(LoadCursor(0, IDC_ARROW));
 	}
 

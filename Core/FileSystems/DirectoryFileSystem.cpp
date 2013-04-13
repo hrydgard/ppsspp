@@ -611,6 +611,7 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 
 void DirectoryFileSystem::DoState(PointerWrap &p) {
 	if (!entries.empty()) {
+		p.SetError(p.ERROR_WARNING);
 		ERROR_LOG(FILESYS, "FIXME: Open files during savestate, could go badly.");
 	}
 }
@@ -761,6 +762,7 @@ std::vector<PSPFileInfo> VFSFileSystem::GetDirListing(std::string path) {
 
 void VFSFileSystem::DoState(PointerWrap &p) {
 	if (!entries.empty()) {
+		p.SetError(p.ERROR_WARNING);
 		ERROR_LOG(FILESYS, "FIXME: Open files during savestate, could go badly.");
 	}
 }
