@@ -5,6 +5,7 @@
 #include "thread/prioritizedworkqueue.h"
 
 #if defined(IOS) || (defined(__APPLE__) && !defined(__MAC_10_7))
+#include <tr1/functional>
 namespace std {
 	using tr1::bind;
 }
