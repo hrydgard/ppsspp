@@ -85,7 +85,8 @@ struct AtracLoopInfo {
 struct Atrac {
 	Atrac() : decodePos(0), decodeEnd(0), loopNum(0), atracChannels(2), 
 		atracBitrate(64), atracBytesPerFrame(0), atracBufSize(0), currentSample(0), 
-		endSample(-1), loopinfoNum(0), firstSampleoffset(0),data_buf(0){
+		endSample(-1), loopinfoNum(0), firstSampleoffset(0),data_buf(0), 
+		atracOutputChannels(2){
 		memset(&first, 0, sizeof(first));
 		memset(&second, 0, sizeof(second));
 #ifdef _USE_FFMPEG_
@@ -104,6 +105,7 @@ struct Atrac {
 		p.Do(decodeEnd);
 
 		p.Do(atracChannels);
+		p.Do(atracOutputChannels);
 		p.Do(atracBitrate);
 		p.Do(atracBytesPerFrame);
 		p.Do(atracBufSize);
@@ -159,6 +161,7 @@ struct Atrac {
 	u32 decodeEnd;
 
 	u16 atracChannels;
+	u16 atracOutputChannels;
 	u32 atracBitrate;
 	u16 atracBytesPerFrame;
 	u32 atracBufSize;
@@ -899,9 +902,9 @@ int _AtracSetData(int atracID, u32 buffer, u32 bufferSize)
 			return -1;
 		}
 		
-		int wanted_channels = 2;
+		int wanted_channels = atrac->atracOutputChannels;
 		int wanted_channel_layout = av_get_default_channel_layout(wanted_channels);
-		int dec_channel_layout = av_get_default_channel_layout(atrac->pCodecCtx->channels);
+		int dec_channel_layout = av_get_default_channel_layout(atrac->atracChannels);
 
 		atrac->pSwrCtx = 
 			swr_alloc_set_opts
@@ -1045,8 +1048,9 @@ int sceAtracReinit()
 int sceAtracGetOutputChannel(int atracID, u32 outputChanPtr)
 {
 	DEBUG_LOG(HLE, "sceAtracGetOutputChannel(%i, %08x)", atracID, outputChanPtr);
+	Atrac *atrac = getAtrac(atracID);
 	if (Memory::IsValidAddress(outputChanPtr))
-		Memory::Write_U32(2, outputChanPtr);
+		Memory::Write_U32(atrac ? atrac->atracOutputChannels : 2, outputChanPtr);
 	return 0;
 }
 
@@ -1095,14 +1099,26 @@ int _sceAtracGetContextAddress(int atracID)
 int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr)
 {
 	ERROR_LOG(HLE, "UNIMPL sceAtracLowLevelInitDecoder(%i, %08x)", atracID, paramsAddr);
+	Atrac *atrac = getAtrac(atracID);
+	if (atrac && Memory::IsValidAddress(paramsAddr)) {
+		atrac->atracChannels = Memory::Read_U32(paramsAddr);
+		atrac->atracOutputChannels = Memory::Read_U32(paramsAddr + 4);
+		atrac->atracBufSize = Memory::Read_U32(paramsAddr + 8);
+	}
 	return 0;
 }
 
 int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedAddr, u32 samplesAddr, u32 sampleBytesAddr)
 {
 	ERROR_LOG(HLE, "UNIMPL sceAtracLowLevelDecode(%i, %08x, %08x, %08x, %08x)", atracID, sourceAddr, sourceBytesConsumedAddr, samplesAddr, sampleBytesAddr);
-	if (Memory::IsValidAddress(sampleBytesAddr))
-		Memory::Write_U32(0, sampleBytesAddr);
+	Atrac *atrac = getAtrac(atracID);
+	if (Memory::IsValidAddress(sourceBytesConsumedAddr))
+		Memory::Write_U32(0, sourceBytesConsumedAddr);
+	if (Memory::IsValidAddress(samplesAddr) && Memory::IsValidAddress(sampleBytesAddr)) {
+		Memory::Write_U32(ATRAC_MAX_SAMPLES, samplesAddr);
+		int outputChannels = atrac ? atrac->atracOutputChannels : 2;
+		Memory::Memset(sampleBytesAddr, 0, ATRAC_MAX_SAMPLES * sizeof(s16) * outputChannels);
+	}
 	return 0;
 }
 
