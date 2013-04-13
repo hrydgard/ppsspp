@@ -500,8 +500,6 @@ add_library(native STATIC
 	native/base/stats.h
 	native/base/stringutil.cpp
 	native/base/stringutil.h
-	native/base/threadutil.cpp
-	native/base/threadutil.h
 	native/base/timeutil.cpp
 	native/base/timeutil.h
 	native/file/chunk_file.cpp
@@ -573,6 +571,9 @@ add_library(native STATIC
 	native/net/resolve.h
 	native/profiler/profiler.cpp
 	native/profiler/profiler.h
+	native/thread/prioritizedworkqueue.cpp
+	native/thread/threadutil.cpp
+	native/thread/threadutil.h
 	native/ui/screen.cpp
 	native/ui/screen.h
 	native/ui/ui.cpp

@@ -214,8 +214,8 @@ void MenuScreen::render() {
 			g_Config.Save();
 			screenManager()->switchScreen(new EmuScreen(fileName.toStdString()));
 		}
-#elif _WIN32
-		MainWindow::BrowseAndBoot("");
+//#elif _WIN32
+//		MainWindow::BrowseAndBoot("");
 #else
 		FileSelectScreenOptions options;
 		options.allowChooseDirectory = true;
@@ -268,9 +268,14 @@ void MenuScreen::render() {
 		// This might create a texture so we must flush first.
 		UIFlush();
 		GameInfo *ginfo = g_gameInfoCache.GetInfo(g_Config.recentIsos[i], false);
-
 		if (ginfo) {
-			if (UITextureButton(ctx, (int)GEN_ID_LOOP(i), vgrid_recent, 144, 80, ginfo->iconTexture, ALIGN_LEFT)) {
+			u32 color;
+			if (ginfo->iconTexture == 0) {
+				color = 0;
+			} else {
+				color = whiteAlpha(ease((time_now_d() - ginfo->timeIconWasLoaded) * 2));
+			}
+			if (UITextureButton(ctx, (int)GEN_ID_LOOP(i), vgrid_recent, 144, 80, ginfo->iconTexture, ALIGN_LEFT, color)) {
 				screenManager()->switchScreen(new EmuScreen(g_Config.recentIsos[i]));
 			}
 		} else {
@@ -527,23 +532,31 @@ void FileListAdapter::drawItem(int item, int x, int y, int w, int h, bool select
 			icon = iter->second;
 	}
 
-	int iconSpace = this->itemHeight(item);
+	int iconSpace = 144;
 	ui_draw2d.DrawImage2GridH(selected ? I_BUTTON_SELECTED: I_BUTTON, x, y, x + w);
 	ui_draw2d.DrawTextShadow(UBUNTU24, (*items_)[item].name.c_str(), x + UI_SPACE + iconSpace, y + 25, 0xFFFFFFFF, ALIGN_LEFT | ALIGN_VCENTER);
 
-#if 0
+#if 1
 	// This might create a texture so we must flush first.
 	UIFlush();
 	GameInfo *ginfo = 0;
-	if (!(*items_)[item].isDirectory)
+	if (!(*items_)[item].isDirectory) {
 		ginfo = g_gameInfoCache.GetInfo((*items_)[item].fullName, false);
-	if (ginfo && ginfo->iconTexture) {
-		float scaled_w = h * (144.f / 80.f);
-		UIFlush();
-		ginfo->iconTexture->Bind(0);
-		ui_draw2d.DrawTexRect(x + 10, y, x + 10 + scaled_w, y + h, 0, 0, 1, 1, 0xFFFFFFFF);
-		ui_draw2d.Flush();
-		ctx_->RebindTexture();
+		if (!ginfo) {
+			ELOG("No ginfo :( %s", (*items_)[item].fullName.c_str());
+		}
+	}
+	if (ginfo) {
+		float scaled_h = ui_atlas.images[I_BUTTON].h;
+		float scaled_w = scaled_h * (144.f / 80.f);
+		if (ginfo->iconTexture) {
+			uint32_t color = whiteAlpha(ease((time_now_d() - ginfo->timeIconWasLoaded) * 2));
+			UIFlush();
+			ginfo->iconTexture->Bind(0);
+			ui_draw2d.DrawTexRect(x + 10, y, x + 10 + scaled_w, y + scaled_h, 0, 0, 1, 1, color);
+			ui_draw2d.Flush();
+			ctx_->RebindTexture();
+		}
 	} else {
 		if (icon != -1)
 			ui_draw2d.DrawImage(icon, x + UI_SPACE, y + 25, 1.0f, 0xFFFFFFFF, ALIGN_VCENTER | ALIGN_LEFT);
@@ -640,6 +653,7 @@ static const char * credits[] = {
 	"tpunix",
 	"orphis",
 	"sum2012",
+	"mikusp",
 	"artart78",
 	"tmaul",
 	"ced2911",

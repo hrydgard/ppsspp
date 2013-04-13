@@ -43,6 +43,7 @@
 
 #include "UI/MenuScreens.h"
 #include "UI/EmuScreen.h"
+#include "UI/GameInfoCache.h"
 
 EmuScreen::EmuScreen(const std::string &filename) : invalid_(true) {
 	CheckGLExtensions();
@@ -90,6 +91,8 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true) {
 	host->UpdateDisassembly();
 
 	LayoutGamepad(dp_xres, dp_yres);
+
+	g_gameInfoCache.FlushBGs();
 
 	NOTICE_LOG(BOOT, "Loading %s...", fileToStart.c_str());
 }

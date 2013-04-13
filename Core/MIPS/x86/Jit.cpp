@@ -340,6 +340,9 @@ void Jit::Comp_Generic(u32 op)
 
 void Jit::WriteExit(u32 destination, int exit_num)
 {
+	if (!Memory::IsValidAddress(destination)) {
+		ERROR_LOG(JIT, "Trying to write block exit to illegal destination %08x: pc = %08x", destination, currentMIPS->pc);
+	}
 	// If we need to verify coreState and rewind, we may not jump yet.
 	if (js.afterOp & (JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE))
 	{

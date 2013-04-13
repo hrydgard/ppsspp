@@ -751,8 +751,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_TEXENVCOLOR:
-		if (diff)
-			shaderManager_->DirtyUniform(DIRTY_TEXENV);
+		shaderManager_->DirtyUniform(DIRTY_TEXENV);
 		break;
 
 	case GE_CMD_TEXFUNC:

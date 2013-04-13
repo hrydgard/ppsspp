@@ -47,7 +47,7 @@
 
 #if defined(ANDROID) || defined(IOS) || (defined(__APPLE__) && !defined(__MAC_10_7))
 namespace std {
-	using tr1::is_pointer;
+	//using tr1::is_pointer;
 }
 #endif
 #ifdef __SYMBIAN32__

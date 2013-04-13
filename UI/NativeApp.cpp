@@ -23,6 +23,12 @@
 //
 // Windows has its own code that bypasses the framework entirely.
 
+
+// Background worker threads should be spawned in NativeInit and joined
+// in NativeShutdown.
+
+
+
 #include "base/logging.h"
 #include "base/NativeApp.h"
 #include "file/vfs.h"
@@ -51,6 +57,7 @@
 #include "ui_atlas.h"
 #include "EmuScreen.h"
 #include "MenuScreens.h"
+#include "GameInfoCache.h"
 #include "UIShader.h"
 
 #ifdef ARM
@@ -73,6 +80,7 @@ static std::string pendingMessage;
 static std::string pendingValue;
 static UIContext *uiContext;
 
+std::thread *graphicsLoadThread;
 
 class AndroidLogger : public LogListener
 {
@@ -322,6 +330,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 
 	if (!boot_filename.empty() && stateToLoad != NULL)
 		SaveState::Load(stateToLoad);
+
+	g_gameInfoCache.Init();
 }
 
 void NativeInitGraphics()
@@ -466,6 +476,8 @@ void NativeShutdownGraphics()
 
 void NativeShutdown()
 {
+	g_gameInfoCache.Shutdown();
+
 	delete host;
 	host = 0;
 	g_Config.Save();

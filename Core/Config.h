@@ -98,6 +98,7 @@ public:
 
 	// Utility functions for "recent" management
 	void AddRecent(const std::string &file);
+	void CleanRecent();
 
 private:
 	std::string iniFilename_;

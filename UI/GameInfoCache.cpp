@@ -21,6 +21,7 @@
 #include "base/timeutil.h"
 #include "base/stringutil.h"
 #include "image/png_load.h"
+#include "thread/prioritizedworkqueue.h"
 #include "GameInfoCache.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/FileSystems/DirectoryFileSystem.h"
@@ -28,15 +29,8 @@
 
 GameInfoCache g_gameInfoCache;
 
-GameInfoCache::~GameInfoCache()
-{
-	for (auto iter = info_.begin(); iter != info_.end(); iter++) {
-		delete iter->second;
-	}
-}
 
-static bool ReadFileToString(IFileSystem *fs, const char *filename, std::string *contents)
-{
+static bool ReadFileToString(IFileSystem *fs, const char *filename, std::string *contents) {
 	PSPFileInfo info = fs->GetFileInfo(filename);
 	if (!info.exists) {
 		contents->clear();
@@ -53,6 +47,111 @@ static bool ReadFileToString(IFileSystem *fs, const char *filename, std::string 
 	fs->ReadFile(handle, (u8 *)contents->data(), info.size);
 	fs->CloseFile(handle);
 	return true;
+}
+
+
+class GameInfoWorkItem : public PrioritizedWorkQueueItem {
+public:
+	GameInfoWorkItem(const std::string &gamePath, GameInfo *info)
+		: gamePath_(gamePath), info_(info) {
+	}
+
+	virtual void run() {
+		// A game can be either an UMD or a directory under ms0:/PSP/GAME .
+		if (startsWith(gamePath_, "ms0:/PSP/GAME")) {
+			return;
+			// TODO: The case of these extensions is not perfect.
+		} else if (endsWith(gamePath_, ".PBP")) {
+			PBPReader pbp(gamePath_.c_str());
+			if (!pbp.IsValid())
+				return;
+
+			// First, PARAM.SFO.
+			size_t sfoSize;
+			u8 *sfoData = pbp.GetSubFile(PBP_PARAM_SFO, &sfoSize);
+			{
+				lock_guard lock(info_->lock);
+				info_->paramSFO.ReadSFO(sfoData, sfoSize);
+				info_->title = info_->paramSFO.GetValueString("TITLE");
+			}
+			delete [] sfoData;
+
+			// Then, ICON0.PNG.
+			{
+				lock_guard lock(info_->lock);
+				if (pbp.GetSubFileSize(PBP_ICON0_PNG) > 0) {
+					pbp.GetSubFileAsString(PBP_ICON0_PNG, &info_->iconTextureData);
+				} else {
+					// We should load a default image here.
+				}
+			}
+
+			if (info_->wantBG) {
+				{
+					lock_guard lock(info_->lock);
+					if (pbp.GetSubFileSize(PBP_PIC1_PNG) > 0)
+						pbp.GetSubFileAsString(PBP_PIC1_PNG, &info_->pic1TextureData);
+				}
+			}
+		} else if (endsWith(gamePath_, ".elf") || endsWith(gamePath_, ".prx")) {
+			return;
+		} else {
+			SequentialHandleAllocator handles;
+			// Let's assume it's an ISO.
+			// TODO: This will currently read in the whole directory tree. Not really necessary for just a
+			// few files.
+			BlockDevice *bd = constructBlockDevice(gamePath_.c_str());
+			if (!bd)
+				return;  // nothing to do here..
+			ISOFileSystem umd(&handles, bd, "/PSP_GAME");
+
+			// Alright, let's fetch the PARAM.SFO.
+			std::string paramSFOcontents;
+			if (ReadFileToString(&umd, "/PSP_GAME/PARAM.SFO", &paramSFOcontents)) {
+				lock_guard lock(info_->lock);
+				info_->paramSFO.ReadSFO((const u8 *)paramSFOcontents.data(), paramSFOcontents.size());
+				info_->title = info_->paramSFO.GetValueString("TITLE");
+			}
+
+			ReadFileToString(&umd, "/PSP_GAME/ICON0.PNG", &info_->iconTextureData);
+			if (info_->wantBG) {
+				{
+					lock_guard lock(info_->lock);
+					ReadFileToString(&umd, "/PSP_GAME/PIC0.PNG", &info_->pic0TextureData);
+				}
+				{
+					lock_guard lock(info_->lock);
+					ReadFileToString(&umd, "/PSP_GAME/PIC1.PNG", &info_->pic1TextureData);
+				}
+			}
+		}
+	}
+
+	virtual float priority() {
+		return info_->lastAccessedTime;
+	}
+
+private:
+	std::string gamePath_;
+	GameInfo *info_;
+	DISALLOW_COPY_AND_ASSIGN(GameInfoWorkItem);
+};
+
+
+
+GameInfoCache::~GameInfoCache() {
+	for (auto iter = info_.begin(); iter != info_.end(); iter++) {
+		delete iter->second;
+	}
+}
+
+void GameInfoCache::Init() {
+	gameInfoWQ_ = new PrioritizedWorkQueue();
+	ProcessWorkQueueOnThreadWhile(gameInfoWQ_);
+}
+
+void GameInfoCache::Shutdown() {
+	StopProcessingWorkQueue(gameInfoWQ_);
 }
 
 void GameInfoCache::Save()
@@ -86,6 +185,10 @@ void GameInfoCache::FlushBGs() {
 			iter->second->pic1Texture = 0;
 		}
 	}
+}
+
+void GameInfoCache::Add(const std::string &key, GameInfo *info_) {
+
 }
 
 // This may run off-main-thread and we thus can't use the global
@@ -129,89 +232,12 @@ GameInfo *GameInfoCache::GetInfo(const std::string &gamePath, bool wantBG) {
 
 again:
 
-	// return info;
+	GameInfo *info = new GameInfo();
+	info->wantBG = wantBG;
 
-	// TODO: Everything below here should be asynchronous and run on a thread,
-	// filling in the info as it goes.
+	GameInfoWorkItem *item = new GameInfoWorkItem(gamePath, info);
+	gameInfoWQ_->Add(item);
 
-	// A game can be either an UMD or a directory under ms0:/PSP/GAME .
-	if (startsWith(gamePath, "ms0:/PSP/GAME")) {
-		return 0;
-	// TODO: The case of these extensions is not perfect.
-	} else if (endsWith(gamePath, ".PBP")) {
-		PBPReader pbp(gamePath.c_str());
-		if (!pbp.IsValid())
-			return 0;
-		GameInfo *info = new GameInfo();
-		info->wantBG = wantBG;
-
-		// First, PARAM.SFO.
-		size_t sfoSize;
-		u8 *sfoData = pbp.GetSubFile(PBP_PARAM_SFO, &sfoSize);
-		{
-			lock_guard lock(info->lock);
-			info->paramSFO.ReadSFO(sfoData, sfoSize);
-			info->title = info->paramSFO.GetValueString("TITLE");
-		}
-		delete [] sfoData;
-
-		// Then, ICON0.PNG.
-		{
-			lock_guard lock(info->lock);
-			if (pbp.GetSubFileSize(PBP_ICON0_PNG) > 0) {
-				pbp.GetSubFileAsString(PBP_ICON0_PNG, &info->iconTextureData);
-			} else {
-				// We should load a default image here.
-			}
-		}
-
-		if (info->wantBG) {
-			{
-				lock_guard lock(info->lock);
-				if (pbp.GetSubFileSize(PBP_PIC1_PNG) > 0)
-					pbp.GetSubFileAsString(PBP_PIC1_PNG, &info->pic1TextureData);
-			}
-		}
-		info_[gamePath] = info;
-		return info;
-
-	} else if (endsWith(gamePath, ".elf") || endsWith(gamePath, ".prx")) {
-		return 0;
-	} else {
-		SequentialHandleAllocator handles;
-		// Let's assume it's an ISO.
-		// TODO: This will currently read in the whole directory tree. Not really necessary for just a
-		// few files.
-		BlockDevice *bd = constructBlockDevice(gamePath.c_str());
-		if (!bd)
-			return 0;  // nothing to do here..
-		ISOFileSystem umd(&handles, bd, "/PSP_GAME");
-
-		GameInfo *info = new GameInfo();
-		info->wantBG = wantBG;
-
-		// Alright, let's fetch the PARAM.SFO.
-		std::string paramSFOcontents;
-		if (ReadFileToString(&umd, "/PSP_GAME/PARAM.SFO", &paramSFOcontents)) {
-			lock_guard lock(info->lock);
-			info->paramSFO.ReadSFO((const u8 *)paramSFOcontents.data(), paramSFOcontents.size());
-			info->title = info->paramSFO.GetValueString("TITLE");
-		}
-
-		ReadFileToString(&umd, "/PSP_GAME/ICON0.PNG", &info->iconTextureData);
-		if (wantBG) {
-			{
-				lock_guard lock(info->lock);
-				ReadFileToString(&umd, "/PSP_GAME/PIC0.PNG", &info->pic0TextureData);
-			}
-			{
-				lock_guard lock(info->lock);
-				ReadFileToString(&umd, "/PSP_GAME/PIC1.PNG", &info->pic1TextureData);
-			}
-		}
-		info_[gamePath] = info;
-		return info;
-	}
-
-	return 0;
+	info_[gamePath] = info;
+	return info;
 }

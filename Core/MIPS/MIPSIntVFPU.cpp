@@ -35,6 +35,8 @@
 // vi2uc.q
 // sv.s
 
+// TODO: Test and maybe fix: https://code.google.com/p/jpcsp/source/detail?r=3082#
+
 #include "../Core.h"
 #include "Core/Reporting.h"
 
@@ -92,7 +94,7 @@ using std::isinf;
 #define isinf(x) (!_finite(x) && !_isnan(x))
 #endif
 #ifdef ANDROID
-using __captured::isinf;
+using std::isinf;
 #endif
 
 // Preserves NaN in first param, takes sign of equal second param.

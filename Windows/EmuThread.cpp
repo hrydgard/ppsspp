@@ -2,7 +2,6 @@
 
 #include "base/display.h"
 #include "base/timeutil.h"
-#include "base/threadutil.h"
 #include "base/NativeApp.h"
 #include "Log.h"
 #include "StringUtil.h"
@@ -14,6 +13,7 @@
 #include "../Core/Host.h"
 #include "../Core/System.h"
 #include "../Core/Config.h"
+#include "thread/threadutil.h"
 
 #include <tchar.h>
 #include <process.h>
