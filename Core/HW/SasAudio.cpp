@@ -376,9 +376,11 @@ void SasInstance::Mix(u32 outAddr) {
 	for (int i = 0; i < grainSize * 2; i += 2) {
 		int sampleL = mixBuffer[i] + sendBuffer[i];
 		*outp++ = clamp_s16(sampleL);
-
-		int sampleR = mixBuffer[i + 1] + sendBuffer[i + 1];
-		*outp++ = clamp_s16(sampleR);
+		if (outputMode == 0) {
+			// stereo
+			int sampleR = mixBuffer[i + 1] + sendBuffer[i + 1];
+			*outp++ = clamp_s16(sampleR);
+		}
 	}
 	memset(mixBuffer, 0, grainSize * sizeof(int) * 2);
 	memset(sendBuffer, 0, grainSize * sizeof(int) * 2);
