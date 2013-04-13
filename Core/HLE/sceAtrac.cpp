@@ -573,6 +573,8 @@ int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr)
 int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedAddr, u32 samplesAddr, u32 sampleBytesAddr)
 {
 	ERROR_LOG(HLE, "UNIMPL sceAtracLowLevelDecode(%i, %08x, %08x, %08x, %08x)", atracID, sourceAddr, sourceBytesConsumedAddr, samplesAddr, sampleBytesAddr);
+	if (Memory::IsValidAddress(sampleBytesAddr))
+		Memory::Write_U32(0, sampleBytesAddr);
 	return 0;
 }
 
