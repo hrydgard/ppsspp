@@ -49,7 +49,7 @@ float CalculateDPIScale()
 #endif
 }
 
-int main(int argc, char *argv[])
+Q_DECL_EXPORT int main(int argc, char *argv[])
 {
 #ifdef Q_WS_X11
 	QApplication::setAttribute(Qt::AA_X11InitThreads, true);
