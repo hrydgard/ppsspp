@@ -196,7 +196,6 @@
     <ClInclude Include="base\scoped_ptr.h" />
     <ClInclude Include="base\stats.h" />
     <ClInclude Include="base\stringutil.h" />
-    <ClInclude Include="base\threadutil.h" />
     <ClInclude Include="base\timeutil.h" />
     <ClInclude Include="data\listable.h" />
     <ClInclude Include="ext\cityhash\city.h" />
@@ -242,6 +241,9 @@
     <ClInclude Include="net\http_client.h" />
     <ClInclude Include="net\resolve.h" />
     <ClInclude Include="profiler\profiler.h" />
+    <ClInclude Include="thread\prioritizedworkqueue.h" />
+    <ClInclude Include="thread\thread.h" />
+    <ClInclude Include="thread\threadutil.h" />
     <ClInclude Include="ui\screen.h" />
     <ClInclude Include="ui\ui.h" />
     <ClInclude Include="ui\ui_context.h" />
@@ -290,7 +292,6 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="base\stringutil.cpp" />
-    <ClCompile Include="base\threadutil.cpp" />
     <ClCompile Include="base\timeutil.cpp" />
     <ClCompile Include="ext\cityhash\city.cpp" />
     <ClCompile Include="ext\rg_etc1\rg_etc1.cpp" />
@@ -331,6 +332,8 @@
     <ClCompile Include="net\http_client.cpp" />
     <ClCompile Include="net\resolve.cpp" />
     <ClCompile Include="profiler\profiler.cpp" />
+    <ClCompile Include="thread\prioritizedworkqueue.cpp" />
+    <ClCompile Include="thread\threadutil.cpp" />
     <ClCompile Include="ui\screen.cpp" />
     <ClCompile Include="ui\ui.cpp" />
     <ClCompile Include="ui\ui_context.cpp" />

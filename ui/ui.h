@@ -20,7 +20,7 @@
 #define GEN_ID_LOOP(i) (int)((IMGUI_SRC_ID) + (__LINE__) + (i) * 13612)
 #else
 #define GEN_ID (__LINE__)
-#define GEN_ID_LOOP(i) ((__LINE__) + (i) * 13612)
+#define GEN_ID_LOOP(i) ((__LINE__) + ((int)i) * 13612)
 #endif
 
 #include "gfx_es2/draw_buffer.h"
@@ -244,7 +244,7 @@ void UIReset();
 // Returns 1 if clicked
 int UIButton(int id, const LayoutManager &layout, float w, float h, const char *text, int button_align);
 int UIImageButton(int id, const LayoutManager &layout, float w, int image_id, int button_align);	// uses current UI atlas for fetching images.
-int UITextureButton(UIContext *ctx, int id, const LayoutManager &layout, float w, float h, Texture *texture, int button_align);	// uses current UI atlas for fetching images.
+int UITextureButton(UIContext *ctx, int id, const LayoutManager &layout, float w, float h, Texture *texture, int button_align, uint32_t color = 0xFFFFFFFF);  // uses current UI atlas for fetching images.
 
 // Returns 1 if clicked, puts the value in *value (where it also gets the current state).
 int UICheckBox(int id, int x, int y, const char *text, int align, bool *value);

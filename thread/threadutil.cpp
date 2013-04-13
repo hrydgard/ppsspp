@@ -1,7 +1,7 @@
 #ifdef _WIN32
 #include <windows.h>
 #endif
-#include "base/threadutil.h"
+#include "thread/threadutil.h"
 
 void setCurrentThreadName(const char* szThreadName)
 {

@@ -234,7 +234,7 @@ int UIImageButton(int id, const LayoutManager &layout, float w, int image, int b
 	return clicked;
 }
 
-int UITextureButton(UIContext *ctx, int id, const LayoutManager &layout, float w, float h, Texture *texture, int button_align)	// uses current UI atlas for fetching images.
+int UITextureButton(UIContext *ctx, int id, const LayoutManager &layout, float w, float h, Texture *texture, int button_align, uint32_t color)	// uses current UI atlas for fetching images.
 {
 	float x, y;
 	layout.GetPos(&w, &h, &x, &y);
@@ -294,7 +294,7 @@ int UITextureButton(UIContext *ctx, int id, const LayoutManager &layout, float w
 		Texture::Unbind();
 	}
 
-	ui_draw2d.DrawTexRect(x, y, x+w, y+h, 0, 0, 1, 1, 0xFFFFFFFF);
+	ui_draw2d.DrawTexRect(x, y, x+w, y+h, 0, 0, 1, 1, color);
 	ui_draw2d.Flush();
 	ctx->RebindTexture();
 

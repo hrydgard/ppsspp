@@ -41,6 +41,8 @@ LOCAL_SRC_FILES :=\
     net/http_client.cpp \
     net/resolve.cpp \
     profiler/profiler.cpp \
+    thread/threadutil.cpp \
+    thread/prioritizedworkqueue.cpp \
     gfx_es2/glsl_program.cpp \
     gfx_es2/gl_state.cpp \
     gfx_es2/draw_buffer.cpp.arm \
@@ -62,7 +64,7 @@ LOCAL_SRC_FILES :=\
     util/text/utf8.cpp
 
 LOCAL_CFLAGS := -O3 -DGL_GLEXT_PROTOTYPES -DUSING_GLES2 -fsigned-char -fno-strict-aliasing
-LOCAL_CPPFLAGS := -fno-exceptions -fno-rtti -std=gnu++0x
+LOCAL_CPPFLAGS := -fno-exceptions -std=gnu++11
 LOCAL_LDLIBS := -lz
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/ext/libzip
 

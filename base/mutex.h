@@ -1,19 +1,20 @@
 #pragma once
+
 // Simple cross platform mutex implementation.
 // Similar to the new C++11 api.
+
 // Windows and pthreads implementations in one.
+
+// TODO: Need to clean up these primitives and put them in a reasonable namespace.
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <windows.h>
 
 // Zap stupid windows defines
 // Should move these somewhere clever.
 #undef p
-#undef MIN
-#undef MAX
-#undef min
-#undef max
 #undef DrawText
 #undef itoa
 
@@ -125,10 +126,11 @@ public:
   void wait(recursive_mutex &mtx) {
     // broken
 #ifdef _WIN32
-    //mtx.unlock();
+		// This has to be horribly racy.
+    mtx.unlock();
     WaitForSingleObject(event_, INFINITE);
     ResetEvent(event_); // necessary?
-    // mtx.lock();
+    mtx.lock();
 #else
     pthread_mutex_lock(&mtx.native_handle());
     pthread_cond_wait(&event_, &mtx.native_handle());
@@ -165,5 +167,79 @@ private:
   HANDLE event_;
 #else
   pthread_cond_t event_;
+#endif
+};
+
+
+class condition_variable {
+public:
+#ifdef _WIN32
+#else
+#endif
+	condition_variable() {
+#ifdef _WIN32
+		event_ = CreateEvent(0, FALSE, FALSE, 0);
+#else
+		pthread_cond_init(&event_, NULL);
+#endif
+	}
+	~condition_variable() {
+#ifdef _WIN32
+		CloseHandle(event_);
+#else
+		pthread_cond_destroy(&event_);
+#endif
+	}
+
+	void notify_one() {
+#ifdef _WIN32
+		SetEvent(event_);
+#else
+		pthread_cond_signal(&event_);
+#endif
+	}
+
+	// notify_all is not really possible to implement with win32 events?
+
+	void wait(recursive_mutex &mtx) {
+		// broken
+#ifdef _WIN32
+		// This has to be horribly racy.
+		mtx.unlock();
+		WaitForSingleObject(event_, INFINITE);
+		ResetEvent(event_); // necessary?
+		mtx.lock();
+#else
+		pthread_cond_wait(&event_, &mtx.native_handle());
+#endif
+	}
+
+	void wait_for(recursive_mutex &mtx, int milliseconds) {
+#ifdef _WIN32
+		//mtx.unlock();
+		WaitForSingleObject(event_, milliseconds);
+		ResetEvent(event_); // necessary?
+		// mtx.lock();
+#else
+		timespec timeout;
+#ifdef __APPLE__
+		timeval tv;
+		gettimeofday(&tv, NULL);
+		timeout.tv_sec = tv.tv_sec;
+		timeout.tv_nsec = tv.tv_usec * 1000;
+#else
+		clock_gettime(CLOCK_REALTIME, &timeout);
+#endif
+		timeout.tv_sec += milliseconds / 1000;
+		timeout.tv_nsec += milliseconds * 1000000;
+		pthread_cond_timedwait(&event_, &mtx.native_handle(), &timeout);
+#endif
+	}
+
+private:
+#ifdef _WIN32
+	HANDLE event_;
+#else
+	pthread_cond_t event_;
 #endif
 };

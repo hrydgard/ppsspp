@@ -33,8 +33,9 @@ class UIContext;
 
 class Screen {
 public:
-	Screen(bool isUiScreen = false);
-	virtual ~Screen();
+	Screen(bool isUiScreen = false) : screenManager_(0), isUiScreen_(isUiScreen) { }
+	virtual ~Screen() {}
+
 	virtual void update(InputState &input) = 0;
 	virtual void render() {}
 	virtual void deviceLost() {}

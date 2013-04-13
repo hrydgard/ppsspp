@@ -5,7 +5,7 @@
 
 class GfxResourceHolder {
  public:
-  virtual ~GfxResourceHolder();
+  virtual ~GfxResourceHolder() {}
   virtual void GLLost() = 0;
 };
 

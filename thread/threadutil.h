@@ -3,7 +3,10 @@
 #include <functional>
 
 #ifdef _WIN32
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <process.h>
 #else
 
 #include <unistd.h>
@@ -36,3 +39,18 @@ public:
 
 	}
 };*/
+
+
+#ifdef _WIN32
+#define THREAD_HANDLE HANDLE
+#else
+#define THREAD_HANDLE pthread_t
+#endif
+
+
+// TODO: replace this abomination with std::thread
+
+class thread {
+public:
+	virtual void Run();
+};

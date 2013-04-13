@@ -1,11 +1,10 @@
 #include <vector>
 
+#include "base/basictypes.h"
 #include "base/logging.h"
 #include "gfx/gl_lost_manager.h"
 
 std::vector<GfxResourceHolder *> *holders;
-
-GfxResourceHolder::~GfxResourceHolder() {}
 
 static bool inLost;
 

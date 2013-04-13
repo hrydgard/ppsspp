@@ -1,5 +1,4 @@
-#ifndef _BASE_BASICTYPES
-#define _BASE_BASICTYPES
+#pragma once
 
 #include <stdint.h>
 #include <stdlib.h>  // for byte swapping
@@ -92,5 +91,3 @@ inline uint64 swap64(const uint8* _pData) {return swap64(*(const uint64*)_pData)
 #ifndef TCHAR
 typedef char TCHAR;
 #endif
-
-#endif  // _BASE_BASICTYPES

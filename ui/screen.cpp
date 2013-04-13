@@ -3,9 +3,6 @@
 #include "ui/screen.h"
 #include "ui/ui.h"
 
-Screen::Screen(bool isUiScreen) : screenManager_(0), isUiScreen_(isUiScreen) { }
-Screen::~Screen() { }
-
 ScreenManager::ScreenManager() {
 	nextScreen_ = 0;
 	uiContext_ = 0;

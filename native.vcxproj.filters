@@ -206,9 +206,6 @@
     <ClInclude Include="util\random\rng.h">
       <Filter>util</Filter>
     </ClInclude>
-    <ClInclude Include="base\threadutil.h">
-      <Filter>base</Filter>
-    </ClInclude>
     <ClInclude Include="ext\stb_image\stb_image.h">
       <Filter>ext</Filter>
     </ClInclude>
@@ -238,6 +235,15 @@
     </ClInclude>
     <ClInclude Include="ext\rg_etc1\rg_etc1.h">
       <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="thread\prioritizedworkqueue.h">
+      <Filter>thread</Filter>
+    </ClInclude>
+    <ClInclude Include="thread\thread.h">
+      <Filter>thread</Filter>
+    </ClInclude>
+    <ClInclude Include="thread\threadutil.h">
+      <Filter>thread</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -388,9 +394,6 @@
     <ClCompile Include="util\random\perlin.cpp">
       <Filter>util</Filter>
     </ClCompile>
-    <ClCompile Include="base\threadutil.cpp">
-      <Filter>base</Filter>
-    </ClCompile>
     <ClCompile Include="ext\stb_image\stb_image.c">
       <Filter>ext</Filter>
     </ClCompile>
@@ -422,6 +425,12 @@
     </ClCompile>
     <ClCompile Include="ext\rg_etc1\rg_etc1.cpp">
       <Filter>ext</Filter>
+    </ClCompile>
+    <ClCompile Include="thread\prioritizedworkqueue.cpp">
+      <Filter>thread</Filter>
+    </ClCompile>
+    <ClCompile Include="thread\threadutil.cpp">
+      <Filter>thread</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -481,6 +490,9 @@
     </Filter>
     <Filter Include="tools">
       <UniqueIdentifier>{4515306f-4664-46bf-a89b-abfec5520a15}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="thread">
+      <UniqueIdentifier>{caa41117-1d90-47cc-9fba-f7e670e315a3}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>
