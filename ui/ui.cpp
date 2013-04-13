@@ -288,7 +288,7 @@ int UITextureButton(UIContext *ctx, int id, const LayoutManager &layout, float w
 		x += (w - nw) / 2.0f;
 		w = nw;
 	} else {
-		ui_draw2d.DrawImage2GridH(theme.buttonImage, x, y, x + w);
+		ui_draw2d.DrawImage2GridH(theme.buttonImage, x, y, x + w, color);
 		ui_draw2d.Flush();
 
 		Texture::Unbind();
