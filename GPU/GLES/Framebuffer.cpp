@@ -543,12 +543,13 @@ void FramebufferManager::BeginFrame() {
 }
 
 void FramebufferManager::SetDisplayFramebuffer(u32 framebuf, u32 stride, int format) {
-	displayFramebufPtr_ = framebuf;
-	displayStride_ = stride;
-	displayFormat_ = format;
 
 	if ((framebuf & 0x04000000) == 0) {
 		DEBUG_LOG(HLE, "Non-VRAM display framebuffer address set: %08x", framebuf);
+	} else {
+		displayFramebufPtr_ = framebuf;
+		displayStride_ = stride;
+		displayFormat_ = format;
 	}
 }
 
