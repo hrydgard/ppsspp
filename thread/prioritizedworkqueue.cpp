@@ -48,8 +48,10 @@ PrioritizedWorkQueueItem *PrioritizedWorkQueue::Pop() {
 	mutex_.lock();
 	while (queue_.empty()) {
 		notEmpty_.wait(mutex_);
-		if (done_)
+		if (done_) {
+			mutex_.unlock();
 			return 0;
+		}
 	}
 
 	// Find the top priority item (lowest value).
@@ -61,10 +63,17 @@ PrioritizedWorkQueueItem *PrioritizedWorkQueue::Pop() {
 			best_prio = (*iter)->priority();
 		}
 	}
-	PrioritizedWorkQueueItem *poppedItem = *best;
-	queue_.erase(best);
-	mutex_.unlock();
-	return poppedItem;
+
+	if (best != queue_.end()) {
+		PrioritizedWorkQueueItem *poppedItem = *best;
+		queue_.erase(best);
+		mutex_.unlock();
+		return poppedItem;
+	} else {
+		// Not really sure how this can happen, but let's be safe.
+		mutex_.unlock();
+		return 0;
+	}
 }
 
 // TODO: This feels ugly. Revisit later.
