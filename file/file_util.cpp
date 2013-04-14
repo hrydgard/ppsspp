@@ -308,7 +308,7 @@ std::string getDir(const std::string &path)
 	int n = path.size() - 1;
 	while (n >= 0 && path[n] != '\\' && path[n] != '/')
 		n--;
-	std::string cutpath = path.substr(0, n);
+	std::string cutpath = n > 0 ? path.substr(0, n) : "";
 	for (size_t i = 0; i < cutpath.size(); i++)
 	{
 		if (cutpath[i] == '\\') cutpath[i] = '/';
