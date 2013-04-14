@@ -35,6 +35,7 @@ void __KernelMemoryShutdown();
 KernelObject *__KernelMemoryFPLObject();
 KernelObject *__KernelMemoryVPLObject();
 KernelObject *__KernelMemoryPMBObject();
+KernelObject *__KernelTlsObject();
 
 SceUID sceKernelCreateVpl(const char *name, int partition, u32 attr, u32 vplSize, u32 optPtr);
 int sceKernelDeleteVpl(SceUID uid);

@@ -538,6 +538,8 @@ KernelObject *KernelObjectPool::CreateByIDType(int type)
 		return __KernelThreadObject();
 	case SCE_KERNEL_TMID_VTimer:
 		return __KernelVTimerObject();
+	case SCE_KERNEL_TMID_Tls:
+		return __KernelTlsObject();
 	case PPSSPP_KERNEL_TMID_File:
 		return __KernelFileNodeObject();
 	case PPSSPP_KERNEL_TMID_DirList:
