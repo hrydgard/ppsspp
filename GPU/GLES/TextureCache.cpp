@@ -238,10 +238,9 @@ void *TextureCache::UnswizzleFromMem(u32 texaddr, u32 bytesPerPixel, u32 level) 
 }
 
 template <typename IndexT, typename ClutT>
-inline void DeIndexTextureNoSwizzle(ClutT *dest, const u32 texaddr, int length, const ClutT *clut) {
+inline void DeIndexTexture(ClutT *dest, const IndexT *indexed, int length, const ClutT *clut) {
 	// Usually, there is no special offset, mask, or shift.
 	const bool nakedIndex = (gstate.clutformat & ~3) == 0xC500FF00;
-	const IndexT *indexed = (const IndexT *) Memory::GetPointer(texaddr);
 
 	if (nakedIndex) {
 		for (int i = 0; i < length; ++i) {
@@ -252,6 +251,12 @@ inline void DeIndexTextureNoSwizzle(ClutT *dest, const u32 texaddr, int length, 
 			*dest++ = clut[GetClutIndex(*indexed++)];
 		}
 	}
+}
+
+template <typename IndexT, typename ClutT>
+inline void DeIndexTextureNoSwizzle(ClutT *dest, const u32 texaddr, int length, const ClutT *clut) {
+	const IndexT *indexed = (const IndexT *) Memory::GetPointer(texaddr);
+	DeIndexTexture(dest, indexed, length, clut);
 }
 
 void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex) {
@@ -284,28 +289,15 @@ void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex) {
 			UnswizzleFromMem(texaddr, bytesPerIndex, level);
 			switch (bytesPerIndex) {
 			case 1:
-				for (int i = 0, j = 0; i < length; i += 4, j++) {
-					u32 n = tmpTexBuf32[j];
-					for (u32 k = 0; k < 4; k++) {
-						u8 index = (n >> (k * 8)) & 0xff;
-						tmpTexBuf16[i + k] = clut[GetClutIndex(index)];
-					}
-				}
+				DeIndexTexture(tmpTexBuf16.data(), (u8 *) tmpTexBuf32.data(), length, clut);
 				break;
 
 			case 2:
-				for (int i = 0, j = 0; i < length; i += 2, j++) {
-					u32 n = tmpTexBuf32[j];
-					tmpTexBuf16[i + 0] = clut[GetClutIndex(n & 0xffff)];
-					tmpTexBuf16[i + 1] = clut[GetClutIndex(n >> 16)];
-				}
+				DeIndexTexture(tmpTexBuf16.data(), (u16 *) tmpTexBuf32.data(), length, clut);
 				break;
 
 			case 4:
-				for (int i = 0; i < length; i++) {
-					u32 n = tmpTexBuf32[i];
-					tmpTexBuf16[i] = clut[GetClutIndex(n)];
-				}
+				DeIndexTexture(tmpTexBuf16.data(), (u32 *) tmpTexBuf32.data(), length, clut);
 				break;
 			}
 		}
@@ -337,29 +329,44 @@ void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex) {
 			UnswizzleFromMem(texaddr, bytesPerIndex, level);
 			switch (bytesPerIndex) {
 			case 1:
-				for (int i = length - 4, j = (length / 4) - 1; i >= 0; i -= 4, j--) {
-					u32 n = tmpTexBuf32[j];
-					u32 k;
-					for (k = 0; k < 4; k++) {
-						u32 index = (n >> (k * 8)) & 0xff;
-						tmpTexBuf32[i + k] = clut[GetClutIndex(index)];
+				// If possible, let's do this in 1024 byte blocks.
+				if ((length & 0x3ff) == 0) {
+					u8 block[1024];
+					for (int i = length - 1024, j = (length / 4) - 256; i >= 0; i -= 1024, j -= 256) {
+						memcpy(block, &tmpTexBuf32[j], 1024 * sizeof(u8));
+						DeIndexTexture(&tmpTexBuf32[i], block, 1024, clut);
+					}
+				} else {
+					for (int i = length - 4, j = (length / 4) - 1; i >= 0; i -= 4, j--) {
+						u32 n = tmpTexBuf32[j];
+						u32 k;
+						for (k = 0; k < 4; k++) {
+							u32 index = (n >> (k * 8)) & 0xff;
+							tmpTexBuf32[i + k] = clut[GetClutIndex(index)];
+						}
 					}
 				}
 				break;
 
 			case 2:
-				for (int i = length - 2, j = (length / 2) - 1; i >= 0; i -= 2, j--) {
-					u32 n = tmpTexBuf32[j];
-					tmpTexBuf32[i + 0] = clut[GetClutIndex(n & 0xffff)];
-					tmpTexBuf32[i + 1] = clut[GetClutIndex(n >> 16)];
+				// If possible, let's do this in 1024 byte blocks.
+				if ((length & 0x3ff) == 0) {
+					u16 block[512];
+					for (int i = length - 1024, j = (length / 4) - 256; i >= 0; i -= 1024, j -= 256) {
+						memcpy(block, &tmpTexBuf32[j], 512 * sizeof(u16));
+						DeIndexTexture(&tmpTexBuf32[i], block, 512, clut);
+					}
+				} else {
+					for (int i = length - 2, j = (length / 2) - 1; i >= 0; i -= 2, j--) {
+						u32 n = tmpTexBuf32[j];
+						tmpTexBuf32[i + 0] = clut[GetClutIndex(n & 0xffff)];
+						tmpTexBuf32[i + 1] = clut[GetClutIndex(n >> 16)];
+					}
 				}
 				break;
 
 			case 4:
-				for (int i = 0; i < length; i++) {
-					u32 n = tmpTexBuf32[i];
-					tmpTexBuf32[i] = clut[GetClutIndex(n)];
-				}
+				DeIndexTexture(tmpTexBuf32.data(), tmpTexBuf32.data(), length, clut);
 				break;
 			}
 		}
