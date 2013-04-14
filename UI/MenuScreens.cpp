@@ -562,7 +562,10 @@ void FileListAdapter::drawItem(int item, int x, int y, int w, int h, bool select
 			icon = iter->second;
 	}
 
-	int iconSpace = 144;
+	float scaled_h = ui_atlas.images[I_BUTTON].h;
+	float scaled_w = scaled_h * (144.f / 80.f);
+
+	int iconSpace = scaled_w + 10;
 	ui_draw2d.DrawImage2GridH(selected ? I_BUTTON_SELECTED: I_BUTTON, x, y, x + w);
 	ui_draw2d.DrawTextShadow(UBUNTU24, (*items_)[item].name.c_str(), x + UI_SPACE + iconSpace, y + 25, 0xFFFFFFFF, ALIGN_LEFT | ALIGN_VCENTER);
 
@@ -577,8 +580,6 @@ void FileListAdapter::drawItem(int item, int x, int y, int w, int h, bool select
 		}
 	}
 	if (ginfo) {
-		float scaled_h = ui_atlas.images[I_BUTTON].h;
-		float scaled_w = scaled_h * (144.f / 80.f);
 		if (ginfo->iconTexture) {
 			uint32_t color = whiteAlpha(ease((time_now_d() - ginfo->timeIconWasLoaded) * 2));
 			UIFlush();
