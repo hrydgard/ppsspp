@@ -651,34 +651,34 @@ void VertexDecoder::SetVertexType(u32 fmt) {
 	}
 
 	//if (pos)  - there's always a position
-	{
-		size = align(size, posalign[pos]);
-		posoff = size;
-		size += possize[pos];
-		if (posalign[pos] > biggest)
-			biggest = posalign[pos];
+	
+	size = align(size, posalign[pos]);
+	posoff = size;
+	size += possize[pos];
+	if (posalign[pos] > biggest)
+		biggest = posalign[pos];
 
-		if (throughmode) {
-			steps_[numSteps_++] = posstep_through[pos];
-			decFmt.posfmt = DEC_FLOAT_3;
-		} else {
-			steps_[numSteps_++] = morphcount == 1 ? posstep[pos] : posstep_morph[pos];
+	if (throughmode) {
+		steps_[numSteps_++] = posstep_through[pos];
+		decFmt.posfmt = DEC_FLOAT_3;
+	} else {
+		steps_[numSteps_++] = morphcount == 1 ? posstep[pos] : posstep_morph[pos];
 
-			if (morphcount == 1) {
-				// The non-through-mode position formats match the gl formats perfectly, let's use 'em.
-				switch (pos) {
-				case GE_VTYPE_POS_8BIT >> GE_VTYPE_POS_SHIFT: decFmt.posfmt = DEC_S8_3; break;
-				case GE_VTYPE_POS_16BIT >> GE_VTYPE_POS_SHIFT: decFmt.posfmt = DEC_S16_3; break;
-				case GE_VTYPE_POS_FLOAT >> GE_VTYPE_POS_SHIFT: decFmt.posfmt = DEC_FLOAT_3; break;
-				}
-			} else {
-				// Actually, temporarily let's not.
-				decFmt.posfmt = DEC_FLOAT_3;
+		if (morphcount == 1) {
+			// The non-through-mode position formats match the gl formats perfectly, let's use 'em.
+			switch (pos) {
+			case GE_VTYPE_POS_8BIT >> GE_VTYPE_POS_SHIFT: decFmt.posfmt = DEC_S8_3; break;
+			case GE_VTYPE_POS_16BIT >> GE_VTYPE_POS_SHIFT: decFmt.posfmt = DEC_S16_3; break;
+			case GE_VTYPE_POS_FLOAT >> GE_VTYPE_POS_SHIFT: decFmt.posfmt = DEC_FLOAT_3; break;
 			}
+		} else {
+			// Actually, temporarily let's not.
+			decFmt.posfmt = DEC_FLOAT_3;
 		}
-		decFmt.posoff = decOff;
-		decOff += DecFmtSize(decFmt.posfmt);
 	}
+	decFmt.posoff = decOff;
+	decOff += DecFmtSize(decFmt.posfmt);
+	
 	decFmt.stride = decOff;
 
 	size = align(size, biggest);
