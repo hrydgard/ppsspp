@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="org.ppsspp.ppsspp"
-    android:versionCode="70"
-    android:versionName="0.70"
+    android:versionCode="75"
+    android:versionName="0.7.5"
     android:installLocation="auto" >
 
     <uses-sdk android:minSdkVersion="8" android:targetSdkVersion="8"/>
