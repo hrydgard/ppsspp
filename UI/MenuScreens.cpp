@@ -473,7 +473,7 @@ void SettingsScreen::render() {
 	UICheckBox(GEN_ID, x + columnw, y, "Use Stream VBO", ALIGN_TOPLEFT, &g_Config.bUseVBO);
 #endif
 	UICheckBox(GEN_ID, x, y += stride, "Vertex Cache", ALIGN_TOPLEFT, &g_Config.bVertexCache);
-	UICheckBox(GEN_ID, x + columnw, y, "Use Media Engine", ALIGN_TOPLEFT, &g_Config.bUseMediaEngine);
+	UICheckBox(GEN_ID, x + columnw, y, "Linear Filtering", ALIGN_TOPLEFT, &g_Config.bLinearFiltering);
 
 	UICheckBox(GEN_ID, x, y += stride, "JIT (Dynarec)", ALIGN_TOPLEFT, &g_Config.bJit);
 	if (g_Config.bJit)
