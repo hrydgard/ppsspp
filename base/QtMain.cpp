@@ -74,6 +74,9 @@ Q_DECL_EXPORT int main(int argc, char *argv[])
 	char* savegame_dir = "data/";
 #elif defined(MEEGO_EDITION_HARMATTAN)
 	char* savegame_dir = "/home/user/MyDocs/PPSSPP/";
+	QDir myDocs("/home/user/MyDocs/");
+	if (!myDocs.exists("PPSSPP"))
+		myDocs.mkdir("PPSSPP");
 #else
 	char* savegame_dir = "./";
 #endif
