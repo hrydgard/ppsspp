@@ -335,7 +335,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		if (doSpecular)
 		{
 			Vec3 halfVec = (toLight + toViewer);
-			halfVec.Normalize();
+			halfVec.Normalized();
 
 			dot = halfVec * norm;
 			if (dot > 0.0f)
