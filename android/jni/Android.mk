@@ -147,12 +147,12 @@ LOCAL_SRC_FILES := \
   $(SRC)/GPU/GPUState.cpp \
   $(SRC)/GPU/GeDisasm.cpp \
   $(SRC)/GPU/GLES/Framebuffer.cpp \
-  $(SRC)/GPU/GLES/DisplayListInterpreter.cpp \
-  $(SRC)/GPU/GLES/TextureCache.cpp \
-  $(SRC)/GPU/GLES/IndexGenerator.cpp \
-  $(SRC)/GPU/GLES/TransformPipeline.cpp \
-  $(SRC)/GPU/GLES/StateMapping.cpp \
-  $(SRC)/GPU/GLES/VertexDecoder.cpp \
+  $(SRC)/GPU/GLES/DisplayListInterpreter.cpp.arm \
+  $(SRC)/GPU/GLES/TextureCache.cpp.arm \
+  $(SRC)/GPU/GLES/IndexGenerator.cpp.arm \
+  $(SRC)/GPU/GLES/TransformPipeline.cpp.arm \
+  $(SRC)/GPU/GLES/StateMapping.cpp.arm \
+  $(SRC)/GPU/GLES/VertexDecoder.cpp.arm \
   $(SRC)/GPU/GLES/ShaderManager.cpp \
   $(SRC)/GPU/GLES/VertexShaderGenerator.cpp \
   $(SRC)/GPU/GLES/FragmentShaderGenerator.cpp \
@@ -162,8 +162,8 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/ELF/PrxDecrypter.cpp \
   $(SRC)/Core/ELF/ParamSFO.cpp \
   $(SRC)/Core/HW/MemoryStick.cpp \
-  $(SRC)/Core/HW/MediaEngine.cpp \
-  $(SRC)/Core/HW/SasAudio.cpp \
+  $(SRC)/Core/HW/MediaEngine.cpp.arm \
+  $(SRC)/Core/HW/SasAudio.cpp.arm \
   $(SRC)/Core/Core.cpp \
   $(SRC)/Core/Config.cpp \
   $(SRC)/Core/CoreTiming.cpp \
@@ -212,7 +212,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/HLE/sceKernelMbx.cpp \
   $(SRC)/Core/HLE/sceKernelMsgPipe.cpp \
   $(SRC)/Core/HLE/sceKernelSemaphore.cpp \
-  $(SRC)/Core/HLE/sceKernelThread.cpp \
+  $(SRC)/Core/HLE/sceKernelThread.cpp.arm \
   $(SRC)/Core/HLE/sceKernelTime.cpp \
   $(SRC)/Core/HLE/sceKernelVTimer.cpp \
   $(SRC)/Core/HLE/sceMpeg.cpp \
@@ -243,8 +243,8 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/MIPS/MIPSInt.cpp.arm \
   $(SRC)/Core/MIPS/MIPSIntVFPU.cpp.arm \
   $(SRC)/Core/MIPS/MIPSTables.cpp.arm \
-  $(SRC)/Core/MIPS/MIPSVFPUUtils.cpp \
-  $(SRC)/Core/MIPS/MIPSCodeUtils.cpp \
+  $(SRC)/Core/MIPS/MIPSVFPUUtils.cpp.arm \
+  $(SRC)/Core/MIPS/MIPSCodeUtils.cpp.arm \
   $(SRC)/Core/MIPS/MIPSDebugInterface.cpp \
   $(SRC)/Core/MIPS/JitCommon/JitCommon.cpp \
   $(SRC)/Core/Util/BlockAllocator.cpp \
