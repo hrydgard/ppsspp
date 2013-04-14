@@ -107,6 +107,7 @@ void Core_RunLoop()
 {
 	while (!coreState) {
 		time_update();
+		double startTime = time_now_d();
 		UpdateScreenScale();
 		{
 			{
@@ -129,10 +130,13 @@ void Core_RunLoop()
 			EndInputState(&input_state);
 		}
 		NativeRender();
+		time_update();
 		// Simple throttling to not burn the GPU in the menu.
 #ifdef _WIN32
 		if (globalUIState != UISTATE_INGAME) {
-			Sleep(15);
+			double sleepTime = 16.666 - (time_now_d() - startTime) * 1000.0;
+			if (sleepTime > 0.0)
+				Sleep((int)sleepTime);
 			GL_SwapBuffers();
 		} else if (!Core_IsStepping()) {
 			GL_SwapBuffers();
