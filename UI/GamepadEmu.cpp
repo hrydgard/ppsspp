@@ -65,9 +65,9 @@ void LayoutGamepad(int w, int h)
 
 	crossPad.setPos(leftX + arrow_spacing, leftY, 40, controlScale);
 
-	buttonSelect.setPos(halfW - button_spacing * 2, h - 20 * controlScale, controlScale);
-	buttonStart.setPos(halfW , h - 20 * controlScale, controlScale);
-	buttonTurbo.setPos(halfW + button_spacing * 2 , h - 20 * controlScale, controlScale);
+	buttonTurbo.setPos(halfW - button_spacing * 2, h - 20 * controlScale, controlScale);
+	buttonSelect.setPos(halfW , h - 20 * controlScale, controlScale);
+	buttonStart.setPos(halfW + button_spacing * 2 , h - 20 * controlScale, controlScale);
 	buttonLShoulder.setPos(button_spacing + 10 * controlScale, 30 * controlScale, controlScale);
 	buttonRShoulder.setPos(w - button_spacing - 10 * controlScale, 30 * controlScale, controlScale);
 

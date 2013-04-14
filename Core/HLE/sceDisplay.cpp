@@ -281,6 +281,7 @@ void DoFrameTiming(bool &throttle, bool &skipFrame) {
 	// Check if the frameskipping code should be enabled. If neither throttling or frameskipping is on,
 	// we have nothing to do here.
 	bool doFrameSkip = g_Config.iFrameSkip == 1;
+
 	if (!throttle && !doFrameSkip)
 		return;
 	
@@ -295,6 +296,15 @@ void DoFrameTiming(bool &throttle, bool &skipFrame) {
 		skipFrame = true;
 		// INFO_LOG(HLE,"FRAMESKIP %i", numSkippedFrames);
 	}
+
+	// On non windows, which is always vsync locked, we need to force frameskip when
+	// unthrottled.
+#ifndef _WIN32
+	if (!throttle) {
+		doFrameSkip = true;
+		skipFrame = true;
+	}
+#endif
 	
 	if (curFrameTime < nextFrameTime && throttle)
 	{
