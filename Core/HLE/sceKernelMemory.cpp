@@ -159,14 +159,22 @@ void __KernelMemoryInit()
 	INFO_LOG(HLE, "Kernel and user memory pools initialized");
 
 	vplWaitTimer = CoreTiming::RegisterEvent("VplTimeout", __KernelVplTimeout);
+
+	flags_ = 0;
+	sdkVersion_ = 0;
+	compilerVersion_ = 0;
 }
 
 void __KernelMemoryDoState(PointerWrap &p)
 {
 	kernelMemory.DoState(p);
 	userMemory.DoState(p);
+
 	p.Do(vplWaitTimer);
 	CoreTiming::RestoreRegisterEvent(vplWaitTimer, "VplTimeout", __KernelVplTimeout);
+	p.Do(flags_);
+	p.Do(sdkVersion_);
+	p.Do(compilerVersion_);
 	p.DoMarker("sceKernelMemory");
 }
 
