@@ -245,7 +245,11 @@ void MenuScreen::render() {
 		// TODO: Save when setting changes, rather than when we quit
 		NativeShutdown();
 		// TODO: Need a more elegant way to quit
+#ifdef _WIN32
+		ExitProcess(0);
+#else
 		exit(0);
+#endif
 	}
 
 	if (UIButton(GEN_ID, vlinear, w, 0, "www.ppsspp.org", ALIGN_RIGHT)) {

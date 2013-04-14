@@ -67,6 +67,7 @@ public:
 	// This creates a background worker thread!
 	void Init();
 	void Shutdown();
+	void Clear();
 
 	// All data in GameInfo including iconTexture may be zero the first time you call this
 	// but filled in later asynchronously in the background. So keep calling this,

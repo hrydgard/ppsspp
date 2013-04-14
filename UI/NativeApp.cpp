@@ -422,6 +422,7 @@ void NativeUpdate(InputState &input)
 
 void NativeDeviceLost()
 {
+	g_gameInfoCache.Clear();
 	screenManager->deviceLost();
 	gl_lost();
 	glstate.Restore();
