@@ -62,7 +62,6 @@ SOURCES +=  ../native/audio/*.cpp \
 	../native/base/error_context.cpp \
 	../native/base/fastlist_test.cpp \
 	../native/base/stringutil.cpp \
-	../native/base/threadutil.cpp \
 	../native/base/timeutil.cpp \
 	../native/file/*.cpp \
 	../native/gfx/gl_debug_log.cpp \
@@ -80,6 +79,7 @@ SOURCES +=  ../native/audio/*.cpp \
 	../native/midi/midi_input.cpp \
 	../native/net/*.cpp \
 	../native/profiler/profiler.cpp \
+	../native/thread/*.cpp \
 	../native/ui/*.cpp \
 	../native/util/bits/*.cpp \
 	../native/util/hash/hash.cpp \
@@ -100,7 +100,6 @@ HEADERS +=  ../native/audio/*.h \
 	../native/base/scoped_ptr.h \
 	../native/base/stats.h \
 	../native/base/stringutil.h \
-	../native/base/threadutil.h \
 	../native/base/timeutil.h \
 	../native/file/*.h \
 	../native/gfx/gl_debug_log.h \
@@ -119,6 +118,7 @@ HEADERS +=  ../native/audio/*.h \
 	../native/midi/midi_input.h \
 	../native/net/*.h \
 	../native/profiler/profiler.h \
+	../native/thread/*.h \
 	../native/ui/ui.h \
 	../native/ui/screen.h \
 	../native/ui/virtual_input.h \
