@@ -112,7 +112,7 @@ public:
 		*x = x_;
 		*y = y_;
 		y_ += *h + ySpacing_;
-		if (y_ >= yMax_) {
+		if (y_ + *h >= yMax_) {
 			x_ += *w + xSpacing_;
 			y_ = yInit_;
 		}

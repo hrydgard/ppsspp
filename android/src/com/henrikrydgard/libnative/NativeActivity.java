@@ -361,13 +361,11 @@ public class NativeActivity extends Activity {
     		.setView(fl)
     		.setTitle(title)
     		.setPositiveButton(defaultAction, new DialogInterface.OnClickListener(){
-			@Override
     			public void onClick(DialogInterface d, int which) {
     				d.dismiss();
     			}
     		})
     		.setNegativeButton("Cancel", new DialogInterface.OnClickListener(){
-			@Override
     			public void onClick(DialogInterface d, int which) {
     				d.cancel();
         	    	NativeActivity.inputBoxCancelled = false;

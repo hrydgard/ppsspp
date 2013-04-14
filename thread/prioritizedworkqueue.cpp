@@ -31,6 +31,18 @@ void PrioritizedWorkQueue::Stop() {
 	mutex_.unlock();
 }
 
+void PrioritizedWorkQueue::Flush() {
+	if (queue_.empty())
+		return;
+	mutex_.lock();
+	for (auto iter = queue_.begin(); iter != queue_.end(); ++iter) {
+		delete *iter;
+	}
+	queue_.clear();
+	mutex_.unlock();
+}
+
+
 // The worker should simply call this in a loop. Will block when appropriate.
 PrioritizedWorkQueueItem *PrioritizedWorkQueue::Pop() {
 	mutex_.lock();
@@ -67,6 +79,7 @@ static void threadfunc(PrioritizedWorkQueue *wq) {
 				break;
 		} else {
 			item->run();
+			delete item;
 		}
 	}
 }

@@ -31,6 +31,7 @@ public:
 	// The worker should simply call this in a loop. Will block when appropriate.
 	PrioritizedWorkQueueItem *Pop();
 
+	void Flush();
 	bool Done() { return done_; }
 	void Stop();
 
