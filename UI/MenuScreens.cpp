@@ -569,7 +569,6 @@ void FileListAdapter::drawItem(int item, int x, int y, int w, int h, bool select
 	ui_draw2d.DrawImage2GridH(selected ? I_BUTTON_SELECTED: I_BUTTON, x, y, x + w);
 	ui_draw2d.DrawTextShadow(UBUNTU24, (*items_)[item].name.c_str(), x + UI_SPACE + iconSpace, y + 25, 0xFFFFFFFF, ALIGN_LEFT | ALIGN_VCENTER);
 
-#if 1
 	// This might create a texture so we must flush first.
 	UIFlush();
 	GameInfo *ginfo = 0;
@@ -592,10 +591,6 @@ void FileListAdapter::drawItem(int item, int x, int y, int w, int h, bool select
 		if (icon != -1)
 			ui_draw2d.DrawImage(icon, x + UI_SPACE, y + 25, 1.0f, 0xFFFFFFFF, ALIGN_VCENTER | ALIGN_LEFT);
 	}
-#else
-	if (icon != -1)
-		ui_draw2d.DrawImage(icon, x + UI_SPACE, y + 25, 1.0f, 0xFFFFFFFF, ALIGN_VCENTER | ALIGN_LEFT);
-#endif
 }
 
 FileSelectScreen::FileSelectScreen(const FileSelectScreenOptions &options) : options_(options) {
