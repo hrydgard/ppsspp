@@ -3,7 +3,7 @@
     <id>com.Qtness.PPSSPP</id>
     <name>PPSSPP</name>
     <filename>PPSSPPBlackberry</filename>
-    <versionNumber>0.7.0</versionNumber>
+    <versionNumber>0.7.5</versionNumber>
     <buildId>1</buildId>
     <description>Playstation portable emulator.</description>
 
