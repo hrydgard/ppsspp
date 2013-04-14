@@ -289,10 +289,8 @@ void DoFrameTiming(bool &throttle, bool &skipFrame) {
 		doFrameSkip = true;
 		skipFrame = true;
 		if (numSkippedFrames >= 6) {
-			INFO_LOG(HLE, "UNSKIP!");
 			skipFrame = false;
 		}
-		INFO_LOG(HLE, "UNTHROTTLE!");
 		return;	
 	}
 #endif

@@ -191,6 +191,7 @@ void GameInfoCache::Clear() {
 			iter->second->pic1Texture = 0;
 		}
 	}
+	info_.clear();
 }
 
 void GameInfoCache::FlushBGs() {
