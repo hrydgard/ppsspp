@@ -54,6 +54,7 @@ namespace Reporting
 	static Payload payloadBuffer[PAYLOAD_BUFFER_SIZE];
 	static int payloadBufferPos = 0;
 
+	// Returns the full host (e.g. report.ppsspp.org:80.)
 	inline std::string ServerHost()
 	{
 		if (g_Config.sReportHost.compare("default") == 0)
@@ -61,6 +62,7 @@ namespace Reporting
 		return g_Config.sReportHost;
 	}
 
+	// Returns the length of the hostname part (e.g. before the :80.)
 	static size_t ServerHostnameLength()
 	{
 		if (!IsEnabled())
@@ -79,6 +81,7 @@ namespace Reporting
 			return host.find(':');
 	}
 
+	// Returns only the hostname part (e.g. "report.ppsspp.org".)
 	static const char *ServerHostname()
 	{
 		if (!IsEnabled())
@@ -87,13 +90,15 @@ namespace Reporting
 		std::string host = ServerHost();
 		size_t length = ServerHostnameLength();
 
-		if (length == lastHostname.npos)
-			return lastHostname.c_str();
-
-		lastHostname = host.substr(0, length);
+		// This means there's no port number - it's already the hostname.
+		if (length == host.npos)
+			lastHostname = host;
+		else
+			lastHostname = host.substr(0, length);
 		return lastHostname.c_str();
 	}
 
+	// Returns only the port part (e.g. 80) as an int.
 	static int ServerPort()
 	{
 		if (!IsEnabled())
@@ -101,6 +106,7 @@ namespace Reporting
 
 		std::string host = ServerHost();
 		size_t offset = ServerHostnameLength();
+		// If there's no port, use the default one.
 		if (offset == host.npos)
 			return DEFAULT_PORT;
 
