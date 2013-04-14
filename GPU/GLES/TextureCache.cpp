@@ -170,57 +170,67 @@ static void ReadClut32(u32 *clutBuf32) {
 }
 
 void *TextureCache::UnswizzleFromMem(u32 texaddr, u32 bytesPerPixel, u32 level) {
-	u32 addr = texaddr;
-	u32 rowWidth = (bytesPerPixel > 0) ? ((gstate.texbufwidth[level] & 0x3FF) * bytesPerPixel) : ((gstate.texbufwidth[level] & 0x3FF) / 2);
-	u32 pitch = rowWidth / 4;
-	int bxc = rowWidth / 16;
+	const u32 rowWidth = (bytesPerPixel > 0) ? ((gstate.texbufwidth[level] & 0x3FF) * bytesPerPixel) : ((gstate.texbufwidth[level] & 0x3FF) / 2);
+	const u32 pitch = rowWidth / 4;
+	const int bxc = rowWidth / 16;
 	int byc = ((1 << ((gstate.texsize[level] >> 8) & 0xf)) + 7) / 8;
 	if (byc == 0)
 		byc = 1;
 
 	u32 ydest = 0;
-	for (int by = 0; by < byc; by++) {
-		if (rowWidth >= 16) {
-			u32 xdest = ydest;
+	if (rowWidth >= 16) {
+		const u32 *src = (u32 *) Memory::GetPointer(texaddr);
+		u32 *ydest = tmpTexBuf32.data();
+		for (int by = 0; by < byc; by++) {
+			u32 *xdest = ydest;
 			for (int bx = 0; bx < bxc; bx++) {
-				u32 dest = xdest;
+				u32 *dest = xdest;
 				for (int n = 0; n < 8; n++) {
-					for (int k = 0; k < 4; k++) {
-						tmpTexBuf32[dest + k] = Memory::ReadUnchecked_U32(addr);
-						addr += 4;
-					}
+					memcpy(dest, src, 16);
 					dest += pitch;
+					src += 4;
 				}
 				xdest += 4;
 			}
 			ydest += (rowWidth * 8) / 4;
-		} else if (rowWidth == 8) {
+		}
+	} else if (rowWidth == 8) {
+		const u32 *src = (u32 *) Memory::GetPointer(texaddr);
+		for (int by = 0; by < byc; by++) {
 			for (int n = 0; n < 8; n++, ydest += 2) {
-				tmpTexBuf32[ydest + 0] = Memory::ReadUnchecked_U32(addr + 0);
-				tmpTexBuf32[ydest + 1] = Memory::ReadUnchecked_U32(addr + 4);
-				addr += 16; // skip two u32
-			}
-		} else if (rowWidth == 4) {
-			for (int n = 0; n < 8; n++, ydest++) {
-				tmpTexBuf32[ydest] = Memory::ReadUnchecked_U32(addr);
-				addr += 16;
-			}
-		} else if (rowWidth == 2) {
-			for (int n = 0; n < 4; n++, ydest++) {
-				u16 n1 = Memory::ReadUnchecked_U16(addr +  0);
-				u16 n2 = Memory::ReadUnchecked_U16(addr + 16);
-				tmpTexBuf32[ydest] = (u32)n1 | ((u32)n2 << 16);
-				addr += 32;
+				tmpTexBuf32[ydest + 0] = *src++;
+				tmpTexBuf32[ydest + 1] = *src++;
+				src += 2; // skip two u32
 			}
 		}
-		else if (rowWidth == 1) {
+	} else if (rowWidth == 4) {
+		const u32 *src = (u32 *) Memory::GetPointer(texaddr);
+		for (int by = 0; by < byc; by++) {
+			for (int n = 0; n < 8; n++, ydest++) {
+				tmpTexBuf32[ydest] = *src++;
+				src += 3;
+			}
+		}
+	} else if (rowWidth == 2) {
+		const u16 *src = (u16 *) Memory::GetPointer(texaddr);
+		for (int by = 0; by < byc; by++) {
+			for (int n = 0; n < 4; n++, ydest++) {
+				u16 n1 = src[0];
+				u16 n2 = src[8];
+				tmpTexBuf32[ydest] = (u32)n1 | ((u32)n2 << 16);
+				src += 16;
+			}
+		}
+	} else if (rowWidth == 1) {
+		const u8 *src = (u8 *) Memory::GetPointer(texaddr);
+		for (int by = 0; by < byc; by++) {
 			for (int n = 0; n < 2; n++, ydest++) {
-				// This looks wrong, shouldn't it be & 0xFF (that is no mask at all?)
-				u8 n1 = Memory::ReadUnchecked_U8(addr +  0) & 0xf;
-				u8 n2 = Memory::ReadUnchecked_U8(addr + 16) & 0xf;
-				u8 n3 = Memory::ReadUnchecked_U8(addr + 32) & 0xf;
-				u8 n4 = Memory::ReadUnchecked_U8(addr + 48) & 0xf;
+				u8 n1 = src[ 0];
+				u8 n2 = src[16];
+				u8 n3 = src[32];
+				u8 n4 = src[48];
 				tmpTexBuf32[ydest] = (u32)n1 | ((u32)n2 << 8) | ((u32)n3 << 16) | ((u32)n4 << 24);
+				src += 64;
 			}
 		}
 	}
@@ -274,10 +284,9 @@ void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex) {
 			UnswizzleFromMem(texaddr, bytesPerIndex, level);
 			switch (bytesPerIndex) {
 			case 1:
-				for (int i = 0, j = 0; i < length; i += 4, j++) 	{
+				for (int i = 0, j = 0; i < length; i += 4, j++) {
 					u32 n = tmpTexBuf32[j];
-					u32 k;
-					for (k = 0; k < 4; k++) {
+					for (u32 k = 0; k < 4; k++) {
 						u8 index = (n >> (k * 8)) & 0xff;
 						tmpTexBuf16[i + k] = clut[GetClutIndex(index)];
 					}
