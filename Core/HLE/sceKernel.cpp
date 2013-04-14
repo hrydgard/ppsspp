@@ -779,8 +779,15 @@ const HLEFunction ThreadManForUser[] =
 	{0xd8b299ae,WrapU_UUUU<sceKernelSetVTimerHandler>,"sceKernelSetVTimerHandler"},
 	{0x53B00E9A,WrapU_UU64UU<sceKernelSetVTimerHandlerWide>,"sceKernelSetVTimerHandlerWide"},
 
-	{0x8daff657,WrapI_CUUUUU<ThreadManForUser_8DAFF657>,"ThreadManForUser_8DAFF657"},
-	{0x32bf938e,WrapI_I<ThreadManForUser_32BF938E>,"ThreadManForUser_32BF938E"},
+	// Names are just guesses, not correct.
+	{0x8daff657,WrapI_CUUUUU<sceKernelCreateTls>,              "sceKernelCreateTls"},
+	{0x32bf938e,WrapI_I<sceKernelDeleteTls>,                   "sceKernelDeleteTls"},
+	{0x721067F3,WrapI_IU<sceKernelReferTlsStatus>,             "sceKernelReferTlsStatus"},
+	// Not completely certain about args.
+	{0x4A719FB2,WrapI_I<sceKernelFreeTls>,                     "sceKernelFreeTls"},
+	// Probably internal, not sure.  Takes (uid, &addr) as parameters... probably.
+	//{0x65F54FFB,0,                                             "_sceKernelAllocateTls"},
+	// NOTE: sceKernelAllocateTls is in Kernel_Library, see sceKernelInterrupt.cpp.
 
 	// Not sure if these should be hooked up. See below.
 	{0x0E927AED, _sceKernelReturnFromTimerHandler, "_sceKernelReturnFromTimerHandler"},

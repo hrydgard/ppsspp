@@ -1175,26 +1175,38 @@ u32 GetMemoryBlockPtr(u32 uid, u32 addr) {
 
 // These aren't really in sysmem, but they are memory related?
 
-SceUID ThreadManForUser_8DAFF657(const char *name, u32 partitionid, u32 attr, u32 size, u32 count, u32 optionsPtr)
+SceUID sceKernelCreateTls(const char *name, u32 partitionid, u32 attr, u32 size, u32 count, u32 optionsPtr)
 {
 	u32 totalSize = size * count;
 	u32 blockPtr = userMemory.Alloc(totalSize, (attr & 0x4000) != 0, name);
 	userMemory.ListBlocks();
-	ERROR_LOG(HLE, "UNIMPL %08x=ThreadManForUser_8DAFF657(%s, %d, %08x, %d, %d, %08x)", blockPtr, name, partitionid, attr, size, count, optionsPtr);
+	ERROR_LOG(HLE, "UNIMPL %08x=sceKernelCreateTls(%s, %d, %08x, %d, %d, %08x)", blockPtr, name, partitionid, attr, size, count, optionsPtr);
 	return blockPtr;
 }
 
-int ThreadManForUser_32BF938E(SceUID uid)
+int sceKernelDeleteTls(SceUID uid)
 {
-	ERROR_LOG(HLE, "UNIMPL ThreadManForUser_32BF938E(%08x)", uid);
+	ERROR_LOG(HLE, "UNIMPL sceKernelDeleteTls(%08x)", uid);
 	userMemory.Free(uid);
 	return 0;
 }
 
-int Kernel_Library_FA835CDE(SceUID uid)
+int sceKernelAllocateTls(SceUID uid)
 {
-	ERROR_LOG(HLE, "UNIMPL Kernel_Library_FA835CDE(%08x)", uid);
+	ERROR_LOG(HLE, "UNIMPL sceKernelAllocateTls(%08x)", uid);
 	return uid;
+}
+
+int sceKernelFreeTls(SceUID uid)
+{
+	ERROR_LOG(HLE, "UNIMPL sceKernelFreeTls(%08x)", uid);
+	return 0;
+}
+
+int sceKernelReferTlsStatus(SceUID uid, u32 infoPtr)
+{
+	ERROR_LOG(HLE, "UNIMPL sceKernelReferTlsStatus(%08x, %08x)", uid, infoPtr);
+	return 0;
 }
 
 const HLEFunction SysMemUserForUser[] = {
