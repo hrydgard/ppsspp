@@ -99,6 +99,7 @@ void ProcessWorkQueueOnThreadWhile(PrioritizedWorkQueue *wq) {
 		[wq](){threadfunc(wq);}
 #else
 		std::bind(&threadfunc, wq)
+#endif
 	);
 }
 
