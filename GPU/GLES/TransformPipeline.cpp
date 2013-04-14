@@ -907,6 +907,8 @@ u32 TransformDrawEngine::ComputeHash() {
 		if (!drawCalls[i].inds) {
 			fullhash += CityHash32((const char *)drawCalls[i].verts, vertexSize * drawCalls[i].vertexCount);
 		} else {
+			// This could get seriously expensive with sparse indices. Need to combine hashing ranges the same way
+			// we do when drawing.
 			fullhash += CityHash32((const char *)drawCalls[i].verts + vertexSize * drawCalls[i].indexLowerBound,
 				vertexSize * (drawCalls[i].indexUpperBound - drawCalls[i].indexLowerBound));
 			int indexSize = (dec_->VertexType() & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT ? 2 : 1;
