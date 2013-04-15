@@ -484,7 +484,6 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_OFFSETADDR:
 		gstate_c.offsetAddr = data << 8;
-		// ???
 		break;
 
 	case GE_CMD_ORIGIN:
@@ -533,6 +532,9 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 					ERROR_LOG_REPORT(G3D, "Invalid DL PC %08x on return", currentList->pc);
 					gpuState = GPUSTATE_ERROR;
 				}
+
+				// Reset gstate_c.offsetAddr, Flatout seems to expect this.
+				gstate_c.offsetAddr = 0;
 			}
 		}
 		break;
