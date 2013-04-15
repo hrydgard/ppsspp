@@ -562,7 +562,15 @@ int sceKernelWaitEventFlagCB(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 
 	if (e)
 	{
 		EventFlagTh th;
-		if (!__KernelEventFlagMatches(&e->nef.currentPattern, bits, wait, outBitsPtr))
+		bool doWait = !__KernelEventFlagMatches(&e->nef.currentPattern, bits, wait, outBitsPtr);
+		bool doCallbackWait = false;
+		if (__KernelCurHasReadyCallbacks())
+		{
+			doWait = true;
+			doCallbackWait = true;
+		}
+
+		if (doWait)
 		{
 			// If this thread was left in waitingThreads after a timeout, remove it.
 			// Otherwise we might write the outBitsPtr in the wrong place.
@@ -586,7 +594,10 @@ int sceKernelWaitEventFlagCB(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 
 			e->waitingThreads.push_back(th);
 
 			__KernelSetEventFlagTimeout(e, timeoutPtr);
-			__KernelWaitCurThread(WAITTYPE_EVENTFLAG, id, 0, timeoutPtr, true, "event flag waited");
+			if (doCallbackWait)
+				__KernelWaitCallbacksCurThread(WAITTYPE_EVENTFLAG, id, 0, timeoutPtr);
+			else
+				__KernelWaitCurThread(WAITTYPE_EVENTFLAG, id, 0, timeoutPtr, true, "event flag waited");
 		}
 		else
 			hleCheckCurrentCallbacks();
