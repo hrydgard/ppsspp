@@ -209,6 +209,9 @@ void __KernelSemaEndCallback(SceUID threadID, SceUID prevCallbackId, u32 &return
 	}
 	else
 	{
+		if (timeoutPtr != 0 && semaWaitTimer != -1)
+			CoreTiming::ScheduleEvent(cyclesLeft, semaWaitTimer, __KernelGetCurThread());
+
 		// TODO: Should this not go at the end?
 		s->waitingThreads.push_back(threadID);
 

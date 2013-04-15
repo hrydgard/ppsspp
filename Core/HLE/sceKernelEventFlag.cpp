@@ -287,6 +287,9 @@ void __KernelEventFlagEndCallback(SceUID threadID, SceUID prevCallbackId, u32 &r
 	}
 	else
 	{
+		if (timeoutPtr != 0 && eventFlagWaitTimer != -1)
+			CoreTiming::ScheduleEvent(cyclesLeft, eventFlagWaitTimer, __KernelGetCurThread());
+
 		// TODO: Should this not go at the end?
 		flag->waitingThreads.push_back(waitData);
 
