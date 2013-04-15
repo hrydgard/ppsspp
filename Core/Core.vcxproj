@@ -61,13 +61,13 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
-  <PropertyGroup />
+  <PropertyGroup /> 
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>../common;..;../native;../native/ext/glew;../ext/zlib</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>../ffmpeg;../ffmpeg/$(Platform)/$(Configuration);../common;..;../native;../native/ext/glew;../ext/zlib</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;_USE_FFMPEG_;_USE_DSHOW_;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
     </ClCompile>
@@ -83,7 +83,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>../common;..;../native;../native/ext/glew;../ext/zlib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ffmpeg;../ffmpeg/$(Platform)/$(Configuration);../common;..;../native;../native/ext/glew;../ext/zlib</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
@@ -102,11 +102,11 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>../common;..;../native;../native/ext/glew;../ext/zlib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ffmpeg;../ffmpeg/$(Platform)/$(Configuration);../common;..;../native;../native/ext/glew;../ext/zlib</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
-      <PreprocessorDefinitions>_MBCS;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_USE_FFMPEG_;_USE_DSHOW_;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -125,7 +125,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>../common;..;../native;../native/ext/glew;../ext/zlib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ffmpeg;../ffmpeg/$(Platform)/$(Configuration);../common;..;../native;../native/ext/glew;../ext/zlib</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
     </ClCompile>
@@ -196,6 +196,7 @@
     <ClCompile Include="HLE\sceMpeg.cpp" />
     <ClCompile Include="HLE\sceNet.cpp" />
     <ClCompile Include="HLE\sceOpenPSID.cpp" />
+    <ClCompile Include="HLE\sceP3da.cpp" />
     <ClCompile Include="HLE\sceParseHttp.cpp" />
     <ClCompile Include="HLE\sceParseUri.cpp" />
     <ClCompile Include="HLE\scePower.cpp" />
@@ -212,8 +213,12 @@
     <ClCompile Include="HLE\sceVaudio.cpp" />
     <ClCompile Include="HLE\__sceAudio.cpp" />
     <ClCompile Include="Host.cpp" />
+    <ClCompile Include="HW\audioPlayer.cpp" />
     <ClCompile Include="HW\MediaEngine.cpp" />
+    <ClCompile Include="HW\mediaPlayer.cpp" />
     <ClCompile Include="HW\MemoryStick.cpp" />
+    <ClCompile Include="HW\MpegDemux.cpp" />
+    <ClCompile Include="HW\OMAConvert.cpp" />
     <ClCompile Include="HW\SasAudio.cpp" />
     <ClCompile Include="Loaders.cpp" />
     <ClCompile Include="MemMap.cpp" />
@@ -371,6 +376,7 @@
     <ClInclude Include="HLE\sceMpeg.h" />
     <ClInclude Include="HLE\sceNet.h" />
     <ClInclude Include="HLE\sceOpenPSID.h" />
+    <ClInclude Include="HLE\sceP3da.h" />
     <ClInclude Include="HLE\sceParseHttp.h" />
     <ClInclude Include="HLE\sceParseUri.h" />
     <ClInclude Include="HLE\scePower.h" />
@@ -388,7 +394,11 @@
     <ClInclude Include="HLE\sceVaudio.h" />
     <ClInclude Include="HLE\__sceAudio.h" />
     <ClInclude Include="Host.h" />
+    <ClInclude Include="HW\audioPlayer.h" />
     <ClInclude Include="HW\MediaEngine.h" />
+    <ClInclude Include="HW\mediaPlayer.h" />
+    <ClInclude Include="HW\MpegDemux.h" />
+    <ClInclude Include="HW\OMAConvert.h" />
     <ClInclude Include="HW\SasAudio.h" />
     <ClInclude Include="HW\MemoryStick.h" />
     <ClInclude Include="Loaders.h" />

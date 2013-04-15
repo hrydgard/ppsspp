@@ -23,6 +23,12 @@
 #include "Common.h"
 #include "CommonTypes.h"
 
+#ifdef _USE_FFMPEG_
+extern "C" {
+#include "ext/libkirk/amctrl.h"
+};
+#endif // _USE_FFMPEG_
+
 // Enable memory checks in the Debug/DebugFast builds, but NOT in release
 #if defined(_DEBUG) || defined(DEBUGFAST)
 #define ENABLE_MEM_CHECK
@@ -114,6 +120,39 @@ enum
 	MEMVIEW32_MASK  = 0x3FFFFFFF,
 #endif
 };
+
+#ifdef _USE_FFMPEG_
+
+struct LASTESTFILECACHE {
+	char packagefile[256];
+	u32  start_pos;
+	u8   idbuf[0x20];
+	bool npdrm;
+	PGD_DESC pgd_info;
+};
+
+extern struct LASTESTACCESSFILE {
+// media file
+	char filename[256];
+	u32 data_addr;
+// package file
+	LASTESTFILECACHE cache[256];
+	u8  cachepos;
+	LASTESTFILECACHE* findmatchcache(u8* buffer)
+	{
+		if (!buffer)
+			return 0;
+		for (int i = 0; i < 256; i++) {
+			int pos = (256 + cachepos - i) & 0xFF;
+			if (memcmp(buffer, cache[pos].idbuf, 0x20) == 0)
+			{
+				return &cache[pos];
+			}
+		}
+		return 0;
+	}
+} lastestAccessFile;
+#endif // _USE_FFMPEG_
 
 // Init and Shutdown
 void Init();

@@ -408,8 +408,9 @@ u32 sceIoChstat(const char *filename, u32 iostatptr, u32 changebits) {
 	return 0;
 }
 
-u32 npdrmRead(FileNode *f, u8 *data, int size) {
-	PGD_DESC *pgd = f->pgdInfo;
+u32 npdrmRead(void *pgd_info, u32 handle, u8 *data, int size) {
+	PGD_DESC *pgd = (PGD_DESC*)pgd_info;
+
 	u32 block, offset;
 	u32 remain_size, copy_size;
 
@@ -421,7 +422,7 @@ u32 npdrmRead(FileNode *f, u8 *data, int size) {
 	while(remain_size){
 	
 		if(pgd->current_block!=block){
-			pspFileSystem.ReadFile(f->handle, pgd->block_buf, pgd->block_size);
+			pspFileSystem.ReadFile(handle, pgd->block_buf, pgd->block_size);
 			pgd_decrypt_block(pgd, block);
 			pgd->current_block = block;
 		}
@@ -444,6 +445,10 @@ u32 npdrmRead(FileNode *f, u8 *data, int size) {
 	return size;
 }
 
+u32 npdrmRead(FileNode *f, u8 *data, int size) {
+	return npdrmRead(f->pgdInfo, f->handle, data, size);
+}
+
 int __IoRead(int id, u32 data_addr, int size) {
 	if (id == 3) {
 		DEBUG_LOG(HLE, "sceIoRead STDIN");
@@ -458,12 +463,59 @@ int __IoRead(int id, u32 data_addr, int size) {
 			return ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
 		}
 		else if (Memory::IsValidAddress(data_addr)) {
-			u8 *data = (u8*) Memory::GetPointer(data_addr);
-			if(f->npdrm){
-				return npdrmRead(f, data, size);
-			}else{
-				return (int) pspFileSystem.ReadFile(f->handle, data, size);
+#ifdef _USE_FFMPEG_
+			u8* idbuf = 0;
+			if (f->fullpath.find(".AT3") != std::string::npos ||
+				f->fullpath.find(".at3") != std::string::npos ||
+				f->fullpath.find(".PMF") != std::string::npos ||
+				f->fullpath.find(".pmf") != std::string::npos
+				)
+			{
+				strcpy(Memory::lastestAccessFile.filename, f->fullpath.c_str());
+				Memory::lastestAccessFile.data_addr = data_addr;
 			}
+			if (size >= 0x20 || strlen(f->fullpath.c_str()) < 10)
+			{
+				Memory::LASTESTFILECACHE *cache = &Memory::lastestAccessFile.cache[Memory::lastestAccessFile.cachepos];
+				strcpy(cache->packagefile, f->fullpath.c_str());
+				cache->start_pos = pspFileSystem.GetSeekPos(f->handle);
+				if (f->npdrm) {
+					cache->npdrm = true;
+					memcpy(&cache->pgd_info, f->pgdInfo, sizeof(PGD_DESC));
+				}
+				else
+					cache->npdrm = false;
+				idbuf = cache->idbuf;
+			}
+#endif // _USE_FFMPEG_
+			u8 *data = (u8*) Memory::GetPointer(data_addr);
+			int result;
+			if(f->npdrm){
+				result = npdrmRead(f, data, size);
+			}else{
+				result = (int) pspFileSystem.ReadFile(f->handle, data, size);
+			}
+#ifdef _USE_FFMPEG_
+			if (idbuf) {
+				if (memcmp(data, "PSMF", 4) == 0) {
+					memcpy(idbuf, data, 0x20);
+					Memory::lastestAccessFile.cachepos++;
+				}
+#ifdef _USE_DSHOW_
+				else {
+					int end = std::max(std::min(size - 8, 0x100), 1);
+					for (int i = 0; i < end; i++) {
+						if (memcmp(data + i, "RIFF", 4) == 0) {
+							memcpy(idbuf, data + i, 0x20);
+							Memory::lastestAccessFile.cachepos++;
+							break;
+						}
+					}
+				}
+#endif // _USE_DSHOW_
+			}
+#endif // _USE_FFMPEG_
+			return result;
 		} else {
 			ERROR_LOG(HLE, "sceIoRead Reading into bad pointer %08x", data_addr);
 			// TODO: Returning 0 because it wasn't being sign-extended in async result before.

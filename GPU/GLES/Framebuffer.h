@@ -136,3 +136,7 @@ private:
 
 	bool resized_;
 };
+
+extern bool g_FramebufferMoviePlaying;
+extern u8* g_FramebufferMoviePlayingbuf;
+extern int g_FramebufferMoviePlayinglinesize;
