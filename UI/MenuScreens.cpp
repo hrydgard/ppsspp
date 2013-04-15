@@ -258,7 +258,7 @@ void MenuScreen::render() {
 
 	int recentW = 350;
 	if (g_Config.recentIsos.size()) {
-		ui_draw2d.DrawText(UBUNTU24, "Recent", -xoff + 20, 80, 0xFFFFFFFF, ALIGN_BOTTOMLEFT);
+		ui_draw2d.DrawText(UBUNTU24, "Recent", -xoff, 80, 0xFFFFFFFF, ALIGN_BOTTOMLEFT);
 	}
 
 	int spacing = 15;
@@ -274,7 +274,7 @@ void MenuScreen::render() {
 		textureButtonWidth = (textureButtonHeight / 80) * 144;
 	}
 
-	VGrid vgrid_recent(-xoff + 20, 100, std::min(dp_yres-spacing*2, 480), spacing, spacing);
+	VGrid vgrid_recent(-xoff, 100, std::min(dp_yres-spacing*2, 480), spacing, spacing);
 
 	for (size_t i = 0; i < g_Config.recentIsos.size(); i++) {
 		std::string filename;
