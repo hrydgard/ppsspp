@@ -343,6 +343,9 @@ void __KernelMutexEndCallback(SceUID threadID, SceUID prevCallbackId, u32 &retur
 	}
 	else
 	{
+		if (timeoutPtr != 0 && mutexWaitTimer != -1)
+			CoreTiming::ScheduleEvent(cyclesLeft, mutexWaitTimer, __KernelGetCurThread());
+
 		// TODO: Should this not go at the end?
 		mutex->waitingThreads.push_back(threadID);
 
@@ -986,6 +989,9 @@ void __KernelLwMutexEndCallback(SceUID threadID, SceUID prevCallbackId, u32 &ret
 	}
 	else
 	{
+		if (timeoutPtr != 0 && lwMutexWaitTimer != -1)
+			CoreTiming::ScheduleEvent(cyclesLeft, lwMutexWaitTimer, __KernelGetCurThread());
+
 		// TODO: Should this not go at the end?
 		mutex->waitingThreads.push_back(threadID);
 
