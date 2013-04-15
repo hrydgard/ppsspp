@@ -734,10 +734,11 @@ int PSPSaveDialog::Update()
 				break;
 				case SCE_UTILITY_SAVEDATA_TYPE_GETSIZE:
 					{
+						bool result = param.GetSize(param.GetPspParam());
 						// TODO: According to JPCSP, should test/verify this part but seems edge casey.
 						if (MemoryStick_State() != PSP_MEMORYSTICK_STATE_DRIVER_READY)
 							param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_MEMSTICK;
-						else if (param.GetSize(param.GetPspParam()))
+						else if (result)
 							param.GetPspParam()->result = 0;
 						else
 							param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
@@ -751,7 +752,7 @@ int PSPSaveDialog::Update()
 					param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_RW_BAD_STATUS;
 					status = SCE_UTILITY_STATUS_FINISHED;
 				break;
-				case SCE_UTILITY_SAVEDATA_TYPE_AUTODELETE:
+				//case SCE_UTILITY_SAVEDATA_TYPE_AUTODELETE:
 				case SCE_UTILITY_SAVEDATA_TYPE_SINGLEDELETE:
 					if(param.Delete(param.GetPspParam(), param.GetSelectedSave()))
 					{
