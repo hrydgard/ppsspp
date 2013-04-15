@@ -89,11 +89,11 @@ int PSPSaveDialog::Init(int paramAddr)
 		case SCE_UTILITY_SAVEDATA_TYPE_FILES:
 		case SCE_UTILITY_SAVEDATA_TYPE_GETSIZE:
 		case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATASECURE:
-		case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATA:
+		//case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATA:
 		case SCE_UTILITY_SAVEDATA_TYPE_WRITEDATASECURE:
-		case SCE_UTILITY_SAVEDATA_TYPE_WRITEDATA:
+		//case SCE_UTILITY_SAVEDATA_TYPE_WRITEDATA:
 		case SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE:
-		case SCE_UTILITY_SAVEDATA_TYPE_READDATA:
+		//case SCE_UTILITY_SAVEDATA_TYPE_READDATA:
 		case SCE_UTILITY_SAVEDATA_TYPE_SINGLEDELETE:
 		case SCE_UTILITY_SAVEDATA_TYPE_DELETEDATA:
 			display = DS_NONE;
@@ -763,7 +763,7 @@ int PSPSaveDialog::Update()
 					}
 					status = SCE_UTILITY_STATUS_FINISHED;
 				break;
-				case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATA:
+				//case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATA:
 				case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATASECURE:
 					if(param.Save(param.GetPspParam(),param.GetSelectedSave()))
 						param.GetPspParam()->result = 0;
@@ -771,7 +771,7 @@ int PSPSaveDialog::Update()
 						param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
 					status = SCE_UTILITY_STATUS_FINISHED;
 				break;
-				case SCE_UTILITY_SAVEDATA_TYPE_WRITEDATA:
+				//case SCE_UTILITY_SAVEDATA_TYPE_WRITEDATA:
 				case SCE_UTILITY_SAVEDATA_TYPE_WRITEDATASECURE:
 					if(param.Save(param.GetPspParam(),param.GetSelectedSave()))
 						param.GetPspParam()->result = 0;
@@ -779,7 +779,7 @@ int PSPSaveDialog::Update()
 						param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
 					status = SCE_UTILITY_STATUS_FINISHED;
 				break;
-				case SCE_UTILITY_SAVEDATA_TYPE_READDATA:
+				//case SCE_UTILITY_SAVEDATA_TYPE_READDATA:
 				case SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE:
 					if(param.Load(param.GetPspParam(),param.GetSelectedSave()))
 						param.GetPspParam()->result = 0;
