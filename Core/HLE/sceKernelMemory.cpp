@@ -27,6 +27,7 @@
 #include "sceKernelThread.h"
 #include "sceKernelMemory.h"
 
+const int TLS_NUM_INDEXES = 16;
 
 //////////////////////////////////////////////////////////////////////////
 // STATE BEGIN
@@ -34,6 +35,7 @@ BlockAllocator userMemory(256);
 BlockAllocator kernelMemory(256);
 
 static int vplWaitTimer = -1;
+static bool tlsUsedIndexes[TLS_NUM_INDEXES];
 // STATE END
 //////////////////////////////////////////////////////////////////////////
 
@@ -159,14 +161,24 @@ void __KernelMemoryInit()
 	INFO_LOG(HLE, "Kernel and user memory pools initialized");
 
 	vplWaitTimer = CoreTiming::RegisterEvent("VplTimeout", __KernelVplTimeout);
+
+	flags_ = 0;
+	sdkVersion_ = 0;
+	compilerVersion_ = 0;
+	memset(tlsUsedIndexes, 0, sizeof(tlsUsedIndexes));
 }
 
 void __KernelMemoryDoState(PointerWrap &p)
 {
 	kernelMemory.DoState(p);
 	userMemory.DoState(p);
+
 	p.Do(vplWaitTimer);
 	CoreTiming::RestoreRegisterEvent(vplWaitTimer, "VplTimeout", __KernelVplTimeout);
+	p.Do(flags_);
+	p.Do(sdkVersion_);
+	p.Do(compilerVersion_);
+	p.DoArray(tlsUsedIndexes, ARRAY_SIZE(tlsUsedIndexes));
 	p.DoMarker("sceKernelMemory");
 }
 
@@ -1175,26 +1187,265 @@ u32 GetMemoryBlockPtr(u32 uid, u32 addr) {
 
 // These aren't really in sysmem, but they are memory related?
 
-SceUID ThreadManForUser_8DAFF657(const char *name, u32 partitionid, u32 attr, u32 size, u32 count, u32 optionsPtr)
+enum
 {
-	u32 totalSize = size * count;
-	u32 blockPtr = userMemory.Alloc(totalSize, (attr & 0x4000) != 0, name);
+	PSP_ERROR_UNKNOWN_TLS_ID = 0x800201D0,
+	PSP_ERROR_TOO_MANY_TLS = 0x800201D1,
+};
+
+enum
+{
+	// TODO: Complete untested guesses.
+	PSP_TLS_ATTR_FIFO = 0,
+	PSP_TLS_ATTR_PRIORITY = 0x100,
+	PSP_TLS_ATTR_HIGHMEM = 0x4000,
+	PSP_TLS_ATTR_KNOWN = PSP_TLS_ATTR_HIGHMEM | PSP_TLS_ATTR_PRIORITY | PSP_TLS_ATTR_FIFO,
+};
+
+struct NativeTls
+{
+	SceSize size;
+	char name[32];
+	SceUInt attr;
+	int index;
+	u32 blockSize;
+	u32 totalBlocks;
+	u32 freeBlocks;
+	u32 numWaitThreads;
+};
+
+struct TLS : public KernelObject
+{
+	const char *GetName() {return ntls.name;}
+	const char *GetTypeName() {return "TLS";}
+	static u32 GetMissingErrorCode() { return PSP_ERROR_UNKNOWN_TLS_ID; }
+	int GetIDType() const { return SCE_KERNEL_TMID_Vpl; }
+
+	TLS() : next(0) {}
+
+	virtual void DoState(PointerWrap &p)
+	{
+		p.Do(ntls);
+		p.Do(address);
+		p.Do(next);
+		p.Do(usage);
+		p.DoMarker("TLS");
+	}
+
+	NativeTls ntls;
+	u32 address;
+	// TODO: Waiting threads.
+	int next;
+	std::vector<SceUID> usage;
+};
+
+KernelObject *__KernelTlsObject()
+{
+	return new TLS;
+}
+
+SceUID sceKernelCreateTls(const char *name, u32 partition, u32 attr, u32 blockSize, u32 count, u32 optionsPtr)
+{
+	if (!name)
+	{
+		WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateTls(): invalid name", SCE_KERNEL_ERROR_NO_MEMORY);
+		return SCE_KERNEL_ERROR_NO_MEMORY;
+	}
+	if ((attr & ~PSP_TLS_ATTR_KNOWN) >= 0x100)
+	{
+		WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateTls(): invalid attr parameter: %08x", SCE_KERNEL_ERROR_ILLEGAL_ATTR, attr);
+		return SCE_KERNEL_ERROR_ILLEGAL_ATTR;
+	}
+	if (partition < 1 || partition > 9 || partition == 7)
+	{
+		WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateTls(): invalid partition %d", SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, partition);
+		return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
+	}
+	// We only support user right now.
+	if (partition != 2 && partition != 6)
+	{
+		WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateTls(): invalid partition %d", SCE_KERNEL_ERROR_ILLEGAL_PERM, partition);
+		return SCE_KERNEL_ERROR_ILLEGAL_PERM;
+	}
+
+	// There's probably a simpler way to get this same basic formula...
+	// This is based on results from a PSP.
+	bool illegalMemSize = blockSize == 0 || count == 0;
+	if (!illegalMemSize && (u64) blockSize > ((0x100000000ULL / (u64) count) - 4ULL))
+		illegalMemSize = true;
+	if (!illegalMemSize && (u64) count >= 0x100000000ULL / (((u64) blockSize + 3ULL) & ~3ULL))
+		illegalMemSize = true;
+	if (illegalMemSize)
+	{
+		WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateTls(): invalid blockSize/count", SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE);
+		return SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE;
+	}
+
+	int index = -1;
+	for (int i = 0; i < TLS_NUM_INDEXES; ++i)
+		if (tlsUsedIndexes[i] == false)
+		{
+			index = i;
+			break;
+		}
+
+	if (index == -1)
+	{
+		WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateTls(): ran out of indexes for TLS objects", PSP_ERROR_TOO_MANY_TLS);
+		return PSP_ERROR_TOO_MANY_TLS;
+	}
+
+	u32 totalSize = blockSize * count;
+	u32 blockPtr = userMemory.Alloc(totalSize, (attr & PSP_TLS_ATTR_HIGHMEM) != 0, name);
 	userMemory.ListBlocks();
-	ERROR_LOG(HLE, "UNIMPL %08x=ThreadManForUser_8DAFF657(%s, %d, %08x, %d, %d, %08x)", blockPtr, name, partitionid, attr, size, count, optionsPtr);
-	return blockPtr;
+
+	if (blockPtr == (u32) -1)
+	{
+		ERROR_LOG(HLE, "%08x=sceKernelCreateTls(%s, %d, %08x, %d, %d, %08x): failed to allocate memory", SCE_KERNEL_ERROR_NO_MEMORY, name, partition, attr, blockSize, count, optionsPtr);
+		return SCE_KERNEL_ERROR_NO_MEMORY;
+	}
+
+	TLS *tls = new TLS();
+	SceUID id = kernelObjects.Create(tls);
+
+	tls->ntls.size = sizeof(tls->ntls);
+	strncpy(tls->ntls.name, name, KERNELOBJECT_MAX_NAME_LENGTH);
+	tls->ntls.name[KERNELOBJECT_MAX_NAME_LENGTH] = 0;
+	tls->ntls.attr = attr;
+	tls->ntls.index = index;
+	tlsUsedIndexes[index] = true;
+	tls->ntls.blockSize = blockSize;
+	tls->ntls.totalBlocks = count;
+	tls->ntls.freeBlocks = count;
+	tls->ntls.numWaitThreads = 0;
+	tls->address = blockPtr;
+	tls->usage.resize(count, 0);
+
+	WARN_LOG(HLE, "%08x=sceKernelCreateTls(%s, %d, %08x, %d, %d, %08x)", id, name, partition, attr, blockSize, count, optionsPtr);
+
+	// TODO: just alignment?
+	if (optionsPtr != 0)
+		WARN_LOG(HLE, "sceKernelCreateTls(%s) unsupported options parameter: %08x", name, optionsPtr);
+	if ((attr & PSP_TLS_ATTR_PRIORITY) != 0)
+		WARN_LOG(HLE, "sceKernelCreateTls(%s) unsupported attr parameter: %08x", name, attr);
+
+	return id;
 }
 
-int ThreadManForUser_32BF938E(SceUID uid)
+// Parameters are an educated guess.
+int sceKernelDeleteTls(SceUID uid)
 {
-	ERROR_LOG(HLE, "UNIMPL ThreadManForUser_32BF938E(%08x)", uid);
-	userMemory.Free(uid);
-	return 0;
+	WARN_LOG(HLE, "sceKernelDeleteTls(%08x)", uid);
+	u32 error;
+	TLS *tls = kernelObjects.Get<TLS>(uid, error);
+	if (tls)
+	{
+		// TODO: Wake waiting threads, probably?
+		userMemory.Free(tls->address);
+		tlsUsedIndexes[tls->ntls.index] = false;
+		kernelObjects.Destroy<TLS>(uid);
+	}
+	return error;
 }
 
-int Kernel_Library_FA835CDE(SceUID uid)
+int sceKernelAllocateTls(SceUID uid)
 {
-	ERROR_LOG(HLE, "UNIMPL Kernel_Library_FA835CDE(%08x)", uid);
-	return uid;
+	// TODO: Allocate downward if PSP_TLS_ATTR_HIGHMEM?
+	WARN_LOG(HLE, "UNIMPL sceKernelAllocateTls(%08x)", uid);
+	u32 error;
+	TLS *tls = kernelObjects.Get<TLS>(uid, error);
+	if (tls)
+	{
+		SceUID threadID = __KernelGetCurThread();
+		int allocBlock = -1;
+
+		// If the thread already has one, return it.
+		for (size_t i = 0; i < tls->ntls.totalBlocks && allocBlock == -1; ++i)
+		{
+			if (tls->usage[i] == threadID)
+				allocBlock = i;
+		}
+
+		if (allocBlock == -1)
+		{
+			for (size_t i = 0; i < tls->ntls.totalBlocks && allocBlock == -1; ++i)
+			{
+				// The PSP doesn't give the same block out twice in a row, even if freed.
+				if (tls->usage[tls->next] == 0)
+					allocBlock = tls->next;
+				tls->next = (tls->next + 1) % tls->ntls.blockSize;
+			}
+
+			if (allocBlock != -1)
+			{
+				tls->usage[allocBlock] = threadID;
+				--tls->ntls.freeBlocks;
+			}
+		}
+
+		if (allocBlock == -1)
+		{
+			// TODO: Wait here, wake when one is free.
+			ERROR_LOG(HLE, "sceKernelAllocateTls: should wait");
+			return -1;
+		}
+
+		return tls->address + allocBlock * tls->ntls.blockSize;
+	}
+	else
+		return error;
+}
+
+// Parameters are an educated guess.
+int sceKernelFreeTls(SceUID uid)
+{
+	WARN_LOG(HLE, "UNIMPL sceKernelFreeTls(%08x)", uid);
+	u32 error;
+	TLS *tls = kernelObjects.Get<TLS>(uid, error);
+	if (tls)
+	{
+		SceUID threadID = __KernelGetCurThread();
+
+		// If the thread already has one, return it.
+		int freeBlock = -1;
+		for (size_t i = 0; i < tls->ntls.totalBlocks; ++i)
+		{
+			if (tls->usage[i] == threadID)
+			{
+				freeBlock = i;
+				break;
+			}
+		}
+
+		if (freeBlock != -1)
+		{
+			// TODO: Free anyone waiting for a free block.
+			tls->usage[freeBlock] = 0;
+			++tls->ntls.freeBlocks;
+			return 0;
+		}
+		// TODO: Correct error code.
+		else
+			return -1;
+	}
+	else
+		return error;
+}
+
+// Parameters are an educated guess.
+int sceKernelReferTlsStatus(SceUID uid, u32 infoPtr)
+{
+	DEBUG_LOG(HLE, "sceKernelReferTlsStatus(%08x, %08x)", uid, infoPtr);
+	u32 error;
+	TLS *tls = kernelObjects.Get<TLS>(uid, error);
+	if (tls)
+	{
+		// TODO: Check size.
+		Memory::WriteStruct(infoPtr, &tls->ntls);
+		return 0;
+	}
+	else
+		return error;
 }
 
 const HLEFunction SysMemUserForUser[] = {

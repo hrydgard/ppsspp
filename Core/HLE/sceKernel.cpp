@@ -538,6 +538,8 @@ KernelObject *KernelObjectPool::CreateByIDType(int type)
 		return __KernelThreadObject();
 	case SCE_KERNEL_TMID_VTimer:
 		return __KernelVTimerObject();
+	case SCE_KERNEL_TMID_Tls:
+		return __KernelTlsObject();
 	case PPSSPP_KERNEL_TMID_File:
 		return __KernelFileNodeObject();
 	case PPSSPP_KERNEL_TMID_DirList:
@@ -639,6 +641,11 @@ const HLEFunction ThreadManForUser[] =
 	{0x19CFF145,&WrapI_UCUIU<sceKernelCreateLwMutex>,          "sceKernelCreateLwMutex"},
 	{0x4C145944,&WrapI_IU<sceKernelReferLwMutexStatusByID>,    "sceKernelReferLwMutexStatusByID"},
 	// NOTE: LockLwMutex, UnlockLwMutex, and ReferLwMutexStatus are in Kernel_Library, see sceKernelInterrupt.cpp.
+	// The below should not be called directly.
+	//{0x71040D5C,0,                                             "_sceKernelTryLockLwMutex"},
+	//{0x7CFF8CF3,0,                                             "_sceKernelLockLwMutex"},
+	//{0x31327F19,0,                                             "_sceKernelLockLwMutexCB"},
+	//{0xBEED3A47,0,                                             "_sceKernelUnlockLwMutex"},
 
 	{0xf8170fbe,&WrapI_I<sceKernelDeleteMutex>,                "sceKernelDeleteMutex"},
 	{0xB011B11F,&WrapI_IIU<sceKernelLockMutex>,                "sceKernelLockMutex", HLE_NOT_DISPATCH_SUSPENDED},
@@ -647,8 +654,10 @@ const HLEFunction ThreadManForUser[] =
 	{0xb7d098c6,&WrapI_CUIU<sceKernelCreateMutex>,             "sceKernelCreateMutex"},
 	{0x0DDCD2C9,&WrapI_II<sceKernelTryLockMutex>,              "sceKernelTryLockMutex"},
 	{0xA9C2CB9A,&WrapI_IU<sceKernelReferMutexStatus>,          "sceKernelReferMutexStatus"},
+	{0x87D9223C,0,                                             "sceKernelCancelMutex"},
 
 	{0xFCCFAD26,sceKernelCancelWakeupThread,"sceKernelCancelWakeupThread"},
+	{0x1AF94D03,0,"sceKernelDonateWakeupThread"},
 	{0xea748e31,sceKernelChangeCurrentThreadAttr,"sceKernelChangeCurrentThreadAttr"},
 	{0x71bc9871,sceKernelChangeThreadPriority,"sceKernelChangeThreadPriority"},
 	{0x446D8DE6,WrapI_CUUIUU<sceKernelCreateThread>,"sceKernelCreateThread"},
@@ -682,6 +691,8 @@ const HLEFunction ThreadManForUser[] =
 	{0x94416130,WrapU_UUUU<sceKernelGetThreadmanIdList>,"sceKernelGetThreadmanIdList"},
 	{0x57CF62DD,WrapU_U<sceKernelGetThreadmanIdType>,"sceKernelGetThreadmanIdType"},
 	{0xBC80EC7C,WrapU_UUUU<sceKernelExtendThreadStack>, "sceKernelExtendThreadStack"},
+	// NOTE: Takes a UID from sceKernelMemory's AllocMemoryBlock and seems thread stack related.
+	//{0x28BFD974,0,"ThreadManForUser_28BFD974"},
 
 	{0x82BC5777,WrapU64_V<sceKernelGetSystemTimeWide>,"sceKernelGetSystemTimeWide"},
 	{0xdb738f35,WrapI_U<sceKernelGetSystemTime>,"sceKernelGetSystemTime"},
@@ -770,8 +781,15 @@ const HLEFunction ThreadManForUser[] =
 	{0xd8b299ae,WrapU_UUUU<sceKernelSetVTimerHandler>,"sceKernelSetVTimerHandler"},
 	{0x53B00E9A,WrapU_UU64UU<sceKernelSetVTimerHandlerWide>,"sceKernelSetVTimerHandlerWide"},
 
-	{0x8daff657,WrapI_CUUUUU<ThreadManForUser_8DAFF657>,"ThreadManForUser_8DAFF657"},
-	{0x32bf938e,WrapI_I<ThreadManForUser_32BF938E>,"ThreadManForUser_32BF938E"},
+	// Names are just guesses, not correct.
+	{0x8daff657,WrapI_CUUUUU<sceKernelCreateTls>,              "sceKernelCreateTls"},
+	{0x32bf938e,WrapI_I<sceKernelDeleteTls>,                   "sceKernelDeleteTls"},
+	{0x721067F3,WrapI_IU<sceKernelReferTlsStatus>,             "sceKernelReferTlsStatus"},
+	// Not completely certain about args.
+	{0x4A719FB2,WrapI_I<sceKernelFreeTls>,                     "sceKernelFreeTls"},
+	// Probably internal, not sure.  Takes (uid, &addr) as parameters... probably.
+	//{0x65F54FFB,0,                                             "_sceKernelAllocateTls"},
+	// NOTE: sceKernelAllocateTls is in Kernel_Library, see sceKernelInterrupt.cpp.
 
 	// Not sure if these should be hooked up. See below.
 	{0x0E927AED, _sceKernelReturnFromTimerHandler, "_sceKernelReturnFromTimerHandler"},
