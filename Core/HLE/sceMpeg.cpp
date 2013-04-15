@@ -1447,7 +1447,11 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr)
 
 	// Nothing to decode
 	if(ctx->mp3BufPendingSize == 0 || ctx->mp3StreamPosition >= ctx->mp3StreamEnd) {
-		return 0;
+		if (ctx->mp3LoopNum == 0) {
+			return 0;
+		} else if (ctx->mp3LoopNum > 0) {
+			--ctx->mp3LoopNum;
+		}
 	}
 
 	Memory::Memset(ctx->mp3PcmBuf, 0, ctx->mp3PcmBufSize);
