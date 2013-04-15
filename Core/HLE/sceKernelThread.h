@@ -199,14 +199,13 @@ u32 __KernelInterruptReturnAddress();  // TODO: remove
 // Internal access - used by sceSetGeCallback
 u32 __KernelCreateCallback(const char *name, u32 entrypoint, u32 signalArg);
 
-void sceKernelCreateCallback();
-void sceKernelDeleteCallback();
-void sceKernelNotifyCallback();
-void sceKernelCancelCallback();
-void sceKernelGetCallbackCount();
+SceUID sceKernelCreateCallback(const char *name, u32 entrypoint, u32 signalArg);
+int sceKernelDeleteCallback(SceUID cbId);
+int sceKernelNotifyCallback(SceUID cbId, int notifyArg);
+int sceKernelCancelCallback(SceUID cbId);
+int sceKernelGetCallbackCount(SceUID cbId);
 void sceKernelCheckCallback();
-void sceKernelGetCallbackCount();
-void sceKernelReferCallbackStatus();
+int sceKernelReferCallbackStatus(SceUID cbId, u32 statusAddr);
 
 class Action;
 
