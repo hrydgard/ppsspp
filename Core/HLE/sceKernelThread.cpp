@@ -2428,68 +2428,80 @@ u32 __KernelCreateCallback(const char *name, u32 entrypoint, u32 commonArg)
 	return id;
 }
 
-void sceKernelCreateCallback()
+SceUID sceKernelCreateCallback(const char *name, u32 entrypoint, u32 signalArg)
 {
-	u32 entrypoint = PARAM(1);
-	u32 callbackArg = PARAM(2);
+	SceUID id = __KernelCreateCallback(name, entrypoint, signalArg);
+	DEBUG_LOG(HLE, "%i=sceKernelCreateCallback(name=%s, entry=%08x, callbackArg=%08x)", id, name, entrypoint, signalArg);
 
-	const char *name = Memory::GetCharPointer(PARAM(0));
-
-	u32 id = __KernelCreateCallback(name, entrypoint, callbackArg);
-
-	DEBUG_LOG(HLE,"%i=sceKernelCreateCallback(name=%s,entry= %08x, callbackArg = %08x)", id, name, entrypoint, callbackArg);
-
-	RETURN(id);
+	return id;
 }
 
-void sceKernelDeleteCallback()
+int sceKernelDeleteCallback(SceUID cbId)
 {
-	SceUID id = PARAM(0);
-	DEBUG_LOG(HLE,"sceKernelDeleteCallback(%i)", id);
+	DEBUG_LOG(HLE, "sceKernelDeleteCallback(%i)", cbId);
 
 	// TODO: Make sure it's gone from all threads first!
 
-	RETURN(kernelObjects.Destroy<Callback>(id));
+	return kernelObjects.Destroy<Callback>(cbId);
 }
 
-// Rarely used
-void sceKernelNotifyCallback()
+// Generally very rarely used, but Numblast uses it like candy.
+int sceKernelNotifyCallback(SceUID cbId, int notifyArg)
 {
-	SceUID cbId = PARAM(0);
-	u32 arg = PARAM(1);
-	DEBUG_LOG(HLE,"sceKernelNotifyCallback(%i, %i)", cbId, arg);
-
-	__KernelNotifyCallback(THREAD_CALLBACK_USER_DEFINED, cbId, arg);
-	RETURN(0);
-}
-
-void sceKernelCancelCallback()
-{
-	SceUID cbId = PARAM(0);
-	ERROR_LOG(HLE,"sceKernelCancelCallback(%i)", cbId);
+	DEBUG_LOG(HLE,"sceKernelNotifyCallback(%i, %i)", cbId, notifyArg);
 	u32 error;
 	Callback *cb = kernelObjects.Get<Callback>(cbId, error);
 	if (cb) {
-		// This is what JPCSP does. Huh?
-		cb->nc.notifyArg = 0;
-		RETURN(0);
+		// TODO: Should this notify other existing callbacks too?
+		__KernelNotifyCallback(THREAD_CALLBACK_USER_DEFINED, cbId, notifyArg);
+		return 0;
 	} else {
-		ERROR_LOG(HLE,"sceKernelCancelCallback(%i) - bad cbId", cbId);
-		RETURN(error);
+		ERROR_LOG(HLE, "sceKernelCancelCallback(%i) - bad cbId", cbId);
+		return error;
 	}
-	RETURN(0);
 }
 
-void sceKernelGetCallbackCount()
+int sceKernelCancelCallback(SceUID cbId)
 {
-	SceUID cbId = PARAM(0);
+	DEBUG_LOG(HLE, "sceKernelCancelCallback(%i)", cbId);
 	u32 error;
 	Callback *cb = kernelObjects.Get<Callback>(cbId, error);
 	if (cb) {
-		RETURN(cb->nc.notifyCount);
+		// This just resets the notify count.
+		cb->nc.notifyArg = 0;
+		return 0;
 	} else {
-		ERROR_LOG(HLE,"sceKernelGetCallbackCount(%i) - bad cbId", cbId);
-		RETURN(error);
+		ERROR_LOG(HLE, "sceKernelCancelCallback(%i) - bad cbId", cbId);
+		return error;
+	}
+}
+
+int sceKernelGetCallbackCount(SceUID cbId)
+{
+	u32 error;
+	Callback *cb = kernelObjects.Get<Callback>(cbId, error);
+	if (cb) {
+		return cb->nc.notifyCount;
+	} else {
+		ERROR_LOG(HLE, "sceKernelGetCallbackCount(%i) - bad cbId", cbId);
+		return error;
+	}
+}
+
+int sceKernelReferCallbackStatus(SceUID cbId, u32 statusAddr)
+{
+	u32 error;
+	Callback *c = kernelObjects.Get<Callback>(cbId, error);
+	if (c) {
+		DEBUG_LOG(HLE, "sceKernelReferCallbackStatus(%i, %08x)", cbId, statusAddr);
+		// TODO: Maybe check size parameter?
+		if (Memory::IsValidAddress(statusAddr)) {
+			Memory::WriteStruct(statusAddr, &c->nc);
+		} // else TODO
+		return 0;
+	} else {
+		ERROR_LOG(HLE, "sceKernelReferCallbackStatus(%i, %08x) - bad cbId", cbId, statusAddr);
+		return error;
 	}
 }
 
@@ -2497,24 +2509,6 @@ u32 sceKernelExtendThreadStack(u32 cpu, u32 size, u32 entryAddr, u32 entryParame
 {
 	ERROR_LOG_REPORT(HLE,"UNIMPL sceKernelExtendThreadStack(%08x, %08x, %08x, %08x)", cpu, size, entryAddr, entryParameter);
 	return 0;
-}
-
-void sceKernelReferCallbackStatus()
-{
-	SceUID cbId = PARAM(0);
-	u32 statusAddr = PARAM(1);
-	u32 error;
-	Callback *c = kernelObjects.Get<Callback>(cbId, error);
-	if (c) {
-		DEBUG_LOG(HLE,"sceKernelReferCallbackStatus(%i, %08x)", cbId, statusAddr);
-		if (Memory::IsValidAddress(statusAddr)) {
-			Memory::WriteStruct(statusAddr, &c->nc);
-		} // else TODO
-		RETURN(0);
-	} else {
-		ERROR_LOG(HLE,"sceKernelReferCallbackStatus(%i, %08x) - bad cbId", cbId, statusAddr);
-		RETURN(error);
-	}
 }
 
 void ActionAfterMipsCall::run(MipsCall &call) {
@@ -3075,6 +3069,7 @@ bool __KernelForceCallbacks()
 	return callbacksProcessed;
 }
 
+// Not wrapped because it has special return logic.
 void sceKernelCheckCallback()
 {
 	// Start with yes.
