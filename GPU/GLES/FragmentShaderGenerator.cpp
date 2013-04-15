@@ -62,20 +62,30 @@ static bool IsAlphaTestTriviallyTrue() {
 	}
 }
 
+static bool IsColorTestTriviallyTrue() {
+	int colorTestFunc = gstate.colortest & 3;
+	switch (colorTestFunc) {
+	case GE_COMP_ALWAYS:
+		return true;
+	default:
+		return false;
+	}
+}
+
 
 // Here we must take all the bits of the gstate that determine what the fragment shader will
 // look like, and concatenate them together into an ID.
 void ComputeFragmentShaderID(FragmentShaderID *id) {
 	memset(&id->d[0], 0, sizeof(id->d));
-	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
-	bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue();
-	bool enableColorTest = gstate.isColorTestEnabled();
-	int lmode = (gstate.lmode & 1) && gstate.isLightingEnabled();
-
 	if (gstate.clearmode & 1) {
 		// We only need one clear shader, so let's ignore the rest of the bits.
 		id->d[0] = 1;
 	} else {
+		bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough();
+		bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue();
+		bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue();
+		int lmode = (gstate.lmode & 1) && gstate.isLightingEnabled();
+
 		// id->d[0] |= (gstate.clearmode & 1);
 		if (gstate.isTextureMapEnabled()) {
 			id->d[0] |= 1 << 1;
@@ -94,13 +104,10 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 	}
 }
 
-// Missing: Alpha test, color test, Z depth range, fog
+// Missing: Z depth range
 // Also, logic ops etc, of course. Urgh.
-// We could do all this with booleans, but I don't trust the shader compilers on
-// Android devices to be anything but stupid.
 void GenerateFragmentShader(char *buffer) {
 	char *p = buffer;
-
 
 #if defined(GLSL_ES_1_0)
 	WRITE(p, "precision lowp float;\n");
@@ -112,10 +119,9 @@ void GenerateFragmentShader(char *buffer) {
 	int doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
 
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
-	bool enableAlphaTest = gstate.isAlphaTestEnabled() && !gstate.isModeClear() && !IsAlphaTestTriviallyTrue();
-	bool enableColorTest = gstate.isColorTestEnabled() && !gstate.isModeClear();
+	bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !gstate.isModeClear();
+	bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue() && !gstate.isModeClear();
 	bool enableColorDoubling = (gstate.texfunc & 0x10000) != 0;
-
 
 	if (doTexture)
 		WRITE(p, "uniform sampler2D tex;\n");
@@ -143,7 +149,7 @@ void GenerateFragmentShader(char *buffer) {
 
 	WRITE(p, "void main() {\n");
 
-	if (gstate.clearmode & 1) {
+	if (gstate.isModeClear()) {
 		// Clear mode does not allow any fancy shading.
 		WRITE(p, "  gl_FragColor = v_color0;\n");
 	} else {

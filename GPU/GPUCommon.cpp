@@ -22,6 +22,7 @@ GPUCommon::GPUCommon() :
 	dumpThisFrame_(false),
 	interruptsEnabled_(true)
 {
+	memset(dls, 0, sizeof(dls));
 	for (int i = 0; i < DisplayListMaxCount; ++i) {
 		dls[i].state = PSP_GE_DL_STATE_NONE;
 		dls[i].waitTicks = 0;
