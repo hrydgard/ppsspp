@@ -1,5 +1,6 @@
 #include <limits.h>
 #include "XinputDevice.h"
+#include "Core/Config.h"
 #include "input/input_state.h"
 
 #ifndef XUSER_MAX_COUNT
@@ -19,6 +20,7 @@ struct Stick {
 static Stick NormalizedDeadzoneFilter(short x, short y);
 
 int XinputDevice::UpdateState(InputState &input_state) {
+	if (g_Config.iForceInputDevice > 0) return -1;
 	if (this->check_delay-- > 0) return -1;
 	XINPUT_STATE state;
 	ZeroMemory( &state, sizeof(XINPUT_STATE) );

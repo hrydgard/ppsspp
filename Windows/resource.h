@@ -122,6 +122,7 @@
 #define IDC_BROWSE                      1159
 #define IDC_SHOWVFPU                    1161
 #define IDC_LISTCONTROLS                1162
+#define IDC_FORCE_INPUT_DEVICE          1163
 #define ID_FILE_EXIT                    40002
 #define ID_CONFIG_SELECT_PLUGINS        40003
 #define ID_BUTTON40013                  40013
