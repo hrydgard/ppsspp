@@ -301,7 +301,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 		if (hasColor) {
 			WRITE(p, "  lowp vec3 unlitColor = a_color0.rgb;\n");
 		} else {
-			WRITE(p, "  lowp vec3 unlitColor = vec3(u_matambientalpha);\n");
+			WRITE(p, "  lowp vec3 unlitColor = u_matambientalpha.rgb;\n");
 		}
 		// TODO: Declare variables for dots for shade mapping if needed.
 
@@ -364,7 +364,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 				WRITE(p, "  vec3 halfVec%i = normalize(normalize(toLight%i) + vec3(0.0, 0.0, 1.0));\n", i, i);
 				WRITE(p, "  dot%i = dot(halfVec%i, worldnormal);\n", i, i);
 				WRITE(p, "  if (dot%i > 0.0)\n", i);
-				WRITE(p, "    lightSum1 += u_lightspecular%i * %s * (pow(dot%i, u_matspecular.a) * (dot%i * lightScale%i));\n", i, specular, i, i, i);
+				WRITE(p, "    lightSum1 += u_lightspecular%i * %s * (pow(dot%i, u_matspecular.a) * lightScale%i);\n", i, specular, i, i);
 			}
 			WRITE(p, "  lightSum0 += vec4((u_lightambient%i + diffuse%i)*lightScale%i, 0.0);\n", i, i, i);
 		}

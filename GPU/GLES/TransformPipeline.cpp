@@ -341,7 +341,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 			if (dot > 0.0f)
 			{
 				Color4 lightSpec(gstate_c.lightColor[2][l], 0.0f);
-				lightSum1 += (lightSpec * *specular * (powf(dot, specCoef_) * (dot * lightScale)));
+				lightSum1 += (lightSpec * *specular * (powf(dot, specCoef_) * lightScale));
 			}
 		}
 
@@ -583,7 +583,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 				} else {
 					// Summed color into c0
 					for (int j = 0; j < 4; j++) {
-						c0[j] = c0[j] + litColor1[j];
+						c0[j] = ((c0[j] + litColor1[j]) > 1.0f) ? 1.0f : (c0[j] + litColor1[j]);
 					}
 				}
 			} else {
