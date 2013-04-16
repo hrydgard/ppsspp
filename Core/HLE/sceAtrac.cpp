@@ -454,10 +454,10 @@ u32  sceAtracGetNextDecodePosition(int atracID, u32 outposAddr)
 	if (!atrac) {
 		//return -1;
 	}
-	if (atrac->currentSample >= atrac->endSample)
+	if (atrac->first.writableBytes - atrac->firstSampleoffset < atrac->atracBytesPerFrame || atrac->endSample < atrac->decodePos)
 		return ATRAC_ERROR_ALL_DATA_DECODED;
-	Memory::Write_U32(atrac->currentSample, outposAddr); // outpos
-	return 0;
+	Memory::Write_U32(atrac->decodePos - atrac->currentSample, outposAddr); // outpos
+	return 0; 
 }
 
 u32 sceAtracGetNextSample(int atracID, u32 outNAddr)
@@ -503,7 +503,9 @@ u32 sceAtracGetSecondBufferInfo(int atracID, u32 outposAddr, u32 outBytesAddr)
 		Memory::Write_U32(0, outBytesAddr);
 		return ATRAC_ERROR_SECOND_BUFFER_NOT_NEEDED;
 	}
-	//TODO
+	u32 pos = (((atrac->loopEndSample >> (0x100B - atrac->codeType)) + 1) * atrac->atracBytesPerFrame + atrac->second.fileoffset - 1 ) + 1;
+	Memory::Write_U32(pos, outposAddr);
+	Memory::Write_U32(atrac->second.writableBytes - pos, outBytesAddr);
 	return 0;
 }
 
@@ -514,9 +516,14 @@ u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoopStartSa
 	if (!atrac) {
 		//return -1;
 	}
-	Memory::Write_U32(atrac->endSample, outEndSampleAddr); // outEndSample
-	Memory::Write_U32(atrac->loopStartSample, outLoopStartSampleAddr); // outLoopStartSample
-	Memory::Write_U32(atrac->loopEndSample, outLoopEndSampleAddr); // outLoopEndSample
+	if (atrac->loopEndSample != 0) {
+		Memory::Write_U32(atrac->endSample - atrac->currentSample, outEndSampleAddr); // outEndSample
+		Memory::Write_U32(atrac->loopStartSample - atrac->currentSample, outLoopStartSampleAddr); // outLoopStartSample
+		Memory::Write_U32(atrac->loopEndSample - atrac->currentSample, outLoopEndSampleAddr); // outLoopEndSample
+	} else {
+		Memory::Write_U32(-1, outLoopStartSampleAddr);
+		Memory::Write_U32(-1, outLoopEndSampleAddr);
+	}
 	return 0;
 }
 
