@@ -73,6 +73,9 @@ struct InputBuffer {
 	u32 fileoffset;
 };
 
+struct Atrac;
+int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize);
+
 struct AtracLoopInfo {
 	int cuePointID;
 	int type;
@@ -86,7 +89,7 @@ struct Atrac {
 	Atrac() : decodePos(0), decodeEnd(0), loopNum(0), atracChannels(2), 
 		atracBitrate(64), atracBytesPerFrame(0), atracBufSize(0), currentSample(0), 
 		endSample(-1), loopinfoNum(0), firstSampleoffset(0),data_buf(0), 
-		atracOutputChannels(2){
+		atracOutputChannels(2), atracID(-1) {
 		memset(&first, 0, sizeof(first));
 		memset(&second, 0, sizeof(second));
 #ifdef _USE_FFMPEG_
@@ -98,9 +101,75 @@ struct Atrac {
 #endif // _USE_FFMPEG_
 	}
 
-	~Atrac() { if (data_buf) delete [] data_buf; }
+	~Atrac() { 
+#ifdef _USE_FFMPEG_
+		ReleaseFFMPEGContext();
+#endif // _USE_FFMPEG_
+
+#ifdef _USE_DSHOW_
+		deleteAtrac3Audio(atracID);
+#endif // _USE_DSHOW_
+		if (data_buf) delete [] data_buf; 
+	}
 
 	void DoState(PointerWrap &p) {
+		if (atracID == -1) {
+			// loading state
+			p.Do(atracID);
+			p.Do(first);
+			p.Do(atracBufSize);
+			p.Do(codeType);
+			u32 data_buf_value;
+			p.Do(data_buf_value);
+			if (data_buf_value) {
+				data_buf = new u8[first.filesize];
+				p.DoArray(data_buf, first.filesize);
+			}
+			InputBuffer temp = first;
+			if (first.addr) {
+				int size = std::min(first.size, atracBufSize);
+				first.size = size;
+				if (data_buf)
+					Memory::Memcpy(first.addr, data_buf, size);
+				u8* temp_buf = data_buf;
+				data_buf = 0;
+				_AtracSetData(this, first.addr, atracBufSize);
+				// restore the state
+				first = temp;
+				if (data_buf)
+					delete [] data_buf;
+				data_buf = temp_buf;
+			}
+#ifdef _USE_DSHOW_
+			audioEngine *engine = getaudioEngineByID(atracID);
+			if (engine) {
+				long temppos = 0;
+				p.Do(temppos);
+				engine->setPlayPos(temppos);
+			}
+#endif _USE_DSHOW_
+		}
+		else {
+			// saving state
+			p.Do(atracID);
+			p.Do(first);
+			p.Do(atracBufSize);
+			p.Do(codeType);
+			u32 data_buf_value = (u32)data_buf;
+			p.Do(data_buf_value);
+			if (data_buf)
+				p.DoArray(data_buf, first.filesize);
+#ifdef _USE_DSHOW_
+			audioEngine *engine = getaudioEngineByID(atracID);
+			if (engine) {
+				long temppos = 0;
+				engine->getPlayPos(&temppos);
+				p.Do(temppos);
+			}
+#endif _USE_DSHOW_
+		}
+		p.Do(second);
+
 		p.Do(decodePos);
 		p.Do(decodeEnd);
 
@@ -108,7 +177,6 @@ struct Atrac {
 		p.Do(atracOutputChannels);
 		p.Do(atracBitrate);
 		p.Do(atracBytesPerFrame);
-		p.Do(atracBufSize);
 
 		p.Do(currentSample);
 		p.Do(endSample);
@@ -121,11 +189,6 @@ struct Atrac {
 		p.Do(loopEndSample);
 		p.Do(loopNum);
 
-		p.Do(codeType);
-
-		p.Do(first);
-		p.Do(second);
-		p.DoArray(data_buf, first.filesize);
 		p.DoMarker("Atrac");
 	}
 
@@ -155,6 +218,7 @@ struct Atrac {
 		return remainFrame;
 	}
 
+	int atracID;
 	u8* data_buf;
 
 	u32 decodePos;
@@ -230,6 +294,13 @@ void __AtracInit() {
 }
 
 void __AtracDoState(PointerWrap &p) {
+#ifdef _USE_FFMPEG_
+	p.Do(Memory::lastestAccessFile);
+#endif // _USE_FFMPEG
+
+#ifdef _USE_DSHOW_
+	stopAllAtrac3Audio();
+#endif // _USE_DSHOW_
 	p.Do(atracMap);
 	p.Do(nextAtracID);
 
@@ -256,6 +327,7 @@ Atrac *getAtrac(int atracID) {
 int createAtrac(Atrac *atrac) {
 	int id = nextAtracID++;
 	atracMap[id] = atrac;
+	atrac->atracID = id;
 	return id;
 }
 
@@ -726,15 +798,6 @@ u32 sceAtracGetStreamDataInfo(int atracID, u32 writeAddr, u32 writableBytesAddr,
 u32 sceAtracReleaseAtracID(int atracID)
 {
 	INFO_LOG(HLE, "sceAtracReleaseAtracID(%i)", atracID);
-#ifdef _USE_FFMPEG_
-	Atrac *atrac = getAtrac(atracID);
-	if (atrac)
-		atrac->ReleaseFFMPEGContext();
-#endif // _USE_FFMPEG_
-
-#ifdef _USE_DSHOW_
-	deleteAtrac3Audio(atracID);
-#endif // _USE_DSHOW_
 	deleteAtrac(atracID);
 	return 0;
 }
@@ -799,11 +862,8 @@ int64_t _AtracSeekbuffer(void *opaque, int64_t offset, int whence)
 
 #endif // _USE_FFMPEG_
 
-int _AtracSetData(int atracID, u32 buffer, u32 bufferSize)
+int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize)
 {
-	Atrac *atrac = getAtrac(atracID);
-	if (!atrac)
-		return -1;
 	atrac->atracBufSize = bufferSize;
 	if (atrac->first.size > atrac->first.filesize)
 		atrac->first.size = atrac->first.filesize;
@@ -811,6 +871,7 @@ int _AtracSetData(int atracID, u32 buffer, u32 bufferSize)
 	atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->atracBufSize);
 
 #ifdef _USE_DSHOW_
+	int atracID = atrac->atracID;
 	// some games may reuse an atracID for playing sound
 	if (getaudioEngineByID(atracID))
 		deleteAtrac3Audio(atracID);
@@ -818,20 +879,7 @@ int _AtracSetData(int atracID, u32 buffer, u32 bufferSize)
 	if (atrac->data_buf) 
 			delete [] atrac->data_buf;
 	atrac->data_buf = 0;
-	if (Memory::lastestAccessFile.data_addr == buffer)
 	{
-		PSPFileInfo info = pspFileSystem.GetFileInfo(Memory::lastestAccessFile.filename);
-		int size =(int)info.size;
-		u8* buf = new u8[size];
-		u32 h = pspFileSystem.OpenFile(Memory::lastestAccessFile.filename, (FileAccess) FILEACCESS_READ);
-		if (pspFileSystem.ReadFile(h, buf, size) == size)
-		{
-			addAtrac3Audio(buf, bufferSize, atracID);
-		}
-		pspFileSystem.CloseFile(h);
-		delete [] buf;
-	}
-	else {
 		Memory::LASTESTFILECACHE *cache = Memory::lastestAccessFile.findmatchcache(Memory::GetPointer(buffer));
 		if (cache) {
 			PGD_DESC pgdinfo = cache->pgd_info;
@@ -936,6 +984,14 @@ int _AtracSetData(int atracID, u32 buffer, u32 bufferSize)
 #endif // _USE_FFMPEG
 
 	return 0;
+}
+
+int _AtracSetData(int atracID, u32 buffer, u32 bufferSize)
+{
+	Atrac *atrac = getAtrac(atracID);
+	if (!atrac)
+		return -1;
+	return _AtracSetData(atrac, buffer, bufferSize);
 }
 
 u32 sceAtracSetHalfwayBuffer(int atracID, u32 halfBuffer, u32 readSize, u32 halfBufferSize)

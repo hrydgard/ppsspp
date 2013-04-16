@@ -155,6 +155,19 @@ bool audioPlayer::setPlayPos(long ms)
 	return true;
 }
 
+bool audioPlayer::getPlayPos(long *ms)
+{
+	if (!m_pGB)
+		return false;
+	HRESULT hr;
+	IMediaSeeking *pMS = (IMediaSeeking*)m_pMS;
+	LONGLONG curpos;
+	JIF(pMS->GetCurrentPosition(&curpos));
+	if (ms)
+		*ms = curpos / 10000;
+	return true;
+}
+
 ////////////////////////////////////////////////////////////////////////
 // audioEngine
 
@@ -192,6 +205,7 @@ bool audioEngine::loadRIFFStream(u8* stream, int streamsize, int atracID)
 
 	bool bResult = load(m_filename);
 	if (bResult) {
+		m_stopPosforAudio = m_endpos;
 		int startsample, endsample;
 		m_iloop = OMAConvert::getRIFFLoopNum(stream, streamsize, &startsample, &endsample);
 		if (m_iloop != 0) {
@@ -235,6 +249,9 @@ bool audioEngine::setLoopStart(int sample)
 bool audioEngine::setLoopEnd(int sample)
 {
 	m_endpos = ((s64)sample) * 1000 * 10000 / 44100;
+
+	if (m_endpos > m_stopPosforAudio)
+		m_endpos = m_stopPosforAudio;
 	return true;
 }
 
@@ -389,8 +406,7 @@ void stopAllAtrac3Audio()
 {
 	for (auto it = audioMap.begin(); it != audioMap.end(); ++it) {
 		audioEngine *temp = it->second;
-		temp->stop();
-		temp->setPlayPos(0);
+		temp->pause();
 	}
 }
 

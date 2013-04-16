@@ -17,6 +17,7 @@ public:
     bool setVolume(int volume);
     bool isEnd(long *mstimetoend = 0);
     bool setPlayPos(long ms);
+    bool getPlayPos(long *ms);
 private:
 	void *m_pGB;
 	void *m_pMC;
@@ -47,6 +48,7 @@ private:
 	int m_ID;
 	char m_filename[256];
 	int m_iloop;
+	s64 m_stopPosforAudio;
 public:
 	int m_lenstoplay;
 };
