@@ -509,13 +509,14 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 			// Saint Seiya needs correct support for relative calls.
 			u32 retval = currentList->pc + 4;
 			u32 target = gstate_c.getRelativeAddress(data);
-			if (currentList->stackptr + 2 > ARRAY_SIZE(currentList->stack)) {
+			if (currentList->stackptr == ARRAY_SIZE(currentList->stack)) {
 				ERROR_LOG_REPORT(G3D, "CALL: Stack full!");
 			} else if (!Memory::IsValidAddress(target)) {
 				ERROR_LOG_REPORT(G3D, "CALL to illegal address %08x - ignoring! data=%06x", target, data);
 			} else {
-				currentList->stack[currentList->stackptr++] = retval;
-				currentList->stack[currentList->stackptr++] = gstate_c.offsetAddr;
+				auto &stackEntry = currentList->stack[currentList->stackptr++];
+				stackEntry.pc = retval;
+				stackEntry.offsetAddr = gstate_c.offsetAddr;
 				UpdateCycles(currentList->pc, target - 4);
 				currentList->pc = target - 4;	// pc will be increased after we return, counteract that
 			}
@@ -524,11 +525,12 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_RET:
 		{
-			if (currentList->stackptr < 2) {
+			if (currentList->stackptr == 0) {
 				ERROR_LOG_REPORT(G3D, "RET: Stack empty!");
 			} else {
-				gstate_c.offsetAddr = currentList->stack[--currentList->stackptr];
-				u32 target = (currentList->pc & 0xF0000000) | (currentList->stack[--currentList->stackptr] & 0x0FFFFFFF);
+				auto &stackEntry = currentList->stack[--currentList->stackptr];
+				gstate_c.offsetAddr = stackEntry.offsetAddr;
+				u32 target = (currentList->pc & 0xF0000000) | (stackEntry.pc & 0x0FFFFFFF);
 				//target = (target + gstate_c.originAddr) & 0xFFFFFFF;
 				UpdateCycles(currentList->pc, target - 4);
 				currentList->pc = target - 4;
@@ -598,14 +600,15 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 						currentList->signal = behaviour;
 						// pc will be increased after we return, counteract that.
 						u32 target = ((signal << 16) | enddata) - 4;
-						if (currentList->stackptr + 2 > ARRAY_SIZE(currentList->stack)) {
+						if (currentList->stackptr == ARRAY_SIZE(currentList->stack)) {
 							ERROR_LOG_REPORT(G3D, "Signal with Call: stack full. signal/end: %04x %04x", signal, enddata);
 						} else if (!Memory::IsValidAddress(target)) {
 							ERROR_LOG_REPORT(G3D, "Signal with Call: bad address. signal/end: %04x %04x", signal, enddata);
 						} else {
 							// TODO: This might save/restore other state...
-							currentList->stack[currentList->stackptr++] = gstate_c.offsetAddr;
-							currentList->stack[currentList->stackptr++] = currentList->pc;
+							auto &stackEntry = currentList->stack[currentList->stackptr++];
+							stackEntry.pc = currentList->pc;
+							stackEntry.offsetAddr = gstate_c.offsetAddr;
 							UpdateCycles(currentList->pc, target);
 							currentList->pc = target;
 							DEBUG_LOG(G3D, "Signal with Call. signal/end: %04x %04x", signal, enddata);
@@ -616,14 +619,14 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 					{
 						trigger = false;
 						currentList->signal = behaviour;
-						if (currentList->stackptr < 2) {
+						if (currentList->stackptr == 0) {
 							ERROR_LOG_REPORT(G3D, "Signal with Return: stack empty. signal/end: %04x %04x", signal, enddata);
 						} else {
 							// TODO: This might save/restore other state...
-							gstate_c.offsetAddr = currentList->stack[--currentList->stackptr];
-							u32 target = currentList->stack[--currentList->stackptr];
-							UpdateCycles(currentList->pc, target);
-							currentList->pc = target;
+							auto &stackEntry = currentList->stack[--currentList->stackptr];
+							gstate_c.offsetAddr = stackEntry.offsetAddr;
+							UpdateCycles(currentList->pc, stackEntry.pc);
+							currentList->pc = stackEntry.pc;
 							DEBUG_LOG(G3D, "Signal with Return. signal/end: %04x %04x", signal, enddata);
 						}
 					}
