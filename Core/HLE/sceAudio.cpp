@@ -72,7 +72,7 @@ u32 sceAudioOutputBlocking(u32 chan, u32 vol, u32 samplePtr) {
 }
 
 u32 sceAudioOutputPannedBlocking(u32 chan, u32 leftvol, u32 rightvol, u32 samplePtr) {
-	if ((leftvol | rightvol) > 0xFFFF) {
+	if (leftvol > 0xFFFF || rightvol > 0xFFFF) {
 		ERROR_LOG(HLE, "sceAudioOutputPannedBlocking() - invalid volume");
 		return SCE_ERROR_AUDIO_INVALID_VOLUME;
 	} else if (samplePtr == 0) {
@@ -116,7 +116,7 @@ u32 sceAudioOutput(u32 chan, u32 vol, u32 samplePtr) {
 }
 
 u32 sceAudioOutputPanned(u32 chan, u32 leftVol, u32 rightVol, u32 samplePtr) {
-	if ((leftVol | rightVol) > 0xFFFF) {
+	if (leftvol > 0xFFFF || rightvol > 0xFFFF) {
 		ERROR_LOG(HLE, "sceAudioOutputPannedBlocking() - invalid volume");
 		return SCE_ERROR_AUDIO_INVALID_VOLUME;
 	} else if (samplePtr == 0) {
@@ -231,7 +231,7 @@ u32 sceAudioChangeChannelConfig(u32 chan, u32 format) {
 }
 
 u32 sceAudioChangeChannelVolume(u32 chan, u32 leftvol, u32 rightvol) {
-	if ((leftvol | rightvol) > 0xFFFF) {
+	if (leftvol > 0xFFFF || rightvol > 0xFFFF) {
 		ERROR_LOG(HLE,"sceAudioChangeChannelVolume(%08x, %08x, %08x) - invalid volume", chan, leftvol, rightvol);
 		return SCE_ERROR_AUDIO_INVALID_VOLUME;
 	} else if (chan >= PSP_AUDIO_CHANNEL_MAX) {
