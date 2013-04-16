@@ -14,7 +14,7 @@
 #include "UI/GamepadEmu.h"
 #include "UI/ui_atlas.h"
 #include "base/NativeApp.h"
-#include "base/threadutil.h"
+#include "thread/threadutil.h"
 #include "gfx_es2/fbo.h"
 #include "gfx_es2/gl_state.h"
 #include "GPU/GPUState.h"
