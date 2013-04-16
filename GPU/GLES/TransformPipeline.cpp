@@ -341,7 +341,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 			if (dot > 0.0f)
 			{
 				Color4 lightSpec(gstate_c.lightColor[2][l], 0.0f);
-				lightSum1 += (lightSpec * *specular * (powf(dot, specCoef_) * (dot * lightScale)));
+				lightSum1 += (lightSpec * *specular * (powf(dot, specCoef_) * lightScale));
 			}
 		}
 
