@@ -556,17 +556,6 @@ int sceMpegQueryStreamOffset(u32 mpeg, u32 bufferAddr, u32 offsetAddr)
 #ifdef _USE_FFMPEG_
 	deletePMFStream();
 	DEBUG_LOG(HLE, "last loaded file: %s", Memory::lastestAccessFile.filename);
-	if (Memory::lastestAccessFile.data_addr != 0)
-	{
-		if (bufferAddr == Memory::lastestAccessFile.data_addr)
-		{
-			loadPMFPSFFile(Memory::lastestAccessFile.filename, -1);
-		}
-		else
-			loadPMFPSFFile(Memory::lastestAccessFile.filename, ctx->mpegStreamSize + ctx->mpegOffset);
-		//Memory::lastestAccessFile.data_addr = 0;
-	}
-	else
 	{
 		Memory::LASTESTFILECACHE *cache = Memory::lastestAccessFile.findmatchcache(Memory::GetPointer(bufferAddr));
 		if (cache)
