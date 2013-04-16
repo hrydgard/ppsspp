@@ -109,6 +109,12 @@ struct FramebufferInfo
 	void* fbo;
 };
 
+struct DisplayListStackEntry
+{
+	u32 pc;
+	u32 offsetAddr;
+};
+
 struct DisplayList
 {
 	int id;
@@ -119,7 +125,7 @@ struct DisplayList
 	SignalBehavior signal;
 	int subIntrBase;
 	u16 subIntrToken;
-	u32 stack[32];
+	DisplayListStackEntry stack[32];
 	int stackptr;
 	bool interrupted;
 	u64 waitTicks;

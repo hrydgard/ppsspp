@@ -369,6 +369,7 @@ bool GPUCommon::InterpretList(DisplayList &list)
 
 	// I don't know if this is the correct place to zero this, but something
 	// need to do it. See Sol Trigger title screen.
+	// TODO: Maybe this is per list?  Should a stalled list remember the old value?
 	gstate_c.offsetAddr = 0;
 
 	if (!Memory::IsValidAddress(list.pc)) {
@@ -513,7 +514,9 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 			} else if (!Memory::IsValidAddress(target)) {
 				ERROR_LOG_REPORT(G3D, "CALL to illegal address %08x - ignoring! data=%06x", target, data);
 			} else {
-				currentList->stack[currentList->stackptr++] = retval;
+				auto &stackEntry = currentList->stack[currentList->stackptr++];
+				stackEntry.pc = retval;
+				stackEntry.offsetAddr = gstate_c.offsetAddr;
 				UpdateCycles(currentList->pc, target - 4);
 				currentList->pc = target - 4;	// pc will be increased after we return, counteract that
 			}
@@ -525,7 +528,9 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 			if (currentList->stackptr == 0) {
 				ERROR_LOG_REPORT(G3D, "RET: Stack empty!");
 			} else {
-				u32 target = (currentList->pc & 0xF0000000) | (currentList->stack[--currentList->stackptr] & 0x0FFFFFFF);
+				auto &stackEntry = currentList->stack[--currentList->stackptr];
+				gstate_c.offsetAddr = stackEntry.offsetAddr;
+				u32 target = (currentList->pc & 0xF0000000) | (stackEntry.pc & 0x0FFFFFFF);
 				//target = (target + gstate_c.originAddr) & 0xFFFFFFF;
 				UpdateCycles(currentList->pc, target - 4);
 				currentList->pc = target - 4;
@@ -533,9 +538,6 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 					ERROR_LOG_REPORT(G3D, "Invalid DL PC %08x on return", currentList->pc);
 					gpuState = GPUSTATE_ERROR;
 				}
-
-				// Reset gstate_c.offsetAddr, Flatout seems to expect this.
-				gstate_c.offsetAddr = 0;
 			}
 		}
 		break;
@@ -604,7 +606,9 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 							ERROR_LOG_REPORT(G3D, "Signal with Call: bad address. signal/end: %04x %04x", signal, enddata);
 						} else {
 							// TODO: This might save/restore other state...
-							currentList->stack[currentList->stackptr++] = currentList->pc;
+							auto &stackEntry = currentList->stack[currentList->stackptr++];
+							stackEntry.pc = currentList->pc;
+							stackEntry.offsetAddr = gstate_c.offsetAddr;
 							UpdateCycles(currentList->pc, target);
 							currentList->pc = target;
 							DEBUG_LOG(G3D, "Signal with Call. signal/end: %04x %04x", signal, enddata);
@@ -619,9 +623,10 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 							ERROR_LOG_REPORT(G3D, "Signal with Return: stack empty. signal/end: %04x %04x", signal, enddata);
 						} else {
 							// TODO: This might save/restore other state...
-							u32 target = currentList->stack[--currentList->stackptr];
-							UpdateCycles(currentList->pc, target);
-							currentList->pc = target;
+							auto &stackEntry = currentList->stack[--currentList->stackptr];
+							gstate_c.offsetAddr = stackEntry.offsetAddr;
+							UpdateCycles(currentList->pc, stackEntry.pc);
+							currentList->pc = stackEntry.pc;
 							DEBUG_LOG(G3D, "Signal with Return. signal/end: %04x %04x", signal, enddata);
 						}
 					}
