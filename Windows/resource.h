@@ -222,6 +222,8 @@
 #define ID_OPTIONS_USEMEDIAENGINE       40141
 #define ID_FILE_MEMSTICK                40142
 #define ID_FILE_LOAD_MEMSTICK           40143
+#define ID_EMULATION_SOUND              40144
+#define ID_OPTIONS_MIPMAP	              40145
 #define IDC_STATIC                      -1
 
 // Next default values for new objects

@@ -606,12 +606,14 @@ namespace MainWindow
 				DialogBox(hInst, (LPCTSTR)IDD_CONTROLS, hWnd, (DLGPROC)Controls);
 				DialogManager::EnableAll(TRUE);
 				break;
-
-      case ID_HELP_OPENWEBSITE:
+			case ID_EMULATION_SOUND:
+				g_Config.bEnableSound = !g_Config.bEnableSound;
+				break;
+      			case ID_HELP_OPENWEBSITE:
 				ShellExecute(NULL, "open", "http://www.ppsspp.org/", NULL, NULL, SW_SHOWNORMAL);
-        break;
+        			break;
 
-      case ID_HELP_ABOUT:
+      			case ID_HELP_ABOUT:
 				DialogManager::EnableAll(FALSE);
 				DialogBox(hInst, (LPCTSTR)IDD_ABOUTBOX, hWnd, (DLGPROC)About);
 				DialogManager::EnableAll(TRUE);
@@ -754,7 +756,8 @@ namespace MainWindow
 		EnableMenuItem(menu,ID_CPU_DYNAREC,enable);
 		EnableMenuItem(menu,ID_CPU_INTERPRETER,enable);
 		EnableMenuItem(menu,ID_EMULATION_STOP,!enable);
-
+		EnableMenuItem(menu,ID_EMULATION_SOUND,enable);
+		
 		static const int zoomitems[4] = {
 			ID_OPTIONS_SCREEN1X,
 			ID_OPTIONS_SCREEN2X,
