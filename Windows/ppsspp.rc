@@ -227,7 +227,7 @@ BEGIN
         MENUITEM SEPARATOR
         MENUITEM "&Run on load",                ID_EMULATION_RUNONLOAD
     	MENUITEM SEPARATOR
-		MENUITEM "Sound",						ID_EMULATION_SOUND, CHECKED
+	MENUITEM "Sound",			ID_EMULATION_SOUND, CHECKED
         MENUITEM SEPARATOR
         MENUITEM "&Interpreter",                ID_CPU_INTERPRETER
         MENUITEM "&Dynarec (JIT)",              ID_CPU_DYNAREC, CHECKED
@@ -252,18 +252,18 @@ BEGIN
         MENUITEM "&Stretch to display",         ID_OPTIONS_STRETCHDISPLAY
         MENUITEM "&Buffered Rendering\tF5",     ID_OPTIONS_BUFFEREDRENDERING
         MENUITEM "&Hardware Transform\tF6",     ID_OPTIONS_HARDWARETRANSFORM
-		MENUITEM "&Vertex Cache",               ID_OPTIONS_VERTEXCACHE
+	MENUITEM "&Vertex Cache",               ID_OPTIONS_VERTEXCACHE
         MENUITEM "&Linear Filtering",           ID_OPTIONS_LINEARFILTERING
-		MENUITEM "&MipMapping",					ID_OPTIONS_MIPMAP
-		MENUITEM "&Frame Skipping",             ID_OPTIONS_FRAMESKIP
+	MENUITEM "&MipMapping",			ID_OPTIONS_MIPMAP
+	MENUITEM "&Frame Skipping",             ID_OPTIONS_FRAMESKIP
         MENUITEM "&Simple 2x SSAA",             ID_OPTIONS_SIMPLE2XSSAA
-        MENUITEM "&Use VBO",                    ID_OPTIONS_USEVBO
-        MENUITEM "&Use Media En&gine",           ID_OPTIONS_USEMEDIAENGINE
+        MENUITEM "Use &VBO",                     ID_OPTIONS_USEVBO
+        MENUITEM "Use Media En&gine",           ID_OPTIONS_USEMEDIAENGINE
         MENUITEM SEPARATOR
         MENUITEM "&Wireframe (experimental)",   ID_OPTIONS_WIREFRAME
         MENUITEM "&Display Raw Framebuffer",    ID_OPTIONS_DISPLAYRAWFRAMEBUFFER
-        MENUITEM "&Show Debug Statistics",      ID_OPTIONS_SHOWDEBUGSTATISTICS
-        MENUITEM "&Show FPS",                   ID_OPTIONS_SHOWFPS
+        MENUITEM "Show &Debug Statistics",       ID_OPTIONS_SHOWDEBUGSTATISTICS
+        MENUITEM "Sho&w FPS",                    ID_OPTIONS_SHOWFPS
         MENUITEM SEPARATOR
         MENUITEM "&1x Render Resolution\tCtrl+1",          ID_OPTIONS_SCREEN1X
         MENUITEM "&2x Render Resolution\tCtrl+2",          ID_OPTIONS_SCREEN2X
