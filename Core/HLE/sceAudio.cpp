@@ -50,7 +50,10 @@ int src; //not initialized and default 0
 // max or 50%?
 
 u32 sceAudioOutputBlocking(u32 chan, u32 vol, u32 samplePtr) {
-	if (samplePtr == 0) {
+	if (vol > 0xFFFF) {
+		ERROR_LOG(HLE, "sceAudioOutputBlocking() - invalid volume");
+		return SCE_ERROR_AUDIO_INVALID_VOLUME;
+	} else if (samplePtr == 0) {
 		ERROR_LOG(HLE, "sceAudioOutputBlocking() - Sample pointer null");
 		return 0;
 	} else if (chan >= PSP_AUDIO_CHANNEL_MAX) {
@@ -69,7 +72,10 @@ u32 sceAudioOutputBlocking(u32 chan, u32 vol, u32 samplePtr) {
 }
 
 u32 sceAudioOutputPannedBlocking(u32 chan, u32 leftvol, u32 rightvol, u32 samplePtr) {
-	if (samplePtr == 0) {
+	if (leftvol > 0xFFFF || rightvol > 0xFFFF) {
+		ERROR_LOG(HLE, "sceAudioOutputPannedBlocking() - invalid volume");
+		return SCE_ERROR_AUDIO_INVALID_VOLUME;
+	} else if (samplePtr == 0) {
 		ERROR_LOG(HLE, "sceAudioOutputPannedBlocking() - Sample pointer null");
 		return 0;
 	} else if (chan >= PSP_AUDIO_CHANNEL_MAX) {
@@ -88,7 +94,10 @@ u32 sceAudioOutputPannedBlocking(u32 chan, u32 leftvol, u32 rightvol, u32 sample
 }
 
 u32 sceAudioOutput(u32 chan, u32 vol, u32 samplePtr) {
-	if (samplePtr == 0) {
+	if (vol > 0xFFFF) {
+		ERROR_LOG(HLE, "sceAudioOutput() - invalid volume");
+		return SCE_ERROR_AUDIO_INVALID_VOLUME;
+	} else if (samplePtr == 0) {
 		ERROR_LOG(HLE, "sceAudioOutput() - Sample pointer null");
 		return 0;
 	} else if (chan >= PSP_AUDIO_CHANNEL_MAX) {
@@ -107,7 +116,10 @@ u32 sceAudioOutput(u32 chan, u32 vol, u32 samplePtr) {
 }
 
 u32 sceAudioOutputPanned(u32 chan, u32 leftVol, u32 rightVol, u32 samplePtr) {
-	if (samplePtr == 0) {
+	if (leftvol > 0xFFFF || rightvol > 0xFFFF) {
+		ERROR_LOG(HLE, "sceAudioOutputPannedBlocking() - invalid volume");
+		return SCE_ERROR_AUDIO_INVALID_VOLUME;
+	} else if (samplePtr == 0) {
 		ERROR_LOG(HLE, "sceAudioOutputPannedBlocking() - Sample pointer null");
 		return 0;
 	} else if (chan >= PSP_AUDIO_CHANNEL_MAX) {
@@ -219,7 +231,10 @@ u32 sceAudioChangeChannelConfig(u32 chan, u32 format) {
 }
 
 u32 sceAudioChangeChannelVolume(u32 chan, u32 leftvol, u32 rightvol) {
-	if (chan >= PSP_AUDIO_CHANNEL_MAX) {
+	if (leftvol > 0xFFFF || rightvol > 0xFFFF) {
+		ERROR_LOG(HLE,"sceAudioChangeChannelVolume(%08x, %08x, %08x) - invalid volume", chan, leftvol, rightvol);
+		return SCE_ERROR_AUDIO_INVALID_VOLUME;
+	} else if (chan >= PSP_AUDIO_CHANNEL_MAX) {
 		ERROR_LOG(HLE,"sceAudioChangeChannelVolume(%08x, %08x, %08x) - invalid channel number", chan, leftvol, rightvol);
 		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
 	} else if (!chans[chan].reserved)	{
@@ -253,6 +268,10 @@ u32 sceAudioOutput2Reserve(u32 sampleCount){
 }
 
 u32 sceAudioOutput2OutputBlocking(u32 vol, u32 dataPtr){
+	if (vol > 0xFFFF) {
+		ERROR_LOG(HLE,"sceAudioOutput2OutputBlocking(%08x, %08x) - invalid volume", vol, dataPtr);
+		return SCE_ERROR_AUDIO_INVALID_VOLUME;
+	}
 	DEBUG_LOG(HLE,"sceAudioOutput2OutputBlocking(%08x, %08x)", vol, dataPtr);
 	chans[0].leftVolume = vol;
 	chans[0].rightVolume = vol;
@@ -328,6 +347,10 @@ u32 sceAudioSRCChRelease() {
 }
 
 u32 sceAudioSRCOutputBlocking(u32 vol, u32 buf) {
+	if (vol > 0xFFFF) {
+		ERROR_LOG(HLE,"sceAudioSRCOutputBlocking(%08x, %08x) - invalid volume", vol, buf);
+		return SCE_ERROR_AUDIO_INVALID_VOLUME;
+	}
 	DEBUG_LOG(HLE, "sceAudioSRCOutputBlocking(%08x, %08x)", vol, buf);
 	chans[src].leftVolume = vol;
 	chans[src].rightVolume = vol;
