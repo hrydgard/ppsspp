@@ -115,7 +115,7 @@ u32 sceAudioOutput(u32 chan, u32 vol, u32 samplePtr) {
 	}
 }
 
-u32 sceAudioOutputPanned(u32 chan, u32 leftVol, u32 rightVol, u32 samplePtr) {
+u32 sceAudioOutputPanned(u32 chan, u32 leftvol, u32 rightvol, u32 samplePtr) {
 	if (leftvol > 0xFFFF || rightvol > 0xFFFF) {
 		ERROR_LOG(HLE, "sceAudioOutputPannedBlocking() - invalid volume");
 		return SCE_ERROR_AUDIO_INVALID_VOLUME;
@@ -126,12 +126,12 @@ u32 sceAudioOutputPanned(u32 chan, u32 leftVol, u32 rightVol, u32 samplePtr) {
 		ERROR_LOG(HLE,"sceAudioOutputPanned() - bad channel");
 		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
 	} else if (!chans[chan].reserved) {
-		ERROR_LOG(HLE,"sceAudioOutputPanned(%08x, %08x, %08x, %08x) - channel not reserved", chan, leftVol, rightVol, samplePtr);
+		ERROR_LOG(HLE,"sceAudioOutputPanned(%08x, %08x, %08x, %08x) - channel not reserved", chan, leftvol, rightvol, samplePtr);
 		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
 	} else {
-		DEBUG_LOG(HLE,"sceAudioOutputPanned(%08x, %08x, %08x, %08x)", chan, leftVol, rightVol, samplePtr);
-		chans[chan].leftVolume = leftVol;
-		chans[chan].rightVolume = rightVol;
+		DEBUG_LOG(HLE,"sceAudioOutputPanned(%08x, %08x, %08x, %08x)", chan, leftvol, rightvol, samplePtr);
+		chans[chan].leftVolume = leftvol;
+		chans[chan].rightVolume = rightvol;
 		chans[chan].sampleAddress = samplePtr;
 		return __AudioEnqueue(chans[chan], chan, false);
 	}
