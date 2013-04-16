@@ -17,6 +17,7 @@
 
 #include <limits.h>
 #include "DinputDevice.h"
+#include "Core/Config.h"
 #include "input/input_state.h"
 #include "Core/Reporting.h"
 #include "Xinput.h"
@@ -114,6 +115,7 @@ DinputDevice::~DinputDevice()
 
 int DinputDevice::UpdateState(InputState &input_state)
 {
+	if (g_Config.iForceInputDevice == 0) return -1;
 	if (!pJoystick) return -1;
 
 	DIJOYSTATE2 js;

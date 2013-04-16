@@ -113,6 +113,7 @@ void Config::Load(const char *iniFileName)
 	control->Get("LargeControls", &bLargeControls, false);
 	control->Get("KeyMapping",iMappingMap);
 	control->Get("AccelerometerToAnalogHoriz", &bAccelerometerToAnalogHoriz, false);
+	control->Get("ForceInputDevice", &iForceInputDevice, -1);
 
 	IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
 	pspConfig->Get("Language", &ilanguage, PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
@@ -179,6 +180,8 @@ void Config::Save()
 		control->Set("LargeControls", bLargeControls);
 		control->Set("KeyMapping",iMappingMap);
 		control->Set("AccelerometerToAnalogHoriz", bAccelerometerToAnalogHoriz);
+		control->Set("ForceInputDevice", iForceInputDevice);
+		
 
 		IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
 		pspConfig->Set("Language", ilanguage);

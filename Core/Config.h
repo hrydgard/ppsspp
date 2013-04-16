@@ -83,6 +83,7 @@ public:
 
 	// Control
 	std::map<int,int> iMappingMap; // Can be used differently depending on systems
+	int iForceInputDevice;
 
 	// SystemParam
 	int ilanguage;

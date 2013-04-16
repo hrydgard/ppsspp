@@ -776,7 +776,7 @@ namespace MainWindow
 		"Rapid Fire\tShift",
 	};
 
-	// Message handler for about box.
+	// Message handler for controls box.
 	LRESULT CALLBACK Controls(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 	{
 		switch (message)
@@ -791,14 +791,32 @@ namespace MainWindow
 				for (int i = 0; i < sizeof(controllist)/sizeof(controllist[0]); i++) {
 					SendMessage(list, LB_INSERTSTRING, -1, (LPARAM)controllist[i]);
 				}
+
+				ComboBox_AddString(GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE), "None");
+				ComboBox_AddString(GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE), "XInput");
+				ComboBox_AddString(GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE), "DirectInput");
+				if ((g_Config.iForceInputDevice < 0) || (g_Config.iForceInputDevice > 1))
+				{
+					ComboBox_SetCurSel(GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE), 0);
+				}
+				else
+				{
+					ComboBox_SetCurSel(GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE), (g_Config.iForceInputDevice + 1));
+				}
 			}
 			return TRUE;
 
 		case WM_COMMAND:
-			if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL) 
+			switch (LOWORD(wParam))
 			{
-				EndDialog(hDlg, LOWORD(wParam));
-				return TRUE;
+				case IDOK:
+					g_Config.iForceInputDevice = (ComboBox_GetCurSel(GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE)) - 1);
+					EndDialog(hDlg, IDOK);
+					return TRUE;
+
+				case IDCANCEL:
+					EndDialog(hDlg, IDCANCEL);
+					return TRUE;
 			}
 			break;
 		}
