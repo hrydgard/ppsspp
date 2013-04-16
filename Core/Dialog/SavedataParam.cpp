@@ -816,7 +816,7 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 		if (Memory::IsValidAddress(outputBuffer))
 		{
 			std::string searchString = GetGameName(param)+GetSaveName(param);
-			for (size_t i = 0; i < allDir.size() && i < maxFile; i++)
+			for (size_t i = 0; i < allDir.size() && validDir.size() < maxFile; i++)
 			{
 				std::string dirName = allDir[i].name;
 				if(PSPMatch(dirName, searchString))
