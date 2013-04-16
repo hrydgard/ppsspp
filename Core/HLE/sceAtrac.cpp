@@ -516,13 +516,18 @@ u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoopStartSa
 	if (!atrac) {
 		//return -1;
 	}
+	if (Memory::IsValidAddress(outEndSampleAddr))
+		Memory::Write_U32(atrac->endSample - atrac->currentSample, outEndSampleAddr);
 	if (atrac->loopEndSample != 0) {
-		Memory::Write_U32(atrac->endSample - atrac->currentSample, outEndSampleAddr); // outEndSample
-		Memory::Write_U32(atrac->loopStartSample - atrac->currentSample, outLoopStartSampleAddr); // outLoopStartSample
-		Memory::Write_U32(atrac->loopEndSample - atrac->currentSample, outLoopEndSampleAddr); // outLoopEndSample
+		if (Memory::IsValidAddress(outLoopStartSampleAddr))
+			Memory::Write_U32(atrac->loopStartSample - atrac->currentSample, outLoopStartSampleAddr); 
+		if (Memory::IsValidAddress(outLoopEndSampleAddr))
+			Memory::Write_U32(atrac->loopEndSample - atrac->currentSample, outLoopEndSampleAddr); 
 	} else {
-		Memory::Write_U32(-1, outLoopStartSampleAddr);
-		Memory::Write_U32(-1, outLoopEndSampleAddr);
+		if (Memory::IsValidAddress(outLoopStartSampleAddr))
+			Memory::Write_U32(-1, outLoopStartSampleAddr);
+		if (Memory::IsValidAddress(outLoopEndSampleAddr))
+			Memory::Write_U32(-1, outLoopEndSampleAddr);
 	}
 	return 0;
 }
