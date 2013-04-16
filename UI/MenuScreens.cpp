@@ -685,6 +685,7 @@ static const char * credits[] = {
 	"soywiz",
 	"kovensky",
 	"xele",
+	"cinaera",
 	"",
 	"Written in C++ for speed and portability",
 	"",

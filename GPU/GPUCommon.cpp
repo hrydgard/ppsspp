@@ -531,7 +531,6 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 				auto &stackEntry = currentList->stack[--currentList->stackptr];
 				gstate_c.offsetAddr = stackEntry.offsetAddr;
 				u32 target = (currentList->pc & 0xF0000000) | (stackEntry.pc & 0x0FFFFFFF);
-				//target = (target + gstate_c.originAddr) & 0xFFFFFFF;
 				UpdateCycles(currentList->pc, target - 4);
 				currentList->pc = target - 4;
 				if (!Memory::IsValidAddress(currentList->pc)) {

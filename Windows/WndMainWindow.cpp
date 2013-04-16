@@ -38,6 +38,8 @@
 #include "XPTheme.h"
 #endif
 
+#define ENABLE_TOUCH 0
+
 static BOOL g_bFullScreen = FALSE;
 static RECT g_normalRC = {0};
 
@@ -209,6 +211,10 @@ namespace MainWindow
 		//accept dragged files
 		DragAcceptFiles(hwndMain, TRUE);
 
+#if ENABLE_TOUCH
+		RegisterTouchWindow(hwndDisplay, TWF_WANTPALM);
+#endif
+
 		SetFocus(hwndMain);
 
 		return TRUE;
@@ -303,6 +309,38 @@ namespace MainWindow
 				}
 			}
 			break;
+
+		case WM_TOUCH:
+			{
+				// TODO: Enabling this section will probably break things on Windows XP.
+				// We probably need to manually fetch pointers to GetTouchInputInfo and CloseTouchInputHandle.
+#if ENABLE_TOUCH
+				UINT inputCount = LOWORD(wParam);
+				TOUCHINPUT *inputs = new TOUCHINPUT[inputCount];
+				if (GetTouchInputInfo((HTOUCHINPUT)lParam,
+					inputCount,
+					inputs,
+					sizeof(TOUCHINPUT)))
+				{
+					for (int i = 0; i < inputCount; i++) {
+						// TODO: process inputs here!
+
+					}
+
+					if (!CloseTouchInputHandle((HTOUCHINPUT)lParam))
+					{
+						// error handling
+					}
+				}
+				else
+				{
+					// GetLastError() and error handling
+				}
+				delete [] inputs;
+				return DefWindowProc(hWnd, message, wParam, lParam);
+#endif
+			}
+
 
 		case WM_PAINT:
 			return DefWindowProc(hWnd, message, wParam, lParam);
