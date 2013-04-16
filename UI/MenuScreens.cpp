@@ -229,12 +229,10 @@ void MenuScreen::render() {
 		UIReset();
 	}
 
-#ifndef _WIN32
 	if (UIButton(GEN_ID, vlinear, w, 0, "Settings", ALIGN_RIGHT)) {
 		screenManager()->push(new SettingsScreen(), 0);
 		UIReset();
 	}
-#endif
 
 	if (UIButton(GEN_ID, vlinear, w, 0, "Credits", ALIGN_RIGHT)) {
 		screenManager()->switchScreen(new CreditsScreen());
@@ -413,11 +411,11 @@ void PauseScreen::render() {
 	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH, 0, "Continue", ALIGN_RIGHT)) {
 		screenManager()->finishDialog(this, DR_CANCEL);
 	}
-#ifndef _WIN32
+
 	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH, 0, "Settings", ALIGN_RIGHT)) {
 		screenManager()->push(new SettingsScreen(), 0);
 	}
-#endif
+
 	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH, 0, "Return to Menu", ALIGN_RIGHT)) {
 		screenManager()->finishDialog(this, DR_OK);
 	}
@@ -447,63 +445,68 @@ void SettingsScreen::render() {
 
 	ui_draw2d.DrawText(UBUNTU48, "Settings", dp_xres / 2, 20, 0xFFFFFFFF, ALIGN_HCENTER);
 
-	// TODO: Need to add tabs soon...
-	// VLinear vlinear(10, 80, 10);
-	
-	int x = 30;
-	int y = 30;
-	int stride = 40;
-	int columnw = 400;
-	UICheckBox(GEN_ID, x, y += stride, "Sound Emulation", ALIGN_TOPLEFT, &g_Config.bEnableSound);
-	UICheckBox(GEN_ID, x + columnw, y, "MipMapping", ALIGN_TOPLEFT, &g_Config.bMipMap);
-	if (UICheckBox(GEN_ID, x, y += stride, "Buffered Rendering", ALIGN_TOPLEFT, &g_Config.bBufferedRendering)) {
-		if (gpu)
-			gpu->Resized();
-	}
-	if (g_Config.bBufferedRendering) {
-		bool doubleRes = g_Config.iWindowZoom == 2;
-		if (UICheckBox(GEN_ID, x + columnw, y, "2x Render Resolution", ALIGN_TOPLEFT, &doubleRes)) {
-			if (gpu)
-				gpu->Resized();
-		}
-		g_Config.iWindowZoom = doubleRes ? 2 : 1;
-	}
-#ifndef __SYMBIAN32__
-	UICheckBox(GEN_ID, x, y += stride, "Hardware Transform", ALIGN_TOPLEFT, &g_Config.bHardwareTransform);
-	UICheckBox(GEN_ID, x + columnw, y, "Use Stream VBO", ALIGN_TOPLEFT, &g_Config.bUseVBO);
-#endif
-	UICheckBox(GEN_ID, x, y += stride, "Vertex Cache", ALIGN_TOPLEFT, &g_Config.bVertexCache);
-	UICheckBox(GEN_ID, x + columnw, y, "Linear Filtering", ALIGN_TOPLEFT, &g_Config.bLinearFiltering);
-
-	UICheckBox(GEN_ID, x, y += stride, "JIT (Dynarec)", ALIGN_TOPLEFT, &g_Config.bJit);
-	if (g_Config.bJit)
-		UICheckBox(GEN_ID, x + columnw, y, "Fast Memory (unstable)", ALIGN_TOPLEFT, &g_Config.bFastMemory);
-
-	UICheckBox(GEN_ID, x, y += stride, "On-screen Touch Controls", ALIGN_TOPLEFT, &g_Config.bShowTouchControls);
-	if (g_Config.bShowTouchControls) {
-		UICheckBox(GEN_ID, x + columnw, y, "Large Controls", ALIGN_TOPLEFT, &g_Config.bLargeControls);
-		UICheckBox(GEN_ID, x + columnw, y += stride, "Show Analog Stick", ALIGN_TOPLEFT, &g_Config.bShowAnalogStick);
-	} else {
-		y += stride;
-	}
-	UICheckBox(GEN_ID, x, y, "Tilt to Analog (horizontal)", ALIGN_TOPLEFT, &g_Config.bAccelerometerToAnalogHoriz);
-	
-
-	ui_draw2d.DrawText(UBUNTU24, "Some settings may require a restart to apply.", dp_xres/2, y += stride + 20, 0xFFFFFFFF, ALIGN_HCENTER);
-
-	// UICheckBox(GEN_ID, x, y += stride, "Draw raw framebuffer (for some homebrew)", ALIGN_TOPLEFT, &g_Config.bDisplayFramebuffer);
+	VLinear vlinear(50, 150, 20);
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres-10), LARGE_BUTTON_WIDTH, 0, "Back", ALIGN_RIGHT | ALIGN_BOTTOM)) {
 		screenManager()->finishDialog(this, DR_OK);
 	}
-	if (UIButton(GEN_ID, Pos(10, dp_yres-10), LARGE_BUTTON_WIDTH + 20, 0, "Developer Menu", ALIGN_BOTTOMLEFT)) {
+
+	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 20, 0, "Audio", ALIGN_BOTTOMLEFT)) {
+		screenManager()->push(new AudioScreen());
+	}
+	ui_draw2d.DrawText(UBUNTU24, "Adjust Audio Setting , Toggle Sound Emulation, ", 300, 110, 0xFFFFFFFF, ALIGN_LEFT);
+
+	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 20, 0, "Graphics", ALIGN_BOTTOMLEFT)) {
+		screenManager()->push(new GraphicsScreen());
+	}
+	ui_draw2d.DrawText(UBUNTU24, "Toggle Vertex Cache, Hardware Transform, VBO", 300, 180, 0xFFFFFFFF, ALIGN_LEFT);
+
+	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 20, 0, "System", ALIGN_BOTTOMLEFT)) {
+		screenManager()->push(new SystemScreen());
+	}
+	ui_draw2d.DrawText(UBUNTU24, "Turn on Dynarec (JIT), Fast Memory", 300, 250, 0xFFFFFFFF, ALIGN_LEFT);
+
+	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 20, 0, "Controls", ALIGN_BOTTOMLEFT)) {
+		screenManager()->push(new ControlsScreen());
+	}
+	ui_draw2d.DrawText(UBUNTU24, "Enable On Screen Controls, Large Button", 300, 320, 0xFFFFFFFF, ALIGN_LEFT);
+
+	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 20, 0, "Developer", ALIGN_BOTTOMLEFT)) {
 		screenManager()->push(new DeveloperScreen());
 	}
-
+	ui_draw2d.DrawText(UBUNTU24, "Run CPU test, Dump Next Frame Log", 300, 390, 0xFFFFFFFF, ALIGN_LEFT);
 	UIEnd();
 }
 
 void DeveloperScreen::update(InputState &input) {
+	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
+		g_Config.Save();
+		screenManager()->finishDialog(this, DR_OK);
+	}
+}
+
+void AudioScreen::update(InputState &input) {
+	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
+		g_Config.Save();
+		screenManager()->finishDialog(this, DR_OK);
+	}
+}
+
+void GraphicsScreen::update(InputState &input) {
+	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
+		g_Config.Save();
+		screenManager()->finishDialog(this, DR_OK);
+	}
+}
+
+void SystemScreen::update(InputState &input) {
+	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
+		g_Config.Save();
+		screenManager()->finishDialog(this, DR_OK);
+	}
+}
+
+void ControlsScreen::update(InputState &input) {
 	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
 		g_Config.Save();
 		screenManager()->finishDialog(this, DR_OK);
@@ -516,25 +519,137 @@ void DeveloperScreen::render() {
 	DrawBackground(1.0f);
 
 	ui_draw2d.DrawText(UBUNTU48, "Developer Tools", dp_xres / 2, 20, 0xFFFFFFFF, ALIGN_HCENTER);
+	VLinear vlinear(50, 100, 20);
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres-10), LARGE_BUTTON_WIDTH, 0, "Back", ALIGN_RIGHT | ALIGN_BOTTOM)) {
 		screenManager()->finishDialog(this, DR_OK);
 	}
 
-	if (UIButton(GEN_ID, Pos(dp_xres / 2, 100), LARGE_BUTTON_WIDTH, 0, "Run CPU tests", ALIGN_CENTER | ALIGN_TOP)) {
+	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH, 0, "Run CPU tests", ALIGN_LEFT)) {
 		// TODO: Run tests
 		RunTests();
 		// screenManager()->push(new EmuScreen())
 	}
 
-
-	if (UIButton(GEN_ID, Pos(10, dp_yres-10), LARGE_BUTTON_WIDTH + 40, 0, "Dump frame to log", ALIGN_BOTTOMLEFT)) {
+	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 40, 0, "Dump frame to log", ALIGN_LEFT)) {
 		gpu->DumpNextFrame();
 	}
 
 	UIEnd();
 }
 
+void AudioScreen::render() {
+	UIShader_Prepare();
+	UIBegin(UIShader_Get());
+	DrawBackground(1.0f);
+
+	ui_draw2d.DrawText(UBUNTU48, "Audio Settings", dp_xres / 2, 20, 0xFFFFFFFF, ALIGN_HCENTER);
+
+	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres-10), LARGE_BUTTON_WIDTH, 0, "Back", ALIGN_RIGHT | ALIGN_BOTTOM)) {
+		screenManager()->finishDialog(this, DR_OK);
+	}
+
+	int x = 30;
+	int y = 30;
+	int stride = 40;
+	int columnw = 400;
+	UICheckBox(GEN_ID, x, y += stride, "Enable Sound", ALIGN_TOPLEFT, &g_Config.bEnableSound);
+
+	UIEnd();
+}
+
+void GraphicsScreen::render() {
+	UIShader_Prepare();
+	UIBegin(UIShader_Get());
+	DrawBackground(1.0f);
+
+	ui_draw2d.DrawText(UBUNTU48, "Graphics Settings", dp_xres / 2, 20, 0xFFFFFFFF, ALIGN_HCENTER);
+
+	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres-10), LARGE_BUTTON_WIDTH, 0, "Back", ALIGN_RIGHT | ALIGN_BOTTOM)) {
+		screenManager()->finishDialog(this, DR_OK);
+	}
+
+	int x = 30;
+	int y = 30;
+	int stride = 40;
+	int columnw = 400;
+
+	UICheckBox(GEN_ID, x, y += stride, "Vertex Cache", ALIGN_TOPLEFT, &g_Config.bVertexCache);
+#ifndef __SYMBIAN32__
+	UICheckBox(GEN_ID, x, y += stride, "Hardware Transform", ALIGN_TOPLEFT, &g_Config.bHardwareTransform);
+	UICheckBox(GEN_ID, x, y += stride, "Use Stream VBO", ALIGN_TOPLEFT, &g_Config.bUseVBO);
+#endif
+	UICheckBox(GEN_ID, x, y += stride, "Use Media Engine", ALIGN_TOPLEFT, &g_Config.bUseMediaEngine);
+	UICheckBox(GEN_ID, x, y += stride, "Linear Filtering", ALIGN_TOPLEFT, &g_Config.bLinearFiltering);
+	bool fs = g_Config.iFrameSkip == 1;
+	UICheckBox(GEN_ID, x, y += stride, "Frame Skipping", ALIGN_TOPLEFT, &fs);
+	UICheckBox(GEN_ID, x, y += stride, "MipMapping", ALIGN_TOPLEFT, &g_Config.bMipMap);
+	if (UICheckBox(GEN_ID, x, y += stride, "Buffered Rendering", ALIGN_TOPLEFT, &g_Config.bBufferedRendering)) {
+		if (gpu)
+			gpu->Resized();
+	}
+	if (g_Config.bBufferedRendering) {
+		bool doubleRes = g_Config.iWindowZoom == 2;
+		if (UICheckBox(GEN_ID, x, y += stride, "2x Render Resolution", ALIGN_TOPLEFT, &doubleRes)) {
+			if (gpu)
+				gpu->Resized();
+		}
+		g_Config.iWindowZoom = doubleRes ? 2 : 1;
+	}
+	UIEnd();
+}
+
+void SystemScreen::render() {
+	UIShader_Prepare();
+	UIBegin(UIShader_Get());
+	DrawBackground(1.0f);
+
+	ui_draw2d.DrawText(UBUNTU48, "System Settings", dp_xres / 2, 20, 0xFFFFFFFF, ALIGN_HCENTER);
+
+	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres-10), LARGE_BUTTON_WIDTH, 0, "Back", ALIGN_RIGHT | ALIGN_BOTTOM)) {
+		screenManager()->finishDialog(this, DR_OK);
+	}
+
+	int x = 30;
+	int y = 30;
+	int stride = 40;
+	int columnw = 400;
+
+	UICheckBox(GEN_ID, x, y += stride, "Dynarec (JIT)", ALIGN_TOPLEFT, &g_Config.bJit);
+	if (g_Config.bJit)
+		UICheckBox(GEN_ID, x, y += stride, "Fast Memory (unstable)", ALIGN_TOPLEFT, &g_Config.bFastMemory);
+	UICheckBox(GEN_ID, x, y += stride, "Show Debug Statistics", ALIGN_TOPLEFT, &g_Config.bShowDebugStats);
+	UICheckBox(GEN_ID, x, y += stride, "Show FPS", ALIGN_TOPLEFT, &g_Config.bShowFPSCounter);
+	UIEnd();
+}
+
+void ControlsScreen::render() {
+	UIShader_Prepare();
+	UIBegin(UIShader_Get());
+	DrawBackground(1.0f);
+
+	ui_draw2d.DrawText(UBUNTU48, "Controls Settings", dp_xres / 2, 20, 0xFFFFFFFF, ALIGN_HCENTER);
+
+	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres-10), LARGE_BUTTON_WIDTH, 0, "Back", ALIGN_RIGHT | ALIGN_BOTTOM)) {
+		screenManager()->finishDialog(this, DR_OK);
+	}
+
+	int x = 30;
+	int y = 30;
+	int stride = 40;
+	int columnw = 400;
+
+	UICheckBox(GEN_ID, x, y += stride, "On-screen Touch Controls", ALIGN_TOPLEFT, &g_Config.bShowTouchControls);
+	if (g_Config.bShowTouchControls) {
+		UICheckBox(GEN_ID, x + columnw, y, "Large Controls", ALIGN_TOPLEFT, &g_Config.bLargeControls);
+		UICheckBox(GEN_ID, x + columnw, y += stride, "Show Analog Stick", ALIGN_TOPLEFT, &g_Config.bShowAnalogStick);
+	} else {
+		y += stride;
+	}
+	UICheckBox(GEN_ID, x, y, "Tilt to Analog (horizontal)", ALIGN_TOPLEFT, &g_Config.bAccelerometerToAnalogHoriz);
+
+	UIEnd();
+}
 
 class FileListAdapter : public UIListAdapter {
 public:
