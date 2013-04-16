@@ -583,7 +583,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 				} else {
 					// Summed color into c0
 					for (int j = 0; j < 4; j++) {
-						c0[j] = c0[j] + litColor1[j];
+						c0[j] = ((c0[j] + litColor1[j]) > 1.0f) ? 1.0f : (c0[j] + litColor1[j]);
 					}
 				}
 			} else {
