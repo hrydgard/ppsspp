@@ -231,6 +231,11 @@ void __IoAsyncNotify(u64 userdata, int cyclesLate) {
 		if (Memory::IsValidAddress(address) && f) {
 			Memory::Write_U64((u64) f->asyncResult, address);
 		}
+
+		// If this was a sceIoCloseAsync, we should close it at this point.
+		if (f->closePending) {
+			kernelObjects.Destroy<FileNode>(fd);
+		}
 	}
 }
 
