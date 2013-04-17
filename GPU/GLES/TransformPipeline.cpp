@@ -486,7 +486,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		float v[3] = {0, 0, 0};
 		float c0[4] = {1, 1, 1, 1};
 		float c1[4] = {0, 0, 0, 0};
-		float uv[2] = {0, 0};
+		float uv[3] = {0, 0, 0};
 		float fogCoef = 1.0f;
 
 		if (throughmode) {
@@ -615,6 +615,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 				// Texture scale/offset is only performed in this mode.
 				uv[0] = uscale * (ruv[0]*gstate_c.uScale + gstate_c.uOff);
 				uv[1] = vscale * (ruv[1]*gstate_c.vScale + gstate_c.vOff);
+				uv[2] = 1.0f;
 				break;
 			case 1:
 				{
@@ -640,6 +641,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 					Vec3ByMatrix43(uvw, &source.x, gstate.tgenMatrix);
 					uv[0] = uvw[0];
 					uv[1] = uvw[1];
+					uv[2] = uvw[2];
 				}
 				break;
 			case 2:
@@ -650,6 +652,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 
 					uv[0] = (1.0f + (lightpos0 * normal))/2.0f;
 					uv[1] = (1.0f - (lightpos1 * normal))/2.0f;
+					uv[2] = 1.0f;
 				}
 				break;
 			case 3:
@@ -665,7 +668,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		// TODO: Write to a flexible buffer, we don't always need all four components.
 		memcpy(&transformed[index].x, v, 3 * sizeof(float));
 		transformed[index].fog = fogCoef;
-		memcpy(&transformed[index].u, uv, 2 * sizeof(float));
+		memcpy(&transformed[index].u, uv, 3 * sizeof(float));
 		if (gstate_c.flipTexture) {
 			if (throughmode)
 				transformed[index].v = 1.0f - transformed[index].v;
@@ -763,11 +766,12 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		glBindBuffer(GL_ARRAY_BUFFER, vbo_[curVbo_]);
 		glBufferData(GL_ARRAY_BUFFER, vertexSize * numTrans, drawBuffer, GL_STREAM_DRAW);
 		drawBuffer = 0;  // so that the calls use offsets instead.
-	}
+	}		
+	bool doTextureProjection = gstate.getUVGenMode() == 1;
 	glVertexAttribPointer(program->a_position, 4, GL_FLOAT, GL_FALSE, vertexSize, drawBuffer);
-	if (program->a_texcoord != -1) glVertexAttribPointer(program->a_texcoord, 2, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 4 * 4);
-	if (program->a_color0 != -1) glVertexAttribPointer(program->a_color0, 4, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, ((uint8_t*)drawBuffer) + 6 * 4);
-	if (program->a_color1 != -1) glVertexAttribPointer(program->a_color1, 3, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, ((uint8_t*)drawBuffer) + 7 * 4);
+	if (program->a_texcoord != -1) glVertexAttribPointer(program->a_texcoord, doTextureProjection ? 3 : 2, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 4 * 4);
+	if (program->a_color0 != -1) glVertexAttribPointer(program->a_color0, 4, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, ((uint8_t*)drawBuffer) + 7 * 4);
+	if (program->a_color1 != -1) glVertexAttribPointer(program->a_color1, 3, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, ((uint8_t*)drawBuffer) + 8 * 4);
 	if (drawIndexed) {
 		if (useVBO) {
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_[curVbo_]);

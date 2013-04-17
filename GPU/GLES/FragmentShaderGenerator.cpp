@@ -85,6 +85,7 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue();
 		bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue();
 		int lmode = (gstate.lmode & 1) && gstate.isLightingEnabled();
+		bool doTextureProjection = gstate.getUVGenMode() == 1;
 
 		// id->d[0] |= (gstate.clearmode & 1);
 		if (gstate.isTextureMapEnabled()) {
@@ -101,6 +102,7 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		if (enableColorTest)
 			id->d[0] |= (gstate.colortest & 0x3) << 13;	 // color test func
 		id->d[0] |= (enableFog & 1) << 15;
+		id->d[0] |= (doTextureProjection & 1) << 16;
 	}
 }
 
@@ -117,11 +119,11 @@ void GenerateFragmentShader(char *buffer) {
 
 	int lmode = (gstate.lmode & 1) && gstate.isLightingEnabled();
 	int doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
-
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
 	bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !gstate.isModeClear();
 	bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue() && !gstate.isModeClear();
 	bool enableColorDoubling = (gstate.texfunc & 0x10000) != 0;
+	bool doTextureProjection = gstate.getUVGenMode() == 1;
 
 	if (doTexture)
 		WRITE(p, "uniform sampler2D tex;\n");
@@ -145,7 +147,12 @@ void GenerateFragmentShader(char *buffer) {
 #endif
 	}
 	if (doTexture)
-		WRITE(p, "varying vec2 v_texcoord;\n");
+	{
+		if (doTextureProjection)
+			WRITE(p, "varying vec3 v_texcoord;\n");
+		else
+			WRITE(p, "varying vec2 v_texcoord;\n");
+	}
 
 	WRITE(p, "void main() {\n");
 
@@ -163,7 +170,11 @@ void GenerateFragmentShader(char *buffer) {
 		}
 
 		if (gstate.textureMapEnable & 1) {
-			WRITE(p, "  vec4 t = texture2D(tex, v_texcoord);\n");
+			if (doTextureProjection) {
+				WRITE(p, "  vec4 t = texture2DProj(tex, v_texcoord);\n");
+			} else {
+				WRITE(p, "  vec4 t = texture2D(tex, v_texcoord);\n");
+			}
 			WRITE(p, "  vec4 p = v_color0;\n");
 
 			if (gstate.texfunc & 0x100) { // texfmt == RGBA
@@ -234,7 +245,7 @@ void GenerateFragmentShader(char *buffer) {
 
 #ifdef DEBUG_SHADER
 	if (doTexture) {
-		WRITE(p, "  gl_FragColor = texture2D(tex, v_texcoord);\n");
+		WRITE(p, "  gl_FragColor = texture2D(tex, v_texcoord.xy);\n");
 	} else {
 		WRITE(p, "  gl_FragColor = vec4(1,0,1,1);\n");
 	}

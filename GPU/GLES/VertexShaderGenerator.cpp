@@ -45,6 +45,7 @@ bool CanUseHardwareTransform(int prim) {
 // prim so we can special case for RECTANGLES :(
 void ComputeVertexShaderID(VertexShaderID *id, int prim) {
 	int doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
+	bool doTextureProjection = gstate.getUVGenMode() == 1;
 
 	bool hasColor = (gstate.vertType & GE_VTYPE_COL_MASK) != 0;
 	bool hasNormal = (gstate.vertType & GE_VTYPE_NRM_MASK) != 0;
@@ -59,7 +60,10 @@ void ComputeVertexShaderID(VertexShaderID *id, int prim) {
 	id->d[0] |= doTexture << 3;
 	id->d[0] |= (hasColor & 1) << 4;
 	if (doTexture)
+	{
 		id->d[0] |= (gstate_c.flipTexture & 1) << 5;
+		id->d[0] |= (doTextureProjection & 1) << 6;
+	}
 
 	if (CanUseHardwareTransform(prim)) {
 		id->d[0] |= 1 << 8;
@@ -149,6 +153,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
 	bool throughmode = (gstate.vertType & GE_VTYPE_THROUGH_MASK) != 0;
 	bool flipV = gstate_c.flipTexture;
+	bool doTextureProjection = gstate.getUVGenMode() == 1;
 
 	DoLightComputation doLight[4] = {LIGHT_OFF, LIGHT_OFF, LIGHT_OFF, LIGHT_OFF};
 	if (hwXForm) {
@@ -173,7 +178,12 @@ void GenerateVertexShader(int prim, char *buffer) {
 	else
 		WRITE(p, "attribute vec4 a_position;\n");  // need to pass the fog coord in w
 
-	if (doTexture) WRITE(p, "attribute vec2 a_texcoord;\n");
+	if (doTexture) {
+		if (!hwXForm && doTextureProjection)
+			WRITE(p, "attribute vec3 a_texcoord;\n");
+		else
+			WRITE(p, "attribute vec2 a_texcoord;\n");
+	}
 	if (hasColor) {
 		WRITE(p, "attribute lowp vec4 a_color0;\n");
 		if (lmode && !hwXForm)  // only software transform supplies color1 as vertex data
@@ -240,7 +250,12 @@ void GenerateVertexShader(int prim, char *buffer) {
 
 	WRITE(p, "varying lowp vec4 v_color0;\n");
 	if (lmode) WRITE(p, "varying lowp vec3 v_color1;\n");
-	if (doTexture) WRITE(p, "varying vec2 v_texcoord;\n");
+	if (doTexture) {
+		if (doTextureProjection)
+			WRITE(p, "varying vec3 v_texcoord;\n");
+		else
+			WRITE(p, "varying vec2 v_texcoord;\n");
+	}
 	if (enableFog) WRITE(p, "varying float v_fogdepth;\n");
 
 	WRITE(p, "void main() {\n");
@@ -410,8 +425,8 @@ void GenerateVertexShader(int prim, char *buffer) {
 					WRITE(p, "  vec3 temp_tc = a_normal;\n");
 					break;
 				}
-				// Transform by texture matrix
-				WRITE(p, "  v_texcoord = (u_texmtx * vec4(temp_tc, 1.0)).xy;\n");
+				// Transform by texture matrix. XYZ as we are doing projection mapping.
+				WRITE(p, "  v_texcoord = (u_texmtx * vec4(temp_tc, 1.0)).xyz;\n");
 				break;
 
 			case 2:  // Shade mapping - use dots from light sources.

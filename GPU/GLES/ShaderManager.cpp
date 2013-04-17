@@ -77,6 +77,11 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs)
 			ERROR_LOG(G3D, "Could not link program:\n %s", buf);
 			ERROR_LOG(G3D, "VS:\n%s", vs->source().c_str());
 			ERROR_LOG(G3D, "FS:\n%s", fs->source().c_str());
+#ifdef SHADERLOG
+			OutputDebugString(buf);
+			OutputDebugString(vs->source().c_str());
+			OutputDebugString(fs->source().c_str());
+#endif
 			delete [] buf;	// we're dead!
 		}
 		return;
