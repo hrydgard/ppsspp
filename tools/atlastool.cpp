@@ -537,6 +537,21 @@ void GetLocales(const char *locales, std::vector<AtlasCharRange> &ranges)
 			ranges.push_back(range(0xA2, 0xFF));  // 80 - A0 appears to contain nothing interesting
 			ranges.push_back(range(0x2122, 0x2123));  // trademark symbol 
 			break;
+		case 'k':  // Katakana
+			ranges.push_back(range(0x30A0, 0x30FF));
+			break;
+		case 'h':  // Hiragana
+			ranges.push_back(range(0x3041, 0x3097));
+			ranges.push_back(range(0x3099, 0x309F));
+			break;
+		case 'H':  // Hebrew
+			ranges.push_back(range(0x0590, 0x05FF));
+			break;
+		case 'G':  // Greek
+			ranges.push_back(range(0x0370, 0x03FF));
+			break;
+		case 'c':  // Kanji
+			break;
 		}
 	}
 }
