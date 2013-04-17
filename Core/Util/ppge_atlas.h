@@ -12,9 +12,7 @@
 #define I_CIRCLE 1
 #define I_SQUARE 2
 #define I_TRIANGLE 3
-#define I_BUTTON 4
-#define I_LOGO 5
 
 
 extern const Atlas ppge_atlas;
-extern const AtlasImage ppge_images[6];
+extern const AtlasImage ppge_images[4];

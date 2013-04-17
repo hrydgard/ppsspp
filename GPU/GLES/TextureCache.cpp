@@ -892,7 +892,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 {
 	void *finalBuf = NULL;
 
-		// TODO: only do this once
+	// TODO: only do this once
 	u32 texByteAlign = 1;
 
 	// TODO: Look into using BGRA for 32-bit textures when the GL_EXT_texture_format_BGRA8888 extension is available, as it's faster than RGBA on some chips.
