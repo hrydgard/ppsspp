@@ -474,7 +474,7 @@ struct FontDesc {
 		for (size_t r = 0; r < ranges.size(); r++) {
 			int first_char_id = ranges[r].start;
 			int last_char_id = ranges[r].end;
-			fprintf(fil, "  { %i, %i, %i },", first_char_id, last_char_id, start_index);
+			fprintf(fil, "  { %i, %i, %i },\n", first_char_id, last_char_id, start_index);
 			start_index += last_char_id - first_char_id;
 		}
 		fprintf(fil, "};\n");
