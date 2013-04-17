@@ -7,6 +7,7 @@ win32: QT += multimedia
 
 include(Settings.pri)
 mobile_platform: MOBILITY += sensors
+symbian: MOBILITY += systeminfo
 
 # Libs
 symbian: LIBS += -lCore.lib -lCommon.lib -lNative.lib
