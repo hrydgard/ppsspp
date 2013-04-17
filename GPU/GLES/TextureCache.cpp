@@ -324,53 +324,31 @@ void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex) {
 				DeIndexTextureNoSwizzle<u32>(tmpTexBuf32.data(), texaddr, length, clutBuf32);
 				break;
 			}
+			buf = tmpTexBuf32.data();
 		} else {
 			const u32 *clut = clutBuf32;
 			UnswizzleFromMem(texaddr, bytesPerIndex, level);
+			// Since we had to unswizzle to tmpTexBuf32, let's output to tmpTexBuf16.
+			tmpTexBuf16.resize(length * 2);
+			u32 *dest32 = (u32 *) tmpTexBuf16.data();
 			switch (bytesPerIndex) {
 			case 1:
-				// If possible, let's do this in 1024 byte blocks.
-				if ((length & 0x3ff) == 0) {
-					u8 block[1024];
-					for (int i = length - 1024, j = (length / 4) - 256; i >= 0; i -= 1024, j -= 256) {
-						memcpy(block, &tmpTexBuf32[j], 1024 * sizeof(u8));
-						DeIndexTexture(&tmpTexBuf32[i], block, 1024, clut);
-					}
-				} else {
-					for (int i = length - 4, j = (length / 4) - 1; i >= 0; i -= 4, j--) {
-						u32 n = tmpTexBuf32[j];
-						u32 k;
-						for (k = 0; k < 4; k++) {
-							u32 index = (n >> (k * 8)) & 0xff;
-							tmpTexBuf32[i + k] = clut[GetClutIndex(index)];
-						}
-					}
-				}
+				DeIndexTexture(dest32, (u8 *) tmpTexBuf32.data(), length, clut);
+				buf = dest32;
 				break;
 
 			case 2:
-				// If possible, let's do this in 1024 byte blocks.
-				if ((length & 0x3ff) == 0) {
-					u16 block[512];
-					for (int i = length - 1024, j = (length / 4) - 256; i >= 0; i -= 1024, j -= 256) {
-						memcpy(block, &tmpTexBuf32[j], 512 * sizeof(u16));
-						DeIndexTexture(&tmpTexBuf32[i], block, 512, clut);
-					}
-				} else {
-					for (int i = length - 2, j = (length / 2) - 1; i >= 0; i -= 2, j--) {
-						u32 n = tmpTexBuf32[j];
-						tmpTexBuf32[i + 0] = clut[GetClutIndex(n & 0xffff)];
-						tmpTexBuf32[i + 1] = clut[GetClutIndex(n >> 16)];
-					}
-				}
+				DeIndexTexture(dest32, (u16 *) tmpTexBuf32.data(), length, clut);
+				buf = dest32;
 				break;
 
 			case 4:
+				// TODO: If a game actually uses this crazy mode, check if using dest32 or tmpTexBuf32 is faster.
 				DeIndexTexture(tmpTexBuf32.data(), tmpTexBuf32.data(), length, clut);
+				buf = tmpTexBuf32.data();
 				break;
 			}
 		}
-		buf = tmpTexBuf32.data();
 		}
 		break;
 
