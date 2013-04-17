@@ -323,18 +323,20 @@ void DrawBuffer::DrawImage2GridH(int atlas_image, float x1, float y1, float x2, 
 
 void DrawBuffer::MeasureText(int font, const char *text, float *w, float *h) {
 	const AtlasFont &atlasfont = *atlas->fonts[font];
-	unsigned char cval;
+
+	unsigned int cval;
 	float wacc = 0;
 	int lines = 1;
 	while ((cval = *text++) != '\0') {
-		if (cval < 32) continue;
-		if (cval > 127) continue;
 		if (cval == '\n') {
 			wacc = 0;
 			lines++;
+			continue;
 		}
-		AtlasChar c = atlasfont.chars[cval - 32];
-		wacc += c.wx * fontscalex;
+		const AtlasChar *c = atlasfont.getChar(cval);
+		if (c) {
+			wacc += c->wx * fontscalex;
+		}
 	}
 	if (w) *w = wacc;
 	if (h) *h = atlasfont.height * fontscaley * lines;
@@ -392,29 +394,32 @@ void DrawBuffer::DrawText(int font, const char *text, float x, float y, Color co
 		}
 		if (cval < 32) continue;
 		if (cval > 127) continue;
-		AtlasChar c = atlasfont.chars[cval - 32];
-		float cx1, cy1, cx2, cy2;
-		if (flags & ROTATE_90DEG_LEFT) {
-			cy1 = y - c.ox * fontscalex;
-			cx1 = x + c.oy * fontscaley;
-			cy2 = y - (c.ox + c.pw) * fontscalex;
-			cx2 = x + (c.oy + c.ph) * fontscaley;
-		} else {
-			cx1 = x + c.ox * fontscalex;
-			cy1 = y + c.oy * fontscaley;
-			cx2 = x + (c.ox + c.pw) * fontscalex;
-			cy2 = y + (c.oy + c.ph) * fontscaley;
+		const AtlasChar *ch = atlasfont.getChar(cval);
+		if (ch) {
+			const AtlasChar &c = *ch;
+			float cx1, cy1, cx2, cy2;
+			if (flags & ROTATE_90DEG_LEFT) {
+				cy1 = y - c.ox * fontscalex;
+				cx1 = x + c.oy * fontscaley;
+				cy2 = y - (c.ox + c.pw) * fontscalex;
+				cx2 = x + (c.oy + c.ph) * fontscaley;
+			} else {
+				cx1 = x + c.ox * fontscalex;
+				cy1 = y + c.oy * fontscaley;
+				cx2 = x + (c.ox + c.pw) * fontscalex;
+				cy2 = y + (c.oy + c.ph) * fontscaley;
+			}
+			V(cx1,	cy1, color, c.sx, c.sy);
+			V(cx2,	cy1, color, c.ex, c.sy);
+			V(cx2,	cy2, color, c.ex, c.ey);
+			V(cx1,	cy1, color, c.sx, c.sy);
+			V(cx2,	cy2, color, c.ex, c.ey);
+			V(cx1,	cy2, color, c.sx, c.ey);
+			if (flags & ROTATE_90DEG_LEFT)
+				y -= c.wx * fontscalex;
+			else
+				x += c.wx * fontscalex;
 		}
-		V(cx1,	cy1, color, c.sx, c.sy);
-		V(cx2,	cy1, color, c.ex, c.sy);
-		V(cx2,	cy2, color, c.ex, c.ey);
-		V(cx1,	cy1, color, c.sx, c.sy);
-		V(cx2,	cy2, color, c.ex, c.ey);
-		V(cx1,	cy2, color, c.sx, c.ey);
-		if (flags & ROTATE_90DEG_LEFT)
-			y -= c.wx * fontscalex;
-		else
-			x += c.wx * fontscalex;
 	}
 }
 

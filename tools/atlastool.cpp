@@ -20,6 +20,8 @@
 #include <string>
 #include <cmath>
 
+#include "gfx/texture_atlas.h"
+
 #include "image/png_load.h"
 #include "image/zim_save.h"
 
@@ -166,6 +168,7 @@ struct Data {
   float wx;
 
   int effect;
+	int charNum;
 };
 
 bool operator<(const Data &lhs, const Data &rhs) {
@@ -273,7 +276,7 @@ struct Closest {
   }
 }; 
 
-void RasterizeFont(const char *fontfile, int fontsize, float *metrics_height, Bucket *bucket) {
+void RasterizeFont(const char *fontfile, const std::vector<AtlasCharRange> &ranges, int fontsize, float *metrics_height, Bucket *bucket) {
   FT_Library freetype;
   CHECK(FT_Init_FreeType(&freetype) == 0);
 
@@ -284,9 +287,11 @@ void RasterizeFont(const char *fontfile, int fontsize, float *metrics_height, Bu
 
   CHECK(FT_Set_Pixel_Sizes(font, 0, fontsize * supersample) == 0);
 
+
+
   // Character range. TODO: Make definable. We might want unicode
   // Convert all characters to bitmaps.
-  for(int kar = 32; kar < 128; kar++) {
+  for(int kar = ranges[0].start; kar < ranges[0].end; kar++) {
     Image<unsigned int> img;
     if (0 != FT_Load_Char(font, kar, FT_LOAD_RENDER|FT_LOAD_MONOCHROME)) {
 			img.resize(1,1);
@@ -301,6 +306,7 @@ void RasterizeFont(const char *fontfile, int fontsize, float *metrics_height, Bu
 			dat.ox = 0;
 			dat.oy = 0;
 			dat.wx = 0;
+			dat.charNum = kar;
 			dat.effect = FX_RED_TO_ALPHA_SOLID_WHITE;
 			bucket->AddItem(img, dat);
 			continue;
@@ -355,6 +361,7 @@ void RasterizeFont(const char *fontfile, int fontsize, float *metrics_height, Bu
     dat.ox = (float)font->glyph->metrics.horiBearingX / 64 / supersample - bord;
     dat.oy = -(float)font->glyph->metrics.horiBearingY / 64 / supersample - bord;
     dat.wx = (float)font->glyph->metrics.horiAdvance / 64 / supersample;
+		dat.charNum = kar;
 
     dat.effect = FX_RED_TO_ALPHA_SOLID_WHITE;
     bucket->AddItem(img, dat);
@@ -411,6 +418,13 @@ struct FontDesc {
 
   float metrics_height;
 
+	std::vector<AtlasCharRange> ranges;
+
+	FontDesc() {
+		AtlasCharRange range = {32, 128, 0};
+		ranges.push_back(range);
+	}
+
   void ComputeHeight(const vector<Data> &results, float distmult) {
     ascend = 0;
     descend = 0;
@@ -423,26 +437,42 @@ struct FontDesc {
   }
 
   void OutputSelf(FILE *fil, float tw, float th, const vector<Data> &results) {
+		// Dump results as chardata.
+		fprintf(fil, "const AtlasChar font_%s_chardata[] = {\n", name.c_str());
+		for (size_t i = 0; i < results.size(); i++) {
+			fprintf(fil, "    {%ff, %ff, %ff, %ff, %1.4ff, %1.4ff, %1.4ff, %i, %i},  // %i\n",
+				/*results[i].id, */
+				results[i].sx / tw,
+				results[i].sy / th,
+				results[i].ex / tw,
+				results[i].ey / th,
+				results[i].ox,
+				results[i].oy,
+				results[i].wx,
+				results[i].ex - results[i].sx, results[i].ey - results[i].sy,
+				results[i].charNum);
+		}
+		fprintf(fil, "};\n");
+
+		fprintf(fil, "const AtlasCharRange font_%s_ranges[] = {\n", name.c_str());
+		// Write range information.
+		int start_index = 0;
+		for (int r = 0; r < 1; r++) {
+			int first_char_id = ranges[r].start;
+			int last_char_id = ranges[r].end;
+			fprintf(fil, "  { %i, %i, %i },", first_char_id, last_char_id, start_index);
+			start_index += last_char_id - first_char_id;
+		}
+		fprintf(fil, "};\n");
+
     fprintf(fil, "const AtlasFont font_%s = {\n", name.c_str());
     fprintf(fil, "  %ff, // padding\n", height - ascend - descend);
     fprintf(fil, "  %ff, // height\n", ascend + descend);
     fprintf(fil, "  %ff, // ascend\n", ascend);
     fprintf(fil, "  %ff, // distslope\n", distmult / 256.0);
-    fprintf(fil, "  {\n");
-    CHECK(last_char_id - first_char_id == 96);
-    for(int i = first_char_id; i < last_char_id; i++) {
-      fprintf(fil, "    {%ff, %ff, %ff, %ff, %1.4ff, %1.4ff, %1.4ff, %i, %i},  // %i\n",
-              /*results[i].id, */
-							results[i].sx / tw,
-							results[i].sy / th,
-							results[i].ex / tw,
-							results[i].ey / th,
-							results[i].ox,
-							results[i].oy,
-							results[i].wx,
-              results[i].ex - results[i].sx, results[i].ey - results[i].sy, (i - first_char_id + 32));
-    }
-    fprintf(fil, "  },\n");
+    fprintf(fil, "  font_%s_chardata,\n", name.c_str());
+		fprintf(fil, "  font_%s_ranges,\n", name.c_str());
+		fprintf(fil, "  %i,\n", (int)ranges.size());
 		fprintf(fil, "  \"%s\", // name\n", name.c_str());
     fprintf(fil, "};\n");
   }
@@ -527,10 +557,15 @@ int main(int argc, char **argv) {
       sscanf(rest, "%s %s %i", fontname, fontfile, &pixheight);
       printf("Font: %s (%s) in size %i\n", fontname, fontfile, pixheight);
 
+			std::vector<AtlasCharRange> ranges;
+			AtlasCharRange def = {32, 128, 0};
+			ranges.push_back(def);
+
       FontDesc fnt;
+			fnt.ranges = ranges;
       fnt.first_char_id = (int)bucket.items.size();
       float metrics_height;
-      RasterizeFont(fontfile, pixheight, &metrics_height, &bucket);
+      RasterizeFont(fontfile, ranges, pixheight, &metrics_height, &bucket);
       fnt.name = fontname;
       fnt.last_char_id = (int)bucket.items.size();
       CHECK(fnt.last_char_id - fnt.first_char_id == 96);

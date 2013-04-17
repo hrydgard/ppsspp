@@ -11,13 +11,24 @@ struct AtlasChar {
   unsigned short pw, ph;
 };
 
+struct AtlasCharRange {
+	int start;
+	int end;
+	int start_index;
+};
+
 struct AtlasFont {
   float padding;
   float height;
   float ascend;
   float distslope;
-  AtlasChar chars[96];
+  const AtlasChar *charData;
+	const AtlasCharRange *ranges;
+	int numRanges;
 	const char *name;
+
+	// Returns 0 on no match.
+	const AtlasChar *getChar(int utf32) const ;
 };
 
 struct AtlasImage {
