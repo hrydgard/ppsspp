@@ -327,7 +327,11 @@ void DrawBuffer::MeasureText(int font, const char *text, float *w, float *h) {
 	unsigned int cval;
 	float wacc = 0;
 	int lines = 1;
-	while ((cval = *text++) != '\0') {
+	UTF8 utf(text);
+	while (true) {
+		if (utf.end())
+			break;
+		cval = utf.next();
 		if (cval == '\n') {
 			wacc = 0;
 			lines++;
