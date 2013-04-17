@@ -158,7 +158,7 @@ void LogoScreen::render() {
 	ui_draw2d.SetFontScale(1.5f, 1.5f);
 	ui_draw2d.DrawText(UBUNTU48, "PPSSPP", dp_xres / 2, dp_yres / 2 - 30, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
-	ui_draw2d.DrawText(UBUNTU24, "Created by Henrik Rydgard", dp_xres / 2, dp_yres / 2 + 40, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	ui_draw2d.DrawText(UBUNTU24, "Created by Henrik Rydg\u00E5rd", dp_xres / 2, dp_yres / 2 + 40, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	ui_draw2d.DrawText(UBUNTU24, "Free Software under GPL 2.0", dp_xres / 2, dp_yres / 2 + 70, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	ui_draw2d.DrawText(UBUNTU24, "www.ppsspp.org", dp_xres / 2, dp_yres / 2 + 130, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	if (bootFilename_.size()) {
@@ -336,19 +336,22 @@ void PauseScreen::render() {
 	UIBegin(UIShader_Get());
 	DrawBackground(1.0f);
 
-	const char *title;
+	std::string title = game_title.c_str();
 	// Try to ignore (tm) etc.
-	if (UTF8StringNonASCIICount(game_title.c_str()) > 2) {
-		title = "(can't display japanese title)";
-	} else {
-		title = game_title.c_str();
-	}
+	//if (UTF8StringNonASCIICount(game_title.c_str()) > 2) {
+	//	title = "(can't display japanese title)";
+	//} else {
+	//}
 
 
 	UIContext *ctx = screenManager()->getUIContext();
 	// This might create a texture so we must flush first.
 	UIFlush();
 	GameInfo *ginfo = g_gameInfoCache.GetInfo(PSP_CoreParameter().fileToStart, true);
+
+	if (ginfo) {
+		title = ginfo->title;
+	}
 
 	if (ginfo && ginfo->pic1Texture) {
 		ginfo->pic1Texture->Bind(0);
@@ -374,7 +377,7 @@ void PauseScreen::render() {
 		ctx->RebindTexture();
 	}
 
-	ui_draw2d.DrawText(UBUNTU48, title, 10+144+10, 20, 0xFFFFFFFF, ALIGN_LEFT);
+	ui_draw2d.DrawText(UBUNTU24, title.c_str(), 10+144+10, 20, 0xFFFFFFFF, ALIGN_LEFT);
 
 	int x = 30;
 	int y = 50;
@@ -416,7 +419,7 @@ void PauseScreen::render() {
 		screenManager()->push(new SettingsScreen(), 0);
 	}
 
-	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH, 0, "Return to Menu", ALIGN_RIGHT)) {
+	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH, 0, "Back to Menu", ALIGN_RIGHT)) {
 		screenManager()->finishDialog(this, DR_OK);
 	}
 
@@ -783,7 +786,9 @@ static const char * credits[] = {
 	"",
 	"A fast and portable PSP emulator",
 	"",
-	"Created by Henrik Rydgard",
+	"Created by Henrik Rydg\u00E5rd",
+	"(aka hrydgard, ector)"
+	"",
 	"",
 	"Contributors:",
 	"unknownbrackets",
@@ -800,7 +805,7 @@ static const char * credits[] = {
 	"soywiz",
 	"kovensky",
 	"xele",
-	"cinaera",
+	"cinaera/BeaR",
 	"",
 	"Written in C++ for speed and portability",
 	"",

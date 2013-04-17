@@ -5,8 +5,7 @@
 
 // FONTS_ui
 #define UBUNTU24 0
-#define UBUNTUBOLD24 1
-#define UBUNTU48 2
+#define UBUNTU48 1
 
 
 // IMAGES_ui
@@ -33,7 +32,8 @@
 #define I_ICON_UMD 20
 #define I_ICON_FOLDER 21
 #define I_ICON_EXE 22
+#define I_DROP_SHADOW 23
 
 
 extern const Atlas ui_atlas;
-extern const AtlasImage ui_images[23];
+extern const AtlasImage ui_images[24];

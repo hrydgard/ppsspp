@@ -1,7 +1,6 @@
-512
-font UBUNTU24 source_assets/font/zrnic.ttf 30
-font UBUNTUBOLD24 source_assets/font/zrnic.ttf 30
-font UBUNTU48 source_assets/font/zrnic.ttf 55
+1024
+font UBUNTU24 C:/Windows/Fonts/KozGoPro-Medium.otf UWhk 30
+font UBUNTU48 source_assets/font/zrnic.ttf UW 55
 image SOLIDWHITE white.png copy
 image I_CROSS source_assets/image/cross.png copy
 image I_CIRCLE source_assets/image/circle.png copy
@@ -25,3 +24,4 @@ image I_BUTTON_SELECTED source_assets/image/button_selected.png copy
 image I_ICON_UMD source_assets/image/umd48.png copy
 image I_ICON_FOLDER source_assets/image/folder.png copy
 image I_ICON_EXE source_assets/image/exe.png copy
+image I_DROP_SHADOW source_assets/image/dropshadow.png copy

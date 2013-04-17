@@ -15,19 +15,20 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "PPGeDraw.h"
-#include "../GPU/ge_constants.h"
-#include "../GPU/GPUState.h"
-#include "../GPU/GPUInterface.h"
-#include "../HLE/sceKernel.h"
-#include "../HLE/sceKernelMemory.h"
-#include "../HLE/sceGe.h"
-#include "../MemMap.h"
+#include "Core/Util/PPGeDraw.h"
+#include "GPU/ge_constants.h"
+#include "GPU/GPUState.h"
+#include "GPU/GPUInterface.h"
+#include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceKernelMemory.h"
+#include "Core/HLE/sceGe.h"
+#include "Core/MemMap.h"
 #include "image/zim_load.h"
 #include "gfx/texture_atlas.h"
 #include "gfx/gl_common.h"
-#include "../System.h"
+#include "util/text/utf8.h"
 #include "MathUtil.h"
+#include "Core/System.h"
 
 static u32 atlasPtr;
 static int atlasWidth;
@@ -249,7 +250,7 @@ void PPGeEnd()
 
 static void PPGeMeasureText(const char *text, float scale, float *w, float *h) {
 	const AtlasFont &atlasfont = *ppge_atlas.fonts[0];
-	unsigned char cval;
+	unsigned int cval;
 	float wacc = 0;
 	float maxw = 0;
 	int lines = 1;
@@ -261,8 +262,10 @@ static void PPGeMeasureText(const char *text, float scale, float *w, float *h) {
 		}
 		if (cval < 32) continue;
 		if (cval > 127) continue;
-		AtlasChar c = atlasfont.chars[cval - 32];
-		wacc += c.wx * scale;
+		const AtlasChar *c = atlasfont.getChar(cval);
+		if (c) {
+			wacc += c->wx * scale;
+		}
 	}
 	if (wacc > maxw) maxw = wacc;
 	if (w) *w = maxw;
@@ -278,12 +281,11 @@ static void PPGeDoAlign(int flags, float *x, float *y, float *w, float *h) {
 
 // Draws some text using the one font we have.
 // Mostly stolen from DrawBuffer.
-void PPGeDrawText(const char *text, float x, float y, int align, float scale, u32 color)
-{
+void PPGeDrawText(const char *text, float x, float y, int align, float scale, u32 color) {
 	if (!dlPtr)
 		return;
 	const AtlasFont &atlasfont = *ppge_atlas.fonts[0];
-	unsigned char cval;
+	unsigned int cval;
 	float w, h;
 	PPGeMeasureText(text, scale, &w, &h);
 	if (align) {
@@ -301,14 +303,17 @@ void PPGeDrawText(const char *text, float x, float y, int align, float scale, u3
 		}
 		if (cval < 32) continue;
 		if (cval > 127) continue;
-		AtlasChar c = atlasfont.chars[cval - 32];
-		float cx1 = x + c.ox * scale;
-		float cy1 = y + c.oy * scale;
-		float cx2 = x + (c.ox + c.pw) * scale;
-		float cy2 = y + (c.oy + c.ph) * scale;
-		Vertex(cx1, cy1, c.sx, c.sy, 256, 256, color);
-		Vertex(cx2, cy2, c.ex, c.ey, 256, 256, color);
-		x += c.wx * scale;
+		const AtlasChar *ch = atlasfont.getChar(cval);
+		if (ch) {
+			const AtlasChar &c = *ch;
+			float cx1 = x + c.ox * scale;
+			float cy1 = y + c.oy * scale;
+			float cx2 = x + (c.ox + c.pw) * scale;
+			float cy2 = y + (c.oy + c.ph) * scale;
+			Vertex(cx1, cy1, c.sx, c.sy, 256, 256, color);
+			Vertex(cx2, cy2, c.ex, c.ey, 256, 256, color);
+			x += c.wx * scale;
+		}
 	}
 	EndVertexDataAndDraw(GE_PRIM_RECTANGLES);
 }

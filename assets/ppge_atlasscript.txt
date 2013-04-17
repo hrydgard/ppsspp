@@ -1,8 +1,0 @@
-256
-font UBUNTU24 ../android/source_assets/font/zrnic.ttf 30
-image I_CROSS ../android/source_assets/image/cross.png copy
-image I_CIRCLE ../android/source_assets/image/circle.png copy
-image I_SQUARE ../android/source_assets/image/square.png copy
-image I_TRIANGLE ../android/source_assets/image/triangle.png copy
-image I_BUTTON ../android/source_assets/image/button.png copy
-image I_LOGO ../android/res/drawable-mdpi/ic_launcher.png copy

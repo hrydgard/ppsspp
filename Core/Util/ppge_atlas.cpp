@@ -2,12 +2,8 @@
 
 #include "ppge_atlas.h"
 
-const AtlasFont font_UBUNTU24 = {
-  -1.375000f, // padding
-  36.687500f, // height
-  26.937500f, // ascend
-  0.750000f, // distslope
-  {
+const AtlasChar font_UBUNTU24_chardata[] = {
+// RANGE: 0x20 - 0x80, start 0x0
     {0.972656f, 0.000000f, 0.976563f, 0.003906f, -2.0000f, -2.0000f, 7.0625f, 1, 1},  // 32
     {0.531250f, 0.675781f, 0.562500f, 0.777344f, -0.3750f, -23.1250f, 6.3750f, 8, 26},  // 33
     {0.246094f, 0.718750f, 0.292969f, 0.765625f, -0.5000f, -23.0625f, 10.2500f, 12, 12},  // 34
@@ -104,7 +100,17 @@ const AtlasFont font_UBUNTU24 = {
     {0.933594f, 0.210938f, 0.984375f, 0.351563f, -1.3750f, -26.9375f, 10.9375f, 13, 36},  // 125
     {0.296875f, 0.718750f, 0.359375f, 0.750000f, -0.5000f, -14.1875f, 14.7500f, 16, 8},  // 126
     {0.582031f, 0.000000f, 0.679688f, 0.136719f, -0.5000f, -25.2500f, 23.1250f, 25, 35},  // 127
-  },
+};
+const AtlasCharRange font_UBUNTU24_ranges[] = {
+  { 32, 128, 0 },};
+const AtlasFont font_UBUNTU24 = {
+  -1.375000f, // padding
+  36.687500f, // height
+  26.937500f, // ascend
+  0.750000f, // distslope
+  font_UBUNTU24_chardata,
+  font_UBUNTU24_ranges,
+  1,
   "UBUNTU24", // name
 };
 const AtlasFont *ppge_fonts[1] = {
@@ -112,7 +118,7 @@ const AtlasFont *ppge_fonts[1] = {
 };
 const AtlasImage ppge_images[6] = {
   {0.458984f, 0.001953f, 0.576172f, 0.119141f, 31, 31, "I_CROSS"},
-  {0.193359f, 0.001953f, 0.324453f, 0.133047f, 32, 32, "I_CIRCLE"},
+  {0.193359f, 0.001953f, 0.314453f, 0.123047f, 32, 32, "I_CIRCLE"},
   {0.685547f, 0.001953f, 0.794922f, 0.111328f, 29, 29, "I_SQUARE"},
   {0.322266f, 0.001953f, 0.451172f, 0.111328f, 34, 29, "I_TRIANGLE"},
   {0.802734f, 0.001953f, 0.861328f, 0.193359f, 16, 50, "I_BUTTON"},
