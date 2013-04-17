@@ -196,41 +196,45 @@ struct Bucket {
     masq.resize(image_width, 1);
     dest.resize(image_width, 1);
     sort(items.begin(), items.end());
-    for(int i = 0; i < (int)items.size(); i++) {
+    for (int i = 0; i < (int)items.size(); i++) {
       int idx = items[i].first.dat[0].size();
       int idy = items[i].first.dat.size();
-      CHECK(idx <= image_width);
-      bool found = false;
-      for(int ty = 0; ty < 2047 && !found; ty++) {
-        if(ty + idy + 1 > (int)dest.dat.size()) {
-          masq.resize(image_width, ty + idy + 1);
-          dest.resize(image_width, ty + idy + 1);
-        }
-        // Brute force packing.
-        for(int tx = 0; tx < image_width - (int)items[i].first.dat[0].size() && !found; tx++) {
-          bool valid = !(masq.dat[ty][tx] || masq.dat[ty + idy - 1][tx] || masq.dat[ty][tx + idx - 1] || masq.dat[ty + idy - 1][tx + idx - 1]);
-          if (valid) {
-            for(int ity = 0; ity < idy && valid; ity++)
-              for(int itx = 0; itx < idx && valid; itx++)
-                if(masq.dat[ty + ity][tx + itx]) {
-                  valid = false;
-                }
-          }
-          if (valid) {
-            dest.copyfrom(items[i].first, tx, ty, items[i].second.effect);
-            masq.set(tx, ty, tx + idx + 1, ty + idy + 1, 255);
+			if (idx > 0 && idy > 0) {
+				CHECK(idx <= image_width);
+				bool found = false;
+				for (int ty = 0; ty < 2047 && !found; ty++) {
+					if(ty + idy + 1 > (int)dest.dat.size()) {
+						masq.resize(image_width, ty + idy + 1);
+						dest.resize(image_width, ty + idy + 1);
+					}
+					// Brute force packing.
+					for (int tx = 0; tx < image_width - (int)items[i].first.dat[0].size() && !found; tx++) {
+						bool valid = !(masq.dat[ty][tx] || masq.dat[ty + idy - 1][tx] || masq.dat[ty][tx + idx - 1] || masq.dat[ty + idy - 1][tx + idx - 1]);
+						if (valid) {
+							for(int ity = 0; ity < idy && valid; ity++) {
+								for(int itx = 0; itx < idx && valid; itx++) {
+									if(masq.dat[ty + ity][tx + itx]) {
+										valid = false;
+									}
+								}
+							}
+						}
+						if (valid) {
+							dest.copyfrom(items[i].first, tx, ty, items[i].second.effect);
+							masq.set(tx, ty, tx + idx + 1, ty + idy + 1, 255);
 
-            items[i].second.sx = tx;
-            items[i].second.sy = ty;
+							items[i].second.sx = tx;
+							items[i].second.sy = ty;
 
-            items[i].second.ex = tx + idx;
-            items[i].second.ey = ty + idy;
+							items[i].second.ex = tx + idx;
+							items[i].second.ey = ty + idy;
 
-            found = true;
+							found = true;
 
-            // printf("Placed %d at %dx%d-%dx%d\n", items[i].second.id, tx, ty, tx + idx, ty + idy);
-          }
-        }
+							// printf("Placed %d at %dx%d-%dx%d\n", items[i].second.id, tx, ty, tx + idx, ty + idy);
+						}
+					}
+				}
       }
     }
 
@@ -276,14 +280,14 @@ struct Closest {
   }
 }; 
 
-void RasterizeFont(const char *fontfile, const std::vector<AtlasCharRange> &ranges, int fontsize, float *metrics_height, Bucket *bucket) {
+void RasterizeFont(const char *fontfile, std::vector<AtlasCharRange> &ranges, int fontsize, float *metrics_height, Bucket *bucket) {
   FT_Library freetype;
   CHECK(FT_Init_FreeType(&freetype) == 0);
 
   FT_Face font;
   CHECK(FT_New_Face(freetype, fontfile, 0, &font) == 0);
 
-  printf("%d glyphs, %08x flags, %d units, %d strikes\n", (int)font->num_glyphs, (int)font->face_flags, (int)font->units_per_EM, (int)font->num_fixed_sizes);
+  printf("TTF info: %d glyphs, %08x flags, %d units, %d strikes\n", (int)font->num_glyphs, (int)font->face_flags, (int)font->units_per_EM, (int)font->num_fixed_sizes);
 
   CHECK(FT_Set_Pixel_Sizes(font, 0, fontsize * supersample) == 0);
 
@@ -291,80 +295,83 @@ void RasterizeFont(const char *fontfile, const std::vector<AtlasCharRange> &rang
 
   // Character range. TODO: Make definable. We might want unicode
   // Convert all characters to bitmaps.
-  for(int kar = ranges[0].start; kar < ranges[0].end; kar++) {
-    Image<unsigned int> img;
-    if (0 != FT_Load_Char(font, kar, FT_LOAD_RENDER|FT_LOAD_MONOCHROME)) {
-			img.resize(1,1);
+	for (size_t r = 0; r < ranges.size(); r++) {
+		ranges[r].start_index = global_id;
+		for(int kar = ranges[r].start; kar < ranges[r].end; kar++) {
+			Image<unsigned int> img;
+			if (0 != FT_Load_Char(font, kar, FT_LOAD_RENDER|FT_LOAD_MONOCHROME)) {
+				img.resize(0, 0);
+				Data dat;
+
+				dat.id = global_id++;
+
+				dat.sx = 0;
+				dat.sy = 0;
+				dat.ex = 0;
+				dat.ey = 0;
+				dat.ox = 0;
+				dat.oy = 0;
+				dat.wx = 0;
+				dat.charNum = kar;
+				dat.effect = FX_RED_TO_ALPHA_SOLID_WHITE;
+				bucket->AddItem(img, dat);
+				continue;
+			}
+
+			// printf("%dx%d %p\n", font->glyph->bitmap.width, font->glyph->bitmap.rows, font->glyph->bitmap.buffer);
+			const int bord = (128 + distmult - 1) / distmult + 1;
+			if(font->glyph->bitmap.buffer) {
+				FT_Bitmap tempbitmap;
+				FT_Bitmap_New(&tempbitmap);
+				FT_Bitmap_Convert(freetype, &font->glyph->bitmap, &tempbitmap, 1);
+				Closest closest(tempbitmap);
+
+				// No resampling, just sets the size of the image.
+				img.resize((tempbitmap.width + supersample - 1) / supersample + bord * 2, (tempbitmap.rows + supersample - 1) / supersample + bord * 2);
+				int lmx = img.dat[0].size();
+				int lmy = img.dat.size();
+
+				// AA by finding distance to character. Probably a fairly decent approximation but why not do it right?
+				for(int y = 0; y < lmy; y++) {
+					int cty = (y - bord) * supersample + supersample / 2;
+					for(int x = 0; x < lmx; x++) {
+						int ctx = (x - bord) * supersample + supersample / 2;
+						float dist;
+						if(closest.safe_access(ctx, cty)) {
+							dist = closest.find_closest(ctx, cty, 0);
+						} else {
+							dist = -closest.find_closest(ctx, cty, 1);
+						}
+						dist = dist / supersample * distmult + 127.5;
+						dist = floor(dist + 0.5);
+						if(dist < 0) dist = 0;
+						if(dist > 255) dist = 255;
+
+						// Only set the red channel. We process when adding the image.
+						img.dat[y][x] = (unsigned char)dist;
+					}
+				}
+				FT_Bitmap_Done(freetype, &tempbitmap);
+			} else {
+				img.resize(1, 1);
+			}
+
 			Data dat;
 
 			dat.id = global_id++;
 
 			dat.sx = 0;
 			dat.sy = 0;
-			dat.ex = 0;
-			dat.ey = 0;
-			dat.ox = 0;
-			dat.oy = 0;
-			dat.wx = 0;
+			dat.ex = img.dat[0].size();
+			dat.ey = img.dat.size();
+			dat.ox = (float)font->glyph->metrics.horiBearingX / 64 / supersample - bord;
+			dat.oy = -(float)font->glyph->metrics.horiBearingY / 64 / supersample - bord;
+			dat.wx = (float)font->glyph->metrics.horiAdvance / 64 / supersample;
 			dat.charNum = kar;
+
 			dat.effect = FX_RED_TO_ALPHA_SOLID_WHITE;
 			bucket->AddItem(img, dat);
-			continue;
 		}
-
-    // printf("%dx%d %p\n", font->glyph->bitmap.width, font->glyph->bitmap.rows, font->glyph->bitmap.buffer);
-    const int bord = (128 + distmult - 1) / distmult + 1;
-    if(font->glyph->bitmap.buffer) {
-      FT_Bitmap tempbitmap;
-      FT_Bitmap_New(&tempbitmap);
-      FT_Bitmap_Convert(freetype, &font->glyph->bitmap, &tempbitmap, 1);
-      Closest closest(tempbitmap);
-
-      // No resampling, just sets the size of the image.
-      img.resize((tempbitmap.width + supersample - 1) / supersample + bord * 2, (tempbitmap.rows + supersample - 1) / supersample + bord * 2);
-      int lmx = img.dat[0].size();
-      int lmy = img.dat.size();
-
-      // AA by finding distance to character. Probably a fairly decent approximation but why not do it right?
-      for(int y = 0; y < lmy; y++) {
-        int cty = (y - bord) * supersample + supersample / 2;
-        for(int x = 0; x < lmx; x++) {
-          int ctx = (x - bord) * supersample + supersample / 2;
-          float dist;
-          if(closest.safe_access(ctx, cty)) {
-            dist = closest.find_closest(ctx, cty, 0);
-          } else {
-            dist = -closest.find_closest(ctx, cty, 1);
-          }
-          dist = dist / supersample * distmult + 127.5;
-          dist = floor(dist + 0.5);
-          if(dist < 0) dist = 0;
-          if(dist > 255) dist = 255;
-
-          // Only set the red channel. We process when adding the image.
-          img.dat[y][x] = (unsigned char)dist;
-        }
-      }
-      FT_Bitmap_Done(freetype, &tempbitmap);
-    } else {
-      img.resize(1, 1);
-    }
-
-    Data dat;
-
-    dat.id = global_id++;
-
-    dat.sx = 0;
-    dat.sy = 0;
-    dat.ex = img.dat[0].size();
-    dat.ey = img.dat.size();
-    dat.ox = (float)font->glyph->metrics.horiBearingX / 64 / supersample - bord;
-    dat.oy = -(float)font->glyph->metrics.horiBearingY / 64 / supersample - bord;
-    dat.wx = (float)font->glyph->metrics.horiAdvance / 64 / supersample;
-		dat.charNum = kar;
-
-    dat.effect = FX_RED_TO_ALPHA_SOLID_WHITE;
-    bucket->AddItem(img, dat);
   }
 
   *metrics_height = font->size->metrics.height;
@@ -420,9 +427,8 @@ struct FontDesc {
 
 	std::vector<AtlasCharRange> ranges;
 
-	FontDesc() {
-		AtlasCharRange range = {32, 128, 0};
-		ranges.push_back(range);
+	FontDesc()
+	{
 	}
 
   void ComputeHeight(const vector<Data> &results, float distmult) {
@@ -439,25 +445,29 @@ struct FontDesc {
   void OutputSelf(FILE *fil, float tw, float th, const vector<Data> &results) {
 		// Dump results as chardata.
 		fprintf(fil, "const AtlasChar font_%s_chardata[] = {\n", name.c_str());
-		for (size_t i = 0; i < results.size(); i++) {
-			fprintf(fil, "    {%ff, %ff, %ff, %ff, %1.4ff, %1.4ff, %1.4ff, %i, %i},  // %i\n",
-				/*results[i].id, */
-				results[i].sx / tw,
-				results[i].sy / th,
-				results[i].ex / tw,
-				results[i].ey / th,
-				results[i].ox,
-				results[i].oy,
-				results[i].wx,
-				results[i].ex - results[i].sx, results[i].ey - results[i].sy,
-				results[i].charNum);
+		for (size_t r = 0; r < ranges.size(); r++) {
+			fprintf(fil, "// RANGE: 0x%x - 0x%x, start 0x%x\n", ranges[r].start, ranges[r].end, ranges[r].start_index);
+			for (int i = ranges[r].start; i < ranges[r].end; i++) {
+				int idx = i - ranges[r].start + ranges[r].start_index;
+				fprintf(fil, "    {%ff, %ff, %ff, %ff, %1.4ff, %1.4ff, %1.4ff, %i, %i},  // %i\n",
+					/*results[i].id, */
+					results[idx].sx / tw,
+					results[idx].sy / th,
+					results[idx].ex / tw,
+					results[idx].ey / th,
+					results[idx].ox,
+					results[idx].oy,
+					results[idx].wx,
+					results[idx].ex - results[idx].sx, results[idx].ey - results[idx].sy,
+					results[idx].charNum);
+			}
 		}
 		fprintf(fil, "};\n");
 
 		fprintf(fil, "const AtlasCharRange font_%s_ranges[] = {\n", name.c_str());
 		// Write range information.
 		int start_index = 0;
-		for (int r = 0; r < 1; r++) {
+		for (size_t r = 0; r < ranges.size(); r++) {
 			int first_char_id = ranges[r].start;
 			int last_char_id = ranges[r].end;
 			fprintf(fil, "  { %i, %i, %i },", first_char_id, last_char_id, start_index);
@@ -510,6 +520,27 @@ struct ImageDesc {
   }
 };
 
+AtlasCharRange range(int start, int end) {
+	AtlasCharRange r = {start, end, 0};
+	return r;
+}
+
+void GetLocales(const char *locales, std::vector<AtlasCharRange> &ranges)
+{
+	for (size_t i = 0; i < strlen(locales); i++) {
+		switch (locales[i]) {
+		case 'U':  // US ASCII
+			ranges.push_back(range(32, 128));
+			break;
+		case 'W':  // Latin-1 extras 1
+			ranges.push_back(range(0x80, 0x81));  // euro sign
+			ranges.push_back(range(0xA2, 0xFF));  // 80 - A0 appears to contain nothing interesting
+			ranges.push_back(range(0x2122, 0x2123));  // trademark symbol 
+			break;
+		}
+	}
+}
+
 int main(int argc, char **argv) {
   // initProgram(&argc, const_cast<const char ***>(&argv));
   // /usr/share/fonts/truetype/msttcorefonts/Arial_Black.ttf
@@ -553,24 +584,25 @@ int main(int argc, char **argv) {
       // Font!
       char fontname[256];
       char fontfile[256];
+			char locales[256];
       int pixheight;
-      sscanf(rest, "%s %s %i", fontname, fontfile, &pixheight);
-      printf("Font: %s (%s) in size %i\n", fontname, fontfile, pixheight);
+      sscanf(rest, "%s %s %s %i", fontname, fontfile, locales, &pixheight);
+      printf("Font: %s (%s) in size %i. Locales: %s\n", fontname, fontfile, pixheight, locales);
 
 			std::vector<AtlasCharRange> ranges;
-			AtlasCharRange def = {32, 128, 0};
-			ranges.push_back(def);
-
+			GetLocales(locales, ranges);
+			printf("locales fetched.\n");
       FontDesc fnt;
-			fnt.ranges = ranges;
       fnt.first_char_id = (int)bucket.items.size();
+
       float metrics_height;
       RasterizeFont(fontfile, ranges, pixheight, &metrics_height, &bucket);
-      fnt.name = fontname;
-      fnt.last_char_id = (int)bucket.items.size();
-      CHECK(fnt.last_char_id - fnt.first_char_id == 96);
+			printf("font rasterized.\n");
 
+			fnt.ranges = ranges;
+			fnt.name = fontname;
       fnt.metrics_height = metrics_height;
+
       fonts.push_back(fnt);
     } else if (!strcmp(word, "image")) {
       char imagename[256];

@@ -392,8 +392,6 @@ void DrawBuffer::DrawText(int font, const char *text, float x, float y, Color co
 			x = sx;
 			continue;
 		}
-		if (cval < 32) continue;
-		if (cval > 127) continue;
 		const AtlasChar *ch = atlasfont.getChar(cval);
 		if (ch) {
 			const AtlasChar &c = *ch;
