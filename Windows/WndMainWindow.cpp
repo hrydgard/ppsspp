@@ -606,9 +606,6 @@ namespace MainWindow
 				DialogBox(hInst, (LPCTSTR)IDD_CONTROLS, hWnd, (DLGPROC)Controls);
 				DialogManager::EnableAll(TRUE);
 				break;
-			case case ID_OPTIONS_MIPMAP::
-				g_Config.bMipMap = !g_Config.bMipMap;
-				break;
 			case ID_EMULATION_SOUND:
 				g_Config.bEnableSound = !g_Config.bEnableSound;
 				break;
@@ -743,7 +740,6 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_SHOWFPS, g_Config.bShowFPSCounter);
 		CHECKITEM(ID_OPTIONS_FRAMESKIP, g_Config.iFrameSkip != 0);
 		CHECKITEM(ID_OPTIONS_USEMEDIAENGINE, g_Config.bUseMediaEngine);
-		CHECKITEM(ID_OPTIONS_MIPMAP, g_Config.bMipMap);
 		CHECKITEM(ID_EMULATION_SOUND, g_Config.bEnableSound);
 		
 		EnableMenuItem(menu,ID_EMULATION_RUN, (Core_IsStepping() || globalUIState == UISTATE_PAUSEMENU) ? MF_ENABLED : MF_GRAYED);
