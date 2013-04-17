@@ -13,6 +13,7 @@
 
 #ifdef __SYMBIAN32__
 #include <e32std.h>
+#include <QSystemScreenSaver>
 #endif
 #include "QtMain.h"
 
@@ -58,6 +59,9 @@ Q_DECL_EXPORT int main(int argc, char *argv[])
 #ifdef __SYMBIAN32__
 	// Set RunFast hardware mode for VFPv2. Denormalised values are treated as 0. NaN used for all NaN situations.
 	User::SetFloatingPointMode(EFpModeRunFast);
+	// Disable screensaver
+	QSystemScreenSaver *ssObject = new QSystemScreenSaver(this);
+	ssObject->setScreenSaverInhibit();
 #endif
 	QSize res = QApplication::desktop()->screenGeometry().size();
 	if (res.width() < res.height())
