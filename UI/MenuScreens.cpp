@@ -584,6 +584,7 @@ void GraphicsScreen::render() {
 	bool fs = g_Config.iFrameSkip == 1;
 	UICheckBox(GEN_ID, x, y += stride, "Frame Skipping", ALIGN_TOPLEFT, &fs);
 	UICheckBox(GEN_ID, x, y += stride, "MipMapping", ALIGN_TOPLEFT, &g_Config.bMipMap);
+	g_Config.iFrameSkip = fs ? 1 : 0;
 	if (UICheckBox(GEN_ID, x, y += stride, "Buffered Rendering", ALIGN_TOPLEFT, &g_Config.bBufferedRendering)) {
 		if (gpu)
 			gpu->Resized();
