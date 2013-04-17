@@ -454,27 +454,27 @@ void SettingsScreen::render() {
 	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 20, 0, "Audio", ALIGN_BOTTOMLEFT)) {
 		screenManager()->push(new AudioScreen());
 	}
-	ui_draw2d.DrawText(UBUNTU24, "Adjust Audio Setting, Toggle Sound Emulation ", 300, 110, 0xFFFFFFFF, ALIGN_LEFT);
+	ui_draw2d.DrawText(UBUNTU24, "Adjust Audio Setting, Toggle Sound Emulation ", 280, 110, 0xFFFFFFFF, ALIGN_LEFT);
 
 	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 20, 0, "Graphics", ALIGN_BOTTOMLEFT)) {
 		screenManager()->push(new GraphicsScreen());
 	}
-	ui_draw2d.DrawText(UBUNTU24, "Toggle Vertex Cache, Hardware Transform, VBO", 300, 180, 0xFFFFFFFF, ALIGN_LEFT);
+	ui_draw2d.DrawText(UBUNTU24, "Toggle Vertex Cache, Hardware Transform, VBO", 280, 180, 0xFFFFFFFF, ALIGN_LEFT);
 
 	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 20, 0, "System", ALIGN_BOTTOMLEFT)) {
 		screenManager()->push(new SystemScreen());
 	}
-	ui_draw2d.DrawText(UBUNTU24, "Turn on Dynarec (JIT), Fast Memory , FPS", 300, 250, 0xFFFFFFFF, ALIGN_LEFT);
+	ui_draw2d.DrawText(UBUNTU24, "Turn on Dynarec (JIT), Fast Memory , FPS", 280, 250, 0xFFFFFFFF, ALIGN_LEFT);
 
 	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 20, 0, "Controls", ALIGN_BOTTOMLEFT)) {
 		screenManager()->push(new ControlsScreen());
 	}
-	ui_draw2d.DrawText(UBUNTU24, "Enable On Screen Touch Controls, Analog Stick", 300, 320, 0xFFFFFFFF, ALIGN_LEFT);
+	ui_draw2d.DrawText(UBUNTU24, "Enable On Screen Touch Controls, Analog Stick", 280, 320, 0xFFFFFFFF, ALIGN_LEFT);
 
 	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 20, 0, "Developer", ALIGN_BOTTOMLEFT)) {
 		screenManager()->push(new DeveloperScreen());
 	}
-	ui_draw2d.DrawText(UBUNTU24, "Run CPU test, Dump Next Frame Log", 300, 390, 0xFFFFFFFF, ALIGN_LEFT);
+	ui_draw2d.DrawText(UBUNTU24, "Run CPU test, Dump Next Frame Log", 280, 390, 0xFFFFFFFF, ALIGN_LEFT);
 	UIEnd();
 }
 
@@ -525,13 +525,13 @@ void DeveloperScreen::render() {
 		screenManager()->finishDialog(this, DR_OK);
 	}
 
-	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH, 0, "Run CPU tests", ALIGN_LEFT)) {
+	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 10, 0, "Run CPU tests", ALIGN_LEFT)) {
 		// TODO: Run tests
 		RunTests();
 		// screenManager()->push(new EmuScreen())
 	}
 
-	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 40, 0, "Dump frame to log", ALIGN_LEFT)) {
+	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 80, 0, "Dump frame to log", ALIGN_LEFT)) {
 		gpu->DumpNextFrame();
 	}
 
