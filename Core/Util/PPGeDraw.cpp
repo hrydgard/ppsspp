@@ -168,6 +168,7 @@ void __PPGeDoState(PointerWrap &p)
 	p.Do(atlasPtr);
 	p.Do(atlasWidth);
 	p.Do(atlasHeight);
+	p.Do(palettePtr);
 
 	p.Do(savedContextPtr);
 	p.Do(savedContextSize);
