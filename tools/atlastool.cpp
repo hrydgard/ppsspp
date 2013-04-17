@@ -208,18 +208,17 @@ struct Bucket {
 						dest.resize(image_width, ty + idy + 1);
 					}
 					// Brute force packing.
-					for (int tx = 0; tx < image_width - (int)items[i].first.dat[0].size() && !found; tx++) {
+					int sz = (int)items[i].first.dat[0].size();
+					for (int tx = 0; tx < image_width - sz && !found; tx++) {
 						bool valid = !(masq.dat[ty][tx] || masq.dat[ty + idy - 1][tx] || masq.dat[ty][tx + idx - 1] || masq.dat[ty + idy - 1][tx + idx - 1]);
 						if (valid) {
 							for(int ity = 0; ity < idy && valid; ity++) {
 								for(int itx = 0; itx < idx && valid; itx++) {
 									if(masq.dat[ty + ity][tx + itx]) {
-										valid = false;
+										goto skip;
 									}
 								}
 							}
-						}
-						if (valid) {
 							dest.copyfrom(items[i].first, tx, ty, items[i].second.effect);
 							masq.set(tx, ty, tx + idx + 1, ty + idy + 1, 255);
 
@@ -233,6 +232,8 @@ struct Bucket {
 
 							// printf("Placed %d at %dx%d-%dx%d\n", items[i].second.id, tx, ty, tx + idx, ty + idy);
 						}
+skip:
+						;
 					}
 				}
       }
@@ -300,7 +301,7 @@ void RasterizeFont(const char *fontfile, std::vector<AtlasCharRange> &ranges, in
 		for(int kar = ranges[r].start; kar < ranges[r].end; kar++) {
 			Image<unsigned int> img;
 			if (0 != FT_Load_Char(font, kar, FT_LOAD_RENDER|FT_LOAD_MONOCHROME)) {
-				img.resize(0, 0);
+				img.resize(1, 1);
 				Data dat;
 
 				dat.id = global_id++;
@@ -434,10 +435,13 @@ struct FontDesc {
   void ComputeHeight(const vector<Data> &results, float distmult) {
     ascend = 0;
     descend = 0;
-    for(int i = first_char_id; i < last_char_id; i++) {
-      ascend = max(ascend, -results[i].oy);
-      descend = max(descend, results[i].ey - results[i].sy + results[i].oy);
-    }
+		for (size_t r = 0; r < ranges.size(); r++) {
+			for(int i = ranges[r].start; i < ranges[r].end; i++) {
+				int idx = i - ranges[r].start + ranges[r].start_index;
+				ascend = max(ascend, -results[idx].oy);
+				descend = max(descend, results[idx].ey - results[idx].sy + results[idx].oy);
+			}
+		}
 
     height = metrics_height / 64.0 / supersample;
   }
