@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstring>
 
+#include "base/colorutil.h"
 #include "ui/ui.h"
 #include "ui/ui_context.h"
 #include "gfx/texture.h"
@@ -234,7 +235,7 @@ int UIImageButton(int id, const LayoutManager &layout, float w, int image, int b
 	return clicked;
 }
 
-int UITextureButton(UIContext *ctx, int id, const LayoutManager &layout, float w, float h, Texture *texture, int button_align, uint32_t color)	// uses current UI atlas for fetching images.
+int UITextureButton(UIContext *ctx, int id, const LayoutManager &layout, float w, float h, Texture *texture, int button_align, uint32_t color, int drop_shadow)	// uses current UI atlas for fetching images.
 {
 	float x, y;
 	layout.GetPos(&w, &h, &x, &y);
@@ -273,12 +274,7 @@ int UITextureButton(UIContext *ctx, int id, const LayoutManager &layout, float w
 				clicked = 1;
 		}
 	}
-
-	// Render button
-
 	if (texture) {
-		texture->Bind(0);
-
 		float tw = texture->Width();
 		float th = texture->Height();
 
@@ -287,14 +283,27 @@ int UITextureButton(UIContext *ctx, int id, const LayoutManager &layout, float w
 		float nw = h * tw / th;
 		x += (w - nw) / 2.0f;
 		w = nw;
+	}
+
+	// Render button
+	const int dropsize = 10;
+	if (drop_shadow && texture)
+	{
+		ui_draw2d.DrawImage4Grid(drop_shadow, x - dropsize, y, x+w + dropsize, y+h+dropsize*1.5, 
+			alphaMul(color,0.5f), 1.0f);
+		ui_draw2d.Flush(true);
+	}
+
+	if (texture) {
+		texture->Bind(0);
 	} else {
 		ui_draw2d.DrawImage2GridH(theme.buttonImage, x, y, x + w, color);
 		ui_draw2d.Flush();
 
 		Texture::Unbind();
 	}
-
 	ui_draw2d.DrawTexRect(x, y, x+w, y+h, 0, 0, 1, 1, color);
+
 	ui_draw2d.Flush();
 	ctx->RebindTexture();
 
