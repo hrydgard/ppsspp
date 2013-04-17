@@ -478,6 +478,10 @@ namespace MainWindow
 				SetZoom(4);
 				break;
 
+			case ID_OPTIONS_MIPMAP:
+				g_Config.bMipMap = !g_Config.bMipMap;
+				break;
+
 			case ID_OPTIONS_BUFFEREDRENDERING:
 				g_Config.bBufferedRendering = !g_Config.bBufferedRendering;
 				if (gpu)
@@ -740,6 +744,7 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_SHOWFPS, g_Config.bShowFPSCounter);
 		CHECKITEM(ID_OPTIONS_FRAMESKIP, g_Config.iFrameSkip != 0);
 		CHECKITEM(ID_OPTIONS_USEMEDIAENGINE, g_Config.bUseMediaEngine);
+		CHECKITEM(ID_OPTIONS_MIPMAP, g_Config.bMipMap);
 
 		EnableMenuItem(menu,ID_EMULATION_RUN, (Core_IsStepping() || globalUIState == UISTATE_PAUSEMENU) ? MF_ENABLED : MF_GRAYED);
 		EnableMenuItem(menu,ID_EMULATION_PAUSE, globalUIState == UISTATE_INGAME ? MF_ENABLED : MF_GRAYED);
