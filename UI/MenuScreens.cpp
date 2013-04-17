@@ -292,7 +292,7 @@ void MenuScreen::render() {
 			} else {
 				color = whiteAlpha(ease((time_now_d() - ginfo->timeIconWasLoaded) * 2));
 			}
-			if (UITextureButton(ctx, (int)GEN_ID_LOOP(i), vgrid_recent, textureButtonWidth, textureButtonHeight, ginfo->iconTexture, ALIGN_LEFT, color)) {
+			if (UITextureButton(ctx, (int)GEN_ID_LOOP(i), vgrid_recent, textureButtonWidth, textureButtonHeight, ginfo->iconTexture, ALIGN_LEFT, color, I_DROP_SHADOW)) {
 				screenManager()->switchScreen(new EmuScreen(g_Config.recentIsos[i]));
 			}
 		} else {
