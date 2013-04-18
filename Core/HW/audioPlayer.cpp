@@ -182,7 +182,7 @@ bool audioEngine::loadRIFFStream(u8* stream, int streamsize, int atracID)
 		FILE *wfp = fopen(m_filename, "wb");
 		fwrite(stream, 1, streamsize, wfp);
 		fclose(wfp);
-		sprintf(strtemp, "at3tool\\at3tool.exe -d tmp\\%d.at3 tmp\\%d.wav", m_ID, m_ID);
+		sprintf(strtemp, "at3tool\\at3tool.exe -d -repeat 1 tmp\\%d.at3 tmp\\%d.wav", m_ID, m_ID);
 		system(strtemp);
 		DeleteFileA(m_filename);
 
