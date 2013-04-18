@@ -245,7 +245,6 @@ void UIReset();
 int UIButton(int id, const LayoutManager &layout, float w, float h, const char *text, int button_align);
 int UIImageButton(int id, const LayoutManager &layout, float w, int image_id, int button_align);	// uses current UI atlas for fetching images.
 int UITextureButton(UIContext *ctx, int id, const LayoutManager &layout, float w, float h, Texture *texture, int button_align, uint32_t color, int drop_shadow=0);  // uses current UI atlas for fetching images.
-
 // Returns 1 if clicked, puts the value in *value (where it also gets the current state).
 int UICheckBox(int id, int x, int y, const char *text, int align, bool *value);
 

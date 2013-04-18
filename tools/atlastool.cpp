@@ -11,6 +11,8 @@
 // line height
 // dist-per-pixel
 
+#include <set>
+
 #include <png.h>
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -25,11 +27,22 @@
 #include "image/png_load.h"
 #include "image/zim_save.h"
 
+#include "kanjifilter.h"
+
 #define CHECK(x) if (!(x)) { printf("%i: CHECK failed on this line\n", __LINE__); exit(1); }
 
 using namespace std;
 static int global_id;
 static bool highcolor = false;
+
+
+
+
+typedef unsigned short u16;
+
+struct CharRange : public AtlasCharRange {
+	std::set<u16> filter;
+};
 
 enum Effect {
   FX_COPY = 0,
@@ -197,15 +210,18 @@ struct Bucket {
     dest.resize(image_width, 1);
     sort(items.begin(), items.end());
     for (int i = 0; i < (int)items.size(); i++) {
+			if ((i + 1) % 200 == 0) {
+				printf("Resolving (%i / %i)\n", i, (int)items.size());
+			}
       int idx = items[i].first.dat[0].size();
       int idy = items[i].first.dat.size();
-			if (idx > 0 && idy > 0) {
+			if (idx > 1 && idy > 1) {
 				CHECK(idx <= image_width);
 				bool found = false;
 				for (int ty = 0; ty < 2047 && !found; ty++) {
 					if(ty + idy + 1 > (int)dest.dat.size()) {
-						masq.resize(image_width, ty + idy + 1);
-						dest.resize(image_width, ty + idy + 1);
+						masq.resize(image_width, ty + idy + 16);
+						dest.resize(image_width, ty + idy + 16);
 					}
 					// Brute force packing.
 					int sz = (int)items[i].first.dat[0].size();
@@ -239,7 +255,7 @@ skip:
       }
     }
 
-    if ((int)dest.dat.size() > image_width) {
+    if ((int)dest.dat.size() > image_width * 2) {
       printf("PACKING FAIL : height=%i", (int)dest.dat.size());
       exit(1);
     }
@@ -281,7 +297,7 @@ struct Closest {
   }
 }; 
 
-void RasterizeFont(const char *fontfile, std::vector<AtlasCharRange> &ranges, int fontsize, float *metrics_height, Bucket *bucket) {
+void RasterizeFont(const char *fontfile, std::vector<CharRange> &ranges, int fontsize, float *metrics_height, Bucket *bucket) {
   FT_Library freetype;
   CHECK(FT_Init_FreeType(&freetype) == 0);
 
@@ -299,8 +315,13 @@ void RasterizeFont(const char *fontfile, std::vector<AtlasCharRange> &ranges, in
 	for (size_t r = 0; r < ranges.size(); r++) {
 		ranges[r].start_index = global_id;
 		for(int kar = ranges[r].start; kar < ranges[r].end; kar++) {
+			bool filtered = false;
+			if (ranges[r].filter.size()) {
+				if (ranges[r].filter.find((u16)kar) == ranges[r].filter.end())
+					filtered = true;
+			}
 			Image<unsigned int> img;
-			if (0 != FT_Load_Char(font, kar, FT_LOAD_RENDER|FT_LOAD_MONOCHROME)) {
+			if (filtered || 0 != FT_Load_Char(font, kar, FT_LOAD_RENDER|FT_LOAD_MONOCHROME)) {
 				img.resize(1, 1);
 				Data dat;
 
@@ -426,7 +447,7 @@ struct FontDesc {
 
   float metrics_height;
 
-	std::vector<AtlasCharRange> ranges;
+	std::vector<CharRange> ranges;
 
 	FontDesc()
 	{
@@ -453,7 +474,7 @@ struct FontDesc {
 			fprintf(fil, "// RANGE: 0x%x - 0x%x, start 0x%x\n", ranges[r].start, ranges[r].end, ranges[r].start_index);
 			for (int i = ranges[r].start; i < ranges[r].end; i++) {
 				int idx = i - ranges[r].start + ranges[r].start_index;
-				fprintf(fil, "    {%ff, %ff, %ff, %ff, %1.4ff, %1.4ff, %1.4ff, %i, %i},  // %i\n",
+				fprintf(fil, "    {%ff, %ff, %ff, %ff, %1.4ff, %1.4ff, %1.4ff, %i, %i},  // %04x\n",
 					/*results[i].id, */
 					results[idx].sx / tw,
 					results[idx].sy / th,
@@ -524,25 +545,55 @@ struct ImageDesc {
   }
 };
 
-AtlasCharRange range(int start, int end) {
-	AtlasCharRange r = {start, end, 0};
+
+CharRange range(int start, int end, const std::set<u16> &filter) {
+	CharRange r;
+	r.start = start;
+	r.end = end + 1;
+	r.start_index = 0;
+	r.filter = filter;
 	return r;
 }
 
-void GetLocales(const char *locales, std::vector<AtlasCharRange> &ranges)
+CharRange range(int start, int end) {
+	CharRange r;
+	r.start = start;
+	r.end = end + 1;
+	r.start_index = 0;
+	return r;
+}
+
+inline bool operator <(const CharRange &a, const CharRange &b) {
+	// These ranges should never overlap so this should be enough.
+	return a.start < b.start;
+}
+
+void GetLocales(const char *locales, std::vector<CharRange> &ranges)
 {
+	std::set<u16> kanji;
+	for (int i = 0; i < sizeof(kanjiFilter)/sizeof(kanjiFilter[0]); i+=2)
+	{
+		// TODO: learning level check?
+		if (kanjiFilter[i+1] > 0) {
+			kanji.insert(kanjiFilter[i]);
+		}
+	}
+	// The end point of a range is now inclusive!
+
 	for (size_t i = 0; i < strlen(locales); i++) {
 		switch (locales[i]) {
 		case 'U':  // US ASCII
-			ranges.push_back(range(32, 128));
+			ranges.push_back(range(32, 127));
 			break;
 		case 'W':  // Latin-1 extras 1
-			ranges.push_back(range(0x80, 0x81));  // euro sign
+			ranges.push_back(range(0x80, 0x80));  // euro sign
 			ranges.push_back(range(0xA2, 0xFF));  // 80 - A0 appears to contain nothing interesting
-			ranges.push_back(range(0x2122, 0x2123));  // trademark symbol 
+			ranges.push_back(range(0x2122, 0x2122));  // trademark symbol 
 			break;
 		case 'k':  // Katakana
 			ranges.push_back(range(0x30A0, 0x30FF));
+			ranges.push_back(range(0x31F0, 0x31FF));
+			// ranges.push_back(range(0xFF00, 0xFFEF));  // half-width ascii
 			break;
 		case 'h':  // Hiragana
 			ranges.push_back(range(0x3041, 0x3097));
@@ -554,10 +605,17 @@ void GetLocales(const char *locales, std::vector<AtlasCharRange> &ranges)
 		case 'G':  // Greek
 			ranges.push_back(range(0x0370, 0x03FF));
 			break;
-		case 'c':  // Kanji
+		case 'R':  // Russian
+			ranges.push_back(range(0x0400, 0x04FF));
+			break;
+		case 'c':  // Japanese Kanji
+			ranges.push_back(range(0x4E00, 0x9F92, kanji));
 			break;
 		}
 	}
+	
+	ranges.push_back(range(0xFFFD, 0xFFFD));
+	std::sort(ranges.begin(), ranges.end());
 }
 
 int main(int argc, char **argv) {
@@ -593,8 +651,7 @@ int main(int argc, char **argv) {
     if (!fgets(line, 511, script)) break;
     if (!strlen(line)) break;
     char *rest = strchr(line, ' ');
-    if (rest)
-		{
+    if (rest) {
 			*rest = 0;
 			rest++;
 		}
@@ -608,7 +665,7 @@ int main(int argc, char **argv) {
       sscanf(rest, "%s %s %s %i", fontname, fontfile, locales, &pixheight);
       printf("Font: %s (%s) in size %i. Locales: %s\n", fontname, fontfile, pixheight, locales);
 
-			std::vector<AtlasCharRange> ranges;
+			std::vector<CharRange> ranges;
 			GetLocales(locales, ranges);
 			printf("locales fetched.\n");
       FontDesc fnt;
@@ -653,10 +710,10 @@ int main(int argc, char **argv) {
   vector<Data> results = bucket.Resolve(image_width, dest);
 	if (highcolor) {
 		printf("Writing .ZIM %ix%i RGBA8888...\n", dest.width(), dest.height());
-		dest.SaveZIM(image_name.c_str(), ZIM_RGBA8888);
+		dest.SaveZIM(image_name.c_str(), ZIM_RGBA8888 | ZIM_ZLIB_COMPRESSED);
 	} else {
 		printf("Writing .ZIM %ix%i RGBA4444...\n", dest.width(), dest.height());
-		dest.SaveZIM(image_name.c_str(), ZIM_RGBA4444);
+		dest.SaveZIM(image_name.c_str(), ZIM_RGBA4444 | ZIM_ZLIB_COMPRESSED);
 	}
   // Also save PNG for debugging.
   printf("Writing .PNG %s\n", (image_name + ".png").c_str());
