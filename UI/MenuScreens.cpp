@@ -196,7 +196,7 @@ void MenuScreen::render() {
 	if (frames_ > 200)  // seems the above goes nuts after a while...
 		xoff = -20;
 
-	int w = LARGE_BUTTON_WIDTH + 40;
+	int w = LARGE_BUTTON_WIDTH + 60;
 
 	ui_draw2d.DrawTextShadow(UBUNTU48, "PPSSPP", dp_xres + xoff - w/2, 75, 0xFFFFFFFF, ALIGN_HCENTER | ALIGN_BOTTOM);
 	ui_draw2d.SetFontScale(0.7f, 0.7f);
@@ -377,7 +377,7 @@ void PauseScreen::render() {
 		ctx->RebindTexture();
 	}
 
-	ui_draw2d.DrawText(UBUNTU24, title.c_str(), 10+144+10, 20, 0xFFFFFFFF, ALIGN_LEFT);
+	ui_draw2d.DrawText(UBUNTU24, title.c_str(), 10+144+10, 30, 0xFFFFFFFF, ALIGN_LEFT);
 
 	int x = 30;
 	int y = 50;
@@ -448,36 +448,39 @@ void SettingsScreen::render() {
 
 	ui_draw2d.DrawText(UBUNTU48, "Settings", dp_xres / 2, 20, 0xFFFFFFFF, ALIGN_HCENTER);
 
-	VLinear vlinear(50, 150, 20);
+	VLinear vlinear(40, 150, 20);
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres-10), LARGE_BUTTON_WIDTH, 0, "Back", ALIGN_RIGHT | ALIGN_BOTTOM)) {
 		screenManager()->finishDialog(this, DR_OK);
 	}
 
-	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 20, 0, "Audio", ALIGN_BOTTOMLEFT)) {
+	int w = LARGE_BUTTON_WIDTH - 10;
+	int s = 240;
+
+	if (UIButton(GEN_ID, vlinear, w, 0, "Audio", ALIGN_BOTTOMLEFT)) {
 		screenManager()->push(new AudioScreen());
 	}
-	ui_draw2d.DrawText(UBUNTU24, "Adjust Audio Setting , Toggle Sound Emulation, ", 300, 110, 0xFFFFFFFF, ALIGN_LEFT);
+	ui_draw2d.DrawText(UBUNTU24, "Adjust Audio Setting, Toggle Sound Emulation", s, 110, 0xFFFFFFFF, ALIGN_LEFT);
 
-	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 20, 0, "Graphics", ALIGN_BOTTOMLEFT)) {
+	if (UIButton(GEN_ID, vlinear, w, 0, "Graphics", ALIGN_BOTTOMLEFT)) {
 		screenManager()->push(new GraphicsScreen());
 	}
-	ui_draw2d.DrawText(UBUNTU24, "Toggle Vertex Cache, Hardware Transform, VBO", 300, 180, 0xFFFFFFFF, ALIGN_LEFT);
+	ui_draw2d.DrawText(UBUNTU24, "Toggle Vertex Cache, Hardware Transform, VBO", s, 180, 0xFFFFFFFF, ALIGN_LEFT);
 
-	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 20, 0, "System", ALIGN_BOTTOMLEFT)) {
+	if (UIButton(GEN_ID, vlinear, w, 0, "System", ALIGN_BOTTOMLEFT)) {
 		screenManager()->push(new SystemScreen());
 	}
-	ui_draw2d.DrawText(UBUNTU24, "Turn on Dynarec (JIT), Fast Memory", 300, 250, 0xFFFFFFFF, ALIGN_LEFT);
+	ui_draw2d.DrawText(UBUNTU24, "Turn on Dynarec (JIT), Fast Memory, FPS", s, 250, 0xFFFFFFFF, ALIGN_LEFT);
 
-	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 20, 0, "Controls", ALIGN_BOTTOMLEFT)) {
+	if (UIButton(GEN_ID, vlinear, w, 0, "Controls", ALIGN_BOTTOMLEFT)) {
 		screenManager()->push(new ControlsScreen());
 	}
-	ui_draw2d.DrawText(UBUNTU24, "Enable On Screen Controls, Large Button", 300, 320, 0xFFFFFFFF, ALIGN_LEFT);
+	ui_draw2d.DrawText(UBUNTU24, "Enable On Screen Touch Controls, Analog Stick", s, 320, 0xFFFFFFFF, ALIGN_LEFT);
 
-	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 20, 0, "Developer", ALIGN_BOTTOMLEFT)) {
+	if (UIButton(GEN_ID, vlinear, w, 0, "Developer", ALIGN_BOTTOMLEFT)) {
 		screenManager()->push(new DeveloperScreen());
 	}
-	ui_draw2d.DrawText(UBUNTU24, "Run CPU test, Dump Next Frame Log", 300, 390, 0xFFFFFFFF, ALIGN_LEFT);
+	ui_draw2d.DrawText(UBUNTU24, "Run CPU test, Dump Next Frame Log", s, 390, 0xFFFFFFFF, ALIGN_LEFT);
 	UIEnd();
 }
 
@@ -528,13 +531,13 @@ void DeveloperScreen::render() {
 		screenManager()->finishDialog(this, DR_OK);
 	}
 
-	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH, 0, "Run CPU tests", ALIGN_LEFT)) {
+	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 20, 0, "Run CPU tests", ALIGN_LEFT)) {
 		// TODO: Run tests
 		RunTests();
 		// screenManager()->push(new EmuScreen())
 	}
 
-	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 40, 0, "Dump frame to log", ALIGN_LEFT)) {
+	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 80, 0, "Dump frame to log", ALIGN_LEFT)) {
 		gpu->DumpNextFrame();
 	}
 
@@ -586,6 +589,7 @@ void GraphicsScreen::render() {
 	UICheckBox(GEN_ID, x, y += stride, "Linear Filtering", ALIGN_TOPLEFT, &g_Config.bLinearFiltering);
 	bool fs = g_Config.iFrameSkip == 1;
 	UICheckBox(GEN_ID, x, y += stride, "Frame Skipping", ALIGN_TOPLEFT, &fs);
+	g_Config.iFrameSkip = fs ? 1 : 0;
 	UICheckBox(GEN_ID, x, y += stride, "MipMapping", ALIGN_TOPLEFT, &g_Config.bMipMap);
 	if (UICheckBox(GEN_ID, x, y += stride, "Buffered Rendering", ALIGN_TOPLEFT, &g_Config.bBufferedRendering)) {
 		if (gpu)
@@ -640,7 +644,7 @@ void ControlsScreen::render() {
 	int x = 30;
 	int y = 30;
 	int stride = 40;
-	int columnw = 400;
+	int columnw = 440;
 
 	UICheckBox(GEN_ID, x, y += stride, "On-screen Touch Controls", ALIGN_TOPLEFT, &g_Config.bShowTouchControls);
 	if (g_Config.bShowTouchControls) {
@@ -763,12 +767,12 @@ void FileSelectScreen::render() {
 		updateListing();
 	}
 	ui_draw2d.DrawTextShadow(UBUNTU24, currentDirectory_.c_str(), 20 + SMALL_BUTTON_WIDTH, 10 + 25, 0xFFFFFFFF, ALIGN_LEFT | ALIGN_VCENTER);
-#ifndef ANDROID
+
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, 10), SMALL_BUTTON_WIDTH, 0, "Back", ALIGN_RIGHT)) {
 		g_Config.Save();
 		screenManager()->switchScreen(new MenuScreen());
 	}
-#endif
+
 	UIEnd();
 }
 

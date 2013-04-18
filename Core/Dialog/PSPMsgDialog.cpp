@@ -136,8 +136,8 @@ void PSPMsgDialog::DisplayBack()
 void PSPMsgDialog::DisplayYesNo()
 {
 
-	PPGeDrawText("Yes", 200, 170, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(yesnoChoice == 1?0xFF0000FF:0xFFFFFFFF));
-	PPGeDrawText("No", 320, 170, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(yesnoChoice == 0?0xFF0000FF:0xFFFFFFFF));
+	PPGeDrawText("Yes", 200, 150, PPGE_ALIGN_LEFT, 0.55f, CalcFadedColor(yesnoChoice == 1?0xFF0000FF:0xFFFFFFFF));
+	PPGeDrawText("No", 320, 150, PPGE_ALIGN_LEFT, 0.55f, CalcFadedColor(yesnoChoice == 0?0xFF0000FF:0xFFFFFFFF));
 
 	if (IsButtonPressed(CTRL_LEFT) && yesnoChoice == 0)
 	{
@@ -152,7 +152,7 @@ void PSPMsgDialog::DisplayYesNo()
 void PSPMsgDialog::DisplayOk()
 {
 	PPGeDrawImage(okButtonImg, 200, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawText("Ok", 230, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText("Enter", 230, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 }
 
 int PSPMsgDialog::Update()
