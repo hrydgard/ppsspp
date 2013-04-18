@@ -590,10 +590,13 @@ void GetLocales(const char *locales, std::vector<CharRange> &ranges)
 			ranges.push_back(range(0xA2, 0xFF));  // 80 - A0 appears to contain nothing interesting
 			ranges.push_back(range(0x2122, 0x2122));  // trademark symbol 
 			break;
+		case 'E':  // Latin-1 Extended A (needed for Hungarian etc)
+			ranges.push_back(range(0x100, 0x17F));
+			break;
 		case 'k':  // Katakana
 			ranges.push_back(range(0x30A0, 0x30FF));
 			ranges.push_back(range(0x31F0, 0x31FF));
-			// ranges.push_back(range(0xFF00, 0xFFEF));  // half-width ascii
+			ranges.push_back(range(0xFF00, 0xFFEF));  // half-width ascii
 			break;
 		case 'h':  // Hiragana
 			ranges.push_back(range(0x3041, 0x3097));
@@ -610,6 +613,9 @@ void GetLocales(const char *locales, std::vector<CharRange> &ranges)
 			break;
 		case 'c':  // Japanese Kanji
 			ranges.push_back(range(0x4E00, 0x9F92, kanji));
+			break;
+		case 'T':  // Thai
+			ranges.push_back(range(0x0E00, 0x0E5B));
 			break;
 		}
 	}
