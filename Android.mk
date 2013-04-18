@@ -28,8 +28,10 @@ LOCAL_SRC_FILES :=\
     file/easy_file.cpp \
     file/chunk_file.cpp \
     file/file_util.cpp \
+    file/ini_file.cpp \
     file/zip_read.cpp \
     json/json_writer.cpp \
+    i18n/i18n.cpp \
     math/math_util.cpp \
     math/curves.cpp \
     math/lin/aabb.cpp.arm \
