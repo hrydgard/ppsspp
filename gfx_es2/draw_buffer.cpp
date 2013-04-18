@@ -397,6 +397,8 @@ void DrawBuffer::DrawText(int font, const char *text, float x, float y, Color co
 			continue;
 		}
 		const AtlasChar *ch = atlasfont.getChar(cval);
+		if (!ch)
+			ch = atlasfont.getChar('?');
 		if (ch) {
 			const AtlasChar &c = *ch;
 			float cx1, cy1, cx2, cy2;

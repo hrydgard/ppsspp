@@ -4,6 +4,8 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <sstream>
+#include <vector>
 
 #include "base/basictypes.h"
 
@@ -55,6 +57,45 @@ public:
   bool operator ==(const ConstString &other) const {
     return ptr_ == other.ptr_ || !strcmp(ptr_, other.ptr_);
   }
+	const char *get() const { return ptr_; }
 private:
   const char *ptr_;
 };
+
+std::string StringFromFormat(const char* format, ...);
+std::string StringFromInt(int value);
+std::string StringFromBool(bool value);
+
+std::string ArrayToString(const uint8_t *data, uint32_t size, int line_len = 20, bool spaces = true);
+
+std::string StripSpaces(const std::string &s);
+std::string StripQuotes(const std::string &s);
+
+bool TryParse(const std::string &str, bool *const output);
+bool TryParse(const std::string &str, uint32_t *const output);
+
+template <typename N>
+static bool TryParse(const std::string &str, N *const output)
+{
+	std::istringstream iss(str);
+
+	N tmp = 0;
+	if (iss >> tmp)
+	{
+		*output = tmp;
+		return true;
+	}
+	else
+		return false;
+}
+void SplitString(const std::string& str, const char delim, std::vector<std::string>& output);
+
+
+template <typename N>
+static std::string ValueToString(const N value)
+{
+	std::stringstream string;
+	string << value;
+	return string.str();
+}
+

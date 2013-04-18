@@ -245,6 +245,12 @@
     <ClInclude Include="thread\threadutil.h">
       <Filter>thread</Filter>
     </ClInclude>
+    <ClInclude Include="i18n\i18n.h">
+      <Filter>i18n</Filter>
+    </ClInclude>
+    <ClInclude Include="file\ini_file.h">
+      <Filter>file</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -432,6 +438,12 @@
     <ClCompile Include="thread\threadutil.cpp">
       <Filter>thread</Filter>
     </ClCompile>
+    <ClCompile Include="i18n\i18n.cpp">
+      <Filter>i18n</Filter>
+    </ClCompile>
+    <ClCompile Include="file\ini_file.cpp">
+      <Filter>file</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="gfx">
@@ -493,6 +505,9 @@
     </Filter>
     <Filter Include="thread">
       <UniqueIdentifier>{caa41117-1d90-47cc-9fba-f7e670e315a3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="i18n">
+      <UniqueIdentifier>{02e8ef95-82c7-4420-b029-a189a5e0fcbd}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

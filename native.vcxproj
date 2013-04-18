@@ -211,6 +211,7 @@
     <ClInclude Include="file\easy_file.h" />
     <ClInclude Include="file\fd_util.h" />
     <ClInclude Include="file\file_util.h" />
+    <ClInclude Include="file\ini_file.h" />
     <ClInclude Include="file\vfs.h" />
     <ClInclude Include="file\zip_read.h" />
     <ClInclude Include="gfx\gl_debug_log.h" />
@@ -223,6 +224,7 @@
     <ClInclude Include="gfx_es2\glsl_program.h" />
     <ClInclude Include="gfx_es2\gl_state.h" />
     <ClInclude Include="gfx_es2\vertex_format.h" />
+    <ClInclude Include="i18n\i18n.h" />
     <ClInclude Include="image\png_load.h" />
     <ClInclude Include="image\zim_load.h" />
     <ClInclude Include="image\zim_save.h" />
@@ -305,6 +307,7 @@
     <ClCompile Include="file\easy_file.cpp" />
     <ClCompile Include="file\fd_util.cpp" />
     <ClCompile Include="file\file_util.cpp" />
+    <ClCompile Include="file\ini_file.cpp" />
     <ClCompile Include="file\zip_read.cpp" />
     <ClCompile Include="gfx\gl_debug_log.cpp" />
     <ClCompile Include="gfx\gl_lost_manager.cpp" />
@@ -316,6 +319,7 @@
     <ClCompile Include="gfx_es2\glsl_program.cpp" />
     <ClCompile Include="gfx_es2\gl_state.cpp" />
     <ClCompile Include="gfx_es2\vertex_format.cpp" />
+    <ClCompile Include="i18n\i18n.cpp" />
     <ClCompile Include="image\png_load.cpp" />
     <ClCompile Include="image\zim_load.cpp" />
     <ClCompile Include="image\zim_save.cpp" />
