@@ -116,6 +116,9 @@ public:
 
 	bool Load(const char* filename);
 	bool Load(const std::string &filename) { return Load(filename.c_str()); }
+	bool Load(std::istream &istream);
+	bool LoadFromVFS(const char *filename);
+
 	bool Save(const char* filename);
 	bool Save(const std::string &filename) { return Save(filename.c_str()); }
 

@@ -17,8 +17,7 @@
 
 #include "base/stringutil.h"
 #include "file/ini_file.h"
-
-namespace {
+#include "file/vfs.h"
 
 #ifdef _WIN32
 	// Function Cross-Compatibility
@@ -56,8 +55,6 @@ static bool ParseLine(const std::string& line, std::string* keyOut, std::string*
 		return true;
 	}
 	return false;
-}
-
 }
 
 std::string* IniFile::Section::GetLine(const char* key, std::string* valueOut, std::string* commentOut)
@@ -404,9 +401,6 @@ void IniFile::SortSections()
 
 bool IniFile::Load(const char* filename)
 {
-	// Maximum number of letters in a line
-	static const int MAX_BYTES = 1024*32;
-
 	sections.clear();
 	sections.push_back(Section(""));
 	// first section consists of the comments before the first real section
@@ -416,6 +410,27 @@ bool IniFile::Load(const char* filename)
 	in.open(filename, std::ios::in);
 
 	if (in.fail()) return false;
+
+	bool success = Load(in);
+	in.close();
+	return success;
+}
+
+bool IniFile::LoadFromVFS(const char *filename) {
+	size_t size;
+	uint8_t *data = VFSReadFile(filename, &size);
+	if (!data)
+		return false;
+	std::string str((const char*)data, size);
+	delete [] data;
+
+	std::stringstream sstream(str);
+	return Load(sstream);
+}
+
+bool IniFile::Load(std::istream &in) {
+	// Maximum number of letters in a line
+	static const int MAX_BYTES = 1024*32;
 
 	while (!in.eof())
 	{
@@ -462,7 +477,6 @@ bool IniFile::Load(const char* filename)
 		}
 	}
 
-	in.close();
 	return true;
 }
 
