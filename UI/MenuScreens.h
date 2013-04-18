@@ -94,8 +94,11 @@ public:
 class SystemScreen : public Screen
 {
 public:
+	SystemScreen();
 	void update(InputState &input);
 	void render();
+private:
+	std::vector<FileInfo> langs_;
 };
 
 class ControlsScreen : public Screen

@@ -35,6 +35,7 @@ namespace MainWindow {
 #include "base/timeutil.h"
 #include "base/NativeApp.h"
 #include "i18n/i18n.h"
+#include "file/vfs.h"
 #include "gfx_es2/glsl_program.h"
 #include "gfx_es2/gl_state.h"
 #include "input/input_state.h"
@@ -643,6 +644,15 @@ void GraphicsScreen::render() {
 	UIEnd();
 }
 
+SystemScreen::SystemScreen()
+{
+#ifdef ANDROID
+	VFSGetFileListing("assets/lang", &langs_, "ini");
+#else
+	VFSGetFileListing("lang", &langs_, "ini");
+#endif
+}
+
 void SystemScreen::render() {
 	UIShader_Prepare();
 	UIBegin(UIShader_Get());
@@ -668,20 +678,30 @@ void SystemScreen::render() {
 	UICheckBox(GEN_ID, x, y += stride, s->T("Show Debug Statistics"), ALIGN_TOPLEFT, &g_Config.bShowDebugStats);
 	UICheckBox(GEN_ID, x, y += stride, s->T("Show FPS"), ALIGN_TOPLEFT, &g_Config.bShowFPSCounter);
 
-	VLinear vlang(600, 70, 10);
+	VGrid vlang(550, 100, dp_yres - 50, 10, 10);
 
-	// TODO: Make a dynamic language selector that looks for INI files.
-#define NUMLANGS 6
-	static const char *langs[NUMLANGS] = {"English", "Swedish", "German", "Chinese", "Japanese", "Russian"};
-	static const char *langCodes[NUMLANGS] = {"en_US", "sv_SE", "de_DE", "zh_CN", "ja_JA", "ru_RU"};
+	for (int i = 0; i < langs_.size(); i++) {
+		std::string code;
+		size_t dot = langs_[i].name.find('.');
+		if (dot != std::string::npos)
+			code = langs_[i].name.substr(0, dot);
 
-	for (int i = 0; i < 6; i++) {
-		if (UIButton(GEN_ID_LOOP(i), vlang, LARGE_BUTTON_WIDTH, 0, langs[i], ALIGN_TOPLEFT)) {
-			g_Config.languageIni = langCodes[i];
-			i18nrepo.LoadIni(g_Config.languageIni);
-			// After this, g and s are no longer valid. Let's return, some flicker is okay.
-			g = GetI18NCategory("General");
-			s = GetI18NCategory("System");
+		std::string buttonTitle = langs_[i].name;
+		if (!code.empty())
+			buttonTitle = code;
+
+		if (UIButton(GEN_ID_LOOP(i), vlang, LARGE_BUTTON_WIDTH, 0, buttonTitle.c_str(), ALIGN_TOPLEFT)) {
+			std::string oldLang = g_Config.languageIni;
+			g_Config.languageIni = code;
+			if (i18nrepo.LoadIni(g_Config.languageIni)) {
+				// Dunno what else to do here.
+
+				// After this, g and s are no longer valid. Let's return, some flicker is okay.
+				g = GetI18NCategory("General");
+				s = GetI18NCategory("System");
+			} else {
+				g_Config.languageIni = oldLang;
+			}
 		}
 	}
 	UIEnd();
