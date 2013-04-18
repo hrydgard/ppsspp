@@ -903,7 +903,7 @@ namespace MainWindow
 			{
 				// TODO: connect to keyboard device instead
 				if (image.IsNull())
-					LoadImageFromResource(&image, hInst, MAKEINTRESOURCE(IDB_IMAGE_PSP), "JPG");
+					LoadImageFromResource(&image, hInst, MAKEINTRESOURCE(IDB_IMAGE_PSP), "IMAGE");
 				int key_pad_size = (IDC_EDIT_KEYRIGHT - IDC_EDIT_KEY_TURBO + 1);
 				for (u32 i = 0; i <= IDC_EDIT_KEY_ANALOG_RIGHT - IDC_EDIT_KEY_TURBO; i++) {
 					HWND hEdit = GetDlgItem(hDlg, IDC_EDIT_KEY_TURBO + i);
@@ -923,7 +923,7 @@ namespace MainWindow
 				HDC hdc = BeginPaint(hDlg, &pst);
 				int width = image.GetWidth();
 				int height = image.GetHeight();
-				image.BitBlt(hdc, 0, 0, width, height, 0 , 100);
+				image.BitBlt(hdc, 0, 0, width, height, 0 , 0);
 				EndPaint(hDlg, &pst);
 				return TRUE;
 			}
@@ -942,12 +942,8 @@ namespace MainWindow
 				RECT rc = getRedrawRect(hEdit);
 				RECT clientrc;
 				GetClientRect(hEdit, &clientrc);
-				image.BitBlt(hdc, 0, 0, rc.right - rc.left, rc.bottom - rc.top, rc.left, rc.top + 100);
+				image.BitBlt(hdc, 0, 0, rc.right - rc.left, rc.bottom - rc.top, rc.left, rc.top);
 				char str[11];
-				clientrc.left += 1;
-				clientrc.right += 1;
-				clientrc.top += 1;
-				clientrc.bottom += 1;
 				GetWindowTextA(hEdit, str, 10);
 				DrawTextA(hdc, str, strlen(str), &clientrc, DT_CENTER|DT_SINGLELINE);
 				return (LRESULT)GetStockObject(NULL_BRUSH);
