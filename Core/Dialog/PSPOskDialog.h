@@ -148,7 +148,7 @@ public:
 	virtual int Update();
 	virtual void DoState(PointerWrap &p);
 private:
-	void HackyGetStringWide(std::string& _string, const u32 em_address);
+	void ConvertUCS2ToUTF8(std::string& _string, const u32 em_address);
 	void RenderKeyboard();
 
 	SceUtilityOskParams oskParams;

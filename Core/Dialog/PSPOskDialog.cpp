@@ -43,17 +43,28 @@ PSPOskDialog::PSPOskDialog() : PSPDialog() {
 PSPOskDialog::~PSPOskDialog() {
 }
 
-// Same as get string but read out 16bit
-void PSPOskDialog::HackyGetStringWide(std::string& _string, const u32 em_address)
+void PSPOskDialog::ConvertUCS2ToUTF8(std::string& _string, const u32 em_address)
 {
 	char stringBuffer[2048];
 	char *string = stringBuffer;
-	char c;
-	u32 addr = em_address;
-	while ((c = (char)(Memory::Read_U16(addr))))
+
+	u16 *src = (u16 *) Memory::GetPointer(em_address);
+	int c;
+	while (c = *src++)
 	{
-		*string++ = c;
-		addr+=2;
+		if (c < 0x80)
+			*string++ = c;
+		else if (c < 0x800)
+		{
+			*string++ = 0xC0 | (c >> 6);
+			*string++ = 0x80 | (c & 0x3F);
+		}
+		else
+		{
+			*string++ = 0xE0 | (c >> 12);
+			*string++ = 0x80 | ((c >> 6) & 0x3F);
+			*string++ = 0x80 | (c & 0x3F);
+		}
 	}
 	*string++ = '\0';
 	_string = stringBuffer;
@@ -80,9 +91,9 @@ int PSPOskDialog::Init(u32 oskPtr)
 	{
 		Memory::ReadStruct(oskPtr, &oskParams);
 		Memory::ReadStruct(oskParams.SceUtilityOskDataPtr, &oskData);
-		HackyGetStringWide(oskDesc, oskData.descPtr);
-		HackyGetStringWide(oskIntext, oskData.intextPtr);
-		HackyGetStringWide(oskOuttext, oskData.outtextPtr);
+		ConvertUCS2ToUTF8(oskDesc, oskData.descPtr);
+		ConvertUCS2ToUTF8(oskIntext, oskData.intextPtr);
+		ConvertUCS2ToUTF8(oskOuttext, oskData.outtextPtr);
 		Memory::WriteStruct(oskParams.SceUtilityOskDataPtr, &oskData);
 		Memory::WriteStruct(oskPtr, &oskParams);
 	}
