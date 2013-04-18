@@ -2,6 +2,7 @@
 
 #include <windows.h>
 #include <tchar.h>
+#include <atlimage.h>
 
 #include "base/NativeApp.h"
 #include "Globals.h"
@@ -44,6 +45,12 @@ static BOOL g_bFullScreen = FALSE;
 static RECT g_normalRC = {0};
 
 extern InputState input_state;
+
+extern unsigned short analog_ctrl_map[];
+extern unsigned int key_pad_map[];
+extern const char * getVirtualKeyName(unsigned char key);
+extern bool saveControlsToFile();
+extern bool loadControlsFromFile();
 
 namespace MainWindow
 {
@@ -358,6 +365,7 @@ namespace MainWindow
 		switch (message) 
 		{
 		case WM_CREATE:
+			loadControlsFromFile();
 			break;
 
 		case WM_MOVE:
@@ -822,47 +830,140 @@ namespace MainWindow
 		"Rapid Fire\tShift",
 	};
 
-	// Message handler for controls box.
+	static HHOOK pKeydownHook;
+	static const int control_map_size = IDC_EDIT_KEY_ANALOG_RIGHT - IDC_EDIT_KEY_TURBO + 1;
+	static u8 control_map[control_map_size];
+	RECT getRedrawRect(HWND hWnd) {
+		RECT rc;
+		HWND hDlg = GetParent(hWnd);
+		GetWindowRect(hWnd, &rc);
+		POINT pt = {0, 0};
+		ScreenToClient(hDlg, &pt);
+		rc.left += pt.x;
+		rc.right += pt.x;
+		rc.top += pt.y;
+		rc.bottom += pt.y;
+		
+		return rc;
+	}
+
+	LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
+	{
+		HWND hEdit = GetFocus();
+		UINT nCtrlID = GetDlgCtrlID(hEdit);
+		if (nCtrlID < IDC_EDIT_KEY_TURBO || nCtrlID > IDC_EDIT_KEY_ANALOG_RIGHT) {
+			return CallNextHookEx(pKeydownHook, nCode, wParam, lParam);
+		}
+		if (!(lParam&(1<<31))) {
+			// key down
+			HWND hDlg = GetParent(hEdit);
+			const char *str = getVirtualKeyName(wParam);
+			if (str) {
+				control_map[nCtrlID - IDC_EDIT_KEY_TURBO] = wParam;
+				SetWindowTextA(hEdit, str);
+				RECT rc = getRedrawRect(hEdit);
+				InvalidateRect(hDlg, &rc, false);
+			}
+			else
+				MessageBoxA(hDlg, "Not supported!", "controller", MB_OK);
+		}
+		return 1;
+	}
+
+	BOOL LoadImageFromResource(CImage *image, HINSTANCE hInstance, LPCTSTR pszResourceName, LPCTSTR lpType)
+	{
+		HRSRC hrsrc = FindResource(hInstance, pszResourceName, lpType);
+		if (!hrsrc)
+			return FALSE;
+		DWORD dwlen = SizeofResource(hInstance, hrsrc);
+		BYTE *lpRsrc = (BYTE*)LoadResource(hInstance, hrsrc);
+		if (!lpRsrc)
+			return FALSE;
+		HGLOBAL hMem = GlobalAlloc(GMEM_FIXED, dwlen);
+		BYTE* pmem = (BYTE*)GlobalLock(hMem);
+		memcpy(pmem, lpRsrc, dwlen);
+		GlobalUnlock(hMem);
+		IStream* pstm;
+		CreateStreamOnHGlobal(hMem, FALSE, &pstm);
+		BOOL bResult = (image->Load(pstm) == S_OK);
+		pstm->Release();
+		GlobalFree(hMem);
+		FreeResource(lpRsrc);
+		return bResult;
+	}
+
+	// Message handler for control box.
 	LRESULT CALLBACK Controls(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 	{
+		static CImage image;
 		switch (message)
 		{
 		case WM_INITDIALOG:
 			W32Util::CenterWindow(hDlg);
 			{
 				// TODO: connect to keyboard device instead
-				HWND list = GetDlgItem(hDlg, IDC_LISTCONTROLS);
-				int stops[1] = {80};
-				SendMessage(list, LB_SETTABSTOPS, 1, (LPARAM)stops);
-				for (int i = 0; i < sizeof(controllist)/sizeof(controllist[0]); i++) {
-					SendMessage(list, LB_INSERTSTRING, -1, (LPARAM)controllist[i]);
+				if (image.IsNull())
+					LoadImageFromResource(&image, hInst, MAKEINTRESOURCE(IDB_IMAGE_PSP), "IMAGE");
+				int key_pad_size = (IDC_EDIT_KEYRIGHT - IDC_EDIT_KEY_TURBO + 1);
+				for (u32 i = 0; i <= IDC_EDIT_KEY_ANALOG_RIGHT - IDC_EDIT_KEY_TURBO; i++) {
+					HWND hEdit = GetDlgItem(hDlg, IDC_EDIT_KEY_TURBO + i);
+					if (IDC_EDIT_KEY_TURBO + i <= IDC_EDIT_KEYRIGHT)
+						control_map[i] = key_pad_map[i * 2];
+					else
+						control_map[i] = analog_ctrl_map[(i - key_pad_size) * 2];
+					SetWindowTextA(hEdit, getVirtualKeyName(control_map[i]));
 				}
-
-				ComboBox_AddString(GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE), "None");
-				ComboBox_AddString(GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE), "XInput");
-				ComboBox_AddString(GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE), "DirectInput");
-				if ((g_Config.iForceInputDevice < 0) || (g_Config.iForceInputDevice > 1))
-				{
-					ComboBox_SetCurSel(GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE), 0);
-				}
-				else
-				{
-					ComboBox_SetCurSel(GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE), (g_Config.iForceInputDevice + 1));
-				}
+				DWORD dwThreadID = GetWindowThreadProcessId(hDlg,NULL);
+				pKeydownHook = SetWindowsHookEx(WH_KEYBOARD,KeyboardProc, NULL, dwThreadID);
 			}
 			return TRUE;
-
-		case WM_COMMAND:
-			switch (LOWORD(wParam))
+		case WM_PAINT:
 			{
-				case IDOK:
-					g_Config.iForceInputDevice = (ComboBox_GetCurSel(GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE)) - 1);
-					EndDialog(hDlg, IDOK);
-					return TRUE;
-
-				case IDCANCEL:
-					EndDialog(hDlg, IDCANCEL);
-					return TRUE;
+				PAINTSTRUCT pst;
+				HDC hdc = BeginPaint(hDlg, &pst);
+				int width = image.GetWidth();
+				int height = image.GetHeight();
+				image.BitBlt(hdc, 0, 0, width, height, 0 , 0);
+				EndPaint(hDlg, &pst);
+				return TRUE;
+			}
+		case WM_CTLCOLORSTATIC:
+			{
+				HDC hdc=(HDC)wParam;
+				SetBkMode(hdc, TRANSPARENT);
+				return (LRESULT)GetStockObject(NULL_BRUSH); 
+			}
+		case WM_CTLCOLOREDIT:
+			{
+				HDC hdc = (HDC)wParam;
+				SetBkMode(hdc, TRANSPARENT);
+				SetTextColor(hdc, RGB(255, 0, 0));
+				HWND hEdit = (HWND)lParam;
+				RECT rc = getRedrawRect(hEdit);
+				RECT clientrc;
+				GetClientRect(hEdit, &clientrc);
+				image.BitBlt(hdc, 0, 0, rc.right - rc.left, rc.bottom - rc.top, rc.left, rc.top);
+				char str[11];
+				GetWindowTextA(hEdit, str, 10);
+				DrawTextA(hdc, str, strlen(str), &clientrc, DT_CENTER|DT_SINGLELINE);
+				return (LRESULT)GetStockObject(NULL_BRUSH);
+			}
+		case WM_COMMAND:
+			if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL) 
+			{
+				if (LOWORD(wParam) == IDOK) {
+					int key_pad_size = (IDC_EDIT_KEYRIGHT - IDC_EDIT_KEY_TURBO + 1);
+					for (u32 i = 0; i <= IDC_EDIT_KEY_ANALOG_RIGHT - IDC_EDIT_KEY_TURBO; i++) {
+						if (IDC_EDIT_KEY_TURBO + i <= IDC_EDIT_KEYRIGHT)
+							key_pad_map[i * 2] = control_map[i];
+					else
+						analog_ctrl_map[(i - key_pad_size) * 2] = control_map[i];
+					}
+					saveControlsToFile();
+				}
+				UnhookWindowsHookEx(pKeydownHook);
+				EndDialog(hDlg, LOWORD(wParam));
+				return TRUE;
 			}
 			break;
 		}

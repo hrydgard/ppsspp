@@ -94,6 +94,33 @@ BEGIN
     CONTROL         "",IDC_TABDATATYPE,"SysTabControl32",TCS_BUTTONS,0,1,205,15
 END
 
+IDD_CONTROLS DIALOGEX 0, 0, 495, 235
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Controls"
+FONT 9, "MS Shell Dlg", 0, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,176,217,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,230,217,50,14
+    LTEXT           "Xbox 360 controllers are supported! Just plug one in and use it!",IDC_STATIC,14,6,201,8
+    LTEXT           "Turbo Mode:",IDC_STATIC,386,213,42,8
+    EDITTEXT        IDC_EDIT_KEYUP,57,77,33,14,ES_CENTER | ES_AUTOHSCROLL | NOT WS_BORDER
+    EDITTEXT        IDC_EDIT_KEYLEFT,35,97,33,14,ES_CENTER | ES_AUTOHSCROLL | NOT WS_BORDER
+    EDITTEXT        IDC_EDIT_KEYRIGHT,77,97,33,14,ES_CENTER | ES_AUTOHSCROLL | NOT WS_BORDER
+    EDITTEXT        IDC_EDIT_KEYDOWN,57,119,33,14,ES_CENTER | ES_AUTOHSCROLL | NOT WS_BORDER
+    EDITTEXT        IDC_EDIT_KEY_TRIANGLE,406,73,33,14,ES_CENTER | ES_AUTOHSCROLL | NOT WS_BORDER
+    EDITTEXT        IDC_EDIT_KEY_RECTANGLE,380,98,33,14,ES_CENTER | ES_AUTOHSCROLL | NOT WS_BORDER
+    EDITTEXT        IDC_EDIT_KEY_CIRCLE,433,98,33,14,ES_CENTER | ES_AUTOHSCROLL | NOT WS_BORDER
+    EDITTEXT        IDC_EDIT_KEY_CROSS,408,125,33,14,ES_CENTER | ES_AUTOHSCROLL | NOT WS_BORDER
+    EDITTEXT        IDC_EDIT_KEY_LEFT_THUMB,53,24,33,14,ES_CENTER | ES_AUTOHSCROLL | NOT WS_BORDER
+    EDITTEXT        IDC_EDIT_KEY_RIGHT_THUMB,406,24,33,14,ES_CENTER | ES_AUTOHSCROLL | NOT WS_BORDER
+    EDITTEXT        IDC_EDIT_KEY_SELECT,326,190,33,14,ES_CENTER | ES_AUTOHSCROLL | NOT WS_BORDER
+    EDITTEXT        IDC_EDIT_KEY_START,356,190,33,14,ES_CENTER | ES_AUTOHSCROLL | NOT WS_BORDER
+    EDITTEXT        IDC_EDIT_KEY_ANALOG_UP,58,144,33,14,ES_CENTER | ES_AUTOHSCROLL | NOT WS_BORDER
+    EDITTEXT        IDC_EDIT_KEY_ANALOG_LEFT,42,158,33,14,ES_CENTER | ES_AUTOHSCROLL | NOT WS_BORDER
+    EDITTEXT        IDC_EDIT_KEY_ANALOG_RIGHT,75,158,33,14,ES_CENTER | ES_AUTOHSCROLL | NOT WS_BORDER
+    EDITTEXT        IDC_EDIT_KEY_ANALOG_DOWN,58,172,33,14,ES_CENTER | ES_AUTOHSCROLL | NOT WS_BORDER
+    EDITTEXT        IDC_EDIT_KEY_TURBO,430,210,33,14,ES_CENTER | ES_AUTOHSCROLL
+END
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -143,6 +170,12 @@ BEGIN
         RIGHTMARGIN, 247
         BOTTOMMARGIN, 413
     END
+
+    IDD_CONTROLS, DIALOG
+    BEGIN
+        MOCKUP, 1, 100, 0, 0, ".\pspmode.png"
+        RIGHTMARGIN, 440
+    END
 END
 #endif    // APSTUDIO_INVOKED
 
@@ -157,44 +190,6 @@ END
 IDI_PPSSPP              ICON                    "ppsspp.ico"
 IDI_STOP                ICON                    "icon1.ico"
 IDI_STOPDISABLE         ICON                    "stop1.ico"
-
-/////////////////////////////////////////////////////////////////////////////
-//
-// Dialog
-//
-
-IDD_CONTROLS DIALOGEX 0, 0, 287, 238
-STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "Controls"
-FONT 8, "MS Shell Dlg", 400, 0, 0x1
-BEGIN
-    DEFPUSHBUTTON   "OK",IDOK,176,217,50,14
-    PUSHBUTTON      "Cancel",IDCANCEL,230,217,50,14
-    LTEXT           "NOTE: Currently controls are NOT configurable.\nHowever: Xbox 360 controllers are supported! Just plug one in and use it!",IDC_STATIC,7,7,188,30
-    LISTBOX         IDC_LISTCONTROLS,7,39,273,176,LBS_SORT | LBS_USETABSTOPS | LBS_NOINTEGRALHEIGHT | WS_VSCROLL | WS_TABSTOP
-    LTEXT           "Force device:",IDC_STATIC,10,220,45,11
-    COMBOBOX        IDC_FORCE_INPUT_DEVICE,59,219,84,140,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-END
-
-
-/////////////////////////////////////////////////////////////////////////////
-//
-// DESIGNINFO
-//
-
-#ifdef APSTUDIO_INVOKED
-GUIDELINES DESIGNINFO
-BEGIN
-    IDD_CONTROLS, DIALOG
-    BEGIN
-        LEFTMARGIN, 7
-        RIGHTMARGIN, 280
-        TOPMARGIN, 7
-        BOTTOMMARGIN, 231
-    END
-END
-#endif    // APSTUDIO_INVOKED
-
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -353,6 +348,12 @@ END
 
 #endif    // APSTUDIO_INVOKED
 
+/////////////////////////////////////////////////////////////////////////////
+//
+// IMAGE
+//
+
+IDB_IMAGE_PSP           IMAGE                   "pspmode.png"
 
 /////////////////////////////////////////////////////////////////////////////
 //
