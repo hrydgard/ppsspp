@@ -4,7 +4,7 @@
 #include "../Core/HLE/sceCtrl.h"
 #include "WinUser.h"
 
-static const unsigned int key_pad_map[] = {
+unsigned int key_pad_map[] = {
 	VK_TAB,   PAD_BUTTON_LEFT_THUMB,
 	VK_SPACE, PAD_BUTTON_START,
 	'V',      PAD_BUTTON_SELECT,
@@ -20,7 +20,7 @@ static const unsigned int key_pad_map[] = {
 	VK_RIGHT, PAD_BUTTON_RIGHT,
 };
 
-static const unsigned short analog_ctrl_map[] = {
+unsigned short analog_ctrl_map[] = {
 	'I', CTRL_UP,
 	'K', CTRL_DOWN,
 	'J', CTRL_LEFT,
