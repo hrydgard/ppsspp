@@ -263,6 +263,16 @@ void PPGeEnd()
 	}
 }
 
+static const AtlasChar *PPGeGetChar(const AtlasFont &atlasfont, unsigned int cval)
+{
+	const AtlasChar *c = atlasfont.getChar(cval);
+	if (c == NULL)
+		c = atlasfont.getChar(0xFFFD);
+	if (c == NULL)
+		c = atlasfont.getChar('?');
+	return c;
+}
+
 static void PPGeMeasureText(const char *text, float scale, float *w, float *h) {
 	const AtlasFont &atlasfont = *ppge_atlas.fonts[0];
 	unsigned int cval;
@@ -279,7 +289,7 @@ static void PPGeMeasureText(const char *text, float scale, float *w, float *h) {
 			wacc = 0;
 			lines++;
 		}
-		const AtlasChar *c = atlasfont.getChar(cval);
+		const AtlasChar *c = PPGeGetChar(atlasfont, cval);
 		if (c) {
 			wacc += c->wx * scale;
 		}
@@ -322,7 +332,7 @@ void PPGeDrawText(const char *text, float x, float y, int align, float scale, u3
 			x = sx;
 			continue;
 		}
-		const AtlasChar *ch = atlasfont.getChar(cval);
+		const AtlasChar *ch = PPGeGetChar(atlasfont, cval);
 		if (ch) {
 			const AtlasChar &c = *ch;
 			float cx1 = x + c.ox * scale;
