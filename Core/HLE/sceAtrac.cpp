@@ -378,8 +378,16 @@ u32 sceAtracGetBitrate(int atracID, u32 outBitrateAddr)
 	if (!atrac) {
 		//return -1;
 	}
+
+	atrac->atracBitrate = ( atrac->atracBytesPerFrame * 352800 ) / 1000;
+	if (atrac->codeType == PSP_MODE_AT_3_PLUS) 
+		atrac->atracBitrate = ((atrac->atracBitrate >> 11) + 8) & 0xFFFFFFF0;
+	else
+		atrac->atracBitrate = (atrac->atracBitrate + 511) >> 10;
+
 	if (Memory::IsValidAddress(outBitrateAddr))
 		Memory::Write_U32(atrac->atracBitrate, outBitrateAddr);
+
 	return 0;
 }
 
@@ -446,10 +454,10 @@ u32  sceAtracGetNextDecodePosition(int atracID, u32 outposAddr)
 	if (!atrac) {
 		//return -1;
 	}
-	if (atrac->currentSample >= atrac->endSample)
+	if (atrac->first.writableBytes - atrac->firstSampleoffset < atrac->atracBytesPerFrame || atrac->endSample < atrac->decodePos)
 		return ATRAC_ERROR_ALL_DATA_DECODED;
-	Memory::Write_U32(atrac->currentSample, outposAddr); // outpos
-	return 0;
+	Memory::Write_U32(atrac->decodePos - atrac->currentSample, outposAddr); // outpos
+	return 0; 
 }
 
 u32 sceAtracGetNextSample(int atracID, u32 outNAddr)
@@ -491,12 +499,14 @@ u32 sceAtracGetSecondBufferInfo(int atracID, u32 outposAddr, u32 outBytesAddr)
 	ERROR_LOG(HLE, "sceAtracGetSecondBufferInfo(%i, %08x, %08x)", atracID, outposAddr, outBytesAddr);
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		//return -1;
+		Memory::Write_U32(0, outposAddr);
+		Memory::Write_U32(0, outBytesAddr);
+		return ATRAC_ERROR_SECOND_BUFFER_NOT_NEEDED;
 	}
-	Memory::Write_U32(0, outposAddr);
-	Memory::Write_U32(0x10000, outBytesAddr);
-	// TODO: Maybe don't write the above?
-	return ATRAC_ERROR_SECOND_BUFFER_NOT_NEEDED;
+	u32 pos = (((atrac->loopEndSample >> (0x100B - atrac->codeType)) + 1) * atrac->atracBytesPerFrame + atrac->second.fileoffset - 1 ) + 1;
+	Memory::Write_U32(pos, outposAddr);
+	Memory::Write_U32(atrac->second.writableBytes - pos, outBytesAddr);
+	return 0;
 }
 
 u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoopStartSampleAddr, u32 outLoopEndSampleAddr)
@@ -506,9 +516,19 @@ u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoopStartSa
 	if (!atrac) {
 		//return -1;
 	}
-	Memory::Write_U32(atrac->endSample, outEndSampleAddr); // outEndSample
-	Memory::Write_U32(atrac->loopStartSample, outLoopStartSampleAddr); // outLoopStartSample
-	Memory::Write_U32(atrac->loopEndSample, outLoopEndSampleAddr); // outLoopEndSample
+	if (Memory::IsValidAddress(outEndSampleAddr))
+		Memory::Write_U32(atrac->endSample - atrac->currentSample, outEndSampleAddr);
+	if (atrac->loopEndSample != 0) {
+		if (Memory::IsValidAddress(outLoopStartSampleAddr))
+			Memory::Write_U32(atrac->loopStartSample - atrac->currentSample, outLoopStartSampleAddr); 
+		if (Memory::IsValidAddress(outLoopEndSampleAddr))
+			Memory::Write_U32(atrac->loopEndSample - atrac->currentSample, outLoopEndSampleAddr); 
+	} else {
+		if (Memory::IsValidAddress(outLoopStartSampleAddr))
+			Memory::Write_U32(-1, outLoopStartSampleAddr);
+		if (Memory::IsValidAddress(outLoopEndSampleAddr))
+			Memory::Write_U32(-1, outLoopEndSampleAddr);
+	}
 	return 0;
 }
 
@@ -660,11 +680,30 @@ int sceAtracIsSecondBufferNeeded(int atracID)
 int sceAtracSetMOutHalfwayBuffer(int atracID, u32 MOutHalfBuffer, int readSize, int MOutHalfBufferSize)
 {
 	ERROR_LOG(HLE, "UNIMPL sceAtracSetMOutHalfwayBuffer(%i, %08x, %i, %i)", atracID, MOutHalfBuffer, readSize, MOutHalfBufferSize);
+	if (readSize > MOutHalfBufferSize)
+		return ATRAC_ERROR_INCORRECT_READ_SIZE;
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
 		//return -1;
 	}
 	return 0;
+}
+
+int sceAtracSetAA3HalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBufferSize)
+{
+	ERROR_LOG(HLE, "UNIMPL sceAtracSetAA3HalfwayBufferAndGetID(%08x, %08x, %08x)", halfBuffer, readSize, halfBufferSize);
+	if (readSize > halfBufferSize)
+		return ATRAC_ERROR_INCORRECT_READ_SIZE;
+
+	if (readSize < 0 || halfBufferSize < 0) 
+		return -1;
+
+	int codecType = getCodecType(halfBuffer);
+	Atrac *atrac = new Atrac();
+	atrac->first.addr = halfBuffer;
+	atrac->first.size = halfBufferSize;
+	atrac->Analyze();
+	return createAtrac(atrac);
 }
 
 int sceAtracSetAA3DataAndGetID(u32 buffer, int bufferSize, int fileSize, u32 metadataSizeAddr)
@@ -739,7 +778,7 @@ const HLEFunction sceAtrac3plus[] =
 	{0x472E3825,0,"sceAtracSetMOutDataAndGetID"},
 	{0x9CD7DE03,0,"sceAtracSetMOutHalfwayBufferAndGetID"},
 	{0x5622B7C1,WrapI_UIIU<sceAtracSetAA3DataAndGetID>,"sceAtracSetAA3DataAndGetID"},
-	{0x5DD66588,0,"sceAtracSetAA3HalfwayBufferAndGetID"},
+	{0x5DD66588,WrapI_UUU<sceAtracSetAA3HalfwayBufferAndGetID>,"sceAtracSetAA3HalfwayBufferAndGetID"},
 	{0x231FC6B7,WrapI_I<_sceAtracGetContextAddress>,"_sceAtracGetContextAddress"},
 	{0x1575D64B,WrapI_IU<sceAtracLowLevelInitDecoder>,"sceAtracLowLevelInitDecoder"},
 	{0x0C116E1B,WrapI_IUUUU<sceAtracLowLevelDecode>,"sceAtracLowLevelDecode"},
