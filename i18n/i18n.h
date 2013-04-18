@@ -62,7 +62,7 @@ public:
 	I18NRepo() {}
 	~I18NRepo();
 
-	void LoadIni(const std::string &languageID);  // NOT the filename!
+	bool LoadIni(const std::string &languageID);  // NOT the filename!
 	void SaveIni(const std::string &languageID);
 
 	I18NCategory *GetCategory(const char *categoryName);

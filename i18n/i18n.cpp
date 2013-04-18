@@ -1,3 +1,4 @@
+#include "base/logging.h"
 #include "i18n/i18n.h"
 #include "file/ini_file.h"
 
@@ -50,10 +51,10 @@ std::string I18NRepo::GetIniPath(const std::string &languageID) const {
 	return "lang/" + languageID + ".ini";
 }
 
-void I18NRepo::LoadIni(const std::string &languageID) {
+bool I18NRepo::LoadIni(const std::string &languageID) {
 	IniFile ini;
-	if (!ini.Load(GetIniPath(languageID))) {
-		return;
+	if (!ini.LoadFromVFS(GetIniPath(languageID))) {
+		return false;
 	}
 
 	Clear();
@@ -65,6 +66,7 @@ void I18NRepo::LoadIni(const std::string &languageID) {
 			cats_[iter->name()] = LoadSection(&(*iter));
 		}
 	}
+	return true;
 }
 
 I18NCategory *I18NRepo::LoadSection(const IniFile::Section *section) {

@@ -222,6 +222,8 @@ size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const 
 			filter++;
 		}
 	}
+	if (tmp.size())
+		filters.insert(tmp);
 #ifdef _WIN32
 	// Find the first file in the directory.
 	WIN32_FIND_DATA ffd;

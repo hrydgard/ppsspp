@@ -84,6 +84,7 @@ uint8_t *ZipAssetReader::ReadAsset(const char *path, size_t *size) {
 
 bool ZipAssetReader::GetFileListing(const char *path, std::vector<FileInfo> *listing, const char *filter = 0)
 {
+	ILOG("Zip path: %s", path);
 	// We just loop through the whole ZIP file and deduce what files are in this directory, and what subdirectories there are.
 	std::set<std::string> files;
 	std::set<std::string> directories;
@@ -95,7 +96,7 @@ bool ZipAssetReader::GetFileListing(const char *path, std::vector<FileInfo> *lis
 		const char* name = zip_get_name(zip_file_, i, 0);
 		if (!name)
 			continue;
-		// ILOG("Comparing %s %s %i", name, path, pathlen);
+		ILOG("Comparing %s %s %i", name, path, pathlen);
 		if (!memcmp(name, path, pathlen)) {
 			// The prefix is right. Let's see if this is a file or path.
 			char *slashPos = strchr(name + pathlen + 1, '/');
@@ -184,8 +185,19 @@ bool DirectoryAssetReader::GetFileListing(const char *path, std::vector<FileInfo
 		strcpy(new_path, path_);
 	}
 	strcat(new_path, path);
-	getFilesInDir(new_path, listing, filter);
-	return true;
+	FileInfo info;
+	if (!getFileInfo(new_path, &info))
+		return false;
+
+	if (info.isDirectory)
+	{
+		getFilesInDir(new_path, listing, filter);
+		return true;
+	}
+	else
+	{
+		return false;
+	}
 }
 
 bool DirectoryAssetReader::GetFileInfo(const char *path, FileInfo *info) 
@@ -249,8 +261,10 @@ bool VFSGetFileListing(const char *path, std::vector<FileInfo> *listing, const c
 		int prefix_len = strlen(entries[i].prefix);
 		if (prefix_len >= fn_len) continue;
 		if (0 == memcmp(path, entries[i].prefix, prefix_len)) {
-			entries[i].reader->GetFileListing(path + prefix_len, listing, filter);
-			return true;
+			if (entries[i].reader->GetFileListing(path + prefix_len, listing, filter))
+			{
+				return true;
+			}
 		}
 	}
 	ELOG("Missing filesystem for %s", path);

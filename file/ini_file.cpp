@@ -416,9 +416,9 @@ bool IniFile::Load(const char* filename)
 	return success;
 }
 
-bool IniFile::LoadFromVFS(const char *filename) {
+bool IniFile::LoadFromVFS(const std::string &filename) {
 	size_t size;
-	uint8_t *data = VFSReadFile(filename, &size);
+	uint8_t *data = VFSReadFile(filename.c_str(), &size);
 	if (!data)
 		return false;
 	std::string str((const char*)data, size);
@@ -472,7 +472,8 @@ bool IniFile::Load(std::istream &in) {
 			}
 			else
 			{
-				sections[sections.size() - 1].lines.push_back(line);
+				if (sections.size() > 0)
+					sections[sections.size() - 1].lines.push_back(line);
 			}
 		}
 	}
