@@ -358,7 +358,8 @@ void PauseScreen::render() {
 
 	if (ginfo && ginfo->pic1Texture) {
 		ginfo->pic1Texture->Bind(0);
-		ui_draw2d.DrawTexRect(0,0,dp_xres, dp_yres, 0,0,1,1,0xFFc0c0c0);
+		uint32_t color = whiteAlpha(ease((time_now_d() - ginfo->timePic1WasLoaded) * 3)) & 0xFFc0c0c0;
+		ui_draw2d.DrawTexRect(0,0,dp_xres, dp_yres, 0,0,1,1,color);
 		ui_draw2d.Flush();
 		ctx->RebindTexture();
 	}
@@ -368,12 +369,14 @@ void PauseScreen::render() {
 		// Pic0 is drawn in the bottom right corner, overlaying pic1.
 		float sizeX = dp_xres / 480 * ginfo->pic0Texture->Width();
 		float sizeY = dp_yres / 272 * ginfo->pic0Texture->Height();
-		ui_draw2d.DrawTexRect(dp_xres - sizeX, dp_yres - sizeY, dp_xres, dp_yres, 0,0,1,1,0xFFc0c0c0);
+		uint32_t color = whiteAlpha(ease((time_now_d() - ginfo->timePic1WasLoaded) * 2)) & 0xFFc0c0c0;
+		ui_draw2d.DrawTexRect(dp_xres - sizeX, dp_yres - sizeY, dp_xres, dp_yres, 0,0,1,1,color);
 		ui_draw2d.Flush();
 		ctx->RebindTexture();
 	}
 
 	if (ginfo && ginfo->iconTexture) {
+		uint32_t color = whiteAlpha(ease((time_now_d() - ginfo->timeIconWasLoaded) * 1.5));
 		ginfo->iconTexture->Bind(0);
 		ui_draw2d.DrawTexRect(10,10,10+144, 10+80, 0,0,1,1,0xFFFFFFFF);
 		ui_draw2d.Flush();
