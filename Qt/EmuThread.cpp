@@ -306,7 +306,7 @@ void EmuThread::run()
 			ui_draw2d.SetFontScale(1.5f, 1.5f);
 			ui_draw2d.DrawText(UBUNTU48, "PPSSPP", dp_xres / 2, dp_yres / 2 - 30, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 			ui_draw2d.SetFontScale(1.0f, 1.0f);
-			ui_draw2d.DrawText(UBUNTU24, "Created by Henrik Rydgard", dp_xres / 2, dp_yres / 2 + 40, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+			ui_draw2d.DrawText(UBUNTU24, "Created by Henrik Rydg\u00E5rd", dp_xres / 2, dp_yres / 2 + 40, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 			ui_draw2d.DrawText(UBUNTU24, "Free Software under GPL 2.0", dp_xres / 2, dp_yres / 2 + 70, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 			ui_draw2d.DrawText(UBUNTU24, "www.ppsspp.org", dp_xres / 2, dp_yres / 2 + 130, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 
