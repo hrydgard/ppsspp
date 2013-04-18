@@ -53,7 +53,7 @@ static u32 dataWritePtr;
 static u32 dataSize = 0x10000; // should be enough for a frame of gui...
 
 static u32 palettePtr;
-static u32 paletteSize = 4 * 16; // should be enough for a frame of gui...
+static u32 paletteSize = 2 * 16;
 
 
 // Vertex collector
@@ -138,10 +138,10 @@ void __PPGeInit()
 	palettePtr = __PPGeDoAlloc(paletteSize, false, "PPGe Texture Palette");
 
 	// Generate 16-greyscale palette. All PPGe graphics are greyscale so we can use a tiny paletted texture.
-	u32 *palette = (u32 *)Memory::GetPointer(palettePtr);
+	u16 *palette = (u16 *)Memory::GetPointer(palettePtr);
 	for (int i = 0; i < 16; i++) {
-		int val = i | (i << 4);
-		palette[i] = (val << 24) | 0xFFFFFF;
+		int val = i;
+		palette[i] = (val << 12) | 0xFFF;
 	}
 
 	u16 *imagePtr = (u16 *)imageData;
@@ -447,7 +447,7 @@ void PPGeSetDefaultTexture()
 	int hp2 = GetPow2(atlasHeight);
 	WriteCmd(GE_CMD_CLUTADDR, palettePtr & 0xFFFFF0);
 	WriteCmd(GE_CMD_CLUTADDRUPPER, (palettePtr & 0xFF000000) >> 8);
-	WriteCmd(GE_CMD_CLUTFORMAT, 0x00FF03);
+	WriteCmd(GE_CMD_CLUTFORMAT, 0x00FF02);
 	WriteCmd(GE_CMD_LOADCLUT, 2);
 	WriteCmd(GE_CMD_TEXSIZE0, wp2 | (hp2 << 8));
 	WriteCmd(GE_CMD_TEXMAPMODE, 0 | (1 << 8));
