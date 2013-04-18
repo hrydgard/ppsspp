@@ -169,8 +169,8 @@ static void ReadClut32(u32 *clutBuf32) {
 	}
 }
 
-void *TextureCache::UnswizzleFromMem(u32 texaddr, u32 bytesPerPixel, u32 level) {
-	const u32 rowWidth = (bytesPerPixel > 0) ? ((gstate.texbufwidth[level] & 0x3FF) * bytesPerPixel) : ((gstate.texbufwidth[level] & 0x3FF) / 2);
+void *TextureCache::UnswizzleFromMem(u32 texaddr, u32 bufw, u32 bytesPerPixel, u32 level) {
+	const u32 rowWidth = (bytesPerPixel > 0) ? (bufw * bytesPerPixel) : ((bufw & 0x3FF) / 2);
 	const u32 pitch = rowWidth / 4;
 	const int bxc = rowWidth / 16;
 	int byc = ((1 << ((gstate.texsize[level] >> 8) & 0xf)) + 7) / 8;
@@ -260,7 +260,12 @@ inline void DeIndexTextureNoSwizzle(ClutT *dest, const u32 texaddr, int length, 
 }
 
 void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex) {
-	int length = (gstate.texbufwidth[level] & 0x3FF) * (1 << ((gstate.texsize[level] >> 8) & 0xf));
+	// Special rules for kernel textures (PPGe):
+	int mask = 0x3FF;
+	if (texaddr < 0x08800000)
+		mask = 0x1FFF;
+	int bufw = gstate.texbufwidth[level] & mask;
+	int length = bufw * (1 << ((gstate.texsize[level] >> 8) & 0xf));
 	void *buf = NULL;
 	switch ((gstate.clutformat & 3)) {
 	case GE_CMODE_16BIT_BGR5650:
@@ -286,7 +291,7 @@ void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex) {
 			}
 		} else {
 			const u16 *clut = clutBuf16;
-			UnswizzleFromMem(texaddr, bytesPerIndex, level);
+			UnswizzleFromMem(texaddr, bufw, bytesPerIndex, level);
 			switch (bytesPerIndex) {
 			case 1:
 				DeIndexTexture(tmpTexBuf16.data(), (u8 *) tmpTexBuf32.data(), length, clut);
@@ -327,7 +332,7 @@ void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex) {
 			buf = tmpTexBuf32.data();
 		} else {
 			const u32 *clut = clutBuf32;
-			UnswizzleFromMem(texaddr, bytesPerIndex, level);
+			UnswizzleFromMem(texaddr, bufw, bytesPerIndex, level);
 			// Since we had to unswizzle to tmpTexBuf32, let's output to tmpTexBuf16.
 			tmpTexBuf16.resize(length * 2);
 			u32 *dest32 = (u32 *) tmpTexBuf16.data();
@@ -902,8 +907,10 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 
 	u32 texaddr = (gstate.texaddr[level] & 0xFFFFF0) | ((gstate.texbufwidth[level] << 8) & 0x0F000000);
 
-	int bufw = gstate.texbufwidth[level] & 0x3ff;
-
+	int mask = 0x3ff;
+	if (texaddr < 0x08800000)
+		mask = 0x1FFF;
+	int bufw = gstate.texbufwidth[level] & mask;
 
 	int w = 1 << (gstate.texsize[level] & 0xf);
 	int h = 1 << ((gstate.texsize[level] >> 8) & 0xf);
@@ -934,7 +941,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 					tmpTexBuf16[i + 1] = clut[GetClutIndex((index >> 4) & 0xf) + clutSharingOffset];
 				}
 			} else {
-				UnswizzleFromMem(texaddr, 0, level);
+				UnswizzleFromMem(texaddr, bufw, 0, level);
 				for (int i = 0, j = 0; i < bufw * h; i += 8, j++)
 				{
 					u32 n = tmpTexBuf32[j];
@@ -951,6 +958,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 
 		case GE_CMODE_32BIT_ABGR8888:
 			{
+			tmpTexBuf32.resize(bufw * h);
 			ReadClut32(clutBuf32);
 			const u32 *clut = clutBuf32;
 			u32 clutSharingOff = 0;//gstate.mipmapShareClut ? 0 : level * 16;
@@ -964,7 +972,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 				}
 			} else {
 				u32 pixels = bufw * h;
-				UnswizzleFromMem(texaddr, 0, level);
+				UnswizzleFromMem(texaddr, bufw, 0, level);
 				for (int i = pixels - 8, j = (pixels / 8) - 1; i >= 0; i -= 8, j--) {
 					u32 n = tmpTexBuf32[j];
 					for (int k = 0; k < 8; k++) {
@@ -1021,7 +1029,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 			finalBuf = tmpTexBuf16.data();
 		}
 		else
-			finalBuf = UnswizzleFromMem(texaddr, 2, level);
+			finalBuf = UnswizzleFromMem(texaddr, bufw, 2, level);
 		break;
 
 	case GE_TFMT_8888:
@@ -1033,7 +1041,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 			finalBuf = tmpTexBuf32.data();
 		}
 		else
-			finalBuf = UnswizzleFromMem(texaddr, 4, level);
+			finalBuf = UnswizzleFromMem(texaddr, bufw, 4, level);
 		break;
 
 	case GE_TFMT_DXT1:
@@ -1168,7 +1176,8 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 
 	const u8 *texptr = Memory::GetPointer(texaddr);
 
-	int bufw = gstate.texbufwidth[0] & 0x3ff;
+	int mask = texaddr < 0x08800000 ? 0x1FFF : 0x3ff;
+	int bufw = gstate.texbufwidth[0] & mask;
 
 	int w = 1 << (gstate.texsize[0] & 0xf);
 	int h = 1 << ((gstate.texsize[0]>>8) & 0xf);
@@ -1206,7 +1215,7 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 					tmpTexBuf16[i + 1] = clut[GetClutIndex((index >> 4) & 0xf) + clutSharingOff];
 				}
 			} else {
-				UnswizzleFromMem(texaddr, 0, level);
+				UnswizzleFromMem(texaddr, bufw, 0, level);
 				for (int i = 0, j = 0; i < bufw * h; i += 8, j++)
 				{
 					u32 n = tmpTexBuf32[j];
@@ -1236,7 +1245,7 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 				}
 			} else {
 				u32 pixels = bufw * h;
-				UnswizzleFromMem(texaddr, 0, level);
+				UnswizzleFromMem(texaddr, bufw, 0, level);
 				for (int i = pixels - 8, j = (pixels / 8) - 1; i >= 0; i -= 8, j--) {
 					u32 n = tmpTexBuf32[j];
 					for (int k = 0; k < 8; k++) {
@@ -1293,7 +1302,7 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 			finalBuf = tmpTexBuf16.data();
 		}
 		else
-			finalBuf = UnswizzleFromMem(texaddr, 2, level);
+			finalBuf = UnswizzleFromMem(texaddr, bufw, 2, level);
 		break;
 
 	case GE_TFMT_8888:
@@ -1305,7 +1314,7 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 			finalBuf = tmpTexBuf32.data();
 		}
 		else
-			finalBuf = UnswizzleFromMem(texaddr, 4, level);
+			finalBuf = UnswizzleFromMem(texaddr, bufw, 4, level);
 		break;
 
 	case GE_TFMT_DXT1:

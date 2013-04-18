@@ -1,5 +1,5 @@
-1024
-font UBUNTU24 C:/Windows/Fonts/KozGoPro-Medium.otf UWhk 30
+2048
+font UBUNTU24 C:/Windows/Fonts/KozGoPro-Medium.otf UWhkcRG 30
 font UBUNTU48 source_assets/font/zrnic.ttf UW 55
 image SOLIDWHITE white.png copy
 image I_CROSS source_assets/image/cross.png copy

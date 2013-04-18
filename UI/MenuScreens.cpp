@@ -665,27 +665,21 @@ void SystemScreen::render() {
 	UICheckBox(GEN_ID, x, y += stride, s->T("Show Debug Statistics"), ALIGN_TOPLEFT, &g_Config.bShowDebugStats);
 	UICheckBox(GEN_ID, x, y += stride, s->T("Show FPS"), ALIGN_TOPLEFT, &g_Config.bShowFPSCounter);
 
-	// TODO: Make a dynamic language selector that looks for INI files.
+	VLinear vlang(600, 70, 10);
 
-	VLinear vlang(500, 70, 10);
-	if (UIButton(GEN_ID, vlang, LARGE_BUTTON_WIDTH, 0, "English", ALIGN_TOPLEFT)) {
-		g_Config.languageIni = "en_US";
-		i18nrepo.LoadIni(g_Config.languageIni);
-		// After this, g and s are no longer valid. Let's return, some flicker is okay.
-		g = GetI18NCategory("General");
-		s = GetI18NCategory("System");
-	}
-	if (UIButton(GEN_ID, vlang, LARGE_BUTTON_WIDTH, 0, "Swedish", ALIGN_TOPLEFT)) {
-		g_Config.languageIni = "sv_SE";
-		i18nrepo.LoadIni(g_Config.languageIni);
-		g = GetI18NCategory("General");
-		s = GetI18NCategory("System");
-	}
-	if (UIButton(GEN_ID, vlang, LARGE_BUTTON_WIDTH, 0, "German", ALIGN_TOPLEFT)) {
-		g_Config.languageIni = "de_DE";
-		i18nrepo.LoadIni(g_Config.languageIni);
-		g = GetI18NCategory("General");
-		s = GetI18NCategory("System");
+	// TODO: Make a dynamic language selector that looks for INI files.
+#define NUMLANGS 6
+	static const char *langs[NUMLANGS] = {"English", "Swedish", "German", "Chinese", "Japanese", "Russian"};
+	static const char *langCodes[NUMLANGS] = {"en_US", "sv_SE", "de_DE", "zh_CN", "ja_JA", "ru_RU"};
+
+	for (int i = 0; i < 6; i++) {
+		if (UIButton(GEN_ID_LOOP(i), vlang, LARGE_BUTTON_WIDTH, 0, langs[i], ALIGN_TOPLEFT)) {
+			g_Config.languageIni = langCodes[i];
+			i18nrepo.LoadIni(g_Config.languageIni);
+			// After this, g and s are no longer valid. Let's return, some flicker is okay.
+			g = GetI18NCategory("General");
+			s = GetI18NCategory("System");
+		}
 	}
 	UIEnd();
 }

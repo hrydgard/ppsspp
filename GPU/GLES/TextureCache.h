@@ -87,7 +87,7 @@ private:
 	};
 
 	void Decimate();  // Run this once per frame to get rid of old textures.
-	void *UnswizzleFromMem(u32 texaddr, u32 bytesPerPixel, u32 level);
+	void *UnswizzleFromMem(u32 texaddr, u32 bufw, u32 bytesPerPixel, u32 level);
 	void *readIndexedTex(int level, u32 texaddr, int bytesPerIndex);
 	void UpdateSamplingParams(TexCacheEntry &entry, bool force);
 	void LoadTextureLevel(TexCacheEntry &entry, int level);
