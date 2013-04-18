@@ -290,7 +290,7 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 		std::string saveTitleTxt = saveTitle;
 		std::string saveDetailTxt = saveDetail;
 
-		PPGeDrawText(titleTxt.c_str(), 180, 120, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFC0C0C0));
+		PPGeDrawText(titleTxt.c_str(), 180, 120, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFC0C0C0));
 		PPGeDrawText(timeTxt.c_str(), 180, 141, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(0xFFFFFFFF));
 		PPGeDrawText(saveTitleTxt.c_str(), 175, 163, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(0xFFFFFFFF));
 		PPGeDrawText(saveDetailTxt.c_str(), 175, 185, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(0xFFFFFFFF));
