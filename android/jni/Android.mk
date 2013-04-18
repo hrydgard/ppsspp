@@ -135,7 +135,6 @@ LOCAL_SRC_FILES := \
   $(SRC)/Common/MemArena.cpp \
   $(SRC)/Common/MemoryUtil.cpp \
   $(SRC)/Common/MsgHandler.cpp \
-  $(SRC)/Common/IniFile.cpp \
   $(SRC)/Common/FileUtil.cpp \
   $(SRC)/Common/StringUtil.cpp \
   $(SRC)/Common/Thread.cpp \

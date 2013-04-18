@@ -36,6 +36,7 @@
 #include "gfx_es2/gl_state.h"
 #include "gfx/gl_lost_manager.h"
 #include "gfx/texture.h"
+#include "i18n/i18n.h"
 #include "input/input_state.h"
 #include "math/math_util.h"
 #include "math/lin/matrix4x4.h"
@@ -328,9 +329,11 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	INFO_LOG(BOOT, "Logger inited.");
 #endif	
 
+	i18nrepo.LoadIni(g_Config.languageIni);
+
 	if (!boot_filename.empty() && stateToLoad != NULL)
 		SaveState::Load(stateToLoad);
-
+	
 	g_gameInfoCache.Init();
 }
 
@@ -477,6 +480,7 @@ void NativeShutdownGraphics()
 
 void NativeShutdown()
 {
+	i18nrepo.SaveIni("D:\\lang.ini");
 	g_gameInfoCache.Shutdown();
 
 	delete host;

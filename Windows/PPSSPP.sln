@@ -1,4 +1,4 @@
-Microsoft Visual Studio Solution File, Format Version 11.00
+Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PPSSPPWindows", "PPSSPP.vcxproj", "{567AF8DB-42C1-4D08-96CD-D70A2DFEFC6B}"
 	ProjectSection(ProjectDependencies) = postProject
@@ -12,6 +12,9 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PPSSPPWindows", "PPSSPP.vcx
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Common", "..\Common\Common.vcxproj", "{3FCDBAE2-5103-4350-9A8E-848CE9C73195}"
+	ProjectSection(ProjectDependencies) = postProject
+		{C4DF647E-80EA-4111-A0A8-218B1B711E18} = {C4DF647E-80EA-4111-A0A8-218B1B711E18}
+	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "zlib", "..\ext\zlib\zlib.vcxproj", "{F761046E-6C38-4428-A5F1-38391A37BB34}"
 EndProject
@@ -42,6 +45,9 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libkirk", "..\ext\libkirk\libkirk.vcxproj", "{3BAAE095-E0AB-4B0E-B5DF-CE39C8AE31DE}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "UnitTest", "..\unittest\UnitTests.vcxproj", "{37CBC214-7CE7-4655-B619-F7CEE16E3313}"
+	ProjectSection(ProjectDependencies) = postProject
+		{C4DF647E-80EA-4111-A0A8-218B1B711E18} = {C4DF647E-80EA-4111-A0A8-218B1B711E18}
+	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "UI", "..\UI\UI.vcxproj", "{004B8D11-2BE3-4BD9-AB40-2BE04CF2096F}"
 	ProjectSection(ProjectDependencies) = postProject

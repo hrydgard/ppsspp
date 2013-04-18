@@ -47,6 +47,7 @@ public:
 	bool bAutoSaveSymbolMap;
 	std::string sReportHost;
 	std::vector<std::string> recentIsos;
+	std::string languageIni;
 
 	// GFX
 	bool bDisplayFramebuffer;

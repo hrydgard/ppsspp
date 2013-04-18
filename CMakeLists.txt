@@ -244,8 +244,6 @@ add_library(Common STATIC
 	Common/FileUtil.h
 	Common/Hash.cpp
 	Common/Hash.h
-	Common/IniFile.cpp
-	Common/IniFile.h
 	Common/LogManager.cpp
 	Common/LogManager.h
 	Common/MathUtil.cpp
@@ -512,6 +510,8 @@ add_library(native STATIC
 	native/file/fd_util.h
 	native/file/file_util.cpp
 	native/file/file_util.h
+	native/file/ini_file.cpp
+	native/file/ini_file.h
 	native/file/vfs.h
 	native/file/zip_read.cpp
 	native/file/zip_read.h
@@ -536,6 +536,8 @@ add_library(native STATIC
 	native/gfx_es2/glsl_program.h
 	native/gfx_es2/vertex_format.cpp
 	native/gfx_es2/vertex_format.h
+	native/i18n/i18n.cpp
+	native/i18n/i18n.h
 	native/image/png_load.cpp
 	native/image/png_load.h
 	native/image/zim_load.cpp

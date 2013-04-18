@@ -18,7 +18,7 @@
 
 #include "Common/FileUtil.h"
 #include "Config.h"
-#include "IniFile.h"
+#include "file/ini_file.h"
 #include "HLE/sceUtility.h"
 
 Config g_Config;
@@ -56,6 +56,8 @@ void Config::Load(const char *iniFileName)
 	general->Get("IgnoreBadMemAccess", &bIgnoreBadMemAccess, true);
 	general->Get("CurrentDirectory", &currentDirectory, "");
 	general->Get("ShowDebuggerOnLoad", &bShowDebuggerOnLoad, false);
+	general->Get("Language", &languageIni, "en_US");
+
 	// "default" means let emulator decide, "" means disable.
 	general->Get("ReportHost", &sReportHost, "default");
 	general->Get("Recent", recentIsos);
@@ -148,6 +150,7 @@ void Config::Save()
 		general->Set("WindowX", iWindowX);
 		general->Set("WindowY", iWindowY);
 		general->Set("AutoSaveSymbolMap", bAutoSaveSymbolMap);
+		general->Set("Language", languageIni);
 
 		IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 		cpu->Set("Jit", bJit);

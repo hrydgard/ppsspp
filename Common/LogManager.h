@@ -15,14 +15,13 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-#ifndef _LOGMANAGER_H_
-#define _LOGMANAGER_H_
+#pragma once
 
 #include "Log.h"
 #include "StringUtil.h"
 #include "Thread.h"
 #include "FileUtil.h"
-#include "IniFile.h"
+#include "file/ini_file.h" 
 
 #include <set>
 #include <string.h>
@@ -191,5 +190,3 @@ public:
   void SaveConfig(IniFile::Section *section);
   void LoadConfig(IniFile::Section *section);
 };
-
-#endif // _LOGMANAGER_H_
