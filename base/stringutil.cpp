@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <string>
 #include <sstream>
+#include <limits.h>
 
 #include <iomanip>
 
