@@ -224,6 +224,24 @@
 #define ID_FILE_LOAD_MEMSTICK           40143
 #define ID_EMULATION_SOUND              40144
 #define ID_OPTIONS_MIPMAP	              40145
+#define IDB_IMAGE_PSP                   40146
+#define IDC_EDIT_KEY_TURBO              40147
+#define IDC_EDIT_KEY_START              40148
+#define IDC_EDIT_KEY_SELECT             40149
+#define IDC_EDIT_KEY_RECTANGLE          40150
+#define IDC_EDIT_KEY_TRIANGLE           40151
+#define IDC_EDIT_KEY_CIRCLE             40152
+#define IDC_EDIT_KEY_CROSS              40153
+#define IDC_EDIT_KEY_LEFT_THUMB         40154
+#define IDC_EDIT_KEY_RIGHT_THUMB        40155
+#define IDC_EDIT_KEYUP                  40156
+#define IDC_EDIT_KEYDOWN                40157
+#define IDC_EDIT_KEYLEFT                40158
+#define IDC_EDIT_KEYRIGHT               40159
+#define IDC_EDIT_KEY_ANALOG_UP          40160
+#define IDC_EDIT_KEY_ANALOG_DOWN        40161
+#define IDC_EDIT_KEY_ANALOG_LEFT        40162
+#define IDC_EDIT_KEY_ANALOG_RIGHT       40163
 #define IDC_STATIC                      -1
 
 // Next default values for new objects
