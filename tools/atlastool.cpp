@@ -28,6 +28,7 @@
 #include "image/zim_save.h"
 
 #include "kanjifilter.h"
+#include "util/text/utf8.h"
 
 #define CHECK(x) if (!(x)) { printf("%i: CHECK failed on this line\n", __LINE__); exit(1); }
 
@@ -578,6 +579,33 @@ void GetLocales(const char *locales, std::vector<CharRange> &ranges)
 			kanji.insert(kanjiFilter[i]);
 		}
 	}
+
+	// Also, load chinese.txt if available.
+	FILE *f = fopen("chinese.txt", "rb");
+	if (f) {
+		fseek(f, 0, SEEK_END);
+		size_t sz = ftell(f);
+		fseek(f, 0, SEEK_SET);
+		char *data = new char[sz+1];
+		fread(data, 1, sz, f);
+		fclose(f);
+		data[sz]=0;
+
+		UTF8 utf(data);
+		int learnCount = 0;
+		while (!utf.end()) {
+			uint32_t c = utf.next();
+			if (c >= 0x3400) {
+				if (kanji.find(c) == kanji.end()) {
+					learnCount++;
+					kanji.insert(c);
+				}
+			}
+		}
+		delete [] data;
+		printf("%i Chinese charactes learned.\n", learnCount);
+	}
+
 	// The end point of a range is now inclusive!
 
 	for (size_t i = 0; i < strlen(locales); i++) {
@@ -592,6 +620,9 @@ void GetLocales(const char *locales, std::vector<CharRange> &ranges)
 			break;
 		case 'E':  // Latin-1 Extended A (needed for Hungarian etc)
 			ranges.push_back(range(0x100, 0x17F));
+			break;
+		case 'e':  // Latin-1 Extended B (for some African and latinized asian languages?)
+			ranges.push_back(range(0x180, 0x250));
 			break;
 		case 'k':  // Katakana
 			ranges.push_back(range(0x30A0, 0x30FF));
@@ -611,8 +642,9 @@ void GetLocales(const char *locales, std::vector<CharRange> &ranges)
 		case 'R':  // Russian
 			ranges.push_back(range(0x0400, 0x04FF));
 			break;
-		case 'c':  // Japanese Kanji
-			ranges.push_back(range(0x4E00, 0x9F92, kanji));
+		case 'c':  // All Kanji, filtered though!
+			ranges.push_back(range(0x3400, 0x9FFF, kanji));
+			ranges.push_back(range(0xF900, 0xFAFF, kanji));
 			break;
 		case 'T':  // Thai
 			ranges.push_back(range(0x0E00, 0x0E5B));
