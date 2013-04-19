@@ -1363,7 +1363,7 @@ int sceKernelAllocateTls(SceUID uid)
 		for (size_t i = 0; i < tls->ntls.totalBlocks && allocBlock == -1; ++i)
 		{
 			if (tls->usage[i] == threadID)
-				allocBlock = i;
+				allocBlock = (int) i;
 		}
 
 		if (allocBlock == -1)
@@ -1412,7 +1412,7 @@ int sceKernelFreeTls(SceUID uid)
 		{
 			if (tls->usage[i] == threadID)
 			{
-				freeBlock = i;
+				freeBlock = (int) i;
 				break;
 			}
 		}

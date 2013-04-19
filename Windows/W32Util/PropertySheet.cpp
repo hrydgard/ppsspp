@@ -83,7 +83,7 @@ namespace W32Util
 			sheet.dwFlags |= PSH_USEHICON;
 
 		sheet.pszCaption = title.c_str();
-		sheet.nPages = list.size();
+		sheet.nPages = (UINT)list.size();
 		sheet.phpage = pages;
 		sheet.nStartPage = startpage;
 		sheet.pfnCallback = (PFNPROPSHEETCALLBACK)Callback;
