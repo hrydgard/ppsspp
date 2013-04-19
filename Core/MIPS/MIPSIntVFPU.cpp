@@ -76,6 +76,7 @@
 #define M_LOG10E   0.434294481903251827651f
 #define M_LN2      0.693147180559945309417f
 #define M_LN10     2.30258509299404568402f
+#undef M_PI
 #define M_PI       3.14159265358979323846f
 #define M_PI_2     1.57079632679489661923f
 #define M_PI_4     0.785398163397448309616f
@@ -611,7 +612,7 @@ namespace MIPSInt
 		int vd = _VD;
 		int vs = _VS;
 		int imm = (op >> 16) & 0x1f;
-		float mult = (float)(1 << imm);
+		float mult = (float)(1UL << imm);
 		VectorSize sz = GetVecSize(op);
 		ReadVector(s, sz, vs);
 		ApplySwizzleS(s, sz); //TODO: and the mask to kill everything but swizzle
@@ -648,7 +649,7 @@ namespace MIPSInt
 		int vd = _VD;
 		int vs = _VS;
 		int imm = (op >> 16) & 0x1f;
-		float mult = 1.0f/(float)(1 << imm);
+		float mult = 1.0f/(float)(1UL << imm);
 		VectorSize sz = GetVecSize(op);
 		ReadVector((float*)&s[0], sz, vs);
 		ApplySwizzleS((float*)&s[0], sz); //TODO: and the mask to kill everything but swizzle
@@ -798,7 +799,7 @@ namespace MIPSInt
 
 	void Int_Vx2i(u32 op)
 	{
-		int s[4];
+		u32 s[4];
 		u32 d[4] = {0};
 		int vd = _VD;
 		int vs = _VS;
