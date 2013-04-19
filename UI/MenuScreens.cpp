@@ -471,8 +471,8 @@ void SettingsScreen::render() {
 		screenManager()->finishDialog(this, DR_OK);
 	}
 
-	int w = LARGE_BUTTON_WIDTH - 10;
-	int s = 240;
+	int w = LARGE_BUTTON_WIDTH + 25;
+	int s = 280;
 
 	if (UIButton(GEN_ID, vlinear, w, 0, ms->T("Audio"), ALIGN_BOTTOMLEFT)) {
 		screenManager()->push(new AudioScreen());
@@ -541,13 +541,14 @@ void DeveloperScreen::render() {
 	UIBegin(UIShader_Get());
 	DrawBackground(1.0f);
 
-	ui_draw2d.DrawText(UBUNTU48, "Developer Tools", dp_xres / 2, 20, 0xFFFFFFFF, ALIGN_HCENTER);
 	VLinear vlinear(50, 100, 20);
 
 	int w = 400;
 
 	I18NCategory *g = GetI18NCategory("General");
 	I18NCategory *d = GetI18NCategory("Developer");
+
+	ui_draw2d.DrawText(UBUNTU48, d->T("Developer Tools"), dp_xres / 2, 20, 0xFFFFFFFF, ALIGN_HCENTER);
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres-10), LARGE_BUTTON_WIDTH, 0, g->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
 		screenManager()->finishDialog(this, DR_OK);
@@ -678,7 +679,7 @@ void SystemScreen::render() {
 	UICheckBox(GEN_ID, x, y += stride, s->T("Show Debug Statistics"), ALIGN_TOPLEFT, &g_Config.bShowDebugStats);
 	UICheckBox(GEN_ID, x, y += stride, s->T("Show FPS"), ALIGN_TOPLEFT, &g_Config.bShowFPSCounter);
 
-	VGrid vlang(550, 100, dp_yres - 50, 10, 10);
+	VGrid vlang(530, 100, dp_yres - 50, 10, 10);
 
 	for (int i = 0; i < langs_.size(); i++) {
 		std::string code;
@@ -728,12 +729,10 @@ void ControlsScreen::render() {
 
 	UICheckBox(GEN_ID, x, y += stride, c->T("OnScreen", "On-Screen Touch Controls"), ALIGN_TOPLEFT, &g_Config.bShowTouchControls);
 	if (g_Config.bShowTouchControls) {
-		UICheckBox(GEN_ID, x + columnw, y, c->T("Large Controls"), ALIGN_TOPLEFT, &g_Config.bLargeControls);
-		UICheckBox(GEN_ID, x + columnw, y += stride, c->T("Show Analog Stick"), ALIGN_TOPLEFT, &g_Config.bShowAnalogStick);
-	} else {
-		y += stride;
-	}
-	UICheckBox(GEN_ID, x, y, c->T("Tilt", "Tilt to Analog (horizontal)"), ALIGN_TOPLEFT, &g_Config.bAccelerometerToAnalogHoriz);
+		UICheckBox(GEN_ID, x, y += stride, c->T("Large Controls"), ALIGN_TOPLEFT, &g_Config.bLargeControls);
+		UICheckBox(GEN_ID, x, y += stride, c->T("Show Analog Stick"), ALIGN_TOPLEFT, &g_Config.bShowAnalogStick);
+	} 
+	UICheckBox(GEN_ID, x, y += stride, c->T("Tilt", "Tilt to Analog (horizontal)"), ALIGN_TOPLEFT, &g_Config.bAccelerometerToAnalogHoriz);
 
 	UIEnd();
 }
