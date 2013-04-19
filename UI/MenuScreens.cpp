@@ -411,7 +411,7 @@ void PauseScreen::render() {
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Media Engine"), ALIGN_TOPLEFT, &g_Config.bUseMediaEngine);
 	g_Config.iFrameSkip = fs ? 1 : 0;
 
-	I18NCategory *i = GetI18NCategory("PauseScreen");
+	I18NCategory *i = GetI18NCategory("Pause");
 
 	// TODO: Add UI for more than one slot.
 	HLinear hlinear1(x, y + 80, 20);
@@ -425,15 +425,15 @@ void PauseScreen::render() {
 	}
 
 	VLinear vlinear(dp_xres - 10, 160, 20);
-	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH, 0, i->T("Continue"), ALIGN_RIGHT)) {
+	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 20, 0, i->T("Continue"), ALIGN_RIGHT)) {
 		screenManager()->finishDialog(this, DR_CANCEL);
 	}
 
-	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH, 0, i->T("Settings"), ALIGN_RIGHT)) {
+	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 20, 0, i->T("Settings"), ALIGN_RIGHT)) {
 		screenManager()->push(new SettingsScreen(), 0);
 	}
 
-	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH, 0, i->T("Back to Menu"), ALIGN_RIGHT)) {
+	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 20, 0, i->T("Back to Menu"), ALIGN_RIGHT)) {
 		screenManager()->finishDialog(this, DR_OK);
 	}
 
