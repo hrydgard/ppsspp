@@ -690,7 +690,7 @@ const HLEFunction ThreadManForUser[] =
 
 	{0x94416130,WrapU_UUUU<sceKernelGetThreadmanIdList>,"sceKernelGetThreadmanIdList"},
 	{0x57CF62DD,WrapU_U<sceKernelGetThreadmanIdType>,"sceKernelGetThreadmanIdType"},
-	{0xBC80EC7C,WrapU_UUUU<sceKernelExtendThreadStack>, "sceKernelExtendThreadStack"},
+	{0xBC80EC7C,WrapU_UUU<sceKernelExtendThreadStack>, "sceKernelExtendThreadStack"},
 	// NOTE: Takes a UID from sceKernelMemory's AllocMemoryBlock and seems thread stack related.
 	//{0x28BFD974,0,"ThreadManForUser_28BFD974"},
 
