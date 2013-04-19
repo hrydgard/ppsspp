@@ -378,7 +378,7 @@ u32 sceUtilityGetSystemParamString(u32 id, u32 destaddr, u32 unknownparam)
 	char *buf = (char *)Memory::GetPointer(destaddr);
 	switch (id) {
 	case PSP_SYSTEMPARAM_ID_STRING_NICKNAME:
-		strcpy(buf, g_Config.sNickName.c_str());
+		memcpy(buf, g_Config.sNickName.c_str(), g_Config.sNickName.length());
 		break;
 
 	default:
