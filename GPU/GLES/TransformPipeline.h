@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <map>
+
 #include "IndexGenerator.h"
 #include "VertexDecoder.h"
 #include "gfx/gl_lost_manager.h"
@@ -125,6 +127,8 @@ private:
 	u32 ComputeFastDCID();
 	u32 ComputeHash();  // Reads deferred vertex data.
 
+	VertexDecoder *GetVertexDecoder(u32 vtype);
+
 	// Defer all vertex decoding to a Flush, so that we can hash and cache the
 	// generated buffers without having to redecode them every time.
 	struct DeferredDrawCall {
@@ -143,9 +147,12 @@ private:
 	int collectedVerts;
 	int prevPrim_;
 
-	// Vertex collector buffers
-	VertexDecoder dec;
+	// Cached vertex decoders
+	std::map<u32, VertexDecoder *> decoderMap_;
+	VertexDecoder *dec_;
 	u32 lastVType_;
+	
+	// Vertex collector buffers
 	u8 *decoded;
 	u16 *decIndex;
 

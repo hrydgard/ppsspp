@@ -1,6 +1,4 @@
 #pragma once
 
-void EmuThread_Start(const char *filename);
+void EmuThread_Start();
 void EmuThread_Stop();
-
-char *GetCurrentFilename();

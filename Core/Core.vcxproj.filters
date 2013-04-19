@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="ELF">
@@ -195,6 +195,9 @@
     <ClCompile Include="HLE\sceP3da.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\sceGameUpdate.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
     <ClCompile Include="HLE\sceNet.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
@@ -381,7 +384,6 @@
     <ClCompile Include="MIPS\ARM\ArmRegCacheFPU.cpp">
       <Filter>MIPS\ARM</Filter>
     </ClCompile>
-    <ClCompile Include="HLE\sceChnnlsv.cpp" />
     <ClCompile Include="Font\PGF.cpp">
       <Filter>Font</Filter>
     </ClCompile>
@@ -391,6 +393,15 @@
     </ClCompile>
     <ClCompile Include="HLE\scePspNpDrm_user.cpp">
       <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\sceChnnlsv.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\sceDeflt.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="ELF\PBPReader.cpp">
+      <Filter>ELF</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -527,6 +538,9 @@
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="HLE\sceP3da.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceGameUpdate.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="HLE\sceNet.h">
@@ -712,7 +726,6 @@
     <ClInclude Include="MIPS\ARM\ArmRegCacheFPU.h">
       <Filter>MIPS\ARM</Filter>
     </ClInclude>
-    <ClInclude Include="HLE\sceChnnlsv.h" />
     <ClInclude Include="Font\PGF.h">
       <Filter>Font</Filter>
     </ClInclude>
@@ -721,6 +734,15 @@
     </ClInclude>
     <ClInclude Include="HLE\scePspNpDrm_user.h">
       <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceChnnlsv.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceDeflt.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="ELF\PBPReader.h">
+      <Filter>ELF</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

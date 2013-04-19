@@ -48,21 +48,22 @@ PPSSPPQt.pro in [Qt Creator 2.6+][qt-creator] and press run. The
 Qt frontend currently supports Windows, Linux, Blackberry 10,
 Symbian and Meego.
 
-Building for Linux/BSD/etc
+Building for Linux/BSD/Meego Harmattan/Pandora/etc
 --------------------------
 
-Install the libsdl1.2 (SDL 1.2) development headers. This is called
-`libsdl1.2-dev` on Debian/Ubuntu, `SDL-devel` on Fedora/RHEL,
+Qt (recommended)
+A Qt-based frontend is available in the Qt/ dir.
+Open PPSSPPQt.pro with [Qt Creator 2.6+][qt-creator].
+Install libsdl1.2 if you want to use USB Gamepad.
+If the build has an error about finding mobility or multimedia:
+- Install the package "qtmobility-dev"
+
+SDL
+Alternatively, install the libsdl1.2 (SDL 1.2) development headers. This is called `libsdl1.2-dev` on Debian/Ubuntu, `SDL-devel` on Fedora/RHEL,
 `sdl12` on BSD ports.
 
 Currently the user interface is identical to Android's, operated
 with the mouse.
-
-Alternatively, a Qt-based frontend is available in the Qt/ dir.
-Open PPSSPPQt.pro with Qt Creator.
-Install libsdl1.2 if you want to use USB Gamepad.
-If the build has an error about finding mobility or multimedia:
-- Install the package "qtmobility-dev"
 
 Building for OSX
 ----------------
@@ -156,7 +157,7 @@ You will need to add the GCCE 4.6.3 variant to Symbian\tools\sbs\lib\config\vari
 		<set name="CC.SOFTVFP_MAYBE_VFPV2" value="softfp"/>
 	</var>
 
-Then simply compile the PPSSPPQt.pro with `qmake` from the SDK or [QtCreator 2.6+][qt-creator].
+Then simply compile the PPSSPPQt.pro with `qmake` from the SDK or the included QtCreator.
 
 
 [ppsspp-repo]: <https://github.com/hrydgard/ppsspp>

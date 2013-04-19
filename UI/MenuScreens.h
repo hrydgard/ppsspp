@@ -32,6 +32,7 @@ public:
 		: bootFilename_(bootFilename), frames_(0) {}
 	void update(InputState &input);
 	void render();
+	void sendMessage(const char *message, const char *value);
 
 private:
 	std::string bootFilename_;
@@ -45,17 +46,19 @@ public:
 	MenuScreen() : frames_(0) {}
 	void update(InputState &input);
 	void render();
+	void sendMessage(const char *message, const char *value);
 
 private:
 	int frames_;
 };
 
 // Dialog box, meant to be pushed
-class InGameMenuScreen : public Screen
+class PauseScreen : public Screen
 {
 public:
 	void update(InputState &input);
 	void render();
+	virtual void sendMessage(const char *msg, const char *value);
 };
 
 
@@ -74,7 +77,36 @@ public:
 	void render();
 };
 
+class AudioScreen : public Screen
+{
+public:
+	void update(InputState &input);
+	void render();
+};
 
+class GraphicsScreen : public Screen
+{
+public:
+	void update(InputState &input);
+	void render();
+};
+
+class SystemScreen : public Screen
+{
+public:
+	SystemScreen();
+	void update(InputState &input);
+	void render();
+private:
+	std::vector<FileInfo> langs_;
+};
+
+class ControlsScreen : public Screen
+{
+public:
+	void update(InputState &input);
+	void render();
+};
 struct FileSelectScreenOptions {
 	const char* filter;  // Enforced extension filter. Case insensitive, extensions separated by ":".
 	bool allowChooseDirectory;

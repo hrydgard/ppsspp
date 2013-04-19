@@ -12,6 +12,12 @@ if (IOS)
 	set(ARM ON)
 endif()
 
+if (MAEMO)
+	set(ARM ON)
+	#Maemo's gcc-4.7.2 is strickt
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpermissive")
+endif()
+
 if(BLACKBERRY)
 	set(ARM ON)
 endif()
@@ -26,7 +32,7 @@ else() # Assume x86
 	set(X86 ON)
 endif()
 
-if(ANDROID OR BLACKBERRY OR IOS OR PANDORA)
+if(ANDROID OR BLACKBERRY OR IOS OR PANDORA OR MAEMO)
 	set(HEADLESS OFF)
 elseif(NOT DEFINED HEADLESS)
 	set(HEADLESS ON)
@@ -39,6 +45,7 @@ option(X86 "Set to ON if targeting an X86 processor" ${X86})
 option(ANDROID "Set to ON if targeting an Android device" ${ANDROID})
 option(BLACKBERRY "Set to ON if targeting a Blackberry device" ${BLACKBERRY})
 option(PANDORA "Set to ON if targeting an OpenPandora device" ${PANDORA})
+option(MAEMO "Set to ON if targeting an Maemo (N900) device" ${MAEMO})
 option(IOS "Set to ON if targeting an iOS device" ${IOS})
 option(USING_GLES2 "Set to ON if target device uses OpenGL ES 2.0" ${USING_GLES2})
 option(USING_QT_UI "Set to ON if you wish to use the Qt frontend wrapper" ${USING_QT_UI})
@@ -99,6 +106,10 @@ if(IOS)
 	add_definitions(-DIOS)
 endif()
 
+if(MAEMO)
+	add_definitions(-DMAEMO)
+endif()
+
 if(PANDORA)
 	add_definitions(-DPANDORA)
 endif()
@@ -144,7 +155,8 @@ if(NOT MSVC)
 	if(IOS)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libstdc++")
 	elseif(APPLE)
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -mmacosx-version-min=10.7")
+		# Karen/angelXwind: --macosx-version-min=10.7 is needed in order to produce binaries that OS X 10.7 Lion can execute. However, it seems that PPSSPP won't support 10.6 or lower without getting rid of -stdlib=libc++ ...which probably won't end well. So I guess PPSSPP will strictly be a 10.7+ app.
 		set(CMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY "libc++")
 	endif()
 	if(CMAKE_COMPILER_IS_GNUCXX AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.7.0)
@@ -232,8 +244,6 @@ add_library(Common STATIC
 	Common/FileUtil.h
 	Common/Hash.cpp
 	Common/Hash.h
-	Common/IniFile.cpp
-	Common/IniFile.h
 	Common/LogManager.cpp
 	Common/LogManager.h
 	Common/MathUtil.cpp
@@ -301,14 +311,10 @@ add_library(snappy STATIC
 )
 include_directories(ext/snappy)
 
-add_library(etcpack STATIC
-	native/ext/etcpack/etcdec.cpp
-	native/ext/etcpack/etcdec.h
-	native/ext/etcpack/etcpack.cpp
-	native/ext/etcpack/etcpack.h
-	native/ext/etcpack/image.cpp
-	native/ext/etcpack/image.h)
-include_directories(native/ext/etcpack)
+add_library(rg_etc1 STATIC
+	native/ext/rg_etc1/rg_etc1.cpp
+	native/ext/rg_etc1/rg_etc1.h)
+include_directories(native/ext/rg_etc1)
 
 add_library(cityhash STATIC
   native/ext/cityhash/city.cpp
@@ -428,8 +434,10 @@ elseif(IOS)
 		ios/AppDelegate.m
 		ios/AppDelegate.h
 		ios/ViewController.mm
-		ios/ViewController.h)
-	set(nativeExtraLibs ${nativeExtraLibs} "-framework Foundation -framework AudioToolbox -framework CoreGraphics -framework QuartzCore -framework OpenGLES -framework UIKit -framework GLKit")
+		ios/ViewController.h
+        ios/AudioEngine.mm
+        ios/AudioEngine.h)
+	set(nativeExtraLibs ${nativeExtraLibs} "-framework Foundation -framework AudioToolbox -framework CoreGraphics -framework QuartzCore -framework OpenGLES -framework UIKit -framework GLKit -framework AudioToolbox -framework OpenAL")
 	set(TargetBin PPSSPP)
 elseif(USING_QT_UI)
 	# Currently unused
@@ -451,7 +459,7 @@ elseif(SDL_FOUND)
 	if(APPLE)
 		set(nativeExtra ${nativeExtra} SDL/SDLMain.h SDL/SDLMain.mm)
 		set(nativeExtraLibs ${nativeExtraLibs} ${COCOA_LIBRARY})
-	elseif(PANDORA)
+	elseif(PANDORA OR MAEMO)
 		set(nativeExtraLibs ${nativeExtraLibs} pthread EGL X11)
 	endif()
 	set(TargetBin PPSSPPSDL)
@@ -490,8 +498,6 @@ add_library(native STATIC
 	native/base/stats.h
 	native/base/stringutil.cpp
 	native/base/stringutil.h
-	native/base/threadutil.cpp
-	native/base/threadutil.h
 	native/base/timeutil.cpp
 	native/base/timeutil.h
 	native/file/chunk_file.cpp
@@ -504,6 +510,8 @@ add_library(native STATIC
 	native/file/fd_util.h
 	native/file/file_util.cpp
 	native/file/file_util.h
+	native/file/ini_file.cpp
+	native/file/ini_file.h
 	native/file/vfs.h
 	native/file/zip_read.cpp
 	native/file/zip_read.h
@@ -528,6 +536,8 @@ add_library(native STATIC
 	native/gfx_es2/glsl_program.h
 	native/gfx_es2/vertex_format.cpp
 	native/gfx_es2/vertex_format.h
+	native/i18n/i18n.cpp
+	native/i18n/i18n.h
 	native/image/png_load.cpp
 	native/image/png_load.h
 	native/image/zim_load.cpp
@@ -563,10 +573,15 @@ add_library(native STATIC
 	native/net/resolve.h
 	native/profiler/profiler.cpp
 	native/profiler/profiler.h
+	native/thread/prioritizedworkqueue.cpp
+	native/thread/threadutil.cpp
+	native/thread/threadutil.h
 	native/ui/screen.cpp
 	native/ui/screen.h
 	native/ui/ui.cpp
 	native/ui/ui.h
+	native/ui/ui_context.cpp
+	native/ui/ui_context.h
 	native/ui/virtual_input.cpp
 	native/ui/virtual_input.h
 	native/util/bits/bits.cpp
@@ -588,7 +603,7 @@ add_library(native STATIC
 include_directories(native)
 # rapidxml is headers only so we can't make a lib specific for it
 include_directories(native/ext/rapidxml)
-target_link_libraries(native ${LIBZIP} etcpack sha1 stb_image stb_vorbis #vjson
+target_link_libraries(native ${LIBZIP} rg_etc1 sha1 stb_image stb_vorbis #vjson
 	zlib snappy ${GLEW_LIBRARIES})
 if(ANDROID)
 	target_link_libraries(native log)
@@ -683,6 +698,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/ELF/ElfReader.cpp
 	Core/ELF/ElfReader.h
 	Core/ELF/ElfTypes.h
+	Core/ELF/PBPReader.cpp
+	Core/ELF/PBPReader.h
 	Core/ELF/PrxDecrypter.cpp
 	Core/ELF/PrxDecrypter.h
 	Core/ELF/ParamSFO.cpp
@@ -713,10 +730,14 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceChnnlsv.h
 	Core/HLE/sceCtrl.cpp
 	Core/HLE/sceCtrl.h
+	Core/HLE/sceDeflt.cpp
+	Core/HLE/sceDeflt.h
 	Core/HLE/sceDisplay.cpp
 	Core/HLE/sceDisplay.h
 	Core/HLE/sceDmac.cpp
 	Core/HLE/sceDmac.h
+	Core/HLE/sceGameUpdate.cpp
+	Core/HLE/sceGameUpdate.h
 	Core/HLE/sceGe.cpp
 	Core/HLE/sceGe.h
 	Core/HLE/sceFont.cpp
@@ -971,13 +992,14 @@ if(HEADLESS)
 endif()
 
 set(NativeAppSource
-	android/jni/NativeApp.cpp
-	android/jni/EmuScreen.cpp
+	UI/NativeApp.cpp
+	UI/EmuScreen.cpp
 	android/jni/TestRunner.cpp
-	android/jni/MenuScreens.cpp
-	android/jni/GamepadEmu.cpp
-	android/jni/UIShader.cpp
-	android/jni/ui_atlas.cpp)
+    UI/GameInfoCache.cpp
+	UI/MenuScreens.cpp
+	UI/GamepadEmu.cpp
+	UI/UIShader.cpp
+	UI/ui_atlas.cpp)
 if(ANDROID)
 	set(NativeAppSource ${NativeAppSource} android/jni/ArmEmitterTest.cpp)
 endif()
@@ -998,18 +1020,46 @@ endif()
 # installs
 file(INSTALL ${NativeAssets} DESTINATION assets)
 
+# Fix CMake some Xcode settings.
+if(APPLE)
+	# Fix CMake breaking optimization settings.
+	set(CMAKE_CXX_FLAGS_DEBUG "-g -D_DEBUG")
+	set(CMAKE_CXX_FLAGS_MINSIZEREL "-Os -D_NDEBUG")
+	set(CMAKE_CXX_FLAGS_RELEASE "-O3 -D_NDEBUG")
+	set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g -D_NDEBUG")
+	set(CMAKE_C_FLAGS_DEBUG "-g -D_DEBUG")
+	set(CMAKE_C_FLAGS_MINSIZEREL "-Os -D_NDEBUG")
+	set(CMAKE_C_FLAGS_RELEASE "-O3 -D_NDEBUG")
+	set(CMAKE_C_FLAGS_RELWITHDEBINFO "-O2 -g -D_NDEBUG")
+
+	# These can be fast even for debug.
+	set_target_properties(cityhash PROPERTIES COMPILE_FLAGS "-O3")
+	set_target_properties(snappy PROPERTIES COMPILE_FLAGS "-O3")
+	set_target_properties(zlib PROPERTIES COMPILE_FLAGS "-O3")
+endif()
+
 # packaging and code signing
-if (IOS)
+if(IOS)
+	add_dependencies(PPSSPP ${CoreLibName} GPU Common native)
+
 	file(GLOB IOSAssets ios/assets/*.png)
-	file(INSTALL
-		${IOSAssets}
-		DESTINATION assets)
+	file(INSTALL ${IOSAssets} DESTINATION assets)
 	file(INSTALL flash0 DESTINATION assets)
+	if (IOS_DEBUG)
+		file(INSTALL pspautotests DESTINATION assets)
+	endif()
 	set(RSRC_XIB_FILES assets/Icon@2x.png)
-	SET_SOURCE_FILES_PROPERTIES(${RSRC_XIB_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+	set_source_files_properties(${RSRC_XIB_FILES}
+		PROPERTIES MACOSX_PACKAGE_LOCATION Resources
+	)
 	set(APP_DIR_NAME \${TARGET_BUILD_DIR}/\${FULL_PRODUCT_NAME})
 	add_custom_command(TARGET PPSSPP POST_BUILD
-		COMMAND tar -c -C . --exclude .DS_Store --exclude .git -H `find assets` | tar -x -C '${APP_DIR_NAME}'
+		COMMAND tar -c -C . --exclude .DS_Store --exclude .git -H assets | tar -x -C '${APP_DIR_NAME}'
+	)
+	# Force Xcode to relink the binary.
+	add_custom_command(TARGET Core PRE_BUILD
+		WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+		COMMAND rm -f PPSSPP.build/{Debug,Release,MinSizeRel,RelWithDebInfo}-iphoneos/PPSSPP.build/Objects-normal/*/PPSSPP {Debug,Release,MinSizeRel,RelWithDebInfo}-iphoneos/PPSSPP.app/PPSSPP
 	)
 	set_target_properties(${TargetBin} PROPERTIES
 		MACOSX_BUNDLE_INFO_PLIST "../ios/PPSSPP-Info.plist"

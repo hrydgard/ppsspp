@@ -265,14 +265,6 @@
         <translation>Τρέχουσα Διεύθυνση</translation>
     </message>
     <message>
-        <source>Run</source>
-        <translation type="obsolete">Εκκίνηση</translation>
-    </message>
-    <message>
-        <source>Step</source>
-        <translation type="obsolete">Βήμα</translation>
-    </message>
-    <message>
         <location filename="../debugger_disasm.ui" line="433"/>
         <source>Threads</source>
         <translation>Νήματα</translation>
@@ -321,10 +313,6 @@
         <location filename="../debugger_disasm.cpp" line="493"/>
         <source>Suspend</source>
         <translation>Αναστολή</translation>
-    </message>
-    <message>
-        <source>Show code</source>
-        <translation type="obsolete">Εμφάνιση κώδικα</translation>
     </message>
 </context>
 <context>
@@ -940,10 +928,6 @@
         <location filename="../mainwindow.ui" line="291"/>
         <source>&amp;Interpreter</source>
         <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>&amp;Slightly Faster Interpreter</source>
-        <translation type="obsolete">&amp;Ελαφρώς Γρηγορότερος Interpreter</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="299"/>

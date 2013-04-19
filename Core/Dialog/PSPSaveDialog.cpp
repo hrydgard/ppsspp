@@ -21,6 +21,7 @@
 #include "../Core/MemMap.h"
 #include "../Config.h"
 #include "Core/Reporting.h"
+#include "Core/HW/MemoryStick.h"
 
 PSPSaveDialog::PSPSaveDialog()
 	: PSPDialog()
@@ -39,7 +40,7 @@ int PSPSaveDialog::Init(int paramAddr)
 	if (status != SCE_UTILITY_STATUS_NONE && status != SCE_UTILITY_STATUS_SHUTDOWN)
 	{
 		ERROR_LOG(HLE,"A save request is already running !");
-		return 0;
+		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 
 	int size = Memory::Read_U32(paramAddr);
@@ -88,9 +89,13 @@ int PSPSaveDialog::Init(int paramAddr)
 		case SCE_UTILITY_SAVEDATA_TYPE_FILES:
 		case SCE_UTILITY_SAVEDATA_TYPE_GETSIZE:
 		case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATASECURE:
+		//case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATA:
 		case SCE_UTILITY_SAVEDATA_TYPE_WRITEDATASECURE:
+		//case SCE_UTILITY_SAVEDATA_TYPE_WRITEDATA:
 		case SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE:
+		//case SCE_UTILITY_SAVEDATA_TYPE_READDATA:
 		case SCE_UTILITY_SAVEDATA_TYPE_SINGLEDELETE:
+		case SCE_UTILITY_SAVEDATA_TYPE_DELETEDATA:
 			display = DS_NONE;
 			break;
 		case SCE_UTILITY_SAVEDATA_TYPE_DELETE: // This run on PSP display a list of all save on the PSP. Weird. (Not really, it's to let you free up space)
@@ -98,8 +103,7 @@ int PSPSaveDialog::Init(int paramAddr)
 			break;
 		default:
 		{
-			ERROR_LOG(HLE, "Load/Save function %d not coded. Title: %s Save: %s File: %s", param.GetPspParam()->mode, param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
-			Reporting::ReportMessage("Load/Save function %d not coded. Title: %s Save: %s File: %s", param.GetPspParam()->mode, param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
+			ERROR_LOG_REPORT(HLE, "Load/Save function %d not coded. Title: %s Save: %s File: %s", param.GetPspParam()->mode, param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
 			param.GetPspParam()->result = 0;
 			status = SCE_UTILITY_STATUS_INITIALIZE;
 			display = DS_NONE;
@@ -282,12 +286,13 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 		
 		PPGeDrawRect(180, 139, 980, 140, CalcFadedColor(0xFFFFFFFF));
 		std::string titleTxt = title;
-		PPGeDrawText(titleTxt.c_str(), 180, 120, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFC0C0C0));
 		std::string timeTxt = time;
-		PPGeDrawText(timeTxt.c_str(), 180, 141, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(0xFFFFFFFF));
 		std::string saveTitleTxt = saveTitle;
-		PPGeDrawText(saveTitleTxt.c_str(), 175, 163, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(0xFFFFFFFF));
 		std::string saveDetailTxt = saveDetail;
+
+		PPGeDrawText(titleTxt.c_str(), 180, 120, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFC0C0C0));
+		PPGeDrawText(timeTxt.c_str(), 180, 141, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(saveTitleTxt.c_str(), 175, 163, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(0xFFFFFFFF));
 		PPGeDrawText(saveDetailTxt.c_str(), 175, 185, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(0xFFFFFFFF));
 	}
 }
@@ -329,10 +334,10 @@ void PSPSaveDialog::DisplaySaveDataInfo2()
 void PSPSaveDialog::DisplayConfirmationYesNo(std::string text)
 {
 	PPGeDrawRect(180, 105, 460, 106, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawRect(180, 160, 460, 161, CalcFadedColor(0xFFFFFFFF));
 	PPGeDrawText(text.c_str(), 220, 110, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
 	PPGeDrawText("Yes", 250, 140, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(yesnoChoice == 1?0xFF0000FF:0xFFFFFFFF));
 	PPGeDrawText("No", 350, 140, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(yesnoChoice == 0?0xFF0000FF:0xFFFFFFFF));
-	PPGeDrawRect(180, 160, 460, 161, CalcFadedColor(0xFFFFFFFF));
 	if (IsButtonPressed(CTRL_LEFT) && yesnoChoice == 0)
 	{
 		yesnoChoice = 1;
@@ -346,8 +351,8 @@ void PSPSaveDialog::DisplayConfirmationYesNo(std::string text)
 void PSPSaveDialog::DisplayInfo(std::string text)
 {
 	PPGeDrawRect(180, 105, 460, 106, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawText(text.c_str(), 270, 110, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(0xFFFFFFFF));
 	PPGeDrawRect(180, 130, 460, 131, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(text.c_str(), 270, 110, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(0xFFFFFFFF));
 }
 void PSPSaveDialog::DisplayTitle(std::string name)
 {
@@ -356,8 +361,8 @@ void PSPSaveDialog::DisplayTitle(std::string name)
 void PSPSaveDialog::DisplayEnterBack()
 {
 	PPGeDrawImage(okButtonImg, 180, 257, 11, 11, 0, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawText("Enter", 195, 255, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(0xFFFFFFFF));
 	PPGeDrawImage(cancelButtonImg, 270, 257, 11, 11, 0, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText("Enter", 195, 255, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(0xFFFFFFFF));
 	PPGeDrawText("Back", 285, 255, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(0xFFFFFFFF));
 }
 void PSPSaveDialog::DisplayBack()
@@ -378,7 +383,7 @@ int PSPSaveDialog::Update()
 
 	if (status != SCE_UTILITY_STATUS_RUNNING)
 	{
-		return 0;
+		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 
 	if (!param.GetPspParam()) {
@@ -729,16 +734,26 @@ int PSPSaveDialog::Update()
 					status = SCE_UTILITY_STATUS_FINISHED;
 				break;
 				case SCE_UTILITY_SAVEDATA_TYPE_GETSIZE:
-					if(param.GetSize(param.GetPspParam()))
 					{
-						param.GetPspParam()->result = 0;
+						bool result = param.GetSize(param.GetPspParam());
+						// TODO: According to JPCSP, should test/verify this part but seems edge casey.
+						if (MemoryStick_State() != PSP_MEMORYSTICK_STATE_DRIVER_READY)
+							param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_MEMSTICK;
+						else if (result)
+							param.GetPspParam()->result = 0;
+						else
+							param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
+						status = SCE_UTILITY_STATUS_FINISHED;
 					}
-					else
-					{
-						param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
-					}
+				break;
+				case SCE_UTILITY_SAVEDATA_TYPE_DELETEDATA:
+					// TODO: This should probably actually delete something.
+					// For now, since MAKEDATA doesn't work anyway, always say it couldn't be deleted.
+					WARN_LOG(HLE, "FAKE sceUtilitySavedata DELETEDATA: %s", param.GetPspParam()->saveName);
+					param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_RW_BAD_STATUS;
 					status = SCE_UTILITY_STATUS_FINISHED;
 				break;
+				//case SCE_UTILITY_SAVEDATA_TYPE_AUTODELETE:
 				case SCE_UTILITY_SAVEDATA_TYPE_SINGLEDELETE:
 					if(param.Delete(param.GetPspParam(), param.GetSelectedSave()))
 					{
@@ -750,7 +765,15 @@ int PSPSaveDialog::Update()
 					}
 					status = SCE_UTILITY_STATUS_FINISHED;
 				break;
+				//case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATA:
 				case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATASECURE:
+					if(param.Save(param.GetPspParam(),param.GetSelectedSave()))
+						param.GetPspParam()->result = 0;
+					else
+						param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
+					status = SCE_UTILITY_STATUS_FINISHED;
+				break;
+				//case SCE_UTILITY_SAVEDATA_TYPE_WRITEDATA:
 				case SCE_UTILITY_SAVEDATA_TYPE_WRITEDATASECURE:
 					if(param.Save(param.GetPspParam(),param.GetSelectedSave()))
 						param.GetPspParam()->result = 0;
@@ -758,6 +781,7 @@ int PSPSaveDialog::Update()
 						param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
 					status = SCE_UTILITY_STATUS_FINISHED;
 				break;
+				//case SCE_UTILITY_SAVEDATA_TYPE_READDATA:
 				case SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE:
 					if(param.Load(param.GetPspParam(),param.GetSelectedSave()))
 						param.GetPspParam()->result = 0;
@@ -788,6 +812,9 @@ int PSPSaveDialog::Update()
 
 int PSPSaveDialog::Shutdown()
 {
+	if (status != SCE_UTILITY_STATUS_FINISHED)
+		return SCE_ERROR_UTILITY_INVALID_STATUS;
+
 	PSPDialog::Shutdown();
 	param.SetPspParam(0);
 

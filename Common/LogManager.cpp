@@ -72,7 +72,7 @@ LogManager::LogManager()
 	m_Log[LogTypes::ME]         = new LogContainer("ME",      "Media Engine");
 
 	// Remove file logging on small devices
-#ifndef USING_GLES2
+#if !defined(USING_GLES2) || defined(_DEBUG)
 	m_fileLog = new FileLogListener(File::GetUserPath(F_MAINLOG_IDX).c_str());
 	m_consoleLog = new ConsoleListener();
 	m_debuggerLog = new DebuggerLogListener();
@@ -85,7 +85,7 @@ LogManager::LogManager()
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; ++i)
 	{
 		m_Log[i]->SetEnable(true);
-#ifndef USING_GLES2
+#if !defined(USING_GLES2) || defined(_DEBUG)
 		m_Log[i]->AddListener(m_fileLog);
 		m_Log[i]->AddListener(m_consoleLog);
 #ifdef _MSC_VER
@@ -100,7 +100,7 @@ LogManager::~LogManager()
 {
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; ++i)
 	{
-#ifndef USING_GLES2
+#if !defined(USING_GLES2) || defined(_DEBUG)
 		if (m_fileLog != NULL)
 			m_logManager->RemoveListener((LogTypes::LOG_TYPE)i, m_fileLog);
 		m_logManager->RemoveListener((LogTypes::LOG_TYPE)i, m_consoleLog);
@@ -114,7 +114,7 @@ LogManager::~LogManager()
 		delete m_Log[i];
 	if (m_fileLog != NULL)
 		delete m_fileLog;
-#ifndef USING_GLES2
+#if !defined(USING_GLES2) || defined(_DEBUG)
 	delete m_consoleLog;
 	delete m_debuggerLog;
 #endif

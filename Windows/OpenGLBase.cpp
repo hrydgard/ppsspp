@@ -12,7 +12,7 @@ static HDC			hDC=NULL;								// Private GDI Device Context
 static HGLRC		hRC=NULL;								// Permanent Rendering Context
 static HWND			hWnd=NULL;								// Holds Our Window Handle
 static HINSTANCE	hInstance;								// Holds The Instance Of The Application
-
+	
 static int xres, yres;
 
 // TODO: Make config?
@@ -174,14 +174,27 @@ bool GL_Init(HWND window, std::string *error_message) {
 
 	HGLRC	m_hrc;
 	if(wglewIsSupported("WGL_ARB_create_context") == 1) {
-		m_hrc = wglCreateContextAttribsARB(hDC,0, attribs);
-		wglMakeCurrent(NULL,NULL);
-		wglDeleteContext(hRC);
-		wglMakeCurrent(hDC, m_hrc);
+		m_hrc = wglCreateContextAttribsARB(hDC, 0, attribs);
+		if (!m_hrc) {
+			// Fall back
+			m_hrc = hRC;
+		} else {
+			// Switch to the new ARB context.
+			wglMakeCurrent(NULL, NULL);
+			wglDeleteContext(hRC);
+			wglMakeCurrent(hDC, m_hrc);
+		}
 	} else {
 		// We can't make a GL 3.x context. Use an old style context (GL 2.1 and before)
 		m_hrc = hRC;
 	}
+
+	if (!m_hrc) {
+		*error_message = "No m_hrc";
+		return false;
+	}
+
+	hRC = m_hrc;
 
 	//Checking GL version
 	const char *GLVersionString = (const char *)glGetString(GL_VERSION);
@@ -190,13 +203,6 @@ bool GL_Init(HWND window, std::string *error_message) {
 	int OpenGLVersion[2];
 	glGetIntegerv(GL_MAJOR_VERSION, &OpenGLVersion[0]);
 	glGetIntegerv(GL_MINOR_VERSION, &OpenGLVersion[1]);
-
-	if (!m_hrc) {
-		*error_message = "No m_hrc";
-		return false;
-	}
-
-	hRC = m_hrc;
 
 	glstate.Initialize();
 	setVSync(0);

@@ -7,7 +7,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := native_audio
 LOCAL_CFLAGS := -O2 -fsigned-char -ffast-math -Wall -Wno-multichar -Wno-psabi
 # yes, it's really CPPFLAGS for C++
-LOCAL_CPPFLAGS := -std=gnu++0x
+LOCAL_CPPFLAGS := -std=gnu++11 -frtti
 NATIVE := ../../native
 LOCAL_SRC_FILES := \
 		$(NATIVE)/android/native-audio-so.cpp
@@ -26,9 +26,9 @@ LOCAL_MODULE := ppsspp_jni
 NATIVE := ../../native
 SRC := ../..
 
-LOCAL_CFLAGS := -DUSE_PROFILER -DARM -DGL_GLEXT_PROTOTYPES -DUSING_GLES2 -O2 -fsigned-char -Wall -Wno-multichar -Wno-psabi -Wno-unused-variable -fno-strict-aliasing -ffast-math
+LOCAL_CFLAGS := -DUSE_PROFILER -DGL_GLEXT_PROTOTYPES -DUSING_GLES2 -O2 -fsigned-char -Wall -Wno-multichar -Wno-psabi -Wno-unused-variable -fno-strict-aliasing -ffast-math
 # yes, it's really CPPFLAGS for C++
-LOCAL_CPPFLAGS := -std=gnu++0x 
+LOCAL_CPPFLAGS := -std=gnu++11 -frtti
 LOCAL_C_INCLUDES := \
   $(LOCAL_PATH)/../../Common \
   $(LOCAL_PATH)/../.. \
@@ -43,15 +43,84 @@ LOCAL_LDLIBS := -lz -lGLESv2 -ldl -llog
 
 #  $(SRC)/Core/EmuThread.cpp \
 
-LOCAL_SRC_FILES := \
-  NativeApp.cpp \
-  EmuScreen.cpp \
-  MenuScreens.cpp \
-  UIShader.cpp \
-  GamepadEmu.cpp \
+# http://software.intel.com/en-us/articles/getting-started-on-optimizing-ndk-project-for-multiple-cpu-architectures
+
+
+ifeq ($(TARGET_ARCH_ABI),x86) 
+
+LOCAL_CFLAGS := $(LOCAL_CFLAGS) -D_M_IX86
+
+ARCH_FILES := \
+  $(SRC)/Common/ABI.cpp \
+  $(SRC)/Common/x64Emitter.cpp \
+  $(SRC)/Common/CPUDetect.cpp \
+  $(SRC)/Common/Thunk.cpp \
+  $(SRC)/Core/MIPS/x86/JitCache.cpp \
+  $(SRC)/Core/MIPS/x86/CompALU.cpp \
+  $(SRC)/Core/MIPS/x86/CompBranch.cpp \
+  $(SRC)/Core/MIPS/x86/CompFPU.cpp \
+  $(SRC)/Core/MIPS/x86/CompLoadStore.cpp \
+  $(SRC)/Core/MIPS/x86/CompVFPU.cpp \
+  $(SRC)/Core/MIPS/x86/Asm.cpp \
+  $(SRC)/Core/MIPS/x86/Jit.cpp \
+  $(SRC)/Core/MIPS/x86/RegCache.cpp \
+  $(SRC)/Core/MIPS/x86/RegCacheFPU.cpp
+endif
+
+ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
+
+LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM -DARMV7
+
+ARCH_FILES := \
+  $(SRC)/Common/ArmEmitter.cpp \
+  $(SRC)/Common/ArmCPUDetect.cpp \
+  $(SRC)/Common/ArmThunk.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmJitCache.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmCompALU.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmCompBranch.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmCompFPU.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmCompLoadStore.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmCompVFPU.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmAsm.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmJit.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmRegCache.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmRegCacheFPU.cpp \
   ArmEmitterTest.cpp \
+
+endif
+
+ifeq ($(TARGET_ARCH_ABI),armeabi)
+
+LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM
+
+ARCH_FILES := \
+  $(SRC)/Common/ArmEmitter.cpp \
+  $(SRC)/Common/ArmCPUDetect.cpp \
+  $(SRC)/Common/ArmThunk.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmJitCache.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmCompALU.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmCompBranch.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmCompFPU.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmCompLoadStore.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmCompVFPU.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmAsm.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmJit.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmRegCache.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmRegCacheFPU.cpp \
+  ArmEmitterTest.cpp \
+
+endif
+
+LOCAL_SRC_FILES := \
+  $(ARCH_FILES) \
   TestRunner.cpp \
-  ui_atlas.cpp \
+  $(SRC)/UI/ui_atlas.cpp \
+  $(SRC)/UI/NativeApp.cpp \
+  $(SRC)/UI/EmuScreen.cpp \
+  $(SRC)/UI/MenuScreens.cpp \
+  $(SRC)/UI/UIShader.cpp \
+  $(SRC)/UI/GamepadEmu.cpp \
+  $(SRC)/UI/GameInfoCache.cpp \
   $(SRC)/native/android/app-android.cpp \
   $(SRC)/ext/disarm.cpp \
   $(SRC)/ext/libkirk/AES.c \
@@ -62,14 +131,10 @@ LOCAL_SRC_FILES := \
   $(SRC)/ext/libkirk/kirk_engine.c \
   $(SRC)/ext/snappy/snappy-c.cpp \
   $(SRC)/ext/snappy/snappy.cpp \
-  $(SRC)/Common/ArmEmitter.cpp \
-  $(SRC)/Common/ArmCPUDetect.cpp \
-  $(SRC)/Common/ArmThunk.cpp \
   $(SRC)/Common/LogManager.cpp \
   $(SRC)/Common/MemArena.cpp \
   $(SRC)/Common/MemoryUtil.cpp \
   $(SRC)/Common/MsgHandler.cpp \
-  $(SRC)/Common/IniFile.cpp \
   $(SRC)/Common/FileUtil.cpp \
   $(SRC)/Common/StringUtil.cpp \
   $(SRC)/Common/Thread.cpp \
@@ -81,22 +146,23 @@ LOCAL_SRC_FILES := \
   $(SRC)/GPU/GPUState.cpp \
   $(SRC)/GPU/GeDisasm.cpp \
   $(SRC)/GPU/GLES/Framebuffer.cpp \
-  $(SRC)/GPU/GLES/DisplayListInterpreter.cpp \
-  $(SRC)/GPU/GLES/TextureCache.cpp \
-  $(SRC)/GPU/GLES/IndexGenerator.cpp \
-  $(SRC)/GPU/GLES/TransformPipeline.cpp \
-  $(SRC)/GPU/GLES/StateMapping.cpp \
-  $(SRC)/GPU/GLES/VertexDecoder.cpp \
+  $(SRC)/GPU/GLES/DisplayListInterpreter.cpp.arm \
+  $(SRC)/GPU/GLES/TextureCache.cpp.arm \
+  $(SRC)/GPU/GLES/IndexGenerator.cpp.arm \
+  $(SRC)/GPU/GLES/TransformPipeline.cpp.arm \
+  $(SRC)/GPU/GLES/StateMapping.cpp.arm \
+  $(SRC)/GPU/GLES/VertexDecoder.cpp.arm \
   $(SRC)/GPU/GLES/ShaderManager.cpp \
   $(SRC)/GPU/GLES/VertexShaderGenerator.cpp \
   $(SRC)/GPU/GLES/FragmentShaderGenerator.cpp \
   $(SRC)/GPU/Null/NullGpu.cpp \
   $(SRC)/Core/ELF/ElfReader.cpp \
+  $(SRC)/Core/ELF/PBPReader.cpp \
   $(SRC)/Core/ELF/PrxDecrypter.cpp \
   $(SRC)/Core/ELF/ParamSFO.cpp \
   $(SRC)/Core/HW/MemoryStick.cpp \
-  $(SRC)/Core/HW/MediaEngine.cpp \
-  $(SRC)/Core/HW/SasAudio.cpp \
+  $(SRC)/Core/HW/MediaEngine.cpp.arm \
+  $(SRC)/Core/HW/SasAudio.cpp.arm \
   $(SRC)/Core/Core.cpp \
   $(SRC)/Core/Config.cpp \
   $(SRC)/Core/CoreTiming.cpp \
@@ -126,6 +192,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/HLE/sceAudio.cpp \
   $(SRC)/Core/HLE/sceChnnlsv.cpp \
   $(SRC)/Core/HLE/sceCtrl.cpp \
+  $(SRC)/Core/HLE/sceDeflt.cpp \
   $(SRC)/Core/HLE/sceDisplay.cpp \
   $(SRC)/Core/HLE/sceDmac.cpp \
   $(SRC)/Core/HLE/sceGe.cpp \
@@ -144,7 +211,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/HLE/sceKernelMbx.cpp \
   $(SRC)/Core/HLE/sceKernelMsgPipe.cpp \
   $(SRC)/Core/HLE/sceKernelSemaphore.cpp \
-  $(SRC)/Core/HLE/sceKernelThread.cpp \
+  $(SRC)/Core/HLE/sceKernelThread.cpp.arm \
   $(SRC)/Core/HLE/sceKernelTime.cpp \
   $(SRC)/Core/HLE/sceKernelVTimer.cpp \
   $(SRC)/Core/HLE/sceMpeg.cpp \
@@ -163,6 +230,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/HLE/sceUtility.cpp \
   $(SRC)/Core/HLE/sceVaudio.cpp \
   $(SRC)/Core/HLE/scePspNpDrm_user.cpp \
+  $(SRC)/Core/HLE/sceGameUpdate.cpp \
   $(SRC)/Core/FileSystems/BlockDevices.cpp \
   $(SRC)/Core/FileSystems/ISOFileSystem.cpp \
   $(SRC)/Core/FileSystems/MetaFileSystem.cpp \
@@ -174,20 +242,10 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/MIPS/MIPSInt.cpp.arm \
   $(SRC)/Core/MIPS/MIPSIntVFPU.cpp.arm \
   $(SRC)/Core/MIPS/MIPSTables.cpp.arm \
-  $(SRC)/Core/MIPS/MIPSVFPUUtils.cpp \
-  $(SRC)/Core/MIPS/MIPSCodeUtils.cpp \
+  $(SRC)/Core/MIPS/MIPSVFPUUtils.cpp.arm \
+  $(SRC)/Core/MIPS/MIPSCodeUtils.cpp.arm \
   $(SRC)/Core/MIPS/MIPSDebugInterface.cpp \
   $(SRC)/Core/MIPS/JitCommon/JitCommon.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmJitCache.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompALU.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompBranch.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompFPU.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompLoadStore.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompVFPU.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmAsm.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmJit.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmRegCache.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmRegCacheFPU.cpp \
   $(SRC)/Core/Util/BlockAllocator.cpp \
   $(SRC)/Core/Util/ppge_atlas.cpp \
   $(SRC)/Core/Util/PPGeDraw.cpp \

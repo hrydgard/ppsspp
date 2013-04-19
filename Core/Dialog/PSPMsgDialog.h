@@ -61,6 +61,7 @@ public:
 	virtual int Update();
 	virtual int Shutdown();
 	virtual void DoState(PointerWrap &p);
+	int Abort();
 
 private :
 	void DisplayBack();

@@ -63,7 +63,7 @@ struct DecVtxFormat {
 struct TransformedVertex
 {
 	float x, y, z, fog;     // in case of morph, preblend during decode
-	float u; float v;      // scaled by uscale, vscale, if there
+	float u; float v; float w;   // scaled by uscale, vscale, if there
 	u8 color0[4];   // prelit
 	u8 color1[3];   // prelit
 };
@@ -75,6 +75,11 @@ class VertexDecoder;
 typedef void (VertexDecoder::*StepFunction)() const;
 
 void GetIndexBounds(void *inds, int count, u32 vertType, u16 *indexLowerBound, u16 *indexUpperBound);
+
+enum {
+	STAT_VERTSSUBMITTED = 0,
+	NUM_VERTEX_DECODER_STATS = 1
+};
 
 // Right now
 //   - only contains computed information
@@ -97,7 +102,7 @@ public:
 	u32 VertexType() const { return fmt_; }
 	const DecVtxFormat &GetDecVtxFmt() { return decFmt; }
 
-	void DecodeVerts(u8 *decoded, const void *verts, const void *inds, int prim, int count, int indexLowerBound, int indexUpperBound) const;
+	void DecodeVerts(u8 *decoded, const void *verts, int indexLowerBound, int indexUpperBound) const;
 
 	// This could be easily generalized to inject any one component. Don't know another use for it though.
 	u32 InjectUVs(u8 *decoded, const void *verts, float *customuv, int count) const;
@@ -147,6 +152,18 @@ public:
 	void Step_PosS16Through() const;
 	void Step_PosFloatThrough() const;
 
+	void ResetStats() {
+		memset(stats_, 0, sizeof(stats_));
+	}
+
+	void IncrementStat(int stat, int amount) {
+		stats_[stat] += amount;
+	}
+
+	// output must be big for safety.
+	// Returns number of chars written.
+	// Ugly for speed.
+	int ToString(char *output) const;
 
 	// Mutable decoder state
 	mutable u8 *decoded_;
@@ -180,6 +197,8 @@ public:
 	int idx;
 	int morphcount;
 	int nweights;
+
+	int stats_[NUM_VERTEX_DECODER_STATS];
 };
 
 // Reads decoded vertex formats in a convenient way. For software transform and debugging.

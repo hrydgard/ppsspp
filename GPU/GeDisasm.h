@@ -15,4 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/CommonTypes.h"
+
 void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer);

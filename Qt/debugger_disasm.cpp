@@ -543,7 +543,7 @@ void Debugger_Disasm::UpdateDisplayListGUI()
 	ui->displayList->clear();
 
 	EmuThread_LockDraw(true);
-	const std::deque<DisplayList>& dlQueue = gpu->GetDisplayLists();
+	const std::list<int>& dlQueue = gpu->GetDisplayLists();
 
 	DisplayList* dl = gpu->GetCurrentDisplayList();
 	if(dl)
@@ -551,14 +551,13 @@ void Debugger_Disasm::UpdateDisplayListGUI()
 		QTreeWidgetItem* item = new QTreeWidgetItem();
 		item->setText(0,QString::number(dl->id));
 		item->setData(0, Qt::UserRole, dl->id);
-		switch(dl->status)
+		switch(dl->state)
 		{
-		case PSP_GE_LIST_DONE:	item->setText(1,"Done"); break;
-		case PSP_GE_LIST_QUEUED:	item->setText(1,"Queued"); break;
-		case PSP_GE_LIST_DRAWING:	item->setText(1,"Drawing"); break;
-		case PSP_GE_LIST_STALL_REACHED:	item->setText(1,"Stall Reached"); break;
-		case PSP_GE_LIST_END_REACHED:	item->setText(1,"End Reached"); break;
-		case PSP_GE_LIST_CANCEL_DONE:	item->setText(1,"Cancel Done"); break;
+		case PSP_GE_DL_STATE_NONE: item->setText(1,"None"); break;
+		case PSP_GE_DL_STATE_QUEUED: item->setText(1,"Queued"); break;
+		case PSP_GE_DL_STATE_RUNNING: item->setText(1,"Running"); break;
+		case PSP_GE_DL_STATE_COMPLETED: item->setText(1,"Completed"); break;
+		case PSP_GE_DL_STATE_PAUSED: item->setText(1,"Paused"); break;
 		default: break;
 		}
 		item->setText(2,QString("%1").arg(dl->startpc,8,16,QChar('0')));
@@ -573,21 +572,21 @@ void Debugger_Disasm::UpdateDisplayListGUI()
 		}
 	}
 
-	for(auto it = dlQueue.begin(); it != dlQueue.end(); ++it)
+	for(auto listIdIt = dlQueue.begin(); listIdIt != dlQueue.end(); ++listIdIt)
 	{
+		DisplayList *it = gpu->getList(*listIdIt);
 		if(dl && it->id == dl->id)
 			continue;
 		QTreeWidgetItem* item = new QTreeWidgetItem();
 		item->setText(0,QString::number(it->id));
 		item->setData(0, Qt::UserRole, it->id);
-		switch(it->status)
+		switch(it->state)
 		{
-		case PSP_GE_LIST_DONE:	item->setText(1,"Done"); break;
-		case PSP_GE_LIST_QUEUED:	item->setText(1,"Queued"); break;
-		case PSP_GE_LIST_DRAWING:	item->setText(1,"Drawing"); break;
-		case PSP_GE_LIST_STALL_REACHED:	item->setText(1,"Stall Reached"); break;
-		case PSP_GE_LIST_END_REACHED:	item->setText(1,"End Reached"); break;
-		case PSP_GE_LIST_CANCEL_DONE:	item->setText(1,"Cancel Done"); break;
+		case PSP_GE_DL_STATE_NONE: item->setText(1,"None"); break;
+		case PSP_GE_DL_STATE_QUEUED: item->setText(1,"Queued"); break;
+		case PSP_GE_DL_STATE_RUNNING: item->setText(1,"Running"); break;
+		case PSP_GE_DL_STATE_COMPLETED: item->setText(1,"Completed"); break;
+		case PSP_GE_DL_STATE_PAUSED: item->setText(1,"Paused"); break;
 		default: break;
 		}
 		item->setText(2,QString("%1").arg(it->startpc,8,16,QChar('0')));

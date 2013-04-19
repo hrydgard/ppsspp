@@ -28,11 +28,9 @@ TouchButton buttonSelect(&ui_atlas, I_RECT, I_SELECT, PAD_BUTTON_SELECT);
 TouchButton buttonStart(&ui_atlas, I_RECT, I_START, PAD_BUTTON_START);
 TouchButton buttonLShoulder(&ui_atlas, I_SHOULDER, I_L, PAD_BUTTON_LBUMPER);
 TouchButton buttonRShoulder(&ui_atlas, I_SHOULDER, I_R, PAD_BUTTON_RBUMPER, 0, true);
-TouchButton buttonLeft(&ui_atlas, I_DIR, I_ARROW, PAD_BUTTON_LEFT, 0);
-TouchButton buttonUp(&ui_atlas, I_DIR, I_ARROW, PAD_BUTTON_UP, 90);
-TouchButton buttonRight(&ui_atlas, I_DIR, I_ARROW, PAD_BUTTON_RIGHT, 180);
-TouchButton buttonDown(&ui_atlas, I_DIR, I_ARROW, PAD_BUTTON_DOWN, 270);
-#if defined(__SYMBIAN32__) || defined(IOS)
+TouchButton buttonTurbo(&ui_atlas, I_RECT, I_ARROW, PAD_BUTTON_LEFT_THUMB, 180);
+TouchCrossPad crossPad(&ui_atlas, I_DIR, I_ARROW);
+#if defined(__SYMBIAN32__) || defined(IOS) || defined(MEEGO_EDITION_HARMATTAN)
 TouchButton buttonPause(&ui_atlas, I_RECT, I_ARROW, PAD_BUTTON_BACK, 90);
 #endif
 
@@ -65,17 +63,16 @@ void LayoutGamepad(int w, int h)
 	buttonTri.setPos(circleX - button_spacing, circleY - button_spacing, controlScale);
 	buttonSq.setPos(circleX - button_spacing * 2, circleY, controlScale);
 
-	buttonLeft.setPos(leftX, leftY, controlScale);
-	buttonUp.setPos(leftX + arrow_spacing, leftY - arrow_spacing, controlScale);
-	buttonDown.setPos(leftX + arrow_spacing, leftY + arrow_spacing, controlScale);
-	buttonRight.setPos(leftX + arrow_spacing * 2, leftY, controlScale);
+	crossPad.setPos(leftX + arrow_spacing, leftY, 40, controlScale);
 
-	buttonSelect.setPos(halfW - button_spacing, h - 20 * controlScale, controlScale);
-	buttonStart.setPos(halfW + button_spacing, h - 20 * controlScale, controlScale);
-	buttonLShoulder.setPos(button_spacing + 10 * controlScale, 15 * controlScale, controlScale);
-	buttonRShoulder.setPos(w - button_spacing - 10 * controlScale, 15 * controlScale, controlScale);
+	buttonTurbo.setPos(halfW - button_spacing * 2, h - 20 * controlScale, controlScale);
+	buttonSelect.setPos(halfW , h - 20 * controlScale, controlScale);
+	buttonStart.setPos(halfW + button_spacing * 2 , h - 20 * controlScale, controlScale);
+	buttonLShoulder.setPos(button_spacing + 10 * controlScale, 30 * controlScale, controlScale);
+	buttonRShoulder.setPos(w - button_spacing - 10 * controlScale, 30 * controlScale, controlScale);
 
-#if defined(__SYMBIAN32__) || defined(IOS)
+
+#if defined(__SYMBIAN32__) || defined(IOS) || defined(MEEGO_EDITION_HARMATTAN)
 	buttonPause.setPos(halfW, 15 * controlScale, controlScale);
 #endif
 
@@ -91,17 +88,15 @@ void UpdateGamepad(InputState &input_state)
 	buttonTri.update(input_state);
 	buttonSq.update(input_state);
 
-	buttonLeft.update(input_state);
-	buttonUp.update(input_state);
-	buttonDown.update(input_state);
-	buttonRight.update(input_state);
+	crossPad.update(input_state);
 
 	buttonSelect.update(input_state);
 	buttonStart.update(input_state);
 	buttonLShoulder.update(input_state);
 	buttonRShoulder.update(input_state);
+	buttonTurbo.update(input_state);
 
-#if defined(__SYMBIAN32__) || defined(IOS)
+#if defined(__SYMBIAN32__) || defined(IOS) || defined(MEEGO_EDITION_HARMATTAN)
 	buttonPause.update(input_state);
 #endif
 
@@ -118,17 +113,15 @@ void DrawGamepad(DrawBuffer &db)
 	buttonTri.draw(db, color, colorOverlay);
 	buttonSq.draw(db, color, colorOverlay);
 
-	buttonLeft.draw(db, color, colorOverlay);
-	buttonUp.draw(db, color, colorOverlay);
-	buttonDown.draw(db, color, colorOverlay);
-	buttonRight.draw(db, color, colorOverlay);
+	crossPad.draw(db, color, colorOverlay);
 
 	buttonSelect.draw(db, color, colorOverlay);
 	buttonStart.draw(db, color, colorOverlay);
 	buttonLShoulder.draw(db, color, colorOverlay);
 	buttonRShoulder.draw(db, color, colorOverlay);
+	buttonTurbo.draw(db, color, colorOverlay);
 
-#if defined(__SYMBIAN32__) || defined(IOS)
+#if defined(__SYMBIAN32__) || defined(IOS) || defined(MEEGO_EDITION_HARMATTAN)
 	buttonPause.draw(db, color, colorOverlay);
 #endif
 

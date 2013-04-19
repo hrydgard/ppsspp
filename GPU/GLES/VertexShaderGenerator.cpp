@@ -36,23 +36,22 @@
 
 #define WRITE p+=sprintf
 
-bool CanUseHardwareTransform(int prim)
-{
+bool CanUseHardwareTransform(int prim) {
 	if (!g_Config.bHardwareTransform)
 		return false;
 	return !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES;
 }
 
 // prim so we can special case for RECTANGLES :(
-void ComputeVertexShaderID(VertexShaderID *id, int prim)
-{
-	int doTexture = (gstate.textureMapEnable & 1) && !(gstate.isModeClear());
+void ComputeVertexShaderID(VertexShaderID *id, int prim) {
+	int doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
+	bool doTextureProjection = gstate.getUVGenMode() == 1;
 
 	bool hasColor = (gstate.vertType & GE_VTYPE_COL_MASK) != 0;
 	bool hasNormal = (gstate.vertType & GE_VTYPE_NRM_MASK) != 0;
 	bool hasBones = (gstate.vertType & GE_VTYPE_WEIGHT_MASK) != 0;
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
-	bool lmode = (gstate.lmode & 1) && (gstate.lightingEnable & 1);
+	bool lmode = (gstate.lmode & 1) && gstate.isLightingEnabled();
 
 	memset(id->d, 0, sizeof(id->d));
 	id->d[0] = lmode & 1;
@@ -61,7 +60,10 @@ void ComputeVertexShaderID(VertexShaderID *id, int prim)
 	id->d[0] |= doTexture << 3;
 	id->d[0] |= (hasColor & 1) << 4;
 	if (doTexture)
+	{
 		id->d[0] |= (gstate_c.flipTexture & 1) << 5;
+		id->d[0] |= (doTextureProjection & 1) << 6;
+	}
 
 	if (CanUseHardwareTransform(prim)) {
 		id->d[0] |= 1 << 8;
@@ -84,8 +86,8 @@ void ComputeVertexShaderID(VertexShaderID *id, int prim)
 
 		// Okay, d[1] coming up. ==============
 
-		id->d[1] |= (gstate.lightingEnable & 1) << 19;
-		if ((gstate.lightingEnable & 1) || gstate.getUVGenMode() == 2) {
+		id->d[1] |= gstate.isLightingEnabled() << 24;
+		if (gstate.isLightingEnabled() || gstate.getUVGenMode() == 2) {
 			// Light bits
 			for (int i = 0; i < 4; i++) {
 				id->d[1] |= (gstate.ltype[i] & 3) << (i * 4);
@@ -99,7 +101,7 @@ void ComputeVertexShaderID(VertexShaderID *id, int prim)
 	}
 }
 
-const char *boneWeightAttrDecl[8] = {
+static const char * const boneWeightAttrDecl[8] = {
 	"attribute float a_weight0123;\n",
 	"attribute vec2 a_weight0123;\n",
 	"attribute vec3 a_weight0123;\n",
@@ -110,7 +112,7 @@ const char *boneWeightAttrDecl[8] = {
 	"attribute vec4 a_weight0123;\nattribute vec4 a_weight4567;\n",
 };
 
-const char *boneWeightAttr[8] = {
+static const char * const boneWeightAttr[8] = {
 	"a_weight0123.x",
 	"a_weight0123.y",
 	"a_weight0123.z",
@@ -123,7 +125,7 @@ const char *boneWeightAttr[8] = {
 
 enum DoLightComputation {
 	LIGHT_OFF,
-	LIGHT_DOTONLY,
+	LIGHT_SHADE,
 	LIGHT_FULL,
 };
 
@@ -142,14 +144,16 @@ void GenerateVertexShader(int prim, char *buffer) {
 	WRITE(p, "#define mediump\n");
 #endif
 
-	int lmode = (gstate.lmode & 1) && (gstate.lightingEnable & 1);
-	int doTexture = (gstate.textureMapEnable & 1) && !(gstate.clearmode & 1);
+	int lmode = (gstate.lmode & 1) && gstate.isLightingEnabled();
+	int doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
 
 	bool hwXForm = CanUseHardwareTransform(prim);
 	bool hasColor = (gstate.vertType & GE_VTYPE_COL_MASK) != 0 || !hwXForm;
 	bool hasNormal = (gstate.vertType & GE_VTYPE_NRM_MASK) != 0 && hwXForm;
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
+	bool throughmode = (gstate.vertType & GE_VTYPE_THROUGH_MASK) != 0;
 	bool flipV = gstate_c.flipTexture;
+	bool doTextureProjection = gstate.getUVGenMode() == 1;
 
 	DoLightComputation doLight[4] = {LIGHT_OFF, LIGHT_OFF, LIGHT_OFF, LIGHT_OFF};
 	if (hwXForm) {
@@ -159,7 +163,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 			if (!hasNormal)
 				continue;
 			if (i == shadeLight0 || i == shadeLight1)
-				doLight[i] = LIGHT_DOTONLY;
+				doLight[i] = LIGHT_SHADE;
 			if ((gstate.lightingEnable & 1) && (gstate.lightEnable[i] & 1))
 				doLight[i] = LIGHT_FULL;
 		}
@@ -174,7 +178,12 @@ void GenerateVertexShader(int prim, char *buffer) {
 	else
 		WRITE(p, "attribute vec4 a_position;\n");  // need to pass the fog coord in w
 
-	if (doTexture) WRITE(p, "attribute vec2 a_texcoord;\n");
+	if (doTexture) {
+		if (!hwXForm && doTextureProjection)
+			WRITE(p, "attribute vec3 a_texcoord;\n");
+		else
+			WRITE(p, "attribute vec2 a_texcoord;\n");
+	}
 	if (hasColor) {
 		WRITE(p, "attribute lowp vec4 a_color0;\n");
 		if (lmode && !hwXForm)  // only software transform supplies color1 as vertex data
@@ -212,7 +221,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 				WRITE(p, "uniform mat4 u_bone%i;\n", i);
 			}
 		}
-		if (gstate.lightingEnable & 1) {
+		if (gstate.isLightingEnabled()) {
 			WRITE(p, "uniform lowp vec4 u_ambient;\n");
 			if ((gstate.materialupdate & 2) == 0)
 				WRITE(p, "uniform lowp vec3 u_matdiffuse;\n");
@@ -222,13 +231,16 @@ void GenerateVertexShader(int prim, char *buffer) {
 		}
 		for (int i = 0; i < 4; i++) {
 			if (doLight[i] != LIGHT_OFF) {
-				// These are needed for dot product only (for shade mapping)
+				// This is needed for shade mapping
 				WRITE(p, "uniform vec3 u_lightpos%i;\n", i);
-				WRITE(p, "uniform vec3 u_lightdir%i;\n", i);
-				WRITE(p, "uniform vec3 u_lightatt%i;\n", i);
 			}
 			if (doLight[i] == LIGHT_FULL) {
 				// These are needed for the full thing
+				WRITE(p, "uniform vec3 u_lightdir%i;\n", i);
+				WRITE(p, "uniform vec3 u_lightatt%i;\n", i);
+				WRITE(p, "uniform float u_lightangle%i;\n", i);
+				WRITE(p, "uniform float u_lightspotCoef%i;\n", i);
+
 				WRITE(p, "uniform lowp vec3 u_lightambient%i;\n", i);
 				WRITE(p, "uniform lowp vec3 u_lightdiffuse%i;\n", i);
 				WRITE(p, "uniform lowp vec3 u_lightspecular%i;\n", i);
@@ -238,7 +250,12 @@ void GenerateVertexShader(int prim, char *buffer) {
 
 	WRITE(p, "varying lowp vec4 v_color0;\n");
 	if (lmode) WRITE(p, "varying lowp vec3 v_color1;\n");
-	if (doTexture) WRITE(p, "varying vec2 v_texcoord;\n");
+	if (doTexture) {
+		if (doTextureProjection)
+			WRITE(p, "varying vec3 v_texcoord;\n");
+		else
+			WRITE(p, "varying vec2 v_texcoord;\n");
+	}
 	if (enableFog) WRITE(p, "varying float v_fogdepth;\n");
 
 	WRITE(p, "void main() {\n");
@@ -254,7 +271,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 		} else {
 			WRITE(p, "  v_color0 = u_matambientalpha;\n");
 			if (lmode)
-				WRITE(p, "  v_color1 = vec3(0.0, 0.0, 0.0);\n");
+				WRITE(p, "  v_color1 = vec3(0.0);\n");
 		}
 		if (enableFog) {
 			WRITE(p, "  v_fogdepth = a_position.w;\n");
@@ -272,9 +289,9 @@ void GenerateVertexShader(int prim, char *buffer) {
 			if (hasNormal)
 				WRITE(p, "  vec3 worldnormal = (u_world * vec4(a_normal, 0.0)).xyz;\n");
 		} else {
-			WRITE(p, "  vec3 worldpos = vec3(0.0, 0.0, 0.0);\n");
+			WRITE(p, "  vec3 worldpos = vec3(0.0);\n");
 			if (hasNormal)
-				WRITE(p, "  vec3 worldnormal = vec3(0.0, 0.0, 0.0);\n");
+				WRITE(p, "  vec3 worldnormal = vec3(0.0);\n");
 			int numWeights = 1 + ((gstate.vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT);
 			for (int i = 0; i < numWeights; i++) {
 				const char *weightAttr = boneWeightAttr[i];
@@ -299,7 +316,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 		if (hasColor) {
 			WRITE(p, "  lowp vec3 unlitColor = a_color0.rgb;\n");
 		} else {
-			WRITE(p, "  lowp vec3 unlitColor = vec3(1.0, 1.0, 1.0);\n");
+			WRITE(p, "  lowp vec3 unlitColor = u_matambientalpha.rgb;\n");
 		}
 		// TODO: Declare variables for dots for shade mapping if needed.
 
@@ -307,7 +324,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 		const char *diffuse = (gstate.materialupdate & 2) ? "unlitColor" : "u_matdiffuse";
 		const char *specular = (gstate.materialupdate & 4) ? "unlitColor" : "u_matspecular.rgb";
 
-		if (gstate.lightingEnable & 1) {
+		if (gstate.isLightingEnabled()) {
 			WRITE(p, "  lowp vec4 lightSum0 = u_ambient * %s + vec4(u_matemissive, 0.0);\n", ambient);
 			WRITE(p, "  lowp vec3 lightSum1 = vec3(0.0);\n");
 		}
@@ -315,7 +332,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 		// Calculate lights if needed. If shade mapping is enabled, lights may need to be
 		// at least partially calculated.
 		for (int i = 0; i < 4; i++) {
-			if (doLight[i] == LIGHT_OFF)
+			if (doLight[i] != LIGHT_FULL)
 				continue;
 
 			GELightComputation comp = (GELightComputation)(gstate.ltype[i] & 3);
@@ -330,31 +347,44 @@ void GenerateVertexShader(int prim, char *buffer) {
 			bool poweredDiffuse = comp == GE_LIGHTCOMP_BOTHWITHPOWDIFFUSE;
 
 			WRITE(p, "  float dot%i = dot(normalize(toLight%i), worldnormal);\n", i, i);
+			WRITE(p, "  float distance%i = length(toLight%i);\n", i, i);
+			WRITE(p, "  float lightScale%i = 0.0;\n", i);
+			WRITE(p, "  float angle%i = 0.0;\n", i);
+
 			if (poweredDiffuse) {
 				WRITE(p, "  dot%i = pow(dot%i, u_matspecular.a);\n", i, i);
 			}
 
-			if (doLight[i] == LIGHT_DOTONLY)
-				continue;  // TODO: Actually, might want specular dot.... TODO
-
-			WRITE(p, "  float lightScale%i = 1.0;\n", i);
-			if (type != GE_LIGHTTYPE_DIRECTIONAL) {
-				// Attenuation
-				WRITE(p, "  float distance%i = length(toLight%i);\n", i, i);
-				WRITE(p, "  lightScale%i = 1.0 / dot(u_lightatt%i, vec3(1.0, distance%i, distance%i*distance%i));\n", i, i, i, i, i);
-				WRITE(p, "  if (lightScale%i > 1.0) lightScale%i = 1.0;\n", i, i);
+			// Attenuation
+			switch (type) {
+			case GE_LIGHTTYPE_DIRECTIONAL:
+				WRITE(p, "  lightScale%i = 1.0;\n", i);
+				break;
+			case GE_LIGHTTYPE_POINT:
+				WRITE(p, "  lightScale%i = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance%i, distance%i*distance%i)), 0.0, 1.0);\n", i, i, i, i, i);
+				break;
+			case GE_LIGHTTYPE_SPOT:
+				WRITE(p, "  angle%i = dot(normalize(u_lightdir%i), normalize(toLight%i));\n", i, i, i);
+				WRITE(p, "  if (angle%i >= u_lightangle%i) {\n", i, i);
+				WRITE(p, "    lightScale%i = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance%i, distance%i*distance%i)), 0.0, 1.0) * pow(angle%i, u_lightspotCoef%i);\n", i, i, i, i, i, i, i);
+				WRITE(p, "  }\n");
+				break;
+			default:
+				// ILLEGAL
+				break;
 			}
-			WRITE(p, "  vec3 diffuse%i = (u_lightdiffuse%i * %s) * (max(dot%i, 0.0) * lightScale%i);\n", i, i, diffuse, i, i);
+
+			WRITE(p, "  vec3 diffuse%i = (u_lightdiffuse%i * %s) * max(dot%i, 0.0);\n", i, i, diffuse, i);
 			if (doSpecular) {
-				WRITE(p, "  vec3 halfVec%i = normalize(normalize(toLight%i) + vec3(0, 0, 1));\n", i, i);
+				WRITE(p, "  vec3 halfVec%i = normalize(normalize(toLight%i) + vec3(0.0, 0.0, 1.0));\n", i, i);
 				WRITE(p, "  dot%i = dot(halfVec%i, worldnormal);\n", i, i);
 				WRITE(p, "  if (dot%i > 0.0)\n", i);
-				WRITE(p, "    lightSum1 += u_lightspecular%i * %s * (pow(dot%i, u_matspecular.a) * (dot%i * lightScale%i));\n", i, specular, i, i, i);
+				WRITE(p, "    lightSum1 += u_lightspecular%i * %s * (pow(dot%i, u_matspecular.a) * lightScale%i);\n", i, specular, i, i);
 			}
-			WRITE(p, "  lightSum0 += vec4(u_lightambient%i + diffuse%i, 0.0);\n", i, i);
+			WRITE(p, "  lightSum0 += vec4((u_lightambient%i * %s.rgb + diffuse%i)*lightScale%i, 0.0);\n", i, ambient, i, i);
 		}
 
-		if (gstate.lightingEnable & 1) {
+		if (gstate.isLightingEnabled()) {
 			// Sum up ambient, emissive here.
 			WRITE(p, "  v_color0 = clamp(lightSum0, 0.0, 1.0);\n");
 			if (lmode) {
@@ -370,7 +400,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 				WRITE(p, "  v_color0 = u_matambientalpha;\n");
 			}
 			if (lmode)
-				WRITE(p, "  v_color1 = vec3(0.0, 0.0, 0.0);\n");
+				WRITE(p, "  v_color1 = vec3(0.0);\n");
 		}
 
 		// Step 3: UV generation
@@ -395,20 +425,25 @@ void GenerateVertexShader(int prim, char *buffer) {
 					WRITE(p, "  vec3 temp_tc = a_normal;\n");
 					break;
 				}
-				// Transform by texture matrix
-				WRITE(p, "  v_texcoord = (u_texmtx * vec4(temp_tc, 1.0)).xy;\n");
+				// Transform by texture matrix. XYZ as we are doing projection mapping.
+				WRITE(p, "  v_texcoord = (u_texmtx * vec4(temp_tc, 1.0)).xyz;\n");
 				break;
 
 			case 2:  // Shade mapping - use dots from light sources.
-				WRITE(p, "  v_texcoord = vec2(dot%i, dot%i);\n", gstate.getUVLS0(), gstate.getUVLS1());
+				WRITE(p, "  v_texcoord = vec2(1.0 + dot(normalize(u_lightpos%i), worldnormal), 1.0 - dot(normalize(u_lightpos%i), worldnormal)) * 0.5;\n", gstate.getUVLS0(), gstate.getUVLS1());
 				break;
 
 			case 3:
 				// ILLEGAL
 				break;
 			}
-			if (flipV)
-				WRITE(p, "  v_texcoord.y = 1.0 - v_texcoord.y * 2.0;\n");
+
+			if (flipV) {
+				if (throughmode)
+					WRITE(p, "  v_texcoord.y = 1.0 - v_texcoord.y;\n");
+				else
+					WRITE(p, "  v_texcoord.y = 1.0 - v_texcoord.y * 2.0;\n");
+			}
 		}
 
 		// Compute fogdepth

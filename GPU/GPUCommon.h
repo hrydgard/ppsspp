@@ -5,57 +5,63 @@
 class GPUCommon : public GPUInterface
 {
 public:
-	GPUCommon() :
-		dlIdGenerator(1),
-		currentList(NULL),
-		stackptr(0),
-		dumpNextFrame_(false),
-		dumpThisFrame_(false)
-	{}
+	GPUCommon();
+	virtual ~GPUCommon() {}
 
-	virtual void InterruptStart();
-	virtual void InterruptEnd();
+	virtual void InterruptStart(int listid);
+	virtual void InterruptEnd(int listid);
+	virtual void SyncEnd(WaitType waitType, int listid, bool wokeThreads);
+	virtual void EnableInterrupts(bool enable) {
+		interruptsEnabled_ = enable;
+	}
 
+	virtual void ExecuteOp(u32 op, u32 diff);
 	virtual void PreExecuteOp(u32 op, u32 diff);
 	virtual bool InterpretList(DisplayList &list);
 	virtual bool ProcessDLQueue();
-	virtual void UpdateStall(int listid, u32 newstall);
+	virtual u32  UpdateStall(int listid, u32 newstall);
 	virtual u32  EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head);
-	virtual int  listStatus(int listid);
+	virtual u32  DequeueList(int listid);
+	virtual int  ListSync(int listid, int mode);
+	virtual u32  DrawSync(int mode);
 	virtual void DoState(PointerWrap &p);
 	virtual bool FramebufferDirty() { return true; }
+	virtual u32  Continue();
+	virtual u32  Break(int mode);
 
 protected:
-	typedef std::deque<DisplayList> DisplayListQueue;
+	void UpdateCycles(u32 pc, u32 newPC = 0);
+	void PopDLQueue();
+	void CheckDrawSync();
 
-	int dlIdGenerator;
+	typedef std::list<int> DisplayListQueue;
+
+	DisplayList dls[DisplayListMaxCount];
 	DisplayList *currentList;
 	DisplayListQueue dlQueue;
 
 	bool interruptRunning;
 	u32 prev;
-	u32 stack[2];
-	u32 stackptr;
-	bool finished;
+	GPUState gpuState;
+	bool isbreak;
+	u64 drawCompleteTicks;
+	u64 busyTicks;
+
+	u64 startingTicks;
+	u32 cycleLastPC;
+	int cyclesExecuted;
 
 	bool dumpNextFrame_;
 	bool dumpThisFrame_;
-
+	bool interruptsEnabled_;
 
 public:
 	virtual DisplayList* getList(int listid)
 	{
-		if (currentList && currentList->id == listid)
-			return currentList;
-		for(auto it = dlQueue.begin(); it != dlQueue.end(); ++it)
-		{
-			if(it->id == listid)
-				return &*it;
-		}
-		return NULL;
+		return &dls[listid];
 	}
 
-	const std::deque<DisplayList>& GetDisplayLists()
+	const std::list<int>& GetDisplayLists()
 	{
 		return dlQueue;
 	}

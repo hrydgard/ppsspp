@@ -18,7 +18,6 @@
 
 #include "Globals.h"
 #include "MsgHandler.h"
-#include "IniFile.h"
 
 #ifdef _WIN32
 #include <windows.h>

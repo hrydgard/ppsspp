@@ -47,5 +47,14 @@
 		<string>assets/Icon.png</string>
 		<string>assets/Icon@2x.png</string>
 	</array>
+	<key>UILaunchImageFile</key>
+	<string>assets/Default.png</string>
+	<key>UIFileSharingEnabled</key>
+	<true/>
+	<key>UIDeviceFamily</key>
+	<array>
+		<integer>1</integer>
+		<integer>2</integer>
+	</array>
 </dict>
 </plist>

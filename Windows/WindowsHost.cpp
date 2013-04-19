@@ -17,6 +17,7 @@
 
 #include "Core/Core.h"
 #include "Core/Config.h"
+#include "Core/CoreParameter.h"
 #include "EmuThread.h"
 #include "DSoundStream.h"
 #include "WindowsHost.h"
@@ -102,7 +103,6 @@ void WindowsHost::ShutdownSound()
 void WindowsHost::UpdateUI()
 {
 	MainWindow::Update();
-	MainWindow::UpdateMenus();
 }
 
 
@@ -128,17 +128,26 @@ void WindowsHost::SetDebugMode(bool mode)
 }
 
 
-void WindowsHost::BeginFrame()
+void WindowsHost::PollControllers(InputState &input_state)
 {
+	bool doPad = true;
 	for (auto iter = this->input.begin(); iter != this->input.end(); iter++)
-		if ((*iter)->UpdateState() == 0)
-			break; // *iter is std::shared_ptr, **iter is InputDevice
+	{
+		auto device = *iter;
+		if (!doPad && device->IsPad())
+			continue;
+		if (device->UpdateState(input_state) == InputDevice::UPDATESTATE_SKIP_PAD)
+			doPad = false;
+	}
 }
 
 void WindowsHost::BootDone()
 {
 	symbolMap.SortSymbols();
 	SendMessage(MainWindow::GetHWND(), WM_USER+1, 0,0);
+
+	SetDebugMode(!g_Config.bAutoRun);
+	Core_EnableStepping(!g_Config.bAutoRun);
 }
 
 static std::string SymbolMapFilename(const char *currentFilename)
@@ -154,13 +163,16 @@ static std::string SymbolMapFilename(const char *currentFilename)
 
 bool WindowsHost::AttemptLoadSymbolMap()
 {
-	return symbolMap.LoadSymbolMap(SymbolMapFilename(GetCurrentFilename()).c_str());
+	if (loadedSymbolMap_)
+		return true;
+	loadedSymbolMap_ = symbolMap.LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str()).c_str());
+	return loadedSymbolMap_;
 }
 
-void WindowsHost::PrepareShutdown()
+void WindowsHost::SaveSymbolMap()
 {
-	// Autosaving symbolmap is no longer very useful.
-	// symbolMap.SaveSymbolMap(SymbolMapFilename(GetCurrentFilename()).c_str());
+	symbolMap.SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str()).c_str());
+	loadedSymbolMap_ = false;
 }
 
 void WindowsHost::AddSymbol(std::string name, u32 addr, u32 size, int type=0) 

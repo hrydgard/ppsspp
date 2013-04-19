@@ -118,6 +118,7 @@ private:
 	VirtualFramebuffer *displayFramebuf_;
 	VirtualFramebuffer *prevDisplayFramebuf_;
 	VirtualFramebuffer *prevPrevDisplayFramebuf_;
+	int frameLastFramebufUsed;
 
 	std::list<VirtualFramebuffer *> vfbs_;
 

@@ -16,22 +16,24 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 
+#include "Common/FileUtil.h"
 #include "Config.h"
-#include "IniFile.h"
+#include "file/ini_file.h"
 #include "HLE/sceUtility.h"
 
-SState g_State;
-CConfig g_Config;
+Config g_Config;
 
-CConfig::CConfig()
+#define MAX_RECENT 12
+
+Config::Config()
 {
 }
 
-CConfig::~CConfig()
+Config::~Config()
 {
 }
 
-void CConfig::Load(const char *iniFileName)
+void Config::Load(const char *iniFileName)
 {
 	iniFilename_ = iniFileName;
 	INFO_LOG(LOADER, "Loading config: %s", iniFileName);
@@ -54,8 +56,17 @@ void CConfig::Load(const char *iniFileName)
 	general->Get("IgnoreBadMemAccess", &bIgnoreBadMemAccess, true);
 	general->Get("CurrentDirectory", &currentDirectory, "");
 	general->Get("ShowDebuggerOnLoad", &bShowDebuggerOnLoad, false);
+	general->Get("Language", &languageIni, "en_US");
+
 	// "default" means let emulator decide, "" means disable.
 	general->Get("ReportHost", &sReportHost, "default");
+	general->Get("Recent", recentIsos);
+	general->Get("WindowX", &iWindowX, 40);
+	general->Get("WindowY", &iWindowY, 100);
+	general->Get("AutoSaveSymbolMap", &bAutoSaveSymbolMap, false);
+
+	if (recentIsos.size() > MAX_RECENT)
+		recentIsos.resize(MAX_RECENT);
 
 	IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 	cpu->Get("Jit", &bJit, true);
@@ -65,7 +76,11 @@ void CConfig::Load(const char *iniFileName)
 	IniFile::Section *graphics = iniFile.GetOrCreateSection("Graphics");
 	graphics->Get("ShowFPSCounter", &bShowFPSCounter, false);
 	graphics->Get("DisplayFramebuffer", &bDisplayFramebuffer, false);
+#ifdef _WIN32
+	graphics->Get("WindowZoom", &iWindowZoom, 2);
+#else
 	graphics->Get("WindowZoom", &iWindowZoom, 1);
+#endif
 	graphics->Get("BufferedRendering", &bBufferedRendering, true);
 	graphics->Get("HardwareTransform", &bHardwareTransform, true);
 	graphics->Get("LinearFiltering", &bLinearFiltering, false);
@@ -82,34 +97,40 @@ void CConfig::Load(const char *iniFileName)
 	graphics->Get("FullScreen", &bFullScreen, false);	
 	graphics->Get("StretchToDisplay", &bStretchToDisplay, false);
 	graphics->Get("TrueColor", &bTrueColor, true);
-
+#ifdef USING_GLES2
+	graphics->Get("MipMap", &bMipMap, true);
+#else
+	graphics->Get("MipMap", &bMipMap, false);
+#endif
 	IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 	sound->Get("Enable", &bEnableSound, true);
 
 	IniFile::Section *control = iniFile.GetOrCreateSection("Control");
 	control->Get("ShowStick", &bShowAnalogStick, false);
-	control->Get("ShowTouchControls", &bShowTouchControls,
 #ifdef USING_GLES2
-		true);
+	control->Get("ShowTouchControls", &bShowTouchControls, true);
 #else
-		false);
+	control->Get("ShowTouchControls", &bShowTouchControls,false);
 #endif
 	control->Get("LargeControls", &bLargeControls, false);
 	control->Get("KeyMapping",iMappingMap);
 	control->Get("AccelerometerToAnalogHoriz", &bAccelerometerToAnalogHoriz, false);
+	control->Get("ForceInputDevice", &iForceInputDevice, -1);
 
 	IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
 	pspConfig->Get("Language", &ilanguage, PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 	pspConfig->Get("TimeFormat", &itimeformat, PSP_SYSTEMPARAM_TIME_FORMAT_24HR);
 	pspConfig->Get("EncryptSave", &bEncryptSave, true);
 
+	CleanRecent();
 	// Ephemeral settings
 	bDrawWireframe = false;
 }
 
-void CConfig::Save()
+void Config::Save()
 {
 	if (iniFilename_.size() && g_Config.bSaveSettings) {
+		CleanRecent();
 		IniFile iniFile;
 		if (!iniFile.Load(iniFilename_.c_str())) {
 			ERROR_LOG(LOADER, "Error saving config - can't read ini %s", iniFilename_.c_str());
@@ -125,6 +146,11 @@ void CConfig::Save()
 		general->Set("CurrentDirectory", currentDirectory);
 		general->Set("ShowDebuggerOnLoad", bShowDebuggerOnLoad);
 		general->Set("ReportHost", sReportHost);
+		general->Set("Recent", recentIsos);
+		general->Set("WindowX", iWindowX);
+		general->Set("WindowY", iWindowY);
+		general->Set("AutoSaveSymbolMap", bAutoSaveSymbolMap);
+		general->Set("Language", languageIni);
 
 		IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 		cpu->Set("Jit", bJit);
@@ -146,6 +172,7 @@ void CConfig::Save()
 		graphics->Set("FullScreen", bFullScreen);
 		graphics->Set("StretchToDisplay", bStretchToDisplay);
 		graphics->Set("TrueColor", bTrueColor);
+		graphics->Set("MipMap", bMipMap);
 
 		IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 		sound->Set("Enable", bEnableSound);
@@ -156,6 +183,8 @@ void CConfig::Save()
 		control->Set("LargeControls", bLargeControls);
 		control->Set("KeyMapping",iMappingMap);
 		control->Set("AccelerometerToAnalogHoriz", bAccelerometerToAnalogHoriz);
+		control->Set("ForceInputDevice", iForceInputDevice);
+		
 
 		IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
 		pspConfig->Set("Language", ilanguage);
@@ -170,4 +199,29 @@ void CConfig::Save()
 	} else {
 		INFO_LOG(LOADER, "Not saving config");
 	}
+}
+
+void Config::AddRecent(const std::string &file) {
+	for (auto str = recentIsos.begin(); str != recentIsos.end(); str++) {
+		if (*str == file) {
+			recentIsos.erase(str);
+			recentIsos.insert(recentIsos.begin(), file);
+			if (recentIsos.size() > MAX_RECENT)
+				recentIsos.resize(MAX_RECENT);
+			return;
+		}
+	}
+	recentIsos.insert(recentIsos.begin(), file);
+	if (recentIsos.size() > MAX_RECENT)
+		recentIsos.resize(MAX_RECENT);
+}
+
+void Config::CleanRecent() {
+	std::vector<std::string> cleanedRecent;
+	for (size_t i = 0; i < recentIsos.size(); i++) {
+		if (File::Exists(recentIsos[i]))
+			cleanedRecent.push_back(recentIsos[i]);
+	}
+	recentIsos = cleanedRecent;
+
 }

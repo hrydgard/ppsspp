@@ -30,6 +30,7 @@ enum
 	SCE_KERNEL_ERROR_OUT_OF_MEMORY          = 0x80000022,
 	SCE_KERNEL_ERROR_INVALID_ID             = 0x80000100,
 	SCE_KERNEL_ERROR_INVALID_SIZE           = 0x80000104,
+	SCE_KERNEL_ERROR_INVALID_MODE           = 0x80000107,
 	SCE_KERNEL_ERROR_INVALID_VALUE          = 0x800001fe,
 	SCE_KERNEL_ERROR_INVALID_ARGUMENT       = 0x800001ff,
 	SCE_KERNEL_ERROR_ERROR   = 0x80020001,
@@ -251,6 +252,8 @@ enum TMIDPurpose
 	SCE_KERNEL_TMID_DelayThread = 65,
 	SCE_KERNEL_TMID_SuspendThread = 66,
 	SCE_KERNEL_TMID_DormantThread = 67,
+	// No idea what the correct value is here or how to find out.
+	SCE_KERNEL_TMID_Tls = 0x1001,
 
 	// Not official, but need ids for save states.
 	PPSSPP_KERNEL_TMID_Module =  0x100001,
@@ -307,6 +310,7 @@ int sceKernelDcacheWritebackInvalidateAll();
 void sceKernelGetThreadStackFreeSize();
 u32 sceKernelIcacheInvalidateAll();
 u32 sceKernelIcacheClearAll();
+int sceKernelIcacheInvalidateRange(u32 addr, int size);
 
 #define KERNELOBJECT_MAX_NAME_LENGTH 31
 
@@ -382,22 +386,33 @@ public:
 		}
 	}
 
+	// ONLY use this when you know the handle is valid.
 	template <class T>
-	T* GetByModuleByEntryAddr(u32 entryAddr)
+	T *GetFast(SceUID handle)
 	{
-		for (int i=0; i <4096; i++)
+		const SceUID realHandle = handle - handleOffset;
+		if (realHandle < 0 || realHandle >= maxCount || !occupied[realHandle])
 		{
-			T* t = dynamic_cast<T*>(pool[i]);
+			ERROR_LOG(HLE, "Kernel: Bad fast object handle %i (%08x)", handle, handle);
+			return 0;
+		}
+		return static_cast<T *>(pool[realHandle]);
+	}
 
+	template <class T, typename ArgT>
+	void Iterate(bool func(T *, ArgT), ArgT arg)
+	{
+		for (int i = 0; i < maxCount; i++)
+		{
+			if (!occupied[i])
+				continue;
+			T *t = dynamic_cast<T *>(pool[i]);
 			if (t)
 			{
-				if (t->nm.entry_addr == entryAddr)
-				{
-					return t;
-				}
+				if (!func(t, arg))
+					break;
 			}
 		}
-		return 0;
 	}
 
 	static u32 GetMissingErrorCode() { return -1; }	// TODO
@@ -421,6 +436,7 @@ private:
 	};
 	KernelObject *pool[maxCount];
 	bool occupied[maxCount];
+	int nextID;
 };
 
 extern KernelObjectPool kernelObjects;

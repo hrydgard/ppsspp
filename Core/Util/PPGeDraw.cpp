@@ -15,19 +15,20 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "PPGeDraw.h"
-#include "../GPU/ge_constants.h"
-#include "../GPU/GPUState.h"
-#include "../GPU/GPUInterface.h"
-#include "../HLE/sceKernel.h"
-#include "../HLE/sceKernelMemory.h"
-#include "../HLE/sceGe.h"
-#include "../MemMap.h"
+#include "Core/Util/PPGeDraw.h"
+#include "GPU/ge_constants.h"
+#include "GPU/GPUState.h"
+#include "GPU/GPUInterface.h"
+#include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceKernelMemory.h"
+#include "Core/HLE/sceGe.h"
+#include "Core/MemMap.h"
 #include "image/zim_load.h"
 #include "gfx/texture_atlas.h"
 #include "gfx/gl_common.h"
-#include "../System.h"
+#include "util/text/utf8.h"
 #include "MathUtil.h"
+#include "Core/System.h"
 
 static u32 atlasPtr;
 static int atlasWidth;
@@ -50,6 +51,10 @@ static u32 dlSize = 0x10000; // should be enough for a frame of gui...
 static u32 dataPtr;
 static u32 dataWritePtr;
 static u32 dataSize = 0x10000; // should be enough for a frame of gui...
+
+static u32 palettePtr;
+static u32 paletteSize = 2 * 16;
+
 
 // Vertex collector
 static u32 vertexStart;
@@ -118,31 +123,40 @@ void __PPGeInit()
 	int height;
 	int flags;
 	if (!LoadZIM("ppge_atlas.zim", &width, &height, &flags, &imageData)) {
+		PanicAlert("Failed to load ppge_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.");
 		ERROR_LOG(HLE, "PPGe init failed - no atlas texture. PPGe stuff will not be drawn.");
 		return;
 	}
 
-	u32 atlasSize = height * width * 2;  // it's a 4444 texture
+	u32 atlasSize = height * width / 2;  // it's a 4-bit paletted texture in ram
 	atlasWidth = width;
 	atlasHeight = height;
 	dlPtr = __PPGeDoAlloc(dlSize, false, "PPGe Display List");
 	dataPtr = __PPGeDoAlloc(dataSize, false, "PPGe Vertex Data");
-	atlasPtr = __PPGeDoAlloc(atlasSize, false, "PPGe Atlas Texture");
 	savedContextPtr = __PPGeDoAlloc(savedContextSize, false, "PPGe Saved Context");
+	atlasPtr = __PPGeDoAlloc(atlasSize, false, "PPGe Atlas Texture");
+	palettePtr = __PPGeDoAlloc(paletteSize, false, "PPGe Texture Palette");
 
-	u16 *imagePtr = (u16 *)imageData;
-	// component order change
-	for (int i = 0; i < width * height; i++) {
-		u16 c = imagePtr[i];
-		int a = c & 0xF;
-		int r = (c >> 4) & 0xF;
-		int g = (c >> 8) & 0xF;
-		int b = (c >> 12) & 0xF;
-		c = (a << 12) | (r << 8) | (g << 4) | b;
-		imagePtr[i] = c;
+	// Generate 16-greyscale palette. All PPGe graphics are greyscale so we can use a tiny paletted texture.
+	u16 *palette = (u16 *)Memory::GetPointer(palettePtr);
+	for (int i = 0; i < 16; i++) {
+		int val = i;
+		palette[i] = (val << 12) | 0xFFF;
 	}
 
-	Memory::Memcpy(atlasPtr, imageData, atlasSize);
+	u16 *imagePtr = (u16 *)imageData;
+	u8 *ramPtr = (u8 *)Memory::GetPointer(atlasPtr);
+
+	// Palettize to 4-bit, the easy way.
+	for (int i = 0; i < width * height / 2; i++) {
+		u16 c1 = imagePtr[i*2];
+		u16 c2 = imagePtr[i*2+1];
+		int a1 = c1 & 0xF;
+		int a2 = c2 & 0xF;
+		u8 cval = (a2 << 4) | a1;
+		ramPtr[i] = cval;
+	}
+	
 	free(imageData);
 
 	DEBUG_LOG(HLE, "PPGe drawing library initialized. DL: %08x Data: %08x Atlas: %08x (%i) Ctx: %08x",
@@ -154,6 +168,7 @@ void __PPGeDoState(PointerWrap &p)
 	p.Do(atlasPtr);
 	p.Do(atlasWidth);
 	p.Do(atlasHeight);
+	p.Do(palettePtr);
 
 	p.Do(savedContextPtr);
 	p.Do(savedContextSize);
@@ -182,6 +197,8 @@ void __PPGeShutdown()
 		kernelMemory.Free(dlPtr);
 	if (savedContextPtr)
 		kernelMemory.Free(savedContextPtr);
+	if (palettePtr)
+		kernelMemory.Free(palettePtr);
 
 	atlasPtr = 0;
 	dataPtr = 0;
@@ -246,22 +263,36 @@ void PPGeEnd()
 	}
 }
 
+static const AtlasChar *PPGeGetChar(const AtlasFont &atlasfont, unsigned int cval)
+{
+	const AtlasChar *c = atlasfont.getChar(cval);
+	if (c == NULL)
+		c = atlasfont.getChar(0xFFFD);
+	if (c == NULL)
+		c = atlasfont.getChar('?');
+	return c;
+}
+
 static void PPGeMeasureText(const char *text, float scale, float *w, float *h) {
 	const AtlasFont &atlasfont = *ppge_atlas.fonts[0];
-	unsigned char cval;
+	unsigned int cval;
 	float wacc = 0;
 	float maxw = 0;
 	int lines = 1;
-	while ((cval = *text++) != '\0') {
+	UTF8 utf(text);
+	while (true) {
+		if (utf.end())
+			break;
+		cval = utf.next();
 		if (cval == '\n') {
 			if (wacc > maxw) maxw = wacc;
 			wacc = 0;
 			lines++;
 		}
-		if (cval < 32) continue;
-		if (cval > 127) continue;
-		AtlasChar c = atlasfont.chars[cval - 32];
-		wacc += c.wx * scale;
+		const AtlasChar *c = PPGeGetChar(atlasfont, cval);
+		if (c) {
+			wacc += c->wx * scale;
+		}
 	}
 	if (wacc > maxw) maxw = wacc;
 	if (w) *w = maxw;
@@ -277,12 +308,11 @@ static void PPGeDoAlign(int flags, float *x, float *y, float *w, float *h) {
 
 // Draws some text using the one font we have.
 // Mostly stolen from DrawBuffer.
-void PPGeDrawText(const char *text, float x, float y, int align, float scale, u32 color)
-{
+void PPGeDrawText(const char *text, float x, float y, int align, float scale, u32 color) {
 	if (!dlPtr)
 		return;
 	const AtlasFont &atlasfont = *ppge_atlas.fonts[0];
-	unsigned char cval;
+	unsigned int cval;
 	float w, h;
 	PPGeMeasureText(text, scale, &w, &h);
 	if (align) {
@@ -291,23 +321,28 @@ void PPGeDrawText(const char *text, float x, float y, int align, float scale, u3
 	BeginVertexData();
 	y += atlasfont.ascend*scale;
 	float sx = x;
-	while ((cval = *text++) != '\0') {
+	UTF8 utf(text);
+	while (true) {
+		if (utf.end())
+			break;
+		cval = utf.next();
 		if (cval == '\n') {
 			// This is not correct when centering or right-justifying, need to set x depending on line width (tricky)
 			y += atlasfont.height * scale;
 			x = sx;
 			continue;
 		}
-		if (cval < 32) continue;
-		if (cval > 127) continue;
-		AtlasChar c = atlasfont.chars[cval - 32];
-		float cx1 = x + c.ox * scale;
-		float cy1 = y + c.oy * scale;
-		float cx2 = x + (c.ox + c.pw) * scale;
-		float cy2 = y + (c.oy + c.ph) * scale;
-		Vertex(cx1, cy1, c.sx, c.sy, 256, 256, color);
-		Vertex(cx2, cy2, c.ex, c.ey, 256, 256, color);
-		x += c.wx * scale;
+		const AtlasChar *ch = PPGeGetChar(atlasfont, cval);
+		if (ch) {
+			const AtlasChar &c = *ch;
+			float cx1 = x + c.ox * scale;
+			float cy1 = y + c.oy * scale;
+			float cx2 = x + (c.ox + c.pw) * scale;
+			float cy2 = y + (c.oy + c.ph) * scale;
+			Vertex(cx1, cy1, c.sx, c.sy, atlasWidth, atlasHeight, color);
+			Vertex(cx2, cy2, c.ex, c.ey, atlasWidth, atlasHeight, color);
+			x += c.wx * scale;
+		}
 	}
 	EndVertexDataAndDraw(GE_PRIM_RECTANGLES);
 }
@@ -410,10 +445,14 @@ void PPGeSetDefaultTexture()
 	WriteCmd(GE_CMD_TEXTUREMAPENABLE, 1);
 	int wp2 = GetPow2(atlasWidth);
 	int hp2 = GetPow2(atlasHeight);
-	WriteCmd(GE_CMD_TEXSIZE0, wp2 | (hp2 << 8));  // 1 << (7+1) = 256
+	WriteCmd(GE_CMD_CLUTADDR, palettePtr & 0xFFFFF0);
+	WriteCmd(GE_CMD_CLUTADDRUPPER, (palettePtr & 0xFF000000) >> 8);
+	WriteCmd(GE_CMD_CLUTFORMAT, 0x00FF02);
+	WriteCmd(GE_CMD_LOADCLUT, 2);
+	WriteCmd(GE_CMD_TEXSIZE0, wp2 | (hp2 << 8));
 	WriteCmd(GE_CMD_TEXMAPMODE, 0 | (1 << 8));
 	WriteCmd(GE_CMD_TEXMODE, 0);
-	WriteCmd(GE_CMD_TEXFORMAT, 2);  // 4444
+	WriteCmd(GE_CMD_TEXFORMAT, GE_TFMT_CLUT4);  // 4-bit CLUT
 	WriteCmd(GE_CMD_TEXFILTER, (1 << 8) | 1);   // mag = LINEAR min = LINEAR
 	WriteCmd(GE_CMD_TEXWRAP, (1 << 8) | 1);  // clamp texture wrapping
 	WriteCmd(GE_CMD_TEXFUNC, (0 << 16) | (1 << 8) | 0);  // RGBA texture reads, modulate, no color doubling
@@ -427,7 +466,7 @@ void PPGeSetTexture(u32 dataAddr, int width, int height)
 	WriteCmd(GE_CMD_TEXTUREMAPENABLE, 1);
 	int wp2 = GetPow2(width);
 	int hp2 = GetPow2(height);
-	WriteCmd(GE_CMD_TEXSIZE0, wp2 | (hp2 << 8));  // 1 << (7+1) = 256
+	WriteCmd(GE_CMD_TEXSIZE0, wp2 | (hp2 << 8));
 	WriteCmd(GE_CMD_TEXMAPMODE, 0 | (1 << 8));
 	WriteCmd(GE_CMD_TEXMODE, 0);
 	WriteCmd(GE_CMD_TEXFORMAT, GE_TFMT_8888);  // 4444

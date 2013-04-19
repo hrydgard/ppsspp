@@ -45,7 +45,7 @@ void MemCheck::Action(u32 addr, bool write, int size, u32 pc)
 			NOTICE_LOG(MEMMAP, "CHK %s%i at %08x (%s), PC=%08x (%s)", write ? "Write" : "Read", size * 8, addr, symbolMap.GetDescription(addr), pc, symbolMap.GetDescription(pc));
 		if (bBreak)
 		{
-			Core_Pause();
+			Core_EnableStepping(true);
 			host->SetDebugMode(true);
 		}
 	}

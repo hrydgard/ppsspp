@@ -15,23 +15,83 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/ChunkFile.h"
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
 
 #include "sceKernel.h"
 #include "sceUtility.h"
 
+static bool netInited;
+static bool netAdhocInited;
 
-void sceNetInit()
-{
+enum {
+	ERROR_NET_BUFFER_TOO_SMALL                   = 0x80400706,
+
+	ERROR_NET_RESOLVER_BAD_ID                    = 0x80410408,
+	ERROR_NET_RESOLVER_ALREADY_STOPPED           = 0x8041040a,
+	ERROR_NET_RESOLVER_INVALID_HOST              = 0x80410414,
+
+	ERROR_NET_ADHOC_INVALID_SOCKET_ID            = 0x80410701,
+	ERROR_NET_ADHOC_INVALID_ADDR                 = 0x80410702,
+	ERROR_NET_ADHOC_NO_DATA_AVAILABLE            = 0x80410709,
+	ERROR_NET_ADHOC_PORT_IN_USE                  = 0x8041070a,
+	ERROR_NET_ADHOC_NOT_INITIALIZED              = 0x80410712,
+	ERROR_NET_ADHOC_ALREADY_INITIALIZED          = 0x80410713,
+	ERROR_NET_ADHOC_DISCONNECTED                 = 0x8041070c,
+	ERROR_NET_ADHOC_TIMEOUT                      = 0x80410715,
+	ERROR_NET_ADHOC_NO_ENTRY                     = 0x80410716,
+	ERROR_NET_ADHOC_CONNECTION_REFUSED           = 0x80410718,
+
+	ERROR_NET_ADHOC_INVALID_MATCHING_ID          = 0x80410807,
+	ERROR_NET_ADHOC_MATCHING_ALREADY_INITIALIZED = 0x80410812,
+	ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED     = 0x80410813,
+
+	ERROR_NET_ADHOCCTL_ALREADY_INITIALIZED       = 0x80410b07,
+	ERROR_NET_ADHOCCTL_NOT_INITIALIZED           = 0x80410b08,
+	ERROR_NET_ADHOCCTL_TOO_MANY_HANDLERS         = 0x80410b12,
+};
+
+void __NetInit() {
+	netInited = false;
+	netAdhocInited = false;
+}
+
+
+void __NetShutdown() {
+
+}
+
+// This feels like a dubious proposition, mostly...
+void __NetDoState(PointerWrap &p) {
+	p.Do(netInited);
+	p.Do(netAdhocInited);
+	p.DoMarker("net");
+}
+
+void sceNetInit() {
 	ERROR_LOG(HLE,"UNIMPL sceNetInit(poolsize=%d, calloutpri=%i, calloutstack=%d, netintrpri=%i, netintrstack=%d)", PARAM(0), PARAM(1), PARAM(2), PARAM(3), PARAM(4));
+	netInited = true;
 	RETURN(0); //ERROR
 }
 
-void sceNetTerm()
-{
+u32 sceNetTerm() {
 	ERROR_LOG(HLE,"UNIMPL sceNetTerm()");
-	RETURN(0);
+	netInited = false;
+	return 0;
+}
+
+u32 sceNetAdhocInit() {
+	ERROR_LOG(HLE,"UNIMPL sceNetAdhocInit()");
+	if (netAdhocInited)
+		return ERROR_NET_ADHOC_ALREADY_INITIALIZED;
+	netAdhocInited = true;
+	return 0;
+}
+
+u32 sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
+	ERROR_LOG(HLE,"UNIMPL sceNetAdhocInit(%i, %i, %08x)", stackSize, prio, productAddr);
+	return 0;
 }
 
 u32 sceWlanGetEtherAddr(u32 addrAddr)
@@ -39,9 +99,7 @@ u32 sceWlanGetEtherAddr(u32 addrAddr)
 	static const u8 fakeEtherAddr[6] = { 1, 2, 3, 4, 5, 6 };
 	DEBUG_LOG(HLE, "sceWlanGetEtherAddr(%08x)", addrAddr);
 	for (int i = 0; i < 6; i++)
-	{
 		Memory::Write_U8(fakeEtherAddr[i], addrAddr + i);
-	}
 	return 0;
 }
 
@@ -59,7 +117,7 @@ u32 sceWlanGetSwitchState() {
 const HLEFunction sceNet[] =
 {
 	{0x39AF39A6, sceNetInit, "sceNetInit"},
-	{0x281928A9, sceNetTerm, "sceNetTerm"},
+	{0x281928A9, WrapU_V<sceNetTerm>, "sceNetTerm"},
 	{0x89360950, 0, "sceNetEtherNtostr"}, 
 	{0x0bf0a3ae, 0, "sceNetGetLocalEtherAddr"}, 
 	{0xd27961c9, 0, "sceNetEtherStrton"}, 
@@ -69,7 +127,7 @@ const HLEFunction sceNet[] =
 
 const HLEFunction sceNetAdhoc[] =
 {
-	{0xE1D621D7, 0, "sceNetAdhocInit"}, 
+	{0xE1D621D7, WrapU_V<sceNetAdhocInit>, "sceNetAdhocInit"}, 
 	{0xA62C6F57, 0, "sceNetAdhocTerm"}, 
 	{0x0AD043ED, 0, "sceNetAdhocctlConnect"},
 	{0x6f92741b, 0, "sceNetAdhocPdpCreate"},
@@ -121,11 +179,11 @@ const HLEFunction sceNetAdhocMatching[] =
 
 const HLEFunction sceNetAdhocctl[] =
 {
+	{0xE26F226E, WrapU_IIU<sceNetAdhocctlInit>, "sceNetAdhocctlInit"},
+	{0x9D689E13, 0, "sceNetAdhocctlTerm"},
 	{0x20B317A0, 0, "sceNetAdhocctlAddHandler"},
 	{0x6402490B, 0, "sceNetAdhocctlDelHandler"},
 	{0x34401D65, 0, "sceNetAdhocctlDisconnect"},
-	{0xE26F226E, 0, "sceNetAdhocctlInit"},
-	{0x9D689E13, 0, "sceNetAdhocctlTerm"},
 	{0x0ad043ed, 0, "sceNetAdhocctlConnect"},
 	{0x08fff7a0, 0, "sceNetAdhocctlScan"},
 	{0x75ecd386, 0, "sceNetAdhocctlGetNameByAddr"},
@@ -181,7 +239,9 @@ const HLEFunction sceNetInet[] =
 	{0xfaabb1dd, 0, "sceNetInetPoll"},
 	{0x1BDF5D13, 0, "sceNetInetInetAton"},
 	{0x80A21ABD, 0, "sceNetInetSocketAbort"},
+	{0x805502DD, 0, "sceNetInetCloseWithRST"},
 };
+
 const HLEFunction sceNetApctl[] = 
 {
 	{0xCFB957C6, 0, "sceNetApctlConnect"},

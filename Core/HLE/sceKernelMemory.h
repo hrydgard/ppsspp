@@ -35,6 +35,7 @@ void __KernelMemoryShutdown();
 KernelObject *__KernelMemoryFPLObject();
 KernelObject *__KernelMemoryVPLObject();
 KernelObject *__KernelMemoryPMBObject();
+KernelObject *__KernelTlsObject();
 
 SceUID sceKernelCreateVpl(const char *name, int partition, u32 attr, u32 vplSize, u32 optPtr);
 int sceKernelDeleteVpl(SceUID uid);
@@ -55,5 +56,11 @@ void sceKernelCancelFpl();
 void sceKernelReferFplStatus();
 
 int sceKernelGetCompiledSdkVersion();
+
+SceUID sceKernelCreateTls(const char *name, u32 partitionid, u32 attr, u32 size, u32 count, u32 optionsPtr);
+int sceKernelDeleteTls(SceUID uid);
+int sceKernelAllocateTls(SceUID uid);
+int sceKernelFreeTls(SceUID uid);
+int sceKernelReferTlsStatus(SceUID uid, u32 infoPtr);
 
 void Register_SysMemUserForUser();

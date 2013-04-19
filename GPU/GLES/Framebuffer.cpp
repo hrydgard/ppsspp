@@ -58,7 +58,7 @@ static const char basic_vs[] =
 
 // Aggressively delete unused FBO:s to save gpu memory.
 enum {
-	FBO_OLD_AGE = 5
+	FBO_OLD_AGE = 5,
 };
 
 static bool MaskedEqual(u32 addr1, u32 addr2) {
@@ -104,6 +104,7 @@ FramebufferManager::FramebufferManager() :
 	displayFramebufPtr_(0),
 	prevDisplayFramebuf_(0),
 	prevPrevDisplayFramebuf_(0),
+	frameLastFramebufUsed(0),
 	currentRenderVfb_(0)
 {
 	glGenTextures(1, &backbufTex);
@@ -282,6 +283,10 @@ void GuessDrawingSize(int &drawing_width, int &drawing_height) {
 		drawing_width = gstate.getScissorX2() + 1;
 	if (drawing_height > gstate.getScissorY2() + 1)
 		drawing_height = gstate.getScissorY2() + 1;*/
+	
+	// Cap at maximum texture size for now. Don't see much point in drawing bigger.
+	drawing_width = std::min(drawing_width, 512);
+	drawing_height = std::min(drawing_height, 512);
 }
 
 void FramebufferManager::SetRenderFrameBuffer() {
@@ -324,6 +329,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	if (!vfb) {
 		gstate_c.textureChanged = true;
 		vfb = new VirtualFramebuffer();
+		vfb->fbo = 0;
 		vfb->fb_address = fb_address;
 		vfb->fb_stride = fb_stride;
 		vfb->z_address = z_address;
@@ -366,7 +372,6 @@ void FramebufferManager::SetRenderFrameBuffer() {
 			vfb->fbo = fbo_create(vfb->renderWidth, vfb->renderHeight, 1, true, vfb->colorDepth);
 			fbo_bind_as_render_target(vfb->fbo);
 		} else {
-			vfb->fbo = 0;
 			fbo_unbind();
 			// Let's ignore rendering to targets that have not (yet) been displayed.
 			gstate_c.skipDrawReason |= SKIPDRAW_NON_DISPLAYED_FB;
@@ -375,6 +380,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb);
 
 		vfb->last_frame_used = gpuStats.numFrames;
+		frameLastFramebufUsed = gpuStats.numFrames;
 		vfbs_.push_back(vfb);
 		glstate.depthWrite.set(GL_TRUE);
 		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
@@ -392,11 +398,23 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		vfb->usageFlags |= FB_USAGE_RENDERTARGET;
 		gstate_c.textureChanged = true;
 		vfb->last_frame_used = gpuStats.numFrames;
+		frameLastFramebufUsed = gpuStats.numFrames;
 		vfb->dirtyAfterDisplay = true;
 
-		if (g_Config.bBufferedRendering && vfb->fbo) {
-			fbo_bind_as_render_target(vfb->fbo);
+		if (g_Config.bBufferedRendering) {
+			if (vfb->fbo) {
+				fbo_bind_as_render_target(vfb->fbo);
+			} else {
+				// wtf? This should only happen very briefly when toggling bBufferedRendering
+				fbo_unbind();
+			}
 		} else {
+			if (vfb->fbo) {
+				// wtf? This should only happen very briefly when toggling bBufferedRendering
+				textureCache_->NotifyFramebufferDestroyed(vfb->fb_address, vfb);
+				fbo_destroy(vfb->fbo);
+				vfb->fbo = 0;
+			}
 			fbo_unbind();
 
 			// Let's ignore rendering to targets that have not (yet) been displayed.
@@ -430,6 +448,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		currentRenderVfb_ = vfb;
 	} else {
 		vfb->last_frame_used = gpuStats.numFrames;
+		frameLastFramebufUsed = gpuStats.numFrames;
 	}
 
 	// ugly...
@@ -462,8 +481,12 @@ void FramebufferManager::CopyDisplayToOutput() {
 	vfb->usageFlags |= FB_USAGE_DISPLAYED_FRAMEBUFFER;
 	vfb->dirtyAfterDisplay = false;
 
-	prevPrevDisplayFramebuf_ = prevDisplayFramebuf_;
-	prevDisplayFramebuf_ = displayFramebuf_;
+	if (prevDisplayFramebuf_ != displayFramebuf_) {
+		prevPrevDisplayFramebuf_ = prevDisplayFramebuf_;
+	}
+	if (displayFramebuf_ != vfb) {
+		prevDisplayFramebuf_ = displayFramebuf_;
+	}
 	displayFramebuf_ = vfb;
 
 	currentRenderVfb_ = 0;
@@ -520,12 +543,13 @@ void FramebufferManager::BeginFrame() {
 }
 
 void FramebufferManager::SetDisplayFramebuffer(u32 framebuf, u32 stride, int format) {
-	displayFramebufPtr_ = framebuf;
-	displayStride_ = stride;
-	displayFormat_ = format;
 
 	if ((framebuf & 0x04000000) == 0) {
 		DEBUG_LOG(HLE, "Non-VRAM display framebuffer address set: %08x", framebuf);
+	} else {
+		displayFramebufPtr_ = framebuf;
+		displayStride_ = stride;
+		displayFormat_ = format;
 	}
 }
 
@@ -556,9 +580,9 @@ void FramebufferManager::DecimateFBOs() {
 			++iter;
 			continue;
 		}
-		int age = gpuStats.numFrames - (*iter)->last_frame_used;
+		int age = frameLastFramebufUsed - (*iter)->last_frame_used;
 		if (age > FBO_OLD_AGE) {
-			INFO_LOG(HLE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format)
+			INFO_LOG(HLE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age)
 			if (vfb->fbo) {
 				textureCache_->NotifyFramebufferDestroyed(vfb->fb_address, vfb);
 				fbo_destroy(vfb->fbo);

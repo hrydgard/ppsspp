@@ -2,11 +2,14 @@
 
 #include <windows.h>
 #include <tchar.h>
+
+#include "base/NativeApp.h"
 #include "Globals.h"
 
 #include "shellapi.h"
 #include "commctrl.h"
 
+#include "input/input_state.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Windows/OpenGLBase.h"
 #include "Windows/Debugger/Debugger_Disasm.h"
@@ -30,32 +33,41 @@
 #include "Windows/W32Util/Misc.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
+#include "native/image/png_load.h"
 
 #ifdef THEMES
 #include "XPTheme.h"
 #endif
 
-BOOL g_bFullScreen = FALSE;
-RECT g_normalRC = {0};
+#define ENABLE_TOUCH 0
+
+static BOOL g_bFullScreen = FALSE;
+static RECT g_normalRC = {0};
+
+extern InputState input_state;
+
+extern unsigned short analog_ctrl_map[];
+extern unsigned int key_pad_map[];
+extern const char * getVirtualKeyName(unsigned char key);
+extern bool saveControlsToFile();
+extern bool loadControlsFromFile();
 
 namespace MainWindow
 {
 	HWND hwndMain;
 	HWND hwndDisplay;
 	HWND hwndGameList;
-	HMENU menu;
-	BOOL skinMode = FALSE;
-	CoreState nextState = CORE_POWERDOWN;
+	static HMENU menu;
 
-	HINSTANCE hInst;
+	static HINSTANCE hInst;
 
 	//W32Util::LayeredWindow *layer;
 #define MAX_LOADSTRING 100
-	TCHAR *szTitle = TEXT("PPSSPP");
-	TCHAR *szWindowClass = TEXT("PPSSPPWnd");
-	TCHAR *szDisplayClass = TEXT("PPSSPPDisplay");
+	const TCHAR *szTitle = TEXT("PPSSPP");
+	const TCHAR *szWindowClass = TEXT("PPSSPPWnd");
+	const TCHAR *szDisplayClass = TEXT("PPSSPPDisplay");
 
-	// Foward declarations of functions included in this code module:
+	// Forward declarations of functions included in this code module:
 	LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 	LRESULT CALLBACK DisplayProc(HWND, UINT, WPARAM, LPARAM);
 	LRESULT CALLBACK About(HWND, UINT, WPARAM, LPARAM);
@@ -104,14 +116,29 @@ namespace MainWindow
 
 	void GetWindowRectAtZoom(int zoom, RECT &rcInner, RECT &rcOuter) {
 		// GetWindowRect(hwndMain, &rcInner);
-		rcInner.left = 20;
-		rcInner.top = 120;
+		rcInner.left = 0;
+		rcInner.top = 0;
 
-		rcInner.right=480*zoom + rcInner.left;//+client edge
-		rcInner.bottom=272*zoom + rcInner.top; //+client edge
+		rcInner.right=480*zoom;//+client edge
+		rcInner.bottom=272*zoom; //+client edge
 
 		rcOuter=rcInner;
 		AdjustWindowRect(&rcOuter, WS_OVERLAPPEDWINDOW, TRUE);
+		rcOuter.right += g_Config.iWindowX - rcOuter.left;
+		rcOuter.bottom += g_Config.iWindowY - rcOuter.top;
+		rcOuter.left = g_Config.iWindowX;
+		rcOuter.top = g_Config.iWindowY;
+	}
+
+	void SavePosition() {
+		WINDOWPLACEMENT placement;
+		GetWindowPlacement(hwndMain, &placement);
+		if (placement.showCmd == SW_SHOWNORMAL) {
+			RECT rc;
+			GetWindowRect(hwndMain, &rc);
+			g_Config.iWindowX = rc.left;
+			g_Config.iWindowY = rc.top;
+		}
 	}
 
 	void ResizeDisplay(bool noWindowMovement = false) {
@@ -159,7 +186,7 @@ namespace MainWindow
 		RECT rc,rcOrig;
 		GetWindowRectAtZoom(zoom, rcOrig, rc);
 
-		u32 style = skinMode ? WS_POPUP : WS_OVERLAPPEDWINDOW;
+		u32 style = WS_OVERLAPPEDWINDOW;
 
 		hwndMain = CreateWindowEx(0,szWindowClass, "", style,
 			rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top, NULL, NULL, hInstance, NULL);
@@ -190,14 +217,17 @@ namespace MainWindow
 		ShowWindow(hwndMain, nCmdShow);
 		//accept dragged files
 		DragAcceptFiles(hwndMain, TRUE);
-		UpdateMenus();
+
+#if ENABLE_TOUCH
+		RegisterTouchWindow(hwndDisplay, TWF_WANTPALM);
+#endif
 
 		SetFocus(hwndMain);
 
 		return TRUE;
 	}
 
-	void BrowseAndBoot(void)
+	void BrowseAndBoot(std::string defaultPath)
 	{
 		std::string fn;
 		std::string filter = "";
@@ -213,7 +243,7 @@ namespace MainWindow
 				filter[i] = '\0';
 		}
 
-		if (W32Util::BrowseForFileName(true, GetHWND(), "Load File",0,filter.c_str(),"*.pbp;*.elf;*.iso;*.cso;",fn))
+		if (W32Util::BrowseForFileName(true, GetHWND(), "Load File", defaultPath.size() ? defaultPath.c_str() : 0, filter.c_str(),"*.pbp;*.elf;*.iso;*.cso;",fn))
 		{
 			// decode the filename with fullpath
 			std::string fullpath = fn;
@@ -223,11 +253,8 @@ namespace MainWindow
 			char ext[MAX_PATH];
 			_splitpath(fullpath.c_str(), drive, dir, fname, ext);
 
-			// generate the mapfilename
 			std::string executable = std::string(drive) + std::string(dir) + std::string(fname) + std::string(ext);
-			std::string mapfile = std::string(drive) + std::string(dir) + std::string(fname) + std::string(".map");
-
-			EmuThread_Start(executable.c_str());
+			NativeMessageReceived("boot", executable.c_str());
 		}
 	}
 
@@ -241,17 +268,87 @@ namespace MainWindow
 			break;
 		case WM_SIZE:
 			break;
-			
+
 		case WM_ERASEBKGND:
 	  	return DefWindowProc(hWnd, message, wParam, lParam);
-  
+
 		case WM_LBUTTONDOWN:
-//			Update();
+			{
+				lock_guard guard(input_state.lock);
+				input_state.mouse_valid = true;
+				input_state.pointer_down[0] = true;
+				input_state.pointer_x[0] = GET_X_LPARAM(lParam); 
+				input_state.pointer_y[0] = GET_Y_LPARAM(lParam);
+
+				if (g_Config.iWindowZoom == 1)
+				{
+					input_state.pointer_x[0] *= 2;
+					input_state.pointer_y[0] *= 2;
+				}
+			}
 			break;
 
-		case WM_LBUTTONDBLCLK:
-			MessageBox(0,"Fullscreen isn't implemented yet","Sorry",0);
+		case WM_MOUSEMOVE:
+			{
+				lock_guard guard(input_state.lock);
+				input_state.pointer_x[0] = GET_X_LPARAM(lParam); 
+				input_state.pointer_y[0] = GET_Y_LPARAM(lParam);
+
+				if (g_Config.iWindowZoom == 1)
+				{
+					input_state.pointer_x[0] *= 2;
+					input_state.pointer_y[0] *= 2;
+				}
+			}
 			break;
+
+		case WM_LBUTTONUP:
+			{
+				lock_guard guard(input_state.lock);
+				input_state.pointer_down[0] = false;
+				input_state.pointer_x[0] = GET_X_LPARAM(lParam); 
+				input_state.pointer_y[0] = GET_Y_LPARAM(lParam);
+
+				if (g_Config.iWindowZoom == 1)
+				{
+					input_state.pointer_x[0] *= 2;
+					input_state.pointer_y[0] *= 2;
+				}
+			}
+			break;
+
+		case WM_TOUCH:
+			{
+				// TODO: Enabling this section will probably break things on Windows XP.
+				// We probably need to manually fetch pointers to GetTouchInputInfo and CloseTouchInputHandle.
+#if ENABLE_TOUCH
+				UINT inputCount = LOWORD(wParam);
+				TOUCHINPUT *inputs = new TOUCHINPUT[inputCount];
+				if (GetTouchInputInfo((HTOUCHINPUT)lParam,
+					inputCount,
+					inputs,
+					sizeof(TOUCHINPUT)))
+				{
+					for (int i = 0; i < inputCount; i++) {
+						// TODO: process inputs here!
+
+					}
+
+					if (!CloseTouchInputHandle((HTOUCHINPUT)lParam))
+					{
+						// error handling
+					}
+				}
+				else
+				{
+					// GetLastError() and error handling
+				}
+				delete [] inputs;
+				return DefWindowProc(hWnd, message, wParam, lParam);
+#endif
+			}
+
+
 		case WM_PAINT:
 			return DefWindowProc(hWnd, message, wParam, lParam);
 		default:
@@ -268,13 +365,16 @@ namespace MainWindow
 		switch (message) 
 		{
 		case WM_CREATE:
+			loadControlsFromFile();
 			break;
 
 		case WM_MOVE:
+			SavePosition();
 			ResizeDisplay();
 			break;
 
 		case WM_SIZE:
+			SavePosition();
 			ResizeDisplay();
 			break;
 
@@ -285,72 +385,64 @@ namespace MainWindow
 			switch (wmId)
 			{
 			case ID_FILE_LOAD:
-				BrowseAndBoot();
+				BrowseAndBoot("");
+				break;
+
+			case ID_FILE_LOAD_MEMSTICK:
+				{
+					std::string memStickDir, flash0dir;
+					GetSysDirectories(memStickDir, flash0dir);
+					memStickDir += "PSP\\GAME\\";
+					BrowseAndBoot(memStickDir);
+				}
 				break;
 
 			case ID_FILE_REFRESHGAMELIST:
 				break;
 
-			case ID_EMULATION_RUN:
-				if (g_State.bEmuThreadStarted)
+			case ID_FILE_MEMSTICK:
 				{
-					for (int i=0; i<numCPUs; i++)
-						if (disasmWindow[i])
-							SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
-					for (int i=0; i<numCPUs; i++)
-						if (disasmWindow[i])
-							SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_GO, 0);
+					std::string memStickDir, flash0dir;
+					GetSysDirectories(memStickDir, flash0dir);
+					ShellExecuteA(NULL, "open", memStickDir.c_str(), 0, 0, SW_SHOW);
 				}
 				break;
 
-			case ID_EMULATION_STOP:
-				for (int i=0; i<numCPUs; i++)
-					if (disasmWindow[i])
-						SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
-
-				Core_WaitInactive();
-
-				for (int i=0; i<numCPUs; i++)
-					if (disasmWindow[i])
-						SendMessage(disasmWindow[i]->GetDlgHandle(), WM_CLOSE, 0, 0);
-				for (int i=0; i<numCPUs; i++)
-					if (memoryWindow[i])
-						SendMessage(memoryWindow[i]->GetDlgHandle(), WM_CLOSE, 0, 0);
-
-				EmuThread_Stop();
-				SetPlaying(0);
-				Update();
-				UpdateMenus();
+			case ID_EMULATION_RUN:
+				if (Core_IsStepping()) {
+					Core_EnableStepping(false);
+				} else {
+					NativeMessageReceived("run", "");
+				}
+				if (disasmWindow[0])
+					SendMessage(disasmWindow[0]->GetDlgHandle(), WM_COMMAND, IDC_GO, 0);
 				break;
 
-			case ID_EMULATION_RESET:
-				for (int i=0; i<numCPUs; i++)
-					if (disasmWindow[i])
-						SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
+			case ID_EMULATION_STOP:
+				if (memoryWindow[0])
+					SendMessage(memoryWindow[0]->GetDlgHandle(), WM_CLOSE, 0, 0);
 
-				Core_WaitInactive();
+				NativeMessageReceived("stop", "");
 
-				for (int i=0; i<numCPUs; i++)
-					if (disasmWindow[i])
-						SendMessage(disasmWindow[i]->GetDlgHandle(), WM_CLOSE, 0, 0);
-				for (int i=0; i<numCPUs; i++)
-					if (memoryWindow[i])
-						SendMessage(memoryWindow[i]->GetDlgHandle(), WM_CLOSE, 0, 0);
-
-				EmuThread_Stop();
-
-				EmuThread_Start(GetCurrentFilename());
+				SetPlaying(0);
+				Update();
 				break;
 
 			case ID_EMULATION_PAUSE:
-				for (int i=0; i<numCPUs; i++)
-					if (disasmWindow[i])
-						SendMessage(disasmWindow[i]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
+				if (disasmWindow[0])
+				{
+					SendMessage(disasmWindow[0]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
+				} else if (globalUIState == UISTATE_INGAME) {
+					Core_EnableStepping(true);
+				}
+				break;
+
+			case ID_EMULATION_RESET:
+				NativeMessageReceived("reset", "");
 				break;
 
 			case ID_EMULATION_SPEEDLIMIT:
 				g_Config.bSpeedLimit = !g_Config.bSpeedLimit;
-				UpdateMenus();
 				break;
 
 			case ID_FILE_LOADSTATEFILE:
@@ -383,53 +475,47 @@ namespace MainWindow
 
 			case ID_OPTIONS_SCREEN1X:
 				SetZoom(1);
-				UpdateMenus();
 				break;
 			case ID_OPTIONS_SCREEN2X:
 				SetZoom(2);
-				UpdateMenus();
 				break;
 			case ID_OPTIONS_SCREEN3X:
 				SetZoom(3);
-				UpdateMenus();
 				break;
 			case ID_OPTIONS_SCREEN4X:
 				SetZoom(4);
-				UpdateMenus();
+				break;
+
+			case ID_OPTIONS_MIPMAP:
+				g_Config.bMipMap = !g_Config.bMipMap;
 				break;
 
 			case ID_OPTIONS_BUFFEREDRENDERING:
 				g_Config.bBufferedRendering = !g_Config.bBufferedRendering;
-				UpdateMenus();
 				if (gpu)
 					gpu->Resized();  // easy way to force a clear...
 				break;
 
 			case ID_OPTIONS_SHOWDEBUGSTATISTICS:
 				g_Config.bShowDebugStats = !g_Config.bShowDebugStats;
-				UpdateMenus();
 				break;
 
 			case ID_OPTIONS_HARDWARETRANSFORM:
 				g_Config.bHardwareTransform = !g_Config.bHardwareTransform;
-				UpdateMenus();
 				break;
 
 			case ID_OPTIONS_STRETCHDISPLAY:
 				g_Config.bStretchToDisplay = !g_Config.bStretchToDisplay;
-				UpdateMenus();
 				if (gpu)
 					gpu->Resized();  // easy way to force a clear...
 				break;
 
 			case ID_OPTIONS_FRAMESKIP:
 				g_Config.iFrameSkip = !g_Config.iFrameSkip;
-				UpdateMenus();
 				break;
 
 			case ID_OPTIONS_USEMEDIAENGINE:
 				g_Config.bUseMediaEngine = !g_Config.bUseMediaEngine;
-				UpdateMenus();
 				break;
 
 			case ID_FILE_EXIT:
@@ -438,16 +524,14 @@ namespace MainWindow
 
 			case ID_CPU_DYNAREC:
 				g_Config.bJit = true;
-				UpdateMenus();
-				break;			
+				break;	
+
 			case ID_CPU_INTERPRETER:
 				g_Config.bJit = false;
-				UpdateMenus();
 				break;
 
 			case ID_EMULATION_RUNONLOAD:
 				g_Config.bAutoRun = !g_Config.bAutoRun;
-				UpdateMenus();
 				break;
 
 			case ID_DEBUG_DUMPNEXTFRAME:
@@ -459,12 +543,10 @@ namespace MainWindow
 				if (W32Util::BrowseForFileName(true, hWnd, "Load .MAP",0,"Maps\0*.map\0All files\0*.*\0\0","map",fn)) {
 					symbolMap.LoadSymbolMap(fn.c_str());
 //					HLE_PatchFunctions();
-					for (int i=0; i<numCPUs; i++)
-						if (disasmWindow[i])
-							disasmWindow[i]->NotifyMapLoaded();
-					for (int i=0; i<numCPUs; i++)
-						if (memoryWindow[i])
-							memoryWindow[i]->NotifyMapLoaded();
+					if (disasmWindow[0])
+						disasmWindow[0]->NotifyMapLoaded();
+					if (memoryWindow[0])
+						memoryWindow[0]->NotifyMapLoaded();
 				}
 				break;
 			case ID_DEBUG_SAVEMAPFILE:
@@ -495,7 +577,6 @@ namespace MainWindow
 
 			case ID_OPTIONS_IGNOREILLEGALREADS:
 				g_Config.bIgnoreBadMemAccess = !g_Config.bIgnoreBadMemAccess;
-				UpdateMenus();
 				break;
 
 			case ID_OPTIONS_FULLSCREEN:
@@ -505,40 +586,31 @@ namespace MainWindow
 				} else {
 					_ViewFullScreen(hWnd);
 				}
-				UpdateMenus();
 				break;
 
 			case ID_OPTIONS_WIREFRAME:
 				g_Config.bDrawWireframe = !g_Config.bDrawWireframe;
-				UpdateMenus();
 				break;
 			case ID_OPTIONS_VERTEXCACHE:
 				g_Config.bVertexCache = !g_Config.bVertexCache;
-				UpdateMenus();
 				break;
 			case ID_OPTIONS_SHOWFPS:
 				g_Config.bShowFPSCounter = !g_Config.bShowFPSCounter;
-				UpdateMenus();
 				break;
 			case ID_OPTIONS_DISPLAYRAWFRAMEBUFFER:
 				g_Config.bDisplayFramebuffer = !g_Config.bDisplayFramebuffer;
-				UpdateMenus();
 				break;
 			case ID_OPTIONS_FASTMEMORY:
 				g_Config.bFastMemory = !g_Config.bFastMemory;
-				UpdateMenus();
 				break;
 			case ID_OPTIONS_USEVBO:
 				g_Config.bUseVBO = !g_Config.bUseVBO;
-				UpdateMenus();
 				break;
 			case ID_OPTIONS_LINEARFILTERING:
 				g_Config.bLinearFiltering = !g_Config.bLinearFiltering;
-				UpdateMenus();
 				break;
 			case ID_OPTIONS_SIMPLE2XSSAA:
 				g_Config.SSAntiAliasing = !g_Config.SSAntiAliasing;
-				UpdateMenus();
 				ResizeDisplay(true);
 				break;
 			case ID_OPTIONS_CONTROLS:
@@ -546,12 +618,14 @@ namespace MainWindow
 				DialogBox(hInst, (LPCTSTR)IDD_CONTROLS, hWnd, (DLGPROC)Controls);
 				DialogManager::EnableAll(TRUE);
 				break;
-
-      case ID_HELP_OPENWEBSITE:
+			case ID_EMULATION_SOUND:
+				g_Config.bEnableSound = !g_Config.bEnableSound;
+				break;
+      			case ID_HELP_OPENWEBSITE:
 				ShellExecute(NULL, "open", "http://www.ppsspp.org/", NULL, NULL, SW_SHOWNORMAL);
-        break;
+        			break;
 
-      case ID_HELP_ABOUT:
+      			case ID_HELP_ABOUT:
 				DialogManager::EnableAll(FALSE);
 				DialogBox(hInst, (LPCTSTR)IDD_ABOUTBOX, hWnd, (DLGPROC)About);
 				DialogManager::EnableAll(TRUE);
@@ -570,7 +644,7 @@ namespace MainWindow
 				mojs ^= 1;
 				//SetSkinMode(mojs);
 			}
-			break;
+			return 0;
 		case WM_DROPFILES:
 			{
 				HDROP hdrop = (HDROP)wParam;
@@ -584,32 +658,15 @@ namespace MainWindow
 					TCHAR filename[512];
 					DragQueryFile(hdrop,0,filename,512);
 					TCHAR *type = filename+_tcslen(filename)-3;
-/*
-					TBootFileType t;
-					if (strcmp(type,"bin")==0)
-						t=BOOT_BIN;
-					else if (strcmp(type,"elf")==0)
-						t=BOOT_ELF;
-					else if (strcmp(type,"dol")==0)
-						t=BOOT_DOL;
-					else
-					{
-						MessageBox(hwndMain,"Not a runnable Gamecube file","Error",MB_ICONERROR);
-						break;
-					}
-					CCore::Start(0,filename,t);
-					*/
 
-					if (g_State.bEmuThreadStarted)
-					{
-						SendMessage(hWnd, WM_COMMAND, ID_EMULATION_STOP, 0);
-					}
+					SendMessage(hWnd, WM_COMMAND, ID_EMULATION_STOP, 0);
+					// Ugly, need to wait for the stop message to process in the EmuThread.
+					Sleep(20);
 					
 					MainWindow::SetPlaying(filename);
 					MainWindow::Update();
-					MainWindow::UpdateMenus();
 
-					EmuThread_Start(filename);
+					NativeMessageReceived("boot", filename);
 				}
 			}
 			break;
@@ -635,13 +692,13 @@ namespace MainWindow
 		case WM_DESTROY:
 			PostQuitMessage(0);
 			break;
-		case WM_NCHITTEST:
-			if (skinMode)
-				return HTCAPTION;
-			else
-				return DefWindowProc(hWnd,message,wParam,lParam);
 
 		case WM_USER+1:
+			if (disasmWindow[0])
+				SendMessage(disasmWindow[0]->GetDlgHandle(), WM_CLOSE, 0, 0);
+			if (memoryWindow[0])
+				SendMessage(memoryWindow[0]->GetDlgHandle(), WM_CLOSE, 0, 0); 
+
 			disasmWindow[0] = new CDisasm(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
 			DialogManager::AddDlg(disasmWindow[0]);
 			disasmWindow[0]->Show(g_Config.bShowDebuggerOnLoad);
@@ -653,8 +710,13 @@ namespace MainWindow
 			if (memoryWindow[0])
 				memoryWindow[0]->NotifyMapLoaded();
 
-			if (nextState == CORE_RUNNING)
-				PostMessage(hwndMain, WM_COMMAND, ID_EMULATION_RUN, 0);
+			SetForegroundWindow(hwndMain);
+			break;
+
+
+		case WM_MENUSELECT:
+			// This happens when a menu drops down, so this is the only place
+			// we need to call UpdateMenus.
 			UpdateMenus();
 			break;
 
@@ -663,7 +725,6 @@ namespace MainWindow
 		}
 		return 0;
 	}
-
 
 	void UpdateMenus()
 	{
@@ -691,14 +752,17 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_SHOWFPS, g_Config.bShowFPSCounter);
 		CHECKITEM(ID_OPTIONS_FRAMESKIP, g_Config.iFrameSkip != 0);
 		CHECKITEM(ID_OPTIONS_USEMEDIAENGINE, g_Config.bUseMediaEngine);
+		CHECKITEM(ID_OPTIONS_MIPMAP, g_Config.bMipMap);
+		CHECKITEM(ID_EMULATION_SOUND, g_Config.bEnableSound); 
 
-		UINT enable = !Core_IsStepping() ? MF_GRAYED : MF_ENABLED;
-		EnableMenuItem(menu,ID_EMULATION_RUN, g_State.bEmuThreadStarted ? enable : MF_GRAYED);
-		EnableMenuItem(menu,ID_EMULATION_PAUSE, g_State.bEmuThreadStarted ? !enable : MF_GRAYED);
-		EnableMenuItem(menu,ID_EMULATION_RESET, g_State.bEmuThreadStarted ? MF_ENABLED : MF_GRAYED);
+		EnableMenuItem(menu,ID_EMULATION_RUN, (Core_IsStepping() || globalUIState == UISTATE_PAUSEMENU) ? MF_ENABLED : MF_GRAYED);
+		EnableMenuItem(menu,ID_EMULATION_PAUSE, globalUIState == UISTATE_INGAME ? MF_ENABLED : MF_GRAYED);
+		EnableMenuItem(menu,ID_EMULATION_STOP, globalUIState == UISTATE_INGAME ? MF_ENABLED : MF_GRAYED);
+		EnableMenuItem(menu,ID_EMULATION_RESET, globalUIState == UISTATE_INGAME ? MF_ENABLED : MF_GRAYED);
 
-		enable = g_State.bEmuThreadStarted ? MF_GRAYED : MF_ENABLED;
+		UINT enable = globalUIState == UISTATE_MENU ? MF_ENABLED : MF_GRAYED;
 		EnableMenuItem(menu,ID_FILE_LOAD,enable);
+		EnableMenuItem(menu,ID_FILE_LOAD_MEMSTICK,enable);
 		EnableMenuItem(menu,ID_FILE_SAVESTATEFILE,!enable);
 		EnableMenuItem(menu,ID_FILE_LOADSTATEFILE,!enable);
 		EnableMenuItem(menu,ID_FILE_QUICKSAVESTATE,!enable);
@@ -706,9 +770,8 @@ namespace MainWindow
 		EnableMenuItem(menu,ID_CPU_DYNAREC,enable);
 		EnableMenuItem(menu,ID_CPU_INTERPRETER,enable);
 		EnableMenuItem(menu,ID_EMULATION_STOP,!enable);
-		EnableMenuItem(menu,ID_OPTIONS_USEMEDIAENGINE,enable);
-
-		const int zoomitems[4] = {
+		
+		static const int zoomitems[4] = {
 			ID_OPTIONS_SCREEN1X,
 			ID_OPTIONS_SCREEN2X,
 			ID_OPTIONS_SCREEN3X,
@@ -746,7 +809,8 @@ namespace MainWindow
 		return FALSE;
 	}
 
-	const char *controllist[] = {
+	static const char *controllist[] = {
+		"TURBO MODE\tHold TAB",
 		"Start\tSpace",
 		"Select\tV",
 		"Square\tA",
@@ -765,28 +829,166 @@ namespace MainWindow
 		"Analog Right\tL",
 		"Rapid Fire\tShift",
 	};
-	// Message handler for about box.
+
+	static HHOOK pKeydownHook;
+	static const int control_map_size = IDC_EDIT_KEY_ANALOG_RIGHT - IDC_EDIT_KEY_TURBO + 1;
+	static u8 control_map[control_map_size];
+	RECT getRedrawRect(HWND hWnd) {
+		RECT rc;
+		HWND hDlg = GetParent(hWnd);
+		GetWindowRect(hWnd, &rc);
+		POINT pt = {0, 0};
+		ScreenToClient(hDlg, &pt);
+		rc.left += pt.x;
+		rc.right += pt.x;
+		rc.top += pt.y;
+		rc.bottom += pt.y;
+		
+		return rc;
+	}
+
+	LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
+	{
+		HWND hEdit = GetFocus();
+		UINT nCtrlID = GetDlgCtrlID(hEdit);
+		if (nCtrlID < IDC_EDIT_KEY_TURBO || nCtrlID > IDC_EDIT_KEY_ANALOG_RIGHT) {
+			return CallNextHookEx(pKeydownHook, nCode, wParam, lParam);
+		}
+		if (!(lParam&(1<<31))) {
+			// key down
+			HWND hDlg = GetParent(hEdit);
+			const char *str = getVirtualKeyName(wParam);
+			if (str) {
+				control_map[nCtrlID - IDC_EDIT_KEY_TURBO] = wParam;
+				SetWindowTextA(hEdit, str);
+				RECT rc = getRedrawRect(hEdit);
+				InvalidateRect(hDlg, &rc, false);
+			}
+			else
+				MessageBoxA(hDlg, "Not supported!", "controller", MB_OK);
+		}
+		return 1;
+	}
+
+	HBITMAP LoadImageFromResource(HINSTANCE hInstance,LPCTSTR pszResourceName, LPCTSTR lpType)
+	{
+		HRSRC hrsrc = FindResource(hInstance, pszResourceName, lpType);
+		if (!hrsrc)
+			return FALSE;
+		DWORD dwlen = SizeofResource(hInstance, hrsrc);
+		BYTE *lpRsrc = (BYTE*)LoadResource(hInstance, hrsrc);
+		if (!lpRsrc)
+			return FALSE;
+		int width, height;
+		unsigned char *image_data = 0;
+		bool bResult = pngLoadPtr(lpRsrc, dwlen, &width, &height, &image_data, false);
+		FreeResource(lpRsrc);
+		if (!bResult)
+			return 0;
+		HBITMAP hbm = CreateBitmap(width, height, 1, 32, image_data);
+		free(image_data);
+		return hbm;
+	}
+	void BitBlt(HBITMAP hbm, HDC dstDC, int dstX, int dstY, int width, int height, int srcX, int srcY)
+	{
+		HDC hCompDC = CreateCompatibleDC(dstDC);
+		HBITMAP oldbm = (HBITMAP)SelectObject(hCompDC, hbm);
+		BitBlt(dstDC, dstX, dstY, width, height, hCompDC, srcX, srcY, SRCCOPY);
+		SelectObject(hCompDC, oldbm);
+		DeleteObject(hCompDC);
+	}
+
+	// Message handler for control box.
 	LRESULT CALLBACK Controls(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 	{
+		static HBITMAP hbm = 0;
 		switch (message)
 		{
 		case WM_INITDIALOG:
 			W32Util::CenterWindow(hDlg);
 			{
 				// TODO: connect to keyboard device instead
-				HWND list = GetDlgItem(hDlg, IDC_LISTCONTROLS);
-				int stops[1] = {80};
-				SendMessage(list, LB_SETTABSTOPS, 1, (LPARAM)stops);
-				for (int i = 0; i < sizeof(controllist)/sizeof(controllist[0]); i++) {
-					SendMessage(list, LB_INSERTSTRING, -1, (LPARAM)controllist[i]);
+				if (!hbm)
+					hbm = LoadImageFromResource(hInst, MAKEINTRESOURCE(IDB_IMAGE_PSP), "IMAGE");
+				int key_pad_size = (IDC_EDIT_KEYRIGHT - IDC_EDIT_KEY_TURBO + 1);
+				for (u32 i = 0; i <= IDC_EDIT_KEY_ANALOG_RIGHT - IDC_EDIT_KEY_TURBO; i++) {
+					HWND hEdit = GetDlgItem(hDlg, IDC_EDIT_KEY_TURBO + i);
+					if (IDC_EDIT_KEY_TURBO + i <= IDC_EDIT_KEYRIGHT)
+						control_map[i] = key_pad_map[i * 2];
+					else
+						control_map[i] = analog_ctrl_map[(i - key_pad_size) * 2];
+					SetWindowTextA(hEdit, getVirtualKeyName(control_map[i]));
 				}
+				ComboBox_AddString(GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE), "None");
+				ComboBox_AddString(GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE), "XInput");
+				ComboBox_AddString(GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE), "DirectInput");
+				if ((g_Config.iForceInputDevice < 0) || (g_Config.iForceInputDevice > 1))
+				{
+					ComboBox_SetCurSel(GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE), 0);
+				}
+				else
+				{
+					ComboBox_SetCurSel(GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE), (g_Config.iForceInputDevice + 1));
+				}
+				DWORD dwThreadID = GetWindowThreadProcessId(hDlg,NULL);
+				pKeydownHook = SetWindowsHookEx(WH_KEYBOARD,KeyboardProc, NULL, dwThreadID);
 			}
 			return TRUE;
-
+		case WM_PAINT:
+			{
+				PAINTSTRUCT pst;
+				HDC hdc = BeginPaint(hDlg, &pst);
+				BITMAP bm;
+				GetObject(hbm, sizeof(BITMAP), &bm);
+				int width = bm.bmWidth;
+				int height = bm.bmHeight;
+				BitBlt(hbm, hdc, 0, 0, width, height, 0 , 0);
+				EndPaint(hDlg, &pst);
+				return TRUE;
+			}
+		case WM_CTLCOLORSTATIC:
+			{
+				HDC hdc=(HDC)wParam;
+				SetBkMode(hdc, TRANSPARENT);
+				return (LRESULT)GetStockObject(NULL_BRUSH); 
+			}
+		case WM_CTLCOLOREDIT:
+			{
+				if ((HWND)lParam == GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE))
+					return FALSE;
+				HDC hdc = (HDC)wParam;
+				SetBkMode(hdc, TRANSPARENT);
+				SetTextColor(hdc, RGB(255, 0, 0));
+				HWND hEdit = (HWND)lParam;
+				RECT rc = getRedrawRect(hEdit);
+				RECT clientrc;
+				GetClientRect(hEdit, &clientrc);
+				BitBlt(hbm, hdc, 0, 0, rc.right - rc.left, rc.bottom - rc.top, rc.left, rc.top);
+				char str[11];
+				GetWindowTextA(hEdit, str, 10);
+				DrawTextA(hdc, str, strlen(str), &clientrc, DT_CENTER|DT_SINGLELINE);
+				return (LRESULT)GetStockObject(NULL_BRUSH);
+			}
 		case WM_COMMAND:
 			if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL) 
 			{
+				if (LOWORD(wParam) == IDOK) {
+					g_Config.iForceInputDevice = (ComboBox_GetCurSel(GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE)) - 1);
+					int key_pad_size = (IDC_EDIT_KEYRIGHT - IDC_EDIT_KEY_TURBO + 1);
+					for (u32 i = 0; i <= IDC_EDIT_KEY_ANALOG_RIGHT - IDC_EDIT_KEY_TURBO; i++) {
+						if (IDC_EDIT_KEY_TURBO + i <= IDC_EDIT_KEYRIGHT)
+							key_pad_map[i * 2] = control_map[i];
+					else
+						analog_ctrl_map[(i - key_pad_size) * 2] = control_map[i];
+					}
+					saveControlsToFile();
+				}
+				UnhookWindowsHookEx(pKeydownHook);
 				EndDialog(hDlg, LOWORD(wParam));
+				if (hbm) {
+					DeleteObject(hbm);
+					hbm = 0;
+				}
 				return TRUE;
 			}
 			break;
@@ -805,6 +1007,7 @@ namespace MainWindow
 	{
 		InvalidateRect(hwndDisplay,0,0);
 	}
+
 	void _ViewNormal(HWND hWnd)
 	{
 		// put caption and border styles back
@@ -867,15 +1070,9 @@ namespace MainWindow
 
 	void SaveStateActionFinished(bool result, void *userdata)
 	{
-		// TODO: Improve messaging?
 		if (!result)
-			MessageBox(0, "Savestate failure.  Please try again later.", "Sorry", MB_OK);
+			MessageBox(0, "Savestate failure.  Using savestates between different PPSSPP versions is not supported.", "Sorry", MB_OK);
 		SetCursor(LoadCursor(0, IDC_ARROW));
-	}
-
-	void SetNextState(CoreState state)
-	{
-		nextState = state;
 	}
 
 	HINSTANCE GetHInstance()

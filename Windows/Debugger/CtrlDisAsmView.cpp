@@ -203,7 +203,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 		int rowY1 = rect.bottom/2 + rowHeight*i - rowHeight/2;
 		int rowY2 = rect.bottom/2 + rowHeight*i + rowHeight/2;
 		char temp[256];
-		sprintf(temp,"%08x",address);
+		int temp_len = sprintf(temp,"%08x",address);
 
 		lbr.lbColor=marker==address?0xffeee0:debugger->getColor(address);
 		u32 bg = lbr.lbColor;
@@ -228,13 +228,13 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 		SelectObject(hdc,currentBrush);
 		DeleteObject(mojsBrush);
 		SetTextColor(hdc,halfAndHalf(bg,0));
-		TextOut(hdc,17,rowY1,temp,strlen(temp));
+		TextOut(hdc,17,rowY1,temp,temp_len);
 		SetTextColor(hdc,0x000000);
 		if (debugger->isAlive())
 		{
 			const TCHAR *dizz = debugger->disasm(address, align);
-      char dis[512];
-      strcpy(dis, dizz);
+			char dis[512];
+			strcpy(dis, dizz);
 			TCHAR *dis2 = strchr(dis,'\t');
 			TCHAR desc[256]="";
 			if (dis2)
@@ -278,11 +278,11 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 				}
 				else
 					SetTextColor(hdc,0x000000);
-				TextOut(hdc,149,rowY1,dis2,strlen(dis2));
+				TextOut(hdc,149,rowY1,dis2,(int)strlen(dis2));
 			}
 			SetTextColor(hdc,0x007000);
 			SelectObject(hdc,boldfont);
-			TextOut(hdc,84,rowY1,dis,strlen(dis));
+			TextOut(hdc,84,rowY1,dis,(int)strlen(dis));
 			SelectObject(hdc,font);
 			if (desc[0]==0)
 			{
@@ -300,7 +300,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 			//char temp[256];
 			//UnDecorateSymbolName(desc,temp,255,UNDNAME_COMPLETE);
 			if (strlen(desc))
-				TextOut(hdc,max(280,width/3+190),rowY1,desc,strlen(desc));
+				TextOut(hdc,max(280,width/3+190),rowY1,desc,(int)strlen(desc));
 			if (debugger->isBreakpoint(address))
 			{
 				DrawIconEx(hdc,2,rowY1,breakPoint,32,32,0,0,DI_NORMAL);

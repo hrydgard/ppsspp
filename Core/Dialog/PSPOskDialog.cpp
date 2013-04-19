@@ -43,17 +43,28 @@ PSPOskDialog::PSPOskDialog() : PSPDialog() {
 PSPOskDialog::~PSPOskDialog() {
 }
 
-// Same as get string but read out 16bit
-void PSPOskDialog::HackyGetStringWide(std::string& _string, const u32 em_address)
+void PSPOskDialog::ConvertUCS2ToUTF8(std::string& _string, const u32 em_address)
 {
 	char stringBuffer[2048];
 	char *string = stringBuffer;
-	char c;
-	u32 addr = em_address;
-	while ((c = (char)(Memory::Read_U16(addr))))
+
+	u16 *src = (u16 *) Memory::GetPointer(em_address);
+	int c;
+	while (c = *src++)
 	{
-		*string++ = c;
-		addr+=2;
+		if (c < 0x80)
+			*string++ = c;
+		else if (c < 0x800)
+		{
+			*string++ = 0xC0 | (c >> 6);
+			*string++ = 0x80 | (c & 0x3F);
+		}
+		else
+		{
+			*string++ = 0xE0 | (c >> 12);
+			*string++ = 0x80 | ((c >> 6) & 0x3F);
+			*string++ = 0x80 | (c & 0x3F);
+		}
 	}
 	*string++ = '\0';
 	_string = stringBuffer;
@@ -65,7 +76,7 @@ int PSPOskDialog::Init(u32 oskPtr)
 	// Ignore if already running
 	if (status != SCE_UTILITY_STATUS_NONE && status != SCE_UTILITY_STATUS_SHUTDOWN)
 	{
-		return -1;
+		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 	status = SCE_UTILITY_STATUS_INITIALIZE;
 
@@ -80,9 +91,9 @@ int PSPOskDialog::Init(u32 oskPtr)
 	{
 		Memory::ReadStruct(oskPtr, &oskParams);
 		Memory::ReadStruct(oskParams.SceUtilityOskDataPtr, &oskData);
-		HackyGetStringWide(oskDesc, oskData.descPtr);
-		HackyGetStringWide(oskIntext, oskData.intextPtr);
-		HackyGetStringWide(oskOuttext, oskData.outtextPtr);
+		ConvertUCS2ToUTF8(oskDesc, oskData.descPtr);
+		ConvertUCS2ToUTF8(oskIntext, oskData.intextPtr);
+		ConvertUCS2ToUTF8(oskOuttext, oskData.outtextPtr);
 		Memory::WriteStruct(oskParams.SceUtilityOskDataPtr, &oskData);
 		Memory::WriteStruct(oskPtr, &oskParams);
 	}
@@ -110,7 +121,7 @@ void PSPOskDialog::RenderKeyboard()
 	u32 limit = oskData.outtextlimit;
 	// TODO: Test more thoroughly.  Encountered a game where this was 0.
 	if (limit <= 0)
-		limit = 16;
+		limit = 14;
 
 	const float keyboardLeftSide = (480.0f - (24.0f * KEYSPERROW)) / 2.0f;
 	float previewLeftSide = (480.0f - (12.0f * limit)) / 2.0f;
@@ -159,7 +170,7 @@ int PSPOskDialog::Update()
 	u32 limit = oskData.outtextlimit;
 	// TODO: Test more thoroughly.  Encountered a game where this was 0.
 	if (limit <= 0)
-		limit = 16;
+		limit = 14;
 
 	if (status == SCE_UTILITY_STATUS_INITIALIZE)
 	{
@@ -172,18 +183,16 @@ int PSPOskDialog::Update()
 		StartDraw();
 		RenderKeyboard();
 		PPGeDrawImage(I_CROSS, 30, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText("Select", 60, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
-
 		PPGeDrawImage(I_CIRCLE, 130, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
+		//PPGeDrawImage(I_BUTTON, 230, 220, 50, 20, 0, CalcFadedColor(0xFFFFFFFF));
+		//PPGeDrawImage(I_BUTTON, 350, 220, 55, 20, 0, CalcFadedColor(0xFFFFFFFF));
+
+		PPGeDrawText("Select", 60, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 		PPGeDrawText("Delete", 160, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
-
-		PPGeDrawImage(I_BUTTON, 230, 220, 50, 20, 0, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText("Start", 245, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText("Finish", 290, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
-
-		PPGeDrawImage(I_BUTTON, 350, 220, 55, 20, 0, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText("Select", 365, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText("Caps", 410, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText("Start", 245, 220, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText("Finish", 290, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText("Select", 365, 220, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText("Caps", 415, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 
 		if (IsButtonPressed(CTRL_UP))
 		{

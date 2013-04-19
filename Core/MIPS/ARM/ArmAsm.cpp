@@ -16,16 +16,15 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 
-#include "../../MemMap.h"
-
-#include "../MIPS.h"
-#include "ArmEmitter.h"
-#include "../../CoreTiming.h"
+#include "Core/MemMap.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/System.h"
+#include "Core/CoreTiming.h"
 #include "MemoryUtil.h"
 
+#include "ArmEmitter.h"
 #include "ArmJit.h"
 #include "../JitCommon/JitCommon.h"
-#include "../../Core.h"
 #include "ArmAsm.h"
 
 using namespace ArmGen;

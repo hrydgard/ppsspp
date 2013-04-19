@@ -43,7 +43,7 @@ enum {
 };
 
 // MPEG statics.
-static const int PSMF_MAGIC = 0x464D5350;
+static const u32 PSMF_MAGIC = 0x464D5350;
 static const int PSMF_VERSION_0012 = 0x32313030;
 static const int PSMF_VERSION_0013 = 0x33313030;
 static const int PSMF_VERSION_0014 = 0x34313030;

@@ -32,3 +32,6 @@ bool __DisplayGetFramebuf(u8 **topaddr, u32 *linesize, u32 *pixelFormat, int mod
 typedef void (*VblankCallback)();
 // Listen for vblank events.  Only register during init.
 void __DisplayListenVblank(VblankCallback callback);
+
+void __DisplayGetDebugStats(char stats[2048]);
+void __DisplayGetFPS(float *out_vps, float *out_fps);

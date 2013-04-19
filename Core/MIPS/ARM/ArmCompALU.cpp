@@ -84,17 +84,7 @@ namespace MIPSComp
 					gpr.SetImm(rt, gpr.GetImm(rs) + simm);
 				} else {
 					gpr.MapDirtyIn(rt, rs);
-					Operand2 op2;
-					bool negated;
-					if (TryMakeOperand2_AllowNegation(simm, op2, &negated)) {
-						if (!negated)
-							ADD(gpr.R(rt), gpr.R(rs), op2);
-						else
-							SUB(gpr.R(rt), gpr.R(rs), op2);
-					} else {
-						MOVI2R(R0, (u32)simm);
-						ADD(gpr.R(rt), gpr.R(rs), R0);
-					}
+					ADDI2R(gpr.R(rt), gpr.R(rs), simm, R0);
 				}
 				break;
 			}
@@ -106,17 +96,7 @@ namespace MIPSComp
 		case 10: // R(rt) = (s32)R(rs) < simm; break; //slti
 			{
 				gpr.MapDirtyIn(rt, rs);
-				Operand2 op2;
-				bool negated;
-				if (TryMakeOperand2_AllowNegation(simm, op2, &negated)) {
-					if (!negated)
-						CMP(gpr.R(rs), op2);
-					else
-						CMN(gpr.R(rs), op2);
-				} else {
-					MOVI2R(R0, simm);
-					CMP(gpr.R(rs), R0);
-				}
+				CMPI2R(gpr.R(rs), simm, R0);
 				SetCC(CC_LT);
 				MOVI2R(gpr.R(rt), 1);
 				SetCC(CC_GE);
@@ -128,17 +108,7 @@ namespace MIPSComp
 		case 11: // R(rt) = R(rs) < uimm; break; //sltiu
 			{
 				gpr.MapDirtyIn(rt, rs);
-				Operand2 op2;
-				bool negated;
-				if (TryMakeOperand2_AllowNegation(suimm, op2, &negated)) {
-					if (!negated)
-						CMP(gpr.R(rs), op2);
-					else
-						CMN(gpr.R(rs), op2);
-				} else {
-					MOVI2R(R0, suimm);
-					CMP(gpr.R(rs), R0);
-				}
+				CMPI2R(gpr.R(rs), suimm, R0);
 				SetCC(CC_LO);
 				MOVI2R(gpr.R(rt), 1);
 				SetCC(CC_HS);

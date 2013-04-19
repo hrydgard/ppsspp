@@ -164,8 +164,7 @@ static const u8 flushBeforeCommandList[] = {
 };
 
 GLES_GPU::GLES_GPU()
-:		interruptsEnabled_(true),
-		resized_(false)
+:		resized_(false)
 {
 	shaderManager_ = new ShaderManager();
 	transformDraw_.SetShaderManager(shaderManager_);
@@ -264,7 +263,9 @@ bool GLES_GPU::FramebufferDirty() {
 }
 
 void GLES_GPU::CopyDisplayToOutput() {
+	glstate.depthWrite.set(GL_TRUE);
 	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
 	transformDraw_.Flush();
 
 	EndDebugDraw();
@@ -272,8 +273,8 @@ void GLES_GPU::CopyDisplayToOutput() {
 	framebufferManager_.CopyDisplayToOutput();
 	framebufferManager_.EndFrame();
 
-	shaderManager_->DirtyShader();
-	shaderManager_->DirtyUniform(DIRTY_ALL);
+	shaderManager_->EndFrame();
+
 	gstate_c.textureChanged = true;
 
 	BeginDebugDraw();
@@ -281,17 +282,10 @@ void GLES_GPU::CopyDisplayToOutput() {
 
 // Render queue
 
-void GLES_GPU::DrawSync(int mode)
+u32 GLES_GPU::DrawSync(int mode)
 {
 	transformDraw_.Flush();
-}
-
-void GLES_GPU::Continue() {
-
-}
-
-void GLES_GPU::Break() {
-
+	return GPUCommon::DrawSync(mode);
 }
 
 void GLES_GPU::PreExecuteOp(u32 op, u32 diff) {
@@ -340,6 +334,9 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 				break;
 			}
 
+			// Rough estimate, not sure what's correct.
+			cyclesExecuted += 80 * count;
+
 			// TODO: Split this so that we can collect sequences of primitives, can greatly speed things up
 			// on platforms where draw calls are expensive like mobile and D3D
 			void *verts = Memory::GetPointer(gstate_c.vertexAddr);
@@ -384,121 +381,6 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 			int sp_utype = (data >> 16) & 0x3;
 			int sp_vtype = (data >> 18) & 0x3;
 			transformDraw_.DrawSpline(sp_ucount, sp_vcount, sp_utype, sp_vtype);
-		}
-		break;
-
-	case GE_CMD_JUMP:
-		{
-			u32 target = gstate_c.getRelativeAddress(data);
-			if (Memory::IsValidAddress(target)) {
-				currentList->pc = target - 4; // pc will be increased after we return, counteract that
-			} else {
-				ERROR_LOG(G3D, "JUMP to illegal address %08x - ignoring! data=%06x", target, data);
-			}
-		}
-		break;
-
-	case GE_CMD_CALL:
-		{
-			// Saint Seiya needs correct support for relative calls.
-			u32 retval = currentList->pc + 4;
-			u32 target = gstate_c.getRelativeAddress(data);
-			if (stackptr == ARRAY_SIZE(stack)) {
-				ERROR_LOG(G3D, "CALL: Stack full!");
-			} else if (!Memory::IsValidAddress(target)) {
-				ERROR_LOG(G3D, "CALL to illegal address %08x - ignoring! data=%06x", target, data);
-			} else {
-				stack[stackptr++] = retval;
-				currentList->pc = target - 4;	// pc will be increased after we return, counteract that
-			}
-		}
-		break;
-
-	case GE_CMD_RET:
-		{
-			if (stackptr == 0) {
-				ERROR_LOG(G3D, "RET: Stack empty!");
-			} else {
-				u32 target = (currentList->pc & 0xF0000000) | (stack[--stackptr] & 0x0FFFFFFF);
-				//target = (target + gstate_c.originAddr) & 0xFFFFFFF;
-				currentList->pc = target - 4;
-				if (!Memory::IsValidAddress(currentList->pc)) {
-					ERROR_LOG(G3D, "Invalid DL PC %08x on return", currentList->pc);
-					finished = true;
-				}
-			}
-		}
-		break;
-
-	case GE_CMD_OFFSETADDR:
-		gstate_c.offsetAddr = data << 8;
-		// ???
-		break;
-
-	case GE_CMD_ORIGIN:
-		gstate_c.offsetAddr = currentList->pc;
-		break;
-
-
-	case GE_CMD_SIGNAL:
-		{
-			// Processed in GE_END. Has data.
-			currentList->subIntrToken = data & 0xFFFF;
-		}
-		break;
-
-	case GE_CMD_FINISH:
-		currentList->subIntrToken = data & 0xFFFF;
-		// TODO: Should this run while interrupts are suspended?
-		if (interruptsEnabled_)
-			__GeTriggerInterrupt(currentList->id, currentList->pc, currentList->subIntrBase, currentList->subIntrToken);
-		break;
-
-	case GE_CMD_END:
-		switch (prev >> 24) {
-		case GE_CMD_SIGNAL:
-			{
-				currentList->status = PSP_GE_LIST_END_REACHED;
-				// TODO: see http://code.google.com/p/jpcsp/source/detail?r=2935#
-				int behaviour = (prev >> 16) & 0xFF;
-				int signal = prev & 0xFFFF;
-				int enddata = data & 0xFFFF;
-				// We should probably defer to sceGe here, no sense in implementing this stuff in every GPU
-				switch (behaviour) {
-				case 1:  // Signal with Wait
-					ERROR_LOG(G3D, "Signal with Wait UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
-					break;
-				case 2:
-					ERROR_LOG(G3D, "Signal without wait. signal/end: %04x %04x", signal, enddata);
-					break;
-				case 3:
-					ERROR_LOG(G3D, "Signal with Pause UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
-					break;
-				case 0x10:
-					ERROR_LOG(G3D, "Signal with Jump UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
-					break;
-				case 0x11:
-					ERROR_LOG(G3D, "Signal with Call UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
-					break;
-				case 0x12:
-					ERROR_LOG(G3D, "Signal with Return UNIMPLEMENTED! signal/end: %04x %04x", signal, enddata);
-					break;
-				default:
-					ERROR_LOG(G3D, "UNKNOWN Signal UNIMPLEMENTED %i ! signal/end: %04x %04x", behaviour, signal, enddata);
-					break;
-				}
-				// TODO: Should this run while interrupts are suspended?
-				if (interruptsEnabled_)
-					__GeTriggerInterrupt(currentList->id, currentList->pc, currentList->subIntrBase, currentList->subIntrToken);
-			}
-			break;
-		case GE_CMD_FINISH:
-			currentList->status = PSP_GE_LIST_DONE;
-			finished = true;
-			break;
-		default:
-			DEBUG_LOG(G3D,"Ah, not finished: %06x", prev & 0xFFFFFF);
-			break;
 		}
 		break;
 
@@ -772,6 +654,29 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		}
 		break;
 
+	case GE_CMD_LKS0:
+	case GE_CMD_LKS1:
+	case GE_CMD_LKS2:
+	case GE_CMD_LKS3:
+		{
+			int l = cmd - GE_CMD_LKS0;
+			gstate_c.lightspotCoef[l] = getFloat24(data);
+			if (diff)
+				shaderManager_->DirtyUniform(DIRTY_LIGHT0 << l);
+		}
+		break;
+
+	case GE_CMD_LKO0:
+	case GE_CMD_LKO1:
+	case GE_CMD_LKO2:
+	case GE_CMD_LKO3:
+		{
+			int l = cmd - GE_CMD_LKO0;
+			gstate_c.lightangle[l] = getFloat24(data);
+			if (diff)
+				shaderManager_->DirtyUniform(DIRTY_LIGHT0 << l);
+		}
+		break;
 
 	case GE_CMD_LAC0:case GE_CMD_LAC1:case GE_CMD_LAC2:case GE_CMD_LAC3:
 	case GE_CMD_LDC0:case GE_CMD_LDC1:case GE_CMD_LDC2:case GE_CMD_LDC3:
@@ -846,8 +751,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_TEXENVCOLOR:
-		if (diff)
-			shaderManager_->DirtyUniform(DIRTY_TEXENV);
+		shaderManager_->DirtyUniform(DIRTY_TEXENV);
 		break;
 
 	case GE_CMD_TEXFUNC:
@@ -975,7 +879,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	default:
-		DEBUG_LOG(G3D,"DL Unknown: %08x @ %08x", op, currentList == NULL ? 0 : currentList->pc);
+		GPUCommon::ExecuteOp(op, diff);
 		break;
 	}
 }
@@ -1020,7 +924,7 @@ void GLES_GPU::DoBlockTransfer() {
 	// Do the copy!
 	for (int y = 0; y < height; y++) {
 		const u8 *src = Memory::GetPointer(srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp);
-		u8 *dst = Memory::GetPointer(dstBasePtr + ((y + dstY) * srcStride + dstX) * bpp);
+		u8 *dst = Memory::GetPointer(dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp);
 		memcpy(dst, src, width * bpp);
 	}
 

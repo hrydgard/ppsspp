@@ -5,9 +5,10 @@
 #define GCC_VER(x,y,z)	((x) * 10000 + (y) * 100 + (z))
 #define GCC_VERSION GCC_VER(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)
 
-#if (GCC_VERSION >= GCC_VER(4,4,0) && __GXX_EXPERIMENTAL_CXX0X__ || defined(__APPLE__)) \
+// Note: __MAC_10_7 is defined on 10.7+.
+#if (GCC_VERSION >= GCC_VER(4,4,0) && __GXX_EXPERIMENTAL_CXX0X__ || defined(__MAC_10_7)) \
 /* GCC 4.4 provides <mutex>, except on these platforms: */ \
-	&& !defined(ANDROID) && !defined(__SYMBIAN32__) && !defined(IOS)
+    && !defined(ANDROID) && !defined(__SYMBIAN32__) && !defined(IOS)
 #include <mutex>
 #else
 

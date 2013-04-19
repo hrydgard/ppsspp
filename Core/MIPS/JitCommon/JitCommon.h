@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "Common/Common.h"
+
 #if defined(ARM)
 #include "../ARM/ArmJit.h"
 #else

@@ -1,0 +1,6 @@
+2048
+font UBUNTU24 C:/Windows/Fonts/KozGoPro-Medium.otf UWkhcGR 24
+image I_CROSS source_assets/image/cross.png copy
+image I_CIRCLE source_assets/image/circle.png copy
+image I_SQUARE source_assets/image/square.png copy
+image I_TRIANGLE source_assets/image/triangle.png copy

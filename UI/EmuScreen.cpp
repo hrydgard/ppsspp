@@ -24,25 +24,28 @@
 #include "input/input_state.h"
 #include "ui/ui.h"
 
-#include "../../Core/Config.h"
-#include "../../Core/CoreTiming.h"
-#include "../../Core/CoreParameter.h"
-#include "../../Core/Core.h"
-#include "../../Core/Host.h"
-#include "../../Core/System.h"
-#include "../../Core/MIPS/MIPS.h"
-#include "../../GPU/GPUState.h"
-#include "../../GPU/GPUInterface.h"
-#include "../../Core/HLE/sceCtrl.h"
+#include "Core/Config.h"
+#include "Core/CoreTiming.h"
+#include "Core/CoreParameter.h"
+#include "Core/Core.h"
+#include "Core/Host.h"
+#include "Core/System.h"
+#include "Core/MIPS/MIPS.h"
+#include "GPU/GPUState.h"
+#include "GPU/GPUInterface.h"
+#include "Core/HLE/sceCtrl.h"
+#include "Core/HLE/sceDisplay.h"
+#include "Core/Debugger/SymbolMap.h"
 
-#include "GamepadEmu.h"
-#include "UIShader.h"
+#include "UI/ui_atlas.h"
+#include "UI/GamepadEmu.h"
+#include "UI/UIShader.h"
 
-#include "MenuScreens.h"
-#include "EmuScreen.h"
+#include "UI/MenuScreens.h"
+#include "UI/EmuScreen.h"
+#include "UI/GameInfoCache.h"
 
-EmuScreen::EmuScreen(const std::string &filename) : invalid_(true)
-{
+EmuScreen::EmuScreen(const std::string &filename) : invalid_(true) {
 	CheckGLExtensions();
 	std::string fileToStart = filename;
 	// This is probably where we should start up the emulated PSP.
@@ -58,8 +61,10 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true)
 	coreParam.enableDebugging = false;
 	coreParam.printfEmuLog = false;
 	coreParam.headLess = false;
+#ifndef _WIN32
 	if (g_Config.iWindowZoom < 1 || g_Config.iWindowZoom > 2)
 		g_Config.iWindowZoom = 1;
+#endif
 	coreParam.renderWidth = 480 * g_Config.iWindowZoom;
 	coreParam.renderHeight = 272 * g_Config.iWindowZoom;
 	coreParam.outputWidth = dp_xres;
@@ -67,6 +72,10 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true)
 	coreParam.pixelWidth = pixel_xres;
 	coreParam.pixelHeight = pixel_yres;
 	coreParam.useMediaEngine = false;
+	if (g_Config.SSAntiAliasing) {
+		coreParam.renderWidth *= 2;
+		coreParam.renderHeight *= 2;
+	}
 	std::string error_string;
 	if (PSP_Init(coreParam, &error_string)) {
 		invalid_ = false;
@@ -76,17 +85,21 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true)
 		ERROR_LOG(BOOT, "%s", errorMessage_.c_str());
 		return;
 	}
+	
+	globalUIState = UISTATE_INGAME;
+	host->BootDone();
+	host->UpdateDisassembly();
 
 	LayoutGamepad(dp_xres, dp_yres);
+
+	g_gameInfoCache.FlushBGs();
 
 	NOTICE_LOG(BOOT, "Loading %s...", fileToStart.c_str());
 }
 
-EmuScreen::~EmuScreen()
-{
+EmuScreen::~EmuScreen() {
 	if (!invalid_) {
 		// If we were invalid, it would already be shutdown.
-		host->PrepareShutdown();
 		PSP_Shutdown();
 	}
 }
@@ -94,6 +107,32 @@ EmuScreen::~EmuScreen()
 void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	if (result == DR_OK) {
 		screenManager()->switchScreen(new MenuScreen());
+	}
+}
+
+void EmuScreen::sendMessage(const char *message, const char *value) {
+	// External commands, like from the Windows UI.
+	if (!strcmp(message, "pause")) {
+		screenManager()->push(new PauseScreen());
+	} else if (!strcmp(message, "stop")) {
+		screenManager()->switchScreen(new MenuScreen());
+	} else if (!strcmp(message, "reset")) {
+		PSP_Shutdown();
+		std::string resetError;
+		if (!PSP_Init(PSP_CoreParameter(), &resetError)) {
+			ELOG("Error resetting: %s", resetError.c_str());
+			screenManager()->switchScreen(new MenuScreen());
+			return;
+		}
+		host->BootDone();
+		host->UpdateDisassembly();
+#ifdef _WIN32
+		if (g_Config.bAutoRun) {
+			Core_EnableStepping(false);
+		} else {
+			Core_EnableStepping(true);
+		}
+#endif
 	}
 }
 
@@ -115,8 +154,8 @@ inline float clamp1(float x) {
 	return x;
 }
 
-void EmuScreen::update(InputState &input)
-{
+void EmuScreen::update(InputState &input) {
+	globalUIState = UISTATE_INGAME;
 	if (errorMessage_.size()) {
 		screenManager()->push(new ErrorScreen(
 			"Error loading file",
@@ -129,7 +168,10 @@ void EmuScreen::update(InputState &input)
 		return;
 
 	// First translate touches into native pad input.
+	// Do this no matter the value of g_Config.bShowTouchControls, some people
+	// like to use invisible controls...
 	UpdateGamepad(input);
+
 	UpdateInputState(&input);
 
 	// Then translate pad input into PSP pad input. Also, add in tilt.
@@ -168,15 +210,20 @@ void EmuScreen::update(InputState &input)
 
 	__CtrlSetAnalog(stick_x, stick_y);
 
-	if (input.pad_buttons_down & (PAD_BUTTON_MENU | PAD_BUTTON_BACK)) {
+	if (input.pad_buttons & PAD_BUTTON_LEFT_THUMB) {
+		PSP_CoreParameter().unthrottle = true;
+	} else {
+		PSP_CoreParameter().unthrottle = false;
+	}
+
+	if (input.pad_buttons_down & (PAD_BUTTON_MENU | PAD_BUTTON_BACK | PAD_BUTTON_RIGHT_THUMB)) {
 		if (g_Config.bBufferedRendering)
 			fbo_unbind();
-		screenManager()->push(new InGameMenuScreen());
+		screenManager()->push(new PauseScreen());
 	}
 }
 
-void EmuScreen::render()
-{
+void EmuScreen::render() {
 	if (invalid_)
 		return;
 
@@ -214,29 +261,49 @@ void EmuScreen::render()
 	glstate.viewport.set(0, 0, pixel_xres, pixel_yres);
 	glstate.viewport.restore();
 
-	ui_draw2d.Begin(DBMODE_NORMAL);
+	ui_draw2d.Begin(UIShader_Get(), DBMODE_NORMAL);
 
 	if (g_Config.bShowTouchControls)
 		DrawGamepad(ui_draw2d);
 
 	DrawWatermark();
 
+	if (g_Config.bShowDebugStats) {
+		char statbuf[4096] = {0};
+		__DisplayGetDebugStats(statbuf);
+		if (statbuf[4095])
+			ERROR_LOG(HLE, "Statbuf too big");
+		ui_draw2d.SetFontScale(.7f, .7f);
+		ui_draw2d.DrawText(UBUNTU24, statbuf, 11, 11, 0xc0000000);
+		ui_draw2d.DrawText(UBUNTU24, statbuf, 10, 10, 0xFFFFFFFF);
+		ui_draw2d.SetFontScale(1.0f, 1.0f);
+	}
+
+	if (g_Config.bShowFPSCounter) {
+		float vps, fps;
+		__DisplayGetFPS(&vps, &fps);
+		char fpsbuf[256];
+		sprintf(fpsbuf, "VPS: %0.1f", vps);
+		ui_draw2d.DrawText(UBUNTU24, fpsbuf, dp_xres - 8, 12, 0xc0000000, ALIGN_TOPRIGHT);
+		ui_draw2d.DrawText(UBUNTU24, fpsbuf, dp_xres - 10, 10, 0xFF3fFF3f, ALIGN_TOPRIGHT);
+	}
+	
+
 	glsl_bind(UIShader_Get());
 	ui_draw2d.End();
-	ui_draw2d.Flush(UIShader_Get());
-
+	ui_draw2d.Flush();
 
 	// Tiled renderers like PowerVR should benefit greatly from this. However - seems I can't call it?
 #if defined(USING_GLES2)
-	bool hasDiscard = false;  // TODO
+	bool hasDiscard = gl_extensions.EXT_discard_framebuffer;  // TODO
 	if (hasDiscard) {
-		//glDiscardFramebuffer(GL_COLOR_EXT | GL_DEPTH_EXT | GL_STENCIL_EXT);
+		//const GLenum targets[3] = { GL_COLOR_EXT, GL_DEPTH_EXT, GL_STENCIL_EXT };
+		//glDiscardFramebufferEXT(GL_FRAMEBUFFER, 3, targets);
 	}
 #endif
 }
 
-void EmuScreen::deviceLost()
-{
+void EmuScreen::deviceLost() {
 	ILOG("EmuScreen::deviceLost()");
 	gpu->DeviceLost();
 }

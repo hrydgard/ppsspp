@@ -170,8 +170,8 @@ struct SasVoice
 			pitch(PSP_SAS_PITCH_BASE),
 			loop(true), // true = ignore VAG loop , false = process VAG loop
 			noiseFreq(0),
-			volumeLeft(0),
-			volumeRight(0),
+			volumeLeft(PSP_SAS_VOL_MAX),
+			volumeRight(PSP_SAS_VOL_MAX),
 			volumeLeftSend(0),
 			volumeRightSend(0),
 			effectLeft(0),

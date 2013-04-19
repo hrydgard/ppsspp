@@ -24,6 +24,10 @@
 #include "ArmRegCacheFPU.h"
 #include "ArmAsm.h"
 
+#if defined(MAEMO)
+#include "stddef.h"
+#endif
+
 namespace MIPSComp
 {
 
@@ -249,6 +253,7 @@ private:
 
 	// Utils
 	void SetR0ToEffectiveAddress(int rs, s16 offset);
+	void SetCCAndR0ForSafeAddress(int rs, s16 offset, ARMReg tempReg);
 
 	ArmJitBlockCache blocks;
 	ArmJitOptions jo;

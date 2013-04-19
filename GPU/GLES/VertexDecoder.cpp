@@ -187,7 +187,7 @@ void VertexDecoder::Step_Color565() const
 	c[0] = Convert5To8(cdata & 0x1f);
 	c[1] = Convert6To8((cdata>>5) & 0x3f);
 	c[2] = Convert5To8((cdata>>11) & 0x1f);
-	c[3] = 1.0f;
+	c[3] = 255;
 }
 
 void VertexDecoder::Step_Color5551() const
@@ -197,7 +197,7 @@ void VertexDecoder::Step_Color5551() const
 	c[0] = Convert5To8(cdata & 0x1f);
 	c[1] = Convert5To8((cdata>>5) & 0x1f);
 	c[2] = Convert5To8((cdata>>10) & 0x1f);
-	c[3] = (cdata>>15) ? 255.0f : 0.0f;
+	c[3] = (cdata >> 15) ? 255 : 0;
 }
 
 void VertexDecoder::Step_Color4444() const
@@ -230,7 +230,7 @@ void VertexDecoder::Step_Color565Morph() const
 	for (int i = 0; i < 3; i++) {
 		c[i] = (u8)(col[i] * 255.0f);
 	}
-	c[3] = 255.0f;
+	c[3] = 255;
 }
 
 void VertexDecoder::Step_Color5551Morph() const
@@ -717,7 +717,7 @@ void GetIndexBounds(void *inds, int count, u32 vertType, u16 *indexLowerBound, u
 	*indexUpperBound = (u16)upperBound;
 }
 
-void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, const void *inds, int prim, int count, int indexLowerBound, int indexUpperBound) const {
+void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, int indexLowerBound, int indexUpperBound) const {
 	// Decode the vertices within the found bounds, once each
 	decoded_ = decodedptr;  // + lowerBound * decFmt.stride;
 	ptr_ = (const u8*)verts + indexLowerBound * size;
@@ -749,4 +749,27 @@ u32 VertexDecoder::InjectUVs(u8 *decoded, const void *verts, float *customuv, in
 		out += decOut.onesize_;
 	}
 	return customVertType;
+}
+
+int VertexDecoder::ToString(char *output) const {
+	char * start = output;
+	output += sprintf(output, "P: %i ", pos);
+	if (nrm)
+		output += sprintf(output, "N: %i ", nrm);
+	if (col)
+		output += sprintf(output, "C: %i ", col);
+	if (tc)
+		output += sprintf(output, "T: %i ", tc);
+	if (weighttype)
+		output += sprintf(output, "W: %i ", weighttype);
+	if (idx)
+		output += sprintf(output, "I: %i ", idx);
+	if (morphcount > 1)
+		output += sprintf(output, "Morph: %i ", morphcount);
+	output += sprintf(output, "Verts: %i ", stats_[STAT_VERTSSUBMITTED]);
+	if (throughmode)
+		output += sprintf(output, " (through)");
+
+	output += sprintf(output, " (size: %i)", VertexSize());
+	return output - start;
 }

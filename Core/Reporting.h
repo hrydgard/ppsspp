@@ -17,7 +17,13 @@
 
 #include "Common/CommonTypes.h"
 
+#define ERROR_LOG_REPORT(t,...)   { ERROR_LOG(t, __VA_ARGS__);  Reporting::ReportMessage(__VA_ARGS__); }
+#define WARN_LOG_REPORT(t,...)    { WARN_LOG(t, __VA_ARGS__);   Reporting::ReportMessage(__VA_ARGS__); }
+#define NOTICE_LOG_REPORT(t,...)  { NOTICE_LOG(t, __VA_ARGS__); Reporting::ReportMessage(__VA_ARGS__); }
+#define INFO_LOG_REPORT(t,...)    { INFO_LOG(t, __VA_ARGS__);   Reporting::ReportMessage(__VA_ARGS__); }
+
 namespace Reporting
 {
+	bool IsEnabled();
 	void ReportMessage(const char *message, ...);
 }

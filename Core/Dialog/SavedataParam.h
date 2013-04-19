@@ -22,23 +22,30 @@
 
 enum SceUtilitySavedataType
 {
-	SCE_UTILITY_SAVEDATA_TYPE_AUTOLOAD		= 0,
-	SCE_UTILITY_SAVEDATA_TYPE_AUTOSAVE		= 1,
-	SCE_UTILITY_SAVEDATA_TYPE_LOAD			= 2,
-	SCE_UTILITY_SAVEDATA_TYPE_SAVE			= 3,
-	SCE_UTILITY_SAVEDATA_TYPE_LISTLOAD		= 4,
-	SCE_UTILITY_SAVEDATA_TYPE_LISTSAVE		= 5,
-	SCE_UTILITY_SAVEDATA_TYPE_DELETE		= 6,
-	SCE_UTILITY_SAVEDATA_TYPE_LISTDELETE		= 7,
-	SCE_UTILITY_SAVEDATA_TYPE_SIZES			= 8,
-	SCE_UTILITY_SAVEDATA_TYPE_SINGLEDELETE	= 10,
-	SCE_UTILITY_SAVEDATA_TYPE_LIST			= 11,
-	SCE_UTILITY_SAVEDATA_TYPE_FILES			= 12,
-	SCE_UTILITY_SAVEDATA_TYPE_MAKEDATASECURE	= 13,
-	SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE	= 15,
-	SCE_UTILITY_SAVEDATA_TYPE_WRITEDATASECURE	= 17,
-	SCE_UTILITY_SAVEDATA_TYPE_GETSIZE		= 22
-} ;
+	SCE_UTILITY_SAVEDATA_TYPE_AUTOLOAD        = 0,
+	SCE_UTILITY_SAVEDATA_TYPE_AUTOSAVE        = 1,
+	SCE_UTILITY_SAVEDATA_TYPE_LOAD            = 2,
+	SCE_UTILITY_SAVEDATA_TYPE_SAVE            = 3,
+	SCE_UTILITY_SAVEDATA_TYPE_LISTLOAD        = 4,
+	SCE_UTILITY_SAVEDATA_TYPE_LISTSAVE        = 5,
+	SCE_UTILITY_SAVEDATA_TYPE_DELETE          = 6,
+	SCE_UTILITY_SAVEDATA_TYPE_LISTDELETE      = 7,
+	SCE_UTILITY_SAVEDATA_TYPE_SIZES           = 8,
+	SCE_UTILITY_SAVEDATA_TYPE_AUTODELETE	  = 9,
+	SCE_UTILITY_SAVEDATA_TYPE_SINGLEDELETE    = 10,
+	SCE_UTILITY_SAVEDATA_TYPE_LIST            = 11,
+	SCE_UTILITY_SAVEDATA_TYPE_FILES           = 12,
+	SCE_UTILITY_SAVEDATA_TYPE_MAKEDATASECURE  = 13,
+	SCE_UTILITY_SAVEDATA_TYPE_MAKEDATA		  = 14,
+	SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE  = 15,
+	SCE_UTILITY_SAVEDATA_TYPE_READDATA		  = 16,
+	SCE_UTILITY_SAVEDATA_TYPE_WRITEDATASECURE = 17,
+	SCE_UTILITY_SAVEDATA_TYPE_WRITEDATA		  = 18,
+	SCE_UTILITY_SAVEDATA_TYPE_ERASESECURE 	  = 19,
+	SCE_UTILITY_SAVEDATA_TYPE_ERASE			  = 20,
+	SCE_UTILITY_SAVEDATA_TYPE_DELETEDATA      = 21,
+	SCE_UTILITY_SAVEDATA_TYPE_GETSIZE         = 22,
+};
 
 // title, savedataTitle, detail: parts of the unencrypted SFO
 // data, it contains what the VSH and standard load screen shows
@@ -56,6 +63,28 @@ struct PspUtilitySavedataFileData {
 	SceSize bufSize;  // Size of the buffer pointed to by buf
 	SceSize size;	    // Actual file size to write / was read
 	int unknown;
+};
+
+// TODO: According to JPCSP, should verify.
+struct PspUtilitySavedataSizeEntry {
+	u64 size;
+	char name[16];
+};
+
+// TODO: According to JPCSP, should verify.
+struct PspUtilitySavedataSizeInfo {
+	int secureNumEntries;
+	int numEntries;
+	u32 secureEntriesPtr;
+	u32 entriesPtr;
+	int sectorSize;
+	int freeSectors;
+	int freeKB;
+	char freeString[8];
+	int neededKB;
+	char neededString[8];
+	int overwriteKB;
+	char overwriteString[8];
 };
 
 // Structure to hold the parameters for the sceUtilitySavedataInitStart function.

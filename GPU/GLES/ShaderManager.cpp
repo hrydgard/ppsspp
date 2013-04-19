@@ -28,6 +28,7 @@
 
 #include "math/lin/matrix4x4.h"
 
+#include "Core/Reporting.h"
 #include "../GPUState.h"
 #include "../ge_constants.h"
 #include "ShaderManager.h"
@@ -52,6 +53,7 @@ Shader::Shader(const char *code, uint32_t shaderType) {
 		ERROR_LOG(G3D, "Error in shader compilation!\n");
 		ERROR_LOG(G3D, "Info log: %s\n", infoLog);
 		ERROR_LOG(G3D, "Shader source:\n%s\n", (const char *)code);
+		Reporting::ReportMessage("Error in shader compilation: info: %s / code: %s", infoLog, (const char *)code);
 	} else {
 		DEBUG_LOG(G3D, "Compiled shader:\n%s\n", (const char *)code);
 	}
@@ -75,6 +77,11 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs)
 			ERROR_LOG(G3D, "Could not link program:\n %s", buf);
 			ERROR_LOG(G3D, "VS:\n%s", vs->source().c_str());
 			ERROR_LOG(G3D, "FS:\n%s", fs->source().c_str());
+#ifdef SHADERLOG
+			OutputDebugString(buf);
+			OutputDebugString(vs->source().c_str());
+			OutputDebugString(fs->source().c_str());
+#endif
 			delete [] buf;	// we're dead!
 		}
 		return;
@@ -117,6 +124,10 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs)
 		u_lightdir[i] = glGetUniformLocation(program, temp);
 		sprintf(temp, "u_lightatt%i", i);
 		u_lightatt[i] = glGetUniformLocation(program, temp);
+		sprintf(temp, "u_lightangle%i", i);
+		u_lightangle[i] = glGetUniformLocation(program, temp);
+		sprintf(temp, "u_lightspotCoef%i", i);
+		u_lightspotCoef[i] = glGetUniformLocation(program, temp);
 		sprintf(temp, "u_lightambient%i", i);
 		u_lightambient[i] = glGetUniformLocation(program, temp);
 		sprintf(temp, "u_lightdiffuse%i", i);
@@ -322,6 +333,8 @@ void LinkedShader::updateUniforms() {
 			if (u_lightpos[i] != -1) glUniform3fv(u_lightpos[i], 1, gstate_c.lightpos[i]);
 			if (u_lightdir[i] != -1) glUniform3fv(u_lightdir[i], 1, gstate_c.lightdir[i]);
 			if (u_lightatt[i] != -1) glUniform3fv(u_lightatt[i], 1, gstate_c.lightatt[i]);
+			if (u_lightangle[i] != -1) glUniform1f(u_lightangle[i], gstate_c.lightangle[i]);
+			if (u_lightspotCoef[i] != -1) glUniform1f(u_lightspotCoef[i], gstate_c.lightspotCoef[i]);
 			if (u_lightambient[i] != -1) glUniform3fv(u_lightambient[i], 1, gstate_c.lightColor[0][i]);
 			if (u_lightdiffuse[i] != -1) glUniform3fv(u_lightdiffuse[i], 1, gstate_c.lightColor[1][i]);
 			if (u_lightspecular[i] != -1) glUniform3fv(u_lightspecular[i], 1, gstate_c.lightColor[2][i]);
@@ -372,6 +385,13 @@ void ShaderManager::DirtyShader()
 	// Forget the last shader ID
 	lastFSID.clear();
 	lastVSID.clear();
+	lastShader = 0;
+}
+
+void ShaderManager::EndFrame()  // disables vertex arrays
+{
+	if (lastShader)
+		lastShader->stop();
 	lastShader = 0;
 }
 

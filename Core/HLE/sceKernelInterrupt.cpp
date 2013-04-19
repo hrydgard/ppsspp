@@ -26,6 +26,7 @@
 #include "sceKernel.h"
 #include "sceKernelThread.h"
 #include "sceKernelInterrupt.h"
+#include "sceKernelMemory.h"
 #include "sceKernelMutex.h"
 
 void __DisableInterrupts();
@@ -62,6 +63,7 @@ std::list<PendingInterrupt> pendingInterrupts;
 // Yeah, this bit is a bit silly.
 static int interruptsEnabled = 1;
 static bool inInterrupt;
+static SceUID threadBeforeInterrupt;
 
 
 void sceKernelCpuSuspendIntr()
@@ -216,6 +218,7 @@ void __InterruptsInit()
 	for (int i = 0; i < (int)ARRAY_SIZE(intrHandlers); ++i)
 		intrHandlers[i] = new IntrHandler(i);
 	intState.clear();
+	threadBeforeInterrupt = 0;
 }
 
 void __InterruptsDoState(PointerWrap &p)
@@ -224,6 +227,7 @@ void __InterruptsDoState(PointerWrap &p)
 	p.Do(numInterrupts);
 	if (numInterrupts != PSP_NUMBER_INTERRUPTS)
 	{
+		p.SetError(p.ERROR_FAILURE);
 		ERROR_LOG(HLE, "Savestate failure: wrong number of interrupts, can't load.");
 		return;
 	}
@@ -233,6 +237,7 @@ void __InterruptsDoState(PointerWrap &p)
 	p.Do(pendingInterrupts, pi);
 	p.Do(interruptsEnabled);
 	p.Do(inInterrupt);
+	p.Do(threadBeforeInterrupt);
 	p.DoMarker("sceKernelInterrupt");
 }
 
@@ -286,12 +291,12 @@ bool __CanExecuteInterrupt()
 
 void InterruptState::save()
 {
-	__KernelSaveContext(&savedCpu);
+	__KernelSaveContext(&savedCpu, true);
 }
 
 void InterruptState::restore()
 {
-	__KernelLoadContext(&savedCpu);
+	__KernelLoadContext(&savedCpu, true);
 }
 
 void InterruptState::clear()
@@ -317,7 +322,9 @@ retry:
 	{
 		// If we came from CoreTiming::Advance(), we might've come from a waiting thread's callback.
 		// To avoid "injecting" return values into our saved state, we context switch here.
-		__KernelSwitchOffThread("interrupt");
+		SceUID savedThread = __KernelGetCurThread();
+		if (__KernelSwitchOffThread("interrupt"))
+			threadBeforeInterrupt = savedThread;
 
 		PendingInterrupt pend = pendingInterrupts.front();
 
@@ -357,8 +364,13 @@ void __TriggerRunInterrupts(int type)
 			hleRunInterrupts();
 		else if ((type & PSP_INTR_ALWAYS_RESCHED) != 0)
 		{
-			if (!__RunOnePendingInterrupt())
-				__KernelSwitchOffThread("interrupt");
+			// "Always" only means if dispatch is enabled.
+			if (!__RunOnePendingInterrupt() && __KernelIsDispatchEnabled())
+			{
+				SceUID savedThread = __KernelGetCurThread();
+				if (__KernelSwitchOffThread("interrupt"))
+					threadBeforeInterrupt = savedThread;
+			}
 		}
 		else
 			__RunOnePendingInterrupt();
@@ -392,7 +404,13 @@ void __KernelReturnFromInterrupt()
 
 	// Alright, let's see if there's any more interrupts queued...
 	if (!__RunOnePendingInterrupt())
-		__KernelReSchedule("return from interrupt");
+	{
+		// Otherwise, we reschedule when dispatch was enabled, or switch back otherwise.
+		if (__KernelIsDispatchEnabled())
+			__KernelReSchedule("return from interrupt");
+		else
+			__KernelSwitchToThread(threadBeforeInterrupt, "return from interrupt");
+	}
 }
 
 void __RegisterIntrHandler(u32 intrNumber, IntrHandler* handler)
@@ -542,7 +560,7 @@ u32 sceKernelMemcpy(u32 dst, u32 src, u32 size)
 
 const HLEFunction Kernel_Library[] =
 {
-	{0x092968F4,sceKernelCpuSuspendIntr,"sceKernelCpuSuspendIntr"},
+	{0x092968F4,sceKernelCpuSuspendIntr, "sceKernelCpuSuspendIntr"},
 	{0x5F10D406,WrapV_U<sceKernelCpuResumeIntr>, "sceKernelCpuResumeIntr"}, //int oldstat
 	{0x3b84732d,WrapV_U<sceKernelCpuResumeIntrWithSync>, "sceKernelCpuResumeIntrWithSync"},
 	{0x47a0b729,sceKernelIsCpuIntrSuspended, "sceKernelIsCpuIntrSuspended"}, //flags
@@ -550,12 +568,15 @@ const HLEFunction Kernel_Library[] =
 	{0xa089eca4,WrapU_UUU<sceKernelMemset>, "sceKernelMemset"},
 	{0xDC692EE3,WrapI_UI<sceKernelTryLockLwMutex>, "sceKernelTryLockLwMutex"},
 	{0x37431849,WrapI_UI<sceKernelTryLockLwMutex_600>, "sceKernelTryLockLwMutex_600"},
-	{0xbea46419,WrapI_UIU<sceKernelLockLwMutex>, "sceKernelLockLwMutex"},
-	{0x1FC64E09,WrapI_UIU<sceKernelLockLwMutexCB>, "sceKernelLockLwMutexCB"},
+	{0xbea46419,WrapI_UIU<sceKernelLockLwMutex>, "sceKernelLockLwMutex", HLE_NOT_DISPATCH_SUSPENDED},
+	{0x1FC64E09,WrapI_UIU<sceKernelLockLwMutexCB>, "sceKernelLockLwMutexCB", HLE_NOT_DISPATCH_SUSPENDED},
 	{0x15b6446b,WrapI_UI<sceKernelUnlockLwMutex>, "sceKernelUnlockLwMutex"},
 	{0xc1734599,WrapI_UU<sceKernelReferLwMutexStatus>, "sceKernelReferLwMutexStatus"},
-	{0x293b45b8,sceKernelGetThreadId, "sceKernelGetThreadId"},
-	{0x1839852A,WrapU_UUU<sceKernelMemcpy>,"sce_paf_private_memcpy"},
+	{0x293b45b8,WrapI_V<sceKernelGetThreadId>, "sceKernelGetThreadId"},
+	{0xD13BDE95,WrapI_V<sceKernelCheckThreadStack>, "sceKernelCheckThreadStack"},
+	{0x1839852A,WrapU_UUU<sceKernelMemcpy>, "sce_paf_private_memcpy"},
+	// Name is only a guess.
+	{0xfa835cde,WrapI_I<sceKernelAllocateTls>, "sceKernelAllocateTls"},
 };
 
 void Register_Kernel_Library()

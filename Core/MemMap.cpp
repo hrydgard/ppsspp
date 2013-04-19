@@ -111,15 +111,6 @@ void Clear()
 		memset(m_pVRAM, 0, VRAM_SIZE);
 }
 
-bool AreMemoryBreakpointsActivated()
-{
-#ifndef ENABLE_MEM_CHECK
-	return false;
-#else
-	return true;
-#endif
-}
-
 u32 Read_Instruction(u32 address)
 {
 	u32 inst = Read_U32(address);	

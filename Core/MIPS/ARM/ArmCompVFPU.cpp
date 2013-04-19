@@ -17,6 +17,7 @@
 
 #include "../../MemMap.h"
 #include "../MIPSAnalyst.h"
+#include "Core/Config.h"
 #include "Core/Reporting.h"
 
 #include "ArmJit.h"
@@ -116,8 +117,7 @@ namespace MIPSComp
 				// Prefix may say "z, z, z, z" but if this is a pair, we force to x.
 				// TODO: But some ops seem to use const 0 instead?
 				if (regnum >= n) {
-					ERROR_LOG(CPU, "Invalid VFPU swizzle: %08x / %d", prefix, sz);
-					Reporting::ReportMessage("Invalid VFPU swizzle: %08x / %d", prefix, sz);
+					ERROR_LOG_REPORT(CPU, "Invalid VFPU swizzle: %08x / %d", prefix, sz);
 					regnum = 0;
 				}
 				
@@ -210,27 +210,59 @@ namespace MIPSComp
 		int vt = ((op >> 16) & 0x1f) | ((op & 3) << 5);
 		int rs = _RS;
 
+		bool doCheck = false;
 		switch (op >> 26)
 		{
 		case 50: //lv.s  // VI(vt) = Memory::Read_U32(addr);
 			{
-				gpr.MapReg(rs);
-				SetR0ToEffectiveAddress(rs, imm);
-				ADD(R0, R0, R11);
+				// CC might be set by slow path below, so load regs first.
 				fpr.MapRegV(vt, MAP_DIRTY | MAP_NOINIT);
 				fpr.ReleaseSpillLocks();
+				if (gpr.IsImm(rs)) {
+					u32 addr = (imm + gpr.GetImm(rs)) & 0x3FFFFFFF;
+					MOVI2R(R0, addr + (u32)Memory::base);
+				} else {
+					gpr.MapReg(rs);
+					if (g_Config.bFastMemory) {
+						SetR0ToEffectiveAddress(rs, imm);
+					} else {
+						SetCCAndR0ForSafeAddress(rs, imm, R1);
+						doCheck = true;
+					}
+					ADD(R0, R0, R11);
+				}
 				VLDR(fpr.V(vt), R0, 0);
+				if (doCheck) {
+					SetCC(CC_EQ);
+					MOVI2R(R0, 0);
+					VMOV(fpr.V(vt), R0);
+					SetCC(CC_AL);
+				}
 			}
 			break;
 
 		case 58: //sv.s   // Memory::Write_U32(VI(vt), addr);
 			{
-				gpr.MapReg(rs);
-				SetR0ToEffectiveAddress(rs, imm);
-				ADD(R0, R0, R11);
+				// CC might be set by slow path below, so load regs first.
 				fpr.MapRegV(vt);
 				fpr.ReleaseSpillLocks();
+				if (gpr.IsImm(rs)) {
+					u32 addr = (imm + gpr.GetImm(rs)) & 0x3FFFFFFF;
+					MOVI2R(R0, addr + (u32)Memory::base);
+				} else {
+					gpr.MapReg(rs);
+					if (g_Config.bFastMemory) {
+						SetR0ToEffectiveAddress(rs, imm);
+					} else {
+						SetCCAndR0ForSafeAddress(rs, imm, R1);
+						doCheck = true;
+					}
+					ADD(R0, R0, R11);
+				}
 				VSTR(fpr.V(vt), R0, 0);
+				if (doCheck) {
+					SetCC(CC_AL);
+				}
 			}
 			break;
 
@@ -248,35 +280,72 @@ namespace MIPSComp
 		int vt = (((op >> 16) & 0x1f)) | ((op&1) << 5);
 		int rs = _RS;
 
+		bool doCheck = false;
 		switch (op >> 26)
 		{
 		case 54: //lv.q
 			{
-				gpr.MapReg(rs);
-				SetR0ToEffectiveAddress(rs, imm);
-				ADD(R0, R0, R11);
-
+				// CC might be set by slow path below, so load regs first.
 				u8 vregs[4];
 				GetVectorRegs(vregs, V_Quad, vt);
 				fpr.MapRegsV(vregs, V_Quad, MAP_DIRTY | MAP_NOINIT);
 				fpr.ReleaseSpillLocks();
+
+				if (gpr.IsImm(rs)) {
+					u32 addr = (imm + gpr.GetImm(rs)) & 0x3FFFFFFF;
+					MOVI2R(R0, addr + (u32)Memory::base);
+				} else {
+					gpr.MapReg(rs);
+					if (g_Config.bFastMemory) {
+						SetR0ToEffectiveAddress(rs, imm);
+					} else {
+						SetCCAndR0ForSafeAddress(rs, imm, R1);
+						doCheck = true;
+					}
+					ADD(R0, R0, R11);
+				}
+
 				for (int i = 0; i < 4; i++)
 					VLDR(fpr.V(vregs[i]), R0, i * 4);
+
+				if (doCheck) {
+					SetCC(CC_EQ);
+					MOVI2R(R0, 0);
+					for (int i = 0; i < 4; i++)
+						VMOV(fpr.V(vregs[i]), R0);
+					SetCC(CC_AL);
+				}
 			}
 			break;
 
 		case 62: //sv.q
 			{
-				gpr.MapReg(rs);
-				SetR0ToEffectiveAddress(rs, imm);
-				ADD(R0, R0, R11);
-
+				// CC might be set by slow path below, so load regs first.
 				u8 vregs[4];
 				GetVectorRegs(vregs, V_Quad, vt);
 				fpr.MapRegsV(vregs, V_Quad, 0);
 				fpr.ReleaseSpillLocks();
+
+				if (gpr.IsImm(rs)) {
+					u32 addr = (imm + gpr.GetImm(rs)) & 0x3FFFFFFF;
+					MOVI2R(R0, addr + (u32)Memory::base);
+				} else {
+					gpr.MapReg(rs);
+					if (g_Config.bFastMemory) {
+						SetR0ToEffectiveAddress(rs, imm);
+					} else {
+						SetCCAndR0ForSafeAddress(rs, imm, R1);
+						doCheck = true;
+					}
+					ADD(R0, R0, R11);
+				}
+
 				for (int i = 0; i < 4; i++)
 					VSTR(fpr.V(vregs[i]), R0, i * 4);
+
+				if (doCheck) {
+					SetCC(CC_AL);
+				}
 			}
 			break;
 
@@ -512,13 +581,11 @@ namespace MIPSComp
 				DISABLE;
 				break;
 			case 16: // d[i] = 1.0f / s[i]; break; //vrcp
-				MOVI2R(R0, 0x3F800000);  // 1.0f
-				VMOV(S0, R0);
+				MOVI2F(S0, 1.0f, R0);
 				VDIV(tempxregs[i], S0, fpr.V(sregs[i]));
 				break;
 			case 17: // d[i] = 1.0f / sqrtf(s[i]); break; //vrsq
-				MOVI2R(R0, 0x3F800000);  // 1.0f
-				VMOV(S0, R0);
+				MOVI2F(S0, 1.0f, R0);
 				VSQRT(S1, fpr.V(sregs[i]));
 				VDIV(tempxregs[i], S0, S1);
 				break;
@@ -542,8 +609,7 @@ namespace MIPSComp
 				DISABLE;
 				break;
 			case 24: // d[i] = -1.0f / s[i]; break; // vnrcp
-				MOVI2R(R0, 0x80000000 | 0x3F800000);  // -1.0f
-				VMOV(S0, R0);
+				MOVI2F(S0, -1.0f, R0);
 				VDIV(tempxregs[i], S0, fpr.V(sregs[i]));
 				break;
 			case 26: // d[i] = -sinf((float)M_PI_2 * s[i]); break; // vnsin

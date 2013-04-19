@@ -28,10 +28,8 @@
 class WindowsHeadlessHost : public HeadlessHost
 {
 public:
-	virtual void InitGL();
-	virtual void BeginFrame();
+	virtual bool InitGL(std::string *error_message);
 	virtual void ShutdownGL();
-	virtual bool isGLWorking() { return glOkay; }
 
 	virtual void SwapBuffers();
 
@@ -43,7 +41,6 @@ private:
 	bool ResizeGL();
 	void LoadNativeAssets();
 
-	bool glOkay;
 	HWND hWnd;
 	HDC hDC;
 	HGLRC hRC;

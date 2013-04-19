@@ -20,14 +20,17 @@
 #include "../Globals.h"
 #include "../MIPS/MIPS.h"
 
-#define STACKTOP 0x09F00000
-#define STACKSIZE 0x10000
-
 typedef void (* HLEFunc)();
 
 enum {
-	NOT_IN_INTERRUPT,
-	NOT_DISPATCH_SUSPENDED,
+	// The low 8 bits are a value, indicating special jit handling.
+	// Currently there are none.
+
+	// The remaining 24 bits are flags.
+	// Don't allow the call within an interrupt.  Not yet implemented.
+	HLE_NOT_IN_INTERRUPT = 1 << 8,
+	// Don't allow the call if dispatch or interrupts are disabled.
+	HLE_NOT_DISPATCH_SUSPENDED = 1 << 9,
 };
 
 struct HLEFunction
@@ -90,6 +93,7 @@ void hleDebugBreak();
 // Delays the result for usec microseconds, allowing other threads to run during this time.
 u32 hleDelayResult(u32 result, const char *reason, int usec);
 u64 hleDelayResult(u64 result, const char *reason, int usec);
+void hleEatCycles(int cycles);
 void hleEatMicro(int usec);
 
 inline int hleDelayResult(int result, const char *reason, int usec)

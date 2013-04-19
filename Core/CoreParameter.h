@@ -33,7 +33,7 @@ enum GPUCore {
 
 struct CoreParameter
 {
-	CoreParameter() : collectEmuLog(0) {}
+	CoreParameter() : collectEmuLog(0), unthrottle(false) {}
 	// 0 = Interpreter
 	// 1 = Jit
 	// 2 = JitIL
@@ -63,4 +63,7 @@ struct CoreParameter
 	// Actual pixel output resolution (for use by glViewport and the like)
 	int pixelWidth;
 	int pixelHeight;
+
+	// Can be modified at runtime.
+	bool unthrottle;
 };

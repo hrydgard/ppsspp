@@ -271,9 +271,9 @@ void ScheduleEvent(s64 cyclesIntoFuture, int event_type, u64 userdata)
 }
 
 // Returns cycles left in timer.
-u64 UnscheduleEvent(int event_type, u64 userdata)
+s64 UnscheduleEvent(int event_type, u64 userdata)
 {
-	u64 result = 0;
+	s64 result = 0;
 	if (!first)
 		return result;
 	while(first)
@@ -303,6 +303,52 @@ u64 UnscheduleEvent(int event_type, u64 userdata)
 
 			prev->next = ptr->next;
 			FreeEvent(ptr);
+			ptr = prev->next;
+		}
+		else
+		{
+			prev = ptr;
+			ptr = ptr->next;
+		}
+	}
+
+	return result;
+}
+
+s64 UnscheduleThreadsafeEvent(int event_type, u64 userdata)
+{
+	s64 result = 0;
+	std::lock_guard<std::recursive_mutex> lk(externalEventSection);
+	if (!tsFirst)
+		return result;
+	while(tsFirst)
+	{
+		if (tsFirst->type == event_type && tsFirst->userdata == userdata)
+		{
+			result = tsFirst->time - globalTimer;
+
+			Event *next = tsFirst->next;
+			FreeTsEvent(tsFirst);
+			tsFirst = next;
+		}
+		else
+		{
+			break;
+		}
+	}
+	if (!tsFirst)
+		return result;
+
+	Event *prev = tsFirst;
+	Event *ptr = prev->next;
+	while (ptr)
+	{
+		if (ptr->type == event_type && ptr->userdata == userdata)
+		{
+			result = ptr->time - globalTimer;
+
+			prev->next = ptr->next;
+			FreeTsEvent(ptr);
 			ptr = prev->next;
 		}
 		else

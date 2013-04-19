@@ -52,7 +52,10 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 				"TRIANGLE_FAN",
 				"RECTANGLES",
 			};
-			sprintf(buffer, "DrawPrim type: %s count: %i vaddr= %08x, iaddr= %08x", type < 7 ? types[type] : "INVALID", count, gstate_c.vertexAddr, gstate_c.indexAddr);
+			if (gstate.vertType & GE_VTYPE_IDX_MASK)
+				sprintf(buffer, "DrawPrim indexed type: %s count: %i vaddr= %08x, iaddr= %08x", type < 7 ? types[type] : "INVALID", count, gstate_c.vertexAddr, gstate_c.indexAddr);
+			else
+				sprintf(buffer, "DrawPrim type: %s count: %i vaddr= %08x", type < 7 ? types[type] : "INVALID", count, gstate_c.vertexAddr);
 		}
 		break;
 
@@ -337,7 +340,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 
 	case GE_CMD_TRANSFERSRCW:
 		{
-			u32 xferSrc = gstate.transfersrc | ((data&0xFF0000)<<8);
+			u32 xferSrc = (gstate.transfersrc & 0x00FFFFFF) | ((data & 0xFF0000) << 8);
 			u32 xferSrcW = gstate.transfersrcw & 1023;
 			sprintf(buffer, "Block Transfer Src: %08x	W: %i", xferSrc, xferSrcW);
 			break;
@@ -352,7 +355,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 
 	case GE_CMD_TRANSFERDSTW:
 		{
-			u32 xferDst= gstate.transferdst | ((data&0xFF0000)<<8);
+			u32 xferDst = (gstate.transferdst & 0x00FFFFFF) | ((data & 0xFF0000) << 8);
 			u32 xferDstW = gstate.transferdstw & 1023;
 			sprintf(buffer, "Block Transfer Dest: %08x	W: %i", xferDst, xferDstW);
 			break;

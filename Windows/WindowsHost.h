@@ -28,6 +28,7 @@ public:
 		mainWindow_ = mainWindow;
 		displayWindow_ = displayWindow;
 		input = getInputDevices();
+		loadedSymbolMap_ = false;
 	}
 	void UpdateMemView();
 	void UpdateDisassembly();
@@ -37,7 +38,7 @@ public:
 	void AddSymbol(std::string name, u32 addr, u32 size, int type);
 
 	bool InitGL(std::string *error_message);
-	void BeginFrame();
+	void PollControllers(InputState &input_state);
 	void ShutdownGL();
 
 	void InitSound(PMixer *mixer);
@@ -46,12 +47,13 @@ public:
 
 	bool IsDebuggingEnabled();
 	void BootDone();
-	void PrepareShutdown();
 	bool AttemptLoadSymbolMap();
+	void SaveSymbolMap();
 	void SetWindowTitle(const char *message);
 
 private:
 	HWND displayWindow_;
 	HWND mainWindow_;
 	std::list<std::shared_ptr<InputDevice>> input;
+	bool loadedSymbolMap_;
 };

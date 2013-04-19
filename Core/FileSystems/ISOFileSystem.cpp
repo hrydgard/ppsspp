@@ -131,8 +131,22 @@ struct VolDescriptor
 
 #pragma pack(pop)
 
-ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevice) 
+ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevice, std::string _restrictPath) 
 {
+	if (!_restrictPath.empty())
+	{
+		size_t pos = _restrictPath.find_first_not_of('/');
+		while (pos != _restrictPath.npos)
+		{
+			size_t endPos = _restrictPath.find_first_of('/', pos);
+			if (endPos == _restrictPath.npos)
+				endPos = _restrictPath.length();
+			if (pos != endPos)
+				restrictTree.push_back(_restrictPath.substr(pos, endPos - pos));
+			pos = _restrictPath.find_first_not_of('/', endPos);
+		}
+	}
+
 	blockDevice = _blockDevice;
 	hAlloc = _hAlloc;
 
@@ -156,7 +170,7 @@ ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevic
 		ERROR_LOG(FILESYS, "ISO looks bogus? trying anyway...");
 	}
 
-	treeroot = new TreeEntry;
+	treeroot = new TreeEntry();
 	treeroot->isDirectory = true;
 	treeroot->startingPosition = 0;
 	treeroot->size = 0;
@@ -167,7 +181,7 @@ ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevic
 	u32 rootSector = desc.root.firstDataSectorLE;
 	u32 rootSize = desc.root.dataLengthLE;
 
-	ReadDirectory(rootSector, rootSize, treeroot);
+	ReadDirectory(rootSector, rootSize, treeroot, 0);
 }
 
 ISOFileSystem::~ISOFileSystem()
@@ -176,7 +190,7 @@ ISOFileSystem::~ISOFileSystem()
 	delete treeroot;
 }
 
-void ISOFileSystem::ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root)
+void ISOFileSystem::ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root, size_t level)
 {
 	for (u32 secnum = startsector, endsector = dirsize/2048 + startsector; secnum < endsector; ++secnum)
 	{
@@ -196,7 +210,7 @@ void ISOFileSystem::ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root)
 			if (offset + IDENTIFIER_OFFSET + dir.identifierLength > 2048)
 			{
 				ERROR_LOG(FILESYS, "Directory entry crosses sectors, corrupt iso?");
-				break;
+				return;
 			}
 
 			offset += dir.size;
@@ -239,7 +253,14 @@ void ISOFileSystem::ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root)
 				}
 				else
 				{
-					ReadDirectory(dir.firstDataSectorLE, dir.dataLengthLE, e);
+					bool doRecurse = true;
+					if (!restrictTree.empty())
+						doRecurse = level < restrictTree.size() && restrictTree[level] == e->name;
+
+					if (doRecurse)
+						ReadDirectory(dir.firstDataSectorLE, dir.dataLengthLE, e, level + 1);
+					else
+						continue;
 				}
 			}
 			root->children.push_back(e);

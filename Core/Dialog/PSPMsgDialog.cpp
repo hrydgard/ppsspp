@@ -53,8 +53,7 @@ int PSPMsgDialog::Init(unsigned int paramAddr)
 	int optionsNotCoded = ((messageDialog.options | SCE_UTILITY_MSGDIALOG_DEBUG_OPTION_CODED) ^ SCE_UTILITY_MSGDIALOG_DEBUG_OPTION_CODED);
 	if(optionsNotCoded)
 	{
-		ERROR_LOG(HLE,"PSPMsgDialog options not coded : 0x%08x",optionsNotCoded);
-		Reporting::ReportMessage("PSPMsgDialog options not coded: 0x%08x", optionsNotCoded);
+		ERROR_LOG_REPORT(HLE, "PSPMsgDialog options not coded : 0x%08x", optionsNotCoded);
 	}
 
 	flag = 0;
@@ -137,8 +136,8 @@ void PSPMsgDialog::DisplayBack()
 void PSPMsgDialog::DisplayYesNo()
 {
 
-	PPGeDrawText("Yes", 200, 150, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(yesnoChoice == 1?0xFF0000FF:0xFFFFFFFF));
-	PPGeDrawText("No", 320, 150, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(yesnoChoice == 0?0xFF0000FF:0xFFFFFFFF));
+	PPGeDrawText("Yes", 200, 150, PPGE_ALIGN_LEFT, 0.55f, CalcFadedColor(yesnoChoice == 1?0xFF0000FF:0xFFFFFFFF));
+	PPGeDrawText("No", 320, 150, PPGE_ALIGN_LEFT, 0.55f, CalcFadedColor(yesnoChoice == 0?0xFF0000FF:0xFFFFFFFF));
 
 	if (IsButtonPressed(CTRL_LEFT) && yesnoChoice == 0)
 	{
@@ -153,7 +152,7 @@ void PSPMsgDialog::DisplayYesNo()
 void PSPMsgDialog::DisplayOk()
 {
 	PPGeDrawImage(okButtonImg, 200, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawText("Ok", 230, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText("Enter", 230, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 }
 
 int PSPMsgDialog::Update()
@@ -229,6 +228,12 @@ int PSPMsgDialog::Update()
 
 	Memory::Memcpy(messageDialogAddr,&messageDialog,messageDialog.common.size);
 	return 0;
+}
+
+int PSPMsgDialog::Abort()
+{
+	// TODO: Probably not exactly the same?
+	return PSPDialog::Shutdown();
 }
 
 int PSPMsgDialog::Shutdown()

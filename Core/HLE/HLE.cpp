@@ -332,23 +332,38 @@ bool hleExecuteDebugBreak(const HLEFunction &func)
 
 u32 hleDelayResult(u32 result, const char *reason, int usec)
 {
-	CoreTiming::ScheduleEvent(usToCycles(usec), delayedResultEvent, __KernelGetCurThread());
-	__KernelWaitCurThread(WAITTYPE_DELAY, 1, result, 0, false, reason);
+	if (__KernelIsDispatchEnabled())
+	{
+		CoreTiming::ScheduleEvent(usToCycles(usec), delayedResultEvent, __KernelGetCurThread());
+		__KernelWaitCurThread(WAITTYPE_DELAY, 1, result, 0, false, reason);
+	}
+	else
+		WARN_LOG(HLE, "Dispatch disabled, not delaying HLE result (right thing to do?)");
 	return result;
 }
 
 u64 hleDelayResult(u64 result, const char *reason, int usec)
 {
-	u64 param = (result & 0xFFFFFFFF00000000) | __KernelGetCurThread();
-	CoreTiming::ScheduleEvent(usToCycles(usec), delayedResultEvent, param);
-	__KernelWaitCurThread(WAITTYPE_DELAY, 1, (u32) result, 0, false, reason);
+	if (__KernelIsDispatchEnabled())
+	{
+		u64 param = (result & 0xFFFFFFFF00000000) | __KernelGetCurThread();
+		CoreTiming::ScheduleEvent(usToCycles(usec), delayedResultEvent, param);
+		__KernelWaitCurThread(WAITTYPE_DELAY, 1, (u32) result, 0, false, reason);
+	}
+	else
+		WARN_LOG(HLE, "Dispatch disabled, not delaying HLE result (right thing to do?)");
 	return result;
+}
+
+void hleEatCycles(int cycles)
+{
+	// Maybe this should Idle, at least for larger delays?  Could that cause issues?
+	currentMIPS->downcount -= cycles;
 }
 
 void hleEatMicro(int usec)
 {
-	// Maybe this should Idle, at least for larger delays?  Could that cause issues?
-	currentMIPS->downcount -= (int) usToCycles(usec);
+	hleEatCycles((int) usToCycles(usec));
 }
 
 inline void hleFinishSyscall(int modulenum, int funcnum)
@@ -420,9 +435,12 @@ inline void updateSyscallStats(int modulenum, int funcnum, double total)
 
 void CallSyscall(u32 op)
 {
+	double start = 0.0;  // need to initialize to fix the race condition where g_Config.bShowDebugStats is enabled in the middle of this func.
 	if (g_Config.bShowDebugStats)
+	{
 		time_update();
-	double start = time_now_d();
+		start = time_now_d();
+	}
 	u32 callno = (op >> 6) & 0xFFFFF; //20 bits
 	int funcnum = callno & 0xFFF;
 	int modulenum = (callno & 0xFF000) >> 12;
@@ -435,7 +453,17 @@ void CallSyscall(u32 op)
 	HLEFunc func = moduleDB[modulenum].funcTable[funcnum].func;
 	if (func)
 	{
-		func();
+		// TODO: Move to jit/interp.
+		u32 flags = moduleDB[modulenum].funcTable[funcnum].flags;
+		if (flags & HLE_NOT_DISPATCH_SUSPENDED)
+		{
+			if (!__KernelIsDispatchEnabled())
+				RETURN(SCE_KERNEL_ERROR_CAN_NOT_WAIT);
+			else
+				func();
+		}
+		else
+			func();
 
 		if (hleAfterSyscall != HLE_AFTER_NOTHING)
 			hleFinishSyscall(modulenum, funcnum);

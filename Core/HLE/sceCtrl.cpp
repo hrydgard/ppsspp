@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <math.h>
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
 #include "../CoreTiming.h"
@@ -32,7 +33,6 @@
 #define CTRL_MODE_DIGITAL   0
 #define CTRL_MODE_ANALOG    1
 
-const int PSP_CTRL_ERROR_INVALID_MODE = 0x80000107;
 const int PSP_CTRL_ERROR_INVALID_IDLE_PTR = 0x80000023;
 
 const u32 NUM_CTRL_BUFFERS = 64;
@@ -157,11 +157,19 @@ void __CtrlButtonUp(u32 buttonBit)
 void __CtrlSetAnalog(float x, float y)
 {
 	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
-	// TODO: Circle!
-	if (x > 1.0f) x = 1.0f;
-	if (y > 1.0f) y = 1.0f;
-	if (x < -1.0f) x = -1.0f;
-	if (y < -1.0f) y = -1.0f;
+	/* Confine joy stick to circular radius.
+	 * We do this by normalizing our 2d
+	 * vector only when the points are
+	 * outside the circle. */
+	float length = x*x + y*y;
+	if (length > 1) {
+		/* We can do lazy evaluation
+		 * of the square root because
+		 * iff sqrt(X) > 1 then X > 1 */
+		length = sqrt(length);
+		x /= length;
+		y /= length;
+	}
 	ctrlCurrent.analog[0] = (u8)(x * 127.f + 128.f);
 	ctrlCurrent.analog[1] = (u8)(-y * 127.f + 128.f);
 }
@@ -351,7 +359,7 @@ u32 sceCtrlSetSamplingMode(u32 mode)
 
 	DEBUG_LOG(HLE, "sceCtrlSetSamplingMode(%i)", mode);
 	if (mode > 1)
-		return PSP_CTRL_ERROR_INVALID_MODE;
+		return SCE_KERNEL_ERROR_INVALID_MODE;
 
 	retVal = analogEnabled == true ? CTRL_MODE_ANALOG : CTRL_MODE_DIGITAL;
 	analogEnabled = mode == CTRL_MODE_ANALOG ? true : false;

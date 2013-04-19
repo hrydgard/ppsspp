@@ -44,8 +44,6 @@
 #include "../../GPU/GLES/TextureCache.h"
 #include "../../GPU/GPUState.h"
 #include "../../GPU/GPUInterface.h"
-// Internal drawing library
-#include "../Util/PPGeDraw.h"
 
 #ifdef _WIN32
 // Windows defines min/max which conflict with std::min/std::max.
@@ -95,6 +93,8 @@ static double curFrameTime;
 static double nextFrameTime;
 
 static u64 frameStartTicks;
+const float hCountPerVblank = 285.72f; // insprired by jpcsp
+
 
 std::vector<WaitVBlankInfo> vblankWaitingThreads;
 
@@ -196,13 +196,17 @@ void __DisplayFireVblank() {
 	}
 }
 
+static double highestFps = 0.0;
+static int lastFpsFrame = 0;
+static double lastFpsTime = 0.0;
+static double fps = 0.0;
+
+void __DisplayGetFPS(float *out_vps, float *out_fps) {
+	*out_vps = *out_fps = fps;
+}
+
 void CalculateFPS()
 {
-	static double highestFps = 0.0;
-	static int lastFpsFrame = 0;
-	static double lastFpsTime = 0.0;
-	static double fps = 0.0;
-
 	time_update();
 	double now = time_now_d();
 
@@ -215,28 +219,11 @@ void CalculateFPS()
 		lastFpsFrame = gpuStats.numFrames;	
 		lastFpsTime = now;
 	}
-
-	char stats[50];
-	sprintf(stats, "VPS: %0.1f", fps);
-
-	#ifdef USING_GLES2
-		float zoom = 0.7f; /// g_Config.iWindowZoom;
-		float soff = 0.7f;
-	#else
-		float zoom = 0.5f; /// g_Config.iWindowZoom;
-		float soff = 0.5f;
-	#endif
-	PPGeBegin();
-	PPGeDrawText(stats, 476 + soff, 4 + soff, PPGE_ALIGN_RIGHT, zoom, 0xCC000000);
-	PPGeDrawText(stats, 476 + -soff, 4 -soff, PPGE_ALIGN_RIGHT, zoom, 0xCC000000);
-	PPGeDrawText(stats, 476, 4, PPGE_ALIGN_RIGHT, zoom, 0xFF30FF30);
-	PPGeEnd();
 }
 
-void DebugStats()
+void __DisplayGetDebugStats(char stats[2048])
 {
 	gpu->UpdateStats();
-	char stats[2048];
 
 	sprintf(stats,
 		"Frames: %i\n"
@@ -279,30 +266,14 @@ void DebugStats()
 		gpuStats.numShaders
 		);
 
-	#ifdef USING_GLES2
-		float zoom = 0.5f; /// g_Config.iWindowZoom;
-		float soff = 0.5f;
-	#else
-		float zoom = 0.3f; /// g_Config.iWindowZoom;
-		float soff = 0.3f;
-	#endif
-	PPGeBegin();
-	PPGeDrawText(stats, soff, soff, 0, zoom, 0xCC000000);
-	PPGeDrawText(stats, -soff, -soff, 0, zoom, 0xCC000000);
-	PPGeDrawText(stats, 0, 0, 0, zoom, 0xFFFFFFFF);
-	PPGeEnd();
-
 	gpuStats.resetFrame();
 	kernelStats.ResetFrame();
 }
 
 // Let's collect all the throttling and frameskipping logic here.
 void DoFrameTiming(bool &throttle, bool &skipFrame) {
-#ifdef _WIN32
-	throttle = !GetAsyncKeyState(VK_TAB);
-#else
-	throttle = true;
-#endif
+	throttle = !PSP_CoreParameter().unthrottle;
+
 	skipFrame = false;
 	if (PSP_CoreParameter().headLess)
 		throttle = false;
@@ -310,6 +281,20 @@ void DoFrameTiming(bool &throttle, bool &skipFrame) {
 	// Check if the frameskipping code should be enabled. If neither throttling or frameskipping is on,
 	// we have nothing to do here.
 	bool doFrameSkip = g_Config.iFrameSkip == 1;
+
+	// On non windows, which is always vsync locked, we need to force frameskip when
+	// unthrottled.
+#ifndef _WIN32
+	if (!throttle) {
+		doFrameSkip = true;
+		skipFrame = true;
+		if (numSkippedFrames >= 6) {
+			skipFrame = false;
+		}
+		return;	
+	}
+#endif
+
 	if (!throttle && !doFrameSkip)
 		return;
 	
@@ -324,6 +309,7 @@ void DoFrameTiming(bool &throttle, bool &skipFrame) {
 		skipFrame = true;
 		// INFO_LOG(HLE,"FRAMESKIP %i", numSkippedFrames);
 	}
+
 	
 	if (curFrameTime < nextFrameTime && throttle)
 	{
@@ -391,11 +377,6 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 
 	gpuStats.numFrames++;
 
-	// Now we can subvert the Ge engine in order to draw custom overlays like stat counters etc.
-	if (g_Config.bShowDebugStats && gpuStats.numDrawCalls) {
-		DebugStats();
-	}
-
 	if (g_Config.bShowFPSCounter) {
 		CalculateFPS();
 	}
@@ -442,9 +423,6 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 
 void hleAfterFlip(u64 userdata, int cyclesLate)
 {
-	// This checks input on PC. Fine to do even if not calling BeginFrame.
-	host->BeginFrame();
-
 	gpu->BeginFrame();  // doesn't really matter if begin or end of frame.
 }
 
@@ -462,7 +440,6 @@ u32 sceDisplayIsVblank() {
 
 u32 sceDisplaySetMode(int displayMode, int displayWidth, int displayHeight) {
 	DEBUG_LOG(HLE,"sceDisplaySetMode(%i, %i, %i)", displayMode, displayWidth, displayHeight);
-	host->BeginFrame();
 
 	if (!hasSetMode) {
 		gpu->InitClear();
@@ -487,13 +464,12 @@ u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) 
 
 	if (sync == PSP_DISPLAY_SETBUF_IMMEDIATE) {
 		// Write immediately to the current framebuffer parameters
-		if (topaddr != 0)
-		{
+		if (topaddr != 0) {
 			framebuf = fbstate;
 			gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
-		}
-		else
+		} else {
 			WARN_LOG(HLE, "%s: PSP_DISPLAY_SETBUF_IMMEDIATE without topaddr?", __FUNCTION__);
+		}
 	} else if (topaddr != 0) {
 		// Delay the write until vblank
 		latchedFramebuf = fbstate;
@@ -543,7 +519,7 @@ u32 sceDisplayWaitVblank() {
 		return 0;
 	} else {
 		DEBUG_LOG(HLE,"sceDisplayWaitVblank() - not waiting since in vBlank");
-		hleEatMicro(5);
+		hleEatCycles(5 * 222);
 		return 1;
 	}
 }
@@ -563,7 +539,7 @@ u32 sceDisplayWaitVblankCB() {
 		return 0;
 	} else {
 		DEBUG_LOG(HLE,"sceDisplayWaitVblank() - not waiting since in vBlank");
-		hleEatMicro(5);
+		hleEatCycles(5 * 222);
 		return 1;
 	}
 }
@@ -585,12 +561,12 @@ u32 sceDisplayWaitVblankStartMultiCB(int vblanks) {
 u32 sceDisplayGetVcount() {
 	VERBOSE_LOG(HLE,"%i=sceDisplayGetVcount()", vCount);
 
-	hleEatMicro(2);
+	hleEatCycles(2 * 222);
 	return vCount;
 }
 
 u32 sceDisplayGetCurrentHcount() {
-	u32 currentHCount = (CoreTiming::GetTicks() - frameStartTicks) / ((u64)CoreTiming::GetClockFrequencyMHz() * 1000000 / 60 / 272);
+	u32 currentHCount = (CoreTiming::GetTicks() - frameStartTicks) / ((u64)CoreTiming::GetClockFrequencyMHz() * 1000000 / 60 / hCountPerVblank);
 	DEBUG_LOG(HLE,"%i=sceDisplayGetCurrentHcount()", currentHCount);
 	return currentHCount;
 }
@@ -601,8 +577,7 @@ u32 sceDisplayAdjustAccumulatedHcount() {
 }
 
 u32 sceDisplayGetAccumulatedHcount() {
-	float hCountPerVblank = 285.72f; // insprired by jpcsp
-	u32 currentHCount = (CoreTiming::GetTicks() - frameStartTicks) / ((u64)CoreTiming::GetClockFrequencyMHz() * 1000000 / 60 / 272);
+	u32 currentHCount = (CoreTiming::GetTicks() - frameStartTicks) / ((u64)CoreTiming::GetClockFrequencyMHz() * 1000000 / 60 / hCountPerVblank);
 	u32 accumHCount = currentHCount + (u32) (vCount * hCountPerVblank);
 	DEBUG_LOG(HLE,"%i=sceDisplayGetAccumulatedHcount()", accumHCount);
 	return accumHCount;

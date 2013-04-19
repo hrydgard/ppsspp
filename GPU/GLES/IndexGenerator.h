@@ -32,6 +32,27 @@ public:
 	bool PrimCompatible(int prim);
 	int Prim() const { return prim_; }
 
+	void AddPrim(int prim, int vertexCount);
+	void TranslatePrim(int prim, int numInds, const u8 *inds, int indexOffset);
+	void TranslatePrim(int prim, int numInds, const u16 *inds, int indexOffset);
+
+	void Advance(int numVerts) {
+		index_ += numVerts;
+	}
+
+	void SetIndex(int ind) { index_ = ind; }
+	int MaxIndex() const { return index_; }
+	int VertexCount() const { return count_; }
+	bool Empty() const { return index_ == 0; }
+	int SeenPrims() const { return seenPrims_; }
+
+	bool SeenOnlyPurePrims() const {
+		return seenPrims_ == (1 << GE_PRIM_TRIANGLES) ||
+			seenPrims_ == (1 << GE_PRIM_LINES) ||
+			seenPrims_ == (1 << GE_PRIM_POINTS);
+	}
+
+private:
 	// Points (why index these? code simplicity)
 	void AddPoints(int numVerts);
 	// Triangles
@@ -44,43 +65,24 @@ public:
 	// Rectangles
 	void AddRectangles(int numVerts);
 
-	void TranslatePoints(int numVerts, const u8 *inds, int indexLowerBound, int indexUpperBound);	
-	void TranslatePoints(int numVerts, const u16 *inds, int indexLowerBound, int indexUpperBound);
+	void TranslatePoints(int numVerts, const u8 *inds, int indexOffset);	
+	void TranslatePoints(int numVerts, const u16 *inds, int indexOffset);
 	// Translates already indexed lists
-	void TranslateLineList(int numVerts, const u8 *inds, int indexLowerBound, int indexUpperBound);
-	void TranslateLineList(int numVerts, const u16 *inds, int indexLowerBound, int indexUpperBound);
-	void TranslateLineStrip(int numVerts, const u8 *inds, int indexLowerBound, int indexUpperBound);
-	void TranslateLineStrip(int numVerts, const u16 *inds, int indexLowerBound, int indexUpperBound);
+	void TranslateLineList(int numVerts, const u8 *inds, int indexOffset);
+	void TranslateLineList(int numVerts, const u16 *inds, int indexOffset);
+	void TranslateLineStrip(int numVerts, const u8 *inds, int indexOffset);
+	void TranslateLineStrip(int numVerts, const u16 *inds, int indexOffset);
 
-	void TranslateRectangles(int numVerts, const u8 *inds, int indexLowerBound, int indexUpperBound);
-	void TranslateRectangles(int numVerts, const u16 *inds, int indexLowerBound, int indexUpperBound);
+	void TranslateRectangles(int numVerts, const u8 *inds, int indexOffset);
+	void TranslateRectangles(int numVerts, const u16 *inds, int indexOffset);
 
-	void TranslateList(int numVerts, const u8 *inds, int indexLowerBound, int indexUpperBound);
-	void TranslateList(int numVerts, const u16 *inds, int indexLowerBound, int indexUpperBound);
-	void TranslateStrip(int numVerts, const u8 *inds, int indexLowerBound, int indexUpperBound);
-	void TranslateStrip(int numVerts, const u16 *inds, int indexLowerBound, int indexUpperBound);
-	void TranslateFan(int numVerts, const u8 *inds, int indexLowerBound, int indexUpperBound);
-	void TranslateFan(int numVerts, const u16 *inds, int indexLowerBound, int indexUpperBound);
+	void TranslateList(int numVerts, const u8 *inds, int indexOffset);
+	void TranslateList(int numVerts, const u16 *inds, int indexOffset);
+	void TranslateStrip(int numVerts, const u8 *inds, int indexOffset);
+	void TranslateStrip(int numVerts, const u16 *inds, int indexOffset);
+	void TranslateFan(int numVerts, const u8 *inds, int indexOffset);
+	void TranslateFan(int numVerts, const u16 *inds, int indexOffset);
 
-	int MaxIndex() const { return index_; }
-	int VertexCount() const { return count_; }
-
-	bool Empty() const { return index_ == 0; }
-
-	void SetIndex(int ind) { index_ = ind; }
-	int SeenPrims() const { return seenPrims_; }
-
-	bool SeenOnlyPurePrims() const {
-		return seenPrims_ == (1 << GE_PRIM_TRIANGLES) ||
-			     seenPrims_ == (1 << GE_PRIM_LINES) ||
-					 seenPrims_ == (1 << GE_PRIM_POINTS);
-	}
-
-	bool SeenIndices() const {
-		return (seenPrims_ & (SEEN_INDEX8 | SEEN_INDEX16)) != 0;
-	}
-
-private:
 	enum {
 		SEEN_INDEX8 = 1 << 16,
 		SEEN_INDEX16 = 1 << 17

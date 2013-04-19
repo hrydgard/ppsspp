@@ -38,15 +38,17 @@
 #include "TestRunner.h"
 
 
-const char *testsToRun[] = {
+static const char * const testsToRun[] = {
 	"cpu/cpu_alu/cpu_alu",
 	"cpu/fpu/fpu",
 	"cpu/icache/icache",
 	"cpu/lsu/lsu",
-	"cpu/vfpu/base/vfpu",
-	"cpu/vfpu/colors/vfpu_colors",
-	"cpu/vfpu/convert/vfpu_convert",
-	"cpu/vfpu/prefixes/vfpu_prefixes",
+	"cpu/vfpu/vector",
+	"cpu/vfpu/matrix",
+	"cpu/vfpu/convert",
+	"cpu/vfpu/colors",
+	"cpu/vfpu/prefixes",
+	"cpu/vfpu/gum",
 };
 
 void RunTests()
@@ -64,21 +66,26 @@ void RunTests()
 	coreParam.headLess = false;
 	coreParam.renderWidth = 480;
 	coreParam.renderHeight = 272;
-	coreParam.outputWidth = 480;
-	coreParam.outputHeight = 272;
 	coreParam.pixelWidth = 480;
 	coreParam.pixelHeight = 272;
 	coreParam.useMediaEngine = false;
 	coreParam.collectEmuLog = &output;
+	coreParam.unthrottle = true;
+
+#ifdef IOS
+	std::string baseDirectory = g_Config.flashDirectory + "../";
+#else
+	std::string baseDirectory = g_Config.memCardDirectory;
+#endif
 
 	// Never report from tests.
 	std::string savedReportHost = g_Config.sReportHost;
 	g_Config.sReportHost = "";
 
-	for (int i = 0; i < ARRAY_SIZE(testsToRun); i++) {
+	for (size_t i = 0; i < ARRAY_SIZE(testsToRun); i++) {
 		const char *testName = testsToRun[i];
-		coreParam.fileToStart = g_Config.memCardDirectory + "pspautotests/tests/" + testName + ".prx";
-		std::string expectedFile =  g_Config.memCardDirectory + "pspautotests/tests/" + testName + ".expected";
+		coreParam.fileToStart = baseDirectory + "pspautotests/tests/" + testName + ".prx";
+		std::string expectedFile = baseDirectory + "pspautotests/tests/" + testName + ".expected";
 
 		ILOG("Preparing to execute %s", testName)
 		std::string error_string;

@@ -10,14 +10,14 @@
 #include "Core/Core.h"
 #include "math/lin/matrix4x4.h"
 #include "native/ui/ui.h"
-#include "android/jni/UIShader.h"
-#include "android/jni/GamepadEmu.h"
+#include "UI/UIShader.h"
+#include "UI/GamepadEmu.h"
+#include "UI/ui_atlas.h"
 #include "base/NativeApp.h"
-#include "base/threadutil.h"
+#include "thread/threadutil.h"
 #include "gfx_es2/fbo.h"
 #include "gfx_es2/gl_state.h"
 #include "GPU/GPUState.h"
-#include "android/jni/ui_atlas.h"
 #include "native/base/timeutil.h"
 #include "native/base/colorutil.h"
 #include "GPU/GPUState.h"
@@ -178,8 +178,6 @@ void EmuThread::run()
 			EmuThread_LockDraw(true);
 			if(needInitGame)
 			{
-				g_State.bEmuThreadStarted = true;
-
 				CoreParameter coreParameter;
 				coreParameter.fileToStart = fileToStart.toStdString();
 				coreParameter.enableSound = true;
@@ -211,7 +209,7 @@ void EmuThread::run()
 				host->UpdateDisassembly();
 				Core_EnableStepping(coreParameter.startPaused ? TRUE : FALSE);
 
-				g_State.bBooted = true;
+				globalUIState = coreParameter.startPaused ? UISTATE_PAUSEMENU : UISTATE_INGAME;
 			#ifdef _DEBUG
 				host->UpdateMemView();
 			#endif
@@ -255,14 +253,14 @@ void EmuThread::run()
 
 			glViewport(0, 0, pixel_xres, pixel_yres);
 
-			ui_draw2d.Begin(DBMODE_NORMAL);
+			ui_draw2d.Begin(UIShader_Get(), DBMODE_NORMAL);
 
 			//if (g_Config.bShowTouchControls)
 			//	DrawGamepad(ui_draw2d);
 
 			glsl_bind(UIShader_Get());
 			ui_draw2d.End();
-			ui_draw2d.Flush(UIShader_Get());
+			ui_draw2d.Flush();
 
 
 			// Tiled renderers like PowerVR should benefit greatly from this. However - seems I can't call it?
@@ -302,20 +300,21 @@ void EmuThread::run()
 
 			UIShader_Prepare();
 			glViewport(0, 0, pixel_xres, pixel_yres);
-			UIBegin();
+			UIBegin(UIShader_Get());
 			DrawBackground(alpha);
 
 			ui_draw2d.SetFontScale(1.5f, 1.5f);
 			ui_draw2d.DrawText(UBUNTU48, "PPSSPP", dp_xres / 2, dp_yres / 2 - 30, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 			ui_draw2d.SetFontScale(1.0f, 1.0f);
-			ui_draw2d.DrawText(UBUNTU24, "Created by Henrik Rydgard", dp_xres / 2, dp_yres / 2 + 40, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+			ui_draw2d.DrawText(UBUNTU24, "Created by Henrik Rydg\u00E5rd", dp_xres / 2, dp_yres / 2 + 40, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 			ui_draw2d.DrawText(UBUNTU24, "Free Software under GPL 2.0", dp_xres / 2, dp_yres / 2 + 70, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 			ui_draw2d.DrawText(UBUNTU24, "www.ppsspp.org", dp_xres / 2, dp_yres / 2 + 130, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 
 			UIEnd();
+			globalUIState = UISTATE_MENU;
 
 			glsl_bind(UIShader_Get());
-			ui_draw2d.Flush(UIShader_Get());
+			ui_draw2d.Flush();
 
 			glWindow->swapBuffers();
 			EmuThread_LockDraw(false);
@@ -339,7 +338,6 @@ void EmuThread::run()
 
 void EmuThread::Shutdown()
 {
-	host->PrepareShutdown();
 	FinalShutdown();
 }
 void EmuThread::FinalShutdown()
@@ -384,7 +382,6 @@ void EmuThread::stopGame()
 	// TODO
 	//The CPU should return when a game is stopped and cleanup should be done here,
 	//so we can restart the plugins (or load new ones) for the next game
-	g_State.bEmuThreadStarted = false;
 	frames_ = 0;
 
 	gameMutex->unlock();

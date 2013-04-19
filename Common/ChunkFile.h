@@ -34,7 +34,7 @@
 #include <list>
 #include <set>
 #ifndef __SYMBIAN32__
-#ifdef IOS
+#if defined(IOS) || (defined(__APPLE__) && !defined(__MAC_10_7))
 #include <tr1/type_traits>
 #else
 #include <type_traits>
@@ -45,7 +45,7 @@
 #include "FileUtil.h"
 #include "../ext/snappy/snappy-c.h"
 
-#if defined(ANDROID) || defined(IOS)
+#if defined(IOS) || (defined(__APPLE__) && !defined(__MAC_10_7))
 namespace std {
 	using tr1::is_pointer;
 }
@@ -84,7 +84,7 @@ class PointerWrap
 		static void DoArray(PointerWrap *p, T *x, int count)
 		{
 			for (int i = 0; i < count; ++i)
-				p->DoClass(x[i]);
+				p->Do(x[i]);
 		}
 
 		static void Do(PointerWrap *p, T &x)
@@ -115,16 +115,30 @@ public:
 		MODE_VERIFY, // compare
 	};
 
+	enum Error {
+		ERROR_NONE = 0,
+		ERROR_WARNING = 1,
+		ERROR_FAILURE = 2,
+	};
+
 	u8 **ptr;
 	Mode mode;
+	Error error;
 
 public:
-	PointerWrap(u8 **ptr_, Mode mode_) : ptr(ptr_), mode(mode_) {}
-	PointerWrap(unsigned char **ptr_, int mode_) : ptr((u8**)ptr_), mode((Mode)mode_) {}
+	PointerWrap(u8 **ptr_, Mode mode_) : ptr(ptr_), mode(mode_), error(ERROR_NONE) {}
+	PointerWrap(unsigned char **ptr_, int mode_) : ptr((u8**)ptr_), mode((Mode)mode_), error(ERROR_NONE) {}
 
 	void SetMode(Mode mode_) {mode = mode_;}
 	Mode GetMode() const {return mode;}
 	u8 **GetPPtr() {return ptr;}
+	void SetError(Error error_)
+	{
+		if (error < error_)
+			error = error_;
+		if (error != ERROR_NONE)
+			mode = PointerWrap::MODE_MEASURE;
+	}
 
 	void DoVoid(void *data, int size)
 	{
@@ -556,7 +570,7 @@ public:
 		if(mode == PointerWrap::MODE_READ && cookie != arbitraryNumber)
 		{
 			PanicAlertT("Error: After \"%s\", found %d (0x%X) instead of save marker %d (0x%X). Aborting savestate load...", prevName, cookie, cookie, arbitraryNumber, arbitraryNumber);
-			mode = PointerWrap::MODE_MEASURE;
+			SetError(ERROR_FAILURE);
 		}
 	}
 };
@@ -642,7 +656,7 @@ public:
 		delete[] buf;
 		
 		INFO_LOG(COMMON, "ChunkReader: Done loading %s" , _rFilename.c_str());
-		return true;
+		return p.error != p.ERROR_FAILURE;
 	}
 	
 	// Save file template
@@ -712,7 +726,7 @@ public:
 		
 		INFO_LOG(COMMON,"ChunkReader: Done writing %s", 
 				 _rFilename.c_str());
-		return true;
+		return p.error != p.ERROR_FAILURE;
 	}
 	
 	template <class T>

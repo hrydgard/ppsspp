@@ -2,31 +2,6 @@
 // Microsoft Visual C++ generated include file.
 // Used by ppsspp.rc
 //
-#define IDS_DLGSETTINGSGENERAL          5
-#define IDS_DLGSETTINGSGCMPATHS         6
-#define IDS_DLGSETTINGSPLUGINS          7
-#define IDS_ERRORNOGAMESFOUND           9
-#define IDS_GAMELISTBANNER              10
-#define IDS_GAMELISTCOMPANY             11
-#define IDS_GAMELISTTITLE               12
-#define IDS_GAMELISTNOTES               13
-#define IDS_GAMELISTID                  14
-#define IDS_GAMELISTSIZE                15
-#define IDS_GAMELISTPATH                16
-#define IDS_TIPS_LOADDOL                17
-#define IDS_TIPS_LOADELF                18
-#define IDS_TIPS_LOADGCM                19
-#define IDS_TIPS_REFRESHGAMELIST        20
-#define IDS_TIPS_RUN                    21
-#define IDS_TIPS_PAUSE                  22
-#define IDS_TIPS_STOP                   23
-#define IDS_TIPS_FRAMEBUFFER            24
-#define IDS_TIPS_HELP                   25
-#define IDS_TIPS_CONFIGUREGFX           26
-#define IDS_TIPS_CONFIGUREAUDIO         27
-#define IDS_TIPS_CONFIGUREPAD           28
-#define IDS_TIPS_CONFIGUREDVD           29
-#define IDS_TIPS_SETTINGS               30
 #define IDS_UNIMPLEMENTED               31
 #define IDS_GAMELISTGENRE               32
 #define IDS_APPNAME                     33
@@ -51,8 +26,6 @@
 #define ID_DEBUG_REGISTERS              120
 #define ID_DEBUG_LOG                    121
 #define ID_DEBUG_BREAKPOINTS            122
-#define ID_FILE_LOAD_BIN                123
-#define ID_FILE_LOAD_ISO                125
 #define ID_FILE_LOADSTATEFILE           126
 #define ID_FILE_SAVESTATEFILE           127
 #define ID_EMULATION_RESET              130
@@ -68,21 +41,14 @@
 #define IDD_MEMORY                      160
 #define ID_DEBUG_MEMORYVIEW             161
 #define IDR_ACCELS                      162
-#define ID_FILE_LOAD_ELF                165
 #define ID_FILE_BOOTDVD                 166
 #define ID_OPTIONS_ENABLEFRAMEBUFFER    167
 #define IDR_POPUPMENUS                  169
-#define ID_CHEATS_ACTIONREPLAYCODES     171
 #define ID_DEBUG_MEMORYCHECKS           173
 #define ID_DVD_INSERTISO                175
-#define ID_FILE_LOAD_GCM                175
 #define ID_DVD_EJECT                    176
 #define ID_DVD_                         177
 #define ID_DVD_OPENLID                  178
-#define ID_PLUGINS_CONFIGUREGFXPLUGIN   179
-#define ID_PLUGINS_CONFIGUREAUDIOPLUGIN 180
-#define ID_PLUGINS_INPUTPLUGINSETTINGS  182
-#define ID_PLUGINS_CONFIGUREPADPLUGIN   182
 #define ID_DVD_BOOT                     183
 #define ID_DVD_HLEBOOT                  184
 #define ID_Menu185                      185
@@ -120,7 +86,6 @@
 #define IDC_STEP                        1009
 #define IDC_VERSION                     1010
 #define IDC_UP                          1014
-#define IDC_DIRTREE                     1014
 #define IDC_DOWN                        1015
 #define IDC_BREAKPOINTS_LIST            1015
 #define IDC_ADD                         1016
@@ -157,25 +122,17 @@
 #define IDC_BROWSE                      1159
 #define IDC_SHOWVFPU                    1161
 #define IDC_LISTCONTROLS                1162
-#define ID_FILE_BOOTISO                 40001
+#define IDC_FORCE_INPUT_DEVICE          1163
 #define ID_FILE_EXIT                    40002
 #define ID_CONFIG_SELECT_PLUGINS        40003
 #define ID_BUTTON40013                  40013
 #define ID_BUTTON40014                  40014
 #define ID_BUTTON40015                  40015
-#define ID_FILE_BOOTBIOS                40018
-#define ID_COMPARE_STARTSERVER          40019
-#define ID_COMPARE_CONNECTASCLIENT      40020
-#define ID_CPU_COMPARE_CLOSECONNECTION  40022
 #define ID_OPTIONS_EMULATESYSCALL       40023
 #define ID_DEBUG_LOCATESYMBOLS          40025
 #define ID_HELP_TOPICS                  40026
-#define ID_PLUGINS_DVDPLUGINSETTINGS    40027
-#define ID_PLUGINS_CONFIGUREDVDPLUGIN   40027
 #define ID_DEBUG_SAVEMAPFILE            40028
-#define ID_DEBUG_                       40029
 #define ID_BUTTON40030                  40030
-#define ID_BUTTON40031                  40031
 #define ID_BUTTON40032                  40032
 #define ID_BUTTON40033                  40033
 #define ID_BUTTON40034                  40034
@@ -199,7 +156,6 @@
 #define ID_DISASM_COPYINSTRUCTIONDISASM 40059
 #define ID_DISASM_COPYINSTRUCTIONHEX    40060
 #define ID_OPTIONS_CONFIGURATIONWIZARD  40064
-#define ID_TOOLS_GCMSHRINKER            40065
 #define ID_BUTTON40066                  40066
 #define ID_GAMELIST_SHRINK              40067
 #define ID_GAMELIST_PROPERTIES          40068
@@ -264,6 +220,28 @@
 #define ID_OPTIONS_FRAMESKIP            40139
 #define IDC_MEMCHECK                    40140
 #define ID_OPTIONS_USEMEDIAENGINE       40141
+#define ID_FILE_MEMSTICK                40142
+#define ID_FILE_LOAD_MEMSTICK           40143
+#define ID_EMULATION_SOUND              40144
+#define ID_OPTIONS_MIPMAP	              40145
+#define IDB_IMAGE_PSP                   40146
+#define IDC_EDIT_KEY_TURBO              40147
+#define IDC_EDIT_KEY_START              40148
+#define IDC_EDIT_KEY_SELECT             40149
+#define IDC_EDIT_KEY_RECTANGLE          40150
+#define IDC_EDIT_KEY_TRIANGLE           40151
+#define IDC_EDIT_KEY_CIRCLE             40152
+#define IDC_EDIT_KEY_CROSS              40153
+#define IDC_EDIT_KEY_LEFT_THUMB         40154
+#define IDC_EDIT_KEY_RIGHT_THUMB        40155
+#define IDC_EDIT_KEYUP                  40156
+#define IDC_EDIT_KEYDOWN                40157
+#define IDC_EDIT_KEYLEFT                40158
+#define IDC_EDIT_KEYRIGHT               40159
+#define IDC_EDIT_KEY_ANALOG_UP          40160
+#define IDC_EDIT_KEY_ANALOG_DOWN        40161
+#define IDC_EDIT_KEY_ANALOG_LEFT        40162
+#define IDC_EDIT_KEY_ANALOG_RIGHT       40163
 #define IDC_STATIC                      -1
 
 // Next default values for new objects
@@ -271,7 +249,7 @@
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        233
-#define _APS_NEXT_COMMAND_VALUE         40141
+#define _APS_NEXT_COMMAND_VALUE         40144
 #define _APS_NEXT_CONTROL_VALUE         1163
 #define _APS_NEXT_SYMED_VALUE           101
 #endif

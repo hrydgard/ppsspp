@@ -19,6 +19,8 @@
 #include "../MIPS/MIPS.h"
 #include "../System.h"
 #include "../CoreParameter.h"
+#include "../CoreTiming.h"
+#include "../Reporting.h"
 #include "sceGe.h"
 #include "sceKernelMemory.h"
 #include "sceKernelThread.h"
@@ -33,11 +35,11 @@ struct GeInterruptData
 {
 	int listid;
 	u32 pc;
-	u32 subIntrBase;
-	u16 subIntrToken;
 };
 
 static std::list<GeInterruptData> ge_pending_cb;
+static int geSyncEvent;
+static int geInterruptEvent;
 
 class GeIntrHandler : public IntrHandler
 {
@@ -52,21 +54,44 @@ public:
 		if (dl == NULL)
 		{
 			WARN_LOG(HLE, "Unable to run GE interrupt: list doesn't exist: %d", intrdata.listid);
-			// TODO: Use dl instead of just saving everything instead?
-			//return false;
+			return false;
 		}
 
-		gpu->InterruptStart();
+		gpu->InterruptStart(intrdata.listid);
 
-		u32 cmd = Memory::ReadUnchecked_U32(intrdata.pc) >> 24;
-		int subintr = intrdata.subIntrBase | (cmd == GE_CMD_FINISH ? PSP_GE_SUBINTR_FINISH : PSP_GE_SUBINTR_SIGNAL);
+		u32 cmd = Memory::ReadUnchecked_U32(intrdata.pc - 4) >> 24;
+		int subintr = -1;
+		if (dl->subIntrBase >= 0)
+		{
+			switch (dl->signal)
+			{
+			case PSP_GE_SIGNAL_SYNC:
+			case PSP_GE_SIGNAL_JUMP:
+			case PSP_GE_SIGNAL_CALL:
+			case PSP_GE_SIGNAL_RET:
+				// Do nothing.
+				break;
+
+			case PSP_GE_SIGNAL_HANDLER_PAUSE:
+				if (cmd == GE_CMD_FINISH)
+					subintr = dl->subIntrBase | PSP_GE_SUBINTR_SIGNAL;
+				break;
+
+			default:
+				if (cmd == GE_CMD_SIGNAL)
+					subintr = dl->subIntrBase | PSP_GE_SUBINTR_SIGNAL;
+				else
+					subintr = dl->subIntrBase | PSP_GE_SUBINTR_FINISH;
+				break;
+			}
+		}
+
 		SubIntrHandler* handler = get(subintr);
-
-		if(handler != NULL)
+		if (handler != NULL)
 		{
 			DEBUG_LOG(CPU, "Entering interrupt handler %08x", handler->handlerAddress);
 			currentMIPS->pc = handler->handlerAddress;
-			u32 data = intrdata.subIntrToken;
+			u32 data = dl->subIntrToken;
 			currentMIPS->r[MIPS_REG_A0] = data & 0xFFFF;
 			currentMIPS->r[MIPS_REG_A1] = handler->handlerArg;
 			currentMIPS->r[MIPS_REG_A2] = sceKernelGetCompiledSdkVersion() <= 0x02000010 ? 0 : intrdata.pc + 4;
@@ -76,9 +101,10 @@ public:
 		}
 
 		ge_pending_cb.pop_front();
-		gpu->InterruptEnd();
+		gpu->InterruptEnd(intrdata.listid);
 
-		WARN_LOG(HLE, "Ignoring interrupt for display list %d, already been released.", intrdata.listid);
+		if (subintr >= 0)
+			WARN_LOG(HLE, "Ignoring interrupt for display list %d, already been released.", intrdata.listid);
 		return false;
 	}
 
@@ -87,15 +113,62 @@ public:
 		GeInterruptData intrdata = ge_pending_cb.front();
 		ge_pending_cb.pop_front();
 
-		gpu->InterruptEnd();
+		DisplayList* dl = gpu->getList(intrdata.listid);
+
+		switch (dl->signal)
+		{
+		case PSP_GE_SIGNAL_HANDLER_SUSPEND:
+			if (sceKernelGetCompiledSdkVersion() <= 0x02000010)
+			{
+				// uofw says dl->state = endCmd & 0xFF;
+				DisplayListState newState = static_cast<DisplayListState>(Memory::ReadUnchecked_U32(intrdata.pc - 4) & 0xFF);
+				//dl->status = static_cast<DisplayListStatus>(Memory::ReadUnchecked_U32(intrdata.pc) & 0xFF);
+				//if(dl->status < 0 || dl->status > PSP_GE_LIST_PAUSED)
+				//	ERROR_LOG(HLE, "Weird DL status after signal suspend %x", dl->status);
+				if (newState != PSP_GE_DL_STATE_RUNNING)
+					WARN_LOG_REPORT(HLE, "GE Interrupt: newState might be %d", newState);
+
+				dl->state = PSP_GE_DL_STATE_RUNNING;
+			}
+			break;
+		default:
+			break;
+		}
+
+		dl->signal = PSP_GE_SIGNAL_NONE;
+
+		gpu->InterruptEnd(intrdata.listid);
 	}
 };
+
+void __GeExecuteSync(u64 userdata, int cyclesLate)
+{
+	int listid = userdata >> 32;
+	WaitType waitType = (WaitType) (userdata & 0xFFFFFFFF);
+	bool wokeThreads = __KernelTriggerWait(waitType, listid, 0, "GeSync", true);
+	gpu->SyncEnd(waitType, listid, wokeThreads);
+}
+
+void __GeExecuteInterrupt(u64 userdata, int cyclesLate)
+{
+	int listid = userdata >> 32;
+	u32 pc = userdata & 0xFFFFFFFF;
+
+	GeInterruptData intrdata;
+	intrdata.listid = listid;
+	intrdata.pc     = pc;
+	ge_pending_cb.push_back(intrdata);
+	__TriggerInterrupt(PSP_INTR_IMMEDIATE, PSP_GE_INTR, PSP_INTR_SUB_NONE);
+}
 
 void __GeInit()
 {
 	memset(&ge_used_callbacks, 0, sizeof(ge_used_callbacks));
 	ge_pending_cb.clear();
 	__RegisterIntrHandler(PSP_GE_INTR, new GeIntrHandler());
+
+	geSyncEvent = CoreTiming::RegisterEvent("GeSyncEvent", &__GeExecuteSync);
+	geInterruptEvent = CoreTiming::RegisterEvent("GeInterruptEvent", &__GeExecuteInterrupt);
 }
 
 void __GeDoState(PointerWrap &p)
@@ -103,6 +176,12 @@ void __GeDoState(PointerWrap &p)
 	p.DoArray(ge_callback_data, ARRAY_SIZE(ge_callback_data));
 	p.DoArray(ge_used_callbacks, ARRAY_SIZE(ge_used_callbacks));
 	p.Do(ge_pending_cb);
+
+	p.Do(geSyncEvent);
+	CoreTiming::RestoreRegisterEvent(geSyncEvent, "GeSyncEvent", &__GeExecuteSync);
+	p.Do(geInterruptEvent);
+	CoreTiming::RestoreRegisterEvent(geInterruptEvent, "GeInterruptEvent", &__GeExecuteInterrupt);
+
 	// Everything else is done in sceDisplay.
 	p.DoMarker("sceGe");
 }
@@ -112,20 +191,27 @@ void __GeShutdown()
 
 }
 
-void __GeTriggerInterrupt(int listid, u32 pc, int subIntrBase, u16 subIntrToken)
+// Warning: may be called from the GPU thread.
+bool __GeTriggerSync(WaitType waitType, int id, u64 atTicks)
 {
-	// ClaDun X2 does not expect sceGeListEnqueue to reschedule (which it does not on the PSP.)
-	// Once PPSSPP's GPU is multithreaded, we can remove this check.
-	if (subIntrBase < 0)
-		return;
+	u64 userdata = (u64)id << 32 | (u64) waitType;
+	s64 future = atTicks - CoreTiming::GetTicks();
+	if (waitType == WAITTYPE_GEDRAWSYNC)
+	{
+		s64 left = CoreTiming::UnscheduleEvent(geSyncEvent, userdata);
+		if (left > future)
+			future = left;
+	}
+	CoreTiming::ScheduleEvent(future, geSyncEvent, userdata);
+	return true;
+}
 
-	GeInterruptData intrdata;
-	intrdata.listid = listid;
-	intrdata.pc     = pc;
-	intrdata.subIntrBase = subIntrBase;
-	intrdata.subIntrToken = subIntrToken;
-	ge_pending_cb.push_back(intrdata);
-	__TriggerInterrupt(PSP_INTR_HLE, PSP_GE_INTR, PSP_INTR_SUB_NONE);
+// Warning: may be called from the GPU thread.
+bool __GeTriggerInterrupt(int listid, u32 pc, u64 atTicks)
+{
+	u64 userdata = (u64)listid << 32 | (u64) pc;
+	CoreTiming::ScheduleEvent(atTicks - CoreTiming::GetTicks(), geInterruptEvent, userdata);
+	return true;
 }
 
 bool __GeHasPendingInterrupt()
@@ -188,48 +274,39 @@ u32 sceGeListEnQueueHead(u32 listAddress, u32 stallAddress, int callbackId,
 int sceGeListDeQueue(u32 listID)
 {
 	ERROR_LOG(HLE, "UNIMPL sceGeListDeQueue(%08x)", listID);
-	return 0;
+	return gpu->DequeueList(listID);
 }
 
 int sceGeListUpdateStallAddr(u32 displayListID, u32 stallAddress)
 {
-	DEBUG_LOG(HLE, "sceGeListUpdateStallAddr(dlid=%i,stalladdr=%08x)",
-			displayListID, stallAddress);
-
-	gpu->UpdateStall(displayListID, stallAddress);
-	return 0;
+	DEBUG_LOG(HLE, "sceGeListUpdateStallAddr(dlid=%i,stalladdr=%08x)", displayListID, stallAddress);
+	return gpu->UpdateStall(displayListID, stallAddress);
 }
 
 int sceGeListSync(u32 displayListID, u32 mode) //0 : wait for completion		1:check and return
 {
 	DEBUG_LOG(HLE, "sceGeListSync(dlid=%08x, mode=%08x)", displayListID, mode);
-	if(mode == 1) {
-		return gpu->listStatus(displayListID);
-	}
-	return 0;
+	return gpu->ListSync(displayListID, mode);
 }
 
 u32 sceGeDrawSync(u32 mode)
 {
 	//wait/check entire drawing state
-	DEBUG_LOG(HLE, "FAKE sceGeDrawSync(mode=%d)  (0=wait for completion)",
-			mode);
-	gpu->DrawSync(mode);
-	return 0;
+	DEBUG_LOG(HLE, "sceGeDrawSync(mode=%d)  (0=wait for completion, 1=peek)", mode);
+	return gpu->DrawSync(mode);
 }
 
 int sceGeContinue()
 {
-	DEBUG_LOG(HLE, "UNIMPL sceGeContinue");
-	// no arguments
-	return 0;
+	DEBUG_LOG(HLE, "sceGeContinue");
+	return gpu->Continue();
 }
 
 int sceGeBreak(u32 mode)
 {
 	//mode => 0 : current dlist 1: all drawing
-	DEBUG_LOG(HLE, "UNIMPL sceGeBreak(mode=%d)", mode);
-	return 0;
+	DEBUG_LOG(HLE, "sceGeBreak(mode=%d)", mode);
+	return gpu->Break(mode);
 }
 
 u32 sceGeSetCallback(u32 structAddr)

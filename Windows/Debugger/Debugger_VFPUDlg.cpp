@@ -31,23 +31,23 @@ CVFPUDlg::CVFPUDlg(HINSTANCE _hInstance, HWND _hParent, DebugInterface *cpu_) : 
 	tcItem.mask			= TCIF_TEXT;
 	tcItem.dwState		= 0;
 	tcItem.pszText		= "Float";
-	tcItem.cchTextMax	= strlen(tcItem.pszText)+1;
+	tcItem.cchTextMax	= (int)strlen(tcItem.pszText)+1;
 	tcItem.iImage		= 0;
 	TabCtrl_InsertItem(tabs, TabCtrl_GetItemCount(tabs),&tcItem);
 	tcItem.pszText		= "HalfFloat";
-	tcItem.cchTextMax	= strlen(tcItem.pszText)+1;
+	tcItem.cchTextMax	= (int)strlen(tcItem.pszText)+1;
 	TabCtrl_InsertItem(tabs, TabCtrl_GetItemCount(tabs),&tcItem);
 	tcItem.pszText		= "Hex";
-	tcItem.cchTextMax	= strlen(tcItem.pszText)+1;
+	tcItem.cchTextMax	= (int)strlen(tcItem.pszText)+1;
 	TabCtrl_InsertItem(tabs, TabCtrl_GetItemCount(tabs),&tcItem);
 	tcItem.pszText		= "Bytes";
-	tcItem.cchTextMax	= strlen(tcItem.pszText)+1;
+	tcItem.cchTextMax	= (int)strlen(tcItem.pszText)+1;
 	TabCtrl_InsertItem(tabs, TabCtrl_GetItemCount(tabs),&tcItem);
 	tcItem.pszText		= "Shorts";
-	tcItem.cchTextMax	= strlen(tcItem.pszText)+1;
+	tcItem.cchTextMax	= (int)strlen(tcItem.pszText)+1;
 	TabCtrl_InsertItem(tabs, TabCtrl_GetItemCount(tabs),&tcItem);
 	tcItem.pszText		= "Ints";
-	tcItem.cchTextMax	= strlen(tcItem.pszText)+1;
+	tcItem.cchTextMax	= (int)strlen(tcItem.pszText)+1;
 	TabCtrl_InsertItem(tabs, TabCtrl_GetItemCount(tabs),&tcItem);
 	mode=0;
 	Size();
@@ -145,8 +145,8 @@ BOOL CVFPUDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				int my = (int)(yStart + matrix * rowHeight * 5.5f);
 				Rectangle(hdc, 0, my, xStart, my+rowHeight);
 				char temp[256];
-				sprintf_s(temp, "M%i00", matrix);
-				TextOut(hdc,3,my+2,temp,strlen(temp));
+				int temp_len = sprintf_s(temp, "M%i00", matrix);
+				TextOut(hdc,3,my+2,temp,temp_len);
 				Rectangle(hdc,xStart,my+rowHeight,xStart+columnWidth*4,my+5*rowHeight);
 
 				for (int column = 0; column<4; column++)
@@ -156,12 +156,12 @@ BOOL CVFPUDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 
 					Rectangle(hdc, x, y, x + columnWidth, y+rowHeight);
 					char temp[256];
-					sprintf_s(temp, "R%i0%i", matrix, column);
-					TextOut(hdc,x+3,y+2,temp,strlen(temp));
+					temp_len = sprintf_s(temp, "R%i0%i", matrix, column);
+					TextOut(hdc,x+3,y+2,temp,temp_len);
 
 					Rectangle(hdc, 0, y+rowHeight*(column+1), xStart, y+rowHeight*(column+2));
-					sprintf_s(temp, "C%i%i0", matrix, column);
-					TextOut(hdc,3,y+rowHeight*(column+1)+1,temp,strlen(temp));
+					temp_len = sprintf_s(temp, "C%i%i0", matrix, column);
+					TextOut(hdc,3,y+rowHeight*(column+1)+1,temp,temp_len);
 
 					y+=rowHeight;
 
@@ -170,15 +170,16 @@ BOOL CVFPUDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 						float val = mipsr4k.v[column*32+row+matrix*4];
 						u32 hex = *((u32*)&val);
 						char temp[256];
+						int temp_len;
 						switch (mode)
 						{
-						case 0: sprintf_s(temp,"%f",val); break;
-//						case 1: sprintf_s(temp,"??"); break;
-						case 2: sprintf_s(temp,"0x%08x",hex); break;
-						default:sprintf_s(temp,"%f",val); break;
+						case 0: temp_len = sprintf_s(temp,"%f",val); break;
+//						case 1: temp_len = sprintf_s(temp,"??"); break;
+						case 2: temp_len = sprintf_s(temp,"0x%08x",hex); break;
+						default:temp_len = sprintf_s(temp,"%f",val); break;
 						}
 						
-						TextOut(hdc,x+3,y+2,temp,strlen(temp));
+						TextOut(hdc,x+3,y+2,temp,temp_len);
 						y+=rowHeight;
 					}
 				}

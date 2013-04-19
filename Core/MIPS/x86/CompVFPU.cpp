@@ -105,8 +105,7 @@ void Jit::ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz) {
 			// Prefix may say "z, z, z, z" but if this is a pair, we force to x.
 			// TODO: But some ops seem to use const 0 instead?
 			if (regnum >= n) {
-				ERROR_LOG(CPU, "Invalid VFPU swizzle: %08x / %d", prefix, sz);
-				Reporting::ReportMessage("Invalid VFPU swizzle: %08x / %d", prefix, sz);
+				ERROR_LOG_REPORT(CPU, "Invalid VFPU swizzle: %08x / %d", prefix, sz);
 				regnum = 0;
 			}
 			MOVSS(fpr.VX(vregs[i]), fpr.V(origV[regnum]));

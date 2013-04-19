@@ -22,7 +22,6 @@
     <ClInclude Include="FileUtil.h" />
     <ClInclude Include="FixedSizeQueue.h" />
     <ClInclude Include="Hash.h" />
-    <ClInclude Include="IniFile.h" />
     <ClInclude Include="LinearDiskCache.h" />
     <ClInclude Include="Log.h" />
     <ClInclude Include="LogManager.h" />
@@ -54,7 +53,6 @@
     <ClCompile Include="FileSearch.cpp" />
     <ClCompile Include="FileUtil.cpp" />
     <ClCompile Include="Hash.cpp" />
-    <ClCompile Include="IniFile.cpp" />
     <ClCompile Include="LogManager.cpp" />
     <ClCompile Include="MathUtil.cpp" />
     <ClCompile Include="MemArena.cpp" />

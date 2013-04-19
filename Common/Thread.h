@@ -33,8 +33,8 @@
 #define INFINITE 0xffffffff
 #endif
 
-// Assume !ARM = x86
-#if !defined(ARM)
+// Assume !ARM && !MIPS = x86
+#if !defined(ARM) && !defined(MIPS)
 #include <xmmintrin.h>
 #endif
 

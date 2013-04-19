@@ -95,7 +95,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	// TODO: All this setup is soon so expensive that we'll need dirty flags, or simply do it in the command writes where we detect dirty by xoring. Silly to do all this work on every drawcall.
 
 	if (gstate_c.textureChanged) {
-		if ((gstate.textureMapEnable & 1) && !gstate.isModeClear()) {
+		if (gstate.textureMapEnable & 1) {
 			textureCache_->SetTexture();
 		}
 		gstate_c.textureChanged = false;
@@ -183,15 +183,16 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	}
 
 	// Set Dither
-	glstate.dither.set(gstate.isDitherEnabled());
-
+	if (gstate.isDitherEnabled()) {
+		glstate.dither.enable();
+		glstate.dither.set(GL_TRUE);
+	} else
+		glstate.dither.disable();
 
 	// Set ColorMask/Stencil/Depth
 	if (gstate.isModeClear()) {
 		bool colorMask = (gstate.clearmode >> 8) & 1;
 		bool alphaMask = (gstate.clearmode >> 9) & 1;
-		bool depthMask = ((gstate.clearmode >> 10) & 1) || !(gstate.zmsk & 1);
-		
 		glstate.colorMask.set(colorMask, colorMask, colorMask, alphaMask);
 
 		glstate.stencilTest.enable();
@@ -200,16 +201,17 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 
 		glstate.depthTest.enable();
 		glstate.depthFunc.set(GL_ALWAYS);
-		glstate.depthWrite.set(depthMask ? GL_TRUE : GL_FALSE);
+		glstate.depthWrite.set(GL_TRUE);
 
 	} else {	
 		if (gstate.isDepthTestEnabled()) {
 			glstate.depthTest.enable();
 			glstate.depthFunc.set(ztests[gstate.getDepthTestFunc()]);
-			glstate.depthWrite.set(gstate.isDepthWriteEnabled() ? GL_TRUE : GL_FALSE);
 		} else {
 			glstate.depthTest.disable();
 		}
+
+		glstate.depthWrite.set(gstate.isDepthWriteEnabled() ? GL_TRUE : GL_FALSE);
 
 		// PSP color/alpha mask is per bit but we can only support per byte.
 		// But let's do that, at least. And let's try a threshold.
@@ -218,7 +220,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		bool bmask = ((gstate.pmskc >> 16) & 0xFF) < 128;
 		bool amask = (gstate.pmska & 0xFF) < 128;
 		glstate.colorMask.set(rmask, gmask, bmask, amask);
-
+		
 		if (gstate.isStencilTestEnabled()) {
 			glstate.stencilTest.enable();
 			glstate.stencilFunc.set(ztests[gstate.stenciltest & 0x7],  // func
@@ -238,8 +240,8 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	if (g_Config.bBufferedRendering) {
 		renderX = 0;
 		renderY = 0;
-	  renderWidth = framebufferManager_->GetRenderWidth();
-	  renderHeight = framebufferManager_->GetRenderHeight();
+	  	renderWidth = framebufferManager_->GetRenderWidth();
+	  	renderHeight = framebufferManager_->GetRenderHeight();
 		renderWidthFactor = (float)renderWidth / framebufferManager_->GetTargetWidth();
 		renderHeightFactor = (float)renderHeight / framebufferManager_->GetTargetHeight();
 	} else {
@@ -260,15 +262,17 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	int scissorY2 = (gstate.scissor2 >> 10) & 0x3FF;
 
 	// This is a bit of a hack as the render buffer isn't always that size
-	if (scissorX1 == 0 && scissorY1 == 0 && scissorX2 == 480 && scissorY2 == 272) {
+	if (scissorX1 == 0 && scissorY1 == 0 
+		&& scissorX2 >= (int) (gstate_c.curRTWidth - 1) 
+		&& scissorY2 >= (int) (gstate_c.curRTHeight - 1)) {
 		glstate.scissorTest.disable();
 	} else {
 		glstate.scissorTest.enable();
 		glstate.scissorRect.set(
 			renderX + scissorX1 * renderWidthFactor,
 			renderY + renderHeight - (scissorY2 * renderHeightFactor),
-			(scissorX2 - scissorX1) * renderWidthFactor,
-			(scissorY2 - scissorY1) * renderHeightFactor);
+			(scissorX2 - scissorX1 + 1) * renderWidthFactor,
+			(scissorY2 - scissorY1 + 1) * renderHeightFactor);
 	}
 
 	/*

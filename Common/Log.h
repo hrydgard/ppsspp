@@ -17,6 +17,12 @@
 
 #pragma once
 
+#ifdef __arm__
+#if !defined(ARM)
+#define ARM
+#endif
+#endif
+
 #define	NOTICE_LEVEL  1  // VERY important information that is NOT errors. Like startup and debugprintfs from the game itself.
 #define	ERROR_LEVEL   2  // Important errors.
 #define	WARNING_LEVEL 3  // Something is suspicious.
@@ -25,6 +31,10 @@
 #define	VERBOSE_LEVEL 6  // Noisy debugging - sometimes needed but usually unimportant.
 
 #if !defined(_WIN32) && !defined(PANDORA)
+#if defined(MAEMO)
+       //ucontext.h will be then skipped
+       #define _SYS_UCONTEXT_H 1
+#endif
 #include <signal.h>
 #endif
 

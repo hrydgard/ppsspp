@@ -18,13 +18,14 @@
 #include <algorithm>
 #include <iterator>
 #include "Common/ChunkFile.h"
-#include "../../Core.h"
-#include "../../CoreTiming.h"
-#include "../../Config.h"
-#include "../MIPS.h"
-#include "../MIPSCodeUtils.h"
-#include "../MIPSInt.h"
-#include "../MIPSTables.h"
+#include "Core/Core.h"
+#include "Core/System.h"
+#include "Core/CoreTiming.h"
+#include "Core/Config.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSCodeUtils.h"
+#include "Core/MIPS/MIPSInt.h"
+#include "Core/MIPS/MIPSTables.h"
 
 #include "RegCache.h"
 #include "Jit.h"
@@ -339,6 +340,9 @@ void Jit::Comp_Generic(u32 op)
 
 void Jit::WriteExit(u32 destination, int exit_num)
 {
+	if (!Memory::IsValidAddress(destination)) {
+		ERROR_LOG(JIT, "Trying to write block exit to illegal destination %08x: pc = %08x", destination, currentMIPS->pc);
+	}
 	// If we need to verify coreState and rewind, we may not jump yet.
 	if (js.afterOp & (JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE))
 	{

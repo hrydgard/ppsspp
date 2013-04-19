@@ -18,21 +18,16 @@
 #pragma once
 
 #include <string>
+#include <vector>
 #include <map>
 
 extern const char *PPSSPP_GIT_VERSION;
 
-struct SState
-{
-	bool bEmuThreadStarted;	// is anything loaded into the emulator?
-	bool bBooted;
-};
-
-struct CConfig
+struct Config
 {
 public:
-	CConfig();
-	~CConfig();
+	Config();
+	~Config();
 
 	// Whether to save the config on close.
 	bool bSaveSettings;
@@ -49,7 +44,10 @@ public:
 	bool bIgnoreBadMemAccess;
 	bool bFastMemory;
 	bool bJit;
+	bool bAutoSaveSymbolMap;
 	std::string sReportHost;
+	std::vector<std::string> recentIsos;
+	std::string languageIni;
 
 	// GFX
 	bool bDisplayFramebuffer;
@@ -62,12 +60,15 @@ public:
 	int iFrameSkip;  // 0 = off;  1 = auto;  (future:  2 = skip every 2nd frame;  3 = skip every 3rd frame etc).
 	bool bUseMediaEngine;
 
+	int iWindowX;
+	int iWindowY;
 	int iWindowZoom;  // for Windows
 	bool SSAntiAliasing; //for Windows, too
 	bool bVertexCache;
 	bool bFullScreen;
 	int iAnisotropyLevel;
 	bool bTrueColor;
+	bool bMipMap;
 
 	// Sound
 	bool bEnableSound;
@@ -83,6 +84,7 @@ public:
 
 	// Control
 	std::map<int,int> iMappingMap; // Can be used differently depending on systems
+	int iForceInputDevice;
 
 	// SystemParam
 	int ilanguage;
@@ -95,9 +97,13 @@ public:
 
 	void Load(const char *iniFileName = "ppsspp.ini");
 	void Save();
+
+	// Utility functions for "recent" management
+	void AddRecent(const std::string &file);
+	void CleanRecent();
+
 private:
 	std::string iniFilename_;
 };
 
-extern SState g_State;
-extern CConfig g_Config;
+extern Config g_Config;

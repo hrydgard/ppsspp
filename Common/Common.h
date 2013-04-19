@@ -29,6 +29,12 @@
 #pragma warning (disable:4100)
 #endif
 
+#ifdef __arm__
+#if !defined(ARM)
+#define ARM
+#endif
+#endif
+
 #if defined(ARM)
 #define _M_ARM32
 #endif

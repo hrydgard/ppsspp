@@ -64,11 +64,15 @@ public:
 		int alarmID = triggeredAlarm.front();
 
 		Alarm *alarm = kernelObjects.Get<Alarm>(alarmID, error);
-		if(error)
+		if (error)
+		{
+			WARN_LOG(HLE, "Ignoring deleted alarm %08x", alarmID);
 			return false;
+		}
 
 		currentMIPS->pc = alarm->alm.handlerPtr;
 		currentMIPS->r[MIPS_REG_A0] = alarm->alm.commonPtr;
+		DEBUG_LOG(HLE, "Entering alarm %08x handler: %08x", alarmID, currentMIPS->pc);
 
 		return true;
 	}
@@ -83,6 +87,7 @@ public:
 		// A non-zero result means to reschedule.
 		if (result > 0)
 		{
+			DEBUG_LOG(HLE, "Rescheduling alarm %08x for +%dms", alarmID, result);
 			u32 error;
 			Alarm *alarm = kernelObjects.Get<Alarm>(alarmID, error);
 			__KernelScheduleAlarm(alarm, (u64) usToCycles(result));
@@ -91,6 +96,8 @@ public:
 		{
 			if (result < 0)
 				WARN_LOG(HLE, "Alarm requested reschedule for negative value %u, ignoring", (unsigned) result);
+
+			DEBUG_LOG(HLE, "Finished alarm %08x", alarmID);
 
 			// Delete the alarm if it's not rescheduled.
 			kernelObjects.Destroy<Alarm>(alarmID);

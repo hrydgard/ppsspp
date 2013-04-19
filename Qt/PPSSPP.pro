@@ -3,30 +3,32 @@ TARGET = PPSSPPQt
 QT += core gui opengl
 CONFIG += mobility
 MOBILITY += multimedia
-symbian: MOBILITY += sensors
 win32: QT += multimedia
 
 include(Settings.pri)
+mobile_platform: MOBILITY += sensors
+symbian: MOBILITY += systeminfo
 
 # Libs
-symbian: LIBS += -lCore.lib -lCommon.lib -lNative.lib -lcone -leikcore -lavkon -lezlib
-blackberry: LIBS += -L. -lCore -lCommon -lNative -lscreen -lsocket -lstdc++
+symbian: LIBS += -lCore.lib -lCommon.lib -lNative.lib
+qnx: LIBS += -L. -lCore -lCommon -lNative -lscreen -lz
 win32 {
 	CONFIG(release, debug|release) {
 		LIBS += -L$$OUT_PWD/release
 	} else {
 		LIBS += -L$$OUT_PWD/debug
-    }
-	LIBS += -lCore -lCommon -lNative -lwinmm -lws2_32 -lkernel32 -luser32 -lgdi32 -lshell32 -lcomctl32 -ldsound -lxinput
+	}
+	LIBS += -lCore -lCommon -lNative -lwinmm -lws2_32
 }
-linux: LIBS += -L. -lCore -lCommon -lNative
-
-linux:!mobile_platform {
+linux {
+	LIBS += -L. -lCore -lCommon -lNative
 	PRE_TARGETDEPS += ./libCommon.a ./libCore.a ./libNative.a
-	CONFIG += link_pkgconfig
-	packagesExist(sdl) {
-		DEFINES += QT_HAS_SDL
-		PKGCONFIG += sdl
+	!mobile_platform {
+		CONFIG += link_pkgconfig
+		packagesExist(sdl) {
+			DEFINES += QT_HAS_SDL
+			PKGCONFIG += sdl
+		}
 	}
 }
 
@@ -35,19 +37,18 @@ SOURCES += ../native/base/QtMain.cpp
 HEADERS += ../native/base/QtMain.h
 
 # Native
-SOURCES += ../android/jni/EmuScreen.cpp \
-	../android/jni/MenuScreens.cpp \
-	../android/jni/GamepadEmu.cpp \
+SOURCES += ../UI/EmuScreen.cpp \
+	../UI/MenuScreens.cpp \
+	../UI/GamepadEmu.cpp \
+	../UI/GameInfoCache.cpp \
 	../android/jni/TestRunner.cpp \
-	../android/jni/UIShader.cpp \
-	../android/jni/ui_atlas.cpp
+	../UI/UIShader.cpp \
+	../UI/ui_atlas.cpp
 
 INCLUDEPATH += .. ../Common ../native
 
 # Temporarily only use new UI for Linux desktop
-mobile_platform {
-	SOURCES += ../android/jni/NativeApp.cpp
-} else {
+linux:!mobile_platform {
 	MOC_DIR = moc
 	UI_DIR = ui
 	RCC_DIR = rcc
@@ -56,7 +57,10 @@ mobile_platform {
 	FORMS += *.ui
 	RESOURCES += resources.qrc
 	INCLUDEPATH += ../Qt
+} else {
+	SOURCES += ../UI/NativeApp.cpp
 }
+RESOURCES += assets.qrc
 
 # Translations
 TRANSLATIONS = $$files(languages/ppsspp_*.ts)
@@ -71,8 +75,8 @@ PRE_TARGETDEPS += compiler_lang_make_all
 
 # Packaging
 symbian {
-	deploy.pkg_prerules = "$${LITERAL_HASH}{\"PPSSPP\"}, (0xE0095B1D), 0, 7, 0, TYPE=SA" "%{\"Qtness\"}" ":\"Qtness\""
-	assets.sources = ../android/assets/ui_atlas.zim ../assets/ppge_atlas.zim ../assets/flash
+	deploy.pkg_prerules = "$${LITERAL_HASH}{\"PPSSPP\"}, (0xE0095B1D), 0, 7, 5, TYPE=SA" "%{\"Qtness\"}" ":\"Qtness\""
+	assets.sources = ../assets/flash
 	assets.path = E:/PPSSPP
 	DEPLOYMENT += deploy assets
 	ICON = ../assets/icon.svg
@@ -80,3 +84,19 @@ symbian {
 	TARGET.EPOCHEAPSIZE = 0x40000 0x10000000
 	TARGET.EPOCSTACKSIZE = 0x10000
 }
+
+contains(MEEGO_EDITION,harmattan) {
+	target.path = /opt/PPSSPP/bin
+	assets.files = ../assets/flash
+	assets.path = /opt/PPSSPP
+	desktopfile.files = PPSSPP.desktop
+	desktopfile.path = /usr/share/applications
+	icon.files = ../assets/icon-114.png
+	icon.path = /usr/share/icons/hicolor/114x114/apps
+	INSTALLS += target assets desktopfile icon
+	# Booster
+	QMAKE_CXXFLAGS += -fPIC -fvisibility=hidden -fvisibility-inlines-hidden
+	QMAKE_LFLAGS += -pie -rdynamic
+	CONFIG += qt-boostable
+}
+

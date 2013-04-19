@@ -25,13 +25,18 @@
 // Or just integrate with an existing testing framework.
 
 
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cmath>
 #include <string>
 
 #include "Common/ArmEmitter.h"
 #include "ext/disarm.h"
+#include "math/math_util.h"
 
+#define EXPECT_TRUE(a) if (!(a)) { printf(__FUNCTION__ ":%i: Test Fail\n", __LINE__); return false; }
+#define EXPECT_FALSE(a) if ((a)) { printf(__FUNCTION__ ":%i: Test Fail\n", __LINE__); return false; }
+#define EXPECT_EQ_FLOAT(a, b) if ((a) != (b)) { printf(__FUNCTION__ ":" __LINE__ ": Test Fail\n%f\nvs\n%f\n", a, b); return false; }
 #define EXPECT_EQ_STR(a, b) if ((a) != (b)) { printf(__FUNCTION__ ": Test Fail\n%s\nvs\n%s\n", a.c_str(), b.c_str()); return false; }
 
 bool TestArmEmitter() {
@@ -44,15 +49,22 @@ bool TestArmEmitter() {
 	char disasm[512];
 	ArmDis(0, code[0] & 0xFFFFFFFF, disasm);
 	std::string dis(disasm);
-	EXPECT_EQ_STR(dis, std::string("e4973000 LDR r3, [r7], #0"));
-	
-	printf("TestArmEmitter: Success\n");
+	EXPECT_EQ_STR(dis, std::string("e4973000 LDR r3, [r7, #0]"));
 
+	return true;
+}
+
+bool TestMathUtil() {
+	EXPECT_FALSE(my_isinf(1.0));
+	volatile float zero = 0.0f;
+	EXPECT_TRUE(my_isinf(1.0f/zero));
+	EXPECT_FALSE(my_isnan(1.0f/zero));
 	return true;
 }
 
 int main(int argc, const char *argv[])
 {
 	TestArmEmitter();
+	TestMathUtil();
 	return 0;
 }

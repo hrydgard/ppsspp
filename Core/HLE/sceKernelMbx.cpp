@@ -20,6 +20,7 @@
 #include "sceKernelMbx.h"
 #include "HLE.h"
 #include "Core/CoreTiming.h"
+#include "Core/Reporting.h"
 #include "ChunkFile.h"
 
 #define SCE_KERNEL_MBA_THPRI 0x100
@@ -204,7 +205,7 @@ bool __KernelUnlockMbxForThread(Mbx *m, MbxWaitingThread &th, u32 &error, int re
 	if (timeoutPtr != 0 && mbxWaitTimer != -1)
 	{
 		// Remove any event for this thread.
-		u64 cyclesLeft = CoreTiming::UnscheduleEvent(mbxWaitTimer, th.first);
+		s64 cyclesLeft = CoreTiming::UnscheduleEvent(mbxWaitTimer, th.first);
 		Memory::Write_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
 	}
 
@@ -232,9 +233,8 @@ void __KernelMbxTimeout(u64 userdata, int cyclesLate)
 		// So, we need to remember it or we won't be able to mark it DELETE instead later.
 
 		// TODO: Should numWaitThreads be decreased yet?
+		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
 	}
-
-	__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
 }
 
 void __KernelWaitMbx(Mbx *m, u32 timeoutPtr)
@@ -291,13 +291,13 @@ SceUID sceKernelCreateMbx(const char *name, u32 attr, u32 optAddr)
 {
 	if (!name)
 	{
-		WARN_LOG(HLE, "%08x=%s(): invalid name", SCE_KERNEL_ERROR_ERROR, __FUNCTION__);
+		WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateMbx(): invalid name", SCE_KERNEL_ERROR_ERROR);
 		return SCE_KERNEL_ERROR_ERROR;
 	}
 	// Accepts 0x000 - 0x0FF, 0x100 - 0x1FF, and 0x400 - 0x4FF.
 	if (((attr & ~SCE_KERNEL_MBA_ATTR_KNOWN) & ~0xFF) != 0)
 	{
-		WARN_LOG(HLE, "%08x=%s(): invalid attr parameter: %08x", SCE_KERNEL_ERROR_ILLEGAL_ATTR, __FUNCTION__, attr);
+		WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateMbx(): invalid attr parameter: %08x", SCE_KERNEL_ERROR_ILLEGAL_ATTR, attr);
 		return SCE_KERNEL_ERROR_ILLEGAL_ATTR;
 	}
 
@@ -315,9 +315,9 @@ SceUID sceKernelCreateMbx(const char *name, u32 attr, u32 optAddr)
 	DEBUG_LOG(HLE, "%i=sceKernelCreateMbx(%s, %08x, %08x)", id, name, attr, optAddr);
 
 	if (optAddr != 0)
-		WARN_LOG(HLE, "%s(%s) unsupported options parameter: %08x", __FUNCTION__, name, optAddr);
+		WARN_LOG_REPORT(HLE, "sceKernelCreateMbx(%s) unsupported options parameter: %08x", name, optAddr);
 	if ((attr & ~SCE_KERNEL_MBA_ATTR_KNOWN) != 0)
-		WARN_LOG(HLE, "%s(%s) unsupported attr parameter: %08x", __FUNCTION__, name, attr);
+		WARN_LOG_REPORT(HLE, "sceKernelCreateMbx(%s) unsupported attr parameter: %08x", name, attr);
 
 	return id;
 }
