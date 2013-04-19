@@ -681,7 +681,7 @@ void SystemScreen::render() {
 
 	VGrid vlang(530, 100, dp_yres - 50, 10, 10);
 
-	for (int i = 0; i < langs_.size(); i++) {
+	for (size_t i = 0; i < langs_.size(); i++) {
 		std::string code;
 		size_t dot = langs_[i].name.find('.');
 		if (dot != std::string::npos)
