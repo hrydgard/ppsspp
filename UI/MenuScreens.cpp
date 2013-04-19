@@ -425,15 +425,15 @@ void PauseScreen::render() {
 	}
 
 	VLinear vlinear(dp_xres - 10, 160, 20);
-	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH, 0, i->T("Continue"), ALIGN_RIGHT)) {
+	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 20, 0, i->T("Continue"), ALIGN_RIGHT)) {
 		screenManager()->finishDialog(this, DR_CANCEL);
 	}
 
-	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH, 0, i->T("Settings"), ALIGN_RIGHT)) {
+	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 20, 0, i->T("Settings"), ALIGN_RIGHT)) {
 		screenManager()->push(new SettingsScreen(), 0);
 	}
 
-	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH, 0, i->T("Back to Menu"), ALIGN_RIGHT)) {
+	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 20, 0, i->T("Back to Menu"), ALIGN_RIGHT)) {
 		screenManager()->finishDialog(this, DR_OK);
 	}
 
