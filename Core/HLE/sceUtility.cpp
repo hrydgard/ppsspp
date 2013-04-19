@@ -364,58 +364,6 @@ int sceUtilityGamedataInstallGetStatus()
 	return retval;
 }
 
-#define PSP_SYSTEMPARAM_ID_STRING_NICKNAME			1
-#define PSP_SYSTEMPARAM_ID_INT_ADHOC_CHANNEL			2
-#define PSP_SYSTEMPARAM_ID_INT_WLAN_POWERSAVE			3
-#define PSP_SYSTEMPARAM_ID_INT_DATE_FORMAT			4
-#define PSP_SYSTEMPARAM_ID_INT_TIME_FORMAT			5
-//Timezone offset from UTC in minutes, (EST = -300 = -5 * 60)
-#define PSP_SYSTEMPARAM_ID_INT_TIMEZONE				6
-#define PSP_SYSTEMPARAM_ID_INT_DAYLIGHTSAVINGS			7
-#define PSP_SYSTEMPARAM_ID_INT_LANGUAGE				8
-#define PSP_SYSTEMPARAM_ID_INT_BUTTON_PREFERENCE		9
-#define PSP_SYSTEMPARAM_ID_INT_LOCK_PARENTAL_LEVEL		10
-
-/**
-* Return values for the SystemParam functions
-*/
-#define PSP_SYSTEMPARAM_RETVAL_OK	0
-#define PSP_SYSTEMPARAM_RETVAL_FAIL	0x80110103
-
-
-/**
-* Valid values for PSP_SYSTEMPARAM_ID_INT_ADHOC_CHANNEL
-*/
-#define PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC 	0
-#define PSP_SYSTEMPARAM_ADHOC_CHANNEL_1			1
-#define PSP_SYSTEMPARAM_ADHOC_CHANNEL_6			6
-#define PSP_SYSTEMPARAM_ADHOC_CHANNEL_11		11
-
-/**
-* Valid values for PSP_SYSTEMPARAM_ID_INT_WLAN_POWERSAVE
-*/
-#define PSP_SYSTEMPARAM_WLAN_POWERSAVE_OFF	0
-#define PSP_SYSTEMPARAM_WLAN_POWERSAVE_ON	1
-
-/**
-* Valid values for PSP_SYSTEMPARAM_ID_INT_DATE_FORMAT
-*/
-#define PSP_SYSTEMPARAM_DATE_FORMAT_YYYYMMDD	0
-#define PSP_SYSTEMPARAM_DATE_FORMAT_MMDDYYYY	1
-#define PSP_SYSTEMPARAM_DATE_FORMAT_DDMMYYYY	2
-
-/**
-* Valid values for PSP_SYSTEMPARAM_ID_INT_DAYLIGHTSAVINGS
-*/
-#define PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_STD	0
-#define PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_SAVING	1
-
-/**
-* Valid values for PSP_SYSTEMPARAM_ID_INT_BUTTON_PREFERENCE
-*/
-#define PSP_SYSTEMPARAM_BUTTON_CIRCLE	0
-#define PSP_SYSTEMPARAM_BUTTON_CROSS	1
-
 //TODO: should save to config file
 u32 sceUtilitySetSystemParamString(u32 id, u32 strPtr)
 {
@@ -430,7 +378,7 @@ u32 sceUtilityGetSystemParamString(u32 id, u32 destaddr, u32 unknownparam)
 	char *buf = (char *)Memory::GetPointer(destaddr);
 	switch (id) {
 	case PSP_SYSTEMPARAM_ID_STRING_NICKNAME:
-		strcpy(buf, "shadow");
+		strcpy(buf, g_Config.sNickName.c_str());
 		break;
 
 	default:
@@ -440,37 +388,37 @@ u32 sceUtilityGetSystemParamString(u32 id, u32 destaddr, u32 unknownparam)
 	return 0;
 }
 
-//TODO: Should load from config file
 u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr)
 {
 	DEBUG_LOG(HLE,"sceUtilityGetSystemParamInt(%i, %08x)", id,destaddr);
 	u32 param = 0;
 	switch (id) {
 	case PSP_SYSTEMPARAM_ID_INT_ADHOC_CHANNEL:
-		param = PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC;
+		param = g_Config.iWlanAdhocChannel;
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_WLAN_POWERSAVE:
-		param = PSP_SYSTEMPARAM_WLAN_POWERSAVE_OFF;
+		param = g_Config.bWlanPowerSave?PSP_SYSTEMPARAM_WLAN_POWERSAVE_ON:PSP_SYSTEMPARAM_WLAN_POWERSAVE_OFF;
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_DATE_FORMAT:
-		param = PSP_SYSTEMPARAM_DATE_FORMAT_DDMMYYYY;
+		param = g_Config.iDateFormat;
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_TIME_FORMAT:
-		param = g_Config.itimeformat;
+		param = g_Config.itimeformat?PSP_SYSTEMPARAM_TIME_FORMAT_12HR:PSP_SYSTEMPARAM_TIME_FORMAT_24HR;
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_TIMEZONE:
-		param = 60;
+		param = g_Config.iTimeZone;
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_DAYLIGHTSAVINGS:
-		param = PSP_SYSTEMPARAM_TIME_FORMAT_24HR;
+		param = g_Config.bDayLightSavings?PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_SAVING:PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_STD;
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_LANGUAGE:
 		param = g_Config.ilanguage;
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_BUTTON_PREFERENCE:
-		param = PSP_SYSTEMPARAM_BUTTON_CROSS;
+		param = g_Config.bButtonPreference?PSP_SYSTEMPARAM_BUTTON_CROSS:PSP_SYSTEMPARAM_BUTTON_CIRCLE;
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_LOCK_PARENTAL_LEVEL:
+		// TODO
 		param = 0;
 		break;
 	default:
