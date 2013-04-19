@@ -114,11 +114,15 @@ public:
 		return Vec3(other-(*this)).Length2();
 	}
 	Vec3 Normalized() const {
-		return (*this) / Length();
+		float len = Length();
+		if( len == 0.0f)
+			return (*this);
+		return (*this) / len;
 	}
 	float Normalize() { //returns the previous length, is often useful
 		float len = Length();
-		(*this) = (*this)/len;
+		if( len != 0.0f )
+			(*this) = (*this)/len;
 		return len;
 	}
 	float &operator [] (int i) //allow vector[2] = 3   (vector.z=3)
