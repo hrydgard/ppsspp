@@ -57,7 +57,7 @@ int sceKernelWaitThreadEndCB(SceUID threadID, u32 timeoutPtr);
 void sceKernelGetThreadExitStatus();
 u32 sceKernelGetThreadmanIdType(u32);
 u32 sceKernelGetThreadmanIdList(u32 type, u32 readBufPtr, u32 readBufSize, u32 idCountPtr);
-u32 sceKernelExtendThreadStack(u32 cpu, u32 size, u32 entryAddr, u32 entryParameter);
+u32 sceKernelExtendThreadStack(u32 size, u32 entryAddr, u32 entryParameter);
 
 struct SceKernelSysClock {
 	u32 lo;
