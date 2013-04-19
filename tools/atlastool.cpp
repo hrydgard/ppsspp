@@ -643,6 +643,7 @@ void GetLocales(const char *locales, std::vector<CharRange> &ranges)
 			ranges.push_back(range(0x0400, 0x04FF));
 			break;
 		case 'c':  // All Kanji, filtered though!
+			ranges.push_back(range(0x3000, 0x303f));  // Ideographic symbols
 			ranges.push_back(range(0x3400, 0x9FFF, kanji));
 			ranges.push_back(range(0xF900, 0xFAFF, kanji));
 			break;
