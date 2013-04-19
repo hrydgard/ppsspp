@@ -1,72 +1,32 @@
 #include "qtemugl.h"
 
+#include "base/display.h"
+#include "base/timeutil.h"
+
 QtEmuGL::QtEmuGL(QWidget *parent) :
-	QGLWidget(parent),
-	running_(false),
-	thread()
+	QGLWidget(parent)
 {
-	setAutoBufferSwap(false);
 }
 
 void QtEmuGL::init(InputState *inputState)
 {
-	thread.init(inputState);
-}
-
-void QtEmuGL::SetRunning(bool value)
-{
-	running_ = value;
+	input_state = inputState;
 }
 
 void QtEmuGL::initializeGL()
 {
+#ifndef USING_GLES2
+	glewInit();
+#endif
+	NativeInitGraphics();
 }
 void QtEmuGL::paintGL()
 {
-	update();
-}
+	NativeUpdate(*input_state);
+	NativeRender();
+	EndInputState(input_state);
 
-void QtEmuGL::start_rendering()
-{
-	thread.start();
-}
-
-void QtEmuGL::stop_rendering()
-{
-	thread.setRunning(false);
-	thread.wait();
-	thread.Shutdown();
-}
-
-void QtEmuGL::start_game(QString filename)
-{
-	thread.startGame(filename);
-}
-
-void QtEmuGL::stop_game()
-{
-	thread.stopGame();
-}
-
-void QtEmuGL::LockDraw(bool value)
-{
-	thread.LockGL(value);
-}
-
-void QtEmuGL::resizeEvent(QResizeEvent *evt)
-{
-	// TODO
-	//glt.resizeViewport(evt->size());
-}
-
-void QtEmuGL::paintEvent(QPaintEvent *)
-{
-}
-
-void QtEmuGL::closeEvent(QCloseEvent *evt)
-{
-	//TODO stopRendering();
-	QGLWidget::closeEvent(evt);
+	time_update();
 }
 
 void QtEmuGL::mouseDoubleClickEvent(QMouseEvent *)

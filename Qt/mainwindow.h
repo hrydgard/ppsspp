@@ -3,7 +3,7 @@
 
 #include <QMainWindow>
 #include <QTranslator>
-
+#include <QTimer>
 #include "Core/Core.h"
 #include "input/input_state.h"
 #include "debugger_disasm.h"
@@ -33,7 +33,6 @@ public:
 	CoreState GetNextState() { return nextState; }
 
 	void ShowMemory(u32 addr);
-	void Update();
 	void UpdateMenus();
 
 protected:
@@ -45,6 +44,7 @@ protected:
 public slots:
 	void Boot();
 	void CoreEmitWait(bool);
+	void Update();
 
 private slots:
 	// File
@@ -152,6 +152,7 @@ private:
 	Ui::MainWindow *ui;
 
 	QtEmuGL *emugl;
+	QTimer timer;
 	CoreState nextState;
 	InputState input_state;
 
