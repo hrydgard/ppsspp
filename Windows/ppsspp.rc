@@ -101,7 +101,7 @@ FONT 9, "MS Shell Dlg", 0, 0, 0x1
 BEGIN
     DEFPUSHBUTTON   "OK",IDOK,176,217,50,14
     PUSHBUTTON      "Cancel",IDCANCEL,230,217,50,14
-    LTEXT           "Xbox 360 controllers are supported! Just plug one in and use it!",IDC_STATIC,14,6,201,8
+    LTEXT           "Xbox 360 and DirectInput controllers are supported! Just plug one in and use it!",IDC_STATIC,14,6,201,8
     LTEXT           "Turbo Mode:",IDC_STATIC,386,213,42,8
     EDITTEXT        IDC_EDIT_KEYUP,57,77,33,14,ES_CENTER | ES_AUTOHSCROLL | NOT WS_BORDER
     EDITTEXT        IDC_EDIT_KEYLEFT,35,97,33,14,ES_CENTER | ES_AUTOHSCROLL | NOT WS_BORDER
@@ -120,6 +120,8 @@ BEGIN
     EDITTEXT        IDC_EDIT_KEY_ANALOG_RIGHT,75,158,33,14,ES_CENTER | ES_AUTOHSCROLL | NOT WS_BORDER
     EDITTEXT        IDC_EDIT_KEY_ANALOG_DOWN,58,172,33,14,ES_CENTER | ES_AUTOHSCROLL | NOT WS_BORDER
     EDITTEXT        IDC_EDIT_KEY_TURBO,430,210,33,14,ES_CENTER | ES_AUTOHSCROLL
+    LTEXT           "Force device:",IDC_STATIC,10,220,45,11
+    COMBOBOX        IDC_FORCE_INPUT_DEVICE,59,218,84,140,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
 END
 
 /////////////////////////////////////////////////////////////////////////////
