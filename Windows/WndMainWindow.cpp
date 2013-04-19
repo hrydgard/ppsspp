@@ -966,7 +966,7 @@ namespace MainWindow
 				BitBlt(hbm, hdc, 0, 0, rc.right - rc.left, rc.bottom - rc.top, rc.left, rc.top);
 				char str[11];
 				GetWindowTextA(hEdit, str, 10);
-				DrawTextA(hdc, str, strlen(str), &clientrc, DT_CENTER|DT_SINGLELINE);
+				DrawTextA(hdc, str, (int)strlen(str), &clientrc, DT_CENTER|DT_SINGLELINE);
 				return (LRESULT)GetStockObject(NULL_BRUSH);
 			}
 		case WM_COMMAND:
