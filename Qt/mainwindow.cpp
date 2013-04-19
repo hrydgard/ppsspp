@@ -20,8 +20,6 @@
 #include "QtHost.h"
 #include "EmuThread.h"
 
-const char *stateToLoad = NULL;
-
 // TODO: Make this class thread-aware. Can't send events to a different thread. Currently only works on X11.
 // Needs to use QueuedConnection for signals/slots.
 MainWindow::MainWindow(QWidget *parent) :
@@ -31,6 +29,7 @@ MainWindow::MainWindow(QWidget *parent) :
 	dialogDisasm(0),
 	memoryWindow(0),
 	memoryTexWindow(0),
+	timer(this),
 	displaylistWindow(0)
 {
 	ui->setupUi(this);
@@ -56,119 +55,24 @@ MainWindow::MainWindow(QWidget *parent) :
 	if (zoom > 4) zoom = 4;
 	SetZoom(zoom);
 
-	EmuThread_Start(emugl);
 	SetGameTitle(fileToStart);
 
-	if (!fileToStart.isNull())
-	{
-		EmuThread_StartGame(fileToStart);
-		UpdateMenus();
+	connect(&timer, SIGNAL(timeout()), this, SLOT(Update()));
+	timer.setInterval(0);
+	timer.start();
 
-		if (stateToLoad != NULL)
-			SaveState::Load(stateToLoad);
-	}
+//	if (!fileToStart.isNull())
+//	{
+//		UpdateMenus();
+
+//		if (stateToLoad != NULL)
+//			SaveState::Load(stateToLoad);
+//	}
 }
 
 MainWindow::~MainWindow()
 {
 	delete ui;
-}
-
-void NativeInit(int argc, const char *argv[], const char *savegame_directory, const char *external_directory, const char *installID)
-{
-	std::string config_filename;
-	Common::EnableCrashingOnCrashes();
-
-	std::string user_data_path = savegame_directory;
-
-	VFSRegister("", new DirectoryAssetReader("assets/"));
-	VFSRegister("", new DirectoryAssetReader(user_data_path.c_str()));
-
-	config_filename = user_data_path + "ppsspp.ini";
-
-	g_Config.Load(config_filename.c_str());
-
-	const char *fileToLog = 0;
-
-	bool hideLog = true;
-#ifdef _DEBUG
-	hideLog = false;
-#endif
-
-	bool gfxLog = false;
-	// Parse command line
-	LogTypes::LOG_LEVELS logLevel = LogTypes::LINFO;
-	for (int i = 1; i < argc; i++) {
-		if (argv[i][0] == '-') {
-			switch (argv[i][1]) {
-			case 'd':
-				// Enable debug logging
-				logLevel = LogTypes::LDEBUG;
-				break;
-			case 'g':
-				gfxLog = true;
-				break;
-			case 'j':
-				g_Config.bJit = true;
-				g_Config.bSaveSettings = false;
-				break;
-			case 'i':
-				g_Config.bJit = false;
-				g_Config.bSaveSettings = false;
-				break;
-			case 'l':
-				hideLog = false;
-				break;
-			case 's':
-				g_Config.bAutoRun = false;
-				g_Config.bSaveSettings = false;
-				break;
-			case '-':
-				if (!strcmp(argv[i], "--log") && i < argc - 1)
-					fileToLog = argv[++i];
-				if (!strncmp(argv[i], "--log=", strlen("--log=")) && strlen(argv[i]) > strlen("--log="))
-					fileToLog = argv[i] + strlen("--log=");
-				if (!strcmp(argv[i], "--state") && i < argc - 1)
-					stateToLoad = argv[++i];
-				if (!strncmp(argv[i], "--state=", strlen("--state=")) && strlen(argv[i]) > strlen("--state="))
-					stateToLoad = argv[i] + strlen("--state=");
-				break;
-			}
-		}
-		else if (fileToStart.isNull())
-		{
-			fileToStart = QString(argv[i]);
-			if (!QFile::exists(fileToStart))
-			{
-				qCritical("File '%s' does not exist!", qPrintable(fileToStart));
-				exit(1);
-			}
-		}
-		else
-		{
-			qCritical("Can only boot one file. Ignoring file '%s'", qPrintable(fileToStart));
-		}
-	}
-
-	if (g_Config.currentDirectory == "")
-	{
-		g_Config.currentDirectory = QDir::homePath().toStdString();
-	}
-
-	g_Config.memCardDirectory = QDir::homePath().toStdString()+"/.ppsspp/";
-	g_Config.flashDirectory = g_Config.memCardDirectory+"/flash/";
-
-	LogManager::Init();
-	if (fileToLog != NULL)
-		LogManager::GetInstance()->ChangeFileLog(fileToLog);
-
-	LogManager::GetInstance()->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
-
-#if !defined(USING_GLES2)
-	// Start Desktop UI
-	MainWindow* mainWindow = new MainWindow();
-	mainWindow->show();
-#endif
 }
 
 void MainWindow::ShowMemory(u32 addr)
@@ -179,8 +83,7 @@ void MainWindow::ShowMemory(u32 addr)
 
 void MainWindow::Update()
 {
-	globalUIState = UISTATE_INGAME;
-	UpdateInputState(&input_state);
+	emugl->updateGL();
 
 	for (int i = 0; i < controllistCount; i++)
 	{
@@ -329,18 +232,15 @@ void MainWindow::on_action_FileLoad_triggered()
 	{
 		QFileInfo info(filename);
 		g_Config.currentDirectory = info.absolutePath().toStdString();
-		EmuThread_StartGame(filename);
+		NativeMessageReceived("boot", filename.toStdString().c_str());
 	}
+	UpdateMenus();
 }
 
 void MainWindow::on_action_FileClose_triggered()
 {
 	if(dialogDisasm)
 		dialogDisasm->Stop();
-
-	// This will wait for ppsspp to pause
-	EmuThread_LockDraw(true);
-	EmuThread_LockDraw(false);
 
 	if(dialogDisasm && dialogDisasm->isVisible())
 		dialogDisasm->close();
@@ -351,7 +251,7 @@ void MainWindow::on_action_FileClose_triggered()
 	if(displaylistWindow && displaylistWindow->isVisible())
 		displaylistWindow->close();
 
-	EmuThread_StopGame();
+	NativeMessageReceived("stop", "");
 	SetGameTitle("");
 	UpdateMenus();
 }
@@ -412,12 +312,13 @@ void MainWindow::on_action_FileSaveStateFile_triggered()
 void MainWindow::on_action_FileExit_triggered()
 {
 	on_action_FileClose_triggered();
-	EmuThread_Stop();
 	QApplication::exit(0);
 }
 
 void MainWindow::on_action_EmulationRun_triggered()
 {
+	NativeMessageReceived("run", "");
+
 	if(dialogDisasm)
 	{
 		dialogDisasm->Stop();
@@ -427,6 +328,7 @@ void MainWindow::on_action_EmulationRun_triggered()
 
 void MainWindow::on_action_EmulationPause_triggered()
 {
+	NativeMessageReceived("pause", "");
 	if(dialogDisasm)
 		dialogDisasm->Stop();
 }
@@ -435,9 +337,6 @@ void MainWindow::on_action_EmulationReset_triggered()
 {
 	if(dialogDisasm)
 		dialogDisasm->Stop();
-
-	EmuThread_LockDraw(true);
-	EmuThread_LockDraw(false);
 
 	if(dialogDisasm)
 		dialogDisasm->close();
@@ -448,9 +347,7 @@ void MainWindow::on_action_EmulationReset_triggered()
 	if(displaylistWindow)
 		displaylistWindow->close();
 
-	EmuThread_StopGame();
-
-	EmuThread_StartGame(GetCurrentFilename());
+	NativeMessageReceived("reset", "");
 }
 
 void MainWindow::on_action_EmulationRunLoad_triggered()

@@ -64,3 +64,5 @@ HEADERS += ../Common/ChunkFile.h \
 	../Common/Timer.h \
 	../Common/Crypto/*.h
 
+INCLUDEPATH += ../native
+

@@ -82,12 +82,6 @@ static const int symbols[4] = {
 };
 
 static const uint32_t colors[4] = {
-	/*
-	0xFF6666FF, // blue
-	0xFFFF6666, // red
-	0xFFFF66FF, // pink
-	0xFF66FF66, // green
-	*/
 	0xC0FFFFFF,
 	0xC0FFFFFF,
 	0xC0FFFFFF,
