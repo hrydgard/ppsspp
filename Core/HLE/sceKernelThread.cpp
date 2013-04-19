@@ -2505,9 +2505,11 @@ int sceKernelReferCallbackStatus(SceUID cbId, u32 statusAddr)
 	}
 }
 
-u32 sceKernelExtendThreadStack(u32 cpu, u32 size, u32 entryAddr, u32 entryParameter)
+u32 sceKernelExtendThreadStack(u32 size, u32 entryAddr, u32 entryParameter)
 {
-	ERROR_LOG_REPORT(HLE,"UNIMPL sceKernelExtendThreadStack(%08x, %08x, %08x, %08x)", cpu, size, entryAddr, entryParameter);
+	ERROR_LOG_REPORT(HLE,"sceKernelExtendThreadStack(%08x, %08x, %08x) - Not fully supported", size, entryAddr, entryParameter);
+	u32 args[1] = { entryParameter };
+	__KernelDirectMipsCall(entryAddr, 0, args, 1, false);
 	return 0;
 }
 
