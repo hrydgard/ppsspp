@@ -411,7 +411,7 @@ void PauseScreen::render() {
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Media Engine"), ALIGN_TOPLEFT, &g_Config.bUseMediaEngine);
 	g_Config.iFrameSkip = fs ? 1 : 0;
 
-	I18NCategory *i = GetI18NCategory("PauseScreen");
+	I18NCategory *i = GetI18NCategory("Pause");
 
 	// TODO: Add UI for more than one slot.
 	HLinear hlinear1(x, y + 80, 20);
