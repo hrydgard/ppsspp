@@ -18,37 +18,22 @@
 #include "HLE.h"
 #include "FunctionWrappers.h"
 #include "../MIPS/MIPS.h"
+#include "../Config.h"
 #include "ChunkFile.h"
-
-
-const int PSP_LANGUAGE_JAPANESE = 0;
-const int PSP_LANGUAGE_ENGLISH = 1;
-const int PSP_LANGUAGE_FRENCH = 2;
-const int PSP_LANGUAGE_SPANISH = 3;
-const int PSP_LANGUAGE_GERMAN = 4;
-const int PSP_LANGUAGE_ITALIAN = 5;
-const int PSP_LANGUAGE_DUTCH = 6;
-const int PSP_LANGUAGE_PORTUGUESE = 7;
-const int PSP_LANGUAGE_RUSSIAN = 8;
-const int PSP_LANGUAGE_KOREAN = 9;
-const int PSP_LANGUAGE_TRADITIONAL_CHINESE = 10;
-const int PSP_LANGUAGE_SIMPLIFIED_CHINESE = 11;
-
-const int PSP_CONFIRM_BUTTON_CIRCLE = 0;
-const int PSP_CONFIRM_BUTTON_CROSS = 1;
+#include "sceUtility.h"
 
 const int PSP_UMD_POPUP_DISABLE = 0;
 const int PSP_UMD_POPUP_ENABLE = 1;
 
-static u32 language = PSP_LANGUAGE_ENGLISH;
-static u32 buttonValue = PSP_CONFIRM_BUTTON_CIRCLE;
+static u32 language = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
+static u32 buttonValue = PSP_SYSTEMPARAM_BUTTON_CIRCLE;
 static u32 umdPopup = PSP_UMD_POPUP_DISABLE;
 static u32 backlightOffTime;
 
 void __ImposeInit()
 {
-	language = PSP_LANGUAGE_ENGLISH;
-	buttonValue = PSP_CONFIRM_BUTTON_CIRCLE;
+	language = g_Config.ilanguage;
+	buttonValue = g_Config.bButtonPreference?PSP_SYSTEMPARAM_BUTTON_CROSS:PSP_SYSTEMPARAM_BUTTON_CIRCLE;
 	umdPopup = PSP_UMD_POPUP_DISABLE;
 	backlightOffTime = 0;
 }
