@@ -622,7 +622,7 @@ namespace MIPSInt
 				d[i] = 0x7FFFFFFF;
 				continue;
 			}
-			float sv = s[i] * mult;
+			double sv = s[i] * mult; // (float)0x7fffffff == (float)0x80000000
 			int dsv;
 			// Cap/floor it to 0x7fffffff / 0x80000000
 			if (sv > 0x7fffffff) sv = 0x7fffffff;
