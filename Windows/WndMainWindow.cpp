@@ -881,7 +881,7 @@ namespace MainWindow
 			return FALSE;
 		int width, height;
 		unsigned char *image_data = 0;
-		bool bResult = pngLoadPtr(lpRsrc, dwlen, &width, &height, &image_data, false);
+		bool bResult = pngLoadPtr(lpRsrc, dwlen, &width, &height, &image_data, false) != 0;
 		FreeResource(lpRsrc);
 		if (!bResult)
 			return 0;
