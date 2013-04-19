@@ -22,6 +22,8 @@ protected:
 	void initializeGL();
 	void paintGL();
 	void mouseDoubleClickEvent(QMouseEvent *);
+	void mousePressEvent(QMouseEvent *e);
+	void mouseReleaseEvent(QMouseEvent *e);
 
 private:
 	InputState *input_state;

@@ -1,5 +1,7 @@
 #include "qtemugl.h"
 
+#include <QMouseEvent>
+
 #include "base/display.h"
 #include "base/timeutil.h"
 
@@ -32,4 +34,16 @@ void QtEmuGL::paintGL()
 void QtEmuGL::mouseDoubleClickEvent(QMouseEvent *)
 {
 	emit doubleClick();
+}
+
+void QtEmuGL::mousePressEvent(QMouseEvent *e)
+{
+	input_state->pointer_down[0] = true;
+	input_state->pointer_x[0] = e->x();
+	input_state->pointer_y[0] = e->y();
+}
+
+void QtEmuGL::mouseReleaseEvent(QMouseEvent *e)
+{
+	input_state->pointer_down[0] = false;
 }
