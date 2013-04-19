@@ -70,6 +70,7 @@ SOURCES +=  ../native/audio/*.cpp \
 	../native/gfx/texture_atlas.cpp \
 	../native/gfx/texture_gen.cpp \
 	../native/gfx_es2/*.cpp \
+	../native/i18n/*.cpp \
 	../native/image/*.cpp \
 	../native/input/gesture_detector.cpp \
 	../native/json/json_writer.cpp \
@@ -108,6 +109,7 @@ HEADERS +=  ../native/audio/*.h \
 	../native/gfx/texture_atlas.h \
 	../native/gfx/texture_gen.h \
 	../native/gfx_es2/*.h \
+	../native/i18n/*.h \
 	../native/image/*.h \
 	../native/input/gesture_detector.h \
 	../native/input/input_state.h \
