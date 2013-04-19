@@ -913,6 +913,17 @@ namespace MainWindow
 						control_map[i] = analog_ctrl_map[(i - key_pad_size) * 2];
 					SetWindowTextA(hEdit, getVirtualKeyName(control_map[i]));
 				}
+				ComboBox_AddString(GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE), "None");
+				ComboBox_AddString(GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE), "XInput");
+				ComboBox_AddString(GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE), "DirectInput");
+				if ((g_Config.iForceInputDevice < 0) || (g_Config.iForceInputDevice > 1))
+				{
+					ComboBox_SetCurSel(GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE), 0);
+				}
+				else
+				{
+					ComboBox_SetCurSel(GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE), (g_Config.iForceInputDevice + 1));
+				}
 				DWORD dwThreadID = GetWindowThreadProcessId(hDlg,NULL);
 				pKeydownHook = SetWindowsHookEx(WH_KEYBOARD,KeyboardProc, NULL, dwThreadID);
 			}
@@ -935,6 +946,8 @@ namespace MainWindow
 			}
 		case WM_CTLCOLOREDIT:
 			{
+				if ((HWND)lParam == GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE))
+					return FALSE;
 				HDC hdc = (HDC)wParam;
 				SetBkMode(hdc, TRANSPARENT);
 				SetTextColor(hdc, RGB(255, 0, 0));
@@ -952,6 +965,7 @@ namespace MainWindow
 			if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL) 
 			{
 				if (LOWORD(wParam) == IDOK) {
+					g_Config.iForceInputDevice = (ComboBox_GetCurSel(GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE)) - 1);
 					int key_pad_size = (IDC_EDIT_KEYRIGHT - IDC_EDIT_KEY_TURBO + 1);
 					for (u32 i = 0; i <= IDC_EDIT_KEY_ANALOG_RIGHT - IDC_EDIT_KEY_TURBO; i++) {
 						if (IDC_EDIT_KEY_TURBO + i <= IDC_EDIT_KEYRIGHT)
