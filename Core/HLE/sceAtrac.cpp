@@ -31,6 +31,7 @@
 #define ATRAC_ERROR_ALL_DATA_DECODED         0x80630024
 #define ATRAC_ERROR_SECOND_BUFFER_NOT_NEEDED 0x80630022
 #define ATRAC_ERROR_INCORRECT_READ_SIZE	     0x80630013
+#define ATRAC_ERROR_UNSET_PARAM              0x80630021
 
 #define AT3_MAGIC		0x0270
 #define AT3_PLUS_MAGIC		0xFFFE
@@ -1080,6 +1081,8 @@ u32 sceAtracSetLoopNum(int atracID, int loopNum)
 	INFO_LOG(HLE, "sceAtracSetLoopNum(%i, %i)", atracID, loopNum);
 	Atrac *atrac = getAtrac(atracID);
 	if (atrac) {
+		if (atrac->loopinfoNum == 0)
+			return ATRAC_ERROR_UNSET_PARAM;
 		atrac->loopNum = loopNum;
 		if (loopNum != 0 && atrac->loopinfoNum == 0) {
 			// Just loop the whole audio
