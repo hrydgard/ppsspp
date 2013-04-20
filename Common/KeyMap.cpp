@@ -282,4 +282,17 @@ static int KeyMap::SetKeyMapping(KeyMap::Key key, int btn)
 	g_Config.iMappingMap[key] = btn;
 }
 
-// TODO: implement RegisterPlatformDefaultKeyMap()
+static int KeyMap::RegisterPlatformDefaultKeyMap(std::map<int,int> *overriding_map)
+{
+	if (overriding_map == NULL)
+		return 1;
+	platform_keymap = overriding_map;
+	return 0;
+}
+
+static void KeyMap::DeregisterPlatformDefaultKeyMap(void)
+{
+	platform_keymap = NULL;
+	return;
+}
+

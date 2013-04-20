@@ -185,5 +185,6 @@ namespace KeyMap {
 		 * Any buttons missing will
 		 * fallback to KeyMap's keymap. */
 		static int RegisterPlatformDefaultKeyMap(std::map<int,int> *);
+		static void DeregisterPlatformDefaultKeyMap(void);
 }
 
