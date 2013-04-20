@@ -30,7 +30,8 @@ MainWindow::MainWindow(QWidget *parent) :
 	memoryWindow(0),
 	memoryTexWindow(0),
 	timer(this),
-	displaylistWindow(0)
+	displaylistWindow(0),
+	lastUIState(UISTATE_MENU)
 {
 	ui->setupUi(this);
 
@@ -94,6 +95,11 @@ void MainWindow::Update()
 			__CtrlButtonUp(controllist[i].psp_id);
 	}
 	__CtrlSetAnalog(input_state.pad_lstick_x, input_state.pad_lstick_y);
+
+	if (lastUIState != globalUIState) {
+		lastUIState = globalUIState;
+		UpdateMenus();
+	}
 }
 
 void MainWindow::UpdateMenus()
@@ -318,19 +324,11 @@ void MainWindow::on_action_FileExit_triggered()
 void MainWindow::on_action_EmulationRun_triggered()
 {
 	NativeMessageReceived("run", "");
-
-	if(dialogDisasm)
-	{
-		dialogDisasm->Stop();
-		dialogDisasm->Go();
-	}
 }
 
 void MainWindow::on_action_EmulationPause_triggered()
 {
 	NativeMessageReceived("pause", "");
-	if(dialogDisasm)
-		dialogDisasm->Stop();
 }
 
 void MainWindow::on_action_EmulationReset_triggered()
