@@ -16,15 +16,18 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "i18n/i18n.h"
+#include "math/math_util.h"
 
 #include "Core/Dialog/PSPOskDialog.h"
 #include "Core/Util/PPGeDraw.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/Reporting.h"
 #include "Common/ChunkFile.h"
+#include "GPU/GPUState.h"
 
 #ifndef _WIN32
 #include <ctype.h>
+#include <math.h>
 #endif
 
 #define NUMKEYROWS 4
@@ -140,7 +143,7 @@ u32 PSPOskDialog::FieldMaxLength()
 void PSPOskDialog::RenderKeyboard()
 {
 	int selectedRow = selectedChar / KEYSPERROW;
-	int selectedExtra = selectedChar % KEYSPERROW;
+	int selectedCol = selectedChar % KEYSPERROW;
 
 	char temp[2];
 	temp[1] = '\0';
@@ -148,6 +151,7 @@ void PSPOskDialog::RenderKeyboard()
 	u32 limit = FieldMaxLength();
 
 	const float keyboardLeftSide = (480.0f - (24.0f * KEYSPERROW)) / 2.0f;
+	const float characterWidth = 12.0f;
 	float previewLeftSide = (480.0f - (12.0f * limit)) / 2.0f;
 	float title = (480.0f - (0.5f * limit)) / 2.0f;
 
@@ -159,30 +163,38 @@ void PSPOskDialog::RenderKeyboard()
 			temp[0] = inputChars[i];
 		else if (i == inputChars.size())
 		{
-			temp[0] = oskKeys[currentKeyboard][selectedRow][selectedExtra];
-			color = CalcFadedColor(0xFF3060FF);
+			temp[0] = oskKeys[currentKeyboard][selectedRow][selectedCol];
+			float animStep = (float)(gpuStats.numFrames % 40) / 20.0f;
+			// Fade in and out the next character so they know it's not part of the string yet.
+			u32 alpha = (0.5f - (cosf(animStep * M_PI) / 2.0f)) * 128 + 127;
+			color = CalcFadedColor((alpha << 24) | 0xFFFFFF);
+
+			PPGeDrawText(temp, previewLeftSide + (i * characterWidth), 40.0f, 0, 0.5f, color);
+
+			// Also draw the underline for the same reason.
+			color = CalcFadedColor(0xFFFFFFFF);
+			temp[0] = '_';
 		}
 		else
 			temp[0] = '_';
 
-		PPGeDrawText(temp, previewLeftSide + (i * 12.0f), 40.0f, 0, 0.5f, color);
+		PPGeDrawText(temp, previewLeftSide + (i * characterWidth), 40.0f, 0, 0.5f, color);
 	}
 	for (int row = 0; row < NUMKEYROWS; ++row)
 	{
 		for (int col = 0; col < KEYSPERROW; ++col)
 		{
 			u32 color = CalcFadedColor(0xFFFFFFFF);
-			if (selectedRow == row && col == selectedExtra)
-				color = CalcFadedColor(0xFF7f7f7f);
+			if (selectedRow == row && col == selectedCol)
+				color = CalcFadedColor(0xFF3060FF);
 
 			temp[0] = oskKeys[currentKeyboard][row][col];
-			PPGeDrawText(temp, keyboardLeftSide + (25.0f * col), 70.0f + (25.0f * row), 0, 0.6f, color);
+			PPGeDrawText(temp, keyboardLeftSide + (25.0f * col) + characterWidth / 2.0, 70.0f + (25.0f * row), PPGE_ALIGN_HCENTER, 0.6f, color);
 
-			if (selectedRow == row && col == selectedExtra)
-				PPGeDrawText("_", keyboardLeftSide + (25.0f * col), 70.0f + (25.0f * row), 0, 0.6f, CalcFadedColor(0xFFFFFFFF));
+			if (selectedRow == row && col == selectedCol)
+				PPGeDrawText("_", keyboardLeftSide + (25.0f * col) + characterWidth / 2.0, 70.0f + (25.0f * row), PPGE_ALIGN_HCENTER, 0.6f, CalcFadedColor(0xFFFFFFFF));
 		}
 	}
-
 }
 
 int PSPOskDialog::Update()
