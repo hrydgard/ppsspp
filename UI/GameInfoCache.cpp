@@ -238,6 +238,9 @@ GameInfo *GameInfoCache::GetInfo(const std::string &gamePath, bool wantBG) {
 				// We'd have to split up Texture->LoadPNG though, creating some intermediate Image class maybe.
 				if (info->iconTexture->LoadPNG((const u8 *)info->iconTextureData.data(), info->iconTextureData.size(), false)) {
 					info->timeIconWasLoaded = time_now_d();
+				} else {
+					delete info->iconTexture;
+					info->iconTexture = 0;
 				}
 				info->iconTextureData.clear();
 			}
@@ -248,6 +251,9 @@ GameInfo *GameInfoCache::GetInfo(const std::string &gamePath, bool wantBG) {
 				info->pic0Texture = new Texture();
 				if (info->pic0Texture->LoadPNG((const u8 *)info->pic0TextureData.data(), info->pic0TextureData.size(), false)) {
 					info->timePic0WasLoaded = time_now_d();
+				} else {
+					delete info->iconTexture;
+					info->iconTexture = 0;
 				}
 				info->pic0TextureData.clear();
 			}
@@ -258,6 +264,9 @@ GameInfo *GameInfoCache::GetInfo(const std::string &gamePath, bool wantBG) {
 				info->pic1Texture = new Texture();
 				if (info->pic1Texture->LoadPNG((const u8 *)info->pic1TextureData.data(), info->pic1TextureData.size(), false)) {
 					info->timePic1WasLoaded = time_now_d();
+				} else {
+					delete info->iconTexture;
+					info->iconTexture = 0;
 				}
 				info->pic1TextureData.clear();
 			}
