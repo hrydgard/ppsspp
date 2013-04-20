@@ -139,6 +139,15 @@ struct SceUtilityOskParams
 
 };
 
+// Internal enum, not from PSP.
+enum OskKeyboardDisplay
+{
+	OSK_KEYBOARD_LATIN_LOWERCASE,
+	OSK_KEYBOARD_LATIN_UPPERCASE,
+	// TODO: Something to do native?
+	OSK_KEYBOARD_COUNT
+};
+
 
 class PSPOskDialog: public PSPDialog {
 public:
@@ -161,5 +170,6 @@ private:
 
 	int selectedChar;
 	std::string inputChars;
+	OskKeyboardDisplay currentKeyboard;
 };
 

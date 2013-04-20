@@ -30,12 +30,20 @@
 #define NUMKEYROWS 4
 #define KEYSPERROW 12
 #define NUMBEROFVALIDCHARS (KEYSPERROW * NUMKEYROWS)
-const char oskKeys[NUMKEYROWS][KEYSPERROW + 1] =
+static const char oskKeys[OSK_KEYBOARD_COUNT][NUMKEYROWS][KEYSPERROW + 1] =
 {
-	{'1','2','3','4','5','6','7','8','9','0','-','+','\0'}, 
-	{'q','w','e','r','t','y','u','i','o','p','[',']','\0'},
-	{'a','s','d','f','g','h','j','k','l',';','@','~','\0'},
-	{'z','x','c','v','b','n','m',',','.','/','?','\\','\0'},
+	{
+		{'1','2','3','4','5','6','7','8','9','0','-','+','\0'},
+		{'q','w','e','r','t','y','u','i','o','p','[',']','\0'},
+		{'a','s','d','f','g','h','j','k','l',';','@','~','\0'},
+		{'z','x','c','v','b','n','m',',','.','/','?','\\','\0'},
+	},
+	{
+		{'!','@','#','$','%','^','&','*','(',')','_','+','\0'},
+		{'Q','W','E','R','T','Y','U','I','O','P','{','}','\0'},
+		{'A','S','D','F','G','H','J','K','L',':','"','`','\0'},
+		{'Z','X','C','V','B','N','M','<','>','/','?','|','\0'},
+	},
 };
 
 
@@ -106,6 +114,7 @@ int PSPOskDialog::Init(u32 oskPtr)
 
 	status = SCE_UTILITY_STATUS_INITIALIZE;
 	selectedChar = 0;
+	currentKeyboard = OSK_KEYBOARD_LATIN_LOWERCASE;
 
 	Memory::ReadStruct(oskParams->fieldPtr, &oskData);
 	ConvertUCS2ToUTF8(oskDesc, oskData.descPtr);
@@ -150,7 +159,7 @@ void PSPOskDialog::RenderKeyboard()
 			temp[0] = inputChars[i];
 		else if (i == inputChars.size())
 		{
-			temp[0] = oskKeys[selectedRow][selectedExtra];
+			temp[0] = oskKeys[currentKeyboard][selectedRow][selectedExtra];
 			color = CalcFadedColor(0xFF3060FF);
 		}
 		else
@@ -166,7 +175,7 @@ void PSPOskDialog::RenderKeyboard()
 			if (selectedRow == row && col == selectedExtra)
 				color = CalcFadedColor(0xFF7f7f7f);
 
-			temp[0] = oskKeys[row][col];
+			temp[0] = oskKeys[currentKeyboard][row][col];
 			PPGeDrawText(temp, keyboardLeftSide + (25.0f * col), 70.0f + (25.0f * row), 0, 0.6f, color);
 
 			if (selectedRow == row && col == selectedExtra)
@@ -205,7 +214,8 @@ int PSPOskDialog::Update()
 		PPGeDrawText("Start", 245, 220, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
 		PPGeDrawText(m->T("Finish"), 290, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 		PPGeDrawText("Select", 365, 220, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText(m->T("Caps"), 415, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		// TODO: Show title of next keyboard?
+		PPGeDrawText(m->T("Shift"), 415, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 
 		if (IsButtonPressed(CTRL_UP))
 		{
@@ -233,12 +243,12 @@ int PSPOskDialog::Update()
 		if (IsButtonPressed(CTRL_CROSS))
 		{
 			if (inputChars.size() < limit)
-					inputChars += oskKeys[selectedRow][selectedExtra];
+				inputChars += oskKeys[currentKeyboard][selectedRow][selectedExtra];
 		}
 		else if (IsButtonPressed(CTRL_SELECT))
 		{
-			if (inputChars.size() < limit)
-					inputChars += toupper(oskKeys[selectedRow][selectedExtra]);
+			// TODO: Limit by allowed keyboards...
+			currentKeyboard = (OskKeyboardDisplay)((currentKeyboard + 1) % OSK_KEYBOARD_COUNT);
 		}
 		else if (IsButtonPressed(CTRL_CIRCLE))
 		{
