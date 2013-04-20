@@ -35,34 +35,32 @@ std::map<int,int> *platform_keymap = NULL;
 // Still nicer than what
 // I once did in C.
 struct DefaultKeyMap {
-    static std::map<int,int> init()
-	    // TODO: Fix this indentation, spaces to tabs
-        {
-		  std::map<int,int> m;
-          m[KEY_x] = PAD_BUTTON_A;
-          m[KEY_z] = PAD_BUTTON_B;
-          m[KEY_s] = PAD_BUTTON_X;
-          m[KEY_a] = PAD_BUTTON_Y;
-          m[KEY_q] = PAD_BUTTON_LBUMPER;
-          m[KEY_w] = PAD_BUTTON_RBUMPER;
-          m[KEY_SPACE] = PAD_BUTTON_START;
-          m[KEY_ENTER] = PAD_BUTTON_SELECT;
-          m[KEY_ARROW_UP] = PAD_BUTTON_UP;
-          m[KEY_ARROW_DOWN] = PAD_BUTTON_DOWN;
-          m[KEY_ARROW_LEFT] = PAD_BUTTON_LEFT;
-          m[KEY_ARROW_RIGHT] = PAD_BUTTON_RIGHT;
-          m[KEY_TAB] = PAD_BUTTON_MENU;
-          m[KEY_BACKSPACE] = PAD_BUTTON_BACK;
-          m[KEY_ANALOG_FAKE_UP] = PAD_BUTTON_JOY_UP;
-          m[KEY_ANALOG_FAKE_DOWN] = PAD_BUTTON_JOY_DOWN;
-          m[KEY_ANALOG_FAKE_LEFT] = PAD_BUTTON_JOY_LEFT;
-          m[KEY_ANALOG_FAKE_RIGHT] = PAD_BUTTON_JOY_RIGHT;
-          m[KEY_CTRL_LEFT] = PAD_BUTTON_LEFT_THUMB;
-          m[KEY_ALT_LEFT] = PAD_BUTTON_RIGHT_THUMB;
-          return m;
-        }
-    static std::map<int,int> KeyMap;
-
+	static std::map<int,int> init()
+	{
+		std::map<int,int> m;
+		m[KEY_x] = PAD_BUTTON_A;
+		m[KEY_z] = PAD_BUTTON_B;
+		m[KEY_s] = PAD_BUTTON_X;
+		m[KEY_a] = PAD_BUTTON_Y;
+		m[KEY_q] = PAD_BUTTON_LBUMPER;
+		m[KEY_w] = PAD_BUTTON_RBUMPER;
+		m[KEY_SPACE] = PAD_BUTTON_START;
+		m[KEY_ENTER] = PAD_BUTTON_SELECT;
+		m[KEY_ARROW_UP] = PAD_BUTTON_UP;
+		m[KEY_ARROW_DOWN] = PAD_BUTTON_DOWN;
+		m[KEY_ARROW_LEFT] = PAD_BUTTON_LEFT;
+		m[KEY_ARROW_RIGHT] = PAD_BUTTON_RIGHT;
+		m[KEY_TAB] = PAD_BUTTON_MENU;
+		m[KEY_BACKSPACE] = PAD_BUTTON_BACK;
+		m[KEY_ANALOG_FAKE_UP] = PAD_BUTTON_JOY_UP;
+		m[KEY_ANALOG_FAKE_DOWN] = PAD_BUTTON_JOY_DOWN;
+		m[KEY_ANALOG_FAKE_LEFT] = PAD_BUTTON_JOY_LEFT;
+		m[KEY_ANALOG_FAKE_RIGHT] = PAD_BUTTON_JOY_RIGHT;
+		m[KEY_CTRL_LEFT] = PAD_BUTTON_LEFT_THUMB;
+		m[KEY_ALT_LEFT] = PAD_BUTTON_RIGHT_THUMB;
+		return m;
+	}
+	static std::map<int,int> KeyMap;
 };
 
 std::map<int,int> DefaultKeyMap::KeyMap = DefaultKeyMap::init();
