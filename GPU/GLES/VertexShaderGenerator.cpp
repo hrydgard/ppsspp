@@ -88,6 +88,7 @@ void ComputeVertexShaderID(VertexShaderID *id, int prim) {
 		// Okay, d[1] coming up. ==============
 
 		id->d[1] |= gstate.isLightingEnabled() << 24;
+		id->d[1] |= ((vertType & GE_VTYPE_WEIGHT_MASK) >> GE_VTYPE_WEIGHT_SHIFT) << 25;
 		if (gstate.isLightingEnabled() || gstate.getUVGenMode() == 2) {
 			// Light bits
 			for (int i = 0; i < 4; i++) {
@@ -294,7 +295,10 @@ void GenerateVertexShader(int prim, char *buffer) {
 			WRITE(p, "  vec3 worldpos = vec3(0.0);\n");
 			if (hasNormal)
 				WRITE(p, "  vec3 worldnormal = vec3(0.0);\n");
+
 			int numWeights = 1 + ((vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT);
+			static const float rescale[4] = {0, 2*127.5f/128.f, 2*32767.5f/32768.f, 2.0f};
+			float factor = rescale[(vertType & GE_VTYPE_WEIGHT_MASK) >> GE_VTYPE_WEIGHT_SHIFT];
 			for (int i = 0; i < numWeights; i++) {
 				const char *weightAttr = boneWeightAttr[i];
 				// workaround for "cant do .x of scalar" issue
@@ -304,8 +308,9 @@ void GenerateVertexShader(int prim, char *buffer) {
 				if (hasNormal)
 					WRITE(p, "  worldnormal += %s * (u_bone%i * vec4(a_normal, 0.0)).xyz;\n", weightAttr, i);
 			}
+
 			// Finally, multiply by world matrix (yes, we have to).
-			WRITE(p, "  worldpos = (u_world * vec4(worldpos * 2.0, 1.0)).xyz;\n");
+			WRITE(p, "  worldpos = (u_world * vec4(worldpos * %f, 1.0)).xyz;\n", factor);
 			if (hasNormal)
 				WRITE(p, "  worldnormal = (u_world * vec4(worldnormal, 0.0)).xyz;\n");
 		}
