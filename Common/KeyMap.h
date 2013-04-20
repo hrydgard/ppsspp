@@ -70,6 +70,37 @@ namespace KeyMap {
 			KEY_n,
 			KEY_m,
 
+			/* Upper class latin */
+			KEY_Q, // top row
+			KEY_W,
+			KEY_E,
+			KEY_R,
+			KEY_T,
+			KEY_Y,
+			KEY_U,
+			KEY_I,
+			KEY_O,
+			KEY_P,
+
+			KEY_A, // mid row
+			KEY_S,
+			KEY_D,
+			KEY_F,
+			KEY_G,
+			KEY_H,
+			KEY_J,
+			KEY_K,
+			KEY_L,
+
+			KEY_Z, // low row
+			KEY_X,
+			KEY_C,
+			KEY_V,
+			KEY_B,
+			KEY_N,
+			KEY_M,
+
+
 			/* Numeric */
 			KEY_1,
 			KEY_2,
@@ -93,6 +124,11 @@ namespace KeyMap {
 			KEY_ANALOG_FAKE_UP,
 			KEY_ANALOG_FAKE_DOWN,
 
+			KEY_ANALOG_ALT_LEFT,
+			KEY_ANALOG_ALT_RIGHT,
+			KEY_ANALOG_ALT_UP,
+			KEY_ANALOG_ALT_DOWN,
+
 			KEY_SPACE,
 			KEY_ENTER,
 			KEY_CTRL_LEFT,
@@ -112,6 +148,9 @@ namespace KeyMap {
 			KEY_CALL_START,
 			KEY_CALL_END,
 
+			/* Special PPSSPP keys */
+			KEY_FASTFORWARD,
+
 			/* Extra keys
 			 * Use for platform specific keys.
 			 * Example: android's back btn */
@@ -126,8 +165,6 @@ namespace KeyMap {
 			KEY_EXTRA9,
 			KEY_EXTRA0,
 
-			// TODO: Add second set of joysticks
-			// TODO: Add fastforward key
 			// TODO: Add any missing keys.
 			// Many can be found in the
 			// window's port's keyboard
