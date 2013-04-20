@@ -2,34 +2,39 @@
 
 #include "HLE.h"
 
+u32 sceIoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen);
+
 int sceNpDrmSetLicenseeKey(u32 npDrmKeyAddr)
 {
-	ERROR_LOG(HLE, "UNIMPL sceNpDrmSetLicenseeKey(%08x)", npDrmKeyAddr);
+	INFO_LOG(HLE, "call sceNpDrmSetLicenseeKey(%08x)", npDrmKeyAddr);
 	return 0;
 }
 
 int sceNpDrmClearLicenseeKey()
 {
-	ERROR_LOG(HLE, "UNIMPL sceNpDrmClearLicenseeKey()");
+	INFO_LOG(HLE, "call sceNpDrmClearLicenseeKey()");
 	return 0;
 }
 
 int sceNpDrmRenameCheck(const char *filename)
 {
-	ERROR_LOG(HLE, "UNIMPL sceNpDrmRenameCheck(%s)", filename);
+	INFO_LOG(HLE, "call sceNpDrmRenameCheck(%s)", filename);
 	return 0;
 }
 
 int sceNpDrmEdataSetupKey(u32 edataFd)
 {
-	ERROR_LOG(HLE, "UNIMPL sceNpDrmEdataSetupKey %x", edataFd);
-	return 0;
+	INFO_LOG(HLE, "call sceNpDrmEdataSetupKey %x", edataFd);
+	/* set PGD offset */
+	sceIoIoctl(edataFd, 0x04100002, 0x90, 0, 0, 0);
+	/* call PGD open */
+	return sceIoIoctl(edataFd, 0x04100001, 0, 0, 0, 0);
 }
 
 int sceNpDrmEdataGetDataSize(u32 edataFd)
 {
-	ERROR_LOG(HLE, "UNIMPL sceNpDrmEdataGetDataSize %x", edataFd);
-	return 0;
+	INFO_LOG(HLE, "call sceNpDrmEdataGetDataSize %x", edataFd);
+	return sceIoIoctl(edataFd, 0x04100010, 0, 0, 0, 0);
 }
 
 int sceNpDrmOpen()

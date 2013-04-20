@@ -334,6 +334,40 @@ int sceDrmBBMacFinal2(MAC_KEY *mkey, u8 *out, u8 *vkey)
 	return retv;
 }
 
+// get key from bbmac
+int bbmac_getkey(MAC_KEY *mkey, u8 *bbmac, u8 *vkey)
+{
+	int i, retv, type, code;
+	u8 *kbuf, tmp[16], tmp1[16];
+
+	type = mkey->type;
+	retv = sceDrmBBMacFinal(mkey, tmp, NULL);
+	if(retv)
+		return retv;
+
+	kbuf = kirk_buf+0x14;
+
+	// decrypt bbmac
+	if(type==3){
+		memcpy(kbuf, bbmac, 0x10);
+		kirk7(kirk_buf, 0x10, 0x63);
+	}else{
+		memcpy(kirk_buf, bbmac, 0x10);
+	}
+
+	memcpy(tmp1, kirk_buf, 16);
+	memcpy(kbuf, tmp1, 16);
+
+	code = (type==2)? 0x3A : 0x38;
+	kirk7(kirk_buf, 0x10, code);
+
+	for(i=0; i<0x10; i++){
+		vkey[i] = tmp[i] ^ kirk_buf[i];
+	}
+
+	return 0;
+}
+
 /*************************************************************/
 
 static int sub_1F8(u8 *buf, int size, u8 *key, int key_type)
@@ -625,11 +659,9 @@ PGD_DESC *pgd_open(u8 *pgd_buf, int pgd_flag, u8 *pgd_vkey)
 			memcpy(pgd->vkey, pgd_vkey, 16);
 		}
 	}else{
-		//ERROR_LOG(HLE, "pgd_open: need key!\n");
-		free(pgd);
-		return NULL;
+		// get vkey from MAC_70
+		bbmac_getkey(&mkey, pgd_buf+0x70, pgd->vkey);
 	}
-
 
 	// decrypt PGD_DESC
 	sceDrmBBCipherInit(&ckey, pgd->cipher_type, 2, pgd_buf+0x10, pgd->vkey, 0);
