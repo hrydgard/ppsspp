@@ -144,6 +144,7 @@ tests_good = [
   "threads/vpl/refer",
   "threads/vpl/try",
   "threads/vpl/vpl",
+  "utility/systemparam/systemparam",
   "power/power",
   "umd/callbacks/umd",
   "umd/wait/wait",
@@ -186,7 +187,6 @@ tests_next = [
   "sysmem/sysmem",
   "umd/io/umd_io",
   "umd/raw_access/raw_access",
-  "utility/systemparam/systemparam",
   "video/pmf/pmf",
   "video/pmf_simple/pmf_simple",
 ]
